@@ -50,11 +50,12 @@ fn maybe_changed_after_derived(
     }
   }
   // Iterative dependency walk
+  // NOTE: Always access stack[top] directly to avoid copy semantics issues
   while stack.length() > 0 {
-    let frame = stack[stack.length() - 1]
-    if frame.any_dep_changed {
+    let top = stack.length() - 1
+    if stack[top].any_dep_changed {
       // A dependency changed — recompute this cell
-      let result = finish_frame_changed(rt, frame)
+      let result = finish_frame_changed(rt, stack[top])
       let _ = stack.pop()
       if stack.length() > 0 {
         if result {
@@ -65,10 +66,10 @@ fn maybe_changed_after_derived(
       }
       continue
     }
-    let deps = frame.cell.dependencies
-    if frame.dep_index >= deps.length() {
+    let deps = stack[top].cell.dependencies
+    if stack[top].dep_index >= deps.length() {
       // All dependencies checked, none changed — green path
-      let result = finish_frame_unchanged(rt, frame)
+      let result = finish_frame_unchanged(rt, stack[top])
       let _ = stack.pop()
       if stack.length() > 0 {
         if result {
@@ -80,22 +81,22 @@ fn maybe_changed_after_derived(
       continue
     }
     // Check next dependency
-    let dep_id = deps[frame.dep_index]
-    frame.dep_index = frame.dep_index + 1
+    let dep_id = deps[stack[top].dep_index]
+    stack[top].dep_index = stack[top].dep_index + 1
     let dep_cell = rt.get_cell(dep_id)
     match dep_cell.kind {
       Input => {
         // Input cells are checked inline — no stack push needed
-        if dep_cell.changed_at.after(frame.cell.verified_at) {
-          frame.any_dep_changed = true
+        if dep_cell.changed_at.after(stack[top].cell.verified_at) {
+          stack[top].any_dep_changed = true
         }
       }
       Derived => {
         // Check fast paths for the derived dependency
-        match try_start_verify(rt, dep_cell, frame.cell.verified_at) {
+        match try_start_verify(rt, dep_cell, stack[top].cell.verified_at) {
           Some(changed) => {
             if changed {
-              frame.any_dep_changed = true
+              stack[top].any_dep_changed = true
             }
           }
           None => {
@@ -103,7 +104,7 @@ fn maybe_changed_after_derived(
             stack.push(
               {
                 cell: dep_cell,
-                after_revision: frame.cell.verified_at,
+                after_revision: stack[top].cell.verified_at,
                 dep_index: 0,
                 any_dep_changed: false,
               },
@@ -147,12 +148,16 @@ fn try_start_verify(
 
 ///|
 /// Finish a frame where a dependency changed: recompute and return result.
+/// Clear in_progress before recompute because force_recompute has its own
+/// cycle detection. Set verified_at after recompute to maintain cache invariants.
 fn finish_frame_changed(_rt : Runtime, frame : VerifyFrame) -> Bool {
   let cell = frame.cell
+  // Clear in_progress before recompute — force_recompute handles its own cycle detection
   cell.in_progress = false
   match cell.recompute_and_check {
     Some(recompute) => {
       let _ = recompute()
+      // force_recompute already sets verified_at and changed_at
       cell.changed_at.after(frame.after_revision)
     }
     None => true

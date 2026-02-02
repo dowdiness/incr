@@ -98,30 +98,27 @@ pub fn Runtime::batch(self : Runtime, f : () -> Unit) -> Unit {
 /// Phase 1: commit each signal's pending value, collecting which actually changed.
 /// Phase 2: if any changed, single revision bump and metadata update.
 fn Runtime::commit_batch(self : Runtime) -> Unit {
-  let pending = self.batch_pending_signals
-  if pending.length() == 0 {
+  if self.batch_pending_signals.length() == 0 {
     // Nothing changed during the batch, reset state
     self.batch_max_durability = Low
     return
   }
   // Phase 1: commit pending values and collect which actually changed
   let changed_ids : Array[CellId] = []
-  for i = 0; i < pending.length(); i = i + 1 {
-    let meta = self.get_cell(pending[i])
+  for i = 0; i < self.batch_pending_signals.length(); i = i + 1 {
+    let meta = self.get_cell(self.batch_pending_signals[i])
     match meta.commit_pending {
       Some(commit_fn) => {
         if commit_fn() {
-          changed_ids.push(pending[i])
+          changed_ids.push(self.batch_pending_signals[i])
         }
         meta.commit_pending = None
       }
       None => ()
     }
   }
-  // Reset pending list
-  while pending.length() > 0 {
-    let _ = pending.pop()
-  }
+  // Reset pending list by clearing directly
+  self.batch_pending_signals.clear()
   // Phase 2: if any value actually changed, do a single revision bump
   if changed_ids.length() > 0 {
     let durability = self.batch_max_durability
