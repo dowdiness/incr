@@ -48,3 +48,8 @@ The library implements Salsa's incremental computation pattern with three key ty
 - Tests use `///|` doc-comment prefix followed by `test "name" { ... }` blocks
 - Assertions use `inspect(expr, content="expected")` pattern
 - The library imports `moonbitlang/core/hashmap` as its only external dependency
+
+## Planning Documents
+
+- **ROADMAP.md** — Phased future direction (error handling, performance, advanced features, ecosystem)
+- **TODO.md** — Concrete actionable tasks with checkboxes

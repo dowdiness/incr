@@ -63,6 +63,10 @@ source.set(2)
 inspect(config_derived.get(), content="200")
 ```
 
+## Roadmap
+
+See [ROADMAP.md](ROADMAP.md) for the high-level future direction and [TODO.md](TODO.md) for concrete next tasks.
+
 ## Development
 
 ```bash
