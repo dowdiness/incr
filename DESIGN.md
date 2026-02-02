@@ -229,6 +229,8 @@ The entire framework relies on MoonBit's reference semantics for mutable structs
 
 If `CellMeta` were ever changed to a value type (e.g., via MoonBit's `#valtype` annotation), this invariant would break — mutations would apply to copies, not originals, and the framework would silently produce incorrect results (e.g., `in_progress` flags stuck `true`, causing false cycle detection).
 
+**Important**: While `CellMeta` uses reference semantics, `VerifyFrame` is a simple struct with primitive fields (`dep_index`, `any_dep_changed`). To avoid potential copy semantics issues with `VerifyFrame`, the iterative verification loop accesses stack frames via `stack[top].field` directly rather than `let frame = stack[top]`. This ensures mutations to `dep_index` and `any_dep_changed` persist correctly regardless of MoonBit's struct assignment semantics.
+
 ## Cycle Detection
 
 ### The Approach
@@ -256,9 +258,9 @@ Without batching, each `Signal::set()` call bumps the global revision independen
 
 `Runtime::batch(fn)` groups multiple signal updates into a single revision:
 
-1. **Write phase**: Inside the batch closure, `Signal::set()` stores new values as `pending_value` on the Signal rather than committing immediately. The actual `value` field is unchanged, so any `get()` calls during the batch see the pre-batch values. Each signal registers a type-erased `commit_pending` closure on its `CellMeta`.
+1. **Write phase**: Inside the batch closure, `Signal::set()` stores new values as `pending_value` on the Signal rather than committing immediately. The actual `value` field is unchanged, so any `get()` calls during the batch see the pre-batch values (transactional semantics — reads don't see uncommitted writes). Each signal registers a type-erased `commit_pending` closure on its `CellMeta`.
 
-2. **Commit phase**: When the outermost batch ends, the runtime iterates over all pending signals and calls their `commit_pending` closures. Each closure compares the pending value against the current value using `Eq`. Only signals whose values actually changed are marked with the new revision.
+2. **Commit phase**: When the outermost batch ends, the runtime iterates over `batch_pending_signals` directly (not via an alias, to ensure the list clears correctly) and calls each signal's `commit_pending` closure. Each closure compares the pending value against the current value using `Eq`. Only signals whose values actually changed are marked with the new revision. The pending list is then cleared via `.clear()`.
 
 ### Revert Detection
 
