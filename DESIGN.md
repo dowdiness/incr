@@ -1,5 +1,7 @@
 # Design — How incr Works Under the Hood
 
+> **Note for users**: If you're new to `incr`, start with the [Getting Started](docs/getting-started.md) guide and [Core Concepts](docs/concepts.md). This document is for contributors or users who want to understand the implementation deeply.
+
 This document explains the theoretical foundations and implementation details of the `incr` library. For usage and API examples, see [README.md](README.md). For contributor/AI guidance, see [CLAUDE.md](CLAUDE.md).
 
 ## Motivation & Background

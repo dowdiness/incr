@@ -1,6 +1,31 @@
 ///|
 /// A derived computation with automatic dependency tracking and memoization.
-/// Recomputes only when its dependencies have actually changed.
+///
+/// Memos are the interior nodes of the dependency graph. They compute a value
+/// from other signals and memos, cache the result, and only recompute when
+/// their dependencies actually change.
+///
+/// # Key Features
+///
+/// - **Lazy evaluation**: The compute function is not called until `get()`.
+/// - **Automatic tracking**: Dependencies are discovered by intercepting `get()` calls.
+/// - **Memoization**: Results are cached; repeated `get()` calls return the cached value.
+/// - **Backdating**: If a recomputation produces the same value, downstream memos skip work.
+///
+/// # Example
+///
+/// ```moonbit
+/// let rt = Runtime::new()
+/// let a = Signal::new(rt, 10)
+/// let b = Signal::new(rt, 20)
+/// let sum = Memo::new(rt, fn() { a.get() + b.get() })
+///
+/// inspect(sum.get(), content="30")  // Computes and caches
+/// inspect(sum.get(), content="30")  // Returns cached value
+///
+/// a.set(15)
+/// inspect(sum.get(), content="35")  // Recomputes because `a` changed
+/// ```
 pub struct Memo[T] {
   rt : Runtime
   cell_id : CellId
@@ -9,7 +34,26 @@ pub struct Memo[T] {
 }
 
 ///|
-/// Create a new Memo. The compute function will be called lazily on first get().
+/// Creates a new memo with the given compute function.
+///
+/// The compute function is called lazily on the first `get()` call, not
+/// at creation time. Every `Signal::get()` or `Memo::get()` call inside
+/// the compute function is automatically recorded as a dependency.
+///
+/// # Parameters
+///
+/// - `rt`: The runtime that will manage this memo
+/// - `compute`: A function that computes the derived value
+///
+/// # Returns
+///
+/// A new memo. The compute function has not yet been called.
+///
+/// # Type Constraints
+///
+/// `T` must implement `Eq` for backdating: when the compute function returns
+/// the same value as before, the memo's `changed_at` timestamp is preserved,
+/// preventing unnecessary downstream recomputation.
 pub fn[T : Eq] Memo::new(rt : Runtime, compute : () -> T) -> Memo[T] {
   let cell_id = rt.alloc_cell_id()
   let memo : Memo[T] = { rt, cell_id, compute, value: None }
@@ -21,7 +65,27 @@ pub fn[T : Eq] Memo::new(rt : Runtime, compute : () -> T) -> Memo[T] {
 }
 
 ///|
-/// Get the memoized value, recomputing if necessary.
+/// Returns the memoized value, recomputing if necessary.
+///
+/// This method implements the core verification algorithm:
+///
+/// 1. If no cached value exists, compute and cache the value.
+/// 2. If already verified this revision, return the cached value immediately.
+/// 3. Otherwise, check if any dependency changed:
+///    - If no dependency changed (green path), mark verified and return cached.
+///    - If a dependency changed, recompute. Backdating applies if the new
+///      value equals the old value.
+///
+/// If called inside another memo's compute function, this automatically
+/// records a dependency.
+///
+/// # Returns
+///
+/// The current (possibly recomputed) value
+///
+/// # Panics
+///
+/// Aborts if a cycle is detected (this memo transitively depends on itself).
 pub fn[T : Eq] Memo::get(self : Memo[T]) -> T {
   // Record dependency from current tracking context
   self.rt.record_dependency(self.cell_id)

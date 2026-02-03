@@ -1,9 +1,36 @@
 ///|
-/// Core verification algorithm. Returns true if the cell's value may have
-/// changed after the given revision.
+/// Core verification algorithm: determines if a cell's value may have changed
+/// after the given revision.
 ///
-/// For inputs: simply checks changed_at > after_revision.
-/// For derived: walks dependencies iteratively, recomputing only when needed.
+/// This is the heart of the incremental computation framework. It answers
+/// the question: "does this cell need to be recomputed?"
+///
+/// # Algorithm
+///
+/// - **Input cells**: Simply check `changed_at > after_revision`
+/// - **Derived cells**: Apply fast paths first, then walk dependencies
+///   iteratively using an explicit stack (to avoid stack overflow on deep graphs)
+///
+/// # Fast Paths (in order)
+///
+/// 1. **Already verified**: If `verified_at == current_revision`, return immediately
+/// 2. **Durability shortcut**: If no input of this durability changed, return false
+/// 3. **Cycle detection**: If cell is `in_progress`, abort with cycle error
+///
+/// # Parameters
+///
+/// - `rt`: The runtime containing cell metadata
+/// - `cell_id`: The cell to check
+/// - `after_revision`: The revision to compare against
+///
+/// # Returns
+///
+/// `true` if the cell's value may have changed after `after_revision`,
+/// `false` if the cell is definitely unchanged
+///
+/// # Panics
+///
+/// Aborts if a cycle is detected (cell depends on itself transitively)
 pub fn maybe_changed_after(
   rt : Runtime,
   cell_id : CellId,

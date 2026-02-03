@@ -1,5 +1,17 @@
 ///|
-/// Central state for the incremental computation framework.
+/// Central coordinator for the incremental computation framework.
+///
+/// The Runtime manages all bookkeeping for dependency tracking, revision
+/// counting, and batch operations. Every Signal and Memo is associated
+/// with exactly one Runtime.
+///
+/// # Example
+///
+/// ```moonbit
+/// let rt = Runtime::new()
+/// let x = Signal::new(rt, 10)
+/// let doubled = Memo::new(rt, fn() { x.get() * 2 })
+/// ```
 pub(all) struct Runtime {
   mut current_revision : Revision
   cells : Array[CellMeta?]
@@ -16,6 +28,14 @@ pub(all) struct Runtime {
 }
 
 ///|
+/// Creates a new runtime with an empty dependency graph.
+///
+/// This is the entry point for using the incremental computation framework.
+/// Create one runtime, then create signals and memos associated with it.
+///
+/// # Returns
+///
+/// A new runtime ready to manage signals and memos
 pub fn Runtime::new() -> Runtime {
   {
     current_revision: Revision::initial(),
@@ -30,7 +50,14 @@ pub fn Runtime::new() -> Runtime {
 }
 
 ///|
-/// Allocate a new CellId and register its metadata.
+/// Registers cell metadata with the runtime.
+///
+/// This is called internally when creating signals and memos. Users typically
+/// don't need to call this directly.
+///
+/// # Parameters
+///
+/// - `meta`: The cell metadata to register
 pub fn Runtime::register_cell(self : Runtime, meta : CellMeta) -> Unit {
   let id = meta.id.id
   // Grow array if needed
@@ -41,7 +68,14 @@ pub fn Runtime::register_cell(self : Runtime, meta : CellMeta) -> Unit {
 }
 
 ///|
-/// Allocate a fresh CellId.
+/// Allocates a fresh cell identifier.
+///
+/// This is called internally when creating signals and memos. Cell IDs are
+/// monotonically increasing integers used for O(1) cell lookup.
+///
+/// # Returns
+///
+/// A new unique cell identifier
 pub fn Runtime::alloc_cell_id(self : Runtime) -> CellId {
   let id = self.next_cell_id
   self.next_cell_id = id + 1
@@ -49,7 +83,21 @@ pub fn Runtime::alloc_cell_id(self : Runtime) -> CellId {
 }
 
 ///|
-/// Get cell metadata by id. Aborts if not found.
+/// Retrieves cell metadata by ID.
+///
+/// This is called internally during verification and recomputation.
+///
+/// # Parameters
+///
+/// - `id`: The cell identifier
+///
+/// # Returns
+///
+/// The cell's metadata
+///
+/// # Panics
+///
+/// Aborts if no cell with the given ID exists
 pub fn Runtime::get_cell(self : Runtime, id : CellId) -> CellMeta {
   if id.id < self.cells.length() {
     match self.cells[id.id] {
@@ -62,8 +110,17 @@ pub fn Runtime::get_cell(self : Runtime, id : CellId) -> CellMeta {
 }
 
 ///|
-/// Bump the global revision and record the durability level that changed.
-/// During a batch, defers the actual bump until the batch ends.
+/// Bumps the global revision counter and records which durability level changed.
+///
+/// This is called internally when a signal's value changes. The durability
+/// parameter enables the durability shortcut: memos with higher durability
+/// than the changed signal can skip verification.
+///
+/// During a batch, the actual bump is deferred until the batch ends.
+///
+/// # Parameters
+///
+/// - `durability`: The durability level of the signal that changed
 pub fn Runtime::bump_revision(self : Runtime, durability : Durability) -> Unit {
   if self.batch_depth > 0 {
     // Track the maximum durability seen during this batch
@@ -81,9 +138,41 @@ pub fn Runtime::bump_revision(self : Runtime, durability : Durability) -> Unit {
 }
 
 ///|
-/// Execute a closure within a batch. Multiple Signal::set calls inside the
-/// closure share a single revision bump. Batches can be nested; only the
-/// outermost batch commits.
+/// Executes a closure with batched signal updates.
+///
+/// All `Signal::set` calls inside the closure are deferred. At batch end,
+/// a single revision bump occurs for all changes. This provides:
+///
+/// - **Atomicity**: Memos see either all changes or none
+/// - **Efficiency**: One verification pass instead of many
+/// - **Revert detection**: Setting a signal back to its original value is a no-op
+///
+/// Batches can be nested. Only the outermost batch commits changes.
+///
+/// # Parameters
+///
+/// - `f`: The closure to execute
+///
+/// # Example
+///
+/// ```moonbit
+/// rt.batch(fn() {
+///   x.set(10)
+///   y.set(20)
+///   z.set(30)
+/// })
+/// // Single revision bump for all three changes
+/// ```
+///
+/// # Revert Detection
+///
+/// ```moonbit
+/// rt.batch(fn() {
+///   x.set(5)   // Change from 0 to 5
+///   x.set(0)   // Change back to 0
+/// })
+/// // No revision bump — net change is zero
+/// ```
 pub fn Runtime::batch(self : Runtime, f : () -> Unit) -> Unit {
   self.batch_depth = self.batch_depth + 1
   f()
@@ -139,13 +228,27 @@ fn Runtime::commit_batch(self : Runtime) -> Unit {
 }
 
 ///|
-/// Record a signal as pending during a batch.
+/// Records a signal as having a pending change during a batch.
+///
+/// Called internally by `Signal::set` during batch operations.
+///
+/// # Parameters
+///
+/// - `cell_id`: The ID of the signal with a pending change
 pub fn Runtime::record_batch_signal(self : Runtime, cell_id : CellId) -> Unit {
   self.batch_pending_signals.push(cell_id)
 }
 
 ///|
-/// Record a dependency from the current active computation to the given cell.
+/// Records a dependency from the currently computing memo to the given cell.
+///
+/// Called internally by `Signal::get` and `Memo::get` when inside a memo's
+/// compute function. If no memo is currently computing (tracking stack is
+/// empty), this is a no-op.
+///
+/// # Parameters
+///
+/// - `dep`: The cell ID that the current memo depends on
 pub fn Runtime::record_dependency(self : Runtime, dep : CellId) -> Unit {
   let len = self.tracking_stack.length()
   if len > 0 {
@@ -154,13 +257,31 @@ pub fn Runtime::record_dependency(self : Runtime, dep : CellId) -> Unit {
 }
 
 ///|
-/// Push a new tracking frame for a memo computation.
+/// Pushes a new dependency tracking frame for a memo computation.
+///
+/// Called internally at the start of a memo's recomputation. All subsequent
+/// `get()` calls will be recorded as dependencies until `pop_tracking` is called.
+///
+/// # Parameters
+///
+/// - `cell_id`: The ID of the memo being computed
 pub fn Runtime::push_tracking(self : Runtime, cell_id : CellId) -> Unit {
   self.tracking_stack.push(ActiveQuery::new(cell_id))
 }
 
 ///|
-/// Pop the tracking frame and return the collected dependencies.
+/// Pops the tracking frame and returns the collected dependencies.
+///
+/// Called internally at the end of a memo's recomputation. The returned
+/// dependency list is stored on the memo's cell metadata.
+///
+/// # Returns
+///
+/// The list of cell IDs that were read during the computation
+///
+/// # Panics
+///
+/// Aborts if the tracking stack is empty (unbalanced push/pop)
 pub fn Runtime::pop_tracking(self : Runtime) -> Array[CellId] {
   match self.tracking_stack.pop() {
     Some(query) => query.dependencies

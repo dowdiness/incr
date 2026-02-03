@@ -32,6 +32,7 @@ Concrete, actionable tasks for the `incr` library.
 
 ## Documentation
 
-- [ ] Add doc comments to all public functions
+- [x] Add doc comments to all public functions
 - [x] Add usage examples for durability in README
 - [x] Keep [DESIGN.md](DESIGN.md) in sync when core algorithms change
+- [x] Organize user documentation in `docs/` folder (getting-started, concepts, api-reference, cookbook)

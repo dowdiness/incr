@@ -1,6 +1,18 @@
 ///|
-/// An externally-set input value. The T: Eq constraint enables
-/// same-value optimization (skip revision bump if value unchanged).
+/// An input cell with an externally-set value.
+///
+/// Signals are the leaves of the dependency graph — values you control directly.
+/// The `T: Eq` constraint enables same-value optimization: setting a signal to
+/// its current value is a no-op (no revision bump, no downstream recomputation).
+///
+/// # Example
+///
+/// ```moonbit
+/// let rt = Runtime::new()
+/// let count = Signal::new(rt, 0)
+/// count.set(5)
+/// inspect(count.get(), content="5")
+/// ```
 pub struct Signal[T] {
   rt : Runtime
   cell_id : CellId
@@ -10,13 +22,43 @@ pub struct Signal[T] {
 }
 
 ///|
-/// Create a new Signal with Low durability.
+/// Creates a new signal with the given initial value and `Low` durability.
+///
+/// This is the most common way to create signals. Use `new_with_durability`
+/// if you need to specify a different durability level for optimization.
+///
+/// # Parameters
+///
+/// - `rt`: The runtime that will manage this signal
+/// - `initial`: The initial value of the signal
+///
+/// # Returns
+///
+/// A new signal containing the initial value
 pub fn[T] Signal::new(rt : Runtime, initial : T) -> Signal[T] {
   Signal::new_with_durability(rt, initial, Low)
 }
 
 ///|
-/// Create a new Signal with the specified durability.
+/// Creates a new signal with the given initial value and explicit durability.
+///
+/// Use this when you know how often the signal will change:
+/// - `High` durability for rarely-changing values (e.g., configuration)
+/// - `Medium` durability for moderately stable values
+/// - `Low` durability for frequently-changing values (e.g., user input)
+///
+/// Higher durability enables optimization: memos that only depend on
+/// high-durability signals skip verification when low-durability signals change.
+///
+/// # Parameters
+///
+/// - `rt`: The runtime that will manage this signal
+/// - `initial`: The initial value of the signal
+/// - `durability`: How often this signal is expected to change
+///
+/// # Returns
+///
+/// A new signal containing the initial value
 pub fn[T] Signal::new_with_durability(
   rt : Runtime,
   initial : T,
@@ -29,17 +71,41 @@ pub fn[T] Signal::new_with_durability(
 }
 
 ///|
-/// Read the signal value and record a dependency in the current tracking context.
+/// Returns the current value of the signal.
+///
+/// If called inside a memo's compute function, this automatically records
+/// a dependency from the memo to this signal. When the signal changes,
+/// the memo will know to reverify.
+///
+/// # Returns
+///
+/// The current value of the signal
 pub fn[T] Signal::get(self : Signal[T]) -> T {
   self.rt.record_dependency(self.cell_id)
   self.value
 }
 
 ///|
-/// Set the signal value. If the new value equals the old value (via Eq),
-/// this is a no-op — no revision bump occurs.
-/// During a batch, writes go to pending_value. At batch end, only values
-/// that differ from the current value produce a change.
+/// Sets the signal to a new value.
+///
+/// If the new value equals the current value (via `Eq`), this is a no-op:
+/// no revision bump occurs, and downstream memos won't reverify.
+///
+/// During a batch (`Runtime::batch`), the write is deferred. At batch end,
+/// only signals whose final value differs from the pre-batch value trigger
+/// a revision bump. This enables revert detection.
+///
+/// # Parameters
+///
+/// - `new_value`: The new value to set
+///
+/// # Same-Value Optimization
+///
+/// ```moonbit
+/// let s = Signal::new(rt, 5)
+/// s.set(5)  // No-op: value unchanged, no revision bump
+/// s.set(6)  // Bumps revision, memos depending on s will reverify
+/// ```
 pub fn[T : Eq] Signal::set(self : Signal[T], new_value : T) -> Unit {
   if self.rt.batch_depth > 0 {
     self.set_batch(new_value)
@@ -52,8 +118,17 @@ pub fn[T : Eq] Signal::set(self : Signal[T], new_value : T) -> Unit {
 }
 
 ///|
-/// Set the signal value unconditionally, always bumping the revision.
+/// Sets the signal to a new value, always bumping the revision.
+///
+/// Unlike `set`, this does not check for equality. Use this when you want
+/// to force downstream memos to reverify even if the value is the same,
+/// or when your type doesn't implement `Eq`.
+///
 /// During a batch, the value is stored as pending and committed at batch end.
+///
+/// # Parameters
+///
+/// - `new_value`: The new value to set
 pub fn[T] Signal::set_unconditional(
   self : Signal[T],
   new_value : T,

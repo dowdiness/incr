@@ -1,5 +1,8 @@
 ///|
-/// Unique identifier for a cell in the Runtime.
+/// A unique identifier for a cell (signal or memo) in the runtime.
+///
+/// Cell IDs are monotonically increasing integers allocated by the runtime.
+/// They serve as direct array indices for O(1) cell lookup.
 pub(all) struct CellId {
   id : Int
 } derive(Show, Eq)
@@ -15,15 +18,25 @@ impl Hash for CellId with hash_combine(self, hasher) {
 }
 
 ///|
-/// Distinguishes input cells from derived cells.
+/// Distinguishes input cells (Signals) from derived cells (Memos).
+///
+/// This affects how verification works:
+/// - `Input`: Changed directly by user; verification simply checks `changed_at`
+/// - `Derived`: Computed from dependencies; verification walks the dependency graph
 pub enum CellKind {
   Input
   Derived
 } derive(Show, Eq)
 
 ///|
-/// Type-erased cell metadata stored in the Runtime.
-/// Actual typed values live in Signal[T] and Memo[T].
+/// Type-erased cell metadata stored in the runtime.
+///
+/// This struct contains all revision tracking and dependency information
+/// for a cell, independent of the cell's value type. The actual typed values
+/// live in the `Signal[T]` and `Memo[T]` structs held by user code.
+///
+/// This separation allows the verification algorithm to operate on all cells
+/// uniformly without knowing their value types.
 pub(all) struct CellMeta {
   id : CellId
   kind : CellKind
@@ -43,6 +56,16 @@ pub(all) struct CellMeta {
 }
 
 ///|
+/// Creates metadata for a new input cell (Signal).
+///
+/// # Parameters
+///
+/// - `id`: The unique identifier for this cell
+/// - `durability`: How often this input is expected to change
+///
+/// # Returns
+///
+/// Initialized cell metadata with `kind = Input`
 pub fn CellMeta::new_input(id : CellId, durability : Durability) -> CellMeta {
   {
     id,
@@ -58,6 +81,19 @@ pub fn CellMeta::new_input(id : CellId, durability : Durability) -> CellMeta {
 }
 
 ///|
+/// Creates metadata for a new derived cell (Memo).
+///
+/// # Parameters
+///
+/// - `id`: The unique identifier for this cell
+/// - `recompute_and_check`: A closure that recomputes the memo's value and
+///   returns `true` if the value changed, `false` if it stayed the same
+///   (enabling backdating)
+///
+/// # Returns
+///
+/// Initialized cell metadata with `kind = Derived` and `durability = Low`
+/// (durability is updated after first computation based on dependencies)
 pub fn CellMeta::new_derived(
   id : CellId,
   recompute_and_check : () -> Bool,

@@ -8,9 +8,10 @@ A Salsa-inspired incremental recomputation library for [MoonBit](https://www.moo
 - **Memo[T]** — Derived computations with automatic dependency tracking and memoization
 - **Backdating** — Unchanged recomputed values preserve their old revision, preventing unnecessary downstream recomputation
 - **Durability** — Classify inputs by change frequency (Low/Medium/High) to skip verification of stable subgraphs
+- **Batch updates** — Atomic multi-signal updates with revert detection
 - **Cycle detection** — Aborts on direct or mutual recursion between memos
 
-## Usage
+## Quick Start
 
 ```moonbit
 let rt = Runtime::new()
@@ -63,13 +64,23 @@ source.set(2)
 inspect(config_derived.get(), content="200")
 ```
 
-## Design
+## Documentation
 
-See [DESIGN.md](DESIGN.md) for an in-depth explanation of how incr works under the hood — the verification algorithm, backdating, durability shortcuts, and type erasure strategy.
+| Document | Description |
+|----------|-------------|
+| [Getting Started](docs/getting-started.md) | Step-by-step tutorial for new users |
+| [Core Concepts](docs/concepts.md) | Understand Signals, Memos, Revisions, Durability, and Backdating |
+| [API Reference](docs/api-reference.md) | Complete reference for all public types and methods |
+| [Cookbook](docs/cookbook.md) | Common patterns and recipes |
 
-## Roadmap
+### For Contributors
 
-See [ROADMAP.md](ROADMAP.md) for the high-level future direction and [TODO.md](TODO.md) for concrete next tasks.
+| Document | Description |
+|----------|-------------|
+| [DESIGN.md](DESIGN.md) | Deep technical internals: verification algorithm, type erasure, implementation details |
+| [ROADMAP.md](ROADMAP.md) | High-level future direction |
+| [TODO.md](TODO.md) | Concrete actionable tasks |
+| [Comparison with alien-signals](docs/comparison-with-alien-signals.md) | Analysis of different reactive frameworks |
 
 ## Development
 

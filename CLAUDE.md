@@ -52,12 +52,18 @@ The library implements Salsa's incremental computation pattern with three key ty
 
 ## Documentation Hierarchy
 
-The project documentation flows from user-facing overview to deep technical detail:
+### For Users
+- **README.md** — Entry point: features, quick start, documentation index
+- **docs/getting-started.md** — Step-by-step tutorial for new users
+- **docs/concepts.md** — Core concepts explained simply (Signals, Memos, Revisions, Durability)
+- **docs/api-reference.md** — Complete reference for all public types and methods
+- **docs/cookbook.md** — Common patterns and recipes
 
-- **README.md** — Entry point: features, usage examples, quick start
+### For Contributors
 - **DESIGN.md** — Deep technical internals: verification algorithm, backdating, durability, type erasure
 - **CLAUDE.md** (this file) — Contributor and AI guidance: commands, architecture map, conventions
 - **ROADMAP.md** — Phased future direction (error handling, performance, advanced features, ecosystem)
 - **TODO.md** — Concrete actionable tasks with checkboxes
+- **docs/comparison-with-alien-signals.md** — Analysis of alien-signals vs Salsa-style computation
 
 When contributing, read DESIGN.md to understand the conceptual model (pull-based verification, backdating, durability shortcuts) before modifying core algorithm files like `verify.mbt` or `memo.mbt`.
