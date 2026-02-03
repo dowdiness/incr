@@ -4,8 +4,9 @@ Concrete, actionable tasks for the `incr` library.
 
 ## Error Handling
 
-- [ ] Define a `CycleError` type and return it instead of calling `abort()` in `verify.mbt:133`
-- [ ] Add `Signal::get_result()` and `Memo::get_result()` that propagate `CycleError`
+- [x] Define a `CycleError` type and return it instead of calling `abort()` in verification
+- [x] Add `Signal::get_result()` and `Memo::get_result()` that propagate `CycleError`
+- [x] Ensure failed `get_result()` calls don't record dependencies (prevents spurious cycles)
 
 ## Performance
 
@@ -28,7 +29,7 @@ Concrete, actionable tasks for the `incr` library.
 - [x] Stress test: deep dependency chain (250 levels) to verify iterative verification
 - [ ] Wide fanout test: single signal with many downstream memos
 - [ ] Test `Memo` with custom `Eq` types where structural equality differs from identity
-- [ ] Test cycle detection across 3+ mutually recursive memos
+- [x] Test cycle detection across 3+ mutually recursive memos
 
 ## Documentation
 

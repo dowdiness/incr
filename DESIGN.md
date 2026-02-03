@@ -246,9 +246,31 @@ Cycle detection triggers in two places:
 1. **During verification** (`verify.mbt`): if `maybe_changed_after_derived` encounters a cell with `in_progress == true`, it means we recursively reached a cell that is currently being verified — a cycle.
 2. **During initial computation** (`memo.mbt`): if `force_recompute` encounters a cell with `in_progress == true`, it means the Memo's compute function (directly or indirectly) tried to read its own value — also a cycle.
 
-### Current Limitation
+### Error Handling
 
-Cycle detection currently calls `abort()`, terminating the program. There is no graceful recovery. The ROADMAP includes plans to replace this with a `CycleError` type that callers can handle.
+Cycle detection returns a `CycleError` type that can be handled gracefully:
+
+```moonbit
+pub suberror CycleError {
+  CycleDetected(Int)  // Cell ID that caused the cycle
+}
+```
+
+**Two APIs:**
+- `Memo::get()` — Aborts on cycle (backward compatible)
+- `Memo::get_result()` — Returns `Result[T, CycleError]` for graceful handling
+
+### Dependency Recording on Failure
+
+A critical invariant: **failed `get_result()` calls do not record dependencies**. This prevents spurious cyclic edges in the dependency graph.
+
+Without this invariant, a self-referential memo that handles its cycle error would have itself as a dependency. On subsequent revision bumps, verification would see the self-edge and falsely detect a cycle instead of recomputing with the handled fallback value.
+
+The fix: `Memo::get_result()` only calls `record_dependency()` after confirming the read succeeded. Error paths return without recording.
+
+### Stack Cleanup
+
+When an error occurs during the iterative verification walk, the `cleanup_stack()` helper clears `in_progress` flags on all frames in the verification stack. This restores consistent state so subsequent operations work correctly.
 
 ## Batch Updates
 

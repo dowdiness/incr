@@ -2,10 +2,10 @@
 
 High-level future direction for the `incr` library, organized by phase. Each phase builds on the previous one. For a detailed explanation of the current architecture, see [DESIGN.md](DESIGN.md).
 
-## Phase 1 — Error Handling
+## Phase 1 — Error Handling ✓
 
-- **Cycle error recovery**: Replace `abort()` in cycle detection with a `CycleError` type that callers can handle gracefully (see `cycle.mbt`)
-- **Result-based APIs**: Offer `get_result()` variants on `Signal` and `Memo` that return `Result[T, Error]` instead of panicking
+- ~~**Cycle error recovery**: Replace `abort()` in cycle detection with a `CycleError` type that callers can handle gracefully~~ ✓ Implemented with `CycleError` suberror type
+- ~~**Result-based APIs**: Offer `get_result()` variants on `Signal` and `Memo` that return `Result[T, CycleError]` instead of panicking~~ ✓ Implemented
 
 ## Phase 2 — API & Usability
 

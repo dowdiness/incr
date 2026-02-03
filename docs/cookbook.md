@@ -290,6 +290,44 @@ Benefits:
 
 ---
 
+## Pattern: Graceful Cycle Handling
+
+Handle potential cycles with fallback values instead of aborting:
+
+```moonbit
+let rt = Runtime::new()
+
+// Self-referential memo that handles cycles gracefully
+let memo_ref : Ref[Memo[Int]?] = { val: None }
+let memo = Memo::new(rt, fn() {
+  match memo_ref.val {
+    Some(m) =>
+      match m.get_result() {
+        Ok(v) => v + 1
+        Err(CycleDetected(_)) => 0  // Base case on cycle
+      }
+    None => 0
+  }
+})
+memo_ref.val = Some(memo)
+
+inspect(memo.get(), content="0")  // Returns fallback, doesn't abort
+```
+
+### Use Cases
+
+- **Recursive data structures**: Tree traversal that might have back-edges
+- **Plugin systems**: User-provided compute functions that might create cycles
+- **Debugging**: Graceful degradation while investigating dependency issues
+
+### Important Notes
+
+1. **Handle errors inside compute**: If the `Err` propagates out of the compute function, the outer `get()` will still abort
+2. **No spurious dependencies**: Failed `get_result()` calls don't record dependencies, so subsequent accesses work correctly
+3. **State consistency**: The runtime remains usable after cycle errors
+
+---
+
 ## Debugging Tips
 
 ### Check if a Memo Recomputed

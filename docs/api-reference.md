@@ -84,6 +84,17 @@ Sets a new value and always bumps the revision, even if the value is unchanged.
 count.set_unconditional(5)  // Forces downstream reverification
 ```
 
+### `Signal::get_result(self) -> Result[T, CycleError]`
+
+Returns the current value wrapped in `Ok`. This method exists for API consistency with `Memo::get_result()`. Since signals cannot have cycles (they are input cells with no dependencies), this method always succeeds.
+
+```moonbit
+match count.get_result() {
+  Ok(value) => println(value.to_string())
+  Err(_) => ()  // Never happens for signals
+}
+```
+
 ### `Signal::id(self) -> CellId`
 
 Returns the cell's unique identifier.
@@ -110,7 +121,7 @@ let doubled = Memo::new(rt, fn() { count.get() * 2 })
 
 ### `Memo::get(self) -> T`
 
-Returns the cached value, recomputing if stale.
+Returns the cached value, recomputing if stale. Aborts if a cycle is detected.
 
 ```moonbit
 let value = doubled.get()
@@ -121,6 +132,32 @@ let value = doubled.get()
 2. Check durability shortcut → skip if no relevant inputs changed
 3. Walk dependencies → recompute only if a dependency changed
 4. Backdate if new value equals old value
+
+**Panics:** Aborts if a cycle is detected. Use `get_result()` for graceful cycle handling.
+
+### `Memo::get_result(self) -> Result[T, CycleError]`
+
+Returns the cached value as a `Result`, recomputing if stale. Returns `Err(CycleError)` if a cycle is detected instead of aborting.
+
+```moonbit
+match doubled.get_result() {
+  Ok(value) => println(value.to_string())
+  Err(CycleDetected(cell_id)) => println("Cycle at cell " + cell_id.to_string())
+}
+```
+
+**Use case:** Graceful cycle handling in compute functions:
+
+```moonbit
+let memo = Memo::new(rt, fn() {
+  match other_memo.get_result() {
+    Ok(v) => v + 1
+    Err(_) => -1  // Fallback value on cycle
+  }
+})
+```
+
+**Note:** Dependencies are only recorded on successful reads. Failed `get_result()` calls do not create dependency edges, preventing spurious cycles on future accesses.
 
 ### `Memo::id(self) -> CellId`
 
@@ -196,13 +233,55 @@ let id_num = cell_id.id()
 
 ---
 
+## CycleError
+
+Error type for cycle detection during memo computation.
+
+### Definition
+
+```moonbit
+pub suberror CycleError {
+  CycleDetected(Int)  // The cell ID that caused the cycle
+}
+```
+
+### `CycleError::cell_id(self) -> Int`
+
+Returns the cell ID that caused the cycle.
+
+```moonbit
+match memo.get_result() {
+  Ok(value) => println(value.to_string())
+  Err(err) => println("Cycle at cell " + err.cell_id().to_string())
+}
+```
+
+---
+
 ## Error Handling
 
-Currently, errors abort the program:
+The library provides two approaches for cycle detection:
 
-- **Cycle detection**: If a memo's computation reads itself (directly or transitively), `abort("Cycle detected")` is called.
+### Aborting (default)
 
-Future versions will provide `Result`-based APIs (see [ROADMAP.md](../ROADMAP.md)).
+`Memo::get()` aborts the program if a cycle is detected:
+
+```moonbit
+let _ = cyclic_memo.get()  // Aborts: "Cycle detected: cell 0 is already being computed"
+```
+
+### Graceful handling
+
+`Memo::get_result()` returns a `Result` that can be matched:
+
+```moonbit
+match cyclic_memo.get_result() {
+  Ok(value) => use(value)
+  Err(CycleDetected(id)) => handle_cycle(id)
+}
+```
+
+**Important:** When using `get_result()` inside a compute function to handle cycles gracefully, the error must be handled (not re-thrown). If the error propagates up, the outer `get()` or `get_result()` will see it.
 
 ---
 

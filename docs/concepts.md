@@ -193,7 +193,7 @@ rt.batch(fn() {
 
 ## Cycle Detection
 
-Cyclic dependencies are detected and abort:
+Cyclic dependencies are detected at runtime:
 
 ```moonbit
 let a = Memo::new(rt, fn() { b.get() + 1 })
@@ -201,6 +201,29 @@ let b = Memo::new(rt, fn() { a.get() + 1 })
 
 a.get()  // Aborts: "Cycle detected"
 ```
+
+### Graceful Cycle Handling
+
+Use `get_result()` to handle cycles without aborting:
+
+```moonbit
+let memo = Memo::new(rt, fn() {
+  match self_ref.get_result() {
+    Ok(v) => v + 1
+    Err(CycleDetected(_)) => -1  // Fallback value
+  }
+})
+
+match memo.get_result() {
+  Ok(value) => println(value.to_string())  // Prints "-1"
+  Err(_) => ()  // Only if error wasn't handled inside
+}
+```
+
+When a cycle is detected via `get_result()`:
+- The error can be caught and handled in the compute function
+- No dependency is recorded for failed reads (prevents spurious future cycles)
+- The runtime remains in a consistent state for subsequent operations
 
 ## Summary
 
