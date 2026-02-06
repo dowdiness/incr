@@ -59,11 +59,17 @@ pub impl[T] Readable for Signal[T] with is_up_to_date(self) {
 }
 
 ///|
-/// Returns true if the memo's verified_at matches the runtime's current
-/// revision, meaning it does not need recomputation.
+/// Returns true if the memo has a cached value and its verified_at matches
+/// the runtime's current revision. Returns false if the memo has never been
+/// computed (value is None), even at the initial revision.
 pub fn[T] Memo::is_up_to_date(self : Memo[T]) -> Bool {
-  let cell = self.rt.get_cell(self.cell_id)
-  cell.verified_at == self.rt.current_revision
+  match self.value {
+    None => false
+    Some(_) => {
+      let cell = self.rt.get_cell(self.cell_id)
+      cell.verified_at == self.rt.current_revision
+    }
+  }
 }
 
 ///|

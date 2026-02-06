@@ -87,13 +87,16 @@ test "trait: memo is up-to-date after get" {
 }
 
 ///|
-test "trait: memo not yet computed is up-to-date at initial revision" {
+test "trait: memo not yet computed is not up-to-date" {
   let rt = Runtime::new()
   let input = Signal::new(rt, 1)
   let memo = Memo::new(rt, fn() { input.get() + 1 })
-  // Before any get, at initial revision, verified_at == current_revision
+  // Before any get, memo has no cached value, so it is not up-to-date
+  inspect(memo.is_up_to_date(), content="false")
+  // After computing, memo is up-to-date
+  let _ = memo.get()
   inspect(memo.is_up_to_date(), content="true")
-  // After input change, memo becomes stale even without prior get
+  // After input change, memo becomes stale
   input.set(2)
   inspect(memo.is_up_to_date(), content="false")
 }
