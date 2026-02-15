@@ -1,3 +1,4 @@
+///|
 test "on_change fires on signal set" {
   let rt = Runtime::new()
   let mut count = 0
@@ -9,6 +10,7 @@ test "on_change fires on signal set" {
   inspect!(count, content="2")
 }
 
+///|
 test "on_change does not fire on same value" {
   let rt = Runtime::new()
   let mut count = 0
@@ -18,6 +20,7 @@ test "on_change does not fire on same value" {
   inspect!(count, content="0")
 }
 
+///|
 test "on_change fires once at batch end" {
   let rt = Runtime::new()
   let mut count = 0
@@ -31,6 +34,7 @@ test "on_change fires once at batch end" {
   inspect!(count, content="1")
 }
 
+///|
 test "on_change does not fire on batch revert" {
   let rt = Runtime::new()
   let mut count = 0
@@ -43,6 +47,7 @@ test "on_change does not fire on batch revert" {
   inspect!(count, content="0")
 }
 
+///|
 test "on_change with set_unconditional" {
   let rt = Runtime::new()
   let mut count = 0
@@ -52,6 +57,7 @@ test "on_change with set_unconditional" {
   inspect!(count, content="1")
 }
 
+///|
 test "clear_on_change stops notifications" {
   let rt = Runtime::new()
   let mut count = 0
@@ -64,6 +70,7 @@ test "clear_on_change stops notifications" {
   inspect!(count, content="1")
 }
 
+///|
 test "on_change does not fire during batch" {
   let rt = Runtime::new()
   let mut fired_during_batch = false
@@ -78,6 +85,7 @@ test "on_change does not fire during batch" {
   inspect!(fired_during_batch, content="true")
 }
 
+///|
 test "on_change with memo and backdating" {
   let rt = Runtime::new()
   let mut count = 0

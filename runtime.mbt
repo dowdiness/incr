@@ -159,7 +159,6 @@ fn Runtime::bump_revision(self : Runtime, durability : Durability) -> Unit {
   for i = 0; i <= dur_idx; i = i + 1 {
     self.durability_last_changed[i] = self.current_revision
   }
-  self.fire_on_change()
 }
 
 ///|
@@ -248,7 +247,9 @@ fn Runtime::commit_batch(self : Runtime) -> Unit {
       meta.changed_at = rev
       meta.verified_at = rev
     }
+    self.batch_max_durability = Low
     self.fire_on_change()
+    return
   }
   self.batch_max_durability = Low
 }
