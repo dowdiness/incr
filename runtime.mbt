@@ -21,6 +21,7 @@ pub(all) struct Runtime {
   priv mut batch_depth : Int
   priv batch_pending_signals : Array[CellId]
   priv mut batch_max_durability : Durability
+  priv mut on_change : (() -> Unit)?
 }
 
 ///|
@@ -42,6 +43,7 @@ pub fn Runtime::new() -> Runtime {
     batch_depth: 0,
     batch_pending_signals: [],
     batch_max_durability: Low,
+    on_change: None,
   }
 }
 
@@ -102,6 +104,32 @@ fn Runtime::get_cell(self : Runtime, id : CellId) -> CellMeta {
     }
   } else {
     abort("Cell not found: " + id.id.to_string())
+  }
+}
+
+///|
+/// Registers a callback that fires whenever a revision bump occurs.
+/// During a batch, it fires once at batch end (only if values actually changed).
+///
+/// # Parameters
+///
+/// - `f`: The callback to invoke on change
+pub fn Runtime::set_on_change(self : Runtime, f : () -> Unit) -> Unit {
+  self.on_change = Some(f)
+}
+
+///|
+/// Removes the on_change callback.
+pub fn Runtime::clear_on_change(self : Runtime) -> Unit {
+  self.on_change = None
+}
+
+///|
+/// Fires the on_change callback if one is registered.
+fn Runtime::fire_on_change(self : Runtime) -> Unit {
+  match self.on_change {
+    Some(f) => f()
+    None => ()
   }
 }
 
@@ -219,6 +247,9 @@ fn Runtime::commit_batch(self : Runtime) -> Unit {
       meta.changed_at = rev
       meta.verified_at = rev
     }
+    self.batch_max_durability = Low
+    self.fire_on_change()
+    return
   }
   self.batch_max_durability = Low
 }

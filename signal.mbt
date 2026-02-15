@@ -156,6 +156,7 @@ pub fn[T] Signal::set_unconditional(
     let meta = self.rt.get_cell(self.cell_id)
     meta.changed_at = self.rt.current_revision
     meta.verified_at = self.rt.current_revision
+    self.rt.fire_on_change()
   }
 }
 

@@ -85,6 +85,7 @@ pub(all) struct Runtime {
   mut batch_depth : Int
   batch_pending_signals : Array[CellId]
   mut batch_max_durability : Durability
+  mut on_change : (() -> Unit)?
 }
 pub fn Runtime::alloc_cell_id(Self) -> CellId
 pub fn Runtime::batch(Self, () -> Unit) -> Unit
@@ -96,6 +97,8 @@ pub fn Runtime::push_tracking(Self, CellId) -> Unit
 pub fn Runtime::record_batch_signal(Self, CellId) -> Unit
 pub fn Runtime::record_dependency(Self, CellId) -> Unit
 pub fn Runtime::register_cell(Self, CellMeta) -> Unit
+pub fn Runtime::set_on_change(Self, () -> Unit) -> Unit
+pub fn Runtime::clear_on_change(Self) -> Unit
 
 pub struct Signal[T] {
   rt : Runtime
