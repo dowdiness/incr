@@ -23,7 +23,10 @@
 ///
 /// match memo.get_result() {
 ///   Ok(value) => println("Got: " + value.to_string())
-///   Err(err) => println(err.format_path(rt))
+///   Err(CycleDetected(cell, path)) => {
+///     println("Cycle at cell " + cell.to_string())
+///     println("Path length: " + path.length().to_string())
+///   }
 /// }
 /// ```
 pub suberror CycleError {

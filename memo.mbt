@@ -92,9 +92,10 @@ pub fn[T : Eq] Memo::new(rt : Runtime, compute : () -> T) -> Memo[T] {
 pub fn[T : Eq] Memo::get(self : Memo[T]) -> T {
   match self.get_result() {
     Ok(value) => value
-    Err(err) =>
+    Err(CycleDetected(cell, path)) =>
       abort(
-        "Cycle detected: cell " + err.cell().id.to_string() + " is already being computed",
+        "Cycle detected at cell " + cell.to_string() +
+        ", path length: " + path.length().to_string(),
       )
   }
 }
@@ -115,7 +116,10 @@ pub fn[T : Eq] Memo::get(self : Memo[T]) -> T {
 /// ```moonbit nocheck
 /// match memo.get_result() {
 ///   Ok(value) => println("Got: " + value.to_string())
-///   Err(err) => println("Cycle at cell " + err.cell().id.to_string())
+///   Err(err) => {
+///     println("Cycle at " + err.cell().to_string())
+///     println("Path: " + err.format_path(rt))
+///   }
 /// }
 /// ```
 pub fn[T : Eq] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {

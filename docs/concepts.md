@@ -210,7 +210,7 @@ Use `get_result()` to handle cycles without aborting:
 let memo = Memo::new(rt, fn() {
   match self_ref.get_result() {
     Ok(v) => v + 1
-    Err(CycleDetected(_)) => -1  // Fallback value
+    Err(CycleDetected(_, _)) => -1  // Fallback value
   }
 })
 

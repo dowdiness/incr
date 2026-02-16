@@ -148,7 +148,7 @@ Returns cached value as `Result`, allowing graceful cycle handling.
 ```moonbit
 match doubled.get_result() {
   Ok(v) => println(v.to_string())
-  Err(CycleDetected(id)) => println("Cycle at cell " + id.to_string())
+  Err(CycleDetected(cell, path)) => println("Cycle: " + cell.to_string())
 }
 ```
 
@@ -184,18 +184,18 @@ Cycle detection error returned by `Memo::get_result()`.
 
 ```moonbit
 pub suberror CycleError {
-  CycleDetected(Int)
+  CycleDetected(CellId, Array[CellId])
 }
 ```
 
-### `CycleError::cell_id(self) -> Int`
+### `CycleError::cell(self) -> CellId`
 
-Returns the cell ID that triggered cycle detection.
+Returns the cell that caused the cycle.
 
 ```moonbit
 match memo.get_result() {
   Ok(v) => println(v.to_string())
-  Err(err) => println(err.cell_id().to_string())
+  Err(err) => println(err.cell().to_string())
 }
 ```
 

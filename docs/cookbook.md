@@ -336,7 +336,7 @@ let memo = Memo::new(rt, fn() {
     Some(m) =>
       match m.get_result() {
         Ok(v) => v + 1
-        Err(CycleDetected(_)) => 0  // Base case on cycle
+        Err(CycleDetected(_, _)) => 0  // Base case on cycle
       }
     None => 0
   }

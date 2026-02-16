@@ -19,7 +19,7 @@ let config = Signal::new_with_durability(rt, 100, High)
 let memo = Memo::new(rt, fn() {
   match other_memo.get_result() {
     Ok(v) => v + 1
-    Err(CycleDetected(_)) => 0
+    Err(CycleDetected(_, _)) => 0
   }
 })
 ```
@@ -90,7 +90,7 @@ let value = memo.get()  // Aborts on cycle
 // Production: graceful handling
 match memo.get_result() {
   Ok(v) => use(v)
-  Err(CycleDetected(id)) => fallback()
+  Err(CycleDetected(cell, path)) => fallback()
 }
 ```
 
@@ -325,7 +325,7 @@ trait MyFullCompiler : IncrDb + Sourceable + Parseable + Checkable { ... }
 let memo = Memo::new(rt, fn() {
   match potentially_cyclic.get_result() {
     Ok(v) => v + 1
-    Err(CycleDetected(_)) => 0  // Base case
+    Err(CycleDetected(_, _)) => 0  // Base case
   }
 })
 ```
