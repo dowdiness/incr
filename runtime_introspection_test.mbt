@@ -17,7 +17,7 @@ test "runtime: cell_info() returns metadata for signal" {
 test "runtime: cell_info() returns metadata for memo" {
   let rt = Runtime::new()
   let x = Signal::new(rt, 10)
-  x.set(20)  // Bump revision to 1
+  x.set(20) // Bump revision to 1
   let doubled = Memo::new(rt, fn() { x.get() * 2 })
 
   doubled.get() |> ignore

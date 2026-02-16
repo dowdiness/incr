@@ -177,7 +177,7 @@ fn Runtime::fire_on_change(self : Runtime) -> Unit {
 ///
 /// # Usage
 ///
-/// ```moonbit
+/// ```moonbit nocheck
 /// let rt = Runtime::new()
 /// let sig = Signal::new(rt, 42)
 /// let memo = Memo::new(rt, fn() { sig.get() * 2 })
@@ -208,7 +208,7 @@ fn Runtime::fire_on_change(self : Runtime) -> Unit {
 /// - For signals, the dependencies array is always empty
 /// - For memos, dependencies are populated after the first computation
 /// - The method performs bounds checking and returns None for invalid IDs
-pub fn Runtime::cell_info(self : Runtime, id : CellId) -> Option[CellInfo] {
+pub fn Runtime::cell_info(self : Runtime, id : CellId) -> CellInfo? {
   // Check bounds (both negative and out of range)
   if id.id < 0 || id.id >= self.cells.length() {
     return None
@@ -216,7 +216,7 @@ pub fn Runtime::cell_info(self : Runtime, id : CellId) -> Option[CellInfo] {
 
   // Extract metadata
   match self.cells[id.id] {
-    Some(meta) => {
+    Some(meta) =>
       Some(CellInfo::{
         id,
         changed_at: meta.changed_at,
@@ -224,7 +224,6 @@ pub fn Runtime::cell_info(self : Runtime, id : CellId) -> Option[CellInfo] {
         durability: meta.durability,
         dependencies: meta.dependencies.copy(),
       })
-    }
     None => None
   }
 }

@@ -185,7 +185,7 @@ impl Executable for CalcPipeline with run(self) {
 }
 
 ///|
-fn all_diagnostics[D : Parseable + Checkable](db : D) -> Array[String] {
+fn[D : Parseable + Checkable] all_diagnostics(db : D) -> Array[String] {
   let parse_errs = db.parse_errors()
   let check_errs = db.check_errors()
   let result : Array[String] = []
@@ -199,7 +199,7 @@ fn all_diagnostics[D : Parseable + Checkable](db : D) -> Array[String] {
 }
 
 ///|
-fn compile_and_run[D : Parseable + Checkable + Executable](
+fn[D : Parseable + Checkable + Executable] compile_and_run(
   db : D,
 ) -> Result[Array[String], Array[String]] {
   let diags = all_diagnostics(db)

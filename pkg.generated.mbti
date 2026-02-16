@@ -17,6 +17,20 @@ pub suberror CycleError {
 pub fn CycleError::cell_id(Self) -> Int
 
 // Types and methods
+pub(all) struct CellId {
+  id : Int
+}
+pub impl Eq for CellId
+pub impl Show for CellId
+
+pub(all) struct CellInfo {
+  id : CellId
+  changed_at : Revision
+  verified_at : Revision
+  durability : Durability
+  dependencies : Array[CellId]
+}
+
 pub(all) enum Durability {
   Low
   Medium
@@ -28,16 +42,26 @@ pub impl Show for Durability
 pub(all) struct Memo[T] {
   // private fields
 }
+pub fn[T] Memo::changed_at(Self[T]) -> Revision
+pub fn[T] Memo::dependencies(Self[T]) -> Array[CellId]
 pub fn[T : Eq] Memo::get(Self[T]) -> T
 pub fn[T : Eq] Memo::get_result(Self[T]) -> Result[T, CycleError]
+pub fn[T] Memo::id(Self[T]) -> CellId
 pub fn[T] Memo::is_up_to_date(Self[T]) -> Bool
 pub fn[T : Eq] Memo::new(Runtime, () -> T) -> Self[T]
+pub fn[T] Memo::verified_at(Self[T]) -> Revision
 pub impl[T] Readable for Memo[T]
+
+pub(all) struct Revision {
+  value : Int
+}
+pub impl Eq for Revision
 
 pub(all) struct Runtime {
   // private fields
 }
 pub fn Runtime::batch(Self, () -> Unit) -> Unit
+pub fn Runtime::cell_info(Self, CellId) -> CellInfo?
 pub fn Runtime::clear_on_change(Self) -> Unit
 pub fn Runtime::new() -> Self
 pub fn Runtime::set_on_change(Self, () -> Unit) -> Unit
@@ -45,8 +69,10 @@ pub fn Runtime::set_on_change(Self, () -> Unit) -> Unit
 pub(all) struct Signal[T] {
   // private fields
 }
+pub fn[T] Signal::durability(Self[T]) -> Durability
 pub fn[T] Signal::get(Self[T]) -> T
 pub fn[T] Signal::get_result(Self[T]) -> Result[T, CycleError]
+pub fn[T] Signal::id(Self[T]) -> CellId
 pub fn[T] Signal::is_up_to_date(Self[T]) -> Bool
 pub fn[T] Signal::new(Runtime, T) -> Self[T]
 pub fn[T] Signal::new_with_durability(Runtime, T, Durability) -> Self[T]

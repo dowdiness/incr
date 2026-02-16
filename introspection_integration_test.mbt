@@ -22,13 +22,12 @@ test "integration: debug why memo recomputed" {
   let mut found_culprit = false
   for dep_id in sum.dependencies() {
     match rt.cell_info(dep_id) {
-      Some(info) => {
+      Some(info) =>
         if info.changed_at.value > initial_verified.value {
           // Found it: y's changed_at is after initial verification
           inspect(dep_id == y.id(), content="true")
           found_culprit = true
         }
-      }
       None => ()
     }
   }
@@ -98,7 +97,11 @@ test "integration: understanding backdating with introspection" {
   // A memo that produces the same output for different inputs (absolute value stays same)
   let abs_value = Memo::new(rt, fn() {
     let val = input.get()
-    if val < 0 { -val } else { val }
+    if val < 0 {
+      -val
+    } else {
+      val
+    }
   })
 
   abs_value.get() |> ignore

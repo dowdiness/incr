@@ -31,7 +31,7 @@ test "memo: dependencies() includes all inputs after computation" {
 test "memo: changed_at and verified_at track revisions" {
   let rt = Runtime::new()
   let x = Signal::new(rt, 5)
-  x.set(10)  // Bump revision to 1
+  x.set(10) // Bump revision to 1
   let doubled = Memo::new(rt, fn() { x.get() * 2 })
 
   doubled.get() |> ignore
@@ -57,7 +57,11 @@ test "memo: dependencies update on recomputation" {
   let b = Signal::new(rt, 2)
 
   let dynamic = Memo::new(rt, fn() {
-    if cond.get() { a.get() } else { b.get() }
+    if cond.get() {
+      a.get()
+    } else {
+      b.get()
+    }
   })
 
   dynamic.get() |> ignore
