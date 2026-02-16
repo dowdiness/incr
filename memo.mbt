@@ -167,11 +167,19 @@ pub fn[T : Eq] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
 fn[T : Eq] Memo::force_recompute(self : Memo[T]) -> Result[Unit, CycleError] {
   let cell = self.rt.get_cell(self.cell_id)
   if cell.in_progress {
-    return Err(CycleDetected(cell.id, []))
+    // Build the full cycle path from the tracking stack
+    let path : Array[CellId] = []
+    // Collect cell IDs from all frames in the tracking stack
+    for i = 0; i < self.rt.tracking_stack.length(); i = i + 1 {
+      path.push(self.rt.tracking_stack[i].cell_id)
+    }
+    // Append current cell to show the cycle closes
+    path.push(cell.id)
+    return Err(CycleDetected(cell.id, path))
   }
   cell.in_progress = true
   // Push tracking frame to record dependencies
-  self.rt.push_tracking()
+  self.rt.push_tracking(self.cell_id)
   let new_value = (self.compute)()
   let new_deps = self.rt.pop_tracking()
   cell.dependencies = new_deps

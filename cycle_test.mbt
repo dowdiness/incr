@@ -225,12 +225,12 @@ test "CycleError::path() returns the full dependency cycle" {
   })
   memo_ref.val = Some(memo)
   let _ = memo.get_result()
-  // Note: Path tracking is not yet implemented (Task 3)
-  // For now, path is empty but the API is in place
+  // Note: Path tracking is now implemented (Task 2)
+  // Path is populated with the cycle information
   match captured_path.val {
     Some(path) => {
-      // Path will be populated in Task 3
-      inspect(path.length() == 0, content="true")
+      // Path is populated by Task 2
+      inspect(path.length() == 2, content="true")
     }
     None => fail("Expected cycle path to be captured")
   }

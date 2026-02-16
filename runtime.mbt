@@ -405,8 +405,8 @@ fn Runtime::record_dependency(self : Runtime, dep : CellId) -> Unit {
 /// # Parameters
 ///
 /// - `cell_id`: The ID of the memo being computed
-fn Runtime::push_tracking(self : Runtime) -> Unit {
-  self.tracking_stack.push(ActiveQuery::new())
+fn Runtime::push_tracking(self : Runtime, cell_id : CellId) -> Unit {
+  self.tracking_stack.push(ActiveQuery::new(cell_id))
 }
 
 ///|

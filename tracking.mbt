@@ -8,6 +8,7 @@
 ///
 /// Dependencies are deduplicated using a HashSet for O(1) membership checks.
 priv struct ActiveQuery {
+  cell_id : CellId
   dependencies : Array[CellId]
   seen : @hashset.HashSet[CellId]
 }
@@ -15,11 +16,15 @@ priv struct ActiveQuery {
 ///|
 /// Creates a new active query.
 ///
+/// # Parameters
+///
+/// - `cell_id`: The cell ID of the memo being computed
+///
 /// # Returns
 ///
 /// A new active query with an empty dependency set
-fn ActiveQuery::new() -> ActiveQuery {
-  { dependencies: [], seen: @hashset.new() }
+fn ActiveQuery::new(cell_id : CellId) -> ActiveQuery {
+  { cell_id, dependencies: [], seen: @hashset.new() }
 }
 
 ///|

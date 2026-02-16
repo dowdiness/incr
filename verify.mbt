@@ -72,14 +72,19 @@ fn maybe_changed_after_derived(
 ) -> Result[Bool, CycleError] {
   // Use an explicit stack to avoid call-stack overflow on deep graphs
   let stack : Array[VerifyFrame] = []
+  // Track the dependency path for cycle error diagnostics
+  let path : Array[CellId] = []
   // Track the final result — set when the root frame completes
   let mut final_result = false
   // Try to start verification on the root cell; if fast paths apply, return early
-  match try_start_verify(rt, cell, after_revision) {
+  match try_start_verify(rt, cell, after_revision, path) {
     Ok(Some(result)) => return Ok(result)
-    Ok(None) =>
+    Ok(None) => {
       // Need full dependency walk — push initial frame
       stack.push({ cell, after_revision, dep_index: 0, any_dep_changed: false })
+      // Push root cell to path
+      path.push(cell.id)
+    }
     Err(e) => return Err(e)
   }
   // Iterative dependency walk
@@ -91,6 +96,7 @@ fn maybe_changed_after_derived(
       match finish_frame_changed(rt, stack[top]) {
         Ok(result) => {
           let _ = stack.pop()
+          let _ = path.pop() // Pop cell from path when exiting frame
           if stack.length() > 0 {
             if result {
               stack[stack.length() - 1].any_dep_changed = true
@@ -111,6 +117,7 @@ fn maybe_changed_after_derived(
       // All dependencies checked, none changed — green path
       let result = finish_frame_unchanged(rt, stack[top])
       let _ = stack.pop()
+      let _ = path.pop() // Pop cell from path when exiting frame
       if stack.length() > 0 {
         if result {
           stack[stack.length() - 1].any_dep_changed = true
@@ -132,9 +139,9 @@ fn maybe_changed_after_derived(
         }
       Derived =>
         // Check fast paths for the derived dependency
-        match try_start_verify(rt, dep_cell, stack[top].cell.verified_at) {
+        match try_start_verify(rt, dep_cell, stack[top].cell.verified_at, path) {
           Ok(Some(changed)) => if changed { stack[top].any_dep_changed = true }
-          Ok(None) =>
+          Ok(None) => {
             // Need full walk — push a new frame for this dependency
             stack.push({
               cell: dep_cell,
@@ -142,6 +149,9 @@ fn maybe_changed_after_derived(
               dep_index: 0,
               any_dep_changed: false,
             })
+            // Push dependency cell to path when entering new frame
+            path.push(dep_cell.id)
+          }
           Err(e) => {
             cleanup_stack(stack)
             return Err(e)
@@ -161,6 +171,7 @@ fn try_start_verify(
   rt : Runtime,
   cell : CellMeta,
   after_revision : Revision,
+  path : Array[CellId],
 ) -> Result[Bool?, CycleError] {
   // Fast path: already verified this revision
   if cell.verified_at == rt.current_revision {
@@ -174,7 +185,13 @@ fn try_start_verify(
   }
   // Cycle detection
   if cell.in_progress {
-    return Err(CycleDetected(cell.id, []))
+    // Cycle detected! Push the current cell to path to show the full cycle
+    let full_path = Array::new(capacity=path.length() + 1)
+    for i = 0; i < path.length(); i = i + 1 {
+      full_path.push(path[i])
+    }
+    full_path.push(cell.id)
+    return Err(CycleDetected(cell.id, full_path))
   }
   cell.in_progress = true
   Ok(None)
