@@ -24,13 +24,13 @@ Concrete, actionable tasks for the `incr` library.
 
 ### Introspection API (Phase 2A - High Priority)
 
-- [ ] Add `Signal::id(self) -> CellId`
-- [ ] Add `Signal::durability(self) -> Durability`
-- [ ] Add `Memo::dependencies(self) -> Array[CellId]`
-- [ ] Add `Memo::changed_at(self) -> Revision`
-- [ ] Add `Memo::verified_at(self) -> Revision`
-- [ ] Add `Runtime::cell_info(self, CellId) -> CellInfo` struct
-- [ ] Define `CellInfo` struct with all cell metadata
+- [x] Add `Signal::id(self) -> CellId`
+- [x] Add `Signal::durability(self) -> Durability`
+- [x] Add `Memo::dependencies(self) -> Array[CellId]`
+- [x] Add `Memo::changed_at(self) -> Revision`
+- [x] Add `Memo::verified_at(self) -> Revision`
+- [x] Add `Runtime::cell_info(self, CellId) -> CellInfo` struct
+- [x] Define `CellInfo` struct with all cell metadata
 - [ ] Add `Signal::debug(self) -> String` for formatted output
 - [ ] Add `Memo::debug(self) -> String` for formatted output
 
