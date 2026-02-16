@@ -101,6 +101,45 @@ pub fn[T] Signal::get_result(self : Signal[T]) -> Result[T, CycleError] {
 }
 
 ///|
+/// Returns the unique identifier for this signal.
+///
+/// The CellId can be used with `Runtime::cell_info()` to retrieve
+/// metadata, or to compare cell identities.
+///
+/// # Returns
+///
+/// The cell identifier for this signal
+///
+/// # Example
+///
+/// ```moonbit nocheck
+/// let sig = Signal::new(rt, 42)
+/// let id = sig.id()
+/// match rt.cell_info(id) {
+///   Some(info) => println("Signal changed at: " + info.changed_at.to_string())
+///   None => ()
+/// }
+/// ```
+pub fn[T] Signal::id(self : Signal[T]) -> CellId {
+  self.cell_id
+}
+
+///|
+/// Returns the durability level of this signal.
+///
+/// Durability indicates how often this signal is expected to change:
+/// - `High`: Rarely changes (e.g., configuration)
+/// - `Medium`: Moderately stable
+/// - `Low`: Frequently changes (e.g., user input)
+///
+/// # Returns
+///
+/// The durability level set at construction time
+pub fn[T] Signal::durability(self : Signal[T]) -> Durability {
+  self.durability
+}
+
+///|
 /// Sets the signal to a new value.
 ///
 /// If the new value equals the current value (via `Eq`), this is a no-op:
