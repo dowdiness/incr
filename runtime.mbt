@@ -160,6 +160,76 @@ fn Runtime::fire_on_change(self : Runtime) -> Unit {
 }
 
 ///|
+/// Returns structured metadata for any cell (signal or memo).
+///
+/// This method provides uniform introspection access to cell metadata regardless of
+/// whether the cell is a Signal or Memo. It returns CellInfo containing the cell's
+/// ID, type, revision information, durability, and dependency list.
+///
+/// # Parameters
+///
+/// - `id`: The CellId to query (obtained via Signal::id() or Memo::id())
+///
+/// # Returns
+///
+/// - `Some(CellInfo)`: If the cell ID is valid and points to an active cell
+/// - `None`: If the cell ID is out of bounds or points to an unused slot
+///
+/// # Usage
+///
+/// ```moonbit
+/// let rt = Runtime::new()
+/// let sig = Signal::new(rt, 42)
+/// let memo = Memo::new(rt, fn() { sig.get() * 2 })
+/// let _ = memo.get()  // Force computation
+///
+/// // Query signal metadata
+/// match rt.cell_info(sig.id()) {
+///   Some(info) => {
+///     println("Signal changed at: \{info.changed_at}")
+///     println("Dependencies: \{info.dependencies.length()}")
+///   }
+///   None => println("Cell not found")
+/// }
+///
+/// // Query memo metadata
+/// match rt.cell_info(memo.id()) {
+///   Some(info) => {
+///     println("Memo durability: \{info.durability}")
+///     println("Depends on \{info.dependencies.length()} cells")
+///   }
+///   None => println("Cell not found")
+/// }
+/// ```
+///
+/// # Notes
+///
+/// - The dependency array is a copy; modifying it does not affect the runtime
+/// - For signals, the dependencies array is always empty
+/// - For memos, dependencies are populated after the first computation
+/// - The method performs bounds checking and returns None for invalid IDs
+pub fn Runtime::cell_info(self : Runtime, id : CellId) -> Option[CellInfo] {
+  // Check bounds
+  if id.id >= self.cells.length() {
+    return None
+  }
+
+  // Extract metadata
+  match self.cells[id.id] {
+    Some(meta) => {
+      Some(CellInfo::{
+        id,
+        changed_at: meta.changed_at,
+        verified_at: meta.verified_at,
+        durability: meta.durability,
+        dependencies: meta.dependencies.copy(),
+      })
+    }
+    None => None
+  }
+}
+
+///|
 /// Bumps the global revision counter and records which durability level changed.
 ///
 /// This is called internally when a signal's value changes. The durability
