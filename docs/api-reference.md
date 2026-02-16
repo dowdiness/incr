@@ -199,6 +199,64 @@ match memo.get_result() {
 }
 ```
 
+### `CycleError::path(self) -> Array[CellId]`
+
+Returns the full dependency path that forms the cycle.
+
+```moonbit
+match memo.get_result() {
+  Ok(v) => println(v.to_string())
+  Err(err) => {
+    let path = err.path()
+    println("Cycle length: " + path.length().to_string())
+  }
+}
+```
+
+### `CycleError::format_path(self, rt: Runtime) -> String`
+
+Formats the cycle path as a human-readable string.
+
+```moonbit
+match memo.get_result() {
+  Ok(v) => println(v.to_string())
+  Err(err) => println(err.format_path(rt))
+}
+```
+
+### Cycle Path Debugging
+
+When a cycle is detected, `CycleError` now includes the full dependency path:
+
+```moonbit
+match memo.get_result() {
+  Err(err) => {
+    println("Cycle detected at: " + err.cell().to_string())
+    println("Dependency path:")
+    let path = err.path()
+    for i = 0; i < path.length(); i = i + 1 {
+      println("  " + path[i].to_string())
+    }
+
+    // Or use the formatted version
+    println(err.format_path(rt))
+  }
+  Ok(value) => use_value(value)
+}
+```
+
+The `format_path()` method produces human-readable output:
+
+```
+Cycle detected: Cell[5] → Cell[7] → Cell[5]
+```
+
+For long cycles (>20 cells), the output is truncated:
+
+```
+Cycle detected: Cell[0] → Cell[1] → Cell[2] → ... → Cell[19] → ...
+```
+
 ---
 
 ## Introspection and Debugging
