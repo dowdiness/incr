@@ -5,7 +5,7 @@
 /// They serve as direct array indices for O(1) cell lookup.
 pub(all) struct CellId {
   id : Int
-} derive(Eq)
+} derive(Eq, Show)
 
 ///|
 impl Hash for CellId with hash(self) {

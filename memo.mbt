@@ -229,3 +229,77 @@ fn compute_durability(rt : Runtime, deps : Array[CellId]) -> Durability {
 fn dur_less_than(a : Durability, b : Durability) -> Bool {
   a.index() < b.index()
 }
+
+///|
+/// Returns the unique identifier for this memo.
+///
+/// The CellId can be used with `Runtime::cell_info()` to retrieve
+/// metadata, or to compare cell identities.
+///
+/// # Returns
+///
+/// The cell identifier for this memo
+pub fn[T] Memo::id(self : Memo[T]) -> CellId {
+  self.cell_id
+}
+
+///|
+/// Returns the list of cell IDs this memo currently depends on.
+///
+/// The dependency list is empty before the first computation and
+/// updates each time the memo recomputes (for dynamic dependencies).
+///
+/// # Returns
+///
+/// A copy of the current dependency list. Returns empty array if
+/// the memo has never been computed.
+///
+/// # Example
+///
+/// ```moonbit nocheck
+/// let x = Signal::new(rt, 1)
+/// let m = Memo::new(rt, fn() { x.get() * 2 })
+/// m.get() |> ignore
+/// inspect(m.dependencies().contains(x.id()), content="true")
+/// ```
+pub fn[T] Memo::dependencies(self : Memo[T]) -> Array[CellId] {
+  let meta = self.rt.cells[self.cell_id.id]
+  match meta {
+    Some(m) => m.dependencies.copy()
+    None => []
+  }
+}
+
+///|
+/// Returns the revision when this memo's value last changed.
+///
+/// This reflects backdating: if a recomputation produces the same
+/// value, `changed_at` is preserved from the previous computation.
+///
+/// # Returns
+///
+/// The revision timestamp of the last actual value change
+pub fn[T] Memo::changed_at(self : Memo[T]) -> Revision {
+  let meta = self.rt.cells[self.cell_id.id]
+  match meta {
+    Some(m) => m.changed_at
+    None => Revision::initial()
+  }
+}
+
+///|
+/// Returns the revision when this memo was last verified up-to-date.
+///
+/// A memo is stale when `verified_at < current_revision`. Use this
+/// to understand when a memo was last checked.
+///
+/// # Returns
+///
+/// The revision timestamp of the last verification
+pub fn[T] Memo::verified_at(self : Memo[T]) -> Revision {
+  let meta = self.rt.cells[self.cell_id.id]
+  match meta {
+    Some(m) => m.verified_at
+    None => Revision::initial()
+  }
+}
