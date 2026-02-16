@@ -3,7 +3,7 @@
 ///
 /// Cell IDs are monotonically increasing integers allocated by the runtime.
 /// They serve as direct array indices for O(1) cell lookup.
-priv struct CellId {
+pub(all) struct CellId {
   id : Int
 } derive(Eq)
 

@@ -9,7 +9,7 @@
 ///
 /// A cell is stale when `verified_at < current_revision`. A cell has changed
 /// (relative to an observer) when `changed_at > observer.verified_at`.
-priv struct Revision {
+pub(all) struct Revision {
   value : Int
 } derive(Eq)
 
