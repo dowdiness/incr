@@ -36,10 +36,10 @@ Concrete, actionable tasks for the `incr` library.
 
 ### Error Diagnostics (Phase 2A - High Priority)
 
-- [ ] Change `CycleError` to include cycle path: `CycleDetected(CellId, Array[CellId])`
-- [ ] Add `CycleError::path(self) -> Array[CellId]`
-- [ ] Add `CycleError::format_path(self, Runtime) -> String` for human-readable output
-- [ ] Update cycle detection in `verify.mbt` to track path during traversal
+- [x] Change `CycleError` to include cycle path: `CycleDetected(CellId, Array[CellId])`
+- [x] Add `CycleError::path(self) -> Array[CellId]`
+- [x] Add `CycleError::format_path(self, Runtime) -> String` for human-readable output
+- [x] Update cycle detection in `verify.mbt` to track path during traversal
 
 ### Per-Cell Callbacks (Phase 2B - High Priority)
 
