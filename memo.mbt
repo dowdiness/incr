@@ -92,9 +92,9 @@ pub fn[T : Eq] Memo::new(rt : Runtime, compute : () -> T) -> Memo[T] {
 pub fn[T : Eq] Memo::get(self : Memo[T]) -> T {
   match self.get_result() {
     Ok(value) => value
-    Err(CycleDetected(id)) =>
+    Err(err) =>
       abort(
-        "Cycle detected: cell " + id.to_string() + " is already being computed",
+        "Cycle detected: cell " + err.cell().id.to_string() + " is already being computed",
       )
   }
 }
@@ -115,7 +115,7 @@ pub fn[T : Eq] Memo::get(self : Memo[T]) -> T {
 /// ```moonbit nocheck
 /// match memo.get_result() {
 ///   Ok(value) => println("Got: " + value.to_string())
-///   Err(CycleDetected(id)) => println("Cycle at cell " + id.to_string())
+///   Err(err) => println("Cycle at cell " + err.cell().id.to_string())
 /// }
 /// ```
 pub fn[T : Eq] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
@@ -167,7 +167,7 @@ pub fn[T : Eq] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
 fn[T : Eq] Memo::force_recompute(self : Memo[T]) -> Result[Unit, CycleError] {
   let cell = self.rt.get_cell(self.cell_id)
   if cell.in_progress {
-    return Err(CycleDetected(cell.id.id))
+    return Err(CycleDetected(cell.id, []))
   }
   cell.in_progress = true
   // Push tracking frame to record dependencies

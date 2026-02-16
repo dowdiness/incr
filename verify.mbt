@@ -174,7 +174,7 @@ fn try_start_verify(
   }
   // Cycle detection
   if cell.in_progress {
-    return Err(CycleDetected(cell.id.id))
+    return Err(CycleDetected(cell.id, []))
   }
   cell.in_progress = true
   Ok(None)
