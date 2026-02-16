@@ -16,27 +16,62 @@ Add `incr` to your `moon.pkg.json`:
 
 ## Your First Incremental Computation
 
-### Step 1: Create a Runtime
+### Recommended Approach: Database Pattern
 
-Every `incr` program starts with a `Runtime`. It manages all the bookkeeping for dependency tracking and change detection.
+The recommended way to use `incr` is to encapsulate the `Runtime` in your own database type. This keeps the runtime as an implementation detail and makes your API cleaner.
+
+```moonbit
+struct MyApp {
+  rt : Runtime
+}
+
+impl IncrDb for MyApp with runtime(self) { self.rt }
+
+fn MyApp::new() -> MyApp {
+  { rt: Runtime::new() }
+}
+```
+
+Now you can use the database-centric API throughout your code without passing `Runtime` around explicitly.
+
+### Alternative: Direct Runtime
+
+For simple scripts or when learning, you can use the `Runtime` directly:
 
 ```moonbit
 let rt = Runtime::new()
 ```
 
+The rest of this guide will show **both patterns** — use whichever fits your needs.
+
 ### Step 2: Create Input Signals
 
-Signals are your input values — the leaves of the dependency graph:
+Signals are your input values — the leaves of the dependency graph.
 
+**Database pattern:**
 ```moonbit
+let app = MyApp::new()
+let price = create_signal(app, 100)
+let quantity = create_signal(app, 5)
+```
+
+**Direct Runtime:**
+```moonbit
+let rt = Runtime::new()
 let price = Signal::new(rt, 100)
 let quantity = Signal::new(rt, 5)
 ```
 
 ### Step 3: Create Derived Computations (Memos)
 
-Memos are computed values that automatically track their dependencies:
+Memos are computed values that automatically track their dependencies.
 
+**Database pattern:**
+```moonbit
+let total = create_memo(app, fn() { price.get() * quantity.get() })
+```
+
+**Direct Runtime:**
 ```moonbit
 let total = Memo::new(rt, fn() { price.get() * quantity.get() })
 ```
@@ -58,14 +93,24 @@ inspect(total.get(), content="1000")
 
 Use `Runtime::set_on_change` to run a callback whenever the runtime commits a change.
 
+**Database pattern:**
 ```moonbit
 let mut changes = 0
-rt.set_on_change(fn() { changes = changes + 1 })
+app.runtime().set_on_change(fn() { changes = changes + 1 })
 
 quantity.set(12)
 inspect(changes, content="1")
 
 // Same-value set is a no-op, callback does not fire
+quantity.set(12)
+inspect(changes, content="1")
+```
+
+**Direct Runtime:**
+```moonbit
+let mut changes = 0
+rt.set_on_change(fn() { changes = changes + 1 })
+
 quantity.set(12)
 inspect(changes, content="1")
 ```

@@ -1,6 +1,6 @@
 # Roadmap
 
-High-level future direction for the `incr` library, organized by phase. Each phase builds on the previous one. For a detailed explanation of the current architecture, see [DESIGN.md](DESIGN.md).
+High-level future direction for the `incr` library, organized by phase. Each phase builds on the previous one. For a detailed explanation of the current architecture, see [design.md](design.md).
 
 ## Phase 1 — Error Handling ✓
 
@@ -10,8 +10,37 @@ High-level future direction for the `incr` library, organized by phase. Each pha
 ## Phase 2 — API & Usability
 
 - ~~**Batch updates**: Allow multiple `Signal::set` calls within a single revision bump to avoid redundant intermediate verifications~~ ✓ Implemented with two-phase signal values and revert detection
-- **Introspection API**: Public methods to query the dependency graph — list dependents/dependencies of a cell, inspect cell state (`changed_at`, `verified_at`, durability)
-- **Debug output**: Graph visualization or textual dump of the dependency graph for debugging
+
+### Phase 2A: Introspection & Debugging (High Priority)
+
+- **Introspection API**: Public methods to query the dependency graph
+  - Per-cell methods: `Signal::id()`, `Signal::durability()`, `Memo::dependencies()`, `Memo::changed_at()`, `Memo::verified_at()`
+  - Runtime methods: `Runtime::cell_info(CellId)` returning structured `CellInfo`
+  - Use case: Debug "why did this memo recompute?"
+- **Enhanced error diagnostics**: Include cycle path in `CycleError`, not just cell ID
+  - Change `CycleDetected(Int)` to `CycleDetected(CellId, Array[CellId])`
+  - Add `CycleError::format_path()` for human-readable output
+- **Debug output**: `Signal::debug()` and `Memo::debug()` methods for inspection
+- **Graph visualization**: Textual or DOT format dump of dependency graph
+
+### Phase 2B: Observability (High Priority)
+
+- **Per-cell change callbacks**: Fine-grained observation without coupling to Runtime
+  - `Signal::on_change(f : (T) -> Unit)`
+  - `Memo::on_change(f : (T) -> Unit)`
+  - Enables reactive patterns (UI updates, logging, metrics)
+  - Stored on `CellMeta` via type-erased closures
+
+### Phase 2C: Ergonomics (Medium Priority)
+
+- **Builder pattern**: Future-proof for additional options
+  - `Signal::builder(rt).with_value(v).with_durability(d).with_label(l).build()`
+  - `Memo::builder(rt).with_compute(f).with_label(l).build()`
+  - Additive: keep existing `new()` and `new_with_durability()` methods
+- **Method chaining**: Fluent configuration for Runtime
+  - `Runtime::new().with_on_change(f)` (requires careful borrowing design)
+- **Convenience helpers**: Shorter names for common patterns
+  - `memo(db, f)` as shorthand for `create_memo(db, f)`
 
 ## Phase 3 — Performance
 

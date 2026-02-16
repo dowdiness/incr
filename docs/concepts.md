@@ -1,6 +1,6 @@
 # Core Concepts
 
-This document explains the key concepts behind `incr` without diving into implementation details. For the technical deep-dive, see [DESIGN.md](../DESIGN.md).
+This document explains the key concepts behind `incr` without diving into implementation details. For the technical deep-dive, see [design.md](design.md).
 
 ## The Dependency Graph
 
@@ -240,4 +240,4 @@ When a cycle is detected via `get_result()`:
 
 - [API Reference](./api-reference.md) — Complete method reference
 - [Cookbook](./cookbook.md) — Common patterns
-- [DESIGN.md](../DESIGN.md) — Implementation details
+- [design.md](design.md) — Implementation details

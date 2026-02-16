@@ -54,16 +54,19 @@ The library implements Salsa's incremental computation pattern with three key ty
 
 ### For Users
 - **README.md** — Entry point: features, quick start, documentation index
-- **docs/getting-started.md** — Step-by-step tutorial for new users
+- **docs/getting-started.md** — Step-by-step tutorial for new users (shows both Runtime and IncrDb patterns)
 - **docs/concepts.md** — Core concepts explained simply (Signals, Memos, Revisions, Durability)
 - **docs/api-reference.md** — Complete reference for all public types and methods
 - **docs/cookbook.md** — Common patterns and recipes
+- **docs/api-design-guidelines.md** — Design philosophy, best practices, planned improvements
 
 ### For Contributors
-- **DESIGN.md** — Deep technical internals: verification algorithm, backdating, durability, type erasure
+- **docs/design.md** — Deep technical internals: verification algorithm, backdating, durability, type erasure
 - **CLAUDE.md** (this file) — Contributor and AI guidance: commands, architecture map, conventions
-- **ROADMAP.md** — Phased future direction (error handling, performance, advanced features, ecosystem)
-- **TODO.md** — Concrete actionable tasks with checkboxes
+- **docs/roadmap.md** — Phased future direction with detailed Phase 2 API improvements (introspection, callbacks, builders)
+- **docs/todo.md** — Concrete actionable tasks with checkboxes organized by priority
 - **docs/comparison-with-alien-signals.md** — Analysis of alien-signals vs Salsa-style computation
+- **docs/api-design-guidelines.md** — API design principles, patterns, and anti-patterns
+- **docs/api-updates.md** — Summary of recent API documentation changes
 
-When contributing, read DESIGN.md to understand the conceptual model (pull-based verification, backdating, durability shortcuts) before modifying core algorithm files like `verify.mbt` or `memo.mbt`.
+When contributing, read [docs/design.md](docs/design.md) to understand the conceptual model (pull-based verification, backdating, durability shortcuts) before modifying core algorithm files like `verify.mbt` or `memo.mbt`.

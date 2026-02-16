@@ -2,6 +2,8 @@
 
 Complete reference for the public API in `incr`.
 
+> **Recommended Pattern:** Use the `IncrDb` trait to encapsulate your `Runtime` in a database type. This makes your API cleaner and hides implementation details. See the [Helper Functions](#helper-functions) section and [API Design Guidelines](api-design-guidelines.md) for details.
+
 ## Runtime
 
 Central coordinator for dependency tracking, revisions, and batching.
@@ -196,6 +198,92 @@ match memo.get_result() {
   Err(err) => println(err.cell_id().to_string())
 }
 ```
+
+---
+
+## Introspection (Planned - Phase 2A)
+
+> **Note:** These APIs are planned but not yet implemented. See [roadmap.md](roadmap.md) for details.
+
+### Signal Introspection
+
+```moonbit
+pub fn[T] Signal::id(self) -> CellId
+pub fn[T] Signal::durability(self) -> Durability
+pub fn[T] Signal::debug(self) -> String
+```
+
+### Memo Introspection
+
+```moonbit
+pub fn[T] Memo::id(self) -> CellId
+pub fn[T] Memo::dependencies(self) -> Array[CellId]
+pub fn[T] Memo::changed_at(self) -> Revision
+pub fn[T] Memo::verified_at(self) -> Revision
+pub fn[T] Memo::debug(self) -> String
+```
+
+### Runtime Introspection
+
+```moonbit
+pub fn Runtime::cell_info(self, id : CellId) -> CellInfo
+
+pub struct CellInfo {
+  id : CellId
+  kind : CellKind
+  changed_at : Revision
+  verified_at : Revision
+  durability : Durability
+  dependencies : Array[CellId]
+}
+```
+
+**Use case:**
+
+```moonbit
+// Debug: why did this memo recompute?
+if !expensive.is_up_to_date() {
+  for dep in expensive.dependencies() {
+    let info = rt.cell_info(dep)
+    if info.changed_at > expensive.verified_at() {
+      println("Recomputed due to cell " + dep.to_string())
+    }
+  }
+}
+```
+
+---
+
+## Per-Cell Callbacks (Planned - Phase 2B)
+
+> **Note:** These APIs are planned but not yet implemented. See [roadmap.md](roadmap.md) for details.
+
+### `Signal::on_change(self, f : (T) -> Unit) -> Unit`
+
+Registers a callback fired when this signal's value changes.
+
+```moonbit
+let count = Signal::new(rt, 0)
+count.on_change(fn(new_val) {
+  println("Count: " + new_val.to_string())
+})
+```
+
+### `Memo::on_change(self, f : (T) -> Unit) -> Unit`
+
+Registers a callback fired when this memo's value changes.
+
+```moonbit
+let doubled = Memo::new(rt, fn() { count.get() * 2 })
+doubled.on_change(fn(new_val) {
+  update_ui(new_val)
+})
+```
+
+**Behavior:**
+- Fires after the cell's value changes
+- Fires before `Runtime::on_change` callback
+- During batch: fires at batch end for all changed cells
 
 ---
 

@@ -15,18 +15,44 @@ A Salsa-inspired incremental recomputation library for [MoonBit](https://www.moo
 ## Quick Start
 
 ```moonbit
-let rt = Runtime::new()
+// Recommended: Database pattern (encapsulates Runtime)
+struct MyApp {
+  rt : Runtime
+}
+
+impl IncrDb for MyApp with runtime(self) { self.rt }
+
+fn MyApp::new() -> MyApp {
+  { rt: Runtime::new() }
+}
+
+let app = MyApp::new()
 
 // Create input signals
-let x = Signal::new(rt, 10)
-let y = Signal::new(rt, 20)
+let x = create_signal(app, 10)
+let y = create_signal(app, 20)
 
 // Create derived computations
-let sum = Memo::new(rt, fn() { x.get() + y.get() })
+let sum = create_memo(app, fn() { x.get() + y.get() })
 
 inspect(sum.get(), content="30")
 
 // Update an input — downstream memos recompute on next access
+x.set(5)
+inspect(sum.get(), content="25")
+```
+
+### Alternative: Direct Runtime Usage
+
+For simple scripts or when you need more control:
+
+```moonbit
+let rt = Runtime::new()
+let x = Signal::new(rt, 10)
+let y = Signal::new(rt, 20)
+let sum = Memo::new(rt, fn() { x.get() + y.get() })
+
+inspect(sum.get(), content="30")
 x.set(5)
 inspect(sum.get(), content="25")
 ```
@@ -73,15 +99,17 @@ inspect(config_derived.get(), content="200")
 | [Core Concepts](docs/concepts.md) | Understand Signals, Memos, Revisions, Durability, and Backdating |
 | [API Reference](docs/api-reference.md) | Complete reference for all public types and methods |
 | [Cookbook](docs/cookbook.md) | Common patterns and recipes |
+| [API Design Guidelines](docs/api-design-guidelines.md) | Design philosophy, best practices, and planned improvements |
 
 ### For Contributors
 
 | Document | Description |
 |----------|-------------|
-| [DESIGN.md](./DESIGN.md) | Deep technical internals: verification algorithm, type erasure, implementation details |
-| [ROADMAP.md](./ROADMAP.md) | High-level future direction |
-| [TODO.md](./TODO.md) | Concrete actionable tasks |
+| [Design](docs/design.md) | Deep technical internals: verification algorithm, type erasure, implementation details |
+| [Roadmap](docs/roadmap.md) | High-level future direction with phased improvements |
+| [TODO](docs/todo.md) | Concrete actionable tasks with checkboxes |
 | [Comparison with alien-signals](docs/comparison-with-alien-signals.md) | Analysis of different reactive frameworks |
+| [API Updates](docs/api-updates.md) | Summary of recent API documentation changes |
 
 ## Development
 
