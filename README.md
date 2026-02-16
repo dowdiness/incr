@@ -9,6 +9,7 @@ A Salsa-inspired incremental recomputation library for [MoonBit](https://www.moo
 - **Backdating** — Unchanged recomputed values preserve their old revision, preventing unnecessary downstream recomputation
 - **Durability** — Classify inputs by change frequency (Low/Medium/High) to skip verification of stable subgraphs
 - **Batch updates** — Atomic multi-signal updates with revert detection
+- **Change hooks** — `Runtime::set_on_change` callback for committed updates (batch-aware)
 - **Cycle detection** — Detects cycles with `get_result()` for graceful handling or `get()` for abort
 
 ## Quick Start

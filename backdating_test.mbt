@@ -14,7 +14,11 @@ test "backdating: intermediate memo unchanged stops downstream recompute" {
   let mut downstream_count = 0
   let downstream = Memo::new(rt, fn() {
     downstream_count = downstream_count + 1
-    if is_even.get() { "even" } else { "odd" }
+    if is_even.get() {
+      "even"
+    } else {
+      "odd"
+    }
   })
   // Initial computation
   inspect(downstream.get(), content="even")
@@ -41,7 +45,11 @@ test "backdating: value actually changes propagates" {
   let mut downstream_count = 0
   let downstream = Memo::new(rt, fn() {
     downstream_count = downstream_count + 1
-    if is_even.get() { "even" } else { "odd" }
+    if is_even.get() {
+      "even"
+    } else {
+      "odd"
+    }
   })
   inspect(downstream.get(), content="even")
   // Change input from 4 to 5: is_even changes from true to false
@@ -61,7 +69,11 @@ test "backdating: three-level chain with stable middle" {
   let abs_val = Memo::new(rt, fn() {
     abs_count = abs_count + 1
     let v = input.get()
-    if v < 0 { -v } else { v }
+    if v < 0 {
+      -v
+    } else {
+      v
+    }
   })
   let mut doubled_count = 0
   let doubled = Memo::new(rt, fn() {
@@ -74,8 +86,8 @@ test "backdating: three-level chain with stable middle" {
   // Change to -5: abs is still 5 (backdated)
   input.set(-5)
   inspect(doubled.get(), content="10")
-  inspect(abs_count, content="2")      // abs recomputed
-  inspect(doubled_count, content="1")   // doubled did NOT recompute
+  inspect(abs_count, content="2") // abs recomputed
+  inspect(doubled_count, content="1") // doubled did NOT recompute
 }
 
 ///|
@@ -86,7 +98,13 @@ test "backdating: multiple changes, some stable some not" {
   let clamped = Memo::new(rt, fn() {
     clamp_count = clamp_count + 1
     let v = input.get()
-    if v > 100 { 100 } else if v < 0 { 0 } else { v }
+    if v > 100 {
+      100
+    } else if v < 0 {
+      0
+    } else {
+      v
+    }
   })
   let mut fmt_count = 0
   let formatted = Memo::new(rt, fn() {

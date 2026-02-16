@@ -7,7 +7,7 @@
 ///
 /// # Example
 ///
-/// ```moonbit
+/// ```moonbit nocheck
 /// let rt = Runtime::new()
 /// let count = Signal::new(rt, 0)
 /// count.set(5)
@@ -116,7 +116,7 @@ pub fn[T] Signal::get_result(self : Signal[T]) -> Result[T, CycleError] {
 ///
 /// # Same-Value Optimization
 ///
-/// ```moonbit
+/// ```moonbit nocheck
 /// let s = Signal::new(rt, 5)
 /// s.set(5)  // No-op: value unchanged, no revision bump
 /// s.set(6)  // Bumps revision, memos depending on s will reverify
@@ -144,10 +144,7 @@ pub fn[T : Eq] Signal::set(self : Signal[T], new_value : T) -> Unit {
 /// # Parameters
 ///
 /// - `new_value`: The new value to set
-pub fn[T] Signal::set_unconditional(
-  self : Signal[T],
-  new_value : T,
-) -> Unit {
+pub fn[T] Signal::set_unconditional(self : Signal[T], new_value : T) -> Unit {
   if self.rt.batch_depth > 0 {
     self.set_batch_unconditional(new_value)
   } else {

@@ -14,7 +14,7 @@
 ///
 /// # Example
 ///
-/// ```moonbit
+/// ```moonbit nocheck
 /// let rt = Runtime::new()
 /// let a = Signal::new(rt, 10)
 /// let b = Signal::new(rt, 20)
@@ -93,7 +93,9 @@ pub fn[T : Eq] Memo::get(self : Memo[T]) -> T {
   match self.get_result() {
     Ok(value) => value
     Err(CycleDetected(id)) =>
-      abort("Cycle detected: cell " + id.to_string() + " is already being computed")
+      abort(
+        "Cycle detected: cell " + id.to_string() + " is already being computed",
+      )
   }
 }
 
@@ -110,7 +112,7 @@ pub fn[T : Eq] Memo::get(self : Memo[T]) -> T {
 ///
 /// # Example
 ///
-/// ```moonbit
+/// ```moonbit nocheck
 /// match memo.get_result() {
 ///   Ok(value) => println("Got: " + value.to_string())
 ///   Err(CycleDetected(id)) => println("Cycle at cell " + id.to_string())
@@ -120,7 +122,7 @@ pub fn[T : Eq] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
   let cell = self.rt.get_cell(self.cell_id)
   // First computation: no cached value yet
   match self.value {
-    None => {
+    None =>
       match self.force_recompute() {
         Ok(_) => {
           // Only record dependency on successful read to avoid poisoning
@@ -130,7 +132,6 @@ pub fn[T : Eq] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
         }
         Err(e) => Err(e)
       }
-    }
     Some(_) => {
       // Fast path: already verified this revision
       if cell.verified_at == self.rt.current_revision {

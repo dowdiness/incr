@@ -5,9 +5,9 @@ test "on_change fires on signal set" {
   rt.set_on_change(fn() { count = count + 1 })
   let s = Signal::new(rt, 0)
   s.set(1)
-  inspect!(count, content="1")
+  inspect(count, content="1")
   s.set(2)
-  inspect!(count, content="2")
+  inspect(count, content="2")
 }
 
 ///|
@@ -17,7 +17,7 @@ test "on_change does not fire on same value" {
   rt.set_on_change(fn() { count = count + 1 })
   let s = Signal::new(rt, 0)
   s.set(0)
-  inspect!(count, content="0")
+  inspect(count, content="0")
 }
 
 ///|
@@ -31,7 +31,7 @@ test "on_change fires once at batch end" {
     a.set(1)
     b.set(2)
   })
-  inspect!(count, content="1")
+  inspect(count, content="1")
 }
 
 ///|
@@ -44,7 +44,7 @@ test "on_change does not fire on batch revert" {
     s.set(5)
     s.set(0)
   })
-  inspect!(count, content="0")
+  inspect(count, content="0")
 }
 
 ///|
@@ -54,7 +54,7 @@ test "on_change with set_unconditional" {
   rt.set_on_change(fn() { count = count + 1 })
   let s = Signal::new(rt, 0)
   s.set_unconditional(0)
-  inspect!(count, content="1")
+  inspect(count, content="1")
 }
 
 ///|
@@ -64,10 +64,10 @@ test "clear_on_change stops notifications" {
   rt.set_on_change(fn() { count = count + 1 })
   let s = Signal::new(rt, 0)
   s.set(1)
-  inspect!(count, content="1")
+  inspect(count, content="1")
   rt.clear_on_change()
   s.set(2)
-  inspect!(count, content="1")
+  inspect(count, content="1")
 }
 
 ///|
@@ -81,8 +81,8 @@ test "on_change does not fire during batch" {
     s.set(1)
     check_inside_batch = fired_during_batch
   })
-  inspect!(check_inside_batch, content="false")
-  inspect!(fired_during_batch, content="true")
+  inspect(check_inside_batch, content="false")
+  inspect(fired_during_batch, content="true")
 }
 
 ///|
@@ -92,8 +92,8 @@ test "on_change with memo and backdating" {
   rt.set_on_change(fn() { count = count + 1 })
   let x = Signal::new(rt, 10)
   let parity = Memo::new(rt, fn() { x.get() % 2 == 0 })
-  inspect!(parity.get(), content="true")
+  inspect(parity.get(), content="true")
   x.set(12)
-  inspect!(count, content="1")
-  inspect!(parity.get(), content="true")
+  inspect(count, content="1")
+  inspect(parity.get(), content="true")
 }

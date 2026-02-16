@@ -87,10 +87,10 @@ A **Revision** is a global counter that increments when any signal changes:
 
 | Event | Global Revision |
 |-------|-----------------|
-| Initial state | R1 |
-| `price.set(200)` | R2 |
-| `qty.set(3)` | R3 |
-| `qty.set(3)` (same value) | R3 (unchanged) |
+| Initial state | R0 |
+| `price.set(200)` | R1 |
+| `qty.set(3)` | R2 |
+| `qty.set(3)` (same value) | R2 (unchanged) |
 
 Every cell tracks two timestamps:
 
@@ -114,7 +114,7 @@ inspect(label.get(), content="even")
 input.set(6)
 
 // is_even recomputes: true → true (same!)
-// Backdating: is_even.changed_at stays at R1
+// Backdating: is_even.changed_at stays at R0
 // label sees no change, skips recomputation
 inspect(label.get(), content="even")  // Did NOT recompute
 ```

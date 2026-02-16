@@ -115,6 +115,7 @@ test "custom_eq: backdating ignores generation field" {
 
   // Verify generation did increment
   inspect(gen, content="2")
+  inspect(versioned_memo.get().generation, content="2")
 
   // Change to 200: value=20 (different), gen=3
   input.set(200)
@@ -181,6 +182,28 @@ test "custom_eq: enum with selective field comparison" {
   inspect(handler.get(), content="Error: 500")
   inspect(status_count, content="3")
   inspect(handler_count, content="2")
+}
+
+///|
+test "custom_eq: status variants and fields are used" {
+  let loading = Loading(progress=42)
+  let ready = Ready(data=7)
+  let error = Error(code=500, message="boom")
+
+  match loading {
+    Loading(progress=p) => inspect(p, content="42")
+    _ => abort("expected loading")
+  }
+
+  match ready {
+    Ready(data=d) => inspect(d, content="7")
+    _ => abort("expected ready")
+  }
+
+  match error {
+    Error(message=m, ..) => inspect(m, content="boom")
+    _ => abort("expected error")
+  }
 }
 
 ///|

@@ -88,7 +88,11 @@ test "integration: diamond with backdating" {
   let is_positive = Memo::new(rt, fn() { input.get() > 0 })
   let abs_val = Memo::new(rt, fn() {
     let v = input.get()
-    if v < 0 { -v } else { v }
+    if v < 0 {
+      -v
+    } else {
+      v
+    }
   })
   let mut result_count = 0
   let result = Memo::new(rt, fn() {
@@ -202,7 +206,11 @@ test "integration: dynamic dependencies" {
   let mut compute_count = 0
   let result = Memo::new(rt, fn() {
     compute_count = compute_count + 1
-    if flag.get() { a.get() } else { b.get() }
+    if flag.get() {
+      a.get()
+    } else {
+      b.get()
+    }
   })
   // Initially reads flag + a
   inspect(result.get(), content="10")

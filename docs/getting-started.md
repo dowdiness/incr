@@ -54,6 +54,22 @@ quantity.set(10)
 inspect(total.get(), content="1000")
 ```
 
+### Step 5: Observe Committed Changes
+
+Use `Runtime::set_on_change` to run a callback whenever the runtime commits a change.
+
+```moonbit
+let mut changes = 0
+rt.set_on_change(fn() { changes = changes + 1 })
+
+quantity.set(12)
+inspect(changes, content="1")
+
+// Same-value set is a no-op, callback does not fire
+quantity.set(12)
+inspect(changes, content="1")
+```
+
 ## Complete Example
 
 ```moonbit

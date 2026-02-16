@@ -242,6 +242,38 @@ inspect(average.get(), content="30")
 
 ---
 
+## Pattern: Change Notifications
+
+Observe committed updates with `Runtime::set_on_change`:
+
+```moonbit
+let rt = Runtime::new()
+let a = Signal::new(rt, 0)
+let b = Signal::new(rt, 0)
+let mut notifications = 0
+
+rt.set_on_change(fn() { notifications = notifications + 1 })
+
+// Outside batch: one callback per committed change
+a.set(1)
+b.set(2)
+inspect(notifications, content="2")
+
+// Inside batch: at most one callback at batch end
+rt.batch(fn() {
+  a.set(3)
+  b.set(4)
+})
+inspect(notifications, content="3")
+```
+
+Useful for:
+- Triggering UI refreshes
+- Scheduling downstream side effects
+- Collecting change metrics
+
+---
+
 ## Anti-Pattern: Reading During Batch
 
 Avoid reading memos inside a batch — they see pre-batch values:

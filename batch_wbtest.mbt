@@ -59,18 +59,9 @@ test "batch: mixed durabilities" {
   inspect(low.get(), content="2")
   inspect(high.get(), content="200")
   // durability_last_changed should reflect High (covers all levels)
-  inspect(
-    rt.durability_last_changed[0].value,
-    content="1",
-  )
-  inspect(
-    rt.durability_last_changed[1].value,
-    content="1",
-  )
-  inspect(
-    rt.durability_last_changed[2].value,
-    content="1",
-  )
+  inspect(rt.durability_last_changed[0].value, content="1")
+  inspect(rt.durability_last_changed[1].value, content="1")
+  inspect(rt.durability_last_changed[2].value, content="1")
 }
 
 ///|

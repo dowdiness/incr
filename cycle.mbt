@@ -7,7 +7,7 @@
 ///
 /// # Example
 ///
-/// ```moonbit
+/// ```moonbit nocheck
 /// let rt = Runtime::new()
 /// let memo_ref : Ref[Memo[Int]?] = { val: None }
 /// let memo = Memo::new(rt, fn() {

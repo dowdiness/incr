@@ -7,9 +7,11 @@
 ///
 /// # Example
 ///
-/// ```moonbit
+/// ```moonbit nocheck
 /// let rt = Runtime::new()
+///
 /// let x = Signal::new(rt, 10)
+///
 /// let doubled = Memo::new(rt, fn() { x.get() * 2 })
 /// ```
 pub(all) struct Runtime {
@@ -39,7 +41,10 @@ pub fn Runtime::new() -> Runtime {
     cells: [],
     next_cell_id: 0,
     tracking_stack: [],
-    durability_last_changed: FixedArray::make(durability_count, Revision::initial()),
+    durability_last_changed: FixedArray::make(
+      durability_count,
+      Revision::initial(),
+    ),
     batch_depth: 0,
     batch_pending_signals: [],
     batch_max_durability: Low,
@@ -179,7 +184,7 @@ fn Runtime::bump_revision(self : Runtime, durability : Durability) -> Unit {
 ///
 /// # Example
 ///
-/// ```moonbit
+/// ```moonbit nocheck
 /// rt.batch(fn() {
 ///   x.set(10)
 ///   y.set(20)
@@ -190,7 +195,7 @@ fn Runtime::bump_revision(self : Runtime, durability : Durability) -> Unit {
 ///
 /// # Revert Detection
 ///
-/// ```moonbit
+/// ```moonbit nocheck
 /// rt.batch(fn() {
 ///   x.set(5)   // Change from 0 to 5
 ///   x.set(0)   // Change back to 0

@@ -281,7 +281,10 @@ test "failed get_result does not create spurious dependency edges" {
   // fail with a spurious cycle error instead of recomputing.
   match memo.get_result() {
     Ok(v) => inspect(v, content="202") // 200 + 2 (second cycle detection)
-    Err(_) => fail("Spurious cycle detected - failed get_result created bad dependency edge")
+    Err(_) =>
+      fail(
+        "Spurious cycle detected - failed get_result created bad dependency edge",
+      )
   }
 
   // Third access should use cached value (no new cycle detection)
@@ -312,7 +315,6 @@ test "panic cycle on initial get: direct self-referencing memo aborts" {
   // First get() enters force_recompute(), then re-enters force_recompute() via m.get().
   // The second entry must abort with cycle detection rather than recurse indefinitely.
   let _ = memo.get()
-
 }
 
 ///|
@@ -330,5 +332,4 @@ test "panic cycle on initial get: mutual recursion between two memos aborts" {
   // First get() of memo_a reaches memo_b.get(), which re-enters memo_a.get().
   // This must abort immediately via the in-progress recompute guard.
   let _ = memo_a.get()
-
 }
