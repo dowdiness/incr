@@ -192,6 +192,10 @@ pub fn[T] Signal::set_unconditional(self : Signal[T], new_value : T) -> Unit {
     let meta = self.rt.get_cell(self.cell_id)
     meta.changed_at = self.rt.current_revision
     meta.verified_at = self.rt.current_revision
+    match meta.on_change {
+      Some(f) => f()
+      None => ()
+    }
     self.rt.fire_on_change()
   }
 }
@@ -257,4 +261,26 @@ fn[T] Signal::commit_unconditional(self : Signal[T]) -> Bool {
       true
     }
   }
+}
+
+///|
+/// Registers a callback that fires whenever this signal's value changes.
+///
+/// The callback receives the new value. It fires after the value is updated
+/// but before `Runtime::fire_on_change()`. Only one callback can be
+/// registered at a time; calling this again replaces the previous callback.
+///
+/// # Parameters
+///
+/// - `f`: Called with the new value whenever this signal changes
+pub fn[T] Signal::on_change(self : Signal[T], f : (T) -> Unit) -> Unit {
+  let cell = self.rt.get_cell(self.cell_id)
+  cell.on_change = Some(fn() { f(self.value) })
+}
+
+///|
+/// Removes the `on_change` callback for this signal.
+pub fn[T] Signal::clear_on_change(self : Signal[T]) -> Unit {
+  let cell = self.rt.get_cell(self.cell_id)
+  cell.on_change = None
 }

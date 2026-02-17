@@ -58,6 +58,10 @@ priv struct CellMeta {
   /// if the committed value differs from the current value.
   /// None for derived cells or inputs outside a batch.
   mut commit_pending : (() -> Bool)?
+  /// Called when the cell's value changes.
+  /// Invoked after a signal is set or a memo recomputes to a new value.
+  /// None if no callback is registered.
+  mut on_change : (() -> Unit)?
   /// Cycle detection flag.
   mut in_progress : Bool
 }
@@ -83,6 +87,7 @@ fn CellMeta::new_input(id : CellId, durability : Durability) -> CellMeta {
     durability,
     recompute_and_check: None,
     commit_pending: None,
+    on_change: None,
     in_progress: false,
   }
 }
@@ -114,6 +119,7 @@ fn CellMeta::new_derived(
     durability: Low,
     recompute_and_check: Some(recompute_and_check),
     commit_pending: None,
+    on_change: None,
     in_progress: false,
   }
 }

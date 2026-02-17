@@ -312,3 +312,19 @@ pub fn[T] Memo::verified_at(self : Memo[T]) -> Revision {
     None => Revision::initial()
   }
 }
+
+///|
+/// Registers a callback that fires whenever this memo's value changes.
+///
+/// Not yet implemented — stub for compilation only.
+pub fn[T] Memo::on_change(self : Memo[T], _f : (T) -> Unit) -> Unit {
+  ignore(self)
+}
+
+///|
+/// Removes the `on_change` callback for this memo.
+///
+/// Not yet implemented — stub for compilation only.
+pub fn[T] Memo::clear_on_change(self : Memo[T]) -> Unit {
+  ignore(self)
+}
