@@ -360,6 +360,13 @@ fn Runtime::commit_batch(self : Runtime) -> Unit {
       meta.changed_at = rev
       meta.verified_at = rev
     }
+    for i = 0; i < changed_ids.length(); i = i + 1 {
+      let meta = self.get_cell(changed_ids[i])
+      match meta.on_change {
+        Some(f) => f()
+        None => ()
+      }
+    }
     self.batch_max_durability = Low
     self.fire_on_change()
     return
