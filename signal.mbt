@@ -19,7 +19,7 @@ pub(all) struct Signal[T] {
   priv mut value : T
   priv mut pending_value : T?
   priv durability : Durability
-}
+} derive(Debug(ignore=[Runtime, CellId]))
 
 ///|
 /// Creates a new signal with the given initial value and `Low` durability.

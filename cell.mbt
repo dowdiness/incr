@@ -10,7 +10,7 @@
 pub(all) struct CellId {
   runtime_id : Int
   id : Int
-} derive(Eq, Show)
+} derive(Eq, Show, Debug)
 
 ///|
 impl Hash for CellId with hash(self) {

@@ -31,7 +31,7 @@ pub(all) struct Memo[T] {
   priv cell_id : CellId
   priv compute : () -> T
   priv mut value : T?
-}
+} derive(Debug(ignore=[Runtime, Fn, CellId]))
 
 ///|
 /// Creates a new memo with the given compute function.
