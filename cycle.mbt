@@ -45,11 +45,17 @@ pub fn CycleError::cell(self : CycleError) -> CellId {
 }
 
 ///|
-/// Returns the full dependency path that forms the cycle.
+/// Returns the dependency path leading to the cycle.
 ///
-/// The path includes all cells involved in the cycle, starting from
-/// the cell that triggered the cycle detection. The last cell in the
-/// path depends on the first cell, forming the cycle.
+/// The path shows the sequence of cells traversed from the computation
+/// entry point to where the cycle was detected. The last cell in the
+/// path is the same as the first cell where the cycle is detected,
+/// closing the loop.
+///
+/// Note: The path may include cells outside the cycle itself. For example,
+/// if cell A triggers computation of B→C→B, the path will be `[A, B, C, B]`
+/// rather than just `[B, C, B]`, preserving the full computation context.
+/// Use the repeated cell to identify the cycle boundary.
 pub fn CycleError::path(self : CycleError) -> Array[CellId] {
   match self {
     CycleDetected(_, path) => path
@@ -100,6 +106,10 @@ pub fn CycleError::format_path(self : CycleError, rt : Runtime) -> String {
 /// Helper function to format a single cell ID.
 ///
 /// Returns "Cell[N]" where N is the cell's ID number.
+///
+/// The `rt` parameter is currently unused (hence the underscore prefix),
+/// but is threaded through for future use — e.g., calling `rt.cell_info()`
+/// to display richer metadata like cell type or durability level.
 fn format_cell(_rt : Runtime, cell_id : CellId) -> String {
   "Cell[" + cell_id.id.to_string() + "]"
 }

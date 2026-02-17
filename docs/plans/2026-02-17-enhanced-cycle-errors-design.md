@@ -106,11 +106,11 @@ fn maybe_changed_after(rt, cell_id, rev) -> Result[Bool, CycleError] {
 
 **1. Self-Cycles (A → A)**
 - Path will be `[A, A]`
-- Format: `"Cycle: Memo[0] → Memo[0]"`
+- Format: `"Cycle detected: Cell[0] → Cell[0]"`
 
 **2. Multi-Cell Cycles (A → B → C → B)**
 - Path captures full traversal including entry into cycle
-- Format from first occurrence of repeated cell: `"Cycle: Memo[1] → Memo[2] → Memo[1]"`
+- Format from first occurrence of repeated cell: `"Cycle detected: Cell[1] → Cell[2] → Cell[1]"`
 
 **3. Invalid CellId in Path**
 - If `cell_info()` returns `None` for a CellId in the path (shouldn't happen)
@@ -118,20 +118,22 @@ fn maybe_changed_after(rt, cell_id, rev) -> Result[Bool, CycleError] {
 - Defensive coding for robustness
 
 **4. Very Long Cycles**
-- If cycle has more than 20 cells, truncate the middle
-- Format: `"Cycle: Cell[0] → Cell[1] → ... (15 more) → Cell[19] → Cell[0]"`
+- If cycle has more than 20 cells, truncate after the 20th cell
+- Format: `"Cycle detected: Cell[0] → Cell[1] → ... → Cell[19] → ..."`
 
 ### Format Examples
 
 ```moonbit
 // Simple 2-cell cycle
-"Cycle detected: Memo[5] → Memo[7] → Memo[5]"
+"Cycle detected: Cell[5] → Cell[7] → Cell[5]"
 
 // Self-cycle
-"Cycle detected: Memo[3] → Memo[3]"
+"Cycle detected: Cell[3] → Cell[3]"
 
-// With metadata (if we have CellInfo)
-"Cycle detected: Signal[0](High) → Memo[1] → Memo[2] → Memo[1]"
+// Note: cell type and durability metadata are not currently shown.
+// All cells are formatted as "Cell[N]" regardless of whether they are
+// signals or memos. Richer formatting (e.g., "Signal[0]", "Memo[1]")
+// may be added in a future enhancement using rt.cell_info().
 ```
 
 ### Performance Impact

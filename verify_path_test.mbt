@@ -72,69 +72,35 @@ test "verify: cycle path includes all traversed cells" {
 
 ///|
 test "verify: self-cycle path shows cell twice" {
-  // Setup: M→M self-cycle
-  // When verifying M, it checks itself (cycle!)
-  // Expected path: [M, M] showing the self-reference
+  // Setup: M→M self-cycle (M immediately depends on itself)
+  // When computing M for the first time, it recursively tries to get M
+  // (which is in_progress), producing path = [M, M]
   let rt = Runtime::new()
-  let trigger = Signal::new(rt, 0)
-
+  let captured_path : Ref[Array[CellId]?] = { val: None }
   let memo_ref : Ref[Memo[Int]?] = { val: None }
 
-  // M depends on itself (when trigger > 0)
   let memo = Memo::new(rt, fn() {
-    if trigger.get() > 0 {
-      match memo_ref.val {
-        Some(m) =>
-          match m.get_result() {
-            Ok(v) => v + 1
-            Err(_) => -999
+    match memo_ref.val {
+      Some(m) =>
+        match m.get_result() {
+          Ok(v) => v + 1
+          Err(err) => {
+            captured_path.val = Some(err.path())
+            -999
           }
-        None => 0
-      }
-    } else {
-      42
+        }
+      None => 0
     }
   })
-
   memo_ref.val = Some(memo)
 
-  // First access: no cycle (trigger = 0)
   let _ = memo.get()
-
-  // Change trigger to create self-cycle
-  trigger.set(1)
-
-  // Now accessing M will trigger verification:
-  // Verify M -> Check M -> CYCLE!
-  // Expected path: [M, M]
-  let captured_path : Ref[Array[CellId]?] = { val: None }
-  let memo_instrumented = Memo::new(rt, fn() {
-    if trigger.get() > 0 {
-      match memo_ref.val {
-        Some(m) =>
-          match m.get_result() {
-            Ok(v) => v + 1
-            Err(err) => {
-              captured_path.val = Some(err.path())
-              -999
-            }
-          }
-        None => 0
-      }
-    } else {
-      42
-    }
-  })
-  memo_ref.val = Some(memo_instrumented)
-
-  let _ = memo_instrumented.get()
 
   match captured_path.val {
     Some(path) => {
-      // Path should be: [M_instrumented, M_instrumented]
       inspect(path.length(), content="2")
-      inspect(path[0] == memo_instrumented.id(), content="true")
-      inspect(path[1] == memo_instrumented.id(), content="true")
+      inspect(path[0] == memo.id(), content="true")
+      inspect(path[1] == memo.id(), content="true")
     }
     None => fail("Expected cycle path to be captured")
   }

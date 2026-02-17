@@ -167,6 +167,9 @@ fn maybe_changed_after_derived(
 /// resolved, `Ok(None)` if a full dependency walk is needed, or
 /// `Err(CycleError)` if a cycle is detected.
 /// Sets in_progress flag if returning `Ok(None)`.
+// Note: `path` is only read on the cycle-detection error path (see below).
+// It has no effect on the verification logic itself — it is purely for
+// building the CycleError diagnostic when a cycle is detected.
 fn try_start_verify(
   rt : Runtime,
   cell : CellMeta,

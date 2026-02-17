@@ -256,16 +256,12 @@ test "CycleError::format_path() produces readable output" {
   })
   memo_ref.val = Some(memo)
   let _ = memo.get_result()
-  // Message should start with "Cycle detected:"
   inspect(captured_message.val.contains("Cycle detected:"), content="true")
-  // Note: Path tracking not yet implemented (Task 3), so no arrows yet
-  // Will test arrow format after Task 3 is complete
+  inspect(captured_message.val.contains(" → "), content="true")
 }
 
 ///|
-test "CycleError::format_path() truncates long cycles" {
-  // Create a simple self-referencing memo and simulate a long path
-  // The actual path length will be determined by the verification algorithm
+test "CycleError::format_path() returns non-empty string for self-referencing memo" {
   let rt = Runtime::new()
   let captured_message : Ref[String] = { val: "" }
   let memo_ref : Ref[Memo[Int]?] = { val: None }
@@ -284,9 +280,8 @@ test "CycleError::format_path() truncates long cycles" {
   })
   memo_ref.val = Some(memo)
   let _ = memo.get_result()
-  // For now, just verify format_path returns a valid string
-  // The truncation test will be more meaningful after we implement path tracking
-  inspect(captured_message.val.length() > 0, content="true")
+  inspect(captured_message.val.contains("Cycle detected:"), content="true")
+  inspect(captured_message.val.contains(" → "), content="true")
 }
 
 ///|

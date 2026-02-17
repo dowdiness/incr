@@ -211,7 +211,7 @@ let config = Signal::builder(rt)
 
 **Migration:** Keep existing `new()` and `new_with_durability()` — builder is additive.
 
-### Phase 2D: Enhanced Error Diagnostics (Medium Priority)
+### Phase 2A: Enhanced Error Diagnostics (High Priority) — Implemented
 
 **Goal:** Better debugging for cycle errors.
 
@@ -228,9 +228,9 @@ pub fn CycleError::format_path(self, rt : Runtime) -> String
 
 ```moonbit
 match memo.get_result() {
-  Err(CycleDetected(id, path)) => {
-    println("Cycle detected: " + format_cycle_path(path))
-    // "A (id=0) → B (id=1) → C (id=2) → A"
+  Err(err) => {
+    println(err.format_path(rt))
+    // "Cycle detected: Cell[0] → Cell[1] → Cell[2] → Cell[0]"
   }
   Ok(v) => v
 }
