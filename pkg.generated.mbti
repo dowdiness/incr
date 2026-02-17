@@ -1,6 +1,10 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "dowdiness/incr"
 
+import {
+  "moonbitlang/core/debug",
+}
+
 // Values
 pub fn[Db : IncrDb] batch(Db, () -> Unit) -> Unit
 
@@ -12,12 +16,15 @@ pub fn[Db : IncrDb, T] create_signal_durable(Db, T, Durability) -> Signal[T]
 
 // Errors
 pub suberror CycleError {
-  CycleDetected(Int)
+  CycleDetected(CellId, Array[CellId])
 }
-pub fn CycleError::cell_id(Self) -> Int
+pub fn CycleError::cell(Self) -> CellId
+pub fn CycleError::format_path(Self, Runtime) -> String
+pub fn CycleError::path(Self) -> Array[CellId]
 
 // Types and methods
 pub(all) struct CellId {
+  runtime_id : Int
   id : Int
 }
 pub impl Eq for CellId
@@ -36,8 +43,10 @@ pub(all) enum Durability {
   Medium
   High
 }
+pub impl Compare for Durability
 pub impl Eq for Durability
 pub impl Show for Durability
+pub impl @debug.Debug for Durability
 
 pub(all) struct Memo[T] {
   // private fields
@@ -55,7 +64,11 @@ pub impl[T] Readable for Memo[T]
 pub(all) struct Revision {
   value : Int
 }
+pub impl Compare for Revision
+pub impl Default for Revision
 pub impl Eq for Revision
+pub impl Show for Revision
+pub impl @debug.Debug for Revision
 
 pub(all) struct Runtime {
   // private fields

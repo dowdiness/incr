@@ -50,7 +50,7 @@ test "cycle path: simple two-cell cycle" {
 
   match captured_path.val {
     Some(path) => {
-      inspect(path.length(), content="3")  // B, C, B closing the cycle
+      inspect(path.length(), content="3") // B, C, B closing the cycle
       inspect(path[0] == b.id(), content="true")
       inspect(path[1] == c.id(), content="true")
       inspect(path[2] == b.id(), content="true")
@@ -146,7 +146,10 @@ test "cycle path: long cycle is truncated" {
     Some(path) => {
       inspect(path.length() > 20, content="true")
       let formatted = captured_formatted.val
-      inspect(formatted.contains("...") || formatted.contains("more"), content="true")
+      inspect(
+        formatted.contains("...") || formatted.contains("more"),
+        content="true",
+      )
     }
     None => fail("Expected cycle path to be captured")
   }

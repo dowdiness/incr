@@ -160,6 +160,20 @@ Returns:
 
 ---
 
+## Revision
+
+Logical timestamp used by introspection APIs (`Memo::changed_at`, `Memo::verified_at`, and `CellInfo` fields).
+
+`Revision` supports direct ordering comparisons (`<`, `<=`, `>`, `>=`), which is what verification uses internally.
+
+```moonbit
+let changed = memo.changed_at()
+let verified = memo.verified_at()
+let changed_since_verified = changed > verified
+```
+
+---
+
 ## Durability
 
 Classification used for verification skipping:
@@ -173,6 +187,7 @@ enum Durability {
 ```
 
 Ordering: `Low < Medium < High`.
+Direct comparisons (`<`, `<=`, `>`, `>=`) are supported.
 
 Memos inherit the minimum durability of their dependencies.
 

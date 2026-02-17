@@ -55,7 +55,7 @@ pub fn Runtime::new() -> Runtime {
     next_cell_id: 0,
     tracking_stack: [],
     durability_last_changed: FixedArray::make(
-      durability_count,
+      DURABILITY_COUNT,
       Revision::initial(),
     ),
     batch_depth: 0,
@@ -261,7 +261,7 @@ pub fn Runtime::cell_info(self : Runtime, id : CellId) -> CellInfo? {
 fn Runtime::bump_revision(self : Runtime, durability : Durability) -> Unit {
   if self.batch_depth > 0 {
     // Track the maximum durability seen during this batch
-    if durability.index() > self.batch_max_durability.index() {
+    if durability > self.batch_max_durability {
       self.batch_max_durability = durability
     }
     return

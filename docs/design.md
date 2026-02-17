@@ -59,6 +59,7 @@ A **Revision** is a monotonically increasing integer that serves as the system's
 - **`verified_at`** — The revision at which this cell was last confirmed to be up-to-date.
 
 These two timestamps are the foundation of the verification algorithm. A cell is stale if `verified_at < current_revision`. A cell has changed (relative to some observer) if `changed_at > observer.verified_at`.
+`Revision` derives ordering, so the implementation uses direct comparison operators (`<`, `<=`, `>`, `>=`) for these checks.
 
 ## Automatic Dependency Tracking
 
@@ -192,6 +193,7 @@ This means a High-durability change also marks Medium and Low as changed, which 
 ### Derived Cell Durability
 
 A derived cell's durability is the **minimum** of its dependencies' durabilities. If a Memo depends on both a Low and a High input, it inherits Low durability, because it could be affected by frequent changes.
+`Durability` also derives ordering, so min/max durability checks use direct enum comparisons instead of helper functions.
 
 ### The Shortcut
 

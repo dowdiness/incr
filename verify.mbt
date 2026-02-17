@@ -35,7 +35,7 @@ fn maybe_changed_after(
 ) -> Result[Bool, CycleError] {
   let cell = rt.get_cell(cell_id)
   match cell.kind {
-    Input => Ok(cell.changed_at.after(after_revision))
+    Input => Ok(cell.changed_at > after_revision)
     Derived => maybe_changed_after_derived(rt, cell, after_revision)
   }
 }
@@ -134,12 +134,13 @@ fn maybe_changed_after_derived(
     match dep_cell.kind {
       Input =>
         // Input cells are checked inline — no stack push needed
-        if dep_cell.changed_at.after(stack[top].cell.verified_at) {
+        if dep_cell.changed_at > stack[top].cell.verified_at {
           stack[top].any_dep_changed = true
         }
       Derived =>
         // Check fast paths for the derived dependency
-        match try_start_verify(rt, dep_cell, stack[top].cell.verified_at, path) {
+        match
+          try_start_verify(rt, dep_cell, stack[top].cell.verified_at, path) {
           Ok(Some(changed)) => if changed { stack[top].any_dep_changed = true }
           Ok(None) => {
             // Need full walk — push a new frame for this dependency
@@ -178,11 +179,11 @@ fn try_start_verify(
 ) -> Result[Bool?, CycleError] {
   // Fast path: already verified this revision
   if cell.verified_at == rt.current_revision {
-    return Ok(Some(cell.changed_at.after(after_revision)))
+    return Ok(Some(cell.changed_at > after_revision))
   }
   // Durability shortcut
   let dur_idx = cell.durability.index()
-  if not(rt.durability_last_changed[dur_idx].after(after_revision)) {
+  if not(rt.durability_last_changed[dur_idx] > after_revision) {
     cell.verified_at = rt.current_revision
     return Ok(Some(false))
   }
@@ -219,7 +220,7 @@ fn finish_frame_changed(
       match recompute() {
         Ok(_) =>
           // force_recompute already sets verified_at and changed_at
-          Ok(cell.changed_at.after(frame.after_revision))
+          Ok(cell.changed_at > frame.after_revision)
         Err(e) => Err(e)
       }
     None => Ok(true)
@@ -232,5 +233,5 @@ fn finish_frame_unchanged(rt : Runtime, frame : VerifyFrame) -> Bool {
   let cell = frame.cell
   cell.verified_at = rt.current_revision
   cell.in_progress = false
-  cell.changed_at.after(frame.after_revision)
+  cell.changed_at > frame.after_revision
 }

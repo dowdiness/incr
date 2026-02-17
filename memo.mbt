@@ -94,8 +94,10 @@ pub fn[T : Eq] Memo::get(self : Memo[T]) -> T {
     Ok(value) => value
     Err(CycleDetected(cell, path)) =>
       abort(
-        "Cycle detected at cell " + cell.to_string() +
-        ", path length: " + path.length().to_string(),
+        "Cycle detected at cell " +
+        cell.to_string() +
+        ", path length: " +
+        path.length().to_string(),
       )
   }
 }
@@ -230,16 +232,11 @@ fn compute_durability(rt : Runtime, deps : Array[CellId]) -> Durability {
   for i = 0; i < deps.length(); i = i + 1 {
     let dep_cell = rt.get_cell(deps[i])
     let dep_dur = dep_cell.durability
-    if dur_less_than(dep_dur, min_dur) {
+    if dep_dur < min_dur {
       min_dur = dep_dur
     }
   }
   min_dur
-}
-
-///|
-fn dur_less_than(a : Durability, b : Durability) -> Bool {
-  a.index() < b.index()
 }
 
 ///|

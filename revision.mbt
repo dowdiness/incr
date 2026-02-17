@@ -11,7 +11,7 @@
 /// (relative to an observer) when `changed_at > observer.verified_at`.
 pub(all) struct Revision {
   value : Int
-} derive(Eq)
+} derive(Default, Show, Debug, Eq, Compare)
 
 ///|
 /// Returns the initial revision (revision 0).
@@ -22,7 +22,7 @@ pub(all) struct Revision {
 ///
 /// The initial revision
 fn Revision::initial() -> Revision {
-  { value: 0 }
+  Revision::default()
 }
 
 ///|
@@ -33,23 +33,6 @@ fn Revision::initial() -> Revision {
 /// A new revision with value incremented by 1
 fn Revision::next(self : Revision) -> Revision {
   { value: self.value + 1 }
-}
-
-///|
-/// Returns true if this revision is after (greater than) the other revision.
-///
-/// Used in the verification algorithm to determine if a cell has changed
-/// since another cell's last verification.
-///
-/// # Parameters
-///
-/// - `other`: The revision to compare against
-///
-/// # Returns
-///
-/// `true` if `self > other`, `false` otherwise
-fn Revision::after(self : Revision, other : Revision) -> Bool {
-  self.value > other.value
 }
 
 ///|
@@ -73,7 +56,7 @@ pub(all) enum Durability {
   Low
   Medium
   High
-} derive(Show, Eq)
+} derive(Show, Debug, Eq, Compare)
 
 ///|
 /// Returns the numeric index of this durability level.
@@ -98,4 +81,4 @@ fn Durability::index(self : Durability) -> Int {
 /// The number of durability levels (3: Low, Medium, High).
 ///
 /// Used internally to size the `durability_last_changed` array in Runtime.
-let durability_count : Int = 3
+const DURABILITY_COUNT : Int = 3

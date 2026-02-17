@@ -228,10 +228,9 @@ test "CycleError::path() returns the full dependency cycle" {
   // Note: Path tracking is now implemented (Task 2)
   // Path is populated with the cycle information
   match captured_path.val {
-    Some(path) => {
+    Some(path) =>
       // Path is populated by Task 2
       inspect(path.length() == 2, content="true")
-    }
     None => fail("Expected cycle path to be captured")
   }
 }
