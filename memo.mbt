@@ -326,9 +326,11 @@ pub fn[T] Memo::verified_at(self : Memo[T]) -> Revision {
 /// Registers a callback that fires whenever this memo's value changes.
 ///
 /// The callback fires lazily — only during `get()` when recomputation
-/// produces a new value. It does not fire if the memo backdates (recomputes
-/// to the same value). Only one callback can be registered at a time;
-/// calling this again replaces the previous callback.
+/// produces a new value that differs from the previous value. It does not
+/// fire on the first computation (which establishes the initial value),
+/// and does not fire if the memo backdates (recomputes to the same value).
+/// Only one callback can be registered at a time; calling this again
+/// replaces the previous callback.
 ///
 /// # Parameters
 ///
