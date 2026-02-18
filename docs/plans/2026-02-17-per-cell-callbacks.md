@@ -61,7 +61,7 @@ test "Memo callback does not fire when value backdated" {
   let rt = Runtime::new()
   let s = Signal::new(rt, 2)
   // This memo always computes to 1 regardless of input
-  let m = Memo::new(rt, fn() { s.get() / s.get() })
+  let m = Memo::new(rt, fn() { s.get() * 0 + 1 })
   let _ = m.get()
   let count : Ref[Int] = { val: 0 }
   m.on_change(fn(_v) { count.val = count.val + 1 })
@@ -428,7 +428,7 @@ fn[T : Eq] Memo::recompute_inner(self : Memo[T]) -> Result[Bool, CycleError] {
 moon test -p dowdiness/incr -f callback_test.mbt 2>&1
 ```
 
-Expected: all 7 tests pass.
+Expected: all 9 tests pass.
 
 **Step 4: Run full suite**
 
@@ -436,7 +436,7 @@ Expected: all 7 tests pass.
 moon test 2>&1 | tail -3
 ```
 
-Expected: all 114 + 7 = 121 tests pass, zero failures.
+Expected: all 114 + 9 = 123 tests pass, zero failures.
 
 **Step 5: Commit**
 

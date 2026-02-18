@@ -93,16 +93,28 @@ self.rt.fire_on_change()
 ```
 
 **Inside batch** — in `Runtime::commit_batch`, after the revision sweep over
-`changed_ids`, iterate the changed cells and fire their `on_change` before the
-global `fire_on_change()`:
+`changed_ids`, collect all `on_change` closures into a local array, raise
+`batch_depth` as a re-entrancy guard, invoke them, then lower `batch_depth`,
+commit any signals queued during callbacks, and finally call `fire_on_change()`
+once:
 
 ```moonbit
+let callbacks : Array[() -> Unit] = []
 for i = 0; i < changed_ids.length(); i = i + 1 {
   let meta = self.get_cell(changed_ids[i])
   match meta.on_change {
-    Some(f) => f()
+    Some(f) => callbacks.push(f)
     None => ()
   }
+}
+self.batch_max_durability = Low
+self.batch_depth = self.batch_depth + 1
+for i = 0; i < callbacks.length(); i = i + 1 {
+  callbacks[i]()
+}
+self.batch_depth = self.batch_depth - 1
+if self.batch_pending_signals.length() > 0 {
+  self.commit_batch()
 }
 self.fire_on_change()
 ```
@@ -139,6 +151,7 @@ signals were registered in the batch (`batch_pending_signals` order).
 6. **`clear_on_change` removes Signal callback** — register, set signal, clear, set again, verify callback fired exactly once
 7. **Batch: per-cell callbacks fire once per changed signal at batch end** — two signals with callbacks in batch, verify each fires exactly once
 8. **`clear_on_change` removes Memo callback** — register Memo callback, call `get()` to prime, clear, mutate upstream signal, call `get()` again, verify callback not invoked after clear
+9. **Batch re-entrancy: callback calling `set` is handled correctly** — s1's on_change calls `s2.set`; after batch on s1, verify both s1 and s2 callbacks fired exactly once
 
 ## Files Changed
 
@@ -148,5 +161,5 @@ signals were registered in the batch (`batch_pending_signals` order).
 | `signal.mbt` | Add `Signal::on_change` and `Signal::clear_on_change`; fire in `set_unconditional` |
 | `memo.mbt` | Add `Memo::on_change` and `Memo::clear_on_change`; fire in `recompute_inner` |
 | `runtime.mbt` | Fire per-cell callbacks in `commit_batch` before global `fire_on_change` |
-| `callback_test.mbt` | New file with 8 tests |
+| `callback_test.mbt` | New file with 9 tests |
 | `docs/todo.md` | Mark Phase 2B items as done |

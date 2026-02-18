@@ -90,6 +90,23 @@ test "batch: per-cell callbacks fire once per changed signal" {
 }
 
 ///|
+test "batch: callback re-entrancy — set inside on_change is handled correctly" {
+  let rt = Runtime::new()
+  let s1 = Signal::new(rt, 0)
+  let s2 = Signal::new(rt, 0)
+  let count1 : Ref[Int] = { val: 0 }
+  let count2 : Ref[Int] = { val: 0 }
+  s2.on_change(fn(_v) { count2.val = count2.val + 1 })
+  s1.on_change(fn(_v) {
+    count1.val = count1.val + 1
+    s2.set(1)
+  })
+  rt.batch(fn() { s1.set(1) })
+  inspect(count1.val, content="1")
+  inspect(count2.val, content="1")
+}
+
+///|
 test "clear_on_change removes Memo callback" {
   let rt = Runtime::new()
   let s = Signal::new(rt, 0)
