@@ -165,8 +165,8 @@ fn[T : Eq] Memo::force_recompute(self : Memo[T]) -> Result[Unit, CycleError] {
     // Build the full cycle path from the tracking stack
     let path : Array[CellId] = []
     // Collect cell IDs from all frames in the tracking stack
-    for i = 0; i < self.rt.tracking_stack.length(); i = i + 1 {
-      path.push(self.rt.tracking_stack[i].cell_id)
+    for frame in self.rt.tracking_stack {
+      path.push(frame.cell_id)
     }
     // Append current cell to show the cycle closes
     path.push(cell.id)
@@ -227,11 +227,10 @@ fn compute_durability(rt : Runtime, deps : Array[CellId]) -> Durability {
     return Low
   }
   let mut min_dur = High
-  for i = 0; i < deps.length(); i = i + 1 {
-    let dep_cell = rt.get_cell(deps[i])
-    let dep_dur = dep_cell.durability
-    if dep_dur < min_dur {
-      min_dur = dep_dur
+  for dep_id in deps {
+    let dep_cell = rt.get_cell(dep_id)
+    if dep_cell.durability < min_dur {
+      min_dur = dep_cell.durability
     }
   }
   min_dur

@@ -358,12 +358,12 @@ fn Runtime::commit_batch(self : Runtime) -> Unit {
   }
   // Phase 1: commit pending values and collect which actually changed
   let changed_ids : Array[CellId] = []
-  for i = 0; i < self.batch_pending_signals.length(); i = i + 1 {
-    let meta = self.get_cell(self.batch_pending_signals[i])
+  for id in self.batch_pending_signals {
+    let meta = self.get_cell(id)
     match meta.commit_pending {
       Some(commit_fn) => {
         if commit_fn() {
-          changed_ids.push(self.batch_pending_signals[i])
+          changed_ids.push(id)
         }
         meta.commit_pending = None
       }
@@ -376,13 +376,13 @@ fn Runtime::commit_batch(self : Runtime) -> Unit {
   if changed_ids.length() > 0 {
     self.advance_revision(self.batch_max_durability)
     // Sweep changed signals
-    for i = 0; i < changed_ids.length(); i = i + 1 {
-      self.mark_input_changed(changed_ids[i])
+    for id in changed_ids {
+      self.mark_input_changed(id)
     }
     // Collect callbacks before invoking.
     let callbacks : Array[() -> Unit] = []
-    for i = 0; i < changed_ids.length(); i = i + 1 {
-      let meta = self.get_cell(changed_ids[i])
+    for id in changed_ids {
+      let meta = self.get_cell(id)
       match meta.on_change {
         Some(f) => callbacks.push(f)
         None => ()
@@ -393,8 +393,8 @@ fn Runtime::commit_batch(self : Runtime) -> Unit {
     // inside a callback takes the batch path instead of set_unconditional,
     // preventing re-entrant fire_on_change() calls.
     self.batch_depth = self.batch_depth + 1
-    for i = 0; i < callbacks.length(); i = i + 1 {
-      callbacks[i]()
+    for cb in callbacks {
+      cb()
     }
     self.batch_depth = self.batch_depth - 1
     // Commit any signals set during callbacks, then fire global once.
