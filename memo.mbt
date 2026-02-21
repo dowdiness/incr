@@ -148,14 +148,7 @@ pub fn[T : Eq] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
       // Note: maybe_changed_after may recompute this cell internally
       // (via recompute_and_check) to determine if value actually changed.
       match maybe_changed_after(self.rt, self.cell_id, cell.verified_at) {
-        Ok(false) => {
-          // Green path: nothing changed, verified_at already set by maybe_changed_after
-          self.rt.record_dependency(self.cell_id)
-          Ok(self.value.unwrap())
-        }
-        Ok(true) => {
-          // maybe_changed_after returned true AND already recomputed this cell.
-          // The value is now up-to-date in self.value.
+        Ok(_) => {
           self.rt.record_dependency(self.cell_id)
           Ok(self.value.unwrap())
         }
