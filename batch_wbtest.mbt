@@ -192,3 +192,13 @@ test "batch: diamond dependency with batch" {
   inspect(b_count, content="2")
   inspect(c_count, content="2")
 }
+
+///|
+test "panic batch: corrupted negative batch_depth triggers underflow abort" {
+  let rt = Runtime::new()
+  // Directly corrupt batch_depth to simulate a future bug where an internal
+  // decrement site is added without a matching increment.
+  // batch() will: +1 (to 0), run f(), -1 (to -1), then hit the guard.
+  rt.batch_depth = -1
+  rt.batch(fn() { () })
+}
