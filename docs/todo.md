@@ -59,8 +59,14 @@ Concrete, actionable tasks for the `incr` library.
 - [x] Added `label? : String` to `create_memo`
 - [x] Labels propagate through `CellMeta`, `CellInfo`, `format_path`
 - [x] Labels surface in `derive(Debug)` output for `Signal` and `Memo`
-- [ ] `SignalBuilder[T]` struct — skipped: MoonBit optional params are sufficient
-- [ ] `MemoBuilder[T]` struct — skipped: MoonBit optional params are sufficient
+- ~~Define `SignalBuilder[T]` struct~~ — skipped (replaced by optional params)
+- ~~Add `Signal::builder(Runtime) -> SignalBuilder[T]`~~ — skipped
+- ~~Add `SignalBuilder::with_value(T) -> Self`~~ — skipped
+- ~~Add `SignalBuilder::with_durability(Durability) -> Self`~~ — skipped
+- ~~Add `SignalBuilder::with_label(String) -> Self`~~ — skipped
+- ~~Add `SignalBuilder::build() -> Signal[T]`~~ — skipped
+- ~~Define `MemoBuilder[T]` struct with similar pattern~~ — skipped
+- ~~Document builder pattern in API reference~~ — skipped
 
 ### Ergonomics (Phase 2C - Medium Priority)
 

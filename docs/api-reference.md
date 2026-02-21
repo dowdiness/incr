@@ -63,20 +63,13 @@ rt.clear_on_change()
 
 Input cells with externally controlled values.
 
-### `Signal::new[T](rt: Runtime, initial: T) -> Signal[T]`
+### `Signal::new[T](rt: Runtime, initial: T, durability? : Durability, label? : String) -> Signal[T]`
 
-Creates a signal with `Low` durability.
-
-```moonbit
-let count = Signal::new(rt, 0)
-```
-
-### `Signal::new_with_durability[T](rt: Runtime, initial: T, durability: Durability) -> Signal[T]`
-
-Creates a signal with explicit durability.
+Creates a signal. Both `durability` (default `Low`) and `label` are optional.
 
 ```moonbit
-let config = Signal::new_with_durability(rt, "prod", High)
+let count = Signal::new(rt, 0)                                    // defaults
+let config = Signal::new(rt, "prod", durability=High, label="config")  // explicit
 ```
 
 ### `Signal::get(self) -> T`
@@ -125,12 +118,13 @@ Signals are always up-to-date (`true`).
 
 Derived computations with dependency tracking and memoization.
 
-### `Memo::new[T : Eq](rt: Runtime, compute: () -> T) -> Memo[T]`
+### `Memo::new[T : Eq](rt: Runtime, compute: () -> T, label? : String) -> Memo[T]`
 
-Creates a lazily evaluated memo.
+Creates a lazily evaluated memo. The optional `label` names the memo for debug output and cycle error messages.
 
 ```moonbit
 let doubled = Memo::new(rt, fn() { count.get() * 2 })
+let tax = Memo::new(rt, fn() { price.get() * 0.1 }, label="tax")
 ```
 
 ### `Memo::get[T : Eq](self) -> T`
@@ -294,7 +288,7 @@ Returns the durability level of this signal (`Low`, `Medium`, or `High`).
 
 **Example:**
 ```moonbit
-let config = Signal::new_with_durability(rt, "prod", High)
+let config = Signal::new(rt, "prod", durability=High)
 inspect(config.durability(), content="High")
 ```
 
@@ -345,6 +339,7 @@ match rt.cell_info(memo.id()) {
 
 ```moonbit
 pub struct CellInfo {
+  pub label : String?
   pub id : CellId
   pub changed_at : Revision
   pub verified_at : Revision
