@@ -23,14 +23,11 @@ priv struct CellMeta {
   kind : CellKind
   mut changed_at : @incr_types.Revision
   mut verified_at : @incr_types.Revision
-  dependencies : Array[@incr_types.CellId]
-  durability : @incr_types.Durability
+  mut dependencies : Array[@incr_types.CellId]
+  mut durability : @incr_types.Durability
   /// For derived cells: recomputes and returns true if value changed.
   /// Returns Err(CycleError) if a cycle is detected during recomputation.
   /// None for input cells.
-  // NOTE: `mut` intentionally omitted here; will be restored when memo.mbt is added
-  // (memo.mbt writes recompute_and_check; whitebox tests also write it).
-  // Omitted now to avoid unused_mut error before those files are present.
   recompute_and_check : (() -> Result[Bool, CycleError])?
   /// For input cells during batch: commits pending value and returns true
   /// if the committed value differs from the current value.
