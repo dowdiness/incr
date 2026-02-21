@@ -82,7 +82,11 @@ priv struct CellMeta {
 /// # Returns
 ///
 /// Initialized cell metadata with `kind = Input`
-fn CellMeta::new_input(id : CellId, durability : Durability, label : String?) -> CellMeta {
+fn CellMeta::new_input(
+  id : CellId,
+  durability : Durability,
+  label : String?,
+) -> CellMeta {
   {
     id,
     kind: Input,

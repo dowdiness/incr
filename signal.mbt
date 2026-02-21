@@ -40,8 +40,10 @@ pub(all) struct Signal[T] {
 ///
 /// ```moonbit nocheck
 /// let count = Signal::new(rt, 0)
+///
 /// let config = Signal::new(rt, "prod", durability=High)
-/// let named  = Signal::new(rt, 0, label="count")
+///
+/// let named = Signal::new(rt, 0, label="count")
 /// ```
 pub fn[T] Signal::new(
   rt : Runtime,

@@ -98,7 +98,7 @@ pub fn[Db : IncrDb, T] create_signal(
   durability? : Durability = Low,
   label? : String,
 ) -> Signal[T] {
-  Signal::new(db.runtime(), value, durability=durability, label?)
+  Signal::new(db.runtime(), value, durability~, label?)
 }
 
 ///|
@@ -113,7 +113,11 @@ pub fn[Db : IncrDb, T] create_signal(
 /// # Returns
 ///
 /// A new memo associated with the database's runtime
-pub fn[Db : IncrDb, T : Eq] create_memo(db : Db, f : () -> T, label? : String) -> Memo[T] {
+pub fn[Db : IncrDb, T : Eq] create_memo(
+  db : Db,
+  f : () -> T,
+  label? : String,
+) -> Memo[T] {
   Memo::new(db.runtime(), f, label?)
 }
 
@@ -130,4 +134,3 @@ pub fn[Db : IncrDb, T : Eq] create_memo(db : Db, f : () -> T, label? : String) -
 pub fn[Db : IncrDb] batch(db : Db, f : () -> Unit) -> Unit {
   db.runtime().batch(f)
 }
-

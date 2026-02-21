@@ -55,7 +55,11 @@ pub(all) struct Memo[T] {
 /// `T` must implement `Eq` for backdating: when the compute function returns
 /// the same value as before, the memo's `changed_at` timestamp is preserved,
 /// preventing unnecessary downstream recomputation.
-pub fn[T : Eq] Memo::new(rt : Runtime, compute : () -> T, label? : String) -> Memo[T] {
+pub fn[T : Eq] Memo::new(
+  rt : Runtime,
+  compute : () -> T,
+  label? : String,
+) -> Memo[T] {
   let cell_id = rt.alloc_cell_id()
   let memo : Memo[T] = { label, rt, cell_id, compute, value: None }
   let recompute_and_check : () -> Result[Bool, CycleError] = fn() {

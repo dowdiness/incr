@@ -220,7 +220,10 @@ fn finish_frame_changed(
           Ok(cell.changed_at > frame.after_revision)
         Err(e) => Err(e)
       }
-    None => abort("Derived cell missing recompute_and_check — internal invariant violated")
+    None =>
+      abort(
+        "Derived cell missing recompute_and_check — internal invariant violated",
+      )
   }
 }
 

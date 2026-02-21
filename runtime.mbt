@@ -63,7 +63,7 @@ pub(all) struct Runtime {
 ///
 /// let doubled = Memo::new(rt, fn() { x.get() * 2 })
 /// ```
-pub fn Runtime::new(on_change? : (() -> Unit)) -> Runtime {
+pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
   let id = next_runtime_id.val
   next_runtime_id.val = next_runtime_id.val + 1
   {
@@ -389,7 +389,10 @@ fn Runtime::commit_batch(self : Runtime) -> Unit {
         }
         meta.commit_pending = None
       }
-      None => abort("Batched signal missing commit_pending — internal invariant violated")
+      None =>
+        abort(
+          "Batched signal missing commit_pending — internal invariant violated",
+        )
     }
   }
   // Reset pending list by clearing directly
@@ -480,7 +483,9 @@ fn Runtime::push_tracking(self : Runtime, cell_id : CellId) -> Unit {
 /// # Panics
 ///
 /// Aborts if the tracking stack is empty (unbalanced push/pop)
-fn Runtime::pop_tracking(self : Runtime) -> (Array[CellId], @hashset.HashSet[CellId]) {
+fn Runtime::pop_tracking(
+  self : Runtime,
+) -> (Array[CellId], @hashset.HashSet[CellId]) {
   match self.tracking_stack.pop() {
     Some(query) => (query.dependencies, query.seen)
     None => abort("Tracking stack underflow")

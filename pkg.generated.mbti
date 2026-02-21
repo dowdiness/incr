@@ -79,7 +79,7 @@ pub(all) struct Runtime {
 pub fn Runtime::batch(Self, () -> Unit) -> Unit
 pub fn Runtime::cell_info(Self, CellId) -> CellInfo?
 pub fn Runtime::clear_on_change(Self) -> Unit
-pub fn Runtime::new() -> Self
+pub fn Runtime::new(on_change? : () -> Unit) -> Self
 pub fn Runtime::set_on_change(Self, () -> Unit) -> Unit
 
 pub(all) struct Signal[T] {

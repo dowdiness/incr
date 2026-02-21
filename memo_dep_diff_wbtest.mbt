@@ -23,9 +23,7 @@ test "dep diff: dynamic deps update dep list and durability" {
   let flag = Signal::new(rt, true, durability=High)
   let a = Signal::new(rt, 1, durability=High)
   let b = Signal::new(rt, 2, durability=Low)
-  let m = Memo::new(rt, fn() {
-    if flag.get() { a.get() } else { b.get() }
-  })
+  let m = Memo::new(rt, fn() { if flag.get() { a.get() } else { b.get() } })
   // Initial: reads flag(High) and a(High) → min durability = High
   let _ = m.get()
   let meta = rt.get_cell(m.id())
