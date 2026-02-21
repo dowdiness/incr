@@ -14,7 +14,7 @@ pub(all) struct CellId {
 
 ///|
 impl Hash for CellId with hash(self) {
-  self.runtime_id.hash() + self.id.hash()
+  self.runtime_id.hash() * 31 + self.id.hash()
 }
 
 ///|
