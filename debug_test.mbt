@@ -6,6 +6,7 @@ test "Signal derives Debug" {
     s,
     content=(
       #|{
+      #|  label: None,
       #|  rt: ...,
       #|  cell_id: ...,
       #|  value: 42,

@@ -113,7 +113,7 @@ pub fn[Db : IncrDb, T] create_signal_durable(
   value : T,
   durability : Durability,
 ) -> Signal[T] {
-  Signal::new_with_durability(db.runtime(), value, durability)
+  Signal::new(db.runtime(), value, durability=durability)
 }
 
 ///|

@@ -14,6 +14,7 @@
 /// inspect(count.get(), content="5")
 /// ```
 pub(all) struct Signal[T] {
+  priv label : String?
   priv rt : Runtime
   priv cell_id : CellId
   priv mut value : T
@@ -22,52 +23,36 @@ pub(all) struct Signal[T] {
 } derive(Debug(ignore=[Runtime, CellId]))
 
 ///|
-/// Creates a new signal with the given initial value and `Low` durability.
-///
-/// This is the most common way to create signals. Use `new_with_durability`
-/// if you need to specify a different durability level for optimization.
+/// Creates a new signal with the given initial value.
 ///
 /// # Parameters
 ///
 /// - `rt`: The runtime that will manage this signal
 /// - `initial`: The initial value of the signal
+/// - `durability`: How often this signal is expected to change (default: `Low`)
+/// - `label`: An optional human-readable name for debugging and cycle error output
 ///
 /// # Returns
 ///
 /// A new signal containing the initial value
-pub fn[T] Signal::new(rt : Runtime, initial : T) -> Signal[T] {
-  Signal::new_with_durability(rt, initial, Low)
-}
-
-///|
-/// Creates a new signal with the given initial value and explicit durability.
 ///
-/// Use this when you know how often the signal will change:
-/// - `High` durability for rarely-changing values (e.g., configuration)
-/// - `Medium` durability for moderately stable values
-/// - `Low` durability for frequently-changing values (e.g., user input)
+/// # Example
 ///
-/// Higher durability enables optimization: memos that only depend on
-/// high-durability signals skip verification when low-durability signals change.
-///
-/// # Parameters
-///
-/// - `rt`: The runtime that will manage this signal
-/// - `initial`: The initial value of the signal
-/// - `durability`: How often this signal is expected to change
-///
-/// # Returns
-///
-/// A new signal containing the initial value
-pub fn[T] Signal::new_with_durability(
+/// ```moonbit nocheck
+/// let count = Signal::new(rt, 0)
+/// let config = Signal::new(rt, "prod", durability=High)
+/// let named  = Signal::new(rt, 0, label="count")
+/// ```
+pub fn[T] Signal::new(
   rt : Runtime,
   initial : T,
-  durability : Durability,
+  durability? : Durability = Low,
+  label? : String,
 ) -> Signal[T] {
   let cell_id = rt.alloc_cell_id()
-  let meta = CellMeta::new_input(cell_id, durability, None)
+  let meta = CellMeta::new_input(cell_id, durability, label)
   rt.register_cell(meta)
-  { rt, cell_id, value: initial, pending_value: None, durability }
+  { label, rt, cell_id, value: initial, pending_value: None, durability }
 }
 
 ///|

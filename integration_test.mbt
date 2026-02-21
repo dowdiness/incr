@@ -146,7 +146,7 @@ test "integration: cascading updates" {
 ///|
 test "integration: mixed durability chain" {
   let rt = Runtime::new()
-  let config = Signal::new_with_durability(rt, 10, High)
+  let config = Signal::new(rt, 10, durability=High)
   let source = Signal::new(rt, 5)
   let scaled = Memo::new(rt, fn() { source.get() * config.get() })
   inspect(scaled.get(), content="50")
