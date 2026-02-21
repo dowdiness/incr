@@ -1,8 +1,8 @@
 # Original Refactoring Plan Implementation
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **Status: ✅ COMPLETED** — All 8 tasks implemented and verified. 128 tests passing.
 
-**Goal:** Execute the 8 internal quality improvements from `refactoring-plan.md` — no new features, no API changes, all 126 tests green throughout.
+**Goal:** Execute the 8 internal quality improvements from `refactoring-plan.md` — no new features, no API changes, all 128 tests green throughout.
 
 **Architecture:** Each task is independent. Order goes from highest impact to lowest, saving correctness-critical changes for last. TDD throughout — confirm baseline green, make the change, run targeted tests, commit.
 
@@ -10,7 +10,7 @@
 
 ---
 
-## Task 1: Consolidate revision-bump logic (Item 1)
+## Task 1: Consolidate revision-bump logic (Item 1) ✅
 
 **Files:**
 - Modify: `runtime.mbt` (bump_revision L261–275, commit_batch L353–366)
@@ -104,10 +104,11 @@ Add this private function in `runtime.mbt`, directly below `advance_revision`:
 /// Mark an input cell as changed at the current revision.
 /// Sets both changed_at and verified_at to current_revision.
 /// Must be called after advance_revision so current_revision is already updated.
-fn Runtime::mark_input_changed(self : Runtime, id : CellId) -> Unit {
+fn Runtime::mark_input_changed(self : Runtime, id : CellId) -> CellMeta {
   let meta = self.get_cell(id)
   meta.changed_at = self.current_revision
   meta.verified_at = self.current_revision
+  meta
 }
 ```
 
@@ -128,7 +129,12 @@ In `signal.mbt`, inside the non-batch branch of `Signal::set_unconditional` (~L1
 ```moonbit
     self.value = new_value
     self.rt.bump_revision(self.durability)
-    self.rt.mark_input_changed(self.cell_id)
+    let meta = self.rt.mark_input_changed(self.cell_id)
+    match meta.on_change {
+      Some(f) => f()
+      None => ()
+    }
+    self.rt.fire_on_change()
 ```
 
 ### Step 7: Update `commit_batch` sweep to use `mark_input_changed`
@@ -148,13 +154,18 @@ In `commit_batch`, replace the sweep loop (~L362–366):
 
 **After:**
 ```moonbit
-    // Sweep changed signals
-    for i = 0; i < changed_ids.length(); i = i + 1 {
-      self.mark_input_changed(changed_ids[i])
+    // Sweep changed signals and collect callbacks in a single pass.
+    let callbacks : Array[() -> Unit] = []
+    for id in changed_ids {
+      let meta = self.mark_input_changed(id)
+      match meta.on_change {
+        Some(f) => callbacks.push(f)
+        None => ()
+      }
     }
 ```
 
-(The `let rev = self.current_revision` line can be removed since `mark_input_changed` reads `self.current_revision` internally.)
+(The `let rev = self.current_revision` line can be removed since `mark_input_changed` reads `self.current_revision` internally. Callbacks are collected and fired after the sweep.)
 
 ### Step 8: Type-check
 
@@ -179,7 +190,7 @@ Both must pass.
 moon test
 ```
 
-Expected: 126 tests pass.
+Expected: 128 tests pass.
 
 ### Step 11: Commit
 
@@ -190,7 +201,7 @@ git commit -m "refactor: extract advance_revision and mark_input_changed helpers
 
 ---
 
-## Task 2: Replace silent fallbacks with assertions (Item 2)
+## Task 2: Replace silent fallbacks with assertions (Item 2) ✅
 
 **Files:**
 - Modify: `verify.mbt` (finish_frame_changed L228)
@@ -204,7 +215,7 @@ git commit -m "refactor: extract advance_revision and mark_input_changed helpers
 moon test
 ```
 
-Expected: 126 pass.
+Expected: 128 pass.
 
 ### Step 2: Replace the fallback in `finish_frame_changed`
 
@@ -240,7 +251,7 @@ In `runtime.mbt`, `commit_batch`, Phase 1 loop, the `None` arm (~line 347):
 moon test
 ```
 
-Expected: 126 tests pass. These are invariant violations — no normal test should abort.
+Expected: 128 tests pass. These are invariant violations — no normal test should abort.
 
 ### Step 5: Add panic test for `finish_frame_changed` None arm
 
@@ -325,7 +336,7 @@ git commit -m "fix: replace silent None fallbacks with abort assertions"
 
 ---
 
-## Task 3: Simplify `Signal::get_result` (Item 4)
+## Task 3: Simplify `Signal::get_result` (Item 4) ✅
 
 **Files:**
 - Modify: `signal.mbt` (get_result L98–101)
@@ -376,7 +387,7 @@ git commit -m "refactor: simplify Signal::get_result to delegate to get()"
 
 ---
 
-## Task 4: Improve `Memo::get` abort message (Item 5)
+## Task 4: Improve `Memo::get` abort message (Item 5) ✅
 
 **Files:**
 - Modify: `memo.mbt` (Memo::get L95–101)
@@ -447,7 +458,7 @@ git commit -m "fix: improve Memo::get cycle abort message via format_path"
 
 ---
 
-## Task 5: Add runtime ownership check in `get_cell` (Item 3)
+## Task 5: Add runtime ownership check in `get_cell` (Item 3) ✅
 
 **Files:**
 - Modify: `runtime.mbt` (get_cell L138–147)
@@ -515,7 +526,7 @@ git commit -m "fix: add runtime ownership and negative-id guards to get_cell"
 
 ---
 
-## Task 6: Use idiomatic loop patterns (Item 8)
+## Task 6: Use idiomatic loop patterns (Item 8) ✅
 
 **Files:**
 - Modify: `memo.mbt` (`compute_durability` L234–240)
@@ -617,7 +628,7 @@ git commit -m "refactor: convert safe C-style loops to for-in in memo.mbt and ru
 
 ---
 
-## Task 7: Demote unused pipeline traits (Item 7)
+## Task 7: Demote unused pipeline traits (Item 7) ✅
 
 **Files:**
 - Modify: `traits.mbt` (remove pipeline traits section L148–178)
@@ -744,7 +755,7 @@ git commit -m "refactor: move pipeline traits to pipeline_traits.mbt with experi
 
 ---
 
-## Task 8: Centralize cycle-path construction (Item 6)
+## Task 8: Centralize cycle-path construction (Item 6) ✅
 
 **Files:**
 - Modify: `cycle.mbt` (add `CycleError::from_path`)
@@ -797,8 +808,8 @@ Add this private function near the other tracking helpers in `runtime.mbt` (afte
 /// for use in cycle error diagnostics. Does not modify the stack.
 fn Runtime::collect_tracking_path(self : Runtime) -> Array[CellId] {
   let path : Array[CellId] = []
-  for i = 0; i < self.tracking_stack.length(); i = i + 1 {
-    path.push(self.tracking_stack[i].cell_id)
+  for frame in self.tracking_stack {
+    path.push(frame.cell_id)
   }
   path
 }
@@ -899,11 +910,11 @@ git commit -m "refactor: centralize cycle-path construction via CycleError::from
 
 ---
 
-## Final verification
+## Final verification ✅
 
 ```bash
 moon test
 moon check
 ```
 
-All tests pass, no type errors. All 8 original refactoring items complete.
+All 128 tests pass, no type errors. All 8 original refactoring items complete.
