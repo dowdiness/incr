@@ -318,17 +318,43 @@ Batches can be nested. A `batch_depth` counter tracks nesting. Only the outermos
 
 ## File Map
 
+### Source files
+
 | File | Purpose |
 |------|---------|
 | `signal.mbt` | `Signal[T]` — input cells with same-value optimization and durability |
 | `memo.mbt` | `Memo[T]` — derived cells with memoization, backdating, and dependency tracking |
-| `runtime.mbt` | `Runtime` — central state, revision management, tracking stack |
-| `cell.mbt` | `CellId`, `CellKind`, `CellMeta` — type-erased cell metadata |
+| `runtime.mbt` | `Runtime` — central state, revision management, tracking stack, batch commit |
+| `cell.mbt` | `CellId`, `CellMeta` — type-erased cell metadata |
 | `tracking.mbt` | `ActiveQuery` — dependency recording frame with deduplication |
 | `verify.mbt` | `maybe_changed_after` — core verification algorithm |
 | `revision.mbt` | `Revision`, `Durability` — revision counter and durability enum |
-| `signal_test.mbt` | Tests for Signal behavior |
-| `memo_test.mbt` | Tests for Memo behavior, backdating, and dependency tracking |
-| `batch_test.mbt` | Tests for batch updates, revert detection, and two-phase values |
-| `durability_test.mbt` | Tests for durability shortcuts |
-| `cycle_test.mbt` | Tests for cycle detection |
+| `cycle.mbt` | `CycleError` — cycle error type, path formatting, `CycleError::from_path` |
+| `traits.mbt` | `IncrDb`, `Readable` — core public traits |
+| `pipeline_traits.mbt` | `Sourceable`, `Parseable`, `Checkable`, `Executable` — experimental pipeline traits |
+
+### Test files
+
+| File | What it covers |
+|------|----------------|
+| `memo_test.mbt` | Memo behavior, backdating, dependency tracking |
+| `backdating_test.mbt` | Backdating (value-unchanged skips downstream recomputation) |
+| `fanout_test.mbt` | Wide dependency graphs (diamond, multi-level) |
+| `callback_test.mbt` | `Runtime::on_change` global callback |
+| `on_change_test.mbt` | `Signal::on_change` / `Memo::on_change` per-cell callbacks |
+| `cycle_test.mbt` | Cycle detection via `get_result()` and `get()` panics |
+| `cycle_path_test.mbt` | Cycle error path formatting and content |
+| `verify_path_test.mbt` | Cycle detection during verification (reverification path) |
+| `integration_test.mbt` | End-to-end multi-signal/memo scenarios |
+| `custom_eq_test.mbt` | Custom `Eq` implementations and backdating interaction |
+| `debug_test.mbt` | Debug output and formatting |
+| `traits_test.mbt` | Pipeline trait (`CalcPipeline`) fixture tests |
+| `signal_introspection_test.mbt` | `Signal::cell_info`, `Signal::id` |
+| `memo_introspection_test.mbt` | `Memo::cell_info`, `Memo::id` |
+| `runtime_introspection_test.mbt` | `Runtime::cell_info`, `CellInfo` struct |
+| `introspection_integration_test.mbt` | Cross-type introspection scenarios |
+| `batch_wbtest.mbt` | Batch internals: revision, revert detection, panic guards (whitebox) |
+| `durability_wbtest.mbt` | Durability shortcut internals (whitebox) |
+| `cell_wbtest.mbt` | `CellId::hash` properties (whitebox) |
+| `signal_wbtest.mbt` | Signal internals (whitebox) |
+| `verify_wbtest.mbt` | `finish_frame_changed` invariant violation abort (whitebox) |

@@ -34,6 +34,8 @@ The library implements Salsa's incremental computation pattern with three key ty
 - **ActiveQuery** (`tracking.mbt`) — Frame pushed onto `Runtime.tracking_stack` during memo computation. Collects dependencies (with HashSet-based O(1) deduplication) read via `Signal::get` or `Memo::get`.
 - **Revision** / **Durability** (`revision.mbt`) — Monotonic revision counter bumped on input changes. Durability classifies input change frequency; derived cells inherit the minimum durability of their dependencies.
 - **Verification** (`verify.mbt`) — `maybe_changed_after()` is the core algorithm. For derived cells: checks the durability shortcut first, then walks dependencies iteratively using an explicit stack of `VerifyFrame`s. If any dependency changed, recomputes the cell (enabling backdating). Green path (no change) marks `verified_at` without recomputation.
+- **CycleError** (`cycle.mbt`) — Cycle detection error type. `CycleError::from_path(path, closing_id)` constructs a `CycleDetected` value from a collected path; `format_path(rt)` produces a human-readable chain string.
+- **Traits** (`traits.mbt`) — `IncrDb` and `Readable` public traits. Pipeline traits (`Sourceable`, `Parseable`, `Checkable`, `Executable`) live in `pipeline_traits.mbt` and are marked experimental.
 
 ### Data Flow
 
@@ -48,6 +50,8 @@ The library implements Salsa's incremental computation pattern with three key ty
 
 - Tests use `///|` doc-comment prefix followed by `test "name" { ... }` blocks
 - Assertions use `inspect(expr, content="expected")` pattern
+- Panic tests: `test "panic ..."` (name starting with `"panic "`) expects `abort()` to fire — the test runner marks it passed when the abort occurs
+- Whitebox tests (`*_wbtest.mbt`): same package as source, can access private fields and internal functions
 - The library imports `moonbitlang/core/hashset` as its only external dependency
 
 ## Documentation Hierarchy
