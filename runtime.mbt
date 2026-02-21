@@ -247,6 +247,28 @@ pub fn Runtime::cell_info(self : Runtime, id : CellId) -> CellInfo? {
 }
 
 ///|
+/// Advance the global revision counter and record which durability level changed.
+/// Updates current_revision and all durability_last_changed entries up to dur_idx.
+/// Callers must ensure this is only called outside of a batch (batch_depth == 0).
+fn Runtime::advance_revision(self : Runtime, durability : Durability) -> Unit {
+  self.current_revision = self.current_revision.next()
+  let dur_idx = durability.index()
+  for i = 0; i <= dur_idx; i = i + 1 {
+    self.durability_last_changed[i] = self.current_revision
+  }
+}
+
+///|
+/// Mark an input cell as changed at the current revision.
+/// Sets both changed_at and verified_at to current_revision.
+/// Must be called after advance_revision so current_revision is already updated.
+fn Runtime::mark_input_changed(self : Runtime, id : CellId) -> Unit {
+  let meta = self.get_cell(id)
+  meta.changed_at = self.current_revision
+  meta.verified_at = self.current_revision
+}
+
+///|
 /// Bumps the global revision counter and records which durability level changed.
 ///
 /// This is called internally when a signal's value changes. The durability
@@ -266,12 +288,7 @@ fn Runtime::bump_revision(self : Runtime, durability : Durability) -> Unit {
     }
     return
   }
-  self.current_revision = self.current_revision.next()
-  // Update this durability level and all lower durability levels
-  let dur_idx = durability.index()
-  for i = 0; i <= dur_idx; i = i + 1 {
-    self.durability_last_changed[i] = self.current_revision
-  }
+  self.advance_revision(durability)
 }
 
 ///|
@@ -351,18 +368,10 @@ fn Runtime::commit_batch(self : Runtime) -> Unit {
   self.batch_pending_signals.clear()
   // Phase 2: if any value actually changed, do a single revision bump
   if changed_ids.length() > 0 {
-    let durability = self.batch_max_durability
-    self.current_revision = self.current_revision.next()
-    let dur_idx = durability.index()
-    for i = 0; i <= dur_idx; i = i + 1 {
-      self.durability_last_changed[i] = self.current_revision
-    }
+    self.advance_revision(self.batch_max_durability)
     // Sweep changed signals
-    let rev = self.current_revision
     for i = 0; i < changed_ids.length(); i = i + 1 {
-      let meta = self.get_cell(changed_ids[i])
-      meta.changed_at = rev
-      meta.verified_at = rev
+      self.mark_input_changed(changed_ids[i])
     }
     // Collect callbacks before invoking.
     let callbacks : Array[() -> Unit] = []

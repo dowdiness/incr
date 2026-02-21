@@ -189,9 +189,8 @@ pub fn[T] Signal::set_unconditional(self : Signal[T], new_value : T) -> Unit {
   } else {
     self.value = new_value
     self.rt.bump_revision(self.durability)
+    self.rt.mark_input_changed(self.cell_id)
     let meta = self.rt.get_cell(self.cell_id)
-    meta.changed_at = self.rt.current_revision
-    meta.verified_at = self.rt.current_revision
     match meta.on_change {
       Some(f) => f()
       None => ()
