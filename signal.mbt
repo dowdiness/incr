@@ -96,8 +96,7 @@ pub fn[T] Signal::get(self : Signal[T]) -> T {
 ///
 /// `Ok(value)` with the current value of the signal
 pub fn[T] Signal::get_result(self : Signal[T]) -> Result[T, CycleError] {
-  self.rt.record_dependency(self.cell_id)
-  Ok(self.value)
+  Ok(self.get())
 }
 
 ///|
