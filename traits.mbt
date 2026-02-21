@@ -80,40 +80,25 @@ pub impl[T] Readable for Memo[T] with is_up_to_date(self) {
 }
 
 ///|
-/// Creates a new signal with Low durability using the database's runtime.
-///
-/// This is a generic helper that works with any type implementing `IncrDb`.
+/// Creates a new signal using the database's runtime.
 ///
 /// # Parameters
 ///
 /// - `db`: Any type implementing `IncrDb`
 /// - `value`: The initial value of the signal
+/// - `durability`: How often this signal is expected to change (default: `Low`)
+/// - `label`: An optional human-readable name for debugging
 ///
 /// # Returns
 ///
 /// A new signal associated with the database's runtime
-pub fn[Db : IncrDb, T] create_signal(db : Db, value : T) -> Signal[T] {
-  Signal::new(db.runtime(), value)
-}
-
-///|
-/// Creates a new signal with explicit durability using the database's runtime.
-///
-/// # Parameters
-///
-/// - `db`: Any type implementing `IncrDb`
-/// - `value`: The initial value of the signal
-/// - `durability`: How often this signal is expected to change
-///
-/// # Returns
-///
-/// A new signal associated with the database's runtime
-pub fn[Db : IncrDb, T] create_signal_durable(
+pub fn[Db : IncrDb, T] create_signal(
   db : Db,
   value : T,
-  durability : Durability,
+  durability? : Durability = Low,
+  label? : String,
 ) -> Signal[T] {
-  Signal::new(db.runtime(), value, durability=durability)
+  Signal::new(db.runtime(), value, durability=durability, label?)
 }
 
 ///|
@@ -123,12 +108,13 @@ pub fn[Db : IncrDb, T] create_signal_durable(
 ///
 /// - `db`: Any type implementing `IncrDb`
 /// - `f`: The compute function for the memo
+/// - `label`: An optional human-readable name for debugging
 ///
 /// # Returns
 ///
 /// A new memo associated with the database's runtime
-pub fn[Db : IncrDb, T : Eq] create_memo(db : Db, f : () -> T) -> Memo[T] {
-  Memo::new(db.runtime(), f)
+pub fn[Db : IncrDb, T : Eq] create_memo(db : Db, f : () -> T, label? : String) -> Memo[T] {
+  Memo::new(db.runtime(), f, label?)
 }
 
 ///|

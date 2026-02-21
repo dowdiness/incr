@@ -33,8 +33,9 @@ test "trait: create_signal via IncrDb" {
 ///|
 test "trait: create_signal_durable via IncrDb" {
   let db = TestDb::new()
-  let sig = create_signal_durable(db, "hello", High)
+  let sig = create_signal(db, "hello", durability=High)
   inspect(sig.get(), content="hello")
+  inspect(sig.durability(), content="High")
 }
 
 ///|
@@ -272,5 +273,27 @@ test "trait: pipeline incrementality" {
   match compile_and_run(db) {
     Ok(output) => inspect(output[0], content="second")
     Err(_) => abort("expected success")
+  }
+}
+
+///|
+test "trait: create_signal with label" {
+  let db = TestDb::new()
+  let sig = create_signal(db, 42, label="count")
+  match db.rt.cell_info(sig.id()) {
+    Some(info) => inspect(info.label, content="Some(\"count\")")
+    None => abort("expected cell info")
+  }
+}
+
+///|
+test "trait: create_memo with label" {
+  let db = TestDb::new()
+  let x = create_signal(db, 1)
+  let m = create_memo(db, fn() { x.get() * 2 }, label="doubled")
+  let _ = m.get()
+  match db.rt.cell_info(m.id()) {
+    Some(info) => inspect(info.label, content="Some(\"doubled\")")
+    None => abort("expected cell info")
   }
 }
