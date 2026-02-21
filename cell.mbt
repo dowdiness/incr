@@ -53,7 +53,7 @@ priv struct CellMeta {
   /// For derived cells: recomputes and returns true if value changed.
   /// Returns Err(CycleError) if a cycle is detected during recomputation.
   /// None for input cells.
-  recompute_and_check : (() -> Result[Bool, CycleError])?
+  mut recompute_and_check : (() -> Result[Bool, CycleError])?
   /// For input cells during batch: commits pending value and returns true
   /// if the committed value differs from the current value.
   /// None for derived cells or inputs outside a batch.

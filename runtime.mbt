@@ -361,7 +361,7 @@ fn Runtime::commit_batch(self : Runtime) -> Unit {
         }
         meta.commit_pending = None
       }
-      None => ()
+      None => abort("Batched signal missing commit_pending — internal invariant violated")
     }
   }
   // Reset pending list by clearing directly
