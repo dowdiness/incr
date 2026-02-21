@@ -191,13 +191,8 @@ fn try_start_verify(
   }
   // Cycle detection
   if cell.in_progress {
-    // Cycle detected! Push the current cell to path to show the full cycle
-    let full_path = Array::new(capacity=path.length() + 1)
-    for i = 0; i < path.length(); i = i + 1 {
-      full_path.push(path[i])
-    }
-    full_path.push(cell.id)
-    return Err(CycleDetected(cell.id, full_path))
+    // Cycle detected! Build the full path and return an error.
+    return Err(CycleError::from_path(path, cell.id))
   }
   cell.in_progress = true
   Ok(None)

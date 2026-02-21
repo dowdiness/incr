@@ -468,3 +468,16 @@ fn Runtime::pop_tracking(self : Runtime) -> Array[CellId] {
     None => abort("Tracking stack underflow")
   }
 }
+
+///|
+/// Collect cell IDs from the current tracking stack.
+///
+/// Returns the cell IDs of all active computation frames in order,
+/// for use in cycle error diagnostics. Does not modify the stack.
+fn Runtime::collect_tracking_path(self : Runtime) -> Array[CellId] {
+  let path : Array[CellId] = []
+  for frame in self.tracking_stack {
+    path.push(frame.cell_id)
+  }
+  path
+}

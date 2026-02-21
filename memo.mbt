@@ -162,15 +162,7 @@ pub fn[T : Eq] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
 fn[T : Eq] Memo::force_recompute(self : Memo[T]) -> Result[Unit, CycleError] {
   let cell = self.rt.get_cell(self.cell_id)
   if cell.in_progress {
-    // Build the full cycle path from the tracking stack
-    let path : Array[CellId] = []
-    // Collect cell IDs from all frames in the tracking stack
-    for frame in self.rt.tracking_stack {
-      path.push(frame.cell_id)
-    }
-    // Append current cell to show the cycle closes
-    path.push(cell.id)
-    return Err(CycleDetected(cell.id, path))
+    return Err(CycleError::from_path(self.rt.collect_tracking_path(), cell.id))
   }
   cell.in_progress = true
   // Push tracking frame to record dependencies
