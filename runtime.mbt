@@ -314,6 +314,10 @@ pub fn Runtime::batch(self : Runtime, f : () -> Unit) -> Unit {
   self.batch_depth = self.batch_depth + 1
   f()
   self.batch_depth = self.batch_depth - 1
+  // Defense-in-depth: batch_depth is priv, but guard future modifications to mutation sites
+  if self.batch_depth < 0 {
+    abort("batch_depth underflow: batch() nesting is unbalanced")
+  }
   if self.batch_depth == 0 {
     self.commit_batch()
   }
