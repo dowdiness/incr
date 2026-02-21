@@ -65,6 +65,26 @@ fn cleanup_stack(stack : Array[VerifyFrame]) -> Unit {
 }
 
 ///|
+/// Pop the top frame and propagate its result to the parent frame or final_result.
+/// Called after both finish_frame_changed and finish_frame_unchanged.
+fn pop_frame(
+  stack : Array[VerifyFrame],
+  path : Array[CellId],
+  result : Bool,
+  final_result : Ref[Bool],
+) -> Unit {
+  let _ = stack.pop()
+  let _ = path.pop()
+  if stack.length() > 0 {
+    if result {
+      stack[stack.length() - 1].any_dep_changed = true
+    }
+  } else {
+    final_result.val = result
+  }
+}
+
+///|
 fn maybe_changed_after_derived(
   rt : Runtime,
   cell : CellMeta,
@@ -75,7 +95,7 @@ fn maybe_changed_after_derived(
   // Track the dependency path for cycle error diagnostics
   let path : Array[CellId] = []
   // Track the final result — set when the root frame completes
-  let mut final_result = false
+  let final_result : Ref[Bool] = { val: false }
   // Try to start verification on the root cell; if fast paths apply, return early
   match try_start_verify(rt, cell, after_revision, path) {
     Ok(Some(result)) => return Ok(result)
@@ -94,17 +114,7 @@ fn maybe_changed_after_derived(
     if stack[top].any_dep_changed {
       // A dependency changed — recompute this cell
       match finish_frame_changed(rt, stack[top]) {
-        Ok(result) => {
-          let _ = stack.pop()
-          let _ = path.pop() // Pop cell from path when exiting frame
-          if stack.length() > 0 {
-            if result {
-              stack[stack.length() - 1].any_dep_changed = true
-            }
-          } else {
-            final_result = result
-          }
-        }
+        Ok(result) => pop_frame(stack, path, result, final_result)
         Err(e) => {
           cleanup_stack(stack)
           return Err(e)
@@ -116,15 +126,7 @@ fn maybe_changed_after_derived(
     if stack[top].dep_index >= deps.length() {
       // All dependencies checked, none changed — green path
       let result = finish_frame_unchanged(rt, stack[top])
-      let _ = stack.pop()
-      let _ = path.pop() // Pop cell from path when exiting frame
-      if stack.length() > 0 {
-        if result {
-          stack[stack.length() - 1].any_dep_changed = true
-        }
-      } else {
-        final_result = result
-      }
+      pop_frame(stack, path, result, final_result)
       continue
     }
     // Check next dependency
@@ -160,7 +162,7 @@ fn maybe_changed_after_derived(
         }
     }
   }
-  Ok(final_result)
+  Ok(final_result.val)
 }
 
 ///|
