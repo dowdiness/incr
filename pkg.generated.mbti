@@ -53,12 +53,14 @@ pub(all) struct Memo[T] {
   // private fields
 }
 pub fn[T] Memo::changed_at(Self[T]) -> Revision
+pub fn[T] Memo::clear_on_change(Self[T]) -> Unit
 pub fn[T] Memo::dependencies(Self[T]) -> Array[CellId]
 pub fn[T : Eq] Memo::get(Self[T]) -> T
 pub fn[T : Eq] Memo::get_result(Self[T]) -> Result[T, CycleError]
 pub fn[T] Memo::id(Self[T]) -> CellId
 pub fn[T] Memo::is_up_to_date(Self[T]) -> Bool
 pub fn[T : Eq] Memo::new(Runtime, () -> T) -> Self[T]
+pub fn[T] Memo::on_change(Self[T], (T) -> Unit) -> Unit
 pub fn[T] Memo::verified_at(Self[T]) -> Revision
 pub impl[T] Readable for Memo[T]
 pub impl[T : @debug.Debug] @debug.Debug for Memo[T]
@@ -84,6 +86,7 @@ pub fn Runtime::set_on_change(Self, () -> Unit) -> Unit
 pub(all) struct Signal[T] {
   // private fields
 }
+pub fn[T] Signal::clear_on_change(Self[T]) -> Unit
 pub fn[T] Signal::durability(Self[T]) -> Durability
 pub fn[T] Signal::get(Self[T]) -> T
 pub fn[T] Signal::get_result(Self[T]) -> Result[T, CycleError]
@@ -91,6 +94,7 @@ pub fn[T] Signal::id(Self[T]) -> CellId
 pub fn[T] Signal::is_up_to_date(Self[T]) -> Bool
 pub fn[T] Signal::new(Runtime, T) -> Self[T]
 pub fn[T] Signal::new_with_durability(Runtime, T, Durability) -> Self[T]
+pub fn[T] Signal::on_change(Self[T], (T) -> Unit) -> Unit
 pub fn[T : Eq] Signal::set(Self[T], T) -> Unit
 pub fn[T] Signal::set_unconditional(Self[T], T) -> Unit
 pub impl[T] Readable for Signal[T]
