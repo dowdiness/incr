@@ -73,12 +73,14 @@ pub fn Runtime::new() -> Runtime {
 ///
 /// # Fields
 ///
+/// - `label`: Optional human-readable name for debugging and introspection
 /// - `id`: The unique identifier for this cell
 /// - `changed_at`: When this cell's value last actually changed
 /// - `verified_at`: When this cell was last confirmed up-to-date
 /// - `durability`: How often this cell is expected to change
 /// - `dependencies`: Cell IDs this cell depends on (empty for signals)
 pub(all) struct CellInfo {
+  label : String?
   id : CellId
   changed_at : Revision
   verified_at : Revision
@@ -242,6 +244,7 @@ pub fn Runtime::cell_info(self : Runtime, id : CellId) -> CellInfo? {
   match self.cells[id.id] {
     Some(meta) =>
       Some(CellInfo::{
+        label: meta.label,
         id,
         changed_at: meta.changed_at,
         verified_at: meta.verified_at,
