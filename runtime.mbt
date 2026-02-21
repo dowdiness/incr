@@ -268,10 +268,11 @@ fn Runtime::advance_revision(self : Runtime, durability : Durability) -> Unit {
 /// Mark an input cell as changed at the current revision.
 /// Sets both changed_at and verified_at to current_revision.
 /// Must be called after advance_revision so current_revision is already updated.
-fn Runtime::mark_input_changed(self : Runtime, id : CellId) -> Unit {
+fn Runtime::mark_input_changed(self : Runtime, id : CellId) -> CellMeta {
   let meta = self.get_cell(id)
   meta.changed_at = self.current_revision
   meta.verified_at = self.current_revision
+  meta
 }
 
 ///|
@@ -375,14 +376,10 @@ fn Runtime::commit_batch(self : Runtime) -> Unit {
   // Phase 2: if any value actually changed, do a single revision bump
   if changed_ids.length() > 0 {
     self.advance_revision(self.batch_max_durability)
-    // Sweep changed signals
-    for id in changed_ids {
-      self.mark_input_changed(id)
-    }
-    // Collect callbacks before invoking.
+    // Sweep changed signals and collect callbacks in a single pass.
     let callbacks : Array[() -> Unit] = []
     for id in changed_ids {
-      let meta = self.get_cell(id)
+      let meta = self.mark_input_changed(id)
       match meta.on_change {
         Some(f) => callbacks.push(f)
         None => ()

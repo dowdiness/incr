@@ -410,7 +410,10 @@ pub(open) trait Readable {
 
 Implemented for both `Signal[T]` and `Memo[T]`.
 
-### Pipeline Traits
+### Pipeline Traits (Experimental)
+
+> **Experimental.** These traits may change or be removed in future versions.
+> Defined in `pipeline_traits.mbt`.
 
 ```moonbit
 pub(open) trait Sourceable {
