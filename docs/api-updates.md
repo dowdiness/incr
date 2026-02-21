@@ -203,9 +203,9 @@ let app = MyApp::new()
 let sig = create_signal(app, 10)
 ```
 
-### When New APIs Land
+### Adopting New APIs
 
-Users can opt-in to new features:
+Use the implemented features:
 ```moonbit
 // Introspection
 let deps = memo.dependencies()
@@ -214,11 +214,9 @@ let info = rt.cell_info(cell_id)
 // Per-cell callbacks
 sig.on_change(fn(v) { println("Changed to " + v.to_string()) })
 
-// Builder pattern
-let sig = Signal::builder(rt)
-  .with_value(100)
-  .with_durability(High)
-  .build()
+// Unified constructors with optional params
+let sig = Signal::new(rt, 100, durability=High, label="config")
+let m = Memo::new(rt, fn() { sig.get() * 2 }, label="doubled")
 ```
 
 ## Benefits of These Updates

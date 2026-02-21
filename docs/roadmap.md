@@ -11,36 +11,33 @@ High-level future direction for the `incr` library, organized by phase. Each pha
 
 - ~~**Batch updates**: Allow multiple `Signal::set` calls within a single revision bump to avoid redundant intermediate verifications~~ ✓ Implemented with two-phase signal values and revert detection
 
-### Phase 2A: Introspection & Debugging (High Priority)
+### Phase 2A: Introspection & Debugging ✓
 
-- **Introspection API**: Public methods to query the dependency graph
+- ~~**Introspection API**: Public methods to query the dependency graph~~ ✓ Implemented
   - Per-cell methods: `Signal::id()`, `Signal::durability()`, `Memo::dependencies()`, `Memo::changed_at()`, `Memo::verified_at()`
-  - Runtime methods: `Runtime::cell_info(CellId)` returning structured `CellInfo`
-  - Use case: Debug "why did this memo recompute?"
-- **Enhanced error diagnostics**: Include cycle path in `CycleError`, not just cell ID
-  - Change `CycleDetected(Int)` to `CycleDetected(CellId, Array[CellId])`
-  - Add `CycleError::format_path()` for human-readable output
-- **Debug output**: `Signal::debug()` and `Memo::debug()` methods for inspection
+  - Runtime methods: `Runtime::cell_info(CellId)` returning structured `CellInfo` (with `label` field)
+- ~~**Enhanced error diagnostics**: Include cycle path in `CycleError`~~ ✓ Implemented with `CycleDetected(CellId, Array[CellId])` and `format_path()`
+- ~~**Debug output**: `Signal::debug()` and `Memo::debug()` methods~~ ✓ Implemented
 - **Graph visualization**: Textual or DOT format dump of dependency graph
 
-### Phase 2B: Observability (High Priority)
+### Phase 2B: Observability ✓
 
-- **Per-cell change callbacks**: Fine-grained observation without coupling to Runtime
-  - `Signal::on_change(f : (T) -> Unit)`
-  - `Memo::on_change(f : (T) -> Unit)`
-  - Enables reactive patterns (UI updates, logging, metrics)
+- ~~**Per-cell change callbacks**~~ ✓ Implemented
+  - `Signal::on_change(f : (T) -> Unit)`, `Memo::on_change(f : (T) -> Unit)`
+  - `Signal::clear_on_change()`, `Memo::clear_on_change()`
+  - Fires per-cell callbacks before `Runtime::fire_on_change()`
   - Stored on `CellMeta` via type-erased closures
 
-### Phase 2C: Ergonomics (Medium Priority)
+### Phase 2C: Unified Constructors & Labels ✓
 
-- **Builder pattern**: Future-proof for additional options
-  - `Signal::builder(rt).with_value(v).with_durability(d).with_label(l).build()`
-  - `Memo::builder(rt).with_compute(f).with_label(l).build()`
-  - Additive: keep existing `new()` and `new_with_durability()` methods
-- **Method chaining**: Fluent configuration for Runtime
-  - `Runtime::new().with_on_change(f)` (requires careful borrowing design)
-- **Convenience helpers**: Shorter names for common patterns
-  - `memo(db, f)` as shorthand for `create_memo(db, f)`
+- ~~**Unified constructors with optional params**~~ ✓ Implemented (replaced builder pattern)
+  - `Signal::new(rt, val, durability?=Low, label?=String)` replaces `Signal::new_with_durability`
+  - `Memo::new(rt, f, label?=String)` with optional label
+  - `create_signal(db, val, durability?=Low, label?=String)` replaces `create_signal_durable`
+  - `create_memo(db, f, label?=String)` with optional label
+- ~~**Labels**~~ ✓ Labels propagate through `CellMeta`, `CellInfo`, `format_path`, and debug output
+- **Method chaining**: Fluent configuration for Runtime — deferred
+- **Convenience helpers**: Shorter names for common patterns — deferred
 
 ## Phase 3 — Performance
 

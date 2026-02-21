@@ -6,6 +6,7 @@ test "Signal derives Debug" {
     s,
     content=(
       #|{
+      #|  label: None,
       #|  rt: ...,
       #|  cell_id: ...,
       #|  value: 42,
@@ -24,7 +25,13 @@ test "Memo derives Debug before compute" {
   debug_inspect(
     m,
     content=(
-      #|{ rt: ..., cell_id: ..., compute: <function: ...>, value: None }
+      #|{
+      #|  label: None,
+      #|  rt: ...,
+      #|  cell_id: ...,
+      #|  compute: <function: ...>,
+      #|  value: None,
+      #|}
     ),
   )
 }
@@ -38,7 +45,13 @@ test "Memo derives Debug after compute" {
   debug_inspect(
     m,
     content=(
-      #|{ rt: ..., cell_id: ..., compute: <function: ...>, value: Some(20) }
+      #|{
+      #|  label: None,
+      #|  rt: ...,
+      #|  cell_id: ...,
+      #|  compute: <function: ...>,
+      #|  value: Some(20),
+      #|}
     ),
   )
 }

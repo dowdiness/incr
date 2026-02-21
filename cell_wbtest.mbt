@@ -15,3 +15,19 @@ test "CellId::hash equal inputs produce equal hashes" {
   let b = CellId::{ runtime_id: 3, id: 7 }
   inspect(a.hash() == b.hash(), content="true")
 }
+
+///|
+test "CellMeta new_input stores label" {
+  let rt = Runtime::new()
+  let id = rt.alloc_cell_id()
+  let meta = CellMeta::new_input(id, Low, Some("my_signal"))
+  inspect(meta.label, content="Some(\"my_signal\")")
+}
+
+///|
+test "CellMeta new_input stores None label" {
+  let rt = Runtime::new()
+  let id = rt.alloc_cell_id()
+  let meta = CellMeta::new_input(id, Low, None)
+  inspect(meta.label, content="None")
+}

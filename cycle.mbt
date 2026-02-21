@@ -105,13 +105,13 @@ pub fn CycleError::format_path(self : CycleError, rt : Runtime) -> String {
 ///|
 /// Helper function to format a single cell ID.
 ///
-/// Returns "Cell[N]" where N is the cell's ID number.
-///
-/// The `rt` parameter is currently unused (hence the underscore prefix),
-/// but is threaded through for future use — e.g., calling `rt.cell_info()`
-/// to display richer metadata like cell type or durability level.
-fn format_cell(_rt : Runtime, cell_id : CellId) -> String {
-  "Cell[" + cell_id.id.to_string() + "]"
+/// Returns the cell's label if one was set, otherwise "Cell[N]" where N is
+/// the cell's ID number.
+fn format_cell(rt : Runtime, cell_id : CellId) -> String {
+  match rt.cell_info(cell_id) {
+    Some({ label: Some(l), .. }) => l
+    _ => "Cell[" + cell_id.id.to_string() + "]"
+  }
 }
 
 ///|

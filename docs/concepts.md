@@ -132,7 +132,7 @@ This prevents unnecessary cascading through the graph.
 | `High` | Rarely changing (configuration, schemas) |
 
 ```moonbit
-let config = Signal::new_with_durability(rt, 100, High)
+let config = Signal::new(rt, 100, durability=High)
 let input = Signal::new(rt, 1)  // Default: Low
 ```
 
@@ -141,7 +141,7 @@ let input = Signal::new(rt, 1)  // Default: Low
 When only low-durability inputs change, memos that depend solely on high-durability inputs skip verification entirely:
 
 ```moonbit
-let config = Signal::new_with_durability(rt, "production", High)
+let config = Signal::new(rt, "production", durability=High)
 let user_input = Signal::new(rt, "hello")  // Low durability
 
 let config_hash = Memo::new(rt, fn() { hash(config.get()) })
@@ -159,7 +159,7 @@ user_input.set("world")
 Memos inherit the **minimum** durability of their dependencies:
 
 ```moonbit
-let high = Signal::new_with_durability(rt, 1, High)
+let high = Signal::new(rt, 1, durability=High)
 let low = Signal::new(rt, 2)  // Low durability
 
 let mixed = Memo::new(rt, fn() { high.get() + low.get() })

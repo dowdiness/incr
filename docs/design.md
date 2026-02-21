@@ -256,7 +256,7 @@ Cycle detection returns a `CycleError` type that can be handled gracefully:
 
 ```moonbit
 pub suberror CycleError {
-  CycleDetected(Int)  // Cell ID that caused the cycle
+  CycleDetected(CellId, Array[CellId])  // (culprit, cycle_path)
 }
 ```
 

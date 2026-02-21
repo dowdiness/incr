@@ -1,7 +1,7 @@
 ///|
 test "runtime: cell_info() returns metadata for signal" {
   let rt = Runtime::new()
-  let sig = Signal::new_with_durability(rt, 42, High)
+  let sig = Signal::new(rt, 42, durability=High)
 
   match rt.cell_info(sig.id()) {
     Some(info) => {

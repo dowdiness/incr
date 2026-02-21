@@ -154,3 +154,30 @@ test "cycle path: long cycle is truncated" {
     None => fail("Expected cycle path to be captured")
   }
 }
+
+///|
+test "format_path uses label when available" {
+  let rt = Runtime::new()
+  let memo_ref : Ref[Memo[Int]?] = { val: None }
+  let captured_formatted : Ref[String] = { val: "" }
+
+  let memo = Memo::new(rt, fn() {
+    match memo_ref.val {
+      Some(m) =>
+        match m.get_result() {
+          Ok(v) => v + 1
+          Err(err) => {
+            captured_formatted.val = err.format_path(rt)
+            -999
+          }
+        }
+      None => 0
+    }
+  }, label="self_ref")
+  memo_ref.val = Some(memo)
+
+  // Trigger the cycle
+  let _ = memo.get()
+  let msg = captured_formatted.val
+  inspect(msg.contains("self_ref"), content="true")
+}

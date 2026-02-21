@@ -80,7 +80,7 @@ Signals that change rarely can be marked as high durability. Memos that only dep
 
 ```moonbit
 let rt = Runtime::new()
-let config = Signal::new_with_durability(rt, 100, High)
+let config = Signal::new(rt, 100, durability=High)
 let source = Signal::new(rt, 1)
 let config_derived = Memo::new(rt, fn() { config.get() * 2 })
 

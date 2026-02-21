@@ -1,7 +1,7 @@
 ///|
 test "durability: high durability signal skips verification" {
   let rt = Runtime::new()
-  let config = Signal::new_with_durability(rt, "debug", High)
+  let config = Signal::new(rt, "debug", durability=High)
   let source = Signal::new(rt, "hello")
   let mut config_reads = 0
   let config_memo = Memo::new(rt, fn() {
@@ -32,7 +32,7 @@ test "durability: high durability signal skips verification" {
 ///|
 test "durability: memo inherits min durability from deps" {
   let rt = Runtime::new()
-  let high = Signal::new_with_durability(rt, 1, High)
+  let high = Signal::new(rt, 1, durability=High)
   let low = Signal::new(rt, 2) // Low by default
   let combined = Memo::new(rt, fn() { high.get() + low.get() })
   inspect(combined.get(), content="3")
@@ -44,8 +44,8 @@ test "durability: memo inherits min durability from deps" {
 ///|
 test "durability: memo with only high deps gets high durability" {
   let rt = Runtime::new()
-  let a = Signal::new_with_durability(rt, 10, High)
-  let b = Signal::new_with_durability(rt, 20, High)
+  let a = Signal::new(rt, 10, durability=High)
+  let b = Signal::new(rt, 20, durability=High)
   let sum = Memo::new(rt, fn() { a.get() + b.get() })
   inspect(sum.get(), content="30")
   let cell = rt.get_cell(sum.cell_id)
@@ -55,7 +55,7 @@ test "durability: memo with only high deps gets high durability" {
 ///|
 test "durability: medium durability signal" {
   let rt = Runtime::new()
-  let med = Signal::new_with_durability(rt, 5, Medium)
+  let med = Signal::new(rt, 5, durability=Medium)
   let low = Signal::new(rt, 10)
   let memo = Memo::new(rt, fn() { med.get() + low.get() })
   inspect(memo.get(), content="15")
@@ -67,7 +67,7 @@ test "durability: medium durability signal" {
 ///|
 test "durability: high-only memo skips verify when low input changes" {
   let rt = Runtime::new()
-  let config = Signal::new_with_durability(rt, 100, High)
+  let config = Signal::new(rt, 100, durability=High)
   let source = Signal::new(rt, 1)
   let mut config_compute_count = 0
   let config_derived = Memo::new(rt, fn() {

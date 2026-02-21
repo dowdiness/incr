@@ -63,20 +63,13 @@ rt.clear_on_change()
 
 Input cells with externally controlled values.
 
-### `Signal::new[T](rt: Runtime, initial: T) -> Signal[T]`
+### `Signal::new[T](rt: Runtime, initial: T, durability? : Durability, label? : String) -> Signal[T]`
 
-Creates a signal with `Low` durability.
-
-```moonbit
-let count = Signal::new(rt, 0)
-```
-
-### `Signal::new_with_durability[T](rt: Runtime, initial: T, durability: Durability) -> Signal[T]`
-
-Creates a signal with explicit durability.
+Creates a signal. Both `durability` (default `Low`) and `label` are optional.
 
 ```moonbit
-let config = Signal::new_with_durability(rt, "prod", High)
+let count = Signal::new(rt, 0)                                    // defaults
+let config = Signal::new(rt, "prod", durability=High, label="config")  // explicit
 ```
 
 ### `Signal::get(self) -> T`
@@ -125,12 +118,13 @@ Signals are always up-to-date (`true`).
 
 Derived computations with dependency tracking and memoization.
 
-### `Memo::new[T : Eq](rt: Runtime, compute: () -> T) -> Memo[T]`
+### `Memo::new[T : Eq](rt: Runtime, compute: () -> T, label? : String) -> Memo[T]`
 
-Creates a lazily evaluated memo.
+Creates a lazily evaluated memo. The optional `label` names the memo for debug output and cycle error messages.
 
 ```moonbit
 let doubled = Memo::new(rt, fn() { count.get() * 2 })
+let tax = Memo::new(rt, fn() { price.get() * 0.1 }, label="tax")
 ```
 
 ### `Memo::get[T : Eq](self) -> T`
@@ -294,7 +288,7 @@ Returns the durability level of this signal (`Low`, `Medium`, or `High`).
 
 **Example:**
 ```moonbit
-let config = Signal::new_with_durability(rt, "prod", High)
+let config = Signal::new(rt, "prod", durability=High)
 inspect(config.durability(), content="High")
 ```
 
@@ -345,6 +339,7 @@ match rt.cell_info(memo.id()) {
 
 ```moonbit
 pub struct CellInfo {
+  pub label : String?
   pub id : CellId
   pub changed_at : Revision
   pub verified_at : Revision
@@ -436,13 +431,20 @@ pub(open) trait Executable {
 
 ## Helper Functions
 
-### `create_signal[Db : IncrDb, T](db: Db, value: T) -> Signal[T]`
+### `create_signal`
 
-Creates a low-durability signal using `db.runtime()`.
+Creates a new signal using the database's runtime.
 
-### `create_signal_durable[Db : IncrDb, T](db: Db, value: T, durability: Durability) -> Signal[T]`
+```moonbit nocheck
+create_signal(db, value)                               // Low durability, no label
+create_signal(db, value, durability=High)              // explicit durability
+create_signal(db, value, label="config")               // with debug label
+create_signal(db, value, durability=High, label="cfg") // both
+```
 
-Creates a signal with explicit durability using `db.runtime()`.
+**Parameters:** `db: Db` (IncrDb), `value: T`, `durability?: Durability = Low`, `label?: String`
+
+**Returns:** `Signal[T]`
 
 ### `create_memo[Db : IncrDb, T : Eq](db: Db, f: () -> T) -> Memo[T]`
 
@@ -460,4 +462,4 @@ Runs a batch using `db.runtime()`.
 
 - `Memo::new`, `Memo::get`, `Memo::get_result` require `T : Eq`
 - `Signal::set` requires `T : Eq`
-- `Signal::new`, `Signal::new_with_durability`, `Signal::get`, `Signal::get_result`, `Signal::set_unconditional` do not require `Eq`
+- `Signal::new`, `Signal::get`, `Signal::get_result`, `Signal::set_unconditional` do not require `Eq`

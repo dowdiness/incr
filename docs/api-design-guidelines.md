@@ -13,7 +13,7 @@ This document explains the design philosophy behind `incr`'s API and planned imp
 let count = Signal::new(rt, 0)
 
 // Intermediate: Optimization
-let config = Signal::new_with_durability(rt, 100, High)
+let config = Signal::new(rt, 100, durability=High)
 
 // Advanced: Full control
 let memo = Memo::new(rt, fn() {
@@ -107,9 +107,9 @@ Smooth onboarding path: start simple, add robustness later.
 
 Naming makes behavior obvious without reading docs.
 
-## Planned Improvements
+## Improvements
 
-### Phase 2A: Introspection API (High Priority)
+### Phase 2A: Introspection API ✓
 
 **Goal:** Debug and understand dependency graphs.
 
@@ -122,15 +122,15 @@ pub fn[T] Memo::changed_at(self) -> Revision
 pub fn[T] Memo::verified_at(self) -> Revision
 
 // Runtime introspection
-pub fn Runtime::cell_info(self, id : CellId) -> CellInfo
+pub fn Runtime::cell_info(self, id : CellId) -> CellInfo?
 
 pub struct CellInfo {
-  id : CellId
-  kind : CellKind
-  changed_at : Revision
-  verified_at : Revision
-  durability : Durability
-  dependencies : Array[CellId]
+  pub label : String?
+  pub id : CellId
+  pub changed_at : Revision
+  pub verified_at : Revision
+  pub durability : Durability
+  pub dependencies : Array[CellId]
 }
 ```
 
@@ -148,13 +148,15 @@ if !expensive.is_up_to_date() {
 }
 ```
 
-### Phase 2B: Per-Cell Change Callbacks (High Priority)
+### Phase 2B: Per-Cell Change Callbacks ✓
 
 **Goal:** Fine-grained observability without coupling to Runtime.
 
 ```moonbit
 pub fn[T] Signal::on_change(self, f : (T) -> Unit) -> Unit
 pub fn[T] Memo::on_change(self, f : (T) -> Unit) -> Unit
+pub fn[T] Signal::clear_on_change(self) -> Unit
+pub fn[T] Memo::clear_on_change(self) -> Unit
 ```
 
 **Use case:**
@@ -171,45 +173,34 @@ doubled.on_change(fn(new_val) {
 })
 ```
 
-**Implementation notes:**
+**Behavior:**
 
-- Callbacks stored on `CellMeta` as `on_change : ((T) -> Unit)?`
-- Requires type erasure (similar to `recompute_and_check`)
+- Callbacks stored on `CellMeta` via type-erased closures
 - Fire after revision bump, before `Runtime::fire_on_change`
+- During batch: fires at batch end for all changed cells
 
-### Phase 2C: Builder Pattern (Medium Priority)
+### Phase 2C: Unified Constructors with Optional Params ✓
 
-**Goal:** Future-proof for additional options.
+**Goal:** Ergonomic API without builder boilerplate.
 
-```moonbit
-pub struct SignalBuilder[T] {
-  rt : Runtime
-  value : T
-  durability : Durability
-  label : String?  // For debugging/introspection
-}
-
-pub fn[T] Signal::builder(rt : Runtime) -> SignalBuilder[T]
-
-impl[T] SignalBuilder[T] {
-  pub fn with_value(self, value : T) -> Self
-  pub fn with_durability(self, dur : Durability) -> Self
-  pub fn with_label(self, label : String) -> Self
-  pub fn build(self) -> Signal[T]
-}
-```
-
-**Use case:**
+Instead of a builder pattern, MoonBit's optional parameters provide a cleaner solution:
 
 ```moonbit
-let config = Signal::builder(rt)
-  .with_value(100)
-  .with_durability(High)
-  .with_label("app_config")
-  .build()
+// Signal: durability and label are optional
+Signal::new(rt, 100)                                    // defaults
+Signal::new(rt, 100, durability=High)                   // explicit durability
+Signal::new(rt, 100, durability=High, label="config")   // both
+
+// Memo: label is optional
+Memo::new(rt, fn() { x.get() * 2 })                    // default
+Memo::new(rt, fn() { x.get() * 2 }, label="doubled")   // with label
+
+// Helper functions follow the same pattern
+create_signal(db, value, durability=High, label="cfg")
+create_memo(db, fn() { ... }, label="tax")
 ```
 
-**Migration:** Keep existing `new()` and `new_with_durability()` — builder is additive.
+This replaced `Signal::new_with_durability` and `create_signal_durable` with unified constructors. Labels propagate through `CellMeta`, `CellInfo`, and `format_path` for debugging.
 
 ### Phase 2A: Enhanced Error Diagnostics (High Priority) — Implemented
 

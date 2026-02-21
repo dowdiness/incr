@@ -49,7 +49,7 @@ test "batch: empty - no revision bump" {
 test "batch: mixed durabilities" {
   let rt = Runtime::new()
   let low = Signal::new(rt, 1)
-  let high = Signal::new_with_durability(rt, 100, High)
+  let high = Signal::new(rt, 100, durability=High)
   rt.batch(fn() {
     low.set(2)
     high.set(200)

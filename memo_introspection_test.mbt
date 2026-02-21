@@ -75,3 +75,27 @@ test "memo: dependencies update on recomputation" {
   inspect(deps2.contains(a.id()), content="false")
   inspect(deps2.contains(b.id()), content="true")
 }
+
+///|
+test "memo: label stored via optional param" {
+  let rt = Runtime::new()
+  let x = Signal::new(rt, 1)
+  let m = Memo::new(rt, fn() { x.get() * 2 }, label="doubled")
+  let _ = m.get()
+  match rt.cell_info(m.id()) {
+    Some(info) => inspect(info.label, content="Some(\"doubled\")")
+    None => abort("expected cell info")
+  }
+}
+
+///|
+test "memo: no label gives None in cell_info" {
+  let rt = Runtime::new()
+  let x = Signal::new(rt, 1)
+  let m = Memo::new(rt, fn() { x.get() * 2 })
+  let _ = m.get()
+  match rt.cell_info(m.id()) {
+    Some(info) => inspect(info.label, content="None")
+    None => abort("expected cell info")
+  }
+}

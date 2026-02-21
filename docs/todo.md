@@ -51,21 +51,27 @@ Concrete, actionable tasks for the `incr` library.
 - [x] Fire per-cell callbacks before `Runtime::fire_on_change()`
 - [x] Test callback execution order (per-cell before global)
 
-### Builder Pattern (Phase 2C - Medium Priority)
+### Builder Pattern / Ergonomics (Phase 2C - Done)
 
-- [ ] Define `SignalBuilder[T]` struct
-- [ ] Add `Signal::builder(Runtime) -> SignalBuilder[T]`
-- [ ] Add `SignalBuilder::with_value(T) -> Self`
-- [ ] Add `SignalBuilder::with_durability(Durability) -> Self`
-- [ ] Add `SignalBuilder::with_label(String) -> Self` (for future introspection)
-- [ ] Add `SignalBuilder::build() -> Signal[T]`
-- [ ] Define `MemoBuilder[T]` struct with similar pattern
-- [ ] Document builder pattern in API reference
+- [x] Unified `Signal::new` with `durability? : Durability = Low` (replaces `Signal::new_with_durability`)
+- [x] Added `label? : String` to `Signal::new` and `Memo::new`
+- [x] Added `label? : String` and `durability?` to `create_signal` (replaces `create_signal_durable`)
+- [x] Added `label? : String` to `create_memo`
+- [x] Labels propagate through `CellMeta`, `CellInfo`, `format_path`
+- [x] Labels surface in `derive(Debug)` output for `Signal` and `Memo`
+- ~~Define `SignalBuilder[T]` struct~~ — skipped (replaced by optional params)
+- ~~Add `Signal::builder(Runtime) -> SignalBuilder[T]`~~ — skipped
+- ~~Add `SignalBuilder::with_value(T) -> Self`~~ — skipped
+- ~~Add `SignalBuilder::with_durability(Durability) -> Self`~~ — skipped
+- ~~Add `SignalBuilder::with_label(String) -> Self`~~ — skipped
+- ~~Add `SignalBuilder::build() -> Signal[T]`~~ — skipped
+- ~~Define `MemoBuilder[T]` struct with similar pattern~~ — skipped
+- ~~Document builder pattern in API reference~~ — skipped
 
 ### Ergonomics (Phase 2C - Medium Priority)
 
 - [ ] Add `Runtime::with_on_change(self, f) -> Runtime` for method chaining
-- [ ] Add convenience helper `memo[Db : IncrDb, T : Eq](db, f) -> Memo[T]`
+- [x] Unified `create_signal` with optional `durability?` replaces `create_signal_durable`
 - [ ] Explore RAII `BatchGuard` if MoonBit adds destructors
 
 ### Advanced (Phase 4)

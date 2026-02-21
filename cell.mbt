@@ -66,6 +66,8 @@ priv struct CellMeta {
   mut on_change : (() -> Unit)?
   /// Cycle detection flag.
   mut in_progress : Bool
+  /// Optional human-readable label for debugging and introspection.
+  mut label : String?
 }
 
 ///|
@@ -75,11 +77,12 @@ priv struct CellMeta {
 ///
 /// - `id`: The unique identifier for this cell
 /// - `durability`: How often this input is expected to change
+/// - `label`: Optional human-readable name for debugging and introspection
 ///
 /// # Returns
 ///
 /// Initialized cell metadata with `kind = Input`
-fn CellMeta::new_input(id : CellId, durability : Durability) -> CellMeta {
+fn CellMeta::new_input(id : CellId, durability : Durability, label : String?) -> CellMeta {
   {
     id,
     kind: Input,
@@ -91,6 +94,7 @@ fn CellMeta::new_input(id : CellId, durability : Durability) -> CellMeta {
     commit_pending: None,
     on_change: None,
     in_progress: false,
+    label,
   }
 }
 
@@ -103,6 +107,7 @@ fn CellMeta::new_input(id : CellId, durability : Durability) -> CellMeta {
 /// - `recompute_and_check`: A closure that recomputes the memo's value and
 ///   returns `Ok(true)` if the value changed, `Ok(false)` if it stayed the same
 ///   (enabling backdating), or `Err(CycleError)` if a cycle is detected
+/// - `label`: Optional human-readable name for debugging and introspection
 ///
 /// # Returns
 ///
@@ -111,6 +116,7 @@ fn CellMeta::new_input(id : CellId, durability : Durability) -> CellMeta {
 fn CellMeta::new_derived(
   id : CellId,
   recompute_and_check : () -> Result[Bool, CycleError],
+  label : String?,
 ) -> CellMeta {
   {
     id,
@@ -123,5 +129,6 @@ fn CellMeta::new_derived(
     commit_pending: None,
     on_change: None,
     in_progress: false,
+    label,
   }
 }

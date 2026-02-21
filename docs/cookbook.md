@@ -73,8 +73,8 @@ Use durability to optimize stable configuration:
 let rt = Runtime::new()
 
 // Configuration changes rarely
-let multiplier = Signal::new_with_durability(rt, 1.5, High)
-let precision = Signal::new_with_durability(rt, 2, High)
+let multiplier = Signal::new(rt, 1.5, durability=High)
+let precision = Signal::new(rt, 2, durability=High)
 
 // Data changes frequently
 let measurements : Array[Signal[Double]] = []
@@ -503,7 +503,7 @@ let expensive = Memo::new(rt, fn() {
 High-durability memos should not log when only low-durability inputs change:
 
 ```moonbit
-let config = Signal::new_with_durability(rt, 100, High)
+let config = Signal::new(rt, 100, durability=High)
 let data = Signal::new(rt, 1)
 
 let config_derived = Memo::new(rt, fn() {

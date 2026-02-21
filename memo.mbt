@@ -27,6 +27,7 @@
 /// inspect(sum.get(), content="35")  // Recomputes because `a` changed
 /// ```
 pub(all) struct Memo[T] {
+  priv label : String?
   priv rt : Runtime
   priv cell_id : CellId
   priv compute : () -> T
@@ -54,14 +55,13 @@ pub(all) struct Memo[T] {
 /// `T` must implement `Eq` for backdating: when the compute function returns
 /// the same value as before, the memo's `changed_at` timestamp is preserved,
 /// preventing unnecessary downstream recomputation.
-pub fn[T : Eq] Memo::new(rt : Runtime, compute : () -> T) -> Memo[T] {
+pub fn[T : Eq] Memo::new(rt : Runtime, compute : () -> T, label? : String) -> Memo[T] {
   let cell_id = rt.alloc_cell_id()
-  let memo : Memo[T] = { rt, cell_id, compute, value: None }
-  // Create the type-erased recompute closure that bridges Memo[T] to CellMeta
+  let memo : Memo[T] = { label, rt, cell_id, compute, value: None }
   let recompute_and_check : () -> Result[Bool, CycleError] = fn() {
     memo.recompute_inner()
   }
-  let meta = CellMeta::new_derived(cell_id, recompute_and_check)
+  let meta = CellMeta::new_derived(cell_id, recompute_and_check, label)
   rt.register_cell(meta)
   memo
 }

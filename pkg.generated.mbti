@@ -8,11 +8,9 @@ import {
 // Values
 pub fn[Db : IncrDb] batch(Db, () -> Unit) -> Unit
 
-pub fn[Db : IncrDb, T : Eq] create_memo(Db, () -> T) -> Memo[T]
+pub fn[Db : IncrDb, T : Eq] create_memo(Db, () -> T, label? : String) -> Memo[T]
 
-pub fn[Db : IncrDb, T] create_signal(Db, T) -> Signal[T]
-
-pub fn[Db : IncrDb, T] create_signal_durable(Db, T, Durability) -> Signal[T]
+pub fn[Db : IncrDb, T] create_signal(Db, T, durability? : Durability, label? : String) -> Signal[T]
 
 // Errors
 pub suberror CycleError {
@@ -32,6 +30,7 @@ pub impl Show for CellId
 pub impl @debug.Debug for CellId
 
 pub(all) struct CellInfo {
+  label : String?
   id : CellId
   changed_at : Revision
   verified_at : Revision
@@ -59,7 +58,7 @@ pub fn[T : Eq] Memo::get(Self[T]) -> T
 pub fn[T : Eq] Memo::get_result(Self[T]) -> Result[T, CycleError]
 pub fn[T] Memo::id(Self[T]) -> CellId
 pub fn[T] Memo::is_up_to_date(Self[T]) -> Bool
-pub fn[T : Eq] Memo::new(Runtime, () -> T) -> Self[T]
+pub fn[T : Eq] Memo::new(Runtime, () -> T, label? : String) -> Self[T]
 pub fn[T] Memo::on_change(Self[T], (T) -> Unit) -> Unit
 pub fn[T] Memo::verified_at(Self[T]) -> Revision
 pub impl[T] Readable for Memo[T]
@@ -92,8 +91,7 @@ pub fn[T] Signal::get(Self[T]) -> T
 pub fn[T] Signal::get_result(Self[T]) -> Result[T, CycleError]
 pub fn[T] Signal::id(Self[T]) -> CellId
 pub fn[T] Signal::is_up_to_date(Self[T]) -> Bool
-pub fn[T] Signal::new(Runtime, T) -> Self[T]
-pub fn[T] Signal::new_with_durability(Runtime, T, Durability) -> Self[T]
+pub fn[T] Signal::new(Runtime, T, durability? : Durability, label? : String) -> Self[T]
 pub fn[T] Signal::on_change(Self[T], (T) -> Unit) -> Unit
 pub fn[T : Eq] Signal::set(Self[T], T) -> Unit
 pub fn[T] Signal::set_unconditional(Self[T], T) -> Unit
