@@ -96,8 +96,7 @@ pub fn[T] Signal::get(self : Signal[T]) -> T {
 ///
 /// `Ok(value)` with the current value of the signal
 pub fn[T] Signal::get_result(self : Signal[T]) -> Result[T, CycleError] {
-  self.rt.record_dependency(self.cell_id)
-  Ok(self.value)
+  Ok(self.get())
 }
 
 ///|
@@ -189,9 +188,7 @@ pub fn[T] Signal::set_unconditional(self : Signal[T], new_value : T) -> Unit {
   } else {
     self.value = new_value
     self.rt.bump_revision(self.durability)
-    let meta = self.rt.get_cell(self.cell_id)
-    meta.changed_at = self.rt.current_revision
-    meta.verified_at = self.rt.current_revision
+    let meta = self.rt.mark_input_changed(self.cell_id)
     match meta.on_change {
       Some(f) => f()
       None => ()

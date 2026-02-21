@@ -202,3 +202,22 @@ test "panic batch: corrupted negative batch_depth triggers underflow abort" {
   rt.batch_depth = -1
   rt.batch(fn() { () })
 }
+
+///|
+// Trigger commit_batch with a signal whose commit_pending is None —
+// simulates internal state corruption (missing commit closure).
+test "panic commit_batch: signal with None commit_pending aborts" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 0)
+  // Manually enter batch mode by directly setting batch_depth
+  rt.batch_depth = 1
+  // set() detects batch_depth > 0 and calls set_batch, which registers
+  // commit_pending and enqueues the cell id in batch_pending_signals
+  sig.set(1)
+  // Corrupt the commit_pending closure
+  let meta = rt.get_cell(sig.id())
+  meta.commit_pending = None
+  // Manually exit batch and trigger commit_batch
+  rt.batch_depth = 0
+  rt.commit_batch()
+}

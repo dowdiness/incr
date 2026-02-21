@@ -136,6 +136,12 @@ fn Runtime::alloc_cell_id(self : Runtime) -> CellId {
 ///
 /// Aborts if no cell with the given ID exists
 fn Runtime::get_cell(self : Runtime, id : CellId) -> CellMeta {
+  if id.runtime_id != self.runtime_id {
+    abort("Cell belongs to a different Runtime")
+  }
+  if id.id < 0 {
+    abort("Invalid cell id: " + id.id.to_string())
+  }
   if id.id < self.cells.length() {
     match self.cells[id.id] {
       Some(meta) => meta
@@ -247,6 +253,29 @@ pub fn Runtime::cell_info(self : Runtime, id : CellId) -> CellInfo? {
 }
 
 ///|
+/// Advance the global revision counter and record which durability level changed.
+/// Updates current_revision and all durability_last_changed entries up to dur_idx.
+/// Callers must ensure this is only called outside of a batch (batch_depth == 0).
+fn Runtime::advance_revision(self : Runtime, durability : Durability) -> Unit {
+  self.current_revision = self.current_revision.next()
+  let dur_idx = durability.index()
+  for i = 0; i <= dur_idx; i = i + 1 {
+    self.durability_last_changed[i] = self.current_revision
+  }
+}
+
+///|
+/// Mark an input cell as changed at the current revision.
+/// Sets both changed_at and verified_at to current_revision.
+/// Must be called after advance_revision so current_revision is already updated.
+fn Runtime::mark_input_changed(self : Runtime, id : CellId) -> CellMeta {
+  let meta = self.get_cell(id)
+  meta.changed_at = self.current_revision
+  meta.verified_at = self.current_revision
+  meta
+}
+
+///|
 /// Bumps the global revision counter and records which durability level changed.
 ///
 /// This is called internally when a signal's value changes. The durability
@@ -266,12 +295,7 @@ fn Runtime::bump_revision(self : Runtime, durability : Durability) -> Unit {
     }
     return
   }
-  self.current_revision = self.current_revision.next()
-  // Update this durability level and all lower durability levels
-  let dur_idx = durability.index()
-  for i = 0; i <= dur_idx; i = i + 1 {
-    self.durability_last_changed[i] = self.current_revision
-  }
+  self.advance_revision(durability)
 }
 
 ///|
@@ -335,39 +359,27 @@ fn Runtime::commit_batch(self : Runtime) -> Unit {
   }
   // Phase 1: commit pending values and collect which actually changed
   let changed_ids : Array[CellId] = []
-  for i = 0; i < self.batch_pending_signals.length(); i = i + 1 {
-    let meta = self.get_cell(self.batch_pending_signals[i])
+  for id in self.batch_pending_signals {
+    let meta = self.get_cell(id)
     match meta.commit_pending {
       Some(commit_fn) => {
         if commit_fn() {
-          changed_ids.push(self.batch_pending_signals[i])
+          changed_ids.push(id)
         }
         meta.commit_pending = None
       }
-      None => ()
+      None => abort("Batched signal missing commit_pending — internal invariant violated")
     }
   }
   // Reset pending list by clearing directly
   self.batch_pending_signals.clear()
   // Phase 2: if any value actually changed, do a single revision bump
   if changed_ids.length() > 0 {
-    let durability = self.batch_max_durability
-    self.current_revision = self.current_revision.next()
-    let dur_idx = durability.index()
-    for i = 0; i <= dur_idx; i = i + 1 {
-      self.durability_last_changed[i] = self.current_revision
-    }
-    // Sweep changed signals
-    let rev = self.current_revision
-    for i = 0; i < changed_ids.length(); i = i + 1 {
-      let meta = self.get_cell(changed_ids[i])
-      meta.changed_at = rev
-      meta.verified_at = rev
-    }
-    // Collect callbacks before invoking.
+    self.advance_revision(self.batch_max_durability)
+    // Sweep changed signals and collect callbacks in a single pass.
     let callbacks : Array[() -> Unit] = []
-    for i = 0; i < changed_ids.length(); i = i + 1 {
-      let meta = self.get_cell(changed_ids[i])
+    for id in changed_ids {
+      let meta = self.mark_input_changed(id)
       match meta.on_change {
         Some(f) => callbacks.push(f)
         None => ()
@@ -378,8 +390,8 @@ fn Runtime::commit_batch(self : Runtime) -> Unit {
     // inside a callback takes the batch path instead of set_unconditional,
     // preventing re-entrant fire_on_change() calls.
     self.batch_depth = self.batch_depth + 1
-    for i = 0; i < callbacks.length(); i = i + 1 {
-      callbacks[i]()
+    for cb in callbacks {
+      cb()
     }
     self.batch_depth = self.batch_depth - 1
     // Commit any signals set during callbacks, then fire global once.
@@ -452,4 +464,17 @@ fn Runtime::pop_tracking(self : Runtime) -> Array[CellId] {
     Some(query) => query.dependencies
     None => abort("Tracking stack underflow")
   }
+}
+
+///|
+/// Collect cell IDs from the current tracking stack.
+///
+/// Returns the cell IDs of all active computation frames in order,
+/// for use in cycle error diagnostics. Does not modify the stack.
+fn Runtime::collect_tracking_path(self : Runtime) -> Array[CellId] {
+  let path : Array[CellId] = []
+  for frame in self.tracking_stack {
+    path.push(frame.cell_id)
+  }
+  path
 }

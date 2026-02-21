@@ -113,3 +113,18 @@ pub fn CycleError::format_path(self : CycleError, rt : Runtime) -> String {
 fn format_cell(_rt : Runtime, cell_id : CellId) -> String {
   "Cell[" + cell_id.id.to_string() + "]"
 }
+
+///|
+/// Construct a CycleError from a path of cell IDs and the cell that closes the cycle.
+///
+/// Copies `path`, appends `closing_id`, and returns a CycleDetected error.
+/// This is path-source agnostic: callers provide whatever path they have collected
+/// (tracking stack IDs or verification path IDs) without exposing runtime internals.
+fn CycleError::from_path(
+  path : Array[CellId],
+  closing_id : CellId,
+) -> CycleError {
+  let full_path = path.copy()
+  full_path.push(closing_id)
+  CycleDetected(closing_id, full_path)
+}

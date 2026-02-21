@@ -89,16 +89,12 @@ pub fn[T : Eq] Memo::new(rt : Runtime, compute : () -> T) -> Memo[T] {
 ///
 /// Aborts if a cycle is detected (this memo transitively depends on itself).
 /// Use `get_result()` instead to handle cycles gracefully.
+///
+/// The panic tests in `cycle_test.mbt` call `get()` directly and exercise this abort path.
 pub fn[T : Eq] Memo::get(self : Memo[T]) -> T {
   match self.get_result() {
     Ok(value) => value
-    Err(CycleDetected(cell, path)) =>
-      abort(
-        "Cycle detected at cell " +
-        cell.to_string() +
-        ", path length: " +
-        path.length().to_string(),
-      )
+    Err(e) => abort(e.format_path(self.rt))
   }
 }
 
@@ -166,15 +162,7 @@ pub fn[T : Eq] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
 fn[T : Eq] Memo::force_recompute(self : Memo[T]) -> Result[Unit, CycleError] {
   let cell = self.rt.get_cell(self.cell_id)
   if cell.in_progress {
-    // Build the full cycle path from the tracking stack
-    let path : Array[CellId] = []
-    // Collect cell IDs from all frames in the tracking stack
-    for i = 0; i < self.rt.tracking_stack.length(); i = i + 1 {
-      path.push(self.rt.tracking_stack[i].cell_id)
-    }
-    // Append current cell to show the cycle closes
-    path.push(cell.id)
-    return Err(CycleDetected(cell.id, path))
+    return Err(CycleError::from_path(self.rt.collect_tracking_path(), cell.id))
   }
   cell.in_progress = true
   // Push tracking frame to record dependencies
@@ -231,11 +219,10 @@ fn compute_durability(rt : Runtime, deps : Array[CellId]) -> Durability {
     return Low
   }
   let mut min_dur = High
-  for i = 0; i < deps.length(); i = i + 1 {
-    let dep_cell = rt.get_cell(deps[i])
-    let dep_dur = dep_cell.durability
-    if dep_dur < min_dur {
-      min_dur = dep_dur
+  for dep_id in deps {
+    let dep_cell = rt.get_cell(dep_id)
+    if dep_cell.durability < min_dur {
+      min_dur = dep_cell.durability
     }
   }
   min_dur

@@ -145,34 +145,3 @@ pub fn[Db : IncrDb] batch(db : Db, f : () -> Unit) -> Unit {
   db.runtime().batch(f)
 }
 
-// === Pipeline Traits ===
-// These traits define the stages of a compilation/processing pipeline.
-// Users implement them for their own database types and compose them as needed.
-
-///|
-/// A system that has source text input.
-///
-/// Implement this trait to provide get/set access to source text
-/// backed by an incremental Signal.
-pub(open) trait Sourceable {
-  set_source_text(Self, String) -> Unit
-  source_text(Self) -> String
-}
-
-///|
-/// A system that can parse and report parse errors.
-pub(open) trait Parseable {
-  parse_errors(Self) -> Array[String]
-}
-
-///|
-/// A system that can check (type-check, lint, etc.) and report errors.
-pub(open) trait Checkable {
-  check_errors(Self) -> Array[String]
-}
-
-///|
-/// A system that can execute/evaluate and produce output.
-pub(open) trait Executable {
-  run(Self) -> Array[String]
-}

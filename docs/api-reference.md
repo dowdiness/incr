@@ -357,9 +357,7 @@ For signals, `dependencies` is empty.
 
 ---
 
-## Per-Cell Callbacks (Planned - Phase 2B)
-
-> **Note:** These APIs are planned but not yet implemented. See [roadmap.md](roadmap.md) for details.
+## Per-Cell Callbacks
 
 ### `Signal::on_change(self, f : (T) -> Unit) -> Unit`
 
@@ -410,7 +408,10 @@ pub(open) trait Readable {
 
 Implemented for both `Signal[T]` and `Memo[T]`.
 
-### Pipeline Traits
+### Pipeline Traits (Experimental)
+
+> **Experimental.** These traits may change or be removed in future versions.
+> Defined in `pipeline_traits.mbt`.
 
 ```moonbit
 pub(open) trait Sourceable {
