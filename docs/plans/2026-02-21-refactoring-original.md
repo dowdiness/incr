@@ -426,7 +426,7 @@ pub fn[T : Eq] Memo::get(self : Memo[T]) -> T {
 Directly above `Memo::get`, add a doc note (or inline comment) that cycle tests use `get_result`, not `get`:
 
 Inside the `# Panics` section of the doc comment (around line 90), append:
-```
+```moonbit
 /// Note: existing cycle tests use `get_result()` and do not exercise this abort path.
 ```
 

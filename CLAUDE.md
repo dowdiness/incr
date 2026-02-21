@@ -11,7 +11,7 @@ A Salsa-inspired incremental recomputation library written in MoonBit. Provides 
 ```bash
 moon check          # Type-check without building
 moon build          # Build the library
-moon test           # Run all 126 tests
+moon test           # Run all 128 tests
 moon test -p dowdiness/incr -f memo_test.mbt           # Run tests in a specific file
 moon test -p dowdiness/incr -f memo_test.mbt -i 0      # Run a single test by index
 ```

@@ -90,7 +90,7 @@ pub fn[T : Eq] Memo::new(rt : Runtime, compute : () -> T) -> Memo[T] {
 /// Aborts if a cycle is detected (this memo transitively depends on itself).
 /// Use `get_result()` instead to handle cycles gracefully.
 ///
-/// Note: existing cycle tests use `get_result()` and do not exercise this abort path.
+/// The panic tests in `cycle_test.mbt` call `get()` directly and exercise this abort path.
 pub fn[T : Eq] Memo::get(self : Memo[T]) -> T {
   match self.get_result() {
     Ok(value) => value
