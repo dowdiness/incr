@@ -136,6 +136,12 @@ fn Runtime::alloc_cell_id(self : Runtime) -> CellId {
 ///
 /// Aborts if no cell with the given ID exists
 fn Runtime::get_cell(self : Runtime, id : CellId) -> CellMeta {
+  if id.runtime_id != self.runtime_id {
+    abort("Cell belongs to a different Runtime")
+  }
+  if id.id < 0 {
+    abort("Invalid cell id: " + id.id.to_string())
+  }
   if id.id < self.cells.length() {
     match self.cells[id.id] {
       Some(meta) => meta
