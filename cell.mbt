@@ -77,6 +77,7 @@ priv struct CellMeta {
 ///
 /// - `id`: The unique identifier for this cell
 /// - `durability`: How often this input is expected to change
+/// - `label`: Optional human-readable name for debugging and introspection
 ///
 /// # Returns
 ///
@@ -106,6 +107,7 @@ fn CellMeta::new_input(id : CellId, durability : Durability, label : String?) ->
 /// - `recompute_and_check`: A closure that recomputes the memo's value and
 ///   returns `Ok(true)` if the value changed, `Ok(false)` if it stayed the same
 ///   (enabling backdating), or `Err(CycleError)` if a cycle is detected
+/// - `label`: Optional human-readable name for debugging and introspection
 ///
 /// # Returns
 ///
