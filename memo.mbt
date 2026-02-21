@@ -165,13 +165,28 @@ fn[T : Eq] Memo::force_recompute(self : Memo[T]) -> Result[Unit, CycleError] {
     return Err(CycleError::from_path(self.rt.collect_tracking_path(), cell.id))
   }
   cell.in_progress = true
+  let old_deps = cell.dependencies
   // Push tracking frame to record dependencies
   self.rt.push_tracking(self.cell_id)
   let new_value = (self.compute)()
-  let new_deps = self.rt.pop_tracking()
+  let (new_deps, new_seen) = self.rt.pop_tracking()
+  // Diff: check whether the dep set changed.
+  // new_seen is the HashSet already built by ActiveQuery — no extra allocation.
+  // We walk old_deps and check membership in new_seen; a length mismatch is a
+  // fast-path indicator of change (avoids the loop when counts differ).
+  let mut deps_changed = new_deps.length() != old_deps.length()
+  for dep in old_deps {
+    if not(new_seen.contains(dep)) {
+      deps_changed = true
+    }
+  }
+  // Phase 4: removed = old_deps.filter(fn(d) { not(new_seen.contains(d)) })
+  // Phase 4: unsubscribe self.cell_id from each removed dep's subscriber list
   cell.dependencies = new_deps
-  // Update durability: max of all dependencies' durabilities
-  cell.durability = compute_durability(self.rt, new_deps)
+  // Update durability only when the dep set changed (skip rescan on stable path)
+  if deps_changed {
+    cell.durability = compute_durability(self.rt, new_deps)
+  }
   // Backdating: if value unchanged, keep old changed_at
   let value_changed = match self.value {
     None => true

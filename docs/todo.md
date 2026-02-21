@@ -13,7 +13,7 @@ Concrete, actionable tasks for the `incr` library.
 - [x] Use `HashSet` for deduplication in `ActiveQuery::record` — O(1) per dependency
 - [x] Replace `HashMap[CellId, CellMeta]` in `Runtime` with `Array[CellMeta?]` indexed by `CellId.id`
 - [x] Convert recursive `maybe_changed_after` to iterative with explicit stack (prevents stack overflow on deep graphs)
-- [ ] Diff old vs. new dependency lists in `Memo::force_recompute` instead of full replacement
+- [x] Diff old vs. new dependency lists in `Memo::force_recompute` instead of full replacement
 - [ ] Explore push-pull hybrid invalidation (requires subscriber/reverse links)
 
 ## API Improvements

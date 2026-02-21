@@ -480,9 +480,9 @@ fn Runtime::push_tracking(self : Runtime, cell_id : CellId) -> Unit {
 /// # Panics
 ///
 /// Aborts if the tracking stack is empty (unbalanced push/pop)
-fn Runtime::pop_tracking(self : Runtime) -> Array[CellId] {
+fn Runtime::pop_tracking(self : Runtime) -> (Array[CellId], @hashset.HashSet[CellId]) {
   match self.tracking_stack.pop() {
-    Some(query) => query.dependencies
+    Some(query) => (query.dependencies, query.seen)
     None => abort("Tracking stack underflow")
   }
 }
