@@ -436,13 +436,20 @@ pub(open) trait Executable {
 
 ## Helper Functions
 
-### `create_signal[Db : IncrDb, T](db: Db, value: T) -> Signal[T]`
+### `create_signal`
 
-Creates a low-durability signal using `db.runtime()`.
+Creates a new signal using the database's runtime.
 
-### `create_signal_durable[Db : IncrDb, T](db: Db, value: T, durability: Durability) -> Signal[T]`
+```moonbit nocheck
+create_signal(db, value)                               // Low durability, no label
+create_signal(db, value, durability=High)              // explicit durability
+create_signal(db, value, label="config")               // with debug label
+create_signal(db, value, durability=High, label="cfg") // both
+```
 
-Creates a signal with explicit durability using `db.runtime()`.
+**Parameters:** `db: Db` (IncrDb), `value: T`, `durability?: Durability = Low`, `label?: String`
+
+**Returns:** `Signal[T]`
 
 ### `create_memo[Db : IncrDb, T : Eq](db: Db, f: () -> T) -> Memo[T]`
 
@@ -460,4 +467,4 @@ Runs a batch using `db.runtime()`.
 
 - `Memo::new`, `Memo::get`, `Memo::get_result` require `T : Eq`
 - `Signal::set` requires `T : Eq`
-- `Signal::new`, `Signal::new_with_durability`, `Signal::get`, `Signal::get_result`, `Signal::set_unconditional` do not require `Eq`
+- `Signal::new`, `Signal::get`, `Signal::get_result`, `Signal::set_unconditional` do not require `Eq`

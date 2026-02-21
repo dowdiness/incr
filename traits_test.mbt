@@ -31,7 +31,7 @@ test "trait: create_signal via IncrDb" {
 }
 
 ///|
-test "trait: create_signal_durable via IncrDb" {
+test "trait: create_signal with High durability" {
   let db = TestDb::new()
   let sig = create_signal(db, "hello", durability=High)
   inspect(sig.get(), content="hello")
