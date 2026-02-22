@@ -13,4 +13,5 @@ pub using @internal {
   type Signal,
   type Memo,
   type CycleError,
+  type TrackedCell,
 }
