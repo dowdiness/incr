@@ -81,21 +81,25 @@ This document summarizes the documentation updates made based on the API Interfa
 
 **Code example before:**
 ```moonbit
-let rt = Runtime::new()
-let x = Signal::new(rt, 10)
+let rt = Runtime()
+let x = Signal(rt, 10)
 ```
 
 **Code example after:**
 ```moonbit
 // Recommended: Database pattern (complete, runnable)
-struct MyApp { rt : Runtime }
+struct MyApp {
+  rt : Runtime
+
+  fn new() -> MyApp
+}
 impl IncrDb for MyApp with runtime(self) { self.rt }
 
 fn MyApp::new() -> MyApp {
-  { rt: Runtime::new() }
+  { rt: Runtime() }
 }
 
-let app = MyApp::new()
+let app = MyApp()
 let x = create_signal(app, 10)
 ```
 
@@ -109,7 +113,7 @@ let x = create_signal(app, 10)
 - **New section:** "Recommended Approach: Database Pattern" added before runtime creation
 - **All code examples:** Now show BOTH database pattern and direct runtime pattern side-by-side
 - **Step 1:** Explains IncrDb trait and database encapsulation
-- **Step 2 & 3:** Show `create_signal(app, ...)` alongside `Signal::new(rt, ...)`
+- **Step 2 & 3:** Show `create_signal(app, ...)` alongside `Signal(rt, ...)`
 
 **Why updated:** Teaches the recommended pattern from the start while still showing the direct approach for comparison.
 
@@ -186,8 +190,8 @@ let x = create_signal(app, 10)
 
 Existing code continues to work:
 ```moonbit
-let rt = Runtime::new()
-let sig = Signal::new(rt, 10)
+let rt = Runtime()
+let sig = Signal(rt, 10)
 ```
 
 **All updates are additive.** No breaking changes.
@@ -196,10 +200,18 @@ let sig = Signal::new(rt, 10)
 
 Adopt the database pattern:
 ```moonbit
-struct MyApp { rt : Runtime }
+struct MyApp {
+  rt : Runtime
+
+  fn new() -> MyApp
+}
 impl IncrDb for MyApp with runtime(self) { self.rt }
 
-let app = MyApp::new()
+fn MyApp::new() -> MyApp {
+  { rt: Runtime() }
+}
+
+let app = MyApp()
 let sig = create_signal(app, 10)
 ```
 
@@ -215,8 +227,8 @@ let info = rt.cell_info(cell_id)
 sig.on_change(fn(v) { println("Changed to " + v.to_string()) })
 
 // Unified constructors with optional params
-let sig = Signal::new(rt, 100, durability=High, label="config")
-let m = Memo::new(rt, fn() { sig.get() * 2 }, label="doubled")
+let sig = Signal(rt, 100, durability=High, label="config")
+let m = Memo(rt, fn() { sig.get() * 2 }, label="doubled")
 ```
 
 ## Benefits of These Updates

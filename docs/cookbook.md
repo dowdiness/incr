@@ -15,12 +15,12 @@ Handle computations where multiple paths converge:
 ```
 
 ```moonbit
-let rt = Runtime::new()
+let rt = Runtime()
 
-let a = Signal::new(rt, 10)
-let b = Memo::new(rt, fn() { a.get() * 2 })
-let c = Memo::new(rt, fn() { a.get() + 5 })
-let d = Memo::new(rt, fn() { b.get() + c.get() })
+let a = Signal(rt, 10)
+let b = Memo(rt, fn() { a.get() * 2 })
+let c = Memo(rt, fn() { a.get() + 5 })
+let d = Memo(rt, fn() { b.get() + c.get() })
 
 inspect(d.get(), content="35")  // (10*2) + (10+5)
 
@@ -37,13 +37,13 @@ inspect(d.get(), content="65")  // (20*2) + (20+5)
 Dependencies can vary based on runtime conditions:
 
 ```moonbit
-let rt = Runtime::new()
+let rt = Runtime()
 
-let use_cache = Signal::new(rt, true)
-let cache = Signal::new(rt, "cached_value")
-let expensive_source = Signal::new(rt, "computed_value")
+let use_cache = Signal(rt, true)
+let cache = Signal(rt, "cached_value")
+let expensive_source = Signal(rt, "computed_value")
 
-let result = Memo::new(rt, fn() {
+let result = Memo(rt, fn() {
   if use_cache.get() {
     cache.get()
   } else {
@@ -70,26 +70,26 @@ inspect(result.get(), content="new_computed")
 Use durability to optimize stable configuration:
 
 ```moonbit
-let rt = Runtime::new()
+let rt = Runtime()
 
 // Configuration changes rarely
-let multiplier = Signal::new(rt, 1.5, durability=High)
-let precision = Signal::new(rt, 2, durability=High)
+let multiplier = Signal(rt, 1.5, durability=High)
+let precision = Signal(rt, 2, durability=High)
 
 // Data changes frequently
 let measurements : Array[Signal[Double]] = []
 for i = 0; i < 1000; i = i + 1 {
-  measurements.push(Signal::new(rt, 0.0))
+  measurements.push(Signal(rt, 0.0))
 }
 
 // Config-only computation
-let config_factor = Memo::new(rt, fn() {
+let config_factor = Memo(rt, fn() {
   multiplier.get() * 10.0.pow(precision.get().to_double())
 })
 
 // Mixed computation
 let process = fn(i: Int) {
-  Memo::new(rt, fn() { measurements[i].get() * config_factor.get() })
+  Memo(rt, fn() { measurements[i].get() * config_factor.get() })
 }
 ```
 
@@ -104,11 +104,11 @@ When measurements change:
 Update related signals together:
 
 ```moonbit
-let rt = Runtime::new()
+let rt = Runtime()
 
-let x = Signal::new(rt, 0)
-let y = Signal::new(rt, 0)
-let position = Memo::new(rt, fn() { (x.get(), y.get()) })
+let x = Signal(rt, 0)
+let y = Signal(rt, 0)
+let position = Memo(rt, fn() { (x.get(), y.get()) })
 
 // Without batch: two revision bumps, position could see inconsistent state
 // With batch: single revision bump, atomic update
@@ -127,10 +127,10 @@ inspect(position.get(), content="(100, 200)")
 Use batch semantics for speculative changes:
 
 ```moonbit
-let rt = Runtime::new()
+let rt = Runtime()
 
-let value = Signal::new(rt, 10)
-let derived = Memo::new(rt, fn() { value.get() * 2 })
+let value = Signal(rt, 10)
+let derived = Memo(rt, fn() { value.get() * 2 })
 
 // Get initial state
 let initial = value.get()
@@ -154,12 +154,12 @@ rt.batch(fn() {
 Derive default values from other signals:
 
 ```moonbit
-let rt = Runtime::new()
+let rt = Runtime()
 
-let user_override : Signal[Int?] = Signal::new(rt, None)
-let computed_default = Signal::new(rt, 100)
+let user_override : Signal[Int?] = Signal(rt, None)
+let computed_default = Signal(rt, 100)
 
-let effective_value = Memo::new(rt, fn() {
+let effective_value = Memo(rt, fn() {
   match user_override.get() {
     Some(v) => v
     None => computed_default.get()
@@ -179,23 +179,23 @@ inspect(effective_value.get(), content="42")   // Uses override
 Build computation layers with natural caching:
 
 ```moonbit
-let rt = Runtime::new()
+let rt = Runtime()
 
 // Raw input
-let raw_data = Signal::new(rt, "  Hello World  ")
+let raw_data = Signal(rt, "  Hello World  ")
 
 // Layer 1: Normalize
-let normalized = Memo::new(rt, fn() {
+let normalized = Memo(rt, fn() {
   raw_data.get().trim()
 })
 
 // Layer 2: Transform
-let transformed = Memo::new(rt, fn() {
+let transformed = Memo(rt, fn() {
   normalized.get().to_lower()
 })
 
 // Layer 3: Format
-let formatted = Memo::new(rt, fn() {
+let formatted = Memo(rt, fn() {
   "[" + transformed.get() + "]"
 })
 
@@ -213,15 +213,15 @@ raw_data.set("  Hello World  ")  // Same after trim — no-op!
 Efficiently aggregate over multiple inputs:
 
 ```moonbit
-let rt = Runtime::new()
+let rt = Runtime()
 
 let items : Array[Signal[Int]] = [
-  Signal::new(rt, 10),
-  Signal::new(rt, 20),
-  Signal::new(rt, 30),
+  Signal(rt, 10),
+  Signal(rt, 20),
+  Signal(rt, 30),
 ]
 
-let sum = Memo::new(rt, fn() {
+let sum = Memo(rt, fn() {
   let mut total = 0
   for item in items {
     total = total + item.get()
@@ -230,7 +230,7 @@ let sum = Memo::new(rt, fn() {
 })
 
 let count = items.length()
-let average = Memo::new(rt, fn() { sum.get() / count })
+let average = Memo(rt, fn() { sum.get() / count })
 
 inspect(sum.get(), content="60")
 inspect(average.get(), content="20")
@@ -247,9 +247,9 @@ inspect(average.get(), content="30")
 Observe committed updates with `Runtime::set_on_change`:
 
 ```moonbit
-let rt = Runtime::new()
-let a = Signal::new(rt, 0)
-let b = Signal::new(rt, 0)
+let rt = Runtime()
+let a = Signal(rt, 0)
+let b = Signal(rt, 0)
 let mut notifications = 0
 
 rt.set_on_change(fn() { notifications = notifications + 1 })
@@ -295,6 +295,13 @@ struct SourceFile {
   path    : @incr.TrackedCell[String]
   content : @incr.TrackedCell[String]
   version : @incr.TrackedCell[Int]
+
+  fn new(
+    rt      : @incr.Runtime,
+    path    : String,
+    content : String,
+    version~ : Int,
+  ) -> SourceFile
 }
 
 impl @incr.Trackable for SourceFile with cell_ids(self) {
@@ -308,9 +315,9 @@ fn SourceFile::new(
   version~ : Int = 0,
 ) -> SourceFile {
   {
-    path:    @incr.TrackedCell::new(rt, path,    label="SourceFile.path"),
-    content: @incr.TrackedCell::new(rt, content, label="SourceFile.content"),
-    version: @incr.TrackedCell::new(rt, version, label="SourceFile.version"),
+    path:    @incr.TrackedCell(rt, path,    label="SourceFile.path"),
+    content: @incr.TrackedCell(rt, content, label="SourceFile.content"),
+    version: @incr.TrackedCell(rt, version, label="SourceFile.version"),
   }
 }
 ```
@@ -320,14 +327,14 @@ fn SourceFile::new(
 Each memo declares dependency only on the fields it actually reads:
 
 ```moonbit
-let rt   = @incr.Runtime::new()
-let file = SourceFile::new(rt, "/src/main.mbt", "fn main { 42 }")
+let rt   = @incr.Runtime()
+let file = SourceFile(rt, "/src/main.mbt", "fn main { 42 }")
 
-let word_count = @incr.Memo::new(rt, fn() {
+let word_count = @incr.Memo(rt, fn() {
   file.content.get().split(" ").fold(init=0, fn(acc, _s) { acc + 1 })
 })
 
-let is_test = @incr.Memo::new(rt, fn() {
+let is_test = @incr.Memo(rt, fn() {
   file.path.get().ends_with("_test.mbt")
 })
 
@@ -353,20 +360,22 @@ rt.batch(fn() {
 
 ### Using IncrDb with TrackedCell
 
-When your runtime is wrapped in a database type, use `create_tracked_cell` instead of `TrackedCell::new`:
+When your runtime is wrapped in a database type, use `create_tracked_cell` instead of calling `TrackedCell(...)` directly:
 
 ```moonbit
 struct MyDb {
   rt : @incr.Runtime
+
+  fn new() -> MyDb
 }
 
 impl @incr.IncrDb for MyDb with runtime(self) { self.rt }
 
 fn MyDb::new() -> MyDb {
-  { rt: @incr.Runtime::new() }
+  { rt: @incr.Runtime() }
 }
 
-let db   = MyDb::new()
+let db   = MyDb()
 let path = @incr.create_tracked_cell(db, "/src/main.mbt", label="path")
 ```
 
@@ -385,8 +394,8 @@ If you have an existing `Signal[MyStruct]` and memo recomputation is too coarse,
 ```moonbit
 // Before
 struct Doc { content : String; version : Int }
-let doc = Signal::new(rt, { content: "hello", version: 0 })
-let length_memo = Memo::new(rt, fn() { doc.get().content.length() })
+let doc = Signal(rt, { content: "hello", version: 0 })
+let length_memo = Memo(rt, fn() { doc.get().content.length() })
 // Updating version also invalidates length_memo — unnecessary work
 
 // After
@@ -404,10 +413,10 @@ struct Doc {
 Avoid reading memos inside a batch — they see pre-batch values:
 
 ```moonbit
-let rt = Runtime::new()
+let rt = Runtime()
 
-let x = Signal::new(rt, 10)
-let doubled = Memo::new(rt, fn() { x.get() * 2 })
+let x = Signal(rt, 10)
+let doubled = Memo(rt, fn() { x.get() * 2 })
 
 rt.batch(fn() {
   x.set(20)
@@ -426,7 +435,7 @@ Keep compute functions focused:
 
 ```moonbit
 // Bad: Monolithic computation
-let result = Memo::new(rt, fn() {
+let result = Memo(rt, fn() {
   let a = step1(input.get())
   let b = step2(a)
   let c = step3(b)
@@ -434,10 +443,10 @@ let result = Memo::new(rt, fn() {
 })
 
 // Better: Composable memos
-let step1_result = Memo::new(rt, fn() { step1(input.get()) })
-let step2_result = Memo::new(rt, fn() { step2(step1_result.get()) })
-let step3_result = Memo::new(rt, fn() { step3(step2_result.get()) })
-let final_result = Memo::new(rt, fn() { step4(step3_result.get()) })
+let step1_result = Memo(rt, fn() { step1(input.get()) })
+let step2_result = Memo(rt, fn() { step2(step1_result.get()) })
+let step3_result = Memo(rt, fn() { step3(step2_result.get()) })
+let final_result = Memo(rt, fn() { step4(step3_result.get()) })
 ```
 
 Benefits:
@@ -452,11 +461,11 @@ Benefits:
 Handle potential cycles with fallback values instead of aborting:
 
 ```moonbit
-let rt = Runtime::new()
+let rt = Runtime()
 
 // Self-referential memo that handles cycles gracefully
 let memo_ref : Ref[Memo[Int]?] = { val: None }
-let memo = Memo::new(rt, fn() {
+let memo = Memo(rt, fn() {
   match memo_ref.val {
     Some(m) =>
       match m.get_result() {
@@ -492,10 +501,10 @@ inspect(memo.get(), content="0")  // Returns fallback, doesn't abort
 Use introspection to identify which dependency triggered recomputation:
 
 ```moonbit
-let rt = Runtime::new()
-let x = Signal::new(rt, 10)
-let y = Signal::new(rt, 20)
-let sum = Memo::new(rt, fn() { x.get() + y.get() })
+let rt = Runtime()
+let x = Signal(rt, 10)
+let y = Signal(rt, 20)
+let sum = Memo(rt, fn() { x.get() + y.get() })
 
 sum.get() |> ignore
 let baseline = sum.verified_at()
@@ -544,10 +553,10 @@ Verify that memos only depend on what they actually read:
 
 ```moonbit
 test "memo only depends on x, not y" {
-  let rt = Runtime::new()
-  let x = Signal::new(rt, 1)
-  let y = Signal::new(rt, 2)
-  let uses_x_only = Memo::new(rt, fn() { x.get() * 2 })
+  let rt = Runtime()
+  let x = Signal(rt, 1)
+  let y = Signal(rt, 2)
+  let uses_x_only = Memo(rt, fn() { x.get() * 2 })
 
   uses_x_only.get() |> ignore
 
@@ -562,7 +571,7 @@ test "memo only depends on x, not y" {
 Check if a memo's value actually changed:
 
 ```moonbit
-let memo = Memo::new(rt, fn() { config.get().length() })
+let memo = Memo(rt, fn() { config.get().length() })
 memo.get() |> ignore
 let old_changed = memo.changed_at()
 
@@ -617,7 +626,7 @@ This helps identify:
 Add logging inside compute functions during development:
 
 ```moonbit
-let expensive = Memo::new(rt, fn() {
+let expensive = Memo(rt, fn() {
   println("Computing expensive...")
   heavy_computation(input.get())
 })
@@ -628,15 +637,15 @@ let expensive = Memo::new(rt, fn() {
 High-durability memos should not log when only low-durability inputs change:
 
 ```moonbit
-let config = Signal::new(rt, 100, durability=High)
-let data = Signal::new(rt, 1)
+let config = Signal(rt, 100, durability=High)
+let data = Signal(rt, 1)
 
-let config_derived = Memo::new(rt, fn() {
+let config_derived = Memo(rt, fn() {
   println("Config derived computing...")  // Should not print when data changes
   config.get() * 2
 })
 
-let data_derived = Memo::new(rt, fn() {
+let data_derived = Memo(rt, fn() {
   println("Data derived computing...")
   data.get() * 2
 })

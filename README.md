@@ -19,15 +19,17 @@ A Salsa-inspired incremental recomputation library for [MoonBit](https://www.moo
 // Recommended: Database pattern (encapsulates Runtime)
 struct MyApp {
   rt : Runtime
+
+  fn new() -> MyApp
 }
 
 impl IncrDb for MyApp with runtime(self) { self.rt }
 
 fn MyApp::new() -> MyApp {
-  { rt: Runtime::new() }
+  { rt: Runtime() }
 }
 
-let app = MyApp::new()
+let app = MyApp()
 
 // Create input signals
 let x = create_signal(app, 10)
@@ -48,10 +50,10 @@ inspect(sum.get(), content="25")
 For simple scripts or when you need more control:
 
 ```moonbit
-let rt = Runtime::new()
-let x = Signal::new(rt, 10)
-let y = Signal::new(rt, 20)
-let sum = Memo::new(rt, fn() { x.get() + y.get() })
+let rt = Runtime()
+let x = Signal(rt, 10)
+let y = Signal(rt, 20)
+let sum = Memo(rt, fn() { x.get() + y.get() })
 
 inspect(sum.get(), content="30")
 x.set(5)
@@ -63,10 +65,10 @@ inspect(sum.get(), content="25")
 When an intermediate memo recomputes to the same value, downstream memos skip recomputation:
 
 ```moonbit
-let rt = Runtime::new()
-let input = Signal::new(rt, 4)
-let is_even = Memo::new(rt, fn() { input.get() % 2 == 0 })
-let label = Memo::new(rt, fn() { if is_even.get() { "even" } else { "odd" } })
+let rt = Runtime()
+let input = Signal(rt, 4)
+let is_even = Memo(rt, fn() { input.get() % 2 == 0 })
+let label = Memo(rt, fn() { if is_even.get() { "even" } else { "odd" } })
 
 inspect(label.get(), content="even")
 
@@ -80,10 +82,10 @@ inspect(label.get(), content="even")
 Signals that change rarely can be marked as high durability. Memos that only depend on high-durability inputs skip verification entirely when only low-durability inputs change:
 
 ```moonbit
-let rt = Runtime::new()
-let config = Signal::new(rt, 100, durability=High)
-let source = Signal::new(rt, 1)
-let config_derived = Memo::new(rt, fn() { config.get() * 2 })
+let rt = Runtime()
+let config = Signal(rt, 100, durability=High)
+let source = Signal(rt, 1)
+let config_derived = Memo(rt, fn() { config.get() * 2 })
 
 inspect(config_derived.get(), content="200")
 

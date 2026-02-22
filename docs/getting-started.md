@@ -21,12 +21,14 @@ The recommended way to use `incr` is to encapsulate the `Runtime` in your own da
 ```moonbit
 struct MyApp {
   rt : Runtime
+
+  fn new() -> MyApp
 }
 
 impl IncrDb for MyApp with runtime(self) { self.rt }
 
 fn MyApp::new() -> MyApp {
-  { rt: Runtime::new() }
+  { rt: Runtime() }
 }
 ```
 
@@ -37,7 +39,7 @@ Now you can use the database-centric API throughout your code without passing `R
 For simple scripts or when learning, you can use the `Runtime` directly:
 
 ```moonbit
-let rt = Runtime::new()
+let rt = Runtime()
 ```
 
 The rest of this guide will show **both patterns** — use whichever fits your needs.
@@ -48,16 +50,16 @@ Signals are your input values — the leaves of the dependency graph.
 
 **Database pattern:**
 ```moonbit
-let app = MyApp::new()
+let app = MyApp()
 let price = create_signal(app, 100)
 let quantity = create_signal(app, 5)
 ```
 
 **Direct Runtime:**
 ```moonbit
-let rt = Runtime::new()
-let price = Signal::new(rt, 100)
-let quantity = Signal::new(rt, 5)
+let rt = Runtime()
+let price = Signal(rt, 100)
+let quantity = Signal(rt, 5)
 ```
 
 ### Step 3: Create Derived Computations (Memos)
@@ -71,7 +73,7 @@ let total = create_memo(app, fn() { price.get() * quantity.get() })
 
 **Direct Runtime:**
 ```moonbit
-let total = Memo::new(rt, fn() { price.get() * quantity.get() })
+let total = Memo(rt, fn() { price.get() * quantity.get() })
 ```
 
 ### Step 4: Read and Update
@@ -117,17 +119,17 @@ inspect(changes, content="1")
 
 ```moonbit
 fn main {
-  let rt = Runtime::new()
+  let rt = Runtime()
 
   // Inputs
-  let base_price = Signal::new(rt, 100)
-  let tax_rate = Signal::new(rt, 0.1)
-  let quantity = Signal::new(rt, 2)
+  let base_price = Signal(rt, 100)
+  let tax_rate = Signal(rt, 0.1)
+  let quantity = Signal(rt, 2)
 
   // Derived values
-  let subtotal = Memo::new(rt, fn() { base_price.get() * quantity.get() })
-  let tax = Memo::new(rt, fn() { subtotal.get().to_double() * tax_rate.get() })
-  let total = Memo::new(rt, fn() { subtotal.get().to_double() + tax.get() })
+  let subtotal = Memo(rt, fn() { base_price.get() * quantity.get() })
+  let tax = Memo(rt, fn() { subtotal.get().to_double() * tax_rate.get() })
+  let total = Memo(rt, fn() { subtotal.get().to_double() + tax.get() })
 
   println("Subtotal: \{subtotal.get()}")  // 200
   println("Tax: \{tax.get()}")            // 20.0

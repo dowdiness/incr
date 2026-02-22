@@ -13,8 +13,8 @@ Central coordinator for dependency tracking, revisions, and batching.
 Creates a new runtime with an empty dependency graph. The optional `on_change` callback is equivalent to calling `Runtime::set_on_change` immediately after construction.
 
 ```moonbit
-let rt = Runtime::new()
-let rt = Runtime::new(on_change=fn() { rerender() })
+let rt = Runtime()
+let rt = Runtime(on_change=fn() { rerender() })
 ```
 
 ### `Runtime::batch(self, f: () -> Unit) -> Unit`
@@ -69,8 +69,8 @@ Input cells with externally controlled values.
 Creates a signal. Both `durability` (default `Low`) and `label` are optional.
 
 ```moonbit
-let count = Signal::new(rt, 0)                                    // defaults
-let config = Signal::new(rt, "prod", durability=High, label="config")  // explicit
+let count = Signal(rt, 0)                                    // defaults
+let config = Signal(rt, "prod", durability=High, label="config")  // explicit
 ```
 
 ### `Signal::get(self) -> T`
@@ -124,8 +124,8 @@ A named, field-level input cell. `TrackedCell[T]` wraps a `Signal[T]` and provid
 Creates a tracked cell. Both `durability` (default `Low`) and `label` are optional.
 
 ```moonbit
-let path    = TrackedCell::new(rt, "/src/main.mbt", label="SourceFile.path")
-let version = TrackedCell::new(rt, 0, durability=High, label="SourceFile.version")
+let path    = TrackedCell(rt, "/src/main.mbt", label="SourceFile.path")
+let version = TrackedCell(rt, 0, durability=High, label="SourceFile.version")
 ```
 
 ### `TrackedCell::get(self) -> T`
@@ -183,7 +183,7 @@ Returns the underlying `Signal[T]` for interop with APIs that expect a plain sig
 
 ```moonbit
 let sig = path.as_signal()
-let memo = Memo::new(rt, fn() { sig.get().length() })
+let memo = Memo(rt, fn() { sig.get().length() })
 ```
 
 ---
@@ -197,8 +197,8 @@ Derived computations with dependency tracking and memoization.
 Creates a lazily evaluated memo. The optional `label` names the memo for debug output and cycle error messages.
 
 ```moonbit
-let doubled = Memo::new(rt, fn() { count.get() * 2 })
-let tax = Memo::new(rt, fn() { price.get() * 0.1 }, label="tax")
+let doubled = Memo(rt, fn() { count.get() * 2 })
+let tax = Memo(rt, fn() { price.get() * 0.1 }, label="tax")
 ```
 
 ### `Memo::get[T : Eq](self) -> T`
@@ -352,7 +352,7 @@ Returns the unique identifier for this signal.
 
 **Example:**
 ```moonbit
-let sig = Signal::new(rt, 42)
+let sig = Signal(rt, 42)
 let id = sig.id()
 ```
 
@@ -362,7 +362,7 @@ Returns the durability level of this signal (`Low`, `Medium`, or `High`).
 
 **Example:**
 ```moonbit
-let config = Signal::new(rt, "prod", durability=High)
+let config = Signal(rt, "prod", durability=High)
 inspect(config.durability(), content="High")
 ```
 
@@ -378,8 +378,8 @@ Returns the list of cells this memo currently depends on. Empty if the memo has 
 
 **Example:**
 ```moonbit
-let x = Signal::new(rt, 1)
-let doubled = Memo::new(rt, fn() { x.get() * 2 })
+let x = Signal(rt, 1)
+let doubled = Memo(rt, fn() { x.get() * 2 })
 doubled.get() |> ignore
 inspect(doubled.dependencies().contains(x.id()), content="true")
 ```
@@ -433,7 +433,7 @@ For signals, `dependencies` is empty.
 Registers a callback fired when this signal's value changes. Replaces any previously registered callback.
 
 ```moonbit
-let count = Signal::new(rt, 0)
+let count = Signal(rt, 0)
 count.on_change(fn(new_val) {
   println("Count: " + new_val.to_string())
 })
@@ -452,7 +452,7 @@ count.clear_on_change()
 Registers a callback fired when this memo's value changes.
 
 ```moonbit
-let doubled = Memo::new(rt, fn() { count.get() * 2 })
+let doubled = Memo(rt, fn() { count.get() * 2 })
 doubled.on_change(fn(new_val) {
   update_ui(new_val)
 })

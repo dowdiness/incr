@@ -23,7 +23,7 @@ This document explains the key concepts behind `incr` without diving into implem
 Signals hold input values that you set directly:
 
 ```moonbit
-let count = Signal::new(rt, 0)
+let count = Signal(rt, 0)
 
 // Read the value
 let current = count.get()  // 0
@@ -52,7 +52,7 @@ count.set_unconditional(5)  // Always bumps revision
 Memos compute derived values and cache the result:
 
 ```moonbit
-let doubled = Memo::new(rt, fn() { count.get() * 2 })
+let doubled = Memo(rt, fn() { count.get() * 2 })
 ```
 
 Key properties:
@@ -66,11 +66,11 @@ Key properties:
 You don't declare dependencies. `incr` discovers them:
 
 ```moonbit
-let mode = Signal::new(rt, "add")
-let x = Signal::new(rt, 10)
-let y = Signal::new(rt, 20)
+let mode = Signal(rt, "add")
+let x = Signal(rt, 10)
+let y = Signal(rt, 20)
 
-let result = Memo::new(rt, fn() {
+let result = Memo(rt, fn() {
   if mode.get() == "add" {
     x.get() + y.get()
   } else {
@@ -104,9 +104,9 @@ A memo is stale when `verified_at < current_revision`.
 **Backdating** is the key optimization. When a memo recomputes to the **same value** as before, its `changed_at` stays at the old revision:
 
 ```moonbit
-let input = Signal::new(rt, 4)
-let is_even = Memo::new(rt, fn() { input.get() % 2 == 0 })
-let label = Memo::new(rt, fn() { if is_even.get() { "even" } else { "odd" } })
+let input = Signal(rt, 4)
+let is_even = Memo(rt, fn() { input.get() % 2 == 0 })
+let label = Memo(rt, fn() { if is_even.get() { "even" } else { "odd" } })
 
 inspect(label.get(), content="even")
 
@@ -132,8 +132,8 @@ This prevents unnecessary cascading through the graph.
 | `High` | Rarely changing (configuration, schemas) |
 
 ```moonbit
-let config = Signal::new(rt, 100, durability=High)
-let input = Signal::new(rt, 1)  // Default: Low
+let config = Signal(rt, 100, durability=High)
+let input = Signal(rt, 1)  // Default: Low
 ```
 
 ### Durability Shortcut
@@ -141,11 +141,11 @@ let input = Signal::new(rt, 1)  // Default: Low
 When only low-durability inputs change, memos that depend solely on high-durability inputs skip verification entirely:
 
 ```moonbit
-let config = Signal::new(rt, "production", durability=High)
-let user_input = Signal::new(rt, "hello")  // Low durability
+let config = Signal(rt, "production", durability=High)
+let user_input = Signal(rt, "hello")  // Low durability
 
-let config_hash = Memo::new(rt, fn() { hash(config.get()) })
-let processed = Memo::new(rt, fn() { process(user_input.get()) })
+let config_hash = Memo(rt, fn() { hash(config.get()) })
+let processed = Memo(rt, fn() { process(user_input.get()) })
 
 // Only user_input changed
 user_input.set("world")
@@ -159,10 +159,10 @@ user_input.set("world")
 Memos inherit the **minimum** durability of their dependencies:
 
 ```moonbit
-let high = Signal::new(rt, 1, durability=High)
-let low = Signal::new(rt, 2)  // Low durability
+let high = Signal(rt, 1, durability=High)
+let low = Signal(rt, 2)  // Low durability
 
-let mixed = Memo::new(rt, fn() { high.get() + low.get() })
+let mixed = Memo(rt, fn() { high.get() + low.get() })
 // mixed inherits Low durability (can't use the shortcut)
 ```
 
@@ -196,8 +196,8 @@ rt.batch(fn() {
 Cyclic dependencies are detected at runtime:
 
 ```moonbit
-let a = Memo::new(rt, fn() { b.get() + 1 })
-let b = Memo::new(rt, fn() { a.get() + 1 })
+let a = Memo(rt, fn() { b.get() + 1 })
+let b = Memo(rt, fn() { a.get() + 1 })
 
 a.get()  // Aborts: "Cycle detected"
 ```
@@ -207,7 +207,7 @@ a.get()  // Aborts: "Cycle detected"
 Use `get_result()` to handle cycles without aborting:
 
 ```moonbit
-let memo = Memo::new(rt, fn() {
+let memo = Memo(rt, fn() {
   match self_ref.get_result() {
     Ok(v) => v + 1
     Err(CycleDetected(_, _)) => -1  // Fallback value
@@ -258,11 +258,11 @@ This enables bulk operations on all cells in the struct (e.g., introspection, fu
 Memos that read individual `TrackedCell` fields only depend on those fields, not on the whole struct:
 
 ```moonbit
-let word_count = Memo::new(rt, fn() {
+let word_count = Memo(rt, fn() {
   file.content.get().split(" ").fold(init=0, fn(acc, _s) { acc + 1 })
 })
 
-let is_test = Memo::new(rt, fn() {
+let is_test = Memo(rt, fn() {
   file.path.get().ends_with("_test.mbt")
 })
 

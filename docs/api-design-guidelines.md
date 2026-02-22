@@ -10,13 +10,13 @@ This document explains the design philosophy behind `incr`'s API and planned imp
 
 ```moonbit
 // Beginner: Just works
-let count = Signal::new(rt, 0)
+let count = Signal(rt, 0)
 
 // Intermediate: Optimization
-let config = Signal::new(rt, 100, durability=High)
+let config = Signal(rt, 100, durability=High)
 
 // Advanced: Full control
-let memo = Memo::new(rt, fn() {
+let memo = Memo(rt, fn() {
   match other_memo.get_result() {
     Ok(v) => v + 1
     Err(CycleDetected(_, _)) => 0
@@ -29,9 +29,9 @@ let memo = Memo::new(rt, fn() {
 **Constraints only where needed:**
 
 ```moonbit
-Signal::new[T](rt, value)              // No Eq needed
-Signal::set[T : Eq](value)             // Eq enables same-value optimization
-Signal::set_unconditional[T](value)    // No Eq, always bumps revision
+Signal(rt, value)          // Constructor: no Eq needed (accepts any T)
+sig.set(value)             // set requires T : Eq — enables same-value optimization
+sig.set_unconditional(v)   // No Eq required — always bumps revision
 ```
 
 Why: Maximum flexibility. Types without `Eq` can still be used (just skip optimization).
@@ -42,11 +42,11 @@ Why: Maximum flexibility. Types without `Eq` can still be used (just skip optimi
 
 ```moonbit
 // ❌ Bad (implicit global runtime)
-let sig = Signal::new(10)
+let sig = Signal(10)
 
 // ✓ Good (explicit runtime)
-let rt = Runtime::new()
-let sig = Signal::new(rt, 10)
+let rt = Runtime()
+let sig = Signal(rt, 10)
 
 // ✓ Better (database pattern)
 struct MyDb { rt : Runtime }
@@ -162,12 +162,12 @@ pub fn[T] Memo::clear_on_change(self) -> Unit
 **Use case:**
 
 ```moonbit
-let count = Signal::new(rt, 0)
+let count = Signal(rt, 0)
 count.on_change(fn(new_val) {
   println("Count: " + new_val.to_string())
 })
 
-let doubled = Memo::new(rt, fn() { count.get() * 2 })
+let doubled = Memo(rt, fn() { count.get() * 2 })
 doubled.on_change(fn(new_val) {
   update_ui(new_val)
 })
@@ -187,13 +187,13 @@ Instead of a builder pattern, MoonBit's optional parameters provide a cleaner so
 
 ```moonbit
 // Signal: durability and label are optional
-Signal::new(rt, 100)                                    // defaults
-Signal::new(rt, 100, durability=High)                   // explicit durability
-Signal::new(rt, 100, durability=High, label="config")   // both
+Signal(rt, 100)                                    // defaults
+Signal(rt, 100, durability=High)                   // explicit durability
+Signal(rt, 100, durability=High, label="config")   // both
 
 // Memo: label is optional
-Memo::new(rt, fn() { x.get() * 2 })                    // default
-Memo::new(rt, fn() { x.get() * 2 }, label="doubled")   // with label
+Memo(rt, fn() { x.get() * 2 })                    // default
+Memo(rt, fn() { x.get() * 2 }, label="doubled")   // with label
 
 // Helper functions follow the same pattern
 create_signal(db, value, durability=High, label="cfg")
@@ -238,7 +238,7 @@ pub fn Runtime::with_on_change(self, f : () -> Unit) -> Runtime {
 }
 
 // Usage
-let rt = Runtime::new()
+let rt = Runtime()
   .with_on_change(fn() { println("Changed!") })
 ```
 
@@ -267,16 +267,18 @@ struct MyApp {
   // Domain state
   config : Signal[String]
   input : Signal[String]
+
+  fn new() -> MyApp
 }
 
 impl IncrDb for MyApp with runtime(self) { self.rt }
 
 fn MyApp::new() -> MyApp {
-  let rt = Runtime::new()
+  let rt = Runtime()
   let app = {
     rt,
-    config: Signal::new(rt, "prod"),
-    input: Signal::new(rt, "")
+    config: Signal(rt, "prod"),
+    input: Signal(rt, "")
   }
   app
 }
@@ -313,7 +315,7 @@ trait MyFullCompiler : IncrDb + Sourceable + Parseable + Checkable { ... }
 **Use `get_result()` for self-referential or plugin systems:**
 
 ```moonbit
-let memo = Memo::new(rt, fn() {
+let memo = Memo(rt, fn() {
   match potentially_cyclic.get_result() {
     Ok(v) => v + 1
     Err(CycleDetected(_, _)) => 0  // Base case
@@ -329,7 +331,7 @@ let memo = Memo::new(rt, fn() {
 
 ```moonbit
 // Bad: Large computation
-let result = Memo::new(rt, fn() {
+let result = Memo(rt, fn() {
   let a = step1(input.get())
   let b = step2(a)
   let c = step3(b)
@@ -343,10 +345,10 @@ let result = Memo::new(rt, fn() {
 
 ```moonbit
 // Good: Composable pipeline
-let step1_out = Memo::new(rt, fn() { step1(input.get()) })
-let step2_out = Memo::new(rt, fn() { step2(step1_out.get()) })
-let step3_out = Memo::new(rt, fn() { step3(step2_out.get()) })
-let result = Memo::new(rt, fn() { step4(step3_out.get()) })
+let step1_out = Memo(rt, fn() { step1(input.get()) })
+let step2_out = Memo(rt, fn() { step2(step1_out.get()) })
+let step3_out = Memo(rt, fn() { step3(step2_out.get()) })
+let result = Memo(rt, fn() { step4(step3_out.get()) })
 ```
 
 ### ❌ Anti-Pattern 2: Reading Memos During Batch
@@ -412,7 +414,7 @@ impl Drop for BatchGuard {
 
 // Usage
 {
-  let _guard = BatchGuard::new(rt)
+  let _guard = BatchGuard(rt)
   x.set(1)
   y.set(2)
   // Auto-commits when guard drops
@@ -458,7 +460,7 @@ pub fn[T] Memo::dependents(self) -> Array[CellId]
 ### Stable (Won't Break)
 
 - Core types: `Signal[T]`, `Memo[T]`, `Runtime`
-- Core methods: `new`, `get`, `set`, `batch`
+- Core methods: constructors (`Signal(rt, ...)`, `Memo(rt, ...)`), `get`, `set`, `batch`
 - Core traits: `IncrDb`, `Readable`
 - Error types: `CycleError`
 
