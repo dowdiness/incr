@@ -4,13 +4,11 @@ This guide walks you through using `incr` from your first computation to advance
 
 ## Installation
 
-Add `incr` to your `moon.pkg.json`:
+Add `incr` to your `moon.pkg`:
 
-```json
-{
-  "import": [
-    "dowdiness/incr"
-  ]
+```
+import {
+  "dowdiness/incr",
 }
 ```
 
