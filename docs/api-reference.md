@@ -406,7 +406,7 @@ Implemented for both `Signal[T]` and `Memo[T]`.
 ### Pipeline Traits (Experimental)
 
 > **Experimental.** These traits may change or be removed in future versions.
-> Defined in `pipeline_traits.mbt`.
+> Defined in `pipeline/pipeline_traits.mbt` (`dowdiness/incr/pipeline` package).
 
 ```moonbit
 pub(open) trait Sourceable {
