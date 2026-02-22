@@ -161,32 +161,34 @@ impl IncrDb for CalcPipeline with runtime(self) {
 }
 
 ///|
-impl Sourceable for CalcPipeline with set_source_text(self, text) {
+impl @pipeline.Sourceable for CalcPipeline with set_source_text(self, text) {
   self.source.set(text)
 }
 
 ///|
-impl Sourceable for CalcPipeline with source_text(self) {
+impl @pipeline.Sourceable for CalcPipeline with source_text(self) {
   self.source.get()
 }
 
 ///|
-impl Parseable for CalcPipeline with parse_errors(_) {
+impl @pipeline.Parseable for CalcPipeline with parse_errors(_) {
   []
 }
 
 ///|
-impl Checkable for CalcPipeline with check_errors(self) {
+impl @pipeline.Checkable for CalcPipeline with check_errors(self) {
   self.errors.get()
 }
 
 ///|
-impl Executable for CalcPipeline with run(self) {
+impl @pipeline.Executable for CalcPipeline with run(self) {
   self.output.get()
 }
 
 ///|
-fn[D : Parseable + Checkable] all_diagnostics(db : D) -> Array[String] {
+fn[D : @pipeline.Parseable + @pipeline.Checkable] all_diagnostics(
+  db : D,
+) -> Array[String] {
   let parse_errs = db.parse_errors()
   let check_errs = db.check_errors()
   let result : Array[String] = []
@@ -200,7 +202,7 @@ fn[D : Parseable + Checkable] all_diagnostics(db : D) -> Array[String] {
 }
 
 ///|
-fn[D : Parseable + Checkable + Executable] compile_and_run(
+fn[D : @pipeline.Parseable + @pipeline.Checkable + @pipeline.Executable] compile_and_run(
   db : D,
 ) -> Result[Array[String], Array[String]] {
   let diags = all_diagnostics(db)

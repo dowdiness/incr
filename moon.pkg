@@ -1,4 +1,5 @@
 import {
   "dowdiness/incr/types" @incr_types,
   "dowdiness/incr/internal" @internal,
+  "dowdiness/incr/pipeline" @pipeline,
 }
