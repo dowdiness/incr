@@ -6,11 +6,13 @@ using @incr {type Signal, type Runtime, type Memo}
 ///|
 struct TestDb {
   rt : Runtime
+
+  fn new() -> TestDb
 }
 
 ///|
 fn TestDb::new() -> TestDb {
-  { rt: Runtime::new() }
+  { rt: Runtime() }
 }
 
 ///|
@@ -28,14 +30,14 @@ fn[R : @incr.Readable] check_up_to_date(node : R) -> Bool {
 
 ///|
 test "trait: create_signal via IncrDb" {
-  let db = TestDb::new()
+  let db = TestDb()
   let sig = @incr.create_signal(db, 42)
   inspect(sig.get(), content="42")
 }
 
 ///|
 test "trait: create_signal with High durability" {
-  let db = TestDb::new()
+  let db = TestDb()
   let sig = @incr.create_signal(db, "hello", durability=High)
   inspect(sig.get(), content="hello")
   inspect(sig.durability(), content="High")
@@ -43,7 +45,7 @@ test "trait: create_signal with High durability" {
 
 ///|
 test "trait: create_memo via IncrDb" {
-  let db = TestDb::new()
+  let db = TestDb()
   let sig = @incr.create_signal(db, 10)
   let memo = @incr.create_memo(db, fn() { sig.get() * 2 })
   inspect(memo.get(), content="20")
@@ -51,7 +53,7 @@ test "trait: create_memo via IncrDb" {
 
 ///|
 test "trait: batch via IncrDb" {
-  let db = TestDb::new()
+  let db = TestDb()
   let x = @incr.create_signal(db, 1)
   let y = @incr.create_signal(db, 2)
   let sum = @incr.create_memo(db, fn() { x.get() + y.get() })
@@ -133,6 +135,8 @@ struct CalcPipeline {
   source : Signal[String]
   errors : Memo[Array[String]]
   output : Memo[Array[String]]
+
+  fn new() -> CalcPipeline
 }
 
 ///|
@@ -218,7 +222,7 @@ fn[D : @pipeline.Parseable + @pipeline.Checkable + @pipeline.Executable] compile
 
 ///|
 test "trait: pipeline sourceable" {
-  let db = CalcPipeline::new()
+  let db = CalcPipeline()
   let _ = db.runtime()
   db.set_source_text("hello")
   inspect(db.source_text(), content="hello")
@@ -226,7 +230,7 @@ test "trait: pipeline sourceable" {
 
 ///|
 test "trait: all_diagnostics with errors" {
-  let db = CalcPipeline::new()
+  let db = CalcPipeline()
   let diags = all_diagnostics(db)
   inspect(diags.length(), content="1")
   inspect(diags[0], content="empty source")
@@ -234,7 +238,7 @@ test "trait: all_diagnostics with errors" {
 
 ///|
 test "trait: all_diagnostics after fix" {
-  let db = CalcPipeline::new()
+  let db = CalcPipeline()
   db.set_source_text("hello")
   let diags = all_diagnostics(db)
   inspect(diags.length(), content="0")
@@ -242,7 +246,7 @@ test "trait: all_diagnostics after fix" {
 
 ///|
 test "trait: compile_and_run with errors" {
-  let db = CalcPipeline::new()
+  let db = CalcPipeline()
   match compile_and_run(db) {
     Err(errs) => {
       inspect(errs.length(), content="1")
@@ -254,7 +258,7 @@ test "trait: compile_and_run with errors" {
 
 ///|
 test "trait: compile_and_run success" {
-  let db = CalcPipeline::new()
+  let db = CalcPipeline()
   db.set_source_text("hello")
   match compile_and_run(db) {
     Ok(output) => {
@@ -267,7 +271,7 @@ test "trait: compile_and_run success" {
 
 ///|
 test "trait: pipeline incrementality" {
-  let db = CalcPipeline::new()
+  let db = CalcPipeline()
   db.set_source_text("first")
   match compile_and_run(db) {
     Ok(output) => inspect(output[0], content="first")
@@ -283,7 +287,7 @@ test "trait: pipeline incrementality" {
 
 ///|
 test "trait: create_signal with label" {
-  let db = TestDb::new()
+  let db = TestDb()
   let sig = @incr.create_signal(db, 42, label="count")
   match db.rt.cell_info(sig.id()) {
     Some(info) => inspect(info.label, content="Some(\"count\")")
@@ -293,7 +297,7 @@ test "trait: create_signal with label" {
 
 ///|
 test "trait: create_memo with label" {
-  let db = TestDb::new()
+  let db = TestDb()
   let x = @incr.create_signal(db, 1)
   let m = @incr.create_memo(db, fn() { x.get() * 2 }, label="doubled")
   let _ = m.get()

@@ -8,13 +8,20 @@
 /// # Example
 ///
 /// ```moonbit nocheck
-/// let rt = Runtime::new()
-/// let cell = TrackedCell::new(rt, 0, label="counter")
+/// let rt = Runtime()
+/// let cell = TrackedCell(rt, 0, label="counter")
 /// cell.set(5)
 /// inspect(cell.get(), content="5")
 /// ```
 pub(all) struct TrackedCell[T] {
   priv signal : Signal[T]
+
+  fn[T] new(
+    rt : Runtime,
+    initial : T,
+    durability? : Durability,
+    label? : String,
+  ) -> TrackedCell[T]
 } derive(Debug(ignore=[Signal]))
 
 ///|
@@ -34,11 +41,11 @@ pub(all) struct TrackedCell[T] {
 /// # Example
 ///
 /// ```moonbit nocheck
-/// let cell = TrackedCell::new(rt, 42)
+/// let cell = TrackedCell(rt, 42)
 ///
-/// let config = TrackedCell::new(rt, "prod", durability=High)
+/// let config = TrackedCell(rt, "prod", durability=High)
 ///
-/// let named = TrackedCell::new(rt, 0, label="counter")
+/// let named = TrackedCell(rt, 0, label="counter")
 /// ```
 pub fn[T] TrackedCell::new(
   rt : Runtime,
@@ -73,7 +80,9 @@ pub fn[T] TrackedCell::get(self : TrackedCell[T]) -> T {
 /// # Returns
 ///
 /// `Ok(value)` with the current value of the cell
-pub fn[T] TrackedCell::get_result(self : TrackedCell[T]) -> Result[T, CycleError] {
+pub fn[T] TrackedCell::get_result(
+  self : TrackedCell[T],
+) -> Result[T, CycleError] {
   self.signal.get_result()
 }
 
@@ -104,7 +113,10 @@ pub fn[T : Eq] TrackedCell::set(self : TrackedCell[T], value : T) -> Unit {
 /// # Parameters
 ///
 /// - `value`: The new value to set
-pub fn[T] TrackedCell::set_unconditional(self : TrackedCell[T], value : T) -> Unit {
+pub fn[T] TrackedCell::set_unconditional(
+  self : TrackedCell[T],
+  value : T,
+) -> Unit {
   self.signal.set_unconditional(value)
 }
 
@@ -145,7 +157,10 @@ pub fn[T] TrackedCell::durability(self : TrackedCell[T]) -> Durability {
 /// # Parameters
 ///
 /// - `f`: Called with the new value whenever this cell changes
-pub fn[T] TrackedCell::on_change(self : TrackedCell[T], f : (T) -> Unit) -> Unit {
+pub fn[T] TrackedCell::on_change(
+  self : TrackedCell[T],
+  f : (T) -> Unit,
+) -> Unit {
   self.signal.on_change(f)
 }
 

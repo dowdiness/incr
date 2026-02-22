@@ -8,8 +8,8 @@
 /// # Example
 ///
 /// ```moonbit nocheck
-/// let rt = Runtime::new()
-/// let count = Signal::new(rt, 0)
+/// let rt = Runtime()
+/// let count = Signal(rt, 0)
 /// count.set(5)
 /// inspect(count.get(), content="5")
 /// ```
@@ -20,6 +20,13 @@ pub(all) struct Signal[T] {
   priv mut value : T
   priv mut pending_value : T?
   priv durability : Durability
+
+  fn[T] new(
+    rt : Runtime,
+    initial : T,
+    durability? : Durability,
+    label? : String,
+  ) -> Signal[T]
 } derive(Debug(ignore=[Runtime, CellId]))
 
 ///|
@@ -39,11 +46,11 @@ pub(all) struct Signal[T] {
 /// # Example
 ///
 /// ```moonbit nocheck
-/// let count = Signal::new(rt, 0)
+/// let count = Signal(rt, 0)
 ///
-/// let config = Signal::new(rt, "prod", durability=High)
+/// let config = Signal(rt, "prod", durability=High)
 ///
-/// let named = Signal::new(rt, 0, label="count")
+/// let named = Signal(rt, 0, label="count")
 /// ```
 pub fn[T] Signal::new(
   rt : Runtime,
@@ -99,7 +106,7 @@ pub fn[T] Signal::get_result(self : Signal[T]) -> Result[T, CycleError] {
 /// # Example
 ///
 /// ```moonbit nocheck
-/// let sig = Signal::new(rt, 42)
+/// let sig = Signal(rt, 42)
 /// let id = sig.id()
 /// match rt.cell_info(id) {
 ///   Some(info) => println("Signal changed at: " + info.changed_at.to_string())
@@ -142,7 +149,7 @@ pub fn[T] Signal::durability(self : Signal[T]) -> Durability {
 /// # Same-Value Optimization
 ///
 /// ```moonbit nocheck
-/// let s = Signal::new(rt, 5)
+/// let s = Signal(rt, 5)
 /// s.set(5)  // No-op: value unchanged, no revision bump
 /// s.set(6)  // Bumps revision, memos depending on s will reverify
 /// ```

@@ -1,22 +1,22 @@
 ///|
 test "signal: create and read" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 42)
+  let rt = Runtime()
+  let sig = Signal(rt, 42)
   inspect(sig.get(), content="42")
 }
 
 ///|
 test "signal: write updates value" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 10)
+  let rt = Runtime()
+  let sig = Signal(rt, 10)
   sig.set(20)
   inspect(sig.get(), content="20")
 }
 
 ///|
 test "signal: write bumps revision" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 1)
+  let rt = Runtime()
+  let sig = Signal(rt, 1)
   inspect(rt.current_revision.value, content="0")
   sig.set(2)
   inspect(rt.current_revision.value, content="1")
@@ -26,8 +26,8 @@ test "signal: write bumps revision" {
 
 ///|
 test "signal: same-value set is no-op" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 42)
+  let rt = Runtime()
+  let sig = Signal(rt, 42)
   sig.set(42)
   // Revision should not have bumped
   inspect(rt.current_revision.value, content="0")
@@ -35,8 +35,8 @@ test "signal: same-value set is no-op" {
 
 ///|
 test "signal: set_unconditional always bumps" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 42)
+  let rt = Runtime()
+  let sig = Signal(rt, 42)
   sig.set_unconditional(42)
   // Revision bumps even though value is the same
   inspect(rt.current_revision.value, content="1")
@@ -44,9 +44,9 @@ test "signal: set_unconditional always bumps" {
 
 ///|
 test "signal: multiple signals independent" {
-  let rt = Runtime::new()
-  let a = Signal::new(rt, "hello")
-  let b = Signal::new(rt, "world")
+  let rt = Runtime()
+  let a = Signal(rt, "hello")
+  let b = Signal(rt, "world")
   inspect(a.get(), content="hello")
   inspect(b.get(), content="world")
   a.set("hi")
@@ -57,8 +57,8 @@ test "signal: multiple signals independent" {
 
 ///|
 test "signal: string values" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, "initial")
+  let rt = Runtime()
+  let sig = Signal(rt, "initial")
   sig.set("updated")
   inspect(sig.get(), content="updated")
   sig.set("updated") // same value, no bump

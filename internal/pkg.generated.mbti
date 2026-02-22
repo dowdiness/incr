@@ -28,6 +28,8 @@ pub(all) struct CellInfo {
 
 pub(all) struct Memo[T] {
   // private fields
+
+  fn[T : Eq] new(Runtime, () -> T, label? : String) -> Memo[T]
 }
 pub fn[T] Memo::changed_at(Self[T]) -> @types.Revision
 pub fn[T] Memo::clear_on_change(Self[T]) -> Unit
@@ -43,6 +45,8 @@ pub impl[T : @debug.Debug] @debug.Debug for Memo[T]
 
 pub(all) struct Runtime {
   // private fields
+
+  fn new(on_change? : () -> Unit) -> Runtime
 }
 pub fn Runtime::batch(Self, () -> Unit) -> Unit
 pub fn Runtime::cell_info(Self, @types.CellId) -> CellInfo?
@@ -52,6 +56,8 @@ pub fn Runtime::set_on_change(Self, () -> Unit) -> Unit
 
 pub(all) struct Signal[T] {
   // private fields
+
+  fn[T] new(Runtime, T, durability? : @types.Durability, label? : String) -> Signal[T]
 }
 pub fn[T] Signal::clear_on_change(Self[T]) -> Unit
 pub fn[T] Signal::durability(Self[T]) -> @types.Durability
@@ -67,6 +73,8 @@ pub impl[T : @debug.Debug] @debug.Debug for Signal[T]
 
 pub(all) struct TrackedCell[T] {
   // private fields
+
+  fn[T] new(Runtime, T, durability? : @types.Durability, label? : String) -> TrackedCell[T]
 }
 pub fn[T] TrackedCell::as_signal(Self[T]) -> Signal[T]
 pub fn[T] TrackedCell::clear_on_change(Self[T]) -> Unit

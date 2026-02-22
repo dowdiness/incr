@@ -17,11 +17,11 @@ let next_runtime_id : Ref[Int] = { val: 0 }
 /// # Example
 ///
 /// ```moonbit nocheck
-/// let rt = Runtime::new()
+/// let rt = Runtime()
 ///
-/// let x = Signal::new(rt, 10)
+/// let x = Signal(rt, 10)
 ///
-/// let doubled = Memo::new(rt, fn() { x.get() * 2 })
+/// let doubled = Memo(rt, fn() { x.get() * 2 })
 /// ```
 pub(all) struct Runtime {
   priv runtime_id : Int
@@ -34,6 +34,8 @@ pub(all) struct Runtime {
   priv batch_pending_signals : Array[CellId]
   priv mut batch_max_durability : Durability
   priv mut on_change : (() -> Unit)?
+
+  fn new(on_change? : () -> Unit) -> Runtime
 }
 
 ///|
@@ -55,13 +57,13 @@ pub(all) struct Runtime {
 /// # Example
 ///
 /// ```moonbit nocheck
-/// let rt = Runtime::new()
+/// let rt = Runtime()
 ///
-/// let rt = Runtime::new(on_change=fn() { rerender() })
+/// let rt = Runtime(on_change=fn() { rerender() })
 ///
-/// let x = Signal::new(rt, 10)
+/// let x = Signal(rt, 10)
 ///
-/// let doubled = Memo::new(rt, fn() { x.get() * 2 })
+/// let doubled = Memo(rt, fn() { x.get() * 2 })
 /// ```
 pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
   let id = next_runtime_id.val
@@ -217,9 +219,9 @@ fn Runtime::fire_on_change(self : Runtime) -> Unit {
 /// # Usage
 ///
 /// ```moonbit nocheck
-/// let rt = Runtime::new()
-/// let sig = Signal::new(rt, 42)
-/// let memo = Memo::new(rt, fn() { sig.get() * 2 })
+/// let rt = Runtime()
+/// let sig = Signal(rt, 42)
+/// let memo = Memo(rt, fn() { sig.get() * 2 })
 /// let _ = memo.get()  // Force computation
 ///
 /// // Query signal metadata
@@ -467,7 +469,7 @@ fn Runtime::record_dependency(self : Runtime, dep : CellId) -> Unit {
 ///
 /// - `cell_id`: The ID of the memo being computed
 fn Runtime::push_tracking(self : Runtime, cell_id : CellId) -> Unit {
-  self.tracking_stack.push(ActiveQuery::new(cell_id))
+  self.tracking_stack.push(ActiveQuery(cell_id))
 }
 
 ///|

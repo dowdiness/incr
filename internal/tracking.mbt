@@ -11,6 +11,8 @@ priv struct ActiveQuery {
   cell_id : CellId
   dependencies : Array[CellId]
   seen : @hashset.HashSet[CellId]
+
+  fn new(cell_id : CellId) -> ActiveQuery
 }
 
 ///|

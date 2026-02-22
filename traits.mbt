@@ -76,7 +76,7 @@ pub fn[Db : IncrDb, T] create_signal(
   durability? : Durability = Low,
   label? : String,
 ) -> Signal[T] {
-  Signal::new(db.runtime(), value, durability~, label?)
+  Signal(db.runtime(), value, durability~, label?)
 }
 
 ///|
@@ -96,7 +96,7 @@ pub fn[Db : IncrDb, T : Eq] create_memo(
   f : () -> T,
   label? : String,
 ) -> Memo[T] {
-  Memo::new(db.runtime(), f, label?)
+  Memo(db.runtime(), f, label?)
 }
 
 ///|
@@ -159,7 +159,7 @@ pub fn[Db : IncrDb, T] create_tracked_cell(
   durability? : Durability = Low,
   label? : String,
 ) -> TrackedCell[T] {
-  TrackedCell::new(db.runtime(), value, durability~, label?)
+  TrackedCell(db.runtime(), value, durability~, label?)
 }
 
 ///|

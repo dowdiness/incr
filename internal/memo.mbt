@@ -15,10 +15,10 @@
 /// # Example
 ///
 /// ```moonbit nocheck
-/// let rt = Runtime::new()
-/// let a = Signal::new(rt, 10)
-/// let b = Signal::new(rt, 20)
-/// let sum = Memo::new(rt, fn() { a.get() + b.get() })
+/// let rt = Runtime()
+/// let a = Signal(rt, 10)
+/// let b = Signal(rt, 20)
+/// let sum = Memo(rt, fn() { a.get() + b.get() })
 ///
 /// inspect(sum.get(), content="30")  // Computes and caches
 /// inspect(sum.get(), content="30")  // Returns cached value
@@ -32,6 +32,8 @@ pub(all) struct Memo[T] {
   priv cell_id : CellId
   priv compute : () -> T
   priv mut value : T?
+
+  fn[T : Eq] new(rt : Runtime, compute : () -> T, label? : String) -> Memo[T]
 } derive(Debug(ignore=[Runtime, Fn, CellId]))
 
 ///|
@@ -274,8 +276,8 @@ pub fn[T] Memo::id(self : Memo[T]) -> CellId {
 /// # Example
 ///
 /// ```moonbit nocheck
-/// let x = Signal::new(rt, 1)
-/// let m = Memo::new(rt, fn() { x.get() * 2 })
+/// let x = Signal(rt, 1)
+/// let m = Memo(rt, fn() { x.get() * 2 })
 /// m.get() |> ignore
 /// inspect(m.dependencies().contains(x.id()), content="true")
 /// ```

@@ -12,6 +12,8 @@
 struct Point {
   x : Int
   y : Int
+
+  fn new(x : Int, y : Int) -> Point
 } derive(Eq)
 
 ///|
@@ -32,7 +34,7 @@ test "custom_eq: backdating with Point struct" {
     point_count = point_count + 1
     // x is input mod 10, y is always 0
     // So 5, 15, 25, etc. all produce Point(5, 0)
-    Point::new(input.get() % 10, 0)
+    Point(input.get() % 10, 0)
   })
 
   let mut downstream_count = 0
@@ -69,6 +71,8 @@ test "custom_eq: backdating with Point struct" {
 priv struct Versioned {
   value : Int
   generation : Int // Ignored in equality check
+
+  fn new(value : Int, generation : Int) -> Versioned
 }
 
 ///|
@@ -92,7 +96,7 @@ test "custom_eq: backdating ignores generation field" {
     versioned_count = versioned_count + 1
     gen = gen + 1
     // Each computation creates new generation but value based on input
-    Versioned::new(input.get() / 10, gen)
+    Versioned(input.get() / 10, gen)
   })
 
   let mut downstream_count = 0

@@ -17,9 +17,9 @@ test "TrackedCell same-value optimization" {
     compute_count = compute_count + 1
     cell.get()
   })
-  let _ = memo.get()      // compute_count = 1
-  cell.set(5)             // same value — no revision bump
-  let _ = memo.get()      // should NOT recompute
+  let _ = memo.get() // compute_count = 1
+  cell.set(5) // same value — no revision bump
+  let _ = memo.get() // should NOT recompute
   inspect(compute_count, content="1")
 }
 
@@ -66,12 +66,12 @@ test "TrackedCell batch revert detection" {
     compute_count = compute_count + 1
     cell.get()
   })
-  let _ = memo.get()      // compute_count = 1
+  let _ = memo.get() // compute_count = 1
   rt.batch(fn() {
     cell.set(99)
-    cell.set(0)           // revert to original
+    cell.set(0) // revert to original
   })
-  let _ = memo.get()      // should NOT recompute (net change = 0)
+  let _ = memo.get() // should NOT recompute (net change = 0)
   inspect(compute_count, content="1")
 }
 
@@ -149,20 +149,20 @@ test "field-level dependency isolation" {
   })
 
   // Initial computation
-  let _ = name_len.get()       // name_reads = 1
-  let _ = value_doubled.get()  // value_reads = 1
+  let _ = name_len.get() // name_reads = 1
+  let _ = value_doubled.get() // value_reads = 1
 
   // Change only `value` — name_len should NOT recompute
   t.value.set(10)
-  let _ = name_len.get()       // name_reads still 1
-  let _ = value_doubled.get()  // value_reads = 2
+  let _ = name_len.get() // name_reads still 1
+  let _ = value_doubled.get() // value_reads = 2
   inspect(name_reads, content="1")
   inspect(value_reads, content="2")
 
   // Change only `name` — value_doubled should NOT recompute
   t.name.set("hello")
-  let _ = name_len.get()       // name_reads = 2
-  let _ = value_doubled.get()  // value_reads still 2
+  let _ = name_len.get() // name_reads = 2
+  let _ = value_doubled.get() // value_reads still 2
   inspect(name_reads, content="2")
   inspect(value_reads, content="2")
 }
@@ -213,9 +213,9 @@ test "TrackedCell set_unconditional always recomputes" {
     compute_count = compute_count + 1
     cell.get()
   })
-  let _ = memo.get()              // compute_count = 1
-  cell.set_unconditional(5)       // same value but unconditional — bumps revision
-  let _ = memo.get()              // should recompute
+  let _ = memo.get() // compute_count = 1
+  cell.set_unconditional(5) // same value but unconditional — bumps revision
+  let _ = memo.get() // should recompute
   inspect(compute_count, content="2")
 }
 
@@ -226,8 +226,8 @@ test "TrackedCell clear_on_change stops callback" {
   let mut observed = 0
   cell.on_change(fn(v) { observed = v })
   cell.set(1)
-  inspect(observed, content="1")   // callback fired
+  inspect(observed, content="1") // callback fired
   cell.clear_on_change()
   cell.set(2)
-  inspect(observed, content="1")   // callback NOT fired (still 1)
+  inspect(observed, content="1") // callback NOT fired (still 1)
 }
