@@ -112,3 +112,54 @@ pub fn[Db : IncrDb, T : Eq] create_memo(
 pub fn[Db : IncrDb] batch(db : Db, f : () -> Unit) -> Unit {
   db.runtime().batch(f)
 }
+
+// --- Tracked Struct Support ---
+
+///|
+/// Readable implementation for TrackedCell, matching the pattern of
+/// Signal and Memo implementations above.
+pub impl[T] Readable for TrackedCell[T] with is_up_to_date(self) {
+  TrackedCell::is_up_to_date(self)
+}
+
+///|
+/// Contract for types that contain TrackedCell fields.
+///
+/// Implementing this trait declares that a type manages field-level
+/// incremental state. The trait requires a single method that returns
+/// all CellIds owned by the struct, enabling the runtime to perform
+/// operations like GC root scanning and bulk introspection.
+///
+/// A future MoonBit macro system could auto-derive this trait.
+///
+/// The ordering of CellIds returned by cell_ids() must be stable across
+/// calls (i.e., always return fields in the same order).
+pub(open) trait Trackable {
+  cell_ids(Self) -> Array[CellId]
+}
+
+///|
+/// Creates a new TrackedCell using the database's runtime.
+///
+/// Follows the same pattern as create_signal and create_memo.
+pub fn[Db : IncrDb, T] create_tracked_cell(
+  db : Db,
+  value : T,
+  durability? : Durability = Low,
+  label? : String,
+) -> TrackedCell[T] {
+  TrackedCell::new(db.runtime(), value, durability~, label?)
+}
+
+///|
+/// Marks all cells of a Trackable struct as GC roots (no-op until Phase 4).
+///
+/// Call this when a tracked struct is "alive" — referenced by the
+/// current computation. This function is a no-op until GC infrastructure
+/// is added to Runtime (Phase 4 of the roadmap). It is provided now so
+/// that user code includes the correct call sites, enabling a zero-change
+/// migration when GC lands.
+pub fn[T : Trackable] gc_tracked(rt : Runtime, tracked : T) -> Unit {
+  let _ids = tracked.cell_ids()
+  ignore(rt)
+}
