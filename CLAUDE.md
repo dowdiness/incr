@@ -25,7 +25,7 @@ This library is organized into four MoonBit sub-packages:
 dowdiness/incr/
 ├── moon.pkg                    (root facade — imports types + internal + pipeline)
 ├── incr.mbt                    (pub type re-exports for all public types)
-├── traits.mbt                  (IncrDb, Readable traits; create_signal, create_memo, batch helpers)
+├── traits.mbt                  (IncrDb, Readable, Trackable traits; create_signal, create_memo, create_tracked_cell, batch, gc_tracked helpers)
 │
 ├── types/                      (pure value types, zero dependencies)
 │   ├── revision.mbt            (Revision, Durability, DURABILITY_COUNT)
@@ -39,6 +39,7 @@ dowdiness/incr/
 │   ├── verify.mbt              (maybe_changed_after)
 │   ├── signal.mbt              (Signal[T])
 │   ├── memo.mbt                (Memo[T])
+│   ├── tracked_cell.mbt        (TrackedCell[T])
 │   ├── *_test.mbt              (unit tests — black-box tests of the internal package)
 │   └── *_wbtest.mbt            (whitebox tests — co-located for private field access)
 │
@@ -69,7 +70,7 @@ The library implements Salsa's incremental computation pattern with three key ty
 - **Revision** / **Durability** (`types/revision.mbt`) — Monotonic revision counter bumped on input changes. Durability classifies input change frequency; derived cells inherit the minimum durability of their dependencies.
 - **Verification** (`internal/verify.mbt`) — `maybe_changed_after()` is the core algorithm. For derived cells: checks the durability shortcut first, then walks dependencies iteratively using an explicit stack of `VerifyFrame`s. If any dependency changed, recomputes the cell (enabling backdating). Green path (no change) marks `verified_at` without recomputation.
 - **CycleError** (`internal/cycle.mbt`) — Cycle detection error type. `CycleError::from_path(path, closing_id)` constructs a `CycleDetected` value from a collected path; `format_path(rt)` produces a human-readable chain string.
-- **Traits** (`traits.mbt`) — `IncrDb` and `Readable` public traits. Pipeline traits (`Sourceable`, `Parseable`, `Checkable`, `Executable`) live in `pipeline/pipeline_traits.mbt` and are marked experimental.
+- **Traits** (`traits.mbt`) — `IncrDb`, `Readable`, and `Trackable` public traits; `create_signal`, `create_memo`, `create_tracked_cell`, `batch`, and `gc_tracked` helper functions. Pipeline traits (`Sourceable`, `Parseable`, `Checkable`, `Executable`) live in `pipeline/pipeline_traits.mbt` and are marked experimental.
 
 ### Data Flow
 
