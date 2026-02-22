@@ -272,3 +272,11 @@ pub fn[T] Signal::clear_on_change(self : Signal[T]) -> Unit {
   let cell = self.rt.get_cell(self.cell_id)
   cell.on_change = None
 }
+
+///|
+/// Returns true. Signals are always up-to-date since they are input cells
+/// with directly-set values.
+pub fn[T] Signal::is_up_to_date(self : Signal[T]) -> Bool {
+  ignore(self)
+  true
+}

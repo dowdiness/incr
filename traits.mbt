@@ -44,39 +44,17 @@ pub(open) trait Readable {
 }
 
 ///|
-/// Returns true. Signals are always up-to-date since they are input cells
-/// with directly-set values.
-pub fn[T] Signal::is_up_to_date(self : Signal[T]) -> Bool {
-  ignore(self)
-  true
-}
-
-///|
 /// Signals are always up-to-date since they are input cells
 /// with directly-set values.
 pub impl[T] Readable for Signal[T] with is_up_to_date(self) {
-  self.is_up_to_date()
-}
-
-///|
-/// Returns true if the memo has a cached value and its verified_at matches
-/// the runtime's current revision. Returns false if the memo has never been
-/// computed (value is None), even at the initial revision.
-pub fn[T] Memo::is_up_to_date(self : Memo[T]) -> Bool {
-  match self.value {
-    None => false
-    Some(_) => {
-      let cell = self.rt.get_cell(self.cell_id)
-      cell.verified_at == self.rt.current_revision
-    }
-  }
+  @internal.Signal::is_up_to_date(self)
 }
 
 ///|
 /// A memo is up-to-date when its verified_at matches the
 /// runtime's current revision.
 pub impl[T] Readable for Memo[T] with is_up_to_date(self) {
-  self.is_up_to_date()
+  @internal.Memo::is_up_to_date(self)
 }
 
 ///|
