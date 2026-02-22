@@ -55,3 +55,10 @@ test "Memo derives Debug after compute" {
     ),
   )
 }
+
+///|
+test "TrackedCell derives Debug" {
+  let rt = Runtime::new()
+  let cell = TrackedCell::new(rt, 42, label="test")
+  debug_inspect(cell, content="{ signal: ... }")
+}

@@ -203,3 +203,31 @@ test "TrackedCell Readable trait" {
   // check_up_to_date is defined at the top level of traits_test.mbt (same package)
   inspect(check_up_to_date(cell), content="true")
 }
+
+///|
+test "TrackedCell set_unconditional always recomputes" {
+  let rt = @incr.Runtime::new()
+  let cell = @incr.TrackedCell::new(rt, 5)
+  let mut compute_count = 0
+  let memo = @incr.Memo::new(rt, fn() {
+    compute_count = compute_count + 1
+    cell.get()
+  })
+  let _ = memo.get()              // compute_count = 1
+  cell.set_unconditional(5)       // same value but unconditional — bumps revision
+  let _ = memo.get()              // should recompute
+  inspect(compute_count, content="2")
+}
+
+///|
+test "TrackedCell clear_on_change stops callback" {
+  let rt = @incr.Runtime::new()
+  let cell = @incr.TrackedCell::new(rt, 0)
+  let mut observed = 0
+  cell.on_change(fn(v) { observed = v })
+  cell.set(1)
+  inspect(observed, content="1")   // callback fired
+  cell.clear_on_change()
+  cell.set(2)
+  inspect(observed, content="1")   // callback NOT fired (still 1)
+}
