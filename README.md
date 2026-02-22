@@ -116,8 +116,21 @@ inspect(config_derived.get(), content="200")
 ```bash
 moon check    # Type-check
 moon build    # Build
-moon test     # Run all tests
+moon test     # Run all tests (142 tests across all packages)
 ```
+
+### Package Structure
+
+The library is split into four MoonBit sub-packages:
+
+| Package | Role |
+|---------|------|
+| `dowdiness/incr` | Public API facade — re-exports all types via `pub type` aliases |
+| `dowdiness/incr/types` | Pure value types: `Revision`, `Durability`, `CellId` |
+| `dowdiness/incr/internal` | Engine implementation: `Signal`, `Memo`, `Runtime`, verification algorithm |
+| `dowdiness/incr/pipeline` | Experimental pipeline traits: `Sourceable`, `Parseable`, `Checkable`, `Executable` |
+
+Users always import the root `@incr` package — the sub-package structure is an implementation detail.
 
 ## License
 
