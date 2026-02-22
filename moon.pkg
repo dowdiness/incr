@@ -1,5 +1,4 @@
 import {
   "dowdiness/incr/types" @incr_types,
   "dowdiness/incr/internal" @internal,
-  "moonbitlang/core/hashset",
 }
