@@ -274,7 +274,7 @@ Useful for:
 
 ---
 
-## Tracked Struct
+## Pattern: Tracked Struct
 
 Use `TrackedCell` fields to give each field of a struct its own dependency cell. Memos that read only one field are unaffected when a different field changes.
 

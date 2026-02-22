@@ -474,7 +474,7 @@ pub(open) trait Readable {
 }
 ```
 
-Implemented for both `Signal[T]` and `Memo[T]`.
+Implemented for `Signal[T]`, `Memo[T]`, and `TrackedCell[T]`.
 
 ### `Trackable`
 
@@ -584,4 +584,6 @@ Runs a batch using `db.runtime()`.
 
 - `Memo::new`, `Memo::get`, `Memo::get_result` require `T : Eq`
 - `Signal::set` requires `T : Eq`
+- `TrackedCell::set` requires `T : Eq`
 - `Signal::new`, `Signal::get`, `Signal::get_result`, `Signal::set_unconditional` do not require `Eq`
+- `TrackedCell::new`, `TrackedCell::get`, `TrackedCell::get_result`, `TrackedCell::set_unconditional` do not require `Eq`
