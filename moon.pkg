@@ -7,4 +7,5 @@ import {
 }
 
 // Suppress unused_package warning for @pipeline (see comment above).
-options("warn-list": "-29")
+
+warnings = "-29"

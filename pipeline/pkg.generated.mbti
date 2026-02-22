@@ -1,0 +1,29 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/incr/pipeline"
+
+// Values
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+pub(open) trait Checkable {
+  check_errors(Self) -> Array[String]
+}
+
+pub(open) trait Executable {
+  run(Self) -> Array[String]
+}
+
+pub(open) trait Parseable {
+  parse_errors(Self) -> Array[String]
+}
+
+pub(open) trait Sourceable {
+  set_source_text(Self, String) -> Unit
+  source_text(Self) -> String
+}
+

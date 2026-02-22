@@ -1,0 +1,48 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/incr/types"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub const DURABILITY_COUNT : Int = 3
+
+// Errors
+
+// Types and methods
+pub(all) struct CellId {
+  runtime_id : Int
+  id : Int
+}
+pub impl Eq for CellId
+pub impl Hash for CellId
+pub impl Show for CellId
+pub impl @debug.Debug for CellId
+
+pub(all) enum Durability {
+  Low
+  Medium
+  High
+}
+pub fn Durability::index(Self) -> Int
+pub impl Compare for Durability
+pub impl Eq for Durability
+pub impl Show for Durability
+pub impl @debug.Debug for Durability
+
+pub(all) struct Revision {
+  value : Int
+}
+pub fn Revision::initial() -> Self
+pub fn Revision::next(Self) -> Self
+pub impl Compare for Revision
+pub impl Default for Revision
+pub impl Eq for Revision
+pub impl Show for Revision
+pub impl @debug.Debug for Revision
+
+// Type aliases
+
+// Traits
+

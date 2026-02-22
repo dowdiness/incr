@@ -247,10 +247,7 @@ fn Runtime::fire_on_change(self : Runtime) -> Unit {
 /// - For signals, the dependencies array is always empty
 /// - For memos, dependencies are populated after the first computation
 /// - The method performs bounds checking and returns None for invalid IDs
-pub fn Runtime::cell_info(
-  self : Runtime,
-  id : @incr_types.CellId,
-) -> CellInfo? {
+pub fn Runtime::cell_info(self : Runtime, id : @incr_types.CellId) -> CellInfo? {
   // Validate runtime ownership - reject CellIds from other runtimes
   if id.runtime_id != self.runtime_id {
     return None
@@ -465,10 +462,7 @@ fn Runtime::record_batch_signal(
 /// # Parameters
 ///
 /// - `dep`: The cell ID that the current memo depends on
-fn Runtime::record_dependency(
-  self : Runtime,
-  dep : @incr_types.CellId,
-) -> Unit {
+fn Runtime::record_dependency(self : Runtime, dep : @incr_types.CellId) -> Unit {
   let len = self.tracking_stack.length()
   if len > 0 {
     self.tracking_stack[len - 1].record(dep)
@@ -484,10 +478,7 @@ fn Runtime::record_dependency(
 /// # Parameters
 ///
 /// - `cell_id`: The ID of the memo being computed
-fn Runtime::push_tracking(
-  self : Runtime,
-  cell_id : @incr_types.CellId,
-) -> Unit {
+fn Runtime::push_tracking(self : Runtime, cell_id : @incr_types.CellId) -> Unit {
   self.tracking_stack.push(ActiveQuery::new(cell_id))
 }
 

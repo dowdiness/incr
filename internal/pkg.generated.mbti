@@ -1,0 +1,71 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/incr/internal"
+
+import {
+  "dowdiness/incr/types",
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+pub suberror CycleError {
+  CycleDetected(@types.CellId, Array[@types.CellId])
+}
+pub fn CycleError::cell(Self) -> @types.CellId
+pub fn CycleError::format_path(Self, Runtime) -> String
+pub fn CycleError::path(Self) -> Array[@types.CellId]
+
+// Types and methods
+pub(all) struct CellInfo {
+  label : String?
+  id : @types.CellId
+  changed_at : @types.Revision
+  verified_at : @types.Revision
+  durability : @types.Durability
+  dependencies : Array[@types.CellId]
+}
+
+pub(all) struct Memo[T] {
+  // private fields
+}
+pub fn[T] Memo::changed_at(Self[T]) -> @types.Revision
+pub fn[T] Memo::clear_on_change(Self[T]) -> Unit
+pub fn[T] Memo::dependencies(Self[T]) -> Array[@types.CellId]
+pub fn[T : Eq] Memo::get(Self[T]) -> T
+pub fn[T : Eq] Memo::get_result(Self[T]) -> Result[T, CycleError]
+pub fn[T] Memo::id(Self[T]) -> @types.CellId
+pub fn[T] Memo::is_up_to_date(Self[T]) -> Bool
+pub fn[T : Eq] Memo::new(Runtime, () -> T, label? : String) -> Self[T]
+pub fn[T] Memo::on_change(Self[T], (T) -> Unit) -> Unit
+pub fn[T] Memo::verified_at(Self[T]) -> @types.Revision
+pub impl[T : @debug.Debug] @debug.Debug for Memo[T]
+
+pub(all) struct Runtime {
+  // private fields
+}
+pub fn Runtime::batch(Self, () -> Unit) -> Unit
+pub fn Runtime::cell_info(Self, @types.CellId) -> CellInfo?
+pub fn Runtime::clear_on_change(Self) -> Unit
+pub fn Runtime::new(on_change? : () -> Unit) -> Self
+pub fn Runtime::set_on_change(Self, () -> Unit) -> Unit
+
+pub(all) struct Signal[T] {
+  // private fields
+}
+pub fn[T] Signal::clear_on_change(Self[T]) -> Unit
+pub fn[T] Signal::durability(Self[T]) -> @types.Durability
+pub fn[T] Signal::get(Self[T]) -> T
+pub fn[T] Signal::get_result(Self[T]) -> Result[T, CycleError]
+pub fn[T] Signal::id(Self[T]) -> @types.CellId
+pub fn[T] Signal::is_up_to_date(Self[T]) -> Bool
+pub fn[T] Signal::new(Runtime, T, durability? : @types.Durability, label? : String) -> Self[T]
+pub fn[T] Signal::on_change(Self[T], (T) -> Unit) -> Unit
+pub fn[T : Eq] Signal::set(Self[T], T) -> Unit
+pub fn[T] Signal::set_unconditional(Self[T], T) -> Unit
+pub impl[T : @debug.Debug] @debug.Debug for Signal[T]
+
+// Type aliases
+
+// Traits
+

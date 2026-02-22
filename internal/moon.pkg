@@ -2,12 +2,10 @@ import {
   "dowdiness/incr/types" @incr_types,
   "moonbitlang/core/hashset",
 }
+// Suppress unused_mut (warning 15) for CellMeta.recompute_and_check:
+// `mut` is needed because verify_wbtest.mbt writes to the field to simulate
+// internal state corruption for a panic test. The write site only exists in
+// the whitebox-test compilation (which includes *_wbtest.mbt), so the
+// source-only check phase would incorrectly flag the field as unused-mut.
 
-options(
-  // Suppress unused_mut (warning 15) for CellMeta.recompute_and_check:
-  // `mut` is needed because verify_wbtest.mbt writes to the field to simulate
-  // internal state corruption for a panic test. The write site only exists in
-  // the whitebox-test compilation (which includes *_wbtest.mbt), so the
-  // source-only check phase would incorrectly flag the field as unused-mut.
-  "warn-list": "-15",
-)
+warnings = "-15"

@@ -2,127 +2,46 @@
 package "dowdiness/incr"
 
 import {
-  "moonbitlang/core/debug",
+  "dowdiness/incr/internal",
+  "dowdiness/incr/types",
 }
 
 // Values
 pub fn[Db : IncrDb] batch(Db, () -> Unit) -> Unit
 
-pub fn[Db : IncrDb, T : Eq] create_memo(Db, () -> T, label? : String) -> Memo[T]
+pub fn[Db : IncrDb, T : Eq] create_memo(Db, () -> T, label? : String) -> @internal.Memo[T]
 
-pub fn[Db : IncrDb, T] create_signal(Db, T, durability? : Durability, label? : String) -> Signal[T]
+pub fn[Db : IncrDb, T] create_signal(Db, T, durability? : @types.Durability, label? : String) -> @internal.Signal[T]
 
 // Errors
-pub suberror CycleError {
-  CycleDetected(CellId, Array[CellId])
-}
-pub fn CycleError::cell(Self) -> CellId
-pub fn CycleError::format_path(Self, Runtime) -> String
-pub fn CycleError::path(Self) -> Array[CellId]
 
 // Types and methods
-pub(all) struct CellId {
-  runtime_id : Int
-  id : Int
-}
-pub impl Eq for CellId
-pub impl Show for CellId
-pub impl @debug.Debug for CellId
-
-pub(all) struct CellInfo {
-  label : String?
-  id : CellId
-  changed_at : Revision
-  verified_at : Revision
-  durability : Durability
-  dependencies : Array[CellId]
-}
-
-pub(all) enum Durability {
-  Low
-  Medium
-  High
-}
-pub impl Compare for Durability
-pub impl Eq for Durability
-pub impl Show for Durability
-pub impl @debug.Debug for Durability
-
-pub(all) struct Memo[T] {
-  // private fields
-}
-pub fn[T] Memo::changed_at(Self[T]) -> Revision
-pub fn[T] Memo::clear_on_change(Self[T]) -> Unit
-pub fn[T] Memo::dependencies(Self[T]) -> Array[CellId]
-pub fn[T : Eq] Memo::get(Self[T]) -> T
-pub fn[T : Eq] Memo::get_result(Self[T]) -> Result[T, CycleError]
-pub fn[T] Memo::id(Self[T]) -> CellId
-pub fn[T] Memo::is_up_to_date(Self[T]) -> Bool
-pub fn[T : Eq] Memo::new(Runtime, () -> T, label? : String) -> Self[T]
-pub fn[T] Memo::on_change(Self[T], (T) -> Unit) -> Unit
-pub fn[T] Memo::verified_at(Self[T]) -> Revision
-pub impl[T] Readable for Memo[T]
-pub impl[T : @debug.Debug] @debug.Debug for Memo[T]
-
-pub(all) struct Revision {
-  value : Int
-}
-pub impl Compare for Revision
-pub impl Default for Revision
-pub impl Eq for Revision
-pub impl Show for Revision
-pub impl @debug.Debug for Revision
-
-pub(all) struct Runtime {
-  // private fields
-}
-pub fn Runtime::batch(Self, () -> Unit) -> Unit
-pub fn Runtime::cell_info(Self, CellId) -> CellInfo?
-pub fn Runtime::clear_on_change(Self) -> Unit
-pub fn Runtime::new(on_change? : () -> Unit) -> Self
-pub fn Runtime::set_on_change(Self, () -> Unit) -> Unit
-
-pub(all) struct Signal[T] {
-  // private fields
-}
-pub fn[T] Signal::clear_on_change(Self[T]) -> Unit
-pub fn[T] Signal::durability(Self[T]) -> Durability
-pub fn[T] Signal::get(Self[T]) -> T
-pub fn[T] Signal::get_result(Self[T]) -> Result[T, CycleError]
-pub fn[T] Signal::id(Self[T]) -> CellId
-pub fn[T] Signal::is_up_to_date(Self[T]) -> Bool
-pub fn[T] Signal::new(Runtime, T, durability? : Durability, label? : String) -> Self[T]
-pub fn[T] Signal::on_change(Self[T], (T) -> Unit) -> Unit
-pub fn[T : Eq] Signal::set(Self[T], T) -> Unit
-pub fn[T] Signal::set_unconditional(Self[T], T) -> Unit
-pub impl[T] Readable for Signal[T]
-pub impl[T : @debug.Debug] @debug.Debug for Signal[T]
 
 // Type aliases
+pub using @types {type CellId}
+
+pub using @internal {type CellInfo}
+
+pub using @internal {type CycleError}
+
+pub using @types {type Durability}
+
+pub using @internal {type Memo}
+
+pub using @types {type Revision}
+
+pub using @internal {type Runtime}
+
+pub using @internal {type Signal}
 
 // Traits
-pub(open) trait Checkable {
-  check_errors(Self) -> Array[String]
-}
-
-pub(open) trait Executable {
-  run(Self) -> Array[String]
-}
-
 pub(open) trait IncrDb {
-  runtime(Self) -> Runtime
-}
-
-pub(open) trait Parseable {
-  parse_errors(Self) -> Array[String]
+  runtime(Self) -> @internal.Runtime
 }
 
 pub(open) trait Readable {
   is_up_to_date(Self) -> Bool
 }
-
-pub(open) trait Sourceable {
-  set_source_text(Self, String) -> Unit
-  source_text(Self) -> String
-}
+pub impl[T] Readable for @internal.Memo[T]
+pub impl[T] Readable for @internal.Signal[T]
 
