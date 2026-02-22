@@ -117,7 +117,7 @@ inspect(config_derived.get(), content="200")
 ```bash
 moon check    # Type-check
 moon build    # Build
-moon test     # Run all tests (142 tests across all packages)
+moon test     # Run all tests (162 tests across all packages)
 ```
 
 ### Package Structure
