@@ -1,3 +1,6 @@
+///|
+using @incr {type Signal, type Runtime, type Memo}
+
 // === Test helpers ===
 
 ///|
@@ -11,13 +14,13 @@ fn TestDb::new() -> TestDb {
 }
 
 ///|
-impl IncrDb for TestDb with runtime(self) {
+impl @incr.IncrDb for TestDb with runtime(self) {
   self.rt
 }
 
 ///|
 /// Generic helper to test the Readable trait through trait dispatch.
-fn[R : Readable] check_up_to_date(node : R) -> Bool {
+fn[R : @incr.Readable] check_up_to_date(node : R) -> Bool {
   node.is_up_to_date()
 }
 
@@ -26,14 +29,14 @@ fn[R : Readable] check_up_to_date(node : R) -> Bool {
 ///|
 test "trait: create_signal via IncrDb" {
   let db = TestDb::new()
-  let sig = create_signal(db, 42)
+  let sig = @incr.create_signal(db, 42)
   inspect(sig.get(), content="42")
 }
 
 ///|
 test "trait: create_signal with High durability" {
   let db = TestDb::new()
-  let sig = create_signal(db, "hello", durability=High)
+  let sig = @incr.create_signal(db, "hello", durability=High)
   inspect(sig.get(), content="hello")
   inspect(sig.durability(), content="High")
 }
@@ -41,19 +44,19 @@ test "trait: create_signal with High durability" {
 ///|
 test "trait: create_memo via IncrDb" {
   let db = TestDb::new()
-  let sig = create_signal(db, 10)
-  let memo = create_memo(db, fn() { sig.get() * 2 })
+  let sig = @incr.create_signal(db, 10)
+  let memo = @incr.create_memo(db, fn() { sig.get() * 2 })
   inspect(memo.get(), content="20")
 }
 
 ///|
 test "trait: batch via IncrDb" {
   let db = TestDb::new()
-  let x = create_signal(db, 1)
-  let y = create_signal(db, 2)
-  let sum = create_memo(db, fn() { x.get() + y.get() })
+  let x = @incr.create_signal(db, 1)
+  let y = @incr.create_signal(db, 2)
+  let sum = @incr.create_memo(db, fn() { x.get() + y.get() })
   inspect(sum.get(), content="3")
-  batch(db, fn() {
+  @incr.batch(db, fn() {
     x.set(10)
     y.set(20)
   })
@@ -156,7 +159,7 @@ fn CalcPipeline::new() -> CalcPipeline {
 }
 
 ///|
-impl IncrDb for CalcPipeline with runtime(self) {
+impl @incr.IncrDb for CalcPipeline with runtime(self) {
   self.rt
 }
 
@@ -281,7 +284,7 @@ test "trait: pipeline incrementality" {
 ///|
 test "trait: create_signal with label" {
   let db = TestDb::new()
-  let sig = create_signal(db, 42, label="count")
+  let sig = @incr.create_signal(db, 42, label="count")
   match db.rt.cell_info(sig.id()) {
     Some(info) => inspect(info.label, content="Some(\"count\")")
     None => abort("expected cell info")
@@ -291,8 +294,8 @@ test "trait: create_signal with label" {
 ///|
 test "trait: create_memo with label" {
   let db = TestDb::new()
-  let x = create_signal(db, 1)
-  let m = create_memo(db, fn() { x.get() * 2 }, label="doubled")
+  let x = @incr.create_signal(db, 1)
+  let m = @incr.create_memo(db, fn() { x.get() * 2 }, label="doubled")
   let _ = m.get()
   match db.rt.cell_info(m.id()) {
     Some(info) => inspect(info.label, content="Some(\"doubled\")")

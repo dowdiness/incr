@@ -1,0 +1,4 @@
+import {
+  "dowdiness/incr" @incr,
+  "dowdiness/incr/pipeline" @pipeline,
+} for "test"
