@@ -264,7 +264,7 @@ Create `verify_wbtest.mbt` (new file):
 test "panic finish_frame_changed: Derived cell with None recompute_and_check aborts" {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 0)
-  let memo = Memo::new(rt, fn() { sig.get() + 1 })
+  let memo = Memo::new(rt, () => sig.get() + 1)
   // Force first computation to populate cell state
   let _ = memo.get_result()
   // Corrupt internal state: clear the type-erased recompute closure

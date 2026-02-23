@@ -420,7 +420,7 @@ Add to `memo_introspection_test.mbt`:
 test "memo: label stored via optional param" {
   let rt = Runtime::new()
   let x = Signal::new(rt, 1)
-  let m = Memo::new(rt, fn() { x.get() * 2 }, label="doubled")
+  let m = Memo::new(rt, () => x.get() * 2, label="doubled")
   let _ = m.get()
   match rt.cell_info(m.id()) {
     Some(info) => inspect(info.label, content="Some(\"doubled\")")
@@ -432,7 +432,7 @@ test "memo: label stored via optional param" {
 test "memo: no label gives None" {
   let rt = Runtime::new()
   let x = Signal::new(rt, 1)
-  let m = Memo::new(rt, fn() { x.get() * 2 })
+  let m = Memo::new(rt, () => x.get() * 2)
   let _ = m.get()
   match rt.cell_info(m.id()) {
     Some(info) => inspect(info.label, content="None")
@@ -469,9 +469,7 @@ pub(all) struct Memo[T] {
 pub fn[T : Eq] Memo::new(rt : Runtime, compute : () -> T, label? : String) -> Memo[T] {
   let cell_id = rt.alloc_cell_id()
   let memo : Memo[T] = { label, rt, cell_id, compute, value: None }
-  let recompute_and_check : () -> Result[Bool, CycleError] = fn() {
-    memo.recompute_inner()
-  }
+  let recompute_and_check : () -> Result[Bool, CycleError] = () => memo.recompute_inner()
   let meta = CellMeta::new_derived(cell_id, recompute_and_check, label)
   rt.register_cell(meta)
   memo
@@ -485,7 +483,7 @@ pub fn[T : Eq] Memo::new(rt : Runtime, compute : () -> T, label? : String) -> Me
 test "Memo derives Debug before compute" {
   let rt = Runtime::new()
   let s = Signal::new(rt, 10)
-  let m = Memo::new(rt, fn() { s.get() * 2 })
+  let m = Memo::new(rt, () => s.get() * 2)
   debug_inspect(
     m,
     content=(
@@ -498,7 +496,7 @@ test "Memo derives Debug before compute" {
 test "Memo derives Debug after compute" {
   let rt = Runtime::new()
   let s = Signal::new(rt, 10)
-  let m = Memo::new(rt, fn() { s.get() * 2 })
+  let m = Memo::new(rt, () => s.get() * 2)
   let _ = m.get()
   debug_inspect(
     m,
@@ -557,7 +555,7 @@ Add to `cycle_path_test.mbt`:
 test "format_path uses label when available" {
   let rt = Runtime::new()
   let memo_ref : Ref[Memo[Int]?] = { val: None }
-  let memo = Memo::new(rt, fn() {
+  let memo = Memo::new(rt, () => {
     match memo_ref.val {
       Some(m) => m.get_result().unwrap_or(0) + 1
       None => 0
@@ -665,7 +663,7 @@ test "trait: create_signal with durability" {
 test "trait: create_memo with label" {
   let db = TestDb::new()
   let x = create_signal(db, 1)
-  let m = create_memo(db, fn() { x.get() * 2 }, label="doubled")
+  let m = create_memo(db, () => x.get() * 2, label="doubled")
   let _ = m.get()
   match db.rt.cell_info(m.id()) {
     Some(info) => inspect(info.label, content="Some(\"doubled\")")

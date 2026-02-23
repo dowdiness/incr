@@ -50,7 +50,7 @@ for dep in old_deps {
     deps_changed = true
   }
 }
-// Phase 4: removed = old_deps.filter(fn(d) { not(new_seen.contains(d)) })
+// Phase 4: removed = old_deps.filter(d => not(new_seen.contains(d)))
 // Phase 4: unsubscribe self.cell_id from each removed dep
 
 cell.dependencies = new_deps

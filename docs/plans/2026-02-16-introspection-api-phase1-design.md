@@ -194,7 +194,7 @@ test "debug why memo recomputed" {
   let rt = Runtime::new()
   let x = Signal::new(rt, 10)
   let y = Signal::new(rt, 20)
-  let sum = Memo::new(rt, fn() { x.get() + y.get() })
+  let sum = Memo::new(rt, () => x.get() + y.get())
 
   sum.get() |> ignore
   let initial_verified = sum.verified_at()
@@ -230,7 +230,7 @@ test "dependencies update on recomputation" {
   let a = Signal::new(rt, 1)
   let b = Signal::new(rt, 2)
 
-  let dynamic = Memo::new(rt, fn() {
+  let dynamic = Memo::new(rt, () => {
     if cond.get() { a.get() } else { b.get() }
   })
 
@@ -258,7 +258,7 @@ test "dependencies update on recomputation" {
 
 ```moonbit
 let config = Signal::new(rt, "prod")
-let expensive = Memo::new(rt, fn() {
+let expensive = Memo::new(rt, () => {
   heavy_computation(config.get())
 })
 
@@ -299,7 +299,7 @@ test "memo only depends on x, not y" {
   let rt = Runtime::new()
   let x = Signal::new(rt, 1)
   let y = Signal::new(rt, 2)
-  let m = Memo::new(rt, fn() { x.get() * 2 })
+  let m = Memo::new(rt, () => x.get() * 2)
 
   m.get() |> ignore
 

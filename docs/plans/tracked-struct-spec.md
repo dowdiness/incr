@@ -347,12 +347,12 @@ fn main {
   let file = SourceFile::new(rt, "/src/main.mbt", "fn main { 42 }")
 
   // This Memo only depends on `content`, not `path` or `version`.
-  let word_count = @incr.Memo::new(rt, fn() {
-    file.content.get().split(" ").fold(init=0, fn(acc, _s) { acc + 1 })
+  let word_count = @incr.Memo::new(rt, () => {
+    file.content.get().split(" ").fold(init=0, (acc, _s) => acc + 1)
   }, label="word_count")
 
   // This Memo only depends on `path`.
-  let is_test = @incr.Memo::new(rt, fn() {
+  let is_test = @incr.Memo::new(rt, () => {
     file.path.get().ends_with("_test.mbt")
   }, label="is_test")
 
@@ -400,7 +400,7 @@ fn MyDb::add_file(self : MyDb, path : String, content : String) -> SourceFile {
 
 ```moonbit
 fn update_file(rt : @incr.Runtime, file : SourceFile, content : String) -> Unit {
-  rt.batch(fn() {
+  rt.batch(() => {
     file.content.set(content)
     file.version.set(file.version.get() + 1)
   })
@@ -551,7 +551,7 @@ test "TrackedCell durability propagates" {
 test "TrackedCell dependency tracking" {
   let rt = @incr.Runtime::new()
   let cell = @incr.TrackedCell::new(rt, 10)
-  let doubled = @incr.Memo::new(rt, fn() { cell.get() * 2 })
+  let doubled = @incr.Memo::new(rt, () => cell.get() * 2)
   inspect(doubled.get(), content="20")
   cell.set(15)
   inspect(doubled.get(), content="30")
@@ -561,7 +561,7 @@ test "TrackedCell same-value optimization" {
   let rt = @incr.Runtime::new()
   let cell = @incr.TrackedCell::new(rt, 5)
   let mut compute_count = 0
-  let memo = @incr.Memo::new(rt, fn() {
+  let memo = @incr.Memo::new(rt, () => {
     compute_count = compute_count + 1
     cell.get()
   })
@@ -575,7 +575,7 @@ test "TrackedCell on_change callback" {
   let rt = @incr.Runtime::new()
   let cell = @incr.TrackedCell::new(rt, 0)
   let mut observed = 0
-  cell.on_change(fn(v) { observed = v })
+  cell.on_change(v => observed = v)
   cell.set(42)
   inspect(observed, content="42")
 }
@@ -593,9 +593,9 @@ test "TrackedCell batch integration" {
   let rt = @incr.Runtime::new()
   let a = @incr.TrackedCell::new(rt, 1)
   let b = @incr.TrackedCell::new(rt, 2)
-  let sum = @incr.Memo::new(rt, fn() { a.get() + b.get() })
+  let sum = @incr.Memo::new(rt, () => a.get() + b.get())
   inspect(sum.get(), content="3")
-  rt.batch(fn() {
+  rt.batch(() => {
     a.set(10)
     b.set(20)
   })
@@ -606,12 +606,12 @@ test "TrackedCell batch revert detection" {
   let rt = @incr.Runtime::new()
   let cell = @incr.TrackedCell::new(rt, 0)
   let mut compute_count = 0
-  let memo = @incr.Memo::new(rt, fn() {
+  let memo = @incr.Memo::new(rt, () => {
     compute_count = compute_count + 1
     cell.get()
   })
   let _ = memo.get()      // compute_count = 1
-  rt.batch(fn() {
+  rt.batch(() => {
     cell.set(99)
     cell.set(0)           // revert to original
   })
@@ -624,7 +624,7 @@ test "TrackedCell as_signal interop" {
   let cell = @incr.TrackedCell::new(rt, 7)
   let sig = cell.as_signal()
   // A Memo using the raw Signal still tracks the same dependency
-  let memo = @incr.Memo::new(rt, fn() { sig.get() + 1 })
+  let memo = @incr.Memo::new(rt, () => sig.get() + 1)
   inspect(memo.get(), content="8")
   cell.set(10)
   inspect(memo.get(), content="11")
@@ -702,11 +702,11 @@ test "field-level dependency isolation" {
   let t = TestTracked::new(rt)
   let mut name_reads = 0
   let mut value_reads = 0
-  let name_len = @incr.Memo::new(rt, fn() {
+  let name_len = @incr.Memo::new(rt, () => {
     name_reads = name_reads + 1
     t.name.get().length()
   })
-  let value_doubled = @incr.Memo::new(rt, fn() {
+  let value_doubled = @incr.Memo::new(rt, () => {
     value_reads = value_reads + 1
     t.value.get() * 2
   })
@@ -870,7 +870,7 @@ fn update_from_lsp(file : SourceFile, change : TextChange) -> Unit {
 
 ```moonbit
 fn update_from_lsp(rt : @incr.Runtime, file : SourceFile, change : TextChange) -> Unit {
-  rt.batch(fn() {
+  rt.batch(() => {
     file.content.set(apply_change(file.content.get(), change))
     file.version.set(file.version.get() + 1)
   })

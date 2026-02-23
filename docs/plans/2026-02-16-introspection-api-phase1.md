@@ -233,7 +233,7 @@ Create `memo_introspection_test.mbt`:
 ///|
 test "memo: id() returns valid CellId" {
   let rt = Runtime::new()
-  let m = Memo::new(rt, fn() { 42 })
+  let m = Memo::new(rt, () => 42)
   let id = m.id()
   inspect(id.id >= 0, content="true")
 }
@@ -241,7 +241,7 @@ test "memo: id() returns valid CellId" {
 ///|
 test "memo: dependencies() returns empty before computation" {
   let rt = Runtime::new()
-  let m = Memo::new(rt, fn() { 10 })
+  let m = Memo::new(rt, () => 10)
   inspect(m.dependencies(), content="[]")
 }
 
@@ -250,7 +250,7 @@ test "memo: dependencies() includes all inputs after computation" {
   let rt = Runtime::new()
   let x = Signal::new(rt, 1)
   let y = Signal::new(rt, 2)
-  let sum = Memo::new(rt, fn() { x.get() + y.get() })
+  let sum = Memo::new(rt, () => x.get() + y.get())
 
   sum.get() |> ignore
   let deps = sum.dependencies()
@@ -263,7 +263,7 @@ test "memo: dependencies() includes all inputs after computation" {
 test "memo: changed_at and verified_at track revisions" {
   let rt = Runtime::new()
   let x = Signal::new(rt, 10)
-  let doubled = Memo::new(rt, fn() { x.get() * 2 })
+  let doubled = Memo::new(rt, () => x.get() * 2)
 
   doubled.get() |> ignore
   let initial_changed = doubled.changed_at()
@@ -287,7 +287,7 @@ test "memo: dependencies update on recomputation" {
   let a = Signal::new(rt, 1)
   let b = Signal::new(rt, 2)
 
-  let dynamic = Memo::new(rt, fn() {
+  let dynamic = Memo::new(rt, () => {
     if cond.get() { a.get() } else { b.get() }
   })
 
@@ -342,7 +342,7 @@ pub fn[T] Memo::id(self : Memo[T]) -> CellId {
 ///
 /// ```moonbit nocheck
 /// let x = Signal::new(rt, 1)
-/// let m = Memo::new(rt, fn() { x.get() * 2 })
+/// let m = Memo::new(rt, () => x.get() * 2)
 /// m.get() |> ignore
 /// inspect(m.dependencies().contains(x.id()), content="true")
 /// ```
@@ -440,7 +440,7 @@ test "runtime: cell_info() returns metadata for signal" {
 test "runtime: cell_info() returns metadata for memo" {
   let rt = Runtime::new()
   let x = Signal::new(rt, 10)
-  let doubled = Memo::new(rt, fn() { x.get() * 2 })
+  let doubled = Memo::new(rt, () => x.get() * 2)
 
   doubled.get() |> ignore
 
@@ -570,7 +570,7 @@ test "integration: debug why memo recomputed" {
   let rt = Runtime::new()
   let x = Signal::new(rt, 10)
   let y = Signal::new(rt, 20)
-  let sum = Memo::new(rt, fn() { x.get() + y.get() })
+  let sum = Memo::new(rt, () => x.get() + y.get())
 
   sum.get() |> ignore
   let initial_verified = sum.verified_at()
@@ -606,9 +606,9 @@ test "integration: debug why memo recomputed" {
 test "integration: analyze dependency chain" {
   let rt = Runtime::new()
   let input = Signal::new(rt, 5)
-  let step1 = Memo::new(rt, fn() { input.get() * 2 })
-  let step2 = Memo::new(rt, fn() { step1.get() + 10 })
-  let step3 = Memo::new(rt, fn() { step2.get() * 3 })
+  let step1 = Memo::new(rt, () => input.get() * 2)
+  let step2 = Memo::new(rt, () => step1.get() + 10)
+  let step3 = Memo::new(rt, () => step2.get() * 3)
 
   step3.get() |> ignore
 
@@ -626,9 +626,9 @@ test "integration: analyze dependency chain" {
 test "integration: diamond dependency has no duplicates" {
   let rt = Runtime::new()
   let input = Signal::new(rt, 10)
-  let left = Memo::new(rt, fn() { input.get() + 1 })
-  let right = Memo::new(rt, fn() { input.get() + 2 })
-  let merge = Memo::new(rt, fn() { left.get() + right.get() })
+  let left = Memo::new(rt, () => input.get() + 1)
+  let right = Memo::new(rt, () => input.get() + 2)
+  let merge = Memo::new(rt, () => left.get() + right.get())
 
   merge.get() |> ignore
 
@@ -662,7 +662,7 @@ test "integration: diamond dependency has no duplicates" {
 test "integration: understanding backdating with introspection" {
   let rt = Runtime::new()
   let config = Signal::new(rt, "prod")
-  let expensive = Memo::new(rt, fn() {
+  let expensive = Memo::new(rt, () => {
     // Simulate expensive computation
     config.get() + "_processed"
   })
@@ -777,7 +777,7 @@ Returns the list of cells this memo currently depends on. Empty if the memo has 
 **Example:**
 ```moonbit
 let x = Signal::new(rt, 1)
-let doubled = Memo::new(rt, fn() { x.get() * 2 })
+let doubled = Memo::new(rt, () => x.get() * 2)
 doubled.get() |> ignore
 inspect(doubled.dependencies().contains(x.id()), content="true")
 ```
@@ -837,7 +837,7 @@ Use introspection to identify which dependency triggered recomputation:
 let rt = Runtime::new()
 let x = Signal::new(rt, 10)
 let y = Signal::new(rt, 20)
-let sum = Memo::new(rt, fn() { x.get() + y.get() })
+let sum = Memo::new(rt, () => x.get() + y.get())
 
 sum.get() |> ignore
 let baseline = sum.verified_at()
@@ -888,7 +888,7 @@ Verify that memos only depend on what they actually read:
 test "memo only depends on x, not y" {
   let x = Signal::new(rt, 1)
   let y = Signal::new(rt, 2)
-  let uses_x_only = Memo::new(rt, fn() { x.get() * 2 })
+  let uses_x_only = Memo::new(rt, () => x.get() * 2)
 
   uses_x_only.get() |> ignore
 
@@ -903,7 +903,7 @@ test "memo only depends on x, not y" {
 Check if a memo's value actually changed:
 
 ```moonbit
-let memo = Memo::new(rt, fn() { config.get().length() })
+let memo = Memo::new(rt, () => config.get().length())
 memo.get() |> ignore
 let old_changed = memo.changed_at()
 
