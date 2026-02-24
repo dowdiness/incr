@@ -76,8 +76,8 @@ Concrete, actionable tasks for the `incr` library.
 
 ### Advanced (Phase 4)
 
-- [ ] Add subscriber (reverse) links for push-based invalidation
-- [ ] Add `Runtime::dependents(CellId) -> Array[CellId]` (requires subscriber links)
+- [x] Add subscriber (reverse) links for push-based invalidation
+- [x] Add `Runtime::dependents(CellId) -> Array[CellId]` (requires subscriber links)
 
 ## Tracked Struct Support
 

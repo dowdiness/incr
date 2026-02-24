@@ -24,6 +24,7 @@ pub(all) struct CellInfo {
   verified_at : @types.Revision
   durability : @types.Durability
   dependencies : Array[@types.CellId]
+  subscribers : Array[@types.CellId]
 }
 
 pub(all) struct Memo[T] {
@@ -62,6 +63,7 @@ pub(all) struct Runtime {
 pub fn Runtime::batch(Self, () -> Unit) -> Unit
 pub fn Runtime::cell_info(Self, @types.CellId) -> CellInfo?
 pub fn Runtime::clear_on_change(Self) -> Unit
+pub fn Runtime::dependents(Self, @types.CellId) -> Array[@types.CellId]
 pub fn Runtime::new(on_change? : () -> Unit) -> Self
 pub fn Runtime::set_on_change(Self, () -> Unit) -> Unit
 

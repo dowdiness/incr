@@ -79,7 +79,11 @@ High-level future direction for the `incr` library, organized by phase. Each pha
 
 ## Phase 4 — Advanced Features
 
-- **Subscriber (reverse) links**: Add bidirectional edges so cells know their dependents. This is a prerequisite for push-based invalidation, automatic cleanup, and the effect system. Inspired by [alien-signals](https://github.com/nicepkg/alien-signals) which uses subscriber links for efficient propagation.
+- ~~**Subscriber (reverse) links**: Add bidirectional edges so cells know their dependents~~ ✓ Implemented
+  - `subscribers : HashSet[CellId]` on `CellMeta`, maintained incrementally during `Memo::force_recompute` dep diffing
+  - `Runtime::dependents(CellId) -> Array[CellId]` introspection API
+  - `subscribers` field added to `CellInfo`
+  - Prerequisite for push-based invalidation, automatic cleanup, and the effect system
 - **Push-pull hybrid invalidation**: Combine push notifications (via subscriber links) with pull verification. When an input changes, propagate dirty flags eagerly; on read, verify lazily. This avoids the full verification walk for unchanged subgraphs while preserving backdating benefits.
 - **Accumulator queries**: Support Salsa-style accumulators that collect values across the dependency graph
 - **Interning**: Deduplicate structurally equal values to reduce memory and speed up equality checks

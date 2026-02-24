@@ -26,3 +26,12 @@ test "subscriber: chain dependencies tracked" {
   let c_deps = rt.dependents(c.id())
   inspect(c_deps.length(), content="0")
 }
+
+///|
+test "subscriber: dependents returns empty for cross-runtime id" {
+  let rt1 = Runtime::new()
+  let rt2 = Runtime::new()
+  let x = Signal::new(rt1, 10)
+  let deps = rt2.dependents(x.id())
+  inspect(deps.length(), content="0")
+}

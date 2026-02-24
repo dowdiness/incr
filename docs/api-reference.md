@@ -425,6 +425,22 @@ Returns when this memo was last verified up-to-date.
 
 ### Runtime Introspection
 
+#### `Runtime::dependents(self, id : CellId) -> Array[CellId]`
+
+Returns the cell IDs that depend on the given cell (reverse edges / subscriber links). The returned array is a snapshot; modifying it does not affect the runtime.
+
+Returns an empty array if the cell ID is invalid, out of bounds, or belongs to a different runtime — matching `cell_info` semantics.
+
+**Example:**
+```moonbit
+let rt = Runtime()
+let x = Signal(rt, 10)
+let doubled = Memo(rt, () => x.get() * 2)
+doubled.get() |> ignore
+let deps = rt.dependents(x.id())
+inspect(deps.contains(doubled.id()), content="true")
+```
+
 #### `Runtime::cell_info(self, id : CellId) -> CellInfo?`
 
 Retrieves structured metadata for any cell. Returns `None` if the CellId is invalid.
@@ -450,10 +466,11 @@ pub struct CellInfo {
   pub verified_at : Revision
   pub durability : Durability
   pub dependencies : Array[CellId]
+  pub subscribers : Array[CellId]
 }
 ```
 
-For signals, `dependencies` is empty.
+For signals, `dependencies` is empty. `subscribers` contains the cell IDs that depend on this cell (reverse edges).
 
 ---
 
