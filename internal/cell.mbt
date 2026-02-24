@@ -42,6 +42,9 @@ priv struct CellMeta {
   mut on_change : (() -> Unit)?
   /// Cycle detection flag.
   mut in_progress : Bool
+  /// Reverse dependency links: cells that depend on this cell.
+  /// Maintained during Memo::force_recompute dep diffing.
+  subscribers : @hashset.HashSet[CellId]
   /// Optional human-readable label for debugging and introspection.
   // `mut` is intentionally absent: `label` is set once at construction
   // (CellMeta::new_input / CellMeta::new_derived) and never reassigned
@@ -78,6 +81,7 @@ fn CellMeta::new_input(
     commit_pending: None,
     on_change: None,
     in_progress: false,
+    subscribers: @hashset.new(),
     label,
   }
 }
@@ -113,6 +117,7 @@ fn CellMeta::new_derived(
     commit_pending: None,
     on_change: None,
     in_progress: false,
+    subscribers: @hashset.new(),
     label,
   }
 }
