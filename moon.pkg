@@ -1,6 +1,6 @@
 import {
   "dowdiness/incr/types" @incr_types,
-  "dowdiness/incr/internal" @internal,
+  "dowdiness/incr/cells" @internal,
   // @pipeline is imported for traits_test.mbt; the compiler reports it unused
   // because trait impls in test files do not count as package usage in MoonBit.
   "dowdiness/incr/pipeline" @pipeline,
