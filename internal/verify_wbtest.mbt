@@ -42,7 +42,7 @@ test "verify leak simulation: manual cleanup recovers memo reads" {
 }
 
 ///|
-test "Memo::get_or returns fallback on cycle error" {
+test "memo_get_or_returns_fallback_on_cycle_error" {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 0)
   let memo = Memo::new(rt, () => sig.get() + 1)
@@ -57,7 +57,7 @@ test "Memo::get_or returns fallback on cycle error" {
 }
 
 ///|
-test "Memo::get_or_else receives CycleError" {
+test "memo_get_or_else_receives_cycle_error" {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 0)
   let memo = Memo::new(rt, () => sig.get() + 1)

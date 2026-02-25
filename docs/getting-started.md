@@ -123,6 +123,23 @@ inspect(changes, content="1")
 
 Batch writes are transactional for raised errors:
 
+**Database pattern:**
+```moonbit
+suberror BatchStop {
+  Stop
+}
+
+let amount = @incr.create_signal(app, 100)
+let res = @incr.batch_result(app, fn() raise {
+  amount.set(123)
+  raise Stop
+})
+
+inspect(res is Err(_), content="true")
+inspect(amount.get(), content="100") // rolled back
+```
+
+**Direct Runtime:**
 ```moonbit
 suberror BatchStop {
   Stop
@@ -138,26 +155,7 @@ inspect(res is Err(_), content="true")
 inspect(amount.get(), content="100") // rolled back
 ```
 
-Note: `abort()` is not catchable in MoonBit. Rollback applies to raised errors.
-
-If you prefer a `Result` API instead of re-raising, use `batch_result`:
-
-```moonbit
-let res = @incr.batch_result(app, fn() raise {
-  amount.set(123)
-  raise Stop
-})
-inspect(res is Err(_), content="true")
-```
-
-**Direct Runtime:**
-```moonbit
-let mut changes = 0
-rt.set_on_change(() => { changes = changes + 1 })
-
-quantity.set(12)
-inspect(changes, content="1")
-```
+Note: `abort()` is not catchable in MoonBit. Rollback applies to raised errors only.
 
 ## Complete Example
 

@@ -82,7 +82,15 @@ test "memo_map: get_result mirrors get" {
 test "memo_map: get_or and get_or_else mirror successful get_result" {
   let rt = Runtime::new()
   let by_key = MemoMap::new(rt, (key : Int) => key + 5)
+  let mut fallback_called = 0
 
   inspect(by_key.get_or(10, -1), content="15")
-  inspect(by_key.get_or_else(10, _ => -2), content="15")
+  inspect(
+    by_key.get_or_else(10, _ => {
+      fallback_called = fallback_called + 1
+      -2
+    }),
+    content="15",
+  )
+  inspect(fallback_called, content="0")
 }

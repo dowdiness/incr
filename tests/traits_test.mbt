@@ -81,7 +81,7 @@ test "trait: batch via IncrDb rolls back on raised error" {
   })
   inspect(memo.get(), content="2")
   inspect(compute_count, content="1")
-  let res : Result[Unit, Error] = try? @incr.batch(db, fn() raise {
+  let res : Result[Unit, Error] = try? @incr.batch(db, () => {
     x.set(10)
     raise Stop
   })
@@ -100,7 +100,7 @@ test "trait: batch_result via IncrDb" {
   inspect(ok is Ok(_), content="true")
   inspect(x.get(), content="2")
 
-  let err = @incr.batch_result(db, fn() raise {
+  let err = @incr.batch_result(db, () => {
     x.set(3)
     raise Stop
   })

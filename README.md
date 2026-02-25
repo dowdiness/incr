@@ -138,7 +138,7 @@ let res : Result[Unit, Error] = try? rt.batch(fn() raise {
 For explicit `Result` handling without re-raising, use `batch_result`:
 
 ```moonbit
-let res = batch_result(app, fn() raise {
+let res = @incr.batch_result(app, fn() raise {
   x.set(1)
   raise Stop
 })

@@ -250,7 +250,7 @@ let value = doubled.get_or(0)
 
 ### `Memo::get_or_else[T : Eq](self, fallback: (CycleError) -> T) -> T`
 
-Returns cached value, or computes a fallback from the cycle error.
+If a cycle error occurs, computes a fallback from the cycle error; otherwise returns the cached value.
 
 ```moonbit
 let value = doubled.get_or_else(err => {
