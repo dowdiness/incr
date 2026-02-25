@@ -36,6 +36,9 @@ priv struct CellMeta {
   /// if the committed value differs from the current value.
   /// None for derived cells or inputs outside a batch.
   mut commit_pending : (() -> Bool)?
+  /// For input cells during batch rollback: clears pending value without commit.
+  /// None for derived cells or inputs outside a batch.
+  mut rollback_pending : (() -> Unit)?
   /// Called when the cell's value changes.
   /// Invoked after a signal is set or a memo recomputes to a new value.
   /// None if no callback is registered.
@@ -79,6 +82,7 @@ fn CellMeta::new_input(
     durability,
     recompute_and_check: None,
     commit_pending: None,
+    rollback_pending: None,
     on_change: None,
     in_progress: false,
     subscribers: @hashset.new(),
@@ -115,6 +119,7 @@ fn CellMeta::new_derived(
     durability: Low,
     recompute_and_check: Some(recompute_and_check),
     commit_pending: None,
+    rollback_pending: None,
     on_change: None,
     in_progress: false,
     subscribers: @hashset.new(),

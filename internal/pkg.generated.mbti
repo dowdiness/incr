@@ -36,6 +36,8 @@ pub fn[T] Memo::changed_at(Self[T]) -> @types.Revision
 pub fn[T] Memo::clear_on_change(Self[T]) -> Unit
 pub fn[T] Memo::dependencies(Self[T]) -> Array[@types.CellId]
 pub fn[T : Eq] Memo::get(Self[T]) -> T
+pub fn[T : Eq] Memo::get_or(Self[T], T) -> T
+pub fn[T : Eq] Memo::get_or_else(Self[T], (CycleError) -> T) -> T
 pub fn[T : Eq] Memo::get_result(Self[T]) -> Result[T, CycleError]
 pub fn[T] Memo::id(Self[T]) -> @types.CellId
 pub fn[T] Memo::is_up_to_date(Self[T]) -> Bool
@@ -51,6 +53,8 @@ pub(all) struct MemoMap[K, V] {
 }
 pub fn[K : Hash + Eq, V] MemoMap::contains(Self[K, V], K) -> Bool
 pub fn[K : Hash + Eq, V : Eq] MemoMap::get(Self[K, V], K) -> V
+pub fn[K : Hash + Eq, V : Eq] MemoMap::get_or(Self[K, V], K, V) -> V
+pub fn[K : Hash + Eq, V : Eq] MemoMap::get_or_else(Self[K, V], K, (CycleError) -> V) -> V
 pub fn[K : Hash + Eq, V : Eq] MemoMap::get_result(Self[K, V], K) -> Result[V, CycleError]
 pub fn[K, V] MemoMap::length(Self[K, V]) -> Int
 pub fn[K, V] MemoMap::new(Runtime, (K) -> V, label? : String) -> Self[K, V]
@@ -60,7 +64,8 @@ pub(all) struct Runtime {
 
   fn new(on_change? : () -> Unit) -> Runtime
 }
-pub fn Runtime::batch(Self, () -> Unit) -> Unit
+pub fn Runtime::batch(Self, () -> Unit raise?) -> Unit raise?
+pub fn Runtime::batch_result(Self, () -> Unit raise?) -> Result[Unit, Error]
 pub fn Runtime::cell_info(Self, @types.CellId) -> CellInfo?
 pub fn Runtime::clear_on_change(Self) -> Unit
 pub fn Runtime::dependents(Self, @types.CellId) -> Array[@types.CellId]

@@ -17,7 +17,7 @@ let rt = Runtime()
 let rt = Runtime(on_change=() => rerender())
 ```
 
-### `Runtime::batch(self, f: () -> Unit) -> Unit`
+### `Runtime::batch(self, f: () -> Unit raise?) -> Unit raise?`
 
 Executes `f` with batched signal updates.
 
@@ -35,6 +35,26 @@ Behavior:
 - All committed changes share one revision bump
 - Revert detection applies to `Signal::set()` writes (`5 -> 0 -> 5` can result in no net change)
 - Reads during a batch observe pre-batch values
+- If `f` raises, pending writes are rolled back and the error is re-raised
+
+Limit:
+- `abort()` is not catchable in MoonBit, so abort-triggered cleanup cannot be guaranteed
+
+### `Runtime::batch_result(self, f: () -> Unit raise?) -> Result[Unit, Error]`
+
+Executes a batch and returns raised errors as `Result` instead of re-raising.
+
+```moonbit
+suberror BatchStop {
+  Stop
+}
+
+let res = rt.batch_result(fn() raise {
+  x.set(1)
+  raise Stop
+})
+inspect(res is Err(_), content="true")
+```
 
 ### `Runtime::set_on_change(self, f: () -> Unit) -> Unit`
 
@@ -220,6 +240,25 @@ match doubled.get_result() {
 }
 ```
 
+### `Memo::get_or[T : Eq](self, fallback: T) -> T`
+
+Returns cached value, or `fallback` if a cycle error occurs.
+
+```moonbit
+let value = doubled.get_or(0)
+```
+
+### `Memo::get_or_else[T : Eq](self, fallback: (CycleError) -> T) -> T`
+
+Returns cached value, or computes a fallback from the cycle error.
+
+```moonbit
+let value = doubled.get_or_else(err => {
+  println(err.format_path(rt))
+  0
+})
+```
+
 ### `Memo::is_up_to_date(self) -> Bool`
 
 Returns:
@@ -248,6 +287,14 @@ Returns the value for `key`, creating and caching that key's memo on first acces
 ### `MemoMap::get_result[K : Hash + Eq, V : Eq](self, key: K) -> Result[V, CycleError]`
 
 Result-returning variant of `get`, matching `Memo::get_result`.
+
+### `MemoMap::get_or[K : Hash + Eq, V : Eq](self, key: K, fallback: V) -> V`
+
+Returns `get(key)` value, or `fallback` if a cycle error occurs.
+
+### `MemoMap::get_or_else[K : Hash + Eq, V : Eq](self, key: K, fallback: (CycleError) -> V) -> V`
+
+Returns `get(key)` value, or computes a fallback from the cycle error.
 
 ### `MemoMap::contains[K : Hash + Eq, V](self, key: K) -> Bool`
 
@@ -637,9 +684,13 @@ Marks all cells of a `Trackable` struct as GC roots.
 gc_tracked(rt, my_tracked_struct)
 ```
 
-### `batch[Db : IncrDb](db: Db, f: () -> Unit) -> Unit`
+### `batch[Db : IncrDb](db: Db, f: () -> Unit raise?) -> Unit raise?`
 
-Runs a batch using `db.runtime()`.
+Runs a batch using `db.runtime()`, including rollback-on-raise semantics.
+
+### `batch_result[Db : IncrDb](db: Db, f: () -> Unit raise?) -> Result[Unit, Error]`
+
+Runs a batch using `db.runtime()` and returns raised errors as `Result`.
 
 ---
 
@@ -647,8 +698,8 @@ Runs a batch using `db.runtime()`.
 
 `Eq` is required only where value comparison is needed:
 
-- `Memo::new`, `Memo::get`, `Memo::get_result` require `T : Eq`
-- `MemoMap::get`, `MemoMap::get_result` require `K : Hash + Eq` and `V : Eq`
+- `Memo::new`, `Memo::get`, `Memo::get_result`, `Memo::get_or`, `Memo::get_or_else` require `T : Eq`
+- `MemoMap::get`, `MemoMap::get_result`, `MemoMap::get_or`, `MemoMap::get_or_else` require `K : Hash + Eq` and `V : Eq`
 - `MemoMap::contains` requires `K : Hash + Eq`
 - `Signal::set` requires `T : Eq`
 - `TrackedCell::set` requires `T : Eq`

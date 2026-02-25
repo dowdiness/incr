@@ -380,6 +380,8 @@ fn Runtime::bump_revision(self : Runtime, durability : Durability) -> Unit {
 /// # Parameters
 ///
 /// - `f`: The closure to execute
+///   If `f` raises an error, pending writes in this batch are rolled back and
+///   the error is re-raised to the caller.
 ///
 /// # Example
 ///
@@ -401,9 +403,25 @@ fn Runtime::bump_revision(self : Runtime, durability : Durability) -> Unit {
 /// })
 /// // No revision bump — net change is zero
 /// ```
-pub fn Runtime::batch(self : Runtime, f : () -> Unit) -> Unit {
+///
+/// # Abort Behavior
+///
+/// MoonBit `abort()` is not catchable. If `f` aborts (rather than raises),
+/// cleanup cannot run and runtime state may be left inconsistent.
+pub fn Runtime::batch(self : Runtime, f : () -> Unit raise?) -> Unit raise? {
   self.batch_depth = self.batch_depth + 1
-  f()
+  f() catch {
+    e => {
+      self.batch_depth = self.batch_depth - 1
+      if self.batch_depth < 0 {
+        abort("batch_depth underflow: batch() nesting is unbalanced")
+      }
+      if self.batch_depth == 0 {
+        self.rollback_batch()
+      }
+      raise e
+    }
+  }
   self.batch_depth = self.batch_depth - 1
   // Defense-in-depth: batch_depth is priv, but guard future modifications to mutation sites
   if self.batch_depth < 0 {
@@ -412,6 +430,42 @@ pub fn Runtime::batch(self : Runtime, f : () -> Unit) -> Unit {
   if self.batch_depth == 0 {
     self.commit_batch()
   }
+}
+
+///|
+/// Executes a batch and returns raised errors as `Result` instead of re-raising.
+///
+/// This is a convenience wrapper around `Runtime::batch` for callers that prefer
+/// explicit result handling.
+pub fn Runtime::batch_result(
+  self : Runtime,
+  f : () -> Unit raise?,
+) -> Result[Unit, Error] {
+  try? self.batch(f)
+}
+
+///|
+/// Roll back pending batch writes without committing values or bumping revision.
+/// Called when a batch closure raises.
+fn Runtime::rollback_batch(self : Runtime) -> Unit {
+  if self.batch_pending_signals.length() == 0 {
+    self.batch_max_durability = Low
+    return
+  }
+  for id in self.batch_pending_signals {
+    let meta = self.get_cell(id)
+    match meta.rollback_pending {
+      Some(rollback_fn) => rollback_fn()
+      None =>
+        abort(
+          "Batched signal missing rollback_pending — internal invariant violated",
+        )
+    }
+    meta.rollback_pending = None
+    meta.commit_pending = None
+  }
+  self.batch_pending_signals.clear()
+  self.batch_max_durability = Low
 }
 
 ///|
@@ -434,6 +488,7 @@ fn Runtime::commit_batch(self : Runtime) -> Unit {
           changed_ids.push(id)
         }
         meta.commit_pending = None
+        meta.rollback_pending = None
       }
       None =>
         abort(

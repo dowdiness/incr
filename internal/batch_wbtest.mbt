@@ -1,4 +1,9 @@
 ///|
+suberror BatchTestError {
+  Stop
+}
+
+///|
 test "batch: basic - single revision for multiple sets" {
   let rt = Runtime::new()
   let a = Signal::new(rt, 1)
@@ -188,6 +193,108 @@ test "batch: diamond dependency with batch" {
   inspect(a_count, content="2")
   inspect(b_count, content="2")
   inspect(c_count, content="2")
+}
+
+///|
+test "batch: raised error rolls back pending writes and restores depth" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 0)
+  let res : Result[Unit, Error] = try? rt.batch(fn() raise {
+    sig.set(1)
+    raise Stop
+  })
+  inspect(res is Err(_), content="true")
+  inspect(rt.batch_depth, content="0")
+  inspect(sig.get(), content="0")
+  inspect(rt.current_revision.value, content="0")
+  inspect(rt.batch_pending_signals.length(), content="0")
+  // Ensure signal remains fully reusable after rollback.
+  sig.set(100)
+  inspect(sig.get(), content="100")
+}
+
+///|
+test "batch: nested raised error rolls back entire outer batch" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 0)
+  let res : Result[Unit, Error] = try? rt.batch(fn() raise {
+    sig.set(1)
+    rt.batch(fn() raise {
+      sig.set(2)
+      raise Stop
+    })
+  })
+  inspect(res is Err(_), content="true")
+  inspect(rt.batch_depth, content="0")
+  inspect(sig.get(), content="0")
+  inspect(rt.current_revision.value, content="0")
+  inspect(rt.batch_pending_signals.length(), content="0")
+}
+
+///|
+test "batch: raised error does not fire on_change callback" {
+  let mut fired = 0
+  let rt = Runtime::new(on_change=() => fired = fired + 1)
+  let sig = Signal::new(rt, 0)
+  let res : Result[Unit, Error] = try? rt.batch(fn() raise {
+    sig.set(1)
+    raise Stop
+  })
+  inspect(res is Err(_), content="true")
+  inspect(fired, content="0")
+  inspect(sig.get(), content="0")
+}
+
+///|
+test "batch_result: commits on success" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 0)
+  let res = rt.batch_result(() => sig.set(5))
+  inspect(res is Ok(_), content="true")
+  inspect(sig.get(), content="5")
+  inspect(rt.current_revision.value, content="1")
+}
+
+///|
+test "batch_result: returns Err and rolls back" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 0)
+  let res = rt.batch_result(fn() raise {
+    sig.set(5)
+    raise Stop
+  })
+  inspect(res is Err(_), content="true")
+  inspect(sig.get(), content="0")
+  inspect(rt.current_revision.value, content="0")
+}
+
+///|
+// Characterization test: this simulates the state left behind if a user
+// callback aborts after Runtime::batch increments batch_depth but before
+// unwind/commit.
+test "batch leak simulation: stale batch_depth defers writes" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 0)
+  rt.batch_depth = 1
+  sig.set(1)
+  inspect(sig.get(), content="0")
+  inspect(rt.current_revision.value, content="0")
+  inspect(rt.batch_pending_signals.length(), content="1")
+}
+
+///|
+// Characterization test: manual cleanup of leaked batch state restores normal
+// operation and commits pending writes.
+test "batch leak simulation: manual cleanup recovers state" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 0)
+  rt.batch_depth = 1
+  sig.set(1)
+  rt.batch_depth = 0
+  rt.commit_batch()
+  inspect(sig.get(), content="1")
+  inspect(rt.current_revision.value, content="1")
+  inspect(rt.batch_pending_signals.length(), content="0")
 }
 
 ///|

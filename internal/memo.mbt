@@ -161,6 +161,32 @@ pub fn[T : Eq] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
 }
 
 ///|
+/// Returns the memoized value, or `fallback` if a cycle is detected.
+///
+/// This is a convenience wrapper around `get_result()` for call sites that
+/// prefer a non-panicking, non-Result API.
+pub fn[T : Eq] Memo::get_or(self : Memo[T], fallback : T) -> T {
+  match self.get_result() {
+    Ok(value) => value
+    Err(_) => fallback
+  }
+}
+
+///|
+/// Returns the memoized value, or computes a fallback value from the cycle error.
+///
+/// This is a convenience wrapper around `get_result()` for graceful recovery.
+pub fn[T : Eq] Memo::get_or_else(
+  self : Memo[T],
+  fallback : (CycleError) -> T,
+) -> T {
+  match self.get_result() {
+    Ok(value) => value
+    Err(e) => fallback(e)
+  }
+}
+
+///|
 /// Force recomputation: push tracking frame, execute compute, pop frame,
 /// update dependencies and value.
 ///

@@ -290,6 +290,21 @@ Without batching, each `Signal::set()` call bumps the global revision independen
 
 2. **Commit phase**: When the outermost batch ends, the runtime iterates over `batch_pending_signals` directly (not via an alias, to ensure the list clears correctly) and calls each signal's `commit_pending` closure. Each closure compares the pending value against the current value using `Eq`. Only signals whose values actually changed are marked with the new revision. The pending list is then cleared via `.clear()`.
 
+### Raised Error Rollback
+
+If the batch closure raises, the runtime rolls back pending writes:
+
+- `pending_value` is cleared for each queued signal via `rollback_pending`
+- `commit_pending` / `rollback_pending` closures are cleared
+- `batch_pending_signals` is cleared
+- `batch_depth` is restored before re-raising
+
+This keeps runtime state consistent after recoverable (raised) failures.
+
+### Abort Limitation
+
+MoonBit `abort()` is not catchable. If user code aborts inside a batch closure, rollback hooks cannot run.
+
 ### Revert Detection
 
 The two-phase design enables revert detection: if a signal is set to a new value and then set back to its original value within the same batch, the commit phase sees no net change. No revision bump occurs, and downstream memos skip verification entirely.

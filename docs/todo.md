@@ -20,6 +20,7 @@ Concrete, actionable tasks for the `incr` library.
 
 - [x] Add `Runtime::batch(fn)` that defers revision bump until the closure completes
 - [x] Add two-phase signal values with revert detection in batch mode
+- [x] Roll back pending batch writes when batch closure raises (graceful error path)
 - [x] `Signal::set_unconditional(value)` already exists — always bumps the revision
 
 ### Introspection API (Phase 2A - High Priority)

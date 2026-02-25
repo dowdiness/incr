@@ -207,6 +207,7 @@ fn[T : Eq] Signal::set_batch(self : Signal[T], new_value : T) -> Unit {
   let meta = self.rt.get_cell(self.cell_id)
   if meta.commit_pending is None {
     meta.commit_pending = Some(() => self.commit())
+    meta.rollback_pending = Some(() => self.rollback_pending())
     self.rt.record_batch_signal(self.cell_id)
   }
   self.rt.bump_revision(self.durability)
@@ -219,6 +220,7 @@ fn[T] Signal::set_batch_unconditional(self : Signal[T], new_value : T) -> Unit {
   let meta = self.rt.get_cell(self.cell_id)
   if meta.commit_pending is None {
     meta.commit_pending = Some(() => self.commit_unconditional())
+    meta.rollback_pending = Some(() => self.rollback_pending())
     self.rt.record_batch_signal(self.cell_id)
   }
   self.rt.bump_revision(self.durability)
@@ -252,6 +254,12 @@ fn[T] Signal::commit_unconditional(self : Signal[T]) -> Bool {
       true
     }
   }
+}
+
+///|
+/// Drop any pending batch value without committing it.
+fn[T] Signal::rollback_pending(self : Signal[T]) -> Unit {
+  self.pending_value = None
 }
 
 ///|

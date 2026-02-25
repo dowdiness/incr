@@ -11,6 +11,11 @@ struct TestDb {
 }
 
 ///|
+suberror TraitBatchError {
+  Stop
+}
+
+///|
 fn TestDb::new() -> TestDb {
   { rt: Runtime() }
 }
@@ -63,6 +68,44 @@ test "trait: batch via IncrDb" {
     y.set(20)
   })
   inspect(sum.get(), content="30")
+}
+
+///|
+test "trait: batch via IncrDb rolls back on raised error" {
+  let db = TestDb()
+  let x = @incr.create_signal(db, 1)
+  let mut compute_count = 0
+  let memo = @incr.create_memo(db, () => {
+    compute_count = compute_count + 1
+    x.get() * 2
+  })
+  inspect(memo.get(), content="2")
+  inspect(compute_count, content="1")
+  let res : Result[Unit, Error] = try? @incr.batch(db, fn() raise {
+    x.set(10)
+    raise Stop
+  })
+  inspect(res is Err(_), content="true")
+  inspect(x.get(), content="1")
+  // Rollback keeps previous committed state, so memo remains cached.
+  inspect(memo.get(), content="2")
+  inspect(compute_count, content="1")
+}
+
+///|
+test "trait: batch_result via IncrDb" {
+  let db = TestDb()
+  let x = @incr.create_signal(db, 1)
+  let ok = @incr.batch_result(db, () => x.set(2))
+  inspect(ok is Ok(_), content="true")
+  inspect(x.get(), content="2")
+
+  let err = @incr.batch_result(db, fn() raise {
+    x.set(3)
+    raise Stop
+  })
+  inspect(err is Err(_), content="true")
+  inspect(x.get(), content="2")
 }
 
 // === Readable tests ===

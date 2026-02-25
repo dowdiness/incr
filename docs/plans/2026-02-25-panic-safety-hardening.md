@@ -1,123 +1,113 @@
-# Panic-Safety Hardening Plan
+# Graceful Error Handling Plan (Updated Direction)
 
-**Goal:** Ensure internal runtime invariants are restored even when user-provided closures abort during `Runtime::batch` or `Memo` recomputation paths.
+**Goal:** Make `incr` handle user-facing failures gracefully by default (`Result` / `raise` paths), while reserving `abort()` for true invariant corruption only.
 
-**Architecture:** Introduce explicit guard-style cleanup for mutable runtime state (`batch_depth`, tracking stack frames, and `in_progress` flags) around user callbacks. Add regression tests for invariant restoration and follow-up operation safety.
+**Direction change:** prioritize graceful behavior over panic-centric behavior.  
+The library should continue running after expected failure modes (cycles, raised callback errors, invalid dynamic flows) without leaving runtime state poisoned.
 
-**Tech Stack:** MoonBit. Validate with `moon check`, `moon test`, and `moon coverage analyze`.
+**Important language constraint:** MoonBit `abort()` is not catchable. We can recover from `raise`, but not from `abort`.
 
 ---
 
 ### Scope
 
 In scope:
-- Panic/abort cleanup behavior in:
-  - `Runtime::batch`
-  - `Memo::force_recompute`
-  - verification path interactions (`maybe_changed_after*`) when recompute fails
-- New regression tests that assert runtime remains usable after failure paths
-- Minor internal refactors needed to centralize cleanup logic
+- Graceful handling for **raised** errors in batching and callback paths
+- Runtime state restoration on raised errors (no leaked batch/transient state)
+- Tests that lock in graceful behavior and characterize uncaught `abort` limits
+- Documentation updates for graceful usage patterns
 
 Out of scope:
-- Changing public API semantics of `get()` vs `get_result()`
-- Push-pull invalidation work
-- GC / cell deletion
+- Full recovery from `abort()` (not possible in MoonBit)
+- Push-pull invalidation and GC work
 
 ---
 
-### Task 1: Characterize current failure behavior with targeted tests
+### Progress Snapshot
+
+- [x] Added characterization tests for leaked batch/tracking state simulation
+  - `internal/batch_wbtest.mbt`
+  - `internal/verify_wbtest.mbt`
+- [x] Implemented raised-error-safe batching
+  - `Runtime::batch` now accepts `f : () -> Unit raise?`
+  - raised errors rollback pending writes and restore `batch_depth`
+- [x] Added rollback plumbing for batched signals
+  - `rollback_pending` closure in `CellMeta`
+  - signal rollback hook registration in batch set paths
+- [x] Added regression test: raised error in batch rolls back and preserves runtime consistency
+- [x] Added non-panicking convenience reads
+  - `Memo::get_or`, `Memo::get_or_else`
+  - `MemoMap::get_or`, `MemoMap::get_or_else`
+- [x] Added transactional `Result` batch API
+  - `Runtime::batch_result`
+  - `@incr.batch_result`
+
+---
+
+### Task 1: Finish graceful API documentation pass
 
 **Files:**
-- Modify: `internal/batch_wbtest.mbt`
-- Modify: `internal/verify_wbtest.mbt`
-- (Optional) Add: `internal/panic_safety_wbtest.mbt`
+- Modify: `README.md`
+- Modify: `docs/getting-started.md`
+- Modify: `docs/api-reference.md`
+- Modify: `docs/design.md`
 
-**Step 1: Add tests that exercise aborting callbacks and recompute closures**
-
-Add tests for:
-- `Runtime::batch` where closure aborts after `batch_depth` increment
-- memo compute closure abort after `in_progress = true` and tracking push
-- follow-up operation on same runtime to confirm whether state was restored
-
-**Step 2: Run focused tests**
-
-Run:
-```bash
-moon test -p dowdiness/incr/internal -f batch_wbtest.mbt
-moon test -p dowdiness/incr/internal -f verify_wbtest.mbt
-```
-
-Expected: at least one test demonstrates invariant leakage (current behavior).
+Update docs to clearly state:
+- Prefer `get_result()` over `get()` for graceful cycle handling
+- `Runtime::batch` supports raised-error rollback semantics
+- `abort()` inside user closures is not recoverable
 
 ---
 
-### Task 2: Add cleanup guards around `Runtime::batch`
+### Task 2: Audit and reduce user-triggerable aborts
 
 **Files:**
 - Modify: `internal/runtime.mbt`
-
-**Step 1: Refactor `Runtime::batch` to guarantee depth restoration**
-
-Ensure:
-- `batch_depth` decrement happens on all exits
-- outermost commit is only attempted when state is balanced
-- underflow guard remains as defense-in-depth
-
-Implementation detail:
-- If MoonBit supports a `defer`/finally-like construct, use it directly.
-- If not, extract closure execution into a helper that returns a `Result`/status and apply explicit cleanup before rethrow/abort.
-
-**Step 2: Keep current semantics**
-
-Do not change:
-- nested batch behavior
-- commit ordering
-- callback order (per-cell before global)
-
----
-
-### Task 3: Add cleanup guards around memo recomputation
-
-**Files:**
 - Modify: `internal/memo.mbt`
-- Modify (if needed): `internal/runtime.mbt`
+- Modify: `internal/verify.mbt`
+- Modify tests under `internal/*_wbtest.mbt`
 
-**Step 1: Harden `Memo::force_recompute`**
+Actions:
+- Classify each `abort()` site as:
+  - internal invariant guard (keep, but improve message), or
+  - user-triggerable path (replace with graceful return/raise API)
+- Add tests for each converted path
 
-Guarantee cleanup on all exits:
-- `cell.in_progress = false`
-- balanced `push_tracking` / `pop_tracking` (or stack cleanup equivalent)
+### Remaining `abort()` Sites (Post-Audit)
 
-**Step 2: Preserve behavior**
+User-facing convenience aborts (kept, with graceful alternatives):
+- `Memo::get()` aborts on cycle
+  - alternatives: `Memo::get_result`, `Memo::get_or`, `Memo::get_or_else`
+- `MemoMap::get()` can abort via underlying memo cycle
+  - alternatives: `MemoMap::get_result`, `MemoMap::get_or`, `MemoMap::get_or_else`
 
-Keep:
-- cycle detection semantics
-- dep diff + subscriber maintenance logic
-- backdating semantics
+Invariant guards (kept):
+- Runtime cell lookup invariants (`get_cell`)
+- Batch depth underflow guards
+- Missing `commit_pending` / `rollback_pending` invariant checks
+- Tracking stack underflow
+- Missing derived recompute closure in verifier
+
+Rationale:
+- These indicate internal corruption or whitebox misuse and should fail fast.
 
 ---
 
-### Task 4: Verify interaction with iterative verifier
+### Task 3: Add explicit non-panicking entrypoints where missing
 
 **Files:**
-- Modify (if needed): `internal/verify.mbt`
-- Modify tests in: `internal/verify_wbtest.mbt`, `internal/cycle_test.mbt`
+- Modify: `internal/*.mbt`
+- Modify: `traits.mbt`
+- Modify: `incr.mbt` (re-exports if needed)
+- Modify tests in `tests/*.mbt`
 
-**Step 1: Ensure verifier cleanup remains correct on error paths**
-
-Validate:
-- `cleanup_stack` still clears all frame `in_progress` flags
-- no stale flags remain after recompute errors
-
-**Step 2: Add targeted assertions**
-
-Add tests that:
-- trigger `Err(CycleError)` during verification
-- subsequently perform successful reads/writes using same runtime
+Actions:
+- Ensure each public operation with realistic failure mode has a graceful variant
+- Keep existing panic-oriented convenience methods for ergonomics, but document them as such
 
 ---
 
-### Task 5: Full validation and coverage check
+### Task 4: Validate behavior and coverage
 
 Run:
 ```bash
@@ -127,19 +117,19 @@ moon coverage analyze
 ```
 
 Acceptance criteria:
-- all tests pass
-- new panic-safety tests pass
-- uncovered lines in critical cleanup branches are reduced
+- no regressions in existing suite
+- graceful-path tests pass
+- coverage improves in newly added rollback/error branches
 
 ---
 
-### Task 6: Documentation follow-up
+### Task 5: Update project tracking docs
 
 **Files:**
 - Modify: `docs/todo.md`
-- Modify (if needed): `docs/design.md`
+- Modify: `docs/roadmap.md` (if needed)
 
-Update:
-- mark panic-safety hardening task status
-- document invariant restoration guarantees in internals section
-
+Update TODO/roadmap to reflect:
+- graceful handling direction
+- completed rollback-on-raise batching work
+- explicit `abort` limitation note

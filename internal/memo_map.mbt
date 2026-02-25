@@ -60,6 +60,32 @@ pub fn[K : Hash + Eq, V : Eq] MemoMap::get_result(
 }
 
 ///|
+/// Returns the value for `key`, or `fallback` if a cycle is detected.
+pub fn[K : Hash + Eq, V : Eq] MemoMap::get_or(
+  self : MemoMap[K, V],
+  key : K,
+  fallback : V,
+) -> V {
+  match self.get_result(key) {
+    Ok(v) => v
+    Err(_) => fallback
+  }
+}
+
+///|
+/// Returns the value for `key`, or computes a fallback from the cycle error.
+pub fn[K : Hash + Eq, V : Eq] MemoMap::get_or_else(
+  self : MemoMap[K, V],
+  key : K,
+  fallback : (CycleError) -> V,
+) -> V {
+  match self.get_result(key) {
+    Ok(v) => v
+    Err(e) => fallback(e)
+  }
+}
+
+///|
 /// Returns true if a memo entry for `key` has already been created.
 pub fn[K : Hash + Eq, V] MemoMap::contains(
   self : MemoMap[K, V],

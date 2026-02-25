@@ -127,14 +127,24 @@ pub fn[Db : IncrDb, K, V] create_memo_map(
 /// Executes a batch of signal updates using the database's runtime.
 ///
 /// All signal updates inside the closure are deferred until the batch ends,
-/// resulting in a single revision bump.
+/// resulting in a single revision bump. If the closure raises, pending writes
+/// are rolled back and the error is re-raised.
 ///
 /// # Parameters
 ///
 /// - `db`: Any type implementing `IncrDb`
 /// - `f`: The closure containing signal updates
-pub fn[Db : IncrDb] batch(db : Db, f : () -> Unit) -> Unit {
+pub fn[Db : IncrDb] batch(db : Db, f : () -> Unit raise?) -> Unit raise? {
   db.runtime().batch(f)
+}
+
+///|
+/// Runs a batch and returns raised errors as `Result`.
+pub fn[Db : IncrDb] batch_result(
+  db : Db,
+  f : () -> Unit raise?,
+) -> Result[Unit, Error] {
+  db.runtime().batch_result(f)
 }
 
 // --- Tracked Struct Support ---

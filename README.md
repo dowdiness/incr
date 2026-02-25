@@ -9,7 +9,7 @@ A Salsa-inspired incremental recomputation library for [MoonBit](https://www.moo
 - **MemoMap[K, V]** — Keyed memoization with one lazily-created memo per key
 - **Backdating** — Unchanged recomputed values preserve their old revision, preventing unnecessary downstream recomputation
 - **Durability** — Classify inputs by change frequency (Low/Medium/High) to skip verification of stable subgraphs
-- **Batch updates** — Atomic multi-signal updates with revert detection
+- **Batch updates** — Atomic multi-signal updates with revert detection and rollback on raised errors
 - **Change hooks** — `Runtime::set_on_change` callback for committed updates (batch-aware)
 - **Cycle detection** — Detects cycles with `get_result()` for graceful handling or `get()` for abort
 - **Field-level tracking** — `TrackedCell` groups related signals into tracked structs; only changed fields invalidate downstream memos
@@ -107,6 +107,41 @@ let by_id = create_memo_map(app, (id : Int) => base.get() + id, label="by_id")
 inspect(by_id.get(1), content="11")
 inspect(by_id.get(1), content="11") // cache hit for key=1
 inspect(by_id.get(2), content="12") // independent key cache
+```
+
+### Graceful Error Handling
+
+Prefer `get_result()` when you want cycle-safe reads without aborting:
+
+```moonbit
+match sum.get_result() {
+  Ok(v) => println(v.to_string())
+  Err(e) => println(e.format_path(app.runtime()))
+}
+```
+
+`Runtime::batch` (and `@incr.batch`) also supports raised-error rollback:
+
+```moonbit
+suberror BatchStop {
+  Stop
+}
+
+let res : Result[Unit, Error] = try? rt.batch(fn() raise {
+  x.set(1)
+  y.set(2)
+  raise Stop
+})
+// If res is Err(_), pending writes were rolled back.
+```
+
+For explicit `Result` handling without re-raising, use `batch_result`:
+
+```moonbit
+let res = batch_result(app, fn() raise {
+  x.set(1)
+  raise Stop
+})
 ```
 
 ## Documentation
