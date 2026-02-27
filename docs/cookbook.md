@@ -198,6 +198,106 @@ raw_data.set("  Hello World  ")  // Same after trim — no-op!
 
 ---
 
+## Pattern: Backdating with Custom Equality
+
+Backdating suppresses downstream recomputation when a memo's output is equal to its previous value. The comparison uses the type's `Eq` implementation, so you control exactly what "equal" means. This is useful when your type carries metadata that memo consumers don't care about.
+
+### Ignoring a Generation Counter
+
+A common case: a value has a `generation` or `version` field that increments on every write, but downstream memos only care about the semantic content.
+
+```moonbit
+struct Versioned {
+  value      : Int
+  generation : Int // bumped on every recomputation — not semantically meaningful
+}
+
+impl Eq for Versioned with equal(self, other) -> Bool {
+  self.value == other.value  // generation intentionally excluded
+}
+```
+
+```moonbit
+let rt = Runtime()
+let input = Signal(rt, 100, label="input")
+
+let mut gen = 0
+let versioned = Memo(rt, () => {
+  gen = gen + 1
+  Versioned(input.get() / 10, gen)  // value=10, generation always increments
+}, label="versioned")
+
+let handler = Memo(rt, () => {
+  versioned.get().value * 2  // only reads .value
+}, label="handler")
+
+inspect(handler.get(), content="20")  // Computes: Versioned(10, gen=1) → 20
+
+input.set(105)                        // value still 10 (105/10 = 10), gen=2
+inspect(handler.get(), content="20")  // handler does NOT recompute — backdated
+inspect(gen, content="2")             // versioned recomputed, but Eq said same value
+```
+
+`versioned` recomputed because `input` changed, but `handler` was skipped: the new `Versioned(10, 2)` equals the old `Versioned(10, 1)` under the custom `Eq`, so `changed_at` was preserved.
+
+### Ignoring Unstable Fields in Enums
+
+The same pattern applies to enum variants where some fields are stable (drive behavior) and others are incidental (logging, diagnostics):
+
+```moonbit
+enum Status {
+  Loading(progress~ : Int)
+  Ready(data~ : Int)
+  Error(code~ : Int, message~ : String)
+}
+
+impl Eq for Status with equal(self, other) -> Bool {
+  match (self, other) {
+    (Loading(progress=p1),  Loading(progress=p2))  => p1 == p2
+    (Ready(data=d1),        Ready(data=d2))         => d1 == d2
+    (Error(code=c1, ..),    Error(code=c2, ..))     => c1 == c2  // message excluded
+    _ => false
+  }
+}
+```
+
+```moonbit
+let rt = Runtime()
+let error_code = Signal(rt, 404, label="error_code")
+let error_msg  = Signal(rt, "Not Found", label="error_msg")
+
+let status = Memo(rt, () => Error(code=error_code.get(), message=error_msg.get()), label="status")
+let handler = Memo(rt, () => match status.get() {
+  Error(code=c, ..) => "Error: " + c.to_string()
+  Ready(data=d)     => "Data: " + d.to_string()
+  Loading(progress=p) => "Loading: " + p.to_string() + "%"
+}, label="handler")
+
+inspect(handler.get(), content="Error: 404")
+
+error_msg.set("Page Not Found")      // Different message, same code
+inspect(handler.get(), content="Error: 404")  // handler does NOT recompute — backdated
+```
+
+`status` recomputed when the message changed, but `handler` was skipped because the new `Error(code=404, message="Page Not Found")` equals the old one under the custom `Eq`.
+
+### The Footgun: Excluding Fields That Are Actually Read
+
+**Backdating only holds when the excluded fields are never read by any downstream memo.** If a memo reads a field excluded from `Eq`, it will receive a stale value silently — no error, no warning.
+
+```moonbit
+// SAFE: handler only reads .value; .generation is never read downstream
+let handler = Memo(rt, () => versioned.get().value * 2)
+
+// UNSAFE: handler reads .generation, but generation is excluded from Eq
+//         When generation changes, handler will not recompute
+let handler = Memo(rt, () => versioned.get().generation)  // stale!
+```
+
+**Rule:** Only exclude a field from `Eq` if you are certain no memo in the graph reads that field from this type's values. When in doubt, include the field in `Eq` and accept the recomputation cost.
+
+---
+
 ## Pattern: Aggregate Computation
 
 Efficiently aggregate over multiple inputs:
