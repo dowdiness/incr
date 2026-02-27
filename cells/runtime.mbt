@@ -18,21 +18,17 @@ priv struct BatchUndo {
 /// Per-batch-frame rollback log for nested batch semantics.
 priv struct BatchFrame {
   undo_entries : Array[BatchUndo]
+  undo_ids : @hashset.HashSet[CellId]
 }
 
 ///|
 fn BatchFrame::new() -> BatchFrame {
-  { undo_entries: [] }
+  { undo_entries: [], undo_ids: @hashset.new() }
 }
 
 ///|
 fn BatchFrame::has_undo_for(self : BatchFrame, cell_id : CellId) -> Bool {
-  for entry in self.undo_entries {
-    if entry.cell_id == cell_id {
-      return true
-    }
-  }
-  false
+  self.undo_ids.contains(cell_id)
 }
 
 ///|
@@ -505,6 +501,7 @@ fn Runtime::complete_batch_frame_success(self : Runtime) -> Unit {
       for entry in frame.undo_entries {
         if not(parent.has_undo_for(entry.cell_id)) {
           parent.undo_entries.push(entry)
+          parent.undo_ids.add(entry.cell_id)
         }
       }
     }
@@ -611,6 +608,7 @@ fn Runtime::record_batch_rollback(
     return
   }
   frame.undo_entries.push({ cell_id, rollback })
+  frame.undo_ids.add(cell_id)
 }
 
 ///|
