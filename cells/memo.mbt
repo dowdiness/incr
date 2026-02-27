@@ -132,19 +132,19 @@ pub fn[T : Eq] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
   match self.value {
     None =>
       match self.force_recompute() {
-        Ok(_) => {
+        Ok(value) => {
           // Only record dependency on successful read to avoid poisoning
           // the dependency graph with failed cyclic edges
           self.rt.record_dependency(self.cell_id)
-          Ok(self.value.unwrap())
+          Ok(value)
         }
         Err(e) => Err(e)
       }
-    Some(_) => {
+    Some(cached) => {
       // Fast path: already verified this revision
       if cell.verified_at == self.rt.current_revision {
         self.rt.record_dependency(self.cell_id)
-        return Ok(self.value.unwrap())
+        return Ok(cached)
       }
       // Check if any dependency changed since last verification.
       // Note: maybe_changed_after may recompute this cell internally
@@ -152,7 +152,13 @@ pub fn[T : Eq] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
       match maybe_changed_after(self.rt, self.cell_id, cell.verified_at) {
         Ok(_) => {
           self.rt.record_dependency(self.cell_id)
-          Ok(self.value.unwrap())
+          // Re-read self.value: maybe_changed_after may have called
+          // force_recompute, replacing the cached value with a new one.
+          // The outer Some(cached) binding may be stale.
+          match self.value {
+            Some(v) => Ok(v)
+            None => abort("unreachable: value is always Some after successful verification")
+          }
         }
         Err(e) => Err(e)
       }
@@ -190,8 +196,11 @@ pub fn[T : Eq] Memo::get_or_else(
 /// Force recomputation: push tracking frame, execute compute, pop frame,
 /// update dependencies and value.
 ///
-/// Returns `Ok(())` on success, or `Err(CycleError)` if a cycle is detected.
-fn[T : Eq] Memo::force_recompute(self : Memo[T]) -> Result[Unit, CycleError] {
+/// Returns `Ok(new_value)` on success, or `Err(CycleError)` if a cycle is detected.
+/// Returning the value directly lets callers avoid re-reading `self.value` and
+/// eliminates the implicit invariant that `self.value` is always `Some` after a
+/// successful call.
+fn[T : Eq] Memo::force_recompute(self : Memo[T]) -> Result[T, CycleError] {
   let cell = self.rt.get_cell(self.cell_id)
   if cell.in_progress {
     return Err(CycleError::from_path(self.rt.collect_tracking_path(), cell.id))
@@ -250,7 +259,7 @@ fn[T : Eq] Memo::force_recompute(self : Memo[T]) -> Result[Unit, CycleError] {
   // else: backdate — keep old changed_at (key Salsa insight)
   cell.verified_at = self.rt.current_revision
   cell.in_progress = false
-  Ok(())
+  Ok(new_value)
 }
 
 ///|
