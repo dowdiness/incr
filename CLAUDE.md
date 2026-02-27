@@ -73,6 +73,32 @@ The library implements Salsa's incremental computation pattern with three key ty
 - **CycleError** (`internal/cycle.mbt`) — Cycle detection error type. `CycleError::from_path(path, closing_id)` constructs a `CycleDetected` value from a collected path; `format_path(rt)` produces a human-readable chain string.
 - **Traits** (`traits.mbt`) — `Database`, `Readable`, and `Trackable` public traits; `create_signal`, `create_memo`, `create_tracked_cell`, `batch`, and `gc_tracked` helper functions. Pipeline traits (`Sourceable`, `Parseable`, `Checkable`, `Executable`) live in `pipeline/pipeline_traits.mbt` and are marked experimental.
 
+### Type Erasure
+
+The `Runtime` holds all cell metadata in a single `Array[CellMeta]` indexed by `CellId`. Because cells can have different value types (`Signal[Int]`, `Memo[String]`, etc.), `CellMeta` must be type-erased — it cannot be generic over `T`.
+
+MoonBit has no trait objects (no `Box<dyn Trait>` equivalent), so the value type cannot be hidden behind a vtable. Instead, the bridge is a **captured closure**:
+
+```
+Memo[T]::new()
+  ├── allocates cell_id
+  ├── creates memo : Memo[T] = { compute, value: None, ... }
+  ├── creates recompute_and_check : () -> Result[Bool, CycleError]
+  │     └── captures `memo` by reference (the full typed Memo[T])
+  │         calls memo.recompute_inner() which reads/writes memo.value : T?
+  │         returns only Bool (changed?) — runtime never sees T
+  └── stores closure in CellMeta (type-erased)
+```
+
+The runtime calls `meta.recompute_and_check()` during verification and only receives a `Bool` (did the value change?) or a `CycleError`. The typed value `T` never crosses the `CellMeta` boundary.
+
+**Consequence for contributors:** Do not attempt to:
+- Move the cached value into `CellMeta` (would require `CellMeta` to be generic or use `Any`)
+- Make `Runtime` generic over a value type (Runtime holds cells of *many* different types simultaneously)
+- Add a second type-erased closure that returns the value as a string or `Show` output directly from `CellMeta` — if you need introspection, thread it through `CellInfo` (see `Runtime::cell_info`) which is populated by the typed layer
+
+The `recompute_and_check`, `commit_pending`, and `rollback_pending` closures on `CellMeta` all follow the same pattern: capture the typed cell, perform typed operations, return only type-erased results (`Bool`, `Unit`, or `Result[Bool, CycleError]`).
+
 ### Data Flow
 
 1. `Signal::set()` bumps the global revision and records `changed_at` on the signal's CellMeta (or defers to batch if inside `Runtime::batch()`)
