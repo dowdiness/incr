@@ -108,6 +108,8 @@ Input cells with externally controlled values.
 
 Creates a signal. Both `durability` (default `Low`) and `label` are optional.
 
+The `label` string is used in cycle error messages and `Runtime::cell_info` output. Without a label, cells appear as `Cell[42]` in diagnostics. **Prefer always setting a label** — it has no runtime cost and makes debugging significantly easier.
+
 ```moonbit
 let count = Signal(rt, 0)                                    // defaults
 let config = Signal(rt, "prod", durability=High, label="config")  // explicit
@@ -161,7 +163,7 @@ A named, field-level input cell. `TrackedCell[T]` wraps a `Signal[T]` and provid
 
 ### `TrackedCell::new[T](rt: Runtime, initial: T, durability?: Durability, label?: String) -> TrackedCell[T]`
 
-Creates a tracked cell. Both `durability` (default `Low`) and `label` are optional.
+Creates a tracked cell. Both `durability` (default `Low`) and `label` are optional. As with signals, **prefer always setting a label** — it appears in cycle errors and `Runtime::cell_info`. A label like `"SourceFile.path"` identifies which field of which struct caused a problem.
 
 ```moonbit
 let path    = TrackedCell(rt, "/src/main.mbt", label="SourceFile.path")
@@ -439,13 +441,21 @@ match memo.get_result() {
 }
 ```
 
-The `format_path()` method produces human-readable output:
+The `format_path()` method produces human-readable output. The quality of the output depends on whether labels were set at construction time:
 
+Without labels:
 ```
 Cycle detected: Cell[5] → Cell[7] → Cell[5]
 ```
 
-For long cycles (>20 cells), the output is truncated:
+With labels:
+```
+Cycle detected: price → tax → price
+```
+
+Labels are set via the `label` parameter on `Signal::new`, `Memo::new`, and `TrackedCell::new`. They have no runtime cost. **Always set labels on signals and memos** — unlabeled output is difficult to map back to specific cells in a large graph.
+
+For long cycles (>20 cells), the output is truncated regardless of labels:
 
 ```
 Cycle detected: Cell[0] → Cell[1] → Cell[2] → ... → Cell[19] → ...
