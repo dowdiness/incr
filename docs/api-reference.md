@@ -116,11 +116,11 @@ match count.get_result() {
 
 ### `Signal::set[T : Eq](self, value: T) -> Unit`
 
-Sets a new value using equality-based no-op detection.
+Sets a new value. If the new value equals the current value (`old == new`), the call is a no-op: no revision is bumped and downstream memos are not invalidated. Requires `T : Eq`. See [Type Constraints](#type-constraints) for why.
 
 ```moonbit
 count.set(5)
-count.set(5) // No-op when unchanged
+count.set(5) // No-op: value unchanged, no revision bump
 ```
 
 ### `Signal::set_unconditional[T](self, value: T) -> Unit`
@@ -216,7 +216,7 @@ Derived computations with dependency tracking and memoization.
 
 ### `Memo::new[T : Eq](rt: Runtime, compute: () -> T, label? : String) -> Memo[T]`
 
-Creates a lazily evaluated memo. The optional `label` names the memo for debug output and cycle error messages.
+Creates a lazily evaluated memo. The optional `label` names the memo for debug output and cycle error messages. Requires `T : Eq` for backdating: when a recomputation produces a value equal to the previous one, the memo's `changed_at` timestamp is preserved rather than advanced, preventing unnecessary downstream invalidation. See [Type Constraints](#type-constraints) for details.
 
 ```moonbit
 let doubled = Memo(rt, () => count.get() * 2)
@@ -746,7 +746,30 @@ fn update_cart_result[Db : Database](
 
 ## Type Constraints
 
-`Eq` is required only where value comparison is needed:
+### Why `T : Eq` is required
+
+`Eq` is needed in two places, each serving a distinct optimization:
+
+**Same-value optimization (`Signal::set`, `TrackedCell::set`):** Before recording a change, the library compares the new value against the current one. If they are equal, the call is treated as a no-op: the global revision counter is not incremented and downstream memos are not invalidated. This avoids spurious recomputation when a signal is set to the value it already holds.
+
+**Backdating (`Memo`):** After a memo recomputes, the library compares the new result against the previous cached value. If they are equal, the memo's `changed_at` timestamp is kept at its previous value rather than advanced to the current revision. Any cell that depends on this memo therefore sees no change, and its own verification is skipped entirely. Without `Eq`, every recomputation would unconditionally advance `changed_at`, propagating invalidation through the entire downstream graph even when the computed value did not actually change.
+
+**Custom `Eq` implementations:** If your type derives `Eq` with fields intentionally excluded — for example, a generation counter or metadata field that shouldn't influence downstream computation — backdating will treat updates to those fields as no-ops. This is correct and useful (the computation result hasn't changed semantically), but it must be intentional: if you rely on those excluded fields inside a memo's `compute` function, you will get stale results. Only exclude fields from `Eq` that are never read by any memo.
+
+```moonbit
+// Safe: gen is never read by any memo
+struct Versioned {
+  value : Int
+  gen   : Int  // excluded from Eq by custom impl
+}
+
+// Dangerous: gen IS read by the memo, but excluded from Eq causes stale cache
+let m = Memo(rt, () => src.get().gen)  // will not recompute when gen changes
+```
+
+### Constraint reference
+
+`Eq` is required only where value comparison is used:
 
 - `Memo::new`, `Memo::get`, `Memo::get_result`, `Memo::get_or`, `Memo::get_or_else` require `T : Eq`
 - `MemoMap::get`, `MemoMap::get_result`, `MemoMap::get_or`, `MemoMap::get_or_else` require `K : Hash + Eq` and `V : Eq`
