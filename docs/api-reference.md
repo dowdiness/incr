@@ -38,13 +38,31 @@ Behavior:
 - Reads during a batch observe pre-batch values
 - If `f` raises, pending writes are rolled back and the error is re-raised
 
-Limit:
-- `abort()` is not catchable in MoonBit, so abort-triggered cleanup cannot be guaranteed
+Limit — abort safety:
+- `abort()` is not catchable in MoonBit. If `f` calls `abort()` (directly or indirectly), the catch block inside `batch()` never runs. The runtime is left in inconsistent state: `batch_depth` is not decremented, the batch frame stack is not popped, and pending signals retain dangling `commit_pending`/`rollback_pending` closures. The runtime should be considered unusable after an abort.
+- The most common indirect source of `abort()` inside a batch is calling `Memo::get()` on a memo involved in a dependency cycle. Use `Memo::get_result()` inside batch functions to handle cycles gracefully instead of aborting.
+
+```moonbit
+// Dangerous: cycle causes abort(), leaving batch state corrupted
+rt.batch(() => {
+  x.set(1)
+  let _ = cyclic_memo.get()  // aborts if cycle exists
+})
+
+// Safe: cycle is returned as Err, batch rolls back cleanly on raise
+rt.batch(fn() raise {
+  x.set(1)
+  match cyclic_memo.get_result() {
+    Ok(v) => use_value(v)
+    Err(e) => raise e  // triggers rollback
+  }
+})
+```
 
 ### `Runtime::batch_result(self, f: () -> Unit raise?) -> Result[Unit, Error]`
 
 Executes a batch and returns raised errors as `Result` instead of re-raising.
-Like `Runtime::batch`, this handles raised errors only; `abort()` still escapes and is not converted to `Err`.
+Like `Runtime::batch`, this handles raised errors only; `abort()` still escapes, is not converted to `Err`, and leaves the runtime in the same inconsistent state described above.
 
 ```moonbit
 suberror BatchStop {
