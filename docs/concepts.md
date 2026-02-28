@@ -47,6 +47,22 @@ To force an update even with the same value:
 count.set_unconditional(5)  // Always bumps revision
 ```
 
+## Labels
+
+Every `Signal`, `Memo`, and `TrackedCell` accepts an optional `label` parameter:
+
+```moonbit
+let price = Signal(rt, 100, label="price")
+let total = Memo(rt, () => price.get() * qty.get(), label="total")
+```
+
+Labels have **no runtime cost** — they are stored as `String?` on the cell metadata and never read during normal computation. They only appear in:
+
+- **Cycle error messages**: `"price → subtotal → total → price"` instead of `"Cell 2 → Cell 5 → Cell 8 → Cell 2"`
+- **Debug output**: `Signal::debug()` and `Memo::debug()` include the label when set
+
+**Best practice: always set a label.** Debugging a cycle or reading `format_path` output is significantly easier with names attached.
+
 ## Memos
 
 Memos compute derived values and cache the result:
@@ -296,6 +312,26 @@ Key behavior:
 
 This is a lightweight parameterized-query pattern built on top of `Memo`; it does not change runtime verification internals.
 
+## Runtime Isolation
+
+Each `Runtime` is a completely isolated universe. Signals and Memos belong to exactly one Runtime, and cross-runtime reads are a hard error:
+
+```moonbit
+let rt_a = Runtime()
+let rt_b = Runtime()
+let sig_b = Signal(rt_b, 42)
+
+// This aborts: sig_b belongs to rt_b, not rt_a
+let bad = Memo(rt_a, () => sig_b.get())
+bad.get()  // abort: "Cross-runtime dependency"
+```
+
+The design is intentional:
+- **No accidental stale data**: a silent cross-runtime read would return a value that never invalidates when the foreign signal changes
+- **Consistent with fail-fast philosophy**: `Runtime::get_cell` aborts on wrong-runtime cell IDs; `Signal::get` and `Memo::get` follow the same rule
+
+If you need to share data between two independent computation graphs, use a plain variable or a shared `Signal` on a common Runtime.
+
 ## Summary
 
 | Concept | Purpose |
@@ -308,6 +344,8 @@ This is a lightweight parameterized-query pattern built on top of `Memo`; it doe
 | Durability | Skip verification for stable subgraphs |
 | Batch | Atomic multi-signal updates |
 | TrackedCell | Field-level input cells for fine-grained dependency isolation |
+| Labels | Zero-cost names for readable error messages and debug output |
+| Runtime Isolation | Each Runtime is independent; cross-runtime reads abort |
 
 ## Further Reading
 

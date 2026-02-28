@@ -233,3 +233,52 @@ test "integration: dynamic dependencies" {
   b.set(55)
   inspect(result.get(), content="55")
 }
+
+///|
+test "integration: batch + on_change + memo chain fires once with correct final state" {
+  // Verifies that when a batch updates multiple signals, the global on_change
+  // fires exactly once, per-cell callbacks fire once per changed signal, and
+  // downstream memos see the fully committed state (not intermediate values).
+  let rt = Runtime::new()
+  let x = Signal::new(rt, 0, label="x")
+  let y = Signal::new(rt, 0, label="y")
+  let sum = Memo::new(rt, () => x.get() + y.get(), label="sum")
+  let product = Memo::new(rt, () => x.get() * y.get(), label="product")
+  // Track callback invocations
+  let global_fires : Ref[Int] = { val: 0 }
+  let x_fires : Ref[Int] = { val: 0 }
+  let y_fires : Ref[Int] = { val: 0 }
+  let sum_at_callback : Ref[Int] = { val: -1 }
+  rt.set_on_change(() => {
+    global_fires.val = global_fires.val + 1
+    // Read memos inside the callback — must see committed values
+    sum_at_callback.val = sum.get()
+  })
+  x.on_change(_v => x_fires.val = x_fires.val + 1)
+  y.on_change(_v => y_fires.val = y_fires.val + 1)
+  // Batch: set both signals atomically
+  rt.batch(() => {
+    x.set(3)
+    y.set(4)
+  })
+  // Per-cell callbacks: one per changed signal
+  inspect(x_fires.val, content="1")
+  inspect(y_fires.val, content="1")
+  // Global callback fires exactly once
+  inspect(global_fires.val, content="1")
+  // Memos inside the global callback saw the final committed state
+  inspect(sum_at_callback.val, content="7")  // 3 + 4
+  // Memos computed lazily after batch reflect the committed values
+  inspect(sum.get(), content="7")
+  inspect(product.get(), content="12")  // 3 * 4
+  // Revert detection: setting both signals back to 0 in a batch
+  rt.batch(() => {
+    x.set(3)  // same as current — no change
+    y.set(0)
+  })
+  inspect(x_fires.val, content="1")  // x unchanged: no extra fire
+  inspect(y_fires.val, content="2")  // y changed: one more fire
+  inspect(global_fires.val, content="2")
+  inspect(sum.get(), content="3")    // 3 + 0
+  inspect(product.get(), content="0") // 3 * 0
+}
