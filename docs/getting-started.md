@@ -51,16 +51,18 @@ Signals are your input values — the leaves of the dependency graph.
 **Database pattern:**
 ```moonbit
 let app = MyApp()
-let price = create_signal(app, 100)
-let quantity = create_signal(app, 5)
+let price = create_signal(app, 100, label="price")
+let quantity = create_signal(app, 5, label="quantity")
 ```
 
 **Direct Runtime:**
 ```moonbit
 let rt = Runtime()
-let price = Signal(rt, 100)
-let quantity = Signal(rt, 5)
+let price = Signal(rt, 100, label="price")
+let quantity = Signal(rt, 5, label="quantity")
 ```
+
+> **Tip:** Always set a `label`. It has no runtime cost and makes cycle error messages and debug output much easier to read. For example, instead of `"Runtime 0 / Cell 2 → Cell 0 → …"` you'll see `"price → total → …"`.
 
 ### Step 3: Create Derived Computations (Memos)
 
@@ -68,12 +70,12 @@ Memos are computed values that automatically track their dependencies.
 
 **Database pattern:**
 ```moonbit
-let total = create_memo(app, () => price.get() * quantity.get())
+let total = create_memo(app, () => price.get() * quantity.get(), label="total")
 ```
 
 **Direct Runtime:**
 ```moonbit
-let total = Memo(rt, () => price.get() * quantity.get())
+let total = Memo(rt, () => price.get() * quantity.get(), label="total")
 ```
 
 ### Step 4: Read and Update
@@ -172,14 +174,14 @@ fn main {
   let rt = Runtime()
 
   // Inputs
-  let base_price = Signal(rt, 100)
-  let tax_rate = Signal(rt, 0.1)
-  let quantity = Signal(rt, 2)
+  let base_price = Signal(rt, 100, label="base_price")
+  let tax_rate = Signal(rt, 0.1, label="tax_rate")
+  let quantity = Signal(rt, 2, label="quantity")
 
   // Derived values
-  let subtotal = Memo(rt, () => base_price.get() * quantity.get())
-  let tax = Memo(rt, () => subtotal.get().to_double() * tax_rate.get())
-  let total = Memo(rt, () => subtotal.get().to_double() + tax.get())
+  let subtotal = Memo(rt, () => base_price.get() * quantity.get(), label="subtotal")
+  let tax = Memo(rt, () => subtotal.get().to_double() * tax_rate.get(), label="tax")
+  let total = Memo(rt, () => subtotal.get().to_double() + tax.get(), label="total")
 
   println("Subtotal: \{subtotal.get()}")  // 200
   println("Tax: \{tax.get()}")            // 20.0
