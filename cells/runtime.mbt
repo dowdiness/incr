@@ -12,6 +12,13 @@ let next_runtime_id : Ref[Int] = { val: 0 }
 /// -1 means no computation is active (sentinel; runtime IDs start at 0).
 /// Set by push_tracking, cleared by pop_tracking when the stack empties.
 /// Used by Signal::get and Memo::get_result to detect cross-runtime reads.
+///
+/// **Single-threaded assumption**: MoonBit currently targets WebAssembly
+/// (inherently single-threaded) and a single-threaded native runtime, so a
+/// plain `Ref[Int]` is safe here. If parallel execution is ever introduced
+/// (e.g. native threads or shared-memory WASM), this sentinel must be
+/// replaced with a thread-local or an atomic, and push/pop_tracking must
+/// use appropriate synchronisation primitives.
 let current_computing_runtime_id : Ref[Int] = { val: -1 }
 
 ///|
