@@ -107,16 +107,9 @@ test "batch: callback re-entrancy — set inside on_change is handled correctly"
 }
 
 ///|
-test "batch: global on_change fires once per commit_batch call when callback sets another signal" {
-  // When s1's on_change callback sets s2, commit_batch calls itself recursively
-  // to commit s2. fire_on_change() is called unconditionally at the end of each
-  // commit_batch invocation — including the recursive one — so the global
-  // callback fires TWICE: once after s2 commits (recursive call) and once after
-  // s1 commits (outer call).
-  //
-  // NOTE: The api-reference documents "fires once at batch end", which conflicts
-  // with this behaviour. This test captures the actual implementation so any
-  // future fix is caught as a deliberate change.
+test "batch: global on_change fires exactly once when callback sets another signal" {
+  // When s1's on_change callback sets s2, commit_batch loops to commit s2
+  // in a second wave. fire_on_change() is called once after all waves complete.
   let rt = Runtime::new()
   let s1 = Signal::new(rt, 0)
   let s2 = Signal::new(rt, 0)
@@ -124,8 +117,7 @@ test "batch: global on_change fires once per commit_batch call when callback set
   rt.set_on_change(() => { global_count.val = global_count.val + 1 })
   s1.on_change(_v => s2.set(1))
   rt.batch(() => s1.set(1))
-  // Fires twice: once for the s2 commit (recursive), once for the s1 commit (outer)
-  inspect(global_count.val, content="2")
+  inspect(global_count.val, content="1")
   inspect(s1.get(), content="1")
   inspect(s2.get(), content="1")
 }

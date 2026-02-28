@@ -513,68 +513,69 @@ fn Runtime::complete_batch_frame_success(self : Runtime) -> Unit {
 /// Commit pending batch changes using two-phase values.
 /// Phase 1: commit each signal's pending value, collecting which actually changed.
 /// Phase 2: if any changed, single revision bump and metadata update.
+/// Loops until no more callbacks queue additional signals, then fires the
+/// global on_change callback exactly once if anything changed.
 fn Runtime::commit_batch(self : Runtime) -> Unit {
-  if self.batch_pending_signals.length() == 0 {
-    // Nothing changed during the batch, reset state
-    self.batch_max_durability = Low
-    return
-  }
-  // Phase 1: commit pending values and collect which actually changed
-  let changed_ids : Array[CellId] = []
-  for id in self.batch_pending_signals {
-    let meta = self.get_cell(id)
-    match meta.rollback_pending {
-      Some(_) => ()
-      None =>
-        abort(
-          "Batched signal missing rollback_pending — internal invariant violated",
-        )
-    }
-    match meta.commit_pending {
-      Some(commit_fn) => {
-        if commit_fn() {
-          changed_ids.push(id)
+  let mut any_changed = false
+  while self.batch_pending_signals.length() > 0 {
+    // Phase 1: commit pending values and collect which actually changed
+    let changed_ids : Array[CellId] = []
+    for id in self.batch_pending_signals {
+      let meta = self.get_cell(id)
+      match meta.rollback_pending {
+        Some(_) => ()
+        None =>
+          abort(
+            "Batched signal missing rollback_pending — internal invariant violated",
+          )
+      }
+      match meta.commit_pending {
+        Some(commit_fn) => {
+          if commit_fn() {
+            changed_ids.push(id)
+          }
+          meta.commit_pending = None
+          meta.rollback_pending = None
         }
-        meta.commit_pending = None
-        meta.rollback_pending = None
-      }
-      None =>
-        abort(
-          "Batched signal missing commit_pending — internal invariant violated",
-        )
-    }
-  }
-  // Reset pending list by clearing directly
-  self.batch_pending_signals.clear()
-  // Phase 2: if any value actually changed, do a single revision bump
-  if changed_ids.length() > 0 {
-    self.advance_revision(self.batch_max_durability)
-    // Sweep changed signals and collect callbacks in a single pass.
-    let callbacks : Array[() -> Unit] = []
-    for id in changed_ids {
-      let meta = self.mark_input_changed(id)
-      match meta.on_change {
-        Some(f) => callbacks.push(f)
-        None => ()
+        None =>
+          abort(
+            "Batched signal missing commit_pending — internal invariant violated",
+          )
       }
     }
-    self.batch_max_durability = Low
-    // Raise batch_depth while invoking callbacks so that any signal.set()
-    // inside a callback takes the batch path instead of set_unconditional,
-    // preventing re-entrant fire_on_change() calls.
-    self.batch_depth = self.batch_depth + 1
-    for cb in callbacks {
-      cb()
+    self.batch_pending_signals.clear()
+    // Phase 2: if any value actually changed, do a single revision bump
+    if changed_ids.length() > 0 {
+      any_changed = true
+      self.advance_revision(self.batch_max_durability)
+      // Sweep changed signals and collect callbacks in a single pass.
+      let callbacks : Array[() -> Unit] = []
+      for id in changed_ids {
+        let meta = self.mark_input_changed(id)
+        match meta.on_change {
+          Some(f) => callbacks.push(f)
+          None => ()
+        }
+      }
+      self.batch_max_durability = Low
+      // Raise batch_depth while invoking callbacks so that any signal.set()
+      // inside a callback takes the batch path instead of set_unconditional,
+      // preventing re-entrant fire_on_change() calls.
+      // If callbacks queue more signals, the while loop will process them.
+      self.batch_depth = self.batch_depth + 1
+      for cb in callbacks {
+        cb()
+      }
+      self.batch_depth = self.batch_depth - 1
+    } else {
+      self.batch_max_durability = Low
     }
-    self.batch_depth = self.batch_depth - 1
-    // Commit any signals set during callbacks, then fire global once.
-    if self.batch_pending_signals.length() > 0 {
-      self.commit_batch()
-    }
-    self.fire_on_change()
-    return
   }
   self.batch_max_durability = Low
+  // Fire global on_change exactly once after all waves complete.
+  if any_changed {
+    self.fire_on_change()
+  }
 }
 
 ///|
