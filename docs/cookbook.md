@@ -362,6 +362,48 @@ Useful for:
 - Scheduling downstream side effects
 - Collecting change metrics
 
+## Pattern: Per-Cell Change Callbacks
+
+For finer-grained observation, `Signal` and `Memo` each support a single per-cell callback:
+
+```moonbit
+let rt = Runtime()
+let price = Signal(rt, 100, label="price")
+let total = Memo(rt, () => price.get() * 2, label="total")
+
+// Fires immediately after price changes, before the global on_change
+price.on_change(new_price => println("price changed to: \{new_price}"))
+
+// Fires after force_recompute, only when the computed value actually changed
+// (skipped by backdating when the value is unchanged)
+total.on_change(new_total => println("total changed to: \{new_total}"))
+
+price.set(200)
+// Prints "price changed to: 200"
+// Prints "total changed to: 400" (when total.get() is next called)
+```
+
+**Callback ordering:**
+1. Per-cell callbacks fire in the order signals changed
+2. The global `Runtime::set_on_change` callback fires after all per-cell callbacks
+
+**Inside a batch**, per-cell callbacks fire once per changed signal at the end of the batch — not once per `set()` call:
+
+```moonbit
+rt.batch(() => {
+  price.set(150)
+  price.set(200)  // Only the final value (200) is committed
+})
+// price on_change fires once with value 200
+```
+
+To remove a callback:
+
+```moonbit
+price.clear_on_change()
+total.clear_on_change()
+```
+
 ---
 
 ## Pattern: Tracked Struct
@@ -637,7 +679,7 @@ for dep_id in sum.dependencies() {
 
 ### Analyzing Dependency Chains
 
-Trace the full dependency path:
+Trace the full dependency path (forward edges — what does this memo depend on?):
 
 ```moonbit
 fn print_dependencies(rt : Runtime, memo : Memo[Int], depth : Int) -> Unit {
@@ -655,6 +697,33 @@ fn print_dependencies(rt : Runtime, memo : Memo[Int], depth : Int) -> Unit {
   }
 }
 ```
+
+### Inspecting Dependents (Reverse Edges)
+
+Use `Runtime::dependents` or `Memo::dependents` to answer: "what will be invalidated if this cell changes?"
+
+```moonbit
+let rt = Runtime()
+let source = Signal(rt, 1, label="source")
+let doubled = Memo(rt, () => source.get() * 2, label="doubled")
+let tripled = Memo(rt, () => source.get() * 3, label="tripled")
+
+// Must read memos at least once to establish dependencies
+doubled.get() |> ignore
+tripled.get() |> ignore
+
+// Inspect who depends on source
+for dep_id in rt.dependents(source.id()) {
+  match rt.cell_info(dep_id) {
+    Some(info) => println("depends on source: " + info.label.or("(unlabeled)"))
+    None => ()
+  }
+}
+// Prints: "depends on source: doubled"
+// Prints: "depends on source: tripled"
+```
+
+This is useful for impact analysis — understanding how wide the blast radius of a change will be before committing it.
 
 ### Testing Dependency Tracking
 

@@ -417,16 +417,16 @@ impl Drop for BatchGuard {
 
 **Why deferred:** MoonBit doesn't have RAII/destructors yet. Revisit when language supports it.
 
-### Deferred: Subscriber Links API
+### Subscriber Links API (Implemented)
 
-**If Phase 4 adds reverse edges:**
+Reverse-edge lookup is available via:
 
 ```moonbit
 pub fn Runtime::dependents(self, id : CellId) -> Array[CellId]
 pub fn[T] Memo::dependents(self) -> Array[CellId]
 ```
 
-**Why deferred:** Requires architectural change (bidirectional edges). See ROADMAP Phase 4.
+Subscriber links are maintained incrementally in `force_recompute`: added when a dependency is newly recorded, removed when a dependency is dropped (dynamic dep set). Useful for impact analysis and debugging.
 
 ## Documentation Strategy
 
