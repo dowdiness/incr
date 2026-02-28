@@ -40,7 +40,7 @@ Concrete, actionable tasks for the `incr` library.
 - [x] Change `CycleError` to include cycle path: `CycleDetected(CellId, Array[CellId])`
 - [x] Add `CycleError::path(self) -> Array[CellId]`
 - [x] Add `CycleError::format_path(self, Runtime) -> String` for human-readable output
-- [x] Update cycle detection in `internal/verify.mbt` to track path during traversal
+- [x] Update cycle detection in `cells/verify.mbt` to track path during traversal
 
 ### Per-Cell Callbacks (Phase 2B - High Priority)
 
@@ -82,14 +82,14 @@ Concrete, actionable tasks for the `incr` library.
 
 ## Tracked Struct Support
 
-- [x] Add `TrackedCell[T]` wrapping `Signal[T]` for field-level dependency isolation (`internal/tracked_cell.mbt`)
+- [x] Add `TrackedCell[T]` wrapping `Signal[T]` for field-level dependency isolation (`cells/tracked_cell.mbt`)
 - [x] Add full `TrackedCell` API: `new`, `get`, `get_result`, `set`, `set_unconditional`, `id`, `durability`, `on_change`, `clear_on_change`, `is_up_to_date`, `as_signal`
 - [x] Add `Trackable` trait with `cell_ids(Self) -> Array[CellId]`
 - [x] Add `Readable` impl for `TrackedCell[T]`
 - [x] Add `create_tracked_cell` helper function (mirrors `create_signal` pattern)
 - [x] Add `gc_tracked[T : Trackable](rt, tracked)` no-op stub (call site established for Phase 4 migration)
 - [x] Re-export `TrackedCell` from root facade (`incr.mbt`)
-- [x] Whitebox tests in `internal/tracked_cell_wbtest.mbt`
+- [x] Whitebox tests in `cells/tracked_cell_wbtest.mbt`
 - [x] Integration tests in `tests/tracked_struct_test.mbt`
 
 ## Internal Refactoring
@@ -114,13 +114,13 @@ Concrete, actionable tasks for the `incr` library.
 
 ## Package Structure
 
-- [x] Split flat single-package library into four MoonBit sub-packages (`types/`, `internal/`, `pipeline/`, root facade)
+- [x] Split flat single-package library into four MoonBit sub-packages (`types/`, `cells/`, `pipeline/`, root facade)
 - [x] Move pure value types (`Revision`, `Durability`, `CellId`) to `dowdiness/incr/types`
-- [x] Move all engine code to `dowdiness/incr/internal`
+- [x] Move all engine code to `dowdiness/incr/cells`
 - [x] Move experimental pipeline traits to `dowdiness/incr/pipeline`
 - [x] Re-export all public types from root via `pub type` transparent aliases in `incr.mbt`
-- [x] Move whitebox tests (`*_wbtest.mbt`) to `internal/` for private field access
-- [x] Move unit tests (`*_test.mbt`) to `internal/` (co-located with source)
+- [x] Move whitebox tests (`*_wbtest.mbt`) to `cells/` for private field access
+- [x] Move unit tests (`*_test.mbt`) to `cells/` (co-located with source)
 - [x] Create `tests/` package for integration tests exercising the full `@incr` public API
 - [x] Zero breaking changes — downstream users see identical `@incr` API
 

@@ -1,8 +1,15 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-This repository is a single MoonBit package (`dowdiness/incr`) with `moon.mod.json` and `moon.pkg` at the root. Source code lives in root-level `*.mbt` files organized by feature (for example, `signal.mbt`, `memo.mbt`, `runtime.mbt`, `verify.mbt`). Tests live beside source files:
+This repository is organized into four MoonBit sub-packages under `dowdiness/incr`:
 
+- **`types/`** — pure value types (`Revision`, `Durability`, `CellId`); zero dependencies
+- **`cells/`** — all engine implementation + unit tests (`signal.mbt`, `memo.mbt`, `runtime.mbt`, `verify.mbt`, `tracked_cell.mbt`, `memo_map.mbt`, etc.)
+- **`pipeline/`** — experimental pipeline traits (`Sourceable`, `Parseable`, etc.)
+- **`tests/`** — integration tests exercising the full `@incr` public API
+- **Root** (`moon.pkg`, `incr.mbt`, `traits.mbt`) — re-exports all public types via `pub type` transparent aliases; downstream users see a unified `@incr` API
+
+Tests in `cells/` live beside source files:
 - Black-box tests: `*_test.mbt`
 - White-box/internal tests: `*_wbtest.mbt`
 
@@ -12,8 +19,8 @@ Documentation is under `docs/`. Generated public API summaries are tracked in `p
 - `moon check` — fast type-check; run before committing.
 - `moon build` — compile the package.
 - `moon test` — run the full test suite.
-- `moon test -p dowdiness/incr -f memo_test.mbt` — run one test file.
-- `moon test -p dowdiness/incr -f memo_test.mbt -i 0` — run one test by index.
+- `moon test -p dowdiness/incr/cells -f memo_test.mbt` — run one test file.
+- `moon test -p dowdiness/incr/cells -f memo_test.mbt -i 0` — run one test by index.
 - `moon info` — regenerate `pkg.generated.mbti` and confirm public API deltas.
 - `moon fmt` — apply standard formatting.
 
