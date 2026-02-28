@@ -267,22 +267,22 @@ test "integration: batch + on_change + memo chain fires once with correct final 
   // Global callback fires exactly once
   inspect(global_fires.val, content="1")
   // Memos inside the global callback saw the final committed state
-  inspect(sum_at_callback.val, content="7")  // 3 + 4
+  inspect(sum_at_callback.val, content="7") // 3 + 4
   // Memos computed lazily after batch reflect the committed values
   inspect(sum.get(), content="7")
-  inspect(product.get(), content="12")  // 3 * 4
+  inspect(product.get(), content="12") // 3 * 4
   // Revert detection: write then revert within the same batch (no net change)
   rt.batch(() => {
     x.set(30)
-    x.set(3)   // revert to original batch-start value
+    x.set(3) // revert to original batch-start value
     y.set(40)
-    y.set(4)   // revert to original batch-start value
+    y.set(4) // revert to original batch-start value
   })
   // No signal ended up changed, so no callbacks should fire.
   inspect(x_fires.val, content="1")
   inspect(y_fires.val, content="1")
   inspect(global_fires.val, content="1")
   // Derived values remain unchanged as well.
-  inspect(sum.get(), content="7")     // 3 + 4
+  inspect(sum.get(), content="7") // 3 + 4
   inspect(product.get(), content="12") // 3 * 4
 }

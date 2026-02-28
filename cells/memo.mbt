@@ -169,7 +169,10 @@ pub fn[T : Eq] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
           // The outer Some(cached) binding may be stale.
           match self.value {
             Some(v) => Ok(v)
-            None => abort("unreachable: value is always Some after successful verification")
+            None =>
+              abort(
+                "unreachable: value is always Some after successful verification",
+              )
           }
         }
         Err(e) => Err(e)

@@ -110,4 +110,3 @@ test "panic cross-runtime: Memo::get aborts when read inside a memo on a differe
   let memo_a = Memo::new(rt_a, () => memo_b.get())
   let _ = memo_a.get() // aborts: memo_b is on rt_b, memo_a computes on rt_a
 }
-

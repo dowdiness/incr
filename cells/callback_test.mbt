@@ -114,7 +114,7 @@ test "batch: global on_change fires exactly once when callback sets another sign
   let s1 = Signal::new(rt, 0)
   let s2 = Signal::new(rt, 0)
   let global_count : Ref[Int] = { val: 0 }
-  rt.set_on_change(() => { global_count.val = global_count.val + 1 })
+  rt.set_on_change(() => global_count.val = global_count.val + 1)
   s1.on_change(_v => s2.set(1))
   rt.batch(() => s1.set(1))
   inspect(global_count.val, content="1")
