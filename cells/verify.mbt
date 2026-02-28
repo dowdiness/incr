@@ -59,8 +59,8 @@ priv struct VerifyFrame {
 /// Cleans up the verification stack by clearing in_progress flags
 /// on all cells. Called when an error occurs to restore consistent state.
 fn cleanup_stack(stack : Array[VerifyFrame]) -> Unit {
-  for i = 0; i < stack.length(); i = i + 1 {
-    stack[i].cell.in_progress = false
+  for frame in stack {
+    frame.cell.in_progress = false
   }
 }
 
