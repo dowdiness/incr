@@ -127,6 +127,18 @@ pub fn[T : Eq] Memo::get(self : Memo[T]) -> T {
 /// }
 /// ```
 pub fn[T : Eq] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
+  let active_rt = current_computing_runtime_id.val
+  if active_rt >= 0 && active_rt != self.rt.runtime_id {
+    // Reset before aborting so the test runner doesn't see dirty global state
+    // if this panic is caught (e.g. by the test harness for panic tests).
+    current_computing_runtime_id.val = -1
+    abort(
+      "Cross-runtime dependency: Memo belongs to Runtime " +
+      self.rt.runtime_id.to_string() +
+      " but is read inside a memo on Runtime " +
+      active_rt.to_string(),
+    )
+  }
   let cell = self.rt.get_cell(self.cell_id)
   // First computation: no cached value yet
   match self.value {

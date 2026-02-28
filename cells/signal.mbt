@@ -75,6 +75,18 @@ pub fn[T] Signal::new(
 ///
 /// The current value of the signal
 pub fn[T] Signal::get(self : Signal[T]) -> T {
+  let active_rt = current_computing_runtime_id.val
+  if active_rt >= 0 && active_rt != self.rt.runtime_id {
+    // Reset before aborting so the test runner doesn't see dirty global state
+    // if this panic is caught (e.g. by the test harness for panic tests).
+    current_computing_runtime_id.val = -1
+    abort(
+      "Cross-runtime dependency: Signal belongs to Runtime " +
+      self.rt.runtime_id.to_string() +
+      " but is read inside a memo on Runtime " +
+      active_rt.to_string(),
+    )
+  }
   self.rt.record_dependency(self.cell_id)
   self.value
 }

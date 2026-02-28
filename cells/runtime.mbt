@@ -8,6 +8,13 @@
 let next_runtime_id : Ref[Int] = { val: 0 }
 
 ///|
+/// Tracks the runtime_id currently executing a memo computation.
+/// -1 means no computation is active (sentinel; runtime IDs start at 0).
+/// Set by push_tracking, cleared by pop_tracking when the stack empties.
+/// Used by Signal::get and Memo::get_result to detect cross-runtime reads.
+let current_computing_runtime_id : Ref[Int] = { val: -1 }
+
+///|
 /// Undo entry for one signal touched by a batch frame.
 priv struct BatchUndo {
   cell_id : CellId
@@ -670,6 +677,7 @@ fn Runtime::record_dependency(self : Runtime, dep : CellId) -> Unit {
 ///
 /// - `cell_id`: The ID of the memo being computed
 fn Runtime::push_tracking(self : Runtime, cell_id : CellId) -> Unit {
+  current_computing_runtime_id.val = self.runtime_id
   self.tracking_stack.push(ActiveQuery(cell_id))
 }
 
@@ -690,7 +698,12 @@ fn Runtime::pop_tracking(
   self : Runtime,
 ) -> (Array[CellId], @hashset.HashSet[CellId]) {
   match self.tracking_stack.pop() {
-    Some(query) => (query.dependencies, query.seen)
+    Some(query) => {
+      if self.tracking_stack.length() == 0 {
+        current_computing_runtime_id.val = -1
+      }
+      (query.dependencies, query.seen)
+    }
     None => abort("Tracking stack underflow")
   }
 }

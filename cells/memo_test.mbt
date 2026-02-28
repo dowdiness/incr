@@ -92,23 +92,22 @@ test "memo: three-level chain" {
 }
 
 ///|
-test "cross-runtime: reading a foreign signal silently drops the dependency" {
-  // Signal::get() calls self.rt.record_dependency(), where self.rt is the
-  // signal's own runtime. If that runtime's tracking stack is empty (no memo
-  // from that runtime is computing), the call is a no-op. A memo from a
-  // different runtime therefore never records the foreign signal as a
-  // dependency, and is never invalidated when the foreign signal changes.
+test "panic cross-runtime: Signal::get aborts when read inside a memo on a different runtime" {
+  // Signal::get detects that the active computation belongs to a different
+  // runtime and aborts rather than silently recording no dependency.
   let rt_a = Runtime::new()
   let rt_b = Runtime::new()
   let sig_b = Signal::new(rt_b, 10)
   let memo_a = Memo::new(rt_a, () => sig_b.get())
-  // First get: computes correctly, but records no dependency
-  inspect(memo_a.get(), content="10")
-  inspect(memo_a.dependencies().length(), content="0")
-  // sig_b changes in rt_b; rt_a's revision is not bumped
-  sig_b.set(99)
-  // memo_a appears up-to-date to rt_a (verified_at == rt_a.current_revision)
-  // and returns the stale cached value
-  inspect(memo_a.get(), content="10")
+  let _ = memo_a.get() // aborts: sig_b is on rt_b, memo_a computes on rt_a
+}
+
+///|
+test "panic cross-runtime: Memo::get aborts when read inside a memo on a different runtime" {
+  let rt_a = Runtime::new()
+  let rt_b = Runtime::new()
+  let memo_b = Memo::new(rt_b, () => 42)
+  let memo_a = Memo::new(rt_a, () => memo_b.get())
+  let _ = memo_a.get() // aborts: memo_b is on rt_b, memo_a computes on rt_a
 }
 
