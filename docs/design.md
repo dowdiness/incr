@@ -83,7 +83,7 @@ From the user's perspective, dependency tracking is invisible. Users write ordin
 
 ## The Verification Algorithm (`maybe_changed_after`)
 
-The core of the framework is the `maybe_changed_after` function in `internal/verify.mbt`. Given a cell and a revision, it answers: "has this cell's value changed after the given revision?"
+The core of the framework is the `maybe_changed_after` function in `cells/verify.mbt`. Given a cell and a revision, it answers: "has this cell's value changed after the given revision?"
 
 ### For Input Cells
 
@@ -223,14 +223,14 @@ The bridge between typed and type-erased worlds uses closure-based type erasure:
 - `CellMeta.recompute_and_check: (() -> Bool)?` — For derived cells, this closure captures the `Memo[T]` instance and calls its typed `recompute_inner()` method. The return value indicates whether the value changed. `None` for input cells.
 - `CellMeta.commit_pending: (() -> Bool)?` — For input cells during a batch, this closure captures the `Signal[T]` instance and commits its pending value. Returns true if the committed value differs from the current value. Set dynamically during batch operations and cleared after commit.
 
-This design means the verification algorithm in `internal/verify.mbt` operates entirely on `CellMeta` without knowing any value types, and the batch commit logic in `internal/runtime.mbt` can commit pending signal values without knowing their types.
+This design means the verification algorithm in `cells/verify.mbt` operates entirely on `CellMeta` without knowing any value types, and the batch commit logic in `cells/runtime.mbt` can commit pending signal values without knowing their types.
 
 ### Reference Semantics Invariant
 
 The entire framework relies on MoonBit's reference semantics for mutable structs. Because `CellMeta` has `mut` fields, it is heap-allocated — every variable, function parameter, array slot, or struct field holding a `CellMeta` is a reference to the same object, not a copy. This means:
 
 - `Runtime::get_cell()` returns a reference to the canonical cell in `Runtime.cells`, not a detached copy.
-- `VerifyFrame.cell` in the iterative verification stack (`internal/verify.mbt`) references the same `CellMeta`. Mutations to `in_progress`, `verified_at`, or `changed_at` inside `finish_frame_changed` / `finish_frame_unchanged` affect the runtime's canonical cell.
+- `VerifyFrame.cell` in the iterative verification stack (`cells/verify.mbt`) references the same `CellMeta`. Mutations to `in_progress`, `verified_at`, or `changed_at` inside `finish_frame_changed` / `finish_frame_unchanged` affect the runtime's canonical cell.
 - `Memo::force_recompute` retrieves a `CellMeta` via `get_cell` and mutates its fields directly.
 
 If `CellMeta` were ever changed to a value type (e.g., via MoonBit's `#valtype` annotation), this invariant would break — mutations would apply to copies, not originals, and the framework would silently produce incorrect results (e.g., `in_progress` flags stuck `true`, causing false cycle detection).
@@ -247,8 +247,8 @@ Each `CellMeta` has an `in_progress : Bool` flag. It is set to `true` when a cel
 
 Cycle detection triggers in two places:
 
-1. **During verification** (`internal/verify.mbt`): if `maybe_changed_after_derived` encounters a cell with `in_progress == true`, it means we recursively reached a cell that is currently being verified — a cycle.
-2. **During initial computation** (`internal/memo.mbt`): if `force_recompute` encounters a cell with `in_progress == true`, it means the Memo's compute function (directly or indirectly) tried to read its own value — also a cycle.
+1. **During verification** (`cells/verify.mbt`): if `maybe_changed_after_derived` encounters a cell with `in_progress == true`, it means we recursively reached a cell that is currently being verified — a cycle.
+2. **During initial computation** (`cells/memo.mbt`): if `force_recompute` encounters a cell with `in_progress == true`, it means the Memo's compute function (directly or indirectly) tried to read its own value — also a cycle.
 
 ### Error Handling
 
@@ -356,18 +356,18 @@ The library is split into four MoonBit sub-packages. The root package re-exports
 | `types/revision.mbt` | `Revision`, `Durability`, `DURABILITY_COUNT` — revision counter and durability enum |
 | `types/cell_id.mbt` | `CellId` — cell identifier with `Hash` implementation |
 
-### `internal/` package (`dowdiness/incr/internal`)
+### `cells/` package (`dowdiness/incr/cells`)
 
 | File | Purpose |
 |------|---------|
-| `internal/signal.mbt` | `Signal[T]` — input cells with same-value optimization and durability |
-| `internal/memo.mbt` | `Memo[T]` — derived cells with memoization, backdating, and dependency tracking |
-| `internal/memo_map.mbt` | `MemoMap[K, V]` — keyed memoization via one memo per key |
-| `internal/runtime.mbt` | `Runtime` — central state, revision management, tracking stack, batch commit |
-| `internal/cell.mbt` | `CellMeta`, `CellKind` — type-erased cell metadata |
-| `internal/tracking.mbt` | `ActiveQuery` — dependency recording frame with deduplication |
-| `internal/verify.mbt` | `maybe_changed_after` — core verification algorithm |
-| `internal/cycle.mbt` | `CycleError` — cycle error type, path formatting, `CycleError::from_path` |
+| `cells/signal.mbt` | `Signal[T]` — input cells with same-value optimization and durability |
+| `cells/memo.mbt` | `Memo[T]` — derived cells with memoization, backdating, and dependency tracking |
+| `cells/memo_map.mbt` | `MemoMap[K, V]` — keyed memoization via one memo per key |
+| `cells/runtime.mbt` | `Runtime` — central state, revision management, tracking stack, batch commit |
+| `cells/cell.mbt` | `CellMeta`, `CellKind` — type-erased cell metadata |
+| `cells/tracking.mbt` | `ActiveQuery` — dependency recording frame with deduplication |
+| `cells/verify.mbt` | `maybe_changed_after` — core verification algorithm |
+| `cells/cycle.mbt` | `CycleError` — cycle error type, path formatting, `CycleError::from_path` |
 
 ### `pipeline/` package (`dowdiness/incr/pipeline`)
 
@@ -377,30 +377,29 @@ The library is split into four MoonBit sub-packages. The root package re-exports
 
 ### Test files
 
-Blackbox tests (`*_test.mbt`) live in the root package and test via the public API. Whitebox tests (`*_wbtest.mbt`) live in `internal/` for private field access.
+Unit tests (`*_test.mbt`) and whitebox tests (`*_wbtest.mbt`) live in `cells/`. Integration tests live in `tests/`.
 
 | File | What it covers |
 |------|----------------|
-| `memo_test.mbt` | Memo behavior, backdating, dependency tracking |
-| `internal/memo_map_test.mbt` | MemoMap keyed caching and lazy per-key recomputation |
-| `backdating_test.mbt` | Backdating (value-unchanged skips downstream recomputation) |
-| `fanout_test.mbt` | Wide dependency graphs (diamond, multi-level) |
-| `callback_test.mbt` | `Runtime::on_change` global callback |
-| `on_change_test.mbt` | `Signal::on_change` / `Memo::on_change` per-cell callbacks |
-| `cycle_test.mbt` | Cycle detection via `get_result()` and `get()` panics |
-| `cycle_path_test.mbt` | Cycle error path formatting and content |
-| `verify_path_test.mbt` | Cycle detection during verification (reverification path) |
-| `integration_test.mbt` | End-to-end multi-signal/memo scenarios |
-| `custom_eq_test.mbt` | Custom `Eq` implementations and backdating interaction |
-| `debug_test.mbt` | Debug output and formatting |
-| `traits_test.mbt` | Pipeline trait (`CalcPipeline`) fixture tests |
-| `signal_introspection_test.mbt` | `Signal::cell_info`, `Signal::id` |
-| `memo_introspection_test.mbt` | `Memo::cell_info`, `Memo::id` |
-| `runtime_introspection_test.mbt` | `Runtime::cell_info`, `CellInfo` struct |
-| `introspection_integration_test.mbt` | Cross-type introspection scenarios |
-| `internal/batch_wbtest.mbt` | Batch internals: revision, revert detection, panic guards (whitebox) |
-| `internal/durability_wbtest.mbt` | Durability shortcut internals (whitebox) |
-| `internal/cell_wbtest.mbt` | `CellId::hash` properties (whitebox) |
-| `internal/signal_wbtest.mbt` | Signal internals (whitebox) |
-| `internal/verify_wbtest.mbt` | `finish_frame_changed` invariant violation abort (whitebox) |
-| `internal/memo_dep_diff_wbtest.mbt` | Dependency diff optimization internals (whitebox) |
+| `cells/memo_test.mbt` | Memo behavior, backdating, dependency tracking |
+| `cells/memo_map_test.mbt` | MemoMap keyed caching and lazy per-key recomputation |
+| `cells/backdating_test.mbt` | Backdating (value-unchanged skips downstream recomputation) |
+| `cells/callback_test.mbt` | `Runtime::on_change` global callback |
+| `cells/on_change_test.mbt` | `Signal::on_change` / `Memo::on_change` per-cell callbacks |
+| `cells/cycle_test.mbt` | Cycle detection via `get_result()` and `get()` panics |
+| `cells/cycle_path_test.mbt` | Cycle error path formatting and content |
+| `cells/verify_path_test.mbt` | Cycle detection during verification (reverification path) |
+| `cells/custom_eq_test.mbt` | Custom `Eq` implementations and backdating interaction |
+| `cells/debug_test.mbt` | Debug output and formatting |
+| `cells/introspection_test.mbt` | `Signal::cell_info`, `Memo::cell_info`, `Runtime::cell_info` |
+| `cells/batch_wbtest.mbt` | Batch internals: revision, revert detection, panic guards (whitebox) |
+| `cells/durability_wbtest.mbt` | Durability shortcut internals (whitebox) |
+| `cells/cell_wbtest.mbt` | `CellId::hash` properties (whitebox) |
+| `cells/signal_wbtest.mbt` | Signal internals (whitebox) |
+| `cells/verify_wbtest.mbt` | `finish_frame_changed` invariant violation abort (whitebox) |
+| `cells/memo_dep_diff_wbtest.mbt` | Dependency diff optimization internals (whitebox) |
+| `cells/runtime_wbtest.mbt` | Cross-runtime `get_cell` abort (whitebox) |
+| `tests/integration_test.mbt` | End-to-end multi-signal/memo scenarios |
+| `tests/fanout_test.mbt` | Wide dependency graphs (diamond, multi-level) |
+| `tests/traits_test.mbt` | Pipeline trait (`CalcPipeline`) fixture tests |
+| `tests/tracked_struct_test.mbt` | `TrackedCell`, `Trackable`, and `gc_tracked` |

@@ -117,7 +117,7 @@ let config = Signal(rt, "prod", durability=High, label="config")  // explicit
 
 ### `Signal::get(self) -> T`
 
-Returns the current signal value and records dependency when called inside a memo computation.
+Returns the current signal value and records dependency when called inside a memo computation. Aborts if called inside a memo computation that belongs to a different `Runtime`.
 
 ```moonbit
 let value = count.get()
@@ -245,7 +245,7 @@ let tax = Memo(rt, () => price.get() * 0.1, label="tax")
 
 ### `Memo::get[T : Eq](self) -> T`
 
-Returns cached value, recomputing if stale. Aborts on cycle.
+Returns cached value, recomputing if stale. Aborts on cycle, or if called inside a memo computation that belongs to a different `Runtime`.
 
 ```moonbit
 let value = doubled.get()
@@ -253,7 +253,7 @@ let value = doubled.get()
 
 ### `Memo::get_result[T : Eq](self) -> Result[T, CycleError]`
 
-Returns cached value as `Result`, allowing graceful cycle handling.
+Returns cached value as `Result`, allowing graceful cycle handling. Aborts (does not return `Err`) if called inside a memo computation that belongs to a different `Runtime`.
 
 ```moonbit
 match doubled.get_result() {
