@@ -84,3 +84,44 @@ test "durability: high-only memo skips verify when low input changes" {
   inspect(config_derived.get(), content="200")
   inspect(config_compute_count, content="1")
 }
+
+///|
+test "durability: shortcut boundary — High memo stays skipped when durability_last_changed[High] equals verified_at" {
+  // The shortcut fires when: NOT (durability_last_changed[dur] > after_revision)
+  // i.e. when durability_last_changed[dur] <= after_revision.
+  // This test exercises the equality case: last_changed == verified_at.
+  //
+  // Steps:
+  //   rev 0 → initial compute; config_memo.verified_at = 0
+  //   rev 1 → config (High) changes; durability_last_changed[High] = 1
+  //   rev 1 → config_memo recomputes; verified_at = 1
+  //   rev 2 → data (Medium) changes; durability_last_changed[High] stays at 1
+  //   shortcut check: 1 > 1 → false → shortcut fires → config_memo NOT recomputed
+  let rt = Runtime::new()
+  let config = Signal::new(rt, 1, durability=High)
+  let data = Signal::new(rt, 0, durability=Medium)
+  let mut config_compute_count = 0
+  let config_memo = Memo::new(rt, () => {
+    config_compute_count = config_compute_count + 1
+    config.get() * 10
+  })
+  // Initial computation at revision 0
+  inspect(config_memo.get(), content="10")
+  inspect(config_compute_count, content="1")
+  inspect(rt.current_revision.value, content="0")
+  // Change High signal: bumps to revision 1; durability_last_changed[High] = 1
+  config.set(2)
+  inspect(rt.current_revision.value, content="1")
+  // Re-verify config_memo: verified_at = 1
+  inspect(config_memo.get(), content="20")
+  inspect(config_compute_count, content="2")
+  // Change Medium signal: bumps to revision 2
+  // durability_last_changed[Medium] = 2, durability_last_changed[Low] = 2
+  // durability_last_changed[High] stays at 1  ← key boundary condition
+  data.set(99)
+  inspect(rt.current_revision.value, content="2")
+  // Shortcut check: durability_last_changed[High]=1 > after_revision=1 → false
+  // NOT false → shortcut fires; config_memo must NOT recompute
+  inspect(config_memo.get(), content="20")
+  inspect(config_compute_count, content="2")
+}
