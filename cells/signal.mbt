@@ -58,11 +58,7 @@ pub fn[T] Signal::new(
   durability? : Durability = Low,
   label? : String,
 ) -> Signal[T] {
-  // new_signal_id: allocate into SoA pull_signals and cell_index
   let cell_id = rt.new_signal_id(durability, label)
-  // Keep CellMeta registration for existing verification code (removed in Task 7)
-  let meta = CellMeta::new_input(cell_id, durability, label)
-  rt.register_cell(meta)
   { label, rt, cell_id, value: initial, pending_value: None, durability }
 }
 
@@ -196,8 +192,8 @@ pub fn[T] Signal::set_unconditional(self : Signal[T], new_value : T) -> Unit {
   } else {
     self.value = new_value
     self.rt.bump_revision(self.durability)
-    let meta = self.rt.mark_input_changed(self.cell_id)
-    match meta.on_change {
+    let sig = self.rt.mark_input_changed(self.cell_id)
+    match sig.on_change {
       Some(f) => f()
       None => ()
     }
@@ -217,24 +213,24 @@ fn[T : Eq] Signal::set_batch(self : Signal[T], new_value : T) -> Unit {
     return
   }
   let previous_pending = self.pending_value
-  let meta = self.rt.get_cell(self.cell_id)
-  let was_registered = match meta.commit_pending {
+  let sig_data = self.rt.get_pull_signal(self.cell_id)
+  let was_registered = match sig_data.commit_pending {
     Some(_) => true
     None => false
   }
   self.rt.record_batch_rollback(self.cell_id, () => {
     self.pending_value = previous_pending
     if not(was_registered) {
-      meta.commit_pending = None
-      meta.rollback_pending = None
+      sig_data.commit_pending = None
+      sig_data.rollback_pending = None
       self.rt.remove_batch_signal(self.cell_id)
     }
   })
   self.pending_value = Some(new_value)
   // Register commit closure if not already registered
-  if meta.commit_pending is None {
-    meta.commit_pending = Some(() => self.commit())
-    meta.rollback_pending = Some(() => self.rollback_pending())
+  if sig_data.commit_pending is None {
+    sig_data.commit_pending = Some(() => self.commit())
+    sig_data.rollback_pending = Some(() => self.rollback_pending())
     self.rt.record_batch_signal(self.cell_id)
   }
   self.rt.bump_revision(self.durability)
@@ -244,23 +240,23 @@ fn[T : Eq] Signal::set_batch(self : Signal[T], new_value : T) -> Unit {
 /// Store a pending value during a batch (unconditional).
 fn[T] Signal::set_batch_unconditional(self : Signal[T], new_value : T) -> Unit {
   let previous_pending = self.pending_value
-  let meta = self.rt.get_cell(self.cell_id)
-  let was_registered = match meta.commit_pending {
+  let sig_data = self.rt.get_pull_signal(self.cell_id)
+  let was_registered = match sig_data.commit_pending {
     Some(_) => true
     None => false
   }
   self.rt.record_batch_rollback(self.cell_id, () => {
     self.pending_value = previous_pending
     if not(was_registered) {
-      meta.commit_pending = None
-      meta.rollback_pending = None
+      sig_data.commit_pending = None
+      sig_data.rollback_pending = None
       self.rt.remove_batch_signal(self.cell_id)
     }
   })
   self.pending_value = Some(new_value)
-  if meta.commit_pending is None {
-    meta.commit_pending = Some(() => self.commit_unconditional())
-    meta.rollback_pending = Some(() => self.rollback_pending())
+  if sig_data.commit_pending is None {
+    sig_data.commit_pending = Some(() => self.commit_unconditional())
+    sig_data.rollback_pending = Some(() => self.rollback_pending())
     self.rt.record_batch_signal(self.cell_id)
   }
   self.rt.bump_revision(self.durability)
@@ -317,15 +313,13 @@ fn[T] Signal::rollback_pending(self : Signal[T]) -> Unit {
 ///
 /// - `f`: Called with the new value whenever this signal changes
 pub fn[T] Signal::on_change(self : Signal[T], f : (T) -> Unit) -> Unit {
-  let cell = self.rt.get_cell(self.cell_id)
-  cell.on_change = Some(() => f(self.value))
+  self.rt.get_pull_signal(self.cell_id).on_change = Some(() => f(self.value))
 }
 
 ///|
 /// Removes the `on_change` callback for this signal.
 pub fn[T] Signal::clear_on_change(self : Signal[T]) -> Unit {
-  let cell = self.rt.get_cell(self.cell_id)
-  cell.on_change = None
+  self.rt.get_pull_signal(self.cell_id).on_change = None
 }
 
 ///|

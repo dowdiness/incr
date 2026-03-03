@@ -6,7 +6,7 @@ test "dep diff: stable deps preserve durability" {
   let a = Signal::new(rt, 1, durability=High)
   let m = Memo::new(rt, () => a.get() + 1)
   let _ = m.get()
-  let meta = rt.get_cell(m.id())
+  let meta = rt.get_pull_memo(m.id())
   inspect(meta.durability, content="High")
   // a changes value but dep list stays [a] — durability must stay High
   a.set(2)
@@ -26,7 +26,7 @@ test "dep diff: dynamic deps update dep list and durability" {
   let m = Memo::new(rt, () => if flag.get() { a.get() } else { b.get() })
   // Initial: reads flag(High) and a(High) → min durability = High
   let _ = m.get()
-  let meta = rt.get_cell(m.id())
+  let meta = rt.get_pull_memo(m.id())
   inspect(meta.durability, content="High")
   inspect(meta.dependencies.length(), content="2")
   // Switch: reads flag(High) and b(Low) → min durability = Low

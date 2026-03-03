@@ -348,7 +348,7 @@ test "panic commit_batch: signal with None commit_pending aborts" {
   // commit_pending and enqueues the cell id in batch_pending_signals
   sig.set(1)
   // Corrupt the commit_pending closure
-  let meta = rt.get_cell(sig.id())
+  let meta = rt.get_pull_signal(sig.id())
   meta.commit_pending = None
   // Manually exit batch and trigger commit_batch
   rt.batch_depth = 0

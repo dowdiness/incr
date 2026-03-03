@@ -17,17 +17,17 @@ test "CellId::hash equal inputs produce equal hashes" {
 }
 
 ///|
-test "CellMeta new_input stores label" {
+test "signal label stored in PullSignalData" {
   let rt = Runtime::new()
-  let id = rt.alloc_next_id()
-  let meta = CellMeta::new_input(id, Low, Some("my_signal"))
-  inspect(meta.label, content="Some(\"my_signal\")")
+  let sig = Signal::new(rt, 0, label="my_signal")
+  let data = rt.get_pull_signal(sig.id())
+  inspect(data.label, content="Some(\"my_signal\")")
 }
 
 ///|
-test "CellMeta new_input stores None label" {
+test "signal None label stored in PullSignalData" {
   let rt = Runtime::new()
-  let id = rt.alloc_next_id()
-  let meta = CellMeta::new_input(id, Low, None)
-  inspect(meta.label, content="None")
+  let sig = Signal::new(rt, 0)
+  let data = rt.get_pull_signal(sig.id())
+  inspect(data.label, content="None")
 }

@@ -6,7 +6,7 @@ test "memo_map wb: get_or and get_or_else fallback on cycle error" {
   inspect(by_key.get(1), content="2")
 
   let memo = by_key.entries.get(1).unwrap()
-  let meta = rt.get_cell(memo.id())
+  let meta = rt.get_pull_memo(memo.id())
   // Simulate leaked verifier state and force reverification on next read.
   meta.in_progress = true
   source.set(2)
@@ -23,6 +23,6 @@ test "memo_map wb: get_or and get_or_else fallback on cycle error" {
   )
   inspect(captured.val == Some(memo.id()), content="true")
 
-  // Manual cleanup for test isolation.
+  // Manual cleanup: restore PullMemoData.in_progress for test isolation.
   meta.in_progress = false
 }
