@@ -113,6 +113,13 @@ match total.get_result() {
 
 `Signal::get_result()` is always `Ok`, but useful for API symmetry in generic code.
 
+For a shorter form without pattern matching, use `get_or` or `get_or_else`:
+
+```moonbit
+let value = total.get_or(0)                           // inline fallback
+let value = total.get_or_else(err => default_value)   // computed fallback
+```
+
 ### Step 5: Observe Committed Changes
 
 Use `Runtime::set_on_change` to run a callback whenever the runtime commits a change.
