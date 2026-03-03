@@ -239,6 +239,9 @@ fn Runtime::new_signal_id(
 ///
 /// Covers PullSignal and PullMemo; aborts on unknown or out-of-bounds IDs.
 fn Runtime::get_changed_at(self : Runtime, id : CellId) -> Revision {
+  if id.runtime_id != self.runtime_id {
+    abort("Cell belongs to a different Runtime")
+  }
   if id.id < 0 || id.id >= self.cell_index.length() {
     abort("get_changed_at: cell_id out of bounds: " + id.id.to_string())
   }
