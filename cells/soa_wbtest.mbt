@@ -1,4 +1,20 @@
 ///|
+test "get_changed_at: dispatches via cell_index" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 1)
+  let rev = rt.get_changed_at(sig.id())
+  inspect(rev >= Revision::initial(), content="true")
+}
+
+///|
+test "cell_id_for: round-trips through cell_index" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 1)
+  let cell_id = rt.cell_id_for(rt.cell_index[sig.id().id])
+  inspect(cell_id == sig.id(), content="true")
+}
+
+///|
 test "runtime: SoA fields exist and start empty" {
   let rt = Runtime::new()
   inspect(rt.pull_signals.length(), content="0")

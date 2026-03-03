@@ -235,6 +235,32 @@ fn Runtime::new_signal_id(
 }
 
 ///|
+/// Returns the `changed_at` revision for any cell, dispatching via cell_index.
+///
+/// Covers PullSignal and PullMemo; aborts on unknown or out-of-bounds IDs.
+fn Runtime::get_changed_at(self : Runtime, id : CellId) -> Revision {
+  if id.id < 0 || id.id >= self.cell_index.length() {
+    abort("get_changed_at: cell_id out of bounds: " + id.id.to_string())
+  }
+  match self.cell_index[id.id] {
+    PullSignal(idx) => self.pull_signals[idx].changed_at
+    PullMemo(idx) => self.pull_memos[idx].changed_at
+  }
+}
+
+///|
+/// Returns the CellId stored in the given SoA entry (reverse lookup).
+///
+/// Each SoA data struct caches its own CellId so we can round-trip from a
+/// CellRef index back to the unified CellId without an extra map.
+fn Runtime::cell_id_for(self : Runtime, cell_ref : CellRef) -> CellId {
+  match cell_ref {
+    PullSignal(idx) => self.pull_signals[idx].cell_id
+    PullMemo(idx) => self.pull_memos[idx].cell_id
+  }
+}
+
+///|
 /// Retrieves cell metadata by ID.
 ///
 /// This is called internally during verification and recomputation.
