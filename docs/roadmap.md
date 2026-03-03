@@ -39,6 +39,17 @@ High-level future direction for the `incr` library, organized by phase. Each pha
 - **Method chaining**: Fluent configuration for Runtime — deferred
 - **Convenience helpers**: Shorter names for common patterns — deferred
 
+### Phase 2D: Graceful Error Handling ✓
+
+- ~~**Raised-error rollback in `Runtime::batch`**~~ ✓ Implemented
+  - `Runtime::batch` accepts `f : () -> Unit raise?`; raised errors roll back all pending signal writes before re-raising (`abort()` is still unrecoverable)
+  - `rollback_pending` closure added to `CellMeta` for per-signal rollback hooks
+- ~~**`batch_result`**: Transactional batch returning `Result` instead of re-raising~~ ✓ Implemented
+  - `Runtime::batch_result(f) -> Result[Unit, Error]` and `@incr.batch_result(db, f)` Database helper form
+- ~~**Convenience reads**: `get_or` and `get_or_else` for cycle-safe reads without pattern matching~~ ✓ Implemented
+  - `Memo::get_or(fallback : T) -> T`, `Memo::get_or_else(fallback : (CycleError) -> T) -> T`
+  - `MemoMap::get_or`, `MemoMap::get_or_else` with identical semantics
+
 ## Phase 3 — Performance
 
 - ~~**HashSet-based dependency deduplication**: Replace linear scan in `ActiveQuery::record` with a `HashSet` for O(1) dedup~~ ✓ Implemented
