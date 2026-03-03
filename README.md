@@ -120,6 +120,19 @@ match sum.get_result() {
 }
 ```
 
+For a shorter form without pattern matching, use `get_or` or `get_or_else`:
+
+```moonbit
+// Inline fallback value
+let value = sum.get_or(0)
+
+// Fallback computed from the error
+let value = sum.get_or_else(err => {
+  println(err.format_path(app.runtime()))
+  0
+})
+```
+
 `Runtime::batch` (and `@incr.batch`) also supports raised-error rollback:
 
 ```moonbit
