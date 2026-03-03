@@ -177,12 +177,12 @@ pub fn[T : Eq] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
         return Ok(cached)
       }
       // Check if any dependency changed since last verification.
-      // Note: maybe_changed_after may recompute this cell internally
-      // (via recompute_and_check) to determine if value actually changed.
-      match maybe_changed_after(self.rt, self.cell_id, cell.verified_at) {
+      // Note: pull_verify may recompute this cell internally
+      // (via compute closure) to determine if value actually changed.
+      match self.rt.pull_verify(self.cell_id) {
         Ok(_) => {
           self.rt.record_dependency(self.cell_id)
-          // Re-read self.value: maybe_changed_after may have called
+          // Re-read self.value: pull_verify may have called
           // force_recompute, replacing the cached value with a new one.
           // The outer Some(cached) binding may be stale.
           match self.value {
@@ -292,6 +292,14 @@ fn[T : Eq] Memo::force_recompute(self : Memo[T]) -> Result[T, CycleError] {
   // else: backdate — keep old changed_at (key Salsa insight)
   cell.verified_at = self.rt.current_revision
   cell.in_progress = false
+  // Sync SoA fields for pull_verify dispatch (migration period; removed in Task 7)
+  match self.rt.cell_index[self.cell_id.id] {
+    PullMemo(idx) => {
+      self.rt.pull_memos[idx].dependencies = cell.dependencies
+      self.rt.pull_memos[idx].changed_at = cell.changed_at
+    }
+    _ => ()
+  }
   Ok(new_value)
 }
 

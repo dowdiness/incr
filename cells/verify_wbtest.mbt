@@ -79,20 +79,23 @@ test "memo_get_or_else_receives_cycle_error" {
 }
 
 ///|
-// Trigger finish_frame_changed with a Derived cell whose recompute_and_check
-// is None — simulates internal state corruption.
-test "panic finish_frame_changed: Derived cell with None recompute_and_check aborts" {
+// pull_verify uses PullMemoData.compute, not CellMeta.recompute_and_check.
+// Corrupting the latter no longer causes an abort — this test verifies the
+// transition away from finish_frame_changed in the SoA migration.
+test "finish_frame_changed: corrupted CellMeta recompute_and_check ignored by pull_verify" {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 0)
   let memo = Memo::new(rt, () => sig.get() + 1)
   // Force first computation to populate cell state
   let _ = memo.get_result()
-  // Corrupt internal state: clear the type-erased recompute closure
+  // Corrupt CellMeta — pull_verify ignores this field; it uses PullMemoData.compute
   let meta = rt.get_cell(memo.id())
   meta.recompute_and_check = None
-  // Trigger a re-verification: change sig so the memo is stale
+  // Trigger re-verification: change sig so the memo is stale
   sig.set(1)
-  // get_result calls maybe_changed_after which calls finish_frame_changed
-  // with the corrupted cell — must abort
-  let _ = memo.get_result()
+  // pull_verify recomputes via PullMemoData.compute — should succeed, not abort
+  match memo.get_result() {
+    Ok(v) => inspect(v, content="2")
+    Err(_) => abort("unexpected error")
+  }
 }

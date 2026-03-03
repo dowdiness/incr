@@ -235,6 +235,25 @@ fn Runtime::new_signal_id(
 }
 
 ///|
+/// Collects all pull memos currently marked in_progress.
+///
+/// Called when a cycle is detected during `pull_verify`. The in_progress
+/// flags on `PullMemoData` entries identify the exact cycle participants.
+///
+/// # Returns
+///
+/// Array of CellIds for all pull memos with `in_progress = true`
+fn Runtime::collect_in_progress_path(self : Runtime) -> Array[CellId] {
+  let path : Array[CellId] = []
+  for memo in self.pull_memos {
+    if memo.in_progress {
+      path.push(memo.cell_id)
+    }
+  }
+  path
+}
+
+///|
 /// Returns the `changed_at` revision for any cell, dispatching via cell_index.
 ///
 /// Covers PullSignal and PullMemo; aborts on unknown or out-of-bounds IDs.
@@ -460,6 +479,13 @@ fn Runtime::mark_input_changed(self : Runtime, id : CellId) -> CellMeta {
   let meta = self.get_cell(id)
   meta.changed_at = self.current_revision
   meta.verified_at = self.current_revision
+  // Sync SoA changed_at for pull_verify dispatch (migration period; removed in Task 7)
+  if id.id >= 0 && id.id < self.cell_index.length() {
+    match self.cell_index[id.id] {
+      PullSignal(idx) => self.pull_signals[idx].changed_at = self.current_revision
+      _ => ()
+    }
+  }
   meta
 }
 
