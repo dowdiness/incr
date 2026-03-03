@@ -75,6 +75,16 @@ Concrete, actionable tasks for the `incr` library.
 - [x] Unified `create_signal` with optional `durability?` replaces `create_signal_durable`
 - [ ] Explore RAII `BatchGuard` if MoonBit adds destructors
 
+### Graceful Error Handling (Phase 2D — Done)
+
+- [x] Add raised-error rollback to `Runtime::batch` (accepts `() -> Unit raise?`)
+- [x] Add `rollback_pending` closure to `CellMeta` for per-signal batch rollback hooks
+- [x] Add `Runtime::batch_result` returning `Result[Unit, Error]` instead of re-raising
+- [x] Add `@incr.batch_result(db, f)` Database helper form
+- [x] Add `Memo::get_or(fallback : T) -> T` for cycle-safe reads without pattern matching
+- [x] Add `Memo::get_or_else(fallback : (CycleError) -> T) -> T`
+- [x] Add `MemoMap::get_or` and `MemoMap::get_or_else` with identical semantics
+
 ### Advanced (Phase 4)
 
 - [x] Add subscriber (reverse) links for push-based invalidation
