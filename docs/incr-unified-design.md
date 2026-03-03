@@ -103,6 +103,9 @@ struct PullSignalData {
   mut durability : Durability
   subscribers : @hashset.HashSet[CellId]   // reverse links
   mut on_change : (() -> Unit)?            // per-cell change callback
+  // Batch support: set by Signal[T]::set during a batch; cleared after commit/rollback.
+  mut commit_pending   : (() -> Bool)?     // compare new value with current; update Ref; return changed?
+  mut rollback_pending : (() -> Unit)?     // restore Ref to pre-batch value
 }
 ```
 
@@ -151,6 +154,8 @@ struct PushReactiveData {
 ```
 
 `level` is a cached topological depth. If a reactive's `sources` change, level updates must be propagated to downstream push nodes even when the reactive's value is unchanged.
+
+**No Durability field**: Push cells always propagate immediately; the durability shortcut (skip verification if no input of a cell's durability level changed) is a pull-only optimization. Push cells that read PullSignals are not affected by `durability_last_changed` — the pull→push boundary fires unconditionally when any changed signal has push subscribers.
 
 **Cycle-freedom guarantee**: Static dependency cycles are impossible by construction. If reactive A reads reactive B, level assignment requires `A.level ≥ B.level + 1`. A cycle A → B → A would require `A.level > B.level` *and* `B.level > A.level` simultaneously — a contradiction. `compute` therefore returns `Bool` rather than `Result[Bool, CycleError]`; no runtime cycle detection is needed for the static case.
 
@@ -281,6 +286,18 @@ fn Runtime::pull_verify(self, cell_id : CellId) -> Result[Unit, CycleError] {
           memo.in_progress = false
 
           if frame.changed {
+            // compute() is a type-erased closure created at Memo construction time.
+            // Internally it calls begin_tracking / run user fn / end_tracking /
+            // finish_tracking, then compares the new value with the cached value.
+            //
+            // Two-level structure:
+            //   pull_verify explicit stack = VERIFICATION WALK (decides whether to recompute)
+            //   compute()                  = RECOMPUTATION + dependency re-recording
+            //
+            // By the time compute() fires for a memo, all its deps have already been
+            // verified (the stack processes deps before their dependents, bottom-up).
+            // So any nested get() calls inside compute() will find verified_at up to
+            // date and return immediately — no recursive verification needed.
             match (memo.compute)() {
               Ok(_) => ()   // recompute done; may backdate memo.changed_at
               Err(e) => { err = Some(e) }
@@ -557,6 +574,7 @@ fn Runtime::ensure_up_to_date(self, cell_id : CellId) -> Result[Unit, CycleError
     PushEffect(_)    => Ok(())                    // terminal, not readable
     Relation(_)      => Ok(())                    // freshness via fixpoint
     Rule(_)          => Ok(())                    // not directly readable
+    Disposed         => abort("ensure_up_to_date: cell \{cell_id.id} has been disposed")
   }
 }
 ```
@@ -579,7 +597,31 @@ fn Runtime::cell_id_for(self, cell_ref : CellRef) -> CellId {
 }
 ```
 
-**Allocation order**: `cell_id` must be known before the struct literal is constructed. In `alloc_cell_id(cell_ref)`, the runtime first appends a placeholder to `cell_index` (yielding the `id`), then constructs the `CellId { runtime_id, id }` and returns it. The data struct is built with this `CellId` and then pushed to the per-kind array in the same step.
+**Allocation order**: `cell_id` must be known before the struct literal is constructed. `alloc_cell_id` appends to `cell_index` first (yielding the stable `id`), then returns the `CellId`. The caller builds the data struct with this `CellId` and pushes it to the per-kind array in the same step.
+
+```moonbit
+fn Runtime::alloc_cell_id(self, cell_ref : CellRef) -> CellId {
+  let id = self.next_cell_id
+  self.next_cell_id += 1
+  self.cell_index.push(cell_ref)  // cell_index[id] = cell_ref
+  { runtime_id: self.runtime_id, id }
+}
+```
+
+`collect_in_progress_path` is called when a cycle is detected during `pull_verify`. It returns all pull memos currently marked `in_progress`, which are exactly the cycle participants:
+
+```moonbit
+fn Runtime::collect_in_progress_path(self) -> Array[CellId] {
+  // Collect all pull memos with in_progress = true.
+  // Order is not guaranteed to match topological depth; CycleError::format_path
+  // uses label strings, not ordering, to produce a readable cycle description.
+  let path : Array[CellId] = []
+  for memo in self.pull_memos {
+    if memo.in_progress { path.push(memo.cell_id) }
+  }
+  path
+}
+```
 
 ---
 
@@ -637,7 +679,38 @@ fn Runtime::finish_tracking(self, cell_id : CellId, old_deps : Array[CellId], ne
 }
 ```
 
-`get_subscribers_mut(dep)` dispatches on `cell_index[dep.id]` and returns a mutable reference to the appropriate kind's `subscribers` field.
+Two helpers dispatch on `CellRef` to reach the correct `subscribers` field:
+
+```moonbit
+fn Runtime::get_subscribers(self, cell_ref : CellRef) -> Iter[CellId] {
+  match cell_ref {
+    PullSignal(idx)   => self.pull_signals[idx].subscribers.iter()
+    PullMemo(idx)     => self.pull_memos[idx].subscribers.iter()
+    PushReactive(idx) => self.push_reactives[idx].subscribers.iter()
+    Relation(idx)     => self.relations[idx].subscribers.iter()
+    PushEffect(_)     => Iter::empty()  // terminal node; nothing subscribes to an effect
+    Rule(_)           => Iter::empty()  // not subscribable
+    Disposed          => Iter::empty()  // cell is gone
+  }
+}
+
+fn Runtime::get_subscribers_mut(self, cell_id : CellId) -> @hashset.HashSet[CellId] {
+  // Returns the subscribers set for direct mutation (insert/remove).
+  // PushEffect, Rule, and Disposed cells have no subscribers field;
+  // calling this on them is a programming error (see finish_tracking usage).
+  match self.cell_index[cell_id.id] {
+    PullSignal(idx)   => self.pull_signals[idx].subscribers
+    PullMemo(idx)     => self.pull_memos[idx].subscribers
+    PushReactive(idx) => self.push_reactives[idx].subscribers
+    Relation(idx)     => self.relations[idx].subscribers
+    PushEffect(_)     => abort("get_subscribers_mut: PushEffect has no subscribers")
+    Rule(_)           => abort("get_subscribers_mut: Rule has no subscribers")
+    Disposed          => abort("get_subscribers_mut: cell has been disposed")
+  }
+}
+```
+
+`get_changed_at(cell_id)` dispatches similarly; for `Disposed` it aborts. `get_subscribers_mut` is only ever called from `finish_tracking` on cells that are in `node.sources`, which cannot be PushEffect or Rule (nothing reads from terminal nodes).
 
 ### Level Recomputation (Push cells only)
 
@@ -665,6 +738,8 @@ fn Runtime::get_level(self, cell_id : CellId) -> Int {
 ```
 
 **Dynamic dependency handling**: When a PushReactive's sources change after recomputation, the Runtime recalculates its level and then propagates any level deltas to downstream push nodes (`propagate_level_change`). This preserves the topological scheduling invariant even when the reactive's value is unchanged, while still avoiding unsafe global unmarking.
+
+**`propagate_level_change` worst-case complexity**: With the lazy-deletion pattern, each re-queued node produces a new entry in the priority queue. In a fully-connected n-node chain where every level shifts (e.g., inserting a new source at the root), `O(n)` nodes are re-queued with `O(1)` entries each, giving `O(n log n)` total. However, if a node's level is updated multiple times (e.g., due to shared downstream paths), stale entries accumulate: worst-case queue size is `O(n²)` entries across the entire propagation. In practice, reactive graphs for UI are shallow (rarely more than 5–10 levels), so this is not a concern. If deep graphs with dynamic deps are expected, a "dirty-level" bit per node can suppress redundant re-queuing.
 
 ---
 
@@ -715,6 +790,14 @@ fn Runtime::commit_batch(self) -> Unit {
   self.batch_max_durability = Low
 }
 ```
+
+**`commit_pending` mechanism**: When `Signal[T]::set(value)` is called inside a batch, it records the pending update as two type-erased closures on `PullSignalData`:
+- `commit_pending : () -> Bool` — captures `value_ref : Ref[T]` and `new_value : T`; on call, compares `new_value` against current `value_ref.val` (using `T : Eq`), updates `value_ref.val = new_value` if different, returns `true` if changed
+- `rollback_pending : () -> Unit` — captures the old value; on call, restores `value_ref.val` to pre-batch state
+
+The signal's `CellId` is also pushed onto `batch_pending_signals`. `commit_pending_signals()` iterates that list, calls each signal's `commit_pending`, and returns only the CellIds where the closure returned `true` (value actually changed). This gives `changed_ids` for `commit_batch`.
+
+Outside a batch, `Signal[T]::set` directly updates `value_ref`, records `changed_at`, and fires propagation — no closure needed.
 
 For pull-only usage, `commit_batch` simply bumps the revision (no eager propagation). The `has_push_subscribers(changed_ids)` check walks subscriber links of changed signals — if all subscribers are PullMemo cells, push propagation is skipped.
 
@@ -802,11 +885,32 @@ pub fn Effect::dispose(self) -> Unit
 ### 7.6 Relation (Datalog)
 
 ```moonbit
-pub fn Runtime::new_relation[T : Eq + Hash](self) -> RelationId[T]
-pub fn Runtime::relation_insert[T : Eq + Hash](self, id : RelationId[T], tuple : T) -> Bool
-pub fn Runtime::relation_contains[T : Eq + Hash](self, id : RelationId[T], tuple : T) -> Bool
-pub fn Runtime::relation_iter[T : Eq + Hash](self, id : RelationId[T]) -> Iter[T]
+// Primary user-facing API
+pub fn Relation[T : Eq + Hash](rt : Runtime) -> Relation[T]
+pub fn Relation::insert(self, tuple : T) -> Bool   // true if new
+pub fn Relation::contains(self, tuple : T) -> Bool
+pub fn Relation::iter(self) -> Iter[T]             // iterates current (post-fixpoint) set
+pub fn Relation::id(self) -> RelationId[T]         // extract raw id for new_rule
+
+// Runtime-level ID API (internal/advanced)
+fn Runtime::new_relation_id[T : Eq + Hash](self) -> RelationId[T]
+fn Runtime::relation_insert[T : Eq + Hash](self, id : RelationId[T], tuple : T) -> Bool
+fn Runtime::relation_contains[T : Eq + Hash](self, id : RelationId[T], tuple : T) -> Bool
+fn Runtime::relation_iter[T : Eq + Hash](self, id : RelationId[T]) -> Iter[T]
 ```
+
+The `Relation[T]` struct holds typed references to the underlying sets (same pattern as `Signal[T]`):
+
+```moonbit
+pub struct Relation[T : Eq + Hash] {
+  id      : RelationId[T]
+  rt      : Runtime
+  current : Ref[@hashset.HashSet[T]]  // materialized set (post-fixpoint)
+  delta   : Ref[@hashset.HashSet[T]]  // new tuples since last drain
+}
+```
+
+`Relation::iter` reads `current.val` directly — no Runtime dispatch needed. The closures in `RelationData` (`insert`, `drain_delta`, `is_delta_empty`) capture the same `current` and `delta` `Ref`s, so the typed data is shared between the user-facing handle and the type-erased Runtime record. See §8 for the full type erasure pattern.
 
 ### 7.7 Rule (Datalog)
 
@@ -859,6 +963,64 @@ pub fn Signal[T : Eq](rt : Runtime, initial : T) -> Signal[T] {
 ```
 
 The external `SignalId[T]` preserves type information. The typed `Ref[T]` lives in the `Signal[T]` handle held by user code (matching the current implementation). Internally, the Runtime only deals with `CellId` (untyped) and `PullSignalData` (type-erased metadata).
+
+**Relation type erasure** follows the same pattern. The `current` and `delta` `Ref`s are allocated once and shared between the `Relation[T]` handle and the `RelationData` closures:
+
+```moonbit
+fn Runtime::new_relation_id[T : Eq + Hash](self) -> RelationId[T] {
+  let current : Ref[@hashset.HashSet[T]] = Ref(@hashset.new())
+  let delta   : Ref[@hashset.HashSet[T]] = Ref(@hashset.new())
+
+  let idx = self.relations.length()
+  let cell_id = self.alloc_cell_id(CellRef::Relation(idx))
+  let data = RelationData {
+    cell_id,
+    insert: fn(tuple_boxed) { /* T is erased; captured via closure */ abort("use Relation[T]::insert") },
+    // NOTE: the real closures capture `current` and `delta` directly:
+    insert: fn() {
+      // This closure is set by Relation[T]::insert after construction.
+      // See Relation[T] creation below.
+      abort("unreachable")
+    },
+    drain_delta: fn() {
+      let d = delta.val
+      for t in d { current.val.insert(t) |> ignore }
+      delta.val = @hashset.new()
+    },
+    is_delta_empty: fn() { delta.val.size() == 0 },
+    subscribers: @hashset.new(),
+    changed_at: self.revision,
+    changed: false,
+  }
+  self.relations.push(data)
+  RelationId { id: cell_id }
+}
+
+pub fn Relation[T : Eq + Hash](rt : Runtime) -> Relation[T] {
+  let current : Ref[@hashset.HashSet[T]] = Ref(@hashset.new())
+  let delta   : Ref[@hashset.HashSet[T]] = Ref(@hashset.new())
+  let idx = rt.relations.length()
+  let cell_id = rt.alloc_cell_id(CellRef::Relation(idx))
+  rt.relations.push(RelationData {
+    cell_id,
+    insert: fn() { abort("use Relation[T]::insert") }, // placeholder; actual insert uses typed closure below
+    drain_delta:    fn() { for t in delta.val { current.val.insert(t) |> ignore }; delta.val = @hashset.new() },
+    is_delta_empty: fn() { delta.val.size() == 0 },
+    subscribers: @hashset.new(),
+    changed_at: rt.revision,
+    changed: false,
+  })
+  Relation { id: RelationId { id: cell_id }, rt, current, delta }
+}
+
+// Relation[T]::insert uses the typed Refs directly; no Runtime dispatch needed.
+pub fn Relation::insert[T : Eq + Hash](self, tuple : T) -> Bool {
+  if self.current.val.contains(tuple) { return false }
+  self.delta.val.insert(tuple)  // returns Bool (MoonBit HashSet::insert)
+}
+```
+
+The key insight: `insert` on the user-facing `Relation[T]` operates directly on the typed `Ref`s without going through `RelationData`. `RelationData.drain_delta` and `is_delta_empty` also use the same `Ref`s via captured closures, so the Runtime's fixpoint loop always sees the current state.
 
 ---
 
