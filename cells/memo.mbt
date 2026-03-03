@@ -62,11 +62,29 @@ pub fn[T : Eq] Memo::new(
   compute : () -> T,
   label? : String,
 ) -> Memo[T] {
-  let cell_id = rt.alloc_next_id()
+  // new_memo_id: allocate into SoA pull_memos and cell_index.
+  // Done inline because the compute closure must capture the typed `memo`
+  // struct, which in turn requires the cell_id — creating a construction
+  // cycle that prevents factoring this into a standalone Runtime method.
+  let memo_idx = rt.pull_memos.length()
+  let cell_id = rt.alloc_cell_id(PullMemo(memo_idx))
   let memo : Memo[T] = { label, rt, cell_id, compute, value: None }
   let recompute_and_check : () -> Result[Bool, CycleError] = () => {
     memo.recompute_inner()
   }
+  rt.pull_memos.push({
+    cell_id,
+    label,
+    compute: recompute_and_check,
+    changed_at: Revision::initial(),
+    verified_at: Revision::initial(),
+    durability: Low,
+    dependencies: [],
+    subscribers: @hashset.new(),
+    in_progress: false,
+    on_change: None,
+  })
+  // Keep CellMeta registration for existing verification code (removed in Task 7)
   let meta = CellMeta::new_derived(cell_id, recompute_and_check, label)
   rt.register_cell(meta)
   memo

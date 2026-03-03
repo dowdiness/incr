@@ -58,7 +58,9 @@ pub fn[T] Signal::new(
   durability? : Durability = Low,
   label? : String,
 ) -> Signal[T] {
-  let cell_id = rt.alloc_next_id()
+  // new_signal_id: allocate into SoA pull_signals and cell_index
+  let cell_id = rt.new_signal_id(durability, label)
+  // Keep CellMeta registration for existing verification code (removed in Task 7)
   let meta = CellMeta::new_input(cell_id, durability, label)
   rt.register_cell(meta)
   { label, rt, cell_id, value: initial, pending_value: None, durability }

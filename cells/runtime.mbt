@@ -198,11 +198,39 @@ fn Runtime::alloc_next_id(self : Runtime) -> CellId {
 /// A new unique cell identifier
 fn Runtime::alloc_cell_id(self : Runtime, cell_ref : CellRef) -> CellId {
   let cell_id = self.alloc_next_id()
-  // Grow cell_index to accommodate the new id
-  while self.cell_index.length() <= cell_id.id {
-    self.cell_index.push(CellRef::PullSignal(0))
-  }
-  self.cell_index[cell_id.id] = cell_ref
+  self.cell_index.push(cell_ref)
+  cell_id
+}
+
+///|
+/// Allocates a new Pull Signal cell in the SoA layout.
+///
+/// Pushes a `PullSignalData` entry into `pull_signals` and registers
+/// `PullSignal(idx)` in `cell_index` via `alloc_cell_id`.
+///
+/// The `on_change`, `commit_pending`, and `rollback_pending` closures start
+/// as `None` and are set later by `Signal::on_change` and `Signal::set_batch`.
+///
+/// # Returns
+///
+/// The new cell's unique identifier
+fn Runtime::new_signal_id(
+  self : Runtime,
+  durability : Durability,
+  label : String?,
+) -> CellId {
+  let idx = self.pull_signals.length()
+  let cell_id = self.alloc_cell_id(PullSignal(idx))
+  self.pull_signals.push({
+    cell_id,
+    label,
+    changed_at: Revision::initial(),
+    durability,
+    subscribers: @hashset.new(),
+    on_change: None,
+    commit_pending: None,
+    rollback_pending: None,
+  })
   cell_id
 }
 
