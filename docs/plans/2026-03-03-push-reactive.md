@@ -182,23 +182,25 @@ test "push propagation: basic reactive chain Signal → Reactive" {
 
 ///|
 test "push propagation: glitch prevention in diamond" {
-  // a → b, a → c, b+c → d: d should never see inconsistent b,c pair
+  // a → b(a+1), a → c(a*10), b+c → d
+  // d should never see an inconsistent (b,c) pair (e.g. b from new a, c from old a)
   let rt = Runtime::new()
   let a = Signal::new(rt, 1)
   let b = Reactive::new(rt, () => a.get() + 1)
   let c = Reactive::new(rt, () => a.get() * 10)
-  let mut seen_inconsistent = false
+  let mut saw_glitch = false
   let d = Reactive::new(rt, () => {
     let bv = b.get()
     let cv = c.get()
-    if bv + 1 != cv { seen_inconsistent = true }  // if a=2: b=3, c=20 → 3+1≠20 → inconsistent
+    // Invariant: bv - 1 == cv / 10 (both sides equal the current value of a)
+    if bv - 1 != cv / 10 { saw_glitch = true }
     bv + cv
   })
+  let _ = d.get()   // a=1: b=2, c=10, d=12
+  a.set(5)          // a=5: b=6, c=50, d=56 — glitch would produce b=6,c=10 → d=16 or b=2,c=50 → d=52
   let _ = d.get()
-  a.set(2)
-  let _ = d.get()
-  inspect(seen_inconsistent, content="false")
-  inspect(d.get(), content="23")  // b=3 + c=20
+  inspect(saw_glitch, content="false")
+  inspect(d.get(), content="56")
 }
 ```
 
@@ -315,14 +317,17 @@ test "reactive: get() returns cached value" {
 }
 
 ///|
-test "effect: executes on signal change" {
+test "effect: runs on creation, then re-runs on each dependency change" {
   let rt = Runtime::new()
   let s = Signal::new(rt, 0)
-  let mut log = []
+  let mut log : Array[Int] = []
   let _e = Effect::new(rt, () => log.push(s.get()))
+  // Effect runs immediately on creation to establish dependencies
+  inspect(log, content="[0]")
   s.set(1)
+  inspect(log, content="[0, 1]")
   s.set(2)
-  inspect(log, content="[1, 2]")
+  inspect(log, content="[0, 1, 2]")
 }
 ```
 

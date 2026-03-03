@@ -164,7 +164,7 @@ Add to `cells/datalog_wbtest.mbt`:
 ///|
 test "relation: insert adds to delta, not current" {
   let rt = Runtime::new()
-  let rel = Relation::new(rt, Int)
+  let rel : Relation[Int] = Relation::new(rt)
   let inserted = rel.insert(42)
   inspect(inserted, content="true")
   inspect(rel.contains(42), content="false")  // not in current yet
@@ -173,7 +173,7 @@ test "relation: insert adds to delta, not current" {
 ///|
 test "relation: duplicate insert returns false" {
   let rt = Runtime::new()
-  let rel = Relation::new(rt, Int)
+  let rel : Relation[Int] = Relation::new(rt)
   let _ = rel.insert(1)
   let dup = rel.insert(1)
   inspect(dup, content="false")
@@ -182,7 +182,7 @@ test "relation: duplicate insert returns false" {
 ///|
 test "relation: iter reads from current (post-fixpoint)" {
   let rt = Runtime::new()
-  let rel = Relation::new(rt, Int)
+  let rel : Relation[Int] = Relation::new(rt)
   let _ = rel.insert(10)
   let _ = rel.insert(20)
   rt.fixpoint()
@@ -201,6 +201,8 @@ Expected: FAIL — `Relation::new` does not exist
 In `cells/relation.mbt`, implement `Relation[T]` with typed `Ref[@hashset.HashSet[T]]` for `current` and `delta`, and type-erased `drain_delta` / `is_delta_empty` closures in `RelationData`. See `docs/incr-unified-design.md` §8 for the type erasure pattern.
 
 The key type-erasure principle: `RelationData` closures capture the same `Ref`s as the `Relation[T]` handle — the Runtime never touches `T` directly.
+
+Also add `Relation::delta_iter()` returning `Iter[T]` over `self.delta.val` — rule bodies use this to read only the new facts produced in the previous iteration. `Relation::iter()` continues to read from `current` (the materialized post-drain set).
 
 **Step 4: Run tests to verify they pass**
 
@@ -230,8 +232,8 @@ Add to `cells/datalog_wbtest.mbt`:
 ///|
 test "new_rule: registers rule with input and output relations" {
   let rt = Runtime::new()
-  let input = Relation::new(rt, String)
-  let output = Relation::new(rt, String)
+  let input : Relation[String] = Relation::new(rt)
+  let output : Relation[String] = Relation::new(rt)
   let rule_id = rt.new_rule(
     [input.id().id],
     [output.id().id],
@@ -288,16 +290,16 @@ Add to `cells/datalog_wbtest.mbt`:
 ///|
 test "fixpoint: transitive closure — edge(a,b)+edge(b,c) derives path(a,c)" {
   let rt = Runtime::new()
-  let edge = Relation::new(rt, (String, String))
-  let path = Relation::new(rt, (String, String))
+  let edge : Relation[(String, String)] = Relation::new(rt)
+  let path : Relation[(String, String)] = Relation::new(rt)
   let _ = rt.new_rule(
     [edge.id().id],
     [path.id().id],
     fn() {
-      // path(x,y) :- edge(x,y)
+      // path(x,y) :- edge(x,y)  [semi-naive: only new edges this iteration]
       for e in edge.delta_iter() { path.insert(e) |> ignore }
-      // path(x,z) :- path(x,y), edge(y,z)
-      for (px, py) in path.current_iter() {
+      // path(x,z) :- path(x,y), edge(y,z)  [all known paths × all edges]
+      for (px, py) in path.iter() {
         for (ey, ez) in edge.iter() {
           if py == ey { path.insert((px, ez)) |> ignore }
         }
@@ -316,7 +318,7 @@ test "fixpoint: transitive closure — edge(a,b)+edge(b,c) derives path(a,c)" {
 ///|
 test "fixpoint: pull memo depending on relation recomputes after fixpoint" {
   let rt = Runtime::new()
-  let rel = Relation::new(rt, Int)
+  let rel : Relation[Int] = Relation::new(rt)
   let m = Memo::new(rt, () => rel.iter().fold(0, fn(acc, x) { acc + x }))
   rel.insert(1) |> ignore
   rel.insert(2) |> ignore
@@ -330,7 +332,7 @@ test "fixpoint: pull memo depending on relation recomputes after fixpoint" {
 ///|
 test "fixpoint: terminates when no new facts derived" {
   let rt = Runtime::new()
-  let rel = Relation::new(rt, Int)
+  let rel : Relation[Int] = Relation::new(rt)
   let _ = rt.new_rule([rel.id().id], [rel.id().id], fn() { () })  // no-op rule
   rel.insert(1) |> ignore
   rt.fixpoint()  // must not loop forever
@@ -382,7 +384,7 @@ Add to `cells/datalog_wbtest.mbt`:
 ///|
 test "get_changed_at: relation changed_at updated by fixpoint" {
   let rt = Runtime::new()
-  let rel = Relation::new(rt, Int)
+  let rel : Relation[Int] = Relation::new(rt)
   let rev_before = rt.revision()
   rel.insert(1) |> ignore
   rt.fixpoint()
