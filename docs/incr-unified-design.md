@@ -131,10 +131,13 @@ struct PullMemoData {
 ```
 
 `compute` is a type-erased closure that:
-1. Runs the user's function
+1. Calls `begin_tracking` / runs the user's function / calls `end_tracking` + `finish_tracking`
 2. Compares the result with the cached value
-3. Updates the cached value if different
-4. Returns `true` if the value changed (for early cutoff / backdating)
+3. Updates the cached value if different; backdates `changed_at` if value is equal
+4. If the value changed and `on_change` is set, fires `on_change` immediately
+5. Returns `Ok(true)` if the value changed, `Ok(false)` if unchanged, `Err(CycleError)` on cycle
+
+**`on_change` timing**: fires inside `compute()` on recompute, not in `commit_batch`. Memo callbacks are therefore lazy — they only fire when the memo is first `get()`-ted after a stale revision. If eager notification is required, call `memo.get()` explicitly before the batch returns.
 
 ### 3.3 Push Reactive
 
@@ -183,10 +186,12 @@ Set of tuples with delta tracking for semi-naive evaluation.
 ```moonbit
 struct RelationData {
   cell_id : CellId              // reverse lookup: index → CellId
-  // type-erased; actual HashSet[T] lives in closures
-  insert : (Unit) -> Bool       // insert tuple; returns true if new
-  drain_delta : () -> Unit      // move delta to processing buffer
-  is_delta_empty : () -> Bool   // check if delta is empty
+  // Typed data lives in Ref[HashSet[T]] captured by the Relation[T] handle.
+  // The Runtime only needs these three type-erased closures for the fixpoint loop.
+  // Inserts go through Relation[T]::insert (direct Ref access); RelationData
+  // has no insert closure because the Runtime never inserts tuples directly.
+  drain_delta : () -> Unit      // move delta into current; clear delta
+  is_delta_empty : () -> Bool   // convergence check
   subscribers : @hashset.HashSet[CellId]   // downstream Rules and/or push cells
   mut changed_at : Revision     // for pull-side dependency tracking
   mut changed : Bool            // set true when new tuples inserted during fixpoint
@@ -805,6 +810,62 @@ Push reactives that changed during `push_propagate_from` stamp `PushReactive.cha
 
 Nested batches are supported: inner batch success merges undo entries into the parent frame; inner batch failure rolls back only the inner frame. This matches the current `BatchFrame`/`BatchUndo` infrastructure.
 
+### Batch Helper Definitions
+
+```moonbit
+fn Runtime::advance_revision(self, durability : Durability) -> Unit {
+  // Bump the global revision counter and record it for the given durability level
+  // and all levels below it (matching current impl).
+  self.revision = Revision(self.revision.val + 1)
+  for d in Durability::all() {
+    if d <= durability {
+      self.durability_last_changed[d.index()] = self.revision
+    }
+  }
+}
+
+fn Runtime::has_push_subscribers(self, cell_ids : Array[CellId]) -> Bool {
+  // Return true if any of the given cells has at least one PushReactive or
+  // PushEffect subscriber. Used to decide whether push_propagate_from is needed.
+  for cell_id in cell_ids {
+    for sub_id in self.get_subscribers(self.cell_index[cell_id.id]) {
+      match self.cell_index[sub_id.id] {
+        PushReactive(_) | PushEffect(_) => return true
+        _ => ()
+      }
+    }
+  }
+  false
+}
+
+fn Runtime::fire_cell_callbacks(self, changed_ids : Array[CellId]) -> Unit {
+  // Fire per-cell on_change for each changed signal and memo.
+  // Signal callbacks fire unconditionally (signal value definitely changed).
+  // Memo callbacks fire only if the memo's compute returned Ok(true)
+  // (value changed after recompute); this is recorded by compute() itself
+  // setting a pending callback flag, which fire_cell_callbacks drains here.
+  for cell_id in changed_ids {
+    match self.cell_index[cell_id.id] {
+      PullSignal(idx) => {
+        match self.pull_signals[idx].on_change {
+          Some(f) => f()
+          None => ()
+        }
+      }
+      PullMemo(idx) => {
+        match self.pull_memos[idx].on_change {
+          Some(f) => f()
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+}
+```
+
+**Memo `on_change` timing**: a memo's `on_change` fires after recompute confirms the value changed (`compute()` returned `Ok(true)`). In batch mode, `fire_cell_callbacks` is called with only signal `CellId`s (from `commit_pending_signals`); memo callbacks fire lazily — only when the memo is first `get()`-ted after the revision bump, inside `compute()` after a changed recompute. If an eager memo callback is needed, the caller should explicitly `get()` the memo before the batch returns.
+
 ---
 
 ## 7. Public API Surface
@@ -964,38 +1025,9 @@ pub fn Signal[T : Eq](rt : Runtime, initial : T) -> Signal[T] {
 
 The external `SignalId[T]` preserves type information. The typed `Ref[T]` lives in the `Signal[T]` handle held by user code (matching the current implementation). Internally, the Runtime only deals with `CellId` (untyped) and `PullSignalData` (type-erased metadata).
 
-**Relation type erasure** follows the same pattern. The `current` and `delta` `Ref`s are allocated once and shared between the `Relation[T]` handle and the `RelationData` closures:
+**Relation type erasure** follows the same pattern. `current` and `delta` are `Ref[HashSet[T]]`s allocated once; both the `Relation[T]` handle and the `RelationData` closures capture the same two `Ref`s:
 
 ```moonbit
-fn Runtime::new_relation_id[T : Eq + Hash](self) -> RelationId[T] {
-  let current : Ref[@hashset.HashSet[T]] = Ref(@hashset.new())
-  let delta   : Ref[@hashset.HashSet[T]] = Ref(@hashset.new())
-
-  let idx = self.relations.length()
-  let cell_id = self.alloc_cell_id(CellRef::Relation(idx))
-  let data = RelationData {
-    cell_id,
-    insert: fn(tuple_boxed) { /* T is erased; captured via closure */ abort("use Relation[T]::insert") },
-    // NOTE: the real closures capture `current` and `delta` directly:
-    insert: fn() {
-      // This closure is set by Relation[T]::insert after construction.
-      // See Relation[T] creation below.
-      abort("unreachable")
-    },
-    drain_delta: fn() {
-      let d = delta.val
-      for t in d { current.val.insert(t) |> ignore }
-      delta.val = @hashset.new()
-    },
-    is_delta_empty: fn() { delta.val.size() == 0 },
-    subscribers: @hashset.new(),
-    changed_at: self.revision,
-    changed: false,
-  }
-  self.relations.push(data)
-  RelationId { id: cell_id }
-}
-
 pub fn Relation[T : Eq + Hash](rt : Runtime) -> Relation[T] {
   let current : Ref[@hashset.HashSet[T]] = Ref(@hashset.new())
   let delta   : Ref[@hashset.HashSet[T]] = Ref(@hashset.new())
@@ -1003,8 +1035,10 @@ pub fn Relation[T : Eq + Hash](rt : Runtime) -> Relation[T] {
   let cell_id = rt.alloc_cell_id(CellRef::Relation(idx))
   rt.relations.push(RelationData {
     cell_id,
-    insert: fn() { abort("use Relation[T]::insert") }, // placeholder; actual insert uses typed closure below
-    drain_delta:    fn() { for t in delta.val { current.val.insert(t) |> ignore }; delta.val = @hashset.new() },
+    drain_delta:    fn() {
+      for t in delta.val { current.val.insert(t) |> ignore }
+      delta.val = @hashset.new()
+    },
     is_delta_empty: fn() { delta.val.size() == 0 },
     subscribers: @hashset.new(),
     changed_at: rt.revision,
@@ -1013,14 +1047,15 @@ pub fn Relation[T : Eq + Hash](rt : Runtime) -> Relation[T] {
   Relation { id: RelationId { id: cell_id }, rt, current, delta }
 }
 
-// Relation[T]::insert uses the typed Refs directly; no Runtime dispatch needed.
+// Relation[T]::insert writes directly to the typed Refs; no Runtime dispatch needed.
 pub fn Relation::insert[T : Eq + Hash](self, tuple : T) -> Bool {
-  if self.current.val.contains(tuple) { return false }
-  self.delta.val.insert(tuple)  // returns Bool (MoonBit HashSet::insert)
+  if self.current.val.contains(tuple) || self.delta.val.contains(tuple) { return false }
+  self.delta.val.insert(tuple) |> ignore
+  true
 }
 ```
 
-The key insight: `insert` on the user-facing `Relation[T]` operates directly on the typed `Ref`s without going through `RelationData`. `RelationData.drain_delta` and `is_delta_empty` also use the same `Ref`s via captured closures, so the Runtime's fixpoint loop always sees the current state.
+`drain_delta` and `is_delta_empty` in `RelationData` capture the same `current`/`delta` `Ref`s via closure, so the Runtime's fixpoint loop always sees up-to-date state without ever touching typed `T`.
 
 ---
 
