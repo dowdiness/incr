@@ -9,6 +9,8 @@ The library should continue running after expected failure modes (cycles, raised
 
 ---
 
+**Status:** Complete ✓ — all tasks implemented and verified. See `docs/plans/2026-03-03-panic-safety-docs-design.md` for the follow-up docs-pass design.
+
 ### Scope
 
 In scope:
@@ -26,8 +28,8 @@ Out of scope:
 ### Progress Snapshot
 
 - [x] Added characterization tests for leaked batch/tracking state simulation
-  - `internal/batch_wbtest.mbt`
-  - `internal/verify_wbtest.mbt`
+  - `cells/batch_wbtest.mbt`
+  - `cells/verify_wbtest.mbt`
 - [x] Implemented raised-error-safe batching
   - `Runtime::batch` now accepts `f : () -> Unit raise?`
   - raised errors rollback pending writes and restore `batch_depth`
@@ -44,7 +46,7 @@ Out of scope:
 
 ---
 
-### Task 1: Finish graceful API documentation pass
+### Task 1: Finish graceful API documentation pass ✓
 
 **Files:**
 - Modify: `README.md`
@@ -59,13 +61,13 @@ Update docs to clearly state:
 
 ---
 
-### Task 2: Audit and reduce user-triggerable aborts
+### Task 2: Audit and reduce user-triggerable aborts ✓
 
 **Files:**
-- Modify: `internal/runtime.mbt`
-- Modify: `internal/memo.mbt`
-- Modify: `internal/verify.mbt`
-- Modify tests under `internal/*_wbtest.mbt`
+- Modify: `cells/runtime.mbt`
+- Modify: `cells/memo.mbt`
+- Modify: `cells/verify.mbt`
+- Modify tests under `cells/*_wbtest.mbt`
 
 Actions:
 - Classify each `abort()` site as:
@@ -93,10 +95,10 @@ Rationale:
 
 ---
 
-### Task 3: Add explicit non-panicking entrypoints where missing
+### Task 3: Add explicit non-panicking entrypoints where missing ✓
 
 **Files:**
-- Modify: `internal/*.mbt`
+- Modify: `cells/*.mbt`
 - Modify: `traits.mbt`
 - Modify: `incr.mbt` (re-exports if needed)
 - Modify tests in `tests/*.mbt`
@@ -107,7 +109,7 @@ Actions:
 
 ---
 
-### Task 4: Validate behavior and coverage
+### Task 4: Validate behavior and coverage ✓
 
 Run:
 ```bash
@@ -123,7 +125,7 @@ Acceptance criteria:
 
 ---
 
-### Task 5: Update project tracking docs
+### Task 5: Update project tracking docs ✓
 
 **Files:**
 - Modify: `docs/todo.md`
