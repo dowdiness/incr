@@ -1,290 +1,323 @@
-# Phase 4: Relation + Rule + Fixpoint
+# Datalog Primitives: Relation, Rule, Fixpoint (Phase 4)
 
-**Reference**: `docs/incr-unified-design.md` §3.5–3.6, §4.3, §7.6–7.7, §8 (Relation type erasure), §9, §10 Phase 4
+**Goal:** Add Datalog primitives: `Relation[T]` (set of tuples with delta tracking), `Rule` (derives new facts from deltas), and `Runtime::fixpoint()` (semi-naive evaluation loop). Relations integrate with the pull verification system via `changed_at`, so pull memos can depend on relation results without a bridge layer.
 
-## Goal
+**Architecture:** See `docs/incr-unified-design.md` §3.5–3.6, §4.3, §7.6–7.7, §8, §9 for data structures, type erasure pattern, and fixpoint algorithm.
 
-Add Datalog primitives: `Relation[T]` (set of tuples with delta tracking), `Rule` (derives new tuples from deltas), and `Runtime::fixpoint()` (semi-naive evaluation loop). Relations integrate with the pull verification system via `changed_at`, so pull memos can depend on relation results without special bridge code.
+**Prerequisite:** Phase 2 complete. Phase 3 is independent — Phase 4 can run in parallel with Phase 3.
 
-## Starting State
+**Tech Stack:** MoonBit. Validate with `moon check` and `moon test`.
 
-Phase 2 is complete (subscriber links). Phase 3 is **independent** — Phase 4 can be developed in parallel with Phase 3, or after it. The only hard requirement is Phase 2 (subscriber links and `get_subscribers`).
+---
 
-## Deliverables
+### Scope
 
-| File | Action |
-|------|--------|
-| `cells/relation.mbt` | **Create** — `RelationData`, `RelationId[T]`, `Relation[T]` |
-| `cells/rule.mbt` | **Create** — `RuleData`, `RuleId` |
-| `cells/fixpoint.mbt` | **Create** — `Runtime::fixpoint` |
-| `cells/cell_ref.mbt` | **Adapt** — add `Relation`, `Rule` variants |
-| `cells/runtime.mbt` | **Adapt** — add `relations`/`rules` arrays; update `get_subscribers`, `get_changed_at`, `cell_id_for`, `ensure_up_to_date` |
+In scope:
+- `Relation`, `Rule` variants added to `CellRef`
+- `RelationData`, `RuleData` structs
+- `relations : Array[RelationData]`, `rules : Array[RuleData]` added to Runtime
+- `Relation[T]` user-facing struct with typed `Ref[HashSet[T]]` and type-erased closures in `RelationData`
+- `RelationId[T]`, `RuleId` newtype handles
+- `Runtime::new_rule` for registering rules
+- `Runtime::fixpoint` semi-naive evaluation loop
+- `Relation::iter` calls `track_read` for pull-side dependency tracking
+- `get_subscribers`, `get_subscribers_mut`, `get_changed_at`, `cell_id_for` extended for new variants
 
-## Step 1: Extend `CellRef`
+Out of scope:
+- HybridMemo (Phase 5)
+- Full Datalog query language (not in scope for `incr`)
+
+---
+
+### Task 1: Extend `CellRef` with `Relation` and `Rule` variants
+
+**Files:**
+- Modify: `cells/cell_ref.mbt`
+- Create: `cells/datalog_wbtest.mbt`
+
+**Step 1: Write the failing test**
+
+Create `cells/datalog_wbtest.mbt`:
+
+```moonbit
+///|
+test "cell_ref: Relation and Rule variants exist" {
+  let a : CellRef = CellRef::Relation(0)
+  let b : CellRef = CellRef::Rule(1)
+  let ia = match a { Relation(i) => i; _ => -1 }
+  let ib = match b { Rule(i) => i; _ => -1 }
+  inspect(ia, content="0")
+  inspect(ib, content="1")
+}
+```
+
+**Step 2: Run test to verify it fails**
+
+Run: `moon test -p dowdiness/incr/cells -f datalog_wbtest.mbt -i 0`
+Expected: FAIL — `Relation`, `Rule` variants do not exist
+
+**Step 3: Write minimal implementation**
+
+In `cells/cell_ref.mbt`, add:
 
 ```moonbit
 pub enum CellRef {
   PullSignal(index : Int)
   PullMemo(index : Int)
-  PushReactive(index : Int)   // Phase 3
-  PushEffect(index : Int)     // Phase 3
-  Disposed                    // Phase 3
-  Relation(index : Int)       // new
-  Rule(index : Int)           // new
+  PushReactive(index : Int)
+  PushEffect(index : Int)
+  Disposed
+  Relation(index : Int)   // new
+  Rule(index : Int)        // new
+  // HybridMemo added in Phase 5
 }
 ```
 
-## Step 2: Add data structs
+Update all existing `match` expressions to add wildcard arms for the new variants.
 
-```moonbit
-struct RelationData {
-  cell_id : CellId
-  // Typed data lives in Ref[HashSet[T]] captured by Relation[T].
-  // Runtime only needs these two closures for the fixpoint loop.
-  drain_delta    : () -> Unit    // move delta into current; clear delta
-  is_delta_empty : () -> Bool    // convergence check
-  subscribers : @hashset.HashSet[CellId]
-  mut changed_at : Revision
-  mut changed : Bool
-}
+**Step 4: Run test to verify it passes**
 
-struct RuleData {
-  cell_id : CellId
-  label : String?
-  apply_delta      : () -> Unit    // read input deltas, insert into output Relations
-  input_relations  : Array[CellId]
-  output_relations : Array[CellId]
-}
+Run: `moon test -p dowdiness/incr/cells -f datalog_wbtest.mbt -i 0`
+Expected: PASS
+
+**Step 5: Run full suite**
+
+Run: `moon test`
+Expected: All existing tests pass
+
+**Step 6: Commit**
+
+```bash
+git add cells/cell_ref.mbt cells/datalog_wbtest.mbt
+git commit -m "feat(datalog): extend CellRef with Relation and Rule variants"
 ```
 
-## Step 3: `Relation[T]` user-facing struct and type erasure
+---
 
-The typed `HashSet[T]`s live in `Ref`s owned by the `Relation[T]` handle. `RelationData` closures capture the **same** `Ref`s — no Runtime dispatch needed for typed operations.
+### Task 2: Add `RelationData`, `RuleData` and arrays to Runtime
 
-```moonbit
-pub struct Relation[T : Eq + Hash] {
-  id      : RelationId[T]
-  rt      : Runtime
-  current : Ref[@hashset.HashSet[T]]
-  delta   : Ref[@hashset.HashSet[T]]
-}
+**Files:**
+- Create: `cells/relation.mbt`
+- Create: `cells/rule.mbt`
+- Modify: `cells/runtime.mbt`
 
-pub fn Relation[T : Eq + Hash](rt : Runtime) -> Relation[T] {
-  let current : Ref[@hashset.HashSet[T]] = Ref(@hashset.new())
-  let delta   : Ref[@hashset.HashSet[T]] = Ref(@hashset.new())
-  let idx = rt.relations.length()
-  let cell_id = rt.alloc_cell_id(CellRef::Relation(idx))
-  rt.relations.push(RelationData {
-    cell_id,
-    drain_delta: fn() {
-      for t in delta.val { current.val.insert(t) |> ignore }
-      delta.val = @hashset.new()
-    },
-    is_delta_empty: fn() { delta.val.size() == 0 },
-    subscribers: @hashset.new(),
-    changed_at: rt.revision,
-    changed: false,
-  })
-  Relation { id: RelationId { id: cell_id }, rt, current, delta }
-}
+**Step 1: Write the failing test**
 
-pub fn Relation::insert[T : Eq + Hash](self, tuple : T) -> Bool {
-  // Insert into delta if not already in current or delta
-  if self.current.val.contains(tuple) || self.delta.val.contains(tuple) { return false }
-  self.delta.val.insert(tuple) |> ignore
-  true
-}
-
-pub fn Relation::contains[T : Eq + Hash](self, tuple : T) -> Bool {
-  self.current.val.contains(tuple)
-}
-
-pub fn Relation::iter[T : Eq + Hash](self) -> Iter[T] {
-  self.current.val.iter()
-}
-
-pub fn Relation::id[T : Eq + Hash](self) -> RelationId[T] {
-  self.id
-}
-```
-
-> **`iter` reads from `current`** (the post-fixpoint materialized set), not `delta`. Callers reading from inside a `Memo` compute function should call `relation_iter` after `fixpoint()` has been run.
-
-## Step 4: Rule registration
+Add to `cells/datalog_wbtest.mbt`:
 
 ```moonbit
-pub fn Runtime::new_rule(
-  self,
-  inputs  : Array[CellId],
-  outputs : Array[CellId],
-  apply   : () -> Unit,
-) -> RuleId {
-  // Validate: each CellId in inputs/outputs must map to a Relation variant
-  for id in inputs {
-    match self.cell_index[id.id] {
-      Relation(_) => ()
-      _ => abort("new_rule: input CellId does not refer to a Relation")
-    }
-  }
-  for id in outputs {
-    match self.cell_index[id.id] {
-      Relation(_) => ()
-      _ => abort("new_rule: output CellId does not refer to a Relation")
-    }
-  }
-  let idx = self.rules.length()
-  let cell_id = self.alloc_cell_id(CellRef::Rule(idx))
-  self.rules.push(RuleData {
-    cell_id, label: None,
-    apply_delta: apply,
-    input_relations: inputs,
-    output_relations: outputs,
-  })
-  RuleId { id: cell_id }
-}
-```
-
-## Step 5: Implement `fixpoint`
-
-Semi-naive evaluation: each iteration applies rules to the *delta* (new facts from the previous iteration), derives new facts, and repeats until no new facts are derived.
-
-```moonbit
-pub fn Runtime::fixpoint(self) -> Unit {
-  // Phase 0: mark relations with pending external inserts
-  for relation in self.relations { relation.changed = false }
-  for relation in self.relations {
-    if not((relation.is_delta_empty)()) { relation.changed = true }
-  }
-
-  // Precompute output-relation indices (only these can grow during fixpoint)
-  let output_rel_indices : @hashset.HashSet[Int] = @hashset.new()
-  for rule in self.rules {
-    for out_id in rule.output_relations {
-      match self.cell_index[out_id.id] {
-        Relation(idx) => output_rel_indices.insert(idx) |> ignore
-        _ => ()
-      }
-    }
-  }
-
-  while true {
-    for rule in self.rules { (rule.apply_delta)() }
-
-    // Convergence check: only output relations matter
-    let mut any_derived = false
-    for idx in output_rel_indices {
-      if not((self.relations[idx].is_delta_empty)()) {
-        any_derived = true
-        self.relations[idx].changed = true
-      }
-    }
-    if not(any_derived) { break }
-
-    // Drain ALL deltas before next iteration
-    for relation in self.relations { (relation.drain_delta)() }
-  }
-
-  // Final drain: flush remaining deltas (input-only relations, last iteration outputs)
-  for relation in self.relations { (relation.drain_delta)() }
-
-  // Bump revision if any relation changed; update changed_at
-  let mut changed_relation_ids : Array[CellId] = []
-  for i, relation in self.relations {
-    if relation.changed {
-      changed_relation_ids.push(self.cell_id_for(CellRef::Relation(i)))
-    }
-  }
-  if changed_relation_ids.length() == 0 { return }
-
-  self.advance_revision(Durability::Low)
-  for relation in self.relations {
-    if relation.changed { relation.changed_at = self.revision }
-  }
-
-  // Relation → push boundary (if Phase 3 is present)
-  if self.has_push_subscribers(changed_relation_ids) {
-    self.push_propagate_from(changed_relation_ids)
-  }
-}
-```
-
-> **If Phase 3 is not yet implemented**, `has_push_subscribers` always returns `false` and `push_propagate_from` is never called. The fixpoint is still correct.
-
-## Step 6: Update helpers for Relation/Rule arms
-
-```moonbit
-// get_subscribers — add:
-Relation(idx) => self.relations[idx].subscribers.iter()
-Rule(_)       => Iter::empty()   // rules are not subscribable
-
-// get_subscribers_mut — add:
-Relation(idx) => self.relations[idx].subscribers
-Rule(_)       => abort("get_subscribers_mut: Rule has no subscribers")
-
-// get_changed_at — add:
-Relation(idx) => self.relations[idx].changed_at
-Rule(_)       => self.revision   // not directly readable
-
-// cell_id_for — add:
-Relation(idx) => self.relations[idx].cell_id
-Rule(idx)     => self.rules[idx].cell_id
-
-// ensure_up_to_date — add:
-Relation(_) => Ok(())    // freshness via fixpoint()
-Rule(_)     => Ok(())    // not directly readable
-```
-
-## Step 7: Cross-boundary pull dependency tracking
-
-When a `Memo` compute function calls `relation.iter()`, `track_read` is called with the Relation's `CellId`. This records the Relation as a dependency of the memo. When `fixpoint()` bumps `revision` and updates `Relation.changed_at`, subsequent `memo.get()` calls find the memo stale and recompute.
-
-No special bridge code is needed. The unified `CellId` space and existing `track_read` + `pull_verify` handle it automatically.
-
-Add `relation.iter()` to call `track_read` before returning:
-
-```moonbit
-pub fn Relation::iter[T : Eq + Hash](self) -> Iter[T] {
-  self.rt.track_read(self.id.id)   // record dependency if inside a Memo compute
-  self.current.val.iter()
-}
-```
-
-## Tests
-
-```moonbit
-test "transitive closure: edge(a,b) → path derivation" {
+///|
+test "runtime: relation and rule arrays start empty" {
   let rt = Runtime::new()
-  let edge = Relation[String](rt)
-  let path = Relation[String](rt)
+  inspect(rt.relations.length(), content="0")
+  inspect(rt.rules.length(), content="0")
+}
+```
+
+**Step 2: Run test to verify it fails**
+
+Run: `moon test -p dowdiness/incr/cells -f datalog_wbtest.mbt`
+Expected: FAIL — `relations`, `rules` fields do not exist
+
+**Step 3: Write minimal implementation**
+
+In `cells/relation.mbt`, define `RelationData` per `docs/incr-unified-design.md` §3.5. In `cells/rule.mbt`, define `RuleData` per §3.6. Add `RelationId[T]` and `RuleId` newtype handles.
+
+In `cells/runtime.mbt`, add to `Runtime`:
+
+```moonbit
+relations : Array[RelationData]
+rules     : Array[RuleData]
+```
+
+Initialize both to `[]` in `Runtime::new()`.
+
+**Step 4: Run tests to verify they pass**
+
+Run: `moon test -p dowdiness/incr/cells -f datalog_wbtest.mbt`
+Expected: PASS
+
+**Step 5: Run full suite**
+
+Run: `moon test`
+Expected: All existing tests pass
+
+**Step 6: Commit**
+
+```bash
+git add cells/relation.mbt cells/rule.mbt cells/runtime.mbt cells/datalog_wbtest.mbt
+git commit -m "feat(datalog): add RelationData, RuleData, and relation/rule arrays to Runtime"
+```
+
+---
+
+### Task 3: Implement `Relation[T]` user-facing struct
+
+**Files:**
+- Modify: `cells/relation.mbt`
+
+**Step 1: Write the failing test**
+
+Add to `cells/datalog_wbtest.mbt`:
+
+```moonbit
+///|
+test "relation: insert adds to delta, not current" {
+  let rt = Runtime::new()
+  let rel = Relation::new(rt, Int)
+  let inserted = rel.insert(42)
+  inspect(inserted, content="true")
+  inspect(rel.contains(42), content="false")  // not in current yet
+}
+
+///|
+test "relation: duplicate insert returns false" {
+  let rt = Runtime::new()
+  let rel = Relation::new(rt, Int)
+  let _ = rel.insert(1)
+  let dup = rel.insert(1)
+  inspect(dup, content="false")
+}
+
+///|
+test "relation: iter reads from current (post-fixpoint)" {
+  let rt = Runtime::new()
+  let rel = Relation::new(rt, Int)
+  let _ = rel.insert(10)
+  let _ = rel.insert(20)
+  rt.fixpoint()
+  let sum = rel.iter().fold(0, fn(acc, x) { acc + x })
+  inspect(sum, content="30")
+}
+```
+
+**Step 2: Run tests to verify they fail**
+
+Run: `moon test -p dowdiness/incr/cells -f datalog_wbtest.mbt`
+Expected: FAIL — `Relation::new` does not exist
+
+**Step 3: Write minimal implementation**
+
+In `cells/relation.mbt`, implement `Relation[T]` with typed `Ref[@hashset.HashSet[T]]` for `current` and `delta`, and type-erased `drain_delta` / `is_delta_empty` closures in `RelationData`. See `docs/incr-unified-design.md` §8 for the type erasure pattern.
+
+The key type-erasure principle: `RelationData` closures capture the same `Ref`s as the `Relation[T]` handle — the Runtime never touches `T` directly.
+
+**Step 4: Run tests to verify they pass**
+
+Run: `moon test -p dowdiness/incr/cells -f datalog_wbtest.mbt`
+Expected: PASS
+
+**Step 5: Commit**
+
+```bash
+git add cells/relation.mbt cells/datalog_wbtest.mbt
+git commit -m "feat(datalog): implement Relation[T] with type-erased closures"
+```
+
+---
+
+### Task 4: Implement `Runtime::new_rule`
+
+**Files:**
+- Modify: `cells/rule.mbt`
+- Modify: `cells/runtime.mbt`
+
+**Step 1: Write the failing test**
+
+Add to `cells/datalog_wbtest.mbt`:
+
+```moonbit
+///|
+test "new_rule: registers rule with input and output relations" {
+  let rt = Runtime::new()
+  let input = Relation::new(rt, String)
+  let output = Relation::new(rt, String)
+  let rule_id = rt.new_rule(
+    [input.id().id],
+    [output.id().id],
+    fn() { () }
+  )
+  inspect(rt.rules.length(), content="1")
+  let _ = rule_id  // just check it was created
+}
+
+///|
+test "panic new_rule: non-relation cell_id in inputs aborts" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 1)
+  rt.new_rule([sig.id()], [], fn() { () }) |> ignore
+}
+```
+
+**Step 2: Run tests to verify they fail**
+
+Run: `moon test -p dowdiness/incr/cells -f datalog_wbtest.mbt`
+Expected: FAIL on first test — `rt.new_rule` does not exist; PASS on panic test (abort fires)
+
+**Step 3: Write minimal implementation**
+
+In `cells/runtime.mbt`, implement `new_rule` per `docs/incr-unified-design.md` §7.7:
+- Validate each input/output `CellId` maps to a `Relation` variant (abort otherwise)
+- Push `RuleData` into `rt.rules`
+- Return `RuleId`
+
+**Step 4: Run tests to verify they pass**
+
+Run: `moon test -p dowdiness/incr/cells -f datalog_wbtest.mbt`
+Expected: PASS
+
+**Step 5: Commit**
+
+```bash
+git add cells/rule.mbt cells/runtime.mbt cells/datalog_wbtest.mbt
+git commit -m "feat(datalog): implement Runtime::new_rule"
+```
+
+---
+
+### Task 5: Implement `Runtime::fixpoint`
+
+**Files:**
+- Create: `cells/fixpoint.mbt`
+
+**Step 1: Write the failing test**
+
+Add to `cells/datalog_wbtest.mbt`:
+
+```moonbit
+///|
+test "fixpoint: transitive closure — edge(a,b)+edge(b,c) derives path(a,c)" {
+  let rt = Runtime::new()
+  let edge = Relation::new(rt, (String, String))
+  let path = Relation::new(rt, (String, String))
   let _ = rt.new_rule(
     [edge.id().id],
     [path.id().id],
     fn() {
       // path(x,y) :- edge(x,y)
+      for e in edge.delta_iter() { path.insert(e) |> ignore }
       // path(x,z) :- path(x,y), edge(y,z)
-      // (implemented by iterating deltas and inserting derived tuples)
+      for (px, py) in path.current_iter() {
+        for (ey, ez) in edge.iter() {
+          if py == ey { path.insert((px, ez)) |> ignore }
+        }
+      }
     }
   )
-  edge.insert("a-b") |> ignore
-  edge.insert("b-c") |> ignore
+  edge.insert(("a", "b")) |> ignore
+  edge.insert(("b", "c")) |> ignore
   rt.fixpoint()
-  inspect(path.contains("a-b"), content="true")
-  inspect(path.contains("a-c"), content="true")  // transitive
-  inspect(path.contains("a-a"), content="false") // no self-loop
+  inspect(path.contains(("a", "b")), content="true")
+  inspect(path.contains(("b", "c")), content="true")
+  inspect(path.contains(("a", "c")), content="true")
+  inspect(path.contains(("a", "a")), content="false")
 }
 
-test "fixpoint convergence: terminates on monotone rules" {
-  // add facts, run fixpoint, verify loop terminates and result is stable
-}
-
-test "incremental update: add new edge, re-run fixpoint" {
-  // existing paths preserved; only new paths computed from new edge
-}
-
-test "pull memo reads relation result after fixpoint" {
+///|
+test "fixpoint: pull memo depending on relation recomputes after fixpoint" {
   let rt = Runtime::new()
-  let rel = Relation[Int](rt)
-  let m = Memo(rt, fn() { rel.iter().fold(0, fn(acc, x) { acc + x }) })
+  let rel = Relation::new(rt, Int)
+  let m = Memo::new(rt, () => rel.iter().fold(0, fn(acc, x) { acc + x }))
   rel.insert(1) |> ignore
   rel.insert(2) |> ignore
   rt.fixpoint()
@@ -294,21 +327,101 @@ test "pull memo reads relation result after fixpoint" {
   inspect(m.get(), content="6")
 }
 
-test "relation changed_at updated correctly" {
+///|
+test "fixpoint: terminates when no new facts derived" {
   let rt = Runtime::new()
-  let rel = Relation[Int](rt)
-  let rev_before = rt.revision()
+  let rel = Relation::new(rt, Int)
+  let _ = rt.new_rule([rel.id().id], [rel.id().id], fn() { () })  // no-op rule
   rel.insert(1) |> ignore
-  rt.fixpoint()
-  inspect(rt.revision() > rev_before, content="true")
+  rt.fixpoint()  // must not loop forever
+  inspect(rel.contains(1), content="true")
 }
 ```
 
-## Definition of Done
+**Step 2: Run tests to verify they fail**
+
+Run: `moon test -p dowdiness/incr/cells -f datalog_wbtest.mbt`
+Expected: FAIL — `rt.fixpoint` does not exist
+
+**Step 3: Write minimal implementation**
+
+Create `cells/fixpoint.mbt` with `Runtime::fixpoint` implementing semi-naive evaluation per `docs/incr-unified-design.md` §4.3 and §9:
+
+1. Mark relations with non-empty deltas as `changed`
+2. Loop: apply all rules to current deltas; check if any output relation got new facts; if not, break; drain all deltas before next iteration
+3. Final drain after loop
+4. If any relation changed: bump revision; update `changed_at` for changed relations
+5. Optionally trigger `push_propagate_from` if Phase 3 is present
+
+Add `Relation::delta_iter()` and `Relation::current_iter()` if needed by rule bodies (or use `Relation::iter()` post-drain).
+
+**Step 4: Run full test suite**
+
+Run: `moon test`
+Expected: All existing tests pass
+
+**Step 5: Commit**
+
+```bash
+git add cells/fixpoint.mbt cells/datalog_wbtest.mbt
+git commit -m "feat(datalog): implement Runtime::fixpoint with semi-naive evaluation"
+```
+
+---
+
+### Task 6: Update helpers for Relation/Rule arms
+
+**Files:**
+- Modify: `cells/runtime.mbt`
+
+**Step 1: Write the failing test**
+
+Add to `cells/datalog_wbtest.mbt`:
+
+```moonbit
+///|
+test "get_changed_at: relation changed_at updated by fixpoint" {
+  let rt = Runtime::new()
+  let rel = Relation::new(rt, Int)
+  let rev_before = rt.revision()
+  rel.insert(1) |> ignore
+  rt.fixpoint()
+  let rel_idx = match rt.cell_index[rel.id().id] { Relation(i) => i; _ => abort("") }
+  inspect(rt.relations[rel_idx].changed_at > rev_before, content="true")
+}
+```
+
+**Step 2: Run test to verify it fails**
+
+Run: `moon test -p dowdiness/incr/cells -f datalog_wbtest.mbt`
+Expected: FAIL
+
+**Step 3: Write minimal implementation**
+
+Extend `get_subscribers`, `get_subscribers_mut`, `get_changed_at`, `cell_id_for`, and `ensure_up_to_date` (in `pull_verify`) with `Relation` and `Rule` arms per `docs/incr-unified-design.md` §6.
+
+Also add `track_read` call inside `Relation::iter` so pull memos record the relation as a dependency.
+
+**Step 4: Run full test suite**
+
+Run: `moon test`
+Expected: All existing tests pass
+
+**Step 5: Commit**
+
+```bash
+git add cells/runtime.mbt cells/relation.mbt cells/datalog_wbtest.mbt
+git commit -m "feat(datalog): extend helpers with Relation/Rule arms; track_read in Relation::iter"
+```
+
+---
+
+### Acceptance Criteria
 
 - All Phase 1 + Phase 2 tests pass
-- All Phase 4 tests listed above pass
+- All Phase 4 tests above pass
 - `moon check` has no type errors
 - Transitive closure test produces correct results
 - Pull memo depending on a Relation correctly recomputes after `fixpoint()`
 - Fixpoint terminates on all monotone rule sets
+- `Relation::iter` calls `track_read` to record pull-side dependencies

@@ -1,388 +1,505 @@
-# Phase 3: Push Reactive + Effect
+# Push Reactive + Effect (Phase 3)
 
-**Reference**: `docs/incr-unified-design.md` §3.3–3.4, §4.2, §5 (Level Recomputation), §7.4–7.5, §10 Phase 3
+**Goal:** Add eager push-mode cells: `Reactive[T]` (derived, recomputed when upstream changes) and `Effect` (terminal, side effects). Push propagation uses a level-sorted priority queue for glitch-free topological recomputation.
 
-## Goal
+**Architecture:** See `docs/incr-unified-design.md` §3.3–3.4, §4.2, §7.4–7.5 for data structure definitions and propagation algorithm pseudocode.
 
-Add eager push-mode cells: `Reactive[T]` (derived, recomputed when upstream changes) and `Effect` (terminal, executes side effects). Push propagation uses a level-sorted priority queue to guarantee glitch-free recomputation in topological order.
+**Prerequisite:** Phase 2 complete.
 
-## Starting State
+**Tech Stack:** MoonBit. Validate with `moon check` and `moon test`.
 
-Phase 2 is complete. Pull cells have subscriber links. `finish_tracking`, `get_subscribers`, `get_subscribers_mut` exist.
+---
 
-## Deliverables
+### Scope
 
-| File | Action |
-|------|--------|
-| `cells/reactive.mbt` | **Create** — `PushReactiveData`, `ReactiveId[T]`, `Reactive[T]` |
-| `cells/effect.mbt` | **Create** — `PushEffectData`, `EffectId`, `Effect` |
-| `cells/propagate.mbt` | **Create** — `PushEntry`, `push_propagate_from`, `propagate_level_change`, `recompute_level`, `get_level` |
-| `cells/cell_ref.mbt` | **Adapt** — add `PushReactive`, `PushEffect`, `Disposed` variants |
-| `cells/runtime.mbt` | **Adapt** — add push arrays and free lists; update `commit_batch`, `get_subscribers`, `get_subscribers_mut`, `get_changed_at`, `cell_id_for`, `has_push_subscribers` |
-| `moon.pkg` | **Adapt** — add `moonbitlang/core/priority_queue` dependency |
+In scope:
+- `PushReactive`, `PushEffect`, `Disposed` variants added to `CellRef`
+- `PushReactiveData`, `PushEffectData` structs
+- `push_reactives`, `push_effects`, `free_push_reactives`, `free_push_effects` arrays added to Runtime
+- `PushEntry` struct + `push_propagate_from` function (`cells/propagate.mbt`)
+- `propagate_level_change`, `recompute_level`, `get_level` helpers
+- Disposal: `dispose_reactive`, `dispose_effect`
+- `has_push_subscribers` guard in `commit_batch`
+- `get_subscribers`, `get_subscribers_mut`, `get_changed_at`, `cell_id_for` extended for push variants
+- User-facing `Reactive[T]` and `Effect` structs
+- `moonbitlang/core/priority_queue` added to `cells/moon.pkg`
 
-## Step 1: Extend `CellRef`
+Out of scope:
+- Relation/Rule/HybridMemo (Phases 4–5)
+
+---
+
+### Task 1: Extend `CellRef` with push variants
+
+**Files:**
+- Modify: `cells/cell_ref.mbt`
+- Create: `cells/push_wbtest.mbt`
+
+**Step 1: Write the failing test**
+
+Create `cells/push_wbtest.mbt`:
+
+```moonbit
+///|
+test "cell_ref: PushReactive, PushEffect, Disposed variants exist" {
+  let a : CellRef = CellRef::PushReactive(0)
+  let b : CellRef = CellRef::PushEffect(2)
+  let c : CellRef = CellRef::Disposed
+  let ia = match a { PushReactive(i) => i; _ => -1 }
+  let ib = match b { PushEffect(i) => i; _ => -1 }
+  let ok = match c { Disposed => true; _ => false }
+  inspect(ia, content="0")
+  inspect(ib, content="2")
+  inspect(ok, content="true")
+}
+```
+
+**Step 2: Run test to verify it fails**
+
+Run: `moon test -p dowdiness/incr/cells -f push_wbtest.mbt -i 0`
+Expected: FAIL — `PushReactive`, `PushEffect`, `Disposed` variants do not exist
+
+**Step 3: Write minimal implementation**
+
+In `cells/cell_ref.mbt`, add three new variants:
 
 ```moonbit
 pub enum CellRef {
   PullSignal(index : Int)
   PullMemo(index : Int)
-  PushReactive(index : Int)   // new
-  PushEffect(index : Int)     // new
-  Disposed                    // new: tombstone for disposed cells
+  PushReactive(index : Int)
+  PushEffect(index : Int)
+  Disposed
   // Relation, Rule added in Phase 4
+  // HybridMemo added in Phase 5
 }
 ```
 
-## Step 2: Add push data structs
+Update all existing `match` expressions on `CellRef` to add wildcard arms for the new variants.
+
+**Step 4: Run test to verify it passes**
+
+Run: `moon test -p dowdiness/incr/cells -f push_wbtest.mbt -i 0`
+Expected: PASS
+
+**Step 5: Run full suite**
+
+Run: `moon test`
+Expected: All existing tests pass
+
+**Step 6: Commit**
+
+```bash
+git add cells/cell_ref.mbt cells/push_wbtest.mbt
+git commit -m "feat(push): extend CellRef with PushReactive, PushEffect, Disposed"
+```
+
+---
+
+### Task 2: Add `PushReactiveData`, `PushEffectData` and push arrays to Runtime
+
+**Files:**
+- Create: `cells/reactive.mbt`
+- Create: `cells/effect.mbt`
+- Modify: `cells/runtime.mbt`
+
+**Step 1: Write the failing test**
+
+Add to `cells/push_wbtest.mbt`:
 
 ```moonbit
-struct PushReactiveData {
-  cell_id : CellId
-  label : String?
-  compute : () -> Bool          // returns true if value changed
-  mut sources : Array[CellId]   // cells this reactive reads
-  subscribers : @hashset.HashSet[CellId]
-  mut changed_at : Revision
-  mut level : Int               // topological depth
-  mut dirty : Bool
-}
-
-struct PushEffectData {
-  cell_id : CellId
-  label : String?
-  execute : () -> Unit
-  mut sources : Array[CellId]
-  mut level : Int
-  mut dirty : Bool
+///|
+test "runtime: push arrays start empty" {
+  let rt = Runtime::new()
+  inspect(rt.push_reactives.length(), content="0")
+  inspect(rt.push_effects.length(), content="0")
+  inspect(rt.free_push_reactives.length(), content="0")
+  inspect(rt.free_push_effects.length(), content="0")
 }
 ```
 
-**Cycle-freedom**: Static cycles are impossible by construction — a cycle A→B→A would require `A.level > B.level` AND `B.level > A.level` simultaneously. `compute` returns `Bool`, not `Result[Bool, CycleError]`.
+**Step 2: Run test to verify it fails**
 
-**No Durability field**: Push cells always propagate immediately. The `durability_last_changed` shortcut is pull-only and does not apply here.
+Run: `moon test -p dowdiness/incr/cells -f push_wbtest.mbt`
+Expected: FAIL — push arrays do not exist on Runtime
 
-## Step 3: Update Runtime struct
+**Step 3: Write minimal implementation**
 
-Add to Runtime:
-```
-├── push_reactives      : Array[PushReactiveData]
-├── push_effects        : Array[PushEffectData]
-├── free_push_reactives : Array[Int]    // recycled indices
-└── free_push_effects   : Array[Int]    // recycled indices
-```
+In `cells/reactive.mbt`, define `PushReactiveData` per `docs/incr-unified-design.md` §3.3.
 
-## Step 4: Update `get_subscribers`, `get_subscribers_mut`, `get_changed_at`, `cell_id_for`
+In `cells/effect.mbt`, define `PushEffectData` per §3.4.
 
-Add the new arms:
+In `cells/runtime.mbt`, add to `Runtime` struct:
 
 ```moonbit
-// get_subscribers — add:
-PushReactive(idx) => self.push_reactives[idx].subscribers.iter()
-PushEffect(_)     => Iter::empty()   // terminal; nothing subscribes to an effect
-Disposed          => Iter::empty()
-
-// get_subscribers_mut — add:
-PushReactive(idx) => self.push_reactives[idx].subscribers
-PushEffect(_)     => abort("get_subscribers_mut: PushEffect has no subscribers")
-Disposed          => abort("get_subscribers_mut: cell has been disposed")
-
-// get_changed_at — add:
-PushReactive(idx) => self.push_reactives[idx].changed_at
-PushEffect(_)     => self.revision   // effects have no changed_at; return current revision
-Disposed          => abort("get_changed_at: cell has been disposed")
-
-// cell_id_for — add:
-PushReactive(idx) => self.push_reactives[idx].cell_id
-PushEffect(idx)   => self.push_effects[idx].cell_id
-Disposed          => abort("cell_id_for: called on a disposed cell")
+push_reactives      : Array[PushReactiveData]
+push_effects        : Array[PushEffectData]
+free_push_reactives : Array[Int]
+free_push_effects   : Array[Int]
 ```
 
-## Step 5: Implement `PushEntry` and `push_propagate_from`
+Initialize all four to `[]` in `Runtime::new()`.
 
-`@priority_queue.T[A]` is a **max-heap** (requires `A : Compare`). Negate level to get min-level-first ordering.
+**Step 4: Run tests to verify they pass**
+
+Run: `moon test -p dowdiness/incr/cells -f push_wbtest.mbt`
+Expected: PASS
+
+**Step 5: Run full suite**
+
+Run: `moon test`
+Expected: All existing tests pass
+
+**Step 6: Commit**
+
+```bash
+git add cells/reactive.mbt cells/effect.mbt cells/runtime.mbt cells/push_wbtest.mbt
+git commit -m "feat(push): add PushReactiveData, PushEffectData, and push arrays to Runtime"
+```
+
+---
+
+### Task 3: Implement `push_propagate_from` in `propagate.mbt`
+
+**Files:**
+- Create: `cells/propagate.mbt`
+- Modify: `cells/moon.pkg` (add `moonbitlang/core/priority_queue`)
+
+**Step 1: Write the failing test**
+
+Add to `cells/push_wbtest.mbt`:
 
 ```moonbit
-// In propagate.mbt:
-priv struct PushEntry {
-  neg_level : Int     // stored as -level
-  cell_ref  : CellRef
+///|
+test "push propagation: basic reactive chain Signal → Reactive" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 1)
+  let r = Reactive::new(rt, () => s.get() * 2)
+  let _ = r.get()  // initial compute
+  s.set(5)         // triggers push propagation
+  inspect(r.get(), content="10")
 }
-impl Compare for PushEntry with compare(self, other) {
-  self.neg_level.compare(other.neg_level)
-}
 
-fn Runtime::push_propagate_from(self, changed_sources : Array[CellId]) -> Unit {
-  let update_queue : @priority_queue.T[PushEntry] = @priority_queue.new()
-
-  fn enqueue_push_subscribers(source_id : CellId) -> Unit {
-    for sub_id in self.get_subscribers(self.cell_index[source_id.id]) {
-      match self.cell_index[sub_id.id] {
-        PushReactive(i) => {
-          if not(self.push_reactives[i].dirty) {
-            self.push_reactives[i].dirty = true
-            update_queue.push({ neg_level: -self.push_reactives[i].level,
-                                cell_ref: CellRef::PushReactive(i) })
-          }
-        }
-        PushEffect(i) => {
-          if not(self.push_effects[i].dirty) {
-            self.push_effects[i].dirty = true
-            update_queue.push({ neg_level: -self.push_effects[i].level,
-                                cell_ref: CellRef::PushEffect(i) })
-          }
-        }
-        _ => ()
-      }
-    }
-  }
-
-  for changed_id in changed_sources { enqueue_push_subscribers(changed_id) }
-
-  while not(update_queue.is_empty()) {
-    let entry = update_queue.pop().unwrap()
-    let queued_level = -entry.neg_level
-    match entry.cell_ref {
-      PushReactive(idx) => {
-        let reactive = self.push_reactives[idx]
-        if queued_level != reactive.level { continue }  // stale entry (lazy deletion)
-        reactive.dirty = false
-        let reactive_cell_id = self.cell_id_for(CellRef::PushReactive(idx))
-        let old_sources = reactive.sources
-        self.begin_tracking(reactive_cell_id)
-        let changed = (reactive.compute)()
-        let new_sources = self.end_tracking()
-        self.finish_tracking(reactive_cell_id, old_sources, new_sources)
-        reactive.sources = new_sources
-        let new_level = self.recompute_level(reactive_cell_id, new_sources)
-        if new_level != reactive.level {
-          reactive.level = new_level
-          self.propagate_level_change(reactive_cell_id, update_queue)
-        }
-        if changed {
-          reactive.changed_at = self.revision
-          enqueue_push_subscribers(reactive_cell_id)
-        }
-      }
-      PushEffect(idx) => {
-        let effect = self.push_effects[idx]
-        if queued_level != effect.level { continue }
-        effect.dirty = false
-        let effect_cell_id = self.cell_id_for(CellRef::PushEffect(idx))
-        let old_sources = effect.sources
-        self.begin_tracking(effect_cell_id)
-        (effect.execute)()
-        let new_sources = self.end_tracking()
-        self.finish_tracking(effect_cell_id, old_sources, new_sources)
-        effect.sources = new_sources
-        effect.level = self.recompute_level(effect_cell_id, new_sources)
-      }
-      _ => ()
-    }
-  }
+///|
+test "push propagation: glitch prevention in diamond" {
+  // a → b, a → c, b+c → d: d should never see inconsistent b,c pair
+  let rt = Runtime::new()
+  let a = Signal::new(rt, 1)
+  let b = Reactive::new(rt, () => a.get() + 1)
+  let c = Reactive::new(rt, () => a.get() * 10)
+  let mut seen_inconsistent = false
+  let d = Reactive::new(rt, () => {
+    let bv = b.get()
+    let cv = c.get()
+    if bv + 1 != cv { seen_inconsistent = true }  // if a=2: b=3, c=20 → 3+1≠20 → inconsistent
+    bv + cv
+  })
+  let _ = d.get()
+  a.set(2)
+  let _ = d.get()
+  inspect(seen_inconsistent, content="false")
+  inspect(d.get(), content="23")  // b=3 + c=20
 }
 ```
 
-## Step 6: Implement `propagate_level_change`
+**Step 2: Run tests to verify they fail**
 
-Called when a reactive's level changes; propagates the change to downstream push nodes. Uses lazy deletion — stale queue entries are skipped in the dequeue loop by checking `queued_level != node.level`.
+Run: `moon test -p dowdiness/incr/cells -f push_wbtest.mbt`
+Expected: FAIL — `Reactive::new` / `push_propagate_from` do not exist
+
+**Step 3: Write minimal implementation**
+
+In `cells/moon.pkg`, add `moonbitlang/core/priority_queue` to imports.
+
+Create `cells/propagate.mbt` with `PushEntry` (struct with `neg_level : Int` and `cell_ref : CellRef`, implementing `Compare`) and `push_propagate_from`. See `docs/incr-unified-design.md` §4.2 for the full algorithm.
+
+**Step 4: Run tests to verify they pass**
+
+Run: `moon test -p dowdiness/incr/cells -f push_wbtest.mbt`
+Expected: PASS
+
+**Step 5: Commit**
+
+```bash
+git add cells/propagate.mbt cells/moon.pkg cells/push_wbtest.mbt
+git commit -m "feat(push): implement push_propagate_from with level-sorted priority queue"
+```
+
+---
+
+### Task 4: Implement level helpers and `propagate_level_change`
+
+**Files:**
+- Modify: `cells/propagate.mbt`
+- Modify: `cells/runtime.mbt`
+
+**Step 1: Write the failing test**
+
+Add to `cells/push_wbtest.mbt`:
 
 ```moonbit
-fn Runtime::propagate_level_change(
-  self,
-  changed_cell : CellId,
-  update_queue : @priority_queue.T[PushEntry],
-) -> Unit {
-  let queue = [changed_cell]
-  while not(queue.is_empty()) {
-    let parent = queue.pop()
-    for sub_id in self.get_subscribers(self.cell_index[parent.id]) {
-      match self.cell_index[sub_id.id] {
-        PushReactive(i) => {
-          let node = self.push_reactives[i]
-          let new_level = self.recompute_level(sub_id, node.sources)
-          if new_level != node.level {
-            node.level = new_level
-            if node.dirty {
-              update_queue.push({ neg_level: -new_level, cell_ref: CellRef::PushReactive(i) })
-            }
-            queue.push(sub_id)
-          }
-        }
-        PushEffect(i) => {
-          let node = self.push_effects[i]
-          let new_level = self.recompute_level(sub_id, node.sources)
-          if new_level != node.level {
-            node.level = new_level
-            if node.dirty {
-              update_queue.push({ neg_level: -new_level, cell_ref: CellRef::PushEffect(i) })
-            }
-          }
-        }
-        _ => ()
-      }
-    }
-  }
+///|
+test "level: reactive level is source max + 1" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 1)
+  let r1 = Reactive::new(rt, () => s.get())
+  let r2 = Reactive::new(rt, () => r1.get() + 1)
+  let _ = r1.get()
+  let _ = r2.get()
+  let r1_idx = match rt.cell_index[r1.id().id] { PushReactive(i) => i; _ => abort("") }
+  let r2_idx = match rt.cell_index[r2.id().id] { PushReactive(i) => i; _ => abort("") }
+  inspect(rt.push_reactives[r1_idx].level, content="1")
+  inspect(rt.push_reactives[r2_idx].level, content="2")
+}
+
+///|
+test "early cutoff: unchanged value does not propagate to downstream" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 1)
+  let always5 = Reactive::new(rt, () => { let _ = s.get(); 5 })  // ignores s, always returns 5
+  let mut count = 0
+  let downstream = Reactive::new(rt, () => { count += 1; always5.get() })
+  let _ = downstream.get()
+  inspect(count, content="1")
+  s.set(99)
+  inspect(count, content="1")  // always5 returned same value → downstream not recomputed
 }
 ```
 
-## Step 7: Implement `recompute_level` and `get_level`
+**Step 2: Run tests to verify they fail**
+
+Run: `moon test -p dowdiness/incr/cells -f push_wbtest.mbt`
+Expected: FAIL — level fields not set / early cutoff not working
+
+**Step 3: Write minimal implementation**
+
+In `cells/propagate.mbt`, implement:
+- `recompute_level(cell_id, sources)` — max source level + 1
+- `get_level(cell_id)` — dispatch on `CellRef`; pull cells and signals are level 0
+- `propagate_level_change(changed_cell, update_queue)` — lazy deletion via stale-entry check
+
+See `docs/incr-unified-design.md` §4.2 for pseudocode.
+
+**Step 4: Run full test suite**
+
+Run: `moon test`
+Expected: All existing tests pass
+
+**Step 5: Commit**
+
+```bash
+git add cells/propagate.mbt cells/runtime.mbt cells/push_wbtest.mbt
+git commit -m "feat(push): implement recompute_level, get_level, propagate_level_change"
+```
+
+---
+
+### Task 5: User-facing `Reactive[T]` and `Effect`
+
+**Files:**
+- Modify: `cells/reactive.mbt`
+- Modify: `cells/effect.mbt`
+
+**Step 1: Write the failing test**
+
+Add to `cells/push_wbtest.mbt`:
 
 ```moonbit
-fn Runtime::recompute_level(self, _cell_id : CellId, sources : Array[CellId]) -> Int {
-  let mut max_level = 0
-  for s in sources {
-    let l = self.get_level(s)
-    if l > max_level { max_level = l }
-  }
-  max_level + 1
+///|
+test "reactive: get() returns cached value" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 10)
+  let r = Reactive::new(rt, () => s.get() * 3)
+  inspect(r.get(), content="30")
+  inspect(r.get(), content="30")  // cached
 }
 
-fn Runtime::get_level(self, cell_id : CellId) -> Int {
-  match self.cell_index[cell_id.id] {
-    PullSignal(_)     => 0
-    PullMemo(_)       => 0   // pull cells are level-0 from push perspective
-    PushReactive(idx) => self.push_reactives[idx].level
-    _                 => 0
-  }
+///|
+test "effect: executes on signal change" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 0)
+  let mut log = []
+  let _e = Effect::new(rt, () => log.push(s.get()))
+  s.set(1)
+  s.set(2)
+  inspect(log, content="[1, 2]")
 }
 ```
 
-## Step 8: Implement disposal
+**Step 2: Run tests to verify they fail**
+
+Run: `moon test -p dowdiness/incr/cells -f push_wbtest.mbt`
+Expected: FAIL — `Reactive::new` / `Effect::new` not yet user-accessible
+
+**Step 3: Write minimal implementation**
+
+In `cells/reactive.mbt`, define:
 
 ```moonbit
-fn Runtime::dispose_reactive(self, cell_id : CellId) -> Unit {
-  match self.cell_index[cell_id.id] {
-    PushReactive(idx) => {
-      let node = self.push_reactives[idx]
-      // 1. Remove this cell from all sources' subscriber sets
-      for src_id in node.sources {
-        self.get_subscribers_mut(src_id).remove(cell_id)
-      }
-      // 2. Remove this cell from all subscribers' sources arrays
-      for sub_id in node.subscribers {
-        match self.cell_index[sub_id.id] {
-          PushReactive(si) => {
-            self.push_reactives[si].sources =
-              self.push_reactives[si].sources.filter(fn(id) { id != cell_id })
-          }
-          PushEffect(si) => {
-            self.push_effects[si].sources =
-              self.push_effects[si].sources.filter(fn(id) { id != cell_id })
-          }
-          _ => ()
-        }
-      }
-      // 3. Mark as disposed (tombstone)
-      self.cell_index[cell_id.id] = Disposed
-      // 4. Return index to free list for reuse
-      self.free_push_reactives.push(idx)
-    }
-    _ => abort("dispose_reactive: cell is not a PushReactive")
-  }
+pub struct Reactive[T : Eq] {
+  id        : ReactiveId[T]
+  value_ref : Ref[T?]
+  rt        : Runtime
 }
+pub fn[T : Eq] Reactive::new(rt : Runtime, compute : () -> T) -> Reactive[T]
+pub fn[T : Eq] Reactive::get(self : Reactive[T]) -> T
+pub fn[T : Eq] Reactive::dispose(self : Reactive[T]) -> Unit
 ```
 
-`dispose_effect` follows the same pattern (steps 1 and 3–4; effects have no subscribers so step 2 is skipped).
+In `cells/effect.mbt`, define `Effect` with `new` and `dispose`. See `docs/incr-unified-design.md` §7.4–7.5 for full API.
 
-**Allocation with free list reuse**:
-```moonbit
-fn Runtime::new_reactive_id[T : Eq](self, compute_fn : () -> T) -> ReactiveId[T] {
-  let reactive_ref : Ref[T?] = Ref(None)
-  let compute : () -> Bool = fn() {
-    let new_val = compute_fn()
-    let changed = match reactive_ref.val { None => true; Some(prev) => prev != new_val }
-    if changed { reactive_ref.val = Some(new_val) }
-    changed
-  }
-  let idx = match self.free_push_reactives.pop() {
-    Some(free_idx) => {
-      // Reuse freed slot
-      self.push_reactives[free_idx] = PushReactiveData { ... }
-      self.cell_index[???] = PushReactive(free_idx)  // need to alloc new CellId
-      free_idx
-    }
-    None => {
-      let new_idx = self.push_reactives.length()
-      let cell_id = self.alloc_cell_id(CellRef::PushReactive(new_idx))
-      self.push_reactives.push(PushReactiveData {
-        cell_id, label: None, compute,
-        sources: [], subscribers: @hashset.new(),
-        changed_at: self.revision, level: 1, dirty: false,
-      })
-      new_idx
-    }
-  }
-  ReactiveId { id: self.push_reactives[idx].cell_id }
-}
+**Step 4: Run full test suite**
+
+Run: `moon test`
+Expected: All existing tests pass
+
+**Step 5: Commit**
+
+```bash
+git add cells/reactive.mbt cells/effect.mbt cells/push_wbtest.mbt
+git commit -m "feat(push): add user-facing Reactive[T] and Effect types"
 ```
 
-> **Note on free list reuse**: when reusing a freed index, a fresh `CellId` is still needed (the old one is disposed). Call `alloc_cell_id` with `PushReactive(free_idx)` to get the new CellId, then overwrite `push_reactives[free_idx]`.
+---
 
-## Step 9: Update `commit_batch`
+### Task 6: Update `commit_batch` and extend helpers for push variants
 
-Add push propagation call after revision bump. This requires updating `has_push_subscribers` to check for `PushReactive` and `PushEffect` subscribers:
+**Files:**
+- Modify: `cells/runtime.mbt`
+
+**Step 1: Write the failing test**
+
+Add to `cells/push_wbtest.mbt`:
 
 ```moonbit
-fn Runtime::has_push_subscribers(self, cell_ids : Array[CellId]) -> Bool {
-  for cell_id in cell_ids {
-    for sub_id in self.get_subscribers(self.cell_index[cell_id.id]) {
-      match self.cell_index[sub_id.id] {
-        PushReactive(_) | PushEffect(_) => return true
-        _ => ()
-      }
-    }
-  }
-  false
+///|
+test "push: batch commit triggers propagation" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 0)
+  let r = Reactive::new(rt, () => s.get() * 2)
+  let _ = r.get()
+  rt.batch(fn() {
+    s.set(5)
+    inspect(r.get(), content="0")  // not yet propagated inside batch
+  })
+  inspect(r.get(), content="10")   // propagated after commit
+}
+
+///|
+test "mixed pull/push: Memo reads Reactive; Reactive reads Signal" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 1)
+  let r = Reactive::new(rt, () => s.get() + 1)
+  let m = Memo::new(rt, () => r.get() * 10)
+  s.set(4)
+  inspect(m.get(), content="50")  // r = 5, m = 50
 }
 ```
 
-In `commit_batch`, after `advance_revision`:
+**Step 2: Run tests to verify they fail**
+
+Run: `moon test -p dowdiness/incr/cells -f push_wbtest.mbt`
+Expected: FAIL — `commit_batch` does not call `push_propagate_from`
+
+**Step 3: Write minimal implementation**
+
+In `cells/runtime.mbt`:
+
+1. Implement `has_push_subscribers(cell_ids)` — checks whether any cell in the list has a `PushReactive` or `PushEffect` subscriber.
+2. In `commit_batch`, after `advance_revision`, call:
+
 ```moonbit
 if self.has_push_subscribers(changed_ids) {
   self.push_propagate_from(changed_ids)
 }
 ```
 
-## Step 10: User-facing structs
+3. Extend `get_subscribers`, `get_subscribers_mut`, `get_changed_at`, `cell_id_for` with `PushReactive`, `PushEffect`, `Disposed` arms per `docs/incr-unified-design.md` §6.
 
-```moonbit
-pub struct Reactive[T : Eq] {
-  id         : ReactiveId[T]
-  value_ref  : Ref[T?]       // None until first compute
-  rt         : Runtime
-}
-pub fn Reactive[T : Eq](rt : Runtime, compute : () -> T) -> Reactive[T]
-pub fn Reactive::get(self) -> T    // returns cached value; freshness guaranteed by push_propagate_from
-pub fn Reactive::dispose(self) -> Unit
+**Step 4: Run full test suite**
 
-pub struct Effect { id : EffectId; rt : Runtime }
-pub fn Effect(rt : Runtime, execute : () -> Unit) -> Effect
-pub fn Effect::dispose(self) -> Unit
+Run: `moon test`
+Expected: All existing tests pass
+
+**Step 5: Commit**
+
+```bash
+git add cells/runtime.mbt cells/push_wbtest.mbt
+git commit -m "feat(push): update commit_batch to trigger push propagation"
 ```
 
-## Tests
+---
+
+### Task 7: Implement disposal
+
+**Files:**
+- Modify: `cells/runtime.mbt`
+- Modify: `cells/reactive.mbt`, `cells/effect.mbt`
+
+**Step 1: Write the failing test**
+
+Add to `cells/push_wbtest.mbt`:
 
 ```moonbit
-test "basic reactive chain: Signal → Reactive → Effect" { ... }
-test "glitch prevention: diamond dependency" {
-  // a → b, a → c, b+c → d
-  // d should see consistent (b,c) pair, never an intermediate state
+///|
+test "dispose: disposed reactive not reachable via subscriber walk" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 1)
+  let r = Reactive::new(rt, () => s.get() * 2)
+  let _ = r.get()
+  r.dispose()
+  let subs = rt.get_subscribers(rt.cell_index[s.id().id]).collect()
+  inspect(subs.length(), content="0")
 }
-test "early cutoff: downstream not recomputed when value unchanged" {
-  // reactive returns same value; its subscribers should not be enqueued
+
+///|
+test "dispose: sources' subscriber sets updated after dispose" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 1)
+  let r = Reactive::new(rt, () => s.get())
+  let _ = r.get()
+  let s_idx = match rt.cell_index[s.id().id] { PullSignal(i) => i; _ => abort("") }
+  inspect(rt.pull_signals[s_idx].subscribers.size(), content="1")
+  r.dispose()
+  inspect(rt.pull_signals[s_idx].subscribers.size(), content="0")
 }
-test "dynamic dependency: reactive conditionally reads different signals" { ... }
-test "effect ordering: effects execute after all reactives updated" { ... }
-test "mixed pull/push: Memo reads a Reactive; Reactive reads a Signal" { ... }
-test "dispose: disposed reactive is not reachable via subscriber walk" { ... }
-test "dispose: sources' subscriber sets updated after dispose" { ... }
 ```
 
-## Definition of Done
+**Step 2: Run tests to verify they fail**
+
+Run: `moon test -p dowdiness/incr/cells -f push_wbtest.mbt`
+Expected: FAIL — `dispose` does not update subscriber links
+
+**Step 3: Write minimal implementation**
+
+In `cells/runtime.mbt`, implement `dispose_reactive` and `dispose_effect` per the 4-step sequence in `docs/incr-unified-design.md` §7.4:
+1. Remove cell from all sources' subscriber sets
+2. Remove cell from all subscribers' sources arrays (reactive only)
+3. Set `cell_index[cell_id.id] = Disposed`
+4. Push index to free list
+
+Wire into `Reactive::dispose` and `Effect::dispose`.
+
+**Step 4: Run full test suite**
+
+Run: `moon test`
+Expected: All existing tests pass
+
+**Step 5: Commit**
+
+```bash
+git add cells/runtime.mbt cells/reactive.mbt cells/effect.mbt cells/push_wbtest.mbt
+git commit -m "feat(push): implement reactive and effect disposal"
+```
+
+---
+
+### Acceptance Criteria
 
 - All Phase 1 + Phase 2 tests pass
-- All Phase 3 tests listed above pass
+- All Phase 3 tests above pass
 - `moon check` has no type errors (including `priority_queue` import in `moon.pkg`)
+- Diamond dependency test confirms no glitch (downstream sees consistent state)
+- Early cutoff: downstream not recomputed when reactive value is unchanged
 - A disposed reactive never appears in any subscriber walk
-- Diamond dependency test confirms no glitch (Effect sees consistent intermediate state)
+- `Reactive::dispose` and `Effect::dispose` correctly update all subscriber sets

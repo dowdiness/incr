@@ -1,79 +1,143 @@
-# Phase 2: Subscriber Links
+# Subscriber Tracking (Phase 2)
 
-**Reference**: `docs/incr-unified-design.md` §5
+**Goal:** Add bidirectional subscriber links to pull cells. Every `A reads B` dependency edge gains a reverse `B → subscribers → A` edge, maintained incrementally by `finish_tracking`. Links are populated but unused for propagation yet — push propagation uses them in Phase 3.
 
-## Goal
+**Architecture:** See `docs/incr-unified-design.md` §5 for `begin_tracking`, `end_tracking`, `finish_tracking` pseudocode.
 
-Add bidirectional subscriber tracking to pull cells. After this phase, every dependency edge `A → B` ("A reads B") is mirrored by a reverse subscriber edge `B → A` ("B has subscriber A"). The edges are maintained incrementally by `finish_tracking` after each recompute.
+**Prerequisite:** Phase 1 complete.
 
-This phase is a pure infrastructure addition — no behavior changes, no new cell kinds. Subscriber links are populated but not yet used for push propagation (that is Phase 3).
+**Tech Stack:** MoonBit. Validate with `moon check` and `moon test`.
 
-## Starting State
+---
 
-Phase 1 is complete. `PullSignalData` and `PullMemoData` both already have a `subscribers : @hashset.HashSet[CellId]` field — it just isn't populated yet. The dependency list (`PullMemoData.dependencies`) is still maintained by the existing tracking mechanism.
+### Scope
 
-## Deliverables
+In scope:
+- `Runtime::begin_tracking(cell_id)` — push fresh `ActiveQuery` frame onto tracking stack
+- `Runtime::end_tracking()` — pop frame, return collected deps as `Array[CellId]`
+- `Runtime::finish_tracking(cell_id, old_deps, new_deps)` — diff old vs new; add/remove from `subscribers`
+- `Runtime::get_subscribers(cell_ref)` — return `Iter[CellId]`
+- `Runtime::get_subscribers_mut(cell_id)` — return mutable `@hashset.HashSet[CellId]`
+- Updated `compute` closure in `new_memo_id` to call tracking helpers
+- Updated `PullMemoData.dependencies` from result of `end_tracking`
 
-| File | Action |
-|------|--------|
-| `cells/tracking.mbt` | **Adapt** — add `begin_tracking`, `end_tracking` helpers |
-| `cells/runtime.mbt` | **Adapt** — add `finish_tracking`, `get_subscribers`, `get_subscribers_mut` |
-| `cells/memo.mbt` | **Adapt** — `compute` closure calls `begin_tracking`/`end_tracking`/`finish_tracking` |
+Out of scope:
+- Push propagation via subscriber links (Phase 3)
+- Relation/Rule subscriber arms (Phase 4)
 
-## Step 1: Add `begin_tracking` and `end_tracking`
+---
 
-These replace any ad-hoc tracking frame push/pop currently in the codebase. The names deliberately avoid "push"/"pop" to prevent confusion with the push-propagation queue (Phase 3).
+### Task 1: Add `begin_tracking`, `end_tracking`, `finish_tracking`
+
+**Files:**
+- Modify: `cells/tracking.mbt`
+- Modify: `cells/runtime.mbt`
+- Create: `cells/tracking_wbtest.mbt`
+
+**Step 1: Write the failing test**
+
+Create `cells/tracking_wbtest.mbt`:
 
 ```moonbit
-fn Runtime::begin_tracking(self, cell_id : CellId) -> Unit {
-  self.tracking_stack.push(ActiveQuery::new(cell_id))
+///|
+test "tracking: begin/end tracking records dependency" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 42)
+  let memo_id = rt.alloc_cell_id(CellRef::PullMemo(0))
+  rt.begin_tracking(memo_id)
+  let _ = sig.get()
+  let deps = rt.end_tracking()
+  inspect(deps.length(), content="1")
+  inspect(deps[0] == sig.id(), content="true")
 }
 
-fn Runtime::end_tracking(self) -> Array[CellId] {
-  // deps_array() converts the internal HashSet[CellId] to Array[CellId]
-  self.tracking_stack.pop().unwrap().deps_array()
+///|
+test "tracking: finish_tracking adds memo to dep subscribers" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 1)
+  let m = Memo::new(rt, () => sig.get())
+  let _ = m.get()
+  // After get, finish_tracking should have added m to sig's subscribers
+  let sig_idx = match rt.cell_index[sig.id().id] {
+    PullSignal(i) => i
+    _ => abort("expected PullSignal")
+  }
+  inspect(rt.pull_signals[sig_idx].subscribers.contains(m.id()), content="true")
 }
 ```
 
-## Step 2: Add `finish_tracking`
+**Step 2: Run tests to verify they fail**
 
-Called after every `compute()` to diff old vs new dependencies and update subscriber links. O(|old| + |new|) via HashSet membership.
+Run: `moon test -p dowdiness/incr/cells -f tracking_wbtest.mbt`
+Expected: FAIL — `begin_tracking` / `end_tracking` do not exist, or subscribers not populated
+
+**Step 3: Write minimal implementation**
+
+In `cells/tracking.mbt` (or `cells/runtime.mbt`):
+
+1. `begin_tracking(cell_id)` — push new `ActiveQuery { cell_id, deps: [], seen: @hashset.new() }` onto `self.tracking_stack`. See `docs/incr-unified-design.md` §5.
+2. `end_tracking()` — pop the top `ActiveQuery` and return its `deps` as `Array[CellId]`. See §5.
+3. `finish_tracking(cell_id, old_deps, new_deps)` — compute symmetric diff; remove `cell_id` from `subscribers` of dropped deps; add to `subscribers` of new deps. Use `get_subscribers_mut` for mutations. See §5.
+
+**Step 4: Run tests to verify they pass**
+
+Run: `moon test -p dowdiness/incr/cells -f tracking_wbtest.mbt`
+Expected: PASS
+
+**Step 5: Commit**
+
+```bash
+git add cells/tracking.mbt cells/runtime.mbt cells/tracking_wbtest.mbt
+git commit -m "feat(subscribers): add begin/end/finish_tracking helpers"
+```
+
+---
+
+### Task 2: Add `get_subscribers` and `get_subscribers_mut`
+
+**Files:**
+- Modify: `cells/runtime.mbt`
+
+**Step 1: Write the failing test**
+
+Add to `cells/tracking_wbtest.mbt`:
 
 ```moonbit
-fn Runtime::finish_tracking(
-  self,
-  cell_id  : CellId,
-  old_deps : Array[CellId],
-  new_deps : Array[CellId],
-) -> Unit {
-  let new_set : @hashset.HashSet[CellId] = @hashset.from_iter(new_deps.iter())
-  let old_set : @hashset.HashSet[CellId] = @hashset.from_iter(old_deps.iter())
-  // Remove self from deps no longer read
-  for dep in old_deps {
-    if not(new_set.contains(dep)) {
-      self.get_subscribers_mut(dep).remove(cell_id)
-    }
-  }
-  // Add self to newly read deps
-  for dep in new_deps {
-    if not(old_set.contains(dep)) {
-      self.get_subscribers_mut(dep).insert(cell_id)
-    }
-  }
+///|
+test "get_subscribers: returns empty iter for new signal" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 1)
+  let count = rt.get_subscribers(rt.cell_index[sig.id().id]).fold(0, fn(acc, _) { acc + 1 })
+  inspect(count, content="0")
+}
+
+///|
+test "get_subscribers: contains memo after first get" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 1)
+  let m = Memo::new(rt, () => sig.get())
+  let _ = m.get()
+  let subs = rt.get_subscribers(rt.cell_index[sig.id().id]).collect()
+  inspect(subs.length(), content="1")
+  inspect(subs[0] == m.id(), content="true")
 }
 ```
 
-## Step 3: Add `get_subscribers` and `get_subscribers_mut`
+**Step 2: Run tests to verify they fail**
 
-Phase 2 only has `PullSignal` and `PullMemo` variants. Later phases add arms for `PushReactive`, `Relation`, etc. Add wildcard arms now to stay compile-clean:
+Run: `moon test -p dowdiness/incr/cells -f tracking_wbtest.mbt`
+Expected: FAIL — `get_subscribers` does not exist
+
+**Step 3: Write minimal implementation**
+
+In `cells/runtime.mbt`, implement `get_subscribers` and `get_subscribers_mut` dispatching on `CellRef`. See `docs/incr-unified-design.md` §6 for the full dispatch table. Phase 2 only requires `PullSignal` and `PullMemo` arms:
 
 ```moonbit
 fn Runtime::get_subscribers(self, cell_ref : CellRef) -> Iter[CellId] {
   match cell_ref {
     PullSignal(idx) => self.pull_signals[idx].subscribers.iter()
     PullMemo(idx)   => self.pull_memos[idx].subscribers.iter()
-    // Phase 3+ will add PushReactive, PushEffect, Relation arms
-    _ => Iter::empty()
+    // Phase 3+ arms added later
   }
 }
 
@@ -81,104 +145,116 @@ fn Runtime::get_subscribers_mut(self, cell_id : CellId) -> @hashset.HashSet[Cell
   match self.cell_index[cell_id.id] {
     PullSignal(idx) => self.pull_signals[idx].subscribers
     PullMemo(idx)   => self.pull_memos[idx].subscribers
-    _ => abort("get_subscribers_mut: cell kind has no subscribers field")
+    _ => abort("get_subscribers_mut: unsupported cell kind")
   }
 }
 ```
 
-## Step 4: Update `compute` closure construction in `Memo[T]`
+**Step 4: Run tests to verify they pass**
 
-The `compute` closure stored in `PullMemoData` must now call the tracking helpers. Adapt the closure created inside `Memo[T]::new()` / `Runtime::new_memo_id`:
+Run: `moon test -p dowdiness/incr/cells -f tracking_wbtest.mbt`
+Expected: PASS
 
-```moonbit
-// Inside new_memo_id[T : Eq](self, compute_fn : () -> T) -> MemoId[T]:
-let memo_ref : Ref[T?] = Ref(None)   // cached value (None = uninitialized)
-let old_deps_ref : Ref[Array[CellId]] = Ref([])
+**Step 5: Commit**
 
-let compute : () -> Result[Bool, CycleError] = fn() {
-  self.begin_tracking(cell_id)
-  let new_val = compute_fn()   // user's function; may call get() on other cells
-  let new_deps = self.end_tracking()
-  self.finish_tracking(cell_id, old_deps_ref.val, new_deps)
-  old_deps_ref.val = new_deps
-  // Update PullMemoData.dependencies to match (for pull_verify dep walk)
-  self.pull_memos[idx].dependencies = new_deps
-
-  let changed = match memo_ref.val {
-    None => true                          // first compute
-    Some(prev) => prev != new_val         // changed?
-  }
-  if changed {
-    memo_ref.val = Some(new_val)
-    // changed_at left at current revision (set by caller pull_verify)
-    match self.pull_memos[idx].on_change {
-      Some(f) => f()
-      None => ()
-    }
-    Ok(true)
-  } else {
-    // Backdating: value unchanged, so changed_at stays at old value
-    Ok(false)
-  }
-}
+```bash
+git add cells/runtime.mbt cells/tracking_wbtest.mbt
+git commit -m "feat(subscribers): add get_subscribers and get_subscribers_mut"
 ```
 
-> **Note**: `cell_id` and `idx` are captured from the outer `new_memo_id` scope. `memo_ref` holds the typed cached value; it is NOT stored in `PullMemoData`.
+---
 
-## Step 5: (Optional) Verify GC-readiness
+### Task 3: Update memo `compute` closure to maintain subscriber links
 
-After this phase, a cell's `subscribers` set being empty and its handle being unreachable means it can be freed. You don't need to implement GC now, but verify the links are correct: after `finish_tracking`, every dep of a live memo should appear in that dep's `subscribers` set with the memo's CellId.
+**Files:**
+- Modify: `cells/runtime.mbt` (`new_memo_id` closure)
+- Modify: `cells/memo.mbt`
+- Create: `cells/subscriber_link_wbtest.mbt`
 
-Add a debug helper (test-only) that asserts subscriber/dependency consistency:
+**Step 1: Write the failing test**
 
-```moonbit
-// test helper
-fn Runtime::assert_subscriber_consistency(self) -> Unit {
-  for i, memo in self.pull_memos {
-    for dep_id in memo.dependencies {
-      let subs = self.get_subscribers(self.cell_index[dep_id.id])
-      assert(subs.contains(memo.cell_id))
-    }
-  }
-}
-```
-
-## Tests
-
-All 200 existing tests must still pass. Add:
+Create `cells/subscriber_link_wbtest.mbt`:
 
 ```moonbit
-test "subscriber links populated after memo read" {
+///|
+test "subscriber: after memo.get(), memo is in all deps' subscribers" {
   let rt = Runtime::new()
-  let s = Signal(rt, 1)
-  let m = Memo(rt, fn() { s.get() })
-  let _ = m.get()
-  // s's subscribers should contain m's cell_id
-  let s_idx = match rt.cell_index[s.id.id] { PullSignal(i) => i; _ => abort("") }
-  inspect(rt.pull_signals[s_idx].subscribers.contains(m.id.id), content="true")
+  let a = Signal::new(rt, 1)
+  let b = Signal::new(rt, 2)
+  let sum = Memo::new(rt, () => a.get() + b.get())
+  let _ = sum.get()
+  let a_idx = match rt.cell_index[a.id().id] { PullSignal(i) => i; _ => abort("") }
+  let b_idx = match rt.cell_index[b.id().id] { PullSignal(i) => i; _ => abort("") }
+  inspect(rt.pull_signals[a_idx].subscribers.contains(sum.id()), content="true")
+  inspect(rt.pull_signals[b_idx].subscribers.contains(sum.id()), content="true")
 }
 
-test "subscriber links updated on dynamic dep change" {
+///|
+test "subscriber: dynamic dep changes update subscriber links" {
   let rt = Runtime::new()
-  let flag = Signal(rt, true)
-  let a = Signal(rt, 1)
-  let b = Signal(rt, 2)
-  let m = Memo(rt, fn() { if flag.get() { a.get() } else { b.get() } })
-  let _ = m.get()
-  // m depends on flag and a; b should NOT be in m's deps
-  let m_idx = match rt.cell_index[m.id.id] { PullMemo(i) => i; _ => abort("") }
-  inspect(rt.pull_memos[m_idx].dependencies.length(), content="2")  // flag, a
+  let flag = Signal::new(rt, true)
+  let a = Signal::new(rt, 10)
+  let b = Signal::new(rt, 20)
+  let pick = Memo::new(rt, () => if flag.get() { a.get() } else { b.get() })
+  let _ = pick.get()  // deps: flag, a
+  let a_idx = match rt.cell_index[a.id().id] { PullSignal(i) => i; _ => abort("") }
+  let b_idx = match rt.cell_index[b.id().id] { PullSignal(i) => i; _ => abort("") }
+  inspect(rt.pull_signals[a_idx].subscribers.contains(pick.id()), content="true")
+  inspect(rt.pull_signals[b_idx].subscribers.contains(pick.id()), content="false")
   flag.set(false)
+  let _ = pick.get()  // deps: flag, b
+  inspect(rt.pull_signals[a_idx].subscribers.contains(pick.id()), content="false")
+  inspect(rt.pull_signals[b_idx].subscribers.contains(pick.id()), content="true")
+}
+
+///|
+test "subscriber: memo.get() idempotent — no duplicate subscriber entries" {
+  let rt = Runtime::new()
+  let a = Signal::new(rt, 1)
+  let m = Memo::new(rt, () => a.get() + 1)
   let _ = m.get()
-  // now m depends on flag and b; a should be removed from subscribers
-  let a_idx = match rt.cell_index[a.id.id] { PullSignal(i) => i; _ => abort("") }
-  inspect(rt.pull_signals[a_idx].subscribers.contains(m.id.id), content="false")
+  let _ = m.get()
+  let a_idx = match rt.cell_index[a.id().id] { PullSignal(i) => i; _ => abort("") }
+  inspect(rt.pull_signals[a_idx].subscribers.size(), content="1")
 }
 ```
 
-## Definition of Done
+**Step 2: Run tests to verify they fail**
 
-- All 200 existing tests pass
-- `moon check` has no type errors
-- After any `memo.get()` call, the memo's `cell_id` appears in every dependency's `subscribers` set
-- After a memo's dependency set changes (dynamic deps), stale subscriber links are removed
+Run: `moon test -p dowdiness/incr/cells -f subscriber_link_wbtest.mbt`
+Expected: FAIL — compute closure does not call tracking helpers
+
+**Step 3: Write minimal implementation**
+
+In `new_memo_id`, update the `compute` closure to:
+
+1. Call `self.begin_tracking(cell_id)` before invoking the user function
+2. Invoke the user function to get the new value
+3. Call `self.end_tracking()` to get `new_deps`
+4. Call `self.finish_tracking(cell_id, old_deps, new_deps)` to sync subscriber links
+5. Update `PullMemoData.dependencies = new_deps`
+
+See `docs/incr-unified-design.md` §5 for the full pattern.
+
+**Step 4: Run full test suite**
+
+Run: `moon test`
+Expected: All 200 existing tests pass
+
+**Step 5: Commit**
+
+```bash
+git add cells/runtime.mbt cells/memo.mbt cells/subscriber_link_wbtest.mbt
+git commit -m "feat(subscribers): update memo compute closure to maintain subscriber links"
+```
+
+---
+
+### Acceptance Criteria
+
+- `moon test` passes all 200 existing tests
+- `moon check` reports no type errors
+- After `memo.get()`, the memo's `cell_id` appears in every dependency's `subscribers` set
+- Dynamic dep changes (branch switching) correctly add/remove subscriber links
+- `memo.get()` is idempotent — calling it twice does not create duplicate subscriber entries
+- Subscriber/dependency consistency holds: for every live memo, each dep's `subscribers` contains that memo's `cell_id`

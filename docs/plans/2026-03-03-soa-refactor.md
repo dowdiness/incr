@@ -1,281 +1,444 @@
-# Phase 1: SoA Storage Refactor
+# SoA Storage Refactor (Phase 1)
 
-**Reference**: `docs/incr-unified-design.md` §2–3.1–3.2, §4.1, §8
+**Goal:** Replace `Runtime.cells : Array[CellMeta?]` with three typed arrays — `pull_signals`, `pull_memos`, and `cell_index` — and a `CellRef` dispatch enum. Zero public API changes. All 200 existing tests must pass throughout.
 
-## Goal
+**Architecture:** See `docs/incr-unified-design.md` §2–3.2, §4.1, §6 for data structure definitions and pseudocode.
 
-Replace the current single `Array[CellMeta]` storage with separate typed arrays for pull signals and pull memos. This is a pure internal refactor — zero public API changes, zero behavior changes. All 200 existing tests must pass at the end.
+**Tech Stack:** MoonBit. Validate with `moon check` and `moon test`.
 
-## Starting State
+---
 
-The current implementation stores all cell metadata in `Runtime.cells : Array[CellMeta]` where each element is type-erased via closures. `CellId.id` is a direct index into this array. `Signal[T]` and `Memo[T]` hold `CellId` values and do their work via `Runtime` method calls.
+### Scope
 
-## Deliverables
+In scope:
+- `CellRef` enum (`cells/cell_ref.mbt`)
+- `PullSignalData`, `PullMemoData` structs with `SignalId[T]`, `MemoId[T]` newtype handles (internal)
+- Runtime fields: `pull_signals`, `pull_memos`, `cell_index`
+- Helpers: `alloc_cell_id`, `new_signal_id`, `new_memo_id`, `get_changed_at`, `cell_id_for`, `advance_revision`, `commit_pending_signals`, `fire_cell_callbacks`
+- Iterative `pull_verify` with explicit `VerifyFrame` stack + `collect_in_progress_path`
+- Removal of all `CellMeta` references
 
-| File | Action |
-|------|--------|
-| `cells/cell_ref.mbt` | **Create** — `CellRef` enum (Phase 1 variants only) |
-| `cells/runtime.mbt` | **Adapt** — replace `cells` array with SoA; update `alloc_cell_id` |
-| `cells/signal.mbt` | **Adapt** — use `PullSignalData`; keep `Signal[T]` API identical |
-| `cells/memo.mbt` | **Adapt** — use `PullMemoData`; keep `Memo[T]` API identical |
-| `cells/verify.mbt` | **Adapt** — replace `maybe_changed_after` recursion with explicit `VerifyFrame` stack |
+Out of scope:
+- Subscriber links (Phase 2)
+- Push cells, Datalog, Hybrid (Phases 3–5)
+- Public API changes
 
-## Step 1: Add `CellRef` (Phase 1 variants only)
+---
 
-Create `cells/cell_ref.mbt`. Include only the variants needed for Phase 1; remaining variants (`PushReactive`, `PushEffect`, `Relation`, `Rule`, `Disposed`) are added in later phases.
+### Task 1: Add `CellRef` enum
+
+**Files:**
+- Create: `cells/cell_ref.mbt`
+- Create: `cells/cell_ref_wbtest.mbt`
+
+**Step 1: Write the failing test**
+
+Create `cells/cell_ref_wbtest.mbt`:
 
 ```moonbit
+///|
+test "cell_ref: PullSignal and PullMemo variants pattern-match correctly" {
+  let a : CellRef = CellRef::PullSignal(0)
+  let b : CellRef = CellRef::PullMemo(3)
+  let ia = match a { PullSignal(i) => i; _ => -1 }
+  let ib = match b { PullMemo(i) => i; _ => -1 }
+  inspect(ia, content="0")
+  inspect(ib, content="3")
+}
+```
+
+**Step 2: Run test to verify it fails**
+
+Run: `moon test -p dowdiness/incr/cells -f cell_ref_wbtest.mbt -i 0`
+Expected: FAIL — `CellRef` type does not exist
+
+**Step 3: Write minimal implementation**
+
+Create `cells/cell_ref.mbt`:
+
+```moonbit
+///|
 pub enum CellRef {
   PullSignal(index : Int)
   PullMemo(index : Int)
+  // PushReactive, PushEffect, Disposed added in Phase 3
+  // Relation, Rule added in Phase 4
+  // HybridMemo added in Phase 5
 }
 ```
 
-> **Note**: `get_changed_at`, `ensure_up_to_date`, `get_subscribers` will need wildcard arms (`_ => ...`) to compile against this partial enum until later phases fill them in.
+**Step 4: Run test to verify it passes**
 
-## Step 2: Add `PullSignalData` and `PullMemoData`
+Run: `moon test -p dowdiness/incr/cells -f cell_ref_wbtest.mbt -i 0`
+Expected: PASS
 
-These replace `CellMeta` for pull cells. Key differences from `CellMeta`:
+**Step 5: Run full suite**
 
-- Value (`Ref[T]`) stays in the `Signal[T]` / `Memo[T]` handle — not in the data struct
-- `cell_id : CellId` is stored as the first field (enables reverse lookup)
-- `subscribers` field present but unused until Phase 2
-- `commit_pending` / `rollback_pending` closures replace the old `commit_pending` closure on `CellMeta`
+Run: `moon test`
+Expected: PASS (no existing tests broken — new file is additive)
+
+**Step 6: Commit**
+
+```bash
+git add cells/cell_ref.mbt cells/cell_ref_wbtest.mbt
+git commit -m "feat(soa): add CellRef enum"
+```
+
+---
+
+### Task 2: Add `PullSignalData`, `PullMemoData`, and newtype handles
+
+**Files:**
+- Create: `cells/pull_signal.mbt`
+- Create: `cells/pull_memo.mbt`
+
+**Step 1: Write the failing test**
+
+Add to `cells/cell_ref_wbtest.mbt`:
 
 ```moonbit
-struct PullSignalData {
-  cell_id : CellId
-  label : String?
-  mut changed_at : Revision
-  mut durability : Durability
-  subscribers : @hashset.HashSet[CellId]   // populated in Phase 2
-  mut on_change : (() -> Unit)?
-  mut commit_pending   : (() -> Bool)?
-  mut rollback_pending : (() -> Unit)?
-}
-
-struct PullMemoData {
-  cell_id : CellId
-  label : String?
-  compute : () -> Result[Bool, CycleError]
-  mut changed_at : Revision
-  mut verified_at : Revision
-  mut durability : Durability
-  mut dependencies : Array[CellId]
-  subscribers : @hashset.HashSet[CellId]   // populated in Phase 2
-  mut in_progress : Bool
-  mut on_change : (() -> Unit)?
-}
-```
-
-`compute` is a type-erased closure created at `Memo[T]` construction time. It:
-1. Calls `begin_tracking` / runs user fn / calls `end_tracking` + `finish_tracking` (Phase 2 adds tracking; in Phase 1, tracking can remain as-is)
-2. Compares new value with cached value
-3. Updates cached value if different; backdates `changed_at` if equal (existing backdating logic)
-4. Fires `on_change` if value changed
-5. Returns `Ok(true)` if changed, `Ok(false)` if unchanged, `Err(CycleError)` on cycle
-
-## Step 3: Update `Runtime` struct
-
-Replace `cells : Array[CellMeta]` with:
-
-```
-Runtime
-├── pull_signals   : Array[PullSignalData]
-├── pull_memos     : Array[PullMemoData]
-├── cell_index     : Array[CellRef]          // CellId.id → CellRef
-├── (all other existing fields unchanged)
-```
-
-Remove `cells` entirely. Keep all other Runtime fields unchanged.
-
-## Step 4: Update `alloc_cell_id`
-
-The existing `alloc_cell_id` appended to `cells`. Replace with:
-
-```moonbit
-fn Runtime::alloc_cell_id(self, cell_ref : CellRef) -> CellId {
-  let id = self.next_cell_id
-  self.next_cell_id += 1
-  self.cell_index.push(cell_ref)  // cell_index[id] = cell_ref
-  { runtime_id: self.runtime_id, id }
-}
-```
-
-Signal allocation pattern:
-
-```moonbit
-fn Runtime::new_signal_id[T : Eq](self, initial : T) -> SignalId[T] {
-  let idx = self.pull_signals.length()
-  let cell_id = self.alloc_cell_id(CellRef::PullSignal(idx))
-  self.pull_signals.push(PullSignalData {
-    cell_id,
+///|
+test "pull_signal_data: can be constructed" {
+  let id = CellId::{ runtime_id: 0, id: 0 }
+  let data = PullSignalData::{
+    cell_id: id,
     label: None,
-    changed_at: self.revision,
-    durability: Durability::Low,
+    changed_at: Revision::initial(),
+    durability: Low,
     subscribers: @hashset.new(),
     on_change: None,
     commit_pending: None,
     rollback_pending: None,
-  })
-  SignalId { id: cell_id }
+  }
+  inspect(data.label, content="None")
+}
+
+///|
+test "signal_id_memo_id: newtype handles wrap CellId" {
+  let cid = CellId::{ runtime_id: 0, id: 5 }
+  let sid : SignalId[Int] = SignalId::{ id: cid }
+  let mid : MemoId[Int] = MemoId::{ id: cid }
+  inspect(sid.id.id, content="5")
+  inspect(mid.id.id, content="5")
 }
 ```
 
-Memo allocation: same pattern with `PullMemo(idx)` and `PullMemoData`.
+**Step 2: Run tests to verify they fail**
 
-## Step 5: Add `SignalId[T]` and `MemoId[T]` newtype handles
+Run: `moon test -p dowdiness/incr/cells -f cell_ref_wbtest.mbt`
+Expected: FAIL — `PullSignalData`, `SignalId`, `MemoId` do not exist
 
-These are internal handles used by Runtime methods for typed dispatch. They are **not** the public API — `Signal[T]` and `Memo[T]` remain the public-facing structs unchanged.
+**Step 3: Write minimal implementation**
+
+Define `PullSignalData` in `cells/pull_signal.mbt` per `docs/incr-unified-design.md` §3.1. Define `PullMemoData` in `cells/pull_memo.mbt` per §3.2. Add newtype handles to `cells/cell_ref.mbt`:
 
 ```moonbit
+///|
 pub struct SignalId[T] { id : CellId }
-pub struct MemoId[T]   { id : CellId }
+
+///|
+pub struct MemoId[T] { id : CellId }
 ```
 
-## Step 6: Replace `maybe_changed_after` with `pull_verify` (explicit stack)
+**Step 4: Run tests to verify they pass**
 
-The current recursive `maybe_changed_after` will overflow on deep dependency graphs. Replace it with an explicit `VerifyFrame` stack. The behavior is identical; only the implementation strategy changes.
+Run: `moon test -p dowdiness/incr/cells -f cell_ref_wbtest.mbt`
+Expected: PASS
+
+**Step 5: Run full suite**
+
+Run: `moon test`
+Expected: All existing tests pass
+
+**Step 6: Commit**
+
+```bash
+git add cells/pull_signal.mbt cells/pull_memo.mbt cells/cell_ref.mbt cells/cell_ref_wbtest.mbt
+git commit -m "feat(soa): add PullSignalData, PullMemoData, SignalId[T], MemoId[T]"
+```
+
+---
+
+### Task 3: Add SoA fields and `alloc_cell_id` to Runtime
+
+**Files:**
+- Modify: `cells/runtime.mbt`
+- Create: `cells/soa_wbtest.mbt`
+
+**Step 1: Write the failing test**
+
+Create `cells/soa_wbtest.mbt`:
 
 ```moonbit
-struct VerifyFrame {
-  cell_id    : CellId
-  memo_idx   : Int
-  mut dep_cursor : Int
-  mut changed    : Bool
+///|
+test "runtime: SoA fields exist and start empty" {
+  let rt = Runtime::new()
+  inspect(rt.pull_signals.length(), content="0")
+  inspect(rt.pull_memos.length(), content="0")
+  inspect(rt.cell_index.length(), content="0")
 }
 
-fn Runtime::pull_verify(self, cell_id : CellId) -> Result[Unit, CycleError] {
-  match self.cell_index[cell_id.id] {
-    PullSignal(_) => Ok(())
-    PullMemo(root_idx) => {
-      let root = self.pull_memos[root_idx]
-      if root.verified_at >= self.revision { return Ok(()) }
-      if root.in_progress {
-        return Err(CycleError::from_path(self.collect_in_progress_path(), cell_id))
-      }
-      let stack : Array[VerifyFrame] = []
-      root.in_progress = true
-      stack.push({ cell_id, memo_idx: root_idx, dep_cursor: 0, changed: false })
-      let mut err : CycleError? = None
-      while not(stack.is_empty()) && err == None {
-        let top = stack.length() - 1
-        let memo = self.pull_memos[stack[top].memo_idx]
-        if stack[top].dep_cursor < memo.dependencies.length() {
-          let dep_id = memo.dependencies[stack[top].dep_cursor]
-          stack[top].dep_cursor += 1
-          match self.cell_index[dep_id.id] {
-            PullMemo(dep_idx) => {
-              let dep = self.pull_memos[dep_idx]
-              if dep.verified_at < self.revision {
-                if dep.in_progress {
-                  err = Some(CycleError::from_path(self.collect_in_progress_path(), dep_id))
-                } else {
-                  dep.in_progress = true
-                  stack.push({ cell_id: dep_id, memo_idx: dep_idx, dep_cursor: 0, changed: false })
-                }
-              } else {
-                if dep.changed_at > memo.verified_at { stack[top].changed = true }
-              }
-            }
-            _ => {
-              if self.get_changed_at(dep_id) > memo.verified_at { stack[top].changed = true }
-            }
-          }
-        } else {
-          let frame = stack.pop().unwrap()
-          memo.in_progress = false
-          if frame.changed {
-            // Two-level structure:
-            //   pull_verify stack = VERIFICATION WALK (decides whether to recompute)
-            //   compute()         = RECOMPUTATION (handles its own tracking internally)
-            // All deps are verified before compute fires, so nested get() calls
-            // inside compute() return immediately without re-entering pull_verify.
-            match (memo.compute)() {
-              Ok(_) => ()
-              Err(e) => { err = Some(e) }
-            }
-          }
-          memo.verified_at = self.revision
-          if not(stack.is_empty()) {
-            let parent_top = stack.length() - 1
-            let parent_verified_at = self.pull_memos[stack[parent_top].memo_idx].verified_at
-            if memo.changed_at > parent_verified_at { stack[parent_top].changed = true }
-          }
-        }
-      }
-      for frame in stack { self.pull_memos[frame.memo_idx].in_progress = false }
-      match err { Some(e) => Err(e); None => Ok(()) }
-    }
+///|
+test "runtime: alloc_cell_id populates cell_index" {
+  let rt = Runtime::new()
+  let cell_id = rt.alloc_cell_id(CellRef::PullSignal(0))
+  inspect(cell_id.id, content="0")
+  inspect(rt.cell_index.length(), content="1")
+  match rt.cell_index[0] {
+    PullSignal(i) => inspect(i, content="0")
+    _ => abort("expected PullSignal")
   }
-}
-
-fn Runtime::collect_in_progress_path(self) -> Array[CellId] {
-  let path : Array[CellId] = []
-  for memo in self.pull_memos {
-    if memo.in_progress { path.push(memo.cell_id) }
-  }
-  path
 }
 ```
 
-## Step 7: Update `cell_id_for` and `get_changed_at`
+**Step 2: Run tests to verify they fail**
+
+Run: `moon test -p dowdiness/incr/cells -f soa_wbtest.mbt -i 0`
+Expected: FAIL — `pull_signals`, `pull_memos`, `cell_index` fields do not exist
+
+**Step 3: Write minimal implementation**
+
+In `cells/runtime.mbt`, add the three SoA fields to `Runtime` alongside the existing `cells` field (do not remove `cells` yet — migrate callers in Tasks 4–5 first). Implement `alloc_cell_id` per `docs/incr-unified-design.md` §6.
+
+**Step 4: Run tests to verify they pass**
+
+Run: `moon test -p dowdiness/incr/cells -f soa_wbtest.mbt`
+Expected: PASS
+
+**Step 5: Run full suite**
+
+Run: `moon test`
+Expected: All existing tests pass
+
+**Step 6: Commit**
+
+```bash
+git add cells/runtime.mbt cells/soa_wbtest.mbt
+git commit -m "feat(soa): add pull_signals, pull_memos, cell_index and alloc_cell_id to Runtime"
+```
+
+---
+
+### Task 4: Migrate `new_signal_id` and `new_memo_id` to SoA
+
+**Files:**
+- Modify: `cells/runtime.mbt`, `cells/signal.mbt`, `cells/memo.mbt`
+
+**Step 1: Write the failing test**
+
+Add to `cells/soa_wbtest.mbt`:
 
 ```moonbit
-fn Runtime::cell_id_for(self, cell_ref : CellRef) -> CellId {
-  match cell_ref {
-    PullSignal(idx) => self.pull_signals[idx].cell_id
-    PullMemo(idx)   => self.pull_memos[idx].cell_id
+///|
+test "new_signal_id: allocates into pull_signals" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 42)
+  inspect(rt.pull_signals.length(), content="1")
+  match rt.cell_index[sig.id().id] {
+    PullSignal(i) => inspect(i, content="0")
+    _ => abort("expected PullSignal")
   }
 }
 
-fn Runtime::get_changed_at(self, cell_id : CellId) -> Revision {
-  match self.cell_index[cell_id.id] {
-    PullSignal(idx) => self.pull_signals[idx].changed_at
-    PullMemo(idx)   => self.pull_memos[idx].changed_at
+///|
+test "new_memo_id: allocates into pull_memos" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 1)
+  let m = Memo::new(rt, () => sig.get())
+  let _ = m.get()
+  inspect(rt.pull_memos.length(), content="1")
+  match rt.cell_index[m.id().id] {
+    PullMemo(i) => inspect(i, content="0")
+    _ => abort("expected PullMemo")
   }
 }
 ```
 
-## Step 8: Update batch commit mechanics
+**Step 2: Run tests to verify they fail**
 
-`commit_pending_signals()` iterates `batch_pending_signals`, calls each signal's `commit_pending` closure, and returns the CellIds where `commit_pending()` returned `true`:
+Run: `moon test -p dowdiness/incr/cells -f soa_wbtest.mbt`
+Expected: FAIL — signals/memos not yet allocated into SoA arrays
+
+**Step 3: Write minimal implementation**
+
+Update `new_signal_id` to push a `PullSignalData` into `rt.pull_signals` and register `PullSignal(idx)` via `alloc_cell_id`. Update `new_memo_id` similarly for `PullMemoData` and `PullMemo(idx)`. See `docs/incr-unified-design.md` §6 for pseudocode.
+
+**Step 4: Run full test suite**
+
+Run: `moon test`
+Expected: All existing tests pass
+
+**Step 5: Commit**
+
+```bash
+git add cells/runtime.mbt cells/signal.mbt cells/memo.mbt cells/soa_wbtest.mbt
+git commit -m "feat(soa): migrate new_signal_id and new_memo_id to SoA arrays"
+```
+
+---
+
+### Task 5: Update helpers to dispatch via `CellRef`
+
+**Files:**
+- Modify: `cells/runtime.mbt`
+
+**Step 1: Write the failing test**
+
+Add to `cells/soa_wbtest.mbt`:
 
 ```moonbit
-fn Runtime::commit_pending_signals(self) -> Array[CellId] {
-  let changed = []
-  for cell_id in self.batch_pending_signals {
-    match self.cell_index[cell_id.id] {
-      PullSignal(idx) => {
-        match self.pull_signals[idx].commit_pending {
-          Some(f) => if f() { changed.push(cell_id) }
-          None => ()
-        }
-        self.pull_signals[idx].commit_pending = None
-        self.pull_signals[idx].rollback_pending = None
-      }
-      _ => ()
-    }
-  }
-  changed
+///|
+test "get_changed_at: dispatches via cell_index" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 1)
+  let rev = rt.get_changed_at(sig.id())
+  inspect(rev >= Revision::initial(), content="true")
+}
+
+///|
+test "cell_id_for: round-trips through cell_index" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 1)
+  let cell_id = rt.cell_id_for(rt.cell_index[sig.id().id])
+  inspect(cell_id == sig.id(), content="true")
 }
 ```
 
-`advance_revision`:
+**Step 2: Run tests to verify they fail**
+
+Run: `moon test -p dowdiness/incr/cells -f soa_wbtest.mbt`
+Expected: FAIL — helpers still read from `cells` array, not SoA
+
+**Step 3: Write minimal implementation**
+
+Update `get_changed_at`, `cell_id_for`, `advance_revision`, `commit_pending_signals`, and `fire_cell_callbacks` to dispatch via `match self.cell_index[cell_id.id]` as specified in `docs/incr-unified-design.md` §6.
+
+**Step 4: Run full test suite**
+
+Run: `moon test`
+Expected: All existing tests pass
+
+**Step 5: Commit**
+
+```bash
+git add cells/runtime.mbt cells/soa_wbtest.mbt
+git commit -m "feat(soa): update helpers to dispatch via CellRef"
+```
+
+---
+
+### Task 6: Replace `maybe_changed_after` with iterative `pull_verify`
+
+**Files:**
+- Modify: `cells/verify.mbt`
+- Modify: `cells/runtime.mbt` (add `collect_in_progress_path`)
+- Create: `cells/pull_verify_wbtest.mbt`
+
+**Step 1: Write the failing test**
+
+Create `cells/pull_verify_wbtest.mbt`:
+
 ```moonbit
-fn Runtime::advance_revision(self, durability : Durability) -> Unit {
-  self.revision = Revision(self.revision.val + 1)
-  for d in Durability::all() {
-    if d <= durability {
-      self.durability_last_changed[d.index()] = self.revision
-    }
-  }
+///|
+test "pull_verify: signal always returns Ok" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 1)
+  let result = rt.pull_verify(sig.id())
+  inspect(result, content="Ok(())")
+}
+
+///|
+test "pull_verify: up-to-date memo returns Ok without recompute" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 1)
+  let mut count = 0
+  let m = Memo::new(rt, () => { count += 1; sig.get() })
+  let _ = m.get()
+  inspect(count, content="1")
+  let _ = rt.pull_verify(m.id())
+  inspect(count, content="1")
+}
+
+///|
+test "pull_verify: stale memo recomputes on next get" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 1)
+  let m = Memo::new(rt, () => sig.get() + 10)
+  let _ = m.get()
+  sig.set(5)
+  let _ = rt.pull_verify(m.id())
+  inspect(m.get(), content="15")
 }
 ```
 
-## Definition of Done
+**Step 2: Run tests to verify they fail**
 
-- `moon test` passes all 200 existing tests with no changes
-- `moon check` has no type errors
-- No `cells` or `CellMeta` references remain in the codebase (all replaced by SoA)
-- `maybe_changed_after` is gone; `pull_verify` with explicit stack is in its place
+Run: `moon test -p dowdiness/incr/cells -f pull_verify_wbtest.mbt`
+Expected: FAIL — `rt.pull_verify` does not exist
+
+**Step 3: Write minimal implementation**
+
+In `cells/verify.mbt`, implement `pull_verify` with an explicit `VerifyFrame` stack as specified in `docs/incr-unified-design.md` §4.1.
+
+In `cells/runtime.mbt`, add `collect_in_progress_path` per §6.
+
+Wire `pull_verify` into `Memo::get` to replace all calls to `maybe_changed_after`.
+
+**Step 4: Run full test suite**
+
+Run: `moon test`
+Expected: All 200 existing tests pass
+
+**Step 5: Commit**
+
+```bash
+git add cells/verify.mbt cells/runtime.mbt cells/pull_verify_wbtest.mbt
+git commit -m "feat(soa): implement iterative pull_verify with VerifyFrame stack"
+```
+
+---
+
+### Task 7: Remove `CellMeta` entirely
+
+**Files:**
+- Modify/Delete: `cells/cell.mbt`
+- Modify: `cells/runtime.mbt`
+
+**Step 1: Audit remaining references**
+
+```bash
+grep -rn "CellMeta" cells/
+```
+
+Resolve any remaining references before proceeding.
+
+**Step 2: Remove `cells` field from Runtime**
+
+Delete `cells : Array[CellMeta?]` from `Runtime`. Remove or gut `cells/cell.mbt`.
+
+**Step 3: Run full suite**
+
+```bash
+moon check && moon test
+```
+
+Expected: `moon check` clean; all 200 tests pass.
+
+**Step 4: Commit**
+
+```bash
+git add cells/
+git commit -m "feat(soa): remove CellMeta; SoA refactor complete"
+```
+
+---
+
+### Acceptance Criteria
+
+- `moon test` passes all 200 existing tests
+- `moon check` reports no type errors
+- `Runtime` uses `pull_signals : Array[PullSignalData]`, `pull_memos : Array[PullMemoData]`, `cell_index : Array[CellRef]`
+- `maybe_changed_after` replaced by iterative `pull_verify` with explicit `VerifyFrame` stack
+- `collect_in_progress_path` helper exists for cycle detection
+- No `CellMeta` references remain in the codebase
+- `SignalId[T]` and `MemoId[T]` newtype handles defined in `cells/cell_ref.mbt`
