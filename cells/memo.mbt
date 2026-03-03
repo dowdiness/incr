@@ -62,7 +62,7 @@ pub fn[T : Eq] Memo::new(
   compute : () -> T,
   label? : String,
 ) -> Memo[T] {
-  let cell_id = rt.alloc_cell_id()
+  let cell_id = rt.alloc_next_id()
   let memo : Memo[T] = { label, rt, cell_id, compute, value: None }
   let recompute_and_check : () -> Result[Bool, CycleError] = () => {
     memo.recompute_inner()

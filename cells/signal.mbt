@@ -58,7 +58,7 @@ pub fn[T] Signal::new(
   durability? : Durability = Low,
   label? : String,
 ) -> Signal[T] {
-  let cell_id = rt.alloc_cell_id()
+  let cell_id = rt.alloc_next_id()
   let meta = CellMeta::new_input(cell_id, durability, label)
   rt.register_cell(meta)
   { label, rt, cell_id, value: initial, pending_value: None, durability }

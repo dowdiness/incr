@@ -73,6 +73,10 @@ pub(all) struct Runtime {
   priv batch_frames : Array[BatchFrame]
   priv mut batch_max_durability : Durability
   priv mut on_change : (() -> Unit)?
+  // SoA storage arrays (Phase 1 refactor)
+  priv pull_signals : Array[PullSignalData]
+  priv pull_memos : Array[PullMemoData]
+  priv cell_index : Array[CellRef]
 
   fn new(on_change? : () -> Unit) -> Runtime
 }
@@ -122,6 +126,9 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
     batch_frames: [],
     batch_max_durability: Low,
     on_change,
+    pull_signals: [],
+    pull_memos: [],
+    cell_index: [],
   }
 }
 
@@ -168,18 +175,35 @@ fn Runtime::register_cell(self : Runtime, meta : CellMeta) -> Unit {
 }
 
 ///|
-/// Allocates a fresh cell identifier.
+/// Allocates a raw cell identifier (internal helper).
 ///
-/// This is called internally when creating signals and memos. Cell IDs are
-/// monotonically increasing integers used for O(1) cell lookup.
+/// Increments `next_cell_id` and returns the new CellId without touching
+/// `cell_index`. Used by `alloc_cell_id(CellRef)` and legacy callers that
+/// still go through `register_cell` during the SoA migration.
+fn Runtime::alloc_next_id(self : Runtime) -> CellId {
+  let id = self.next_cell_id
+  self.next_cell_id = id + 1
+  { runtime_id: self.runtime_id, id }
+}
+
+///|
+/// Allocates a fresh cell identifier and registers it in the SoA cell_index.
+///
+/// The `cell_ref` argument records which typed SoA array this cell lives in
+/// (e.g. `PullSignal(idx)` or `PullMemo(idx)`).  The returned `CellId.id`
+/// is the index into `cell_index` for fast dispatch.
 ///
 /// # Returns
 ///
 /// A new unique cell identifier
-fn Runtime::alloc_cell_id(self : Runtime) -> CellId {
-  let id = self.next_cell_id
-  self.next_cell_id = id + 1
-  { runtime_id: self.runtime_id, id }
+fn Runtime::alloc_cell_id(self : Runtime, cell_ref : CellRef) -> CellId {
+  let cell_id = self.alloc_next_id()
+  // Grow cell_index to accommodate the new id
+  while self.cell_index.length() <= cell_id.id {
+    self.cell_index.push(CellRef::PullSignal(0))
+  }
+  self.cell_index[cell_id.id] = cell_ref
+  cell_id
 }
 
 ///|

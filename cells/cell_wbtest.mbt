@@ -19,7 +19,7 @@ test "CellId::hash equal inputs produce equal hashes" {
 ///|
 test "CellMeta new_input stores label" {
   let rt = Runtime::new()
-  let id = rt.alloc_cell_id()
+  let id = rt.alloc_next_id()
   let meta = CellMeta::new_input(id, Low, Some("my_signal"))
   inspect(meta.label, content="Some(\"my_signal\")")
 }
@@ -27,7 +27,7 @@ test "CellMeta new_input stores label" {
 ///|
 test "CellMeta new_input stores None label" {
   let rt = Runtime::new()
-  let id = rt.alloc_cell_id()
+  let id = rt.alloc_next_id()
   let meta = CellMeta::new_input(id, Low, None)
   inspect(meta.label, content="None")
 }
