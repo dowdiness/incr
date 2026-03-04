@@ -845,6 +845,65 @@ fn Runtime::pop_tracking(
 }
 
 ///|
+/// Pushes a fresh tracking frame for the given cell (Phase 2 API).
+///
+/// Equivalent to `push_tracking`. Provided as a stable helper name for
+/// Phase 3+ cell types that manage their own tracking lifecycle outside of
+/// `force_recompute`.
+fn Runtime::begin_tracking(self : Runtime, cell_id : CellId) -> Unit {
+  self.push_tracking(cell_id)
+}
+
+///|
+/// Pops the tracking frame and returns only the collected dependency list.
+///
+/// Simplified form of `pop_tracking` used by Phase 3+ cell types that do not
+/// need the pre-built `seen` set (they call `finish_tracking` separately).
+///
+/// # Panics
+///
+/// Aborts if the tracking stack is empty.
+fn Runtime::end_tracking(self : Runtime) -> Array[CellId] {
+  let (deps, _seen) = self.pop_tracking()
+  deps
+}
+
+///|
+/// Updates subscriber links after a cell recomputes with a new dependency set.
+///
+/// Diffs `old_deps` against `new_deps` and:
+/// - removes `cell_id` from the subscriber set of every dropped dependency
+/// - adds `cell_id` to the subscriber set of every newly added dependency
+///
+/// This is the canonical subscriber-maintenance helper for Phase 3+ cell types.
+/// `Memo::force_recompute` performs an equivalent diff inline (with the
+/// optimisation of reusing the `seen` set from `pop_tracking`); Phase 3 cell
+/// types use this helper instead.
+fn Runtime::finish_tracking(
+  self : Runtime,
+  cell_id : CellId,
+  old_deps : Array[CellId],
+  new_deps : Array[CellId],
+) -> Unit {
+  let new_seen : @hashset.HashSet[CellId] = @hashset.new()
+  for dep in new_deps {
+    new_seen.add(dep)
+  }
+  let old_seen : @hashset.HashSet[CellId] = @hashset.new()
+  for dep in old_deps {
+    old_seen.add(dep)
+    if not(new_seen.contains(dep)) {
+      self.remove_subscriber(dep, cell_id)
+    }
+  }
+  for dep in new_deps {
+    if not(old_seen.contains(dep)) {
+      self.add_subscriber(dep, cell_id)
+    }
+  }
+}
+
+///|
 /// Collect cell IDs from the current tracking stack.
 ///
 /// Returns the cell IDs of all active computation frames in order,
