@@ -311,6 +311,49 @@ fn Runtime::get_pull_memo(self : Runtime, id : CellId) -> PullMemoData {
 }
 
 ///|
+/// Returns an iterator over the subscriber IDs for the given cell.
+///
+/// Used by Phase 3 push propagation to enumerate cells that must be
+/// notified when a cell's value changes. Phase 3 extends this with
+/// `PushReactive`, `PushEffect`, and `Disposed` arms.
+fn Runtime::get_subscribers(self : Runtime, cell_id : CellId) -> Iter[CellId] {
+  if cell_id.runtime_id != self.runtime_id {
+    abort("Cell belongs to a different Runtime")
+  }
+  if cell_id.id < 0 || cell_id.id >= self.cell_index.length() {
+    abort("get_subscribers: cell_id out of bounds: " + cell_id.id.to_string())
+  }
+  match self.cell_index[cell_id.id] {
+    PullSignal(idx) => self.pull_signals[idx].subscribers.iter()
+    PullMemo(idx) => self.pull_memos[idx].subscribers.iter()
+  }
+}
+
+///|
+/// Returns the mutable subscriber set for the given cell.
+///
+/// Returns the live `HashSet[CellId]` object; mutations through it are
+/// immediately reflected in the runtime. Used by `finish_tracking` and
+/// Phase 3 disposal to add/remove reverse edges efficiently.
+fn Runtime::get_subscribers_mut(
+  self : Runtime,
+  cell_id : CellId,
+) -> @hashset.HashSet[CellId] {
+  if cell_id.runtime_id != self.runtime_id {
+    abort("Cell belongs to a different Runtime")
+  }
+  if cell_id.id < 0 || cell_id.id >= self.cell_index.length() {
+    abort(
+      "get_subscribers_mut: cell_id out of bounds: " + cell_id.id.to_string(),
+    )
+  }
+  match self.cell_index[cell_id.id] {
+    PullSignal(idx) => self.pull_signals[idx].subscribers
+    PullMemo(idx) => self.pull_memos[idx].subscribers
+  }
+}
+
+///|
 /// Removes `subscriber` from the subscriber set of `dep`.
 fn Runtime::remove_subscriber(
   self : Runtime,
@@ -841,6 +884,68 @@ fn Runtime::pop_tracking(
       (query.dependencies, query.seen)
     }
     None => abort("Tracking stack underflow")
+  }
+}
+
+///|
+/// Pushes a fresh tracking frame for the given cell (Phase 2 API).
+///
+/// Equivalent to `push_tracking`. Provided as a stable helper name for
+/// Phase 3+ cell types that manage their own tracking lifecycle outside of
+/// `force_recompute`.
+fn Runtime::begin_tracking(self : Runtime, cell_id : CellId) -> Unit {
+  self.push_tracking(cell_id)
+}
+
+///|
+/// Pops the tracking frame and returns only the collected dependency list.
+///
+/// Simplified form of `pop_tracking` used by Phase 3+ cell types that do not
+/// need the pre-built `seen` set (they call `finish_tracking` separately).
+///
+/// # Panics
+///
+/// Aborts if the tracking stack is empty.
+fn Runtime::end_tracking(self : Runtime) -> Array[CellId] {
+  let (deps, _seen) = self.pop_tracking()
+  deps
+}
+
+///|
+/// Updates subscriber links after a cell recomputes with a new dependency set.
+///
+/// Diffs `old_deps` against `new_deps` and:
+/// - removes `cell_id` from the subscriber set of every dropped dependency
+/// - adds `cell_id` to the subscriber set of every newly added dependency
+///
+/// This is the canonical subscriber-maintenance helper for Phase 3+ cell types.
+/// `Memo::force_recompute` performs an equivalent diff inline (with the
+/// optimisation of reusing the `seen` set from `pop_tracking`); Phase 3 cell
+/// types use this helper instead.
+fn Runtime::finish_tracking(
+  self : Runtime,
+  cell_id : CellId,
+  old_deps : Array[CellId],
+  new_deps : Array[CellId],
+) -> Unit {
+  if old_deps.length() == 0 && new_deps.length() == 0 {
+    return
+  }
+  let new_seen : @hashset.HashSet[CellId] = @hashset.new()
+  for dep in new_deps {
+    new_seen.add(dep)
+  }
+  let old_seen : @hashset.HashSet[CellId] = @hashset.new()
+  for dep in old_deps {
+    old_seen.add(dep)
+    if not(new_seen.contains(dep)) {
+      self.remove_subscriber(dep, cell_id)
+    }
+  }
+  for dep in new_deps {
+    if not(old_seen.contains(dep)) {
+      self.add_subscriber(dep, cell_id)
+    }
   }
 }
 
