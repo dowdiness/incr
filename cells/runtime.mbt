@@ -76,6 +76,8 @@ pub(all) struct Runtime {
   priv pull_signals : Array[PullSignalData]
   priv pull_memos : Array[PullMemoData]
   priv cell_index : Array[CellRef]
+  // Trait object dispatch (indexed by CellId.id, parallel to cell_index)
+  priv cell_ops : Array[&CellOps]
 
   fn new(on_change? : () -> Unit) -> Runtime
 }
@@ -127,6 +129,7 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
     pull_signals: [],
     pull_memos: [],
     cell_index: [],
+    cell_ops: [],
   }
 }
 
@@ -210,6 +213,8 @@ fn Runtime::new_signal_id(
     commit_pending: None,
     rollback_pending: None,
   })
+  let ops : &CellOps = self.pull_signals[idx]
+  self.cell_ops.push(ops)
   cell_id
 }
 

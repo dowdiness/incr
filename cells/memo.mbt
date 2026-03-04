@@ -81,6 +81,8 @@ pub fn[T : Eq] Memo::new(
     in_progress: false,
     on_change: None,
   })
+  let ops : &CellOps = rt.pull_memos[memo_idx]
+  rt.cell_ops.push(ops)
   memo
 }
 
