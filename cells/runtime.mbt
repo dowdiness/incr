@@ -248,19 +248,13 @@ fn Runtime::get_changed_at(self : Runtime, id : CellId) -> Revision {
   if id.id < 0 || id.id >= self.cell_index.length() {
     abort("get_changed_at: cell_id out of bounds: " + id.id.to_string())
   }
-  match self.cell_index[id.id] {
-    PullSignal(idx) => self.pull_signals[idx].changed_at
-    PullMemo(idx) => self.pull_memos[idx].changed_at
-  }
+  self.cell_ops[id.id].changed_at()
 }
 
 ///|
 /// Returns the `durability` for any cell, dispatching via cell_index.
 fn Runtime::get_durability(self : Runtime, id : CellId) -> Durability {
-  match self.cell_index[id.id] {
-    PullSignal(idx) => self.pull_signals[idx].durability
-    PullMemo(idx) => self.pull_memos[idx].durability
-  }
+  self.cell_ops[id.id].durability()
 }
 
 ///|
@@ -328,10 +322,7 @@ fn Runtime::get_subscribers(self : Runtime, cell_id : CellId) -> Iter[CellId] {
   if cell_id.id < 0 || cell_id.id >= self.cell_index.length() {
     abort("get_subscribers: cell_id out of bounds: " + cell_id.id.to_string())
   }
-  match self.cell_index[cell_id.id] {
-    PullSignal(idx) => self.pull_signals[idx].subscribers.iter()
-    PullMemo(idx) => self.pull_memos[idx].subscribers.iter()
-  }
+  self.cell_ops[cell_id.id].subscribers().iter()
 }
 
 ///|
@@ -352,10 +343,7 @@ fn Runtime::get_subscribers_mut(
       "get_subscribers_mut: cell_id out of bounds: " + cell_id.id.to_string(),
     )
   }
-  match self.cell_index[cell_id.id] {
-    PullSignal(idx) => self.pull_signals[idx].subscribers
-    PullMemo(idx) => self.pull_memos[idx].subscribers
-  }
+  self.cell_ops[cell_id.id].subscribers()
 }
 
 ///|
@@ -365,10 +353,7 @@ fn Runtime::remove_subscriber(
   dep : CellId,
   subscriber : CellId,
 ) -> Unit {
-  match self.cell_index[dep.id] {
-    PullSignal(idx) => self.pull_signals[idx].subscribers.remove(subscriber)
-    PullMemo(idx) => self.pull_memos[idx].subscribers.remove(subscriber)
-  }
+  self.cell_ops[dep.id].subscribers().remove(subscriber)
 }
 
 ///|
@@ -378,10 +363,7 @@ fn Runtime::add_subscriber(
   dep : CellId,
   subscriber : CellId,
 ) -> Unit {
-  match self.cell_index[dep.id] {
-    PullSignal(idx) => self.pull_signals[idx].subscribers.add(subscriber)
-    PullMemo(idx) => self.pull_memos[idx].subscribers.add(subscriber)
-  }
+  self.cell_ops[dep.id].subscribers().add(subscriber)
 }
 
 ///|
@@ -466,30 +448,29 @@ pub fn Runtime::cell_info(self : Runtime, id : CellId) -> CellInfo? {
   if id.id < 0 || id.id >= self.cell_index.length() {
     return None
   }
+  let ops = self.cell_ops[id.id]
   match self.cell_index[id.id] {
-    PullSignal(idx) => {
-      let sig = self.pull_signals[idx]
+    PullSignal(_) =>
       Some(CellInfo::{
-        label: sig.label,
+        label: ops.label(),
         id,
-        changed_at: sig.changed_at,
+        changed_at: ops.changed_at(),
         // Signals are always up-to-date after a set; verified_at == changed_at
-        verified_at: sig.changed_at,
-        durability: sig.durability,
+        verified_at: ops.changed_at(),
+        durability: ops.durability(),
         dependencies: [],
-        subscribers: snapshot_subscribers(sig.subscribers),
+        subscribers: snapshot_subscribers(ops.subscribers()),
       })
-    }
     PullMemo(idx) => {
       let memo = self.pull_memos[idx]
       Some(CellInfo::{
-        label: memo.label,
+        label: ops.label(),
         id,
-        changed_at: memo.changed_at,
+        changed_at: ops.changed_at(),
         verified_at: memo.verified_at,
-        durability: memo.durability,
+        durability: ops.durability(),
         dependencies: memo.dependencies.copy(),
-        subscribers: snapshot_subscribers(memo.subscribers),
+        subscribers: snapshot_subscribers(ops.subscribers()),
       })
     }
   }
@@ -531,10 +512,7 @@ pub fn Runtime::dependents(self : Runtime, id : CellId) -> Array[CellId] {
   if id.id < 0 || id.id >= self.cell_index.length() {
     return []
   }
-  match self.cell_index[id.id] {
-    PullSignal(idx) => snapshot_subscribers(self.pull_signals[idx].subscribers)
-    PullMemo(idx) => snapshot_subscribers(self.pull_memos[idx].subscribers)
-  }
+  snapshot_subscribers(self.cell_ops[id.id].subscribers())
 }
 
 ///|
