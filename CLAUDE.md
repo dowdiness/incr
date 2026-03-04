@@ -11,7 +11,7 @@ A Salsa-inspired incremental recomputation library written in MoonBit. Provides 
 ```bash
 moon check          # Type-check without building
 moon build          # Build the library
-moon test           # Run all tests (200 total across all packages)
+moon test           # Run all tests (212 total across all packages)
 moon test -p dowdiness/incr/cells -f memo_test.mbt           # Run tests in a specific file
 moon test -p dowdiness/incr/cells -f memo_test.mbt -i 0      # Run a single test by index
 moon test -p dowdiness/incr/tests                               # Run integration tests only
@@ -32,11 +32,14 @@ dowdiness/incr/
 │   └── cell_id.mbt             (CellId + Hash impl)
 │
 ├── cells/                      (all engine implementation + unit tests)
-│   ├── cell.mbt                (CellMeta, CellKind)
+│   ├── cell.mbt                (using @incr_types declaration; CellMeta/CellKind removed)
+│   ├── cell_ref.mbt            (CellRef enum: PullSignal(Int) | PullMemo(Int))
+│   ├── pull_signal.mbt         (PullSignalData — SoA entry for input cells)
+│   ├── pull_memo.mbt           (PullMemoData — SoA entry for derived cells)
 │   ├── cycle.mbt               (CycleError)
 │   ├── tracking.mbt            (ActiveQuery)
 │   ├── runtime.mbt             (Runtime, CellInfo)
-│   ├── verify.mbt              (maybe_changed_after)
+│   ├── verify.mbt              (pull_verify, PullVerifyFrame, clear_verify_stack)
 │   ├── signal.mbt              (Signal[T])
 │   ├── memo.mbt                (Memo[T])
 │   ├── tracked_cell.mbt        (TrackedCell[T])
@@ -62,20 +65,20 @@ The library implements Salsa's incremental computation pattern with three key ty
 
 - **Signal[T]** (`cells/signal.mbt`) — Input cells with externally-set values. Support same-value optimization (skip revision bump if value unchanged) and durability levels (Low/Medium/High).
 - **Memo[T]** (`cells/memo.mbt`) — Derived computations that lazily evaluate and cache results. Automatically track dependencies via the runtime's tracking stack. Implement **backdating**: when a recomputed value equals the previous value, `changed_at` is preserved, preventing unnecessary downstream recomputation.
-- **Runtime** (`cells/runtime.mbt`) — Central state: global revision counter, cell metadata array (indexed by CellId), dependency tracking stack, per-durability revision tracking, and batch state.
+- **Runtime** (`cells/runtime.mbt`) — Central state: global revision counter, three SoA arrays (`pull_signals`, `pull_memos`, `cell_index`), dependency tracking stack, per-durability revision tracking, and batch state.
 
 ### Dependency Graph Internals
 
-- **CellMeta** (`cells/cell.mbt`) — Type-erased metadata for each cell. Stores `changed_at`/`verified_at` revisions, dependency list, durability, `recompute_and_check` closure (derived cells), and `commit_pending` closure (input cells during batch). The `in_progress` flag provides cycle detection.
+- **SoA storage** (`cells/cell_ref.mbt`, `cells/pull_signal.mbt`, `cells/pull_memo.mbt`) — Cell metadata lives in three parallel arrays on `Runtime`: `pull_signals : Array[PullSignalData]` (input cells), `pull_memos : Array[PullMemoData]` (derived cells), and `cell_index : Array[CellRef]` (maps `CellId.id` → `PullSignal(idx)` or `PullMemo(idx)` for O(1) dispatch). `PullMemoData` carries `changed_at`/`verified_at` revisions, dependency list, durability, the type-erased `compute` closure, and an `in_progress` flag for cycle detection. `PullSignalData` carries `changed_at`, durability, subscribers, and the batch `commit_pending`/`rollback_pending` closures.
 - **ActiveQuery** (`cells/tracking.mbt`) — Frame pushed onto `Runtime.tracking_stack` during memo computation. Collects dependencies (with HashSet-based O(1) deduplication) read via `Signal::get` or `Memo::get`.
 - **Revision** / **Durability** (`types/revision.mbt`) — Monotonic revision counter bumped on input changes. Durability classifies input change frequency; derived cells inherit the minimum durability of their dependencies.
-- **Verification** (`cells/verify.mbt`) — `maybe_changed_after()` is the core algorithm. For derived cells: checks the durability shortcut first, then walks dependencies iteratively using an explicit stack of `VerifyFrame`s. If any dependency changed, recomputes the cell (enabling backdating). Green path (no change) marks `verified_at` without recomputation.
-- **CycleError** (`cells/cycle.mbt`) — Cycle detection error type. `CycleError::from_path(path, closing_id)` constructs a `CycleDetected` value from a collected path; `format_path(rt)` produces a human-readable chain string.
+- **Verification** (`cells/verify.mbt`) — `pull_verify()` is the core algorithm. Dispatches directly on `cell_index`; signals are always fresh. For memos: checks the root durability shortcut first, then walks dependencies iteratively using an explicit `PullVerifyFrame` stack. Short-circuits on the first detected change (sets `dep_cursor` to end of dep list). If any dependency changed, calls the type-erased `compute` closure (enabling backdating). Green path marks `verified_at` without recomputation. Per-dep durability shortcuts skip traversal for individual stale deps.
+- **CycleError** (`cells/cycle.mbt`) — Cycle detection error type. `CycleError::from_path(path, closing_id)` constructs a `CycleDetected` value from a collected path; `format_path(rt)` produces a human-readable chain string. The cycle path is built from the local `PullVerifyFrame` stack (traversal order).
 - **Traits** (`traits.mbt`) — `Database`, `Readable`, and `Trackable` public traits; `create_signal`, `create_memo`, `create_tracked_cell`, `batch`, and `gc_tracked` helper functions. Pipeline traits (`Sourceable`, `Parseable`, `Checkable`, `Executable`) live in `pipeline/pipeline_traits.mbt` and are marked experimental.
 
 ### Type Erasure
 
-The `Runtime` holds all cell metadata in a single `Array[CellMeta]` indexed by `CellId`. Because cells can have different value types (`Signal[Int]`, `Memo[String]`, etc.), `CellMeta` must be type-erased — it cannot be generic over `T`.
+The `Runtime` holds cells of many different value types simultaneously. `PullMemoData` must be type-erased — it cannot be generic over `T`.
 
 MoonBit has no trait objects (no `Box<dyn Trait>` equivalent), so the value type cannot be hidden behind a vtable. Instead, the bridge is a **captured closure**:
 
@@ -83,27 +86,27 @@ MoonBit has no trait objects (no `Box<dyn Trait>` equivalent), so the value type
 Memo[T]::new()
   ├── allocates cell_id
   ├── creates memo : Memo[T] = { compute, value: None, ... }
-  ├── creates recompute_and_check : () -> Result[Bool, CycleError]
+  ├── creates compute : () -> Result[Bool, CycleError]
   │     └── captures `memo` by reference (the full typed Memo[T])
   │         calls memo.recompute_inner() which reads/writes memo.value : T?
   │         returns only Bool (changed?) — runtime never sees T
-  └── stores closure in CellMeta (type-erased)
+  └── stores closure in PullMemoData (type-erased)
 ```
 
-The runtime calls `meta.recompute_and_check()` during verification and only receives a `Bool` (did the value change?) or a `CycleError`. The typed value `T` never crosses the `CellMeta` boundary.
+`pull_verify` calls `(memo.compute)()` and only receives a `Bool` or a `CycleError`. The typed value `T` never crosses the `PullMemoData` boundary.
 
 **Consequence for contributors:** Do not attempt to:
-- Move the cached value into `CellMeta` (would require `CellMeta` to be generic or use `Any`)
+- Move the cached value into `PullMemoData` (would require it to be generic or use `Any`)
 - Make `Runtime` generic over a value type (Runtime holds cells of *many* different types simultaneously)
-- Add a second type-erased closure that returns the value as a string or `Show` output directly from `CellMeta` — if you need introspection, thread it through `CellInfo` (see `Runtime::cell_info`) which is populated by the typed layer
+- Add a second type-erased closure that returns the value as a string or `Show` output directly from `PullMemoData` — if you need introspection, thread it through `CellInfo` (see `Runtime::cell_info`) which is populated by the typed layer
 
-The `recompute_and_check`, `commit_pending`, and `rollback_pending` closures on `CellMeta` all follow the same pattern: capture the typed cell, perform typed operations, return only type-erased results (`Bool`, `Unit`, or `Result[Bool, CycleError]`).
+The `compute`, `commit_pending`, and `rollback_pending` closures follow the same pattern: capture the typed cell, perform typed operations, return only type-erased results (`Bool`, `Unit`, or `Result[Bool, CycleError]`).
 
 ### Data Flow
 
-1. `Signal::set()` bumps the global revision and records `changed_at` on the signal's CellMeta (or defers to batch if inside `Runtime::batch()`)
-2. `Memo::get()` checks `verified_at` against current revision; if stale, calls `maybe_changed_after()`
-3. `maybe_changed_after()` iteratively verifies dependencies using an explicit stack, recomputing only cells whose inputs actually changed
+1. `Signal::set()` bumps the global revision and records `changed_at` on the signal's `PullSignalData` (or defers to batch if inside `Runtime::batch()`)
+2. `Memo::get()` checks `verified_at` against current revision; if stale, calls `pull_verify()`
+3. `pull_verify()` iteratively verifies dependencies using an explicit `PullVerifyFrame` stack, short-circuiting on the first change and recomputing only cells whose inputs actually changed
 4. Backdating: if a Memo recomputes to the same value, `changed_at` stays old, so downstream cells skip recomputation
 5. Durability shortcut: if no input of a cell's durability level changed, verification is skipped entirely
 6. Batch mode: `Runtime::batch(fn)` groups multiple signal updates into a single revision with two-phase commit and revert detection
@@ -116,8 +119,8 @@ The `recompute_and_check`, `commit_pending`, and `rollback_pending` closures on 
 - Whitebox tests (`*_wbtest.mbt`): live in `cells/` alongside the private types they test; can access private fields and internal functions
 - Unit tests (`*_test.mbt`): live in `cells/` alongside source; test the cells package API as a black-box consumer
 - Integration tests: live in `tests/`; test the full `@incr` public API end-to-end across multiple scenarios
-- The `cells/` package imports `moonbitlang/core/hashset` as its only external dependency
-- `cells/moon.pkg` suppresses warning 15 (`unused_mut`) because `recompute_and_check` is only written in whitebox test compilation, not source-only compilation
+- The `cells/` package imports `moonbitlang/core/hashset` and `moonbitlang/core/hashmap` as external dependencies
+- `cells/moon.pkg` suppresses warning 15 (`unused_mut`) because some `mut` fields on `PullMemoData`/`PullSignalData` are only written in whitebox test compilation, not source-only compilation
 - Anonymous callbacks use arrow function syntax: `() => expr` (zero params, single expression), `() => { stmts }` (multi-statement), `x => expr` (one param), `(x, y) => expr` (multiple params). Empty bodies use `() => ()` — not `() => {}` which MoonBit parses as a map literal. Named functions (`pub fn`, `fn name(...)`) are unaffected.
 
 ## Documentation Hierarchy
