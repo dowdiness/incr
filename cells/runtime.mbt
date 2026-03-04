@@ -244,7 +244,7 @@ fn Runtime::get_changed_at(self : Runtime, id : CellId) -> Revision {
   if id.runtime_id != self.runtime_id {
     abort("Cell belongs to a different Runtime")
   }
-  if id.id < 0 || id.id >= self.cell_index.length() {
+  if id.id < 0 || id.id >= self.cell_ops.length() {
     abort("get_changed_at: cell_id out of bounds: " + id.id.to_string())
   }
   self.cell_ops[id.id].changed_at()
@@ -256,7 +256,7 @@ fn Runtime::get_durability(self : Runtime, id : CellId) -> Durability {
   if id.runtime_id != self.runtime_id {
     abort("Cell belongs to a different Runtime")
   }
-  if id.id < 0 || id.id >= self.cell_index.length() {
+  if id.id < 0 || id.id >= self.cell_ops.length() {
     abort("get_durability: cell_id out of bounds: " + id.id.to_string())
   }
   self.cell_ops[id.id].durability()
@@ -358,6 +358,12 @@ fn Runtime::remove_subscriber(
   dep : CellId,
   subscriber : CellId,
 ) -> Unit {
+  if dep.runtime_id != self.runtime_id {
+    abort("Cell belongs to a different Runtime")
+  }
+  if dep.id < 0 || dep.id >= self.cell_ops.length() {
+    abort("remove_subscriber: dep cell_id out of bounds: " + dep.id.to_string())
+  }
   self.cell_ops[dep.id].subscribers().remove(subscriber)
 }
 
@@ -368,6 +374,12 @@ fn Runtime::add_subscriber(
   dep : CellId,
   subscriber : CellId,
 ) -> Unit {
+  if dep.runtime_id != self.runtime_id {
+    abort("Cell belongs to a different Runtime")
+  }
+  if dep.id < 0 || dep.id >= self.cell_ops.length() {
+    abort("add_subscriber: dep cell_id out of bounds: " + dep.id.to_string())
+  }
   self.cell_ops[dep.id].subscribers().add(subscriber)
 }
 
@@ -746,7 +758,9 @@ fn Runtime::commit_batch(self : Runtime) -> Unit {
 ///
 /// # Parameters
 ///
-/// - `cell_id`: The ID of the signal with a pending change
+/// - `committable`: A `&Committable` wrapping the `PullSignalData` with a
+///   pending value. `commit_batch` later calls `do_commit()` on it to apply
+///   the pending change and `cell_id()` / `durability()` to update metadata.
 fn Runtime::record_batch_signal(
   self : Runtime,
   committable : &Committable,

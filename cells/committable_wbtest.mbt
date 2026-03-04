@@ -20,7 +20,7 @@ test "committable: on_change fires via Committable after batch" {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 1)
   let mut fired = false
-  sig.on_change(fn(_v) { fired = true })
+  sig.on_change(_v => fired = true)
   rt.batch(() => { sig.set(2) })
   inspect(fired, content="true")
 }
@@ -36,11 +36,11 @@ test "committable: on_change snapshot — clearing sibling handler does not drop
   let mut fired1 = false
   let mut fired2 = false
   // sig1's callback clears sig2's handler before it would run
-  sig1.on_change(fn(_v) {
+  sig1.on_change(_v => {
     fired1 = true
     sig2.clear_on_change()
   })
-  sig2.on_change(fn(_v) { fired2 = true })
+  sig2.on_change(_v => fired2 = true)
   rt.batch(() => {
     sig1.set(2)
     sig2.set(20)
