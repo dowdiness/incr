@@ -31,20 +31,19 @@ priv struct PullVerifyFrame {
 ///
 /// `Ok(())` on success (cell is up-to-date after this call),
 /// `Err(CycleError)` if a cycle is detected
+
 ///|
 /// Clears the `in_progress` flag on every memo referenced by the stack.
 ///
 /// Called on error exit paths (cycle detection, compute failure) so that
 /// no memo is left permanently stuck as in-progress.
-fn clear_verify_stack(
-  rt : Runtime,
-  stack : Array[PullVerifyFrame],
-) -> Unit {
+fn clear_verify_stack(rt : Runtime, stack : Array[PullVerifyFrame]) -> Unit {
   for frame in stack {
     rt.pull_memos[frame.memo_idx].in_progress = false
   }
 }
 
+///|
 fn Runtime::pull_verify(
   self : Runtime,
   cell_id : CellId,
@@ -64,7 +63,8 @@ fn Runtime::pull_verify(
       }
       // Durability fast-path: if no input at root's durability level changed
       // since root was last verified, mark verified without walking deps.
-      if self.durability_last_changed[root.durability.index()] <= root.verified_at {
+      if self.durability_last_changed[root.durability.index()] <=
+        root.verified_at {
         root.verified_at = self.current_revision
         return Ok(())
       }
@@ -122,20 +122,17 @@ fn Runtime::pull_verify(
                     changed: false,
                   })
                 }
-              } else {
                 // Already verified this revision; check if its value changed.
-                if dep.changed_at > memo.verified_at {
-                  stack[top].changed = true
-                  stack[top].dep_cursor = memo.dependencies.length()
-                }
-              }
-            }
-            PullSignal(sig_idx) => {
-              if self.pull_signals[sig_idx].changed_at > memo.verified_at {
+              } else if dep.changed_at > memo.verified_at {
                 stack[top].changed = true
                 stack[top].dep_cursor = memo.dependencies.length()
               }
             }
+            PullSignal(sig_idx) =>
+              if self.pull_signals[sig_idx].changed_at > memo.verified_at {
+                stack[top].changed = true
+                stack[top].dep_cursor = memo.dependencies.length()
+              }
           }
         } else {
           // All deps inspected; finalize this memo.

@@ -11,10 +11,11 @@ A Salsa-inspired incremental recomputation library written in MoonBit. Provides 
 ```bash
 moon check          # Type-check without building
 moon build          # Build the library
-moon test           # Run all tests (212 total across all packages)
+moon test           # Run all tests (227 total across all packages)
 moon test -p dowdiness/incr/cells -f memo_test.mbt           # Run tests in a specific file
 moon test -p dowdiness/incr/cells -f memo_test.mbt -i 0      # Run a single test by index
 moon test -p dowdiness/incr/tests                               # Run integration tests only
+moon bench          # Run benchmarks (tests/bench_test.mbt)
 ```
 
 ## Architecture
@@ -34,8 +35,9 @@ dowdiness/incr/
 ├── cells/                      (all engine implementation + unit tests)
 │   ├── cell.mbt                (using @incr_types declaration; CellMeta/CellKind removed)
 │   ├── cell_ref.mbt            (CellRef enum: PullSignal(Int) | PullMemo(Int))
-│   ├── pull_signal.mbt         (PullSignalData — SoA entry for input cells)
-│   ├── pull_memo.mbt           (PullMemoData — SoA entry for derived cells)
+│   ├── cell_ops.mbt            (CellOps trait — 6-method read interface; Committable trait — batch commit interface)
+│   ├── pull_signal.mbt         (PullSignalData — SoA entry for input cells; CellOps + Committable impls)
+│   ├── pull_memo.mbt           (PullMemoData — SoA entry for derived cells; CellOps impl)
 │   ├── cycle.mbt               (CycleError)
 │   ├── tracking.mbt            (ActiveQuery)
 │   ├── runtime.mbt             (Runtime, CellInfo)
@@ -54,7 +56,8 @@ dowdiness/incr/
     ├── integration_test.mbt    (end-to-end graph scenarios)
     ├── fanout_test.mbt         (wide fanout stress tests)
     ├── traits_test.mbt         (Database, Readable, and pipeline trait tests)
-    └── tracked_struct_test.mbt (TrackedCell, Trackable, and gc_tracked tests)
+    ├── tracked_struct_test.mbt (TrackedCell, Trackable, and gc_tracked tests)
+    └── bench_test.mbt          (microbenchmarks — run with moon bench)
 ```
 
 The root package re-exports all public types via `pub type` transparent aliases in `incr.mbt`, so downstream users see a unified `@incr` API with no awareness of the internal package structure.
@@ -65,15 +68,16 @@ The library implements Salsa's incremental computation pattern with three key ty
 
 - **Signal[T]** (`cells/signal.mbt`) — Input cells with externally-set values. Support same-value optimization (skip revision bump if value unchanged) and durability levels (Low/Medium/High).
 - **Memo[T]** (`cells/memo.mbt`) — Derived computations that lazily evaluate and cache results. Automatically track dependencies via the runtime's tracking stack. Implement **backdating**: when a recomputed value equals the previous value, `changed_at` is preserved, preventing unnecessary downstream recomputation.
-- **Runtime** (`cells/runtime.mbt`) — Central state: global revision counter, three SoA arrays (`pull_signals`, `pull_memos`, `cell_index`), dependency tracking stack, per-durability revision tracking, and batch state.
+- **Runtime** (`cells/runtime.mbt`) — Central state: global revision counter, four SoA arrays (`pull_signals`, `pull_memos`, `cell_index`, `cell_ops`), dependency tracking stack, per-durability revision tracking, and batch state.
 
 ### Dependency Graph Internals
 
-- **SoA storage** (`cells/cell_ref.mbt`, `cells/pull_signal.mbt`, `cells/pull_memo.mbt`) — Cell metadata lives in three parallel arrays on `Runtime`: `pull_signals : Array[PullSignalData]` (input cells), `pull_memos : Array[PullMemoData]` (derived cells), and `cell_index : Array[CellRef]` (maps `CellId.id` → `PullSignal(idx)` or `PullMemo(idx)` for O(1) dispatch). `PullMemoData` carries `changed_at`/`verified_at` revisions, dependency list, durability, the type-erased `compute` closure, and an `in_progress` flag for cycle detection. `PullSignalData` carries `changed_at`, durability, subscribers, and the batch `commit_pending`/`rollback_pending` closures.
+- **SoA storage** (`cells/cell_ref.mbt`, `cells/pull_signal.mbt`, `cells/pull_memo.mbt`, `cells/cell_ops.mbt`) — Cell metadata lives in four parallel arrays on `Runtime`: `pull_signals : Array[PullSignalData]` (input cells), `pull_memos : Array[PullMemoData]` (derived cells), `cell_index : Array[CellRef]` (maps `CellId.id` → `PullSignal(idx)` or `PullMemo(idx)` for O(1) dispatch into the SoA arrays), and `cell_ops : Array[&CellOps]` (trait-object array for uniform read access — `changed_at`, `subscribers`, `label`, `durability` — indexed by `CellId.id`). `PullMemoData` carries `changed_at`/`verified_at` revisions, dependency list, durability, the type-erased `compute` closure, and an `in_progress` flag for cycle detection. `PullSignalData` carries `changed_at`, durability, subscribers, and the batch `commit_pending` closure.
 - **ActiveQuery** (`cells/tracking.mbt`) — Frame pushed onto `Runtime.tracking_stack` during memo computation. Collects dependencies (with HashSet-based O(1) deduplication) read via `Signal::get` or `Memo::get`.
 - **Revision** / **Durability** (`types/revision.mbt`) — Monotonic revision counter bumped on input changes. Durability classifies input change frequency; derived cells inherit the minimum durability of their dependencies.
 - **Verification** (`cells/verify.mbt`) — `pull_verify()` is the core algorithm. Dispatches directly on `cell_index`; signals are always fresh. For memos: checks the root durability shortcut first, then walks dependencies iteratively using an explicit `PullVerifyFrame` stack. Short-circuits on the first detected change (sets `dep_cursor` to end of dep list). If any dependency changed, calls the type-erased `compute` closure (enabling backdating). Green path marks `verified_at` without recomputation. Per-dep durability shortcuts skip traversal for individual stale deps.
 - **CycleError** (`cells/cycle.mbt`) — Cycle detection error type. `CycleError::from_path(path, closing_id)` constructs a `CycleDetected` value from a collected path; `format_path(rt)` produces a human-readable chain string. The cycle path is built from the local `PullVerifyFrame` stack (traversal order).
+- **CellOps / Committable** (`cells/cell_ops.mbt`) — `CellOps` is a 6-method trait providing uniform read access to any cell (`cell_id`, `changed_at`, `set_changed_at`, `subscribers`, `label`, `durability`); implemented by both `PullSignalData` and `PullMemoData`. `Committable` is a 3-method trait for batch-commit dispatch (`do_commit`, `cell_id`, `durability`); implemented only by `PullSignalData`. `Runtime.batch_pending : Array[&Committable]` stores trait-object references to pending signals, so `commit_batch` can call `do_commit()` without SoA lookup.
 - **Traits** (`traits.mbt`) — `Database`, `Readable`, and `Trackable` public traits; `create_signal`, `create_memo`, `create_tracked_cell`, `batch`, and `gc_tracked` helper functions. Pipeline traits (`Sourceable`, `Parseable`, `Checkable`, `Executable`) live in `pipeline/pipeline_traits.mbt` and are marked experimental.
 
 ### Type Erasure
@@ -100,7 +104,7 @@ Memo[T]::new()
 - Make `Runtime` generic over a value type (Runtime holds cells of *many* different types simultaneously)
 - Add a second type-erased closure that returns the value as a string or `Show` output directly from `PullMemoData` — if you need introspection, thread it through `CellInfo` (see `Runtime::cell_info`) which is populated by the typed layer
 
-The `compute`, `commit_pending`, and `rollback_pending` closures follow the same pattern: capture the typed cell, perform typed operations, return only type-erased results (`Bool`, `Unit`, or `Result[Bool, CycleError]`).
+The `compute` and `commit_pending` closures follow the same pattern: capture the typed cell, perform typed operations, return only type-erased results (`Bool` or `Result[Bool, CycleError]`).
 
 ### Data Flow
 
@@ -116,6 +120,7 @@ The `compute`, `commit_pending`, and `rollback_pending` closures follow the same
 - Tests use `///|` doc-comment prefix followed by `test "name" { ... }` blocks
 - Assertions use `inspect(expr, content="expected")` pattern
 - Panic tests: `test "panic ..."` (name starting with `"panic "`) expects `abort()` to fire — the test runner marks it passed when the abort occurs
+- Benchmarks use `test "name" (b : @bench.T) { b.bench(fn() { b.keep(expr) }) }` blocks; `b.keep()` prevents the optimizer from eliding pure computations
 - Whitebox tests (`*_wbtest.mbt`): live in `cells/` alongside the private types they test; can access private fields and internal functions
 - Unit tests (`*_test.mbt`): live in `cells/` alongside source; test the cells package API as a black-box consumer
 - Integration tests: live in `tests/`; test the full `@incr` public API end-to-end across multiple scenarios

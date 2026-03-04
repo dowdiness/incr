@@ -68,7 +68,7 @@ pub(all) struct Runtime {
   priv tracking_stack : Array[ActiveQuery]
   priv durability_last_changed : FixedArray[Revision]
   priv mut batch_depth : Int
-  priv batch_pending_signals : Array[CellId]
+  priv batch_pending : Array[&Committable]
   priv batch_frames : Array[BatchFrame]
   priv mut batch_max_durability : Durability
   priv mut on_change : (() -> Unit)?
@@ -76,6 +76,8 @@ pub(all) struct Runtime {
   priv pull_signals : Array[PullSignalData]
   priv pull_memos : Array[PullMemoData]
   priv cell_index : Array[CellRef]
+  // Trait object dispatch (indexed by CellId.id, parallel to cell_index)
+  priv cell_ops : Array[&CellOps]
 
   fn new(on_change? : () -> Unit) -> Runtime
 }
@@ -120,13 +122,14 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
       Revision::initial(),
     ),
     batch_depth: 0,
-    batch_pending_signals: [],
+    batch_pending: [],
     batch_frames: [],
     batch_max_durability: Low,
     on_change,
     pull_signals: [],
     pull_memos: [],
     cell_index: [],
+    cell_ops: [],
   }
 }
 
@@ -187,8 +190,8 @@ fn Runtime::alloc_cell_id(self : Runtime, cell_ref : CellRef) -> CellId {
 /// Pushes a `PullSignalData` entry into `pull_signals` and registers
 /// `PullSignal(idx)` in `cell_index` via `alloc_cell_id`.
 ///
-/// The `on_change`, `commit_pending`, and `rollback_pending` closures start
-/// as `None` and are set later by `Signal::on_change` and `Signal::set_batch`.
+/// The `on_change` and `commit_pending` closures start as `None` and are set
+/// later by `Signal::on_change` and `Signal::set_batch`.
 ///
 /// # Returns
 ///
@@ -208,8 +211,9 @@ fn Runtime::new_signal_id(
     subscribers: @hashset.new(),
     on_change: None,
     commit_pending: None,
-    rollback_pending: None,
   })
+  let ops : &CellOps = self.pull_signals[idx]
+  self.cell_ops.push(ops)
   cell_id
 }
 
@@ -240,22 +244,22 @@ fn Runtime::get_changed_at(self : Runtime, id : CellId) -> Revision {
   if id.runtime_id != self.runtime_id {
     abort("Cell belongs to a different Runtime")
   }
-  if id.id < 0 || id.id >= self.cell_index.length() {
+  if id.id < 0 || id.id >= self.cell_ops.length() {
     abort("get_changed_at: cell_id out of bounds: " + id.id.to_string())
   }
-  match self.cell_index[id.id] {
-    PullSignal(idx) => self.pull_signals[idx].changed_at
-    PullMemo(idx) => self.pull_memos[idx].changed_at
-  }
+  self.cell_ops[id.id].changed_at()
 }
 
 ///|
 /// Returns the `durability` for any cell, dispatching via cell_index.
 fn Runtime::get_durability(self : Runtime, id : CellId) -> Durability {
-  match self.cell_index[id.id] {
-    PullSignal(idx) => self.pull_signals[idx].durability
-    PullMemo(idx) => self.pull_memos[idx].durability
+  if id.runtime_id != self.runtime_id {
+    abort("Cell belongs to a different Runtime")
   }
+  if id.id < 0 || id.id >= self.cell_ops.length() {
+    abort("get_durability: cell_id out of bounds: " + id.id.to_string())
+  }
+  self.cell_ops[id.id].durability()
 }
 
 ///|
@@ -320,13 +324,10 @@ fn Runtime::get_subscribers(self : Runtime, cell_id : CellId) -> Iter[CellId] {
   if cell_id.runtime_id != self.runtime_id {
     abort("Cell belongs to a different Runtime")
   }
-  if cell_id.id < 0 || cell_id.id >= self.cell_index.length() {
+  if cell_id.id < 0 || cell_id.id >= self.cell_ops.length() {
     abort("get_subscribers: cell_id out of bounds: " + cell_id.id.to_string())
   }
-  match self.cell_index[cell_id.id] {
-    PullSignal(idx) => self.pull_signals[idx].subscribers.iter()
-    PullMemo(idx) => self.pull_memos[idx].subscribers.iter()
-  }
+  self.cell_ops[cell_id.id].subscribers().iter()
 }
 
 ///|
@@ -342,15 +343,12 @@ fn Runtime::get_subscribers_mut(
   if cell_id.runtime_id != self.runtime_id {
     abort("Cell belongs to a different Runtime")
   }
-  if cell_id.id < 0 || cell_id.id >= self.cell_index.length() {
+  if cell_id.id < 0 || cell_id.id >= self.cell_ops.length() {
     abort(
       "get_subscribers_mut: cell_id out of bounds: " + cell_id.id.to_string(),
     )
   }
-  match self.cell_index[cell_id.id] {
-    PullSignal(idx) => self.pull_signals[idx].subscribers
-    PullMemo(idx) => self.pull_memos[idx].subscribers
-  }
+  self.cell_ops[cell_id.id].subscribers()
 }
 
 ///|
@@ -360,10 +358,13 @@ fn Runtime::remove_subscriber(
   dep : CellId,
   subscriber : CellId,
 ) -> Unit {
-  match self.cell_index[dep.id] {
-    PullSignal(idx) => self.pull_signals[idx].subscribers.remove(subscriber)
-    PullMemo(idx) => self.pull_memos[idx].subscribers.remove(subscriber)
+  if dep.runtime_id != self.runtime_id {
+    abort("Cell belongs to a different Runtime")
   }
+  if dep.id < 0 || dep.id >= self.cell_ops.length() {
+    abort("remove_subscriber: dep cell_id out of bounds: " + dep.id.to_string())
+  }
+  self.cell_ops[dep.id].subscribers().remove(subscriber)
 }
 
 ///|
@@ -373,10 +374,13 @@ fn Runtime::add_subscriber(
   dep : CellId,
   subscriber : CellId,
 ) -> Unit {
-  match self.cell_index[dep.id] {
-    PullSignal(idx) => self.pull_signals[idx].subscribers.add(subscriber)
-    PullMemo(idx) => self.pull_memos[idx].subscribers.add(subscriber)
+  if dep.runtime_id != self.runtime_id {
+    abort("Cell belongs to a different Runtime")
   }
+  if dep.id < 0 || dep.id >= self.cell_ops.length() {
+    abort("add_subscriber: dep cell_id out of bounds: " + dep.id.to_string())
+  }
+  self.cell_ops[dep.id].subscribers().add(subscriber)
 }
 
 ///|
@@ -461,30 +465,31 @@ pub fn Runtime::cell_info(self : Runtime, id : CellId) -> CellInfo? {
   if id.id < 0 || id.id >= self.cell_index.length() {
     return None
   }
+  let ops = self.cell_ops[id.id]
   match self.cell_index[id.id] {
-    PullSignal(idx) => {
-      let sig = self.pull_signals[idx]
+    PullSignal(_) => {
+      let ca = ops.changed_at()
       Some(CellInfo::{
-        label: sig.label,
+        label: ops.label(),
         id,
-        changed_at: sig.changed_at,
+        changed_at: ca,
         // Signals are always up-to-date after a set; verified_at == changed_at
-        verified_at: sig.changed_at,
-        durability: sig.durability,
+        verified_at: ca,
+        durability: ops.durability(),
         dependencies: [],
-        subscribers: snapshot_subscribers(sig.subscribers),
+        subscribers: snapshot_subscribers(ops.subscribers()),
       })
     }
     PullMemo(idx) => {
       let memo = self.pull_memos[idx]
       Some(CellInfo::{
-        label: memo.label,
+        label: ops.label(),
         id,
-        changed_at: memo.changed_at,
+        changed_at: ops.changed_at(),
         verified_at: memo.verified_at,
-        durability: memo.durability,
+        durability: ops.durability(),
         dependencies: memo.dependencies.copy(),
-        subscribers: snapshot_subscribers(memo.subscribers),
+        subscribers: snapshot_subscribers(ops.subscribers()),
       })
     }
   }
@@ -526,10 +531,7 @@ pub fn Runtime::dependents(self : Runtime, id : CellId) -> Array[CellId] {
   if id.id < 0 || id.id >= self.cell_index.length() {
     return []
   }
-  match self.cell_index[id.id] {
-    PullSignal(idx) => snapshot_subscribers(self.pull_signals[idx].subscribers)
-    PullMemo(idx) => snapshot_subscribers(self.pull_memos[idx].subscribers)
-  }
+  snapshot_subscribers(self.cell_ops[id.id].subscribers())
 }
 
 ///|
@@ -703,41 +705,26 @@ fn Runtime::complete_batch_frame_success(self : Runtime) -> Unit {
 /// global on_change callback exactly once if anything changed.
 fn Runtime::commit_batch(self : Runtime) -> Unit {
   let mut any_changed = false
-  while self.batch_pending_signals.length() > 0 {
+  while self.batch_pending.length() > 0 {
     // Phase 1: commit pending values and collect which actually changed
-    let changed_ids : Array[CellId] = []
-    for id in self.batch_pending_signals {
-      let sig = self.get_pull_signal(id)
-      match sig.rollback_pending {
-        Some(_) => ()
-        None =>
-          abort(
-            "Batched signal missing rollback_pending — internal invariant violated",
-          )
-      }
-      match sig.commit_pending {
-        Some(commit_fn) => {
-          if commit_fn() {
-            changed_ids.push(id)
-          }
-          sig.commit_pending = None
-          sig.rollback_pending = None
-        }
-        None =>
-          abort(
-            "Batched signal missing commit_pending — internal invariant violated",
-          )
+    let changed : Array[&Committable] = []
+    for c in self.batch_pending {
+      if c.do_commit() {
+        changed.push(c)
       }
     }
-    self.batch_pending_signals.clear()
+    self.batch_pending.clear()
     // Phase 2: if any value actually changed, do a single revision bump
-    if changed_ids.length() > 0 {
+    if changed.length() > 0 {
       any_changed = true
       self.advance_revision(self.batch_max_durability)
-      // Sweep changed signals and collect callbacks in a single pass.
+      // Sweep changed signals: update changed_at and snapshot on_change callbacks.
+      // Handlers are captured here — before any callback executes — so that a
+      // callback calling clear_on_change() or on_change() on another changed signal
+      // cannot affect which handlers fire in this batch wave.
       let callbacks : Array[() -> Unit] = []
-      for id in changed_ids {
-        let sig = self.mark_input_changed(id)
+      for c in changed {
+        let sig = self.mark_input_changed(c.cell_id())
         match sig.on_change {
           Some(f) => callbacks.push(f)
           None => ()
@@ -771,9 +758,14 @@ fn Runtime::commit_batch(self : Runtime) -> Unit {
 ///
 /// # Parameters
 ///
-/// - `cell_id`: The ID of the signal with a pending change
-fn Runtime::record_batch_signal(self : Runtime, cell_id : CellId) -> Unit {
-  self.batch_pending_signals.push(cell_id)
+/// - `committable`: A `&Committable` wrapping the `PullSignalData` with a
+///   pending value. `commit_batch` later calls `do_commit()` on it to apply
+///   the pending change and `cell_id()` / `durability()` to update metadata.
+fn Runtime::record_batch_signal(
+  self : Runtime,
+  committable : &Committable,
+) -> Unit {
+  self.batch_pending.push(committable)
 }
 
 ///|
@@ -800,19 +792,23 @@ fn Runtime::record_batch_rollback(
 
 ///|
 /// Removes one pending signal registration by id.
+///
+/// Called only from rollback closures during batch undo, which is rare.
+/// Uses O(n) copy-and-rebuild because `batch_pending` must remain an ordered
+/// queue — insertion order determines commit order in `commit_batch`.
 fn Runtime::remove_batch_signal(self : Runtime, cell_id : CellId) -> Unit {
-  let kept : Array[CellId] = []
+  let kept : Array[&Committable] = []
   let mut removed = false
-  for id in self.batch_pending_signals {
-    if not(removed) && id == cell_id {
+  for c in self.batch_pending {
+    if not(removed) && c.cell_id() == cell_id {
       removed = true
     } else {
-      kept.push(id)
+      kept.push(c)
     }
   }
-  self.batch_pending_signals.clear()
-  for id in kept {
-    self.batch_pending_signals.push(id)
+  self.batch_pending.clear()
+  for c in kept {
+    self.batch_pending.push(c)
   }
 }
 
@@ -820,10 +816,10 @@ fn Runtime::remove_batch_signal(self : Runtime, cell_id : CellId) -> Unit {
 /// Recompute max durability from currently pending signals.
 fn Runtime::recompute_batch_max_durability(self : Runtime) -> Unit {
   let mut max_durability : Durability = Low
-  for id in self.batch_pending_signals {
-    let durability = self.get_pull_signal(id).durability
-    if durability > max_durability {
-      max_durability = durability
+  for c in self.batch_pending {
+    let d = c.durability()
+    if d > max_durability {
+      max_durability = d
     }
   }
   self.batch_max_durability = max_durability
