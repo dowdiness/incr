@@ -1,4 +1,21 @@
 ///|
+/// Interface for signal cells that have pending values during a batch.
+///
+/// Implemented by `PullSignalData`. Stored as `&Committable` in
+/// `Runtime.batch_pending` so `commit_batch` can iterate and dispatch
+/// without a per-entry `CellId → PullSignalData` lookup.
+///
+/// `cell_id` and `durability` allow `commit_batch` and
+/// `recompute_batch_max_durability` to read signal metadata directly from
+/// the trait object rather than going back to the SoA array.
+trait Committable {
+  do_commit(Self) -> Bool
+  cell_id(Self) -> CellId
+  durability(Self) -> Durability
+  fire_on_change_if_set(Self) -> Unit
+}
+
+///|
 /// Uniform interface for all cell kinds in the dependency graph.
 ///
 /// Every cell kind (PullSignal, PullMemo, and future Phase 3+ kinds) implements

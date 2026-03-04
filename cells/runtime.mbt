@@ -190,8 +190,8 @@ fn Runtime::alloc_cell_id(self : Runtime, cell_ref : CellRef) -> CellId {
 /// Pushes a `PullSignalData` entry into `pull_signals` and registers
 /// `PullSignal(idx)` in `cell_index` via `alloc_cell_id`.
 ///
-/// The `on_change`, `commit_pending`, and `rollback_pending` closures start
-/// as `None` and are set later by `Signal::on_change` and `Signal::set_batch`.
+/// The `on_change` and `commit_pending` closures start as `None` and are set
+/// later by `Signal::on_change` and `Signal::set_batch`.
 ///
 /// # Returns
 ///
@@ -211,7 +211,6 @@ fn Runtime::new_signal_id(
     subscribers: @hashset.new(),
     on_change: None,
     commit_pending: None,
-    rollback_pending: None,
   })
   let ops : &CellOps = self.pull_signals[idx]
   self.cell_ops.push(ops)
@@ -691,20 +690,12 @@ fn Runtime::commit_batch(self : Runtime) -> Unit {
     let changed_ids : Array[CellId] = []
     for id in self.batch_pending_signals {
       let sig = self.get_pull_signal(id)
-      match sig.rollback_pending {
-        Some(_) => ()
-        None =>
-          abort(
-            "Batched signal missing rollback_pending — internal invariant violated",
-          )
-      }
       match sig.commit_pending {
         Some(commit_fn) => {
           if commit_fn() {
             changed_ids.push(id)
           }
           sig.commit_pending = None
-          sig.rollback_pending = None
         }
         None =>
           abort(

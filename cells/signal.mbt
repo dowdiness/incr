@@ -222,7 +222,6 @@ fn[T : Eq] Signal::set_batch(self : Signal[T], new_value : T) -> Unit {
     self.pending_value = previous_pending
     if not(was_registered) {
       sig_data.commit_pending = None
-      sig_data.rollback_pending = None
       self.rt.remove_batch_signal(self.cell_id)
     }
   })
@@ -230,7 +229,6 @@ fn[T : Eq] Signal::set_batch(self : Signal[T], new_value : T) -> Unit {
   // Register commit closure if not already registered
   if sig_data.commit_pending is None {
     sig_data.commit_pending = Some(() => self.commit())
-    sig_data.rollback_pending = Some(() => self.rollback_pending())
     self.rt.record_batch_signal(self.cell_id)
   }
   self.rt.bump_revision(self.durability)
@@ -249,14 +247,12 @@ fn[T] Signal::set_batch_unconditional(self : Signal[T], new_value : T) -> Unit {
     self.pending_value = previous_pending
     if not(was_registered) {
       sig_data.commit_pending = None
-      sig_data.rollback_pending = None
       self.rt.remove_batch_signal(self.cell_id)
     }
   })
   self.pending_value = Some(new_value)
   if sig_data.commit_pending is None {
     sig_data.commit_pending = Some(() => self.commit_unconditional())
-    sig_data.rollback_pending = Some(() => self.rollback_pending())
     self.rt.record_batch_signal(self.cell_id)
   }
   self.rt.bump_revision(self.durability)
@@ -290,12 +286,6 @@ fn[T] Signal::commit_unconditional(self : Signal[T]) -> Bool {
       true
     }
   }
-}
-
-///|
-/// Drop any pending batch value without committing it.
-fn[T] Signal::rollback_pending(self : Signal[T]) -> Unit {
-  self.pending_value = None
 }
 
 ///|

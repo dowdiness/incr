@@ -11,7 +11,8 @@ priv struct PullSignalData {
   subscribers : @hashset.HashSet[CellId]
   mut on_change : (() -> Unit)?
   mut commit_pending : (() -> Bool)?
-  mut rollback_pending : (() -> Unit)?
+  // rollback_pending removed — it was set but never invoked; actual rollback
+  // is handled by the BatchUndo closure registered via record_batch_rollback.
 }
 
 ///|
@@ -45,4 +46,35 @@ impl CellOps for PullSignalData with label(self) -> String? {
 ///|
 impl CellOps for PullSignalData with durability(self) -> Durability {
   self.durability
+}
+
+///|
+/// Committable dispatch for pull-signal cells.
+impl Committable for PullSignalData with do_commit(self) -> Bool {
+  match self.commit_pending {
+    Some(f) => {
+      let changed = f()
+      self.commit_pending = None
+      changed
+    }
+    None => false
+  }
+}
+
+///|
+impl Committable for PullSignalData with cell_id(self) -> CellId {
+  self.cell_id
+}
+
+///|
+impl Committable for PullSignalData with durability(self) -> Durability {
+  self.durability
+}
+
+///|
+impl Committable for PullSignalData with fire_on_change_if_set(self) -> Unit {
+  match self.on_change {
+    Some(f) => f()
+    None => ()
+  }
 }

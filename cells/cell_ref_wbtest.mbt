@@ -9,7 +9,6 @@ test "pull_signal_data: can be constructed" {
     subscribers: @hashset.new(),
     on_change: None,
     commit_pending: None,
-    rollback_pending: None,
   }
   inspect(data.label, content="None")
 }
