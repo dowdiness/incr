@@ -13,3 +13,36 @@ priv struct PullSignalData {
   mut commit_pending : (() -> Bool)?
   mut rollback_pending : (() -> Unit)?
 }
+
+///|
+/// CellOps dispatch for pull-signal cells.
+impl CellOps for PullSignalData with cell_id(self) -> CellId {
+  self.cell_id
+}
+
+///|
+impl CellOps for PullSignalData with changed_at(self) -> Revision {
+  self.changed_at
+}
+
+///|
+impl CellOps for PullSignalData with set_changed_at(self, rev : Revision) -> Unit {
+  self.changed_at = rev
+}
+
+///|
+impl CellOps for PullSignalData with subscribers(
+  self,
+) -> @hashset.HashSet[CellId] {
+  self.subscribers
+}
+
+///|
+impl CellOps for PullSignalData with label(self) -> String? {
+  self.label
+}
+
+///|
+impl CellOps for PullSignalData with durability(self) -> Durability {
+  self.durability
+}
