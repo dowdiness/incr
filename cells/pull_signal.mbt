@@ -71,10 +71,3 @@ impl Committable for PullSignalData with durability(self) -> Durability {
   self.durability
 }
 
-///|
-impl Committable for PullSignalData with fire_on_change_if_set(self) -> Unit {
-  match self.on_change {
-    Some(f) => f()
-    None => ()
-  }
-}

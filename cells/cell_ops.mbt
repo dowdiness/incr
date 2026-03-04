@@ -12,7 +12,6 @@ trait Committable {
   do_commit(Self) -> Bool
   cell_id(Self) -> CellId
   durability(Self) -> Durability
-  fire_on_change_if_set(Self) -> Unit
 }
 
 ///|

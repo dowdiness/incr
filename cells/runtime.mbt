@@ -706,11 +706,17 @@ fn Runtime::commit_batch(self : Runtime) -> Unit {
     if changed.length() > 0 {
       any_changed = true
       self.advance_revision(self.batch_max_durability)
-      // Sweep changed signals: update changed_at and collect on_change callbacks.
+      // Sweep changed signals: update changed_at and snapshot on_change callbacks.
+      // Handlers are captured here — before any callback executes — so that a
+      // callback calling clear_on_change() or on_change() on another changed signal
+      // cannot affect which handlers fire in this batch wave.
       let callbacks : Array[() -> Unit] = []
       for c in changed {
-        self.mark_input_changed(c.cell_id()) |> ignore
-        callbacks.push(() => c.fire_on_change_if_set())
+        let sig = self.mark_input_changed(c.cell_id())
+        match sig.on_change {
+          Some(f) => callbacks.push(f)
+          None => ()
+        }
       }
       self.batch_max_durability = Low
       // Raise batch_depth while invoking callbacks so that any signal.set()
