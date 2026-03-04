@@ -220,15 +220,15 @@ The `Runtime` needs to store metadata for all cells in a single collection. But 
 
 The library uses a **Structure-of-Arrays (SoA)** layout. Instead of one heterogeneous array of cell objects, `Runtime` holds three parallel typed arrays:
 
-1. **`pull_signals : Array[PullSignalData]`** — SoA entries for input cells (signals). Contains `changed_at`, durability, subscribers, and type-erased batch closures.
+1. **`pull_signals : Array[PullSignalData]`** — SoA entries for input cells (signals). Contains `changed_at`, durability, subscribers, and the type-erased `commit_pending` batch closure.
 2. **`pull_memos : Array[PullMemoData]`** — SoA entries for derived cells (memos). Contains `changed_at`/`verified_at`, dependency list, durability, `in_progress` flag, and the type-erased `compute` closure.
 3. **`cell_index : Array[CellRef]`** — Maps `CellId.id` → `PullSignal(idx)` or `PullMemo(idx)` for O(1) dispatch into the SoA arrays.
+4. **`cell_ops : Array[&CellOps]`** — Trait-object array indexed by `CellId.id`. Provides uniform read access (`cell_id`, `changed_at`, `set_changed_at`, `subscribers`, `label`, `durability`) across both signals and memos without `CellRef` matching. Both `PullSignalData` and `PullMemoData` implement `CellOps`.
 
 The bridge between typed and type-erased worlds uses closure-based type erasure:
 
 - `PullMemoData.compute: () -> Result[Bool, CycleError]` — Captures the `Memo[T]` instance and calls its typed `recompute_inner()` method. Returns `Ok(true)` if the value changed, `Ok(false)` if backdated, or `Err(CycleError)` on cycle.
 - `PullSignalData.commit_pending: (() -> Bool)?` — For input cells during a batch, this closure captures the `Signal[T]` instance and commits its pending value. Returns true if the committed value differs from the current value. Set dynamically during batch operations and cleared after commit.
-- `PullSignalData.rollback_pending: (() -> Unit)?` — Companion rollback closure that restores the pre-batch pending state if the batch fails.
 
 This design means the verification algorithm in `cells/verify.mbt` operates entirely on `PullSignalData`/`PullMemoData` without knowing any value types, and the batch commit logic in `cells/runtime.mbt` can commit pending signal values without knowing their types.
 
@@ -295,7 +295,7 @@ Without batching, each `Signal::set()` call bumps the global revision independen
 
 1. **Write phase**: Inside the batch closure, `Signal::set()` stores new values as `pending_value` on the Signal rather than committing immediately. The actual `value` field is unchanged, so any `get()` calls during the batch see the pre-batch values (transactional semantics — reads don't see uncommitted writes). Each signal registers a type-erased `commit_pending` closure on its `PullSignalData`.
 
-2. **Commit phase**: When the outermost batch ends, the runtime iterates over `batch_pending_signals` directly (not via an alias, to ensure the list clears correctly) and calls each signal's `commit_pending` closure. Each closure compares the pending value against the current value using `Eq`. Only signals whose values actually changed are marked with the new revision. The pending list is then cleared via `.clear()`.
+2. **Commit phase**: When the outermost batch ends, the runtime iterates over `batch_pending : Array[&Committable]` and calls each entry's `do_commit()` method via the `Committable` trait object. Each `do_commit()` invokes the signal's `commit_pending` closure, which compares the pending value against the current value using `Eq`. Only signals whose values actually changed are marked with the new revision. The pending list is then cleared via `.clear()`.
 
 ### Raised Error Rollback
 
@@ -303,7 +303,7 @@ If the batch closure raises, the runtime rolls back pending writes:
 
 - Only writes made in the failing batch frame are rolled back
 - `pending_value` and registration state are restored to the pre-frame snapshot
-- Signals first registered by the failing frame are removed from `batch_pending_signals`
+- Signals first registered by the failing frame are removed from `batch_pending`
 - `batch_max_durability` is recomputed from the remaining pending writes
 - `batch_depth` is restored before re-raising
 
