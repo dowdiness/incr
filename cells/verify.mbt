@@ -31,6 +31,20 @@ priv struct PullVerifyFrame {
 ///
 /// `Ok(())` on success (cell is up-to-date after this call),
 /// `Err(CycleError)` if a cycle is detected
+///|
+/// Clears the `in_progress` flag on every memo referenced by the stack.
+///
+/// Called on error exit paths (cycle detection, compute failure) so that
+/// no memo is left permanently stuck as in-progress.
+fn clear_verify_stack(
+  rt : Runtime,
+  stack : Array[PullVerifyFrame],
+) -> Unit {
+  for frame in stack {
+    rt.pull_memos[frame.memo_idx].in_progress = false
+  }
+}
+
 fn Runtime::pull_verify(
   self : Runtime,
   cell_id : CellId,
@@ -74,9 +88,7 @@ fn Runtime::pull_verify(
                   if dep.in_progress {
                     // Cycle detected — collect path, clear flags, return error.
                     let path = self.collect_in_progress_path()
-                    for frame in stack {
-                      self.pull_memos[frame.memo_idx].in_progress = false
-                    }
+                    clear_verify_stack(self, stack)
                     return Err(CycleError::from_path(path, dep_id))
                   }
                   dep.in_progress = true
@@ -94,9 +106,8 @@ fn Runtime::pull_verify(
                 }
               }
             }
-            _ => {
-              // PullSignal: check changed_at directly.
-              if self.get_changed_at(dep_id) > memo.verified_at {
+            PullSignal(sig_idx) => {
+              if self.pull_signals[sig_idx].changed_at > memo.verified_at {
                 stack[top].changed = true
               }
             }
@@ -112,9 +123,7 @@ fn Runtime::pull_verify(
               Ok(_) => () // recompute done; may backdate memo.changed_at
               Err(e) => {
                 // Clean up remaining in_progress flags before propagating error.
-                for frame in stack {
-                  self.pull_memos[frame.memo_idx].in_progress = false
-                }
+                clear_verify_stack(self, stack)
                 return Err(e)
               }
             }

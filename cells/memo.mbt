@@ -322,10 +322,7 @@ fn compute_durability(rt : Runtime, deps : Array[CellId]) -> Durability {
   }
   let mut min_dur = Durability::High
   for dep_id in deps {
-    let dur = match rt.cell_index[dep_id.id] {
-      PullSignal(idx) => rt.pull_signals[idx].durability
-      PullMemo(idx) => rt.pull_memos[idx].durability
-    }
+    let dur = rt.get_durability(dep_id)
     if dur < min_dur {
       min_dur = dur
     }

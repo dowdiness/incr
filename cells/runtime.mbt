@@ -250,6 +250,15 @@ fn Runtime::get_changed_at(self : Runtime, id : CellId) -> Revision {
 }
 
 ///|
+/// Returns the `durability` for any cell, dispatching via cell_index.
+fn Runtime::get_durability(self : Runtime, id : CellId) -> Durability {
+  match self.cell_index[id.id] {
+    PullSignal(idx) => self.pull_signals[idx].durability
+    PullMemo(idx) => self.pull_memos[idx].durability
+  }
+}
+
+///|
 /// Returns the CellId stored in the given SoA entry (reverse lookup).
 ///
 /// Each SoA data struct caches its own CellId so we can round-trip from a
