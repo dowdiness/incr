@@ -49,11 +49,23 @@ fn Runtime::pull_verify(
   self : Runtime,
   cell_id : CellId,
 ) -> Result[Unit, CycleError] {
+  if cell_id.runtime_id != self.runtime_id {
+    abort("pull_verify: cell belongs to a different Runtime")
+  }
+  if cell_id.id < 0 || cell_id.id >= self.cell_index.length() {
+    abort("pull_verify: cell_id out of bounds: " + cell_id.id.to_string())
+  }
   match self.cell_index[cell_id.id] {
     PullSignal(_) => Ok(()) // always fresh
     PullMemo(root_idx) => {
       let root = self.pull_memos[root_idx]
       if root.verified_at >= self.current_revision {
+        return Ok(())
+      }
+      // Durability fast-path: if no input at root's durability level changed
+      // since root was last verified, mark verified without walking deps.
+      if self.durability_last_changed[root.durability.index()] <= root.verified_at {
+        root.verified_at = self.current_revision
         return Ok(())
       }
       if root.in_progress {
@@ -82,6 +94,7 @@ fn Runtime::pull_verify(
                   dep.verified_at = self.current_revision
                   if dep.changed_at > memo.verified_at {
                     stack[top].changed = true
+                    stack[top].dep_cursor = memo.dependencies.length()
                   }
                 } else {
                   // Dep needs verification; push a new frame.
@@ -103,12 +116,14 @@ fn Runtime::pull_verify(
                 // Already verified this revision; check if its value changed.
                 if dep.changed_at > memo.verified_at {
                   stack[top].changed = true
+                  stack[top].dep_cursor = memo.dependencies.length()
                 }
               }
             }
             PullSignal(sig_idx) => {
               if self.pull_signals[sig_idx].changed_at > memo.verified_at {
                 stack[top].changed = true
+                stack[top].dep_cursor = memo.dependencies.length()
               }
             }
           }
@@ -135,6 +150,7 @@ fn Runtime::pull_verify(
             let parent_memo = self.pull_memos[stack[parent_top].memo_idx]
             if memo.changed_at > parent_memo.verified_at {
               stack[parent_top].changed = true
+              stack[parent_top].dep_cursor = parent_memo.dependencies.length()
             }
           }
         }
