@@ -324,7 +324,7 @@ fn Runtime::get_subscribers(self : Runtime, cell_id : CellId) -> Iter[CellId] {
   if cell_id.runtime_id != self.runtime_id {
     abort("Cell belongs to a different Runtime")
   }
-  if cell_id.id < 0 || cell_id.id >= self.cell_index.length() {
+  if cell_id.id < 0 || cell_id.id >= self.cell_ops.length() {
     abort("get_subscribers: cell_id out of bounds: " + cell_id.id.to_string())
   }
   self.cell_ops[cell_id.id].subscribers().iter()
@@ -343,7 +343,7 @@ fn Runtime::get_subscribers_mut(
   if cell_id.runtime_id != self.runtime_id {
     abort("Cell belongs to a different Runtime")
   }
-  if cell_id.id < 0 || cell_id.id >= self.cell_index.length() {
+  if cell_id.id < 0 || cell_id.id >= self.cell_ops.length() {
     abort(
       "get_subscribers_mut: cell_id out of bounds: " + cell_id.id.to_string(),
     )
