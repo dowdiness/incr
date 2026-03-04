@@ -32,9 +32,9 @@ impl CellOps for PullSignalData with set_changed_at(self, rev : Revision) -> Uni
 }
 
 ///|
-impl CellOps for PullSignalData with subscribers(
-  self,
-) -> @hashset.HashSet[CellId] {
+impl CellOps for PullSignalData with subscribers(self) -> @hashset.HashSet[
+  CellId,
+] {
   self.subscribers
 }
 
@@ -57,7 +57,10 @@ impl Committable for PullSignalData with do_commit(self) -> Bool {
       self.commit_pending = None
       changed
     }
-    None => false
+    None =>
+      abort(
+        "invariant violation: batch_pending contained signal without commit_pending",
+      )
   }
 }
 
@@ -70,4 +73,3 @@ impl Committable for PullSignalData with cell_id(self) -> CellId {
 impl Committable for PullSignalData with durability(self) -> Durability {
   self.durability
 }
-

@@ -13,7 +13,10 @@ test "pull_verify: up-to-date memo returns Ok without recompute" {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 1)
   let mut count = 0
-  let m = Memo::new(rt, () => { count += 1; sig.get() })
+  let m = Memo::new(rt, () => {
+    count += 1
+    sig.get()
+  })
   let _ = m.get()
   inspect(count, content="1")
   let _ = rt.pull_verify(m.id())

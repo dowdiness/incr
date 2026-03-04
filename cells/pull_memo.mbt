@@ -34,9 +34,7 @@ impl CellOps for PullMemoData with set_changed_at(self, rev : Revision) -> Unit 
 }
 
 ///|
-impl CellOps for PullMemoData with subscribers(
-  self,
-) -> @hashset.HashSet[CellId] {
+impl CellOps for PullMemoData with subscribers(self) -> @hashset.HashSet[CellId] {
   self.subscribers
 }
 

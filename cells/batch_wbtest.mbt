@@ -337,10 +337,10 @@ test "panic batch: corrupted negative batch_depth triggers underflow abort" {
 }
 
 ///|
-// Characterization test: if commit_pending is cleared before commit_batch runs,
-// do_commit returns false (no change, no abort). The signal value stays at its
-// pre-batch value since the commit closure was never invoked.
-test "commit_batch: signal with None commit_pending is treated as no-op" {
+// Invariant test: if commit_pending is cleared before commit_batch runs,
+// do_commit must abort instead of silently skipping the entry. Skipping would
+// leave stale pending_value in the Signal handle and poison later batches.
+test "panic batch: missing commit_pending aborts during commit_batch" {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 0)
   // Manually enter batch mode by directly setting batch_depth
@@ -354,7 +354,4 @@ test "commit_batch: signal with None commit_pending is treated as no-op" {
   // Manually exit batch and trigger commit_batch
   rt.batch_depth = 0
   rt.commit_batch()
-  // do_commit returns false (None branch), so no revision bump and value unchanged
-  inspect(sig.get(), content="0")
-  inspect(rt.current_revision.value, content="0")
 }
