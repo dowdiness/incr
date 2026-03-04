@@ -772,6 +772,10 @@ fn Runtime::record_batch_rollback(
 
 ///|
 /// Removes one pending signal registration by id.
+///
+/// Called only from rollback closures during batch undo, which is rare.
+/// Uses O(n) copy-and-rebuild because `batch_pending` must remain an ordered
+/// queue — insertion order determines commit order in `commit_batch`.
 fn Runtime::remove_batch_signal(self : Runtime, cell_id : CellId) -> Unit {
   let kept : Array[&Committable] = []
   let mut removed = false
