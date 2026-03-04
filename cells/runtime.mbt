@@ -253,6 +253,12 @@ fn Runtime::get_changed_at(self : Runtime, id : CellId) -> Revision {
 ///|
 /// Returns the `durability` for any cell, dispatching via cell_index.
 fn Runtime::get_durability(self : Runtime, id : CellId) -> Durability {
+  if id.runtime_id != self.runtime_id {
+    abort("Cell belongs to a different Runtime")
+  }
+  if id.id < 0 || id.id >= self.cell_index.length() {
+    abort("get_durability: cell_id out of bounds: " + id.id.to_string())
+  }
   self.cell_ops[id.id].durability()
 }
 
@@ -449,17 +455,19 @@ pub fn Runtime::cell_info(self : Runtime, id : CellId) -> CellInfo? {
   }
   let ops = self.cell_ops[id.id]
   match self.cell_index[id.id] {
-    PullSignal(_) =>
+    PullSignal(_) => {
+      let ca = ops.changed_at()
       Some(CellInfo::{
         label: ops.label(),
         id,
-        changed_at: ops.changed_at(),
+        changed_at: ca,
         // Signals are always up-to-date after a set; verified_at == changed_at
-        verified_at: ops.changed_at(),
+        verified_at: ca,
         durability: ops.durability(),
         dependencies: [],
         subscribers: snapshot_subscribers(ops.subscribers()),
       })
+    }
     PullMemo(idx) => {
       let memo = self.pull_memos[idx]
       Some(CellInfo::{
