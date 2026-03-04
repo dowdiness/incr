@@ -311,6 +311,35 @@ fn Runtime::get_pull_memo(self : Runtime, id : CellId) -> PullMemoData {
 }
 
 ///|
+/// Returns an iterator over the subscriber IDs for the given cell ref.
+///
+/// Used by Phase 3 push propagation to enumerate cells that must be
+/// notified when a cell's value changes. Phase 3 extends this with
+/// `PushReactive`, `PushEffect`, and `Disposed` arms.
+fn Runtime::get_subscribers(self : Runtime, cell_ref : CellRef) -> Iter[CellId] {
+  match cell_ref {
+    PullSignal(idx) => self.pull_signals[idx].subscribers.iter()
+    PullMemo(idx) => self.pull_memos[idx].subscribers.iter()
+  }
+}
+
+///|
+/// Returns the mutable subscriber set for the given cell.
+///
+/// Returns the live `HashSet[CellId]` object; mutations through it are
+/// immediately reflected in the runtime. Used by `finish_tracking` and
+/// Phase 3 disposal to add/remove reverse edges efficiently.
+fn Runtime::get_subscribers_mut(
+  self : Runtime,
+  cell_id : CellId,
+) -> @hashset.HashSet[CellId] {
+  match self.cell_index[cell_id.id] {
+    PullSignal(idx) => self.pull_signals[idx].subscribers
+    PullMemo(idx) => self.pull_memos[idx].subscribers
+  }
+}
+
+///|
 /// Removes `subscriber` from the subscriber set of `dep`.
 fn Runtime::remove_subscriber(
   self : Runtime,
