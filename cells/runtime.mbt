@@ -317,6 +317,12 @@ fn Runtime::get_pull_memo(self : Runtime, id : CellId) -> PullMemoData {
 /// notified when a cell's value changes. Phase 3 extends this with
 /// `PushReactive`, `PushEffect`, and `Disposed` arms.
 fn Runtime::get_subscribers(self : Runtime, cell_id : CellId) -> Iter[CellId] {
+  if cell_id.runtime_id != self.runtime_id {
+    abort("Cell belongs to a different Runtime")
+  }
+  if cell_id.id < 0 || cell_id.id >= self.cell_index.length() {
+    abort("get_subscribers: cell_id out of bounds: " + cell_id.id.to_string())
+  }
   match self.cell_index[cell_id.id] {
     PullSignal(idx) => self.pull_signals[idx].subscribers.iter()
     PullMemo(idx) => self.pull_memos[idx].subscribers.iter()
@@ -333,6 +339,14 @@ fn Runtime::get_subscribers_mut(
   self : Runtime,
   cell_id : CellId,
 ) -> @hashset.HashSet[CellId] {
+  if cell_id.runtime_id != self.runtime_id {
+    abort("Cell belongs to a different Runtime")
+  }
+  if cell_id.id < 0 || cell_id.id >= self.cell_index.length() {
+    abort(
+      "get_subscribers_mut: cell_id out of bounds: " + cell_id.id.to_string(),
+    )
+  }
   match self.cell_index[cell_id.id] {
     PullSignal(idx) => self.pull_signals[idx].subscribers
     PullMemo(idx) => self.pull_memos[idx].subscribers

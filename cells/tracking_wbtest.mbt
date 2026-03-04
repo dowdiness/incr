@@ -14,9 +14,14 @@ test "tracking: begin/end tracking records dependency" {
 test "tracking: finish_tracking adds memo to dep subscribers" {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 1)
-  let m = Memo::new(rt, () => sig.get())
-  let _ = m.get()
-  // After get, finish_tracking should have added m to sig's subscribers
+  let m = Memo::new(rt, () => 0)
+  // Exercise finish_tracking directly: begin a tracking frame, read sig to
+  // register it as a dependency, end the frame, then call finish_tracking
+  // with empty old_deps (first compute) and the captured new_deps.
+  rt.begin_tracking(m.id())
+  let _ = sig.get()
+  let new_deps = rt.end_tracking()
+  rt.finish_tracking(m.id(), [], new_deps)
   let sig_idx = match rt.cell_index[sig.id().id] {
     PullSignal(i) => i
     _ => abort("expected PullSignal")
