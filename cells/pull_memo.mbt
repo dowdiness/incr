@@ -16,3 +16,36 @@ priv struct PullMemoData {
   mut in_progress : Bool
   mut on_change : (() -> Unit)?
 }
+
+///|
+/// CellOps dispatch for pull-memo cells.
+impl CellOps for PullMemoData with cell_id(self) -> CellId {
+  self.cell_id
+}
+
+///|
+impl CellOps for PullMemoData with changed_at(self) -> Revision {
+  self.changed_at
+}
+
+///|
+impl CellOps for PullMemoData with set_changed_at(self, rev : Revision) -> Unit {
+  self.changed_at = rev
+}
+
+///|
+impl CellOps for PullMemoData with subscribers(
+  self,
+) -> @hashset.HashSet[CellId] {
+  self.subscribers
+}
+
+///|
+impl CellOps for PullMemoData with label(self) -> String? {
+  self.label
+}
+
+///|
+impl CellOps for PullMemoData with durability(self) -> Durability {
+  self.durability
+}
