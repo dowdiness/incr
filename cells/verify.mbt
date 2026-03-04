@@ -61,22 +61,32 @@ fn Runtime::pull_verify(
             PullMemo(dep_idx) => {
               let dep = self.pull_memos[dep_idx]
               if dep.verified_at < self.current_revision {
-                // Dep needs verification; push a new frame.
-                if dep.in_progress {
-                  // Cycle detected — collect path, clear flags, return error.
-                  let path = self.collect_in_progress_path()
-                  for frame in stack {
-                    self.pull_memos[frame.memo_idx].in_progress = false
+                // Durability shortcut: if no input at dep's durability level
+                // changed since dep was last verified, skip traversal.
+                if self.durability_last_changed[dep.durability.index()] <=
+                  dep.verified_at {
+                  dep.verified_at = self.current_revision
+                  if dep.changed_at > memo.verified_at {
+                    stack[top].changed = true
                   }
-                  return Err(CycleError::from_path(path, dep_id))
+                } else {
+                  // Dep needs verification; push a new frame.
+                  if dep.in_progress {
+                    // Cycle detected — collect path, clear flags, return error.
+                    let path = self.collect_in_progress_path()
+                    for frame in stack {
+                      self.pull_memos[frame.memo_idx].in_progress = false
+                    }
+                    return Err(CycleError::from_path(path, dep_id))
+                  }
+                  dep.in_progress = true
+                  stack.push({
+                    cell_id: dep_id,
+                    memo_idx: dep_idx,
+                    dep_cursor: 0,
+                    changed: false,
+                  })
                 }
-                dep.in_progress = true
-                stack.push({
-                  cell_id: dep_id,
-                  memo_idx: dep_idx,
-                  dep_cursor: 0,
-                  changed: false,
-                })
               } else {
                 // Already verified this revision; check if its value changed.
                 if dep.changed_at > memo.verified_at {

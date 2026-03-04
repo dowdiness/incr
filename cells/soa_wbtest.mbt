@@ -48,6 +48,11 @@ test "new_memo_id: allocates into pull_memos" {
 
 ///|
 test "runtime: alloc_cell_id populates cell_index" {
+  // This test exercises alloc_cell_id in isolation. alloc_cell_id only grows
+  // cell_index; it does not populate rt.pull_signals. The transient
+  // inconsistency (cell_index[0] pointing to PullSignal(0) while
+  // rt.pull_signals is empty) is intentional — we are testing the low-level
+  // allocation primitive, not the full Runtime invariants.
   let rt = Runtime::new()
   let cell_id = rt.alloc_cell_id(CellRef::PullSignal(0))
   inspect(cell_id.id, content="0")

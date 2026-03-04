@@ -271,6 +271,9 @@ fn Runtime::get_pull_signal(self : Runtime, id : CellId) -> PullSignalData {
   if id.runtime_id != self.runtime_id {
     abort("Cell belongs to a different Runtime")
   }
+  if id.id < 0 || id.id >= self.cell_index.length() {
+    abort("get_pull_signal: cell_id out of bounds: " + id.id.to_string())
+  }
   match self.cell_index[id.id] {
     PullSignal(idx) => self.pull_signals[idx]
     PullMemo(_) =>
@@ -287,6 +290,9 @@ fn Runtime::get_pull_signal(self : Runtime, id : CellId) -> PullSignalData {
 fn Runtime::get_pull_memo(self : Runtime, id : CellId) -> PullMemoData {
   if id.runtime_id != self.runtime_id {
     abort("Cell belongs to a different Runtime")
+  }
+  if id.id < 0 || id.id >= self.cell_index.length() {
+    abort("get_pull_memo: cell_id out of bounds: " + id.id.to_string())
   }
   match self.cell_index[id.id] {
     PullMemo(idx) => self.pull_memos[idx]
