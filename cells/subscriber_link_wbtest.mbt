@@ -5,8 +5,8 @@ test "subscriber: after memo.get(), memo is in all deps' subscribers" {
   let b = Signal::new(rt, 2)
   let sum = Memo::new(rt, () => a.get() + b.get())
   let _ = sum.get()
-  let a_idx = match rt.cell_index[a.id().id] { PullSignal(i) => i; _ => abort("") }
-  let b_idx = match rt.cell_index[b.id().id] { PullSignal(i) => i; _ => abort("") }
+  let a_idx = match rt.cell_index[a.id().id] { PullSignal(i) => i; _ => abort("expected PullSignal") }
+  let b_idx = match rt.cell_index[b.id().id] { PullSignal(i) => i; _ => abort("expected PullSignal") }
   inspect(rt.pull_signals[a_idx].subscribers.contains(sum.id()), content="true")
   inspect(rt.pull_signals[b_idx].subscribers.contains(sum.id()), content="true")
 }
@@ -19,8 +19,8 @@ test "subscriber: dynamic dep changes update subscriber links" {
   let b = Signal::new(rt, 20)
   let pick = Memo::new(rt, () => if flag.get() { a.get() } else { b.get() })
   let _ = pick.get() // deps: flag, a
-  let a_idx = match rt.cell_index[a.id().id] { PullSignal(i) => i; _ => abort("") }
-  let b_idx = match rt.cell_index[b.id().id] { PullSignal(i) => i; _ => abort("") }
+  let a_idx = match rt.cell_index[a.id().id] { PullSignal(i) => i; _ => abort("expected PullSignal") }
+  let b_idx = match rt.cell_index[b.id().id] { PullSignal(i) => i; _ => abort("expected PullSignal") }
   inspect(rt.pull_signals[a_idx].subscribers.contains(pick.id()), content="true")
   inspect(rt.pull_signals[b_idx].subscribers.contains(pick.id()), content="false")
   flag.set(false)
@@ -36,6 +36,6 @@ test "subscriber: memo.get() idempotent — no duplicate subscriber entries" {
   let m = Memo::new(rt, () => a.get() + 1)
   let _ = m.get()
   let _ = m.get()
-  let a_idx = match rt.cell_index[a.id().id] { PullSignal(i) => i; _ => abort("") }
+  let a_idx = match rt.cell_index[a.id().id] { PullSignal(i) => i; _ => abort("expected PullSignal") }
   inspect(rt.pull_signals[a_idx].subscribers.length(), content="1")
 }

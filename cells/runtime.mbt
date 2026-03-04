@@ -311,13 +311,13 @@ fn Runtime::get_pull_memo(self : Runtime, id : CellId) -> PullMemoData {
 }
 
 ///|
-/// Returns an iterator over the subscriber IDs for the given cell ref.
+/// Returns an iterator over the subscriber IDs for the given cell.
 ///
 /// Used by Phase 3 push propagation to enumerate cells that must be
 /// notified when a cell's value changes. Phase 3 extends this with
 /// `PushReactive`, `PushEffect`, and `Disposed` arms.
-fn Runtime::get_subscribers(self : Runtime, cell_ref : CellRef) -> Iter[CellId] {
-  match cell_ref {
+fn Runtime::get_subscribers(self : Runtime, cell_id : CellId) -> Iter[CellId] {
+  match self.cell_index[cell_id.id] {
     PullSignal(idx) => self.pull_signals[idx].subscribers.iter()
     PullMemo(idx) => self.pull_memos[idx].subscribers.iter()
   }
@@ -914,6 +914,9 @@ fn Runtime::finish_tracking(
   old_deps : Array[CellId],
   new_deps : Array[CellId],
 ) -> Unit {
+  if old_deps.length() == 0 && new_deps.length() == 0 {
+    return
+  }
   let new_seen : @hashset.HashSet[CellId] = @hashset.new()
   for dep in new_deps {
     new_seen.add(dep)
