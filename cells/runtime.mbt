@@ -64,7 +64,6 @@ fn BatchFrame::has_undo_for(self : BatchFrame, cell_id : CellId) -> Bool {
 pub(all) struct Runtime {
   priv runtime_id : Int
   priv mut current_revision : Revision
-  priv cells : Array[CellMeta?]
   priv mut next_cell_id : Int
   priv tracking_stack : Array[ActiveQuery]
   priv durability_last_changed : FixedArray[Revision]
@@ -73,6 +72,10 @@ pub(all) struct Runtime {
   priv batch_frames : Array[BatchFrame]
   priv mut batch_max_durability : Durability
   priv mut on_change : (() -> Unit)?
+  // SoA storage arrays
+  priv pull_signals : Array[PullSignalData]
+  priv pull_memos : Array[PullMemoData]
+  priv cell_index : Array[CellRef]
 
   fn new(on_change? : () -> Unit) -> Runtime
 }
@@ -110,7 +113,6 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
   {
     runtime_id: id,
     current_revision: Revision::initial(),
-    cells: [],
     next_cell_id: 0,
     tracking_stack: [],
     durability_last_changed: FixedArray::make(
@@ -122,6 +124,9 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
     batch_frames: [],
     batch_max_durability: Low,
     on_change,
+    pull_signals: [],
+    pull_memos: [],
+    cell_index: [],
   }
 }
 
@@ -150,68 +155,184 @@ pub(all) struct CellInfo {
 }
 
 ///|
-/// Registers cell metadata with the runtime.
+/// Allocates a raw cell identifier (internal helper).
 ///
-/// This is called internally when creating signals and memos. Users typically
-/// don't need to call this directly.
-///
-/// # Parameters
-///
-/// - `meta`: The cell metadata to register
-fn Runtime::register_cell(self : Runtime, meta : CellMeta) -> Unit {
-  let id = meta.id.id
-  // Grow array if needed
-  while self.cells.length() <= id {
-    self.cells.push(None)
-  }
-  self.cells[id] = Some(meta)
-}
-
-///|
-/// Allocates a fresh cell identifier.
-///
-/// This is called internally when creating signals and memos. Cell IDs are
-/// monotonically increasing integers used for O(1) cell lookup.
-///
-/// # Returns
-///
-/// A new unique cell identifier
-fn Runtime::alloc_cell_id(self : Runtime) -> CellId {
+/// Increments `next_cell_id` and returns the new CellId without touching
+/// `cell_index`. Used by `alloc_cell_id(CellRef)`.
+fn Runtime::alloc_next_id(self : Runtime) -> CellId {
   let id = self.next_cell_id
   self.next_cell_id = id + 1
   { runtime_id: self.runtime_id, id }
 }
 
 ///|
-/// Retrieves cell metadata by ID.
+/// Allocates a fresh cell identifier and registers it in the SoA cell_index.
 ///
-/// This is called internally during verification and recomputation.
-///
-/// # Parameters
-///
-/// - `id`: The cell identifier
+/// The `cell_ref` argument records which typed SoA array this cell lives in
+/// (e.g. `PullSignal(idx)` or `PullMemo(idx)`).  The returned `CellId.id`
+/// is the index into `cell_index` for fast dispatch.
 ///
 /// # Returns
 ///
-/// The cell's metadata
+/// A new unique cell identifier
+fn Runtime::alloc_cell_id(self : Runtime, cell_ref : CellRef) -> CellId {
+  let cell_id = self.alloc_next_id()
+  self.cell_index.push(cell_ref)
+  cell_id
+}
+
+///|
+/// Allocates a new Pull Signal cell in the SoA layout.
 ///
-/// # Panics
+/// Pushes a `PullSignalData` entry into `pull_signals` and registers
+/// `PullSignal(idx)` in `cell_index` via `alloc_cell_id`.
 ///
-/// Aborts if no cell with the given ID exists
-fn Runtime::get_cell(self : Runtime, id : CellId) -> CellMeta {
+/// The `on_change`, `commit_pending`, and `rollback_pending` closures start
+/// as `None` and are set later by `Signal::on_change` and `Signal::set_batch`.
+///
+/// # Returns
+///
+/// The new cell's unique identifier
+fn Runtime::new_signal_id(
+  self : Runtime,
+  durability : Durability,
+  label : String?,
+) -> CellId {
+  let idx = self.pull_signals.length()
+  let cell_id = self.alloc_cell_id(PullSignal(idx))
+  self.pull_signals.push({
+    cell_id,
+    label,
+    changed_at: Revision::initial(),
+    durability,
+    subscribers: @hashset.new(),
+    on_change: None,
+    commit_pending: None,
+    rollback_pending: None,
+  })
+  cell_id
+}
+
+///|
+/// Collects all pull memos currently marked in_progress.
+///
+/// Called when a cycle is detected during `pull_verify`. The in_progress
+/// flags on `PullMemoData` entries identify the exact cycle participants.
+///
+/// # Returns
+///
+/// Array of CellIds for all pull memos with `in_progress = true`
+fn Runtime::collect_in_progress_path(self : Runtime) -> Array[CellId] {
+  let path : Array[CellId] = []
+  for memo in self.pull_memos {
+    if memo.in_progress {
+      path.push(memo.cell_id)
+    }
+  }
+  path
+}
+
+///|
+/// Returns the `changed_at` revision for any cell, dispatching via cell_index.
+///
+/// Covers PullSignal and PullMemo; aborts on unknown or out-of-bounds IDs.
+fn Runtime::get_changed_at(self : Runtime, id : CellId) -> Revision {
   if id.runtime_id != self.runtime_id {
     abort("Cell belongs to a different Runtime")
   }
-  if id.id < 0 {
-    abort("Invalid cell id: " + id.id.to_string())
+  if id.id < 0 || id.id >= self.cell_index.length() {
+    abort("get_changed_at: cell_id out of bounds: " + id.id.to_string())
   }
-  if id.id < self.cells.length() {
-    match self.cells[id.id] {
-      Some(meta) => meta
-      None => abort("Cell not found: " + id.id.to_string())
-    }
-  } else {
-    abort("Cell not found: " + id.id.to_string())
+  match self.cell_index[id.id] {
+    PullSignal(idx) => self.pull_signals[idx].changed_at
+    PullMemo(idx) => self.pull_memos[idx].changed_at
+  }
+}
+
+///|
+/// Returns the `durability` for any cell, dispatching via cell_index.
+fn Runtime::get_durability(self : Runtime, id : CellId) -> Durability {
+  match self.cell_index[id.id] {
+    PullSignal(idx) => self.pull_signals[idx].durability
+    PullMemo(idx) => self.pull_memos[idx].durability
+  }
+}
+
+///|
+/// Returns the CellId stored in the given SoA entry (reverse lookup).
+///
+/// Each SoA data struct caches its own CellId so we can round-trip from a
+/// CellRef index back to the unified CellId without an extra map.
+fn Runtime::cell_id_for(self : Runtime, cell_ref : CellRef) -> CellId {
+  match cell_ref {
+    PullSignal(idx) => self.pull_signals[idx].cell_id
+    PullMemo(idx) => self.pull_memos[idx].cell_id
+  }
+}
+
+///|
+/// Returns the PullSignalData for a signal cell.
+///
+/// # Panics
+///
+/// Aborts if the cell belongs to a different runtime or is not a signal.
+fn Runtime::get_pull_signal(self : Runtime, id : CellId) -> PullSignalData {
+  if id.runtime_id != self.runtime_id {
+    abort("Cell belongs to a different Runtime")
+  }
+  if id.id < 0 || id.id >= self.cell_index.length() {
+    abort("get_pull_signal: cell_id out of bounds: " + id.id.to_string())
+  }
+  match self.cell_index[id.id] {
+    PullSignal(idx) => self.pull_signals[idx]
+    PullMemo(_) =>
+      abort("Expected signal cell but found memo: " + id.id.to_string())
+  }
+}
+
+///|
+/// Returns the PullMemoData for a memo cell.
+///
+/// # Panics
+///
+/// Aborts if the cell belongs to a different runtime or is not a memo.
+fn Runtime::get_pull_memo(self : Runtime, id : CellId) -> PullMemoData {
+  if id.runtime_id != self.runtime_id {
+    abort("Cell belongs to a different Runtime")
+  }
+  if id.id < 0 || id.id >= self.cell_index.length() {
+    abort("get_pull_memo: cell_id out of bounds: " + id.id.to_string())
+  }
+  match self.cell_index[id.id] {
+    PullMemo(idx) => self.pull_memos[idx]
+    PullSignal(_) =>
+      abort("Expected memo cell but found signal: " + id.id.to_string())
+  }
+}
+
+///|
+/// Removes `subscriber` from the subscriber set of `dep`.
+fn Runtime::remove_subscriber(
+  self : Runtime,
+  dep : CellId,
+  subscriber : CellId,
+) -> Unit {
+  match self.cell_index[dep.id] {
+    PullSignal(idx) => self.pull_signals[idx].subscribers.remove(subscriber)
+    PullMemo(idx) => self.pull_memos[idx].subscribers.remove(subscriber)
+  }
+}
+
+///|
+/// Adds `subscriber` to the subscriber set of `dep`.
+fn Runtime::add_subscriber(
+  self : Runtime,
+  dep : CellId,
+  subscriber : CellId,
+) -> Unit {
+  match self.cell_index[dep.id] {
+    PullSignal(idx) => self.pull_signals[idx].subscribers.add(subscriber)
+    PullMemo(idx) => self.pull_memos[idx].subscribers.add(subscriber)
   }
 }
 
@@ -291,29 +412,38 @@ fn Runtime::fire_on_change(self : Runtime) -> Unit {
 /// - For memos, dependencies are populated after the first computation
 /// - The method performs bounds checking and returns None for invalid IDs
 pub fn Runtime::cell_info(self : Runtime, id : CellId) -> CellInfo? {
-  // Validate runtime ownership - reject CellIds from other runtimes
   if id.runtime_id != self.runtime_id {
     return None
   }
-
-  // Check bounds (both negative and out of range)
-  if id.id < 0 || id.id >= self.cells.length() {
+  if id.id < 0 || id.id >= self.cell_index.length() {
     return None
   }
-
-  // Extract metadata
-  match self.cells[id.id] {
-    Some(meta) =>
+  match self.cell_index[id.id] {
+    PullSignal(idx) => {
+      let sig = self.pull_signals[idx]
       Some(CellInfo::{
-        label: meta.label,
+        label: sig.label,
         id,
-        changed_at: meta.changed_at,
-        verified_at: meta.verified_at,
-        durability: meta.durability,
-        dependencies: meta.dependencies.copy(),
-        subscribers: snapshot_subscribers(meta.subscribers),
+        changed_at: sig.changed_at,
+        // Signals are always up-to-date after a set; verified_at == changed_at
+        verified_at: sig.changed_at,
+        durability: sig.durability,
+        dependencies: [],
+        subscribers: snapshot_subscribers(sig.subscribers),
       })
-    None => None
+    }
+    PullMemo(idx) => {
+      let memo = self.pull_memos[idx]
+      Some(CellInfo::{
+        label: memo.label,
+        id,
+        changed_at: memo.changed_at,
+        verified_at: memo.verified_at,
+        durability: memo.durability,
+        dependencies: memo.dependencies.copy(),
+        subscribers: snapshot_subscribers(memo.subscribers),
+      })
+    }
   }
 }
 
@@ -350,12 +480,12 @@ pub fn Runtime::dependents(self : Runtime, id : CellId) -> Array[CellId] {
   if id.runtime_id != self.runtime_id {
     return []
   }
-  if id.id < 0 || id.id >= self.cells.length() {
+  if id.id < 0 || id.id >= self.cell_index.length() {
     return []
   }
-  match self.cells[id.id] {
-    Some(meta) => snapshot_subscribers(meta.subscribers)
-    None => []
+  match self.cell_index[id.id] {
+    PullSignal(idx) => snapshot_subscribers(self.pull_signals[idx].subscribers)
+    PullMemo(idx) => snapshot_subscribers(self.pull_memos[idx].subscribers)
   }
 }
 
@@ -373,13 +503,12 @@ fn Runtime::advance_revision(self : Runtime, durability : Durability) -> Unit {
 
 ///|
 /// Mark an input cell as changed at the current revision.
-/// Sets both changed_at and verified_at to current_revision.
+/// Sets changed_at to current_revision on the PullSignalData entry.
 /// Must be called after advance_revision so current_revision is already updated.
-fn Runtime::mark_input_changed(self : Runtime, id : CellId) -> CellMeta {
-  let meta = self.get_cell(id)
-  meta.changed_at = self.current_revision
-  meta.verified_at = self.current_revision
-  meta
+fn Runtime::mark_input_changed(self : Runtime, id : CellId) -> PullSignalData {
+  let sig = self.get_pull_signal(id)
+  sig.changed_at = self.current_revision
+  sig
 }
 
 ///|
@@ -535,21 +664,21 @@ fn Runtime::commit_batch(self : Runtime) -> Unit {
     // Phase 1: commit pending values and collect which actually changed
     let changed_ids : Array[CellId] = []
     for id in self.batch_pending_signals {
-      let meta = self.get_cell(id)
-      match meta.rollback_pending {
+      let sig = self.get_pull_signal(id)
+      match sig.rollback_pending {
         Some(_) => ()
         None =>
           abort(
             "Batched signal missing rollback_pending — internal invariant violated",
           )
       }
-      match meta.commit_pending {
+      match sig.commit_pending {
         Some(commit_fn) => {
           if commit_fn() {
             changed_ids.push(id)
           }
-          meta.commit_pending = None
-          meta.rollback_pending = None
+          sig.commit_pending = None
+          sig.rollback_pending = None
         }
         None =>
           abort(
@@ -565,8 +694,8 @@ fn Runtime::commit_batch(self : Runtime) -> Unit {
       // Sweep changed signals and collect callbacks in a single pass.
       let callbacks : Array[() -> Unit] = []
       for id in changed_ids {
-        let meta = self.mark_input_changed(id)
-        match meta.on_change {
+        let sig = self.mark_input_changed(id)
+        match sig.on_change {
           Some(f) => callbacks.push(f)
           None => ()
         }
@@ -649,7 +778,7 @@ fn Runtime::remove_batch_signal(self : Runtime, cell_id : CellId) -> Unit {
 fn Runtime::recompute_batch_max_durability(self : Runtime) -> Unit {
   let mut max_durability : Durability = Low
   for id in self.batch_pending_signals {
-    let durability = self.get_cell(id).durability
+    let durability = self.get_pull_signal(id).durability
     if durability > max_durability {
       max_durability = durability
     }

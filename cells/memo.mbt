@@ -62,13 +62,25 @@ pub fn[T : Eq] Memo::new(
   compute : () -> T,
   label? : String,
 ) -> Memo[T] {
-  let cell_id = rt.alloc_cell_id()
+  // new_memo_id: allocate into SoA pull_memos and cell_index.
+  // Done inline because the compute closure must capture the typed `memo`
+  // struct, which in turn requires the cell_id — creating a construction
+  // cycle that prevents factoring this into a standalone Runtime method.
+  let memo_idx = rt.pull_memos.length()
+  let cell_id = rt.alloc_cell_id(PullMemo(memo_idx))
   let memo : Memo[T] = { label, rt, cell_id, compute, value: None }
-  let recompute_and_check : () -> Result[Bool, CycleError] = () => {
-    memo.recompute_inner()
-  }
-  let meta = CellMeta::new_derived(cell_id, recompute_and_check, label)
-  rt.register_cell(meta)
+  rt.pull_memos.push({
+    cell_id,
+    label,
+    compute: () => memo.recompute_inner(),
+    changed_at: Revision::initial(),
+    verified_at: Revision::initial(),
+    durability: Low,
+    dependencies: [],
+    subscribers: @hashset.new(),
+    in_progress: false,
+    on_change: None,
+  })
   memo
 }
 
@@ -139,7 +151,6 @@ pub fn[T : Eq] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
       active_rt.to_string(),
     )
   }
-  let cell = self.rt.get_cell(self.cell_id)
   // First computation: no cached value yet
   match self.value {
     None =>
@@ -154,17 +165,18 @@ pub fn[T : Eq] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
       }
     Some(cached) => {
       // Fast path: already verified this revision
+      let cell = self.rt.get_pull_memo(self.cell_id)
       if cell.verified_at == self.rt.current_revision {
         self.rt.record_dependency(self.cell_id)
         return Ok(cached)
       }
       // Check if any dependency changed since last verification.
-      // Note: maybe_changed_after may recompute this cell internally
-      // (via recompute_and_check) to determine if value actually changed.
-      match maybe_changed_after(self.rt, self.cell_id, cell.verified_at) {
+      // Note: pull_verify may recompute this cell internally
+      // (via compute closure) to determine if value actually changed.
+      match self.rt.pull_verify(self.cell_id) {
         Ok(_) => {
           self.rt.record_dependency(self.cell_id)
-          // Re-read self.value: maybe_changed_after may have called
+          // Re-read self.value: pull_verify may have called
           // force_recompute, replacing the cached value with a new one.
           // The outer Some(cached) binding may be stale.
           match self.value {
@@ -216,9 +228,11 @@ pub fn[T : Eq] Memo::get_or_else(
 /// eliminates the implicit invariant that `self.value` is always `Some` after a
 /// successful call.
 fn[T : Eq] Memo::force_recompute(self : Memo[T]) -> Result[T, CycleError] {
-  let cell = self.rt.get_cell(self.cell_id)
+  let cell = self.rt.get_pull_memo(self.cell_id)
   if cell.in_progress {
-    return Err(CycleError::from_path(self.rt.collect_tracking_path(), cell.id))
+    return Err(
+      CycleError::from_path(self.rt.collect_tracking_path(), cell.cell_id),
+    )
   }
   cell.in_progress = true
   let old_deps = cell.dependencies
@@ -245,15 +259,13 @@ fn[T : Eq] Memo::force_recompute(self : Memo[T]) -> Result[T, CycleError] {
     // Remove self from subscribers of deps that were dropped
     for dep in old_deps {
       if not(new_seen.contains(dep)) {
-        let dep_meta = self.rt.get_cell(dep)
-        dep_meta.subscribers.remove(self.cell_id)
+        self.rt.remove_subscriber(dep, self.cell_id)
       }
     }
     // Add self to subscribers of newly added deps
     for dep in new_deps {
       if not(old_seen.contains(dep)) {
-        let dep_meta = self.rt.get_cell(dep)
-        dep_meta.subscribers.add(self.cell_id)
+        self.rt.add_subscriber(dep, self.cell_id)
       }
     }
   }
@@ -284,7 +296,7 @@ fn[T : Eq] Memo::force_recompute(self : Memo[T]) -> Result[T, CycleError] {
 /// Returns `Ok(true)` if the value changed, `Ok(false)` if unchanged (backdated),
 /// or `Err(CycleError)` if a cycle is detected.
 fn[T : Eq] Memo::recompute_inner(self : Memo[T]) -> Result[Bool, CycleError] {
-  let cell = self.rt.get_cell(self.cell_id)
+  let cell = self.rt.get_pull_memo(self.cell_id)
   let old_changed_at = cell.changed_at
   match self.force_recompute() {
     Ok(_) => {
@@ -310,9 +322,9 @@ fn compute_durability(rt : Runtime, deps : Array[CellId]) -> Durability {
   }
   let mut min_dur = Durability::High
   for dep_id in deps {
-    let dep_cell = rt.get_cell(dep_id)
-    if dep_cell.durability < min_dur {
-      min_dur = dep_cell.durability
+    let dur = rt.get_durability(dep_id)
+    if dur < min_dur {
+      min_dur = dur
     }
   }
   min_dur
@@ -351,11 +363,7 @@ pub fn[T] Memo::id(self : Memo[T]) -> CellId {
 /// inspect(m.dependencies().contains(x.id()), content="true")
 /// ```
 pub fn[T] Memo::dependencies(self : Memo[T]) -> Array[CellId] {
-  let meta = self.rt.cells[self.cell_id.id]
-  match meta {
-    Some(m) => m.dependencies.copy()
-    None => []
-  }
+  self.rt.get_pull_memo(self.cell_id).dependencies.copy()
 }
 
 ///|
@@ -368,11 +376,7 @@ pub fn[T] Memo::dependencies(self : Memo[T]) -> Array[CellId] {
 ///
 /// The revision timestamp of the last actual value change
 pub fn[T] Memo::changed_at(self : Memo[T]) -> Revision {
-  let meta = self.rt.cells[self.cell_id.id]
-  match meta {
-    Some(m) => m.changed_at
-    None => Revision::initial()
-  }
+  self.rt.get_pull_memo(self.cell_id).changed_at
 }
 
 ///|
@@ -385,11 +389,7 @@ pub fn[T] Memo::changed_at(self : Memo[T]) -> Revision {
 ///
 /// The revision timestamp of the last verification
 pub fn[T] Memo::verified_at(self : Memo[T]) -> Revision {
-  let meta = self.rt.cells[self.cell_id.id]
-  match meta {
-    Some(m) => m.verified_at
-    None => Revision::initial()
-  }
+  self.rt.get_pull_memo(self.cell_id).verified_at
 }
 
 ///|
@@ -406,8 +406,7 @@ pub fn[T] Memo::verified_at(self : Memo[T]) -> Revision {
 ///
 /// - `f`: Called with the new value whenever this memo's value changes
 pub fn[T] Memo::on_change(self : Memo[T], f : (T) -> Unit) -> Unit {
-  let cell = self.rt.get_cell(self.cell_id)
-  cell.on_change = Some(() => {
+  self.rt.get_pull_memo(self.cell_id).on_change = Some(() => {
     match self.value {
       Some(v) => f(v)
       None => ()
@@ -418,8 +417,7 @@ pub fn[T] Memo::on_change(self : Memo[T], f : (T) -> Unit) -> Unit {
 ///|
 /// Removes the `on_change` callback for this memo.
 pub fn[T] Memo::clear_on_change(self : Memo[T]) -> Unit {
-  let cell = self.rt.get_cell(self.cell_id)
-  cell.on_change = None
+  self.rt.get_pull_memo(self.cell_id).on_change = None
 }
 
 ///|
@@ -429,9 +427,7 @@ pub fn[T] Memo::clear_on_change(self : Memo[T]) -> Unit {
 pub fn[T] Memo::is_up_to_date(self : Memo[T]) -> Bool {
   match self.value {
     None => false
-    Some(_) => {
-      let cell = self.rt.get_cell(self.cell_id)
-      cell.verified_at == self.rt.current_revision
-    }
+    Some(_) =>
+      self.rt.get_pull_memo(self.cell_id).verified_at == self.rt.current_revision
   }
 }
