@@ -83,6 +83,12 @@ fn Runtime::pull_verify(
           // Advance cursor and inspect the next dependency.
           let dep_id = memo.dependencies[stack[top].dep_cursor]
           stack[top].dep_cursor = stack[top].dep_cursor + 1
+          if dep_id.runtime_id != self.runtime_id {
+            abort(
+              "pull_verify: dependency belongs to a different Runtime: " +
+              dep_id.id.to_string(),
+            )
+          }
           match self.cell_index[dep_id.id] {
             PullMemo(dep_idx) => {
               let dep = self.pull_memos[dep_idx]
@@ -99,8 +105,12 @@ fn Runtime::pull_verify(
                 } else {
                   // Dep needs verification; push a new frame.
                   if dep.in_progress {
-                    // Cycle detected — collect path, clear flags, return error.
-                    let path = self.collect_in_progress_path()
+                    // Cycle detected — build path from stack (traversal order),
+                    // clear flags, return error.
+                    let path : Array[CellId] = []
+                    for frame in stack {
+                      path.push(frame.cell_id)
+                    }
                     clear_verify_stack(self, stack)
                     return Err(CycleError::from_path(path, dep_id))
                   }
