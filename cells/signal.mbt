@@ -229,7 +229,8 @@ fn[T : Eq] Signal::set_batch(self : Signal[T], new_value : T) -> Unit {
   // Register commit closure if not already registered
   if sig_data.commit_pending is None {
     sig_data.commit_pending = Some(() => self.commit())
-    self.rt.record_batch_signal(self.cell_id)
+    let sig_committable : &Committable = sig_data
+    self.rt.record_batch_signal(sig_committable)
   }
   self.rt.bump_revision(self.durability)
 }
@@ -253,7 +254,8 @@ fn[T] Signal::set_batch_unconditional(self : Signal[T], new_value : T) -> Unit {
   self.pending_value = Some(new_value)
   if sig_data.commit_pending is None {
     sig_data.commit_pending = Some(() => self.commit_unconditional())
-    self.rt.record_batch_signal(self.cell_id)
+    let sig_committable : &Committable = sig_data
+    self.rt.record_batch_signal(sig_committable)
   }
   self.rt.bump_revision(self.durability)
 }

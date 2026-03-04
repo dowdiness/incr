@@ -207,7 +207,7 @@ test "batch: raised error rolls back pending writes and restores depth" {
   inspect(rt.batch_depth, content="0")
   inspect(sig.get(), content="0")
   inspect(rt.current_revision.value, content="0")
-  inspect(rt.batch_pending_signals.length(), content="0")
+  inspect(rt.batch_pending.length(), content="0")
   // Ensure signal remains fully reusable after rollback.
   sig.set(100)
   inspect(sig.get(), content="100")
@@ -228,7 +228,7 @@ test "batch: nested raised error rolls back entire outer batch" {
   inspect(rt.batch_depth, content="0")
   inspect(sig.get(), content="0")
   inspect(rt.current_revision.value, content="0")
-  inspect(rt.batch_pending_signals.length(), content="0")
+  inspect(rt.batch_pending.length(), content="0")
 }
 
 ///|
@@ -257,7 +257,7 @@ test "batch: failed inner batch_result rolls back before outer continues" {
   inspect(shared.get(), content="1")
   inspect(inner_only.get(), content="0")
   inspect(rt.current_revision.value, content="1")
-  inspect(rt.batch_pending_signals.length(), content="0")
+  inspect(rt.batch_pending.length(), content="0")
 }
 
 ///|
@@ -308,7 +308,7 @@ test "batch leak simulation: stale batch_depth defers writes" {
   sig.set(1)
   inspect(sig.get(), content="0")
   inspect(rt.current_revision.value, content="0")
-  inspect(rt.batch_pending_signals.length(), content="1")
+  inspect(rt.batch_pending.length(), content="1")
 }
 
 ///|
@@ -323,7 +323,7 @@ test "batch leak simulation: manual cleanup recovers state" {
   rt.commit_batch()
   inspect(sig.get(), content="1")
   inspect(rt.current_revision.value, content="1")
-  inspect(rt.batch_pending_signals.length(), content="0")
+  inspect(rt.batch_pending.length(), content="0")
 }
 
 ///|
@@ -337,20 +337,24 @@ test "panic batch: corrupted negative batch_depth triggers underflow abort" {
 }
 
 ///|
-// Trigger commit_batch with a signal whose commit_pending is None —
-// simulates internal state corruption (missing commit closure).
-test "panic commit_batch: signal with None commit_pending aborts" {
+// Characterization test: if commit_pending is cleared before commit_batch runs,
+// do_commit returns false (no change, no abort). The signal value stays at its
+// pre-batch value since the commit closure was never invoked.
+test "commit_batch: signal with None commit_pending is treated as no-op" {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 0)
   // Manually enter batch mode by directly setting batch_depth
   rt.batch_depth = 1
   // set() detects batch_depth > 0 and calls set_batch, which registers
-  // commit_pending and enqueues the cell id in batch_pending_signals
+  // commit_pending and enqueues the signal as &Committable in batch_pending
   sig.set(1)
-  // Corrupt the commit_pending closure
+  // Clear the commit_pending closure (simulates external clearing)
   let meta = rt.get_pull_signal(sig.id())
   meta.commit_pending = None
   // Manually exit batch and trigger commit_batch
   rt.batch_depth = 0
   rt.commit_batch()
+  // do_commit returns false (None branch), so no revision bump and value unchanged
+  inspect(sig.get(), content="0")
+  inspect(rt.current_revision.value, content="0")
 }

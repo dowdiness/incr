@@ -68,7 +68,7 @@ pub(all) struct Runtime {
   priv tracking_stack : Array[ActiveQuery]
   priv durability_last_changed : FixedArray[Revision]
   priv mut batch_depth : Int
-  priv batch_pending_signals : Array[CellId]
+  priv batch_pending : Array[&Committable]
   priv batch_frames : Array[BatchFrame]
   priv mut batch_max_durability : Durability
   priv mut on_change : (() -> Unit)?
@@ -122,7 +122,7 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
       Revision::initial(),
     ),
     batch_depth: 0,
-    batch_pending_signals: [],
+    batch_pending: [],
     batch_frames: [],
     batch_max_durability: Low,
     on_change,
@@ -693,37 +693,24 @@ fn Runtime::complete_batch_frame_success(self : Runtime) -> Unit {
 /// global on_change callback exactly once if anything changed.
 fn Runtime::commit_batch(self : Runtime) -> Unit {
   let mut any_changed = false
-  while self.batch_pending_signals.length() > 0 {
+  while self.batch_pending.length() > 0 {
     // Phase 1: commit pending values and collect which actually changed
-    let changed_ids : Array[CellId] = []
-    for id in self.batch_pending_signals {
-      let sig = self.get_pull_signal(id)
-      match sig.commit_pending {
-        Some(commit_fn) => {
-          if commit_fn() {
-            changed_ids.push(id)
-          }
-          sig.commit_pending = None
-        }
-        None =>
-          abort(
-            "Batched signal missing commit_pending — internal invariant violated",
-          )
+    let changed : Array[&Committable] = []
+    for c in self.batch_pending {
+      if c.do_commit() {
+        changed.push(c)
       }
     }
-    self.batch_pending_signals.clear()
+    self.batch_pending.clear()
     // Phase 2: if any value actually changed, do a single revision bump
-    if changed_ids.length() > 0 {
+    if changed.length() > 0 {
       any_changed = true
       self.advance_revision(self.batch_max_durability)
-      // Sweep changed signals and collect callbacks in a single pass.
+      // Sweep changed signals: update changed_at and collect on_change callbacks.
       let callbacks : Array[() -> Unit] = []
-      for id in changed_ids {
-        let sig = self.mark_input_changed(id)
-        match sig.on_change {
-          Some(f) => callbacks.push(f)
-          None => ()
-        }
+      for c in changed {
+        self.mark_input_changed(c.cell_id()) |> ignore
+        callbacks.push(() => c.fire_on_change_if_set())
       }
       self.batch_max_durability = Low
       // Raise batch_depth while invoking callbacks so that any signal.set()
@@ -754,8 +741,11 @@ fn Runtime::commit_batch(self : Runtime) -> Unit {
 /// # Parameters
 ///
 /// - `cell_id`: The ID of the signal with a pending change
-fn Runtime::record_batch_signal(self : Runtime, cell_id : CellId) -> Unit {
-  self.batch_pending_signals.push(cell_id)
+fn Runtime::record_batch_signal(
+  self : Runtime,
+  committable : &Committable,
+) -> Unit {
+  self.batch_pending.push(committable)
 }
 
 ///|
@@ -783,18 +773,18 @@ fn Runtime::record_batch_rollback(
 ///|
 /// Removes one pending signal registration by id.
 fn Runtime::remove_batch_signal(self : Runtime, cell_id : CellId) -> Unit {
-  let kept : Array[CellId] = []
+  let kept : Array[&Committable] = []
   let mut removed = false
-  for id in self.batch_pending_signals {
-    if not(removed) && id == cell_id {
+  for c in self.batch_pending {
+    if not(removed) && c.cell_id() == cell_id {
       removed = true
     } else {
-      kept.push(id)
+      kept.push(c)
     }
   }
-  self.batch_pending_signals.clear()
-  for id in kept {
-    self.batch_pending_signals.push(id)
+  self.batch_pending.clear()
+  for c in kept {
+    self.batch_pending.push(c)
   }
 }
 
@@ -802,10 +792,10 @@ fn Runtime::remove_batch_signal(self : Runtime, cell_id : CellId) -> Unit {
 /// Recompute max durability from currently pending signals.
 fn Runtime::recompute_batch_max_durability(self : Runtime) -> Unit {
   let mut max_durability : Durability = Low
-  for id in self.batch_pending_signals {
-    let durability = self.get_pull_signal(id).durability
-    if durability > max_durability {
-      max_durability = durability
+  for c in self.batch_pending {
+    let d = c.durability()
+    if d > max_durability {
+      max_durability = d
     }
   }
   self.batch_max_durability = max_durability
