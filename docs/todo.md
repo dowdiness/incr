@@ -11,7 +11,7 @@ Concrete, actionable tasks for the `incr` library.
 ## Performance
 
 - [x] Use `HashSet` for deduplication in `ActiveQuery::record` — O(1) per dependency
-- [x] Replace `HashMap[CellId, CellMeta]` in `Runtime` with `Array[CellMeta?]` indexed by `CellId.id`
+- [x] Replace `HashMap[CellId, CellMeta]` in `Runtime` with `Array[CellMeta?]` indexed by `CellId.id`, then further migrated to SoA layout
 - [x] Convert recursive `maybe_changed_after` to iterative with explicit stack (prevents stack overflow on deep graphs)
 - [x] Diff old vs. new dependency lists in `Memo::force_recompute` instead of full replacement
 - [ ] Explore push-pull hybrid invalidation (requires subscriber/reverse links)
@@ -114,6 +114,12 @@ Concrete, actionable tasks for the `incr` library.
 - [x] Centralize cycle-path construction with `CycleError::from_path(path, closing_id)`
 - [x] Move pipeline traits to `pipeline/pipeline_traits.mbt`; mark experimental in docs
 - [x] Convert safe C-style loops to idiomatic `for .. in` syntax in `memo.mbt` and `runtime.mbt`
+- [x] Replace `Array[CellMeta]` with SoA layout: `pull_signals : Array[PullSignalData]`, `pull_memos : Array[PullMemoData]`, `cell_index : Array[CellRef]`
+- [x] Add `CellRef` enum (`PullSignal(Int) | PullMemo(Int)`) for O(1) dispatch via `cell_index`
+- [x] Replace `maybe_changed_after` with `pull_verify` using explicit `PullVerifyFrame` stack
+- [x] Add root durability fast-path to `pull_verify` (skip dep walk if no relevant-durability input changed)
+- [x] Add per-dep durability shortcut and short-circuit on first detected change in `pull_verify`
+- [x] Remove `CellMeta` and `CellKind` entirely; add `get_durability`, `get_pull_signal`, `get_pull_memo` helpers
 
 ## Testing
 

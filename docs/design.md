@@ -71,7 +71,7 @@ The mechanism works as follows:
 
 1. When a Memo needs to recompute, it pushes a new `ActiveQuery` frame onto the stack (`Runtime::push_tracking`).
 2. The Memo's compute function runs. Every `Signal::get()` or `Memo::get()` call invokes `Runtime::record_dependency`, which appends the read cell's ID to the top frame.
-3. When the compute function returns, the frame is popped (`Runtime::pop_tracking`) and the collected dependency list is stored on the Memo's `CellMeta`.
+3. When the compute function returns, the frame is popped (`Runtime::pop_tracking`) and the collected dependency list is stored on the Memo's `PullMemoData`.
 
 ### Deduplication
 
@@ -81,58 +81,63 @@ If a compute function reads the same cell multiple times, `ActiveQuery::record` 
 
 From the user's perspective, dependency tracking is invisible. Users write ordinary functions that call `get()` on Signals and Memos. The framework handles everything behind the scenes — no manual dependency declarations, no subscription management.
 
-## The Verification Algorithm (`maybe_changed_after`)
+## The Verification Algorithm (`pull_verify`)
 
-The core of the framework is the `maybe_changed_after` function in `cells/verify.mbt`. Given a cell and a revision, it answers: "has this cell's value changed after the given revision?"
+The core of the framework is the `pull_verify` function in `cells/verify.mbt`. Given a cell ID, it verifies whether the cell is up-to-date at the current revision, recomputing if necessary.
 
-### For Input Cells
+### For Input Cells (Signals)
 
-Trivial: compare `changed_at > after_revision`.
+Trivial: signals are always fresh — their `changed_at` is updated atomically on every `set()`. `pull_verify` dispatches via `cell_index` and returns immediately.
 
-### For Derived Cells
+### For Derived Cells (Memos)
 
 The algorithm for derived cells has several fast paths before falling back to a full dependency walk:
 
 **1. Already verified (fast path)**
 
 ```
-if cell.verified_at == current_revision:
-    return cell.changed_at > after_revision
+if memo.verified_at >= current_revision:
+    return Ok(())
 ```
 
 If the cell was already verified during this revision, return immediately.
 
-**2. Durability shortcut**
+**2. Root durability shortcut**
 
 ```
-if durability_last_changed[cell.durability] <= after_revision:
-    mark verified, return false
+if durability_last_changed[memo.durability] <= memo.verified_at:
+    memo.verified_at = current_revision
+    return Ok(())
 ```
 
-If no input of this cell's durability level (or lower) has changed since `after_revision`, the cell cannot have changed. This skips the entire dependency walk.
+If no input of this cell's durability level (or lower) has changed since the cell was last verified, the cell cannot have changed. This skips the entire dependency walk.
 
 **3. Cycle detection**
 
 ```
-if cell.in_progress:
+if memo.in_progress:
     abort("Cycle detected")
 ```
 
-If we encounter a cell that is already being verified, we have a cycle.
+If we encounter a memo that is already being verified, we have a cycle.
 
 **4. Dependency walk**
 
 ```
 for each dependency:
-    if maybe_changed_after(dependency, cell.verified_at):
-        any_dep_changed = true; break
+    if dep is Signal:
+        if signal.changed_at > memo.verified_at: changed = true; break
+    if dep is Memo:
+        push PullVerifyFrame and recurse iteratively
 ```
 
-Iteratively check each dependency using an explicit stack of `VerifyFrame`s (replacing the original recursive implementation). Input dependencies are checked inline; derived dependencies push a new frame. This prevents stack overflow on deep dependency graphs — tested with chains of 250+ levels. Stop at the first dependency that changed.
+Iteratively check each dependency using an explicit stack of `PullVerifyFrame`s. Input (signal) dependencies are checked inline via direct SoA array access; derived (memo) dependencies push a new frame onto the explicit stack. This prevents stack overflow on deep dependency graphs — tested with chains of 250+ levels. When `changed = true`, `dep_cursor` is set to the end of the dependency list to short-circuit remaining checks.
+
+Per-dep durability shortcuts also apply: before pushing a frame for an intermediate stale dep, check its durability against `verified_at`. If that durability level hasn't changed, the dep can be skipped.
 
 **5a. If a dependency changed — recompute**
 
-Call `recompute_and_check()` to run the Memo's compute function. This is where backdating happens: if the new value equals the old value, `changed_at` is not updated.
+Call `(memo.compute)()` to run the type-erased closure, which calls the typed `Memo[T]::recompute_inner()`. This is where backdating happens: if the new value equals the old value, `changed_at` is not updated.
 
 **5b. If no dependency changed — green path**
 
@@ -197,7 +202,7 @@ A derived cell's durability is the **minimum** of its dependencies' durabilities
 
 ### The Shortcut
 
-During verification, before walking any dependencies, `maybe_changed_after` checks:
+During verification, before walking any dependencies, `pull_verify` checks:
 
 ```
 durability_last_changed[cell.durability] <= after_revision?
@@ -213,42 +218,44 @@ The `Runtime` needs to store metadata for all cells in a single collection. But 
 
 ### The Solution
 
-The library splits each cell into two parts:
+The library uses a **Structure-of-Arrays (SoA)** layout. Instead of one heterogeneous array of cell objects, `Runtime` holds three parallel typed arrays:
 
-1. **Typed value**: lives in the `Signal[T]` or `Memo[T]` struct, which the user holds a reference to.
-2. **Type-erased metadata**: lives in `CellMeta`, stored in an `Array[CellMeta?]` indexed directly by `CellId.id` for O(1) lookup. Contains revisions, dependencies, durability, and cell kind — all type-independent.
+1. **`pull_signals : Array[PullSignalData]`** — SoA entries for input cells (signals). Contains `changed_at`, durability, subscribers, and type-erased batch closures.
+2. **`pull_memos : Array[PullMemoData]`** — SoA entries for derived cells (memos). Contains `changed_at`/`verified_at`, dependency list, durability, `in_progress` flag, and the type-erased `compute` closure.
+3. **`cell_index : Array[CellRef]`** — Maps `CellId.id` → `PullSignal(idx)` or `PullMemo(idx)` for O(1) dispatch into the SoA arrays.
 
 The bridge between typed and type-erased worlds uses closure-based type erasure:
 
-- `CellMeta.recompute_and_check: (() -> Bool)?` — For derived cells, this closure captures the `Memo[T]` instance and calls its typed `recompute_inner()` method. The return value indicates whether the value changed. `None` for input cells.
-- `CellMeta.commit_pending: (() -> Bool)?` — For input cells during a batch, this closure captures the `Signal[T]` instance and commits its pending value. Returns true if the committed value differs from the current value. Set dynamically during batch operations and cleared after commit.
+- `PullMemoData.compute: () -> Result[Bool, CycleError]` — Captures the `Memo[T]` instance and calls its typed `recompute_inner()` method. Returns `Ok(true)` if the value changed, `Ok(false)` if backdated, or `Err(CycleError)` on cycle.
+- `PullSignalData.commit_pending: (() -> Bool)?` — For input cells during a batch, this closure captures the `Signal[T]` instance and commits its pending value. Returns true if the committed value differs from the current value. Set dynamically during batch operations and cleared after commit.
+- `PullSignalData.rollback_pending: (() -> Unit)?` — Companion rollback closure that restores the pre-batch pending state if the batch fails.
 
-This design means the verification algorithm in `cells/verify.mbt` operates entirely on `CellMeta` without knowing any value types, and the batch commit logic in `cells/runtime.mbt` can commit pending signal values without knowing their types.
+This design means the verification algorithm in `cells/verify.mbt` operates entirely on `PullSignalData`/`PullMemoData` without knowing any value types, and the batch commit logic in `cells/runtime.mbt` can commit pending signal values without knowing their types.
 
 ### Reference Semantics Invariant
 
-The entire framework relies on MoonBit's reference semantics for mutable structs. Because `CellMeta` has `mut` fields, it is heap-allocated — every variable, function parameter, array slot, or struct field holding a `CellMeta` is a reference to the same object, not a copy. This means:
+The entire framework relies on MoonBit's reference semantics for mutable structs. Because `PullMemoData` and `PullSignalData` have `mut` fields, they are heap-allocated — every variable, function parameter, or array slot holding one is a reference to the same object, not a copy. This means:
 
-- `Runtime::get_cell()` returns a reference to the canonical cell in `Runtime.cells`, not a detached copy.
-- `VerifyFrame.cell` in the iterative verification stack (`cells/verify.mbt`) references the same `CellMeta`. Mutations to `in_progress`, `verified_at`, or `changed_at` inside `finish_frame_changed` / `finish_frame_unchanged` affect the runtime's canonical cell.
-- `Memo::force_recompute` retrieves a `CellMeta` via `get_cell` and mutates its fields directly.
+- `Runtime::get_pull_memo()` returns a reference to the canonical entry in `Runtime.pull_memos`, not a detached copy.
+- The `PullVerifyFrame` stack in `cells/verify.mbt` stores `memo_idx : Int` rather than a direct reference. The loop accesses `rt.pull_memos[frame.memo_idx]` to perform mutations. Mutations to `in_progress`, `verified_at`, or `changed_at` affect the runtime's canonical `PullMemoData`.
+- `Memo::force_recompute` retrieves a `PullMemoData` via `get_pull_memo` and mutates its fields directly.
 
-If `CellMeta` were ever changed to a value type (e.g., via MoonBit's `#valtype` annotation), this invariant would break — mutations would apply to copies, not originals, and the framework would silently produce incorrect results (e.g., `in_progress` flags stuck `true`, causing false cycle detection).
+If `PullMemoData` or `PullSignalData` were ever changed to value types (e.g., via MoonBit's `#valtype` annotation), this invariant would break — mutations would apply to copies, not originals, and the framework would silently produce incorrect results (e.g., `in_progress` flags stuck `true`, causing false cycle detection).
 
-**Important**: While `CellMeta` uses reference semantics, `VerifyFrame` is a simple struct with primitive fields (`dep_index`, `any_dep_changed`). To avoid potential copy semantics issues with `VerifyFrame`, the iterative verification loop accesses stack frames via `stack[top].field` directly rather than `let frame = stack[top]`. This ensures mutations to `dep_index` and `any_dep_changed` persist correctly regardless of MoonBit's struct assignment semantics.
+**Important**: `PullVerifyFrame` is a simple struct with primitive fields (`memo_idx`, `dep_cursor`, `changed`, `cell_id`). To avoid potential copy semantics issues, the iterative verification loop accesses stack frames via `stack[top].field` directly rather than `let frame = stack[top]`. This ensures mutations to `dep_cursor` and `changed` persist correctly regardless of MoonBit's struct assignment semantics.
 
 ## Cycle Detection
 
 ### The Approach
 
-Each `CellMeta` has an `in_progress : Bool` flag. It is set to `true` when a cell enters verification or recomputation, and cleared when the operation completes.
+Each `PullMemoData` has an `in_progress : Bool` flag. It is set to `true` when a memo enters verification or recomputation, and cleared when the operation completes. (Signals cannot participate in cycles since they have no compute function.)
 
 ### Where Detection Fires
 
 Cycle detection triggers in two places:
 
-1. **During verification** (`cells/verify.mbt`): if `maybe_changed_after_derived` encounters a cell with `in_progress == true`, it means we recursively reached a cell that is currently being verified — a cycle.
-2. **During initial computation** (`cells/memo.mbt`): if `force_recompute` encounters a cell with `in_progress == true`, it means the Memo's compute function (directly or indirectly) tried to read its own value — also a cycle.
+1. **During verification** (`cells/verify.mbt`): if `pull_verify` encounters a `PullMemoData` with `in_progress == true`, it means we iteratively reached a memo that is currently being verified — a cycle. The path is built from the local `PullVerifyFrame` stack (traversal order).
+2. **During initial computation** (`cells/memo.mbt`): if `force_recompute` encounters a memo with `in_progress == true`, it means the Memo's compute function (directly or indirectly) tried to read its own value — also a cycle.
 
 ### Error Handling
 
@@ -274,7 +281,7 @@ The fix: `Memo::get_result()` only calls `record_dependency()` after confirming 
 
 ### Stack Cleanup
 
-When an error occurs during the iterative verification walk, the `cleanup_stack()` helper clears `in_progress` flags on all frames in the verification stack. This restores consistent state so subsequent operations work correctly.
+When an error occurs during the iterative verification walk, the `clear_verify_stack()` helper clears `in_progress` flags on all `PullMemoData` entries in the verification stack. This restores consistent state so subsequent operations work correctly.
 
 ## Batch Updates
 
@@ -286,7 +293,7 @@ Without batching, each `Signal::set()` call bumps the global revision independen
 
 `Runtime::batch(fn)` groups multiple signal updates into a single revision:
 
-1. **Write phase**: Inside the batch closure, `Signal::set()` stores new values as `pending_value` on the Signal rather than committing immediately. The actual `value` field is unchanged, so any `get()` calls during the batch see the pre-batch values (transactional semantics — reads don't see uncommitted writes). Each signal registers a type-erased `commit_pending` closure on its `CellMeta`.
+1. **Write phase**: Inside the batch closure, `Signal::set()` stores new values as `pending_value` on the Signal rather than committing immediately. The actual `value` field is unchanged, so any `get()` calls during the batch see the pre-batch values (transactional semantics — reads don't see uncommitted writes). Each signal registers a type-erased `commit_pending` closure on its `PullSignalData`.
 
 2. **Commit phase**: When the outermost batch ends, the runtime iterates over `batch_pending_signals` directly (not via an alias, to ensure the list clears correctly) and calls each signal's `commit_pending` closure. Each closure compares the pending value against the current value using `Eq`. Only signals whose values actually changed are marked with the new revision. The pending list is then cleared via `.clear()`.
 
@@ -324,10 +331,10 @@ Batches can be nested. A `batch_depth` counter tracks nesting, and each `Runtime
 
 ### Ideas adopted
 
-- **Array-based storage**: Like alien-signals' flat arrays for dependency/subscriber links, `incr` now uses `Array[CellMeta?]` indexed by `CellId.id` instead of a HashMap. This gives O(1) cell lookup.
+- **SoA array storage**: Like alien-signals' flat arrays for dependency/subscriber links, `incr` uses three parallel SoA arrays (`pull_signals`, `pull_memos`, `cell_index`) with O(1) dispatch via `CellRef` instead of a HashMap. This gives O(1) cell lookup with better cache locality than a single heterogeneous array.
 - **HashSet deduplication**: Efficient O(1) dependency deduplication during tracking, similar to alien-signals' link-based dedup.
-- **Batch updates with two-phase values**: alien-signals buffers signal writes during batches. `incr` adopted this pattern with `pending_value` and commit closures, enabling revert detection.
-- **Iterative graph walking**: alien-signals uses iterative propagation. `incr` converted its recursive `maybe_changed_after` to an iterative stack-based loop to prevent stack overflow on deep graphs.
+- **Batch updates with two-phase values**: alien-signals buffers signal writes during batches. `incr` adopted this pattern with `pending_value` and commit closures on `PullSignalData`, enabling revert detection.
+- **Iterative graph walking**: alien-signals uses iterative propagation. `incr` uses an iterative `pull_verify` with an explicit `PullVerifyFrame` stack to prevent stack overflow on deep graphs.
 
 ### Ideas deferred
 
@@ -363,10 +370,14 @@ The library is split into four MoonBit sub-packages. The root package re-exports
 | `cells/signal.mbt` | `Signal[T]` — input cells with same-value optimization and durability |
 | `cells/memo.mbt` | `Memo[T]` — derived cells with memoization, backdating, and dependency tracking |
 | `cells/memo_map.mbt` | `MemoMap[K, V]` — keyed memoization via one memo per key |
-| `cells/runtime.mbt` | `Runtime` — central state, revision management, tracking stack, batch commit |
-| `cells/cell.mbt` | `CellMeta`, `CellKind` — type-erased cell metadata |
+| `cells/tracked_cell.mbt` | `TrackedCell[T]` — field-level tracked struct wrapper |
+| `cells/runtime.mbt` | `Runtime` — central state, SoA arrays, revision management, tracking stack, batch commit |
+| `cells/cell.mbt` | `CellInfo` struct used for introspection output |
+| `cells/cell_ref.mbt` | `CellRef` enum — `PullSignal(Int) \| PullMemo(Int)`, O(1) dispatch into SoA arrays |
+| `cells/pull_signal.mbt` | `PullSignalData` — SoA entry for input cells; `changed_at`, durability, batch closures |
+| `cells/pull_memo.mbt` | `PullMemoData` — SoA entry for derived cells; revisions, dependencies, `compute` closure |
 | `cells/tracking.mbt` | `ActiveQuery` — dependency recording frame with deduplication |
-| `cells/verify.mbt` | `maybe_changed_after` — core verification algorithm |
+| `cells/verify.mbt` | `pull_verify` — SoA-native iterative verification algorithm |
 | `cells/cycle.mbt` | `CycleError` — cycle error type, path formatting, `CycleError::from_path` |
 
 ### `pipeline/` package (`dowdiness/incr/pipeline`)
@@ -395,10 +406,16 @@ Unit tests (`*_test.mbt`) and whitebox tests (`*_wbtest.mbt`) live in `cells/`. 
 | `cells/batch_wbtest.mbt` | Batch internals: revision, revert detection, panic guards (whitebox) |
 | `cells/durability_wbtest.mbt` | Durability shortcut internals (whitebox) |
 | `cells/cell_wbtest.mbt` | `CellId::hash` properties (whitebox) |
+| `cells/cell_ref_wbtest.mbt` | `CellRef` dispatch and SoA index properties (whitebox) |
 | `cells/signal_wbtest.mbt` | Signal internals (whitebox) |
-| `cells/verify_wbtest.mbt` | `finish_frame_changed` invariant violation abort (whitebox) |
+| `cells/verify_wbtest.mbt` | `pull_verify` invariant violation abort (whitebox) |
+| `cells/pull_verify_wbtest.mbt` | `pull_verify` SoA dispatch and short-circuit behavior (whitebox) |
+| `cells/soa_wbtest.mbt` | SoA allocation and `cell_index` invariants (whitebox) |
 | `cells/memo_dep_diff_wbtest.mbt` | Dependency diff optimization internals (whitebox) |
-| `cells/runtime_wbtest.mbt` | Cross-runtime `get_cell` abort (whitebox) |
+| `cells/runtime_wbtest.mbt` | Cross-runtime `get_pull_signal`/`get_pull_memo` abort (whitebox) |
+| `cells/subscriber_wbtest.mbt` | Subscriber tracking internals (whitebox) |
+| `cells/tracked_cell_wbtest.mbt` | `TrackedCell` field-level tracking internals (whitebox) |
+| `cells/memo_map_wbtest.mbt` | MemoMap internal key→memo mapping (whitebox) |
 | `tests/integration_test.mbt` | End-to-end multi-signal/memo scenarios |
 | `tests/fanout_test.mbt` | Wide dependency graphs (diamond, multi-level) |
 | `tests/traits_test.mbt` | Pipeline trait (`CalcPipeline`) fixture tests |

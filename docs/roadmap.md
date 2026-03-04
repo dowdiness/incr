@@ -54,7 +54,7 @@ High-level future direction for the `incr` library, organized by phase. Each pha
 
 - ~~**HashSet-based dependency deduplication**: Replace linear scan in `ActiveQuery::record` with a `HashSet` for O(1) dedup~~ ✓ Implemented
 - ~~**Array-based cell storage**: Use `CellId` as a direct index into an array instead of a `HashMap` lookup~~ ✓ Implemented
-- ~~**Iterative verification**: Convert recursive `maybe_changed_after` to iterative with explicit stack~~ ✓ Implemented
+- ~~**Iterative verification**: Convert recursive `maybe_changed_after` to iterative with explicit stack, then replaced by `pull_verify` in Phase 3F~~ ✓ Implemented
 - ~~**Incremental dependency diffing**: When a memo recomputes, diff the new dependency list against the old one to skip durability rescans for unchanged deps~~ ✓ Implemented
 
 ### Phase 3B: Package Modularization ✓
@@ -87,6 +87,19 @@ High-level future direction for the `incr` library, organized by phase. Each pha
   - Lazy key instantiation: per-key memo created on first read
   - API: `new`, `get`, `get_result`, `contains`, `length`
 - ~~**`create_memo_map` helper**: Database-style constructor for keyed memo maps~~ ✓ Implemented
+
+### Phase 3F: SoA Storage Refactor ✓
+
+- ~~**Structure-of-Arrays storage**: Replace `Array[CellMeta]` with three parallel typed arrays~~ ✓ Implemented
+  - `pull_signals : Array[PullSignalData]`, `pull_memos : Array[PullMemoData]`, `cell_index : Array[CellRef]`
+  - `CellRef` enum (`PullSignal(Int) | PullMemo(Int)`) for O(1) dispatch via `cell_index`
+  - `CellMeta` and `CellKind` removed entirely
+- ~~**SoA-native verification (`pull_verify`)**: Replace `maybe_changed_after` with a direct SoA-dispatch algorithm~~ ✓ Implemented
+  - Explicit `PullVerifyFrame` stack; no recursion; same backdating and durability semantics
+  - Root durability fast-path skips full dep walk when no relevant-durability input changed
+  - Per-dep durability shortcuts for intermediate stale deps
+  - Short-circuits dep traversal on first detected change (prevents stale dynamic-branch verification)
+  - Cycle path collected from traversal-order stack frames (fixes storage-order bug in `collect_in_progress_path`)
 
 ## Phase 4 — Advanced Features
 
