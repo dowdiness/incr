@@ -135,9 +135,9 @@ fn Runtime::push_propagate_from(
   let bfs_worklist : Array[CellId] = []
 
   fn enqueue_push_subscribers(source_id : CellId) -> Unit {
-    // BFS through pull memos to reach downstream push nodes.
-    // Pull memos verify lazily, but push reactives/effects that transitively
-    // depend on them must be eagerly re-run when an upstream signal changes.
+    // BFS through pull/hybrid memos to reach downstream push nodes.
+    // Pull and hybrid memos verify lazily, but push reactives/effects that
+    // transitively depend on them must be eagerly re-run on upstream changes.
     bfs_worklist.clear()
     bfs_worklist.push(source_id)
     let mut wi = 0
@@ -169,6 +169,7 @@ fn Runtime::push_propagate_from(
               self.hybrid_memos[i].dirty = true
               self.hybrid_dirty.push(sub_id)
             }
+            bfs_worklist.push(sub_id) // bridge through hybrid memos
           }
           PullMemo(_) => bfs_worklist.push(sub_id) // bridge through pull memos
           _ => ()

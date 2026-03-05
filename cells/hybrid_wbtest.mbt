@@ -91,3 +91,42 @@ test "hybrid memo: backdating — unchanged value does not bump changed_at" {
   let _ = h.get()
   inspect(rt.hybrid_memos[h_idx].changed_at == before, content="true")
 }
+
+///|
+test "hybrid regression: pull memo rechecks dirty hybrid deps" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 1)
+  let h = HybridMemo::new(rt, () => s.get() * 2)
+  let m = Memo::new(rt, () => h.get() + 1)
+  inspect(m.get(), content="3")
+  s.set(3)
+  inspect(m.get(), content="7")
+}
+
+///|
+test "hybrid regression: nested hybrid verification rechecks upstream hybrid" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 1)
+  let h1 = HybridMemo::new(rt, () => s.get() + 1)
+  let h2 = HybridMemo::new(rt, () => h1.get() * 10)
+  inspect(h2.get(), content="20")
+  s.set(2)
+  inspect(h2.get(), content="30")
+}
+
+///|
+test "hybrid regression: push propagation traverses hybrid to reactive" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 1)
+  let h = HybridMemo::new(rt, () => s.get() * 2)
+  let mut recomputes = 0
+  let r = Reactive::new(rt, () => {
+    recomputes = recomputes + 1
+    h.get() + 1
+  })
+  inspect(r.get(), content="3")
+  inspect(recomputes, content="1")
+  s.set(5)
+  inspect(recomputes, content="2")
+  inspect(r.get(), content="11")
+}

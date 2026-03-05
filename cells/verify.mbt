@@ -93,11 +93,24 @@ fn Runtime::pull_verify(
             )
           }
           match self.cell_index[dep_id.id] {
-            PushReactive(_) | PushEffect(_) | HybridMemo(_) =>
+            PushReactive(_) | PushEffect(_) =>
               if self.cell_ops[dep_id.id].changed_at() > memo.verified_at {
                 stack[top].changed = true
                 stack[top].dep_cursor = memo.dependencies.length()
               }
+            HybridMemo(_) => {
+              match self.pull_verify_hybrid(dep_id) {
+                Ok(_) =>
+                  if self.cell_ops[dep_id.id].changed_at() > memo.verified_at {
+                    stack[top].changed = true
+                    stack[top].dep_cursor = memo.dependencies.length()
+                  }
+                Err(e) => {
+                  clear_verify_stack(self, stack)
+                  return Err(e)
+                }
+              }
+            }
             Disposed => abort("pull_verify: dependency has been disposed")
             PullMemo(dep_idx) => {
               let dep = self.pull_memos[dep_idx]
@@ -183,8 +196,9 @@ fn Runtime::pull_verify(
 /// HybridMemo::get"), this function performs the actual dep walk for a
 /// HybridMemo root. Called by `HybridMemo::get` on the slow path.
 ///
-/// PullMemo deps are verified recursively via `pull_verify`. Signals and
-/// push/hybrid cells are checked directly via `cell_ops.changed_at`.
+/// PullMemo deps are verified recursively via `pull_verify`. Hybrid deps are
+/// reverified via `pull_verify_hybrid` so dirty-but-not-recomputed hybrids
+/// cannot appear fresh based only on stale `changed_at`.
 fn Runtime::pull_verify_hybrid(
   self : Runtime,
   cell_id : CellId,
@@ -230,10 +244,22 @@ fn Runtime::pull_verify_hybrid(
           }
         }
       }
-      PushReactive(_) | PushEffect(_) | HybridMemo(_) =>
+      PushReactive(_) | PushEffect(_) =>
         if self.cell_ops[dep_id.id].changed_at() > verified_at_snap {
           dep_changed = true
         }
+      HybridMemo(_) => {
+        match self.pull_verify_hybrid(dep_id) {
+          Ok(_) =>
+            if self.cell_ops[dep_id.id].changed_at() > verified_at_snap {
+              dep_changed = true
+            }
+          Err(e) => {
+            root.in_progress = false
+            return Err(e)
+          }
+        }
+      }
       Disposed => {
         root.in_progress = false
         abort("pull_verify_hybrid: dependency has been disposed")
