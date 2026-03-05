@@ -248,4 +248,8 @@ fn Runtime::push_propagate_from(
       _ => ()
     }
   }
+  // hybrid_dirty is populated during enqueue_push_subscribers but only
+  // needed during this propagation wave. Clear it so it doesn't accumulate
+  // across repeated non-batch signal sets.
+  self.hybrid_dirty.clear()
 }

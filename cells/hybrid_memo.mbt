@@ -98,7 +98,7 @@ pub fn[T : Eq] HybridMemo::get(self : HybridMemo[T]) -> T {
       // Slow path: verify deps, then clear dirty flag
       match self.rt.pull_verify_hybrid(self.cell_id) {
         Ok(_) => {
-          self.rt.get_hybrid_memo(self.cell_id).dirty = false
+          cell.dirty = false
           self.rt.record_dependency(self.cell_id)
           match self.value {
             Some(v) => v

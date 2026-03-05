@@ -253,6 +253,11 @@ fn Runtime::collect_in_progress_path(self : Runtime) -> Array[CellId] {
       path.push(memo.cell_id)
     }
   }
+  for hybrid in self.hybrid_memos {
+    if hybrid.in_progress {
+      path.push(hybrid.cell_id)
+    }
+  }
   path
 }
 
@@ -748,8 +753,6 @@ fn Runtime::complete_batch_frame_success(self : Runtime) -> Unit {
 /// Loops until no more callbacks queue additional signals, then fires the
 /// global on_change callback exactly once if anything changed.
 fn Runtime::commit_batch(self : Runtime) -> Unit {
-  // Clear hybrid_dirty from any previous wave before starting a new batch.
-  self.hybrid_dirty.clear()
   let mut any_changed = false
   while self.batch_pending.length() > 0 {
     // Phase 1: commit pending values and collect which actually changed
