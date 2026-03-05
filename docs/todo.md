@@ -14,7 +14,7 @@ Concrete, actionable tasks for the `incr` library.
 - [x] Replace `HashMap[CellId, CellMeta]` in `Runtime` with `Array[CellMeta?]` indexed by `CellId.id`, then further migrated to SoA layout
 - [x] Convert recursive `maybe_changed_after` to iterative with explicit stack (prevents stack overflow on deep graphs)
 - [x] Diff old vs. new dependency lists in `Memo::force_recompute` instead of full replacement
-- [ ] Explore push-pull hybrid invalidation (requires subscriber/reverse links)
+- [x] Explore push-pull hybrid invalidation (requires subscriber/reverse links)
 
 ## API Improvements
 

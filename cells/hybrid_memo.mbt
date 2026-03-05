@@ -121,6 +121,17 @@ pub fn[T] HybridMemo::id(self : HybridMemo[T]) -> CellId {
 }
 
 ///|
+/// Returns true if the hybrid memo's value is verified at the current revision.
+pub fn[T] HybridMemo::is_up_to_date(self : HybridMemo[T]) -> Bool {
+  match self.value {
+    None => false
+    Some(_) =>
+      self.rt.get_hybrid_memo(self.cell_id).verified_at ==
+      self.rt.current_revision
+  }
+}
+
+///|
 /// Force recomputation: push tracking frame, execute compute, pop frame,
 /// update deps/subscribers/backdating.
 fn[T : Eq] HybridMemo::force_recompute(

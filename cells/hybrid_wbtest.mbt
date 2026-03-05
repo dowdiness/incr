@@ -130,3 +130,46 @@ test "hybrid regression: push propagation traverses hybrid to reactive" {
   inspect(recomputes, content="2")
   inspect(r.get(), content="11")
 }
+
+///|
+test "panic hybrid: cross-runtime get aborts" {
+  let rt_a = Runtime::new()
+  let rt_b = Runtime::new()
+  let s_b = Signal::new(rt_b, 10)
+  let h_b = HybridMemo::new(rt_b, () => s_b.get())
+  // memo_a computes on rt_a but reads h_b from rt_b → cross-runtime abort
+  let memo_a = Memo::new(rt_a, () => h_b.get())
+  let _ = memo_a.get()
+}
+
+///|
+test "panic hybrid: self-referential cycle aborts" {
+  // A HybridMemo that reads itself triggers cycle detection via in_progress.
+  let rt = Runtime::new()
+  // Use a ref cell to close over h before h is created
+  let h_ref : Ref[HybridMemo[Int]?] = { val: None }
+  let h = HybridMemo::new(rt, () => {
+    match h_ref.val {
+      None => 0
+      Some(h) => h.get() + 1 // self-read → cycle
+    }
+  })
+  h_ref.val = Some(h)
+  let _ = h.get() // first get: h_ref.val is Some → triggers self-read → abort
+}
+
+///|
+test "panic hybrid cycle: mixed Memo → HybridMemo → Memo cycle aborts" {
+  // Memo m reads HybridMemo h; h reads m → cycle across cell types.
+  let rt = Runtime::new()
+  let m_ref : Ref[Memo[Int]?] = { val: None }
+  let h = HybridMemo::new(rt, () => {
+    match m_ref.val {
+      None => 0
+      Some(m) => m.get() + 1 // h reads m → cycle
+    }
+  })
+  let m = Memo::new(rt, () => h.get() + 1) // m reads h
+  m_ref.val = Some(m)
+  let _ = m.get() // triggers cycle: m → h → m → abort
+}
