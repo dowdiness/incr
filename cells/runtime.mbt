@@ -339,6 +339,25 @@ fn Runtime::get_pull_memo(self : Runtime, id : CellId) -> PullMemoData {
 }
 
 ///|
+/// Returns the HybridMemoData for a hybrid memo cell.
+fn Runtime::get_hybrid_memo(self : Runtime, id : CellId) -> HybridMemoData {
+  if id.runtime_id != self.runtime_id {
+    abort("Cell belongs to a different Runtime")
+  }
+  if id.id < 0 || id.id >= self.cell_index.length() {
+    abort("get_hybrid_memo: cell_id out of bounds: " + id.id.to_string())
+  }
+  match self.cell_index[id.id] {
+    HybridMemo(idx) => self.hybrid_memos[idx]
+    _ =>
+      abort(
+        "Expected hybrid memo cell but found different kind: " +
+        id.id.to_string(),
+      )
+  }
+}
+
+///|
 /// Returns an iterator over the subscriber IDs for the given cell.
 ///
 /// Used by Phase 3 push propagation to enumerate cells that must be
