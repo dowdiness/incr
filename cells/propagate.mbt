@@ -109,18 +109,26 @@ fn Runtime::propagate_level_change(
 }
 
 ///|
-/// Returns true if any cell in `changed_ids` has at least one push subscriber
-/// (PushReactive or PushEffect). Used as a fast gate before initiating
-/// push propagation from commit_batch.
+/// Returns true if any cell in `changed_ids` transitively reaches at least
+/// one push subscriber (PushReactive or PushEffect), bridging through pull
+/// memos. Used as a fast gate before initiating push propagation.
 fn Runtime::has_push_subscribers(
   self : Runtime,
   changed_ids : Array[CellId],
 ) -> Bool {
   for id in changed_ids {
-    for sub_id in self.get_subscribers(id) {
-      match self.cell_index[sub_id.id] {
-        PushReactive(_) | PushEffect(_) => return true
-        _ => ()
+    // BFS through pull memos to reach downstream push nodes.
+    let worklist : Array[CellId] = [id]
+    let mut wi = 0
+    while wi < worklist.length() {
+      let current = worklist[wi]
+      wi += 1
+      for sub_id in self.get_subscribers(current) {
+        match self.cell_index[sub_id.id] {
+          PushReactive(_) | PushEffect(_) => return true
+          PullMemo(_) => worklist.push(sub_id)
+          _ => ()
+        }
       }
     }
   }
@@ -150,27 +158,37 @@ fn Runtime::push_propagate_from(
   let update_queue : @priority_queue.PriorityQueue[PushEntry] = @priority_queue.new()
 
   fn enqueue_push_subscribers(source_id : CellId) -> Unit {
-    for sub_id in self.get_subscribers(source_id) {
-      match self.cell_index[sub_id.id] {
-        PushReactive(i) => {
-          if not(self.push_reactives[i].dirty) {
-            self.push_reactives[i].dirty = true
-            update_queue.push({
-              neg_level: -self.push_reactives[i].level,
-              cell_ref: CellRef::PushReactive(i),
-            })
+    // BFS worklist: bridge through pull memos to reach downstream push nodes.
+    // Pull memos are verified lazily, but push reactives/effects that transitively
+    // depend on them need to be eagerly re-run when an upstream signal changes.
+    let worklist : Array[CellId] = [source_id]
+    let mut wi = 0
+    while wi < worklist.length() {
+      let id = worklist[wi]
+      wi += 1
+      for sub_id in self.get_subscribers(id) {
+        match self.cell_index[sub_id.id] {
+          PushReactive(i) => {
+            if not(self.push_reactives[i].dirty) {
+              self.push_reactives[i].dirty = true
+              update_queue.push({
+                neg_level: -self.push_reactives[i].level,
+                cell_ref: CellRef::PushReactive(i),
+              })
+            }
           }
-        }
-        PushEffect(i) => {
-          if not(self.push_effects[i].dirty) {
-            self.push_effects[i].dirty = true
-            update_queue.push({
-              neg_level: -self.push_effects[i].level,
-              cell_ref: CellRef::PushEffect(i),
-            })
+          PushEffect(i) => {
+            if not(self.push_effects[i].dirty) {
+              self.push_effects[i].dirty = true
+              update_queue.push({
+                neg_level: -self.push_effects[i].level,
+                cell_ref: CellRef::PushEffect(i),
+              })
+            }
           }
+          PullMemo(_) => worklist.push(sub_id) // traverse through pull memos
+          _ => ()
         }
-        _ => () // PullMemo, Relation: lazy or explicit pathways
       }
     }
   }
@@ -188,6 +206,11 @@ fn Runtime::push_propagate_from(
         // Stale entry check: level may have been updated by propagate_level_change
         if queued_level != reactive.level {
           continue
+        }
+        // Disposal check: another node may have disposed this reactive mid-wave
+        match self.cell_index[reactive.cell_id.id] {
+          PushReactive(_) => ()
+          _ => continue
         }
         reactive.dirty = false
         let reactive_cell_id = reactive.cell_id
@@ -211,6 +234,11 @@ fn Runtime::push_propagate_from(
         let effect = self.push_effects[idx]
         if queued_level != effect.level {
           continue
+        }
+        // Disposal check: another node may have disposed this effect mid-wave
+        match self.cell_index[effect.cell_id.id] {
+          PushEffect(_) => ()
+          _ => continue
         }
         effect.dirty = false
         let effect_cell_id = effect.cell_id

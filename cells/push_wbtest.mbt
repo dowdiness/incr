@@ -20,6 +20,57 @@ test "cell_ref: PushReactive, PushEffect, Disposed variants exist" {
   inspect(ok, content="true")
 }
 
+// ─── P1 regression tests (review fixes) ──────────────────────────────────────
+
+///|
+test "push propagation: signal → memo → reactive chain (pull-memo bridge)" {
+  // Signal → PullMemo → Reactive must propagate eagerly.
+  // enqueue_push_subscribers must traverse through pull memos to reach push nodes.
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 1)
+  let m = Memo::new(rt, () => s.get() * 10)
+  let r = Reactive::new(rt, () => m.get() + 1)
+  inspect(r.get(), content="11") // s=1, m=10, r=11
+  s.set(3)
+  inspect(r.get(), content="31") // s=3, m=30, r=31
+}
+
+///|
+test "push propagation: skip stale queue entry after mid-wave disposal" {
+  // r0 is at push level 1 (reads signal s directly).
+  // r2 is at push level 2 (reads BOTH s and r0 → max(0,1)+1=2).
+  // When s changes, both are seeded directly from s's subscriber set.
+  // Level 1 dequeues before level 2, so r0 always runs first.
+  // r0 disposes r2; r2's stale level-2 queue entry must be skipped.
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 0)
+  let mut count = 0
+  let r2_ref : Ref[Reactive[Int]?] = { val: None }
+  // r0 (level 1): reads s; when s > 0, disposes r2
+  let r0 = Reactive::new(rt, () => {
+    let v = s.get()
+    if v > 0 {
+      match r2_ref.val {
+        Some(r) => r.dispose()
+        None => ()
+      }
+    }
+    v
+  })
+  // r2 (level 2): reads s (pre-seeds from signal) AND r0 (raises level to 2)
+  let r2 = Reactive::new(rt, () => {
+    count += 1
+    let _ = s.get() // subscriber of s → pre-seeded when s changes
+    r0.get() + 1 // subscriber of r0 (level 1) → push level = 2
+  })
+  r2_ref.val = Some(r2)
+  inspect(count, content="1") // initial compute
+  // r0 (level 1) dequeues before r2 (level 2) → r0 runs first → disposes r2
+  // r2's pre-seeded queue entry is stale → disposal check must skip it
+  s.set(1)
+  inspect(count, content="1") // r2 was disposed; stale entry skipped
+}
+
 // ─── Task 3: push_propagate_from ────────────────────────────────────────────
 
 ///|
