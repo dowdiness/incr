@@ -199,7 +199,7 @@ Pure pull-based verification (`Memo`) has excellent worst-case avoidance: cells 
 
 `push_propagate_from` in `cells/propagate.mbt` does a BFS (`enqueue_push_subscribers`) to find push-reactive nodes downstream of changed sources. HybridMemos are transparent bridges in this BFS:
 
-```
+```moonbit
 HybridMemo(i) => {
   if not(self.hybrid_memos[i].dirty) {
     self.hybrid_memos[i].dirty = true
