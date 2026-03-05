@@ -86,6 +86,11 @@ pub(all) struct Runtime {
   priv cell_index : Array[CellRef]
   // Trait object dispatch (indexed by CellId.id, parallel to cell_index)
   priv cell_ops : Array[&CellOps]
+  // HybridMemo SoA storage
+  priv hybrid_memos : Array[HybridMemoData]
+  /// IDs of hybrid memos that have been dirtied by push propagation and
+  /// need recomputation on the next `get()`.
+  priv hybrid_dirty : Array[CellId]
 
   fn new(on_change? : () -> Unit) -> Runtime
 }
@@ -143,6 +148,8 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
     push_node_count: 0,
     cell_index: [],
     cell_ops: [],
+    hybrid_memos: [],
+    hybrid_dirty: [],
   }
 }
 
