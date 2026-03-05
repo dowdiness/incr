@@ -123,8 +123,12 @@ pub fn[T] HybridMemo::id(self : HybridMemo[T]) -> CellId {
 ///|
 /// Returns true if the hybrid memo's value is verified at the current revision.
 pub fn[T] HybridMemo::is_up_to_date(self : HybridMemo[T]) -> Bool {
-  let cell = self.rt.get_hybrid_memo(self.cell_id)
-  cell.verified_at >= self.rt.current_revision
+  match self.value {
+    None => false
+    Some(_) =>
+      self.rt.get_hybrid_memo(self.cell_id).verified_at ==
+      self.rt.current_revision
+  }
 }
 
 ///|

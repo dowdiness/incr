@@ -19,6 +19,15 @@ test "hybrid: create_hybrid_memo helper" {
 }
 
 ///|
+test "hybrid: is_up_to_date before first get returns false" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 1)
+  let h = @incr.HybridMemo::new(rt, () => s.get())
+  // Never-computed memo has no cached value — must not be considered up-to-date.
+  inspect(h.is_up_to_date(), content="false")
+}
+
+///|
 test "hybrid: is_up_to_date via Readable" {
   let rt = Runtime::new()
   let s = Signal::new(rt, 1)

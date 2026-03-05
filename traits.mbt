@@ -150,7 +150,7 @@ pub fn[Db : Database] batch_result(
 ///|
 /// A hybrid memo is up-to-date when its verified_at matches the
 /// runtime's current revision.
-pub impl[T : Eq] Readable for HybridMemo[T] with is_up_to_date(self) {
+pub impl[T] Readable for HybridMemo[T] with is_up_to_date(self) {
   HybridMemo::is_up_to_date(self)
 }
 
