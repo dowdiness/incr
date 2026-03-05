@@ -57,6 +57,7 @@ pub fn[T : Eq] HybridMemo::new(
   })
   let ops : &CellOps = rt.hybrid_memos[memo_idx]
   rt.cell_ops.push(ops)
+  rt.push_node_count = rt.push_node_count + 1
   memo
 }
 

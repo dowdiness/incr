@@ -35,3 +35,50 @@ test "hybrid memo: fast path skips compute when not dirtied" {
   let _ = h.get()
   inspect(count, content="1") // unrelated change → not dirtied → no recompute
 }
+
+///|
+test "hybrid memo: dirty flag set by push propagation before get()" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 1)
+  let h = HybridMemo::new(rt, () => s.get())
+  let _ = h.get()
+  s.set(2)
+  // After s.set(), push propagation should have set h.dirty = true
+  let h_idx = match rt.cell_index[h.id().id] {
+    HybridMemo(i) => i
+    _ => abort("")
+  }
+  inspect(rt.hybrid_memos[h_idx].dirty, content="true")
+}
+
+///|
+test "hybrid memo: dirty flag triggers recompute on get" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 1)
+  let h = HybridMemo::new(rt, () => s.get() + 10)
+  let _ = h.get()
+  s.set(5) // push propagation sets h.dirty = true
+  let h_idx = match rt.cell_index[h.id().id] {
+    HybridMemo(i) => i
+    _ => abort("")
+  }
+  inspect(rt.hybrid_memos[h_idx].dirty, content="true")
+  inspect(h.get(), content="15") // triggers recompute; dirty cleared
+  inspect(rt.hybrid_memos[h_idx].dirty, content="false")
+}
+
+///|
+test "hybrid memo: backdating — unchanged value does not bump changed_at" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 1)
+  let h = HybridMemo::new(rt, () => s.get())
+  let _ = h.get()
+  let h_idx = match rt.cell_index[h.id().id] {
+    HybridMemo(i) => i
+    _ => abort("")
+  }
+  let before = rt.hybrid_memos[h_idx].changed_at
+  s.set(1) // same value → signal backdating → h may not be dirtied
+  let _ = h.get()
+  inspect(rt.hybrid_memos[h_idx].changed_at == before, content="true")
+}

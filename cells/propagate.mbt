@@ -164,6 +164,12 @@ fn Runtime::push_propagate_from(
               })
             }
           }
+          HybridMemo(i) => {
+            if not(self.hybrid_memos[i].dirty) {
+              self.hybrid_memos[i].dirty = true
+              self.hybrid_dirty.push(sub_id)
+            }
+          }
           PullMemo(_) => bfs_worklist.push(sub_id) // bridge through pull memos
           _ => ()
         }
