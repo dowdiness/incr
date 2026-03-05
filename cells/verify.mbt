@@ -56,6 +56,8 @@ fn Runtime::pull_verify(
   }
   match self.cell_index[cell_id.id] {
     PullSignal(_) => Ok(()) // always fresh
+    PushReactive(_) | PushEffect(_) => Ok(()) // freshness via push_propagate_from
+    Disposed => abort("pull_verify: cell has been disposed")
     PullMemo(root_idx) => {
       let root = self.pull_memos[root_idx]
       if root.verified_at >= self.current_revision {
@@ -90,6 +92,12 @@ fn Runtime::pull_verify(
             )
           }
           match self.cell_index[dep_id.id] {
+            PushReactive(_) | PushEffect(_) =>
+              if self.cell_ops[dep_id.id].changed_at() > memo.verified_at {
+                stack[top].changed = true
+                stack[top].dep_cursor = memo.dependencies.length()
+              }
+            Disposed => abort("pull_verify: dependency has been disposed")
             PullMemo(dep_idx) => {
               let dep = self.pull_memos[dep_idx]
               if dep.verified_at < self.current_revision {

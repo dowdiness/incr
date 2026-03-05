@@ -75,6 +75,14 @@ pub(all) struct Runtime {
   // SoA storage arrays
   priv pull_signals : Array[PullSignalData]
   priv pull_memos : Array[PullMemoData]
+  priv push_reactives : Array[PushReactiveData]
+  priv push_effects : Array[PushEffectData]
+  priv free_push_reactives : Array[Int]
+  priv free_push_effects : Array[Int]
+  /// Count of live push cells (reactives + effects). Used as an O(1) gate
+  /// before push propagation: if 0, no push cells exist and propagation is
+  /// skipped entirely without traversing the memo subscriber graph.
+  priv mut push_node_count : Int
   priv cell_index : Array[CellRef]
   // Trait object dispatch (indexed by CellId.id, parallel to cell_index)
   priv cell_ops : Array[&CellOps]
@@ -128,6 +136,11 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
     on_change,
     pull_signals: [],
     pull_memos: [],
+    push_reactives: [],
+    push_effects: [],
+    free_push_reactives: [],
+    free_push_effects: [],
+    push_node_count: 0,
     cell_index: [],
     cell_ops: [],
   }
@@ -271,6 +284,9 @@ fn Runtime::cell_id_for(self : Runtime, cell_ref : CellRef) -> CellId {
   match cell_ref {
     PullSignal(idx) => self.pull_signals[idx].cell_id
     PullMemo(idx) => self.pull_memos[idx].cell_id
+    PushReactive(idx) => self.push_reactives[idx].cell_id
+    PushEffect(idx) => self.push_effects[idx].cell_id
+    Disposed => abort("cell_id_for: cell has been disposed")
   }
 }
 
@@ -289,8 +305,8 @@ fn Runtime::get_pull_signal(self : Runtime, id : CellId) -> PullSignalData {
   }
   match self.cell_index[id.id] {
     PullSignal(idx) => self.pull_signals[idx]
-    PullMemo(_) =>
-      abort("Expected signal cell but found memo: " + id.id.to_string())
+    _ =>
+      abort("Expected signal cell but found different kind: " + id.id.to_string())
   }
 }
 
@@ -309,8 +325,8 @@ fn Runtime::get_pull_memo(self : Runtime, id : CellId) -> PullMemoData {
   }
   match self.cell_index[id.id] {
     PullMemo(idx) => self.pull_memos[idx]
-    PullSignal(_) =>
-      abort("Expected memo cell but found signal: " + id.id.to_string())
+    _ =>
+      abort("Expected memo cell but found different kind: " + id.id.to_string())
   }
 }
 
@@ -492,6 +508,7 @@ pub fn Runtime::cell_info(self : Runtime, id : CellId) -> CellInfo? {
         subscribers: snapshot_subscribers(ops.subscribers()),
       })
     }
+    _ => None
   }
 }
 
@@ -730,6 +747,12 @@ fn Runtime::commit_batch(self : Runtime) -> Unit {
           None => ()
         }
       }
+      // Push propagation must run before per-signal callbacks so callback
+      // reads observe fully-updated push-reactive state for this wave.
+      if self.push_node_count > 0 {
+        let changed_ids : Array[CellId] = changed.map(c => c.cell_id())
+        self.push_propagate_from(changed_ids)
+      }
       self.batch_max_durability = Low
       // Raise batch_depth while invoking callbacks so that any signal.set()
       // inside a callback takes the batch path instead of set_unconditional,
@@ -942,6 +965,64 @@ fn Runtime::finish_tracking(
     if not(old_seen.contains(dep)) {
       self.add_subscriber(dep, cell_id)
     }
+  }
+}
+
+///|
+/// Disposes a push reactive cell, removing it from all subscriber sets
+/// and marking its cell_index slot as Disposed.
+///
+/// See `Reactive::dispose` and Task 7 for the full implementation.
+fn Runtime::dispose_reactive(self : Runtime, cell_id : CellId) -> Unit {
+  if cell_id.id < 0 || cell_id.id >= self.cell_index.length() {
+    return
+  }
+  match self.cell_index[cell_id.id] {
+    PushReactive(idx) => {
+      let reactive = self.push_reactives[idx]
+      for dep in reactive.sources {
+        self.remove_subscriber(dep, cell_id)
+      }
+      self.cell_index[cell_id.id] = Disposed
+      // Clear slot in-place to release captured closures and graph edges.
+      // Both push_reactives[idx] and cell_ops[cell_id.id] reference the same
+      // heap object, so mutations here are visible through both references.
+      reactive.compute = () => false
+      reactive.sources = []
+      reactive.subscribers.clear()
+      reactive.label = None
+      reactive.dirty = false
+      self.free_push_reactives.push(idx)
+      self.push_node_count = self.push_node_count - 1
+    }
+    _ => ()
+  }
+}
+
+///|
+/// Disposes a push effect cell, removing it from all subscriber sets
+/// and marking its cell_index slot as Disposed.
+fn Runtime::dispose_effect(self : Runtime, cell_id : CellId) -> Unit {
+  if cell_id.id < 0 || cell_id.id >= self.cell_index.length() {
+    return
+  }
+  match self.cell_index[cell_id.id] {
+    PushEffect(idx) => {
+      let effect = self.push_effects[idx]
+      for dep in effect.sources {
+        self.remove_subscriber(dep, cell_id)
+      }
+      self.cell_index[cell_id.id] = Disposed
+      // Clear slot in-place to release captured closures and graph edges.
+      effect.execute = () => ()
+      effect.sources = []
+      effect.subscribers.clear()
+      effect.label = None
+      effect.dirty = false
+      self.free_push_effects.push(idx)
+      self.push_node_count = self.push_node_count - 1
+    }
+    _ => ()
   }
 }
 

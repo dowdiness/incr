@@ -61,6 +61,20 @@ test "per-cell callback fires before global on_change" {
 }
 
 ///|
+test "signal callback sees fresh push-reactive state before memo read" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 1)
+  let r = Reactive::new(rt, () => s.get() * 10)
+  let m = Memo::new(rt, () => r.get() + 1)
+  inspect(m.get(), content="11")
+  let seen_at_callback : Ref[Int] = { val: -1 }
+  s.on_change(_v => seen_at_callback.val = m.get())
+  s.set(2)
+  inspect(seen_at_callback.val, content="21")
+  inspect(m.get(), content="21")
+}
+
+///|
 test "clear_on_change removes Signal callback" {
   let rt = Runtime::new()
   let s = Signal::new(rt, 0)
@@ -90,6 +104,31 @@ test "batch: per-cell callbacks fire once per changed signal" {
 }
 
 ///|
+test "non-batch: callback re-entrancy — set inside on_change propagates and memo reads correctly" {
+  // Non-batch path: s1.on_change fires synchronously inside set_unconditional,
+  // BEFORE s1's own push_propagate_from. Calling s2.set() from within the
+  // callback is a recursive set_unconditional that fully completes (including
+  // s2's push propagation) before returning. A pull memo that depends on s2
+  // must see the post-set s2 value when read after s2.set() in the same callback.
+  let rt = Runtime::new()
+  let s1 = Signal::new(rt, 0)
+  let s2 = Signal::new(rt, 0)
+  let m = Memo::new(rt, () => s2.get() * 2)
+  let _ = m.get() // prime: m = 0
+  let mut count2 = 0
+  s2.on_change(_v => count2 = count2 + 1)
+  let mut memo_in_callback = -1
+  s1.on_change(_v => {
+    s2.set(10) // recursive set_unconditional; s2's callbacks fire, push propagates
+    memo_in_callback = m.get() // pull-verify: s2 changed → recompute → 20
+  })
+  s1.set(1)
+  inspect(count2, content="1")        // s2's on_change ran once during re-entrant call
+  inspect(memo_in_callback, content="20") // callback saw updated memo value
+  inspect(m.get(), content="20")
+}
+
+///|
 test "batch: callback re-entrancy — set inside on_change is handled correctly" {
   let rt = Runtime::new()
   let s1 = Signal::new(rt, 0)
@@ -104,6 +143,20 @@ test "batch: callback re-entrancy — set inside on_change is handled correctly"
   rt.batch(() => s1.set(1))
   inspect(count1.val, content="1")
   inspect(count2.val, content="1")
+}
+
+///|
+test "batch: callback sees fresh push-reactive state before memo read" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 1)
+  let r = Reactive::new(rt, () => s.get() * 10)
+  let m = Memo::new(rt, () => r.get() + 1)
+  inspect(m.get(), content="11")
+  let seen_at_callback : Ref[Int] = { val: -1 }
+  s.on_change(_v => seen_at_callback.val = m.get())
+  rt.batch(() => s.set(2))
+  inspect(seen_at_callback.val, content="21")
+  inspect(m.get(), content="21")
 }
 
 ///|
