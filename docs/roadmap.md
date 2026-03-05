@@ -104,17 +104,50 @@ High-level future direction for the `incr` library, organized by phase. Each pha
 ## Phase 4 — Advanced Features
 
 - ~~**Subscriber (reverse) links**: Add bidirectional edges so cells know their dependents~~ ✓ Implemented
-  - `subscribers : HashSet[CellId]` on `CellMeta`, maintained incrementally during `Memo::force_recompute` dep diffing
+  - `subscribers : HashSet[CellId]` on SoA data structs, maintained incrementally during dep diffing
   - `Runtime::dependents(CellId) -> Array[CellId]` introspection API
   - `subscribers` field added to `CellInfo`
   - Prerequisite for push-based invalidation, automatic cleanup, and the effect system
-- **Push-pull hybrid invalidation**: Combine push notifications (via subscriber links) with pull verification. When an input changes, propagate dirty flags eagerly; on read, verify lazily. This avoids the full verification walk for unchanged subgraphs while preserving backdating benefits.
+
+### Phase 4A: CellOps Trait ✓
+
+- ~~**`CellOps` trait**: Uniform 6-method read interface for all cell types~~ ✓ Implemented
+  - `cell_id`, `changed_at`, `set_changed_at`, `subscribers`, `label`, `durability`
+  - `Runtime.cell_ops : Array[&CellOps]` trait-object array indexed by `CellId.id`
+  - Implemented by `PullSignalData`, `PullMemoData`, `HybridMemoData`, `PushReactiveData`, `PushEffectData`
+- ~~**`Committable` trait**: Batch-commit dispatch for signals~~ ✓ Implemented
+  - `do_commit`, `cell_id`, `durability` methods
+  - `Runtime.batch_pending : Array[&Committable]` replaces direct SoA lookup
+
+### Phase 4B: Push-Reactive Cells ✓
+
+- ~~**`Reactive[T]`**: Eager push-mode derived cell~~ ✓ Implemented
+  - Recomputed eagerly during push propagation (level-sorted priority queue for glitch-free execution)
+  - SoA entry `PushReactiveData` with `dirty`, `level`, `sources`, `subscribers` fields
+- ~~**`Effect`**: Terminal push-mode side-effect cell~~ ✓ Implemented
+  - Runs side effects eagerly when upstream changes; never read by other cells
+  - SoA entry `PushEffectData`
+- ~~**Push propagation engine** (`cells/propagate.mbt`)~~ ✓ Implemented
+  - `push_propagate_from`: level-sorted BFS from changed sources
+  - `propagate_level_change`: recalculates topological levels when sources change
+
+### Phase 4C: HybridMemo ✓
+
+- ~~**`HybridMemo[T]`**: Hybrid push-pull memo~~ ✓ Implemented
+  - Receives dirty flags eagerly via push propagation; verifies/recomputes lazily on `get()`
+  - Fast path: `not(dirty) && verified_at >= current_revision` → return cached, no dep walk
+  - SoA entry `HybridMemoData` with `dirty : Bool` flag
+  - Public API: `HybridMemo::new`, `get`, `get_result`, `id`, `is_up_to_date`
+  - `create_hybrid_memo` Database helper; `Readable` impl
+
+### Phase 4 — Remaining
+
 - **Accumulator queries**: Support Salsa-style accumulators that collect values across the dependency graph
 - **Interning**: Deduplicate structurally equal values to reduce memory and speed up equality checks
 - **Garbage collection**: Reclaim cells that are no longer reachable from any live memo or signal. Requires subscriber links for reference tracking.
+- **Datalog primitives**: `Relation[T]` (set with delta tracking), `Rule` (derives facts), `Runtime::fixpoint()` (semi-naive evaluation)
 
 ## Phase 5 — Ecosystem
 
 - **Persistent caching**: Serialize the dependency graph and cached values to disk for cross-session incrementality
 - **Parallel computation**: Explore concurrent memo evaluation if MoonBit gains thread or async support
-- **Effect system**: First-class side effects (like alien-signals' `Effect` type) that trigger when observed values change. Out of scope for the current pure-computation model but worth revisiting once subscriber links are in place.

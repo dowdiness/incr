@@ -341,6 +341,41 @@ Returns the number of memo entries created so far.
 
 ---
 
+## HybridMemo[T]
+
+Hybrid push-pull derived computation. Receives dirty flags eagerly via push propagation but verifies and recomputes lazily on `get()`.
+
+### `HybridMemo::new[T : Eq](rt: Runtime, compute: () -> T, label? : String) -> HybridMemo[T]`
+
+Creates a hybrid memo. Increments `push_node_count` to enable push propagation.
+
+```moonbit
+let h = HybridMemo::new(rt, () => signal.get() * 2)
+let h = HybridMemo::new(rt, () => signal.get() * 2, label="doubled")
+```
+
+### `HybridMemo::get[T : Eq](self) -> T`
+
+Returns the memoized value, recomputing if necessary. Fast path: if `dirty = false` and already verified this revision, returns cached value immediately without any dependency walk. Aborts on cycle or cross-runtime read.
+
+```moonbit
+let value = h.get()
+```
+
+### `HybridMemo::get_result[T : Eq](self) -> Result[T, CycleError]`
+
+Result-returning variant of `get`, matching `Memo::get_result`.
+
+### `HybridMemo::id(self) -> CellId`
+
+Returns the unique identifier for this hybrid memo.
+
+### `HybridMemo::is_up_to_date(self) -> Bool`
+
+Returns `true` only when the hybrid memo has a cached value and `verified_at` matches the current revision.
+
+---
+
 ## Revision
 
 Logical timestamp used by introspection APIs (`Memo::changed_at`, `Memo::verified_at`, and `CellInfo` fields).
@@ -625,7 +660,7 @@ pub(open) trait Readable {
 }
 ```
 
-Implemented for `Signal[T]`, `Memo[T]`, and `TrackedCell[T]`.
+Implemented for `Signal[T]`, `Memo[T]`, `HybridMemo[T]`, and `TrackedCell[T]`.
 
 ### `Trackable`
 
@@ -697,6 +732,14 @@ create_signal(db, value, durability=High, label="cfg") // both
 ### `create_memo[Db : Database, T : Eq](db: Db, f: () -> T) -> Memo[T]`
 
 Creates a memo using `db.runtime()`.
+
+### `create_hybrid_memo[Db : Database, T : Eq](db: Db, f: () -> T, label? : String) -> HybridMemo[T]`
+
+Creates a hybrid memo using `db.runtime()`.
+
+```moonbit nocheck
+let h = create_hybrid_memo(app, () => signal.get() * 2, label="doubled")
+```
 
 ### `create_memo_map[Db : Database, K, V](db: Db, f: (K) -> V, label? : String) -> MemoMap[K, V]`
 

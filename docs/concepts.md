@@ -312,6 +312,39 @@ Key behavior:
 
 This is a lightweight parameterized-query pattern built on top of `Memo`; it does not change runtime verification internals.
 
+## Hybrid Push-Pull (HybridMemo)
+
+`HybridMemo[T]` combines push-based dirty notification with pull-based lazy verification:
+
+```moonbit
+let rt = Runtime()
+let s = Signal(rt, 1)
+let h = HybridMemo::new(rt, () => s.get() * 2)
+
+inspect(h.get(), content="2")
+s.set(5)
+inspect(h.get(), content="10")
+```
+
+### How It Works
+
+When an upstream signal changes, push propagation eagerly sets a `dirty` flag on the `HybridMemo` — no recomputation happens yet. When `get()` is called:
+
+- **Fast path**: If `dirty = false` and already verified this revision → return cached value immediately, no dependency walk needed
+- **Slow path**: Walk dependencies, recompute if needed, clear `dirty`
+
+This is useful when a derived value sits between push-reactive nodes and pull-based memos. The dirty flag gives `get()` a cheap early-out without walking the full dependency chain.
+
+### HybridMemo vs Memo
+
+| Property | Memo | HybridMemo |
+|----------|------|------------|
+| Invalidation | Pull only (check deps on read) | Push dirty flag + pull verify |
+| Fast path | Durability shortcut only | `not(dirty)` check before dep walk |
+| Use case | General derived values | Bridge between push and pull graphs |
+
+Both support backdating — if a `HybridMemo` recomputes to the same value, downstream cells skip recomputation.
+
 ## Runtime Isolation
 
 Each `Runtime` is a completely isolated universe. Signals and Memos belong to exactly one Runtime, and cross-runtime reads are a hard error:
@@ -338,6 +371,7 @@ If you need to share data between two independent computation graphs, use a plai
 |---------|---------|
 | Signal | Input values you control |
 | Memo | Derived values with automatic caching |
+| HybridMemo | Push-pull derived values with dirty flag fast path |
 | MemoMap | Per-key memoized derived values |
 | Revision | Global clock for tracking changes |
 | Backdating | Skip downstream work when values don't actually change |

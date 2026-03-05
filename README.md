@@ -12,6 +12,8 @@ A Salsa-inspired incremental recomputation library for [MoonBit](https://www.moo
 - **Batch updates** — Atomic multi-signal updates with revert detection and rollback on raised errors
 - **Change hooks** — `Runtime::set_on_change` callback for committed updates (batch-aware)
 - **Cycle detection** — Detects cycles with `get_result()` for graceful handling or `get()` for abort
+- **Push-reactive cells** — `Reactive[T]` and `Effect` for eager push-mode computation with glitch-free level-sorted propagation
+- **Hybrid push-pull** — `HybridMemo[T]` receives dirty flags eagerly via push propagation but verifies lazily on read, combining the best of both models
 - **Field-level tracking** — `TrackedCell` groups related signals into tracked structs; only changed fields invalidate downstream memos
 
 ## Quick Start

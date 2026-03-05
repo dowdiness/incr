@@ -14,7 +14,7 @@ Concrete, actionable tasks for the `incr` library.
 - [x] Replace `HashMap[CellId, CellMeta]` in `Runtime` with `Array[CellMeta?]` indexed by `CellId.id`, then further migrated to SoA layout
 - [x] Convert recursive `maybe_changed_after` to iterative with explicit stack (prevents stack overflow on deep graphs)
 - [x] Diff old vs. new dependency lists in `Memo::force_recompute` instead of full replacement
-- [x] Explore push-pull hybrid invalidation (requires subscriber/reverse links)
+- [x] Explore push-pull hybrid invalidation (requires subscriber/reverse links) — implemented as `HybridMemo`
 
 ## API Improvements
 
@@ -89,6 +89,15 @@ Concrete, actionable tasks for the `incr` library.
 
 - [x] Add subscriber (reverse) links for push-based invalidation
 - [x] Add `Runtime::dependents(CellId) -> Array[CellId]` (requires subscriber links)
+- [x] Add `CellOps` trait for uniform cell dispatch (`cells/cell_ops.mbt`)
+- [x] Add `Committable` trait for batch-commit dispatch
+- [x] Add `Reactive[T]` push-mode derived cell (`cells/reactive.mbt`)
+- [x] Add `Effect` push-mode side-effect cell (`cells/effect.mbt`)
+- [x] Add level-sorted push propagation engine (`cells/propagate.mbt`)
+- [x] Add `HybridMemo[T]` push-pull hybrid memo (`cells/hybrid_memo.mbt`)
+- [x] Add `create_hybrid_memo` Database helper and `Readable` impl
+- [x] Re-export `HybridMemo` from root facade (`incr.mbt`)
+- [ ] Add Datalog primitives: `Relation[T]`, `Rule`, `Runtime::fixpoint()`
 
 ## Tracked Struct Support
 
