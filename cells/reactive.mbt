@@ -102,6 +102,7 @@ pub fn[T : Eq] Reactive::new(rt : Runtime, compute_fn : () -> T) -> Reactive[T] 
     changed
   }
   let cell_id = rt.alloc_cell_id(PushReactive(reactive_idx))
+  rt.push_node_count = rt.push_node_count + 1
   rt.push_reactives.push({
     cell_id,
     label: None,

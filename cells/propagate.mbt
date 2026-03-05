@@ -100,39 +100,14 @@ fn Runtime::propagate_level_change(
                 cell_ref: CellRef::PushEffect(i),
               })
             }
+            // Effects are terminal nodes with empty subscriber sets, so no
+            // worklist.push(sub_id) is needed — there is nothing downstream.
           }
         }
         _ => ()
       }
     }
   }
-}
-
-///|
-/// Returns true if any cell in `changed_ids` transitively reaches at least
-/// one push subscriber (PushReactive or PushEffect), bridging through pull
-/// memos. Used as a fast gate before initiating push propagation.
-fn Runtime::has_push_subscribers(
-  self : Runtime,
-  changed_ids : Array[CellId],
-) -> Bool {
-  for id in changed_ids {
-    // BFS through pull memos to reach downstream push nodes.
-    let worklist : Array[CellId] = [id]
-    let mut wi = 0
-    while wi < worklist.length() {
-      let current = worklist[wi]
-      wi += 1
-      for sub_id in self.get_subscribers(current) {
-        match self.cell_index[sub_id.id] {
-          PushReactive(_) | PushEffect(_) => return true
-          PullMemo(_) => worklist.push(sub_id)
-          _ => ()
-        }
-      }
-    }
-  }
-  false
 }
 
 ///|
@@ -156,15 +131,18 @@ fn Runtime::push_propagate_from(
   changed_sources : Array[CellId],
 ) -> Unit {
   let update_queue : @priority_queue.PriorityQueue[PushEntry] = @priority_queue.new()
+  // Reused across all enqueue_push_subscribers calls to avoid per-call allocation.
+  let bfs_worklist : Array[CellId] = []
 
   fn enqueue_push_subscribers(source_id : CellId) -> Unit {
-    // BFS worklist: bridge through pull memos to reach downstream push nodes.
-    // Pull memos are verified lazily, but push reactives/effects that transitively
-    // depend on them need to be eagerly re-run when an upstream signal changes.
-    let worklist : Array[CellId] = [source_id]
+    // BFS through pull memos to reach downstream push nodes.
+    // Pull memos verify lazily, but push reactives/effects that transitively
+    // depend on them must be eagerly re-run when an upstream signal changes.
+    bfs_worklist.clear()
+    bfs_worklist.push(source_id)
     let mut wi = 0
-    while wi < worklist.length() {
-      let id = worklist[wi]
+    while wi < bfs_worklist.length() {
+      let id = bfs_worklist[wi]
       wi += 1
       for sub_id in self.get_subscribers(id) {
         match self.cell_index[sub_id.id] {
@@ -186,7 +164,7 @@ fn Runtime::push_propagate_from(
               })
             }
           }
-          PullMemo(_) => worklist.push(sub_id) // traverse through pull memos
+          PullMemo(_) => bfs_worklist.push(sub_id) // bridge through pull memos
           _ => ()
         }
       }

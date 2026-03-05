@@ -5,6 +5,22 @@ test "runtime: push arrays start empty" {
   inspect(rt.push_effects.length(), content="0")
   inspect(rt.free_push_reactives.length(), content="0")
   inspect(rt.free_push_effects.length(), content="0")
+  inspect(rt.push_node_count, content="0")
+}
+
+///|
+test "runtime: push_node_count tracks live push cells" {
+  let rt = Runtime::new()
+  inspect(rt.push_node_count, content="0")
+  let s = Signal::new(rt, 0)
+  let r = Reactive::new(rt, () => s.get())
+  inspect(rt.push_node_count, content="1")
+  let e = Effect::new(rt, () => { let _ = s.get(); () })
+  inspect(rt.push_node_count, content="2")
+  r.dispose()
+  inspect(rt.push_node_count, content="1")
+  e.dispose()
+  inspect(rt.push_node_count, content="0")
 }
 
 ///|

@@ -79,6 +79,10 @@ pub(all) struct Runtime {
   priv push_effects : Array[PushEffectData]
   priv free_push_reactives : Array[Int]
   priv free_push_effects : Array[Int]
+  /// Count of live push cells (reactives + effects). Used as an O(1) gate
+  /// before push propagation: if 0, no push cells exist and propagation is
+  /// skipped entirely without traversing the memo subscriber graph.
+  priv mut push_node_count : Int
   priv cell_index : Array[CellRef]
   // Trait object dispatch (indexed by CellId.id, parallel to cell_index)
   priv cell_ops : Array[&CellOps]
@@ -136,6 +140,7 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
     push_effects: [],
     free_push_reactives: [],
     free_push_effects: [],
+    push_node_count: 0,
     cell_index: [],
     cell_ops: [],
   }
@@ -755,8 +760,8 @@ fn Runtime::commit_batch(self : Runtime) -> Unit {
       // Push propagation: eagerly notify push reactives and effects that
       // depend on any changed signal. The changed CellIds are collected
       // from the `changed` array.
-      let changed_ids : Array[CellId] = changed.map(fn(c) { c.cell_id() })
-      if self.has_push_subscribers(changed_ids) {
+      if self.push_node_count > 0 {
+        let changed_ids : Array[CellId] = changed.map(fn(c) { c.cell_id() })
         self.push_propagate_from(changed_ids)
       }
     } else {
@@ -976,13 +981,12 @@ fn Runtime::dispose_reactive(self : Runtime, cell_id : CellId) -> Unit {
   match self.cell_index[cell_id.id] {
     PushReactive(idx) => {
       let reactive = self.push_reactives[idx]
-      // Remove from all sources' subscriber sets.
       for dep in reactive.sources {
         self.remove_subscriber(dep, cell_id)
       }
-      // Remove from all subscribers' source lists (not tracked for pull cells).
       self.cell_index[cell_id.id] = Disposed
       self.free_push_reactives.push(idx)
+      self.push_node_count = self.push_node_count - 1
     }
     _ => ()
   }
@@ -1003,6 +1007,7 @@ fn Runtime::dispose_effect(self : Runtime, cell_id : CellId) -> Unit {
       }
       self.cell_index[cell_id.id] = Disposed
       self.free_push_effects.push(idx)
+      self.push_node_count = self.push_node_count - 1
     }
     _ => ()
   }

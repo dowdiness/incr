@@ -77,6 +77,7 @@ pub struct Effect {
 pub fn Effect::new(rt : Runtime, f : () -> Unit) -> Effect {
   let effect_idx = rt.push_effects.length()
   let cell_id = rt.alloc_cell_id(PushEffect(effect_idx))
+  rt.push_node_count = rt.push_node_count + 1
   rt.push_effects.push({
     cell_id,
     label: None,
