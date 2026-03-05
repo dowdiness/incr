@@ -31,7 +31,10 @@ Invalidation strategies for dependency graphs fall into three families:
 - **Pull-based** (lazy): do nothing when an input changes. When a derived value is read, walk its dependencies to check if anything changed. This is what `incr` uses — it avoids wasted work at the cost of a verification walk on read.
 - **Hybrid**: combine push notifications with pull verification. Salsa itself has evolved toward hybrid approaches in newer versions.
 
-`incr` uses a pure pull-based strategy: `Signal::set()` only bumps a revision counter and records the change. All verification and recomputation happens lazily when `Memo::get()` is called.
+`incr` started with a pure pull-based strategy and has since added a hybrid cell type:
+
+- **`Signal`/`Memo`** — Pure pull. `Signal::set()` only bumps a revision counter. All verification and recomputation happens lazily when `Memo::get()` is called.
+- **`HybridMemo`** — Hybrid push-pull. Receives dirty flags eagerly (push) when upstream signals change, but verifies and recomputes lazily on `get()` (pull). The dirty flag enables a fast-path skip when no relevant signal has changed, without a full dependency walk.
 
 ## Core Concepts
 
@@ -172,6 +175,52 @@ input(4) → is_even(true) → label("even")
 
 Without backdating, step 6 would set `is_even.changed_at = R2`, and `label` would needlessly recompute `"even"` again. In deep or wide graphs, this cascading recomputation can be very expensive. Backdating cuts it off at the earliest point where a value stabilizes.
 
+## HybridMemo — Hybrid Push-Pull Cells
+
+### Motivation
+
+Pure pull-based verification (`Memo`) has excellent worst-case avoidance: cells never recompute unless read. But when downstream push-reactive nodes (`Reactive`, `Effect`) subscribe to derived values, the push propagation must bridge through those derived values to notify the reactives. With pure pull cells, the bridge is transparent — push propagation does a BFS through pull cell subscriber lists — but no individual pull cell knows whether _it_ was affected by the change without walking its dep chain.
+
+`HybridMemo` adds a single `dirty : Bool` flag. Push propagation sets it eagerly. This gives `get()` a meaningful fast path:
+
+- **Fast path**: `not(dirty) && verified_at >= current_revision` → return cached value immediately, no dep walk.
+- **Slow path**: call `pull_verify_hybrid`, which walks deps, recomputes if needed, and clears `dirty`.
+
+### SoA Layout
+
+`Runtime` adds two arrays for hybrid memos:
+
+- **`hybrid_memos : Array[HybridMemoData]`** — SoA entries, one per `HybridMemo`. Like `PullMemoData` but with an additional `mut dirty : Bool` field.
+- **`hybrid_dirty : Array[CellId]`** — Tracks which hybrids were dirtied during the current propagation wave. Cleared at the end of each `push_propagate_from` call to prevent unbounded growth.
+
+`HybridMemoData` implements `CellOps` so it participates in the uniform `cell_ops` trait-object array alongside signals and pull memos.
+
+### Push Propagation Through HybridMemos
+
+`push_propagate_from` in `cells/propagate.mbt` does a BFS (`enqueue_push_subscribers`) to find push-reactive nodes downstream of changed sources. HybridMemos are transparent bridges in this BFS:
+
+```
+HybridMemo(i) => {
+  if not(self.hybrid_memos[i].dirty) {
+    self.hybrid_memos[i].dirty = true
+    self.hybrid_dirty.push(sub_id)
+  }
+  bfs_worklist.push(sub_id) // bridge through to reach downstream push nodes
+}
+```
+
+This is the same treatment as `PullMemo` (which is also a transparent BFS bridge). The HybridMemo gets its dirty flag set, _and_ the BFS continues through it so downstream push-reactive and push-effect nodes are still found and enqueued.
+
+### Verification of HybridMemo Dependencies
+
+When a `PullMemo` or another `HybridMemo` has a `HybridMemo` as a dependency, the dep walk must call `pull_verify_hybrid` rather than just checking `changed_at`. A dirty `HybridMemo` has stale `changed_at` (it hasn't recomputed yet), so checking `changed_at` alone would give a false "nothing changed" answer. `pull_verify_hybrid` forces recomputation if needed before the `changed_at` check.
+
+This is implemented in the `HybridMemo(_)` arm of both `pull_verify` (inner dep loop in `cells/verify.mbt`) and `pull_verify_hybrid`'s own dep loop.
+
+### push_node_count Gate
+
+`Signal::set_unconditional` only calls `push_propagate_from` when `push_node_count > 0`. `HybridMemo::new` increments `push_node_count` on creation, so even a graph with only signals and hybrid memos (no push reactives) correctly triggers push propagation.
+
 ## Durability Levels
 
 ### Three Tiers
@@ -222,8 +271,9 @@ The library uses a **Structure-of-Arrays (SoA)** layout. Instead of one heteroge
 
 1. **`pull_signals : Array[PullSignalData]`** — SoA entries for input cells (signals). Contains `changed_at`, durability, subscribers, and the type-erased `commit_pending` batch closure.
 2. **`pull_memos : Array[PullMemoData]`** — SoA entries for derived cells (memos). Contains `changed_at`/`verified_at`, dependency list, durability, `in_progress` flag, and the type-erased `compute` closure.
-3. **`cell_index : Array[CellRef]`** — Maps `CellId.id` → `PullSignal(idx)` or `PullMemo(idx)` for O(1) dispatch into the SoA arrays.
-4. **`cell_ops : Array[&CellOps]`** — Trait-object array indexed by `CellId.id`. Provides uniform read access (`cell_id`, `changed_at`, `set_changed_at`, `subscribers`, `label`, `durability`) across both signals and memos without `CellRef` matching. Both `PullSignalData` and `PullMemoData` implement `CellOps`.
+3. **`hybrid_memos : Array[HybridMemoData]`** — SoA entries for hybrid memo cells. Like `PullMemoData` but with an additional `dirty : Bool` flag set eagerly by push propagation.
+4. **`cell_index : Array[CellRef]`** — Maps `CellId.id` → `PullSignal(idx)`, `PullMemo(idx)`, `HybridMemo(idx)`, `PushReactive(idx)`, `PushEffect(idx)`, or `Disposed` for O(1) dispatch.
+5. **`cell_ops : Array[&CellOps]`** — Trait-object array indexed by `CellId.id`. `HybridMemoData` implements `CellOps` alongside signals and pull memos.
 
 The bridge between typed and type-erased worlds uses closure-based type erasure:
 
@@ -336,12 +386,15 @@ Batches can be nested. A `batch_depth` counter tracks nesting, and each `Runtime
 - **Batch updates with two-phase values**: alien-signals buffers signal writes during batches. `incr` adopted this pattern with `pending_value` and commit closures on `PullSignalData`, enabling revert detection.
 - **Iterative graph walking**: alien-signals uses iterative propagation. `incr` uses an iterative `pull_verify` with an explicit `PullVerifyFrame` stack to prevent stack overflow on deep graphs.
 
+### Ideas adopted (additions since initial implementation)
+
+- **Subscriber (reverse) links**: `incr` now maintains bidirectional edges — each cell knows both its dependencies (forward) and its subscribers (reverse). Subscriber links enable push-based dirty propagation and are the foundation of `HybridMemo` and push-reactive cells.
+- **Push-pull hybrid**: `HybridMemo` cells receive dirty flags via eager push propagation and verify/recompute lazily on `get()`. This is the hybrid model described above.
+
 ### Ideas deferred
 
-- **Subscriber (reverse) links**: alien-signals maintains bidirectional edges — each cell knows both its dependencies and its subscribers. This enables push-based dirty propagation and efficient cleanup. `incr` currently only has forward (dependency) edges; adding subscriber links would be a significant architectural change (see ROADMAP Phase 4).
-- **Push-pull hybrid**: With subscriber links, alien-signals can eagerly propagate dirty flags on write and lazily verify on read. `incr` uses pure pull-based verification. Adopting hybrid invalidation requires subscriber links as a prerequisite.
-- **Effect system**: alien-signals has first-class `Effect` nodes that trigger side effects when observed values change. `incr` is a pure computation framework with no built-in effect mechanism.
-- **Automatic cleanup/GC**: alien-signals can garbage-collect unreachable nodes via subscriber reference counting. `incr` requires subscriber links before this is possible.
+- **Effect system**: alien-signals has first-class `Effect` nodes that trigger side effects when observed values change. `incr` has `Reactive` and `Effect` (push-based), but no higher-level effect abstraction integrated with the pull graph.
+- **Automatic cleanup/GC**: alien-signals can garbage-collect unreachable nodes via subscriber reference counting. `incr` requires GC infrastructure (Phase 4 roadmap) before this is possible.
 
 ## File Map
 
@@ -379,6 +432,8 @@ The library is split into four MoonBit sub-packages. The root package re-exports
 | `cells/tracking.mbt` | `ActiveQuery` — dependency recording frame with deduplication |
 | `cells/verify.mbt` | `pull_verify` — SoA-native iterative verification algorithm |
 | `cells/cycle.mbt` | `CycleError` — cycle error type, path formatting, `CycleError::from_path` |
+| `cells/hybrid_memo.mbt` | `HybridMemo[T]` — hybrid push-pull memo; `HybridMemoData` SoA entry with `dirty` flag |
+| `cells/propagate.mbt` | `push_propagate_from`, `propagate_level_change` — level-sorted eager push propagation |
 
 ### `pipeline/` package (`dowdiness/incr/pipeline`)
 
@@ -416,7 +471,9 @@ Unit tests (`*_test.mbt`) and whitebox tests (`*_wbtest.mbt`) live in `cells/`. 
 | `cells/subscriber_wbtest.mbt` | Subscriber tracking internals (whitebox) |
 | `cells/tracked_cell_wbtest.mbt` | `TrackedCell` field-level tracking internals (whitebox) |
 | `cells/memo_map_wbtest.mbt` | MemoMap internal key→memo mapping (whitebox) |
+| `cells/hybrid_wbtest.mbt` | `HybridMemo` internal dirty flag, fast path, backdating, push propagation (whitebox) |
 | `tests/integration_test.mbt` | End-to-end multi-signal/memo scenarios |
 | `tests/fanout_test.mbt` | Wide dependency graphs (diamond, multi-level) |
 | `tests/traits_test.mbt` | Pipeline trait (`CalcPipeline`) fixture tests |
 | `tests/tracked_struct_test.mbt` | `TrackedCell`, `Trackable`, and `gc_tracked` |
+| `tests/hybrid_test.mbt` | `HybridMemo` public API: get, update, backdating, diamond, batch, chained, pull chain |
