@@ -752,6 +752,13 @@ fn Runtime::commit_batch(self : Runtime) -> Unit {
         cb()
       }
       self.batch_depth = self.batch_depth - 1
+      // Push propagation: eagerly notify push reactives and effects that
+      // depend on any changed signal. The changed CellIds are collected
+      // from the `changed` array.
+      let changed_ids : Array[CellId] = changed.map(fn(c) { c.cell_id() })
+      if self.has_push_subscribers(changed_ids) {
+        self.push_propagate_from(changed_ids)
+      }
     } else {
       self.batch_max_durability = Low
     }
@@ -954,6 +961,50 @@ fn Runtime::finish_tracking(
     if not(old_seen.contains(dep)) {
       self.add_subscriber(dep, cell_id)
     }
+  }
+}
+
+///|
+/// Disposes a push reactive cell, removing it from all subscriber sets
+/// and marking its cell_index slot as Disposed.
+///
+/// See `Reactive::dispose` and Task 7 for the full implementation.
+fn Runtime::dispose_reactive(self : Runtime, cell_id : CellId) -> Unit {
+  if cell_id.id < 0 || cell_id.id >= self.cell_index.length() {
+    return
+  }
+  match self.cell_index[cell_id.id] {
+    PushReactive(idx) => {
+      let reactive = self.push_reactives[idx]
+      // Remove from all sources' subscriber sets.
+      for dep in reactive.sources {
+        self.remove_subscriber(dep, cell_id)
+      }
+      // Remove from all subscribers' source lists (not tracked for pull cells).
+      self.cell_index[cell_id.id] = Disposed
+      self.free_push_reactives.push(idx)
+    }
+    _ => ()
+  }
+}
+
+///|
+/// Disposes a push effect cell, removing it from all subscriber sets
+/// and marking its cell_index slot as Disposed.
+fn Runtime::dispose_effect(self : Runtime, cell_id : CellId) -> Unit {
+  if cell_id.id < 0 || cell_id.id >= self.cell_index.length() {
+    return
+  }
+  match self.cell_index[cell_id.id] {
+    PushEffect(idx) => {
+      let effect = self.push_effects[idx]
+      for dep in effect.sources {
+        self.remove_subscriber(dep, cell_id)
+      }
+      self.cell_index[cell_id.id] = Disposed
+      self.free_push_effects.push(idx)
+    }
+    _ => ()
   }
 }
 

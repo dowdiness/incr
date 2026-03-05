@@ -19,3 +19,171 @@ test "cell_ref: PushReactive, PushEffect, Disposed variants exist" {
   inspect(ib, content="2")
   inspect(ok, content="true")
 }
+
+// ─── Task 3: push_propagate_from ────────────────────────────────────────────
+
+///|
+test "push propagation: basic reactive chain Signal → Reactive" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 1)
+  let r = Reactive::new(rt, () => s.get() * 2)
+  let _ = r.get() // initial: 2
+  s.set(5) // triggers push propagation
+  inspect(r.get(), content="10")
+}
+
+///|
+test "push propagation: glitch prevention in diamond" {
+  // a → b(a+1), a → c(a*10), b+c → d
+  // d should never see an inconsistent (b,c) pair
+  let rt = Runtime::new()
+  let a = Signal::new(rt, 1)
+  let b = Reactive::new(rt, () => a.get() + 1)
+  let c = Reactive::new(rt, () => a.get() * 10)
+  let mut saw_glitch = false
+  let d = Reactive::new(rt, () => {
+    let bv = b.get()
+    let cv = c.get()
+    // Invariant: bv - 1 == cv / 10 (both sides equal current value of a)
+    if bv - 1 != cv / 10 {
+      saw_glitch = true
+    }
+    bv + cv
+  })
+  let _ = d.get() // a=1: b=2, c=10, d=12
+  a.set(5) // a=5: b=6, c=50, d=56
+  let _ = d.get()
+  inspect(saw_glitch, content="false")
+  inspect(d.get(), content="56")
+}
+
+// ─── Task 4: level helpers + early cutoff ───────────────────────────────────
+
+///|
+test "level: reactive level is source max + 1" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 1)
+  let r1 = Reactive::new(rt, () => s.get())
+  let r2 = Reactive::new(rt, () => r1.get() + 1)
+  let _ = r1.get()
+  let _ = r2.get()
+  let r1_idx = match rt.cell_index[r1.id().id] {
+    PushReactive(i) => i
+    _ => abort("expected PushReactive")
+  }
+  let r2_idx = match rt.cell_index[r2.id().id] {
+    PushReactive(i) => i
+    _ => abort("expected PushReactive")
+  }
+  inspect(rt.push_reactives[r1_idx].level, content="1")
+  inspect(rt.push_reactives[r2_idx].level, content="2")
+}
+
+///|
+test "early cutoff: unchanged value does not propagate to downstream" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 1)
+  // reads s but always returns 5
+  let always5 = Reactive::new(rt, () => {
+    let _ = s.get()
+    5
+  })
+  let mut count = 0
+  let downstream = Reactive::new(rt, () => {
+    count += 1
+    always5.get()
+  })
+  let _ = downstream.get()
+  inspect(count, content="1")
+  s.set(99) // always5 recomputes to 5 again → downstream not re-enqueued
+  inspect(count, content="1")
+}
+
+// ─── Task 5: Reactive::get / Effect ─────────────────────────────────────────
+
+///|
+test "reactive: get() returns cached value" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 10)
+  let r = Reactive::new(rt, () => s.get() * 3)
+  inspect(r.get(), content="30")
+  inspect(r.get(), content="30") // cached
+}
+
+///|
+test "effect: runs on creation, then re-runs on each dependency change" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 0)
+  let mut log : Array[Int] = []
+  let _e = Effect::new(rt, () => log.push(s.get()))
+  inspect(log, content="[0]")
+  s.set(1)
+  inspect(log, content="[0, 1]")
+  s.set(2)
+  inspect(log, content="[0, 1, 2]")
+}
+
+// ─── Task 6: batch + mixed pull/push ────────────────────────────────────────
+
+///|
+test "push: batch commit triggers propagation" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 0)
+  let r = Reactive::new(rt, () => s.get() * 2)
+  let _ = r.get()
+  rt.batch(() => {
+    s.set(5)
+    inspect(r.get(), content="0") // not yet propagated inside batch
+  })
+  inspect(r.get(), content="10") // propagated after commit
+}
+
+///|
+test "mixed pull/push: Memo reads Reactive; Reactive reads Signal" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 1)
+  let r = Reactive::new(rt, () => s.get() + 1)
+  let m = Memo::new(rt, () => r.get() * 10)
+  s.set(4)
+  inspect(m.get(), content="50") // r = 5, m = 50
+}
+
+// ─── Task 7: disposal ────────────────────────────────────────────────────────
+
+///|
+test "dispose: sources' subscriber sets updated after reactive dispose" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 1)
+  let r = Reactive::new(rt, () => s.get())
+  let _ = r.get()
+  let s_idx = match rt.cell_index[s.id().id] {
+    PullSignal(i) => i
+    _ => abort("expected PullSignal")
+  }
+  inspect(rt.pull_signals[s_idx].subscribers.length(), content="1")
+  r.dispose()
+  inspect(rt.pull_signals[s_idx].subscribers.length(), content="0")
+}
+
+///|
+test "dispose: disposed reactive not reachable via subscriber walk" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 1)
+  let r = Reactive::new(rt, () => s.get() * 2)
+  let _ = r.get()
+  r.dispose()
+  let subs = rt.get_subscribers(s.id()).collect()
+  inspect(subs.length(), content="0")
+}
+
+///|
+test "dispose: effect removed from source subscriber set" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 0)
+  let mut log : Array[Int] = []
+  let e = Effect::new(rt, () => log.push(s.get()))
+  inspect(log, content="[0]")
+  e.dispose()
+  s.set(1) // effect is gone; log should not grow
+  inspect(log, content="[0]")
+}

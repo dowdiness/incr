@@ -68,3 +68,39 @@ pub struct Effect {
   priv cell_id : CellId
   priv rt : Runtime
 }
+
+///|
+/// Creates a new push-mode effect.
+///
+/// `f` is invoked immediately to establish dependencies and run the initial
+/// side effect. It is re-run by push propagation whenever any dependency changes.
+pub fn Effect::new(rt : Runtime, f : () -> Unit) -> Effect {
+  let effect_idx = rt.push_effects.length()
+  let cell_id = rt.alloc_cell_id(PushEffect(effect_idx))
+  rt.push_effects.push({
+    cell_id,
+    label: None,
+    execute: f,
+    sources: [],
+    level: 1,
+    dirty: false,
+    subscribers: @hashset.new(),
+  })
+  let ops : &CellOps = rt.push_effects[effect_idx]
+  rt.cell_ops.push(ops)
+  let effect : Effect = { cell_id, rt }
+  // Run immediately to establish dependencies and execute the initial side effect.
+  rt.begin_tracking(cell_id)
+  f()
+  let new_sources = rt.end_tracking()
+  rt.push_effects[effect_idx].sources = new_sources
+  rt.push_effects[effect_idx].level = rt.recompute_level(cell_id, new_sources)
+  rt.finish_tracking(cell_id, [], new_sources)
+  effect
+}
+
+///|
+/// Removes this effect from the dependency graph.
+pub fn Effect::dispose(self : Effect) -> Unit {
+  self.rt.dispose_effect(self.cell_id)
+}

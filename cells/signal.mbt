@@ -197,6 +197,11 @@ pub fn[T] Signal::set_unconditional(self : Signal[T], new_value : T) -> Unit {
       Some(f) => f()
       None => ()
     }
+    // Push propagation: notify push reactives and effects that depend on this signal.
+    let changed_ids = [self.cell_id]
+    if self.rt.has_push_subscribers(changed_ids) {
+      self.rt.push_propagate_from(changed_ids)
+    }
     self.rt.fire_on_change()
   }
 }
