@@ -147,6 +147,43 @@ pub fn[Db : Database] batch_result(
   db.runtime().batch_result(f)
 }
 
+///|
+/// A hybrid memo is up-to-date when its verified_at matches the
+/// runtime's current revision.
+pub impl[T : Eq] Readable for HybridMemo[T] with is_up_to_date(self) {
+  HybridMemo::is_up_to_date(self)
+}
+
+///|
+/// Creates a new hybrid memo using the database's runtime.
+///
+/// A hybrid memo receives dirty flags eagerly (via push propagation from
+/// upstream signals) but verifies and recomputes lazily on `get()`. This
+/// combines the low-latency notification of push-based invalidation with
+/// the wasted-work avoidance of pull-based verification.
+///
+/// Use `HybridMemo` when:
+/// - The memo sits between push-reactive nodes and pull-based memos
+/// - You want push notifications to reach downstream reactives without
+///   eagerly recomputing intermediate derived values
+///
+/// # Parameters
+///
+/// - `db`: Any type implementing `Database`
+/// - `f`: The compute function for the hybrid memo
+/// - `label`: An optional human-readable name for debugging
+///
+/// # Returns
+///
+/// A new hybrid memo associated with the database's runtime
+pub fn[Db : Database, T : Eq] create_hybrid_memo(
+  db : Db,
+  f : () -> T,
+  label? : String,
+) -> HybridMemo[T] {
+  HybridMemo::new(db.runtime(), f, label?)
+}
+
 // --- Tracked Struct Support ---
 
 ///|
