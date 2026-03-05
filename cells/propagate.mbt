@@ -32,7 +32,7 @@ fn Runtime::get_level(self : Runtime, cell_id : CellId) -> Int {
   match self.cell_index[cell_id.id] {
     PullSignal(_) | PullMemo(_) => 0
     PushReactive(idx) => self.push_reactives[idx].level
-    PushEffect(_) | Disposed => 0
+    PushEffect(_) | HybridMemo(_) | Disposed => 0
   }
 }
 

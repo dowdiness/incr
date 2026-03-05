@@ -57,6 +57,7 @@ fn Runtime::pull_verify(
   match self.cell_index[cell_id.id] {
     PullSignal(_) => Ok(()) // always fresh
     PushReactive(_) | PushEffect(_) => Ok(()) // freshness via push_propagate_from
+    HybridMemo(_) => Ok(()) // freshness managed by HybridMemo::get
     Disposed => abort("pull_verify: cell has been disposed")
     PullMemo(root_idx) => {
       let root = self.pull_memos[root_idx]
@@ -92,7 +93,7 @@ fn Runtime::pull_verify(
             )
           }
           match self.cell_index[dep_id.id] {
-            PushReactive(_) | PushEffect(_) =>
+            PushReactive(_) | PushEffect(_) | HybridMemo(_) =>
               if self.cell_ops[dep_id.id].changed_at() > memo.verified_at {
                 stack[top].changed = true
                 stack[top].dep_cursor = memo.dependencies.length()
