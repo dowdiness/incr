@@ -293,7 +293,7 @@ fn Runtime::cell_id_for(self : Runtime, cell_ref : CellRef) -> CellId {
     PullMemo(idx) => self.pull_memos[idx].cell_id
     PushReactive(idx) => self.push_reactives[idx].cell_id
     PushEffect(idx) => self.push_effects[idx].cell_id
-    HybridMemo(_) => abort("cell_id_for: HybridMemo not yet implemented")
+    HybridMemo(idx) => self.hybrid_memos[idx].cell_id
     Disposed => abort("cell_id_for: cell has been disposed")
   }
 }

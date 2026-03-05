@@ -68,6 +68,15 @@ test "hybrid memo: dirty flag triggers recompute on get" {
 }
 
 ///|
+test "get_subscribers: HybridMemo arm returns subscribers" {
+  let rt = Runtime::new()
+  let h = HybridMemo::new(rt, () => 42)
+  let _ = h.get()
+  let subs = rt.get_subscribers(h.id()).collect()
+  inspect(subs.length(), content="0") // leaf node, no subscribers yet
+}
+
+///|
 test "hybrid memo: backdating — unchanged value does not bump changed_at" {
   let rt = Runtime::new()
   let s = Signal::new(rt, 1)
