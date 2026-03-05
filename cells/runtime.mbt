@@ -75,6 +75,10 @@ pub(all) struct Runtime {
   // SoA storage arrays
   priv pull_signals : Array[PullSignalData]
   priv pull_memos : Array[PullMemoData]
+  priv push_reactives : Array[PushReactiveData]
+  priv push_effects : Array[PushEffectData]
+  priv free_push_reactives : Array[Int]
+  priv free_push_effects : Array[Int]
   priv cell_index : Array[CellRef]
   // Trait object dispatch (indexed by CellId.id, parallel to cell_index)
   priv cell_ops : Array[&CellOps]
@@ -128,6 +132,10 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
     on_change,
     pull_signals: [],
     pull_memos: [],
+    push_reactives: [],
+    push_effects: [],
+    free_push_reactives: [],
+    free_push_effects: [],
     cell_index: [],
     cell_ops: [],
   }
@@ -271,6 +279,9 @@ fn Runtime::cell_id_for(self : Runtime, cell_ref : CellRef) -> CellId {
   match cell_ref {
     PullSignal(idx) => self.pull_signals[idx].cell_id
     PullMemo(idx) => self.pull_memos[idx].cell_id
+    PushReactive(idx) => self.push_reactives[idx].cell_id
+    PushEffect(idx) => self.push_effects[idx].cell_id
+    Disposed => abort("cell_id_for: cell has been disposed")
   }
 }
 
@@ -289,8 +300,8 @@ fn Runtime::get_pull_signal(self : Runtime, id : CellId) -> PullSignalData {
   }
   match self.cell_index[id.id] {
     PullSignal(idx) => self.pull_signals[idx]
-    PullMemo(_) =>
-      abort("Expected signal cell but found memo: " + id.id.to_string())
+    _ =>
+      abort("Expected signal cell but found different kind: " + id.id.to_string())
   }
 }
 
@@ -309,8 +320,8 @@ fn Runtime::get_pull_memo(self : Runtime, id : CellId) -> PullMemoData {
   }
   match self.cell_index[id.id] {
     PullMemo(idx) => self.pull_memos[idx]
-    PullSignal(_) =>
-      abort("Expected memo cell but found signal: " + id.id.to_string())
+    _ =>
+      abort("Expected memo cell but found different kind: " + id.id.to_string())
   }
 }
 
@@ -492,6 +503,7 @@ pub fn Runtime::cell_info(self : Runtime, id : CellId) -> CellInfo? {
         subscribers: snapshot_subscribers(ops.subscribers()),
       })
     }
+    _ => None
   }
 }
 
