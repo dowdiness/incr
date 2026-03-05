@@ -747,6 +747,12 @@ fn Runtime::commit_batch(self : Runtime) -> Unit {
           None => ()
         }
       }
+      // Push propagation must run before per-signal callbacks so callback
+      // reads observe fully-updated push-reactive state for this wave.
+      if self.push_node_count > 0 {
+        let changed_ids : Array[CellId] = changed.map(c => c.cell_id())
+        self.push_propagate_from(changed_ids)
+      }
       self.batch_max_durability = Low
       // Raise batch_depth while invoking callbacks so that any signal.set()
       // inside a callback takes the batch path instead of set_unconditional,
@@ -757,13 +763,6 @@ fn Runtime::commit_batch(self : Runtime) -> Unit {
         cb()
       }
       self.batch_depth = self.batch_depth - 1
-      // Push propagation: eagerly notify push reactives and effects that
-      // depend on any changed signal. The changed CellIds are collected
-      // from the `changed` array.
-      if self.push_node_count > 0 {
-        let changed_ids : Array[CellId] = changed.map(fn(c) { c.cell_id() })
-        self.push_propagate_from(changed_ids)
-      }
     } else {
       self.batch_max_durability = Low
     }

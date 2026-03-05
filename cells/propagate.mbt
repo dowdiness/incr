@@ -190,6 +190,13 @@ fn Runtime::push_propagate_from(
           PushReactive(_) => ()
           _ => continue
         }
+        // Dirty check: skip if not dirty (stale entry from a previous wave, or
+        // from slot reuse — a newly allocated cell at the same SoA index starts
+        // with dirty=false, so a lingering queue entry from the old cell is
+        // harmlessly skipped here).
+        if not(reactive.dirty) {
+          continue
+        }
         reactive.dirty = false
         let reactive_cell_id = reactive.cell_id
         let old_sources = reactive.sources
@@ -217,6 +224,10 @@ fn Runtime::push_propagate_from(
         match self.cell_index[effect.cell_id.id] {
           PushEffect(_) => ()
           _ => continue
+        }
+        // Dirty check: same guard as PushReactive — skip stale or reused-slot entries.
+        if not(effect.dirty) {
+          continue
         }
         effect.dirty = false
         let effect_cell_id = effect.cell_id
