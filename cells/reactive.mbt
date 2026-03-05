@@ -133,8 +133,26 @@ pub fn[T : Eq] Reactive::new(rt : Runtime, compute_fn : () -> T) -> Reactive[T] 
 /// `get()` is called outside a reactive computation. No verification walk
 /// is needed.
 pub fn[T] Reactive::get(self : Reactive[T]) -> T {
-  // Record this reactive as a dependency if inside a pull memo computation.
-  self.rt.record_dependency(self.cell_id.id)
+  // Cross-runtime check (mirrors Signal::get): abort rather than silently
+  // recording a dependency from the wrong runtime's tracking stack.
+  let active_rt = current_computing_runtime_id.val
+  if active_rt >= 0 && active_rt != self.rt.runtime_id {
+    current_computing_runtime_id.val = -1
+    abort(
+      "Cross-runtime dependency: Reactive belongs to Runtime " +
+      self.rt.runtime_id.to_string() +
+      " but is read inside a computation on Runtime " +
+      active_rt.to_string(),
+    )
+  }
+  // Disposal check: reading after dispose() returns stale data and records
+  // an invalid dependency; abort instead.
+  let cell_id = self.cell_id.id
+  match self.rt.cell_index[cell_id.id] {
+    Disposed => abort("Reactive::get called on a disposed reactive")
+    _ => ()
+  }
+  self.rt.record_dependency(cell_id)
   self.value.val.unwrap()
 }
 

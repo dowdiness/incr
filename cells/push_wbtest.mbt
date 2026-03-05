@@ -87,6 +87,26 @@ test "push propagation: skip stale queue entry after mid-wave disposal" {
   inspect(count, content="1") // r2 was disposed; stale entry skipped
 }
 
+///|
+test "panic reactive: get after dispose aborts" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 0)
+  let r = Reactive::new(rt, () => s.get())
+  r.dispose()
+  let _ = r.get() // disposed reactive → abort
+}
+
+///|
+test "panic reactive: cross-runtime get aborts" {
+  let rt_a = Runtime::new()
+  let rt_b = Runtime::new()
+  let s_b = Signal::new(rt_b, 10)
+  let reactive_b = Reactive::new(rt_b, () => s_b.get())
+  // memo_a computes on rt_a but reads reactive_b from rt_b → abort
+  let memo_a = Memo::new(rt_a, () => reactive_b.get())
+  let _ = memo_a.get()
+}
+
 // ─── Task 3: push_propagate_from ────────────────────────────────────────────
 
 ///|
