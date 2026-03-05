@@ -86,6 +86,11 @@ pub(all) struct Runtime {
   priv cell_index : Array[CellRef]
   // Trait object dispatch (indexed by CellId.id, parallel to cell_index)
   priv cell_ops : Array[&CellOps]
+  // HybridMemo SoA storage
+  priv hybrid_memos : Array[HybridMemoData]
+  /// IDs of hybrid memos that have been dirtied by push propagation and
+  /// need recomputation on the next `get()`.
+  priv hybrid_dirty : Array[CellId]
 
   fn new(on_change? : () -> Unit) -> Runtime
 }
@@ -143,6 +148,8 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
     push_node_count: 0,
     cell_index: [],
     cell_ops: [],
+    hybrid_memos: [],
+    hybrid_dirty: [],
   }
 }
 
@@ -246,6 +253,11 @@ fn Runtime::collect_in_progress_path(self : Runtime) -> Array[CellId] {
       path.push(memo.cell_id)
     }
   }
+  for hybrid in self.hybrid_memos {
+    if hybrid.in_progress {
+      path.push(hybrid.cell_id)
+    }
+  }
   path
 }
 
@@ -286,6 +298,7 @@ fn Runtime::cell_id_for(self : Runtime, cell_ref : CellRef) -> CellId {
     PullMemo(idx) => self.pull_memos[idx].cell_id
     PushReactive(idx) => self.push_reactives[idx].cell_id
     PushEffect(idx) => self.push_effects[idx].cell_id
+    HybridMemo(idx) => self.hybrid_memos[idx].cell_id
     Disposed => abort("cell_id_for: cell has been disposed")
   }
 }
@@ -327,6 +340,25 @@ fn Runtime::get_pull_memo(self : Runtime, id : CellId) -> PullMemoData {
     PullMemo(idx) => self.pull_memos[idx]
     _ =>
       abort("Expected memo cell but found different kind: " + id.id.to_string())
+  }
+}
+
+///|
+/// Returns the HybridMemoData for a hybrid memo cell.
+fn Runtime::get_hybrid_memo(self : Runtime, id : CellId) -> HybridMemoData {
+  if id.runtime_id != self.runtime_id {
+    abort("Cell belongs to a different Runtime")
+  }
+  if id.id < 0 || id.id >= self.cell_index.length() {
+    abort("get_hybrid_memo: cell_id out of bounds: " + id.id.to_string())
+  }
+  match self.cell_index[id.id] {
+    HybridMemo(idx) => self.hybrid_memos[idx]
+    _ =>
+      abort(
+        "Expected hybrid memo cell but found different kind: " +
+        id.id.to_string(),
+      )
   }
 }
 

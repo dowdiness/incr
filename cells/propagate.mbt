@@ -32,7 +32,7 @@ fn Runtime::get_level(self : Runtime, cell_id : CellId) -> Int {
   match self.cell_index[cell_id.id] {
     PullSignal(_) | PullMemo(_) => 0
     PushReactive(idx) => self.push_reactives[idx].level
-    PushEffect(_) | Disposed => 0
+    PushEffect(_) | HybridMemo(_) | Disposed => 0
   }
 }
 
@@ -135,9 +135,9 @@ fn Runtime::push_propagate_from(
   let bfs_worklist : Array[CellId] = []
 
   fn enqueue_push_subscribers(source_id : CellId) -> Unit {
-    // BFS through pull memos to reach downstream push nodes.
-    // Pull memos verify lazily, but push reactives/effects that transitively
-    // depend on them must be eagerly re-run when an upstream signal changes.
+    // BFS through pull/hybrid memos to reach downstream push nodes.
+    // Pull and hybrid memos verify lazily, but push reactives/effects that
+    // transitively depend on them must be eagerly re-run on upstream changes.
     bfs_worklist.clear()
     bfs_worklist.push(source_id)
     let mut wi = 0
@@ -163,6 +163,13 @@ fn Runtime::push_propagate_from(
                 cell_ref: CellRef::PushEffect(i),
               })
             }
+          }
+          HybridMemo(i) => {
+            if not(self.hybrid_memos[i].dirty) {
+              self.hybrid_memos[i].dirty = true
+              self.hybrid_dirty.push(sub_id)
+            }
+            bfs_worklist.push(sub_id) // bridge through hybrid memos
           }
           PullMemo(_) => bfs_worklist.push(sub_id) // bridge through pull memos
           _ => ()
@@ -242,4 +249,8 @@ fn Runtime::push_propagate_from(
       _ => ()
     }
   }
+  // hybrid_dirty is populated during enqueue_push_subscribers but only
+  // needed during this propagation wave. Clear it so it doesn't accumulate
+  // across repeated non-batch signal sets.
+  self.hybrid_dirty.clear()
 }

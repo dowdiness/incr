@@ -57,6 +57,7 @@ fn Runtime::pull_verify(
   match self.cell_index[cell_id.id] {
     PullSignal(_) => Ok(()) // always fresh
     PushReactive(_) | PushEffect(_) => Ok(()) // freshness via push_propagate_from
+    HybridMemo(_) => Ok(()) // freshness managed by HybridMemo::get
     Disposed => abort("pull_verify: cell has been disposed")
     PullMemo(root_idx) => {
       let root = self.pull_memos[root_idx]
@@ -97,6 +98,19 @@ fn Runtime::pull_verify(
                 stack[top].changed = true
                 stack[top].dep_cursor = memo.dependencies.length()
               }
+            HybridMemo(_) => {
+              match self.pull_verify_hybrid(dep_id) {
+                Ok(_) =>
+                  if self.cell_ops[dep_id.id].changed_at() > memo.verified_at {
+                    stack[top].changed = true
+                    stack[top].dep_cursor = memo.dependencies.length()
+                  }
+                Err(e) => {
+                  clear_verify_stack(self, stack)
+                  return Err(e)
+                }
+              }
+            }
             Disposed => abort("pull_verify: dependency has been disposed")
             PullMemo(dep_idx) => {
               let dep = self.pull_memos[dep_idx]
@@ -173,4 +187,93 @@ fn Runtime::pull_verify(
       Ok(())
     }
   }
+}
+
+///|
+/// Verifies a HybridMemo cell, walking its dep list directly.
+///
+/// Unlike `pull_verify` (which skips `HybridMemo` roots as "managed by
+/// HybridMemo::get"), this function performs the actual dep walk for a
+/// HybridMemo root. Called by `HybridMemo::get` on the slow path.
+///
+/// PullMemo deps are verified recursively via `pull_verify`. Hybrid deps are
+/// reverified via `pull_verify_hybrid` so dirty-but-not-recomputed hybrids
+/// cannot appear fresh based only on stale `changed_at`.
+fn Runtime::pull_verify_hybrid(
+  self : Runtime,
+  cell_id : CellId,
+) -> Result[Unit, CycleError] {
+  let root_idx = match self.cell_index[cell_id.id] {
+    HybridMemo(i) => i
+    _ => abort("pull_verify_hybrid: not a HybridMemo")
+  }
+  let root = self.hybrid_memos[root_idx]
+  if root.verified_at >= self.current_revision {
+    return Ok(())
+  }
+  // Durability shortcut: if no input at this durability level changed since
+  // the last verification, mark verified without walking deps.
+  if self.durability_last_changed[root.durability.index()] <= root.verified_at {
+    root.verified_at = self.current_revision
+    return Ok(())
+  }
+  if root.in_progress {
+    return Err(CycleError::from_path(self.collect_in_progress_path(), cell_id))
+  }
+  root.in_progress = true
+  let verified_at_snap = root.verified_at
+  let mut dep_changed = false
+  let mut idx = 0
+  while idx < root.dependencies.length() && not(dep_changed) {
+    let dep_id = root.dependencies[idx]
+    idx = idx + 1
+    match self.cell_index[dep_id.id] {
+      PullSignal(sig_idx) =>
+        if self.pull_signals[sig_idx].changed_at > verified_at_snap {
+          dep_changed = true
+        }
+      PullMemo(_) => {
+        match self.pull_verify(dep_id) {
+          Ok(_) =>
+            if self.cell_ops[dep_id.id].changed_at() > verified_at_snap {
+              dep_changed = true
+            }
+          Err(e) => {
+            root.in_progress = false
+            return Err(e)
+          }
+        }
+      }
+      PushReactive(_) | PushEffect(_) =>
+        if self.cell_ops[dep_id.id].changed_at() > verified_at_snap {
+          dep_changed = true
+        }
+      HybridMemo(_) => {
+        match self.pull_verify_hybrid(dep_id) {
+          Ok(_) =>
+            if self.cell_ops[dep_id.id].changed_at() > verified_at_snap {
+              dep_changed = true
+            }
+          Err(e) => {
+            root.in_progress = false
+            return Err(e)
+          }
+        }
+      }
+      Disposed => {
+        root.in_progress = false
+        abort("pull_verify_hybrid: dependency has been disposed")
+      }
+    }
+  }
+  root.in_progress = false
+  if dep_changed {
+    match (root.compute)() {
+      Ok(_) => () // force_recompute handles verified_at + backdating
+      Err(e) => return Err(e)
+    }
+  } else {
+    root.verified_at = self.current_revision
+  }
+  Ok(())
 }
