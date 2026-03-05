@@ -193,13 +193,14 @@ pub fn[T] Signal::set_unconditional(self : Signal[T], new_value : T) -> Unit {
     self.value = new_value
     self.rt.bump_revision(self.durability)
     let sig = self.rt.mark_input_changed(self.cell_id)
+    // Push propagation must run before per-signal callbacks so callback reads
+    // cannot observe stale push-reactive state in the current revision.
+    if self.rt.push_node_count > 0 {
+      self.rt.push_propagate_from([self.cell_id])
+    }
     match sig.on_change {
       Some(f) => f()
       None => ()
-    }
-    // Push propagation: notify push reactives and effects that depend on this signal.
-    if self.rt.push_node_count > 0 {
-      self.rt.push_propagate_from([self.cell_id])
     }
     self.rt.fire_on_change()
   }
