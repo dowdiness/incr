@@ -5,9 +5,9 @@
 /// Uses the same type-erased `compute : () -> Bool` pattern as `PullMemoData`.
 priv struct PushReactiveData {
   cell_id : CellId
-  label : String?
+  mut label : String?
   /// Type-erased compute closure. Returns true if the value changed (for backdating).
-  compute : () -> Bool
+  mut compute : () -> Bool
   /// Cells this reactive reads (updated on recompute via begin/end_tracking).
   mut sources : Array[CellId]
   /// Cells that depend on this reactive (reverse edges for push propagation).
@@ -89,7 +89,6 @@ pub struct Reactive[T] {
 /// `PushReactiveData`. The Bool indicates whether the value changed
 /// (enabling early cutoff for downstream push cells).
 pub fn[T : Eq] Reactive::new(rt : Runtime, compute_fn : () -> T) -> Reactive[T] {
-  let reactive_idx = rt.push_reactives.length()
   let value : Ref[T?] = { val: None }
   // Type-erased compute: invoked by push_propagate_from after begin_tracking.
   let compute : () -> Bool = () => {
@@ -101,9 +100,14 @@ pub fn[T : Eq] Reactive::new(rt : Runtime, compute_fn : () -> T) -> Reactive[T] 
     value.val = Some(new_val)
     changed
   }
+  // Reuse a freed slot if available, otherwise append a new one.
+  let reactive_idx = match rt.free_push_reactives.pop() {
+    Some(idx) => idx
+    None => rt.push_reactives.length()
+  }
   let cell_id = rt.alloc_cell_id(PushReactive(reactive_idx))
   rt.push_node_count = rt.push_node_count + 1
-  rt.push_reactives.push({
+  let new_data : PushReactiveData = {
     cell_id,
     label: None,
     compute,
@@ -112,7 +116,12 @@ pub fn[T : Eq] Reactive::new(rt : Runtime, compute_fn : () -> T) -> Reactive[T] 
     changed_at: Revision::initial(),
     level: 1,
     dirty: false,
-  })
+  }
+  if reactive_idx < rt.push_reactives.length() {
+    rt.push_reactives[reactive_idx] = new_data
+  } else {
+    rt.push_reactives.push(new_data)
+  }
   let ops : &CellOps = rt.push_reactives[reactive_idx]
   rt.cell_ops.push(ops)
   let reactive : Reactive[T] = { cell_id: { id: cell_id }, value, rt }

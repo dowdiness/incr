@@ -5,9 +5,9 @@
 /// Never read by other cells. Recomputed eagerly when upstream changes.
 priv struct PushEffectData {
   cell_id : CellId
-  label : String?
+  mut label : String?
   /// Side effect function to run on recompute.
-  execute : () -> Unit
+  mut execute : () -> Unit
   /// Cells this effect reads (updated on recompute).
   mut sources : Array[CellId]
   /// Topological depth (max source level + 1).
@@ -75,10 +75,14 @@ pub struct Effect {
 /// `f` is invoked immediately to establish dependencies and run the initial
 /// side effect. It is re-run by push propagation whenever any dependency changes.
 pub fn Effect::new(rt : Runtime, f : () -> Unit) -> Effect {
-  let effect_idx = rt.push_effects.length()
+  // Reuse a freed slot if available, otherwise append a new one.
+  let effect_idx = match rt.free_push_effects.pop() {
+    Some(idx) => idx
+    None => rt.push_effects.length()
+  }
   let cell_id = rt.alloc_cell_id(PushEffect(effect_idx))
   rt.push_node_count = rt.push_node_count + 1
-  rt.push_effects.push({
+  let new_data : PushEffectData = {
     cell_id,
     label: None,
     execute: f,
@@ -86,7 +90,12 @@ pub fn Effect::new(rt : Runtime, f : () -> Unit) -> Effect {
     level: 1,
     dirty: false,
     subscribers: @hashset.new(),
-  })
+  }
+  if effect_idx < rt.push_effects.length() {
+    rt.push_effects[effect_idx] = new_data
+  } else {
+    rt.push_effects.push(new_data)
+  }
   let ops : &CellOps = rt.push_effects[effect_idx]
   rt.cell_ops.push(ops)
   let effect : Effect = { cell_id, rt }
