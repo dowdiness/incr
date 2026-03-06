@@ -98,17 +98,17 @@ fn Runtime::pull_verify(
               dep_id.id.to_string(),
             )
           }
-          // Fixpoint guard: Relation/Rule deps cannot be verified during fixpoint
-          if self.datalog.in_fixpoint {
-            match self.core.cell_index[dep_id.id] {
-              Relation(_) | Rule(_) => {
+          // Single cell_index lookup: fixpoint guard + disposed check.
+          match self.core.cell_index[dep_id.id] {
+            Disposed => abort("pull_verify: dependency has been disposed")
+            Relation(_) | Rule(_) =>
+              if self.datalog.in_fixpoint {
                 clear_verify_stack(self, stack)
                 abort(
                   "pull_verify: cannot verify memo with Relation dependency during fixpoint()",
                 )
               }
-              _ => ()
-            }
+            _ => ()
           }
           let dep_ops = self.core.cell_ops[dep_id.id]
           match dep_ops.dep_changed_since(memo.verified_at) {
@@ -170,8 +170,7 @@ fn Runtime::pull_verify(
                       return Err(e)
                     }
                   }
-                Disposed => abort("pull_verify: dependency has been disposed")
-                _ => () // unreachable — only memo-like cells return None
+                _ => () // unreachable — Disposed caught above; only memo-like cells return None
               }
           }
         } else {
@@ -246,17 +245,20 @@ fn Runtime::pull_verify_hybrid(
   while idx < root.dependencies.length() && not(dep_changed) {
     let dep_id = root.dependencies[idx]
     idx = idx + 1
-    // Fixpoint guard: Relation/Rule deps cannot be verified during fixpoint
-    if self.datalog.in_fixpoint {
-      match self.core.cell_index[dep_id.id] {
-        Relation(_) | Rule(_) => {
+    // Single cell_index lookup: fixpoint guard + disposed check.
+    match self.core.cell_index[dep_id.id] {
+      Disposed => {
+        root.in_progress = false
+        abort("pull_verify_hybrid: dependency has been disposed")
+      }
+      Relation(_) | Rule(_) =>
+        if self.datalog.in_fixpoint {
           root.in_progress = false
           abort(
             "pull_verify_hybrid: cannot verify HybridMemo with Relation dependency during fixpoint()",
           )
         }
-        _ => ()
-      }
+      _ => ()
     }
     let dep_ops = self.core.cell_ops[dep_id.id]
     match dep_ops.dep_changed_since(verified_at_snap) {
@@ -287,11 +289,7 @@ fn Runtime::pull_verify_hybrid(
                 return Err(e)
               }
             }
-          Disposed => {
-            root.in_progress = false
-            abort("pull_verify_hybrid: dependency has been disposed")
-          }
-          _ => () // unreachable — only memo-like cells return None
+          _ => () // unreachable — Disposed caught above; only memo-like cells return None
         }
     }
   }
