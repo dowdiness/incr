@@ -74,13 +74,13 @@ pub fn[T] Signal::new(
 /// The current value of the signal
 pub fn[T] Signal::get(self : Signal[T]) -> T {
   let active_rt = current_computing_runtime_id.val
-  if active_rt >= 0 && active_rt != self.rt.runtime_id {
+  if active_rt >= 0 && active_rt != self.rt.core.runtime_id {
     // Reset before aborting so the test runner doesn't see dirty global state
     // if this panic is caught (e.g. by the test harness for panic tests).
     current_computing_runtime_id.val = -1
     abort(
       "Cross-runtime dependency: Signal belongs to Runtime " +
-      self.rt.runtime_id.to_string() +
+      self.rt.core.runtime_id.to_string() +
       " but is read inside a memo on Runtime " +
       active_rt.to_string(),
     )
@@ -164,7 +164,7 @@ pub fn[T] Signal::durability(self : Signal[T]) -> Durability {
 /// s.set(6)  // Bumps revision, memos depending on s will reverify
 /// ```
 pub fn[T : Eq] Signal::set(self : Signal[T], new_value : T) -> Unit {
-  if self.rt.batch_depth > 0 {
+  if self.rt.core.batch_depth > 0 {
     self.set_batch(new_value)
   } else {
     if self.value == new_value {
@@ -187,7 +187,7 @@ pub fn[T : Eq] Signal::set(self : Signal[T], new_value : T) -> Unit {
 ///
 /// - `new_value`: The new value to set
 pub fn[T] Signal::set_unconditional(self : Signal[T], new_value : T) -> Unit {
-  if self.rt.batch_depth > 0 {
+  if self.rt.core.batch_depth > 0 {
     self.set_batch_unconditional(new_value)
   } else {
     self.value = new_value
@@ -195,7 +195,7 @@ pub fn[T] Signal::set_unconditional(self : Signal[T], new_value : T) -> Unit {
     let sig = self.rt.mark_input_changed(self.cell_id)
     // Push propagation must run before per-signal callbacks so callback reads
     // cannot observe stale push-reactive state in the current revision.
-    if self.rt.push_node_count > 0 {
+    if self.rt.push.node_count > 0 {
       self.rt.push_propagate_from([self.cell_id])
     }
     match sig.on_change {

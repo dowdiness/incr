@@ -47,3 +47,8 @@ impl CellOps for PullMemoData with label(self) -> String? {
 impl CellOps for PullMemoData with durability(self) -> Durability {
   self.durability
 }
+
+///|
+impl CellOps for PullMemoData with dep_changed_since(_self, _verified_at) -> Bool? {
+  None
+}

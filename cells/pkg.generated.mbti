@@ -189,3 +189,7 @@ trait CellOps
 
 trait Committable
 
+trait RevisionManager
+
+trait Tracker
+

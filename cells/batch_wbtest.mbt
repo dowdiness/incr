@@ -8,13 +8,13 @@ test "batch: basic - single revision for multiple sets" {
   let rt = Runtime::new()
   let a = Signal::new(rt, 1)
   let b = Signal::new(rt, 2)
-  inspect(rt.current_revision.value, content="0")
+  inspect(rt.core.current_revision.value, content="0")
   rt.batch(() => {
     a.set(10)
     b.set(20)
   })
   // Only one revision bump for both sets
-  inspect(rt.current_revision.value, content="1")
+  inspect(rt.core.current_revision.value, content="1")
   inspect(a.get(), content="10")
   inspect(b.get(), content="20")
 }
@@ -34,7 +34,7 @@ test "batch: nested - only outermost commits" {
     // Inner batch should not have committed yet
   })
   // Single revision bump for all three sets
-  inspect(rt.current_revision.value, content="1")
+  inspect(rt.core.current_revision.value, content="1")
   inspect(a.get(), content="10")
   inspect(b.get(), content="20")
   inspect(c.get(), content="30")
@@ -45,7 +45,7 @@ test "batch: empty - no revision bump" {
   let rt = Runtime::new()
   let _a = Signal::new(rt, 1)
   rt.batch(() => ())
-  inspect(rt.current_revision.value, content="0")
+  inspect(rt.core.current_revision.value, content="0")
 }
 
 ///|
@@ -58,13 +58,13 @@ test "batch: mixed durabilities" {
     high.set(200)
   })
   // Single revision, max durability should be High
-  inspect(rt.current_revision.value, content="1")
+  inspect(rt.core.current_revision.value, content="1")
   inspect(low.get(), content="2")
   inspect(high.get(), content="200")
   // durability_last_changed should reflect High (covers all levels)
-  inspect(rt.durability_last_changed[0].value, content="1")
-  inspect(rt.durability_last_changed[1].value, content="1")
-  inspect(rt.durability_last_changed[2].value, content="1")
+  inspect(rt.core.durability_last_changed[0].value, content="1")
+  inspect(rt.core.durability_last_changed[1].value, content="1")
+  inspect(rt.core.durability_last_changed[2].value, content="1")
 }
 
 ///|
@@ -97,7 +97,7 @@ test "batch: same-value set is still no-op in batch" {
   rt.batch(() => a.set(42), // same value, should not record pending
   )
   // Same-value optimization still applies
-  inspect(rt.current_revision.value, content="0")
+  inspect(rt.core.current_revision.value, content="0")
 }
 
 ///|
@@ -120,7 +120,7 @@ test "batch: revert detection - set then revert is no-op" {
     a.set(0)
   })
   // No revision bump because the final value equals the original
-  inspect(rt.current_revision.value, content="0")
+  inspect(rt.core.current_revision.value, content="0")
   // Memo should not need to recompute
   inspect(doubled.get(), content="0")
   inspect(compute_count, content="1")
@@ -149,7 +149,7 @@ test "batch: multi-signal with mixed changes" {
     c.set(300)
   })
   // Revision should bump (a and c changed)
-  inspect(rt.current_revision.value, content="1")
+  inspect(rt.core.current_revision.value, content="1")
   inspect(a.get(), content="100")
   inspect(b.get(), content="20") // b is still 20
   inspect(c.get(), content="300")
@@ -204,10 +204,10 @@ test "batch: raised error rolls back pending writes and restores depth" {
     raise Stop
   })
   inspect(res is Err(_), content="true")
-  inspect(rt.batch_depth, content="0")
+  inspect(rt.core.batch_depth, content="0")
   inspect(sig.get(), content="0")
-  inspect(rt.current_revision.value, content="0")
-  inspect(rt.batch_pending.length(), content="0")
+  inspect(rt.core.current_revision.value, content="0")
+  inspect(rt.core.batch_pending.length(), content="0")
   // Ensure signal remains fully reusable after rollback.
   sig.set(100)
   inspect(sig.get(), content="100")
@@ -225,10 +225,10 @@ test "batch: nested raised error rolls back entire outer batch" {
     })
   })
   inspect(res is Err(_), content="true")
-  inspect(rt.batch_depth, content="0")
+  inspect(rt.core.batch_depth, content="0")
   inspect(sig.get(), content="0")
-  inspect(rt.current_revision.value, content="0")
-  inspect(rt.batch_pending.length(), content="0")
+  inspect(rt.core.current_revision.value, content="0")
+  inspect(rt.core.batch_pending.length(), content="0")
 }
 
 ///|
@@ -256,8 +256,8 @@ test "batch: failed inner batch_result rolls back before outer continues" {
   inspect(outer_only.get(), content="20")
   inspect(shared.get(), content="1")
   inspect(inner_only.get(), content="0")
-  inspect(rt.current_revision.value, content="1")
-  inspect(rt.batch_pending.length(), content="0")
+  inspect(rt.core.current_revision.value, content="1")
+  inspect(rt.core.batch_pending.length(), content="0")
 }
 
 ///|
@@ -281,7 +281,7 @@ test "batch_result: commits on success" {
   let res = rt.batch_result(() => sig.set(5))
   inspect(res is Ok(_), content="true")
   inspect(sig.get(), content="5")
-  inspect(rt.current_revision.value, content="1")
+  inspect(rt.core.current_revision.value, content="1")
 }
 
 ///|
@@ -294,7 +294,7 @@ test "batch_result: returns Err and rolls back" {
   })
   inspect(res is Err(_), content="true")
   inspect(sig.get(), content="0")
-  inspect(rt.current_revision.value, content="0")
+  inspect(rt.core.current_revision.value, content="0")
 }
 
 ///|
@@ -304,11 +304,11 @@ test "batch_result: returns Err and rolls back" {
 test "batch leak simulation: stale batch_depth defers writes" {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 0)
-  rt.batch_depth = 1
+  rt.core.batch_depth = 1
   sig.set(1)
   inspect(sig.get(), content="0")
-  inspect(rt.current_revision.value, content="0")
-  inspect(rt.batch_pending.length(), content="1")
+  inspect(rt.core.current_revision.value, content="0")
+  inspect(rt.core.batch_pending.length(), content="1")
 }
 
 ///|
@@ -317,13 +317,13 @@ test "batch leak simulation: stale batch_depth defers writes" {
 test "batch leak simulation: manual cleanup recovers state" {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 0)
-  rt.batch_depth = 1
+  rt.core.batch_depth = 1
   sig.set(1)
-  rt.batch_depth = 0
+  rt.core.batch_depth = 0
   rt.commit_batch()
   inspect(sig.get(), content="1")
-  inspect(rt.current_revision.value, content="1")
-  inspect(rt.batch_pending.length(), content="0")
+  inspect(rt.core.current_revision.value, content="1")
+  inspect(rt.core.batch_pending.length(), content="0")
 }
 
 ///|
@@ -332,7 +332,7 @@ test "panic batch: corrupted negative batch_depth triggers underflow abort" {
   // Directly corrupt batch_depth to simulate a future bug where an internal
   // decrement site is added without a matching increment.
   // batch() will: +1 (to 0), run f(), -1 (to -1), then hit the guard.
-  rt.batch_depth = -1
+  rt.core.batch_depth = -1
   rt.batch(() => ())
 }
 
@@ -344,7 +344,7 @@ test "panic batch: missing commit_pending aborts during commit_batch" {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 0)
   // Manually enter batch mode by directly setting batch_depth
-  rt.batch_depth = 1
+  rt.core.batch_depth = 1
   // set() detects batch_depth > 0 and calls set_batch, which registers
   // commit_pending and enqueues the signal as &Committable in batch_pending
   sig.set(1)
@@ -352,6 +352,6 @@ test "panic batch: missing commit_pending aborts during commit_batch" {
   let meta = rt.get_pull_signal(sig.id())
   meta.commit_pending = None
   // Manually exit batch and trigger commit_batch
-  rt.batch_depth = 0
+  rt.core.batch_depth = 0
   rt.commit_batch()
 }

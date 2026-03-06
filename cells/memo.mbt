@@ -66,10 +66,10 @@ pub fn[T : Eq] Memo::new(
   // Done inline because the compute closure must capture the typed `memo`
   // struct, which in turn requires the cell_id — creating a construction
   // cycle that prevents factoring this into a standalone Runtime method.
-  let memo_idx = rt.pull_memos.length()
+  let memo_idx = rt.pull.memos.length()
   let cell_id = rt.alloc_cell_id(PullMemo(memo_idx))
   let memo : Memo[T] = { label, rt, cell_id, compute, value: None }
-  rt.pull_memos.push({
+  rt.pull.memos.push({
     cell_id,
     label,
     compute: () => memo.recompute_inner(),
@@ -81,8 +81,8 @@ pub fn[T : Eq] Memo::new(
     in_progress: false,
     on_change: None,
   })
-  let ops : &CellOps = rt.pull_memos[memo_idx]
-  rt.cell_ops.push(ops)
+  let ops : &CellOps = rt.pull.memos[memo_idx]
+  rt.core.cell_ops.push(ops)
   memo
 }
 
@@ -142,18 +142,18 @@ pub fn[T : Eq] Memo::get(self : Memo[T]) -> T {
 /// ```
 pub fn[T : Eq] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
   let active_rt = current_computing_runtime_id.val
-  if active_rt >= 0 && active_rt != self.rt.runtime_id {
+  if active_rt >= 0 && active_rt != self.rt.core.runtime_id {
     // Reset before aborting so the test runner doesn't see dirty global state
     // if this panic is caught (e.g. by the test harness for panic tests).
     current_computing_runtime_id.val = -1
     abort(
       "Cross-runtime dependency: Memo belongs to Runtime " +
-      self.rt.runtime_id.to_string() +
+      self.rt.core.runtime_id.to_string() +
       " but is read inside a memo on Runtime " +
       active_rt.to_string(),
     )
   }
-  if self.rt.in_fixpoint {
+  if self.rt.datalog.in_fixpoint {
     abort(
       "Memo::get() cannot be called during fixpoint(); read relations directly or call get() after fixpoint() completes",
     )
@@ -173,7 +173,7 @@ pub fn[T : Eq] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
     Some(cached) => {
       // Fast path: already verified this revision
       let cell = self.rt.get_pull_memo(self.cell_id)
-      if cell.verified_at == self.rt.current_revision {
+      if cell.verified_at == self.rt.core.current_revision {
         self.rt.record_dependency(self.cell_id)
         return Ok(cached)
       }
@@ -288,10 +288,10 @@ fn[T : Eq] Memo::force_recompute(self : Memo[T]) -> Result[T, CycleError] {
   }
   self.value = Some(new_value)
   if value_changed {
-    cell.changed_at = self.rt.current_revision
+    cell.changed_at = self.rt.core.current_revision
   }
   // else: backdate — keep old changed_at (key Salsa insight)
-  cell.verified_at = self.rt.current_revision
+  cell.verified_at = self.rt.core.current_revision
   cell.in_progress = false
   Ok(new_value)
 }
@@ -436,6 +436,6 @@ pub fn[T] Memo::is_up_to_date(self : Memo[T]) -> Bool {
     None => false
     Some(_) =>
       self.rt.get_pull_memo(self.cell_id).verified_at ==
-      self.rt.current_revision
+      self.rt.core.current_revision
   }
 }

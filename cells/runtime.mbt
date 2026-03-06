@@ -46,6 +46,53 @@ fn BatchFrame::has_undo_for(self : BatchFrame, cell_id : CellId) -> Bool {
 }
 
 ///|
+/// Core runtime state: identity, revision tracking, batch management,
+/// and unified dispatch tables.
+priv struct RuntimeCore {
+  runtime_id : Int
+  mut current_revision : Revision
+  mut next_cell_id : Int
+  tracking_stack : Array[ActiveQuery]
+  durability_last_changed : FixedArray[Revision]
+  mut batch_depth : Int
+  batch_pending : Array[&Committable]
+  batch_frames : Array[BatchFrame]
+  mut batch_max_durability : Durability
+  mut on_change : (() -> Unit)?
+  cell_index : Array[CellRef]
+  cell_ops : Array[&CellOps]
+}
+
+///|
+/// Pull-mode SoA storage (lazy verification).
+priv struct PullState {
+  signals : Array[PullSignalData]
+  memos : Array[PullMemoData]
+}
+
+///|
+/// Push-mode SoA storage (eager propagation).
+priv struct PushState {
+  reactives : Array[PushReactiveData]
+  effects : Array[PushEffectData]
+  free_reactives : Array[Int]
+  free_effects : Array[Int]
+  /// Count of live push cells (reactives + effects + hybrid memos).
+  /// Used as an O(1) gate before push propagation.
+  mut node_count : Int
+  hybrid_memos : Array[HybridMemoData]
+  hybrid_dirty : Array[CellId]
+}
+
+///|
+/// Datalog SoA storage (fixpoint evaluation).
+priv struct DatalogState {
+  mut in_fixpoint : Bool
+  relations : Array[RelationData]
+  rules : Array[RuleData]
+}
+
+///|
 /// Central coordinator for the incremental computation framework.
 ///
 /// The Runtime manages all bookkeeping for dependency tracking, revision
@@ -62,39 +109,10 @@ fn BatchFrame::has_undo_for(self : BatchFrame, cell_id : CellId) -> Bool {
 /// let doubled = Memo(rt, () => x.get() * 2)
 /// ```
 pub(all) struct Runtime {
-  priv runtime_id : Int
-  priv mut current_revision : Revision
-  priv mut next_cell_id : Int
-  priv tracking_stack : Array[ActiveQuery]
-  priv durability_last_changed : FixedArray[Revision]
-  priv mut batch_depth : Int
-  priv batch_pending : Array[&Committable]
-  priv batch_frames : Array[BatchFrame]
-  priv mut batch_max_durability : Durability
-  priv mut on_change : (() -> Unit)?
-  // SoA storage arrays
-  priv pull_signals : Array[PullSignalData]
-  priv pull_memos : Array[PullMemoData]
-  priv push_reactives : Array[PushReactiveData]
-  priv push_effects : Array[PushEffectData]
-  priv free_push_reactives : Array[Int]
-  priv free_push_effects : Array[Int]
-  /// Count of live push cells (reactives + effects). Used as an O(1) gate
-  /// before push propagation: if 0, no push cells exist and propagation is
-  /// skipped entirely without traversing the memo subscriber graph.
-  priv mut push_node_count : Int
-  priv cell_index : Array[CellRef]
-  // Trait object dispatch (indexed by CellId.id, parallel to cell_index)
-  priv cell_ops : Array[&CellOps]
-  // HybridMemo SoA storage
-  priv hybrid_memos : Array[HybridMemoData]
-  /// IDs of hybrid memos that have been dirtied by push propagation and
-  /// need recomputation on the next `get()`.
-  priv hybrid_dirty : Array[CellId]
-  // Datalog SoA storage
-  priv mut in_fixpoint : Bool
-  priv relations : Array[RelationData]
-  priv rules : Array[RuleData]
+  priv core : RuntimeCore
+  priv pull : PullState
+  priv push : PushState
+  priv datalog : DatalogState
 
   fn new(on_change? : () -> Unit) -> Runtime
 }
@@ -130,33 +148,34 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
   let id = next_runtime_id.val
   next_runtime_id.val = next_runtime_id.val + 1
   {
-    runtime_id: id,
-    current_revision: Revision::initial(),
-    next_cell_id: 0,
-    tracking_stack: [],
-    durability_last_changed: FixedArray::make(
-      @incr_types.DURABILITY_COUNT,
-      Revision::initial(),
-    ),
-    batch_depth: 0,
-    batch_pending: [],
-    batch_frames: [],
-    batch_max_durability: Low,
-    on_change,
-    pull_signals: [],
-    pull_memos: [],
-    push_reactives: [],
-    push_effects: [],
-    free_push_reactives: [],
-    free_push_effects: [],
-    push_node_count: 0,
-    cell_index: [],
-    cell_ops: [],
-    hybrid_memos: [],
-    hybrid_dirty: [],
-    in_fixpoint: false,
-    relations: [],
-    rules: [],
+    core: {
+      runtime_id: id,
+      current_revision: Revision::initial(),
+      next_cell_id: 0,
+      tracking_stack: [],
+      durability_last_changed: FixedArray::make(
+        @incr_types.DURABILITY_COUNT,
+        Revision::initial(),
+      ),
+      batch_depth: 0,
+      batch_pending: [],
+      batch_frames: [],
+      batch_max_durability: Low,
+      on_change,
+      cell_index: [],
+      cell_ops: [],
+    },
+    pull: { signals: [], memos: [] },
+    push: {
+      reactives: [],
+      effects: [],
+      free_reactives: [],
+      free_effects: [],
+      node_count: 0,
+      hybrid_memos: [],
+      hybrid_dirty: [],
+    },
+    datalog: { in_fixpoint: false, relations: [], rules: [] },
   }
 }
 
@@ -190,9 +209,9 @@ pub(all) struct CellInfo {
 /// Increments `next_cell_id` and returns the new CellId without touching
 /// `cell_index`. Used by `alloc_cell_id(CellRef)`.
 fn Runtime::alloc_next_id(self : Runtime) -> CellId {
-  let id = self.next_cell_id
-  self.next_cell_id = id + 1
-  { runtime_id: self.runtime_id, id }
+  let id = self.core.next_cell_id
+  self.core.next_cell_id = id + 1
+  { runtime_id: self.core.runtime_id, id }
 }
 
 ///|
@@ -207,7 +226,7 @@ fn Runtime::alloc_next_id(self : Runtime) -> CellId {
 /// A new unique cell identifier
 fn Runtime::alloc_cell_id(self : Runtime, cell_ref : CellRef) -> CellId {
   let cell_id = self.alloc_next_id()
-  self.cell_index.push(cell_ref)
+  self.core.cell_index.push(cell_ref)
   cell_id
 }
 
@@ -228,9 +247,9 @@ fn Runtime::new_signal_id(
   durability : Durability,
   label : String?,
 ) -> CellId {
-  let idx = self.pull_signals.length()
+  let idx = self.pull.signals.length()
   let cell_id = self.alloc_cell_id(PullSignal(idx))
-  self.pull_signals.push({
+  self.pull.signals.push({
     cell_id,
     label,
     changed_at: Revision::initial(),
@@ -239,8 +258,8 @@ fn Runtime::new_signal_id(
     on_change: None,
     commit_pending: None,
   })
-  let ops : &CellOps = self.pull_signals[idx]
-  self.cell_ops.push(ops)
+  let ops : &CellOps = self.pull.signals[idx]
+  self.core.cell_ops.push(ops)
   cell_id
 }
 
@@ -255,12 +274,12 @@ fn Runtime::new_signal_id(
 /// Array of CellIds for all pull memos with `in_progress = true`
 fn Runtime::collect_in_progress_path(self : Runtime) -> Array[CellId] {
   let path : Array[CellId] = []
-  for memo in self.pull_memos {
+  for memo in self.pull.memos {
     if memo.in_progress {
       path.push(memo.cell_id)
     }
   }
-  for hybrid in self.hybrid_memos {
+  for hybrid in self.push.hybrid_memos {
     if hybrid.in_progress {
       path.push(hybrid.cell_id)
     }
@@ -273,25 +292,25 @@ fn Runtime::collect_in_progress_path(self : Runtime) -> Array[CellId] {
 ///
 /// Covers PullSignal and PullMemo; aborts on unknown or out-of-bounds IDs.
 fn Runtime::get_changed_at(self : Runtime, id : CellId) -> Revision {
-  if id.runtime_id != self.runtime_id {
+  if id.runtime_id != self.core.runtime_id {
     abort("Cell belongs to a different Runtime")
   }
-  if id.id < 0 || id.id >= self.cell_ops.length() {
+  if id.id < 0 || id.id >= self.core.cell_ops.length() {
     abort("get_changed_at: cell_id out of bounds: " + id.id.to_string())
   }
-  self.cell_ops[id.id].changed_at()
+  self.core.cell_ops[id.id].changed_at()
 }
 
 ///|
 /// Returns the `durability` for any cell, dispatching via cell_index.
 fn Runtime::get_durability(self : Runtime, id : CellId) -> Durability {
-  if id.runtime_id != self.runtime_id {
+  if id.runtime_id != self.core.runtime_id {
     abort("Cell belongs to a different Runtime")
   }
-  if id.id < 0 || id.id >= self.cell_ops.length() {
+  if id.id < 0 || id.id >= self.core.cell_ops.length() {
     abort("get_durability: cell_id out of bounds: " + id.id.to_string())
   }
-  self.cell_ops[id.id].durability()
+  self.core.cell_ops[id.id].durability()
 }
 
 ///|
@@ -301,14 +320,14 @@ fn Runtime::get_durability(self : Runtime, id : CellId) -> Durability {
 /// CellRef index back to the unified CellId without an extra map.
 fn Runtime::cell_id_for(self : Runtime, cell_ref : CellRef) -> CellId {
   match cell_ref {
-    PullSignal(idx) => self.pull_signals[idx].cell_id
-    PullMemo(idx) => self.pull_memos[idx].cell_id
-    PushReactive(idx) => self.push_reactives[idx].cell_id
-    PushEffect(idx) => self.push_effects[idx].cell_id
-    HybridMemo(idx) => self.hybrid_memos[idx].cell_id
+    PullSignal(idx) => self.pull.signals[idx].cell_id
+    PullMemo(idx) => self.pull.memos[idx].cell_id
+    PushReactive(idx) => self.push.reactives[idx].cell_id
+    PushEffect(idx) => self.push.effects[idx].cell_id
+    HybridMemo(idx) => self.push.hybrid_memos[idx].cell_id
     Disposed => abort("cell_id_for: cell has been disposed")
-    Relation(idx) => self.relations[idx].cell_id
-    Rule(idx) => self.rules[idx].cell_id
+    Relation(idx) => self.datalog.relations[idx].cell_id
+    Rule(idx) => self.datalog.rules[idx].cell_id
   }
 }
 
@@ -319,14 +338,14 @@ fn Runtime::cell_id_for(self : Runtime, cell_ref : CellRef) -> CellId {
 ///
 /// Aborts if the cell belongs to a different runtime or is not a signal.
 fn Runtime::get_pull_signal(self : Runtime, id : CellId) -> PullSignalData {
-  if id.runtime_id != self.runtime_id {
+  if id.runtime_id != self.core.runtime_id {
     abort("Cell belongs to a different Runtime")
   }
-  if id.id < 0 || id.id >= self.cell_index.length() {
+  if id.id < 0 || id.id >= self.core.cell_index.length() {
     abort("get_pull_signal: cell_id out of bounds: " + id.id.to_string())
   }
-  match self.cell_index[id.id] {
-    PullSignal(idx) => self.pull_signals[idx]
+  match self.core.cell_index[id.id] {
+    PullSignal(idx) => self.pull.signals[idx]
     _ =>
       abort(
         "Expected signal cell but found different kind: " + id.id.to_string(),
@@ -341,14 +360,14 @@ fn Runtime::get_pull_signal(self : Runtime, id : CellId) -> PullSignalData {
 ///
 /// Aborts if the cell belongs to a different runtime or is not a memo.
 fn Runtime::get_pull_memo(self : Runtime, id : CellId) -> PullMemoData {
-  if id.runtime_id != self.runtime_id {
+  if id.runtime_id != self.core.runtime_id {
     abort("Cell belongs to a different Runtime")
   }
-  if id.id < 0 || id.id >= self.cell_index.length() {
+  if id.id < 0 || id.id >= self.core.cell_index.length() {
     abort("get_pull_memo: cell_id out of bounds: " + id.id.to_string())
   }
-  match self.cell_index[id.id] {
-    PullMemo(idx) => self.pull_memos[idx]
+  match self.core.cell_index[id.id] {
+    PullMemo(idx) => self.pull.memos[idx]
     _ =>
       abort("Expected memo cell but found different kind: " + id.id.to_string())
   }
@@ -357,14 +376,14 @@ fn Runtime::get_pull_memo(self : Runtime, id : CellId) -> PullMemoData {
 ///|
 /// Returns the HybridMemoData for a hybrid memo cell.
 fn Runtime::get_hybrid_memo(self : Runtime, id : CellId) -> HybridMemoData {
-  if id.runtime_id != self.runtime_id {
+  if id.runtime_id != self.core.runtime_id {
     abort("Cell belongs to a different Runtime")
   }
-  if id.id < 0 || id.id >= self.cell_index.length() {
+  if id.id < 0 || id.id >= self.core.cell_index.length() {
     abort("get_hybrid_memo: cell_id out of bounds: " + id.id.to_string())
   }
-  match self.cell_index[id.id] {
-    HybridMemo(idx) => self.hybrid_memos[idx]
+  match self.core.cell_index[id.id] {
+    HybridMemo(idx) => self.push.hybrid_memos[idx]
     _ =>
       abort(
         "Expected hybrid memo cell but found different kind: " +
@@ -380,13 +399,13 @@ fn Runtime::get_hybrid_memo(self : Runtime, id : CellId) -> HybridMemoData {
 /// notified when a cell's value changes. Phase 3 extends this with
 /// `PushReactive`, `PushEffect`, and `Disposed` arms.
 fn Runtime::get_subscribers(self : Runtime, cell_id : CellId) -> Iter[CellId] {
-  if cell_id.runtime_id != self.runtime_id {
+  if cell_id.runtime_id != self.core.runtime_id {
     abort("Cell belongs to a different Runtime")
   }
-  if cell_id.id < 0 || cell_id.id >= self.cell_ops.length() {
+  if cell_id.id < 0 || cell_id.id >= self.core.cell_ops.length() {
     abort("get_subscribers: cell_id out of bounds: " + cell_id.id.to_string())
   }
-  self.cell_ops[cell_id.id].subscribers().iter()
+  self.core.cell_ops[cell_id.id].subscribers().iter()
 }
 
 ///|
@@ -396,13 +415,13 @@ fn Runtime::remove_subscriber(
   dep : CellId,
   subscriber : CellId,
 ) -> Unit {
-  if dep.runtime_id != self.runtime_id {
+  if dep.runtime_id != self.core.runtime_id {
     abort("Cell belongs to a different Runtime")
   }
-  if dep.id < 0 || dep.id >= self.cell_ops.length() {
+  if dep.id < 0 || dep.id >= self.core.cell_ops.length() {
     abort("remove_subscriber: dep cell_id out of bounds: " + dep.id.to_string())
   }
-  self.cell_ops[dep.id].subscribers().remove(subscriber)
+  self.core.cell_ops[dep.id].subscribers().remove(subscriber)
 }
 
 ///|
@@ -412,13 +431,13 @@ fn Runtime::add_subscriber(
   dep : CellId,
   subscriber : CellId,
 ) -> Unit {
-  if dep.runtime_id != self.runtime_id {
+  if dep.runtime_id != self.core.runtime_id {
     abort("Cell belongs to a different Runtime")
   }
-  if dep.id < 0 || dep.id >= self.cell_ops.length() {
+  if dep.id < 0 || dep.id >= self.core.cell_ops.length() {
     abort("add_subscriber: dep cell_id out of bounds: " + dep.id.to_string())
   }
-  self.cell_ops[dep.id].subscribers().add(subscriber)
+  self.core.cell_ops[dep.id].subscribers().add(subscriber)
 }
 
 ///|
@@ -429,19 +448,19 @@ fn Runtime::add_subscriber(
 ///
 /// - `f`: The callback to invoke on change
 pub fn Runtime::set_on_change(self : Runtime, f : () -> Unit) -> Unit {
-  self.on_change = Some(f)
+  self.core.on_change = Some(f)
 }
 
 ///|
 /// Removes the on_change callback.
 pub fn Runtime::clear_on_change(self : Runtime) -> Unit {
-  self.on_change = None
+  self.core.on_change = None
 }
 
 ///|
 /// Fires the on_change callback if one is registered.
 fn Runtime::fire_on_change(self : Runtime) -> Unit {
-  match self.on_change {
+  match self.core.on_change {
     Some(f) => f()
     None => ()
   }
@@ -497,14 +516,14 @@ fn Runtime::fire_on_change(self : Runtime) -> Unit {
 /// - For memos, dependencies are populated after the first computation
 /// - The method performs bounds checking and returns None for invalid IDs
 pub fn Runtime::cell_info(self : Runtime, id : CellId) -> CellInfo? {
-  if id.runtime_id != self.runtime_id {
+  if id.runtime_id != self.core.runtime_id {
     return None
   }
-  if id.id < 0 || id.id >= self.cell_index.length() {
+  if id.id < 0 || id.id >= self.core.cell_index.length() {
     return None
   }
-  let ops = self.cell_ops[id.id]
-  match self.cell_index[id.id] {
+  let ops = self.core.cell_ops[id.id]
+  match self.core.cell_index[id.id] {
     PullSignal(_) => {
       let ca = ops.changed_at()
       Some(CellInfo::{
@@ -519,7 +538,7 @@ pub fn Runtime::cell_info(self : Runtime, id : CellId) -> CellInfo? {
       })
     }
     PullMemo(idx) => {
-      let memo = self.pull_memos[idx]
+      let memo = self.pull.memos[idx]
       Some(CellInfo::{
         label: ops.label(),
         id,
@@ -564,24 +583,24 @@ fn snapshot_subscribers(
 /// Array of CellIds that have `id` in their dependency list, or empty
 /// array if the cell ID is not valid for this runtime
 pub fn Runtime::dependents(self : Runtime, id : CellId) -> Array[CellId] {
-  if id.runtime_id != self.runtime_id {
+  if id.runtime_id != self.core.runtime_id {
     return []
   }
-  if id.id < 0 || id.id >= self.cell_index.length() {
+  if id.id < 0 || id.id >= self.core.cell_index.length() {
     return []
   }
-  snapshot_subscribers(self.cell_ops[id.id].subscribers())
+  snapshot_subscribers(self.core.cell_ops[id.id].subscribers())
 }
 
 ///|
 /// Advance the global revision counter and record which durability level changed.
 /// Updates current_revision and all durability_last_changed entries up to dur_idx.
 /// Callers must ensure this is only called outside of a batch (batch_depth == 0).
-fn Runtime::advance_revision(self : Runtime, durability : Durability) -> Unit {
-  self.current_revision = Revision::next(self.current_revision)
+impl RevisionManager for Runtime with advance_revision(self, durability) {
+  self.core.current_revision = Revision::next(self.core.current_revision)
   let dur_idx = durability.index()
   for i = 0; i <= dur_idx; i = i + 1 {
-    self.durability_last_changed[i] = self.current_revision
+    self.core.durability_last_changed[i] = self.core.current_revision
   }
 }
 
@@ -591,7 +610,7 @@ fn Runtime::advance_revision(self : Runtime, durability : Durability) -> Unit {
 /// Must be called after advance_revision so current_revision is already updated.
 fn Runtime::mark_input_changed(self : Runtime, id : CellId) -> PullSignalData {
   let sig = self.get_pull_signal(id)
-  sig.changed_at = self.current_revision
+  sig.changed_at = self.core.current_revision
   sig
 }
 
@@ -607,11 +626,11 @@ fn Runtime::mark_input_changed(self : Runtime, id : CellId) -> PullSignalData {
 /// # Parameters
 ///
 /// - `durability`: The durability level of the signal that changed
-fn Runtime::bump_revision(self : Runtime, durability : Durability) -> Unit {
-  if self.batch_depth > 0 {
+impl RevisionManager for Runtime with bump_revision(self, durability) {
+  if self.core.batch_depth > 0 {
     // Track the maximum durability seen during this batch
-    if durability > self.batch_max_durability {
-      self.batch_max_durability = durability
+    if durability > self.core.batch_max_durability {
+      self.core.batch_max_durability = durability
     }
     return
   }
@@ -662,25 +681,25 @@ fn Runtime::bump_revision(self : Runtime, durability : Durability) -> Unit {
 /// MoonBit `abort()` is not catchable. If `f` aborts (rather than raises),
 /// cleanup cannot run and runtime state may be left inconsistent.
 pub fn Runtime::batch(self : Runtime, f : () -> Unit raise?) -> Unit raise? {
-  self.batch_depth = self.batch_depth + 1
-  self.batch_frames.push(BatchFrame::new())
+  self.core.batch_depth = self.core.batch_depth + 1
+  self.core.batch_frames.push(BatchFrame::new())
   f() catch {
     e => {
-      self.batch_depth = self.batch_depth - 1
-      if self.batch_depth < 0 {
+      self.core.batch_depth = self.core.batch_depth - 1
+      if self.core.batch_depth < 0 {
         abort("batch_depth underflow: batch() nesting is unbalanced")
       }
       self.rollback_current_batch_frame()
       raise e
     }
   }
-  self.batch_depth = self.batch_depth - 1
+  self.core.batch_depth = self.core.batch_depth - 1
   // Defense-in-depth: batch_depth is priv, but guard future modifications to mutation sites
-  if self.batch_depth < 0 {
+  if self.core.batch_depth < 0 {
     abort("batch_depth underflow: batch() nesting is unbalanced")
   }
   self.complete_batch_frame_success()
-  if self.batch_depth == 0 {
+  if self.core.batch_depth == 0 {
     self.commit_batch()
   }
 }
@@ -701,7 +720,7 @@ pub fn Runtime::batch_result(
 ///|
 /// Rolls back only the currently failing batch frame.
 fn Runtime::rollback_current_batch_frame(self : Runtime) -> Unit {
-  match self.batch_frames.pop() {
+  match self.core.batch_frames.pop() {
     Some(frame) => {
       let mut i = frame.undo_entries.length()
       while i > 0 {
@@ -719,12 +738,12 @@ fn Runtime::rollback_current_batch_frame(self : Runtime) -> Unit {
 /// - Outermost success: discard undo log.
 /// - Nested success: merge child frame entries into parent for outer rollback.
 fn Runtime::complete_batch_frame_success(self : Runtime) -> Unit {
-  match self.batch_frames.pop() {
+  match self.core.batch_frames.pop() {
     Some(frame) => {
-      if self.batch_frames.length() == 0 {
+      if self.core.batch_frames.length() == 0 {
         return
       }
-      let parent = self.batch_frames[self.batch_frames.length() - 1]
+      let parent = self.core.batch_frames[self.core.batch_frames.length() - 1]
       for entry in frame.undo_entries {
         if not(parent.has_undo_for(entry.cell_id)) {
           parent.undo_entries.push(entry)
@@ -744,19 +763,19 @@ fn Runtime::complete_batch_frame_success(self : Runtime) -> Unit {
 /// global on_change callback exactly once if anything changed.
 fn Runtime::commit_batch(self : Runtime) -> Unit {
   let mut any_changed = false
-  while self.batch_pending.length() > 0 {
+  while self.core.batch_pending.length() > 0 {
     // Phase 1: commit pending values and collect which actually changed
     let changed : Array[&Committable] = []
-    for c in self.batch_pending {
+    for c in self.core.batch_pending {
       if c.do_commit() {
         changed.push(c)
       }
     }
-    self.batch_pending.clear()
+    self.core.batch_pending.clear()
     // Phase 2: if any value actually changed, do a single revision bump
     if changed.length() > 0 {
       any_changed = true
-      self.advance_revision(self.batch_max_durability)
+      self.advance_revision(self.core.batch_max_durability)
       // Sweep changed signals: update changed_at and snapshot on_change callbacks.
       // Handlers are captured here — before any callback executes — so that a
       // callback calling clear_on_change() or on_change() on another changed signal
@@ -771,25 +790,25 @@ fn Runtime::commit_batch(self : Runtime) -> Unit {
       }
       // Push propagation must run before per-signal callbacks so callback
       // reads observe fully-updated push-reactive state for this wave.
-      if self.push_node_count > 0 {
+      if self.push.node_count > 0 {
         let changed_ids : Array[CellId] = changed.map(c => c.cell_id())
         self.push_propagate_from(changed_ids)
       }
-      self.batch_max_durability = Low
+      self.core.batch_max_durability = Low
       // Raise batch_depth while invoking callbacks so that any signal.set()
       // inside a callback takes the batch path instead of set_unconditional,
       // preventing re-entrant fire_on_change() calls.
       // If callbacks queue more signals, the while loop will process them.
-      self.batch_depth = self.batch_depth + 1
+      self.core.batch_depth = self.core.batch_depth + 1
       for cb in callbacks {
         cb()
       }
-      self.batch_depth = self.batch_depth - 1
+      self.core.batch_depth = self.core.batch_depth - 1
     } else {
-      self.batch_max_durability = Low
+      self.core.batch_max_durability = Low
     }
   }
-  self.batch_max_durability = Low
+  self.core.batch_max_durability = Low
   // Fire global on_change exactly once after all waves complete.
   if any_changed {
     self.fire_on_change()
@@ -810,7 +829,7 @@ fn Runtime::record_batch_signal(
   self : Runtime,
   committable : &Committable,
 ) -> Unit {
-  self.batch_pending.push(committable)
+  self.core.batch_pending.push(committable)
 }
 
 ///|
@@ -824,10 +843,10 @@ fn Runtime::record_batch_rollback(
   // Some internal batch-like flows (e.g. commit callbacks) temporarily
   // raise batch_depth without creating an undo frame. In this mode, writes
   // still use batch commit mechanics, but there is no user-visible frame to roll back.
-  if self.batch_frames.length() == 0 {
+  if self.core.batch_frames.length() == 0 {
     return
   }
-  let frame = self.batch_frames[self.batch_frames.length() - 1]
+  let frame = self.core.batch_frames[self.core.batch_frames.length() - 1]
   if frame.has_undo_for(cell_id) {
     return
   }
@@ -844,16 +863,16 @@ fn Runtime::record_batch_rollback(
 fn Runtime::remove_batch_signal(self : Runtime, cell_id : CellId) -> Unit {
   let kept : Array[&Committable] = []
   let mut removed = false
-  for c in self.batch_pending {
+  for c in self.core.batch_pending {
     if not(removed) && c.cell_id() == cell_id {
       removed = true
     } else {
       kept.push(c)
     }
   }
-  self.batch_pending.clear()
+  self.core.batch_pending.clear()
   for c in kept {
-    self.batch_pending.push(c)
+    self.core.batch_pending.push(c)
   }
 }
 
@@ -861,13 +880,13 @@ fn Runtime::remove_batch_signal(self : Runtime, cell_id : CellId) -> Unit {
 /// Recompute max durability from currently pending signals.
 fn Runtime::recompute_batch_max_durability(self : Runtime) -> Unit {
   let mut max_durability : Durability = Low
-  for c in self.batch_pending {
+  for c in self.core.batch_pending {
     let d = c.durability()
     if d > max_durability {
       max_durability = d
     }
   }
-  self.batch_max_durability = max_durability
+  self.core.batch_max_durability = max_durability
 }
 
 ///|
@@ -880,10 +899,10 @@ fn Runtime::recompute_batch_max_durability(self : Runtime) -> Unit {
 /// # Parameters
 ///
 /// - `dep`: The cell ID that the current memo depends on
-fn Runtime::record_dependency(self : Runtime, dep : CellId) -> Unit {
-  let len = self.tracking_stack.length()
+impl Tracker for Runtime with record_dependency(self, dep) {
+  let len = self.core.tracking_stack.length()
   if len > 0 {
-    self.tracking_stack[len - 1].record(dep)
+    self.core.tracking_stack[len - 1].record(dep)
   }
 }
 
@@ -896,9 +915,9 @@ fn Runtime::record_dependency(self : Runtime, dep : CellId) -> Unit {
 /// # Parameters
 ///
 /// - `cell_id`: The ID of the memo being computed
-fn Runtime::push_tracking(self : Runtime, cell_id : CellId) -> Unit {
-  current_computing_runtime_id.val = self.runtime_id
-  self.tracking_stack.push(ActiveQuery(cell_id))
+impl Tracker for Runtime with push_tracking(self, cell_id) {
+  current_computing_runtime_id.val = self.core.runtime_id
+  self.core.tracking_stack.push(ActiveQuery(cell_id))
 }
 
 ///|
@@ -914,12 +933,10 @@ fn Runtime::push_tracking(self : Runtime, cell_id : CellId) -> Unit {
 /// # Panics
 ///
 /// Aborts if the tracking stack is empty (unbalanced push/pop)
-fn Runtime::pop_tracking(
-  self : Runtime,
-) -> (Array[CellId], @hashset.HashSet[CellId]) {
-  match self.tracking_stack.pop() {
+impl Tracker for Runtime with pop_tracking(self) {
+  match self.core.tracking_stack.pop() {
     Some(query) => {
-      if self.tracking_stack.length() == 0 {
+      if self.core.tracking_stack.length() == 0 {
         current_computing_runtime_id.val = -1
       }
       (query.dependencies, query.seen)
@@ -996,16 +1013,16 @@ fn Runtime::finish_tracking(
 ///
 /// See `Reactive::dispose` and Task 7 for the full implementation.
 fn Runtime::dispose_reactive(self : Runtime, cell_id : CellId) -> Unit {
-  if cell_id.id < 0 || cell_id.id >= self.cell_index.length() {
+  if cell_id.id < 0 || cell_id.id >= self.core.cell_index.length() {
     return
   }
-  match self.cell_index[cell_id.id] {
+  match self.core.cell_index[cell_id.id] {
     PushReactive(idx) => {
-      let reactive = self.push_reactives[idx]
+      let reactive = self.push.reactives[idx]
       for dep in reactive.sources {
         self.remove_subscriber(dep, cell_id)
       }
-      self.cell_index[cell_id.id] = Disposed
+      self.core.cell_index[cell_id.id] = Disposed
       // Clear slot in-place to release captured closures and graph edges.
       // Both push_reactives[idx] and cell_ops[cell_id.id] reference the same
       // heap object, so mutations here are visible through both references.
@@ -1014,8 +1031,8 @@ fn Runtime::dispose_reactive(self : Runtime, cell_id : CellId) -> Unit {
       reactive.subscribers.clear()
       reactive.label = None
       reactive.dirty = false
-      self.free_push_reactives.push(idx)
-      self.push_node_count = self.push_node_count - 1
+      self.push.free_reactives.push(idx)
+      self.push.node_count = self.push.node_count - 1
     }
     _ => ()
   }
@@ -1025,24 +1042,24 @@ fn Runtime::dispose_reactive(self : Runtime, cell_id : CellId) -> Unit {
 /// Disposes a push effect cell, removing it from all subscriber sets
 /// and marking its cell_index slot as Disposed.
 fn Runtime::dispose_effect(self : Runtime, cell_id : CellId) -> Unit {
-  if cell_id.id < 0 || cell_id.id >= self.cell_index.length() {
+  if cell_id.id < 0 || cell_id.id >= self.core.cell_index.length() {
     return
   }
-  match self.cell_index[cell_id.id] {
+  match self.core.cell_index[cell_id.id] {
     PushEffect(idx) => {
-      let effect = self.push_effects[idx]
+      let effect = self.push.effects[idx]
       for dep in effect.sources {
         self.remove_subscriber(dep, cell_id)
       }
-      self.cell_index[cell_id.id] = Disposed
+      self.core.cell_index[cell_id.id] = Disposed
       // Clear slot in-place to release captured closures and graph edges.
       effect.execute = () => ()
       effect.sources = []
       effect.subscribers.clear()
       effect.label = None
       effect.dirty = false
-      self.free_push_effects.push(idx)
-      self.push_node_count = self.push_node_count - 1
+      self.push.free_effects.push(idx)
+      self.push.node_count = self.push.node_count - 1
     }
     _ => ()
   }
@@ -1055,7 +1072,7 @@ fn Runtime::dispose_effect(self : Runtime, cell_id : CellId) -> Unit {
 /// for use in cycle error diagnostics. Does not modify the stack.
 fn Runtime::collect_tracking_path(self : Runtime) -> Array[CellId] {
   let path : Array[CellId] = []
-  for frame in self.tracking_stack {
+  for frame in self.core.tracking_stack {
     path.push(frame.cell_id)
   }
   path

@@ -22,11 +22,11 @@ test "tracking: finish_tracking adds memo to dep subscribers" {
   let _ = sig.get()
   let new_deps = rt.end_tracking()
   rt.finish_tracking(m.id(), [], new_deps)
-  let sig_idx = match rt.cell_index[sig.id().id] {
+  let sig_idx = match rt.core.cell_index[sig.id().id] {
     PullSignal(i) => i
     _ => abort("expected PullSignal")
   }
-  inspect(rt.pull_signals[sig_idx].subscribers.contains(m.id()), content="true")
+  inspect(rt.pull.signals[sig_idx].subscribers.contains(m.id()), content="true")
 }
 
 ///|

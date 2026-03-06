@@ -26,14 +26,10 @@ impl Compare for PushEntry with compare(self, other) {
 /// push graph. Push reactives use their stored `level`. Disposed cells
 /// and effects return 0 (effects are leaf nodes, not read by others).
 fn Runtime::get_level(self : Runtime, cell_id : CellId) -> Int {
-  if cell_id.id < 0 || cell_id.id >= self.cell_index.length() {
+  if cell_id.id < 0 || cell_id.id >= self.core.cell_ops.length() {
     return 0
   }
-  match self.cell_index[cell_id.id] {
-    PullSignal(_) | PullMemo(_) => 0
-    PushReactive(idx) => self.push_reactives[idx].level
-    PushEffect(_) | HybridMemo(_) | Disposed | Relation(_) | Rule(_) => 0
-  }
+  self.core.cell_ops[cell_id.id].level()
 }
 
 ///|
@@ -74,9 +70,9 @@ fn Runtime::propagate_level_change(
   while worklist.length() > 0 {
     let parent = worklist.pop().unwrap()
     for sub_id in self.get_subscribers(parent) {
-      match self.cell_index[sub_id.id] {
+      match self.core.cell_index[sub_id.id] {
         PushReactive(i) => {
-          let node = self.push_reactives[i]
+          let node = self.push.reactives[i]
           let new_level = self.recompute_level(sub_id, node.sources)
           if new_level != node.level {
             node.level = new_level
@@ -90,7 +86,7 @@ fn Runtime::propagate_level_change(
           }
         }
         PushEffect(i) => {
-          let node = self.push_effects[i]
+          let node = self.push.effects[i]
           let new_level = self.recompute_level(sub_id, node.sources)
           if new_level != node.level {
             node.level = new_level
@@ -145,27 +141,27 @@ fn Runtime::push_propagate_from(
       let id = bfs_worklist[wi]
       wi += 1
       for sub_id in self.get_subscribers(id) {
-        match self.cell_index[sub_id.id] {
+        match self.core.cell_index[sub_id.id] {
           PushReactive(i) =>
-            if not(self.push_reactives[i].dirty) {
-              self.push_reactives[i].dirty = true
+            if not(self.push.reactives[i].dirty) {
+              self.push.reactives[i].dirty = true
               update_queue.push({
-                neg_level: -self.push_reactives[i].level,
+                neg_level: -self.push.reactives[i].level,
                 cell_ref: CellRef::PushReactive(i),
               })
             }
           PushEffect(i) =>
-            if not(self.push_effects[i].dirty) {
-              self.push_effects[i].dirty = true
+            if not(self.push.effects[i].dirty) {
+              self.push.effects[i].dirty = true
               update_queue.push({
-                neg_level: -self.push_effects[i].level,
+                neg_level: -self.push.effects[i].level,
                 cell_ref: CellRef::PushEffect(i),
               })
             }
           HybridMemo(i) => {
-            if not(self.hybrid_memos[i].dirty) {
-              self.hybrid_memos[i].dirty = true
-              self.hybrid_dirty.push(sub_id)
+            if not(self.push.hybrid_memos[i].dirty) {
+              self.push.hybrid_memos[i].dirty = true
+              self.push.hybrid_dirty.push(sub_id)
             }
             bfs_worklist.push(sub_id) // bridge through hybrid memos
           }
@@ -185,13 +181,13 @@ fn Runtime::push_propagate_from(
     let queued_level = -entry.neg_level
     match entry.cell_ref {
       PushReactive(idx) => {
-        let reactive = self.push_reactives[idx]
+        let reactive = self.push.reactives[idx]
         // Stale entry check: level may have been updated by propagate_level_change
         if queued_level != reactive.level {
           continue
         }
         // Disposal check: another node may have disposed this reactive mid-wave
-        match self.cell_index[reactive.cell_id.id] {
+        match self.core.cell_index[reactive.cell_id.id] {
           PushReactive(_) => ()
           _ => continue
         }
@@ -216,17 +212,17 @@ fn Runtime::push_propagate_from(
           self.propagate_level_change(reactive_cell_id, update_queue)
         }
         if changed {
-          reactive.changed_at = self.current_revision
+          reactive.changed_at = self.core.current_revision
           enqueue_push_subscribers(reactive_cell_id)
         }
       }
       PushEffect(idx) => {
-        let effect = self.push_effects[idx]
+        let effect = self.push.effects[idx]
         if queued_level != effect.level {
           continue
         }
         // Disposal check: another node may have disposed this effect mid-wave
-        match self.cell_index[effect.cell_id.id] {
+        match self.core.cell_index[effect.cell_id.id] {
           PushEffect(_) => ()
           _ => continue
         }
@@ -250,5 +246,5 @@ fn Runtime::push_propagate_from(
   // hybrid_dirty is populated during enqueue_push_subscribers but only
   // needed during this propagation wave. Clear it so it doesn't accumulate
   // across repeated non-batch signal sets.
-  self.hybrid_dirty.clear()
+  self.push.hybrid_dirty.clear()
 }

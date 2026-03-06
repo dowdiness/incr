@@ -56,6 +56,11 @@ impl CellOps for PushReactiveData with durability(self) -> Durability {
 }
 
 ///|
+impl CellOps for PushReactiveData with level(self) -> Int {
+  self.level
+}
+
+///|
 /// Typed handle for a push-mode reactive cell.
 pub struct ReactiveId[T] {
   id : CellId
@@ -98,12 +103,12 @@ pub fn[T : Eq] Reactive::new(rt : Runtime, compute_fn : () -> T) -> Reactive[T] 
     changed
   }
   // Reuse a freed slot if available, otherwise append a new one.
-  let reactive_idx = match rt.free_push_reactives.pop() {
+  let reactive_idx = match rt.push.free_reactives.pop() {
     Some(idx) => idx
-    None => rt.push_reactives.length()
+    None => rt.push.reactives.length()
   }
   let cell_id = rt.alloc_cell_id(PushReactive(reactive_idx))
-  rt.push_node_count = rt.push_node_count + 1
+  rt.push.node_count = rt.push.node_count + 1
   let new_data : PushReactiveData = {
     cell_id,
     label: None,
@@ -114,20 +119,20 @@ pub fn[T : Eq] Reactive::new(rt : Runtime, compute_fn : () -> T) -> Reactive[T] 
     level: 1,
     dirty: false,
   }
-  if reactive_idx < rt.push_reactives.length() {
-    rt.push_reactives[reactive_idx] = new_data
+  if reactive_idx < rt.push.reactives.length() {
+    rt.push.reactives[reactive_idx] = new_data
   } else {
-    rt.push_reactives.push(new_data)
+    rt.push.reactives.push(new_data)
   }
-  let ops : &CellOps = rt.push_reactives[reactive_idx]
-  rt.cell_ops.push(ops)
+  let ops : &CellOps = rt.push.reactives[reactive_idx]
+  rt.core.cell_ops.push(ops)
   let reactive : Reactive[T] = { cell_id: { id: cell_id }, value, rt }
   // Initial compute: establish dependencies and set initial value.
   rt.begin_tracking(cell_id)
   let _ = compute()
   let new_sources = rt.end_tracking()
-  rt.push_reactives[reactive_idx].sources = new_sources
-  rt.push_reactives[reactive_idx].level = rt.recompute_level(
+  rt.push.reactives[reactive_idx].sources = new_sources
+  rt.push.reactives[reactive_idx].level = rt.recompute_level(
     cell_id, new_sources,
   )
   rt.finish_tracking(cell_id, [], new_sources)
@@ -144,11 +149,11 @@ pub fn[T] Reactive::get(self : Reactive[T]) -> T {
   // Cross-runtime check (mirrors Signal::get): abort rather than silently
   // recording a dependency from the wrong runtime's tracking stack.
   let active_rt = current_computing_runtime_id.val
-  if active_rt >= 0 && active_rt != self.rt.runtime_id {
+  if active_rt >= 0 && active_rt != self.rt.core.runtime_id {
     current_computing_runtime_id.val = -1
     abort(
       "Cross-runtime dependency: Reactive belongs to Runtime " +
-      self.rt.runtime_id.to_string() +
+      self.rt.core.runtime_id.to_string() +
       " but is read inside a computation on Runtime " +
       active_rt.to_string(),
     )
@@ -156,7 +161,7 @@ pub fn[T] Reactive::get(self : Reactive[T]) -> T {
   // Disposal check: reading after dispose() returns stale data and records
   // an invalid dependency; abort instead.
   let cell_id = self.cell_id.id
-  match self.rt.cell_index[cell_id.id] {
+  match self.rt.core.cell_index[cell_id.id] {
     Disposed => abort("Reactive::get called on a disposed reactive")
     _ => ()
   }

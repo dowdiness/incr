@@ -17,8 +17,8 @@ test "cell_ref: Relation and Rule variants exist" {
 ///|
 test "runtime: relation and rule arrays start empty" {
   let rt = Runtime::new()
-  inspect(rt.relations.length(), content="0")
-  inspect(rt.rules.length(), content="0")
+  inspect(rt.datalog.relations.length(), content="0")
+  inspect(rt.datalog.rules.length(), content="0")
 }
 
 ///|
@@ -27,7 +27,7 @@ test "new_rule: registers rule with input and output relations" {
   let input : Relation[String] = Relation::new(rt)
   let output : Relation[String] = Relation::new(rt)
   let rule_id = rt.new_rule([input.id()], [output.id()], () => ())
-  inspect(rt.rules.length(), content="1")
+  inspect(rt.datalog.rules.length(), content="1")
   let _ = rule_id // just check it was created
 }
 
@@ -242,7 +242,7 @@ test "panic fixpoint: aborts inside a batch" {
   let rt = Runtime::new()
   let rel : Relation[Int] = Relation::new(rt)
   rel.insert(1) |> ignore
-  rt.batch_depth = 1
+  rt.core.batch_depth = 1
   rt.fixpoint()
 }
 
@@ -250,12 +250,12 @@ test "panic fixpoint: aborts inside a batch" {
 test "get_changed_at: relation changed_at updated by fixpoint" {
   let rt = Runtime::new()
   let rel : Relation[Int] = Relation::new(rt)
-  let rev_before = rt.current_revision
+  let rev_before = rt.core.current_revision
   rel.insert(1) |> ignore
   rt.fixpoint()
-  let rel_idx = match rt.cell_index[rel.id().id] {
+  let rel_idx = match rt.core.cell_index[rel.id().id] {
     Relation(i) => i
     _ => abort("")
   }
-  inspect(rt.relations[rel_idx].changed_at > rev_before, content="true")
+  inspect(rt.datalog.relations[rel_idx].changed_at > rev_before, content="true")
 }
