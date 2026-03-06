@@ -300,6 +300,8 @@ fn Runtime::cell_id_for(self : Runtime, cell_ref : CellRef) -> CellId {
     PushEffect(idx) => self.push_effects[idx].cell_id
     HybridMemo(idx) => self.hybrid_memos[idx].cell_id
     Disposed => abort("cell_id_for: cell has been disposed")
+    Relation(_) | Rule(_) =>
+      abort("cell_id_for: Relation/Rule not yet initialized")
   }
 }
 

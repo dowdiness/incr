@@ -16,5 +16,6 @@ pub enum CellRef {
   PushEffect(Int)
   HybridMemo(Int)
   Disposed
-  // Relation, Rule added in Phase 4
+  Relation(Int)
+  Rule(Int)
 }
