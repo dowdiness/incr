@@ -115,3 +115,22 @@ test "on_change optional param defaults to none" {
   s.set(1)
   inspect(count, content="0")
 }
+
+///|
+test "on_change fires for relation-derived updates via fixpoint" {
+  let rt = Runtime::new()
+  let mut count = 0
+  rt.set_on_change(() => count = count + 1)
+  let edge : Relation[(String, String)] = Relation::new(rt)
+  let path : Relation[(String, String)] = Relation::new(rt)
+  let _ = rt.new_rule([edge.id()], [path.id()], fn() {
+    for e in edge.delta_iter() {
+      path.insert(e) |> ignore
+    }
+  })
+  edge.insert(("a", "b")) |> ignore
+  rt.fixpoint()
+  inspect(count, content="1")
+  rt.fixpoint()
+  inspect(count, content="1")
+}

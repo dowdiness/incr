@@ -65,5 +65,6 @@ pub fn Runtime::fixpoint(self : Runtime) -> Unit {
     if self.push_node_count > 0 {
       self.push_propagate_from(changed_ids)
     }
+    self.fire_on_change()
   }
 }
