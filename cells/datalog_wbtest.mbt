@@ -153,6 +153,34 @@ test "fixpoint: pull memo depending on relation contains recomputes after fixpoi
 }
 
 ///|
+test "panic fixpoint: Memo::get() inside rule body aborts" {
+  let rt = Runtime::new()
+  let rel : Relation[Int] = Relation::new(rt)
+  let m = Memo::new(rt, () => rel.iter().fold(init=0, (acc, x) => acc + x))
+  // Pre-verify the memo so the fast-path would otherwise return stale data
+  inspect(m.get(), content="0")
+  let _ = rt.new_rule([rel.id()], [rel.id()], () => {
+    // This must abort — Memo::get() during fixpoint could return stale values
+    let _ = m.get()
+  })
+  rel.insert(1) |> ignore
+  rt.fixpoint()
+}
+
+///|
+test "panic fixpoint: HybridMemo::get() inside rule body aborts" {
+  let rt = Runtime::new()
+  let rel : Relation[Int] = Relation::new(rt)
+  let h = HybridMemo::new(rt, () => rel.iter().fold(init=0, (acc, x) => acc + x))
+  inspect(h.get(), content="0")
+  let _ = rt.new_rule([rel.id()], [rel.id()], () => {
+    let _ = h.get()
+  })
+  rel.insert(1) |> ignore
+  rt.fixpoint()
+}
+
+///|
 test "panic relation: iter cross-runtime read aborts inside memo" {
   let rt_a = Runtime::new()
   let rt_b = Runtime::new()

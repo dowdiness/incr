@@ -83,6 +83,11 @@ pub fn[T : Eq] HybridMemo::get(self : HybridMemo[T]) -> T {
       active_rt.to_string(),
     )
   }
+  if self.rt.in_fixpoint {
+    abort(
+      "HybridMemo::get() cannot be called during fixpoint(); read relations directly or call get() after fixpoint() completes",
+    )
+  }
   match self.value {
     None =>
       match self.force_recompute() {
