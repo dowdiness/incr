@@ -183,6 +183,15 @@ test "fixpoint: terminates when no new facts derived" {
 }
 
 ///|
+test "panic fixpoint: aborts inside a batch" {
+  let rt = Runtime::new()
+  let rel : Relation[Int] = Relation::new(rt)
+  rel.insert(1) |> ignore
+  rt.batch_depth = 1
+  rt.fixpoint()
+}
+
+///|
 test "get_changed_at: relation changed_at updated by fixpoint" {
   let rt = Runtime::new()
   let rel : Relation[Int] = Relation::new(rt)

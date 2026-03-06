@@ -13,6 +13,9 @@ pub fn Runtime::fixpoint(self : Runtime) -> Unit {
   if self.in_fixpoint {
     abort("fixpoint: re-entrant fixpoint() is not supported")
   }
+  if self.batch_depth > 0 {
+    abort("fixpoint: cannot run fixpoint() inside a batch")
+  }
   // Track which relation SoA indices changed during this fixpoint run
   let num_relations = self.relations.length()
   let changed : Array[Bool] = Array::make(num_relations, false)
