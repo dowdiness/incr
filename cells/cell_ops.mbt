@@ -85,7 +85,7 @@ impl CellOps with dep_changed_since(self, verified_at) -> Bool? {
 /// a memo's compute function.
 ///
 /// Not used for polymorphic dispatch — purely organizational.
-trait Tracker {
+priv trait Tracker {
   push_tracking(Self, CellId) -> Unit
   pop_tracking(Self) -> (Array[CellId], @hashset.HashSet[CellId])
   record_dependency(Self, CellId) -> Unit
@@ -98,7 +98,7 @@ trait Tracker {
 /// the monotonic revision counter and per-durability change tracking.
 ///
 /// Not used for polymorphic dispatch — purely organizational.
-trait RevisionManager {
+priv trait RevisionManager {
   advance_revision(Self, Durability) -> Unit
   bump_revision(Self, Durability) -> Unit
 }
