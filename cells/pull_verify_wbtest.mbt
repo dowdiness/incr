@@ -33,3 +33,16 @@ test "pull_verify: stale memo recomputes on next get" {
   let _ = rt.pull_verify(m.id())
   inspect(m.get(), content="15")
 }
+
+///|
+test "panic pull_verify: disposed dependency aborts verification" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 1)
+  let unrelated = Signal::new(rt, 0)
+  let r = Reactive::new(rt, () => sig.get() * 2)
+  let m = Memo::new(rt, () => r.get() + 1)
+  inspect(m.get(), content="3")
+  r.dispose()
+  unrelated.set(1) // bump revision so memo must re-verify deps
+  let _ = m.get()
+}

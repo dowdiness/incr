@@ -138,6 +138,19 @@ test "hybrid regression: push propagation traverses hybrid to reactive" {
 }
 
 ///|
+test "panic hybrid verify: disposed dependency aborts verification" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 1)
+  let unrelated = Signal::new(rt, 0)
+  let r = Reactive::new(rt, () => sig.get() * 2)
+  let h = HybridMemo::new(rt, () => r.get() + 1)
+  inspect(h.get(), content="3")
+  r.dispose()
+  unrelated.set(1) // bump revision so hybrid verify path runs again
+  let _ = h.get()
+}
+
+///|
 test "panic hybrid: cross-runtime get aborts" {
   let rt_a = Runtime::new()
   let rt_b = Runtime::new()
