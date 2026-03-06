@@ -16,6 +16,7 @@ pub using @internal {
   type CycleError,
   type TrackedCell,
   type HybridMemo,
+  type Relation,
 }
 
 // Note: @internal alias above refers to dowdiness/incr/cells (renamed from
