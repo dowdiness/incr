@@ -2,7 +2,7 @@
 package "dowdiness/incr"
 
 import {
-  "dowdiness/incr/internal",
+  "dowdiness/incr/cells",
   "dowdiness/incr/types",
 }
 
@@ -13,15 +13,17 @@ pub fn[Db : Database] batch(Db, () -> Unit raise?) -> Unit raise?
 
 pub fn[Db : Database] batch_result(Db, () -> Unit raise?) -> Result[Unit, Error]
 
-pub fn[Db : Database, T : Eq] create_memo(Db, () -> T, label? : String) -> @internal.Memo[T]
+pub fn[Db : Database, T : Eq] create_hybrid_memo(Db, () -> T, label? : String) -> @cells.HybridMemo[T]
 
-pub fn[Db : Database, K, V] create_memo_map(Db, (K) -> V, label? : String) -> @internal.MemoMap[K, V]
+pub fn[Db : Database, T : Eq] create_memo(Db, () -> T, label? : String) -> @cells.Memo[T]
 
-pub fn[Db : Database, T] create_signal(Db, T, durability? : @types.Durability, label? : String) -> @internal.Signal[T]
+pub fn[Db : Database, K, V] create_memo_map(Db, (K) -> V, label? : String) -> @cells.MemoMap[K, V]
 
-pub fn[Db : Database, T] create_tracked_cell(Db, T, durability? : @types.Durability, label? : String) -> @internal.TrackedCell[T]
+pub fn[Db : Database, T] create_signal(Db, T, durability? : @types.Durability, label? : String) -> @cells.Signal[T]
 
-pub fn[T : Trackable] gc_tracked(@internal.Runtime, T) -> Unit
+pub fn[Db : Database, T] create_tracked_cell(Db, T, durability? : @types.Durability, label? : String) -> @cells.TrackedCell[T]
+
+pub fn[T : Trackable] gc_tracked(@cells.Runtime, T) -> Unit
 
 // Errors
 
@@ -30,35 +32,40 @@ pub fn[T : Trackable] gc_tracked(@internal.Runtime, T) -> Unit
 // Type aliases
 pub using @types {type CellId}
 
-pub using @internal {type CellInfo}
+pub using @cells {type CellInfo}
 
-pub using @internal {type CycleError}
+pub using @cells {type CycleError}
 
 pub using @types {type Durability}
 
-pub using @internal {type Memo}
+pub using @cells {type HybridMemo}
 
-pub using @internal {type MemoMap}
+pub using @cells {type Memo}
+
+pub using @cells {type MemoMap}
+
+pub using @cells {type Relation}
 
 pub using @types {type Revision}
 
-pub using @internal {type Runtime}
+pub using @cells {type Runtime}
 
-pub using @internal {type Signal}
+pub using @cells {type Signal}
 
-pub using @internal {type TrackedCell}
+pub using @cells {type TrackedCell}
 
 // Traits
 pub(open) trait Database {
-  runtime(Self) -> @internal.Runtime
+  runtime(Self) -> @cells.Runtime
 }
 
 pub(open) trait Readable {
   is_up_to_date(Self) -> Bool
 }
-pub impl[T] Readable for @internal.Memo[T]
-pub impl[T] Readable for @internal.Signal[T]
-pub impl[T] Readable for @internal.TrackedCell[T]
+pub impl[T] Readable for @cells.HybridMemo[T]
+pub impl[T] Readable for @cells.Memo[T]
+pub impl[T] Readable for @cells.Signal[T]
+pub impl[T] Readable for @cells.TrackedCell[T]
 
 pub(open) trait Trackable {
   cell_ids(Self) -> Array[@types.CellId]
