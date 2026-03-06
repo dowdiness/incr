@@ -185,9 +185,9 @@ test "panic relation: iter cross-runtime read aborts inside memo" {
   let rt_a = Runtime::new()
   let rt_b = Runtime::new()
   let rel_b : Relation[Int] = Relation::new(rt_b)
-  let memo_a = Memo::new(rt_a, () =>
+  let memo_a = Memo::new(rt_a, () => {
     rel_b.iter().fold(init=0, (acc, x) => acc + x)
-  )
+  })
   let _ = memo_a.get()
 }
 
@@ -208,6 +208,33 @@ test "fixpoint: terminates when no new facts derived" {
   rel.insert(1) |> ignore
   rt.fixpoint() // must not loop forever
   inspect(rel.contains(1), content="true")
+}
+
+///|
+test "fixpoint: relation created during rule execution converges in same call" {
+  let rt = Runtime::new()
+  let seed : Relation[Int] = Relation::new(rt)
+  let derived_ref : Ref[Relation[Int]?] = { val: None }
+  let _ = rt.new_rule([seed.id()], [], () => {
+    let derived = match derived_ref.val {
+      Some(rel) => rel
+      None => {
+        let rel : Relation[Int] = Relation::new(rt)
+        derived_ref.val = Some(rel)
+        rel
+      }
+    }
+    for n in seed.delta_iter() {
+      derived.insert(n + 1) |> ignore
+    }
+  })
+  seed.insert(1) |> ignore
+  rt.fixpoint()
+  let derived = match derived_ref.val {
+    Some(rel) => rel
+    None => abort("expected derived relation to exist")
+  }
+  inspect(derived.contains(2), content="true")
 }
 
 ///|

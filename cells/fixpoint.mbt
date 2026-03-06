@@ -17,37 +17,44 @@ pub fn Runtime::fixpoint(self : Runtime) -> Unit {
     abort("fixpoint: cannot run fixpoint() inside a batch")
   }
   // Track which relation SoA indices changed during this fixpoint run
-  let num_relations = self.relations.length()
-  let changed : Array[Bool] = Array::make(num_relations, false)
+  let changed : Array[Bool] = []
   // Mark relations with pre-existing non-empty deltas
-  for i = 0; i < num_relations; i = i + 1 {
-    if not((self.relations[i].is_delta_empty)()) {
-      changed[i] = true
-    }
+  for rel in self.relations {
+    changed.push(not((rel.is_delta_empty)()))
   }
   self.in_fixpoint = true
   // Fixpoint loop
   for {
     // Materialize the current frontier while keeping it readable via delta_iter.
-    for rel in self.relations {
-      (rel.drain_delta)()
+    let mut ri = 0
+    while ri < self.relations.length() {
+      (self.relations[ri].drain_delta)()
+      ri = ri + 1
     }
     // Apply all rules
     for rule in self.rules {
       (rule.apply_delta)()
     }
+    // Rules may add relations during fixpoint; track any new entries.
+    while changed.length() < self.relations.length() {
+      changed.push(false)
+    }
     // Check convergence over staged deltas + mark changed in a single pass
     let mut has_new_facts = false
-    for i = 0; i < num_relations; i = i + 1 {
-      if not((self.relations[i].is_staged_delta_empty)()) {
+    ri = 0
+    while ri < self.relations.length() {
+      if not((self.relations[ri].is_staged_delta_empty)()) {
         has_new_facts = true
-        changed[i] = true
+        changed[ri] = true
       }
+      ri = ri + 1
     }
     // Next iteration frontier = this iteration's newly derived facts
     // (and old frontier is cleared).
-    for rel in self.relations {
-      (rel.promote_staged_delta)()
+    ri = 0
+    while ri < self.relations.length() {
+      (self.relations[ri].promote_staged_delta)()
+      ri = ri + 1
     }
     if not(has_new_facts) {
       break
@@ -56,10 +63,12 @@ pub fn Runtime::fixpoint(self : Runtime) -> Unit {
   self.in_fixpoint = false
   // Collect changed cell IDs
   let changed_ids : Array[CellId] = []
-  for i = 0; i < num_relations; i = i + 1 {
-    if changed[i] {
-      changed_ids.push(self.relations[i].cell_id)
+  let mut ri = 0
+  while ri < self.relations.length() {
+    if changed[ri] {
+      changed_ids.push(self.relations[ri].cell_id)
     }
+    ri = ri + 1
   }
   if changed_ids.length() > 0 {
     self.advance_revision(Low)

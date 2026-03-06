@@ -60,9 +60,7 @@ fn Runtime::pull_verify(
     HybridMemo(_) => Ok(()) // freshness managed by HybridMemo::get
     Relation(_) | Rule(_) => {
       if self.in_fixpoint {
-        abort(
-          "pull_verify: cannot verify Relation/Rule during fixpoint()",
-        )
+        abort("pull_verify: cannot verify Relation/Rule during fixpoint()")
       }
       Ok(())
     }
