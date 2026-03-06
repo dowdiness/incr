@@ -1,5 +1,7 @@
 # Datalog Primitives: Relation, Rule, Fixpoint
 
+**Status:** Complete
+
 **Goal:** Add Datalog primitives: `Relation[T]` (set of tuples with delta tracking), `Rule` (derives new facts from deltas), and `Runtime::fixpoint()` (fixpoint evaluation loop). Relations integrate with the pull verification system via `changed_at`, so pull memos can depend on relation results without a bridge layer.
 
 **Architecture:** See `docs/incr-unified-design.md` §3.5–3.6, §4.3, §7.6–7.7, §8, §9 for data structures, type erasure pattern, and fixpoint algorithm.

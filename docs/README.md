@@ -56,6 +56,12 @@ All documentation for the `incr` incremental computation library.
 | [todo.md](todo.md) | Implementation tasks | Contributors |
 | [api-updates.md](api-updates.md) | Change summary | Contributors, maintainers |
 
+### Archive (Completed Plans)
+
+| Document | Purpose |
+|----------|---------|
+| [archive/2026-03-03-datalog-primitives.md](archive/2026-03-03-datalog-primitives.md) | Datalog primitives: Relation, Rule, Fixpoint |
+
 ## Quick Links
 
 **Most Common Paths:**

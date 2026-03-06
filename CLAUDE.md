@@ -44,21 +44,35 @@ dowdiness/incr/
 │
 ├── cells/                      (all engine implementation + unit tests)
 │   ├── cell.mbt                (using @incr_types declaration; CellMeta/CellKind removed)
-│   ├── cell_ref.mbt            (CellRef enum: PullSignal | PullMemo | PushReactive | PushEffect | HybridMemo | Disposed)
+│   ├── cell_ref.mbt            (CellRef enum: PullSignal | PullMemo | PushReactive | PushEffect | HybridMemo | Relation | Rule | Disposed)
 │   ├── cell_ops.mbt            (CellOps trait — 6-method read interface; Committable trait — batch commit interface)
+│   │
+│   │   # Pull mode (lazy verification)
 │   ├── pull_signal.mbt         (PullSignalData — SoA entry for input cells; CellOps + Committable impls)
 │   ├── pull_memo.mbt           (PullMemoData — SoA entry for derived cells; CellOps impl)
+│   ├── signal.mbt              (Signal[T])
+│   ├── memo.mbt                (Memo[T])
+│   ├── verify.mbt              (pull_verify, PullVerifyFrame, clear_verify_stack)
+│   │
+│   │   # Push mode (eager propagation)
+│   ├── push_reactive.mbt       (PushReactiveData — SoA entry for push-mode derived cells)
+│   ├── push_effect.mbt         (PushEffectData — SoA entry for push-mode side-effect cells)
+│   ├── push_propagate.mbt      (push_propagate_from, propagate_level_change — level-sorted push propagation)
+│   │
+│   │   # Hybrid mode (push dirty flags + pull verification)
+│   ├── hybrid_memo.mbt         (HybridMemo[T] — hybrid push-pull memo; HybridMemoData SoA entry)
+│   │
+│   │   # Datalog mode (fixpoint evaluation)
+│   ├── datalog_relation.mbt    (Relation[T] — set with delta tracking; RelationData SoA entry)
+│   ├── datalog_rule.mbt        (RuleData — derives new facts; Runtime::new_rule)
+│   ├── datalog_fixpoint.mbt    (Runtime::fixpoint — semi-naive fixpoint evaluation)
+│   │
+│   │   # Shared
 │   ├── cycle.mbt               (CycleError)
 │   ├── tracking.mbt            (ActiveQuery)
 │   ├── runtime.mbt             (Runtime, CellInfo)
-│   ├── verify.mbt              (pull_verify, PullVerifyFrame, clear_verify_stack)
-│   ├── signal.mbt              (Signal[T])
-│   ├── memo.mbt                (Memo[T])
 │   ├── tracked_cell.mbt        (TrackedCell[T])
-│   ├── hybrid_memo.mbt         (HybridMemo[T] — hybrid push-pull memo; HybridMemoData SoA entry)
-│   ├── reactive.mbt            (PushReactiveData — SoA entry for push-mode derived cells)
-│   ├── effect.mbt              (PushEffectData — SoA entry for push-mode side-effect cells)
-│   ├── propagate.mbt           (push_propagate_from, propagate_level_change — level-sorted push propagation)
+│   ├── memo_map.mbt            (MemoMap[K, V] — keyed memoization)
 │   ├── *_test.mbt              (unit tests — black-box tests of the cells package)
 │   └── *_wbtest.mbt            (whitebox tests — co-located for private field access)
 │

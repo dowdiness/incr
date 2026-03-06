@@ -145,7 +145,8 @@ High-level future direction for the `incr` library, organized by phase. Each pha
 - **Accumulator queries**: Support Salsa-style accumulators that collect values across the dependency graph
 - **Interning**: Deduplicate structurally equal values to reduce memory and speed up equality checks
 - **Garbage collection**: Reclaim cells that are no longer reachable from any live memo or signal. Requires subscriber links for reference tracking.
-- **Datalog primitives**: `Relation[T]` (set with delta tracking), `Rule` (derives facts), `Runtime::fixpoint()` (semi-naive evaluation)
+- ~~**Datalog primitives**: `Relation[T]` (set with delta tracking), `Rule` (derives facts), `Runtime::fixpoint()` (semi-naive evaluation)~~ ✓ Implemented
+- **Runtime modularization**: Investigate decomposing Runtime god object into composable subsystems per propagation mode (pull, push, hybrid, datalog) to improve maintainability without breaking encapsulation
 
 ## Phase 5 — Ecosystem
 
