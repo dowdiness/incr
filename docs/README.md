@@ -56,6 +56,12 @@ All documentation for the `incr` incremental computation library.
 | [todo.md](todo.md) | Implementation tasks | Contributors |
 | [api-updates.md](api-updates.md) | Change summary | Contributors, maintainers |
 
+### Active Plans
+
+| Document | Purpose |
+|----------|---------|
+| [plans/2026-03-06-runtime-modularization-design.md](plans/2026-03-06-runtime-modularization-design.md) | Runtime modularization via refunctionalized CellOps + sub-structs |
+
 ### Archive (Completed Plans)
 
 | Document | Purpose |
