@@ -58,7 +58,14 @@ fn Runtime::pull_verify(
     PullSignal(_) => Ok(()) // always fresh
     PushReactive(_) | PushEffect(_) => Ok(()) // freshness via push_propagate_from
     HybridMemo(_) => Ok(()) // freshness managed by HybridMemo::get
-    Relation(_) | Rule(_) => Ok(()) // freshness managed by fixpoint()
+    Relation(_) | Rule(_) => {
+      if self.in_fixpoint {
+        abort(
+          "pull_verify: cannot verify Relation/Rule during fixpoint()",
+        )
+      }
+      Ok(())
+    }
     Disposed => abort("pull_verify: cell has been disposed")
     PullMemo(root_idx) => {
       let root = self.pull_memos[root_idx]
@@ -94,11 +101,23 @@ fn Runtime::pull_verify(
             )
           }
           match self.cell_index[dep_id.id] {
-            PushReactive(_) | PushEffect(_) | Relation(_) | Rule(_) =>
+            PushReactive(_) | PushEffect(_) =>
               if self.cell_ops[dep_id.id].changed_at() > memo.verified_at {
                 stack[top].changed = true
                 stack[top].dep_cursor = memo.dependencies.length()
               }
+            Relation(_) | Rule(_) => {
+              if self.in_fixpoint {
+                clear_verify_stack(self, stack)
+                abort(
+                  "pull_verify: cannot verify memo with Relation dependency during fixpoint()",
+                )
+              }
+              if self.cell_ops[dep_id.id].changed_at() > memo.verified_at {
+                stack[top].changed = true
+                stack[top].dep_cursor = memo.dependencies.length()
+              }
+            }
             HybridMemo(_) =>
               match self.pull_verify_hybrid(dep_id) {
                 Ok(_) =>
@@ -243,10 +262,21 @@ fn Runtime::pull_verify_hybrid(
             return Err(e)
           }
         }
-      PushReactive(_) | PushEffect(_) | Relation(_) | Rule(_) =>
+      PushReactive(_) | PushEffect(_) =>
         if self.cell_ops[dep_id.id].changed_at() > verified_at_snap {
           dep_changed = true
         }
+      Relation(_) | Rule(_) => {
+        if self.in_fixpoint {
+          root.in_progress = false
+          abort(
+            "pull_verify_hybrid: cannot verify HybridMemo with Relation dependency during fixpoint()",
+          )
+        }
+        if self.cell_ops[dep_id.id].changed_at() > verified_at_snap {
+          dep_changed = true
+        }
+      }
       HybridMemo(_) =>
         match self.pull_verify_hybrid(dep_id) {
           Ok(_) =>

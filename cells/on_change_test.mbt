@@ -123,7 +123,7 @@ test "on_change fires for relation-derived updates via fixpoint" {
   rt.set_on_change(() => count = count + 1)
   let edge : Relation[(String, String)] = Relation::new(rt)
   let path : Relation[(String, String)] = Relation::new(rt)
-  let _ = rt.new_rule([edge.id()], [path.id()], fn() {
+  let _ = rt.new_rule([edge.id()], [path.id()], () => {
     for e in edge.delta_iter() {
       path.insert(e) |> ignore
     }
