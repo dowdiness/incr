@@ -59,3 +59,70 @@ test "panic new_rule: non-relation cell_id in inputs aborts" {
   let sig = Signal::new(rt, 1)
   rt.new_rule([sig.id()], [], fn() { () }) |> ignore
 }
+
+///|
+test "relation: iter reads from current (post-fixpoint)" {
+  let rt = Runtime::new()
+  let rel : Relation[Int] = Relation::new(rt)
+  let _ = rel.insert(10)
+  let _ = rel.insert(20)
+  rt.fixpoint()
+  let sum = rel.iter().fold(init=0, fn(acc, x) { acc + x })
+  inspect(sum, content="30")
+}
+
+///|
+test "fixpoint: transitive closure — edge(a,b)+edge(b,c) derives path(a,c)" {
+  let rt = Runtime::new()
+  let edge : Relation[(String, String)] = Relation::new(rt)
+  let path : Relation[(String, String)] = Relation::new(rt)
+  let _ = rt.new_rule(
+    [edge.id()],
+    [path.id()],
+    fn() {
+      // path(x,y) :- edge(x,y)  [only new edges this iteration]
+      for e in edge.delta_iter() {
+        path.insert(e) |> ignore
+      }
+      // path(x,z) :- path(x,y), edge(y,z)  [current × current join]
+      for p in path.iter() {
+        for e in edge.iter() {
+          if p.1 == e.0 {
+            path.insert((p.0, e.1)) |> ignore
+          }
+        }
+      }
+    },
+  )
+  edge.insert(("a", "b")) |> ignore
+  edge.insert(("b", "c")) |> ignore
+  rt.fixpoint()
+  inspect(path.contains(("a", "b")), content="true")
+  inspect(path.contains(("b", "c")), content="true")
+  inspect(path.contains(("a", "c")), content="true")
+  inspect(path.contains(("a", "a")), content="false")
+}
+
+///|
+test "fixpoint: pull memo depending on relation recomputes after fixpoint" {
+  let rt = Runtime::new()
+  let rel : Relation[Int] = Relation::new(rt)
+  let m = Memo::new(rt, fn() { rel.iter().fold(init=0, fn(acc, x) { acc + x }) })
+  rel.insert(1) |> ignore
+  rel.insert(2) |> ignore
+  rt.fixpoint()
+  inspect(m.get(), content="3")
+  rel.insert(3) |> ignore
+  rt.fixpoint()
+  inspect(m.get(), content="6")
+}
+
+///|
+test "fixpoint: terminates when no new facts derived" {
+  let rt = Runtime::new()
+  let rel : Relation[Int] = Relation::new(rt)
+  let _ = rt.new_rule([rel.id()], [rel.id()], fn() { () }) // no-op rule
+  rel.insert(1) |> ignore
+  rt.fixpoint() // must not loop forever
+  inspect(rel.contains(1), content="true")
+}
