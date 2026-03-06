@@ -16,10 +16,14 @@ struct RuleData {
 }
 
 ///|
-impl CellOps for RuleData with cell_id(self) { self.cell_id }
+impl CellOps for RuleData with cell_id(self) {
+  self.cell_id
+}
 
 ///|
-impl CellOps for RuleData with changed_at(self) { self.changed_at }
+impl CellOps for RuleData with changed_at(self) {
+  self.changed_at
+}
 
 ///|
 impl CellOps for RuleData with set_changed_at(self, rev) {
@@ -27,13 +31,19 @@ impl CellOps for RuleData with set_changed_at(self, rev) {
 }
 
 ///|
-impl CellOps for RuleData with subscribers(self) { self.subscribers }
+impl CellOps for RuleData with subscribers(self) {
+  self.subscribers
+}
 
 ///|
-impl CellOps for RuleData with label(self) { self.label }
+impl CellOps for RuleData with label(self) {
+  self.label
+}
 
 ///|
-impl CellOps for RuleData with durability(self) { self.durability }
+impl CellOps for RuleData with durability(self) {
+  self.durability
+}
 
 ///|
 fn Runtime::new_rule(
@@ -43,22 +53,11 @@ fn Runtime::new_rule(
   apply_delta : () -> Unit,
   label? : String,
 ) -> RuleId {
-  // Validate all inputs are Relations
   for id in input_relations {
-    match self.cell_index[id.id] {
-      Relation(_) => ()
-      _ => abort("new_rule: input cell_id is not a Relation: " + id.id.to_string())
-    }
+    self.assert_rule_relation_id(id, "input")
   }
-  // Validate all outputs are Relations
   for id in output_relations {
-    match self.cell_index[id.id] {
-      Relation(_) => ()
-      _ =>
-        abort(
-          "new_rule: output cell_id is not a Relation: " + id.id.to_string(),
-        )
-    }
+    self.assert_rule_relation_id(id, "output")
   }
   let idx = self.rules.length()
   let cell_id = self.alloc_cell_id(Rule(idx))
@@ -76,4 +75,37 @@ fn Runtime::new_rule(
   let ops : &CellOps = self.rules[idx]
   self.cell_ops.push(ops)
   { id: cell_id }
+}
+
+///|
+fn Runtime::assert_rule_relation_id(
+  self : Runtime,
+  id : CellId,
+  role : String,
+) -> Unit {
+  if id.runtime_id != self.runtime_id {
+    abort(
+      "new_rule: " +
+      role +
+      " relation belongs to Runtime " +
+      id.runtime_id.to_string() +
+      ", expected Runtime " +
+      self.runtime_id.to_string(),
+    )
+  }
+  if id.id < 0 || id.id >= self.cell_index.length() {
+    abort(
+      "new_rule: " +
+      role +
+      " relation cell_id out of bounds: " +
+      id.id.to_string(),
+    )
+  }
+  match self.cell_index[id.id] {
+    Relation(_) => ()
+    _ =>
+      abort(
+        "new_rule: " + role + " cell_id is not a Relation: " + id.id.to_string(),
+      )
+  }
 }

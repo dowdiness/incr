@@ -123,7 +123,7 @@ test "non-batch: callback re-entrancy — set inside on_change propagates and me
     memo_in_callback = m.get() // pull-verify: s2 changed → recompute → 20
   })
   s1.set(1)
-  inspect(count2, content="1")        // s2's on_change ran once during re-entrant call
+  inspect(count2, content="1") // s2's on_change ran once during re-entrant call
   inspect(memo_in_callback, content="20") // callback saw updated memo value
   inspect(m.get(), content="20")
 }

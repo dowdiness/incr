@@ -99,7 +99,7 @@ fn Runtime::pull_verify(
                 stack[top].changed = true
                 stack[top].dep_cursor = memo.dependencies.length()
               }
-            HybridMemo(_) => {
+            HybridMemo(_) =>
               match self.pull_verify_hybrid(dep_id) {
                 Ok(_) =>
                   if self.cell_ops[dep_id.id].changed_at() > memo.verified_at {
@@ -111,7 +111,6 @@ fn Runtime::pull_verify(
                   return Err(e)
                 }
               }
-            }
             Disposed => abort("pull_verify: dependency has been disposed")
             PullMemo(dep_idx) => {
               let dep = self.pull_memos[dep_idx]
@@ -233,7 +232,7 @@ fn Runtime::pull_verify_hybrid(
         if self.pull_signals[sig_idx].changed_at > verified_at_snap {
           dep_changed = true
         }
-      PullMemo(_) => {
+      PullMemo(_) =>
         match self.pull_verify(dep_id) {
           Ok(_) =>
             if self.cell_ops[dep_id.id].changed_at() > verified_at_snap {
@@ -244,12 +243,11 @@ fn Runtime::pull_verify_hybrid(
             return Err(e)
           }
         }
-      }
       PushReactive(_) | PushEffect(_) | Relation(_) | Rule(_) =>
         if self.cell_ops[dep_id.id].changed_at() > verified_at_snap {
           dep_changed = true
         }
-      HybridMemo(_) => {
+      HybridMemo(_) =>
         match self.pull_verify_hybrid(dep_id) {
           Ok(_) =>
             if self.cell_ops[dep_id.id].changed_at() > verified_at_snap {
@@ -260,7 +258,6 @@ fn Runtime::pull_verify_hybrid(
             return Err(e)
           }
         }
-      }
       Disposed => {
         root.in_progress = false
         abort("pull_verify_hybrid: dependency has been disposed")

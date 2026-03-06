@@ -15,10 +15,14 @@ struct RelationData {
 }
 
 ///|
-impl CellOps for RelationData with cell_id(self) { self.cell_id }
+impl CellOps for RelationData with cell_id(self) {
+  self.cell_id
+}
 
 ///|
-impl CellOps for RelationData with changed_at(self) { self.changed_at }
+impl CellOps for RelationData with changed_at(self) {
+  self.changed_at
+}
 
 ///|
 impl CellOps for RelationData with set_changed_at(self, rev) {
@@ -26,13 +30,19 @@ impl CellOps for RelationData with set_changed_at(self, rev) {
 }
 
 ///|
-impl CellOps for RelationData with subscribers(self) { self.subscribers }
+impl CellOps for RelationData with subscribers(self) {
+  self.subscribers
+}
 
 ///|
-impl CellOps for RelationData with label(self) { self.label }
+impl CellOps for RelationData with label(self) {
+  self.label
+}
 
 ///|
-impl CellOps for RelationData with durability(self) { self.durability }
+impl CellOps for RelationData with durability(self) {
+  self.durability
+}
 
 ///|
 /// A Datalog relation: a set of tuples with delta tracking for fixpoint evaluation.
@@ -108,10 +118,9 @@ pub fn[T : Hash + Eq] Relation::insert(self : Relation[T], value : T) -> Bool {
 /// Checks whether a fact exists in the current (materialized) set.
 ///
 /// Facts in delta are NOT visible via `contains` until after `fixpoint()` drains them.
-pub fn[T : Hash + Eq] Relation::contains(
-  self : Relation[T],
-  value : T,
-) -> Bool {
+/// Like `iter()`, this records a dependency for pull verification.
+pub fn[T : Hash + Eq] Relation::contains(self : Relation[T], value : T) -> Bool {
+  self.record_read_dependency()
   self.current.val.contains(value)
 }
 
@@ -121,8 +130,25 @@ pub fn[T : Hash + Eq] Relation::contains(
 /// Records a dependency so pull memos that call `iter()` automatically
 /// re-verify when the relation changes after a `fixpoint()`.
 pub fn[T] Relation::iter(self : Relation[T]) -> Iter[T] {
-  self.rt.record_dependency(self.cell_id)
+  self.record_read_dependency()
   self.current.val.iter()
+}
+
+///|
+/// Records dependency for relation reads and rejects cross-runtime reads while
+/// a memo/reaction computation is active.
+fn[T] Relation::record_read_dependency(self : Relation[T]) -> Unit {
+  let active_rt = current_computing_runtime_id.val
+  if active_rt >= 0 && active_rt != self.rt.runtime_id {
+    current_computing_runtime_id.val = -1
+    abort(
+      "Cross-runtime dependency: Relation belongs to Runtime " +
+      self.rt.runtime_id.to_string() +
+      " but is read inside a computation on Runtime " +
+      active_rt.to_string(),
+    )
+  }
+  self.rt.record_dependency(self.cell_id)
 }
 
 ///|

@@ -326,7 +326,9 @@ fn Runtime::get_pull_signal(self : Runtime, id : CellId) -> PullSignalData {
   match self.cell_index[id.id] {
     PullSignal(idx) => self.pull_signals[idx]
     _ =>
-      abort("Expected signal cell but found different kind: " + id.id.to_string())
+      abort(
+        "Expected signal cell but found different kind: " + id.id.to_string(),
+      )
   }
 }
 
