@@ -32,18 +32,15 @@ impl CellOps for PushEffectData with changed_at(self) -> Revision {
 }
 
 ///|
-impl CellOps for PushEffectData with set_changed_at(
-  self,
-  _rev : Revision,
-) -> Unit {
+impl CellOps for PushEffectData with set_changed_at(self, _rev : Revision) -> Unit {
   ignore(self)
 }
 
 ///|
 /// Effects are terminal nodes — their subscriber set is always empty.
-impl CellOps for PushEffectData with subscribers(
-  self,
-) -> @hashset.HashSet[CellId] {
+impl CellOps for PushEffectData with subscribers(self) -> @hashset.HashSet[
+  CellId,
+] {
   self.subscribers
 }
 

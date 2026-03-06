@@ -91,6 +91,10 @@ pub(all) struct Runtime {
   /// IDs of hybrid memos that have been dirtied by push propagation and
   /// need recomputation on the next `get()`.
   priv hybrid_dirty : Array[CellId]
+  // Datalog SoA storage
+  priv mut in_fixpoint : Bool
+  priv relations : Array[RelationData]
+  priv rules : Array[RuleData]
 
   fn new(on_change? : () -> Unit) -> Runtime
 }
@@ -150,6 +154,9 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
     cell_ops: [],
     hybrid_memos: [],
     hybrid_dirty: [],
+    in_fixpoint: false,
+    relations: [],
+    rules: [],
   }
 }
 
@@ -300,6 +307,8 @@ fn Runtime::cell_id_for(self : Runtime, cell_ref : CellRef) -> CellId {
     PushEffect(idx) => self.push_effects[idx].cell_id
     HybridMemo(idx) => self.hybrid_memos[idx].cell_id
     Disposed => abort("cell_id_for: cell has been disposed")
+    Relation(idx) => self.relations[idx].cell_id
+    Rule(idx) => self.rules[idx].cell_id
   }
 }
 
@@ -319,7 +328,9 @@ fn Runtime::get_pull_signal(self : Runtime, id : CellId) -> PullSignalData {
   match self.cell_index[id.id] {
     PullSignal(idx) => self.pull_signals[idx]
     _ =>
-      abort("Expected signal cell but found different kind: " + id.id.to_string())
+      abort(
+        "Expected signal cell but found different kind: " + id.id.to_string(),
+      )
   }
 }
 

@@ -1,7 +1,10 @@
 ///|
 test "cell_ref: HybridMemo variant pattern-matches correctly" {
   let a : CellRef = CellRef::HybridMemo(4)
-  let ia = match a { HybridMemo(i) => i; _ => -1 }
+  let ia = match a {
+    HybridMemo(i) => i
+    _ => -1
+  }
   inspect(ia, content="4")
 }
 
@@ -28,7 +31,10 @@ test "hybrid memo: fast path skips compute when not dirtied" {
   let s = Signal::new(rt, 1)
   let unrelated = Signal::new(rt, 99)
   let mut count = 0
-  let h = HybridMemo::new(rt, () => { count = count + 1; s.get() })
+  let h = HybridMemo::new(rt, () => {
+    count = count + 1
+    s.get()
+  })
   let _ = h.get()
   inspect(count, content="1")
   unrelated.set(100)

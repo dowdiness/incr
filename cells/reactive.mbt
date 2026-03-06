@@ -31,17 +31,14 @@ impl CellOps for PushReactiveData with changed_at(self) -> Revision {
 }
 
 ///|
-impl CellOps for PushReactiveData with set_changed_at(
-  self,
-  rev : Revision,
-) -> Unit {
+impl CellOps for PushReactiveData with set_changed_at(self, rev : Revision) -> Unit {
   self.changed_at = rev
 }
 
 ///|
-impl CellOps for PushReactiveData with subscribers(
-  self,
-) -> @hashset.HashSet[CellId] {
+impl CellOps for PushReactiveData with subscribers(self) -> @hashset.HashSet[
+  CellId,
+] {
   self.subscribers
 }
 
@@ -130,7 +127,9 @@ pub fn[T : Eq] Reactive::new(rt : Runtime, compute_fn : () -> T) -> Reactive[T] 
   let _ = compute()
   let new_sources = rt.end_tracking()
   rt.push_reactives[reactive_idx].sources = new_sources
-  rt.push_reactives[reactive_idx].level = rt.recompute_level(cell_id, new_sources)
+  rt.push_reactives[reactive_idx].level = rt.recompute_level(
+    cell_id, new_sources,
+  )
   rt.finish_tracking(cell_id, [], new_sources)
   reactive
 }

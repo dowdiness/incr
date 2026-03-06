@@ -1,9 +1,10 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "dowdiness/incr/internal"
+package "dowdiness/incr/cells"
 
 import {
   "dowdiness/incr/types",
   "moonbitlang/core/debug",
+  "moonbitlang/core/hashset",
 }
 
 // Values
@@ -27,6 +28,34 @@ pub(all) struct CellInfo {
   subscribers : Array[@types.CellId]
 }
 
+pub enum CellRef {
+  PullSignal(Int)
+  PullMemo(Int)
+  PushReactive(Int)
+  PushEffect(Int)
+  HybridMemo(Int)
+  Disposed
+  Relation(Int)
+  Rule(Int)
+}
+
+pub struct Effect {
+  // private fields
+}
+pub fn Effect::dispose(Self) -> Unit
+pub fn Effect::new(Runtime, () -> Unit) -> Self
+
+pub(all) struct HybridMemo[T] {
+  // private fields
+
+  fn[T : Eq] new(Runtime, () -> T, label? : String) -> HybridMemo[T]
+}
+pub fn[T : Eq] HybridMemo::get(Self[T]) -> T
+pub fn[T] HybridMemo::id(Self[T]) -> @types.CellId
+pub fn[T] HybridMemo::is_up_to_date(Self[T]) -> Bool
+pub fn[T : Eq] HybridMemo::new(Runtime, () -> T, label? : String) -> Self[T]
+pub impl[T : @debug.Debug] @debug.Debug for HybridMemo[T]
+
 pub(all) struct Memo[T] {
   // private fields
 
@@ -46,6 +75,10 @@ pub fn[T] Memo::on_change(Self[T], (T) -> Unit) -> Unit
 pub fn[T] Memo::verified_at(Self[T]) -> @types.Revision
 pub impl[T : @debug.Debug] @debug.Debug for Memo[T]
 
+pub struct MemoId[T] {
+  id : @types.CellId
+}
+
 pub(all) struct MemoMap[K, V] {
   // private fields
 
@@ -59,6 +92,42 @@ pub fn[K : Hash + Eq, V : Eq] MemoMap::get_result(Self[K, V], K) -> Result[V, Cy
 pub fn[K, V] MemoMap::length(Self[K, V]) -> Int
 pub fn[K, V] MemoMap::new(Runtime, (K) -> V, label? : String) -> Self[K, V]
 
+pub struct Reactive[T] {
+  // private fields
+}
+pub fn[T] Reactive::dispose(Self[T]) -> Unit
+pub fn[T] Reactive::get(Self[T]) -> T
+pub fn[T] Reactive::id(Self[T]) -> @types.CellId
+pub fn[T : Eq] Reactive::new(Runtime, () -> T) -> Self[T]
+
+pub struct ReactiveId[T] {
+  id : @types.CellId
+}
+
+pub(all) struct Relation[T] {
+  // private fields
+
+  fn[T : Hash + Eq] new(Runtime, label? : String) -> Relation[T]
+}
+pub fn[T : Hash + Eq] Relation::contains(Self[T], T) -> Bool
+pub fn[T] Relation::delta_iter(Self[T]) -> Iter[T]
+pub fn[T] Relation::id(Self[T]) -> @types.CellId
+pub fn[T : Hash + Eq] Relation::insert(Self[T], T) -> Bool
+pub fn[T] Relation::iter(Self[T]) -> Iter[T]
+pub fn[T : Hash + Eq] Relation::new(Runtime, label? : String) -> Self[T]
+
+type RelationData
+
+pub struct RelationId[T] {
+  id : @types.CellId
+}
+
+type RuleData
+
+pub struct RuleId {
+  id : @types.CellId
+}
+
 pub(all) struct Runtime {
   // private fields
 
@@ -69,7 +138,9 @@ pub fn Runtime::batch_result(Self, () -> Unit raise?) -> Result[Unit, Error]
 pub fn Runtime::cell_info(Self, @types.CellId) -> CellInfo?
 pub fn Runtime::clear_on_change(Self) -> Unit
 pub fn Runtime::dependents(Self, @types.CellId) -> Array[@types.CellId]
+pub fn Runtime::fixpoint(Self) -> Unit
 pub fn Runtime::new(on_change? : () -> Unit) -> Self
+pub fn Runtime::new_rule(Self, Array[@types.CellId], Array[@types.CellId], () -> Unit, label? : String) -> RuleId
 pub fn Runtime::set_on_change(Self, () -> Unit) -> Unit
 
 pub(all) struct Signal[T] {
@@ -88,6 +159,10 @@ pub fn[T] Signal::on_change(Self[T], (T) -> Unit) -> Unit
 pub fn[T : Eq] Signal::set(Self[T], T) -> Unit
 pub fn[T] Signal::set_unconditional(Self[T], T) -> Unit
 pub impl[T : @debug.Debug] @debug.Debug for Signal[T]
+
+pub struct SignalId[T] {
+  id : @types.CellId
+}
 
 pub(all) struct TrackedCell[T] {
   // private fields
@@ -110,4 +185,7 @@ pub impl[T : @debug.Debug] @debug.Debug for TrackedCell[T]
 // Type aliases
 
 // Traits
+trait CellOps
+
+trait Committable
 

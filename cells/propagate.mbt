@@ -32,7 +32,7 @@ fn Runtime::get_level(self : Runtime, cell_id : CellId) -> Int {
   match self.cell_index[cell_id.id] {
     PullSignal(_) | PullMemo(_) => 0
     PushReactive(idx) => self.push_reactives[idx].level
-    PushEffect(_) | HybridMemo(_) | Disposed => 0
+    PushEffect(_) | HybridMemo(_) | Disposed | Relation(_) | Rule(_) => 0
   }
 }
 
@@ -146,7 +146,7 @@ fn Runtime::push_propagate_from(
       wi += 1
       for sub_id in self.get_subscribers(id) {
         match self.cell_index[sub_id.id] {
-          PushReactive(i) => {
+          PushReactive(i) =>
             if not(self.push_reactives[i].dirty) {
               self.push_reactives[i].dirty = true
               update_queue.push({
@@ -154,8 +154,7 @@ fn Runtime::push_propagate_from(
                 cell_ref: CellRef::PushReactive(i),
               })
             }
-          }
-          PushEffect(i) => {
+          PushEffect(i) =>
             if not(self.push_effects[i].dirty) {
               self.push_effects[i].dirty = true
               update_queue.push({
@@ -163,7 +162,6 @@ fn Runtime::push_propagate_from(
                 cell_ref: CellRef::PushEffect(i),
               })
             }
-          }
           HybridMemo(i) => {
             if not(self.hybrid_memos[i].dirty) {
               self.hybrid_memos[i].dirty = true
@@ -240,7 +238,7 @@ fn Runtime::push_propagate_from(
         let effect_cell_id = effect.cell_id
         let old_sources = effect.sources
         self.begin_tracking(effect_cell_id)
-        ;(effect.execute)()
+        (effect.execute)()
         let new_sources = self.end_tracking()
         self.finish_tracking(effect_cell_id, old_sources, new_sources)
         effect.sources = new_sources

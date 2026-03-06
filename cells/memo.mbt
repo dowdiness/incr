@@ -153,6 +153,11 @@ pub fn[T : Eq] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
       active_rt.to_string(),
     )
   }
+  if self.rt.in_fixpoint {
+    abort(
+      "Memo::get() cannot be called during fixpoint(); read relations directly or call get() after fixpoint() completes",
+    )
+  }
   // First computation: no cached value yet
   match self.value {
     None =>

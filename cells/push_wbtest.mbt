@@ -53,8 +53,8 @@ test "free list: effect slot reused after dispose" {
   inspect(rt.push_effects.length(), content="1")
   inspect(rt.free_push_effects.length(), content="0")
   s.set(3)
-  inspect(log, content="[1]")       // e was disposed; did not re-run
-  inspect(log2, content="[2, 6]")   // e2 ran on creation and on s.set(3)
+  inspect(log, content="[1]") // e was disposed; did not re-run
+  inspect(log2, content="[2, 6]") // e2 ran on creation and on s.set(3)
 }
 
 ///|
@@ -64,7 +64,10 @@ test "runtime: push_node_count tracks live push cells" {
   let s = Signal::new(rt, 0)
   let r = Reactive::new(rt, () => s.get())
   inspect(rt.push_node_count, content="1")
-  let e = Effect::new(rt, () => { let _ = s.get(); () })
+  let e = Effect::new(rt, () => {
+    let _ = s.get()
+    ()
+  })
   inspect(rt.push_node_count, content="2")
   r.dispose()
   inspect(rt.push_node_count, content="1")
@@ -77,9 +80,18 @@ test "cell_ref: PushReactive, PushEffect, Disposed variants exist" {
   let a : CellRef = CellRef::PushReactive(0)
   let b : CellRef = CellRef::PushEffect(2)
   let c : CellRef = CellRef::Disposed
-  let ia = match a { PushReactive(i) => i; _ => -1 }
-  let ib = match b { PushEffect(i) => i; _ => -1 }
-  let ok = match c { Disposed => true; _ => false }
+  let ia = match a {
+    PushReactive(i) => i
+    _ => -1
+  }
+  let ib = match b {
+    PushEffect(i) => i
+    _ => -1
+  }
+  let ok = match c {
+    Disposed => true
+    _ => false
+  }
   inspect(ia, content="0")
   inspect(ib, content="2")
   inspect(ok, content="true")
@@ -126,7 +138,8 @@ test "push propagation: skip stale queue entry after mid-wave disposal" {
   let r2 = Reactive::new(rt, () => {
     count += 1
     let _ = s.get() // subscriber of s → pre-seeded when s changes
-    r0.get() + 1 // subscriber of r0 (level 1) → push level = 2
+    r0.get() + // subscriber of r0 (level 1) → push level = 2
+    1
   })
   r2_ref.val = Some(r2)
   inspect(count, content="1") // initial compute

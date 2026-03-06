@@ -30,7 +30,11 @@ pub(all) struct HybridMemo[T] {
   priv compute : () -> T
   priv mut value : T?
 
-  fn[T : Eq] new(rt : Runtime, compute : () -> T, label? : String) -> HybridMemo[T]
+  fn[T : Eq] new(
+    rt : Runtime,
+    compute : () -> T,
+    label? : String,
+  ) -> HybridMemo[T]
 } derive(Debug(ignore=[Runtime, Fn, CellId]))
 
 ///|
@@ -77,6 +81,11 @@ pub fn[T : Eq] HybridMemo::get(self : HybridMemo[T]) -> T {
       self.rt.runtime_id.to_string() +
       " but is read inside a memo on Runtime " +
       active_rt.to_string(),
+    )
+  }
+  if self.rt.in_fixpoint {
+    abort(
+      "HybridMemo::get() cannot be called during fixpoint(); read relations directly or call get() after fixpoint() completes",
     )
   }
   match self.value {
@@ -217,9 +226,9 @@ impl CellOps for HybridMemoData with set_changed_at(self, rev : Revision) -> Uni
 }
 
 ///|
-impl CellOps for HybridMemoData with subscribers(
-  self,
-) -> @hashset.HashSet[CellId] {
+impl CellOps for HybridMemoData with subscribers(self) -> @hashset.HashSet[
+  CellId,
+] {
   self.subscribers
 }
 
