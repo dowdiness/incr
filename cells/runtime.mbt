@@ -390,27 +390,6 @@ fn Runtime::get_subscribers(self : Runtime, cell_id : CellId) -> Iter[CellId] {
 }
 
 ///|
-/// Returns the mutable subscriber set for the given cell.
-///
-/// Returns the live `HashSet[CellId]` object; mutations through it are
-/// immediately reflected in the runtime. Used by `finish_tracking` and
-/// Phase 3 disposal to add/remove reverse edges efficiently.
-fn Runtime::get_subscribers_mut(
-  self : Runtime,
-  cell_id : CellId,
-) -> @hashset.HashSet[CellId] {
-  if cell_id.runtime_id != self.runtime_id {
-    abort("Cell belongs to a different Runtime")
-  }
-  if cell_id.id < 0 || cell_id.id >= self.cell_ops.length() {
-    abort(
-      "get_subscribers_mut: cell_id out of bounds: " + cell_id.id.to_string(),
-    )
-  }
-  self.cell_ops[cell_id.id].subscribers()
-}
-
-///|
 /// Removes `subscriber` from the subscriber set of `dep`.
 fn Runtime::remove_subscriber(
   self : Runtime,
