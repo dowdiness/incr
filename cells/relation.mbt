@@ -85,10 +85,10 @@ pub fn[T : Hash + Eq] Relation::new(
     },
     is_delta_empty: () => delta.val.is_empty(),
     promote_staged_delta: () => {
-      delta.val.clear()
-      for item in staged_delta.val {
-        delta.val.add(item)
-      }
+      let previous_frontier = delta.val
+      delta.val = staged_delta.val
+      staged_delta.val = previous_frontier
+      // Reuse the old frontier allocation as next iteration's staging buffer.
       staged_delta.val.clear()
     },
     is_staged_delta_empty: () => staged_delta.val.is_empty(),
