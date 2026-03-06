@@ -42,15 +42,25 @@ pub using @cells {type HybridMemo}
 
 pub using @cells {type Memo}
 
+pub using @cells {type MemoId}
+
 pub using @cells {type MemoMap}
+
+pub using @cells {type ReactiveId}
 
 pub using @cells {type Relation}
 
+pub using @cells {type RelationId}
+
 pub using @types {type Revision}
+
+pub using @cells {type RuleId}
 
 pub using @cells {type Runtime}
 
 pub using @cells {type Signal}
+
+pub using @cells {type SignalId}
 
 pub using @cells {type TrackedCell}
 
