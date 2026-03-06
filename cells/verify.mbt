@@ -94,7 +94,7 @@ fn Runtime::pull_verify(
             )
           }
           match self.cell_index[dep_id.id] {
-            PushReactive(_) | PushEffect(_) =>
+            PushReactive(_) | PushEffect(_) | Relation(_) | Rule(_) =>
               if self.cell_ops[dep_id.id].changed_at() > memo.verified_at {
                 stack[top].changed = true
                 stack[top].dep_cursor = memo.dependencies.length()
@@ -153,11 +153,6 @@ fn Runtime::pull_verify(
             }
             PullSignal(sig_idx) =>
               if self.pull_signals[sig_idx].changed_at > memo.verified_at {
-                stack[top].changed = true
-                stack[top].dep_cursor = memo.dependencies.length()
-              }
-            Relation(_) | Rule(_) =>
-              if self.cell_ops[dep_id.id].changed_at() > memo.verified_at {
                 stack[top].changed = true
                 stack[top].dep_cursor = memo.dependencies.length()
               }
@@ -250,7 +245,7 @@ fn Runtime::pull_verify_hybrid(
           }
         }
       }
-      PushReactive(_) | PushEffect(_) =>
+      PushReactive(_) | PushEffect(_) | Relation(_) | Rule(_) =>
         if self.cell_ops[dep_id.id].changed_at() > verified_at_snap {
           dep_changed = true
         }
@@ -266,10 +261,6 @@ fn Runtime::pull_verify_hybrid(
           }
         }
       }
-      Relation(_) | Rule(_) =>
-        if self.cell_ops[dep_id.id].changed_at() > verified_at_snap {
-          dep_changed = true
-        }
       Disposed => {
         root.in_progress = false
         abort("pull_verify_hybrid: dependency has been disposed")

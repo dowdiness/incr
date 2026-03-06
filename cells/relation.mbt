@@ -50,7 +50,6 @@ pub(all) struct Relation[T] {
   priv cell_id : CellId
   priv current : Ref[@hashset.HashSet[T]]
   priv delta : Ref[@hashset.HashSet[T]]
-  priv label : String?
 
   fn[T : Hash + Eq] new(rt : Runtime, label? : String) -> Relation[T]
 }
@@ -82,7 +81,7 @@ pub fn[T : Hash + Eq] Relation::new(
   rt.relations.push(data)
   let ops : &CellOps = rt.relations[idx]
   rt.cell_ops.push(ops)
-  { rt, cell_id, current, delta, label }
+  { rt, cell_id, current, delta }
 }
 
 ///|
