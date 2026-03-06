@@ -126,3 +126,17 @@ test "fixpoint: terminates when no new facts derived" {
   rt.fixpoint() // must not loop forever
   inspect(rel.contains(1), content="true")
 }
+
+///|
+test "get_changed_at: relation changed_at updated by fixpoint" {
+  let rt = Runtime::new()
+  let rel : Relation[Int] = Relation::new(rt)
+  let rev_before = rt.current_revision
+  rel.insert(1) |> ignore
+  rt.fixpoint()
+  let rel_idx = match rt.cell_index[rel.id().id] {
+    Relation(i) => i
+    _ => abort("")
+  }
+  inspect(rt.relations[rel_idx].changed_at > rev_before, content="true")
+}
