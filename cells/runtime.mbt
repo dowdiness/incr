@@ -91,6 +91,9 @@ pub(all) struct Runtime {
   /// IDs of hybrid memos that have been dirtied by push propagation and
   /// need recomputation on the next `get()`.
   priv hybrid_dirty : Array[CellId]
+  // Datalog SoA storage
+  priv relations : Array[RelationData]
+  priv rules : Array[RuleData]
 
   fn new(on_change? : () -> Unit) -> Runtime
 }
@@ -150,6 +153,8 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
     cell_ops: [],
     hybrid_memos: [],
     hybrid_dirty: [],
+    relations: [],
+    rules: [],
   }
 }
 
@@ -300,8 +305,8 @@ fn Runtime::cell_id_for(self : Runtime, cell_ref : CellRef) -> CellId {
     PushEffect(idx) => self.push_effects[idx].cell_id
     HybridMemo(idx) => self.hybrid_memos[idx].cell_id
     Disposed => abort("cell_id_for: cell has been disposed")
-    Relation(_) | Rule(_) =>
-      abort("cell_id_for: Relation/Rule not yet initialized")
+    Relation(idx) => self.relations[idx].cell_id
+    Rule(idx) => self.rules[idx].cell_id
   }
 }
 

@@ -13,3 +13,10 @@ test "cell_ref: Relation and Rule variants exist" {
   inspect(ia, content="0")
   inspect(ib, content="1")
 }
+
+///|
+test "runtime: relation and rule arrays start empty" {
+  let rt = Runtime::new()
+  inspect(rt.relations.length(), content="0")
+  inspect(rt.rules.length(), content="0")
+}
