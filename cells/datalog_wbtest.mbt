@@ -114,6 +114,32 @@ test "fixpoint: transitive closure — edge(a,b)+edge(b,c) derives path(a,c)" {
 }
 
 ///|
+test "fixpoint: semi-naive recursion preserves delta frontier across iterations" {
+  let rt = Runtime::new()
+  let edge : Relation[(String, String)] = Relation::new(rt)
+  let path : Relation[(String, String)] = Relation::new(rt)
+  let _ = rt.new_rule([edge.id(), path.id()], [path.id()], fn() {
+    for e in edge.delta_iter() {
+      path.insert(e) |> ignore
+    }
+    for p in path.delta_iter() {
+      for e in edge.iter() {
+        if p.1 == e.0 {
+          path.insert((p.0, e.1)) |> ignore
+        }
+      }
+    }
+  })
+  edge.insert(("a", "b")) |> ignore
+  edge.insert(("b", "c")) |> ignore
+  edge.insert(("c", "d")) |> ignore
+  rt.fixpoint()
+  inspect(path.contains(("a", "c")), content="true")
+  inspect(path.contains(("b", "d")), content="true")
+  inspect(path.contains(("a", "d")), content="true")
+}
+
+///|
 test "fixpoint: pull memo depending on relation recomputes after fixpoint" {
   let rt = Runtime::new()
   let rel : Relation[Int] = Relation::new(rt)

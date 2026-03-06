@@ -92,6 +92,7 @@ pub(all) struct Runtime {
   /// need recomputation on the next `get()`.
   priv hybrid_dirty : Array[CellId]
   // Datalog SoA storage
+  priv mut in_fixpoint : Bool
   priv relations : Array[RelationData]
   priv rules : Array[RuleData]
 
@@ -153,6 +154,7 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
     cell_ops: [],
     hybrid_memos: [],
     hybrid_dirty: [],
+    in_fixpoint: false,
     relations: [],
     rules: [],
   }

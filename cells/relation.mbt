@@ -8,6 +8,8 @@ struct RelationData {
   cell_id : CellId
   drain_delta : () -> Unit
   is_delta_empty : () -> Bool
+  promote_staged_delta : () -> Unit
+  is_staged_delta_empty : () -> Bool
   subscribers : @hashset.HashSet[CellId]
   mut changed_at : Revision
   label : String?
@@ -48,9 +50,9 @@ impl CellOps for RelationData with durability(self) {
 /// A Datalog relation: a set of tuples with delta tracking for fixpoint evaluation.
 ///
 /// `Relation[T]` holds typed `current` and `delta` sets via `Ref`. The Runtime
-/// sees only type-erased closures (`drain_delta`, `is_delta_empty`) on `RelationData`.
+/// sees only type-erased closures on `RelationData`.
 ///
-/// - `insert()` adds to delta (not current) — facts move to current on drain
+/// - `insert()` adds to frontier delta outside fixpoint, and to staged delta during fixpoint
 /// - `contains()` checks current (the materialized post-drain set)
 /// - `iter()` iterates current; records a dependency for pull verification
 /// - `delta_iter()` iterates delta; used by rule bodies
@@ -59,6 +61,7 @@ pub(all) struct Relation[T] {
   priv cell_id : CellId
   priv current : Ref[@hashset.HashSet[T]]
   priv delta : Ref[@hashset.HashSet[T]]
+  priv staged_delta : Ref[@hashset.HashSet[T]]
 
   fn[T : Hash + Eq] new(rt : Runtime, label? : String) -> Relation[T]
 }
@@ -72,15 +75,23 @@ pub fn[T : Hash + Eq] Relation::new(
   let cell_id = rt.alloc_cell_id(Relation(idx))
   let current : Ref[@hashset.HashSet[T]] = { val: @hashset.new() }
   let delta : Ref[@hashset.HashSet[T]] = { val: @hashset.new() }
+  let staged_delta : Ref[@hashset.HashSet[T]] = { val: @hashset.new() }
   let data : RelationData = {
     cell_id,
     drain_delta: () => {
       for item in delta.val {
         current.val.add(item)
       }
-      delta.val.clear()
     },
     is_delta_empty: () => delta.val.is_empty(),
+    promote_staged_delta: () => {
+      delta.val.clear()
+      for item in staged_delta.val {
+        delta.val.add(item)
+      }
+      staged_delta.val.clear()
+    },
+    is_staged_delta_empty: () => staged_delta.val.is_empty(),
     subscribers: @hashset.new(),
     changed_at: Revision::initial(),
     label,
@@ -89,7 +100,7 @@ pub fn[T : Hash + Eq] Relation::new(
   rt.relations.push(data)
   let ops : &CellOps = rt.relations[idx]
   rt.cell_ops.push(ops)
-  { rt, cell_id, current, delta }
+  { rt, cell_id, current, delta, staged_delta }
 }
 
 ///|
@@ -101,8 +112,10 @@ pub fn[T] Relation::id(self : Relation[T]) -> CellId {
 ///|
 /// Inserts a fact into the delta set.
 ///
-/// Returns `true` if the fact was newly added to the delta, `false` if it
-/// already exists in either delta or current.
+/// Outside `fixpoint()`, inserts go to the current frontier delta.
+/// During `fixpoint()`, inserts go to the staged delta for the next iteration.
+///
+/// Returns `true` if the fact was newly added, `false` if it already exists.
 pub fn[T : Hash + Eq] Relation::insert(self : Relation[T], value : T) -> Bool {
   if self.current.val.contains(value) {
     return false
@@ -110,7 +123,14 @@ pub fn[T : Hash + Eq] Relation::insert(self : Relation[T], value : T) -> Bool {
   if self.delta.val.contains(value) {
     return false
   }
-  self.delta.val.add(value)
+  if self.rt.in_fixpoint {
+    if self.staged_delta.val.contains(value) {
+      return false
+    }
+    self.staged_delta.val.add(value)
+  } else {
+    self.delta.val.add(value)
+  }
   true
 }
 

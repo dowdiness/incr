@@ -2,22 +2,16 @@
 /// Runs fixpoint evaluation over all registered rules until no new facts are derived.
 ///
 /// Algorithm (semi-naive evaluation):
-/// 1. Apply all rules — rule bodies read deltas and current sets, inserting new facts into deltas
-/// 2. Check convergence: if no output relation has non-empty deltas, break
-/// 3. Drain all relation deltas into their current sets
-/// 4. Repeat from step 1
-/// 5. Final drain to flush remaining deltas (including input-only relations on the first call)
+/// 1. Materialize each relation's current frontier `delta` into `current`
+/// 2. Apply all rules — rule bodies read `delta` (frontier) and `current`, and
+///    insert newly derived facts into staged deltas
+/// 3. Record which relations produced staged deltas this iteration
+/// 4. Promote staged deltas to next iteration's frontier (clears old frontier)
+/// 5. If no staged deltas were produced, stop; otherwise repeat
 /// 6. If any relation changed, advance revision and update changed_at
 pub fn Runtime::fixpoint(self : Runtime) -> Unit {
-  // Collect unique output-relation SoA indices for convergence checking
-  let output_indices : @hashset.HashSet[Int] = @hashset.new()
-  for rule in self.rules {
-    for out_id in rule.output_relations {
-      match self.cell_index[out_id.id] {
-        Relation(idx) => output_indices.add(idx)
-        _ => abort("fixpoint: output cell_id is not a Relation")
-      }
-    }
+  if self.in_fixpoint {
+    abort("fixpoint: re-entrant fixpoint() is not supported")
   }
   // Track which relation SoA indices changed during this fixpoint run
   let changed_set : @hashset.HashSet[Int] = @hashset.new()
@@ -27,36 +21,38 @@ pub fn Runtime::fixpoint(self : Runtime) -> Unit {
       changed_set.add(i)
     }
   }
+  self.in_fixpoint = true
   // Fixpoint loop
   for {
+    // Materialize the current frontier while keeping it readable via delta_iter.
+    for rel in self.relations {
+      (rel.drain_delta)()
+    }
     // Apply all rules
     for rule in self.rules {
       (rule.apply_delta)()
     }
-    // Check convergence + mark changed in a single pass
+    // Check convergence over staged deltas + mark changed in a single pass
     let mut has_new_facts = false
-    for idx in output_indices {
-      if not((self.relations[idx].is_delta_empty)()) {
+    for i = 0; i < self.relations.length(); i = i + 1 {
+      if not((self.relations[i].is_staged_delta_empty)()) {
         has_new_facts = true
-        changed_set.add(idx)
+        changed_set.add(i)
       }
+    }
+    // Next iteration frontier = this iteration's newly derived facts
+    // (and old frontier is cleared).
+    for rel in self.relations {
+      (rel.promote_staged_delta)()
     }
     if not(has_new_facts) {
       break
     }
-    // Drain all relation deltas into current
-    for rel in self.relations {
-      (rel.drain_delta)()
-    }
   }
-  // Final drain: flush remaining deltas (including input-only relations)
-  // and collect changed cell IDs in a single pass
+  self.in_fixpoint = false
+  // Collect changed cell IDs
   let changed_ids : Array[CellId] = []
   for i = 0; i < self.relations.length(); i = i + 1 {
-    if not((self.relations[i].is_delta_empty)()) {
-      changed_set.add(i)
-    }
-    (self.relations[i].drain_delta)()
     if changed_set.contains(i) {
       changed_ids.push(self.relations[i].cell_id)
     }
