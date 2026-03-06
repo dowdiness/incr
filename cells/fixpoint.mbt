@@ -14,11 +14,12 @@ pub fn Runtime::fixpoint(self : Runtime) -> Unit {
     abort("fixpoint: re-entrant fixpoint() is not supported")
   }
   // Track which relation SoA indices changed during this fixpoint run
-  let changed_set : @hashset.HashSet[Int] = @hashset.new()
+  let num_relations = self.relations.length()
+  let changed : Array[Bool] = Array::make(num_relations, false)
   // Mark relations with pre-existing non-empty deltas
-  for i = 0; i < self.relations.length(); i = i + 1 {
+  for i = 0; i < num_relations; i = i + 1 {
     if not((self.relations[i].is_delta_empty)()) {
-      changed_set.add(i)
+      changed[i] = true
     }
   }
   self.in_fixpoint = true
@@ -34,10 +35,10 @@ pub fn Runtime::fixpoint(self : Runtime) -> Unit {
     }
     // Check convergence over staged deltas + mark changed in a single pass
     let mut has_new_facts = false
-    for i = 0; i < self.relations.length(); i = i + 1 {
+    for i = 0; i < num_relations; i = i + 1 {
       if not((self.relations[i].is_staged_delta_empty)()) {
         has_new_facts = true
-        changed_set.add(i)
+        changed[i] = true
       }
     }
     // Next iteration frontier = this iteration's newly derived facts
@@ -52,8 +53,8 @@ pub fn Runtime::fixpoint(self : Runtime) -> Unit {
   self.in_fixpoint = false
   // Collect changed cell IDs
   let changed_ids : Array[CellId] = []
-  for i = 0; i < self.relations.length(); i = i + 1 {
-    if changed_set.contains(i) {
+  for i = 0; i < num_relations; i = i + 1 {
+    if changed[i] {
       changed_ids.push(self.relations[i].cell_id)
     }
   }
