@@ -140,6 +140,7 @@ pub fn Runtime::clear_on_change(Self) -> Unit
 pub fn Runtime::dependents(Self, @types.CellId) -> Array[@types.CellId]
 pub fn Runtime::fixpoint(Self) -> Unit
 pub fn Runtime::new(on_change? : () -> Unit) -> Self
+pub fn Runtime::new_rule(Self, Array[@types.CellId], Array[@types.CellId], () -> Unit, label? : String) -> RuleId
 pub fn Runtime::set_on_change(Self, () -> Unit) -> Unit
 
 pub(all) struct Signal[T] {

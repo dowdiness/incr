@@ -46,7 +46,7 @@ impl CellOps for RuleData with durability(self) {
 }
 
 ///|
-fn Runtime::new_rule(
+pub fn Runtime::new_rule(
   self : Runtime,
   input_relations : Array[CellId],
   output_relations : Array[CellId],

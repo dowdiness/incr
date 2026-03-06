@@ -74,13 +74,13 @@ pub fn[T : Hash + Eq] Relation::new(
   let delta : Ref[@hashset.HashSet[T]] = { val: @hashset.new() }
   let data : RelationData = {
     cell_id,
-    drain_delta: fn() {
+    drain_delta: () => {
       for item in delta.val {
         current.val.add(item)
       }
       delta.val.clear()
     },
-    is_delta_empty: fn() { delta.val.is_empty() },
+    is_delta_empty: () => delta.val.is_empty(),
     subscribers: @hashset.new(),
     changed_at: Revision::initial(),
     label,
