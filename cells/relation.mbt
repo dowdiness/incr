@@ -10,7 +10,6 @@ struct RelationData {
   is_delta_empty : () -> Bool
   subscribers : @hashset.HashSet[CellId]
   mut changed_at : Revision
-  mut changed : Bool
   label : String?
   durability : Durability
 }
@@ -74,7 +73,6 @@ pub fn[T : Hash + Eq] Relation::new(
     is_delta_empty: fn() { delta.val.is_empty() },
     subscribers: @hashset.new(),
     changed_at: Revision::initial(),
-    changed: false,
     label,
     durability: Low,
   }

@@ -8,7 +8,7 @@
 /// 4. Repeat from step 1
 /// 5. Final drain to flush remaining deltas (including input-only relations on the first call)
 /// 6. If any relation changed, advance revision and update changed_at
-fn Runtime::fixpoint(self : Runtime) -> Unit {
+pub fn Runtime::fixpoint(self : Runtime) -> Unit {
   // Collect unique output-relation SoA indices for convergence checking
   let output_indices : @hashset.HashSet[Int] = @hashset.new()
   for rule in self.rules {
@@ -19,12 +19,12 @@ fn Runtime::fixpoint(self : Runtime) -> Unit {
       }
     }
   }
-  // Track which relations had any facts inserted
-  let changed_ids : Array[CellId] = []
-  // Mark relations with non-empty deltas as changed
-  for rel in self.relations {
-    if not((rel.is_delta_empty)()) {
-      rel.changed = true
+  // Track which relation SoA indices changed during this fixpoint run
+  let changed_set : @hashset.HashSet[Int] = @hashset.new()
+  // Mark relations with pre-existing non-empty deltas
+  for i = 0; i < self.relations.length(); i = i + 1 {
+    if not((self.relations[i].is_delta_empty)()) {
+      changed_set.add(i)
     }
   }
   // Fixpoint loop
@@ -33,22 +33,16 @@ fn Runtime::fixpoint(self : Runtime) -> Unit {
     for rule in self.rules {
       (rule.apply_delta)()
     }
-    // Check convergence: are any output-relation deltas non-empty?
+    // Check convergence + mark changed in a single pass
     let mut has_new_facts = false
     for idx in output_indices {
       if not((self.relations[idx].is_delta_empty)()) {
         has_new_facts = true
-        break
+        changed_set.add(idx)
       }
     }
     if not(has_new_facts) {
       break
-    }
-    // Mark output relations with non-empty deltas as changed
-    for idx in output_indices {
-      if not((self.relations[idx].is_delta_empty)()) {
-        self.relations[idx].changed = true
-      }
     }
     // Drain all relation deltas into current
     for rel in self.relations {
@@ -56,17 +50,15 @@ fn Runtime::fixpoint(self : Runtime) -> Unit {
     }
   }
   // Final drain: flush remaining deltas (including input-only relations)
-  for rel in self.relations {
-    if not((rel.is_delta_empty)()) {
-      rel.changed = true
+  // and collect changed cell IDs in a single pass
+  let changed_ids : Array[CellId] = []
+  for i = 0; i < self.relations.length(); i = i + 1 {
+    if not((self.relations[i].is_delta_empty)()) {
+      changed_set.add(i)
     }
-    (rel.drain_delta)()
-  }
-  // Advance revision if any relation changed
-  for rel in self.relations {
-    if rel.changed {
-      changed_ids.push(rel.cell_id)
-      rel.changed = false
+    (self.relations[i].drain_delta)()
+    if changed_set.contains(i) {
+      changed_ids.push(self.relations[i].cell_id)
     }
   }
   if changed_ids.length() > 0 {
