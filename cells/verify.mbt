@@ -16,7 +16,7 @@ priv struct PullVerifyFrame {
 /// and recomputes it if so, using explicit stack iteration over `pull_memos`.
 ///
 /// This is the SoA replacement for `maybe_changed_after`. It dispatches
-/// directly on `cell_index` and accesses `PullMemoData` entries without
+/// directly on `cell_index` and accesses `MemoData` entries without
 /// going through `CellMeta`.
 ///
 /// # Algorithm
@@ -200,7 +200,7 @@ fn Runtime::pull_verify(
           // All deps inspected; finalize this memo.
           let frame_changed = stack[top].changed
           let _ = stack.pop()
-          // memo is still valid — PullMemoData is heap-allocated (has mut fields)
+          // memo is still valid — MemoData is heap-allocated (has mut fields)
           memo.in_progress = false
           if frame_changed {
             match (memo.compute)() {
@@ -271,7 +271,7 @@ fn Runtime::pull_verify_hybrid(
     HybridMemo(i) => i
     _ => abort("pull_verify_hybrid: not a HybridMemo")
   }
-  let root = self.push.hybrid_memos[root_idx]
+  let root = self.pull.memos[root_idx]
   // Fast path: skip only when not dirty AND already verified this revision.
   // A dirty hybrid memo must always re-verify even if verified_at is current,
   // because push propagation may have dirtied it after the last verification.

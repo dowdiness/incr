@@ -9,9 +9,8 @@ test "cell_ref: HybridMemo variant pattern-matches correctly" {
 }
 
 ///|
-test "runtime: hybrid_memos and hybrid_dirty start empty" {
+test "runtime: hybrid_dirty starts empty" {
   let rt = Runtime::new()
-  inspect(rt.push.hybrid_memos.length(), content="0")
   inspect(rt.push.hybrid_dirty.length(), content="0")
 }
 
@@ -54,7 +53,7 @@ test "hybrid memo: dirty flag set by push propagation before get()" {
     HybridMemo(i) => i
     _ => abort("")
   }
-  inspect(rt.push.hybrid_memos[h_idx].dirty, content="true")
+  inspect(rt.pull.memos[h_idx].dirty, content="true")
 }
 
 ///|
@@ -68,9 +67,9 @@ test "hybrid memo: dirty flag triggers recompute on get" {
     HybridMemo(i) => i
     _ => abort("")
   }
-  inspect(rt.push.hybrid_memos[h_idx].dirty, content="true")
+  inspect(rt.pull.memos[h_idx].dirty, content="true")
   inspect(h.get(), content="15") // triggers recompute; dirty cleared
-  inspect(rt.push.hybrid_memos[h_idx].dirty, content="false")
+  inspect(rt.pull.memos[h_idx].dirty, content="false")
 }
 
 ///|
@@ -92,10 +91,10 @@ test "hybrid memo: backdating — unchanged value does not bump changed_at" {
     HybridMemo(i) => i
     _ => abort("")
   }
-  let before = rt.push.hybrid_memos[h_idx].changed_at
+  let before = rt.pull.memos[h_idx].changed_at
   s.set(1) // same value → signal backdating → h may not be dirtied
   let _ = h.get()
-  inspect(rt.push.hybrid_memos[h_idx].changed_at == before, content="true")
+  inspect(rt.pull.memos[h_idx].changed_at == before, content="true")
 }
 
 ///|
@@ -116,10 +115,10 @@ test "hybrid memo: clean verify clears dirty after pull-memo backdating" {
     _ => abort("")
   }
   s.set(2) // m re-verifies and backdates unchanged; h should become clean
-  inspect(rt.push.hybrid_memos[h_idx].dirty, content="true")
+  inspect(rt.pull.memos[h_idx].dirty, content="true")
   inspect(h.get(), content="11")
   inspect(memo_runs, content="2")
-  inspect(rt.push.hybrid_memos[h_idx].dirty, content="false")
+  inspect(rt.pull.memos[h_idx].dirty, content="false")
   let _ = h.get()
   inspect(memo_runs, content="2")
 }

@@ -79,6 +79,7 @@ pub fn[T : Eq] Memo::new(
     dependencies: [],
     subscribers: @hashset.new(),
     in_progress: false,
+    dirty: false,
     on_change: None,
   })
   let ops : &CellOps = rt.pull.memos[memo_idx]
@@ -172,7 +173,7 @@ pub fn[T : Eq] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
       }
     Some(cached) => {
       // Fast path: already verified this revision
-      let cell = self.rt.get_pull_memo(self.cell_id)
+      let cell = self.rt.get_memo_data(self.cell_id)
       if cell.verified_at == self.rt.core.current_revision {
         self.rt.record_dependency(self.cell_id)
         return Ok(cached)
@@ -235,7 +236,7 @@ pub fn[T : Eq] Memo::get_or_else(
 /// eliminates the implicit invariant that `self.value` is always `Some` after a
 /// successful call.
 fn[T : Eq] Memo::force_recompute(self : Memo[T]) -> Result[T, CycleError] {
-  let cell = self.rt.get_pull_memo(self.cell_id)
+  let cell = self.rt.get_memo_data(self.cell_id)
   if cell.in_progress {
     return Err(
       CycleError::from_path(self.rt.collect_tracking_path(), cell.cell_id),
@@ -303,7 +304,7 @@ fn[T : Eq] Memo::force_recompute(self : Memo[T]) -> Result[T, CycleError] {
 /// Returns `Ok(true)` if the value changed, `Ok(false)` if unchanged (backdated),
 /// or `Err(CycleError)` if a cycle is detected.
 fn[T : Eq] Memo::recompute_inner(self : Memo[T]) -> Result[Bool, CycleError] {
-  let cell = self.rt.get_pull_memo(self.cell_id)
+  let cell = self.rt.get_memo_data(self.cell_id)
   let old_changed_at = cell.changed_at
   match self.force_recompute() {
     Ok(_) => {
@@ -370,7 +371,7 @@ pub fn[T] Memo::id(self : Memo[T]) -> CellId {
 /// inspect(m.dependencies().contains(x.id()), content="true")
 /// ```
 pub fn[T] Memo::dependencies(self : Memo[T]) -> Array[CellId] {
-  self.rt.get_pull_memo(self.cell_id).dependencies.copy()
+  self.rt.get_memo_data(self.cell_id).dependencies.copy()
 }
 
 ///|
@@ -383,7 +384,7 @@ pub fn[T] Memo::dependencies(self : Memo[T]) -> Array[CellId] {
 ///
 /// The revision timestamp of the last actual value change
 pub fn[T] Memo::changed_at(self : Memo[T]) -> Revision {
-  self.rt.get_pull_memo(self.cell_id).changed_at
+  self.rt.get_memo_data(self.cell_id).changed_at
 }
 
 ///|
@@ -396,7 +397,7 @@ pub fn[T] Memo::changed_at(self : Memo[T]) -> Revision {
 ///
 /// The revision timestamp of the last verification
 pub fn[T] Memo::verified_at(self : Memo[T]) -> Revision {
-  self.rt.get_pull_memo(self.cell_id).verified_at
+  self.rt.get_memo_data(self.cell_id).verified_at
 }
 
 ///|
@@ -413,7 +414,7 @@ pub fn[T] Memo::verified_at(self : Memo[T]) -> Revision {
 ///
 /// - `f`: Called with the new value whenever this memo's value changes
 pub fn[T] Memo::on_change(self : Memo[T], f : (T) -> Unit) -> Unit {
-  self.rt.get_pull_memo(self.cell_id).on_change = Some(() => {
+  self.rt.get_memo_data(self.cell_id).on_change = Some(() => {
     match self.value {
       Some(v) => f(v)
       None => ()
@@ -424,7 +425,7 @@ pub fn[T] Memo::on_change(self : Memo[T], f : (T) -> Unit) -> Unit {
 ///|
 /// Removes the `on_change` callback for this memo.
 pub fn[T] Memo::clear_on_change(self : Memo[T]) -> Unit {
-  self.rt.get_pull_memo(self.cell_id).on_change = None
+  self.rt.get_memo_data(self.cell_id).on_change = None
 }
 
 ///|
@@ -435,7 +436,7 @@ pub fn[T] Memo::is_up_to_date(self : Memo[T]) -> Bool {
   match self.value {
     None => false
     Some(_) =>
-      self.rt.get_pull_memo(self.cell_id).verified_at ==
+      self.rt.get_memo_data(self.cell_id).verified_at ==
       self.rt.core.current_revision
   }
 }

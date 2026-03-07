@@ -5,7 +5,7 @@ test "verify leak simulation: stale in_progress causes spurious cycle" {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 0)
   let memo = Memo::new(rt, () => sig.get() + 1)
-  let meta = rt.get_pull_memo(memo.id())
+  let meta = rt.get_memo_data(memo.id())
   meta.in_progress = true
   rt.push_tracking(memo.id())
 
@@ -28,7 +28,7 @@ test "verify leak simulation: manual cleanup recovers memo reads" {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 0)
   let memo = Memo::new(rt, () => sig.get() + 1)
-  let meta = rt.get_pull_memo(memo.id())
+  let meta = rt.get_memo_data(memo.id())
   meta.in_progress = true
   rt.push_tracking(memo.id())
 
@@ -46,7 +46,7 @@ test "memo_get_or_returns_fallback_on_cycle_error" {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 0)
   let memo = Memo::new(rt, () => sig.get() + 1)
-  let meta = rt.get_pull_memo(memo.id())
+  let meta = rt.get_memo_data(memo.id())
   meta.in_progress = true
   rt.push_tracking(memo.id())
 
@@ -61,7 +61,7 @@ test "memo_get_or_else_receives_cycle_error" {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 0)
   let memo = Memo::new(rt, () => sig.get() + 1)
-  let meta = rt.get_pull_memo(memo.id())
+  let meta = rt.get_memo_data(memo.id())
   meta.in_progress = true
   rt.push_tracking(memo.id())
 
@@ -79,9 +79,9 @@ test "memo_get_or_else_receives_cycle_error" {
 }
 
 ///|
-// pull_verify uses PullMemoData.compute for recomputation.
+// pull_verify uses MemoData.compute for recomputation.
 // This test verifies that stale memo recomputation via pull_verify succeeds.
-test "pull_verify: recomputes stale memo via PullMemoData.compute" {
+test "pull_verify: recomputes stale memo via MemoData.compute" {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 0)
   let memo = Memo::new(rt, () => sig.get() + 1)
@@ -89,7 +89,7 @@ test "pull_verify: recomputes stale memo via PullMemoData.compute" {
   let _ = memo.get_result()
   // Trigger re-verification: change sig so the memo is stale
   sig.set(1)
-  // pull_verify recomputes via PullMemoData.compute
+  // pull_verify recomputes via MemoData.compute
   match memo.get_result() {
     Ok(v) => inspect(v, content="2")
     Err(_) => abort("unexpected error")

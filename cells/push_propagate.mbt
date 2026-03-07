@@ -159,8 +159,8 @@ fn Runtime::push_propagate_from(
               })
             }
           HybridMemo(i) => {
-            if not(self.push.hybrid_memos[i].dirty) {
-              self.push.hybrid_memos[i].dirty = true
+            if not(self.pull.memos[i].dirty) {
+              self.pull.memos[i].dirty = true
               self.push.hybrid_dirty.push(sub_id)
             }
             bfs_worklist.push(sub_id) // bridge through hybrid memos
