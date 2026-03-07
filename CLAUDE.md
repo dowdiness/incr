@@ -49,7 +49,7 @@ dowdiness/incr/
 │   │
 │   │   # Pull mode (lazy verification)
 │   ├── pull_signal.mbt         (PullSignalData — SoA entry for input cells; CellOps + Committable impls)
-│   ├── pull_memo.mbt           (PullMemoData — SoA entry for derived cells; CellOps impl)
+│   ├── pull_memo.mbt           (MemoData — unified SoA entry for pull and hybrid derived cells; CellOps impl)
 │   ├── signal.mbt              (Signal[T])
 │   ├── memo.mbt                (Memo[T])
 │   ├── verify.mbt              (pull_verify, PullVerifyFrame, clear_verify_stack)
@@ -60,7 +60,7 @@ dowdiness/incr/
 │   ├── push_propagate.mbt      (push_propagate_from, propagate_level_change — level-sorted push propagation)
 │   │
 │   │   # Hybrid mode (push dirty flags + pull verification)
-│   ├── hybrid_memo.mbt         (HybridMemo[T] — hybrid push-pull memo; HybridMemoData SoA entry)
+│   ├── hybrid_memo.mbt         (HybridMemo[T] — hybrid push-pull memo; uses unified MemoData)
 │   │
 │   │   # Datalog mode (fixpoint evaluation)
 │   ├── datalog_relation.mbt    (Relation[T] — set with delta tracking; RelationData SoA entry)
@@ -101,11 +101,11 @@ The library implements Salsa's incremental computation pattern with five cell ty
 - **HybridMemo[T]** (`cells/hybrid_memo.mbt`) — Hybrid push-pull memo. Receives dirty flags eagerly via push propagation but verifies/recomputes lazily on `get()`. Fast path skips dep walk when `not(dirty) && verified_at >= current_revision`.
 - **Reactive[T]** (`cells/reactive.mbt`) — Push-mode derived cell. Recomputed eagerly during level-sorted push propagation when upstream cells change.
 - **Effect** (`cells/effect.mbt`) — Terminal push-mode side-effect cell. Runs side effects eagerly; never read by other cells.
-- **Runtime** (`cells/runtime.mbt`) — Central state: global revision counter, SoA arrays (`pull_signals`, `pull_memos`, `hybrid_memos`, `push_reactives`, `push_effects`, `cell_index`, `cell_ops`), dependency tracking stack, per-durability revision tracking, push propagation engine, and batch state.
+- **Runtime** (`cells/runtime.mbt`) — Central state: global revision counter, SoA arrays (`pull_signals`, `pull_memos`, `push_reactives`, `push_effects`, `cell_index`, `cell_ops`), dependency tracking stack, per-durability revision tracking, push propagation engine, and batch state.
 
 ### Dependency Graph Internals
 
-- **SoA storage** (`cells/cell_ref.mbt`, `cells/pull_signal.mbt`, `cells/pull_memo.mbt`, `cells/hybrid_memo.mbt`, `cells/reactive.mbt`, `cells/effect.mbt`, `cells/cell_ops.mbt`) — Cell metadata lives in parallel typed arrays on `Runtime`: `pull_signals : Array[PullSignalData]` (input cells), `pull_memos : Array[PullMemoData]` (pull-mode derived cells), `hybrid_memos : Array[HybridMemoData]` (hybrid push-pull memos with `dirty` flag), `push_reactives : Array[PushReactiveData]` (push-mode derived cells), `push_effects : Array[PushEffectData]` (terminal side-effect cells), `cell_index : Array[CellRef]` (maps `CellId.id` → `PullSignal(idx)`, `PullMemo(idx)`, `HybridMemo(idx)`, `PushReactive(idx)`, `PushEffect(idx)`, or `Disposed` for O(1) dispatch), and `cell_ops : Array[&CellOps]` (trait-object array for uniform read access — indexed by `CellId.id`). All SoA data structs implement `CellOps`.
+- **SoA storage** (`cells/cell_ref.mbt`, `cells/pull_signal.mbt`, `cells/pull_memo.mbt`, `cells/hybrid_memo.mbt`, `cells/reactive.mbt`, `cells/effect.mbt`, `cells/cell_ops.mbt`) — Cell metadata lives in parallel typed arrays on `Runtime`: `pull_signals : Array[PullSignalData]` (input cells), `pull_memos : Array[MemoData]` (unified storage for both pull-mode and hybrid-mode derived cells, with `dirty` flag for hybrid semantics), `push_reactives : Array[PushReactiveData]` (push-mode derived cells), `push_effects : Array[PushEffectData]` (terminal side-effect cells), `cell_index : Array[CellRef]` (maps `CellId.id` → `PullSignal(idx)`, `PullMemo(idx)`, `HybridMemo(idx)`, `PushReactive(idx)`, `PushEffect(idx)`, or `Disposed` for O(1) dispatch), and `cell_ops : Array[&CellOps]` (trait-object array for uniform read access — indexed by `CellId.id`). Both `PullMemo` and `HybridMemo` index into the same `pull_memos` array. All SoA data structs implement `CellOps`.
 - **ActiveQuery** (`cells/tracking.mbt`) — Frame pushed onto `Runtime.tracking_stack` during memo computation. Collects dependencies (with HashSet-based O(1) deduplication) read via `Signal::get` or `Memo::get`.
 - **Revision** / **Durability** (`types/revision.mbt`) — Monotonic revision counter bumped on input changes. Durability classifies input change frequency; derived cells inherit the minimum durability of their dependencies.
 - **Verification** (`cells/verify.mbt`) — `pull_verify()` is the core algorithm. Dispatches directly on `cell_index`; signals are always fresh. For memos: checks the root durability shortcut first, then walks dependencies iteratively using an explicit `PullVerifyFrame` stack. Short-circuits on the first detected change (sets `dep_cursor` to end of dep list). If any dependency changed, calls the type-erased `compute` closure (enabling backdating). Green path marks `verified_at` without recomputation. Per-dep durability shortcuts skip traversal for individual stale deps.
@@ -116,7 +116,7 @@ The library implements Salsa's incremental computation pattern with five cell ty
 
 ### Type Erasure
 
-The `Runtime` holds cells of many different value types simultaneously. `PullMemoData` must be type-erased — it cannot be generic over `T`.
+The `Runtime` holds cells of many different value types simultaneously. `MemoData` must be type-erased — it cannot be generic over `T`.
 
 MoonBit has no trait objects (no `Box<dyn Trait>` equivalent), so the value type cannot be hidden behind a vtable. Instead, the bridge is a **captured closure**:
 
@@ -128,15 +128,15 @@ Memo[T]::new()
   │     └── captures `memo` by reference (the full typed Memo[T])
   │         calls memo.recompute_inner() which reads/writes memo.value : T?
   │         returns only Bool (changed?) — runtime never sees T
-  └── stores closure in PullMemoData (type-erased)
+  └── stores closure in MemoData (type-erased)
 ```
 
-`pull_verify` calls `(memo.compute)()` and only receives a `Bool` or a `CycleError`. The typed value `T` never crosses the `PullMemoData` boundary.
+`pull_verify` calls `(memo.compute)()` and only receives a `Bool` or a `CycleError`. The typed value `T` never crosses the `MemoData` boundary.
 
 **Consequence for contributors:** Do not attempt to:
-- Move the cached value into `PullMemoData` (would require it to be generic or use `Any`)
+- Move the cached value into `MemoData` (would require it to be generic or use `Any`)
 - Make `Runtime` generic over a value type (Runtime holds cells of *many* different types simultaneously)
-- Add a second type-erased closure that returns the value as a string or `Show` output directly from `PullMemoData` — if you need introspection, thread it through `CellInfo` (see `Runtime::cell_info`) which is populated by the typed layer
+- Add a second type-erased closure that returns the value as a string or `Show` output directly from `MemoData` — if you need introspection, thread it through `CellInfo` (see `Runtime::cell_info`) which is populated by the typed layer
 
 The `compute` and `commit_pending` closures follow the same pattern: capture the typed cell, perform typed operations, return only type-erased results (`Bool` or `Result[Bool, CycleError]`).
 
@@ -145,7 +145,7 @@ The `compute` and `commit_pending` closures follow the same pattern: capture the
 1. `Signal::set()` bumps the global revision, records `changed_at` on the signal's `PullSignalData` (or defers to batch if inside `Runtime::batch()`), and triggers `push_propagate_from` if `push_node_count > 0`
 2. Push propagation: BFS from changed signal through subscriber links; marks `HybridMemo` dirty flags, eagerly recomputes `Reactive` cells, and runs `Effect` cells (all level-sorted for glitch-free execution)
 3. `Memo::get()` checks `verified_at` against current revision; if stale, calls `pull_verify()`
-4. `HybridMemo::get()` fast path: if `not(dirty) && verified_at >= current_revision`, returns cached value immediately; otherwise calls `pull_verify_hybrid`
+4. `HybridMemo::get()` fast path: if `not(dirty) && verified_at >= current_revision`, returns cached value immediately; otherwise calls `pull_verify`
 5. `pull_verify()` iteratively verifies dependencies using an explicit `PullVerifyFrame` stack, short-circuiting on the first change and recomputing only cells whose inputs actually changed
 6. Backdating: if a Memo/HybridMemo recomputes to the same value, `changed_at` stays old, so downstream cells skip recomputation
 7. Durability shortcut: if no input of a cell's durability level changed, verification is skipped entirely
@@ -161,7 +161,7 @@ The `compute` and `commit_pending` closures follow the same pattern: capture the
 - Unit tests (`*_test.mbt`): live in `cells/` alongside source; test the cells package API as a black-box consumer
 - Integration tests: live in `tests/`; test the full `@incr` public API end-to-end across multiple scenarios
 - The `cells/` package imports `moonbitlang/core/hashset` and `moonbitlang/core/hashmap` as external dependencies
-- `cells/moon.pkg` suppresses warning 15 (`unused_mut`) because some `mut` fields on `PullMemoData`/`PullSignalData` are only written in whitebox test compilation, not source-only compilation
+- `cells/moon.pkg` suppresses warning 15 (`unused_mut`) because some `mut` fields on `MemoData`/`PullSignalData` are only written in whitebox test compilation, not source-only compilation
 - Anonymous callbacks use arrow function syntax: `() => expr` (zero params, single expression), `() => { stmts }` (multi-statement), `x => expr` (one param), `(x, y) => expr` (multiple params). Empty bodies use `() => ()` — not `() => {}` which MoonBit parses as a map literal. Named functions (`pub fn`, `fn name(...)`) are unaffected.
 
 ## Documentation Hierarchy

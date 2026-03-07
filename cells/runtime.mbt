@@ -58,18 +58,11 @@ priv struct RuntimeCore {
 /// Pull-mode SoA storage (lazy verification).
 priv struct PullState {
   signals : Array[PullSignalData]
-  memos : Array[PullMemoData]
+  memos : Array[MemoData]
 }
 
 ///|
 /// Push-mode SoA storage (eager propagation).
-///
-/// `hybrid_memos` lives here despite HybridMemo participating in pull
-/// verification (`pull_verify_hybrid`). The placement reflects that push
-/// propagation is responsible for managing HybridMemo's `dirty` flag and
-/// `node_count`, which are the hot-path fields. Pull verification accesses
-/// `self.push.hybrid_memos` when verifying a HybridMemo dep — this is a
-/// deliberate cross-boundary access, not a leak.
 priv struct PushState {
   reactives : Array[PushReactiveData]
   effects : Array[PushEffectData]
@@ -78,7 +71,6 @@ priv struct PushState {
   /// Count of live push cells (reactives + effects + hybrid memos).
   /// Used as an O(1) gate before push propagation.
   mut node_count : Int
-  hybrid_memos : Array[HybridMemoData]
   hybrid_dirty : Array[CellId]
 }
 
@@ -170,7 +162,6 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
       free_reactives: [],
       free_effects: [],
       node_count: 0,
-      hybrid_memos: [],
       hybrid_dirty: [],
     },
     datalog: { in_fixpoint: false, relations: [], rules: [] },
@@ -285,7 +276,7 @@ fn Runtime::cell_id_for(self : Runtime, cell_ref : CellRef) -> CellId {
     PullMemo(idx) => self.pull.memos[idx].cell_id
     PushReactive(idx) => self.push.reactives[idx].cell_id
     PushEffect(idx) => self.push.effects[idx].cell_id
-    HybridMemo(idx) => self.push.hybrid_memos[idx].cell_id
+    HybridMemo(idx) => self.pull.memos[idx].cell_id
     Disposed => abort("cell_id_for: cell has been disposed")
     Relation(idx) => self.datalog.relations[idx].cell_id
     Rule(idx) => self.datalog.rules[idx].cell_id
@@ -310,31 +301,17 @@ fn Runtime::get_pull_signal(self : Runtime, id : CellId) -> PullSignalData {
 }
 
 ///|
-/// Returns the PullMemoData for a memo cell.
+/// Returns the MemoData for a memo or hybrid memo cell.
 ///
 /// # Panics
 ///
 /// Aborts if the cell belongs to a different runtime or is not a memo.
-fn Runtime::get_pull_memo(self : Runtime, id : CellId) -> PullMemoData {
-  self.validate_cell(id, "get_pull_memo")
+fn Runtime::get_memo_data(self : Runtime, id : CellId) -> MemoData {
+  self.validate_cell(id, "get_memo_data")
   match self.core.cell_index[id.id] {
-    PullMemo(idx) => self.pull.memos[idx]
+    PullMemo(idx) | HybridMemo(idx) => self.pull.memos[idx]
     _ =>
       abort("Expected memo cell but found different kind: " + id.id.to_string())
-  }
-}
-
-///|
-/// Returns the HybridMemoData for a hybrid memo cell.
-fn Runtime::get_hybrid_memo(self : Runtime, id : CellId) -> HybridMemoData {
-  self.validate_cell(id, "get_hybrid_memo")
-  match self.core.cell_index[id.id] {
-    HybridMemo(idx) => self.push.hybrid_memos[idx]
-    _ =>
-      abort(
-        "Expected hybrid memo cell but found different kind: " +
-        id.id.to_string(),
-      )
   }
 }
 

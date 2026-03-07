@@ -4,7 +4,7 @@
 /// The actual typed value lives in the `Memo[T]` handle held by user code.
 /// `compute` is a closure captured at construction time that recomputes
 /// the memo and returns whether the value changed.
-priv struct PullMemoData {
+priv struct MemoData {
   cell_id : CellId
   label : String?
   compute : () -> Result[Bool, CycleError]
@@ -14,41 +14,42 @@ priv struct PullMemoData {
   mut dependencies : Array[CellId]
   subscribers : @hashset.HashSet[CellId]
   mut in_progress : Bool
+  mut dirty : Bool
   mut on_change : (() -> Unit)?
 }
 
 ///|
 /// CellOps dispatch for pull-memo cells.
-impl CellOps for PullMemoData with cell_id(self) -> CellId {
+impl CellOps for MemoData with cell_id(self) -> CellId {
   self.cell_id
 }
 
 ///|
-impl CellOps for PullMemoData with changed_at(self) -> Revision {
+impl CellOps for MemoData with changed_at(self) -> Revision {
   self.changed_at
 }
 
 ///|
-impl CellOps for PullMemoData with set_changed_at(self, rev : Revision) -> Unit {
+impl CellOps for MemoData with set_changed_at(self, rev : Revision) -> Unit {
   self.changed_at = rev
 }
 
 ///|
-impl CellOps for PullMemoData with subscribers(self) -> @hashset.HashSet[CellId] {
+impl CellOps for MemoData with subscribers(self) -> @hashset.HashSet[CellId] {
   self.subscribers
 }
 
 ///|
-impl CellOps for PullMemoData with label(self) -> String? {
+impl CellOps for MemoData with label(self) -> String? {
   self.label
 }
 
 ///|
-impl CellOps for PullMemoData with durability(self) -> Durability {
+impl CellOps for MemoData with durability(self) -> Durability {
   self.durability
 }
 
 ///|
-impl CellOps for PullMemoData with dep_changed_since(_self, _verified_at) -> Bool? {
+impl CellOps for MemoData with dep_changed_since(_self, _verified_at) -> Bool? {
   None
 }

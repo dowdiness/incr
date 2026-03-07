@@ -2,7 +2,7 @@
 /// Internal SoA entry for a push-mode reactive cell.
 ///
 /// Recomputed eagerly when upstream cells change via push propagation.
-/// Uses the same type-erased `compute : () -> Bool` pattern as `PullMemoData`.
+/// Uses the same type-erased `compute : () -> Bool` pattern as `MemoData`.
 priv struct PushReactiveData {
   cell_id : CellId
   mut label : String?

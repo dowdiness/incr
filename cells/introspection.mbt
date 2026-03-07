@@ -102,7 +102,7 @@ pub fn Runtime::cell_info(self : Runtime, id : CellId) -> CellInfo? {
         subscribers: snapshot_subscribers(ops.subscribers()),
       })
     }
-    PullMemo(idx) => {
+    PullMemo(idx) | HybridMemo(idx) => {
       let memo = self.pull.memos[idx]
       Some(CellInfo::{
         label: ops.label(),
@@ -146,7 +146,7 @@ pub fn Runtime::dependents(self : Runtime, id : CellId) -> Array[CellId] {
 /// Collects all pull memos currently marked in_progress.
 ///
 /// Called when a cycle is detected during `pull_verify`. The in_progress
-/// flags on `PullMemoData` entries identify the exact cycle participants.
+/// flags on `MemoData` entries identify the exact cycle participants.
 ///
 /// # Returns
 ///
@@ -156,11 +156,6 @@ fn Runtime::collect_in_progress_path(self : Runtime) -> Array[CellId] {
   for memo in self.pull.memos {
     if memo.in_progress {
       path.push(memo.cell_id)
-    }
-  }
-  for hybrid in self.push.hybrid_memos {
-    if hybrid.in_progress {
-      path.push(hybrid.cell_id)
     }
   }
   path
