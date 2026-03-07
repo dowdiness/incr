@@ -58,14 +58,14 @@ All documentation for the `incr` incremental computation library.
 
 ### Active Plans
 
-| Document | Purpose |
-|----------|---------|
-| [plans/2026-03-07-cells-simplification-design.md](plans/2026-03-07-cells-simplification-design.md) | Split runtime.mbt, deduplicate validation, extract dispose cleanup |
+(No active plans)
 
 ### Archive (Completed Plans)
 
 | Document | Purpose |
 |----------|---------|
+| [archive/completed-phases/2026-03-07-cells-simplification-design.md](archive/completed-phases/2026-03-07-cells-simplification-design.md) | Split runtime.mbt, deduplicate validation, extract dispose cleanup |
+| [archive/completed-phases/2026-03-08-cells-simplification-impl.md](archive/completed-phases/2026-03-08-cells-simplification-impl.md) | Implementation plan for cells simplification |
 | [archive/completed-phases/2026-03-06-runtime-modularization-design.md](archive/completed-phases/2026-03-06-runtime-modularization-design.md) | Runtime modularization via refunctionalized CellOps + sub-structs |
 | [archive/2026-03-03-datalog-primitives.md](archive/2026-03-03-datalog-primitives.md) | Datalog primitives: Relation, Rule, Fixpoint |
 
