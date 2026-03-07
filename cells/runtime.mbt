@@ -335,24 +335,14 @@ fn Runtime::validate_cell_soft(self : Runtime, id : CellId) -> Bool {
 ///
 /// Covers PullSignal and PullMemo; aborts on unknown or out-of-bounds IDs.
 fn Runtime::get_changed_at(self : Runtime, id : CellId) -> Revision {
-  if id.runtime_id != self.core.runtime_id {
-    abort("Cell belongs to a different Runtime")
-  }
-  if id.id < 0 || id.id >= self.core.cell_ops.length() {
-    abort("get_changed_at: cell_id out of bounds: " + id.id.to_string())
-  }
+  self.validate_cell(id, "get_changed_at")
   self.core.cell_ops[id.id].changed_at()
 }
 
 ///|
 /// Returns the `durability` for any cell, dispatching via cell_index.
 fn Runtime::get_durability(self : Runtime, id : CellId) -> Durability {
-  if id.runtime_id != self.core.runtime_id {
-    abort("Cell belongs to a different Runtime")
-  }
-  if id.id < 0 || id.id >= self.core.cell_ops.length() {
-    abort("get_durability: cell_id out of bounds: " + id.id.to_string())
-  }
+  self.validate_cell(id, "get_durability")
   self.core.cell_ops[id.id].durability()
 }
 
@@ -381,12 +371,7 @@ fn Runtime::cell_id_for(self : Runtime, cell_ref : CellRef) -> CellId {
 ///
 /// Aborts if the cell belongs to a different runtime or is not a signal.
 fn Runtime::get_pull_signal(self : Runtime, id : CellId) -> PullSignalData {
-  if id.runtime_id != self.core.runtime_id {
-    abort("Cell belongs to a different Runtime")
-  }
-  if id.id < 0 || id.id >= self.core.cell_index.length() {
-    abort("get_pull_signal: cell_id out of bounds: " + id.id.to_string())
-  }
+  self.validate_cell(id, "get_pull_signal")
   match self.core.cell_index[id.id] {
     PullSignal(idx) => self.pull.signals[idx]
     _ =>
@@ -403,12 +388,7 @@ fn Runtime::get_pull_signal(self : Runtime, id : CellId) -> PullSignalData {
 ///
 /// Aborts if the cell belongs to a different runtime or is not a memo.
 fn Runtime::get_pull_memo(self : Runtime, id : CellId) -> PullMemoData {
-  if id.runtime_id != self.core.runtime_id {
-    abort("Cell belongs to a different Runtime")
-  }
-  if id.id < 0 || id.id >= self.core.cell_index.length() {
-    abort("get_pull_memo: cell_id out of bounds: " + id.id.to_string())
-  }
+  self.validate_cell(id, "get_pull_memo")
   match self.core.cell_index[id.id] {
     PullMemo(idx) => self.pull.memos[idx]
     _ =>
@@ -419,12 +399,7 @@ fn Runtime::get_pull_memo(self : Runtime, id : CellId) -> PullMemoData {
 ///|
 /// Returns the HybridMemoData for a hybrid memo cell.
 fn Runtime::get_hybrid_memo(self : Runtime, id : CellId) -> HybridMemoData {
-  if id.runtime_id != self.core.runtime_id {
-    abort("Cell belongs to a different Runtime")
-  }
-  if id.id < 0 || id.id >= self.core.cell_index.length() {
-    abort("get_hybrid_memo: cell_id out of bounds: " + id.id.to_string())
-  }
+  self.validate_cell(id, "get_hybrid_memo")
   match self.core.cell_index[id.id] {
     HybridMemo(idx) => self.push.hybrid_memos[idx]
     _ =>
@@ -442,12 +417,7 @@ fn Runtime::get_hybrid_memo(self : Runtime, id : CellId) -> HybridMemoData {
 /// notified when a cell's value changes. Phase 3 extends this with
 /// `PushReactive`, `PushEffect`, and `Disposed` arms.
 fn Runtime::get_subscribers(self : Runtime, cell_id : CellId) -> Iter[CellId] {
-  if cell_id.runtime_id != self.core.runtime_id {
-    abort("Cell belongs to a different Runtime")
-  }
-  if cell_id.id < 0 || cell_id.id >= self.core.cell_ops.length() {
-    abort("get_subscribers: cell_id out of bounds: " + cell_id.id.to_string())
-  }
+  self.validate_cell(cell_id, "get_subscribers")
   self.core.cell_ops[cell_id.id].subscribers().iter()
 }
 
@@ -458,12 +428,7 @@ fn Runtime::remove_subscriber(
   dep : CellId,
   subscriber : CellId,
 ) -> Unit {
-  if dep.runtime_id != self.core.runtime_id {
-    abort("Cell belongs to a different Runtime")
-  }
-  if dep.id < 0 || dep.id >= self.core.cell_ops.length() {
-    abort("remove_subscriber: dep cell_id out of bounds: " + dep.id.to_string())
-  }
+  self.validate_cell(dep, "remove_subscriber")
   self.core.cell_ops[dep.id].subscribers().remove(subscriber)
 }
 
@@ -474,12 +439,7 @@ fn Runtime::add_subscriber(
   dep : CellId,
   subscriber : CellId,
 ) -> Unit {
-  if dep.runtime_id != self.core.runtime_id {
-    abort("Cell belongs to a different Runtime")
-  }
-  if dep.id < 0 || dep.id >= self.core.cell_ops.length() {
-    abort("add_subscriber: dep cell_id out of bounds: " + dep.id.to_string())
-  }
+  self.validate_cell(dep, "add_subscriber")
   self.core.cell_ops[dep.id].subscribers().add(subscriber)
 }
 
