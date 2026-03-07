@@ -1020,14 +1020,7 @@ fn Runtime::dispose_reactive(self : Runtime, cell_id : CellId) -> Unit {
         self.remove_subscriber(dep, cell_id)
       }
       self.core.cell_index[cell_id.id] = Disposed
-      // Clear slot in-place to release captured closures and graph edges.
-      // Both push_reactives[idx] and cell_ops[cell_id.id] reference the same
-      // heap object, so mutations here are visible through both references.
-      reactive.compute = () => false
-      reactive.sources = []
-      reactive.subscribers.clear()
-      reactive.label = None
-      reactive.dirty = false
+      reactive.clear_slot()
       self.push.free_reactives.push(idx)
       self.push.node_count = self.push.node_count - 1
     }
@@ -1049,12 +1042,7 @@ fn Runtime::dispose_effect(self : Runtime, cell_id : CellId) -> Unit {
         self.remove_subscriber(dep, cell_id)
       }
       self.core.cell_index[cell_id.id] = Disposed
-      // Clear slot in-place to release captured closures and graph edges.
-      effect.execute = () => ()
-      effect.sources = []
-      effect.subscribers.clear()
-      effect.label = None
-      effect.dirty = false
+      effect.clear_slot()
       self.push.free_effects.push(idx)
       self.push.node_count = self.push.node_count - 1
     }
