@@ -1,11 +1,11 @@
 ///|
 test "runtime: push arrays start empty" {
   let rt = Runtime::new()
-  inspect(rt.push_reactives.length(), content="0")
-  inspect(rt.push_effects.length(), content="0")
-  inspect(rt.free_push_reactives.length(), content="0")
-  inspect(rt.free_push_effects.length(), content="0")
-  inspect(rt.push_node_count, content="0")
+  inspect(rt.push.reactives.length(), content="0")
+  inspect(rt.push.effects.length(), content="0")
+  inspect(rt.push.free_reactives.length(), content="0")
+  inspect(rt.push.free_effects.length(), content="0")
+  inspect(rt.push.node_count, content="0")
 }
 
 ///|
@@ -14,21 +14,21 @@ test "free list: reactive slot reused after dispose" {
   let s = Signal::new(rt, 1)
   let r = Reactive::new(rt, () => s.get())
   let _ = r.get()
-  let r_idx = match rt.cell_index[r.id().id] {
+  let r_idx = match rt.core.cell_index[r.id().id] {
     PushReactive(i) => i
     _ => abort("expected PushReactive")
   }
   r.dispose()
-  inspect(rt.free_push_reactives.length(), content="1")
+  inspect(rt.push.free_reactives.length(), content="1")
   let r2 = Reactive::new(rt, () => s.get() + 1)
   let _ = r2.get()
-  let r2_idx = match rt.cell_index[r2.id().id] {
+  let r2_idx = match rt.core.cell_index[r2.id().id] {
     PushReactive(i) => i
     _ => abort("expected PushReactive")
   }
   inspect(r2_idx, content=r_idx.to_string())
-  inspect(rt.push_reactives.length(), content="1")
-  inspect(rt.free_push_reactives.length(), content="0")
+  inspect(rt.push.reactives.length(), content="1")
+  inspect(rt.push.free_reactives.length(), content="0")
 }
 
 ///|
@@ -37,21 +37,21 @@ test "free list: effect slot reused after dispose" {
   let s = Signal::new(rt, 1)
   let mut log : Array[Int] = []
   let e = Effect::new(rt, () => log.push(s.get()))
-  let e_idx = match rt.cell_index[e.cell_id.id] {
+  let e_idx = match rt.core.cell_index[e.cell_id.id] {
     PushEffect(i) => i
     _ => abort("expected PushEffect")
   }
   e.dispose()
-  inspect(rt.free_push_effects.length(), content="1")
+  inspect(rt.push.free_effects.length(), content="1")
   let mut log2 : Array[Int] = []
   let e2 = Effect::new(rt, () => log2.push(s.get() * 2))
-  let e2_idx = match rt.cell_index[e2.cell_id.id] {
+  let e2_idx = match rt.core.cell_index[e2.cell_id.id] {
     PushEffect(i) => i
     _ => abort("expected PushEffect")
   }
   inspect(e2_idx, content=e_idx.to_string())
-  inspect(rt.push_effects.length(), content="1")
-  inspect(rt.free_push_effects.length(), content="0")
+  inspect(rt.push.effects.length(), content="1")
+  inspect(rt.push.free_effects.length(), content="0")
   s.set(3)
   inspect(log, content="[1]") // e was disposed; did not re-run
   inspect(log2, content="[2, 6]") // e2 ran on creation and on s.set(3)
@@ -60,19 +60,19 @@ test "free list: effect slot reused after dispose" {
 ///|
 test "runtime: push_node_count tracks live push cells" {
   let rt = Runtime::new()
-  inspect(rt.push_node_count, content="0")
+  inspect(rt.push.node_count, content="0")
   let s = Signal::new(rt, 0)
   let r = Reactive::new(rt, () => s.get())
-  inspect(rt.push_node_count, content="1")
+  inspect(rt.push.node_count, content="1")
   let e = Effect::new(rt, () => {
     let _ = s.get()
     ()
   })
-  inspect(rt.push_node_count, content="2")
+  inspect(rt.push.node_count, content="2")
   r.dispose()
-  inspect(rt.push_node_count, content="1")
+  inspect(rt.push.node_count, content="1")
   e.dispose()
-  inspect(rt.push_node_count, content="0")
+  inspect(rt.push.node_count, content="0")
 }
 
 ///|
@@ -216,16 +216,16 @@ test "level: reactive level is source max + 1" {
   let r2 = Reactive::new(rt, () => r1.get() + 1)
   let _ = r1.get()
   let _ = r2.get()
-  let r1_idx = match rt.cell_index[r1.id().id] {
+  let r1_idx = match rt.core.cell_index[r1.id().id] {
     PushReactive(i) => i
     _ => abort("expected PushReactive")
   }
-  let r2_idx = match rt.cell_index[r2.id().id] {
+  let r2_idx = match rt.core.cell_index[r2.id().id] {
     PushReactive(i) => i
     _ => abort("expected PushReactive")
   }
-  inspect(rt.push_reactives[r1_idx].level, content="1")
-  inspect(rt.push_reactives[r2_idx].level, content="2")
+  inspect(rt.push.reactives[r1_idx].level, content="1")
+  inspect(rt.push.reactives[r2_idx].level, content="2")
 }
 
 ///|
@@ -305,13 +305,13 @@ test "dispose: sources' subscriber sets updated after reactive dispose" {
   let s = Signal::new(rt, 1)
   let r = Reactive::new(rt, () => s.get())
   let _ = r.get()
-  let s_idx = match rt.cell_index[s.id().id] {
+  let s_idx = match rt.core.cell_index[s.id().id] {
     PullSignal(i) => i
     _ => abort("expected PullSignal")
   }
-  inspect(rt.pull_signals[s_idx].subscribers.length(), content="1")
+  inspect(rt.pull.signals[s_idx].subscribers.length(), content="1")
   r.dispose()
-  inspect(rt.pull_signals[s_idx].subscribers.length(), content="0")
+  inspect(rt.pull.signals[s_idx].subscribers.length(), content="0")
 }
 
 ///|

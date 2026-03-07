@@ -18,7 +18,7 @@ test "verify leak simulation: stale in_progress causes spurious cycle" {
     }
   }
   inspect(meta.in_progress, content="true")
-  inspect(rt.tracking_stack.length(), content="1")
+  inspect(rt.core.tracking_stack.length(), content="1")
 }
 
 ///|

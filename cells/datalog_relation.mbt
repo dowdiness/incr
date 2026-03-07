@@ -71,7 +71,7 @@ pub fn[T : Hash + Eq] Relation::new(
   rt : Runtime,
   label? : String,
 ) -> Relation[T] {
-  let idx = rt.relations.length()
+  let idx = rt.datalog.relations.length()
   let cell_id = rt.alloc_cell_id(Relation(idx))
   let current : Ref[@hashset.HashSet[T]] = { val: @hashset.new() }
   let delta : Ref[@hashset.HashSet[T]] = { val: @hashset.new() }
@@ -97,9 +97,9 @@ pub fn[T : Hash + Eq] Relation::new(
     label,
     durability: Low,
   }
-  rt.relations.push(data)
-  let ops : &CellOps = rt.relations[idx]
-  rt.cell_ops.push(ops)
+  rt.datalog.relations.push(data)
+  let ops : &CellOps = rt.datalog.relations[idx]
+  rt.core.cell_ops.push(ops)
   { rt, cell_id, current, delta, staged_delta }
 }
 
@@ -123,7 +123,7 @@ pub fn[T : Hash + Eq] Relation::insert(self : Relation[T], value : T) -> Bool {
   if self.delta.val.contains(value) {
     return false
   }
-  if self.rt.in_fixpoint {
+  if self.rt.datalog.in_fixpoint {
     if self.staged_delta.val.contains(value) {
       return false
     }
@@ -159,11 +159,11 @@ pub fn[T] Relation::iter(self : Relation[T]) -> Iter[T] {
 /// a memo/reaction computation is active.
 fn[T] Relation::record_read_dependency(self : Relation[T]) -> Unit {
   let active_rt = current_computing_runtime_id.val
-  if active_rt >= 0 && active_rt != self.rt.runtime_id {
+  if active_rt >= 0 && active_rt != self.rt.core.runtime_id {
     current_computing_runtime_id.val = -1
     abort(
       "Cross-runtime dependency: Relation belongs to Runtime " +
-      self.rt.runtime_id.to_string() +
+      self.rt.core.runtime_id.to_string() +
       " but is read inside a computation on Runtime " +
       active_rt.to_string(),
     )

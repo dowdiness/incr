@@ -17,11 +17,11 @@ test "signal: write updates value" {
 test "signal: write bumps revision" {
   let rt = Runtime()
   let sig = Signal(rt, 1)
-  inspect(rt.current_revision.value, content="0")
+  inspect(rt.core.current_revision.value, content="0")
   sig.set(2)
-  inspect(rt.current_revision.value, content="1")
+  inspect(rt.core.current_revision.value, content="1")
   sig.set(3)
-  inspect(rt.current_revision.value, content="2")
+  inspect(rt.core.current_revision.value, content="2")
 }
 
 ///|
@@ -30,7 +30,7 @@ test "signal: same-value set is no-op" {
   let sig = Signal(rt, 42)
   sig.set(42)
   // Revision should not have bumped
-  inspect(rt.current_revision.value, content="0")
+  inspect(rt.core.current_revision.value, content="0")
 }
 
 ///|
@@ -39,7 +39,7 @@ test "signal: set_unconditional always bumps" {
   let sig = Signal(rt, 42)
   sig.set_unconditional(42)
   // Revision bumps even though value is the same
-  inspect(rt.current_revision.value, content="1")
+  inspect(rt.core.current_revision.value, content="1")
 }
 
 ///|
@@ -52,7 +52,7 @@ test "signal: multiple signals independent" {
   a.set("hi")
   inspect(a.get(), content="hi")
   inspect(b.get(), content="world")
-  inspect(rt.current_revision.value, content="1")
+  inspect(rt.core.current_revision.value, content="1")
 }
 
 ///|
@@ -62,5 +62,5 @@ test "signal: string values" {
   sig.set("updated")
   inspect(sig.get(), content="updated")
   sig.set("updated") // same value, no bump
-  inspect(rt.current_revision.value, content="1")
+  inspect(rt.core.current_revision.value, content="1")
 }

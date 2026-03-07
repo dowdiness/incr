@@ -10,9 +10,9 @@ test "committable: batch commit updates signal value" {
 test "committable: batch with no-op set does not bump revision" {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 1)
-  let before = rt.current_revision
+  let before = rt.core.current_revision
   rt.batch(() => sig.set(1)) // same value
-  inspect(rt.current_revision == before, content="true")
+  inspect(rt.core.current_revision == before, content="true")
 }
 
 ///|

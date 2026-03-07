@@ -59,7 +59,7 @@ pub fn Runtime::new_rule(
   for id in output_relations {
     self.assert_rule_relation_id(id, "output")
   }
-  let idx = self.rules.length()
+  let idx = self.datalog.rules.length()
   let cell_id = self.alloc_cell_id(Rule(idx))
   let data : RuleData = {
     cell_id,
@@ -71,9 +71,9 @@ pub fn Runtime::new_rule(
     changed_at: Revision::initial(),
     durability: Low,
   }
-  self.rules.push(data)
-  let ops : &CellOps = self.rules[idx]
-  self.cell_ops.push(ops)
+  self.datalog.rules.push(data)
+  let ops : &CellOps = self.datalog.rules[idx]
+  self.core.cell_ops.push(ops)
   { id: cell_id }
 }
 
@@ -83,17 +83,17 @@ fn Runtime::assert_rule_relation_id(
   id : CellId,
   role : String,
 ) -> Unit {
-  if id.runtime_id != self.runtime_id {
+  if id.runtime_id != self.core.runtime_id {
     abort(
       "new_rule: " +
       role +
       " relation belongs to Runtime " +
       id.runtime_id.to_string() +
       ", expected Runtime " +
-      self.runtime_id.to_string(),
+      self.core.runtime_id.to_string(),
     )
   }
-  if id.id < 0 || id.id >= self.cell_index.length() {
+  if id.id < 0 || id.id >= self.core.cell_index.length() {
     abort(
       "new_rule: " +
       role +
@@ -101,7 +101,7 @@ fn Runtime::assert_rule_relation_id(
       id.id.to_string(),
     )
   }
-  match self.cell_index[id.id] {
+  match self.core.cell_index[id.id] {
     Relation(_) => ()
     _ =>
       abort(

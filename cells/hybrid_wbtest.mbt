@@ -11,8 +11,8 @@ test "cell_ref: HybridMemo variant pattern-matches correctly" {
 ///|
 test "runtime: hybrid_memos and hybrid_dirty start empty" {
   let rt = Runtime::new()
-  inspect(rt.hybrid_memos.length(), content="0")
-  inspect(rt.hybrid_dirty.length(), content="0")
+  inspect(rt.push.hybrid_memos.length(), content="0")
+  inspect(rt.push.hybrid_dirty.length(), content="0")
 }
 
 ///|
@@ -50,11 +50,11 @@ test "hybrid memo: dirty flag set by push propagation before get()" {
   let _ = h.get()
   s.set(2)
   // After s.set(), push propagation should have set h.dirty = true
-  let h_idx = match rt.cell_index[h.id().id] {
+  let h_idx = match rt.core.cell_index[h.id().id] {
     HybridMemo(i) => i
     _ => abort("")
   }
-  inspect(rt.hybrid_memos[h_idx].dirty, content="true")
+  inspect(rt.push.hybrid_memos[h_idx].dirty, content="true")
 }
 
 ///|
@@ -64,13 +64,13 @@ test "hybrid memo: dirty flag triggers recompute on get" {
   let h = HybridMemo::new(rt, () => s.get() + 10)
   let _ = h.get()
   s.set(5) // push propagation sets h.dirty = true
-  let h_idx = match rt.cell_index[h.id().id] {
+  let h_idx = match rt.core.cell_index[h.id().id] {
     HybridMemo(i) => i
     _ => abort("")
   }
-  inspect(rt.hybrid_memos[h_idx].dirty, content="true")
+  inspect(rt.push.hybrid_memos[h_idx].dirty, content="true")
   inspect(h.get(), content="15") // triggers recompute; dirty cleared
-  inspect(rt.hybrid_memos[h_idx].dirty, content="false")
+  inspect(rt.push.hybrid_memos[h_idx].dirty, content="false")
 }
 
 ///|
@@ -88,14 +88,40 @@ test "hybrid memo: backdating — unchanged value does not bump changed_at" {
   let s = Signal::new(rt, 1)
   let h = HybridMemo::new(rt, () => s.get())
   let _ = h.get()
-  let h_idx = match rt.cell_index[h.id().id] {
+  let h_idx = match rt.core.cell_index[h.id().id] {
     HybridMemo(i) => i
     _ => abort("")
   }
-  let before = rt.hybrid_memos[h_idx].changed_at
+  let before = rt.push.hybrid_memos[h_idx].changed_at
   s.set(1) // same value → signal backdating → h may not be dirtied
   let _ = h.get()
-  inspect(rt.hybrid_memos[h_idx].changed_at == before, content="true")
+  inspect(rt.push.hybrid_memos[h_idx].changed_at == before, content="true")
+}
+
+///|
+test "hybrid memo: clean verify clears dirty after pull-memo backdating" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 1)
+  let mut memo_runs = 0
+  let m = Memo::new(rt, () => {
+    memo_runs = memo_runs + 1
+    ignore(s.get())
+    1
+  })
+  let h = HybridMemo::new(rt, () => m.get() + 10)
+  inspect(h.get(), content="11")
+  inspect(memo_runs, content="1")
+  let h_idx = match rt.core.cell_index[h.id().id] {
+    HybridMemo(i) => i
+    _ => abort("")
+  }
+  s.set(2) // m re-verifies and backdates unchanged; h should become clean
+  inspect(rt.push.hybrid_memos[h_idx].dirty, content="true")
+  inspect(h.get(), content="11")
+  inspect(memo_runs, content="2")
+  inspect(rt.push.hybrid_memos[h_idx].dirty, content="false")
+  let _ = h.get()
+  inspect(memo_runs, content="2")
 }
 
 ///|
@@ -135,6 +161,19 @@ test "hybrid regression: push propagation traverses hybrid to reactive" {
   s.set(5)
   inspect(recomputes, content="2")
   inspect(r.get(), content="11")
+}
+
+///|
+test "panic hybrid verify: disposed dependency aborts verification" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 1)
+  let unrelated = Signal::new(rt, 0)
+  let r = Reactive::new(rt, () => sig.get() * 2)
+  let h = HybridMemo::new(rt, () => r.get() + 1)
+  inspect(h.get(), content="3")
+  r.dispose()
+  unrelated.set(1) // bump revision so hybrid verify path runs again
+  let _ = h.get()
 }
 
 ///|

@@ -57,6 +57,11 @@ impl CellOps for PushEffectData with durability(self) -> Durability {
 }
 
 ///|
+impl CellOps for PushEffectData with level(self) -> Int {
+  self.level
+}
+
+///|
 /// User-facing push-mode effect.
 ///
 /// Runs the provided function immediately on creation to establish
@@ -73,12 +78,12 @@ pub struct Effect {
 /// side effect. It is re-run by push propagation whenever any dependency changes.
 pub fn Effect::new(rt : Runtime, f : () -> Unit) -> Effect {
   // Reuse a freed slot if available, otherwise append a new one.
-  let effect_idx = match rt.free_push_effects.pop() {
+  let effect_idx = match rt.push.free_effects.pop() {
     Some(idx) => idx
-    None => rt.push_effects.length()
+    None => rt.push.effects.length()
   }
   let cell_id = rt.alloc_cell_id(PushEffect(effect_idx))
-  rt.push_node_count = rt.push_node_count + 1
+  rt.push.node_count = rt.push.node_count + 1
   let new_data : PushEffectData = {
     cell_id,
     label: None,
@@ -88,20 +93,20 @@ pub fn Effect::new(rt : Runtime, f : () -> Unit) -> Effect {
     dirty: false,
     subscribers: @hashset.new(),
   }
-  if effect_idx < rt.push_effects.length() {
-    rt.push_effects[effect_idx] = new_data
+  if effect_idx < rt.push.effects.length() {
+    rt.push.effects[effect_idx] = new_data
   } else {
-    rt.push_effects.push(new_data)
+    rt.push.effects.push(new_data)
   }
-  let ops : &CellOps = rt.push_effects[effect_idx]
-  rt.cell_ops.push(ops)
+  let ops : &CellOps = rt.push.effects[effect_idx]
+  rt.core.cell_ops.push(ops)
   let effect : Effect = { cell_id, rt }
   // Run immediately to establish dependencies and execute the initial side effect.
   rt.begin_tracking(cell_id)
   f()
   let new_sources = rt.end_tracking()
-  rt.push_effects[effect_idx].sources = new_sources
-  rt.push_effects[effect_idx].level = rt.recompute_level(cell_id, new_sources)
+  rt.push.effects[effect_idx].sources = new_sources
+  rt.push.effects[effect_idx].level = rt.recompute_level(cell_id, new_sources)
   rt.finish_tracking(cell_id, [], new_sources)
   effect
 }

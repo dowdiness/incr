@@ -52,4 +52,63 @@ trait CellOps {
   subscribers(Self) -> @hashset.HashSet[CellId]
   label(Self) -> String?
   durability(Self) -> Durability
+
+  /// Returns the topological level of this cell for push propagation.
+  /// Pull cells and leaf cells return 0. Push reactives return their stored level.
+  level(Self) -> Int = _
+
+  /// Determines whether this cell's dependency has changed since `verified_at`.
+  ///
+  /// Returns `Some(true)` if changed, `Some(false)` if fresh, `None` if deep
+  /// verification is required (memo-like cells).
+  dep_changed_since(Self, Revision) -> Bool? = _
+}
+
+///|
+/// Default: level 0 (leaf/pull cells). Override for push cells that store a level.
+impl CellOps with level(_self) -> Int {
+  0
+}
+
+///|
+/// Default: leaf-cell freshness check via `changed_at`.
+/// Override to return `None` for memo-like cells that need deep verification.
+impl CellOps with dep_changed_since(self, verified_at) -> Bool? {
+  Some(self.changed_at() > verified_at)
+}
+
+///|
+/// Capability trait: dependency tracking during computation.
+///
+/// Groups the tracking-stack lifecycle methods on Runtime. These methods
+/// manage the `ActiveQuery` stack that records which cells are read during
+/// a memo's compute function.
+///
+/// # Dispatch semantics
+///
+/// Not used for polymorphic dispatch — purely organizational. All call sites
+/// invoke these methods on a concrete `Runtime` value (e.g. `self.push_tracking(id)`),
+/// never through a trait object (`&Tracker`). MoonBit resolves `impl Trait for Type
+/// with method` calls statically when the receiver type is known at the call site,
+/// so there is no vtable overhead. These could equivalently be `fn Runtime::` methods;
+/// the trait grouping provides navigability and documents the contract.
+priv trait Tracker {
+  push_tracking(Self, CellId) -> Unit
+  pop_tracking(Self) -> (Array[CellId], @hashset.HashSet[CellId])
+  record_dependency(Self, CellId) -> Unit
+}
+
+///|
+/// Capability trait: revision lifecycle management.
+///
+/// Groups the revision-bumping methods on Runtime. These methods control
+/// the monotonic revision counter and per-durability change tracking.
+///
+/// # Dispatch semantics
+///
+/// Same as `Tracker` — purely organizational, no polymorphic dispatch. All
+/// call sites use concrete `Runtime` receivers, so calls are resolved statically.
+priv trait RevisionManager {
+  advance_revision(Self, Durability) -> Unit
+  bump_revision(Self, Durability) -> Unit
 }

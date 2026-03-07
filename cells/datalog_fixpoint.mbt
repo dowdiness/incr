@@ -10,40 +10,40 @@
 /// 5. If no staged deltas were produced, stop; otherwise repeat
 /// 6. If any relation changed, advance revision and update changed_at
 pub fn Runtime::fixpoint(self : Runtime) -> Unit {
-  if self.in_fixpoint {
+  if self.datalog.in_fixpoint {
     abort("fixpoint: re-entrant fixpoint() is not supported")
   }
-  if self.batch_depth > 0 {
+  if self.core.batch_depth > 0 {
     abort("fixpoint: cannot run fixpoint() inside a batch")
   }
   // Track which relation SoA indices changed during this fixpoint run
   let changed : Array[Bool] = []
   // Mark relations with pre-existing non-empty deltas
-  for rel in self.relations {
+  for rel in self.datalog.relations {
     changed.push(not((rel.is_delta_empty)()))
   }
-  self.in_fixpoint = true
+  self.datalog.in_fixpoint = true
   // Fixpoint loop
   for {
     // Materialize the current frontier while keeping it readable via delta_iter.
     let mut ri = 0
-    while ri < self.relations.length() {
-      (self.relations[ri].drain_delta)()
+    while ri < self.datalog.relations.length() {
+      (self.datalog.relations[ri].drain_delta)()
       ri = ri + 1
     }
     // Apply all rules
-    for rule in self.rules {
+    for rule in self.datalog.rules {
       (rule.apply_delta)()
     }
     // Rules may add relations during fixpoint; track any new entries.
-    while changed.length() < self.relations.length() {
+    while changed.length() < self.datalog.relations.length() {
       changed.push(false)
     }
     // Check convergence over staged deltas + mark changed in a single pass
     let mut has_new_facts = false
     ri = 0
-    while ri < self.relations.length() {
-      if not((self.relations[ri].is_staged_delta_empty)()) {
+    while ri < self.datalog.relations.length() {
+      if not((self.datalog.relations[ri].is_staged_delta_empty)()) {
         has_new_facts = true
         changed[ri] = true
       }
@@ -52,30 +52,30 @@ pub fn Runtime::fixpoint(self : Runtime) -> Unit {
     // Next iteration frontier = this iteration's newly derived facts
     // (and old frontier is cleared).
     ri = 0
-    while ri < self.relations.length() {
-      (self.relations[ri].promote_staged_delta)()
+    while ri < self.datalog.relations.length() {
+      (self.datalog.relations[ri].promote_staged_delta)()
       ri = ri + 1
     }
     if not(has_new_facts) {
       break
     }
   }
-  self.in_fixpoint = false
+  self.datalog.in_fixpoint = false
   // Collect changed cell IDs
   let changed_ids : Array[CellId] = []
   let mut ri = 0
-  while ri < self.relations.length() {
+  while ri < self.datalog.relations.length() {
     if changed[ri] {
-      changed_ids.push(self.relations[ri].cell_id)
+      changed_ids.push(self.datalog.relations[ri].cell_id)
     }
     ri = ri + 1
   }
   if changed_ids.length() > 0 {
     self.advance_revision(Low)
     for id in changed_ids {
-      self.cell_ops[id.id].set_changed_at(self.current_revision)
+      self.core.cell_ops[id.id].set_changed_at(self.core.current_revision)
     }
-    if self.push_node_count > 0 {
+    if self.push.node_count > 0 {
       self.push_propagate_from(changed_ids)
     }
     self.fire_on_change()

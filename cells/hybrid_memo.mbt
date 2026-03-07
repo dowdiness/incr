@@ -18,6 +18,11 @@ priv struct HybridMemoData {
 }
 
 ///|
+impl CellOps for HybridMemoData with dep_changed_since(_self, _verified_at) -> Bool? {
+  None
+}
+
+///|
 /// User-facing hybrid memo cell.
 ///
 /// Receives dirty flags eagerly (via push propagation) but verifies
@@ -44,10 +49,10 @@ pub fn[T : Eq] HybridMemo::new(
   compute : () -> T,
   label? : String,
 ) -> HybridMemo[T] {
-  let memo_idx = rt.hybrid_memos.length()
+  let memo_idx = rt.push.hybrid_memos.length()
   let cell_id = rt.alloc_cell_id(HybridMemo(memo_idx))
   let memo : HybridMemo[T] = { label, rt, cell_id, compute, value: None }
-  rt.hybrid_memos.push({
+  rt.push.hybrid_memos.push({
     cell_id,
     label,
     compute: () => memo.recompute_inner(),
@@ -59,9 +64,9 @@ pub fn[T : Eq] HybridMemo::new(
     in_progress: false,
     dirty: false,
   })
-  let ops : &CellOps = rt.hybrid_memos[memo_idx]
-  rt.cell_ops.push(ops)
-  rt.push_node_count = rt.push_node_count + 1
+  let ops : &CellOps = rt.push.hybrid_memos[memo_idx]
+  rt.core.cell_ops.push(ops)
+  rt.push.node_count = rt.push.node_count + 1
   memo
 }
 
@@ -74,16 +79,16 @@ pub fn[T : Eq] HybridMemo::new(
 /// Slow path: calls `pull_verify_hybrid` to walk deps, then clears `dirty`.
 pub fn[T : Eq] HybridMemo::get(self : HybridMemo[T]) -> T {
   let active_rt = current_computing_runtime_id.val
-  if active_rt >= 0 && active_rt != self.rt.runtime_id {
+  if active_rt >= 0 && active_rt != self.rt.core.runtime_id {
     current_computing_runtime_id.val = -1
     abort(
       "Cross-runtime dependency: HybridMemo belongs to Runtime " +
-      self.rt.runtime_id.to_string() +
+      self.rt.core.runtime_id.to_string() +
       " but is read inside a memo on Runtime " +
       active_rt.to_string(),
     )
   }
-  if self.rt.in_fixpoint {
+  if self.rt.datalog.in_fixpoint {
     abort(
       "HybridMemo::get() cannot be called during fixpoint(); read relations directly or call get() after fixpoint() completes",
     )
@@ -100,7 +105,7 @@ pub fn[T : Eq] HybridMemo::get(self : HybridMemo[T]) -> T {
     Some(cached) => {
       let cell = self.rt.get_hybrid_memo(self.cell_id)
       // Fast path: not dirtied and already verified this revision
-      if not(cell.dirty) && cell.verified_at >= self.rt.current_revision {
+      if not(cell.dirty) && cell.verified_at >= self.rt.core.current_revision {
         self.rt.record_dependency(self.cell_id)
         return cached
       }
@@ -136,7 +141,7 @@ pub fn[T] HybridMemo::is_up_to_date(self : HybridMemo[T]) -> Bool {
     None => false
     Some(_) =>
       self.rt.get_hybrid_memo(self.cell_id).verified_at ==
-      self.rt.current_revision
+      self.rt.core.current_revision
   }
 }
 
@@ -187,9 +192,9 @@ fn[T : Eq] HybridMemo::force_recompute(
   }
   self.value = Some(new_value)
   if value_changed {
-    cell.changed_at = self.rt.current_revision
+    cell.changed_at = self.rt.core.current_revision
   }
-  cell.verified_at = self.rt.current_revision
+  cell.verified_at = self.rt.core.current_revision
   cell.dirty = false
   cell.in_progress = false
   Ok(new_value)
