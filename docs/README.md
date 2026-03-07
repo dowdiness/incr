@@ -58,14 +58,13 @@ All documentation for the `incr` incremental computation library.
 
 ### Active Plans
 
-| Document | Purpose |
-|----------|---------|
-| [plans/2026-03-06-runtime-modularization-design.md](plans/2026-03-06-runtime-modularization-design.md) | Runtime modularization via refunctionalized CellOps + sub-structs |
+(none)
 
 ### Archive (Completed Plans)
 
 | Document | Purpose |
 |----------|---------|
+| [archive/completed-phases/2026-03-06-runtime-modularization-design.md](archive/completed-phases/2026-03-06-runtime-modularization-design.md) | Runtime modularization via refunctionalized CellOps + sub-structs |
 | [archive/2026-03-03-datalog-primitives.md](archive/2026-03-03-datalog-primitives.md) | Datalog primitives: Relation, Rule, Fixpoint |
 
 ## Quick Links
