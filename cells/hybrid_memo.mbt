@@ -60,7 +60,7 @@ pub fn[T : Eq] HybridMemo::new(
 /// Fast path: if `dirty = false` and already verified this revision,
 /// returns the cached value immediately without any dep walk.
 ///
-/// Slow path: calls `pull_verify_hybrid` to walk deps, then clears `dirty`.
+/// Slow path: calls `pull_verify` to walk deps, then clears `dirty`.
 pub fn[T : Eq] HybridMemo::get(self : HybridMemo[T]) -> T {
   let active_rt = current_computing_runtime_id.val
   if active_rt >= 0 && active_rt != self.rt.core.runtime_id {
@@ -94,7 +94,7 @@ pub fn[T : Eq] HybridMemo::get(self : HybridMemo[T]) -> T {
         return cached
       }
       // Slow path: verify deps, then clear dirty flag
-      match self.rt.pull_verify_hybrid(self.cell_id) {
+      match self.rt.pull_verify(self.cell_id) {
         Ok(_) => {
           cell.dirty = false
           self.rt.record_dependency(self.cell_id)
