@@ -311,9 +311,7 @@ fn Runtime::get_memo_data(self : Runtime, id : CellId) -> MemoData {
   match self.core.cell_index[id.id] {
     PullMemo(idx) | HybridMemo(idx) => self.pull.memos[idx]
     _ =>
-      abort(
-        "Expected memo cell but found different kind: " + id.id.to_string(),
-      )
+      abort("Expected memo cell but found different kind: " + id.id.to_string())
   }
 }
 

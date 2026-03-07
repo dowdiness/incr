@@ -1,7 +1,7 @@
 ///|
 /// Type-erased metadata for a HybridMemo cell in the SoA layout.
 ///
-/// HybridMemo uses MemoData (unified with PullMemoData) with `dirty` flag.
+/// HybridMemo uses the unified MemoData struct with the `dirty` flag.
 /// On `get()`, the dirty flag allows skipping full dependency verification
 /// when no upstream push cell has signaled a change.
 
@@ -134,9 +134,13 @@ pub fn[T] HybridMemo::is_up_to_date(self : HybridMemo[T]) -> Bool {
 fn[T : Eq] HybridMemo::force_recompute(
   self : HybridMemo[T],
 ) -> Result[T, CycleError] {
-  match self.rt.memo_force_recompute(
-    self.cell_id, self.compute, self.value, fn(a, b) { a == b },
-  ) {
+  match
+    self.rt.memo_force_recompute(self.cell_id, self.compute, self.value, fn(
+      a,
+      b,
+    ) {
+      a == b
+    }) {
     Ok(new_value) => {
       self.value = Some(new_value)
       Ok(new_value)
@@ -158,4 +162,3 @@ fn[T : Eq] HybridMemo::recompute_inner(
     Err(e) => Err(e)
   }
 }
-

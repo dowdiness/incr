@@ -232,9 +232,13 @@ pub fn[T : Eq] Memo::get_or_else(
 ///
 /// Returns `Ok(new_value)` on success, or `Err(CycleError)` if a cycle is detected.
 fn[T : Eq] Memo::force_recompute(self : Memo[T]) -> Result[T, CycleError] {
-  match self.rt.memo_force_recompute(
-    self.cell_id, self.compute, self.value, fn(a, b) { a == b },
-  ) {
+  match
+    self.rt.memo_force_recompute(self.cell_id, self.compute, self.value, fn(
+      a,
+      b,
+    ) {
+      a == b
+    }) {
     Ok(new_value) => {
       self.value = Some(new_value)
       Ok(new_value)
