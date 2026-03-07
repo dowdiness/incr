@@ -220,12 +220,23 @@ fn Runtime::pull_verify_hybrid(
   self : Runtime,
   cell_id : CellId,
 ) -> Result[Unit, CycleError] {
+  if cell_id.runtime_id != self.core.runtime_id {
+    abort("pull_verify_hybrid: cell belongs to a different Runtime")
+  }
+  if cell_id.id < 0 || cell_id.id >= self.core.cell_index.length() {
+    abort(
+      "pull_verify_hybrid: cell_id out of bounds: " + cell_id.id.to_string(),
+    )
+  }
   let root_idx = match self.core.cell_index[cell_id.id] {
     HybridMemo(i) => i
     _ => abort("pull_verify_hybrid: not a HybridMemo")
   }
   let root = self.push.hybrid_memos[root_idx]
-  if root.verified_at >= self.core.current_revision {
+  // Fast path: skip only when not dirty AND already verified this revision.
+  // A dirty hybrid memo must always re-verify even if verified_at is current,
+  // because push propagation may have dirtied it after the last verification.
+  if not(root.dirty) && root.verified_at >= self.core.current_revision {
     return Ok(())
   }
   // Durability shortcut: if no input at this durability level changed since
@@ -245,6 +256,12 @@ fn Runtime::pull_verify_hybrid(
   while idx < root.dependencies.length() && not(dep_changed) {
     let dep_id = root.dependencies[idx]
     idx = idx + 1
+    if dep_id.runtime_id != self.core.runtime_id {
+      abort(
+        "pull_verify_hybrid: dependency belongs to a different Runtime: " +
+        dep_id.id.to_string(),
+      )
+    }
     // Single cell_index lookup: fixpoint guard + disposed check.
     match self.core.cell_index[dep_id.id] {
       Disposed => {
