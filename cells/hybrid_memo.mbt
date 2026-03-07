@@ -130,58 +130,19 @@ pub fn[T] HybridMemo::is_up_to_date(self : HybridMemo[T]) -> Bool {
 }
 
 ///|
-/// Force recomputation: push tracking frame, execute compute, pop frame,
-/// update deps/subscribers/backdating.
+/// Force recomputation: delegates to shared memo_force_recompute helper.
 fn[T : Eq] HybridMemo::force_recompute(
   self : HybridMemo[T],
 ) -> Result[T, CycleError] {
-  let cell = self.rt.get_memo_data(self.cell_id)
-  if cell.in_progress {
-    return Err(
-      CycleError::from_path(self.rt.collect_tracking_path(), cell.cell_id),
-    )
-  }
-  cell.in_progress = true
-  let old_deps = cell.dependencies
-  self.rt.push_tracking(self.cell_id)
-  let new_value = (self.compute)()
-  let (new_deps, new_seen) = self.rt.pop_tracking()
-  let mut deps_changed = new_deps.length() != old_deps.length()
-  let old_seen : @hashset.HashSet[CellId] = @hashset.new()
-  for dep in old_deps {
-    old_seen.add(dep)
-    if not(new_seen.contains(dep)) {
-      deps_changed = true
+  match self.rt.memo_force_recompute(
+    self.cell_id, self.compute, self.value, fn(a, b) { a == b },
+  ) {
+    Ok(new_value) => {
+      self.value = Some(new_value)
+      Ok(new_value)
     }
+    Err(e) => Err(e)
   }
-  if deps_changed {
-    for dep in old_deps {
-      if not(new_seen.contains(dep)) {
-        self.rt.remove_subscriber(dep, self.cell_id)
-      }
-    }
-    for dep in new_deps {
-      if not(old_seen.contains(dep)) {
-        self.rt.add_subscriber(dep, self.cell_id)
-      }
-    }
-  }
-  cell.dependencies = new_deps
-  if deps_changed {
-    cell.durability = compute_durability(self.rt, new_deps)
-  }
-  let value_changed = match self.value {
-    None => true
-    Some(old) => old != new_value
-  }
-  self.value = Some(new_value)
-  if value_changed {
-    cell.changed_at = self.rt.core.current_revision
-  }
-  cell.verified_at = self.rt.core.current_revision
-  cell.dirty = false
-  cell.in_progress = false
-  Ok(new_value)
 }
 
 ///|

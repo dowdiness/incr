@@ -228,73 +228,19 @@ pub fn[T : Eq] Memo::get_or_else(
 }
 
 ///|
-/// Force recomputation: push tracking frame, execute compute, pop frame,
-/// update dependencies and value.
+/// Force recomputation: delegates to shared memo_force_recompute helper.
 ///
 /// Returns `Ok(new_value)` on success, or `Err(CycleError)` if a cycle is detected.
-/// Returning the value directly lets callers avoid re-reading `self.value` and
-/// eliminates the implicit invariant that `self.value` is always `Some` after a
-/// successful call.
 fn[T : Eq] Memo::force_recompute(self : Memo[T]) -> Result[T, CycleError] {
-  let cell = self.rt.get_memo_data(self.cell_id)
-  if cell.in_progress {
-    return Err(
-      CycleError::from_path(self.rt.collect_tracking_path(), cell.cell_id),
-    )
-  }
-  cell.in_progress = true
-  let old_deps = cell.dependencies
-  // Push tracking frame to record dependencies
-  self.rt.push_tracking(self.cell_id)
-  let new_value = (self.compute)()
-  let (new_deps, new_seen) = self.rt.pop_tracking()
-  // Diff: check whether the dep set changed.
-  // new_seen is the HashSet already built by ActiveQuery — no extra allocation.
-  // We walk old_deps and check membership in new_seen; a length mismatch is a
-  // fast-path indicator of change (avoids the loop when counts differ).
-  let mut deps_changed = new_deps.length() != old_deps.length()
-  // Single pass over old_deps: detect changes, unsubscribe dropped deps,
-  // and build old_seen for the symmetric diff that follows.
-  let old_seen : @hashset.HashSet[CellId] = @hashset.new()
-  for dep in old_deps {
-    old_seen.add(dep)
-    if not(new_seen.contains(dep)) {
-      deps_changed = true
+  match self.rt.memo_force_recompute(
+    self.cell_id, self.compute, self.value, fn(a, b) { a == b },
+  ) {
+    Ok(new_value) => {
+      self.value = Some(new_value)
+      Ok(new_value)
     }
+    Err(e) => Err(e)
   }
-  // Maintain subscriber links (reverse edges)
-  if deps_changed {
-    // Remove self from subscribers of deps that were dropped
-    for dep in old_deps {
-      if not(new_seen.contains(dep)) {
-        self.rt.remove_subscriber(dep, self.cell_id)
-      }
-    }
-    // Add self to subscribers of newly added deps
-    for dep in new_deps {
-      if not(old_seen.contains(dep)) {
-        self.rt.add_subscriber(dep, self.cell_id)
-      }
-    }
-  }
-  cell.dependencies = new_deps
-  // Update durability only when the dep set changed (skip rescan on stable path)
-  if deps_changed {
-    cell.durability = compute_durability(self.rt, new_deps)
-  }
-  // Backdating: if value unchanged, keep old changed_at
-  let value_changed = match self.value {
-    None => true
-    Some(old) => old != new_value
-  }
-  self.value = Some(new_value)
-  if value_changed {
-    cell.changed_at = self.rt.core.current_revision
-  }
-  // else: backdate — keep old changed_at (key Salsa insight)
-  cell.verified_at = self.rt.core.current_revision
-  cell.in_progress = false
-  Ok(new_value)
 }
 
 ///|
@@ -336,6 +282,78 @@ fn compute_durability(rt : Runtime, deps : Array[CellId]) -> Durability {
     }
   }
   min_dur
+}
+
+///|
+/// Shared force-recompute logic for all memo types (pull and hybrid).
+///
+/// Handles cycle detection, dependency tracking, subscriber link maintenance,
+/// durability recomputation, and backdating. The `dirty` flag is always cleared
+/// (no-op for pull memos since dirty is never set to true).
+///
+/// # Parameters
+///
+/// - `cell_id`: The memo's CellId
+/// - `compute_fn`: The typed compute function
+/// - `old_value`: The previous cached value (None if first computation)
+/// - `eq_fn`: Equality check for backdating
+///
+/// # Returns
+///
+/// `Ok(new_value)` on success, `Err(CycleError)` if a cycle is detected
+fn[T] Runtime::memo_force_recompute(
+  self : Runtime,
+  cell_id : CellId,
+  compute_fn : () -> T,
+  old_value : T?,
+  eq_fn : (T, T) -> Bool,
+) -> Result[T, CycleError] {
+  let cell = self.get_memo_data(cell_id)
+  if cell.in_progress {
+    return Err(
+      CycleError::from_path(self.collect_tracking_path(), cell.cell_id),
+    )
+  }
+  cell.in_progress = true
+  let old_deps = cell.dependencies
+  self.push_tracking(cell_id)
+  let new_value = compute_fn()
+  let (new_deps, new_seen) = self.pop_tracking()
+  let mut deps_changed = new_deps.length() != old_deps.length()
+  let old_seen : @hashset.HashSet[CellId] = @hashset.new()
+  for dep in old_deps {
+    old_seen.add(dep)
+    if not(new_seen.contains(dep)) {
+      deps_changed = true
+    }
+  }
+  if deps_changed {
+    for dep in old_deps {
+      if not(new_seen.contains(dep)) {
+        self.remove_subscriber(dep, cell_id)
+      }
+    }
+    for dep in new_deps {
+      if not(old_seen.contains(dep)) {
+        self.add_subscriber(dep, cell_id)
+      }
+    }
+  }
+  cell.dependencies = new_deps
+  if deps_changed {
+    cell.durability = compute_durability(self, new_deps)
+  }
+  let value_changed = match old_value {
+    None => true
+    Some(old) => not(eq_fn(old, new_value))
+  }
+  if value_changed {
+    cell.changed_at = self.core.current_revision
+  }
+  cell.verified_at = self.core.current_revision
+  cell.dirty = false
+  cell.in_progress = false
+  Ok(new_value)
 }
 
 ///|
