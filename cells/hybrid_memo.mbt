@@ -158,7 +158,16 @@ fn[T : Eq] HybridMemo::recompute_inner(
   let cell = self.rt.get_memo_data(self.cell_id)
   let old_changed_at = cell.changed_at
   match self.force_recompute() {
-    Ok(_) => Ok(cell.changed_at != old_changed_at)
+    Ok(_) => {
+      let changed = cell.changed_at != old_changed_at
+      if changed {
+        match cell.on_change {
+          Some(f) => f()
+          None => ()
+        }
+      }
+      Ok(changed)
+    }
     Err(e) => Err(e)
   }
 }

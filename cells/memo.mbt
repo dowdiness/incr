@@ -174,7 +174,7 @@ pub fn[T : Eq] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
     Some(cached) => {
       // Fast path: already verified this revision
       let cell = self.rt.get_memo_data(self.cell_id)
-      if cell.verified_at == self.rt.core.current_revision {
+      if cell.verified_at >= self.rt.core.current_revision {
         self.rt.record_dependency(self.cell_id)
         return Ok(cached)
       }
