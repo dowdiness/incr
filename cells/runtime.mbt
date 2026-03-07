@@ -48,6 +48,21 @@ fn BatchFrame::has_undo_for(self : BatchFrame, cell_id : CellId) -> Bool {
 ///|
 /// Core runtime state: identity, revision tracking, batch management,
 /// and unified dispatch tables.
+///
+/// Groups fields that are accessed by all propagation modes. The `cell_index`
+/// and `cell_ops` dispatch tables are the bridge between the two-layer
+/// architecture (CellRef for structural observation, CellOps for behavioral
+/// dispatch). `tracking_stack` lives here rather than in PullState because
+/// push-mode cell types (Reactive, Effect) also use begin/end_tracking.
+///
+/// # Pointer chase tradeoff
+///
+/// All sub-struct field accesses (e.g. `self.core.current_revision`) require
+/// one extra pointer dereference compared to the old flat layout. MoonBit
+/// structs are heap-allocated, so RuntimeCore is a separate heap object.
+/// In hot loops (verify dep-walk, push propagation), the sub-struct pointers
+/// are cache-hot since they are dereferenced on every iteration. Profile
+/// with `moon bench --release` if regressions are suspected.
 priv struct RuntimeCore {
   runtime_id : Int
   mut current_revision : Revision
@@ -72,6 +87,13 @@ priv struct PullState {
 
 ///|
 /// Push-mode SoA storage (eager propagation).
+///
+/// `hybrid_memos` lives here despite HybridMemo participating in pull
+/// verification (`pull_verify_hybrid`). The placement reflects that push
+/// propagation is responsible for managing HybridMemo's `dirty` flag and
+/// `node_count`, which are the hot-path fields. Pull verification accesses
+/// `self.push.hybrid_memos` when verifying a HybridMemo dep — this is a
+/// deliberate cross-boundary access, not a leak.
 priv struct PushState {
   reactives : Array[PushReactiveData]
   effects : Array[PushEffectData]

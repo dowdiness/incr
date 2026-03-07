@@ -84,7 +84,14 @@ impl CellOps with dep_changed_since(self, verified_at) -> Bool? {
 /// manage the `ActiveQuery` stack that records which cells are read during
 /// a memo's compute function.
 ///
-/// Not used for polymorphic dispatch — purely organizational.
+/// # Dispatch semantics
+///
+/// Not used for polymorphic dispatch — purely organizational. All call sites
+/// invoke these methods on a concrete `Runtime` value (e.g. `self.push_tracking(id)`),
+/// never through a trait object (`&Tracker`). MoonBit resolves `impl Trait for Type
+/// with method` calls statically when the receiver type is known at the call site,
+/// so there is no vtable overhead. These could equivalently be `fn Runtime::` methods;
+/// the trait grouping provides navigability and documents the contract.
 priv trait Tracker {
   push_tracking(Self, CellId) -> Unit
   pop_tracking(Self) -> (Array[CellId], @hashset.HashSet[CellId])
@@ -97,7 +104,10 @@ priv trait Tracker {
 /// Groups the revision-bumping methods on Runtime. These methods control
 /// the monotonic revision counter and per-durability change tracking.
 ///
-/// Not used for polymorphic dispatch — purely organizational.
+/// # Dispatch semantics
+///
+/// Same as `Tracker` — purely organizational, no polymorphic dispatch. All
+/// call sites use concrete `Runtime` receivers, so calls are resolved statically.
 priv trait RevisionManager {
   advance_revision(Self, Durability) -> Unit
   bump_revision(Self, Durability) -> Unit

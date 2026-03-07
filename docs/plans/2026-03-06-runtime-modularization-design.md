@@ -355,6 +355,42 @@ Each replacement is independently testable — all 295 existing tests must conti
 
 ---
 
+## Implementation Notes
+
+Notes from code review during implementation, for future reference.
+
+### Two-Layer Dispatch in verify.mbt
+
+The per-dependency inner loop in `pull_verify` and `pull_verify_hybrid` uses two `cell_index` lookups per dep in the worst case (memo-like deps), not one:
+
+1. **Structural guard** (before `dep_changed_since`): Catches `Disposed` deps before calling trait methods on stale SoA slots. Also enforces the fixpoint guard for `Relation`/`Rule` deps.
+2. **Behavioral dispatch** (`dep_changed_since` via `CellOps`): Returns `Some(true/false)` for leaf cells (5 of 7 types — the common fast path). Returns `None` for PullMemo and HybridMemo.
+3. **Structural fallback** (only when `None`): A second `cell_index` lookup to distinguish PullMemo from HybridMemo for deep verification dispatch.
+
+These two lookups serve different purposes and cannot be merged: the first is a precondition guard that must run before trait dispatch; the second is a type-specific dispatch that only runs for the 2-of-7 cell types returning `None`. For leaf deps (signals, reactives, effects — the common case in most graphs), only the first lookup + one trait call executes.
+
+### HybridMemo Dirty Flag Invariant
+
+Both early-exit paths in `pull_verify_hybrid` (fast path and durability shortcut) must be gated on `not(root.dirty)`. A dirty hybrid memo must always walk deps and potentially recompute, even if `verified_at >= current_revision` or durability hasn't changed. This matches `HybridMemo::get()` semantics. The `dirty` flag is cleared by `HybridMemo::get()` after verification succeeds, not by `pull_verify_hybrid`.
+
+### Capability Traits (Tracker, RevisionManager)
+
+These are `priv` traits with a single implementor (`Runtime`). They exist purely for code organization — grouping related methods under a trait name for navigability. All call sites invoke methods on a concrete `Runtime` value, never through a trait object. MoonBit resolves `impl Trait for Type with method` calls statically when the receiver type is known, so there is no vtable overhead.
+
+### Sub-Struct Pointer Chases
+
+`RuntimeCore`, `PullState`, `PushState`, and `DatalogState` are separate heap allocations. Every field access (e.g. `self.core.current_revision`) requires one extra pointer dereference compared to the old flat layout. In hot loops, the sub-struct pointers are cache-hot (dereferenced every iteration). Validate with `moon bench --release` if performance regressions are suspected.
+
+### HybridMemo Placement in PushState
+
+`hybrid_memos` and `hybrid_dirty` live in `PushState` despite HybridMemo participating in pull verification. Push propagation manages the `dirty` flag and `node_count` — these are the hot-path write fields. Pull verification's cross-boundary access to `self.push.hybrid_memos` is deliberate, not a structural leak.
+
+### Silent `_ => ()` Arms in None Fallback
+
+The `_ => ()` arms in the `None` branch of `dep_changed_since` (in both `pull_verify` and `pull_verify_hybrid`) are genuinely unreachable: only `PullMemoData` and `HybridMemoData` override `dep_changed_since` to return `None`. Using `abort("unreachable")` was considered but rejected — if a future cell type legitimately returns `None` and has its own verification path, aborting would be incorrect. The `_ => ()` with comments is the defensive choice.
+
+---
+
 ## References
 
 - Expression Problem: Wadler (1998). CellRef matches are the defunctionalized "apply" sites.

@@ -27,6 +27,29 @@ priv struct PullVerifyFrame {
 ///   `verified_at` without recomputation. On changed path, calls the
 ///   type-erased `compute` closure, which handles backdating.
 ///
+/// # Two-Layer Dispatch (per dependency)
+///
+/// Each dep in the inner loop uses a two-layer dispatch pattern:
+///
+/// 1. **Structural guard** (`cell_index` match): Catches `Disposed` deps and
+///    enforces the fixpoint guard for `Relation`/`Rule` deps. This must run
+///    before `dep_changed_since` to avoid calling trait methods on stale slots.
+///
+/// 2. **Behavioral dispatch** (`dep_changed_since` via `CellOps`): Returns
+///    `Some(true/false)` for leaf cells (signals, reactives, effects, relations,
+///    rules) — the common fast path with no further lookup. Returns `None` for
+///    memo-like cells (PullMemo, HybridMemo) that need deep verification.
+///
+/// 3. **Structural fallback** (`cell_index` match, `None` branch only): A second
+///    `cell_index` lookup to distinguish PullMemo from HybridMemo for deep
+///    verification dispatch. This only runs for the 2-of-7 cell types that
+///    return `None`.
+///
+/// The two `cell_index` lookups serve different purposes and cannot be merged:
+/// the first is a precondition guard (before trait dispatch), the second is a
+/// type-specific dispatch (after trait dispatch returns `None`). For leaf deps
+/// (the common case), only the first lookup + one trait call executes.
+///
 /// # Returns
 ///
 /// `Ok(())` on success (cell is up-to-date after this call),
@@ -98,7 +121,7 @@ fn Runtime::pull_verify(
               dep_id.id.to_string(),
             )
           }
-          // Single cell_index lookup: fixpoint guard + disposed check.
+          // Guard: disposed check + fixpoint guard for Relation/Rule deps.
           match self.core.cell_index[dep_id.id] {
             Disposed => abort("pull_verify: dependency has been disposed")
             Relation(_) | Rule(_) =>
@@ -211,11 +234,27 @@ fn Runtime::pull_verify(
 ///
 /// Unlike `pull_verify` (which skips `HybridMemo` roots as "managed by
 /// HybridMemo::get"), this function performs the actual dep walk for a
-/// HybridMemo root. Called by `HybridMemo::get` on the slow path.
+/// HybridMemo root. Called by `HybridMemo::get` on the slow path and by
+/// `pull_verify` when a PullMemo has a HybridMemo dependency.
 ///
 /// PullMemo deps are verified recursively via `pull_verify`. Hybrid deps are
 /// reverified via `pull_verify_hybrid` so dirty-but-not-recomputed hybrids
 /// cannot appear fresh based only on stale `changed_at`.
+///
+/// # Dirty flag semantics
+///
+/// Both early-exit paths (fast path and durability shortcut) are gated on
+/// `not(root.dirty)`. This matches `HybridMemo::get()` semantics: a hybrid
+/// memo dirtied by push propagation must always walk deps and potentially
+/// recompute, even if `verified_at >= current_revision` or durability hasn't
+/// changed. The `dirty` flag is cleared by the caller (`HybridMemo::get`)
+/// after verification succeeds, not by this function.
+///
+/// # Two-layer dispatch
+///
+/// Uses the same two-layer dispatch pattern as `pull_verify` — see its doc
+/// comment for details on the structural guard + behavioral dispatch + structural
+/// fallback pattern and why two `cell_index` lookups are necessary.
 fn Runtime::pull_verify_hybrid(
   self : Runtime,
   cell_id : CellId,
@@ -241,7 +280,10 @@ fn Runtime::pull_verify_hybrid(
   }
   // Durability shortcut: if no input at this durability level changed since
   // the last verification, mark verified without walking deps.
-  if self.core.durability_last_changed[root.durability.index()] <=
+  // Also gated on not(dirty) — a dirty hybrid memo must always walk deps
+  // so its compute closure can run and update changed_at if needed.
+  if not(root.dirty) &&
+    self.core.durability_last_changed[root.durability.index()] <=
     root.verified_at {
     root.verified_at = self.core.current_revision
     return Ok(())
@@ -262,7 +304,7 @@ fn Runtime::pull_verify_hybrid(
         dep_id.id.to_string(),
       )
     }
-    // Single cell_index lookup: fixpoint guard + disposed check.
+    // Guard: disposed check + fixpoint guard for Relation/Rule deps.
     match self.core.cell_index[dep_id.id] {
       Disposed => {
         root.in_progress = false
@@ -318,6 +360,7 @@ fn Runtime::pull_verify_hybrid(
     }
   } else {
     root.verified_at = self.core.current_revision
+    root.dirty = false
   }
   Ok(())
 }
