@@ -310,6 +310,27 @@ fn Runtime::collect_in_progress_path(self : Runtime) -> Array[CellId] {
 }
 
 ///|
+/// Validates that a CellId belongs to this runtime and is within bounds.
+/// Aborts with a descriptive message on failure.
+fn Runtime::validate_cell(self : Runtime, id : CellId, caller : String) -> Unit {
+  if id.runtime_id != self.core.runtime_id {
+    abort("Cell belongs to a different Runtime")
+  }
+  if id.id < 0 || id.id >= self.core.cell_ops.length() {
+    abort(caller + ": cell_id out of bounds: " + id.id.to_string())
+  }
+}
+
+///|
+/// Returns true if the CellId belongs to this runtime and is within bounds.
+/// Non-aborting variant for methods that return None/[] on invalid input.
+fn Runtime::validate_cell_soft(self : Runtime, id : CellId) -> Bool {
+  id.runtime_id == self.core.runtime_id &&
+  id.id >= 0 &&
+  id.id < self.core.cell_ops.length()
+}
+
+///|
 /// Returns the `changed_at` revision for any cell, dispatching via cell_index.
 ///
 /// Covers PullSignal and PullMemo; aborts on unknown or out-of-bounds IDs.
