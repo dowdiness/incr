@@ -66,9 +66,10 @@ impl CellOps for PushEffectData with level(self) -> Int {
 /// Called by `Runtime::dispose_effect` after removing subscriber links.
 fn PushEffectData::clear_slot(self : PushEffectData) -> Unit {
   self.execute = () => ()
-  self.sources = []
+  self.sources.clear()
   self.subscribers.clear()
   self.label = None
+  self.level = 0
   self.dirty = false
 }
 

@@ -65,9 +65,11 @@ impl CellOps for PushReactiveData with level(self) -> Int {
 /// Called by `Runtime::dispose_reactive` after removing subscriber links.
 fn PushReactiveData::clear_slot(self : PushReactiveData) -> Unit {
   self.compute = () => false
-  self.sources = []
+  self.sources.clear()
   self.subscribers.clear()
   self.label = None
+  self.changed_at = Revision::initial()
+  self.level = 0
   self.dirty = false
 }
 
