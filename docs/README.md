@@ -58,7 +58,9 @@ All documentation for the `incr` incremental computation library.
 
 ### Active Plans
 
-(none)
+| Document | Purpose |
+|----------|---------|
+| [plans/2026-03-07-cells-simplification-design.md](plans/2026-03-07-cells-simplification-design.md) | Split runtime.mbt, deduplicate validation, extract dispose cleanup |
 
 ### Archive (Completed Plans)
 
