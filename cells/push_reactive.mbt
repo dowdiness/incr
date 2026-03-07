@@ -61,6 +61,19 @@ impl CellOps for PushReactiveData with level(self) -> Int {
 }
 
 ///|
+/// Clears all mutable fields to release captured closures and graph edges.
+/// Called by `Runtime::dispose_reactive` after removing subscriber links.
+fn PushReactiveData::clear_slot(self : PushReactiveData) -> Unit {
+  self.compute = () => false
+  self.sources.clear()
+  self.subscribers.clear()
+  self.label = None
+  self.changed_at = Revision::initial()
+  self.level = 0
+  self.dirty = false
+}
+
+///|
 /// Typed handle for a push-mode reactive cell.
 pub struct ReactiveId[T] {
   id : CellId

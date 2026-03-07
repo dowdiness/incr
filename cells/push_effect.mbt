@@ -62,6 +62,18 @@ impl CellOps for PushEffectData with level(self) -> Int {
 }
 
 ///|
+/// Clears all mutable fields to release captured closures and graph edges.
+/// Called by `Runtime::dispose_effect` after removing subscriber links.
+fn PushEffectData::clear_slot(self : PushEffectData) -> Unit {
+  self.execute = () => ()
+  self.sources.clear()
+  self.subscribers.clear()
+  self.label = None
+  self.level = 0
+  self.dirty = false
+}
+
+///|
 /// User-facing push-mode effect.
 ///
 /// Runs the provided function immediately on creation to establish

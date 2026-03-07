@@ -1,6 +1,6 @@
 # Cells Simplification Design
 
-**Status:** Design approved, implementation plan below
+**Status:** Complete
 
 **Goal:** Reduce complexity in the `cells/` package by splitting `runtime.mbt`, deduplicating validation patterns, and extracting dispose cleanup methods.
 
