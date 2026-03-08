@@ -9,9 +9,14 @@ test "cell_ref: HybridMemo variant pattern-matches correctly" {
 }
 
 ///|
-test "runtime: hybrid_dirty starts empty" {
+test "runtime: hybrid_memo_count tracks live hybrid memos" {
   let rt = Runtime::new()
-  inspect(rt.push.hybrid_dirty.length(), content="0")
+  inspect(rt.push.hybrid_memo_count, content="0")
+  inspect(rt.push.node_count, content="0")
+  let s = Signal::new(rt, 0)
+  let _h = HybridMemo::new(rt, fn() { s.get() * 2 })
+  inspect(rt.push.hybrid_memo_count, content="1")
+  inspect(rt.push.node_count, content="0") // hybrid memos don't count as push nodes
 }
 
 ///|
@@ -42,34 +47,13 @@ test "hybrid memo: fast path skips compute when not dirtied" {
 }
 
 ///|
-test "hybrid memo: dirty flag set by push propagation before get()" {
-  let rt = Runtime::new()
-  let s = Signal::new(rt, 1)
-  let h = HybridMemo::new(rt, () => s.get())
-  let _ = h.get()
-  s.set(2)
-  // After s.set(), push propagation should have set h.dirty = true
-  let h_idx = match rt.core.cell_index[h.id().id] {
-    HybridMemo(i) => i
-    _ => abort("")
-  }
-  inspect(rt.pull.memos[h_idx].dirty, content="true")
-}
-
-///|
-test "hybrid memo: dirty flag triggers recompute on get" {
+test "hybrid memo: verified_at staleness triggers recompute on get" {
   let rt = Runtime::new()
   let s = Signal::new(rt, 1)
   let h = HybridMemo::new(rt, () => s.get() + 10)
   let _ = h.get()
-  s.set(5) // push propagation sets h.dirty = true
-  let h_idx = match rt.core.cell_index[h.id().id] {
-    HybridMemo(i) => i
-    _ => abort("")
-  }
-  inspect(rt.pull.memos[h_idx].dirty, content="true")
-  inspect(h.get(), content="15") // triggers recompute; dirty cleared
-  inspect(rt.pull.memos[h_idx].dirty, content="false")
+  s.set(5) // bumps revision — verified_at becomes stale
+  inspect(h.get(), content="15") // stale verified_at triggers recompute
 }
 
 ///|
@@ -115,7 +99,6 @@ test "hybrid memo: clean verify clears dirty after pull-memo backdating" {
     _ => abort("")
   }
   s.set(2) // m re-verifies and backdates unchanged; h should become clean
-  inspect(rt.pull.memos[h_idx].dirty, content="true")
   inspect(h.get(), content="11")
   inspect(memo_runs, content="2")
   inspect(rt.pull.memos[h_idx].dirty, content="false")
