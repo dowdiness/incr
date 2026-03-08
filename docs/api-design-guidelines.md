@@ -387,6 +387,29 @@ Only use `set_unconditional()` when you genuinely need to force update (e.g., ty
 
 ## Future Considerations
 
+### Planned: Naming Convention Rename (with Phase 4E)
+
+When the Salsa-style query API (Phase 4E) lands, rename core types to better reflect the multi-mode architecture. The current names come from the reactive signals tradition; the new names make the propagation model explicit.
+
+| Current | Proposed | Rationale |
+|---------|----------|-----------|
+| `Signal` | `Cell` | "Container for a value." `TrackedCell` wrapping `Cell` is natural. Aligns with Jane Street Incremental and Adapton. |
+| `Memo` | `Derived` | "Derived computation." Frees "memo/memoize" as a general concept for docs. 3 extra chars, but clearer in a multi-mode library. |
+| `Reactive` | `EagerDerived` | Clearly "a Derived that recomputes eagerly." Current name sounds unrelated to `Memo` even though both are derived computations. |
+| `HybridMemo` | `PingDerived` | "Ping" captures the hybrid behavior: a small, cheap dirty notification (not a full push recomputation, not polling). One syllable, no overlap with `EagerDerived`. |
+| `Effect` | `Effect` | No change — already clear. |
+| `Relation` | `Relation` | No change. |
+| `Rule` | `Rule` | No change. |
+| `MemoMap` | `DerivedMap` | Follows from `Derived`. |
+
+**Why `Derived` over `Memo`:** In a library with four propagation modes and Datalog, clarity about what things are matters more than keystroke savings. `Memo` is ambiguous when tracked functions (also memoized) arrive. `Derived`, `EagerDerived`, `PingDerived` instantly communicates "same concept, different strategy."
+
+**Why `PingDerived` over `PushDerived`:** Both `EagerDerived` and `PingDerived` use push propagation. The difference is what happens after: `EagerDerived` recomputes immediately, `PingDerived` just sets a dirty flag (the "ping") and defers verification to read time. `PushDerived` would be confused with `EagerDerived`.
+
+**Why `Cell` over `Atom`:** `TrackedCell` already exists as a wrapper — `TrackedCell` wrapping `Cell` is self-explanatory. `TrackedAtom` would be awkward.
+
+**Timing:** Do this rename alongside the Phase 4E query API work, not as a standalone breaking change.
+
 ### Deferred: RAII Batch Guards
 
 **If MoonBit adds destructors:**
