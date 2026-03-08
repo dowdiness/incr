@@ -91,6 +91,29 @@ test "memo: wide fanout get (1 signal, 50 memos, stale)" (b : @bench.T) {
 }
 
 ///|
+test "hybrid: get warm (up-to-date, no recompute)" (b : @bench.T) {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 42)
+  let h = @incr.HybridMemo::new(rt, () => sig.get() * 2)
+  ignore(h.get()) // prime
+  b.bench(fn() { b.keep(h.get()) })
+}
+
+///|
+test "hybrid: get stale (signal changed, recompute)" (b : @bench.T) {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 0)
+  let h = @incr.HybridMemo::new(rt, () => sig.get() * 2)
+  ignore(h.get()) // prime
+  let mut v = 0
+  b.bench(fn() {
+    v = v + 1
+    sig.set(v)
+    b.keep(h.get())
+  })
+}
+
+///|
 test "batch: 10 signals, single revision" (b : @bench.T) {
   let rt = Runtime::new()
   let sigs : Array[Signal[Int]] = []

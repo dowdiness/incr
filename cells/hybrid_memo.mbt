@@ -50,7 +50,9 @@ pub fn[T : Eq] HybridMemo::new(
   })
   let ops : &CellOps = rt.pull.memos[memo_idx]
   rt.core.cell_ops.push(ops)
-  rt.push.node_count = rt.push.node_count + 1
+  // HybridMemo intentionally does NOT increment rt.push.node_count.
+  // This means signal.set() skips push_propagate_from when only hybrid
+  // memos exist downstream, relying on verified_at staleness instead.
   memo
 }
 

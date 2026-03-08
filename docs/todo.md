@@ -111,6 +111,29 @@ Concrete, actionable tasks for the `incr` library.
 - [x] Whitebox tests in `cells/tracked_cell_wbtest.mbt`
 - [x] Integration tests in `tests/tracked_struct_test.mbt`
 
+## Cleanup: Vestigial `dirty` Flag
+
+After the hybrid dirty-marking removal (HybridMemo no longer participates in push propagation),
+the `dirty` field on `MemoData` is never set to `true`. All checks are no-ops. These tasks
+clean up the dead logic.
+
+- [ ] Remove `dirty` field from `MemoData` in `cells/pull_memo.mbt`
+- [ ] Remove `not(root.dirty)` guards in `cells/verify.mbt` (lines ~92, ~97, ~152)
+- [ ] Remove `memo.dirty = false` assignment in `cells/verify.mbt` finalization (line ~205)
+- [ ] Remove `cell.dirty = false` in `HybridMemo::get()` slow path (`cells/hybrid_memo.mbt`)
+- [ ] Remove `not(cell.dirty)` from `HybridMemo::get()` fast path — collapse to `verified_at >= current_revision`
+- [ ] Update `HybridMemo::get()` doc comments that reference "dirty"
+- [ ] Update `cells/hybrid_memo.mbt` top-of-file doc comment referencing dirty flag
+
+## HybridMemo Lifecycle
+
+- [ ] Add `HybridMemo::dispose()` — remove from subscriber sets, mark `cell_index` slot as `Disposed`
+- [ ] Add whitebox test for dispose (verify subscriber cleanup)
+
+## Push Propagation Efficiency
+
+- [ ] In mixed graphs (reactives + hybrid memos), `push_propagate_from` BFS traverses all reachable hybrid/pull memo subscriber links even when no push node is downstream of the changed signal. Consider per-signal transitive-push-subscriber tracking to skip unnecessary traversal.
+
 ## Internal Refactoring
 
 - [x] Extract `Runtime::advance_revision(durability)` to consolidate duplicated revision-bump logic

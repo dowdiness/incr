@@ -19,6 +19,10 @@ All documentation for the `incr` incremental computation library.
 - [API Design Guidelines](api-design-guidelines.md) — Design philosophy, principles, patterns, and planned improvements
 - [Comparison with alien-signals](comparison-with-alien-signals.md) — Analysis of trade-offs between Salsa-style and alien-signals approaches
 
+## Performance
+
+- [Benchmarks](performance/benchmarks.md) — Microbenchmark results for core operations (signal, memo, hybrid, batch)
+
 ## Contributing
 
 **For contributors:**
@@ -47,6 +51,12 @@ All documentation for the `incr` incremental computation library.
 | [design.md](design.md) | Implementation internals | Contributors, advanced users |
 | [api-design-guidelines.md](api-design-guidelines.md) | API philosophy | Library authors, contributors |
 | [comparison-with-alien-signals.md](comparison-with-alien-signals.md) | Framework comparison | Library authors, researchers |
+
+### Performance
+
+| Document | Purpose | Audience |
+|----------|---------|----------|
+| [performance/benchmarks.md](performance/benchmarks.md) | Microbenchmark results and history | Contributors, users |
 
 ### Project Management
 

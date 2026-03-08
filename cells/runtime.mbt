@@ -68,10 +68,11 @@ priv struct PushState {
   effects : Array[PushEffectData]
   free_reactives : Array[Int]
   free_effects : Array[Int]
-  /// Count of live push cells (reactives + effects + hybrid memos).
+  /// Count of live push cells (reactives + effects only).
+  /// HybridMemo does NOT contribute to this count — it relies on
+  /// verified_at staleness detection rather than push propagation.
   /// Used as an O(1) gate before push propagation.
   mut node_count : Int
-  hybrid_dirty : Array[CellId]
 }
 
 ///|
@@ -162,7 +163,6 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
       free_reactives: [],
       free_effects: [],
       node_count: 0,
-      hybrid_dirty: [],
     },
     datalog: { in_fixpoint: false, relations: [], rules: [] },
   }

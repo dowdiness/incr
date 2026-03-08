@@ -158,13 +158,7 @@ fn Runtime::push_propagate_from(
                 cell_ref: CellRef::PushEffect(i),
               })
             }
-          HybridMemo(i) => {
-            if not(self.pull.memos[i].dirty) {
-              self.pull.memos[i].dirty = true
-              self.push.hybrid_dirty.push(sub_id)
-            }
-            bfs_worklist.push(sub_id) // bridge through hybrid memos
-          }
+          HybridMemo(_) => bfs_worklist.push(sub_id) // bridge through hybrid memos
           PullMemo(_) => bfs_worklist.push(sub_id) // bridge through pull memos
           _ => ()
         }
@@ -243,8 +237,4 @@ fn Runtime::push_propagate_from(
       _ => ()
     }
   }
-  // hybrid_dirty is populated during enqueue_push_subscribers but only
-  // needed during this propagation wave. Clear it so it doesn't accumulate
-  // across repeated non-batch signal sets.
-  self.push.hybrid_dirty.clear()
 }
