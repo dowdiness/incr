@@ -19,6 +19,7 @@ All documentation for the `incr` incremental computation library.
 - [API Design Guidelines](api-design-guidelines.md) — Design philosophy, principles, patterns, and planned improvements
 - [Comparison with alien-signals](comparison-with-alien-signals.md) — Analysis of trade-offs between Salsa-style and alien-signals approaches
 - [Multi-Mode App Ideas](multi-mode-app-ideas.md) — App concepts leveraging pull, push, hybrid, and Datalog modes together
+- [Semantic Interning](semantic-interning.md) — Design exploration for revision-aware semantic interning (`InternTable[T]`)
 
 ## Performance
 
@@ -53,6 +54,7 @@ All documentation for the `incr` incremental computation library.
 | [api-design-guidelines.md](api-design-guidelines.md) | API philosophy | Library authors, contributors |
 | [comparison-with-alien-signals.md](comparison-with-alien-signals.md) | Framework comparison | Library authors, researchers |
 | [multi-mode-app-ideas.md](multi-mode-app-ideas.md) | App ideas using multiple reactive modes | Contributors, users |
+| [semantic-interning.md](semantic-interning.md) | Revision-aware semantic interning design | Contributors, library authors |
 
 ### Performance
 
