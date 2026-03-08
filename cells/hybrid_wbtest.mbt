@@ -9,13 +9,11 @@ test "cell_ref: HybridMemo variant pattern-matches correctly" {
 }
 
 ///|
-test "runtime: hybrid_memo_count tracks live hybrid memos" {
+test "runtime: hybrid memo does not increment push node_count" {
   let rt = Runtime::new()
-  inspect(rt.push.hybrid_memo_count, content="0")
   inspect(rt.push.node_count, content="0")
   let s = Signal::new(rt, 0)
   let _h = HybridMemo::new(rt, fn() { s.get() * 2 })
-  inspect(rt.push.hybrid_memo_count, content="1")
   inspect(rt.push.node_count, content="0") // hybrid memos don't count as push nodes
 }
 
