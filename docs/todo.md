@@ -97,7 +97,7 @@ Concrete, actionable tasks for the `incr` library.
 - [x] Add `HybridMemo[T]` push-pull hybrid memo (`cells/hybrid_memo.mbt`)
 - [x] Add `create_hybrid_memo` Database helper and `Readable` impl
 - [x] Re-export `HybridMemo` from root facade (`incr.mbt`)
-- [ ] Add Datalog primitives: `Relation[T]`, `Rule`, `Runtime::fixpoint()`
+- [x] Add Datalog primitives: `Relation[T]`, `Rule`, `Runtime::fixpoint()`
 
 ## Tracked Struct Support
 
@@ -171,6 +171,37 @@ clean up the dead logic.
 - [x] Move unit tests (`*_test.mbt`) to `cells/` (co-located with source)
 - [x] Create `tests/` package for integration tests exercising the full `@incr` public API
 - [x] Zero breaking changes — downstream users see identical `@incr` API
+
+## Salsa-Style Query API (Phase 4E)
+
+Each step builds on the previous. See [semantic-interning.md](semantic-interning.md) for interning design and [roadmap.md](roadmap.md) for context.
+
+### Semantic Interning
+
+- [ ] Define `InternId` struct with `index : Int` and `generation : Int` fields (in `types/`)
+- [ ] Implement `Hash` and `Eq` for `InternId` (integer comparison)
+- [ ] Define `InternTable[T]` with `to_id : HashMap[T, InternId]`, `values : Array[T]`, `generations : Array[Int]`
+- [ ] Implement `InternTable::intern(value : T) -> InternId` (lookup or insert)
+- [ ] Implement `InternTable::get(id : InternId) -> T` (reverse lookup with generation validation)
+- [ ] Implement `InternTable::is_valid(id : InternId) -> Bool`
+- [ ] Add unit tests for intern/get round-trip, dedup, generation validation
+- [ ] Add integration test: `InternId` as `MemoMap` key for stable cross-revision caching
+- [ ] Add integration test: `InternId` in `Relation` for O(1) Datalog fact equality
+
+### Tracked Structs
+
+- [ ] Design multi-field tracked struct pattern combining `InternId` + multiple `TrackedCell` fields
+- [ ] Implement constructor that interns identity fields and creates/updates TrackedCells for tracked fields
+- [ ] Same identity fields across revisions → same `InternId`, per-field backdating
+- [ ] Add integration tests for field-level dependency granularity (change one field, only dependent memos recompute)
+
+### Accumulators
+
+- [ ] Design accumulator API: `Runtime::accumulate(value)` + `Runtime::accumulated(memo) -> Array[T]`
+- [ ] Implement side-channel collection on `Runtime` (separate from return value)
+- [ ] Integrate with dependency tracking (accumulated value changes → dependents recompute)
+- [ ] Integrate with backdating (same accumulated values → skip downstream)
+- [ ] Add tests for diagnostic collection across multiple queries
 
 ## Documentation
 

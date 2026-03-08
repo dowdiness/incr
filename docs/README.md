@@ -29,9 +29,8 @@ All documentation for the `incr` incremental computation library.
 
 **For contributors:**
 
-- [Roadmap](roadmap.md) — Phased future direction with Phase 2A (introspection), 2B (observability), 2C (ergonomics)
+- [Roadmap](roadmap.md) — Phased future direction (Phases 1–4D complete, Phase 4E: Salsa-style query API)
 - [TODO](todo.md) — Concrete actionable tasks organized by priority
-- [API Updates](api-updates.md) — Summary of recent API documentation changes
 
 **See also:** [CLAUDE.md](../CLAUDE.md) in the root directory for AI/contributor guidance on commands and architecture.
 
@@ -68,21 +67,24 @@ All documentation for the `incr` incremental computation library.
 |----------|---------|----------|
 | [roadmap.md](roadmap.md) | Future plans by phase | Contributors, users |
 | [todo.md](todo.md) | Implementation tasks | Contributors |
-| [api-updates.md](api-updates.md) | Change summary | Contributors, maintainers |
 
 ### Active Plans
 
 (No active plans)
 
-### Archive (Completed Plans)
+### Archive
 
 | Document | Purpose |
 |----------|---------|
 | [archive/completed-phases/2026-03-07-cells-simplification-design.md](archive/completed-phases/2026-03-07-cells-simplification-design.md) | Split runtime.mbt, deduplicate validation, extract dispose cleanup |
 | [archive/completed-phases/2026-03-08-cells-simplification-impl.md](archive/completed-phases/2026-03-08-cells-simplification-impl.md) | Implementation plan for cells simplification |
 | [archive/completed-phases/2026-03-06-runtime-modularization-design.md](archive/completed-phases/2026-03-06-runtime-modularization-design.md) | Runtime modularization via refunctionalized CellOps + sub-structs |
-| [archive/2026-03-03-datalog-primitives.md](archive/2026-03-03-datalog-primitives.md) | Datalog primitives: Relation, Rule, Fixpoint |
+| [archive/completed-phases/2026-03-03-datalog-primitives.md](archive/completed-phases/2026-03-03-datalog-primitives.md) | Datalog primitives: Relation, Rule, Fixpoint |
 | [archive/completed-phases/2026-03-08-hybrid-dirty-separation.md](archive/completed-phases/2026-03-08-hybrid-dirty-separation.md) | Separate hybrid dirty-marking from push propagation |
+| [archive/incr-unified-design.md](archive/incr-unified-design.md) | Unified reactive runtime design specification (SoA + multi-mode) |
+| [archive/analytical-report.md](archive/analytical-report.md) | Detailed analytical report of execution flow and internals |
+| [archive/defect-analysis.md](archive/defect-analysis.md) | Defect and structural analysis (known issues) |
+| [archive/api-updates.md](archive/api-updates.md) | Summary of past API documentation changes |
 
 ## Quick Links
 

@@ -2,7 +2,7 @@
 
 > **Note for users**: If you're new to `incr`, start with the [Getting Started](getting-started.md) guide and [Core Concepts](concepts.md). This document is for contributors or users who want to understand the implementation deeply.
 
-> **Note:** The introspection API (Phase 2A) is now available. See the [Phase 1 Introspection Design](plans/2026-02-16-introspection-api-phase1-design.md) for details on the accessor methods and `CellInfo` structure.
+> **Note:** The introspection API (Phase 2A) is now available. See the [Phase 1 Introspection Design](archive/2026-02-16-introspection-api-phase1-design.md) for details on the accessor methods and `CellInfo` structure.
 
 This document explains the theoretical foundations and implementation details of the `incr` library. For usage and API examples, see [README.md](../README.md). For contributor/AI guidance, see [CLAUDE.md](../CLAUDE.md).
 

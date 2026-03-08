@@ -140,15 +140,33 @@ High-level future direction for the `incr` library, organized by phase. Each pha
   - Public API: `HybridMemo::new`, `get`, `get_result`, `id`, `is_up_to_date`
   - `create_hybrid_memo` Database helper; `Readable` impl
 
+### Phase 4D: Datalog Primitives ✓
+
+- ~~**`Relation[T]`**: Set with delta tracking for semi-naive fixpoint~~ ✓ Implemented
+  - `insert`, `contains`, `iter`, `delta_iter` with staged delta for fixpoint iterations
+- ~~**`Rule`**: Derives new facts from input relations~~ ✓ Implemented
+  - `Runtime::new_rule(input_relations, output_relations, apply_delta)`
+- ~~**`Runtime::fixpoint()`**: Semi-naive evaluation until no new facts derived~~ ✓ Implemented
+  - Drain → apply rules → promote staged → repeat until stable
+
+### Phase 4E: Salsa-Style Query API (planned)
+
+The following features build toward a Salsa-style query API where users write normal functions that are automatically memoized with incremental invalidation. Each step builds on the previous one. See [semantic-interning.md](semantic-interning.md) for the interning design exploration.
+
+1. **Semantic interning (`InternTable[T]`)** — Generic interning table with generational indices. Maps `T : Hash + Eq` values to stable `InternId` integers. Enables O(1) equality for Datalog facts, stable `MemoMap` keys across revisions, and efficient Memo backdating on rich domain types. Standalone (no Runtime dependency initially). Design: [semantic-interning.md](semantic-interning.md).
+
+2. **Tracked structs** — Multi-field tracked entities with identity via `InternId`. Combines `InternTable` (provides stable identity) with multiple `TrackedCell` fields (provides field-level dependency granularity). A constructor that interns identity fields and creates/updates TrackedCells for tracked fields — same identity fields across revisions yield the same `InternId`, with per-field backdating.
+
+3. **Accumulators** — Side-channel value collection during query computation. Lets any query emit values (e.g., diagnostics) without threading them through return types. Collected by ancestor queries via `db.accumulated(memo)`. Needed when multiple independent queries contribute diagnostics about the same entity — the alternative (returning `(Result, Array[Diagnostic])` from every query) pollutes all signatures. Not needed until Boundary ③ (CST → Typed AST) has multiple interdependent queries.
+
+4. **Multi-key MemoMap (optional ergonomics)** — `MemoMap2[K1, K2, V]`, `MemoMap3[K1, K2, K3, V]` as sugar for multi-argument queries. Low priority because tuple keys `MemoMap[(K1, K2), V]` already work.
+
 ### Phase 4 — Remaining
 
-- **Accumulator queries**: Support Salsa-style accumulators that collect values across the dependency graph
-- **Interning**: Deduplicate structurally equal values to reduce memory and speed up equality checks
 - **Garbage collection**: Reclaim cells that are no longer reachable from any live memo or signal. Requires subscriber links for reference tracking.
-- ~~**Datalog primitives**: `Relation[T]` (set with delta tracking), `Rule` (derives facts), `Runtime::fixpoint()` (semi-naive evaluation)~~ ✓ Implemented
 - **Runtime modularization**: Investigate decomposing Runtime god object into composable subsystems per propagation mode (pull, push, hybrid, datalog) to improve maintainability without breaking encapsulation
 
 ## Phase 5 — Ecosystem
 
-- **Persistent caching**: Serialize the dependency graph and cached values to disk for cross-session incrementality
+- **Persistent caching**: Serialize the dependency graph and cached values to disk for cross-session incrementality. Prerequisite: stable `InternId` across revisions (Phase 4E).
 - **Parallel computation**: Explore concurrent memo evaluation if MoonBit gains thread or async support
