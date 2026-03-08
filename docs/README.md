@@ -18,6 +18,7 @@ All documentation for the `incr` incremental computation library.
 - [Design](design.md) — Deep dive into verification algorithm, backdating, type erasure, and implementation
 - [API Design Guidelines](api-design-guidelines.md) — Design philosophy, principles, patterns, and planned improvements
 - [Comparison with alien-signals](comparison-with-alien-signals.md) — Analysis of trade-offs between Salsa-style and alien-signals approaches
+- [Multi-Mode App Ideas](multi-mode-app-ideas.md) — App concepts leveraging pull, push, hybrid, and Datalog modes together
 
 ## Performance
 
@@ -51,6 +52,7 @@ All documentation for the `incr` incremental computation library.
 | [design.md](design.md) | Implementation internals | Contributors, advanced users |
 | [api-design-guidelines.md](api-design-guidelines.md) | API philosophy | Library authors, contributors |
 | [comparison-with-alien-signals.md](comparison-with-alien-signals.md) | Framework comparison | Library authors, researchers |
+| [multi-mode-app-ideas.md](multi-mode-app-ideas.md) | App ideas using multiple reactive modes | Contributors, users |
 
 ### Performance
 
