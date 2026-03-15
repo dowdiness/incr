@@ -2,8 +2,8 @@
 test "subscriber: new cells have empty subscribers" {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 10)
-  let meta = rt.get_pull_signal(sig.id())
-  inspect(meta.meta.subscribers.length(), content="0")
+  let sig_data = rt.get_pull_signal(sig.id())
+  inspect(sig_data.meta.subscribers.length(), content="0")
 }
 
 ///|
@@ -14,10 +14,10 @@ test "subscriber: memo subscribes to its dependencies" {
   let sum = Memo::new(rt, () => a.get() + b.get())
   let _ = sum.get()
   // a and b should list sum as a subscriber
-  let a_meta = rt.get_pull_signal(a.id())
-  let b_meta = rt.get_pull_signal(b.id())
-  inspect(a_meta.meta.subscribers.contains(sum.id()), content="true")
-  inspect(b_meta.meta.subscribers.contains(sum.id()), content="true")
+  let a_data = rt.get_pull_signal(a.id())
+  let b_data = rt.get_pull_signal(b.id())
+  inspect(a_data.meta.subscribers.contains(sum.id()), content="true")
+  inspect(b_data.meta.subscribers.contains(sum.id()), content="true")
 }
 
 ///|
@@ -28,16 +28,16 @@ test "subscriber: dynamic dep change updates subscribers" {
   let b = Signal::new(rt, 20)
   let pick = Memo::new(rt, () => if flag.get() { a.get() } else { b.get() })
   let _ = pick.get() // deps: flag, a
-  let a_meta = rt.get_pull_signal(a.id())
-  let b_meta = rt.get_pull_signal(b.id())
-  inspect(a_meta.meta.subscribers.contains(pick.id()), content="true")
-  inspect(b_meta.meta.subscribers.contains(pick.id()), content="false")
+  let a_data = rt.get_pull_signal(a.id())
+  let b_data = rt.get_pull_signal(b.id())
+  inspect(a_data.meta.subscribers.contains(pick.id()), content="true")
+  inspect(b_data.meta.subscribers.contains(pick.id()), content="false")
   // Switch branch: deps become flag, b
   // PullSignalData has reference semantics — no need to re-fetch
   flag.set(false)
   let _ = pick.get()
-  inspect(a_meta.meta.subscribers.contains(pick.id()), content="false")
-  inspect(b_meta.meta.subscribers.contains(pick.id()), content="true")
+  inspect(a_data.meta.subscribers.contains(pick.id()), content="false")
+  inspect(b_data.meta.subscribers.contains(pick.id()), content="true")
 }
 
 ///|
@@ -71,9 +71,9 @@ test "subscriber: memo.get() is idempotent for subscribers" {
   let m = Memo::new(rt, () => a.get() + 1)
   let _ = m.get()
   let _ = m.get()
-  let meta = rt.get_pull_signal(a.id())
-  inspect(meta.meta.subscribers.contains(m.id()), content="true")
-  inspect(meta.meta.subscribers.length(), content="1")
+  let sig_data = rt.get_pull_signal(a.id())
+  inspect(sig_data.meta.subscribers.contains(m.id()), content="true")
+  inspect(sig_data.meta.subscribers.length(), content="1")
 }
 
 ///|
