@@ -21,7 +21,7 @@ test "signal label stored in PullSignalData" {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 0, label="my_signal")
   let data = rt.get_pull_signal(sig.id())
-  inspect(data.label, content="Some(\"my_signal\")")
+  inspect(data.meta.label, content="Some(\"my_signal\")")
 }
 
 ///|
@@ -29,5 +29,5 @@ test "signal None label stored in PullSignalData" {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 0)
   let data = rt.get_pull_signal(sig.id())
-  inspect(data.label, content="None")
+  inspect(data.meta.label, content="None")
 }

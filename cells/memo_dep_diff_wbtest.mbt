@@ -7,11 +7,11 @@ test "dep diff: stable deps preserve durability" {
   let m = Memo::new(rt, () => a.get() + 1)
   let _ = m.get()
   let meta = rt.get_memo_data(m.id())
-  inspect(meta.durability, content="High")
+  inspect(meta.meta.durability, content="High")
   // a changes value but dep list stays [a] — durability must stay High
   a.set(2)
   let _ = m.get()
-  inspect(meta.durability, content="High")
+  inspect(meta.meta.durability, content="High")
   inspect(meta.dependencies.length(), content="1")
 }
 
@@ -27,11 +27,11 @@ test "dep diff: dynamic deps update dep list and durability" {
   // Initial: reads flag(High) and a(High) → min durability = High
   let _ = m.get()
   let meta = rt.get_memo_data(m.id())
-  inspect(meta.durability, content="High")
+  inspect(meta.meta.durability, content="High")
   inspect(meta.dependencies.length(), content="2")
   // Switch: reads flag(High) and b(Low) → min durability = Low
   flag.set(false)
   let _ = m.get()
-  inspect(meta.durability, content="Low")
+  inspect(meta.meta.durability, content="Low")
   inspect(meta.dependencies.length(), content="2")
 }

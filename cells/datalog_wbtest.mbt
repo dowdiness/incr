@@ -257,5 +257,8 @@ test "get_changed_at: relation changed_at updated by fixpoint" {
     Relation(i) => i
     _ => abort("")
   }
-  inspect(rt.datalog.relations[rel_idx].changed_at > rev_before, content="true")
+  inspect(
+    rt.datalog.relations[rel_idx].meta.changed_at > rev_before,
+    content="true",
+  )
 }

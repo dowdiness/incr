@@ -13,8 +13,14 @@ test "subscriber: after memo.get(), memo is in all deps' subscribers" {
     PullSignal(i) => i
     _ => abort("expected PullSignal")
   }
-  inspect(rt.pull.signals[a_idx].subscribers.contains(sum.id()), content="true")
-  inspect(rt.pull.signals[b_idx].subscribers.contains(sum.id()), content="true")
+  inspect(
+    rt.pull.signals[a_idx].meta.subscribers.contains(sum.id()),
+    content="true",
+  )
+  inspect(
+    rt.pull.signals[b_idx].meta.subscribers.contains(sum.id()),
+    content="true",
+  )
 }
 
 ///|
@@ -34,21 +40,21 @@ test "subscriber: dynamic dep changes update subscriber links" {
     _ => abort("expected PullSignal")
   }
   inspect(
-    rt.pull.signals[a_idx].subscribers.contains(pick.id()),
+    rt.pull.signals[a_idx].meta.subscribers.contains(pick.id()),
     content="true",
   )
   inspect(
-    rt.pull.signals[b_idx].subscribers.contains(pick.id()),
+    rt.pull.signals[b_idx].meta.subscribers.contains(pick.id()),
     content="false",
   )
   flag.set(false)
   let _ = pick.get() // deps: flag, b
   inspect(
-    rt.pull.signals[a_idx].subscribers.contains(pick.id()),
+    rt.pull.signals[a_idx].meta.subscribers.contains(pick.id()),
     content="false",
   )
   inspect(
-    rt.pull.signals[b_idx].subscribers.contains(pick.id()),
+    rt.pull.signals[b_idx].meta.subscribers.contains(pick.id()),
     content="true",
   )
 }
@@ -64,5 +70,5 @@ test "subscriber: memo.get() idempotent — no duplicate subscriber entries" {
     PullSignal(i) => i
     _ => abort("expected PullSignal")
   }
-  inspect(rt.pull.signals[a_idx].subscribers.length(), content="1")
+  inspect(rt.pull.signals[a_idx].meta.subscribers.length(), content="1")
 }

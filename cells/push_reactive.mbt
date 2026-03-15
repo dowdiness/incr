@@ -4,16 +4,11 @@
 /// Recomputed eagerly when upstream cells change via push propagation.
 /// Uses the same type-erased `compute : () -> Bool` pattern as `MemoData`.
 priv struct PushReactiveData {
-  cell_id : CellId
-  mut label : String?
+  meta : CellMeta
   /// Type-erased compute closure. Returns true if the value changed (for backdating).
   mut compute : () -> Bool
   /// Cells this reactive reads (updated on recompute via begin/end_tracking).
   mut sources : Array[CellId]
-  /// Cells that depend on this reactive (reverse edges for push propagation).
-  subscribers : @hashset.HashSet[CellId]
-  /// Last revision where value actually changed (for pull→push boundary).
-  mut changed_at : Revision
   /// Topological depth (max source level + 1). Recalculated when sources change.
   mut level : Int
   /// Set true by push propagation when an upstream cell changes.
@@ -21,31 +16,14 @@ priv struct PushReactiveData {
 }
 
 ///|
-impl CellOps for PushReactiveData with cell_id(self) -> CellId {
-  self.cell_id
+impl HasCellMeta for PushReactiveData with meta(self) {
+  self.meta
 }
 
 ///|
-impl CellOps for PushReactiveData with changed_at(self) -> Revision {
-  self.changed_at
-}
-
-///|
-impl CellOps for PushReactiveData with set_changed_at(self, rev : Revision) -> Unit {
-  self.changed_at = rev
-}
-
-///|
-impl CellOps for PushReactiveData with subscribers(self) -> @hashset.HashSet[
-  CellId,
-] {
-  self.subscribers
-}
-
-///|
-impl CellOps for PushReactiveData with label(self) -> String? {
-  self.label
-}
+/// CellOps dispatch for push-reactive cells — defaults via HasCellMeta,
+/// with sentinel durability and stored level overrides.
+impl CellOps for PushReactiveData
 
 ///|
 /// Push cells have no Durability (they always propagate immediately).
@@ -66,9 +44,9 @@ impl CellOps for PushReactiveData with level(self) -> Int {
 fn PushReactiveData::clear_slot(self : PushReactiveData) -> Unit {
   self.compute = () => false
   self.sources.clear()
-  self.subscribers.clear()
-  self.label = None
-  self.changed_at = Revision::initial()
+  self.meta.subscribers.clear()
+  self.meta.label = None
+  self.meta.changed_at = Revision::initial()
   self.level = 0
   self.dirty = false
 }
@@ -123,12 +101,15 @@ pub fn[T : Eq] Reactive::new(rt : Runtime, compute_fn : () -> T) -> Reactive[T] 
   let cell_id = rt.alloc_cell_id(PushReactive(reactive_idx))
   rt.push.node_count = rt.push.node_count + 1
   let new_data : PushReactiveData = {
-    cell_id,
-    label: None,
+    meta: {
+      cell_id,
+      label: None,
+      changed_at: Revision::initial(),
+      durability: Low,
+      subscribers: @hashset.new(),
+    },
     compute,
     sources: [],
-    subscribers: @hashset.new(),
-    changed_at: Revision::initial(),
     level: 1,
     dirty: false,
   }

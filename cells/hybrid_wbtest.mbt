@@ -73,10 +73,10 @@ test "hybrid memo: backdating — unchanged value does not bump changed_at" {
     HybridMemo(i) => i
     _ => abort("")
   }
-  let before = rt.pull.memos[h_idx].changed_at
+  let before = rt.pull.memos[h_idx].meta.changed_at
   s.set(1) // same value → signal backdating → h may not be dirtied
   let _ = h.get()
-  inspect(rt.pull.memos[h_idx].changed_at == before, content="true")
+  inspect(rt.pull.memos[h_idx].meta.changed_at == before, content="true")
 }
 
 ///|

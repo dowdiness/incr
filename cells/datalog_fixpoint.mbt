@@ -24,7 +24,7 @@ pub fn Runtime::fixpoint(self : Runtime) -> Unit {
   }
   self.datalog.in_fixpoint = true
   // Fixpoint loop
-  for {
+  for ;; {
     // Materialize the current frontier while keeping it readable via delta_iter.
     let mut ri = 0
     while ri < self.datalog.relations.length() {
@@ -66,7 +66,7 @@ pub fn Runtime::fixpoint(self : Runtime) -> Unit {
   let mut ri = 0
   while ri < self.datalog.relations.length() {
     if changed[ri] {
-      changed_ids.push(self.datalog.relations[ri].cell_id)
+      changed_ids.push(self.datalog.relations[ri].meta.cell_id)
     }
     ri = ri + 1
   }

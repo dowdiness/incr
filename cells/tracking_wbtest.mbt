@@ -26,7 +26,10 @@ test "tracking: finish_tracking adds memo to dep subscribers" {
     PullSignal(i) => i
     _ => abort("expected PullSignal")
   }
-  inspect(rt.pull.signals[sig_idx].subscribers.contains(m.id()), content="true")
+  inspect(
+    rt.pull.signals[sig_idx].meta.subscribers.contains(m.id()),
+    content="true",
+  )
 }
 
 ///|

@@ -5,45 +5,20 @@ pub struct RuleId {
 
 ///|
 struct RuleData {
-  cell_id : CellId
-  label : String?
+  meta : CellMeta
   apply_delta : () -> Unit
   input_relations : Array[CellId]
   output_relations : Array[CellId]
-  subscribers : @hashset.HashSet[CellId]
-  mut changed_at : Revision
-  durability : Durability
 }
 
 ///|
-impl CellOps for RuleData with cell_id(self) {
-  self.cell_id
+impl HasCellMeta for RuleData with meta(self) {
+  self.meta
 }
 
 ///|
-impl CellOps for RuleData with changed_at(self) {
-  self.changed_at
-}
-
-///|
-impl CellOps for RuleData with set_changed_at(self, rev) {
-  self.changed_at = rev
-}
-
-///|
-impl CellOps for RuleData with subscribers(self) {
-  self.subscribers
-}
-
-///|
-impl CellOps for RuleData with label(self) {
-  self.label
-}
-
-///|
-impl CellOps for RuleData with durability(self) {
-  self.durability
-}
+/// CellOps dispatch for rule cells — all defaults via HasCellMeta.
+impl CellOps for RuleData
 
 ///|
 pub fn Runtime::new_rule(
@@ -62,14 +37,16 @@ pub fn Runtime::new_rule(
   let idx = self.datalog.rules.length()
   let cell_id = self.alloc_cell_id(Rule(idx))
   let data : RuleData = {
-    cell_id,
-    label,
+    meta: {
+      cell_id,
+      label,
+      changed_at: Revision::initial(),
+      durability: Low,
+      subscribers: @hashset.new(),
+    },
     apply_delta,
     input_relations,
     output_relations,
-    subscribers: @hashset.new(),
-    changed_at: Revision::initial(),
-    durability: Low,
   }
   self.datalog.rules.push(data)
   let ops : &CellOps = self.datalog.rules[idx]

@@ -38,7 +38,7 @@ test "durability: memo inherits min durability from deps" {
   inspect(combined.get(), content="3")
   // combined should have Low durability (min of High and Low)
   let cell = rt.get_memo_data(combined.cell_id)
-  inspect(cell.durability, content="Low")
+  inspect(cell.meta.durability, content="Low")
 }
 
 ///|
@@ -49,7 +49,7 @@ test "durability: memo with only high deps gets high durability" {
   let sum = Memo::new(rt, () => a.get() + b.get())
   inspect(sum.get(), content="30")
   let cell = rt.get_memo_data(sum.cell_id)
-  inspect(cell.durability, content="High")
+  inspect(cell.meta.durability, content="High")
 }
 
 ///|
@@ -61,7 +61,7 @@ test "durability: medium durability signal" {
   inspect(memo.get(), content="15")
   // Memo should have Low durability (min of Medium and Low)
   let cell = rt.get_memo_data(memo.cell_id)
-  inspect(cell.durability, content="Low")
+  inspect(cell.meta.durability, content="Low")
 }
 
 ///|

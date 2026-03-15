@@ -2,15 +2,17 @@
 test "pull_signal_data: can be constructed" {
   let id = CellId::{ runtime_id: 0, id: 0 }
   let data = PullSignalData::{
-    cell_id: id,
-    label: None,
-    changed_at: Revision::initial(),
-    durability: Low,
-    subscribers: @hashset.new(),
+    meta: {
+      cell_id: id,
+      label: None,
+      changed_at: Revision::initial(),
+      durability: Low,
+      subscribers: @hashset.new(),
+    },
     on_change: None,
     commit_pending: None,
   }
-  inspect(data.label, content="None")
+  inspect(data.meta.label, content="None")
 }
 
 ///|

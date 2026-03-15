@@ -70,14 +70,16 @@ pub fn[T : Eq] Memo::new(
   let cell_id = rt.alloc_cell_id(PullMemo(memo_idx))
   let memo : Memo[T] = { label, rt, cell_id, compute, value: None }
   rt.pull.memos.push({
-    cell_id,
-    label,
+    meta: {
+      cell_id,
+      label,
+      changed_at: Revision::initial(),
+      durability: Low,
+      subscribers: @hashset.new(),
+    },
     compute: () => memo.recompute_inner(),
-    changed_at: Revision::initial(),
     verified_at: Revision::initial(),
-    durability: Low,
     dependencies: [],
-    subscribers: @hashset.new(),
     in_progress: false,
     dirty: false,
     on_change: None,
@@ -255,10 +257,10 @@ fn[T : Eq] Memo::force_recompute(self : Memo[T]) -> Result[T, CycleError] {
 /// or `Err(CycleError)` if a cycle is detected.
 fn[T : Eq] Memo::recompute_inner(self : Memo[T]) -> Result[Bool, CycleError] {
   let cell = self.rt.get_memo_data(self.cell_id)
-  let old_changed_at = cell.changed_at
+  let old_changed_at = cell.meta.changed_at
   match self.force_recompute() {
     Ok(_) => {
-      let changed = cell.changed_at != old_changed_at
+      let changed = cell.meta.changed_at != old_changed_at
       if changed {
         match cell.on_change {
           Some(f) => f()
@@ -315,7 +317,7 @@ fn[T] Runtime::memo_force_recompute(
   let cell = self.get_memo_data(cell_id)
   if cell.in_progress {
     return Err(
-      CycleError::from_path(self.collect_tracking_path(), cell.cell_id),
+      CycleError::from_path(self.collect_tracking_path(), cell.meta.cell_id),
     )
   }
   cell.in_progress = true
@@ -345,14 +347,14 @@ fn[T] Runtime::memo_force_recompute(
   }
   cell.dependencies = new_deps
   if deps_changed {
-    cell.durability = compute_durability(self, new_deps)
+    cell.meta.durability = compute_durability(self, new_deps)
   }
   let value_changed = match old_value {
     None => true
     Some(old) => not(eq_fn(old, new_value))
   }
   if value_changed {
-    cell.changed_at = self.core.current_revision
+    cell.meta.changed_at = self.core.current_revision
   }
   cell.verified_at = self.core.current_revision
   cell.dirty = false
@@ -406,7 +408,7 @@ pub fn[T] Memo::dependencies(self : Memo[T]) -> Array[CellId] {
 ///
 /// The revision timestamp of the last actual value change
 pub fn[T] Memo::changed_at(self : Memo[T]) -> Revision {
-  self.rt.get_memo_data(self.cell_id).changed_at
+  self.rt.get_memo_data(self.cell_id).meta.changed_at
 }
 
 ///|

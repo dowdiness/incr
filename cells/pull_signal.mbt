@@ -4,11 +4,7 @@
 /// The actual typed value lives in the `Signal[T]` handle held by user code.
 /// The Runtime stores only the metadata needed for verification and callbacks.
 priv struct PullSignalData {
-  cell_id : CellId
-  label : String?
-  mut changed_at : Revision
-  mut durability : Durability
-  subscribers : @hashset.HashSet[CellId]
+  meta : CellMeta
   mut on_change : (() -> Unit)?
   mut commit_pending : (() -> Bool)?
   // rollback_pending removed — it was set but never invoked; actual rollback
@@ -16,37 +12,13 @@ priv struct PullSignalData {
 }
 
 ///|
-/// CellOps dispatch for pull-signal cells.
-impl CellOps for PullSignalData with cell_id(self) -> CellId {
-  self.cell_id
+impl HasCellMeta for PullSignalData with meta(self) {
+  self.meta
 }
 
 ///|
-impl CellOps for PullSignalData with changed_at(self) -> Revision {
-  self.changed_at
-}
-
-///|
-impl CellOps for PullSignalData with set_changed_at(self, rev : Revision) -> Unit {
-  self.changed_at = rev
-}
-
-///|
-impl CellOps for PullSignalData with subscribers(self) -> @hashset.HashSet[
-  CellId,
-] {
-  self.subscribers
-}
-
-///|
-impl CellOps for PullSignalData with label(self) -> String? {
-  self.label
-}
-
-///|
-impl CellOps for PullSignalData with durability(self) -> Durability {
-  self.durability
-}
+/// CellOps dispatch for pull-signal cells — all defaults via HasCellMeta.
+impl CellOps for PullSignalData
 
 ///|
 /// Committable dispatch for pull-signal cells.
@@ -66,10 +38,10 @@ impl Committable for PullSignalData with do_commit(self) -> Bool {
 
 ///|
 impl Committable for PullSignalData with cell_id(self) -> CellId {
-  self.cell_id
+  self.meta.cell_id
 }
 
 ///|
 impl Committable for PullSignalData with durability(self) -> Durability {
-  self.durability
+  self.meta.durability
 }

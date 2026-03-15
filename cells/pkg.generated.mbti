@@ -185,7 +185,7 @@ pub impl[T : @debug.Debug] @debug.Debug for TrackedCell[T]
 // Type aliases
 
 // Traits
-trait CellOps
+trait CellOps : HasCellMeta
 
 trait Committable
 

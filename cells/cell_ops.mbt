@@ -15,6 +15,26 @@ trait Committable {
 }
 
 ///|
+/// Shared metadata fields carried by every cell kind.
+///
+/// Extracted from the per-type SoA data structs so that `CellOps` default
+/// methods can delegate through `HasCellMeta::meta()` instead of requiring
+/// identical one-liner impls on every cell type.
+priv struct CellMeta {
+  cell_id : CellId
+  mut label : String?
+  mut changed_at : Revision
+  mut durability : Durability
+  subscribers : @hashset.HashSet[CellId]
+}
+
+///|
+/// Returns a cell's shared metadata. Implemented by every SoA data struct.
+priv trait HasCellMeta {
+  meta(Self) -> CellMeta
+}
+
+///|
 /// Uniform interface for all cell kinds in the dependency graph.
 ///
 /// Every cell kind (PullSignal, PullMemo, and future Phase 3+ kinds) implements
@@ -38,20 +58,20 @@ trait Committable {
 /// have already validated cell ownership. The guards in `get_subscribers`,
 /// `get_changed_at`, etc. exist for external entry points; they are not
 /// repeated here.
-trait CellOps {
-  cell_id(Self) -> CellId
-  changed_at(Self) -> Revision
+trait CellOps: HasCellMeta {
+  cell_id(Self) -> CellId = _
+  changed_at(Self) -> Revision = _
   /// Stamps `changed_at` to `rev`. Used by Phase 3 cell kinds that need a
   /// generic write path; current pull-cell internals write the field directly
   /// (see `mark_input_changed`, `force_recompute`).
-  set_changed_at(Self, Revision) -> Unit
+  set_changed_at(Self, Revision) -> Unit = _
   /// Returns the **live** subscriber set. Because `HashSet[CellId]` is a
   /// heap-allocated reference, the returned value is a pointer to the SoA
   /// entry's set — `.add` / `.remove` / `.iter` are all visible to the
   /// runtime. Callers must not use this across runtime boundaries.
-  subscribers(Self) -> @hashset.HashSet[CellId]
-  label(Self) -> String?
-  durability(Self) -> Durability
+  subscribers(Self) -> @hashset.HashSet[CellId] = _
+  label(Self) -> String? = _
+  durability(Self) -> Durability = _
 
   /// Returns the topological level of this cell for push propagation.
   /// Pull cells and leaf cells return 0. Push reactives return their stored level.
@@ -62,6 +82,42 @@ trait CellOps {
   /// Returns `Some(true)` if changed, `Some(false)` if fresh, `None` if deep
   /// verification is required (memo-like cells).
   dep_changed_since(Self, Revision) -> Bool? = _
+}
+
+///|
+/// Default: cell_id from shared metadata.
+impl CellOps with cell_id(self) -> CellId {
+  HasCellMeta::meta(self).cell_id
+}
+
+///|
+/// Default: changed_at from shared metadata.
+impl CellOps with changed_at(self) -> Revision {
+  HasCellMeta::meta(self).changed_at
+}
+
+///|
+/// Default: set_changed_at on shared metadata.
+impl CellOps with set_changed_at(self, rev) -> Unit {
+  HasCellMeta::meta(self).changed_at = rev
+}
+
+///|
+/// Default: subscribers from shared metadata.
+impl CellOps with subscribers(self) -> @hashset.HashSet[CellId] {
+  HasCellMeta::meta(self).subscribers
+}
+
+///|
+/// Default: label from shared metadata.
+impl CellOps with label(self) -> String? {
+  HasCellMeta::meta(self).label
+}
+
+///|
+/// Default: durability from shared metadata.
+impl CellOps with durability(self) -> Durability {
+  HasCellMeta::meta(self).durability
 }
 
 ///|

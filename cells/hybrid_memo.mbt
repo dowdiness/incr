@@ -36,14 +36,16 @@ pub fn[T : Eq] HybridMemo::new(
   let cell_id = rt.alloc_cell_id(HybridMemo(memo_idx))
   let memo : HybridMemo[T] = { label, rt, cell_id, compute, value: None }
   rt.pull.memos.push({
-    cell_id,
-    label,
+    meta: {
+      cell_id,
+      label,
+      changed_at: Revision::initial(),
+      durability: Low,
+      subscribers: @hashset.new(),
+    },
     compute: () => memo.recompute_inner(),
-    changed_at: Revision::initial(),
     verified_at: Revision::initial(),
-    durability: Low,
     dependencies: [],
-    subscribers: @hashset.new(),
     in_progress: false,
     dirty: false,
     on_change: None,
@@ -158,10 +160,10 @@ fn[T : Eq] HybridMemo::recompute_inner(
   self : HybridMemo[T],
 ) -> Result[Bool, CycleError] {
   let cell = self.rt.get_memo_data(self.cell_id)
-  let old_changed_at = cell.changed_at
+  let old_changed_at = cell.meta.changed_at
   match self.force_recompute() {
     Ok(_) => {
-      let changed = cell.changed_at != old_changed_at
+      let changed = cell.meta.changed_at != old_changed_at
       if changed {
         match cell.on_change {
           Some(f) => f()

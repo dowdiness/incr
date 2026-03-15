@@ -309,9 +309,9 @@ test "dispose: sources' subscriber sets updated after reactive dispose" {
     PullSignal(i) => i
     _ => abort("expected PullSignal")
   }
-  inspect(rt.pull.signals[s_idx].subscribers.length(), content="1")
+  inspect(rt.pull.signals[s_idx].meta.subscribers.length(), content="1")
   r.dispose()
-  inspect(rt.pull.signals[s_idx].subscribers.length(), content="0")
+  inspect(rt.pull.signals[s_idx].meta.subscribers.length(), content="0")
 }
 
 ///|

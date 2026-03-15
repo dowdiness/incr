@@ -5,46 +5,21 @@ pub struct RelationId[T] {
 
 ///|
 struct RelationData {
-  cell_id : CellId
+  meta : CellMeta
   drain_delta : () -> Unit
   is_delta_empty : () -> Bool
   promote_staged_delta : () -> Unit
   is_staged_delta_empty : () -> Bool
-  subscribers : @hashset.HashSet[CellId]
-  mut changed_at : Revision
-  label : String?
-  durability : Durability
 }
 
 ///|
-impl CellOps for RelationData with cell_id(self) {
-  self.cell_id
+impl HasCellMeta for RelationData with meta(self) {
+  self.meta
 }
 
 ///|
-impl CellOps for RelationData with changed_at(self) {
-  self.changed_at
-}
-
-///|
-impl CellOps for RelationData with set_changed_at(self, rev) {
-  self.changed_at = rev
-}
-
-///|
-impl CellOps for RelationData with subscribers(self) {
-  self.subscribers
-}
-
-///|
-impl CellOps for RelationData with label(self) {
-  self.label
-}
-
-///|
-impl CellOps for RelationData with durability(self) {
-  self.durability
-}
+/// CellOps dispatch for relation cells — all defaults via HasCellMeta.
+impl CellOps for RelationData
 
 ///|
 /// A Datalog relation: a set of tuples with delta tracking for fixpoint evaluation.
@@ -77,7 +52,13 @@ pub fn[T : Hash + Eq] Relation::new(
   let delta : Ref[@hashset.HashSet[T]] = { val: @hashset.new() }
   let staged_delta : Ref[@hashset.HashSet[T]] = { val: @hashset.new() }
   let data : RelationData = {
-    cell_id,
+    meta: {
+      cell_id,
+      label,
+      changed_at: Revision::initial(),
+      durability: Low,
+      subscribers: @hashset.new(),
+    },
     drain_delta: () => {
       for item in delta.val {
         current.val.add(item)
@@ -92,10 +73,6 @@ pub fn[T : Hash + Eq] Relation::new(
       staged_delta.val.clear()
     },
     is_staged_delta_empty: () => staged_delta.val.is_empty(),
-    subscribers: @hashset.new(),
-    changed_at: Revision::initial(),
-    label,
-    durability: Low,
   }
   rt.datalog.relations.push(data)
   let ops : &CellOps = rt.datalog.relations[idx]

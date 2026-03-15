@@ -95,7 +95,7 @@ fn Runtime::pull_verify(
       // Durability fast-path: if no input at root's durability level changed
       // since root was last verified, mark verified without walking deps.
       if not(root.dirty) &&
-        self.core.durability_last_changed[root.durability.index()] <=
+        self.core.durability_last_changed[root.meta.durability.index()] <=
         root.verified_at {
         root.verified_at = self.core.current_revision
         return Ok(())
@@ -150,10 +150,10 @@ fn Runtime::pull_verify(
                     // changed since dep was last verified, skip traversal.
                     // Also gated on not(dirty) for hybrid memo deps.
                     if not(dep.dirty) &&
-                      self.core.durability_last_changed[dep.durability.index()] <=
+                      self.core.durability_last_changed[dep.meta.durability.index()] <=
                       dep.verified_at {
                       dep.verified_at = self.core.current_revision
-                      if dep.changed_at > memo.verified_at {
+                      if dep.meta.changed_at > memo.verified_at {
                         stack[top].changed = true
                         stack[top].dep_cursor = memo.dependencies.length()
                       }
@@ -177,7 +177,7 @@ fn Runtime::pull_verify(
                         changed: false,
                       })
                     }
-                  } else if dep.changed_at > memo.verified_at {
+                  } else if dep.meta.changed_at > memo.verified_at {
                     stack[top].changed = true
                     stack[top].dep_cursor = memo.dependencies.length()
                   }
@@ -207,7 +207,7 @@ fn Runtime::pull_verify(
           if stack.length() > 0 {
             let parent_top = stack.length() - 1
             let parent_memo = self.pull.memos[stack[parent_top].memo_idx]
-            if memo.changed_at > parent_memo.verified_at {
+            if memo.meta.changed_at > parent_memo.verified_at {
               stack[parent_top].changed = true
               stack[parent_top].dep_cursor = parent_memo.dependencies.length()
             }

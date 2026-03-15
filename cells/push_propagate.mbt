@@ -181,7 +181,7 @@ fn Runtime::push_propagate_from(
           continue
         }
         // Disposal check: another node may have disposed this reactive mid-wave
-        match self.core.cell_index[reactive.cell_id.id] {
+        match self.core.cell_index[reactive.meta.cell_id.id] {
           PushReactive(_) => ()
           _ => continue
         }
@@ -193,7 +193,7 @@ fn Runtime::push_propagate_from(
           continue
         }
         reactive.dirty = false
-        let reactive_cell_id = reactive.cell_id
+        let reactive_cell_id = reactive.meta.cell_id
         let old_sources = reactive.sources
         self.begin_tracking(reactive_cell_id)
         let changed = (reactive.compute)()
@@ -206,7 +206,7 @@ fn Runtime::push_propagate_from(
           self.propagate_level_change(reactive_cell_id, update_queue)
         }
         if changed {
-          reactive.changed_at = self.core.current_revision
+          reactive.meta.changed_at = self.core.current_revision
           enqueue_push_subscribers(reactive_cell_id)
         }
       }
@@ -216,7 +216,7 @@ fn Runtime::push_propagate_from(
           continue
         }
         // Disposal check: another node may have disposed this effect mid-wave
-        match self.core.cell_index[effect.cell_id.id] {
+        match self.core.cell_index[effect.meta.cell_id.id] {
           PushEffect(_) => ()
           _ => continue
         }
@@ -225,7 +225,7 @@ fn Runtime::push_propagate_from(
           continue
         }
         effect.dirty = false
-        let effect_cell_id = effect.cell_id
+        let effect_cell_id = effect.meta.cell_id
         let old_sources = effect.sources
         self.begin_tracking(effect_cell_id)
         (effect.execute)()

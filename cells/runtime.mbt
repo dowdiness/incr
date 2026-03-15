@@ -215,11 +215,13 @@ fn Runtime::new_signal_id(
   let idx = self.pull.signals.length()
   let cell_id = self.alloc_cell_id(PullSignal(idx))
   self.pull.signals.push({
-    cell_id,
-    label,
-    changed_at: Revision::initial(),
-    durability,
-    subscribers: @hashset.new(),
+    meta: {
+      cell_id,
+      label,
+      changed_at: Revision::initial(),
+      durability,
+      subscribers: @hashset.new(),
+    },
     on_change: None,
     commit_pending: None,
   })
@@ -272,14 +274,14 @@ fn Runtime::get_durability(self : Runtime, id : CellId) -> Durability {
 /// CellRef index back to the unified CellId without an extra map.
 fn Runtime::cell_id_for(self : Runtime, cell_ref : CellRef) -> CellId {
   match cell_ref {
-    PullSignal(idx) => self.pull.signals[idx].cell_id
-    PullMemo(idx) => self.pull.memos[idx].cell_id
-    PushReactive(idx) => self.push.reactives[idx].cell_id
-    PushEffect(idx) => self.push.effects[idx].cell_id
-    HybridMemo(idx) => self.pull.memos[idx].cell_id
+    PullSignal(idx) => self.pull.signals[idx].meta.cell_id
+    PullMemo(idx) => self.pull.memos[idx].meta.cell_id
+    PushReactive(idx) => self.push.reactives[idx].meta.cell_id
+    PushEffect(idx) => self.push.effects[idx].meta.cell_id
+    HybridMemo(idx) => self.pull.memos[idx].meta.cell_id
     Disposed => abort("cell_id_for: cell has been disposed")
-    Relation(idx) => self.datalog.relations[idx].cell_id
-    Rule(idx) => self.datalog.rules[idx].cell_id
+    Relation(idx) => self.datalog.relations[idx].meta.cell_id
+    Rule(idx) => self.datalog.rules[idx].meta.cell_id
   }
 }
 
@@ -392,7 +394,7 @@ impl RevisionManager for Runtime with advance_revision(self, durability) {
 /// Must be called after advance_revision so current_revision is already updated.
 fn Runtime::mark_input_changed(self : Runtime, id : CellId) -> PullSignalData {
   let sig = self.get_pull_signal(id)
-  sig.changed_at = self.core.current_revision
+  sig.meta.changed_at = self.core.current_revision
   sig
 }
 

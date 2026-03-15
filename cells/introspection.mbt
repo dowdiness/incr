@@ -155,7 +155,7 @@ fn Runtime::collect_in_progress_path(self : Runtime) -> Array[CellId] {
   let path : Array[CellId] = []
   for memo in self.pull.memos {
     if memo.in_progress {
-      path.push(memo.cell_id)
+      path.push(memo.meta.cell_id)
     }
   }
   path

@@ -3,7 +3,7 @@ test "subscriber: new cells have empty subscribers" {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 10)
   let meta = rt.get_pull_signal(sig.id())
-  inspect(meta.subscribers.length(), content="0")
+  inspect(meta.meta.subscribers.length(), content="0")
 }
 
 ///|
@@ -16,8 +16,8 @@ test "subscriber: memo subscribes to its dependencies" {
   // a and b should list sum as a subscriber
   let a_meta = rt.get_pull_signal(a.id())
   let b_meta = rt.get_pull_signal(b.id())
-  inspect(a_meta.subscribers.contains(sum.id()), content="true")
-  inspect(b_meta.subscribers.contains(sum.id()), content="true")
+  inspect(a_meta.meta.subscribers.contains(sum.id()), content="true")
+  inspect(b_meta.meta.subscribers.contains(sum.id()), content="true")
 }
 
 ///|
@@ -30,14 +30,14 @@ test "subscriber: dynamic dep change updates subscribers" {
   let _ = pick.get() // deps: flag, a
   let a_meta = rt.get_pull_signal(a.id())
   let b_meta = rt.get_pull_signal(b.id())
-  inspect(a_meta.subscribers.contains(pick.id()), content="true")
-  inspect(b_meta.subscribers.contains(pick.id()), content="false")
+  inspect(a_meta.meta.subscribers.contains(pick.id()), content="true")
+  inspect(b_meta.meta.subscribers.contains(pick.id()), content="false")
   // Switch branch: deps become flag, b
   // PullSignalData has reference semantics — no need to re-fetch
   flag.set(false)
   let _ = pick.get()
-  inspect(a_meta.subscribers.contains(pick.id()), content="false")
-  inspect(b_meta.subscribers.contains(pick.id()), content="true")
+  inspect(a_meta.meta.subscribers.contains(pick.id()), content="false")
+  inspect(b_meta.meta.subscribers.contains(pick.id()), content="true")
 }
 
 ///|
@@ -72,8 +72,8 @@ test "subscriber: memo.get() is idempotent for subscribers" {
   let _ = m.get()
   let _ = m.get()
   let meta = rt.get_pull_signal(a.id())
-  inspect(meta.subscribers.contains(m.id()), content="true")
-  inspect(meta.subscribers.length(), content="1")
+  inspect(meta.meta.subscribers.contains(m.id()), content="true")
+  inspect(meta.meta.subscribers.length(), content="1")
 }
 
 ///|

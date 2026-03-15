@@ -4,8 +4,7 @@
 /// Terminal node for side effects (DOM updates, logging, etc.).
 /// Never read by other cells. Recomputed eagerly when upstream changes.
 priv struct PushEffectData {
-  cell_id : CellId
-  mut label : String?
+  meta : CellMeta
   /// Side effect function to run on recompute.
   mut execute : () -> Unit
   /// Cells this effect reads (updated on recompute).
@@ -14,14 +13,17 @@ priv struct PushEffectData {
   mut level : Int
   /// Set true by push propagation when an upstream cell changes.
   mut dirty : Bool
-  /// Always-empty subscriber set (effects are terminal nodes; kept for CellOps uniformity).
-  subscribers : @hashset.HashSet[CellId]
 }
 
 ///|
-impl CellOps for PushEffectData with cell_id(self) -> CellId {
-  self.cell_id
+impl HasCellMeta for PushEffectData with meta(self) {
+  self.meta
 }
+
+///|
+/// CellOps dispatch for push-effect cells — defaults via HasCellMeta,
+/// with sentinel overrides for changed_at, set_changed_at, durability, and level.
+impl CellOps for PushEffectData
 
 ///|
 /// Effects have no changed_at semantics (they are terminal and never read).
@@ -34,19 +36,6 @@ impl CellOps for PushEffectData with changed_at(self) -> Revision {
 ///|
 impl CellOps for PushEffectData with set_changed_at(self, _rev : Revision) -> Unit {
   ignore(self)
-}
-
-///|
-/// Effects are terminal nodes — their subscriber set is always empty.
-impl CellOps for PushEffectData with subscribers(self) -> @hashset.HashSet[
-  CellId,
-] {
-  self.subscribers
-}
-
-///|
-impl CellOps for PushEffectData with label(self) -> String? {
-  self.label
 }
 
 ///|
@@ -67,8 +56,8 @@ impl CellOps for PushEffectData with level(self) -> Int {
 fn PushEffectData::clear_slot(self : PushEffectData) -> Unit {
   self.execute = () => ()
   self.sources.clear()
-  self.subscribers.clear()
-  self.label = None
+  self.meta.subscribers.clear()
+  self.meta.label = None
   self.level = 0
   self.dirty = false
 }
@@ -97,13 +86,17 @@ pub fn Effect::new(rt : Runtime, f : () -> Unit) -> Effect {
   let cell_id = rt.alloc_cell_id(PushEffect(effect_idx))
   rt.push.node_count = rt.push.node_count + 1
   let new_data : PushEffectData = {
-    cell_id,
-    label: None,
+    meta: {
+      cell_id,
+      label: None,
+      changed_at: Revision::initial(),
+      durability: Low,
+      subscribers: @hashset.new(),
+    },
     execute: f,
     sources: [],
     level: 1,
     dirty: false,
-    subscribers: @hashset.new(),
   }
   if effect_idx < rt.push.effects.length() {
     rt.push.effects[effect_idx] = new_data
