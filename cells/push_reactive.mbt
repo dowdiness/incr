@@ -52,18 +52,12 @@ fn PushReactiveData::clear_slot(self : PushReactiveData) -> Unit {
 }
 
 ///|
-/// Typed handle for a push-mode reactive cell.
-pub struct ReactiveId[T] {
-  id : CellId
-}
-
-///|
 /// User-facing push-mode reactive cell.
 ///
 /// Recomputed eagerly when any upstream cell changes. Value is cached;
 /// consecutive reads without upstream changes do not trigger recomputation.
 pub struct Reactive[T] {
-  priv cell_id : ReactiveId[T]
+  priv cell_id : @incr_types.ReactiveId[T]
   priv value : Ref[T?]
   priv rt : Runtime
 }
@@ -120,7 +114,11 @@ pub fn[T : Eq] Reactive::new(rt : Runtime, compute_fn : () -> T) -> Reactive[T] 
   }
   let ops : &CellOps = rt.push.reactives[reactive_idx]
   rt.core.cell_ops.push(ops)
-  let reactive : Reactive[T] = { cell_id: { id: cell_id }, value, rt }
+  let reactive : Reactive[T] = {
+    cell_id: @incr_types.ReactiveId::{ id: cell_id },
+    value,
+    rt,
+  }
   // Initial compute: establish dependencies and set initial value.
   rt.begin_tracking(cell_id)
   let _ = compute()

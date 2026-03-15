@@ -3,6 +3,11 @@ pub using @incr_types {
   type Revision,
   type Durability,
   type CellId,
+  type SignalId,
+  type MemoId,
+  type ReactiveId,
+  type RelationId,
+  type RuleId,
   DURABILITY_COUNT,
 }
 
@@ -17,11 +22,6 @@ pub using @internal {
   type TrackedCell,
   type HybridMemo,
   type Relation,
-  type SignalId,
-  type MemoId,
-  type ReactiveId,
-  type RelationId,
-  type RuleId,
 }
 
 // Note: @internal alias above refers to dowdiness/incr/cells (renamed from

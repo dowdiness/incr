@@ -1,2 +1,6 @@
 import {
 }
+// 5 (unused_type_variable) — phantom [T] on SignalId, MemoId, ReactiveId, RelationId is intentional
+// 9 (struct_never_constructed) — ID types are constructed by cells/ package via pub(all)
+
+warnings = "-5-9"

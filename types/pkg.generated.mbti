@@ -31,6 +31,18 @@ pub impl Eq for Durability
 pub impl Show for Durability
 pub impl @debug.Debug for Durability
 
+pub(all) struct MemoId[T] {
+  id : CellId
+}
+
+pub(all) struct ReactiveId[T] {
+  id : CellId
+}
+
+pub(all) struct RelationId[T] {
+  id : CellId
+}
+
 pub(all) struct Revision {
   value : Int
 }
@@ -41,6 +53,14 @@ pub impl Default for Revision
 pub impl Eq for Revision
 pub impl Show for Revision
 pub impl @debug.Debug for Revision
+
+pub(all) struct RuleId {
+  id : CellId
+}
+
+pub(all) struct SignalId[T] {
+  id : CellId
+}
 
 // Type aliases
 

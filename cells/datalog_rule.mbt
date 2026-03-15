@@ -1,9 +1,4 @@
 ///|
-pub struct RuleId {
-  id : CellId
-}
-
-///|
 struct RuleData {
   meta : CellMeta
   apply_delta : () -> Unit
@@ -27,7 +22,7 @@ pub fn Runtime::new_rule(
   output_relations : Array[CellId],
   apply_delta : () -> Unit,
   label? : String,
-) -> RuleId {
+) -> @incr_types.RuleId {
   for id in input_relations {
     self.assert_rule_relation_id(id, "input")
   }
@@ -51,7 +46,7 @@ pub fn Runtime::new_rule(
   self.datalog.rules.push(data)
   let ops : &CellOps = self.datalog.rules[idx]
   self.core.cell_ops.push(ops)
-  { id: cell_id }
+  @incr_types.RuleId::{ id: cell_id }
 }
 
 ///|

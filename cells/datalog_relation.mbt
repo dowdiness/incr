@@ -1,9 +1,4 @@
 ///|
-pub struct RelationId[T] {
-  id : CellId
-}
-
-///|
 struct RelationData {
   meta : CellMeta
   drain_delta : () -> Unit

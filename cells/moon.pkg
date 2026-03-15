@@ -6,9 +6,7 @@ import {
 }
 // Suppressed warnings:
 // 1  (unused_value)          — get_changed_at, cell_id_for, CellOps::cell_id used by wbtests or trait contract
-// 5  (unused_type_variable)  — phantom [T] on SignalId, MemoId, RelationId, ReactiveId is intentional
 // 7  (unused_field)          — RuleData.input/output_relations stored for future introspection
-// 9  (struct_never_constructed) — public Id types are for downstream consumers
 // 15 (unused_mut)            — mut fields only written in wbtest compilation
 
-warnings = "-1-5-7-9-15"
+warnings = "-1-7-15"
