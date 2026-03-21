@@ -4,6 +4,9 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **FunctionalRelation[K, V]** — key-value Datalog relation with delta tracking for value updates. Unlike `Relation[T]` (set semantics), `FunctionalRelation` maps each key to one value; updates produce deltas. Optional merge function resolves conflicts.
+
 ## [0.4.0] - 2026-03-22
 
 ### Added

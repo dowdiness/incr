@@ -31,6 +31,10 @@ pub impl Eq for Durability
 pub impl Show for Durability
 pub impl @debug.Debug for Durability
 
+pub(all) struct FunctionalRelationId[K, V] {
+  id : CellId
+}
+
 pub(all) struct MemoId[T] {
   id : CellId
 }

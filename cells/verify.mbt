@@ -80,7 +80,7 @@ fn Runtime::pull_verify(
   match self.core.cell_index[cell_id.id] {
     PullSignal(_) => Ok(()) // always fresh
     PushReactive(_) | PushEffect(_) => Ok(()) // freshness via push_propagate_from
-    Relation(_) | Rule(_) => {
+    Relation(_) | FunctionalRelation(_) | Rule(_) => {
       if self.datalog.in_fixpoint {
         abort("pull_verify: cannot verify Relation/Rule during fixpoint()")
       }
@@ -124,7 +124,7 @@ fn Runtime::pull_verify(
           // Guard: disposed check + fixpoint guard for Relation/Rule deps.
           match self.core.cell_index[dep_id.id] {
             Disposed => abort("pull_verify: dependency has been disposed")
-            Relation(_) | Rule(_) =>
+            Relation(_) | FunctionalRelation(_) | Rule(_) =>
               if self.datalog.in_fixpoint {
                 clear_verify_stack(self, stack)
                 abort(

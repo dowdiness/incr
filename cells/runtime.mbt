@@ -80,6 +80,7 @@ priv struct PushState {
 priv struct DatalogState {
   mut in_fixpoint : Bool
   relations : Array[RelationData]
+  functional_relations : Array[FunctionalRelationData]
   rules : Array[RuleData]
 }
 
@@ -164,7 +165,12 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
       free_effects: [],
       node_count: 0,
     },
-    datalog: { in_fixpoint: false, relations: [], rules: [] },
+    datalog: {
+      in_fixpoint: false,
+      relations: [],
+      functional_relations: [],
+      rules: [],
+    },
   }
 }
 
@@ -281,6 +287,8 @@ fn Runtime::cell_id_for(self : Runtime, cell_ref : CellRef) -> CellId {
     HybridMemo(idx) => self.pull.memos[idx].meta.cell_id
     Disposed => abort("cell_id_for: cell has been disposed")
     Relation(idx) => self.datalog.relations[idx].meta.cell_id
+    FunctionalRelation(idx) =>
+      self.datalog.functional_relations[idx].meta.cell_id
     Rule(idx) => self.datalog.rules[idx].meta.cell_id
   }
 }

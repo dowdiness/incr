@@ -36,6 +36,7 @@ pub enum CellRef {
   HybridMemo(Int)
   Disposed
   Relation(Int)
+  FunctionalRelation(Int)
   Rule(Int)
 }
 
@@ -44,6 +45,20 @@ pub struct Effect {
 }
 pub fn Effect::dispose(Self) -> Unit
 pub fn Effect::new(Runtime, () -> Unit) -> Self
+
+pub(all) struct FunctionalRelation[K, V] {
+  // private fields
+
+  fn[K : Hash + Eq, V] new(Runtime, merge? : (V, V) -> V, label? : String) -> FunctionalRelation[K, V]
+}
+pub fn[K, V] FunctionalRelation::delta_iter(Self[K, V]) -> Iter[(K, V)]
+pub fn[K : Hash + Eq, V] FunctionalRelation::get(Self[K, V], K) -> V?
+pub fn[K, V] FunctionalRelation::id(Self[K, V]) -> @types.CellId
+pub fn[K : Hash + Eq, V : Eq] FunctionalRelation::insert(Self[K, V], K, V) -> Bool
+pub fn[K, V] FunctionalRelation::iter(Self[K, V]) -> Iter[(K, V)]
+pub fn[K : Hash + Eq, V] FunctionalRelation::new(Runtime, merge? : (V, V) -> V, label? : String) -> Self[K, V]
+
+type FunctionalRelationData
 
 pub(all) struct HybridMemo[T] {
   // private fields
