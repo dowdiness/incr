@@ -40,7 +40,7 @@ Invalidation strategies for dependency graphs fall into three families:
 
 ### Signals and Memos
 
-The library has two cell types:
+The library's core pull-mode building blocks are two cell types:
 
 - **Signal[T]** — An input cell. Its value is set externally by the user via `set()`. Signals are the leaves of the dependency graph.
 - **Memo[T]** — A derived cell. Its value is computed by a user-provided function that may read other Signals and Memos. Memos are the interior nodes of the dependency graph.
@@ -272,7 +272,7 @@ The library uses a **Structure-of-Arrays (SoA)** layout. Instead of one heteroge
 1. **`pull_signals : Array[PullSignalData]`** — SoA entries for input cells (signals). Contains `changed_at`, durability, subscribers, and the type-erased `commit_pending` batch closure.
 2. **`pull_memos : Array[PullMemoData]`** — SoA entries for derived cells (memos). Contains `changed_at`/`verified_at`, dependency list, durability, `in_progress` flag, and the type-erased `compute` closure.
 3. **`hybrid_memos : Array[HybridMemoData]`** — SoA entries for hybrid memo cells. Like `PullMemoData` but with an additional `dirty : Bool` flag set eagerly by push propagation.
-4. **`cell_index : Array[CellRef]`** — Maps `CellId.id` → `PullSignal(idx)`, `PullMemo(idx)`, `HybridMemo(idx)`, `PushReactive(idx)`, `PushEffect(idx)`, or `Disposed` for O(1) dispatch.
+4. **`cell_index : Array[CellRef]`** — Maps `CellId.id` → `PullSignal(idx)`, `PullMemo(idx)`, `HybridMemo(idx)`, `PushReactive(idx)`, `PushEffect(idx)`, `Relation(idx)`, `FunctionalRelation(idx)`, `Rule(idx)`, or `Disposed` for O(1) dispatch.
 5. **`cell_ops : Array[&CellOps]`** — Trait-object array indexed by `CellId.id`. `HybridMemoData` implements `CellOps` alongside signals and pull memos.
 
 The bridge between typed and type-erased worlds uses closure-based type erasure:

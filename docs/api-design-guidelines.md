@@ -476,7 +476,7 @@ Subscriber links are maintained incrementally in `force_recompute`: added when a
 
 ### Stable (Won't Break)
 
-- Core types: `Signal[T]`, `Memo[T]`, `Runtime`
+- Core types: `Signal[T]`, `Memo[T]`, `MemoMap[K, V]`, `HybridMemo[T]`, `Reactive[T]`, `Effect`, `Relation[T]`, `FunctionalRelation[K, V]`, `Runtime`
 - Core methods: constructors (`Signal(rt, ...)`, `Memo(rt, ...)`), `get`, `set`, `batch`
 - Core traits: `Database`, `Readable`
 - Error types: `CycleError`

@@ -15,6 +15,7 @@ A Salsa-inspired incremental recomputation library for [MoonBit](https://www.moo
 - **Push-reactive cells** — `Reactive[T]` and `Effect` for eager push-mode computation with glitch-free level-sorted propagation
 - **Hybrid push-pull** — `HybridMemo[T]` receives dirty flags eagerly via push propagation but verifies lazily on read, combining the best of both models
 - **Field-level tracking** — `TrackedCell` groups related signals into tracked structs; only changed fields invalidate downstream memos
+- **Datalog primitives** — `Relation[T]` (set-based) and `FunctionalRelation[K, V]` (key-value) with semi-naive delta tracking, `Rule` registration, and `Runtime::fixpoint()` for convergent evaluation
 
 ## Quick Start
 
@@ -197,7 +198,7 @@ The library is split into four MoonBit sub-packages:
 |---------|------|
 | `dowdiness/incr` | Public API facade — re-exports all types via `pub type` aliases |
 | `dowdiness/incr/types` | Pure value types: `Revision`, `Durability`, `CellId` |
-| `dowdiness/incr/cells` | Engine implementation: `Signal`, `Memo`, `MemoMap`, `Runtime`, verification algorithm |
+| `dowdiness/incr/cells` | Engine implementation: `Signal`, `Memo`, `MemoMap`, `HybridMemo`, `Reactive`, `Effect`, `Relation`, `FunctionalRelation`, `Runtime` |
 | `dowdiness/incr/pipeline` | Experimental pipeline traits: `Sourceable`, `Parseable`, `Checkable`, `Executable` |
 | `dowdiness/incr/tests` | Integration tests exercising the full `@incr` public API |
 

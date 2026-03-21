@@ -9,7 +9,7 @@ Application concepts that leverage incr's combination of pull, push, hybrid, and
 | Pull (lazy) | Signal, Memo, MemoMap | Verify-on-read, backdating, durability skipping |
 | Push (eager) | Reactive, Effect | Level-sorted glitch-free propagation, immediate side effects |
 | Hybrid | HybridMemo | Push dirty flags + pull verification on read |
-| Datalog | Relation, Rule, fixpoint() | Semi-naive fixpoint evaluation over derived facts |
+| Datalog | Relation, FunctionalRelation, Rule, fixpoint() | Semi-naive fixpoint evaluation over derived facts |
 
 ---
 
