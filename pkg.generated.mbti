@@ -38,6 +38,10 @@ pub using @cells {type CycleError}
 
 pub using @types {type Durability}
 
+pub using @cells {type FunctionalRelation}
+
+pub using @types {type FunctionalRelationId}
+
 pub using @cells {type HybridMemo}
 
 pub using @cells {type Memo}

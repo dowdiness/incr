@@ -8,6 +8,7 @@ pub using @incr_types {
   type ReactiveId,
   type RelationId,
   type RuleId,
+  type FunctionalRelationId,
   DURABILITY_COUNT,
 }
 
@@ -22,6 +23,7 @@ pub using @internal {
   type TrackedCell,
   type HybridMemo,
   type Relation,
+  type FunctionalRelation,
 }
 
 // Note: @internal alias above refers to dowdiness/incr/cells (renamed from
