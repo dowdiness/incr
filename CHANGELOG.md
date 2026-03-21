@@ -4,6 +4,8 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-03-22
+
 ### Added
 - **Datalog primitives** — `Relation[T]`, `Rule`, `Runtime::fixpoint()` for semi-naive evaluation with staged deltas, delta iteration, and convergence detection (#18)
 - **Push-mode cells** — `Reactive[T]` (eager recomputation) and `Effect` (eager side effects) with level-sorted BFS propagation (#14)
@@ -13,6 +15,7 @@ All notable changes to `dowdiness/incr` are documented in this file.
 - Microbenchmarks for core operations
 
 ### Changed
+- **BREAKING:** Package renamed from `dowdiness/incr/internal` to `dowdiness/incr/cells`
 - **SoA storage** — replaced per-cell structs with struct-of-arrays layout (`PullSignalData`, `MemoData`) for cache-friendly access and type-erased dispatch (#11)
 - **Runtime modularization** — split Runtime into `CoreState`, `PullState`, `PushState`, `DatalogState` sub-structs (#19)
 - **MemoData unification** — merged `PullMemoData` and `HybridMemoData` into single `MemoData` struct
@@ -106,7 +109,8 @@ Initial release.
 - Batch updates with atomic multi-signal commits
 - Cycle detection
 
-[Unreleased]: https://github.com/dowdiness/incr/compare/v0.3.3...HEAD
+[Unreleased]: https://github.com/dowdiness/incr/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/dowdiness/incr/compare/v0.3.3...v0.4.0
 [0.3.3]: https://github.com/dowdiness/incr/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/dowdiness/incr/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/dowdiness/incr/compare/v0.3.0...v0.3.1
