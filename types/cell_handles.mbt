@@ -30,6 +30,11 @@ pub(all) struct RelationId[T] {
 }
 
 ///|
+pub(all) struct FunctionalRelationId[K, V] {
+  id : CellId
+}
+
+///|
 pub(all) struct RuleId {
   id : CellId
 }

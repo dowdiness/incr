@@ -36,6 +36,7 @@ pub enum CellRef {
   HybridMemo(Int)
   Disposed
   Relation(Int)
+  FunctionalRelation(Int)
   Rule(Int)
 }
 
@@ -44,6 +45,8 @@ pub struct Effect {
 }
 pub fn Effect::dispose(Self) -> Unit
 pub fn Effect::new(Runtime, () -> Unit) -> Self
+
+type FunctionalRelationData
 
 pub(all) struct HybridMemo[T] {
   // private fields

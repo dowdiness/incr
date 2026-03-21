@@ -74,7 +74,7 @@ fn Runtime::assert_rule_relation_id(
     )
   }
   match self.core.cell_index[id.id] {
-    Relation(_) => ()
+    Relation(_) | FunctionalRelation(_) => ()
     _ =>
       abort(
         "new_rule: " + role + " cell_id is not a Relation: " + id.id.to_string(),

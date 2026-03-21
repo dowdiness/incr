@@ -7,5 +7,6 @@ pub enum CellRef {
   HybridMemo(Int)
   Disposed
   Relation(Int)
+  FunctionalRelation(Int)
   Rule(Int)
 }
