@@ -4,8 +4,10 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-03-22
+
 ### Added
-- **FunctionalRelation[K, V]** — key-value Datalog relation with delta tracking for value updates. Unlike `Relation[T]` (set semantics), `FunctionalRelation` maps each key to one value; updates produce deltas. Optional merge function resolves conflicts.
+- **FunctionalRelation[K, V]** — key-value Datalog relation with delta tracking for value updates. Unlike `Relation[T]` (set semantics), `FunctionalRelation` maps each key to one value; updates produce deltas. Optional merge function resolves conflicts. (#21)
 
 ## [0.4.0] - 2026-03-22
 
@@ -112,7 +114,8 @@ Initial release.
 - Batch updates with atomic multi-signal commits
 - Cycle detection
 
-[Unreleased]: https://github.com/dowdiness/incr/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/dowdiness/incr/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/dowdiness/incr/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/dowdiness/incr/compare/v0.3.3...v0.4.0
 [0.3.3]: https://github.com/dowdiness/incr/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/dowdiness/incr/compare/v0.3.1...v0.3.2
