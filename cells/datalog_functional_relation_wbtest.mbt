@@ -135,3 +135,81 @@ test "functional_relation: no-op convergence terminates" {
   rt.fixpoint() // must terminate
   inspect(fr.get("x"), content="Some(1)")
 }
+
+///|
+test "functional_relation: memo recomputes after fixpoint changes value" {
+  let rt = Runtime::new()
+  let fr : FunctionalRelation[String, Int] = FunctionalRelation::new(rt)
+  let _ = fr.insert("x", 1)
+  rt.fixpoint()
+  let m = Memo::new(rt, fn() { fr.get("x").unwrap_or(0) })
+  inspect(m.get(), content="1")
+  let _ = fr.insert("x", 2)
+  rt.fixpoint()
+  inspect(m.get(), content="2")
+}
+
+///|
+test "panic functional_relation: cross-runtime read aborts" {
+  let rt1 = Runtime::new()
+  let rt2 = Runtime::new()
+  let fr : FunctionalRelation[String, Int] = FunctionalRelation::new(rt1)
+  let _ = fr.insert("x", 1)
+  rt1.fixpoint()
+  let memo = Memo::new(rt2, fn() { fr.get("x").unwrap_or(0) })
+  let _ = memo.get()
+}
+
+///|
+test "functional_relation: mixed Relation and FunctionalRelation rule" {
+  let rt = Runtime::new()
+  let edges : Relation[(Int, Int)] = Relation::new(rt)
+  let weights : FunctionalRelation[(Int, Int), Int] = FunctionalRelation::new(
+    rt,
+  )
+  let _ = edges.insert((1, 2))
+  let _ = rt.new_rule([edges.id()], [weights.id()], fn() {
+    for e in edges.delta_iter() {
+      let _ = weights.insert(e, 1)
+    }
+  })
+  rt.fixpoint()
+  inspect(weights.get((1, 2)), content="Some(1)")
+}
+
+///|
+test "functional_relation: multiple writes to same key converges" {
+  let rt = Runtime::new()
+  let fr : FunctionalRelation[String, Int] = FunctionalRelation::new(rt)
+  let _ = fr.insert("x", 1)
+  let _ = rt.new_rule([fr.id()], [fr.id()], fn() {
+    for entry in fr.delta_iter() {
+      let (k, v) = entry
+      if v < 10 {
+        let _ = fr.insert(k, v + 1)
+      }
+    }
+  })
+  rt.fixpoint()
+  inspect(fr.get("x"), content="Some(10)")
+}
+
+///|
+test "functional_relation: created during rule execution converges" {
+  let rt = Runtime::new()
+  let trigger : Relation[Int] = Relation::new(rt)
+  let _ = trigger.insert(1)
+  let dynamic_fr_ref : Ref[FunctionalRelation[Int, Int]?] = { val: None }
+  let _ = rt.new_rule([trigger.id()], [], fn() {
+    for _ in trigger.delta_iter() {
+      let fr : FunctionalRelation[Int, Int] = FunctionalRelation::new(rt)
+      let _ = fr.insert(1, 42)
+      dynamic_fr_ref.val = Some(fr)
+    }
+  })
+  rt.fixpoint()
+  match dynamic_fr_ref.val {
+    Some(fr) => inspect(fr.get(1), content="Some(42)")
+    None => abort("dynamic fr not created")
+  }
+}
