@@ -22,6 +22,11 @@ pub fn Runtime::fixpoint(self : Runtime) -> Unit {
   for rel in self.datalog.relations {
     changed.push(not((rel.is_delta_empty)()))
   }
+  // Track which functional relation SoA indices changed during this fixpoint run
+  let fr_changed : Array[Bool] = []
+  for fr in self.datalog.functional_relations {
+    fr_changed.push(not((fr.is_delta_empty)()))
+  }
   self.datalog.in_fixpoint = true
   // Fixpoint loop
   for ;; {
@@ -31,6 +36,11 @@ pub fn Runtime::fixpoint(self : Runtime) -> Unit {
       (self.datalog.relations[ri].drain_delta)()
       ri = ri + 1
     }
+    let mut fi = 0
+    while fi < self.datalog.functional_relations.length() {
+      (self.datalog.functional_relations[fi].drain_delta)()
+      fi = fi + 1
+    }
     // Apply all rules
     for rule in self.datalog.rules {
       (rule.apply_delta)()
@@ -38,6 +48,9 @@ pub fn Runtime::fixpoint(self : Runtime) -> Unit {
     // Rules may add relations during fixpoint; track any new entries.
     while changed.length() < self.datalog.relations.length() {
       changed.push(false)
+    }
+    while fr_changed.length() < self.datalog.functional_relations.length() {
+      fr_changed.push(false)
     }
     // Check convergence over staged deltas + mark changed in a single pass
     let mut has_new_facts = false
@@ -49,12 +62,25 @@ pub fn Runtime::fixpoint(self : Runtime) -> Unit {
       }
       ri = ri + 1
     }
+    fi = 0
+    while fi < self.datalog.functional_relations.length() {
+      if not((self.datalog.functional_relations[fi].is_staged_delta_empty)()) {
+        has_new_facts = true
+        fr_changed[fi] = true
+      }
+      fi = fi + 1
+    }
     // Next iteration frontier = this iteration's newly derived facts
     // (and old frontier is cleared).
     ri = 0
     while ri < self.datalog.relations.length() {
       (self.datalog.relations[ri].promote_staged_delta)()
       ri = ri + 1
+    }
+    fi = 0
+    while fi < self.datalog.functional_relations.length() {
+      (self.datalog.functional_relations[fi].promote_staged_delta)()
+      fi = fi + 1
     }
     if not(has_new_facts) {
       break
@@ -69,6 +95,13 @@ pub fn Runtime::fixpoint(self : Runtime) -> Unit {
       changed_ids.push(self.datalog.relations[ri].meta.cell_id)
     }
     ri = ri + 1
+  }
+  let mut fi = 0
+  while fi < self.datalog.functional_relations.length() {
+    if fr_changed[fi] {
+      changed_ids.push(self.datalog.functional_relations[fi].meta.cell_id)
+    }
+    fi = fi + 1
   }
   if changed_ids.length() > 0 {
     self.advance_revision(Low)
