@@ -5,7 +5,7 @@ test "publish_cell_changes: advances revision, marks changed_at, fires on_change
   let cell_id = sig.id()
   let before = rt.core.current_revision
   let mut fired = false
-  rt.set_on_change(fn() { fired = true })
+  rt.set_on_change(() => { fired = true })
   rt.publish_cell_changes([cell_id], Low)
   // Revision advanced
   inspect(rt.core.current_revision > before, content="true")
