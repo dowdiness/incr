@@ -390,10 +390,13 @@ fn Runtime::fire_on_change(self : Runtime) -> Unit {
 /// Advances the global revision, marks cells as changed, triggers push
 /// propagation (if any push cells exist), and fires the on_change callback.
 ///
-/// This is the **kernel notification protocol** — the intended single method
-/// that cross-engine code calls when a set of cells has new values. Callers
-/// should use this instead of calling `push_propagate_from`, `advance_revision`,
-/// and `fire_on_change` directly; existing callers are being migrated to use it.
+/// This is the **kernel notification protocol** for cross-engine change
+/// notifications. The datalog engine calls this after fixpoint to notify
+/// downstream push cells and trigger `on_change`.
+///
+/// Note: `Signal::set_unconditional` and `commit_batch` call the lower-level
+/// methods directly — their per-signal and batch-wave sequencing cannot be
+/// expressed through this protocol without restructuring.
 ///
 /// # Parameters
 ///
