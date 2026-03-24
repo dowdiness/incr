@@ -385,6 +385,34 @@ fn Runtime::fire_on_change(self : Runtime) -> Unit {
 }
 
 ///|
+/// Advances the global revision, marks cells as changed, triggers push
+/// propagation (if any push cells exist), and fires the on_change callback.
+///
+/// This is the **kernel notification protocol** — the single method that
+/// cross-engine code calls when a set of cells has new values. Engines
+/// must not call `push_propagate_from` or `advance_revision` directly;
+/// they call this instead.
+///
+/// # Parameters
+///
+/// - `changed_ids`: The cell IDs whose values changed
+/// - `durability`: Durability level of the change (affects shortcut skipping)
+fn Runtime::publish_cell_changes(
+  self : Runtime,
+  changed_ids : Array[CellId],
+  durability : Durability,
+) -> Unit {
+  self.advance_revision(durability)
+  for id in changed_ids {
+    self.core.cell_ops[id.id].set_changed_at(self.core.current_revision)
+  }
+  if self.push.node_count > 0 {
+    self.push_propagate_from(changed_ids)
+  }
+  self.fire_on_change()
+}
+
+///|
 /// Advance the global revision counter and record which durability level changed.
 /// Updates current_revision and all durability_last_changed entries up to dur_idx.
 /// Callers must ensure this is only called outside of a batch (batch_depth == 0).
