@@ -80,7 +80,7 @@ test "hybrid memo: backdating — unchanged value does not bump changed_at" {
 }
 
 ///|
-test "hybrid memo: clean verify clears dirty after pull-memo backdating" {
+test "hybrid memo: lazy verify after pull-memo backdating leaves HybridMemo up-to-date" {
   let rt = Runtime::new()
   let s = Signal::new(rt, 1)
   let mut memo_runs = 0
@@ -100,7 +100,7 @@ test "hybrid memo: clean verify clears dirty after pull-memo backdating" {
 }
 
 ///|
-test "hybrid regression: pull memo rechecks dirty hybrid deps" {
+test "hybrid regression: pull memo rechecks stale hybrid deps" {
   let rt = Runtime::new()
   let s = Signal::new(rt, 1)
   let h = HybridMemo::new(rt, () => s.get() * 2)

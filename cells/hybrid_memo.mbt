@@ -1,16 +1,16 @@
 ///|
 /// Type-erased metadata for a HybridMemo cell in the SoA layout.
 ///
-/// HybridMemo uses the unified MemoData struct with the `dirty` flag.
-/// On `get()`, the dirty flag allows skipping full dependency verification
-/// when no upstream push cell has signaled a change.
+/// HybridMemo uses the unified MemoData struct for dependency tracking.
+/// Staleness is detected via `verified_at < current_revision`; no separate
+/// dirty flag is needed since `HybridMemo` does not increment `push.node_count`.
 
 ///|
 /// User-facing hybrid memo cell.
 ///
-/// Receives dirty flags eagerly (via push propagation) but verifies
-/// lazily on `get()`. When `dirty = false` and already verified for the
-/// current revision, `get()` returns the cached value without any dep walk.
+/// Verifies lazily on `get()`. When `verified_at >= current_revision`,
+/// `get()` returns the cached value immediately without any dep walk.
+/// Staleness is detected purely via the revision counter — no dirty flag.
 pub(all) struct HybridMemo[T] {
   priv label : String?
   priv rt : Runtime
@@ -60,10 +60,10 @@ pub fn[T : Eq] HybridMemo::new(
 ///|
 /// Returns the memoized value, recomputing if necessary.
 ///
-/// Fast path: if `dirty = false` and already verified this revision,
-/// returns the cached value immediately without any dep walk.
+/// Fast path: if already verified this revision, returns the cached value
+/// immediately without any dep walk.
 ///
-/// Slow path: calls `pull_verify` to walk deps, then clears `dirty`.
+/// Slow path: calls `pull_verify` to walk deps.
 pub fn[T : Eq] HybridMemo::get(self : HybridMemo[T]) -> T {
   let active_rt = current_computing_runtime_id.val
   if active_rt >= 0 && active_rt != self.rt.core.runtime_id {

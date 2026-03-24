@@ -293,8 +293,7 @@ fn compute_durability(rt : Runtime, deps : Array[CellId]) -> Durability {
 /// Shared force-recompute logic for all memo types (pull and hybrid).
 ///
 /// Handles cycle detection, dependency tracking, subscriber link maintenance,
-/// durability recomputation, and backdating. The `dirty` flag is always cleared
-/// (no-op for pull memos since dirty is never set to true).
+/// durability recomputation, and backdating.
 ///
 /// # Parameters
 ///
