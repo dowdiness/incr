@@ -156,7 +156,7 @@ pub fn[T : Eq] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
       active_rt.to_string(),
     )
   }
-  if self.rt.datalog.in_fixpoint {
+  if self.rt.core.in_fixpoint {
     abort(
       "Memo::get() cannot be called during fixpoint(); read relations directly or call get() after fixpoint() completes",
     )

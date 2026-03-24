@@ -52,6 +52,10 @@ priv struct RuntimeCore {
   mut on_change : (() -> Unit)?
   cell_index : Array[CellRef]
   cell_ops : Array[&CellOps]
+  /// True while Runtime::fixpoint() is running. Cross-engine guard: prevents
+  /// pull_verify, Memo::get(), HybridMemo::get(), and Relation::insert()
+  /// from running concurrently with semi-naive delta tracking.
+  mut in_fixpoint : Bool
 }
 
 ///|
@@ -78,7 +82,6 @@ priv struct PushState {
 ///|
 /// Datalog SoA storage (fixpoint evaluation).
 priv struct DatalogState {
-  mut in_fixpoint : Bool
   relations : Array[RelationData]
   functional_relations : Array[FunctionalRelationData]
   rules : Array[RuleData]
@@ -156,6 +159,7 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
       on_change,
       cell_index: [],
       cell_ops: [],
+      in_fixpoint: false,
     },
     pull: { signals: [], memos: [] },
     push: {
@@ -166,7 +170,6 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
       node_count: 0,
     },
     datalog: {
-      in_fixpoint: false,
       relations: [],
       functional_relations: [],
       rules: [],

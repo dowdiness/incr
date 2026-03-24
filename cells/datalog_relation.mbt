@@ -95,7 +95,7 @@ pub fn[T : Hash + Eq] Relation::insert(self : Relation[T], value : T) -> Bool {
   if self.delta.val.contains(value) {
     return false
   }
-  if self.rt.datalog.in_fixpoint {
+  if self.rt.core.in_fixpoint {
     if self.staged_delta.val.contains(value) {
       return false
     }
