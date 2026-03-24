@@ -56,8 +56,9 @@ priv struct RuntimeCore {
   cell_index : Array[CellRef]
   cell_ops : Array[&CellOps]
   /// True while Runtime::fixpoint() is running. Cross-engine guard: prevents
-  /// pull_verify, Memo::get(), HybridMemo::get(), and Relation::insert()
-  /// from running concurrently with semi-naive delta tracking.
+  /// pull_verify, Memo::get(), and HybridMemo::get() from running concurrently
+  /// with semi-naive delta tracking. Relation::insert() is allowed during
+  /// fixpoint but redirects writes to staged_delta for the next iteration.
   mut in_fixpoint : Bool
 }
 
