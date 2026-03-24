@@ -104,13 +104,6 @@ pub fn Runtime::fixpoint(self : Runtime) -> Unit {
     fi = fi + 1
   }
   if changed_ids.length() > 0 {
-    self.advance_revision(Low)
-    for id in changed_ids {
-      self.core.cell_ops[id.id].set_changed_at(self.core.current_revision)
-    }
-    if self.push.node_count > 0 {
-      self.push_propagate_from(changed_ids)
-    }
-    self.fire_on_change()
+    self.publish_cell_changes(changed_ids, Low)
   }
 }
