@@ -81,7 +81,6 @@ pub fn[T : Eq] Memo::new(
     verified_at: Revision::initial(),
     dependencies: [],
     in_progress: false,
-    dirty: false,
     on_change: None,
   })
   let ops : &CellOps = rt.pull.memos[memo_idx]
@@ -357,7 +356,6 @@ fn[T] Runtime::memo_force_recompute(
     cell.meta.changed_at = self.core.current_revision
   }
   cell.verified_at = self.core.current_revision
-  cell.dirty = false
   cell.in_progress = false
   Ok(new_value)
 }

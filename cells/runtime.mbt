@@ -23,13 +23,16 @@ let current_computing_runtime_id : Ref[Int] = { val: -1 }
 
 ///|
 /// Core runtime state: identity, revision tracking, batch management,
-/// and unified dispatch tables.
+/// unified dispatch tables, and cross-engine guards.
 ///
-/// Groups fields that are accessed by all propagation modes. The `cell_index`
-/// and `cell_ops` dispatch tables are the bridge between the two-layer
+/// Groups fields that are accessed by all propagation modes: revision tracking,
+/// batch management, unified dispatch tables, and cross-engine guards.
+/// The `cell_index` and `cell_ops` dispatch tables bridge the two-layer
 /// architecture (CellRef for structural observation, CellOps for behavioral
 /// dispatch). `tracking_stack` lives here rather than in PullState because
 /// push-mode cell types (Reactive, Effect) also use begin/end_tracking.
+/// `in_fixpoint` lives here rather than in DatalogState because it is a
+/// cross-cutting guard that constrains all engines during fixpoint evaluation.
 ///
 /// # Pointer chase tradeoff
 ///
@@ -169,11 +172,7 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
       free_effects: [],
       node_count: 0,
     },
-    datalog: {
-      relations: [],
-      functional_relations: [],
-      rules: [],
-    },
+    datalog: { relations: [], functional_relations: [], rules: [] },
   }
 }
 

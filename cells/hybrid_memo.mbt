@@ -47,7 +47,6 @@ pub fn[T : Eq] HybridMemo::new(
     verified_at: Revision::initial(),
     dependencies: [],
     in_progress: false,
-    dirty: false,
     on_change: None,
   })
   let ops : &CellOps = rt.pull.memos[memo_idx]
@@ -92,15 +91,14 @@ pub fn[T : Eq] HybridMemo::get(self : HybridMemo[T]) -> T {
       }
     Some(cached) => {
       let cell = self.rt.get_memo_data(self.cell_id)
-      // Fast path: not dirtied and already verified this revision
-      if not(cell.dirty) && cell.verified_at >= self.rt.core.current_revision {
+      // Fast path: already verified this revision
+      if cell.verified_at >= self.rt.core.current_revision {
         self.rt.record_dependency(self.cell_id)
         return cached
       }
-      // Slow path: verify deps, then clear dirty flag
+      // Slow path: verify deps
       match self.rt.pull_verify(self.cell_id) {
         Ok(_) => {
-          cell.dirty = false
           self.rt.record_dependency(self.cell_id)
           match self.value {
             Some(v) => v

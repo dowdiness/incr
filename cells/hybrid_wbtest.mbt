@@ -92,14 +92,9 @@ test "hybrid memo: clean verify clears dirty after pull-memo backdating" {
   let h = HybridMemo::new(rt, () => m.get() + 10)
   inspect(h.get(), content="11")
   inspect(memo_runs, content="1")
-  let h_idx = match rt.core.cell_index[h.id().id] {
-    HybridMemo(i) => i
-    _ => abort("")
-  }
   s.set(2) // m re-verifies and backdates unchanged; h should become clean
   inspect(h.get(), content="11")
   inspect(memo_runs, content="2")
-  inspect(rt.pull.memos[h_idx].dirty, content="false")
   let _ = h.get()
   inspect(memo_runs, content="2")
 }
