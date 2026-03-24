@@ -23,13 +23,16 @@ let current_computing_runtime_id : Ref[Int] = { val: -1 }
 
 ///|
 /// Core runtime state: identity, revision tracking, batch management,
-/// and unified dispatch tables.
+/// unified dispatch tables, and cross-engine guards.
 ///
-/// Groups fields that are accessed by all propagation modes. The `cell_index`
-/// and `cell_ops` dispatch tables are the bridge between the two-layer
+/// Groups fields that are accessed by all propagation modes: revision tracking,
+/// batch management, unified dispatch tables, and cross-engine guards.
+/// The `cell_index` and `cell_ops` dispatch tables bridge the two-layer
 /// architecture (CellRef for structural observation, CellOps for behavioral
 /// dispatch). `tracking_stack` lives here rather than in PullState because
 /// push-mode cell types (Reactive, Effect) also use begin/end_tracking.
+/// `in_fixpoint` lives here rather than in DatalogState because it is a
+/// cross-cutting guard that constrains all engines during fixpoint evaluation.
 ///
 /// # Pointer chase tradeoff
 ///
@@ -52,6 +55,11 @@ priv struct RuntimeCore {
   mut on_change : (() -> Unit)?
   cell_index : Array[CellRef]
   cell_ops : Array[&CellOps]
+  /// True while Runtime::fixpoint() is running. Cross-engine guard: prevents
+  /// pull_verify, Memo::get(), and HybridMemo::get() from running concurrently
+  /// with semi-naive delta tracking. Relation::insert() is allowed during
+  /// fixpoint but redirects writes to staged_delta for the next iteration.
+  mut in_fixpoint : Bool
 }
 
 ///|
@@ -78,7 +86,6 @@ priv struct PushState {
 ///|
 /// Datalog SoA storage (fixpoint evaluation).
 priv struct DatalogState {
-  mut in_fixpoint : Bool
   relations : Array[RelationData]
   functional_relations : Array[FunctionalRelationData]
   rules : Array[RuleData]
@@ -156,6 +163,7 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
       on_change,
       cell_index: [],
       cell_ops: [],
+      in_fixpoint: false,
     },
     pull: { signals: [], memos: [] },
     push: {
@@ -165,12 +173,7 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
       free_effects: [],
       node_count: 0,
     },
-    datalog: {
-      in_fixpoint: false,
-      relations: [],
-      functional_relations: [],
-      rules: [],
-    },
+    datalog: { relations: [], functional_relations: [], rules: [] },
   }
 }
 
@@ -382,6 +385,38 @@ fn Runtime::fire_on_change(self : Runtime) -> Unit {
     Some(f) => f()
     None => ()
   }
+}
+
+///|
+/// Advances the global revision, marks cells as changed, triggers push
+/// propagation (if any push cells exist), and fires the on_change callback.
+///
+/// This is the **kernel notification protocol** for cross-engine change
+/// notifications. The datalog engine calls this after fixpoint to notify
+/// downstream push cells and trigger `on_change`.
+///
+/// Note: `Signal::set_unconditional` and `commit_batch` call the lower-level
+/// methods directly — their per-signal and batch-wave sequencing cannot be
+/// expressed through this protocol without restructuring.
+///
+/// # Parameters
+///
+/// - `changed_ids`: The cell IDs whose values changed
+/// - `durability`: Durability level of the change. Memos whose minimum-dependency
+///   durability exceeds this level will skip re-verification (durability shortcut).
+fn Runtime::publish_cell_changes(
+  self : Runtime,
+  changed_ids : Array[CellId],
+  durability : Durability,
+) -> Unit {
+  self.advance_revision(durability)
+  for id in changed_ids {
+    self.core.cell_ops[id.id].set_changed_at(self.core.current_revision)
+  }
+  if self.push.node_count > 0 {
+    self.push_propagate_from(changed_ids)
+  }
+  self.fire_on_change()
 }
 
 ///|

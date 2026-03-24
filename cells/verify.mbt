@@ -81,7 +81,7 @@ fn Runtime::pull_verify(
     PullSignal(_) => Ok(()) // always fresh
     PushReactive(_) | PushEffect(_) => Ok(()) // freshness via push_propagate_from
     Relation(_) | FunctionalRelation(_) | Rule(_) => {
-      if self.datalog.in_fixpoint {
+      if self.core.in_fixpoint {
         abort("pull_verify: cannot verify Relation/Rule during fixpoint()")
       }
       Ok(())
@@ -89,13 +89,12 @@ fn Runtime::pull_verify(
     Disposed => abort("pull_verify: cell has been disposed")
     PullMemo(root_idx) | HybridMemo(root_idx) => {
       let root = self.pull.memos[root_idx]
-      if not(root.dirty) && root.verified_at >= self.core.current_revision {
+      if root.verified_at >= self.core.current_revision {
         return Ok(())
       }
       // Durability fast-path: if no input at root's durability level changed
       // since root was last verified, mark verified without walking deps.
-      if not(root.dirty) &&
-        self.core.durability_last_changed[root.meta.durability.index()] <=
+      if self.core.durability_last_changed[root.meta.durability.index()] <=
         root.verified_at {
         root.verified_at = self.core.current_revision
         return Ok(())
@@ -125,7 +124,7 @@ fn Runtime::pull_verify(
           match self.core.cell_index[dep_id.id] {
             Disposed => abort("pull_verify: dependency has been disposed")
             Relation(_) | FunctionalRelation(_) | Rule(_) =>
-              if self.datalog.in_fixpoint {
+              if self.core.in_fixpoint {
                 clear_verify_stack(self, stack)
                 abort(
                   "pull_verify: cannot verify memo with Relation dependency during fixpoint()",
@@ -148,9 +147,7 @@ fn Runtime::pull_verify(
                   if dep.verified_at < self.core.current_revision {
                     // Durability shortcut: if no input at dep's durability level
                     // changed since dep was last verified, skip traversal.
-                    // Also gated on not(dirty) for hybrid memo deps.
-                    if not(dep.dirty) &&
-                      self.core.durability_last_changed[dep.meta.durability.index()] <=
+                    if self.core.durability_last_changed[dep.meta.durability.index()] <=
                       dep.verified_at {
                       dep.verified_at = self.core.current_revision
                       if dep.meta.changed_at > memo.verified_at {
@@ -202,7 +199,6 @@ fn Runtime::pull_verify(
             }
           }
           memo.verified_at = self.core.current_revision
-          memo.dirty = false
           // Tell the parent frame whether this memo's value changed.
           if stack.length() > 0 {
             let parent_top = stack.length() - 1

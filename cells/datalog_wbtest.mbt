@@ -262,3 +262,22 @@ test "get_changed_at: relation changed_at updated by fixpoint" {
     content="true",
   )
 }
+
+///|
+/// Regression: publish_cell_changes must run push_propagate_from before
+/// fire_on_change so that push nodes downstream of a Relation are recomputed
+/// before any on_change callback fires.
+test "fixpoint: push Reactive downstream of Relation recomputes before on_change" {
+  let rt = Runtime::new()
+  let rel : Relation[Int] = Relation::new(rt)
+  // Reactive reads the relation's current set; depends on rel's CellId.
+  let r = Reactive::new(rt, () => rel.iter().fold(init=0, (acc, x) => acc + x))
+  let _ = r.get() // establish dependency
+  let mut reactive_val_at_callback = -1
+  rt.set_on_change(fn() { reactive_val_at_callback = r.get() })
+  rel.insert(7) |> ignore
+  rt.fixpoint()
+  // The reactive must have been recomputed (via push propagation) before
+  // on_change fired, so the callback saw the new value.
+  inspect(reactive_val_at_callback, content="7")
+}

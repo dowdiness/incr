@@ -10,7 +10,7 @@
 /// 5. If no staged deltas were produced, stop; otherwise repeat
 /// 6. If any relation changed, advance revision and update changed_at
 pub fn Runtime::fixpoint(self : Runtime) -> Unit {
-  if self.datalog.in_fixpoint {
+  if self.core.in_fixpoint {
     abort("fixpoint: re-entrant fixpoint() is not supported")
   }
   if self.core.batch_depth > 0 {
@@ -27,7 +27,7 @@ pub fn Runtime::fixpoint(self : Runtime) -> Unit {
   for fr in self.datalog.functional_relations {
     fr_changed.push(not((fr.is_delta_empty)()))
   }
-  self.datalog.in_fixpoint = true
+  self.core.in_fixpoint = true
   // Fixpoint loop
   for ;; {
     // Materialize the current frontier while keeping it readable via delta_iter.
@@ -86,7 +86,7 @@ pub fn Runtime::fixpoint(self : Runtime) -> Unit {
       break
     }
   }
-  self.datalog.in_fixpoint = false
+  self.core.in_fixpoint = false
   // Collect changed cell IDs
   let changed_ids : Array[CellId] = []
   let mut ri = 0
@@ -104,13 +104,6 @@ pub fn Runtime::fixpoint(self : Runtime) -> Unit {
     fi = fi + 1
   }
   if changed_ids.length() > 0 {
-    self.advance_revision(Low)
-    for id in changed_ids {
-      self.core.cell_ops[id.id].set_changed_at(self.core.current_revision)
-    }
-    if self.push.node_count > 0 {
-      self.push_propagate_from(changed_ids)
-    }
-    self.fire_on_change()
+    self.publish_cell_changes(changed_ids, Low)
   }
 }

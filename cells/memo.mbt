@@ -81,7 +81,6 @@ pub fn[T : Eq] Memo::new(
     verified_at: Revision::initial(),
     dependencies: [],
     in_progress: false,
-    dirty: false,
     on_change: None,
   })
   let ops : &CellOps = rt.pull.memos[memo_idx]
@@ -156,7 +155,7 @@ pub fn[T : Eq] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
       active_rt.to_string(),
     )
   }
-  if self.rt.datalog.in_fixpoint {
+  if self.rt.core.in_fixpoint {
     abort(
       "Memo::get() cannot be called during fixpoint(); read relations directly or call get() after fixpoint() completes",
     )
@@ -294,8 +293,7 @@ fn compute_durability(rt : Runtime, deps : Array[CellId]) -> Durability {
 /// Shared force-recompute logic for all memo types (pull and hybrid).
 ///
 /// Handles cycle detection, dependency tracking, subscriber link maintenance,
-/// durability recomputation, and backdating. The `dirty` flag is always cleared
-/// (no-op for pull memos since dirty is never set to true).
+/// durability recomputation, and backdating.
 ///
 /// # Parameters
 ///
@@ -357,7 +355,6 @@ fn[T] Runtime::memo_force_recompute(
     cell.meta.changed_at = self.core.current_revision
   }
   cell.verified_at = self.core.current_revision
-  cell.dirty = false
   cell.in_progress = false
   Ok(new_value)
 }

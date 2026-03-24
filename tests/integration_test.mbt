@@ -286,3 +286,18 @@ test "integration: batch + on_change + memo chain fires once with correct final 
   inspect(sum.get(), content="7") // 3 + 4
   inspect(product.get(), content="12") // 3 * 4
 }
+
+///|
+test "cross-engine: fixpoint fires on_change only when facts change" {
+  let rt = Runtime::new()
+  let rel : @incr.Relation[Int] = @incr.Relation::new(rt, label="R")
+  let mut notifications = 0
+  rt.set_on_change(() => { notifications = notifications + 1 })
+  // Fixpoint with no pending delta — no notification expected
+  rt.fixpoint()
+  inspect(notifications, content="0")
+  // Insert a fact so the delta is non-empty, then run fixpoint
+  let _ = rel.insert(42)
+  rt.fixpoint()
+  inspect(notifications, content="1")
+}

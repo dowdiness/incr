@@ -10,7 +10,6 @@ priv struct MemoData {
   mut verified_at : Revision
   mut dependencies : Array[CellId]
   mut in_progress : Bool
-  mut dirty : Bool
   mut on_change : (() -> Unit)?
 }
 
