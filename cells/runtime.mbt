@@ -388,15 +388,16 @@ fn Runtime::fire_on_change(self : Runtime) -> Unit {
 /// Advances the global revision, marks cells as changed, triggers push
 /// propagation (if any push cells exist), and fires the on_change callback.
 ///
-/// This is the **kernel notification protocol** — the single method that
-/// cross-engine code calls when a set of cells has new values. Engines
-/// must not call `push_propagate_from` or `advance_revision` directly;
-/// they call this instead.
+/// This is the **kernel notification protocol** — the intended single method
+/// that cross-engine code calls when a set of cells has new values. Callers
+/// should use this instead of calling `push_propagate_from`, `advance_revision`,
+/// and `fire_on_change` directly; existing callers are being migrated to use it.
 ///
 /// # Parameters
 ///
 /// - `changed_ids`: The cell IDs whose values changed
-/// - `durability`: Durability level of the change (affects shortcut skipping)
+/// - `durability`: Durability level of the change. Memos whose minimum-dependency
+///   durability exceeds this level will skip re-verification (durability shortcut).
 fn Runtime::publish_cell_changes(
   self : Runtime,
   changed_ids : Array[CellId],
