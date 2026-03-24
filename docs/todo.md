@@ -117,13 +117,13 @@ After the hybrid dirty-marking removal (HybridMemo no longer participates in pus
 the `dirty` field on `MemoData` is never set to `true`. All checks are no-ops. These tasks
 clean up the dead logic.
 
-- [ ] Remove `dirty` field from `MemoData` in `cells/pull_memo.mbt`
-- [ ] Remove `not(root.dirty)` guards in `cells/verify.mbt` (lines ~92, ~97, ~152)
-- [ ] Remove `memo.dirty = false` assignment in `cells/verify.mbt` finalization (line ~205)
-- [ ] Remove `cell.dirty = false` in `HybridMemo::get()` slow path (`cells/hybrid_memo.mbt`)
-- [ ] Remove `not(cell.dirty)` from `HybridMemo::get()` fast path — collapse to `verified_at >= current_revision`
-- [ ] Update `HybridMemo::get()` doc comments that reference "dirty"
-- [ ] Update `cells/hybrid_memo.mbt` top-of-file doc comment referencing dirty flag
+- [x] Remove `dirty` field from `MemoData` in `cells/pull_memo.mbt`
+- [x] Remove `not(root.dirty)` guards in `cells/verify.mbt` (lines ~92, ~97, ~152)
+- [x] Remove `memo.dirty = false` assignment in `cells/verify.mbt` finalization (line ~205)
+- [x] Remove `cell.dirty = false` in `HybridMemo::get()` slow path (`cells/hybrid_memo.mbt`)
+- [x] Remove `not(cell.dirty)` from `HybridMemo::get()` fast path — collapse to `verified_at >= current_revision`
+- [x] Update `HybridMemo::get()` doc comments that reference "dirty"
+- [x] Update `cells/hybrid_memo.mbt` top-of-file doc comment referencing dirty flag
 
 ## HybridMemo Lifecycle
 
