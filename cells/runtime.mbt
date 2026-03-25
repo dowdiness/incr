@@ -465,6 +465,25 @@ impl RevisionManager for Runtime with bump_revision(self, durability) {
 }
 
 ///|
+/// Disposes a hybrid memo cell, removing it from all upstream subscriber sets
+/// and marking its cell_index slot as Disposed.
+fn Runtime::dispose_hybrid_memo(self : Runtime, cell_id : CellId) -> Unit {
+  if cell_id.id < 0 || cell_id.id >= self.core.cell_index.length() {
+    return
+  }
+  match self.core.cell_index[cell_id.id] {
+    HybridMemo(idx) => {
+      let memo = self.pull.memos[idx]
+      for dep in memo.dependencies {
+        self.remove_subscriber(dep, cell_id)
+      }
+      self.core.cell_index[cell_id.id] = Disposed
+    }
+    _ => ()
+  }
+}
+
+///|
 /// Disposes a push reactive cell, removing it from all subscriber sets
 /// and marking its cell_index slot as Disposed.
 ///

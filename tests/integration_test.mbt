@@ -292,7 +292,7 @@ test "cross-engine: fixpoint fires on_change only when facts change" {
   let rt = Runtime::new()
   let rel : @incr.Relation[Int] = @incr.Relation::new(rt, label="R")
   let mut notifications = 0
-  rt.set_on_change(() => { notifications = notifications + 1 })
+  rt.set_on_change(() => notifications = notifications + 1)
   // Fixpoint with no pending delta — no notification expected
   rt.fixpoint()
   inspect(notifications, content="0")

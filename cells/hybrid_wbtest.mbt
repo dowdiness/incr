@@ -139,6 +139,39 @@ test "hybrid regression: push propagation traverses hybrid to reactive" {
 }
 
 ///|
+test "hybrid memo: dispose removes from upstream subscriber sets and marks Disposed" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 1)
+  let h = HybridMemo::new(rt, () => s.get() * 2)
+  let _ = h.get() // establish dependency: s → h
+  // s should now have h in its subscriber set
+  let subs_before = rt.get_subscribers(s.id()).collect()
+  inspect(subs_before.length(), content="1")
+  h.dispose()
+  // h should be removed from s's subscriber set
+  let subs_after = rt.get_subscribers(s.id()).collect()
+  inspect(subs_after.length(), content="0")
+  // cell_index slot should be Disposed
+  let is_disposed = match rt.core.cell_index[h.id().id] {
+    Disposed => true
+    _ => false
+  }
+  inspect(is_disposed, content="true")
+}
+
+///|
+test "hybrid memo: dispose is idempotent" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 1)
+  let h = HybridMemo::new(rt, () => s.get())
+  let _ = h.get()
+  h.dispose()
+  h.dispose() // second dispose should not abort or corrupt state
+  let subs = rt.get_subscribers(s.id()).collect()
+  inspect(subs.length(), content="0")
+}
+
+///|
 test "panic hybrid verify: disposed dependency aborts verification" {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 1)

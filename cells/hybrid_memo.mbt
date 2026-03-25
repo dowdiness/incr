@@ -121,6 +121,14 @@ pub fn[T] HybridMemo::id(self : HybridMemo[T]) -> CellId {
 }
 
 ///|
+/// Disposes this hybrid memo, removing it from all upstream subscriber sets
+/// and marking its slot as Disposed. After disposal, calling `get()` on this
+/// cell or any cell that depends on it will abort.
+pub fn[T] HybridMemo::dispose(self : HybridMemo[T]) -> Unit {
+  self.rt.dispose_hybrid_memo(self.cell_id)
+}
+
+///|
 /// Returns true if the hybrid memo's value is verified at the current revision.
 pub fn[T] HybridMemo::is_up_to_date(self : HybridMemo[T]) -> Bool {
   match self.value {
