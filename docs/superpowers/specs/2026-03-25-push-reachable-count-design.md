@@ -93,7 +93,9 @@ After disposing reactive:
 
 The gate condition `push_reachable_count == 0` correctly closes when no push cell is reachable, and opens (count > 0) whenever any path exists — which is the only property the gate needs.
 
-Invariant: `cell.push_reachable_count > 0` if and only if at least one live push cell is reachable downstream from `cell` through subscriber links.
+**Invariant (gate invariant, not exact path count):** `cell.push_reachable_count > 0` if and only if at least one live push cell is reachable downstream from `cell` through subscriber links.
+
+The count is a subscriber-path weight, not a count of distinct push cells. In a diamond topology, `sig.count = 2` represents two paths to one reactive — that is fine. The invariant only requires the zero/non-zero distinction to be correct, not the exact magnitude. `Int` overflow in pathologically deep diamond graphs is theoretically possible but not a concern for realistic reactive graphs (would require on the order of 2^31 independent diamond fan-in paths converging on a single signal).
 
 ---
 
@@ -101,13 +103,16 @@ Invariant: `cell.push_reachable_count > 0` if and only if at least one live push
 
 ### `Runtime::collect_reachable_cells(sources: Array[CellId]) -> @hashset.HashSet[CellId]`
 
-Walk `sources` upstream through the pull dependency graph. For each source:
-- `PullSignal` → add its `CellId` to the set; stop (leaf node, no further deps)
-- `PullMemo(idx)` or `HybridMemo(idx)` → add its `CellId` to the set; recurse into `pull.memos[idx].dependencies`
-- `PushReactive`, `Relation`, `FunctionalRelation`, `Rule`, or `Disposed` → stop (do not recurse)
+Walk `sources` upstream through the dependency graph. For each unvisited source:
+- `PullSignal` → add to set; stop (leaf, no further deps)
+- `PullMemo(idx)` or `HybridMemo(idx)` → add to set; recurse into `pull.memos[idx].dependencies`
+- `PushReactive`, `Relation`, `FunctionalRelation`, `Rule` → **add to set; stop (do not recurse)**
+- `Disposed` → skip (do not add)
 - Use a visited set to prevent revisiting cells in DAGs (no memo cycles exist, but diamond fan-in is common)
 
-Returns a deduplicated set of all pull cell IDs (signals + memos) that are transitively reachable upstream of `sources`. Includes the sources themselves when they are pull cells.
+Returns a deduplicated set of cell IDs whose `push_reachable_count` must be adjusted. Crucially, **non-pull source cells (`PushReactive`, `Relation`, `FunctionalRelation`) are included in the set** so that `adjust_push_reachable([R1], +1)` increments `R1.push_reachable_count` directly. This is required for the outer gate to work when `enqueue_push_subscribers` is called with a reactive output or a relation as the source.
+
+Non-pull cells are leaf nodes in the count-propagation walk — their own sources are managed independently through the push propagation level system and do not need upstream count propagation here.
 
 **Uncomputed memos:** A memo that has never been computed has an empty `dependencies` array, so `collect_reachable_cells` returns `{memo}` (just the memo itself). The upstream signals are registered later, during the memo's first `memo_force_recompute`, which calls `add_subscriber(signal, memo)` for each discovered dep — and at that point the signal's count is updated via `adjust_push_reachable([signal], memo.push_reachable_count)`.
 
@@ -162,7 +167,7 @@ if contribution > 0 {
 }
 ```
 
-Computing contribution before removal ensures we read `sub_id`'s count while it still reflects the live downstream graph. The order is safe because `push_contribution` reads `sub_id`'s own `CellMeta`, not `dep_id`'s — there is no aliasing concern.
+Computing contribution before removal is critical: `push_contribution` reads `sub_id`'s `CellRef` and `CellMeta`. The `CellRef` for a reactive/effect is changed to `Disposed` during `dispose_reactive`/`dispose_effect` after `remove_subscriber` completes. If contribution were computed after `sub_id` is marked `Disposed`, `push_contribution` would return 0 and the decrement would be skipped. The ordering constraint is: compute contribution **before the subscriber cell's CellRef is set to Disposed**. The subscriber set mutation order (before vs. after removal) is not critical for correctness but is done before the adjust call for clarity.
 
 ### How this covers all scenarios
 
@@ -261,6 +266,8 @@ Counts are decremented symmetrically: every `add_subscriber` increment is matche
 - Reactive dispose: all counts return to 0
 - Reactive source change (reads `sig1` then changes to `sig2`): `sig1.count == 0`, `sig2.count == 1`
 - **Memo dep change** (reactive reads `memoA` which lazily recomputes to read `sig2` instead of `sig1`): after memoA recomputes, `sig1.count == 0`, `sig2.count == 1`
+- **Reactive-to-reactive chain** (`sig → reactive1 → reactive2`): sig.count == 1, reactive1.count == 1; after reactive2 disposed, reactive1.count == 0, sig.count == 0
+- **Relation-to-reactive** (reactive subscribes to a Relation): relation.count == 1; after reactive disposed, relation.count == 0
 - Gate behavioral test: `signal.set()` on a signal with count == 0 does not enqueue any push entries (verify: create a reactive on a separate signal only; mutate the first signal; confirm reactive does not recompute)
 - **Inner BFS pruning test (count-correctness proxy):** create `sig → memoA → reactive1` and `sig → memoB → reactive2`. Verify sig.count == 2, memoA.count == 1, memoB.count == 1. Dispose reactive2. Verify sig.count == 1, memoB.count == 0. Call `sig.set(new_value)`; verify reactive1 still fires with the correct value (the live branch still propagates). This test verifies that the count correctly reaches 0 on the pruned branch and that the live branch is unaffected. Direct BFS traversal is an internal implementation detail and is validated by the benchmark.
 
