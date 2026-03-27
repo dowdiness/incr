@@ -238,3 +238,29 @@ test "gate: signal with count 0 does not trigger reactive on separate signal" {
   s1.set(1)
   inspect(recomputes, content=initial.to_string())
 }
+
+///|
+/// Inner BFS pruning correctness proxy:
+/// After reactive2 is disposed, memoB.count == 0. The live branch (memoA -> r1)
+/// must still propagate correctly when sig changes.
+test "push_reachable_count: inner pruning — live branch still fires after dead branch count reaches 0" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 0)
+  let mA = Memo::new(rt, () => sig.get() + 1)
+  let mB = Memo::new(rt, () => sig.get() + 2)
+  let mut r1_val = 0
+  let r1 = Reactive::new(rt, () => {
+    r1_val = mA.get()
+    r1_val
+  })
+  let r2 = Reactive::new(rt, () => mB.get())
+  inspect(get_count(rt, sig.id()), content="2")
+  inspect(get_count(rt, mB.id()), content="1")
+  r2.dispose()
+  inspect(get_count(rt, mB.id()), content="0")
+  inspect(get_count(rt, sig.id()), content="1")
+  // The live branch must still work after the dead branch is pruned
+  sig.set(10)
+  inspect(r1_val, content="11") // mA.get() = sig.get() + 1 = 11
+  ignore(r1)
+}

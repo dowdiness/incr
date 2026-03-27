@@ -165,8 +165,14 @@ fn Runtime::push_propagate_from(
                 cell_ref: CellRef::PushEffect(i),
               })
             }
-          HybridMemo(_) => bfs_worklist.push(sub_id) // bridge through hybrid memos
-          PullMemo(_) => bfs_worklist.push(sub_id) // bridge through pull memos
+          HybridMemo(i) =>
+            if self.pull.memos[i].meta.push_reachable_count > 0 {
+              bfs_worklist.push(sub_id)
+            }
+          PullMemo(i) =>
+            if self.pull.memos[i].meta.push_reachable_count > 0 {
+              bfs_worklist.push(sub_id)
+            }
           _ => ()
         }
       }
