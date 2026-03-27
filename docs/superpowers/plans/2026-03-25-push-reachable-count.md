@@ -67,7 +67,7 @@ test "push_reachable_count: new signal starts at 0" {
 - [ ] **Step 2: Run to verify it fails**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/loom/incr
+# Run from the incr/ directory
 moon test -p dowdiness/incr/cells -f push_reachable_wbtest.mbt
 ```
 

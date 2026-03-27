@@ -291,11 +291,12 @@ All 323 existing tests must pass unchanged.
 | `cells/push_reachable_wbtest.mbt` (new) | Whitebox tests for count maintenance and gate behavior |
 | `cells/push_efficiency_bench_test.mbt` | Verify benchmark improvement |
 
-**Files requiring no code change** (all `CellMeta`-implementing types inherit the new field and the `CellOps` default):
-- `cells/memo.mbt` — `memo_force_recompute` already calls `add_subscriber`/`remove_subscriber`; new behavior is injected automatically
-- `cells/push_effect.mbt` — `PushEffectData.meta : CellMeta` inherits the new field; `CellOps` default covers `push_reachable_count`
-- `cells/push_reactive.mbt` — same as above
-- `cells/datalog_relation.mbt`, `cells/datalog_functional_relation.mbt` — `RelationData.meta` and `FunctionalRelationData.meta` both inherit the new field; no `CellOps` override needed
-- `cells/pull_signal.mbt` — `PullSignalData.meta : CellMeta` inherits the new field
+**Files requiring constructor literal updates** (MoonBit requires every struct field to be set at construction, so `push_reachable_count: 0` must be added to each `CellMeta` literal):
+- `cells/memo.mbt` — add `push_reachable_count: 0` to the `CellMeta` literal in `Memo::new` / `HybridMemo::new`; `memo_force_recompute` already calls `add_subscriber`/`remove_subscriber` so count maintenance is injected automatically
+- `cells/push_effect.mbt` — add `push_reachable_count: 0` to `PushEffectData.meta` literal; `CellOps` default covers `push_reachable_count` reads
+- `cells/push_reactive.mbt` — same as above for `PushReactiveData.meta`
+- `cells/datalog_relation.mbt`, `cells/datalog_functional_relation.mbt` — add `push_reachable_count: 0` to `RelationData.meta` and `FunctionalRelationData.meta` literals
+- `cells/runtime.mbt` — add `push_reachable_count: 0` to the `PullSignalData.meta` literal in `new_signal_id`
+- `cells/cell_ref_wbtest.mbt` — update the test `PullSignalData` literal too
 
 The `.mbti` interface file for the `cells` package will regenerate (run `moon info`) to reflect the new `CellMeta` field and `CellOps` method. No public API changes — `push_reachable_count` is a private implementation detail.

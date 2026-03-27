@@ -353,8 +353,10 @@ fn Runtime::remove_subscriber(
 ) -> Unit {
   self.validate_cell(dep, "remove_subscriber(dep)")
   let contribution = self.push_contribution(subscriber)
-  self.core.cell_ops[dep.id].subscribers().remove(subscriber)
-  if contribution > 0 {
+  let removed = self.core.cell_ops[dep.id].subscribers().remove_and_check(
+    subscriber,
+  )
+  if removed && contribution > 0 {
     self.adjust_push_reachable([dep], -contribution)
   }
 }
@@ -368,7 +370,11 @@ fn Runtime::add_subscriber(
   subscriber : CellId,
 ) -> Unit {
   self.validate_cell(dep, "add_subscriber(dep)")
-  self.core.cell_ops[dep.id].subscribers().add(subscriber)
+  let subs = self.core.cell_ops[dep.id].subscribers()
+  if subs.contains(subscriber) {
+    return
+  }
+  subs.add(subscriber)
   let contribution = self.push_contribution(subscriber)
   if contribution > 0 {
     self.adjust_push_reachable([dep], contribution)
