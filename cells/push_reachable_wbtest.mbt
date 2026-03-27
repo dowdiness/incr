@@ -57,19 +57,9 @@ test "push_contribution: signal returns 0" {
 }
 
 ///|
-/// Helper: read push_reachable_count from any cell via cell_index.
+/// Helper: read push_reachable_count from any cell via CellOps trait dispatch.
 fn get_count(rt : Runtime, id : CellId) -> Int {
-  match rt.core.cell_index[id.id] {
-    PullSignal(i) => rt.pull.signals[i].meta.push_reachable_count
-    PullMemo(i) | HybridMemo(i) => rt.pull.memos[i].meta.push_reachable_count
-    PushReactive(i) => rt.push.reactives[i].meta.push_reachable_count
-    PushEffect(i) => rt.push.effects[i].meta.push_reachable_count
-    Relation(i) => rt.datalog.relations[i].meta.push_reachable_count
-    FunctionalRelation(i) =>
-      rt.datalog.functional_relations[i].meta.push_reachable_count
-    Rule(i) => rt.datalog.rules[i].meta.push_reachable_count
-    Disposed => 0
-  }
+  rt.core.cell_ops[id.id].push_reachable_count()
 }
 
 ///|
@@ -162,6 +152,16 @@ test "push_reachable_count: reactive-to-reactive chain" {
   let _r2 = Reactive::new(rt, () => r1.get() + 1)
   inspect(get_count(rt, s.id()), content="1")
   inspect(get_count(rt, r1.id()), content="1")
+}
+
+///|
+test "push_reachable_count: effect increments and dispose decrements" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 0)
+  let e = Effect::new(rt, () => ignore(s.get()))
+  inspect(get_count(rt, s.id()), content="1")
+  e.dispose()
+  inspect(get_count(rt, s.id()), content="0")
 }
 
 ///|

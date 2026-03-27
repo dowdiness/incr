@@ -131,7 +131,6 @@ fn Runtime::push_propagate_from(
   let bfs_worklist : Array[CellId] = []
 
   fn enqueue_push_subscribers(source_id : CellId) -> Unit {
-    // O(1) gate: skip BFS entirely if no push cell is downstream of this source.
     // push_reachable_count > 0 iff at least one live Reactive/Effect is reachable.
     if source_id.id >= 0 &&
       source_id.id < self.core.cell_ops.length() &&
@@ -165,11 +164,7 @@ fn Runtime::push_propagate_from(
                 cell_ref: CellRef::PushEffect(i),
               })
             }
-          HybridMemo(i) =>
-            if self.pull.memos[i].meta.push_reachable_count > 0 {
-              bfs_worklist.push(sub_id)
-            }
-          PullMemo(i) =>
+          HybridMemo(i) | PullMemo(i) =>
             if self.pull.memos[i].meta.push_reachable_count > 0 {
               bfs_worklist.push(sub_id)
             }

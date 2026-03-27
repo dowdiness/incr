@@ -413,8 +413,10 @@ fn Runtime::collect_reachable_cells(
   for id in sources {
     worklist.push(id)
   }
-  while worklist.length() > 0 {
-    let id = worklist.pop().unwrap()
+  let mut wi = 0
+  while wi < worklist.length() {
+    let id = worklist[wi]
+    wi += 1
     if result.contains(id) {
       continue
     }
@@ -442,10 +444,6 @@ fn Runtime::collect_reachable_cells(
 /// Adjusts `push_reachable_count` by `delta` on every cell reachable upstream
 /// of `sources` (including the sources themselves).
 ///
-/// Uses direct SoA array access to mutate `push_reachable_count` — this is
-/// required because `HasCellMeta::meta()` returns `CellMeta` by value, so
-/// any mutation through the `&CellOps` trait object would be silently lost.
-///
 /// Asserts that no count goes negative.
 fn Runtime::adjust_push_reachable(
   self : Runtime,
@@ -454,22 +452,18 @@ fn Runtime::adjust_push_reachable(
 ) -> Unit {
   let cells = self.collect_reachable_cells(sources)
   for id in cells {
-    if id.id < 0 || id.id >= self.core.cell_index.length() {
-      continue
-    }
-    let current = match self.core.cell_index[id.id] {
-      PullSignal(i) => self.pull.signals[i].meta.push_reachable_count
-      PullMemo(i) | HybridMemo(i) =>
-        self.pull.memos[i].meta.push_reachable_count
-      PushReactive(i) => self.push.reactives[i].meta.push_reachable_count
-      PushEffect(i) => self.push.effects[i].meta.push_reachable_count
-      Relation(i) => self.datalog.relations[i].meta.push_reachable_count
-      FunctionalRelation(i) =>
-        self.datalog.functional_relations[i].meta.push_reachable_count
-      Rule(i) => self.datalog.rules[i].meta.push_reachable_count
+    // CellMeta is heap-allocated — extracting it gives a mutable reference.
+    let meta = match self.core.cell_index[id.id] {
+      PullSignal(i) => self.pull.signals[i].meta
+      PullMemo(i) | HybridMemo(i) => self.pull.memos[i].meta
+      PushReactive(i) => self.push.reactives[i].meta
+      PushEffect(i) => self.push.effects[i].meta
+      Relation(i) => self.datalog.relations[i].meta
+      FunctionalRelation(i) => self.datalog.functional_relations[i].meta
+      Rule(i) => self.datalog.rules[i].meta
       Disposed => continue
     }
-    let new_count = current + delta
+    let new_count = meta.push_reachable_count + delta
     if new_count < 0 {
       abort(
         "adjust_push_reachable: count went negative for cell " +
@@ -477,26 +471,11 @@ fn Runtime::adjust_push_reachable(
         " (delta=" +
         delta.to_string() +
         ", was=" +
-        current.to_string() +
+        meta.push_reachable_count.to_string() +
         ")",
       )
     }
-    match self.core.cell_index[id.id] {
-      PullSignal(i) =>
-        self.pull.signals[i].meta.push_reachable_count = new_count
-      PullMemo(i) | HybridMemo(i) =>
-        self.pull.memos[i].meta.push_reachable_count = new_count
-      PushReactive(i) =>
-        self.push.reactives[i].meta.push_reachable_count = new_count
-      PushEffect(i) =>
-        self.push.effects[i].meta.push_reachable_count = new_count
-      Relation(i) =>
-        self.datalog.relations[i].meta.push_reachable_count = new_count
-      FunctionalRelation(i) =>
-        self.datalog.functional_relations[i].meta.push_reachable_count = new_count
-      Rule(i) => self.datalog.rules[i].meta.push_reachable_count = new_count
-      Disposed => ()
-    }
+    meta.push_reachable_count = new_count
   }
 }
 
