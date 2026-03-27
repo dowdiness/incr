@@ -92,6 +92,10 @@ fn[T] Memo::_create(
 /// `T` must implement `Eq` for backdating: when the compute function returns
 /// the same value as before, the memo's `changed_at` timestamp is preserved,
 /// preventing unnecessary downstream recomputation.
+///
+/// For other backdate strategies use:
+/// - `Memo::new_memo` — `T : BackdateEq`; compares `changed_at` revisions by default (O(1))
+/// - `Memo::new_no_backdate` — no constraint on `T`; never backdates
 pub fn[T : Eq] Memo::new(
   rt : Runtime,
   compute : () -> T,

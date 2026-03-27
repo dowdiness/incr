@@ -236,14 +236,20 @@ Derived computations with dependency tracking and memoization.
 
 ### `Memo::new[T : Eq](rt: Runtime, compute: () -> T, label? : String) -> Memo[T]`
 
-Creates a lazily evaluated memo. The optional `label` names the memo for debug output and cycle error messages. Requires `T : Eq` for backdating: when a recomputation produces a value equal to the previous one, the memo's `changed_at` timestamp is preserved rather than advanced, preventing unnecessary downstream invalidation. See [Type Constraints](#type-constraints) for details.
+Creates a lazily evaluated memo using structural equality (`T : Eq`) for backdating. When a recomputation produces a value equal to the previous one, the memo's `changed_at` timestamp is preserved rather than advanced, preventing unnecessary downstream invalidation. The optional `label` names the memo for debug output and cycle error messages.
+
+Two alternative constructors exist for different backdating strategies:
+- `Memo::new_memo[T : BackdateEq]` — uses revision-based backdate detection via the `BackdateEq` trait (O(1) comparison; useful when structural equality is expensive or unavailable)
+- `Memo::new_no_backdate[T]` — never backdates; always advances `changed_at` on recomputation; no trait constraint on `T`
+
+See [Type Constraints](#type-constraints) for details.
 
 ```moonbit
 let doubled = Memo(rt, () => count.get() * 2)
 let tax = Memo(rt, () => price.get() * 0.1, label="tax")
 ```
 
-### `Memo::get[T : Eq](self) -> T`
+### `Memo::get(self) -> T`
 
 Returns cached value, recomputing if stale. Aborts on cycle, or if called inside a memo computation that belongs to a different `Runtime`.
 
@@ -251,7 +257,7 @@ Returns cached value, recomputing if stale. Aborts on cycle, or if called inside
 let value = doubled.get()
 ```
 
-### `Memo::get_result[T : Eq](self) -> Result[T, CycleError]`
+### `Memo::get_result(self) -> Result[T, CycleError]`
 
 Returns cached value as `Result`, allowing graceful cycle handling. Aborts (does not return `Err`) if called inside a memo computation that belongs to a different `Runtime`.
 
@@ -262,7 +268,7 @@ match doubled.get_result() {
 }
 ```
 
-### `Memo::get_or[T : Eq](self, fallback: T) -> T`
+### `Memo::get_or(self, fallback: T) -> T`
 
 Returns cached value, or `fallback` if a cycle error occurs.
 
@@ -270,7 +276,7 @@ Returns cached value, or `fallback` if a cycle error occurs.
 let value = doubled.get_or(0)
 ```
 
-### `Memo::get_or_else[T : Eq](self, fallback: (CycleError) -> T) -> T`
+### `Memo::get_or_else(self, fallback: (CycleError) -> T) -> T`
 
 If a cycle error occurs, computes a fallback from the cycle error; otherwise returns the cached value.
 
@@ -729,9 +735,9 @@ create_signal(db, value, durability=High, label="cfg") // both
 
 **Returns:** `Signal[T]`
 
-### `create_memo[Db : Database, T : Eq](db: Db, f: () -> T) -> Memo[T]`
+### `create_memo[Db : Database, T : Eq](db: Db, f: () -> T, label? : String) -> Memo[T]`
 
-Creates a memo using `db.runtime()`.
+Creates a memo using `db.runtime()`. Uses `Memo::new` internally — requires `T : Eq` for backdating via structural equality. For revision-based backdating use `Memo::new_memo` directly; for no backdating use `Memo::new_no_backdate` directly.
 
 ### `create_hybrid_memo[Db : Database, T : Eq](db: Db, f: () -> T, label? : String) -> HybridMemo[T]`
 
@@ -817,13 +823,13 @@ fn update_cart_result[Db : Database](
 
 ## Type Constraints
 
-### Why `T : Eq` is required
+### Where `Eq` is used
 
-`Eq` is needed in two places, each serving a distinct optimization:
+`Eq` is used in two distinct optimizations:
 
 **Same-value optimization (`Signal::set`, `TrackedCell::set`):** Before recording a change, the library compares the new value against the current one. If they are equal, the call is treated as a no-op: the global revision counter is not incremented and downstream memos are not invalidated. This avoids spurious recomputation when a signal is set to the value it already holds.
 
-**Backdating (`Memo`):** After a memo recomputes, the library compares the new result against the previous cached value. If they are equal, the memo's `changed_at` timestamp is kept at its previous value rather than advanced to the current revision. Any cell that depends on this memo therefore sees no change, and its own verification is skipped entirely. Without `Eq`, every recomputation would unconditionally advance `changed_at`, propagating invalidation through the entire downstream graph even when the computed value did not actually change.
+**Backdating (`Memo::new`):** After a memo recomputes, the library compares the new result against the previous cached value. If they are equal, the memo's `changed_at` timestamp is kept at its previous value rather than advanced to the current revision. Any cell that depends on this memo therefore sees no change, and its own verification is skipped entirely.
 
 **Custom `Eq` implementations:** If your type derives `Eq` with fields intentionally excluded — for example, a generation counter or metadata field that shouldn't influence downstream computation — backdating will treat updates to those fields as no-ops. This is correct and useful (the computation result hasn't changed semantically), but it must be intentional: if you rely on those excluded fields inside a memo's `compute` function, you will get stale results. Only exclude fields from `Eq` that are never read by any memo.
 
@@ -838,14 +844,31 @@ struct Versioned {
 let m = Memo(rt, () => src.get().gen)  // will not recompute when gen changes
 ```
 
+### Backdating strategies
+
+The backdate decision — whether a recomputed value counts as "changed" — is captured at memo construction, not at read time. Three constructors offer different strategies:
+
+| Constructor | Constraint | Backdate logic |
+|---|---|---|
+| `Memo::new` | `T : Eq` | `a == b` (structural equality) |
+| `Memo::new_memo` | `T : BackdateEq` | `a.backdate_equal(b)` (revision comparison by default; override for custom logic) |
+| `Memo::new_no_backdate` | none | always `false` — never backdates |
+
+Read methods (`get`, `get_result`, `get_or`, `get_or_else`) have **no** trait constraint; the equality decision is baked into the closure at construction.
+
+Use `BackdateEq` when structural `Eq` is too expensive (e.g. comparing large collections) and you can instead embed a `Revision` in the value that tracks when its content last changed. Use `new_no_backdate` when downstream memos always need to recompute, or when `T` has no `Eq` instance.
+
 ### Constraint reference
 
-`Eq` is required only where value comparison is used:
-
-- `Memo::new`, `Memo::get`, `Memo::get_result`, `Memo::get_or`, `Memo::get_or_else` require `T : Eq`
-- `MemoMap::get`, `MemoMap::get_result`, `MemoMap::get_or`, `MemoMap::get_or_else` require `K : Hash + Eq` and `V : Eq`
-- `MemoMap::contains` requires `K : Hash + Eq`
-- `Signal::set` requires `T : Eq`
-- `TrackedCell::set` requires `T : Eq`
-- `Signal::new`, `Signal::get`, `Signal::get_result`, `Signal::set_unconditional` do not require `Eq`
-- `TrackedCell::new`, `TrackedCell::get`, `TrackedCell::get_result`, `TrackedCell::set_unconditional` do not require `Eq`
+| API | Constraint |
+|---|---|
+| `Memo::new` | `T : Eq` |
+| `Memo::new_memo` | `T : BackdateEq` (supertrait: `HasChangedAt`) |
+| `Memo::new_no_backdate` | none |
+| `Memo::get`, `get_result`, `get_or`, `get_or_else` | none |
+| `MemoMap::get`, `get_result`, `get_or`, `get_or_else` | `K : Hash + Eq`, `V : Eq` |
+| `MemoMap::contains` | `K : Hash + Eq` |
+| `Signal::set` | `T : Eq` |
+| `Signal::new`, `get`, `get_result`, `set_unconditional` | none |
+| `TrackedCell::set` | `T : Eq` |
+| `TrackedCell::new`, `get`, `get_result`, `set_unconditional` | none |

@@ -140,7 +140,7 @@ Per-dep durability shortcuts also apply: before pushing a frame for an intermedi
 
 **5a. If a dependency changed — recompute**
 
-Call `(memo.compute)()` to run the type-erased closure, which calls the typed `Memo[T]::recompute_inner()`. This is where backdating happens: if the new value equals the old value, `changed_at` is not updated.
+Call `(memo.compute)()` to run the type-erased closure, which calls the typed `Memo[T]::recompute_inner()`. This is where backdating happens: the `backdate_eq` closure captured at construction compares old and new values, and if it returns `true`, `changed_at` is not updated.
 
 **5b. If no dependency changed — green path**
 
@@ -174,6 +174,16 @@ input(4) → is_even(true) → label("even")
 ### Without Backdating
 
 Without backdating, step 6 would set `is_even.changed_at = R2`, and `label` would needlessly recompute `"even"` again. In deep or wide graphs, this cascading recomputation can be very expensive. Backdating cuts it off at the earliest point where a value stabilizes.
+
+### Backdating Strategies
+
+The backdate decision is captured at memo construction as a `(T, T) -> Bool` closure. Three constructors provide different strategies:
+
+- **`Memo::new[T : Eq]`** — uses `a == b` (structural equality). The standard choice when `T` implements `Eq` cheaply.
+- **`Memo::new_memo[T : BackdateEq]`** — uses `a.backdate_equal(b)`. The default `BackdateEq` implementation compares `changed_at` revisions (O(1)), which is useful when `T` embeds a revision stamp and structural equality would be O(n). The default can be overridden for custom logic.
+- **`Memo::new_no_backdate[T]`** — always returns `false`; `changed_at` always advances on recomputation. Use this when downstream consumers always need to rerun, or when `T` has no suitable equality. Requires no trait constraint on `T`.
+
+All three constructors share the same read methods (`get`, `get_result`, `get_or`, `get_or_else`), which carry no trait constraint — the equality decision was baked into the closure at construction time.
 
 ## HybridMemo — Hybrid Push-Pull Cells
 

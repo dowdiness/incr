@@ -109,8 +109,8 @@ test "new_no_backdate: always propagates even when value is identical" {
   let sig = @incr.Signal::new(rt, 0)
   let m = @incr.Memo::new_no_backdate(rt, () => {
     let _ = sig.get()
-    m_count.val = m_count.val + 1
-    42 // always returns same value
+    m_count.val = m_count.val + 1 // always returns same value
+    42
   })
   let down_count : Ref[Int] = { val: 0 }
   let _down = @incr.Memo::new(rt, () => {
