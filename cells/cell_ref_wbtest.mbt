@@ -8,6 +8,7 @@ test "pull_signal_data: can be constructed" {
       changed_at: Revision::initial(),
       durability: Low,
       subscribers: @hashset.new(),
+      push_reachable_count: 0,
     },
     on_change: None,
     commit_pending: None,

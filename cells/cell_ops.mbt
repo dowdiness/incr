@@ -26,6 +26,7 @@ priv struct CellMeta {
   mut changed_at : Revision
   mut durability : Durability
   subscribers : @hashset.HashSet[CellId]
+  mut push_reachable_count : Int
 }
 
 ///|
@@ -82,6 +83,10 @@ trait CellOps: HasCellMeta {
   /// Returns `Some(true)` if changed, `Some(false)` if fresh, `None` if deep
   /// verification is required (memo-like cells).
   dep_changed_since(Self, Revision) -> Bool? = _
+
+  /// Number of subscriber-path routes from this cell to a live push cell.
+  /// > 0 iff at least one live push cell (Reactive/Effect) is downstream.
+  push_reachable_count(Self) -> Int = _
 }
 
 ///|
@@ -131,6 +136,12 @@ impl CellOps with level(_self) -> Int {
 /// Override to return `None` for memo-like cells that need deep verification.
 impl CellOps with dep_changed_since(self, verified_at) -> Bool? {
   Some(self.changed_at() > verified_at)
+}
+
+///|
+/// Default: push_reachable_count from shared metadata.
+impl CellOps with push_reachable_count(self) -> Int {
+  HasCellMeta::meta(self).push_reachable_count
 }
 
 ///|

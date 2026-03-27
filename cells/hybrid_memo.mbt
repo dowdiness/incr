@@ -42,6 +42,7 @@ pub fn[T : Eq] HybridMemo::new(
       changed_at: Revision::initial(),
       durability: Low,
       subscribers: @hashset.new(),
+      push_reachable_count: 0,
     },
     compute: () => memo.recompute_inner(),
     verified_at: Revision::initial(),
@@ -52,8 +53,12 @@ pub fn[T : Eq] HybridMemo::new(
   let ops : &CellOps = rt.pull.memos[memo_idx]
   rt.core.cell_ops.push(ops)
   // HybridMemo intentionally does NOT increment rt.push.node_count.
-  // This means signal.set() skips push_propagate_from when only hybrid
-  // memos exist downstream, relying on verified_at staleness instead.
+  // However, it does participate in push_reachable_count tracking: when a
+  // live Reactive/Effect subscribes through a HybridMemo, the memo and its
+  // upstream cells each get push_reachable_count incremented. This lets
+  // enqueue_push_subscribers prune dead HybridMemo branches in the BFS
+  // without traversing them. When push_reachable_count == 0, staleness is
+  // detected purely via verified_at < current_revision.
   memo
 }
 

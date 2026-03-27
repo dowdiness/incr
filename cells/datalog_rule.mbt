@@ -38,6 +38,7 @@ pub fn Runtime::new_rule(
       changed_at: Revision::initial(),
       durability: Low,
       subscribers: @hashset.new(),
+      push_reachable_count: 0,
     },
     apply_delta,
     input_relations,

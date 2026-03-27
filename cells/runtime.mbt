@@ -230,6 +230,7 @@ fn Runtime::new_signal_id(
       changed_at: Revision::initial(),
       durability,
       subscribers: @hashset.new(),
+      push_reachable_count: 0,
     },
     on_change: None,
     commit_pending: None,
@@ -340,25 +341,148 @@ fn Runtime::get_subscribers(self : Runtime, cell_id : CellId) -> Iter[CellId] {
 }
 
 ///|
-/// Removes `subscriber` from the subscriber set of `dep`.
+/// Removes `subscriber` from the subscriber set of `dep` and decrements the
+/// subscriber's push contribution from upstream cells.
+///
+/// Contribution is computed BEFORE the subscriber's CellRef can be set to
+/// Disposed by the caller — this ordering is critical.
 fn Runtime::remove_subscriber(
   self : Runtime,
   dep : CellId,
   subscriber : CellId,
 ) -> Unit {
   self.validate_cell(dep, "remove_subscriber(dep)")
-  self.core.cell_ops[dep.id].subscribers().remove(subscriber)
+  let contribution = self.push_contribution(subscriber)
+  let removed = self.core.cell_ops[dep.id].subscribers().remove_and_check(
+    subscriber,
+  )
+  if removed && contribution > 0 {
+    self.adjust_push_reachable([dep], -contribution)
+  }
 }
 
 ///|
-/// Adds `subscriber` to the subscriber set of `dep`.
+/// Adds `subscriber` to the subscriber set of `dep` and propagates the
+/// subscriber's push contribution upstream through the pull dep graph.
 fn Runtime::add_subscriber(
   self : Runtime,
   dep : CellId,
   subscriber : CellId,
 ) -> Unit {
   self.validate_cell(dep, "add_subscriber(dep)")
-  self.core.cell_ops[dep.id].subscribers().add(subscriber)
+  let subs = self.core.cell_ops[dep.id].subscribers()
+  if subs.contains(subscriber) {
+    return
+  }
+  subs.add(subscriber)
+  let contribution = self.push_contribution(subscriber)
+  if contribution > 0 {
+    self.adjust_push_reachable([dep], contribution)
+  }
+}
+
+///|
+/// Returns the push-reachable contribution of `sub_id` as a subscriber.
+///
+/// - `PushReactive` / `PushEffect` -> 1 (they are push cells themselves)
+/// - `PullMemo` / `HybridMemo` -> their current `push_reachable_count`
+///   (they propagate their downstream push count upward)
+/// - All other variants -> 0
+fn Runtime::push_contribution(self : Runtime, sub_id : CellId) -> Int {
+  if sub_id.id < 0 || sub_id.id >= self.core.cell_index.length() {
+    return 0
+  }
+  match self.core.cell_index[sub_id.id] {
+    PushReactive(_) | PushEffect(_) => 1
+    PullMemo(i) | HybridMemo(i) => self.pull.memos[i].meta.push_reachable_count
+    _ => 0
+  }
+}
+
+///|
+/// Collects all cells reachable upstream of `sources` through the pull
+/// dependency graph.
+///
+/// Rules:
+/// - `PullSignal` -> add to set, stop (leaf)
+/// - `PullMemo` / `HybridMemo` -> add to set, recurse into `dependencies`
+/// - `PushReactive`, `Relation`, `FunctionalRelation`, `Rule` ->
+///     add to set, stop (leaf in count-propagation graph; do NOT recurse)
+/// - `Disposed` -> skip
+/// - Already-visited cells are skipped (handles diamond fan-in)
+fn Runtime::collect_reachable_cells(
+  self : Runtime,
+  sources : Array[CellId],
+) -> @hashset.HashSet[CellId] {
+  let result : @hashset.HashSet[CellId] = @hashset.new()
+  let worklist : Array[CellId] = []
+  for id in sources {
+    worklist.push(id)
+  }
+  let mut wi = 0
+  while wi < worklist.length() {
+    let id = worklist[wi]
+    wi += 1
+    if result.contains(id) {
+      continue
+    }
+    if id.id < 0 || id.id >= self.core.cell_index.length() {
+      continue
+    }
+    match self.core.cell_index[id.id] {
+      Disposed => ()
+      PullSignal(_) => result.add(id)
+      PushReactive(_) | Relation(_) | FunctionalRelation(_) | Rule(_) =>
+        result.add(id)
+      PullMemo(i) | HybridMemo(i) => {
+        result.add(id)
+        for dep in self.pull.memos[i].dependencies {
+          worklist.push(dep)
+        }
+      }
+      PushEffect(_) => ()
+    }
+  }
+  result
+}
+
+///|
+/// Adjusts `push_reachable_count` by `delta` on every cell reachable upstream
+/// of `sources` (including the sources themselves).
+///
+/// Asserts that no count goes negative.
+fn Runtime::adjust_push_reachable(
+  self : Runtime,
+  sources : Array[CellId],
+  delta : Int,
+) -> Unit {
+  let cells = self.collect_reachable_cells(sources)
+  for id in cells {
+    // CellMeta is heap-allocated — extracting it gives a mutable reference.
+    let meta = match self.core.cell_index[id.id] {
+      PullSignal(i) => self.pull.signals[i].meta
+      PullMemo(i) | HybridMemo(i) => self.pull.memos[i].meta
+      PushReactive(i) => self.push.reactives[i].meta
+      PushEffect(i) => self.push.effects[i].meta
+      Relation(i) => self.datalog.relations[i].meta
+      FunctionalRelation(i) => self.datalog.functional_relations[i].meta
+      Rule(i) => self.datalog.rules[i].meta
+      Disposed => continue
+    }
+    let new_count = meta.push_reachable_count + delta
+    if new_count < 0 {
+      abort(
+        "adjust_push_reachable: count went negative for cell " +
+        id.id.to_string() +
+        " (delta=" +
+        delta.to_string() +
+        ", was=" +
+        meta.push_reachable_count.to_string() +
+        ")",
+      )
+    }
+    meta.push_reachable_count = new_count
+  }
 }
 
 ///|

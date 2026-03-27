@@ -131,6 +131,14 @@ fn Runtime::push_propagate_from(
   let bfs_worklist : Array[CellId] = []
 
   fn enqueue_push_subscribers(source_id : CellId) -> Unit {
+    // Per-source O(1) gate: if this source has no reachable push cells
+    // (Reactive/Effect), skip the entire BFS. push_reachable_count is
+    // maintained by add_subscriber/remove_subscriber via adjust_push_reachable.
+    if source_id.id >= 0 &&
+      source_id.id < self.core.cell_ops.length() &&
+      self.core.cell_ops[source_id.id].push_reachable_count() == 0 {
+      return
+    }
     // BFS through pull/hybrid memos to reach downstream push nodes.
     // Pull and hybrid memos verify lazily, but push reactives/effects that
     // transitively depend on them must be eagerly re-run on upstream changes.
@@ -158,8 +166,11 @@ fn Runtime::push_propagate_from(
                 cell_ref: CellRef::PushEffect(i),
               })
             }
-          HybridMemo(_) => bfs_worklist.push(sub_id) // bridge through hybrid memos
-          PullMemo(_) => bfs_worklist.push(sub_id) // bridge through pull memos
+          HybridMemo(i) | PullMemo(i) =>
+            // Inner pruning: skip memo branches with no downstream push cells.
+            if self.pull.memos[i].meta.push_reachable_count > 0 {
+              bfs_worklist.push(sub_id)
+            }
           _ => ()
         }
       }
