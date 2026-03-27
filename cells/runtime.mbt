@@ -493,10 +493,8 @@ fn Runtime::adjust_push_reachable(
       Relation(i) =>
         self.datalog.relations[i].meta.push_reachable_count = new_count
       FunctionalRelation(i) =>
-        self.datalog.functional_relations[i].meta.push_reachable_count =
-          new_count
-      Rule(i) =>
-        self.datalog.rules[i].meta.push_reachable_count = new_count
+        self.datalog.functional_relations[i].meta.push_reachable_count = new_count
+      Rule(i) => self.datalog.rules[i].meta.push_reachable_count = new_count
       Disposed => ()
     }
   }

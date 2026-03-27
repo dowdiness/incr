@@ -4,6 +4,10 @@ import {
   "moonbitlang/core/hashset",
   "moonbitlang/core/priority_queue",
 }
+
+import {
+  "moonbitlang/core/bench",
+} for "test"
 // Suppressed warnings:
 // 1  (unused_value)          — get_changed_at, cell_id_for, CellOps::cell_id used by wbtests or trait contract
 // 7  (unused_field)          — RuleData.input/output_relations stored for future introspection
