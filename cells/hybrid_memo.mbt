@@ -42,6 +42,7 @@ pub fn[T : Eq] HybridMemo::new(
       changed_at: Revision::initial(),
       durability: Low,
       subscribers: @hashset.new(),
+      push_reachable_count: 0,
     },
     compute: () => memo.recompute_inner(),
     verified_at: Revision::initial(),

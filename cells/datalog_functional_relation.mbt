@@ -65,6 +65,7 @@ pub fn[K : Hash + Eq, V] FunctionalRelation::new(
       changed_at: Revision::initial(),
       durability: Low,
       subscribers: @hashset.new(),
+      push_reachable_count: 0,
     },
     drain_delta: () => delta.val.each(fn(k, v) { current.val.set(k, v) }),
     is_delta_empty: () => delta.val.is_empty(),

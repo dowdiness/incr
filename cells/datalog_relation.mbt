@@ -53,6 +53,7 @@ pub fn[T : Hash + Eq] Relation::new(
       changed_at: Revision::initial(),
       durability: Low,
       subscribers: @hashset.new(),
+      push_reachable_count: 0,
     },
     drain_delta: () => {
       for item in delta.val {

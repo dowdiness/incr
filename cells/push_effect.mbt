@@ -92,6 +92,7 @@ pub fn Effect::new(rt : Runtime, f : () -> Unit) -> Effect {
       changed_at: Revision::initial(),
       durability: Low,
       subscribers: @hashset.new(),
+      push_reachable_count: 0,
     },
     execute: f,
     sources: [],

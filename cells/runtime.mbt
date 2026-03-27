@@ -230,6 +230,7 @@ fn Runtime::new_signal_id(
       changed_at: Revision::initial(),
       durability,
       subscribers: @hashset.new(),
+      push_reachable_count: 0,
     },
     on_change: None,
     commit_pending: None,

@@ -101,6 +101,7 @@ pub fn[T : Eq] Reactive::new(rt : Runtime, compute_fn : () -> T) -> Reactive[T] 
       changed_at: Revision::initial(),
       durability: Low,
       subscribers: @hashset.new(),
+      push_reachable_count: 0,
     },
     compute,
     sources: [],
