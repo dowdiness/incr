@@ -163,3 +163,60 @@ test "push_reachable_count: reactive-to-reactive chain" {
   inspect(get_count(rt, s.id()), content="1")
   inspect(get_count(rt, r1.id()), content="1")
 }
+
+///|
+test "push_reachable_count: source change on reactive recompute" {
+  let rt = Runtime::new()
+  let s1 = Signal::new(rt, 0)
+  let s2 = Signal::new(rt, 0)
+  // reactive starts reading s1
+  let flag : Ref[Bool] = Ref::new(true)
+  let r = Reactive::new(rt, () => if flag.val { s1.get() } else { s2.get() })
+  inspect(get_count(rt, s1.id()), content="1")
+  inspect(get_count(rt, s2.id()), content="0")
+  // switch reactive to read s2 by changing flag and triggering recompute
+  flag.val = false
+  s1.set(1) // triggers push propagation -> r recomputes -> now reads s2
+  inspect(get_count(rt, s1.id()), content="0")
+  inspect(get_count(rt, s2.id()), content="1")
+}
+
+///|
+test "push_reachable_count: memo dep change updates upstream signal counts" {
+  let rt = Runtime::new()
+  let s1 = Signal::new(rt, 0)
+  let s2 = Signal::new(rt, 0)
+  let flag : Ref[Bool] = Ref::new(true)
+  // memoA conditionally reads s1 or s2
+  let mA = Memo::new(rt, () => if flag.val { s1.get() } else { s2.get() })
+  // reactive reads memoA (forces memoA to compute -> deps=[s1])
+  let _r = Reactive::new(rt, () => mA.get())
+  inspect(get_count(rt, s1.id()), content="1")
+  inspect(get_count(rt, s2.id()), content="0")
+  // switch memoA to read s2: change flag, trigger recompute via signal change
+  flag.val = false
+  s1.set(1) // reactive recomputes -> pull_verify memoA -> memo recomputes -> s2 added
+  inspect(get_count(rt, s1.id()), content="0")
+  inspect(get_count(rt, s2.id()), content="1")
+}
+
+///|
+test "push_reachable_count: hybrid memo dispose decrements upstream" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 0)
+  let h = HybridMemo::new(rt, () => s.get())
+  let _r = Reactive::new(rt, () => h.get())
+  inspect(get_count(rt, s.id()), content="1")
+  inspect(get_count(rt, h.id()), content="1")
+  h.dispose()
+  // After h is disposed, s should have count 0
+  inspect(get_count(rt, s.id()), content="0")
+}
+
+///|
+test "push_reachable_count: no push cells = zero everywhere" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 0)
+  let _m = Memo::new(rt, () => s.get())
+  inspect(get_count(rt, s.id()), content="0")
+}
