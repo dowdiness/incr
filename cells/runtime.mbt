@@ -341,18 +341,27 @@ fn Runtime::get_subscribers(self : Runtime, cell_id : CellId) -> Iter[CellId] {
 }
 
 ///|
-/// Removes `subscriber` from the subscriber set of `dep`.
+/// Removes `subscriber` from the subscriber set of `dep` and decrements the
+/// subscriber's push contribution from upstream cells.
+///
+/// Contribution is computed BEFORE the subscriber's CellRef can be set to
+/// Disposed by the caller — this ordering is critical.
 fn Runtime::remove_subscriber(
   self : Runtime,
   dep : CellId,
   subscriber : CellId,
 ) -> Unit {
   self.validate_cell(dep, "remove_subscriber(dep)")
+  let contribution = self.push_contribution(subscriber)
   self.core.cell_ops[dep.id].subscribers().remove(subscriber)
+  if contribution > 0 {
+    self.adjust_push_reachable([dep], -contribution)
+  }
 }
 
 ///|
-/// Adds `subscriber` to the subscriber set of `dep`.
+/// Adds `subscriber` to the subscriber set of `dep` and propagates the
+/// subscriber's push contribution upstream through the pull dep graph.
 fn Runtime::add_subscriber(
   self : Runtime,
   dep : CellId,
@@ -360,6 +369,10 @@ fn Runtime::add_subscriber(
 ) -> Unit {
   self.validate_cell(dep, "add_subscriber(dep)")
   self.core.cell_ops[dep.id].subscribers().add(subscriber)
+  let contribution = self.push_contribution(subscriber)
+  if contribution > 0 {
+    self.adjust_push_reachable([dep], contribution)
+  }
 }
 
 ///|
