@@ -5,7 +5,7 @@
 priv struct Stamped {
   value : Int
   changed_at : @incr.Revision
-} derive(Eq)
+}
 
 ///|
 impl @incr.HasChangedAt for Stamped with changed_at(self) -> @incr.Revision {
@@ -20,6 +20,8 @@ test "BackdateEq default: same changed_at → backdate_equal returns true" {
   let r = @incr.Revision::initial()
   let a = Stamped::{ value: 1, changed_at: r }
   let b = Stamped::{ value: 2, changed_at: r }
+  // Values differ (1 vs 2) but revision is the same — BackdateEq only compares revisions.
+  inspect(a.value == b.value, content="false")
   inspect(a.backdate_equal(b), content="true")
 }
 
@@ -123,4 +125,23 @@ test "new_no_backdate: always propagates even when value is identical" {
   let _ = _down.get()
   inspect(m_count.val, content="2") // m recomputed
   inspect(down_count.val, content="2") // downstream ALSO recomputed (never backdates)
+}
+
+///|
+// A type with no Eq instance — verifies new_no_backdate is usable without Eq.
+priv struct NoEq {
+  data : Array[Int]
+}
+
+///|
+test "new_no_backdate: usable with non-Eq output type" {
+  let rt = @incr.Runtime::new()
+  let sig = @incr.Signal::new(rt, 0)
+  let m = @incr.Memo::new_no_backdate(rt, fn() -> NoEq {
+    NoEq::{ data: [sig.get()] }
+  })
+  // get() must work without T : Eq
+  inspect(m.get().data[0], content="0")
+  sig.set(42)
+  inspect(m.get().data[0], content="42")
 }

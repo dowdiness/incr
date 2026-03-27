@@ -105,7 +105,7 @@ pub fn[T : Eq] Memo::new(
 /// `T` must implement both `Eq` (for `Memo::get` compatibility) and
 /// `BackdateEq` (for the backdating decision). The backdate check calls
 /// `BackdateEq::backdate_equal`, not `Eq::equal`.
-pub fn[T : Eq + BackdateEq] Memo::new_memo(
+pub fn[T : BackdateEq] Memo::new_memo(
   rt : Runtime,
   compute : () -> T,
   label? : String,
@@ -151,7 +151,7 @@ pub fn[T] Memo::new_no_backdate(
 /// Use `get_result()` instead to handle cycles gracefully.
 ///
 /// The panic tests in `cycle_test.mbt` call `get()` directly and exercise this abort path.
-pub fn[T : Eq] Memo::get(self : Memo[T]) -> T {
+pub fn[T] Memo::get(self : Memo[T]) -> T {
   match self.get_result() {
     Ok(value) => value
     Err(e) => abort(e.format_path(self.rt))
@@ -180,7 +180,7 @@ pub fn[T : Eq] Memo::get(self : Memo[T]) -> T {
 ///   }
 /// }
 /// ```
-pub fn[T : Eq] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
+pub fn[T] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
   let active_rt = current_computing_runtime_id.val
   if active_rt >= 0 && active_rt != self.rt.core.runtime_id {
     // Reset before aborting so the test runner doesn't see dirty global state
@@ -245,7 +245,7 @@ pub fn[T : Eq] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
 ///
 /// This is a convenience wrapper around `get_result()` for call sites that
 /// prefer a non-panicking, non-Result API.
-pub fn[T : Eq] Memo::get_or(self : Memo[T], fallback : T) -> T {
+pub fn[T] Memo::get_or(self : Memo[T], fallback : T) -> T {
   match self.get_result() {
     Ok(value) => value
     Err(_) => fallback
@@ -256,10 +256,7 @@ pub fn[T : Eq] Memo::get_or(self : Memo[T], fallback : T) -> T {
 /// Returns the memoized value, or computes a fallback value from the cycle error.
 ///
 /// This is a convenience wrapper around `get_result()` for graceful recovery.
-pub fn[T : Eq] Memo::get_or_else(
-  self : Memo[T],
-  fallback : (CycleError) -> T,
-) -> T {
+pub fn[T] Memo::get_or_else(self : Memo[T], fallback : (CycleError) -> T) -> T {
   match self.get_result() {
     Ok(value) => value
     Err(e) => fallback(e)
