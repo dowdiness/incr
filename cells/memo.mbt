@@ -97,20 +97,19 @@ pub fn[T : Eq] Memo::new(
   compute : () -> T,
   label? : String,
 ) -> Memo[T] {
-  Memo::_create(rt, compute, label?, fn(a, b) { a == b })
+  Memo::_create(rt, compute, label?, (a, b) => a == b)
 }
 
 ///|
-/// Creates a memo using `BackdateEq` for change detection instead of `Eq`.
-/// `T` must implement both `Eq` (for `Memo::get` compatibility) and
-/// `BackdateEq` (for the backdating decision). The backdate check calls
-/// `BackdateEq::backdate_equal`, not `Eq::equal`.
+/// Creates a memo using `BackdateEq` for change detection.
+/// `T` must implement `BackdateEq` (and its supertrait `HasChangedAt`).
+/// The backdate check calls `BackdateEq::backdate_equal`, not structural `Eq`.
 pub fn[T : BackdateEq] Memo::new_memo(
   rt : Runtime,
   compute : () -> T,
   label? : String,
 ) -> Memo[T] {
-  Memo::_create(rt, compute, label?, fn(a, b) { a.backdate_equal(b) })
+  Memo::_create(rt, compute, label?, (a, b) => a.backdate_equal(b))
 }
 
 ///|
@@ -123,7 +122,7 @@ pub fn[T] Memo::new_no_backdate(
   compute : () -> T,
   label? : String,
 ) -> Memo[T] {
-  Memo::_create(rt, compute, label?, fn(_, _) { false })
+  Memo::_create(rt, compute, label?, (_, _) => false)
 }
 
 ///|

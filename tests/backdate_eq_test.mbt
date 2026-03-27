@@ -51,14 +51,14 @@ test "new_memo: backdates when backdate_equal returns true (same changed_at)" {
   let rev_ref : Ref[@incr.Revision] = { val: @incr.Revision::initial() }
   let m_count : Ref[Int] = { val: 0 }
   let sig = @incr.Signal::new(rt, 0)
-  let m = @incr.Memo::new_memo(rt, fn() -> Stamped {
+  let m = @incr.Memo::new_memo(rt, () => {
     let _ = sig.get()
     m_count.val = m_count.val + 1
     // Don't advance rev_ref — value is "unchanged"
     Stamped::{ value: 42, changed_at: rev_ref.val }
   })
   let down_count : Ref[Int] = { val: 0 }
-  let _down = @incr.Memo::new(rt, fn() -> Int {
+  let _down = @incr.Memo::new(rt, () => {
     let _ = m.get()
     down_count.val = down_count.val + 1
     0
@@ -80,7 +80,7 @@ test "new_memo: propagates when backdate_equal returns false (advanced changed_a
   let rev_ref : Ref[@incr.Revision] = { val: @incr.Revision::initial() }
   let m_count : Ref[Int] = { val: 0 }
   let sig = @incr.Signal::new(rt, 0)
-  let m = @incr.Memo::new_memo(rt, fn() -> Stamped {
+  let m = @incr.Memo::new_memo(rt, () => {
     let v = sig.get()
     m_count.val = m_count.val + 1
     // Advance rev_ref — value is "changed"
@@ -88,7 +88,7 @@ test "new_memo: propagates when backdate_equal returns false (advanced changed_a
     Stamped::{ value: v, changed_at: rev_ref.val }
   })
   let down_count : Ref[Int] = { val: 0 }
-  let _down = @incr.Memo::new(rt, fn() -> Int {
+  let _down = @incr.Memo::new(rt, () => {
     let _ = m.get()
     down_count.val = down_count.val + 1
     0
@@ -107,13 +107,13 @@ test "new_no_backdate: always propagates even when value is identical" {
   let rt = @incr.Runtime::new()
   let m_count : Ref[Int] = { val: 0 }
   let sig = @incr.Signal::new(rt, 0)
-  let m = @incr.Memo::new_no_backdate(rt, fn() -> Int {
+  let m = @incr.Memo::new_no_backdate(rt, () => {
     let _ = sig.get()
     m_count.val = m_count.val + 1
     42 // always returns same value
   })
   let down_count : Ref[Int] = { val: 0 }
-  let _down = @incr.Memo::new(rt, fn() -> Int {
+  let _down = @incr.Memo::new(rt, () => {
     let _ = m.get()
     down_count.val = down_count.val + 1
     0
@@ -137,9 +137,7 @@ priv struct NoEq {
 test "new_no_backdate: usable with non-Eq output type" {
   let rt = @incr.Runtime::new()
   let sig = @incr.Signal::new(rt, 0)
-  let m = @incr.Memo::new_no_backdate(rt, fn() -> NoEq {
-    NoEq::{ data: [sig.get()] }
-  })
+  let m = @incr.Memo::new_no_backdate(rt, () => NoEq::{ data: [sig.get()] })
   // get() must work without T : Eq
   inspect(m.get().data[0], content="0")
   sig.set(42)
