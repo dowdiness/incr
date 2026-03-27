@@ -83,6 +83,12 @@ pub fn[Db : Database, T] create_signal(
 ///|
 /// Creates a new memo using the database's runtime.
 ///
+/// Uses `Memo::new` internally — requires `T : Eq` for backdating via
+/// structural equality. For other backdating strategies, use the Memo
+/// constructors directly:
+/// - `Memo::new_memo` for `BackdateEq`-based (revision) backdating
+/// - `Memo::new_no_backdate` for no backdating (no trait constraint on `T`)
+///
 /// # Parameters
 ///
 /// - `db`: Any type implementing `Database`

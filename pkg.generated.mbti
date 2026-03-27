@@ -68,6 +68,10 @@ pub using @types {type SignalId}
 
 pub using @cells {type TrackedCell}
 
+pub using @types {trait BackdateEq}
+
+pub using @types {trait HasChangedAt}
+
 // Traits
 pub(open) trait Database {
   runtime(Self) -> @cells.Runtime

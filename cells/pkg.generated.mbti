@@ -80,13 +80,15 @@ pub(all) struct Memo[T] {
 pub fn[T] Memo::changed_at(Self[T]) -> @types.Revision
 pub fn[T] Memo::clear_on_change(Self[T]) -> Unit
 pub fn[T] Memo::dependencies(Self[T]) -> Array[@types.CellId]
-pub fn[T : Eq] Memo::get(Self[T]) -> T
-pub fn[T : Eq] Memo::get_or(Self[T], T) -> T
-pub fn[T : Eq] Memo::get_or_else(Self[T], (CycleError) -> T) -> T
-pub fn[T : Eq] Memo::get_result(Self[T]) -> Result[T, CycleError]
+pub fn[T] Memo::get(Self[T]) -> T
+pub fn[T] Memo::get_or(Self[T], T) -> T
+pub fn[T] Memo::get_or_else(Self[T], (CycleError) -> T) -> T
+pub fn[T] Memo::get_result(Self[T]) -> Result[T, CycleError]
 pub fn[T] Memo::id(Self[T]) -> @types.CellId
 pub fn[T] Memo::is_up_to_date(Self[T]) -> Bool
 pub fn[T : Eq] Memo::new(Runtime, () -> T, label? : String) -> Self[T]
+pub fn[T : @types.BackdateEq] Memo::new_memo(Runtime, () -> T, label? : String) -> Self[T]
+pub fn[T] Memo::new_no_backdate(Runtime, () -> T, label? : String) -> Self[T]
 pub fn[T] Memo::on_change(Self[T], (T) -> Unit) -> Unit
 pub fn[T] Memo::verified_at(Self[T]) -> @types.Revision
 pub impl[T : @debug.Debug] @debug.Debug for Memo[T]

@@ -353,9 +353,9 @@ fn Runtime::remove_subscriber(
 ) -> Unit {
   self.validate_cell(dep, "remove_subscriber(dep)")
   let contribution = self.push_contribution(subscriber)
-  let removed = self.core.cell_ops[dep.id].subscribers().remove_and_check(
-    subscriber,
-  )
+  let removed = self.core.cell_ops[dep.id]
+    .subscribers()
+    .remove_and_check(subscriber)
   if removed && contribution > 0 {
     self.adjust_push_reachable([dep], -contribution)
   }

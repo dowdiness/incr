@@ -31,10 +31,45 @@ pub(all) struct Memo[T] {
   priv rt : Runtime
   priv cell_id : CellId
   priv compute : () -> T
+  priv backdate_eq : (T, T) -> Bool // captured at construction; replaces hardcoded a==b
   priv mut value : T?
 
   fn[T : Eq] new(rt : Runtime, compute : () -> T, label? : String) -> Memo[T]
 } derive(Debug(ignore=[Runtime, Fn, CellId]))
+
+///|
+// Shared SoA allocation + registration for all Memo constructors.
+// Done here (not on Runtime) because the compute closure must capture the
+// typed `memo` struct — a construction cycle that prevents moving this into
+// a standalone Runtime method.
+fn[T] Memo::_create(
+  rt : Runtime,
+  compute : () -> T,
+  label? : String,
+  backdate_eq : (T, T) -> Bool,
+) -> Memo[T] {
+  let memo_idx = rt.pull.memos.length()
+  let cell_id = rt.alloc_cell_id(PullMemo(memo_idx))
+  let memo : Memo[T] = { label, rt, cell_id, compute, backdate_eq, value: None }
+  rt.pull.memos.push({
+    meta: {
+      cell_id,
+      label,
+      changed_at: Revision::initial(),
+      durability: Low,
+      subscribers: @hashset.new(),
+      push_reachable_count: 0,
+    },
+    compute: () => memo.recompute_inner(),
+    verified_at: Revision::initial(),
+    dependencies: [],
+    in_progress: false,
+    on_change: None,
+  })
+  let ops : &CellOps = rt.pull.memos[memo_idx]
+  rt.core.cell_ops.push(ops)
+  memo
+}
 
 ///|
 /// Creates a new memo with the given compute function.
@@ -57,36 +92,41 @@ pub(all) struct Memo[T] {
 /// `T` must implement `Eq` for backdating: when the compute function returns
 /// the same value as before, the memo's `changed_at` timestamp is preserved,
 /// preventing unnecessary downstream recomputation.
+///
+/// For other backdate strategies use:
+/// - `Memo::new_memo` — `T : BackdateEq`; compares `changed_at` revisions by default (O(1))
+/// - `Memo::new_no_backdate` — no constraint on `T`; never backdates
 pub fn[T : Eq] Memo::new(
   rt : Runtime,
   compute : () -> T,
   label? : String,
 ) -> Memo[T] {
-  // new_memo_id: allocate into SoA pull_memos and cell_index.
-  // Done inline because the compute closure must capture the typed `memo`
-  // struct, which in turn requires the cell_id — creating a construction
-  // cycle that prevents factoring this into a standalone Runtime method.
-  let memo_idx = rt.pull.memos.length()
-  let cell_id = rt.alloc_cell_id(PullMemo(memo_idx))
-  let memo : Memo[T] = { label, rt, cell_id, compute, value: None }
-  rt.pull.memos.push({
-    meta: {
-      cell_id,
-      label,
-      changed_at: Revision::initial(),
-      durability: Low,
-      subscribers: @hashset.new(),
-      push_reachable_count: 0,
-    },
-    compute: () => memo.recompute_inner(),
-    verified_at: Revision::initial(),
-    dependencies: [],
-    in_progress: false,
-    on_change: None,
-  })
-  let ops : &CellOps = rt.pull.memos[memo_idx]
-  rt.core.cell_ops.push(ops)
-  memo
+  Memo::_create(rt, compute, label?, (a, b) => a == b)
+}
+
+///|
+/// Creates a memo using `BackdateEq` for change detection.
+/// `T` must implement `BackdateEq` (and its supertrait `HasChangedAt`).
+/// The backdate check calls `BackdateEq::backdate_equal`, not structural `Eq`.
+pub fn[T : BackdateEq] Memo::new_memo(
+  rt : Runtime,
+  compute : () -> T,
+  label? : String,
+) -> Memo[T] {
+  Memo::_create(rt, compute, label?, (a, b) => a.backdate_equal(b))
+}
+
+///|
+/// Creates a memo that never backdates: always marks as changed on recomputation.
+/// Use when the cost of comparison exceeds the benefit, or when downstream memos
+/// will always need to recompute anyway.
+/// No trait constraint on `T`.
+pub fn[T] Memo::new_no_backdate(
+  rt : Runtime,
+  compute : () -> T,
+  label? : String,
+) -> Memo[T] {
+  Memo::_create(rt, compute, label?, (_, _) => false)
 }
 
 ///|
@@ -114,7 +154,7 @@ pub fn[T : Eq] Memo::new(
 /// Use `get_result()` instead to handle cycles gracefully.
 ///
 /// The panic tests in `cycle_test.mbt` call `get()` directly and exercise this abort path.
-pub fn[T : Eq] Memo::get(self : Memo[T]) -> T {
+pub fn[T] Memo::get(self : Memo[T]) -> T {
   match self.get_result() {
     Ok(value) => value
     Err(e) => abort(e.format_path(self.rt))
@@ -143,7 +183,7 @@ pub fn[T : Eq] Memo::get(self : Memo[T]) -> T {
 ///   }
 /// }
 /// ```
-pub fn[T : Eq] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
+pub fn[T] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
   let active_rt = current_computing_runtime_id.val
   if active_rt >= 0 && active_rt != self.rt.core.runtime_id {
     // Reset before aborting so the test runner doesn't see dirty global state
@@ -208,7 +248,7 @@ pub fn[T : Eq] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
 ///
 /// This is a convenience wrapper around `get_result()` for call sites that
 /// prefer a non-panicking, non-Result API.
-pub fn[T : Eq] Memo::get_or(self : Memo[T], fallback : T) -> T {
+pub fn[T] Memo::get_or(self : Memo[T], fallback : T) -> T {
   match self.get_result() {
     Ok(value) => value
     Err(_) => fallback
@@ -219,10 +259,7 @@ pub fn[T : Eq] Memo::get_or(self : Memo[T], fallback : T) -> T {
 /// Returns the memoized value, or computes a fallback value from the cycle error.
 ///
 /// This is a convenience wrapper around `get_result()` for graceful recovery.
-pub fn[T : Eq] Memo::get_or_else(
-  self : Memo[T],
-  fallback : (CycleError) -> T,
-) -> T {
+pub fn[T] Memo::get_or_else(self : Memo[T], fallback : (CycleError) -> T) -> T {
   match self.get_result() {
     Ok(value) => value
     Err(e) => fallback(e)
@@ -233,14 +270,14 @@ pub fn[T : Eq] Memo::get_or_else(
 /// Force recomputation: delegates to shared memo_force_recompute helper.
 ///
 /// Returns `Ok(new_value)` on success, or `Err(CycleError)` if a cycle is detected.
-fn[T : Eq] Memo::force_recompute(self : Memo[T]) -> Result[T, CycleError] {
+fn[T] Memo::force_recompute(self : Memo[T]) -> Result[T, CycleError] {
   match
-    self.rt.memo_force_recompute(self.cell_id, self.compute, self.value, fn(
-      a,
-      b,
+    self.rt.memo_force_recompute(
+      self.cell_id,
+      self.compute,
+      self.value,
+      self.backdate_eq,
     ) {
-      a == b
-    }) {
     Ok(new_value) => {
       self.value = Some(new_value)
       Ok(new_value)
@@ -255,7 +292,7 @@ fn[T : Eq] Memo::force_recompute(self : Memo[T]) -> Result[T, CycleError] {
 ///
 /// Returns `Ok(true)` if the value changed, `Ok(false)` if unchanged (backdated),
 /// or `Err(CycleError)` if a cycle is detected.
-fn[T : Eq] Memo::recompute_inner(self : Memo[T]) -> Result[Bool, CycleError] {
+fn[T] Memo::recompute_inner(self : Memo[T]) -> Result[Bool, CycleError] {
   let cell = self.rt.get_memo_data(self.cell_id)
   let old_changed_at = cell.meta.changed_at
   match self.force_recompute() {

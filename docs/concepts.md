@@ -137,6 +137,16 @@ inspect(label.get(), content="even")  // Did NOT recompute
 
 This prevents unnecessary cascading through the graph.
 
+### Backdating strategies
+
+Three memo constructors offer different backdate strategies:
+
+- **`Memo::new[T : Eq]`** — uses `a == b`. Standard choice for most types.
+- **`Memo::new_memo[T : BackdateEq]`** — uses `a.backdate_equal(b)`. By default compares `changed_at` revisions (O(1)). Useful when structural equality is expensive and you can embed a revision in the value instead.
+- **`Memo::new_no_backdate[T]`** — never backdates. Use when downstream consumers always need to rerun, or when `T` has no `Eq` instance.
+
+The `create_memo` helper always uses `Memo::new`. For the other strategies, call the constructors directly.
+
 ## Durability
 
 **Durability** classifies inputs by change frequency:

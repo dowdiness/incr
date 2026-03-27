@@ -81,6 +81,10 @@ input.set(6)
 inspect(label.get(), content="even")
 ```
 
+`Memo::new` (used above) requires `T : Eq` and compares values structurally. Two alternatives exist:
+- `Memo::new_memo[T : BackdateEq]` — compares `changed_at` revisions by default (O(1)); useful for large values that embed a revision stamp
+- `Memo::new_no_backdate[T]` — never backdates; no constraint on `T`
+
 ### Durability
 
 Signals that change rarely can be marked as high durability. Memos that only depend on high-durability inputs skip verification entirely when only low-durability inputs change:

@@ -82,3 +82,34 @@ pub fn Durability::index(self : Durability) -> Int {
 ///
 /// Used internally to size the `durability_last_changed` array in Runtime.
 pub const DURABILITY_COUNT : Int = 3
+
+///|
+/// A type that carries its own `changed_at` revision stamp.
+///
+/// Implement this on value types that embed a `Revision` tracking when their
+/// content last changed. Used in combination with `BackdateEq` to enable
+/// O(1) backdate decisions based on revision comparison rather than O(N)
+/// structural equality.
+pub(open) trait HasChangedAt {
+  changed_at(Self) -> Revision
+}
+
+///|
+/// A backdate-aware equality check for memo outputs.
+///
+/// The default implementation compares `changed_at` revisions: two values are
+/// considered "backdate equal" (i.e., the memo should not advance its
+/// `changed_at`) when both carry the same revision stamp. Override to provide
+/// custom logic.
+///
+/// # Supertrait
+///
+/// Requires `HasChangedAt` — the type must expose a `changed_at` revision.
+pub(open) trait BackdateEq: HasChangedAt {
+  backdate_equal(Self, Self) -> Bool = _
+}
+
+///|
+impl BackdateEq with backdate_equal(self, other) -> Bool {
+  self.changed_at() == other.changed_at()
+}
