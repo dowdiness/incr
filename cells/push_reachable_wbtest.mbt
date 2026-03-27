@@ -220,3 +220,21 @@ test "push_reachable_count: no push cells = zero everywhere" {
   let _m = Memo::new(rt, () => s.get())
   inspect(get_count(rt, s.id()), content="0")
 }
+
+///|
+test "gate: signal with count 0 does not trigger reactive on separate signal" {
+  let rt = Runtime::new()
+  let s1 = Signal::new(rt, 0)
+  let s2 = Signal::new(rt, 0)
+  let mut recomputes = 0
+  let _r = Reactive::new(rt, () => {
+    recomputes = recomputes + 1
+    s2.get()
+  })
+  let initial = recomputes
+  // s1 has no downstream push cells (r reads s2, not s1)
+  inspect(get_count(rt, s1.id()), content="0")
+  // Changing s1 should NOT trigger r to recompute
+  s1.set(1)
+  inspect(recomputes, content=initial.to_string())
+}

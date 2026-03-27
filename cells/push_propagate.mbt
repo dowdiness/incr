@@ -131,6 +131,13 @@ fn Runtime::push_propagate_from(
   let bfs_worklist : Array[CellId] = []
 
   fn enqueue_push_subscribers(source_id : CellId) -> Unit {
+    // O(1) gate: skip BFS entirely if no push cell is downstream of this source.
+    // push_reachable_count > 0 iff at least one live Reactive/Effect is reachable.
+    if source_id.id >= 0 &&
+      source_id.id < self.core.cell_ops.length() &&
+      self.core.cell_ops[source_id.id].push_reachable_count() == 0 {
+      return
+    }
     // BFS through pull/hybrid memos to reach downstream push nodes.
     // Pull and hybrid memos verify lazily, but push reactives/effects that
     // transitively depend on them must be eagerly re-run on upstream changes.
