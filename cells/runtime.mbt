@@ -363,6 +363,133 @@ fn Runtime::add_subscriber(
 }
 
 ///|
+/// Returns the push-reachable contribution of `sub_id` as a subscriber.
+///
+/// - `PushReactive` / `PushEffect` -> 1 (they are push cells themselves)
+/// - `PullMemo` / `HybridMemo` -> their current `push_reachable_count`
+///   (they propagate their downstream push count upward)
+/// - All other variants -> 0
+fn Runtime::push_contribution(self : Runtime, sub_id : CellId) -> Int {
+  if sub_id.id < 0 || sub_id.id >= self.core.cell_index.length() {
+    return 0
+  }
+  match self.core.cell_index[sub_id.id] {
+    PushReactive(_) | PushEffect(_) => 1
+    PullMemo(i) | HybridMemo(i) => self.pull.memos[i].meta.push_reachable_count
+    _ => 0
+  }
+}
+
+///|
+/// Collects all cells reachable upstream of `sources` through the pull
+/// dependency graph.
+///
+/// Rules:
+/// - `PullSignal` -> add to set, stop (leaf)
+/// - `PullMemo` / `HybridMemo` -> add to set, recurse into `dependencies`
+/// - `PushReactive`, `Relation`, `FunctionalRelation`, `Rule` ->
+///     add to set, stop (leaf in count-propagation graph; do NOT recurse)
+/// - `Disposed` -> skip
+/// - Already-visited cells are skipped (handles diamond fan-in)
+fn Runtime::collect_reachable_cells(
+  self : Runtime,
+  sources : Array[CellId],
+) -> @hashset.HashSet[CellId] {
+  let result : @hashset.HashSet[CellId] = @hashset.new()
+  let worklist : Array[CellId] = []
+  for id in sources {
+    worklist.push(id)
+  }
+  while worklist.length() > 0 {
+    let id = worklist.pop().unwrap()
+    if result.contains(id) {
+      continue
+    }
+    if id.id < 0 || id.id >= self.core.cell_index.length() {
+      continue
+    }
+    match self.core.cell_index[id.id] {
+      Disposed => ()
+      PullSignal(_) => result.add(id)
+      PushReactive(_) | Relation(_) | FunctionalRelation(_) | Rule(_) =>
+        result.add(id)
+      PullMemo(i) | HybridMemo(i) => {
+        result.add(id)
+        for dep in self.pull.memos[i].dependencies {
+          worklist.push(dep)
+        }
+      }
+      PushEffect(_) => ()
+    }
+  }
+  result
+}
+
+///|
+/// Adjusts `push_reachable_count` by `delta` on every cell reachable upstream
+/// of `sources` (including the sources themselves).
+///
+/// Uses direct SoA array access to mutate `push_reachable_count` — this is
+/// required because `HasCellMeta::meta()` returns `CellMeta` by value, so
+/// any mutation through the `&CellOps` trait object would be silently lost.
+///
+/// Asserts that no count goes negative.
+fn Runtime::adjust_push_reachable(
+  self : Runtime,
+  sources : Array[CellId],
+  delta : Int,
+) -> Unit {
+  let cells = self.collect_reachable_cells(sources)
+  for id in cells {
+    if id.id < 0 || id.id >= self.core.cell_index.length() {
+      continue
+    }
+    let current = match self.core.cell_index[id.id] {
+      PullSignal(i) => self.pull.signals[i].meta.push_reachable_count
+      PullMemo(i) | HybridMemo(i) =>
+        self.pull.memos[i].meta.push_reachable_count
+      PushReactive(i) => self.push.reactives[i].meta.push_reachable_count
+      PushEffect(i) => self.push.effects[i].meta.push_reachable_count
+      Relation(i) => self.datalog.relations[i].meta.push_reachable_count
+      FunctionalRelation(i) =>
+        self.datalog.functional_relations[i].meta.push_reachable_count
+      Rule(i) => self.datalog.rules[i].meta.push_reachable_count
+      Disposed => continue
+    }
+    let new_count = current + delta
+    if new_count < 0 {
+      abort(
+        "adjust_push_reachable: count went negative for cell " +
+        id.id.to_string() +
+        " (delta=" +
+        delta.to_string() +
+        ", was=" +
+        current.to_string() +
+        ")",
+      )
+    }
+    match self.core.cell_index[id.id] {
+      PullSignal(i) =>
+        self.pull.signals[i].meta.push_reachable_count = new_count
+      PullMemo(i) | HybridMemo(i) =>
+        self.pull.memos[i].meta.push_reachable_count = new_count
+      PushReactive(i) =>
+        self.push.reactives[i].meta.push_reachable_count = new_count
+      PushEffect(i) =>
+        self.push.effects[i].meta.push_reachable_count = new_count
+      Relation(i) =>
+        self.datalog.relations[i].meta.push_reachable_count = new_count
+      FunctionalRelation(i) =>
+        self.datalog.functional_relations[i].meta.push_reachable_count =
+          new_count
+      Rule(i) =>
+        self.datalog.rules[i].meta.push_reachable_count = new_count
+      Disposed => ()
+    }
+  }
+}
+
+///|
 /// Registers a callback that fires whenever a revision bump occurs.
 /// During a batch, it fires once at batch end (only if values actually changed).
 ///
