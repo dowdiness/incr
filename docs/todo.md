@@ -176,31 +176,48 @@ clean up the dead logic.
 
 Each step builds on the previous. See [semantic-interning.md](semantic-interning.md) for interning design and [roadmap.md](roadmap.md) for context.
 
+**Status (2026-03-28):** Partially deferred — see [roadmap.md](roadmap.md) Phase 4E for rationale.
+Recommended next step before implementing these: add a simple type system to the lambda calculus
+parser. Boundary ③ (CST → Typed AST) needs to exist before these features can be validated.
+
 ### Semantic Interning
 
-- [ ] Define `InternId` struct with `index : Int` and `generation : Int` fields (in `types/`)
+Start with `index : Int` only — no generation counter yet. The table is grow-only initially
+(no slot reuse), so the generation counter is vestigial until GC/slot-reuse is implemented.
+See updated Design Decisions in [semantic-interning.md](semantic-interning.md).
+
+- [ ] Define `InternId` struct with `index : Int` field only (in `types/`)
 - [ ] Implement `Hash` and `Eq` for `InternId` (integer comparison)
-- [ ] Define `InternTable[T]` with `to_id : HashMap[T, InternId]`, `values : Array[T]`, `generations : Array[Int]`
+- [ ] Define `InternTable[T]` with `to_id : HashMap[T, InternId]` and `values : Array[T]`
 - [ ] Implement `InternTable::intern(value : T) -> InternId` (lookup or insert)
-- [ ] Implement `InternTable::get(id : InternId) -> T` (reverse lookup with generation validation)
-- [ ] Implement `InternTable::is_valid(id : InternId) -> Bool`
-- [ ] Add unit tests for intern/get round-trip, dedup, generation validation
+- [ ] Implement `InternTable::get(id : InternId) -> T` (reverse lookup)
+- [ ] Add unit tests for intern/get round-trip and dedup
 - [ ] Add integration test: `InternId` as `MemoMap` key for stable cross-revision caching
 - [ ] Add integration test: `InternId` in `Relation` for O(1) Datalog fact equality
 
 ### Tracked Structs
 
-- [ ] Design multi-field tracked struct pattern combining `InternId` + multiple `TrackedCell` fields
-- [ ] Implement constructor that interns identity fields and creates/updates TrackedCells for tracked fields
-- [ ] Same identity fields across revisions → same `InternId`, per-field backdating
-- [ ] Add integration tests for field-level dependency granularity (change one field, only dependent memos recompute)
+No new library code needed — `TrackedCell`, `Trackable`, and `MemoMap` already provide all
+required infrastructure. The work here is demonstrating the pattern, not building it.
 
-### Accumulators
+- [ ] Add integration test: `InternId` + `TrackedCell` fields, field-level dependency granularity
+      (change one field, only dependent memos recompute; identity key stable across revisions)
 
-- [ ] Design accumulator API: `Runtime::accumulate(value)` + `Runtime::accumulated(memo) -> Array[T]`
-- [ ] Implement side-channel collection on `Runtime` (separate from return value)
-- [ ] Integrate with dependency tracking (accumulated value changes → dependents recompute)
-- [ ] Integrate with backdating (same accumulated values → skip downstream)
+### Accumulators — DEFERRED
+
+Deferred until Boundary ③ (CST → Typed AST) exists with multiple interdependent queries.
+The following design questions must be answered before implementation:
+- Type erasure: `Runtime` is not generic — how does `accumulate(T)` store without making Runtime generic?
+- Transitive collection: `accumulated(memo)` must collect from memo and all transitive sub-calls,
+  requiring a second dependency graph (query call stack) on top of the existing one.
+- Backdating: comparing `Array[T]` equality requires `T : Eq`; insertion order must be stable.
+- Invalidation: if only accumulated values change (not the return value), dependents still need
+  to recompute — this doesn't fit the existing model where backdating is keyed to the return value.
+
+- [ ] Build Boundary ③ use case first (lambda type-checker with type errors as diagnostics)
+- [ ] Design accumulator API informed by concrete use case
+- [ ] Implement side-channel collection on `Runtime`
+- [ ] Integrate with dependency tracking and backdating
 - [ ] Add tests for diagnostic collection across multiple queries
 
 ## Documentation

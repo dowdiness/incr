@@ -92,7 +92,7 @@ Per-entity `HybridMemo` keyed by stable `InternId` — dirty-flagged when the en
 | GC strategy | Grow-only initially | Add `clear()` for short-lived sessions. Defer LRU/refcount until long-lived sessions need it. |
 | Package location | `incr/types/` or new `incr/intern/` | Zero deps, usable independently. |
 | Backing store | `HashMap[T, InternId]` + `Array[T]` | Not the arena library — arena lacks value dedup (its core purpose is byte-level bump allocation for DSP). |
-| Generation counter design | `InternId { index, generation }` | Referenced from arena library's `Ref` pattern. |
+| Generation counter | Start with `InternId { index: Int }` only | Grow-only tables never reuse slots, so the generation counter is vestigial until GC/slot-reuse is implemented. Adding it now costs struct size, a second comparison in `Eq`, and a second field to hash — for zero benefit. Add `generation: Int` when implementing slot reuse. |
 
 ## Relationship to Other Planned Features
 

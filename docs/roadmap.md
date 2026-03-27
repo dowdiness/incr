@@ -149,15 +149,19 @@ High-level future direction for the `incr` library, organized by phase. Each pha
 - ~~**`Runtime::fixpoint()`**: Semi-naive evaluation until no new facts derived~~ ✓ Implemented
   - Drain → apply rules → promote staged → repeat until stable
 
-### Phase 4E: Salsa-Style Query API (planned)
+### Phase 4E: Salsa-Style Query API (partially deferred — 2026-03-28)
 
 The following features build toward a Salsa-style query API where users write normal functions that are automatically memoized with incremental invalidation. Each step builds on the previous one. See [semantic-interning.md](semantic-interning.md) for the interning design exploration.
 
-1. **Semantic interning (`InternTable[T]`)** — Generic interning table with generational indices. Maps `T : Hash + Eq` values to stable `InternId` integers. Enables O(1) equality for Datalog facts, stable `MemoMap` keys across revisions, and efficient Memo backdating on rich domain types. Standalone (no Runtime dependency initially). Design: [semantic-interning.md](semantic-interning.md).
+**Recommended next step:** Add a simple type system to the lambda calculus parser to create a real Boundary ③ (CST → Typed AST). Building the use case first validates API shapes before committing to them — the accumulator and interning designs are sound in the abstract but may need adjustment once a concrete type-checker drives them.
 
-2. **Tracked structs** — Multi-field tracked entities with identity via `InternId`. Combines `InternTable` (provides stable identity) with multiple `TrackedCell` fields (provides field-level dependency granularity). A constructor that interns identity fields and creates/updates TrackedCells for tracked fields — same identity fields across revisions yield the same `InternId`, with per-field backdating.
+1. **Semantic interning (`InternTable[T]`)** — Generic interning table. Maps `T : Hash + Eq` values to stable `InternId` integers. Enables O(1) equality for Datalog facts, stable `MemoMap` keys across revisions, and efficient Memo backdating on rich domain types. Standalone (no Runtime dependency). Design: [semantic-interning.md](semantic-interning.md).
 
-3. **Accumulators** — Side-channel value collection during query computation. Lets any query emit values (e.g., diagnostics) without threading them through return types. Collected by ancestor queries via `db.accumulated(memo)`. Needed when multiple independent queries contribute diagnostics about the same entity — the alternative (returning `(Result, Array[Diagnostic])` from every query) pollutes all signatures. Not needed until Boundary ③ (CST → Typed AST) has multiple interdependent queries.
+   **Simplification (2026-03-28):** Start with `InternId { index: Int }` only — no generation counter. The table is grow-only initially (no slot reuse), making the generation counter vestigial until GC/slot-reuse is implemented. Add `generation: Int` when implementing GC.
+
+2. **Tracked structs** — No new library code needed. `TrackedCell`, `Trackable`, and `MemoMap` already provide all required infrastructure. Work is demonstrating the pattern via an integration test: `InternId` as MemoMap key + `TrackedCell` fields for field-level granularity.
+
+3. **Accumulators** — **Deferred until Boundary ③ exists.** Side-channel value collection during query computation (e.g., diagnostics without threading through return types). Deferred because: (a) no concrete use case yet, (b) key design questions unresolved — type erasure in a non-generic Runtime, transitive collection requiring a second dependency graph, backdating of `Array[T]` equality, and invalidation when only accumulated values change. See [todo.md](todo.md) for the full list of open questions.
 
 4. **Multi-key MemoMap (optional ergonomics)** — `MemoMap2[K1, K2, V]`, `MemoMap3[K1, K2, K3, V]` as sugar for multi-argument queries. Low priority because tuple keys `MemoMap[(K1, K2), V]` already work.
 
