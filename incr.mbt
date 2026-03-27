@@ -10,6 +10,8 @@ pub using @incr_types {
   type RuleId,
   type FunctionalRelationId,
   DURABILITY_COUNT,
+  trait HasChangedAt,
+  trait BackdateEq,
 }
 
 ///|
