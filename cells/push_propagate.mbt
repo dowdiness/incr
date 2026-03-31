@@ -151,7 +151,7 @@ fn Runtime::push_propagate_from(
       for sub_id in self.get_subscribers(id) {
         match self.core.cell_index[sub_id.id] {
           PushReactive(i) =>
-            if not(self.push.reactives[i].dirty) {
+            if !self.push.reactives[i].dirty {
               self.push.reactives[i].dirty = true
               update_queue.push({
                 neg_level: -self.push.reactives[i].level,
@@ -159,7 +159,7 @@ fn Runtime::push_propagate_from(
               })
             }
           PushEffect(i) =>
-            if not(self.push.effects[i].dirty) {
+            if !self.push.effects[i].dirty {
               self.push.effects[i].dirty = true
               update_queue.push({
                 neg_level: -self.push.effects[i].level,
@@ -181,7 +181,7 @@ fn Runtime::push_propagate_from(
     enqueue_push_subscribers(changed_id)
   }
 
-  while not(update_queue.is_empty()) {
+  while !update_queue.is_empty() {
     let entry = update_queue.pop().unwrap()
     let queued_level = -entry.neg_level
     match entry.cell_ref {
@@ -200,7 +200,7 @@ fn Runtime::push_propagate_from(
         // from slot reuse — a newly allocated cell at the same SoA index starts
         // with dirty=false, so a lingering queue entry from the old cell is
         // harmlessly skipped here).
-        if not(reactive.dirty) {
+        if !reactive.dirty {
           continue
         }
         reactive.dirty = false
@@ -232,7 +232,7 @@ fn Runtime::push_propagate_from(
           _ => continue
         }
         // Dirty check: same guard as PushReactive — skip stale or reused-slot entries.
-        if not(effect.dirty) {
+        if !effect.dirty {
           continue
         }
         effect.dirty = false

@@ -84,7 +84,7 @@ fn snapshot_subscribers(
 /// - For memos, dependencies are populated after the first computation
 /// - The method performs bounds checking and returns None for invalid IDs
 pub fn Runtime::cell_info(self : Runtime, id : CellId) -> CellInfo? {
-  if not(self.validate_cell_soft(id)) {
+  if !self.validate_cell_soft(id) {
     return None
   }
   let ops = self.core.cell_ops[id.id]
@@ -136,7 +136,7 @@ pub fn Runtime::cell_info(self : Runtime, id : CellId) -> CellInfo? {
 /// Array of CellIds that have `id` in their dependency list, or empty
 /// array if the cell ID is not valid for this runtime
 pub fn Runtime::dependents(self : Runtime, id : CellId) -> Array[CellId] {
-  if not(self.validate_cell_soft(id)) {
+  if !self.validate_cell_soft(id) {
     return []
   }
   snapshot_subscribers(self.core.cell_ops[id.id].subscribers())

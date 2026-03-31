@@ -225,7 +225,7 @@ fn[T : Eq] Signal::set_batch(self : Signal[T], new_value : T) -> Unit {
   }
   self.rt.record_batch_rollback(self.cell_id, () => {
     self.pending_value = previous_pending
-    if not(was_registered) {
+    if !was_registered {
       sig_data.commit_pending = None
       self.rt.remove_batch_signal(self.cell_id)
     }
@@ -251,7 +251,7 @@ fn[T] Signal::set_batch_unconditional(self : Signal[T], new_value : T) -> Unit {
   }
   self.rt.record_batch_rollback(self.cell_id, () => {
     self.pending_value = previous_pending
-    if not(was_registered) {
+    if !was_registered {
       sig_data.commit_pending = None
       self.rt.remove_batch_signal(self.cell_id)
     }

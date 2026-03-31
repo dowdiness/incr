@@ -1,5 +1,5 @@
 ///|
-struct FunctionalRelationData {
+priv struct FunctionalRelationData {
   meta : CellMeta
   drain_delta : () -> Unit
   is_delta_empty : () -> Bool

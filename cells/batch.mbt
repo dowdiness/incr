@@ -130,7 +130,7 @@ fn Runtime::complete_batch_frame_success(self : Runtime) -> Unit {
       }
       let parent = self.core.batch_frames[self.core.batch_frames.length() - 1]
       for entry in frame.undo_entries {
-        if not(parent.has_undo_for(entry.cell_id)) {
+        if !parent.has_undo_for(entry.cell_id) {
           parent.undo_entries.push(entry)
           parent.undo_ids.add(entry.cell_id)
         }
@@ -249,7 +249,7 @@ fn Runtime::remove_batch_signal(self : Runtime, cell_id : CellId) -> Unit {
   let kept : Array[&Committable] = []
   let mut removed = false
   for c in self.core.batch_pending {
-    if not(removed) && c.cell_id() == cell_id {
+    if !removed && c.cell_id() == cell_id {
       removed = true
     } else {
       kept.push(c)

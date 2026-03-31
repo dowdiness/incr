@@ -4,7 +4,6 @@ package "dowdiness/incr/cells"
 import {
   "dowdiness/incr/types",
   "moonbitlang/core/debug",
-  "moonbitlang/core/hashset",
 }
 
 // Values
@@ -58,25 +57,22 @@ pub fn[K : Hash + Eq, V : Eq] FunctionalRelation::insert(Self[K, V], K, V) -> Bo
 pub fn[K, V] FunctionalRelation::iter(Self[K, V]) -> Iter[(K, V)]
 pub fn[K : Hash + Eq, V] FunctionalRelation::new(Runtime, merge? : (V, V) -> V, label? : String) -> Self[K, V]
 
-type FunctionalRelationData
-
 pub(all) struct HybridMemo[T] {
   // private fields
 
   fn[T : Eq] new(Runtime, () -> T, label? : String) -> HybridMemo[T]
-}
+} derive(@debug.Debug)
 pub fn[T] HybridMemo::dispose(Self[T]) -> Unit
 pub fn[T : Eq] HybridMemo::get(Self[T]) -> T
 pub fn[T] HybridMemo::id(Self[T]) -> @types.CellId
 pub fn[T] HybridMemo::is_up_to_date(Self[T]) -> Bool
 pub fn[T : Eq] HybridMemo::new(Runtime, () -> T, label? : String) -> Self[T]
-pub impl[T : @debug.Debug] @debug.Debug for HybridMemo[T]
 
 pub(all) struct Memo[T] {
   // private fields
 
   fn[T : Eq] new(Runtime, () -> T, label? : String) -> Memo[T]
-}
+} derive(@debug.Debug)
 pub fn[T] Memo::changed_at(Self[T]) -> @types.Revision
 pub fn[T] Memo::clear_on_change(Self[T]) -> Unit
 pub fn[T] Memo::dependencies(Self[T]) -> Array[@types.CellId]
@@ -91,7 +87,6 @@ pub fn[T : @types.BackdateEq] Memo::new_memo(Runtime, () -> T, label? : String) 
 pub fn[T] Memo::new_no_backdate(Runtime, () -> T, label? : String) -> Self[T]
 pub fn[T] Memo::on_change(Self[T], (T) -> Unit) -> Unit
 pub fn[T] Memo::verified_at(Self[T]) -> @types.Revision
-pub impl[T : @debug.Debug] @debug.Debug for Memo[T]
 
 pub(all) struct MemoMap[K, V] {
   // private fields
@@ -126,10 +121,6 @@ pub fn[T : Hash + Eq] Relation::insert(Self[T], T) -> Bool
 pub fn[T] Relation::iter(Self[T]) -> Iter[T]
 pub fn[T : Hash + Eq] Relation::new(Runtime, label? : String) -> Self[T]
 
-type RelationData
-
-type RuleData
-
 pub(all) struct Runtime {
   // private fields
 
@@ -149,7 +140,7 @@ pub(all) struct Signal[T] {
   // private fields
 
   fn[T] new(Runtime, T, durability? : @types.Durability, label? : String) -> Signal[T]
-}
+} derive(@debug.Debug)
 pub fn[T] Signal::clear_on_change(Self[T]) -> Unit
 pub fn[T] Signal::durability(Self[T]) -> @types.Durability
 pub fn[T] Signal::get(Self[T]) -> T
@@ -160,13 +151,12 @@ pub fn[T] Signal::new(Runtime, T, durability? : @types.Durability, label? : Stri
 pub fn[T] Signal::on_change(Self[T], (T) -> Unit) -> Unit
 pub fn[T : Eq] Signal::set(Self[T], T) -> Unit
 pub fn[T] Signal::set_unconditional(Self[T], T) -> Unit
-pub impl[T : @debug.Debug] @debug.Debug for Signal[T]
 
 pub(all) struct TrackedCell[T] {
   // private fields
 
   fn[T] new(Runtime, T, durability? : @types.Durability, label? : String) -> TrackedCell[T]
-}
+} derive(@debug.Debug)
 pub fn[T] TrackedCell::as_signal(Self[T]) -> Signal[T]
 pub fn[T] TrackedCell::clear_on_change(Self[T]) -> Unit
 pub fn[T] TrackedCell::durability(Self[T]) -> @types.Durability
@@ -178,12 +168,8 @@ pub fn[T] TrackedCell::new(Runtime, T, durability? : @types.Durability, label? :
 pub fn[T] TrackedCell::on_change(Self[T], (T) -> Unit) -> Unit
 pub fn[T : Eq] TrackedCell::set(Self[T], T) -> Unit
 pub fn[T] TrackedCell::set_unconditional(Self[T], T) -> Unit
-pub impl[T : @debug.Debug] @debug.Debug for TrackedCell[T]
 
 // Type aliases
 
 // Traits
-trait CellOps : HasCellMeta
-
-trait Committable
 

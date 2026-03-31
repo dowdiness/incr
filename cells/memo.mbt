@@ -365,18 +365,18 @@ fn[T] Runtime::memo_force_recompute(
   let old_seen : @hashset.HashSet[CellId] = @hashset.new()
   for dep in old_deps {
     old_seen.add(dep)
-    if not(new_seen.contains(dep)) {
+    if !new_seen.contains(dep) {
       deps_changed = true
     }
   }
   if deps_changed {
     for dep in old_deps {
-      if not(new_seen.contains(dep)) {
+      if !new_seen.contains(dep) {
         self.remove_subscriber(dep, cell_id)
       }
     }
     for dep in new_deps {
-      if not(old_seen.contains(dep)) {
+      if !old_seen.contains(dep) {
         self.add_subscriber(dep, cell_id)
       }
     }
@@ -387,7 +387,7 @@ fn[T] Runtime::memo_force_recompute(
   }
   let value_changed = match old_value {
     None => true
-    Some(old) => not(eq_fn(old, new_value))
+    Some(old) => !eq_fn(old, new_value)
   }
   if value_changed {
     cell.meta.changed_at = self.core.current_revision

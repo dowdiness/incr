@@ -8,7 +8,7 @@
 /// `cell_id` and `durability` allow `commit_batch` and
 /// `recompute_batch_max_durability` to read signal metadata directly from
 /// the trait object rather than going back to the SoA array.
-trait Committable {
+priv trait Committable {
   do_commit(Self) -> Bool
   cell_id(Self) -> CellId
   durability(Self) -> Durability
@@ -59,7 +59,7 @@ priv trait HasCellMeta {
 /// have already validated cell ownership. The guards in `get_subscribers`,
 /// `get_changed_at`, etc. exist for external entry points; they are not
 /// repeated here.
-trait CellOps: HasCellMeta {
+priv trait CellOps: HasCellMeta {
   cell_id(Self) -> CellId = _
   changed_at(Self) -> Revision = _
   /// Stamps `changed_at` to `rev`. Used by Phase 3 cell kinds that need a

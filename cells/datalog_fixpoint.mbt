@@ -20,12 +20,12 @@ pub fn Runtime::fixpoint(self : Runtime) -> Unit {
   let changed : Array[Bool] = []
   // Mark relations with pre-existing non-empty deltas
   for rel in self.datalog.relations {
-    changed.push(not((rel.is_delta_empty)()))
+    changed.push(!(rel.is_delta_empty)())
   }
   // Track which functional relation SoA indices changed during this fixpoint run
   let fr_changed : Array[Bool] = []
   for fr in self.datalog.functional_relations {
-    fr_changed.push(not((fr.is_delta_empty)()))
+    fr_changed.push(!(fr.is_delta_empty)())
   }
   self.core.in_fixpoint = true
   // Fixpoint loop
@@ -56,7 +56,7 @@ pub fn Runtime::fixpoint(self : Runtime) -> Unit {
     let mut has_new_facts = false
     ri = 0
     while ri < self.datalog.relations.length() {
-      if not((self.datalog.relations[ri].is_staged_delta_empty)()) {
+      if !(self.datalog.relations[ri].is_staged_delta_empty)() {
         has_new_facts = true
         changed[ri] = true
       }
@@ -64,7 +64,7 @@ pub fn Runtime::fixpoint(self : Runtime) -> Unit {
     }
     fi = 0
     while fi < self.datalog.functional_relations.length() {
-      if not((self.datalog.functional_relations[fi].is_staged_delta_empty)()) {
+      if !(self.datalog.functional_relations[fi].is_staged_delta_empty)() {
         has_new_facts = true
         fr_changed[fi] = true
       }
@@ -82,7 +82,7 @@ pub fn Runtime::fixpoint(self : Runtime) -> Unit {
       (self.datalog.functional_relations[fi].promote_staged_delta)()
       fi = fi + 1
     }
-    if not(has_new_facts) {
+    if !has_new_facts {
       break
     }
   }

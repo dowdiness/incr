@@ -1,5 +1,5 @@
 ///|
-struct RuleData {
+priv struct RuleData {
   meta : CellMeta
   apply_delta : () -> Unit
   input_relations : Array[CellId]

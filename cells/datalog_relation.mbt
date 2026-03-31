@@ -1,5 +1,5 @@
 ///|
-struct RelationData {
+priv struct RelationData {
   meta : CellMeta
   drain_delta : () -> Unit
   is_delta_empty : () -> Bool
