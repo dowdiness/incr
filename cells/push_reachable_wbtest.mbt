@@ -171,7 +171,7 @@ test "push_reachable_count: source change on reactive recompute" {
   let s2 = Signal::new(rt, 0)
   // reactive starts reading s1
   let flag : Ref[Bool] = Ref::new(true)
-  let r = Reactive::new(rt, () => if flag.val { s1.get() } else { s2.get() })
+  let _r = Reactive::new(rt, () => if flag.val { s1.get() } else { s2.get() })
   inspect(get_count(rt, s1.id()), content="1")
   inspect(get_count(rt, s2.id()), content="0")
   // switch reactive to read s2 by changing flag and triggering recompute
