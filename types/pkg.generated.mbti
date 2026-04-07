@@ -14,15 +14,17 @@ pub const DURABILITY_COUNT : Int = 3
 pub(all) struct CellId {
   runtime_id : Int
   id : Int
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
 pub impl Hash for CellId
+pub impl Show for CellId
 
 pub(all) enum Durability {
   Low
   Medium
   High
-} derive(Compare, Eq, Show, @debug.Debug)
+} derive(Compare, Eq, @debug.Debug)
 pub fn Durability::index(Self) -> Int
+pub impl Show for Durability
 
 pub(all) struct FunctionalRelationId[K, V] {
   id : CellId
@@ -42,7 +44,7 @@ pub(all) struct RelationId[T] {
 
 pub(all) struct Revision {
   value : Int
-} derive(Compare, Default, Eq, Show, @debug.Debug)
+} derive(Compare, Default, Eq, @debug.Debug)
 pub fn Revision::initial() -> Self
 pub fn Revision::next(Self) -> Self
 
