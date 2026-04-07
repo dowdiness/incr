@@ -84,97 +84,26 @@ dowdiness/incr/
 
 The root package re-exports all public types via `pub type` transparent aliases in `incr.mbt`, so downstream users see a unified `@incr` API with no awareness of the internal package structure.
 
-### Core Computation Model
+For deep internals (verification algorithm, type erasure, SoA storage, push propagation, data flow), see [docs/design.md](docs/design.md).
 
-The library implements Salsa's incremental computation pattern with eight cell types:
+### Key Facts
 
-- **Signal[T]** (`cells/signal.mbt`) — Input cells with externally-set values. Support same-value optimization (skip revision bump if value unchanged) and durability levels (Low/Medium/High).
-- **Memo[T]** (`cells/memo.mbt`) — Derived computations that lazily evaluate and cache results. Automatically track dependencies via the runtime's tracking stack. Implement **backdating**: when a recomputed value equals the previous value, `changed_at` is preserved, preventing unnecessary downstream recomputation.
-- **HybridMemo[T]** (`cells/hybrid_memo.mbt`) — Lazy memo with revision-based staleness detection. Does not increment `push.node_count`, but does participate in `push_reachable_count` tracking: when a live Reactive/Effect subscribes through a HybridMemo, the memo and its upstream cells each get their `push_reachable_count` incremented, enabling inner BFS pruning in `enqueue_push_subscribers`. When `push_reachable_count == 0`, staleness is detected purely via `verified_at < current_revision`. Fast path skips dep walk when `verified_at >= current_revision`.
-- **Reactive[T]** (`cells/reactive.mbt`) — Push-mode derived cell. Recomputed eagerly during level-sorted push propagation when upstream cells change.
-- **Effect** (`cells/effect.mbt`) — Terminal push-mode side-effect cell. Runs side effects eagerly; never read by other cells.
-- **Relation[T]** (`cells/datalog_relation.mbt`) — Set-based Datalog relation with semi-naive delta tracking (`current`/`delta`/`staged_delta`). Used for monotone facts in fixpoint evaluation.
-- **FunctionalRelation[K, V]** (`cells/datalog_functional_relation.mbt`) — Key-value Datalog relation with delta tracking. Unlike `Relation[T]`, maps each key to one value; updates produce deltas. Optional merge function resolves conflicts.
-- **Runtime** (`cells/runtime.mbt`) — Central state: global revision counter, SoA arrays (`pull_signals`, `pull_memos`, `push_reactives`, `push_effects`, `relations`, `functional_relations`, `cell_index`, `cell_ops`), dependency tracking stack, per-durability revision tracking, push propagation engine, fixpoint engine, and batch state.
-
-### Dependency Graph Internals
-
-- **SoA storage** (`cells/cell_ref.mbt`, `cells/pull_signal.mbt`, `cells/pull_memo.mbt`, `cells/hybrid_memo.mbt`, `cells/reactive.mbt`, `cells/effect.mbt`, `cells/cell_ops.mbt`) — Cell metadata lives in parallel typed arrays on `Runtime`: `pull_signals : Array[PullSignalData]` (input cells), `pull_memos : Array[MemoData]` (unified storage for both pull-mode and hybrid-mode derived cells), `push_reactives : Array[PushReactiveData]` (push-mode derived cells), `push_effects : Array[PushEffectData]` (terminal side-effect cells), `cell_index : Array[CellRef]` (maps `CellId.id` → `PullSignal(idx)`, `PullMemo(idx)`, `HybridMemo(idx)`, `PushReactive(idx)`, `PushEffect(idx)`, `Relation(idx)`, `FunctionalRelation(idx)`, `Rule(idx)`, or `Disposed` for O(1) dispatch), and `cell_ops : Array[&CellOps]` (trait-object array for uniform read access — indexed by `CellId.id`). Both `PullMemo` and `HybridMemo` index into the same `pull_memos` array. All SoA data structs implement `CellOps`.
-- **ActiveQuery** (`cells/tracking.mbt`) — Frame pushed onto `Runtime.tracking_stack` during memo computation. Collects dependencies (with HashSet-based O(1) deduplication) read via `Signal::get` or `Memo::get`.
-- **Revision** / **Durability** (`types/revision.mbt`) — Monotonic revision counter bumped on input changes. Durability classifies input change frequency; derived cells inherit the minimum durability of their dependencies.
-- **Verification** (`cells/verify.mbt`) — `pull_verify()` is the core algorithm. Dispatches directly on `cell_index`; signals are always fresh. For memos: checks the root durability shortcut first, then walks dependencies iteratively using an explicit `PullVerifyFrame` stack. Short-circuits on the first detected change (sets `dep_cursor` to end of dep list). If any dependency changed, calls the type-erased `compute` closure (enabling backdating). Green path marks `verified_at` without recomputation. Per-dep durability shortcuts skip traversal for individual stale deps.
-- **CycleError** (`cells/cycle.mbt`) — Cycle detection error type. `CycleError::from_path(path, closing_id)` constructs a `CycleDetected` value from a collected path; `format_path(rt)` produces a human-readable chain string. The cycle path is built from the local `PullVerifyFrame` stack (traversal order).
-- **Push propagation** (`cells/push_propagate.mbt`) — `push_propagate_from` does a level-sorted BFS from changed sources using a min-heap (`PushEntry` with negated levels). Traverses through pull/hybrid memos (which verify lazily) to reach downstream `PushReactive` and `PushEffect` nodes; eagerly recomputes `PushReactive` cells and executes `PushEffect` cells. `propagate_level_change` recalculates topological levels when sources change. Gated at two levels: (1) global `push_node_count > 0` skips the entire function when no push cells exist; (2) per-source `push_reachable_count == 0` skips BFS for individual sources with no downstream push cells (O(1) gate in `enqueue_push_subscribers`); (3) within BFS, memo nodes with `push_reachable_count == 0` are pruned from the worklist.
-- **CellOps / Committable** (`cells/cell_ops.mbt`) — `CellOps` is a 6-method trait providing uniform read access to any cell (`cell_id`, `changed_at`, `set_changed_at`, `subscribers`, `label`, `durability`); implemented by all five SoA data structs. `Committable` is a 3-method trait for batch-commit dispatch (`do_commit`, `cell_id`, `durability`); implemented only by `PullSignalData`. `Runtime.batch_pending : Array[&Committable]` stores trait-object references to pending signals, so `commit_batch` can call `do_commit()` without SoA lookup.
-- **Traits** (`traits.mbt`) — `Database`, `Readable`, and `Trackable` public traits; `create_signal`, `create_memo`, `create_hybrid_memo`, `create_tracked_cell`, `batch`, and `gc_tracked` helper functions. Pipeline traits (`Sourceable`, `Parseable`, `Checkable`, `Executable`) live in `pipeline/pipeline_traits.mbt` and are marked experimental.
-
-### Type Erasure
-
-The `Runtime` holds cells of many different value types simultaneously. `MemoData` must be type-erased — it cannot be generic over `T`.
-
-MoonBit has no trait objects (no `Box<dyn Trait>` equivalent), so the value type cannot be hidden behind a vtable. Instead, the bridge is a **captured closure**:
-
-```
-Memo[T]::new()
-  ├── allocates cell_id
-  ├── creates memo : Memo[T] = { compute, value: None, ... }
-  ├── creates compute : () -> Result[Bool, CycleError]
-  │     └── captures `memo` by reference (the full typed Memo[T])
-  │         calls memo.recompute_inner() which reads/writes memo.value : T?
-  │         returns only Bool (changed?) — runtime never sees T
-  └── stores closure in MemoData (type-erased)
-```
-
-`pull_verify` calls `(memo.compute)()` and only receives a `Bool` or a `CycleError`. The typed value `T` never crosses the `MemoData` boundary.
-
-**Consequence for contributors:** Do not attempt to:
-- Move the cached value into `MemoData` (would require it to be generic or use `Any`)
-- Make `Runtime` generic over a value type (Runtime holds cells of *many* different types simultaneously)
-- Add a second type-erased closure that returns the value as a string or `Show` output directly from `MemoData` — if you need introspection, thread it through `CellInfo` (see `Runtime::cell_info`) which is populated by the typed layer
-
-The `compute` and `commit_pending` closures follow the same pattern: capture the typed cell, perform typed operations, return only type-erased results (`Bool` or `Result[Bool, CycleError]`).
-
-### Data Flow
-
-1. `Signal::set()` bumps the global revision, records `changed_at` on the signal's `PullSignalData` (or defers to batch if inside `Runtime::batch()`), and triggers `push_propagate_from` if `push_node_count > 0`
-2. Push propagation: BFS from changed signal through subscriber links, traversing through pull/hybrid memos to reach downstream push nodes; eagerly recomputes `Reactive` cells and runs `Effect` cells (all level-sorted for glitch-free execution). Sources with `push_reachable_count == 0` are skipped entirely (O(1) per-source gate); memo nodes with `push_reachable_count == 0` are pruned from the BFS worklist (inner pruning).
-3. `Memo::get()` checks `verified_at` against current revision; if stale, calls `pull_verify()`
-4. `HybridMemo::get()` fast path: if `verified_at >= current_revision`, returns cached value immediately; otherwise calls `pull_verify`
-5. `pull_verify()` iteratively verifies dependencies using an explicit `PullVerifyFrame` stack, short-circuiting on the first change and recomputing only cells whose inputs actually changed
-6. Backdating: if a Memo/HybridMemo recomputes to the same value, `changed_at` stays old, so downstream cells skip recomputation
-7. Durability shortcut: if no input of a cell's durability level changed, verification is skipped entirely
-8. Batch mode: `Runtime::batch(fn)` groups multiple signal updates into a single revision with two-phase commit and revert detection
-
-### MoonBit Conventions
-
-- Tests use `///|` doc-comment prefix followed by `test "name" { ... }` blocks
-- Assertions use `inspect(expr, content="expected")` pattern
-- Panic tests: `test "panic ..."` (name starting with `"panic "`) expects `abort()` to fire — the test runner marks it passed when the abort occurs
-- Benchmarks use `test "name" (b : @bench.T) { b.bench(fn() { b.keep(expr) }) }` blocks; `b.keep()` prevents the optimizer from eliding pure computations
-- Whitebox tests (`*_wbtest.mbt`): live in `cells/` alongside the private types they test; can access private fields and internal functions
-- Unit tests (`*_test.mbt`): live in `cells/` alongside source; test the cells package API as a black-box consumer
-- Integration tests: live in `tests/`; test the full `@incr` public API end-to-end across multiple scenarios
-- The `cells/` package imports `moonbitlang/core/hashset` and `moonbitlang/core/hashmap` as external dependencies
 - `cells/moon.pkg` suppresses warning 15 (`unused_mut`) because some `mut` fields on `MemoData`/`PullSignalData` are only written in whitebox test compilation, not source-only compilation
+- The `cells/` package imports `moonbitlang/core/hashset` and `moonbitlang/core/hashmap` as external dependencies
 
-## Documentation Hierarchy
+## Documentation
 
-### For Users
-- **README.md** — Entry point: features, quick start, documentation index
-- **docs/getting-started.md** — Step-by-step tutorial for new users (shows both Runtime and Database patterns)
-- **docs/concepts.md** — Core concepts explained simply (Signals, Memos, Revisions, Durability, TrackedCell/Field-Level Tracking)
-- **docs/api-reference.md** — Complete reference for all public types and methods
-- **docs/cookbook.md** — Common patterns and recipes
-- **docs/api-design-guidelines.md** — Design philosophy, best practices, planned improvements
+**Main docs:** [docs/](docs/)
 
-### For Contributors
-- **docs/design.md** — Deep technical internals: verification algorithm, backdating, durability, type erasure
-- **CLAUDE.md** (this file) — Contributor and AI guidance: commands, architecture map, conventions
-- **docs/roadmap.md** — Phased future direction (Phases 1–3 complete, Phase 4A–4C complete, remaining: Datalog primitives, GC, accumulators, interning)
-- **docs/todo.md** — Concrete actionable tasks with checkboxes organized by priority
-- **docs/comparison-with-alien-signals.md** — Analysis of alien-signals vs Salsa-style computation
-- **docs/api-design-guidelines.md** — API design principles, patterns, and anti-patterns
-- **docs/api-updates.md** — Summary of recent API documentation changes
+- **For users:** [getting-started.md](docs/getting-started.md), [concepts.md](docs/concepts.md), [api-reference.md](docs/api-reference.md), [cookbook.md](docs/cookbook.md)
+- **For contributors:** [design.md](docs/design.md) (deep internals), [roadmap.md](docs/roadmap.md), [todo.md](docs/todo.md), [api-design-guidelines.md](docs/api-design-guidelines.md)
+- **Archive:** `docs/archive/` — completed plans and stale documents. Do not search here unless you need historical context.
 
-When contributing, read [docs/design.md](docs/design.md) to understand the conceptual model (pull-based verification, backdating, durability shortcuts) before modifying core algorithm files like `cells/verify.mbt` or `cells/memo.mbt`.
+**Documentation rules:**
+- Architecture docs = principles only, never reference specific types/fields/lines. Link to files instead.
+- Plans = implementation details (struct defs, code examples, file paths). Archived on completion.
+- Performance docs = dated snapshots. New measurements go in new files, old ones are not updated.
+- Code is the source of truth — if a doc and the code disagree, the doc is wrong.
+
+When contributing, read [docs/design.md](docs/design.md) before modifying core algorithm files like `cells/verify.mbt` or `cells/memo.mbt`.
 
