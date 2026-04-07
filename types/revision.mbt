@@ -11,7 +11,7 @@
 /// (relative to an observer) when `changed_at > observer.verified_at`.
 pub(all) struct Revision {
   value : Int
-} derive(Default, Show, Debug, Eq, Compare)
+} derive(Default, Debug, Eq, Compare)
 
 ///|
 /// Returns the initial revision (revision 0).
@@ -56,7 +56,12 @@ pub(all) enum Durability {
   Low
   Medium
   High
-} derive(Show, Debug, Eq, Compare)
+} derive(Debug, Eq, Compare)
+
+///|
+pub impl Show for Durability with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 /// Returns the numeric index of this durability level.

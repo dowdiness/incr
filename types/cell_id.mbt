@@ -10,7 +10,12 @@
 pub(all) struct CellId {
   runtime_id : Int
   id : Int
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for CellId with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub impl Hash for CellId with hash(self) {
