@@ -6,15 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A Salsa-inspired incremental recomputation library written in MoonBit. Provides automatic dependency tracking, memoization with backdating, and durability-based verification skipping.
 
-## MoonBit Language Notes
-
-- `pub` vs `pub(all)` visibility modifiers have different semantics — check current docs before using
-- `._` syntax is deprecated, use `.0` for tuple access
-- `try?` does not catch `abort` — use explicit error handling
-- `?` operator is not always supported — use explicit match/error handling when it fails
-- `ref` is a reserved keyword — do not use as variable/field names
-- Blackbox tests cannot construct internal structs — use whitebox tests or expose constructors
-- For cross-target builds, use per-file conditional compilation rather than `supported-targets` in moon.pkg.json
+@~/.claude/moonbit-base.md
 
 ## Commands
 
@@ -164,7 +156,6 @@ The `compute` and `commit_pending` closures follow the same pattern: capture the
 - Integration tests: live in `tests/`; test the full `@incr` public API end-to-end across multiple scenarios
 - The `cells/` package imports `moonbitlang/core/hashset` and `moonbitlang/core/hashmap` as external dependencies
 - `cells/moon.pkg` suppresses warning 15 (`unused_mut`) because some `mut` fields on `MemoData`/`PullSignalData` are only written in whitebox test compilation, not source-only compilation
-- Anonymous callbacks use arrow function syntax: `() => expr` (zero params, single expression), `() => { stmts }` (multi-statement), `x => expr` (one param), `(x, y) => expr` (multiple params). Empty bodies use `() => ()` — not `() => {}` which MoonBit parses as a map literal. Named functions (`pub fn`, `fn name(...)`) are unaffected.
 
 ## Documentation Hierarchy
 
@@ -187,25 +178,3 @@ The `compute` and `commit_pending` closures follow the same pattern: capture the
 
 When contributing, read [docs/design.md](docs/design.md) to understand the conceptual model (pull-based verification, backdating, durability shortcuts) before modifying core algorithm files like `cells/verify.mbt` or `cells/memo.mbt`.
 
-## Code Review Standards
-
-- Never dismiss a review request — always do a thorough line-by-line review even if changes seem minor
-- Check for: integer overflow, zero/negative inputs, boundary validation, generation wrap-around
-- Do not suggest deleting public API types (Id structs, etc.) as 'unused' — they may be needed by downstream consumers
-- Verify method names match actual API before writing tests (e.g., check if it's `insert` vs `add_local_op`)
-
-## Development Workflow
-
-1. Make edits
-2. `moon check` — Lint
-3. `moon test` — Run tests
-4. `moon test --update` — Update snapshots (if behavior changed)
-5. `moon info` — Update `.mbti` interfaces
-6. Check `git diff *.mbti` — Verify API changes
-7. `moon fmt` — Format
-
-## Git Workflow
-
-- Always check if git is initialized before running git commands
-- After rebase operations, verify files are in the correct directories
-- When asked to 'commit remaining files', interpret generously even if phrasing is unclear
