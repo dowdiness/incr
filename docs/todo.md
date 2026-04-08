@@ -220,6 +220,41 @@ The following design questions must be answered before implementation:
 - [ ] Integrate with dependency tracking and backdating
 - [ ] Add tests for diagnostic collection across multiple queries
 
+## Pipeline Traits — Deferred (move to loom)
+
+**Status (2026-04-08):** Deferred. Current pipeline traits (`Sourceable`, `Parseable`, `Checkable`,
+`Executable` in `incr/pipeline/`) are too generic to be useful — everything returns `Array[String]`,
+no typed AST/CST, no incremental semantics. Only exercised by a test fixture (`CalcPipeline`).
+Zero production usage.
+
+**Decision:** Don't integrate into loom's `ReactiveParser` now. The concrete methods on
+`ReactiveParser` (`set_source`, `cst`, `diagnostics`, `term`) already serve as the de facto
+pipeline interface. Extracting traits is premature — there isn't a second implementation that
+needs the generic interface.
+
+**When to revisit:** When one of these becomes true:
+- A second pipeline implementation exists that needs to share an interface with `ReactiveParser`
+  (e.g., a push-based pipeline using `Reactive`/`Effect`)
+- Post-parse stages (type-checking, evaluation) land in canopy and need a composable extension
+  mechanism on `ReactiveParser`
+- Generic editor features (autocomplete, hover, go-to-definition) need to work across languages
+  via trait dispatch
+
+**Recommended approach when revisiting:**
+- Move pipeline traits from `incr/pipeline/` to `loom/src/pipeline/`
+- Use capability traits (trait-per-stage) on universally-typed stages only (`String`, `CstStage`,
+  `Array[Diagnostic]`). Language-specific stages (AST, eval) stay concrete — MoonBit's `Self`-only
+  traits can't abstract over the AST type parameter.
+- Consider adding a diagnostics extension protocol to `ReactiveParser` so post-parse stages can
+  register diagnostic sources (aggregated in `diagnostics()`)
+- Finally Tagless is **not** the right pattern here — pipeline stages have heterogeneous types
+  and linear composition, not tree-shaped construction. See conversation notes 2026-04-08.
+
+**Current tasks (keep until migration):**
+- [ ] Remove `incr/pipeline/` package when traits move to loom (update `incr.mbt` re-exports)
+- [ ] Remove `CalcPipeline` test fixture from `incr/tests/traits_test.mbt`
+- [ ] Add capability traits to `loom/src/pipeline/` with `ReactiveParser` impls
+
 ## Documentation
 
 - [x] Add doc comments to all public functions
