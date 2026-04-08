@@ -30,7 +30,8 @@ The incremental computation graph has an inside and an outside. Every interactio
 |------|------------|-----------|-----------|
 | **Source** | Signal, Relation, FunctionalRelation | User-owned. Explicitly disposed. Never auto-collected. | User creates inputs deliberately; auto-collecting would be surprising. |
 | **Root** | Observer (new), Effect | User-owned. Explicitly disposed. Keeps interior subgraph alive. | Demand endpoints that define what the graph computes. |
-| **Interior** | Memo, Reactive, HybridMemo, Rule | Auto-collected when unreachable from any root. Also manually disposable. | Derived computations — existence justified only by demand. |
+| **Interior** | Memo, Reactive, HybridMemo | Auto-collected when unreachable from any root. Also manually disposable. | Derived computations — existence justified only by demand. |
+| **Source** (Datalog) | Rule | User-owned. Explicitly disposed. Never auto-collected. | `fixpoint()` iterates all registered rules directly; GC'ing a rule silently changes fixpoint semantics. |
 
 ### API Contract
 
@@ -65,27 +66,27 @@ Observers behave differently depending on the target cell's computation mode. Th
 
 ### Pull Mode (Memo)
 
-- `observe(memo)` → add to gc_roots (no immediate effect — memo is already lazy)
+- `observe(memo)` → increment `gc_root_counts[cell_id]` (no immediate effect — memo is already lazy)
 - `observer.get()` → triggers pull_verify → recomputes if stale → returns value
-- `observer.dispose()` → remove from gc_roots (no immediate effect — deferred to gc)
+- `observer.dispose()` → decrement `gc_root_counts[cell_id]`. Only when count reaches 0: remove entry (no immediate effect — deferred to gc)
 - `gc()` → if memo unreachable from any root: dispose (free memory)
 
 **Why deferred:** Pull cells compute only when demanded. An unobserved Memo wastes zero CPU — it just holds a cached value in memory. No urgency to act.
 
 ### Push Mode (Reactive)
 
-- `observe(reactive)` → add to gc_roots, activate push path if suspended
+- `observe(reactive)` → increment `gc_root_counts[cell_id]`, activate push path if suspended
 - `observer.get()` → returns eagerly-computed cached value
-- `observer.dispose()` → remove from gc_roots. If no remaining roots: **immediately suspend** — unsubscribe from upstream sources, decrement `push_reachable_count` on upstream cells. Push propagation no longer reaches this cell.
+- `observer.dispose()` → decrement `gc_root_counts[cell_id]`. Only when count reaches 0: **immediately suspend** — unsubscribe from upstream sources, decrement `push_reachable_count` on upstream cells. Push propagation no longer reaches this cell.
 - `gc()` → if reactive suspended and unreachable: dispose (free memory + slot)
 
 **Why immediate:** Push cells eagerly recompute on every input change. An unobserved Reactive wastes CPU every time any upstream signal changes. Must stop immediately.
 
 ### Hybrid Mode (HybridMemo)
 
-- `observe(hybrid)` → add to gc_roots, activate push notifications if suspended
+- `observe(hybrid)` → increment `gc_root_counts[cell_id]`, activate push notifications if suspended
 - `observer.get()` → triggers pull_verify (with push staleness hint) → returns value
-- `observer.dispose()` → remove from gc_roots. If no remaining roots: **immediately suspend push path** — unsubscribe from push notifications, decrement `push_reachable_count`. Cell remains valid for pull verification (if read inside another memo's compute, pull still works).
+- `observer.dispose()` → decrement `gc_root_counts[cell_id]`. Only when count reaches 0: **immediately suspend push path** — unsubscribe from push notifications, decrement `push_reachable_count`. Cell remains valid for pull verification (if read inside another memo's compute, pull still works). Suspension preserves `verified_at`, `changed_at`, dependency arrays, and durability metadata.
 - `gc()` → if hybrid unreachable from any root: dispose (free memory)
 
 **Why hybrid timing:** Stop the eager part immediately (prevents CPU waste). The lazy part can linger — pull verification still works until gc() collects it.
@@ -144,7 +145,7 @@ trait GcParticipant {
 | PushEffectData | N/A | existing `dispose_effect` logic | `Root`, `self.sources` |
 | RelationData | no-op / no-op | clear facts, subscribers, mark Disposed | `Source`, `[]` |
 | FunctionalRelationData | no-op / no-op | clear map, subscribers, mark Disposed | `Source`, `[]` |
-| RuleData | no-op / no-op | clear rule state, mark Disposed | `Interior`, `self.relation_deps` |
+| RuleData | no-op / no-op | clear rule state, mark Disposed | `Source`, `self.input_relations` |
 
 **MemoData dual role:** MemoData serves both PullMemo and HybridMemo (unified SoA entry). A `is_hybrid : Bool` flag on MemoData distinguishes them in the Observable impl, keeping the tagless final property clean (no CellRef dispatch inside a trait method).
 
@@ -167,7 +168,15 @@ All five arrays share the same index (`CellId.id`). Populated together at cell c
 
 ### Migration of Existing Code
 
-Existing `Runtime::dispose_reactive`, `dispose_effect`, `dispose_hybrid_memo` methods move into `Disposable` trait impls. No logic changes — reorganization only.
+Existing `Runtime::dispose_reactive`, `dispose_effect`, `dispose_hybrid_memo` methods move into `Disposable` trait impls for those cell types. This is a reorganization.
+
+**New logic required for push/hybrid suspension:** The current dispose methods are destructive and one-way (clear slot, free list, mark Disposed). Suspension (introduced in Layer 4) is a new, reversible state machine:
+
+- **Suspended state:** push path deactivated (unsubscribed from upstream, push_reachable_count decremented), but cell metadata preserved (verified_at, changed_at, dependencies, durability, cached value, compute closure).
+- **Reactivation:** re-subscribe to upstream sources, increment push_reachable_count, force recomputation to catch up on missed changes.
+- **Disposal:** permanent destruction (existing logic). Can transition from active OR suspended.
+
+This is new logic in Layer 4, not a Layer 3 refactor. Layer 3 migrates the existing one-way dispose into `Disposable` impls. Layer 4 adds `Observable::on_observe`/`on_unobserve` with suspension support.
 
 ## 4. Observer and Scope
 
@@ -175,30 +184,50 @@ Existing `Runtime::dispose_reactive`, `dispose_effect`, `dispose_hybrid_memo` me
 
 Observer is a lightweight keep-alive handle — NOT a cell. No SoA slot, no CellRef variant, no subscriber set.
 
+Typed values live in the wrapper structs (`Signal[T].value`, `Memo[T].value`, etc.), not in the type-erased SoA metadata. `Observer[T]` captures a typed getter closure at creation time to bridge this gap.
+
 ```moonbit
 pub struct Observer[T] {
   priv runtime : Runtime
   priv target_id : CellId
+  priv getter : () -> T    // captures typed wrapper's read method
   priv mut disposed : Bool
 }
 ```
 
-**Creation:**
+**Creation — per-cell-type overloads:**
 
 ```moonbit
 pub fn Runtime::observe[T](self : Runtime, memo : Memo[T]) -> Observer[T] {
-  self.gc_roots.add(memo.cell_id)
+  self.add_gc_root(memo.cell_id)
   self.core.cell_observable[memo.cell_id.id].on_observe(self, memo.cell_id)
-  { runtime: self, target_id: memo.cell_id, disposed: false }
+  { runtime: self, target_id: memo.cell_id,
+    getter: fn() { memo.get_observed() }, disposed: false }
+}
+
+pub fn Runtime::observe_hybrid[T](self : Runtime, h : HybridMemo[T]) -> Observer[T] {
+  self.add_gc_root(h.cell_id)
+  self.core.cell_observable[h.cell_id.id].on_observe(self, h.cell_id)
+  { runtime: self, target_id: h.cell_id,
+    getter: fn() { h.get_observed() }, disposed: false }
+}
+
+pub fn Runtime::observe_reactive[T](self : Runtime, r : Reactive[T]) -> Observer[T] {
+  self.add_gc_root(r.cell_id)
+  self.core.cell_observable[r.cell_id.id].on_observe(self, r.cell_id)
+  { runtime: self, target_id: r.cell_id,
+    getter: fn() { r.get_value() }, disposed: false }
 }
 ```
+
+`get_observed()` is an internal variant of `get()` that skips the tracked-context check (since Observer reads are explicitly outside the graph). It still triggers pull_verify for Memo/HybridMemo.
 
 **Reading:**
 
 ```moonbit
 pub fn Observer::get(self : Observer[T]) -> T {
   guard !self.disposed else { abort("Observer: already disposed") }
-  self.runtime.read_cell(self.target_id)
+  (self.getter)()
 }
 ```
 
@@ -208,9 +237,12 @@ pub fn Observer::get(self : Observer[T]) -> T {
 pub fn Observer::dispose(self : Observer[T]) -> Unit {
   guard !self.disposed
   self.disposed = true
-  self.runtime.gc_roots.remove(self.target_id)
-  self.runtime.core.cell_observable[self.target_id.id]
-    .on_unobserve(self.runtime, self.target_id)
+  let rt = self.runtime
+  let id = self.target_id
+  let remaining = rt.remove_gc_root(id)
+  if remaining == 0 {
+    rt.core.cell_observable[id.id].on_unobserve(rt, id)
+  }
 }
 ```
 
@@ -225,36 +257,56 @@ pub fn Runtime::read[T](self : Runtime, memo : Memo[T]) -> T {
 }
 ```
 
-### gc_roots
+### gc_root_counts
 
 ```moonbit
 priv struct RuntimeCore {
   // ... existing fields ...
-  gc_roots : @hashset.HashSet[CellId]
+  gc_root_counts : @hashmap.HashMap[CellId, Int]
+}
+
+fn Runtime::add_gc_root(self : Runtime, id : CellId) -> Unit {
+  match self.core.gc_root_counts.get(id) {
+    Some(n) => self.core.gc_root_counts.set(id, n + 1)
+    None => self.core.gc_root_counts.set(id, 1)
+  }
+}
+
+/// Returns remaining observer count after removal.
+fn Runtime::remove_gc_root(self : Runtime, id : CellId) -> Int {
+  match self.core.gc_root_counts.get(id) {
+    Some(n) if n > 1 => { self.core.gc_root_counts.set(id, n - 1); n - 1 }
+    Some(_) => { self.core.gc_root_counts.remove(id); 0 }
+    None => 0
+  }
 }
 ```
 
+Multiple observers on the same cell are ref-counted. `on_unobserve` is only called when the last observer for a cell is disposed (count reaches 0). This prevents premature push suspension when one observer is removed while another still exists.
+
 ### Scope
 
-Scope owns cells, observers, and child scopes. Disposing the scope recursively disposes everything.
+Scope owns cells and child scopes. In Layer 2, Scope provides group disposal. In Layer 4, Scope gains observer support.
 
 ```moonbit
 pub struct Scope {
   priv runtime : Runtime
   priv cells : Array[CellId]
-  priv observer_targets : Array[CellId]  // target cell IDs of owned observers
   priv children : Array[Scope]
+  priv dispose_hooks : Array[() -> Unit]  // type-erased observer dispose closures (Layer 4)
   priv mut disposed : Bool
 }
 ```
 
 **Scoped cell constructors:** `Scope::signal()`, `Scope::memo()`, `Scope::hybrid_memo()`, `Scope::effect()` — create cells and register their IDs with the scope.
 
-**Scoped observers:** `Scope::observe()` — creates an observer and registers it with the scope.
+**Scoped observers (Layer 4):** `Scope::observe()` — creates an observer and registers its dispose closure with the scope.
 
 **Nested scopes:** `Scope::child()` — creates a child scope. Disposing the parent disposes children first.
 
-**Disposal order:** children (bottom-up) → observers (remove from gc_roots, call on_unobserve) → owned cells.
+**Disposal order:** children (bottom-up) → dispose hooks (observer disposal) → owned cells.
+
+**Idempotency:** `dispose_cell` implementations must be idempotent — disposing an already-disposed cell is a no-op (check `cell_index[id] == Disposed` before acting). This ensures scope disposal is safe even if a cell was already manually disposed.
 
 ### Scope × Observer × gc() Interaction
 
@@ -309,7 +361,7 @@ pub fn Runtime::gc(self : Runtime) -> Unit {
 ```moonbit
 fn Runtime::collect_gc_roots(self : Runtime) -> Array[CellId] {
   let roots : Array[CellId] = []
-  for id in self.core.gc_roots { roots.push(id) }
+  for id, _ in self.core.gc_root_counts { roots.push(id) }
   // Implicit roots: live Effects
   for i = 0; i < self.core.cell_gc.length(); i = i + 1 {
     if self.core.cell_gc[i].gc_role() == Root {
@@ -383,7 +435,7 @@ fn Runtime::gc_sweep(self : Runtime) -> Unit {
 - **PullSignalData:** clear cached value, clear subscribers, mark Disposed, add to free list
 - **MemoData:** clear compute closure, clear cached value, clear dependencies array, clear subscribers, remove from upstream subscriber sets, decrement push_reachable_count (if hybrid), mark Disposed, add to free list
 - **PushReactiveData/PushEffectData:** existing logic (clear_slot, free list, node_count decrement)
-- **RuleData:** clear rule closure, clear relation deps, mark Disposed
+- **RuleData:** clear `apply_delta` closure, clear `input_relations` and `output_relations`, mark Disposed
 
 ### MemoMap Interaction
 
@@ -450,9 +502,9 @@ Complete `dispose()` for Signal, Memo, Relation, Rule, FunctionalRelation. Add f
 
 **Depends on:** Nothing.
 
-### Layer 2: Scope
+### Layer 2: Scope (cell ownership only)
 
-`Scope` struct with scoped cell constructors, nested scopes, recursive dispose.
+`Scope` struct with scoped cell constructors, nested scopes, recursive dispose. Owns cells only — no observer support yet (that arrives in Layer 4 via `Scope::observe()`).
 
 **Depends on:** Layer 1.
 
@@ -464,7 +516,7 @@ Complete `dispose()` for Signal, Memo, Relation, Rule, FunctionalRelation. Add f
 
 ### Layer 4: Observer + gc()
 
-`Observer[T]` type, `gc_roots` on RuntimeCore, `Runtime::gc()` with mark-and-sweep, `Runtime::read()` convenience, `MemoMap::sweep()`, `in_push_propagation` guard flag. `Scope::observe()`.
+`Observer[T]` type with typed getter closure, `gc_root_counts` on RuntimeCore, `Runtime::gc()` with mark-and-sweep, `Runtime::read()` convenience, `MemoMap::sweep()`, `in_push_propagation` guard flag, push/hybrid suspension state machine in `Observable` impls, `Scope::observe()` (adds observer support to Layer 2 Scope).
 
 **Depends on:** Layers 2 and 3.
 
@@ -489,6 +541,51 @@ Layer 5: API boundary       ← clean contract, breaking change (last)
 ```
 
 Each layer is shippable independently. Layer 5 is the only breaking change.
+
+## 8. Edge Cases and Safety Rules
+
+### dispose() During Active Computation
+
+Manual `dispose()` and `scope.dispose()` must respect the same guards as gc():
+
+- **During pull_verify:** Forbidden. A cell being verified is on the tracking stack; disposing it would corrupt the verify loop. `dispose()` aborts if the cell's CellId is in the active tracking stack.
+- **During push propagation:** Safe. Existing behavior: `push_propagate_from` skips Disposed entries in the BFS queue. No change needed.
+- **During batch:** Disposing a Signal mid-batch discards its pending write from `batch_pending`. The implementation must clear `pending_value` and remove the signal's commit object from the batch queue.
+- **During fixpoint:** Forbidden (same as gc).
+
+### Idempotent Disposal
+
+All `dispose_cell` implementations must be idempotent: check `cell_index[id] == Disposed` and return early if so. This ensures:
+- Scope disposing a cell that was already manually disposed is a no-op
+- gc() after manual dispose skips already-disposed cells
+- Double-dispose from any path is safe
+
+### Closure-Captured Handles
+
+A memo's compute closure may capture a reference to a cell that later gets GC'd. Closure capture does NOT count as reachability — tracing into arbitrary user closures is infeasible with SoA storage. When the compute function runs and reads the captured handle via `.get()`, it hits the Disposed guard and aborts. This is documented behavior: **compute closures must not capture handles to cells outside their reachability subgraph.**
+
+### TrackedCell
+
+`TrackedCell[T]` is a thin wrapper around `Signal[T]` (tracked_cell.mbt:16). It inherits Signal's lifecycle:
+- Classified as **Source** (never auto-collected)
+- `TrackedCell::dispose()` delegates to `Signal::dispose()` on the inner signal
+- `TrackedCell::peek()` delegates to `Signal::peek()` on the inner signal
+- `TrackedCell::is_disposed()` delegates to `Signal::is_disposed()`
+
+### gc_tracked and Trackable
+
+The existing `gc_tracked()` stub (traits.mbt:250) and `Trackable` trait are redesigned:
+- `gc_tracked` is deprecated in favor of Scope-based ownership
+- `Trackable::cell_ids()` is repurposed: used by `Scope::add_tracked()` to register all of a struct's TrackedCells with a scope for bulk lifecycle management
+- The original intent ("mark as GC roots") conflicted with the traversal direction — TrackedCells are Sources with no downstream dependency edges, so marking them as roots keeps nothing alive
+
+```moonbit
+pub fn Scope::add_tracked[T : Trackable](self : Scope, tracked : T) -> Unit {
+  for id in tracked.cell_ids() {
+    self.cells.push(id)
+  }
+}
+```
 
 ## Literature References
 
