@@ -126,6 +126,9 @@ pub fn[K : Hash + Eq, V : Eq] FunctionalRelation::insert(
   key : K,
   value : V,
 ) -> Bool {
+  guard !self.rt.is_cell_disposed(self.cell_id) else {
+    abort("FunctionalRelation::insert called on a disposed functional relation")
+  }
   let effective = self.effective_value(key)
   let resolved = match self.merge {
     Some(merge_fn) =>
@@ -162,6 +165,9 @@ pub fn[K : Hash + Eq, V] FunctionalRelation::get(
   self : FunctionalRelation[K, V],
   key : K,
 ) -> V? {
+  guard !self.rt.is_cell_disposed(self.cell_id) else {
+    abort("FunctionalRelation::get called on a disposed functional relation")
+  }
   self.record_read_dependency()
   self.current.val.get(key)
 }
@@ -174,6 +180,9 @@ pub fn[K : Hash + Eq, V] FunctionalRelation::get(
 pub fn[K, V] FunctionalRelation::iter(
   self : FunctionalRelation[K, V],
 ) -> Iter[(K, V)] {
+  guard !self.rt.is_cell_disposed(self.cell_id) else {
+    abort("FunctionalRelation::iter called on a disposed functional relation")
+  }
   self.record_read_dependency()
   self.current.val.iter()
 }

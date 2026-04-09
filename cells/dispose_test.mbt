@@ -210,3 +210,40 @@ test "signal: dispose of a dependency during computation is safe" {
   inspect(m.get(), content="10")
   assert_true(other_sig.is_disposed())
 }
+
+///|
+test "disposed rule is skipped during fixpoint" {
+  let rt = Runtime::new()
+  let input : Relation[Int] = Relation::new(rt)
+  let output : Relation[Int] = Relation::new(rt)
+  let rule_id = rt.new_rule([input.id()], [output.id()], fn() {
+    for x in input.delta_iter() {
+      output.insert(x * 10) |> ignore
+    }
+  })
+  input.insert(1) |> ignore
+  rt.fixpoint()
+  assert_true(output.contains(10))
+  // Dispose rule, add more input, run fixpoint again
+  rt.dispose_rule(rule_id)
+  input.insert(2) |> ignore
+  rt.fixpoint()
+  // Rule was disposed — 2*10=20 should NOT appear in output
+  assert_false(output.contains(20))
+}
+
+///|
+test "panic relation: insert after dispose aborts" {
+  let rt = Runtime::new()
+  let rel : Relation[Int] = Relation::new(rt)
+  rel.dispose()
+  rel.insert(42) |> ignore // should abort
+}
+
+///|
+test "panic functional relation: insert after dispose aborts" {
+  let rt = Runtime::new()
+  let frel : FunctionalRelation[Int, String] = FunctionalRelation::new(rt)
+  frel.dispose()
+  frel.insert(1, "a") |> ignore // should abort
+}

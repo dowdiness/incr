@@ -90,6 +90,9 @@ pub fn[T] Relation::id(self : Relation[T]) -> CellId {
 ///
 /// Returns `true` if the fact was newly added, `false` if it already exists.
 pub fn[T : Hash + Eq] Relation::insert(self : Relation[T], value : T) -> Bool {
+  guard !self.rt.is_cell_disposed(self.cell_id) else {
+    abort("Relation::insert called on a disposed relation")
+  }
   if self.current.val.contains(value) {
     return false
   }
@@ -113,6 +116,9 @@ pub fn[T : Hash + Eq] Relation::insert(self : Relation[T], value : T) -> Bool {
 /// Facts in delta are NOT visible via `contains` until after `fixpoint()` drains them.
 /// Like `iter()`, this records a dependency for pull verification.
 pub fn[T : Hash + Eq] Relation::contains(self : Relation[T], value : T) -> Bool {
+  guard !self.rt.is_cell_disposed(self.cell_id) else {
+    abort("Relation::contains called on a disposed relation")
+  }
   self.record_read_dependency()
   self.current.val.contains(value)
 }
@@ -123,6 +129,9 @@ pub fn[T : Hash + Eq] Relation::contains(self : Relation[T], value : T) -> Bool 
 /// Records a dependency so pull memos that call `iter()` automatically
 /// re-verify when the relation changes after a `fixpoint()`.
 pub fn[T] Relation::iter(self : Relation[T]) -> Iter[T] {
+  guard !self.rt.is_cell_disposed(self.cell_id) else {
+    abort("Relation::iter called on a disposed relation")
+  }
   self.record_read_dependency()
   self.current.val.iter()
 }

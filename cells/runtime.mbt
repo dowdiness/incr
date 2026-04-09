@@ -607,8 +607,11 @@ impl RevisionManager for Runtime with bump_revision(self, durability) {
 }
 
 ///|
-/// Guards against disposing a cell during its own computation.
-fn Runtime::guard_self_dispose(self : Runtime, cell_id : CellId) -> Unit {
+/// Guards against disposing a cell during fixpoint or its own computation.
+fn Runtime::guard_dispose(self : Runtime, cell_id : CellId) -> Unit {
+  guard !self.core.in_fixpoint else {
+    abort("dispose: cannot dispose cells during fixpoint()")
+  }
   for aq in self.core.tracking_stack {
     guard aq.cell_id != cell_id else {
       abort("dispose: cannot dispose a cell during its own computation")
@@ -621,7 +624,7 @@ fn Runtime::guard_self_dispose(self : Runtime, cell_id : CellId) -> Unit {
 /// pending batch writes, and marking its cell_index slot as Disposed.
 fn Runtime::dispose_signal(self : Runtime, cell_id : CellId) -> Unit {
   guard !self.is_cell_disposed(cell_id) else { return }
-  self.guard_self_dispose(cell_id)
+  self.guard_dispose(cell_id)
   match self.core.cell_index[cell_id.id] {
     PullSignal(idx) => {
       let signal = self.pull.signals[idx]
@@ -644,7 +647,7 @@ fn Runtime::dispose_signal(self : Runtime, cell_id : CellId) -> Unit {
 /// sets, clearing its cached state, and marking its cell_index slot as Disposed.
 fn Runtime::dispose_memo(self : Runtime, cell_id : CellId) -> Unit {
   guard !self.is_cell_disposed(cell_id) else { return }
-  self.guard_self_dispose(cell_id)
+  self.guard_dispose(cell_id)
   match self.core.cell_index[cell_id.id] {
     PullMemo(idx) | HybridMemo(idx) => {
       let memo = self.pull.memos[idx]
@@ -669,7 +672,7 @@ fn Runtime::dispose_memo(self : Runtime, cell_id : CellId) -> Unit {
 /// and marking its cell_index slot as Disposed.
 fn Runtime::dispose_reactive(self : Runtime, cell_id : CellId) -> Unit {
   guard !self.is_cell_disposed(cell_id) else { return }
-  self.guard_self_dispose(cell_id)
+  self.guard_dispose(cell_id)
   match self.core.cell_index[cell_id.id] {
     PushReactive(idx) => {
       let reactive = self.push.reactives[idx]
@@ -690,7 +693,7 @@ fn Runtime::dispose_reactive(self : Runtime, cell_id : CellId) -> Unit {
 /// and marking its cell_index slot as Disposed.
 fn Runtime::dispose_effect(self : Runtime, cell_id : CellId) -> Unit {
   guard !self.is_cell_disposed(cell_id) else { return }
-  self.guard_self_dispose(cell_id)
+  self.guard_dispose(cell_id)
   match self.core.cell_index[cell_id.id] {
     PushEffect(idx) => {
       let effect = self.push.effects[idx]
@@ -711,6 +714,7 @@ fn Runtime::dispose_effect(self : Runtime, cell_id : CellId) -> Unit {
 /// cell_index slot as Disposed.
 fn Runtime::dispose_relation(self : Runtime, cell_id : CellId) -> Unit {
   guard !self.is_cell_disposed(cell_id) else { return }
+  self.guard_dispose(cell_id)
   match self.core.cell_index[cell_id.id] {
     Relation(idx) => {
       let rel = self.datalog.relations[idx]
@@ -730,6 +734,7 @@ fn Runtime::dispose_functional_relation(
   cell_id : CellId,
 ) -> Unit {
   guard !self.is_cell_disposed(cell_id) else { return }
+  self.guard_dispose(cell_id)
   match self.core.cell_index[cell_id.id] {
     FunctionalRelation(idx) => {
       let frel = self.datalog.functional_relations[idx]
@@ -749,7 +754,11 @@ pub fn Runtime::dispose_rule(
   rule_id : @incr_types.RuleId,
 ) -> Unit {
   let cell_id = rule_id.id
+  guard cell_id.runtime_id == self.core.runtime_id else {
+    abort("dispose_rule: RuleId belongs to a different Runtime")
+  }
   guard !self.is_cell_disposed(cell_id) else { return }
+  self.guard_dispose(cell_id)
   match self.core.cell_index[cell_id.id] {
     Rule(idx) => {
       let rule = self.datalog.rules[idx]
