@@ -769,3 +769,26 @@ pub fn Runtime::dispose_rule(
     _ => ()
   }
 }
+
+///|
+/// Disposes a cell by CellId, dispatching to the correct typed dispose method.
+///
+/// This is a generic dispatcher used by Scope for bulk disposal. Each typed
+/// dispose method is idempotent, so calling this on an already-disposed cell
+/// is a no-op. Validates that the CellId belongs to this runtime.
+pub fn Runtime::dispose_cell(self : Runtime, cell_id : CellId) -> Unit {
+  guard cell_id.runtime_id == self.core.runtime_id else {
+    abort("dispose_cell: CellId belongs to a different Runtime")
+  }
+  guard !self.is_cell_disposed(cell_id) else { return }
+  match self.core.cell_index[cell_id.id] {
+    PullSignal(_) => self.dispose_signal(cell_id)
+    PullMemo(_) | HybridMemo(_) => self.dispose_memo(cell_id)
+    PushReactive(_) => self.dispose_reactive(cell_id)
+    PushEffect(_) => self.dispose_effect(cell_id)
+    Relation(_) => self.dispose_relation(cell_id)
+    FunctionalRelation(_) => self.dispose_functional_relation(cell_id)
+    Rule(_) => self.dispose_rule(@incr_types.RuleId::{ id: cell_id })
+    Disposed => ()
+  }
+}

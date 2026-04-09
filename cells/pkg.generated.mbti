@@ -43,6 +43,7 @@ pub struct Effect {
   // private fields
 }
 pub fn Effect::dispose(Self) -> Unit
+pub fn Effect::id(Self) -> @types.CellId
 pub fn Effect::is_disposed(Self) -> Bool
 pub fn Effect::new(Runtime, () -> Unit) -> Self
 
@@ -140,6 +141,7 @@ pub fn Runtime::batch_result(Self, () -> Unit raise?) -> Result[Unit, Error]
 pub fn Runtime::cell_info(Self, @types.CellId) -> CellInfo?
 pub fn Runtime::clear_on_change(Self) -> Unit
 pub fn Runtime::dependents(Self, @types.CellId) -> Array[@types.CellId]
+pub fn Runtime::dispose_cell(Self, @types.CellId) -> Unit
 pub fn Runtime::dispose_rule(Self, @types.RuleId) -> Unit
 pub fn Runtime::fixpoint(Self) -> Unit
 pub fn Runtime::new(on_change? : () -> Unit) -> Self
