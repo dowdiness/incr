@@ -156,14 +156,7 @@ pub fn[T] Relation::dispose(self : Relation[T]) -> Unit {
 ///|
 /// Returns true if this relation has been disposed.
 pub fn[T] Relation::is_disposed(self : Relation[T]) -> Bool {
-  let id = self.cell_id.id
-  if id < 0 || id >= self.rt.core.cell_index.length() {
-    return true
-  }
-  match self.rt.core.cell_index[id] {
-    Disposed => true
-    _ => false
-  }
+  self.rt.is_cell_disposed(self.cell_id)
 }
 
 ///|

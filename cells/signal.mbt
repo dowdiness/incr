@@ -73,10 +73,8 @@ pub fn[T] Signal::new(
 ///
 /// The current value of the signal
 pub fn[T] Signal::get(self : Signal[T]) -> T {
-  // Disposed check — must come before cross-runtime check
-  match self.rt.core.cell_index[self.cell_id.id] {
-    Disposed => abort("Signal::get called on a disposed signal")
-    _ => ()
+  guard !self.rt.is_cell_disposed(self.cell_id) else {
+    abort("Signal::get called on a disposed signal")
   }
   let active_rt = current_computing_runtime_id.val
   if active_rt >= 0 && active_rt != self.rt.core.runtime_id {
@@ -169,9 +167,8 @@ pub fn[T] Signal::durability(self : Signal[T]) -> Durability {
 /// s.set(6)  // Bumps revision, memos depending on s will reverify
 /// ```
 pub fn[T : Eq] Signal::set(self : Signal[T], new_value : T) -> Unit {
-  match self.rt.core.cell_index[self.cell_id.id] {
-    Disposed => abort("Signal::set called on a disposed signal")
-    _ => ()
+  guard !self.rt.is_cell_disposed(self.cell_id) else {
+    abort("Signal::set called on a disposed signal")
   }
   if self.rt.core.batch_depth > 0 {
     self.set_batch(new_value)
@@ -196,9 +193,8 @@ pub fn[T : Eq] Signal::set(self : Signal[T], new_value : T) -> Unit {
 ///
 /// - `new_value`: The new value to set
 pub fn[T] Signal::set_unconditional(self : Signal[T], new_value : T) -> Unit {
-  match self.rt.core.cell_index[self.cell_id.id] {
-    Disposed => abort("Signal::set_unconditional called on a disposed signal")
-    _ => ()
+  guard !self.rt.is_cell_disposed(self.cell_id) else {
+    abort("Signal::set_unconditional called on a disposed signal")
   }
   if self.rt.core.batch_depth > 0 {
     self.set_batch_unconditional(new_value)
@@ -344,14 +340,7 @@ pub fn[T] Signal::dispose(self : Signal[T]) -> Unit {
 ///|
 /// Returns true if this signal has been disposed.
 pub fn[T] Signal::is_disposed(self : Signal[T]) -> Bool {
-  let id = self.cell_id.id
-  if id < 0 || id >= self.rt.core.cell_index.length() {
-    return true
-  }
-  match self.rt.core.cell_index[id] {
-    Disposed => true
-    _ => false
-  }
+  self.rt.is_cell_disposed(self.cell_id)
 }
 
 ///|

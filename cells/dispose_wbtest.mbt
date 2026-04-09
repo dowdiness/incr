@@ -10,12 +10,7 @@ test "signal dispose: removes from downstream subscriber sets" {
   sig.dispose()
   // After dispose, sig's subscribers should be cleared
   // (but we can't call get_subscribers on Disposed — check cell_index directly)
-  assert_true(
-    match rt.core.cell_index[sig_id.id] {
-      Disposed => true
-      _ => false
-    },
-  )
+  assert_true(rt.core.cell_index[sig_id.id] is Disposed)
 }
 
 ///|

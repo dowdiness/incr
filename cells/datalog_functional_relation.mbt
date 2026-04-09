@@ -214,14 +214,7 @@ pub fn[K, V] FunctionalRelation::dispose(
 pub fn[K, V] FunctionalRelation::is_disposed(
   self : FunctionalRelation[K, V],
 ) -> Bool {
-  let id = self.cell_id.id
-  if id < 0 || id >= self.rt.core.cell_index.length() {
-    return true
-  }
-  match self.rt.core.cell_index[id] {
-    Disposed => true
-    _ => false
-  }
+  self.rt.is_cell_disposed(self.cell_id)
 }
 
 ///|

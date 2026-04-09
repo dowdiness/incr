@@ -32,11 +32,7 @@ pub fn[T : Eq] HybridMemo::new(
   compute : () -> T,
   label? : String,
 ) -> HybridMemo[T] {
-  // Reuse a freed slot if available, otherwise append
-  let memo_idx = match rt.pull.free_memos.pop() {
-    Some(idx) => idx
-    None => rt.pull.memos.length()
-  }
+  let memo_idx = rt.pull.free_memos.pop().unwrap_or(rt.pull.memos.length())
   let cell_id = rt.alloc_cell_id(HybridMemo(memo_idx))
   let memo : HybridMemo[T] = { label, rt, cell_id, compute, value: None }
   let new_data : MemoData = {
@@ -79,9 +75,8 @@ pub fn[T : Eq] HybridMemo::new(
 ///
 /// Slow path: calls `pull_verify` to walk deps.
 pub fn[T : Eq] HybridMemo::get(self : HybridMemo[T]) -> T {
-  match self.rt.core.cell_index[self.cell_id.id] {
-    Disposed => abort("HybridMemo::get called on a disposed hybrid memo")
-    _ => ()
+  guard !self.rt.is_cell_disposed(self.cell_id) else {
+    abort("HybridMemo::get called on a disposed hybrid memo")
   }
   let active_rt = current_computing_runtime_id.val
   if active_rt >= 0 && active_rt != self.rt.core.runtime_id {
@@ -141,14 +136,7 @@ pub fn[T] HybridMemo::id(self : HybridMemo[T]) -> CellId {
 ///|
 /// Returns true if this hybrid memo has been disposed.
 pub fn[T] HybridMemo::is_disposed(self : HybridMemo[T]) -> Bool {
-  let id = self.cell_id.id
-  if id < 0 || id >= self.rt.core.cell_index.length() {
-    return true
-  }
-  match self.rt.core.cell_index[id] {
-    Disposed => true
-    _ => false
-  }
+  self.rt.is_cell_disposed(self.cell_id)
 }
 
 ///|
@@ -156,7 +144,7 @@ pub fn[T] HybridMemo::is_disposed(self : HybridMemo[T]) -> Bool {
 /// and marking its slot as Disposed. After disposal, calling `get()` on this
 /// cell or any cell that depends on it will abort.
 pub fn[T] HybridMemo::dispose(self : HybridMemo[T]) -> Unit {
-  self.rt.dispose_hybrid_memo(self.cell_id)
+  self.rt.dispose_memo(self.cell_id)
   self.value = None
 }
 

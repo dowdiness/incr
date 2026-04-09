@@ -120,14 +120,7 @@ pub fn Effect::new(rt : Runtime, f : () -> Unit) -> Effect {
 ///|
 /// Returns true if this effect has been disposed.
 pub fn Effect::is_disposed(self : Effect) -> Bool {
-  let id = self.cell_id.id
-  if id < 0 || id >= self.rt.core.cell_index.length() {
-    return true
-  }
-  match self.rt.core.cell_index[id] {
-    Disposed => true
-    _ => false
-  }
+  self.rt.is_cell_disposed(self.cell_id)
 }
 
 ///|

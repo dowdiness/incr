@@ -48,11 +48,7 @@ fn[T] Memo::_create(
   label? : String,
   backdate_eq : (T, T) -> Bool,
 ) -> Memo[T] {
-  // Reuse a freed slot if available, otherwise append
-  let memo_idx = match rt.pull.free_memos.pop() {
-    Some(idx) => idx
-    None => rt.pull.memos.length()
-  }
+  let memo_idx = rt.pull.free_memos.pop().unwrap_or(rt.pull.memos.length())
   let cell_id = rt.alloc_cell_id(PullMemo(memo_idx))
   let memo : Memo[T] = { label, rt, cell_id, compute, backdate_eq, value: None }
   let new_data : MemoData = {
@@ -193,9 +189,8 @@ pub fn[T] Memo::get(self : Memo[T]) -> T {
 /// }
 /// ```
 pub fn[T] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
-  match self.rt.core.cell_index[self.cell_id.id] {
-    Disposed => abort("Memo::get called on a disposed memo")
-    _ => ()
+  guard !self.rt.is_cell_disposed(self.cell_id) else {
+    abort("Memo::get called on a disposed memo")
   }
   let active_rt = current_computing_runtime_id.val
   if active_rt >= 0 && active_rt != self.rt.core.runtime_id {
@@ -503,14 +498,7 @@ pub fn[T] Memo::clear_on_change(self : Memo[T]) -> Unit {
 ///|
 /// Returns true if this memo has been disposed.
 pub fn[T] Memo::is_disposed(self : Memo[T]) -> Bool {
-  let id = self.cell_id.id
-  if id < 0 || id >= self.rt.core.cell_index.length() {
-    return true
-  }
-  match self.rt.core.cell_index[id] {
-    Disposed => true
-    _ => false
-  }
+  self.rt.is_cell_disposed(self.cell_id)
 }
 
 ///|
