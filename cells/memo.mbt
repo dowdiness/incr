@@ -48,10 +48,10 @@ fn[T] Memo::_create(
   label? : String,
   backdate_eq : (T, T) -> Bool,
 ) -> Memo[T] {
-  let memo_idx = rt.pull.memos.length()
+  let memo_idx = rt.pull.free_memos.pop().unwrap_or(rt.pull.memos.length())
   let cell_id = rt.alloc_cell_id(PullMemo(memo_idx))
   let memo : Memo[T] = { label, rt, cell_id, compute, backdate_eq, value: None }
-  rt.pull.memos.push({
+  let new_data : MemoData = {
     meta: {
       cell_id,
       label,
@@ -65,7 +65,12 @@ fn[T] Memo::_create(
     dependencies: [],
     in_progress: false,
     on_change: None,
-  })
+  }
+  if memo_idx < rt.pull.memos.length() {
+    rt.pull.memos[memo_idx] = new_data
+  } else {
+    rt.pull.memos.push(new_data)
+  }
   let ops : &CellOps = rt.pull.memos[memo_idx]
   rt.core.cell_ops.push(ops)
   memo
@@ -184,6 +189,9 @@ pub fn[T] Memo::get(self : Memo[T]) -> T {
 /// }
 /// ```
 pub fn[T] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
+  guard !self.rt.is_cell_disposed(self.cell_id) else {
+    abort("Memo::get called on a disposed memo")
+  }
   let active_rt = current_computing_runtime_id.val
   if active_rt >= 0 && active_rt != self.rt.core.runtime_id {
     // Reset before aborting so the test runner doesn't see dirty global state
@@ -485,6 +493,21 @@ pub fn[T] Memo::on_change(self : Memo[T], f : (T) -> Unit) -> Unit {
 /// Removes the `on_change` callback for this memo.
 pub fn[T] Memo::clear_on_change(self : Memo[T]) -> Unit {
   self.rt.get_memo_data(self.cell_id).on_change = None
+}
+
+///|
+/// Returns true if this memo has been disposed.
+pub fn[T] Memo::is_disposed(self : Memo[T]) -> Bool {
+  self.rt.is_cell_disposed(self.cell_id)
+}
+
+///|
+/// Disposes this memo, releasing its resources and marking it as Disposed.
+///
+/// After disposal, calling `get()` will abort. Disposal is idempotent.
+pub fn[T] Memo::dispose(self : Memo[T]) -> Unit {
+  self.rt.dispose_memo(self.cell_id)
+  self.value = None
 }
 
 ///|

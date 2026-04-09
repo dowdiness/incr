@@ -41,8 +41,9 @@ pub fn Runtime::fixpoint(self : Runtime) -> Unit {
       (self.datalog.functional_relations[fi].drain_delta)()
       fi = fi + 1
     }
-    // Apply all rules
+    // Apply all rules (skip disposed)
     for rule in self.datalog.rules {
+      guard !self.is_cell_disposed(rule.meta.cell_id) else { continue }
       (rule.apply_delta)()
     }
     // Rules may add relations during fixpoint; track any new entries.

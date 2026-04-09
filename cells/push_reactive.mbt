@@ -151,12 +151,9 @@ pub fn[T] Reactive::get(self : Reactive[T]) -> T {
       active_rt.to_string(),
     )
   }
-  // Disposal check: reading after dispose() returns stale data and records
-  // an invalid dependency; abort instead.
   let cell_id = self.cell_id.id
-  match self.rt.core.cell_index[cell_id.id] {
-    Disposed => abort("Reactive::get called on a disposed reactive")
-    _ => ()
+  guard !self.rt.is_cell_disposed(cell_id) else {
+    abort("Reactive::get called on a disposed reactive")
   }
   self.rt.record_dependency(cell_id)
   self.value.val.unwrap()
@@ -166,6 +163,12 @@ pub fn[T] Reactive::get(self : Reactive[T]) -> T {
 /// Returns the unique cell identifier for this reactive.
 pub fn[T] Reactive::id(self : Reactive[T]) -> CellId {
   self.cell_id.id
+}
+
+///|
+/// Returns true if this reactive has been disposed.
+pub fn[T] Reactive::is_disposed(self : Reactive[T]) -> Bool {
+  self.rt.is_cell_disposed(self.cell_id.id)
 }
 
 ///|

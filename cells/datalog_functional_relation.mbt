@@ -126,6 +126,9 @@ pub fn[K : Hash + Eq, V : Eq] FunctionalRelation::insert(
   key : K,
   value : V,
 ) -> Bool {
+  guard !self.rt.is_cell_disposed(self.cell_id) else {
+    abort("FunctionalRelation::insert called on a disposed functional relation")
+  }
   let effective = self.effective_value(key)
   let resolved = match self.merge {
     Some(merge_fn) =>
@@ -162,6 +165,9 @@ pub fn[K : Hash + Eq, V] FunctionalRelation::get(
   self : FunctionalRelation[K, V],
   key : K,
 ) -> V? {
+  guard !self.rt.is_cell_disposed(self.cell_id) else {
+    abort("FunctionalRelation::get called on a disposed functional relation")
+  }
   self.record_read_dependency()
   self.current.val.get(key)
 }
@@ -174,6 +180,9 @@ pub fn[K : Hash + Eq, V] FunctionalRelation::get(
 pub fn[K, V] FunctionalRelation::iter(
   self : FunctionalRelation[K, V],
 ) -> Iter[(K, V)] {
+  guard !self.rt.is_cell_disposed(self.cell_id) else {
+    abort("FunctionalRelation::iter called on a disposed functional relation")
+  }
   self.record_read_dependency()
   self.current.val.iter()
 }
@@ -195,6 +204,26 @@ fn[K, V] FunctionalRelation::record_read_dependency(
     )
   }
   self.rt.record_dependency(self.cell_id)
+}
+
+///|
+/// Disposes this functional relation, clearing its maps and marking it as
+/// Disposed.
+pub fn[K, V] FunctionalRelation::dispose(
+  self : FunctionalRelation[K, V],
+) -> Unit {
+  self.rt.dispose_functional_relation(self.cell_id)
+  self.current.val.clear()
+  self.delta.val.clear()
+  self.staged_delta.val.clear()
+}
+
+///|
+/// Returns true if this functional relation has been disposed.
+pub fn[K, V] FunctionalRelation::is_disposed(
+  self : FunctionalRelation[K, V],
+) -> Bool {
+  self.rt.is_cell_disposed(self.cell_id)
 }
 
 ///|

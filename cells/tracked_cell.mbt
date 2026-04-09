@@ -178,6 +178,18 @@ pub fn[T] TrackedCell::is_up_to_date(self : TrackedCell[T]) -> Bool {
 }
 
 ///|
+/// Disposes this tracked cell by disposing its inner signal.
+pub fn[T] TrackedCell::dispose(self : TrackedCell[T]) -> Unit {
+  self.signal.dispose()
+}
+
+///|
+/// Returns true if this tracked cell has been disposed.
+pub fn[T] TrackedCell::is_disposed(self : TrackedCell[T]) -> Bool {
+  self.signal.is_disposed()
+}
+
+///|
 /// Returns the inner Signal for interop with APIs that expect a Signal[T].
 ///
 /// # Returns

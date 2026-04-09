@@ -26,6 +26,8 @@ pub using @internal {
   type HybridMemo,
   type Relation,
   type FunctionalRelation,
+  type Reactive,
+  type Effect,
 }
 
 // Note: @internal alias above refers to dowdiness/incr/cells (renamed from

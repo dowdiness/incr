@@ -118,6 +118,12 @@ pub fn Effect::new(rt : Runtime, f : () -> Unit) -> Effect {
 }
 
 ///|
+/// Returns true if this effect has been disposed.
+pub fn Effect::is_disposed(self : Effect) -> Bool {
+  self.rt.is_cell_disposed(self.cell_id)
+}
+
+///|
 /// Removes this effect from the dependency graph.
 pub fn Effect::dispose(self : Effect) -> Unit {
   self.rt.dispose_effect(self.cell_id)
