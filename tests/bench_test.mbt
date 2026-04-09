@@ -251,3 +251,53 @@ test "layer1: signal create-dispose cycle (free list)" (b : @bench.T) {
     sig.dispose()
   })
 }
+
+///|
+test "layer2: scope create and dispose (empty)" (b : @bench.T) {
+  let rt = @incr.Runtime::new()
+  b.bench(fn() {
+    let scope = @incr.Scope::new(rt)
+    scope.dispose()
+  })
+}
+
+///|
+test "layer2: scope create 10 signals and dispose" (b : @bench.T) {
+  let rt = @incr.Runtime::new()
+  b.bench(fn() {
+    let scope = @incr.Scope::new(rt)
+    for i in 0..<10 {
+      let _ = scope.signal(i)
+    }
+    scope.dispose()
+  })
+}
+
+///|
+test "layer2: scope bulk dispose 100 mixed cells" (b : @bench.T) {
+  let rt = @incr.Runtime::new()
+  b.bench(fn() {
+    let scope = @incr.Scope::new(rt)
+    for i in 0..<50 {
+      let _ = scope.signal(i)
+    }
+    for _ in 0..<50 {
+      let _ = scope.memo(fn() { 0 })
+    }
+    scope.dispose()
+  })
+}
+
+///|
+test "layer2: nested scope (3 levels) create and dispose" (b : @bench.T) {
+  let rt = @incr.Runtime::new()
+  b.bench(fn() {
+    let root = @incr.Scope::new(rt)
+    let mid = root.child()
+    let leaf = mid.child()
+    let _ = root.signal(1)
+    let _ = mid.signal(2)
+    let _ = leaf.signal(3)
+    root.dispose()
+  })
+}

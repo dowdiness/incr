@@ -124,6 +124,12 @@ pub fn Effect::is_disposed(self : Effect) -> Bool {
 }
 
 ///|
+/// Returns the unique identifier for this effect cell.
+pub fn Effect::id(self : Effect) -> CellId {
+  self.cell_id
+}
+
+///|
 /// Removes this effect from the dependency graph.
 pub fn Effect::dispose(self : Effect) -> Unit {
   self.rt.dispose_effect(self.cell_id)

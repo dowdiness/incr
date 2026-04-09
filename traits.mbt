@@ -240,17 +240,51 @@ pub fn[Db : Database, T] create_tracked_cell(
 }
 
 ///|
-/// Marks all cells of a Trackable struct as GC roots (no-op until Phase 4).
+/// Registers all cells from a Trackable struct with a scope for bulk disposal.
 ///
-/// Call this when a tracked struct is "alive" — referenced by the
-/// current computation. This function is a no-op until GC infrastructure
-/// is added to Runtime (Phase 4 of the roadmap). It is provided now so
-/// that user code includes the correct call sites, enabling a zero-change
-/// migration when GC lands.
+/// When the scope is disposed, all registered cells are disposed.
+/// This is the recommended way to manage TrackedCell lifetimes.
+///
+/// # Example
+///
+/// ```moonbit nocheck
+/// let scope = Scope::new(rt)
+/// let tracked = MyTracked::new(rt)
+/// add_tracked(scope, tracked)
+/// scope.dispose()  // disposes all tracked cells
+/// ```
+pub fn[T : Trackable] add_tracked(scope : Scope, tracked : T) -> Unit {
+  scope.add_cell_ids(tracked.cell_ids())
+}
+
+///|
+/// Creates a new root scope using the database's runtime.
+///
+/// Cells created via the scope's constructors are automatically disposed
+/// when the scope is disposed. Use `scope.child()` for nested scopes.
+///
+/// # Parameters
+///
+/// - `db`: Any type implementing `Database`
+///
+/// # Returns
+///
+/// A new root scope associated with the database's runtime
+pub fn[Db : Database] create_scope(db : Db) -> Scope {
+  Scope::new(db.runtime())
+}
+
+///|
+/// **Deprecated:** Use `add_tracked(scope, tracked)` instead for lifecycle management.
+///
+/// This function was originally intended to mark TrackedCell fields as GC roots.
+/// However, TrackedCells are Sources with no downstream dependency edges, so
+/// marking them as roots keeps nothing alive. Use `add_tracked(scope, tracked)`
+/// to register all of a struct's TrackedCells with a scope for bulk disposal.
+///
+/// This function is a no-op and will be removed in a future version.
 pub fn[T : Trackable] gc_tracked(rt : Runtime, tracked : T) -> Unit {
-  // Phase 4 implementation will mark these CellIds as reachable
-  // in the Runtime's GC root set.
-  let _ids = tracked.cell_ids()
+  // Deprecated no-op — use add_tracked(scope, tracked) instead.
+  let _ = tracked.cell_ids()
   ignore(rt)
-  // Future: rt.mark_gc_roots(ids)
 }

@@ -247,3 +247,53 @@ test "panic functional relation: insert after dispose aborts" {
   frel.dispose()
   frel.insert(1, "a") |> ignore // should abort
 }
+
+///|
+test "dispose_cell: dispatches to correct dispose method for each cell type" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 10)
+  let memo = Memo::new(rt, fn() { sig.get() * 2 })
+  let hybrid = HybridMemo::new(rt, fn() { sig.get() + 1 })
+  // Force memos to compute so they have dependencies
+  let _ = memo.get()
+  let _ = hybrid.get()
+  // Dispose via generic dispatcher
+  rt.dispose_cell(sig.id())
+  rt.dispose_cell(memo.id())
+  rt.dispose_cell(hybrid.id())
+  inspect(sig.is_disposed(), content="true")
+  inspect(memo.is_disposed(), content="true")
+  inspect(hybrid.is_disposed(), content="true")
+}
+
+///|
+test "dispose_cell: idempotent — disposing already-disposed cell is no-op" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 42)
+  rt.dispose_cell(sig.id())
+  // Second dispose should not abort
+  rt.dispose_cell(sig.id())
+  inspect(sig.is_disposed(), content="true")
+}
+
+///|
+test "dispose_cell: push reactive and effect" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 1)
+  let reactive : Reactive[Int] = Reactive::new(rt, fn() { sig.get() })
+  let effect_ran : Ref[Int] = { val: 0 }
+  let eff = Effect::new(rt, fn() { effect_ran.val = effect_ran.val + sig.get() })
+  rt.dispose_cell(reactive.id())
+  rt.dispose_cell(eff.id())
+  inspect(reactive.is_disposed(), content="true")
+  inspect(eff.is_disposed(), content="true")
+}
+
+///|
+test "panic dispose_cell: rejects foreign runtime CellId" {
+  let rt1 = Runtime::new()
+  let rt2 = Runtime::new()
+  let sig = Signal::new(rt1, 42)
+  // Attempting to dispose rt1's cell via rt2 should abort
+  rt2.dispose_cell(sig.id())
+}

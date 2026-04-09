@@ -9,6 +9,8 @@ import {
 // Values
 pub const DURABILITY_COUNT : Int = 3
 
+pub fn[T : Trackable] add_tracked(@cells.Scope, T) -> Unit
+
 pub fn[Db : Database] batch(Db, () -> Unit raise?) -> Unit raise?
 
 pub fn[Db : Database] batch_result(Db, () -> Unit raise?) -> Result[Unit, Error]
@@ -18,6 +20,8 @@ pub fn[Db : Database, T : Eq] create_hybrid_memo(Db, () -> T, label? : String) -
 pub fn[Db : Database, T : Eq] create_memo(Db, () -> T, label? : String) -> @cells.Memo[T]
 
 pub fn[Db : Database, K, V] create_memo_map(Db, (K) -> V, label? : String) -> @cells.MemoMap[K, V]
+
+pub fn[Db : Database] create_scope(Db) -> @cells.Scope
 
 pub fn[Db : Database, T] create_signal(Db, T, durability? : @types.Durability, label? : String) -> @cells.Signal[T]
 
@@ -65,6 +69,8 @@ pub using @types {type Revision}
 pub using @types {type RuleId}
 
 pub using @cells {type Runtime}
+
+pub using @cells {type Scope}
 
 pub using @cells {type Signal}
 

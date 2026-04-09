@@ -43,6 +43,7 @@ pub struct Effect {
   // private fields
 }
 pub fn Effect::dispose(Self) -> Unit
+pub fn Effect::id(Self) -> @types.CellId
 pub fn Effect::is_disposed(Self) -> Bool
 pub fn Effect::new(Runtime, () -> Unit) -> Self
 
@@ -140,11 +141,27 @@ pub fn Runtime::batch_result(Self, () -> Unit raise?) -> Result[Unit, Error]
 pub fn Runtime::cell_info(Self, @types.CellId) -> CellInfo?
 pub fn Runtime::clear_on_change(Self) -> Unit
 pub fn Runtime::dependents(Self, @types.CellId) -> Array[@types.CellId]
+pub fn Runtime::dispose_cell(Self, @types.CellId) -> Unit
 pub fn Runtime::dispose_rule(Self, @types.RuleId) -> Unit
 pub fn Runtime::fixpoint(Self) -> Unit
 pub fn Runtime::new(on_change? : () -> Unit) -> Self
 pub fn Runtime::new_rule(Self, Array[@types.CellId], Array[@types.CellId], () -> Unit, label? : String) -> @types.RuleId
 pub fn Runtime::set_on_change(Self, () -> Unit) -> Unit
+
+pub struct Scope {
+  // private fields
+}
+pub fn Scope::add_cell_ids(Self, Array[@types.CellId]) -> Unit
+pub fn Scope::child(Self) -> Self
+pub fn Scope::dispose(Self) -> Unit
+pub fn Scope::effect(Self, () -> Unit) -> Effect
+pub fn[T : Eq] Scope::hybrid_memo(Self, () -> T, label? : String) -> HybridMemo[T]
+pub fn Scope::is_disposed(Self) -> Bool
+pub fn[T : Eq] Scope::memo(Self, () -> T, label? : String) -> Memo[T]
+pub fn Scope::new(Runtime) -> Self
+pub fn[T : Eq] Scope::reactive(Self, () -> T) -> Reactive[T]
+pub fn[T] Scope::signal(Self, T, durability? : @types.Durability, label? : String) -> Signal[T]
+pub impl @debug.Debug for Scope
 
 pub(all) struct Signal[T] {
   // private fields
