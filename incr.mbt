@@ -12,6 +12,7 @@ pub using @incr_types {
   DURABILITY_COUNT,
   trait HasChangedAt,
   trait BackdateEq,
+  type GcRole,
 }
 
 ///|
