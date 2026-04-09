@@ -488,6 +488,28 @@ pub fn[T] Memo::clear_on_change(self : Memo[T]) -> Unit {
 }
 
 ///|
+/// Returns true if this memo has been disposed.
+pub fn[T] Memo::is_disposed(self : Memo[T]) -> Bool {
+  let id = self.cell_id.id
+  if id < 0 || id >= self.rt.core.cell_index.length() {
+    return true
+  }
+  match self.rt.core.cell_index[id] {
+    Disposed => true
+    _ => false
+  }
+}
+
+///|
+/// Disposes this memo, releasing its resources and marking it as Disposed.
+///
+/// After disposal, calling `get()` will abort. Disposal is idempotent.
+pub fn[T] Memo::dispose(self : Memo[T]) -> Unit {
+  self.rt.dispose_memo(self.cell_id)
+  self.value = None
+}
+
+///|
 /// Returns true if the memo has a cached value and its verified_at matches
 /// the runtime's current revision. Returns false if the memo has never been
 /// computed (value is None), even at the initial revision.

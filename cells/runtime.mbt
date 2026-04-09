@@ -623,6 +623,35 @@ fn Runtime::dispose_signal(self : Runtime, cell_id : CellId) -> Unit {
 }
 
 ///|
+/// Disposes a pull memo cell, removing it from all upstream subscriber sets,
+/// clearing its cached state, and marking its cell_index slot as Disposed.
+fn Runtime::dispose_memo(self : Runtime, cell_id : CellId) -> Unit {
+  if cell_id.id < 0 || cell_id.id >= self.core.cell_index.length() {
+    return
+  }
+  match self.core.cell_index[cell_id.id] {
+    PullMemo(idx) => {
+      let memo = self.pull.memos[idx]
+      for dep in memo.dependencies {
+        self.remove_subscriber(dep, cell_id)
+      }
+      memo.dependencies = []
+      memo.meta.subscribers.clear()
+      memo.meta.label = None
+      memo.on_change = None
+      // Note: compute is immutable; the captured closure is released when the
+      // slot is overwritten on reuse (Task 4). The Disposed marker prevents
+      // any path from calling compute.
+      memo.verified_at = Revision::initial()
+      memo.in_progress = false
+      self.core.cell_index[cell_id.id] = Disposed
+      self.pull.free_memos.push(idx)
+    }
+    _ => ()
+  }
+}
+
+///|
 /// Disposes a hybrid memo cell, removing it from all upstream subscriber sets
 /// and marking its cell_index slot as Disposed.
 fn Runtime::dispose_hybrid_memo(self : Runtime, cell_id : CellId) -> Unit {

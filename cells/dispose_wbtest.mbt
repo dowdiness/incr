@@ -19,6 +19,19 @@ test "signal dispose: removes from downstream subscriber sets" {
 }
 
 ///|
+test "memo dispose: removes from upstream subscriber sets" {
+  let rt = Runtime()
+  let sig = Signal(rt, 10)
+  let m = Memo(rt, fn() { sig.get() * 2 })
+  ignore(m.get()) // establish sig -> m dependency
+  let sig_subs_before = rt.get_subscribers(sig.id()).collect().length()
+  assert_true(sig_subs_before > 0)
+  m.dispose()
+  let sig_subs_after = rt.get_subscribers(sig.id()).collect().length()
+  assert_eq(sig_subs_after, 0)
+}
+
+///|
 test "signal dispose: free list enables slot reuse" {
   let rt = Runtime()
   let sig1 = Signal(rt, 10)
