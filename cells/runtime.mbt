@@ -67,6 +67,8 @@ priv struct RuntimeCore {
 priv struct PullState {
   signals : Array[PullSignalData]
   memos : Array[MemoData]
+  free_signals : Array[Int]
+  free_memos : Array[Int]
 }
 
 ///|
@@ -165,7 +167,7 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
       cell_ops: [],
       in_fixpoint: false,
     },
-    pull: { signals: [], memos: [] },
+    pull: { signals: [], memos: [], free_signals: [], free_memos: [] },
     push: {
       reactives: [],
       effects: [],
@@ -221,9 +223,13 @@ fn Runtime::new_signal_id(
   durability : Durability,
   label : String?,
 ) -> CellId {
-  let idx = self.pull.signals.length()
-  let cell_id = self.alloc_cell_id(PullSignal(idx))
-  self.pull.signals.push({
+  // Reuse a freed slot if available, otherwise append a new one.
+  let signal_idx = match self.pull.free_signals.pop() {
+    Some(idx) => idx
+    None => self.pull.signals.length()
+  }
+  let cell_id = self.alloc_cell_id(PullSignal(signal_idx))
+  let new_data : PullSignalData = {
     meta: {
       cell_id,
       label,
@@ -234,9 +240,14 @@ fn Runtime::new_signal_id(
     },
     on_change: None,
     commit_pending: None,
-  })
-  let ops : &CellOps = self.pull.signals[idx]
-  self.core.cell_ops.push(ops)
+  }
+  if signal_idx < self.pull.signals.length() {
+    self.pull.signals[signal_idx] = new_data
+  } else {
+    self.pull.signals.push(new_data)
+  }
+  let ops : &CellOps = self.pull.signals[signal_idx]
+  self.core.cell_ops.push(ops) // PUSH — new CellId always gets a new cell_ops entry
   cell_id
 }
 
@@ -605,6 +616,7 @@ fn Runtime::dispose_signal(self : Runtime, cell_id : CellId) -> Unit {
       signal.on_change = None
       signal.commit_pending = None
       self.core.cell_index[cell_id.id] = Disposed
+      self.pull.free_signals.push(idx)
     }
     _ => ()
   }
