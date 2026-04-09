@@ -258,13 +258,31 @@ pub fn[T : Trackable] add_tracked(scope : Scope, tracked : T) -> Unit {
 }
 
 ///|
-/// Marks all cells of a Trackable struct as GC roots (no-op until Phase 4).
+/// Creates a new root scope using the database's runtime.
 ///
-/// Call this when a tracked struct is "alive" — referenced by the
-/// current computation. This function is a no-op until GC infrastructure
-/// is added to Runtime (Phase 4 of the roadmap). It is provided now so
-/// that user code includes the correct call sites, enabling a zero-change
-/// migration when GC lands.
+/// Cells created via the scope's constructors are automatically disposed
+/// when the scope is disposed. Use `scope.child()` for nested scopes.
+///
+/// # Parameters
+///
+/// - `db`: Any type implementing `Database`
+///
+/// # Returns
+///
+/// A new root scope associated with the database's runtime
+pub fn[Db : Database] create_scope(db : Db) -> Scope {
+  Scope::new(db.runtime())
+}
+
+///|
+/// **Deprecated:** Use `Scope::add_tracked` instead for lifecycle management.
+///
+/// This function was originally intended to mark TrackedCell fields as GC roots.
+/// However, TrackedCells are Sources with no downstream dependency edges, so
+/// marking them as roots keeps nothing alive. Use `add_tracked(scope, tracked)`
+/// to register all of a struct's TrackedCells with a scope for bulk disposal.
+///
+/// This function is a no-op and will be removed in a future version.
 pub fn[T : Trackable] gc_tracked(rt : Runtime, tracked : T) -> Unit {
   // Phase 4 implementation will mark these CellIds as reachable
   // in the Runtime's GC root set.
