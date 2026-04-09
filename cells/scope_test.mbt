@@ -103,9 +103,7 @@ test "scope: effect creates cell and registers for disposal" {
   let scope = Scope::new(rt)
   let ran : Ref[Int] = { val: 0 }
   let sig = scope.signal(1)
-  let eff = scope.effect(fn() {
-    ran.val = ran.val + sig.get()
-  })
+  let eff = scope.effect(fn() { ran.val = ran.val + sig.get() })
   inspect(ran.val, content="1")
   scope.dispose()
   inspect(eff.is_disposed(), content="true")

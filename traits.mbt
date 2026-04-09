@@ -275,7 +275,7 @@ pub fn[Db : Database] create_scope(db : Db) -> Scope {
 }
 
 ///|
-/// **Deprecated:** Use `Scope::add_tracked` instead for lifecycle management.
+/// **Deprecated:** Use `add_tracked(scope, tracked)` instead for lifecycle management.
 ///
 /// This function was originally intended to mark TrackedCell fields as GC roots.
 /// However, TrackedCells are Sources with no downstream dependency edges, so
@@ -284,9 +284,7 @@ pub fn[Db : Database] create_scope(db : Db) -> Scope {
 ///
 /// This function is a no-op and will be removed in a future version.
 pub fn[T : Trackable] gc_tracked(rt : Runtime, tracked : T) -> Unit {
-  // Phase 4 implementation will mark these CellIds as reachable
-  // in the Runtime's GC root set.
-  let _ids = tracked.cell_ids()
+  // Deprecated no-op — use add_tracked(scope, tracked) instead.
+  let _ = tracked.cell_ids()
   ignore(rt)
-  // Future: rt.mark_gc_roots(ids)
 }

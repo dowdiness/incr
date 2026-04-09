@@ -65,6 +65,7 @@ dowdiness/incr/
 │   ├── runtime.mbt             (Runtime, CellInfo)
 │   ├── tracked_cell.mbt        (TrackedCell[T])
 │   ├── memo_map.mbt            (MemoMap[K, V] — keyed memoization)
+│   ├── scope.mbt               (Scope — hierarchical cell ownership with bulk disposal)
 │   ├── *_test.mbt              (unit tests — black-box tests of the cells package)
 │   └── *_wbtest.mbt            (whitebox tests — co-located for private field access)
 │

@@ -33,16 +33,14 @@ pub struct Scope {
 /// Manual Debug impl because `Array[() -> Unit]` cannot derive Debug
 /// (the `ignore` parameter only filters top-level field types, not nested types).
 pub impl Debug for Scope with to_repr(self) {
-  Repr::record(
-    {
-      "cells": to_repr(self.cells),
-      "children": to_repr(self.children),
-      "dispose_hooks": Repr::literal(
-        "<" + self.dispose_hooks.length().to_string() + " hooks>",
-      ),
-      "disposed": to_repr(self.disposed),
-    },
-  )
+  Repr::record({
+    "cells": to_repr(self.cells),
+    "children": to_repr(self.children),
+    "dispose_hooks": Repr::literal(
+      "<" + self.dispose_hooks.length().to_string() + " hooks>",
+    ),
+    "disposed": to_repr(self.disposed),
+  })
 }
 
 ///|
@@ -56,16 +54,8 @@ pub fn Scope::new(rt : Runtime) -> Scope {
 ///
 /// Disposing the parent will dispose this child first (bottom-up order).
 pub fn Scope::child(self : Scope) -> Scope {
-  guard !self.disposed else {
-    abort("Scope::child called on a disposed scope")
-  }
-  let child : Scope = {
-    runtime: self.runtime,
-    cells: [],
-    children: [],
-    dispose_hooks: [],
-    disposed: false,
-  }
+  guard !self.disposed else { abort("Scope::child called on a disposed scope") }
+  let child = Scope::new(self.runtime)
   self.children.push(child)
   child
 }
@@ -120,9 +110,7 @@ pub fn[T : Eq] Scope::memo(
   f : () -> T,
   label? : String,
 ) -> Memo[T] {
-  guard !self.disposed else {
-    abort("Scope::memo called on a disposed scope")
-  }
+  guard !self.disposed else { abort("Scope::memo called on a disposed scope") }
   let m = Memo::new(self.runtime, f, label?)
   self.cells.push(m.id())
   m
@@ -172,7 +160,7 @@ pub fn[T : Eq] Scope::reactive(
 /// Registers an array of CellIds with this scope for bulk disposal.
 ///
 /// When the scope is disposed, all registered cells are disposed.
-/// This is the low-level building block for `Scope::add_tracked`.
+/// This is the low-level building block for `add_tracked(scope, tracked)`.
 pub fn Scope::add_cell_ids(self : Scope, ids : Array[CellId]) -> Unit {
   guard !self.disposed else {
     abort("Scope::add_cell_ids called on a disposed scope")

@@ -148,6 +148,21 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Self
 pub fn Runtime::new_rule(Self, Array[@types.CellId], Array[@types.CellId], () -> Unit, label? : String) -> @types.RuleId
 pub fn Runtime::set_on_change(Self, () -> Unit) -> Unit
 
+pub struct Scope {
+  // private fields
+}
+pub fn Scope::add_cell_ids(Self, Array[@types.CellId]) -> Unit
+pub fn Scope::child(Self) -> Self
+pub fn Scope::dispose(Self) -> Unit
+pub fn Scope::effect(Self, () -> Unit) -> Effect
+pub fn[T : Eq] Scope::hybrid_memo(Self, () -> T, label? : String) -> HybridMemo[T]
+pub fn Scope::is_disposed(Self) -> Bool
+pub fn[T : Eq] Scope::memo(Self, () -> T, label? : String) -> Memo[T]
+pub fn Scope::new(Runtime) -> Self
+pub fn[T : Eq] Scope::reactive(Self, () -> T) -> Reactive[T]
+pub fn[T] Scope::signal(Self, T, durability? : @types.Durability, label? : String) -> Signal[T]
+pub impl @debug.Debug for Scope
+
 pub(all) struct Signal[T] {
   // private fields
 

@@ -97,9 +97,7 @@ test "scope: dispose after push propagation completes" {
   let scope = @incr.Scope::new(rt)
   let sig = scope.signal(1)
   let count : Ref[Int] = { val: 0 }
-  let eff = scope.effect(fn() {
-    count.val = count.val + sig.get()
-  })
+  let eff = scope.effect(fn() { count.val = count.val + sig.get() })
   inspect(count.val, content="1")
   // Trigger push propagation
   sig.set(10)
