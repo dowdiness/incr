@@ -146,7 +146,7 @@ test "baseline: signal.set with clean runtime" (b : @bench.T) {
 ///|
 test "baseline: signal.set with 10k unreferenced memos" (b : @bench.T) {
   // Memos are created and immediately dropped. They persist in the SoA
-  // arrays because there's no dispose mechanism yet. This measures whether
+  // arrays because they are not explicitly disposed. This measures whether
   // accumulated SoA entries affect signal.set performance.
   let rt = Runtime::new()
   let sig = Signal::new(rt, 0)

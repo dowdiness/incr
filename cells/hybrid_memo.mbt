@@ -79,6 +79,10 @@ pub fn[T : Eq] HybridMemo::new(
 ///
 /// Slow path: calls `pull_verify` to walk deps.
 pub fn[T : Eq] HybridMemo::get(self : HybridMemo[T]) -> T {
+  match self.rt.core.cell_index[self.cell_id.id] {
+    Disposed => abort("HybridMemo::get called on a disposed hybrid memo")
+    _ => ()
+  }
   let active_rt = current_computing_runtime_id.val
   if active_rt >= 0 && active_rt != self.rt.core.runtime_id {
     current_computing_runtime_id.val = -1

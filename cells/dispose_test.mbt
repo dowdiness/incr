@@ -187,6 +187,14 @@ test "signal: dispose during batch discards pending write" {
 }
 
 ///|
+test "panic signal: set after dispose aborts" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 42)
+  sig.dispose()
+  sig.set(99) // should abort
+}
+
+///|
 test "signal: dispose of a dependency during computation is safe" {
   // Disposing a different cell during a memo's compute function is allowed.
   // The memo will still see the value it already read. Future reads of the

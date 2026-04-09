@@ -656,8 +656,8 @@ fn Runtime::dispose_memo(self : Runtime, cell_id : CellId) -> Unit {
       memo.meta.label = None
       memo.on_change = None
       // Note: compute is immutable; the captured closure is released when the
-      // slot is overwritten on reuse (Task 4). The Disposed marker prevents
-      // any path from calling compute.
+      // slot is overwritten on reuse. The Disposed marker prevents any path
+      // from calling compute.
       memo.verified_at = Revision::initial()
       memo.in_progress = false
       self.core.cell_index[cell_id.id] = Disposed
@@ -703,7 +703,7 @@ fn Runtime::dispose_hybrid_memo(self : Runtime, cell_id : CellId) -> Unit {
 /// Disposes a push reactive cell, removing it from all subscriber sets
 /// and marking its cell_index slot as Disposed.
 ///
-/// See `Reactive::dispose` and Task 7 for the full implementation.
+/// See `Reactive::dispose` for the full implementation.
 fn Runtime::dispose_reactive(self : Runtime, cell_id : CellId) -> Unit {
   if cell_id.id < 0 || cell_id.id >= self.core.cell_index.length() {
     return
