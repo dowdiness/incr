@@ -77,7 +77,31 @@ test "baseline: memo creation cost (monotonic SoA growth)" (b : @bench.T) {
 }
 ```
 
-- [ ] **Step 2: Add push CPU waste benchmarks**
+- [ ] **Step 2: Re-export Reactive and Effect from the incr facade**
+
+The `tests/` package imports `@incr`, but `Reactive` and `Effect` are not currently re-exported. In `incr.mbt`, add them to the `pub using @internal` block:
+
+```moonbit
+pub using @internal {
+  type Runtime,
+  type CellInfo,
+  type Signal,
+  type Memo,
+  type MemoMap,
+  type CycleError,
+  type TrackedCell,
+  type HybridMemo,
+  type Relation,
+  type FunctionalRelation,
+  type Reactive,   // add
+  type Effect,     // add
+}
+```
+
+Run: `moon check`
+Expected: no errors
+
+- [ ] **Step 3: Add push CPU waste benchmarks**
 
 "Abandoned" reactives are live in the runtime (SoA slot, subscriber links, push_reachable_count all active) but the user dropped the MoonBit handle. Push propagation still reaches them.
 
@@ -134,7 +158,7 @@ test "baseline: push propagation with 100 abandoned reactives (handle dropped)" 
 }
 ```
 
-- [ ] **Step 3: Add slot reuse benchmark**
+- [ ] **Step 4: Add slot reuse benchmark**
 
 Append to `tests/bench_test.mbt`:
 
@@ -150,22 +174,24 @@ test "baseline: reactive create-dispose cycle (existing free list)" (b : @bench.
 }
 ```
 
-- [ ] **Step 4: Run moon check**
+- [ ] **Step 5: Run moon check**
 
 Run: `moon check`
 Expected: no errors
 
-- [ ] **Step 5: Run benchmarks and record baselines**
+- [ ] **Step 6: Run benchmarks and record baselines**
 
 Run: `cd /home/antisatori/ghq/github.com/dowdiness/canopy/loom/incr && moon bench --release`
 
 Record the output. These are the baselines for comparison after Layer 1.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add tests/bench_test.mbt
-git commit -m "bench: add Phase 1 baseline benchmarks for dispose/GC"
+git add tests/bench_test.mbt incr.mbt
+git commit -m "bench: add Phase 1 baseline benchmarks for dispose/GC
+
+Also re-exports Reactive and Effect from the incr facade."
 ```
 
 ---
@@ -1078,9 +1104,11 @@ pub fn Runtime::dispose_rule(self : Runtime, rule_id : @incr_types.RuleId) -> Un
       let rule = self.datalog.rules[idx]
       rule.meta.subscribers.clear()
       rule.meta.label = None
-      rule.apply_delta = fn() { () }  // release closure
-      rule.input_relations = []
-      rule.output_relations = []
+      // Note: RuleData.apply_delta, input_relations, output_relations are
+      // immutable fields (not `mut`). They cannot be cleared here. The
+      // closures and arrays will be released when the RuleData struct is
+      // overwritten on slot reuse, or by the host GC. If aggressive clearing
+      // is needed later, add `mut` to these fields in datalog_rule.mbt.
       self.core.cell_index[cell_id.id] = Disposed
     }
     _ => ()
@@ -1183,25 +1211,31 @@ test "signal: dispose during batch discards pending write" {
 }
 
 ///|
-test "panic signal: dispose during verify aborts" {
+test "signal: dispose of a dependency during computation is safe" {
+  // Disposing a different cell during a memo's compute function is allowed.
+  // The memo will still see the value it already read. Future reads of the
+  // disposed cell will abort, which is the caller's responsibility.
   let rt = Runtime::new()
   let sig = Signal::new(rt, 10)
-  // Create a memo whose compute function disposes a signal
+  let other_sig = Signal::new(rt, 99)
   let m = Memo::new(rt, fn() {
     let v = sig.get()
-    sig.dispose()  // dispose during active computation
+    other_sig.dispose()  // dispose a DIFFERENT cell — allowed
     v
   })
-  ignore(m.get())  // triggers compute → should abort
+  inspect!(m.get(), content="10")
+  assert_true!(other_sig.is_disposed())
 }
 ```
 
-- [ ] **Step 2: Add verify guard to dispose methods**
+- [ ] **Step 2: Add self-dispose guard to dispose methods**
 
-Each `dispose_*` method in `cells/runtime.mbt` should check if the cell is currently being verified. Add at the top of `dispose_signal`, `dispose_memo`, `dispose_hybrid_memo`:
+The only forbidden case: disposing a cell **during its own computation** (it's on the tracking stack). Disposing a different cell during computation is safe and already tested by reactive mid-wave disposal tests.
+
+Add at the top of `dispose_signal`, `dispose_memo`, `dispose_hybrid_memo` in `cells/runtime.mbt`:
 
 ```moonbit
-  // Guard: cannot dispose during active verification of THIS cell
+  // Guard: cannot dispose a cell during its own computation
   for aq in self.core.tracking_stack {
     if aq.cell_id == cell_id {
       abort("dispose: cannot dispose a cell during its own computation")
@@ -1209,7 +1243,7 @@ Each `dispose_*` method in `cells/runtime.mbt` should check if the cell is curre
   }
 ```
 
-Note: Disposing a DIFFERENT cell during a computation is allowed (and tested by the reactive mid-wave tests). Only disposing the cell currently being computed/verified is forbidden.
+Note: This guard does NOT prevent disposing other cells during computation. That is intentionally allowed — the reactive mid-wave disposal tests verify this works correctly.
 
 - [ ] **Step 3: Handle batch pending cleanup in dispose_signal**
 
