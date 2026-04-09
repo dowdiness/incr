@@ -55,6 +55,7 @@ priv struct RuntimeCore {
   mut on_change : (() -> Unit)?
   cell_index : Array[CellRef]
   cell_ops : Array[&CellOps]
+  cell_lifecycle : Array[&CellLifecycle]
   /// True while Runtime::fixpoint() is running. Cross-engine guard: prevents
   /// pull_verify, Memo::get(), and HybridMemo::get() from running concurrently
   /// with semi-naive delta tracking. Relation::insert() is allowed during
@@ -165,6 +166,7 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
       on_change,
       cell_index: [],
       cell_ops: [],
+      cell_lifecycle: [],
       in_fixpoint: false,
     },
     pull: { signals: [], memos: [], free_signals: [], free_memos: [] },
@@ -246,6 +248,8 @@ fn Runtime::new_signal_id(
   }
   let ops : &CellOps = self.pull.signals[signal_idx]
   self.core.cell_ops.push(ops)
+  let lifecycle : &CellLifecycle = self.pull.signals[signal_idx]
+  self.core.cell_lifecycle.push(lifecycle)
   cell_id
 }
 

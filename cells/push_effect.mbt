@@ -136,6 +136,8 @@ pub fn Effect::new(rt : Runtime, f : () -> Unit) -> Effect {
   }
   let ops : &CellOps = rt.push.effects[effect_idx]
   rt.core.cell_ops.push(ops)
+  let lifecycle : &CellLifecycle = rt.push.effects[effect_idx]
+  rt.core.cell_lifecycle.push(lifecycle)
   let effect : Effect = { cell_id, rt }
   // Run immediately to establish dependencies and execute the initial side effect.
   rt.begin_tracking(cell_id)

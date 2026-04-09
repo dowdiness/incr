@@ -145,6 +145,8 @@ pub fn[T : Eq] Reactive::new(rt : Runtime, compute_fn : () -> T) -> Reactive[T] 
   }
   let ops : &CellOps = rt.push.reactives[reactive_idx]
   rt.core.cell_ops.push(ops)
+  let lifecycle : &CellLifecycle = rt.push.reactives[reactive_idx]
+  rt.core.cell_lifecycle.push(lifecycle)
   let reactive : Reactive[T] = {
     cell_id: @incr_types.ReactiveId::{ id: cell_id },
     value,

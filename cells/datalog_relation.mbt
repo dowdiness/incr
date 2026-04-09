@@ -84,6 +84,8 @@ pub fn[T : Hash + Eq] Relation::new(
   rt.datalog.relations.push(data)
   let ops : &CellOps = rt.datalog.relations[idx]
   rt.core.cell_ops.push(ops)
+  let lifecycle : &CellLifecycle = rt.datalog.relations[idx]
+  rt.core.cell_lifecycle.push(lifecycle)
   { rt, cell_id, current, delta, staged_delta }
 }
 

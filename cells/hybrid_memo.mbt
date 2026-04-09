@@ -58,6 +58,8 @@ pub fn[T : Eq] HybridMemo::new(
   }
   let ops : &CellOps = rt.pull.memos[memo_idx]
   rt.core.cell_ops.push(ops)
+  let lifecycle : &CellLifecycle = rt.pull.memos[memo_idx]
+  rt.core.cell_lifecycle.push(lifecycle)
   // HybridMemo intentionally does NOT increment rt.push.node_count.
   // However, it does participate in push_reachable_count tracking: when a
   // live Reactive/Effect subscribes through a HybridMemo, the memo and its

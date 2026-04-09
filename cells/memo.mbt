@@ -74,6 +74,8 @@ fn[T] Memo::_create(
   }
   let ops : &CellOps = rt.pull.memos[memo_idx]
   rt.core.cell_ops.push(ops)
+  let lifecycle : &CellLifecycle = rt.pull.memos[memo_idx]
+  rt.core.cell_lifecycle.push(lifecycle)
   memo
 }
 
