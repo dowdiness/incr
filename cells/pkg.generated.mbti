@@ -142,10 +142,12 @@ pub(all) struct Signal[T] {
   fn[T] new(Runtime, T, durability? : @types.Durability, label? : String) -> Signal[T]
 } derive(@debug.Debug)
 pub fn[T] Signal::clear_on_change(Self[T]) -> Unit
+pub fn[T] Signal::dispose(Self[T]) -> Unit
 pub fn[T] Signal::durability(Self[T]) -> @types.Durability
 pub fn[T] Signal::get(Self[T]) -> T
 pub fn[T] Signal::get_result(Self[T]) -> Result[T, CycleError]
 pub fn[T] Signal::id(Self[T]) -> @types.CellId
+pub fn[T] Signal::is_disposed(Self[T]) -> Bool
 pub fn[T] Signal::is_up_to_date(Self[T]) -> Bool
 pub fn[T] Signal::new(Runtime, T, durability? : @types.Durability, label? : String) -> Self[T]
 pub fn[T] Signal::on_change(Self[T], (T) -> Unit) -> Unit

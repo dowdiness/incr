@@ -589,6 +589,28 @@ impl RevisionManager for Runtime with bump_revision(self, durability) {
 }
 
 ///|
+/// Disposes a pull signal cell, removing it from all downstream subscriber sets
+/// and marking its cell_index slot as Disposed.
+fn Runtime::dispose_signal(self : Runtime, cell_id : CellId) -> Unit {
+  if cell_id.id < 0 || cell_id.id >= self.core.cell_index.length() {
+    return
+  }
+  match self.core.cell_index[cell_id.id] {
+    PullSignal(idx) => {
+      let signal = self.pull.signals[idx]
+      // Signals have no upstream dependencies to unsubscribe from.
+      // Clear downstream subscribers.
+      signal.meta.subscribers.clear()
+      signal.meta.label = None
+      signal.on_change = None
+      signal.commit_pending = None
+      self.core.cell_index[cell_id.id] = Disposed
+    }
+    _ => ()
+  }
+}
+
+///|
 /// Disposes a hybrid memo cell, removing it from all upstream subscriber sets
 /// and marking its cell_index slot as Disposed.
 fn Runtime::dispose_hybrid_memo(self : Runtime, cell_id : CellId) -> Unit {
