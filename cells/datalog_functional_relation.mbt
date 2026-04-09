@@ -198,6 +198,33 @@ fn[K, V] FunctionalRelation::record_read_dependency(
 }
 
 ///|
+/// Disposes this functional relation, clearing its maps and marking it as
+/// Disposed.
+pub fn[K, V] FunctionalRelation::dispose(
+  self : FunctionalRelation[K, V],
+) -> Unit {
+  self.rt.dispose_functional_relation(self.cell_id)
+  self.current.val.clear()
+  self.delta.val.clear()
+  self.staged_delta.val.clear()
+}
+
+///|
+/// Returns true if this functional relation has been disposed.
+pub fn[K, V] FunctionalRelation::is_disposed(
+  self : FunctionalRelation[K, V],
+) -> Bool {
+  let id = self.cell_id.id
+  if id < 0 || id >= self.rt.core.cell_index.length() {
+    return true
+  }
+  match self.rt.core.cell_index[id] {
+    Disposed => true
+    _ => false
+  }
+}
+
+///|
 /// Iterates over the delta set (new/updated entries not yet drained to current).
 ///
 /// Used by rule bodies to read only the new entries produced in the previous

@@ -722,3 +722,65 @@ fn Runtime::dispose_effect(self : Runtime, cell_id : CellId) -> Unit {
     _ => ()
   }
 }
+
+///|
+/// Disposes a relation cell, clearing its subscribers and marking its
+/// cell_index slot as Disposed. Datalog cells have no free lists — they
+/// are sources that are rarely created/destroyed.
+fn Runtime::dispose_relation(self : Runtime, cell_id : CellId) -> Unit {
+  if cell_id.id < 0 || cell_id.id >= self.core.cell_index.length() {
+    return
+  }
+  match self.core.cell_index[cell_id.id] {
+    Relation(idx) => {
+      let rel = self.datalog.relations[idx]
+      rel.meta.subscribers.clear()
+      rel.meta.label = None
+      self.core.cell_index[cell_id.id] = Disposed
+    }
+    _ => ()
+  }
+}
+
+///|
+/// Disposes a functional relation cell, clearing its subscribers and marking
+/// its cell_index slot as Disposed.
+fn Runtime::dispose_functional_relation(
+  self : Runtime,
+  cell_id : CellId,
+) -> Unit {
+  if cell_id.id < 0 || cell_id.id >= self.core.cell_index.length() {
+    return
+  }
+  match self.core.cell_index[cell_id.id] {
+    FunctionalRelation(idx) => {
+      let frel = self.datalog.functional_relations[idx]
+      frel.meta.subscribers.clear()
+      frel.meta.label = None
+      self.core.cell_index[cell_id.id] = Disposed
+    }
+    _ => ()
+  }
+}
+
+///|
+/// Disposes a rule cell. Public because RuleId has no runtime reference,
+/// so the user must call `rt.dispose_rule(rule_id)` directly.
+pub fn Runtime::dispose_rule(
+  self : Runtime,
+  rule_id : @incr_types.RuleId,
+) -> Unit {
+  let cell_id = rule_id.id
+  if cell_id.id < 0 || cell_id.id >= self.core.cell_index.length() {
+    return
+  }
+  match self.core.cell_index[cell_id.id] {
+    Rule(idx) => {
+      let rule = self.datalog.rules[idx]
+      rule.meta.subscribers.clear()
+      rule.meta.label = None
+      self.core.cell_index[cell_id.id] = Disposed
+    }
+    _ => ()
+  }
+}

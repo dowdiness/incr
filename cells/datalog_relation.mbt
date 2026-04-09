@@ -145,6 +145,28 @@ fn[T] Relation::record_read_dependency(self : Relation[T]) -> Unit {
 }
 
 ///|
+/// Disposes this relation, clearing its fact sets and marking it as Disposed.
+pub fn[T] Relation::dispose(self : Relation[T]) -> Unit {
+  self.rt.dispose_relation(self.cell_id)
+  self.current.val.clear()
+  self.delta.val.clear()
+  self.staged_delta.val.clear()
+}
+
+///|
+/// Returns true if this relation has been disposed.
+pub fn[T] Relation::is_disposed(self : Relation[T]) -> Bool {
+  let id = self.cell_id.id
+  if id < 0 || id >= self.rt.core.cell_index.length() {
+    return true
+  }
+  match self.rt.core.cell_index[id] {
+    Disposed => true
+    _ => false
+  }
+}
+
+///|
 /// Iterates over the delta set (new facts not yet drained to current).
 ///
 /// Used by rule bodies to read only the new facts produced in the previous
