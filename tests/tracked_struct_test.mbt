@@ -275,7 +275,7 @@ test "panic scope: add_tracked on disposed scope aborts" {
 }
 
 ///|
-test "panic scope: add_tracked with foreign runtime cells aborts on dispose" {
+test "panic scope: add_tracked with foreign runtime cells aborts at registration" {
   let rt1 = @incr.Runtime::new()
   let rt2 = @incr.Runtime::new()
   let scope = @incr.Scope::new(rt1)
@@ -283,7 +283,6 @@ test "panic scope: add_tracked with foreign runtime cells aborts on dispose" {
     a: @incr.TrackedCell::new(rt2, 1),
     b: @incr.TrackedCell::new(rt2, 2),
   }
+  // Aborts at registration time, not at dispose time
   @incr.add_tracked(scope, tracked)
-  // dispose_cell will abort because CellIds belong to rt2, not rt1
-  scope.dispose()
 }

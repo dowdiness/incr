@@ -84,6 +84,10 @@ pub fn Scope::dispose(self : Scope) -> Unit {
   for cell_id in self.cells {
     self.runtime.dispose_cell(cell_id)
   }
+  // Release references so a long-lived scope handle doesn't retain the subtree.
+  self.children.clear()
+  self.dispose_hooks.clear()
+  self.cells.clear()
   self.disposed = true
 }
 
@@ -165,7 +169,11 @@ pub fn Scope::add_cell_ids(self : Scope, ids : Array[CellId]) -> Unit {
   guard !self.disposed else {
     abort("Scope::add_cell_ids called on a disposed scope")
   }
+  let runtime_id = self.runtime.core.runtime_id
   for id in ids {
+    guard id.runtime_id == runtime_id else {
+      abort("Scope::add_cell_ids: CellId belongs to a different Runtime")
+    }
     self.cells.push(id)
   }
 }
