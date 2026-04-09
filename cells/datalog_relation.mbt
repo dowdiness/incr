@@ -17,6 +17,17 @@ impl HasCellMeta for RelationData with meta(self) {
 impl CellOps for RelationData
 
 ///|
+impl CellLifecycle for RelationData with dispose_cell(
+  self,
+  rt,
+  cell_id,
+) -> Unit {
+  self.meta.subscribers.clear()
+  self.meta.label = None
+  rt.core.cell_index[cell_id.id] = Disposed
+}
+
+///|
 /// A Datalog relation: a set of tuples with delta tracking for fixpoint evaluation.
 ///
 /// `Relation[T]` holds typed `current` and `delta` sets via `Ref`. The Runtime

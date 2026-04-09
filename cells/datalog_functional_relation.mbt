@@ -17,6 +17,17 @@ impl HasCellMeta for FunctionalRelationData with meta(self) {
 impl CellOps for FunctionalRelationData
 
 ///|
+impl CellLifecycle for FunctionalRelationData with dispose_cell(
+  self,
+  rt,
+  cell_id,
+) -> Unit {
+  self.meta.subscribers.clear()
+  self.meta.label = None
+  rt.core.cell_index[cell_id.id] = Disposed
+}
+
+///|
 /// A Datalog functional relation: a key-value map with delta tracking for
 /// fixpoint evaluation.
 ///

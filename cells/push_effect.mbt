@@ -61,6 +61,26 @@ impl CellOps for PushEffectData with gc_dependencies(self) -> Array[CellId] {
 }
 
 ///|
+impl CellLifecycle for PushEffectData with dispose_cell(
+  self,
+  rt,
+  cell_id,
+) -> Unit {
+  match rt.core.cell_index[cell_id.id] {
+    PushEffect(idx) => {
+      for dep in self.sources {
+        rt.remove_subscriber(dep, cell_id)
+      }
+      rt.core.cell_index[cell_id.id] = Disposed
+      self.clear_slot()
+      rt.push.free_effects.push(idx)
+      rt.push.node_count = rt.push.node_count - 1
+    }
+    _ => ()
+  }
+}
+
+///|
 /// Clears all mutable fields to release captured closures and graph edges.
 /// Called by `Runtime::dispose_effect` after removing subscriber links.
 fn PushEffectData::clear_slot(self : PushEffectData) -> Unit {
