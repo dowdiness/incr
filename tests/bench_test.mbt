@@ -169,17 +169,6 @@ test "baseline: memo creation cost (monotonic SoA growth)" (b : @bench.T) {
 }
 
 ///|
-test "baseline: push propagation with 0 reactives" (b : @bench.T) {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 0)
-  let mut v = 0
-  b.bench(fn() {
-    v += 1
-    sig.set(v)
-  })
-}
-
-///|
 test "baseline: push propagation with 100 live reactives" (b : @bench.T) {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 0)

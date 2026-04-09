@@ -245,7 +245,7 @@ fn Runtime::new_signal_id(
     self.pull.signals.push(new_data)
   }
   let ops : &CellOps = self.pull.signals[signal_idx]
-  self.core.cell_ops.push(ops) // PUSH — new CellId always gets a new cell_ops entry
+  self.core.cell_ops.push(ops)
   cell_id
 }
 
@@ -617,8 +617,8 @@ fn Runtime::guard_self_dispose(self : Runtime, cell_id : CellId) -> Unit {
 }
 
 ///|
-/// Disposes a pull signal cell, removing it from all downstream subscriber sets
-/// and marking its cell_index slot as Disposed.
+/// Disposes a pull signal cell, clearing its subscriber set, discarding any
+/// pending batch writes, and marking its cell_index slot as Disposed.
 fn Runtime::dispose_signal(self : Runtime, cell_id : CellId) -> Unit {
   guard !self.is_cell_disposed(cell_id) else { return }
   self.guard_self_dispose(cell_id)
@@ -669,6 +669,7 @@ fn Runtime::dispose_memo(self : Runtime, cell_id : CellId) -> Unit {
 /// and marking its cell_index slot as Disposed.
 fn Runtime::dispose_reactive(self : Runtime, cell_id : CellId) -> Unit {
   guard !self.is_cell_disposed(cell_id) else { return }
+  self.guard_self_dispose(cell_id)
   match self.core.cell_index[cell_id.id] {
     PushReactive(idx) => {
       let reactive = self.push.reactives[idx]
@@ -689,6 +690,7 @@ fn Runtime::dispose_reactive(self : Runtime, cell_id : CellId) -> Unit {
 /// and marking its cell_index slot as Disposed.
 fn Runtime::dispose_effect(self : Runtime, cell_id : CellId) -> Unit {
   guard !self.is_cell_disposed(cell_id) else { return }
+  self.guard_self_dispose(cell_id)
   match self.core.cell_index[cell_id.id] {
     PushEffect(idx) => {
       let effect = self.push.effects[idx]
