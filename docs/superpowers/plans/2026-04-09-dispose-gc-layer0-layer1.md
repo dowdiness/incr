@@ -25,7 +25,8 @@
 | Modify | `cells/push_effect.mbt` | `Effect::is_disposed()` (dispose already exists) |
 | Modify | `cells/tracked_cell.mbt` | `TrackedCell::dispose()`, `TrackedCell::is_disposed()` |
 | Modify | `cells/datalog_relation.mbt` | `Relation::dispose()`, `Relation::is_disposed()` |
-| Modify | `cells/datalog_rule.mbt` | Add `RuleData::clear_slot()` |
+| Modify | `cells/datalog_functional_relation.mbt` | `FunctionalRelation::dispose()`, `FunctionalRelation::is_disposed()` |
+| Modify | `cells/datalog_rule.mbt` | (no changes — Rule disposed via `Runtime::dispose_rule()`) |
 | Create | `cells/dispose_test.mbt` | Black-box dispose tests for Signal, Memo, Relation, Rule |
 | Create | `cells/dispose_wbtest.mbt` | Whitebox dispose tests (subscriber cleanup, free lists, slot clearing) |
 
@@ -38,11 +39,13 @@
 
 - [ ] **Step 1: Add cell accumulation benchmarks**
 
+These measure the cost of operating in a runtime with many unreferenced cells. "Unreferenced" means the user dropped the MoonBit handle, but the cells still occupy SoA slots and cell_index entries — there's no dispose mechanism yet.
+
 Append to `tests/bench_test.mbt`:
 
 ```moonbit
 ///|
-test "baseline: signal.set with 0 dead memos" (b : @bench.T) {
+test "baseline: signal.set with clean runtime" (b : @bench.T) {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 0)
   let mut v = 0
@@ -50,7 +53,10 @@ test "baseline: signal.set with 0 dead memos" (b : @bench.T) {
 }
 
 ///|
-test "baseline: signal.set with 10k dead memos" (b : @bench.T) {
+test "baseline: signal.set with 10k unreferenced memos" (b : @bench.T) {
+  // Memos are created and immediately dropped. They persist in the SoA
+  // arrays because there's no dispose mechanism yet. This measures whether
+  // accumulated SoA entries affect signal.set performance.
   let rt = Runtime::new()
   let sig = Signal::new(rt, 0)
   for i = 0; i < 10_000; i = i + 1 {
@@ -62,7 +68,7 @@ test "baseline: signal.set with 10k dead memos" (b : @bench.T) {
 }
 
 ///|
-test "baseline: memo creation (monotonic growth)" (b : @bench.T) {
+test "baseline: memo creation cost (monotonic SoA growth)" (b : @bench.T) {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 0)
   b.bench(fn() {
@@ -72,6 +78,8 @@ test "baseline: memo creation (monotonic growth)" (b : @bench.T) {
 ```
 
 - [ ] **Step 2: Add push CPU waste benchmarks**
+
+"Abandoned" reactives are live in the runtime (SoA slot, subscriber links, push_reachable_count all active) but the user dropped the MoonBit handle. Push propagation still reaches them.
 
 Append to `tests/bench_test.mbt`:
 
@@ -112,7 +120,9 @@ test "baseline: push propagation with 100 disposed reactives" (b : @bench.T) {
 }
 
 ///|
-test "baseline: push propagation with 100 abandoned reactives" (b : @bench.T) {
+test "baseline: push propagation with 100 abandoned reactives (handle dropped)" (b : @bench.T) {
+  // User dropped handle but reactive is still live in SoA — push still
+  // propagates through it. This is the CPU waste GC should eliminate.
   let rt = Runtime::new()
   let sig = Signal::new(rt, 0)
   for i = 0; i < 100; i = i + 1 {
@@ -130,7 +140,7 @@ Append to `tests/bench_test.mbt`:
 
 ```moonbit
 ///|
-test "baseline: reactive create-dispose cycle (free list)" (b : @bench.T) {
+test "baseline: reactive create-dispose cycle (existing free list)" (b : @bench.T) {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 0)
   b.bench(fn() {
@@ -266,21 +276,55 @@ pub fn[T] Signal::dispose(self : Signal[T]) -> Unit {
 }
 ```
 
-- [ ] **Step 6: Run moon check**
+- [ ] **Step 6: Add disposed guards to Signal::get() and Signal::set()**
+
+Signal::get() reads `self.value` directly without checking cell_index. After disposal, this returns a stale value. Add a disposed check at the top of Signal::get() in `cells/signal.mbt`, BEFORE the cross-runtime check:
+
+```moonbit
+pub fn[T] Signal::get(self : Signal[T]) -> T {
+  // Disposed check — must come before cross-runtime check
+  match self.rt.core.cell_index[self.cell_id.id] {
+    Disposed => abort("Signal::get called on a disposed signal")
+    _ => ()
+  }
+  let active_rt = current_computing_runtime_id.val
+  // ... rest of existing code unchanged ...
+```
+
+Add the same guard to Signal::set() and Signal::set_unconditional() in `cells/signal.mbt`:
+
+```moonbit
+// At the top of Signal::set():
+  match self.rt.core.cell_index[self.cell_id.id] {
+    Disposed => abort("Signal::set called on a disposed signal")
+    _ => ()
+  }
+
+// At the top of Signal::set_unconditional():
+  match self.rt.core.cell_index[self.cell_id.id] {
+    Disposed => abort("Signal::set_unconditional called on a disposed signal")
+    _ => ()
+  }
+```
+
+- [ ] **Step 7: Run moon check**
 
 Run: `moon check`
 Expected: no errors
 
-- [ ] **Step 7: Run tests**
+- [ ] **Step 8: Run tests**
 
 Run: `moon test -p dowdiness/incr/cells -f dispose_test.mbt`
-Expected: all 3 tests pass (including panic test)
+Expected: all 3 tests pass (including panic test for get-after-dispose)
 
-- [ ] **Step 8: Commit**
+Run: `moon test -p dowdiness/incr/cells`
+Expected: all existing tests still pass
+
+- [ ] **Step 9: Commit**
 
 ```bash
 git add cells/signal.mbt cells/runtime.mbt cells/dispose_test.mbt
-git commit -m "feat: add Signal::dispose() and is_disposed()"
+git commit -m "feat: add Signal::dispose(), is_disposed(), and disposed guards"
 ```
 
 ---
@@ -372,7 +416,11 @@ In `cells/runtime.mbt`, update `dispose_signal` — add after `self.core.cell_in
 
 - [ ] **Step 5: Update new_signal_id to check free list**
 
-In `cells/runtime.mbt`, modify `Runtime::new_signal_id`:
+In `cells/runtime.mbt`, modify `Runtime::new_signal_id`. Follow the exact same pattern as `Reactive::new` in `cells/push_reactive.mbt:91-117`:
+- `pop()` from free list returns `Some(idx)` or `None`
+- `alloc_cell_id` ALWAYS appends a new CellId (new `.id` value)
+- SoA slot is overwritten if reusing, pushed if new
+- `cell_ops.push(ops)` ALWAYS — new CellId means new cell_ops entry
 
 ```moonbit
 fn Runtime::new_signal_id(
@@ -380,29 +428,13 @@ fn Runtime::new_signal_id(
   durability : Durability,
   label : String?,
 ) -> CellId {
-  // Check free list first
-  if self.pull.free_signals.length() > 0 {
-    let idx = self.pull.free_signals.pop_exn()
-    let cell_id = self.alloc_cell_id(PullSignal(idx))
-    self.pull.signals[idx] = {
-      meta: {
-        cell_id,
-        label,
-        changed_at: Revision::initial(),
-        durability,
-        subscribers: @hashset.new(),
-        push_reachable_count: 0,
-      },
-      on_change: None,
-      commit_pending: None,
-    }
-    let ops : &CellOps = self.pull.signals[idx]
-    self.core.cell_ops[cell_id.id] = ops
-    return cell_id
+  // Reuse a freed slot if available, otherwise append a new one.
+  let signal_idx = match self.pull.free_signals.pop() {
+    Some(idx) => idx
+    None => self.pull.signals.length()
   }
-  let idx = self.pull.signals.length()
-  let cell_id = self.alloc_cell_id(PullSignal(idx))
-  self.pull.signals.push({
+  let cell_id = self.alloc_cell_id(PullSignal(signal_idx))
+  let new_data : PullSignalData = {
     meta: {
       cell_id,
       label,
@@ -413,14 +445,19 @@ fn Runtime::new_signal_id(
     },
     on_change: None,
     commit_pending: None,
-  })
-  let ops : &CellOps = self.pull.signals[idx]
-  self.core.cell_ops.push(ops)
+  }
+  if signal_idx < self.pull.signals.length() {
+    self.pull.signals[signal_idx] = new_data
+  } else {
+    self.pull.signals.push(new_data)
+  }
+  let ops : &CellOps = self.pull.signals[signal_idx]
+  self.core.cell_ops.push(ops)  // PUSH — new CellId always gets a new cell_ops entry
   cell_id
 }
 ```
 
-Note: When reusing a slot, `alloc_cell_id` pushes a new entry to `cell_index` (the cell gets a NEW CellId, not the old one). The SoA slot at `idx` is reused but the CellId is fresh. `cell_ops` at the new CellId position must also be set.
+**Key invariant:** `alloc_cell_id` appends to `cell_index`, so the new CellId's `.id` equals the NEW length of `cell_index`. `cell_ops` must also grow by one (via `push`), not be assigned at an existing index.
 
 - [ ] **Step 6: Run moon check**
 
@@ -548,6 +585,7 @@ fn Runtime::dispose_memo(self : Runtime, cell_id : CellId) -> Unit {
       memo.meta.subscribers.clear()
       memo.meta.label = None
       memo.on_change = None
+      memo.compute = fn() { Ok(false) }  // release captured closure
       memo.verified_at = Revision::initial()
       memo.in_progress = false
       self.core.cell_index[cell_id.id] = Disposed
@@ -634,9 +672,53 @@ test "memo dispose: free list enables slot reuse" {
 Run: `moon test -p dowdiness/incr/cells -f dispose_wbtest.mbt`
 Expected: FAIL — new memo doesn't reuse slot (no free list check in memo creation)
 
-- [ ] **Step 3: Update new_memo_id to check free list**
+- [ ] **Step 3: Update Memo::_create to check free list**
 
-In `cells/runtime.mbt`, find `Runtime::new_memo_id` (the method that allocates SoA slots for memos) and add a free list check at the top. If `free_memos` is non-empty, pop an index, overwrite the SoA slot at that index with fresh MemoData, register a new CellId via `alloc_cell_id(PullMemo(idx))`, and set `cell_ops[cell_id.id]` to the new data. If the free list is empty, fall through to the existing growth path. The pattern is identical to the signal free list in Task 2 Step 5 — read that implementation and mirror it for memos using `self.pull.memos[idx]` and `PullMemo(idx)`.
+There is no `Runtime::new_memo_id`. Memo allocation happens in `Memo::_create` (`cells/memo.mbt:45`). HybridMemo allocation happens in `HybridMemo::new` (`cells/hybrid_memo.mbt:30`). Both share `rt.pull.memos` and must share `rt.pull.free_memos`.
+
+In `cells/memo.mbt`, modify `Memo::_create`. Replace the fixed `let memo_idx = rt.pull.memos.length()` with a free list check:
+
+```moonbit
+fn[T] Memo::_create(
+  rt : Runtime,
+  compute : () -> T,
+  label? : String,
+  backdate_eq : (T, T) -> Bool,
+) -> Memo[T] {
+  // Reuse a freed slot if available, otherwise append
+  let memo_idx = match rt.pull.free_memos.pop() {
+    Some(idx) => idx
+    None => rt.pull.memos.length()
+  }
+  let cell_id = rt.alloc_cell_id(PullMemo(memo_idx))
+  let memo : Memo[T] = { label, rt, cell_id, compute, backdate_eq, value: None }
+  let new_data : MemoData = {
+    meta: {
+      cell_id,
+      label,
+      changed_at: Revision::initial(),
+      durability: Low,
+      subscribers: @hashset.new(),
+      push_reachable_count: 0,
+    },
+    compute: () => memo.recompute_inner(),
+    verified_at: Revision::initial(),
+    dependencies: [],
+    in_progress: false,
+    on_change: None,
+  }
+  if memo_idx < rt.pull.memos.length() {
+    rt.pull.memos[memo_idx] = new_data
+  } else {
+    rt.pull.memos.push(new_data)
+  }
+  let ops : &CellOps = rt.pull.memos[memo_idx]
+  rt.core.cell_ops.push(ops)  // PUSH — new CellId, new cell_ops entry
+  memo
+}
+```
+
+Apply the same pattern to `HybridMemo::new` in `cells/hybrid_memo.mbt:30` — replace `let memo_idx = rt.pull.memos.length()` with the free list pop, and use the if/else overwrite/push pattern for the SoA slot. Use `HybridMemo(memo_idx)` instead of `PullMemo(memo_idx)` in `alloc_cell_id`.
 
 - [ ] **Step 4: Run moon check**
 
@@ -719,6 +801,7 @@ fn Runtime::dispose_hybrid_memo(self : Runtime, cell_id : CellId) -> Unit {
       memo.meta.subscribers.clear()
       memo.meta.label = None
       memo.on_change = None
+      memo.compute = fn() { Ok(false) }  // release captured closure
       memo.verified_at = Revision::initial()
       memo.in_progress = false
       self.core.cell_index[cell_id.id] = Disposed
@@ -844,13 +927,16 @@ git commit -m "feat: add is_disposed() for Reactive and Effect"
 
 ---
 
-## Task 7: Relation::dispose(), FunctionalRelation::dispose(), and Rule::dispose()
+## Task 7: Relation::dispose(), FunctionalRelation::dispose(), and Rule dispose
 
 **Files:**
-- Modify: `cells/runtime.mbt` — add `dispose_relation`, `dispose_functional_relation`, `dispose_rule`
-- Modify: `cells/datalog_relation.mbt` — add `Relation::dispose()`, `Relation::is_disposed()`, `FunctionalRelation::dispose()`, `FunctionalRelation::is_disposed()`
-- Modify: `cells/datalog_rule.mbt` — add `RuleData::clear_slot()`
+- Modify: `cells/runtime.mbt` — add `dispose_relation`, `dispose_functional_relation`, `dispose_rule` (public)
+- Modify: `cells/datalog_relation.mbt` — add `Relation::dispose()`, `Relation::is_disposed()`
+- Modify: `cells/datalog_functional_relation.mbt` — add `FunctionalRelation::dispose()`, `FunctionalRelation::is_disposed()`
+- Modify: `cells/datalog_rule.mbt` — no changes needed (Rule has no user-facing wrapper with runtime ref)
 - Modify: `cells/dispose_test.mbt` — add tests
+
+**Note on Rule:** `Runtime::new_rule()` returns `RuleId` which is a bare `CellId` wrapper with no runtime reference (`types/cell_handles.mbt:38`). Therefore `Runtime::dispose_rule` is exposed as a public method — the user calls `rt.dispose_rule(rule_id)` since `RuleId` can't self-dispose.
 
 - [ ] **Step 1: Write failing tests**
 
@@ -927,7 +1013,7 @@ pub fn[T] Relation::is_disposed(self : Relation[T]) -> Bool {
 }
 ```
 
-- [ ] **Step 4: Implement Runtime::dispose_functional_relation() and FunctionalRelation methods**
+- [ ] **Step 4: Implement Runtime::dispose_functional_relation()**
 
 Add to `cells/runtime.mbt`:
 
@@ -949,15 +1035,41 @@ fn Runtime::dispose_functional_relation(self : Runtime, cell_id : CellId) -> Uni
 }
 ```
 
-Add `dispose()` and `is_disposed()` to the FunctionalRelation type in its source file, following the same pattern as Relation (delegate to `rt.dispose_functional_relation(self.cell_id)`, check `cell_index` for Disposed).
+- [ ] **Step 5: Add FunctionalRelation::dispose() and is_disposed()**
 
-- [ ] **Step 5: Implement Runtime::dispose_rule()**
-
-Add to `cells/runtime.mbt`:
+Add to `cells/datalog_functional_relation.mbt` (NOT datalog_relation.mbt):
 
 ```moonbit
 ///|
-fn Runtime::dispose_rule(self : Runtime, cell_id : CellId) -> Unit {
+pub fn[K, V] FunctionalRelation::dispose(self : FunctionalRelation[K, V]) -> Unit {
+  self.rt.dispose_functional_relation(self.cell_id)
+  self.current.val.clear()
+  self.delta.val.clear()
+  self.staged_delta.val.clear()
+}
+
+///|
+pub fn[K, V] FunctionalRelation::is_disposed(self : FunctionalRelation[K, V]) -> Bool {
+  let id = self.cell_id.id
+  if id < 0 || id >= self.rt.core.cell_index.length() {
+    return true
+  }
+  match self.rt.core.cell_index[id] {
+    Disposed => true
+    _ => false
+  }
+}
+```
+
+- [ ] **Step 6: Implement Runtime::dispose_rule() (public)**
+
+Add to `cells/runtime.mbt`. This is **public** because `RuleId` has no runtime reference — the user calls `rt.dispose_rule(rule_id)`:
+
+```moonbit
+///|
+/// Disposes a rule cell. Public because RuleId has no runtime reference.
+pub fn Runtime::dispose_rule(self : Runtime, rule_id : @incr_types.RuleId) -> Unit {
+  let cell_id = rule_id.id
   if cell_id.id < 0 || cell_id.id >= self.core.cell_index.length() {
     return
   }
@@ -966,6 +1078,9 @@ fn Runtime::dispose_rule(self : Runtime, cell_id : CellId) -> Unit {
       let rule = self.datalog.rules[idx]
       rule.meta.subscribers.clear()
       rule.meta.label = None
+      rule.apply_delta = fn() { () }  // release closure
+      rule.input_relations = []
+      rule.output_relations = []
       self.core.cell_index[cell_id.id] = Disposed
     }
     _ => ()
@@ -1043,7 +1158,87 @@ git commit -m "feat: add TrackedCell::dispose() and is_disposed()"
 
 ---
 
-## Task 9: Integration tests + post-Layer 1 benchmarks
+## Task 9: Disposal safety guards
+
+**Files:**
+- Modify: `cells/runtime.mbt` — add safety checks to all dispose methods
+- Modify: `cells/dispose_test.mbt` — add batch dispose tests
+- Modify: `cells/dispose_wbtest.mbt` — add mid-batch cleanup whitebox test
+
+- [ ] **Step 1: Write failing test for signal dispose mid-batch**
+
+Append to `cells/dispose_test.mbt`:
+
+```moonbit
+///|
+test "signal: dispose during batch discards pending write" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 10)
+  rt.batch(fn() {
+    sig.set(20)      // queued as pending
+    sig.dispose()     // should discard the pending write
+  })
+  // Batch commits — disposed signal's write should be gone
+  assert_true!(sig.is_disposed())
+}
+
+///|
+test "panic signal: dispose during verify aborts" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 10)
+  // Create a memo whose compute function disposes a signal
+  let m = Memo::new(rt, fn() {
+    let v = sig.get()
+    sig.dispose()  // dispose during active computation
+    v
+  })
+  ignore(m.get())  // triggers compute → should abort
+}
+```
+
+- [ ] **Step 2: Add verify guard to dispose methods**
+
+Each `dispose_*` method in `cells/runtime.mbt` should check if the cell is currently being verified. Add at the top of `dispose_signal`, `dispose_memo`, `dispose_hybrid_memo`:
+
+```moonbit
+  // Guard: cannot dispose during active verification of THIS cell
+  for aq in self.core.tracking_stack {
+    if aq.cell_id == cell_id {
+      abort("dispose: cannot dispose a cell during its own computation")
+    }
+  }
+```
+
+Note: Disposing a DIFFERENT cell during a computation is allowed (and tested by the reactive mid-wave tests). Only disposing the cell currently being computed/verified is forbidden.
+
+- [ ] **Step 3: Handle batch pending cleanup in dispose_signal**
+
+In `dispose_signal`, before marking Disposed, remove the signal's pending commit from the batch queue:
+
+```moonbit
+      // If inside a batch, remove any pending commit for this signal
+      if self.core.batch_depth > 0 {
+        self.remove_batch_signal(cell_id)
+      }
+```
+
+`remove_batch_signal` already exists in `cells/batch.mbt` — it does O(n) removal from `batch_pending`.
+
+- [ ] **Step 4: Run moon check and tests**
+
+Run: `moon check && moon test -p dowdiness/incr/cells`
+Expected: all pass, including the new batch dispose test and panic test
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add cells/runtime.mbt cells/dispose_test.mbt cells/dispose_wbtest.mbt
+git commit -m "feat: add disposal safety guards for mid-verify and mid-batch"
+```
+
+---
+
+## Task 10: Integration tests + post-Layer 1 benchmarks
 
 **Files:**
 - Modify: `tests/integration_test.mbt` — add dispose integration tests
@@ -1137,17 +1332,18 @@ git commit -m "feat: complete Layer 1 — manual dispose for all cell types with
 | Task | What | Tests |
 |------|------|-------|
 | 0 | Baseline benchmarks | 7 benchmarks |
-| 1 | Signal::dispose() + is_disposed() | 3 black-box tests |
+| 1 | Signal::dispose() + is_disposed() + disposed guards on get/set | 3 black-box tests |
 | 2 | Signal free list | 2 whitebox tests |
-| 3 | Memo::dispose() + is_disposed() | 4 tests (black-box + subscriber cleanup) |
-| 4 | Memo free list | 1 whitebox test |
-| 5 | HybridMemo improvements | 1 test + existing tests |
+| 3 | Memo::dispose() + is_disposed() (with compute closure clearing) | 4 tests |
+| 4 | Memo free list (Memo::_create + HybridMemo::new) | 1 whitebox test |
+| 5 | HybridMemo improvements (slot clearing, is_disposed) | 1 test + existing tests |
 | 6 | Reactive/Effect is_disposed() | 2 tests |
-| 7 | Relation/Rule dispose | 2 tests |
+| 7 | Relation/FunctionalRelation/Rule dispose | 2+ tests |
 | 8 | TrackedCell dispose | 1 test |
-| 9 | Integration tests + benchmarks | 2 integration + 2 benchmarks |
+| 9 | Disposal safety guards (mid-verify, mid-batch) | 2 tests |
+| 10 | Integration tests + benchmarks | 2 integration + 2 benchmarks |
 
-**Total: 9 tasks, ~20 tests, ~9 commits**
+**Total: 10 tasks, ~22 tests, ~10 commits**
 
 After this plan is complete, subsequent plans will cover:
 - Layer 2: Scope
