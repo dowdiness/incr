@@ -173,3 +173,32 @@ test "tracked cell: dispose delegates to inner signal" {
   cell.dispose()
   assert_true(cell.is_disposed())
 }
+
+///|
+test "signal: dispose during batch discards pending write" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 10)
+  rt.batch(fn() {
+    sig.set(20) // queued as pending
+    sig.dispose() // should discard the pending write
+  })
+  // Batch commits — disposed signal's write should be gone
+  assert_true(sig.is_disposed())
+}
+
+///|
+test "signal: dispose of a dependency during computation is safe" {
+  // Disposing a different cell during a memo's compute function is allowed.
+  // The memo will still see the value it already read. Future reads of the
+  // disposed cell will abort, which is the caller's responsibility.
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 10)
+  let other_sig = Signal::new(rt, 99)
+  let m = Memo::new(rt, fn() {
+    let v = sig.get()
+    other_sig.dispose() // dispose a DIFFERENT cell — allowed
+    v
+  })
+  inspect(m.get(), content="10")
+  assert_true(other_sig.is_disposed())
+}

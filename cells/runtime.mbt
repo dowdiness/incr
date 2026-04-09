@@ -606,9 +606,19 @@ fn Runtime::dispose_signal(self : Runtime, cell_id : CellId) -> Unit {
   if cell_id.id < 0 || cell_id.id >= self.core.cell_index.length() {
     return
   }
+  // Guard: cannot dispose a cell during its own computation
+  for aq in self.core.tracking_stack {
+    if aq.cell_id == cell_id {
+      abort("dispose: cannot dispose a cell during its own computation")
+    }
+  }
   match self.core.cell_index[cell_id.id] {
     PullSignal(idx) => {
       let signal = self.pull.signals[idx]
+      // If inside a batch, remove any pending commit for this signal
+      if self.core.batch_depth > 0 {
+        self.remove_batch_signal(cell_id)
+      }
       // Signals have no upstream dependencies to unsubscribe from.
       // Clear downstream subscribers.
       signal.meta.subscribers.clear()
@@ -628,6 +638,12 @@ fn Runtime::dispose_signal(self : Runtime, cell_id : CellId) -> Unit {
 fn Runtime::dispose_memo(self : Runtime, cell_id : CellId) -> Unit {
   if cell_id.id < 0 || cell_id.id >= self.core.cell_index.length() {
     return
+  }
+  // Guard: cannot dispose a cell during its own computation
+  for aq in self.core.tracking_stack {
+    if aq.cell_id == cell_id {
+      abort("dispose: cannot dispose a cell during its own computation")
+    }
   }
   match self.core.cell_index[cell_id.id] {
     PullMemo(idx) => {
@@ -657,6 +673,12 @@ fn Runtime::dispose_memo(self : Runtime, cell_id : CellId) -> Unit {
 fn Runtime::dispose_hybrid_memo(self : Runtime, cell_id : CellId) -> Unit {
   if cell_id.id < 0 || cell_id.id >= self.core.cell_index.length() {
     return
+  }
+  // Guard: cannot dispose a cell during its own computation
+  for aq in self.core.tracking_stack {
+    if aq.cell_id == cell_id {
+      abort("dispose: cannot dispose a cell during its own computation")
+    }
   }
   match self.core.cell_index[cell_id.id] {
     HybridMemo(idx) => {
