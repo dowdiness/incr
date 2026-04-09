@@ -147,7 +147,7 @@ pub fn[T] HybridMemo::is_disposed(self : HybridMemo[T]) -> Bool {
 /// and marking its slot as Disposed. After disposal, calling `get()` on this
 /// cell or any cell that depends on it will abort.
 pub fn[T] HybridMemo::dispose(self : HybridMemo[T]) -> Unit {
-  self.rt.dispose_memo(self.cell_id)
+  self.rt.dispose_cell(self.cell_id)
   self.value = None
 }
 

@@ -82,7 +82,7 @@ impl CellLifecycle for PushEffectData with dispose_cell(
 
 ///|
 /// Clears all mutable fields to release captured closures and graph edges.
-/// Called by `Runtime::dispose_effect` after removing subscriber links.
+/// Called by the CellLifecycle dispose impl after removing subscriber links.
 fn PushEffectData::clear_slot(self : PushEffectData) -> Unit {
   self.execute = () => ()
   self.sources.clear()
@@ -164,5 +164,5 @@ pub fn Effect::id(self : Effect) -> CellId {
 ///|
 /// Removes this effect from the dependency graph.
 pub fn Effect::dispose(self : Effect) -> Unit {
-  self.rt.dispose_effect(self.cell_id)
+  self.rt.dispose_cell(self.cell_id)
 }

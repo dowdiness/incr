@@ -225,7 +225,7 @@ fn[K, V] FunctionalRelation::record_read_dependency(
 pub fn[K, V] FunctionalRelation::dispose(
   self : FunctionalRelation[K, V],
 ) -> Unit {
-  self.rt.dispose_functional_relation(self.cell_id)
+  self.rt.dispose_cell(self.cell_id)
   self.current.val.clear()
   self.delta.val.clear()
   self.staged_delta.val.clear()

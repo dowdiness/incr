@@ -509,7 +509,7 @@ pub fn[T] Memo::is_disposed(self : Memo[T]) -> Bool {
 ///
 /// After disposal, calling `get()` will abort. Disposal is idempotent.
 pub fn[T] Memo::dispose(self : Memo[T]) -> Unit {
-  self.rt.dispose_memo(self.cell_id)
+  self.rt.dispose_cell(self.cell_id)
   self.value = None
 }
 

@@ -70,7 +70,7 @@ impl CellLifecycle for PushReactiveData with dispose_cell(
 
 ///|
 /// Clears all mutable fields to release captured closures and graph edges.
-/// Called by `Runtime::dispose_reactive` after removing subscriber links.
+/// Called by the CellLifecycle dispose impl after removing subscriber links.
 fn PushReactiveData::clear_slot(self : PushReactiveData) -> Unit {
   self.compute = () => false
   self.sources.clear()
@@ -211,5 +211,5 @@ pub fn[T] Reactive::is_disposed(self : Reactive[T]) -> Bool {
 /// - `cell_index[id]` is set to `Disposed`.
 /// - The SoA slot is added to `free_push_reactives` for future reuse.
 pub fn[T] Reactive::dispose(self : Reactive[T]) -> Unit {
-  self.rt.dispose_reactive(self.cell_id.id)
+  self.rt.dispose_cell(self.cell_id.id)
 }

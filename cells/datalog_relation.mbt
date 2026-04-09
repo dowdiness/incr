@@ -169,7 +169,7 @@ fn[T] Relation::record_read_dependency(self : Relation[T]) -> Unit {
 ///|
 /// Disposes this relation, clearing its fact sets and marking it as Disposed.
 pub fn[T] Relation::dispose(self : Relation[T]) -> Unit {
-  self.rt.dispose_relation(self.cell_id)
+  self.rt.dispose_cell(self.cell_id)
   self.current.val.clear()
   self.delta.val.clear()
   self.staged_delta.val.clear()
