@@ -17,6 +17,17 @@ impl HasCellMeta for FunctionalRelationData with meta(self) {
 impl CellOps for FunctionalRelationData
 
 ///|
+impl CellLifecycle for FunctionalRelationData with dispose_cell(
+  self,
+  rt,
+  cell_id,
+) -> Unit {
+  self.meta.subscribers.clear()
+  self.meta.label = None
+  rt.core.cell_index[cell_id.id] = Disposed
+}
+
+///|
 /// A Datalog functional relation: a key-value map with delta tracking for
 /// fixpoint evaluation.
 ///
@@ -80,6 +91,8 @@ pub fn[K : Hash + Eq, V] FunctionalRelation::new(
   rt.datalog.functional_relations.push(data)
   let ops : &CellOps = rt.datalog.functional_relations[idx]
   rt.core.cell_ops.push(ops)
+  let lifecycle : &CellLifecycle = rt.datalog.functional_relations[idx]
+  rt.core.cell_lifecycle.push(lifecycle)
   { rt, cell_id, current, delta, staged_delta, merge }
 }
 
@@ -212,7 +225,7 @@ fn[K, V] FunctionalRelation::record_read_dependency(
 pub fn[K, V] FunctionalRelation::dispose(
   self : FunctionalRelation[K, V],
 ) -> Unit {
-  self.rt.dispose_functional_relation(self.cell_id)
+  self.rt.dispose_cell(self.cell_id)
   self.current.val.clear()
   self.delta.val.clear()
   self.staged_delta.val.clear()

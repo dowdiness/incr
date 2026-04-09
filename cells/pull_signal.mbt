@@ -45,3 +45,21 @@ impl Committable for PullSignalData with cell_id(self) -> CellId {
 impl Committable for PullSignalData with durability(self) -> Durability {
   self.meta.durability
 }
+
+///|
+impl CellLifecycle for PullSignalData with dispose_cell(self, rt, cell_id) -> Unit {
+  match rt.core.cell_index[cell_id.id] {
+    PullSignal(idx) => {
+      if rt.core.batch_depth > 0 {
+        rt.remove_batch_signal(cell_id)
+      }
+      self.meta.subscribers.clear()
+      self.meta.label = None
+      self.on_change = None
+      self.commit_pending = None
+      rt.core.cell_index[cell_id.id] = Disposed
+      rt.pull.free_signals.push(idx)
+    }
+    _ => ()
+  }
+}

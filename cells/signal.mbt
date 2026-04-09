@@ -334,7 +334,7 @@ pub fn[T] Signal::clear_on_change(self : Signal[T]) -> Unit {
 /// After disposal, calling `get()` or `set()` will abort. Disposal is
 /// idempotent — calling it multiple times is a no-op.
 pub fn[T] Signal::dispose(self : Signal[T]) -> Unit {
-  self.rt.dispose_signal(self.cell_id)
+  self.rt.dispose_cell(self.cell_id)
 }
 
 ///|

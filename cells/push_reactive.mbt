@@ -39,8 +39,34 @@ impl CellOps for PushReactiveData with level(self) -> Int {
 }
 
 ///|
+impl CellOps for PushReactiveData with gc_role(_self) -> GcRole {
+  Interior
+}
+
+///|
+impl CellOps for PushReactiveData with gc_dependencies(self) -> Array[CellId] {
+  self.sources
+}
+
+///|
+impl CellLifecycle for PushReactiveData with dispose_cell(self, rt, cell_id) -> Unit {
+  match rt.core.cell_index[cell_id.id] {
+    PushReactive(idx) => {
+      for dep in self.sources {
+        rt.remove_subscriber(dep, cell_id)
+      }
+      rt.core.cell_index[cell_id.id] = Disposed
+      self.clear_slot()
+      rt.push.free_reactives.push(idx)
+      rt.push.node_count = rt.push.node_count - 1
+    }
+    _ => ()
+  }
+}
+
+///|
 /// Clears all mutable fields to release captured closures and graph edges.
-/// Called by `Runtime::dispose_reactive` after removing subscriber links.
+/// Called by the CellLifecycle dispose impl after removing subscriber links.
 fn PushReactiveData::clear_slot(self : PushReactiveData) -> Unit {
   self.compute = () => false
   self.sources.clear()
@@ -115,6 +141,8 @@ pub fn[T : Eq] Reactive::new(rt : Runtime, compute_fn : () -> T) -> Reactive[T] 
   }
   let ops : &CellOps = rt.push.reactives[reactive_idx]
   rt.core.cell_ops.push(ops)
+  let lifecycle : &CellLifecycle = rt.push.reactives[reactive_idx]
+  rt.core.cell_lifecycle.push(lifecycle)
   let reactive : Reactive[T] = {
     cell_id: @incr_types.ReactiveId::{ id: cell_id },
     value,
@@ -179,5 +207,5 @@ pub fn[T] Reactive::is_disposed(self : Reactive[T]) -> Bool {
 /// - `cell_index[id]` is set to `Disposed`.
 /// - The SoA slot is added to `free_push_reactives` for future reuse.
 pub fn[T] Reactive::dispose(self : Reactive[T]) -> Unit {
-  self.rt.dispose_reactive(self.cell_id.id)
+  self.rt.dispose_cell(self.cell_id.id)
 }

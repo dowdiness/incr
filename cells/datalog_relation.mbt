@@ -17,6 +17,13 @@ impl HasCellMeta for RelationData with meta(self) {
 impl CellOps for RelationData
 
 ///|
+impl CellLifecycle for RelationData with dispose_cell(self, rt, cell_id) -> Unit {
+  self.meta.subscribers.clear()
+  self.meta.label = None
+  rt.core.cell_index[cell_id.id] = Disposed
+}
+
+///|
 /// A Datalog relation: a set of tuples with delta tracking for fixpoint evaluation.
 ///
 /// `Relation[T]` holds typed `current` and `delta` sets via `Ref`. The Runtime
@@ -73,6 +80,8 @@ pub fn[T : Hash + Eq] Relation::new(
   rt.datalog.relations.push(data)
   let ops : &CellOps = rt.datalog.relations[idx]
   rt.core.cell_ops.push(ops)
+  let lifecycle : &CellLifecycle = rt.datalog.relations[idx]
+  rt.core.cell_lifecycle.push(lifecycle)
   { rt, cell_id, current, delta, staged_delta }
 }
 
@@ -156,7 +165,7 @@ fn[T] Relation::record_read_dependency(self : Relation[T]) -> Unit {
 ///|
 /// Disposes this relation, clearing its fact sets and marking it as Disposed.
 pub fn[T] Relation::dispose(self : Relation[T]) -> Unit {
-  self.rt.dispose_relation(self.cell_id)
+  self.rt.dispose_cell(self.cell_id)
   self.current.val.clear()
   self.delta.val.clear()
   self.staged_delta.val.clear()

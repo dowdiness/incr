@@ -51,8 +51,34 @@ impl CellOps for PushEffectData with level(self) -> Int {
 }
 
 ///|
+impl CellOps for PushEffectData with gc_role(_self) -> GcRole {
+  Root
+}
+
+///|
+impl CellOps for PushEffectData with gc_dependencies(self) -> Array[CellId] {
+  self.sources
+}
+
+///|
+impl CellLifecycle for PushEffectData with dispose_cell(self, rt, cell_id) -> Unit {
+  match rt.core.cell_index[cell_id.id] {
+    PushEffect(idx) => {
+      for dep in self.sources {
+        rt.remove_subscriber(dep, cell_id)
+      }
+      rt.core.cell_index[cell_id.id] = Disposed
+      self.clear_slot()
+      rt.push.free_effects.push(idx)
+      rt.push.node_count = rt.push.node_count - 1
+    }
+    _ => ()
+  }
+}
+
+///|
 /// Clears all mutable fields to release captured closures and graph edges.
-/// Called by `Runtime::dispose_effect` after removing subscriber links.
+/// Called by the CellLifecycle dispose impl after removing subscriber links.
 fn PushEffectData::clear_slot(self : PushEffectData) -> Unit {
   self.execute = () => ()
   self.sources.clear()
@@ -106,6 +132,8 @@ pub fn Effect::new(rt : Runtime, f : () -> Unit) -> Effect {
   }
   let ops : &CellOps = rt.push.effects[effect_idx]
   rt.core.cell_ops.push(ops)
+  let lifecycle : &CellLifecycle = rt.push.effects[effect_idx]
+  rt.core.cell_lifecycle.push(lifecycle)
   let effect : Effect = { cell_id, rt }
   // Run immediately to establish dependencies and execute the initial side effect.
   rt.begin_tracking(cell_id)
@@ -132,5 +160,5 @@ pub fn Effect::id(self : Effect) -> CellId {
 ///|
 /// Removes this effect from the dependency graph.
 pub fn Effect::dispose(self : Effect) -> Unit {
-  self.rt.dispose_effect(self.cell_id)
+  self.rt.dispose_cell(self.cell_id)
 }

@@ -55,6 +55,7 @@ priv struct RuntimeCore {
   mut on_change : (() -> Unit)?
   cell_index : Array[CellRef]
   cell_ops : Array[&CellOps]
+  cell_lifecycle : Array[&CellLifecycle]
   /// True while Runtime::fixpoint() is running. Cross-engine guard: prevents
   /// pull_verify, Memo::get(), and HybridMemo::get() from running concurrently
   /// with semi-naive delta tracking. Relation::insert() is allowed during
@@ -165,6 +166,7 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
       on_change,
       cell_index: [],
       cell_ops: [],
+      cell_lifecycle: [],
       in_fixpoint: false,
     },
     pull: { signals: [], memos: [], free_signals: [], free_memos: [] },
@@ -246,6 +248,8 @@ fn Runtime::new_signal_id(
   }
   let ops : &CellOps = self.pull.signals[signal_idx]
   self.core.cell_ops.push(ops)
+  let lifecycle : &CellLifecycle = self.pull.signals[signal_idx]
+  self.core.cell_lifecycle.push(lifecycle)
   cell_id
 }
 
@@ -620,175 +624,25 @@ fn Runtime::guard_dispose(self : Runtime, cell_id : CellId) -> Unit {
 }
 
 ///|
-/// Disposes a pull signal cell, clearing its subscriber set, discarding any
-/// pending batch writes, and marking its cell_index slot as Disposed.
-fn Runtime::dispose_signal(self : Runtime, cell_id : CellId) -> Unit {
-  guard !self.is_cell_disposed(cell_id) else { return }
-  self.guard_dispose(cell_id)
-  match self.core.cell_index[cell_id.id] {
-    PullSignal(idx) => {
-      let signal = self.pull.signals[idx]
-      if self.core.batch_depth > 0 {
-        self.remove_batch_signal(cell_id)
-      }
-      signal.meta.subscribers.clear()
-      signal.meta.label = None
-      signal.on_change = None
-      signal.commit_pending = None
-      self.core.cell_index[cell_id.id] = Disposed
-      self.pull.free_signals.push(idx)
-    }
-    _ => ()
-  }
-}
-
-///|
-/// Disposes a pull or hybrid memo cell, removing it from all upstream subscriber
-/// sets, clearing its cached state, and marking its cell_index slot as Disposed.
-fn Runtime::dispose_memo(self : Runtime, cell_id : CellId) -> Unit {
-  guard !self.is_cell_disposed(cell_id) else { return }
-  self.guard_dispose(cell_id)
-  match self.core.cell_index[cell_id.id] {
-    PullMemo(idx) | HybridMemo(idx) => {
-      let memo = self.pull.memos[idx]
-      for dep in memo.dependencies {
-        self.remove_subscriber(dep, cell_id)
-      }
-      memo.dependencies = []
-      memo.meta.subscribers.clear()
-      memo.meta.label = None
-      memo.on_change = None
-      memo.verified_at = Revision::initial()
-      memo.in_progress = false
-      self.core.cell_index[cell_id.id] = Disposed
-      self.pull.free_memos.push(idx)
-    }
-    _ => ()
-  }
-}
-
-///|
-/// Disposes a push reactive cell, removing it from all subscriber sets
-/// and marking its cell_index slot as Disposed.
-fn Runtime::dispose_reactive(self : Runtime, cell_id : CellId) -> Unit {
-  guard !self.is_cell_disposed(cell_id) else { return }
-  self.guard_dispose(cell_id)
-  match self.core.cell_index[cell_id.id] {
-    PushReactive(idx) => {
-      let reactive = self.push.reactives[idx]
-      for dep in reactive.sources {
-        self.remove_subscriber(dep, cell_id)
-      }
-      self.core.cell_index[cell_id.id] = Disposed
-      reactive.clear_slot()
-      self.push.free_reactives.push(idx)
-      self.push.node_count = self.push.node_count - 1
-    }
-    _ => ()
-  }
-}
-
-///|
-/// Disposes a push effect cell, removing it from all subscriber sets
-/// and marking its cell_index slot as Disposed.
-fn Runtime::dispose_effect(self : Runtime, cell_id : CellId) -> Unit {
-  guard !self.is_cell_disposed(cell_id) else { return }
-  self.guard_dispose(cell_id)
-  match self.core.cell_index[cell_id.id] {
-    PushEffect(idx) => {
-      let effect = self.push.effects[idx]
-      for dep in effect.sources {
-        self.remove_subscriber(dep, cell_id)
-      }
-      self.core.cell_index[cell_id.id] = Disposed
-      effect.clear_slot()
-      self.push.free_effects.push(idx)
-      self.push.node_count = self.push.node_count - 1
-    }
-    _ => ()
-  }
-}
-
-///|
-/// Disposes a relation cell, clearing its subscribers and marking its
-/// cell_index slot as Disposed.
-fn Runtime::dispose_relation(self : Runtime, cell_id : CellId) -> Unit {
-  guard !self.is_cell_disposed(cell_id) else { return }
-  self.guard_dispose(cell_id)
-  match self.core.cell_index[cell_id.id] {
-    Relation(idx) => {
-      let rel = self.datalog.relations[idx]
-      rel.meta.subscribers.clear()
-      rel.meta.label = None
-      self.core.cell_index[cell_id.id] = Disposed
-    }
-    _ => ()
-  }
-}
-
-///|
-/// Disposes a functional relation cell, clearing its subscribers and marking
-/// its cell_index slot as Disposed.
-fn Runtime::dispose_functional_relation(
-  self : Runtime,
-  cell_id : CellId,
-) -> Unit {
-  guard !self.is_cell_disposed(cell_id) else { return }
-  self.guard_dispose(cell_id)
-  match self.core.cell_index[cell_id.id] {
-    FunctionalRelation(idx) => {
-      let frel = self.datalog.functional_relations[idx]
-      frel.meta.subscribers.clear()
-      frel.meta.label = None
-      self.core.cell_index[cell_id.id] = Disposed
-    }
-    _ => ()
-  }
-}
-
-///|
 /// Disposes a rule cell. Public because RuleId has no runtime reference,
 /// so the user must call `rt.dispose_rule(rule_id)` directly.
 pub fn Runtime::dispose_rule(
   self : Runtime,
   rule_id : @incr_types.RuleId,
 ) -> Unit {
-  let cell_id = rule_id.id
-  guard cell_id.runtime_id == self.core.runtime_id else {
-    abort("dispose_rule: RuleId belongs to a different Runtime")
-  }
-  guard !self.is_cell_disposed(cell_id) else { return }
-  self.guard_dispose(cell_id)
-  match self.core.cell_index[cell_id.id] {
-    Rule(idx) => {
-      let rule = self.datalog.rules[idx]
-      rule.meta.subscribers.clear()
-      rule.meta.label = None
-      self.core.cell_index[cell_id.id] = Disposed
-    }
-    _ => ()
-  }
+  self.dispose_cell(rule_id.id)
 }
 
 ///|
-/// Disposes a cell by CellId, dispatching to the correct typed dispose method.
+/// Disposes a cell by CellId, dispatching via CellLifecycle trait.
 ///
-/// This is a generic dispatcher used by Scope for bulk disposal. Each typed
-/// dispose method is idempotent, so calling this on an already-disposed cell
-/// is a no-op. Validates that the CellId belongs to this runtime.
+/// Validates runtime ownership, checks idempotency, and calls guard_dispose
+/// before dispatching to the type-specific dispose implementation.
 pub fn Runtime::dispose_cell(self : Runtime, cell_id : CellId) -> Unit {
   guard cell_id.runtime_id == self.core.runtime_id else {
     abort("dispose_cell: CellId belongs to a different Runtime")
   }
   guard !self.is_cell_disposed(cell_id) else { return }
-  match self.core.cell_index[cell_id.id] {
-    PullSignal(_) => self.dispose_signal(cell_id)
-    PullMemo(_) | HybridMemo(_) => self.dispose_memo(cell_id)
-    PushReactive(_) => self.dispose_reactive(cell_id)
-    PushEffect(_) => self.dispose_effect(cell_id)
-    Relation(_) => self.dispose_relation(cell_id)
-    FunctionalRelation(_) => self.dispose_functional_relation(cell_id)
-    Rule(_) => self.dispose_rule(@incr_types.RuleId::{ id: cell_id })
-    Disposed => ()
-  }
+  self.guard_dispose(cell_id)
+  self.core.cell_lifecycle[cell_id.id].dispose_cell(self, cell_id)
 }

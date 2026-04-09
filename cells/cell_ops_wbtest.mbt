@@ -106,3 +106,128 @@ test "cell_ops: signal and memo ids are distinct when both exist" {
   inspect(rt.core.cell_ops[sig.id().id].cell_id() == sig.id(), content="true")
   inspect(rt.core.cell_ops[m.id().id].cell_id() == m.id(), content="true")
 }
+
+///|
+test "gc_role: signal is Source" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 42)
+  let ops = rt.core.cell_ops[sig.id().id]
+  inspect(ops.gc_role(), content="Source")
+  sig.dispose()
+}
+
+///|
+test "gc_role: memo is Interior" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 10)
+  let m = Memo::new(rt, fn() { sig.get() })
+  let ops = rt.core.cell_ops[m.id().id]
+  inspect(ops.gc_role(), content="Interior")
+  m.dispose()
+  sig.dispose()
+}
+
+///|
+test "gc_role: reactive is Interior" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 1)
+  let r = Reactive::new(rt, fn() { sig.get() })
+  let ops = rt.core.cell_ops[r.id().id]
+  inspect(ops.gc_role(), content="Interior")
+  r.dispose()
+  sig.dispose()
+}
+
+///|
+test "gc_role: effect is Root" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 1)
+  let eff = Effect::new(rt, fn() { ignore(sig.get()) })
+  let ops = rt.core.cell_ops[eff.id().id]
+  inspect(ops.gc_role(), content="Root")
+  eff.dispose()
+  sig.dispose()
+}
+
+///|
+test "gc_dependencies: signal has empty deps" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 42)
+  let ops = rt.core.cell_ops[sig.id().id]
+  inspect(ops.gc_dependencies().length(), content="0")
+  sig.dispose()
+}
+
+///|
+test "gc_dependencies: memo returns its dependencies" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 10)
+  let m = Memo::new(rt, fn() { sig.get() })
+  let _ = m.get()
+  let ops = rt.core.cell_ops[m.id().id]
+  let deps = ops.gc_dependencies()
+  inspect(deps.length(), content="1")
+  inspect(deps[0] == sig.id(), content="true")
+  m.dispose()
+  sig.dispose()
+}
+
+///|
+test "gc_dependencies: effect returns its sources" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 1)
+  let eff = Effect::new(rt, fn() { ignore(sig.get()) })
+  let ops = rt.core.cell_ops[eff.id().id]
+  let deps = ops.gc_dependencies()
+  inspect(deps.length(), content="1")
+  inspect(deps[0] == sig.id(), content="true")
+  eff.dispose()
+  sig.dispose()
+}
+
+///|
+test "cell_lifecycle: dispose_cell dispatches via lifecycle array for memo" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 10)
+  let m = Memo::new(rt, fn() { sig.get() })
+  let _ = m.get()
+  // Verify lifecycle array is populated
+  inspect(rt.core.cell_lifecycle.length(), content="2")
+  // Dispose via dispose_cell (uses cell_lifecycle dispatch)
+  rt.dispose_cell(m.id())
+  inspect(m.is_disposed(), content="true")
+  // Signal still alive
+  inspect(sig.is_disposed(), content="false")
+  sig.dispose()
+}
+
+///|
+test "cell_lifecycle: dispose_cell dispatches via lifecycle array for relation" {
+  let rt = Runtime::new()
+  let rel : Relation[Int] = Relation::new(rt)
+  rel.insert(42) |> ignore
+  // Verify lifecycle array is populated
+  inspect(rt.core.cell_lifecycle.length(), content="1")
+  rt.dispose_cell(rel.id())
+  inspect(rel.is_disposed(), content="true")
+}
+
+///|
+test "is_hybrid: memo has is_hybrid false" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 10)
+  let m = Memo::new(rt, fn() { sig.get() })
+  inspect(rt.pull.memos[0].is_hybrid, content="false")
+  m.dispose()
+  sig.dispose()
+}
+
+///|
+test "is_hybrid: hybrid memo has is_hybrid true" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 10)
+  let hm = HybridMemo::new(rt, fn() { sig.get() })
+  inspect(rt.pull.memos[0].is_hybrid, content="true")
+  hm.dispose()
+  sig.dispose()
+}

@@ -65,6 +65,7 @@ fn[T] Memo::_create(
     dependencies: [],
     in_progress: false,
     on_change: None,
+    is_hybrid: false,
   }
   if memo_idx < rt.pull.memos.length() {
     rt.pull.memos[memo_idx] = new_data
@@ -73,6 +74,8 @@ fn[T] Memo::_create(
   }
   let ops : &CellOps = rt.pull.memos[memo_idx]
   rt.core.cell_ops.push(ops)
+  let lifecycle : &CellLifecycle = rt.pull.memos[memo_idx]
+  rt.core.cell_lifecycle.push(lifecycle)
   memo
 }
 
@@ -506,7 +509,7 @@ pub fn[T] Memo::is_disposed(self : Memo[T]) -> Bool {
 ///
 /// After disposal, calling `get()` will abort. Disposal is idempotent.
 pub fn[T] Memo::dispose(self : Memo[T]) -> Unit {
-  self.rt.dispose_memo(self.cell_id)
+  self.rt.dispose_cell(self.cell_id)
   self.value = None
 }
 

@@ -87,6 +87,12 @@ priv trait CellOps: HasCellMeta {
   /// Number of subscriber-path routes from this cell to a live push cell.
   /// > 0 iff at least one live push cell (Reactive/Effect) is downstream.
   push_reachable_count(Self) -> Int = _
+
+  /// GC role of this cell. Default: Source (input cells).
+  gc_role(Self) -> GcRole = _
+
+  /// Upstream dependencies for GC marking. Default: empty.
+  gc_dependencies(Self) -> Array[CellId] = _
 }
 
 ///|
@@ -145,6 +151,18 @@ impl CellOps with push_reachable_count(self) -> Int {
 }
 
 ///|
+/// Default: Source role (input cells — never collected).
+impl CellOps with gc_role(_self) -> GcRole {
+  Source
+}
+
+///|
+/// Default: no dependencies (leaf cells).
+impl CellOps with gc_dependencies(_self) -> Array[CellId] {
+  []
+}
+
+///|
 /// Capability trait: dependency tracking during computation.
 ///
 /// Groups the tracking-stack lifecycle methods on Runtime. These methods
@@ -178,4 +196,34 @@ priv trait Tracker {
 priv trait RevisionManager {
   advance_revision(Self, Durability) -> Unit
   bump_revision(Self, Durability) -> Unit
+}
+
+///|
+/// Lifecycle operations for cells: disposal, observer notifications.
+///
+/// Unlike CellOps (read-only metadata), CellLifecycle methods perform
+/// mutations and require Runtime access. Stored as `&CellLifecycle` in
+/// `RuntimeCore.cell_lifecycle`, indexed by `CellId.id`.
+///
+/// # Layer 3 status
+///
+/// `dispose_cell` migrates existing dispose logic into trait impls.
+/// `on_observe` and `on_unobserve` are no-ops — Layer 4 fills them in
+/// for HybridMemo (push activation/suspension) and PushReactive.
+priv trait CellLifecycle {
+  dispose_cell(Self, Runtime, CellId) -> Unit
+  on_observe(Self, Runtime, CellId) -> Unit = _
+  on_unobserve(Self, Runtime, CellId) -> Unit = _
+}
+
+///|
+/// Default: on_observe is a no-op. Layer 4 overrides for push cells.
+impl CellLifecycle with on_observe(_self, _rt, _cell_id) -> Unit {
+  ()
+}
+
+///|
+/// Default: on_unobserve is a no-op. Layer 4 overrides for push cells.
+impl CellLifecycle with on_unobserve(_self, _rt, _cell_id) -> Unit {
+  ()
 }

@@ -16,6 +16,18 @@ impl HasCellMeta for RuleData with meta(self) {
 impl CellOps for RuleData
 
 ///|
+impl CellLifecycle for RuleData with dispose_cell(self, rt, cell_id) -> Unit {
+  self.meta.subscribers.clear()
+  self.meta.label = None
+  rt.core.cell_index[cell_id.id] = Disposed
+}
+
+///|
+impl CellOps for RuleData with gc_role(_self) -> GcRole {
+  Source
+}
+
+///|
 pub fn Runtime::new_rule(
   self : Runtime,
   input_relations : Array[CellId],
@@ -47,6 +59,8 @@ pub fn Runtime::new_rule(
   self.datalog.rules.push(data)
   let ops : &CellOps = self.datalog.rules[idx]
   self.core.cell_ops.push(ops)
+  let lifecycle : &CellLifecycle = self.datalog.rules[idx]
+  self.core.cell_lifecycle.push(lifecycle)
   @incr_types.RuleId::{ id: cell_id }
 }
 

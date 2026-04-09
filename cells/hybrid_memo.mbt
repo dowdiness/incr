@@ -49,6 +49,7 @@ pub fn[T : Eq] HybridMemo::new(
     dependencies: [],
     in_progress: false,
     on_change: None,
+    is_hybrid: true,
   }
   if memo_idx < rt.pull.memos.length() {
     rt.pull.memos[memo_idx] = new_data
@@ -57,6 +58,8 @@ pub fn[T : Eq] HybridMemo::new(
   }
   let ops : &CellOps = rt.pull.memos[memo_idx]
   rt.core.cell_ops.push(ops)
+  let lifecycle : &CellLifecycle = rt.pull.memos[memo_idx]
+  rt.core.cell_lifecycle.push(lifecycle)
   // HybridMemo intentionally does NOT increment rt.push.node_count.
   // However, it does participate in push_reachable_count tracking: when a
   // live Reactive/Effect subscribes through a HybridMemo, the memo and its
@@ -144,7 +147,7 @@ pub fn[T] HybridMemo::is_disposed(self : HybridMemo[T]) -> Bool {
 /// and marking its slot as Disposed. After disposal, calling `get()` on this
 /// cell or any cell that depends on it will abort.
 pub fn[T] HybridMemo::dispose(self : HybridMemo[T]) -> Unit {
-  self.rt.dispose_memo(self.cell_id)
+  self.rt.dispose_cell(self.cell_id)
   self.value = None
 }
 
