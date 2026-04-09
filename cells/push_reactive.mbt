@@ -39,6 +39,16 @@ impl CellOps for PushReactiveData with level(self) -> Int {
 }
 
 ///|
+impl CellOps for PushReactiveData with gc_role(_self) -> GcRole {
+  Interior
+}
+
+///|
+impl CellOps for PushReactiveData with gc_dependencies(self) -> Array[CellId] {
+  self.sources
+}
+
+///|
 /// Clears all mutable fields to release captured closures and graph edges.
 /// Called by `Runtime::dispose_reactive` after removing subscriber links.
 fn PushReactiveData::clear_slot(self : PushReactiveData) -> Unit {

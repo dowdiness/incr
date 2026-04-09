@@ -87,6 +87,12 @@ priv trait CellOps: HasCellMeta {
   /// Number of subscriber-path routes from this cell to a live push cell.
   /// > 0 iff at least one live push cell (Reactive/Effect) is downstream.
   push_reachable_count(Self) -> Int = _
+
+  /// GC role of this cell. Default: Source (input cells).
+  gc_role(Self) -> GcRole = _
+
+  /// Upstream dependencies for GC marking. Default: empty.
+  gc_dependencies(Self) -> Array[CellId] = _
 }
 
 ///|
@@ -142,6 +148,18 @@ impl CellOps with dep_changed_since(self, verified_at) -> Bool? {
 /// Default: push_reachable_count from shared metadata.
 impl CellOps with push_reachable_count(self) -> Int {
   HasCellMeta::meta(self).push_reachable_count
+}
+
+///|
+/// Default: Source role (input cells — never collected).
+impl CellOps with gc_role(_self) -> GcRole {
+  Source
+}
+
+///|
+/// Default: no dependencies (leaf cells).
+impl CellOps with gc_dependencies(_self) -> Array[CellId] {
+  []
 }
 
 ///|

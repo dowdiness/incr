@@ -16,6 +16,11 @@ impl HasCellMeta for RuleData with meta(self) {
 impl CellOps for RuleData
 
 ///|
+impl CellOps for RuleData with gc_role(_self) -> GcRole {
+  Source
+}
+
+///|
 pub fn Runtime::new_rule(
   self : Runtime,
   input_relations : Array[CellId],

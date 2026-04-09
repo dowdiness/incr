@@ -51,6 +51,16 @@ impl CellOps for PushEffectData with level(self) -> Int {
 }
 
 ///|
+impl CellOps for PushEffectData with gc_role(_self) -> GcRole {
+  Root
+}
+
+///|
+impl CellOps for PushEffectData with gc_dependencies(self) -> Array[CellId] {
+  self.sources
+}
+
+///|
 /// Clears all mutable fields to release captured closures and graph edges.
 /// Called by `Runtime::dispose_effect` after removing subscriber links.
 fn PushEffectData::clear_slot(self : PushEffectData) -> Unit {

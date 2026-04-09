@@ -125,8 +125,13 @@ impl BackdateEq with backdate_equal(self, other) -> Bool {
 /// - `Source`: Input cells (signals, relations) — no upstream deps, never collected
 /// - `Interior`: Derived cells (memos, reactives) — has deps, collectible when unobserved
 /// - `Root`: Terminal cells (effects) — keeps upstream alive, never collected
-pub enum GcRole {
+pub(all) enum GcRole {
   Source
   Interior
   Root
 } derive(Debug, Eq)
+
+///|
+pub impl Show for GcRole with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}

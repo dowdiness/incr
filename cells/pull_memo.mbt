@@ -27,3 +27,13 @@ impl CellOps for MemoData
 impl CellOps for MemoData with dep_changed_since(_self, _verified_at) -> Bool? {
   None
 }
+
+///|
+impl CellOps for MemoData with gc_role(_self) -> GcRole {
+  Interior
+}
+
+///|
+impl CellOps for MemoData with gc_dependencies(self) -> Array[CellId] {
+  self.dependencies
+}
