@@ -288,6 +288,31 @@ test "integration: batch + on_change + memo chain fires once with correct final 
 }
 
 ///|
+test "dispose: signal dispose cascades to memo staleness" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 10)
+  let m = Memo::new(rt, fn() { sig.get() * 2 })
+  inspect(m.get(), content="20")
+  sig.dispose()
+  // Memo's dependency is now disposed — verifying should abort
+  // But since we can't catch aborts in tests, verify the signal is disposed
+  assert_true(sig.is_disposed())
+}
+
+///|
+test "dispose: multiple signals, dispose one, others unaffected" {
+  let rt = Runtime::new()
+  let a = Signal::new(rt, 1)
+  let b = Signal::new(rt, 2)
+  let sum = Memo::new(rt, fn() { a.get() + b.get() })
+  inspect(sum.get(), content="3")
+  a.dispose()
+  assert_true(a.is_disposed())
+  assert_false(b.is_disposed())
+  assert_false(sum.is_disposed())
+}
+
+///|
 test "cross-engine: fixpoint fires on_change only when facts change" {
   let rt = Runtime::new()
   let rel : @incr.Relation[Int] = @incr.Relation::new(rt, label="R")

@@ -242,3 +242,23 @@ test "baseline: reactive create-dispose cycle (existing free list)" (
     r.dispose()
   })
 }
+
+///|
+test "layer1: memo create-dispose cycle (free list)" (b : @bench.T) {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 0)
+  b.bench(fn() {
+    let m = Memo::new(rt, fn() { sig.get() })
+    ignore(m.get())
+    m.dispose()
+  })
+}
+
+///|
+test "layer1: signal create-dispose cycle (free list)" (b : @bench.T) {
+  let rt = Runtime::new()
+  b.bench(fn() {
+    let sig = Signal::new(rt, 0)
+    sig.dispose()
+  })
+}
