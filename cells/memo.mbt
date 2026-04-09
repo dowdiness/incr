@@ -48,10 +48,14 @@ fn[T] Memo::_create(
   label? : String,
   backdate_eq : (T, T) -> Bool,
 ) -> Memo[T] {
-  let memo_idx = rt.pull.memos.length()
+  // Reuse a freed slot if available, otherwise append
+  let memo_idx = match rt.pull.free_memos.pop() {
+    Some(idx) => idx
+    None => rt.pull.memos.length()
+  }
   let cell_id = rt.alloc_cell_id(PullMemo(memo_idx))
   let memo : Memo[T] = { label, rt, cell_id, compute, backdate_eq, value: None }
-  rt.pull.memos.push({
+  let new_data : MemoData = {
     meta: {
       cell_id,
       label,
@@ -65,7 +69,12 @@ fn[T] Memo::_create(
     dependencies: [],
     in_progress: false,
     on_change: None,
-  })
+  }
+  if memo_idx < rt.pull.memos.length() {
+    rt.pull.memos[memo_idx] = new_data
+  } else {
+    rt.pull.memos.push(new_data)
+  }
   let ops : &CellOps = rt.pull.memos[memo_idx]
   rt.core.cell_ops.push(ops)
   memo

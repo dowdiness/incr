@@ -51,3 +51,25 @@ test "signal dispose: free list enables slot reuse" {
   assert_eq(idx1, idx2)
   assert_eq(sig2.get(), 20)
 }
+
+///|
+test "memo dispose: free list enables slot reuse" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 10)
+  let m1 = Memo::new(rt, fn() { sig.get() * 2 })
+  ignore(m1.get())
+  let idx1 = match rt.core.cell_index[m1.id().id] {
+    PullMemo(i) => i
+    _ => abort("expected PullMemo")
+  }
+  m1.dispose()
+  assert_true(rt.pull.free_memos.contains(idx1))
+  // New memo should reuse the slot
+  let m2 = Memo::new(rt, fn() { sig.get() + 1 })
+  let idx2 = match rt.core.cell_index[m2.id().id] {
+    PullMemo(i) => i
+    _ => abort("expected PullMemo")
+  }
+  assert_eq(idx1, idx2)
+  assert_eq(m2.get(), 11)
+}

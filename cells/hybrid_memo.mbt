@@ -32,10 +32,14 @@ pub fn[T : Eq] HybridMemo::new(
   compute : () -> T,
   label? : String,
 ) -> HybridMemo[T] {
-  let memo_idx = rt.pull.memos.length()
+  // Reuse a freed slot if available, otherwise append
+  let memo_idx = match rt.pull.free_memos.pop() {
+    Some(idx) => idx
+    None => rt.pull.memos.length()
+  }
   let cell_id = rt.alloc_cell_id(HybridMemo(memo_idx))
   let memo : HybridMemo[T] = { label, rt, cell_id, compute, value: None }
-  rt.pull.memos.push({
+  let new_data : MemoData = {
     meta: {
       cell_id,
       label,
@@ -49,7 +53,12 @@ pub fn[T : Eq] HybridMemo::new(
     dependencies: [],
     in_progress: false,
     on_change: None,
-  })
+  }
+  if memo_idx < rt.pull.memos.length() {
+    rt.pull.memos[memo_idx] = new_data
+  } else {
+    rt.pull.memos.push(new_data)
+  }
   let ops : &CellOps = rt.pull.memos[memo_idx]
   rt.core.cell_ops.push(ops)
   // HybridMemo intentionally does NOT increment rt.push.node_count.
