@@ -96,3 +96,74 @@ pub fn Scope::dispose(self : Scope) -> Unit {
   }
   self.disposed = true
 }
+
+///|
+/// Creates a signal owned by this scope.
+pub fn[T] Scope::signal(
+  self : Scope,
+  initial : T,
+  durability? : Durability = Low,
+  label? : String,
+) -> Signal[T] {
+  guard !self.disposed else {
+    abort("Scope::signal called on a disposed scope")
+  }
+  let sig = Signal::new(self.runtime, initial, durability~, label?)
+  self.cells.push(sig.id())
+  sig
+}
+
+///|
+/// Creates a memo owned by this scope.
+pub fn[T : Eq] Scope::memo(
+  self : Scope,
+  f : () -> T,
+  label? : String,
+) -> Memo[T] {
+  guard !self.disposed else {
+    abort("Scope::memo called on a disposed scope")
+  }
+  let m = Memo::new(self.runtime, f, label?)
+  self.cells.push(m.id())
+  m
+}
+
+///|
+/// Creates a hybrid memo owned by this scope.
+pub fn[T : Eq] Scope::hybrid_memo(
+  self : Scope,
+  f : () -> T,
+  label? : String,
+) -> HybridMemo[T] {
+  guard !self.disposed else {
+    abort("Scope::hybrid_memo called on a disposed scope")
+  }
+  let hm = HybridMemo::new(self.runtime, f, label?)
+  self.cells.push(hm.id())
+  hm
+}
+
+///|
+/// Creates an effect owned by this scope.
+pub fn Scope::effect(self : Scope, f : () -> Unit) -> Effect {
+  guard !self.disposed else {
+    abort("Scope::effect called on a disposed scope")
+  }
+  let eff = Effect::new(self.runtime, f)
+  self.cells.push(eff.id())
+  eff
+}
+
+///|
+/// Creates a reactive owned by this scope.
+pub fn[T : Eq] Scope::reactive(
+  self : Scope,
+  compute_fn : () -> T,
+) -> Reactive[T] {
+  guard !self.disposed else {
+    abort("Scope::reactive called on a disposed scope")
+  }
+  let r = Reactive::new(self.runtime, compute_fn)
+  self.cells.push(r.id())
+  r
+}
