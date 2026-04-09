@@ -240,6 +240,24 @@ pub fn[Db : Database, T] create_tracked_cell(
 }
 
 ///|
+/// Registers all cells from a Trackable struct with a scope for bulk disposal.
+///
+/// When the scope is disposed, all registered cells are disposed.
+/// This is the recommended way to manage TrackedCell lifetimes.
+///
+/// # Example
+///
+/// ```moonbit nocheck
+/// let scope = Scope::new(rt)
+/// let tracked = MyTracked::new(rt)
+/// add_tracked(scope, tracked)
+/// scope.dispose()  // disposes all tracked cells
+/// ```
+pub fn[T : Trackable] add_tracked(scope : Scope, tracked : T) -> Unit {
+  scope.add_cell_ids(tracked.cell_ids())
+}
+
+///|
 /// Marks all cells of a Trackable struct as GC roots (no-op until Phase 4).
 ///
 /// Call this when a tracked struct is "alive" — referenced by the

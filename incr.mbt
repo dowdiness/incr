@@ -28,6 +28,7 @@ pub using @internal {
   type FunctionalRelation,
   type Reactive,
   type Effect,
+  type Scope,
 }
 
 // Note: @internal alias above refers to dowdiness/incr/cells (renamed from

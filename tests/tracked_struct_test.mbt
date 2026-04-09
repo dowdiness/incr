@@ -231,3 +231,59 @@ test "TrackedCell clear_on_change stops callback" {
   cell.set(2)
   inspect(observed, content="1") // callback NOT fired (still 1)
 }
+
+// --- Phase 3: add_tracked ---
+
+///|
+/// Helper struct for add_tracked tests (2-field variant)
+struct TwoFieldTracked {
+  a : @incr.TrackedCell[Int]
+  b : @incr.TrackedCell[Int]
+}
+
+///|
+impl @incr.Trackable for TwoFieldTracked with cell_ids(self) {
+  [self.a.id(), self.b.id()]
+}
+
+///|
+test "scope: add_tracked registers all cell ids for disposal" {
+  let rt = @incr.Runtime::new()
+  let scope = @incr.Scope::new(rt)
+  let tracked : TwoFieldTracked = {
+    a: @incr.TrackedCell::new(rt, 1, label="a"),
+    b: @incr.TrackedCell::new(rt, 2, label="b"),
+  }
+  @incr.add_tracked(scope, tracked)
+  inspect(tracked.a.get(), content="1")
+  inspect(tracked.b.get(), content="2")
+  scope.dispose()
+  inspect(tracked.a.is_disposed(), content="true")
+  inspect(tracked.b.is_disposed(), content="true")
+}
+
+///|
+test "panic scope: add_tracked on disposed scope aborts" {
+  let rt = @incr.Runtime::new()
+  let scope = @incr.Scope::new(rt)
+  scope.dispose()
+  let tracked : TwoFieldTracked = {
+    a: @incr.TrackedCell::new(rt, 1),
+    b: @incr.TrackedCell::new(rt, 2),
+  }
+  @incr.add_tracked(scope, tracked)
+}
+
+///|
+test "panic scope: add_tracked with foreign runtime cells aborts on dispose" {
+  let rt1 = @incr.Runtime::new()
+  let rt2 = @incr.Runtime::new()
+  let scope = @incr.Scope::new(rt1)
+  let tracked : TwoFieldTracked = {
+    a: @incr.TrackedCell::new(rt2, 1),
+    b: @incr.TrackedCell::new(rt2, 2),
+  }
+  @incr.add_tracked(scope, tracked)
+  // dispose_cell will abort because CellIds belong to rt2, not rt1
+  scope.dispose()
+}

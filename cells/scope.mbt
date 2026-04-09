@@ -167,3 +167,17 @@ pub fn[T : Eq] Scope::reactive(
   self.cells.push(r.id())
   r
 }
+
+///|
+/// Registers an array of CellIds with this scope for bulk disposal.
+///
+/// When the scope is disposed, all registered cells are disposed.
+/// This is the low-level building block for `Scope::add_tracked`.
+pub fn Scope::add_cell_ids(self : Scope, ids : Array[CellId]) -> Unit {
+  guard !self.disposed else {
+    abort("Scope::add_cell_ids called on a disposed scope")
+  }
+  for id in ids {
+    self.cells.push(id)
+  }
+}
