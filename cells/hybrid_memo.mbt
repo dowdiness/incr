@@ -135,11 +135,25 @@ pub fn[T] HybridMemo::id(self : HybridMemo[T]) -> CellId {
 }
 
 ///|
+/// Returns true if this hybrid memo has been disposed.
+pub fn[T] HybridMemo::is_disposed(self : HybridMemo[T]) -> Bool {
+  let id = self.cell_id.id
+  if id < 0 || id >= self.rt.core.cell_index.length() {
+    return true
+  }
+  match self.rt.core.cell_index[id] {
+    Disposed => true
+    _ => false
+  }
+}
+
+///|
 /// Disposes this hybrid memo, removing it from all upstream subscriber sets
 /// and marking its slot as Disposed. After disposal, calling `get()` on this
 /// cell or any cell that depends on it will abort.
 pub fn[T] HybridMemo::dispose(self : HybridMemo[T]) -> Unit {
   self.rt.dispose_hybrid_memo(self.cell_id)
+  self.value = None
 }
 
 ///|

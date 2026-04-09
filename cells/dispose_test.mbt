@@ -68,3 +68,14 @@ test "memo: dispose then new memo works independently" {
   assert_true(m1.is_disposed())
   assert_false(m2.is_disposed())
 }
+
+///|
+test "hybrid memo: is_disposed returns correct state" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 10)
+  let h = HybridMemo::new(rt, fn() { sig.get() * 2 })
+  ignore(h.get())
+  assert_false(h.is_disposed())
+  h.dispose()
+  assert_true(h.is_disposed())
+}

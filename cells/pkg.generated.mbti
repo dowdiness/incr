@@ -65,6 +65,7 @@ pub(all) struct HybridMemo[T] {
 pub fn[T] HybridMemo::dispose(Self[T]) -> Unit
 pub fn[T : Eq] HybridMemo::get(Self[T]) -> T
 pub fn[T] HybridMemo::id(Self[T]) -> @types.CellId
+pub fn[T] HybridMemo::is_disposed(Self[T]) -> Bool
 pub fn[T] HybridMemo::is_up_to_date(Self[T]) -> Bool
 pub fn[T : Eq] HybridMemo::new(Runtime, () -> T, label? : String) -> Self[T]
 

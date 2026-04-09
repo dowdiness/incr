@@ -664,7 +664,14 @@ fn Runtime::dispose_hybrid_memo(self : Runtime, cell_id : CellId) -> Unit {
       for dep in memo.dependencies {
         self.remove_subscriber(dep, cell_id)
       }
+      memo.dependencies = []
+      memo.meta.subscribers.clear()
+      memo.meta.label = None
+      memo.on_change = None
+      memo.verified_at = Revision::initial()
+      memo.in_progress = false
       self.core.cell_index[cell_id.id] = Disposed
+      self.pull.free_memos.push(idx)
     }
     _ => ()
   }
