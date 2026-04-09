@@ -49,6 +49,7 @@ pub fn[T : Eq] HybridMemo::new(
     dependencies: [],
     in_progress: false,
     on_change: None,
+    is_hybrid: true,
   }
   if memo_idx < rt.pull.memos.length() {
     rt.pull.memos[memo_idx] = new_data

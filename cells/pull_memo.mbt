@@ -11,6 +11,7 @@ priv struct MemoData {
   mut dependencies : Array[CellId]
   mut in_progress : Bool
   mut on_change : (() -> Unit)?
+  is_hybrid : Bool
 }
 
 ///|

@@ -184,3 +184,23 @@ test "gc_dependencies: effect returns its sources" {
   eff.dispose()
   sig.dispose()
 }
+
+///|
+test "is_hybrid: memo has is_hybrid false" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 10)
+  let m = Memo::new(rt, fn() { sig.get() })
+  inspect(rt.pull.memos[0].is_hybrid, content="false")
+  m.dispose()
+  sig.dispose()
+}
+
+///|
+test "is_hybrid: hybrid memo has is_hybrid true" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 10)
+  let hm = HybridMemo::new(rt, fn() { sig.get() })
+  inspect(rt.pull.memos[0].is_hybrid, content="true")
+  hm.dispose()
+  sig.dispose()
+}

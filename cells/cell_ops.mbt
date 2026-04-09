@@ -197,3 +197,33 @@ priv trait RevisionManager {
   advance_revision(Self, Durability) -> Unit
   bump_revision(Self, Durability) -> Unit
 }
+
+///|
+/// Lifecycle operations for cells: disposal, observer notifications.
+///
+/// Unlike CellOps (read-only metadata), CellLifecycle methods perform
+/// mutations and require Runtime access. Stored as `&CellLifecycle` in
+/// `RuntimeCore.cell_lifecycle`, indexed by `CellId.id`.
+///
+/// # Layer 3 status
+///
+/// `dispose_cell` migrates existing dispose logic into trait impls.
+/// `on_observe` and `on_unobserve` are no-ops — Layer 4 fills them in
+/// for HybridMemo (push activation/suspension) and PushReactive.
+priv trait CellLifecycle {
+  dispose_cell(Self, Runtime, CellId) -> Unit
+  on_observe(Self, Runtime, CellId) -> Unit = _
+  on_unobserve(Self, Runtime, CellId) -> Unit = _
+}
+
+///|
+/// Default: on_observe is a no-op. Layer 4 overrides for push cells.
+impl CellLifecycle with on_observe(_self, _rt, _cell_id) -> Unit {
+  ()
+}
+
+///|
+/// Default: on_unobserve is a no-op. Layer 4 overrides for push cells.
+impl CellLifecycle with on_unobserve(_self, _rt, _cell_id) -> Unit {
+  ()
+}

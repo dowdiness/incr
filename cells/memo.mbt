@@ -65,6 +65,7 @@ fn[T] Memo::_create(
     dependencies: [],
     in_progress: false,
     on_change: None,
+    is_hybrid: false,
   }
   if memo_idx < rt.pull.memos.length() {
     rt.pull.memos[memo_idx] = new_data
