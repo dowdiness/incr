@@ -48,6 +48,8 @@ pub using @cells {type FunctionalRelation}
 
 pub using @types {type FunctionalRelationId}
 
+pub using @types {type GcRole}
+
 pub using @cells {type HybridMemo}
 
 pub using @cells {type Memo}

@@ -61,11 +61,7 @@ impl CellOps for PushEffectData with gc_dependencies(self) -> Array[CellId] {
 }
 
 ///|
-impl CellLifecycle for PushEffectData with dispose_cell(
-  self,
-  rt,
-  cell_id,
-) -> Unit {
+impl CellLifecycle for PushEffectData with dispose_cell(self, rt, cell_id) -> Unit {
   match rt.core.cell_index[cell_id.id] {
     PushEffect(idx) => {
       for dep in self.sources {

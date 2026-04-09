@@ -40,11 +40,7 @@ impl CellOps for MemoData with gc_dependencies(self) -> Array[CellId] {
 }
 
 ///|
-impl CellLifecycle for MemoData with dispose_cell(
-  self,
-  rt,
-  cell_id,
-) -> Unit {
+impl CellLifecycle for MemoData with dispose_cell(self, rt, cell_id) -> Unit {
   match rt.core.cell_index[cell_id.id] {
     PullMemo(idx) | HybridMemo(idx) => {
       for dep in self.dependencies {

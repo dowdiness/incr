@@ -16,11 +16,7 @@ impl HasCellMeta for RuleData with meta(self) {
 impl CellOps for RuleData
 
 ///|
-impl CellLifecycle for RuleData with dispose_cell(
-  self,
-  rt,
-  cell_id,
-) -> Unit {
+impl CellLifecycle for RuleData with dispose_cell(self, rt, cell_id) -> Unit {
   self.meta.subscribers.clear()
   self.meta.label = None
   rt.core.cell_index[cell_id.id] = Disposed

@@ -30,6 +30,13 @@ pub(all) struct FunctionalRelationId[K, V] {
   id : CellId
 }
 
+pub(all) enum GcRole {
+  Source
+  Interior
+  Root
+} derive(Eq, @debug.Debug)
+pub impl Show for GcRole
+
 pub(all) struct MemoId[T] {
   id : CellId
 }

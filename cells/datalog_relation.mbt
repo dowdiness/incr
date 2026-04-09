@@ -17,11 +17,7 @@ impl HasCellMeta for RelationData with meta(self) {
 impl CellOps for RelationData
 
 ///|
-impl CellLifecycle for RelationData with dispose_cell(
-  self,
-  rt,
-  cell_id,
-) -> Unit {
+impl CellLifecycle for RelationData with dispose_cell(self, rt, cell_id) -> Unit {
   self.meta.subscribers.clear()
   self.meta.label = None
   rt.core.cell_index[cell_id.id] = Disposed

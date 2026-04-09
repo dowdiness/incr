@@ -49,11 +49,7 @@ impl CellOps for PushReactiveData with gc_dependencies(self) -> Array[CellId] {
 }
 
 ///|
-impl CellLifecycle for PushReactiveData with dispose_cell(
-  self,
-  rt,
-  cell_id,
-) -> Unit {
+impl CellLifecycle for PushReactiveData with dispose_cell(self, rt, cell_id) -> Unit {
   match rt.core.cell_index[cell_id.id] {
     PushReactive(idx) => {
       for dep in self.sources {
