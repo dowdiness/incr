@@ -171,10 +171,12 @@ pub(all) struct TrackedCell[T] {
 } derive(@debug.Debug)
 pub fn[T] TrackedCell::as_signal(Self[T]) -> Signal[T]
 pub fn[T] TrackedCell::clear_on_change(Self[T]) -> Unit
+pub fn[T] TrackedCell::dispose(Self[T]) -> Unit
 pub fn[T] TrackedCell::durability(Self[T]) -> @types.Durability
 pub fn[T] TrackedCell::get(Self[T]) -> T
 pub fn[T] TrackedCell::get_result(Self[T]) -> Result[T, CycleError]
 pub fn[T] TrackedCell::id(Self[T]) -> @types.CellId
+pub fn[T] TrackedCell::is_disposed(Self[T]) -> Bool
 pub fn[T] TrackedCell::is_up_to_date(Self[T]) -> Bool
 pub fn[T] TrackedCell::new(Runtime, T, durability? : @types.Durability, label? : String) -> Self[T]
 pub fn[T] TrackedCell::on_change(Self[T], (T) -> Unit) -> Unit

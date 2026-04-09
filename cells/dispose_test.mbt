@@ -164,3 +164,12 @@ test "rule: dispose_rule is idempotent" {
   rt.dispose_rule(rule_id)
   rt.dispose_rule(rule_id) // no-op, should not abort
 }
+
+///|
+test "tracked cell: dispose delegates to inner signal" {
+  let rt = Runtime::new()
+  let cell = TrackedCell::new(rt, 42)
+  assert_false(cell.is_disposed())
+  cell.dispose()
+  assert_true(cell.is_disposed())
+}
