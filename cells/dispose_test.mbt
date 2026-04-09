@@ -79,3 +79,23 @@ test "hybrid memo: is_disposed returns correct state" {
   h.dispose()
   assert_true(h.is_disposed())
 }
+
+///|
+test "reactive: is_disposed returns correct state" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 10)
+  let r = Reactive::new(rt, fn() { sig.get() * 2 })
+  assert_false(r.is_disposed())
+  r.dispose()
+  assert_true(r.is_disposed())
+}
+
+///|
+test "effect: is_disposed returns correct state" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 10)
+  let eff = Effect::new(rt, fn() { ignore(sig.get()) })
+  assert_false(eff.is_disposed())
+  eff.dispose()
+  assert_true(eff.is_disposed())
+}

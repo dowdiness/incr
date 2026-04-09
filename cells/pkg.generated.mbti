@@ -43,6 +43,7 @@ pub struct Effect {
   // private fields
 }
 pub fn Effect::dispose(Self) -> Unit
+pub fn Effect::is_disposed(Self) -> Bool
 pub fn Effect::new(Runtime, () -> Unit) -> Self
 
 pub(all) struct FunctionalRelation[K, V] {
@@ -110,6 +111,7 @@ pub struct Reactive[T] {
 pub fn[T] Reactive::dispose(Self[T]) -> Unit
 pub fn[T] Reactive::get(Self[T]) -> T
 pub fn[T] Reactive::id(Self[T]) -> @types.CellId
+pub fn[T] Reactive::is_disposed(Self[T]) -> Bool
 pub fn[T : Eq] Reactive::new(Runtime, () -> T) -> Self[T]
 
 pub(all) struct Relation[T] {

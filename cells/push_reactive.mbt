@@ -169,6 +169,19 @@ pub fn[T] Reactive::id(self : Reactive[T]) -> CellId {
 }
 
 ///|
+/// Returns true if this reactive has been disposed.
+pub fn[T] Reactive::is_disposed(self : Reactive[T]) -> Bool {
+  let id = self.cell_id.id.id
+  if id < 0 || id >= self.rt.core.cell_index.length() {
+    return true
+  }
+  match self.rt.core.cell_index[id] {
+    Disposed => true
+    _ => false
+  }
+}
+
+///|
 /// Removes this reactive from the dependency graph.
 ///
 /// After disposal:
