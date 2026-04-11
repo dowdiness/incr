@@ -156,15 +156,10 @@ fn Runtime::cell_id_at(self : Runtime, i : Int) -> CellId {
 
 | File | Change |
 |------|--------|
-| `cells/observer.mbt` | **Create** — Observer[T] struct, get, dispose, is_disposed |
-| `cells/memo.mbt` | Add `Memo::observe` |
-| `cells/hybrid_memo.mbt` | Add `HybridMemo::observe` |
-| `cells/push_reactive.mbt` | Add `Reactive::observe` |
-| `cells/runtime.mbt` | `gc_root_counts` in RuntimeCore, `add_gc_root`, `remove_gc_root`, `gc`, `gc_sweep`, `collect_gc_roots`, `mark_reachable`, `cell_id_at`, `in_push_propagation` in RuntimeCore init |
+| `cells/observer.mbt` | **Create** — Observer[T] struct, get, dispose, is_disposed; Memo::observe, HybridMemo::observe, Reactive::observe; Runtime::read, read_hybrid, read_reactive |
+| `cells/runtime.mbt` | `gc_root_counts` in RuntimeCore, `add_gc_root`, `remove_gc_root`, `gc`, `gc_sweep`, `collect_gc_roots`, `mark_reachable`, `cell_id_at`, `in_push_propagation` in RuntimeCore init, dispose_cell gc_root cleanup |
 | `cells/push_propagate.mbt` | Set/clear `in_push_propagation` |
-| `cells/runtime.mbt` (dispose_cell) | Remove gc_root_counts entry before dispatching CellLifecycle |
 | `incr.mbt` | Re-export `type Observer` |
-| `traits.mbt` | `Runtime::read`, `Runtime::read_hybrid`, `Runtime::read_reactive` |
 | `cells/observer_test.mbt` | **Create** — unit tests for Observer |
 | `cells/gc_test.mbt` | **Create** — unit tests for gc() |
 | `tests/observer_test.mbt` | **Create** — integration tests |
