@@ -114,7 +114,7 @@ Added to RuntimeCore:
 mut in_push_propagation : Bool
 ```
 
-Set to `true` at the start of `push_propagate_from`, cleared to `false` at the end (in a finally-like pattern to handle aborts). `gc()` checks this guard.
+Set to `true` at the start of `push_propagate_from`, cleared to `false` at the end. No finally/defer in MoonBit — if a user closure aborts during propagation, the flag stays true and the runtime is left inconsistent (same as existing `in_fixpoint` behavior). `gc()` checks this guard.
 
 ## Runtime::gc()
 
@@ -162,6 +162,7 @@ fn Runtime::cell_id_at(self : Runtime, i : Int) -> CellId {
 | `cells/push_reactive.mbt` | Add `Reactive::observe` |
 | `cells/runtime.mbt` | `gc_root_counts` in RuntimeCore, `add_gc_root`, `remove_gc_root`, `gc`, `gc_sweep`, `collect_gc_roots`, `mark_reachable`, `cell_id_at`, `in_push_propagation` in RuntimeCore init |
 | `cells/push_propagate.mbt` | Set/clear `in_push_propagation` |
+| `cells/runtime.mbt` (dispose_cell) | Remove gc_root_counts entry before dispatching CellLifecycle |
 | `incr.mbt` | Re-export `type Observer` |
 | `traits.mbt` | `Runtime::read`, `Runtime::read_hybrid`, `Runtime::read_reactive` |
 | `cells/observer_test.mbt` | **Create** — unit tests for Observer |
@@ -195,11 +196,14 @@ fn Runtime::cell_id_at(self : Runtime, i : Int) -> CellId {
 - gc during active computation → aborts
 - gc is idempotent (running twice is safe)
 - diamond dependency: gc keeps shared deps alive when one path is observed
+- manual dispose of observed cell → gc_root_counts cleaned up, observer.get aborts
+- dispose observed cell then dispose observer → no gc_root_counts leak
 
 ### Integration tests (tests/)
 - observe → signal.set → observer.get returns new value
 - scope dispose + gc sweeps orphaned interior cells
 - Runtime::read one-shot convenience
+- Runtime::read on disposed memo → aborts before observe
 - gc after manual dispose is safe (idempotent disposal)
 
 ### Benchmarks
@@ -211,7 +215,15 @@ fn Runtime::cell_id_at(self : Runtime, i : Int) -> CellId {
 
 ## Edge Cases
 
-- **Observer on Source cell:** Sources have `gc_role() == Source` so gc() never collects them regardless of observer count. Observing a signal is valid (for Layer 4b push activation) but has no gc() effect.
-- **Observer on already-disposed cell:** The observe method should check `is_cell_disposed` and abort — observing a dead cell is a programming error.
+- **No `Signal::observe()` in 4a.** Sources use `signal.peek()` (Layer 5) for external reads. Sources have `gc_role() == Source` so gc() never collects them regardless — observing them has no gc() effect and no push activation story until Layer 4b. Deferring keeps the API surface minimal.
+- **Observer on already-disposed cell:** The observe method checks `is_cell_disposed` and aborts — observing a dead cell is a programming error.
+- **Manual dispose of an observed cell:** If a cell is manually disposed via `dispose_cell()` or `Scope::dispose()` while observers exist:
+  1. `dispose_cell()` removes the cell's entry from `gc_root_counts` (if present)
+  2. The Observer remains valid but stale — `Observer::get()` will abort on the disposed cell's guard
+  3. `Observer::dispose()` checks `is_cell_disposed(target_id)` and skips `on_unobserve` if the target is already dead
+  This prevents gc_root_counts leaks and avoids calling on_unobserve on dead cells.
+- **Runtime::read() abort safety:** `read()` calls `observe → get → dispose`. The only abort scenario is reading a disposed memo, which is a programming error. `read()` adds a disposed guard before `observe()` so the root count is never incremented for a dead cell.
+- **gc() is opt-in before Layer 5.** Since `.get()` is still unrestricted, interior cells may be read directly without observers. Calling gc() while holding direct references to unobserved interior cells will dispose them — this is documented behavior. Users who call gc() accept this contract.
 - **gc() with empty graph:** No-op (no cells to sweep).
 - **gc_root_counts HashMap memory:** Entries are removed when count reaches 0, so the map doesn't grow unbounded.
+- **MemoMap interaction:** gc() may sweep memos cached in a MemoMap. `MemoMap::get()` does not yet detect disposed entries (lazy recreation deferred to Layer 4b). Until then, users should call `MemoMap::sweep()` (Layer 4b) after gc(), or avoid gc() with active MemoMaps. Document this limitation.
