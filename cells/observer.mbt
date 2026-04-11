@@ -106,3 +106,42 @@ pub fn[T] Reactive::observe(self : Reactive[T]) -> Observer[T] {
     disposed: false,
   }
 }
+
+///|
+/// One-shot observe: observe a memo, read its value, dispose the observer.
+///
+/// Convenience for cases where you need a single outside-the-graph read.
+///
+/// # Panics
+///
+/// Aborts if the memo has been disposed.
+pub fn[T] Runtime::read(self : Runtime, memo : Memo[T]) -> T {
+  ignore(self)
+  let obs = memo.observe()
+  let val = obs.get()
+  obs.dispose()
+  val
+}
+
+///|
+/// One-shot observe for HybridMemo.
+pub fn[T : Eq] Runtime::read_hybrid(
+  self : Runtime,
+  memo : HybridMemo[T],
+) -> T {
+  ignore(self)
+  let obs = memo.observe()
+  let val = obs.get()
+  obs.dispose()
+  val
+}
+
+///|
+/// One-shot observe for Reactive.
+pub fn[T] Runtime::read_reactive(self : Runtime, reactive : Reactive[T]) -> T {
+  ignore(self)
+  let obs = reactive.observe()
+  let val = obs.get()
+  obs.dispose()
+  val
+}
