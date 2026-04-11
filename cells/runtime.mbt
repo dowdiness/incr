@@ -61,6 +61,13 @@ priv struct RuntimeCore {
   /// with semi-naive delta tracking. Relation::insert() is allowed during
   /// fixpoint but redirects writes to staged_delta for the next iteration.
   mut in_fixpoint : Bool
+  /// Reference counts for observed cells. Key = observed CellId,
+  /// value = number of live Observer handles. on_unobserve fires only
+  /// when count reaches 0.
+  gc_root_counts : @hashmap.HashMap[CellId, Int]
+  /// True while push_propagate_from is running. Guards gc() from
+  /// running during push propagation.
+  mut in_push_propagation : Bool
 }
 
 ///|
@@ -168,6 +175,8 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
       cell_ops: [],
       cell_lifecycle: [],
       in_fixpoint: false,
+      gc_root_counts: @hashmap.new(),
+      in_push_propagation: false,
     },
     pull: { signals: [], memos: [], free_signals: [], free_memos: [] },
     push: {
@@ -645,4 +654,36 @@ pub fn Runtime::dispose_cell(self : Runtime, cell_id : CellId) -> Unit {
   guard !self.is_cell_disposed(cell_id) else { return }
   self.guard_dispose(cell_id)
   self.core.cell_lifecycle[cell_id.id].dispose_cell(self, cell_id)
+}
+
+///|
+/// Increments the observer reference count for a cell.
+fn Runtime::add_gc_root(self : Runtime, id : CellId) -> Unit {
+  match self.core.gc_root_counts.get(id) {
+    Some(n) => self.core.gc_root_counts.set(id, n + 1)
+    None => self.core.gc_root_counts.set(id, 1)
+  }
+}
+
+///|
+/// Decrements the observer reference count for a cell.
+/// Removes the entry when count reaches 0. Returns remaining count.
+fn Runtime::remove_gc_root(self : Runtime, id : CellId) -> Int {
+  match self.core.gc_root_counts.get(id) {
+    Some(n) if n > 1 => {
+      self.core.gc_root_counts.set(id, n - 1)
+      n - 1
+    }
+    Some(_) => {
+      self.core.gc_root_counts.remove(id)
+      0
+    }
+    None => 0
+  }
+}
+
+///|
+/// Reconstructs a CellId from a cell_ops array index.
+fn Runtime::cell_id_at(self : Runtime, i : Int) -> CellId {
+  { runtime_id: self.core.runtime_id, id: i }
 }
