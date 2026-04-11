@@ -61,6 +61,13 @@ priv struct RuntimeCore {
   /// with semi-naive delta tracking. Relation::insert() is allowed during
   /// fixpoint but redirects writes to staged_delta for the next iteration.
   mut in_fixpoint : Bool
+  /// Reference counts for observed cells. Key = observed CellId,
+  /// value = number of live Observer handles. on_unobserve fires only
+  /// when count reaches 0.
+  gc_root_counts : @hashmap.HashMap[CellId, Int]
+  /// True while push_propagate_from is running. Guards gc() from
+  /// running during push propagation.
+  mut in_push_propagation : Bool
 }
 
 ///|
@@ -168,6 +175,8 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
       cell_ops: [],
       cell_lifecycle: [],
       in_fixpoint: false,
+      gc_root_counts: @hashmap.new(),
+      in_push_propagation: false,
     },
     pull: { signals: [], memos: [], free_signals: [], free_memos: [] },
     push: {
@@ -644,5 +653,130 @@ pub fn Runtime::dispose_cell(self : Runtime, cell_id : CellId) -> Unit {
   }
   guard !self.is_cell_disposed(cell_id) else { return }
   self.guard_dispose(cell_id)
+  // Clean up gc_root_counts to prevent leaks when observed cells
+  // are manually disposed before their observers.
+  self.core.gc_root_counts.remove(cell_id)
   self.core.cell_lifecycle[cell_id.id].dispose_cell(self, cell_id)
+}
+
+///|
+/// Increments the observer reference count for a cell.
+fn Runtime::add_gc_root(self : Runtime, id : CellId) -> Unit {
+  match self.core.gc_root_counts.get(id) {
+    Some(n) => self.core.gc_root_counts.set(id, n + 1)
+    None => self.core.gc_root_counts.set(id, 1)
+  }
+}
+
+///|
+/// Decrements the observer reference count for a cell.
+/// Removes the entry when count reaches 0. Returns remaining count.
+fn Runtime::remove_gc_root(self : Runtime, id : CellId) -> Int {
+  match self.core.gc_root_counts.get(id) {
+    Some(n) if n > 1 => {
+      self.core.gc_root_counts.set(id, n - 1)
+      n - 1
+    }
+    Some(_) => {
+      self.core.gc_root_counts.remove(id)
+      0
+    }
+    None => 0
+  }
+}
+
+///|
+/// Reconstructs a CellId from a cell_ops array index.
+fn Runtime::cell_id_at(self : Runtime, i : Int) -> CellId {
+  { runtime_id: self.core.runtime_id, id: i }
+}
+
+///|
+/// Runs mark-and-sweep garbage collection on the dependency graph.
+///
+/// Disposes all Interior cells (Memo, HybridMemo, Reactive) that are
+/// unreachable from any gc root (observed cells) or implicit root (Effect).
+/// Source cells (Signal, Relation, FunctionalRelation, Rule) are never collected.
+pub fn Runtime::gc(self : Runtime) -> Unit {
+  guard self.core.tracking_stack.is_empty() else {
+    // Clean up global state before aborting so panic tests don't
+    // contaminate subsequent tests via current_computing_runtime_id.
+    self.core.tracking_stack.clear()
+    current_computing_runtime_id.val = -1
+    abort("gc: cannot run during active computation")
+  }
+  guard self.core.batch_depth == 0 else { abort("gc: cannot run during batch") }
+  guard !self.core.in_fixpoint else {
+    abort("gc: cannot run during fixpoint evaluation")
+  }
+  guard !self.core.in_push_propagation else {
+    abort("gc: cannot run during push propagation")
+  }
+  self.gc_sweep()
+}
+
+///|
+/// Collects all GC roots: explicitly observed cells + implicit roots (Effects).
+fn Runtime::collect_gc_roots(self : Runtime) -> Array[CellId] {
+  let roots : Array[CellId] = []
+  for id, _ in self.core.gc_root_counts {
+    roots.push(id)
+  }
+  // Implicit roots: live cells with gc_role == Root (Effects)
+  for i = 0; i < self.core.cell_ops.length(); i = i + 1 {
+    match self.core.cell_index[i] {
+      Disposed => continue
+      _ => ()
+    }
+    if self.core.cell_ops[i].gc_role() is Root {
+      roots.push(self.cell_id_at(i))
+    }
+  }
+  roots
+}
+
+///|
+/// Marks all cells reachable from `roots` via gc_dependencies BFS.
+fn Runtime::mark_reachable(
+  self : Runtime,
+  roots : Array[CellId],
+) -> @hashset.HashSet[CellId] {
+  let reachable : @hashset.HashSet[CellId] = @hashset.new()
+  let worklist : Array[CellId] = Array::from_iter(roots.iter())
+  let mut wi = 0
+  while wi < worklist.length() {
+    let id = worklist[wi]
+    wi += 1
+    if reachable.contains(id) {
+      continue
+    }
+    match self.core.cell_index[id.id] {
+      Disposed => continue
+      _ => ()
+    }
+    reachable.add(id)
+    for dep in self.core.cell_ops[id.id].gc_dependencies() {
+      worklist.push(dep)
+    }
+  }
+  reachable
+}
+
+///|
+/// Sweep phase: dispose Interior cells not in the reachable set.
+fn Runtime::gc_sweep(self : Runtime) -> Unit {
+  let roots = self.collect_gc_roots()
+  let reachable = self.mark_reachable(roots)
+  for i = 0; i < self.core.cell_ops.length(); i = i + 1 {
+    match self.core.cell_index[i] {
+      Disposed => continue
+      _ => ()
+    }
+    if self.core.cell_ops[i].gc_role() is Interior {
+      let id = self.cell_id_at(i)
+      if !reachable.contains(id) {
+        self.dispose_cell(id)
+      }
+    }
+  }
 }

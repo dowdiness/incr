@@ -109,74 +109,64 @@ Effects are never observed — they ARE the observation.
 
 ## 3. Composed Trait Architecture
 
-Three focused traits, each handling one lifecycle concern. MoonBit trait composition allows keeping them small and composable.
+**Status:** Implemented (Layer 3, PR #30).
 
-### New Traits
+Two traits handle all lifecycle concerns. CellOps (read-only metadata) is extended with GC classification. CellLifecycle (mutating operations) handles disposal and observer notifications.
+
+### Traits (as implemented)
 
 ```moonbit
-/// How a cell responds to observer add/remove.
-trait Observable {
-  on_observe(Self, Runtime, CellId) -> Unit
-  on_unobserve(Self, Runtime, CellId) -> Unit
+/// Extended with GC metadata (Layer 3):
+priv trait CellOps: HasCellMeta {
+  // ... existing methods (cell_id, changed_at, subscribers, etc.) ...
+  gc_role(Self) -> GcRole = _           // default: Source
+  gc_dependencies(Self) -> Array[CellId] = _  // default: []
 }
 
-/// How a cell cleans up its resources.
-trait Disposable {
+/// Lifecycle operations: disposal + observer notifications.
+priv trait CellLifecycle {
   dispose_cell(Self, Runtime, CellId) -> Unit
-}
-
-/// How gc() treats this cell.
-enum GcRole { Source; Root; Interior }
-
-trait GcParticipant {
-  gc_role(Self) -> GcRole
-  gc_dependencies(Self) -> Array[CellId]
+  on_observe(Self, Runtime, CellId) -> Unit = _     // no-op default; Layer 4b fills in
+  on_unobserve(Self, Runtime, CellId) -> Unit = _   // no-op default; Layer 4b fills in
 }
 ```
 
 ### Implementations Per Cell Type
 
-| Cell type | Observable | Disposable | GcParticipant |
-|-----------|-----------|------------|---------------|
-| PullSignalData | no-op / no-op | clear value, subscribers, mark Disposed, free list | `Source`, `[]` |
-| MemoData (PullMemo) | no-op / no-op | clear closure, cache, deps, subscribers, upstream unsub, mark Disposed, free list | `Interior`, `self.dependencies` |
-| MemoData (HybridMemo) | activate push / suspend push | clear closure, cache, deps, subscribers, push unsub, mark Disposed, free list | `Interior`, `self.dependencies` |
-| PushReactiveData | activate push / suspend push | existing `dispose_reactive` logic | `Interior`, `self.sources` |
-| PushEffectData | N/A | existing `dispose_effect` logic | `Root`, `self.sources` |
-| RelationData | no-op / no-op | clear facts, subscribers, mark Disposed | `Source`, `[]` |
-| FunctionalRelationData | no-op / no-op | clear map, subscribers, mark Disposed | `Source`, `[]` |
-| RuleData | no-op / no-op | clear rule state, mark Disposed | `Source`, `self.input_relations` |
+| Cell type | gc_role | gc_dependencies | dispose_cell | on_observe / on_unobserve |
+|-----------|---------|-----------------|--------------|---------------------------|
+| PullSignalData | `Source` | `[]` | clear value, subscribers, mark Disposed, free list | no-op (default) |
+| MemoData (PullMemo) | `Interior` | `self.dependencies` | clear closure, cache, deps, subscribers, upstream unsub, mark Disposed, free list | no-op (default) |
+| MemoData (HybridMemo) | `Interior` | `self.dependencies` | same as PullMemo | activate push / suspend push (Layer 4b) |
+| PushReactiveData | `Interior` | `self.sources` | clear_slot, upstream unsub, mark Disposed, free list, node_count-- | activate push / suspend push (Layer 4b) |
+| PushEffectData | `Root` | `self.sources` | clear_slot, upstream unsub, mark Disposed, free list, node_count-- | no-op (self-rooting) |
+| RelationData | `Source` | `[]` | clear subscribers, mark Disposed | no-op (default) |
+| FunctionalRelationData | `Source` | `[]` | clear subscribers, mark Disposed | no-op (default) |
+| RuleData | `Source` | `self.input_relations` | clear subscribers, mark Disposed | no-op (default) |
 
-**MemoData dual role:** MemoData serves both PullMemo and HybridMemo (unified SoA entry). A `is_hybrid : Bool` flag on MemoData distinguishes them in the Observable impl, keeping the tagless final property clean (no CellRef dispatch inside a trait method).
+**MemoData dual role:** `is_hybrid : Bool` flag on MemoData distinguishes PullMemo from HybridMemo for Layer 4b's on_observe/on_unobserve implementations.
 
 ### Parallel Dispatch Arrays
 
 ```moonbit
 priv struct RuntimeCore {
-  // existing
   cell_index : Array[CellRef]
   cell_ops : Array[&CellOps]
-
-  // new — same index as cell_ops
-  cell_observable : Array[&Observable]
-  cell_disposable : Array[&Disposable]
-  cell_gc : Array[&GcParticipant]
+  cell_lifecycle : Array[&CellLifecycle]
 }
 ```
 
-All five arrays share the same index (`CellId.id`). Populated together at cell creation from the same SoA data struct.
+Three arrays share the same index (`CellId.id`). Populated together at cell creation. `Runtime::dispose_cell(cell_id)` dispatches via `cell_lifecycle[cell_id.id].dispose_cell(self, cell_id)`.
 
-### Migration of Existing Code
+### Suspension (Layer 4b)
 
-Existing `Runtime::dispose_reactive`, `dispose_effect`, `dispose_hybrid_memo` methods move into `Disposable` trait impls for those cell types. This is a reorganization.
-
-**New logic required for push/hybrid suspension:** The current dispose methods are destructive and one-way (clear slot, free list, mark Disposed). Suspension (introduced in Layer 4) is a new, reversible state machine:
+Push/hybrid suspension is a reversible state machine, distinct from disposal:
 
 - **Suspended state:** push path deactivated (unsubscribed from upstream, push_reachable_count decremented), but cell metadata preserved (verified_at, changed_at, dependencies, durability, cached value, compute closure).
 - **Reactivation:** re-subscribe to upstream sources, increment push_reachable_count, force recomputation to catch up on missed changes.
 - **Disposal:** permanent destruction (existing logic). Can transition from active OR suspended.
 
-This is new logic in Layer 4, not a Layer 3 refactor. Layer 3 migrates the existing one-way dispose into `Disposable` impls. Layer 4 adds `Observable::on_observe`/`on_unobserve` with suspension support.
+Layer 4b fills in `CellLifecycle::on_observe`/`on_unobserve` for HybridMemo and PushReactive with suspension support.
 
 ## 4. Observer and Scope
 
@@ -195,32 +185,35 @@ pub struct Observer[T] {
 }
 ```
 
-**Creation — per-cell-type overloads:**
+**Creation — methods on cell types:**
 
 ```moonbit
-pub fn Runtime::observe[T](self : Runtime, memo : Memo[T]) -> Observer[T] {
-  self.add_gc_root(memo.cell_id)
-  self.core.cell_observable[memo.cell_id.id].on_observe(self, memo.cell_id)
-  { runtime: self, target_id: memo.cell_id,
-    getter: fn() { memo.get_observed() }, disposed: false }
+pub fn Memo::observe(self : Memo[T]) -> Observer[T] {
+  let rt = self.runtime
+  rt.add_gc_root(self.cell_id)
+  rt.core.cell_lifecycle[self.cell_id.id].on_observe(rt, self.cell_id)
+  Observer({ runtime: rt, target_id: self.cell_id,
+             getter: fn() { self.get() }, disposed: false })
 }
 
-pub fn Runtime::observe_hybrid[T](self : Runtime, h : HybridMemo[T]) -> Observer[T] {
-  self.add_gc_root(h.cell_id)
-  self.core.cell_observable[h.cell_id.id].on_observe(self, h.cell_id)
-  { runtime: self, target_id: h.cell_id,
-    getter: fn() { h.get_observed() }, disposed: false }
+pub fn HybridMemo::observe(self : HybridMemo[T]) -> Observer[T] {
+  let rt = self.runtime
+  rt.add_gc_root(self.cell_id)
+  rt.core.cell_lifecycle[self.cell_id.id].on_observe(rt, self.cell_id)
+  Observer({ runtime: rt, target_id: self.cell_id,
+             getter: fn() { self.get() }, disposed: false })
 }
 
-pub fn Runtime::observe_reactive[T](self : Runtime, r : Reactive[T]) -> Observer[T] {
-  self.add_gc_root(r.cell_id)
-  self.core.cell_observable[r.cell_id.id].on_observe(self, r.cell_id)
-  { runtime: self, target_id: r.cell_id,
-    getter: fn() { r.get_value() }, disposed: false }
+pub fn Reactive::observe(self : Reactive[T]) -> Observer[T] {
+  let rt = self.runtime
+  rt.add_gc_root(self.cell_id)
+  rt.core.cell_lifecycle[self.cell_id.id].on_observe(rt, self.cell_id)
+  Observer({ runtime: rt, target_id: self.cell_id,
+             getter: fn() { self.get() }, disposed: false })
 }
 ```
 
-`get_observed()` is an internal variant of `get()` that skips the tracked-context check (since Observer reads are explicitly outside the graph). It still triggers pull_verify for Memo/HybridMemo.
+In Layer 4a, `on_observe` is a no-op (default impl). In Layer 4b, HybridMemo and PushReactive override it with push activation. The getter closure captures the cell's existing `.get()` method — outside tracked context, dependency recording is a no-op. In Layer 5, when `.get()` gets restricted to tracked context, the getter will switch to a `get_observed()` internal variant.
 
 **Reading:**
 
@@ -241,7 +234,7 @@ pub fn Observer::dispose(self : Observer[T]) -> Unit {
   let id = self.target_id
   let remaining = rt.remove_gc_root(id)
   if remaining == 0 {
-    rt.core.cell_observable[id.id].on_unobserve(rt, id)
+    rt.core.cell_lifecycle[id.id].on_unobserve(rt, id)
   }
 }
 ```
@@ -250,7 +243,7 @@ pub fn Observer::dispose(self : Observer[T]) -> Unit {
 
 ```moonbit
 pub fn Runtime::read[T](self : Runtime, memo : Memo[T]) -> T {
-  let obs = self.observe(memo)
+  let obs = memo.observe()
   let val = obs.get()
   obs.dispose()
   val
@@ -363,8 +356,8 @@ fn Runtime::collect_gc_roots(self : Runtime) -> Array[CellId] {
   let roots : Array[CellId] = []
   for id, _ in self.core.gc_root_counts { roots.push(id) }
   // Implicit roots: live Effects
-  for i = 0; i < self.core.cell_gc.length(); i = i + 1 {
-    if self.core.cell_gc[i].gc_role() == Root {
+  for i = 0; i < self.core.cell_ops.length(); i = i + 1 {
+    if self.core.cell_ops[i].gc_role() == Root {
       match self.core.cell_index[i] {
         Disposed => ()
         _ => roots.push(self.cell_id_at(i))
@@ -390,7 +383,7 @@ fn Runtime::mark_reachable(
       _ => ()
     }
     reachable.add(id)
-    for dep in self.core.cell_gc[id.id].gc_dependencies() {
+    for dep in self.core.cell_ops[id.id].gc_dependencies() {
       worklist.push(dep)
     }
   }
@@ -404,15 +397,15 @@ fn Runtime::mark_reachable(
 fn Runtime::gc_sweep(self : Runtime) -> Unit {
   let roots = self.collect_gc_roots()
   let reachable = self.mark_reachable(roots)
-  for i = 0; i < self.core.cell_gc.length(); i = i + 1 {
+  for i = 0; i < self.core.cell_ops.length(); i = i + 1 {
     match self.core.cell_index[i] {
       Disposed => continue
       _ => ()
     }
-    if self.core.cell_gc[i].gc_role() == Interior {
+    if self.core.cell_ops[i].gc_role() == Interior {
       let id = self.cell_id_at(i)
       if !reachable.contains(id) {
-        self.core.cell_disposable[i].dispose_cell(self, id)
+        self.dispose_cell(id)
       }
     }
   }
@@ -496,46 +489,48 @@ If pre-implementation baselines show no measurable CPU waste from abandoned push
 
 ## 7. Layered Delivery
 
-### Layer 1: Manual Dispose for All Cell Types
+### Layer 1: Manual Dispose for All Cell Types — **Complete** (PR #28)
 
-Complete `dispose()` for Signal, Memo, Relation, Rule, FunctionalRelation. Add free lists for pull cell SoA slots. Add `is_disposed()` and disposed guards on `.get()`.
+Complete `dispose()` for Signal, Memo, Relation, Rule, FunctionalRelation. Free lists for pull cell SoA slots. `is_disposed()` and disposed guards on `.get()`.
 
-**Depends on:** Nothing.
+### Layer 2: Scope (cell ownership only) — **Complete** (PR #29)
 
-### Layer 2: Scope (cell ownership only)
+`Scope` struct with `add_cell_ids`, nested scopes, recursive dispose. Owns cells only. `add_tracked` free function in root package bridges the Trackable/Scope circular dep.
 
-`Scope` struct with scoped cell constructors, nested scopes, recursive dispose. Owns cells only — no observer support yet (that arrives in Layer 4 via `Scope::observe()`).
+### Layer 3: Composed Traits — **Complete** (PR #30)
 
-**Depends on:** Layer 1.
+CellOps extended with `gc_role()`, `gc_dependencies()`. CellLifecycle trait with `dispose_cell`, `on_observe` (no-op), `on_unobserve` (no-op). `cell_lifecycle` parallel dispatch array. `is_hybrid` flag on MemoData. Old typed dispose methods removed.
 
-### Layer 3: Composed Traits
+### Layer 4a: Observer + gc()
 
-`Observable`, `Disposable`, `GcParticipant` traits. Parallel dispatch arrays. Migrate existing dispose methods into trait impls. Add `is_hybrid` flag to MemoData.
-
-**Depends on:** Layer 1.
-
-### Layer 4: Observer + gc()
-
-`Observer[T]` type with typed getter closure, `gc_root_counts` on RuntimeCore, `Runtime::gc()` with mark-and-sweep, `Runtime::read()` convenience, `MemoMap::sweep()`, `in_push_propagation` guard flag, push/hybrid suspension state machine in `Observable` impls, `Scope::observe()` (adds observer support to Layer 2 Scope).
+`Observer[T]` type with typed getter closure (methods on cell types: `Memo::observe`, `HybridMemo::observe`, `Reactive::observe`). `gc_root_counts` on RuntimeCore. `Runtime::gc()` with mark-and-sweep. `Runtime::read()` convenience. `in_push_propagation` guard flag. `on_observe`/`on_unobserve` remain no-ops.
 
 **Depends on:** Layers 2 and 3.
 
+### Layer 4b: Push Suspension + Scope::observe
+
+`CellLifecycle::on_observe`/`on_unobserve` real implementations for HybridMemo (push activation/suspension) and PushReactive. `Scope::observe()` (observer lifecycle via dispose hooks). `MemoMap::sweep()`.
+
+**Depends on:** Layer 4a.
+
 ### Layer 5: API Boundary Enforcement
 
-Restrict `memo.get()`, `hybrid_memo.get()`, `reactive.get()` to tracked context only. Add `signal.peek()`. Migrate all tests and benchmarks to use `rt.read()` or observers.
+Restrict `memo.get()`, `hybrid_memo.get()`, `reactive.get()` to tracked context only. Add `signal.peek()`. Migrate all tests and benchmarks to use `rt.read()` or observers. Switch Observer getter to internal `get_observed()` variant.
 
-**Depends on:** Layer 4.
+**Depends on:** Layer 4b.
 
 ### Delivery Summary
 
 ```
-Layer 1: Manual dispose     ← foundation, immediate value
+Layer 1: Manual dispose     ← Complete (PR #28)
   ↓
-Layer 2: Scope              ← UI lifecycle, builds on dispose
+Layer 2: Scope              ← Complete (PR #29)
   ↓
-Layer 3: Composed traits    ← architecture, enables extensibility
+Layer 3: Composed traits    ← Complete (PR #30)
   ↓
-Layer 4: Observer + gc()    ← automatic collection, the main feature
+Layer 4a: Observer + gc()   ← core Observer, ref-counting, mark-and-sweep
+  ↓
+Layer 4b: Push suspension   ← on_observe/on_unobserve, Scope::observe, MemoMap::sweep
   ↓
 Layer 5: API boundary       ← clean contract, breaking change (last)
 ```

@@ -30,6 +30,7 @@ pub using @internal {
   type Reactive,
   type Effect,
   type Scope,
+  type Observer,
 }
 
 // Note: @internal alias above refers to dowdiness/incr/cells (renamed from
