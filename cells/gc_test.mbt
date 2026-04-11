@@ -159,3 +159,23 @@ test "panic gc: during push propagation aborts" {
   })
   sig.set(2) // triggers push propagation → effect runs → gc aborts
 }
+
+///|
+// gc() traces through gc_dependencies(), which is the current dependencies
+// array. An uncomputed memo has empty dependencies, so gc() cannot trace
+// through it. This is documented behavior: compute closures must not capture
+// handles to cells outside their reachability subgraph. Users should compute
+// observed memos (call obs.get()) before calling gc().
+test "gc: uncomputed observed memo has empty deps — upstream is swept" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 1)
+  let m1 = Memo::new(rt, fn() { sig.get() + 1 })
+  let m2 = Memo::new(rt, fn() { m1.get() * 2 })
+  // Observe m2 without computing it first
+  let obs = m2.observe()
+  rt.gc()
+  // m2 is kept alive (observed), but m1 is unreachable (m2.dependencies is empty)
+  assert_false(m2.is_disposed())
+  assert_true(m1.is_disposed()) // swept because not reachable
+  obs.dispose()
+}
