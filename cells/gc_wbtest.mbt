@@ -53,6 +53,36 @@ test "cell_id_at: reconstructs CellId from index" {
 }
 
 ///|
+test "dispose_cell: removes gc_root_counts entry for observed cell" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 1)
+  let m = Memo::new(rt, fn() { sig.get() })
+  let obs = m.observe()
+  // gc_root_counts has entry
+  inspect(rt.core.gc_root_counts.get(m.id()) is None, content="false")
+  // manually dispose the memo
+  m.dispose()
+  // gc_root_counts entry should be cleaned up
+  inspect(rt.core.gc_root_counts.get(m.id()), content="None")
+  // observer dispose should not abort (skips on_unobserve for dead cell)
+  obs.dispose()
+}
+
+///|
+test "dispose_cell: clears gc_root_counts with multiple observers" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 1)
+  let m = Memo::new(rt, fn() { sig.get() })
+  let obs1 = m.observe()
+  let obs2 = m.observe()
+  inspect(rt.core.gc_root_counts.get(m.id()), content="Some(2)")
+  m.dispose()
+  inspect(rt.core.gc_root_counts.get(m.id()), content="None")
+  obs1.dispose()
+  obs2.dispose()
+}
+
+///|
 test "in_push_propagation: false by default" {
   let rt = Runtime::new()
   inspect(rt.core.in_push_propagation, content="false")

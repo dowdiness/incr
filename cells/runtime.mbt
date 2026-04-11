@@ -653,6 +653,9 @@ pub fn Runtime::dispose_cell(self : Runtime, cell_id : CellId) -> Unit {
   }
   guard !self.is_cell_disposed(cell_id) else { return }
   self.guard_dispose(cell_id)
+  // Clean up gc_root_counts to prevent leaks when observed cells
+  // are manually disposed before their observers.
+  self.core.gc_root_counts.remove(cell_id)
   self.core.cell_lifecycle[cell_id.id].dispose_cell(self, cell_id)
 }
 
