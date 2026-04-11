@@ -58,6 +58,8 @@ pub using @types {type MemoId}
 
 pub using @cells {type MemoMap}
 
+pub using @cells {type Observer}
+
 pub using @cells {type Reactive}
 
 pub using @types {type ReactiveId}

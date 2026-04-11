@@ -125,10 +125,7 @@ pub fn[T] Runtime::read(self : Runtime, memo : Memo[T]) -> T {
 
 ///|
 /// One-shot observe for HybridMemo.
-pub fn[T : Eq] Runtime::read_hybrid(
-  self : Runtime,
-  memo : HybridMemo[T],
-) -> T {
+pub fn[T : Eq] Runtime::read_hybrid(self : Runtime, memo : HybridMemo[T]) -> T {
   ignore(self)
   let obs = memo.observe()
   let val = obs.get()

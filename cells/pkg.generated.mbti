@@ -72,6 +72,7 @@ pub fn[T] HybridMemo::id(Self[T]) -> @types.CellId
 pub fn[T] HybridMemo::is_disposed(Self[T]) -> Bool
 pub fn[T] HybridMemo::is_up_to_date(Self[T]) -> Bool
 pub fn[T : Eq] HybridMemo::new(Runtime, () -> T, label? : String) -> Self[T]
+pub fn[T : Eq] HybridMemo::observe(Self[T]) -> Observer[T]
 
 pub(all) struct Memo[T] {
   // private fields
@@ -92,6 +93,7 @@ pub fn[T] Memo::is_up_to_date(Self[T]) -> Bool
 pub fn[T : Eq] Memo::new(Runtime, () -> T, label? : String) -> Self[T]
 pub fn[T : @types.BackdateEq] Memo::new_memo(Runtime, () -> T, label? : String) -> Self[T]
 pub fn[T] Memo::new_no_backdate(Runtime, () -> T, label? : String) -> Self[T]
+pub fn[T] Memo::observe(Self[T]) -> Observer[T]
 pub fn[T] Memo::on_change(Self[T], (T) -> Unit) -> Unit
 pub fn[T] Memo::verified_at(Self[T]) -> @types.Revision
 
@@ -108,6 +110,13 @@ pub fn[K : Hash + Eq, V : Eq] MemoMap::get_result(Self[K, V], K) -> Result[V, Cy
 pub fn[K, V] MemoMap::length(Self[K, V]) -> Int
 pub fn[K, V] MemoMap::new(Runtime, (K) -> V, label? : String) -> Self[K, V]
 
+pub struct Observer[T] {
+  // private fields
+} derive(@debug.Debug)
+pub fn[T] Observer::dispose(Self[T]) -> Unit
+pub fn[T] Observer::get(Self[T]) -> T
+pub fn[T] Observer::is_disposed(Self[T]) -> Bool
+
 pub struct Reactive[T] {
   // private fields
 }
@@ -116,6 +125,7 @@ pub fn[T] Reactive::get(Self[T]) -> T
 pub fn[T] Reactive::id(Self[T]) -> @types.CellId
 pub fn[T] Reactive::is_disposed(Self[T]) -> Bool
 pub fn[T : Eq] Reactive::new(Runtime, () -> T) -> Self[T]
+pub fn[T] Reactive::observe(Self[T]) -> Observer[T]
 
 pub(all) struct Relation[T] {
   // private fields
@@ -144,8 +154,12 @@ pub fn Runtime::dependents(Self, @types.CellId) -> Array[@types.CellId]
 pub fn Runtime::dispose_cell(Self, @types.CellId) -> Unit
 pub fn Runtime::dispose_rule(Self, @types.RuleId) -> Unit
 pub fn Runtime::fixpoint(Self) -> Unit
+pub fn Runtime::gc(Self) -> Unit
 pub fn Runtime::new(on_change? : () -> Unit) -> Self
 pub fn Runtime::new_rule(Self, Array[@types.CellId], Array[@types.CellId], () -> Unit, label? : String) -> @types.RuleId
+pub fn[T] Runtime::read(Self, Memo[T]) -> T
+pub fn[T : Eq] Runtime::read_hybrid(Self, HybridMemo[T]) -> T
+pub fn[T] Runtime::read_reactive(Self, Reactive[T]) -> T
 pub fn Runtime::set_on_change(Self, () -> Unit) -> Unit
 
 pub struct Scope {

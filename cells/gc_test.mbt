@@ -72,9 +72,7 @@ test "gc: keeps effects alive as implicit roots" {
   let sig = Signal::new(rt, 1)
   let m = Memo::new(rt, fn() { sig.get() })
   let log : Ref[Int] = { val: 0 }
-  let _eff = Effect::new(rt, fn() {
-    log.val = m.get()
-  })
+  let _eff = Effect::new(rt, fn() { log.val = m.get() })
   rt.gc()
   // Effect is a root — m is reachable through Effect's sources
   assert_false(m.is_disposed())

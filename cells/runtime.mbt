@@ -705,9 +705,7 @@ pub fn Runtime::gc(self : Runtime) -> Unit {
     current_computing_runtime_id.val = -1
     abort("gc: cannot run during active computation")
   }
-  guard self.core.batch_depth == 0 else {
-    abort("gc: cannot run during batch")
-  }
+  guard self.core.batch_depth == 0 else { abort("gc: cannot run during batch") }
   guard !self.core.in_fixpoint else {
     abort("gc: cannot run during fixpoint evaluation")
   }

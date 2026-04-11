@@ -301,3 +301,90 @@ test "layer2: nested scope (3 levels) create and dispose" (b : @bench.T) {
     root.dispose()
   })
 }
+
+///|
+// ─── Layer 4a: Observer + gc() ──────────────────────────────────────────────
+
+///|
+test "observer: get warm (memo)" (b : @bench.T) {
+  let rt = @incr.Runtime::new()
+  let sig = @incr.Signal::new(rt, 42)
+  let m = @incr.Memo::new(rt, fn() { sig.get() * 2 })
+  let obs = m.observe()
+  ignore(obs.get()) // prime
+  b.bench(fn() { b.keep(obs.get()) })
+  obs.dispose()
+}
+
+///|
+test "observer: observe + dispose cycle" (b : @bench.T) {
+  let rt = @incr.Runtime::new()
+  let sig = @incr.Signal::new(rt, 42)
+  let m = @incr.Memo::new(rt, fn() { sig.get() * 2 })
+  ignore(m.get()) // prime
+  b.bench(fn() {
+    let obs = m.observe()
+    b.keep(obs.get())
+    obs.dispose()
+  })
+}
+
+///|
+test "gc: sweep 1k all-live" (b : @bench.T) {
+  let rt = @incr.Runtime::new()
+  let sig = @incr.Signal::new(rt, 1)
+  let observers : Array[@incr.Observer[Int]] = []
+  for i = 0; i < 1000; i = i + 1 {
+    let m = @incr.Memo::new(rt, fn() { sig.get() + i })
+    let obs = m.observe()
+    ignore(obs.get())
+    observers.push(obs)
+  }
+  b.bench(fn() { rt.gc() })
+  for obs in observers {
+    obs.dispose()
+  }
+}
+
+///|
+test "gc: sweep 1k all-dead" (b : @bench.T) {
+  let rt = @incr.Runtime::new()
+  let sig = @incr.Signal::new(rt, 1)
+  for i = 0; i < 1000; i = i + 1 {
+    let m = @incr.Memo::new(rt, fn() { sig.get() + i })
+    ignore(m.get())
+  }
+  // First gc disposes all, subsequent gcs are sweeps over Disposed entries
+  rt.gc()
+  b.bench(fn() { rt.gc() })
+}
+
+///|
+test "gc: sweep 1k 50pct dead" (b : @bench.T) {
+  let rt = @incr.Runtime::new()
+  let sig = @incr.Signal::new(rt, 1)
+  let observers : Array[@incr.Observer[Int]] = []
+  for i = 0; i < 1000; i = i + 1 {
+    let m = @incr.Memo::new(rt, fn() { sig.get() + i })
+    let obs = m.observe()
+    ignore(obs.get())
+    if i % 2 == 0 {
+      obs.dispose()
+    } else {
+      observers.push(obs)
+    }
+  }
+  b.bench(fn() { rt.gc() })
+  for obs in observers {
+    obs.dispose()
+  }
+}
+
+///|
+test "runtime: read one-shot" (b : @bench.T) {
+  let rt = @incr.Runtime::new()
+  let sig = @incr.Signal::new(rt, 42)
+  let m = @incr.Memo::new(rt, fn() { sig.get() * 2 })
+  ignore(m.get()) // prime
+  b.bench(fn() { b.keep(rt.read(m)) })
+}
