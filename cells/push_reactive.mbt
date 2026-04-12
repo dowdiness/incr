@@ -78,6 +78,29 @@ impl CellLifecycle for PushReactiveData with on_unobserve(self, rt, cell_id) {
 }
 
 ///|
+/// Activates the push path when the first observer is added.
+///
+/// Recomputes with fresh tracking to establish current sources and
+/// a correct cached value. Passes [] as old_sources because subscriber
+/// links were removed during suspension. For fresh cells (never
+/// suspended), add_subscriber is idempotent.
+impl CellLifecycle for PushReactiveData with on_observe(self, rt, cell_id) {
+  guard !rt.core.in_push_propagation else {
+    abort("on_observe: cannot activate during push propagation")
+  }
+  guard !rt.core.in_fixpoint else {
+    abort("on_observe: cannot activate during fixpoint evaluation")
+  }
+  rt.begin_tracking(cell_id)
+  let _ = (self.compute)()
+  let new_sources = rt.end_tracking()
+  rt.finish_tracking(cell_id, [], new_sources)
+  self.sources = new_sources
+  self.level = rt.recompute_level(cell_id, new_sources)
+  self.dirty = false
+}
+
+///|
 /// Clears all mutable fields to release captured closures and graph edges.
 /// Called by the CellLifecycle dispose impl after removing subscriber links.
 fn PushReactiveData::clear_slot(self : PushReactiveData) -> Unit {

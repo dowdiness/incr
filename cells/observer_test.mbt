@@ -128,6 +128,67 @@ test "observer: reactive does NOT suspend when it has subscribers" {
 }
 
 ///|
+test "observer: reactive reactivation catches up on missed changes" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 10)
+  let r = Reactive::new(rt, fn() { sig.get() * 2 })
+  // Observe, verify, unobserve
+  let obs1 = r.observe()
+  inspect(obs1.get(), content="20")
+  obs1.dispose()
+  // Signal changes while reactive is suspended
+  sig.set(50)
+  // Re-observe — should see updated value
+  let obs2 = r.observe()
+  inspect(obs2.get(), content="100")
+  obs2.dispose()
+}
+
+///|
+test "observer: repeated suspend/activate cycles" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 1)
+  let r = Reactive::new(rt, fn() { sig.get() * 10 })
+  // Cycle 1
+  let obs1 = r.observe()
+  inspect(obs1.get(), content="10")
+  obs1.dispose()
+  sig.set(2)
+  // Cycle 2
+  let obs2 = r.observe()
+  inspect(obs2.get(), content="20")
+  obs2.dispose()
+  sig.set(3)
+  // Cycle 3
+  let obs3 = r.observe()
+  inspect(obs3.get(), content="30")
+  obs3.dispose()
+}
+
+///|
+test "observer: multiple observers prevent suspension until last disposed" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 5)
+  let r = Reactive::new(rt, fn() { sig.get() + 1 })
+  let obs1 = r.observe()
+  let obs2 = r.observe()
+  inspect(obs1.get(), content="6")
+  // Dispose first — on_unobserve should NOT fire (count 2→1)
+  obs1.dispose()
+  // Push still works
+  sig.set(10)
+  inspect(obs2.get(), content="11")
+  // Dispose second — on_unobserve fires (count 1→0), suspend
+  obs2.dispose()
+  inspect(rt.dependents(sig.id()).length(), content="0")
+  // Re-observe catches up
+  sig.set(20)
+  let obs3 = r.observe()
+  inspect(obs3.get(), content="21")
+  obs3.dispose()
+}
+
+///|
 test "panic observer: observe disposed memo aborts" {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 1)
