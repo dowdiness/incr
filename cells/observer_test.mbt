@@ -76,6 +76,22 @@ test "observer: multiple observers on same cell are ref-counted" {
 }
 
 ///|
+test "observer: on_observe fires only on 0-to-1 transition" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 10)
+  let r = Reactive::new(rt, fn() { sig.get() * 2 })
+  // First observer: 0→1 transition
+  let obs1 = r.observe()
+  inspect(obs1.get(), content="20")
+  // Second observer: 1→2 transition — on_observe should NOT fire again
+  let obs2 = r.observe()
+  inspect(obs2.get(), content="20")
+  obs1.dispose()
+  inspect(obs2.get(), content="20")
+  obs2.dispose()
+}
+
+///|
 test "panic observer: observe disposed memo aborts" {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 1)

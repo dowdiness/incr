@@ -62,8 +62,10 @@ pub fn[T] Memo::observe(self : Memo[T]) -> Observer[T] {
     abort("Memo::observe called on a disposed memo")
   }
   let rt = self.rt
-  rt.add_gc_root(self.cell_id)
-  rt.core.cell_lifecycle[self.cell_id.id].on_observe(rt, self.cell_id)
+  let prev = rt.add_gc_root(self.cell_id)
+  if prev == 0 {
+    rt.core.cell_lifecycle[self.cell_id.id].on_observe(rt, self.cell_id)
+  }
   {
     runtime: rt,
     target_id: self.cell_id,
@@ -79,8 +81,10 @@ pub fn[T : Eq] HybridMemo::observe(self : HybridMemo[T]) -> Observer[T] {
     abort("HybridMemo::observe called on a disposed hybrid memo")
   }
   let rt = self.rt
-  rt.add_gc_root(self.cell_id)
-  rt.core.cell_lifecycle[self.cell_id.id].on_observe(rt, self.cell_id)
+  let prev = rt.add_gc_root(self.cell_id)
+  if prev == 0 {
+    rt.core.cell_lifecycle[self.cell_id.id].on_observe(rt, self.cell_id)
+  }
   {
     runtime: rt,
     target_id: self.cell_id,
@@ -97,8 +101,10 @@ pub fn[T] Reactive::observe(self : Reactive[T]) -> Observer[T] {
     abort("Reactive::observe called on a disposed reactive")
   }
   let rt = self.rt
-  rt.add_gc_root(cell_id)
-  rt.core.cell_lifecycle[cell_id.id].on_observe(rt, cell_id)
+  let prev = rt.add_gc_root(cell_id)
+  if prev == 0 {
+    rt.core.cell_lifecycle[cell_id.id].on_observe(rt, cell_id)
+  }
   {
     runtime: rt,
     target_id: cell_id,
