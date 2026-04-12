@@ -92,6 +92,42 @@ test "observer: on_observe fires only on 0-to-1 transition" {
 }
 
 ///|
+test "observer: reactive suspends on last observer removal when no subscribers" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 10)
+  let r = Reactive::new(rt, fn() { sig.get() * 2 })
+  let obs = r.observe()
+  inspect(obs.get(), content="20")
+  // Signal has reactive in subscriber set
+  inspect(rt.dependents(sig.id()).length(), content="1")
+  obs.dispose()
+  // After last observer removed and no subscribers: reactive suspended
+  // Signal's subscriber set should be empty (reactive unsubscribed)
+  inspect(rt.dependents(sig.id()).length(), content="0")
+}
+
+///|
+test "observer: reactive does NOT suspend when it has subscribers" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 10)
+  let r = Reactive::new(rt, fn() { sig.get() * 2 })
+  // Memo reads the reactive — creates a subscriber link
+  let m = Memo::new(rt, fn() { r.get() + 1 })
+  let obs_m = m.observe()
+  ignore(obs_m.get())
+  // Observe and unobserve the reactive itself
+  let obs_r = r.observe()
+  ignore(obs_r.get())
+  obs_r.dispose()
+  // Reactive still has m in its subscriber set — must NOT suspend
+  inspect(rt.dependents(sig.id()).length(), content="1")
+  // Push propagation still works through to the memo
+  sig.set(20)
+  inspect(obs_m.get(), content="41")
+  obs_m.dispose()
+}
+
+///|
 test "panic observer: observe disposed memo aborts" {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 1)

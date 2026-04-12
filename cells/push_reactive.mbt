@@ -65,6 +65,19 @@ impl CellLifecycle for PushReactiveData with dispose_cell(self, rt, cell_id) -> 
 }
 
 ///|
+/// Suspends the push path when the last observer is removed.
+///
+/// Only suspends if no other cell reads this reactive (subscribers empty).
+/// A Memo or another Reactive in the subscriber set means this cell's
+/// changed_at must keep advancing — suspension would cause stale reads.
+impl CellLifecycle for PushReactiveData with on_unobserve(self, rt, cell_id) {
+  guard self.meta.subscribers.is_empty() else { return }
+  for source in self.sources {
+    rt.remove_subscriber(source, cell_id)
+  }
+}
+
+///|
 /// Clears all mutable fields to release captured closures and graph edges.
 /// Called by the CellLifecycle dispose impl after removing subscriber links.
 fn PushReactiveData::clear_slot(self : PushReactiveData) -> Unit {
