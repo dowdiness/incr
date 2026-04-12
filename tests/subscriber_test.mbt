@@ -54,3 +54,27 @@ test "subscriber: dependents returns empty for cross-runtime id" {
   let deps = rt2.dependents(x.id())
   inspect(deps.length(), content="0")
 }
+
+///|
+test "push suspension: full lifecycle via public API" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 10)
+  let r = @incr.Reactive::new(rt, fn() { sig.get() * 2 })
+  // Observe
+  let obs = r.observe()
+  inspect(obs.get(), content="20")
+  // Change while observed
+  sig.set(30)
+  inspect(obs.get(), content="60")
+  // Unobserve — suspends
+  obs.dispose()
+  // Change while suspended
+  sig.set(100)
+  // Re-observe — catches up
+  let obs2 = r.observe()
+  inspect(obs2.get(), content="200")
+  // Change while re-observed
+  sig.set(1)
+  inspect(obs2.get(), content="2")
+  obs2.dispose()
+}
