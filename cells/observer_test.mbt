@@ -210,7 +210,11 @@ test "observer: source disposed during suspension — reactivation uses fresh so
   let sig2 = Signal::new(rt, 20)
   let use_sig1 : Ref[Bool] = { val: true }
   let r = Reactive::new(rt, fn() {
-    if use_sig1.val { sig1.get() } else { sig2.get() }
+    if use_sig1.val {
+      sig1.get()
+    } else {
+      sig2.get()
+    }
   })
   let obs = r.observe()
   inspect(obs.get(), content="10")
@@ -254,7 +258,8 @@ test "panic observer: on_observe during fixpoint aborts" {
   rt.new_rule([input.id()], [output.id()], fn() {
     // Attempt to observe a reactive during fixpoint
     ignore(r.observe())
-  }) |> ignore
+  })
+  |> ignore
   rt.fixpoint()
 }
 

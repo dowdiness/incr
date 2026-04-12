@@ -168,10 +168,7 @@ pub fn[T : Eq] Scope::reactive(
 /// This ensures observers are cleaned up before their potential targets.
 ///
 /// Returns the observer for immediate use.
-pub fn[T] Scope::add_observer(
-  self : Scope,
-  obs : Observer[T],
-) -> Observer[T] {
+pub fn[T] Scope::add_observer(self : Scope, obs : Observer[T]) -> Observer[T] {
   guard !self.disposed else {
     abort("Scope::add_observer called on a disposed scope")
   }
