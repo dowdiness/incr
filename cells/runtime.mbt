@@ -661,10 +661,17 @@ pub fn Runtime::dispose_cell(self : Runtime, cell_id : CellId) -> Unit {
 
 ///|
 /// Increments the observer reference count for a cell.
-fn Runtime::add_gc_root(self : Runtime, id : CellId) -> Unit {
+/// Returns the previous count (0 means this is the first observer).
+fn Runtime::add_gc_root(self : Runtime, id : CellId) -> Int {
   match self.core.gc_root_counts.get(id) {
-    Some(n) => self.core.gc_root_counts.set(id, n + 1)
-    None => self.core.gc_root_counts.set(id, 1)
+    Some(n) => {
+      self.core.gc_root_counts.set(id, n + 1)
+      n
+    }
+    None => {
+      self.core.gc_root_counts.set(id, 1)
+      0
+    }
   }
 }
 

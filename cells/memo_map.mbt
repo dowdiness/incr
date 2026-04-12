@@ -119,3 +119,23 @@ fn[K : Hash + Eq, V : Eq] MemoMap::get_or_create_memo(
     }
   }
 }
+
+///|
+/// Removes entries whose memos have been disposed (e.g. by gc()).
+///
+/// Two-pass: collects keys to remove, then removes them (cannot mutate
+/// HashMap during iteration). Returns the number of entries swept.
+///
+/// Call after `Runtime::gc()` to clean up stale entries.
+pub fn[K : Hash + Eq, V] MemoMap::sweep(self : MemoMap[K, V]) -> Int {
+  let to_remove : Array[K] = []
+  for key, memo in self.entries {
+    if memo.is_disposed() {
+      to_remove.push(key)
+    }
+  }
+  for key in to_remove {
+    self.entries.remove(key)
+  }
+  to_remove.length()
+}

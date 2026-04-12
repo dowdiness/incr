@@ -161,6 +161,22 @@ pub fn[T : Eq] Scope::reactive(
 }
 
 ///|
+/// Registers an observer with this scope for automatic disposal.
+///
+/// When the scope is disposed, the observer is disposed in the dispose_hooks
+/// phase (step 2 of disposal order — after children, before owned cells).
+/// This ensures observers are cleaned up before their potential targets.
+///
+/// Returns the observer for immediate use.
+pub fn[T] Scope::add_observer(self : Scope, obs : Observer[T]) -> Observer[T] {
+  guard !self.disposed else {
+    abort("Scope::add_observer called on a disposed scope")
+  }
+  self.dispose_hooks.push(fn() { obs.dispose() })
+  obs
+}
+
+///|
 /// Registers an array of CellIds with this scope for bulk disposal.
 ///
 /// When the scope is disposed, all registered cells are disposed.

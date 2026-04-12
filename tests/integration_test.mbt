@@ -313,6 +313,41 @@ test "dispose: multiple signals, dispose one, others unaffected" {
 }
 
 ///|
+test "scope: add_observer triggers suspension on scope dispose" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 5)
+  let r = @incr.Reactive::new(rt, fn() { sig.get() + 1 })
+  let scope = @incr.Scope::new(rt)
+  let obs = scope.add_observer(r.observe())
+  inspect(obs.get(), content="6")
+  sig.set(10)
+  inspect(obs.get(), content="11")
+  // Scope dispose triggers observer dispose triggers on_unobserve
+  scope.dispose()
+  // Reactive is suspended — gc can collect it
+  rt.gc()
+  assert_true(r.is_disposed())
+}
+
+///|
+test "memo_map: sweep after gc cleans up disposed entries" {
+  let rt = Runtime::new()
+  let source = Signal::new(rt, 1)
+  let mm = @incr.MemoMap::new(rt, fn(k : Int) { source.get() + k })
+  // Create entries
+  ignore(mm.get(10))
+  ignore(mm.get(20))
+  inspect(mm.length(), content="2")
+  // No observers — gc collects all interior memos
+  rt.gc()
+  inspect(mm.sweep(), content="2")
+  inspect(mm.length(), content="0")
+  // Fresh entries can be recreated
+  inspect(mm.get(10), content="11")
+  inspect(mm.length(), content="1")
+}
+
+///|
 test "cross-engine: fixpoint fires on_change only when facts change" {
   let rt = Runtime::new()
   let rel : @incr.Relation[Int] = @incr.Relation::new(rt, label="R")

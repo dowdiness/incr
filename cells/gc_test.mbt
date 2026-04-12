@@ -161,6 +161,20 @@ test "panic gc: during push propagation aborts" {
 }
 
 ///|
+test "gc: collects suspended reactive" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 1)
+  let r = Reactive::new(rt, fn() { sig.get() * 2 })
+  // Observe then unobserve — reactive is suspended
+  let obs = r.observe()
+  ignore(obs.get())
+  obs.dispose()
+  // gc should collect it (Interior, unreachable)
+  rt.gc()
+  assert_true(r.is_disposed())
+}
+
+///|
 // gc() traces through gc_dependencies(), which is the current dependencies
 // array. An uncomputed memo has empty dependencies, so gc() cannot trace
 // through it. This is documented behavior: compute closures must not capture

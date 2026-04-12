@@ -1,17 +1,20 @@
 ///|
-test "add_gc_root: inserts new entry with count 1" {
+test "add_gc_root: inserts new entry with count 1 and returns 0" {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 42)
-  rt.add_gc_root(sig.id())
+  let prev = rt.add_gc_root(sig.id())
+  inspect(prev, content="0")
   inspect(rt.core.gc_root_counts.get(sig.id()), content="Some(1)")
 }
 
 ///|
-test "add_gc_root: increments existing entry" {
+test "add_gc_root: increments existing entry and returns previous count" {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 42)
-  rt.add_gc_root(sig.id())
-  rt.add_gc_root(sig.id())
+  let prev1 = rt.add_gc_root(sig.id())
+  let prev2 = rt.add_gc_root(sig.id())
+  inspect(prev1, content="0")
+  inspect(prev2, content="1")
   inspect(rt.core.gc_root_counts.get(sig.id()), content="Some(2)")
 }
 
@@ -19,8 +22,8 @@ test "add_gc_root: increments existing entry" {
 test "remove_gc_root: decrements and returns remaining" {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 42)
-  rt.add_gc_root(sig.id())
-  rt.add_gc_root(sig.id())
+  ignore(rt.add_gc_root(sig.id()))
+  ignore(rt.add_gc_root(sig.id()))
   let remaining = rt.remove_gc_root(sig.id())
   inspect(remaining, content="1")
   inspect(rt.core.gc_root_counts.get(sig.id()), content="Some(1)")
@@ -30,7 +33,7 @@ test "remove_gc_root: decrements and returns remaining" {
 test "remove_gc_root: removes entry at zero" {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 42)
-  rt.add_gc_root(sig.id())
+  ignore(rt.add_gc_root(sig.id()))
   let remaining = rt.remove_gc_root(sig.id())
   inspect(remaining, content="0")
   inspect(rt.core.gc_root_counts.get(sig.id()), content="None")

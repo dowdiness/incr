@@ -109,6 +109,7 @@ pub fn[K : Hash + Eq, V : Eq] MemoMap::get_or_else(Self[K, V], K, (CycleError) -
 pub fn[K : Hash + Eq, V : Eq] MemoMap::get_result(Self[K, V], K) -> Result[V, CycleError]
 pub fn[K, V] MemoMap::length(Self[K, V]) -> Int
 pub fn[K, V] MemoMap::new(Runtime, (K) -> V, label? : String) -> Self[K, V]
+pub fn[K : Hash + Eq, V] MemoMap::sweep(Self[K, V]) -> Int
 
 pub struct Observer[T] {
   // private fields
@@ -166,6 +167,7 @@ pub struct Scope {
   // private fields
 }
 pub fn Scope::add_cell_ids(Self, Array[@types.CellId]) -> Unit
+pub fn[T] Scope::add_observer(Self, Observer[T]) -> Observer[T]
 pub fn Scope::child(Self) -> Self
 pub fn Scope::dispose(Self) -> Unit
 pub fn Scope::effect(Self, () -> Unit) -> Effect

@@ -151,3 +151,51 @@ test "panic scope: memo on disposed scope aborts" {
   scope.dispose()
   let _ = scope.memo(fn() { 1 })
 }
+
+///|
+test "scope: add_observer disposes observer on scope dispose" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 10)
+  let m = Memo::new(rt, fn() { sig.get() * 2 })
+  let scope = Scope::new(rt)
+  let obs = scope.add_observer(m.observe())
+  inspect(obs.get(), content="20")
+  inspect(obs.is_disposed(), content="false")
+  scope.dispose()
+  inspect(obs.is_disposed(), content="true")
+}
+
+///|
+test "scope: manual observer dispose before scope dispose is safe" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 1)
+  let m = Memo::new(rt, fn() { sig.get() })
+  let scope = Scope::new(rt)
+  let obs = scope.add_observer(m.observe())
+  obs.dispose()
+  inspect(obs.is_disposed(), content="true")
+  scope.dispose()
+}
+
+///|
+test "scope: observer disposed before owned cells" {
+  let rt = Runtime::new()
+  let scope = Scope::new(rt)
+  let sig = scope.signal(10)
+  let m = scope.memo(fn() { sig.get() * 2 })
+  let obs = scope.add_observer(m.observe())
+  ignore(obs.get())
+  scope.dispose()
+  inspect(obs.is_disposed(), content="true")
+  assert_true(m.is_disposed())
+}
+
+///|
+test "panic scope: add_observer on disposed scope aborts" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 1)
+  let m = Memo::new(rt, fn() { sig.get() })
+  let scope = Scope::new(rt)
+  scope.dispose()
+  ignore(scope.add_observer(m.observe()))
+}

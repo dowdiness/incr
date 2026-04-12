@@ -94,3 +94,39 @@ test "memo_map: get_or and get_or_else mirror successful get_result" {
   )
   inspect(fallback_called, content="0")
 }
+
+///|
+test "memo_map: sweep removes disposed entries" {
+  let rt = Runtime::new()
+  let source = Signal::new(rt, 10)
+  let by_key = MemoMap::new(rt, (key : Int) => source.get() + key)
+  // Force creation of 3 entries by reading them
+  inspect(by_key.get(1), content="11")
+  inspect(by_key.get(2), content="12")
+  inspect(by_key.get(3), content="13")
+  inspect(by_key.length(), content="3")
+  // All 3 memos are Interior with no observers, so gc collects all 3.
+  rt.gc()
+  let swept = by_key.sweep()
+  inspect(swept, content="3")
+  inspect(by_key.length(), content="0")
+}
+
+///|
+test "memo_map: sweep on empty map returns 0" {
+  let rt = Runtime::new()
+  let by_key = MemoMap::new(rt, (key : Int) => key * 10)
+  inspect(by_key.sweep(), content="0")
+}
+
+///|
+test "memo_map: sweep with all entries alive returns 0" {
+  let rt = Runtime::new()
+  let source = Signal::new(rt, 1)
+  let by_key = MemoMap::new(rt, (key : Int) => source.get() + key)
+  ignore(by_key.get(1))
+  ignore(by_key.get(2))
+  // No gc, no disposal — all entries alive
+  inspect(by_key.sweep(), content="0")
+  inspect(by_key.length(), content="2")
+}
