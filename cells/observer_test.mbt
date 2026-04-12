@@ -189,6 +189,76 @@ test "observer: multiple observers prevent suspension until last disposed" {
 }
 
 ///|
+test "observer: dispose suspended reactive is idempotent" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 1)
+  let r = Reactive::new(rt, fn() { sig.get() })
+  let obs = r.observe()
+  ignore(obs.get())
+  obs.dispose()
+  // Reactive is suspended — subscriber links already removed
+  // Manual dispose should not double-decrement or abort
+  r.dispose()
+  assert_true(r.is_disposed())
+  assert_false(sig.is_disposed())
+}
+
+///|
+test "observer: source disposed during suspension — reactivation uses fresh sources" {
+  let rt = Runtime::new()
+  let sig1 = Signal::new(rt, 10)
+  let sig2 = Signal::new(rt, 20)
+  let use_sig1 : Ref[Bool] = { val: true }
+  let r = Reactive::new(rt, fn() {
+    if use_sig1.val { sig1.get() } else { sig2.get() }
+  })
+  let obs = r.observe()
+  inspect(obs.get(), content="10")
+  obs.dispose()
+  // Switch source and change values while suspended
+  use_sig1.val = false
+  sig1.set(99)
+  sig2.set(42)
+  // Re-observe — recompute picks up sig2 as new source
+  let obs2 = r.observe()
+  inspect(obs2.get(), content="42")
+  obs2.dispose()
+}
+
+///|
+test "observer: hybrid memo reading reactive prevents suspension" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 5)
+  let r = Reactive::new(rt, fn() { sig.get() * 3 })
+  let h = HybridMemo::new(rt, fn() { r.get() + 1 })
+  let obs_h = h.observe()
+  ignore(obs_h.get())
+  // Observe and unobserve the reactive
+  let obs_r = r.observe()
+  ignore(obs_r.get())
+  obs_r.dispose()
+  // Reactive has h in its subscriber set — must NOT suspend
+  sig.set(10)
+  inspect(obs_h.get(), content="31")
+  obs_h.dispose()
+}
+
+///|
+test "panic observer: on_observe during fixpoint aborts" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 1)
+  let r = Reactive::new(rt, fn() { sig.get() })
+  let input : Relation[Int] = Relation::new(rt)
+  let output : Relation[Int] = Relation::new(rt)
+  input.insert(1) |> ignore
+  rt.new_rule([input.id()], [output.id()], fn() {
+    // Attempt to observe a reactive during fixpoint
+    ignore(r.observe())
+  }) |> ignore
+  rt.fixpoint()
+}
+
+///|
 test "panic observer: observe disposed memo aborts" {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 1)
