@@ -19,7 +19,7 @@ Three features, each independent:
 
 ### Design Decision: Unsubscribe from Upstream (Option A)
 
-When a PushReactive loses all observers AND has no downstream push demand (`push_reachable_count == 0`), it unsubscribes from all upstream sources. This makes the cell invisible to push propagation — no wasted BFS traversal, no dirty marking, no recomputation.
+When a PushReactive loses all observers AND has no subscribers at all (no downstream push cells, no downstream pull memos), it unsubscribes from all upstream sources. This makes the cell invisible to push propagation — no wasted BFS traversal, no dirty marking, no recomputation.
 
 On reactivation (first observer added), the cell does a full recompute with fresh tracking to establish current sources and a correct cached value.
 
@@ -52,13 +52,19 @@ if prev == 0 {
 
 ```moonbit
 impl CellLifecycle for PushReactiveData with on_unobserve(self, rt, cell_id) {
-  // Only suspend if no downstream push cells depend on us
-  guard self.meta.push_reachable_count == 0 else { return }
+  // Only suspend if nobody reads us — neither push cells nor pull memos.
+  // push_reachable_count == 0 is insufficient: a Memo that pull-verifies
+  // this Reactive checks changed_at, which only advances during push
+  // propagation. Suspending (unsubscribing) would freeze changed_at,
+  // causing the downstream Memo to return stale data.
+  guard self.meta.subscribers.is_empty() else { return }
   for source in self.sources {
     rt.remove_subscriber(source, cell_id)
   }
 }
 ```
+
+The guard checks `subscribers.is_empty()` — if ANY cell (push or pull) reads this Reactive, it must stay subscribed upstream so its `changed_at` advances correctly on source changes.
 
 `remove_subscriber` handles both subscriber set removal and `push_reachable_count` decrement upstream. The `sources` array is preserved (not cleared) — `dispose_cell` is idempotent because `remove_and_check` returns false for already-removed subscribers, preventing double-decrement of push_reachable_count.
 
@@ -70,6 +76,9 @@ impl CellLifecycle for PushReactiveData with on_unobserve(self, rt, cell_id) {
 impl CellLifecycle for PushReactiveData with on_observe(self, rt, cell_id) {
   guard !rt.core.in_push_propagation else {
     abort("on_observe: cannot activate during push propagation")
+  }
+  guard !rt.core.in_fixpoint else {
+    abort("on_observe: cannot activate during fixpoint evaluation")
   }
   // Full recompute with fresh tracking.
   // Pass [] as old_sources: subscriber links were removed during suspension.
@@ -161,13 +170,17 @@ pub fn[K : Hash + Eq, V] MemoMap::sweep(self : MemoMap[K, V]) -> Int {
 ## Test Plan
 
 1. **Suspend/activate cycle:** Create Reactive → observe → signal changes → verify value → unobserve → signal changes → re-observe → verify value caught up
-2. **Suspension guard (push_reachable_count > 0):** `S → R1 → R2`, R2 observed, R1 not — verify R1 does NOT suspend, push propagation still reaches R2
-3. **Multiple observers:** Two observers on same Reactive → dispose one → verify still active → dispose second → verify suspended
-4. **GC of suspended cell:** Unobserve → gc() → verify cell collected
-5. **Dispose during suspension:** Unobserve → dispose → verify no double-decrement (idempotent remove_subscriber)
-6. **Source disposal during suspension:** Unobserve → dispose a source → re-observe → verify sources updated via fresh recompute
-7. **Scope::add_observer lifecycle:** scope.add_observer(memo.observe()) → scope.dispose() → verify observer disposed, on_unobserve fired
-8. **MemoMap::sweep after gc:** Populate entries → gc collects some → sweep() → verify entries removed, correct count returned
+2. **Suspension guard (subscribers non-empty):** `S → R1 → R2`, R2 observed, R1 not — verify R1 does NOT suspend, push propagation still reaches R2
+3. **Pull subscriber prevents suspension:** `S → Reactive R → Memo M`, M reads R. R's observer disposed — verify R does NOT suspend (M is in R's subscriber set), M.get() still returns correct value after S changes
+4. **Pull subscriber with HybridMemo:** Same as above but `S → Reactive R → HybridMemo H` — verify R stays active, H.get() returns correct value
+5. **Multiple observers:** Two observers on same Reactive → dispose one → verify still active → dispose second → verify suspended
+6. **GC of suspended cell:** Unobserve → gc() → verify cell collected
+7. **Dispose during suspension:** Unobserve → dispose → verify no double-decrement (idempotent remove_subscriber)
+8. **Source disposal during suspension:** Unobserve → dispose a source → re-observe → verify sources updated via fresh recompute
+9. **Repeated 0→1 transitions on fresh cell:** Observe → unobserve → observe → unobserve on a Reactive that has no subscribers — verify each cycle works, no stale state
+10. **on_observe during fixpoint aborts:** Attempt to observe a Reactive during fixpoint() — verify abort
+11. **Scope::add_observer lifecycle:** scope.add_observer(memo.observe()) → scope.dispose() → verify observer disposed, on_unobserve fired
+12. **MemoMap::sweep after gc:** Populate entries → gc collects some → sweep() → verify entries removed, correct count returned
 
 ## Files Modified
 
