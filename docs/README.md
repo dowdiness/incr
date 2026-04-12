@@ -72,6 +72,12 @@ All documentation for the `incr` incremental computation library.
 
 (No active plans)
 
+### Specs
+
+| Document | Purpose |
+|----------|---------|
+| [superpowers/specs/2026-04-12-dispose-gc-layer4b-push-suspension.md](superpowers/specs/2026-04-12-dispose-gc-layer4b-push-suspension.md) | Layer 4b: push suspension, Scope::add_observer, MemoMap::sweep |
+
 ### Archive
 
 | Document | Purpose |

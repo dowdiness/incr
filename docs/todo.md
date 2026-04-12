@@ -127,8 +127,18 @@ clean up the dead logic.
 
 ## HybridMemo Lifecycle
 
-- [ ] Add `HybridMemo::dispose()` — remove from subscriber sets, mark `cell_index` slot as `Disposed`
-- [ ] Add whitebox test for dispose (verify subscriber cleanup)
+- [x] Add `HybridMemo::dispose()` — remove from subscriber sets, mark `cell_index` slot as `Disposed`
+- [x] Add whitebox test for dispose (verify subscriber cleanup)
+
+## Dispose / GC — Layer 4b: Push Suspension ✓ (PR #32)
+
+- [x] Gate `on_observe` to 0→1 observer transition (`add_gc_root` returns previous count)
+- [x] `PushReactiveData::on_unobserve` — suspend push by unsubscribing (guard: `subscribers.is_empty()`)
+- [x] `PushReactiveData::on_observe` — recompute with fresh tracking on reactivation
+- [x] `Scope::add_observer` — register observer with scope dispose hooks
+- [x] `MemoMap::sweep` — remove disposed entries after gc()
+- [x] Edge case tests: GC of suspended, dispose during suspension, source disposal, fixpoint abort
+- [x] Integration tests via public API
 
 ## Push Propagation Efficiency
 

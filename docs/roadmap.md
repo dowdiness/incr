@@ -165,9 +165,18 @@ The following features build toward a Salsa-style query API where users write no
 
 4. **Multi-key MemoMap (optional ergonomics)** — `MemoMap2[K1, K2, V]`, `MemoMap3[K1, K2, K3, V]` as sugar for multi-argument queries. Low priority because tuple keys `MemoMap[(K1, K2), V]` already work.
 
+### Phase 4F: Dispose / GC ✓
+
+- ~~**Manual dispose**: Signal, Memo, HybridMemo, Reactive, Effect dispose with slot reuse~~ ✓ PR #28
+- ~~**Scope**: Hierarchical cell ownership with bulk disposal~~ ✓ PR #29
+- ~~**Composed traits**: CellOps + CellLifecycle for uniform dispose/gc dispatch~~ ✓ PR #30
+- ~~**Observer + gc()**: Observer[T] keep-alive handle, mark-and-sweep gc(), gc_root_counts~~ ✓ PR #31
+- ~~**Push suspension**: on_observe/on_unobserve for PushReactive, Scope::add_observer, MemoMap::sweep~~ ✓ PR #32
+
 ### Phase 4 — Remaining
 
-- **Garbage collection**: Reclaim cells that are no longer reachable from any live memo or signal. Requires subscriber links for reference tracking.
+- **Layer 5: API boundary**: Restrict `memo.get()`, `hybrid_memo.get()`, `reactive.get()` to tracked context only. Add `signal.peek()`. Migrate tests/benchmarks to `rt.read()` or observers.
+- **Recursive suspension**: Auto-suspend when `push_reachable_count` drops to 0 on unobserved cells (deferred from Layer 4b — gc() handles cleanup for now).
 - **Runtime modularization**: Investigate decomposing Runtime god object into composable subsystems per propagation mode (pull, push, hybrid, datalog) to improve maintainability without breaking encapsulation
 
 ## Phase 5 — Ecosystem
