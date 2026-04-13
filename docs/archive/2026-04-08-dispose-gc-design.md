@@ -1,6 +1,6 @@
 # Dispose/GC Design Spec
 
-**Status:** Approved — ready for implementation planning
+**Status:** Complete — all 5 layers implemented (PRs #28–#33)
 
 **Date:** 2026-04-08
 

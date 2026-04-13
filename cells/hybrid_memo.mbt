@@ -73,66 +73,15 @@ pub fn[T : Eq] HybridMemo::new(
 ///|
 /// Returns the memoized value, recomputing if necessary.
 ///
-/// Fast path: if already verified this revision, returns the cached value
-/// immediately without any dep walk.
-///
-/// Slow path: calls `pull_verify` to walk deps.
+/// Must be called inside a tracked context (another memo's compute function).
+/// Outside a compute function, use `rt.read_hybrid(memo)` or `memo.observe()`.
 pub fn[T : Eq] HybridMemo::get(self : HybridMemo[T]) -> T {
-  guard !self.rt.is_cell_disposed(self.cell_id) else {
-    abort("HybridMemo::get called on a disposed hybrid memo")
-  }
-  let active_rt = current_computing_runtime_id.val
-  if active_rt >= 0 && active_rt != self.rt.core.runtime_id {
-    current_computing_runtime_id.val = -1
-    abort(
-      "Cross-runtime dependency: HybridMemo belongs to Runtime " +
-      self.rt.core.runtime_id.to_string() +
-      " but is read inside a memo on Runtime " +
-      active_rt.to_string(),
-    )
-  }
   guard self.rt.core.tracking_stack.length() > 0 else {
     abort(
       "HybridMemo::get() called outside tracked context. Use rt.read_hybrid(memo) or memo.observe() to read from outside the graph.",
     )
   }
-  if self.rt.core.in_fixpoint {
-    abort(
-      "HybridMemo::get() cannot be called during fixpoint(); read relations directly or call get() after fixpoint() completes",
-    )
-  }
-  match self.value {
-    None =>
-      match self.force_recompute() {
-        Ok(value) => {
-          self.rt.record_dependency(self.cell_id)
-          value
-        }
-        Err(e) => abort(e.format_path(self.rt))
-      }
-    Some(cached) => {
-      let cell = self.rt.get_memo_data(self.cell_id)
-      // Fast path: already verified this revision
-      if cell.verified_at >= self.rt.core.current_revision {
-        self.rt.record_dependency(self.cell_id)
-        return cached
-      }
-      // Slow path: verify deps
-      match self.rt.pull_verify(self.cell_id) {
-        Ok(_) => {
-          self.rt.record_dependency(self.cell_id)
-          match self.value {
-            Some(v) => v
-            None =>
-              abort(
-                "unreachable: value is always Some after successful verification",
-              )
-          }
-        }
-        Err(e) => abort(e.format_path(self.rt))
-      }
-    }
-  }
+  self.get_untracked()
 }
 
 ///|

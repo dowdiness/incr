@@ -20,11 +20,10 @@
 /// let b = Signal(rt, 20)
 /// let sum = Memo(rt, () => a.get() + b.get())
 ///
-/// inspect(sum.get(), content="30")  // Computes and caches
-/// inspect(sum.get(), content="30")  // Returns cached value
+/// inspect(rt.read(sum), content="30")  // Computes and caches
 ///
 /// a.set(15)
-/// inspect(sum.get(), content="35")  // Recomputes because `a` changed
+/// inspect(rt.read(sum), content="35")  // Recomputes because `a` changed
 /// ```
 pub(all) struct Memo[T] {
   priv label : String?
@@ -140,14 +139,8 @@ pub fn[T] Memo::new_no_backdate(
 ///|
 /// Returns the memoized value, recomputing if necessary.
 ///
-/// This method implements the core verification algorithm:
-///
-/// 1. If no cached value exists, compute and cache the value.
-/// 2. If already verified this revision, return the cached value immediately.
-/// 3. Otherwise, check if any dependency changed:
-///    - If no dependency changed (green path), mark verified and return cached.
-///    - If a dependency changed, recompute. Backdating applies if the new
-///      value equals the old value.
+/// Must be called inside a tracked context (another memo's compute function).
+/// Outside a compute function, use `rt.read(memo)` or `memo.observe()`.
 ///
 /// If called inside another memo's compute function, this automatically
 /// records a dependency.
@@ -158,11 +151,15 @@ pub fn[T] Memo::new_no_backdate(
 ///
 /// # Panics
 ///
-/// Aborts if a cycle is detected (this memo transitively depends on itself).
-/// Use `get_result()` instead to handle cycles gracefully.
-///
-/// The panic tests in `cycle_test.mbt` call `get()` directly and exercise this abort path.
+/// Aborts if called outside tracked context, or if a cycle is detected.
+/// Use `get_result()` for error-returning cycle handling, or `rt.read()`
+/// for outside-the-graph reads.
 pub fn[T] Memo::get(self : Memo[T]) -> T {
+  guard self.rt.core.tracking_stack.length() > 0 else {
+    abort(
+      "Memo::get() called outside tracked context. Use rt.read(memo) or memo.observe() to read from outside the graph.",
+    )
+  }
   match self.get_result() {
     Ok(value) => value
     Err(e) => abort(e.format_path(self.rt))
@@ -197,24 +194,12 @@ pub fn[T] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
   }
   let active_rt = current_computing_runtime_id.val
   if active_rt >= 0 && active_rt != self.rt.core.runtime_id {
-    // Reset before aborting so the test runner doesn't see dirty global state
-    // if this panic is caught (e.g. by the test harness for panic tests).
     current_computing_runtime_id.val = -1
     abort(
       "Cross-runtime dependency: Memo belongs to Runtime " +
       self.rt.core.runtime_id.to_string() +
       " but is read inside a memo on Runtime " +
       active_rt.to_string(),
-    )
-  }
-  guard self.rt.core.tracking_stack.length() > 0 else {
-    abort(
-      "Memo::get() called outside tracked context. Use rt.read(memo) or memo.observe() to read from outside the graph.",
-    )
-  }
-  if self.rt.core.in_fixpoint {
-    abort(
-      "Memo::get() cannot be called during fixpoint(); read relations directly or call get() after fixpoint() completes",
     )
   }
   self.get_result_inner()
@@ -226,16 +211,6 @@ pub fn[T] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
 fn[T] Memo::get_result_inner(self : Memo[T]) -> Result[T, CycleError] {
   guard !self.rt.is_cell_disposed(self.cell_id) else {
     abort("Memo::get called on a disposed memo")
-  }
-  let active_rt = current_computing_runtime_id.val
-  if active_rt >= 0 && active_rt != self.rt.core.runtime_id {
-    current_computing_runtime_id.val = -1
-    abort(
-      "Cross-runtime dependency: Memo belongs to Runtime " +
-      self.rt.core.runtime_id.to_string() +
-      " but is read inside a memo on Runtime " +
-      active_rt.to_string(),
-    )
   }
   if self.rt.core.in_fixpoint {
     abort(
@@ -477,7 +452,7 @@ pub fn[T] Memo::id(self : Memo[T]) -> CellId {
 /// ```moonbit nocheck
 /// let x = Signal(rt, 1)
 /// let m = Memo(rt, () => x.get() * 2)
-/// m.get() |> ignore
+/// rt.read(m) |> ignore
 /// inspect(m.dependencies().contains(x.id()), content="true")
 /// ```
 pub fn[T] Memo::dependencies(self : Memo[T]) -> Array[CellId] {
