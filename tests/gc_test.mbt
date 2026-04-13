@@ -21,7 +21,7 @@ test "gc: scope dispose + gc sweeps orphaned interior cells" {
 
   // Create another memo not observed
   let m_orphan = @incr.Memo(rt, fn() { sig.get() + 2 })
-  ignore(m_orphan.get())
+  ignore(rt.read(m_orphan))
 
   obs.dispose()
   scope.dispose()

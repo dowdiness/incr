@@ -38,7 +38,7 @@ test "new_memo_id: allocates into pull_memos" {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 1)
   let m = Memo::new(rt, () => sig.get())
-  let _ = m.get()
+  let _ = rt.read(m)
   inspect(rt.pull.memos.length(), content="1")
   match rt.core.cell_index[m.id().id] {
     PullMemo(i) => inspect(i, content="0")

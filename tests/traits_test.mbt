@@ -53,7 +53,7 @@ test "trait: create_memo via Database" {
   let db = TestDb()
   let sig = @incr.create_signal(db, 10)
   let memo = @incr.create_memo(db, () => sig.get() * 2)
-  inspect(memo.get(), content="20")
+  inspect(db.rt.read(memo), content="20")
 }
 
 ///|
@@ -62,12 +62,12 @@ test "trait: batch via Database" {
   let x = @incr.create_signal(db, 1)
   let y = @incr.create_signal(db, 2)
   let sum = @incr.create_memo(db, () => x.get() + y.get())
-  inspect(sum.get(), content="3")
+  inspect(db.rt.read(sum), content="3")
   @incr.batch(db, () => {
     x.set(10)
     y.set(20)
   })
-  inspect(sum.get(), content="30")
+  inspect(db.rt.read(sum), content="30")
 }
 
 ///|
@@ -79,7 +79,7 @@ test "trait: batch via Database rolls back on raised error" {
     compute_count = compute_count + 1
     x.get() * 2
   })
-  inspect(memo.get(), content="2")
+  inspect(db.rt.read(memo), content="2")
   inspect(compute_count, content="1")
   let res = try? @incr.batch(db, () => {
     x.set(10)
@@ -88,7 +88,7 @@ test "trait: batch via Database rolls back on raised error" {
   inspect(res is Err(Stop), content="true")
   inspect(x.get(), content="1")
   // Rollback keeps previous committed state, so memo remains cached.
-  inspect(memo.get(), content="2")
+  inspect(db.rt.read(memo), content="2")
   inspect(compute_count, content="1")
 }
 
@@ -125,13 +125,13 @@ test "trait: memo is up-to-date after get" {
   let input = Signal::new(rt, 1)
   let memo = Memo::new(rt, () => input.get() + 1)
   // After get, memo should be up-to-date
-  let _ = memo.get()
+  let _ = rt.read(memo)
   inspect(memo.is_up_to_date(), content="true")
   // After input change, memo should be stale
   input.set(2)
   inspect(memo.is_up_to_date(), content="false")
   // After re-get, memo should be up-to-date again
-  let _ = memo.get()
+  let _ = rt.read(memo)
   inspect(memo.is_up_to_date(), content="true")
 }
 
@@ -143,7 +143,7 @@ test "trait: memo not yet computed is not up-to-date" {
   // Before any get, memo has no cached value, so it is not up-to-date
   inspect(memo.is_up_to_date(), content="false")
   // After computing, memo is up-to-date
-  let _ = memo.get()
+  let _ = rt.read(memo)
   inspect(memo.is_up_to_date(), content="true")
   // After input change, memo becomes stale
   input.set(2)
@@ -164,7 +164,7 @@ test "trait: readable trait dispatch for memo" {
   let rt = Runtime::new()
   let input = Signal::new(rt, 1)
   let memo = Memo::new(rt, () => input.get() + 1)
-  let _ = memo.get()
+  let _ = rt.read(memo)
   inspect(check_up_to_date(memo), content="true")
   input.set(2)
   inspect(check_up_to_date(memo), content="false")
@@ -227,12 +227,12 @@ impl @pipeline.Parseable for CalcPipeline with parse_errors(_) {
 
 ///|
 impl @pipeline.Checkable for CalcPipeline with check_errors(self) {
-  self.errors.get()
+  self.rt.read(self.errors)
 }
 
 ///|
 impl @pipeline.Executable for CalcPipeline with run(self) {
-  self.output.get()
+  self.rt.read(self.output)
 }
 
 ///|
@@ -343,7 +343,7 @@ test "trait: create_memo with label" {
   let db = TestDb()
   let x = @incr.create_signal(db, 1)
   let m = @incr.create_memo(db, () => x.get() * 2, label="doubled")
-  let _ = m.get()
+  let _ = db.rt.read(m)
   match db.rt.cell_info(m.id()) {
     Some(info) => inspect(info.label, content="Some(\"doubled\")")
     None => abort("expected cell info")

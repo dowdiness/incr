@@ -73,11 +73,21 @@ pub fn[T : Eq] HybridMemo::new(
 ///|
 /// Returns the memoized value, recomputing if necessary.
 ///
-/// Fast path: if already verified this revision, returns the cached value
-/// immediately without any dep walk.
-///
-/// Slow path: calls `pull_verify` to walk deps.
+/// Must be called inside a tracked context (another memo's compute function).
+/// Outside a compute function, use `rt.read_hybrid(memo)` or `memo.observe()`.
 pub fn[T : Eq] HybridMemo::get(self : HybridMemo[T]) -> T {
+  guard self.rt.core.tracking_stack.length() > 0 else {
+    abort(
+      "HybridMemo::get() called outside tracked context. Use rt.read_hybrid(memo) or memo.observe() to read from outside the graph.",
+    )
+  }
+  self.get_untracked()
+}
+
+///|
+/// Package-private untracked read. Bypasses the tracked-context guard.
+/// Used by Observer to read from outside the dependency graph.
+fn[T : Eq] HybridMemo::get_untracked(self : HybridMemo[T]) -> T {
   guard !self.rt.is_cell_disposed(self.cell_id) else {
     abort("HybridMemo::get called on a disposed hybrid memo")
   }
@@ -107,12 +117,10 @@ pub fn[T : Eq] HybridMemo::get(self : HybridMemo[T]) -> T {
       }
     Some(cached) => {
       let cell = self.rt.get_memo_data(self.cell_id)
-      // Fast path: already verified this revision
       if cell.verified_at >= self.rt.core.current_revision {
         self.rt.record_dependency(self.cell_id)
         return cached
       }
-      // Slow path: verify deps
       match self.rt.pull_verify(self.cell_id) {
         Ok(_) => {
           self.rt.record_dependency(self.cell_id)

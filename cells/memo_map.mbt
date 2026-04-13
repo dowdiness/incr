@@ -46,17 +46,22 @@ pub fn[K, V] MemoMap::new(
 
 ///|
 /// Returns the value for `key`, computing lazily on first access.
+///
+/// Reads the memo outside any tracked context (untracked). This is the
+/// correct way to read from test code or other untracked call sites.
 pub fn[K : Hash + Eq, V : Eq] MemoMap::get(self : MemoMap[K, V], key : K) -> V {
-  self.get_or_create_memo(key).get()
+  self.get_or_create_memo(key).get_untracked()
 }
 
 ///|
 /// Returns the value for `key` as a Result, matching `Memo::get_result`.
+///
+/// Reads the memo outside any tracked context (untracked).
 pub fn[K : Hash + Eq, V : Eq] MemoMap::get_result(
   self : MemoMap[K, V],
   key : K,
 ) -> Result[V, CycleError] {
-  self.get_or_create_memo(key).get_result()
+  self.get_or_create_memo(key).get_result_inner()
 }
 
 ///|

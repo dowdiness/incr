@@ -194,6 +194,7 @@ pub fn[T] Signal::is_disposed(Self[T]) -> Bool
 pub fn[T] Signal::is_up_to_date(Self[T]) -> Bool
 pub fn[T] Signal::new(Runtime, T, durability? : @types.Durability, label? : String) -> Self[T]
 pub fn[T] Signal::on_change(Self[T], (T) -> Unit) -> Unit
+pub fn[T] Signal::peek(Self[T]) -> T
 pub fn[T : Eq] Signal::set(Self[T], T) -> Unit
 pub fn[T] Signal::set_unconditional(Self[T], T) -> Unit
 
@@ -213,6 +214,7 @@ pub fn[T] TrackedCell::is_disposed(Self[T]) -> Bool
 pub fn[T] TrackedCell::is_up_to_date(Self[T]) -> Bool
 pub fn[T] TrackedCell::new(Runtime, T, durability? : @types.Durability, label? : String) -> Self[T]
 pub fn[T] TrackedCell::on_change(Self[T], (T) -> Unit) -> Unit
+pub fn[T] TrackedCell::peek(Self[T]) -> T
 pub fn[T : Eq] TrackedCell::set(Self[T], T) -> Unit
 pub fn[T] TrackedCell::set_unconditional(Self[T], T) -> Unit
 

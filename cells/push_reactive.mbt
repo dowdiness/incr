@@ -199,12 +199,22 @@ pub fn[T : Eq] Reactive::new(rt : Runtime, compute_fn : () -> T) -> Reactive[T] 
 ///|
 /// Returns the current cached value of the reactive cell.
 ///
-/// Push propagation ensures the value is already up-to-date by the time
-/// `get()` is called outside a reactive computation. No verification walk
-/// is needed.
+/// Must be called inside a tracked context (a memo or reactive compute function).
+/// Outside a compute function, use `rt.read_reactive(reactive)` or
+/// `reactive.observe()`.
 pub fn[T] Reactive::get(self : Reactive[T]) -> T {
-  // Cross-runtime check (mirrors Signal::get): abort rather than silently
-  // recording a dependency from the wrong runtime's tracking stack.
+  guard self.rt.core.tracking_stack.length() > 0 else {
+    abort(
+      "Reactive::get() called outside tracked context. Use rt.read_reactive(reactive) or reactive.observe() to read from outside the graph.",
+    )
+  }
+  self.get_untracked()
+}
+
+///|
+/// Package-private untracked read. Bypasses the tracked-context guard.
+/// Used by Observer to read from outside the dependency graph.
+fn[T] Reactive::get_untracked(self : Reactive[T]) -> T {
   let active_rt = current_computing_runtime_id.val
   if active_rt >= 0 && active_rt != self.rt.core.runtime_id {
     current_computing_runtime_id.val = -1

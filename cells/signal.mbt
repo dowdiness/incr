@@ -93,6 +93,23 @@ pub fn[T] Signal::get(self : Signal[T]) -> T {
 }
 
 ///|
+/// Returns the current value of the signal without recording a dependency.
+///
+/// Use `peek()` to read a signal's value from outside the dependency graph
+/// (e.g., in event handlers, logging, or tests). Unlike `get()`, this never
+/// records a dependency even when called inside a compute function.
+///
+/// # Returns
+///
+/// The current value of the signal
+pub fn[T] Signal::peek(self : Signal[T]) -> T {
+  guard !self.rt.is_cell_disposed(self.cell_id) else {
+    abort("Signal::peek called on a disposed signal")
+  }
+  self.value
+}
+
+///|
 /// Returns the current value of the signal as a Result.
 ///
 /// This method exists for API consistency with `Memo::get_result()`.

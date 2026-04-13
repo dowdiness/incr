@@ -42,7 +42,7 @@ test "Memo derives Debug after compute" {
   let rt = Runtime::new()
   let s = Signal::new(rt, 10)
   let m = Memo::new(rt, () => s.get() * 2)
-  let _ = m.get()
+  let _ = rt.read(m)
   debug_inspect(
     m,
     content=(

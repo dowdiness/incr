@@ -78,7 +78,7 @@ test "batch: memo read after batch" {
     a.get() + b.get()
   })
   // Initial computation
-  inspect(sum.get(), content="3")
+  inspect(rt.read(sum), content="3")
   inspect(compute_count, content="1")
   // Batch update both inputs
   rt.batch(() => {
@@ -86,7 +86,7 @@ test "batch: memo read after batch" {
     b.set(20)
   })
   // Memo should recompute once after batch
-  inspect(sum.get(), content="30")
+  inspect(rt.read(sum), content="30")
   inspect(compute_count, content="2")
 }
 
@@ -112,7 +112,7 @@ test "batch: revert detection - set then revert is no-op" {
     a.get() * 2
   })
   // Initial
-  inspect(doubled.get(), content="0")
+  inspect(rt.read(doubled), content="0")
   inspect(compute_count, content="1")
   // Batch: set(1) then revert to set(0) — net effect is no change
   rt.batch(() => {
@@ -122,7 +122,7 @@ test "batch: revert detection - set then revert is no-op" {
   // No revision bump because the final value equals the original
   inspect(rt.core.current_revision.value, content="0")
   // Memo should not need to recompute
-  inspect(doubled.get(), content="0")
+  inspect(rt.read(doubled), content="0")
   inspect(compute_count, content="1")
 }
 
@@ -139,7 +139,7 @@ test "batch: multi-signal with mixed changes" {
     compute_count = compute_count + 1
     a.get() + b.get() + c.get()
   })
-  inspect(sum.get(), content="60")
+  inspect(rt.read(sum), content="60")
   inspect(compute_count, content="1")
   // Batch: a changes, b reverts, c changes
   rt.batch(() => {
@@ -153,7 +153,7 @@ test "batch: multi-signal with mixed changes" {
   inspect(a.get(), content="100")
   inspect(b.get(), content="20") // b is still 20
   inspect(c.get(), content="300")
-  inspect(sum.get(), content="420") // 100 + 20 + 300
+  inspect(rt.read(sum), content="420") // 100 + 20 + 300
   inspect(compute_count, content="2")
 }
 
@@ -180,7 +180,7 @@ test "batch: diamond dependency with batch" {
     a.get() + b.get()
   })
   // Initial
-  inspect(c.get(), content="22") // (10+1) + (10+1) = 11 + 11
+  inspect(rt.read(c), content="22") // (10+1) + (10+1) = 11 + 11
   inspect(a_count, content="1")
   inspect(b_count, content="1")
   inspect(c_count, content="1")
@@ -189,7 +189,7 @@ test "batch: diamond dependency with batch" {
     input.set(5)
     extra.set(2)
   })
-  inspect(c.get(), content="13") // (5+1) + (5+2) = 6 + 7
+  inspect(rt.read(c), content="13") // (5+1) + (5+2) = 6 + 7
   inspect(a_count, content="2")
   inspect(b_count, content="2")
   inspect(c_count, content="2")

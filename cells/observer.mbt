@@ -69,7 +69,7 @@ pub fn[T] Memo::observe(self : Memo[T]) -> Observer[T] {
   {
     runtime: rt,
     target_id: self.cell_id,
-    getter: fn() { self.get() },
+    getter: fn() { self.get_untracked() },
     disposed: false,
   }
 }
@@ -88,7 +88,7 @@ pub fn[T : Eq] HybridMemo::observe(self : HybridMemo[T]) -> Observer[T] {
   {
     runtime: rt,
     target_id: self.cell_id,
-    getter: fn() { self.get() },
+    getter: fn() { self.get_untracked() },
     disposed: false,
   }
 }
@@ -108,7 +108,7 @@ pub fn[T] Reactive::observe(self : Reactive[T]) -> Observer[T] {
   {
     runtime: rt,
     target_id: cell_id,
-    getter: fn() { self.get() },
+    getter: fn() { self.get_untracked() },
     disposed: false,
   }
 }

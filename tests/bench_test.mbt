@@ -28,8 +28,8 @@ test "memo: get warm (up-to-date, no recompute)" (b : @bench.T) {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 42)
   let m = Memo::new(rt, () => sig.get() * 2)
-  ignore(m.get()) // prime
-  b.bench(fn() { b.keep(m.get()) })
+  ignore(rt.read(m)) // prime
+  b.bench(fn() { b.keep(rt.read(m)) })
 }
 
 ///|
@@ -37,12 +37,12 @@ test "memo: get stale (signal changed, recompute)" (b : @bench.T) {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 0)
   let m = Memo::new(rt, () => sig.get() * 2)
-  ignore(m.get()) // prime
+  ignore(rt.read(m)) // prime
   let mut v = 0
   b.bench(fn() {
     v = v + 1
     sig.set(v)
-    b.keep(m.get())
+    b.keep(rt.read(m))
   })
 }
 
@@ -58,12 +58,12 @@ test "memo: deep chain get (100 levels, stale)" (b : @bench.T) {
     memos.push(Memo::new(rt, () => prev.get() + 1))
   }
   let leaf = memos[depth - 1]
-  ignore(leaf.get()) // prime
+  ignore(rt.read(leaf)) // prime
   let mut v = 0
   b.bench(fn() {
     v = v + 1
     sig.set(v)
-    b.keep(leaf.get())
+    b.keep(rt.read(leaf))
   })
 }
 
@@ -78,14 +78,14 @@ test "memo: wide fanout get (1 signal, 50 memos, stale)" (b : @bench.T) {
     memos.push(Memo::new(rt, () => sig.get() * multiplier))
   }
   for i = 0; i < width; i = i + 1 {
-    ignore(memos[i].get()) // prime all
+    ignore(rt.read(memos[i])) // prime all
   }
   let mut v = 0
   b.bench(fn() {
     v = v + 1
     sig.set(v)
     for i = 0; i < width; i = i + 1 {
-      b.keep(memos[i].get())
+      b.keep(rt.read(memos[i]))
     }
   })
 }
@@ -95,8 +95,8 @@ test "hybrid: get warm (up-to-date, no recompute)" (b : @bench.T) {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 42)
   let h = @incr.HybridMemo::new(rt, () => sig.get() * 2)
-  ignore(h.get()) // prime
-  b.bench(fn() { b.keep(h.get()) })
+  ignore(rt.read_hybrid(h)) // prime
+  b.bench(fn() { b.keep(rt.read_hybrid(h)) })
 }
 
 ///|
@@ -104,12 +104,12 @@ test "hybrid: get stale (signal changed, recompute)" (b : @bench.T) {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 0)
   let h = @incr.HybridMemo::new(rt, () => sig.get() * 2)
-  ignore(h.get()) // prime
+  ignore(rt.read_hybrid(h)) // prime
   let mut v = 0
   b.bench(fn() {
     v = v + 1
     sig.set(v)
-    b.keep(h.get())
+    b.keep(rt.read_hybrid(h))
   })
 }
 
@@ -238,7 +238,7 @@ test "layer1: memo create-dispose cycle (free list)" (b : @bench.T) {
   let sig = Signal::new(rt, 0)
   b.bench(fn() {
     let m = Memo::new(rt, fn() { sig.get() })
-    ignore(m.get())
+    ignore(rt.read(m))
     m.dispose()
   })
 }
@@ -321,7 +321,7 @@ test "observer: observe + dispose cycle" (b : @bench.T) {
   let rt = @incr.Runtime::new()
   let sig = @incr.Signal::new(rt, 42)
   let m = @incr.Memo::new(rt, fn() { sig.get() * 2 })
-  ignore(m.get()) // prime
+  ignore(rt.read(m)) // prime
   b.bench(fn() {
     let obs = m.observe()
     b.keep(obs.get())
@@ -352,7 +352,7 @@ test "gc: sweep 1k all-dead" (b : @bench.T) {
   let sig = @incr.Signal::new(rt, 1)
   for i = 0; i < 1000; i = i + 1 {
     let m = @incr.Memo::new(rt, fn() { sig.get() + i })
-    ignore(m.get())
+    ignore(rt.read(m))
   }
   // First gc disposes all, subsequent gcs are sweeps over Disposed entries
   rt.gc()
@@ -385,6 +385,6 @@ test "runtime: read one-shot" (b : @bench.T) {
   let rt = @incr.Runtime::new()
   let sig = @incr.Signal::new(rt, 42)
   let m = @incr.Memo::new(rt, fn() { sig.get() * 2 })
-  ignore(m.get()) // prime
+  ignore(rt.read(m)) // prime
   b.bench(fn() { b.keep(rt.read(m)) })
 }

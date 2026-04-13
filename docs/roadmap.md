@@ -173,9 +173,10 @@ The following features build toward a Salsa-style query API where users write no
 - ~~**Observer + gc()**: Observer[T] keep-alive handle, mark-and-sweep gc(), gc_root_counts~~ ✓ PR #31
 - ~~**Push suspension**: on_observe/on_unobserve for PushReactive, Scope::add_observer, MemoMap::sweep~~ ✓ PR #32
 
+- ~~**Layer 5: API boundary**: Restrict `.get()` to tracked context, add `signal.peek()`, migrate tests to `rt.read()`~~ ✓ PR #33
+
 ### Phase 4 — Remaining
 
-- **Layer 5: API boundary**: Restrict `memo.get()`, `hybrid_memo.get()`, `reactive.get()` to tracked context only. Add `signal.peek()`. Migrate tests/benchmarks to `rt.read()` or observers.
 - **Recursive suspension**: Auto-suspend when `push_reachable_count` drops to 0 on unobserved cells (deferred from Layer 4b — gc() handles cleanup for now).
 - **Runtime modularization**: Investigate decomposing Runtime god object into composable subsystems per propagation mode (pull, push, hybrid, datalog) to improve maintainability without breaking encapsulation
 
