@@ -82,6 +82,7 @@ All documentation for the `incr` incremental computation library.
 
 | Document | Purpose |
 |----------|---------|
+| [archive/2026-04-08-dispose-gc-design.md](archive/2026-04-08-dispose-gc-design.md) | Dispose/GC design spec — all 5 layers complete (PRs #28–#33) |
 | [archive/completed-phases/2026-03-24-kernel-mode-engines.md](archive/completed-phases/2026-03-24-kernel-mode-engines.md) | Kernel + Mode Engines: publish_cell_changes, in_fixpoint to RuntimeCore, remove dead dirty field |
 | [archive/completed-phases/2026-03-07-cells-simplification-design.md](archive/completed-phases/2026-03-07-cells-simplification-design.md) | Split runtime.mbt, deduplicate validation, extract dispose cleanup |
 | [archive/completed-phases/2026-03-08-cells-simplification-impl.md](archive/completed-phases/2026-03-08-cells-simplification-impl.md) | Implementation plan for cells simplification |

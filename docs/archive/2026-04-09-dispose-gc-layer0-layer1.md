@@ -8,7 +8,7 @@
 
 **Tech Stack:** MoonBit, `moon test`, `moon bench --release`, `moon check`
 
-**Spec:** `docs/plans/2026-04-08-dispose-gc-design.md` (Layer 1 + Section 6 Phase 1)
+**Spec:** `docs/archive/2026-04-08-dispose-gc-design.md` (Layer 1 + Section 6 Phase 1)
 
 ---
 

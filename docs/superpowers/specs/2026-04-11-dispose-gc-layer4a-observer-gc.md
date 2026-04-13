@@ -4,7 +4,7 @@
 
 **Date:** 2026-04-11
 
-**Parent design:** [Dispose/GC Design Spec](../../plans/2026-04-08-dispose-gc-design.md) (sections 4-5)
+**Parent design:** [Dispose/GC Design Spec](../../archive/2026-04-08-dispose-gc-design.md) (sections 4-5)
 
 ## Goal
 
