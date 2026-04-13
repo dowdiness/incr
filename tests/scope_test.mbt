@@ -4,7 +4,7 @@ test "scope: create and dispose via public API" {
   let scope = @incr.Scope::new(rt)
   let sig = scope.signal(42)
   let m = scope.memo(fn() { sig.get() * 2 })
-  inspect(m.get(), content="84")
+  inspect(rt.read(m), content="84")
   scope.dispose()
   inspect(sig.is_disposed(), content="true")
   inspect(m.is_disposed(), content="true")
@@ -56,7 +56,7 @@ test "scope: child scope cells disposed before parent cells" {
   let child_sig = child.signal(200)
   // Child reads parent — this is the typical pattern
   let child_memo = child.memo(fn() { parent_sig.get() + child_sig.get() })
-  inspect(child_memo.get(), content="300")
+  inspect(rt.read(child_memo), content="300")
   parent.dispose()
   inspect(child_sig.is_disposed(), content="true")
   inspect(child_memo.is_disposed(), content="true")
