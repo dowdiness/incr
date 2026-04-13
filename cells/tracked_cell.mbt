@@ -71,6 +71,15 @@ pub fn[T] TrackedCell::get(self : TrackedCell[T]) -> T {
 }
 
 ///|
+/// Returns the current value of the cell without recording a dependency.
+///
+/// Delegates to `Signal::peek()` on the inner signal. Use from outside
+/// the dependency graph when you don't want to trigger recomputation.
+pub fn[T] TrackedCell::peek(self : TrackedCell[T]) -> T {
+  self.signal.peek()
+}
+
+///|
 /// Returns the current value of the cell as a Result.
 ///
 /// This method exists for API consistency with `Memo::get_result()`.
