@@ -215,6 +215,33 @@ pub fn[T] Reactive::get(self : Reactive[T]) -> T {
       active_rt.to_string(),
     )
   }
+  guard self.rt.core.tracking_stack.length() > 0 else {
+    abort(
+      "Reactive::get() called outside tracked context. Use rt.read_reactive(reactive) or reactive.observe() to read from outside the graph.",
+    )
+  }
+  let cell_id = self.cell_id.id
+  guard !self.rt.is_cell_disposed(cell_id) else {
+    abort("Reactive::get called on a disposed reactive")
+  }
+  self.rt.record_dependency(cell_id)
+  self.value.val.unwrap()
+}
+
+///|
+/// Package-private untracked read. Bypasses the tracked-context guard.
+/// Used by Observer to read from outside the dependency graph.
+fn[T] Reactive::get_untracked(self : Reactive[T]) -> T {
+  let active_rt = current_computing_runtime_id.val
+  if active_rt >= 0 && active_rt != self.rt.core.runtime_id {
+    current_computing_runtime_id.val = -1
+    abort(
+      "Cross-runtime dependency: Reactive belongs to Runtime " +
+      self.rt.core.runtime_id.to_string() +
+      " but is read inside a computation on Runtime " +
+      active_rt.to_string(),
+    )
+  }
   let cell_id = self.cell_id.id
   guard !self.rt.is_cell_disposed(cell_id) else {
     abort("Reactive::get called on a disposed reactive")

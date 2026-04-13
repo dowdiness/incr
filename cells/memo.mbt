@@ -207,10 +207,25 @@ pub fn[T] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
       active_rt.to_string(),
     )
   }
+  guard self.rt.core.tracking_stack.length() > 0 else {
+    abort(
+      "Memo::get() called outside tracked context. Use rt.read(memo) or memo.observe() to read from outside the graph.",
+    )
+  }
   if self.rt.core.in_fixpoint {
     abort(
       "Memo::get() cannot be called during fixpoint(); read relations directly or call get() after fixpoint() completes",
     )
+  }
+  self.get_result_inner()
+}
+
+///|
+/// Internal: the core verification logic, callable from both get_result()
+/// and get_untracked(). Does NOT check tracking context.
+fn[T] Memo::get_result_inner(self : Memo[T]) -> Result[T, CycleError] {
+  guard !self.rt.is_cell_disposed(self.cell_id) else {
+    abort("Memo::get called on a disposed memo")
   }
   // First computation: no cached value yet
   match self.value {
@@ -251,6 +266,16 @@ pub fn[T] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
         Err(e) => Err(e)
       }
     }
+  }
+}
+
+///|
+/// Package-private untracked read. Bypasses the tracked-context guard.
+/// Used by Observer to read from outside the dependency graph.
+fn[T] Memo::get_untracked(self : Memo[T]) -> T {
+  match self.get_result_inner() {
+    Ok(value) => value
+    Err(e) => abort(e.format_path(self.rt))
   }
 }
 

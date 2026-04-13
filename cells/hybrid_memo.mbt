@@ -91,6 +91,11 @@ pub fn[T : Eq] HybridMemo::get(self : HybridMemo[T]) -> T {
       active_rt.to_string(),
     )
   }
+  guard self.rt.core.tracking_stack.length() > 0 else {
+    abort(
+      "HybridMemo::get() called outside tracked context. Use rt.read_hybrid(memo) or memo.observe() to read from outside the graph.",
+    )
+  }
   if self.rt.core.in_fixpoint {
     abort(
       "HybridMemo::get() cannot be called during fixpoint(); read relations directly or call get() after fixpoint() completes",
@@ -113,6 +118,60 @@ pub fn[T : Eq] HybridMemo::get(self : HybridMemo[T]) -> T {
         return cached
       }
       // Slow path: verify deps
+      match self.rt.pull_verify(self.cell_id) {
+        Ok(_) => {
+          self.rt.record_dependency(self.cell_id)
+          match self.value {
+            Some(v) => v
+            None =>
+              abort(
+                "unreachable: value is always Some after successful verification",
+              )
+          }
+        }
+        Err(e) => abort(e.format_path(self.rt))
+      }
+    }
+  }
+}
+
+///|
+/// Package-private untracked read. Bypasses the tracked-context guard.
+/// Used by Observer to read from outside the dependency graph.
+fn[T : Eq] HybridMemo::get_untracked(self : HybridMemo[T]) -> T {
+  guard !self.rt.is_cell_disposed(self.cell_id) else {
+    abort("HybridMemo::get called on a disposed hybrid memo")
+  }
+  let active_rt = current_computing_runtime_id.val
+  if active_rt >= 0 && active_rt != self.rt.core.runtime_id {
+    current_computing_runtime_id.val = -1
+    abort(
+      "Cross-runtime dependency: HybridMemo belongs to Runtime " +
+      self.rt.core.runtime_id.to_string() +
+      " but is read inside a memo on Runtime " +
+      active_rt.to_string(),
+    )
+  }
+  if self.rt.core.in_fixpoint {
+    abort(
+      "HybridMemo::get() cannot be called during fixpoint(); read relations directly or call get() after fixpoint() completes",
+    )
+  }
+  match self.value {
+    None =>
+      match self.force_recompute() {
+        Ok(value) => {
+          self.rt.record_dependency(self.cell_id)
+          value
+        }
+        Err(e) => abort(e.format_path(self.rt))
+      }
+    Some(cached) => {
+      let cell = self.rt.get_memo_data(self.cell_id)
+      if cell.verified_at >= self.rt.core.current_revision {
+        self.rt.record_dependency(self.cell_id)
+        return cached
+      }
       match self.rt.pull_verify(self.cell_id) {
         Ok(_) => {
           self.rt.record_dependency(self.cell_id)
