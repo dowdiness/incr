@@ -528,14 +528,14 @@ Layer 2: Scope              ← Complete (PR #29)
   ↓
 Layer 3: Composed traits    ← Complete (PR #30)
   ↓
-Layer 4a: Observer + gc()   ← core Observer, ref-counting, mark-and-sweep
+Layer 4a: Observer + gc()   ← Complete (PR #31)
   ↓
-Layer 4b: Push suspension   ← on_observe/on_unobserve, Scope::observe, MemoMap::sweep
+Layer 4b: Push suspension   ← Complete (PR #32)
   ↓
-Layer 5: API boundary       ← clean contract, breaking change (last)
+Layer 5: API boundary       ← Complete (PR #33)
 ```
 
-Each layer is shippable independently. Layer 5 is the only breaking change.
+All layers complete. Layer 5 was the only breaking change.
 
 ## 8. Edge Cases and Safety Rules
 
