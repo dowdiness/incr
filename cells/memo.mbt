@@ -227,6 +227,21 @@ fn[T] Memo::get_result_inner(self : Memo[T]) -> Result[T, CycleError] {
   guard !self.rt.is_cell_disposed(self.cell_id) else {
     abort("Memo::get called on a disposed memo")
   }
+  let active_rt = current_computing_runtime_id.val
+  if active_rt >= 0 && active_rt != self.rt.core.runtime_id {
+    current_computing_runtime_id.val = -1
+    abort(
+      "Cross-runtime dependency: Memo belongs to Runtime " +
+      self.rt.core.runtime_id.to_string() +
+      " but is read inside a memo on Runtime " +
+      active_rt.to_string(),
+    )
+  }
+  if self.rt.core.in_fixpoint {
+    abort(
+      "Memo::get() cannot be called during fixpoint(); read relations directly or call get() after fixpoint() completes",
+    )
+  }
   // First computation: no cached value yet
   match self.value {
     None =>
