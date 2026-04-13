@@ -31,10 +31,7 @@ test "get_result with handled inner errors returns sentinel value" {
   })
   memo_ref.val = Some(memo)
   // Since the error is handled inside, outer call returns Ok with sentinel
-  match memo.get_result() {
-    Ok(v) => inspect(v, content="-999")
-    Err(_) => fail("Expected Ok with sentinel value since error was handled")
-  }
+  inspect(rt.read(memo), content="-999")
 }
 
 ///|
@@ -66,10 +63,7 @@ test "get_result with handled errors in mutual recursion (2-way)" {
   // Actually: memo_a computes -> calls b.get_result() -> memo_b computes
   // -> calls memo_a.get_result() -> Err(cycle) -> returns -2000
   // -> memo_b returns Ok(-2000) to memo_a -> memo_a does -2000 + 1 = -1999
-  match memo_a.get_result() {
-    Ok(v) => inspect(v, content="-1999")
-    Err(_) => fail("Expected Ok since errors are handled inside")
-  }
+  inspect(rt.read(memo_a), content="-1999")
 }
 
 ///|
@@ -109,10 +103,7 @@ test "get_result with handled errors in mutual recursion (3-way)" {
   // memo_c gets Err, returns -3
   // memo_b gets Ok(-3), returns -3 + 1 = -2
   // memo_a gets Ok(-2), returns -2 + 1 = -1
-  match memo_a.get_result() {
-    Ok(v) => inspect(v, content="-1")
-    Err(_) => fail("Expected Ok since errors are handled inside")
-  }
+  inspect(rt.read(memo_a), content="-1")
 }
 
 ///|
@@ -123,14 +114,8 @@ test "get_result returns Ok for non-cyclic memos" {
   let sum = Memo::new(rt, () => a.get() + b.get())
   let double_sum = Memo::new(rt, () => sum.get() * 2)
   // Non-cyclic memos should return Ok
-  match sum.get_result() {
-    Ok(v) => inspect(v, content="30")
-    Err(_) => fail("Expected Ok")
-  }
-  match double_sum.get_result() {
-    Ok(v) => inspect(v, content="60")
-    Err(_) => fail("Expected Ok")
-  }
+  inspect(rt.read(sum), content="30")
+  inspect(rt.read(double_sum), content="60")
 }
 
 ///|
@@ -169,7 +154,7 @@ test "CycleError::cell_id returns correct cell ID (backward compatibility)" {
     }
   })
   memo_ref.val = Some(memo)
-  let _ = memo.get_result()
+  let _ = rt.read(memo)
   // The captured cell_id should be 0 (first memo created)
   inspect(captured_id.val, content="0")
 }
@@ -197,7 +182,7 @@ test "CycleError::cell() returns the cycle-causing cell ID" {
     }
   })
   memo_ref.val = Some(memo)
-  let _ = memo.get_result()
+  let _ = rt.read(memo)
   // Verify captured cell matches memo's ID
   match captured_cell.val {
     Some(cell_id) => inspect(cell_id == memo.id(), content="true")
@@ -224,7 +209,7 @@ test "CycleError::path() returns the full dependency cycle" {
     }
   })
   memo_ref.val = Some(memo)
-  let _ = memo.get_result()
+  let _ = rt.read(memo)
   // Note: Path tracking is now implemented (Task 2)
   // Path is populated with the cycle information
   match captured_path.val {
@@ -254,7 +239,7 @@ test "CycleError::format_path() produces readable output" {
     }
   })
   memo_ref.val = Some(memo)
-  let _ = memo.get_result()
+  let _ = rt.read(memo)
   inspect(captured_message.val.contains("Cycle detected:"), content="true")
   inspect(captured_message.val.contains(" → "), content="true")
 }
@@ -278,7 +263,7 @@ test "CycleError::format_path() returns non-empty string for self-referencing me
     }
   })
   memo_ref.val = Some(memo)
-  let _ = memo.get_result()
+  let _ = rt.read(memo)
   inspect(captured_message.val.contains("Cycle detected:"), content="true")
   inspect(captured_message.val.contains(" → "), content="true")
 }
@@ -299,18 +284,11 @@ test "state is cleaned up after cycle error with handled errors" {
   })
   memo_ref.val = Some(memo)
   // First call triggers cycle (but handles it with sentinel)
-  let result1 = memo.get_result()
-  match result1 {
-    Ok(v) => inspect(v, content="-999")
-    Err(_) => fail("Expected Ok with sentinel")
-  }
+  inspect(rt.read(memo), content="-999")
   // Create a non-cyclic memo to verify runtime is still functional
   let sig = Signal::new(rt, 5)
   let good_memo = Memo::new(rt, () => sig.get() * 2)
-  match good_memo.get_result() {
-    Ok(v) => inspect(v, content="10")
-    Err(_) => fail("Runtime should still work after cycle error")
-  }
+  inspect(rt.read(good_memo), content="10")
 }
 
 ///|
@@ -335,17 +313,11 @@ test "cycle error during reverification returns error through get_result" {
   })
   memo_ref.val = Some(memo)
   // First call succeeds (no cycle when trigger = 0)
-  match memo.get_result() {
-    Ok(v) => inspect(v, content="42")
-    Err(_) => fail("Expected Ok when trigger = 0")
-  }
+  inspect(rt.read(memo), content="42")
   // Change trigger to create cycle on next access
   trigger.set(1)
   // Now reverification detects cycle but handles it with sentinel
-  match memo.get_result() {
-    Ok(v) => inspect(v, content="-888")
-    Err(_) => fail("Expected Ok with sentinel since error is handled")
-  }
+  inspect(rt.read(memo), content="-888")
 }
 
 ///|
@@ -376,10 +348,7 @@ test "failed get_result does not create spurious dependency edges" {
   memo_ref.val = Some(memo)
 
   // First access: cycle detected, handled with sentinel (100 + 1 = 101)
-  match memo.get_result() {
-    Ok(v) => inspect(v, content="101")
-    Err(_) => fail("Expected Ok with sentinel")
-  }
+  inspect(rt.read(memo), content="101")
 
   // Bump external signal to force reverification
   external.set(200)
@@ -387,19 +356,10 @@ test "failed get_result does not create spurious dependency edges" {
   // Second access after revision bump: should recompute cleanly.
   // If the failed self-reference was recorded as a dependency, this would
   // fail with a spurious cycle error instead of recomputing.
-  match memo.get_result() {
-    Ok(v) => inspect(v, content="202") // 200 + 2 (second cycle detection)
-    Err(_) =>
-      fail(
-        "Spurious cycle detected - failed get_result created bad dependency edge",
-      )
-  }
+  inspect(rt.read(memo), content="202") // 200 + 2 (second cycle detection)
 
   // Third access should use cached value (no new cycle detection)
-  match memo.get_result() {
-    Ok(v) => inspect(v, content="202") // Same cached value
-    Err(_) => fail("Unexpected error on cached access")
-  }
+  inspect(rt.read(memo), content="202") // Same cached value
   // Verify cycle count is still 2 (no new cycle detected on cached access)
   inspect(cycle_count.val, content="2")
 }
@@ -422,7 +382,7 @@ test "panic cycle on initial get: direct self-referencing memo aborts" {
   memo_ref.val = Some(memo)
   // First get() enters force_recompute(), then re-enters force_recompute() via m.get().
   // The second entry must abort with cycle detection rather than recurse indefinitely.
-  let _ = memo.get()
+  let _ = rt.read(memo)
 }
 
 ///|
@@ -439,5 +399,5 @@ test "panic cycle on initial get: mutual recursion between two memos aborts" {
   memo_b_ref.val = Some(memo_b)
   // First get() of memo_a reaches memo_b.get(), which re-enters memo_a.get().
   // This must abort immediately via the in-progress recompute guard.
-  let _ = memo_a.get()
+  let _ = rt.read(memo_a)
 }

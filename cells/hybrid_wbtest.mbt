@@ -22,9 +22,9 @@ test "hybrid memo: basic get() returns correct value" {
   let rt = Runtime::new()
   let s = Signal::new(rt, 1)
   let h = HybridMemo::new(rt, () => s.get() * 2)
-  inspect(h.get(), content="2")
+  inspect(rt.read_hybrid(h), content="2")
   s.set(5)
-  inspect(h.get(), content="10")
+  inspect(rt.read_hybrid(h), content="10")
 }
 
 ///|
@@ -37,10 +37,10 @@ test "hybrid memo: fast path skips compute when not dirtied" {
     count = count + 1
     s.get()
   })
-  let _ = h.get()
+  let _ = rt.read_hybrid(h)
   inspect(count, content="1")
   unrelated.set(100)
-  let _ = h.get()
+  let _ = rt.read_hybrid(h)
   inspect(count, content="1") // unrelated change → not dirtied → no recompute
 }
 
@@ -49,16 +49,16 @@ test "hybrid memo: verified_at staleness triggers recompute on get" {
   let rt = Runtime::new()
   let s = Signal::new(rt, 1)
   let h = HybridMemo::new(rt, () => s.get() + 10)
-  let _ = h.get()
+  let _ = rt.read_hybrid(h)
   s.set(5) // bumps revision — verified_at becomes stale
-  inspect(h.get(), content="15") // stale verified_at triggers recompute
+  inspect(rt.read_hybrid(h), content="15") // stale verified_at triggers recompute
 }
 
 ///|
 test "get_subscribers: HybridMemo arm returns subscribers" {
   let rt = Runtime::new()
   let h = HybridMemo::new(rt, () => 42)
-  let _ = h.get()
+  let _ = rt.read_hybrid(h)
   let subs = rt.get_subscribers(h.id()).collect()
   inspect(subs.length(), content="0") // leaf node, no subscribers yet
 }
@@ -68,14 +68,14 @@ test "hybrid memo: backdating — unchanged value does not bump changed_at" {
   let rt = Runtime::new()
   let s = Signal::new(rt, 1)
   let h = HybridMemo::new(rt, () => s.get())
-  let _ = h.get()
+  let _ = rt.read_hybrid(h)
   let h_idx = match rt.core.cell_index[h.id().id] {
     HybridMemo(i) => i
     _ => abort("")
   }
   let before = rt.pull.memos[h_idx].meta.changed_at
   s.set(1) // same value → signal backdating → h may not be dirtied
-  let _ = h.get()
+  let _ = rt.read_hybrid(h)
   inspect(rt.pull.memos[h_idx].meta.changed_at == before, content="true")
 }
 
@@ -90,12 +90,12 @@ test "hybrid memo: lazy verify after pull-memo backdating leaves HybridMemo up-t
     1
   })
   let h = HybridMemo::new(rt, () => m.get() + 10)
-  inspect(h.get(), content="11")
+  inspect(rt.read_hybrid(h), content="11")
   inspect(memo_runs, content="1")
   s.set(2) // m re-verifies and backdates unchanged; h should become clean
-  inspect(h.get(), content="11")
+  inspect(rt.read_hybrid(h), content="11")
   inspect(memo_runs, content="2")
-  let _ = h.get()
+  let _ = rt.read_hybrid(h)
   inspect(memo_runs, content="2")
 }
 
@@ -105,9 +105,9 @@ test "hybrid regression: pull memo rechecks stale hybrid deps" {
   let s = Signal::new(rt, 1)
   let h = HybridMemo::new(rt, () => s.get() * 2)
   let m = Memo::new(rt, () => h.get() + 1)
-  inspect(m.get(), content="3")
+  inspect(rt.read(m), content="3")
   s.set(3)
-  inspect(m.get(), content="7")
+  inspect(rt.read(m), content="7")
 }
 
 ///|
@@ -116,9 +116,9 @@ test "hybrid regression: nested hybrid verification rechecks upstream hybrid" {
   let s = Signal::new(rt, 1)
   let h1 = HybridMemo::new(rt, () => s.get() + 1)
   let h2 = HybridMemo::new(rt, () => h1.get() * 10)
-  inspect(h2.get(), content="20")
+  inspect(rt.read_hybrid(h2), content="20")
   s.set(2)
-  inspect(h2.get(), content="30")
+  inspect(rt.read_hybrid(h2), content="30")
 }
 
 ///|
@@ -131,11 +131,11 @@ test "hybrid regression: push propagation traverses hybrid to reactive" {
     recomputes = recomputes + 1
     h.get() + 1
   })
-  inspect(r.get(), content="3")
+  inspect(r.get_untracked(), content="3")
   inspect(recomputes, content="1")
   s.set(5)
   inspect(recomputes, content="2")
-  inspect(r.get(), content="11")
+  inspect(r.get_untracked(), content="11")
 }
 
 ///|
@@ -143,7 +143,7 @@ test "hybrid memo: dispose removes from upstream subscriber sets and marks Dispo
   let rt = Runtime::new()
   let s = Signal::new(rt, 1)
   let h = HybridMemo::new(rt, () => s.get() * 2)
-  let _ = h.get()
+  let _ = rt.read_hybrid(h)
   let subs_before = rt.get_subscribers(s.id()).collect()
   inspect(subs_before.length(), content="1")
   h.dispose()
@@ -161,7 +161,7 @@ test "hybrid memo: dispose is idempotent" {
   let rt = Runtime::new()
   let s = Signal::new(rt, 1)
   let h = HybridMemo::new(rt, () => s.get())
-  let _ = h.get()
+  let _ = rt.read_hybrid(h)
   h.dispose()
   h.dispose()
   let subs = rt.get_subscribers(s.id()).collect()
@@ -175,10 +175,10 @@ test "panic hybrid verify: disposed dependency aborts verification" {
   let unrelated = Signal::new(rt, 0)
   let r = Reactive::new(rt, () => sig.get() * 2)
   let h = HybridMemo::new(rt, () => r.get() + 1)
-  inspect(h.get(), content="3")
+  inspect(rt.read_hybrid(h), content="3")
   r.dispose()
   unrelated.set(1) // bump revision so hybrid verify path runs again
-  let _ = h.get()
+  let _ = rt.read_hybrid(h)
 }
 
 ///|
@@ -189,7 +189,7 @@ test "panic hybrid: cross-runtime get aborts" {
   let h_b = HybridMemo::new(rt_b, () => s_b.get())
   // memo_a computes on rt_a but reads h_b from rt_b → cross-runtime abort
   let memo_a = Memo::new(rt_a, () => h_b.get())
-  let _ = memo_a.get()
+  let _ = rt_a.read(memo_a)
 }
 
 ///|
@@ -205,7 +205,7 @@ test "panic hybrid: self-referential cycle aborts" {
     }
   })
   h_ref.val = Some(h)
-  let _ = h.get() // first get: h_ref.val is Some → triggers self-read → abort
+  let _ = rt.read_hybrid(h) // first get: h_ref.val is Some → triggers self-read → abort
 }
 
 ///|
@@ -221,5 +221,5 @@ test "panic hybrid cycle: mixed Memo → HybridMemo → Memo cycle aborts" {
   })
   let m = Memo::new(rt, () => h.get() + 1) // m reads h
   m_ref.val = Some(m)
-  let _ = m.get() // triggers cycle: m → h → m → abort
+  let _ = rt.read(m) // triggers cycle: m → h → m → abort
 }

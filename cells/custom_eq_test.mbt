@@ -45,7 +45,7 @@ test "custom_eq: backdating with Point struct" {
   })
 
   // Initial: input=5 -> Point(5, 0) -> 500
-  inspect(downstream.get(), content="500")
+  inspect(rt.read(downstream), content="500")
   inspect(point_count, content="1")
   inspect(downstream_count, content="1")
 
@@ -53,13 +53,13 @@ test "custom_eq: backdating with Point struct" {
   // A new Point object is allocated but equals the old value via Eq
   // -> backdating should apply
   input.set(15)
-  inspect(downstream.get(), content="500")
+  inspect(rt.read(downstream), content="500")
   inspect(point_count, content="2") // point_memo recomputed
   inspect(downstream_count, content="1") // downstream did NOT recompute (backdated!)
 
   // Change to 7: Point(7, 0) -> different coordinates
   input.set(7)
-  inspect(downstream.get(), content="700")
+  inspect(rt.read(downstream), content="700")
   inspect(point_count, content="3")
   inspect(downstream_count, content="2") // downstream DID recompute
 }
@@ -106,24 +106,24 @@ test "custom_eq: backdating ignores generation field" {
   })
 
   // Initial: input=100 -> Versioned(10, gen=1) -> 20
-  inspect(downstream.get(), content="20")
+  inspect(rt.read(downstream), content="20")
   inspect(versioned_count, content="1")
   inspect(downstream_count, content="1")
 
   // Change to 105: value=10 (same), gen=2 (different)
   // But Eq only compares value, so backdating should apply
   input.set(105)
-  inspect(downstream.get(), content="20")
+  inspect(rt.read(downstream), content="20")
   inspect(versioned_count, content="2") // versioned_memo recomputed
   inspect(downstream_count, content="1") // downstream did NOT recompute (backdated!)
 
   // Verify generation did increment
   inspect(gen, content="2")
-  inspect(versioned_memo.get().generation, content="2")
+  inspect(rt.read(versioned_memo).generation, content="2")
 
   // Change to 200: value=20 (different), gen=3
   input.set(200)
-  inspect(downstream.get(), content="40")
+  inspect(rt.read(downstream), content="40")
   inspect(versioned_count, content="3")
   inspect(downstream_count, content="2") // Now downstream recomputed
 }
@@ -171,19 +171,19 @@ test "custom_eq: enum with selective field comparison" {
   })
 
   // Initial
-  inspect(handler.get(), content="Error: 404")
+  inspect(rt.read(handler), content="Error: 404")
   inspect(status_count, content="1")
   inspect(handler_count, content="1")
 
   // Change message but keep same code: Error eq ignores message
   error_msg.set("Page Not Found")
-  inspect(handler.get(), content="Error: 404")
+  inspect(rt.read(handler), content="Error: 404")
   inspect(status_count, content="2") // recomputed
   inspect(handler_count, content="1") // backdated! Same error code
 
   // Change error code: now handler should recompute
   error_code.set(500)
-  inspect(handler.get(), content="Error: 500")
+  inspect(rt.read(handler), content="Error: 500")
   inspect(status_count, content="3")
   inspect(handler_count, content="2")
 }
@@ -238,7 +238,7 @@ test "custom_eq: array content equality" {
   })
 
   // Initial: [0, 2, 4] -> sum = 6
-  inspect(sum_memo.get(), content="6")
+  inspect(rt.read(sum_memo), content="6")
   inspect(array_count, content="1")
   inspect(sum_count, content="1")
 
@@ -246,18 +246,18 @@ test "custom_eq: array content equality" {
   // Array equality is by content, so backdating should apply
   size.set(3)
   // Note: Signal same-value optimization means no revision bump
-  inspect(sum_memo.get(), content="6")
+  inspect(rt.read(sum_memo), content="6")
   inspect(array_count, content="1") // No recompute due to signal optimization
   inspect(sum_count, content="1")
 
   // Force recomputation by changing then reverting
   size.set(4) // [0, 2, 4, 6] -> sum = 12
-  inspect(sum_memo.get(), content="12")
+  inspect(rt.read(sum_memo), content="12")
   inspect(array_count, content="2")
   inspect(sum_count, content="2")
 
   size.set(3) // Back to [0, 2, 4] -> new array, but same content as initial
-  inspect(sum_memo.get(), content="6")
+  inspect(rt.read(sum_memo), content="6")
   inspect(array_count, content="3") // Array memo recomputed
   inspect(sum_count, content="3") // Sum also recomputed since array changed (different object)
 }

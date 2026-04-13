@@ -13,7 +13,7 @@ test "free list: reactive slot reused after dispose" {
   let rt = Runtime::new()
   let s = Signal::new(rt, 1)
   let r = Reactive::new(rt, () => s.get())
-  let _ = r.get()
+  let _ = rt.read_reactive(r)
   let r_idx = match rt.core.cell_index[r.id().id] {
     PushReactive(i) => i
     _ => abort("expected PushReactive")
@@ -21,7 +21,7 @@ test "free list: reactive slot reused after dispose" {
   r.dispose()
   inspect(rt.push.free_reactives.length(), content="1")
   let r2 = Reactive::new(rt, () => s.get() + 1)
-  let _ = r2.get()
+  let _ = rt.read_reactive(r2)
   let r2_idx = match rt.core.cell_index[r2.id().id] {
     PushReactive(i) => i
     _ => abort("expected PushReactive")
@@ -107,9 +107,9 @@ test "push propagation: signal → memo → reactive chain (pull-memo bridge)" {
   let s = Signal::new(rt, 1)
   let m = Memo::new(rt, () => s.get() * 10)
   let r = Reactive::new(rt, () => m.get() + 1)
-  inspect(r.get(), content="11") // s=1, m=10, r=11
+  inspect(rt.read_reactive(r), content="11") // s=1, m=10, r=11
   s.set(3)
-  inspect(r.get(), content="31") // s=3, m=30, r=31
+  inspect(rt.read_reactive(r), content="31") // s=3, m=30, r=31
 }
 
 ///|
@@ -155,7 +155,7 @@ test "panic reactive: get after dispose aborts" {
   let s = Signal::new(rt, 0)
   let r = Reactive::new(rt, () => s.get())
   r.dispose()
-  let _ = r.get() // disposed reactive → abort
+  let _ = rt.read_reactive(r) // disposed reactive → abort
 }
 
 ///|
@@ -166,7 +166,7 @@ test "panic reactive: cross-runtime get aborts" {
   let reactive_b = Reactive::new(rt_b, () => s_b.get())
   // memo_a computes on rt_a but reads reactive_b from rt_b → abort
   let memo_a = Memo::new(rt_a, () => reactive_b.get())
-  let _ = memo_a.get()
+  let _ = rt_a.read(memo_a)
 }
 
 // ─── Task 3: push_propagate_from ────────────────────────────────────────────
@@ -176,9 +176,9 @@ test "push propagation: basic reactive chain Signal → Reactive" {
   let rt = Runtime::new()
   let s = Signal::new(rt, 1)
   let r = Reactive::new(rt, () => s.get() * 2)
-  let _ = r.get() // initial: 2
+  let _ = rt.read_reactive(r) // initial: 2
   s.set(5) // triggers push propagation
-  inspect(r.get(), content="10")
+  inspect(rt.read_reactive(r), content="10")
 }
 
 ///|
@@ -199,11 +199,11 @@ test "push propagation: glitch prevention in diamond" {
     }
     bv + cv
   })
-  let _ = d.get() // a=1: b=2, c=10, d=12
+  let _ = rt.read_reactive(d) // a=1: b=2, c=10, d=12
   a.set(5) // a=5: b=6, c=50, d=56
-  let _ = d.get()
+  let _ = rt.read_reactive(d)
   inspect(saw_glitch, content="false")
-  inspect(d.get(), content="56")
+  inspect(rt.read_reactive(d), content="56")
 }
 
 // ─── Task 4: level helpers + early cutoff ───────────────────────────────────
@@ -214,8 +214,8 @@ test "level: reactive level is source max + 1" {
   let s = Signal::new(rt, 1)
   let r1 = Reactive::new(rt, () => s.get())
   let r2 = Reactive::new(rt, () => r1.get() + 1)
-  let _ = r1.get()
-  let _ = r2.get()
+  let _ = rt.read_reactive(r1)
+  let _ = rt.read_reactive(r2)
   let r1_idx = match rt.core.cell_index[r1.id().id] {
     PushReactive(i) => i
     _ => abort("expected PushReactive")
@@ -242,7 +242,7 @@ test "early cutoff: unchanged value does not propagate to downstream" {
     count += 1
     always5.get()
   })
-  let _ = downstream.get()
+  let _ = downstream.get_untracked()
   inspect(count, content="1")
   s.set(99) // always5 recomputes to 5 again → downstream not re-enqueued
   inspect(count, content="1")
@@ -255,8 +255,8 @@ test "reactive: get() returns cached value" {
   let rt = Runtime::new()
   let s = Signal::new(rt, 10)
   let r = Reactive::new(rt, () => s.get() * 3)
-  inspect(r.get(), content="30")
-  inspect(r.get(), content="30") // cached
+  inspect(rt.read_reactive(r), content="30")
+  inspect(rt.read_reactive(r), content="30") // cached
 }
 
 ///|
@@ -279,12 +279,12 @@ test "push: batch commit triggers propagation" {
   let rt = Runtime::new()
   let s = Signal::new(rt, 0)
   let r = Reactive::new(rt, () => s.get() * 2)
-  let _ = r.get()
+  let _ = rt.read_reactive(r)
   rt.batch(() => {
     s.set(5)
-    inspect(r.get(), content="0") // not yet propagated inside batch
+    inspect(rt.read_reactive(r), content="0") // not yet propagated inside batch
   })
-  inspect(r.get(), content="10") // propagated after commit
+  inspect(rt.read_reactive(r), content="10") // propagated after commit
 }
 
 ///|
@@ -294,7 +294,7 @@ test "mixed pull/push: Memo reads Reactive; Reactive reads Signal" {
   let r = Reactive::new(rt, () => s.get() + 1)
   let m = Memo::new(rt, () => r.get() * 10)
   s.set(4)
-  inspect(m.get(), content="50") // r = 5, m = 50
+  inspect(rt.read(m), content="50") // r = 5, m = 50
 }
 
 // ─── Task 7: disposal ────────────────────────────────────────────────────────
@@ -304,7 +304,7 @@ test "dispose: sources' subscriber sets updated after reactive dispose" {
   let rt = Runtime::new()
   let s = Signal::new(rt, 1)
   let r = Reactive::new(rt, () => s.get())
-  let _ = r.get()
+  let _ = r.get_untracked()
   let s_idx = match rt.core.cell_index[s.id().id] {
     PullSignal(i) => i
     _ => abort("expected PullSignal")
@@ -319,7 +319,7 @@ test "dispose: disposed reactive not reachable via subscriber walk" {
   let rt = Runtime::new()
   let s = Signal::new(rt, 1)
   let r = Reactive::new(rt, () => s.get() * 2)
-  let _ = r.get()
+  let _ = r.get_untracked()
   r.dispose()
   let subs = rt.get_subscribers(s.id()).collect()
   inspect(subs.length(), content="0")

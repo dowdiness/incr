@@ -35,10 +35,7 @@ test "verify leak simulation: manual cleanup recovers memo reads" {
   meta.in_progress = false
   ignore(rt.pop_tracking())
 
-  match memo.get_result() {
-    Ok(v) => inspect(v, content="1")
-    Err(_) => abort("expected successful get_result")
-  }
+  inspect(rt.read(memo), content="1")
 }
 
 ///|
@@ -86,12 +83,9 @@ test "pull_verify: recomputes stale memo via MemoData.compute" {
   let sig = Signal::new(rt, 0)
   let memo = Memo::new(rt, () => sig.get() + 1)
   // Force first computation to populate cell state
-  let _ = memo.get_result()
+  let _ = rt.read(memo)
   // Trigger re-verification: change sig so the memo is stale
   sig.set(1)
   // pull_verify recomputes via MemoData.compute
-  match memo.get_result() {
-    Ok(v) => inspect(v, content="2")
-    Err(_) => abort("unexpected error")
-  }
+  inspect(rt.read(memo), content="2")
 }
