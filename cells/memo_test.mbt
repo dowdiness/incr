@@ -110,3 +110,60 @@ test "panic cross-runtime: Memo::get aborts when read inside a memo on a differe
   let memo_a = Memo::new(rt_a, () => memo_b.get())
   let _ = rt_a.read(memo_a) // aborts: memo_b is on rt_b, memo_a computes on rt_a
 }
+
+///|
+test "panic Memo::get() outside tracked context" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 10)
+  let m = Memo::new(rt, () => s.get() * 2)
+  ignore(m.get())
+}
+
+///|
+test "panic HybridMemo::get() outside tracked context" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 10)
+  let h = HybridMemo::new(rt, () => s.get() * 2)
+  ignore(h.get())
+}
+
+///|
+test "panic Reactive::get() outside tracked context" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 10)
+  let r = Reactive::new(rt, () => s.get())
+  ignore(r.get())
+}
+
+///|
+test "Memo::get() inside tracked context succeeds" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 10)
+  let m = Memo::new(rt, () => s.get() * 2)
+  let m2 = Memo::new(rt, () => m.get() + 1)
+  inspect(rt.read(m2), content="21")
+}
+
+///|
+test "Signal::peek() reads without tracking" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 42)
+  // peek works from outside tracked context
+  inspect(s.peek(), content="42")
+  // peek does not record dependency
+  let m = Memo::new(rt, () => {
+    ignore(s.peek())
+    0
+  })
+  ignore(rt.read(m))
+  inspect(m.dependencies().length(), content="0")
+}
+
+///|
+test "TrackedCell::peek() reads without tracking" {
+  let rt = Runtime::new()
+  let tc = TrackedCell::new(rt, 99)
+  inspect(tc.peek(), content="99")
+  tc.set(100)
+  inspect(tc.peek(), content="100")
+}
