@@ -82,10 +82,11 @@ self.rt.fire_on_change()
 
 Note: This path is only entered when `batch_depth == 0`. The current code calls `bump_revision` which, at `batch_depth == 0`, falls through to `advance_revision`. So `propagate_changes` calling `advance_revision` directly is semantically equivalent.
 
-### Dead code removal
+### Dead code removal and stale comments
 
 - **`mark_input_changed`** (runtime.mbt:647) — both callers migrate away. Delete it.
 - **Comment in `cell_ops.mbt:67`** — references `mark_input_changed`. Update to reference `propagate_changes`.
+- **Doc comment on `publish_cell_changes`** (runtime.mbt:596-605) — states that `Signal::set_unconditional` and `commit_batch` "call the lower-level methods directly" and "cannot be expressed through this protocol without restructuring." After this PR, both callers use `propagate_changes`. Update the doc to reflect the new layering: `publish_cell_changes` = `propagate_changes` + `fire_on_change`, and callers that need custom callback sequencing use `propagate_changes` directly.
 - **`bump_revision`** — still needed by batched signal paths (`set_batch`, `set_batch_unconditional`) which track `max_durability` during batch. Stays.
 
 ### Efficiency note
@@ -163,13 +164,17 @@ CI verification script:
 
 ```bash
 #!/bin/bash
-# Verify no engine package imports another engine package
+# Verify no engine package imports another engine package.
+# Only checks for cross-engine imports (pull↔push↔datalog).
+# internal/shared is allowed — it's the trait package, not an engine.
+engines="pull push datalog"
 fail=0
-for pkg in cells/internal/pull cells/internal/push cells/internal/datalog; do
-  engine=$(basename "$pkg")
-  for other in pull push datalog; do
-    if [ "$engine" != "$other" ] && grep -q "internal/$other" "$pkg/moon.pkg"; then
-      echo "FAIL: $pkg imports internal/$other"
+for engine in $engines; do
+  pkg="cells/internal/$engine/moon.pkg"
+  [ -f "$pkg" ] || continue
+  for other in $engines; do
+    if [ "$engine" != "$other" ] && grep -q "internal/$other" "$pkg"; then
+      echo "FAIL: $engine imports $other"
       fail=1
     fi
   done
