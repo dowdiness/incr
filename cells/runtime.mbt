@@ -659,16 +659,6 @@ impl RevisionManager for Runtime with advance_revision(self, durability) {
 }
 
 ///|
-/// Mark an input cell as changed at the current revision.
-/// Sets changed_at to current_revision on the PullSignalData entry.
-/// Must be called after advance_revision so current_revision is already updated.
-fn Runtime::mark_input_changed(self : Runtime, id : CellId) -> PullSignalData {
-  let sig = self.get_pull_signal(id)
-  sig.meta.changed_at = self.core.revision.current_revision
-  sig
-}
-
-///|
 /// Bumps the global revision counter and records which durability level changed.
 ///
 /// This is called internally when a signal's value changes. The durability
