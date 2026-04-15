@@ -52,6 +52,10 @@ pub using @types {type GcRole}
 
 pub using @cells {type HybridMemo}
 
+pub using @types {type InternId}
+
+pub using @types {type InternTable}
+
 pub using @cells {type Memo}
 
 pub using @types {type MemoId}
