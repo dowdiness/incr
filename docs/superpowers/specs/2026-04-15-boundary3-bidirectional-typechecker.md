@@ -59,6 +59,8 @@ A conversion function `Term -> TypedTerm` bridges the gap. Initially all lambdas
 
 **Rationale:** Introducing `TypedTerm` avoids a repo-wide migration of `Term::Lam`. The existing resolve, eval, sym, and test code continue to use the original `Term` unchanged. The typechecker owns its own AST representation.
 
+**Tech debt:** `TypedTerm` duplicates `Term` 1:1 and `convert.mbt` is a recursive tree copy just to add one `None` field per `Lam`. Acceptable for infrastructure validation scope. If the typechecker expands beyond this, consider a side-table of annotations keyed by node identity instead of a parallel AST.
+
 ### Malformed Annotations
 
 A malformed annotation (syntax error in the type position) parses as `Some(TError)` — distinct from `None` (no annotation written). The typechecker treats `Some(TError)` as a poison:
@@ -168,7 +170,7 @@ InternTable::len(self) -> Int
 ### Design Decisions
 
 - **Grow-only, no GC** — deferred until concrete need. Acceptable for this validation scope.
-- **No generation counter** — follows the existing design in `incr/docs/semantic-interning.md`.
+- **No generation counter** — `incr/docs/semantic-interning.md` defines a generational `InternId { index, generation }`, but defers the generation field until slot-reuse/GC is implemented. Since this table is grow-only, generation is vestigial — add it when implementing InternTable GC.
 - **`T : Hash + Eq` required** for dedup in `to_id` HashMap.
 
 ## 5. DefId and Interning
@@ -234,13 +236,17 @@ All `.get()` calls are inside memo compute closures (tracked context), so depend
 
 ### MemoMap Usage
 
-`MemoMap` is still used, but for a different purpose: **caching InternTable lookups** and providing the `MemoMap` integration test point. The primary incremental benefit comes from the Scope-managed Memo chain.
+`MemoMap` is still used, but for a different purpose: **query-by-id access** to type results, providing the `MemoMap` integration test point. The primary incremental benefit comes from the Scope-managed Memo chain.
 
-A `MemoMap[DefId, TypeResult]` serves as an index: given a DefId, look up its cached type result. This is populated from the Memo chain results and provides the query-by-id pattern that validates MemoMap + InternTable integration.
+A `MemoMap[DefId, TypeResult]` serves as an index. Its `compute` closure captures the Memo chain's result array and performs a lookup by DefId → array index (maintained via a side-table from DefId to chain position). This means MemoMap entries are lazily created on first query and each entry's internal Memo reads the corresponding `type_memo[i]` from the chain, inheriting its dependency tracking.
+
+**Alternative considered:** A plain `HashMap[DefId, TypeResult]` populated eagerly after the chain runs would be simpler but wouldn't exercise MemoMap's lazy-per-key Memo creation — the feature we want to validate. If the compute closure proves awkward during implementation, fall back to the HashMap approach and test MemoMap separately.
 
 ### Scope Lifecycle
 
 When the source text changes and produces a structurally different Module (defs added/removed), the Scope is disposed and rebuilt. The InternTable persists across rebuilds — unchanged DefEntries get the same InternIds, so the MemoMap index preserves cache hits for stable defs.
+
+**Rebuild detection:** The top-level `typecheck.mbt` wiring maintains a `prev_def_keys : Array[(String, Int)]` (name + encounter_order per def). On each recomputation of the `Memo[TypedTerm]`, compare the new Module's def list against `prev_def_keys`. If lengths differ or any name changed → dispose old Scope, rebuild chain. If identical → reuse existing chain (individual term Memos detect their own changes). This comparison runs once per source edit, outside the Memo chain.
 
 When the source changes but Module structure is the same (same number of defs, same names), the existing Memo chain is reused — only changed terms trigger recomputation.
 
@@ -253,7 +259,7 @@ Memo[Term]                              // existing — untyped AST
   ↓ (conversion)
 Memo[TypedTerm]                         // NEW — with annotation slots
   ↓ (whole-tree, coarse but cached)
-Memo[(TypedTerm, Resolution)]           // NEW — name resolution as Memo
+Memo[ResolvedModule]                    // NEW — name resolution as Memo
   ↓
 Scope-managed Memo chain:
   Array[Memo[TypeEnv]]                  // env chain — one per def
@@ -264,6 +270,17 @@ MemoMap[DefId, TypeResult]              // index by DefId (for query pattern)
   ↓
 Memo[ModuleTypeResult]                  // top-level aggregation
 ```
+
+### ResolvedModule
+
+```moonbit
+struct ResolvedModule {
+  defs : Array[(String, TypedTerm)]   // resolved definitions
+  body : TypedTerm                    // resolved body
+} derive(Eq)
+```
+
+Name resolution transforms `Var(name)` → `Var(name)` (bound) or `Unbound(name)` (free), walking the Module's def list to determine scope. This is the same logic currently in `resolve.mbt` but applied to `TypedTerm`. The result is memoized as a single coarse `Memo[ResolvedModule]`; per-def incremental resolution is out of scope (§10).
 
 ### ModuleTypeResult
 
@@ -295,6 +312,8 @@ These changes are in `loom/examples/lambda/`:
 - `:` → `Colon` (new single-char token)
 - `->` → `Arrow` (new two-char token; `-` is currently `Minus`, so the lexer needs a lookahead for `>`)
 - `Int`, `Unit` as type keywords are context-sensitive — they remain valid identifiers in expression position. The parser distinguishes by syntactic context (after `:` = type position).
+
+**Incremental lexer note:** Changing `-` from always-`Minus` to a two-char prefix requires care with the incremental reuse protocol. An edit inserting `>` after an existing `-` must invalidate the `-` token so it can re-lex as `->`. Verify that the existing damage-overlap check in `ReuseCursor` handles this (the edit range should overlap the `-` token's span, triggering re-lexing).
 
 ### Type Parsing
 

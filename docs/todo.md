@@ -190,19 +190,20 @@ Each step builds on the previous. See [semantic-interning.md](semantic-interning
 Recommended next step before implementing these: add a simple type system to the lambda calculus
 parser. Boundary ③ (CST → Typed AST) needs to exist before these features can be validated.
 
-### Semantic Interning
+### Semantic Interning ✓ (PR #34)
 
-Start with `index : Int` only — no generation counter yet. The table is grow-only initially
-(no slot reuse), so the generation counter is vestigial until GC/slot-reuse is implemented.
-See updated Design Decisions in [semantic-interning.md](semantic-interning.md).
+- [x] `InternId` struct with `index : Int`, `Hash`, `Eq`, `Compare` (in `types/`)
+- [x] `InternTable[T]` with `intern`, `get`, `len`
+- [x] Unit tests for round-trip, dedup, len tracking
+- [x] Integration test: `InternId` as `MemoMap` key (via lambda type-checker, loom#81)
 
-- [ ] Define `InternId` struct with `index : Int` field only (in `types/`)
-- [ ] Implement `Hash` and `Eq` for `InternId` (integer comparison)
-- [ ] Define `InternTable[T]` with `to_id : HashMap[T, InternId]` and `values : Array[T]`
-- [ ] Implement `InternTable::intern(value : T) -> InternId` (lookup or insert)
-- [ ] Implement `InternTable::get(id : InternId) -> T` (reverse lookup)
-- [ ] Add unit tests for intern/get round-trip and dedup
-- [ ] Add integration test: `InternId` as `MemoMap` key for stable cross-revision caching
+### Semantic Interning — Follow-ups
+
+- [ ] Add `InternId` table discriminator (table ID field) to prevent cross-table mixups.
+      Currently `InternId { index }` only — an ID from one table silently indexes another.
+      Add when multiple InternTables coexist in the same pipeline.
+- [ ] Add `InternTable::clear()` or generation-based GC for long-lived sessions.
+      Grow-only is acceptable for short editing sessions; production use needs cleanup.
 - [ ] Add integration test: `InternId` in `Relation` for O(1) Datalog fact equality
 
 ### Tracked Structs
@@ -224,11 +225,38 @@ The following design questions must be answered before implementation:
 - Invalidation: if only accumulated values change (not the return value), dependents still need
   to recompute — this doesn't fit the existing model where backdating is keyed to the return value.
 
-- [ ] Build Boundary ③ use case first (lambda type-checker with type errors as diagnostics)
-- [ ] Design accumulator API informed by concrete use case
+- [x] Build Boundary ③ use case first (lambda type-checker with type errors as diagnostics) — loom#81
+- [ ] Design accumulator API informed by concrete use case (type-checker diagnostics are now available as `TypeResult.diagnostics`)
 - [ ] Implement side-channel collection on `Runtime`
 - [ ] Integrate with dependency tracking and backdating
 - [ ] Add tests for diagnostic collection across multiple queries
+
+## Boundary 3: Type-Checker Follow-ups
+
+Boundary 3 (bidirectional type-checker) shipped in loom#81 + incr#34. These follow-ups
+improve correctness, performance, and integration beyond the infrastructure validation scope.
+
+### Incremental Pipeline
+
+- [ ] **Incremental name resolution** — resolution is a single coarse `Memo[ResolvedModule]`;
+      split into per-def resolution for finer-grained incrementality
+- [ ] **MemoMap stale entries after structural rebuild** — MemoMap internal Memos survive scope
+      dispose (Runtime-owned, not chain-scope-owned). The `is_disposed()` + name guard prevents
+      wrong reads, but stale entries accumulate. Fix: scope MemoMap to chain, or add sweep-on-rebuild
+- [ ] **Stable identity across insertions** — encounter-order shifts when inserting a def at position 0,
+      invalidating all subsequent DefIds. Consider content-hashing or path-independent naming
+
+### Type System Extensions (deferred — not needed for infra validation)
+
+- [ ] Polymorphism / type variables / unification
+- [ ] Position/span tracking in diagnostics (AST doesn't carry spans yet)
+
+### Integration
+
+- [ ] **Wire into ReactiveParser** — connect `build_typecheck_pipeline` to loom's `ReactiveParser`
+      so type results flow through `Signal[String]` → parse → typecheck end-to-end
+- [ ] **TypedTerm duplication cleanup** — `convert.mbt` is a full tree copy to add `None` annotations;
+      consider a side-table of annotations keyed by node identity if the typechecker expands
 
 ## Pipeline Traits — Deferred (move to loom)
 
