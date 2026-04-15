@@ -85,16 +85,16 @@ impl CellLifecycle for PushReactiveData with on_unobserve(self, rt, cell_id) {
 /// links were removed during suspension. For fresh cells (never
 /// suspended), add_subscriber is idempotent.
 impl CellLifecycle for PushReactiveData with on_observe(self, rt, cell_id) {
-  guard !rt.core.in_push_propagation else {
+  guard !(rt.core.phase is PushPropagating) else {
     abort("on_observe: cannot activate during push propagation")
   }
-  guard !rt.core.in_fixpoint else {
+  guard !(rt.core.phase is InFixpoint) else {
     abort("on_observe: cannot activate during fixpoint evaluation")
   }
   rt.begin_tracking(cell_id)
   let _ = (self.compute)()
-  let new_sources = rt.end_tracking()
-  rt.finish_tracking(cell_id, [], new_sources)
+  let (new_sources, new_seen) = rt.end_tracking()
+  rt.finish_tracking(cell_id, [], new_sources, new_seen)
   self.sources = new_sources
   self.level = rt.recompute_level(cell_id, new_sources)
   self.dirty = false
@@ -187,12 +187,12 @@ pub fn[T : Eq] Reactive::new(rt : Runtime, compute_fn : () -> T) -> Reactive[T] 
   // Initial compute: establish dependencies and set initial value.
   rt.begin_tracking(cell_id)
   let _ = compute()
-  let new_sources = rt.end_tracking()
+  let (new_sources, new_seen) = rt.end_tracking()
   rt.push.reactives[reactive_idx].sources = new_sources
   rt.push.reactives[reactive_idx].level = rt.recompute_level(
     cell_id, new_sources,
   )
-  rt.finish_tracking(cell_id, [], new_sources)
+  rt.finish_tracking(cell_id, [], new_sources, new_seen)
   reactive
 }
 
@@ -203,7 +203,7 @@ pub fn[T : Eq] Reactive::new(rt : Runtime, compute_fn : () -> T) -> Reactive[T] 
 /// Outside a compute function, use `rt.read_reactive(reactive)` or
 /// `reactive.observe()`.
 pub fn[T] Reactive::get(self : Reactive[T]) -> T {
-  guard self.rt.core.tracking_stack.length() > 0 else {
+  guard self.rt.core.tracking.stack.length() > 0 else {
     abort(
       "Reactive::get() called outside tracked context. Use rt.read_reactive(reactive) or reactive.observe() to read from outside the graph.",
     )

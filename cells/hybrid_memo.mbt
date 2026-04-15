@@ -76,7 +76,7 @@ pub fn[T : Eq] HybridMemo::new(
 /// Must be called inside a tracked context (another memo's compute function).
 /// Outside a compute function, use `rt.read_hybrid(memo)` or `memo.observe()`.
 pub fn[T : Eq] HybridMemo::get(self : HybridMemo[T]) -> T {
-  guard self.rt.core.tracking_stack.length() > 0 else {
+  guard self.rt.core.tracking.stack.length() > 0 else {
     abort(
       "HybridMemo::get() called outside tracked context. Use rt.read_hybrid(memo) or memo.observe() to read from outside the graph.",
     )
@@ -101,7 +101,7 @@ fn[T : Eq] HybridMemo::get_untracked(self : HybridMemo[T]) -> T {
       active_rt.to_string(),
     )
   }
-  if self.rt.core.in_fixpoint {
+  if self.rt.core.phase is InFixpoint {
     abort(
       "HybridMemo::get() cannot be called during fixpoint(); read relations directly or call get() after fixpoint() completes",
     )
@@ -117,7 +117,7 @@ fn[T : Eq] HybridMemo::get_untracked(self : HybridMemo[T]) -> T {
       }
     Some(cached) => {
       let cell = self.rt.get_memo_data(self.cell_id)
-      if cell.verified_at >= self.rt.core.current_revision {
+      if cell.verified_at >= self.rt.core.revision.current_revision {
         self.rt.record_dependency(self.cell_id)
         return cached
       }
@@ -166,7 +166,7 @@ pub fn[T] HybridMemo::is_up_to_date(self : HybridMemo[T]) -> Bool {
     None => false
     Some(_) =>
       self.rt.get_memo_data(self.cell_id).verified_at ==
-      self.rt.core.current_revision
+      self.rt.core.revision.current_revision
   }
 }
 

@@ -86,7 +86,7 @@ test "dispose_cell: clears gc_root_counts with multiple observers" {
 }
 
 ///|
-test "in_push_propagation: false by default" {
+test "phase: Idle by default" {
   let rt = Runtime::new()
-  inspect(rt.core.in_push_propagation, content="false")
+  inspect(rt.core.phase, content="Idle")
 }

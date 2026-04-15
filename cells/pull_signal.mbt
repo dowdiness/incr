@@ -50,7 +50,7 @@ impl Committable for PullSignalData with durability(self) -> Durability {
 impl CellLifecycle for PullSignalData with dispose_cell(self, rt, cell_id) -> Unit {
   match rt.core.cell_index[cell_id.id] {
     PullSignal(idx) => {
-      if rt.core.batch_depth > 0 {
+      if rt.core.batch.depth > 0 {
         rt.remove_batch_signal(cell_id)
       }
       self.meta.subscribers.clear()

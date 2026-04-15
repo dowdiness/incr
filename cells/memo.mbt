@@ -155,7 +155,7 @@ pub fn[T] Memo::new_no_backdate(
 /// Use `get_result()` for error-returning cycle handling, or `rt.read()`
 /// for outside-the-graph reads.
 pub fn[T] Memo::get(self : Memo[T]) -> T {
-  guard self.rt.core.tracking_stack.length() > 0 else {
+  guard self.rt.core.tracking.stack.length() > 0 else {
     abort(
       "Memo::get() called outside tracked context. Use rt.read(memo) or memo.observe() to read from outside the graph.",
     )
@@ -214,7 +214,7 @@ fn[T] Memo::get_result_inner(self : Memo[T]) -> Result[T, CycleError] {
   }
   let active_rt = current_computing_runtime_id.val
   if active_rt >= 0 {
-    if self.rt.core.tracking_stack.length() == 0 {
+    if self.rt.core.tracking.stack.length() == 0 {
       // Stale global from a prior aborted computation — reset it.
       current_computing_runtime_id.val = -1
     } else if active_rt != self.rt.core.runtime_id {
@@ -227,7 +227,7 @@ fn[T] Memo::get_result_inner(self : Memo[T]) -> Result[T, CycleError] {
       )
     }
   }
-  if self.rt.core.in_fixpoint {
+  if self.rt.core.phase is InFixpoint {
     abort(
       "Memo::get() cannot be called during fixpoint(); read relations directly or call get() after fixpoint() completes",
     )
@@ -247,7 +247,7 @@ fn[T] Memo::get_result_inner(self : Memo[T]) -> Result[T, CycleError] {
     Some(cached) => {
       // Fast path: already verified this revision
       let cell = self.rt.get_memo_data(self.cell_id)
-      if cell.verified_at >= self.rt.core.current_revision {
+      if cell.verified_at >= self.rt.core.revision.current_revision {
         self.rt.record_dependency(self.cell_id)
         return Ok(cached)
       }
@@ -402,26 +402,12 @@ fn[T] Runtime::memo_force_recompute(
   self.push_tracking(cell_id)
   let new_value = compute_fn()
   let (new_deps, new_seen) = self.pop_tracking()
-  let mut deps_changed = new_deps.length() != old_deps.length()
-  let old_seen : @hashset.HashSet[CellId] = @hashset.new()
-  for dep in old_deps {
-    old_seen.add(dep)
-    if !new_seen.contains(dep) {
-      deps_changed = true
-    }
-  }
-  if deps_changed {
-    for dep in old_deps {
-      if !new_seen.contains(dep) {
-        self.remove_subscriber(dep, cell_id)
-      }
-    }
-    for dep in new_deps {
-      if !old_seen.contains(dep) {
-        self.add_subscriber(dep, cell_id)
-      }
-    }
-  }
+  let deps_changed = self.diff_and_update_subscribers(
+    cell_id,
+    old_deps,
+    new_deps,
+    new_seen~,
+  )
   cell.dependencies = new_deps
   if deps_changed {
     cell.meta.durability = compute_durability(self, new_deps)
@@ -431,9 +417,9 @@ fn[T] Runtime::memo_force_recompute(
     Some(old) => !eq_fn(old, new_value)
   }
   if value_changed {
-    cell.meta.changed_at = self.core.current_revision
+    cell.meta.changed_at = self.core.revision.current_revision
   }
-  cell.verified_at = self.core.current_revision
+  cell.verified_at = self.core.revision.current_revision
   cell.in_progress = false
   Ok(new_value)
 }
@@ -552,6 +538,6 @@ pub fn[T] Memo::is_up_to_date(self : Memo[T]) -> Bool {
     None => false
     Some(_) =>
       self.rt.get_memo_data(self.cell_id).verified_at ==
-      self.rt.core.current_revision
+      self.rt.core.revision.current_revision
   }
 }

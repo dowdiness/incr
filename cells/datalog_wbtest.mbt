@@ -242,7 +242,7 @@ test "panic fixpoint: aborts inside a batch" {
   let rt = Runtime::new()
   let rel : Relation[Int] = Relation::new(rt)
   rel.insert(1) |> ignore
-  rt.core.batch_depth = 1
+  rt.core.batch.depth = 1
   rt.fixpoint()
 }
 
@@ -250,7 +250,7 @@ test "panic fixpoint: aborts inside a batch" {
 test "get_changed_at: relation changed_at updated by fixpoint" {
   let rt = Runtime::new()
   let rel : Relation[Int] = Relation::new(rt)
-  let rev_before = rt.core.current_revision
+  let rev_before = rt.core.revision.current_revision
   rel.insert(1) |> ignore
   rt.fixpoint()
   let rel_idx = match rt.core.cell_index[rel.id().id] {

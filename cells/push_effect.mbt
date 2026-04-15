@@ -138,10 +138,10 @@ pub fn Effect::new(rt : Runtime, f : () -> Unit) -> Effect {
   // Run immediately to establish dependencies and execute the initial side effect.
   rt.begin_tracking(cell_id)
   f()
-  let new_sources = rt.end_tracking()
+  let (new_sources, new_seen) = rt.end_tracking()
   rt.push.effects[effect_idx].sources = new_sources
   rt.push.effects[effect_idx].level = rt.recompute_level(cell_id, new_sources)
-  rt.finish_tracking(cell_id, [], new_sources)
+  rt.finish_tracking(cell_id, [], new_sources, new_seen)
   effect
 }
 

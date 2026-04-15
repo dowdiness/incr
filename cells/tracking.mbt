@@ -58,9 +58,9 @@ fn ActiveQuery::record(self : ActiveQuery, dep : CellId) -> Unit {
 ///
 /// - `dep`: The cell ID that the current memo depends on
 impl Tracker for Runtime with record_dependency(self, dep) {
-  let len = self.core.tracking_stack.length()
+  let len = self.core.tracking.stack.length()
   if len > 0 {
-    self.core.tracking_stack[len - 1].record(dep)
+    self.core.tracking.stack[len - 1].record(dep)
   }
 }
 
@@ -75,7 +75,7 @@ impl Tracker for Runtime with record_dependency(self, dep) {
 /// - `cell_id`: The ID of the memo being computed
 impl Tracker for Runtime with push_tracking(self, cell_id) {
   current_computing_runtime_id.val = self.core.runtime_id
-  self.core.tracking_stack.push(ActiveQuery(cell_id))
+  self.core.tracking.stack.push(ActiveQuery(cell_id))
 }
 
 ///|
@@ -92,9 +92,9 @@ impl Tracker for Runtime with push_tracking(self, cell_id) {
 ///
 /// Aborts if the tracking stack is empty (unbalanced push/pop)
 impl Tracker for Runtime with pop_tracking(self) {
-  match self.core.tracking_stack.pop() {
+  match self.core.tracking.stack.pop() {
     Some(query) => {
-      if self.core.tracking_stack.length() == 0 {
+      if self.core.tracking.stack.length() == 0 {
         current_computing_runtime_id.val = -1
       }
       (query.dependencies, query.seen)
@@ -114,55 +114,35 @@ fn Runtime::begin_tracking(self : Runtime, cell_id : CellId) -> Unit {
 }
 
 ///|
-/// Pops the tracking frame and returns only the collected dependency list.
+/// Pops the tracking frame and returns the collected dependencies and seen set.
 ///
-/// Simplified form of `pop_tracking` used by Phase 3+ cell types that do not
-/// need the pre-built `seen` set (they call `finish_tracking` separately).
+/// Used by Phase 3+ cell types that call `finish_tracking` to update
+/// subscriber links. Returns both deps and seen so `finish_tracking` can
+/// forward the pre-built seen set to `diff_and_update_subscribers`.
 ///
 /// # Panics
 ///
 /// Aborts if the tracking stack is empty.
-fn Runtime::end_tracking(self : Runtime) -> Array[CellId] {
-  let (deps, _seen) = self.pop_tracking()
-  deps
+fn Runtime::end_tracking(
+  self : Runtime,
+) -> (Array[CellId], @hashset.HashSet[CellId]) {
+  self.pop_tracking()
 }
 
 ///|
 /// Updates subscriber links after a cell recomputes with a new dependency set.
 ///
-/// Diffs `old_deps` against `new_deps` and:
-/// - removes `cell_id` from the subscriber set of every dropped dependency
-/// - adds `cell_id` to the subscriber set of every newly added dependency
-///
-/// This is the canonical subscriber-maintenance helper for Phase 3+ cell types.
-/// `Memo::force_recompute` performs an equivalent diff inline (with the
-/// optimisation of reusing the `seen` set from `pop_tracking`); Phase 3 cell
-/// types use this helper instead.
+/// Diffs `old_deps` against `new_deps` using the pre-built `new_seen` set
+/// from `end_tracking` to avoid rebuilding it.
 fn Runtime::finish_tracking(
   self : Runtime,
   cell_id : CellId,
   old_deps : Array[CellId],
   new_deps : Array[CellId],
+  new_seen : @hashset.HashSet[CellId],
 ) -> Unit {
-  if old_deps.length() == 0 && new_deps.length() == 0 {
-    return
-  }
-  let new_seen : @hashset.HashSet[CellId] = @hashset.new()
-  for dep in new_deps {
-    new_seen.add(dep)
-  }
-  let old_seen : @hashset.HashSet[CellId] = @hashset.new()
-  for dep in old_deps {
-    old_seen.add(dep)
-    if !new_seen.contains(dep) {
-      self.remove_subscriber(dep, cell_id)
-    }
-  }
-  for dep in new_deps {
-    if !old_seen.contains(dep) {
-      self.add_subscriber(dep, cell_id)
-    }
-  }
+  self.diff_and_update_subscribers(cell_id, old_deps, new_deps, new_seen~)
+  |> ignore
 }
 
 ///|
@@ -172,7 +152,7 @@ fn Runtime::finish_tracking(
 /// for use in cycle error diagnostics. Does not modify the stack.
 fn Runtime::collect_tracking_path(self : Runtime) -> Array[CellId] {
   let path : Array[CellId] = []
-  for frame in self.core.tracking_stack {
+  for frame in self.core.tracking.stack {
     path.push(frame.cell_id)
   }
   path

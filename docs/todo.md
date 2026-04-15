@@ -293,6 +293,29 @@ needs the generic interface.
 - [ ] Remove `CalcPipeline` test fixture from `incr/tests/traits_test.mbt`
 - [ ] Add capability traits to `loom/src/pipeline/` with `ReactiveParser` impls
 
+## Runtime Modularization (Phase 4 — Remaining)
+
+Architecture analysis completed 2026-04-16. See [design.md](design.md#architecture-analysis-2026-04-16) for full diagnosis.
+
+### Completed (PR #35)
+
+- [x] Add `PropagationPhase` enum (`Idle`, `PushPropagating`, `InFixpoint`, `GarbageCollecting`) with `enter_phase`/`leave_phase` helpers
+- [x] Replace `in_fixpoint : Bool` and `in_push_propagation : Bool` with phase checks
+- [x] Add phase transition tests (mutual exclusion, panic on re-entry)
+- [x] Extract `RevisionState` (`current_revision`, `durability_last_changed`) within RuntimeCore
+- [x] Extract `TrackingState` (`tracking_stack`) within RuntimeCore
+- [x] Extract `BatchState` (`batch_pending`, `batch_frames`, `batch_max_durability`, `batch_depth`) within RuntimeCore
+- [x] Update all whitebox tests to access fields through new struct paths
+- [x] Extract shared `diff_and_update_subscribers` function
+- [x] Migrate `memo_force_recompute` to use shared function (preserves `seen` set optimization)
+- [x] Migrate `finish_tracking` to use shared function
+
+### Remaining
+
+- [ ] Route batch→push propagation through coordinator instead of direct call
+- [ ] Internal package split — Move engine types to `cells/internal/pull/`, `cells/internal/push/`, `cells/internal/datalog/`
+- [ ] Verify engine packages do not import each other
+
 ## Documentation
 
 - [x] Add doc comments to all public functions

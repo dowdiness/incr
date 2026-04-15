@@ -178,7 +178,12 @@ The following features build toward a Salsa-style query API where users write no
 ### Phase 4 — Remaining
 
 - **Recursive suspension**: Auto-suspend when `push_reachable_count` drops to 0 on unobserved cells (deferred from Layer 4b — gc() handles cleanup for now).
-- **Runtime modularization**: Investigate decomposing Runtime god object into composable subsystems per propagation mode (pull, push, hybrid, datalog) to improve maintainability without breaking encapsulation
+- **Runtime modularization**: Decompose Runtime god object into coordinator + engines. Architecture analysis completed 2026-04-16 (see [design.md](design.md#architecture-analysis-2026-04-16)).
+  - ~~Phase Machine — Replace boolean guards with `PropagationPhase` enum~~ ✓ PR #35
+  - ~~Extract RevisionState + TrackingState + BatchState — Group fields within RuntimeCore~~ ✓ PR #35
+  - ~~Unify Subscriber Diff — Single shared `diff_and_update_subscribers` function~~ ✓ PR #35
+  - Internal package split — Move engine types to `cells/internal/pull/`, `cells/internal/push/`, `cells/internal/datalog/` using MoonBit's `internal` package visibility
+  - Further engine extraction — Deferred until accumulators or parallel computation create need
 
 ## Phase 5 — Ecosystem
 

@@ -2,7 +2,7 @@
 /// Interface for signal cells that have pending values during a batch.
 ///
 /// Implemented by `PullSignalData`. Stored as `&Committable` in
-/// `Runtime.batch_pending` so `commit_batch` can iterate and dispatch
+/// `Runtime.core.batch.pending` so `commit_batch` can iterate and dispatch
 /// without a per-entry `CellId → PullSignalData` lookup.
 ///
 /// `cell_id` and `durability` allow `commit_batch` and

@@ -126,7 +126,7 @@ fn Runtime::push_propagate_from(
   self : Runtime,
   changed_sources : Array[CellId],
 ) -> Unit {
-  self.core.in_push_propagation = true
+  self.enter_phase(PushPropagating)
   let update_queue : @priority_queue.PriorityQueue[PushEntry] = @priority_queue.new()
   // Reused across all enqueue_push_subscribers calls to avoid per-call allocation.
   let bfs_worklist : Array[CellId] = []
@@ -209,8 +209,10 @@ fn Runtime::push_propagate_from(
         let old_sources = reactive.sources
         self.begin_tracking(reactive_cell_id)
         let changed = (reactive.compute)()
-        let new_sources = self.end_tracking()
-        self.finish_tracking(reactive_cell_id, old_sources, new_sources)
+        let (new_sources, new_seen) = self.end_tracking()
+        self.finish_tracking(
+          reactive_cell_id, old_sources, new_sources, new_seen,
+        )
         reactive.sources = new_sources
         let new_level = self.recompute_level(reactive_cell_id, new_sources)
         if new_level != reactive.level {
@@ -218,7 +220,7 @@ fn Runtime::push_propagate_from(
           self.propagate_level_change(reactive_cell_id, update_queue)
         }
         if changed {
-          reactive.meta.changed_at = self.core.current_revision
+          reactive.meta.changed_at = self.core.revision.current_revision
           enqueue_push_subscribers(reactive_cell_id)
         }
       }
@@ -241,13 +243,13 @@ fn Runtime::push_propagate_from(
         let old_sources = effect.sources
         self.begin_tracking(effect_cell_id)
         (effect.execute)()
-        let new_sources = self.end_tracking()
-        self.finish_tracking(effect_cell_id, old_sources, new_sources)
+        let (new_sources, new_seen) = self.end_tracking()
+        self.finish_tracking(effect_cell_id, old_sources, new_sources, new_seen)
         effect.sources = new_sources
         effect.level = self.recompute_level(effect_cell_id, new_sources)
       }
       _ => ()
     }
   }
-  self.core.in_push_propagation = false
+  self.leave_phase()
 }

@@ -5,7 +5,7 @@ test "tracking: begin/end tracking records dependency" {
   let m = Memo::new(rt, () => 0)
   rt.begin_tracking(m.id())
   let _ = sig.get()
-  let deps = rt.end_tracking()
+  let (deps, _seen) = rt.end_tracking()
   inspect(deps.length(), content="1")
   inspect(deps[0] == sig.id(), content="true")
 }
@@ -20,8 +20,8 @@ test "tracking: finish_tracking adds memo to dep subscribers" {
   // with empty old_deps (first compute) and the captured new_deps.
   rt.begin_tracking(m.id())
   let _ = sig.get()
-  let new_deps = rt.end_tracking()
-  rt.finish_tracking(m.id(), [], new_deps)
+  let (new_deps, new_seen) = rt.end_tracking()
+  rt.finish_tracking(m.id(), [], new_deps, new_seen)
   let sig_idx = match rt.core.cell_index[sig.id().id] {
     PullSignal(i) => i
     _ => abort("expected PullSignal")

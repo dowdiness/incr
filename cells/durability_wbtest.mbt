@@ -108,10 +108,10 @@ test "durability: shortcut boundary — High memo stays skipped when durability_
   // Initial computation at revision 0
   inspect(rt.read(config_memo), content="10")
   inspect(config_compute_count, content="1")
-  inspect(rt.core.current_revision.value, content="0")
+  inspect(rt.core.revision.current_revision.value, content="0")
   // Change High signal: bumps to revision 1; durability_last_changed[High] = 1
   config.set(2)
-  inspect(rt.core.current_revision.value, content="1")
+  inspect(rt.core.revision.current_revision.value, content="1")
   // Re-verify config_memo: verified_at = 1
   inspect(rt.read(config_memo), content="20")
   inspect(config_compute_count, content="2")
@@ -119,7 +119,7 @@ test "durability: shortcut boundary — High memo stays skipped when durability_
   // durability_last_changed[Medium] = 2, durability_last_changed[Low] = 2
   // durability_last_changed[High] stays at 1  ← key boundary condition
   data.set(99)
-  inspect(rt.core.current_revision.value, content="2")
+  inspect(rt.core.revision.current_revision.value, content="2")
   // Shortcut check: durability_last_changed[High]=1 > after_revision=1 → false
   // NOT false → shortcut fires; config_memo must NOT recompute
   inspect(rt.read(config_memo), content="20")

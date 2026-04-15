@@ -25,49 +25,77 @@ let current_computing_runtime_id : Ref[Int] = { val: -1 }
 /// Core runtime state: identity, revision tracking, batch management,
 /// unified dispatch tables, and cross-engine guards.
 ///
-/// Groups fields that are accessed by all propagation modes: revision tracking,
-/// batch management, unified dispatch tables, and cross-engine guards.
-/// The `cell_index` and `cell_ops` dispatch tables bridge the two-layer
-/// architecture (CellRef for structural observation, CellOps for behavioral
-/// dispatch). `tracking_stack` lives here rather than in PullState because
-/// push-mode cell types (Reactive, Effect) also use begin/end_tracking.
-/// `in_fixpoint` lives here rather than in DatalogState because it is a
-/// cross-cutting guard that constrains all engines during fixpoint evaluation.
+/// Groups fields that are accessed by all propagation modes: revision tracking
+/// (RevisionState), batch management (BatchState), dependency tracking
+/// (TrackingState), unified dispatch tables, and cross-engine guards
+/// (PropagationPhase).
 ///
 /// # Pointer chase tradeoff
 ///
-/// All sub-struct field accesses (e.g. `self.core.current_revision`) require
+/// All sub-struct field accesses (e.g. `self.core.revision.current_revision`) require
 /// one extra pointer dereference compared to the old flat layout. MoonBit
 /// structs are heap-allocated, so RuntimeCore is a separate heap object.
 /// In hot loops (verify dep-walk, push propagation), the sub-struct pointers
 /// are cache-hot since they are dereferenced on every iteration. Profile
 /// with `moon bench --release` if regressions are suspected.
+
+///|
+/// Mutually exclusive runtime phases for cross-engine guards.
+///
+/// These phases are never active simultaneously. `batch.depth` is
+/// orthogonal — batches compose with any propagation phase (e.g.
+/// commit_batch temporarily raises batch.depth during callbacks
+/// while the propagation phase is Idle).
+priv enum PropagationPhase {
+  Idle
+  PushPropagating
+  InFixpoint
+  GarbageCollecting
+} derive(Eq, Debug)
+
+///|
+impl Show for PropagationPhase with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+/// Batch update management: deferred signal writes and rollback.
+priv struct BatchState {
+  mut depth : Int
+  pending : Array[&Committable]
+  frames : Array[BatchFrame]
+  mut max_durability : Durability
+}
+
+///|
+/// Dependency tracking: recording which cells are read during computation.
+priv struct TrackingState {
+  stack : Array[ActiveQuery]
+}
+
+///|
+/// Revision tracking: global clock and per-durability change timestamps.
+priv struct RevisionState {
+  mut current_revision : Revision
+  durability_last_changed : FixedArray[Revision]
+}
+
+///|
 priv struct RuntimeCore {
   runtime_id : Int
-  mut current_revision : Revision
+  revision : RevisionState
   mut next_cell_id : Int
-  tracking_stack : Array[ActiveQuery]
-  durability_last_changed : FixedArray[Revision]
-  mut batch_depth : Int
-  batch_pending : Array[&Committable]
-  batch_frames : Array[BatchFrame]
-  mut batch_max_durability : Durability
+  tracking : TrackingState
+  batch : BatchState
   mut on_change : (() -> Unit)?
   cell_index : Array[CellRef]
   cell_ops : Array[&CellOps]
   cell_lifecycle : Array[&CellLifecycle]
-  /// True while Runtime::fixpoint() is running. Cross-engine guard: prevents
-  /// pull_verify, Memo::get(), and HybridMemo::get() from running concurrently
-  /// with semi-naive delta tracking. Relation::insert() is allowed during
-  /// fixpoint but redirects writes to staged_delta for the next iteration.
-  mut in_fixpoint : Bool
+  mut phase : PropagationPhase
   /// Reference counts for observed cells. Key = observed CellId,
   /// value = number of live Observer handles. on_unobserve fires only
   /// when count reaches 0.
   gc_root_counts : @hashmap.HashMap[CellId, Int]
-  /// True while push_propagate_from is running. Guards gc() from
-  /// running during push propagation.
-  mut in_push_propagation : Bool
 }
 
 ///|
@@ -159,24 +187,22 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
   {
     core: {
       runtime_id: id,
-      current_revision: Revision::initial(),
+      revision: {
+        current_revision: Revision::initial(),
+        durability_last_changed: FixedArray::make(
+          @incr_types.DURABILITY_COUNT,
+          Revision::initial(),
+        ),
+      },
       next_cell_id: 0,
-      tracking_stack: [],
-      durability_last_changed: FixedArray::make(
-        @incr_types.DURABILITY_COUNT,
-        Revision::initial(),
-      ),
-      batch_depth: 0,
-      batch_pending: [],
-      batch_frames: [],
-      batch_max_durability: Low,
+      tracking: { stack: [] },
+      batch: { depth: 0, pending: [], frames: [], max_durability: Low },
       on_change,
       cell_index: [],
       cell_ops: [],
       cell_lifecycle: [],
-      in_fixpoint: false,
+      phase: Idle,
       gc_root_counts: @hashmap.new(),
-      in_push_propagation: false,
     },
     pull: { signals: [], memos: [], free_signals: [], free_memos: [] },
     push: {
@@ -188,6 +214,30 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
     },
     datalog: { relations: [], functional_relations: [], rules: [] },
   }
+}
+
+///|
+/// Transitions to a new propagation phase.
+///
+/// Aborts if the current phase is not `Idle` — phases are mutually
+/// exclusive. The one exception is returning to `Idle`, which is
+/// always allowed from any active phase (used in finally-style cleanup).
+fn Runtime::enter_phase(self : Runtime, next : PropagationPhase) -> Unit {
+  guard self.core.phase is Idle else {
+    abort(
+      "enter_phase: cannot enter " +
+      next.to_string() +
+      " while in " +
+      self.core.phase.to_string(),
+    )
+  }
+  self.core.phase = next
+}
+
+///|
+/// Returns to the Idle phase. Unconditional — always succeeds.
+fn Runtime::leave_phase(self : Runtime) -> Unit {
+  self.core.phase = Idle
 }
 
 ///|
@@ -566,7 +616,9 @@ fn Runtime::publish_cell_changes(
 ) -> Unit {
   self.advance_revision(durability)
   for id in changed_ids {
-    self.core.cell_ops[id.id].set_changed_at(self.core.current_revision)
+    self.core.cell_ops[id.id].set_changed_at(
+      self.core.revision.current_revision,
+    )
   }
   if self.push.node_count > 0 {
     self.push_propagate_from(changed_ids)
@@ -579,10 +631,12 @@ fn Runtime::publish_cell_changes(
 /// Updates current_revision and all durability_last_changed entries up to dur_idx.
 /// Callers must ensure this is only called outside of a batch (batch_depth == 0).
 impl RevisionManager for Runtime with advance_revision(self, durability) {
-  self.core.current_revision = Revision::next(self.core.current_revision)
+  self.core.revision.current_revision = Revision::next(
+    self.core.revision.current_revision,
+  )
   let dur_idx = durability.index()
   for i = 0; i <= dur_idx; i = i + 1 {
-    self.core.durability_last_changed[i] = self.core.current_revision
+    self.core.revision.durability_last_changed[i] = self.core.revision.current_revision
   }
 }
 
@@ -592,7 +646,7 @@ impl RevisionManager for Runtime with advance_revision(self, durability) {
 /// Must be called after advance_revision so current_revision is already updated.
 fn Runtime::mark_input_changed(self : Runtime, id : CellId) -> PullSignalData {
   let sig = self.get_pull_signal(id)
-  sig.meta.changed_at = self.core.current_revision
+  sig.meta.changed_at = self.core.revision.current_revision
   sig
 }
 
@@ -609,10 +663,10 @@ fn Runtime::mark_input_changed(self : Runtime, id : CellId) -> PullSignalData {
 ///
 /// - `durability`: The durability level of the signal that changed
 impl RevisionManager for Runtime with bump_revision(self, durability) {
-  if self.core.batch_depth > 0 {
+  if self.core.batch.depth > 0 {
     // Track the maximum durability seen during this batch
-    if durability > self.core.batch_max_durability {
-      self.core.batch_max_durability = durability
+    if durability > self.core.batch.max_durability {
+      self.core.batch.max_durability = durability
     }
     return
   }
@@ -622,10 +676,10 @@ impl RevisionManager for Runtime with bump_revision(self, durability) {
 ///|
 /// Guards against disposing a cell during fixpoint or its own computation.
 fn Runtime::guard_dispose(self : Runtime, cell_id : CellId) -> Unit {
-  guard !self.core.in_fixpoint else {
+  guard !(self.core.phase is InFixpoint) else {
     abort("dispose: cannot dispose cells during fixpoint()")
   }
-  for aq in self.core.tracking_stack {
+  for aq in self.core.tracking.stack {
     guard aq.cell_id != cell_id else {
       abort("dispose: cannot dispose a cell during its own computation")
     }
@@ -705,21 +759,20 @@ fn Runtime::cell_id_at(self : Runtime, i : Int) -> CellId {
 /// unreachable from any gc root (observed cells) or implicit root (Effect).
 /// Source cells (Signal, Relation, FunctionalRelation, Rule) are never collected.
 pub fn Runtime::gc(self : Runtime) -> Unit {
-  guard self.core.tracking_stack.is_empty() else {
+  guard self.core.tracking.stack.is_empty() else {
     // Clean up global state before aborting so panic tests don't
     // contaminate subsequent tests via current_computing_runtime_id.
-    self.core.tracking_stack.clear()
+    self.core.tracking.stack.clear()
     current_computing_runtime_id.val = -1
     abort("gc: cannot run during active computation")
   }
-  guard self.core.batch_depth == 0 else { abort("gc: cannot run during batch") }
-  guard !self.core.in_fixpoint else {
-    abort("gc: cannot run during fixpoint evaluation")
+  guard self.core.batch.depth == 0 else { abort("gc: cannot run during batch") }
+  guard self.core.phase is Idle else {
+    abort("gc: cannot run during " + self.core.phase.to_string())
   }
-  guard !self.core.in_push_propagation else {
-    abort("gc: cannot run during push propagation")
-  }
+  self.enter_phase(GarbageCollecting)
   self.gc_sweep()
+  self.leave_phase()
 }
 
 ///|
