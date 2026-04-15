@@ -203,7 +203,7 @@ pub fn[T : Eq] Reactive::new(rt : Runtime, compute_fn : () -> T) -> Reactive[T] 
 /// Outside a compute function, use `rt.read_reactive(reactive)` or
 /// `reactive.observe()`.
 pub fn[T] Reactive::get(self : Reactive[T]) -> T {
-  guard self.rt.core.tracking_stack.length() > 0 else {
+  guard self.rt.core.tracking.stack.length() > 0 else {
     abort(
       "Reactive::get() called outside tracked context. Use rt.read_reactive(reactive) or reactive.observe() to read from outside the graph.",
     )

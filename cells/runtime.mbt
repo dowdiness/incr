@@ -67,6 +67,12 @@ impl Show for PropagationPhase with output(self, logger) {
 }
 
 ///|
+///|
+/// Dependency tracking: recording which cells are read during computation.
+priv struct TrackingState {
+  stack : Array[ActiveQuery]
+}
+
 /// Revision tracking: global clock and per-durability change timestamps.
 priv struct RevisionState {
   mut current_revision : Revision
@@ -77,7 +83,7 @@ priv struct RuntimeCore {
   runtime_id : Int
   revision : RevisionState
   mut next_cell_id : Int
-  tracking_stack : Array[ActiveQuery]
+  tracking : TrackingState
   mut batch_depth : Int
   batch_pending : Array[&Committable]
   batch_frames : Array[BatchFrame]
@@ -190,7 +196,7 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
         ),
       },
       next_cell_id: 0,
-      tracking_stack: [],
+      tracking: { stack: [] },
       batch_depth: 0,
       batch_pending: [],
       batch_frames: [],
@@ -679,7 +685,7 @@ fn Runtime::guard_dispose(self : Runtime, cell_id : CellId) -> Unit {
   guard !(self.core.phase is InFixpoint) else {
     abort("dispose: cannot dispose cells during fixpoint()")
   }
-  for aq in self.core.tracking_stack {
+  for aq in self.core.tracking.stack {
     guard aq.cell_id != cell_id else {
       abort("dispose: cannot dispose a cell during its own computation")
     }
@@ -759,10 +765,10 @@ fn Runtime::cell_id_at(self : Runtime, i : Int) -> CellId {
 /// unreachable from any gc root (observed cells) or implicit root (Effect).
 /// Source cells (Signal, Relation, FunctionalRelation, Rule) are never collected.
 pub fn Runtime::gc(self : Runtime) -> Unit {
-  guard self.core.tracking_stack.is_empty() else {
+  guard self.core.tracking.stack.is_empty() else {
     // Clean up global state before aborting so panic tests don't
     // contaminate subsequent tests via current_computing_runtime_id.
-    self.core.tracking_stack.clear()
+    self.core.tracking.stack.clear()
     current_computing_runtime_id.val = -1
     abort("gc: cannot run during active computation")
   }

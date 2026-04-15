@@ -58,9 +58,9 @@ fn ActiveQuery::record(self : ActiveQuery, dep : CellId) -> Unit {
 ///
 /// - `dep`: The cell ID that the current memo depends on
 impl Tracker for Runtime with record_dependency(self, dep) {
-  let len = self.core.tracking_stack.length()
+  let len = self.core.tracking.stack.length()
   if len > 0 {
-    self.core.tracking_stack[len - 1].record(dep)
+    self.core.tracking.stack[len - 1].record(dep)
   }
 }
 
@@ -75,7 +75,7 @@ impl Tracker for Runtime with record_dependency(self, dep) {
 /// - `cell_id`: The ID of the memo being computed
 impl Tracker for Runtime with push_tracking(self, cell_id) {
   current_computing_runtime_id.val = self.core.runtime_id
-  self.core.tracking_stack.push(ActiveQuery(cell_id))
+  self.core.tracking.stack.push(ActiveQuery(cell_id))
 }
 
 ///|
@@ -92,9 +92,9 @@ impl Tracker for Runtime with push_tracking(self, cell_id) {
 ///
 /// Aborts if the tracking stack is empty (unbalanced push/pop)
 impl Tracker for Runtime with pop_tracking(self) {
-  match self.core.tracking_stack.pop() {
+  match self.core.tracking.stack.pop() {
     Some(query) => {
-      if self.core.tracking_stack.length() == 0 {
+      if self.core.tracking.stack.length() == 0 {
         current_computing_runtime_id.val = -1
       }
       (query.dependencies, query.seen)
@@ -172,7 +172,7 @@ fn Runtime::finish_tracking(
 /// for use in cycle error diagnostics. Does not modify the stack.
 fn Runtime::collect_tracking_path(self : Runtime) -> Array[CellId] {
   let path : Array[CellId] = []
-  for frame in self.core.tracking_stack {
+  for frame in self.core.tracking.stack {
     path.push(frame.cell_id)
   }
   path

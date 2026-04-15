@@ -155,7 +155,7 @@ pub fn[T] Memo::new_no_backdate(
 /// Use `get_result()` for error-returning cycle handling, or `rt.read()`
 /// for outside-the-graph reads.
 pub fn[T] Memo::get(self : Memo[T]) -> T {
-  guard self.rt.core.tracking_stack.length() > 0 else {
+  guard self.rt.core.tracking.stack.length() > 0 else {
     abort(
       "Memo::get() called outside tracked context. Use rt.read(memo) or memo.observe() to read from outside the graph.",
     )
@@ -214,7 +214,7 @@ fn[T] Memo::get_result_inner(self : Memo[T]) -> Result[T, CycleError] {
   }
   let active_rt = current_computing_runtime_id.val
   if active_rt >= 0 {
-    if self.rt.core.tracking_stack.length() == 0 {
+    if self.rt.core.tracking.stack.length() == 0 {
       // Stale global from a prior aborted computation — reset it.
       current_computing_runtime_id.val = -1
     } else if active_rt != self.rt.core.runtime_id {

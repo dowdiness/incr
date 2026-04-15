@@ -76,7 +76,7 @@ pub fn[T : Eq] HybridMemo::new(
 /// Must be called inside a tracked context (another memo's compute function).
 /// Outside a compute function, use `rt.read_hybrid(memo)` or `memo.observe()`.
 pub fn[T : Eq] HybridMemo::get(self : HybridMemo[T]) -> T {
-  guard self.rt.core.tracking_stack.length() > 0 else {
+  guard self.rt.core.tracking.stack.length() > 0 else {
     abort(
       "HybridMemo::get() called outside tracked context. Use rt.read_hybrid(memo) or memo.observe() to read from outside the graph.",
     )
