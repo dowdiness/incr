@@ -293,6 +293,45 @@ needs the generic interface.
 - [ ] Remove `CalcPipeline` test fixture from `incr/tests/traits_test.mbt`
 - [ ] Add capability traits to `loom/src/pipeline/` with `ReactiveParser` impls
 
+## Runtime Modularization (Phase 4 — Remaining)
+
+Architecture analysis completed 2026-04-16. See [design.md](design.md#architecture-analysis-2026-04-16) for full diagnosis.
+
+### Stage 1: Phase Machine
+
+- [ ] Add `RuntimePhase` enum (`Idle`, `InBatch(Int)`, `Committing`, `PushPropagating`, `InFixpoint`, `GarbageCollecting`)
+- [ ] Replace `in_fixpoint : Bool` with phase check
+- [ ] Replace `in_push_propagation : Bool` with phase check
+- [ ] Replace `batch_depth : Int` checks with phase check (keep counter for nesting)
+- [ ] Add `transition_to(phase)` with precondition checks
+- [ ] Add tests for invalid phase transitions
+
+### Stage 2: State Grouping
+
+- [ ] Group revision fields (`current_revision`, `durability_last_changed`) into `RevisionState` within RuntimeCore
+- [ ] Group tracking fields (`tracking_stack`, `push_tracking`/`pop_tracking`/`record_dependency`) into `TrackingState` within RuntimeCore
+- [ ] Update whitebox tests to access fields through new struct paths
+
+### Stage 3: Batch Extraction
+
+- [ ] Group batch fields (`batch_pending`, `batch_frames`, `batch_max_durability`) into `BatchState` within RuntimeCore
+- [ ] Route batch→push propagation through coordinator instead of direct call
+
+### Stage 4: Subscriber Diff Unification
+
+- [ ] Extract shared `diff_and_update_subscribers(rt, cell_id, old_deps, new_deps, seen?)` function
+- [ ] Migrate `memo_force_recompute` to use shared function (preserve `seen` set optimization)
+- [ ] Migrate `finish_tracking` to use shared function
+
+### Stage 5: Internal Package Split
+
+- [ ] Create `cells/internal/pull/` with `PullVerifyFrame`, `PullSignalData`, `MemoData`
+- [ ] Create `cells/internal/push/` with `PushReactiveData`, `PushEffectData`, `PushEntry`
+- [ ] Create `cells/internal/datalog/` with `RelationData`, `FunctionalRelationData`, `RuleData`
+- [ ] Keep coordinator (`runtime.mbt`, `cell_ops.mbt`, `cell_ref.mbt`) in `cells/`
+- [ ] Keep whitebox tests in `cells/` (parent can access `internal/` children)
+- [ ] Verify engine packages do not import each other
+
 ## Documentation
 
 - [x] Add doc comments to all public functions
