@@ -114,37 +114,35 @@ fn Runtime::begin_tracking(self : Runtime, cell_id : CellId) -> Unit {
 }
 
 ///|
-/// Pops the tracking frame and returns only the collected dependency list.
+/// Pops the tracking frame and returns the collected dependencies and seen set.
 ///
-/// Simplified form of `pop_tracking` used by Phase 3+ cell types that do not
-/// need the pre-built `seen` set (they call `finish_tracking` separately).
+/// Used by Phase 3+ cell types that call `finish_tracking` to update
+/// subscriber links. Returns both deps and seen so `finish_tracking` can
+/// forward the pre-built seen set to `diff_and_update_subscribers`.
 ///
 /// # Panics
 ///
 /// Aborts if the tracking stack is empty.
-fn Runtime::end_tracking(self : Runtime) -> Array[CellId] {
-  let (deps, _seen) = self.pop_tracking()
-  deps
+fn Runtime::end_tracking(
+  self : Runtime,
+) -> (Array[CellId], @hashset.HashSet[CellId]) {
+  self.pop_tracking()
 }
 
 ///|
 /// Updates subscriber links after a cell recomputes with a new dependency set.
 ///
-/// Diffs `old_deps` against `new_deps` and:
-/// - removes `cell_id` from the subscriber set of every dropped dependency
-/// - adds `cell_id` to the subscriber set of every newly added dependency
-///
-/// This is the canonical subscriber-maintenance helper for Phase 3+ cell types.
-/// `Memo::force_recompute` performs an equivalent diff inline (with the
-/// optimisation of reusing the `seen` set from `pop_tracking`); Phase 3 cell
-/// types use this helper instead.
+/// Diffs `old_deps` against `new_deps` using the pre-built `new_seen` set
+/// from `end_tracking` to avoid rebuilding it.
 fn Runtime::finish_tracking(
   self : Runtime,
   cell_id : CellId,
   old_deps : Array[CellId],
   new_deps : Array[CellId],
+  new_seen : @hashset.HashSet[CellId],
 ) -> Unit {
-  self.diff_and_update_subscribers(cell_id, old_deps, new_deps) |> ignore
+  self.diff_and_update_subscribers(cell_id, old_deps, new_deps, new_seen~)
+  |> ignore
 }
 
 ///|

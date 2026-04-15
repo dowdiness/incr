@@ -53,10 +53,8 @@ test "panic phase: enter GarbageCollecting while InFixpoint" {
 }
 
 ///|
-test "phase: gc sets GarbageCollecting phase" {
+test "phase: gc returns to Idle after completion" {
   let rt = Runtime::new()
-  // gc() on an empty graph should succeed without error
   rt.gc()
-  // After gc completes, phase should be back to Idle
   inspect(rt.core.phase, content="Idle")
 }

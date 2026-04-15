@@ -209,8 +209,10 @@ fn Runtime::push_propagate_from(
         let old_sources = reactive.sources
         self.begin_tracking(reactive_cell_id)
         let changed = (reactive.compute)()
-        let new_sources = self.end_tracking()
-        self.finish_tracking(reactive_cell_id, old_sources, new_sources)
+        let (new_sources, new_seen) = self.end_tracking()
+        self.finish_tracking(
+          reactive_cell_id, old_sources, new_sources, new_seen,
+        )
         reactive.sources = new_sources
         let new_level = self.recompute_level(reactive_cell_id, new_sources)
         if new_level != reactive.level {
@@ -241,8 +243,8 @@ fn Runtime::push_propagate_from(
         let old_sources = effect.sources
         self.begin_tracking(effect_cell_id)
         (effect.execute)()
-        let new_sources = self.end_tracking()
-        self.finish_tracking(effect_cell_id, old_sources, new_sources)
+        let (new_sources, new_seen) = self.end_tracking()
+        self.finish_tracking(effect_cell_id, old_sources, new_sources, new_seen)
         effect.sources = new_sources
         effect.level = self.recompute_level(effect_cell_id, new_sources)
       }

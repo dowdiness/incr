@@ -196,96 +196,21 @@ Pure pull-based verification (`Memo`) has excellent worst-case avoidance: cells 
 - **Fast path**: `not(dirty) && verified_at >= current_revision` → return cached value immediately, no dep walk.
 - **Slow path**: call `pull_verify_hybrid`, which walks deps, recomputes if needed, and clears `dirty`.
 
-### SoA Layout
+### Unified Memo Handling
 
-`HybridMemo` shares the unified `MemoData` SoA array with `PullMemo`. Both are stored in `pull.memos : Array[MemoData]`, distinguished by an `is_hybrid : Bool` flag on `MemoData` and by the `CellRef` variant (`HybridMemo(idx)` vs `PullMemo(idx)`) in the dispatch table. This unification eliminates a separate SoA array and lets `pull_verify` handle both cell types uniformly.
+`HybridMemo` and `PullMemo` share a single SoA array, distinguished by a flag and by `CellRef` variant. This lets the verification engine handle both cell types through the same code path. See [`cells/pull_memo.mbt`](../cells/pull_memo.mbt) for the unified entry layout.
 
-`MemoData` implements `CellOps` so it participates in the uniform `cell_ops` trait-object array alongside signals.
+### Push vs Pull Propagation
 
-### Push Propagation Through HybridMemos
+Push propagation BFS-walks downstream from changed sources in topological order, passing through pull/hybrid memos as transparent bridges to reach push-reactive and push-effect nodes. An inner pruning gate (`push_reachable_count`) skips memo branches with no downstream push cells. Only `Reactive` and `Effect` contribute to the push node count — `HybridMemo` relies on revision-based staleness detection instead. See [`cells/push_propagate.mbt`](../cells/push_propagate.mbt) and [`cells/verify.mbt`](../cells/verify.mbt).
 
-`push_propagate_from` in `cells/push_propagate.mbt` does a BFS (`enqueue_push_subscribers`) to find push-reactive nodes downstream of changed sources. Both `HybridMemo` and `PullMemo` are transparent bridges in this BFS — the BFS continues through their subscriber lists to reach downstream push-reactive and push-effect nodes.
+### Durability Tiers
 
-An inner pruning optimization skips memo branches with no downstream push cells: `push_reachable_count > 0` is checked before adding a memo's subscribers to the BFS worklist.
+Three durability levels (Low, Medium, High) classify how often an input changes. The runtime tracks per-durability revision timestamps. When a signal changes, all levels up to its durability are stamped. During verification, a single comparison against this array lets entire stable subtrees skip dep-walking — if no input at the cell's durability level changed, verification is a no-op. Derived cells inherit the minimum durability of their dependencies.
 
-### Verification of HybridMemo Dependencies
+### Type Erasure via Per-Engine SoA
 
-When a `PullMemo` or another `HybridMemo` has a `HybridMemo` as a dependency, `pull_verify` handles it uniformly via the unified `MemoData` SoA entry. Both `PullMemo` and `HybridMemo` share the same verification path in `cells/verify.mbt` — `dep_changed_since` returns `None` for both, triggering deep verification.
-
-### push_node_count Gate
-
-`Signal::set_unconditional` only calls `push_propagate_from` when `push.node_count > 0`. `HybridMemo` does NOT contribute to `push.node_count` (it relies on `verified_at` staleness detection rather than push propagation). Only `Reactive` and `Effect` contribute. The `push_reachable_count` gate on individual cells provides finer-grained skip logic.
-
-## Durability Levels
-
-### Three Tiers
-
-Durability classifies how often an input is expected to change:
-
-| Level    | Index | Typical Use |
-|----------|-------|-------------|
-| **Low**  | 0     | Frequently changing data (source text, user input) |
-| **Medium** | 1   | Moderately stable data |
-| **High** | 2     | Rarely changing data (configuration, schemas) |
-
-### Per-Durability Revision Tracking
-
-The `Runtime` maintains a `durability_last_changed` array (one entry per durability level). When a Signal changes, `bump_revision` updates the entry for its durability level **and all lower levels**:
-
-```
-for i = 0 to durability.index():
-    durability_last_changed[i] = current_revision
-```
-
-This means a High-durability change also marks Medium and Low as changed, which is correct: a High change means everything might need checking.
-
-### Derived Cell Durability
-
-A derived cell's durability is the **minimum** of its dependencies' durabilities. If a Memo depends on both a Low and a High input, it inherits Low durability, because it could be affected by frequent changes.
-`Durability` also derives ordering, so min/max durability checks use direct enum comparisons instead of helper functions.
-
-### The Shortcut
-
-During verification, before walking any dependencies, `pull_verify` checks:
-
-```
-durability_last_changed[cell.durability] <= after_revision?
-```
-
-If true, no input at this durability level has changed, so the cell and its entire subtree can be marked verified immediately. This is powerful for stable subgraphs: if configuration inputs (High durability) haven't changed, all Memos that only depend on configuration skip verification entirely, regardless of how many Low-durability inputs changed elsewhere.
-
-## Type Erasure Strategy
-
-### The Problem
-
-The `Runtime` needs to store metadata for all cells in a single collection. But cells have different value types (`Signal[Int]`, `Memo[String]`, etc.). MoonBit's type system doesn't allow heterogeneous collections.
-
-### The Solution
-
-The library uses a **Structure-of-Arrays (SoA)** layout with per-engine storage. Instead of one heterogeneous array of cell objects, `Runtime` holds typed arrays grouped by propagation mode:
-
-**Pull-mode storage** (`PullState`):
-1. **`signals : Array[PullSignalData]`** — SoA entries for input cells. Contains `changed_at`, durability, subscribers, and the type-erased `commit_pending` batch closure.
-2. **`memos : Array[MemoData]`** — Unified SoA entries for both `PullMemo` and `HybridMemo`. Contains `changed_at`/`verified_at`, dependency list, durability, `in_progress` flag, `is_hybrid` flag, and the type-erased `compute` closure. `HybridMemo` and `PullMemo` are distinguished by the `is_hybrid` flag and by `CellRef` variant.
-3. **`free_signals`/`free_memos`** — Free lists for slot reuse after disposal.
-
-**Push-mode storage** (`PushState`):
-4. **`reactives : Array[PushReactiveData]`** — Eagerly-recomputed derived cells with `dirty`, `level`, `sources`.
-5. **`effects : Array[PushEffectData]`** — Terminal side-effect cells.
-6. **`node_count`** — Count of live push cells; gates push propagation.
-
-**Datalog storage** (`DatalogState`):
-7. **`relations : Array[RelationData]`**, **`functional_relations`**, **`rules`** — Semi-naive fixpoint evaluation.
-
-**Dispatch tables** (`RuntimeCore`):
-8. **`cell_index : Array[CellRef]`** — Maps `CellId.id` → `PullSignal(idx)`, `PullMemo(idx)`, `HybridMemo(idx)`, `PushReactive(idx)`, `PushEffect(idx)`, `Relation(idx)`, `FunctionalRelation(idx)`, `Rule(idx)`, or `Disposed` for O(1) dispatch.
-9. **`cell_ops : Array[&CellOps]`** — Trait-object array indexed by `CellId.id` for uniform behavioral dispatch.
-10. **`cell_lifecycle : Array[&CellLifecycle]`** — Trait-object array for dispose/observe operations.
-
-The bridge between typed and type-erased worlds uses closure-based type erasure:
-
-- `MemoData.compute: () -> Result[Bool, CycleError]` — Captures the `Memo[T]` (or `HybridMemo[T]`) instance and calls its typed `recompute_inner()` method. Returns `Ok(true)` if the value changed, `Ok(false)` if backdated, or `Err(CycleError)` on cycle.
-- `PullSignalData.commit_pending: (() -> Bool)?` — For input cells during a batch, this closure captures the `Signal[T]` instance and commits its pending value. Returns true if the committed value differs from the current value. Set dynamically during batch operations and cleared after commit.
+The runtime stores cells in per-engine Structure-of-Arrays (SoA) grouped by propagation mode: pull-mode signals and memos, push-mode reactives and effects, and datalog relations/rules. Typed values stay in user-facing handles (`Signal[T]`, `Memo[T]`); the runtime sees only type-erased closures and metadata. Two dispatch tables (`cell_ops`, `cell_lifecycle`) provide uniform behavioral access via trait objects indexed by `CellId`. See [`cells/runtime.mbt`](../cells/runtime.mbt) for the SoA layout and [`cells/cell_ops.mbt`](../cells/cell_ops.mbt) for the trait interfaces.
 
 This design means the verification algorithm in `cells/verify.mbt` operates entirely on `PullSignalData`/`MemoData` without knowing any value types, and the batch commit logic can commit pending signal values without knowing their types.
 
@@ -540,7 +465,7 @@ Runtime mixes three layers: **policy** (revision management, durability shortcut
 
 ### Target: Coordinator + Engines
 
-```
+```text
 Runtime (coordinator + phase machine)
 ├── RevisionState    — revision counter, durability tracking
 ├── TrackingState    — tracking stack, dependency recording

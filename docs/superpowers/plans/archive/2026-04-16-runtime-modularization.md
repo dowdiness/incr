@@ -145,13 +145,12 @@ fn Runtime::is_in_phase(self : Runtime, phase : PropagationPhase) -> Bool {
 
 - [ ] **Step 6: Run moon check**
 
-Run: `cd /home/antisatori/ghq/github.com/dowdiness/canopy/loom/incr-runtime-modularization && moon check 2>&1`
+Run: `moon check 2>&1`
 Expected: Errors — old field names still referenced in other files. This is expected; we fix them in the next steps.
 
 - [ ] **Step 7: Commit**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/canopy/loom/incr-runtime-modularization
 git add cells/runtime.mbt
 git commit -m "refactor: add PropagationPhase enum, replace boolean flags in RuntimeCore"
 ```
@@ -404,18 +403,17 @@ test "phase: Idle by default" {
 
 - [ ] **Step 11: Run moon check**
 
-Run: `cd /home/antisatori/ghq/github.com/dowdiness/canopy/loom/incr-runtime-modularization && moon check 2>&1`
+Run: `moon check 2>&1`
 Expected: PASS (all references to old fields are gone)
 
 - [ ] **Step 12: Run moon test**
 
-Run: `cd /home/antisatori/ghq/github.com/dowdiness/canopy/loom/incr-runtime-modularization && moon test 2>&1`
+Run: `moon test 2>&1`
 Expected: All 508+ tests pass
 
 - [ ] **Step 13: Commit**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/canopy/loom/incr-runtime-modularization
 git add cells/
 git commit -m "refactor: migrate all guard sites to PropagationPhase checks"
 ```
@@ -498,13 +496,12 @@ test "phase: gc sets GarbageCollecting phase" {
 
 - [ ] **Step 2: Run tests**
 
-Run: `cd /home/antisatori/ghq/github.com/dowdiness/canopy/loom/incr-runtime-modularization && moon test -p dowdiness/incr/cells -f phase_test.mbt 2>&1`
+Run: `moon test -p dowdiness/incr/cells -f phase_test.mbt 2>&1`
 Expected: All 8 tests pass (3 panic tests expect abort)
 
 - [ ] **Step 3: Commit**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/canopy/loom/incr-runtime-modularization
 git add cells/phase_test.mbt
 git commit -m "test: add phase transition tests for PropagationPhase"
 ```
@@ -599,18 +596,17 @@ Files affected: `runtime.mbt`, `verify.mbt`.
 
 - [ ] **Step 6: Run moon check**
 
-Run: `cd /home/antisatori/ghq/github.com/dowdiness/canopy/loom/incr-runtime-modularization && moon check 2>&1`
+Run: `moon check 2>&1`
 Expected: PASS
 
 - [ ] **Step 7: Run moon test**
 
-Run: `cd /home/antisatori/ghq/github.com/dowdiness/canopy/loom/incr-runtime-modularization && moon test 2>&1`
+Run: `moon test 2>&1`
 Expected: All tests pass
 
 - [ ] **Step 8: Commit**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/canopy/loom/incr-runtime-modularization
 git add cells/
 git commit -m "refactor: extract RevisionState sub-struct from RuntimeCore"
 ```
@@ -675,13 +671,12 @@ Files affected: `runtime.mbt` (gc guard), `tracking.mbt` (push/pop/record), `mem
 
 - [ ] **Step 5: Run moon check then moon test**
 
-Run: `cd /home/antisatori/ghq/github.com/dowdiness/canopy/loom/incr-runtime-modularization && moon check 2>&1 && moon test 2>&1`
+Run: `moon check 2>&1 && moon test 2>&1`
 Expected: All pass
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/canopy/loom/incr-runtime-modularization
 git add cells/
 git commit -m "refactor: extract TrackingState sub-struct from RuntimeCore"
 ```
@@ -759,13 +754,12 @@ Files affected: `batch.mbt` (most changes), `signal.mbt`, `pull_signal.mbt`, `ru
 
 - [ ] **Step 5: Run moon check then moon test**
 
-Run: `cd /home/antisatori/ghq/github.com/dowdiness/canopy/loom/incr-runtime-modularization && moon check 2>&1 && moon test 2>&1`
+Run: `moon check 2>&1 && moon test 2>&1`
 Expected: All pass
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/canopy/loom/incr-runtime-modularization
 git add cells/
 git commit -m "refactor: extract BatchState sub-struct from RuntimeCore"
 ```
@@ -888,18 +882,17 @@ fn Runtime::diff_and_update_subscribers(
 
 - [ ] **Step 3: Run moon check**
 
-Run: `cd /home/antisatori/ghq/github.com/dowdiness/canopy/loom/incr-runtime-modularization && moon check 2>&1`
+Run: `moon check 2>&1`
 Expected: PASS
 
 - [ ] **Step 4: Run the new tests**
 
-Run: `cd /home/antisatori/ghq/github.com/dowdiness/canopy/loom/incr-runtime-modularization && moon test -p dowdiness/incr/cells -f subscriber_diff_test.mbt 2>&1`
+Run: `moon test -p dowdiness/incr/cells -f subscriber_diff_test.mbt 2>&1`
 Expected: All 3 tests pass
 
 - [ ] **Step 5: Commit shared function and tests**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/canopy/loom/incr-runtime-modularization
 git add cells/subscriber_diff.mbt cells/subscriber_diff_test.mbt
 git commit -m "refactor: add shared diff_and_update_subscribers function"
 ```
@@ -960,13 +953,12 @@ Note: The `new_seen?` optional parameter passes the pre-built set from `pop_trac
 
 - [ ] **Step 2: Run moon check then moon test**
 
-Run: `cd /home/antisatori/ghq/github.com/dowdiness/canopy/loom/incr-runtime-modularization && moon check 2>&1 && moon test 2>&1`
+Run: `moon check 2>&1 && moon test 2>&1`
 Expected: All tests pass (including all cycle, backdating, dependency diff tests)
 
 - [ ] **Step 3: Commit**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/canopy/loom/incr-runtime-modularization
 git add cells/memo.mbt
 git commit -m "refactor: migrate memo_force_recompute to shared subscriber diff"
 ```
@@ -1026,13 +1018,12 @@ fn Runtime::finish_tracking(
 
 - [ ] **Step 2: Run moon check then moon test**
 
-Run: `cd /home/antisatori/ghq/github.com/dowdiness/canopy/loom/incr-runtime-modularization && moon check 2>&1 && moon test 2>&1`
+Run: `moon check 2>&1 && moon test 2>&1`
 Expected: All tests pass (including push reactive, effect, and hybrid tests)
 
 - [ ] **Step 3: Commit**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/canopy/loom/incr-runtime-modularization
 git add cells/tracking.mbt
 git commit -m "refactor: migrate finish_tracking to shared subscriber diff"
 ```
@@ -1046,28 +1037,27 @@ git commit -m "refactor: migrate finish_tracking to shared subscriber diff"
 
 - [ ] **Step 1: Run full test suite**
 
-Run: `cd /home/antisatori/ghq/github.com/dowdiness/canopy/loom/incr-runtime-modularization && moon test 2>&1`
+Run: `moon test 2>&1`
 Expected: All 508+ tests pass
 
 - [ ] **Step 2: Run integration tests**
 
-Run: `cd /home/antisatori/ghq/github.com/dowdiness/canopy/loom/incr-runtime-modularization && moon test -p dowdiness/incr/tests 2>&1`
+Run: `moon test -p dowdiness/incr/tests 2>&1`
 Expected: All integration tests pass
 
 - [ ] **Step 3: Run moon fmt and moon info**
 
-Run: `cd /home/antisatori/ghq/github.com/dowdiness/canopy/loom/incr-runtime-modularization && moon info && moon fmt 2>&1`
+Run: `moon info && moon fmt 2>&1`
 Expected: No errors
 
 - [ ] **Step 4: Check .mbti for unintended API changes**
 
-Run: `cd /home/antisatori/ghq/github.com/dowdiness/canopy/loom/incr-runtime-modularization && git diff *.mbti`
+Run: `git diff *.mbti`
 Expected: No changes to public API (all changes are to `priv` types inside `cells/`)
 
 - [ ] **Step 5: Commit any formatting changes**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/canopy/loom/incr-runtime-modularization
 git add -A
 git diff --cached --stat  # verify only expected files
 git commit -m "chore: run moon fmt and moon info after modularization"

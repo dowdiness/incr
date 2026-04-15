@@ -93,8 +93,8 @@ impl CellLifecycle for PushReactiveData with on_observe(self, rt, cell_id) {
   }
   rt.begin_tracking(cell_id)
   let _ = (self.compute)()
-  let new_sources = rt.end_tracking()
-  rt.finish_tracking(cell_id, [], new_sources)
+  let (new_sources, new_seen) = rt.end_tracking()
+  rt.finish_tracking(cell_id, [], new_sources, new_seen)
   self.sources = new_sources
   self.level = rt.recompute_level(cell_id, new_sources)
   self.dirty = false
@@ -187,12 +187,12 @@ pub fn[T : Eq] Reactive::new(rt : Runtime, compute_fn : () -> T) -> Reactive[T] 
   // Initial compute: establish dependencies and set initial value.
   rt.begin_tracking(cell_id)
   let _ = compute()
-  let new_sources = rt.end_tracking()
+  let (new_sources, new_seen) = rt.end_tracking()
   rt.push.reactives[reactive_idx].sources = new_sources
   rt.push.reactives[reactive_idx].level = rt.recompute_level(
     cell_id, new_sources,
   )
-  rt.finish_tracking(cell_id, [], new_sources)
+  rt.finish_tracking(cell_id, [], new_sources, new_seen)
   reactive
 }
 

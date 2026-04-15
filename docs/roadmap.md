@@ -178,13 +178,12 @@ The following features build toward a Salsa-style query API where users write no
 ### Phase 4 — Remaining
 
 - **Recursive suspension**: Auto-suspend when `push_reachable_count` drops to 0 on unobserved cells (deferred from Layer 4b — gc() handles cleanup for now).
-- **Runtime modularization**: Decompose Runtime god object into coordinator + engines. Architecture analysis completed 2026-04-16 (see [design.md](design.md#architecture-analysis-2026-04-16)). Staged plan:
-  1. Phase Machine — Replace boolean guards (`in_fixpoint`, `in_push_propagation`, `batch_depth`) with `RuntimePhase` enum
-  2. Extract RevisionState + TrackingState — Group fields within RuntimeCore
-  3. Extract BatchState — Separate batch management
-  4. Unify Subscriber Diff — Single shared function for `memo_force_recompute` and `finish_tracking`
-  5. Internal package split — Move engine types to `cells/internal/pull/`, `cells/internal/push/`, `cells/internal/datalog/` using MoonBit's `internal` package visibility
-  6. Further engine extraction — Deferred until accumulators or parallel computation create need
+- **Runtime modularization**: Decompose Runtime god object into coordinator + engines. Architecture analysis completed 2026-04-16 (see [design.md](design.md#architecture-analysis-2026-04-16)).
+  - ~~Phase Machine — Replace boolean guards with `PropagationPhase` enum~~ ✓ PR #35
+  - ~~Extract RevisionState + TrackingState + BatchState — Group fields within RuntimeCore~~ ✓ PR #35
+  - ~~Unify Subscriber Diff — Single shared `diff_and_update_subscribers` function~~ ✓ PR #35
+  - Internal package split — Move engine types to `cells/internal/pull/`, `cells/internal/push/`, `cells/internal/datalog/` using MoonBit's `internal` package visibility
+  - Further engine extraction — Deferred until accumulators or parallel computation create need
 
 ## Phase 5 — Ecosystem
 
