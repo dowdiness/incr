@@ -13,6 +13,8 @@ pub using @incr_types {
   trait HasChangedAt,
   trait BackdateEq,
   type GcRole,
+  type InternId,
+  type InternTable,
 }
 
 ///|

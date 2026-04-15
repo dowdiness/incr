@@ -3,6 +3,7 @@ package "dowdiness/incr/types"
 
 import {
   "moonbitlang/core/debug",
+  "moonbitlang/core/hashmap",
 }
 
 // Values
@@ -36,6 +37,21 @@ pub(all) enum GcRole {
   Root
 } derive(Eq, @debug.Debug)
 pub impl Show for GcRole
+
+pub(all) struct InternId {
+  index : Int
+} derive(Compare, Eq, @debug.Debug)
+pub impl Hash for InternId
+pub impl Show for InternId
+
+pub(all) struct InternTable[T] {
+  to_id : @hashmap.HashMap[T, InternId]
+  values : Array[T]
+}
+pub fn[T] InternTable::get(Self[T], InternId) -> T
+pub fn[T : Hash + Eq] InternTable::intern(Self[T], T) -> InternId
+pub fn[T] InternTable::len(Self[T]) -> Int
+pub fn[T] InternTable::new() -> Self[T]
 
 pub(all) struct MemoId[T] {
   id : CellId
