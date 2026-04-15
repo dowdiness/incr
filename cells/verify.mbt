@@ -81,7 +81,7 @@ fn Runtime::pull_verify(
     PullSignal(_) => Ok(()) // always fresh
     PushReactive(_) | PushEffect(_) => Ok(()) // freshness via push_propagate_from
     Relation(_) | FunctionalRelation(_) | Rule(_) => {
-      if self.core.in_fixpoint {
+      if self.core.phase is InFixpoint {
         abort("pull_verify: cannot verify Relation/Rule during fixpoint()")
       }
       Ok(())
@@ -124,7 +124,7 @@ fn Runtime::pull_verify(
           match self.core.cell_index[dep_id.id] {
             Disposed => abort("pull_verify: dependency has been disposed")
             Relation(_) | FunctionalRelation(_) | Rule(_) =>
-              if self.core.in_fixpoint {
+              if self.core.phase is InFixpoint {
                 clear_verify_stack(self, stack)
                 abort(
                   "pull_verify: cannot verify memo with Relation dependency during fixpoint()",

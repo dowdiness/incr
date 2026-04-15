@@ -126,7 +126,7 @@ fn Runtime::push_propagate_from(
   self : Runtime,
   changed_sources : Array[CellId],
 ) -> Unit {
-  self.core.in_push_propagation = true
+  self.enter_phase(PushPropagating)
   let update_queue : @priority_queue.PriorityQueue[PushEntry] = @priority_queue.new()
   // Reused across all enqueue_push_subscribers calls to avoid per-call allocation.
   let bfs_worklist : Array[CellId] = []
@@ -249,5 +249,5 @@ fn Runtime::push_propagate_from(
       _ => ()
     }
   }
-  self.core.in_push_propagation = false
+  self.leave_phase()
 }

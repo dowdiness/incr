@@ -85,10 +85,10 @@ impl CellLifecycle for PushReactiveData with on_unobserve(self, rt, cell_id) {
 /// links were removed during suspension. For fresh cells (never
 /// suspended), add_subscriber is idempotent.
 impl CellLifecycle for PushReactiveData with on_observe(self, rt, cell_id) {
-  guard !rt.core.in_push_propagation else {
+  guard !(rt.core.phase is PushPropagating) else {
     abort("on_observe: cannot activate during push propagation")
   }
-  guard !rt.core.in_fixpoint else {
+  guard !(rt.core.phase is InFixpoint) else {
     abort("on_observe: cannot activate during fixpoint evaluation")
   }
   rt.begin_tracking(cell_id)

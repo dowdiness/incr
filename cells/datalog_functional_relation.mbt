@@ -111,7 +111,7 @@ fn[K : Hash + Eq, V] FunctionalRelation::effective_value(
   self : FunctionalRelation[K, V],
   key : K,
 ) -> V? {
-  if self.rt.core.in_fixpoint {
+  if self.rt.core.phase is InFixpoint {
     match self.staged_delta.val.get(key) {
       Some(v) => return Some(v)
       None => ()
@@ -161,7 +161,7 @@ pub fn[K : Hash + Eq, V : Eq] FunctionalRelation::insert(
         None => value
       }
   }
-  if self.rt.core.in_fixpoint {
+  if self.rt.core.phase is InFixpoint {
     self.staged_delta.val.set(key, resolved)
   } else {
     self.delta.val.set(key, resolved)

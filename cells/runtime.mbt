@@ -56,6 +56,16 @@ priv enum PropagationPhase {
   GarbageCollecting
 } derive(Eq, Debug)
 
+///|
+impl Show for PropagationPhase with output(self, logger) {
+  match self {
+    Idle => logger.write_string("Idle")
+    PushPropagating => logger.write_string("PushPropagating")
+    InFixpoint => logger.write_string("InFixpoint")
+    GarbageCollecting => logger.write_string("GarbageCollecting")
+  }
+}
+
 priv struct RuntimeCore {
   runtime_id : Int
   mut current_revision : Revision
@@ -658,7 +668,7 @@ impl RevisionManager for Runtime with bump_revision(self, durability) {
 ///|
 /// Guards against disposing a cell during fixpoint or its own computation.
 fn Runtime::guard_dispose(self : Runtime, cell_id : CellId) -> Unit {
-  guard !self.core.in_fixpoint else {
+  guard !(self.core.phase is InFixpoint) else {
     abort("dispose: cannot dispose cells during fixpoint()")
   }
   for aq in self.core.tracking_stack {
@@ -749,13 +759,14 @@ pub fn Runtime::gc(self : Runtime) -> Unit {
     abort("gc: cannot run during active computation")
   }
   guard self.core.batch_depth == 0 else { abort("gc: cannot run during batch") }
-  guard !self.core.in_fixpoint else {
-    abort("gc: cannot run during fixpoint evaluation")
+  guard self.core.phase is Idle else {
+    abort(
+      "gc: cannot run during " + self.core.phase.to_string(),
+    )
   }
-  guard !self.core.in_push_propagation else {
-    abort("gc: cannot run during push propagation")
-  }
+  self.enter_phase(GarbageCollecting)
   self.gc_sweep()
+  self.leave_phase()
 }
 
 ///|

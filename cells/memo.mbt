@@ -227,7 +227,7 @@ fn[T] Memo::get_result_inner(self : Memo[T]) -> Result[T, CycleError] {
       )
     }
   }
-  if self.rt.core.in_fixpoint {
+  if self.rt.core.phase is InFixpoint {
     abort(
       "Memo::get() cannot be called during fixpoint(); read relations directly or call get() after fixpoint() completes",
     )
