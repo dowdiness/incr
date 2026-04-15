@@ -42,6 +42,20 @@ let current_computing_runtime_id : Ref[Int] = { val: -1 }
 /// In hot loops (verify dep-walk, push propagation), the sub-struct pointers
 /// are cache-hot since they are dereferenced on every iteration. Profile
 /// with `moon bench --release` if regressions are suspected.
+///|
+/// Mutually exclusive runtime phases for cross-engine guards.
+///
+/// These phases are never active simultaneously. `batch_depth` is
+/// orthogonal — batches compose with any propagation phase (e.g.
+/// commit_batch temporarily raises batch_depth during callbacks
+/// while the propagation phase is Idle).
+priv enum PropagationPhase {
+  Idle
+  PushPropagating
+  InFixpoint
+  GarbageCollecting
+} derive(Eq, Debug)
+
 priv struct RuntimeCore {
   runtime_id : Int
   mut current_revision : Revision
@@ -56,18 +70,11 @@ priv struct RuntimeCore {
   cell_index : Array[CellRef]
   cell_ops : Array[&CellOps]
   cell_lifecycle : Array[&CellLifecycle]
-  /// True while Runtime::fixpoint() is running. Cross-engine guard: prevents
-  /// pull_verify, Memo::get(), and HybridMemo::get() from running concurrently
-  /// with semi-naive delta tracking. Relation::insert() is allowed during
-  /// fixpoint but redirects writes to staged_delta for the next iteration.
-  mut in_fixpoint : Bool
+  mut phase : PropagationPhase
   /// Reference counts for observed cells. Key = observed CellId,
   /// value = number of live Observer handles. on_unobserve fires only
   /// when count reaches 0.
   gc_root_counts : @hashmap.HashMap[CellId, Int]
-  /// True while push_propagate_from is running. Guards gc() from
-  /// running during push propagation.
-  mut in_push_propagation : Bool
 }
 
 ///|
@@ -174,9 +181,8 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
       cell_index: [],
       cell_ops: [],
       cell_lifecycle: [],
-      in_fixpoint: false,
+      phase: Idle,
       gc_root_counts: @hashmap.new(),
-      in_push_propagation: false,
     },
     pull: { signals: [], memos: [], free_signals: [], free_memos: [] },
     push: {
@@ -188,6 +194,36 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
     },
     datalog: { relations: [], functional_relations: [], rules: [] },
   }
+}
+
+///|
+/// Transitions to a new propagation phase.
+///
+/// Aborts if the current phase is not `Idle` — phases are mutually
+/// exclusive. The one exception is returning to `Idle`, which is
+/// always allowed from any active phase (used in finally-style cleanup).
+fn Runtime::enter_phase(self : Runtime, next : PropagationPhase) -> Unit {
+  guard self.core.phase is Idle else {
+    abort(
+      "enter_phase: cannot enter " +
+      next.to_string() +
+      " while in " +
+      self.core.phase.to_string(),
+    )
+  }
+  self.core.phase = next
+}
+
+///|
+/// Returns to the Idle phase. Unconditional — always succeeds.
+fn Runtime::leave_phase(self : Runtime) -> Unit {
+  self.core.phase = Idle
+}
+
+///|
+/// Returns true if the runtime is currently in the given phase.
+fn Runtime::is_in_phase(self : Runtime, phase : PropagationPhase) -> Bool {
+  self.core.phase == phase
 }
 
 ///|
