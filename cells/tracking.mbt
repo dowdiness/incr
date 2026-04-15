@@ -144,25 +144,7 @@ fn Runtime::finish_tracking(
   old_deps : Array[CellId],
   new_deps : Array[CellId],
 ) -> Unit {
-  if old_deps.length() == 0 && new_deps.length() == 0 {
-    return
-  }
-  let new_seen : @hashset.HashSet[CellId] = @hashset.new()
-  for dep in new_deps {
-    new_seen.add(dep)
-  }
-  let old_seen : @hashset.HashSet[CellId] = @hashset.new()
-  for dep in old_deps {
-    old_seen.add(dep)
-    if !new_seen.contains(dep) {
-      self.remove_subscriber(dep, cell_id)
-    }
-  }
-  for dep in new_deps {
-    if !old_seen.contains(dep) {
-      self.add_subscriber(dep, cell_id)
-    }
-  }
+  self.diff_and_update_subscribers(cell_id, old_deps, new_deps) |> ignore
 }
 
 ///|

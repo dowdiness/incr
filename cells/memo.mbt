@@ -402,26 +402,9 @@ fn[T] Runtime::memo_force_recompute(
   self.push_tracking(cell_id)
   let new_value = compute_fn()
   let (new_deps, new_seen) = self.pop_tracking()
-  let mut deps_changed = new_deps.length() != old_deps.length()
-  let old_seen : @hashset.HashSet[CellId] = @hashset.new()
-  for dep in old_deps {
-    old_seen.add(dep)
-    if !new_seen.contains(dep) {
-      deps_changed = true
-    }
-  }
-  if deps_changed {
-    for dep in old_deps {
-      if !new_seen.contains(dep) {
-        self.remove_subscriber(dep, cell_id)
-      }
-    }
-    for dep in new_deps {
-      if !old_seen.contains(dep) {
-        self.add_subscriber(dep, cell_id)
-      }
-    }
-  }
+  let deps_changed = self.diff_and_update_subscribers(
+    cell_id, old_deps, new_deps, new_seen=new_seen,
+  )
   cell.dependencies = new_deps
   if deps_changed {
     cell.meta.durability = compute_durability(self, new_deps)
