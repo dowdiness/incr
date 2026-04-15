@@ -42,6 +42,7 @@ let current_computing_runtime_id : Ref[Int] = { val: -1 }
 /// In hot loops (verify dep-walk, push propagation), the sub-struct pointers
 /// are cache-hot since they are dereferenced on every iteration. Profile
 /// with `moon bench --release` if regressions are suspected.
+
 ///|
 /// Mutually exclusive runtime phases for cross-engine guards.
 ///
@@ -67,8 +68,10 @@ impl Show for PropagationPhase with output(self, logger) {
 }
 
 ///|
+
 ///|
 /// Dependency tracking: recording which cells are read during computation.
+
 ///|
 /// Batch update management: deferred signal writes and rollback.
 priv struct BatchState {
@@ -78,16 +81,19 @@ priv struct BatchState {
   mut max_durability : Durability
 }
 
+///|
 priv struct TrackingState {
   stack : Array[ActiveQuery]
 }
 
+///|
 /// Revision tracking: global clock and per-durability change timestamps.
 priv struct RevisionState {
   mut current_revision : Revision
   durability_last_changed : FixedArray[Revision]
 }
 
+///|
 priv struct RuntimeCore {
   runtime_id : Int
   revision : RevisionState
@@ -629,7 +635,9 @@ fn Runtime::publish_cell_changes(
 ) -> Unit {
   self.advance_revision(durability)
   for id in changed_ids {
-    self.core.cell_ops[id.id].set_changed_at(self.core.revision.current_revision)
+    self.core.cell_ops[id.id].set_changed_at(
+      self.core.revision.current_revision,
+    )
   }
   if self.push.node_count > 0 {
     self.push_propagate_from(changed_ids)
@@ -642,7 +650,9 @@ fn Runtime::publish_cell_changes(
 /// Updates current_revision and all durability_last_changed entries up to dur_idx.
 /// Callers must ensure this is only called outside of a batch (batch_depth == 0).
 impl RevisionManager for Runtime with advance_revision(self, durability) {
-  self.core.revision.current_revision = Revision::next(self.core.revision.current_revision)
+  self.core.revision.current_revision = Revision::next(
+    self.core.revision.current_revision,
+  )
   let dur_idx = durability.index()
   for i = 0; i <= dur_idx; i = i + 1 {
     self.core.revision.durability_last_changed[i] = self.core.revision.current_revision
@@ -777,9 +787,7 @@ pub fn Runtime::gc(self : Runtime) -> Unit {
   }
   guard self.core.batch.depth == 0 else { abort("gc: cannot run during batch") }
   guard self.core.phase is Idle else {
-    abort(
-      "gc: cannot run during " + self.core.phase.to_string(),
-    )
+    abort("gc: cannot run during " + self.core.phase.to_string())
   }
   self.enter_phase(GarbageCollecting)
   self.gc_sweep()

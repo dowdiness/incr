@@ -11,7 +11,8 @@ test "publish_cell_changes: advances revision, marks changed_at, fires on_change
   inspect(rt.core.revision.current_revision > before, content="true")
   // changed_at updated
   inspect(
-    rt.core.cell_ops[cell_id.id].changed_at() == rt.core.revision.current_revision,
+    rt.core.cell_ops[cell_id.id].changed_at() ==
+    rt.core.revision.current_revision,
     content="true",
   )
   // on_change fired

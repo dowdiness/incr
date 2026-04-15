@@ -403,7 +403,10 @@ fn[T] Runtime::memo_force_recompute(
   let new_value = compute_fn()
   let (new_deps, new_seen) = self.pop_tracking()
   let deps_changed = self.diff_and_update_subscribers(
-    cell_id, old_deps, new_deps, new_seen=new_seen,
+    cell_id,
+    old_deps,
+    new_deps,
+    new_seen~,
   )
   cell.dependencies = new_deps
   if deps_changed {
