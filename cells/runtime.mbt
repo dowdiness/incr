@@ -25,14 +25,10 @@ let current_computing_runtime_id : Ref[Int] = { val: -1 }
 /// Core runtime state: identity, revision tracking, batch management,
 /// unified dispatch tables, and cross-engine guards.
 ///
-/// Groups fields that are accessed by all propagation modes: revision tracking,
-/// batch management, unified dispatch tables, and cross-engine guards.
-/// The `cell_index` and `cell_ops` dispatch tables bridge the two-layer
-/// architecture (CellRef for structural observation, CellOps for behavioral
-/// dispatch). `tracking_stack` lives here rather than in PullState because
-/// push-mode cell types (Reactive, Effect) also use begin/end_tracking.
-/// `in_fixpoint` lives here rather than in DatalogState because it is a
-/// cross-cutting guard that constrains all engines during fixpoint evaluation.
+/// Groups fields that are accessed by all propagation modes: revision tracking
+/// (RevisionState), batch management (BatchState), dependency tracking
+/// (TrackingState), unified dispatch tables, and cross-engine guards
+/// (PropagationPhase).
 ///
 /// # Pointer chase tradeoff
 ///
@@ -46,9 +42,9 @@ let current_computing_runtime_id : Ref[Int] = { val: -1 }
 ///|
 /// Mutually exclusive runtime phases for cross-engine guards.
 ///
-/// These phases are never active simultaneously. `batch_depth` is
+/// These phases are never active simultaneously. `batch.depth` is
 /// orthogonal — batches compose with any propagation phase (e.g.
-/// commit_batch temporarily raises batch_depth during callbacks
+/// commit_batch temporarily raises batch.depth during callbacks
 /// while the propagation phase is Idle).
 priv enum PropagationPhase {
   Idle
@@ -59,18 +55,8 @@ priv enum PropagationPhase {
 
 ///|
 impl Show for PropagationPhase with output(self, logger) {
-  match self {
-    Idle => logger.write_string("Idle")
-    PushPropagating => logger.write_string("PushPropagating")
-    InFixpoint => logger.write_string("InFixpoint")
-    GarbageCollecting => logger.write_string("GarbageCollecting")
-  }
+  logger.write_string(@debug.to_string(self))
 }
-
-///|
-
-///|
-/// Dependency tracking: recording which cells are read during computation.
 
 ///|
 /// Batch update management: deferred signal writes and rollback.
@@ -82,6 +68,7 @@ priv struct BatchState {
 }
 
 ///|
+/// Dependency tracking: recording which cells are read during computation.
 priv struct TrackingState {
   stack : Array[ActiveQuery]
 }
@@ -251,12 +238,6 @@ fn Runtime::enter_phase(self : Runtime, next : PropagationPhase) -> Unit {
 /// Returns to the Idle phase. Unconditional — always succeeds.
 fn Runtime::leave_phase(self : Runtime) -> Unit {
   self.core.phase = Idle
-}
-
-///|
-/// Returns true if the runtime is currently in the given phase.
-fn Runtime::is_in_phase(self : Runtime, phase : PropagationPhase) -> Bool {
-  self.core.phase == phase
 }
 
 ///|

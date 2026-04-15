@@ -1,5 +1,6 @@
 import {
   "dowdiness/incr/types" @incr_types,
+  "moonbitlang/core/debug",
   "moonbitlang/core/hashmap",
   "moonbitlang/core/hashset",
   "moonbitlang/core/priority_queue",

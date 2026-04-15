@@ -13,6 +13,9 @@ fn Runtime::diff_and_update_subscribers(
   new_deps : Array[CellId],
   new_seen? : @hashset.HashSet[CellId],
 ) -> Bool {
+  if old_deps.is_empty() && new_deps.is_empty() {
+    return false
+  }
   let new_seen = match new_seen {
     Some(s) => s
     None => {
@@ -24,15 +27,16 @@ fn Runtime::diff_and_update_subscribers(
     }
   }
   let mut changed = new_deps.length() != old_deps.length()
-  let old_seen : @hashset.HashSet[CellId] = @hashset.new()
   for dep in old_deps {
-    old_seen.add(dep)
     if !new_seen.contains(dep) {
       changed = true
+      break
     }
   }
   if changed {
+    let old_seen : @hashset.HashSet[CellId] = @hashset.new()
     for dep in old_deps {
+      old_seen.add(dep)
       if !new_seen.contains(dep) {
         self.remove_subscriber(dep, cell_id)
       }
