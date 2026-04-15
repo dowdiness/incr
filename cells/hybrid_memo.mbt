@@ -117,7 +117,7 @@ fn[T : Eq] HybridMemo::get_untracked(self : HybridMemo[T]) -> T {
       }
     Some(cached) => {
       let cell = self.rt.get_memo_data(self.cell_id)
-      if cell.verified_at >= self.rt.core.current_revision {
+      if cell.verified_at >= self.rt.core.revision.current_revision {
         self.rt.record_dependency(self.cell_id)
         return cached
       }
@@ -166,7 +166,7 @@ pub fn[T] HybridMemo::is_up_to_date(self : HybridMemo[T]) -> Bool {
     None => false
     Some(_) =>
       self.rt.get_memo_data(self.cell_id).verified_at ==
-      self.rt.core.current_revision
+      self.rt.core.revision.current_revision
   }
 }
 

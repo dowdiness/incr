@@ -36,7 +36,7 @@ let current_computing_runtime_id : Ref[Int] = { val: -1 }
 ///
 /// # Pointer chase tradeoff
 ///
-/// All sub-struct field accesses (e.g. `self.core.current_revision`) require
+/// All sub-struct field accesses (e.g. `self.core.revision.current_revision`) require
 /// one extra pointer dereference compared to the old flat layout. MoonBit
 /// structs are heap-allocated, so RuntimeCore is a separate heap object.
 /// In hot loops (verify dep-walk, push propagation), the sub-struct pointers
@@ -66,12 +66,18 @@ impl Show for PropagationPhase with output(self, logger) {
   }
 }
 
+///|
+/// Revision tracking: global clock and per-durability change timestamps.
+priv struct RevisionState {
+  mut current_revision : Revision
+  durability_last_changed : FixedArray[Revision]
+}
+
 priv struct RuntimeCore {
   runtime_id : Int
-  mut current_revision : Revision
+  revision : RevisionState
   mut next_cell_id : Int
   tracking_stack : Array[ActiveQuery]
-  durability_last_changed : FixedArray[Revision]
   mut batch_depth : Int
   batch_pending : Array[&Committable]
   batch_frames : Array[BatchFrame]
@@ -176,13 +182,15 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
   {
     core: {
       runtime_id: id,
-      current_revision: Revision::initial(),
+      revision: {
+        current_revision: Revision::initial(),
+        durability_last_changed: FixedArray::make(
+          @incr_types.DURABILITY_COUNT,
+          Revision::initial(),
+        ),
+      },
       next_cell_id: 0,
       tracking_stack: [],
-      durability_last_changed: FixedArray::make(
-        @incr_types.DURABILITY_COUNT,
-        Revision::initial(),
-      ),
       batch_depth: 0,
       batch_pending: [],
       batch_frames: [],
@@ -612,7 +620,7 @@ fn Runtime::publish_cell_changes(
 ) -> Unit {
   self.advance_revision(durability)
   for id in changed_ids {
-    self.core.cell_ops[id.id].set_changed_at(self.core.current_revision)
+    self.core.cell_ops[id.id].set_changed_at(self.core.revision.current_revision)
   }
   if self.push.node_count > 0 {
     self.push_propagate_from(changed_ids)
@@ -625,10 +633,10 @@ fn Runtime::publish_cell_changes(
 /// Updates current_revision and all durability_last_changed entries up to dur_idx.
 /// Callers must ensure this is only called outside of a batch (batch_depth == 0).
 impl RevisionManager for Runtime with advance_revision(self, durability) {
-  self.core.current_revision = Revision::next(self.core.current_revision)
+  self.core.revision.current_revision = Revision::next(self.core.revision.current_revision)
   let dur_idx = durability.index()
   for i = 0; i <= dur_idx; i = i + 1 {
-    self.core.durability_last_changed[i] = self.core.current_revision
+    self.core.revision.durability_last_changed[i] = self.core.revision.current_revision
   }
 }
 
@@ -638,7 +646,7 @@ impl RevisionManager for Runtime with advance_revision(self, durability) {
 /// Must be called after advance_revision so current_revision is already updated.
 fn Runtime::mark_input_changed(self : Runtime, id : CellId) -> PullSignalData {
   let sig = self.get_pull_signal(id)
-  sig.meta.changed_at = self.core.current_revision
+  sig.meta.changed_at = self.core.revision.current_revision
   sig
 }
 

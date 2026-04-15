@@ -218,7 +218,7 @@ fn Runtime::push_propagate_from(
           self.propagate_level_change(reactive_cell_id, update_queue)
         }
         if changed {
-          reactive.meta.changed_at = self.core.current_revision
+          reactive.meta.changed_at = self.core.revision.current_revision
           enqueue_push_subscribers(reactive_cell_id)
         }
       }

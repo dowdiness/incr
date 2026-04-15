@@ -247,7 +247,7 @@ fn[T] Memo::get_result_inner(self : Memo[T]) -> Result[T, CycleError] {
     Some(cached) => {
       // Fast path: already verified this revision
       let cell = self.rt.get_memo_data(self.cell_id)
-      if cell.verified_at >= self.rt.core.current_revision {
+      if cell.verified_at >= self.rt.core.revision.current_revision {
         self.rt.record_dependency(self.cell_id)
         return Ok(cached)
       }
@@ -431,9 +431,9 @@ fn[T] Runtime::memo_force_recompute(
     Some(old) => !eq_fn(old, new_value)
   }
   if value_changed {
-    cell.meta.changed_at = self.core.current_revision
+    cell.meta.changed_at = self.core.revision.current_revision
   }
-  cell.verified_at = self.core.current_revision
+  cell.verified_at = self.core.revision.current_revision
   cell.in_progress = false
   Ok(new_value)
 }
@@ -552,6 +552,6 @@ pub fn[T] Memo::is_up_to_date(self : Memo[T]) -> Bool {
     None => false
     Some(_) =>
       self.rt.get_memo_data(self.cell_id).verified_at ==
-      self.rt.core.current_revision
+      self.rt.core.revision.current_revision
   }
 }

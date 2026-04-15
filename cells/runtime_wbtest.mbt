@@ -3,15 +3,15 @@ test "publish_cell_changes: advances revision, marks changed_at, fires on_change
   let rt = Runtime::new()
   let sig = Signal::new(rt, 0)
   let cell_id = sig.id()
-  let before = rt.core.current_revision
+  let before = rt.core.revision.current_revision
   let mut fired = false
   rt.set_on_change(() => fired = true)
   rt.publish_cell_changes([cell_id], Low)
   // Revision advanced
-  inspect(rt.core.current_revision > before, content="true")
+  inspect(rt.core.revision.current_revision > before, content="true")
   // changed_at updated
   inspect(
-    rt.core.cell_ops[cell_id.id].changed_at() == rt.core.current_revision,
+    rt.core.cell_ops[cell_id.id].changed_at() == rt.core.revision.current_revision,
     content="true",
   )
   // on_change fired
