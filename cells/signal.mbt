@@ -217,14 +217,11 @@ pub fn[T] Signal::set_unconditional(self : Signal[T], new_value : T) -> Unit {
     self.set_batch_unconditional(new_value)
   } else {
     self.value = new_value
-    self.rt.bump_revision(self.durability)
-    let sig = self.rt.mark_input_changed(self.cell_id)
-    // Push propagation must run before per-signal callbacks so callback reads
-    // cannot observe stale push-reactive state in the current revision.
-    if self.rt.push.node_count > 0 {
-      self.rt.push_propagate_from([self.cell_id])
-    }
-    match sig.on_change {
+    // Snapshot callback before propagation — same invariant as commit_batch:
+    // push propagation must not affect which handler fires.
+    let cb = self.rt.get_pull_signal(self.cell_id).on_change
+    self.rt.propagate_changes([self.cell_id], self.durability)
+    match cb {
       Some(f) => f()
       None => ()
     }

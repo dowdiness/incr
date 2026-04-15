@@ -593,23 +593,17 @@ fn Runtime::fire_on_change(self : Runtime) -> Unit {
 }
 
 ///|
-/// Kernel notification protocol: notifies the runtime that a set of cells has new values.
+/// Core propagation coordinator: advances the revision, stamps changed_at on
+/// all changed cells, and runs push propagation if any push cells exist.
 ///
-/// This is the **kernel notification protocol** — the intended single method
-/// that cross-engine code calls when a set of cells has new values. Callers
-/// should use this instead of calling `push_propagate_from`, `advance_revision`,
-/// and `fire_on_change` directly; existing callers are being migrated to use it.
+/// This is the single entry point for push propagation. All paths that notify
+/// the runtime of cell value changes call this method. Callers handle their
+/// own callback sequencing around it:
 ///
-/// Note: `Signal::set_unconditional` and `commit_batch` call the lower-level
-/// methods directly — their per-signal and batch-wave sequencing cannot be
-/// expressed through this protocol without restructuring.
-///
-/// # Parameters
-///
-/// - `changed_ids`: The cell IDs whose values changed
-/// - `durability`: Durability level of the change. Memos whose minimum-dependency
-///   durability exceeds this level will skip re-verification (durability shortcut).
-fn Runtime::publish_cell_changes(
+/// - `publish_cell_changes`: adds `fire_on_change()` (simple path for fixpoint)
+/// - `commit_batch`: snapshots per-signal callbacks before, fires after
+/// - `signal.set_unconditional`: snapshots per-signal callback before, fires after
+fn Runtime::propagate_changes(
   self : Runtime,
   changed_ids : Array[CellId],
   durability : Durability,
@@ -623,6 +617,30 @@ fn Runtime::publish_cell_changes(
   if self.push.node_count > 0 {
     self.push_propagate_from(changed_ids)
   }
+}
+
+///|
+/// Kernel notification protocol: notifies the runtime that a set of cells
+/// has new values.
+///
+/// Delegates to `propagate_changes` for revision bump, changed_at stamping,
+/// and push propagation, then fires the global `on_change` callback.
+///
+/// Use this for callers that don't need custom callback sequencing (e.g.
+/// `fixpoint`). Callers that interleave per-cell callbacks with propagation
+/// (e.g. `commit_batch`, `signal.set_unconditional`) call `propagate_changes`
+/// directly and manage their own callback timing.
+///
+/// # Parameters
+///
+/// - `changed_ids`: The cell IDs whose values changed
+/// - `durability`: Durability level of the change
+fn Runtime::publish_cell_changes(
+  self : Runtime,
+  changed_ids : Array[CellId],
+  durability : Durability,
+) -> Unit {
+  self.propagate_changes(changed_ids, durability)
   self.fire_on_change()
 }
 
@@ -638,16 +656,6 @@ impl RevisionManager for Runtime with advance_revision(self, durability) {
   for i = 0; i <= dur_idx; i = i + 1 {
     self.core.revision.durability_last_changed[i] = self.core.revision.current_revision
   }
-}
-
-///|
-/// Mark an input cell as changed at the current revision.
-/// Sets changed_at to current_revision on the PullSignalData entry.
-/// Must be called after advance_revision so current_revision is already updated.
-fn Runtime::mark_input_changed(self : Runtime, id : CellId) -> PullSignalData {
-  let sig = self.get_pull_signal(id)
-  sig.meta.changed_at = self.core.revision.current_revision
-  sig
 }
 
 ///|

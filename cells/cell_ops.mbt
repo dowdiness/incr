@@ -62,9 +62,9 @@ priv trait HasCellMeta {
 priv trait CellOps: HasCellMeta {
   cell_id(Self) -> CellId = _
   changed_at(Self) -> Revision = _
-  /// Stamps `changed_at` to `rev`. Used by Phase 3 cell kinds that need a
-  /// generic write path; current pull-cell internals write the field directly
-  /// (see `mark_input_changed`, `force_recompute`).
+  /// Stamps `changed_at` to `rev`. Used by `propagate_changes` to stamp all
+  /// changed cells generically, and by cell kinds that need a direct write path
+  /// (see `force_recompute`).
   set_changed_at(Self, Revision) -> Unit = _
   /// Returns the **live** subscriber set. Because `HashSet[CellId]` is a
   /// heap-allocated reference, the returned value is a pointer to the SoA

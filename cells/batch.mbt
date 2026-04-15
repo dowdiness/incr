@@ -160,25 +160,20 @@ fn Runtime::commit_batch(self : Runtime) -> Unit {
     // Phase 2: if any value actually changed, do a single revision bump
     if changed.length() > 0 {
       any_changed = true
-      self.advance_revision(self.core.batch.max_durability)
-      // Sweep changed signals: update changed_at and snapshot on_change callbacks.
-      // Handlers are captured here — before any callback executes — so that a
-      // callback calling clear_on_change() or on_change() on another changed signal
-      // cannot affect which handlers fire in this batch wave.
+      // Snapshot on_change callbacks BEFORE propagation — preserves the
+      // invariant that push propagation cannot affect which handlers fire
+      // in this batch wave (a PushReactive's compute closure could call
+      // clear_on_change() or on_change() on a changed signal).
       let callbacks : Array[() -> Unit] = []
       for c in changed {
-        let sig = self.mark_input_changed(c.cell_id())
+        let sig = self.get_pull_signal(c.cell_id())
         match sig.on_change {
           Some(f) => callbacks.push(f)
           None => ()
         }
       }
-      // Push propagation must run before per-signal callbacks so callback
-      // reads observe fully-updated push-reactive state for this wave.
-      if self.push.node_count > 0 {
-        let changed_ids : Array[CellId] = changed.map(c => c.cell_id())
-        self.push_propagate_from(changed_ids)
-      }
+      let changed_ids : Array[CellId] = changed.map(fn(c) { c.cell_id() })
+      self.propagate_changes(changed_ids, self.core.batch.max_durability)
       self.core.batch.max_durability = Low
       // Raise batch_depth while invoking callbacks so that any signal.set()
       // inside a callback takes the batch path instead of set_unconditional,
