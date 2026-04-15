@@ -242,7 +242,7 @@ test "panic fixpoint: aborts inside a batch" {
   let rt = Runtime::new()
   let rel : Relation[Int] = Relation::new(rt)
   rel.insert(1) |> ignore
-  rt.core.batch_depth = 1
+  rt.core.batch.depth = 1
   rt.fixpoint()
 }
 

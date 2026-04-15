@@ -13,7 +13,7 @@ pub fn Runtime::fixpoint(self : Runtime) -> Unit {
   if self.core.phase is InFixpoint {
     abort("fixpoint: re-entrant fixpoint() is not supported")
   }
-  if self.core.batch_depth > 0 {
+  if self.core.batch.depth > 0 {
     abort("fixpoint: cannot run fixpoint() inside a batch")
   }
   // Track which relation SoA indices changed during this fixpoint run

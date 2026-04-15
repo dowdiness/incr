@@ -66,25 +66,25 @@ fn BatchFrame::has_undo_for(self : BatchFrame, cell_id : CellId) -> Bool {
 /// MoonBit `abort()` is not catchable. If `f` aborts (rather than raises),
 /// cleanup cannot run and runtime state may be left inconsistent.
 pub fn Runtime::batch(self : Runtime, f : () -> Unit raise?) -> Unit raise? {
-  self.core.batch_depth = self.core.batch_depth + 1
-  self.core.batch_frames.push(BatchFrame::new())
+  self.core.batch.depth = self.core.batch.depth + 1
+  self.core.batch.frames.push(BatchFrame::new())
   f() catch {
     e => {
-      self.core.batch_depth = self.core.batch_depth - 1
-      if self.core.batch_depth < 0 {
+      self.core.batch.depth = self.core.batch.depth - 1
+      if self.core.batch.depth < 0 {
         abort("batch_depth underflow: batch() nesting is unbalanced")
       }
       self.rollback_current_batch_frame()
       raise e
     }
   }
-  self.core.batch_depth = self.core.batch_depth - 1
+  self.core.batch.depth = self.core.batch.depth - 1
   // Defense-in-depth: batch_depth is priv, but guard future modifications to mutation sites
-  if self.core.batch_depth < 0 {
+  if self.core.batch.depth < 0 {
     abort("batch_depth underflow: batch() nesting is unbalanced")
   }
   self.complete_batch_frame_success()
-  if self.core.batch_depth == 0 {
+  if self.core.batch.depth == 0 {
     self.commit_batch()
   }
 }
@@ -105,7 +105,7 @@ pub fn Runtime::batch_result(
 ///|
 /// Rolls back only the currently failing batch frame.
 fn Runtime::rollback_current_batch_frame(self : Runtime) -> Unit {
-  match self.core.batch_frames.pop() {
+  match self.core.batch.frames.pop() {
     Some(frame) => {
       let mut i = frame.undo_entries.length()
       while i > 0 {
@@ -123,12 +123,12 @@ fn Runtime::rollback_current_batch_frame(self : Runtime) -> Unit {
 /// - Outermost success: discard undo log.
 /// - Nested success: merge child frame entries into parent for outer rollback.
 fn Runtime::complete_batch_frame_success(self : Runtime) -> Unit {
-  match self.core.batch_frames.pop() {
+  match self.core.batch.frames.pop() {
     Some(frame) => {
-      if self.core.batch_frames.length() == 0 {
+      if self.core.batch.frames.length() == 0 {
         return
       }
-      let parent = self.core.batch_frames[self.core.batch_frames.length() - 1]
+      let parent = self.core.batch.frames[self.core.batch.frames.length() - 1]
       for entry in frame.undo_entries {
         if !parent.has_undo_for(entry.cell_id) {
           parent.undo_entries.push(entry)
@@ -148,19 +148,19 @@ fn Runtime::complete_batch_frame_success(self : Runtime) -> Unit {
 /// global on_change callback exactly once if anything changed.
 fn Runtime::commit_batch(self : Runtime) -> Unit {
   let mut any_changed = false
-  while self.core.batch_pending.length() > 0 {
+  while self.core.batch.pending.length() > 0 {
     // Phase 1: commit pending values and collect which actually changed
     let changed : Array[&Committable] = []
-    for c in self.core.batch_pending {
+    for c in self.core.batch.pending {
       if c.do_commit() {
         changed.push(c)
       }
     }
-    self.core.batch_pending.clear()
+    self.core.batch.pending.clear()
     // Phase 2: if any value actually changed, do a single revision bump
     if changed.length() > 0 {
       any_changed = true
-      self.advance_revision(self.core.batch_max_durability)
+      self.advance_revision(self.core.batch.max_durability)
       // Sweep changed signals: update changed_at and snapshot on_change callbacks.
       // Handlers are captured here — before any callback executes — so that a
       // callback calling clear_on_change() or on_change() on another changed signal
@@ -179,21 +179,21 @@ fn Runtime::commit_batch(self : Runtime) -> Unit {
         let changed_ids : Array[CellId] = changed.map(c => c.cell_id())
         self.push_propagate_from(changed_ids)
       }
-      self.core.batch_max_durability = Low
+      self.core.batch.max_durability = Low
       // Raise batch_depth while invoking callbacks so that any signal.set()
       // inside a callback takes the batch path instead of set_unconditional,
       // preventing re-entrant fire_on_change() calls.
       // If callbacks queue more signals, the while loop will process them.
-      self.core.batch_depth = self.core.batch_depth + 1
+      self.core.batch.depth = self.core.batch.depth + 1
       for cb in callbacks {
         cb()
       }
-      self.core.batch_depth = self.core.batch_depth - 1
+      self.core.batch.depth = self.core.batch.depth - 1
     } else {
-      self.core.batch_max_durability = Low
+      self.core.batch.max_durability = Low
     }
   }
-  self.core.batch_max_durability = Low
+  self.core.batch.max_durability = Low
   // Fire global on_change exactly once after all waves complete.
   if any_changed {
     self.fire_on_change()
@@ -214,7 +214,7 @@ fn Runtime::record_batch_signal(
   self : Runtime,
   committable : &Committable,
 ) -> Unit {
-  self.core.batch_pending.push(committable)
+  self.core.batch.pending.push(committable)
 }
 
 ///|
@@ -228,10 +228,10 @@ fn Runtime::record_batch_rollback(
   // Some internal batch-like flows (e.g. commit callbacks) temporarily
   // raise batch_depth without creating an undo frame. In this mode, writes
   // still use batch commit mechanics, but there is no user-visible frame to roll back.
-  if self.core.batch_frames.length() == 0 {
+  if self.core.batch.frames.length() == 0 {
     return
   }
-  let frame = self.core.batch_frames[self.core.batch_frames.length() - 1]
+  let frame = self.core.batch.frames[self.core.batch.frames.length() - 1]
   if frame.has_undo_for(cell_id) {
     return
   }
@@ -248,16 +248,16 @@ fn Runtime::record_batch_rollback(
 fn Runtime::remove_batch_signal(self : Runtime, cell_id : CellId) -> Unit {
   let kept : Array[&Committable] = []
   let mut removed = false
-  for c in self.core.batch_pending {
+  for c in self.core.batch.pending {
     if !removed && c.cell_id() == cell_id {
       removed = true
     } else {
       kept.push(c)
     }
   }
-  self.core.batch_pending.clear()
+  self.core.batch.pending.clear()
   for c in kept {
-    self.core.batch_pending.push(c)
+    self.core.batch.pending.push(c)
   }
 }
 
@@ -265,11 +265,11 @@ fn Runtime::remove_batch_signal(self : Runtime, cell_id : CellId) -> Unit {
 /// Recompute max durability from currently pending signals.
 fn Runtime::recompute_batch_max_durability(self : Runtime) -> Unit {
   let mut max_durability : Durability = Low
-  for c in self.core.batch_pending {
+  for c in self.core.batch.pending {
     let d = c.durability()
     if d > max_durability {
       max_durability = d
     }
   }
-  self.core.batch_max_durability = max_durability
+  self.core.batch.max_durability = max_durability
 }

@@ -204,10 +204,10 @@ test "batch: raised error rolls back pending writes and restores depth" {
     raise Stop
   })
   inspect(res is Err(_), content="true")
-  inspect(rt.core.batch_depth, content="0")
+  inspect(rt.core.batch.depth, content="0")
   inspect(sig.get(), content="0")
   inspect(rt.core.revision.current_revision.value, content="0")
-  inspect(rt.core.batch_pending.length(), content="0")
+  inspect(rt.core.batch.pending.length(), content="0")
   // Ensure signal remains fully reusable after rollback.
   sig.set(100)
   inspect(sig.get(), content="100")
@@ -225,10 +225,10 @@ test "batch: nested raised error rolls back entire outer batch" {
     })
   })
   inspect(res is Err(_), content="true")
-  inspect(rt.core.batch_depth, content="0")
+  inspect(rt.core.batch.depth, content="0")
   inspect(sig.get(), content="0")
   inspect(rt.core.revision.current_revision.value, content="0")
-  inspect(rt.core.batch_pending.length(), content="0")
+  inspect(rt.core.batch.pending.length(), content="0")
 }
 
 ///|
@@ -257,7 +257,7 @@ test "batch: failed inner batch_result rolls back before outer continues" {
   inspect(shared.get(), content="1")
   inspect(inner_only.get(), content="0")
   inspect(rt.core.revision.current_revision.value, content="1")
-  inspect(rt.core.batch_pending.length(), content="0")
+  inspect(rt.core.batch.pending.length(), content="0")
 }
 
 ///|
@@ -304,11 +304,11 @@ test "batch_result: returns Err and rolls back" {
 test "batch leak simulation: stale batch_depth defers writes" {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 0)
-  rt.core.batch_depth = 1
+  rt.core.batch.depth = 1
   sig.set(1)
   inspect(sig.get(), content="0")
   inspect(rt.core.revision.current_revision.value, content="0")
-  inspect(rt.core.batch_pending.length(), content="1")
+  inspect(rt.core.batch.pending.length(), content="1")
 }
 
 ///|
@@ -317,13 +317,13 @@ test "batch leak simulation: stale batch_depth defers writes" {
 test "batch leak simulation: manual cleanup recovers state" {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 0)
-  rt.core.batch_depth = 1
+  rt.core.batch.depth = 1
   sig.set(1)
-  rt.core.batch_depth = 0
+  rt.core.batch.depth = 0
   rt.commit_batch()
   inspect(sig.get(), content="1")
   inspect(rt.core.revision.current_revision.value, content="1")
-  inspect(rt.core.batch_pending.length(), content="0")
+  inspect(rt.core.batch.pending.length(), content="0")
 }
 
 ///|
@@ -332,7 +332,7 @@ test "panic batch: corrupted negative batch_depth triggers underflow abort" {
   // Directly corrupt batch_depth to simulate a future bug where an internal
   // decrement site is added without a matching increment.
   // batch() will: +1 (to 0), run f(), -1 (to -1), then hit the guard.
-  rt.core.batch_depth = -1
+  rt.core.batch.depth = -1
   rt.batch(() => ())
 }
 
@@ -344,7 +344,7 @@ test "panic batch: missing commit_pending aborts during commit_batch" {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 0)
   // Manually enter batch mode by directly setting batch_depth
-  rt.core.batch_depth = 1
+  rt.core.batch.depth = 1
   // set() detects batch_depth > 0 and calls set_batch, which registers
   // commit_pending and enqueues the signal as &Committable in batch_pending
   sig.set(1)
@@ -352,6 +352,6 @@ test "panic batch: missing commit_pending aborts during commit_batch" {
   let meta = rt.get_pull_signal(sig.id())
   meta.commit_pending = None
   // Manually exit batch and trigger commit_batch
-  rt.core.batch_depth = 0
+  rt.core.batch.depth = 0
   rt.commit_batch()
 }

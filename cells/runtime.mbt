@@ -69,6 +69,15 @@ impl Show for PropagationPhase with output(self, logger) {
 ///|
 ///|
 /// Dependency tracking: recording which cells are read during computation.
+///|
+/// Batch update management: deferred signal writes and rollback.
+priv struct BatchState {
+  mut depth : Int
+  pending : Array[&Committable]
+  frames : Array[BatchFrame]
+  mut max_durability : Durability
+}
+
 priv struct TrackingState {
   stack : Array[ActiveQuery]
 }
@@ -84,10 +93,7 @@ priv struct RuntimeCore {
   revision : RevisionState
   mut next_cell_id : Int
   tracking : TrackingState
-  mut batch_depth : Int
-  batch_pending : Array[&Committable]
-  batch_frames : Array[BatchFrame]
-  mut batch_max_durability : Durability
+  batch : BatchState
   mut on_change : (() -> Unit)?
   cell_index : Array[CellRef]
   cell_ops : Array[&CellOps]
@@ -197,10 +203,7 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
       },
       next_cell_id: 0,
       tracking: { stack: [] },
-      batch_depth: 0,
-      batch_pending: [],
-      batch_frames: [],
-      batch_max_durability: Low,
+      batch: { depth: 0, pending: [], frames: [], max_durability: Low },
       on_change,
       cell_index: [],
       cell_ops: [],
@@ -669,10 +672,10 @@ fn Runtime::mark_input_changed(self : Runtime, id : CellId) -> PullSignalData {
 ///
 /// - `durability`: The durability level of the signal that changed
 impl RevisionManager for Runtime with bump_revision(self, durability) {
-  if self.core.batch_depth > 0 {
+  if self.core.batch.depth > 0 {
     // Track the maximum durability seen during this batch
-    if durability > self.core.batch_max_durability {
-      self.core.batch_max_durability = durability
+    if durability > self.core.batch.max_durability {
+      self.core.batch.max_durability = durability
     }
     return
   }
@@ -772,7 +775,7 @@ pub fn Runtime::gc(self : Runtime) -> Unit {
     current_computing_runtime_id.val = -1
     abort("gc: cannot run during active computation")
   }
-  guard self.core.batch_depth == 0 else { abort("gc: cannot run during batch") }
+  guard self.core.batch.depth == 0 else { abort("gc: cannot run during batch") }
   guard self.core.phase is Idle else {
     abort(
       "gc: cannot run during " + self.core.phase.to_string(),

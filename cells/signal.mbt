@@ -187,7 +187,7 @@ pub fn[T : Eq] Signal::set(self : Signal[T], new_value : T) -> Unit {
   guard !self.rt.is_cell_disposed(self.cell_id) else {
     abort("Signal::set called on a disposed signal")
   }
-  if self.rt.core.batch_depth > 0 {
+  if self.rt.core.batch.depth > 0 {
     self.set_batch(new_value)
   } else {
     if self.value == new_value {
@@ -213,7 +213,7 @@ pub fn[T] Signal::set_unconditional(self : Signal[T], new_value : T) -> Unit {
   guard !self.rt.is_cell_disposed(self.cell_id) else {
     abort("Signal::set_unconditional called on a disposed signal")
   }
-  if self.rt.core.batch_depth > 0 {
+  if self.rt.core.batch.depth > 0 {
     self.set_batch_unconditional(new_value)
   } else {
     self.value = new_value
