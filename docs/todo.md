@@ -310,9 +310,14 @@ Architecture analysis completed 2026-04-16. See [design.md](design.md#architectu
 - [x] Migrate `memo_force_recompute` to use shared function (preserves `seen` set optimization)
 - [x] Migrate `finish_tracking` to use shared function
 
+### Completed (PR #36)
+
+- [x] Route batch→push propagation through coordinator (`propagate_changes`) instead of direct call
+- [x] `push_propagate_from` now has exactly one caller (`propagate_changes`)
+- [x] Delete dead `mark_input_changed` function
+
 ### Remaining
 
-- [ ] Route batch→push propagation through coordinator instead of direct call
 - [ ] Internal package split — Move engine types to `cells/internal/pull/`, `cells/internal/push/`, `cells/internal/datalog/`
 - [ ] Verify engine packages do not import each other
 
