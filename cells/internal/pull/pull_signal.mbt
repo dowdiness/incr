@@ -1,15 +1,4 @@
 ///|
-using @incr_types {type CellId, type Durability}
-
-///|
-using @shared {
-  type CellMeta,
-  trait CellOps,
-  trait HasCellMeta,
-  trait Committable,
-}
-
-///|
 /// Type-erased metadata for a Pull Signal cell in the SoA layout.
 ///
 /// The actual typed value lives in the `Signal[T]` handle held by user code.

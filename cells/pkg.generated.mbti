@@ -9,12 +9,6 @@ import {
 // Values
 
 // Errors
-pub suberror CycleError {
-  CycleDetected(@types.CellId, Array[@types.CellId])
-}
-pub fn CycleError::cell(Self) -> @types.CellId
-pub fn CycleError::format_path(Self, Runtime) -> String
-pub fn CycleError::path(Self) -> Array[@types.CellId]
 
 // Types and methods
 pub(all) struct CellInfo {
@@ -73,8 +67,8 @@ pub fn[T] Memo::dependencies(Self[T]) -> Array[@types.CellId]
 pub fn[T] Memo::dispose(Self[T]) -> Unit
 pub fn[T] Memo::get(Self[T]) -> T
 pub fn[T] Memo::get_or(Self[T], T) -> T
-pub fn[T] Memo::get_or_else(Self[T], (CycleError) -> T) -> T
-pub fn[T] Memo::get_result(Self[T]) -> Result[T, CycleError]
+pub fn[T] Memo::get_or_else(Self[T], (@types.CycleError) -> T) -> T
+pub fn[T] Memo::get_result(Self[T]) -> Result[T, @types.CycleError]
 pub fn[T] Memo::id(Self[T]) -> @types.CellId
 pub fn[T] Memo::is_disposed(Self[T]) -> Bool
 pub fn[T] Memo::is_up_to_date(Self[T]) -> Bool
@@ -93,8 +87,8 @@ pub(all) struct MemoMap[K, V] {
 pub fn[K : Hash + Eq, V] MemoMap::contains(Self[K, V], K) -> Bool
 pub fn[K : Hash + Eq, V : Eq] MemoMap::get(Self[K, V], K) -> V
 pub fn[K : Hash + Eq, V : Eq] MemoMap::get_or(Self[K, V], K, V) -> V
-pub fn[K : Hash + Eq, V : Eq] MemoMap::get_or_else(Self[K, V], K, (CycleError) -> V) -> V
-pub fn[K : Hash + Eq, V : Eq] MemoMap::get_result(Self[K, V], K) -> Result[V, CycleError]
+pub fn[K : Hash + Eq, V : Eq] MemoMap::get_or_else(Self[K, V], K, (@types.CycleError) -> V) -> V
+pub fn[K : Hash + Eq, V : Eq] MemoMap::get_result(Self[K, V], K) -> Result[V, @types.CycleError]
 pub fn[K, V] MemoMap::length(Self[K, V]) -> Int
 pub fn[K, V] MemoMap::new(Runtime, (K) -> V, label? : String) -> Self[K, V]
 pub fn[K : Hash + Eq, V] MemoMap::sweep(Self[K, V]) -> Int
@@ -176,7 +170,7 @@ pub fn[T] Signal::clear_on_change(Self[T]) -> Unit
 pub fn[T] Signal::dispose(Self[T]) -> Unit
 pub fn[T] Signal::durability(Self[T]) -> @types.Durability
 pub fn[T] Signal::get(Self[T]) -> T
-pub fn[T] Signal::get_result(Self[T]) -> Result[T, CycleError]
+pub fn[T] Signal::get_result(Self[T]) -> Result[T, @types.CycleError]
 pub fn[T] Signal::id(Self[T]) -> @types.CellId
 pub fn[T] Signal::is_disposed(Self[T]) -> Bool
 pub fn[T] Signal::is_up_to_date(Self[T]) -> Bool
@@ -196,7 +190,7 @@ pub fn[T] TrackedCell::clear_on_change(Self[T]) -> Unit
 pub fn[T] TrackedCell::dispose(Self[T]) -> Unit
 pub fn[T] TrackedCell::durability(Self[T]) -> @types.Durability
 pub fn[T] TrackedCell::get(Self[T]) -> T
-pub fn[T] TrackedCell::get_result(Self[T]) -> Result[T, CycleError]
+pub fn[T] TrackedCell::get_result(Self[T]) -> Result[T, @types.CycleError]
 pub fn[T] TrackedCell::id(Self[T]) -> @types.CellId
 pub fn[T] TrackedCell::is_disposed(Self[T]) -> Bool
 pub fn[T] TrackedCell::is_up_to_date(Self[T]) -> Bool

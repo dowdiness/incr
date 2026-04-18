@@ -95,21 +95,16 @@ inspect(total.get(), content="1000")
 
 `Memo::get()` is convenient but aborts on cycle errors. For resilient applications, use `get_result()`:
 
-**Database pattern:**
 ```moonbit
 match total.get_result() {
   Ok(value) => println("Total: \{value}")
-  Err(err) => println(err.format_path(app.runtime()))
+  Err(err) => println(err.format_path())
 }
 ```
 
-**Direct Runtime:**
-```moonbit
-match total.get_result() {
-  Ok(value) => println("Total: \{value}")
-  Err(err) => println(err.format_path(rt))
-}
-```
+`CycleError::format_path` takes no runtime — labels are captured at
+detection time, so errors render the same regardless of where and when you
+format them.
 
 `Signal::get_result()` is always `Ok`, but useful for API symmetry in generic code.
 

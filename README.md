@@ -123,7 +123,7 @@ Prefer `get_result()` when you want cycle-safe reads without aborting:
 ```moonbit
 match sum.get_result() {
   Ok(v) => println(v.to_string())
-  Err(e) => println(e.format_path(app.runtime()))
+  Err(e) => println(e.format_path())
 }
 ```
 
@@ -135,7 +135,7 @@ let value = sum.get_or(0)
 
 // Fallback computed from the error
 let value = sum.get_or_else(err => {
-  println(err.format_path(app.runtime()))
+  println(err.format_path())
   0
 })
 ```

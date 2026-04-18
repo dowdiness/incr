@@ -74,7 +74,7 @@ test "cycle path: format_path produces readable output" {
         match memo.get_result() {
           Ok(v) => v + 1
           Err(err) => {
-            captured_formatted.val = err.format_path(rt)
+            captured_formatted.val = err.format_path()
             -999
           }
         }
@@ -113,7 +113,7 @@ test "cycle path: long cycle is truncated" {
               Ok(v) => v
               Err(err) => {
                 captured_path.val = Some(err.path())
-                captured_formatted.val = err.format_path(rt)
+                captured_formatted.val = err.format_path()
                 -999
               }
             }
@@ -128,7 +128,7 @@ test "cycle path: long cycle is truncated" {
               Ok(v) => v + 1
               Err(err) => {
                 captured_path.val = Some(err.path())
-                captured_formatted.val = err.format_path(rt)
+                captured_formatted.val = err.format_path()
                 -999
               }
             }
@@ -172,7 +172,7 @@ test "format_path uses label when available" {
           match m.get_result() {
             Ok(v) => v + 1
             Err(err) => {
-              captured_formatted.val = err.format_path(rt)
+              captured_formatted.val = err.format_path()
               -999
             }
           }

@@ -244,8 +244,9 @@ Cycle detection triggers in two places:
 Cycle detection returns a `CycleError` type that can be handled gracefully:
 
 ```moonbit
-pub suberror CycleError {
-  CycleDetected(CellId, Array[CellId])  // (culprit, cycle_path)
+pub(all) suberror CycleError {
+  CycleDetected(CellId, Array[CellId], Array[String?])
+  //            ^culprit ^cycle_path    ^labels (snapshot, capped at 20)
 }
 ```
 
@@ -395,7 +396,8 @@ The library is split into four MoonBit sub-packages. The root package re-exports
 | `cells/cell_ops.mbt` | `CellOps`, `CellLifecycle`, `Committable` traits; `CellMeta` shared metadata |
 | `cells/tracking.mbt` | `ActiveQuery` — dependency recording frame with deduplication |
 | `cells/batch.mbt` | `Runtime::batch` — two-phase commit with rollback and revert detection |
-| `cells/cycle.mbt` | `CycleError` — cycle error type, path formatting |
+| `cells/cycle.mbt` | Private `CycleError::from_path` helper — captures cell labels at error construction |
+| `types/cycle_error.mbt` | `CycleError` suberror — pure-value cycle error, label-aware `format_path` |
 
 **Lifecycle and memory management:**
 

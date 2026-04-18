@@ -768,7 +768,7 @@ When you encounter a cycle error, use the path information to understand the dep
 match computation.get_result() {
   Err(err) => {
     let path = err.path()
-    let formatted = err.format_path(rt)
+    let formatted = err.format_path()
 
     println("Cycle detected!")
     println(formatted)

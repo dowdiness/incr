@@ -203,12 +203,12 @@ This replaced `Signal::new_with_durability` and `create_signal_durable` with uni
 **Goal:** Better debugging for cycle errors.
 
 ```moonbit
-pub suberror CycleError {
-  CycleDetected(CellId, Array[CellId])  // (culprit, cycle_path)
+pub(all) suberror CycleError {
+  CycleDetected(CellId, Array[CellId], Array[String?])  // (culprit, cycle_path, labels)
 }
 
 pub fn CycleError::path(self) -> Array[CellId]
-pub fn CycleError::format_path(self, rt : Runtime) -> String
+pub fn CycleError::format_path(self) -> String
 ```
 
 **Use case:**
@@ -216,12 +216,16 @@ pub fn CycleError::format_path(self, rt : Runtime) -> String
 ```moonbit
 match memo.get_result() {
   Err(err) => {
-    println(err.format_path(rt))
-    // "Cycle detected: Cell[0] → Cell[1] → Cell[2] → Cell[0]"
+    println(err.format_path())
+    // "Cycle detected: price → tax → price"
   }
   Ok(v) => v
 }
 ```
+
+`format_path` is pure-value: labels are snapshotted at detection time, so
+rendering doesn't need a runtime handle and stays informative even if cells
+are later renamed or disposed.
 
 ### Phase 3: Method Chaining (Low Priority)
 

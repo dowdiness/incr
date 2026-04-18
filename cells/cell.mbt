@@ -6,8 +6,8 @@
 // across the cells package.
 using @incr_types {
   type CellId,
+  type CycleError,
   type Durability,
-  type GcRole,
   type Revision,
   trait BackdateEq,
 }

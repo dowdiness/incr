@@ -231,7 +231,7 @@ test "CycleError::format_path() produces readable output" {
         match m.get_result() {
           Ok(v) => v + 1
           Err(err) => {
-            captured_message.val = err.format_path(rt)
+            captured_message.val = err.format_path()
             -999
           }
         }
@@ -255,7 +255,7 @@ test "CycleError::format_path() returns non-empty string for self-referencing me
         match m.get_result() {
           Ok(v) => v + 1
           Err(err) => {
-            captured_message.val = err.format_path(rt)
+            captured_message.val = err.format_path()
             -999
           }
         }

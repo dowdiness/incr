@@ -32,13 +32,14 @@ dowdiness/incr/
 │
 ├── types/                      (pure value types, zero dependencies)
 │   ├── revision.mbt            (Revision, Durability, DURABILITY_COUNT)
-│   └── cell_id.mbt             (CellId + Hash impl)
+│   ├── cell_id.mbt             (CellId + Hash impl)
+│   └── cycle_error.mbt         (CycleError + pure-value format_path)
 │
 ├── cells/                      (coordinator + handles + algorithms + lifecycle)
 │   ├── moon.pkg                (imports @shared, @pull, @push, @datalog)
 │   ├── runtime.mbt             (Runtime + sub-states)
-│   ├── cycle.mbt               (CycleError — stays here; format_path uses Runtime)
-│   ├── pull_memo.mbt           (MemoData — stays here; compute references CycleError)
+│   ├── cycle.mbt               (private from_path helper — captures labels from Runtime)
+│   ├── pull_memo_lifecycle.mbt (CellLifecycle for MemoData)
 │   ├── pull_lifecycle.mbt      (CellLifecycle for PullSignalData)
 │   ├── push_lifecycle.mbt      (CellLifecycle for PushReactiveData, PushEffectData)
 │   ├── datalog_lifecycle.mbt   (CellLifecycle for Relation/Functional/Rule)
@@ -59,7 +60,7 @@ dowdiness/incr/
 │   ├── cell.mbt, cell_ops.mbt  (local CellLifecycle trait + using re-exports)
 │   ├── internal/               (engine sub-packages, MoonBit `internal` visibility)
 │   │   ├── shared/             (CellOps, HasCellMeta, Committable, CellMeta, CellRef)
-│   │   ├── pull/               (PullSignalData only — memo stays in cells/)
+│   │   ├── pull/               (PullSignalData, MemoData)
 │   │   ├── push/               (PushReactiveData, PushEffectData)
 │   │   └── datalog/            (RelationData, FunctionalRelationData, RuleData)
 │   └── *_test.mbt, *_wbtest.mbt

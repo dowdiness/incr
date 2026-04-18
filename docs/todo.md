@@ -318,9 +318,9 @@ Architecture analysis completed 2026-04-16. See [design.md](design.md#architectu
 
 ### Remaining
 
-- [x] Internal package split — Engine types split across `cells/internal/{shared,pull,push,datalog}/`. Pull-engine split is partial: only `PullSignalData` moved; `MemoData` stays in `cells/` because its compute closure references `CycleError` (see [spec](superpowers/specs/2026-04-18-incr-stage5-internal-split-design.md) for rationale).
+- [x] Internal package split — Engine types split across `cells/internal/{shared,pull,push,datalog}/`. Pull engine now contains both `PullSignalData` and `MemoData`; `CycleError` moved to `types/` as a pure-value error (see [spec](superpowers/specs/2026-04-18-incr-stage5-internal-split-design.md) for Stage 5 rationale and the follow-up archive note for the CycleError untangle).
 - [x] Verify engine packages do not import each other — `scripts/check-engine-isolation.sh` enforces pairwise engine isolation and the no-back-edge invariant.
-- [ ] Complete pull-engine split: move `MemoData` to `cells/internal/pull/` once `CycleError` is untangled (requires redesigning `CycleError::format_path` or moving `CycleError` data into `types/` with a non-`Runtime` render pathway).
+- [x] Complete pull-engine split: `MemoData` moved to `cells/internal/pull/memo_data.mbt`. `CycleError` now lives in `types/` as a pure value; `format_path` drops its `Runtime` parameter (breaking change — labels are captured at error-construction time). `CellLifecycle` impl for `MemoData` stays in `cells/pull_memo_lifecycle.mbt` because it needs `Runtime`.
 - [x] Factor duplicated `dispose_cell` bodies in `cells/datalog_lifecycle.mbt` — extracted `dispose_datalog_cell` helper (commit `309d904`). Design note at [archive/2026-04-18-datalog-dispose-factoring.md](archive/2026-04-18-datalog-dispose-factoring.md) records why a trait-default alternative was rejected.
 
 ## Documentation

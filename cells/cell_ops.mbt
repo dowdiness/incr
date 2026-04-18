@@ -1,10 +1,5 @@
 ///|
-using @shared {
-  type CellMeta,
-  trait CellOps,
-  trait HasCellMeta,
-  trait Committable,
-}
+using @shared {type CellMeta, trait CellOps, trait Committable}
 
 ///|
 /// Capability trait: dependency tracking during computation.

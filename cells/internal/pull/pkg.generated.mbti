@@ -11,6 +11,18 @@ import {
 // Errors
 
 // Types and methods
+pub(all) struct MemoData {
+  meta : @shared.CellMeta
+  compute : () -> Result[Bool, @types.CycleError]
+  mut verified_at : @types.Revision
+  mut dependencies : Array[@types.CellId]
+  mut in_progress : Bool
+  mut on_change : (() -> Unit)?
+  is_hybrid : Bool
+}
+pub impl @shared.CellOps for MemoData
+pub impl @shared.HasCellMeta for MemoData
+
 pub(all) struct PullSignalData {
   meta : @shared.CellMeta
   mut on_change : (() -> Unit)?

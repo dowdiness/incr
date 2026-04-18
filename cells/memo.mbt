@@ -162,7 +162,7 @@ pub fn[T] Memo::get(self : Memo[T]) -> T {
   }
   match self.get_result() {
     Ok(value) => value
-    Err(e) => abort(e.format_path(self.rt))
+    Err(e) => abort(e.format_path())
   }
 }
 
@@ -280,7 +280,7 @@ fn[T] Memo::get_result_inner(self : Memo[T]) -> Result[T, CycleError] {
 fn[T] Memo::get_untracked(self : Memo[T]) -> T {
   match self.get_result_inner() {
     Ok(value) => value
-    Err(e) => abort(e.format_path(self.rt))
+    Err(e) => abort(e.format_path())
   }
 }
 
@@ -394,7 +394,11 @@ fn[T] Runtime::memo_force_recompute(
   let cell = self.get_memo_data(cell_id)
   if cell.in_progress {
     return Err(
-      CycleError::from_path(self.collect_tracking_path(), cell.meta.cell_id),
+      CycleError::from_path(
+        self,
+        self.collect_tracking_path(),
+        cell.meta.cell_id,
+      ),
     )
   }
   cell.in_progress = true

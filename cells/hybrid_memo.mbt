@@ -113,7 +113,7 @@ fn[T : Eq] HybridMemo::get_untracked(self : HybridMemo[T]) -> T {
           self.rt.record_dependency(self.cell_id)
           value
         }
-        Err(e) => abort(e.format_path(self.rt))
+        Err(e) => abort(e.format_path())
       }
     Some(cached) => {
       let cell = self.rt.get_memo_data(self.cell_id)
@@ -132,7 +132,7 @@ fn[T : Eq] HybridMemo::get_untracked(self : HybridMemo[T]) -> T {
               )
           }
         }
-        Err(e) => abort(e.format_path(self.rt))
+        Err(e) => abort(e.format_path())
       }
     }
   }

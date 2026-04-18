@@ -280,25 +280,17 @@ let value = doubled.get_or(0)
 
 If a cycle error occurs, computes a fallback from the cycle error; otherwise returns the cached value.
 
-**Direct Runtime:**
 ```moonbit
-fn read_or_fallback_rt(rt : Runtime, doubled : Memo[Int]) -> Int {
+fn read_or_fallback(doubled : Memo[Int]) -> Int {
   doubled.get_or_else(err => {
-    println(err.format_path(rt))
+    println(err.format_path())
     0
   })
 }
 ```
 
-**Database pattern:**
-```moonbit
-fn read_or_fallback_db[Db : Database](app : Db, doubled : Memo[Int]) -> Int {
-  doubled.get_or_else(err => {
-    println(err.format_path(app.runtime()))
-    0
-  })
-}
-```
+`CycleError::format_path` is a pure-value render: it uses labels captured at
+detection time and needs no runtime handle.
 
 ### `Memo::is_up_to_date(self) -> Bool`
 
@@ -420,10 +412,15 @@ Memos inherit the minimum durability of their dependencies.
 Cycle detection error returned by `Memo::get_result()`.
 
 ```moonbit
-pub suberror CycleError {
-  CycleDetected(CellId, Array[CellId])
+pub(all) suberror CycleError {
+  CycleDetected(CellId, Array[CellId], Array[String?])
 }
 ```
+
+The variant carries: the cell that closes the cycle, the full untruncated
+dependency path, and a parallel snapshot of labels captured at detection
+time. Label snapshot length is capped at `MAX_CYCLE_DISPLAY_STEPS` (20) to
+bound memory even for pathological long cycles; `path()` is always full.
 
 ### `CycleError::cell(self) -> CellId`
 
@@ -450,14 +447,15 @@ match memo.get_result() {
 }
 ```
 
-### `CycleError::format_path(self, rt: Runtime) -> String`
+### `CycleError::format_path(self) -> String`
 
-Formats the cycle path as a human-readable string.
+Formats the cycle path as a human-readable string. Pure value — no runtime
+handle required, because labels are captured at detection time.
 
 ```moonbit
 match memo.get_result() {
   Ok(v) => println(v.to_string())
-  Err(err) => println(err.format_path(rt))
+  Err(err) => println(err.format_path())
 }
 ```
 
@@ -476,7 +474,7 @@ match memo.get_result() {
     }
 
     // Or use the formatted version
-    println(err.format_path(rt))
+    println(err.format_path())
   }
   Ok(value) => use_value(value)
 }
