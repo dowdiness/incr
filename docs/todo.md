@@ -256,8 +256,12 @@ improve correctness, performance, and integration beyond the infrastructure vali
 
 ### Integration
 
-- [ ] **Wire into ReactiveParser** — connect `build_typecheck_pipeline` to loom's `ReactiveParser`
-      so type results flow through `Signal[String]` → parse → typecheck end-to-end
+- [x] **Wire into unified Parser** — shipped via `attach_typecheck` (`examples/lambda/src/typed_parser.mbt`):
+      a bridge `Memo` reads `parser.syntax_tree()` and feeds
+      `build_typecheck_pipeline_with_index`, so edits flow `Signal[String]` → parse → typecheck
+      end-to-end. (The earlier `ReactiveParser` target became obsolete when loom unified
+      `ReactiveParser` + `ImperativeParser` into a single `@loom.Parser[Ast]` — see
+      loom ADR 2026-04-17.)
 - [ ] **TypedTerm duplication cleanup** — `convert.mbt` is a full tree copy to add `None` annotations;
       consider a side-table of annotations keyed by node identity if the typechecker expands
 
