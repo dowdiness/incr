@@ -1,0 +1,26 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/incr/cells/internal/pull"
+
+import {
+  "dowdiness/incr/cells/internal/shared",
+  "dowdiness/incr/types",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) struct PullSignalData {
+  meta : @shared.CellMeta
+  mut on_change : (() -> Unit)?
+  mut commit_pending : (() -> Bool)?
+}
+pub impl @shared.CellOps for PullSignalData
+pub impl @shared.Committable for PullSignalData
+pub impl @shared.HasCellMeta for PullSignalData
+
+// Type aliases
+
+// Traits
+
