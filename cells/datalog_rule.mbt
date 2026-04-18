@@ -1,33 +1,4 @@
 ///|
-priv struct RuleData {
-  meta : CellMeta
-  apply_delta : () -> Unit
-  input_relations : Array[CellId]
-  output_relations : Array[CellId]
-}
-
-///|
-impl HasCellMeta for RuleData with meta(self) {
-  self.meta
-}
-
-///|
-/// CellOps dispatch for rule cells — all defaults via HasCellMeta.
-impl CellOps for RuleData
-
-///|
-impl CellLifecycle for RuleData with dispose_cell(self, rt, cell_id) -> Unit {
-  self.meta.subscribers.clear()
-  self.meta.label = None
-  rt.core.cell_index[cell_id.id] = Disposed
-}
-
-///|
-impl CellOps for RuleData with gc_role(_self) -> GcRole {
-  Source
-}
-
-///|
 pub fn Runtime::new_rule(
   self : Runtime,
   input_relations : Array[CellId],
