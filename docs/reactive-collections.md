@@ -90,7 +90,144 @@ from *choosing* to split the computation across many cells/memos.
 
 - **Family C is powerful but mismatched.** Requires a built-in `IncrMap`
   primitive whose reads record per-spine-node dependencies. Substantial new
-  category of primitive; not recommended without a concrete driver.
+  category of primitive; not recommended without a concrete driver. See
+  the design sketch below for what adoption would actually entail.
+
+## Family C — Design Sketch for `incr`
+
+This section expands the Family C bullet above: if we decide to bring
+nominal memoization into `incr`, what primitives are needed, what of the
+existing engine fits, what's genuinely hard, and what concrete work would
+drive it.
+
+### Primitives required
+
+Three ingredients, ordered by how much they disrupt the existing engine.
+
+**1. First-class names on memos.** Today `Memo::new` creates a fresh cell
+at each call site; identity is runtime-assigned via `CellId`. Family C
+needs *programmer-chosen* names so "the memo for subtree at position X"
+stays the same cell across rebuilds. API shape:
+
+```moonbit
+pub fn[T] Memo::new_named(
+  rt : Runtime,
+  name : Name,          // hierarchical, hashable
+  compute : () -> T,
+) -> Memo[T]
+```
+
+Lookup is idempotent: same name in the current scope → same cell.
+
+**2. Articulation points (hierarchical nominal scoping).** Names need
+hierarchical scoping so child names derive from parent names — this is the
+"named fork" discipline from Hammer et al. (OOPSLA 2015). Without
+scoping, names collide on rebuild and either conflate unrelated
+computations or silently lose memoization. A scope is entered with a
+name; `new_named` calls inside use that scope as the naming parent.
+
+```moonbit
+pub fn Runtime::articulate[T](
+  self : Runtime,
+  name : Name,
+  body : () -> T,
+) -> T
+```
+
+**3. Structural-sharing data structures.** Adapton ships RAZ (random-access
+zippers) for sequences and named tries for maps. At minimum, `incr` would
+need one persistent collection whose internal-node construction threads
+through `new_named`, so an edit rebuilds only the root-to-leaf spine and
+unchanged subtrees are reused by name identity. Building on MoonBit's
+`@immut/hashmap` with memoized fold points is plausible; full RAZ is a
+larger effort.
+
+### What `incr` already has vs what's missing
+
+| Family C needs | `incr` has today | Gap |
+|---|---|---|
+| Stable thunk identity | `CellId` (runtime-assigned) | Programmer-supplied names |
+| Keyed memoization | `MemoMap[K, V]` | Close — keys are flat, no hierarchical scoping |
+| Hash-consed IDs | `InternTable[T]` | Directly reusable as the `Name` type |
+| GC / lifecycle | `Scope` + `Observer` + `gc()` | Compatible — named memos hang off scopes |
+| Persistent collections | MoonBit stdlib `@immut/*` | No memo-aware wrappers |
+
+`MemoMap` + `InternTable` + `Scope` already cover ~80% of the skeleton.
+The genuinely new primitive is **hierarchical scoping** — conceptually a
+`MemoMap` keyed by `(ScopeId, LocalName)` with articulation points that
+push/pop the current scope on a runtime-wide stack.
+
+### Hard parts
+
+- **Nominal GC interaction.** Named memos are retained *by name*, not by
+  use. This intersects with the dispose/GC layers (PRs #28–#33). A
+  scope's disposal must cascade to named memos under it; `gc()` must
+  treat name-held cells as roots while their parent scope is live.
+
+- **Backdating with structural sharing.** If rebuild produces a
+  structurally-identical subtree, we want to skip the result-equality
+  check — the nodes *are* the same cell. This requires either a
+  physical-equality fast-path or reference-counted result identity.
+  The current backdating path compares values; a named reuse hit should
+  short-circuit before value comparison.
+
+- **Naming-semantics soundness.** Adapton OOPSLA 2015 is mostly about
+  getting naming right. Duplicate names silently fold unrelated
+  computations; bad fork rules silently lose memoization. The failure
+  modes are *soundness*-adjacent, not just ergonomic — a spike
+  implementation must come with naming-semantics tests before anything
+  real depends on it.
+
+- **Runtime scoping.** Names must survive fixpoint iterations and edit
+  cycles but not leak across runtimes. Needs a `Runtime::current_scope`
+  stack and cross-runtime isolation (cf. the existing cross-runtime
+  guard helper in `cells/tracking.mbt`).
+
+### What this unlocks in canopy
+
+Family C only pays for itself when the host has computations whose
+input structure is itself tree-shaped and locally edited. Candidate
+drivers:
+
+1. **Incremental evaluation.** If canopy grows an evaluator, memoizing
+   at each AST node gives fine-grained re-eval on edit — the evaluator
+   equivalent of what the parser's `ReuseCursor` does.
+2. **Incremental pretty-printing / layout.** Persistent layout trees
+   where edits to one AST subtree skip re-layout of siblings.
+3. **Tree-shaped type-checker state.** Scope chains and substitutions
+   are natural persistent trees. The current Boundary 3 type-checker is
+   whole-module; Family C enables per-subscope reuse.
+
+Lambda name resolution is *not* a strong driver here — Family B
+(`ReactiveMap[K, V]`) solves it more cheaply, at a fraction of the
+engine cost.
+
+### Suggested phasing (if pursued)
+
+1. **Research spike.** Read Adapton OOPSLA 2015 carefully. Implement a
+   toy nominal memo with hierarchical scoping in ~300 lines, no data
+   structures yet. Validate naming semantics against a small test
+   suite that exercises the known failure modes (duplicate names,
+   mis-scoped names, cross-runtime leakage).
+2. **`NamedMemo` + articulation.** Land as an experimental primitive
+   parallel to `MemoMap`. No structural-sharing collections yet.
+3. **One persistent collection.** `IncrMap[K, V]` or `IncrList[T]` on
+   top of the primitive. Drive it with a concrete consumer — probably
+   an evaluator microdemo.
+4. **GC integration.** Wire named memos into `Scope` / `Observer` /
+   `gc()`. This is the step most likely to surface design problems.
+5. **Graduate or abandon.** Based on whether the demo's incrementality
+   wins pay for the primitive's complexity.
+
+### Recommendation
+
+Do not start Family C until a concrete driver lands in canopy (an
+evaluator or layout engine). It is the most interesting direction
+*intellectually* but the payoff is diffuse. Family B has a queued
+driver (name resolution) and costs an order of magnitude less engine
+work; Family A is already latent in the Datalog engine and just needs
+an opt-in delta-observer surface. Family C is the long-horizon bet,
+not the next-quarter target.
 
 ## Reading List
 
