@@ -2,3 +2,4 @@ _build/
 target
 .worktrees/
 .claude/worktrees/
+.claude/projects/
