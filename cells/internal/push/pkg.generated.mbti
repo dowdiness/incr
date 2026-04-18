@@ -1,0 +1,39 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/incr/cells/internal/push"
+
+import {
+  "dowdiness/incr/cells/internal/shared",
+  "dowdiness/incr/types",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) struct PushEffectData {
+  meta : @shared.CellMeta
+  mut execute : () -> Unit
+  mut sources : Array[@types.CellId]
+  mut level : Int
+  mut dirty : Bool
+}
+pub fn PushEffectData::clear_slot(Self) -> Unit
+pub impl @shared.CellOps for PushEffectData
+pub impl @shared.HasCellMeta for PushEffectData
+
+pub(all) struct PushReactiveData {
+  meta : @shared.CellMeta
+  mut compute : () -> Bool
+  mut sources : Array[@types.CellId]
+  mut level : Int
+  mut dirty : Bool
+}
+pub fn PushReactiveData::clear_slot(Self) -> Unit
+pub impl @shared.CellOps for PushReactiveData
+pub impl @shared.HasCellMeta for PushReactiveData
+
+// Type aliases
+
+// Traits
+

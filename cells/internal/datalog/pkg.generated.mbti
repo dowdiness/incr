@@ -1,0 +1,46 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/incr/cells/internal/datalog"
+
+import {
+  "dowdiness/incr/cells/internal/shared",
+  "dowdiness/incr/types",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) struct FunctionalRelationData {
+  meta : @shared.CellMeta
+  drain_delta : () -> Unit
+  is_delta_empty : () -> Bool
+  promote_staged_delta : () -> Unit
+  is_staged_delta_empty : () -> Bool
+}
+pub impl @shared.CellOps for FunctionalRelationData
+pub impl @shared.HasCellMeta for FunctionalRelationData
+
+pub(all) struct RelationData {
+  meta : @shared.CellMeta
+  drain_delta : () -> Unit
+  is_delta_empty : () -> Bool
+  promote_staged_delta : () -> Unit
+  is_staged_delta_empty : () -> Bool
+}
+pub impl @shared.CellOps for RelationData
+pub impl @shared.HasCellMeta for RelationData
+
+pub(all) struct RuleData {
+  meta : @shared.CellMeta
+  apply_delta : () -> Unit
+  input_relations : Array[@types.CellId]
+  output_relations : Array[@types.CellId]
+}
+pub impl @shared.CellOps for RuleData
+pub impl @shared.HasCellMeta for RuleData
+
+// Type aliases
+
+// Traits
+

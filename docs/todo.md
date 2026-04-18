@@ -318,8 +318,10 @@ Architecture analysis completed 2026-04-16. See [design.md](design.md#architectu
 
 ### Remaining
 
-- [ ] Internal package split — Move engine types to `cells/internal/pull/`, `cells/internal/push/`, `cells/internal/datalog/`
-- [ ] Verify engine packages do not import each other
+- [x] Internal package split — Engine types split across `cells/internal/{shared,pull,push,datalog}/`. Pull-engine split is partial: only `PullSignalData` moved; `MemoData` stays in `cells/` because its compute closure references `CycleError` (see [spec](superpowers/specs/2026-04-18-incr-stage5-internal-split-design.md) for rationale).
+- [x] Verify engine packages do not import each other — `scripts/check-engine-isolation.sh` enforces pairwise engine isolation and the no-back-edge invariant.
+- [ ] Complete pull-engine split: move `MemoData` to `cells/internal/pull/` once `CycleError` is untangled (requires redesigning `CycleError::format_path` or moving `CycleError` data into `types/` with a non-`Runtime` render pathway).
+- [ ] Factor duplicated `dispose_cell` bodies in `cells/datalog_lifecycle.mbt` (three identical impls: clear subscribers, clear label, mark Disposed). Low-priority tech debt flagged during Task 4 review.
 
 ## Documentation
 

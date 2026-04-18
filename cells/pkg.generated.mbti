@@ -27,18 +27,6 @@ pub(all) struct CellInfo {
   subscribers : Array[@types.CellId]
 }
 
-pub enum CellRef {
-  PullSignal(Int)
-  PullMemo(Int)
-  PushReactive(Int)
-  PushEffect(Int)
-  HybridMemo(Int)
-  Disposed
-  Relation(Int)
-  FunctionalRelation(Int)
-  Rule(Int)
-}
-
 pub struct Effect {
   // private fields
 }

@@ -1,33 +1,4 @@
 ///|
-priv struct FunctionalRelationData {
-  meta : CellMeta
-  drain_delta : () -> Unit
-  is_delta_empty : () -> Bool
-  promote_staged_delta : () -> Unit
-  is_staged_delta_empty : () -> Bool
-}
-
-///|
-impl HasCellMeta for FunctionalRelationData with meta(self) {
-  self.meta
-}
-
-///|
-/// CellOps dispatch for functional relation cells — all defaults via HasCellMeta.
-impl CellOps for FunctionalRelationData
-
-///|
-impl CellLifecycle for FunctionalRelationData with dispose_cell(
-  self,
-  rt,
-  cell_id,
-) -> Unit {
-  self.meta.subscribers.clear()
-  self.meta.label = None
-  rt.core.cell_index[cell_id.id] = Disposed
-}
-
-///|
 /// A Datalog functional relation: a key-value map with delta tracking for
 /// fixpoint evaluation.
 ///

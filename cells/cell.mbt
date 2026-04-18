@@ -11,3 +11,6 @@ using @incr_types {
   type Revision,
   trait BackdateEq,
 }
+
+///|
+using @shared {type CellRef}

@@ -1,4 +1,8 @@
 import {
+  "dowdiness/incr/cells/internal/datalog" @datalog,
+  "dowdiness/incr/cells/internal/pull" @pull,
+  "dowdiness/incr/cells/internal/push" @push,
+  "dowdiness/incr/cells/internal/shared" @shared,
   "dowdiness/incr/types" @incr_types,
   "moonbitlang/core/debug",
   "moonbitlang/core/hashmap",
