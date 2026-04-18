@@ -146,6 +146,39 @@ fn Runtime::finish_tracking(
 }
 
 ///|
+/// Guards a cell read from occurring inside a computation on a different
+/// runtime. Centralizes the cross-runtime check that was previously
+/// duplicated across Signal, Memo (outer), HybridMemo, Reactive, Relation,
+/// and FunctionalRelation read paths.
+///
+/// Resets `current_computing_runtime_id` before aborting so a caught
+/// panic does not leak dirty global state to subsequent reads.
+///
+/// Does NOT attempt stale-state repair — distinguishing "stale from prior
+/// abort" from "legitimate cross-runtime" requires the active runtime's
+/// stack length, which is not accessible here without a global runtime
+/// registry. Same-runtime stale repair is handled separately in
+/// `Memo::get_result_inner` for paths that bypass the outer guard.
+fn Runtime::check_cross_runtime(
+  _self : Runtime,
+  cell_runtime_id : Int,
+  kind : String,
+) -> Unit {
+  let active_rt = current_computing_runtime_id.val
+  if active_rt >= 0 && active_rt != cell_runtime_id {
+    current_computing_runtime_id.val = -1
+    abort(
+      "Cross-runtime dependency: " +
+      kind +
+      " belongs to Runtime " +
+      cell_runtime_id.to_string() +
+      " but is read inside a computation on Runtime " +
+      active_rt.to_string(),
+    )
+  }
+}
+
+///|
 /// Collect cell IDs from the current tracking stack.
 ///
 /// Returns the cell IDs of all active computation frames in order,

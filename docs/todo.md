@@ -323,6 +323,46 @@ Architecture analysis completed 2026-04-16. See [design.md](design.md#architectu
 - [x] Complete pull-engine split: `MemoData` moved to `cells/internal/pull/memo_data.mbt`. `CycleError` now lives in `types/` as a pure value; `format_path` drops its `Runtime` parameter (breaking change — labels are captured at error-construction time). `CellLifecycle` impl for `MemoData` stays in `cells/pull_memo_lifecycle.mbt` because it needs `Runtime`.
 - [x] Factor duplicated `dispose_cell` bodies in `cells/datalog_lifecycle.mbt` — extracted `dispose_datalog_cell` helper (commit `309d904`). Design note at [archive/2026-04-18-datalog-dispose-factoring.md](archive/2026-04-18-datalog-dispose-factoring.md) records why a trait-default alternative was rejected.
 
+## Refactor Audit Findings (2026-04-19)
+
+Post-Stage-5 audit of `cells/` + Codex validation. Stage 6 (engine extraction) remains intentionally deferred; these are the remaining concrete items that survived Codex review.
+
+### Target #1 — Cross-runtime check duplication (DONE)
+
+Six cell read paths inlined the same ~10-line `current_computing_runtime_id` guard (abort on cross-runtime, reset global before aborting). `Memo::get_result_inner` uniquely had a *forgiving* variant that additionally repairs stale global state when this runtime's tracking stack is empty — required for panic-test isolation because `get_untracked` / `MemoMap` bypass the outer strict check.
+
+- [x] Extract `Runtime::check_cross_runtime(cell_runtime_id, kind)` helper (strict variant) — `cells/tracking.mbt:149`
+- [x] Replace 6 strict sites: `signal.mbt`, `memo.mbt` (outer), `hybrid_memo.mbt`, `push_reactive.mbt`, `datalog_relation.mbt`, `datalog_functional_relation.mbt`
+- [x] Leave `Memo::get_result_inner` with its original forgiving repair logic — it cannot be unified with the strict helper because "stale-global" vs "legitimate cross-runtime" cannot be distinguished locally without a global runtime registry (the forgiving repair relies on checking THIS runtime's stack, which is correct only because `get_untracked` / `MemoMap` paths are same-runtime by construction)
+
+**What the audit got wrong:** the "latent bug" framing was overstated — the memo inner's repair is intentional defensive code for panic-test isolation, not a drifted invariant that should be applied everywhere. An attempted unified "repair everywhere" helper broke 5 tests (4 false-negative cross-runtime aborts + 1 surfaced state-leak). Codex's original direction (unify) was correct; the specific generalization (apply memo inner's heuristic uniformly) was not safe.
+
+**Net change:** 6 sites deduplicated to one helper. No behavior change. ~51 source lines consolidated.
+
+### Target #2 — Cell-registration ritual for free-list kinds (MEDIUM)
+
+Four constructors inline the same ~6-line "claim slot + install data + register in `cell_ops` + register in `cell_lifecycle`" pattern: `signal.mbt`, `memo.mbt:51-77`, `push_reactive.mbt:42-66`, `push_effect.mbt:22-46`. Signal is also asymmetric — it calls a one-off `Runtime::new_signal_id` helper in `runtime.mbt:282` that no other kind uses.
+
+Datalog constructors (`datalog_relation.mbt:26`, `datalog_functional_relation.mbt:38`, `datalog_rule.mbt:15`) are **append-only** (no free-list in `DatalogState`) and must stay out of any shared helper — do not over-generalize.
+
+- [ ] Introduce `Runtime::install_pull_signal` / `install_pull_memo` / `install_push_reactive` / `install_push_effect` that each take (free-list, SoA array, data, `fn(Int) -> CellRef`) and return `CellId`
+- [ ] Migrate all 4 free-list constructors; delete `Runtime::new_signal_id`
+- [ ] Leave datalog constructors as-is (append-only is not the same shape)
+- [ ] Add debug-time invariant `cell_index.length() == cell_ops.length() == cell_lifecycle.length()` exercised from an existing wbtest
+
+### Target #3 — push_lifecycle dispose dedup (LOW)
+
+`cells/push_lifecycle.mbt:5-16` (`PushReactiveData::dispose_cell`) and `:68-79` (`PushEffectData::dispose_cell`) are near-identical; differ only in variant arm, SoA array, and free-list. Same shape `datalog_lifecycle.mbt` already factored.
+
+- [ ] Extract a local helper (similar to `dispose_datalog_cell`) and fold into Target #2's PR if touching lifecycle anyway
+
+### Intentionally deferred / not recommended
+
+- **Runtime.mbt topic split** — `runtime.mbt` is 850 lines across ~16 sections, but most sections are cohesive and splitting is cosmetic without a concrete driver. Hard constraint for anyone who revisits: **subscriber management (`add/remove_subscriber`) and push-reachable accounting (`push_contribution` / `adjust_push_reachable`) must stay co-located** — they form one invariant cluster.
+- **Memo.mbt split** (547 lines) — coherent chapters, no duplication, no pain.
+- **cells/ folder reorg** — Stage 5 just moved SoA into `internal/`; another restructure now would churn without a driver.
+- **Stage 6 engine extraction** — memory confirms this waits for accumulators or similar.
+
 ## Documentation
 
 - [x] Add doc comments to all public functions

@@ -192,16 +192,7 @@ pub fn[T] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
   guard !self.rt.is_cell_disposed(self.cell_id) else {
     abort("Memo::get called on a disposed memo")
   }
-  let active_rt = current_computing_runtime_id.val
-  if active_rt >= 0 && active_rt != self.rt.core.runtime_id {
-    current_computing_runtime_id.val = -1
-    abort(
-      "Cross-runtime dependency: Memo belongs to Runtime " +
-      self.rt.core.runtime_id.to_string() +
-      " but is read inside a memo on Runtime " +
-      active_rt.to_string(),
-    )
-  }
+  self.rt.check_cross_runtime(self.rt.core.runtime_id, "Memo")
   self.get_result_inner()
 }
 
@@ -212,17 +203,22 @@ fn[T] Memo::get_result_inner(self : Memo[T]) -> Result[T, CycleError] {
   guard !self.rt.is_cell_disposed(self.cell_id) else {
     abort("Memo::get called on a disposed memo")
   }
+  // If this runtime's tracking stack is empty, any non-negative
+  // `current_computing_runtime_id` is stale from a prior aborted
+  // computation; repair it instead of treating it as a cross-runtime read.
+  // This forgiving repair is required by panic-test call patterns that
+  // bypass `get_result`'s outer strict check (e.g. `get_untracked`,
+  // `MemoMap::get_or_create_memo`).
   let active_rt = current_computing_runtime_id.val
   if active_rt >= 0 {
-    if self.rt.core.tracking.stack.length() == 0 {
-      // Stale global from a prior aborted computation — reset it.
+    if self.rt.core.tracking.stack.is_empty() {
       current_computing_runtime_id.val = -1
     } else if active_rt != self.rt.core.runtime_id {
       current_computing_runtime_id.val = -1
       abort(
         "Cross-runtime dependency: Memo belongs to Runtime " +
         self.rt.core.runtime_id.to_string() +
-        " but is read inside a memo on Runtime " +
+        " but is read inside a computation on Runtime " +
         active_rt.to_string(),
       )
     }

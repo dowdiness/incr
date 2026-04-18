@@ -100,16 +100,7 @@ pub fn[T] Reactive::get(self : Reactive[T]) -> T {
 /// Package-private untracked read. Bypasses the tracked-context guard.
 /// Used by Observer to read from outside the dependency graph.
 fn[T] Reactive::get_untracked(self : Reactive[T]) -> T {
-  let active_rt = current_computing_runtime_id.val
-  if active_rt >= 0 && active_rt != self.rt.core.runtime_id {
-    current_computing_runtime_id.val = -1
-    abort(
-      "Cross-runtime dependency: Reactive belongs to Runtime " +
-      self.rt.core.runtime_id.to_string() +
-      " but is read inside a computation on Runtime " +
-      active_rt.to_string(),
-    )
-  }
+  self.rt.check_cross_runtime(self.rt.core.runtime_id, "Reactive")
   let cell_id = self.cell_id.id
   guard !self.rt.is_cell_disposed(cell_id) else {
     abort("Reactive::get called on a disposed reactive")

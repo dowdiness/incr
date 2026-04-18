@@ -76,18 +76,7 @@ pub fn[T] Signal::get(self : Signal[T]) -> T {
   guard !self.rt.is_cell_disposed(self.cell_id) else {
     abort("Signal::get called on a disposed signal")
   }
-  let active_rt = current_computing_runtime_id.val
-  if active_rt >= 0 && active_rt != self.rt.core.runtime_id {
-    // Reset before aborting so the test runner doesn't see dirty global state
-    // if this panic is caught (e.g. by the test harness for panic tests).
-    current_computing_runtime_id.val = -1
-    abort(
-      "Cross-runtime dependency: Signal belongs to Runtime " +
-      self.rt.core.runtime_id.to_string() +
-      " but is read inside a memo on Runtime " +
-      active_rt.to_string(),
-    )
-  }
+  self.rt.check_cross_runtime(self.rt.core.runtime_id, "Signal")
   self.rt.record_dependency(self.cell_id)
   self.value
 }
