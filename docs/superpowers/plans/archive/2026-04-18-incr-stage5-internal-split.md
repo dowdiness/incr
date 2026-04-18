@@ -10,7 +10,7 @@
 
 **Tech Stack:** MoonBit 0.1.20260409+, `moon` build system, `moon.pkg` import manifests, MoonBit `internal` package visibility. No new external dependencies.
 
-**Authoritative spec:** [`docs/superpowers/specs/2026-04-18-incr-stage5-internal-split-design.md`](../specs/2026-04-18-incr-stage5-internal-split-design.md). If this plan and the spec ever disagree, **the spec wins** — file a follow-up to update the plan.
+**Authoritative spec:** [`docs/superpowers/specs/2026-04-18-incr-stage5-internal-split-design.md`](../../specs/2026-04-18-incr-stage5-internal-split-design.md). If this plan and the spec ever disagree, **the spec wins** — file a follow-up to update the plan.
 
 **Worktree:** Branch `refactor/incr-structure` in `.worktrees/refactor-incr-structure`. All commands assume this is the current directory.
 
