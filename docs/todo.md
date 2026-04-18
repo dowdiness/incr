@@ -240,9 +240,12 @@ improve correctness, performance, and integration beyond the infrastructure vali
 
 - [ ] **Incremental name resolution** — resolution is a single coarse `Memo[ResolvedModule]`;
       split into per-def resolution for finer-grained incrementality
-- [ ] **MemoMap stale entries after structural rebuild** — MemoMap internal Memos survive scope
-      dispose (Runtime-owned, not chain-scope-owned). The `is_disposed()` + name guard prevents
-      wrong reads, but stale entries accumulate. Fix: scope MemoMap to chain, or add sweep-on-rebuild
+- [x] **MemoMap stale entries after structural rebuild** — MemoMap internal Memos are
+      Runtime-owned, so chain-scope dispose can't reach them. Added `MemoMap::clear()`
+      (disposes every wrapper and empties the entry map) and invoked it from
+      `build_typecheck_pipeline_with_index` in `examples/lambda` before each rebuild.
+      The `is_disposed()` + name guard remains as a defensive fallback for any InternId
+      that outlives a rebuild window. See loom/examples/lambda `typecheck.mbt`.
 - [ ] **Stable identity across insertions** — encounter-order shifts when inserting a def at position 0,
       invalidating all subsequent DefIds. Consider content-hashing or path-independent naming
 

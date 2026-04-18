@@ -144,3 +144,18 @@ pub fn[K : Hash + Eq, V] MemoMap::sweep(self : MemoMap[K, V]) -> Int {
   }
   to_remove.length()
 }
+
+///|
+/// Disposes every wrapper memo and empties the entry map.
+///
+/// Unlike `sweep()`, which only removes entries whose memos are already
+/// disposed, `clear()` actively disposes each wrapper memo. Use this after
+/// a structural event (e.g. pipeline rebuild) that invalidates all cached
+/// keys — `sweep()` is insufficient because MemoMap's wrappers are
+/// Runtime-owned and are not reached by chain-scope disposal.
+pub fn[K, V] MemoMap::clear(self : MemoMap[K, V]) -> Unit {
+  for _, memo in self.entries {
+    memo.dispose()
+  }
+  self.entries.clear()
+}

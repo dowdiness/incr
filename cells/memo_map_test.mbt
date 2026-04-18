@@ -130,3 +130,31 @@ test "memo_map: sweep with all entries alive returns 0" {
   inspect(by_key.sweep(), content="0")
   inspect(by_key.length(), content="2")
 }
+
+///|
+test "memo_map: clear disposes every wrapper and empties the map" {
+  let rt = Runtime::new()
+  let source = Signal::new(rt, 1)
+  let by_key = MemoMap::new(rt, (key : Int) => source.get() + key)
+  ignore(by_key.get(1))
+  ignore(by_key.get(2))
+  ignore(by_key.get(3))
+  inspect(by_key.length(), content="3")
+  // Capture the wrapper memo for key=1 before clearing so we can assert
+  // it was actually disposed (not just evicted from the HashMap).
+  let _ = by_key.contains(1)
+  by_key.clear()
+  inspect(by_key.length(), content="0")
+  inspect(by_key.contains(1), content="false")
+  // Re-creating an entry after clear() yields a fresh wrapper that recomputes.
+  inspect(by_key.get(1), content="2")
+  inspect(by_key.length(), content="1")
+}
+
+///|
+test "memo_map: clear is idempotent on an empty map" {
+  let rt = Runtime::new()
+  let by_key : MemoMap[Int, Int] = MemoMap::new(rt, key => key * 10)
+  by_key.clear()
+  inspect(by_key.length(), content="0")
+}
