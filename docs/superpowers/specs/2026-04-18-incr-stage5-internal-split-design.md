@@ -71,7 +71,7 @@ cells/                           (coordinator: Runtime, CycleError, MemoData,
 | `cells/internal/pull/`       | **Type** (`pub(all)`): `PullSignalData`. **`pub impl`**: `CellOps for PullSignalData`, `HasCellMeta for PullSignalData`, `Committable for PullSignalData`.                                                                                                                                                                | **No `MemoData`** — it stays in `cells/` (see [Why `MemoData` stays](#why-memodata-stays)). No `PullVerifyFrame` — algorithm-local to `cells/verify.mbt`. |
 | `cells/internal/push/`       | **Types** (`pub(all)`): `PushReactiveData`, `PushEffectData`. **`pub impl`**: `CellOps for PushReactiveData`, `HasCellMeta for PushReactiveData`, `CellOps for PushEffectData`, `HasCellMeta for PushEffectData`.                                                                                                         | No `PushEntry` — algorithm-local, stores `CellRef`, stays in `cells/push_propagate.mbt`. |
 | `cells/internal/datalog/`    | **Types** (`pub(all)`): `RelationData`, `FunctionalRelationData`, `RuleData`. **`pub impl`**: `CellOps` + `HasCellMeta` for each.                                                                                                                                                                                         | Handle types (`Relation`, `FunctionalRelation`, `Rule`) stay in `cells/` — see Commit D. |
-| **Stays in `cells/`**        | `Runtime`, `RuntimeCore`, `RevisionState`, `TrackingState`, `BatchState`, `PullState`, `PushState`, `DatalogState`, `PropagationPhase`, `ActiveQuery`. **`CellLifecycle` trait + all engine impls** (extracted to `cells/{pull,push,datalog}_lifecycle.mbt`). **`CycleError`** (data + all methods including `format_path`). **`MemoData`** (SoA for memo cells). **`PushEntry`** (push propagation priority-queue item). **`PullVerifyFrame`** (iterative verify frame). All handles (`Signal`, `Memo`, `HybridMemo`, `TrackedCell`, `Relation`, `FunctionalRelation`, `Reactive`, `Effect`, `Rule`, `Scope`, `Observer`, `MemoMap`) + constructors. All algorithms (`verify.mbt`, `push_propagate.mbt`, `batch.mbt`, `datalog_fixpoint.mbt`, `tracking.mbt`, `runtime.mbt`, `scope.mbt`, `memo_map.mbt`, `introspection.mbt`). All `*_test.mbt` and `*_wbtest.mbt`. | |
+| **Stays in `cells/`**        | `Runtime`, `RuntimeCore`, `RevisionState`, `TrackingState`, `BatchState`, `PullState`, `PushState`, `DatalogState`, `PropagationPhase`, `ActiveQuery`. **`CellLifecycle` trait** + engine impls that need co-location (see Commit B/C/D notes below). **`CycleError`** (data + all methods including `format_path`). **`MemoData`** (SoA for memo cells — including its own `CellLifecycle` impl, which stays alongside the struct). **`PushEntry`** (push propagation priority-queue item). **`PullVerifyFrame`** (iterative verify frame). All handles (`Signal`, `Memo`, `HybridMemo`, `TrackedCell`, `Relation`, `FunctionalRelation`, `Reactive`, `Effect`, `Scope`, `Observer`, `MemoMap`) + their constructors. Public rule API (`Runtime::new_rule`, `Runtime::assert_rule_relation_id` — there is no `Rule` handle type; the user-facing identifier is `RuleId` from `types/`). All algorithms (`verify.mbt`, `push_propagate.mbt`, `batch.mbt`, `datalog_fixpoint.mbt`, `tracking.mbt`, `runtime.mbt`, `scope.mbt`, `memo_map.mbt`, `introspection.mbt`). All `*_test.mbt` and `*_wbtest.mbt`. | |
 
 ### Why `CellLifecycle` stays
 
@@ -122,7 +122,7 @@ Files like `cells/push_reactive.mbt` contain *both* the SoA struct (`PushReactiv
 | `cells/push_effect.mbt`               | `cells/internal/push/push_effect_data.mbt`   | `cells/push_effect.mbt` (trimmed to `Effect` + constructor) |
 | `cells/datalog_relation.mbt`          | `cells/internal/datalog/relation_data.mbt`   | `cells/datalog_relation.mbt` (trimmed to `Relation[T]` + constructor) |
 | `cells/datalog_functional_relation.mbt` | `cells/internal/datalog/functional_relation_data.mbt` | `cells/datalog_functional_relation.mbt` (trimmed to `FunctionalRelation[T, U]` + constructor) |
-| `cells/datalog_rule.mbt`              | `cells/internal/datalog/rule_data.mbt`       | `cells/datalog_rule.mbt` (trimmed to `Rule` handle; constructor code that currently lives in `Runtime::new_rule` stays untouched) |
+| `cells/datalog_rule.mbt`              | `cells/internal/datalog/rule_data.mbt`       | `cells/datalog_rule.mbt` (trimmed to the public `Runtime::new_rule` function and the `Runtime::assert_rule_relation_id` helper — there is no `Rule` handle struct in this codebase; `RuleId` is the only user-facing identifier and already lives in `types/`). |
 
 ### Visibility changes summary
 
@@ -184,14 +184,18 @@ engines=(pull push datalog)
 
 # Extract imports as exact quoted strings from a moon.pkg file.
 # Returns each imported package path, one per line, without quotes.
+# Handles both `#` and `//` line comments (this repo uses `//`), and
+# excludes the `"test"` discriminator from `} for "test"` import blocks.
 extract_imports() {
   local file="$1"
-  # Match any quoted string inside an `import {...}` block. Tolerant of
-  # multi-line blocks and comments because grep is line-based and moon.pkg
-  # is a MoonBit config format (comments use #).
-  grep -v '^[[:space:]]*#' "$file" \
+  # Strip `//` line comments first (preserves the rest of the line), then
+  # strip `#` line comments, then match quoted strings, then drop the
+  # sentinel "test" value which is MoonBit import-block syntax, not an
+  # import path.
+  sed 's|//.*$||; s|#.*$||' "$file" \
     | grep -oE '"[^"]+"' \
-    | tr -d '"'
+    | tr -d '"' \
+    | grep -vFx 'test'
 }
 
 # Invariant 1: no cross-engine sibling imports.
@@ -311,11 +315,11 @@ their method signatures or payloads reference Runtime.
 - `cells/internal/pull/pull_signal.mbt` — `pub(all) struct PullSignalData { ... }`, `pub impl CellOps for PullSignalData`, `pub impl HasCellMeta for PullSignalData`, `pub impl Committable for PullSignalData`.
 
 **Files added in `cells/`:**
-- `cells/pull_lifecycle.mbt` — `impl CellLifecycle for PullSignalData` (and `impl CellLifecycle for MemoData`, to co-locate all pull-mode lifecycle impls even though `MemoData` itself stays in `cells/pull_memo.mbt`).
+- `cells/pull_lifecycle.mbt` — contains only `impl CellLifecycle for PullSignalData` (it replaces the impl that used to live inside `cells/pull_signal.mbt`). The `CellLifecycle for MemoData` impl stays in `cells/pull_memo.mbt` alongside `MemoData` itself — no need to co-locate impls for types that are not moving.
 
 **Files modified:**
 - `cells/pull_signal.mbt` — delete (content moved).
-- `cells/pull_memo.mbt` — unchanged body; remove the `CellLifecycle` impl (now in `pull_lifecycle.mbt`).
+- `cells/pull_memo.mbt` — unchanged (struct, trait impls including `CellLifecycle`, all stay as they are today).
 - `cells/runtime.mbt`, `cells/verify.mbt`, `cells/batch.mbt`, `cells/signal.mbt`, `cells/memo.mbt`, `cells/hybrid_memo.mbt`, `cells/introspection.mbt` — add `import "dowdiness/incr/cells/internal/pull" @pull` or `using @pull { type PullSignalData }` as needed.
 - `cells/moon.pkg` — add the `@pull` import.
 - `cells/*_wbtest.mbt` files that touch `PullSignalData` — update to reach through `@pull`.
@@ -333,8 +337,9 @@ and &Committable across the package boundary.
 
 MemoData stays in cells/ because its compute closure references
 CycleError (which cannot leave cells/ without breaking the
-format_path public method). CellLifecycle impls for PullSignalData
-and MemoData are co-located in cells/pull_lifecycle.mbt.
+format_path public method). Its CellLifecycle impl stays inside
+cells/pull_memo.mbt alongside the struct. The PullSignalData
+CellLifecycle impl moves to cells/pull_lifecycle.mbt.
 ```
 
 ### Commit C: move push engine to `cells/internal/push/`
@@ -348,8 +353,8 @@ and MemoData are co-located in cells/pull_lifecycle.mbt.
 - `cells/push_lifecycle.mbt` — `impl CellLifecycle for PushReactiveData`, `impl CellLifecycle for PushEffectData`.
 
 **Files modified (file split, not delete):**
-- `cells/push_reactive.mbt` — remove `PushReactiveData` struct + trait impls; keep `Reactive[T]` handle, `Reactive::new`, and any user-facing methods. Add `using @push { type PushReactiveData }`.
-- `cells/push_effect.mbt` — remove `PushEffectData` struct + trait impls; keep `Effect` handle + constructor. Add `using @push { type PushEffectData }`.
+- `cells/push_reactive.mbt` — remove `PushReactiveData` struct, its `CellOps`/`HasCellMeta` impls, and its `clear_slot` method (currently at approx. lines 1-114); keep `Reactive[T]` handle, `Reactive::new`, and user-facing methods (approx. lines 116-257). Add `using @push { type PushReactiveData }`.
+- `cells/push_effect.mbt` — remove `PushEffectData` struct, its `CellOps`/`HasCellMeta` impls, and its `clear_slot` method (approx. lines 1-89); keep `Effect` handle + constructor (approx. lines 91-164). Add `using @push { type PushEffectData }`.
 - `cells/push_propagate.mbt` — keep `PushEntry`; update imports.
 - `cells/runtime.mbt`, `cells/introspection.mbt`, `cells/scope.mbt` — update imports.
 - `cells/moon.pkg` — add `import "dowdiness/incr/cells/internal/push" @push`.
@@ -380,9 +385,9 @@ CellLifecycle impls move to cells/push_lifecycle.mbt.
 - `cells/datalog_lifecycle.mbt` — `impl CellLifecycle for RelationData`, `impl CellLifecycle for FunctionalRelationData`, `impl CellLifecycle for RuleData`.
 
 **Files modified (file split):**
-- `cells/datalog_relation.mbt` — remove `RelationData`; keep `Relation[T]` handle + `Relation::new`.
-- `cells/datalog_functional_relation.mbt` — remove `FunctionalRelationData`; keep `FunctionalRelation[T, U]` handle + constructor.
-- `cells/datalog_rule.mbt` — remove `RuleData`; keep `Rule` handle. (`Runtime::new_rule` in `cells/runtime.mbt` is unchanged.)
+- `cells/datalog_relation.mbt` — remove `RelationData` struct + its `CellOps`/`HasCellMeta` impls (approx. lines 1-24); keep `Relation[T]` handle + `Relation::new` + user-facing methods (approx. lines 26-187). Add `using @datalog { type RelationData }`.
+- `cells/datalog_functional_relation.mbt` — remove `FunctionalRelationData` struct + impls (approx. lines 1-28); keep `FunctionalRelation[T, U]` handle + constructor (approx. lines 30-250). Add `using @datalog { type FunctionalRelationData }`.
+- `cells/datalog_rule.mbt` — remove `RuleData` struct + its `CellOps`/`HasCellMeta` impls (approx. lines 1-28); keep the public `Runtime::new_rule` method and `Runtime::assert_rule_relation_id` helper (approx. lines 31-98). There is no `Rule` handle struct. Add `using @datalog { type RuleData }`.
 - `cells/datalog_fixpoint.mbt` — update imports.
 - `cells/runtime.mbt`, `cells/introspection.mbt` — update imports.
 - `cells/moon.pkg` — add `import "dowdiness/incr/cells/internal/datalog" @datalog`.
@@ -493,11 +498,12 @@ requiring CycleError redesign.
 
 ## Lessons captured
 
-This spec exists because the prior Phase 2 PR 2 partition table was "validated" in `design.md` and memory but had never been tried against the compiler. Two rounds of Codex review on 2026-04-18 caught six design-level issues in sequence — three cycle-creating partition mistakes on round 1, then three MoonBit-language-rule violations on round 2 (visibility readonly semantics, orphan public methods, file-split vs. file-delete for handle code).
+This spec exists because the prior Phase 2 PR 2 partition table was "validated" in `design.md` and memory but had never been tried against the compiler. Three rounds of Codex review on 2026-04-18 caught nine issues in sequence — three cycle-creating partition mistakes on round 1, three MoonBit-language-rule violations on round 2 (visibility readonly semantics, orphan public methods, file-split vs. file-delete for handle code), and three consistency / accuracy issues on round 3 (self-contradictory lifecycle-impl placement in Commit B, a nonexistent "Rule handle" referenced in the datalog commit, and a boundary script that didn't match the repo's actual `moon.pkg` syntax, including `//` comments and `for "test"` discriminators).
 
 **Lessons:**
 1. **"Validated" architecture-doc partition tables that haven't been compile-tested are not validated.** For any future partition refactor, the design step must include either a throwaway compile probe of the partition or explicit grep-based audits of (a) trait method signatures, (b) struct field types, (c) method visibility on types the plan moves.
 2. **Partition tables must distinguish SoA (data) from handle (API).** Engine source files in this codebase mix both. A plan that says "move `push_reactive.mbt` to `internal/push/`" is ambiguous without the split; stating it as a move leads to deleting public handle code by accident.
 3. **MoonBit's `pub` is read-only across packages.** Any plan that moves a struct and has other packages write to its fields must use `pub(all)`, not `pub`. This is distinct from Rust/Go `pub` semantics.
 4. **Foreign-type methods in MoonBit can be added as local extensions only when private.** A public method must live in the type's home package. This constrains how error types with `Runtime`-aware rendering can be relocated.
-5. **Two rounds of Codex review were necessary here** — round 1 caught partition-graph errors; round 2 caught language-rule errors that required reading the MoonBit docs. For any partition refactor that moves ≥5 types across ≥3 new packages, budget two review rounds.
+5. **Three rounds of Codex review were necessary here** — round 1 caught partition-graph errors (cycles); round 2 caught MoonBit-language-rule errors that required reading the language docs (visibility, orphan methods, file-split); round 3 caught self-consistency slip-ups inside the corrections themselves (a contradictory lifecycle-impl placement, a misnamed handle, a boundary script that didn't match the repo's `moon.pkg` comment style). For any partition refactor that moves ≥5 types across ≥3 new packages, budget three review rounds and don't conflate the "architecture is correct" and "prose is accurate" questions. Each correction risks introducing its own drift.
+6. **Fact-check everything you write into the spec.** The "keep Rule handle" line was a confident invention — there is no `Rule` handle type in this repo. A quick search in the codebase would have caught it before Codex did. Next time: grep for every named entity referenced in the spec text, verify it exists, verify its shape. A spec claim is not licensed by intent; it is licensed by a grep hit.
