@@ -204,7 +204,7 @@ parser. Boundary ③ (CST → Typed AST) needs to exist before these features ca
       Add when multiple InternTables coexist in the same pipeline.
 - [ ] Add `InternTable::clear()` or generation-based GC for long-lived sessions.
       Grow-only is acceptable for short editing sessions; production use needs cleanup.
-- [ ] Add integration test: `InternId` in `Relation` for O(1) Datalog fact equality
+- [x] Add integration test: `InternId` in `Relation` for O(1) Datalog fact equality
 
 ### Tracked Structs
 

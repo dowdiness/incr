@@ -361,3 +361,48 @@ test "cross-engine: fixpoint fires on_change only when facts change" {
   rt.fixpoint()
   inspect(notifications, content="1")
 }
+
+///|
+test "interning: InternId works as Relation element with O(1) equality" {
+  // Validates that InternId can be used as a Datalog Relation element type.
+  // Same semantic value → same InternId → relation dedups via integer hash/eq
+  // on the tuple components, not structural comparison of the underlying String.
+  let rt = Runtime::new()
+  let names : @incr.InternTable[String] = @incr.InternTable::new()
+  let calls : @incr.Relation[(@incr.InternId, @incr.InternId)] = @incr.Relation::new(
+    rt,
+    label="calls",
+  )
+  let reachable : @incr.Relation[(@incr.InternId, @incr.InternId)] = @incr.Relation::new(
+    rt,
+    label="reachable",
+  )
+  // Transitive closure:
+  //   reachable(x, y) :- calls(x, y).
+  //   reachable(x, z) :- reachable(x, y), calls(y, z).
+  let _ = rt.new_rule([calls.id()], [reachable.id()], () => {
+    for c in calls.delta_iter() {
+      reachable.insert(c) |> ignore
+    }
+    for r in reachable.iter() {
+      for c in calls.iter() {
+        if r.1 == c.0 {
+          reachable.insert((r.0, c.1)) |> ignore
+        }
+      }
+    }
+  })
+  let foo = names.intern("foo")
+  let bar = names.intern("bar")
+  let baz = names.intern("baz")
+  inspect(calls.insert((foo, bar)), content="true")
+  inspect(calls.insert((bar, baz)), content="true")
+  // Re-interning "foo" yields the same InternId → duplicate insert deduped
+  // via integer equality on the tuple, not by re-hashing the String.
+  inspect(calls.insert((names.intern("foo"), bar)), content="false")
+  rt.fixpoint()
+  inspect(reachable.contains((foo, bar)), content="true")
+  inspect(reachable.contains((bar, baz)), content="true")
+  inspect(reachable.contains((foo, baz)), content="true")
+  inspect(reachable.contains((baz, foo)), content="false")
+}
