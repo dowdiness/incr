@@ -14,36 +14,26 @@ pub struct Effect {
 /// `f` is invoked immediately to establish dependencies and run the initial
 /// side effect. It is re-run by push propagation whenever any dependency changes.
 pub fn Effect::new(rt : Runtime, f : () -> Unit) -> Effect {
-  // Reuse a freed slot if available, otherwise append a new one.
-  let effect_idx = match rt.push.free_effects.pop() {
-    Some(idx) => idx
-    None => rt.push.effects.length()
-  }
-  let cell_id = rt.alloc_cell_id(PushEffect(effect_idx))
-  rt.push.node_count = rt.push.node_count + 1
-  let new_data : PushEffectData = {
-    meta: {
-      cell_id,
-      label: None,
-      changed_at: Revision::initial(),
-      durability: Low,
-      subscribers: @hashset.new(),
-      push_reachable_count: 0,
+  let (cell_id, effect_idx) = rt.install_cell(
+    rt.push.free_effects,
+    rt.push.effects,
+    idx => PushEffect(idx),
+    cell_id => {
+      meta: {
+        cell_id,
+        label: None,
+        changed_at: Revision::initial(),
+        durability: Low,
+        subscribers: @hashset.new(),
+        push_reachable_count: 0,
+      },
+      execute: f,
+      sources: [],
+      level: 1,
+      dirty: false,
     },
-    execute: f,
-    sources: [],
-    level: 1,
-    dirty: false,
-  }
-  if effect_idx < rt.push.effects.length() {
-    rt.push.effects[effect_idx] = new_data
-  } else {
-    rt.push.effects.push(new_data)
-  }
-  let ops : &CellOps = rt.push.effects[effect_idx]
-  rt.core.cell_ops.push(ops)
-  let lifecycle : &CellLifecycle = rt.push.effects[effect_idx]
-  rt.core.cell_lifecycle.push(lifecycle)
+  )
+  rt.push.node_count = rt.push.node_count + 1
   let effect : Effect = { cell_id, rt }
   // Run immediately to establish dependencies and execute the initial side effect.
   rt.begin_tracking(cell_id)

@@ -58,7 +58,23 @@ pub fn[T] Signal::new(
   durability? : Durability = Low,
   label? : String,
 ) -> Signal[T] {
-  let cell_id = rt.new_signal_id(durability, label)
+  let (cell_id, _) = rt.install_cell(
+    rt.pull.free_signals,
+    rt.pull.signals,
+    idx => PullSignal(idx),
+    cell_id => {
+      meta: {
+        cell_id,
+        label,
+        changed_at: Revision::initial(),
+        durability,
+        subscribers: @hashset.new(),
+        push_reachable_count: 0,
+      },
+      on_change: None,
+      commit_pending: None,
+    },
+  )
   { label, rt, cell_id, value: initial, pending_value: None, durability }
 }
 

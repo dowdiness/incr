@@ -34,36 +34,26 @@ pub fn[T : Eq] Reactive::new(rt : Runtime, compute_fn : () -> T) -> Reactive[T] 
     value.val = Some(new_val)
     changed
   }
-  // Reuse a freed slot if available, otherwise append a new one.
-  let reactive_idx = match rt.push.free_reactives.pop() {
-    Some(idx) => idx
-    None => rt.push.reactives.length()
-  }
-  let cell_id = rt.alloc_cell_id(PushReactive(reactive_idx))
-  rt.push.node_count = rt.push.node_count + 1
-  let new_data : PushReactiveData = {
-    meta: {
-      cell_id,
-      label: None,
-      changed_at: Revision::initial(),
-      durability: Low,
-      subscribers: @hashset.new(),
-      push_reachable_count: 0,
+  let (cell_id, reactive_idx) = rt.install_cell(
+    rt.push.free_reactives,
+    rt.push.reactives,
+    idx => PushReactive(idx),
+    cell_id => {
+      meta: {
+        cell_id,
+        label: None,
+        changed_at: Revision::initial(),
+        durability: Low,
+        subscribers: @hashset.new(),
+        push_reachable_count: 0,
+      },
+      compute,
+      sources: [],
+      level: 1,
+      dirty: false,
     },
-    compute,
-    sources: [],
-    level: 1,
-    dirty: false,
-  }
-  if reactive_idx < rt.push.reactives.length() {
-    rt.push.reactives[reactive_idx] = new_data
-  } else {
-    rt.push.reactives.push(new_data)
-  }
-  let ops : &CellOps = rt.push.reactives[reactive_idx]
-  rt.core.cell_ops.push(ops)
-  let lifecycle : &CellLifecycle = rt.push.reactives[reactive_idx]
-  rt.core.cell_lifecycle.push(lifecycle)
+  )
+  rt.push.node_count = rt.push.node_count + 1
   let reactive : Reactive[T] = {
     cell_id: @incr_types.ReactiveId::{ id: cell_id },
     value,

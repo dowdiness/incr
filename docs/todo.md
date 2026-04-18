@@ -339,16 +339,15 @@ Six cell read paths inlined the same ~10-line `current_computing_runtime_id` gua
 
 **Net change:** 6 sites deduplicated to one helper. No behavior change. ~51 source lines consolidated.
 
-### Target #2 — Cell-registration ritual for free-list kinds (MEDIUM)
+### Target #2 — Cell-registration ritual for free-list kinds (DONE, partial)
 
-Four constructors inline the same ~6-line "claim slot + install data + register in `cell_ops` + register in `cell_lifecycle`" pattern: `signal.mbt`, `memo.mbt:51-77`, `push_reactive.mbt:42-66`, `push_effect.mbt:22-46`. Signal is also asymmetric — it calls a one-off `Runtime::new_signal_id` helper in `runtime.mbt:282` that no other kind uses.
+- [x] Introduce `Runtime::install_cell[T : CellOps + CellLifecycle]` helper (cells/runtime.mbt) — one generic helper covering all free-list SoA kinds, parameterized over (free_list, array, `fn(Int) -> CellRef`, `fn(CellId) -> T`). Returns `(CellId, Int)` so callers needing the slot index (reactive/effect for post-install sources/level update) can destructure.
+- [x] Migrate `Signal::new`, `Reactive::new`, `Effect::new`; delete `Runtime::new_signal_id`
+- [x] Leave `Memo::_create` and `HybridMemo::new` as-is — both have a closure-construction cycle (the typed handle is captured inside the stored compute closure); using `install_cell` there would force a `Ref[Memo[T]?]` dance that's worse than the current local pattern. The existing `_create` already factors the pattern within memo's own file.
+- [x] Leave datalog constructors as-is — append-only, different shape.
+- [x] Add debug invariant `Runtime::check_table_invariant` + whitebox test "runtime: dispatch tables stay index-aligned across all cell kinds" in `soa_wbtest.mbt`
 
-Datalog constructors (`datalog_relation.mbt:26`, `datalog_functional_relation.mbt:38`, `datalog_rule.mbt:15`) are **append-only** (no free-list in `DatalogState`) and must stay out of any shared helper — do not over-generalize.
-
-- [ ] Introduce `Runtime::install_pull_signal` / `install_pull_memo` / `install_push_reactive` / `install_push_effect` that each take (free-list, SoA array, data, `fn(Int) -> CellRef`) and return `CellId`
-- [ ] Migrate all 4 free-list constructors; delete `Runtime::new_signal_id`
-- [ ] Leave datalog constructors as-is (append-only is not the same shape)
-- [ ] Add debug-time invariant `cell_index.length() == cell_ops.length() == cell_lifecycle.length()` exercised from an existing wbtest
+**Net change:** 1 new helper (~24 lines), 1 new invariant + test (~30 lines), 3 sites migrated (signal/reactive/effect), 1 asymmetric helper deleted (`Runtime::new_signal_id`). Tests: 506 → 507 (invariant test added). Memo and HybridMemo keep their local `_create` / inline pattern by design.
 
 ### Target #3 — push_lifecycle dispose dedup (LOW)
 
