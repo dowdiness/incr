@@ -369,6 +369,55 @@ Six cell read paths inlined the same ~10-line `current_computing_runtime_id` gua
 - **cells/ folder reorg** — Stage 5 just moved SoA into `internal/`; another restructure now would churn without a driver.
 - **Stage 6 engine extraction** — memory confirms this waits for accumulators or similar.
 
+## Reactive Collections (2026-04-19)
+
+Research + design sketches landed in the 2026-04-19 session. See
+[reactive-collections.md](reactive-collections.md) for the survey and
+four-family taxonomy; individual design sketches linked below. All
+items here are exploratory — validate via Codex / plan-writing before
+implementing.
+
+### Prerequisites (small, independent)
+
+- [ ] Add `MemoMap::get_tracked(key) -> V` — thin tracked wrapper over
+      the inner Memo's `.get()`. Exists today only as untracked
+      (`memo_map.mbt:52-54`). Required by `ReactiveMap`; useful on its
+      own. ~3 lines of source + small tests.
+- [ ] Add `MemoMap::remove_except(keys : Set[K]) -> Int` — bulk disposal
+      of entries not in `keys`. Required by `ReactiveMap::sweep`.
+      ~15 lines of source + tests.
+
+### `ReactiveMap[K, V]` (Family B)
+
+Derive-from-upstream lens over MemoMap with tracked per-key reads.
+Driver: lambda name resolution per-def granularity. See
+[reactive-map-design.md](reactive-map-design.md) for the full sketch.
+
+- [ ] Codex-review the design sketch for semantic and integration
+      issues
+- [ ] Write implementation plan (design→plan transition; new
+      invariants, 2-3 PRs estimated)
+- [ ] Implement after plan approval (2-3 days across 2-3 PRs)
+
+### `Relation::subscribe_delta` (Family A)
+
+Opt-in delta observation on Datalog relations via new `DeltaDispatch`
+trait; pre-snapshot + post-diff at commit boundary. See
+[relation-delta-observer-design.md](relation-delta-observer-design.md).
+
+- [ ] Codex-review the design sketch
+- [ ] Identify a concrete driver in canopy (logging, UI reconciliation,
+      IPC) — don't implement speculatively
+- [ ] Implement as one PR once driver exists (3-5 days)
+
+### Family C (Nominal Memoization over Persistent Trees)
+
+Long-horizon bet. Requires `Memo::new_named` + articulation points +
+structural-sharing collections. Do not start without a concrete canopy
+driver (evaluator / layout / tree-shaped type-checker state). See
+[reactive-collections.md](reactive-collections.md) "Family C — Design
+Sketch for `incr`" section for scope.
+
 ## Documentation
 
 - [x] Add doc comments to all public functions
