@@ -21,6 +21,8 @@ All documentation for the `incr` incremental computation library.
 - [Multi-Mode App Ideas](multi-mode-app-ideas.md) — App concepts leveraging pull, push, hybrid, and Datalog modes together
 - [Semantic Interning](semantic-interning.md) — Design exploration for revision-aware semantic interning (`InternTable[T]`)
 - [Reactive Collections — Research Summary](reactive-collections.md) — Survey of delta/per-item/nominal approaches across Differential Dataflow, Salsa, Adapton, SolidJS, etc., with reading list
+- [`ReactiveMap[K, V]` — Design Sketch](reactive-map-design.md) — Family B primitive: per-key memoized map with observable key set
+- [`Relation::subscribe_delta` — Design Sketch](relation-delta-observer-design.md) — Family A primitive: opt-in delta observation on Datalog relations
 
 ## Performance
 
@@ -56,6 +58,8 @@ All documentation for the `incr` incremental computation library.
 | [multi-mode-app-ideas.md](multi-mode-app-ideas.md) | App ideas using multiple reactive modes | Contributors, users |
 | [semantic-interning.md](semantic-interning.md) | Revision-aware semantic interning design | Contributors, library authors |
 | [reactive-collections.md](reactive-collections.md) | Comparative survey of reactive-collection designs + reading list | Contributors, researchers |
+| [reactive-map-design.md](reactive-map-design.md) | Design sketch for `ReactiveMap[K, V]` (Family B) | Contributors |
+| [relation-delta-observer-design.md](relation-delta-observer-design.md) | Design sketch for `Relation::subscribe_delta` (Family A) | Contributors |
 
 ### Performance
 
