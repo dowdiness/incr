@@ -349,11 +349,11 @@ Six cell read paths inlined the same ~10-line `current_computing_runtime_id` gua
 
 **Net change:** 1 new helper (~24 lines), 1 new invariant + test (~30 lines), 3 sites migrated (signal/reactive/effect), 1 asymmetric helper deleted (`Runtime::new_signal_id`). Tests: 506 → 507 (invariant test added). Memo and HybridMemo keep their local `_create` / inline pattern by design.
 
-### Target #3 — push_lifecycle dispose dedup (LOW)
+### Target #3 — push_lifecycle dispose dedup (DECLINED)
 
-`cells/push_lifecycle.mbt:5-16` (`PushReactiveData::dispose_cell`) and `:68-79` (`PushEffectData::dispose_cell`) are near-identical; differ only in variant arm, SoA array, and free-list. Same shape `datalog_lifecycle.mbt` already factored.
+`cells/push_lifecycle.mbt:5-16` (`PushReactiveData::dispose_cell`) and `:68-79` (`PushEffectData::dispose_cell`) are near-identical; differ only in variant arm, SoA array, and free-list. `datalog_lifecycle.mbt` factored this via `dispose_datalog_cell`.
 
-- [ ] Extract a local helper (similar to `dispose_datalog_cell`) and fold into Target #2's PR if touching lifecycle anyway
+- [x] Evaluated, declined — after Targets #1 and #2, remaining duplication is ~6–10 lines. Unlike #1 (correctness-adjacent drift) and #2 (parallel-array invariant), **no load-bearing invariant rides on unification**; the two inline impls function as self-documenting summaries of push-specific teardown (source-link removal + slot free + `node_count--`). Land opportunistically if `push_lifecycle.mbt` is ever touched for a real reason.
 
 ### Intentionally deferred / not recommended
 
