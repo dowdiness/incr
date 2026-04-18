@@ -30,5 +30,5 @@ fn CycleError::from_path(
     }
     labels.push(label)
   }
-  CycleDetected(closing_id, full_path, labels)
+  CycleError::new(closing_id, full_path, labels)
 }

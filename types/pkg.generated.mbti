@@ -12,11 +12,12 @@ pub const DURABILITY_COUNT : Int = 3
 pub const MAX_CYCLE_DISPLAY_STEPS : Int = 20
 
 // Errors
-pub(all) suberror CycleError {
+pub suberror CycleError {
   CycleDetected(CellId, Array[CellId], Array[String?])
 }
 pub fn CycleError::cell(Self) -> CellId
 pub fn CycleError::format_path(Self) -> String
+pub fn CycleError::new(CellId, Array[CellId], Array[String?]) -> Self
 pub fn CycleError::path(Self) -> Array[CellId]
 
 // Types and methods

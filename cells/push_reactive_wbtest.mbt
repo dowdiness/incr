@@ -35,7 +35,7 @@ test "free list: reactive slot reused after dispose" {
 test "free list: effect slot reused after dispose" {
   let rt = Runtime::new()
   let s = Signal::new(rt, 1)
-  let mut log : Array[Int] = []
+  let log : Array[Int] = []
   let e = Effect::new(rt, () => log.push(s.get()))
   let e_idx = match rt.core.cell_index[e.cell_id.id] {
     PushEffect(i) => i
@@ -43,7 +43,7 @@ test "free list: effect slot reused after dispose" {
   }
   e.dispose()
   inspect(rt.push.free_effects.length(), content="1")
-  let mut log2 : Array[Int] = []
+  let log2 : Array[Int] = []
   let e2 = Effect::new(rt, () => log2.push(s.get() * 2))
   let e2_idx = match rt.core.cell_index[e2.cell_id.id] {
     PushEffect(i) => i
@@ -263,7 +263,7 @@ test "reactive: get() returns cached value" {
 test "effect: runs on creation, then re-runs on each dependency change" {
   let rt = Runtime::new()
   let s = Signal::new(rt, 0)
-  let mut log : Array[Int] = []
+  let log : Array[Int] = []
   let _e = Effect::new(rt, () => log.push(s.get()))
   inspect(log, content="[0]")
   s.set(1)
@@ -329,7 +329,7 @@ test "dispose: disposed reactive not reachable via subscriber walk" {
 test "dispose: effect removed from source subscriber set" {
   let rt = Runtime::new()
   let s = Signal::new(rt, 0)
-  let mut log : Array[Int] = []
+  let log : Array[Int] = []
   let e = Effect::new(rt, () => log.push(s.get()))
   inspect(log, content="[0]")
   e.dispose()
