@@ -13,10 +13,9 @@ pub impl HasCellMeta for RuleData with meta(self) {
 }
 
 ///|
-/// CellOps dispatch for rule cells — all defaults via HasCellMeta.
-pub impl CellOps for RuleData
-
-///|
+/// CellOps dispatch for rule cells — defaults via HasCellMeta plus a
+/// `gc_role` override. The `with` block alone registers the impl; a
+/// separate bare anchor would be redundant.
 pub impl CellOps for RuleData with gc_role(_self) -> GcRole {
   Source
 }

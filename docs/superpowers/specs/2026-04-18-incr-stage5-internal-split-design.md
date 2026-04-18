@@ -37,7 +37,7 @@ Partition `cells/` into a thinner coordinator plus three engine sub-packages (sh
 
 ### Target package graph
 
-```
+```text
 types/                           (pure values: CellId, Revision, Durability, GcRole, ...)
   ↑
 cells/internal/shared/           (traits + CellMeta + CellRef; pub(open) for traits)
@@ -191,11 +191,16 @@ extract_imports() {
   # Strip `//` line comments first (preserves the rest of the line), then
   # strip `#` line comments, then match quoted strings, then drop the
   # sentinel "test" value which is MoonBit import-block syntax, not an
-  # import path.
-  sed 's|//.*$||; s|#.*$||' "$file" \
-    | grep -oE '"[^"]+"' \
-    | tr -d '"' \
-    | grep -vFx 'test'
+  # import path. The `{ ... } || true` grouping ensures the function
+  # returns exit 0 on "no matches" — without it, `set -o pipefail` would
+  # propagate grep's exit 1 out through the `imports=$(...)` callers and
+  # silently abort the script for packages with no quoted imports.
+  {
+    sed 's|//.*$||; s|#.*$||' "$file" \
+      | grep -oE '"[^"]+"' \
+      | tr -d '"' \
+      | grep -vFx 'test'
+  } || true
 }
 
 # Invariant 1: no cross-engine sibling imports.
@@ -227,7 +232,7 @@ if [ -f "$shared_pkg" ]; then
     fi
   done
   # shared must not back-edge into cells/
-  if echo "$imports" | grep -E '^dowdiness/incr/cells($|/[^i])' >/dev/null; then
+  if echo "$imports" | grep -E '^dowdiness/incr/cells($|/)' | grep -vE '^dowdiness/incr/cells/internal($|/)' | grep -q .; then
     echo "FAIL: cells/internal/shared imports cells/ (back-edge)"
     fail=1
   fi
@@ -240,7 +245,7 @@ for engine in shared "${engines[@]}"; do
   imports=$(extract_imports "$pkg")
   # Any import starting with "dowdiness/incr/cells" that is NOT a
   # "dowdiness/incr/cells/internal/..." path counts as a back-edge.
-  if echo "$imports" | grep -E '^dowdiness/incr/cells($|/[^i])' >/dev/null; then
+  if echo "$imports" | grep -E '^dowdiness/incr/cells($|/)' | grep -vE '^dowdiness/incr/cells/internal($|/)' | grep -q .; then
     echo "FAIL: cells/internal/$engine imports cells/ (back-edge)"
     fail=1
   fi
@@ -295,7 +300,7 @@ Six commits, staged shared-first. All commits run inside the worktree at `loom/i
 - `git diff pkg.generated.mbti tests/pkg.generated.mbti` empty
 
 **Commit message:**
-```
+```text
 refactor: extract cells/internal/shared trait+type package
 
 Move CellOps, HasCellMeta, Committable, CellMeta, CellRef into
@@ -327,7 +332,7 @@ their method signatures or payloads reference Runtime.
 **Verification:** same as Commit A.
 
 **Commit message:**
-```
+```text
 refactor: move PullSignalData to cells/internal/pull
 
 PullSignalData + its CellOps, HasCellMeta, and Committable impls
@@ -363,7 +368,7 @@ CellLifecycle impl moves to cells/pull_lifecycle.mbt.
 **Verification:** same.
 
 **Commit message:**
-```
+```text
 refactor: move push engine SoA to cells/internal/push
 
 PushReactiveData and PushEffectData move to cells/internal/push with
@@ -396,14 +401,16 @@ CellLifecycle impls move to cells/push_lifecycle.mbt.
 **Verification:** same.
 
 **Commit message:**
-```
+```text
 refactor: move datalog engine SoA to cells/internal/datalog
 
 RelationData, FunctionalRelationData, RuleData move to
 cells/internal/datalog with pub(all) visibility and pub impl for
 CellOps/HasCellMeta. Handle types (Relation[T], FunctionalRelation
-[T, U], Rule) and their constructors remain in cells/. CellLifecycle
-impls in cells/datalog_lifecycle.mbt. Fixpoint algorithm unchanged.
+[T, U]) and their constructors remain in cells/. RuleData has no
+handle type — rules are constructed via Runtime::new_rule, which
+stays in cells/ alongside its helpers. CellLifecycle impls in
+cells/datalog_lifecycle.mbt. Fixpoint algorithm unchanged.
 ```
 
 ### Commit E: add boundary checks
@@ -417,7 +424,7 @@ impls in cells/datalog_lifecycle.mbt. Fixpoint algorithm unchanged.
 - Repeat for the shared-is-leaf and no-back-edge cases.
 
 **Commit message:**
-```
+```text
 test: add engine-isolation boundary checks
 
 Shell script asserts (a) no cross-engine sibling imports,
@@ -438,7 +445,7 @@ quoted-path matching and filters # comments.
 - `bash check-docs.sh` passes.
 
 **Commit message:**
-```
+```text
 docs: update CLAUDE.md + todo + design.md for internal split
 
 Refresh the package map to reflect cells/internal/{shared,pull,

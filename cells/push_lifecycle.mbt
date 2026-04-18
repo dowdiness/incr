@@ -23,6 +23,17 @@ impl CellLifecycle for PushReactiveData with dispose_cell(self, rt, cell_id) -> 
 /// Only suspends if no other cell reads this reactive (subscribers empty).
 /// A Memo or another Reactive in the subscriber set means this cell's
 /// changed_at must keep advancing — suspension would cause stale reads.
+///
+/// Note: `self.sources` is NOT cleared here — it stays populated so that
+/// subscriber links can be reinstated on `on_observe`. This makes
+/// `gc_role = Interior`'s `gc_dependencies(self) -> self.sources` a
+/// temporarily stale list while suspended. That is safe because a
+/// suspended reactive with no observers is itself GC-eligible (Interior),
+/// and when the sweep collects it `clear_slot` empties `sources` before
+/// the slot is reused. In the observer.dispose() → on_unobserve (suspend)
+/// → rt.gc() integration flow, upstream cells must not be considered
+/// preserved by this stale list. Do not refactor away the "suspend
+/// without clearing sources" invariant — `on_observe` depends on it.
 impl CellLifecycle for PushReactiveData with on_unobserve(self, rt, cell_id) {
   guard self.meta.subscribers.is_empty() else { return }
   for source in self.sources {

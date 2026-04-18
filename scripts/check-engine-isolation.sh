@@ -42,7 +42,8 @@ for engine in "${engines[@]}"; do
   done
 done
 
-# Invariant 2: internal/shared is a leaf — no engine imports, no back-edge.
+# Invariant 2: internal/shared is a leaf — no engine imports.
+# (The back-edge check for shared is covered by invariant 3 below.)
 shared_pkg="cells/internal/shared/moon.pkg"
 if [ -f "$shared_pkg" ]; then
   imports=$(extract_imports "$shared_pkg")
@@ -52,11 +53,9 @@ if [ -f "$shared_pkg" ]; then
       fail=1
     fi
   done
-  # shared must not back-edge into cells/
-  if echo "$imports" | grep -E '^dowdiness/incr/cells($|/)' | grep -vE '^dowdiness/incr/cells/internal($|/)' | grep -q .; then
-    echo "FAIL: cells/internal/shared imports cells/ (back-edge)"
-    fail=1
-  fi
+else
+  echo "MISSING: $shared_pkg"
+  fail=1
 fi
 
 # Invariant 3: no back-edges from any internal/* to cells/.
