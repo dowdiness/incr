@@ -1,0 +1,61 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/incr/cells/internal/shared"
+
+import {
+  "dowdiness/incr/types",
+  "moonbitlang/core/hashset",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) struct CellMeta {
+  cell_id : @types.CellId
+  mut label : String?
+  mut changed_at : @types.Revision
+  mut durability : @types.Durability
+  subscribers : @hashset.HashSet[@types.CellId]
+  mut push_reachable_count : Int
+}
+
+pub(all) enum CellRef {
+  PullSignal(Int)
+  PullMemo(Int)
+  PushReactive(Int)
+  PushEffect(Int)
+  HybridMemo(Int)
+  Disposed
+  Relation(Int)
+  FunctionalRelation(Int)
+  Rule(Int)
+}
+
+// Type aliases
+
+// Traits
+pub(open) trait CellOps : HasCellMeta {
+  cell_id(Self) -> @types.CellId = _
+  changed_at(Self) -> @types.Revision = _
+  set_changed_at(Self, @types.Revision) -> Unit = _
+  subscribers(Self) -> @hashset.HashSet[@types.CellId] = _
+  label(Self) -> String? = _
+  durability(Self) -> @types.Durability = _
+  level(Self) -> Int = _
+  dep_changed_since(Self, @types.Revision) -> Bool? = _
+  push_reachable_count(Self) -> Int = _
+  gc_role(Self) -> @types.GcRole = _
+  gc_dependencies(Self) -> Array[@types.CellId] = _
+}
+
+pub(open) trait Committable {
+  do_commit(Self) -> Bool
+  cell_id(Self) -> @types.CellId
+  durability(Self) -> @types.Durability
+}
+
+pub(open) trait HasCellMeta {
+  meta(Self) -> CellMeta
+}
+
