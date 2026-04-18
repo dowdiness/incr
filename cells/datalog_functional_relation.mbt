@@ -177,16 +177,7 @@ pub fn[K, V] FunctionalRelation::iter(
 fn[K, V] FunctionalRelation::record_read_dependency(
   self : FunctionalRelation[K, V],
 ) -> Unit {
-  let active_rt = current_computing_runtime_id.val
-  if active_rt >= 0 && active_rt != self.rt.core.runtime_id {
-    current_computing_runtime_id.val = -1
-    abort(
-      "Cross-runtime dependency: FunctionalRelation belongs to Runtime " +
-      self.rt.core.runtime_id.to_string() +
-      " but is read inside a computation on Runtime " +
-      active_rt.to_string(),
-    )
-  }
+  self.rt.check_cross_runtime(self.rt.core.runtime_id, "FunctionalRelation")
   self.rt.record_dependency(self.cell_id)
 }
 

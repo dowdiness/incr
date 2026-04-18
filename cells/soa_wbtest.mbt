@@ -23,7 +23,7 @@ test "runtime: SoA fields exist and start empty" {
 }
 
 ///|
-test "new_signal_id: allocates into pull_signals" {
+test "Signal::new: allocates into pull_signals" {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 42)
   inspect(rt.pull.signals.length(), content="1")
@@ -34,7 +34,7 @@ test "new_signal_id: allocates into pull_signals" {
 }
 
 ///|
-test "new_memo_id: allocates into pull_memos" {
+test "Memo::new: allocates into pull_memos" {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 1)
   let m = Memo::new(rt, () => sig.get())
@@ -44,6 +44,32 @@ test "new_memo_id: allocates into pull_memos" {
     PullMemo(i) => inspect(i, content="0")
     _ => abort("expected PullMemo")
   }
+}
+
+///|
+test "runtime: dispatch tables stay index-aligned across all cell kinds" {
+  // Pins the invariant that install_cell (and, for memo/hybrid, their
+  // local equivalents) pushes cell_index, cell_ops, and cell_lifecycle
+  // together. This is load-bearing for dispatch by cell_id.id.
+  let rt = Runtime::new()
+  rt.check_table_invariant()
+  let sig = Signal::new(rt, 1)
+  rt.check_table_invariant()
+  let m = Memo::new(rt, () => sig.get())
+  let _ = rt.read(m)
+  rt.check_table_invariant()
+  let hm = HybridMemo::new(rt, () => sig.get())
+  let _ = rt.read_hybrid(hm)
+  rt.check_table_invariant()
+  let r = Reactive::new(rt, () => sig.get())
+  rt.check_table_invariant()
+  let _ = Effect::new(rt, () => sig.get() |> ignore)
+  rt.check_table_invariant()
+  // Disposal updates slots in place (cell_index[i] -> Disposed); lengths
+  // are unchanged, so the invariant still holds.
+  sig.dispose()
+  r.dispose()
+  rt.check_table_invariant()
 }
 
 ///|

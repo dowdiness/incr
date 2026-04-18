@@ -91,16 +91,7 @@ fn[T : Eq] HybridMemo::get_untracked(self : HybridMemo[T]) -> T {
   guard !self.rt.is_cell_disposed(self.cell_id) else {
     abort("HybridMemo::get called on a disposed hybrid memo")
   }
-  let active_rt = current_computing_runtime_id.val
-  if active_rt >= 0 && active_rt != self.rt.core.runtime_id {
-    current_computing_runtime_id.val = -1
-    abort(
-      "Cross-runtime dependency: HybridMemo belongs to Runtime " +
-      self.rt.core.runtime_id.to_string() +
-      " but is read inside a memo on Runtime " +
-      active_rt.to_string(),
-    )
-  }
+  self.rt.check_cross_runtime(self.rt.core.runtime_id, "HybridMemo")
   if self.rt.core.phase is InFixpoint {
     abort(
       "HybridMemo::get() cannot be called during fixpoint(); read relations directly or call get() after fixpoint() completes",

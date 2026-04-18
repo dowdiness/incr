@@ -268,48 +268,59 @@ fn Runtime::alloc_cell_id(self : Runtime, cell_ref : CellRef) -> CellId {
 }
 
 ///|
-/// Allocates a new Pull Signal cell in the SoA layout.
+/// Installs a new cell into a reusable-slot SoA array and registers it in
+/// the unified dispatch tables (`cell_ops`, `cell_lifecycle`). Shared by
+/// Signal, Memo, Reactive, and Effect constructors.
 ///
-/// Pushes a `PullSignalData` entry into `pull_signals` and registers
-/// `PullSignal(idx)` in `cell_index` via `alloc_cell_id`.
+/// Steps:
+/// 1. Reuse a freed slot from `free_list` if available, else append.
+/// 2. Allocate a fresh `CellId` with `make_ref(idx)` as its `CellRef`.
+/// 3. Construct the SoA payload via `make_data(cell_id)` (the caller's
+///    factory; given a cell_id so the payload's `meta.cell_id` can match).
+/// 4. Write payload into slot; register trait objects in the dispatch tables.
 ///
-/// The `on_change` and `commit_pending` closures start as `None` and are set
-/// later by `Signal::on_change` and `Signal::set_batch`.
-///
-/// # Returns
-///
-/// The new cell's unique identifier
-fn Runtime::new_signal_id(
+/// Datalog cells do NOT use this path — their arrays are append-only
+/// (no free-list, disposed slots are not reused).
+fn[T : CellOps + CellLifecycle] Runtime::install_cell(
   self : Runtime,
-  durability : Durability,
-  label : String?,
-) -> CellId {
-  let signal_idx = self.pull.free_signals
-    .pop()
-    .unwrap_or(self.pull.signals.length())
-  let cell_id = self.alloc_cell_id(PullSignal(signal_idx))
-  let new_data : PullSignalData = {
-    meta: {
-      cell_id,
-      label,
-      changed_at: Revision::initial(),
-      durability,
-      subscribers: @hashset.new(),
-      push_reachable_count: 0,
-    },
-    on_change: None,
-    commit_pending: None,
-  }
-  if signal_idx < self.pull.signals.length() {
-    self.pull.signals[signal_idx] = new_data
+  free_list : Array[Int],
+  arr : Array[T],
+  make_ref : (Int) -> CellRef,
+  make_data : (CellId) -> T,
+) -> (CellId, Int) {
+  let idx = free_list.pop().unwrap_or(arr.length())
+  let cell_id = self.alloc_cell_id(make_ref(idx))
+  let data = make_data(cell_id)
+  if idx < arr.length() {
+    arr[idx] = data
   } else {
-    self.pull.signals.push(new_data)
+    arr.push(data)
   }
-  let ops : &CellOps = self.pull.signals[signal_idx]
-  self.core.cell_ops.push(ops)
-  let lifecycle : &CellLifecycle = self.pull.signals[signal_idx]
-  self.core.cell_lifecycle.push(lifecycle)
-  cell_id
+  self.core.cell_ops.push(arr[idx])
+  self.core.cell_lifecycle.push(arr[idx])
+  (cell_id, idx)
+}
+
+///|
+/// Debug invariant: the three unified dispatch tables (`cell_index`,
+/// `cell_ops`, `cell_lifecycle`) must stay index-aligned. Every cell
+/// allocation pushes into all three; every disposal updates the slot
+/// in-place. Whitebox tests call this after exercising allocation/disposal
+/// paths to pin the invariant that `install_cell` + `dispose_cell` uphold.
+fn Runtime::check_table_invariant(self : Runtime) -> Unit {
+  let ci = self.core.cell_index.length()
+  let co = self.core.cell_ops.length()
+  let cl = self.core.cell_lifecycle.length()
+  if ci != co || co != cl {
+    abort(
+      "Runtime dispatch tables out of sync: cell_index=" +
+      ci.to_string() +
+      ", cell_ops=" +
+      co.to_string() +
+      ", cell_lifecycle=" +
+      cl.to_string(),
+    )
+  }
 }
 
 ///|

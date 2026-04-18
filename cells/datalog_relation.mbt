@@ -124,16 +124,7 @@ pub fn[T] Relation::iter(self : Relation[T]) -> Iter[T] {
 /// Records dependency for relation reads and rejects cross-runtime reads while
 /// a memo/reaction computation is active.
 fn[T] Relation::record_read_dependency(self : Relation[T]) -> Unit {
-  let active_rt = current_computing_runtime_id.val
-  if active_rt >= 0 && active_rt != self.rt.core.runtime_id {
-    current_computing_runtime_id.val = -1
-    abort(
-      "Cross-runtime dependency: Relation belongs to Runtime " +
-      self.rt.core.runtime_id.to_string() +
-      " but is read inside a computation on Runtime " +
-      active_rt.to_string(),
-    )
-  }
+  self.rt.check_cross_runtime(self.rt.core.runtime_id, "Relation")
   self.rt.record_dependency(self.cell_id)
 }
 
