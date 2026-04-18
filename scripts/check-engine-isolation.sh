@@ -47,7 +47,7 @@ if [ -f "$shared_pkg" ]; then
     fi
   done
   # shared must not back-edge into cells/
-  if echo "$imports" | grep -E '^dowdiness/incr/cells($|/[^i])' >/dev/null; then
+  if echo "$imports" | grep -E '^dowdiness/incr/cells($|/)' | grep -vE '^dowdiness/incr/cells/internal($|/)' | grep -q .; then
     echo "FAIL: cells/internal/shared imports cells/ (back-edge)"
     fail=1
   fi
@@ -60,7 +60,7 @@ for engine in shared "${engines[@]}"; do
   imports=$(extract_imports "$pkg")
   # Any import starting with "dowdiness/incr/cells" that is NOT a
   # "dowdiness/incr/cells/internal/..." path counts as a back-edge.
-  if echo "$imports" | grep -E '^dowdiness/incr/cells($|/[^i])' >/dev/null; then
+  if echo "$imports" | grep -E '^dowdiness/incr/cells($|/)' | grep -vE '^dowdiness/incr/cells/internal($|/)' | grep -q .; then
     echo "FAIL: cells/internal/$engine imports cells/ (back-edge)"
     fail=1
   fi
