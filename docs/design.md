@@ -496,3 +496,7 @@ Runtime (coordinator + phase machine)
 | 6 | **Further engine extraction** — Deferred until accumulators create need | — | Stage 5 |
 
 All stages preserve the public API with zero breaking changes. Downstream consumer is loom's `ReactiveParser`.
+
+### Engine isolation (2026-04-18)
+
+Engine SoA types are partitioned into `cells/internal/{shared,pull,push,datalog}/` using MoonBit's `internal` package visibility. Engines cannot import each other (enforced by `scripts/check-engine-isolation.sh`), and no engine package imports back into `cells/`. The pull split is partial: `PullSignalData` moved; `MemoData` stays in `cells/` because its compute closure references `CycleError`. See [Stage 5 design spec](superpowers/specs/2026-04-18-incr-stage5-internal-split-design.md) for details.

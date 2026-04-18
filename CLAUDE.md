@@ -34,40 +34,35 @@ dowdiness/incr/
 │   ├── revision.mbt            (Revision, Durability, DURABILITY_COUNT)
 │   └── cell_id.mbt             (CellId + Hash impl)
 │
-├── cells/                      (all engine implementation + unit tests)
-│   ├── cell.mbt                (using @incr_types declaration; CellMeta/CellKind removed)
-│   ├── cell_ref.mbt            (CellRef enum: PullSignal | PullMemo | PushReactive | PushEffect | HybridMemo | Relation | FunctionalRelation | Rule | Disposed)
-│   ├── cell_ops.mbt            (CellOps trait — 6-method read interface; Committable trait — batch commit interface)
-│   │
-│   │   # Pull mode (lazy verification)
-│   ├── pull_signal.mbt         (PullSignalData — SoA entry for input cells; CellOps + Committable impls)
-│   ├── pull_memo.mbt           (MemoData — unified SoA entry for pull and hybrid derived cells; CellOps impl)
-│   ├── signal.mbt              (Signal[T])
-│   ├── memo.mbt                (Memo[T])
-│   ├── verify.mbt              (pull_verify, PullVerifyFrame, clear_verify_stack)
-│   │
-│   │   # Push mode (eager propagation)
-│   ├── push_reactive.mbt       (PushReactiveData — SoA entry for push-mode derived cells)
-│   ├── push_effect.mbt         (PushEffectData — SoA entry for push-mode side-effect cells)
-│   ├── push_propagate.mbt      (push_propagate_from, propagate_level_change — level-sorted push propagation)
-│   │
-│   │   # Hybrid mode (push staleness + pull verification)
-│   ├── hybrid_memo.mbt         (HybridMemo[T] — hybrid push-pull memo; uses unified MemoData)
-│   │
-│   │   # Datalog mode (fixpoint evaluation)
-│   ├── datalog_relation.mbt    (Relation[T] — set with delta tracking; RelationData SoA entry)
-│   ├── datalog_rule.mbt        (RuleData — derives new facts; Runtime::new_rule)
-│   ├── datalog_fixpoint.mbt    (Runtime::fixpoint — semi-naive fixpoint evaluation)
-│   │
-│   │   # Shared
-│   ├── cycle.mbt               (CycleError)
-│   ├── tracking.mbt            (ActiveQuery)
-│   ├── runtime.mbt             (Runtime, CellInfo)
-│   ├── tracked_cell.mbt        (TrackedCell[T])
-│   ├── memo_map.mbt            (MemoMap[K, V] — keyed memoization)
-│   ├── scope.mbt               (Scope — hierarchical cell ownership with bulk disposal)
-│   ├── *_test.mbt              (unit tests — black-box tests of the cells package)
-│   └── *_wbtest.mbt            (whitebox tests — co-located for private field access)
+├── cells/                      (coordinator + handles + algorithms + lifecycle)
+│   ├── moon.pkg                (imports @shared, @pull, @push, @datalog)
+│   ├── runtime.mbt             (Runtime + sub-states)
+│   ├── cycle.mbt               (CycleError — stays here; format_path uses Runtime)
+│   ├── pull_memo.mbt           (MemoData — stays here; compute references CycleError)
+│   ├── pull_lifecycle.mbt      (CellLifecycle for PullSignalData)
+│   ├── push_lifecycle.mbt      (CellLifecycle for PushReactiveData, PushEffectData)
+│   ├── datalog_lifecycle.mbt   (CellLifecycle for Relation/Functional/Rule)
+│   ├── push_reactive.mbt       (Reactive[T] handle; SoA moved to internal/push)
+│   ├── push_effect.mbt         (Effect handle; SoA moved to internal/push)
+│   ├── push_propagate.mbt      (push algorithm + PushEntry)
+│   ├── datalog_relation.mbt    (Relation[T] handle; SoA moved to internal/datalog)
+│   ├── datalog_functional_relation.mbt
+│   ├── datalog_rule.mbt        (Runtime::new_rule + helpers; RuleData moved)
+│   ├── datalog_fixpoint.mbt    (fixpoint algorithm)
+│   ├── verify.mbt              (pull verification algorithm + PullVerifyFrame)
+│   ├── batch.mbt               (batch algorithm)
+│   ├── signal.mbt, memo.mbt    (Signal[T], Memo[T] handles)
+│   ├── hybrid_memo.mbt         (HybridMemo[T] handle)
+│   ├── tracked_cell.mbt        (TrackedCell[T] handle)
+│   ├── memo_map.mbt            (MemoMap[K, V])
+│   ├── scope.mbt, tracking.mbt, introspection.mbt
+│   ├── cell.mbt, cell_ops.mbt  (local CellLifecycle trait + using re-exports)
+│   ├── internal/               (engine sub-packages, MoonBit `internal` visibility)
+│   │   ├── shared/             (CellOps, HasCellMeta, Committable, CellMeta, CellRef)
+│   │   ├── pull/               (PullSignalData only — memo stays in cells/)
+│   │   ├── push/               (PushReactiveData, PushEffectData)
+│   │   └── datalog/            (RelationData, FunctionalRelationData, RuleData)
+│   └── *_test.mbt, *_wbtest.mbt
 │
 ├── pipeline/                   (experimental pipeline traits, zero dependencies)
 │   └── pipeline_traits.mbt     (Sourceable, Parseable, Checkable, Executable)
@@ -91,6 +86,7 @@ For deep internals (verification algorithm, type erasure, SoA storage, push prop
 
 - `cells/moon.pkg` suppresses warning 15 (`unused_mut`) because some `mut` fields on `MemoData`/`PullSignalData` are only written in whitebox test compilation, not source-only compilation
 - The `cells/` package imports `moonbitlang/core/hashset` and `moonbitlang/core/hashmap` as external dependencies
+- `cells/internal/{shared,pull,push,datalog}/` use MoonBit's `internal` package feature. External consumers cannot import them. Engine packages (`pull`, `push`, `datalog`) must not import each other — enforced by `scripts/check-engine-isolation.sh`.
 
 ## Documentation
 
