@@ -10,12 +10,18 @@ engines=(pull push datalog)
 # Returns each imported package path, one per line, without quotes.
 # Handles both `#` and `//` line comments (this repo uses `//`), and
 # excludes the `"test"` discriminator from `} for "test"` import blocks.
+# No-match from any stage is treated as an empty import list: without the
+# `|| true`, `set -o pipefail` would propagate `grep`'s exit 1 out through
+# the `imports=$(...)` callers and silently abort the script for packages
+# that happen to have no quoted imports.
 extract_imports() {
   local file="$1"
-  sed 's|//.*$||; s|#.*$||' "$file" \
-    | grep -oE '"[^"]+"' \
-    | tr -d '"' \
-    | grep -vFx 'test'
+  {
+    sed 's|//.*$||; s|#.*$||' "$file" \
+      | grep -oE '"[^"]+"' \
+      | tr -d '"' \
+      | grep -vFx 'test'
+  } || true
 }
 
 # Invariant 1: no cross-engine sibling imports.
