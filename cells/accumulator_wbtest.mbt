@@ -288,6 +288,16 @@ test "memo dispose clears entries from all accumulators" {
 }
 
 ///|
+test "Scope::accumulator disposed with scope" {
+  let rt = Runtime::new()
+  let scope = Scope::new(rt)
+  let a : Accumulator[Int] = scope.accumulator(label="s")
+  inspect(a.is_disposed(), content="false")
+  scope.dispose()
+  inspect(a.is_disposed(), content="true")
+}
+
+///|
 test "accumulator: ON_ABORT restores prior buffer on raised compute" {
   let rt = Runtime::new()
   let should_fail = Signal::new(rt, false)

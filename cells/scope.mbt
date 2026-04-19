@@ -136,6 +136,21 @@ pub fn[T : Eq] Scope::hybrid_memo(
 }
 
 ///|
+/// Creates an accumulator owned by this scope. The accumulator is disposed
+/// automatically when the scope is disposed (via `dispose_hooks`).
+pub fn[T : Eq] Scope::accumulator(
+  self : Scope,
+  label? : String,
+) -> Accumulator[T] {
+  guard !self.disposed else {
+    abort("Scope::accumulator called on a disposed scope")
+  }
+  let a : Accumulator[T] = Accumulator::new(rt=self.runtime, label?)
+  self.dispose_hooks.push(() => a.dispose())
+  a
+}
+
+///|
 /// Creates an effect owned by this scope.
 pub fn Scope::effect(self : Scope, f : () -> Unit) -> Effect {
   guard !self.disposed else {

@@ -164,6 +164,7 @@ pub fn Runtime::set_on_change(Self, () -> Unit) -> Unit
 pub struct Scope {
   // private fields
 }
+pub fn[T : Eq] Scope::accumulator(Self, label? : String) -> Accumulator[T]
 pub fn Scope::add_cell_ids(Self, Array[@types.CellId]) -> Unit
 pub fn[T] Scope::add_observer(Self, Observer[T]) -> Observer[T]
 pub fn Scope::child(Self) -> Self
