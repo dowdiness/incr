@@ -429,6 +429,54 @@ driver (evaluator / layout / tree-shaped type-checker state). See
 [reactive-collections.md](reactive-collections.md) "Family C — Design
 Sketch for `incr`" section for scope.
 
+## API Naming Cleanup (Deferred)
+
+Context: PR #41 review surfaced that `get_untracked`/`get_tracked`
+naming misleads — `Memo::get_untracked` still records per-key deps
+when a tracking frame is active (via `get_result_inner` calling
+`record_dependency`); the real distinction is **abort vs silent at
+top level**, not tracking itself. This misread propagated through
+three revisions of `reactive-map-design.md` before Codex caught it.
+See [reactive-map-design.md](reactive-map-design.md) "Why v1's framing
+was wrong" and
+`~/.claude/projects/*/memory/feedback_code_verify_before_design.md`.
+
+Not urgent — docs are now accurate and the Caveat on `MemoMap::get_tracked`
+documents the actual contract. Revisit if the confusion bites again.
+
+### Method-name candidates
+
+- [ ] Rename `Memo::get_untracked` → something accurate
+      (e.g., `Memo::read` or `Memo::read_permissive`). Package-private,
+      low breaking-change cost. Body: "reads value, records dep iff
+      tracking frame active, never aborts on missing context."
+- [ ] Reconsider `MemoMap::get` / `MemoMap::get_tracked` pair naming.
+      Current asymmetry (unadorned name = permissive, `_tracked` suffix
+      = strict) inverts the option-like convention (`get` strict,
+      `get_or` / `try_get` permissive). Candidate pairs:
+      `read` (permissive) + `get` (strict), or keep current. Public
+      API, so any rename is a breaking change — only do this if a
+      downstream consumer actually hits the footgun.
+- [ ] Audit other `*_untracked` / `*_tracked` suffixes across
+      `cells/` for the same misnaming pattern. Known candidates:
+      check `Runtime::read` (top-level observer wrapper) and any
+      Observer methods. Grep for the suffix pair explicitly.
+
+### Doc-comment audits
+
+- [ ] Sweep public doc comments for "tracked" / "untracked" shorthand
+      that doesn't reflect the actual leaf-level behavior
+      (`record_dependency` conditional on tracking frame). Prefer
+      describing the abort vs silent distinction directly.
+- [ ] Update any remaining design doc that references "untracked means
+      doesn't record deps." Currently known:
+      [reactive-map-design.md](reactive-map-design.md) (marked
+      [SUPERSEDED] in-line; a proper rewrite would fold these into the
+      v3 narrative) and
+      `docs/superpowers/specs/2026-04-15-boundary3-bidirectional-typechecker.md`
+      (has an inline [Correction 2026-04-19] note; could be reworked
+      if the spec is revisited).
+
 ## Documentation
 
 - [x] Add doc comments to all public functions
