@@ -11,6 +11,16 @@ import {
 // Errors
 
 // Types and methods
+pub struct Accumulator[T] {
+  // private fields
+}
+pub fn[T] Accumulator::debug(Self[T]) -> String
+pub fn[T] Accumulator::dispose(Self[T]) -> Unit
+pub fn[T] Accumulator::id(Self[T]) -> @types.AccumulatorId
+pub fn[T] Accumulator::is_disposed(Self[T]) -> Bool
+pub fn[T] Accumulator::label(Self[T]) -> String?
+pub fn[T : Eq] Accumulator::new(rt~ : Runtime, label? : String) -> Self[T]
+
 pub(all) struct CellInfo {
   label : String?
   id : @types.CellId
