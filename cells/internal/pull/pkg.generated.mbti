@@ -4,6 +4,7 @@ package "dowdiness/incr/cells/internal/pull"
 import {
   "dowdiness/incr/cells/internal/shared",
   "dowdiness/incr/types",
+  "moonbitlang/core/hashmap",
 }
 
 // Values
@@ -19,6 +20,7 @@ pub(all) struct MemoData {
   mut in_progress : Bool
   mut on_change : (() -> Unit)?
   is_hybrid : Bool
+  mut accumulator_reads : @hashmap.HashMap[(@types.AccumulatorId, @types.CellId), @types.Revision]
 }
 pub impl @shared.CellOps for MemoData
 pub impl @shared.HasCellMeta for MemoData

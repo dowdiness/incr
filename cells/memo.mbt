@@ -65,6 +65,7 @@ fn[T] Memo::_create(
     in_progress: false,
     on_change: None,
     is_hybrid: false,
+    accumulator_reads: @hashmap.new(),
   }
   if memo_idx < rt.pull.memos.length() {
     rt.pull.memos[memo_idx] = new_data

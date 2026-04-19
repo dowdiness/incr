@@ -12,6 +12,13 @@ pub(all) struct MemoData {
   mut in_progress : Bool
   mut on_change : (() -> Unit)?
   is_hybrid : Bool
+  // accumulator_reads: (slot_id, target_cell_id) -> stored push revision.
+  // Persisted state for synthetic accumulator deps. Populated on successful
+  // recompute commit; consulted by pull_verify's synthetic dep check.
+  mut accumulator_reads : @hashmap.HashMap[
+    (@incr_types.AccumulatorId, @incr_types.CellId),
+    @incr_types.Revision,
+  ]
 }
 
 ///|
