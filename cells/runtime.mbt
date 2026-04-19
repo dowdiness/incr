@@ -163,6 +163,9 @@ priv struct SlotMeta {
   dispose_memo : (@incr_types.CellId) -> Unit
   // Verify-side typed data access:
   push_revised_at_for : (@incr_types.CellId) -> @incr_types.Revision
+  // True iff the slot still has a non-empty per_memo[M] buffer. Used in
+  // AFTER_CLOSURE to rebuild accumulator_contributions reverse index.
+  has_buffer_for : (@incr_types.CellId) -> Bool
 }
 
 ///|

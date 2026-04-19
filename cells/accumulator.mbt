@@ -94,6 +94,12 @@ pub fn[T : Eq] Accumulator::new(
       None => Revision::initial()
     }
   }
+  let has_buffer_for = (m_id : CellId) => {
+    match per_memo.get(m_id) {
+      Some(arr) => arr.length() > 0
+      None => false
+    }
+  }
   let meta : SlotMeta = {
     label,
     disposed: false,
@@ -102,6 +108,7 @@ pub fn[T : Eq] Accumulator::new(
     finalize_memo,
     dispose_memo,
     push_revised_at_for,
+    has_buffer_for,
   }
   let slot_id = rt.register_accumulator_slot(meta)
   { rt, slot_id, label, per_memo, prev_push_sets, push_revised_at }

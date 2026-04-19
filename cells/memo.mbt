@@ -415,10 +415,124 @@ fn[T] Runtime::memo_force_recompute(
     )
   }
   cell.in_progress = true
+
+  // BEFORE_CLOSURE: snapshot each accumulator slot that M contributed to
+  // in its previous successful compute. Clone the set — prev_contributions
+  // is iterated AFTER compute and must not reflect touched_accumulator_slots.
+  let prev_contributions : Array[@incr_types.AccumulatorId] = match
+    self.accumulator_contributions.get(cell_id) {
+    Some(s) => {
+      let arr : Array[@incr_types.AccumulatorId] = []
+      for x in s {
+        arr.push(x)
+      }
+      arr
+    }
+    None => []
+  }
+  for slot_id in prev_contributions {
+    let slot = self.accumulator_slots[slot_id.id]
+    if !slot.disposed {
+      (slot.snapshot_and_clear)(cell_id)
+    }
+  }
+
   let old_deps = cell.dependencies
   self.push_tracking(cell_id)
-  let new_value = compute_fn()
-  let (new_deps, new_seen) = self.pop_tracking()
+
+  // Run user compute. On raise → ON_ABORT path.
+  let new_value = compute_fn() catch {
+    e => {
+      // Extract the still-live top frame to see which slots got touched
+      // during this aborted run.
+      let touched : Array[@incr_types.AccumulatorId] = match
+        self.top_active_query() {
+        Some(q) => {
+          let arr : Array[@incr_types.AccumulatorId] = []
+          for x in q.touched_accumulator_slots {
+            arr.push(x)
+          }
+          arr
+        }
+        None => []
+      }
+      // ON_ABORT.1: restore snapshots for every slot in prev_contributions.
+      for slot_id in prev_contributions {
+        let slot = self.accumulator_slots[slot_id.id]
+        if !slot.disposed {
+          (slot.restore_buffer)(cell_id)
+        }
+      }
+      // ON_ABORT.2: for slots touched during this run but NOT in prev,
+      // clear the new-run-only buffer to avoid leaking partial pushes.
+      for slot_id in touched {
+        // Contains-check: skip slots that were already restored.
+        let mut in_prev = false
+        for p in prev_contributions {
+          if p == slot_id {
+            in_prev = true
+            break
+          }
+        }
+        if in_prev {
+          continue
+        }
+        let slot = self.accumulator_slots[slot_id.id]
+        if !slot.disposed {
+          (slot.dispose_memo)(cell_id)
+        }
+      }
+      // Pop frame (discards staged deps + accumulator_reads).
+      let _ = self.pop_tracking_full()
+      cell.in_progress = false
+      raise e
+    }
+  }
+
+  // Normal path — pop the full frame to access accumulator state.
+  let query = self.pop_tracking_full()
+  let new_deps = query.dependencies
+  let new_seen = query.seen
+  let touched = query.touched_accumulator_slots
+  let staged_reads = query.accumulator_reads
+
+  // AFTER_CLOSURE: finalize each slot in prev ∪ touched (atomic diff +
+  // bump + cleanup per slot), and rebuild accumulator_contributions from
+  // slots that still have a buffer.
+  let all_slots : @hashset.HashSet[@incr_types.AccumulatorId] = @hashset.new()
+  for s in prev_contributions {
+    all_slots.add(s)
+  }
+  for s in touched {
+    all_slots.add(s)
+  }
+  let current_revision = self.core.revision.current_revision
+  let new_contributions : @hashset.HashSet[@incr_types.AccumulatorId] = @hashset.new()
+  for slot_id in all_slots {
+    let slot = self.accumulator_slots[slot_id.id]
+    if slot.disposed {
+      continue
+    }
+    (slot.finalize_memo)(cell_id, current_revision)
+    if (slot.has_buffer_for)(cell_id) {
+      new_contributions.add(slot_id)
+    }
+  }
+
+  // Commit staged_reads into MemoData.accumulator_reads (overwrite any
+  // prior-run entries; a successful recompute is authoritative).
+  cell.accumulator_reads.clear()
+  for k, v in staged_reads {
+    cell.accumulator_reads.set(k, v)
+  }
+  // Commit rebuilt contributions.
+  if new_contributions.is_empty() {
+    self.accumulator_contributions.remove(cell_id)
+  } else {
+    self.accumulator_contributions.set(cell_id, new_contributions)
+  }
+
+  // Existing epilogue — subscribers, durability, backdate, verified_at.
   let deps_changed = self.diff_and_update_subscribers(
     cell_id,
     old_deps,

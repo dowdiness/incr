@@ -83,3 +83,81 @@ test "Accumulator::push to disposed accumulator raises Failure" {
   }
   inspect(caught, content="true")
 }
+
+///|
+test "accumulator: same push-set across recomputes → push_revised_at unchanged" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 0)
+  let a : Accumulator[Int] = Accumulator::new(rt~)
+  let m = Memo::new(rt, () => {
+    a.push(1)
+    a.push(2)
+    sig.get()
+  })
+  let _ = rt.ensure_computed_untracked(m.id())
+  let rev1 = match a.push_revised_at.get(m.id()) {
+    Some(r) => r
+    None => Revision::initial()
+  }
+  // Trigger recompute with same push set
+  sig.set(1)
+  let _ = rt.ensure_computed_untracked(m.id())
+  let rev2 = match a.push_revised_at.get(m.id()) {
+    Some(r) => r
+    None => Revision::initial()
+  }
+  inspect(rev1 == rev2, content="true")
+}
+
+///|
+test "accumulator: different push-set across recomputes → push_revised_at bumps" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 0)
+  let a : Accumulator[Int] = Accumulator::new(rt~)
+  let m = Memo::new(rt, () => {
+    a.push(sig.get())
+    1
+  })
+  let _ = rt.ensure_computed_untracked(m.id())
+  let rev1 = match a.push_revised_at.get(m.id()) {
+    Some(r) => r
+    None => Revision::initial()
+  }
+  sig.set(99)
+  let _ = rt.ensure_computed_untracked(m.id())
+  let rev2 = match a.push_revised_at.get(m.id()) {
+    Some(r) => r
+    None => Revision::initial()
+  }
+  inspect(rev2 > rev1, content="true")
+}
+
+///|
+test "accumulator: ON_ABORT restores prior buffer on raised compute" {
+  let rt = Runtime::new()
+  let should_fail = Signal::new(rt, false)
+  let a : Accumulator[Int] = Accumulator::new(rt~)
+  let m : Memo[Int] = Memo::new(rt, () => {
+    a.push(1)
+    if should_fail.get() {
+      fail("boom")
+    }
+    99
+  })
+  let _ = rt.ensure_computed_untracked(m.id())
+  let first_buf = a.per_memo.get(m.id()).unwrap()
+  inspect(first_buf.length(), content="1")
+  // Trigger a failing recompute
+  should_fail.set(true)
+  let caught = try {
+    let _ = rt.ensure_computed_untracked(m.id())
+    false
+  } catch {
+    _ => true
+  }
+  inspect(caught, content="true")
+  // Buffer restored to pre-recompute state — still contains the one push
+  let restored_buf = a.per_memo.get(m.id()).unwrap()
+  inspect(restored_buf.length(), content="1")
+  inspect(restored_buf[0], content="1")
+}

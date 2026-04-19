@@ -209,6 +209,23 @@ fn Runtime::top_active_query(self : Runtime) -> ActiveQuery? {
 }
 
 ///|
+/// Internal: pops the tracking frame and returns the full ActiveQuery for
+/// callers that need staged accumulator state (accumulator_reads,
+/// touched_accumulator_slots). `pop_tracking` still works for consumers
+/// that only need (deps, seen).
+fn Runtime::pop_tracking_full(self : Runtime) -> ActiveQuery {
+  match self.core.tracking.stack.pop() {
+    Some(query) => {
+      if self.core.tracking.stack.length() == 0 {
+        current_computing_runtime_id.val = -1
+      }
+      query
+    }
+    None => abort("pop_tracking_full: tracking stack is empty")
+  }
+}
+
+///|
 /// Collect cell IDs from the current tracking stack.
 ///
 /// Returns the cell IDs of all active computation frames in order,
