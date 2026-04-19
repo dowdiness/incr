@@ -54,14 +54,15 @@ pub fn[K : Hash + Eq, V : Eq] MemoMap::get(self : MemoMap[K, V], key : K) -> V {
 }
 
 ///|
-/// Returns the value for `key`, recording a dependency on the per-key memo.
+/// Returns the value for `key`, aborting if called outside a tracked context.
 ///
-/// Must be called inside a tracked context (another memo's compute function);
-/// aborts otherwise. For untracked reads (tests, top-level code), use `get()`.
-///
-/// The fine-grained read channel: a consumer `Memo` reading
-/// `map.get_tracked(k)` is invalidated only when `k`'s per-key memo changes,
-/// not when other keys change.
+/// Stricter-contract peer of `get()`. Both methods record a dependency on
+/// the per-key memo when invoked from inside another memo's compute
+/// function; the difference is what happens at top level — `get()` reads
+/// silently without recording a dep, whereas `get_tracked()` aborts via
+/// `Memo::get`'s tracking guard. Prefer this when the call site is
+/// expected to be tracking (catches "meant to call from inside a memo
+/// but I'm not" bugs).
 pub fn[K : Hash + Eq, V : Eq] MemoMap::get_tracked(
   self : MemoMap[K, V],
   key : K,

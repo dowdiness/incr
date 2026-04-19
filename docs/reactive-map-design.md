@@ -4,30 +4,48 @@ Per-key memoized map for fine-grained incremental computation over
 collection-valued results. Extends Family B from
 [reactive-collections.md](reactive-collections.md).
 
-**Status:** Exploratory. Revised 2026-04-19 after code verification
-exposed a critical flaw in the v1 draft. A second Codex review the same
-day surfaced additional blockers in the v2 sketch — see §"Codex review
-2026-04-19" below. Do not implement from this doc; the cross-key dispose
-semantics need resolving and `MemoMap::remove_except` is not safe to land
-alone.
+**Status:** Exploratory. v1 → v2 revision (2026-04-19) and v2 → Codex
+validation pass (2026-04-19) both misread the `MemoMap::get` tracking
+semantics — see §"Why v1's framing was wrong" below. Subsequent PR-time
+code review surfaced additional blockers on `remove_except` and cross-key
+dispose (§"Codex review 2026-04-19"). **Do not implement from this doc
+without first re-motivating the primitive** against a concrete driver;
+the originally-stated value proposition turns out to be already available
+from `MemoMap`.
 **Driver:** Lambda name resolution currently returns
 `Memo[ResolvedModule]`; any def change invalidates the whole module's
 downstream consumers. A `ReactiveMap[DefName, ResolvedDef]` whose per-key
 reads are *tracked* lets downstream memos that read one def ignore edits
 to other defs.
 
-## Why v1 was broken
+## Why v1's framing was wrong (revised again)
 
-The v1 draft built `ReactiveMap::get` directly on `MemoMap::get`. But
-`MemoMap::get` is **untracked** (`memo_map.mbt:52-54` calls
-`get_or_create_memo(key).get_untracked()`). Reading `map.get(k)` from
-inside another `Memo` records no dependency on the per-key memo — so
-the downstream consumer had no per-key isolation at all. The core
-value proposition was impossible under the existing API.
+The v1 draft claimed `MemoMap::get` records no per-key dependency
+because it calls `get_untracked()`. **This is false.** `get_untracked`
+only bypasses the tracked-context *abort guard*; the underlying
+`get_result_inner` still calls `record_dependency(self.cell_id)`
+whenever a tracking frame is active (`cells/memo.mbt:238, 247, 255`;
+`cells/tracking.mbt:60-65` is a no-op only when the stack is empty).
 
-This revision fixes that by (a) requiring a new tracked read on
-`MemoMap`, and (b) restructuring the primitive so the key set is owned
-upstream, not managed internally.
+So `map.get(k)` called from inside another `Memo` *does* record a
+dep on `k`'s per-key memo. The fine-grained-isolation capability was
+already present under the existing API. Both the v1 draft and the v2
+revision misread this.
+
+**What the v2 additions actually provide:**
+
+- `MemoMap::get_tracked` — *stricter-contract* peer of `get()`. Same
+  dep-recording behavior inside a tracked context; abort rather than
+  silent read at top level. Useful as a misuse guardrail, not as a
+  new capability.
+- The keys-memo coordination and sweep lifecycle *are* genuinely new
+  — `MemoMap` has no notion of an upstream key set.
+
+**Does `ReactiveMap` still pay for itself?** Open question. Its
+remaining value is coordination with an upstream key set (disposal
+of stale entries, `iter()` against a tracked key set), not per-key
+tracking — which already works. Revisit the motivation against a
+concrete driver before writing an implementation plan.
 
 ## Codex review 2026-04-19
 

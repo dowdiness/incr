@@ -160,6 +160,17 @@ test "memo_map: clear is idempotent on an empty map" {
 }
 
 ///|
+test "panic memo_map: get_tracked at top level aborts" {
+  // Regression guard: get_tracked must delegate to Memo::get (which
+  // aborts outside a tracked context), not get_untracked. Without this
+  // test, a refactor that reroutes through get_untracked would preserve
+  // in-memo dep recording but silently lose the top-level contract.
+  let rt = Runtime::new()
+  let by_key = MemoMap::new(rt, (key : Int) => key * 10)
+  ignore(by_key.get_tracked(1))
+}
+
+///|
 test "memo_map: get_tracked records per-key dep, not cross-key" {
   let rt = Runtime::new()
   let src1 = Signal::new(rt, 10)
