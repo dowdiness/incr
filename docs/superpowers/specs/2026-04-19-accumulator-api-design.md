@@ -10,10 +10,51 @@
 - Boundary 3 type-checker merged (loom#81 + incr#34) — provides the concrete driver
 - PR #41 merged (`MemoMap::get_tracked`) — establishes misuse-guardrail pattern for MemoMap
 - Runtime Modularization Stage 5 merged — stable internal package boundaries
+- **Empirical verification of `raise?` applicability to struct-stored closures** — see [§Prerequisite Verification](#prerequisite-verification). If unsupported, spec falls back to the abort-based variant documented in that section.
 
 **Supersedes:** nothing. This is the first accumulator design in `incr/`.
 
 **Open design questions resolved:** All four questions in `docs/todo.md:220-226` are answered in [§Open Questions Resolved](#open-questions-resolved).
+
+## Prerequisite Verification
+
+MoonBit's `raise?` polymorphism is well-documented for function **parameters** (Error Polymorphism section of the language docs), but its applicability to function values **stored in struct fields** needs empirical confirmation before this spec can commit to the `fail`-based error model.
+
+**Minimal test:**
+
+```moonbit
+struct Cell[T] {
+  compute : () -> T raise?
+}
+
+fn[T] Cell::new(f : () -> T raise?) -> Cell[T] {
+  { compute: f }
+}
+
+fn[T] Cell::run(self : Cell[T]) -> T raise? {
+  (self.compute)()
+}
+
+test "non-raising closure" {
+  let c = Cell::new(() => 42)   // does it compile?
+  inspect(c.run(), content="42")
+}
+
+test "raising closure" {
+  let c = Cell::new(() => fail("bad"))
+  match (try? c.run()) {
+    Ok(_) => fail("expected error")
+    Err(_) => ()
+  }
+}
+```
+
+**Branch behavior:**
+
+- **B1 (raise? works):** proceed with the `fail`-based API documented in [§API Surface](#api-surface) and [§Error Handling](#error-handling). Memo compute closures get a `raise?` addition polymorphically — non-raising callers unaffected.
+- **B2 (raise? doesn't work for fields):** fall back to the abort-based variant — signatures change to non-raising, misuse paths use `abort` (not `fail`). Log as tech debt in `docs/todo.md`, pending a future systematic migration to raising memo closures. This matches existing incr patterns (`check_cross_runtime` already aborts).
+
+This verification is the first task in the implementation plan.
 
 ---
 
@@ -81,20 +122,30 @@ Construction syntax: `Accumulator(rt=rt, label="diags")` works via custom constr
 
 ### Push (handle method)
 
+**B1 (raise? path — preferred):**
 ```moonbit
-pub fn[T] Accumulator::push(self : Accumulator[T], value : T) -> Unit raise
-// fails on: outside tracked frame, non-Memo frame (MVP), disposed accumulator
-// aborts on: cross-runtime (via existing check_cross_runtime helper)
+pub fn[T] Accumulator::push(self : Accumulator[T], value : T) -> Unit raise Failure
+// raises Failure via fail() on: outside tracked frame, non-Memo frame (MVP), disposed accumulator
+// aborts (via existing check_cross_runtime helper) on: cross-runtime
+// Callers inside a memo compute closure must accept raise? on that closure
+// (backwards-compatible — non-raising closures see non-raising push via inference)
+```
+
+**B2 (abort fallback — only if raise? unsupported for struct fields):**
+```moonbit
+pub fn[T] Accumulator::push(self : Accumulator[T], value : T) -> Unit
+// aborts on all misuse (outside tracked frame, non-Memo, disposed, cross-runtime)
 ```
 
 ### Read (Memo methods)
 
+**B1:**
 ```moonbit
 // Tracked read: records synthetic dep on current compute frame
 pub fn[T, A] Memo::accumulated(
   self : Memo[T],
   acc : Accumulator[A],
-) -> Array[A] raise
+) -> Array[A] raise CycleError
 // raises CycleError if target verification detects a cycle
 // returns [] if accumulator or target memo is disposed
 
@@ -112,6 +163,12 @@ pub fn[T, A] Memo::accumulated_result(
   acc : Accumulator[A],
 ) -> Result[Array[A], CycleError]
 ```
+
+**B2 (abort fallback):** same signatures except `accumulated` returns `Array[A]` without `raise CycleError` and aborts instead; `accumulated_result` is unchanged.
+
+### Consequences for `Memo::new` (B1 only)
+
+If B1 applies, `Memo::new`'s closure parameter is widened from `() -> T` to `() -> T raise?`. This is polymorphic — existing non-raising closures compile unchanged. The same change applies to `Scope::memo` and `create_memo`. `memo_force_recompute` wraps closure invocation in `try/catch` to run the ON_ABORT phase on any raised error (including user `fail`s from accumulator misuse), then re-raises. This is documented in [§Data Flow](#data-flow).
 
 ### Introspection
 
@@ -149,68 +206,82 @@ Typed buffers live on the `Accumulator[T]` handle. Runtime stores only slot-id m
 ```text
 Accumulator[T]                              Runtime additions
 ──────────────                              ─────────────────
-  rt : Runtime                               accumulator_slots :
-  slot_id : AccumulatorId                      Array[Option[SlotMeta]]
-  per_memo : HashMap[CellId, Array[T]]       next_accumulator_id : Int   -- monotonic, NO REUSE
-  prev_push_sets :                           accumulator_contributions :
-    HashMap[CellId, Array[T]]                  HashMap[CellId, HashSet[AccumulatorId]]
-  push_revised_at :                        -- reverse index: slots each memo pushed to
-    HashMap[CellId, Revision]             -- populated on successful recompute commit
+  rt : Runtime                               accumulator_slots : Array[SlotMeta]
+  slot_id : AccumulatorId                    next_accumulator_id : Int   -- monotonic, NO REUSE
+  per_memo : HashMap[CellId, Array[T]]       accumulator_contributions :
+  prev_push_sets :                             HashMap[CellId, HashSet[AccumulatorId]]
+    HashMap[CellId, Array[T]]             -- reverse index: slots each memo pushed to
+  push_revised_at :                       -- populated on successful recompute commit
+    HashMap[CellId, Revision]
   label : String?
 
-SlotMeta (in Runtime, keyed by AccumulatorId.id)
+SlotMeta (in Runtime, indexed by AccumulatorId.id; array grows monotonically)
 ────────
   label : String?
   mut disposed : Bool
   -- type-erased closures that capture the typed Accumulator[T] handle
   -- (created at Accumulator construction with T : Eq in scope)
-  snapshot_and_clear : (CellId) -> Unit
-  restore_buffer : (CellId) -> Unit
-  diff_memo : (CellId) -> Bool
-  dispose_memo : (CellId) -> Unit
+  snapshot_and_clear : (CellId) -> Unit        -- phase: BEFORE_CLOSURE
+  restore_buffer : (CellId) -> Unit            -- phase: ON_ABORT
+  diff_memo : (CellId) -> Bool                 -- phase: AFTER_CLOSURE
+  dispose_memo : (CellId) -> Unit              -- phase: memo disposal
+  -- type-erased getters for runtime-side data access (verify, read flows)
+  push_revised_at_for : (CellId) -> Revision   -- reads handle's push_revised_at[M]
+  buffer_for : (CellId) -> Array[Any]          -- reads handle's per_memo[M]; see below
 
 ActiveQuery additions
 ─────────────────────
   accumulator_reads : HashMap[(AccumulatorId, CellId), Revision]
   touched_accumulator_slots : HashSet[AccumulatorId]
-  -- both committed to memo's persisted state on success; discarded on failure
+  -- both committed to MemoData's persisted state on success; discarded on failure
 
-Memo[T] additions (persisted, post-commit)
-───────────────────────────────────────────
+MemoData additions (internal/pull/memo_data.mbt — SoA, NOT on Memo[T] handle)
+──────────────────────────────────────────────────────────────────────────────
   accumulator_reads : HashMap[(AccumulatorId, CellId), Revision]
   -- "at last recompute, I read slot S's values from target T, saw revision R"
+  -- Lives on MemoData because pull_verify sees SoA state, not typed handles
+  -- (per cells/internal/pull/memo_data.mbt; handles don't participate in verify)
 ```
 
-The type-erased closures live on `SlotMeta` (not the Accumulator handle). They are constructed at `Accumulator::new` with `T : Eq` in scope and capture references to the handle's typed buffers. Runtime-side code dispatches through `SlotMeta.snapshot_and_clear(M)` etc. without ever seeing `T`.
+**Key architectural notes:**
 
-### Key properties
+1. **Typed storage on handle; type-erased access from runtime.** `Accumulator[T]` owns `per_memo`, `prev_push_sets`, `push_revised_at` with typed `T`. `SlotMeta` exposes these through type-erased closures (getters + mutators). Runtime-side code (`pull_verify`, recompute phases, disposal) dispatches through `SlotMeta` closures without seeing `T`.
 
-1. **No type erasure in typed storage.** `Accumulator[T]` holds `Array[T]` buffers directly. Type parameter `T` is preserved from push through read.
+2. **`buffer_for` returns type-erased array.** Used internally by `Memo::accumulated`/`accumulated_peek`; since the reader already has `Accumulator[A]` in scope, it can cast the returned array back to `Array[A]` via a typed accessor path (the typed handle provides a typed `buffer_for_typed(cell_id) -> Array[A]` that wraps the erased closure). Alternative implementation: store closures as typed per-slot and route read-side directly through the typed handle, bypassing `SlotMeta.buffer_for`. Plan phase picks the cleaner option.
 
-2. **Monotonic `AccumulatorId`, no reuse.** Disposed slots become `None` in `rt.accumulator_slots`. Fresh `Accumulator::new` gets a fresh id. Stale `accumulator_reads` entries on live memos resolve to "slot disposed → invalidate R" at verify time (fixes slot-aliasing bug identified in Codex review 1).
+3. **Persisted `accumulator_reads` on MemoData, not `Memo[T]`.** `pull_verify` operates on SoA state in `cells/internal/pull/memo_data.mbt`. Synthetic-read state must live alongside ordinary-dep state there, or verify can't see it.
 
-3. **Synthetic read key is `(AccumulatorId, CellId)`.** Distinct from ordinary deps. A compute frame can read accumulator state from multiple targets without entries colliding.
+4. **`Array[SlotMeta]`, not `Array[Option[SlotMeta]]`.** Monotonic allocation from `next_accumulator_id`. Disposed state lives on the `disposed : Bool` field. No "unallocated slot" state — the array grows only when `new_accumulator` is called.
 
-4. **No second dep graph.** The runtime's existing ordinary-dep graph carries the causality. Accumulator synthetic deps ride alongside, keyed by target memo's `CellId`, compared against per-target `push_revised_at`.
+5. **No second dep graph.** The runtime's existing ordinary-dep graph carries the causality. Accumulator synthetic deps ride alongside, keyed by target memo's `CellId`, compared against per-target `push_revised_at`.
 
-5. **Transactional staging on `ActiveQuery`.** Synthetic reads and contribution sets live on `ActiveQuery` during compute; committed to persisted state only on success. Discarded on failure. Mirrors the ordinary-dep commit discipline at `cells/memo.mbt:401`.
+### Additional properties
+
+1. **Monotonic `AccumulatorId`, no reuse.** Fresh `Accumulator::new` gets a fresh id. Stale `accumulator_reads` entries on live memos resolve to "slot disposed → invalidate R" at verify time (fixes slot-aliasing bug identified in Codex review 1).
+
+2. **Synthetic read key is `(AccumulatorId, CellId)`.** Distinct from ordinary deps. A compute frame can read accumulator state from multiple targets without entries colliding.
+
+3. **Transactional staging on `ActiveQuery`.** Synthetic reads and contribution sets live on `ActiveQuery` during compute; committed to persisted state only on success. Discarded on failure. Mirrors the ordinary-dep commit discipline at `cells/memo.mbt:401`.
 
 ---
 
 ## Data Flow
 
-### Push flow — `acc.push(v)`
+### Push flow — `acc.push(v)` (B1 path; B2 swaps `fail` → `abort`)
 
 ```text
 1. Guard: rt.tracking_stack empty
-      → fail("Accumulator::push called outside a tracked compute")
+      → fail("Accumulator::push called outside a tracked compute")   [B1]
+      → abort(...)                                                    [B2]
 2. Cross-runtime check via Runtime::check_cross_runtime("Accumulator")
-      → aborts on runtime_id mismatch (existing pattern)
+      → aborts on runtime_id mismatch (existing pattern — unchanged)
 3. Guard: slot.disposed
-      → fail("push to disposed Accumulator")
+      → fail("push to disposed Accumulator")                         [B1]
+      → abort(...)                                                    [B2]
 4. M := top frame's cell_id
 5. Guard: top frame cell kind ≠ Memo
-      → fail("Accumulator::push only valid inside Memo compute")
+      → fail("Accumulator::push only valid inside Memo compute")     [B1]
+      → abort(...)                                                    [B2]
 6. slot.per_memo[M].push(v)
 7. frame.touched_accumulator_slots.insert(slot_id)   -- staged on ActiveQuery
 ```
@@ -262,42 +333,74 @@ The `slot.diff_memo(M)` closure internally reads `prev_push_sets.get(M).or([])` 
 ### Read flow — `memo.accumulated(acc)` (tracked)
 
 ```text
-1. Cross-runtime check on acc
-2. If slot.disposed → return []
-3. pull_verify(M.cell_id)
-   -- NOT Memo::get; that would record M as ordinary dep. We want
-   -- M's verification without making it an ordinary dep of reader R.
-4. current_rev := slot.push_revised_at.get(M.cell_id).or(0)
-5. If frame R exists:
+1. Cross-runtime check on acc (existing helper, aborts on mismatch)
+2. If slot.disposed → return []                   -- permissive
+3. If rt.is_cell_disposed(M.cell_id) → return []  -- permissive; target memo gone
+
+4. ensure_computed_untracked(M.cell_id)
+   -- NEW internal helper (see below). Guarantees M has been computed at
+   -- least once and is currently up-to-date, WITHOUT recording M as an
+   -- ordinary dep of the reader.
+   -- Raises CycleError if M is in a cycle.
+
+5. current_rev := slot.push_revised_at.get(M.cell_id).or(0)
+6. If frame R exists:
      frame.accumulator_reads[(slot_id, M.cell_id)] := current_rev   -- staged
-6. Return slot.per_memo.get(M.cell_id).or([]).copy()   -- defensive copy
+7. Return slot.per_memo.get(M.cell_id).or([]).copy()   -- defensive copy
 ```
+
+### New internal helper: `Runtime::ensure_computed_untracked`
+
+```moonbit
+fn Runtime::ensure_computed_untracked(
+  self : Runtime,
+  cell_id : CellId,
+) -> Unit raise CycleError   // B1; B2 aborts on cycle
+```
+
+**Semantics:**
+1. Pre-check: if `self.is_cell_disposed(cell_id)` → return (caller handles disposed). (The read flow's step 3 handles this before even calling this helper, but the helper is defensive for other call sites.)
+2. Look up MemoData for cell_id.
+3. If `memo_data.value == None` (never computed): call `memo_force_recompute` directly, bypassing the tracking-record path. This handles the "first read" case at revision 0.
+4. Otherwise: run `pull_verify(cell_id)` walk, forcing recompute if stale — but do NOT push an `ActiveQuery::record_dependency` on the caller's tracking frame.
+
+**Implementation sketch:** could be implemented as a local variant of `Memo::get_result_inner` (`cells/memo.mbt:231`) that skips the `record_dependency` call at the end. Plan phase decides between (a) extracting a shared helper or (b) a lightweight duplicate.
+
+**Why needed:** (a) plain `pull_verify` aborts on disposed cells (`cells/verify.mbt:89`), (b) `Memo::get_result_inner` records an ordinary dep (`cells/memo.mbt:236`, `:253`) which would conflate synthetic reads with ordinary deps, (c) neither handles the `value == None` case correctly for accumulator reads — a never-read target at revision 0 would look "fresh" via the durability fast path (`cells/verify.mbt:92`).
 
 ### Peek flow — `memo.accumulated_peek(acc)`
 
 Same as tracked read, but:
-- Skip step 5 (no synthetic dep recording)
-- Step 3 returns current buffer without forcing verification (matches `Signal::peek` semantics)
+- Skip step 4 (`ensure_computed_untracked`) — peek returns whatever is in the buffer without forcing verification (matches `Signal::peek` semantics)
+- Skip step 6 (no synthetic dep recording)
 - No CycleError path
+- Disposal checks (steps 2-3) still apply — peek on disposed returns `[]`
 
 ### Verify flow — integrated into `pull_verify(R)`
 
 ```text
-Fast-path guard (NEW):
-  If R.accumulator_reads is non-empty, DISABLE the durability shortcut
-  at cells/verify.mbt:95 for this run.
-  [MVP: bypass the shortcut entirely. Future optimization: fold target
-   durabilities into R's durability. See Deferred Work.]
+Fast-path guards (NEW — BOTH shortcuts must be bypassed):
+  If R.memo_data.accumulator_reads is non-empty:
+    1. DISABLE the root durability shortcut at cells/verify.mbt:95
+       (would short-circuit verification before any dep walk).
+    2. DISABLE the nested stale-memo durability shortcut at cells/verify.mbt:148
+       (would skip sub-memo verification inside the dep walk).
+  Without BOTH disabled, a low-durability accumulator push can still be
+  missed: root shortcut could skip the entire verify, or nested shortcut
+  could skip a contributor's verify that would have bumped push_revised_at.
+  [MVP: bypass both shortcuts entirely when accumulator_reads is non-empty.
+   Future optimization: fold target durabilities into R's durability so
+   the shortcuts can stay enabled. See Deferred Work.]
 
 (existing) Walk R's ordinary deps; compare each dep.changed_at to R.verified_at.
 
 Synthetic dep check (NEW, after existing dep walk):
-  For each (slot_id, target_id) → stored_rev in R.accumulator_reads:
+  For each (slot_id, target_id) → stored_rev in R.memo_data.accumulator_reads:
     slot := rt.accumulator_slots[slot_id.id]
-    if slot is None OR slot.disposed OR rt.is_cell_disposed(target_id):
+    if slot.disposed OR rt.is_cell_disposed(target_id):
        invalidate R
        continue
-    current_rev := slot.push_revised_at.get(target_id).or(0)
+    current_rev := slot.push_revised_at_for(target_id)   -- via closure; default 0
     if current_rev > stored_rev:
        invalidate R
 ```
@@ -313,10 +416,14 @@ Synthetic dep check (NEW, after existing dep walk):
 5. slot_id stays allocated — monotonic, never reused
 ```
 
-### Memo disposal — `CellLifecycle` hook
+### Memo disposal — extension to existing memo lifecycle
+
+**Mechanism:** extend `cells/pull_memo_lifecycle.mbt::dispose_cell` for `MemoData` (the existing `CellLifecycle` impl), NOT a new `CellLifecycle for AccumulatorSlot` impl. `CellLifecycle` is specifically for `CellId`-indexed runtime cells (`cell_ops.mbt:41`); accumulators aren't cells.
 
 ```text
-When memo M disposed:
+When memo M disposed (inside existing dispose_cell for MemoData):
+  -- existing: standard memo cleanup
+  -- NEW addition:
   If M in rt.accumulator_contributions:
     For each slot_id in rt.accumulator_contributions[M]:
       slot.dispose_memo(M):
@@ -326,7 +433,20 @@ When memo M disposed:
     rt.accumulator_contributions.remove(M)
 ```
 
-Stale `R.accumulator_reads` entries referencing disposed M correctly invalidate R at R's next verify — the explicit `is_cell_disposed(target_id)` check in the verify flow handles this (fixes memo-disposal bug identified in Codex review 2).
+Stale `R.memo_data.accumulator_reads` entries referencing disposed M correctly invalidate R at R's next verify — the explicit `is_cell_disposed(target_id)` check in the verify flow handles this (fixes memo-disposal bug identified in Codex review 2).
+
+### Accumulator ownership & Scope integration
+
+**Mechanism:** `Scope.dispose_hooks` (`scope.mbt:79`), NOT `CellLifecycle`. Accumulators are non-cell resources; `Scope` disposes non-cell resources through `dispose_hooks`.
+
+```text
+Scope::accumulator[T : Eq](self, label?) -> Accumulator[T]:
+  1. acc := Accumulator::new(rt=self.runtime, label=label)
+  2. self.dispose_hooks.push(() => acc.dispose())
+  3. return acc
+```
+
+Scope dispose invokes the hook, which calls `Accumulator::dispose` (idempotent).
 
 ### Batch interaction
 
@@ -336,17 +456,32 @@ Pushes during `rt.batch(...)` use post-commit revision (same as signal commits).
 
 ## Error Handling
 
+### B1 path (raise? applicable — preferred)
+
 | Condition | Fault class | Mechanism |
 |---|---|---|
-| Push outside tracked frame | Defect (user misuse) | `fail("Accumulator::push called outside a tracked compute")` |
-| Push in non-Memo frame (MVP) | Defect | `fail("Accumulator::push only valid inside Memo compute")` |
-| Cross-runtime push/read | Defect | Existing `check_cross_runtime` (aborts — pre-existing pattern, not new) |
-| Push to disposed accumulator | Defect | `fail("push to disposed Accumulator")` |
+| Push outside tracked frame | Defect (user misuse) | `fail("Accumulator::push called outside a tracked compute")` → `raise Failure` |
+| Push in non-Memo frame (MVP) | Defect | `fail("Accumulator::push only valid inside Memo compute")` → `raise Failure` |
+| Cross-runtime push/read | Defect | Existing `check_cross_runtime` (aborts — pre-existing tech debt, not new) |
+| Push to disposed accumulator | Defect | `fail("push to disposed Accumulator")` → `raise Failure` |
 | Read from disposed accumulator | Not an error | Return `[]` (permissive) |
 | Read from disposed target memo | Not an error | Return `[]` (permissive) |
 | Cycle in target's verify | Expected failure | Raises existing `CycleError` |
 
-**Abort discipline:** no new abort sites are introduced. Cross-runtime checks reuse `Runtime::check_cross_runtime` which aborts (pre-existing tech debt; not in scope for this spec). All accumulator-specific caller misuse uses `fail` (catchable at FFI boundaries with source location).
+**Abort discipline (B1):** no new abort sites. Cross-runtime reuses `Runtime::check_cross_runtime` which aborts (pre-existing). Accumulator-specific caller misuse uses `fail` → `raise Failure`, catchable at FFI boundaries via `try? { ... }` → `Err(Failure(msg))`.
+
+### B2 path (raise? unsupported for struct fields — fallback)
+
+All `fail` calls become `abort` calls. All raise-typed signatures drop the raise annotation. Behavior is:
+
+| Condition | Mechanism |
+|---|---|
+| Push outside tracked frame / non-Memo / disposed | `abort(...)` |
+| Cross-runtime | Existing `check_cross_runtime` abort |
+| Cycle in target's verify | `abort(...)` (via existing `pull_verify` abort on cycle) |
+| `accumulated_result` remains the catch-all for cycle handling | `Result[Array[A], CycleError]` constructed manually via `try?` around the abort path (pattern matches existing incr idiom) |
+
+B2 is strictly weaker (no FFI catchability), consistent with existing incr tech debt. Plan phase logs a follow-up task to migrate all abort-based misuse sites to `fail`-based once memo closures adopt `raise?`.
 
 **Value-semantic T requirement (documented, not enforced):**
 
@@ -420,8 +555,12 @@ Pushes during `rt.batch(...)` use post-commit revision (same as signal commits).
 
 - Replace `TypeResult.diagnostics : Array[TypeDiagnostic]` field with `diags.push(d)` calls inside `infer`/`check`.
 - Remove `merge_diagnostics` helper.
+- **`def_name` tagging**: current driver adds `def_name` during module aggregation (`typecheck.mbt:269`), and tests assert on tagged messages (`typecheck_test.mbt:440`). Under the accumulator API, push happens inside each def's `type_memo[i]` closure — `def_name` must be threaded into the push site so `TypeDiagnostic { message, def_name }` is constructed correctly at push time. Two options:
+  - **(a) Per-def push helper.** The `rebuild_chain` / `update_terms` flow creates a per-def scope that receives `def_name`. Use a closure-wrapping helper: `def_diags_push = d => diags.push({ ..d, def_name: Some(name) })`. Call `def_diags_push` from inside `infer`/`check` via a threaded parameter, OR have `infer`/`check` push untagged diagnostics that are wrapped at the type_memo boundary (requires a transform step at the memo closure's return path — slightly awkward).
+  - **(b) Push tagged diagnostics directly.** Thread `def_name : String?` as a parameter through `infer`/`check`. Each push constructs `TypeDiagnostic { message, def_name: current_def_name }` inline.
+  - Plan phase picks between (a) and (b). (b) is simpler but touches more call sites.
 - Replace `ModuleTypeResult.all_diagnostics` aggregation with `type_memos.map(m => m.accumulated_peek(diags)).flatten()` + `body_memo.accumulated_peek(diags)`.
-- Existing typecheck tests pass unchanged (behavioral equivalence).
+- **Tests will need edits.** The existing typecheck test suite (`typecheck_test.mbt`) asserts on `TypeResult.diagnostics`. Since that field is removed, tests must migrate to read diagnostics via the accumulator. Behavior should match (same diagnostics, same tagging), but the assertion path changes. Plan the test migration as part of this PR; "existing tests pass unchanged" is NOT a claim this spec makes anymore.
 - Incremental scenario: edit one def's body → only that `type_memo[i]` recomputes, only that def's diagnostics change in aggregation.
 
 ### Out of scope for initial PR
@@ -440,7 +579,7 @@ Pushes during `rt.batch(...)` use post-commit revision (same as signal commits).
 
 From `docs/todo.md:220-226`:
 
-**1. Type erasure (Runtime is not generic).** Resolved by **handle-local typed storage**. `Accumulator[T]` owns typed `per_memo: HashMap[CellId, Array[T]]`. Runtime stores `Option[SlotMeta]` with type-erased closures; never sees `T`.
+**1. Type erasure (Runtime is not generic).** Resolved by **handle-local typed storage**. `Accumulator[T]` owns typed `per_memo: HashMap[CellId, Array[T]]`. Runtime stores `Array[SlotMeta]` with type-erased closures (getters + mutators); never sees `T`.
 
 **2. Transitive collection from sub-calls.** **Not solved in MVP** — Path 1 is local-only. Transitive is the wrong default for the lambda driver (env-chain causes over-collection per Codex review 1). Reconsider post-MVP; see Deferred Work.
 
@@ -484,13 +623,19 @@ From `docs/todo.md:220-226`:
 
 ## Estimated Scope
 
-~300-400 lines of new code across:
-- `types/accumulator_id.mbt` (~30 lines)
-- `cells/accumulator.mbt` (~150 lines: handle type + methods + closures)
-- `cells/accumulator_lifecycle.mbt` (~30 lines: CellLifecycle impl for scope integration)
-- Integration into `cells/memo.mbt` / `cells/verify.mbt` / `cells/tracking.mbt` (~60 lines: BEFORE/AFTER/ON_ABORT phases, verify-side check, ActiveQuery extension)
-- `cells/accumulator_wbtest.mbt` (~200 lines)
-- `tests/accumulator_test.mbt` (~350 lines)
-- Driver migration in `examples/lambda/` (~50 line delta: field removal, push call additions)
+~700-900 lines of new code across:
+- `types/accumulator_id.mbt` (~30 lines: struct + custom constructor + derives)
+- `cells/accumulator.mbt` (~200 lines: handle type + methods + typed closures)
+- `cells/runtime.mbt` additions (~40 lines: `ensure_computed_untracked` helper; accumulator_slots + accumulator_contributions fields + accessor methods)
+- `cells/internal/pull/memo_data.mbt` addition (~10 lines: `accumulator_reads` field)
+- `cells/memo.mbt` integration (~80 lines: BEFORE_CLOSURE, AFTER_CLOSURE, ON_ABORT phases around compute; closure type migration to `raise?` under B1)
+- `cells/verify.mbt` integration (~30 lines: bypass both durability shortcuts + synthetic dep check)
+- `cells/tracking.mbt` additions (~20 lines: `ActiveQuery.accumulator_reads` + `touched_accumulator_slots` fields)
+- `cells/pull_memo_lifecycle.mbt` addition (~15 lines: accumulator cleanup in `dispose_cell` for MemoData)
+- `cells/scope.mbt` addition (~10 lines: `Scope::accumulator` factory registering dispose hook)
+- `incr.mbt` re-export (~5 lines)
+- `cells/accumulator_wbtest.mbt` (~250 lines)
+- `tests/accumulator_test.mbt` (~350 lines: integration + edge cases)
+- Driver migration in `examples/lambda/` (~100 line delta: field removal, push call additions, `def_name` threading, test migration)
 
-Breakdown includes both implementation and tests. No breaking changes to existing API surface.
+Breakdown includes both implementation and tests. The memo closure type migration to `raise?` (B1 path) adds ~20-40 lines of polymorphic signature changes but no semantic changes to non-raising callers. If B2 fallback applies, the raise-related churn is ~15-20 lines smaller. No breaking changes to public API surface — all existing callers continue to compile.
