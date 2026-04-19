@@ -54,6 +54,30 @@ pub fn[K : Hash + Eq, V : Eq] MemoMap::get(self : MemoMap[K, V], key : K) -> V {
 }
 
 ///|
+/// Returns the value for `key`, aborting if called outside a tracked context.
+///
+/// Stricter-contract peer of `get()`. Both methods record a dependency on
+/// the per-key memo when invoked from inside another memo's compute
+/// function; the difference is what happens at top level — `get()` reads
+/// silently without recording a dep, whereas `get_tracked()` aborts via
+/// `Memo::get`'s tracking guard. Prefer this when the call site is
+/// expected to be tracking (catches "meant to call from inside a memo
+/// but I'm not" bugs).
+///
+/// Caveat: `MemoMap::clear()` unconditionally disposes every per-key
+/// wrapper, so a tracked dependent recorded via this method will hit
+/// the disposed-dep guard on its next verify if `clear()` runs between
+/// reads. `gc()` is safe — it keeps wrapper memos alive as long as a
+/// tracked dependent is reachable from a root. The same caveat applies
+/// to `get()`.
+pub fn[K : Hash + Eq, V : Eq] MemoMap::get_tracked(
+  self : MemoMap[K, V],
+  key : K,
+) -> V {
+  self.get_or_create_memo(key).get()
+}
+
+///|
 /// Returns the value for `key` as a Result, matching `Memo::get_result`.
 ///
 /// Reads the memo outside any tracked context (untracked).

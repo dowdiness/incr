@@ -203,6 +203,15 @@ A monotonic counter incremented during top-down tree walk assigns each definitio
 1. The compute closure cannot close over a mutable env that changes per-def (all closures see the final env).
 2. Even with value-capture, changing def 0's type wouldn't invalidate def 1's MemoMap entry because the read isn't tracked.
 
+> **[Correction 2026-04-19]** Point 2 is factually wrong. `MemoMap::get`
+> via `get_untracked` → `get_result_inner` DOES call `record_dependency`
+> whenever a tracking frame is active (see `cells/memo.mbt:238,247,255`
+> and `cells/tracking.mbt:60-65`); `get_untracked` only bypasses the
+> abort guard. The shared-closure limitation in point 1 is still valid
+> and remains sufficient motivation for the Scope-managed Memo chain
+> design below. See `docs/reactive-map-design.md` for the full
+> correction.
+
 ### Scope-Managed Memo Chain
 
 Instead, model the per-def type-check graph as stable `Memo` objects owned by a `Scope`. Each def gets:
