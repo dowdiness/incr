@@ -54,6 +54,22 @@ pub fn[K : Hash + Eq, V : Eq] MemoMap::get(self : MemoMap[K, V], key : K) -> V {
 }
 
 ///|
+/// Returns the value for `key`, recording a dependency on the per-key memo.
+///
+/// Must be called inside a tracked context (another memo's compute function);
+/// aborts otherwise. For untracked reads (tests, top-level code), use `get()`.
+///
+/// The fine-grained read channel: a consumer `Memo` reading
+/// `map.get_tracked(k)` is invalidated only when `k`'s per-key memo changes,
+/// not when other keys change.
+pub fn[K : Hash + Eq, V : Eq] MemoMap::get_tracked(
+  self : MemoMap[K, V],
+  key : K,
+) -> V {
+  self.get_or_create_memo(key).get()
+}
+
+///|
 /// Returns the value for `key` as a Result, matching `Memo::get_result`.
 ///
 /// Reads the memo outside any tracked context (untracked).

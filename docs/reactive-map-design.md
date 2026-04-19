@@ -5,9 +5,11 @@ collection-valued results. Extends Family B from
 [reactive-collections.md](reactive-collections.md).
 
 **Status:** Exploratory. Revised 2026-04-19 after code verification
-exposed a critical flaw in the v1 draft. Requires two new `MemoMap`
-methods (see §Integration). Do not implement from this doc without
-first agreeing to the `MemoMap` API changes.
+exposed a critical flaw in the v1 draft. A second Codex review the same
+day surfaced additional blockers in the v2 sketch — see §"Codex review
+2026-04-19" below. Do not implement from this doc; the cross-key dispose
+semantics need resolving and `MemoMap::remove_except` is not safe to land
+alone.
 **Driver:** Lambda name resolution currently returns
 `Memo[ResolvedModule]`; any def change invalidates the whole module's
 downstream consumers. A `ReactiveMap[DefName, ResolvedDef]` whose per-key
@@ -26,6 +28,78 @@ value proposition was impossible under the existing API.
 This revision fixes that by (a) requiring a new tracked read on
 `MemoMap`, and (b) restructuring the primitive so the key set is owned
 upstream, not managed internally.
+
+## Codex review 2026-04-19
+
+A second validation pass against current HEAD surfaced blockers the
+v1→v2 revision did not address. The central tracking claim is correct
+(`MemoMap::get_or_create_memo(key).get()` records exactly the per-key
+memo's `CellId` as a dependency, via `cells/memo.mbt:157-166` →
+`cells/tracking.mbt:60-65`). The broken claims are about *disposal* and
+*call context*.
+
+### Blocker 1: Cross-key dispose aborts, doesn't recompute
+
+§"Cross-key dep + key removal: cascade via dispose" (below) claims that
+disposing k₂'s memo via `sweep()` invalidates subscribers and triggers
+k₁'s recompute on next verify. **This is false at HEAD.** The pull-memo
+dispose path (`cells/pull_memo_lifecycle.mbt:8-22`) removes the disposed
+memo from its own upstream deps and clears its own subscriber set — but
+does *not* notify existing subscribers. Any downstream memo that still
+references the disposed dep hits the disposed-dep guard in
+`cells/verify.mbt:123-131` and aborts. PR #32's push-suspension
+machinery is orthogonal — it handles push subscribers, not pull-memo
+disposal.
+
+Two options to resolve:
+
+- **Option A (scope-limited, ~no engine work):** forbid cross-key deps
+  in v1. `compute(k)` may not read `rm.get(k')`. Document the
+  restriction; block future lifting on engine work. The driver (name
+  resolution: def A references def B) becomes unsupported in v1.
+- **Option B (engine work):** change the pull-verify path to treat
+  disposed deps as "invalidated, must recompute" rather than abort.
+  Non-trivial — touches the dispose/GC layers from PRs #28–#33 and
+  likely needs a new cell lifecycle state ("disposed-but-resurrectable").
+
+### Blocker 2: `ReactiveMap::get` is tracked-only
+
+`Memo::get` aborts at top level (`cells/memo.mbt:157-163`) — unlike
+`Relation::iter` / `Relation::contains`, which are usable outside a
+tracking context. The API sketch's `ReactiveMap::get` inherits this
+restriction: top-level (non-memo) reads abort. The driver example in
+§"Calling-site example" assumes `lookup_type(name)` can be called
+freely; in fact it would only be callable from inside another memo.
+
+Resolve: either (a) add `ReactiveMap::get_untracked(k) -> V` explicitly
+and document which call contexts use which, or (b) document that
+`ReactiveMap::get` is tracked-only and restructure the driver example.
+
+### Blocker 3: `remove_except` is not isolated bookkeeping
+
+§"Integration with existing engine" claims "Non-changes: pull
+verification". This is wrong once Blocker 1 is considered:
+`MemoMap::remove_except` triggers the same disposed-dep abort path as
+`sweep()`. It is *safe to call only when no downstream memo references
+the removed keys* — a contract the caller must enforce. Document this,
+or block `remove_except` behind Blocker 1's engine work.
+
+### Revised scope estimate
+
+The 2–3 day / 2–3 PR estimate is credible for **"tracked per-key memo
+lookup exists without cross-key deps"** (Blocker 2 resolution +
+`MemoMap::get_tracked` alone). It is not credible for **"cross-key deps
+plus key removal are safe"** (Blocker 1 Option B), which requires
+engine work in `verify.mbt` and the dispose lifecycle and should be
+scoped separately.
+
+### Recommended next step
+
+Land `MemoMap::get_tracked` alone as a standalone PR (3-line addition,
+Codex-confirmed tracking path is correct). Do **not** land
+`MemoMap::remove_except` or `ReactiveMap` itself until the cross-key
+dispose semantics are resolved. Then pick Option A (ship v1 with
+no-cross-key-deps restriction) or Option B (engine work, larger scope).
 
 ## Shape: derive-from-upstream
 

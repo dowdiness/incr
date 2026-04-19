@@ -158,3 +158,32 @@ test "memo_map: clear is idempotent on an empty map" {
   by_key.clear()
   inspect(by_key.length(), content="0")
 }
+
+///|
+test "memo_map: get_tracked records per-key dep, not cross-key" {
+  let rt = Runtime::new()
+  let src1 = Signal::new(rt, 10)
+  let src2 = Signal::new(rt, 20)
+  let by_key = MemoMap::new(rt, (key : Int) => {
+    if key == 1 {
+      src1.get()
+    } else {
+      src2.get()
+    }
+  })
+  let mut downstream_count = 0
+  let view = Memo::new(rt, () => {
+    downstream_count = downstream_count + 1
+    by_key.get_tracked(1) * 2
+  })
+  inspect(rt.read(view), content="20")
+  inspect(downstream_count, content="1")
+  // src2 change touches key=2's memo only — view tracks key=1, must not recompute.
+  src2.set(99)
+  inspect(rt.read(view), content="20")
+  inspect(downstream_count, content="1")
+  // src1 change propagates through key=1's memo to view.
+  src1.set(15)
+  inspect(rt.read(view), content="30")
+  inspect(downstream_count, content="2")
+}

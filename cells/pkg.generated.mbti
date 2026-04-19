@@ -90,6 +90,7 @@ pub fn[K : Hash + Eq, V : Eq] MemoMap::get(Self[K, V], K) -> V
 pub fn[K : Hash + Eq, V : Eq] MemoMap::get_or(Self[K, V], K, V) -> V
 pub fn[K : Hash + Eq, V : Eq] MemoMap::get_or_else(Self[K, V], K, (@types.CycleError) -> V) -> V
 pub fn[K : Hash + Eq, V : Eq] MemoMap::get_result(Self[K, V], K) -> Result[V, @types.CycleError]
+pub fn[K : Hash + Eq, V : Eq] MemoMap::get_tracked(Self[K, V], K) -> V
 pub fn[K, V] MemoMap::length(Self[K, V]) -> Int
 pub fn[K, V] MemoMap::new(Runtime, (K) -> V, label? : String) -> Self[K, V]
 pub fn[K : Hash + Eq, V] MemoMap::sweep(Self[K, V]) -> Int

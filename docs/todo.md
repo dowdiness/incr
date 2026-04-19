@@ -379,13 +379,12 @@ implementing.
 
 ### Prerequisites (small, independent)
 
-- [ ] Add `MemoMap::get_tracked(key) -> V` — thin tracked wrapper over
-      the inner Memo's `.get()`. Exists today only as untracked
-      (`memo_map.mbt:52-54`). Required by `ReactiveMap`; useful on its
-      own. ~3 lines of source + small tests.
-- [ ] Add `MemoMap::remove_except(keys : Set[K]) -> Int` — bulk disposal
-      of entries not in `keys`. Required by `ReactiveMap::sweep`.
-      ~15 lines of source + tests.
+- [x] Add `MemoMap::get_tracked(key) -> V` — thin tracked wrapper over
+      the inner Memo's `.get()`. Shipped standalone.
+- [ ] Add `MemoMap::remove_except(keys : Set[K]) -> Int` — **blocked on
+      Blocker 1** (cross-key dispose aborts verify; see
+      [reactive-map-design.md](reactive-map-design.md) Codex review
+      2026-04-19). Do not land alone.
 
 ### `ReactiveMap[K, V]` (Family B)
 
@@ -393,8 +392,10 @@ Derive-from-upstream lens over MemoMap with tracked per-key reads.
 Driver: lambda name resolution per-def granularity. See
 [reactive-map-design.md](reactive-map-design.md) for the full sketch.
 
-- [ ] Codex-review the design sketch for semantic and integration
-      issues
+- [x] Codex-review the design sketch for semantic and integration
+      issues (done 2026-04-19; findings captured in
+      [reactive-map-design.md](reactive-map-design.md) §"Codex review
+      2026-04-19"; blockers 1–3 must resolve before implementation)
 - [ ] Write implementation plan (design→plan transition; new
       invariants, 2-3 PRs estimated)
 - [ ] Implement after plan approval (2-3 days across 2-3 PRs)
@@ -405,7 +406,10 @@ Opt-in delta observation on Datalog relations via new `DeltaDispatch`
 trait; pre-snapshot + post-diff at commit boundary. See
 [relation-delta-observer-design.md](relation-delta-observer-design.md).
 
-- [ ] Codex-review the design sketch
+- [x] Codex-review the design sketch (done 2026-04-19; **redesign
+      needed** — plain `Relation[T]` is monotonic with no retractions, no
+      commit seam exists for direct inserts, failed batches don't roll
+      back relation writes. Do not implement until semantics are resolved.)
 - [ ] Identify a concrete driver in canopy (logging, UI reconciliation,
       IPC) — don't implement speculatively
 - [ ] Implement as one PR once driver exists (3-5 days)
