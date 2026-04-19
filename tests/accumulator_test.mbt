@@ -195,13 +195,6 @@ test "integration: diamond — reader reads same accumulator twice, consistent" 
 /// Minimal Database impl mirror of tests/traits_test.mbt TestDb pattern.
 struct AccDb {
   rt : @incr.Runtime
-
-  fn new() -> AccDb
-}
-
-///|
-fn AccDb::new() -> AccDb {
-  { rt: @incr.Runtime::new() }
 }
 
 ///|
@@ -211,7 +204,7 @@ impl @incr.Database for AccDb with runtime(self) {
 
 ///|
 test "integration: create_accumulator via Database helper" {
-  let db = AccDb::new()
+  let db : AccDb = { rt: @incr.Runtime::new() }
   let acc : @incr.Accumulator[Int] = @incr.create_accumulator(db, label="d")
   inspect(acc.label(), content="Some(\"d\")")
   inspect(acc.is_disposed(), content="false")
