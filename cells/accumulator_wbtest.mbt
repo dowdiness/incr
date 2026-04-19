@@ -179,6 +179,38 @@ test "accumulated_peek: returns defensive copy" {
 }
 
 ///|
+test "accumulated: tracked read inside memo stages synthetic dep" {
+  let rt = Runtime::new()
+  let a : Accumulator[Int] = Accumulator::new(rt~)
+  let producer = Memo::new(rt, () => {
+    a.push(42)
+    1
+  })
+  let consumer = Memo::new(rt, () => producer.accumulated(a).length())
+  let _ = rt.ensure_computed_untracked(consumer.id())
+  inspect(rt.read(consumer), content="1")
+  // Consumer's MemoData should have a synthetic read entry for (a.slot_id, producer.cell_id)
+  let data = rt.get_memo_data(consumer.id())
+  let key = (a.slot_id, producer.id())
+  inspect(data.accumulator_reads.contains(key), content="true")
+}
+
+///|
+test "accumulated: raises Failure on disposed accumulator" {
+  let rt = Runtime::new()
+  let a : Accumulator[Int] = Accumulator::new(rt~)
+  let producer = Memo::new(rt, () => 1)
+  a.dispose()
+  let caught = try {
+    let _ = producer.accumulated(a)
+    false
+  } catch {
+    _ => true
+  }
+  inspect(caught, content="true")
+}
+
+///|
 test "accumulator: ON_ABORT restores prior buffer on raised compute" {
   let rt = Runtime::new()
   let should_fail = Signal::new(rt, false)

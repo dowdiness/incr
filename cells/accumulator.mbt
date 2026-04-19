@@ -245,6 +245,50 @@ pub fn[T, A] Memo::accumulated_peek(
 }
 
 ///|
+/// Tracked read: returns the accumulated values pushed by `self` during
+/// its last successful compute, records a synthetic dep on the current
+/// compute frame, and forces verification of `self` via
+/// `ensure_computed_untracked`.
+///
+/// # Errors
+///
+/// Raises `Failure` on any error (disposal, cycle, or target memo's own
+/// raised compute). The type is unified into `Failure` because memo
+/// compute closures are `() -> T raise Failure`, and `accumulated` is
+/// designed to be called from within a compute closure. Use
+/// `accumulated_result` for Result-style cycle handling.
+pub fn[T, A] Memo::accumulated(
+  self : Memo[T],
+  acc : Accumulator[A],
+) -> Array[A] raise Failure {
+  self.rt.check_cross_runtime(self.rt.core.runtime_id, "Memo::accumulated")
+  let slot = self.rt.accumulator_slots[acc.slot_id.id]
+  if slot.disposed {
+    fail("Memo::accumulated called on disposed Accumulator")
+  }
+  if self.rt.is_cell_disposed(self.cell_id) {
+    fail("Memo::accumulated called on disposed target memo")
+  }
+  // Force verification of target memo without recording an ordinary dep.
+  match self.rt.ensure_computed_untracked(self.cell_id) {
+    Ok(_) => ()
+    Err(e) => fail("Memo::accumulated: " + e.format_path())
+  }
+  // Stage synthetic read on current frame (if any).
+  let current_rev = (slot.push_revised_at_for)(self.cell_id)
+  match self.rt.top_active_query() {
+    Some(frame) =>
+      frame.accumulator_reads.set((acc.slot_id, self.cell_id), current_rev)
+    None => ()
+  }
+  // Return defensive copy of buffer.
+  match acc.per_memo.get(self.cell_id) {
+    Some(vs) => vs.copy()
+    None => []
+  }
+}
+
+///|
 /// Debug representation.
 pub fn[T] Accumulator::debug(self : Accumulator[T]) -> String {
   let lbl = match self.label {
