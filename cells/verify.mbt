@@ -67,10 +67,51 @@ fn clear_verify_stack(rt : Runtime, stack : Array[PullVerifyFrame]) -> Unit {
 }
 
 ///|
+/// Returns `Ok(true)` if any synthetic accumulator dep of `memo` has been
+/// invalidated (target/slot disposed, or producer `push_revised_at` advanced
+/// past the stored read revision). Returns `Ok(false)` if all synthetic deps
+/// are still current. Returns `Err(e)` if a recursive `pull_verify` on a
+/// target surfaces a cycle.
+///
+/// Runs during per-frame finalize in `pull_verify`. The caller keeps
+/// `memo.in_progress = true` across this call so that a recursive verify of
+/// a target that transitively depends on `memo` is detected as a cycle.
+fn synthetic_accumulator_changed(
+  rt : Runtime,
+  memo : @pull.MemoData,
+) -> Result[Bool, CycleError] raise Failure {
+  if memo.accumulator_reads.is_empty() {
+    return Ok(false)
+  }
+  for entry in memo.accumulator_reads {
+    let slot_id = entry.0.0
+    let target_id = entry.0.1
+    let stored_rev = entry.1
+    if slot_id.id >= rt.accumulator_slots.length() ||
+      rt.accumulator_slots[slot_id.id].disposed {
+      return Ok(true)
+    }
+    if rt.is_cell_disposed(target_id) {
+      return Ok(true)
+    }
+    match rt.pull_verify(target_id) {
+      Ok(_) => ()
+      Err(e) => return Err(e)
+    }
+    let slot = rt.accumulator_slots[slot_id.id]
+    let current_rev = (slot.push_revised_at_for)(target_id)
+    if current_rev > stored_rev {
+      return Ok(true)
+    }
+  }
+  Ok(false)
+}
+
+///|
 fn Runtime::pull_verify(
   self : Runtime,
   cell_id : CellId,
-) -> Result[Unit, CycleError] {
+) -> Result[Unit, CycleError] raise Failure {
   if cell_id.runtime_id != self.core.runtime_id {
     abort("pull_verify: cell belongs to a different Runtime")
   }
@@ -94,7 +135,11 @@ fn Runtime::pull_verify(
       }
       // Durability fast-path: if no input at root's durability level changed
       // since root was last verified, mark verified without walking deps.
-      if self.core.revision.durability_last_changed[root.meta.durability.index()] <=
+      // SKIP this optimization when root has accumulator_reads — synthetic
+      // deps can be invalidated by low-durability pushes that don't appear
+      // in the durability index.
+      if root.accumulator_reads.is_empty() &&
+        self.core.revision.durability_last_changed[root.meta.durability.index()] <=
         root.verified_at {
         root.verified_at = self.core.revision.current_revision
         return Ok(())
@@ -147,7 +192,10 @@ fn Runtime::pull_verify(
                   if dep.verified_at < self.core.revision.current_revision {
                     // Durability shortcut: if no input at dep's durability level
                     // changed since dep was last verified, skip traversal.
-                    if self.core.revision.durability_last_changed[dep.meta.durability.index()] <=
+                    // SKIP when dep has accumulator_reads (synthetic deps
+                    // need the walk to check push_revised_at).
+                    if dep.accumulator_reads.is_empty() &&
+                      self.core.revision.durability_last_changed[dep.meta.durability.index()] <=
                       dep.verified_at {
                       dep.verified_at = self.core.revision.current_revision
                       if dep.meta.changed_at > memo.verified_at {
@@ -183,13 +231,38 @@ fn Runtime::pull_verify(
               }
           }
         } else {
-          // All deps inspected; finalize this memo.
-          let frame_changed = stack[top].changed
+          // All deps inspected; finalize this memo. Check synthetic
+          // accumulator deps BEFORE clearing in_progress — recursive
+          // pull_verify calls on target memos must observe this frame
+          // as in-progress so that a cycle through an accumulator
+          // producer is detected.
+          let acc_result = synthetic_accumulator_changed(self, memo) catch {
+            e => {
+              clear_verify_stack(self, stack)
+              raise e
+            }
+          }
+          let acc_changed = match acc_result {
+            Ok(b) => b
+            Err(e) => {
+              clear_verify_stack(self, stack)
+              return Err(e)
+            }
+          }
+          let frame_changed = stack[top].changed || acc_changed
           let _ = stack.pop()
           // memo is still valid — MemoData is heap-allocated (has mut fields)
           memo.in_progress = false
           if frame_changed {
-            match (memo.compute)() {
+            let compute_result = (memo.compute)() catch {
+              e => {
+                // Raised Failure from compute: clear remaining frames so
+                // ancestors do not stay stuck as in-progress.
+                clear_verify_stack(self, stack)
+                raise e
+              }
+            }
+            match compute_result {
               Ok(_) => () // recompute done; may backdate memo.changed_at
               Err(e) => {
                 // Clean up remaining in_progress flags before propagating error.

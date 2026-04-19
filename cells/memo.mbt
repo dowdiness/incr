@@ -29,11 +29,15 @@ pub(all) struct Memo[T] {
   priv label : String?
   priv rt : Runtime
   priv cell_id : CellId
-  priv compute : () -> T
+  priv compute : () -> T raise Failure
   priv backdate_eq : (T, T) -> Bool // captured at construction; replaces hardcoded a==b
   priv mut value : T?
 
-  fn[T : Eq] new(rt : Runtime, compute : () -> T, label? : String) -> Memo[T]
+  fn[T : Eq] new(
+    rt : Runtime,
+    compute : () -> T raise Failure,
+    label? : String,
+  ) -> Memo[T]
 } derive(Debug(ignore=[Runtime, Fn, CellId]))
 
 ///|
@@ -43,7 +47,7 @@ pub(all) struct Memo[T] {
 // a standalone Runtime method.
 fn[T] Memo::_create(
   rt : Runtime,
-  compute : () -> T,
+  compute : () -> T raise Failure,
   label? : String,
   backdate_eq : (T, T) -> Bool,
 ) -> Memo[T] {
@@ -65,6 +69,8 @@ fn[T] Memo::_create(
     in_progress: false,
     on_change: None,
     is_hybrid: false,
+    accumulator_reads: @hashmap.new(),
+    has_been_computed: false,
   }
   if memo_idx < rt.pull.memos.length() {
     rt.pull.memos[memo_idx] = new_data
@@ -105,7 +111,7 @@ fn[T] Memo::_create(
 /// - `Memo::new_no_backdate` — no constraint on `T`; never backdates
 pub fn[T : Eq] Memo::new(
   rt : Runtime,
-  compute : () -> T,
+  compute : () -> T raise Failure,
   label? : String,
 ) -> Memo[T] {
   Memo::_create(rt, compute, label?, (a, b) => a == b)
@@ -117,7 +123,7 @@ pub fn[T : Eq] Memo::new(
 /// The backdate check calls `BackdateEq::backdate_equal`, not structural `Eq`.
 pub fn[T : BackdateEq] Memo::new_memo(
   rt : Runtime,
-  compute : () -> T,
+  compute : () -> T raise Failure,
   label? : String,
 ) -> Memo[T] {
   Memo::_create(rt, compute, label?, (a, b) => a.backdate_equal(b))
@@ -130,7 +136,7 @@ pub fn[T : BackdateEq] Memo::new_memo(
 /// No trait constraint on `T`.
 pub fn[T] Memo::new_no_backdate(
   rt : Runtime,
-  compute : () -> T,
+  compute : () -> T raise Failure,
   label? : String,
 ) -> Memo[T] {
   Memo::_create(rt, compute, label?, (_, _) => false)
@@ -193,13 +199,17 @@ pub fn[T] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
     abort("Memo::get called on a disposed memo")
   }
   self.rt.check_cross_runtime(self.rt.core.runtime_id, "Memo")
-  self.get_result_inner()
+  self.get_result_inner() catch {
+    e => abort("Memo compute raised: " + e.to_string())
+  }
 }
 
 ///|
 /// Internal: the core verification logic, callable from both get_result()
 /// and get_untracked(). Does NOT check tracking context.
-fn[T] Memo::get_result_inner(self : Memo[T]) -> Result[T, CycleError] {
+fn[T] Memo::get_result_inner(
+  self : Memo[T],
+) -> Result[T, CycleError] raise Failure {
   guard !self.rt.is_cell_disposed(self.cell_id) else {
     abort("Memo::get called on a disposed memo")
   }
@@ -274,7 +284,10 @@ fn[T] Memo::get_result_inner(self : Memo[T]) -> Result[T, CycleError] {
 /// Package-private untracked read. Bypasses the tracked-context guard.
 /// Used by Observer to read from outside the dependency graph.
 fn[T] Memo::get_untracked(self : Memo[T]) -> T {
-  match self.get_result_inner() {
+  let r = self.get_result_inner() catch {
+    e => abort("Memo compute raised: " + e.to_string())
+  }
+  match r {
     Ok(value) => value
     Err(e) => abort(e.format_path())
   }
@@ -307,7 +320,9 @@ pub fn[T] Memo::get_or_else(self : Memo[T], fallback : (CycleError) -> T) -> T {
 /// Force recomputation: delegates to shared memo_force_recompute helper.
 ///
 /// Returns `Ok(new_value)` on success, or `Err(CycleError)` if a cycle is detected.
-fn[T] Memo::force_recompute(self : Memo[T]) -> Result[T, CycleError] {
+fn[T] Memo::force_recompute(
+  self : Memo[T],
+) -> Result[T, CycleError] raise Failure {
   match
     self.rt.memo_force_recompute(
       self.cell_id,
@@ -329,7 +344,9 @@ fn[T] Memo::force_recompute(self : Memo[T]) -> Result[T, CycleError] {
 ///
 /// Returns `Ok(true)` if the value changed, `Ok(false)` if unchanged (backdated),
 /// or `Err(CycleError)` if a cycle is detected.
-fn[T] Memo::recompute_inner(self : Memo[T]) -> Result[Bool, CycleError] {
+fn[T] Memo::recompute_inner(
+  self : Memo[T],
+) -> Result[Bool, CycleError] raise Failure {
   let cell = self.rt.get_memo_data(self.cell_id)
   let old_changed_at = cell.meta.changed_at
   match self.force_recompute() {
@@ -383,10 +400,10 @@ fn compute_durability(rt : Runtime, deps : Array[CellId]) -> Durability {
 fn[T] Runtime::memo_force_recompute(
   self : Runtime,
   cell_id : CellId,
-  compute_fn : () -> T,
+  compute_fn : () -> T raise Failure,
   old_value : T?,
   eq_fn : (T, T) -> Bool,
-) -> Result[T, CycleError] {
+) -> Result[T, CycleError] raise Failure {
   let cell = self.get_memo_data(cell_id)
   if cell.in_progress {
     return Err(
@@ -398,10 +415,124 @@ fn[T] Runtime::memo_force_recompute(
     )
   }
   cell.in_progress = true
+
+  // BEFORE_CLOSURE: snapshot each accumulator slot that M contributed to
+  // in its previous successful compute. Clone the set — prev_contributions
+  // is iterated AFTER compute and must not reflect touched_accumulator_slots.
+  let prev_contributions : Array[@incr_types.AccumulatorId] = match
+    self.accumulator_contributions.get(cell_id) {
+    Some(s) => {
+      let arr : Array[@incr_types.AccumulatorId] = []
+      for x in s {
+        arr.push(x)
+      }
+      arr
+    }
+    None => []
+  }
+  for slot_id in prev_contributions {
+    let slot = self.accumulator_slots[slot_id.id]
+    if !slot.disposed {
+      (slot.snapshot_and_clear)(cell_id)
+    }
+  }
+
   let old_deps = cell.dependencies
   self.push_tracking(cell_id)
-  let new_value = compute_fn()
-  let (new_deps, new_seen) = self.pop_tracking()
+
+  // Run user compute. On raise → ON_ABORT path.
+  let new_value = compute_fn() catch {
+    e => {
+      // Extract the still-live top frame to see which slots got touched
+      // during this aborted run.
+      let touched : Array[@incr_types.AccumulatorId] = match
+        self.top_active_query() {
+        Some(q) => {
+          let arr : Array[@incr_types.AccumulatorId] = []
+          for x in q.touched_accumulator_slots {
+            arr.push(x)
+          }
+          arr
+        }
+        None => []
+      }
+      // ON_ABORT.1: restore snapshots for every slot in prev_contributions.
+      for slot_id in prev_contributions {
+        let slot = self.accumulator_slots[slot_id.id]
+        if !slot.disposed {
+          (slot.restore_buffer)(cell_id)
+        }
+      }
+      // ON_ABORT.2: for slots touched during this run but NOT in prev,
+      // clear the new-run-only buffer to avoid leaking partial pushes.
+      for slot_id in touched {
+        // Contains-check: skip slots that were already restored.
+        let mut in_prev = false
+        for p in prev_contributions {
+          if p == slot_id {
+            in_prev = true
+            break
+          }
+        }
+        if in_prev {
+          continue
+        }
+        let slot = self.accumulator_slots[slot_id.id]
+        if !slot.disposed {
+          (slot.dispose_memo)(cell_id)
+        }
+      }
+      // Pop frame (discards staged deps + accumulator_reads).
+      let _ = self.pop_tracking_full()
+      cell.in_progress = false
+      raise e
+    }
+  }
+
+  // Normal path — pop the full frame to access accumulator state.
+  let query = self.pop_tracking_full()
+  let new_deps = query.dependencies
+  let new_seen = query.seen
+  let touched = query.touched_accumulator_slots
+  let staged_reads = query.accumulator_reads
+
+  // AFTER_CLOSURE: finalize each slot in prev ∪ touched (atomic diff +
+  // bump + cleanup per slot), and rebuild accumulator_contributions from
+  // slots that still have a buffer.
+  let all_slots : @hashset.HashSet[@incr_types.AccumulatorId] = @hashset.new()
+  for s in prev_contributions {
+    all_slots.add(s)
+  }
+  for s in touched {
+    all_slots.add(s)
+  }
+  let current_revision = self.core.revision.current_revision
+  let new_contributions : @hashset.HashSet[@incr_types.AccumulatorId] = @hashset.new()
+  for slot_id in all_slots {
+    let slot = self.accumulator_slots[slot_id.id]
+    if slot.disposed {
+      continue
+    }
+    (slot.finalize_memo)(cell_id, current_revision)
+    if (slot.has_buffer_for)(cell_id) {
+      new_contributions.add(slot_id)
+    }
+  }
+
+  // Commit staged_reads into MemoData.accumulator_reads (overwrite any
+  // prior-run entries; a successful recompute is authoritative).
+  cell.accumulator_reads.clear()
+  for k, v in staged_reads {
+    cell.accumulator_reads.set(k, v)
+  }
+  // Commit rebuilt contributions.
+  if new_contributions.is_empty() {
+    self.accumulator_contributions.remove(cell_id)
+  } else {
+    self.accumulator_contributions.set(cell_id, new_contributions)
+  }
+
+  // Existing epilogue — subscribers, durability, backdate, verified_at.
   let deps_changed = self.diff_and_update_subscribers(
     cell_id,
     old_deps,
@@ -420,6 +551,7 @@ fn[T] Runtime::memo_force_recompute(
     cell.meta.changed_at = self.core.revision.current_revision
   }
   cell.verified_at = self.core.revision.current_revision
+  cell.has_been_computed = true
   cell.in_progress = false
   Ok(new_value)
 }

@@ -11,6 +11,17 @@ priv struct ActiveQuery {
   cell_id : CellId
   dependencies : Array[CellId]
   seen : @hashset.HashSet[CellId]
+  // Synthetic accumulator reads staged during compute. On success, copied
+  // to MemoData.accumulator_reads in the AFTER_CLOSURE phase. On abort,
+  // discarded (transactional discipline matches ordinary-dep commit).
+  accumulator_reads : @hashmap.HashMap[
+    (@incr_types.AccumulatorId, CellId),
+    @incr_types.Revision,
+  ]
+  // Accumulator slots this frame pushed to. Used in AFTER_CLOSURE to
+  // iterate the set of slots needing a finalize_memo call, and in ON_ABORT
+  // to identify new-run-only slots for cleanup.
+  touched_accumulator_slots : @hashset.HashSet[@incr_types.AccumulatorId]
 
   fn new(cell_id : CellId) -> ActiveQuery
 }
@@ -26,7 +37,13 @@ priv struct ActiveQuery {
 ///
 /// A new active query with an empty dependency set
 fn ActiveQuery::new(cell_id : CellId) -> ActiveQuery {
-  { cell_id, dependencies: [], seen: @hashset.new() }
+  {
+    cell_id,
+    dependencies: [],
+    seen: @hashset.new(),
+    accumulator_reads: @hashmap.new(),
+    touched_accumulator_slots: @hashset.new(),
+  }
 }
 
 ///|
@@ -175,6 +192,36 @@ fn Runtime::check_cross_runtime(
       " but is read inside a computation on Runtime " +
       active_rt.to_string(),
     )
+  }
+}
+
+///|
+/// Internal: returns a reference to the top ActiveQuery frame, if any.
+/// Used by Accumulator::push to stage touched_accumulator_slots entries
+/// and by memo_force_recompute to inspect touched slots on abort.
+fn Runtime::top_active_query(self : Runtime) -> ActiveQuery? {
+  let len = self.core.tracking.stack.length()
+  if len == 0 {
+    None
+  } else {
+    Some(self.core.tracking.stack[len - 1])
+  }
+}
+
+///|
+/// Internal: pops the tracking frame and returns the full ActiveQuery for
+/// callers that need staged accumulator state (accumulator_reads,
+/// touched_accumulator_slots). `pop_tracking` still works for consumers
+/// that only need (deps, seen).
+fn Runtime::pop_tracking_full(self : Runtime) -> ActiveQuery {
+  match self.core.tracking.stack.pop() {
+    Some(query) => {
+      if self.core.tracking.stack.length() == 0 {
+        current_computing_runtime_id.val = -1
+      }
+      query
+    }
+    None => abort("pop_tracking_full: tracking stack is empty")
   }
 }
 

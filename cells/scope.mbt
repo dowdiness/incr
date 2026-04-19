@@ -111,7 +111,7 @@ pub fn[T] Scope::signal(
 /// Creates a memo owned by this scope.
 pub fn[T : Eq] Scope::memo(
   self : Scope,
-  f : () -> T,
+  f : () -> T raise Failure,
   label? : String,
 ) -> Memo[T] {
   guard !self.disposed else { abort("Scope::memo called on a disposed scope") }
@@ -124,7 +124,7 @@ pub fn[T : Eq] Scope::memo(
 /// Creates a hybrid memo owned by this scope.
 pub fn[T : Eq] Scope::hybrid_memo(
   self : Scope,
-  f : () -> T,
+  f : () -> T raise Failure,
   label? : String,
 ) -> HybridMemo[T] {
   guard !self.disposed else {
@@ -133,6 +133,21 @@ pub fn[T : Eq] Scope::hybrid_memo(
   let hm = HybridMemo::new(self.runtime, f, label?)
   self.cells.push(hm.id())
   hm
+}
+
+///|
+/// Creates an accumulator owned by this scope. The accumulator is disposed
+/// automatically when the scope is disposed (via `dispose_hooks`).
+pub fn[T : Eq] Scope::accumulator(
+  self : Scope,
+  label? : String,
+) -> Accumulator[T] {
+  guard !self.disposed else {
+    abort("Scope::accumulator called on a disposed scope")
+  }
+  let a : Accumulator[T] = Accumulator::new(rt=self.runtime, label?)
+  self.dispose_hooks.push(() => a.dispose())
+  a
 }
 
 ///|

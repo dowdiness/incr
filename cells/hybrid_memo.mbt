@@ -15,12 +15,12 @@ pub(all) struct HybridMemo[T] {
   priv label : String?
   priv rt : Runtime
   priv cell_id : CellId
-  priv compute : () -> T
+  priv compute : () -> T raise Failure
   priv mut value : T?
 
   fn[T : Eq] new(
     rt : Runtime,
-    compute : () -> T,
+    compute : () -> T raise Failure,
     label? : String,
   ) -> HybridMemo[T]
 } derive(Debug(ignore=[Runtime, Fn, CellId]))
@@ -29,7 +29,7 @@ pub(all) struct HybridMemo[T] {
 /// Creates a new hybrid memo with the given compute function.
 pub fn[T : Eq] HybridMemo::new(
   rt : Runtime,
-  compute : () -> T,
+  compute : () -> T raise Failure,
   label? : String,
 ) -> HybridMemo[T] {
   let memo_idx = rt.pull.free_memos.pop().unwrap_or(rt.pull.memos.length())
@@ -50,6 +50,8 @@ pub fn[T : Eq] HybridMemo::new(
     in_progress: false,
     on_change: None,
     is_hybrid: true,
+    accumulator_reads: @hashmap.new(),
+    has_been_computed: false,
   }
   if memo_idx < rt.pull.memos.length() {
     rt.pull.memos[memo_idx] = new_data
@@ -98,21 +100,28 @@ fn[T : Eq] HybridMemo::get_untracked(self : HybridMemo[T]) -> T {
     )
   }
   match self.value {
-    None =>
-      match self.force_recompute() {
+    None => {
+      let r = self.force_recompute() catch {
+        e => abort("HybridMemo compute raised: " + e.to_string())
+      }
+      match r {
         Ok(value) => {
           self.rt.record_dependency(self.cell_id)
           value
         }
         Err(e) => abort(e.format_path())
       }
+    }
     Some(cached) => {
       let cell = self.rt.get_memo_data(self.cell_id)
       if cell.verified_at >= self.rt.core.revision.current_revision {
         self.rt.record_dependency(self.cell_id)
         return cached
       }
-      match self.rt.pull_verify(self.cell_id) {
+      let vr = self.rt.pull_verify(self.cell_id) catch {
+        e => abort("HybridMemo compute raised: " + e.to_string())
+      }
+      match vr {
         Ok(_) => {
           self.rt.record_dependency(self.cell_id)
           match self.value {
@@ -165,7 +174,7 @@ pub fn[T] HybridMemo::is_up_to_date(self : HybridMemo[T]) -> Bool {
 /// Force recomputation: delegates to shared memo_force_recompute helper.
 fn[T : Eq] HybridMemo::force_recompute(
   self : HybridMemo[T],
-) -> Result[T, CycleError] {
+) -> Result[T, CycleError] raise Failure {
   match
     self.rt.memo_force_recompute(self.cell_id, self.compute, self.value, fn(
       a,
@@ -186,7 +195,7 @@ fn[T : Eq] HybridMemo::force_recompute(
 /// Stored as the type-erased `compute` closure in `MemoData`.
 fn[T : Eq] HybridMemo::recompute_inner(
   self : HybridMemo[T],
-) -> Result[Bool, CycleError] {
+) -> Result[Bool, CycleError] raise Failure {
   let cell = self.rt.get_memo_data(self.cell_id)
   let old_changed_at = cell.meta.changed_at
   match self.force_recompute() {

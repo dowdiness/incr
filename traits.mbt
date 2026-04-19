@@ -100,7 +100,7 @@ pub fn[Db : Database, T] create_signal(
 /// A new memo associated with the database's runtime
 pub fn[Db : Database, T : Eq] create_memo(
   db : Db,
-  f : () -> T,
+  f : () -> T raise Failure,
   label? : String,
 ) -> Memo[T] {
   Memo(db.runtime(), f, label?)
@@ -123,7 +123,7 @@ pub fn[Db : Database, T : Eq] create_memo(
 /// A new memo map associated with the database's runtime
 pub fn[Db : Database, K, V] create_memo_map(
   db : Db,
-  f : (K) -> V,
+  f : (K) -> V raise Failure,
   label? : String,
 ) -> MemoMap[K, V] {
   MemoMap(db.runtime(), f, label?)
@@ -184,10 +184,20 @@ pub impl[T] Readable for HybridMemo[T] with is_up_to_date(self) {
 /// A new hybrid memo associated with the database's runtime
 pub fn[Db : Database, T : Eq] create_hybrid_memo(
   db : Db,
-  f : () -> T,
+  f : () -> T raise Failure,
   label? : String,
 ) -> HybridMemo[T] {
   HybridMemo::new(db.runtime(), f, label?)
+}
+
+///|
+/// Creates an accumulator bound to the database's underlying runtime.
+/// Convenience mirror of `create_signal` / `create_memo`.
+pub fn[Db : Database, T : Eq] create_accumulator(
+  db : Db,
+  label? : String,
+) -> Accumulator[T] {
+  Accumulator::new(rt=db.runtime(), label?)
 }
 
 // --- Tracked Struct Support ---

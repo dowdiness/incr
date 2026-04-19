@@ -21,6 +21,13 @@ pub fn CycleError::new(CellId, Array[CellId], Array[String?]) -> Self
 pub fn CycleError::path(Self) -> Array[CellId]
 
 // Types and methods
+pub(all) struct AccumulatorId {
+  runtime_id : Int
+  id : Int
+} derive(Eq, @debug.Debug)
+pub impl Hash for AccumulatorId
+pub impl Show for AccumulatorId
+
 pub(all) struct CellId {
   runtime_id : Int
   id : Int

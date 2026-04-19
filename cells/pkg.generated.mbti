@@ -11,6 +11,17 @@ import {
 // Errors
 
 // Types and methods
+pub struct Accumulator[T] {
+  // private fields
+}
+pub fn[T] Accumulator::debug(Self[T]) -> String
+pub fn[T] Accumulator::dispose(Self[T]) -> Unit
+pub fn[T] Accumulator::id(Self[T]) -> @types.AccumulatorId
+pub fn[T] Accumulator::is_disposed(Self[T]) -> Bool
+pub fn[T] Accumulator::label(Self[T]) -> String?
+pub fn[T : Eq] Accumulator::new(rt~ : Runtime, label? : String) -> Self[T]
+pub fn[T] Accumulator::push(Self[T], T) -> Unit raise Failure
+
 pub(all) struct CellInfo {
   label : String?
   id : @types.CellId
@@ -46,21 +57,24 @@ pub fn[K : Hash + Eq, V] FunctionalRelation::new(Runtime, merge? : (V, V) -> V, 
 pub(all) struct HybridMemo[T] {
   // private fields
 
-  fn[T : Eq] new(Runtime, () -> T, label? : String) -> HybridMemo[T]
+  fn[T : Eq] new(Runtime, () -> T raise Failure, label? : String) -> HybridMemo[T]
 } derive(@debug.Debug)
 pub fn[T] HybridMemo::dispose(Self[T]) -> Unit
 pub fn[T : Eq] HybridMemo::get(Self[T]) -> T
 pub fn[T] HybridMemo::id(Self[T]) -> @types.CellId
 pub fn[T] HybridMemo::is_disposed(Self[T]) -> Bool
 pub fn[T] HybridMemo::is_up_to_date(Self[T]) -> Bool
-pub fn[T : Eq] HybridMemo::new(Runtime, () -> T, label? : String) -> Self[T]
+pub fn[T : Eq] HybridMemo::new(Runtime, () -> T raise Failure, label? : String) -> Self[T]
 pub fn[T : Eq] HybridMemo::observe(Self[T]) -> Observer[T]
 
 pub(all) struct Memo[T] {
   // private fields
 
-  fn[T : Eq] new(Runtime, () -> T, label? : String) -> Memo[T]
+  fn[T : Eq] new(Runtime, () -> T raise Failure, label? : String) -> Memo[T]
 } derive(@debug.Debug)
+pub fn[T, A] Memo::accumulated(Self[T], Accumulator[A]) -> Array[A] raise Failure
+pub fn[T, A] Memo::accumulated_peek(Self[T], Accumulator[A]) -> Array[A]
+pub fn[T, A] Memo::accumulated_result(Self[T], Accumulator[A]) -> Result[Array[A], @types.CycleError] raise Failure
 pub fn[T] Memo::changed_at(Self[T]) -> @types.Revision
 pub fn[T] Memo::clear_on_change(Self[T]) -> Unit
 pub fn[T] Memo::dependencies(Self[T]) -> Array[@types.CellId]
@@ -72,9 +86,9 @@ pub fn[T] Memo::get_result(Self[T]) -> Result[T, @types.CycleError]
 pub fn[T] Memo::id(Self[T]) -> @types.CellId
 pub fn[T] Memo::is_disposed(Self[T]) -> Bool
 pub fn[T] Memo::is_up_to_date(Self[T]) -> Bool
-pub fn[T : Eq] Memo::new(Runtime, () -> T, label? : String) -> Self[T]
-pub fn[T : @types.BackdateEq] Memo::new_memo(Runtime, () -> T, label? : String) -> Self[T]
-pub fn[T] Memo::new_no_backdate(Runtime, () -> T, label? : String) -> Self[T]
+pub fn[T : Eq] Memo::new(Runtime, () -> T raise Failure, label? : String) -> Self[T]
+pub fn[T : @types.BackdateEq] Memo::new_memo(Runtime, () -> T raise Failure, label? : String) -> Self[T]
+pub fn[T] Memo::new_no_backdate(Runtime, () -> T raise Failure, label? : String) -> Self[T]
 pub fn[T] Memo::observe(Self[T]) -> Observer[T]
 pub fn[T] Memo::on_change(Self[T], (T) -> Unit) -> Unit
 pub fn[T] Memo::verified_at(Self[T]) -> @types.Revision
@@ -82,7 +96,7 @@ pub fn[T] Memo::verified_at(Self[T]) -> @types.Revision
 pub(all) struct MemoMap[K, V] {
   // private fields
 
-  fn[K, V] new(Runtime, (K) -> V, label? : String) -> MemoMap[K, V]
+  fn[K, V] new(Runtime, (K) -> V raise Failure, label? : String) -> MemoMap[K, V]
 }
 pub fn[K, V] MemoMap::clear(Self[K, V]) -> Unit
 pub fn[K : Hash + Eq, V] MemoMap::contains(Self[K, V], K) -> Bool
@@ -92,7 +106,7 @@ pub fn[K : Hash + Eq, V : Eq] MemoMap::get_or_else(Self[K, V], K, (@types.CycleE
 pub fn[K : Hash + Eq, V : Eq] MemoMap::get_result(Self[K, V], K) -> Result[V, @types.CycleError]
 pub fn[K : Hash + Eq, V : Eq] MemoMap::get_tracked(Self[K, V], K) -> V
 pub fn[K, V] MemoMap::length(Self[K, V]) -> Int
-pub fn[K, V] MemoMap::new(Runtime, (K) -> V, label? : String) -> Self[K, V]
+pub fn[K, V] MemoMap::new(Runtime, (K) -> V raise Failure, label? : String) -> Self[K, V]
 pub fn[K : Hash + Eq, V] MemoMap::sweep(Self[K, V]) -> Int
 
 pub struct Observer[T] {
@@ -150,14 +164,15 @@ pub fn Runtime::set_on_change(Self, () -> Unit) -> Unit
 pub struct Scope {
   // private fields
 }
+pub fn[T : Eq] Scope::accumulator(Self, label? : String) -> Accumulator[T]
 pub fn Scope::add_cell_ids(Self, Array[@types.CellId]) -> Unit
 pub fn[T] Scope::add_observer(Self, Observer[T]) -> Observer[T]
 pub fn Scope::child(Self) -> Self
 pub fn Scope::dispose(Self) -> Unit
 pub fn Scope::effect(Self, () -> Unit) -> Effect
-pub fn[T : Eq] Scope::hybrid_memo(Self, () -> T, label? : String) -> HybridMemo[T]
+pub fn[T : Eq] Scope::hybrid_memo(Self, () -> T raise Failure, label? : String) -> HybridMemo[T]
 pub fn Scope::is_disposed(Self) -> Bool
-pub fn[T : Eq] Scope::memo(Self, () -> T, label? : String) -> Memo[T]
+pub fn[T : Eq] Scope::memo(Self, () -> T raise Failure, label? : String) -> Memo[T]
 pub fn Scope::new(Runtime) -> Self
 pub fn[T : Eq] Scope::reactive(Self, () -> T) -> Reactive[T]
 pub fn[T] Scope::signal(Self, T, durability? : @types.Durability, label? : String) -> Signal[T]

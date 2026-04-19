@@ -145,11 +145,46 @@ priv struct DatalogState {
 ///
 /// let doubled = Memo(rt, () => x.get() * 2)
 /// ```
+
+///|
+/// Runtime-side metadata for an Accumulator slot. Holds type-erased closures
+/// captured at Accumulator construction with `T : Eq` in scope; the typed
+/// buffers live on the Accumulator[T] handle itself.
+///
+/// This struct is intentionally package-private — runtime code dispatches
+/// through the closures; no outside caller needs to construct or read it.
+priv struct SlotMeta {
+  label : String?
+  mut disposed : Bool
+  // Phase closures (typed Accumulator handle captured at construction):
+  snapshot_and_clear : (@incr_types.CellId) -> Unit
+  restore_buffer : (@incr_types.CellId) -> Unit
+  finalize_memo : (@incr_types.CellId, @incr_types.Revision) -> Unit
+  dispose_memo : (@incr_types.CellId) -> Unit
+  // Verify-side typed data access:
+  push_revised_at_for : (@incr_types.CellId) -> @incr_types.Revision
+  // True iff the slot still has a non-empty per_memo[M] buffer. Used in
+  // AFTER_CLOSURE to rebuild accumulator_contributions reverse index.
+  has_buffer_for : (@incr_types.CellId) -> Bool
+}
+
+///|
 pub(all) struct Runtime {
   priv core : RuntimeCore
   priv pull : PullState
   priv push : PushState
   priv datalog : DatalogState
+  // Accumulator state. Monotonic array; disposed slots keep their index
+  // (their `disposed` field is set true). No slot-id reuse.
+  priv accumulator_slots : Array[SlotMeta]
+  priv mut next_accumulator_id : Int
+  // Reverse index: for each memo, which accumulator slots it has pushed to.
+  // Populated on successful recompute commit; used for BEFORE_CLOSURE snapshot
+  // iteration and memo disposal cleanup.
+  priv accumulator_contributions : @hashmap.HashMap[
+    @incr_types.CellId,
+    @hashset.HashSet[@incr_types.AccumulatorId],
+  ]
 
   fn new(on_change? : () -> Unit) -> Runtime
 }
@@ -213,7 +248,40 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
       node_count: 0,
     },
     datalog: { relations: [], functional_relations: [], rules: [] },
+    accumulator_slots: [],
+    next_accumulator_id: 0,
+    accumulator_contributions: @hashmap.new(),
   }
+}
+
+///|
+/// Internal: register a new accumulator slot and return its ID.
+/// Called by Accumulator::new. Monotonic — IDs never reused.
+fn Runtime::register_accumulator_slot(
+  self : Runtime,
+  meta : SlotMeta,
+) -> @incr_types.AccumulatorId {
+  let id = self.next_accumulator_id
+  self.next_accumulator_id = id + 1
+  self.accumulator_slots.push(meta)
+  { runtime_id: self.core.runtime_id, id }
+}
+
+///|
+/// Internal: fetch SlotMeta by AccumulatorId. Aborts on cross-runtime.
+fn Runtime::get_accumulator_slot(
+  self : Runtime,
+  slot_id : @incr_types.AccumulatorId,
+) -> SlotMeta {
+  if slot_id.runtime_id != self.core.runtime_id {
+    abort(
+      "Accumulator: cross-runtime access: slot belongs to Runtime " +
+      slot_id.runtime_id.to_string() +
+      " but accessed on Runtime " +
+      self.core.runtime_id.to_string(),
+    )
+  }
+  self.accumulator_slots[slot_id.id]
 }
 
 ///|
@@ -342,6 +410,50 @@ fn Runtime::validate_cell_soft(self : Runtime, id : CellId) -> Bool {
   id.runtime_id == self.core.runtime_id &&
   id.id >= 0 &&
   id.id < self.core.cell_ops.length()
+}
+
+///|
+/// Internal: guarantee a memo has been computed and is up-to-date in the
+/// current revision, WITHOUT recording an ordinary dep on the caller's
+/// tracking frame. Used by Memo::accumulated.
+///
+/// # Behavior
+///
+/// - If the cell is disposed, returns Ok(()) silently (caller handles
+///   disposal separately; this is defense-in-depth for other call sites).
+/// - If the memo has never been computed (verified_at == initial revision),
+///   triggers the first compute via the memo's stored compute closure.
+/// - Otherwise runs `pull_verify`, which may recompute if stale.
+/// - Neither path calls `record_dependency`. The synthetic accumulator
+///   dep is recorded separately in the accumulator read flow.
+///
+/// Both `data.compute()` and `pull_verify` push a fresh tracking frame
+/// for the target memo while recomputing, so any `get()` calls inside the
+/// target's closure record deps on the target's frame — never on the
+/// caller's frame.
+fn Runtime::ensure_computed_untracked(
+  self : Runtime,
+  cell_id : CellId,
+) -> Result[Unit, CycleError] raise Failure {
+  if self.is_cell_disposed(cell_id) {
+    return Ok(())
+  }
+  let data = self.get_memo_data(cell_id)
+  // "Never been computed" is tracked explicitly via has_been_computed
+  // rather than via verified_at == Revision::initial() because a fresh
+  // runtime starts at initial, so a successful first compute would leave
+  // verified_at == initial, indistinguishable from "never computed".
+  if !data.has_been_computed {
+    match (data.compute)() {
+      Ok(_) => Ok(())
+      Err(e) => Err(e)
+    }
+  } else {
+    match self.pull_verify(cell_id) {
+      Ok(_) => Ok(())
+      Err(e) => Err(e)
+    }
+  }
 }
 
 ///|
