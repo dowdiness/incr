@@ -217,6 +217,50 @@ fn Runtime::pull_verify(
           }
         }
       }
+      // Synthetic accumulator dep check: after ordinary deps, inspect the
+      // root memo's accumulator_reads. For each entry, re-verify the target
+      // memo (may recompute it, updating push_revised_at), then check
+      // whether its push_revised_at has advanced past the stored read
+      // revision — or the target/slot is disposed. Any of these
+      // invalidates the root and forces a recompute.
+      let root_data = self.pull.memos[root_idx]
+      if !root_data.accumulator_reads.is_empty() {
+        let mut accumulator_dep_changed = false
+        for entry in root_data.accumulator_reads {
+          let slot_id = entry.0.0
+          let target_id = entry.0.1
+          let stored_rev = entry.1
+          if slot_id.id < self.accumulator_slots.length() &&
+            self.accumulator_slots[slot_id.id].disposed {
+            accumulator_dep_changed = true
+            break
+          }
+          if self.is_cell_disposed(target_id) {
+            accumulator_dep_changed = true
+            break
+          }
+          // Force the target's own verification. If the target's ordinary
+          // deps advanced, this recomputes it — updating push_revised_at
+          // if the push-set actually changed.
+          match self.pull_verify(target_id) {
+            Ok(_) => ()
+            Err(e) => return Err(e)
+          }
+          let slot = self.accumulator_slots[slot_id.id]
+          let current_rev = (slot.push_revised_at_for)(target_id)
+          if current_rev > stored_rev {
+            accumulator_dep_changed = true
+            break
+          }
+        }
+        if accumulator_dep_changed {
+          match (root_data.compute)() {
+            Ok(_) => ()
+            Err(e) => return Err(e)
+          }
+          root_data.verified_at = self.core.revision.current_revision
+        }
+      }
       Ok(())
     }
   }

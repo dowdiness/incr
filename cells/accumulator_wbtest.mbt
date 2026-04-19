@@ -251,6 +251,23 @@ test "durability shortcut: bypassed when memo has accumulator_reads" {
 }
 
 ///|
+test "synthetic dep check: reader invalidates when producer's push_revised_at bumps" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 1)
+  let a : Accumulator[Int] = Accumulator::new(rt~)
+  let producer = Memo::new(rt, () => {
+    a.push(s.get())
+    1
+  })
+  let consumer = Memo::new(rt, () => producer.accumulated(a)[0])
+  inspect(rt.read(consumer), content="1")
+  s.set(42)
+  // producer's accumulated push-set changed; consumer must recompute and
+  // return the new value.
+  inspect(rt.read(consumer), content="42")
+}
+
+///|
 test "accumulator: ON_ABORT restores prior buffer on raised compute" {
   let rt = Runtime::new()
   let should_fail = Signal::new(rt, false)
