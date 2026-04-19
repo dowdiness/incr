@@ -63,6 +63,13 @@ pub fn[K : Hash + Eq, V : Eq] MemoMap::get(self : MemoMap[K, V], key : K) -> V {
 /// `Memo::get`'s tracking guard. Prefer this when the call site is
 /// expected to be tracking (catches "meant to call from inside a memo
 /// but I'm not" bugs).
+///
+/// Caveat: `MemoMap::clear()` unconditionally disposes every per-key
+/// wrapper, so a tracked dependent recorded via this method will hit
+/// the disposed-dep guard on its next verify if `clear()` runs between
+/// reads. `gc()` is safe — it keeps wrapper memos alive as long as a
+/// tracked dependent is reachable from a root. The same caveat applies
+/// to `get()`.
 pub fn[K : Hash + Eq, V : Eq] MemoMap::get_tracked(
   self : MemoMap[K, V],
   key : K,

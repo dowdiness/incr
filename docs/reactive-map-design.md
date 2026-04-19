@@ -119,6 +119,14 @@ Codex-confirmed tracking path is correct). Do **not** land
 dispose semantics are resolved. Then pick Option A (ship v1 with
 no-cross-key-deps restriction) or Option B (engine work, larger scope).
 
+---
+
+> ⚠️ **Sections below this point are the original v2 draft, preserved for
+> reference.** Several claims are refuted by "Why v1's framing was wrong"
+> and "Codex review 2026-04-19" above. Specific contradictions are
+> flagged inline with **[SUPERSEDED]** markers. Do not treat this
+> content as current design.
+
 ## Shape: derive-from-upstream
 
 The revised design treats `ReactiveMap` as a *lens*, not an input
@@ -232,7 +240,13 @@ Alternatives considered:
 runtime's graph. Cycle detection via `get_result` works per-key.
 Required for the driver (name resolution: def A references def B).
 
-### Cross-key dep + key removal: cascade via dispose
+### Cross-key dep + key removal: cascade via dispose [SUPERSEDED]
+
+> **[SUPERSEDED — Blocker 1]** This section is wrong. Pull-memo dispose
+> (`cells/pull_memo_lifecycle.mbt:8-22`) does NOT notify subscribers; a
+> dependent memo that still references the disposed dep aborts in
+> `cells/verify.mbt:123-131` rather than recomputing. PR #32's
+> push-suspension is unrelated. See Blocker 1 above for resolution paths.
 
 If `compute(k1)` reads `rm.get(k2)` and `k2` is removed (disposed by
 `sweep`), the existing dispose path in `incr` invalidates subscribers
@@ -306,6 +320,9 @@ only when `foo`'s def changes, not when `bar`'s def changes.
    cached one does not invalidate downstream.
 6. **Cross-key deps work.** A memo for `k1` that reads `get(k2)`
    records `k2`'s memo as a dep; edits to `k2` invalidate `k1`.
+   **[SUPERSEDED — Blocker 1]** Edits-to-`k2` invalidation works, but
+   `sweep()`/`clear()` of `k2` does not cascade-invalidate; it causes
+   `k1`'s next verify to abort on the disposed dep.
 
 ## Open questions
 
@@ -355,6 +372,11 @@ Three additions required (in order):
 
 Non-changes: pull verification, subscription/dispose cascade, batch,
 durability.
+
+> **[SUPERSEDED — Blocker 3]** "Non-changes: pull verification" is wrong
+> once `remove_except` is part of the design — selective disposal
+> triggers the same disposed-dep abort path in `cells/verify.mbt`. See
+> Blocker 3 above.
 
 ## Scope estimate
 

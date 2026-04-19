@@ -189,8 +189,12 @@ test "memo_map: get_tracked records per-key dep, not cross-key" {
   })
   inspect(rt.read(view), content="20")
   inspect(downstream_count, content="1")
+  // Instantiate key=2's memo so the src2 change has a concrete
+  // downstream target distinct from view.
+  inspect(by_key.get(2), content="20")
   // src2 change touches key=2's memo only — view tracks key=1, must not recompute.
   src2.set(99)
+  inspect(by_key.get(2), content="99")
   inspect(rt.read(view), content="20")
   inspect(downstream_count, content="1")
   // src1 change propagates through key=1's memo to view.
