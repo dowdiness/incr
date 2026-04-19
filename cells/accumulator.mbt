@@ -21,8 +21,8 @@ pub struct Accumulator[T] {
 ///|
 /// Creates a new accumulator bound to the given runtime.
 ///
-/// The SlotMeta closures are stubs at this task — Task 9 wires them to the
-/// typed buffers on the handle.
+/// Constructs the typed buffer state and the SlotMeta closures that the
+/// runtime uses to drive snapshot/finalize/dispose phases.
 pub fn[T : Eq] Accumulator::new(
   rt~ : Runtime,
   label? : String,
@@ -30,18 +30,95 @@ pub fn[T : Eq] Accumulator::new(
   let per_memo : @hashmap.HashMap[CellId, Array[T]] = @hashmap.new()
   let prev_push_sets : @hashmap.HashMap[CellId, Array[T]] = @hashmap.new()
   let push_revised_at : @hashmap.HashMap[CellId, Revision] = @hashmap.new()
-  // Stub closures — Task 9 replaces these with real implementations.
+
+  // snapshot_and_clear: move current buffer into prev, replace per_memo[M]
+  // with a fresh array. Called BEFORE_CLOSURE.
+  let snapshot_and_clear = (m_id : CellId) => {
+    match per_memo.get(m_id) {
+      Some(current) => {
+        prev_push_sets.set(m_id, current)
+        per_memo.set(m_id, [])
+      }
+      None =>
+        // Memo had no prior pushes; record empty prev so diff catches
+        // first-ever pushes correctly.
+        prev_push_sets.set(m_id, [])
+    }
+  }
+
+  // restore_buffer: undo snapshot. Called ON_ABORT.
+  let restore_buffer = (m_id : CellId) => {
+    match prev_push_sets.get(m_id) {
+      Some(prev) => {
+        per_memo.set(m_id, prev)
+        prev_push_sets.remove(m_id)
+      }
+      None =>
+        // Shouldn't happen — BEFORE_CLOSURE always writes prev_push_sets.
+        ()
+    }
+  }
+
+  // finalize_memo: atomic commit-phase work. Compare prev vs current;
+  // bump push_revised_at if different; drop snapshot; gc empty buffer.
+  let finalize_memo = (m_id : CellId, rev : Revision) => {
+    let prev = match prev_push_sets.get(m_id) {
+      Some(p) => p
+      None => []
+    }
+    let current = match per_memo.get(m_id) {
+      Some(c) => c
+      None => []
+    }
+    // Structural Array[T] equality (T : Eq in scope from outer fn).
+    let same = arrays_eq(prev, current)
+    if !same {
+      push_revised_at.set(m_id, rev)
+    }
+    prev_push_sets.remove(m_id)
+    if current.length() == 0 {
+      per_memo.remove(m_id)
+    }
+  }
+
+  // dispose_memo: remove memo's entries when the memo itself is disposed.
+  let dispose_memo = (m_id : CellId) => {
+    per_memo.remove(m_id)
+    prev_push_sets.remove(m_id)
+    push_revised_at.remove(m_id)
+  }
+
+  let push_revised_at_for = (m_id : CellId) => {
+    match push_revised_at.get(m_id) {
+      Some(r) => r
+      None => Revision::initial()
+    }
+  }
   let meta : SlotMeta = {
     label,
     disposed: false,
-    snapshot_and_clear: _ => (),
-    restore_buffer: _ => (),
-    finalize_memo: (_, _) => (),
-    dispose_memo: _ => (),
-    push_revised_at_for: _ => Revision::initial(),
+    snapshot_and_clear,
+    restore_buffer,
+    finalize_memo,
+    dispose_memo,
+    push_revised_at_for,
   }
   let slot_id = rt.register_accumulator_slot(meta)
   { rt, slot_id, label, per_memo, prev_push_sets, push_revised_at }
+}
+
+///|
+/// Structural equality over Array[T] where T : Eq.
+fn[T : Eq] arrays_eq(a : Array[T], b : Array[T]) -> Bool {
+  if a.length() != b.length() {
+    return false
+  }
+  for i in 0..<a.length() {
+    if a[i] != b[i] {
+      return false
+    }
+  }
+  true
 }
 
 ///|
