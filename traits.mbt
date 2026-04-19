@@ -190,6 +190,16 @@ pub fn[Db : Database, T : Eq] create_hybrid_memo(
   HybridMemo::new(db.runtime(), f, label?)
 }
 
+///|
+/// Creates an accumulator bound to the database's underlying runtime.
+/// Convenience mirror of `create_signal` / `create_memo`.
+pub fn[Db : Database, T : Eq] create_accumulator(
+  db : Db,
+  label? : String,
+) -> Accumulator[T] {
+  Accumulator::new(rt=db.runtime(), label?)
+}
+
 // --- Tracked Struct Support ---
 
 ///|

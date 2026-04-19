@@ -17,6 +17,7 @@ pub using @incr_types {
   type GcRole,
   type InternId,
   type InternTable,
+  type AccumulatorId,
 }
 
 ///|
@@ -34,6 +35,7 @@ pub using @internal {
   type Effect,
   type Scope,
   type Observer,
+  type Accumulator,
 }
 
 // Note: @internal alias above refers to dowdiness/incr/cells (renamed from
