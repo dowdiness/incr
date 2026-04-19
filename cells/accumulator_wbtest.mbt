@@ -29,3 +29,57 @@ test "Accumulator::dispose does not reuse slot id" {
   inspect(b.id() != first_id, content="true")
   inspect(b.id().id > first_id.id, content="true")
 }
+
+///|
+test "Accumulator::push outside tracked context raises Failure" {
+  let rt = Runtime::new()
+  let a : Accumulator[Int] = Accumulator::new(rt~)
+  let caught = try {
+    a.push(42)
+    false
+  } catch {
+    _ => true
+  }
+  inspect(caught, content="true")
+}
+
+///|
+test "Accumulator::push inside memo compute stages value" {
+  let rt = Runtime::new()
+  let a : Accumulator[Int] = Accumulator::new(rt~, label="diags")
+  let memo = Memo::new(rt, () => {
+    a.push(1)
+    a.push(2)
+    99
+  })
+  // Trigger first compute via ensure_computed_untracked (buffer visible
+  // without reading through tracked get()).
+  let _ = rt.ensure_computed_untracked(memo.id())
+  // Buffer contains pushed values, keyed by memo's cell_id
+  match a.per_memo.get(memo.id()) {
+    Some(vs) => {
+      inspect(vs.length(), content="2")
+      inspect(vs[0], content="1")
+      inspect(vs[1], content="2")
+    }
+    None => fail("expected buffer to contain pushes")
+  }
+}
+
+///|
+test "Accumulator::push to disposed accumulator raises Failure" {
+  let rt = Runtime::new()
+  let a : Accumulator[Int] = Accumulator::new(rt~)
+  a.dispose()
+  let memo = Memo::new(rt, () => {
+    a.push(42)
+    1
+  })
+  let caught = try {
+    let _ = rt.ensure_computed_untracked(memo.id())
+    false
+  } catch {
+    _ => true
+  }
+  inspect(caught, content="true")
+}

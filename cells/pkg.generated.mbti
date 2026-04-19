@@ -20,6 +20,7 @@ pub fn[T] Accumulator::id(Self[T]) -> @types.AccumulatorId
 pub fn[T] Accumulator::is_disposed(Self[T]) -> Bool
 pub fn[T] Accumulator::label(Self[T]) -> String?
 pub fn[T : Eq] Accumulator::new(rt~ : Runtime, label? : String) -> Self[T]
+pub fn[T] Accumulator::push(Self[T], T) -> Unit raise Failure
 
 pub(all) struct CellInfo {
   label : String?

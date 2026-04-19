@@ -90,6 +90,51 @@ pub fn[T] Accumulator::dispose(self : Accumulator[T]) -> Unit {
 }
 
 ///|
+/// Appends a value to this accumulator, keyed by the currently-computing
+/// memo's CellId.
+///
+/// # Errors
+///
+/// - `fail` if called outside a tracked compute context
+/// - `fail` if the top tracking frame is not a Memo (MVP restriction)
+/// - `fail` if this accumulator has been disposed
+/// - `abort` (via `check_cross_runtime`) if slot belongs to a different runtime
+pub fn[T] Accumulator::push(
+  self : Accumulator[T],
+  value : T,
+) -> Unit raise Failure {
+  // Cross-runtime check (abort — pre-existing pattern).
+  self.rt.check_cross_runtime(self.slot_id.runtime_id, "Accumulator")
+  let slot = self.rt.accumulator_slots[self.slot_id.id]
+  if slot.disposed {
+    fail("Accumulator::push to disposed accumulator")
+  }
+  // Top-frame check.
+  let frame = match self.rt.top_active_query() {
+    Some(q) => q
+    None => fail("Accumulator::push called outside a tracked compute")
+  }
+  let m_id = frame.cell_id
+  // Top-frame must be a PullMemo / HybridMemo cell.
+  match self.rt.core.cell_index[m_id.id] {
+    PullMemo(_) | HybridMemo(_) => ()
+    _ => fail("Accumulator::push only valid inside Memo compute")
+  }
+  // Append to typed buffer.
+  let buf = match self.per_memo.get(m_id) {
+    Some(existing) => existing
+    None => {
+      let fresh : Array[T] = []
+      self.per_memo.set(m_id, fresh)
+      fresh
+    }
+  }
+  buf.push(value)
+  // Stage touched slot on ActiveQuery (committed in AFTER_CLOSURE in Task 10).
+  frame.touched_accumulator_slots.add(self.slot_id)
+}
+
+///|
 /// Debug representation.
 pub fn[T] Accumulator::debug(self : Accumulator[T]) -> String {
   let lbl = match self.label {

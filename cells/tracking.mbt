@@ -196,6 +196,19 @@ fn Runtime::check_cross_runtime(
 }
 
 ///|
+/// Internal: returns a reference to the top ActiveQuery frame, if any.
+/// Used by Accumulator::push to stage touched_accumulator_slots entries
+/// and by memo_force_recompute to inspect touched slots on abort.
+fn Runtime::top_active_query(self : Runtime) -> ActiveQuery? {
+  let len = self.core.tracking.stack.length()
+  if len == 0 {
+    None
+  } else {
+    Some(self.core.tracking.stack[len - 1])
+  }
+}
+
+///|
 /// Collect cell IDs from the current tracking stack.
 ///
 /// Returns the cell IDs of all active computation frames in order,
