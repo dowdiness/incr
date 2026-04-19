@@ -385,6 +385,17 @@ test "edge: first-push-to-fresh-memo correctly bumps push_revised_at" {
 }
 
 ///|
+test "panic: Memo::accumulated_peek aborts on cross-runtime Accumulator" {
+  let rt1 = Runtime::new()
+  let rt2 = Runtime::new()
+  let acc1 : Accumulator[Int] = Accumulator::new(rt=rt1)
+  let m2 = Memo::new(rt2, () => 1)
+  // Would silently index rt2.accumulator_slots with acc1.slot_id (from rt1)
+  // without the cross-runtime guard on acc.slot_id.runtime_id.
+  let _ = m2.accumulated_peek(acc1)
+}
+
+///|
 test "accumulator: ON_ABORT restores prior buffer on raised compute" {
   let rt = Runtime::new()
   let should_fail = Signal::new(rt, false)

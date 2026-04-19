@@ -230,7 +230,10 @@ fn Runtime::pull_verify(
           let slot_id = entry.0.0
           let target_id = entry.0.1
           let stored_rev = entry.1
-          if slot_id.id < self.accumulator_slots.length() &&
+          // An out-of-range slot_id is treated as disposed (defensive —
+          // should not happen under monotonic allocation, but prevents a
+          // silent "unchanged" verdict if the invariant is ever violated).
+          if slot_id.id >= self.accumulator_slots.length() ||
             self.accumulator_slots[slot_id.id].disposed {
             accumulator_dep_changed = true
             break

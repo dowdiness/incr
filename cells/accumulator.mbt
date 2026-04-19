@@ -229,8 +229,16 @@ pub fn[T, A] Memo::accumulated_peek(
   self : Memo[T],
   acc : Accumulator[A],
 ) -> Array[A] {
-  // Cross-runtime check (abort)
+  // Cross-runtime guards: both self (the memo) and acc (the accumulator)
+  // must belong to self.rt. The second check is load-bearing — without it,
+  // `acc.slot_id.id` indexes self.rt.accumulator_slots with an ID from a
+  // different runtime and either silently returns the wrong slot or panics
+  // with an unhelpful bounds error.
   self.rt.check_cross_runtime(self.rt.core.runtime_id, "Memo::accumulated_peek")
+  self.rt.check_cross_runtime(
+    acc.slot_id.runtime_id,
+    "Memo::accumulated_peek (Accumulator)",
+  )
   let slot = self.rt.accumulator_slots[acc.slot_id.id]
   if slot.disposed {
     return []
@@ -262,6 +270,10 @@ pub fn[T, A] Memo::accumulated(
   acc : Accumulator[A],
 ) -> Array[A] raise Failure {
   self.rt.check_cross_runtime(self.rt.core.runtime_id, "Memo::accumulated")
+  self.rt.check_cross_runtime(
+    acc.slot_id.runtime_id,
+    "Memo::accumulated (Accumulator)",
+  )
   let slot = self.rt.accumulator_slots[acc.slot_id.id]
   if slot.disposed {
     fail("Memo::accumulated called on disposed Accumulator")
@@ -299,6 +311,10 @@ pub fn[T, A] Memo::accumulated_result(
   self.rt.check_cross_runtime(
     self.rt.core.runtime_id,
     "Memo::accumulated_result",
+  )
+  self.rt.check_cross_runtime(
+    acc.slot_id.runtime_id,
+    "Memo::accumulated_result (Accumulator)",
   )
   let slot = self.rt.accumulator_slots[acc.slot_id.id]
   if slot.disposed {
