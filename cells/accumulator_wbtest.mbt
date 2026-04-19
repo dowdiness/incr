@@ -396,6 +396,62 @@ test "panic: Memo::accumulated_peek aborts on cross-runtime Accumulator" {
 }
 
 ///|
+/// Regression: compute that raises Failure during pull_verify's frame
+/// finalization must clear ancestor in_progress flags, otherwise subsequent
+/// reads report false CycleError.
+test "verify: raise-path from compute does not leak in_progress on ancestors" {
+  let rt = Runtime::new()
+  let should_fail = Signal::new(rt, false)
+  let inner : Memo[Int] = Memo::new(rt, () => {
+    if should_fail.get() {
+      fail("boom")
+    } else {
+      1
+    }
+  })
+  let outer : Memo[Int] = Memo::new(rt, () => inner.get() + 1)
+  // Prime dependency graph: outer depends on inner, both verified.
+  let _ = rt.ensure_computed_untracked(outer.id())
+  // Trigger failing recompute path — inner raises when verified through outer.
+  should_fail.set(true)
+  let caught = try {
+    let _ = rt.ensure_computed_untracked(outer.id())
+    false
+  } catch {
+    _ => true
+  }
+  inspect(caught, content="true")
+  // If the raise-path forgot to clear outer.in_progress, the next verify
+  // treats outer as mid-computation and returns a CycleError (which
+  // rt.read converts to abort). The test then panics on rt.read.
+  should_fail.set(false)
+  inspect(rt.read(outer), content="2")
+}
+
+///|
+/// Regression: non-root memo frames must evaluate their own accumulator_reads
+/// during pull_verify's finalize step. Without this, a middle memo whose
+/// output derives from accumulated(...) is marked verified without
+/// recomputation when its producer's push-set changed, and parents reading
+/// via ordinary get() see stale values.
+test "verify: non-root frame checks accumulator_reads" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 1)
+  let a : Accumulator[Int] = Accumulator::new(rt~)
+  let producer = Memo::new(rt, () => {
+    a.push(s.get())
+    1
+  })
+  let middle = Memo::new(rt, () => producer.accumulated(a)[0])
+  let top = Memo::new(rt, () => middle.get() * 10)
+  inspect(rt.read(top), content="10")
+  s.set(5)
+  // Without the non-root synthetic check, middle skips recompute even
+  // though producer's push-set changed, and top returns stale 10.
+  inspect(rt.read(top), content="50")
+}
+
+///|
 test "accumulator: ON_ABORT restores prior buffer on raised compute" {
   let rt = Runtime::new()
   let should_fail = Signal::new(rt, false)

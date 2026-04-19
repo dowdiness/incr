@@ -67,6 +67,47 @@ fn clear_verify_stack(rt : Runtime, stack : Array[PullVerifyFrame]) -> Unit {
 }
 
 ///|
+/// Returns `Ok(true)` if any synthetic accumulator dep of `memo` has been
+/// invalidated (target/slot disposed, or producer `push_revised_at` advanced
+/// past the stored read revision). Returns `Ok(false)` if all synthetic deps
+/// are still current. Returns `Err(e)` if a recursive `pull_verify` on a
+/// target surfaces a cycle.
+///
+/// Runs during per-frame finalize in `pull_verify`. The caller keeps
+/// `memo.in_progress = true` across this call so that a recursive verify of
+/// a target that transitively depends on `memo` is detected as a cycle.
+fn synthetic_accumulator_changed(
+  rt : Runtime,
+  memo : @pull.MemoData,
+) -> Result[Bool, CycleError] raise Failure {
+  if memo.accumulator_reads.is_empty() {
+    return Ok(false)
+  }
+  for entry in memo.accumulator_reads {
+    let slot_id = entry.0.0
+    let target_id = entry.0.1
+    let stored_rev = entry.1
+    if slot_id.id >= rt.accumulator_slots.length() ||
+      rt.accumulator_slots[slot_id.id].disposed {
+      return Ok(true)
+    }
+    if rt.is_cell_disposed(target_id) {
+      return Ok(true)
+    }
+    match rt.pull_verify(target_id) {
+      Ok(_) => ()
+      Err(e) => return Err(e)
+    }
+    let slot = rt.accumulator_slots[slot_id.id]
+    let current_rev = (slot.push_revised_at_for)(target_id)
+    if current_rev > stored_rev {
+      return Ok(true)
+    }
+  }
+  Ok(false)
+}
+
+///|
 fn Runtime::pull_verify(
   self : Runtime,
   cell_id : CellId,
@@ -190,13 +231,38 @@ fn Runtime::pull_verify(
               }
           }
         } else {
-          // All deps inspected; finalize this memo.
-          let frame_changed = stack[top].changed
+          // All deps inspected; finalize this memo. Check synthetic
+          // accumulator deps BEFORE clearing in_progress — recursive
+          // pull_verify calls on target memos must observe this frame
+          // as in-progress so that a cycle through an accumulator
+          // producer is detected.
+          let acc_result = synthetic_accumulator_changed(self, memo) catch {
+            e => {
+              clear_verify_stack(self, stack)
+              raise e
+            }
+          }
+          let acc_changed = match acc_result {
+            Ok(b) => b
+            Err(e) => {
+              clear_verify_stack(self, stack)
+              return Err(e)
+            }
+          }
+          let frame_changed = stack[top].changed || acc_changed
           let _ = stack.pop()
           // memo is still valid — MemoData is heap-allocated (has mut fields)
           memo.in_progress = false
           if frame_changed {
-            match (memo.compute)() {
+            let compute_result = (memo.compute)() catch {
+              e => {
+                // Raised Failure from compute: clear remaining frames so
+                // ancestors do not stay stuck as in-progress.
+                clear_verify_stack(self, stack)
+                raise e
+              }
+            }
+            match compute_result {
               Ok(_) => () // recompute done; may backdate memo.changed_at
               Err(e) => {
                 // Clean up remaining in_progress flags before propagating error.
@@ -215,53 +281,6 @@ fn Runtime::pull_verify(
               stack[parent_top].dep_cursor = parent_memo.dependencies.length()
             }
           }
-        }
-      }
-      // Synthetic accumulator dep check: after ordinary deps, inspect the
-      // root memo's accumulator_reads. For each entry, re-verify the target
-      // memo (may recompute it, updating push_revised_at), then check
-      // whether its push_revised_at has advanced past the stored read
-      // revision — or the target/slot is disposed. Any of these
-      // invalidates the root and forces a recompute.
-      let root_data = self.pull.memos[root_idx]
-      if !root_data.accumulator_reads.is_empty() {
-        let mut accumulator_dep_changed = false
-        for entry in root_data.accumulator_reads {
-          let slot_id = entry.0.0
-          let target_id = entry.0.1
-          let stored_rev = entry.1
-          // An out-of-range slot_id is treated as disposed (defensive —
-          // should not happen under monotonic allocation, but prevents a
-          // silent "unchanged" verdict if the invariant is ever violated).
-          if slot_id.id >= self.accumulator_slots.length() ||
-            self.accumulator_slots[slot_id.id].disposed {
-            accumulator_dep_changed = true
-            break
-          }
-          if self.is_cell_disposed(target_id) {
-            accumulator_dep_changed = true
-            break
-          }
-          // Force the target's own verification. If the target's ordinary
-          // deps advanced, this recomputes it — updating push_revised_at
-          // if the push-set actually changed.
-          match self.pull_verify(target_id) {
-            Ok(_) => ()
-            Err(e) => return Err(e)
-          }
-          let slot = self.accumulator_slots[slot_id.id]
-          let current_rev = (slot.push_revised_at_for)(target_id)
-          if current_rev > stored_rev {
-            accumulator_dep_changed = true
-            break
-          }
-        }
-        if accumulator_dep_changed {
-          match (root_data.compute)() {
-            Ok(_) => ()
-            Err(e) => return Err(e)
-          }
-          root_data.verified_at = self.core.revision.current_revision
         }
       }
       Ok(())
