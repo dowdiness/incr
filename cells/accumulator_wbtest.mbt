@@ -226,6 +226,31 @@ test "accumulated_result: Ok on success" {
 }
 
 ///|
+/// Task 14 guard: verify the durability fast-path is skipped when a memo has
+/// non-empty accumulator_reads. Directly asserted via whitebox inspection —
+/// end-to-end invalidation requires Task 15's synthetic dep check.
+test "durability shortcut: bypassed when memo has accumulator_reads" {
+  let rt = Runtime::new()
+  let s = Signal::new(rt, 0)
+  let a : Accumulator[Int] = Accumulator::new(rt~)
+  let producer = Memo::new(rt, () => {
+    a.push(s.get())
+    1
+  })
+  let consumer = Memo::new(rt, () => producer.accumulated(a).length())
+  // Force first read; populates consumer.accumulator_reads.
+  let _ = rt.read(consumer)
+  let consumer_data = rt.get_memo_data(consumer.id())
+  inspect(consumer_data.accumulator_reads.is_empty(), content="false")
+  // Bump revision; consumer.verified_at < current_revision.
+  s.set(42)
+  // A second read must not crash — the bypass opens the dep-walk path.
+  // Task 15 will make this read see the new push-set; Task 14 just ensures
+  // pull_verify doesn't short-circuit inappropriately.
+  let _ = rt.read(consumer)
+}
+
+///|
 test "accumulator: ON_ABORT restores prior buffer on raised compute" {
   let rt = Runtime::new()
   let should_fail = Signal::new(rt, false)

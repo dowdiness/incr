@@ -94,7 +94,11 @@ fn Runtime::pull_verify(
       }
       // Durability fast-path: if no input at root's durability level changed
       // since root was last verified, mark verified without walking deps.
-      if self.core.revision.durability_last_changed[root.meta.durability.index()] <=
+      // SKIP this optimization when root has accumulator_reads — synthetic
+      // deps can be invalidated by low-durability pushes that don't appear
+      // in the durability index.
+      if root.accumulator_reads.is_empty() &&
+        self.core.revision.durability_last_changed[root.meta.durability.index()] <=
         root.verified_at {
         root.verified_at = self.core.revision.current_revision
         return Ok(())
@@ -147,7 +151,10 @@ fn Runtime::pull_verify(
                   if dep.verified_at < self.core.revision.current_revision {
                     // Durability shortcut: if no input at dep's durability level
                     // changed since dep was last verified, skip traversal.
-                    if self.core.revision.durability_last_changed[dep.meta.durability.index()] <=
+                    // SKIP when dep has accumulator_reads (synthetic deps
+                    // need the walk to check push_revised_at).
+                    if dep.accumulator_reads.is_empty() &&
+                      self.core.revision.durability_last_changed[dep.meta.durability.index()] <=
                       dep.verified_at {
                       dep.verified_at = self.core.revision.current_revision
                       if dep.meta.changed_at > memo.verified_at {
