@@ -298,6 +298,93 @@ test "Scope::accumulator disposed with scope" {
 }
 
 ///|
+test "edge: ActiveQuery.accumulator_reads discarded on recompute failure" {
+  let rt = Runtime::new()
+  let should_fail = Signal::new(rt, false)
+  let acc_a : Accumulator[Int] = Accumulator::new(rt~)
+  let producer = Memo::new(rt, () => {
+    acc_a.push(1)
+    0
+  })
+  let _ = rt.ensure_computed_untracked(producer.id())
+  let consumer = Memo::new(rt, () => {
+    let _ = producer.accumulated(acc_a)
+    if should_fail.get() {
+      fail("abort")
+    }
+    1
+  })
+  let _ = rt.ensure_computed_untracked(consumer.id())
+  let consumer_data = rt.get_memo_data(consumer.id())
+  inspect(consumer_data.accumulator_reads.is_empty(), content="false")
+  // Trigger failing recompute (via ensure_computed_untracked so the Failure
+  // propagates to our catch — rt.read would convert raise → abort)
+  should_fail.set(true)
+  let _ = try {
+    let _ = rt.ensure_computed_untracked(consumer.id())
+    ()
+  } catch {
+    _ => ()
+  }
+  // consumer's accumulator_reads must NOT contain stale entries from the
+  // failed run — prior successful run's entry should remain (single entry).
+  let data_after = rt.get_memo_data(consumer.id())
+  inspect(data_after.accumulator_reads.length() <= 1, content="true")
+}
+
+///|
+test "edge: new-run-only slot cleared on ON_ABORT" {
+  let rt = Runtime::new()
+  let use_b = Signal::new(rt, false)
+  let acc_a : Accumulator[Int] = Accumulator::new(rt~)
+  let acc_b : Accumulator[Int] = Accumulator::new(rt~)
+  // First run: pushes only to A
+  let m = Memo::new(rt, () => {
+    acc_a.push(1)
+    if use_b.get() {
+      acc_b.push(99)
+      fail("boom after pushing to b")
+    }
+    0
+  })
+  let _ = rt.ensure_computed_untracked(m.id())
+  inspect(acc_b.per_memo.contains(m.id()), content="false")
+  // Trigger failing recompute that pushes to B before failing
+  use_b.set(true)
+  let _ = try {
+    let _ = rt.ensure_computed_untracked(m.id())
+    ()
+  } catch {
+    _ => ()
+  }
+  // acc_b was NOT in prev_contributions; ON_ABORT must clear its per_memo
+  // entry for m, otherwise a stale push_set survives.
+  inspect(acc_b.per_memo.contains(m.id()), content="false")
+  // acc_a was in prev; its buffer should be restored.
+  inspect(acc_a.per_memo.get(m.id()).unwrap().length(), content="1")
+}
+
+///|
+test "edge: first-push-to-fresh-memo correctly bumps push_revised_at" {
+  let rt = Runtime::new()
+  let trigger = Signal::new(rt, false)
+  let acc : Accumulator[Int] = Accumulator::new(rt~)
+  let m = Memo::new(rt, () => {
+    if trigger.get() {
+      acc.push(100)
+    }
+    0
+  })
+  let _ = rt.ensure_computed_untracked(m.id())
+  // No push yet → no push_revised_at entry
+  inspect(acc.push_revised_at.contains(m.id()), content="false")
+  trigger.set(true)
+  let _ = rt.ensure_computed_untracked(m.id())
+  // Now first push happened; push_revised_at must bump (empty != [100])
+  inspect(acc.push_revised_at.contains(m.id()), content="true")
+}
+
+///|
 test "accumulator: ON_ABORT restores prior buffer on raised compute" {
   let rt = Runtime::new()
   let should_fail = Signal::new(rt, false)
