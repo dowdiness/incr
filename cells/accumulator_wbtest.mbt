@@ -133,6 +133,52 @@ test "accumulator: different push-set across recomputes → push_revised_at bump
 }
 
 ///|
+test "accumulated_peek: returns pushed values in order" {
+  let rt = Runtime::new()
+  let a : Accumulator[Int] = Accumulator::new(rt~)
+  let m = Memo::new(rt, () => {
+    a.push(10)
+    a.push(20)
+    a.push(30)
+    0
+  })
+  let _ = rt.ensure_computed_untracked(m.id())
+  let vs = m.accumulated_peek(a)
+  inspect(vs.length(), content="3")
+  inspect(vs[0], content="10")
+  inspect(vs[2], content="30")
+}
+
+///|
+test "accumulated_peek: returns [] for disposed accumulator" {
+  let rt = Runtime::new()
+  let a : Accumulator[Int] = Accumulator::new(rt~)
+  let m = Memo::new(rt, () => {
+    a.push(1)
+    0
+  })
+  let _ = rt.ensure_computed_untracked(m.id())
+  a.dispose()
+  inspect(m.accumulated_peek(a), content="[]")
+}
+
+///|
+test "accumulated_peek: returns defensive copy" {
+  let rt = Runtime::new()
+  let a : Accumulator[Int] = Accumulator::new(rt~)
+  let m = Memo::new(rt, () => {
+    a.push(1)
+    0
+  })
+  let _ = rt.ensure_computed_untracked(m.id())
+  let vs = m.accumulated_peek(a)
+  vs.push(999) // mutating returned array
+  // Subsequent peek unaffected
+  let vs2 = m.accumulated_peek(a)
+  inspect(vs2.length(), content="1")
+}
+
+///|
 test "accumulator: ON_ABORT restores prior buffer on raised compute" {
   let rt = Runtime::new()
   let should_fail = Signal::new(rt, false)

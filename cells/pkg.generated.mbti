@@ -72,6 +72,7 @@ pub(all) struct Memo[T] {
 
   fn[T : Eq] new(Runtime, () -> T raise Failure, label? : String) -> Memo[T]
 } derive(@debug.Debug)
+pub fn[T, A] Memo::accumulated_peek(Self[T], Accumulator[A]) -> Array[A]
 pub fn[T] Memo::changed_at(Self[T]) -> @types.Revision
 pub fn[T] Memo::clear_on_change(Self[T]) -> Unit
 pub fn[T] Memo::dependencies(Self[T]) -> Array[@types.CellId]

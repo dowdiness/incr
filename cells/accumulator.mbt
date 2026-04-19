@@ -219,6 +219,32 @@ pub fn[T] Accumulator::push(
 }
 
 ///|
+/// Untracked read: returns the accumulated values pushed by `self` during
+/// its last successful compute. Does NOT force verification and does NOT
+/// record a dependency. Returns a defensive copy.
+///
+/// Permissive on disposal: returns `[]` if the accumulator or target memo
+/// is disposed. Matches Signal::peek semantics.
+pub fn[T, A] Memo::accumulated_peek(
+  self : Memo[T],
+  acc : Accumulator[A],
+) -> Array[A] {
+  // Cross-runtime check (abort)
+  self.rt.check_cross_runtime(self.rt.core.runtime_id, "Memo::accumulated_peek")
+  let slot = self.rt.accumulator_slots[acc.slot_id.id]
+  if slot.disposed {
+    return []
+  }
+  if self.rt.is_cell_disposed(self.cell_id) {
+    return []
+  }
+  match acc.per_memo.get(self.cell_id) {
+    Some(vs) => vs.copy()
+    None => []
+  }
+}
+
+///|
 /// Debug representation.
 pub fn[T] Accumulator::debug(self : Accumulator[T]) -> String {
   let lbl = match self.label {
