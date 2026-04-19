@@ -111,7 +111,7 @@ pub fn[T] Scope::signal(
 /// Creates a memo owned by this scope.
 pub fn[T : Eq] Scope::memo(
   self : Scope,
-  f : () -> T,
+  f : () -> T raise Failure,
   label? : String,
 ) -> Memo[T] {
   guard !self.disposed else { abort("Scope::memo called on a disposed scope") }
@@ -124,7 +124,7 @@ pub fn[T : Eq] Scope::memo(
 /// Creates a hybrid memo owned by this scope.
 pub fn[T : Eq] Scope::hybrid_memo(
   self : Scope,
-  f : () -> T,
+  f : () -> T raise Failure,
   label? : String,
 ) -> HybridMemo[T] {
   guard !self.disposed else {

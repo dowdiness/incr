@@ -70,7 +70,7 @@ fn clear_verify_stack(rt : Runtime, stack : Array[PullVerifyFrame]) -> Unit {
 fn Runtime::pull_verify(
   self : Runtime,
   cell_id : CellId,
-) -> Result[Unit, CycleError] {
+) -> Result[Unit, CycleError] raise Failure {
   if cell_id.runtime_id != self.core.runtime_id {
     abort("pull_verify: cell belongs to a different Runtime")
   }

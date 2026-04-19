@@ -21,13 +21,13 @@
 /// ```
 pub(all) struct MemoMap[K, V] {
   priv rt : Runtime
-  priv compute : (K) -> V
+  priv compute : (K) -> V raise Failure
   priv label : String?
   priv entries : @hashmap.HashMap[K, Memo[V]]
 
   fn[K, V] new(
     rt : Runtime,
-    compute : (K) -> V,
+    compute : (K) -> V raise Failure,
     label? : String,
   ) -> MemoMap[K, V]
 }
@@ -38,7 +38,7 @@ pub(all) struct MemoMap[K, V] {
 /// Entries are created lazily on first `get`/`get_result` per key.
 pub fn[K, V] MemoMap::new(
   rt : Runtime,
-  compute : (K) -> V,
+  compute : (K) -> V raise Failure,
   label? : String,
 ) -> MemoMap[K, V] {
   { rt, compute, label, entries: @hashmap.new() }
@@ -85,7 +85,9 @@ pub fn[K : Hash + Eq, V : Eq] MemoMap::get_result(
   self : MemoMap[K, V],
   key : K,
 ) -> Result[V, CycleError] {
-  self.get_or_create_memo(key).get_result_inner()
+  self.get_or_create_memo(key).get_result_inner() catch {
+    e => abort("MemoMap compute raised: " + e.to_string())
+  }
 }
 
 ///|

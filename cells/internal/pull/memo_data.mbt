@@ -6,7 +6,7 @@
 /// memo and returns whether the value changed.
 pub(all) struct MemoData {
   meta : CellMeta
-  compute : () -> Result[Bool, CycleError]
+  compute : () -> Result[Bool, CycleError] raise Failure
   mut verified_at : Revision
   mut dependencies : Array[CellId]
   mut in_progress : Bool

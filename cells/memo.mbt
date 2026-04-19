@@ -29,11 +29,15 @@ pub(all) struct Memo[T] {
   priv label : String?
   priv rt : Runtime
   priv cell_id : CellId
-  priv compute : () -> T
+  priv compute : () -> T raise Failure
   priv backdate_eq : (T, T) -> Bool // captured at construction; replaces hardcoded a==b
   priv mut value : T?
 
-  fn[T : Eq] new(rt : Runtime, compute : () -> T, label? : String) -> Memo[T]
+  fn[T : Eq] new(
+    rt : Runtime,
+    compute : () -> T raise Failure,
+    label? : String,
+  ) -> Memo[T]
 } derive(Debug(ignore=[Runtime, Fn, CellId]))
 
 ///|
@@ -43,7 +47,7 @@ pub(all) struct Memo[T] {
 // a standalone Runtime method.
 fn[T] Memo::_create(
   rt : Runtime,
-  compute : () -> T,
+  compute : () -> T raise Failure,
   label? : String,
   backdate_eq : (T, T) -> Bool,
 ) -> Memo[T] {
@@ -106,7 +110,7 @@ fn[T] Memo::_create(
 /// - `Memo::new_no_backdate` — no constraint on `T`; never backdates
 pub fn[T : Eq] Memo::new(
   rt : Runtime,
-  compute : () -> T,
+  compute : () -> T raise Failure,
   label? : String,
 ) -> Memo[T] {
   Memo::_create(rt, compute, label?, (a, b) => a == b)
@@ -118,7 +122,7 @@ pub fn[T : Eq] Memo::new(
 /// The backdate check calls `BackdateEq::backdate_equal`, not structural `Eq`.
 pub fn[T : BackdateEq] Memo::new_memo(
   rt : Runtime,
-  compute : () -> T,
+  compute : () -> T raise Failure,
   label? : String,
 ) -> Memo[T] {
   Memo::_create(rt, compute, label?, (a, b) => a.backdate_equal(b))
@@ -131,7 +135,7 @@ pub fn[T : BackdateEq] Memo::new_memo(
 /// No trait constraint on `T`.
 pub fn[T] Memo::new_no_backdate(
   rt : Runtime,
-  compute : () -> T,
+  compute : () -> T raise Failure,
   label? : String,
 ) -> Memo[T] {
   Memo::_create(rt, compute, label?, (_, _) => false)
@@ -194,13 +198,17 @@ pub fn[T] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
     abort("Memo::get called on a disposed memo")
   }
   self.rt.check_cross_runtime(self.rt.core.runtime_id, "Memo")
-  self.get_result_inner()
+  self.get_result_inner() catch {
+    e => abort("Memo compute raised: " + e.to_string())
+  }
 }
 
 ///|
 /// Internal: the core verification logic, callable from both get_result()
 /// and get_untracked(). Does NOT check tracking context.
-fn[T] Memo::get_result_inner(self : Memo[T]) -> Result[T, CycleError] {
+fn[T] Memo::get_result_inner(
+  self : Memo[T],
+) -> Result[T, CycleError] raise Failure {
   guard !self.rt.is_cell_disposed(self.cell_id) else {
     abort("Memo::get called on a disposed memo")
   }
@@ -275,7 +283,10 @@ fn[T] Memo::get_result_inner(self : Memo[T]) -> Result[T, CycleError] {
 /// Package-private untracked read. Bypasses the tracked-context guard.
 /// Used by Observer to read from outside the dependency graph.
 fn[T] Memo::get_untracked(self : Memo[T]) -> T {
-  match self.get_result_inner() {
+  let r = self.get_result_inner() catch {
+    e => abort("Memo compute raised: " + e.to_string())
+  }
+  match r {
     Ok(value) => value
     Err(e) => abort(e.format_path())
   }
@@ -308,7 +319,9 @@ pub fn[T] Memo::get_or_else(self : Memo[T], fallback : (CycleError) -> T) -> T {
 /// Force recomputation: delegates to shared memo_force_recompute helper.
 ///
 /// Returns `Ok(new_value)` on success, or `Err(CycleError)` if a cycle is detected.
-fn[T] Memo::force_recompute(self : Memo[T]) -> Result[T, CycleError] {
+fn[T] Memo::force_recompute(
+  self : Memo[T],
+) -> Result[T, CycleError] raise Failure {
   match
     self.rt.memo_force_recompute(
       self.cell_id,
@@ -330,7 +343,9 @@ fn[T] Memo::force_recompute(self : Memo[T]) -> Result[T, CycleError] {
 ///
 /// Returns `Ok(true)` if the value changed, `Ok(false)` if unchanged (backdated),
 /// or `Err(CycleError)` if a cycle is detected.
-fn[T] Memo::recompute_inner(self : Memo[T]) -> Result[Bool, CycleError] {
+fn[T] Memo::recompute_inner(
+  self : Memo[T],
+) -> Result[Bool, CycleError] raise Failure {
   let cell = self.rt.get_memo_data(self.cell_id)
   let old_changed_at = cell.meta.changed_at
   match self.force_recompute() {
@@ -384,10 +399,10 @@ fn compute_durability(rt : Runtime, deps : Array[CellId]) -> Durability {
 fn[T] Runtime::memo_force_recompute(
   self : Runtime,
   cell_id : CellId,
-  compute_fn : () -> T,
+  compute_fn : () -> T raise Failure,
   old_value : T?,
   eq_fn : (T, T) -> Bool,
-) -> Result[T, CycleError] {
+) -> Result[T, CycleError] raise Failure {
   let cell = self.get_memo_data(cell_id)
   if cell.in_progress {
     return Err(

@@ -17,11 +17,11 @@ pub fn[Db : Database] batch(Db, () -> Unit raise?) -> Unit raise?
 
 pub fn[Db : Database] batch_result(Db, () -> Unit raise?) -> Result[Unit, Error]
 
-pub fn[Db : Database, T : Eq] create_hybrid_memo(Db, () -> T, label? : String) -> @cells.HybridMemo[T]
+pub fn[Db : Database, T : Eq] create_hybrid_memo(Db, () -> T raise Failure, label? : String) -> @cells.HybridMemo[T]
 
-pub fn[Db : Database, T : Eq] create_memo(Db, () -> T, label? : String) -> @cells.Memo[T]
+pub fn[Db : Database, T : Eq] create_memo(Db, () -> T raise Failure, label? : String) -> @cells.Memo[T]
 
-pub fn[Db : Database, K, V] create_memo_map(Db, (K) -> V, label? : String) -> @cells.MemoMap[K, V]
+pub fn[Db : Database, K, V] create_memo_map(Db, (K) -> V raise Failure, label? : String) -> @cells.MemoMap[K, V]
 
 pub fn[Db : Database] create_scope(Db) -> @cells.Scope
 
