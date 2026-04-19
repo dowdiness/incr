@@ -198,7 +198,15 @@ as its dependencies change; `ReactiveMap` reacts.
 
 ## Key design decisions
 
-### Tracked per-key read requires a `MemoMap` addition
+### Tracked per-key read requires a `MemoMap` addition [SUPERSEDED]
+
+> **[SUPERSEDED]** The premise here ("`MemoMap::get` is deliberately
+> untracked") is wrong in the sense that matters for per-key
+> isolation — `MemoMap::get` DOES record the per-key memo as a
+> dependency when called inside a tracked context. The addition that
+> actually shipped (`MemoMap::get_tracked`, PR #41) is a misuse
+> guardrail, not a new tracking capability. See "Why v1's framing was
+> wrong" at the top of this doc.
 
 `MemoMap::get` is deliberately untracked (it's called from test and
 lifecycle code). `ReactiveMap::get` needs a *tracked* read path. Add
@@ -302,6 +310,12 @@ fn lookup_type(name : DefName) -> Type {
 A downstream memo that only reads `lookup_type("foo")` is invalidated
 only when `foo`'s def changes, not when `bar`'s def changes.
 
+> **[SUPERSEDED — Blocker 2]** `resolved.get(name)` routes through the
+> tracked-only read path, so `lookup_type` as written aborts at top
+> level. It is callable only from inside another memo's compute. See
+> Blocker 2 above for resolution options (explicit `get_untracked`
+> variant, or document tracked-only and restructure the example).
+
 ## Semantics / invariants
 
 1. **Isolation.** A consumer of `rm.get(k1)` is not invalidated by
@@ -353,6 +367,9 @@ only when `foo`'s def changes, not when `bar`'s def changes.
   `k`'s memo; subsequent `get(k)` auto-creates a fresh entry.
 - Cross-key + sweep: if `compute(k1)` depends on `get(k2)` and `k2`
   is swept, `k1`'s next verify recomputes. No dangling reads.
+  **[SUPERSEDED — Blocker 1]** `k1`'s next verify aborts on the
+  disposed dep rather than recomputing. This test as written would
+  fail; see Blocker 1 above.
 - Backdating: upstream keys memo emits the same set on a
   non-structural edit; `keys()` consumers don't re-run.
 - Scope: `Scope::reactive_map` constructor; scope dispose sweeps all
