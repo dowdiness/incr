@@ -289,6 +289,43 @@ pub fn[T, A] Memo::accumulated(
 }
 
 ///|
+/// Result-style variant of `accumulated` that converts `CycleError` to
+/// `Err(...)` while still raising `Failure` on disposed accumulator /
+/// target (those are defects, not recoverable signals).
+pub fn[T, A] Memo::accumulated_result(
+  self : Memo[T],
+  acc : Accumulator[A],
+) -> Result[Array[A], CycleError] raise Failure {
+  self.rt.check_cross_runtime(
+    self.rt.core.runtime_id,
+    "Memo::accumulated_result",
+  )
+  let slot = self.rt.accumulator_slots[acc.slot_id.id]
+  if slot.disposed {
+    fail("Memo::accumulated_result called on disposed Accumulator")
+  }
+  if self.rt.is_cell_disposed(self.cell_id) {
+    fail("Memo::accumulated_result called on disposed target memo")
+  }
+  match self.rt.ensure_computed_untracked(self.cell_id) {
+    Err(e) => Err(e)
+    Ok(_) => {
+      let current_rev = (slot.push_revised_at_for)(self.cell_id)
+      match self.rt.top_active_query() {
+        Some(frame) =>
+          frame.accumulator_reads.set((acc.slot_id, self.cell_id), current_rev)
+        None => ()
+      }
+      let vs = match acc.per_memo.get(self.cell_id) {
+        Some(arr) => arr.copy()
+        None => []
+      }
+      Ok(vs)
+    }
+  }
+}
+
+///|
 /// Debug representation.
 pub fn[T] Accumulator::debug(self : Accumulator[T]) -> String {
   let lbl = match self.label {

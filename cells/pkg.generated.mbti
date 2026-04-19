@@ -74,6 +74,7 @@ pub(all) struct Memo[T] {
 } derive(@debug.Debug)
 pub fn[T, A] Memo::accumulated(Self[T], Accumulator[A]) -> Array[A] raise Failure
 pub fn[T, A] Memo::accumulated_peek(Self[T], Accumulator[A]) -> Array[A]
+pub fn[T, A] Memo::accumulated_result(Self[T], Accumulator[A]) -> Result[Array[A], @types.CycleError] raise Failure
 pub fn[T] Memo::changed_at(Self[T]) -> @types.Revision
 pub fn[T] Memo::clear_on_change(Self[T]) -> Unit
 pub fn[T] Memo::dependencies(Self[T]) -> Array[@types.CellId]

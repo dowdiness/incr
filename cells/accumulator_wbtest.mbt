@@ -211,6 +211,21 @@ test "accumulated: raises Failure on disposed accumulator" {
 }
 
 ///|
+test "accumulated_result: Ok on success" {
+  let rt = Runtime::new()
+  let a : Accumulator[Int] = Accumulator::new(rt~)
+  let p = Memo::new(rt, () => {
+    a.push(5)
+    0
+  })
+  let r = p.accumulated_result(a)
+  match r {
+    Ok(vs) => inspect(vs.length(), content="1")
+    Err(_) => fail("expected Ok")
+  }
+}
+
+///|
 test "accumulator: ON_ABORT restores prior buffer on raised compute" {
   let rt = Runtime::new()
   let should_fail = Signal::new(rt, false)
