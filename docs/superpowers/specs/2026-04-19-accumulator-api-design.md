@@ -10,51 +10,23 @@
 - Boundary 3 type-checker merged (loom#81 + incr#34) — provides the concrete driver
 - PR #41 merged (`MemoMap::get_tracked`) — establishes misuse-guardrail pattern for MemoMap
 - Runtime Modularization Stage 5 merged — stable internal package boundaries
-- **Empirical verification of `raise?` applicability to struct-stored closures** — see [§Prerequisite Verification](#prerequisite-verification). If unsupported, spec falls back to the abort-based variant documented in that section.
+- Error-model verification complete — see [§Prerequisite Verification: resolved](#prerequisite-verification-resolved).
 
 **Supersedes:** nothing. This is the first accumulator design in `incr/`.
 
 **Open design questions resolved:** All four questions in `docs/todo.md:220-226` are answered in [§Open Questions Resolved](#open-questions-resolved).
 
-## Prerequisite Verification
+## Prerequisite Verification: resolved
 
-MoonBit's `raise?` polymorphism is well-documented for function **parameters** (Error Polymorphism section of the language docs), but its applicability to function values **stored in struct fields** needs empirical confirmation before this spec can commit to the `fail`-based error model.
+Empirical testing (2026-04-19, incr working tree, `moon test`) on the error-model shape:
 
-**Minimal test:**
+- **`raise?` polymorphism in struct fields:** **NOT supported.** `struct Cell[T] { compute : () -> T raise? }` fails to compile with error `[4168]: Error polymorphism is not supported here.`
+- **Concrete `raise Failure` in struct fields:** **supported.** `struct Cell[T] { compute : () -> T raise Failure }` compiles; non-raising closures (`() => 42`) **auto-promote** to the raising type without caller annotation.
+- **Implication for this spec:** adopt the concrete-error-type path. Memo compute closures become `() -> T raise Failure`; existing non-raising `Memo::new(() => ...)` call sites compile unchanged. The B2 (pure-abort) fallback discussed during design is **not needed** — auto-promotion preserves the backwards-compat goal that B1 was designed around.
 
-```moonbit
-struct Cell[T] {
-  compute : () -> T raise?
-}
+**Record of record_dependency reuse:** static review of `cells/` confirms that `record_dependency` is called only by handle `.get()` methods (`signal.mbt:96`, `memo.mbt:238`/`:247`/`:255`, `datalog_relation.mbt:128`, `hybrid_memo.mbt:104`/`:112`/`:117`, `push_reactive.mbt:98`) and by `Memo::get_result_inner`. Neither `force_recompute` nor `pull_verify` invokes it directly. `Runtime::ensure_computed_untracked` can therefore reuse those routines without leaking an ordinary dep onto the caller's frame.
 
-fn[T] Cell::new(f : () -> T raise?) -> Cell[T] {
-  { compute: f }
-}
-
-fn[T] Cell::run(self : Cell[T]) -> T raise? {
-  (self.compute)()
-}
-
-test "non-raising closure" {
-  let c = Cell::new(() => 42)   // does it compile?
-  inspect(c.run(), content="42")
-}
-
-test "raising closure" {
-  let c = Cell::new(() => fail("bad"))
-  match (try? c.run()) {
-    Ok(_) => fail("expected error")
-    Err(_) => ()
-  }
-}
-```
-
-**Branch behavior:**
-
-- **B1 (raise? works):** proceed with the `fail`-based API documented in [§API Surface](#api-surface) and [§Error Handling](#error-handling). Memo compute closures get a `raise?` addition polymorphically — non-raising callers unaffected.
-- **B2 (raise? doesn't work for fields):** fall back to the abort-based variant — signatures change to non-raising, misuse paths use `abort` (not `fail`). Log as tech debt in `docs/todo.md`, pending a future systematic migration to raising memo closures. This matches existing incr patterns (`check_cross_runtime` already aborts).
-
-This verification is the first task in the implementation plan.
+This spec now commits to a single linear error model; all references to B1/B2 branches have been removed in this revision.
 
 ---
 
@@ -122,34 +94,25 @@ Construction syntax: `Accumulator(rt=rt, label="diags")` works via custom constr
 
 ### Push (handle method)
 
-**B1 (raise? path — preferred):**
 ```moonbit
 pub fn[T] Accumulator::push(self : Accumulator[T], value : T) -> Unit raise Failure
 // raises Failure via fail() on: outside tracked frame, non-Memo frame (MVP), disposed accumulator
 // aborts (via existing check_cross_runtime helper) on: cross-runtime
-// Callers inside a memo compute closure must accept raise? on that closure
-// (backwards-compatible — non-raising closures see non-raising push via inference)
-```
-
-**B2 (abort fallback — only if raise? unsupported for struct fields):**
-```moonbit
-pub fn[T] Accumulator::push(self : Accumulator[T], value : T) -> Unit
-// aborts on all misuse (outside tracked frame, non-Memo, disposed, cross-runtime)
+// Memo compute closures are typed `() -> T raise Failure`; non-raising user closures
+// auto-promote (verified empirically in §Prerequisite Verification: resolved).
 ```
 
 ### Read (Memo methods)
 
-**B1:**
 ```moonbit
 // Tracked read: records synthetic dep on current compute frame
 pub fn[T, A] Memo::accumulated(
   self : Memo[T],
   acc : Accumulator[A],
-) -> Array[A] raise CycleError
-// raises CycleError if target verification detects a cycle
-// raises Failure via fail() on: disposed accumulator OR disposed target
-//   (matches Signal::get / Memo::get convention: tracked reads of disposed
-//    cells are defects, surfaced via the raise channel)
+) -> Array[A] raise
+// Unified raise channel: may raise CycleError (target in cycle) or Failure
+// (disposed accumulator / disposed target — matches Signal::get / Memo::get
+// convention: tracked reads of disposed cells are defects).
 
 // Untracked read: no synthetic dep; for outside-runtime consumers (UI, tests)
 pub fn[T, A] Memo::accumulated_peek(
@@ -166,13 +129,15 @@ pub fn[T, A] Memo::accumulated_result(
   self : Memo[T],
   acc : Accumulator[A],
 ) -> Result[Array[A], CycleError]
+// Disposed-target / disposed-accumulator still surface as raise Failure
+// (not collapsed into the Result). Result-style is strictly for cycle handling.
 ```
 
-**B2 (abort fallback):** same signatures except `accumulated` returns `Array[A]` without `raise CycleError` and aborts instead; `accumulated_result` is unchanged.
+**Note on `raise` without an explicit error type:** the tracked read may raise **either** `CycleError` or `Failure`. MoonBit widens to the generic `Error` type at that point, losing exhaustiveness matching for callers who want to handle both. That's an accepted trade-off: most callers either propagate (fine either way) or care only about cycles (use `accumulated_result`). If a future caller needs exhaustive matching across both, we add a dedicated sum error type.
 
-### Consequences for `Memo::new` (B1 only)
+### Consequences for `Memo::new`
 
-If B1 applies, `Memo::new`'s closure parameter is widened from `() -> T` to `() -> T raise?`. The MoonBit `raise?` polymorphism rule states that non-raising closures should compile unchanged under this widening; the prerequisite test validates this empirically for struct-stored closures before we commit to B1. The same widening applies to `Scope::memo` and `create_memo`. `memo_force_recompute` wraps closure invocation in `try/catch` to run the ON_ABORT phase on any raised error (including user `fail`s from accumulator misuse), then re-raises. This is documented in [§Data Flow](#data-flow).
+`Memo::new`'s closure parameter widens from `() -> T` to `() -> T raise Failure`. Empirical verification (see §Prerequisite Verification: resolved) confirms non-raising closures like `() => 42` auto-promote to this type without caller annotation changes. The same widening applies to `Scope::memo`, `create_memo`, and `MemoMap::new`'s compute parameter. `memo_force_recompute` wraps closure invocation in `try/catch` to run the ON_ABORT phase on any raised `Failure` (including accumulator misuse surfaced via `fail`), then re-raises. Existing `Memo::new(() => ...)`, `Scope::memo(fn() { ... })`, etc. call sites compile unchanged. This is documented in [§Data Flow](#data-flow).
 
 ### Introspection
 
@@ -274,21 +239,18 @@ MemoData additions (internal/pull/memo_data.mbt — SoA, NOT on Memo[T] handle)
 
 ## Data Flow
 
-### Push flow — `acc.push(v)` (B1 path; B2 swaps `fail` → `abort`)
+### Push flow — `acc.push(v)`
 
 ```text
 1. Guard: rt.tracking_stack empty
-      → fail("Accumulator::push called outside a tracked compute")   [B1]
-      → abort(...)                                                    [B2]
+      → fail("Accumulator::push called outside a tracked compute")
 2. Cross-runtime check via Runtime::check_cross_runtime("Accumulator")
       → aborts on runtime_id mismatch (existing pattern — unchanged)
 3. Guard: slot.disposed
-      → fail("push to disposed Accumulator")                         [B1]
-      → abort(...)                                                    [B2]
+      → fail("push to disposed Accumulator")
 4. M := top frame's cell_id
 5. Guard: top frame cell kind ≠ Memo
-      → fail("Accumulator::push only valid inside Memo compute")     [B1]
-      → abort(...)                                                    [B2]
+      → fail("Accumulator::push only valid inside Memo compute")
 6. slot.per_memo[M].push(v)
 7. frame.touched_accumulator_slots.insert(slot_id)   -- staged on ActiveQuery
 ```
@@ -342,11 +304,9 @@ The `finalize_memo` closure internally reads `prev_push_sets.get(M).or([])` and 
 ```text
 1. Cross-runtime check on acc (existing helper, aborts on mismatch)
 2. If slot.disposed
-      → fail("Memo::accumulated called on disposed Accumulator")   [B1]
-      → abort(...)                                                  [B2]
+      → fail("Memo::accumulated called on disposed Accumulator")
 3. If rt.is_cell_disposed(M.cell_id)
-      → fail("Memo::accumulated called on disposed target memo")   [B1]
-      → abort(...)                                                  [B2]
+      → fail("Memo::accumulated called on disposed target memo")
 
 4. ensure_computed_untracked(M.cell_id)
    -- NEW internal helper (see below). Guarantees M has been computed at
@@ -373,7 +333,7 @@ which is the designated outside-runtime entry point.
 fn Runtime::ensure_computed_untracked(
   self : Runtime,
   cell_id : CellId,
-) -> Unit raise CycleError   // B1; B2 aborts on cycle
+) -> Unit raise CycleError
 ```
 
 **Semantics:**
@@ -476,8 +436,6 @@ Pushes during `rt.batch(...)` use post-commit revision (same as signal commits).
 
 ## Error Handling
 
-### B1 path (raise? applicable — preferred)
-
 | Condition | Fault class | Mechanism |
 |---|---|---|
 | Push outside tracked frame | Defect (user misuse) | `fail("Accumulator::push called outside a tracked compute")` → `raise Failure` |
@@ -490,22 +448,7 @@ Pushes during `rt.batch(...)` use post-commit revision (same as signal commits).
 | `accumulated_peek` on disposed target memo | Not an error | Return `[]` (permissive) |
 | Cycle in target's verify | Expected failure | Raises existing `CycleError` |
 
-**Abort discipline (B1):** no new abort sites. Cross-runtime reuses `Runtime::check_cross_runtime` which aborts (pre-existing). Accumulator-specific caller misuse uses `fail` → `raise Failure`, catchable at FFI boundaries via `try? { ... }` → `Err(Failure(msg))`.
-
-### B2 path (raise? unsupported for struct fields — fallback)
-
-All `fail` calls become `abort` calls. All raise-typed signatures drop the raise annotation. Behavior is:
-
-| Condition | Mechanism |
-|---|---|
-| Push outside tracked frame / non-Memo / disposed | `abort(...)` |
-| `accumulated` (tracked) on disposed accumulator / target | `abort(...)` |
-| `accumulated_peek` on disposed accumulator / target | Return `[]` (permissive — unchanged from B1) |
-| Cross-runtime | Existing `check_cross_runtime` abort |
-| Cycle in target's verify | `abort(...)` (via existing `pull_verify` abort on cycle) |
-| `accumulated_result` remains the catch-all for cycle handling | `Result[Array[A], CycleError]` constructed manually via `try?` around the abort path (pattern matches existing incr idiom) |
-
-B2 is strictly weaker (no FFI catchability), consistent with existing incr tech debt. Plan phase logs a follow-up task to migrate all abort-based misuse sites to `fail`-based once memo closures adopt `raise?`.
+**Abort discipline:** no new abort sites. Cross-runtime reuses `Runtime::check_cross_runtime` which aborts (pre-existing tech debt, not introduced by this spec). Accumulator-specific caller misuse uses `fail` → `raise Failure`, catchable at FFI boundaries via `try? { ... }` → `Err(Failure(msg))`.
 
 **Value-semantic T requirement (documented, not enforced):**
 
@@ -657,7 +600,7 @@ From `docs/todo.md:220-226`:
 | `cells/accumulator.mbt` | ~200 | handle type + methods + typed closures |
 | `cells/runtime.mbt` additions | ~40 | `ensure_computed_untracked` helper; `accumulator_slots` + `accumulator_contributions` fields + accessor methods |
 | `cells/internal/pull/memo_data.mbt` | ~10 | `accumulator_reads` field |
-| `cells/memo.mbt` integration | ~80 | BEFORE_CLOSURE, AFTER_CLOSURE, ON_ABORT phases around compute; closure type migration to `raise?` under B1 |
+| `cells/memo.mbt` integration | ~80 | BEFORE_CLOSURE, AFTER_CLOSURE, ON_ABORT phases around compute; closure type migration to `raise Failure` |
 | `cells/verify.mbt` integration | ~30 | bypass both durability shortcuts + synthetic dep check |
 | `cells/tracking.mbt` additions | ~20 | `ActiveQuery.accumulator_reads` + `touched_accumulator_slots` fields |
 | `cells/pull_memo_lifecycle.mbt` addition | ~15 | accumulator cleanup in `dispose_cell` for `MemoData` |
@@ -668,6 +611,6 @@ From `docs/todo.md:220-226`:
 | Driver migration in `examples/lambda/` | ~100 | field removal, push call additions, `def_name` threading, test migration |
 | **Total** | **~1140** | implementation + tests + driver |
 
-Breakdown includes both implementation and tests. The memo closure type migration to `raise?` (B1 path) adds ~20-40 lines of polymorphic signature changes but no semantic changes to non-raising callers. If B2 fallback applies, the raise-related churn is ~15-20 lines smaller.
+Breakdown includes both implementation and tests. The memo closure type migration from `() -> T` to `() -> T raise Failure` adds ~20-40 lines of signature changes; empirical verification confirms non-raising callers auto-promote, so no caller-site churn.
 
-**Public API compatibility:** no breaking changes to the incr public API surface — existing non-raising memo closures compile unchanged under B1. **Driver-side:** the lambda type-checker migration is a breaking change to that package's public API (`TypeResult.diagnostics` field removal; aggregate-collection semantics shift from "always all defs" to "read via accumulator"). This is a coordinated change — lambda is the only consumer and ships in the same PR series.
+**Public API compatibility:** no breaking changes to the incr public API surface — existing non-raising memo closures compile unchanged (empirically verified; see §Prerequisite Verification: resolved). **Driver-side:** the lambda type-checker migration is a breaking change to that package's public API (`TypeResult.diagnostics` field removal; aggregate-collection semantics shift from "always all defs" to "read via accumulator"). This is a coordinated change — lambda is the only consumer and ships in the same PR series.
