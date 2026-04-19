@@ -464,7 +464,10 @@ fn[T] Runtime::memo_force_recompute(
         }
       }
       // ON_ABORT.2: for slots touched during this run but NOT in prev,
-      // clear the new-run-only buffer to avoid leaking partial pushes.
+      // clear only the in-flight per_memo buffer. Do NOT use dispose_memo
+      // here — it would also erase push_revised_at[M], rolling back a
+      // prior successful run's revision marker and causing consumers
+      // with a pre-existing stored read to miss invalidation.
       for slot_id in touched {
         // Contains-check: skip slots that were already restored.
         let mut in_prev = false
@@ -479,7 +482,7 @@ fn[T] Runtime::memo_force_recompute(
         }
         let slot = self.accumulator_slots[slot_id.id]
         if !slot.disposed {
-          (slot.dispose_memo)(cell_id)
+          (slot.clear_new_run_buffer)(cell_id)
         }
       }
       // Pop frame (discards staged deps + accumulator_reads).

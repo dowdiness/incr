@@ -480,3 +480,60 @@ test "accumulator: ON_ABORT restores prior buffer on raised compute" {
   inspect(restored_buf.length(), content="1")
   inspect(restored_buf[0], content="1")
 }
+
+///|
+/// Regression: ON_ABORT cleanup for new-run-only slots (slots touched in
+/// the aborted run but not in prev_contributions) must not roll back
+/// push_revised_at for the producer. Prior code called dispose_memo,
+/// which wiped push_revised_at, causing consumers with a pre-existing
+/// stored revision to miss invalidation and return stale cached values
+/// after abort + retry.
+test "verify: aborted new-slot push preserves prior push_revised_at" {
+  let rt = Runtime::new()
+  let sig = Signal::new(rt, 1)
+  let acc : Accumulator[Int] = Accumulator::new(rt~)
+  // Producer behavior:
+  //   sig=1  → push [1]
+  //   sig=0  → push nothing
+  //   sig=99 → push [99], then fail
+  let producer = Memo::new_no_backdate(rt, () => {
+    let v = sig.get()
+    if v > 0 && v != 99 {
+      acc.push(v)
+    }
+    if v == 99 {
+      acc.push(99)
+      fail("producer aborts on sig=99")
+    }
+    0
+  })
+  let consumer = Memo::new_no_backdate(rt, () => {
+    producer.accumulated(acc).length()
+  })
+  // R0: sig=1 → producer pushes [1]; consumer reads len=1; stored=R0.
+  inspect(rt.read(consumer), content="1")
+  // R1: sig=0 → producer recomputes directly (pushes nothing;
+  // push_revised_at bumps, per_memo entry is removed). Consumer does NOT
+  // read here, so its stored revision stays at R0.
+  sig.set(0)
+  match rt.ensure_computed_untracked(producer.id()) {
+    Ok(_) => ()
+    Err(e) => fail("R1 unexpected cycle: " + e.format_path())
+  }
+  // R2: sig=99 → producer aborts while pushing to slot that is NOT in
+  // prev_contributions (cleared during R1's empty finalize). Prior code
+  // called dispose_memo, which wiped push_revised_at.
+  sig.set(99)
+  let r2_aborted = try {
+    let _ = rt.ensure_computed_untracked(producer.id())
+    false
+  } catch {
+    _ => true
+  }
+  inspect(r2_aborted, content="true")
+  // R3: sig=0 (same as R1). Producer recomputes without bumping
+  // push_revised_at (prev=[], current=[], same). Consumer must see the
+  // updated state via the preserved R1 marker — not a stale 1 from R0.
+  sig.set(0)
+  inspect(rt.read(consumer), content="0")
+}

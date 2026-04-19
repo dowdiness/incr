@@ -88,6 +88,14 @@ pub fn[T : Eq] Accumulator::new(
     push_revised_at.remove(m_id)
   }
 
+  // clear_new_run_buffer: ON_ABORT cleanup for a slot touched in this run
+  // that was NOT in prev_contributions. Drops the in-flight pushes but
+  // keeps push_revised_at and prev_push_sets intact so a prior run's
+  // revision marker survives the abort. prev_push_sets has no entry for
+  // m_id in this case (snapshot_and_clear wasn't called this run), so
+  // not touching it is correct.
+  let clear_new_run_buffer = (m_id : CellId) => per_memo.remove(m_id)
+
   let push_revised_at_for = (m_id : CellId) => {
     match push_revised_at.get(m_id) {
       Some(r) => r
@@ -107,6 +115,7 @@ pub fn[T : Eq] Accumulator::new(
     restore_buffer,
     finalize_memo,
     dispose_memo,
+    clear_new_run_buffer,
     push_revised_at_for,
     has_buffer_for,
   }

@@ -161,6 +161,12 @@ priv struct SlotMeta {
   restore_buffer : (@incr_types.CellId) -> Unit
   finalize_memo : (@incr_types.CellId, @incr_types.Revision) -> Unit
   dispose_memo : (@incr_types.CellId) -> Unit
+  // ON_ABORT cleanup for slots this aborted run touched but that were
+  // NOT in prev_contributions at BEFORE_CLOSURE. Clears per_memo[M]
+  // (the in-flight pushes) while preserving push_revised_at[M], so a
+  // prior run's revision marker is not rolled back. Without this,
+  // consumers with a pre-existing stored read would miss invalidation.
+  clear_new_run_buffer : (@incr_types.CellId) -> Unit
   // Verify-side typed data access:
   push_revised_at_for : (@incr_types.CellId) -> @incr_types.Revision
   // True iff the slot still has a non-empty per_memo[M] buffer. Used in
