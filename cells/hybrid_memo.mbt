@@ -51,6 +51,7 @@ pub fn[T : Eq] HybridMemo::new(
     on_change: None,
     is_hybrid: true,
     accumulator_reads: @hashmap.new(),
+    has_been_computed: false,
   }
   if memo_idx < rt.pull.memos.length() {
     rt.pull.memos[memo_idx] = new_data

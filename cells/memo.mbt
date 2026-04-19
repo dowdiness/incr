@@ -70,6 +70,7 @@ fn[T] Memo::_create(
     on_change: None,
     is_hybrid: false,
     accumulator_reads: @hashmap.new(),
+    has_been_computed: false,
   }
   if memo_idx < rt.pull.memos.length() {
     rt.pull.memos[memo_idx] = new_data
@@ -436,6 +437,7 @@ fn[T] Runtime::memo_force_recompute(
     cell.meta.changed_at = self.core.revision.current_revision
   }
   cell.verified_at = self.core.revision.current_revision
+  cell.has_been_computed = true
   cell.in_progress = false
   Ok(new_value)
 }

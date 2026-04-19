@@ -20,6 +20,7 @@ pub(all) struct MemoData {
   mut in_progress : Bool
   mut on_change : (() -> Unit)?
   is_hybrid : Bool
+  mut has_been_computed : Bool
   mut accumulator_reads : @hashmap.HashMap[(@types.AccumulatorId, @types.CellId), @types.Revision]
 }
 pub impl @shared.CellOps for MemoData

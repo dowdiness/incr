@@ -12,6 +12,12 @@ pub(all) struct MemoData {
   mut in_progress : Bool
   mut on_change : (() -> Unit)?
   is_hybrid : Bool
+  // True once the compute closure has successfully run at least once.
+  // Cannot be inferred from `verified_at == Revision::initial()` because on
+  // a fresh runtime the initial revision is 0 and a successful first compute
+  // writes `verified_at = current_revision = 0`. Used by
+  // `ensure_computed_untracked` to force the first compute reliably.
+  mut has_been_computed : Bool
   // accumulator_reads: (slot_id, target_cell_id) -> stored push revision.
   // Persisted state for synthetic accumulator deps. Populated on successful
   // recompute commit; consulted by pull_verify's synthetic dep check.

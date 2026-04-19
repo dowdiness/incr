@@ -410,6 +410,50 @@ fn Runtime::validate_cell_soft(self : Runtime, id : CellId) -> Bool {
 }
 
 ///|
+/// Internal: guarantee a memo has been computed and is up-to-date in the
+/// current revision, WITHOUT recording an ordinary dep on the caller's
+/// tracking frame. Used by Memo::accumulated.
+///
+/// # Behavior
+///
+/// - If the cell is disposed, returns Ok(()) silently (caller handles
+///   disposal separately; this is defense-in-depth for other call sites).
+/// - If the memo has never been computed (verified_at == initial revision),
+///   triggers the first compute via the memo's stored compute closure.
+/// - Otherwise runs `pull_verify`, which may recompute if stale.
+/// - Neither path calls `record_dependency`. The synthetic accumulator
+///   dep is recorded separately in the accumulator read flow.
+///
+/// Both `data.compute()` and `pull_verify` push a fresh tracking frame
+/// for the target memo while recomputing, so any `get()` calls inside the
+/// target's closure record deps on the target's frame — never on the
+/// caller's frame.
+fn Runtime::ensure_computed_untracked(
+  self : Runtime,
+  cell_id : CellId,
+) -> Result[Unit, CycleError] raise Failure {
+  if self.is_cell_disposed(cell_id) {
+    return Ok(())
+  }
+  let data = self.get_memo_data(cell_id)
+  // "Never been computed" is tracked explicitly via has_been_computed
+  // rather than via verified_at == Revision::initial() because a fresh
+  // runtime starts at initial, so a successful first compute would leave
+  // verified_at == initial, indistinguishable from "never computed".
+  if !data.has_been_computed {
+    match (data.compute)() {
+      Ok(_) => Ok(())
+      Err(e) => Err(e)
+    }
+  } else {
+    match self.pull_verify(cell_id) {
+      Ok(_) => Ok(())
+      Err(e) => Err(e)
+    }
+  }
+}
+
+///|
 /// Returns true if a cell has been disposed or its id is out of bounds.
 fn Runtime::is_cell_disposed(self : Runtime, cell_id : CellId) -> Bool {
   let id = cell_id.id
