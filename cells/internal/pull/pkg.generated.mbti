@@ -14,7 +14,7 @@ import {
 // Types and methods
 pub(all) struct MemoData {
   meta : @shared.CellMeta
-  compute : () -> Result[Bool, @types.CycleError]
+  compute : () -> Result[Bool, @types.CycleError] raise Failure
   mut verified_at : @types.Revision
   mut dependencies : Array[@types.CellId]
   mut in_progress : Bool
