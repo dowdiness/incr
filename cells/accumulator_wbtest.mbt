@@ -268,6 +268,26 @@ test "synthetic dep check: reader invalidates when producer's push_revised_at bu
 }
 
 ///|
+test "memo dispose clears entries from all accumulators" {
+  let rt = Runtime::new()
+  let a : Accumulator[Int] = Accumulator::new(rt~)
+  let b : Accumulator[Int] = Accumulator::new(rt~)
+  let scope = Scope::new(rt)
+  let producer : Memo[Int] = scope.memo(() => {
+    a.push(1)
+    b.push(2)
+    0
+  })
+  let _ = rt.read(producer)
+  inspect(a.per_memo.contains(producer.id()), content="true")
+  inspect(b.per_memo.contains(producer.id()), content="true")
+  scope.dispose()
+  inspect(a.per_memo.contains(producer.id()), content="false")
+  inspect(b.per_memo.contains(producer.id()), content="false")
+  inspect(rt.accumulator_contributions.contains(producer.id()), content="false")
+}
+
+///|
 test "accumulator: ON_ABORT restores prior buffer on raised compute" {
   let rt = Runtime::new()
   let should_fail = Signal::new(rt, false)
