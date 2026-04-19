@@ -11,6 +11,17 @@ priv struct ActiveQuery {
   cell_id : CellId
   dependencies : Array[CellId]
   seen : @hashset.HashSet[CellId]
+  // Synthetic accumulator reads staged during compute. On success, copied
+  // to MemoData.accumulator_reads in the AFTER_CLOSURE phase. On abort,
+  // discarded (transactional discipline matches ordinary-dep commit).
+  accumulator_reads : @hashmap.HashMap[
+    (@incr_types.AccumulatorId, CellId),
+    @incr_types.Revision,
+  ]
+  // Accumulator slots this frame pushed to. Used in AFTER_CLOSURE to
+  // iterate the set of slots needing a finalize_memo call, and in ON_ABORT
+  // to identify new-run-only slots for cleanup.
+  touched_accumulator_slots : @hashset.HashSet[@incr_types.AccumulatorId]
 
   fn new(cell_id : CellId) -> ActiveQuery
 }
@@ -26,7 +37,13 @@ priv struct ActiveQuery {
 ///
 /// A new active query with an empty dependency set
 fn ActiveQuery::new(cell_id : CellId) -> ActiveQuery {
-  { cell_id, dependencies: [], seen: @hashset.new() }
+  {
+    cell_id,
+    dependencies: [],
+    seen: @hashset.new(),
+    accumulator_reads: @hashmap.new(),
+    touched_accumulator_slots: @hashset.new(),
+  }
 }
 
 ///|
