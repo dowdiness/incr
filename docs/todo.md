@@ -388,17 +388,24 @@ implementing.
 
 ### `ReactiveMap[K, V]` (Family B)
 
-Derive-from-upstream lens over MemoMap with tracked per-key reads.
-Driver: lambda name resolution per-def granularity. See
-[reactive-map-design.md](reactive-map-design.md) for the full sketch.
+**Status 2026-04-19 (post PR #41):** Needs re-motivation. The original
+value proposition ("fine-grained per-key deps unavailable today") was
+refuted during PR #41 review — `MemoMap::get` already records per-key
+deps inside a tracked context. `ReactiveMap`'s remaining value is
+coordination with an upstream key set (disposal of stale entries,
+tracked `iter()`), not per-key isolation. See
+[reactive-map-design.md](reactive-map-design.md) "Why v1's framing was
+wrong" and "Codex review 2026-04-19" for the full story.
 
 - [x] Codex-review the design sketch for semantic and integration
-      issues (done 2026-04-19; findings captured in
-      [reactive-map-design.md](reactive-map-design.md) §"Codex review
-      2026-04-19"; blockers 1–3 must resolve before implementation)
-- [ ] Write implementation plan (design→plan transition; new
-      invariants, 2-3 PRs estimated)
-- [ ] Implement after plan approval (2-3 days across 2-3 PRs)
+      issues (done 2026-04-19; blockers 1–3 must resolve before
+      implementation)
+- [ ] **Re-motivate against a concrete driver** — lambda name
+      resolution alone is a weak driver now that `MemoMap` suffices.
+      Do NOT write an implementation plan until a driver requires
+      something `MemoMap` + `get_tracked` cannot supply.
+- ~~Write implementation plan~~ — gated on re-motivation
+- ~~Implement after plan approval~~ — gated on plan
 
 ### `Relation::subscribe_delta` (Family A)
 
