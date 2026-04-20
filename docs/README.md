@@ -78,6 +78,14 @@ All documentation for the `incr` incremental computation library.
 
 (No active plans)
 
+### Decisions
+
+Architecture Decision Records capture the *why* of significant design choices. Kept short; link to implementation specs for details.
+
+| Document | Decision |
+|----------|----------|
+| [decisions/2026-04-20-accumulator-api.md](decisions/2026-04-20-accumulator-api.md) | Accumulator API: side-channel collector with per-memo `push_revised_at` incremental invalidation (local-only scope; `raise Failure` error model) |
+
 ### Specs
 
 | Document | Purpose |
