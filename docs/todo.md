@@ -239,8 +239,13 @@ improve correctness, performance, and integration beyond the infrastructure vali
 
 ### Incremental Pipeline
 
-- [ ] **Incremental name resolution** — resolution is a single coarse `Memo[ResolvedModule]`;
-      split into per-def resolution for finer-grained incrementality
+- [x] **Incremental name resolution** — per-def `resolve_memos` chain
+      replaces the coarse `resolve_typed(term)` at the pipeline parent
+      memo. Editing one def body walks only that def's AST for
+      resolution; unchanged defs backdate via `TypedTerm` `Eq`. Shipped
+      in loom PR #95 (merged 2026-04-20, `25a6be4`). Public API
+      unchanged. See `examples/lambda/src/typecheck/typecheck.mbt`
+      (`split_defs`, `resolve_memos`).
 - [x] **MemoMap stale entries after structural rebuild** — MemoMap internal Memos are
       Runtime-owned, so chain-scope dispose can't reach them. Added `MemoMap::clear()`
       (disposes every wrapper and empties the entry map) and invoked it from
