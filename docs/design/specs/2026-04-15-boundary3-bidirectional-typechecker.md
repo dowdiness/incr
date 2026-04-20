@@ -175,6 +175,15 @@ InternTable::len(self) -> Int
 
 ## 5. DefId and Interning
 
+> **Update (2026-04-20):** The trade-off described below was resolved. `DefEntry`
+> shrunk to `{ name }` and position lookup moved to a `name_to_idx : HashMap[String, Int]`
+> on `PipelineState`. Inserting a def at position 0 no longer changes any existing
+> `InternId`, so caller-side caches keyed off `DefId` keep hitting across the edit.
+> `MemoMap::clear()` still fires on structural rebuild — identity stability is the
+> API guarantee, not wrapper reuse. See `examples/lambda/src/typecheck/typecheck.mbt`
+> and the "MemoMap: DefId stays stable after prepending a def at position 0" whitebox test.
+> The paragraphs below are the original design and are retained for context.
+
 ### DefEntry
 
 ```moonbit
