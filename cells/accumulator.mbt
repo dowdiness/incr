@@ -70,9 +70,7 @@ pub fn[T : Eq] Accumulator::new(
       Some(c) => c
       None => []
     }
-    // Structural Array[T] equality (T : Eq in scope from outer fn).
-    let same = arrays_eq(prev, current)
-    if !same {
+    if !prev.equal(current) {
       push_revised_at.set(m_id, rev)
     }
     prev_push_sets.remove(m_id)
@@ -124,17 +122,216 @@ pub fn[T : Eq] Accumulator::new(
 }
 
 ///|
-/// Structural equality over Array[T] where T : Eq.
-fn[T : Eq] arrays_eq(a : Array[T], b : Array[T]) -> Bool {
-  if a.length() != b.length() {
-    return false
+/// Runtime-side metadata for an Accumulator slot. Holds type-erased closures
+/// captured at Accumulator construction with `T : Eq` in scope; the typed
+/// buffers live on the Accumulator[T] handle itself.
+///
+/// This struct is intentionally package-private — runtime code dispatches
+/// through the closures; no outside caller needs to construct or read it.
+priv struct SlotMeta {
+  label : String?
+  mut disposed : Bool
+  // Phase closures (typed Accumulator handle captured at construction):
+  snapshot_and_clear : (@incr_types.CellId) -> Unit
+  restore_buffer : (@incr_types.CellId) -> Unit
+  finalize_memo : (@incr_types.CellId, @incr_types.Revision) -> Unit
+  dispose_memo : (@incr_types.CellId) -> Unit
+  // ON_ABORT cleanup for slots this aborted run touched but that were
+  // NOT in prev_contributions at BEFORE_CLOSURE. Clears per_memo[M]
+  // (the in-flight pushes) while preserving push_revised_at[M], so a
+  // prior run's revision marker is not rolled back. Without this,
+  // consumers with a pre-existing stored read would miss invalidation.
+  clear_new_run_buffer : (@incr_types.CellId) -> Unit
+  // Verify-side typed data access:
+  push_revised_at_for : (@incr_types.CellId) -> @incr_types.Revision
+  // True iff the slot still has a non-empty per_memo[M] buffer. Used in
+  // AFTER_CLOSURE to rebuild accumulator_contributions reverse index.
+  has_buffer_for : (@incr_types.CellId) -> Bool
+}
+
+///|
+/// Internal: register a new accumulator slot and return its ID.
+/// Called by Accumulator::new. Monotonic — IDs never reused.
+fn Runtime::register_accumulator_slot(
+  self : Runtime,
+  meta : SlotMeta,
+) -> @incr_types.AccumulatorId {
+  let id = self.next_accumulator_id
+  self.next_accumulator_id = id + 1
+  self.accumulator_slots.push(meta)
+  { runtime_id: self.core.runtime_id, id }
+}
+
+///|
+/// Internal: guarantee a memo has been computed and is up-to-date in the
+/// current revision, WITHOUT recording an ordinary dep on the caller's
+/// tracking frame. Used by Memo::accumulated.
+///
+/// # Behavior
+///
+/// - If the cell is disposed, returns Ok(()) silently (caller handles
+///   disposal separately; this is defense-in-depth for other call sites).
+/// - If the memo has never been computed (verified_at == initial revision),
+///   triggers the first compute via the memo's stored compute closure.
+/// - Otherwise runs `pull_verify`, which may recompute if stale.
+/// - Neither path calls `record_dependency`. The synthetic accumulator
+///   dep is recorded separately in the accumulator read flow.
+///
+/// Both `data.compute()` and `pull_verify` push a fresh tracking frame
+/// for the target memo while recomputing, so any `get()` calls inside the
+/// target's closure record deps on the target's frame — never on the
+/// caller's frame.
+fn Runtime::ensure_computed_untracked(
+  self : Runtime,
+  cell_id : CellId,
+) -> Result[Unit, CycleError] raise Failure {
+  if self.is_cell_disposed(cell_id) {
+    return Ok(())
   }
-  for i in 0..<a.length() {
-    if a[i] != b[i] {
-      return false
+  let data = self.get_memo_data(cell_id)
+  // "Never been computed" is tracked explicitly via has_been_computed
+  // rather than via verified_at == Revision::initial() because a fresh
+  // runtime starts at initial, so a successful first compute would leave
+  // verified_at == initial, indistinguishable from "never computed".
+  if !data.has_been_computed {
+    match (data.compute)() {
+      Ok(_) => Ok(())
+      Err(e) => Err(e)
+    }
+  } else {
+    match self.pull_verify(cell_id) {
+      Ok(_) => Ok(())
+      Err(e) => Err(e)
     }
   }
-  true
+}
+
+// ---------------------------------------------------------------------------
+// memo_force_recompute phase helpers
+//
+// Each memo recompute drives three accumulator phases. These helpers factor
+// out the per-phase bookkeeping so memo.mbt's memo_force_recompute reads as
+// orchestration (tracking + compute + epilogue) rather than accumulator
+// plumbing.
+// ---------------------------------------------------------------------------
+
+///|
+/// Phase BEFORE_CLOSURE: snapshot each accumulator slot M contributed to in
+/// its last successful compute and clear its per_memo buffer so this run
+/// starts from empty. Returns the snapshot list (a plain Array so the
+/// caller can iterate independently of `touched_accumulator_slots`, which
+/// the compute closure mutates).
+fn memo_snapshot_accumulator_contributions(
+  rt : Runtime,
+  cell_id : CellId,
+) -> Array[@incr_types.AccumulatorId] {
+  let prev_contributions : Array[@incr_types.AccumulatorId] = match
+    rt.accumulator_contributions.get(cell_id) {
+    Some(s) => s.to_array()
+    None => []
+  }
+  for slot_id in prev_contributions {
+    let slot = rt.accumulator_slots[slot_id.id]
+    if !slot.disposed {
+      (slot.snapshot_and_clear)(cell_id)
+    }
+  }
+  prev_contributions
+}
+
+///|
+/// Phase ON_ABORT: restore snapshots taken in BEFORE_CLOSURE, and clear
+/// in-flight per_memo buffers for slots this aborted run touched but that
+/// were NOT in prev_contributions. The latter must preserve push_revised_at
+/// (no dispose_memo) so a prior successful run's revision marker survives
+/// the abort.
+///
+/// Reads the touched set from the still-live top active query — caller
+/// must invoke before popping the tracking frame.
+fn memo_restore_on_abort(
+  rt : Runtime,
+  cell_id : CellId,
+  prev_contributions : Array[@incr_types.AccumulatorId],
+) -> Unit {
+  let touched : Array[@incr_types.AccumulatorId] = match rt.top_active_query() {
+    Some(q) => q.touched_accumulator_slots.to_array()
+    None => []
+  }
+  // ON_ABORT.1: restore snapshots for every slot in prev_contributions.
+  for slot_id in prev_contributions {
+    let slot = rt.accumulator_slots[slot_id.id]
+    if !slot.disposed {
+      (slot.restore_buffer)(cell_id)
+    }
+  }
+  // ON_ABORT.2: for slots touched during this run but NOT in prev, clear
+  // only the in-flight per_memo buffer (keeps push_revised_at intact).
+  for slot_id in touched {
+    let mut in_prev = false
+    for p in prev_contributions {
+      if p == slot_id {
+        in_prev = true
+        break
+      }
+    }
+    if in_prev {
+      continue
+    }
+    let slot = rt.accumulator_slots[slot_id.id]
+    if !slot.disposed {
+      (slot.clear_new_run_buffer)(cell_id)
+    }
+  }
+}
+
+///|
+/// Phase AFTER_CLOSURE: atomic per-slot finalize over prev ∪ touched, then
+/// commit staged_reads into MemoData.accumulator_reads and the rebuilt
+/// contributions set into rt.accumulator_contributions.
+fn memo_commit_accumulator_phase(
+  rt : Runtime,
+  cell : @pull.MemoData,
+  cell_id : CellId,
+  prev_contributions : Array[@incr_types.AccumulatorId],
+  touched : @hashset.HashSet[@incr_types.AccumulatorId],
+  staged_reads : @hashmap.HashMap[
+    (@incr_types.AccumulatorId, CellId),
+    @incr_types.Revision,
+  ],
+) -> Unit {
+  // Union prev ∪ touched so every slot that needs finalize_memo is visited
+  // exactly once.
+  let all_slots : @hashset.HashSet[@incr_types.AccumulatorId] = @hashset.new()
+  for s in prev_contributions {
+    all_slots.add(s)
+  }
+  for s in touched {
+    all_slots.add(s)
+  }
+  let current_revision = rt.core.revision.current_revision
+  let new_contributions : @hashset.HashSet[@incr_types.AccumulatorId] = @hashset.new()
+  for slot_id in all_slots {
+    let slot = rt.accumulator_slots[slot_id.id]
+    if slot.disposed {
+      continue
+    }
+    (slot.finalize_memo)(cell_id, current_revision)
+    if (slot.has_buffer_for)(cell_id) {
+      new_contributions.add(slot_id)
+    }
+  }
+  // Commit staged_reads into MemoData (overwrite any prior-run entries;
+  // a successful recompute is authoritative).
+  cell.accumulator_reads.clear()
+  for k, v in staged_reads {
+    cell.accumulator_reads.set(k, v)
+  }
+  // Commit rebuilt contributions into the reverse index.
+  if new_contributions.is_empty() {
+    rt.accumulator_contributions.remove(cell_id)
+  } else {
+    rt.accumulator_contributions.set(cell_id, new_contributions)
+  }
 }
 
 ///|
