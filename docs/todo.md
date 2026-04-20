@@ -258,10 +258,13 @@ improve correctness, performance, and integration beyond the infrastructure vali
       no longer changes any existing `InternId`, so caller-side caches keyed off `DefId`
       (diagnostics, hover, go-to-definition) keep hitting across that edit. The `MemoMap`
       wrappers themselves are still cleared on structural rebuild — identity stability is
-      the API guarantee, not wrapper reuse. Semantic note: duplicate names in one module
-      now collide on a single `InternId` (last wins, matches resolver shadowing); prior
-      positional keys let each occurrence be queried separately. Whitebox test pins the
-      guarantee ("MemoMap: DefId stays stable after prepending a def at position 0") in
+      the API guarantee, not wrapper reuse. Duplicate top-level names in one module collapse
+      onto a single `InternId`; the pipeline keeps the FIRST occurrence in `name_to_idx`
+      (so a cached `DefId` never silently aliases into a later shadowing slot) and emits a
+      "duplicate top-level definition: X" diagnostic for each additional occurrence.
+      Whitebox tests pin both the stability guarantee ("MemoMap: DefId stays stable after
+      prepending a def at position 0") and the duplicate-name behaviour ("MemoMap:
+      duplicate def names diagnose and keep first-wins lookup") in
       `examples/lambda/src/typecheck/typecheck_wbtest.mbt`.
 
 ### Type System Extensions (deferred — not needed for infra validation)
