@@ -322,6 +322,67 @@ Key behavior:
 
 This is a lightweight parameterized-query pattern built on top of `Memo`; it does not change runtime verification internals.
 
+## Side-Channel Data with Accumulators
+
+Sometimes a memo needs to report extra information — diagnostics, trace events, logs — that is semantically separate from its return value. Threading this data through return types forces allocations at every level of the graph and makes merging fragile. `Accumulator[T]` is the side channel:
+
+```moonbit
+let rt = Runtime()
+let width = Signal(rt, -5)
+let diags : Accumulator[String] = Accumulator::new(rt~, label="diags")
+
+let checked = Memo(rt, fn() raise {
+  let w = width.get()
+  if w < 0 { diags.push("negative width: \{w}") }
+  w.abs()
+})
+
+let _ = checked.get()
+// Outside any compute — untracked, permissive read:
+inspect(checked.accumulated_peek(diags), content="[\"negative width: -5\"]")
+```
+
+Producers call `acc.push(v)` inside a `Memo` or `HybridMemo` compute. Consumers have three read methods:
+
+| Method | Records dep? | On disposal/cycle |
+|--------|--------------|-------------------|
+| `memo.accumulated(acc)` | yes — invalidates consumer when push set changes | raises `Failure` |
+| `memo.accumulated_peek(acc)` | no — driver/debug use | returns `[]` |
+| `memo.accumulated_result(acc)` | yes | `Result[_, CycleError]` |
+
+### Push-Set Invalidation
+
+The key property: when a producer memo recomputes and its push set differs from the previous run, downstream consumers reading via `accumulated` invalidate — **even when the producer's return value is structurally equal and would otherwise be backdated**. A per-memo `push_revised_at` counter tracks push-set revisions independently of value equality.
+
+This is why an accumulator is not "just an `Array` you return": a plain return would either lose the change (backdated) or force every level to allocate fresh arrays that merge upward.
+
+### Local-Only Scope
+
+`memo.accumulated(acc)` returns only the values that memo's own compute pushed — **not** values pushed by its dependencies. Transitive aggregation across a subgraph (e.g. collecting diagnostics from every def in a module) is the driver's job: read each producer's `accumulated` at the boundary and union the results.
+
+### Scope-Owned Lifecycle
+
+Prefer `Scope::accumulator` over `Accumulator::new(rt~, ...)` when the accumulator's lifetime matches a larger unit of work (a chain rebuild, a compilation pass):
+
+```moonbit
+let chain_scope = parent_scope.child()
+let diags = chain_scope.accumulator(label="typecheck_diags")
+// Disposing chain_scope also disposes diags and clears its push buffers.
+```
+
+Runtime-owned accumulators live until explicitly disposed, so drivers that rebuild on structural change accumulate stale per-memo buffers. Scope ownership ties cleanup to the chain that produced the data.
+
+### When to Use
+
+| Situation | Recommendation |
+|-----------|----------------|
+| Data is the memo's value | return it normally |
+| Data is log-like and orthogonal to the value (diagnostics, traces, warnings) | `Accumulator[T]` |
+| Data flows to a single consumer already in the graph | return it — accumulator is overkill |
+| Data aggregates across many producers into one consumer | `Accumulator[T]` |
+
+See the [Cookbook](./cookbook.md#pattern-side-channel-diagnostics-with-accumulator) for complete worked examples, and the [ADR](./decisions/2026-04-20-accumulator-api.md) for the design rationale.
+
 ## Hybrid Push-Pull (HybridMemo)
 
 `HybridMemo[T]` combines push-based dirty notification with pull-based lazy verification:
@@ -383,6 +444,7 @@ If you need to share data between two independent computation graphs, use a plai
 | Memo | Derived values with automatic caching |
 | HybridMemo | Push-pull derived values with dirty flag fast path |
 | MemoMap | Per-key memoized derived values |
+| Accumulator | Side-channel collector with push-set invalidation (diagnostics, logs) |
 | Revision | Global clock for tracking changes |
 | Backdating | Skip downstream work when values don't actually change |
 | Durability | Skip verification for stable subgraphs |

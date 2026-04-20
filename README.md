@@ -11,7 +11,7 @@ A Salsa-inspired incremental recomputation library for [MoonBit](https://www.moo
 - **`MemoMap[K, V]`** — keyed memoization, one memo per key, created lazily
 - **Backdating + durability** — skip downstream work when values didn't really change or inputs rarely do
 
-Advanced features (push-reactive `Reactive[T]` / `Effect`, hybrid push-pull `HybridMemo`, field-level `TrackedCell`, Datalog `Relation` / `FunctionalRelation` / fixpoint, batching, cycle-safe reads) are covered in [docs/](docs/README.md).
+Advanced features (push-reactive `Reactive[T]` / `Effect`, hybrid push-pull `HybridMemo`, field-level `TrackedCell`, side-channel `Accumulator[T]`, Datalog `Relation` / `FunctionalRelation` / fixpoint, batching, cycle-safe reads) are covered in [docs/](docs/README.md).
 
 ## Quick Start
 
