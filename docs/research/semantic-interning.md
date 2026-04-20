@@ -4,7 +4,7 @@ Reference document capturing design exploration for a revision-aware semantic in
 
 ## Context
 
-The [Incremental Hylomorphism pipeline](../../../docs/architecture/Incremental-Hylomorphism.md) has two boundaries that need interning:
+The [Incremental Hylomorphism pipeline](../../../../docs/architecture/Incremental-Hylomorphism.md) has two boundaries that need interning:
 
 - **Boundary ②** (Document → CST): seam's `Interner` + `NodeInterner` — structural hash-consing for position-independent CST subtree reuse
 - **Boundary ③** (CST → Typed AST): incr's semantic interner — stable identity for semantic entities (definitions, types, names) across revisions

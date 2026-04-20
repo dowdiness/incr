@@ -360,5 +360,5 @@ This is a pure addition - no breaking changes:
 
 - [Roadmap Phase 2A](../roadmap.md#phase-2a-introspection--debugging-high-priority)
 - [TODO Introspection Tasks](../todo.md#introspection-api-phase-2a---high-priority)
-- [API Design Guidelines](../api-design-guidelines.md)
-- [Design Document](../design.md)
+- [API Design Guidelines](../design/api-design-guidelines.md)
+- [Design Document](../design/internals.md)

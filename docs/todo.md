@@ -185,7 +185,7 @@ clean up the dead logic.
 
 ## Salsa-Style Query API (Phase 4E)
 
-Each step builds on the previous. See [semantic-interning.md](semantic-interning.md) for interning design and [roadmap.md](roadmap.md) for context.
+Each step builds on the previous. See [semantic-interning.md](research/semantic-interning.md) for interning design and [roadmap.md](roadmap.md) for context.
 
 **Status (2026-03-28):** Partially deferred — see [roadmap.md](roadmap.md) Phase 4E for rationale.
 Recommended next step before implementing these: add a simple type system to the lambda calculus
@@ -303,7 +303,7 @@ needs the generic interface.
 
 ## Runtime Modularization (Phase 4 — Remaining)
 
-Architecture analysis completed 2026-04-16. See [design.md](design.md#architecture-analysis-2026-04-16) for full diagnosis.
+Architecture analysis completed 2026-04-16. See [design/internals.md](design/internals.md#architecture-analysis-2026-04-16) for full diagnosis.
 
 ### Completed (PR #35)
 
@@ -326,7 +326,7 @@ Architecture analysis completed 2026-04-16. See [design.md](design.md#architectu
 
 ### Remaining
 
-- [x] Internal package split — Engine types split across `cells/internal/{shared,pull,push,datalog}/`. Pull engine now contains both `PullSignalData` and `MemoData`; `CycleError` moved to `types/` as a pure-value error (see [spec](superpowers/specs/2026-04-18-incr-stage5-internal-split-design.md) for Stage 5 rationale and the follow-up archive note for the CycleError untangle).
+- [x] Internal package split — Engine types split across `cells/internal/{shared,pull,push,datalog}/`. Pull engine now contains both `PullSignalData` and `MemoData`; `CycleError` moved to `types/` as a pure-value error (see [spec](design/specs/2026-04-18-incr-stage5-internal-split-design.md) for Stage 5 rationale and the follow-up archive note for the CycleError untangle).
 - [x] Verify engine packages do not import each other — `scripts/check-engine-isolation.sh` enforces pairwise engine isolation and the no-back-edge invariant.
 - [x] Complete pull-engine split: `MemoData` moved to `cells/internal/pull/memo_data.mbt`. `CycleError` now lives in `types/` as a pure value; `format_path` drops its `Runtime` parameter (breaking change — labels are captured at error-construction time). `CellLifecycle` impl for `MemoData` stays in `cells/pull_memo_lifecycle.mbt` because it needs `Runtime`.
 - [x] Factor duplicated `dispose_cell` bodies in `cells/datalog_lifecycle.mbt` — extracted `dispose_datalog_cell` helper (commit `309d904`). Design note at [archive/2026-04-18-datalog-dispose-factoring.md](archive/2026-04-18-datalog-dispose-factoring.md) records why a trait-default alternative was rejected.
@@ -373,7 +373,7 @@ Six cell read paths inlined the same ~10-line `current_computing_runtime_id` gua
 ## Reactive Collections (2026-04-19)
 
 Research + design sketches landed in the 2026-04-19 session. See
-[reactive-collections.md](reactive-collections.md) for the survey and
+[reactive-collections.md](research/reactive-collections.md) for the survey and
 four-family taxonomy; individual design sketches linked below. All
 items here are exploratory — validate via Codex / plan-writing before
 implementing.
@@ -384,7 +384,7 @@ implementing.
       the inner Memo's `.get()`. Shipped standalone.
 - [ ] Add `MemoMap::remove_except(keys : Set[K]) -> Int` — **blocked on
       Blocker 1** (cross-key dispose aborts verify; see
-      [reactive-map-design.md](reactive-map-design.md) Codex review
+      [reactive-map-design.md](research/reactive-map-design.md) Codex review
       2026-04-19). Do not land alone.
 
 ### `ReactiveMap[K, V]` (Family B)
@@ -395,7 +395,7 @@ refuted during PR #41 review — `MemoMap::get` already records per-key
 deps inside a tracked context. `ReactiveMap`'s remaining value is
 coordination with an upstream key set (disposal of stale entries,
 tracked `iter()`), not per-key isolation. See
-[reactive-map-design.md](reactive-map-design.md) "Why v1's framing was
+[reactive-map-design.md](research/reactive-map-design.md) "Why v1's framing was
 wrong" and "Codex review 2026-04-19" for the full story.
 
 - [x] Codex-review the design sketch for semantic and integration
@@ -412,7 +412,7 @@ wrong" and "Codex review 2026-04-19" for the full story.
 
 Opt-in delta observation on Datalog relations via new `DeltaDispatch`
 trait; pre-snapshot + post-diff at commit boundary. See
-[relation-delta-observer-design.md](relation-delta-observer-design.md).
+[relation-delta-observer-design.md](research/relation-delta-observer-design.md).
 
 - [x] Codex-review the design sketch (done 2026-04-19; **redesign
       needed** — plain `Relation[T]` is monotonic with no retractions, no
@@ -427,7 +427,7 @@ trait; pre-snapshot + post-diff at commit boundary. See
 Long-horizon bet. Requires `Memo::new_named` + articulation points +
 structural-sharing collections. Do not start without a concrete canopy
 driver (evaluator / layout / tree-shaped type-checker state). See
-[reactive-collections.md](reactive-collections.md) "Family C — Design
+[reactive-collections.md](research/reactive-collections.md) "Family C — Design
 Sketch for `incr`" section for scope.
 
 ## API Naming Cleanup (Deferred)
@@ -438,7 +438,7 @@ when a tracking frame is active (via `get_result_inner` calling
 `record_dependency`); the real distinction is **abort vs silent at
 top level**, not tracking itself. This misread propagated through
 three revisions of `reactive-map-design.md` before Codex caught it.
-See [reactive-map-design.md](reactive-map-design.md) "Why v1's framing
+See [reactive-map-design.md](research/reactive-map-design.md) "Why v1's framing
 was wrong" and
 `~/.claude/projects/*/memory/feedback_code_verify_before_design.md`.
 
@@ -471,10 +471,10 @@ documents the actual contract. Revisit if the confusion bites again.
       describing the abort vs silent distinction directly.
 - [ ] Update any remaining design doc that references "untracked means
       doesn't record deps." Currently known:
-      [reactive-map-design.md](reactive-map-design.md) (marked
+      [reactive-map-design.md](research/reactive-map-design.md) (marked
       [SUPERSEDED] in-line; a proper rewrite would fold these into the
       v3 narrative) and
-      `docs/superpowers/specs/2026-04-15-boundary3-bidirectional-typechecker.md`
+      `docs/design/specs/2026-04-15-boundary3-bidirectional-typechecker.md`
       (has an inline [Correction 2026-04-19] note; could be reworked
       if the spec is revisited).
 
@@ -482,5 +482,5 @@ documents the actual contract. Revisit if the confusion bites again.
 
 - [x] Add doc comments to all public functions
 - [x] Add usage examples for durability in README
-- [x] Keep [design.md](design.md) in sync when core algorithms change
+- [x] Keep [design/internals.md](design/internals.md) in sync when core algorithms change
 - [x] Organize user documentation in `docs/` folder (getting-started, concepts, api-reference, cookbook)

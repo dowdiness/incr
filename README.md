@@ -2,20 +2,16 @@
 
 A Salsa-inspired incremental recomputation library for [MoonBit](https://www.moonbitlang.com/).
 
-## Features
+`incr` tracks dependencies automatically, memoizes derived values, and skips unnecessary work when inputs change — so you write straight-line code and the runtime figures out what to recompute.
 
-- **Signal[T]** — Input cells with same-value optimization and durability levels
-- **Memo[T]** — Derived computations with automatic dependency tracking and memoization
-- **MemoMap[K, V]** — Keyed memoization with one lazily-created memo per key
-- **Backdating** — Unchanged recomputed values preserve their old revision, preventing unnecessary downstream recomputation
-- **Durability** — Classify inputs by change frequency (Low/Medium/High) to skip verification of stable subgraphs
-- **Batch updates** — Atomic multi-signal updates with revert detection and rollback on raised errors
-- **Change hooks** — `Runtime::set_on_change` callback for committed updates (batch-aware)
-- **Cycle detection** — Detects cycles with `get_result()` for graceful handling or `get()` for abort
-- **Push-reactive cells** — `Reactive[T]` and `Effect` for eager push-mode computation with glitch-free level-sorted propagation
-- **Hybrid push-pull** — `HybridMemo[T]` receives dirty flags eagerly via push propagation but verifies lazily on read, combining the best of both models
-- **Field-level tracking** — `TrackedCell` groups related signals into tracked structs; only changed fields invalidate downstream memos
-- **Datalog primitives** — `Relation[T]` (set-based) and `FunctionalRelation[K, V]` (key-value) with semi-naive delta tracking, `Rule` registration, and `Runtime::fixpoint()` for convergent evaluation
+**Core primitives:**
+
+- **`Signal[T]`** — input cells you write to directly
+- **`Memo[T]`** — derived computations that memoize and auto-track dependencies
+- **`MemoMap[K, V]`** — keyed memoization, one memo per key, created lazily
+- **Backdating + durability** — skip downstream work when values didn't really change or inputs rarely do
+
+Advanced features (push-reactive `Reactive[T]` / `Effect`, hybrid push-pull `HybridMemo`, field-level `TrackedCell`, Datalog `Relation` / `FunctionalRelation` / fixpoint, batching, cycle-safe reads) are covered in [docs/](docs/README.md).
 
 ## Quick Start
 
@@ -49,142 +45,15 @@ x.set(5)
 inspect(sum.get(), content="25")
 ```
 
-### Alternative: Direct Runtime Usage
+For simple scripts, `Runtime` can also be used directly (`Signal(rt, ...)`, `Memo(rt, ...)`). Both styles are fully supported — see [Getting Started](docs/getting-started.md).
 
-For simple scripts or when you need more control:
+## Learn More
 
-```moonbit
-let rt = Runtime()
-let x = Signal(rt, 10)
-let y = Signal(rt, 20)
-let sum = Memo(rt, () => x.get() + y.get())
+- **New to `incr`?** Start with [Getting Started](docs/getting-started.md), then [Core Concepts](docs/concepts.md).
+- **Looking for a specific pattern?** Backdating, durability, keyed queries, batched updates with rollback, cycle-safe reads, and more are covered in the [Cookbook](docs/cookbook.md).
+- **Looking up a type or method?** See the [API Reference](docs/api-reference.md).
 
-inspect(sum.get(), content="30")
-x.set(5)
-inspect(sum.get(), content="25")
-```
-
-### Backdating
-
-When an intermediate memo recomputes to the same value, downstream memos skip recomputation:
-
-```moonbit
-let rt = Runtime()
-let input = Signal(rt, 4)
-let is_even = Memo(rt, () => input.get() % 2 == 0)
-let label = Memo(rt, () => if is_even.get() { "even" } else { "odd" })
-
-inspect(label.get(), content="even")
-
-// 4 -> 6: is_even is still true, so label does not recompute
-input.set(6)
-inspect(label.get(), content="even")
-```
-
-`Memo::new` (used above) requires `T : Eq` and compares values structurally. Two alternatives exist:
-- `Memo::new_memo[T : BackdateEq]` — compares `changed_at` revisions by default (O(1)); useful for large values that embed a revision stamp
-- `Memo::new_no_backdate[T]` — never backdates; no constraint on `T`
-
-### Durability
-
-Signals that change rarely can be marked as high durability. Memos that only depend on high-durability inputs skip verification entirely when only low-durability inputs change:
-
-```moonbit
-let rt = Runtime()
-let config = Signal(rt, 100, durability=High)
-let source = Signal(rt, 1)
-let config_derived = Memo(rt, () => config.get() * 2)
-
-inspect(config_derived.get(), content="200")
-
-// Changing the low-durability source does not cause config_derived to reverify
-source.set(2)
-inspect(config_derived.get(), content="200")
-```
-
-### Keyed Queries
-
-Use `MemoMap` (or `create_memo_map`) when you want per-key memoization:
-
-```moonbit
-let app = MyApp()
-let base = create_signal(app, 10)
-let by_id = create_memo_map(app, (id : Int) => base.get() + id, label="by_id")
-
-inspect(by_id.get(1), content="11")
-inspect(by_id.get(1), content="11") // cache hit for key=1
-inspect(by_id.get(2), content="12") // independent key cache
-```
-
-### Graceful Error Handling
-
-Prefer `get_result()` when you want cycle-safe reads without aborting:
-
-```moonbit
-match sum.get_result() {
-  Ok(v) => println(v.to_string())
-  Err(e) => println(e.format_path())
-}
-```
-
-For a shorter form without pattern matching, use `get_or` or `get_or_else`:
-
-```moonbit
-// Inline fallback value
-let value = sum.get_or(0)
-
-// Fallback computed from the error
-let value = sum.get_or_else(err => {
-  println(err.format_path())
-  0
-})
-```
-
-`Runtime::batch` (and `@incr.batch`) also supports raised-error rollback:
-
-```moonbit
-suberror BatchStop {
-  Stop
-}
-
-let res : Result[Unit, Error] = try? rt.batch(fn() raise {
-  x.set(1)
-  y.set(2)
-  raise Stop
-})
-// If res is Err(_), pending writes were rolled back.
-```
-
-For explicit `Result` handling without re-raising, use `batch_result`:
-
-```moonbit
-let res = @incr.batch_result(app, fn() raise {
-  x.set(1)
-  raise Stop
-})
-```
-
-Like `Runtime::batch`, `batch_result` captures raised errors only; `abort()` is not catchable and is not converted to `Err`.
-
-## Documentation
-
-| Document | Description |
-|----------|-------------|
-| [Getting Started](docs/getting-started.md) | Step-by-step tutorial for new users |
-| [Core Concepts](docs/concepts.md) | Understand Signals, Memos, Revisions, Durability, and Backdating |
-| [API Reference](docs/api-reference.md) | Complete reference for all public types and methods |
-| [Cookbook](docs/cookbook.md) | Common patterns and recipes |
-| [API Design Guidelines](docs/api-design-guidelines.md) | Design philosophy, best practices, and planned improvements |
-
-### For Contributors
-
-| Document | Description |
-|----------|-------------|
-| [Design](docs/design.md) | Deep technical internals: verification algorithm, type erasure, implementation details |
-| [Roadmap](docs/roadmap.md) | High-level future direction with phased improvements |
-| [TODO](docs/todo.md) | Concrete actionable tasks with checkboxes |
-| [Comparison with alien-signals](docs/comparison-with-alien-signals.md) | Analysis of different reactive frameworks |
-| [API Updates](docs/api-updates.md) | Summary of recent API documentation changes |
+Full documentation index: [docs/README.md](docs/README.md).
 
 ## Development
 

@@ -81,7 +81,7 @@ dowdiness/incr/
 
 The root package re-exports all public types via `pub type` transparent aliases in `incr.mbt`, so downstream users see a unified `@incr` API with no awareness of the internal package structure.
 
-For deep internals (verification algorithm, type erasure, SoA storage, push propagation, data flow), see [docs/design.md](docs/design.md).
+For deep internals (verification algorithm, type erasure, SoA storage, push propagation, data flow), see [docs/design/internals.md](docs/design/internals.md).
 
 ### Key Facts
 
@@ -94,7 +94,7 @@ For deep internals (verification algorithm, type erasure, SoA storage, push prop
 **Main docs:** [docs/](docs/)
 
 - **For users:** [getting-started.md](docs/getting-started.md), [concepts.md](docs/concepts.md), [api-reference.md](docs/api-reference.md), [cookbook.md](docs/cookbook.md)
-- **For contributors:** [design.md](docs/design.md) (deep internals), [roadmap.md](docs/roadmap.md), [todo.md](docs/todo.md), [api-design-guidelines.md](docs/api-design-guidelines.md)
+- **For contributors:** [design/internals.md](docs/design/internals.md) (deep internals), [roadmap.md](docs/roadmap.md), [todo.md](docs/todo.md), [design/api-design-guidelines.md](docs/design/api-design-guidelines.md)
 - **Archive:** `docs/archive/` — completed plans and stale documents. Do not search here unless you need historical context.
 
 **Documentation rules:**
@@ -103,5 +103,5 @@ For deep internals (verification algorithm, type erasure, SoA storage, push prop
 - Performance docs = dated snapshots. New measurements go in new files, old ones are not updated.
 - Code is the source of truth — if a doc and the code disagree, the doc is wrong.
 
-When contributing, read [docs/design.md](docs/design.md) before modifying core algorithm files like `cells/verify.mbt` or `cells/memo.mbt`.
+When contributing, read [docs/design/internals.md](docs/design/internals.md) before modifying core algorithm files like `cells/verify.mbt` or `cells/memo.mbt`.
 

@@ -4,7 +4,7 @@ Survey of how incremental computation systems propagate changes through
 collection-valued computations. Background material for deciding whether to
 extend `incr` beyond whole-value change propagation.
 
-**Status:** Research only — no decision recorded. See [roadmap.md](roadmap.md)
+**Status:** Research only — no decision recorded. See [roadmap.md](../roadmap.md)
 Phase 4E / Phase 5 for related open questions.
 
 ## The Problem

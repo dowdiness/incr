@@ -8,7 +8,7 @@
 
 **Tech Stack:** MoonBit, moon check/test/fmt/info
 
-**Spec:** `docs/superpowers/specs/2026-04-16-runtime-modularization-phase2-design.md` (PR 1 section)
+**Spec:** `docs/design/specs/2026-04-16-runtime-modularization-phase2-design.md` (PR 1 section)
 
 ---
 

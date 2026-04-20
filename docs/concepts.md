@@ -1,6 +1,6 @@
 # Core Concepts
 
-This document explains the key concepts behind `incr` without diving into implementation details. For the technical deep-dive, see [design.md](design.md).
+This document explains the key concepts behind `incr` without diving into implementation details. For the technical deep-dive, see [design/internals.md](design/internals.md).
 
 ## The Dependency Graph
 
@@ -395,4 +395,4 @@ If you need to share data between two independent computation graphs, use a plai
 
 - [API Reference](./api-reference.md) — Complete method reference
 - [Cookbook](./cookbook.md) — Common patterns (including the Tracked Struct recipe)
-- [design.md](design.md) — Implementation details
+- [design/internals.md](design/internals.md) — Implementation details

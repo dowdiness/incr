@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-20
 **Status:** Accepted (2026-04-20)
-**Implementation plan:** [docs/superpowers/specs/2026-04-19-accumulator-api-design.md](../superpowers/specs/2026-04-19-accumulator-api-design.md)
+**Implementation plan:** [docs/archive/completed-phases/2026-04-19-accumulator-api-design.md](../archive/completed-phases/2026-04-19-accumulator-api-design.md)
 **Driver adoption:** [loom/examples/lambda PR #94](https://github.com/dowdiness/loom/pull/94)
 **Shipped in:** [PR #42](https://github.com/dowdiness/incr/pull/42) (API) + [`1715981`](https://github.com/dowdiness/incr/commit/1715981) (abort-preservation fix)
 
@@ -240,7 +240,7 @@ future readers don't re-derive them from the spec:
 - **N→M delta tracking** (producer pushes discrete inserts/deletes;
   consumers see an ordered stream, not a flat set) — out of scope
   for accumulators. Tracked under the ReactiveMap / DeltaObserver
-  design work in [docs/reactive-collections.md](../reactive-collections.md).
+  design work in [docs/research/reactive-collections.md](../research/reactive-collections.md).
 - **API naming cleanup** — `accumulated_peek` / `accumulated_result`
   share the `accumulated_` prefix with `accumulated`. If we later
   converge on a different convention (e.g. `Memo::peek_accumulator`,
@@ -249,7 +249,7 @@ future readers don't re-derive them from the spec:
 
 ## Related
 
-- [docs/superpowers/specs/2026-04-19-accumulator-api-design.md](../superpowers/specs/2026-04-19-accumulator-api-design.md)
+- [docs/archive/completed-phases/2026-04-19-accumulator-api-design.md](../archive/completed-phases/2026-04-19-accumulator-api-design.md)
   — implementation spec (21 tasks, TDD-driven). Archive after
   retaining for historical context.
 - [docs/api-reference.md](../api-reference.md) §Accumulator — user-facing

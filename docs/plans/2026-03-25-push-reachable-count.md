@@ -8,7 +8,7 @@
 
 **Tech Stack:** MoonBit, `moonbitlang/core/hashset`, existing `CellOps`/`HasCellMeta` trait pattern.
 
-**Spec:** `docs/superpowers/specs/2026-03-25-push-reachable-count-design.md`
+**Spec:** `docs/design/specs/2026-03-25-push-reachable-count-design.md`
 
 ---
 

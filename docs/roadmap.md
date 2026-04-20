@@ -1,6 +1,6 @@
 # Roadmap
 
-High-level future direction for the `incr` library, organized by phase. Each phase builds on the previous one. For a detailed explanation of the current architecture, see [design.md](design.md).
+High-level future direction for the `incr` library, organized by phase. Each phase builds on the previous one. For a detailed explanation of the current architecture, see [design/internals.md](design/internals.md).
 
 ## Phase 1 — Error Handling ✓
 
@@ -151,11 +151,11 @@ High-level future direction for the `incr` library, organized by phase. Each pha
 
 ### Phase 4E: Salsa-Style Query API (partially deferred — 2026-03-28)
 
-The following features build toward a Salsa-style query API where users write normal functions that are automatically memoized with incremental invalidation. Each step builds on the previous one. See [semantic-interning.md](semantic-interning.md) for the interning design exploration.
+The following features build toward a Salsa-style query API where users write normal functions that are automatically memoized with incremental invalidation. Each step builds on the previous one. See [semantic-interning.md](research/semantic-interning.md) for the interning design exploration.
 
 **Recommended next step:** Add a simple type system to the lambda calculus parser to create a real Boundary ③ (CST → Typed AST). Building the use case first validates API shapes before committing to them — the accumulator and interning designs are sound in the abstract but may need adjustment once a concrete type-checker drives them.
 
-1. **Semantic interning (`InternTable[T]`)** — Generic interning table. Maps `T : Hash + Eq` values to stable `InternId` integers. Enables O(1) equality for Datalog facts, stable `MemoMap` keys across revisions, and efficient Memo backdating on rich domain types. Standalone (no Runtime dependency). Design: [semantic-interning.md](semantic-interning.md).
+1. **Semantic interning (`InternTable[T]`)** — Generic interning table. Maps `T : Hash + Eq` values to stable `InternId` integers. Enables O(1) equality for Datalog facts, stable `MemoMap` keys across revisions, and efficient Memo backdating on rich domain types. Standalone (no Runtime dependency). Design: [semantic-interning.md](research/semantic-interning.md).
 
    **Simplification (2026-03-28):** Start with `InternId { index: Int }` only — no generation counter. The table is grow-only initially (no slot reuse), making the generation counter vestigial until GC/slot-reuse is implemented. Add `generation: Int` when implementing GC.
 
@@ -178,7 +178,7 @@ The following features build toward a Salsa-style query API where users write no
 ### Phase 4 — Remaining
 
 - **Recursive suspension**: Auto-suspend when `push_reachable_count` drops to 0 on unobserved cells (deferred from Layer 4b — gc() handles cleanup for now).
-- **Runtime modularization**: Decompose Runtime god object into coordinator + engines. Architecture analysis completed 2026-04-16 (see [design.md](design.md#architecture-analysis-2026-04-16)).
+- **Runtime modularization**: Decompose Runtime god object into coordinator + engines. Architecture analysis completed 2026-04-16 (see [design/internals.md](design/internals.md#architecture-analysis-2026-04-16)).
   - ~~Phase Machine — Replace boolean guards with `PropagationPhase` enum~~ ✓ PR #35
   - ~~Extract RevisionState + TrackingState + BatchState — Group fields within RuntimeCore~~ ✓ PR #35
   - ~~Unify Subscriber Diff — Single shared `diff_and_update_subscribers` function~~ ✓ PR #35

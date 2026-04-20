@@ -8,7 +8,9 @@
 
 **Tech Stack:** MoonBit (wasm-gc target), `moonbitlang/core/hashmap`, `moonbitlang/core/hashset`. Tests via `moon test`; `moon check`, `moon info`, `moon fmt` for CI checks.
 
-**Spec:** `docs/superpowers/specs/2026-04-19-accumulator-api-design.md`
+**Status:** Shipped 2026-04-20. See [ADR](../../decisions/2026-04-20-accumulator-api.md).
+
+**Spec:** `docs/archive/completed-phases/2026-04-19-accumulator-api-design.md`
 
 ---
 
@@ -861,7 +863,7 @@ Create `cells/accumulator.mbt`:
 ///
 /// Typed buffers (`per_memo`, `prev_push_sets`) live on the handle; runtime
 /// holds only type-erased closures in SlotMeta. See the design doc
-/// `docs/superpowers/specs/2026-04-19-accumulator-api-design.md`.
+/// `docs/archive/completed-phases/2026-04-19-accumulator-api-design.md`.
 pub struct Accumulator[T] {
   priv rt : Runtime
   priv slot_id : @incr_types.AccumulatorId

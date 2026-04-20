@@ -1,10 +1,10 @@
 # Design — How incr Works Under the Hood
 
-> **Note for users**: If you're new to `incr`, start with the [Getting Started](getting-started.md) guide and [Core Concepts](concepts.md). This document is for contributors or users who want to understand the implementation deeply.
+> **Note for users**: If you're new to `incr`, start with the [Getting Started](../getting-started.md) guide and [Core Concepts](../concepts.md). This document is for contributors or users who want to understand the implementation deeply.
 
-> **Note:** The introspection API (Phase 2A) is now available. See the [Phase 1 Introspection Design](archive/2026-02-16-introspection-api-phase1-design.md) for details on the accessor methods and `CellInfo` structure.
+> **Note:** The introspection API (Phase 2A) is now available. See the [Phase 1 Introspection Design](../archive/2026-02-16-introspection-api-phase1-design.md) for details on the accessor methods and `CellInfo` structure.
 
-This document explains the theoretical foundations and implementation details of the `incr` library. For usage and API examples, see [README.md](../README.md). For contributor/AI guidance, see [CLAUDE.md](../CLAUDE.md).
+This document explains the theoretical foundations and implementation details of the `incr` library. For usage and API examples, see [README.md](../../README.md). For contributor/AI guidance, see [CLAUDE.md](../../CLAUDE.md).
 
 ## Motivation & Background
 
@@ -198,11 +198,11 @@ Pure pull-based verification (`Memo`) has excellent worst-case avoidance: cells 
 
 ### Unified Memo Handling
 
-`HybridMemo` and `PullMemo` share a single SoA array, distinguished by a flag and by `CellRef` variant. This lets the verification engine handle both cell types through the same code path. See [`cells/pull_memo.mbt`](../cells/pull_memo.mbt) for the unified entry layout.
+`HybridMemo` and `PullMemo` share a single SoA array, distinguished by a flag and by `CellRef` variant. This lets the verification engine handle both cell types through the same code path. See [`cells/pull_memo.mbt`](../../cells/pull_memo.mbt) for the unified entry layout.
 
 ### Push vs Pull Propagation
 
-Push propagation BFS-walks downstream from changed sources in topological order, passing through pull/hybrid memos as transparent bridges to reach push-reactive and push-effect nodes. An inner pruning gate (`push_reachable_count`) skips memo branches with no downstream push cells. Only `Reactive` and `Effect` contribute to the push node count — `HybridMemo` relies on revision-based staleness detection instead. See [`cells/push_propagate.mbt`](../cells/push_propagate.mbt) and [`cells/verify.mbt`](../cells/verify.mbt).
+Push propagation BFS-walks downstream from changed sources in topological order, passing through pull/hybrid memos as transparent bridges to reach push-reactive and push-effect nodes. An inner pruning gate (`push_reachable_count`) skips memo branches with no downstream push cells. Only `Reactive` and `Effect` contribute to the push node count — `HybridMemo` relies on revision-based staleness detection instead. See [`cells/push_propagate.mbt`](../../cells/push_propagate.mbt) and [`cells/verify.mbt`](../../cells/verify.mbt).
 
 ### Durability Tiers
 
@@ -210,7 +210,7 @@ Three durability levels (Low, Medium, High) classify how often an input changes.
 
 ### Type Erasure via Per-Engine SoA
 
-The runtime stores cells in per-engine Structure-of-Arrays (SoA) grouped by propagation mode: pull-mode signals and memos, push-mode reactives and effects, and datalog relations/rules. Typed values stay in user-facing handles (`Signal[T]`, `Memo[T]`); the runtime sees only type-erased closures and metadata. Two dispatch tables (`cell_ops`, `cell_lifecycle`) provide uniform behavioral access via trait objects indexed by `CellId`. See [`cells/runtime.mbt`](../cells/runtime.mbt) for the SoA layout and [`cells/cell_ops.mbt`](../cells/cell_ops.mbt) for the trait interfaces.
+The runtime stores cells in per-engine Structure-of-Arrays (SoA) grouped by propagation mode: pull-mode signals and memos, push-mode reactives and effects, and datalog relations/rules. Typed values stay in user-facing handles (`Signal[T]`, `Memo[T]`); the runtime sees only type-erased closures and metadata. Two dispatch tables (`cell_ops`, `cell_lifecycle`) provide uniform behavioral access via trait objects indexed by `CellId`. See [`cells/runtime.mbt`](../../cells/runtime.mbt) for the SoA layout and [`cells/cell_ops.mbt`](../../cells/cell_ops.mbt) for the trait interfaces.
 
 This design means the verification algorithm in `cells/verify.mbt` operates entirely on `PullSignalData`/`MemoData` without knowing any value types, and the batch commit logic can commit pending signal values without knowing their types.
 
@@ -501,4 +501,4 @@ All stages preserve the public API with zero breaking changes. Downstream consum
 
 ### Engine isolation (2026-04-18)
 
-Engine SoA storage is partitioned into internal sub-packages under `cells/internal/` using MoonBit's `internal` package visibility. Engines cannot import each other, and no engine package imports back into `cells/` — invariants enforced by `scripts/check-engine-isolation.sh`. One pull-engine SoA type remains in `cells/` pending a separate dependency-graph change; the partial split is intentional. The [Stage 5 design spec](superpowers/specs/2026-04-18-incr-stage5-internal-split-design.md) carries the concrete type names, the file map, and the rationale for what stayed behind.
+Engine SoA storage is partitioned into internal sub-packages under `cells/internal/` using MoonBit's `internal` package visibility. Engines cannot import each other, and no engine package imports back into `cells/` — invariants enforced by `scripts/check-engine-isolation.sh`. One pull-engine SoA type remains in `cells/` pending a separate dependency-graph change; the partial split is intentional. The [Stage 5 design spec](specs/2026-04-18-incr-stage5-internal-split-design.md) carries the concrete type names, the file map, and the rationale for what stayed behind.
