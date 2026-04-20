@@ -252,8 +252,17 @@ improve correctness, performance, and integration beyond the infrastructure vali
       `build_typecheck_pipeline_with_index` in `examples/lambda` before each rebuild.
       The `is_disposed()` + name guard remains as a defensive fallback for any InternId
       that outlives a rebuild window. See loom/examples/lambda `typecheck.mbt`.
-- [ ] **Stable identity across insertions** — encounter-order shifts when inserting a def at position 0,
-      invalidating all subsequent DefIds. Consider content-hashing or path-independent naming
+- [x] **Stable identity across insertions** — `DefEntry` shrunk to `{ name }` (hash on name
+      only); position lookup moved to a `name_to_idx : HashMap[String, Int]` on
+      `PipelineState`, rebuilt whenever the chain is torn down. Inserting a def at position 0
+      no longer changes any existing `InternId`, so caller-side caches keyed off `DefId`
+      (diagnostics, hover, go-to-definition) keep hitting across that edit. The `MemoMap`
+      wrappers themselves are still cleared on structural rebuild — identity stability is
+      the API guarantee, not wrapper reuse. Semantic note: duplicate names in one module
+      now collide on a single `InternId` (last wins, matches resolver shadowing); prior
+      positional keys let each occurrence be queried separately. Whitebox test pins the
+      guarantee ("MemoMap: DefId stays stable after prepending a def at position 0") in
+      `examples/lambda/src/typecheck/typecheck_wbtest.mbt`.
 
 ### Type System Extensions (deferred — not needed for infra validation)
 

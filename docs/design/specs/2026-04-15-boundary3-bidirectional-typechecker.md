@@ -175,7 +175,18 @@ InternTable::len(self) -> Int
 
 ## 5. DefId and Interning
 
+> **Update (2026-04-20):** The trade-off described below was resolved. `DefEntry`
+> shrunk to `{ name }` and position lookup moved to a `name_to_idx : HashMap[String, Int]`
+> on `PipelineState`. Inserting a def at position 0 no longer changes any existing
+> `InternId`, so caller-side caches keyed off `DefId` keep hitting across the edit.
+> `MemoMap::clear()` still fires on structural rebuild — identity stability is the
+> API guarantee, not wrapper reuse. See `examples/lambda/src/typecheck/typecheck.mbt`
+> and the "MemoMap: DefId stays stable after prepending a def at position 0" whitebox test.
+> The paragraphs below are the original design and are retained for context.
+
 ### DefEntry
+
+> **Superseded 2026-04-20** — the shipped `DefEntry` has only `name`; see the §5 top note.
 
 ```moonbit
 struct DefEntry {
@@ -187,6 +198,8 @@ struct DefEntry {
 `DefId = InternId` from `InternTable[DefEntry]`.
 
 ### Assignment Strategy: Encounter-Order Counter
+
+> **Superseded 2026-04-20** — position lookup is now a `name_to_idx : HashMap[String, Int]` on `PipelineState`; see the §5 top note.
 
 A monotonic counter incremented during top-down tree walk assigns each definition a unique encounter order. On re-typecheck after edit, the counter resets and re-interns the same `DefEntry` values. Since `InternTable` deduplicates by value (`Hash + Eq`), unchanged definitions get the same `InternId`.
 
@@ -256,6 +269,8 @@ A `MemoMap[DefId, TypeResult]` serves as an index. Its `compute` closure capture
 When the source text changes and produces a structurally different Module (defs added/removed), the Scope is disposed and rebuilt. The InternTable persists across rebuilds — unchanged DefEntries get the same InternIds, so the MemoMap index preserves cache hits for stable defs.
 
 **Rebuild detection:** The top-level `typecheck.mbt` wiring maintains a `prev_def_keys : Array[(String, Int)]` (name + encounter_order per def). On each recomputation of the `Memo[TypedTerm]`, compare the new Module's def list against `prev_def_keys`. If lengths differ or any name changed → dispose old Scope, rebuild chain. If identical → reuse existing chain (individual term Memos detect their own changes). This comparison runs once per source edit, outside the Memo chain.
+
+> **Superseded 2026-04-20** — the shipped wiring tracks `prev_def_names : Array[String]` (name only) and rebuilds when the list differs. The `name_to_idx` map is rebuilt alongside it. See the §5 top note.
 
 When the source changes but Module structure is the same (same number of defs, same names), the existing Memo chain is reused — only changed terms trigger recomputation.
 
@@ -425,7 +440,7 @@ loom/examples/lambda/src/typecheck/
 - **Position/span tracking** — the AST doesn't carry spans. Defer to editor integration.
 - **Incremental name resolution** — resolution stays whole-tree as a single Memo. Per-def resolution is a follow-up.
 - **InternTable GC / generation counters** — grow-only is sufficient for this example.
-- **Stable identity across insertions** — encounter-order shifts on insertion. Content-hashing or path-independent identity schemes are deferred.
+- **Stable identity across insertions** *(Shipped 2026-04-20 — `DefEntry` hashes on name only; see §5 top note.)* — encounter-order shifts on insertion. Content-hashing or path-independent identity schemes are deferred.
 
 ## 11. Implementation Order
 
