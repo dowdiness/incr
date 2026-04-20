@@ -332,6 +332,158 @@ inspect(average.get(), content="30")
 
 ---
 
+## Pattern: Side-Channel Diagnostics with Accumulator
+
+A memo's ordinary return value (a value, a type, a compiled artifact) is
+often semantically distinct from log-like data it emits along the way
+(diagnostics, trace events, stats). Thread return values through the memo
+graph; thread the log-like data through an `Accumulator[T]`.
+
+Producers `push` during compute. Consumers read back via
+`Memo::accumulated_peek` (outside the graph) or `Memo::accumulated` (inside
+another memo, with correct incremental invalidation). See the
+[Accumulator API](api-reference.md#accumulatort) reference.
+
+```moonbit nocheck
+let rt = Runtime()
+let width = Signal(rt, -5)
+
+let diags : Accumulator[String] = Accumulator::new(rt~, label="diags")
+
+let checked = Memo(rt, fn() raise {
+  let w = width.get()
+  if w < 0 {
+    diags.push("negative width: \{w}")
+  }
+  w.abs()
+})
+
+let _ = checked.get()
+
+// Outside any compute: read pushes permissively (empty if producer never ran).
+inspect(checked.accumulated_peek(diags), content="[\"negative width: -5\"]")
+
+width.set(10)
+let _ = checked.get()
+// Producer re-ran; push set is empty this time.
+inspect(checked.accumulated_peek(diags), content="[]")
+```
+
+**Top-frame restriction.** `push` is only legal inside a `Memo` or
+`HybridMemo` compute. Calling `diags.push(...)` from a `Signal::set`,
+`Effect`, or bare function call raises `Failure`.
+
+---
+
+## Pattern: Accumulator-Driven Incremental Invalidation
+
+When a consumer memo reads pushes via `Memo::accumulated`, it records a
+synthetic dependency on the producer's push set. The consumer reinvalidates
+when the push set changes — **even when the producer's ordinary return
+value is unchanged**. This is the primary reason to use an accumulator
+rather than returning an `Array` from the producer.
+
+```moonbit nocheck
+let rt = Runtime()
+let width = Signal(rt, -5)
+
+let diags : Accumulator[String] = Accumulator::new(rt~, label="diags")
+
+// Producer returns only its size; diagnostics flow through the accumulator.
+let checked = Memo(rt, fn() raise {
+  let w = width.get()
+  if w < 0 {
+    diags.push("negative width: \{w}")
+  }
+  w.abs()
+})
+
+// Consumer's compute reads `accumulated`, so it tracks the push set.
+let report = Memo(rt, fn() raise {
+  let size = checked.get()
+  let ds = checked.accumulated(diags)
+  "size=\{size}, diags=\{ds.length()}"
+})
+
+inspect(report.get(), content="size=5, diags=1")
+
+// Flip sign — producer's return value stays 5 (abs is symmetric),
+// but the push set flips from [one diag] to [].
+width.set(5)
+inspect(report.get(), content="size=5, diags=0")
+```
+
+Without the accumulator, `report` would not invalidate: `checked.get()`
+still returns `5` (structurally equal, so backdated), and a plain
+`checked.diagnostics` field would require a fresh `Array` allocation on
+every compute to carry the change through.
+
+Use `accumulated_result` at the boundary when a cycle in the producer
+should surface as `Err(CycleError)` rather than raising.
+
+---
+
+## Pattern: Scope-Owned Accumulator Lifecycle
+
+A driver that rebuilds its memo chain on structural change (new def set,
+new schema, new file list) needs a matching rebuild of the accumulator —
+or stale per-memo push buffers leak from the old graph into the new one.
+
+Tie the accumulator to a **child scope** that owns the whole chain.
+Disposing the scope disposes the accumulator automatically; allocating a
+fresh scope gives you a fresh accumulator with no manual bookkeeping.
+
+Shape (adapted from the lambda type-checker driver — see
+`loom/examples/lambda/src/typecheck/typecheck.mbt`):
+
+```moonbit nocheck
+priv struct PipelineState {
+  mut chain_scope : Scope?
+  mut type_memos  : Array[Memo[TypeResult]]
+  mut diags       : Accumulator[TypeDiagnostic]?
+  // ... other per-chain state
+}
+
+fn rebuild_chain(
+  state        : PipelineState,
+  parent_scope : Scope,
+  module       : ResolvedModule,
+) -> Unit {
+  // Dispose the old chain. Disposing the scope disposes every cell
+  // allocated through it — memos, signals, effects, AND the accumulator.
+  match state.chain_scope {
+    Some(old) => old.dispose()
+    None      => ()
+  }
+
+  // Fresh scope → fresh accumulator in one call.
+  let chain_scope = parent_scope.child()
+  state.chain_scope = Some(chain_scope)
+  let diags = chain_scope.accumulator(label="typecheck_diags")
+  state.diags = Some(diags)
+
+  // Allocate per-def memos on the chain scope; each closes over `diags`
+  // and pushes diagnostics into it during compute.
+  let type_memos = []
+  for def in module.defs {
+    let m = chain_scope.memo(() => infer_def(def, diags), label=def.name)
+    type_memos.push(m)
+  }
+  state.type_memos = type_memos
+}
+```
+
+The outer pipeline memo consumes diagnostics via `type_memo.accumulated(diags)`, so the invalidation chain is: def source changes → per-def memo recomputes → push set for that memo changes → pipeline memo invalidates → driver collects updated diagnostics.
+
+**Why child scope, not runtime-owned.** An `Accumulator::new(rt~, ...)`
+lives until explicitly disposed. In a driver that rebuilds on every
+structural change, forgetting to dispose leaks per-memo state for every
+retired memo. `parent_scope.child()` couples the accumulator's lifetime to
+the chain it belongs to, so lifecycle correctness is a consequence of the
+scope hierarchy rather than a discipline the driver must maintain.
+
+---
+
 ## Pattern: Change Notifications
 
 Observe committed updates with `Runtime::set_on_change`:

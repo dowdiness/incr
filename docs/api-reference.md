@@ -298,6 +298,43 @@ Returns:
 - `false` if the memo has never been computed
 - `true` only when cached and verified at current revision
 
+### `Memo::accumulated[T, A](self, acc: Accumulator[A]) -> Array[A] raise Failure`
+
+Returns the values this memo pushed into `acc` during its most recent compute, in push order, and **records a synthetic dependency** so the caller (if itself a memo) reinvalidates when the push set changes — even when the memo's ordinary return value is unchanged. Forces verification of the target memo first, so stale results are never returned.
+
+Raises `Failure` on: disposed accumulator, cross-runtime accumulator, disposed target memo, a cycle involving the target, or a `Failure` raised inside the target's compute.
+
+```moonbit nocheck
+let diags = report.accumulated(diag_acc)
+for d in diags {
+  println(d.message)
+}
+```
+
+Use inside a memo compute when the consumer should recompute whenever the producer's diagnostics change. See [Accumulator[T]](#accumulatort).
+
+### `Memo::accumulated_peek[T, A](self, acc: Accumulator[A]) -> Array[A]`
+
+Untracked read of the values the memo pushed into `acc` during its most recent compute. Does **not** record a dependency, does **not** force verification, and is **permissive on disposal** — returns `[]` when the accumulator or target is disposed, or when the target has never been computed.
+
+```moonbit nocheck
+// Read-only inspection from outside the graph (no invalidation wired):
+let so_far = report.accumulated_peek(diag_acc)
+```
+
+Prefer `accumulated` inside memo compute; use `accumulated_peek` from drivers, debug output, or tests that only observe.
+
+### `Memo::accumulated_result[T, A](self, acc: Accumulator[A]) -> Result[Array[A], CycleError] raise Failure`
+
+Tracked, verifying read that surfaces a cycle in the target as `Err(CycleError)` rather than raising. Other defect classes (disposed handles, cross-runtime reuse) still raise `Failure`.
+
+```moonbit nocheck
+match report.accumulated_result(diag_acc) {
+  Ok(diags) => render(diags)
+  Err(cycle) => log_cycle(cycle.format_path())
+}
+```
+
 ---
 
 ## MemoMap[K, V]
@@ -371,6 +408,75 @@ Returns the unique identifier for this hybrid memo.
 ### `HybridMemo::is_up_to_date(self) -> Bool`
 
 Returns `true` only when the hybrid memo has a cached value and `verified_at` matches the current revision.
+
+---
+
+## Accumulator[T]
+
+Side-channel collector: memos push values during their compute, downstream readers pull them back with correct incremental invalidation. Use when a producer's ordinary return value (e.g. a `TypeResult`) is semantically distinct from log-like data it emits along the way (diagnostics, trace events, decorations).
+
+Consumers reading via `Memo::accumulated` are invalidated whenever a producing memo recomputes and its push set differs from the previous run — even when the producer's return value is structurally equal. See the ADR: [Accumulator API](decisions/2026-04-20-accumulator-api.md).
+
+**Local-only semantics.** `memo.accumulated(acc)` returns only the values `memo` itself pushed — not its dependencies. Transitive aggregation is the driver's job (see the [Scope-owned accumulator](cookbook.md#pattern-scope-owned-accumulator-lifecycle) cookbook pattern).
+
+**Top-frame restriction.** `push` is only legal inside a `Memo` or `HybridMemo` compute. Pushing from a `Signal`, `Effect`, `Reactive`, or outside any compute raises `Failure`.
+
+### `Accumulator::new[T : Eq](rt~: Runtime, label? : String) -> Accumulator[T]`
+
+Creates a runtime-owned accumulator. Lives until explicitly disposed (or until the runtime is dropped).
+
+```moonbit nocheck
+let diags : Accumulator[TypeDiagnostic] = Accumulator::new(rt~, label="diags")
+```
+
+Prefer `Scope::accumulator` when a scope is available — disposal is tied to the scope's lifecycle.
+
+### `Scope::accumulator[T : Eq](self, label? : String) -> Accumulator[T]`
+
+Creates an accumulator owned by a scope. When the scope is disposed, the accumulator is disposed automatically and cleared from the runtime.
+
+```moonbit nocheck
+let diags = scope.accumulator(label="typecheck_diags")
+```
+
+This is the preferred constructor for driver code where the accumulator's lifetime matches a larger unit of work (a chain rebuild, a compilation pass). See the [Scope-owned accumulator](cookbook.md#pattern-scope-owned-accumulator-lifecycle) cookbook pattern.
+
+### `Accumulator::push[T](self, value: T) -> Unit raise Failure`
+
+Appends `value` to the current compute's push buffer. Raises `Failure` if called:
+- outside a tracked compute context
+- from a non-`Memo` / non-`HybridMemo` top frame
+- on a disposed accumulator
+
+Pushes within a single compute are ordered by call sequence; `Memo::accumulated` returns them in that order.
+
+```moonbit nocheck
+if width < 0 {
+  diags.push(TypeDiagnostic("negative width", span))
+}
+```
+
+### `Accumulator::dispose(self) -> Unit`
+
+Disposes the accumulator. Subsequent `push` calls raise `Failure`; subsequent `accumulated_peek` returns `[]`; subsequent `accumulated` / `accumulated_result` raise `Failure`. Idempotent.
+
+### `Accumulator::id(self) -> AccumulatorId`
+
+Returns the accumulator's unique identifier (for debug/introspection).
+
+### `Accumulator::label(self) -> String?`
+
+Returns the optional label provided at construction.
+
+### `Accumulator::is_disposed(self) -> Bool`
+
+Returns `true` after `dispose` has been called.
+
+### `Accumulator::debug(self) -> String`
+
+Returns a human-readable summary (label, id, disposed state, per-memo push counts).
+
+Read methods live on `Memo[T]`: see `Memo::accumulated`, `Memo::accumulated_peek`, and `Memo::accumulated_result` in the [Memo[T]](#memot) section above.
 
 ---
 
@@ -748,6 +854,14 @@ let h = create_hybrid_memo(app, () => signal.get() * 2, label="doubled")
 ### `create_memo_map[Db : Database, K, V](db: Db, f: (K) -> V, label? : String) -> MemoMap[K, V]`
 
 Creates a memo map using `db.runtime()`. Each key is memoized independently.
+
+### `create_accumulator[Db : Database, T : Eq](db: Db, label? : String) -> Accumulator[T]`
+
+Creates a runtime-owned accumulator using `db.runtime()`. Prefer `Scope::accumulator` for scope-bound lifetimes.
+
+```moonbit nocheck
+let diags = create_accumulator(app, label="diags")
+```
 
 ### `create_tracked_cell`
 
