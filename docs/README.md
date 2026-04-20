@@ -38,6 +38,7 @@ For contributors and advanced users who want to understand or modify `incr`.
 
 - [Roadmap](roadmap.md) — phased future direction
 - [Active plans](plans/) — concrete implementation plans for upcoming work
+  - [2026-04-21 R1 — Split Reactive Kernel from Cells](plans/2026-04-21-r1-engine-package-split.md) — extract graph-mechanics into `cells/internal/kernel/`; public Runtime methods become thin wrappers or drop entirely (D8 wrapper economy) over kernel free functions. 6 staged PRs + Stage 0 prerequisites, 4–6 days.
 - [TODO](todo.md) — contributor task list organized by priority
 
 **Research notes — exploratory, not implemented:**
