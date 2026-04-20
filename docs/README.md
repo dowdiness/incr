@@ -100,6 +100,7 @@ Architecture Decision Records capture the *why* of significant design choices. K
 |----------|---------|
 | [archive/2026-04-18-datalog-dispose-factoring.md](archive/2026-04-18-datalog-dispose-factoring.md) | Rejected-alternative analysis: why datalog `dispose_cell` uses a helper, not a trait default |
 | [archive/2026-04-08-dispose-gc-design.md](archive/2026-04-08-dispose-gc-design.md) | Dispose/GC design spec — all 5 layers complete (PRs #28–#33) |
+| [archive/completed-phases/2026-04-19-accumulator-api-design.md](archive/completed-phases/2026-04-19-accumulator-api-design.md) | Accumulator API spec (Path 1 — local-only; shipped 2026-04-20). See ADR [decisions/2026-04-20-accumulator-api.md](decisions/2026-04-20-accumulator-api.md). |
 | [archive/completed-phases/2026-03-24-kernel-mode-engines.md](archive/completed-phases/2026-03-24-kernel-mode-engines.md) | Kernel + Mode Engines: publish_cell_changes, in_fixpoint to RuntimeCore, remove dead dirty field |
 | [archive/completed-phases/2026-03-07-cells-simplification-design.md](archive/completed-phases/2026-03-07-cells-simplification-design.md) | Split runtime.mbt, deduplicate validation, extract dispose cleanup |
 | [archive/completed-phases/2026-03-08-cells-simplification-impl.md](archive/completed-phases/2026-03-08-cells-simplification-impl.md) | Implementation plan for cells simplification |

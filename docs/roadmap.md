@@ -161,7 +161,7 @@ The following features build toward a Salsa-style query API where users write no
 
 2. **Tracked structs** — No new library code needed. `TrackedCell`, `Trackable`, and `MemoMap` already provide all required infrastructure. Work is demonstrating the pattern via an integration test: `InternId` as MemoMap key + `TrackedCell` fields for field-level granularity.
 
-3. **Accumulators** — **Deferred until Boundary ③ exists.** Side-channel value collection during query computation (e.g., diagnostics without threading through return types). Deferred because: (a) no concrete use case yet, (b) key design questions unresolved — type erasure in a non-generic Runtime, transitive collection requiring a second dependency graph, backdating of `Array[T]` equality, and invalidation when only accumulated values change. See [todo.md](todo.md) for the full list of open questions.
+3. **Accumulators** — ✓ **Shipped 2026-04-20** (Path 1, local-only). `Accumulator[T]` + three `Memo` read variants (`accumulated`, `accumulated_peek`, `accumulated_result`). Per-memo `push_revised_at` synthetic dep handles the "diagnostics-only change" invalidation case. Lambda type-checker migrated off `TypeResult.diagnostics` in loom PR #94. See [ADR](decisions/2026-04-20-accumulator-api.md) for rationale and [archived spec](archive/completed-phases/2026-04-19-accumulator-api-design.md) for implementation details. Transitive aggregation (Path 2) deferred as a future `accumulated_transitive` method.
 
 4. **Multi-key MemoMap (optional ergonomics)** — `MemoMap2[K1, K2, V]`, `MemoMap3[K1, K2, K3, V]` as sugar for multi-argument queries. Low priority because tuple keys `MemoMap[(K1, K2), V]` already work.
 
@@ -183,7 +183,7 @@ The following features build toward a Salsa-style query API where users write no
   - ~~Extract RevisionState + TrackingState + BatchState — Group fields within RuntimeCore~~ ✓ PR #35
   - ~~Unify Subscriber Diff — Single shared `diff_and_update_subscribers` function~~ ✓ PR #35
   - Internal package split — Move engine types to `cells/internal/pull/`, `cells/internal/push/`, `cells/internal/datalog/` using MoonBit's `internal` package visibility
-  - Further engine extraction — Deferred until accumulators or parallel computation create need
+  - Further engine extraction — Deferred until parallel computation creates need (accumulators shipped without it — see ADR 2026-04-20)
 
 ## Phase 5 — Ecosystem
 

@@ -1,6 +1,8 @@
 # Accumulator API Design (local-only MVP)
 
-**Status:** Approved design (Path 1 — local-only; transitive reconsidered post-MVP)
+**Status:** Complete (shipped 2026-04-20 via [PR #42](https://github.com/dowdiness/incr/pull/42) + fix `1715981`; driver adoption via [loom PR #94](https://github.com/dowdiness/loom/pull/94)). Decision record: [../../decisions/2026-04-20-accumulator-api.md](../../decisions/2026-04-20-accumulator-api.md).
+
+**Original status:** Approved design (Path 1 — local-only; transitive reconsidered post-MVP)
 
 **Date:** 2026-04-19
 

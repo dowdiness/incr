@@ -214,22 +214,22 @@ required infrastructure. The work here is demonstrating the pattern, not buildin
 - [ ] Add integration test: `InternId` + `TrackedCell` fields, field-level dependency granularity
       (change one field, only dependent memos recompute; identity key stable across revisions)
 
-### Accumulators — DEFERRED
+### Accumulators — SHIPPED
 
-Deferred until Boundary ③ (CST → Typed AST) exists with multiple interdependent queries.
-The following design questions must be answered before implementation:
-- Type erasure: `Runtime` is not generic — how does `accumulate(T)` store without making Runtime generic?
-- Transitive collection: `accumulated(memo)` must collect from memo and all transitive sub-calls,
-  requiring a second dependency graph (query call stack) on top of the existing one.
-- Backdating: comparing `Array[T]` equality requires `T : Eq`; insertion order must be stable.
-- Invalidation: if only accumulated values change (not the return value), dependents still need
-  to recompute — this doesn't fit the existing model where backdating is keyed to the return value.
+Shipped 2026-04-20. See [ADR](decisions/2026-04-20-accumulator-api.md) and archived [implementation spec](archive/completed-phases/2026-04-19-accumulator-api-design.md).
+
+Resolved design questions:
+- **Type erasure:** handle-local typed `Array[T]` storage per accumulator; Runtime stores only erased `AccumulatorSlot`.
+- **Transitive collection:** deferred — Path 1 is local-only. Module-level aggregation lives in driver code. Add `accumulated_transitive` as a separate method if a future driver needs it.
+- **Backdating of `Array[T]`:** sidestepped via per-memo `push_revised_at : Revision` counter. Comparison is `current_rev > stored_rev`, not array equality.
+- **Invalidation on diagnostic-only change:** synthetic dep `(accumulator_slot, producer_memo) → revision` recorded during tracked `accumulated(acc)` reads; mismatch invalidates consumer even when the producer's return value is backdate-equal.
 
 - [x] Build Boundary ③ use case first (lambda type-checker with type errors as diagnostics) — loom#81
-- [ ] Design accumulator API informed by concrete use case (type-checker diagnostics are now available as `TypeResult.diagnostics`)
-- [ ] Implement side-channel collection on `Runtime`
-- [ ] Integrate with dependency tracking and backdating
-- [ ] Add tests for diagnostic collection across multiple queries
+- [x] Design accumulator API informed by concrete use case — [archive/completed-phases/2026-04-19-accumulator-api-design.md](archive/completed-phases/2026-04-19-accumulator-api-design.md)
+- [x] Implement side-channel collection — incr PR #42 + fix `1715981`
+- [x] Integrate with dependency tracking and backdating — synthetic dep via `push_revised_at` per producer memo
+- [x] Add tests for diagnostic collection across multiple queries — 41 accumulator tests (whitebox) + lambda driver incrementality test (loom PR #94)
+- [x] Driver migration — lambda type-checker moved off `TypeResult.diagnostics` to `Accumulator[TypeDiagnostic]` (loom PR #94)
 
 ## Boundary 3: Type-Checker Follow-ups
 
@@ -367,7 +367,7 @@ Six cell read paths inlined the same ~10-line `current_computing_runtime_id` gua
 - **Runtime.mbt topic split** — `runtime.mbt` is 850 lines across ~16 sections, but most sections are cohesive and splitting is cosmetic without a concrete driver. Hard constraint for anyone who revisits: **subscriber management (`add/remove_subscriber`) and push-reachable accounting (`push_contribution` / `adjust_push_reachable`) must stay co-located** — they form one invariant cluster.
 - **Memo.mbt split** (547 lines) — coherent chapters, no duplication, no pain.
 - **cells/ folder reorg** — Stage 5 just moved SoA into `internal/`; another restructure now would churn without a driver.
-- **Stage 6 engine extraction** — memory confirms this waits for accumulators or similar.
+- **Stage 6 engine extraction** — was "waits for accumulators or similar"; accumulators shipped 2026-04-20 without needing this extraction, so the original motivation is void. Revisit only when parallel computation or a second major extension creates concrete need.
 
 ## Reactive Collections (2026-04-19)
 
