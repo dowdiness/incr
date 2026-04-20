@@ -32,6 +32,7 @@ For contributors and advanced users who want to understand or modify `incr`.
 - [API Design Guidelines](design/api-design-guidelines.md) — design philosophy and principles behind the public API
 - [Comparison with alien-signals](design/comparison-with-alien-signals.md) — trade-offs versus alien-signals-style reactive frameworks
 - [Implementation specs](design/specs/) — written-ahead design specs for individual subsystems (paired with [plans/](plans/) or already shipped)
+- [2026-04-20 Architecture Assessment](design/specs/2026-04-20-architecture-assessment.md) — verified snapshot of current architecture; records why no structural redesign is warranted today and what would justify revisiting T1b (commit-phase trait) and T3 (runtime registry)
 
 **Project direction:**
 
