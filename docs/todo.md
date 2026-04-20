@@ -266,6 +266,13 @@ improve correctness, performance, and integration beyond the infrastructure vali
       prepending a def at position 0") and the duplicate-name behaviour ("MemoMap:
       duplicate def names diagnose and keep first-wins lookup") in
       `examples/lambda/src/typecheck/typecheck_wbtest.mbt`.
+- [ ] **Span-keyed unique identity for shadowed duplicates** — stable-DefIds resolves
+      identity for *distinct* names, but shadowed duplicates still collapse onto one
+      `InternId` (first-wins + diagnostic). An editor that hovers over the second `foo`
+      of `[foo, foo]` has nothing to key on. Needs CST span threading through
+      `convert.mbt` → `TypedTerm`; defer until a real editor consumer demands it
+      (likely alongside the TypedTerm duplication cleanup below, which would add a
+      side-table keyed by node identity anyway).
 
 ### Type System Extensions (deferred — not needed for infra validation)
 
