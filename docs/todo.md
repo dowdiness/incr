@@ -15,6 +15,7 @@ Concrete, actionable tasks for the `incr` library.
 - [x] Convert recursive `maybe_changed_after` to iterative with explicit stack (prevents stack overflow on deep graphs)
 - [x] Diff old vs. new dependency lists in `Memo::force_recompute` instead of full replacement
 - [x] Explore push-pull hybrid invalidation (requires subscriber/reverse links) — implemented as `HybridMemo`
+- [ ] `memo_restore_on_abort` (cells/accumulator.mbt): replace O(n²) linear scan of `prev_contributions` during `touched` iteration with a HashSet lookup. Currently negligible (single-digit accumulator counts per memo), but revisit if a driver hits accumulator-heavy memo aborts. Microbenchmark before changing — per the perf-optimization rule, stale complexity claims aren't evidence.
 
 ## API Improvements
 
