@@ -4,6 +4,49 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-04-21
+
+### Added
+
+- **Accumulator API** — side-channel collector enabling aggregation patterns without full recomputation; per-memo `push_revised_at` drives incremental invalidation (#42)
+- **`Observer[T]`** — explicit, GC-safe downstream attachment. `.observe()` methods on `Memo`, `HybridMemo`, and `Reactive` return an `Observer[T]` that keeps the subscription chain alive and is required for any persistent downstream attachment once `Runtime::gc()` is in use
+- **`Runtime::gc()`** — mark-and-sweep that reclaims SoA slots of cells no longer reachable from roots
+- **`Runtime::read()`** convenience methods — the recommended entry point for tracked reads from query context
+- **`Scope`** — hierarchical disposal container with scoped cell constructors (`signal`, `memo`, `hybrid_memo`, `reactive`, `effect`), `add_tracked` for `Trackable` structs, `add_observer` for automatic `Observer` cleanup, and `create_scope` for nested child scopes
+- **Manual `dispose()` + `is_disposed()`** for all cell types — `Signal`, `Memo`, `HybridMemo`, `Reactive`, `Effect`, `TrackedCell`, `Relation`, `FunctionalRelation`, `Rule` — with SoA free-list slot reuse
+- **Push suspension** — `PushReactiveData::on_observe` / `on_unobserve` activate and suspend reactive nodes at 0↔1 observer transitions, avoiding wasted work on unobserved subgraphs
+- **`InternTable`** — grow-only interning table providing stable identity for string / symbol keys across revisions (#34)
+- **`Signal::peek()` and `TrackedCell::peek()`** — untracked reads that do not record dependencies
+- **`get_untracked()`** on `Memo`, `HybridMemo`, `Reactive` — reads from outside the dependency graph without aborting
+- **`MemoMap::get_tracked`** — misuse guardrail that aborts when called outside a tracked context (#41)
+- **`MemoMap::clear`** — reset all entries for structural-rebuild sweeps
+- **`MemoMap::sweep`** — remove disposed entries after `gc()`
+- **`HasChangedAt` + `BackdateEq` traits**; `Memo::new_memo` and `new_no_backdate` constructors for custom equality semantics (#25)
+- **`CellLifecycle` trait** — uniform dispose dispatch replacing ad-hoc per-kind dispose methods
+- **`CellOps::gc_role` + `gc_dependencies`** — GC categorization for all cell types (via new `GcRole` enum)
+
+### Changed
+
+- **`.get()` is now restricted to tracked context.** Calling `memo.get()` / `hybrid.get()` / `reactive.get()` outside a tracked computation aborts with a migration hint. Previously the same call returned the value *without recording a dependency* — a silent, latently-unsound no-op on tracking. This is classified as a minor-bump behavior change under a "latently-unsound-is-not-API" policy while the library has no external consumers; future similar changes will bump major once external users exist. Migration recipes:
+  - From outside the graph → `rt.read(&cell)` (tracked read via Runtime) or `cell.observe()` for persistent attachment
+  - When you need the value without tracking → `cell.peek()` (`Signal` / `TrackedCell`) or `cell.get_untracked()` (`Memo` / `HybridMemo` / `Reactive`)
+  - When you need cycle-safe handling → `.get_result()` / `.get_or()` / `.get_or_else()` remain callable from any context
+- `CycleError` is now a pure-value type with no `Runtime` dependency, enabling use outside the `cells` package
+- Internal SoA engine data moved to `cells/internal/{pull, push, datalog, shared}` packages — invisible to external consumers; the `@incr` public API is unchanged
+
+### Fixed
+
+- Preserve `push_revised_at` on aborted new-slot writes, preventing stale revision timestamps after transaction abort
+- `dispose_cell` removes the `gc_root_counts` entry to prevent observer handle leaks after disposal
+- `Scope`: clear arrays after dispose and validate `runtime_id` at registration to prevent use-after-free bugs
+- Cross-runtime and fixpoint guards restored in `get_result_inner()`; `get_result()` remains callable from any context
+- `MemoMap` updated to use `get_untracked()` for reads outside tracked context
+- Disposed-dependency guards tightened across `Memo` / `HybridMemo` `get` paths
+
+### Performance
+
+- **`push_reachable_count`** — O(1) push-propagation gating; replaces a BFS traversal when checking for downstream push subscribers (#24)
+
 ## [0.4.1] - 2026-03-22
 
 ### Added
