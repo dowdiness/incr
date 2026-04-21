@@ -1,5 +1,7 @@
 # Coordinator Routing Implementation Plan
 
+**Status:** Complete — shipped. `Runtime::propagate_changes` exists in `cells/runtime.mbt`; `publish_cell_changes` delegates to it; `commit_batch` (`cells/batch.mbt`) and `signal.set_unconditional` (`cells/signal.mbt`) route through it; `mark_input_changed` was deleted as planned. Plan line numbers below are stale relative to current `runtime.mbt` and are preserved for historical accuracy.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Route all push propagation through a single coordinator method (`propagate_changes`), eliminating direct `push_propagate_from` calls from batch, signal, and fixpoint code.

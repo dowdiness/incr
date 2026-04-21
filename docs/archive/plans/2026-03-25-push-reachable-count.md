@@ -1,5 +1,7 @@
 # Push Reachable Count Implementation Plan
 
+**Status:** Complete — shipped. `push_reachable_count` lives on `CellMeta` (`cells/internal/shared/cell_meta.mbt`) with a `CellOps::push_reachable_count` accessor (`cells/internal/shared/cell_ops.mbt`). Outer O(1) gate in `cells/push_propagate.mbt`, inner BFS pruning in the same file. Whitebox tests in `cells/push_reachable_wbtest.mbt`. Plan file paths below predate the `cells/internal/` package split and are left as-is for historical accuracy.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add `push_reachable_count` to every cell so `push_propagate_from` can skip BFS entirely for signals with no downstream push cells, and prune dead branches within the BFS.
