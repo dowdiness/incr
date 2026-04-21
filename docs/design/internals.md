@@ -198,7 +198,7 @@ Pure pull-based verification (`Memo`) has excellent worst-case avoidance: cells 
 
 ### Unified Memo Handling
 
-`HybridMemo` and `PullMemo` share a single SoA array, distinguished by a flag and by `CellRef` variant. This lets the verification engine handle both cell types through the same code path. See [`cells/pull_memo.mbt`](../../cells/pull_memo.mbt) for the unified entry layout.
+`HybridMemo` and `PullMemo` share a single SoA array, distinguished by a flag and by `CellRef` variant. This lets the verification engine handle both cell types through the same code path. See [`cells/internal/pull/memo_data.mbt`](../../cells/internal/pull/memo_data.mbt) for the unified entry layout.
 
 ### Push vs Pull Propagation
 
@@ -210,7 +210,7 @@ Three durability levels (Low, Medium, High) classify how often an input changes.
 
 ### Type Erasure via Per-Engine SoA
 
-The runtime stores cells in per-engine Structure-of-Arrays (SoA) grouped by propagation mode: pull-mode signals and memos, push-mode reactives and effects, and datalog relations/rules. Typed values stay in user-facing handles (`Signal[T]`, `Memo[T]`); the runtime sees only type-erased closures and metadata. Two dispatch tables (`cell_ops`, `cell_lifecycle`) provide uniform behavioral access via trait objects indexed by `CellId`. See [`cells/runtime.mbt`](../../cells/runtime.mbt) for the SoA layout and [`cells/cell_ops.mbt`](../../cells/cell_ops.mbt) for the trait interfaces.
+The runtime stores cells in per-engine Structure-of-Arrays (SoA) grouped by propagation mode: pull-mode signals and memos, push-mode reactives and effects, and datalog relations/rules. Typed values stay in user-facing handles (`Signal[T]`, `Memo[T]`); the runtime sees only type-erased closures and metadata. Two dispatch tables (`cell_ops`, `cell_lifecycle`) provide uniform behavioral access via trait objects indexed by `CellId`. See [`cells/runtime.mbt`](../../cells/runtime.mbt) for the SoA layout and [`cells/internal/shared/cell_ops.mbt`](../../cells/internal/shared/cell_ops.mbt) for the trait interfaces.
 
 This design means the verification algorithm in `cells/verify.mbt` operates entirely on `PullSignalData`/`MemoData` without knowing any value types, and the batch commit logic can commit pending signal values without knowing their types.
 
@@ -358,9 +358,9 @@ The library is split into four MoonBit sub-packages. The root package re-exports
 | File | Purpose |
 |------|---------|
 | `cells/signal.mbt` | `Signal[T]` — input cells with same-value optimization and durability |
-| `cells/pull_signal.mbt` | `PullSignalData` — SoA entry for input cells; `CellOps` + `Committable` impls |
+| `cells/internal/pull/pull_signal.mbt` | `PullSignalData` — SoA entry for input cells; `CellOps` + `Committable` impls |
 | `cells/memo.mbt` | `Memo[T]` — derived cells with memoization, backdating, and dependency tracking |
-| `cells/pull_memo.mbt` | `MemoData` — unified SoA entry for pull and hybrid derived cells |
+| `cells/internal/pull/memo_data.mbt` | `MemoData` — unified SoA entry for pull and hybrid derived cells |
 | `cells/verify.mbt` | `pull_verify` — SoA-native iterative verification algorithm with `PullVerifyFrame` stack |
 
 **Push mode (eager propagation):**
@@ -392,8 +392,10 @@ The library is split into four MoonBit sub-packages. The root package re-exports
 |------|---------|
 | `cells/runtime.mbt` | `Runtime` — coordinator: SoA arrays, revision management, tracking stack, batch commit, GC |
 | `cells/cell.mbt` | `CellInfo` struct for introspection output |
-| `cells/cell_ref.mbt` | `CellRef` enum — O(1) dispatch into per-engine SoA arrays |
-| `cells/cell_ops.mbt` | `CellOps`, `CellLifecycle`, `Committable` traits; `CellMeta` shared metadata |
+| `cells/internal/shared/cell_ref.mbt` | `CellRef` enum — O(1) dispatch into per-engine SoA arrays |
+| `cells/internal/shared/cell_ops.mbt` | `CellOps`, `Committable` traits (canonical definitions) |
+| `cells/internal/shared/cell_meta.mbt` | `CellMeta`, `HasCellMeta` — shared metadata struct and access trait |
+| `cells/cell_ops.mbt` | Local `CellLifecycle` and `Tracker` traits; `using @shared {...}` re-exports of `CellOps` / `Committable` / `CellMeta` |
 | `cells/tracking.mbt` | `ActiveQuery` — dependency recording frame with deduplication |
 | `cells/batch.mbt` | `Runtime::batch` — two-phase commit with rollback and revert detection |
 | `cells/cycle.mbt` | Private `CycleError::from_path` helper — captures cell labels at error construction |

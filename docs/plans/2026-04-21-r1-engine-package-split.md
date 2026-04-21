@@ -111,7 +111,7 @@ Each stage = one PR. Green `moon check && moon test && moon bench --release` bef
 
 ### Stage 2 — State types + SlotSnapshot trait
 
-- [ ] Move to `kernel/state.mbt`: `RevisionState`, `TrackingState`, `BatchState`, `PullState`, `PushState`, `DatalogState`, `RuntimeCore`, `PropagationPhase`, `ActiveQuery` (currently in `cells/tracking.mbt`).
+- [ ] Move to `kernel/state.mbt`: `RevisionState`, `TrackingState`, `BatchState`, `PullState`, `PushState`, `DatalogState`, `RuntimeCore`, `PropagationPhase` (currently in `cells/runtime.mbt`) and `ActiveQuery` (currently in `cells/tracking.mbt`).
 - [ ] Move to `kernel/state.mbt`: the two file-scope `Ref[Int]`s — `next_runtime_id` (cells/runtime.mbt:7) and `current_computing_runtime_id` (cells/runtime.mbt:22). Kernel exposes them via `fn get_current_computing_runtime_id() -> Int`, `fn set_current_computing_runtime_id(Int)`, `fn alloc_runtime_id() -> Int`. Memo's forgiving-repair path in cells/ reads via the getter.
 - [ ] Add `pub trait SlotSnapshot` to `cells/internal/shared/cell_meta.mbt` (or a new `slot_snapshot.mbt`) with methods `disposed(self) -> Bool`, `push_revised_at(self) -> Revision`.
 - [ ] Implement `SlotSnapshot` for `SlotMeta` in `cells/accumulator.mbt`. No behavior change.
