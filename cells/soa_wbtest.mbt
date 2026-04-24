@@ -10,7 +10,12 @@ test "get_changed_at: dispatches via cell_index" {
 test "cell_id_for: round-trips through cell_index" {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 1)
-  let cell_id = rt.cell_id_for(rt.core.cell_index[sig.id().id])
+  let cell_id = @kernel.cell_id_for(
+    rt.pull,
+    rt.push,
+    rt.datalog,
+    rt.core.cell_index[sig.id().id],
+  )
   inspect(cell_id == sig.id(), content="true")
 }
 

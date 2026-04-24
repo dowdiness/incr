@@ -196,61 +196,32 @@ fn Runtime::check_accumulator_cache_invariant(self : Runtime) -> Unit {
 /// Validates that a CellId belongs to this runtime and is within bounds.
 /// Aborts with a descriptive message on failure.
 fn Runtime::validate_cell(self : Runtime, id : CellId, caller : String) -> Unit {
-  if id.runtime_id != self.core.runtime_id {
-    abort("Cell belongs to a different Runtime")
-  }
-  if id.id < 0 || id.id >= self.core.cell_ops.length() {
-    abort(caller + ": cell_id out of bounds: " + id.id.to_string())
-  }
+  @kernel.validate_cell(self.core, id, caller)
 }
 
 ///|
 /// Returns true if the CellId belongs to this runtime and is within bounds.
 /// Non-aborting variant for methods that return None/[] on invalid input.
 fn Runtime::validate_cell_soft(self : Runtime, id : CellId) -> Bool {
-  id.runtime_id == self.core.runtime_id &&
-  id.id >= 0 &&
-  id.id < self.core.cell_ops.length()
+  @kernel.validate_cell_soft(self.core, id)
 }
 
 ///|
 /// Returns true if a cell has been disposed or its id is out of bounds.
 fn Runtime::is_cell_disposed(self : Runtime, cell_id : CellId) -> Bool {
-  let id = cell_id.id
-  id < 0 ||
-  id >= self.core.cell_index.length() ||
-  self.core.cell_index[id] is Disposed
+  @kernel.is_cell_disposed(self.core, cell_id)
 }
 
 ///|
 /// Returns the `changed_at` revision for any cell, dispatching via cell_index.
 fn Runtime::get_changed_at(self : Runtime, id : CellId) -> Revision {
-  self.validate_cell(id, "get_changed_at")
-  self.core.cell_ops[id.id].changed_at()
+  @kernel.get_changed_at(self.core, id)
 }
 
 ///|
 /// Returns the `durability` for any cell, dispatching via cell_index.
 fn Runtime::get_durability(self : Runtime, id : CellId) -> Durability {
-  self.validate_cell(id, "get_durability")
-  self.core.cell_ops[id.id].durability()
-}
-
-///|
-/// Returns the CellId stored in the given SoA entry (reverse lookup).
-fn Runtime::cell_id_for(self : Runtime, cell_ref : CellRef) -> CellId {
-  match cell_ref {
-    PullSignal(idx) => self.pull.signals[idx].meta.cell_id
-    PullMemo(idx) => self.pull.memos[idx].meta.cell_id
-    PushReactive(idx) => self.push.reactives[idx].meta.cell_id
-    PushEffect(idx) => self.push.effects[idx].meta.cell_id
-    HybridMemo(idx) => self.pull.memos[idx].meta.cell_id
-    Disposed => abort("cell_id_for: cell has been disposed")
-    Relation(idx) => self.datalog.relations[idx].meta.cell_id
-    FunctionalRelation(idx) =>
-      self.datalog.functional_relations[idx].meta.cell_id
-    Rule(idx) => self.datalog.rules[idx].meta.cell_id
-  }
+  @kernel.get_durability(self.core, id)
 }
 
 ///|
@@ -280,8 +251,7 @@ fn Runtime::get_memo_data(self : Runtime, id : CellId) -> MemoData {
 ///|
 /// Returns an iterator over the subscriber IDs for the given cell.
 fn Runtime::get_subscribers(self : Runtime, cell_id : CellId) -> Iter[CellId] {
-  self.validate_cell(cell_id, "get_subscribers")
-  self.core.cell_ops[cell_id.id].subscribers().iter()
+  @kernel.get_subscribers(self.core, cell_id)
 }
 
 ///|
@@ -308,14 +278,14 @@ fn Runtime::remove_subscriber(
   dep : CellId,
   subscriber : CellId,
 ) -> Unit {
-  self.validate_cell(dep, "remove_subscriber(dep)")
-  let contribution = self.push_contribution(subscriber)
-  let removed = self.core.cell_ops[dep.id]
-    .subscribers()
-    .remove_and_check(subscriber)
-  if removed && contribution > 0 {
-    self.adjust_push_reachable([dep], -contribution)
-  }
+  @kernel.remove_subscriber(
+    self.core,
+    self.pull,
+    self.push,
+    self.datalog,
+    dep,
+    subscriber,
+  )
 }
 
 ///|
@@ -326,105 +296,14 @@ fn Runtime::add_subscriber(
   dep : CellId,
   subscriber : CellId,
 ) -> Unit {
-  self.validate_cell(dep, "add_subscriber(dep)")
-  let subs = self.core.cell_ops[dep.id].subscribers()
-  if subs.contains(subscriber) {
-    return
-  }
-  subs.add(subscriber)
-  let contribution = self.push_contribution(subscriber)
-  if contribution > 0 {
-    self.adjust_push_reachable([dep], contribution)
-  }
-}
-
-///|
-/// Returns the push-reachable contribution of `sub_id` as a subscriber.
-fn Runtime::push_contribution(self : Runtime, sub_id : CellId) -> Int {
-  if sub_id.id < 0 || sub_id.id >= self.core.cell_index.length() {
-    return 0
-  }
-  match self.core.cell_index[sub_id.id] {
-    PushReactive(_) | PushEffect(_) => 1
-    PullMemo(i) | HybridMemo(i) => self.pull.memos[i].meta.push_reachable_count
-    _ => 0
-  }
-}
-
-///|
-/// Collects all cells reachable upstream of `sources` through the pull
-/// dependency graph.
-fn Runtime::collect_reachable_cells(
-  self : Runtime,
-  sources : Array[CellId],
-) -> @hashset.HashSet[CellId] {
-  let result : @hashset.HashSet[CellId] = @hashset.new()
-  let worklist : Array[CellId] = []
-  for id in sources {
-    worklist.push(id)
-  }
-  let mut wi = 0
-  while wi < worklist.length() {
-    let id = worklist[wi]
-    wi += 1
-    if result.contains(id) {
-      continue
-    }
-    if id.id < 0 || id.id >= self.core.cell_index.length() {
-      continue
-    }
-    match self.core.cell_index[id.id] {
-      Disposed => ()
-      PullSignal(_) => result.add(id)
-      PushReactive(_) | Relation(_) | FunctionalRelation(_) | Rule(_) =>
-        result.add(id)
-      PullMemo(i) | HybridMemo(i) => {
-        result.add(id)
-        for dep in self.pull.memos[i].dependencies {
-          worklist.push(dep)
-        }
-      }
-      PushEffect(_) => ()
-    }
-  }
-  result
-}
-
-///|
-/// Adjusts `push_reachable_count` by `delta` on every cell reachable upstream
-/// of `sources` (including the sources themselves).
-fn Runtime::adjust_push_reachable(
-  self : Runtime,
-  sources : Array[CellId],
-  delta : Int,
-) -> Unit {
-  let cells = self.collect_reachable_cells(sources)
-  for id in cells {
-    // CellMeta is heap-allocated — extracting it gives a mutable reference.
-    let meta = match self.core.cell_index[id.id] {
-      PullSignal(i) => self.pull.signals[i].meta
-      PullMemo(i) | HybridMemo(i) => self.pull.memos[i].meta
-      PushReactive(i) => self.push.reactives[i].meta
-      PushEffect(i) => self.push.effects[i].meta
-      Relation(i) => self.datalog.relations[i].meta
-      FunctionalRelation(i) => self.datalog.functional_relations[i].meta
-      Rule(i) => self.datalog.rules[i].meta
-      Disposed => continue
-    }
-    let new_count = meta.push_reachable_count + delta
-    if new_count < 0 {
-      abort(
-        "adjust_push_reachable: count went negative for cell " +
-        id.id.to_string() +
-        " (delta=" +
-        delta.to_string() +
-        ", was=" +
-        meta.push_reachable_count.to_string() +
-        ")",
-      )
-    }
-    meta.push_reachable_count = new_count
-  }
+  @kernel.add_subscriber(
+    self.core,
+    self.pull,
+    self.push,
+    self.datalog,
+    dep,
+    subscriber,
+  )
 }
 
 ///|
@@ -575,12 +454,6 @@ fn Runtime::remove_gc_root(self : Runtime, id : CellId) -> Int {
 }
 
 ///|
-/// Reconstructs a CellId from a cell_ops array index.
-fn Runtime::cell_id_at(self : Runtime, i : Int) -> CellId {
-  { runtime_id: self.core.runtime_id, id: i }
-}
-
-///|
 /// Runs mark-and-sweep garbage collection on the dependency graph.
 pub fn Runtime::gc(self : Runtime) -> Unit {
   guard self.core.tracking.stack.is_empty() else {
@@ -613,7 +486,7 @@ fn Runtime::collect_gc_roots(self : Runtime) -> Array[CellId] {
       _ => ()
     }
     if self.core.cell_ops[i].gc_role() is Root {
-      roots.push(self.cell_id_at(i))
+      roots.push(@kernel.cell_id_at(self.core, i))
     }
   }
   roots
@@ -657,7 +530,7 @@ fn Runtime::gc_sweep(self : Runtime) -> Unit {
       _ => ()
     }
     if self.core.cell_ops[i].gc_role() is Interior {
-      let id = self.cell_id_at(i)
+      let id = @kernel.cell_id_at(self.core, i)
       if !reachable.contains(id) {
         self.dispose_cell(id)
       }
