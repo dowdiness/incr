@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement stage-by-stage. Each stage ships as a single PR, green tests + benchmarks before the next starts. No big-bang commits.
 
-**Goal:** Extract graph-mechanics code (algorithms + propagation machinery + cross-state traversal) into a dedicated `cells/internal/kernel/` package. `cells/` retains `Runtime`, handle types, and per-cell-kind logic; `kernel/` never mentions any concrete cell kind. Runtime's methods become thin wrappers — or disappear entirely where only cells/ internal code calls them — over kernel free functions taking explicit state references.
+**Goal:** Extract graph-mechanics code (algorithms + propagation machinery + cross-state traversal) into a dedicated `cells/internal/kernel/` package. `cells/` retains `Runtime`, handle types, and per-cell-kind logic; `kernel/` never depends on `cells/`-only state (`SlotMeta`, handle types) or handle-specific logic. Kernel MAY branch on `CellRef` variants (already in `internal/shared/`); the boundary is "no handle state, no `cells/` imports," not "no cell-kind awareness." Runtime's methods become thin wrappers — or disappear entirely where only cells/ internal code calls them — over kernel free functions taking explicit state references.
 
 **Non-goals (explicit):** no public API change; no behavior change; no accumulator restructuring (R5); no `MemoCommitPhase` trait (R3); no `RuntimeRegistry` (R4); no `pipeline/` retirement (R6); no Runtime-as-services decomposition (R2, must follow R1).
 
@@ -16,13 +16,13 @@
 
 ## Stage 0 — Prerequisites (must complete before Stage 1)
 
-These are **research / design tasks**, not implementation. Each produces an artifact that gates Stage 1.
+**Status: Complete** (2026-04-24). All five artifacts landed; v3 plan incorporates the Codex findings below.
 
-- [ ] **Codex design review of this plan.** Per project CLAUDE.md ("Codex validates design before implementation"), request Codex review of the full plan. Ask specifically: "Does the staging order respect dependencies? Is the `SlotSnapshot` trait the right boundary for the verify/accumulator coupling? What else should R1 foresee?" Record Codex feedback as a comment trail on the plan or in a follow-up file.
-- [ ] **Establish benchmark baseline.** Run `moon bench --release` on `cells/` and save output to `docs/performance/2026-04-21-pre-r1-baseline.md` (matching existing `docs/performance/` dated-file convention). Include at minimum: `Signal::set`, `Memo::get` cold/hot, batch commit, fixpoint one iteration.
-- [ ] **Audit `dispose_cell` flow.** Confirm `Runtime::dispose_cell` itself does not touch `accumulator_*` fields (verified: the cleanup lives in `pull_memo_lifecycle.mbt:22-34` via CellLifecycle dispatch). Document any newly-discovered coupling.
-- [ ] **Audit `ActiveQuery` field set.** Confirm `touched_accumulator_slots : HashSet[AccumulatorId]` is the only accumulator-typed field on ActiveQuery. `AccumulatorId` in types/ lets kernel carry it opaquely.
-- [ ] **Verify `check-engine-isolation.sh` extensibility.** The script currently enforces pull/push/datalog sibling isolation. Plan the exact allow-list diff: `kernel/` may import `pull/`, `push/`, `datalog/`, `shared/`; nothing may import `kernel/` except `cells/` (top-level).
+- [x] **Codex design review of this plan.** See [2026-04-21-r1-stage0-codex-review.md](2026-04-21-r1-stage0-codex-review.md). Verdict: READY WITH CAVEATS. Four substantive findings folded into v3 (SlotSnapshot trait signature, Stage 3c ordering, Stage 3g fixpoint wrapper, Stage 4 dispose scoping) plus the narrower kernel-boundary statement and D8 softening.
+- [x] **Establish benchmark baseline.** See [docs/performance/2026-04-21-pre-r1-baseline.md](../performance/2026-04-21-pre-r1-baseline.md). 32 benches captured on native target (wasm-gc OOMs the moonrun heap; Stage 3 must use `--target native` for apples-to-apples). Tight-σ rows flagged as the Stage 3 gate.
+- [x] **Audit `dispose_cell` flow.** See [2026-04-21-r1-stage0-audits.md](2026-04-21-r1-stage0-audits.md) §1. Plan claim verified — accumulator cleanup lives in `pull_memo_lifecycle.mbt` via CellLifecycle dispatch. `guard_dispose` body is pure coordinator over `phase` + `tracking.stack` (cells/runtime.mbt:713) and moves cleanly.
+- [x] **Audit `ActiveQuery` field set.** See audit doc §2. Plan undercount corrected — **two** accumulator-typed fields: `accumulator_reads : HashMap[(AccumulatorId, CellId), Revision]` and `touched_accumulator_slots : HashSet[AccumulatorId]`. Both use types from `types/`; no structural blocker.
+- [x] **Verify `check-engine-isolation.sh` extensibility.** See audit doc §3. Three-change extension plan specified for Stage 5 (add `internals` array, add invariant 4 "no sibling imports of kernel," update invariant 2 comment).
 
 ## Package Layout — Target State
 
@@ -39,7 +39,7 @@ cells/internal/kernel/       NEW
 ├── tracking.mbt             push_tracking, pop_tracking, record_dep, check_cross_runtime
 ├── cycle.mbt                construct_cycle_error
 ├── subscriber_diff.mbt      diff_and_update_subscribers
-├── verify.mbt               pull_verify (takes `Array[&SlotSnapshot]` for synthetic-dep check)
+├── verify.mbt               pull_verify (takes `Array[&SlotSnapshot]`; SlotSnapshot has `push_revised_at_for(CellId)`)
 ├── push_propagate.mbt       push_propagate_from
 ├── fixpoint.mbt             run_fixpoint
 ├── propagate.mbt            propagate_changes, publish_cell_changes, fire_on_change
@@ -63,7 +63,9 @@ cells/ (RETAINS):
 
 **D3. State sub-structs move to kernel with `pub(all)`.** Required so `cells/runtime.mbt` can construct them in `Runtime::new`. Caveat: `pub(all)` in an internal package means siblings (pull/push/datalog) *can* read kernel's state fields. They won't today because `check-engine-isolation.sh` bans the imports — the language guarantee is weaker than the enforced rule. Accepted.
 
-**D4. Accumulator state stays on Runtime; verify gets a SlotSnapshot trait indirection.** `accumulator_slots`, `accumulator_contributions`, `next_accumulator_id`, `SlotMeta` type — all remain in `cells/`. But kernel's `pull_verify` currently reads `rt.accumulator_slots[id].{disposed, push_revised_at}` (cells/verify.mbt:90-101) for synthetic-dep freshness. Resolution: introduce `pub trait SlotSnapshot` in `internal/shared/` with methods `disposed() -> Bool` and `push_revised_at() -> Revision`. `SlotMeta` in `cells/accumulator.mbt` implements it. Kernel `pull_verify` signature takes `slot_snapshots : Array[&SlotSnapshot]`. Runtime provides the slice via a thin `Runtime::slot_snapshots()` method. This keeps kernel kind-agnostic and accumulator state fully in cells/.
+**D4. Accumulator state stays on Runtime; verify gets a SlotSnapshot trait indirection.** `accumulator_slots`, `accumulator_contributions`, `next_accumulator_id`, `SlotMeta` type — all remain in `cells/`. But kernel's `pull_verify` currently reads `rt.accumulator_slots[id].{disposed, push_revised_at_for(target_id)}` (cells/verify.mbt:86) for synthetic-dep freshness. The revision is **per-memo**, not slot-wide — backed by `push_revised_at : HashMap[CellId, Revision]` on `SlotMeta` (cells/accumulator.mbt:16, :97). Resolution: introduce `pub trait SlotSnapshot` in `internal/shared/` with methods `disposed(Self) -> Bool` and `push_revised_at_for(Self, CellId) -> Revision`. `SlotMeta` in `cells/accumulator.mbt` implements it. Kernel `pull_verify` signature takes `slot_snapshots : Array[&SlotSnapshot]`. Runtime provides the slice via a thin `Runtime::slot_snapshots()` method. This keeps kernel kind-agnostic and accumulator state fully in cells/.
+
+**Zero-copy caveat for `slot_snapshots()`:** Stage 2 must confirm MoonBit can materialize `Array[&SlotSnapshot]` from `Array[SlotMeta]` without per-call array allocation — either via struct-layout compatibility or a cached view. If allocation is forced, verify must take `Array[SlotMeta]` concretely (re-export from `cells/accumulator.mbt` via a narrow internal module) as a fallback. Decide in Stage 2 once the trait is compiled against the existing verify code.
 
 **D5. Algorithms are free functions over state refs.** Example: `fn Runtime::pull_verify(self, cell)` becomes kernel's `fn pull_verify(core : RuntimeCore, pull : PullState, slot_snapshots : Array[&SlotSnapshot], cell : CellId) -> Result[Bool, CycleError] raise Failure`. Public Runtime methods that users call become thin wrappers. Methods that ONLY cells/ internal code calls get no wrapper; call-sites in handles import `@kernel` and call directly. This is decision D8 below — the wrapper economy.
 
@@ -73,9 +75,10 @@ cells/ (RETAINS):
 
 **D8. Wrapper economy.** For each Runtime method that moves its body to kernel, classify:
   - **Public wrapper kept:** method is part of `@incr` public API (e.g., `Runtime::dispose_cell`, `Runtime::gc`, `Runtime::cell_info`). Keep the thin wrapper.
-  - **No wrapper:** method is only called from cells/ internal code (handles, lifecycle impls). Drop the wrapper; call-sites migrate to `@kernel.foo(rt.core, ...)`. Applies to most subscriber helpers, dispatch helpers, internal traversal primitives.
+  - **Semantic internal wrapper kept:** method is a high-fan-out protocol verb used across many `cells/*.mbt` files. Keeps call-sites readable; wrapper body is one line delegating to `@kernel.*`. Reserved list: `pull_verify`, `push_tracking` / `pop_tracking` / `finish_tracking`, `top_active_query`, `propagate_changes`, `publish_cell_changes`. Fan-out references: `cells/memo.mbt:422`, `cells/hybrid_memo.mbt:121`, `cells/push_reactive.mbt:63`, `cells/push_effect.mbt:39`, `cells/signal.mbt:227`, `cells/accumulator.mbt:403`.
+  - **No wrapper:** method is a trivial accessor OR called from only one or two internal sites. Drop the wrapper; call-sites migrate to `@kernel.foo(rt.core, ...)`. Applies to most subscriber helpers, dispatch helpers, internal traversal primitives.
 
-  This shrinks `cells/runtime.mbt` materially and makes "what is public API" legible by inspection of runtime.mbt.
+  This shrinks `cells/runtime.mbt` materially and makes "what is public API" legible by inspection, without forcing every internal call-site into the verbose form.
 
 ## Rejected Alternatives
 
@@ -90,7 +93,7 @@ cells/ (RETAINS):
 
 - **I1. Public API parity.** `pkg.generated.mbti` shows only additions (new kernel `.mbti`). No Runtime/Signal/Memo/etc. signature change.
 - **I2. Behavior parity.** All existing tests pass without modification.
-- **I3. Engine isolation extended, not weakened.** pull/push/datalog sibling-isolation rule stays; kernel added as an importer-only exception.
+- **I3. Engine isolation extended, not weakened.** pull/push/datalog sibling-isolation rule stays; kernel added as an importer-only exception. Kernel may branch on `CellRef` variants (defined in `internal/shared/`); the boundary forbids kernel depending on `cells/`-only state (`SlotMeta`, handles) and on `cells/` imports, not on cell-kind awareness.
 - **I4. Callback-snapshot-before-propagation** (from 2026-04-16 coordinator-routing plan). Kernel owns the full `propagate_changes → fire_on_change` sequence.
 - **I5. Subscriber management + push-reachable accounting co-located** (hard constraint, 2026-04-19 audit). Both in `kernel/dispatch.mbt` or adjacent files; no cross-file split.
 - **I6. Memo inner's forgiving-repair untouched.** Stays in `cells/memo.mbt`. Reads `rt.core.tracking.stack.is_empty()` via field access; TrackingState's `pub(all)` fields make this work across the package boundary.
@@ -111,9 +114,10 @@ Each stage = one PR. Green `moon check && moon test && moon bench --release` bef
 
 ### Stage 2 — State types + SlotSnapshot trait
 
-- [ ] Move to `kernel/state.mbt`: `RevisionState`, `TrackingState`, `BatchState`, `PullState`, `PushState`, `DatalogState`, `RuntimeCore`, `PropagationPhase` (currently in `cells/runtime.mbt`) and `ActiveQuery` (currently in `cells/tracking.mbt`).
+- [ ] Move to `kernel/state.mbt`: `RevisionState`, `TrackingState`, `BatchState`, `PullState`, `PushState`, `DatalogState`, `RuntimeCore`, `PropagationPhase` + phase transition helpers `enter_phase` / `leave_phase` (currently `cells/runtime.mbt:241`; referenced from `cells/push_propagate.mbt:129` and `cells/datalog_fixpoint.mbt:30`) and `ActiveQuery` (currently in `cells/tracking.mbt`).
 - [ ] Move to `kernel/state.mbt`: the two file-scope `Ref[Int]`s — `next_runtime_id` (cells/runtime.mbt:7) and `current_computing_runtime_id` (cells/runtime.mbt:22). Kernel exposes them via `fn get_current_computing_runtime_id() -> Int`, `fn set_current_computing_runtime_id(Int)`, `fn alloc_runtime_id() -> Int`. Memo's forgiving-repair path in cells/ reads via the getter.
-- [ ] Add `pub trait SlotSnapshot` to `cells/internal/shared/cell_meta.mbt` (or a new `slot_snapshot.mbt`) with methods `disposed(self) -> Bool`, `push_revised_at(self) -> Revision`.
+- [ ] Add `pub trait SlotSnapshot` to `cells/internal/shared/cell_meta.mbt` (or a new `slot_snapshot.mbt`) with methods `disposed(Self) -> Bool`, `push_revised_at_for(Self, CellId) -> Revision`.
+- [ ] Verify `Array[&SlotSnapshot]` construction in `Runtime::slot_snapshots()` does not allocate per-call — test with a debug counter or read moonc output. If it does, fall back to passing `Array[SlotMeta]` concretely via a narrow `cells/accumulator_bridge.mbt` re-export.
 - [ ] Implement `SlotSnapshot` for `SlotMeta` in `cells/accumulator.mbt`. No behavior change.
 - [ ] Add `fn Runtime::slot_snapshots(self) -> Array[&SlotSnapshot]` in `cells/runtime.mbt`.
 - [ ] All moved types declared `pub(all)` — required for Runtime::new to construct.
@@ -130,11 +134,11 @@ One PR; multiple commits inside, each commit is one functional group moving. Ord
 
 - [ ] **3a. Dispatch helpers first.** Move to `kernel/dispatch.mbt` as free functions: `validate_cell_soft`, `cell_id_for`, `is_cell_disposed`, `get_changed_at`, `get_durability`, `get_subscribers`, `add_subscriber`, `remove_subscriber`, `push_contribution`, `collect_reachable_cells`, `adjust_push_reachable`, `cell_id_at`. Per D8, drop Runtime wrappers for internal-only helpers; keep wrappers for those reachable via public API.
 - [ ] **3b. `cycle.mbt`.** Move `CycleError::from_path(rt, path, id)` body to `kernel/cycle.mbt` as `construct_cycle_error(cell_ops, path, closing)`. Existing `cells/cycle.mbt` becomes a thin forwarder or is deleted if no cells/ call-site remains.
-- [ ] **3c. `tracking.mbt`.** Move `push_tracking`, `pop_tracking`, `record_dep`, `check_cross_runtime`, plus ActiveQuery-manipulation helpers to `kernel/tracking.mbt`. ActiveQuery itself already moved in Stage 2. Move `cells/tracking_wbtest.mbt` → `kernel/tracking_wbtest.mbt`.
-- [ ] **3d. `subscriber_diff.mbt`.** Move `diff_and_update_subscribers` to `kernel/subscriber_diff.mbt`. Move `cells/subscriber_diff_wbtest.mbt` + `cells/subscriber_link_wbtest.mbt` + `cells/push_reachable_wbtest.mbt` → `kernel/`.
+- [ ] **3c. `subscriber_diff.mbt`.** Move `diff_and_update_subscribers` to `kernel/subscriber_diff.mbt`. Move `cells/subscriber_diff_wbtest.mbt` + `cells/subscriber_link_wbtest.mbt` + `cells/push_reachable_wbtest.mbt` → `kernel/`. **Ordered before tracking because `finish_tracking` calls `diff_and_update_subscribers` (cells/tracking.mbt:154); leaf-first requires the callee to move first.**
+- [ ] **3d. `tracking.mbt`.** Move `push_tracking`, `pop_tracking`, `record_dep`, `check_cross_runtime`, `finish_tracking`, plus ActiveQuery-manipulation helpers to `kernel/tracking.mbt`. ActiveQuery itself already moved in Stage 2. Move `cells/tracking_wbtest.mbt` → `kernel/tracking_wbtest.mbt`.
 - [ ] **3e. `verify.mbt`.** Move `pull_verify`, `maybe_changed_after`, in-progress-path helpers. Signature takes `slot_snapshots : Array[&SlotSnapshot]` per D4. `CycleError` construction uses the kernel helper from 3b. Move `cells/verify_wbtest.mbt` + `cells/verify_path_test.mbt` with it (path test is blackbox; keep blackbox test in place if it works through Runtime only).
 - [ ] **3f. `push_propagate.mbt`.** Move `push_propagate_from`. Uses subscriber_diff + dispatch helpers already in kernel.
-- [ ] **3g. `fixpoint.mbt`.** Move `run_fixpoint` + rule firing. Self-contained once dispatch helpers exist.
+- [ ] **3g. `fixpoint.mbt`.** Move `run_fixpoint` + rule firing. **Not self-contained before Stage 4:** `fixpoint()` ends with `publish_cell_changes` (cells/datalog_fixpoint.mbt:107), which stays on Runtime until Stage 4. Keep a thin `Runtime::fixpoint` public wrapper whose body calls `@kernel.run_fixpoint(...)` and then `self.publish_cell_changes(...)`. When Stage 4 moves `publish_cell_changes` to kernel, the wrapper collapses to `@kernel.run_fixpoint(...)` end-to-end.
 
 **Per-sub-step verification:**
 - `moon check && moon test` green.
@@ -147,7 +151,10 @@ One PR; multiple commits inside, each commit is one functional group moving. Ord
 
 - [ ] Move to `kernel/propagate.mbt`: `propagate_changes`, `publish_cell_changes`, `fire_on_change`.
 - [ ] Move to `kernel/batch.mbt`: `commit_batch`. It now calls `@kernel.propagate_changes` directly (no longer `self.propagate_changes`).
-- [ ] Move to `kernel/dispose.mbt`: the coordinator entry `dispose_cell(core, cell_id, cell_lifecycle : Array[&CellLifecycle])` that validates + dispatches. Per-kind `CellLifecycle::dispose_cell` impls **stay in** `cells/*_lifecycle.mbt` — they touch accumulator fields and other cell-kind-specific state.
+- [ ] **`dispose_cell` coordinator stays in `cells/runtime.mbt`.** `CellLifecycle::dispose_cell(self, rt : Runtime, cell_id)` is defined in `cells/cell_ops.mbt:52` and takes a full `Runtime`; impls in `cells/*_lifecycle.mbt` read runtime helpers and runtime-owned fields (`cells/pull_memo_lifecycle.mbt:8`, `cells/push_lifecycle.mbt:5`, `cells/datalog_lifecycle.mbt:8`). Retyping the trait to `dispose_cell(self, core, cell_lifecycle, ...)` would cascade through all 4 lifecycle files and is out of R1 scope.
+  - Move the coordinator's pure-state bits into `kernel/dispose.mbt`: `validate_cell_for_dispose(core, cell_id)` (runtime-id + disposed-guard) + `drop_gc_root(core, cell_id)`. `Runtime::dispose_cell` remains in `cells/runtime.mbt` as a 4-line orchestration that calls the kernel validator, calls `self.guard_dispose(...)` (which moves to kernel per below), then dispatches `self.core.cell_lifecycle[cell_id.id].dispose_cell(self, cell_id)`.
+  - `guard_dispose` body (pure coordinator over `phase` and `tracking.stack`, `cells/runtime.mbt:713`) moves to `kernel/dispose.mbt` as `check_dispose_guard(core)`.
+  - Per-kind `CellLifecycle::dispose_cell` impls **stay in** `cells/*_lifecycle.mbt` unchanged. Trait retype is deferred — revisit in a future R-track if the CellLifecycle(Runtime, ...) coupling becomes a real driver.
 - [ ] Move to `kernel/gc.mbt`: `gc`, `collect_gc_roots`, `mark_reachable`, `gc_sweep`, `add_gc_root`, `remove_gc_root`.
 - [ ] Keep public Runtime wrappers (per D8): `Runtime::dispose_cell`, `Runtime::dispose_rule`, `Runtime::gc`, `Runtime::set_on_change`, `Runtime::clear_on_change`, `Runtime::batch` (the public batch entry).
 - [ ] Move whitebox tests with their subjects: `cells/batch_wbtest.mbt` → `kernel/`, `cells/dispose_test.mbt` if whitebox; `cells/gc_test.mbt` → kernel/ only if whitebox (keep blackbox in cells/).
@@ -187,7 +194,7 @@ Benchmarks within I7 threshold.
 | R1 | Benchmark regression from extra parameter passing (multiple state refs per call) | Medium | High | Per-algorithm bench gate in Stage 3. If MoonBit inliner doesn't close the gap, batch state refs into small structs; as last resort, keep the wrapper with the body inlined for a hot path. |
 | R2 | Callback-snapshot invariant (I4) broken during Stage 4 | Low | High | Codex review on Stage 4 PR. Explicit ordering tests in `callback_test.mbt` + `on_change_test.mbt`. |
 | R3 | Kernel accidentally imports cells/ (creates cycle) | Low | Medium | `check-engine-isolation.sh` in CI. Stage 5 runs it explicitly. |
-| R4 | `SlotSnapshot` trait object dispatch cost in verify hot path | Medium | Medium | Trait object calls are one indirection. Measure in Stage 3e bench. If >2%, consider specializing: kernel verify accepts a concrete `Array[SlotMeta]` via a kernel-side re-export, or the snapshots are copied into a plain `FixedArray[SlotSnapshotData]` struct once per verify invocation. |
+| R4 | `Runtime::slot_snapshots()` allocates a fresh `Array[&SlotSnapshot]` per call | Medium | Medium | Not the vtable cost — that's one indirection over HashMap+recursive verify, won't dominate. The real risk is per-call array materialization. Stage 2 verifies zero-copy construction; if forced, fall back to `Array[SlotMeta]` concretely via a narrow `cells/accumulator_bridge.mbt` re-export. |
 | R5 | `next_runtime_id` / `current_computing_runtime_id` global relocation breaks memo's forgiving-repair path (I6) | Low | High | Memo reads via kernel-exposed getter; getter returns same value as direct Ref read. Regression would appear in `cycle_test.mbt` + panic-tests. Codex review Stage 2. |
 | R6 | `pub(all)` state structs in kernel leak field access to pull/push/datalog siblings | Low | Low | Siblings can't import kernel per D6 (enforced by script). Language-level leakage is theoretical, not operational. |
 | R7 | Whitebox test migration introduces visibility errors | Medium | Low | `moon check` catches at the stage where the move happens. Each stage that moves a wbtest verifies the test still compiles and runs. |
@@ -231,5 +238,6 @@ Honest range across all stages, focused-effort:
 
 ## Change Log
 
+- **v3 (2026-04-24):** Stage 0 artifacts landed; Codex review folded in. (1) `SlotSnapshot::push_revised_at()` → `push_revised_at_for(CellId)` — the revision is per-memo, not slot-wide. (2) Stage 3c/3d swapped — subscriber_diff moves first because `finish_tracking` calls it. (3) Stage 3g keeps a `Runtime::fixpoint` wrapper until Stage 4 moves `publish_cell_changes` to kernel. (4) Stage 4 dispose coordinator stays in `cells/runtime.mbt` — `CellLifecycle::dispose_cell(Runtime, ...)` retype is out of R1 scope; only pure-state bits (`validate_cell_for_dispose`, `drop_gc_root`, `check_dispose_guard`) move to `kernel/dispose.mbt`. (5) Boundary statement narrowed: kernel may branch on `CellRef`; it just can't depend on `SlotMeta`/handles or import `cells/`. (6) D8 softened — semantic internal wrappers kept for high-fan-out protocol verbs (`pull_verify`, tracking begin/end/finish, `top_active_query`, `propagate_changes`, `publish_cell_changes`). (7) R4 risk re-scoped — `slot_snapshots()` allocation is the real risk, not vtable dispatch cost. (8) Stage 2 adds `enter_phase`/`leave_phase` to state move list explicitly. Stage 0 checklist marked complete; links to the three artifacts added.
 - **v2 (2026-04-21):** Reordered Stage 3 leaf-first; moved batch from Stage 3 to Stage 4 (depends on propagate_changes); merged dispatch-helpers stage into Stage 3; added Stage 0 prerequisites (Codex review, benchmark baseline, dispose audit, ActiveQuery audit); added `SlotSnapshot` trait resolution for the verify/accumulator coupling (D4); explicitly scheduled whitebox test migration with subjects; named `next_runtime_id` + `current_computing_runtime_id` in Stage 2; added D8 wrapper economy; honest 4–6 day estimate; docs updates inline per stage.
 - **v1 (2026-04-21):** Initial draft (superseded).
