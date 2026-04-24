@@ -27,6 +27,8 @@ pub fn cell_id_for(PullState, PushState, DatalogState, @shared.CellRef) -> @type
 
 pub fn check_cross_runtime(Int, String) -> Unit
 
+pub fn check_dispose_guard(RuntimeCore, @types.CellId) -> Unit
+
 pub fn collect_in_progress_path(PullState) -> Array[@types.CellId]
 
 pub fn collect_reachable_cells(RuntimeCore, PullState, Array[@types.CellId]) -> @hashset.HashSet[@types.CellId]
@@ -38,6 +40,8 @@ pub fn commit_batch(RuntimeCore, PullState, PushState, DatalogState) -> Unit
 pub fn construct_cycle_error(RuntimeCore, Array[@types.CellId], @types.CellId) -> @types.CycleError
 
 pub fn diff_and_update_subscribers(RuntimeCore, PullState, PushState, DatalogState, @types.CellId, Array[@types.CellId], Array[@types.CellId], new_seen? : @hashset.HashSet[@types.CellId]) -> Bool
+
+pub fn drop_gc_root(RuntimeCore, @types.CellId) -> Unit
 
 pub fn enter_phase(RuntimeCore, PropagationPhase) -> Unit
 
@@ -86,6 +90,8 @@ pub fn set_current_computing_runtime_id(Int) -> Unit
 pub fn top_active_query(RuntimeCore) -> ActiveQuery?
 
 pub fn validate_cell(RuntimeCore, @types.CellId, String) -> Unit
+
+pub fn validate_cell_for_dispose(RuntimeCore, @types.CellId) -> Bool
 
 pub fn validate_cell_soft(RuntimeCore, @types.CellId) -> Bool
 

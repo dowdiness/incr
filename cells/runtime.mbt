@@ -380,19 +380,6 @@ impl RevisionManager for Runtime with bump_revision(self, durability) {
 }
 
 ///|
-/// Guards against disposing a cell during fixpoint or its own computation.
-fn Runtime::guard_dispose(self : Runtime, cell_id : CellId) -> Unit {
-  guard !(self.core.phase is InFixpoint) else {
-    abort("dispose: cannot dispose cells during fixpoint()")
-  }
-  for aq in self.core.tracking.stack {
-    guard aq.cell_id != cell_id else {
-      abort("dispose: cannot dispose a cell during its own computation")
-    }
-  }
-}
-
-///|
 /// Disposes a rule cell. Public because RuleId has no runtime reference,
 /// so the user must call `rt.dispose_rule(rule_id)` directly.
 pub fn Runtime::dispose_rule(
@@ -404,15 +391,14 @@ pub fn Runtime::dispose_rule(
 
 ///|
 /// Disposes a cell by CellId, dispatching via CellLifecycle trait.
+/// Pure-state guards (cross-runtime, already-disposed, phase/tracking, and
+/// gc_root_counts cleanup) live in `@kernel`; the trait dispatch on
+/// `self.cell_lifecycle` stays on Runtime because the CellLifecycle trait
+/// is defined over Runtime (out of R1 scope to retype).
 pub fn Runtime::dispose_cell(self : Runtime, cell_id : CellId) -> Unit {
-  guard cell_id.runtime_id == self.core.runtime_id else {
-    abort("dispose_cell: CellId belongs to a different Runtime")
-  }
-  guard !self.is_cell_disposed(cell_id) else { return }
-  self.guard_dispose(cell_id)
-  // Clean up gc_root_counts to prevent leaks when observed cells
-  // are manually disposed before their observers.
-  self.core.gc_root_counts.remove(cell_id)
+  guard @kernel.validate_cell_for_dispose(self.core, cell_id) else { return }
+  @kernel.check_dispose_guard(self.core, cell_id)
+  @kernel.drop_gc_root(self.core, cell_id)
   self.cell_lifecycle[cell_id.id].dispose_cell(self, cell_id)
 }
 
