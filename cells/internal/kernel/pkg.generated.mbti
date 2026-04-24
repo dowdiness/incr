@@ -17,6 +17,8 @@ pub fn add_subscriber(RuntimeCore, PullState, PushState, DatalogState, @types.Ce
 
 pub fn adjust_push_reachable(RuntimeCore, PullState, PushState, DatalogState, Array[@types.CellId], Int) -> Unit
 
+pub fn advance_revision(RuntimeCore, @types.Durability) -> Unit
+
 pub fn alloc_runtime_id() -> Int
 
 pub fn cell_id_at(RuntimeCore, Int) -> @types.CellId
@@ -37,6 +39,8 @@ pub fn diff_and_update_subscribers(RuntimeCore, PullState, PushState, DatalogSta
 
 pub fn enter_phase(RuntimeCore, PropagationPhase) -> Unit
 
+pub fn fire_on_change(RuntimeCore) -> Unit
+
 pub fn get_changed_at(RuntimeCore, @types.CellId) -> @types.Revision
 
 pub fn get_current_computing_runtime_id() -> Int
@@ -54,6 +58,10 @@ pub fn leave_phase(RuntimeCore) -> Unit
 pub fn pop_tracking(RuntimeCore) -> (Array[@types.CellId], @hashset.HashSet[@types.CellId])
 
 pub fn pop_tracking_full(RuntimeCore) -> ActiveQuery
+
+pub fn propagate_changes(RuntimeCore, PullState, PushState, DatalogState, Array[@types.CellId], @types.Durability) -> Unit
+
+pub fn publish_cell_changes(RuntimeCore, PullState, PushState, DatalogState, Array[@types.CellId], @types.Durability) -> Unit
 
 pub fn pull_verify(RuntimeCore, PullState, Array[&@shared.SlotSnapshot], @types.CellId) -> Result[Unit, @types.CycleError] raise Failure
 

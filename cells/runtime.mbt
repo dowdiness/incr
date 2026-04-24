@@ -321,10 +321,7 @@ pub fn Runtime::clear_on_change(self : Runtime) -> Unit {
 ///|
 /// Fires the on_change callback if one is registered.
 fn Runtime::fire_on_change(self : Runtime) -> Unit {
-  match self.core.on_change {
-    Some(f) => f()
-    None => ()
-  }
+  @kernel.fire_on_change(self.core)
 }
 
 ///|
@@ -335,15 +332,14 @@ fn Runtime::propagate_changes(
   changed_ids : Array[CellId],
   durability : Durability,
 ) -> Unit {
-  self.advance_revision(durability)
-  for id in changed_ids {
-    self.core.cell_ops[id.id].set_changed_at(
-      self.core.revision.current_revision,
-    )
-  }
-  if self.push.node_count > 0 {
-    self.push_propagate_from(changed_ids)
-  }
+  @kernel.propagate_changes(
+    self.core,
+    self.pull,
+    self.push,
+    self.datalog,
+    changed_ids,
+    durability,
+  )
 }
 
 ///|
@@ -354,20 +350,20 @@ fn Runtime::publish_cell_changes(
   changed_ids : Array[CellId],
   durability : Durability,
 ) -> Unit {
-  self.propagate_changes(changed_ids, durability)
-  self.fire_on_change()
+  @kernel.publish_cell_changes(
+    self.core,
+    self.pull,
+    self.push,
+    self.datalog,
+    changed_ids,
+    durability,
+  )
 }
 
 ///|
 /// Advance the global revision counter and record which durability level changed.
 impl RevisionManager for Runtime with advance_revision(self, durability) {
-  self.core.revision.current_revision = Revision::next(
-    self.core.revision.current_revision,
-  )
-  let dur_idx = durability.index()
-  for i = 0; i <= dur_idx; i = i + 1 {
-    self.core.revision.durability_last_changed[i] = self.core.revision.current_revision
-  }
+  @kernel.advance_revision(self.core, durability)
 }
 
 ///|
