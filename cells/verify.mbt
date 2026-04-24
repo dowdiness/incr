@@ -146,7 +146,11 @@ fn Runtime::pull_verify(
       }
       if root.in_progress {
         return Err(
-          CycleError::from_path(self, self.collect_in_progress_path(), cell_id),
+          @kernel.construct_cycle_error(
+            self.core,
+            self.collect_in_progress_path(),
+            cell_id,
+          ),
         )
       }
       let stack : Array[PullVerifyFrame] = []
@@ -212,7 +216,9 @@ fn Runtime::pull_verify(
                           path.push(frame.cell_id)
                         }
                         clear_verify_stack(self, stack)
-                        return Err(CycleError::from_path(self, path, dep_id))
+                        return Err(
+                          @kernel.construct_cycle_error(self.core, path, dep_id),
+                        )
                       }
                       dep.in_progress = true
                       stack.push({

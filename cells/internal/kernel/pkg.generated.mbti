@@ -25,6 +25,8 @@ pub fn cell_id_for(PullState, PushState, DatalogState, @shared.CellRef) -> @type
 
 pub fn collect_reachable_cells(RuntimeCore, PullState, Array[@types.CellId]) -> @hashset.HashSet[@types.CellId]
 
+pub fn construct_cycle_error(RuntimeCore, Array[@types.CellId], @types.CellId) -> @types.CycleError
+
 pub fn enter_phase(RuntimeCore, PropagationPhase) -> Unit
 
 pub fn get_changed_at(RuntimeCore, @types.CellId) -> @types.Revision

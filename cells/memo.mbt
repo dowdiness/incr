@@ -407,8 +407,8 @@ fn[T] Runtime::memo_force_recompute(
   let cell = self.get_memo_data(cell_id)
   if cell.in_progress {
     return Err(
-      CycleError::from_path(
-        self,
+      @kernel.construct_cycle_error(
+        self.core,
         self.collect_tracking_path(),
         cell.meta.cell_id,
       ),
