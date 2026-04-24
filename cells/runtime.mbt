@@ -225,12 +225,6 @@ fn Runtime::get_durability(self : Runtime, id : CellId) -> Durability {
 }
 
 ///|
-/// Returns the CellId stored in the given SoA entry (reverse lookup).
-fn Runtime::cell_id_for(self : Runtime, cell_ref : CellRef) -> CellId {
-  @kernel.cell_id_for(self.pull, self.push, self.datalog, cell_ref)
-}
-
-///|
 /// Returns the PullSignalData for a signal cell.
 fn Runtime::get_pull_signal(self : Runtime, id : CellId) -> PullSignalData {
   self.validate_cell(id, "get_pull_signal")
@@ -309,40 +303,6 @@ fn Runtime::add_subscriber(
     self.datalog,
     dep,
     subscriber,
-  )
-}
-
-///|
-/// Returns the push-reachable contribution of `sub_id` as a subscriber.
-fn Runtime::push_contribution(self : Runtime, sub_id : CellId) -> Int {
-  @kernel.push_contribution(self.core, self.pull, sub_id)
-}
-
-///|
-/// Collects all cells reachable upstream of `sources` through the pull
-/// dependency graph.
-fn Runtime::collect_reachable_cells(
-  self : Runtime,
-  sources : Array[CellId],
-) -> @hashset.HashSet[CellId] {
-  @kernel.collect_reachable_cells(self.core, self.pull, sources)
-}
-
-///|
-/// Adjusts `push_reachable_count` by `delta` on every cell reachable upstream
-/// of `sources` (including the sources themselves).
-fn Runtime::adjust_push_reachable(
-  self : Runtime,
-  sources : Array[CellId],
-  delta : Int,
-) -> Unit {
-  @kernel.adjust_push_reachable(
-    self.core,
-    self.pull,
-    self.push,
-    self.datalog,
-    sources,
-    delta,
   )
 }
 
@@ -494,12 +454,6 @@ fn Runtime::remove_gc_root(self : Runtime, id : CellId) -> Int {
 }
 
 ///|
-/// Reconstructs a CellId from a cell_ops array index.
-fn Runtime::cell_id_at(self : Runtime, i : Int) -> CellId {
-  @kernel.cell_id_at(self.core, i)
-}
-
-///|
 /// Runs mark-and-sweep garbage collection on the dependency graph.
 pub fn Runtime::gc(self : Runtime) -> Unit {
   guard self.core.tracking.stack.is_empty() else {
@@ -532,7 +486,7 @@ fn Runtime::collect_gc_roots(self : Runtime) -> Array[CellId] {
       _ => ()
     }
     if self.core.cell_ops[i].gc_role() is Root {
-      roots.push(self.cell_id_at(i))
+      roots.push(@kernel.cell_id_at(self.core, i))
     }
   }
   roots
@@ -576,7 +530,7 @@ fn Runtime::gc_sweep(self : Runtime) -> Unit {
       _ => ()
     }
     if self.core.cell_ops[i].gc_role() is Interior {
-      let id = self.cell_id_at(i)
+      let id = @kernel.cell_id_at(self.core, i)
       if !reachable.contains(id) {
         self.dispose_cell(id)
       }

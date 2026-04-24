@@ -13,7 +13,7 @@ test "push_reachable_count: new signal starts at 0" {
 test "collect_reachable_cells: signal returns {signal}" {
   let rt = Runtime::new()
   let s = Signal::new(rt, 0)
-  let cells = rt.collect_reachable_cells([s.id()])
+  let cells = @kernel.collect_reachable_cells(rt.core, rt.pull, [s.id()])
   inspect(cells.contains(s.id()), content="true")
   inspect(cells.length(), content="1")
 }
@@ -24,7 +24,7 @@ test "collect_reachable_cells: memo returns memo + upstream signal" {
   let s = Signal::new(rt, 0)
   let m = Memo::new(rt, () => s.get())
   ignore(rt.read(m)) // force compute so dependencies are recorded
-  let cells = rt.collect_reachable_cells([m.id()])
+  let cells = @kernel.collect_reachable_cells(rt.core, rt.pull, [m.id()])
   inspect(cells.contains(m.id()), content="true")
   inspect(cells.contains(s.id()), content="true")
   inspect(cells.length(), content="2")
@@ -36,7 +36,7 @@ test "collect_reachable_cells: uncomputed memo returns only memo" {
   let s = Signal::new(rt, 0)
   let m = Memo::new(rt, () => s.get())
   // m.get() NOT called — dependencies array is empty
-  let cells = rt.collect_reachable_cells([m.id()])
+  let cells = @kernel.collect_reachable_cells(rt.core, rt.pull, [m.id()])
   inspect(cells.contains(m.id()), content="true")
   inspect(cells.length(), content="1")
 }
@@ -46,14 +46,14 @@ test "push_contribution: reactive returns 1" {
   let rt = Runtime::new()
   let s = Signal::new(rt, 0)
   let r = Reactive::new(rt, () => s.get())
-  inspect(rt.push_contribution(r.id()), content="1")
+  inspect(@kernel.push_contribution(rt.core, rt.pull, r.id()), content="1")
 }
 
 ///|
 test "push_contribution: signal returns 0" {
   let rt = Runtime::new()
   let s = Signal::new(rt, 0)
-  inspect(rt.push_contribution(s.id()), content="0")
+  inspect(@kernel.push_contribution(rt.core, rt.pull, s.id()), content="0")
 }
 
 ///|

@@ -51,7 +51,7 @@ test "remove_gc_root: returns 0 for unknown cell" {
 test "cell_id_at: reconstructs CellId from index" {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 42)
-  let reconstructed = rt.cell_id_at(sig.id().id)
+  let reconstructed = @kernel.cell_id_at(rt.core, sig.id().id)
   inspect(reconstructed == sig.id(), content="true")
 }
 
