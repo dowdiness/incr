@@ -409,7 +409,7 @@ fn[T] Runtime::memo_force_recompute(
     return Err(
       @kernel.construct_cycle_error(
         self.core,
-        self.collect_tracking_path(),
+        @kernel.collect_tracking_path(self.core),
         cell.meta.cell_id,
       ),
     )
@@ -419,19 +419,19 @@ fn[T] Runtime::memo_force_recompute(
     self, cell_id,
   )
   let old_deps = cell.dependencies
-  self.push_tracking(cell_id)
+  @kernel.push_tracking(self.core, cell_id)
   let new_value = compute_fn() catch {
     e => {
       memo_restore_on_abort(self, cell_id, prev_contributions)
       // Pop frame (discards staged deps + accumulator_reads).
-      let _ = self.pop_tracking_full()
+      let _ = @kernel.pop_tracking_full(self.core)
       cell.in_progress = false
       raise e
     }
   }
 
   // Normal path — pop the full frame to access accumulator state.
-  let query = self.pop_tracking_full()
+  let query = @kernel.pop_tracking_full(self.core)
   let new_deps = query.dependencies
   let new_seen = query.seen
   memo_commit_accumulator_phase(

@@ -23,7 +23,13 @@ pub fn cell_id_at(RuntimeCore, Int) -> @types.CellId
 
 pub fn cell_id_for(PullState, PushState, DatalogState, @shared.CellRef) -> @types.CellId
 
+pub fn check_cross_runtime(Int, String) -> Unit
+
+pub fn collect_in_progress_path(PullState) -> Array[@types.CellId]
+
 pub fn collect_reachable_cells(RuntimeCore, PullState, Array[@types.CellId]) -> @hashset.HashSet[@types.CellId]
+
+pub fn collect_tracking_path(RuntimeCore) -> Array[@types.CellId]
 
 pub fn construct_cycle_error(RuntimeCore, Array[@types.CellId], @types.CellId) -> @types.CycleError
 
@@ -43,11 +49,21 @@ pub fn is_cell_disposed(RuntimeCore, @types.CellId) -> Bool
 
 pub fn leave_phase(RuntimeCore) -> Unit
 
+pub fn pop_tracking(RuntimeCore) -> (Array[@types.CellId], @hashset.HashSet[@types.CellId])
+
+pub fn pop_tracking_full(RuntimeCore) -> ActiveQuery
+
 pub fn push_contribution(RuntimeCore, PullState, @types.CellId) -> Int
+
+pub fn push_tracking(RuntimeCore, @types.CellId) -> Unit
+
+pub fn record_dep(RuntimeCore, @types.CellId) -> Unit
 
 pub fn remove_subscriber(RuntimeCore, PullState, PushState, DatalogState, @types.CellId, @types.CellId) -> Unit
 
 pub fn set_current_computing_runtime_id(Int) -> Unit
+
+pub fn top_active_query(RuntimeCore) -> ActiveQuery?
 
 pub fn validate_cell(RuntimeCore, @types.CellId, String) -> Unit
 

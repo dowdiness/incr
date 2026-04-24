@@ -152,11 +152,5 @@ pub fn Runtime::dependents(self : Runtime, id : CellId) -> Array[CellId] {
 ///
 /// Array of CellIds for all pull memos with `in_progress = true`
 fn Runtime::collect_in_progress_path(self : Runtime) -> Array[CellId] {
-  let path : Array[CellId] = []
-  for memo in self.pull.memos {
-    if memo.in_progress {
-      path.push(memo.meta.cell_id)
-    }
-  }
-  path
+  @kernel.collect_in_progress_path(self.pull)
 }
