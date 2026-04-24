@@ -1,9 +1,5 @@
 ///|
-/// Thin Runtime wrapper over `@kernel.diff_and_update_subscribers`.
-///
-/// Kept in cells/ so wbtests (`subscriber_diff_wbtest.mbt`) can exercise
-/// the full Runtime + Signal/Memo path without reaching into kernel
-/// state directly.
+/// Wbtest-accessible wrapper; exercises the full Runtime + Signal/Memo path.
 fn Runtime::diff_and_update_subscribers(
   self : Runtime,
   cell_id : CellId,

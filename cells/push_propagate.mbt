@@ -1,7 +1,4 @@
 ///|
-/// Thin Runtime wrapper over `@kernel.push_propagate_from`.
-///
-/// The algorithm body moved to `kernel/push_propagate.mbt` in R1 Stage 3f.
 fn Runtime::push_propagate_from(
   self : Runtime,
   changed_sources : Array[CellId],
@@ -16,7 +13,7 @@ fn Runtime::push_propagate_from(
 }
 
 ///|
-/// Thin wrapper — level lookup used by push lifecycle cell setup.
+/// Level lookup used by push lifecycle cell setup.
 fn Runtime::recompute_level(
   self : Runtime,
   cell_id : CellId,

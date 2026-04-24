@@ -4,8 +4,7 @@
 ///
 /// All functions here take kernel state references explicitly (no Runtime).
 /// They are thin abstractions over `core.cell_index` + `core.cell_ops`
-/// that cells/ wrappers delegate to. Moved from cells/runtime.mbt in R1
-/// Stage 3a.
+/// that cells/ wrappers delegate to.
 
 ///|
 /// Validates that a CellId belongs to this runtime and is within bounds.

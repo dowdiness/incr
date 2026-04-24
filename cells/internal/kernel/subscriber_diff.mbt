@@ -6,8 +6,6 @@
 /// set (from `pop_tracking`) to avoid rebuilding it.
 ///
 /// Returns true if dependencies actually changed.
-///
-/// Moved from cells/subscriber_diff.mbt in R1 Stage 3c.
 pub fn diff_and_update_subscribers(
   core : RuntimeCore,
   pull : PullState,

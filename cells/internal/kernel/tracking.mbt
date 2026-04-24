@@ -1,10 +1,7 @@
 ///|
 /// Dependency tracking primitives: push/pop frames on the tracking stack,
 /// record a dep from the top frame, collect path diagnostics.
-///
-/// Moved from cells/tracking.mbt + cells/introspection.mbt in R1 Stage 3d.
-/// Runtime-side wrappers (begin_tracking/end_tracking/finish_tracking,
-/// Tracker trait impls) stay in cells/tracking.mbt as thin delegators.
+/// Runtime-side wrappers live in cells/tracking.mbt as thin delegators.
 
 ///|
 /// Pushes a new dependency tracking frame for a memo computation.

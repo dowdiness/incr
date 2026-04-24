@@ -110,12 +110,9 @@ fn propagate_level_change(
 /// Eagerly propagates changes from `changed_sources` through the push
 /// reactive graph in topological (level-ascending) order.
 ///
-/// Moved from cells/push_propagate.mbt in R1 Stage 3f. Takes `datalog`
-/// because the reactive/effect recompute path calls
+/// Takes `datalog` because the reactive/effect recompute path calls
 /// `diff_and_update_subscribers`, which threads datalog through to
-/// `adjust_push_reachable` for Relation/FunctionalRelation/Rule source
-/// arms. (The Codex pre-review's (core, pull, push) suggestion missed
-/// the transitive dispatch into adjust_push_reachable.)
+/// `adjust_push_reachable` for Relation/FunctionalRelation/Rule source arms.
 pub fn push_propagate_from(
   core : RuntimeCore,
   pull : PullState,

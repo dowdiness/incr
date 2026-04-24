@@ -3,10 +3,7 @@
 /// the cycle.
 ///
 /// Copies `path`, appends `closing_id`, and snapshots labels for the leading
-/// `MAX_CYCLE_DISPLAY_STEPS` entries via `core.cell_ops[i].label()`. Moved
-/// from cells/cycle.mbt in R1 Stage 3b — the cells/ caller chain runs entirely
-/// through kernel now (verify, memo_force_recompute), so kernel owns the
-/// constructor.
+/// `MAX_CYCLE_DISPLAY_STEPS` entries via `core.cell_ops[i].label()`.
 pub fn construct_cycle_error(
   core : RuntimeCore,
   path : Array[CellId],

@@ -12,11 +12,6 @@
 /// 5. If no staged deltas were produced, stop; otherwise repeat
 /// 6. Collect changed cell IDs — the caller (Runtime::fixpoint) calls
 ///    publish_cell_changes if any changed.
-///
-/// Moved from cells/datalog_fixpoint.mbt in R1 Stage 3g. Per plan v3
-/// item 3g, Runtime::fixpoint keeps a thin wrapper that invokes this
-/// function then calls publish_cell_changes; the wrapper collapses to
-/// a one-liner when Stage 4 moves publish_cell_changes to kernel.
 pub fn run_fixpoint(
   core : RuntimeCore,
   datalog : DatalogState,

@@ -1,10 +1,5 @@
 ///|
-/// Thin Runtime wrapper over `@kernel.pull_verify`.
-///
-/// Passes `self.accumulator_snapshots` to kernel per the Stage 3 §0
-/// decision: accumulator state stays on Runtime; the snapshot array
-/// threads through as an explicit parameter rather than living on
-/// RuntimeCore.
+/// Threads `accumulator_snapshots` (Runtime-owned) into the kernel verify.
 fn Runtime::pull_verify(
   self : Runtime,
   cell_id : CellId,

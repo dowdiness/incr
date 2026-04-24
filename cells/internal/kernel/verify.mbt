@@ -67,22 +67,15 @@ fn synthetic_accumulator_changed(
 ///|
 /// SoA-native verification: determines whether a cell needs recomputation
 /// and recomputes it if so, using explicit stack iteration over `pull.memos`.
-///
-/// Moved from cells/verify.mbt in R1 Stage 3e. Takes the accumulator
-/// snapshot array explicitly (plan v3 D5 / Stage 3 notes §0) so kernel
-/// does not depend on Runtime's accumulator state.
+/// Takes the accumulator snapshot array explicitly so kernel does not
+/// depend on Runtime's accumulator state.
 pub fn pull_verify(
   core : RuntimeCore,
   pull : PullState,
   slot_snapshots : Array[&@shared.SlotSnapshot],
   cell_id : CellId,
 ) -> Result[Unit, @incr_types.CycleError] raise Failure {
-  if cell_id.runtime_id != core.runtime_id {
-    abort("pull_verify: cell belongs to a different Runtime")
-  }
-  if cell_id.id < 0 || cell_id.id >= core.cell_index.length() {
-    abort("pull_verify: cell_id out of bounds: " + cell_id.id.to_string())
-  }
+  validate_cell(core, cell_id, "pull_verify")
   match core.cell_index[cell_id.id] {
     PullSignal(_) => Ok(()) // always fresh
     PushReactive(_) | PushEffect(_) => Ok(()) // freshness via push_propagate_from
@@ -130,8 +123,11 @@ pub fn pull_verify(
               dep_id.id.to_string(),
             )
           }
-          // Guard: disposed check + fixpoint guard for Relation/Rule deps.
-          match core.cell_index[dep_id.id] {
+          // Single cell_index read per dep: one match for the structural
+          // guard (disposed/fixpoint) reused below for the deep-verify
+          // dispatch in the `None` branch.
+          let dep_variant = core.cell_index[dep_id.id]
+          match dep_variant {
             Disposed => abort("pull_verify: dependency has been disposed")
             Relation(_) | FunctionalRelation(_) | Rule(_) =>
               if core.phase is InFixpoint {
@@ -151,7 +147,7 @@ pub fn pull_verify(
             Some(false) => ()
             None =>
               // Needs deep verification — only PullMemo and HybridMemo reach here
-              match core.cell_index[dep_id.id] {
+              match dep_variant {
                 PullMemo(dep_idx) | HybridMemo(dep_idx) => {
                   let dep = pull.memos[dep_idx]
                   if dep.verified_at < core.revision.current_revision {
