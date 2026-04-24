@@ -43,6 +43,8 @@ pub fn get_current_computing_runtime_id() -> Int
 
 pub fn get_durability(RuntimeCore, @types.CellId) -> @types.Durability
 
+pub fn get_level(RuntimeCore, @types.CellId) -> Int
+
 pub fn get_subscribers(RuntimeCore, @types.CellId) -> Iter[@types.CellId]
 
 pub fn is_cell_disposed(RuntimeCore, @types.CellId) -> Bool
@@ -57,7 +59,11 @@ pub fn pull_verify(RuntimeCore, PullState, Array[&@shared.SlotSnapshot], @types.
 
 pub fn push_contribution(RuntimeCore, PullState, @types.CellId) -> Int
 
+pub fn push_propagate_from(RuntimeCore, PullState, PushState, DatalogState, Array[@types.CellId]) -> Unit
+
 pub fn push_tracking(RuntimeCore, @types.CellId) -> Unit
+
+pub fn recompute_level(RuntimeCore, @types.CellId, Array[@types.CellId]) -> Int
 
 pub fn record_dep(RuntimeCore, @types.CellId) -> Unit
 
