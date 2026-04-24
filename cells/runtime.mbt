@@ -1,140 +1,17 @@
 ///|
-/// Global counter for assigning unique IDs to Runtime instances.
-///
-/// Each Runtime gets a unique ID to prevent CellIds from different
-/// runtimes being incorrectly queried against each other.
-///
-/// Note: This is a reference cell to enable mutable global state.
-let next_runtime_id : Ref[Int] = { val: 0 }
-
-///|
-/// Tracks the runtime_id currently executing a memo computation.
-/// -1 means no computation is active (sentinel; runtime IDs start at 0).
-/// Set by push_tracking, cleared by pop_tracking when the stack empties.
-/// Used by Signal::get and Memo::get_result to detect cross-runtime reads.
-///
-/// **Single-threaded assumption**: MoonBit currently targets WebAssembly
-/// (inherently single-threaded) and a single-threaded native runtime, so a
-/// plain `Ref[Int]` is safe here. If parallel execution is ever introduced
-/// (e.g. native threads or shared-memory WASM), this sentinel must be
-/// replaced with a thread-local or an atomic, and push/pop_tracking must
-/// use appropriate synchronisation primitives.
-let current_computing_runtime_id : Ref[Int] = { val: -1 }
-
-///|
-/// Core runtime state: identity, revision tracking, batch management,
-/// unified dispatch tables, and cross-engine guards.
-///
-/// Groups fields that are accessed by all propagation modes: revision tracking
-/// (RevisionState), batch management (BatchState), dependency tracking
-/// (TrackingState), unified dispatch tables, and cross-engine guards
-/// (PropagationPhase).
-///
-/// # Pointer chase tradeoff
-///
-/// All sub-struct field accesses (e.g. `self.core.revision.current_revision`) require
-/// one extra pointer dereference compared to the old flat layout. MoonBit
-/// structs are heap-allocated, so RuntimeCore is a separate heap object.
-/// In hot loops (verify dep-walk, push propagation), the sub-struct pointers
-/// are cache-hot since they are dereferenced on every iteration. Profile
-/// with `moon bench --release` if regressions are suspected.
-
-///|
-/// Mutually exclusive runtime phases for cross-engine guards.
-///
-/// These phases are never active simultaneously. `batch.depth` is
-/// orthogonal — batches compose with any propagation phase (e.g.
-/// commit_batch temporarily raises batch.depth during callbacks
-/// while the propagation phase is Idle).
-priv enum PropagationPhase {
-  Idle
-  PushPropagating
-  InFixpoint
-  GarbageCollecting
-} derive(Eq, Debug)
-
-///|
-impl Show for PropagationPhase with output(self, logger) {
-  logger.write_string(@debug.to_string(self))
-}
-
-///|
-/// Batch update management: deferred signal writes and rollback.
-priv struct BatchState {
-  mut depth : Int
-  pending : Array[&Committable]
-  frames : Array[BatchFrame]
-  mut max_durability : Durability
-}
-
-///|
-/// Dependency tracking: recording which cells are read during computation.
-priv struct TrackingState {
-  stack : Array[ActiveQuery]
-}
-
-///|
-/// Revision tracking: global clock and per-durability change timestamps.
-priv struct RevisionState {
-  mut current_revision : Revision
-  durability_last_changed : FixedArray[Revision]
-}
-
-///|
-priv struct RuntimeCore {
-  runtime_id : Int
-  revision : RevisionState
-  mut next_cell_id : Int
-  tracking : TrackingState
-  batch : BatchState
-  mut on_change : (() -> Unit)?
-  cell_index : Array[CellRef]
-  cell_ops : Array[&CellOps]
-  cell_lifecycle : Array[&CellLifecycle]
-  mut phase : PropagationPhase
-  /// Reference counts for observed cells. Key = observed CellId,
-  /// value = number of live Observer handles. on_unobserve fires only
-  /// when count reaches 0.
-  gc_root_counts : @hashmap.HashMap[CellId, Int]
-}
-
-///|
-/// Pull-mode SoA storage (lazy verification).
-priv struct PullState {
-  signals : Array[PullSignalData]
-  memos : Array[MemoData]
-  free_signals : Array[Int]
-  free_memos : Array[Int]
-}
-
-///|
-/// Push-mode SoA storage (eager propagation).
-priv struct PushState {
-  reactives : Array[PushReactiveData]
-  effects : Array[PushEffectData]
-  free_reactives : Array[Int]
-  free_effects : Array[Int]
-  /// Count of live push cells (reactives + effects only).
-  /// HybridMemo does NOT contribute to this count — it relies on
-  /// verified_at staleness detection rather than push propagation.
-  /// Used as an O(1) gate before push propagation.
-  mut node_count : Int
-}
-
-///|
-/// Datalog SoA storage (fixpoint evaluation).
-priv struct DatalogState {
-  relations : Array[RelationData]
-  functional_relations : Array[FunctionalRelationData]
-  rules : Array[RuleData]
-}
-
-///|
 /// Central coordinator for the incremental computation framework.
 ///
 /// The Runtime manages all bookkeeping for dependency tracking, revision
 /// counting, and batch operations. Every Signal and Memo is associated
 /// with exactly one Runtime.
+///
+/// # Pointer chase tradeoff
+///
+/// All sub-struct field accesses (e.g. `self.core.revision.current_revision`)
+/// require one extra pointer dereference compared to the old flat layout.
+/// MoonBit structs are heap-allocated, so RuntimeCore is a separate heap
+/// object. In hot loops (verify dep-walk, push propagation), the sub-struct
+/// pointers are cache-hot since they are dereferenced on every iteration.
 ///
 /// # Example
 ///
@@ -145,16 +22,23 @@ priv struct DatalogState {
 ///
 /// let doubled = Memo(rt, () => x.get() * 2)
 /// ```
-
-///|
 pub(all) struct Runtime {
   priv core : RuntimeCore
   priv pull : PullState
   priv push : PushState
   priv datalog : DatalogState
+  // cell_lifecycle is lifted out of RuntimeCore: the CellLifecycle trait
+  // takes `Runtime` as a parameter (see cells/cell_ops.mbt), so moving it
+  // into kernel would create a circular type reference.
+  priv cell_lifecycle : Array[&CellLifecycle]
   // Accumulator state. Monotonic array; disposed slots keep their index
   // (their `disposed` field is set true). No slot-id reuse.
   priv accumulator_slots : Array[SlotMeta]
+  // Cached trait-object view of `accumulator_slots`, kept index-aligned
+  // by `register_accumulator_slot`. Runtime returns this array directly
+  // from `slot_snapshots()` so kernel-side verify code does not allocate
+  // per call.
+  priv accumulator_snapshots : Array[&@shared.SlotSnapshot]
   priv mut next_accumulator_id : Int
   // Reverse index: for each memo, which accumulator slots it has pushed to.
   // Populated on successful recompute commit; used for BEFORE_CLOSURE snapshot
@@ -170,33 +54,12 @@ pub(all) struct Runtime {
 ///|
 /// Creates a new runtime with an empty dependency graph.
 ///
-/// This is the entry point for using the incremental computation framework.
-/// Create one runtime, then create signals and memos associated with it.
-///
 /// # Parameters
 ///
 /// - `on_change`: Optional callback invoked whenever any signal changes
-///   (or at the end of a batch if values actually changed). Equivalent
-///   to calling `Runtime::set_on_change` immediately after construction.
-///
-/// # Returns
-///
-/// A new runtime ready to manage signals and memos
-///
-/// # Example
-///
-/// ```moonbit nocheck
-/// let rt = Runtime()
-///
-/// let rt = Runtime(on_change=() => rerender())
-///
-/// let x = Signal(rt, 10)
-///
-/// let doubled = Memo(rt, () => x.get() * 2)
-/// ```
+///   (or at the end of a batch if values actually changed).
 pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
-  let id = next_runtime_id.val
-  next_runtime_id.val = next_runtime_id.val + 1
+  let id = @kernel.alloc_runtime_id()
   {
     core: {
       runtime_id: id,
@@ -213,7 +76,6 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
       on_change,
       cell_index: [],
       cell_ops: [],
-      cell_lifecycle: [],
       phase: Idle,
       gc_root_counts: @hashmap.new(),
     },
@@ -226,34 +88,24 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
       node_count: 0,
     },
     datalog: { relations: [], functional_relations: [], rules: [] },
+    cell_lifecycle: [],
     accumulator_slots: [],
+    accumulator_snapshots: [],
     next_accumulator_id: 0,
     accumulator_contributions: @hashmap.new(),
   }
 }
 
 ///|
-/// Transitions to a new propagation phase.
-///
-/// Aborts if the current phase is not `Idle` — phases are mutually
-/// exclusive. The one exception is returning to `Idle`, which is
-/// always allowed from any active phase (used in finally-style cleanup).
+/// Transitions to a new propagation phase. Delegates to `@kernel.enter_phase`.
 fn Runtime::enter_phase(self : Runtime, next : PropagationPhase) -> Unit {
-  guard self.core.phase is Idle else {
-    abort(
-      "enter_phase: cannot enter " +
-      next.to_string() +
-      " while in " +
-      self.core.phase.to_string(),
-    )
-  }
-  self.core.phase = next
+  @kernel.enter_phase(self.core, next)
 }
 
 ///|
-/// Returns to the Idle phase. Unconditional — always succeeds.
+/// Returns to the Idle phase. Delegates to `@kernel.leave_phase`.
 fn Runtime::leave_phase(self : Runtime) -> Unit {
-  self.core.phase = Idle
+  @kernel.leave_phase(self.core)
 }
 
 ///|
@@ -273,10 +125,6 @@ fn Runtime::alloc_next_id(self : Runtime) -> CellId {
 /// The `cell_ref` argument records which typed SoA array this cell lives in
 /// (e.g. `PullSignal(idx)` or `PullMemo(idx)`).  The returned `CellId.id`
 /// is the index into `cell_index` for fast dispatch.
-///
-/// # Returns
-///
-/// A new unique cell identifier
 fn Runtime::alloc_cell_id(self : Runtime, cell_ref : CellRef) -> CellId {
   let cell_id = self.alloc_next_id()
   self.core.cell_index.push(cell_ref)
@@ -287,16 +135,6 @@ fn Runtime::alloc_cell_id(self : Runtime, cell_ref : CellRef) -> CellId {
 /// Installs a new cell into a reusable-slot SoA array and registers it in
 /// the unified dispatch tables (`cell_ops`, `cell_lifecycle`). Shared by
 /// Signal, Memo, Reactive, and Effect constructors.
-///
-/// Steps:
-/// 1. Reuse a freed slot from `free_list` if available, else append.
-/// 2. Allocate a fresh `CellId` with `make_ref(idx)` as its `CellRef`.
-/// 3. Construct the SoA payload via `make_data(cell_id)` (the caller's
-///    factory; given a cell_id so the payload's `meta.cell_id` can match).
-/// 4. Write payload into slot; register trait objects in the dispatch tables.
-///
-/// Datalog cells do NOT use this path — their arrays are append-only
-/// (no free-list, disposed slots are not reused).
 fn[T : CellOps + CellLifecycle] Runtime::install_cell(
   self : Runtime,
   free_list : Array[Int],
@@ -313,20 +151,17 @@ fn[T : CellOps + CellLifecycle] Runtime::install_cell(
     arr.push(data)
   }
   self.core.cell_ops.push(arr[idx])
-  self.core.cell_lifecycle.push(arr[idx])
+  self.cell_lifecycle.push(arr[idx])
   (cell_id, idx)
 }
 
 ///|
 /// Debug invariant: the three unified dispatch tables (`cell_index`,
-/// `cell_ops`, `cell_lifecycle`) must stay index-aligned. Every cell
-/// allocation pushes into all three; every disposal updates the slot
-/// in-place. Whitebox tests call this after exercising allocation/disposal
-/// paths to pin the invariant that `install_cell` + `dispose_cell` uphold.
+/// `cell_ops`, `cell_lifecycle`) must stay index-aligned.
 fn Runtime::check_table_invariant(self : Runtime) -> Unit {
   let ci = self.core.cell_index.length()
   let co = self.core.cell_ops.length()
-  let cl = self.core.cell_lifecycle.length()
+  let cl = self.cell_lifecycle.length()
   if ci != co || co != cl {
     abort(
       "Runtime dispatch tables out of sync: cell_index=" +
@@ -335,6 +170,24 @@ fn Runtime::check_table_invariant(self : Runtime) -> Unit {
       co.to_string() +
       ", cell_lifecycle=" +
       cl.to_string(),
+    )
+  }
+}
+
+///|
+/// Debug invariant: `accumulator_slots` and `accumulator_snapshots` must
+/// stay index-aligned. Only `register_accumulator_slot` writes both; this
+/// assertion exists to catch a future mutation path that forgets to
+/// update the cached trait-object view (Stage 3+ may add one).
+fn Runtime::check_accumulator_cache_invariant(self : Runtime) -> Unit {
+  let a = self.accumulator_slots.length()
+  let b = self.accumulator_snapshots.length()
+  if a != b {
+    abort(
+      "accumulator cache out of sync: slots=" +
+      a.to_string() +
+      ", snapshots=" +
+      b.to_string(),
     )
   }
 }
@@ -371,8 +224,6 @@ fn Runtime::is_cell_disposed(self : Runtime, cell_id : CellId) -> Bool {
 
 ///|
 /// Returns the `changed_at` revision for any cell, dispatching via cell_index.
-///
-/// Covers PullSignal and PullMemo; aborts on unknown or out-of-bounds IDs.
 fn Runtime::get_changed_at(self : Runtime, id : CellId) -> Revision {
   self.validate_cell(id, "get_changed_at")
   self.core.cell_ops[id.id].changed_at()
@@ -387,9 +238,6 @@ fn Runtime::get_durability(self : Runtime, id : CellId) -> Durability {
 
 ///|
 /// Returns the CellId stored in the given SoA entry (reverse lookup).
-///
-/// Each SoA data struct caches its own CellId so we can round-trip from a
-/// CellRef index back to the unified CellId without an extra map.
 fn Runtime::cell_id_for(self : Runtime, cell_ref : CellRef) -> CellId {
   match cell_ref {
     PullSignal(idx) => self.pull.signals[idx].meta.cell_id
@@ -407,10 +255,6 @@ fn Runtime::cell_id_for(self : Runtime, cell_ref : CellRef) -> CellId {
 
 ///|
 /// Returns the PullSignalData for a signal cell.
-///
-/// # Panics
-///
-/// Aborts if the cell belongs to a different runtime or is not a signal.
 fn Runtime::get_pull_signal(self : Runtime, id : CellId) -> PullSignalData {
   self.validate_cell(id, "get_pull_signal")
   match self.core.cell_index[id.id] {
@@ -424,10 +268,6 @@ fn Runtime::get_pull_signal(self : Runtime, id : CellId) -> PullSignalData {
 
 ///|
 /// Returns the MemoData for a memo or hybrid memo cell.
-///
-/// # Panics
-///
-/// Aborts if the cell belongs to a different runtime or is not a memo.
 fn Runtime::get_memo_data(self : Runtime, id : CellId) -> MemoData {
   self.validate_cell(id, "get_memo_data")
   match self.core.cell_index[id.id] {
@@ -439,21 +279,30 @@ fn Runtime::get_memo_data(self : Runtime, id : CellId) -> MemoData {
 
 ///|
 /// Returns an iterator over the subscriber IDs for the given cell.
-///
-/// Used by Phase 3 push propagation to enumerate cells that must be
-/// notified when a cell's value changes. Phase 3 extends this with
-/// `PushReactive`, `PushEffect`, and `Disposed` arms.
 fn Runtime::get_subscribers(self : Runtime, cell_id : CellId) -> Iter[CellId] {
   self.validate_cell(cell_id, "get_subscribers")
   self.core.cell_ops[cell_id.id].subscribers().iter()
 }
 
 ///|
+/// Returns the cached trait-object view of accumulator slots.
+///
+/// Stage 2 adds this accessor so forthcoming kernel algorithms can reach
+/// slot state through the `SlotSnapshot` trait without depending on the
+/// concrete (private) `SlotMeta` struct. The array is kept index-aligned
+/// with `accumulator_slots` by `register_accumulator_slot`.
+///
+/// The returned array aliases the runtime's cached field — callers must
+/// treat it as read-only. Pushing, removing, or replacing entries would
+/// break the `accumulator_slots` ↔ `accumulator_snapshots` alignment
+/// asserted by `check_accumulator_cache_invariant`.
+fn Runtime::slot_snapshots(self : Runtime) -> Array[&@shared.SlotSnapshot] {
+  self.accumulator_snapshots
+}
+
+///|
 /// Removes `subscriber` from the subscriber set of `dep` and decrements the
 /// subscriber's push contribution from upstream cells.
-///
-/// Contribution is computed BEFORE the subscriber's CellRef can be set to
-/// Disposed by the caller — this ordering is critical.
 fn Runtime::remove_subscriber(
   self : Runtime,
   dep : CellId,
@@ -491,11 +340,6 @@ fn Runtime::add_subscriber(
 
 ///|
 /// Returns the push-reachable contribution of `sub_id` as a subscriber.
-///
-/// - `PushReactive` / `PushEffect` -> 1 (they are push cells themselves)
-/// - `PullMemo` / `HybridMemo` -> their current `push_reachable_count`
-///   (they propagate their downstream push count upward)
-/// - All other variants -> 0
 fn Runtime::push_contribution(self : Runtime, sub_id : CellId) -> Int {
   if sub_id.id < 0 || sub_id.id >= self.core.cell_index.length() {
     return 0
@@ -510,14 +354,6 @@ fn Runtime::push_contribution(self : Runtime, sub_id : CellId) -> Int {
 ///|
 /// Collects all cells reachable upstream of `sources` through the pull
 /// dependency graph.
-///
-/// Rules:
-/// - `PullSignal` -> add to set, stop (leaf)
-/// - `PullMemo` / `HybridMemo` -> add to set, recurse into `dependencies`
-/// - `PushReactive`, `Relation`, `FunctionalRelation`, `Rule` ->
-///     add to set, stop (leaf in count-propagation graph; do NOT recurse)
-/// - `Disposed` -> skip
-/// - Already-visited cells are skipped (handles diamond fan-in)
 fn Runtime::collect_reachable_cells(
   self : Runtime,
   sources : Array[CellId],
@@ -557,8 +393,6 @@ fn Runtime::collect_reachable_cells(
 ///|
 /// Adjusts `push_reachable_count` by `delta` on every cell reachable upstream
 /// of `sources` (including the sources themselves).
-///
-/// Asserts that no count goes negative.
 fn Runtime::adjust_push_reachable(
   self : Runtime,
   sources : Array[CellId],
@@ -595,11 +429,6 @@ fn Runtime::adjust_push_reachable(
 
 ///|
 /// Registers a callback that fires whenever a revision bump occurs.
-/// During a batch, it fires once at batch end (only if values actually changed).
-///
-/// # Parameters
-///
-/// - `f`: The callback to invoke on change
 pub fn Runtime::set_on_change(self : Runtime, f : () -> Unit) -> Unit {
   self.core.on_change = Some(f)
 }
@@ -622,14 +451,6 @@ fn Runtime::fire_on_change(self : Runtime) -> Unit {
 ///|
 /// Core propagation coordinator: advances the revision, stamps changed_at on
 /// all changed cells, and runs push propagation if any push cells exist.
-///
-/// This is the single entry point for push propagation. All paths that notify
-/// the runtime of cell value changes call this method. Callers handle their
-/// own callback sequencing around it:
-///
-/// - `publish_cell_changes`: adds `fire_on_change()` (simple path for fixpoint)
-/// - `commit_batch`: snapshots per-signal callbacks before, fires after
-/// - `signal.set_unconditional`: snapshots per-signal callback before, fires after
 fn Runtime::propagate_changes(
   self : Runtime,
   changed_ids : Array[CellId],
@@ -649,19 +470,6 @@ fn Runtime::propagate_changes(
 ///|
 /// Kernel notification protocol: notifies the runtime that a set of cells
 /// has new values.
-///
-/// Delegates to `propagate_changes` for revision bump, changed_at stamping,
-/// and push propagation, then fires the global `on_change` callback.
-///
-/// Use this for callers that don't need custom callback sequencing (e.g.
-/// `fixpoint`). Callers that interleave per-cell callbacks with propagation
-/// (e.g. `commit_batch`, `signal.set_unconditional`) call `propagate_changes`
-/// directly and manage their own callback timing.
-///
-/// # Parameters
-///
-/// - `changed_ids`: The cell IDs whose values changed
-/// - `durability`: Durability level of the change
 fn Runtime::publish_cell_changes(
   self : Runtime,
   changed_ids : Array[CellId],
@@ -673,8 +481,6 @@ fn Runtime::publish_cell_changes(
 
 ///|
 /// Advance the global revision counter and record which durability level changed.
-/// Updates current_revision and all durability_last_changed entries up to dur_idx.
-/// Callers must ensure this is only called outside of a batch (batch_depth == 0).
 impl RevisionManager for Runtime with advance_revision(self, durability) {
   self.core.revision.current_revision = Revision::next(
     self.core.revision.current_revision,
@@ -687,16 +493,6 @@ impl RevisionManager for Runtime with advance_revision(self, durability) {
 
 ///|
 /// Bumps the global revision counter and records which durability level changed.
-///
-/// This is called internally when a signal's value changes. The durability
-/// parameter enables the durability shortcut: memos with higher durability
-/// than the changed signal can skip verification.
-///
-/// During a batch, the actual bump is deferred until the batch ends.
-///
-/// # Parameters
-///
-/// - `durability`: The durability level of the signal that changed
 impl RevisionManager for Runtime with bump_revision(self, durability) {
   if self.core.batch.depth > 0 {
     // Track the maximum durability seen during this batch
@@ -733,9 +529,6 @@ pub fn Runtime::dispose_rule(
 
 ///|
 /// Disposes a cell by CellId, dispatching via CellLifecycle trait.
-///
-/// Validates runtime ownership, checks idempotency, and calls guard_dispose
-/// before dispatching to the type-specific dispose implementation.
 pub fn Runtime::dispose_cell(self : Runtime, cell_id : CellId) -> Unit {
   guard cell_id.runtime_id == self.core.runtime_id else {
     abort("dispose_cell: CellId belongs to a different Runtime")
@@ -745,7 +538,7 @@ pub fn Runtime::dispose_cell(self : Runtime, cell_id : CellId) -> Unit {
   // Clean up gc_root_counts to prevent leaks when observed cells
   // are manually disposed before their observers.
   self.core.gc_root_counts.remove(cell_id)
-  self.core.cell_lifecycle[cell_id.id].dispose_cell(self, cell_id)
+  self.cell_lifecycle[cell_id.id].dispose_cell(self, cell_id)
 }
 
 ///|
@@ -789,16 +582,12 @@ fn Runtime::cell_id_at(self : Runtime, i : Int) -> CellId {
 
 ///|
 /// Runs mark-and-sweep garbage collection on the dependency graph.
-///
-/// Disposes all Interior cells (Memo, HybridMemo, Reactive) that are
-/// unreachable from any gc root (observed cells) or implicit root (Effect).
-/// Source cells (Signal, Relation, FunctionalRelation, Rule) are never collected.
 pub fn Runtime::gc(self : Runtime) -> Unit {
   guard self.core.tracking.stack.is_empty() else {
     // Clean up global state before aborting so panic tests don't
     // contaminate subsequent tests via current_computing_runtime_id.
     self.core.tracking.stack.clear()
-    current_computing_runtime_id.val = -1
+    @kernel.set_current_computing_runtime_id(-1)
     abort("gc: cannot run during active computation")
   }
   guard self.core.batch.depth == 0 else { abort("gc: cannot run during batch") }

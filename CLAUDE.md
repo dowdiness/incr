@@ -63,7 +63,7 @@ dowdiness/incr/
 │   │   ├── pull/               (PullSignalData, MemoData)
 │   │   ├── push/               (PushReactiveData, PushEffectData)
 │   │   ├── datalog/            (RelationData, FunctionalRelationData, RuleData)
-│   │   └── kernel/             (R1 skeleton — empty; Stage 2 moves state sub-structs in, Stage 3 moves algorithms)
+│   │   └── kernel/             (R1 state sub-structs + phase machine: state.mbt holds RuntimeCore, RevisionState, TrackingState, BatchState/Frame/Undo, PullState, PushState, DatalogState, ActiveQuery, PropagationPhase, enter/leave_phase, runtime-id helpers. Stage 3 moves algorithms in.)
 │   └── *_test.mbt, *_wbtest.mbt
 │
 ├── pipeline/                   (experimental pipeline traits, zero dependencies)

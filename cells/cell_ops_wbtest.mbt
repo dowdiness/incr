@@ -192,7 +192,7 @@ test "cell_lifecycle: dispose_cell dispatches via lifecycle array for memo" {
   let m = Memo::new(rt, fn() { sig.get() })
   let _ = rt.read(m)
   // Verify lifecycle array is populated
-  inspect(rt.core.cell_lifecycle.length(), content="2")
+  inspect(rt.cell_lifecycle.length(), content="2")
   // Dispose via dispose_cell (uses cell_lifecycle dispatch)
   rt.dispose_cell(m.id())
   inspect(m.is_disposed(), content="true")
@@ -207,7 +207,7 @@ test "cell_lifecycle: dispose_cell dispatches via lifecycle array for relation" 
   let rel : Relation[Int] = Relation::new(rt)
   rel.insert(42) |> ignore
   // Verify lifecycle array is populated
-  inspect(rt.core.cell_lifecycle.length(), content="1")
+  inspect(rt.cell_lifecycle.length(), content="1")
   rt.dispose_cell(rel.id())
   inspect(rel.is_disposed(), content="true")
 }

@@ -45,7 +45,7 @@ pub fn[T] Observer::dispose(self : Observer[T]) -> Unit {
   }
   let remaining = rt.remove_gc_root(id)
   if remaining == 0 {
-    rt.core.cell_lifecycle[id.id].on_unobserve(rt, id)
+    rt.cell_lifecycle[id.id].on_unobserve(rt, id)
   }
 }
 
@@ -64,7 +64,7 @@ pub fn[T] Memo::observe(self : Memo[T]) -> Observer[T] {
   let rt = self.rt
   let prev = rt.add_gc_root(self.cell_id)
   if prev == 0 {
-    rt.core.cell_lifecycle[self.cell_id.id].on_observe(rt, self.cell_id)
+    rt.cell_lifecycle[self.cell_id.id].on_observe(rt, self.cell_id)
   }
   {
     runtime: rt,
@@ -83,7 +83,7 @@ pub fn[T : Eq] HybridMemo::observe(self : HybridMemo[T]) -> Observer[T] {
   let rt = self.rt
   let prev = rt.add_gc_root(self.cell_id)
   if prev == 0 {
-    rt.core.cell_lifecycle[self.cell_id.id].on_observe(rt, self.cell_id)
+    rt.cell_lifecycle[self.cell_id.id].on_observe(rt, self.cell_id)
   }
   {
     runtime: rt,
@@ -103,7 +103,7 @@ pub fn[T] Reactive::observe(self : Reactive[T]) -> Observer[T] {
   let rt = self.rt
   let prev = rt.add_gc_root(cell_id)
   if prev == 0 {
-    rt.core.cell_lifecycle[cell_id.id].on_observe(rt, cell_id)
+    rt.cell_lifecycle[cell_id.id].on_observe(rt, cell_id)
   }
   {
     runtime: rt,

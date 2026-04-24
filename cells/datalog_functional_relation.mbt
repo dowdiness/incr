@@ -63,7 +63,7 @@ pub fn[K : Hash + Eq, V] FunctionalRelation::new(
   let ops : &CellOps = rt.datalog.functional_relations[idx]
   rt.core.cell_ops.push(ops)
   let lifecycle : &CellLifecycle = rt.datalog.functional_relations[idx]
-  rt.core.cell_lifecycle.push(lifecycle)
+  rt.cell_lifecycle.push(lifecycle)
   { rt, cell_id, current, delta, staged_delta, merge }
 }
 

@@ -59,3 +59,8 @@ pub(open) trait HasCellMeta {
   meta(Self) -> CellMeta
 }
 
+pub(open) trait SlotSnapshot {
+  disposed(Self) -> Bool
+  push_revised_at_for(Self, @types.CellId) -> @types.Revision
+}
+

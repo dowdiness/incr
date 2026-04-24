@@ -1,12 +1,114 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "dowdiness/incr/cells/internal/kernel"
 
+import {
+  "dowdiness/incr/cells/internal/datalog",
+  "dowdiness/incr/cells/internal/pull",
+  "dowdiness/incr/cells/internal/push",
+  "dowdiness/incr/cells/internal/shared",
+  "dowdiness/incr/types",
+  "moonbitlang/core/debug",
+  "moonbitlang/core/hashmap",
+  "moonbitlang/core/hashset",
+}
+
 // Values
-pub fn __r1_stage1_placeholder() -> Unit
+pub fn alloc_runtime_id() -> Int
+
+pub fn enter_phase(RuntimeCore, PropagationPhase) -> Unit
+
+pub fn get_current_computing_runtime_id() -> Int
+
+pub fn leave_phase(RuntimeCore) -> Unit
+
+pub fn set_current_computing_runtime_id(Int) -> Unit
 
 // Errors
 
 // Types and methods
+pub(all) struct ActiveQuery {
+  cell_id : @types.CellId
+  dependencies : Array[@types.CellId]
+  seen : @hashset.HashSet[@types.CellId]
+  accumulator_reads : @hashmap.HashMap[(@types.AccumulatorId, @types.CellId), @types.Revision]
+  touched_accumulator_slots : @hashset.HashSet[@types.AccumulatorId]
+
+  fn new(@types.CellId) -> ActiveQuery
+}
+pub fn ActiveQuery::new(@types.CellId) -> Self
+pub fn ActiveQuery::record(Self, @types.CellId) -> Unit
+
+pub(all) struct BatchFrame {
+  undo_entries : Array[BatchUndo]
+  undo_ids : @hashset.HashSet[@types.CellId]
+
+  fn new() -> BatchFrame
+}
+pub fn BatchFrame::has_undo_for(Self, @types.CellId) -> Bool
+pub fn BatchFrame::new() -> Self
+
+pub(all) struct BatchState {
+  mut depth : Int
+  pending : Array[&@shared.Committable]
+  frames : Array[BatchFrame]
+  mut max_durability : @types.Durability
+}
+
+pub(all) struct BatchUndo {
+  cell_id : @types.CellId
+  rollback : () -> Unit
+}
+
+pub(all) struct DatalogState {
+  relations : Array[@datalog.RelationData]
+  functional_relations : Array[@datalog.FunctionalRelationData]
+  rules : Array[@datalog.RuleData]
+}
+
+pub(all) enum PropagationPhase {
+  Idle
+  PushPropagating
+  InFixpoint
+  GarbageCollecting
+} derive(Eq, @debug.Debug)
+pub impl Show for PropagationPhase
+
+pub(all) struct PullState {
+  signals : Array[@pull.PullSignalData]
+  memos : Array[@pull.MemoData]
+  free_signals : Array[Int]
+  free_memos : Array[Int]
+}
+
+pub(all) struct PushState {
+  reactives : Array[@push.PushReactiveData]
+  effects : Array[@push.PushEffectData]
+  free_reactives : Array[Int]
+  free_effects : Array[Int]
+  mut node_count : Int
+}
+
+pub(all) struct RevisionState {
+  mut current_revision : @types.Revision
+  durability_last_changed : FixedArray[@types.Revision]
+}
+
+pub(all) struct RuntimeCore {
+  runtime_id : Int
+  revision : RevisionState
+  mut next_cell_id : Int
+  tracking : TrackingState
+  batch : BatchState
+  mut on_change : (() -> Unit)?
+  cell_index : Array[@shared.CellRef]
+  cell_ops : Array[&@shared.CellOps]
+  mut phase : PropagationPhase
+  gc_root_counts : @hashmap.HashMap[@types.CellId, Int]
+}
+
+pub(all) struct TrackingState {
+  stack : Array[ActiveQuery]
+}
 
 // Type aliases
 
