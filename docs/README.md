@@ -20,6 +20,7 @@ New to `incr`? Read these in order:
 
 - [Benchmarks](performance/benchmarks.md) — microbenchmark results for core operations (signal, memo, hybrid, batch). Dated snapshots; newer numbers go in new files.
 - [2026-04-21 Pre-R1 Baseline](performance/2026-04-21-pre-r1-baseline.md) — frozen reference for R1 Stage 3 regression gate (≤2% per tracked path).
+- [2026-04-24 R1 Stage 3 bench](performance/2026-04-24-r1-stage3-bench.md) — Stage 3 comparison vs baseline; all tracked rows within or favorable to ±2% gate.
 
 ---
 
@@ -39,9 +40,11 @@ For contributors and advanced users who want to understand or modify `incr`.
 
 - [Roadmap](roadmap.md) — phased future direction
 - [Active plans](plans/) — concrete implementation plans for upcoming work
-  - [2026-04-21 R1 — Split Reactive Kernel from Cells](plans/2026-04-21-r1-engine-package-split.md) — extract graph-mechanics into `cells/internal/kernel/`; public Runtime methods become thin wrappers or drop entirely (D8 wrapper economy) over kernel free functions. 6 staged PRs, 4–6 days. **Plan v3; Stage 0 complete.**
+  - [2026-04-21 R1 — Split Reactive Kernel from Cells](plans/2026-04-21-r1-engine-package-split.md) — extract graph-mechanics into `cells/internal/kernel/`; public Runtime methods become thin wrappers or drop entirely (D8 wrapper economy) over kernel free functions. 6 staged PRs, 4–6 days. **Plan v3; Stages 0–3 merged.**
     - [Stage 0 audits](plans/2026-04-21-r1-stage0-audits.md) — dispose_cell flow, ActiveQuery fields, check-engine-isolation.sh extension plan
     - [Stage 0 Codex review](plans/2026-04-21-r1-stage0-codex-review.md) — READY WITH CAVEATS verdict; findings folded into plan v3
+    - [Stage 2 execution notes](plans/2026-04-24-r1-stage2-notes.md) — Codex pre-review corrections + updated Stage 2 checklist
+    - [Stage 3 execution notes](plans/2026-04-24-r1-stage3-notes.md) — accumulator_snapshots resolution, Codex pre-review corrections, per-sub-step checklists
 - [TODO](todo.md) — contributor task list organized by priority
 
 **Research notes — exploratory, not implemented:**

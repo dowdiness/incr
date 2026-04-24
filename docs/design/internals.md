@@ -361,7 +361,8 @@ The library is split into four MoonBit sub-packages. The root package re-exports
 | `cells/internal/pull/pull_signal.mbt` | `PullSignalData` — SoA entry for input cells; `CellOps` + `Committable` impls |
 | `cells/memo.mbt` | `Memo[T]` — derived cells with memoization, backdating, and dependency tracking |
 | `cells/internal/pull/memo_data.mbt` | `MemoData` — unified SoA entry for pull and hybrid derived cells |
-| `cells/verify.mbt` | `pull_verify` — SoA-native iterative verification algorithm with `PullVerifyFrame` stack |
+| `cells/verify.mbt` | `Runtime::pull_verify` wrapper — body lives in `cells/internal/kernel/verify.mbt` |
+| `cells/internal/kernel/verify.mbt` | `pull_verify` + `synthetic_accumulator_changed` + `PullVerifyFrame` — SoA-native iterative verification algorithm. Takes `slot_snapshots : Array[&SlotSnapshot]` explicitly so kernel does not depend on Runtime's accumulator state. |
 
 **Push mode (eager propagation):**
 
@@ -369,7 +370,8 @@ The library is split into four MoonBit sub-packages. The root package re-exports
 |------|---------|
 | `cells/push_reactive.mbt` | `Reactive[T]` — eagerly-recomputed derived cell; `PushReactiveData` SoA entry |
 | `cells/push_effect.mbt` | `Effect` — terminal side-effect cell; `PushEffectData` SoA entry |
-| `cells/push_propagate.mbt` | `push_propagate_from`, `propagate_level_change` — level-sorted eager push propagation |
+| `cells/push_propagate.mbt` | `Runtime::push_propagate_from` + `Runtime::recompute_level` wrappers |
+| `cells/internal/kernel/push_propagate.mbt` | `push_propagate_from` + `propagate_level_change` + `get_level` + `recompute_level` + `PushEntry` — level-sorted eager push propagation |
 
 **Hybrid mode (push staleness + pull verification):**
 
@@ -384,21 +386,29 @@ The library is split into four MoonBit sub-packages. The root package re-exports
 | `cells/datalog_relation.mbt` | `Relation[T]` — set with delta tracking for semi-naive fixpoint |
 | `cells/datalog_functional_relation.mbt` | `FunctionalRelation[K, V]` — typed map relation with optional merge |
 | `cells/datalog_rule.mbt` | `Rule` — derives new facts from input relations |
-| `cells/datalog_fixpoint.mbt` | `Runtime::fixpoint()` — semi-naive evaluation loop |
+| `cells/datalog_fixpoint.mbt` | `Runtime::fixpoint` wrapper — invokes kernel body then publishes cell changes |
+| `cells/internal/kernel/fixpoint.mbt` | `run_fixpoint` — semi-naive evaluation loop; returns changed cell IDs |
 
 **Runtime, dispatch, and shared infrastructure:**
 
 | File | Purpose |
 |------|---------|
-| `cells/runtime.mbt` | `Runtime` — coordinator: SoA arrays, revision management, tracking stack, batch commit, GC |
+| `cells/runtime.mbt` | `Runtime` — handle struct + Runtime::new + thin `@kernel` delegators + remaining coordinator primitives (propagate_changes, publish_cell_changes, dispose_cell, gc family — Stage 4 moves these to kernel) |
 | `cells/cell.mbt` | `CellInfo` struct for introspection output |
 | `cells/internal/shared/cell_ref.mbt` | `CellRef` enum — O(1) dispatch into per-engine SoA arrays |
 | `cells/internal/shared/cell_ops.mbt` | `CellOps`, `Committable` traits (canonical definitions) |
 | `cells/internal/shared/cell_meta.mbt` | `CellMeta`, `HasCellMeta` — shared metadata struct and access trait |
-| `cells/cell_ops.mbt` | Local `CellLifecycle` and `Tracker` traits; `using @shared {...}` re-exports of `CellOps` / `Committable` / `CellMeta` |
-| `cells/tracking.mbt` | `ActiveQuery` — dependency recording frame with deduplication |
-| `cells/batch.mbt` | `Runtime::batch` — two-phase commit with rollback and revert detection |
-| `cells/cycle.mbt` | Private `CycleError::from_path` helper — captures cell labels at error construction |
+| `cells/internal/shared/slot_snapshot.mbt` | `SlotSnapshot` trait — accumulator-slot freshness abstraction used by kernel verify |
+| `cells/internal/kernel/state.mbt` | `RuntimeCore` + `RevisionState` / `TrackingState` / `BatchState` / `PullState` / `PushState` / `DatalogState` + `PropagationPhase` + `ActiveQuery` + runtime-id helpers + `enter_phase` / `leave_phase` |
+| `cells/internal/kernel/dispatch.mbt` | Cell-index dispatch helpers: `validate_cell*`, `is_cell_disposed`, `cell_id_for`/`cell_id_at`, `get_changed_at`/`get_durability`/`get_subscribers`, `add_subscriber`/`remove_subscriber`, `push_contribution`, `collect_reachable_cells`, `adjust_push_reachable` |
+| `cells/internal/kernel/tracking.mbt` | `push_tracking` / `pop_tracking` / `pop_tracking_full` / `record_dep` / `top_active_query` / `collect_tracking_path` / `collect_in_progress_path` / `check_cross_runtime` |
+| `cells/internal/kernel/subscriber_diff.mbt` | `diff_and_update_subscribers` — tracking-stack epilogue that routes dep changes into subscriber links |
+| `cells/internal/kernel/cycle.mbt` | `construct_cycle_error` — captures cell labels for cycle diagnostics |
+| `cells/cell_ops.mbt` | Local `CellLifecycle` and `Tracker` traits; `using @shared {...}` re-exports |
+| `cells/kernel_using.mbt` | Package-scoped `using @kernel {...}` for short names in cells/ |
+| `cells/tracking.mbt` | `Tracker for Runtime` impls + thin Runtime wrappers for tracking-stack ops |
+| `cells/batch.mbt` | `Runtime::batch` — two-phase commit with rollback and revert detection (Stage 4 moves `commit_batch` body to kernel) |
+| `cells/subscriber_diff.mbt` | `Runtime::diff_and_update_subscribers` wrapper for wbtest access |
 | `types/cycle_error.mbt` | `CycleError` suberror — pure-value cycle error, label-aware `format_path` |
 
 **Lifecycle and memory management:**
@@ -505,4 +515,4 @@ All stages preserve the public API with zero breaking changes. Downstream consum
 
 Engine SoA storage is partitioned into internal sub-packages under `cells/internal/` using MoonBit's `internal` package visibility. Engines cannot import each other, and no engine package imports back into `cells/` — invariants enforced by `scripts/check-engine-isolation.sh`. All pull-, push-, and datalog-engine SoA types live in their respective `cells/internal/` sub-packages; `cells/` retains typed handles, algorithms, and cross-cutting coordinator services. Lifecycle trait impls (e.g. `pull_memo_lifecycle.mbt`) stay in `cells/` because they compose coordinator-owned capabilities — this is dispatch wiring, not SoA storage. The [Stage 5 design spec](specs/2026-04-18-incr-stage5-internal-split-design.md) carries the concrete type names and file map.
 
-As of R1 Stage 2, `cells/internal/kernel/` owns the runtime state sub-structs and phase machine: `RuntimeCore`, `RevisionState`, `TrackingState`, `BatchState`/`BatchFrame`/`BatchUndo`, `PullState`, `PushState`, `DatalogState`, `ActiveQuery`, `PropagationPhase`, the `enter_phase`/`leave_phase` free functions, and the runtime-id allocators (`alloc_runtime_id`, `get/set_current_computing_runtime_id`). A `SlotSnapshot` trait in `cells/internal/shared/` lets kernel-side code query accumulator slot state without depending on the (coordinator-owned) `SlotMeta` struct; `Runtime` caches an `Array[&SlotSnapshot]` parallel to `accumulator_slots` so `slot_snapshots()` allocates zero. Stages 3–4 move algorithms (verify, push propagation, fixpoint, batch commit) and the coordinator primitives. `cell_lifecycle` is intentionally kept on `Runtime` (not `RuntimeCore`) because its trait signature references `Runtime` directly, which would create a cycle. The R1 plan ([docs/plans/2026-04-21-r1-engine-package-split.md](../plans/2026-04-21-r1-engine-package-split.md)) has the migration schedule; Stage 5 extends the isolation script to enforce kernel's one-way dependency direction.
+As of R1 Stage 3 (merged 2026-04-24), `cells/internal/kernel/` owns the runtime state sub-structs, phase machine, and graph-mechanics algorithms: `RuntimeCore` + state sub-structs + `ActiveQuery` + `PropagationPhase` + runtime-id helpers (state.mbt), dispatch helpers (dispatch.mbt), `construct_cycle_error` (cycle.mbt), `diff_and_update_subscribers` (subscriber_diff.mbt), tracking-stack primitives (tracking.mbt), `pull_verify` + `synthetic_accumulator_changed` (verify.mbt), `push_propagate_from` + level helpers (push_propagate.mbt), and `run_fixpoint` (fixpoint.mbt). A `SlotSnapshot` trait in `cells/internal/shared/` lets kernel-side verify query accumulator slot state without depending on the (coordinator-owned) `SlotMeta` struct; `Runtime` caches an `Array[&SlotSnapshot]` parallel to `accumulator_slots` and threads it to `pull_verify` as an explicit parameter. `cell_lifecycle` is intentionally kept on `Runtime` (not `RuntimeCore`) because its trait signature references `Runtime` directly, which would create a cycle. Stage 4 moves the remaining coordinator primitives (`propagate_changes`, `publish_cell_changes`, `commit_batch` body, dispose pure-state bits, gc family) to kernel — callback-snapshot invariant I4 is the risk point there. The R1 plan ([docs/plans/2026-04-21-r1-engine-package-split.md](../plans/2026-04-21-r1-engine-package-split.md)) has the full migration schedule; Stage 5 extends the isolation script to enforce kernel's one-way dependency direction.
