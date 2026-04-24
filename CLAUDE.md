@@ -62,7 +62,8 @@ dowdiness/incr/
 │   │   ├── shared/             (CellOps, HasCellMeta, Committable, CellMeta, CellRef)
 │   │   ├── pull/               (PullSignalData, MemoData)
 │   │   ├── push/               (PushReactiveData, PushEffectData)
-│   │   └── datalog/            (RelationData, FunctionalRelationData, RuleData)
+│   │   ├── datalog/            (RelationData, FunctionalRelationData, RuleData)
+│   │   └── kernel/             (R1 skeleton — empty; Stage 2 moves state sub-structs in, Stage 3 moves algorithms)
 │   └── *_test.mbt, *_wbtest.mbt
 │
 ├── pipeline/                   (experimental pipeline traits, zero dependencies)
@@ -87,7 +88,7 @@ For deep internals (verification algorithm, type erasure, SoA storage, push prop
 
 - `cells/moon.pkg` suppresses warning 15 (`unused_mut`) because some `mut` fields on `MemoData`/`PullSignalData` are only written in whitebox test compilation, not source-only compilation
 - The `cells/` package imports `moonbitlang/core/hashset` and `moonbitlang/core/hashmap` as external dependencies
-- `cells/internal/{shared,pull,push,datalog}/` use MoonBit's `internal` package feature. External consumers cannot import them. Engine packages (`pull`, `push`, `datalog`) must not import each other — enforced by `scripts/check-engine-isolation.sh`.
+- `cells/internal/{shared,pull,push,datalog,kernel}/` use MoonBit's `internal` package feature. External consumers cannot import them. Engine packages (`pull`, `push`, `datalog`) must not import each other — enforced by `scripts/check-engine-isolation.sh`. `kernel/` (R1, in-progress) is the graph-mechanics extraction target; Stage 5 of the R1 plan extends the isolation script to enforce kernel's one-way dependency direction.
 
 ## Documentation
 

@@ -1,5 +1,6 @@
 import {
   "dowdiness/incr/cells/internal/datalog" @datalog,
+  "dowdiness/incr/cells/internal/kernel" @kernel,
   "dowdiness/incr/cells/internal/pull" @pull,
   "dowdiness/incr/cells/internal/push" @push,
   "dowdiness/incr/cells/internal/shared" @shared,
@@ -16,5 +17,6 @@ import {
 // Suppressed warnings:
 // 1 (unused_value) — get_changed_at, cell_id_for, CellOps::cell_id used by wbtests or trait contract
 // 7 (unused_field) — RuleData.input/output_relations stored for future introspection
+// 29 (unused_package) — @kernel imported ahead of use during R1 Stage 1 skeleton; Stage 2 adds real call-sites and this suppression drops back to "-1-7".
 
-warnings = "-1-7"
+warnings = "-1-7-29"
