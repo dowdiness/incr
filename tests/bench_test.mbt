@@ -388,3 +388,40 @@ test "runtime: read one-shot" (b : @bench.T) {
   ignore(rt.read(m)) // prime
   b.bench(fn() { b.keep(rt.read(m)) })
 }
+
+///|
+/// Measures fixpoint convergence on a stable relation (no pending delta).
+/// This is the common driver pattern: drivers batch inserts, then call
+/// fixpoint to check for convergence. After the prime run, deltas are empty
+/// and fixpoint returns after detecting stable state. Gates Stage 3g of
+/// the R1 kernel split plan.
+test "fixpoint: one iteration, empty delta (stable convergence)" (b : @bench.T) {
+  let rt = @incr.Runtime::new()
+  let rel : @incr.Relation[Int] = @incr.Relation::new(rt, label="R")
+  let _ = rel.insert(42)
+  rt.fixpoint() // prime: converge to stable state
+  b.bench(fn() { rt.fixpoint() })
+}
+
+///|
+/// Measures fixpoint with a non-empty delta each iteration: inserts a
+/// fresh fact, runs one rule that copies the delta into a derived
+/// relation, converges. Exercises the productive path through
+/// `datalog_fixpoint.run_fixpoint` and its tail `publish_cell_changes`
+/// call. Gates Stage 3g of the R1 kernel split plan.
+test "fixpoint: one iteration, single fact delta (identity rule)" (b : @bench.T) {
+  let rt = @incr.Runtime::new()
+  let rel : @incr.Relation[Int] = @incr.Relation::new(rt, label="R")
+  let derived : @incr.Relation[Int] = @incr.Relation::new(rt, label="D")
+  let _ = rt.new_rule([rel.id()], [derived.id()], () => {
+    for d in rel.delta_iter() {
+      derived.insert(d) |> ignore
+    }
+  })
+  let mut v = 0
+  b.bench(fn() {
+    v = v + 1
+    rel.insert(v) |> ignore
+    rt.fixpoint()
+  })
+}
