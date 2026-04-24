@@ -141,16 +141,3 @@ pub fn Runtime::dependents(self : Runtime, id : CellId) -> Array[CellId] {
   }
   snapshot_subscribers(self.core.cell_ops[id.id].subscribers())
 }
-
-///|
-/// Collects all pull memos currently marked in_progress.
-///
-/// Called when a cycle is detected during `pull_verify`. The in_progress
-/// flags on `MemoData` entries identify the exact cycle participants.
-///
-/// # Returns
-///
-/// Array of CellIds for all pull memos with `in_progress = true`
-fn Runtime::collect_in_progress_path(self : Runtime) -> Array[CellId] {
-  @kernel.collect_in_progress_path(self.pull)
-}
