@@ -176,12 +176,16 @@ impl @shared.SlotSnapshot for SlotMeta with disposed(self) -> Bool {
 ///|
 /// Verify-side accessor for the slot's per-memo push_revised_at revision.
 ///
-/// The parentheses around the closure-field access are load-bearing —
-/// without them the compiler parses this as a recursive trait-method
-/// call to `SlotSnapshot::push_revised_at_for` and the call infinite-loops
-/// at runtime.
+/// The local binding is load-bearing: `self.push_revised_at_for` names
+/// both the closure field on `SlotMeta` and this trait method, so
+/// `self.push_revised_at_for(cell_id)` would be parsed as a recursive
+/// trait-method call and infinite-loop. Binding the closure to a local
+/// name disambiguates lexically — a parens-wrap `(self.field)(arg)`
+/// works too but is a parser subtlety that's easy to break in a later
+/// refactor.
 impl @shared.SlotSnapshot for SlotMeta with push_revised_at_for(self, cell_id) -> Revision {
-  (self.push_revised_at_for)(cell_id)
+  let f = self.push_revised_at_for
+  f(cell_id)
 }
 
 ///|

@@ -291,6 +291,11 @@ fn Runtime::get_subscribers(self : Runtime, cell_id : CellId) -> Iter[CellId] {
 /// slot state through the `SlotSnapshot` trait without depending on the
 /// concrete (private) `SlotMeta` struct. The array is kept index-aligned
 /// with `accumulator_slots` by `register_accumulator_slot`.
+///
+/// The returned array aliases the runtime's cached field — callers must
+/// treat it as read-only. Pushing, removing, or replacing entries would
+/// break the `accumulator_slots` ↔ `accumulator_snapshots` alignment
+/// asserted by `check_accumulator_cache_invariant`.
 fn Runtime::slot_snapshots(self : Runtime) -> Array[&@shared.SlotSnapshot] {
   self.accumulator_snapshots
 }

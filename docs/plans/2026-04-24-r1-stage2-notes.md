@@ -140,10 +140,17 @@ Plan mentioned memo's forgiving-repair path (`cells/memo.mbt:222`). Codex also f
 
 ## Verification gate
 
-- `moon check && moon test`: 556/556 green, zero warnings.
-- `moon info && moon fmt`: no `.mbti` diff except added kernel surface + removed `-29` comment on cells/moon.pkg.
-- `moon bench --release -p dowdiness/incr/tests -f bench_test.mbt` + `-p dowdiness/incr/cells -f push_efficiency_bench_test.mbt` on wasm-gc — every tracked-path row stays within ±1% of [pre-R1 baseline](../performance/2026-04-21-pre-r1-baseline.md) (Stage 2 is a pure file move; no algorithmic change).
+Acceptance criteria (required for Stage 2 to land):
+
+- `moon check && moon test`: all tests green, zero warnings.
+- `moon info && moon fmt`: no `.mbti` diff except additive kernel surface + new `SlotSnapshot` trait + removed `-29` comment on cells/moon.pkg.
+- `moon bench --release -p dowdiness/incr/tests -f bench_test.mbt` + `-p dowdiness/incr/cells -f push_efficiency_bench_test.mbt` on wasm-gc — every tracked-path row stays within noise (≈±2%) of [pre-R1 baseline](../performance/2026-04-21-pre-r1-baseline.md). Stage 2 is a pure file move; no algorithmic change.
 - `scripts/check-engine-isolation.sh`: OK. (Script doesn't yet enforce kernel's direction — Stage 5.)
+
+Observed on the landed PR (#46, commit efdea11 + fixups):
+
+- `moon test`: 559/559 (baseline 556 + 3 new wbtests pinning SlotSnapshot trait dispatch, the cache alignment invariant, and multi-registration invariant).
+- Benchmarks: two rows drifted 1–2% within σ of baseline (`memo: wide fanout`, `hybrid: get stale`); rest flat. No row outside measurement noise.
 
 ## Out of scope for Stage 2 (explicit)
 

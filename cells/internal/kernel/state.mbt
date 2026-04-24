@@ -214,8 +214,9 @@ pub(all) struct RuntimeCore {
 /// Transitions to a new propagation phase.
 ///
 /// Aborts if the current phase is not `Idle` — phases are mutually
-/// exclusive. The one exception is returning to `Idle`, which is
-/// always allowed from any active phase (used in finally-style cleanup).
+/// exclusive, so every active phase must be wound back to `Idle` before
+/// a new one is entered. To return to `Idle` from any active phase use
+/// `leave_phase` (the finally-style unwind path), not this function.
 pub fn enter_phase(core : RuntimeCore, next : PropagationPhase) -> Unit {
   guard core.phase is Idle else {
     abort(
