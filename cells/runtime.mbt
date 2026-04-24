@@ -175,6 +175,24 @@ fn Runtime::check_table_invariant(self : Runtime) -> Unit {
 }
 
 ///|
+/// Debug invariant: `accumulator_slots` and `accumulator_snapshots` must
+/// stay index-aligned. Only `register_accumulator_slot` writes both; this
+/// assertion exists to catch a future mutation path that forgets to
+/// update the cached trait-object view (Stage 3+ may add one).
+fn Runtime::check_accumulator_cache_invariant(self : Runtime) -> Unit {
+  let a = self.accumulator_slots.length()
+  let b = self.accumulator_snapshots.length()
+  if a != b {
+    abort(
+      "accumulator cache out of sync: slots=" +
+      a.to_string() +
+      ", snapshots=" +
+      b.to_string(),
+    )
+  }
+}
+
+///|
 /// Validates that a CellId belongs to this runtime and is within bounds.
 /// Aborts with a descriptive message on failure.
 fn Runtime::validate_cell(self : Runtime, id : CellId, caller : String) -> Unit {

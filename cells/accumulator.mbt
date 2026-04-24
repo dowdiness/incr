@@ -163,6 +163,7 @@ fn Runtime::register_accumulator_slot(
   self.next_accumulator_id = id + 1
   self.accumulator_slots.push(meta)
   self.accumulator_snapshots.push(meta)
+  self.check_accumulator_cache_invariant()
   { runtime_id: self.core.runtime_id, id }
 }
 

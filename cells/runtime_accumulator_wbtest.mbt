@@ -57,3 +57,36 @@ test "slot_snapshots: cache observes SlotMeta mutation" {
   // Index stays stable post-dispose (monotonic, no reuse).
   inspect(rt.slot_snapshots().length(), content="1")
 }
+
+///|
+/// Exercises `SlotSnapshot::push_revised_at_for` through the trait
+/// dispatch path (not the concrete `SlotMeta.push_revised_at_for`
+/// closure field). Pins Codex correction #1: the parenthesised
+/// `(self.push_revised_at_for)(cell_id)` in the impl body is genuinely
+/// non-recursive — without parens MoonBit would parse it as a call to
+/// the trait method itself and infinite-loop. If this test returns
+/// (with any Revision value), the parens-wrap held.
+test "slot_snapshots: push_revised_at_for via trait dispatch is non-recursive" {
+  let rt = Runtime::new()
+  let _acc : Accumulator[Int] = Accumulator::new(rt~)
+  let snaps = rt.slot_snapshots()
+  let some_cell : @incr_types.CellId = { runtime_id: 0, id: 0 }
+  // No memo has pushed to this slot, so the slot's push_revised_at map
+  // has no entry for any cell — the closure returns Revision::initial().
+  let rev = snaps[0].push_revised_at_for(some_cell)
+  inspect(rev == Revision::initial(), content="true")
+}
+
+///|
+/// Pins that `register_accumulator_slot` keeps the two arrays
+/// index-aligned and that the invariant check is invoked.
+test "slot_snapshots: invariant holds across multiple registrations" {
+  let rt = Runtime::new()
+  let _a : Accumulator[Int] = Accumulator::new(rt~)
+  rt.check_accumulator_cache_invariant()
+  let _b : Accumulator[String] = Accumulator::new(rt~)
+  rt.check_accumulator_cache_invariant()
+  let _c : Accumulator[Int] = Accumulator::new(rt~)
+  rt.check_accumulator_cache_invariant()
+  inspect(rt.slot_snapshots().length(), content="3")
+}
