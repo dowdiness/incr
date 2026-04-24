@@ -53,6 +53,8 @@ pub fn pop_tracking(RuntimeCore) -> (Array[@types.CellId], @hashset.HashSet[@typ
 
 pub fn pop_tracking_full(RuntimeCore) -> ActiveQuery
 
+pub fn pull_verify(RuntimeCore, PullState, Array[&@shared.SlotSnapshot], @types.CellId) -> Result[Unit, @types.CycleError] raise Failure
+
 pub fn push_contribution(RuntimeCore, PullState, @types.CellId) -> Int
 
 pub fn push_tracking(RuntimeCore, @types.CellId) -> Unit
