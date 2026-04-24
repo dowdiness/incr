@@ -58,7 +58,16 @@ fn Runtime::finish_tracking(
   new_deps : Array[CellId],
   new_seen : @hashset.HashSet[CellId],
 ) -> Unit {
-  self.diff_and_update_subscribers(cell_id, old_deps, new_deps, new_seen~)
+  @kernel.diff_and_update_subscribers(
+    self.core,
+    self.pull,
+    self.push,
+    self.datalog,
+    cell_id,
+    old_deps,
+    new_deps,
+    new_seen~,
+  )
   |> ignore
 }
 

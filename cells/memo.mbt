@@ -444,7 +444,11 @@ fn[T] Runtime::memo_force_recompute(
   )
 
   // Existing epilogue — subscribers, durability, backdate, verified_at.
-  let deps_changed = self.diff_and_update_subscribers(
+  let deps_changed = @kernel.diff_and_update_subscribers(
+    self.core,
+    self.pull,
+    self.push,
+    self.datalog,
     cell_id,
     old_deps,
     new_deps,

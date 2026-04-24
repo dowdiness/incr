@@ -27,6 +27,8 @@ pub fn collect_reachable_cells(RuntimeCore, PullState, Array[@types.CellId]) -> 
 
 pub fn construct_cycle_error(RuntimeCore, Array[@types.CellId], @types.CellId) -> @types.CycleError
 
+pub fn diff_and_update_subscribers(RuntimeCore, PullState, PushState, DatalogState, @types.CellId, Array[@types.CellId], Array[@types.CellId], new_seen? : @hashset.HashSet[@types.CellId]) -> Bool
+
 pub fn enter_phase(RuntimeCore, PropagationPhase) -> Unit
 
 pub fn get_changed_at(RuntimeCore, @types.CellId) -> @types.Revision
