@@ -69,6 +69,8 @@ pub fn record_dep(RuntimeCore, @types.CellId) -> Unit
 
 pub fn remove_subscriber(RuntimeCore, PullState, PushState, DatalogState, @types.CellId, @types.CellId) -> Unit
 
+pub fn run_fixpoint(RuntimeCore, DatalogState) -> Array[@types.CellId]
+
 pub fn set_current_computing_runtime_id(Int) -> Unit
 
 pub fn top_active_query(RuntimeCore) -> ActiveQuery?
