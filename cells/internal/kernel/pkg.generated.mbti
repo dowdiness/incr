@@ -13,6 +13,8 @@ import {
 }
 
 // Values
+pub fn add_gc_root(RuntimeCore, @types.CellId) -> Int
+
 pub fn add_subscriber(RuntimeCore, PullState, PushState, DatalogState, @types.CellId, @types.CellId) -> Unit
 
 pub fn adjust_push_reachable(RuntimeCore, PullState, PushState, DatalogState, Array[@types.CellId], Int) -> Unit
@@ -28,6 +30,8 @@ pub fn cell_id_for(PullState, PushState, DatalogState, @shared.CellRef) -> @type
 pub fn check_cross_runtime(Int, String) -> Unit
 
 pub fn check_dispose_guard(RuntimeCore, @types.CellId) -> Unit
+
+pub fn collect_gc_roots(RuntimeCore) -> Array[@types.CellId]
 
 pub fn collect_in_progress_path(PullState) -> Array[@types.CellId]
 
@@ -47,6 +51,10 @@ pub fn enter_phase(RuntimeCore, PropagationPhase) -> Unit
 
 pub fn fire_on_change(RuntimeCore) -> Unit
 
+pub fn gc(RuntimeCore, (@types.CellId) -> Unit) -> Unit
+
+pub fn gc_sweep(RuntimeCore, (@types.CellId) -> Unit) -> Unit
+
 pub fn get_changed_at(RuntimeCore, @types.CellId) -> @types.Revision
 
 pub fn get_current_computing_runtime_id() -> Int
@@ -60,6 +68,8 @@ pub fn get_subscribers(RuntimeCore, @types.CellId) -> Iter[@types.CellId]
 pub fn is_cell_disposed(RuntimeCore, @types.CellId) -> Bool
 
 pub fn leave_phase(RuntimeCore) -> Unit
+
+pub fn mark_reachable(RuntimeCore, Array[@types.CellId]) -> @hashset.HashSet[@types.CellId]
 
 pub fn pop_tracking(RuntimeCore) -> (Array[@types.CellId], @hashset.HashSet[@types.CellId])
 
@@ -80,6 +90,8 @@ pub fn push_tracking(RuntimeCore, @types.CellId) -> Unit
 pub fn recompute_level(RuntimeCore, @types.CellId, Array[@types.CellId]) -> Int
 
 pub fn record_dep(RuntimeCore, @types.CellId) -> Unit
+
+pub fn remove_gc_root(RuntimeCore, @types.CellId) -> Int
 
 pub fn remove_subscriber(RuntimeCore, PullState, PushState, DatalogState, @types.CellId, @types.CellId) -> Unit
 

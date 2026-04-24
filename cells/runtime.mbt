@@ -406,116 +406,22 @@ pub fn Runtime::dispose_cell(self : Runtime, cell_id : CellId) -> Unit {
 /// Increments the observer reference count for a cell.
 /// Returns the previous count (0 means this is the first observer).
 fn Runtime::add_gc_root(self : Runtime, id : CellId) -> Int {
-  match self.core.gc_root_counts.get(id) {
-    Some(n) => {
-      self.core.gc_root_counts.set(id, n + 1)
-      n
-    }
-    None => {
-      self.core.gc_root_counts.set(id, 1)
-      0
-    }
-  }
+  @kernel.add_gc_root(self.core, id)
 }
 
 ///|
 /// Decrements the observer reference count for a cell.
 /// Removes the entry when count reaches 0. Returns remaining count.
 fn Runtime::remove_gc_root(self : Runtime, id : CellId) -> Int {
-  match self.core.gc_root_counts.get(id) {
-    Some(n) if n > 1 => {
-      self.core.gc_root_counts.set(id, n - 1)
-      n - 1
-    }
-    Some(_) => {
-      self.core.gc_root_counts.remove(id)
-      0
-    }
-    None => 0
-  }
+  @kernel.remove_gc_root(self.core, id)
 }
 
 ///|
 /// Runs mark-and-sweep garbage collection on the dependency graph.
+///
+/// Dispose dispatch is injected as a closure closing over
+/// `self.dispose_cell`, so per-kind CellLifecycle dispatch remains
+/// reachable from the kernel sweep loop.
 pub fn Runtime::gc(self : Runtime) -> Unit {
-  guard self.core.tracking.stack.is_empty() else {
-    // Clean up global state before aborting so panic tests don't
-    // contaminate subsequent tests via current_computing_runtime_id.
-    self.core.tracking.stack.clear()
-    @kernel.set_current_computing_runtime_id(-1)
-    abort("gc: cannot run during active computation")
-  }
-  guard self.core.batch.depth == 0 else { abort("gc: cannot run during batch") }
-  guard self.core.phase is Idle else {
-    abort("gc: cannot run during " + self.core.phase.to_string())
-  }
-  self.enter_phase(GarbageCollecting)
-  self.gc_sweep()
-  self.leave_phase()
-}
-
-///|
-/// Collects all GC roots: explicitly observed cells + implicit roots (Effects).
-fn Runtime::collect_gc_roots(self : Runtime) -> Array[CellId] {
-  let roots : Array[CellId] = []
-  for id, _ in self.core.gc_root_counts {
-    roots.push(id)
-  }
-  // Implicit roots: live cells with gc_role == Root (Effects)
-  for i = 0; i < self.core.cell_ops.length(); i = i + 1 {
-    match self.core.cell_index[i] {
-      Disposed => continue
-      _ => ()
-    }
-    if self.core.cell_ops[i].gc_role() is Root {
-      roots.push(@kernel.cell_id_at(self.core, i))
-    }
-  }
-  roots
-}
-
-///|
-/// Marks all cells reachable from `roots` via gc_dependencies BFS.
-fn Runtime::mark_reachable(
-  self : Runtime,
-  roots : Array[CellId],
-) -> @hashset.HashSet[CellId] {
-  let reachable : @hashset.HashSet[CellId] = @hashset.new()
-  let worklist : Array[CellId] = Array::from_iter(roots.iter())
-  let mut wi = 0
-  while wi < worklist.length() {
-    let id = worklist[wi]
-    wi += 1
-    if reachable.contains(id) {
-      continue
-    }
-    match self.core.cell_index[id.id] {
-      Disposed => continue
-      _ => ()
-    }
-    reachable.add(id)
-    for dep in self.core.cell_ops[id.id].gc_dependencies() {
-      worklist.push(dep)
-    }
-  }
-  reachable
-}
-
-///|
-/// Sweep phase: dispose Interior cells not in the reachable set.
-fn Runtime::gc_sweep(self : Runtime) -> Unit {
-  let roots = self.collect_gc_roots()
-  let reachable = self.mark_reachable(roots)
-  for i = 0; i < self.core.cell_ops.length(); i = i + 1 {
-    match self.core.cell_index[i] {
-      Disposed => continue
-      _ => ()
-    }
-    if self.core.cell_ops[i].gc_role() is Interior {
-      let id = @kernel.cell_id_at(self.core, i)
-      if !reachable.contains(id) {
-        self.dispose_cell(id)
-      }
-    }
-  }
+  @kernel.gc(self.core, fn(id) { self.dispose_cell(id) })
 }
