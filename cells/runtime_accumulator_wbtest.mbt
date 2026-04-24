@@ -38,3 +38,22 @@ test "ensure_computed_untracked: does not record ordinary dep on caller frame" {
   let outer_data = rt.get_memo_data(outer.id())
   inspect(outer_data.dependencies.contains(inner.id()), content="false")
 }
+
+///|
+/// Pins that `Runtime::slot_snapshots()` returns a live view of
+/// `accumulator_slots`: the cached `&SlotSnapshot` entries are references
+/// (not value copies), so mutation of the underlying `SlotMeta` is
+/// observable through the trait object. Stage 3 kernel-side verify code
+/// relies on this aliasing.
+test "slot_snapshots: cache observes SlotMeta mutation" {
+  let rt = Runtime::new()
+  let acc : Accumulator[Int] = Accumulator::new(rt~)
+  let snaps = rt.slot_snapshots()
+  inspect(snaps.length(), content="1")
+  inspect(snaps[0].disposed(), content="false")
+  acc.dispose()
+  // Same trait-object entry must now reflect disposed=true.
+  inspect(snaps[0].disposed(), content="true")
+  // Index stays stable post-dispose (monotonic, no reuse).
+  inspect(rt.slot_snapshots().length(), content="1")
+}

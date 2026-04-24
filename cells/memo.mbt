@@ -80,7 +80,7 @@ fn[T] Memo::_create(
   let ops : &CellOps = rt.pull.memos[memo_idx]
   rt.core.cell_ops.push(ops)
   let lifecycle : &CellLifecycle = rt.pull.memos[memo_idx]
-  rt.core.cell_lifecycle.push(lifecycle)
+  rt.cell_lifecycle.push(lifecycle)
   memo
 }
 
@@ -219,12 +219,12 @@ fn[T] Memo::get_result_inner(
   // This forgiving repair is required by panic-test call patterns that
   // bypass `get_result`'s outer strict check (e.g. `get_untracked`,
   // `MemoMap::get_or_create_memo`).
-  let active_rt = current_computing_runtime_id.val
+  let active_rt = @kernel.get_current_computing_runtime_id()
   if active_rt >= 0 {
     if self.rt.core.tracking.stack.is_empty() {
-      current_computing_runtime_id.val = -1
+      @kernel.set_current_computing_runtime_id(-1)
     } else if active_rt != self.rt.core.runtime_id {
-      current_computing_runtime_id.val = -1
+      @kernel.set_current_computing_runtime_id(-1)
       abort(
         "Cross-runtime dependency: Memo belongs to Runtime " +
         self.rt.core.runtime_id.to_string() +

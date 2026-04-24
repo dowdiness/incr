@@ -152,6 +152,9 @@ priv struct SlotMeta {
 ///|
 /// Internal: register a new accumulator slot and return its ID.
 /// Called by Accumulator::new. Monotonic — IDs never reused.
+///
+/// Pushes into `accumulator_slots` and the parallel
+/// `accumulator_snapshots` cache so the two arrays stay index-aligned.
 fn Runtime::register_accumulator_slot(
   self : Runtime,
   meta : SlotMeta,
@@ -159,7 +162,25 @@ fn Runtime::register_accumulator_slot(
   let id = self.next_accumulator_id
   self.next_accumulator_id = id + 1
   self.accumulator_slots.push(meta)
+  self.accumulator_snapshots.push(meta)
   { runtime_id: self.core.runtime_id, id }
+}
+
+///|
+/// Verify-side view of a SlotMeta's disposal flag.
+impl @shared.SlotSnapshot for SlotMeta with disposed(self) -> Bool {
+  self.disposed
+}
+
+///|
+/// Verify-side accessor for the slot's per-memo push_revised_at revision.
+///
+/// The parentheses around the closure-field access are load-bearing —
+/// without them the compiler parses this as a recursive trait-method
+/// call to `SlotSnapshot::push_revised_at_for` and the call infinite-loops
+/// at runtime.
+impl @shared.SlotSnapshot for SlotMeta with push_revised_at_for(self, cell_id) -> Revision {
+  (self.push_revised_at_for)(cell_id)
 }
 
 ///|

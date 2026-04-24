@@ -1,28 +1,4 @@
 ///|
-/// Undo entry for one signal touched by a batch frame.
-priv struct BatchUndo {
-  cell_id : CellId
-  rollback : () -> Unit
-}
-
-///|
-/// Per-batch-frame rollback log for nested batch semantics.
-priv struct BatchFrame {
-  undo_entries : Array[BatchUndo]
-  undo_ids : @hashset.HashSet[CellId]
-}
-
-///|
-fn BatchFrame::new() -> BatchFrame {
-  { undo_entries: [], undo_ids: @hashset.new() }
-}
-
-///|
-fn BatchFrame::has_undo_for(self : BatchFrame, cell_id : CellId) -> Bool {
-  self.undo_ids.contains(cell_id)
-}
-
-///|
 /// Executes a closure with batched signal updates.
 ///
 /// All `Signal::set` calls inside the closure are deferred. At batch end,

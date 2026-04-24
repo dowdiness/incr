@@ -31,7 +31,7 @@ pub fn Runtime::new_rule(
   let ops : &CellOps = self.datalog.rules[idx]
   self.core.cell_ops.push(ops)
   let lifecycle : &CellLifecycle = self.datalog.rules[idx]
-  self.core.cell_lifecycle.push(lifecycle)
+  self.cell_lifecycle.push(lifecycle)
   @incr_types.RuleId::{ id: cell_id }
 }
 

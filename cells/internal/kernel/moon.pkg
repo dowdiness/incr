@@ -1,5 +1,10 @@
-// R1 Stage 1 skeleton — imports empty until Stage 2 moves state types in.
-// Target imports (per docs/plans/2026-04-21-r1-engine-package-split.md
-// § "Package Layout — Target State"):
-//   dowdiness/incr/types, internal/shared, internal/pull, internal/push,
-//   internal/datalog, moonbitlang/core/{hashmap, hashset, priority_queue}.
+import {
+  "dowdiness/incr/cells/internal/datalog" @datalog,
+  "dowdiness/incr/cells/internal/pull" @pull,
+  "dowdiness/incr/cells/internal/push" @push,
+  "dowdiness/incr/cells/internal/shared" @shared,
+  "dowdiness/incr/types" @incr_types,
+  "moonbitlang/core/debug",
+  "moonbitlang/core/hashmap",
+  "moonbitlang/core/hashset",
+}
