@@ -63,7 +63,7 @@ dowdiness/incr/
 │   │   ├── pull/               (PullSignalData, MemoData)
 │   │   ├── push/               (PushReactiveData, PushEffectData)
 │   │   ├── datalog/            (RelationData, FunctionalRelationData, RuleData)
-│   │   └── kernel/             (graph mechanics — R1 Stages 2–4 shipped)
+│   │   └── kernel/             (graph mechanics + coordinator primitives — R1 complete 2026-04-25)
 │   │       ├── state.mbt           (RuntimeCore + state sub-structs + PropagationPhase + ActiveQuery + runtime-id helpers + enter/leave_phase)
 │   │       ├── dispatch.mbt        (validate_cell*, is_cell_disposed, cell_id_*, get_changed_at/durability/subscribers, add/remove_subscriber, push_contribution, collect_reachable_cells, adjust_push_reachable)
 │   │       ├── cycle.mbt           (construct_cycle_error)
@@ -100,7 +100,7 @@ For deep internals (verification algorithm, type erasure, SoA storage, push prop
 
 - `cells/moon.pkg` suppresses warning 15 (`unused_mut`) because some `mut` fields on `MemoData`/`PullSignalData` are only written in whitebox test compilation, not source-only compilation
 - The `cells/` package imports `moonbitlang/core/hashset` and `moonbitlang/core/hashmap` as external dependencies
-- `cells/internal/{shared,pull,push,datalog,kernel}/` use MoonBit's `internal` package feature. External consumers cannot import them. Engine packages (`pull`, `push`, `datalog`) must not import each other — enforced by `scripts/check-engine-isolation.sh`. `kernel/` owns graph-mechanics algorithms + coordinator primitives after R1 Stages 2–4. Stage 5 extends the isolation script to enforce kernel's one-way dependency direction.
+- `cells/internal/{shared,pull,push,datalog,kernel}/` use MoonBit's `internal` package feature. External consumers cannot import them. `scripts/check-engine-isolation.sh` enforces four invariants (R1 Stage 5, 2026-04-25): no cross-engine sibling imports; `shared` is the leaf; no back-edges from any internal package to `cells/`; kernel is one-way (engines/shared cannot import kernel — only `cells/*.mbt` may). Kernel owns graph-mechanics algorithms + coordinator primitives.
 
 ## Documentation
 
