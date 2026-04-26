@@ -1,4 +1,15 @@
 ///|
+/// Premise-1 anchor for the per-mode Runtime split investigation
+/// (memory/project_per_mode_redesign_question.md). Measures the cost of
+/// allocating one full Runtime including the PushState + DatalogState
+/// luggage that a pull-only consumer never touches. Compare against
+/// `signal: get` and `signal: set new value` below to size the luggage
+/// against the per-cell costs that already dominate any real workload.
+test "runtime: new (full, all modes)" (b : @bench.T) {
+  b.bench(fn() { b.keep(Runtime::new()) })
+}
+
+///|
 test "signal: get" (b : @bench.T) {
   let rt = Runtime::new()
   let sig = Signal::new(rt, 42)
