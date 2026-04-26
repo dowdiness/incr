@@ -21,6 +21,7 @@ New to `incr`? Read these in order:
 - [Benchmarks](performance/benchmarks.md) — microbenchmark results for core operations (signal, memo, hybrid, batch). Dated snapshots; newer numbers go in new files.
 - [2026-04-21 Pre-R1 Baseline](performance/2026-04-21-pre-r1-baseline.md) — frozen reference for R1 Stage 3 regression gate (≤2% per tracked path).
 - [2026-04-24 R1 Stage 3 bench](performance/2026-04-24-r1-stage3-bench.md) — Stage 3 comparison vs baseline; all tracked rows within or favorable to ±2% gate.
+- [2026-04-26 `memo_restore_on_abort` validation](performance/2026-04-26-memo-restore-on-abort-bench.md) — open-TODO microbench: O(n²) confirmed but constants too small to be actionable at realistic N.
 
 ---
 
