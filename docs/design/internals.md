@@ -86,7 +86,7 @@ From the user's perspective, dependency tracking is invisible. Users write ordin
 
 ## The Verification Algorithm (`pull_verify`)
 
-The core of the framework is the `pull_verify` function in `cells/verify.mbt`. Given a cell ID, it verifies whether the cell is up-to-date at the current revision, recomputing if necessary.
+The core of the framework is the `pull_verify` function in `cells/internal/kernel/verify.mbt` (with a thin `Runtime::pull_verify` delegator in `cells/verify.mbt`). Given a cell ID, it verifies whether the cell is up-to-date at the current revision, recomputing if necessary.
 
 ### For Input Cells (Signals)
 
@@ -218,9 +218,9 @@ This design means the verification algorithm in `cells/verify.mbt` operates enti
 
 The entire framework relies on MoonBit's reference semantics for mutable structs. Because `MemoData` and `PullSignalData` have `mut` fields, they are heap-allocated — every variable, function parameter, or array slot holding one is a reference to the same object, not a copy. This means:
 
-- `Runtime::get_pull_memo()` returns a reference to the canonical entry in `Runtime.pull_memos`, not a detached copy.
-- The `PullVerifyFrame` stack in `cells/verify.mbt` stores `memo_idx : Int` rather than a direct reference. The loop accesses `rt.pull_memos[frame.memo_idx]` to perform mutations. Mutations to `in_progress`, `verified_at`, or `changed_at` affect the runtime's canonical `MemoData`.
-- `Memo::force_recompute` retrieves a `MemoData` via `get_pull_memo` and mutates its fields directly.
+- Indexed SoA access (`rt.pull.memos[idx]`, `rt.pull.signals[idx]`) returns a reference to the canonical entry, not a detached copy.
+- The `PullVerifyFrame` stack in `cells/internal/kernel/verify.mbt` stores `memo_idx : Int` rather than a direct reference. The loop accesses `pull.memos[frame.memo_idx]` (the kernel takes `pull : PullState` as an explicit parameter) to perform mutations. Mutations to `in_progress`, `verified_at`, or `changed_at` affect the runtime's canonical `MemoData`.
+- `Memo::force_recompute` (which delegates to the shared `memo_force_recompute` helper) mutates the canonical `MemoData` fields directly via the same indexed-array access.
 
 If `MemoData` or `PullSignalData` were ever changed to value types (e.g., via MoonBit's `#valtype` annotation), this invariant would break — mutations would apply to copies, not originals, and the framework would silently produce incorrect results (e.g., `in_progress` flags stuck `true`, causing false cycle detection).
 
@@ -469,6 +469,8 @@ Unit tests (`*_test.mbt`) and whitebox tests (`*_wbtest.mbt`) live in `cells/`. 
 | `tests/hybrid_test.mbt` | `HybridMemo` public API: get, update, backdating, diamond, batch, chained, pull chain |
 
 ## Architecture Analysis (2026-04-16)
+
+> **Status: HISTORICAL — the migration described below is complete.** This section is preserved as the design rationale that drove R1 (the kernel split, completed 2026-04-25). For the current architecture, see the file map above (especially the `cells/internal/kernel/` rows) and the [Engine isolation](#engine-isolation-2026-04-18) paragraph. As of 2026-04-26, `cells/runtime.mbt` is **427 lines** of thin `@kernel` delegators with no algorithm bodies — the "gravity well" pressure described in *Change Pressures* below has been resolved. See [`docs/decisions/2026-04-26-r2-runtime-decomposition-deferred.md`](../decisions/2026-04-26-r2-runtime-decomposition-deferred.md) for why no further structural decomposition is planned.
 
 ### Change Pressures
 
