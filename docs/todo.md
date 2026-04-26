@@ -234,96 +234,34 @@ Resolved design questions:
 
 ## Boundary 3: Type-Checker Follow-ups
 
-Boundary 3 (bidirectional type-checker) shipped in loom#81 + incr#34. These follow-ups
-improve correctness, performance, and integration beyond the infrastructure validation scope.
+Boundary 3 (bidirectional type-checker) shipped in loom#81 + incr#34. The infrastructure work that lived in incr is complete; the remaining follow-ups are **driver-layer concerns owned by `loom/examples/lambda` and canopy** — they should be tracked in those projects' own backlogs, not here.
 
-### Incremental Pipeline
+### Shipped (incr-side anchors)
 
-- [x] **Incremental name resolution** — per-def `resolve_memos` chain
-      replaces the coarse `resolve_typed(term)` at the pipeline parent
-      memo. Editing one def body walks only that def's AST for
-      resolution; unchanged defs backdate via `TypedTerm` `Eq`. Shipped
-      in loom PR #95 (merged 2026-04-20, `25a6be4`). Public API
-      unchanged. See `examples/lambda/src/typecheck/typecheck.mbt`
-      (`split_defs`, `resolve_memos`).
-- [x] **MemoMap stale entries after structural rebuild** — MemoMap internal Memos are
-      Runtime-owned, so chain-scope dispose can't reach them. Added `MemoMap::clear()`
-      (disposes every wrapper and empties the entry map) and invoked it from
-      `build_typecheck_pipeline_with_index` in `examples/lambda` before each rebuild.
-      The `is_disposed()` + name guard remains as a defensive fallback for any InternId
-      that outlives a rebuild window. See loom/examples/lambda `typecheck.mbt`.
-- [x] **Stable identity across insertions** — `DefEntry` shrunk to `{ name }` (hash on name
-      only); position lookup moved to a `name_to_idx : HashMap[String, Int]` on
-      `PipelineState`, rebuilt whenever the chain is torn down. Inserting a def at position 0
-      no longer changes any existing `InternId`, so caller-side caches keyed off `DefId`
-      (diagnostics, hover, go-to-definition) keep hitting across that edit. The `MemoMap`
-      wrappers themselves are still cleared on structural rebuild — identity stability is
-      the API guarantee, not wrapper reuse. Duplicate top-level names in one module collapse
-      onto a single `InternId`; the pipeline keeps the FIRST occurrence in `name_to_idx`
-      (so a cached `DefId` never silently aliases into a later shadowing slot) and emits a
-      "duplicate top-level definition: X" diagnostic for each additional occurrence.
-      Whitebox tests pin both the stability guarantee ("MemoMap: DefId stays stable after
-      prepending a def at position 0") and the duplicate-name behaviour ("MemoMap:
-      duplicate def names diagnose and keep first-wins lookup") in
-      `examples/lambda/src/typecheck/typecheck_wbtest.mbt`.
-- [ ] **Span-keyed unique identity for shadowed duplicates** — stable-DefIds resolves
-      identity for *distinct* names, but shadowed duplicates still collapse onto one
-      `InternId` (first-wins + diagnostic). An editor that hovers over the second `foo`
-      of `[foo, foo]` has nothing to key on. Needs CST span threading through
-      `convert.mbt` → `TypedTerm`; defer until a real editor consumer demands it
-      (likely alongside the TypedTerm duplication cleanup below, which would add a
-      side-table keyed by node identity anyway).
+- [x] Incremental name resolution (per-def `resolve_memos` chain) — loom PR #95.
+- [x] `MemoMap::clear()` for structural rebuild teardown — incr; integrated by loom/examples/lambda.
+- [x] Stable identity across insertions (`name_to_idx` on PipelineState) — loom; first-wins + diagnostic on duplicates.
+- [x] `attach_typecheck` bridge wiring `Signal[String]` → parse → typecheck end-to-end via the unified `@loom.Parser[Ast]` (loom ADR 2026-04-17).
 
-### Type System Extensions (deferred — not needed for infra validation)
+### Delegated outward (not actionable from incr)
 
-- [ ] Polymorphism / type variables / unification
-- [ ] Position/span tracking in diagnostics (AST doesn't carry spans yet)
+- **loom/examples/lambda:** Span-keyed unique identity for shadowed duplicates (needs CST span threading through `convert.mbt`); `TypedTerm` duplication cleanup (`convert.mbt` tree-copy → side-table keyed by node identity).
+- **loom/examples/lambda type system:** Polymorphism / type variables / unification; position/span tracking in diagnostics. Not needed for infra validation; pursue when a driver demands it.
 
-### Integration
+## Pipeline Traits — Deferred (delete from incr; new design owned by loom)
 
-- [x] **Wire into unified Parser** — shipped via `attach_typecheck` (`examples/lambda/src/typed_parser.mbt`):
-      a bridge `Memo` reads `parser.syntax_tree()` and feeds
-      `build_typecheck_pipeline_with_index`, so edits flow `Signal[String]` → parse → typecheck
-      end-to-end. (The earlier `ReactiveParser` target became obsolete when loom unified
-      `ReactiveParser` + `ImperativeParser` into a single `@loom.Parser[Ast]` — see
-      loom ADR 2026-04-17.)
-- [ ] **TypedTerm duplication cleanup** — `convert.mbt` is a full tree copy to add `None` annotations;
-      consider a side-table of annotations keyed by node identity if the typechecker expands
+**Status (2026-04-08):** Deferred. Current pipeline traits (`Sourceable`, `Parseable`, `Checkable`, `Executable` in `incr/pipeline/`) are too generic to be useful — everything returns `Array[String]`, no typed AST/CST, no incremental semantics. Only exercised by a `CalcPipeline` test fixture; zero production usage.
 
-## Pipeline Traits — Deferred (move to loom)
+**Decision:** The trait redesign + new home in `loom/src/pipeline/` is loom's call (gated on a second pipeline implementation, post-parse stages landing in canopy, or cross-language editor features). The only thing incr owes is removing the dead package once loom is ready to receive a replacement.
 
-**Status (2026-04-08):** Deferred. Current pipeline traits (`Sourceable`, `Parseable`, `Checkable`,
-`Executable` in `incr/pipeline/`) are too generic to be useful — everything returns `Array[String]`,
-no typed AST/CST, no incremental semantics. Only exercised by a test fixture (`CalcPipeline`).
-Zero production usage.
+### Incr-owned tasks (when loom commits to the move)
 
-**Decision:** Don't integrate into loom's `ReactiveParser` now. The concrete methods on
-`ReactiveParser` (`set_source`, `cst`, `diagnostics`, `term`) already serve as the de facto
-pipeline interface. Extracting traits is premature — there isn't a second implementation that
-needs the generic interface.
+- [ ] Remove `incr/pipeline/` package and update `incr.mbt` re-exports.
+- [ ] Remove the `CalcPipeline` test fixture from `incr/tests/traits_test.mbt`.
 
-**When to revisit:** When one of these becomes true:
-- A second pipeline implementation exists that needs to share an interface with `ReactiveParser`
-  (e.g., a push-based pipeline using `Reactive`/`Effect`)
-- Post-parse stages (type-checking, evaluation) land in canopy and need a composable extension
-  mechanism on `ReactiveParser`
-- Generic editor features (autocomplete, hover, go-to-definition) need to work across languages
-  via trait dispatch
+### Delegated outward (not actionable from incr)
 
-**Recommended approach when revisiting:**
-- Move pipeline traits from `incr/pipeline/` to `loom/src/pipeline/`
-- Use capability traits (trait-per-stage) on universally-typed stages only (`String`, `CstStage`,
-  `Array[Diagnostic]`). Language-specific stages (AST, eval) stay concrete — MoonBit's `Self`-only
-  traits can't abstract over the AST type parameter.
-- Consider adding a diagnostics extension protocol to `ReactiveParser` so post-parse stages can
-  register diagnostic sources (aggregated in `diagnostics()`)
-- Finally Tagless is **not** the right pattern here — pipeline stages have heterogeneous types
-  and linear composition, not tree-shaped construction. See conversation notes 2026-04-08.
-
-**Current tasks (keep until migration):**
-- [ ] Remove `incr/pipeline/` package when traits move to loom (update `incr.mbt` re-exports)
-- [ ] Remove `CalcPipeline` test fixture from `incr/tests/traits_test.mbt`
-- [ ] Add capability traits to `loom/src/pipeline/` with `ReactiveParser` impls
+- **loom:** Design and host the replacement pipeline traits in `loom/src/pipeline/`. Approach notes (capability-traits over universally-typed stages, language-specific stages stay concrete, Finally Tagless is the wrong pattern) are recorded in the git history of this section if needed.
 
 ## Runtime Modularization (Phase 4 — Remaining)
 
@@ -418,48 +356,13 @@ implementing.
       [reactive-map-design.md](research/reactive-map-design.md) Codex review
       2026-04-19). Do not land alone.
 
-### `ReactiveMap[K, V]` (Family B)
+### Delegated outward — driver discovery owned by canopy
 
-**Status 2026-04-19 (post PR #41):** Needs re-motivation. The original
-value proposition ("fine-grained per-key deps unavailable today") was
-refuted during PR #41 review — `MemoMap::get` already records per-key
-deps inside a tracked context. `ReactiveMap`'s remaining value is
-coordination with an upstream key set (disposal of stale entries,
-tracked `iter()`), not per-key isolation. See
-[reactive-map-design.md](research/reactive-map-design.md) "Why v1's framing was
-wrong" and "Codex review 2026-04-19" for the full story.
+The remaining Reactive Collections work is **driver discovery**, which belongs to canopy (the system that would consume any of these). Research notes stay in `incr/docs/research/` for historical reference, but the next move is not an incr decision.
 
-- [x] Codex-review the design sketch for semantic and integration
-      issues (done 2026-04-19; blockers 1–3 must resolve before
-      implementation)
-- [ ] **Re-motivate against a concrete driver** — lambda name
-      resolution alone is a weak driver now that `MemoMap` suffices.
-      Do NOT write an implementation plan until a driver requires
-      something `MemoMap` + `get_tracked` cannot supply.
-- ~~Write implementation plan~~ — gated on re-motivation
-- ~~Implement after plan approval~~ — gated on plan
-
-### `Relation::subscribe_delta` (Family A)
-
-Opt-in delta observation on Datalog relations via new `DeltaDispatch`
-trait; pre-snapshot + post-diff at commit boundary. See
-[relation-delta-observer-design.md](research/relation-delta-observer-design.md).
-
-- [x] Codex-review the design sketch (done 2026-04-19; **redesign
-      needed** — plain `Relation[T]` is monotonic with no retractions, no
-      commit seam exists for direct inserts, failed batches don't roll
-      back relation writes. Do not implement until semantics are resolved.)
-- [ ] Identify a concrete driver in canopy (logging, UI reconciliation,
-      IPC) — don't implement speculatively
-- [ ] Implement as one PR once driver exists (3-5 days)
-
-### Family C (Nominal Memoization over Persistent Trees)
-
-Long-horizon bet. Requires `Memo::new_named` + articulation points +
-structural-sharing collections. Do not start without a concrete canopy
-driver (evaluator / layout / tree-shaped type-checker state). See
-[reactive-collections.md](research/reactive-collections.md) "Family C — Design
-Sketch for `incr`" section for scope.
+- **canopy:** Identify a concrete driver for `ReactiveMap[K, V]` (Family B). v1 framing refuted in PR #41; remaining value is upstream-key-set coordination + tracked `iter()`, not per-key deps. Do not commission an implementation plan in incr until canopy presents a driver `MemoMap` + `get_tracked` cannot supply. See [reactive-map-design.md](research/reactive-map-design.md) "Why v1's framing was wrong" + "Codex review 2026-04-19" for context. (`MemoMap::remove_except` API addition above is also gated on the same driver — Blocker 1 is unresolved.)
+- **canopy:** Identify a concrete driver for `Relation::subscribe_delta` (Family A — logging / UI reconciliation / IPC). Plus, **redesign needed** before implementation: plain `Relation[T]` is monotonic with no retractions, no commit seam exists for direct inserts, failed batches don't roll back relation writes. See [relation-delta-observer-design.md](research/relation-delta-observer-design.md).
+- **canopy:** Identify a concrete driver for Family C (nominal memoization + persistent trees) — evaluator / layout / tree-shaped type-checker state. Long-horizon bet. See [reactive-collections.md](research/reactive-collections.md) "Family C" section.
 
 ## API Naming Cleanup (Deferred)
 
