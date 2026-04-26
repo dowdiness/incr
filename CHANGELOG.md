@@ -4,6 +4,16 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-04-26
+
+### Changed
+
+- **Internal: kernel package split (R1).** Graph-mechanics algorithms and coordinator primitives moved out of `cells/` into `cells/internal/kernel/{state,dispatch,cycle,subscriber_diff,tracking,verify,push_propagate,fixpoint,propagate,batch,dispose,gc}.mbt`. Public API unchanged. Engine-isolation invariants enforced by `scripts/check-engine-isolation.sh` (no cross-engine sibling imports; `internal/shared` is the leaf; no back-edges from internal packages to `cells/`; kernel is one-way — engines and shared cannot import kernel).
+
+### Performance
+
+- Benchmark baseline methodology updated: `wasm-gc --release` is now the authoritative target, with JS cross-checks for web consumers. Added fixpoint benches and a `Runtime::new()` allocation bench (0.11 µs full-Runtime, anchoring the modal-split investigation deferral). `memo_restore_on_abort` O(n²) characteristic confirmed at large batch counts; not actionable at realistic accumulator counts (1–2 accumulators per memo).
+
 ## [0.5.0] - 2026-04-21
 
 ### Added
