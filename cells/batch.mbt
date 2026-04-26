@@ -117,58 +117,13 @@ fn Runtime::complete_batch_frame_success(self : Runtime) -> Unit {
 }
 
 ///|
-/// Commit pending batch changes using two-phase values.
-/// Phase 1: commit each signal's pending value, collecting which actually changed.
-/// Phase 2: if any changed, single revision bump and metadata update.
-/// Loops until no more callbacks queue additional signals, then fires the
-/// global on_change callback exactly once if anything changed.
+/// Commit pending batch changes. Thin wrapper delegating to the kernel
+/// commit_batch coordinator (see `cells/internal/kernel/batch.mbt` for the
+/// I4 preservation checklist). Kept private on Runtime so cells/batch.mbt
+/// callers + batch_wbtest.mbt can invoke it via `rt.commit_batch()` without
+/// spelling out the kernel state refs.
 fn Runtime::commit_batch(self : Runtime) -> Unit {
-  let mut any_changed = false
-  while self.core.batch.pending.length() > 0 {
-    // Phase 1: commit pending values and collect which actually changed
-    let changed : Array[&Committable] = []
-    for c in self.core.batch.pending {
-      if c.do_commit() {
-        changed.push(c)
-      }
-    }
-    self.core.batch.pending.clear()
-    // Phase 2: if any value actually changed, do a single revision bump
-    if changed.length() > 0 {
-      any_changed = true
-      // Snapshot on_change callbacks BEFORE propagation — preserves the
-      // invariant that push propagation cannot affect which handlers fire
-      // in this batch wave (a PushReactive's compute closure could call
-      // clear_on_change() or on_change() on a changed signal).
-      let callbacks : Array[() -> Unit] = []
-      for c in changed {
-        let sig = self.get_pull_signal(c.cell_id())
-        match sig.on_change {
-          Some(f) => callbacks.push(f)
-          None => ()
-        }
-      }
-      let changed_ids : Array[CellId] = changed.map(fn(c) { c.cell_id() })
-      self.propagate_changes(changed_ids, self.core.batch.max_durability)
-      self.core.batch.max_durability = Low
-      // Raise batch_depth while invoking callbacks so that any signal.set()
-      // inside a callback takes the batch path instead of set_unconditional,
-      // preventing re-entrant fire_on_change() calls.
-      // If callbacks queue more signals, the while loop will process them.
-      self.core.batch.depth = self.core.batch.depth + 1
-      for cb in callbacks {
-        cb()
-      }
-      self.core.batch.depth = self.core.batch.depth - 1
-    } else {
-      self.core.batch.max_durability = Low
-    }
-  }
-  self.core.batch.max_durability = Low
-  // Fire global on_change exactly once after all waves complete.
-  if any_changed {
-    self.fire_on_change()
-  }
+  @kernel.commit_batch(self.core, self.pull, self.push, self.datalog)
 }
 
 ///|

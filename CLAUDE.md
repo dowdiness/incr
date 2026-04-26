@@ -37,7 +37,7 @@ dowdiness/incr/
 │
 ├── cells/                      (coordinator + handles + lifecycle; algorithms live in internal/kernel)
 │   ├── moon.pkg                (imports @shared, @pull, @push, @datalog, @kernel)
-│   ├── runtime.mbt             (Runtime struct + Runtime::new + thin @kernel delegators + coordinator primitives: propagate_changes, publish_cell_changes, dispose_cell, gc — Stage 4 moves these last four to kernel)
+│   ├── runtime.mbt             (Runtime struct + Runtime::new + thin @kernel delegators for propagate_changes, publish_cell_changes, dispose_cell, gc, add/remove_gc_root, advance_revision; RevisionManager + Tracker trait impls; accumulator fields — 427 LOC)
 │   ├── pull_memo_lifecycle.mbt (CellLifecycle for MemoData)
 │   ├── pull_lifecycle.mbt      (CellLifecycle for PullSignalData)
 │   ├── push_lifecycle.mbt      (CellLifecycle for PushReactiveData, PushEffectData)
@@ -50,7 +50,7 @@ dowdiness/incr/
 │   ├── datalog_rule.mbt        (Runtime::new_rule + helpers; RuleData moved)
 │   ├── datalog_fixpoint.mbt    (Runtime::fixpoint wrapper — body in kernel)
 │   ├── verify.mbt              (Runtime::pull_verify wrapper — body in kernel)
-│   ├── batch.mbt               (batch algorithm — Stage 4 moves commit_batch to kernel)
+│   ├── batch.mbt               (Runtime::batch/batch_result + frame/rollback + Runtime::commit_batch 1-line wrapper — commit_batch body in kernel)
 │   ├── subscriber_diff.mbt     (Runtime::diff_and_update_subscribers wrapper for wbtests)
 │   ├── signal.mbt, memo.mbt    (Signal[T], Memo[T] handles)
 │   ├── hybrid_memo.mbt         (HybridMemo[T] handle)
@@ -63,7 +63,7 @@ dowdiness/incr/
 │   │   ├── pull/               (PullSignalData, MemoData)
 │   │   ├── push/               (PushReactiveData, PushEffectData)
 │   │   ├── datalog/            (RelationData, FunctionalRelationData, RuleData)
-│   │   └── kernel/             (graph mechanics — R1 Stages 2–3 shipped)
+│   │   └── kernel/             (graph mechanics + coordinator primitives — R1 complete 2026-04-25)
 │   │       ├── state.mbt           (RuntimeCore + state sub-structs + PropagationPhase + ActiveQuery + runtime-id helpers + enter/leave_phase)
 │   │       ├── dispatch.mbt        (validate_cell*, is_cell_disposed, cell_id_*, get_changed_at/durability/subscribers, add/remove_subscriber, push_contribution, collect_reachable_cells, adjust_push_reachable)
 │   │       ├── cycle.mbt           (construct_cycle_error)
@@ -71,7 +71,11 @@ dowdiness/incr/
 │   │       ├── tracking.mbt        (push/pop_tracking, record_dep, top_active_query, collect_tracking_path, collect_in_progress_path, check_cross_runtime)
 │   │       ├── verify.mbt          (pull_verify + synthetic_accumulator_changed + PullVerifyFrame — takes slot_snapshots explicitly)
 │   │       ├── push_propagate.mbt  (push_propagate_from + PushEntry + level helpers)
-│   │       └── fixpoint.mbt        (run_fixpoint)
+│   │       ├── fixpoint.mbt        (run_fixpoint)
+│   │       ├── propagate.mbt       (advance_revision, fire_on_change, propagate_changes, publish_cell_changes)
+│   │       ├── batch.mbt           (commit_batch — I4 callback-snapshot invariant lives here)
+│   │       ├── dispose.mbt         (validate_cell_for_dispose, drop_gc_root, check_dispose_guard — pure-state dispose helpers)
+│   │       └── gc.mbt              (gc, gc_sweep, mark_reachable, collect_gc_roots, add/remove_gc_root — gc_sweep/gc take dispose_fn callback)
 │   └── *_test.mbt, *_wbtest.mbt
 │
 ├── pipeline/                   (experimental pipeline traits, zero dependencies)
@@ -96,7 +100,7 @@ For deep internals (verification algorithm, type erasure, SoA storage, push prop
 
 - `cells/moon.pkg` suppresses warning 15 (`unused_mut`) because some `mut` fields on `MemoData`/`PullSignalData` are only written in whitebox test compilation, not source-only compilation
 - The `cells/` package imports `moonbitlang/core/hashset` and `moonbitlang/core/hashmap` as external dependencies
-- `cells/internal/{shared,pull,push,datalog,kernel}/` use MoonBit's `internal` package feature. External consumers cannot import them. Engine packages (`pull`, `push`, `datalog`) must not import each other — enforced by `scripts/check-engine-isolation.sh`. `kernel/` owns graph-mechanics algorithms after R1 Stages 2–3; Stage 4 moves coordinator primitives (propagate_changes, publish_cell_changes, commit_batch body, dispose pure-state bits, gc family) in next; Stage 5 extends the isolation script to enforce kernel's one-way dependency direction.
+- `cells/internal/{shared,pull,push,datalog,kernel}/` use MoonBit's `internal` package feature. External consumers cannot import them. `scripts/check-engine-isolation.sh` enforces four invariants (R1 Stage 5, 2026-04-25): no cross-engine sibling imports; `shared` is the leaf; no back-edges from any internal package to `cells/`; kernel is one-way (engines/shared cannot import kernel — only `cells/*.mbt` may). Kernel owns graph-mechanics algorithms + coordinator primitives.
 
 ## Documentation
 

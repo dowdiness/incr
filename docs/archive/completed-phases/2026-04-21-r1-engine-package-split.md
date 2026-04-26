@@ -1,5 +1,7 @@
 # R1 — Split Reactive Kernel from Cells
 
+**Status:** Complete (2026-04-25). All six stages merged to `incr/main`. Final state: `cells/internal/kernel/` owns state sub-structs, phase machine, graph-mechanics algorithms, and coordinator primitives; `cells/runtime.mbt` shrunk from 539 → 427 LOC; `scripts/check-engine-isolation.sh` enforces kernel's one-way dependency direction. See [docs/design/internals.md](../../design/internals.md) "Engine isolation" section for the post-R1 architecture.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement stage-by-stage. Each stage ships as a single PR, green tests + benchmarks before the next starts. No big-bang commits.
 
 **Goal:** Extract graph-mechanics code (algorithms + propagation machinery + cross-state traversal) into a dedicated `cells/internal/kernel/` package. `cells/` retains `Runtime`, handle types, and per-cell-kind logic; `kernel/` never depends on `cells/`-only state (`SlotMeta`, handle types) or handle-specific logic. Kernel MAY branch on `CellRef` variants (already in `internal/shared/`); the boundary is "no handle state, no `cells/` imports," not "no cell-kind awareness." Runtime's methods become thin wrappers — or disappear entirely where only cells/ internal code calls them — over kernel free functions taking explicit state references.

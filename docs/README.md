@@ -39,12 +39,7 @@ For contributors and advanced users who want to understand or modify `incr`.
 **Project direction:**
 
 - [Roadmap](roadmap.md) — phased future direction
-- [Active plans](plans/) — concrete implementation plans for upcoming work
-  - [2026-04-21 R1 — Split Reactive Kernel from Cells](plans/2026-04-21-r1-engine-package-split.md) — extract graph-mechanics into `cells/internal/kernel/`; public Runtime methods become thin wrappers or drop entirely (D8 wrapper economy) over kernel free functions. 6 staged PRs, 4–6 days. **Plan v3; Stages 0–3 merged.**
-    - [Stage 0 audits](plans/2026-04-21-r1-stage0-audits.md) — dispose_cell flow, ActiveQuery fields, check-engine-isolation.sh extension plan
-    - [Stage 0 Codex review](plans/2026-04-21-r1-stage0-codex-review.md) — READY WITH CAVEATS verdict; findings folded into plan v3
-    - [Stage 2 execution notes](plans/2026-04-24-r1-stage2-notes.md) — Codex pre-review corrections + updated Stage 2 checklist
-    - [Stage 3 execution notes](plans/2026-04-24-r1-stage3-notes.md) — accumulator_snapshots resolution, Codex pre-review corrections, per-sub-step checklists
+- [Active plans](plans/) — concrete implementation plans for upcoming work (none open after R1 completion 2026-04-25; see archive entry below)
 - [TODO](todo.md) — contributor task list organized by priority
 
 **Research notes — exploratory, not implemented:**
@@ -79,6 +74,7 @@ Large historical collection under [`archive/`](archive/) covering completed plan
 | [archive/completed-phases/](archive/completed-phases/) | Older completed phases (datalog primitives, cells simplification, accumulator API spec, etc.) |
 | [archive/incr-unified-design.md](archive/incr-unified-design.md) | Unified reactive runtime design (SoA + multi-mode) |
 | [archive/2026-04-08-dispose-gc-design.md](archive/2026-04-08-dispose-gc-design.md) | Dispose/GC design — all 5 layers complete (PRs #28–#33) |
+| [archive/completed-phases/2026-04-21-r1-engine-package-split.md](archive/completed-phases/2026-04-21-r1-engine-package-split.md) | R1 — Split Reactive Kernel from Cells (Stages 0–6 merged 2026-04-24 → 2026-04-25). Companion docs: [Stage 0 audits](archive/completed-phases/2026-04-21-r1-stage0-audits.md), [Stage 0 Codex review](archive/completed-phases/2026-04-21-r1-stage0-codex-review.md), [Stage 2 notes](archive/completed-phases/2026-04-24-r1-stage2-notes.md), [Stage 3 notes](archive/completed-phases/2026-04-24-r1-stage3-notes.md), [Stage 4 notes](archive/completed-phases/2026-04-24-r1-stage4-notes.md). |
 | [archive/completed-phases/2026-04-19-accumulator-api-design.md](archive/completed-phases/2026-04-19-accumulator-api-design.md) | Accumulator API spec (shipped 2026-04-20; superseded by the ADR above) |
 | [archive/completed-phases/2026-03-03-datalog-primitives.md](archive/completed-phases/2026-03-03-datalog-primitives.md) | Datalog primitives: Relation, Rule, Fixpoint |
 | [archive/api-updates.md](archive/api-updates.md) | Summary of past API documentation changes |

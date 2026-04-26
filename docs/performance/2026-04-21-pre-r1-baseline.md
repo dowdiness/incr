@@ -1,6 +1,6 @@
 # Pre-R1 Benchmark Baseline
 
-**Captured:** 2026-04-24 (Stage 0 of [R1 kernel split plan](../plans/2026-04-21-r1-engine-package-split.md))
+**Captured:** 2026-04-24 (Stage 0 of [R1 kernel split plan](../archive/completed-phases/2026-04-21-r1-engine-package-split.md))
 **Commit:** dc07e27 (release v0.5.0) with the two new fixpoint benches added locally
 **Toolchain:** moonc v0.9.0+8a8d0e4df (2026-04-10), moon 0.1.20260409
 **Target:** wasm-gc (authoritative gate — matches [historical benchmarks.md](benchmarks.md) convention) + js (informational cross-check for `examples/web` consumers)

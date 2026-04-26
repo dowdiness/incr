@@ -321,10 +321,7 @@ pub fn Runtime::clear_on_change(self : Runtime) -> Unit {
 ///|
 /// Fires the on_change callback if one is registered.
 fn Runtime::fire_on_change(self : Runtime) -> Unit {
-  match self.core.on_change {
-    Some(f) => f()
-    None => ()
-  }
+  @kernel.fire_on_change(self.core)
 }
 
 ///|
@@ -335,15 +332,14 @@ fn Runtime::propagate_changes(
   changed_ids : Array[CellId],
   durability : Durability,
 ) -> Unit {
-  self.advance_revision(durability)
-  for id in changed_ids {
-    self.core.cell_ops[id.id].set_changed_at(
-      self.core.revision.current_revision,
-    )
-  }
-  if self.push.node_count > 0 {
-    self.push_propagate_from(changed_ids)
-  }
+  @kernel.propagate_changes(
+    self.core,
+    self.pull,
+    self.push,
+    self.datalog,
+    changed_ids,
+    durability,
+  )
 }
 
 ///|
@@ -354,20 +350,20 @@ fn Runtime::publish_cell_changes(
   changed_ids : Array[CellId],
   durability : Durability,
 ) -> Unit {
-  self.propagate_changes(changed_ids, durability)
-  self.fire_on_change()
+  @kernel.publish_cell_changes(
+    self.core,
+    self.pull,
+    self.push,
+    self.datalog,
+    changed_ids,
+    durability,
+  )
 }
 
 ///|
 /// Advance the global revision counter and record which durability level changed.
 impl RevisionManager for Runtime with advance_revision(self, durability) {
-  self.core.revision.current_revision = Revision::next(
-    self.core.revision.current_revision,
-  )
-  let dur_idx = durability.index()
-  for i = 0; i <= dur_idx; i = i + 1 {
-    self.core.revision.durability_last_changed[i] = self.core.revision.current_revision
-  }
+  @kernel.advance_revision(self.core, durability)
 }
 
 ///|
@@ -384,19 +380,6 @@ impl RevisionManager for Runtime with bump_revision(self, durability) {
 }
 
 ///|
-/// Guards against disposing a cell during fixpoint or its own computation.
-fn Runtime::guard_dispose(self : Runtime, cell_id : CellId) -> Unit {
-  guard !(self.core.phase is InFixpoint) else {
-    abort("dispose: cannot dispose cells during fixpoint()")
-  }
-  for aq in self.core.tracking.stack {
-    guard aq.cell_id != cell_id else {
-      abort("dispose: cannot dispose a cell during its own computation")
-    }
-  }
-}
-
-///|
 /// Disposes a rule cell. Public because RuleId has no runtime reference,
 /// so the user must call `rt.dispose_rule(rule_id)` directly.
 pub fn Runtime::dispose_rule(
@@ -408,15 +391,14 @@ pub fn Runtime::dispose_rule(
 
 ///|
 /// Disposes a cell by CellId, dispatching via CellLifecycle trait.
+/// Pure-state guards (cross-runtime, already-disposed, phase/tracking, and
+/// gc_root_counts cleanup) live in `@kernel`; the trait dispatch on
+/// `self.cell_lifecycle` stays on Runtime because the CellLifecycle trait
+/// is defined over Runtime (out of R1 scope to retype).
 pub fn Runtime::dispose_cell(self : Runtime, cell_id : CellId) -> Unit {
-  guard cell_id.runtime_id == self.core.runtime_id else {
-    abort("dispose_cell: CellId belongs to a different Runtime")
-  }
-  guard !self.is_cell_disposed(cell_id) else { return }
-  self.guard_dispose(cell_id)
-  // Clean up gc_root_counts to prevent leaks when observed cells
-  // are manually disposed before their observers.
-  self.core.gc_root_counts.remove(cell_id)
+  guard @kernel.validate_cell_for_dispose(self.core, cell_id) else { return }
+  @kernel.check_dispose_guard(self.core, cell_id)
+  @kernel.drop_gc_root(self.core, cell_id)
   self.cell_lifecycle[cell_id.id].dispose_cell(self, cell_id)
 }
 
@@ -424,116 +406,22 @@ pub fn Runtime::dispose_cell(self : Runtime, cell_id : CellId) -> Unit {
 /// Increments the observer reference count for a cell.
 /// Returns the previous count (0 means this is the first observer).
 fn Runtime::add_gc_root(self : Runtime, id : CellId) -> Int {
-  match self.core.gc_root_counts.get(id) {
-    Some(n) => {
-      self.core.gc_root_counts.set(id, n + 1)
-      n
-    }
-    None => {
-      self.core.gc_root_counts.set(id, 1)
-      0
-    }
-  }
+  @kernel.add_gc_root(self.core, id)
 }
 
 ///|
 /// Decrements the observer reference count for a cell.
 /// Removes the entry when count reaches 0. Returns remaining count.
 fn Runtime::remove_gc_root(self : Runtime, id : CellId) -> Int {
-  match self.core.gc_root_counts.get(id) {
-    Some(n) if n > 1 => {
-      self.core.gc_root_counts.set(id, n - 1)
-      n - 1
-    }
-    Some(_) => {
-      self.core.gc_root_counts.remove(id)
-      0
-    }
-    None => 0
-  }
+  @kernel.remove_gc_root(self.core, id)
 }
 
 ///|
 /// Runs mark-and-sweep garbage collection on the dependency graph.
+///
+/// Dispose dispatch is injected as a closure closing over
+/// `self.dispose_cell`, so per-kind CellLifecycle dispatch remains
+/// reachable from the kernel sweep loop.
 pub fn Runtime::gc(self : Runtime) -> Unit {
-  guard self.core.tracking.stack.is_empty() else {
-    // Clean up global state before aborting so panic tests don't
-    // contaminate subsequent tests via current_computing_runtime_id.
-    self.core.tracking.stack.clear()
-    @kernel.set_current_computing_runtime_id(-1)
-    abort("gc: cannot run during active computation")
-  }
-  guard self.core.batch.depth == 0 else { abort("gc: cannot run during batch") }
-  guard self.core.phase is Idle else {
-    abort("gc: cannot run during " + self.core.phase.to_string())
-  }
-  self.enter_phase(GarbageCollecting)
-  self.gc_sweep()
-  self.leave_phase()
-}
-
-///|
-/// Collects all GC roots: explicitly observed cells + implicit roots (Effects).
-fn Runtime::collect_gc_roots(self : Runtime) -> Array[CellId] {
-  let roots : Array[CellId] = []
-  for id, _ in self.core.gc_root_counts {
-    roots.push(id)
-  }
-  // Implicit roots: live cells with gc_role == Root (Effects)
-  for i = 0; i < self.core.cell_ops.length(); i = i + 1 {
-    match self.core.cell_index[i] {
-      Disposed => continue
-      _ => ()
-    }
-    if self.core.cell_ops[i].gc_role() is Root {
-      roots.push(@kernel.cell_id_at(self.core, i))
-    }
-  }
-  roots
-}
-
-///|
-/// Marks all cells reachable from `roots` via gc_dependencies BFS.
-fn Runtime::mark_reachable(
-  self : Runtime,
-  roots : Array[CellId],
-) -> @hashset.HashSet[CellId] {
-  let reachable : @hashset.HashSet[CellId] = @hashset.new()
-  let worklist : Array[CellId] = Array::from_iter(roots.iter())
-  let mut wi = 0
-  while wi < worklist.length() {
-    let id = worklist[wi]
-    wi += 1
-    if reachable.contains(id) {
-      continue
-    }
-    match self.core.cell_index[id.id] {
-      Disposed => continue
-      _ => ()
-    }
-    reachable.add(id)
-    for dep in self.core.cell_ops[id.id].gc_dependencies() {
-      worklist.push(dep)
-    }
-  }
-  reachable
-}
-
-///|
-/// Sweep phase: dispose Interior cells not in the reachable set.
-fn Runtime::gc_sweep(self : Runtime) -> Unit {
-  let roots = self.collect_gc_roots()
-  let reachable = self.mark_reachable(roots)
-  for i = 0; i < self.core.cell_ops.length(); i = i + 1 {
-    match self.core.cell_index[i] {
-      Disposed => continue
-      _ => ()
-    }
-    if self.core.cell_ops[i].gc_role() is Interior {
-      let id = @kernel.cell_id_at(self.core, i)
-      if !reachable.contains(id) {
-        self.dispose_cell(id)
-      }
-    }
-  }
+  @kernel.gc(self.core, fn(id) { self.dispose_cell(id) })
 }
