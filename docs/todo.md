@@ -394,6 +394,13 @@ Six cell read paths inlined the same ~10-line `current_computing_runtime_id` gua
 - **cells/ folder reorg** — Stage 5 just moved SoA into `internal/`; another restructure now would churn without a driver.
 - **Stage 6 engine extraction** — was "waits for accumulators or similar"; accumulators shipped 2026-04-20 without needing this extraction, so the original motivation is void. Revisit only when parallel computation or a second major extension creates concrete need.
 
+## R1 Kernel Split Follow-ups (2026-04-26)
+
+Surfaced during the PR #48 final review. R1 itself is closed; these are non-blocking residuals.
+
+- [ ] **gc_sweep abort-safety leak.** `kernel/gc.mbt::gc` enters `GarbageCollecting` phase before calling `gc_sweep` and only leaves on success. If a per-cell `dispose_fn` aborts mid-sweep, the runtime is stuck in `GarbageCollecting` (no try/finally in MoonBit). Two options: (a) defensive phase-reset wrapper at gc entry, (b) audit every `dispose_fn` path to prove abort-freedom and document the invariant. Pre-existing — not introduced by R1, just acknowledged in the PR.
+- [ ] **`Runtime::dispose_cell` thinning.** Still holds 3-line orchestration (validate / drop_gc_root / dispatch) because `CellLifecycle::dispose_cell` takes `Runtime`, not `RuntimeCore` — retyping the trait was out of R1 scope. Could collapse to a single `@kernel.X(...)` delegator if/when the trait is retyped. Cosmetic; no functional benefit on its own.
+
 ## Reactive Collections (2026-04-19)
 
 Research + design sketches landed in the 2026-04-19 session. See
