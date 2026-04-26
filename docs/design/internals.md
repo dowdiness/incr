@@ -368,8 +368,10 @@ The library is split into four MoonBit sub-packages. The root package re-exports
 
 | File | Purpose |
 |------|---------|
-| `cells/push_reactive.mbt` | `Reactive[T]` — eagerly-recomputed derived cell; `PushReactiveData` SoA entry |
-| `cells/push_effect.mbt` | `Effect` — terminal side-effect cell; `PushEffectData` SoA entry |
+| `cells/push_reactive.mbt` | `Reactive[T]` — eagerly-recomputed derived cell handle |
+| `cells/internal/push/push_reactive_data.mbt` | `PushReactiveData` — SoA entry for reactive cells |
+| `cells/push_effect.mbt` | `Effect` — terminal side-effect cell handle |
+| `cells/internal/push/push_effect_data.mbt` | `PushEffectData` — SoA entry for effect cells |
 | `cells/push_propagate.mbt` | `Runtime::push_propagate_from` + `Runtime::recompute_level` wrappers |
 | `cells/internal/kernel/push_propagate.mbt` | `push_propagate_from` + `propagate_level_change` + `get_level` + `recompute_level` + `PushEntry` — level-sorted eager push propagation |
 
@@ -379,13 +381,22 @@ The library is split into four MoonBit sub-packages. The root package re-exports
 |------|---------|
 | `cells/hybrid_memo.mbt` | `HybridMemo[T]` — push-notified, pull-verified memo; uses unified `MemoData` |
 
+**Accumulators (reverse contributions to side-table slots):**
+
+| File | Purpose |
+|------|---------|
+| `cells/accumulator.mbt` | `Accumulator[T]` handle + `SlotMeta` — diagnostics-style reverse contributions captured during memo recompute and read back via `pull_verify` synthetic-dep checks |
+
 **Datalog mode (fixpoint evaluation):**
 
 | File | Purpose |
 |------|---------|
-| `cells/datalog_relation.mbt` | `Relation[T]` — set with delta tracking for semi-naive fixpoint |
-| `cells/datalog_functional_relation.mbt` | `FunctionalRelation[K, V]` — typed map relation with optional merge |
-| `cells/datalog_rule.mbt` | `Rule` — derives new facts from input relations |
+| `cells/datalog_relation.mbt` | `Relation[T]` — set with delta tracking for semi-naive fixpoint (handle) |
+| `cells/internal/datalog/relation_data.mbt` | `RelationData` — SoA entry for relations |
+| `cells/datalog_functional_relation.mbt` | `FunctionalRelation[K, V]` — typed map relation with optional merge (handle) |
+| `cells/internal/datalog/functional_relation_data.mbt` | `FunctionalRelationData` — SoA entry for functional relations |
+| `cells/datalog_rule.mbt` | `Rule` — derives new facts from input relations (handle) |
+| `cells/internal/datalog/rule_data.mbt` | `RuleData` — SoA entry for rules |
 | `cells/datalog_fixpoint.mbt` | `Runtime::fixpoint` wrapper — invokes kernel body then publishes cell changes |
 | `cells/internal/kernel/fixpoint.mbt` | `run_fixpoint` — semi-naive evaluation loop; returns changed cell IDs |
 

@@ -127,7 +127,7 @@ High-level future direction for the `incr` library, organized by phase. Each pha
 - ~~**`Effect`**: Terminal push-mode side-effect cell~~ ✓ Implemented
   - Runs side effects eagerly when upstream changes; never read by other cells
   - SoA entry `PushEffectData`
-- ~~**Push propagation engine** (`cells/propagate.mbt`)~~ ✓ Implemented
+- ~~**Push propagation engine** (`cells/push_propagate.mbt`)~~ ✓ Implemented
   - `push_propagate_from`: level-sorted BFS from changed sources
   - `propagate_level_change`: recalculates topological levels when sources change
 

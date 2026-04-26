@@ -92,9 +92,9 @@ Concrete, actionable tasks for the `incr` library.
 - [x] Add `Runtime::dependents(CellId) -> Array[CellId]` (requires subscriber links)
 - [x] Add `CellOps` trait for uniform cell dispatch (`cells/cell_ops.mbt`)
 - [x] Add `Committable` trait for batch-commit dispatch
-- [x] Add `Reactive[T]` push-mode derived cell (`cells/reactive.mbt`)
-- [x] Add `Effect` push-mode side-effect cell (`cells/effect.mbt`)
-- [x] Add level-sorted push propagation engine (`cells/propagate.mbt`)
+- [x] Add `Reactive[T]` push-mode derived cell (`cells/push_reactive.mbt`)
+- [x] Add `Effect` push-mode side-effect cell (`cells/push_effect.mbt`)
+- [x] Add level-sorted push propagation engine (`cells/push_propagate.mbt`)
 - [x] Add `HybridMemo[T]` push-pull hybrid memo (`cells/hybrid_memo.mbt`)
 - [x] Add `create_hybrid_memo` Database helper and `Readable` impl
 - [x] Re-export `HybridMemo` from root facade (`incr.mbt`)
