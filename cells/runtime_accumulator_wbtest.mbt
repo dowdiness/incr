@@ -1,9 +1,9 @@
 ///|
 test "ensure_computed_untracked: first-read on never-computed memo triggers compute" {
-  let rt = Runtime::new()
-  let signal = Signal::new(rt, 7)
+  let rt = Runtime::Runtime()
+  let signal = Signal::Signal(rt, 7)
   let mut compute_count = 0
-  let memo = Memo::new(rt, () => {
+  let memo = Memo::Memo(rt, () => {
     compute_count = compute_count + 1
     signal.get() * 2
   })
@@ -22,15 +22,15 @@ test "ensure_computed_untracked: first-read on never-computed memo triggers comp
 
 ///|
 test "ensure_computed_untracked: does not record ordinary dep on caller frame" {
-  let rt = Runtime::new()
-  let signal = Signal::new(rt, 1)
-  let inner = Memo::new(rt, () => signal.get() * 10)
+  let rt = Runtime::Runtime()
+  let signal = Signal::Signal(rt, 1)
+  let inner = Memo::Memo(rt, () => signal.get() * 10)
   // Pre-compute inner outside tracking.
   let _ = rt.ensure_computed_untracked(inner.id())
 
   // Outer memo calls ensure_computed_untracked on inner but must NOT
   // record inner as an ordinary dep.
-  let outer = Memo::new(rt, () => {
+  let outer = Memo::Memo(rt, () => {
     let _ = rt.ensure_computed_untracked(inner.id())
     42
   })
@@ -46,7 +46,7 @@ test "ensure_computed_untracked: does not record ordinary dep on caller frame" {
 /// observable through the trait object. Stage 3 kernel-side verify code
 /// relies on this aliasing.
 test "slot_snapshots: cache observes SlotMeta mutation" {
-  let rt = Runtime::new()
+  let rt = Runtime::Runtime()
   let acc : Accumulator[Int] = Accumulator::new(rt~)
   let snaps = rt.slot_snapshots()
   inspect(snaps.length(), content="1")
@@ -67,7 +67,7 @@ test "slot_snapshots: cache observes SlotMeta mutation" {
 /// the trait method itself and infinite-loop. If this test returns
 /// (with any Revision value), the parens-wrap held.
 test "slot_snapshots: push_revised_at_for via trait dispatch is non-recursive" {
-  let rt = Runtime::new()
+  let rt = Runtime::Runtime()
   let _acc : Accumulator[Int] = Accumulator::new(rt~)
   let snaps = rt.slot_snapshots()
   let some_cell : @incr_types.CellId = { runtime_id: rt.core.runtime_id, id: 0 }
@@ -81,7 +81,7 @@ test "slot_snapshots: push_revised_at_for via trait dispatch is non-recursive" {
 /// Pins that `register_accumulator_slot` keeps the two arrays
 /// index-aligned and that the invariant check is invoked.
 test "slot_snapshots: invariant holds across multiple registrations" {
-  let rt = Runtime::new()
+  let rt = Runtime::Runtime()
   let _a : Accumulator[Int] = Accumulator::new(rt~)
   rt.check_accumulator_cache_invariant()
   let _b : Accumulator[String] = Accumulator::new(rt~)

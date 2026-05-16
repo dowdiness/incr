@@ -10,14 +10,14 @@ using @incr_types {type CellId}
 
 ///|
 test "cycle path: simple two-cell cycle" {
-  let rt = Runtime::new()
-  let a = Signal::new(rt, 0)
+  let rt = Runtime::Runtime()
+  let a = Signal::Signal(rt, 0)
 
   let b_ref : Ref[Memo[Int]?] = { val: None }
   let c_ref : Ref[Memo[Int]?] = { val: None }
   let captured_path : Ref[Array[CellId]?] = { val: None }
 
-  let b = Memo::new(rt, () => {
+  let b = Memo::Memo(rt, () => {
     match c_ref.val {
       Some(c) =>
         match c.get_result() {
@@ -31,7 +31,7 @@ test "cycle path: simple two-cell cycle" {
     }
   })
 
-  let c = Memo::new(rt, () => {
+  let c = Memo::Memo(rt, () => {
     match b_ref.val {
       Some(b_val) =>
         match b_val.get_result() {
@@ -64,11 +64,11 @@ test "cycle path: simple two-cell cycle" {
 
 ///|
 test "cycle path: format_path produces readable output" {
-  let rt = Runtime::new()
+  let rt = Runtime::Runtime()
   let self_ref : Ref[Memo[Int]?] = { val: None }
   let captured_formatted : Ref[String] = { val: "" }
 
-  let m = Memo::new(rt, () => {
+  let m = Memo::Memo(rt, () => {
     match self_ref.val {
       Some(memo) =>
         match memo.get_result() {
@@ -95,7 +95,7 @@ test "cycle path: format_path produces readable output" {
 
 ///|
 test "cycle path: long cycle is truncated" {
-  let rt = Runtime::new()
+  let rt = Runtime::Runtime()
   let captured_path : Ref[Array[CellId]?] = { val: None }
   let captured_formatted : Ref[String] = { val: "" }
 
@@ -106,7 +106,7 @@ test "cycle path: long cycle is truncated" {
   for i = 0; i < 25; i = i + 1 {
     let idx = i
     let memo = if i == 0 {
-      Memo::new(rt, () => {
+      Memo::Memo(rt, () => {
         match memos_ref.val {
           Some(ms) =>
             match ms[24].get_result() {
@@ -121,7 +121,7 @@ test "cycle path: long cycle is truncated" {
         }
       })
     } else {
-      Memo::new(rt, () => {
+      Memo::Memo(rt, () => {
         match memos_ref.val {
           Some(ms) =>
             match ms[idx - 1].get_result() {
@@ -160,11 +160,11 @@ test "cycle path: long cycle is truncated" {
 
 ///|
 test "format_path uses label when available" {
-  let rt = Runtime::new()
+  let rt = Runtime::Runtime()
   let memo_ref : Ref[Memo[Int]?] = { val: None }
   let captured_formatted : Ref[String] = { val: "" }
 
-  let memo = Memo::new(
+  let memo = Memo::Memo(
     rt,
     () => {
       match memo_ref.val {

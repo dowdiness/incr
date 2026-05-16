@@ -2,17 +2,17 @@
 
 ///|
 test "signal: id() returns valid CellId" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 42)
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 42)
   let id = sig.id()
   inspect(id.id >= 0, content="true")
 }
 
 ///|
 test "signal: durability() returns construction durability" {
-  let rt = Runtime::new()
-  let low_sig = Signal::new(rt, 1)
-  let high_sig = Signal::new(rt, 2, durability=High)
+  let rt = Runtime::Runtime()
+  let low_sig = Signal::Signal(rt, 1)
+  let high_sig = Signal::Signal(rt, 2, durability=High)
 
   inspect(low_sig.durability(), content="Low")
   inspect(high_sig.durability(), content="High")
@@ -20,36 +20,42 @@ test "signal: durability() returns construction durability" {
 
 ///|
 test "signal: multiple signals have distinct IDs" {
-  let rt = Runtime::new()
-  let a = Signal::new(rt, 10)
-  let b = Signal::new(rt, 20)
+  let rt = Runtime::Runtime()
+  let a = Signal::Signal(rt, 10)
+  let b = Signal::Signal(rt, 20)
 
   inspect(a.id() != b.id(), content="true")
 }
 
 ///|
 test "signal: label stored via optional param" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 42, label="answer")
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 42, label="answer")
   match rt.cell_info(sig.id()) {
-    Some(info) => inspect(info.label, content="Some(\"answer\")")
+    Some(info) =>
+      debug_inspect(
+        info.label,
+        content=(
+          #|Some("answer")
+        ),
+      )
     None => abort("expected cell info")
   }
 }
 
 ///|
 test "signal: durability optional param works" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 42, durability=High)
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 42, durability=High)
   inspect(sig.durability(), content="High")
 }
 
 ///|
 test "signal: no label gives None in cell_info" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 0)
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 0)
   match rt.cell_info(sig.id()) {
-    Some(info) => inspect(info.label, content="None")
+    Some(info) => debug_inspect(info.label, content="None")
     None => abort("expected cell info")
   }
 }
@@ -58,25 +64,25 @@ test "signal: no label gives None in cell_info" {
 
 ///|
 test "memo: id() returns valid CellId" {
-  let rt = Runtime::new()
-  let m = Memo::new(rt, () => 42)
+  let rt = Runtime::Runtime()
+  let m = Memo::Memo(rt, () => 42)
   let id = m.id()
   inspect(id.id >= 0, content="true")
 }
 
 ///|
 test "memo: dependencies() returns empty before computation" {
-  let rt = Runtime::new()
-  let m = Memo::new(rt, () => 10)
-  inspect(m.dependencies(), content="[]")
+  let rt = Runtime::Runtime()
+  let m = Memo::Memo(rt, () => 10)
+  debug_inspect(m.dependencies(), content="[]")
 }
 
 ///|
 test "memo: dependencies() includes all inputs after computation" {
-  let rt = Runtime::new()
-  let x = Signal::new(rt, 1)
-  let y = Signal::new(rt, 2)
-  let sum = Memo::new(rt, () => x.get() + y.get())
+  let rt = Runtime::Runtime()
+  let x = Signal::Signal(rt, 1)
+  let y = Signal::Signal(rt, 2)
+  let sum = Memo::Memo(rt, () => x.get() + y.get())
 
   rt.read(sum) |> ignore
   let deps = sum.dependencies()
@@ -87,10 +93,10 @@ test "memo: dependencies() includes all inputs after computation" {
 
 ///|
 test "memo: changed_at and verified_at track revisions" {
-  let rt = Runtime::new()
-  let x = Signal::new(rt, 5)
+  let rt = Runtime::Runtime()
+  let x = Signal::Signal(rt, 5)
   x.set(10) // Bump revision to 1
-  let doubled = Memo::new(rt, () => x.get() * 2)
+  let doubled = Memo::Memo(rt, () => x.get() * 2)
 
   rt.read(doubled) |> ignore
   let initial_changed = doubled.changed_at()
@@ -109,12 +115,12 @@ test "memo: changed_at and verified_at track revisions" {
 
 ///|
 test "memo: dependencies update on recomputation" {
-  let rt = Runtime::new()
-  let cond = Signal::new(rt, true)
-  let a = Signal::new(rt, 1)
-  let b = Signal::new(rt, 2)
+  let rt = Runtime::Runtime()
+  let cond = Signal::Signal(rt, true)
+  let a = Signal::Signal(rt, 1)
+  let b = Signal::Signal(rt, 2)
 
-  let dynamic = Memo::new(rt, () => if cond.get() { a.get() } else { b.get() })
+  let dynamic = Memo::Memo(rt, () => if cond.get() { a.get() } else { b.get() })
 
   rt.read(dynamic) |> ignore
   let deps1 = dynamic.dependencies()
@@ -130,24 +136,30 @@ test "memo: dependencies update on recomputation" {
 
 ///|
 test "memo: label stored via optional param" {
-  let rt = Runtime::new()
-  let x = Signal::new(rt, 1)
-  let m = Memo::new(rt, () => x.get() * 2, label="doubled")
+  let rt = Runtime::Runtime()
+  let x = Signal::Signal(rt, 1)
+  let m = Memo::Memo(rt, () => x.get() * 2, label="doubled")
   let _ = rt.read(m)
   match rt.cell_info(m.id()) {
-    Some(info) => inspect(info.label, content="Some(\"doubled\")")
+    Some(info) =>
+      debug_inspect(
+        info.label,
+        content=(
+          #|Some("doubled")
+        ),
+      )
     None => abort("expected cell info")
   }
 }
 
 ///|
 test "memo: no label gives None in cell_info" {
-  let rt = Runtime::new()
-  let x = Signal::new(rt, 1)
-  let m = Memo::new(rt, () => x.get() * 2)
+  let rt = Runtime::Runtime()
+  let x = Signal::Signal(rt, 1)
+  let m = Memo::Memo(rt, () => x.get() * 2)
   let _ = rt.read(m)
   match rt.cell_info(m.id()) {
-    Some(info) => inspect(info.label, content="None")
+    Some(info) => debug_inspect(info.label, content="None")
     None => abort("expected cell info")
   }
 }
@@ -156,14 +168,14 @@ test "memo: no label gives None in cell_info" {
 
 ///|
 test "runtime: cell_info() returns metadata for signal" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 42, durability=High)
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 42, durability=High)
 
   match rt.cell_info(sig.id()) {
     Some(info) => {
       inspect(info.id == sig.id(), content="true")
       inspect(info.durability, content="High")
-      inspect(info.dependencies, content="[]")
+      debug_inspect(info.dependencies, content="[]")
     }
     None => abort("Expected Some(info)")
   }
@@ -171,10 +183,10 @@ test "runtime: cell_info() returns metadata for signal" {
 
 ///|
 test "runtime: cell_info() returns metadata for memo" {
-  let rt = Runtime::new()
-  let x = Signal::new(rt, 10)
+  let rt = Runtime::Runtime()
+  let x = Signal::Signal(rt, 10)
   x.set(20) // Bump revision to 1
-  let doubled = Memo::new(rt, () => x.get() * 2)
+  let doubled = Memo::Memo(rt, () => x.get() * 2)
 
   rt.read(doubled) |> ignore
 
@@ -191,8 +203,8 @@ test "runtime: cell_info() returns metadata for memo" {
 
 ///|
 test "runtime: cell_info() returns None for out-of-bounds CellId" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 0)
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 0)
   let invalid_id : CellId = { runtime_id: sig.id().runtime_id, id: 999 }
 
   match rt.cell_info(invalid_id) {
@@ -203,8 +215,8 @@ test "runtime: cell_info() returns None for out-of-bounds CellId" {
 
 ///|
 test "runtime: cell_info() returns None for unused slot" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 1)
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 1)
   let beyond_id : CellId = { runtime_id: sig.id().runtime_id, id: 1000 }
 
   match rt.cell_info(beyond_id) {
@@ -215,8 +227,8 @@ test "runtime: cell_info() returns None for unused slot" {
 
 ///|
 test "runtime: cell_info() returns None for negative CellId" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 42)
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 42)
   let negative_id : CellId = { runtime_id: sig.id().runtime_id, id: -1 }
 
   match rt.cell_info(negative_id) {
@@ -227,11 +239,11 @@ test "runtime: cell_info() returns None for negative CellId" {
 
 ///|
 test "runtime: cell_info() returns None for CellId from different runtime" {
-  let rt1 = Runtime::new()
-  let rt2 = Runtime::new()
+  let rt1 = Runtime::Runtime()
+  let rt2 = Runtime::Runtime()
 
-  let sig1 = Signal::new(rt1, 100)
-  let sig2 = Signal::new(rt2, 200)
+  let sig1 = Signal::Signal(rt1, 100)
+  let sig2 = Signal::Signal(rt2, 200)
 
   match rt2.cell_info(sig1.id()) {
     Some(_) => abort("Expected None for CellId from different runtime")
@@ -258,10 +270,10 @@ test "runtime: cell_info() returns None for CellId from different runtime" {
 
 ///|
 test "integration: debug why memo recomputed" {
-  let rt = Runtime::new()
-  let x = Signal::new(rt, 10)
-  let y = Signal::new(rt, 20)
-  let sum = Memo::new(rt, () => x.get() + y.get())
+  let rt = Runtime::Runtime()
+  let x = Signal::Signal(rt, 10)
+  let y = Signal::Signal(rt, 20)
+  let sum = Memo::Memo(rt, () => x.get() + y.get())
 
   rt.read(sum) |> ignore
   let initial_verified = sum.verified_at()
@@ -293,11 +305,11 @@ test "integration: debug why memo recomputed" {
 
 ///|
 test "integration: analyze dependency chain" {
-  let rt = Runtime::new()
-  let input = Signal::new(rt, 5)
-  let step1 = Memo::new(rt, () => input.get() * 2)
-  let step2 = Memo::new(rt, () => step1.get() + 10)
-  let step3 = Memo::new(rt, () => step2.get() * 3)
+  let rt = Runtime::Runtime()
+  let input = Signal::Signal(rt, 5)
+  let step1 = Memo::Memo(rt, () => input.get() * 2)
+  let step2 = Memo::Memo(rt, () => step1.get() + 10)
+  let step3 = Memo::Memo(rt, () => step2.get() * 3)
 
   rt.read(step3) |> ignore
 
@@ -312,11 +324,11 @@ test "integration: analyze dependency chain" {
 
 ///|
 test "integration: diamond dependency has no duplicates" {
-  let rt = Runtime::new()
-  let input = Signal::new(rt, 10)
-  let left = Memo::new(rt, () => input.get() + 1)
-  let right = Memo::new(rt, () => input.get() + 2)
-  let merge = Memo::new(rt, () => left.get() + right.get())
+  let rt = Runtime::Runtime()
+  let input = Signal::Signal(rt, 10)
+  let left = Memo::Memo(rt, () => input.get() + 1)
+  let right = Memo::Memo(rt, () => input.get() + 2)
+  let merge = Memo::Memo(rt, () => left.get() + right.get())
 
   rt.read(merge) |> ignore
 
@@ -344,9 +356,9 @@ test "integration: diamond dependency has no duplicates" {
 
 ///|
 test "integration: understanding backdating with introspection" {
-  let rt = Runtime::new()
-  let input = Signal::new(rt, 5)
-  let abs_value = Memo::new(rt, () => {
+  let rt = Runtime::Runtime()
+  let input = Signal::Signal(rt, 5)
+  let abs_value = Memo::Memo(rt, () => {
     let val = input.get()
     if val < 0 {
       -val

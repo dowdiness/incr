@@ -1,6 +1,6 @@
 ///|
 test "scope: create and dispose via public API" {
-  let rt = @incr.Runtime::new()
+  let rt = @incr.Runtime::Runtime()
   let scope = @incr.Scope::new(rt)
   let sig = scope.signal(42)
   let m = scope.memo(fn() { sig.get() * 2 })
@@ -12,7 +12,7 @@ test "scope: create and dispose via public API" {
 
 ///|
 test "scope: nested scopes via public API" {
-  let rt = @incr.Runtime::new()
+  let rt = @incr.Runtime::Runtime()
   let parent = @incr.Scope::new(rt)
   let child = parent.child()
   let sig = child.signal(10)
@@ -22,7 +22,7 @@ test "scope: nested scopes via public API" {
 
 ///|
 test "scope: manual dispose before scope dispose is safe" {
-  let rt = @incr.Runtime::new()
+  let rt = @incr.Runtime::Runtime()
   let scope = @incr.Scope::new(rt)
   let sig = scope.signal(1)
   let m = scope.memo(fn() { sig.get() })
@@ -36,10 +36,10 @@ test "scope: manual dispose before scope dispose is safe" {
 
 ///|
 test "scope: scope does not interfere with unscoped cells" {
-  let rt = @incr.Runtime::new()
+  let rt = @incr.Runtime::Runtime()
   let scope = @incr.Scope::new(rt)
   let scoped_sig = scope.signal(1)
-  let unscoped_sig = @incr.Signal::new(rt, 2)
+  let unscoped_sig = @incr.Signal::Signal(rt, 2)
   scope.dispose()
   inspect(scoped_sig.is_disposed(), content="true")
   inspect(unscoped_sig.is_disposed(), content="false")
@@ -49,7 +49,7 @@ test "scope: scope does not interfere with unscoped cells" {
 
 ///|
 test "scope: child scope cells disposed before parent cells" {
-  let rt = @incr.Runtime::new()
+  let rt = @incr.Runtime::Runtime()
   let parent = @incr.Scope::new(rt)
   let parent_sig = parent.signal(100)
   let child = parent.child()
@@ -65,7 +65,7 @@ test "scope: child scope cells disposed before parent cells" {
 
 ///|
 test "scope: dispose during batch — pending signal writes discarded" {
-  let rt = @incr.Runtime::new()
+  let rt = @incr.Runtime::Runtime()
   let scope = @incr.Scope::new(rt)
   let sig = scope.signal(1)
   rt.batch(fn() {
@@ -78,7 +78,7 @@ test "scope: dispose during batch — pending signal writes discarded" {
 
 ///|
 test "scope: cell manually disposed before scope dispose is safe" {
-  let rt = @incr.Runtime::new()
+  let rt = @incr.Runtime::Runtime()
   let scope = @incr.Scope::new(rt)
   let sig1 = scope.signal(1)
   let sig2 = scope.signal(2)
@@ -93,7 +93,7 @@ test "scope: cell manually disposed before scope dispose is safe" {
 
 ///|
 test "scope: dispose after push propagation completes" {
-  let rt = @incr.Runtime::new()
+  let rt = @incr.Runtime::Runtime()
   let scope = @incr.Scope::new(rt)
   let sig = scope.signal(1)
   let count : Ref[Int] = { val: 0 }

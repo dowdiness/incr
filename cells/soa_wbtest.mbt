@@ -1,15 +1,15 @@
 ///|
 test "get_changed_at: dispatches via cell_index" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 1)
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 1)
   let rev = rt.get_changed_at(sig.id())
   inspect(rev >= Revision::initial(), content="true")
 }
 
 ///|
 test "cell_id_for: round-trips through cell_index" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 1)
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 1)
   let cell_id = @kernel.cell_id_for(
     rt.pull,
     rt.push,
@@ -21,16 +21,16 @@ test "cell_id_for: round-trips through cell_index" {
 
 ///|
 test "runtime: SoA fields exist and start empty" {
-  let rt = Runtime::new()
+  let rt = Runtime::Runtime()
   inspect(rt.pull.signals.length(), content="0")
   inspect(rt.pull.memos.length(), content="0")
   inspect(rt.core.cell_index.length(), content="0")
 }
 
 ///|
-test "Signal::new: allocates into pull_signals" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 42)
+test "Signal::Signal: allocates into pull_signals" {
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 42)
   inspect(rt.pull.signals.length(), content="1")
   match rt.core.cell_index[sig.id().id] {
     PullSignal(i) => inspect(i, content="0")
@@ -39,10 +39,10 @@ test "Signal::new: allocates into pull_signals" {
 }
 
 ///|
-test "Memo::new: allocates into pull_memos" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 1)
-  let m = Memo::new(rt, () => sig.get())
+test "Memo::Memo: allocates into pull_memos" {
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 1)
+  let m = Memo::Memo(rt, () => sig.get())
   let _ = rt.read(m)
   inspect(rt.pull.memos.length(), content="1")
   match rt.core.cell_index[m.id().id] {
@@ -56,14 +56,14 @@ test "runtime: dispatch tables stay index-aligned across all cell kinds" {
   // Pins the invariant that install_cell (and, for memo/hybrid, their
   // local equivalents) pushes cell_index, cell_ops, and cell_lifecycle
   // together. This is load-bearing for dispatch by cell_id.id.
-  let rt = Runtime::new()
+  let rt = Runtime::Runtime()
   rt.check_table_invariant()
-  let sig = Signal::new(rt, 1)
+  let sig = Signal::Signal(rt, 1)
   rt.check_table_invariant()
-  let m = Memo::new(rt, () => sig.get())
+  let m = Memo::Memo(rt, () => sig.get())
   let _ = rt.read(m)
   rt.check_table_invariant()
-  let hm = HybridMemo::new(rt, () => sig.get())
+  let hm = HybridMemo::HybridMemo(rt, () => sig.get())
   let _ = rt.read_hybrid(hm)
   rt.check_table_invariant()
   let r = Reactive::new(rt, () => sig.get())
@@ -84,7 +84,7 @@ test "runtime: alloc_cell_id populates cell_index" {
   // inconsistency (cell_index[0] pointing to PullSignal(0) while
   // rt.pull.signals is empty) is intentional — we are testing the low-level
   // allocation primitive, not the full Runtime invariants.
-  let rt = Runtime::new()
+  let rt = Runtime::Runtime()
   let cell_id = rt.alloc_cell_id(CellRef::PullSignal(0))
   inspect(cell_id.id, content="0")
   inspect(rt.core.cell_index.length(), content="1")

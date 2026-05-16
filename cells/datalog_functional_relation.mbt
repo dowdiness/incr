@@ -21,12 +21,18 @@ pub(all) struct FunctionalRelation[K, V] {
   priv delta : Ref[@hashmap.HashMap[K, V]]
   priv staged_delta : Ref[@hashmap.HashMap[K, V]]
   priv merge : ((V, V) -> V)?
+}
 
-  fn[K : Hash + Eq, V] new(
-    rt : Runtime,
-    merge? : (V, V) -> V,
-    label? : String,
-  ) -> FunctionalRelation[K, V]
+///|
+/// Constructor-syntax alias of `FunctionalRelation::new`. Enables
+/// `FunctionalRelation(rt)` / `FunctionalRelation(rt, merge=..., label="...")`
+/// call sites.
+pub fn[K : Hash + Eq, V] FunctionalRelation::FunctionalRelation(
+  rt : Runtime,
+  merge? : (V, V) -> V,
+  label? : String,
+) -> FunctionalRelation[K, V] {
+  FunctionalRelation::new(rt, merge?, label?)
 }
 
 ///|
@@ -37,16 +43,16 @@ pub fn[K : Hash + Eq, V] FunctionalRelation::new(
 ) -> FunctionalRelation[K, V] {
   let idx = rt.datalog.functional_relations.length()
   let cell_id = rt.alloc_cell_id(FunctionalRelation(idx))
-  let current : Ref[@hashmap.HashMap[K, V]] = { val: @hashmap.new() }
-  let delta : Ref[@hashmap.HashMap[K, V]] = { val: @hashmap.new() }
-  let staged_delta : Ref[@hashmap.HashMap[K, V]] = { val: @hashmap.new() }
+  let current : Ref[@hashmap.HashMap[K, V]] = { val: @hashmap.HashMap([]) }
+  let delta : Ref[@hashmap.HashMap[K, V]] = { val: @hashmap.HashMap([]) }
+  let staged_delta : Ref[@hashmap.HashMap[K, V]] = { val: @hashmap.HashMap([]) }
   let data : FunctionalRelationData = {
     meta: {
       cell_id,
       label,
       changed_at: Revision::initial(),
       durability: Low,
-      subscribers: @hashset.new(),
+      subscribers: @hashset.HashSet([]),
       push_reachable_count: 0,
     },
     drain_delta: () => delta.val.each(fn(k, v) { current.val.set(k, v) }),

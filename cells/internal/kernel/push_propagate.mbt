@@ -121,7 +121,8 @@ pub fn push_propagate_from(
   changed_sources : Array[CellId],
 ) -> Unit {
   enter_phase(core, PushPropagating)
-  let update_queue : @priority_queue.PriorityQueue[PushEntry] = @priority_queue.new()
+  let update_queue : @priority_queue.PriorityQueue[PushEntry] = @priority_queue.PriorityQueue([],
+  )
   // Reused across all enqueue_push_subscribers calls to avoid per-call allocation.
   let bfs_worklist : Array[CellId] = []
 

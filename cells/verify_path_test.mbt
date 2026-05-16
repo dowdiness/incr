@@ -14,13 +14,13 @@ test "verify: cycle path includes all traversed cells" {
   // Setup: B→C→B cycle (B depends on C, C depends on B)
   // When b.get_result() is called, verification walks B→C→B,
   // and the path should contain both B and C cell IDs.
-  let rt = Runtime::new()
+  let rt = Runtime::Runtime()
   let b_ref : Ref[Memo[Int]?] = { val: None }
   let c_ref : Ref[Memo[Int]?] = { val: None }
   let captured_path : Ref[Array[CellId]?] = { val: None }
 
   // Create memo B that depends on C
-  let b = Memo::new(rt, () => {
+  let b = Memo::Memo(rt, () => {
     match c_ref.val {
       Some(c) =>
         match c.get_result() {
@@ -36,7 +36,7 @@ test "verify: cycle path includes all traversed cells" {
   b_ref.val = Some(b)
 
   // Create memo C that depends on B (creating the cycle)
-  let c = Memo::new(rt, () => {
+  let c = Memo::Memo(rt, () => {
     match b_ref.val {
       Some(b_cell) =>
         match b_cell.get_result() {
@@ -75,11 +75,11 @@ test "verify: self-cycle path shows cell twice" {
   // Setup: M→M self-cycle (M immediately depends on itself)
   // When computing M for the first time, it recursively tries to get M
   // (which is in_progress), producing path = [M, M]
-  let rt = Runtime::new()
+  let rt = Runtime::Runtime()
   let captured_path : Ref[Array[CellId]?] = { val: None }
   let memo_ref : Ref[Memo[Int]?] = { val: None }
 
-  let memo = Memo::new(rt, () => {
+  let memo = Memo::Memo(rt, () => {
     match memo_ref.val {
       Some(m) =>
         match m.get_result() {

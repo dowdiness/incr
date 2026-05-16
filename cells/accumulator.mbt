@@ -27,9 +27,9 @@ pub fn[T : Eq] Accumulator::new(
   rt~ : Runtime,
   label? : String,
 ) -> Accumulator[T] {
-  let per_memo : @hashmap.HashMap[CellId, Array[T]] = @hashmap.new()
-  let prev_push_sets : @hashmap.HashMap[CellId, Array[T]] = @hashmap.new()
-  let push_revised_at : @hashmap.HashMap[CellId, Revision] = @hashmap.new()
+  let per_memo : @hashmap.HashMap[CellId, Array[T]] = @hashmap.HashMap([])
+  let prev_push_sets : @hashmap.HashMap[CellId, Array[T]] = @hashmap.HashMap([])
+  let push_revised_at : @hashmap.HashMap[CellId, Revision] = @hashmap.HashMap([])
 
   // snapshot_and_clear: move current buffer into prev, replace per_memo[M]
   // with a fresh array. Called BEFORE_CLOSURE.
@@ -327,7 +327,8 @@ fn memo_commit_accumulator_phase(
 ) -> Unit {
   // Union prev ∪ touched so every slot that needs finalize_memo is visited
   // exactly once.
-  let all_slots : @hashset.HashSet[@incr_types.AccumulatorId] = @hashset.new()
+  let all_slots : @hashset.HashSet[@incr_types.AccumulatorId] = @hashset.HashSet([],
+  )
   for s in prev_contributions {
     all_slots.add(s)
   }
@@ -335,7 +336,8 @@ fn memo_commit_accumulator_phase(
     all_slots.add(s)
   }
   let current_revision = rt.core.revision.current_revision
-  let new_contributions : @hashset.HashSet[@incr_types.AccumulatorId] = @hashset.new()
+  let new_contributions : @hashset.HashSet[@incr_types.AccumulatorId] = @hashset.HashSet([],
+  )
   for slot_id in all_slots {
     let slot = rt.accumulator_slots[slot_id.id]
     if slot.disposed {

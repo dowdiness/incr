@@ -121,7 +121,7 @@ pub fn[Db : Database, T : Eq] create_memo(
 /// # Returns
 ///
 /// A new memo map associated with the database's runtime
-pub fn[Db : Database, K, V] create_memo_map(
+pub fn[Db : Database, K : Hash + Eq, V] create_memo_map(
   db : Db,
   f : (K) -> V raise Failure,
   label? : String,
@@ -163,10 +163,11 @@ pub impl[T] Readable for HybridMemo[T] with is_up_to_date(self) {
 ///|
 /// Creates a new hybrid memo using the database's runtime.
 ///
-/// A hybrid memo receives dirty flags eagerly (via push propagation from
-/// upstream signals) but verifies and recomputes lazily on `get()`. This
-/// combines the low-latency notification of push-based invalidation with
-/// the wasted-work avoidance of pull-based verification.
+/// `HybridMemo[T]` uses the same lazy revision-based verification as
+/// `Memo[T]` — there is no separate dirty flag. The "hybrid" refers to
+/// *reachability*: the memo participates in `push_reachable_count`, so a
+/// live `Reactive` or `Effect` observer downstream keeps the memo and its
+/// upstream cells alive across `Runtime::gc()`.
 ///
 /// Use `HybridMemo` when:
 /// - The memo sits between push-reactive nodes and pull-based memos
@@ -293,6 +294,7 @@ pub fn[Db : Database] create_scope(db : Db) -> Scope {
 /// to register all of a struct's TrackedCells with a scope for bulk disposal.
 ///
 /// This function is a no-op and will be removed in a future version.
+#deprecated("Use `add_tracked(scope, tracked)` instead — `gc_tracked` is a no-op kept for source compatibility")
 pub fn[T : Trackable] gc_tracked(rt : Runtime, tracked : T) -> Unit {
   // Deprecated no-op — use add_tracked(scope, tracked) instead.
   let _ = tracked.cell_ids()

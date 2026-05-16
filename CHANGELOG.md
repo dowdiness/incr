@@ -4,6 +4,29 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ## [Unreleased]
 
+### Documentation
+
+- **Information structure rebuilt against source code as primary truth.** `README.md` rewritten as a truthful entry point using the modern `fn MyApp::MyApp()` constructor and `app.runtime().read(memo)` for outside-graph reads. `AGENTS.md` expanded into a canonical contributor doc (build commands, doc rules, comment rules, pre-PR checklist, v0.9.2 deprecation status).
+- **New `docs/architecture.md`** — principles-only architecture overview covering the package responsibility map, the four execution modes (pull / push / hybrid / Datalog), key types, invariants, and extension points. Linked from `docs/README.md`.
+- **`docs/api-reference.md` softened** from "complete reference" to "common APIs" (the `.mbti` files are authoritative). Removed a documented method that did not exist (`HybridMemo::get_result`). Added entries for `Signal::peek`, `TrackedCell::peek`, `MemoMap::get_tracked`, `add_tracked`, and `Runtime::read*`. Tightened bound documentation on `MemoMap::new` / `create_memo_map`.
+- **`docs/concepts.md` / `docs/cookbook.md`** swept for top-level `memo.get()` patterns — rewritten to use `rt.read(memo)` / `rt.read_hybrid(h)` where the example reads from outside the graph. `CycleDetected(_, _)` pattern updated to the actual 3-field variant `CycleDetected(cell, path, labels)`. The `gc_tracked` example replaced with `add_tracked(scope, t)`.
+- **`HybridMemo` model correction.** The previous docs described it as receiving "dirty flags eagerly via push propagation". Source has always said otherwise: `HybridMemo` uses the same lazy revision-based verification as `Memo`, and "hybrid" refers to *reachability* (it participates in `push_reachable_count` so downstream observers keep upstream cells alive across `gc()`), not invalidation. Fixed in `traits.mbt`, `docs/architecture.md`, `docs/api-reference.md`, `docs/concepts.md`, `docs/design/internals.md`, and `docs/roadmap.md`.
+- **Drift-catch test.** `tests/quickstart_test.mbt` instantiates the README's Database pattern end to end; future divergence between the README idiom and the actual compiled API will break this test.
+
+### Changed
+
+- **MoonBit v0.9.2 migration.** Updated stdlib calls: `@hashmap.new()` → `@hashmap.HashMap([])`, `@hashset.new()` → `@hashset.HashSet([])`, `@priority_queue.new()` → `@priority_queue.PriorityQueue([])`, `Ref::new(x)` → `Ref(x)`. Test snapshots using container `Show` impls (Option, Array, Map) migrated from `inspect` → `debug_inspect` since v0.9.2 deprecates `Show` on containers for debug output.
+- **Constructor declarations modernized.** The in-struct `fn new(..)` declaration is deprecated in v0.9.2 in favour of a separated toplevel `fn Type::Type(..)`. Library types — `Runtime`, `Signal`, `Memo`, `HybridMemo`, `MemoMap`, `TrackedCell`, `Relation`, `FunctionalRelation`, plus internal `ActiveQuery` and `BatchFrame` — now declare an explicit `Type::Type` constructor alias that delegates to the existing `Type::new` body. Both forms remain in the public surface: `Type(args)` / `Type::Type(args)` constructor sugar and `Type::new(args)` direct calls.
+- **Tightened type bounds** to match the new stdlib constructor signatures:
+  - `MemoMap::new` / `create_memo_map`: `K : Hash + Eq` (was unconstrained `K`)
+  - `InternTable::new`: `T : Hash + Eq` (was unconstrained `T`)
+
+  These bounds were already required by every key-observing operation (`get`, `contains`, `intern`, `set`). Constructing an empty container and only using non-key-observing methods (e.g. `length`, `clear`, `len`) was technically possible without the bound and is now rejected at type-check time. No working caller relied on this path within the repository. Classified as a minor-bump tightening under the same "no external consumers yet" policy as the `.get()` tracked-context change in 0.5.0.
+
+### Deprecated
+
+- `gc_tracked(rt, tracked)` — was already a no-op; now carries a `#deprecated` attribute pointing to `add_tracked(scope, tracked)` for lifecycle management. Source-compatible.
+
 ## [0.5.1] - 2026-04-26
 
 ### Changed
@@ -167,7 +190,9 @@ Initial release.
 - Batch updates with atomic multi-signal commits
 - Cycle detection
 
-[Unreleased]: https://github.com/dowdiness/incr/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/dowdiness/incr/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/dowdiness/incr/compare/v0.5.0...v0.5.1
+[0.5.0]: https://github.com/dowdiness/incr/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/dowdiness/incr/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/dowdiness/incr/compare/v0.3.3...v0.4.0
 [0.3.3]: https://github.com/dowdiness/incr/compare/v0.3.2...v0.3.3

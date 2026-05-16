@@ -22,10 +22,10 @@ let b = Memo(rt, () => a.get() * 2)
 let c = Memo(rt, () => a.get() + 5)
 let d = Memo(rt, () => b.get() + c.get())
 
-inspect(d.get(), content="35")  // (10*2) + (10+5)
+inspect(rt.read(d), content="35")  // (10*2) + (10+5)
 
 a.set(20)
-inspect(d.get(), content="65")  // (20*2) + (20+5)
+inspect(rt.read(d), content="65")  // (20*2) + (20+5)
 ```
 
 `incr` handles diamonds correctly — `a` is only read once per computation of each memo.
@@ -52,15 +52,15 @@ let result = Memo(rt, () => {
 })
 
 // With caching enabled
-inspect(result.get(), content="cached_value")
+inspect(rt.read(result), content="cached_value")
 
 // Changes to expensive_source don't trigger recomputation
 expensive_source.set("new_computed")
-inspect(result.get(), content="cached_value")  // Still cached
+inspect(rt.read(result), content="cached_value")  // Still cached
 
 // Switch to computed mode
 use_cache.set(false)
-inspect(result.get(), content="new_computed")
+inspect(rt.read(result), content="new_computed")
 ```
 
 ---
@@ -113,7 +113,7 @@ rt.batch(() => {
   y.set(200)
 })
 
-inspect(position.get(), content="(100, 200)")
+inspect(rt.read(position), content="(100, 200)")
 ```
 
 ---
@@ -162,10 +162,10 @@ let effective_value = Memo(rt, () => {
   }
 })
 
-inspect(effective_value.get(), content="100")  // Uses default
+inspect(rt.read(effective_value), content="100")  // Uses default
 
 user_override.set(Some(42))
-inspect(effective_value.get(), content="42")   // Uses override
+inspect(rt.read(effective_value), content="42")   // Uses override
 ```
 
 ---
@@ -189,7 +189,7 @@ let transformed = Memo(rt, () => normalized.get().to_lower())
 // Layer 3: Format
 let formatted = Memo(rt, () => "[" + transformed.get() + "]")
 
-inspect(formatted.get(), content="[hello world]")
+inspect(rt.read(formatted), content="[hello world]")
 
 // Change input
 raw_data.set("  Hello World  ")  // Same after trim — no-op!
@@ -231,11 +231,11 @@ let handler = Memo(rt, () => {
   versioned.get().value * 2  // only reads .value
 }, label="handler")
 
-inspect(handler.get(), content="20")  // Computes: Versioned(10, gen=1) → 20
+inspect(rt.read(handler), content="20")  // Computes: Versioned(10, gen=1) → 20
 
-input.set(105)                        // value still 10 (105/10 = 10), gen=2
-inspect(handler.get(), content="20")  // handler does NOT recompute — backdated
-inspect(gen, content="2")             // versioned recomputed, but Eq said same value
+input.set(105)                           // value still 10 (105/10 = 10), gen=2
+inspect(rt.read(handler), content="20")  // handler does NOT recompute — backdated
+inspect(gen, content="2")                // versioned recomputed, but Eq said same value
 ```
 
 `versioned` recomputed because `input` changed, but `handler` was skipped: the new `Versioned(10, 2)` equals the old `Versioned(10, 1)` under the custom `Eq`, so `changed_at` was preserved.
@@ -273,10 +273,10 @@ let handler = Memo(rt, () => match status.get() {
   Loading(progress=p) => "Loading: " + p.to_string() + "%"
 }, label="handler")
 
-inspect(handler.get(), content="Error: 404")
+inspect(rt.read(handler), content="Error: 404")
 
 error_msg.set("Page Not Found")      // Different message, same code
-inspect(handler.get(), content="Error: 404")  // handler does NOT recompute — backdated
+inspect(rt.read(handler), content="Error: 404")  // handler does NOT recompute — backdated
 ```
 
 `status` recomputed when the message changed, but `handler` was skipped because the new `Error(code=404, message="Page Not Found")` equals the old one under the custom `Eq`.
@@ -322,12 +322,12 @@ let sum = Memo(rt, () => {
 let count = items.length()
 let average = Memo(rt, () => sum.get() / count)
 
-inspect(sum.get(), content="60")
-inspect(average.get(), content="20")
+inspect(rt.read(sum), content="60")
+inspect(rt.read(average), content="20")
 
 items[1].set(50)  // Change one item
-inspect(sum.get(), content="90")
-inspect(average.get(), content="30")
+inspect(rt.read(sum), content="90")
+inspect(rt.read(average), content="30")
 ```
 
 ---
@@ -358,15 +358,15 @@ let checked = Memo(rt, fn() raise {
   w.abs()
 })
 
-let _ = checked.get()
+let _ = rt.read(checked)
 
 // Outside any compute: read pushes permissively (empty if producer never ran).
-inspect(checked.accumulated_peek(diags), content="[\"negative width: -5\"]")
+debug_inspect(checked.accumulated_peek(diags), content="[\"negative width: -5\"]")
 
 width.set(10)
-let _ = checked.get()
+let _ = rt.read(checked)
 // Producer re-ran; push set is empty this time.
-inspect(checked.accumulated_peek(diags), content="[]")
+debug_inspect(checked.accumulated_peek(diags), content="[]")
 ```
 
 **Top-frame restriction.** `push` is only legal inside a `Memo` or
@@ -405,12 +405,12 @@ let report = Memo(rt, fn() raise {
   "size=\{size}, diags=\{ds.length()}"
 })
 
-inspect(report.get(), content="size=5, diags=1")
+inspect(rt.read(report), content="size=5, diags=1")
 
 // Flip sign — producer's return value stays 5 (abs is symmetric),
 // but the push set flips from [one diag] to [].
 width.set(5)
-inspect(report.get(), content="size=5, diags=0")
+inspect(rt.read(report), content="size=5, diags=0")
 ```
 
 Without the accumulator, `report` would not invalidate: `checked.get()`
@@ -659,12 +659,16 @@ let db   = MyDb()
 let path = @incr.create_tracked_cell(db, "/src/main.mbt", label="path")
 ```
 
-### GC Roots (Future-Proof)
+### Lifecycle: register a tracked struct with a Scope
 
-Call `gc_tracked` to declare a tracked struct as live. This is a no-op today but ensures zero-change migration when GC support lands in Phase 4:
+`gc_tracked` is **deprecated** (it has always been a no-op — `TrackedCell` is a leaf and marking it as a root keeps nothing alive). Use `add_tracked(scope, tracked)` to register all of a struct's `TrackedCell` fields with a `Scope`; disposing the scope disposes the cells:
 
-```moonbit
-@incr.gc_tracked(rt, file)
+```moonbit nocheck
+let scope = @incr.create_scope(db)
+let file = MyTrackedStruct::new(db)
+@incr.add_tracked(scope, file)
+// ... later ...
+scope.dispose()  // disposes every TrackedCell field of `file`
 ```
 
 ### Migration: Signal[MyStruct] → Tracked Struct
@@ -773,14 +777,14 @@ let memo = Memo(rt, () => {
     Some(m) =>
       match m.get_result() {
         Ok(v) => v + 1
-        Err(CycleDetected(_, _)) => 0  // Base case on cycle
+        Err(CycleDetected(_, _, _)) => 0  // Base case on cycle
       }
     None => 0
   }
 })
 memo_ref.val = Some(memo)
 
-inspect(memo.get(), content="0")  // Returns fallback, doesn't abort
+inspect(rt.read(memo), content="0")  // Returns fallback, doesn't abort
 ```
 
 ### Use Cases
@@ -809,12 +813,12 @@ let x = Signal(rt, 10)
 let y = Signal(rt, 20)
 let sum = Memo(rt, () => x.get() + y.get())
 
-sum.get() |> ignore
+rt.read(sum) |> ignore
 let baseline = sum.verified_at()
 
 // Make some changes
 x.set(15)
-sum.get() |> ignore
+rt.read(sum) |> ignore
 
 // Find the culprit
 for dep_id in sum.dependencies() {
@@ -861,8 +865,8 @@ let doubled = Memo(rt, () => source.get() * 2, label="doubled")
 let tripled = Memo(rt, () => source.get() * 3, label="tripled")
 
 // Must read memos at least once to establish dependencies
-doubled.get() |> ignore
-tripled.get() |> ignore
+rt.read(doubled) |> ignore
+rt.read(tripled) |> ignore
 
 // Inspect who depends on source
 for dep_id in rt.dependents(source.id()) {
@@ -888,7 +892,7 @@ test "memo only depends on x, not y" {
   let y = Signal(rt, 2)
   let uses_x_only = Memo(rt, () => x.get() * 2)
 
-  uses_x_only.get() |> ignore
+  rt.read(uses_x_only) |> ignore
 
   let deps = uses_x_only.dependencies()
   inspect(deps.contains(x.id()), content="true")
@@ -902,11 +906,11 @@ Check if a memo's value actually changed:
 
 ```moonbit
 let memo = Memo(rt, () => config.get().length())
-memo.get() |> ignore
+rt.read(memo) |> ignore
 let old_changed = memo.changed_at()
 
 config.set("same_length")  // Different string, same length
-memo.get() |> ignore
+rt.read(memo) |> ignore
 
 // Backdating: value didn't change, so changed_at is preserved
 inspect(memo.changed_at() == old_changed, content="true")
@@ -980,10 +984,10 @@ let data_derived = Memo(rt, () => {
   data.get() * 2
 })
 
-config_derived.get()
-data_derived.get()
+rt.read(config_derived)
+rt.read(data_derived)
 
 data.set(2)  // Only data_derived should recompute
-data_derived.get()
-config_derived.get()
+rt.read(data_derived)
+rt.read(config_derived)
 ```

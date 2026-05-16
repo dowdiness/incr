@@ -116,18 +116,16 @@ pub(all) struct ActiveQuery {
   seen : @hashset.HashSet[@types.CellId]
   accumulator_reads : @hashmap.HashMap[(@types.AccumulatorId, @types.CellId), @types.Revision]
   touched_accumulator_slots : @hashset.HashSet[@types.AccumulatorId]
-
-  fn new(@types.CellId) -> ActiveQuery
 }
+pub fn ActiveQuery::ActiveQuery(@types.CellId) -> Self
 pub fn ActiveQuery::new(@types.CellId) -> Self
 pub fn ActiveQuery::record(Self, @types.CellId) -> Unit
 
 pub(all) struct BatchFrame {
   undo_entries : Array[BatchUndo]
   undo_ids : @hashset.HashSet[@types.CellId]
-
-  fn new() -> BatchFrame
 }
+pub fn BatchFrame::BatchFrame() -> Self
 pub fn BatchFrame::has_undo_for(Self, @types.CellId) -> Bool
 pub fn BatchFrame::new() -> Self
 

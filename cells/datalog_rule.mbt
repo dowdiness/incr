@@ -20,7 +20,7 @@ pub fn Runtime::new_rule(
       label,
       changed_at: Revision::initial(),
       durability: Low,
-      subscribers: @hashset.new(),
+      subscribers: @hashset.HashSet([]),
       push_reachable_count: 0,
     },
     apply_delta,

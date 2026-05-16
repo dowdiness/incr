@@ -114,7 +114,7 @@ High-level future direction for the `incr` library, organized by phase. Each pha
 - ~~**`CellOps` trait**: Uniform 6-method read interface for all cell types~~ ✓ Implemented
   - `cell_id`, `changed_at`, `set_changed_at`, `subscribers`, `label`, `durability`
   - `Runtime.cell_ops : Array[&CellOps]` trait-object array indexed by `CellId.id`
-  - Implemented by `PullSignalData`, `PullMemoData`, `HybridMemoData`, `PushReactiveData`, `PushEffectData`
+  - Implemented by `PullSignalData`, `MemoData` (covering both `Memo` and `HybridMemo` via `is_hybrid` flag), `PushReactiveData`, `PushEffectData`
 - ~~**`Committable` trait**: Batch-commit dispatch for signals~~ ✓ Implemented
   - `do_commit`, `cell_id`, `durability` methods
   - `Runtime.batch_pending : Array[&Committable]` replaces direct SoA lookup
@@ -134,9 +134,10 @@ High-level future direction for the `incr` library, organized by phase. Each pha
 ### Phase 4C: HybridMemo ✓
 
 - ~~**`HybridMemo[T]`**: Hybrid push-pull memo~~ ✓ Implemented
-  - Receives dirty flags eagerly via push propagation; verifies/recomputes lazily on `get()`
-  - Fast path: `not(dirty) && verified_at >= current_revision` → return cached, no dep walk
-  - SoA entry `HybridMemoData` with `dirty : Bool` flag
+  - Pull-driven recomputation (same lazy `verified_at >= current_revision` check as `Memo`)
+  - Hybrid in *reachability*: participates in `push_reachable_count` so downstream `Reactive`/`Effect` observers keep upstream cells alive across `gc()`
+  - Fast path: `verified_at >= current_revision` → return cached, no dep walk
+  - Shares the `MemoData` SoA entry with `Memo` (distinguished by `is_hybrid : Bool`); no separate dirty flag
   - Public API: `HybridMemo::new`, `get`, `get_result`, `id`, `is_up_to_date`
   - `create_hybrid_memo` Database helper; `Readable` impl
 

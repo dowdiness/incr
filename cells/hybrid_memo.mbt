@@ -17,13 +17,18 @@ pub(all) struct HybridMemo[T] {
   priv cell_id : CellId
   priv compute : () -> T raise Failure
   priv mut value : T?
-
-  fn[T : Eq] new(
-    rt : Runtime,
-    compute : () -> T raise Failure,
-    label? : String,
-  ) -> HybridMemo[T]
 } derive(Debug(ignore=[Runtime, Fn, CellId]))
+
+///|
+/// Constructor-syntax alias of `HybridMemo::new`. Enables
+/// `HybridMemo(rt, compute)` / `HybridMemo(rt, compute, label="...")` call sites.
+pub fn[T : Eq] HybridMemo::HybridMemo(
+  rt : Runtime,
+  compute : () -> T raise Failure,
+  label? : String,
+) -> HybridMemo[T] {
+  HybridMemo::new(rt, compute, label?)
+}
 
 ///|
 /// Creates a new hybrid memo with the given compute function.
@@ -41,7 +46,7 @@ pub fn[T : Eq] HybridMemo::new(
       label,
       changed_at: Revision::initial(),
       durability: Low,
-      subscribers: @hashset.new(),
+      subscribers: @hashset.HashSet([]),
       push_reachable_count: 0,
     },
     compute: () => memo.recompute_inner(),
@@ -50,7 +55,7 @@ pub fn[T : Eq] HybridMemo::new(
     in_progress: false,
     on_change: None,
     is_hybrid: true,
-    accumulator_reads: @hashmap.new(),
+    accumulator_reads: @hashmap.HashMap([]),
     has_been_computed: false,
   }
   if memo_idx < rt.pull.memos.length() {

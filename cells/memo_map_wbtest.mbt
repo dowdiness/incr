@@ -1,8 +1,8 @@
 ///|
 test "memo_map wb: get_or and get_or_else fallback on cycle error" {
-  let rt = Runtime::new()
-  let source = Signal::new(rt, 1)
-  let by_key = MemoMap::new(rt, (key : Int) => source.get() + key)
+  let rt = Runtime::Runtime()
+  let source = Signal::Signal(rt, 1)
+  let by_key = MemoMap::MemoMap(rt, (key : Int) => source.get() + key)
   inspect(by_key.get(1), content="2")
 
   let memo = by_key.entries.get(1).unwrap()

@@ -1,8 +1,8 @@
 ///|
 test "subscriber: dependents accessible via public API" {
-  let rt = Runtime::new()
-  let x = Signal::new(rt, 10)
-  let doubled = Memo::new(rt, () => x.get() * 2)
+  let rt = Runtime::Runtime()
+  let x = Signal::Signal(rt, 10)
+  let doubled = Memo::Memo(rt, () => x.get() * 2)
   let _ = rt.read(doubled)
   let deps = rt.dependents(x.id())
   inspect(deps.length(), content="1")
@@ -11,10 +11,10 @@ test "subscriber: dependents accessible via public API" {
 
 ///|
 test "subscriber: chain dependencies tracked" {
-  let rt = Runtime::new()
-  let a = Signal::new(rt, 1)
-  let b = Memo::new(rt, () => a.get() + 1)
-  let c = Memo::new(rt, () => b.get() * 2)
+  let rt = Runtime::Runtime()
+  let a = Signal::Signal(rt, 1)
+  let b = Memo::Memo(rt, () => a.get() + 1)
+  let c = Memo::Memo(rt, () => b.get() * 2)
   let _ = rt.read(c)
   // a -> b -> c
   let a_deps = rt.dependents(a.id())
@@ -29,11 +29,11 @@ test "subscriber: chain dependencies tracked" {
 
 ///|
 test "subscriber: dynamic deps update dependents via public API" {
-  let rt = Runtime::new()
-  let flag = Signal::new(rt, true)
-  let a = Signal::new(rt, 10)
-  let b = Signal::new(rt, 20)
-  let pick = Memo::new(rt, () => if flag.get() { a.get() } else { b.get() })
+  let rt = Runtime::Runtime()
+  let flag = Signal::Signal(rt, true)
+  let a = Signal::Signal(rt, 10)
+  let b = Signal::Signal(rt, 20)
+  let pick = Memo::Memo(rt, () => if flag.get() { a.get() } else { b.get() })
   let _ = rt.read(pick) // deps: flag, a
   inspect(rt.dependents(a.id()).contains(pick.id()), content="true")
   inspect(rt.dependents(b.id()).contains(pick.id()), content="false")
@@ -48,17 +48,17 @@ test "subscriber: dynamic deps update dependents via public API" {
 
 ///|
 test "subscriber: dependents returns empty for cross-runtime id" {
-  let rt1 = Runtime::new()
-  let rt2 = Runtime::new()
-  let x = Signal::new(rt1, 10)
+  let rt1 = Runtime::Runtime()
+  let rt2 = Runtime::Runtime()
+  let x = Signal::Signal(rt1, 10)
   let deps = rt2.dependents(x.id())
   inspect(deps.length(), content="0")
 }
 
 ///|
 test "push suspension: full lifecycle via public API" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 10)
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 10)
   let r = @incr.Reactive::new(rt, fn() { sig.get() * 2 })
   // Observe
   let obs = r.observe()

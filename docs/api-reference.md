@@ -1,6 +1,6 @@
 # API Reference
 
-Complete reference for the public API in `incr`.
+Reference for the most commonly used public APIs in `incr`. This is not exhaustive — the authoritative surface is in `pkg.generated.mbti` and `cells/pkg.generated.mbti`. APIs surfaced here: `Runtime`, `Signal`, `Memo`, `HybridMemo`, `MemoMap`, `TrackedCell`, `Accumulator`, `CycleError`, the `Database`/`Readable`/`Trackable` traits, and the top-level helper functions. Specialised APIs (`Reactive`, `Effect`, `Relation`, `FunctionalRelation`, `Scope`, `Observer`) are documented next to their constructors in `cells/`.
 
 > **Recommended Pattern:** Use the `Database` trait to encapsulate your `Runtime` in a database type. This makes your API cleaner and hides implementation details. See the [Helper Functions](#helper-functions) section and [API Design Guidelines](design/api-design-guidelines.md) for details.
 
@@ -98,6 +98,22 @@ Removes the registered change callback.
 rt.clear_on_change()
 ```
 
+### `Runtime::read[T](self, memo: Memo[T]) -> T`
+
+Reads a memo from **outside** a tracked compute. `Memo::get()` aborts when called from top-level code, tests, or event handlers (it requires a tracked context); `rt.read(memo)` is the canonical replacement — it observes once, reads the value, and disposes the observer in one call. Aborts if the memo has been disposed.
+
+```moonbit
+let value = rt.read(my_memo)
+```
+
+### `Runtime::read_hybrid[T : Eq](self, memo: HybridMemo[T]) -> T`
+
+One-shot observe for `HybridMemo[T]`. Same shape as `read`.
+
+### `Runtime::read_reactive[T](self, reactive: Reactive[T]) -> T`
+
+One-shot observe for `Reactive[T]`. Same shape as `read`.
+
 ---
 
 ## Signal[T]
@@ -154,6 +170,14 @@ count.set_unconditional(5) // Forces downstream reverification
 ### `Signal::is_up_to_date(self) -> Bool`
 
 Signals are always up-to-date (`true`).
+
+### `Signal::peek(self) -> T`
+
+Returns the current value **without** recording a dependency, even when called inside a memo. Use for telemetry, logging, or any read that should not invalidate the caller when the signal changes. Aborts on cross-runtime read.
+
+```moonbit
+let value = count.peek() // value observed, dependency NOT recorded
+```
 
 ---
 
@@ -228,6 +252,10 @@ let sig = path.as_signal()
 let memo = Memo(rt, () => sig.get().length())
 ```
 
+### `TrackedCell::peek(self) -> T`
+
+Returns the current value without recording a dependency, like `Signal::peek`.
+
 ---
 
 ## Memo[T]
@@ -251,10 +279,14 @@ let tax = Memo(rt, () => price.get() * 0.1, label="tax")
 
 ### `Memo::get(self) -> T`
 
-Returns cached value, recomputing if stale. Aborts on cycle, or if called inside a memo computation that belongs to a different `Runtime`.
+Returns cached value, recomputing if stale. **Must be called inside another memo's compute** (it records a dependency on `self`). Aborts when called outside a tracked context — from top-level code, tests, or event handlers, use `rt.read(memo)` or `memo.observe()` instead. Aborts on cycle and on cross-runtime use.
 
-```moonbit
-let value = doubled.get()
+```moonbit nocheck
+// Inside another memo's compute:
+let total = Memo(rt, () => doubled.get() + 1)
+
+// Outside the graph:
+let value = rt.read(doubled)
 ```
 
 ### `Memo::get_result(self) -> Result[T, CycleError]`
@@ -264,7 +296,7 @@ Returns cached value as `Result`, allowing graceful cycle handling. Aborts (does
 ```moonbit
 match doubled.get_result() {
   Ok(v) => println(v.to_string())
-  Err(CycleDetected(cell, path)) => println("Cycle: " + cell.to_string())
+  Err(CycleDetected(cell, _path, _labels)) => println("Cycle: " + cell.to_string())
 }
 ```
 
@@ -341,7 +373,7 @@ match report.accumulated_result(diag_acc) {
 
 Keyed memoization map with one lazily-created `Memo[V]` per key.
 
-### `MemoMap::new[K, V](rt: Runtime, compute: (K) -> V, label? : String) -> MemoMap[K, V]`
+### `MemoMap::new[K : Hash + Eq, V](rt: Runtime, compute: (K) -> V, label? : String) -> MemoMap[K, V]`
 
 Creates an empty memo map. No per-key memo is allocated until first read of that key.
 
@@ -353,6 +385,10 @@ let named = MemoMap::new(rt, (id : Int) => id * 10, label="by_id")
 ### `MemoMap::get[K : Hash + Eq, V : Eq](self, key: K) -> V`
 
 Returns the value for `key`, creating and caching that key's memo on first access.
+
+### `MemoMap::get_tracked[K : Hash + Eq, V : Eq](self, key: K) -> V`
+
+Same as `get`, but additionally records the per-key memo as a dependency of the surrounding computation. Use inside a memo when you want invalidation tied to a specific key rather than to the map as a whole.
 
 ### `MemoMap::get_result[K : Hash + Eq, V : Eq](self, key: K) -> Result[V, CycleError]`
 
@@ -378,11 +414,11 @@ Returns the number of memo entries created so far.
 
 ## HybridMemo[T]
 
-Hybrid push-pull derived computation. Receives dirty flags eagerly via push propagation but verifies and recomputes lazily on `get()`.
+A derived value that sits on the boundary between the push-driven and pull-driven engines. Push-reachable from upstream `Reactive`/`Effect` subscribers (so a live observer downstream keeps the chain reachable for GC), but recomputation is triggered purely by lazy pull verification — there is no separate dirty flag. Staleness is detected by `verified_at < current_revision`.
 
 ### `HybridMemo::new[T : Eq](rt: Runtime, compute: () -> T, label? : String) -> HybridMemo[T]`
 
-Creates a hybrid memo. Increments `push_node_count` to enable push propagation.
+Creates a hybrid memo. Participates in `push_reachable_count` tracking so live reactive subscribers downstream keep upstream cells reachable.
 
 ```moonbit
 let h = HybridMemo::new(rt, () => signal.get() * 2)
@@ -391,15 +427,11 @@ let h = HybridMemo::new(rt, () => signal.get() * 2, label="doubled")
 
 ### `HybridMemo::get[T : Eq](self) -> T`
 
-Returns the memoized value, recomputing if necessary. Fast path: if `dirty = false` and already verified this revision, returns cached value immediately without any dependency walk. Aborts on cycle or cross-runtime read.
+Returns the memoized value, recomputing if necessary. **Must be called inside another memo's compute.** Outside the graph, use `rt.read_hybrid(h)` or `h.observe()`. Fast path: if already verified at the current revision, returns the cached value without walking dependencies. Aborts on cycle, cross-runtime read, or untracked top-level call.
 
-```moonbit
-let value = h.get()
+```moonbit nocheck
+let value = rt.read_hybrid(h)
 ```
-
-### `HybridMemo::get_result[T : Eq](self) -> Result[T, CycleError]`
-
-Result-returning variant of `get`, matching `Memo::get_result`.
 
 ### `HybridMemo::id(self) -> CellId`
 
@@ -646,7 +678,7 @@ Returns the list of cells this memo currently depends on. Empty if the memo has 
 ```moonbit
 let x = Signal(rt, 1)
 let doubled = Memo(rt, () => x.get() * 2)
-doubled.get() |> ignore
+let _ = rt.read(doubled)
 inspect(doubled.dependencies().contains(x.id()), content="true")
 ```
 
@@ -671,7 +703,7 @@ Returns an empty array if the cell ID is invalid, out of bounds, or belongs to a
 let rt = Runtime()
 let x = Signal(rt, 10)
 let doubled = Memo(rt, () => x.get() * 2)
-doubled.get() |> ignore
+let _ = rt.read(doubled)
 let deps = rt.dependents(x.id())
 inspect(deps.contains(doubled.id()), content="true")
 ```
@@ -851,7 +883,7 @@ Creates a hybrid memo using `db.runtime()`.
 let h = create_hybrid_memo(app, () => signal.get() * 2, label="doubled")
 ```
 
-### `create_memo_map[Db : Database, K, V](db: Db, f: (K) -> V, label? : String) -> MemoMap[K, V]`
+### `create_memo_map[Db : Database, K : Hash + Eq, V](db: Db, f: (K) -> V, label? : String) -> MemoMap[K, V]`
 
 Creates a memo map using `db.runtime()`. Each key is memoized independently.
 
@@ -878,15 +910,20 @@ create_tracked_cell(db, value, durability=High, label="cfg") // both
 
 **Returns:** `TrackedCell[T]`
 
+### `add_tracked[T : Trackable](scope: Scope, tracked: T) -> Unit`
+
+Registers every cell in a `Trackable` struct with `scope`, so that disposing the scope disposes all of the struct's fields in one call. This is the recommended way to manage `TrackedCell` lifetimes — see [Cookbook → Scope-owned accumulator](cookbook.md) and [Concepts → Tracked structs](concepts.md).
+
+```moonbit nocheck
+let scope = create_scope(app)
+let tracked = MyTracked::MyTracked(app)
+add_tracked(scope, tracked)
+scope.dispose() // disposes all of tracked's cells
+```
+
 ### `gc_tracked[T : Trackable](rt: Runtime, tracked: T) -> Unit`
 
-Marks all cells of a `Trackable` struct as GC roots.
-
-> **Note:** This is a no-op stub until Phase 4 adds GC infrastructure to the runtime. Include the call in your code now so that upgrading later requires no changes.
-
-```moonbit
-gc_tracked(rt, my_tracked_struct)
-```
+**Deprecated** no-op kept for source compatibility; use `add_tracked(scope, tracked)` instead. `TrackedCell` fields are leaves of the dependency graph, so marking them as GC roots keeps nothing alive — the original intent (since dispose/GC shipped) is better served by scope-bound lifetimes.
 
 ### `batch[Db : Database](db: Db, f: () -> Unit raise?) -> Unit raise?`
 

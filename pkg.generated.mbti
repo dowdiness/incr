@@ -23,7 +23,7 @@ pub fn[Db : Database, T : Eq] create_hybrid_memo(Db, () -> T raise Failure, labe
 
 pub fn[Db : Database, T : Eq] create_memo(Db, () -> T raise Failure, label? : String) -> @cells.Memo[T]
 
-pub fn[Db : Database, K, V] create_memo_map(Db, (K) -> V raise Failure, label? : String) -> @cells.MemoMap[K, V]
+pub fn[Db : Database, K : Hash + Eq, V] create_memo_map(Db, (K) -> V raise Failure, label? : String) -> @cells.MemoMap[K, V]
 
 pub fn[Db : Database] create_scope(Db) -> @cells.Scope
 
@@ -31,6 +31,7 @@ pub fn[Db : Database, T] create_signal(Db, T, durability? : @types.Durability, l
 
 pub fn[Db : Database, T] create_tracked_cell(Db, T, durability? : @types.Durability, label? : String) -> @cells.TrackedCell[T]
 
+#deprecated
 pub fn[T : Trackable] gc_tracked(@cells.Runtime, T) -> Unit
 
 // Errors

@@ -14,7 +14,8 @@ New to `incr`? Read these in order:
 
 ## API Reference
 
-- [API Reference](api-reference.md) — every public type, method, and helper
+- [API Reference](api-reference.md) — common public types, methods, and helpers (not exhaustive; the `.mbti` files in each package are authoritative)
+- [Architecture](architecture.md) — package responsibility map, four execution modes (pull / push / hybrid / Datalog), key types and invariants, extension points
 
 ## Performance
 

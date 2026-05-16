@@ -3,20 +3,20 @@ test "integration: diamond dependency" {
   // input -> A -> C
   //       -> B -> C
   // C depends on both A and B which both depend on input
-  let rt = Runtime::new()
-  let input = Signal::new(rt, 10)
+  let rt = Runtime::Runtime()
+  let input = Signal::Signal(rt, 10)
   let mut a_count = 0
-  let a = Memo::new(rt, () => {
+  let a = Memo::Memo(rt, () => {
     a_count = a_count + 1
     input.get() + 1
   })
   let mut b_count = 0
-  let b = Memo::new(rt, () => {
+  let b = Memo::Memo(rt, () => {
     b_count = b_count + 1
     input.get() * 2
   })
   let mut c_count = 0
-  let c = Memo::new(rt, () => {
+  let c = Memo::Memo(rt, () => {
     c_count = c_count + 1
     a.get() + b.get()
   })
@@ -35,13 +35,13 @@ test "integration: diamond dependency" {
 
 ///|
 test "integration: long chain (5 levels)" {
-  let rt = Runtime::new()
-  let input = Signal::new(rt, 1)
-  let l1 = Memo::new(rt, () => input.get() + 1)
-  let l2 = Memo::new(rt, () => l1.get() + 1)
-  let l3 = Memo::new(rt, () => l2.get() + 1)
-  let l4 = Memo::new(rt, () => l3.get() + 1)
-  let l5 = Memo::new(rt, () => l4.get() + 1)
+  let rt = Runtime::Runtime()
+  let input = Signal::Signal(rt, 1)
+  let l1 = Memo::Memo(rt, () => input.get() + 1)
+  let l2 = Memo::Memo(rt, () => l1.get() + 1)
+  let l3 = Memo::Memo(rt, () => l2.get() + 1)
+  let l4 = Memo::Memo(rt, () => l3.get() + 1)
+  let l5 = Memo::Memo(rt, () => l4.get() + 1)
   inspect(rt.read(l5), content="6") // 1 + 5
   input.set(10)
   inspect(rt.read(l5), content="15") // 10 + 5
@@ -51,12 +51,12 @@ test "integration: long chain (5 levels)" {
 
 ///|
 test "integration: multiple independent inputs" {
-  let rt = Runtime::new()
-  let x = Signal::new(rt, 2)
-  let y = Signal::new(rt, 3)
-  let z = Signal::new(rt, 5)
+  let rt = Runtime::Runtime()
+  let x = Signal::Signal(rt, 2)
+  let y = Signal::Signal(rt, 3)
+  let z = Signal::Signal(rt, 5)
   let mut compute_count = 0
-  let result = Memo::new(rt, () => {
+  let result = Memo::Memo(rt, () => {
     compute_count = compute_count + 1
     x.get() * y.get() + z.get()
   })
@@ -83,10 +83,10 @@ test "integration: diamond with backdating" {
   // When input goes from 5 to -5:
   // - is_positive changes (true -> false), so result must recompute
   // - abs_val stays 5 (backdated)
-  let rt = Runtime::new()
-  let input = Signal::new(rt, 5)
-  let is_positive = Memo::new(rt, () => input.get() > 0)
-  let abs_val = Memo::new(rt, () => {
+  let rt = Runtime::Runtime()
+  let input = Signal::Signal(rt, 5)
+  let is_positive = Memo::Memo(rt, () => input.get() > 0)
+  let abs_val = Memo::Memo(rt, () => {
     let v = input.get()
     if v < 0 {
       -v
@@ -95,7 +95,7 @@ test "integration: diamond with backdating" {
     }
   })
   let mut result_count = 0
-  let result = Memo::new(rt, () => {
+  let result = Memo::Memo(rt, () => {
     result_count = result_count + 1
     let sign = if is_positive.get() { 1 } else { -1 }
     sign * abs_val.get()
@@ -114,10 +114,10 @@ test "integration: diamond with backdating" {
 
 ///|
 test "integration: multiple reads of same memo" {
-  let rt = Runtime::new()
-  let input = Signal::new(rt, 7)
+  let rt = Runtime::Runtime()
+  let input = Signal::Signal(rt, 7)
   let mut compute_count = 0
-  let memo = Memo::new(rt, () => {
+  let memo = Memo::Memo(rt, () => {
     compute_count = compute_count + 1
     input.get() * input.get()
   })
@@ -130,12 +130,12 @@ test "integration: multiple reads of same memo" {
 
 ///|
 test "integration: cascading updates" {
-  let rt = Runtime::new()
-  let a = Signal::new(rt, 1)
-  let b = Signal::new(rt, 2)
-  let sum = Memo::new(rt, () => a.get() + b.get())
-  let product = Memo::new(rt, () => a.get() * b.get())
-  let combined = Memo::new(rt, () => sum.get() + product.get())
+  let rt = Runtime::Runtime()
+  let a = Signal::Signal(rt, 1)
+  let b = Signal::Signal(rt, 2)
+  let sum = Memo::Memo(rt, () => a.get() + b.get())
+  let product = Memo::Memo(rt, () => a.get() * b.get())
+  let combined = Memo::Memo(rt, () => sum.get() + product.get())
   inspect(rt.read(combined), content="5") // (1+2) + (1*2) = 3 + 2
   a.set(3)
   inspect(rt.read(combined), content="11") // (3+2) + (3*2) = 5 + 6
@@ -145,10 +145,10 @@ test "integration: cascading updates" {
 
 ///|
 test "integration: mixed durability chain" {
-  let rt = Runtime::new()
-  let config = Signal::new(rt, 10, durability=High)
-  let source = Signal::new(rt, 5)
-  let scaled = Memo::new(rt, () => source.get() * config.get())
+  let rt = Runtime::Runtime()
+  let config = Signal::Signal(rt, 10, durability=High)
+  let source = Signal::Signal(rt, 5)
+  let scaled = Memo::Memo(rt, () => source.get() * config.get())
   inspect(rt.read(scaled), content="50")
   // Only change low-durability input
   source.set(3)
@@ -160,9 +160,9 @@ test "integration: mixed durability chain" {
 
 ///|
 test "integration: repeated set-get cycles" {
-  let rt = Runtime::new()
-  let input = Signal::new(rt, 0)
-  let doubled = Memo::new(rt, () => input.get() * 2)
+  let rt = Runtime::Runtime()
+  let input = Signal::Signal(rt, 0)
+  let doubled = Memo::Memo(rt, () => input.get() * 2)
   for i = 1; i <= 10; i = i + 1 {
     input.set(i)
     let _ = rt.read(doubled)
@@ -174,15 +174,15 @@ test "integration: repeated set-get cycles" {
 test "integration: deep chain (200+ levels) - iterative verification" {
   // Stress test: a chain of 250 memos, each depending on the previous.
   // This would cause a stack overflow with recursive verification.
-  let rt = Runtime::new()
-  let input = Signal::new(rt, 1)
+  let rt = Runtime::Runtime()
+  let input = Signal::Signal(rt, 1)
   let depth = 250
   // Build chain: memos[0] depends on input, memos[i] depends on memos[i-1]
   let memos : Array[Memo[Int]] = []
-  memos.push(Memo::new(rt, () => input.get() + 1))
+  memos.push(Memo::Memo(rt, () => input.get() + 1))
   for i = 1; i < depth; i = i + 1 {
     let prev = memos[i - 1]
-    memos.push(Memo::new(rt, () => prev.get() + 1))
+    memos.push(Memo::Memo(rt, () => prev.get() + 1))
   }
   let tail = memos[depth - 1]
   // Initial: 1 + 250 = 251
@@ -199,12 +199,12 @@ test "integration: deep chain (200+ levels) - iterative verification" {
 test "integration: dynamic dependencies" {
   // A memo that conditionally reads different signals based on a flag.
   // When the flag flips, the dependency set changes between invocations.
-  let rt = Runtime::new()
-  let flag = Signal::new(rt, true)
-  let a = Signal::new(rt, 10)
-  let b = Signal::new(rt, 20)
+  let rt = Runtime::Runtime()
+  let flag = Signal::Signal(rt, true)
+  let a = Signal::Signal(rt, 10)
+  let b = Signal::Signal(rt, 20)
   let mut compute_count = 0
-  let result = Memo::new(rt, () => {
+  let result = Memo::Memo(rt, () => {
     compute_count = compute_count + 1
     if flag.get() {
       a.get()
@@ -239,11 +239,11 @@ test "integration: batch + on_change + memo chain fires once with correct final 
   // Verifies that when a batch updates multiple signals, the global on_change
   // fires exactly once, per-cell callbacks fire once per changed signal, and
   // downstream memos see the fully committed state (not intermediate values).
-  let rt = Runtime::new()
-  let x = Signal::new(rt, 0, label="x")
-  let y = Signal::new(rt, 0, label="y")
-  let sum = Memo::new(rt, () => x.get() + y.get(), label="sum")
-  let product = Memo::new(rt, () => x.get() * y.get(), label="product")
+  let rt = Runtime::Runtime()
+  let x = Signal::Signal(rt, 0, label="x")
+  let y = Signal::Signal(rt, 0, label="y")
+  let sum = Memo::Memo(rt, () => x.get() + y.get(), label="sum")
+  let product = Memo::Memo(rt, () => x.get() * y.get(), label="product")
   // Track callback invocations
   let global_fires : Ref[Int] = { val: 0 }
   let x_fires : Ref[Int] = { val: 0 }
@@ -289,9 +289,9 @@ test "integration: batch + on_change + memo chain fires once with correct final 
 
 ///|
 test "dispose: signal dispose cascades to memo staleness" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 10)
-  let m = Memo::new(rt, fn() { sig.get() * 2 })
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 10)
+  let m = Memo::Memo(rt, fn() { sig.get() * 2 })
   inspect(rt.read(m), content="20")
   sig.dispose()
   // Memo's dependency is now disposed — verifying should abort
@@ -301,10 +301,10 @@ test "dispose: signal dispose cascades to memo staleness" {
 
 ///|
 test "dispose: multiple signals, dispose one, others unaffected" {
-  let rt = Runtime::new()
-  let a = Signal::new(rt, 1)
-  let b = Signal::new(rt, 2)
-  let sum = Memo::new(rt, fn() { a.get() + b.get() })
+  let rt = Runtime::Runtime()
+  let a = Signal::Signal(rt, 1)
+  let b = Signal::Signal(rt, 2)
+  let sum = Memo::Memo(rt, fn() { a.get() + b.get() })
   inspect(rt.read(sum), content="3")
   a.dispose()
   assert_true(a.is_disposed())
@@ -314,8 +314,8 @@ test "dispose: multiple signals, dispose one, others unaffected" {
 
 ///|
 test "scope: add_observer triggers suspension on scope dispose" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 5)
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 5)
   let r = @incr.Reactive::new(rt, fn() { sig.get() + 1 })
   let scope = @incr.Scope::new(rt)
   let obs = scope.add_observer(r.observe())
@@ -331,9 +331,9 @@ test "scope: add_observer triggers suspension on scope dispose" {
 
 ///|
 test "memo_map: sweep after gc cleans up disposed entries" {
-  let rt = Runtime::new()
-  let source = Signal::new(rt, 1)
-  let mm = @incr.MemoMap::new(rt, fn(k : Int) { source.get() + k })
+  let rt = Runtime::Runtime()
+  let source = Signal::Signal(rt, 1)
+  let mm = @incr.MemoMap::MemoMap(rt, fn(k : Int) { source.get() + k })
   // Create entries
   ignore(mm.get(10))
   ignore(mm.get(20))
@@ -349,8 +349,8 @@ test "memo_map: sweep after gc cleans up disposed entries" {
 
 ///|
 test "cross-engine: fixpoint fires on_change only when facts change" {
-  let rt = Runtime::new()
-  let rel : @incr.Relation[Int] = @incr.Relation::new(rt, label="R")
+  let rt = Runtime::Runtime()
+  let rel : @incr.Relation[Int] = @incr.Relation::Relation(rt, label="R")
   let mut notifications = 0
   rt.set_on_change(() => notifications = notifications + 1)
   // Fixpoint with no pending delta — no notification expected
@@ -367,13 +367,13 @@ test "interning: InternId works as Relation element with O(1) equality" {
   // Validates that InternId can be used as a Datalog Relation element type.
   // Same semantic value → same InternId → relation dedups via integer hash/eq
   // on the tuple components, not structural comparison of the underlying String.
-  let rt = Runtime::new()
+  let rt = Runtime::Runtime()
   let names : @incr.InternTable[String] = @incr.InternTable::new()
-  let calls : @incr.Relation[(@incr.InternId, @incr.InternId)] = @incr.Relation::new(
+  let calls : @incr.Relation[(@incr.InternId, @incr.InternId)] = @incr.Relation::Relation(
     rt,
     label="calls",
   )
-  let reachable : @incr.Relation[(@incr.InternId, @incr.InternId)] = @incr.Relation::new(
+  let reachable : @incr.Relation[(@incr.InternId, @incr.InternId)] = @incr.Relation::Relation(
     rt,
     label="reachable",
   )

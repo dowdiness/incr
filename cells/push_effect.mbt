@@ -24,7 +24,7 @@ pub fn Effect::new(rt : Runtime, f : () -> Unit) -> Effect {
         label: None,
         changed_at: Revision::initial(),
         durability: Low,
-        subscribers: @hashset.new(),
+        subscribers: @hashset.HashSet([]),
         push_reachable_count: 0,
       },
       execute: f,

@@ -5,7 +5,7 @@
 test "CellId::hash is non-commutative" {
   let a = CellId::{ runtime_id: 1, id: 2 }
   let b = CellId::{ runtime_id: 2, id: 1 }
-  inspect(a.hash() == b.hash(), content="false")
+  debug_inspect(a.hash() == b.hash(), content="false")
 }
 
 ///|
@@ -18,16 +18,21 @@ test "CellId::hash equal inputs produce equal hashes" {
 
 ///|
 test "signal label stored in PullSignalData" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 0, label="my_signal")
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 0, label="my_signal")
   let data = rt.get_pull_signal(sig.id())
-  inspect(data.meta.label, content="Some(\"my_signal\")")
+  debug_inspect(
+    data.meta.label,
+    content=(
+      #|Some("my_signal")
+    ),
+  )
 }
 
 ///|
 test "signal None label stored in PullSignalData" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 0)
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 0)
   let data = rt.get_pull_signal(sig.id())
-  inspect(data.meta.label, content="None")
+  debug_inspect(data.meta.label, content="None")
 }

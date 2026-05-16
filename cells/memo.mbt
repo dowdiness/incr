@@ -32,13 +32,18 @@ pub(all) struct Memo[T] {
   priv compute : () -> T raise Failure
   priv backdate_eq : (T, T) -> Bool // captured at construction; replaces hardcoded a==b
   priv mut value : T?
-
-  fn[T : Eq] new(
-    rt : Runtime,
-    compute : () -> T raise Failure,
-    label? : String,
-  ) -> Memo[T]
 } derive(Debug(ignore=[Runtime, Fn, CellId]))
+
+///|
+/// Constructor-syntax alias of `Memo::new`. Enables `Memo(rt, compute)` /
+/// `Memo(rt, compute, label="...")` call sites.
+pub fn[T : Eq] Memo::Memo(
+  rt : Runtime,
+  compute : () -> T raise Failure,
+  label? : String,
+) -> Memo[T] {
+  Memo::new(rt, compute, label?)
+}
 
 ///|
 // Shared SoA allocation + registration for all Memo constructors.
@@ -60,7 +65,7 @@ fn[T] Memo::_create(
       label,
       changed_at: Revision::initial(),
       durability: Low,
-      subscribers: @hashset.new(),
+      subscribers: @hashset.HashSet([]),
       push_reachable_count: 0,
     },
     compute: () => memo.recompute_inner(),
@@ -69,7 +74,7 @@ fn[T] Memo::_create(
     in_progress: false,
     on_change: None,
     is_hybrid: false,
-    accumulator_reads: @hashmap.new(),
+    accumulator_reads: @hashmap.HashMap([]),
     has_been_computed: false,
   }
   if memo_idx < rt.pull.memos.length() {

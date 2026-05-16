@@ -47,8 +47,13 @@ pub(all) struct Runtime {
     @incr_types.CellId,
     @hashset.HashSet[@incr_types.AccumulatorId],
   ]
+}
 
-  fn new(on_change? : () -> Unit) -> Runtime
+///|
+/// Constructor-syntax alias of `Runtime::new`. Enables `Runtime()` /
+/// `Runtime(on_change=...)` call sites.
+pub fn Runtime::Runtime(on_change? : () -> Unit) -> Runtime {
+  Runtime::new(on_change?)
 }
 
 ///|
@@ -77,7 +82,7 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
       cell_index: [],
       cell_ops: [],
       phase: Idle,
-      gc_root_counts: @hashmap.new(),
+      gc_root_counts: @hashmap.HashMap([]),
     },
     pull: { signals: [], memos: [], free_signals: [], free_memos: [] },
     push: {
@@ -92,7 +97,7 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
     accumulator_slots: [],
     accumulator_snapshots: [],
     next_accumulator_id: 0,
-    accumulator_contributions: @hashmap.new(),
+    accumulator_contributions: @hashmap.HashMap([]),
   }
 }
 

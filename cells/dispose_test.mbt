@@ -1,7 +1,7 @@
 ///|
 test "signal: dispose marks cell as disposed" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 42)
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 42)
   assert_false(sig.is_disposed())
   sig.dispose()
   assert_true(sig.is_disposed())
@@ -9,8 +9,8 @@ test "signal: dispose marks cell as disposed" {
 
 ///|
 test "signal: dispose is idempotent" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 42)
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 42)
   sig.dispose()
   sig.dispose() // second call is no-op, no abort
   assert_true(sig.is_disposed())
@@ -18,17 +18,17 @@ test "signal: dispose is idempotent" {
 
 ///|
 test "panic signal: get after dispose aborts" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 42)
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 42)
   sig.dispose()
   ignore(sig.get()) // should abort
 }
 
 ///|
 test "memo: dispose marks cell as disposed" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 10)
-  let m = Memo::new(rt, fn() { sig.get() * 2 })
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 10)
+  let m = Memo::Memo(rt, fn() { sig.get() * 2 })
   ignore(rt.read(m)) // prime
   assert_false(m.is_disposed())
   m.dispose()
@@ -37,9 +37,9 @@ test "memo: dispose marks cell as disposed" {
 
 ///|
 test "memo: dispose is idempotent" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 10)
-  let m = Memo::new(rt, fn() { sig.get() * 2 })
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 10)
+  let m = Memo::Memo(rt, fn() { sig.get() * 2 })
   ignore(rt.read(m))
   m.dispose()
   m.dispose() // no-op
@@ -48,9 +48,9 @@ test "memo: dispose is idempotent" {
 
 ///|
 test "panic memo: get after dispose aborts" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 10)
-  let m = Memo::new(rt, fn() { sig.get() * 2 })
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 10)
+  let m = Memo::Memo(rt, fn() { sig.get() * 2 })
   ignore(rt.read(m))
   m.dispose()
   ignore(rt.read(m)) // should abort
@@ -58,12 +58,12 @@ test "panic memo: get after dispose aborts" {
 
 ///|
 test "memo: dispose then new memo works independently" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 10)
-  let m1 = Memo::new(rt, fn() { sig.get() * 2 })
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 10)
+  let m1 = Memo::Memo(rt, fn() { sig.get() * 2 })
   ignore(rt.read(m1))
   m1.dispose()
-  let m2 = Memo::new(rt, fn() { sig.get() * 3 })
+  let m2 = Memo::Memo(rt, fn() { sig.get() * 3 })
   assert_eq(rt.read(m2), 30)
   assert_true(m1.is_disposed())
   assert_false(m2.is_disposed())
@@ -71,9 +71,9 @@ test "memo: dispose then new memo works independently" {
 
 ///|
 test "hybrid memo: is_disposed returns correct state" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 10)
-  let h = HybridMemo::new(rt, fn() { sig.get() * 2 })
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 10)
+  let h = HybridMemo::HybridMemo(rt, fn() { sig.get() * 2 })
   ignore(rt.read_hybrid(h))
   assert_false(h.is_disposed())
   h.dispose()
@@ -82,8 +82,8 @@ test "hybrid memo: is_disposed returns correct state" {
 
 ///|
 test "reactive: is_disposed returns correct state" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 10)
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 10)
   let r = Reactive::new(rt, fn() { sig.get() * 2 })
   assert_false(r.is_disposed())
   r.dispose()
@@ -92,8 +92,8 @@ test "reactive: is_disposed returns correct state" {
 
 ///|
 test "effect: is_disposed returns correct state" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 10)
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 10)
   let eff = Effect::new(rt, fn() { ignore(sig.get()) })
   assert_false(eff.is_disposed())
   eff.dispose()
@@ -102,8 +102,8 @@ test "effect: is_disposed returns correct state" {
 
 ///|
 test "relation: dispose marks cell as disposed" {
-  let rt = Runtime::new()
-  let rel : Relation[Int] = Relation::new(rt)
+  let rt = Runtime::Runtime()
+  let rel : Relation[Int] = Relation::Relation(rt)
   rel.insert(42) |> ignore
   assert_false(rel.is_disposed())
   rel.dispose()
@@ -112,8 +112,8 @@ test "relation: dispose marks cell as disposed" {
 
 ///|
 test "relation: dispose is idempotent" {
-  let rt = Runtime::new()
-  let rel : Relation[Int] = Relation::new(rt)
+  let rt = Runtime::Runtime()
+  let rel : Relation[Int] = Relation::Relation(rt)
   rel.dispose()
   rel.dispose() // no-op
   assert_true(rel.is_disposed())
@@ -121,8 +121,10 @@ test "relation: dispose is idempotent" {
 
 ///|
 test "functional relation: dispose marks cell as disposed" {
-  let rt = Runtime::new()
-  let frel : FunctionalRelation[Int, String] = FunctionalRelation::new(rt)
+  let rt = Runtime::Runtime()
+  let frel : FunctionalRelation[Int, String] = FunctionalRelation::FunctionalRelation(
+    rt,
+  )
   frel.insert(1, "a") |> ignore
   assert_false(frel.is_disposed())
   frel.dispose()
@@ -131,8 +133,10 @@ test "functional relation: dispose marks cell as disposed" {
 
 ///|
 test "functional relation: dispose is idempotent" {
-  let rt = Runtime::new()
-  let frel : FunctionalRelation[Int, String] = FunctionalRelation::new(rt)
+  let rt = Runtime::Runtime()
+  let frel : FunctionalRelation[Int, String] = FunctionalRelation::FunctionalRelation(
+    rt,
+  )
   frel.dispose()
   frel.dispose() // no-op
   assert_true(frel.is_disposed())
@@ -140,9 +144,9 @@ test "functional relation: dispose is idempotent" {
 
 ///|
 test "rule: dispose_rule does not abort" {
-  let rt = Runtime::new()
-  let rel : Relation[Int] = Relation::new(rt)
-  let out : Relation[Int] = Relation::new(rt)
+  let rt = Runtime::Runtime()
+  let rel : Relation[Int] = Relation::Relation(rt)
+  let out : Relation[Int] = Relation::Relation(rt)
   let rule_id = rt.new_rule([rel.id()], [out.id()], fn() {
     for x in rel.delta_iter() {
       out.insert(x * 2) |> ignore
@@ -153,9 +157,9 @@ test "rule: dispose_rule does not abort" {
 
 ///|
 test "rule: dispose_rule is idempotent" {
-  let rt = Runtime::new()
-  let rel : Relation[Int] = Relation::new(rt)
-  let out : Relation[Int] = Relation::new(rt)
+  let rt = Runtime::Runtime()
+  let rel : Relation[Int] = Relation::Relation(rt)
+  let out : Relation[Int] = Relation::Relation(rt)
   let rule_id = rt.new_rule([rel.id()], [out.id()], fn() {
     for x in rel.delta_iter() {
       out.insert(x * 2) |> ignore
@@ -167,8 +171,8 @@ test "rule: dispose_rule is idempotent" {
 
 ///|
 test "tracked cell: dispose delegates to inner signal" {
-  let rt = Runtime::new()
-  let cell = TrackedCell::new(rt, 42)
+  let rt = Runtime::Runtime()
+  let cell = TrackedCell::TrackedCell(rt, 42)
   assert_false(cell.is_disposed())
   cell.dispose()
   assert_true(cell.is_disposed())
@@ -176,8 +180,8 @@ test "tracked cell: dispose delegates to inner signal" {
 
 ///|
 test "signal: dispose during batch discards pending write" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 10)
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 10)
   rt.batch(fn() {
     sig.set(20) // queued as pending
     sig.dispose() // should discard the pending write
@@ -188,8 +192,8 @@ test "signal: dispose during batch discards pending write" {
 
 ///|
 test "panic signal: set after dispose aborts" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 42)
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 42)
   sig.dispose()
   sig.set(99) // should abort
 }
@@ -199,10 +203,10 @@ test "signal: dispose of a dependency during computation is safe" {
   // Disposing a different cell during a memo's compute function is allowed.
   // The memo will still see the value it already read. Future reads of the
   // disposed cell will abort, which is the caller's responsibility.
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 10)
-  let other_sig = Signal::new(rt, 99)
-  let m = Memo::new(rt, fn() {
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 10)
+  let other_sig = Signal::Signal(rt, 99)
+  let m = Memo::Memo(rt, fn() {
     let v = sig.get()
     other_sig.dispose() // dispose a DIFFERENT cell — allowed
     v
@@ -213,9 +217,9 @@ test "signal: dispose of a dependency during computation is safe" {
 
 ///|
 test "disposed rule is skipped during fixpoint" {
-  let rt = Runtime::new()
-  let input : Relation[Int] = Relation::new(rt)
-  let output : Relation[Int] = Relation::new(rt)
+  let rt = Runtime::Runtime()
+  let input : Relation[Int] = Relation::Relation(rt)
+  let output : Relation[Int] = Relation::Relation(rt)
   let rule_id = rt.new_rule([input.id()], [output.id()], fn() {
     for x in input.delta_iter() {
       output.insert(x * 10) |> ignore
@@ -234,26 +238,28 @@ test "disposed rule is skipped during fixpoint" {
 
 ///|
 test "panic relation: insert after dispose aborts" {
-  let rt = Runtime::new()
-  let rel : Relation[Int] = Relation::new(rt)
+  let rt = Runtime::Runtime()
+  let rel : Relation[Int] = Relation::Relation(rt)
   rel.dispose()
   rel.insert(42) |> ignore // should abort
 }
 
 ///|
 test "panic functional relation: insert after dispose aborts" {
-  let rt = Runtime::new()
-  let frel : FunctionalRelation[Int, String] = FunctionalRelation::new(rt)
+  let rt = Runtime::Runtime()
+  let frel : FunctionalRelation[Int, String] = FunctionalRelation::FunctionalRelation(
+    rt,
+  )
   frel.dispose()
   frel.insert(1, "a") |> ignore // should abort
 }
 
 ///|
 test "dispose_cell: dispatches to correct dispose method for each cell type" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 10)
-  let memo = Memo::new(rt, fn() { sig.get() * 2 })
-  let hybrid = HybridMemo::new(rt, fn() { sig.get() + 1 })
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 10)
+  let memo = Memo::Memo(rt, fn() { sig.get() * 2 })
+  let hybrid = HybridMemo::HybridMemo(rt, fn() { sig.get() + 1 })
   // Force memos to compute so they have dependencies
   let _ = rt.read(memo)
   let _ = rt.read_hybrid(hybrid)
@@ -268,8 +274,8 @@ test "dispose_cell: dispatches to correct dispose method for each cell type" {
 
 ///|
 test "dispose_cell: idempotent — disposing already-disposed cell is no-op" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 42)
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 42)
   rt.dispose_cell(sig.id())
   // Second dispose should not abort
   rt.dispose_cell(sig.id())
@@ -278,8 +284,8 @@ test "dispose_cell: idempotent — disposing already-disposed cell is no-op" {
 
 ///|
 test "dispose_cell: push reactive and effect" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 1)
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 1)
   let reactive : Reactive[Int] = Reactive::new(rt, fn() { sig.get() })
   let effect_ran : Ref[Int] = { val: 0 }
   let eff = Effect::new(rt, fn() { effect_ran.val = effect_ran.val + sig.get() })
@@ -291,9 +297,9 @@ test "dispose_cell: push reactive and effect" {
 
 ///|
 test "panic dispose_cell: rejects foreign runtime CellId" {
-  let rt1 = Runtime::new()
-  let rt2 = Runtime::new()
-  let sig = Signal::new(rt1, 42)
+  let rt1 = Runtime::Runtime()
+  let rt2 = Runtime::Runtime()
+  let sig = Signal::Signal(rt1, 42)
   // Attempting to dispose rt1's cell via rt2 should abort
   rt2.dispose_cell(sig.id())
 }

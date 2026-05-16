@@ -35,8 +35,8 @@ pub(all) struct InternTable[T] {
 }
 
 ///|
-pub fn[T] InternTable::new() -> InternTable[T] {
-  { to_id: @hashmap.new(), values: [] }
+pub fn[T : Hash + Eq] InternTable::new() -> InternTable[T] {
+  { to_id: @hashmap.HashMap([]), values: [] }
 }
 
 ///|

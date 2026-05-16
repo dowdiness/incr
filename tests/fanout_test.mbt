@@ -1,7 +1,7 @@
 ///|
 test "fanout: single signal with many downstream memos" {
-  let rt = Runtime::new()
-  let input = Signal::new(rt, 10)
+  let rt = Runtime::Runtime()
+  let input = Signal::Signal(rt, 10)
   let count = 100
   let memos : Array[Memo[Int]] = []
   let compute_counts : Array[Ref[Int]] = []
@@ -12,7 +12,7 @@ test "fanout: single signal with many downstream memos" {
     compute_counts.push(counter)
     let multiplier = i + 1
     memos.push(
-      Memo::new(rt, () => {
+      Memo::Memo(rt, () => {
         counter.val = counter.val + 1
         input.get() * multiplier
       }),
@@ -45,16 +45,16 @@ test "fanout: single signal with many downstream memos" {
 ///|
 test "fanout: aggregator memo over many inputs" {
   // Reverse pattern: many signals feeding into one memo
-  let rt = Runtime::new()
+  let rt = Runtime::Runtime()
   let count = 50
   let signals : Array[Signal[Int]] = []
 
   for i = 0; i < count; i = i + 1 {
-    signals.push(Signal::new(rt, i))
+    signals.push(Signal::Signal(rt, i))
   }
 
   let mut compute_count = 0
-  let sum = Memo::new(rt, () => {
+  let sum = Memo::Memo(rt, () => {
     compute_count = compute_count + 1
     let mut total = 0
     for i = 0; i < count; i = i + 1 {
@@ -80,14 +80,14 @@ test "fanout: aggregator memo over many inputs" {
 
 ///|
 test "fanout: two-level fanout (signal -> level1 -> level2)" {
-  let rt = Runtime::new()
-  let input = Signal::new(rt, 5)
+  let rt = Runtime::Runtime()
+  let input = Signal::Signal(rt, 5)
 
   // Level 1: 10 memos directly depending on input
   let level1 : Array[Memo[Int]] = []
   for i = 0; i < 10; i = i + 1 {
     let offset = i
-    level1.push(Memo::new(rt, () => input.get() + offset))
+    level1.push(Memo::Memo(rt, () => input.get() + offset))
   }
 
   // Level 2: each level1 memo has 5 downstream memos (50 total)
@@ -100,7 +100,7 @@ test "fanout: two-level fanout (signal -> level1 -> level2)" {
       level2_counts.push(counter)
       let mult = j + 1
       level2.push(
-        Memo::new(rt, () => {
+        Memo::Memo(rt, () => {
           counter.val = counter.val + 1
           parent.get() * mult
         }),

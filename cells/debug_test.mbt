@@ -1,7 +1,7 @@
 ///|
 test "Signal derives Debug" {
-  let rt = Runtime::new()
-  let s = Signal::new(rt, 42)
+  let rt = Runtime::Runtime()
+  let s = Signal::Signal(rt, 42)
   debug_inspect(
     s,
     content=(
@@ -19,9 +19,9 @@ test "Signal derives Debug" {
 
 ///|
 test "Memo derives Debug before compute" {
-  let rt = Runtime::new()
-  let s = Signal::new(rt, 10)
-  let m = Memo::new(rt, () => s.get() * 2)
+  let rt = Runtime::Runtime()
+  let s = Signal::Signal(rt, 10)
+  let m = Memo::Memo(rt, () => s.get() * 2)
   debug_inspect(
     m,
     content=(
@@ -39,9 +39,9 @@ test "Memo derives Debug before compute" {
 
 ///|
 test "Memo derives Debug after compute" {
-  let rt = Runtime::new()
-  let s = Signal::new(rt, 10)
-  let m = Memo::new(rt, () => s.get() * 2)
+  let rt = Runtime::Runtime()
+  let s = Signal::Signal(rt, 10)
+  let m = Memo::Memo(rt, () => s.get() * 2)
   let _ = rt.read(m)
   debug_inspect(
     m,
@@ -60,7 +60,7 @@ test "Memo derives Debug after compute" {
 
 ///|
 test "TrackedCell derives Debug" {
-  let rt = Runtime::new()
-  let cell = TrackedCell::new(rt, 42, label="test")
+  let rt = Runtime::Runtime()
+  let cell = TrackedCell::TrackedCell(rt, 42, label="test")
   debug_inspect(cell, content="{ signal: ... }")
 }

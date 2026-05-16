@@ -14,8 +14,16 @@ pub(all) struct Relation[T] {
   priv current : Ref[@hashset.HashSet[T]]
   priv delta : Ref[@hashset.HashSet[T]]
   priv staged_delta : Ref[@hashset.HashSet[T]]
+}
 
-  fn[T : Hash + Eq] new(rt : Runtime, label? : String) -> Relation[T]
+///|
+/// Constructor-syntax alias of `Relation::new`. Enables `Relation(rt)` /
+/// `Relation(rt, label="...")` call sites.
+pub fn[T : Hash + Eq] Relation::Relation(
+  rt : Runtime,
+  label? : String,
+) -> Relation[T] {
+  Relation::new(rt, label?)
 }
 
 ///|
@@ -25,16 +33,16 @@ pub fn[T : Hash + Eq] Relation::new(
 ) -> Relation[T] {
   let idx = rt.datalog.relations.length()
   let cell_id = rt.alloc_cell_id(Relation(idx))
-  let current : Ref[@hashset.HashSet[T]] = { val: @hashset.new() }
-  let delta : Ref[@hashset.HashSet[T]] = { val: @hashset.new() }
-  let staged_delta : Ref[@hashset.HashSet[T]] = { val: @hashset.new() }
+  let current : Ref[@hashset.HashSet[T]] = { val: @hashset.HashSet([]) }
+  let delta : Ref[@hashset.HashSet[T]] = { val: @hashset.HashSet([]) }
+  let staged_delta : Ref[@hashset.HashSet[T]] = { val: @hashset.HashSet([]) }
   let data : RelationData = {
     meta: {
       cell_id,
       label,
       changed_at: Revision::initial(),
       durability: Low,
-      subscribers: @hashset.new(),
+      subscribers: @hashset.HashSet([]),
       push_reachable_count: 0,
     },
     drain_delta: () => {
