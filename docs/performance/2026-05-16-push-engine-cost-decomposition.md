@@ -7,7 +7,8 @@
 (the Link-list port investigation that surfaced these broader findings)
 **Status:** Strategic ranking complete. Chosen direction: **per-recompute
 allocation elimination (tracking-buffer reuse)**. Disposed-cell anomaly
-captured as a separate follow-up investigation.
+**retracted 2026-05-17** — reproduction showed labels were swapped in the
+original notebook; see §"Key finding (retracted 2026-05-17)" below.
 
 > **Result note (added 2026-05-16, same session):** The chosen direction
 > shipped as lazy-allocation only — pool reuse of the full `ActiveQuery`
@@ -30,28 +31,28 @@ revealed higher-leverage targets than Link-list.
 Two diagnostic benches were added to `tests/bench_test.mbt` to isolate where
 unexpected push-engine cost comes from:
 
-| Bench | Cost | What it tells us |
-|---|---:|---|
-| `signal: set new value` (no cells) | 5.25 ns | True cold baseline. |
-| `100 disposed reactives on **separate** signal` | 45 ns | Cell-index size alone is not the cost. |
-| `100 disposed reactives on **same** signal` | **27.75 µs** | Per-disposed-cell work on the signal they were subscribed to. |
-| `100 abandoned reactives` (handles dropped, never disposed) | 60 ns | Measured cost suggests these aren't traversed during push. Lifecycle path not yet traced — `rt.gc()` is never called in the bench, so the runtime's SoA still holds them. Likely candidate: wasm-gc compile-time elimination of the unobserved closures (the handle is `ignore()`'d). Either way, these are not a real fanout measurement. |
-| `100 live reactives` (held by array, no observer) | 1.73 µs (high σ) | High variance plus low absolute cost suggests wasm-gc is also eliminating these. Hold a live observer to get a trustworthy fanout measurement. |
-| `500-reactive fanout` (held by array, observed via reactivity) | 138 µs / 276 ns/reactive | Trustworthy steady-state push fanout. |
-| `1000-reactive fanout` | 289 µs / 289 ns/reactive | Linear from 500; trustworthy. |
+| Bench | Cost (2026-05-16 notes) | Reproduced 2026-05-17 (fed9428) | What it tells us |
+|---|---:|---:|---|
+| `signal: set new value` (no cells) | 5.25 ns | ~44 ns | Cold baseline; absolute number drifts with bench-harness noise on wasm-gc but the relative shape is stable. |
+| `100 disposed reactives on **separate** signal` (`bench_test.mbt:461`) | 45 ns | ~43 ns | Cell-index size alone is not the cost. |
+| `100 disposed reactives on **same** signal` (`bench_test.mbt:200`) | (claimed 27.75 µs — retracted) | ~45 ns | **Same cost as the separate-signal case.** Dispose lifecycle clears `sig.subscribers` and decrements `push.node_count` to 0, so `propagate_changes` skips `push_propagate_from`. Regression guard: `cells/push_reactive_wbtest.mbt` "dispose: 100 reactives on one signal leave subscribers empty and node_count zero". |
+| `100 abandoned reactives` (handles dropped, never disposed) (`bench_test.mbt:216`) | (claimed 60 ns — retracted) | ~19 µs | **Matches `100 live reactives` fanout cost.** `rt.gc()` is never called, the SoA still holds them, `push.node_count` is 100. The wasm-gc compile-time-elimination hypothesis from 2026-05-16 was wrong — the closures are reachable from `rt.push.reactives[i].compute`. |
+| `100 live reactives` (held by array, no observer) (`bench_test.mbt:183`) | 1.73 µs (high σ — claimed wasm-gc elimination) | ~19–26 µs | Real fanout cost; the 2026-05-16 measurement was an outlier or different config. |
+| `500-reactive fanout` (held by array, observed via reactivity) | 138 µs / 276 ns/reactive | — | Trustworthy steady-state push fanout. |
+| `1000-reactive fanout` | 289 µs / 289 ns/reactive | — | Linear from 500; trustworthy. |
 
-### Key finding: disposed-on-same-signal anomaly
+### Key finding (retracted 2026-05-17): no disposed-on-same-signal anomaly
 
-`100 disposed reactives on **same** signal` costs **240 ns per disposed cell**
-per signal set. `push.node_count == 0` after the last dispose, so `push_propagate_from`
-is skipped entirely. The cost must come from a path that still iterates work
-proportional to disposed-cell count on `sig.subscribers` — either dispose's
-`remove_subscriber` call leaves entries behind, or `set_changed_at` / some
-other arm walks the subscriber set.
-
-**For any real app with cell churn (editor sessions creating/disposing memos
-as the user navigates), this is a perf cliff far larger than any per-reactive
-push-path optimization.** Tracked as a separate investigation.
+The 2026-05-16 analysis claimed a 240-ns-per-disposed-cell cost when 100
+reactives disposed on a signal had that signal then set. Reproduction on
+fed9428 shows ~45 ns, matching both the cold baseline and the separate-signal
+bench. The 27.75 µs figure was the `100 abandoned reactives` bench
+(`bench_test.mbt:216`) — labels were swapped in the 2026-05-16 notebook.
+Dispose lifecycle works correctly: `sig.subscribers` ends at 0, `push.node_count`
+ends at 0, and `propagate_changes` skips push propagation. The
+**abandoned-handle** case is the slow one, and it is correct behavior:
+`ignore`-ing a `Reactive::new` handle leaves the cell alive in the SoA;
+the user must call `dispose` or run `rt.gc()` to actually retire it.
 
 ## Per-reactive cost decomposition (N=1000 fanout, ~289 ns/reactive)
 
@@ -130,20 +131,14 @@ implementation cost.
   to the full pool design. If not, the allocation cost is smaller than
   estimated and the strategy needs rethinking.
 
-### 2. Disposed-cell anomaly investigation
+### 2. Disposed-cell anomaly investigation — retracted 2026-05-17
 
-**Estimated saving:** Unknown but potentially large for cell-churn workloads.
-~240 ns per disposed cell per signal set with the disposed cell still in the
-subscriber list. For an editor that disposes 1000s of memos over a session
-and keeps setting signals, this compounds.
-
-**First step:** whitebox-test that disposing 100 reactives on a signal leaves
-`sig.subscribers.size() == 0` (or NOT). The two outcomes lead to very
-different fixes:
-- If subscribers is empty: cost is in some other path that iterates work
-  proportional to disposed-cell count. Trace it.
-- If subscribers still has entries: dispose's `remove_subscriber` isn't
-  removing them. Bug in the lifecycle.
+**No anomaly exists.** Reproduction on fed9428 measured the disposed-on-same-signal
+bench at ~45 ns/set (cold baseline), not 240 ns/cell. The 27.75 µs figure was the
+`100 abandoned reactives` bench — labels were swapped in the 2026-05-16 notebook.
+Regression guard pinned at `cells/push_reactive_wbtest.mbt` ("dispose: 100
+reactives on one signal leave subscribers empty and node_count zero"). Dispose
+lifecycle is correct; both `sig.subscribers` and `push.node_count` end at 0.
 
 ### 3. Scheduler rewrite: priority-queue → level-bucketed dirty list
 
@@ -180,9 +175,7 @@ Reasons:
 - Allocations on the hot path are persistent GC pressure, not a one-time cost
   — they compound with every change that adds more push reactives.
 
-**File #2 (disposed-cell anomaly) as a separate parallel investigation** —
-it's potentially much larger but is a bug-shape problem (find and fix), not a
-design problem.
+**File #2 (disposed-cell anomaly) — retracted 2026-05-17.** No anomaly; see §2 above.
 
 **Defer #3 (scheduler rewrite) and #4 (Link-list port) until #1 lands** and
 the per-reactive cost ceiling is clearly visible.
