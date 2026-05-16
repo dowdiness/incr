@@ -4,6 +4,20 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **MoonBit v0.9.2 migration.** Updated stdlib calls: `@hashmap.new()` → `@hashmap.HashMap([])`, `@hashset.new()` → `@hashset.HashSet([])`, `@priority_queue.new()` → `@priority_queue.PriorityQueue([])`, `Ref::new(x)` → `Ref(x)`. Test snapshots using container `Show` impls (Option, Array, Map) migrated from `inspect` → `debug_inspect` since v0.9.2 deprecates `Show` on containers for debug output.
+- **Constructor declarations modernized.** The in-struct `fn new(..)` declaration is deprecated in v0.9.2 in favour of a separated toplevel `fn Type::Type(..)`. Library types — `Runtime`, `Signal`, `Memo`, `HybridMemo`, `MemoMap`, `TrackedCell`, `Relation`, `FunctionalRelation`, plus internal `ActiveQuery` and `BatchFrame` — now declare an explicit `Type::Type` constructor alias that delegates to the existing `Type::new` body. Both forms remain in the public surface: `Type(args)` / `Type::Type(args)` constructor sugar and `Type::new(args)` direct calls.
+- **Tightened type bounds** to match the new stdlib constructor signatures:
+  - `MemoMap::new` / `create_memo_map`: `K : Hash + Eq` (was unconstrained `K`)
+  - `InternTable::new`: `T : Hash + Eq` (was unconstrained `T`)
+
+  These bounds were already required by every key-observing operation (`get`, `contains`, `intern`, `set`). Constructing an empty container and only using non-key-observing methods (e.g. `length`, `clear`, `len`) was technically possible without the bound and is now rejected at type-check time. No working caller relied on this path within the repository. Classified as a minor-bump tightening under the same "no external consumers yet" policy as the `.get()` tracked-context change in 0.5.0.
+
+### Deprecated
+
+- `gc_tracked(rt, tracked)` — was already a no-op; now carries a `#deprecated` attribute pointing to `add_tracked(scope, tracked)` for lifecycle management. Source-compatible.
+
 ## [0.5.1] - 2026-04-26
 
 ### Changed

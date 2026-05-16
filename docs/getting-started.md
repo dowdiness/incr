@@ -18,19 +18,19 @@ import {
 
 The recommended way to use `incr` is to encapsulate the `Runtime` in your own database type. This keeps the runtime as an implementation detail and makes your API cleaner.
 
-```moonbit
+```moonbit nocheck
 struct MyApp {
   rt : Runtime
+}
 
-  fn new() -> MyApp
+fn MyApp::MyApp() -> MyApp {
+  { rt: Runtime::new() }
 }
 
 impl Database for MyApp with runtime(self) { self.rt }
-
-fn MyApp::new() -> MyApp {
-  { rt: Runtime() }
-}
 ```
+
+The `MyApp()` constructor syntax is enabled by the `fn MyApp::MyApp(...) -> MyApp` declaration. (An older, deprecated form declared `fn new()` *inside* the struct body — avoid it in new code.)
 
 Now you can use the database-centric API throughout your code without passing `Runtime` around explicitly.
 
@@ -56,10 +56,10 @@ let quantity = create_signal(app, 5, label="quantity")
 ```
 
 **Direct Runtime:**
-```moonbit
-let rt = Runtime()
-let price = Signal(rt, 100, label="price")
-let quantity = Signal(rt, 5, label="quantity")
+```moonbit nocheck
+let rt = Runtime::new()
+let price = Signal::new(rt, 100, label="price")
+let quantity = Signal::new(rt, 5, label="quantity")
 ```
 
 > **Tip:** Always set a `label`. It has no runtime cost and makes cycle error messages and debug output much easier to read. For example, instead of `"Runtime 0 / Cell 2 → Cell 0 → …"` you'll see `"price → total → …"`.
@@ -74,21 +74,23 @@ let total = create_memo(app, () => price.get() * quantity.get(), label="total")
 ```
 
 **Direct Runtime:**
-```moonbit
-let total = Memo(rt, () => price.get() * quantity.get(), label="total")
+```moonbit nocheck
+let total = Memo::new(rt, () => price.get() * quantity.get(), label="total")
 ```
 
 ### Step 4: Read and Update
 
 ```moonbit
-// First read — computes the value
-inspect(total.get(), content="500")
+// `Memo::get()` is only valid inside another memo's compute function.
+// From outside the graph — top-level code, tests, event handlers —
+// read with `rt.read(memo)`. Both forms recompute lazily.
+inspect(app.runtime().read(total), content="500")
 
 // Change an input
 quantity.set(10)
 
 // Next read — recomputes because quantity changed
-inspect(total.get(), content="1000")
+inspect(app.runtime().read(total), content="1000")
 ```
 
 ### Step 4.5: Prefer Graceful Reads
@@ -185,13 +187,15 @@ fn main {
   let tax = Memo(rt, () => subtotal.get().to_double() * tax_rate.get(), label="tax")
   let total = Memo(rt, () => subtotal.get().to_double() + tax.get(), label="total")
 
-  println("Subtotal: \{subtotal.get()}")  // 200
-  println("Tax: \{tax.get()}")            // 20.0
-  println("Total: \{total.get()}")        // 220.0
+  // Outside-graph reads use `rt.read(memo)`. Inside another memo's compute,
+  // use `memo.get()` instead — that records a dependency.
+  println("Subtotal: \{rt.read(subtotal)}")  // 200
+  println("Tax: \{rt.read(tax)}")            // 20.0
+  println("Total: \{rt.read(total)}")        // 220.0
 
   // Change quantity — only affected memos recompute
   quantity.set(3)
-  println("New total: \{total.get()}")    // 330.0
+  println("New total: \{rt.read(total)}")    // 330.0
 }
 ```
 

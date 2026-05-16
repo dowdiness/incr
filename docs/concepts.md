@@ -77,6 +77,20 @@ Key properties:
 2. **Cached** — Same value returned until dependencies change
 3. **Auto-tracking** — Dependencies discovered by intercepting `get()` calls
 
+### Reading from inside vs outside a memo
+
+`Memo::get()` is only legal **inside** another memo's compute function — that's where it records the dependency for auto-tracking. From outside the graph — top-level code, tests, event handlers, callbacks — calling `memo.get()` aborts. Use `rt.read(memo)` instead; it observes the memo once, reads, and disposes the observer in one call. The same shape applies for `HybridMemo` (`rt.read_hybrid`) and `Reactive` (`rt.read_reactive`).
+
+```moonbit
+let doubled = Memo(rt, () => count.get() * 2)
+
+// Inside another memo: use .get() — records the dependency.
+let plus_one = Memo(rt, () => doubled.get() + 1)
+
+// Outside any memo: use rt.read() — aborts if you call .get() here.
+let value = rt.read(doubled)
+```
+
 ### Dependency Tracking
 
 You don't declare dependencies. `incr` discovers them:
@@ -124,7 +138,7 @@ let input = Signal(rt, 4)
 let is_even = Memo(rt, () => input.get() % 2 == 0)
 let label = Memo(rt, () => if is_even.get() { "even" } else { "odd" })
 
-inspect(label.get(), content="even")
+inspect(rt.read(label), content="even")
 
 // Change 4 → 6 (both even)
 input.set(6)
@@ -132,7 +146,7 @@ input.set(6)
 // is_even recomputes: true → true (same!)
 // Backdating: is_even.changed_at stays at R0
 // label sees no change, skips recomputation
-inspect(label.get(), content="even")  // Did NOT recompute
+inspect(rt.read(label), content="even")  // Did NOT recompute
 ```
 
 This prevents unnecessary cascading through the graph.
@@ -225,7 +239,7 @@ Cyclic dependencies are detected at runtime:
 let a = Memo(rt, () => b.get() + 1)
 let b = Memo(rt, () => a.get() + 1)
 
-a.get()  // Aborts: "Cycle detected"
+rt.read(a)  // Aborts: "Cycle detected"
 ```
 
 ### Graceful Cycle Handling
@@ -236,7 +250,7 @@ Use `get_result()` to handle cycles without aborting:
 let memo = Memo(rt, () => {
   match self_ref.get_result() {
     Ok(v) => v + 1
-    Err(CycleDetected(_, _)) => -1  // Fallback value
+    Err(CycleDetected(_, _, _)) => -1  // Fallback value
   }
 })
 
@@ -337,9 +351,9 @@ let checked = Memo(rt, fn() raise {
   w.abs()
 })
 
-let _ = checked.get()
+let _ = rt.read(checked)
 // Outside any compute — untracked, permissive read:
-inspect(checked.accumulated_peek(diags), content="[\"negative width: -5\"]")
+debug_inspect(checked.accumulated_peek(diags), content="[\"negative width: -5\"]")
 ```
 
 Producers call `acc.push(v)` inside a `Memo` or `HybridMemo` compute. Consumers have three read methods:
@@ -385,34 +399,36 @@ See the [Cookbook](./cookbook.md#pattern-side-channel-diagnostics-with-accumulat
 
 ## Hybrid Push-Pull (HybridMemo)
 
-`HybridMemo[T]` combines push-based dirty notification with pull-based lazy verification:
+`HybridMemo[T]` lives on the boundary between the push-driven and pull-driven engines:
 
 ```moonbit
 let rt = Runtime()
 let s = Signal(rt, 1)
-let h = HybridMemo::new(rt, () => s.get() * 2)
+let h = HybridMemo(rt, () => s.get() * 2)
 
-inspect(h.get(), content="2")
+inspect(rt.read_hybrid(h), content="2")
 s.set(5)
-inspect(h.get(), content="10")
+inspect(rt.read_hybrid(h), content="10")
 ```
 
 ### How It Works
 
-When an upstream signal changes, push propagation eagerly sets a `dirty` flag on the `HybridMemo` — no recomputation happens yet. When `get()` is called:
+`HybridMemo` uses the same lazy revision-based verification as `Memo` — there is **no separate dirty flag**. What makes it "hybrid" is *reachability*, not invalidation: it participates in `push_reachable_count` so that a live `Reactive`/`Effect` observer downstream keeps the memo and its upstream cells alive across `Runtime::gc()` sweeps.
 
-- **Fast path**: If `dirty = false` and already verified this revision → return cached value immediately, no dependency walk needed
-- **Slow path**: Walk dependencies, recompute if needed, clear `dirty`
+On `get()`:
 
-This is useful when a derived value sits between push-reactive nodes and pull-based memos. The dirty flag gives `get()` a cheap early-out without walking the full dependency chain.
+- **Fast path**: If `verified_at >= current_revision` → return cached value immediately, no dependency walk needed
+- **Slow path**: Walk dependencies, recompute if needed
+
+Use `HybridMemo` when a derived value sits between push-reactive subscribers and pull-based memos and needs to remain reachable while observed. Use a regular `Memo` for plain pull-derived values.
 
 ### HybridMemo vs Memo
 
 | Property | Memo | HybridMemo |
 |----------|------|------------|
-| Invalidation | Pull only (check deps on read) | Push dirty flag + pull verify |
-| Fast path | Durability shortcut only | `not(dirty)` check before dep walk |
-| Use case | General derived values | Bridge between push and pull graphs |
+| Invalidation | Lazy revision check on read | Lazy revision check on read (same) |
+| Reachable via push BFS | No | Yes — kept alive by downstream observers |
+| Use case | General derived values | Bridge between push and pull graphs that must survive GC while observed |
 
 Both support backdating — if a `HybridMemo` recomputes to the same value, downstream cells skip recomputation.
 
@@ -442,7 +458,7 @@ If you need to share data between two independent computation graphs, use a plai
 |---------|---------|
 | Signal | Input values you control |
 | Memo | Derived values with automatic caching |
-| HybridMemo | Push-pull derived values with dirty flag fast path |
+| HybridMemo | Pull memo that stays reachable while a push observer is attached downstream |
 | MemoMap | Per-key memoized derived values |
 | Accumulator | Side-channel collector with push-set invalidation (diagnostics, logs) |
 | Revision | Global clock for tracking changes |
