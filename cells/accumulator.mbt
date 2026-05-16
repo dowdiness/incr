@@ -280,7 +280,11 @@ fn memo_restore_on_abort(
   prev_contributions : Array[@incr_types.AccumulatorId],
 ) -> Unit {
   let touched : Array[@incr_types.AccumulatorId] = match rt.top_active_query() {
-    Some(q) => q.touched_accumulator_slots.to_array()
+    Some(q) =>
+      match q.touched_accumulator_slots {
+        Some(s) => s.to_array()
+        None => []
+      }
     None => []
   }
   // ON_ABORT.1: restore snapshots for every slot in prev_contributions.
@@ -319,11 +323,11 @@ fn memo_commit_accumulator_phase(
   cell : @pull.MemoData,
   cell_id : CellId,
   prev_contributions : Array[@incr_types.AccumulatorId],
-  touched : @hashset.HashSet[@incr_types.AccumulatorId],
+  touched : @hashset.HashSet[@incr_types.AccumulatorId]?,
   staged_reads : @hashmap.HashMap[
     (@incr_types.AccumulatorId, CellId),
     @incr_types.Revision,
-  ],
+  ]?,
 ) -> Unit {
   // Union prev ∪ touched so every slot that needs finalize_memo is visited
   // exactly once.
@@ -332,8 +336,12 @@ fn memo_commit_accumulator_phase(
   for s in prev_contributions {
     all_slots.add(s)
   }
-  for s in touched {
-    all_slots.add(s)
+  match touched {
+    Some(t) =>
+      for s in t {
+        all_slots.add(s)
+      }
+    None => ()
   }
   let current_revision = rt.core.revision.current_revision
   let new_contributions : @hashset.HashSet[@incr_types.AccumulatorId] = @hashset.HashSet([],
@@ -351,8 +359,12 @@ fn memo_commit_accumulator_phase(
   // Commit staged_reads into MemoData (overwrite any prior-run entries;
   // a successful recompute is authoritative).
   cell.accumulator_reads.clear()
-  for k, v in staged_reads {
-    cell.accumulator_reads.set(k, v)
+  match staged_reads {
+    Some(reads) =>
+      for k, v in reads {
+        cell.accumulator_reads.set(k, v)
+      }
+    None => ()
   }
   // Commit rebuilt contributions into the reverse index.
   if new_contributions.is_empty() {
@@ -449,7 +461,7 @@ pub fn[T] Accumulator::push(
   }
   buf.push(value)
   // Stage touched slot on ActiveQuery (committed in AFTER_CLOSURE in Task 10).
-  frame.touched_accumulator_slots.add(self.slot_id)
+  frame.ensure_touched_accumulator_slots().add(self.slot_id)
 }
 
 ///|
@@ -524,7 +536,9 @@ pub fn[T, A] Memo::accumulated(
   let current_rev = (slot.push_revised_at_for)(self.cell_id)
   match self.rt.top_active_query() {
     Some(frame) =>
-      frame.accumulator_reads.set((acc.slot_id, self.cell_id), current_rev)
+      frame
+      .ensure_accumulator_reads()
+      .set((acc.slot_id, self.cell_id), current_rev)
     None => ()
   }
   // Return defensive copy of buffer.
@@ -563,7 +577,9 @@ pub fn[T, A] Memo::accumulated_result(
       let current_rev = (slot.push_revised_at_for)(self.cell_id)
       match self.rt.top_active_query() {
         Some(frame) =>
-          frame.accumulator_reads.set((acc.slot_id, self.cell_id), current_rev)
+          frame
+          .ensure_accumulator_reads()
+          .set((acc.slot_id, self.cell_id), current_rev)
         None => ()
       }
       let vs = match acc.per_memo.get(self.cell_id) {

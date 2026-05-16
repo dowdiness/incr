@@ -114,10 +114,12 @@ pub(all) struct ActiveQuery {
   cell_id : @types.CellId
   dependencies : Array[@types.CellId]
   seen : @hashset.HashSet[@types.CellId]
-  accumulator_reads : @hashmap.HashMap[(@types.AccumulatorId, @types.CellId), @types.Revision]
-  touched_accumulator_slots : @hashset.HashSet[@types.AccumulatorId]
+  mut accumulator_reads : @hashmap.HashMap[(@types.AccumulatorId, @types.CellId), @types.Revision]?
+  mut touched_accumulator_slots : @hashset.HashSet[@types.AccumulatorId]?
 }
 pub fn ActiveQuery::ActiveQuery(@types.CellId) -> Self
+pub fn ActiveQuery::ensure_accumulator_reads(Self) -> @hashmap.HashMap[(@types.AccumulatorId, @types.CellId), @types.Revision]
+pub fn ActiveQuery::ensure_touched_accumulator_slots(Self) -> @hashset.HashSet[@types.AccumulatorId]
 pub fn ActiveQuery::new(@types.CellId) -> Self
 pub fn ActiveQuery::record(Self, @types.CellId) -> Unit
 

@@ -23,6 +23,9 @@ New to `incr`? Read these in order:
 - [2026-04-21 Pre-R1 Baseline](performance/2026-04-21-pre-r1-baseline.md) — frozen reference for R1 Stage 3 regression gate (≤2% per tracked path).
 - [2026-04-24 R1 Stage 3 bench](performance/2026-04-24-r1-stage3-bench.md) — Stage 3 comparison vs baseline; all tracked rows within or favorable to ±2% gate.
 - [2026-04-26 `memo_restore_on_abort` validation](performance/2026-04-26-memo-restore-on-abort-bench.md) — open-TODO microbench: O(n²) confirmed but constants too small to be actionable at realistic N.
+- [2026-05-16 Push-engine link-list port microbench](performance/2026-05-16-push-engine-linklist-microbench.md) — alien-signals-style port investigation closed: measured 1.2–1.5× speedup, deprioritized in favor of higher-leverage targets.
+- [2026-05-16 Push-engine cost decomposition](performance/2026-05-16-push-engine-cost-decomposition.md) — strategic ranking of push-engine performance interventions. Chosen direction: per-recompute allocation elimination (tracking-buffer reuse).
+- [2026-05-16 Tracking-buffer lazy-allocation result](performance/2026-05-16-tracking-buffer-lazy-alloc.md) — implements the chosen direction. Pool reuse rejected by probe; lazy-allocation alone delivered −15.9% on 1000-fanout (−46 ns/r).
 
 ---
 
