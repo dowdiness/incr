@@ -9,6 +9,14 @@
 allocation elimination (tracking-buffer reuse)**. Disposed-cell anomaly
 captured as a separate follow-up investigation.
 
+> **Result note (added 2026-05-16, same session):** The chosen direction
+> shipped as lazy-allocation only — pool reuse of the full `ActiveQuery`
+> was rejected by a microbench probe (~2% / within σ on wasm-gc). The
+> "~80–150 ns/reactive" estimate in §1 below was inflated; the actual
+> ceiling for this optimization is ~50 ns/r. See
+> [`2026-05-16-tracking-buffer-lazy-alloc.md`](2026-05-16-tracking-buffer-lazy-alloc.md)
+> for the implementation result and corrected estimates.
+
 ## Why this document exists
 
 The Link-list port microbench (companion doc) measured the realistic Vue-3.6-style
@@ -27,8 +35,8 @@ unexpected push-engine cost comes from:
 | `signal: set new value` (no cells) | 5.25 ns | True cold baseline. |
 | `100 disposed reactives on **separate** signal` | 45 ns | Cell-index size alone is not the cost. |
 | `100 disposed reactives on **same** signal` | **27.75 µs** | Per-disposed-cell work on the signal they were subscribed to. |
-| `100 abandoned reactives` (handles dropped, never disposed) | 60 ns | GC eliminates them; sig.subscribers ends up empty. |
-| `100 live reactives` (held by array, no observer) | 1.73 µs (high σ) | Likely auto-GC'd; not a real fanout measurement. |
+| `100 abandoned reactives` (handles dropped, never disposed) | 60 ns | Measured cost suggests these aren't traversed during push. Lifecycle path not yet traced — `rt.gc()` is never called in the bench, so the runtime's SoA still holds them. Likely candidate: wasm-gc compile-time elimination of the unobserved closures (the handle is `ignore()`'d). Either way, these are not a real fanout measurement. |
+| `100 live reactives` (held by array, no observer) | 1.73 µs (high σ) | High variance plus low absolute cost suggests wasm-gc is also eliminating these. Hold a live observer to get a trustworthy fanout measurement. |
 | `500-reactive fanout` (held by array, observed via reactivity) | 138 µs / 276 ns/reactive | Trustworthy steady-state push fanout. |
 | `1000-reactive fanout` | 289 µs / 289 ns/reactive | Linear from 500; trustworthy. |
 

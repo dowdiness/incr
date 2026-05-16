@@ -67,8 +67,13 @@ the K=3 savings of ~30.6 ns.
 ### Real-world push fanout (validation)
 
 Before/after on the unchanged push-fanout benches in `tests/bench_test.mbt`.
-Before numbers from
+Before numbers were captured pre-implementation during the same
+investigation session (the diagnostic benches added in this commit) and
+recorded in
 [`2026-05-16-push-engine-cost-decomposition.md`](2026-05-16-push-engine-cost-decomposition.md).
+Same backend (wasm-gc, `moon bench --release`), same hardware, same
+bench definitions; only `cells/internal/kernel/state.mbt` +
+`cells/accumulator.mbt` differ.
 
 | Bench | Before | After | Δ |
 |-------|---:|---:|---:|
