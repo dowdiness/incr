@@ -326,6 +326,32 @@ test "dispose: disposed reactive not reachable via subscriber walk" {
 }
 
 ///|
+/// Regression guard for the disposed-cell-on-same-signal investigation
+/// (2026-05-17). The cost-decomposition doc and an earlier memory note
+/// claimed a 27 µs/set cliff for 100 reactives disposed on the signal they
+/// subscribed to. Bench reproduction on commit fed9428 showed ~45 ns/set —
+/// indistinguishable from the cold-runtime baseline — so the anomaly was
+/// label-confusion against the abandoned-handle bench. This test pins the
+/// post-dispose subscriber and node_count state at N=100 so a future
+/// regression in `remove_subscriber` or `push.node_count` decrement is
+/// caught immediately.
+test "dispose: 100 reactives on one signal leave subscribers empty and node_count zero" {
+  let rt = Runtime::Runtime()
+  let s = Signal::Signal(rt, 0)
+  let s_idx = match rt.core.cell_index[s.id().id] {
+    PullSignal(i) => i
+    _ => abort("expected PullSignal")
+  }
+  for i = 0; i < 100; i = i + 1 {
+    let idx = i
+    let r = Reactive::new(rt, () => s.get() + idx)
+    r.dispose()
+  }
+  inspect(rt.pull.signals[s_idx].meta.subscribers.length(), content="0")
+  inspect(rt.push.node_count, content="0")
+}
+
+///|
 test "dispose: effect removed from source subscriber set" {
   let rt = Runtime::Runtime()
   let s = Signal::Signal(rt, 0)
