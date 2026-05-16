@@ -436,3 +436,125 @@ test "fixpoint: one iteration, single fact delta (identity rule)" (b : @bench.T)
     rt.fixpoint()
   })
 }
+
+///|
+/// Diagnostic: is the 100-disposed-reactives cost (24 µs) caused by something
+/// proportional to disposed-cell count? Compare set-with-no-reactives-ever-created
+/// vs set-with-100-disposed. If the disposed setup is much slower, work scales
+/// with disposed SoA entries somehow (free-list? cell_index iteration?).
+test "diagnostic: signal set with cold runtime (no reactives ever created)" (
+  b : @bench.T,
+) {
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 0)
+  let mut v = 0
+  b.bench(fn() {
+    v += 1
+    sig.set(v)
+  })
+}
+
+///|
+/// Diagnostic: signal set with 100 disposed REACTIVES on a SEPARATE signal.
+/// If this matches the 100-disposed bench, the cost is global (SoA-size driven).
+/// If it matches the cold runtime, the cost is from sig's own state.
+test "diagnostic: signal set with 100 disposed reactives on separate signal" (
+  b : @bench.T,
+) {
+  let rt = Runtime::Runtime()
+  let sig_a = Signal::Signal(rt, 0)
+  let sig_b = Signal::Signal(rt, 0)
+  for i = 0; i < 100; i = i + 1 {
+    let idx = i
+    let r = @incr.Reactive::new(rt, fn() { sig_b.get() + idx })
+    r.dispose()
+  }
+  let mut v = 0
+  b.bench(fn() {
+    v += 1
+    sig_a.set(v)
+  })
+}
+
+///|
+/// push-engine link-list port investigation — N=500 fanout, steady-state set.
+///
+/// One signal with N=500 reactives. Each set walks the signal's subscriber
+/// HashSet once (alien-signals Link-list candidate site #1: replace HashSet
+/// iter with intrusive linked-list traversal). Per-iter cost = ~N hashset-iter
+/// steps + N compute invocations + N priority-queue ops + N
+/// diff_and_update_subscribers calls (1-element new_seen each).
+test "linklist-port: fanout 500 reactives, steady-state set" (b : @bench.T) {
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 0)
+  let reactives : Array[@incr.Reactive[Int]] = []
+  for i = 0; i < 500; i = i + 1 {
+    let idx = i
+    reactives.push(@incr.Reactive::new(rt, fn() { sig.get() + idx }))
+  }
+  let mut v = 0
+  b.bench(fn() {
+    v += 1
+    sig.set(v)
+  })
+  ignore(reactives)
+}
+
+///|
+/// push-engine link-list port investigation — N=1000 fanout (Vue 3.6 driver).
+///
+/// Scales the steady-state fanout bench to match alien-signals' reference
+/// benchmark size. If per-iter cost scales linearly with N (vs. 100-baseline),
+/// the inner loop is dominated by per-subscriber work — Link-list port has
+/// headroom. If it grows superlinearly, hash collisions / resize / GC pressure
+/// are also implicated.
+test "linklist-port: fanout 1000 reactives, steady-state set" (b : @bench.T) {
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 0)
+  let reactives : Array[@incr.Reactive[Int]] = []
+  for i = 0; i < 1000; i = i + 1 {
+    let idx = i
+    reactives.push(@incr.Reactive::new(rt, fn() { sig.get() + idx }))
+  }
+  let mut v = 0
+  b.bench(fn() {
+    v += 1
+    sig.set(v)
+  })
+  ignore(reactives)
+}
+
+///|
+/// push-engine link-list port investigation — branchy-rebind, N=100.
+///
+/// Each reactive picks between two signals based on a toggling flag, so every
+/// iteration N reactives churn their source set. This is the
+/// diff_and_update_subscribers (subscriber_diff.mbt) hot path: HashSet
+/// contains/add/remove_and_check on every dep diff. Link-list candidate
+/// site #2 — but the cost shares with adjust_push_reachable, which is
+/// independent of the Link-list change.
+test "linklist-port: branchy-rebind 100 reactives" (b : @bench.T) {
+  let rt = Runtime::Runtime()
+  let sig_a = Signal::Signal(rt, 0)
+  let sig_b = Signal::Signal(rt, 1)
+  let flag = Signal::Signal(rt, true)
+  let reactives : Array[@incr.Reactive[Int]] = []
+  for i = 0; i < 100; i = i + 1 {
+    let idx = i
+    reactives.push(
+      @incr.Reactive::new(rt, fn() {
+        if flag.get() {
+          sig_a.get() + idx
+        } else {
+          sig_b.get() + idx
+        }
+      }),
+    )
+  }
+  let mut toggle = true
+  b.bench(fn() {
+    toggle = !toggle
+    flag.set(toggle)
+  })
+  ignore(reactives)
+}

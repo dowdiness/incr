@@ -50,7 +50,7 @@ fn bench_restore(b : @bench.T, n : Int) -> Unit {
     match @kernel.top_active_query(rt.core) {
       Some(q) =>
         for tid in touched_ids {
-          q.touched_accumulator_slots.add(tid)
+          q.ensure_touched_accumulator_slots().add(tid)
         }
       None =>
         abort("bench setup: tracking frame not present after begin_tracking")
