@@ -17,6 +17,10 @@ Concrete, actionable tasks for the `incr` library.
 - [x] Explore push-pull hybrid invalidation (requires subscriber/reverse links) — implemented as `HybridMemo`
 - [ ] `memo_restore_on_abort` (cells/accumulator.mbt): replace O(n²) linear scan of `prev_contributions` during `touched` iteration with a HashSet lookup. **Validated 2026-04-26** ([bench](performance/2026-04-26-memo-restore-on-abort-bench.md), `cells/accumulator_restore_bench_wbtest.mbt`): N=5 → 0.28 µs, N=20 → 1.31 µs, N=100 → 12.51 µs (worst case, prev/touched disjoint). Quadratic scaling confirmed but constants small enough that linear setup dominates at N ≤ 20. Realistic drivers (lambda type-checker) use 1–2 accs per memo — not actionable. Reopen if a driver hits 50+ accs/memo with frequent aborts.
 
+### Investigation queue
+
+- [ ] **Push-engine link-list port** (cells/internal/push/). Scoped alien-signals-style port: replace the push engine's subscriber storage with doubly-linked `Link` records inline in the SoA entries, preserving the `CellId` / `cell_ops` boundary so `HybridMemo` and `Effect → Rule` keep working. Driver: Vue 3.6 reported ~3× speedup on `mutate-1000-refs` after porting alien-signals. Realistic gap for incr is smaller (incr's push engine is already SoA, not Set-based) but ~2× on the push notification path is plausible. **Discipline: microbench-first, ADR-before-implementation.** See [the closed per-mode-split investigation](decisions/2026-04-26-modal-runtime-split-not-warranted.md) for context — this is the one structural win the comparison libraries enable, scoped strictly to one engine package. Surfacing as an investigation, not a commitment.
+
 ## API Improvements
 
 - [x] Add `Runtime::batch(fn)` that defers revision bump until the closure completes
