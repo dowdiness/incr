@@ -121,7 +121,7 @@ pub fn[Db : Database, T : Eq] create_memo(
 /// # Returns
 ///
 /// A new memo map associated with the database's runtime
-pub fn[Db : Database, K, V] create_memo_map(
+pub fn[Db : Database, K : Hash + Eq, V] create_memo_map(
   db : Db,
   f : (K) -> V raise Failure,
   label? : String,
@@ -293,6 +293,7 @@ pub fn[Db : Database] create_scope(db : Db) -> Scope {
 /// to register all of a struct's TrackedCells with a scope for bulk disposal.
 ///
 /// This function is a no-op and will be removed in a future version.
+#deprecated("Use `add_tracked(scope, tracked)` instead — `gc_tracked` is a no-op kept for source compatibility")
 pub fn[T : Trackable] gc_tracked(rt : Runtime, tracked : T) -> Unit {
   // Deprecated no-op — use add_tracked(scope, tracked) instead.
   let _ = tracked.cell_ids()

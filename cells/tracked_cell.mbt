@@ -15,14 +15,19 @@
 /// ```
 pub(all) struct TrackedCell[T] {
   priv signal : Signal[T]
-
-  fn[T] new(
-    rt : Runtime,
-    initial : T,
-    durability? : Durability,
-    label? : String,
-  ) -> TrackedCell[T]
 } derive(Debug(ignore=[Signal]))
+
+///|
+/// Constructor-syntax alias of `TrackedCell::new`. Enables
+/// `TrackedCell(rt, value)` / `TrackedCell(rt, value, label="...")` call sites.
+pub fn[T] TrackedCell::TrackedCell(
+  rt : Runtime,
+  initial : T,
+  durability? : Durability = Low,
+  label? : String,
+) -> TrackedCell[T] {
+  TrackedCell::new(rt, initial, durability~, label?)
+}
 
 ///|
 /// Creates a new TrackedCell with the given initial value.

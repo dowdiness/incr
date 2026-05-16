@@ -65,7 +65,7 @@ pub fn mark_reachable(
   core : RuntimeCore,
   roots : Array[CellId],
 ) -> @hashset.HashSet[CellId] {
-  let reachable : @hashset.HashSet[CellId] = @hashset.new()
+  let reachable : @hashset.HashSet[CellId] = @hashset.HashSet([])
   let worklist : Array[CellId] = Array::from_iter(roots.iter())
   let mut wi = 0
   while wi < worklist.length() {

@@ -22,7 +22,7 @@ pub fn diff_and_update_subscribers(
   let new_seen = match new_seen {
     Some(s) => s
     None => {
-      let s : @hashset.HashSet[CellId] = @hashset.new()
+      let s : @hashset.HashSet[CellId] = @hashset.HashSet([])
       for dep in new_deps {
         s.add(dep)
       }
@@ -37,7 +37,7 @@ pub fn diff_and_update_subscribers(
     }
   }
   if changed {
-    let old_seen : @hashset.HashSet[CellId] = @hashset.new()
+    let old_seen : @hashset.HashSet[CellId] = @hashset.HashSet([])
     for dep in old_deps {
       old_seen.add(dep)
       if !new_seen.contains(dep) {

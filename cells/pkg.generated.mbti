@@ -42,9 +42,8 @@ pub fn Effect::new(Runtime, () -> Unit) -> Self
 
 pub(all) struct FunctionalRelation[K, V] {
   // private fields
-
-  fn[K : Hash + Eq, V] new(Runtime, merge? : (V, V) -> V, label? : String) -> FunctionalRelation[K, V]
 }
+pub fn[K : Hash + Eq, V] FunctionalRelation::FunctionalRelation(Runtime, merge? : (V, V) -> V, label? : String) -> Self[K, V]
 pub fn[K, V] FunctionalRelation::delta_iter(Self[K, V]) -> Iter[(K, V)]
 pub fn[K, V] FunctionalRelation::dispose(Self[K, V]) -> Unit
 pub fn[K : Hash + Eq, V] FunctionalRelation::get(Self[K, V], K) -> V?
@@ -56,9 +55,8 @@ pub fn[K : Hash + Eq, V] FunctionalRelation::new(Runtime, merge? : (V, V) -> V, 
 
 pub(all) struct HybridMemo[T] {
   // private fields
-
-  fn[T : Eq] new(Runtime, () -> T raise Failure, label? : String) -> HybridMemo[T]
 } derive(@debug.Debug)
+pub fn[T : Eq] HybridMemo::HybridMemo(Runtime, () -> T raise Failure, label? : String) -> Self[T]
 pub fn[T] HybridMemo::dispose(Self[T]) -> Unit
 pub fn[T : Eq] HybridMemo::get(Self[T]) -> T
 pub fn[T] HybridMemo::id(Self[T]) -> @types.CellId
@@ -69,9 +67,8 @@ pub fn[T : Eq] HybridMemo::observe(Self[T]) -> Observer[T]
 
 pub(all) struct Memo[T] {
   // private fields
-
-  fn[T : Eq] new(Runtime, () -> T raise Failure, label? : String) -> Memo[T]
 } derive(@debug.Debug)
+pub fn[T : Eq] Memo::Memo(Runtime, () -> T raise Failure, label? : String) -> Self[T]
 pub fn[T, A] Memo::accumulated(Self[T], Accumulator[A]) -> Array[A] raise Failure
 pub fn[T, A] Memo::accumulated_peek(Self[T], Accumulator[A]) -> Array[A]
 pub fn[T, A] Memo::accumulated_result(Self[T], Accumulator[A]) -> Result[Array[A], @types.CycleError] raise Failure
@@ -95,9 +92,8 @@ pub fn[T] Memo::verified_at(Self[T]) -> @types.Revision
 
 pub(all) struct MemoMap[K, V] {
   // private fields
-
-  fn[K, V] new(Runtime, (K) -> V raise Failure, label? : String) -> MemoMap[K, V]
 }
+pub fn[K : Hash + Eq, V] MemoMap::MemoMap(Runtime, (K) -> V raise Failure, label? : String) -> Self[K, V]
 pub fn[K, V] MemoMap::clear(Self[K, V]) -> Unit
 pub fn[K : Hash + Eq, V] MemoMap::contains(Self[K, V], K) -> Bool
 pub fn[K : Hash + Eq, V : Eq] MemoMap::get(Self[K, V], K) -> V
@@ -106,7 +102,7 @@ pub fn[K : Hash + Eq, V : Eq] MemoMap::get_or_else(Self[K, V], K, (@types.CycleE
 pub fn[K : Hash + Eq, V : Eq] MemoMap::get_result(Self[K, V], K) -> Result[V, @types.CycleError]
 pub fn[K : Hash + Eq, V : Eq] MemoMap::get_tracked(Self[K, V], K) -> V
 pub fn[K, V] MemoMap::length(Self[K, V]) -> Int
-pub fn[K, V] MemoMap::new(Runtime, (K) -> V raise Failure, label? : String) -> Self[K, V]
+pub fn[K : Hash + Eq, V] MemoMap::new(Runtime, (K) -> V raise Failure, label? : String) -> Self[K, V]
 pub fn[K : Hash + Eq, V] MemoMap::sweep(Self[K, V]) -> Int
 
 pub struct Observer[T] {
@@ -128,9 +124,8 @@ pub fn[T] Reactive::observe(Self[T]) -> Observer[T]
 
 pub(all) struct Relation[T] {
   // private fields
-
-  fn[T : Hash + Eq] new(Runtime, label? : String) -> Relation[T]
 }
+pub fn[T : Hash + Eq] Relation::Relation(Runtime, label? : String) -> Self[T]
 pub fn[T : Hash + Eq] Relation::contains(Self[T], T) -> Bool
 pub fn[T] Relation::delta_iter(Self[T]) -> Iter[T]
 pub fn[T] Relation::dispose(Self[T]) -> Unit
@@ -142,9 +137,8 @@ pub fn[T : Hash + Eq] Relation::new(Runtime, label? : String) -> Self[T]
 
 pub(all) struct Runtime {
   // private fields
-
-  fn new(on_change? : () -> Unit) -> Runtime
 }
+pub fn Runtime::Runtime(on_change? : () -> Unit) -> Self
 pub fn Runtime::batch(Self, () -> Unit raise?) -> Unit raise?
 pub fn Runtime::batch_result(Self, () -> Unit raise?) -> Result[Unit, Error]
 pub fn Runtime::cell_info(Self, @types.CellId) -> CellInfo?
@@ -180,9 +174,8 @@ pub impl @debug.Debug for Scope
 
 pub(all) struct Signal[T] {
   // private fields
-
-  fn[T] new(Runtime, T, durability? : @types.Durability, label? : String) -> Signal[T]
 } derive(@debug.Debug)
+pub fn[T] Signal::Signal(Runtime, T, durability? : @types.Durability, label? : String) -> Self[T]
 pub fn[T] Signal::clear_on_change(Self[T]) -> Unit
 pub fn[T] Signal::dispose(Self[T]) -> Unit
 pub fn[T] Signal::durability(Self[T]) -> @types.Durability
@@ -199,9 +192,8 @@ pub fn[T] Signal::set_unconditional(Self[T], T) -> Unit
 
 pub(all) struct TrackedCell[T] {
   // private fields
-
-  fn[T] new(Runtime, T, durability? : @types.Durability, label? : String) -> TrackedCell[T]
 } derive(@debug.Debug)
+pub fn[T] TrackedCell::TrackedCell(Runtime, T, durability? : @types.Durability, label? : String) -> Self[T]
 pub fn[T] TrackedCell::as_signal(Self[T]) -> Signal[T]
 pub fn[T] TrackedCell::clear_on_change(Self[T]) -> Unit
 pub fn[T] TrackedCell::dispose(Self[T]) -> Unit

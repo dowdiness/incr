@@ -101,7 +101,7 @@ pub fn collect_reachable_cells(
   pull : PullState,
   sources : Array[CellId],
 ) -> @hashset.HashSet[CellId] {
-  let result : @hashset.HashSet[CellId] = @hashset.new()
+  let result : @hashset.HashSet[CellId] = @hashset.HashSet([])
   let worklist : Array[CellId] = []
   for id in sources {
     worklist.push(id)

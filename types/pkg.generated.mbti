@@ -67,7 +67,7 @@ pub(all) struct InternTable[T] {
 pub fn[T] InternTable::get(Self[T], InternId) -> T
 pub fn[T : Hash + Eq] InternTable::intern(Self[T], T) -> InternId
 pub fn[T] InternTable::len(Self[T]) -> Int
-pub fn[T] InternTable::new() -> Self[T]
+pub fn[T : Hash + Eq] InternTable::new() -> Self[T]
 
 pub(all) struct MemoId[T] {
   id : CellId

@@ -24,24 +24,29 @@ pub(all) struct MemoMap[K, V] {
   priv compute : (K) -> V raise Failure
   priv label : String?
   priv entries : @hashmap.HashMap[K, Memo[V]]
+}
 
-  fn[K, V] new(
-    rt : Runtime,
-    compute : (K) -> V raise Failure,
-    label? : String,
-  ) -> MemoMap[K, V]
+///|
+/// Constructor-syntax alias of `MemoMap::new`. Enables `MemoMap(rt, compute)`
+/// / `MemoMap(rt, compute, label="...")` call sites.
+pub fn[K : Hash + Eq, V] MemoMap::MemoMap(
+  rt : Runtime,
+  compute : (K) -> V raise Failure,
+  label? : String,
+) -> MemoMap[K, V] {
+  MemoMap::new(rt, compute, label?)
 }
 
 ///|
 /// Creates a new empty MemoMap.
 ///
 /// Entries are created lazily on first `get`/`get_result` per key.
-pub fn[K, V] MemoMap::new(
+pub fn[K : Hash + Eq, V] MemoMap::new(
   rt : Runtime,
   compute : (K) -> V raise Failure,
   label? : String,
 ) -> MemoMap[K, V] {
-  { rt, compute, label, entries: @hashmap.new() }
+  { rt, compute, label, entries: @hashmap.HashMap([]) }
 }
 
 ///|

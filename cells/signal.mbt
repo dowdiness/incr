@@ -20,14 +20,19 @@ pub(all) struct Signal[T] {
   priv mut value : T
   priv mut pending_value : T?
   priv durability : Durability
-
-  fn[T] new(
-    rt : Runtime,
-    initial : T,
-    durability? : Durability,
-    label? : String,
-  ) -> Signal[T]
 } derive(Debug(ignore=[Runtime, CellId]))
+
+///|
+/// Constructor-syntax alias of `Signal::new`. Enables `Signal(rt, value)` /
+/// `Signal(rt, value, label="...", durability=High)` call sites.
+pub fn[T] Signal::Signal(
+  rt : Runtime,
+  initial : T,
+  durability? : Durability = Low,
+  label? : String,
+) -> Signal[T] {
+  Signal::new(rt, initial, durability~, label?)
+}
 
 ///|
 /// Creates a new signal with the given initial value.
@@ -68,7 +73,7 @@ pub fn[T] Signal::new(
         label,
         changed_at: Revision::initial(),
         durability,
-        subscribers: @hashset.new(),
+        subscribers: @hashset.HashSet([]),
         push_reachable_count: 0,
       },
       on_change: None,

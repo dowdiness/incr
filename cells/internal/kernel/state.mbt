@@ -83,8 +83,12 @@ pub(all) struct ActiveQuery {
   // iterate the set of slots needing a finalize_memo call, and in ON_ABORT
   // to identify new-run-only slots for cleanup.
   touched_accumulator_slots : @hashset.HashSet[AccumulatorId]
+}
 
-  fn new(cell_id : CellId) -> ActiveQuery
+///|
+/// Constructor-syntax alias of `ActiveQuery::new`.
+pub fn ActiveQuery::ActiveQuery(cell_id : CellId) -> ActiveQuery {
+  ActiveQuery::new(cell_id)
 }
 
 ///|
@@ -93,9 +97,9 @@ pub fn ActiveQuery::new(cell_id : CellId) -> ActiveQuery {
   {
     cell_id,
     dependencies: [],
-    seen: @hashset.new(),
-    accumulator_reads: @hashmap.new(),
-    touched_accumulator_slots: @hashset.new(),
+    seen: @hashset.HashSet([]),
+    accumulator_reads: @hashmap.HashMap([]),
+    touched_accumulator_slots: @hashset.HashSet([]),
   }
 }
 
@@ -121,13 +125,17 @@ pub(all) struct BatchUndo {
 pub(all) struct BatchFrame {
   undo_entries : Array[BatchUndo]
   undo_ids : @hashset.HashSet[CellId]
+}
 
-  fn new() -> BatchFrame
+///|
+/// Constructor-syntax alias of `BatchFrame::new`.
+pub fn BatchFrame::BatchFrame() -> BatchFrame {
+  BatchFrame::new()
 }
 
 ///|
 pub fn BatchFrame::new() -> BatchFrame {
-  { undo_entries: [], undo_ids: @hashset.new() }
+  { undo_entries: [], undo_ids: @hashset.HashSet([]) }
 }
 
 ///|

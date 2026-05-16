@@ -44,7 +44,7 @@ pub fn[T : Eq] Reactive::new(rt : Runtime, compute_fn : () -> T) -> Reactive[T] 
         label: None,
         changed_at: Revision::initial(),
         durability: Low,
-        subscribers: @hashset.new(),
+        subscribers: @hashset.HashSet([]),
         push_reachable_count: 0,
       },
       compute,
