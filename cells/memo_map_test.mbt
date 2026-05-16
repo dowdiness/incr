@@ -1,9 +1,9 @@
 ///|
 test "memo_map: cache hit for same key" {
-  let rt = Runtime::new()
-  let source = Signal::new(rt, 10)
+  let rt = Runtime::Runtime()
+  let source = Signal::Signal(rt, 10)
   let mut compute_count = 0
-  let by_key = MemoMap::new(rt, (key : Int) => {
+  let by_key = MemoMap::MemoMap(rt, (key : Int) => {
     compute_count = compute_count + 1
     source.get() + key
   })
@@ -16,9 +16,9 @@ test "memo_map: cache hit for same key" {
 
 ///|
 test "memo_map: independent caching per key" {
-  let rt = Runtime::new()
+  let rt = Runtime::Runtime()
   let mut compute_count = 0
-  let by_key = MemoMap::new(rt, (key : Int) => {
+  let by_key = MemoMap::MemoMap(rt, (key : Int) => {
     compute_count = compute_count + 1
     key * 10
   })
@@ -37,10 +37,10 @@ test "memo_map: independent caching per key" {
 
 ///|
 test "memo_map: source change triggers lazy recompute per key" {
-  let rt = Runtime::new()
-  let source = Signal::new(rt, 100)
+  let rt = Runtime::Runtime()
+  let source = Signal::Signal(rt, 100)
   let mut compute_count = 0
-  let by_key = MemoMap::new(rt, (key : Int) => {
+  let by_key = MemoMap::MemoMap(rt, (key : Int) => {
     compute_count = compute_count + 1
     source.get() + key
   })
@@ -60,9 +60,9 @@ test "memo_map: source change triggers lazy recompute per key" {
 
 ///|
 test "memo_map: get_result mirrors get" {
-  let rt = Runtime::new()
+  let rt = Runtime::Runtime()
   let mut compute_count = 0
-  let by_key = MemoMap::new(rt, (key : Int) => {
+  let by_key = MemoMap::MemoMap(rt, (key : Int) => {
     compute_count = compute_count + 1
     key + 5
   })
@@ -80,8 +80,8 @@ test "memo_map: get_result mirrors get" {
 
 ///|
 test "memo_map: get_or and get_or_else mirror successful get_result" {
-  let rt = Runtime::new()
-  let by_key = MemoMap::new(rt, (key : Int) => key + 5)
+  let rt = Runtime::Runtime()
+  let by_key = MemoMap::MemoMap(rt, (key : Int) => key + 5)
   let mut fallback_called = 0
 
   inspect(by_key.get_or(10, -1), content="15")
@@ -97,9 +97,9 @@ test "memo_map: get_or and get_or_else mirror successful get_result" {
 
 ///|
 test "memo_map: sweep removes disposed entries" {
-  let rt = Runtime::new()
-  let source = Signal::new(rt, 10)
-  let by_key = MemoMap::new(rt, (key : Int) => source.get() + key)
+  let rt = Runtime::Runtime()
+  let source = Signal::Signal(rt, 10)
+  let by_key = MemoMap::MemoMap(rt, (key : Int) => source.get() + key)
   // Force creation of 3 entries by reading them
   inspect(by_key.get(1), content="11")
   inspect(by_key.get(2), content="12")
@@ -114,16 +114,16 @@ test "memo_map: sweep removes disposed entries" {
 
 ///|
 test "memo_map: sweep on empty map returns 0" {
-  let rt = Runtime::new()
-  let by_key = MemoMap::new(rt, (key : Int) => key * 10)
+  let rt = Runtime::Runtime()
+  let by_key = MemoMap::MemoMap(rt, (key : Int) => key * 10)
   inspect(by_key.sweep(), content="0")
 }
 
 ///|
 test "memo_map: sweep with all entries alive returns 0" {
-  let rt = Runtime::new()
-  let source = Signal::new(rt, 1)
-  let by_key = MemoMap::new(rt, (key : Int) => source.get() + key)
+  let rt = Runtime::Runtime()
+  let source = Signal::Signal(rt, 1)
+  let by_key = MemoMap::MemoMap(rt, (key : Int) => source.get() + key)
   ignore(by_key.get(1))
   ignore(by_key.get(2))
   // No gc, no disposal — all entries alive
@@ -133,9 +133,9 @@ test "memo_map: sweep with all entries alive returns 0" {
 
 ///|
 test "memo_map: clear disposes every wrapper and empties the map" {
-  let rt = Runtime::new()
-  let source = Signal::new(rt, 1)
-  let by_key = MemoMap::new(rt, (key : Int) => source.get() + key)
+  let rt = Runtime::Runtime()
+  let source = Signal::Signal(rt, 1)
+  let by_key = MemoMap::MemoMap(rt, (key : Int) => source.get() + key)
   ignore(by_key.get(1))
   ignore(by_key.get(2))
   ignore(by_key.get(3))
@@ -153,8 +153,8 @@ test "memo_map: clear disposes every wrapper and empties the map" {
 
 ///|
 test "memo_map: clear is idempotent on an empty map" {
-  let rt = Runtime::new()
-  let by_key : MemoMap[Int, Int] = MemoMap::new(rt, key => key * 10)
+  let rt = Runtime::Runtime()
+  let by_key : MemoMap[Int, Int] = MemoMap::MemoMap(rt, key => key * 10)
   by_key.clear()
   inspect(by_key.length(), content="0")
 }
@@ -165,17 +165,17 @@ test "panic memo_map: get_tracked at top level aborts" {
   // aborts outside a tracked context), not get_untracked. Without this
   // test, a refactor that reroutes through get_untracked would preserve
   // in-memo dep recording but silently lose the top-level contract.
-  let rt = Runtime::new()
-  let by_key = MemoMap::new(rt, (key : Int) => key * 10)
+  let rt = Runtime::Runtime()
+  let by_key = MemoMap::MemoMap(rt, (key : Int) => key * 10)
   ignore(by_key.get_tracked(1))
 }
 
 ///|
 test "memo_map: get_tracked records per-key dep, not cross-key" {
-  let rt = Runtime::new()
-  let src1 = Signal::new(rt, 10)
-  let src2 = Signal::new(rt, 20)
-  let by_key = MemoMap::new(rt, (key : Int) => {
+  let rt = Runtime::Runtime()
+  let src1 = Signal::Signal(rt, 10)
+  let src2 = Signal::Signal(rt, 20)
+  let by_key = MemoMap::MemoMap(rt, (key : Int) => {
     if key == 1 {
       src1.get()
     } else {
@@ -183,7 +183,7 @@ test "memo_map: get_tracked records per-key dep, not cross-key" {
     }
   })
   let mut downstream_count = 0
-  let view = Memo::new(rt, () => {
+  let view = Memo::Memo(rt, () => {
     downstream_count = downstream_count + 1
     by_key.get_tracked(1) * 2
   })

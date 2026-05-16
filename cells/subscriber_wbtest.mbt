@@ -1,17 +1,17 @@
 ///|
 test "subscriber: new cells have empty subscribers" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 10)
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 10)
   let sig_data = rt.get_pull_signal(sig.id())
   inspect(sig_data.meta.subscribers.length(), content="0")
 }
 
 ///|
 test "subscriber: memo subscribes to its dependencies" {
-  let rt = Runtime::new()
-  let a = Signal::new(rt, 1)
-  let b = Signal::new(rt, 2)
-  let sum = Memo::new(rt, () => a.get() + b.get())
+  let rt = Runtime::Runtime()
+  let a = Signal::Signal(rt, 1)
+  let b = Signal::Signal(rt, 2)
+  let sum = Memo::Memo(rt, () => a.get() + b.get())
   let _ = rt.read(sum)
   // a and b should list sum as a subscriber
   let a_data = rt.get_pull_signal(a.id())
@@ -22,11 +22,11 @@ test "subscriber: memo subscribes to its dependencies" {
 
 ///|
 test "subscriber: dynamic dep change updates subscribers" {
-  let rt = Runtime::new()
-  let flag = Signal::new(rt, true)
-  let a = Signal::new(rt, 10)
-  let b = Signal::new(rt, 20)
-  let pick = Memo::new(rt, () => if flag.get() { a.get() } else { b.get() })
+  let rt = Runtime::Runtime()
+  let flag = Signal::Signal(rt, true)
+  let a = Signal::Signal(rt, 10)
+  let b = Signal::Signal(rt, 20)
+  let pick = Memo::Memo(rt, () => if flag.get() { a.get() } else { b.get() })
   let _ = rt.read(pick) // deps: flag, a
   let a_data = rt.get_pull_signal(a.id())
   let b_data = rt.get_pull_signal(b.id())
@@ -42,10 +42,10 @@ test "subscriber: dynamic dep change updates subscribers" {
 
 ///|
 test "subscriber: dependents returns subscriber list" {
-  let rt = Runtime::new()
-  let a = Signal::new(rt, 1)
-  let m1 = Memo::new(rt, () => a.get() + 1)
-  let m2 = Memo::new(rt, () => a.get() * 2)
+  let rt = Runtime::Runtime()
+  let a = Signal::Signal(rt, 1)
+  let m1 = Memo::Memo(rt, () => a.get() + 1)
+  let m2 = Memo::Memo(rt, () => a.get() * 2)
   let _ = rt.read(m1)
   let _ = rt.read(m2)
   let deps = rt.dependents(a.id())
@@ -56,9 +56,9 @@ test "subscriber: dependents returns subscriber list" {
 
 ///|
 test "subscriber: dependents returns empty for leaf memo" {
-  let rt = Runtime::new()
-  let a = Signal::new(rt, 1)
-  let m = Memo::new(rt, () => a.get())
+  let rt = Runtime::Runtime()
+  let a = Signal::Signal(rt, 1)
+  let m = Memo::Memo(rt, () => a.get())
   let _ = rt.read(m)
   let deps = rt.dependents(m.id())
   inspect(deps.length(), content="0")
@@ -66,9 +66,9 @@ test "subscriber: dependents returns empty for leaf memo" {
 
 ///|
 test "subscriber: memo.get() is idempotent for subscribers" {
-  let rt = Runtime::new()
-  let a = Signal::new(rt, 1)
-  let m = Memo::new(rt, () => a.get() + 1)
+  let rt = Runtime::Runtime()
+  let a = Signal::Signal(rt, 1)
+  let m = Memo::Memo(rt, () => a.get() + 1)
   let _ = rt.read(m)
   let _ = rt.read(m)
   let sig_data = rt.get_pull_signal(a.id())
@@ -78,9 +78,9 @@ test "subscriber: memo.get() is idempotent for subscribers" {
 
 ///|
 test "subscriber: cell_info includes subscribers" {
-  let rt = Runtime::new()
-  let a = Signal::new(rt, 1)
-  let m = Memo::new(rt, () => a.get() + 1)
+  let rt = Runtime::Runtime()
+  let a = Signal::Signal(rt, 1)
+  let m = Memo::Memo(rt, () => a.get() + 1)
   let _ = rt.read(m)
   match rt.cell_info(a.id()) {
     Some(info) => inspect(info.subscribers.contains(m.id()), content="true")

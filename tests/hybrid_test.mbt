@@ -1,8 +1,8 @@
 ///|
 test "hybrid: basic get and update" {
-  let rt = Runtime::new()
-  let s = Signal::new(rt, 1)
-  let h = @incr.HybridMemo::new(rt, () => s.get() * 2)
+  let rt = Runtime::Runtime()
+  let s = Signal::Signal(rt, 1)
+  let h = @incr.HybridMemo::HybridMemo(rt, () => s.get() * 2)
   inspect(rt.read_hybrid(h), content="2")
   s.set(5)
   inspect(rt.read_hybrid(h), content="10")
@@ -10,7 +10,7 @@ test "hybrid: basic get and update" {
 
 ///|
 test "hybrid: create_hybrid_memo helper" {
-  let db = TestDb::new()
+  let db = TestDb()
   let s = @incr.create_signal(db, 3)
   let h = @incr.create_hybrid_memo(db, () => s.get() + 1)
   inspect(db.rt.read_hybrid(h), content="4")
@@ -20,18 +20,18 @@ test "hybrid: create_hybrid_memo helper" {
 
 ///|
 test "hybrid: is_up_to_date before first get returns false" {
-  let rt = Runtime::new()
-  let s = Signal::new(rt, 1)
-  let h = @incr.HybridMemo::new(rt, () => s.get())
+  let rt = Runtime::Runtime()
+  let s = Signal::Signal(rt, 1)
+  let h = @incr.HybridMemo::HybridMemo(rt, () => s.get())
   // Never-computed memo has no cached value — must not be considered up-to-date.
   inspect(h.is_up_to_date(), content="false")
 }
 
 ///|
 test "hybrid: is_up_to_date via Readable" {
-  let rt = Runtime::new()
-  let s = Signal::new(rt, 1)
-  let h = @incr.HybridMemo::new(rt, () => s.get())
+  let rt = Runtime::Runtime()
+  let s = Signal::Signal(rt, 1)
+  let h = @incr.HybridMemo::HybridMemo(rt, () => s.get())
   let _ = rt.read_hybrid(h)
   inspect(h.is_up_to_date(), content="true")
   s.set(2)
@@ -43,11 +43,11 @@ test "hybrid: is_up_to_date via Readable" {
 ///|
 test "hybrid: unchanged value does not propagate (backdating)" {
   // If the hybrid memo recomputes to the same value, downstream memos skip.
-  let rt = Runtime::new()
-  let s = Signal::new(rt, 2)
-  let h = @incr.HybridMemo::new(rt, () => s.get() % 2) // always 0
+  let rt = Runtime::Runtime()
+  let s = Signal::Signal(rt, 2)
+  let h = @incr.HybridMemo::HybridMemo(rt, () => s.get() % 2) // always 0
   let mut count = 0
-  let m = Memo::new(rt, () => {
+  let m = Memo::Memo(rt, () => {
     count = count + 1
     h.get() + 1
   })
@@ -60,12 +60,12 @@ test "hybrid: unchanged value does not propagate (backdating)" {
 
 ///|
 test "hybrid: diamond — signal → two hybrids → memo" {
-  let rt = Runtime::new()
-  let s = Signal::new(rt, 3)
-  let h1 = @incr.HybridMemo::new(rt, () => s.get() + 1)
-  let h2 = @incr.HybridMemo::new(rt, () => s.get() * 2)
+  let rt = Runtime::Runtime()
+  let s = Signal::Signal(rt, 3)
+  let h1 = @incr.HybridMemo::HybridMemo(rt, () => s.get() + 1)
+  let h2 = @incr.HybridMemo::HybridMemo(rt, () => s.get() * 2)
   let mut count = 0
-  let m = Memo::new(rt, () => {
+  let m = Memo::Memo(rt, () => {
     count = count + 1
     h1.get() + h2.get()
   })
@@ -78,11 +78,11 @@ test "hybrid: diamond — signal → two hybrids → memo" {
 
 ///|
 test "hybrid: batch update — single revision" {
-  let rt = Runtime::new()
-  let x = Signal::new(rt, 1)
-  let y = Signal::new(rt, 2)
+  let rt = Runtime::Runtime()
+  let x = Signal::Signal(rt, 1)
+  let y = Signal::Signal(rt, 2)
   let mut count = 0
-  let h = @incr.HybridMemo::new(rt, () => {
+  let h = @incr.HybridMemo::HybridMemo(rt, () => {
     count = count + 1
     x.get() + y.get()
   })
@@ -98,10 +98,10 @@ test "hybrid: batch update — single revision" {
 
 ///|
 test "hybrid: chained hybrids" {
-  let rt = Runtime::new()
-  let s = Signal::new(rt, 1)
-  let h1 = @incr.HybridMemo::new(rt, () => s.get() + 1)
-  let h2 = @incr.HybridMemo::new(rt, () => h1.get() * 10)
+  let rt = Runtime::Runtime()
+  let s = Signal::Signal(rt, 1)
+  let h1 = @incr.HybridMemo::HybridMemo(rt, () => s.get() + 1)
+  let h2 = @incr.HybridMemo::HybridMemo(rt, () => h1.get() * 10)
   inspect(rt.read_hybrid(h2), content="20")
   s.set(2)
   inspect(rt.read_hybrid(h2), content="30")
@@ -109,11 +109,11 @@ test "hybrid: chained hybrids" {
 
 ///|
 test "hybrid: hybrid as dep of memo — pull chain" {
-  let rt = Runtime::new()
-  let s = Signal::new(rt, 1)
-  let h = @incr.HybridMemo::new(rt, () => s.get() * 2)
+  let rt = Runtime::Runtime()
+  let s = Signal::Signal(rt, 1)
+  let h = @incr.HybridMemo::HybridMemo(rt, () => s.get() * 2)
   let mut count = 0
-  let m = Memo::new(rt, () => {
+  let m = Memo::Memo(rt, () => {
     count = count + 1
     h.get() + 1
   })

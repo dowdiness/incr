@@ -4,15 +4,15 @@ test "backdating: intermediate memo unchanged stops downstream recompute" {
   // When signal changes from 50 to 60, clamp still returns the same capped value?
   // No — let's use a clearer example:
   // signal (parity-irrelevant) -> is_even -> downstream
-  let rt = Runtime::new()
-  let input = Signal::new(rt, 4)
+  let rt = Runtime::Runtime()
+  let input = Signal::Signal(rt, 4)
   let mut is_even_count = 0
-  let is_even = Memo::new(rt, () => {
+  let is_even = Memo::Memo(rt, () => {
     is_even_count = is_even_count + 1
     input.get() % 2 == 0
   })
   let mut downstream_count = 0
-  let downstream = Memo::new(rt, () => {
+  let downstream = Memo::Memo(rt, () => {
     downstream_count = downstream_count + 1
     if is_even.get() {
       "even"
@@ -35,15 +35,15 @@ test "backdating: intermediate memo unchanged stops downstream recompute" {
 
 ///|
 test "backdating: value actually changes propagates" {
-  let rt = Runtime::new()
-  let input = Signal::new(rt, 4)
+  let rt = Runtime::Runtime()
+  let input = Signal::Signal(rt, 4)
   let mut is_even_count = 0
-  let is_even = Memo::new(rt, () => {
+  let is_even = Memo::Memo(rt, () => {
     is_even_count = is_even_count + 1
     input.get() % 2 == 0
   })
   let mut downstream_count = 0
-  let downstream = Memo::new(rt, () => {
+  let downstream = Memo::Memo(rt, () => {
     downstream_count = downstream_count + 1
     if is_even.get() {
       "even"
@@ -63,10 +63,10 @@ test "backdating: value actually changes propagates" {
 test "backdating: three-level chain with stable middle" {
   // input -> abs (absolute value) -> doubled
   // Change input from 5 to -5: abs stays 5, doubled should not recompute
-  let rt = Runtime::new()
-  let input = Signal::new(rt, 5)
+  let rt = Runtime::Runtime()
+  let input = Signal::Signal(rt, 5)
   let mut abs_count = 0
-  let abs_val = Memo::new(rt, () => {
+  let abs_val = Memo::Memo(rt, () => {
     abs_count = abs_count + 1
     let v = input.get()
     if v < 0 {
@@ -76,7 +76,7 @@ test "backdating: three-level chain with stable middle" {
     }
   })
   let mut doubled_count = 0
-  let doubled = Memo::new(rt, () => {
+  let doubled = Memo::Memo(rt, () => {
     doubled_count = doubled_count + 1
     abs_val.get() * 2
   })
@@ -92,10 +92,10 @@ test "backdating: three-level chain with stable middle" {
 
 ///|
 test "backdating: multiple changes, some stable some not" {
-  let rt = Runtime::new()
-  let input = Signal::new(rt, 10)
+  let rt = Runtime::Runtime()
+  let input = Signal::Signal(rt, 10)
   let mut clamp_count = 0
-  let clamped = Memo::new(rt, () => {
+  let clamped = Memo::Memo(rt, () => {
     clamp_count = clamp_count + 1
     let v = input.get()
     if v > 100 {
@@ -107,7 +107,7 @@ test "backdating: multiple changes, some stable some not" {
     }
   })
   let mut fmt_count = 0
-  let formatted = Memo::new(rt, () => {
+  let formatted = Memo::Memo(rt, () => {
     fmt_count = fmt_count + 1
     clamped.get()
   })

@@ -1,9 +1,9 @@
 ///|
 test "diff_subscribers: add new deps" {
-  let rt = Runtime::new()
-  let s1 = Signal::new(rt, 1)
-  let s2 = Signal::new(rt, 2)
-  let m = Memo::new(rt, fn() { s1.get() })
+  let rt = Runtime::Runtime()
+  let s1 = Signal::Signal(rt, 1)
+  let s2 = Signal::Signal(rt, 2)
+  let m = Memo::Memo(rt, fn() { s1.get() })
   let obs = m.observe()
   // m currently depends on s1 only. Simulate a dep change to [s1, s2].
   let old_deps = [s1.id()]
@@ -17,10 +17,10 @@ test "diff_subscribers: add new deps" {
 
 ///|
 test "diff_subscribers: remove old deps" {
-  let rt = Runtime::new()
-  let s1 = Signal::new(rt, 1)
-  let s2 = Signal::new(rt, 2)
-  let m = Memo::new(rt, fn() { s1.get() + s2.get() })
+  let rt = Runtime::Runtime()
+  let s1 = Signal::Signal(rt, 1)
+  let s2 = Signal::Signal(rt, 2)
+  let m = Memo::Memo(rt, fn() { s1.get() + s2.get() })
   let obs = m.observe()
   // m depends on [s1, s2]. Simulate dep change to [s1] only.
   let old_deps = [s1.id(), s2.id()]
@@ -34,9 +34,9 @@ test "diff_subscribers: remove old deps" {
 
 ///|
 test "diff_subscribers: no change is no-op" {
-  let rt = Runtime::new()
-  let s1 = Signal::new(rt, 1)
-  let m = Memo::new(rt, fn() { s1.get() })
+  let rt = Runtime::Runtime()
+  let s1 = Signal::Signal(rt, 1)
+  let m = Memo::Memo(rt, fn() { s1.get() })
   let obs = m.observe()
   // Force computation to establish subscriber links
   rt.read(m) |> ignore

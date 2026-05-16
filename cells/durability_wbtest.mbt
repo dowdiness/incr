@@ -1,15 +1,15 @@
 ///|
 test "durability: high durability signal skips verification" {
-  let rt = Runtime::new()
-  let config = Signal::new(rt, "debug", durability=High)
-  let source = Signal::new(rt, "hello")
+  let rt = Runtime::Runtime()
+  let config = Signal::Signal(rt, "debug", durability=High)
+  let source = Signal::Signal(rt, "hello")
   let mut config_reads = 0
-  let config_memo = Memo::new(rt, () => {
+  let config_memo = Memo::Memo(rt, () => {
     config_reads = config_reads + 1
     config.get()
   })
   let mut source_memo_reads = 0
-  let source_memo = Memo::new(rt, () => {
+  let source_memo = Memo::Memo(rt, () => {
     source_memo_reads = source_memo_reads + 1
     source.get()
   })
@@ -31,10 +31,10 @@ test "durability: high durability signal skips verification" {
 
 ///|
 test "durability: memo inherits min durability from deps" {
-  let rt = Runtime::new()
-  let high = Signal::new(rt, 1, durability=High)
-  let low = Signal::new(rt, 2) // Low by default
-  let combined = Memo::new(rt, () => high.get() + low.get())
+  let rt = Runtime::Runtime()
+  let high = Signal::Signal(rt, 1, durability=High)
+  let low = Signal::Signal(rt, 2) // Low by default
+  let combined = Memo::Memo(rt, () => high.get() + low.get())
   inspect(rt.read(combined), content="3")
   // combined should have Low durability (min of High and Low)
   let cell = rt.get_memo_data(combined.cell_id)
@@ -43,10 +43,10 @@ test "durability: memo inherits min durability from deps" {
 
 ///|
 test "durability: memo with only high deps gets high durability" {
-  let rt = Runtime::new()
-  let a = Signal::new(rt, 10, durability=High)
-  let b = Signal::new(rt, 20, durability=High)
-  let sum = Memo::new(rt, () => a.get() + b.get())
+  let rt = Runtime::Runtime()
+  let a = Signal::Signal(rt, 10, durability=High)
+  let b = Signal::Signal(rt, 20, durability=High)
+  let sum = Memo::Memo(rt, () => a.get() + b.get())
   inspect(rt.read(sum), content="30")
   let cell = rt.get_memo_data(sum.cell_id)
   inspect(cell.meta.durability, content="High")
@@ -54,10 +54,10 @@ test "durability: memo with only high deps gets high durability" {
 
 ///|
 test "durability: medium durability signal" {
-  let rt = Runtime::new()
-  let med = Signal::new(rt, 5, durability=Medium)
-  let low = Signal::new(rt, 10)
-  let memo = Memo::new(rt, () => med.get() + low.get())
+  let rt = Runtime::Runtime()
+  let med = Signal::Signal(rt, 5, durability=Medium)
+  let low = Signal::Signal(rt, 10)
+  let memo = Memo::Memo(rt, () => med.get() + low.get())
   inspect(rt.read(memo), content="15")
   // Memo should have Low durability (min of Medium and Low)
   let cell = rt.get_memo_data(memo.cell_id)
@@ -66,11 +66,11 @@ test "durability: medium durability signal" {
 
 ///|
 test "durability: high-only memo skips verify when low input changes" {
-  let rt = Runtime::new()
-  let config = Signal::new(rt, 100, durability=High)
-  let source = Signal::new(rt, 1)
+  let rt = Runtime::Runtime()
+  let config = Signal::Signal(rt, 100, durability=High)
+  let source = Signal::Signal(rt, 1)
   let mut config_compute_count = 0
-  let config_derived = Memo::new(rt, () => {
+  let config_derived = Memo::Memo(rt, () => {
     config_compute_count = config_compute_count + 1
     config.get() * 2
   })
@@ -97,11 +97,11 @@ test "durability: shortcut boundary — High memo stays skipped when durability_
   //   rev 1 → config_memo recomputes; verified_at = 1
   //   rev 2 → data (Medium) changes; durability_last_changed[High] stays at 1
   //   shortcut check: 1 > 1 → false → shortcut fires → config_memo NOT recomputed
-  let rt = Runtime::new()
-  let config = Signal::new(rt, 1, durability=High)
-  let data = Signal::new(rt, 0, durability=Medium)
+  let rt = Runtime::Runtime()
+  let config = Signal::Signal(rt, 1, durability=High)
+  let data = Signal::Signal(rt, 0, durability=Medium)
   let mut config_compute_count = 0
-  let config_memo = Memo::new(rt, () => {
+  let config_memo = Memo::Memo(rt, () => {
     config_compute_count = config_compute_count + 1
     config.get() * 10
   })

@@ -7,13 +7,13 @@ test "pull_signal_data: can be constructed" {
       label: None,
       changed_at: Revision::initial(),
       durability: Low,
-      subscribers: @hashset.new(),
+      subscribers: @hashset.HashSet([]),
       push_reachable_count: 0,
     },
     on_change: None,
     commit_pending: None,
   }
-  inspect(data.meta.label, content="None")
+  debug_inspect(data.meta.label, content="None")
 }
 
 ///|

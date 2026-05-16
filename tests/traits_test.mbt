@@ -6,8 +6,6 @@ using @incr {type Signal, type Runtime, type Memo}
 ///|
 struct TestDb {
   rt : Runtime
-
-  fn new() -> TestDb
 }
 
 ///|
@@ -16,7 +14,7 @@ suberror TraitBatchError {
 }
 
 ///|
-fn TestDb::new() -> TestDb {
+fn TestDb::TestDb() -> TestDb {
   { rt: Runtime() }
 }
 
@@ -112,8 +110,8 @@ test "trait: batch_result via Database" {
 
 ///|
 test "trait: signal is always up-to-date" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 5)
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 5)
   inspect(sig.is_up_to_date(), content="true")
   sig.set(10)
   inspect(sig.is_up_to_date(), content="true")
@@ -121,9 +119,9 @@ test "trait: signal is always up-to-date" {
 
 ///|
 test "trait: memo is up-to-date after get" {
-  let rt = Runtime::new()
-  let input = Signal::new(rt, 1)
-  let memo = Memo::new(rt, () => input.get() + 1)
+  let rt = Runtime::Runtime()
+  let input = Signal::Signal(rt, 1)
+  let memo = Memo::Memo(rt, () => input.get() + 1)
   // After get, memo should be up-to-date
   let _ = rt.read(memo)
   inspect(memo.is_up_to_date(), content="true")
@@ -137,9 +135,9 @@ test "trait: memo is up-to-date after get" {
 
 ///|
 test "trait: memo not yet computed is not up-to-date" {
-  let rt = Runtime::new()
-  let input = Signal::new(rt, 1)
-  let memo = Memo::new(rt, () => input.get() + 1)
+  let rt = Runtime::Runtime()
+  let input = Signal::Signal(rt, 1)
+  let memo = Memo::Memo(rt, () => input.get() + 1)
   // Before any get, memo has no cached value, so it is not up-to-date
   inspect(memo.is_up_to_date(), content="false")
   // After computing, memo is up-to-date
@@ -152,8 +150,8 @@ test "trait: memo not yet computed is not up-to-date" {
 
 ///|
 test "trait: readable trait dispatch for signal" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 5)
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 5)
   inspect(check_up_to_date(sig), content="true")
   sig.set(10)
   inspect(check_up_to_date(sig), content="true")
@@ -161,9 +159,9 @@ test "trait: readable trait dispatch for signal" {
 
 ///|
 test "trait: readable trait dispatch for memo" {
-  let rt = Runtime::new()
-  let input = Signal::new(rt, 1)
-  let memo = Memo::new(rt, () => input.get() + 1)
+  let rt = Runtime::Runtime()
+  let input = Signal::Signal(rt, 1)
+  let memo = Memo::Memo(rt, () => input.get() + 1)
   let _ = rt.read(memo)
   inspect(check_up_to_date(memo), content="true")
   input.set(2)
@@ -178,15 +176,13 @@ struct CalcPipeline {
   source : Signal[String]
   errors : Memo[Array[String]]
   output : Memo[Array[String]]
-
-  fn new() -> CalcPipeline
 }
 
 ///|
-fn CalcPipeline::new() -> CalcPipeline {
-  let rt = Runtime::new()
-  let source = Signal::new(rt, "")
-  let errors = Memo::new(rt, () => {
+fn CalcPipeline::CalcPipeline() -> CalcPipeline {
+  let rt = Runtime::Runtime()
+  let source = Signal::Signal(rt, "")
+  let errors = Memo::Memo(rt, () => {
     let src = source.get()
     if src == "" {
       ["empty source"]
@@ -194,7 +190,7 @@ fn CalcPipeline::new() -> CalcPipeline {
       []
     }
   })
-  let output = Memo::new(rt, () => {
+  let output = Memo::Memo(rt, () => {
     let src = source.get()
     if src == "" {
       []
@@ -333,7 +329,13 @@ test "trait: create_signal with label" {
   let db = TestDb()
   let sig = @incr.create_signal(db, 42, label="count")
   match db.rt.cell_info(sig.id()) {
-    Some(info) => inspect(info.label, content="Some(\"count\")")
+    Some(info) =>
+      debug_inspect(
+        info.label,
+        content=(
+          #|Some("count")
+        ),
+      )
     None => abort("expected cell info")
   }
 }
@@ -345,7 +347,13 @@ test "trait: create_memo with label" {
   let m = @incr.create_memo(db, () => x.get() * 2, label="doubled")
   let _ = db.rt.read(m)
   match db.rt.cell_info(m.id()) {
-    Some(info) => inspect(info.label, content="Some(\"doubled\")")
+    Some(info) =>
+      debug_inspect(
+        info.label,
+        content=(
+          #|Some("doubled")
+        ),
+      )
     None => abort("expected cell info")
   }
 }

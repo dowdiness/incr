@@ -5,11 +5,11 @@
 test "push efficiency: signal set, 100 hybrid subs, no push nodes (baseline)" (
   b : @bench.T,
 ) {
-  let rt = Runtime::new()
-  let s = Signal::new(rt, 0)
+  let rt = Runtime::Runtime()
+  let s = Signal::Signal(rt, 0)
   for i = 0; i < 100; i = i + 1 {
     let multiplier = i + 1
-    let h = HybridMemo::new(rt, () => s.get() * multiplier)
+    let h = HybridMemo::HybridMemo(rt, () => s.get() * multiplier)
     ignore(rt.read_hybrid(h))
   }
   let mut v = 0
@@ -29,14 +29,14 @@ test "push efficiency: signal set, 100 hybrid subs, no push nodes (baseline)" (
 test "push efficiency: signal set, 100 hybrid subs, distant reactive (mixed)" (
   b : @bench.T,
 ) {
-  let rt = Runtime::new()
-  let s = Signal::new(rt, 0)
+  let rt = Runtime::Runtime()
+  let s = Signal::Signal(rt, 0)
   for i = 0; i < 100; i = i + 1 {
     let multiplier = i + 1
-    let h = HybridMemo::new(rt, () => s.get() * multiplier)
+    let h = HybridMemo::HybridMemo(rt, () => s.get() * multiplier)
     ignore(rt.read_hybrid(h))
   }
-  let s2 = Signal::new(rt, 0)
+  let s2 = Signal::Signal(rt, 0)
   let _r = Reactive::new(rt, () => s2.get() + 1)
   let mut v = 0
   b.bench(fn() {
@@ -50,14 +50,14 @@ test "push efficiency: signal set, 100 hybrid subs, distant reactive (mixed)" (
 test "push efficiency: signal set, 1000 hybrid subs, distant reactive (mixed)" (
   b : @bench.T,
 ) {
-  let rt = Runtime::new()
-  let s = Signal::new(rt, 0)
+  let rt = Runtime::Runtime()
+  let s = Signal::Signal(rt, 0)
   for i = 0; i < 1000; i = i + 1 {
     let multiplier = i + 1
-    let h = HybridMemo::new(rt, () => s.get() * multiplier)
+    let h = HybridMemo::HybridMemo(rt, () => s.get() * multiplier)
     ignore(rt.read_hybrid(h))
   }
-  let s2 = Signal::new(rt, 0)
+  let s2 = Signal::Signal(rt, 0)
   let _r = Reactive::new(rt, () => s2.get() + 1)
   let mut v = 0
   b.bench(fn() {

@@ -1,16 +1,16 @@
 ///|
 test "memo closure accepts non-raising function (auto-promotion)" {
-  let rt = Runtime::new()
-  let s = Signal::new(rt, 10)
-  let m = Memo::new(rt, () => s.get() * 2)
+  let rt = Runtime::Runtime()
+  let s = Signal::Signal(rt, 10)
+  let m = Memo::Memo(rt, () => s.get() * 2)
   inspect(rt.read(m), content="20")
 }
 
 ///|
 test "memo closure accepts raising function" {
-  let rt = Runtime::new()
-  let s = Signal::new(rt, 0)
-  let m : Memo[Int] = Memo::new(rt, () => {
+  let rt = Runtime::Runtime()
+  let s = Signal::Signal(rt, 0)
+  let m : Memo[Int] = Memo::Memo(rt, () => {
     if s.get() < 0 {
       fail("negative input")
     } else {
@@ -22,9 +22,9 @@ test "memo closure accepts raising function" {
 
 ///|
 test "panic memo closure that raises aborts caller" {
-  let rt = Runtime::new()
-  let s = Signal::new(rt, -1)
-  let m : Memo[Int] = Memo::new(rt, () => {
+  let rt = Runtime::Runtime()
+  let s = Signal::Signal(rt, -1)
+  let m : Memo[Int] = Memo::Memo(rt, () => {
     if s.get() < 0 {
       fail("negative")
     } else {

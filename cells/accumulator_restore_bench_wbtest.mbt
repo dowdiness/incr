@@ -22,7 +22,7 @@
 
 ///|
 fn bench_restore(b : @bench.T, n : Int) -> Unit {
-  let rt = Runtime::new()
+  let rt = Runtime::Runtime()
   // Two disjoint sets of accumulators.
   let prev_accs : Array[Accumulator[Int]] = []
   let touched_accs : Array[Accumulator[Int]] = []
@@ -32,7 +32,7 @@ fn bench_restore(b : @bench.T, n : Int) -> Unit {
   }
   // Prime: run a memo that pushes to all prev accumulators so that
   // every prev slot has a real per_memo[cell_id] buffer to restore.
-  let m = Memo::new(rt, () => {
+  let m = Memo::Memo(rt, () => {
     for acc in prev_accs {
       acc.push(1)
     }

@@ -1,8 +1,8 @@
 ///|
 test "gc: disposes all unobserved interior cells" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 1)
-  let m = Memo::new(rt, fn() { sig.get() * 2 })
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 1)
+  let m = Memo::Memo(rt, fn() { sig.get() * 2 })
   ignore(rt.read(m))
   rt.gc()
   assert_true(m.is_disposed())
@@ -12,9 +12,9 @@ test "gc: disposes all unobserved interior cells" {
 
 ///|
 test "gc: keeps observed memo alive" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 1)
-  let m = Memo::new(rt, fn() { sig.get() * 2 })
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 1)
+  let m = Memo::Memo(rt, fn() { sig.get() * 2 })
   let obs = m.observe()
   ignore(obs.get())
   rt.gc()
@@ -25,10 +25,10 @@ test "gc: keeps observed memo alive" {
 
 ///|
 test "gc: keeps transitive deps of observed memo alive" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 1)
-  let m1 = Memo::new(rt, fn() { sig.get() + 1 })
-  let m2 = Memo::new(rt, fn() { m1.get() * 2 })
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 1)
+  let m1 = Memo::Memo(rt, fn() { sig.get() + 1 })
+  let m2 = Memo::Memo(rt, fn() { m1.get() * 2 })
   let obs = m2.observe()
   ignore(obs.get())
   rt.gc()
@@ -39,11 +39,11 @@ test "gc: keeps transitive deps of observed memo alive" {
 
 ///|
 test "gc: disposes unreachable memo in diamond" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 1)
-  let m_used = Memo::new(rt, fn() { sig.get() + 1 })
-  let m_unused = Memo::new(rt, fn() { sig.get() + 2 })
-  let m_top = Memo::new(rt, fn() { m_used.get() })
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 1)
+  let m_used = Memo::Memo(rt, fn() { sig.get() + 1 })
+  let m_unused = Memo::Memo(rt, fn() { sig.get() + 2 })
+  let m_top = Memo::Memo(rt, fn() { m_used.get() })
   let obs = m_top.observe()
   ignore(obs.get())
   ignore(rt.read(m_unused)) // compute to establish deps, but not observed
@@ -56,9 +56,9 @@ test "gc: disposes unreachable memo in diamond" {
 
 ///|
 test "gc: after observer dispose sweeps newly-unreachable" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 1)
-  let m = Memo::new(rt, fn() { sig.get() })
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 1)
+  let m = Memo::Memo(rt, fn() { sig.get() })
   let obs = m.observe()
   ignore(obs.get())
   obs.dispose()
@@ -68,9 +68,9 @@ test "gc: after observer dispose sweeps newly-unreachable" {
 
 ///|
 test "gc: keeps effects alive as implicit roots" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 1)
-  let m = Memo::new(rt, fn() { sig.get() })
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 1)
+  let m = Memo::Memo(rt, fn() { sig.get() })
   let log : Ref[Int] = { val: 0 }
   let _eff = Effect::new(rt, fn() { log.val = m.get() })
   rt.gc()
@@ -80,9 +80,9 @@ test "gc: keeps effects alive as implicit roots" {
 
 ///|
 test "gc: skips sources (signals never collected)" {
-  let rt = Runtime::new()
-  let sig1 = Signal::new(rt, 1)
-  let sig2 = Signal::new(rt, 2)
+  let rt = Runtime::Runtime()
+  let sig1 = Signal::Signal(rt, 1)
+  let sig2 = Signal::Signal(rt, 2)
   rt.gc()
   assert_false(sig1.is_disposed())
   assert_false(sig2.is_disposed())
@@ -90,9 +90,9 @@ test "gc: skips sources (signals never collected)" {
 
 ///|
 test "gc: idempotent (running twice is safe)" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 1)
-  let m = Memo::new(rt, fn() { sig.get() })
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 1)
+  let m = Memo::Memo(rt, fn() { sig.get() })
   ignore(rt.read(m))
   rt.gc()
   assert_true(m.is_disposed())
@@ -102,9 +102,9 @@ test "gc: idempotent (running twice is safe)" {
 
 ///|
 test "gc: after manual dispose is safe" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 1)
-  let m = Memo::new(rt, fn() { sig.get() })
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 1)
+  let m = Memo::Memo(rt, fn() { sig.get() })
   ignore(rt.read(m))
   m.dispose()
   rt.gc() // already disposed, gc skips it
@@ -113,11 +113,11 @@ test "gc: after manual dispose is safe" {
 
 ///|
 test "gc: diamond keeps shared deps alive" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 1)
-  let shared = Memo::new(rt, fn() { sig.get() })
-  let left = Memo::new(rt, fn() { shared.get() + 1 })
-  let right = Memo::new(rt, fn() { shared.get() + 2 })
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 1)
+  let shared = Memo::Memo(rt, fn() { sig.get() })
+  let left = Memo::Memo(rt, fn() { shared.get() + 1 })
+  let right = Memo::Memo(rt, fn() { shared.get() + 2 })
   let obs_left = left.observe()
   ignore(obs_left.get())
   ignore(rt.read(right)) // compute but not observed
@@ -130,8 +130,8 @@ test "gc: diamond keeps shared deps alive" {
 
 ///|
 test "panic gc: during batch aborts" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 1)
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 1)
   rt.batch(fn() {
     sig.set(2)
     rt.gc()
@@ -140,9 +140,9 @@ test "panic gc: during batch aborts" {
 
 ///|
 test "panic gc: during active computation aborts" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 1)
-  let _m = Memo::new(rt, fn() {
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 1)
+  let _m = Memo::Memo(rt, fn() {
     rt.gc()
     sig.get()
   })
@@ -151,8 +151,8 @@ test "panic gc: during active computation aborts" {
 
 ///|
 test "panic gc: during push propagation aborts" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 1)
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 1)
   let _eff = Effect::new(rt, fn() {
     ignore(sig.get())
     rt.gc()
@@ -162,8 +162,8 @@ test "panic gc: during push propagation aborts" {
 
 ///|
 test "gc: collects suspended reactive" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 1)
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 1)
   let r = Reactive::new(rt, fn() { sig.get() * 2 })
   // Observe then unobserve — reactive is suspended
   let obs = r.observe()
@@ -181,10 +181,10 @@ test "gc: collects suspended reactive" {
 // handles to cells outside their reachability subgraph. Users should compute
 // observed memos (call obs.get()) before calling gc().
 test "gc: uncomputed observed memo has empty deps — upstream is swept" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 1)
-  let m1 = Memo::new(rt, fn() { sig.get() + 1 })
-  let m2 = Memo::new(rt, fn() { m1.get() * 2 })
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 1)
+  let m1 = Memo::Memo(rt, fn() { sig.get() + 1 })
+  let m2 = Memo::Memo(rt, fn() { m1.get() * 2 })
   // Observe m2 without computing it first
   let obs = m2.observe()
   rt.gc()

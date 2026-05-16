@@ -2,9 +2,9 @@
 // When a memo has stable dependencies (same cells read every recompute),
 // its durability must be preserved correctly across multiple recomputations.
 test "dep diff: stable deps preserve durability" {
-  let rt = Runtime::new()
-  let a = Signal::new(rt, 1, durability=High)
-  let m = Memo::new(rt, () => a.get() + 1)
+  let rt = Runtime::Runtime()
+  let a = Signal::Signal(rt, 1, durability=High)
+  let m = Memo::Memo(rt, () => a.get() + 1)
   let _ = rt.read(m)
   let memo_data = rt.get_memo_data(m.id())
   inspect(memo_data.meta.durability, content="High")
@@ -19,11 +19,11 @@ test "dep diff: stable deps preserve durability" {
 // When a conditional memo switches which signal it reads, the dependency
 // list and durability must both reflect the new set of dependencies.
 test "dep diff: dynamic deps update dep list and durability" {
-  let rt = Runtime::new()
-  let flag = Signal::new(rt, true, durability=High)
-  let a = Signal::new(rt, 1, durability=High)
-  let b = Signal::new(rt, 2, durability=Low)
-  let m = Memo::new(rt, () => if flag.get() { a.get() } else { b.get() })
+  let rt = Runtime::Runtime()
+  let flag = Signal::Signal(rt, true, durability=High)
+  let a = Signal::Signal(rt, 1, durability=High)
+  let b = Signal::Signal(rt, 2, durability=Low)
+  let m = Memo::Memo(rt, () => if flag.get() { a.get() } else { b.get() })
   // Initial: reads flag(High) and a(High) → min durability = High
   let _ = rt.read(m)
   let memo_data = rt.get_memo_data(m.id())

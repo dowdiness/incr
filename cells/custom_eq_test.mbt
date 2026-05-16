@@ -12,12 +12,10 @@
 struct Point {
   x : Int
   y : Int
-
-  fn new(x : Int, y : Int) -> Point
 } derive(Eq)
 
 ///|
-fn Point::new(x : Int, y : Int) -> Point {
+fn Point::Point(x : Int, y : Int) -> Point {
   { x, y }
 }
 
@@ -26,11 +24,11 @@ test "custom_eq: backdating with Point struct" {
   // Test that backdating uses Eq, not identity.
   // A memo that produces Point with coordinates based on input mod 10.
   // Different inputs can produce equal Points (e.g., 5 and 15 both -> Point(5, 0))
-  let rt = Runtime::new()
-  let input = Signal::new(rt, 5)
+  let rt = Runtime::Runtime()
+  let input = Signal::Signal(rt, 5)
 
   let mut point_count = 0
-  let point_memo = Memo::new(rt, () => {
+  let point_memo = Memo::Memo(rt, () => {
     point_count = point_count + 1
     // x is input mod 10, y is always 0
     // So 5, 15, 25, etc. all produce Point(5, 0)
@@ -38,7 +36,7 @@ test "custom_eq: backdating with Point struct" {
   })
 
   let mut downstream_count = 0
-  let downstream = Memo::new(rt, () => {
+  let downstream = Memo::Memo(rt, () => {
     downstream_count = downstream_count + 1
     let p = point_memo.get()
     p.x * 100 + p.y
@@ -71,8 +69,6 @@ test "custom_eq: backdating with Point struct" {
 priv struct Versioned {
   value : Int
   generation : Int // Ignored in equality check
-
-  fn new(value : Int, generation : Int) -> Versioned
 }
 
 ///|
@@ -81,18 +77,18 @@ impl Eq for Versioned with equal(self, other) -> Bool {
 }
 
 ///|
-fn Versioned::new(value : Int, generation : Int) -> Versioned {
+fn Versioned::Versioned(value : Int, generation : Int) -> Versioned {
   { value, generation }
 }
 
 ///|
 test "custom_eq: backdating ignores generation field" {
-  let rt = Runtime::new()
-  let input = Signal::new(rt, 100)
+  let rt = Runtime::Runtime()
+  let input = Signal::Signal(rt, 100)
 
   let mut gen = 0
   let mut versioned_count = 0
-  let versioned_memo : Memo[Versioned] = Memo::new(rt, () => {
+  let versioned_memo : Memo[Versioned] = Memo::Memo(rt, () => {
     versioned_count = versioned_count + 1
     gen = gen + 1
     // Each computation creates new generation but value based on input
@@ -100,7 +96,7 @@ test "custom_eq: backdating ignores generation field" {
   })
 
   let mut downstream_count = 0
-  let downstream = Memo::new(rt, () => {
+  let downstream = Memo::Memo(rt, () => {
     downstream_count = downstream_count + 1
     versioned_memo.get().value * 2
   })
@@ -150,18 +146,18 @@ impl Eq for Status with equal(self, other) -> Bool {
 
 ///|
 test "custom_eq: enum with selective field comparison" {
-  let rt = Runtime::new()
-  let error_code = Signal::new(rt, 404)
-  let error_msg = Signal::new(rt, "Not Found")
+  let rt = Runtime::Runtime()
+  let error_code = Signal::Signal(rt, 404)
+  let error_msg = Signal::Signal(rt, "Not Found")
 
   let mut status_count = 0
-  let status_memo : Memo[Status] = Memo::new(rt, () => {
+  let status_memo : Memo[Status] = Memo::Memo(rt, () => {
     status_count = status_count + 1
     Error(code=error_code.get(), message=error_msg.get())
   })
 
   let mut handler_count = 0
-  let handler = Memo::new(rt, () => {
+  let handler = Memo::Memo(rt, () => {
     handler_count = handler_count + 1
     match status_memo.get() {
       Error(code=c, ..) => "Error: " + c.to_string()
@@ -213,11 +209,11 @@ test "custom_eq: status variants and fields are used" {
 ///|
 /// Test with Array where content equality matters
 test "custom_eq: array content equality" {
-  let rt = Runtime::new()
-  let size = Signal::new(rt, 3)
+  let rt = Runtime::Runtime()
+  let size = Signal::Signal(rt, 3)
 
   let mut array_count = 0
-  let array_memo : Memo[Array[Int]] = Memo::new(rt, () => {
+  let array_memo : Memo[Array[Int]] = Memo::Memo(rt, () => {
     array_count = array_count + 1
     let arr : Array[Int] = []
     for i = 0; i < size.get(); i = i + 1 {
@@ -227,7 +223,7 @@ test "custom_eq: array content equality" {
   })
 
   let mut sum_count = 0
-  let sum_memo = Memo::new(rt, () => {
+  let sum_memo = Memo::Memo(rt, () => {
     sum_count = sum_count + 1
     let arr = array_memo.get()
     let mut total = 0

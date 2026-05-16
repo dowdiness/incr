@@ -47,10 +47,10 @@ test "BackdateEq default: same value but different changed_at → backdate_equal
 ///|
 test "new_memo: backdates when backdate_equal returns true (same changed_at)" {
   // Stamped returns same changed_at when value is "unchanged" — downstream skips
-  let rt = @incr.Runtime::new()
+  let rt = @incr.Runtime::Runtime()
   let rev_ref : Ref[@incr.Revision] = { val: @incr.Revision::initial() }
   let m_count : Ref[Int] = { val: 0 }
-  let sig = @incr.Signal::new(rt, 0)
+  let sig = @incr.Signal::Signal(rt, 0)
   let m = @incr.Memo::new_memo(rt, () => {
     let _ = sig.get()
     m_count.val = m_count.val + 1
@@ -58,7 +58,7 @@ test "new_memo: backdates when backdate_equal returns true (same changed_at)" {
     Stamped::{ value: 42, changed_at: rev_ref.val }
   })
   let down_count : Ref[Int] = { val: 0 }
-  let _down = @incr.Memo::new(rt, () => {
+  let _down = @incr.Memo::Memo(rt, () => {
     let _ = m.get()
     down_count.val = down_count.val + 1
     0
@@ -76,10 +76,10 @@ test "new_memo: backdates when backdate_equal returns true (same changed_at)" {
 
 ///|
 test "new_memo: propagates when backdate_equal returns false (advanced changed_at)" {
-  let rt = @incr.Runtime::new()
+  let rt = @incr.Runtime::Runtime()
   let rev_ref : Ref[@incr.Revision] = { val: @incr.Revision::initial() }
   let m_count : Ref[Int] = { val: 0 }
-  let sig = @incr.Signal::new(rt, 0)
+  let sig = @incr.Signal::Signal(rt, 0)
   let m = @incr.Memo::new_memo(rt, () => {
     let v = sig.get()
     m_count.val = m_count.val + 1
@@ -88,7 +88,7 @@ test "new_memo: propagates when backdate_equal returns false (advanced changed_a
     Stamped::{ value: v, changed_at: rev_ref.val }
   })
   let down_count : Ref[Int] = { val: 0 }
-  let _down = @incr.Memo::new(rt, () => {
+  let _down = @incr.Memo::Memo(rt, () => {
     let _ = m.get()
     down_count.val = down_count.val + 1
     0
@@ -104,16 +104,16 @@ test "new_memo: propagates when backdate_equal returns false (advanced changed_a
 
 ///|
 test "new_no_backdate: always propagates even when value is identical" {
-  let rt = @incr.Runtime::new()
+  let rt = @incr.Runtime::Runtime()
   let m_count : Ref[Int] = { val: 0 }
-  let sig = @incr.Signal::new(rt, 0)
+  let sig = @incr.Signal::Signal(rt, 0)
   let m = @incr.Memo::new_no_backdate(rt, () => {
     let _ = sig.get()
     m_count.val = m_count.val + 1 // always returns same value
     42
   })
   let down_count : Ref[Int] = { val: 0 }
-  let _down = @incr.Memo::new(rt, () => {
+  let _down = @incr.Memo::Memo(rt, () => {
     let _ = m.get()
     down_count.val = down_count.val + 1
     0
@@ -135,8 +135,8 @@ priv struct NoEq {
 
 ///|
 test "new_no_backdate: usable with non-Eq output type" {
-  let rt = @incr.Runtime::new()
-  let sig = @incr.Signal::new(rt, 0)
+  let rt = @incr.Runtime::Runtime()
+  let sig = @incr.Signal::Signal(rt, 0)
   let m = @incr.Memo::new_no_backdate(rt, () => NoEq::{ data: [sig.get()] })
   // read() must work without T : Eq
   inspect(rt.read(m).data[0], content="0")

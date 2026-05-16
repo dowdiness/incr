@@ -1,13 +1,13 @@
 ///|
 test "scope: new creates empty scope" {
-  let rt = Runtime::new()
+  let rt = Runtime::Runtime()
   let scope = Scope::new(rt)
   inspect(scope.is_disposed(), content="false")
 }
 
 ///|
 test "scope: dispose marks scope as disposed" {
-  let rt = Runtime::new()
+  let rt = Runtime::Runtime()
   let scope = Scope::new(rt)
   scope.dispose()
   inspect(scope.is_disposed(), content="true")
@@ -15,7 +15,7 @@ test "scope: dispose marks scope as disposed" {
 
 ///|
 test "scope: dispose is idempotent" {
-  let rt = Runtime::new()
+  let rt = Runtime::Runtime()
   let scope = Scope::new(rt)
   scope.dispose()
   // Second dispose should not abort
@@ -25,7 +25,7 @@ test "scope: dispose is idempotent" {
 
 ///|
 test "scope: child creates nested scope" {
-  let rt = Runtime::new()
+  let rt = Runtime::Runtime()
   let parent = Scope::new(rt)
   let child = parent.child()
   inspect(child.is_disposed(), content="false")
@@ -34,7 +34,7 @@ test "scope: child creates nested scope" {
 
 ///|
 test "scope: disposing parent disposes children" {
-  let rt = Runtime::new()
+  let rt = Runtime::Runtime()
   let parent = Scope::new(rt)
   let child1 = parent.child()
   let child2 = parent.child()
@@ -46,7 +46,7 @@ test "scope: disposing parent disposes children" {
 
 ///|
 test "scope: nested children disposed bottom-up" {
-  let rt = Runtime::new()
+  let rt = Runtime::Runtime()
   let root = Scope::new(rt)
   let mid = root.child()
   let leaf = mid.child()
@@ -58,7 +58,7 @@ test "scope: nested children disposed bottom-up" {
 
 ///|
 test "panic scope: child of disposed scope aborts" {
-  let rt = Runtime::new()
+  let rt = Runtime::Runtime()
   let scope = Scope::new(rt)
   scope.dispose()
   let _ = scope.child()
@@ -66,7 +66,7 @@ test "panic scope: child of disposed scope aborts" {
 
 ///|
 test "scope: signal creates cell and registers for disposal" {
-  let rt = Runtime::new()
+  let rt = Runtime::Runtime()
   let scope = Scope::new(rt)
   let sig = scope.signal(42)
   inspect(sig.get(), content="42")
@@ -76,7 +76,7 @@ test "scope: signal creates cell and registers for disposal" {
 
 ///|
 test "scope: memo creates cell and registers for disposal" {
-  let rt = Runtime::new()
+  let rt = Runtime::Runtime()
   let scope = Scope::new(rt)
   let sig = scope.signal(10)
   let m = scope.memo(fn() { sig.get() * 2 })
@@ -88,7 +88,7 @@ test "scope: memo creates cell and registers for disposal" {
 
 ///|
 test "scope: hybrid_memo creates cell and registers for disposal" {
-  let rt = Runtime::new()
+  let rt = Runtime::Runtime()
   let scope = Scope::new(rt)
   let sig = scope.signal(5)
   let hm = scope.hybrid_memo(fn() { sig.get() + 1 })
@@ -99,7 +99,7 @@ test "scope: hybrid_memo creates cell and registers for disposal" {
 
 ///|
 test "scope: effect creates cell and registers for disposal" {
-  let rt = Runtime::new()
+  let rt = Runtime::Runtime()
   let scope = Scope::new(rt)
   let ran : Ref[Int] = { val: 0 }
   let sig = scope.signal(1)
@@ -111,7 +111,7 @@ test "scope: effect creates cell and registers for disposal" {
 
 ///|
 test "scope: reactive creates cell and registers for disposal" {
-  let rt = Runtime::new()
+  let rt = Runtime::Runtime()
   let scope = Scope::new(rt)
   let sig = scope.signal(3)
   let r : Reactive[Int] = scope.reactive(fn() { sig.get() * 3 })
@@ -122,7 +122,7 @@ test "scope: reactive creates cell and registers for disposal" {
 
 ///|
 test "scope: mixed cells all disposed together" {
-  let rt = Runtime::new()
+  let rt = Runtime::Runtime()
   let scope = Scope::new(rt)
   let s1 = scope.signal(1)
   let s2 = scope.signal(2)
@@ -138,7 +138,7 @@ test "scope: mixed cells all disposed together" {
 
 ///|
 test "panic scope: signal on disposed scope aborts" {
-  let rt = Runtime::new()
+  let rt = Runtime::Runtime()
   let scope = Scope::new(rt)
   scope.dispose()
   let _ = scope.signal(1)
@@ -146,7 +146,7 @@ test "panic scope: signal on disposed scope aborts" {
 
 ///|
 test "panic scope: memo on disposed scope aborts" {
-  let rt = Runtime::new()
+  let rt = Runtime::Runtime()
   let scope = Scope::new(rt)
   scope.dispose()
   let _ = scope.memo(fn() { 1 })
@@ -154,9 +154,9 @@ test "panic scope: memo on disposed scope aborts" {
 
 ///|
 test "scope: add_observer disposes observer on scope dispose" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 10)
-  let m = Memo::new(rt, fn() { sig.get() * 2 })
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 10)
+  let m = Memo::Memo(rt, fn() { sig.get() * 2 })
   let scope = Scope::new(rt)
   let obs = scope.add_observer(m.observe())
   inspect(obs.get(), content="20")
@@ -167,9 +167,9 @@ test "scope: add_observer disposes observer on scope dispose" {
 
 ///|
 test "scope: manual observer dispose before scope dispose is safe" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 1)
-  let m = Memo::new(rt, fn() { sig.get() })
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 1)
+  let m = Memo::Memo(rt, fn() { sig.get() })
   let scope = Scope::new(rt)
   let obs = scope.add_observer(m.observe())
   obs.dispose()
@@ -179,7 +179,7 @@ test "scope: manual observer dispose before scope dispose is safe" {
 
 ///|
 test "scope: observer disposed before owned cells" {
-  let rt = Runtime::new()
+  let rt = Runtime::Runtime()
   let scope = Scope::new(rt)
   let sig = scope.signal(10)
   let m = scope.memo(fn() { sig.get() * 2 })
@@ -192,9 +192,9 @@ test "scope: observer disposed before owned cells" {
 
 ///|
 test "panic scope: add_observer on disposed scope aborts" {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 1)
-  let m = Memo::new(rt, fn() { sig.get() })
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 1)
+  let m = Memo::Memo(rt, fn() { sig.get() })
   let scope = Scope::new(rt)
   scope.dispose()
   ignore(scope.add_observer(m.observe()))
