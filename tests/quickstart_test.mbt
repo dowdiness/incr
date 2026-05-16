@@ -8,8 +8,11 @@ struct QuickstartApp {
 }
 
 ///|
+// Mirrors README.md's "Database Pattern" exactly: `Runtime::new()` in the body,
+// `MyApp()` constructor sugar at the call site. Any drift in the README's
+// chosen idiom is supposed to break here.
 fn QuickstartApp::QuickstartApp() -> QuickstartApp {
-  { rt: Runtime() }
+  { rt: Runtime::new() }
 }
 
 ///|
@@ -19,7 +22,7 @@ impl @incr.Database for QuickstartApp with runtime(self) {
 
 ///|
 test "quickstart: database pattern from README" {
-  let app = QuickstartApp::QuickstartApp()
+  let app = QuickstartApp()
   let x = @incr.create_signal(app, 10)
   let y = @incr.create_signal(app, 20)
   let sum = @incr.create_memo(app, () => x.get() + y.get())

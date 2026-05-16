@@ -34,7 +34,7 @@ Invalidation strategies for dependency graphs fall into three families:
 `incr` started with a pure pull-based strategy and has since added a hybrid cell type:
 
 - **`Signal`/`Memo`** — Pure pull. `Signal::set()` only bumps a revision counter. All verification and recomputation happens lazily when `Memo::get()` is called.
-- **`HybridMemo`** — Hybrid push-pull. Receives dirty flags eagerly (push) when upstream signals change, but verifies and recomputes lazily on `get()` (pull). The dirty flag enables a fast-path skip when no relevant signal has changed, without a full dependency walk.
+- **`HybridMemo`** — Pull memo that participates in `push_reachable_count` so live `Reactive`/`Effect` observers downstream keep upstream cells reachable for `gc()`. Recomputation is the same lazy `verified_at < current_revision` check as `Memo`; there is no separate dirty flag. The "hybrid" is reachability, not invalidation.
 
 ## Core Concepts
 
@@ -189,12 +189,12 @@ All three constructors share the same read methods (`get`, `get_result`, `get_or
 
 ### Motivation
 
-Pure pull-based verification (`Memo`) has excellent worst-case avoidance: cells never recompute unless read. But when downstream push-reactive nodes (`Reactive`, `Effect`) subscribe to derived values, the push propagation must bridge through those derived values to notify the reactives. With pure pull cells, the bridge is transparent — push propagation does a BFS through pull cell subscriber lists — but no individual pull cell knows whether _it_ was affected by the change without walking its dep chain.
+Pure pull-based verification (`Memo`) has excellent worst-case avoidance: cells never recompute unless read. But when downstream push-reactive nodes (`Reactive`, `Effect`) subscribe to derived values, the push propagation must bridge through those derived values to notify the reactives. With pure pull cells, the bridge is transparent — push propagation does a BFS through pull cell subscriber lists — but a `gc()` sweep that doesn't see the upstream chain as reachable from a live root would reclaim the intermediate cells.
 
-`HybridMemo` adds a single `dirty : Bool` flag. Push propagation sets it eagerly. This gives `get()` a meaningful fast path:
+`HybridMemo` solves the *reachability* half of that problem, not the invalidation half. It uses the same lazy revision-based verification as `Memo` — there is no separate dirty flag. The "hybrid" is that the memo participates in `push_reachable_count`, so a live `Reactive`/`Effect` observer downstream keeps the memo and its upstream cells alive across `Runtime::gc()`. Staleness is detected on `get()` by the standard `verified_at < current_revision` check:
 
-- **Fast path**: `not(dirty) && verified_at >= current_revision` → return cached value immediately, no dep walk.
-- **Slow path**: call `pull_verify_hybrid`, which walks deps, recomputes if needed, and clears `dirty`.
+- **Fast path**: `verified_at >= current_revision` → return cached value immediately, no dep walk.
+- **Slow path**: call `pull_verify_hybrid`, which walks deps and recomputes if needed.
 
 ### Unified Memo Handling
 
@@ -321,8 +321,8 @@ Batches can be nested. A `batch_depth` counter tracks nesting, and each `Runtime
 
 ### Ideas adopted (additions since initial implementation)
 
-- **Subscriber (reverse) links**: `incr` now maintains bidirectional edges — each cell knows both its dependencies (forward) and its subscribers (reverse). Subscriber links enable push-based dirty propagation and are the foundation of `HybridMemo` and push-reactive cells.
-- **Push-pull hybrid**: `HybridMemo` cells receive dirty flags via eager push propagation and verify/recompute lazily on `get()`. This is the hybrid model described above.
+- **Subscriber (reverse) links**: `incr` now maintains bidirectional edges — each cell knows both its dependencies (forward) and its subscribers (reverse). Subscriber links enable push-reachability tracking and are the foundation of `HybridMemo` and push-reactive cells.
+- **Push-pull hybrid**: `HybridMemo` cells stay reachable while a downstream `Reactive`/`Effect` observer is attached (push-reachability), but recomputation is the standard lazy revision check (pull). See the [HybridMemo section](#hybridmemo--hybrid-push-pull-cells) above.
 
 ### Ideas deferred
 
@@ -472,7 +472,7 @@ Unit tests (`*_test.mbt`) and whitebox tests (`*_wbtest.mbt`) live in `cells/`. 
 | `cells/subscriber_wbtest.mbt` | Subscriber tracking internals (whitebox) |
 | `cells/tracked_cell_wbtest.mbt` | `TrackedCell` field-level tracking internals (whitebox) |
 | `cells/memo_map_wbtest.mbt` | MemoMap internal key→memo mapping (whitebox) |
-| `cells/hybrid_wbtest.mbt` | `HybridMemo` internal dirty flag, fast path, backdating, push propagation (whitebox) |
+| `cells/hybrid_wbtest.mbt` | `HybridMemo` revision-based verification, fast path, backdating, push-reachability accounting (whitebox) |
 | `tests/integration_test.mbt` | End-to-end multi-signal/memo scenarios |
 | `tests/fanout_test.mbt` | Wide dependency graphs (diamond, multi-level) |
 | `tests/traits_test.mbt` | Pipeline trait (`CalcPipeline`) fixture tests |

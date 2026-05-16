@@ -163,10 +163,11 @@ pub impl[T] Readable for HybridMemo[T] with is_up_to_date(self) {
 ///|
 /// Creates a new hybrid memo using the database's runtime.
 ///
-/// A hybrid memo receives dirty flags eagerly (via push propagation from
-/// upstream signals) but verifies and recomputes lazily on `get()`. This
-/// combines the low-latency notification of push-based invalidation with
-/// the wasted-work avoidance of pull-based verification.
+/// `HybridMemo[T]` uses the same lazy revision-based verification as
+/// `Memo[T]` — there is no separate dirty flag. The "hybrid" refers to
+/// *reachability*: the memo participates in `push_reachable_count`, so a
+/// live `Reactive` or `Effect` observer downstream keeps the memo and its
+/// upstream cells alive across `Runtime::gc()`.
 ///
 /// Use `HybridMemo` when:
 /// - The memo sits between push-reactive nodes and pull-based memos

@@ -156,7 +156,7 @@ These are inferred from the code's structure and the consistent direction of rec
 Items the audit verified against current code; if any of these is wrong, the code has moved and this doc should be updated.
 
 - **`pipeline/` is uncommitted.** The four traits in that package are not used internally and have no roadmap item. Treat as exploratory.
-- **`gc_tracked(rt, t)` is a deprecated no-op.** Use `add_tracked(scope, t)`. Source attribute `priv` and the docs in `traits.mbt:288` confirm.
+- **`gc_tracked(rt, t)` is a deprecated no-op.** Use `add_tracked(scope, t)`. The `#deprecated` attribute on the function in `traits.mbt` confirms (search for `pub fn[T : Trackable] gc_tracked`).
 - **Hand-maintained `docs/api-reference.md`.** It has drifted from `.mbti` at least once (caught in the most recent audit). Treat the `.mbti` files as authoritative when they disagree.
 - **No `mbt check` blocks across the user-facing docs at the time of this writing.** Examples are illustrative; drift catches only show up in integration tests under `tests/`. Migration toward `.mbt.md` literate examples is a recommended follow-up.
 - **No CI in this submodule.** Verification is delegated to the parent `canopy` repo; running `moon check && moon test` locally before pushing is the operative discipline.
