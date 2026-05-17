@@ -1,10 +1,5 @@
 ///|
-using @incr_types {
-  type AccumulatorId,
-  type CellId,
-  type Durability,
-  type Revision,
-}
+using @incr_types {type CellId, type Durability, type Revision}
 
 ///|
 using @shared {type CellRef, trait CellOps, trait Committable}
@@ -72,24 +67,12 @@ pub impl Show for PropagationPhase with output(self, logger) {
 /// A dependency recording frame pushed onto the runtime's tracking stack
 /// when a memo is being computed.
 ///
-/// The two accumulator-related fields are lazily allocated: push reactives
-/// and push effects never touch them, and most memo frames don't either, so
-/// initializing them on first use avoids ~25 ns per tracking frame on the
-/// hot path. Use `ensure_accumulator_reads` / `ensure_touched_accumulator_slots`
-/// at write sites; pattern-match on `Option` at read sites and treat `None`
-/// as empty.
+/// (Accumulator state moved off ActiveQuery in T1b Phase 2 — see
+/// cells/accumulator_commit_hook.mbt.)
 pub(all) struct ActiveQuery {
   cell_id : CellId
   dependencies : Array[CellId]
   seen : @hashset.HashSet[CellId]
-  // Synthetic accumulator reads staged during compute. On success, copied
-  // to MemoData.accumulator_reads in the AFTER_CLOSURE phase. On abort,
-  // discarded (transactional discipline matches ordinary-dep commit).
-  mut accumulator_reads : @hashmap.HashMap[(AccumulatorId, CellId), Revision]?
-  // Accumulator slots this frame pushed to. Used in AFTER_CLOSURE to
-  // iterate the set of slots needing a finalize_memo call, and in ON_ABORT
-  // to identify new-run-only slots for cleanup.
-  mut touched_accumulator_slots : @hashset.HashSet[AccumulatorId]?
 }
 
 ///|
@@ -99,52 +82,9 @@ pub fn ActiveQuery::ActiveQuery(cell_id : CellId) -> ActiveQuery {
 }
 
 ///|
-/// Creates a new active query with an empty dependency set. Accumulator
-/// fields start as `None` and are allocated lazily on first write.
+/// Creates a new active query with an empty dependency set.
 pub fn ActiveQuery::new(cell_id : CellId) -> ActiveQuery {
-  {
-    cell_id,
-    dependencies: [],
-    seen: @hashset.HashSet([]),
-    accumulator_reads: None,
-    touched_accumulator_slots: None,
-  }
-}
-
-///|
-/// Lazily allocates the staged accumulator-reads map and returns it.
-///
-/// Typically only memo recompute paths reach here; push reactives/effects
-/// don't read or push to accumulators in their own compute closures. If
-/// one does (e.g. a push reactive that calls `Memo::accumulated`), the
-/// allocation is harmless — `pop_tracking` (the push variant) discards
-/// the entire frame, so the staged reads are dropped on pop.
-pub fn ActiveQuery::ensure_accumulator_reads(
-  self : ActiveQuery,
-) -> @hashmap.HashMap[(AccumulatorId, CellId), Revision] {
-  match self.accumulator_reads {
-    Some(m) => m
-    None => {
-      let m = @hashmap.HashMap([])
-      self.accumulator_reads = Some(m)
-      m
-    }
-  }
-}
-
-///|
-/// Lazily allocates the touched-slots set and returns it.
-pub fn ActiveQuery::ensure_touched_accumulator_slots(
-  self : ActiveQuery,
-) -> @hashset.HashSet[AccumulatorId] {
-  match self.touched_accumulator_slots {
-    Some(s) => s
-    None => {
-      let s = @hashset.HashSet([])
-      self.touched_accumulator_slots = Some(s)
-      s
-    }
-  }
+  { cell_id, dependencies: [], seen: @hashset.HashSet([]) }
 }
 
 ///|

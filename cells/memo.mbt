@@ -424,9 +424,6 @@ fn[T] Runtime::memo_force_recompute(
   for hook in self.commit_hooks {
     hook.before_recompute(self, cell_id)
   }
-  let prev_contributions = memo_snapshot_accumulator_contributions(
-    self, cell_id,
-  )
   let old_deps = cell.dependencies
   @kernel.push_tracking(self.core, cell_id)
   let new_value = compute_fn() catch {
@@ -435,26 +432,17 @@ fn[T] Runtime::memo_force_recompute(
       for hook in self.commit_hooks {
         hook.after_abort(self, cell_id)
       }
-      memo_restore_on_abort(self, cell_id, prev_contributions)
-      // Pop frame (discards staged deps + accumulator_reads).
+      // Pop frame (discards staged deps).
       let _ = @kernel.pop_tracking_full(self.core)
       cell.in_progress = false
       raise e
     }
   }
 
-  // Normal path — pop the full frame to access accumulator state.
+  // Normal path — pop the full frame to get dep + seen sets for the epilogue.
   let query = @kernel.pop_tracking_full(self.core)
   let new_deps = query.dependencies
   let new_seen = query.seen
-  memo_commit_accumulator_phase(
-    self,
-    cell,
-    cell_id,
-    prev_contributions,
-    query.touched_accumulator_slots,
-    query.accumulator_reads,
-  )
 
   // Existing epilogue — subscribers, durability, backdate, verified_at.
   let deps_changed = @kernel.diff_and_update_subscribers(
