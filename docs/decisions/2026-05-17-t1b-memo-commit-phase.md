@@ -68,9 +68,9 @@ The success path additionally consumes two accumulator-specific fields from `Act
 ```moonbit
 // cells/memo_commit_phase.mbt (new file — NOT in cells/internal/kernel/)
 priv trait MemoCommitPhase {
-  fn before_recompute(self : Self, rt : Runtime, cell_id : CellId) -> Unit
-  fn after_success(self : Self, rt : Runtime, cell_id : CellId) -> Unit
-  fn after_abort(self : Self, rt : Runtime, cell_id : CellId) -> Unit
+  before_recompute(Self, Runtime, CellId) -> Unit
+  after_success(Self, Runtime, CellId) -> Unit
+  after_abort(Self, Runtime, CellId) -> Unit
 }
 ```
 

@@ -126,9 +126,9 @@ Apply Codex's feedback. If a structural objection lands, update the ADR before p
 /// its methods take `rt : Runtime`, and kernel cannot import `cells/`.
 /// Mirrors the `CellLifecycle` precedent at `cells/runtime.mbt:30`.
 priv trait MemoCommitPhase {
-  fn before_recompute(self : Self, rt : Runtime, cell_id : CellId) -> Unit
-  fn after_success(self : Self, rt : Runtime, cell_id : CellId) -> Unit
-  fn after_abort(self : Self, rt : Runtime, cell_id : CellId) -> Unit
+  before_recompute(Self, Runtime, CellId) -> Unit
+  after_success(Self, Runtime, CellId) -> Unit
+  after_abort(Self, Runtime, CellId) -> Unit
 }
 ```
 
@@ -338,7 +338,9 @@ priv impl MemoCommitPhase for AccumulatorCommitHook with before_recompute(
 priv impl MemoCommitPhase for AccumulatorCommitHook with after_abort(
   self, rt, cell_id,
 ) {
-  let state = self.active.remove(cell_id).unwrap()
+  // `@hashmap.HashMap::remove` returns Unit, so extract via get then remove.
+  let state = self.active.get(cell_id).unwrap()
+  self.active.remove(cell_id)
   let touched : Array[@incr_types.AccumulatorId] = match state.touched {
     Some(s) => s.to_array()
     None => []
@@ -365,7 +367,9 @@ priv impl MemoCommitPhase for AccumulatorCommitHook with after_abort(
 priv impl MemoCommitPhase for AccumulatorCommitHook with after_success(
   self, rt, cell_id,
 ) {
-  let state = self.active.remove(cell_id).unwrap()
+  // `@hashmap.HashMap::remove` returns Unit, so extract via get then remove.
+  let state = self.active.get(cell_id).unwrap()
+  self.active.remove(cell_id)
   let cell = rt.get_memo_data(cell_id)
   // ... (translate the body of `memo_commit_accumulator_phase` from
   //      cells/accumulator.mbt:321 verbatim, replacing query.touched and
