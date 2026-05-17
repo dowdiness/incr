@@ -180,3 +180,51 @@ test "MemoCommitPhase: nested recompute aborts clean up both entries" {
   inspect(rt.accumulator_commit_hook.active.is_empty(), content="true")
   inspect(sentinel.success_log.length(), content="0")
 }
+
+///|
+/// Test D — Lazy entry creation via `ensure_for_cell`.
+/// When `accumulator_slots.is_empty()` at recompute start, the accumulator
+/// hook's `before_recompute` fast-path returns without installing an
+/// `active[cell_id]` entry. If the recomputing memo then registers an
+/// accumulator mid-compute and pushes to it, `Accumulator::push` reaches
+/// `ensure_for_cell`, which must lazy-create the entry so `after_success`
+/// has staged state to finalize. Verifies the push outcome (peek reads
+/// the value back) and that `after_success` cleaned up the lazy entry.
+test "MemoCommitPhase: ensure_for_cell lazy-creates entry when fast-path took before_recompute" {
+  let rt = Runtime::Runtime()
+  // No Accumulator exists at memo construction time → at recompute start,
+  // `accumulator_slots.is_empty()` is true and the hook's before_recompute
+  // takes its fast-path. The Ref lets the memo's compute register the
+  // accumulator on first run and reuse it on subsequent runs.
+  let acc_ref : Ref[Accumulator[Int]?] = { val: None }
+  let m = Memo::new(rt, () => {
+    let acc = match acc_ref.val {
+      Some(a) => a
+      None => {
+        let a : Accumulator[Int] = Accumulator::new(rt~)
+        acc_ref.val = Some(a)
+        a
+      }
+    }
+    acc.push(42)
+    0
+  })
+  inspect(rt.accumulator_commit_hook.active.is_empty(), content="true")
+  ignore(rt.read(m))
+  // after_success cleaned up the entry that ensure_for_cell lazy-created
+  // during the push.
+  inspect(rt.accumulator_commit_hook.active.is_empty(), content="true")
+  let acc = match acc_ref.val {
+    Some(a) => a
+    None => abort("accumulator was not registered during compute")
+  }
+  // accumulator_contributions[m] now records the lazily-discovered slot,
+  // and peek reads back the pushed value.
+  match rt.accumulator_contributions.get(m.id()) {
+    Some(slots) => inspect(slots.length(), content="1")
+    None => abort("no contribution recorded for m")
+  }
+  let peeked = m.accumulated_peek(acc)
+  inspect(peeked.length(), content="1")
+  inspect(peeked[0], content="42")
+}
