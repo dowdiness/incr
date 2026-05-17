@@ -44,7 +44,8 @@ For contributors and advanced users who want to understand or modify `incr`.
 **Project direction:**
 
 - [Roadmap](roadmap.md) — phased future direction
-- [Active plans](plans/) — concrete implementation plans for upcoming work (none open after R1 completion 2026-04-25; see archive entry below)
+- [Active plans](plans/) — concrete implementation plans for upcoming work
+  - [2026-05-17 T1b implementation](plans/2026-05-17-t1b-implementation.md) — refactor accumulator's three named commit-path calls into `priv MemoCommitPhase` trait dispatch; first registered impl is the accumulator. Visualization tap follow-up tracked in [Memo Event Observation ADR](decisions/2026-05-17-memo-event-observation.md).
 - [TODO](todo.md) — contributor task list organized by priority
 
 **Research notes — exploratory, not implemented:**
@@ -63,6 +64,11 @@ Architecture Decision Records — the *why* behind significant design choices. K
 |------|----------|
 | [2026-04-20](decisions/2026-04-20-accumulator-api.md) | Accumulator API: side-channel collector with per-memo `push_revised_at` incremental invalidation (local-only scope; `raise Failure` error model) |
 | [2026-04-26](decisions/2026-04-26-r2-runtime-decomposition-deferred.md) | R2 (Runtime → services decomposition): deferred indefinitely. Post-R1 Runtime is 427 LOC of thin delegators; service decomposition would be a wrapper-rename without a driver. |
+| [2026-04-26](decisions/2026-04-26-modal-runtime-split-not-warranted.md) | Modal Runtime split (per-mode Runtime types): investigation closed. Runtime::new costs 0.11 µs and unused-mode "luggage" is sub-KB; no concrete X→Y per-mode design wish names a shared-CellId-compatible change. |
+| [2026-05-17](decisions/2026-05-17-async-at-the-edges.md) | Async-at-the-edges with `moonbitlang/async`: no library changes required. Function coloring enforces the synchrony contract statically. Supported patterns documented; T3 + JS integration test gated on a real driver. |
+| [2026-05-17](decisions/2026-05-17-t3-runtime-registry-gated.md) | T3 (`RuntimeRegistry`): design recorded, commissioning gated on multi-runtime async driver, MoonBit preemption, or observable test failure. Replaces two file-scope `Ref[Int]`s + heuristic forgiving-repair with principled liveness queries. |
+| [2026-05-17](decisions/2026-05-17-t1b-memo-commit-phase.md) | T1b (`MemoCommitPhase`): accepted with two design-witness implementors (accumulator shipped, visualization event tap designed). Priv trait; accumulator refactor in T1b's PR; public `Runtime::on_memo_event` API ships with the visualization tap follow-up. Snapshot/restore + CRDT time-travel explicitly deferred. |
+| [2026-05-17](decisions/2026-05-17-memo-event-observation.md) | `Runtime::on_memo_event` public API: driver-facing commit-phase event observation. `pub(all) enum MemoEvent` with `EnteringCompute` / `Completed(elapsed_ns, backdated)` / `Aborted(elapsed_ns, error)`. Single listener per runtime; sync callback (async bridged via aqueue). In-tree `EventBroadcastPhaseHook` bridges T1b's trait. Pull-memo only; push/fixpoint/batch events deferred. |
 
 ---
 
