@@ -31,6 +31,12 @@ pub(all) struct Runtime {
   // takes `Runtime` as a parameter (see cells/cell_ops.mbt), so moving it
   // into kernel would create a circular type reference.
   priv cell_lifecycle : Array[&CellLifecycle]
+  // Commit-phase hooks for pull-mode memo recomputes, dispatched from
+  // `memo_force_recompute`. Same placement rationale as cell_lifecycle:
+  // MemoCommitPhase takes Runtime as a parameter (see
+  // cells/memo_commit_phase.mbt), so the array cannot live in kernel.
+  priv commit_hooks : Array[&MemoCommitPhase]
+  priv accumulator_commit_hook : AccumulatorCommitHook
   // Accumulator state. Monotonic array; disposed slots keep their index
   // (their `disposed` field is set true). No slot-id reuse.
   priv accumulator_slots : Array[SlotMeta]
@@ -65,7 +71,8 @@ pub fn Runtime::Runtime(on_change? : () -> Unit) -> Runtime {
 ///   (or at the end of a batch if values actually changed).
 pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
   let id = @kernel.alloc_runtime_id()
-  {
+  let hook = AccumulatorCommitHook::new()
+  let rt : Runtime = {
     core: {
       runtime_id: id,
       revision: {
@@ -94,11 +101,16 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
     },
     datalog: { relations: [], functional_relations: [], rules: [] },
     cell_lifecycle: [],
+    commit_hooks: [],
+    accumulator_commit_hook: hook,
     accumulator_slots: [],
     accumulator_snapshots: [],
     next_accumulator_id: 0,
     accumulator_contributions: @hashmap.HashMap([]),
   }
+  // Register the same hook object in the dispatch array.
+  rt.commit_hooks.push(hook)
+  rt
 }
 
 ///|

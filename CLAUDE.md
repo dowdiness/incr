@@ -37,7 +37,7 @@ dowdiness/incr/
 │
 ├── cells/                      (coordinator + handles + lifecycle; algorithms live in internal/kernel)
 │   ├── moon.pkg                (imports @shared, @pull, @push, @datalog, @kernel)
-│   ├── runtime.mbt             (Runtime struct + Runtime::new + thin @kernel delegators for propagate_changes, publish_cell_changes, dispose_cell, gc, add/remove_gc_root, advance_revision; RevisionManager + Tracker trait impls; accumulator fields — 427 LOC)
+│   ├── runtime.mbt             (Runtime struct + Runtime::new + thin @kernel delegators for propagate_changes, publish_cell_changes, dispose_cell, gc, add/remove_gc_root, advance_revision; RevisionManager + Tracker trait impls; accumulator fields + commit_hooks/accumulator_commit_hook fields — 444 LOC)
 │   ├── pull_memo_lifecycle.mbt (CellLifecycle for MemoData)
 │   ├── pull_lifecycle.mbt      (CellLifecycle for PullSignalData)
 │   ├── push_lifecycle.mbt      (CellLifecycle for PushReactiveData, PushEffectData)
@@ -56,6 +56,8 @@ dowdiness/incr/
 │   ├── hybrid_memo.mbt         (HybridMemo[T] handle)
 │   ├── tracked_cell.mbt        (TrackedCell[T] handle)
 │   ├── memo_map.mbt            (MemoMap[K, V])
+│   ├── memo_commit_phase.mbt   (priv MemoCommitPhase trait — commit-path extension point dispatched from memo_force_recompute; lives in cells/ not kernel/ because methods take Runtime)
+│   ├── accumulator_commit_hook.mbt (AccumulatorCommitHook — first MemoCommitPhase impl; owns per-recompute snapshot/restore/finalize state previously inline in accumulator.mbt)
 │   ├── scope.mbt, tracking.mbt, introspection.mbt, kernel_using.mbt
 │   ├── cell.mbt, cell_ops.mbt  (local CellLifecycle trait + using re-exports)
 │   ├── internal/               (engine sub-packages, MoonBit `internal` visibility)

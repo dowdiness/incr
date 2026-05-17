@@ -232,148 +232,6 @@ fn Runtime::ensure_computed_untracked(
   }
 }
 
-// ---------------------------------------------------------------------------
-// memo_force_recompute phase helpers
-//
-// Each memo recompute drives three accumulator phases. These helpers factor
-// out the per-phase bookkeeping so memo.mbt's memo_force_recompute reads as
-// orchestration (tracking + compute + epilogue) rather than accumulator
-// plumbing.
-// ---------------------------------------------------------------------------
-
-///|
-/// Phase BEFORE_CLOSURE: snapshot each accumulator slot M contributed to in
-/// its last successful compute and clear its per_memo buffer so this run
-/// starts from empty. Returns the snapshot list (a plain Array so the
-/// caller can iterate independently of `touched_accumulator_slots`, which
-/// the compute closure mutates).
-fn memo_snapshot_accumulator_contributions(
-  rt : Runtime,
-  cell_id : CellId,
-) -> Array[@incr_types.AccumulatorId] {
-  let prev_contributions : Array[@incr_types.AccumulatorId] = match
-    rt.accumulator_contributions.get(cell_id) {
-    Some(s) => s.to_array()
-    None => []
-  }
-  for slot_id in prev_contributions {
-    let slot = rt.accumulator_slots[slot_id.id]
-    if !slot.disposed {
-      (slot.snapshot_and_clear)(cell_id)
-    }
-  }
-  prev_contributions
-}
-
-///|
-/// Phase ON_ABORT: restore snapshots taken in BEFORE_CLOSURE, and clear
-/// in-flight per_memo buffers for slots this aborted run touched but that
-/// were NOT in prev_contributions. The latter must preserve push_revised_at
-/// (no dispose_memo) so a prior successful run's revision marker survives
-/// the abort.
-///
-/// Reads the touched set from the still-live top active query — caller
-/// must invoke before popping the tracking frame.
-fn memo_restore_on_abort(
-  rt : Runtime,
-  cell_id : CellId,
-  prev_contributions : Array[@incr_types.AccumulatorId],
-) -> Unit {
-  let touched : Array[@incr_types.AccumulatorId] = match rt.top_active_query() {
-    Some(q) =>
-      match q.touched_accumulator_slots {
-        Some(s) => s.to_array()
-        None => []
-      }
-    None => []
-  }
-  // ON_ABORT.1: restore snapshots for every slot in prev_contributions.
-  for slot_id in prev_contributions {
-    let slot = rt.accumulator_slots[slot_id.id]
-    if !slot.disposed {
-      (slot.restore_buffer)(cell_id)
-    }
-  }
-  // ON_ABORT.2: for slots touched during this run but NOT in prev, clear
-  // only the in-flight per_memo buffer (keeps push_revised_at intact).
-  for slot_id in touched {
-    let mut in_prev = false
-    for p in prev_contributions {
-      if p == slot_id {
-        in_prev = true
-        break
-      }
-    }
-    if in_prev {
-      continue
-    }
-    let slot = rt.accumulator_slots[slot_id.id]
-    if !slot.disposed {
-      (slot.clear_new_run_buffer)(cell_id)
-    }
-  }
-}
-
-///|
-/// Phase AFTER_CLOSURE: atomic per-slot finalize over prev ∪ touched, then
-/// commit staged_reads into MemoData.accumulator_reads and the rebuilt
-/// contributions set into rt.accumulator_contributions.
-fn memo_commit_accumulator_phase(
-  rt : Runtime,
-  cell : @pull.MemoData,
-  cell_id : CellId,
-  prev_contributions : Array[@incr_types.AccumulatorId],
-  touched : @hashset.HashSet[@incr_types.AccumulatorId]?,
-  staged_reads : @hashmap.HashMap[
-    (@incr_types.AccumulatorId, CellId),
-    @incr_types.Revision,
-  ]?,
-) -> Unit {
-  // Union prev ∪ touched so every slot that needs finalize_memo is visited
-  // exactly once.
-  let all_slots : @hashset.HashSet[@incr_types.AccumulatorId] = @hashset.HashSet([],
-  )
-  for s in prev_contributions {
-    all_slots.add(s)
-  }
-  match touched {
-    Some(t) =>
-      for s in t {
-        all_slots.add(s)
-      }
-    None => ()
-  }
-  let current_revision = rt.core.revision.current_revision
-  let new_contributions : @hashset.HashSet[@incr_types.AccumulatorId] = @hashset.HashSet([],
-  )
-  for slot_id in all_slots {
-    let slot = rt.accumulator_slots[slot_id.id]
-    if slot.disposed {
-      continue
-    }
-    (slot.finalize_memo)(cell_id, current_revision)
-    if (slot.has_buffer_for)(cell_id) {
-      new_contributions.add(slot_id)
-    }
-  }
-  // Commit staged_reads into MemoData (overwrite any prior-run entries;
-  // a successful recompute is authoritative).
-  cell.accumulator_reads.clear()
-  match staged_reads {
-    Some(reads) =>
-      for k, v in reads {
-        cell.accumulator_reads.set(k, v)
-      }
-    None => ()
-  }
-  // Commit rebuilt contributions into the reverse index.
-  if new_contributions.is_empty() {
-    rt.accumulator_contributions.remove(cell_id)
-  } else {
-    rt.accumulator_contributions.set(cell_id, new_contributions)
-  }
-}
-
 ///|
 /// Returns the slot's unique ID.
 pub fn[T] Accumulator::id(self : Accumulator[T]) -> @incr_types.AccumulatorId {
@@ -460,8 +318,15 @@ pub fn[T] Accumulator::push(
     }
   }
   buf.push(value)
-  // Stage touched slot on ActiveQuery (committed in AFTER_CLOSURE in Task 10).
-  frame.ensure_touched_accumulator_slots().add(self.slot_id)
+  // Stage touched slot on AccumulatorCommitHook (committed in AFTER_CLOSURE).
+  // ensure_for_cell lazy-creates the entry when before_recompute took its
+  // fast-path (no slots existed at recompute-start time but this accumulator
+  // was registered mid-recompute). The line-449 cell_index check above
+  // guarantees we're inside a Memo/HybridMemo frame.
+  self.rt.accumulator_commit_hook
+  .ensure_for_cell(m_id)
+  .ensure_touched()
+  .add(self.slot_id)
 }
 
 ///|
@@ -536,9 +401,17 @@ pub fn[T, A] Memo::accumulated(
   let current_rev = (slot.push_revised_at_for)(self.cell_id)
   match self.rt.top_active_query() {
     Some(frame) =>
-      frame
-      .ensure_accumulator_reads()
-      .set((acc.slot_id, self.cell_id), current_rev)
+      // Gate on memo-frame check: preserves silent-no-op for push-reactive
+      // and effect frames calling accumulated. Inside a memo frame,
+      // ensure_for_cell lazy-creates the entry if before_recompute skipped.
+      match self.rt.core.cell_index[frame.cell_id.id] {
+        PullMemo(_) | HybridMemo(_) =>
+          self.rt.accumulator_commit_hook
+          .ensure_for_cell(frame.cell_id)
+          .ensure_reads()
+          .set((acc.slot_id, self.cell_id), current_rev)
+        _ => () // non-memo frame (push-reactive/effect) — silent no-op
+      }
     None => ()
   }
   // Return defensive copy of buffer.
@@ -577,9 +450,15 @@ pub fn[T, A] Memo::accumulated_result(
       let current_rev = (slot.push_revised_at_for)(self.cell_id)
       match self.rt.top_active_query() {
         Some(frame) =>
-          frame
-          .ensure_accumulator_reads()
-          .set((acc.slot_id, self.cell_id), current_rev)
+          // Same gate as Memo::accumulated above.
+          match self.rt.core.cell_index[frame.cell_id.id] {
+            PullMemo(_) | HybridMemo(_) =>
+              self.rt.accumulator_commit_hook
+              .ensure_for_cell(frame.cell_id)
+              .ensure_reads()
+              .set((acc.slot_id, self.cell_id), current_rev)
+            _ => () // non-memo frame (push-reactive/effect) — silent no-op
+          }
         None => ()
       }
       let vs = match acc.per_memo.get(self.cell_id) {

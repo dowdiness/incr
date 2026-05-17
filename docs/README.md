@@ -26,6 +26,7 @@ New to `incr`? Read these in order:
 - [2026-05-16 Push-engine link-list port microbench](performance/2026-05-16-push-engine-linklist-microbench.md) — alien-signals-style port investigation closed: measured 1.2–1.5× speedup, deprioritized in favor of higher-leverage targets.
 - [2026-05-16 Push-engine cost decomposition](performance/2026-05-16-push-engine-cost-decomposition.md) — strategic ranking of push-engine performance interventions. Chosen direction: per-recompute allocation elimination (tracking-buffer reuse).
 - [2026-05-16 Tracking-buffer lazy-allocation result](performance/2026-05-16-tracking-buffer-lazy-alloc.md) — implements the chosen direction. Pool reuse rejected by probe; lazy-allocation alone delivered −15.9% on 1000-fanout (−46 ns/r).
+- [2026-05-17 T1b commit-path bench snapshot](performance/2026-05-17-t1b-bench-snapshot.md) — pre-T1b → Phase 1 → Phase 2 pre-fix → Phase 2 + lazy-entry fast-path. Fast-path beats pre-T1b by −25% on no-accumulator recompute fanout by eliminating per-recompute HashSet allocations the old `memo_commit_accumulator_phase` carried unconditionally.
 
 ---
 
@@ -45,7 +46,6 @@ For contributors and advanced users who want to understand or modify `incr`.
 
 - [Roadmap](roadmap.md) — phased future direction
 - [Active plans](plans/) — concrete implementation plans for upcoming work
-  - [2026-05-17 T1b implementation](plans/2026-05-17-t1b-implementation.md) — refactor accumulator's three named commit-path calls into `priv MemoCommitPhase` trait dispatch; first registered impl is the accumulator. Visualization tap follow-up tracked in [Memo Event Observation ADR](decisions/2026-05-17-memo-event-observation.md).
 - [TODO](todo.md) — contributor task list organized by priority
 
 **Research notes — exploratory, not implemented:**
@@ -83,6 +83,7 @@ Large historical collection under [`archive/`](archive/) covering completed plan
 | Document | Topic |
 |----------|-------|
 | [archive/plans/](archive/plans/) | Shipped implementation plans (dispose/GC layers, runtime modularization, stage-5 internal split) |
+| [archive/plans/2026-05-17-t1b-implementation.md](archive/plans/2026-05-17-t1b-implementation.md) | T1b — `MemoCommitPhase` trait refactor. Three phases shipped; accumulator's three named commit-path calls moved into trait dispatch. See [T1b ADR](decisions/2026-05-17-t1b-memo-commit-phase.md) and [commit-path bench snapshot](performance/2026-05-17-t1b-bench-snapshot.md). |
 | [archive/completed-phases/](archive/completed-phases/) | Older completed phases (datalog primitives, cells simplification, accumulator API spec, etc.) |
 | [archive/incr-unified-design.md](archive/incr-unified-design.md) | Unified reactive runtime design (SoA + multi-mode) |
 | [archive/2026-04-08-dispose-gc-design.md](archive/2026-04-08-dispose-gc-design.md) | Dispose/GC design — all 5 layers complete (PRs #28–#33) |

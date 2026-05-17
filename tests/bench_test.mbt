@@ -102,6 +102,50 @@ test "memo: wide fanout get (1 signal, 50 memos, stale)" (b : @bench.T) {
 }
 
 ///|
+/// T1b Phase 2 anchor: pure pull-mode memo recompute fanout that touches
+/// no accumulator APIs. Tracks the commit hot-path overhead added by the
+/// MemoCommitPhase dispatch + AccumulatorCommitHook. With the
+/// `accumulator_slots.is_empty()` fast-path in place, this workload pays
+/// only a length check per recompute and runs faster than pre-T1b (which
+/// always allocated HashSets and called rt.accumulator_contributions ops
+/// unconditionally on every memo recompute regardless of whether any
+/// accumulator was touched).
+///
+/// Numbers below from 2026-05-17 on branch refactor/t1b-memo-commit-phase
+/// (rt: AMD WSL2; high run-to-run variance on push benches is environmental,
+/// not real perf):
+///   bench                                    pre-T1b     Phase 1     Phase 2+fast-path
+///   memo: no-accumulator recompute fanout    26.70 µs    25.41 µs    19.82 µs
+///   memo: wide fanout (1 signal, 50 memos)   25.81 µs    25.37 µs    21.37 µs
+///   memo: deep chain (100 levels, stale)     39.24 µs    40.52 µs    29.50 µs
+///   baseline: push propagation 100 live      22.27 µs    21.24 µs    20-32 µs (noisy)
+///
+/// Pre-T1b reference was cherry-picked onto main 12a6042. Phase 2 commit
+/// at 5290fef regressed these rows ~+17%; perf-fix at HEAD restores via
+/// AccumulatorCommitHook's lazy-entry pattern (push paths use
+/// ensure_for_cell; before_recompute/after_* skip when slots empty).
+test "memo: no-accumulator recompute fanout" (b : @bench.T) {
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 0)
+  let width = 50
+  let memos : Array[Memo[Int]] = []
+  for i = 0; i < width; i = i + 1 {
+    memos.push(Memo::Memo(rt, () => sig.get()))
+  }
+  for i = 0; i < width; i = i + 1 {
+    ignore(rt.read(memos[i])) // prime all
+  }
+  let mut v = 0
+  b.bench(fn() {
+    v = v + 1
+    sig.set(v)
+    for i = 0; i < width; i = i + 1 {
+      b.keep(rt.read(memos[i]))
+    }
+  })
+}
+
+///|
 test "hybrid: get warm (up-to-date, no recompute)" (b : @bench.T) {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 42)

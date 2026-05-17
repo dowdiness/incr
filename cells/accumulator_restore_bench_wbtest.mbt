@@ -1,5 +1,5 @@
 ///|
-/// Microbenchmark for `memo_restore_on_abort` (cells/accumulator.mbt:277).
+/// Microbenchmark for `AccumulatorCommitHook::after_abort`.
 ///
 /// Validates the open performance TODO: the inner `for p in
 /// prev_contributions` linear scan during `touched` iteration is
@@ -10,15 +10,13 @@
 /// before invoking `clear_new_run_buffer`).
 ///
 /// Setup: N "prev" accumulators primed via a successful memo run, then
-/// the same memo's tracking frame is re-entered manually with N
-/// "touched" accumulator ids stuffed into `touched_accumulator_slots`,
-/// and `memo_restore_on_abort` is invoked directly. Public abort path
-/// can't be benched because `Memo::get_result` converts compute-Failure
-/// into a hard `abort` at the API boundary.
+/// `AccumulatorCommitHook::after_abort` is invoked directly with a
+/// manually populated RecomputeState. Public abort path can't be benched
+/// because `Memo::get_result` converts compute-Failure into a hard
+/// `abort` at the API boundary.
 ///
-/// Whitebox: depends on package-private `memo_restore_on_abort`,
-/// `begin_tracking`, `pop_tracking_full` and on `pub(all)` field
-/// `ActiveQuery.touched_accumulator_slots`.
+/// Whitebox: depends on `AccumulatorCommitHook`, `RecomputeState`, and
+/// the typed `rt.accumulator_commit_hook` field.
 
 ///|
 fn bench_restore(b : @bench.T, n : Int) -> Unit {
@@ -41,22 +39,23 @@ fn bench_restore(b : @bench.T, n : Int) -> Unit {
   ignore(rt.read(m))
   let prev_ids = prev_accs.map(fn(a) { a.id() })
   let touched_ids = touched_accs.map(fn(a) { a.id() })
-  // Each iteration: re-enter the memo's tracking frame, populate the
-  // touched set with the disjoint accumulator ids, run the function
-  // under test, then pop the frame to restore baseline.
   let m_id = m.id()
   b.bench(fn() {
-    Runtime::begin_tracking(rt, m_id)
-    match @kernel.top_active_query(rt.core) {
-      Some(q) =>
-        for tid in touched_ids {
-          q.ensure_touched_accumulator_slots().add(tid)
-        }
-      None =>
-        abort("bench setup: tracking frame not present after begin_tracking")
+    // Set up the hook entry directly (bypasses before_recompute, which would
+    // snapshot prev buffers — bench measures the restore path, not snapshot).
+    let touched : @hashset.HashSet[@incr_types.AccumulatorId] = @hashset.HashSet([],
+    )
+    for tid in touched_ids {
+      touched.add(tid)
     }
-    memo_restore_on_abort(rt, m_id, prev_ids)
-    let _ = Runtime::pop_tracking_full(rt)
+    let state : RecomputeState = {
+      prev_contributions: prev_ids,
+      touched: Some(touched),
+      reads: None,
+    }
+    rt.accumulator_commit_hook.active.set(m_id, state)
+    rt.accumulator_commit_hook.after_abort(rt, m_id)
+    // after_abort removed active[m_id]; next iteration repopulates.
   })
 }
 

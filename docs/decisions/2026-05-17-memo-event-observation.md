@@ -98,7 +98,9 @@ priv impl MemoCommitPhase for EventBroadcastPhaseHook with after_success(
   self, rt, cell_id,
 ) {
   guard self.listener is Some(_) else { return }
-  let start = self.timers.remove(cell_id).unwrap_or(0)
+  // `@hashmap.HashMap::remove` returns Unit; read then remove.
+  let start = self.timers.get(cell_id).unwrap_or(0)
+  self.timers.remove(cell_id)
   let elapsed = monotonic_now_ns() - start
   let backdated = was_backdated(rt, cell_id)  // changed_at < verified_at
   self.pending.push(Completed(cell_id, elapsed, backdated))
@@ -108,7 +110,9 @@ priv impl MemoCommitPhase for EventBroadcastPhaseHook with after_abort(
   self, _rt, cell_id,
 ) {
   guard self.listener is Some(_) else { return }
-  let start = self.timers.remove(cell_id).unwrap_or(0)
+  // `@hashmap.HashMap::remove` returns Unit; read then remove.
+  let start = self.timers.get(cell_id).unwrap_or(0)
+  self.timers.remove(cell_id)
   let elapsed = monotonic_now_ns() - start
   self.pending.push(Aborted(cell_id, elapsed, last_recompute_error_string()))
 }

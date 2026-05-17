@@ -420,33 +420,29 @@ fn[T] Runtime::memo_force_recompute(
     )
   }
   cell.in_progress = true
-  let prev_contributions = memo_snapshot_accumulator_contributions(
-    self, cell_id,
-  )
+  // MemoCommitPhase: before_recompute — fires before tracking is pushed.
+  for hook in self.commit_hooks {
+    hook.before_recompute(self, cell_id)
+  }
   let old_deps = cell.dependencies
   @kernel.push_tracking(self.core, cell_id)
   let new_value = compute_fn() catch {
     e => {
-      memo_restore_on_abort(self, cell_id, prev_contributions)
-      // Pop frame (discards staged deps + accumulator_reads).
+      // MemoCommitPhase: after_abort — fires in catch arm, before pop.
+      for hook in self.commit_hooks {
+        hook.after_abort(self, cell_id)
+      }
+      // Pop frame (discards staged deps).
       let _ = @kernel.pop_tracking_full(self.core)
       cell.in_progress = false
       raise e
     }
   }
 
-  // Normal path — pop the full frame to access accumulator state.
+  // Normal path — pop the full frame to get dep + seen sets for the epilogue.
   let query = @kernel.pop_tracking_full(self.core)
   let new_deps = query.dependencies
   let new_seen = query.seen
-  memo_commit_accumulator_phase(
-    self,
-    cell,
-    cell_id,
-    prev_contributions,
-    query.touched_accumulator_slots,
-    query.accumulator_reads,
-  )
 
   // Existing epilogue — subscribers, durability, backdate, verified_at.
   let deps_changed = @kernel.diff_and_update_subscribers(
@@ -473,6 +469,12 @@ fn[T] Runtime::memo_force_recompute(
   cell.verified_at = self.core.revision.current_revision
   cell.has_been_computed = true
   cell.in_progress = false
+  // MemoCommitPhase: after_success — fires AFTER the cell-level epilogue
+  // so changed_at / verified_at / has_been_computed are observable
+  // (backdating detectable via cell.meta.changed_at < cell.verified_at).
+  for hook in self.commit_hooks {
+    hook.after_success(self, cell_id)
+  }
   Ok(new_value)
 }
 
