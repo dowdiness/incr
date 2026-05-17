@@ -102,6 +102,45 @@ test "memo: wide fanout get (1 signal, 50 memos, stale)" (b : @bench.T) {
 }
 
 ///|
+/// T1b Phase 1 baseline: pure pull-mode memo recompute fanout that touches
+/// no accumulator APIs. This row is the comparison anchor for the Phase 2
+/// perf-gate — it stresses the commit hot-path (empty dispatch loops in
+/// Phase 1, trait-dispatched accumulator in Phase 2) without any
+/// accumulator work amortizing the cost. Phase 1 numbers establish the
+/// pre-switchover baseline; Phase 2 must stay within ±5%.
+///
+/// Phase 1 baseline (2026-05-17, branch refactor/t1b-memo-commit-phase):
+///   memo: no-accumulator recompute fanout    25.41 µs ± 347 ns
+///   memo: wide fanout (1 signal, 50 memos)   25.37 µs ± 426 ns
+///   memo: deep chain (100 levels, stale)     40.52 µs ±   1.15 µs
+///   baseline: push propagation 100 live      21.24 µs ± 523 ns
+///
+/// Pre-T1b reference (same row, cherry-picked onto main 12a6042):
+///   memo: no-accumulator recompute fanout    26.70 µs ±   1.13 µs
+/// → Phase 1 empty-dispatch overhead vs. pre-T1b: -4.8% (within ±5%
+///   noise envelope, no commit_hooks.is_empty() fast-path needed).
+test "memo: no-accumulator recompute fanout" (b : @bench.T) {
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 0)
+  let width = 50
+  let memos : Array[Memo[Int]] = []
+  for i = 0; i < width; i = i + 1 {
+    memos.push(Memo::Memo(rt, () => sig.get()))
+  }
+  for i = 0; i < width; i = i + 1 {
+    ignore(rt.read(memos[i])) // prime all
+  }
+  let mut v = 0
+  b.bench(fn() {
+    v = v + 1
+    sig.set(v)
+    for i = 0; i < width; i = i + 1 {
+      b.keep(rt.read(memos[i]))
+    }
+  })
+}
+
+///|
 test "hybrid: get warm (up-to-date, no recompute)" (b : @bench.T) {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 42)

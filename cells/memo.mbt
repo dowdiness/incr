@@ -420,6 +420,10 @@ fn[T] Runtime::memo_force_recompute(
     )
   }
   cell.in_progress = true
+  // T1b dispatch loop — empty in Phase 1; Phase 2 routes accumulator here.
+  for hook in self.commit_hooks {
+    hook.before_recompute(self, cell_id)
+  }
   let prev_contributions = memo_snapshot_accumulator_contributions(
     self, cell_id,
   )
@@ -427,6 +431,10 @@ fn[T] Runtime::memo_force_recompute(
   @kernel.push_tracking(self.core, cell_id)
   let new_value = compute_fn() catch {
     e => {
+      // T1b dispatch loop — empty in Phase 1; Phase 2 routes restore here.
+      for hook in self.commit_hooks {
+        hook.after_abort(self, cell_id)
+      }
       memo_restore_on_abort(self, cell_id, prev_contributions)
       // Pop frame (discards staged deps + accumulator_reads).
       let _ = @kernel.pop_tracking_full(self.core)
@@ -473,6 +481,12 @@ fn[T] Runtime::memo_force_recompute(
   cell.verified_at = self.core.revision.current_revision
   cell.has_been_computed = true
   cell.in_progress = false
+  // T1b dispatch loop — empty in Phase 1; Phase 2 routes the accumulator
+  // commit here. Fires AFTER the cell-level epilogue so that
+  // changed_at / verified_at / has_been_computed are observable.
+  for hook in self.commit_hooks {
+    hook.after_success(self, cell_id)
+  }
   Ok(new_value)
 }
 
