@@ -273,12 +273,12 @@ Verification: all 508+ tests stay green, including 41 accumulator tests + the la
 
 ## Risks
 
-| Risk | Mitigation |
-|---|---|
-| Dispatch overhead on commit hot path | Bench gate; add zero-implementor fast-path if measurable |
-| Trait shape wrong for visualization | Visualization is design witness, not shipped — if its needs differ when actually implemented, reopen this ADR before adding the second impl |
-| `ActiveQuery` accumulator fields refactor breaks tracking semantics | Codex review on the relocation; whitebox tests for both shapes |
-| Lock-in of `priv` trait shape | Mitigated by `priv` visibility — refactoring the trait later is internal-only, no downstream consumers |
+| Risk | Mitigation | Outcome (2026-05-17 post-impl) |
+|---|---|---|
+| Dispatch overhead on commit hot path | Bench gate; add zero-implementor fast-path if measurable | **Materialized + mitigated.** Phase 2 initially regressed 3 commit-path benches +16-20% (per-recompute HashMap.set/get/remove). The ADR's listed mitigation (`commit_hooks.is_empty()` at the dispatch site) wouldn't have helped — the hook is registered. Different fix shipped (`adb31f9`): lazy entry creation on the hook (`ensure_for_cell`) + `accumulator_slots.is_empty()` short-circuit in all three hook methods + `cell_index` gate at `Memo::accumulated` to preserve non-memo-frame silent-no-op. Result: benches now **-17 to -26% vs pre-T1b** — pre-T1b's `memo_commit_accumulator_phase` was unconditionally allocating two HashSets + `accumulator_contributions.remove(cell_id)` per recompute, and the new fast-path eliminates both costs. See [`docs/performance/2026-05-17-t1b-bench-snapshot.md`](../performance/2026-05-17-t1b-bench-snapshot.md). |
+| Trait shape wrong for visualization | Visualization is design witness, not shipped — if its needs differ when actually implemented, reopen this ADR before adding the second impl | Not yet exercised — visualization impl deferred per follow-up ADR. |
+| `ActiveQuery` accumulator fields refactor breaks tracking semantics | Codex review on the relocation; whitebox tests for both shapes | **Not materialized.** Shape (2) (per-cell HashMap on the hook) shipped without rework. 561 tests pass; behavior preservation rule at lines 540/581 enforced via cell_index gate (replaces the original for_cell-returns-None gate). |
+| Lock-in of `priv` trait shape | Mitigated by `priv` visibility — refactoring the trait later is internal-only, no downstream consumers | Not yet exercised. Trait remains `priv`. |
 
 ## Trade-offs accepted
 

@@ -615,13 +615,30 @@ This refactor is a single PR with the atomic switchover concentrated in one comm
 
 ## Codex review log (this PR's gates)
 
-| Gate | Step | Status |
-|---|---|---|
-| Gate 1 | Task 1.3 — trait shape + file placement + Runtime field | pending |
-| Gate 2 | Task 5.2 — atomic switchover paper sketch | pending |
-| Gate 3 | Task 9.3 — merged Phase 2 commit | pending |
+| Gate | Step | Status | Outcome |
+|---|---|---|---|
+| Gate 1 | Task 1.3 — trait shape + file placement + Runtime field | **pass** | One refinement applied (drop `mut` from `commit_hooks` field per `cell_lifecycle` precedent). Verdict: proceed to Task 2. |
+| Gate 2 | Task 5.2 — atomic switchover paper sketch | **pass** (1 follow-up) | First pass flagged bench-migration blocker: `Runtime::begin_tracking` doesn't fire `before_recompute`, so wbtest at `cells/accumulator_restore_bench_wbtest.mbt:49-58` would unwrap a missing `active[m_id]` entry. Fix: bench manually sets `RecomputeState` via the priv-in-package accessor before calling `after_abort`. Codex re-confirmed and passed. |
+| Gate 3 | Task 9.3 — merged Phase 2 commit | pending | — |
 
-Record Codex's response + any follow-up actions in this section as each gate completes.
+## Implementation outcome (Phases 1–2 — Phase 3 still pending)
+
+| Phase | Status | Commits |
+|---|---|---|
+| Phase 1 (trait + empty dispatch + bench) | shipped | `267c763` + `d93e879` (comment polish) |
+| Phase 2 (atomic switchover) | shipped | `5290fef` |
+| Phase 2 perf fast-path (lazy-entry pattern) | shipped | `adb31f9` |
+| Phase 3 (invariant tests + docs + Gate 3 + archive) | pending | — |
+
+**Verification:** 561 tests pass on `refactor/t1b-memo-commit-phase`. No public `.mbti` drift (only `cells/internal/kernel/pkg.generated.mbti` changed — removed 2 `ActiveQuery` accumulator fields + 2 `ensure_*` helpers, which is an internal-package interface). `scripts/check-engine-isolation.sh` exit 0.
+
+**Phase 2 perf bench-gate (Task 7) — required deviation from plan, ultimately a perf win:**
+
+Initial Phase 2 measurement showed +16-20% regression on three commit-path benches (the gate's ±5% threshold tripped). Root cause: every memo recompute paid `HashMap.set` + `HashMap.get` + `HashMap.remove` on `active`, even when no accumulator was touched. The plan's listed mitigation (`commit_hooks.is_empty()` fast-path at the dispatch site) wouldn't have helped — by then the hook is already registered. Implemented a different mitigation: lazy-entry creation on the hook itself (`AccumulatorCommitHook::ensure_for_cell`) + `accumulator_slots.is_empty()` short-circuit in all three hook methods + `cell_index` gate at `Memo::accumulated` push paths to preserve the non-memo-frame silent-no-op.
+
+Result: commit-path benches are now **faster than pre-T1b** because pre-T1b's `memo_commit_accumulator_phase` was unconditionally allocating two `HashSet`s + calling `accumulator_contributions.remove(cell_id)` per recompute — overhead invisible at the call site that the new fast-path eliminates. Detailed numbers: [`docs/performance/2026-05-17-t1b-bench-snapshot.md`](../performance/2026-05-17-t1b-bench-snapshot.md).
+
+Implication for the plan's Phase 1 baseline rule (Task 4.4): the plan compared Phase 2 against the Phase 1 empty-dispatch baseline. But Phase 1 itself had ~80 ns/recompute of empty-loop overhead. The honest comparison was Phase 2 vs pre-T1b (captured via the cherry-pick at Task 4.3). The cherry-pick step was load-bearing for catching the win, not just the regression.
 
 ## Sub-skill checklist (for the agent executing this plan)
 
