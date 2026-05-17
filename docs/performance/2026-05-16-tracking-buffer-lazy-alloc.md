@@ -126,13 +126,17 @@ buffer. So a pool only avoids re-growing capacity, not the first allocation.
   `pop_tracking` ownership transfer. Probe already showed pool reuse on
   ActiveQuery is noise, so this would be too.
 
-## Next strategic targets (from cost-decomp doc, unchanged)
+## Next strategic targets (from cost-decomp doc)
 
-1. **Disposed-cell anomaly investigation** — 240 ns/disposed cell per
-   signal set on the same-signal case. Potentially much larger than this
-   per-reactive optimization for cell-churn workloads.
+1. **Disposed-cell anomaly investigation — retracted 2026-05-17.** Not a real
+   anomaly; the original 240 ns/cell claim was a label-swap with the abandoned
+   bench. See [`2026-05-16-push-engine-cost-decomposition.md`](2026-05-16-push-engine-cost-decomposition.md)
+   §"Key finding (retracted 2026-05-17)" and the regression test at
+   `cells/push_reactive_wbtest.mbt` "dispose: 100 reactives on one signal
+   leave subscribers empty and node_count zero".
 2. **Scheduler rewrite: priority-queue → level-bucketed dirty list** — ~30–50
-   ns/reactive estimated.
+   ns/reactive estimated. Gated on a driver demanding push-engine perf;
+   none exists yet.
 3. **Push-engine link-list port** — deprioritized in companion doc.
 
 ## What was NOT measured

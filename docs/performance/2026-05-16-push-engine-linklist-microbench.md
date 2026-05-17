@@ -69,34 +69,50 @@ Existing benches re-used as baseline anchors:
 
 10-sweep × variable-iter, mean ± σ.
 
-| Bench | N | total mean | per-reactive (mean / N) |
+> **Audit 2026-05-17 (fed9428):** The table below had three rows mis-labelled in
+> the original 2026-05-16 notebook. Reproduction numbers in the right column.
+> The `100 disposed` and `100 abandoned` rows are swapped — disposed correctly
+> clears `sig.subscribers` and decrements `push.node_count` to 0, so the
+> `push.node_count > 0` gate at `cells/internal/kernel/propagate.mbt:44` skips
+> `push_propagate_from` entirely; the bench measures the cold-runtime baseline
+> (~45 ns). The 24 µs cost is actually the abandoned case, where reactives are
+> still live in the SoA and `push_propagate_from` walks all 100. The
+> "anomalously fast" `100 live` row at 1.73 µs is also wrong — that bench
+> measures ~20 µs, consistent with linear scaling from N=500/N=1000. See the
+> "Audit-corrected reasoning" note below the table.
+
+| Bench | N | Doc (2026-05-16) | Reproduced (2026-05-17) |
 |---|---:|---:|---:|
-| `signal: set new value` (no subscribers) | 0 | 5.45 ns ± 0.23 ns | — |
-| `push propagation with 100 live reactives` | 100 | **1.73 µs ± 836 ns** | 17 ns (anomalously fast — see below) |
-| `linklist-port: fanout 500 reactives` | 500 | **138.13 µs ± 3.21 µs** | 276 ns |
-| `linklist-port: fanout 1000 reactives` | 1000 | **288.90 µs ± 2.48 µs** | 289 ns |
-| `push propagation with 100 disposed reactives` | 100 dead | **24.21 µs ± 1.35 µs** | 242 ns (iter-only, compute skipped) |
-| `linklist-port: branchy-rebind 100 reactives` | 100 | **76.70 µs ± 0.50 µs** | 767 ns |
-| `push propagation with 100 abandoned reactives` | ~0 effective | 47.51 ns ± 3.86 ns | — |
+| `signal: set new value` (no subscribers) | 0 | 5.45 ns ± 0.23 ns | ~49 ns (cold baseline; doc value likely measured the no-op same-value bench `bench_test.mbt:20`) |
+| `push propagation with 100 live reactives` | 100 | **1.73 µs** (claimed anomaly) | **~24 µs** (normal — 240 ns/r, consistent with N=1000 scaling) |
+| `linklist-port: fanout 500 reactives` | 500 | **138.13 µs** | ~111 µs (post-PR-#50 baseline) |
+| `linklist-port: fanout 1000 reactives` | 1000 | **288.90 µs** | ~248 µs (post-PR-#50 baseline) |
+| `push propagation with 100 disposed reactives` | 100 dead | **24.21 µs** (claimed iter-only ceiling) | **~48 ns** — disposed lifecycle clears subscribers; gate skips |
+| `linklist-port: branchy-rebind 100 reactives` | 100 | **76.70 µs** | ~75 µs ✓ |
+| `push propagation with 100 abandoned reactives` | ~0 effective | 47.51 ns ("~0 effective") | **~20 µs** — handles dropped but cells live in SoA; push walks all 100 |
 
-### N=100 anomaly
+### Audit-corrected reasoning (2026-05-17)
 
-The `100 live reactives` baseline runs at 1.73 µs ± 836 ns (range 842 ns to
-2.97 µs) — significantly faster than would be predicted by linear scaling from
-the N=500 / N=1000 numbers (which scale tightly). Likely explanations: small-N
-HashSet fits in the initial bucket array with no resize; SoA arrays fit in L1
-cache; benchmark warmup interacts oddly at low absolute cost. The N=500 and
-N=1000 numbers are tight and proportional and are the relevant data points for
-the port investigation.
+The "N=100 anomaly" and "Disposed-reactives bench is the iter-only ceiling"
+sections that followed this table in the original draft are both retracted.
+They were built on the swapped labels:
 
-### Disposed-reactives bench is the iter-only ceiling
+- **No N=100 anomaly exists.** The `100 live` bench measures ~24 µs / 100 =
+  240 ns/r, which is consistent with the 248 ns/r at N=1000. The 1.73 µs
+  figure was the abandoned-handle bench misread.
+- **Disposed bench is not the iter-only ceiling.** It measures ~48 ns —
+  cold-runtime baseline. The dispose path correctly removes subscribers from
+  `sig.subscribers` (`cells/internal/kernel/dispatch.mbt:179`) and decrements
+  `push.node_count` (`cells/push_lifecycle.mbt:14`), so `propagate_changes`
+  skips push propagation entirely. To measure HashSet-iter cost in isolation,
+  a different bench is needed: 100 live subscribers (so the gate doesn't skip)
+  but with all targets early-exiting in their compute. No such bench exists.
 
-The `100 disposed reactives` bench is the cleanest measurement of HashSet-iter
-cost in isolation: sig still owns 100 entries in its subscriber HashSet, but
-because the targets are `Disposed` in `cell_index`, the BFS match arm hits `_`
-and skips. No compute, no priority queue, no diff. The 24 µs / 100 = **242 ns
-per disposed subscriber** is the upper bound on what a Link-list iter speedup
-can shave from the BFS walk.
+The verdict below (1.2–1.5× realistic speedup, deprioritize) is unchanged
+because it derives from the per-iter cost decomposition (next section), not
+from the retracted disposed-ceiling argument. The 50–100 ns iter estimate
+in that decomposition is uncalibrated by the disposed bench and should be
+treated as a rough upper bound rather than a measured ceiling.
 
 ## What the port would actually save
 
