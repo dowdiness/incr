@@ -65,10 +65,8 @@ pub impl Show for PropagationPhase with output(self, logger) {
 
 ///|
 /// A dependency recording frame pushed onto the runtime's tracking stack
-/// when a memo is being computed.
-///
-/// (Accumulator state moved off ActiveQuery in T1b Phase 2 — see
-/// cells/accumulator_commit_hook.mbt.)
+/// when a memo is being computed. Owns the per-recompute dependency set
+/// only; commit-phase hooks own any state they need keyed by `cell_id`.
 pub(all) struct ActiveQuery {
   cell_id : CellId
   dependencies : Array[CellId]

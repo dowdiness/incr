@@ -12,11 +12,13 @@ priv struct RecomputeState {
 }
 
 ///|
-/// MemoCommitPhase implementor that migrates the accumulator's three named
-/// commit-path calls (memo_snapshot_*, memo_restore_*, memo_commit_*) into
-/// trait-dispatched hooks. Per-cell state in `active` is keyed by the
-/// currently-recomputing CellId — each `before_recompute(c)` creates an
-/// entry, the matching `after_success(c)` or `after_abort(c)` removes it.
+/// MemoCommitPhase implementor owning per-cell accumulator state across a
+/// memo recompute. `active` is keyed by the recomputing `CellId`; the hook
+/// pair owns each entry's lifecycle: `before_recompute(c)` installs the
+/// entry (or `ensure_for_cell` installs it lazily from a push path when
+/// `before_recompute` was a no-op), and exactly one of `after_success(c)`
+/// or `after_abort(c)` removes it. Hooks fire serially on the commit hot
+/// path; implementors must not re-enter graph reads or user code.
 priv struct AccumulatorCommitHook {
   active : @hashmap.HashMap[CellId, RecomputeState]
 }
