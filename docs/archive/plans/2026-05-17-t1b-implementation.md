@@ -1,6 +1,8 @@
 # T1b (`MemoCommitPhase`) — Implementation Plan
 
-> **Status:** Active. To be marked Complete and moved to `docs/archive/plans/` when the PR merges.
+> **Status:** Complete (2026-05-17). All three phases shipped on `refactor/t1b-memo-commit-phase` (PR #52). To be moved to `docs/archive/plans/` after the PR merges.
+>
+> **Decision record:** [T1b ADR](../decisions/2026-05-17-t1b-memo-commit-phase.md). The visualization-tap follow-up is specified in the [Memo Event Observation ADR](../decisions/2026-05-17-memo-event-observation.md) and ships in its own plan.
 >
 > **Revision history:**
 > - 2026-05-17 v1: Initial plan
@@ -619,18 +621,18 @@ This refactor is a single PR with the atomic switchover concentrated in one comm
 |---|---|---|---|
 | Gate 1 | Task 1.3 — trait shape + file placement + Runtime field | **pass** | One refinement applied (drop `mut` from `commit_hooks` field per `cell_lifecycle` precedent). Verdict: proceed to Task 2. |
 | Gate 2 | Task 5.2 — atomic switchover paper sketch | **pass** (1 follow-up) | First pass flagged bench-migration blocker: `Runtime::begin_tracking` doesn't fire `before_recompute`, so wbtest at `cells/accumulator_restore_bench_wbtest.mbt:49-58` would unwrap a missing `active[m_id]` entry. Fix: bench manually sets `RecomputeState` via the priv-in-package accessor before calling `after_abort`. Codex re-confirmed and passed. |
-| Gate 3 | Task 9.3 — merged Phase 2 commit | pending | — |
+| Gate 3 | Task 9.3 — merged Phase 2 commit | **pass** | All four plan questions answered "correct" against merged code: (1) `after_success` is a faithful port of `memo_commit_accumulator_phase`; (2) non-memo-frame gate matches pre-T1b observable behavior (`Accumulator::push` still fails loudly, `Memo::accumulated*` silent no-op); (3) `Runtime::new` two-step init is safe (no callback fires between literal and push); (4) hook ordering vs `on_change` is correct for the no-inline-user-code contract documented in `cells/memo_commit_phase.mbt`. Verdict: ready to merge once branch is pushed. |
 
-## Implementation outcome (Phases 1–2 — Phase 3 still pending)
+## Implementation outcome (all three phases shipped)
 
 | Phase | Status | Commits |
 |---|---|---|
 | Phase 1 (trait + empty dispatch + bench) | shipped | `267c763` + `d93e879` (comment polish) |
 | Phase 2 (atomic switchover) | shipped | `5290fef` |
 | Phase 2 perf fast-path (lazy-entry pattern) | shipped | `adb31f9` |
-| Phase 3 (invariant tests + docs + Gate 3 + archive) | pending | — |
+| Phase 3 (invariant tests + docs + Gate 3 + archive) | shipped | this commit |
 
-**Verification:** 561 tests pass on `refactor/t1b-memo-commit-phase`. No public `.mbti` drift (only `cells/internal/kernel/pkg.generated.mbti` changed — removed 2 `ActiveQuery` accumulator fields + 2 `ensure_*` helpers, which is an internal-package interface). `scripts/check-engine-isolation.sh` exit 0.
+**Verification:** 565 tests pass on `refactor/t1b-memo-commit-phase` (561 baseline + 4 new in `cells/accumulator_commit_hook_wbtest.mbt`). No public `.mbti` drift (only `cells/internal/kernel/pkg.generated.mbti` changed — removed 2 `ActiveQuery` accumulator fields + 2 `ensure_*` helpers, which is an internal-package interface). `scripts/check-engine-isolation.sh` exit 0.
 
 **Phase 2 perf bench-gate (Task 7) — required deviation from plan, ultimately a perf win:**
 
