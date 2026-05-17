@@ -108,7 +108,8 @@ test "memo: wide fanout get (1 signal, 50 memos, stale)" (b : @bench.T) {
 /// `accumulator_slots.is_empty()` fast-path in place, this workload pays
 /// only a length check per recompute and runs faster than pre-T1b (which
 /// always allocated HashSets and called rt.accumulator_contributions ops
-/// unconditionally inside memo_commit_accumulator_phase).
+/// unconditionally on every memo recompute regardless of whether any
+/// accumulator was touched).
 ///
 /// Numbers below from 2026-05-17 on branch refactor/t1b-memo-commit-phase
 /// (rt: AMD WSL2; high run-to-run variance on push benches is environmental,

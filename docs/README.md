@@ -46,7 +46,6 @@ For contributors and advanced users who want to understand or modify `incr`.
 
 - [Roadmap](roadmap.md) — phased future direction
 - [Active plans](plans/) — concrete implementation plans for upcoming work
-  - [2026-05-17 T1b implementation](plans/2026-05-17-t1b-implementation.md) — refactor accumulator's three named commit-path calls into `priv MemoCommitPhase` trait dispatch; first registered impl is the accumulator. Visualization tap follow-up tracked in [Memo Event Observation ADR](decisions/2026-05-17-memo-event-observation.md).
 - [TODO](todo.md) — contributor task list organized by priority
 
 **Research notes — exploratory, not implemented:**
@@ -84,6 +83,7 @@ Large historical collection under [`archive/`](archive/) covering completed plan
 | Document | Topic |
 |----------|-------|
 | [archive/plans/](archive/plans/) | Shipped implementation plans (dispose/GC layers, runtime modularization, stage-5 internal split) |
+| [archive/plans/2026-05-17-t1b-implementation.md](archive/plans/2026-05-17-t1b-implementation.md) | T1b — `MemoCommitPhase` trait refactor. Three phases shipped; accumulator's three named commit-path calls moved into trait dispatch. See [T1b ADR](decisions/2026-05-17-t1b-memo-commit-phase.md) and [commit-path bench snapshot](performance/2026-05-17-t1b-bench-snapshot.md). |
 | [archive/completed-phases/](archive/completed-phases/) | Older completed phases (datalog primitives, cells simplification, accumulator API spec, etc.) |
 | [archive/incr-unified-design.md](archive/incr-unified-design.md) | Unified reactive runtime design (SoA + multi-mode) |
 | [archive/2026-04-08-dispose-gc-design.md](archive/2026-04-08-dispose-gc-design.md) | Dispose/GC design — all 5 layers complete (PRs #28–#33) |

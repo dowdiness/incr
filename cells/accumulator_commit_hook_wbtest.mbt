@@ -1,0 +1,182 @@
+///|
+/// Whitebox invariant tests for the MemoCommitPhase dispatch contract.
+///
+/// Three invariants pinned by the T1b refactor:
+///   A. Forward dispatch order on both success and abort — hooks fire in
+///      registration order; AccumulatorCommitHook is registered first in
+///      `Runtime::new`, so any other hook observes its effects.
+///   B. Non-memo-frame preservation — when a push reactive's compute
+///      reads memo accumulator state, the hook leaves no per-reactive
+///      entry behind (the `cell_index` gate in cells/accumulator.mbt).
+///   C. Nested recompute correctness — when an inner memo aborts during
+///      an outer memo's recompute, the inner's hook entry is removed
+///      before the outer's catch arm fires.
+
+///|
+/// Sentinel MemoCommitPhase implementor that records, at each fire,
+/// whether the named cell's entry is still in
+/// `rt.accumulator_commit_hook.active` (proves the accumulator hook ran
+/// first under forward iteration) plus a snapshot of the active map's
+/// keys (proves nested lifecycle).
+priv struct SentinelHook {
+  before_log : Array[(CellId, Bool, Array[CellId])]
+  success_log : Array[(CellId, Bool, Array[CellId])]
+  abort_log : Array[(CellId, Bool, Array[CellId])]
+}
+
+///|
+fn SentinelHook::new() -> SentinelHook {
+  { before_log: [], success_log: [], abort_log: [] }
+}
+
+///|
+fn snapshot_active_keys(rt : Runtime) -> Array[CellId] {
+  let keys : Array[CellId] = []
+  for k, _ in rt.accumulator_commit_hook.active {
+    keys.push(k)
+  }
+  keys
+}
+
+///|
+fn entry_present(rt : Runtime, cell_id : CellId) -> Bool {
+  match rt.accumulator_commit_hook.active.get(cell_id) {
+    Some(_) => true
+    None => false
+  }
+}
+
+///|
+impl MemoCommitPhase for SentinelHook with before_recompute(self, rt, cell_id) {
+  self.before_log.push(
+    (cell_id, entry_present(rt, cell_id), snapshot_active_keys(rt)),
+  )
+}
+
+///|
+impl MemoCommitPhase for SentinelHook with after_success(self, rt, cell_id) {
+  self.success_log.push(
+    (cell_id, entry_present(rt, cell_id), snapshot_active_keys(rt)),
+  )
+}
+
+///|
+impl MemoCommitPhase for SentinelHook with after_abort(self, rt, cell_id) {
+  self.abort_log.push(
+    (cell_id, entry_present(rt, cell_id), snapshot_active_keys(rt)),
+  )
+}
+
+///|
+/// Test A — Dispatch order on success.
+/// Sentinel registered after AccumulatorCommitHook observes:
+///   - before_recompute: entry present (accumulator installed it first)
+///   - after_success:    entry absent  (accumulator removed it first)
+test "MemoCommitPhase: forward dispatch order on success" {
+  let rt = Runtime::Runtime()
+  let sentinel = SentinelHook::new()
+  rt.commit_hooks.push(sentinel)
+  // Real accumulator slot disables the AccumulatorCommitHook fast-path so
+  // entries are actually installed/removed during recompute.
+  let acc : Accumulator[Int] = Accumulator::new(rt~)
+  let m = Memo::new(rt, () => {
+    acc.push(1)
+    42
+  })
+  ignore(rt.read(m))
+  let m_id = m.id()
+  inspect(sentinel.before_log.length(), content="1")
+  inspect(sentinel.before_log[0].0 == m_id, content="true")
+  inspect(sentinel.before_log[0].1, content="true")
+  inspect(sentinel.success_log.length(), content="1")
+  inspect(sentinel.success_log[0].0 == m_id, content="true")
+  inspect(sentinel.success_log[0].1, content="false")
+  inspect(sentinel.abort_log.length(), content="0")
+}
+
+///|
+/// Test A — Dispatch order on abort.
+/// Uses `Memo::force_recompute` (package-private) to bypass `get_result`,
+/// which would `abort` the test on a raised Failure.
+test "MemoCommitPhase: forward dispatch order on abort" {
+  let rt = Runtime::Runtime()
+  let sentinel = SentinelHook::new()
+  rt.commit_hooks.push(sentinel)
+  let _acc : Accumulator[Int] = Accumulator::new(rt~)
+  let m : Memo[Int] = Memo::new(rt, () => raise Failure("test abort"))
+  let _ : Result[Result[Int, CycleError], Failure] = try? m.force_recompute()
+  let m_id = m.id()
+  inspect(sentinel.before_log.length(), content="1")
+  inspect(sentinel.before_log[0].0 == m_id, content="true")
+  inspect(sentinel.before_log[0].1, content="true")
+  inspect(sentinel.abort_log.length(), content="1")
+  inspect(sentinel.abort_log[0].0 == m_id, content="true")
+  inspect(sentinel.abort_log[0].1, content="false")
+  inspect(sentinel.success_log.length(), content="0")
+}
+
+///|
+/// Test B — Non-memo-frame preservation.
+/// A push Reactive whose compute reads `Memo::accumulated*` must not
+/// leave any state keyed by its own cell. The cell_index gate in the
+/// accumulator push paths is what enforces the silent no-op.
+test "MemoCommitPhase: Memo::accumulated from a reactive frame leaves no entry" {
+  let rt = Runtime::Runtime()
+  let acc : Accumulator[Int] = Accumulator::new(rt~)
+  let m = Memo::new(rt, () => {
+    acc.push(7)
+    1
+  })
+  ignore(rt.read(m))
+  // Reactive::new runs the initial compute synchronously inside a
+  // PushReactive tracking frame. accumulated/accumulated_result raise
+  // Failure for disposed inputs only; wrap in try? because Reactive's
+  // compute signature is `() -> T` (non-raising).
+  let _r = Reactive::new(rt, () => {
+    let _ = try? m.accumulated(acc)
+    let _ = try? m.accumulated_result(acc)
+    0
+  })
+  inspect(rt.accumulator_commit_hook.active.is_empty(), content="true")
+}
+
+///|
+/// Test C — Nested recompute correctness.
+/// M1 reads M2; M2 aborts. Observed hook sequence:
+///   1. before_recompute(m1) — accumulator installs active[m1]
+///   2. before_recompute(m2) — accumulator installs active[m2] (nested)
+///   3. m2 compute raises
+///   4. after_abort(m2)      — accumulator removes active[m2]
+///   5. m1 propagates raise
+///   6. after_abort(m1)      — accumulator removes active[m1]
+/// Sentinel snapshots prove the order: at each abort fire, the
+/// just-named entry is already gone and the active map's key set
+/// matches the remaining outer-frame depth.
+test "MemoCommitPhase: nested recompute aborts clean up both entries" {
+  let rt = Runtime::Runtime()
+  let sentinel = SentinelHook::new()
+  rt.commit_hooks.push(sentinel)
+  let _acc : Accumulator[Int] = Accumulator::new(rt~)
+  let m2 : Memo[Int] = Memo::new(rt, () => raise Failure("inner abort"))
+  let m1 = Memo::new(rt, () => {
+    let _ = m2.get_result_inner()
+    0
+  })
+  let _ : Result[Result[Int, CycleError], Failure] = try? m1.force_recompute()
+  let m1_id = m1.id()
+  let m2_id = m2.id()
+  inspect(sentinel.before_log.length(), content="2")
+  inspect(sentinel.before_log[0].0 == m1_id, content="true")
+  inspect(sentinel.before_log[0].2.length(), content="1")
+  inspect(sentinel.before_log[1].0 == m2_id, content="true")
+  inspect(sentinel.before_log[1].2.length(), content="2")
+  inspect(sentinel.abort_log.length(), content="2")
+  inspect(sentinel.abort_log[0].0 == m2_id, content="true")
+  inspect(sentinel.abort_log[0].1, content="false")
+  inspect(sentinel.abort_log[0].2.length(), content="1")
+  inspect(sentinel.abort_log[1].0 == m1_id, content="true")
+  inspect(sentinel.abort_log[1].1, content="false")
+  inspect(sentinel.abort_log[1].2.length(), content="0")
+  inspect(rt.accumulator_commit_hook.active.is_empty(), content="true")
+  inspect(sentinel.success_log.length(), content="0")
+}

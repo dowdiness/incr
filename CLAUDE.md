@@ -56,6 +56,8 @@ dowdiness/incr/
 │   ├── hybrid_memo.mbt         (HybridMemo[T] handle)
 │   ├── tracked_cell.mbt        (TrackedCell[T] handle)
 │   ├── memo_map.mbt            (MemoMap[K, V])
+│   ├── memo_commit_phase.mbt   (priv MemoCommitPhase trait — commit-path extension point dispatched from memo_force_recompute; lives in cells/ not kernel/ because methods take Runtime)
+│   ├── accumulator_commit_hook.mbt (AccumulatorCommitHook — first MemoCommitPhase impl; owns per-recompute snapshot/restore/finalize state previously inline in accumulator.mbt)
 │   ├── scope.mbt, tracking.mbt, introspection.mbt, kernel_using.mbt
 │   ├── cell.mbt, cell_ops.mbt  (local CellLifecycle trait + using re-exports)
 │   ├── internal/               (engine sub-packages, MoonBit `internal` visibility)

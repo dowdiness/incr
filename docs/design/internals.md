@@ -386,6 +386,10 @@ The library is split into four MoonBit sub-packages. The root package re-exports
 | File | Purpose |
 |------|---------|
 | `cells/accumulator.mbt` | `Accumulator[T]` handle + `SlotMeta` — diagnostics-style reverse contributions captured during memo recompute and read back via `pull_verify` synthetic-dep checks |
+| `cells/memo_commit_phase.mbt` | `MemoCommitPhase` trait — commit-path extension point dispatched from `memo_force_recompute`. Implementors register on `Runtime` and receive `before_recompute` / `after_success` / `after_abort` for each pull-mode memo recompute |
+| `cells/accumulator_commit_hook.mbt` | `AccumulatorCommitHook` — the first `MemoCommitPhase` implementor; owns the per-cell snapshot/restore/finalize work the accumulator needs around recompute |
+
+The accumulator's commit-path work runs through the `MemoCommitPhase` dispatch rather than as named calls in `memo_force_recompute`. Hooks fire in registration order; `before_recompute` precedes the tracking-stack push, `after_abort` fires in the catch arm before the frame is popped, and `after_success` fires *after* the cell-level epilogue (post-`changed_at`, post-`verified_at`, post-`has_been_computed`) so backdating is observable to the hook. New commit-path concerns (e.g. the planned visualization event tap — see [Memo Event Observation ADR](../decisions/2026-05-17-memo-event-observation.md)) register additional implementors against the same trait instead of editing `memo_force_recompute`. See the [T1b ADR](../decisions/2026-05-17-t1b-memo-commit-phase.md) for the trait's contract and placement rationale.
 
 **Datalog mode (fixpoint evaluation):**
 
