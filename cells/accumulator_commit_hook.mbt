@@ -27,13 +27,26 @@ fn AccumulatorCommitHook::new() -> AccumulatorCommitHook {
 }
 
 ///|
-/// Accessor for push paths in cells/accumulator.mbt — preserves the
-/// "no entry → silent no-op" behavior at accumulator.mbt:540 / :581.
-fn AccumulatorCommitHook::for_cell(
+/// Returns-or-creates the entry for the given recomputing cell. Used by the
+/// three accumulator push paths so they can lazily install a hook entry when
+/// `before_recompute` was skipped (e.g. when no accumulator existed at
+/// recompute-start time but one was registered mid-recompute).
+fn AccumulatorCommitHook::ensure_for_cell(
   self : AccumulatorCommitHook,
   cell_id : CellId,
-) -> RecomputeState? {
-  self.active.get(cell_id)
+) -> RecomputeState {
+  match self.active.get(cell_id) {
+    Some(state) => state
+    None => {
+      let state : RecomputeState = {
+        prev_contributions: [],
+        touched: None,
+        reads: None,
+      }
+      self.active.set(cell_id, state)
+      state
+    }
+  }
 }
 
 ///|
@@ -67,11 +80,21 @@ fn RecomputeState::ensure_reads(
 ///|
 /// before_recompute: snapshot prev_contributions buffers (clear so this
 /// run starts empty); create active entry keyed by recomputing cell.
+///
+/// Fast-path: skip when no accumulators have ever been registered.
+/// `accumulator_slots` is monotonic (disposed slots stay; no reuse), so
+/// `is_empty()` means no slot has ever existed — accumulator_contributions
+/// is necessarily empty too, the snapshot loop is a no-op, and any push
+/// during this recompute will use `ensure_for_cell` to lazy-create the
+/// entry on demand.
 impl MemoCommitPhase for AccumulatorCommitHook with before_recompute(
   self,
   rt,
   cell_id,
 ) {
+  if rt.accumulator_slots.is_empty() {
+    return
+  }
   let prev : Array[@incr_types.AccumulatorId] = match
     rt.accumulator_contributions.get(cell_id) {
     Some(s) => s.to_array()
@@ -98,8 +121,12 @@ impl MemoCommitPhase for AccumulatorCommitHook with after_abort(
   rt,
   cell_id,
 ) {
-  // @hashmap.HashMap::remove returns Unit; read then remove.
-  let state = self.active.get(cell_id).unwrap()
+  // No entry → before_recompute skipped (fast-path) AND no push happened
+  // during this aborted run. Nothing to restore or clean up.
+  let state = match self.active.get(cell_id) {
+    Some(s) => s
+    None => return
+  }
   self.active.remove(cell_id)
   let touched : Array[@incr_types.AccumulatorId] = match state.touched {
     Some(s) => s.to_array()
@@ -137,7 +164,12 @@ impl MemoCommitPhase for AccumulatorCommitHook with after_success(
   rt,
   cell_id,
 ) {
-  let state = self.active.get(cell_id).unwrap()
+  // No entry → before_recompute skipped (fast-path) AND no push/read
+  // happened during this run. Nothing to finalize or commit.
+  let state = match self.active.get(cell_id) {
+    Some(s) => s
+    None => return
+  }
   self.active.remove(cell_id)
   let cell = rt.get_memo_data(cell_id)
   let all_slots : @hashset.HashSet[@incr_types.AccumulatorId] = @hashset.HashSet([],

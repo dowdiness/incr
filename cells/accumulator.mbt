@@ -319,14 +319,14 @@ pub fn[T] Accumulator::push(
   }
   buf.push(value)
   // Stage touched slot on AccumulatorCommitHook (committed in AFTER_CLOSURE).
-  match self.rt.accumulator_commit_hook.for_cell(m_id) {
-    Some(state) => state.ensure_touched().add(self.slot_id)
-    None =>
-      fail(
-        "Accumulator::push: no active commit-hook entry for cell " +
-        m_id.to_string(),
-      )
-  }
+  // ensure_for_cell lazy-creates the entry when before_recompute took its
+  // fast-path (no slots existed at recompute-start time but this accumulator
+  // was registered mid-recompute). The line-449 cell_index check above
+  // guarantees we're inside a Memo/HybridMemo frame.
+  self.rt.accumulator_commit_hook
+  .ensure_for_cell(m_id)
+  .ensure_touched()
+  .add(self.slot_id)
 }
 
 ///|
@@ -401,10 +401,16 @@ pub fn[T, A] Memo::accumulated(
   let current_rev = (slot.push_revised_at_for)(self.cell_id)
   match self.rt.top_active_query() {
     Some(frame) =>
-      match self.rt.accumulator_commit_hook.for_cell(frame.cell_id) {
-        Some(state) =>
-          state.ensure_reads().set((acc.slot_id, self.cell_id), current_rev)
-        None => () // non-memo frame (push-reactive/effect) — silent no-op
+      // Gate on memo-frame check: preserves silent-no-op for push-reactive
+      // and effect frames calling accumulated. Inside a memo frame,
+      // ensure_for_cell lazy-creates the entry if before_recompute skipped.
+      match self.rt.core.cell_index[frame.cell_id.id] {
+        PullMemo(_) | HybridMemo(_) =>
+          self.rt.accumulator_commit_hook
+          .ensure_for_cell(frame.cell_id)
+          .ensure_reads()
+          .set((acc.slot_id, self.cell_id), current_rev)
+        _ => () // non-memo frame (push-reactive/effect) — silent no-op
       }
     None => ()
   }
@@ -444,10 +450,14 @@ pub fn[T, A] Memo::accumulated_result(
       let current_rev = (slot.push_revised_at_for)(self.cell_id)
       match self.rt.top_active_query() {
         Some(frame) =>
-          match self.rt.accumulator_commit_hook.for_cell(frame.cell_id) {
-            Some(state) =>
-              state.ensure_reads().set((acc.slot_id, self.cell_id), current_rev)
-            None => () // non-memo frame (push-reactive/effect) — silent no-op
+          // Same gate as Memo::accumulated above.
+          match self.rt.core.cell_index[frame.cell_id.id] {
+            PullMemo(_) | HybridMemo(_) =>
+              self.rt.accumulator_commit_hook
+              .ensure_for_cell(frame.cell_id)
+              .ensure_reads()
+              .set((acc.slot_id, self.cell_id), current_rev)
+            _ => () // non-memo frame (push-reactive/effect) — silent no-op
           }
         None => ()
       }

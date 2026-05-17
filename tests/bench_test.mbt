@@ -102,23 +102,27 @@ test "memo: wide fanout get (1 signal, 50 memos, stale)" (b : @bench.T) {
 }
 
 ///|
-/// T1b Phase 1 baseline: pure pull-mode memo recompute fanout that touches
-/// no accumulator APIs. This row is the comparison anchor for the Phase 2
-/// perf-gate — it stresses the commit hot-path (empty dispatch loops in
-/// Phase 1, trait-dispatched accumulator in Phase 2) without any
-/// accumulator work amortizing the cost. Phase 1 numbers establish the
-/// pre-switchover baseline; Phase 2 must stay within ±5%.
+/// T1b Phase 2 anchor: pure pull-mode memo recompute fanout that touches
+/// no accumulator APIs. Tracks the commit hot-path overhead added by the
+/// MemoCommitPhase dispatch + AccumulatorCommitHook. With the
+/// `accumulator_slots.is_empty()` fast-path in place, this workload pays
+/// only a length check per recompute and runs faster than pre-T1b (which
+/// always allocated HashSets and called rt.accumulator_contributions ops
+/// unconditionally inside memo_commit_accumulator_phase).
 ///
-/// Phase 1 baseline (2026-05-17, branch refactor/t1b-memo-commit-phase):
-///   memo: no-accumulator recompute fanout    25.41 µs ± 347 ns
-///   memo: wide fanout (1 signal, 50 memos)   25.37 µs ± 426 ns
-///   memo: deep chain (100 levels, stale)     40.52 µs ±   1.15 µs
-///   baseline: push propagation 100 live      21.24 µs ± 523 ns
+/// Numbers below from 2026-05-17 on branch refactor/t1b-memo-commit-phase
+/// (rt: AMD WSL2; high run-to-run variance on push benches is environmental,
+/// not real perf):
+///   bench                                    pre-T1b     Phase 1     Phase 2+fast-path
+///   memo: no-accumulator recompute fanout    26.70 µs    25.41 µs    19.82 µs
+///   memo: wide fanout (1 signal, 50 memos)   25.81 µs    25.37 µs    21.37 µs
+///   memo: deep chain (100 levels, stale)     39.24 µs    40.52 µs    29.50 µs
+///   baseline: push propagation 100 live      22.27 µs    21.24 µs    20-32 µs (noisy)
 ///
-/// Pre-T1b reference (same row, cherry-picked onto main 12a6042):
-///   memo: no-accumulator recompute fanout    26.70 µs ±   1.13 µs
-/// → Phase 1 empty-dispatch overhead vs. pre-T1b: -4.8% (within ±5%
-///   noise envelope, no commit_hooks.is_empty() fast-path needed).
+/// Pre-T1b reference was cherry-picked onto main 12a6042. Phase 2 commit
+/// at 5290fef regressed these rows ~+17%; perf-fix at HEAD restores via
+/// AccumulatorCommitHook's lazy-entry pattern (push paths use
+/// ensure_for_cell; before_recompute/after_* skip when slots empty).
 test "memo: no-accumulator recompute fanout" (b : @bench.T) {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 0)
