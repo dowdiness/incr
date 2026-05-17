@@ -31,10 +31,10 @@ pub(all) struct Runtime {
   // takes `Runtime` as a parameter (see cells/cell_ops.mbt), so moving it
   // into kernel would create a circular type reference.
   priv cell_lifecycle : Array[&CellLifecycle]
-  // Commit-phase hooks for pull-mode memo recomputes. Same placement
-  // rationale as cell_lifecycle: MemoCommitPhase takes Runtime as a
-  // parameter (see cells/memo_commit_phase.mbt). Phase 1 leaves this
-  // empty; Phase 2 registers AccumulatorCommitHook in Runtime::new.
+  // Commit-phase hooks for pull-mode memo recomputes, dispatched from
+  // `memo_force_recompute`. Same placement rationale as cell_lifecycle:
+  // MemoCommitPhase takes Runtime as a parameter (see
+  // cells/memo_commit_phase.mbt), so the array cannot live in kernel.
   priv commit_hooks : Array[&MemoCommitPhase]
   // Accumulator state. Monotonic array; disposed slots keep their index
   // (their `disposed` field is set true). No slot-id reuse.
