@@ -5,12 +5,15 @@
 /// parser-shaped workloads — can drive a UI-library tree of ~1000 nodes
 /// at 60 Hz (16.67 ms / frame budget).
 ///
-/// Three shapes per size N ∈ {100, 1000}:
-///  - flat:   1 Signal → N Reactives (every leaf depends on root state)
-///  - tree:   balanced binary tree of Reactives, N total nodes, depth ~log2(N)
-///  - layered: Signal → 1 Memo (derived state) → N Reactives (DOM-writing
+/// Five benchmark scenarios:
+///  - flat:    1 Signal → N Reactives (N ∈ {100, 1000})
+///  - layered: Signal → 1 Memo (derived state) → 1000 Reactives (DOM-writing
 ///             effects). Closest analogue to a component tree where leaves
 ///             react to a memoized projection of root state.
+///  - sparse:  1000 Reactives total but only 10 subscribed to the mutated
+///             signal — the typical per-frame case (hover/scroll).
+///  - tree:    balanced binary tree of 1023 Memos (depth 10) with a
+///             Reactive at each of the 512 deepest nodes.
 ///
 /// Each bench measures one "root signal mutation" — the worst-case UI event
 /// (router change, theme switch, store-wide update). Subscription patterns
@@ -63,7 +66,7 @@ test "ui: layered 1000 reactives via 1 memo (root mutation)" (b : @bench.T) {
   let reactives : Array[@incr.Reactive[Int]] = []
   for i = 0; i < 1000; i = i + 1 {
     let idx = i
-    reactives.push(@incr.Reactive::new(rt, fn() { rt.read(derived) + idx }))
+    reactives.push(@incr.Reactive::new(rt, fn() { derived.get() + idx }))
   }
   let mut v = 0
   b.bench(fn() {
@@ -105,15 +108,12 @@ test "ui: flat 1000 reactives, only 10 subscribed (sparse mutation)" (
 }
 
 ///|
-/// Tree shape: balanced binary tree of 1023 Reactives (depth 10).
-/// Each non-root node depends on its parent via a chained Reactive — a
-/// closer analogue to a component tree where each component reads its
-/// own slice of props derived from a parent's projection.
-///
-/// Note: this requires a Memo bridge because Reactive cannot be `.get()`-ed.
-/// We build the tree of Memos (which can be both subscribed to and read)
-/// and put a leaf Reactive at the bottom of each path to capture "DOM
-/// updates."
+/// Tree shape: balanced binary tree of 1023 Memos (depth 10) with a
+/// Reactive at each of the 512 deepest nodes. Each non-root Memo depends
+/// on its parent — analogue of a component tree where each component
+/// reads its own slice of props derived from a parent's projection.
+/// Memos are used for the interior because Reactive cannot be `.get()`-ed
+/// from a downstream cell; the leaf Reactives represent "DOM updates."
 test "ui: tree 1023 memos + 512 leaf reactives (root mutation)" (b : @bench.T) {
   let rt = @incr.Runtime::new()
   let sig = @incr.Signal::new(rt, 0)
@@ -124,14 +124,14 @@ test "ui: tree 1023 memos + 512 leaf reactives (root mutation)" (b : @bench.T) {
     let parent = nodes[i]
     let li = 2 * i + 1
     let ri = 2 * i + 2
-    nodes.push(@incr.Memo::new(rt, fn() { rt.read(parent) + li }))
-    nodes.push(@incr.Memo::new(rt, fn() { rt.read(parent) + ri }))
+    nodes.push(@incr.Memo::new(rt, fn() { parent.get() + li }))
+    nodes.push(@incr.Memo::new(rt, fn() { parent.get() + ri }))
   }
   // Attach a leaf Reactive to each of the 512 deepest nodes (indices 511..1022)
   let leaves : Array[@incr.Reactive[Int]] = []
   for i = 511; i < 1023; i = i + 1 {
     let node = nodes[i]
-    leaves.push(@incr.Reactive::new(rt, fn() { rt.read(node) }))
+    leaves.push(@incr.Reactive::new(rt, fn() { node.get() }))
   }
   let mut v = 0
   b.bench(fn() {
