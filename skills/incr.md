@@ -8,9 +8,11 @@ description: Use when writing or reviewing MoonBit code against the `dowdiness/i
 Reference for writing canonical `@incr` code. Adapt to context — these are
 patterns the project consistently uses, not enforcement rules.
 
-Project root for this skill's citations:
-`/home/antisatori/ghq/github.com/dowdiness/canopy/loom/incr/` (the `incr`
-submodule of the `loom` repo).
+Citation paths in this skill are repo-relative to **this repo**
+(`dowdiness/incr`) unless explicitly qualified with a sister repo
+(`dowdiness/loom: …`). The `incr` library is also vendored as a
+submodule of the `dowdiness/loom` monorepo; both views host the same
+source tree.
 
 ## When to Use
 
@@ -71,11 +73,11 @@ let snapshot = rt.read(parser.syntax_tree())
 let result = attachment.observer.get()
 ```
 
-Canonical reference: `loom/incr/tests/bench_test.mbt` consistently uses
-`.get()` inside closures and `rt.read(...)` at bench scope.
-`loom/examples/lambda/src/typed_parser.mbt:59` uses `.get()` inside
-`scope.memo`. `loom/examples/lambda/src/callers/callers.mbt:133` does
-the same.
+Canonical reference: `tests/bench_test.mbt` (this repo) consistently
+uses `.get()` inside closures and `rt.read(...)` at bench scope.
+`dowdiness/loom: examples/lambda/src/typed_parser.mbt:59` uses `.get()`
+inside `scope.memo`. `dowdiness/loom: examples/lambda/src/callers/callers.mbt:133`
+does the same.
 
 ## The Persistent-Observer GC Anchor
 
@@ -92,8 +94,8 @@ a `Scope`.
 
 ### Template — attaching a derived pipeline to a parser
 
-From `loom/examples/lambda/src/typed_parser.mbt` (and mirrored in
-`loom/examples/lambda/src/callers/callers.mbt`):
+From `dowdiness/loom: examples/lambda/src/typed_parser.mbt` (and
+mirrored in `dowdiness/loom: examples/lambda/src/callers/callers.mbt`):
 
 ```moonbit
 pub(all) struct MyAttachment {
@@ -159,13 +161,13 @@ constructed**; they come from `memo.observe()` / `hybrid.observe()` /
 definitions, not retroactive migration of upstream APIs.
 
 Canonical reference for the convention in use:
-`loom/examples/lambda/src/callers/callers.mbt:127` defines
+`dowdiness/loom: examples/lambda/src/callers/callers.mbt:127` defines
 `CallersPipeline::CallersPipeline`.
 
 ## Bench Patterns
 
-Canonical reference: `loom/incr/tests/bench_test.mbt`. Copy its surface
-when adding new benches.
+Canonical reference: `tests/bench_test.mbt`. Copy its surface when
+adding new benches.
 
 ```moonbit
 test "memo: get warm (up-to-date, no recompute)" (b : @bench.T) {
@@ -238,18 +240,27 @@ call, ask:
 Reading these is the fastest way to ground a change. Cite paths, don't
 paraphrase.
 
-- `loom/incr/tests/bench_test.mbt` — bench template; `.get()` vs
-  `rt.read` rule visible at a glance.
-- `loom/examples/lambda/src/typed_parser.mbt` — canonical
-  `Scope` + persistent `Observer` + `dispose` lifecycle on a parser
-  attachment.
-- `loom/examples/lambda/src/callers/callers.mbt` — second example of
-  the same pattern, plus defensive `.copy()` on cached buckets and the
+In this repo (`dowdiness/incr`):
+
+- `tests/bench_test.mbt` — bench template; `.get()` vs `rt.read` rule
+  visible at a glance.
+- `CLAUDE.md` — package map (where each cell type lives), and the rule
+  that the `cells/internal/*` engines are not user-facing.
+
+In sister repo `dowdiness/loom` (where the incr library is consumed by
+real parser pipelines — these are the canonical user-facing examples):
+
+- `examples/lambda/src/typed_parser.mbt` — canonical `Scope` +
+  persistent `Observer` + `dispose` lifecycle on a parser attachment.
+- `examples/lambda/src/callers/callers.mbt` — second example of the
+  same pattern, plus defensive `.copy()` on cached buckets and the
   `Type::Type` constructor convention.
-- `loom/incr/CLAUDE.md` — package map (where each cell type lives), and
-  the rule that the `cells/internal/*` engines are not user-facing.
+
+Developer-side (referenced from `CLAUDE.md` via `@~/.claude/moonbit-base.md`):
+
 - `~/.claude/moonbit-base.md` — quick-reference table for `Type::Type`
-  and the general MoonBit conventions this skill assumes.
+  and the general MoonBit conventions this skill assumes. Not present
+  in this repo's tree; lives in each developer's `~/.claude/` profile.
 
 If any file above has moved or been renamed since this skill was
 written, update the skill — don't trust the path.
@@ -266,8 +277,8 @@ written, update the skill — don't trust the path.
 ## Out of Scope
 
 - The Memo Event Observation ADR
-  (`loom/incr/docs/decisions/2026-05-17-memo-event-observation.md`) and
-  the visualization-tap follow-up. Substantive incr-internal work, not
+  (`docs/decisions/2026-05-17-memo-event-observation.md`) and the
+  visualization-tap follow-up. Substantive incr-internal work, not
   workflow guidance.
 - Migrating existing library constructors (`Memo::new` etc.) to
   `::Type` form. The convention is for new user code.
