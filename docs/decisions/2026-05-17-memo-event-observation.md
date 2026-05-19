@@ -386,10 +386,10 @@ Before any viz-tap code lands, extend the `MemoCommitPhase` trait shipped by T1b
 - `cells/memo_commit_phase.mbt`: change `after_abort(Self, Runtime, CellId) -> Unit` to `after_abort(Self, Runtime, CellId, Error) -> Unit`.
 - `cells/accumulator_commit_hook.mbt`: update the existing `impl MemoCommitPhase for AccumulatorCommitHook with after_abort(self, rt, cell_id)` to `after_abort(self, rt, cell_id, _e)`; body unchanged (accumulator ignores the error).
 - `cells/memo.mbt:432-434`: update the dispatch loop to pass `e` through (`hook.after_abort(self, cell_id, e)`).
-- `cells/accumulator_commit_hook_wbtest.mbt:64`: whitebox-test impl that calls `after_abort` directly — update the call site to provide an `Error` argument.
-- `cells/accumulator_restore_bench_wbtest.mbt:57`: benchmark that calls `after_abort` directly — same update.
+- `cells/accumulator_commit_hook_wbtest.mbt:64`: test-only `MemoCommitPhase` impl for `SentinelHook` — update the impl signature to accept `_e : Error` so it matches the trait.
+- `cells/accumulator_restore_bench_wbtest.mbt:57`: benchmark that calls `after_abort` directly — update the call site to pass an `Error` argument.
 
-Verification: all 566 existing tests green (no behavior change for the accumulator's `_e`-ignoring impl). T1b ADR amended same-day to record the signature change.
+Verification: full test suite green. The change is signature-only for the `_e`-ignoring accumulator impl, so no behavior change. T1b ADR amended same-day to record the signature change.
 
 ### Phase 1 — Internal hook + zero-listener wiring + drain sites
 
@@ -398,7 +398,7 @@ Verification: all 566 existing tests green (no behavior change for the accumulat
 - Register at `Runtime::new` with `listener: None`. Add typed field `priv event_broadcast_hook : EventBroadcastPhaseHook` on `Runtime`, mirroring the `accumulator_commit_hook` pattern from T1b. Register the same object in `commit_hooks`.
 - Add `priv fn Runtime::drain_pending_events_if_idle()` helper that checks `tracking_stack.is_empty()` and then calls `event_broadcast_hook.drain()`.
 - Add **idle-guarded** drain calls at the safe points enumerated in §"Drain protocol": all public read APIs (`Memo::get*`, `HybridMemo::get*`, `MemoMap::get*`, `Memo::accumulated*`, `Observer::get`, `Runtime::read*`), end of `Signal::set` when outside a batch, end of `commit_batch` (after on_change firing per §"Drain protocol"), end of `Runtime::gc`. These call `Runtime::drain_pending_events_if_idle()`.
-- Add **direct (non-idle-guarded)** drain calls at the public catch-to-abort sites listed in §"Drain protocol": `Memo::get_result:207-209`, `Memo::get_untracked:292-293`, `MemoMap::get_result:93-95`, `HybridMemo::get_untracked:109-110, 126-127`. These call `self.rt.event_broadcast_hook.drain()` directly, immediately before the `abort()` call. Phase 1 audits the codebase for further catch-to-abort sites at public-API boundaries and adds drain calls symmetrically.
+- Add **direct (non-idle-guarded)** drain calls at the public catch-to-abort sites listed in §"Drain protocol": `Memo::get_result:207-209`, `Memo::get_untracked:292-293`, `MemoMap::get_result:93-95`, `HybridMemo::get_untracked:109-110, 126-127`. These call `self.rt.event_broadcast_hook.drain()` directly, immediately before the `abort()` call. Phase 1 audits the codebase for further catch-to-abort sites at public-API boundaries and adds drain calls symmetrically. **Scope guard:** if the audit surfaces more than ~2 additional sites, stop and split the audit into a separate ADR before Phase 1 lands — open-ended discovery work does not belong inside the focused-phase scope.
 - Verify no behavior change with zero listener attached.
 
 Verification: all existing tests green; bench gate ±2% on commit-path benches with no listener (one extra hook iteration that short-circuits when listener is `None` and no `active` entry exists).
@@ -427,6 +427,7 @@ Verification: `moon info && moon fmt` produces only the expected `.mbti` additio
   - Inside a `Signal::on_change` callback after propagation buffered events (or a `commit_batch` global `on_change`): `pending` non-empty → raises. **This is the critical test** — it proves the predicate is wider than naive `tracking.stack.is_empty()` or `phase == Idle`, which both fail open in this window.
   - Inside a memo-event listener itself: `draining` true → raises.
 - **Permissive test**: between operations (no compute active, no batch open, phase Idle, pending empty, not draining), both `on_memo_event` and `clear_memo_event_listener` succeed.
+- **Raising-API drain-deferral test** (per §"Drain protocol" raising-API error-exit bullet): a `Memo::accumulated_result` (or other catchable-`raise` read API) that propagates a `Failure` leaves any events buffered prior to the raise in `pending` rather than flushing. The next drain-eligible operation (e.g., a no-op `Memo::get` on a stable cell) flushes them in arrival order. Proves the documented "events stay buffered, next drain flushes" behavior — and that drivers can recover delivery without special-case handling at the raise site.
 - Revision-capture test: a memo compute closure that calls `Signal::set_unconditional` (advancing revision mid-compute) — `EnteringCompute.started_revision < Completed.verified_at`; the event fields are consistent and don't claim equality the runtime can't honor.
 - Driver-facing test: register a listener, run a small graph, assert event sequence.
 - Update `docs/api-reference.md` with the four new public types + two new fns.
@@ -437,7 +438,7 @@ Verification: `moon info && moon fmt` produces only the expected `.mbti` additio
 
 | Check | Requirement |
 |---|---|
-| `moon test` | All existing tests + new event-hook tests green (Phase 0 accumulator-impl signature update must not regress the 566 existing tests) |
+| `moon test` | All existing tests + new event-hook tests green (Phase 0 is a signature-only change to the `_e`-ignoring accumulator impl; full suite must stay green with no behavior change) |
 | `moon info && moon fmt` | The 4 new public types + 2 new fns surface in `.mbti`; no unintended diff (Phase 0 has no `.mbti` diff — trait is `priv`) |
 | `moon bench --release` on `tests/bench_test.mbt` | Commit-path benches with no listener within ±2% of post-T1b baseline; with listener (single trivial callback) within ±5% |
 | `scripts/check-engine-isolation.sh` | Green |
