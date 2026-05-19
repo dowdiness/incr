@@ -61,7 +61,7 @@ impl MemoCommitPhase for SentinelHook with after_success(self, rt, cell_id) {
 }
 
 ///|
-impl MemoCommitPhase for SentinelHook with after_abort(self, rt, cell_id) {
+impl MemoCommitPhase for SentinelHook with after_abort(self, rt, cell_id, _e) {
   self.abort_log.push(
     (cell_id, entry_present(rt, cell_id), snapshot_active_keys(rt)),
   )

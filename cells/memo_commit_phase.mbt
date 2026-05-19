@@ -5,7 +5,7 @@
 /// observe each memo recompute's lifecycle:
 ///
 /// - `before_recompute` fires before the tracking frame is pushed.
-/// - `after_abort` fires inside the catch arm, before pop_tracking.
+/// - `after_abort` fires inside the catch arm, before pop_tracking, with the raised Error in scope.
 /// - `after_success` fires AFTER the cell-level epilogue is complete
 ///   (`changed_at` / `verified_at` / `has_been_computed` / `in_progress = false`
 ///   are all settled). Backdating is detectable via
@@ -35,5 +35,5 @@
 priv trait MemoCommitPhase {
   before_recompute(Self, Runtime, CellId) -> Unit
   after_success(Self, Runtime, CellId) -> Unit
-  after_abort(Self, Runtime, CellId) -> Unit
+  after_abort(Self, Runtime, CellId, Error) -> Unit
 }

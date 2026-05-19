@@ -430,7 +430,7 @@ fn[T] Runtime::memo_force_recompute(
     e => {
       // MemoCommitPhase: after_abort — fires in catch arm, before pop.
       for hook in self.commit_hooks {
-        hook.after_abort(self, cell_id)
+        hook.after_abort(self, cell_id, e)
       }
       // Pop frame (discards staged deps).
       let _ = @kernel.pop_tracking_full(self.core)
