@@ -40,6 +40,7 @@ fn bench_restore(b : @bench.T, n : Int) -> Unit {
   let prev_ids = prev_accs.map(fn(a) { a.id() })
   let touched_ids = touched_accs.map(fn(a) { a.id() })
   let m_id = m.id()
+  let abort_error : Error = fail("bench abort") catch { e => e }
   b.bench(fn() {
     // Set up the hook entry directly (bypasses before_recompute, which would
     // snapshot prev buffers — bench measures the restore path, not snapshot).
@@ -54,7 +55,7 @@ fn bench_restore(b : @bench.T, n : Int) -> Unit {
       reads: None,
     }
     rt.accumulator_commit_hook.active.set(m_id, state)
-    rt.accumulator_commit_hook.after_abort(rt, m_id)
+    rt.accumulator_commit_hook.after_abort(rt, m_id, abort_error)
     // after_abort removed active[m_id]; next iteration repopulates.
   })
 }

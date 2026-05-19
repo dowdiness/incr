@@ -122,6 +122,7 @@ impl MemoCommitPhase for AccumulatorCommitHook with after_abort(
   self,
   rt,
   cell_id,
+  _e,
 ) {
   // No entry → before_recompute skipped (fast-path) AND no push happened
   // during this aborted run. Nothing to restore or clean up.
