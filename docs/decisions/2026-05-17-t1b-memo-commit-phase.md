@@ -11,6 +11,10 @@
 - §"Dispatch order": forward order on **both** success and abort. Explicit, contracted.
 - §"Accumulator refactor": dropped the `commit_hooks[0]` downcast pattern. Use a typed named field `priv accumulator_commit_hook : AccumulatorCommitHook` plus register the *same object* in `commit_hooks`. Drops the brittle invariant.
 
+**Amendments (2026-05-19, post-Codex commissioning review for the viz-tap follow-up):**
+- §"Trait shape" and §"Dispatch": **extend `after_abort` signature with an `Error` parameter.** New shape: `after_abort(Self, Runtime, CellId, Error) -> Unit`. The catch arm at `cells/memo.mbt:429-440` already has `e : Error` in scope; the dispatch loop passes it through. Driver: the [Memo Event Observation ADR](2026-05-17-memo-event-observation.md)'s `EventBroadcastPhaseHook` needs the typed `Error` value (not a runtime-state stash) to produce `MemoAbortedEvent { error : Error, ... }` without losing typed structure. Cost: one-line addition to `AccumulatorCommitHook::after_abort` (`_e : Error` ignored param). Asymmetry with the two non-abort methods is structural truth, not a design smell — only abort carries abort-specific data. This amendment lands **in the viz-tap PR**, not as a separate retroactive PR; T1b is otherwise stable.
+- §"Risks" table: uncatchable `abort()` paths (cycle detection, disposed-cell guards, cross-runtime guards) do **not** trigger `after_abort`. The hook only observes catchable `raise` from the compute closure. This was implicit in T1b but explicit documentation belongs here so future hook authors don't assume universal abort coverage.
+
 ## Context
 
 The 2026-04-20 architecture assessment identified **AP1** — the accumulator feature's three commit-path hooks (`memo_snapshot_accumulator_contributions`, `memo_restore_on_abort`, `memo_commit_accumulator_phase`) are called by literal name from `cells/memo.mbt:423-449`. With one implementor, naming the hooks is fine. The gate for the proposed **T1b** trait abstraction was a *second* cross-cutting concern with the same hook shape.
@@ -21,7 +25,7 @@ That driver has been named: **live event-stream observation for visualization** 
 |---|---|---|
 | `before_recompute(cell_id)` | Snapshot `accumulator_contributions[cell_id]` | Start timer; emit "entering compute" event |
 | `after_success(cell_id)` | Commit new pushes (collected during recompute via `accumulator_reads` / `touched_accumulator_slots`); discard snapshot | Emit "completed" event with elapsed time + backdated flag |
-| `after_abort(cell_id)` | Restore snapshot, drop in-progress pushes | Emit "aborted" event with elapsed time |
+| `after_abort(cell_id, error)` | Restore snapshot, drop in-progress pushes (error ignored) | Emit "aborted" event with elapsed time + typed `Error` |
 
 Two implementors with the same hook contract, distinct abort semantics, and no shared state. This is the shape the assessment named as the gate condition.
 
@@ -67,17 +71,18 @@ The success path additionally consumes two accumulator-specific fields from `Act
 
 ```moonbit
 // cells/memo_commit_phase.mbt (new file — NOT in cells/internal/kernel/)
+// Signature post 2026-05-19 amendment (after_abort carries Error).
 priv trait MemoCommitPhase {
   before_recompute(Self, Runtime, CellId) -> Unit
   after_success(Self, Runtime, CellId) -> Unit
-  after_abort(Self, Runtime, CellId) -> Unit
+  after_abort(Self, Runtime, CellId, Error) -> Unit
 }
 ```
 
 Three methods, no `Snapshot` associated type, no return values. Each implementor owns its own per-cell state internally (the way the accumulator already stashes via `accumulator_contributions`). This avoids two known pain points:
 
 - **MoonBit traits do not support associated types.** A generic `Snapshot` would require type erasure via an opaque trait object; per-implementor internal state is simpler.
-- **Different implementors want different snapshot shapes.** Accumulator wants `HashSet[AccumulatorId]`; a visualization tap wants `(Int64, String?)`. Forcing a single shape across the trait would compromise both.
+- **Different implementors want different snapshot shapes.** Accumulator wants `HashSet[AccumulatorId]`; a visualization tap wants `(@bench.Timestamp, Revision)` per-cell state plus a buffered event queue (per the [Memo Event Observation ADR](2026-05-17-memo-event-observation.md)'s resolved shape). Forcing a single shape across the trait would compromise both.
 
 The trade-off: implementors carry more state. Worth it because the alternative is type erasure on the hot commit path.
 
@@ -102,8 +107,9 @@ let old_deps = cell.dependencies
 
 let new_value = compute_fn() catch {
   e => {
-    // 2. ABORT — inside catch arm, before pop_tracking_full:
-    for hook in self.commit_hooks { hook.after_abort(self, cell_id) }
+    // 2. ABORT — inside catch arm, before pop_tracking_full.
+    // Per 2026-05-19 amendment: pass `e` through to hooks.
+    for hook in self.commit_hooks { hook.after_abort(self, cell_id, e) }
     let _ = @kernel.pop_tracking_full(self.core)
     cell.in_progress = false
     raise e
@@ -193,14 +199,9 @@ The non-memo-frame case is real: `Memo::accumulated` and `accumulated_result` ca
 
 ### Visualization tap (deferred to a separate PR)
 
-The visualization tap is the *design witness* for T1b — it informed the trait shape. It is **not** implemented in T1b's PR. The visualization tap PR will:
+The visualization tap is the *design witness* for T1b — it informed the trait shape. It is **not** implemented in T1b's PR. The follow-up [Memo Event Observation ADR](2026-05-17-memo-event-observation.md) (Accepted 2026-05-17, commissioning decisions resolved 2026-05-19) specifies the actual shape: struct-per-variant payloads (`MemoEnteringEvent` / `MemoCompletedEvent` / `MemoAbortedEvent`) with typed `Error` on abort and threaded `started_revision`; `Runtime::on_memo_event` raises `Failure` when called mid-recompute; the hook is `priv struct EventBroadcastPhaseHook` storing `(Timestamp, Revision)` per cell and buffering events for drain. See that ADR for the authoritative definition.
 
-1. Add `pub enum MemoEvent { EnteringCompute(CellId) | Completed(CellId, elapsed_ns : Int64, backdated : Bool) | Aborted(CellId, elapsed_ns : Int64, error : String) }`.
-2. Add `pub fn Runtime::on_memo_event(self : Runtime, f : (MemoEvent) -> Unit) -> Unit`.
-3. Add `priv struct EventBroadcastPhaseHook { callbacks : Array[(MemoEvent) -> Unit], timers : HashMap[CellId, Int64] }` implementing `MemoCommitPhase`.
-4. Wire registration through `Runtime::on_memo_event`.
-
-This is a separate ADR + plan when commissioned. The T1b refactor alone justifies its own PR by giving the accumulator a principled extension point.
+(The viz-tap PR also amends T1b's `after_abort` signature with `Error` per the 2026-05-19 amendment block at the top of this file. The accumulator's `after_abort` impl gains an ignored `_e : Error` parameter; no behavior change.)
 
 ## What this gates / unblocks
 
@@ -261,7 +262,7 @@ Verification: all 508+ tests stay green, including 41 accumulator tests + the la
 |---|---|
 | `moon test` | 508+ tests, all green (including 41 accumulator + loom-driver coverage) |
 | `scripts/check-engine-isolation.sh` | Green — new files live in `cells/`, no engine-boundary violation |
-| `moon bench --release` on `tests/bench_test.mbt` | Commit-path benches within ±5% of pre-T1b baseline. **Including a new memo-no-accumulator bench** added in Phase 3. If overhead is measurable, add `commit_hooks.is_empty()` fast-path |
+| `moon bench --release` on `tests/bench_test.mbt` | Commit-path benches within ±5% of pre-T1b baseline. **Including the `memo: no-accumulator recompute fanout` bench** added in Phase 1 (per §"Migration plan") as a pre-switchover baseline against which Phase 2 is measured. If overhead is measurable, add `commit_hooks.is_empty()` fast-path |
 | `moon info && moon fmt` | No public `.mbti` diff (trait is `priv`; no API change) |
 | Codex pre-trait-shape review (Gate 1) | Trait location + signatures + Runtime field placement |
 | Codex pre-atomic-switchover review (Gate 2) | Hook struct + impl + push-path redirects, paper review before any code lands |
