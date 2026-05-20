@@ -370,7 +370,7 @@ fn[T] Memo::recompute_inner(
       let changed = cell.meta.changed_at != old_changed_at
       if changed {
         match cell.on_change {
-          Some(f) => f()
+          Some(f) => @kernel.run_callback(self.rt.core, f)
           None => ()
         }
       }
