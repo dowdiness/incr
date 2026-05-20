@@ -67,6 +67,14 @@ pub using @types {type InternTable}
 
 pub using @cells {type Memo}
 
+pub using @cells {type MemoAbortedEvent}
+
+pub using @cells {type MemoCompletedEvent}
+
+pub using @cells {type MemoEnteringEvent}
+
+pub using @cells {type MemoEvent}
+
 pub using @types {type MemoId}
 
 pub using @cells {type MemoMap}

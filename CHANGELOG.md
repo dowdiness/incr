@@ -4,6 +4,10 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Memo event listener API.** `Runtime::on_memo_event` and `Runtime::clear_memo_event_listener` expose pull-memo recompute events via public `MemoEvent` payloads (`EnteringCompute`, `Completed`, `Aborted`). Listener mutation is rejected while an operation is in flight.
+
 ### Documentation
 
 - **Information structure rebuilt against source code as primary truth.** `README.md` rewritten as a truthful entry point using the modern `fn MyApp::MyApp()` constructor and `app.runtime().read(memo)` for outside-graph reads. `AGENTS.md` expanded into a canonical contributor doc (build commands, doc rules, comment rules, pre-PR checklist, v0.9.2 deprecation status).
