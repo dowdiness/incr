@@ -129,6 +129,48 @@ fn Runtime::event_broadcast_enabled(self : Runtime) -> Bool {
 }
 
 ///|
+fn Runtime::is_listener_mutation_safe(self : Runtime) -> Bool {
+  self.core.phase is Idle &&
+  self.core.tracking.stack.is_empty() &&
+  self.core.batch.depth == 0 &&
+  self.event_broadcast_hook.pending.is_empty() &&
+  !self.event_broadcast_hook.draining
+}
+
+///|
+fn Runtime::memo_event_listener_busy_message(operation : String) -> String {
+  operation +
+  " cannot be called while an operation is in flight: drain in progress, " +
+  "events buffered, batch open, recompute active, or non-Idle phase " +
+  "(PushPropagating/InFixpoint/GarbageCollecting)"
+}
+
+///|
+/// Registers a listener for memo recompute lifecycle events.
+pub fn Runtime::on_memo_event(
+  self : Runtime,
+  f : (MemoEvent) -> Unit,
+) -> Unit raise Failure {
+  guard self.is_listener_mutation_safe() else {
+    fail(Runtime::memo_event_listener_busy_message("Runtime::on_memo_event"))
+  }
+  self.event_broadcast_hook.listener = Some(f)
+}
+
+///|
+/// Clears the memo recompute lifecycle event listener.
+pub fn Runtime::clear_memo_event_listener(self : Runtime) -> Unit raise Failure {
+  guard self.is_listener_mutation_safe() else {
+    fail(
+      Runtime::memo_event_listener_busy_message(
+        "Runtime::clear_memo_event_listener",
+      ),
+    )
+  }
+  self.event_broadcast_hook.listener = None
+}
+
+///|
 fn Runtime::dispatch_before_recompute_hooks(
   self : Runtime,
   cell_id : CellId,

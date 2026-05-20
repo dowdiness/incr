@@ -1,39 +1,4 @@
 ///|
-/// Internal event payload for memo recompute entry.
-priv struct MemoEnteringEvent {
-  cell_id : CellId
-  started_revision : Revision
-}
-
-///|
-/// Internal event payload for successful memo recompute completion.
-priv struct MemoCompletedEvent {
-  cell_id : CellId
-  elapsed_ns : Int64
-  started_revision : Revision
-  verified_at : Revision
-  changed_at : Revision
-  backdated : Bool
-}
-
-///|
-/// Internal event payload for raised memo recompute failure.
-priv struct MemoAbortedEvent {
-  cell_id : CellId
-  elapsed_ns : Int64
-  started_revision : Revision
-  error : Error
-}
-
-///|
-/// Internal memo recompute event payload variants.
-priv enum MemoEvent {
-  EnteringCompute(MemoEnteringEvent)
-  Completed(MemoCompletedEvent)
-  Aborted(MemoAbortedEvent)
-}
-
-///|
 /// Per-cell event state captured between recompute entry and completion.
 priv struct RecomputeStart {
   timer : @bench.Timestamp
