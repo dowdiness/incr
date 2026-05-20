@@ -313,11 +313,11 @@ Post-Stage-5 audit of `cells/` + Codex validation. Stage 6 (engine extraction) r
 
 ### Target #1 — Cross-runtime check duplication (DONE)
 
-Six cell read paths inlined the same ~10-line `current_computing_runtime_id` guard (abort on cross-runtime, reset global before aborting). `Memo::get_result_inner` uniquely had a *forgiving* variant that additionally repairs stale global state when this runtime's tracking stack is empty — required for panic-test isolation because `get_untracked` / `MemoMap` bypass the outer strict check.
+Six cell read paths inlined the same ~10-line `current_computing_runtime_id` guard (abort on cross-runtime, reset global before aborting). `Memo::get_result_inner` uniquely had a *forgiving* variant that additionally repairs stale global state when this runtime's tracking stack is empty — required for panic-test isolation because `read_permissive` / `MemoMap` bypass the outer strict check.
 
 - [x] Extract `Runtime::check_cross_runtime(cell_runtime_id, kind)` helper (strict variant) — `cells/tracking.mbt:149`
 - [x] Replace 6 strict sites: `signal.mbt`, `memo.mbt` (outer), `hybrid_memo.mbt`, `push_reactive.mbt`, `datalog_relation.mbt`, `datalog_functional_relation.mbt`
-- [x] Leave `Memo::get_result_inner` with its original forgiving repair logic — it cannot be unified with the strict helper because "stale-global" vs "legitimate cross-runtime" cannot be distinguished locally without a global runtime registry (the forgiving repair relies on checking THIS runtime's stack, which is correct only because `get_untracked` / `MemoMap` paths are same-runtime by construction)
+- [x] Leave `Memo::get_result_inner` with its original forgiving repair logic — it cannot be unified with the strict helper because "stale-global" vs "legitimate cross-runtime" cannot be distinguished locally without a global runtime registry (the forgiving repair relies on checking THIS runtime's stack, which is correct only because `read_permissive` / `MemoMap` paths are same-runtime by construction)
 
 **What the audit got wrong:** the "latent bug" framing was overstated — the memo inner's repair is intentional defensive code for panic-test isolation, not a drifted invariant that should be applied everywhere. An attempted unified "repair everywhere" helper broke 5 tests (4 false-negative cross-runtime aborts + 1 surfaced state-leak). Codex's original direction (unify) was correct; the specific generalization (apply memo inner's heuristic uniformly) was not safe.
 
@@ -380,25 +380,29 @@ The remaining Reactive Collections work is **driver discovery**, which belongs t
 
 ## API Naming Cleanup (Deferred)
 
-Context: PR #41 review surfaced that `get_untracked`/`get_tracked`
-naming misleads — `Memo::get_untracked` still records per-key deps
-when a tracking frame is active (via `get_result_inner` calling
-`record_dependency`); the real distinction is **abort vs silent at
-top level**, not tracking itself. This misread propagated through
-three revisions of `reactive-map-design.md` before Codex caught it.
+Context: PR #41 review surfaced that the old `get_untracked`/`get_tracked`
+naming misled — the package-private memo read still recorded per-key deps
+when a tracking frame was active (via `get_result_inner` calling
+`record_dependency`); the real distinction is **strict tracked-context guard
+vs permissive top-level read**, not tracking itself. This misread propagated
+through three revisions of `reactive-map-design.md` before Codex caught it.
 See [reactive-map-design.md](research/reactive-map-design.md) "Why v1's framing
 was wrong" and
 `~/.claude/projects/*/memory/feedback_code_verify_before_design.md`.
 
-Not urgent — docs are now accurate and the Caveat on `MemoMap::get_tracked`
-documents the actual contract. Revisit if the confusion bites again.
+Package-private cleanup shipped: `Memo::get_untracked`,
+`HybridMemo::get_untracked`, and `Reactive::get_untracked` were renamed to
+`read_permissive`, with deprecated aliases left behind as a compile-time
+migration guard. Public `MemoMap::get` / `MemoMap::get_tracked`
+remain unchanged because that pair is part of the public API.
 
 ### Method-name candidates
 
-- [ ] Rename `Memo::get_untracked` → something accurate
-      (e.g., `Memo::read` or `Memo::read_permissive`). Package-private,
-      low breaking-change cost. Body: "reads value, records dep iff
-      tracking frame active, never aborts on missing context."
+- [x] Rename package-private `Memo::get_untracked`,
+      `HybridMemo::get_untracked`, and `Reactive::get_untracked` to
+      `read_permissive`, leaving deprecated aliases under the old names.
+      Body: "reads value, records dep iff tracking frame active, never
+      aborts on missing context."
 - [ ] Reconsider `MemoMap::get` / `MemoMap::get_tracked` pair naming.
       Current asymmetry (unadorned name = permissive, `_tracked` suffix
       = strict) inverts the option-like convention (`get` strict,
@@ -406,25 +410,27 @@ documents the actual contract. Revisit if the confusion bites again.
       `read` (permissive) + `get` (strict), or keep current. Public
       API, so any rename is a breaking change — only do this if a
       downstream consumer actually hits the footgun.
-- [ ] Audit other `*_untracked` / `*_tracked` suffixes across
+- [x] Audit other `*_untracked` / `*_tracked` suffixes across
       `cells/` for the same misnaming pattern. Known candidates:
-      check `Runtime::read` (top-level observer wrapper) and any
-      Observer methods. Grep for the suffix pair explicitly.
+      `Runtime::ensure_computed_untracked` is retained because it
+      explicitly avoids ordinary dependency recording; Observer methods
+      now call `read_permissive`.
 
 ### Doc-comment audits
 
-- [ ] Sweep public doc comments for "tracked" / "untracked" shorthand
+- [x] Sweep public doc comments for "tracked" / "untracked" shorthand
       that doesn't reflect the actual leaf-level behavior
       (`record_dependency` conditional on tracking frame). Prefer
       describing the abort vs silent distinction directly.
-- [ ] Update any remaining design doc that references "untracked means
+- [x] Update current design docs that referenced "untracked means
       doesn't record deps." Currently known:
       [reactive-map-design.md](research/reactive-map-design.md) (marked
       [SUPERSEDED] in-line; a proper rewrite would fold these into the
       v3 narrative) and
       `docs/design/specs/2026-04-15-boundary3-bidirectional-typechecker.md`
       (has an inline [Correction 2026-04-19] note; could be reworked
-      if the spec is revisited).
+      if the spec is revisited). Historical archive docs are left as
+      historical records.
 
 ## Documentation
 

@@ -86,13 +86,14 @@ pub fn[T] Reactive::get(self : Reactive[T]) -> T {
       "Reactive::get() called outside tracked context. Use rt.read_reactive(reactive) or reactive.observe() to read from outside the graph.",
     )
   }
-  self.get_untracked()
+  self.read_permissive()
 }
 
 ///|
-/// Package-private untracked read. Bypasses the tracked-context guard.
-/// Used by Observer to read from outside the dependency graph.
-fn[T] Reactive::get_untracked(self : Reactive[T]) -> T {
+/// Package-private permissive read. Bypasses the tracked-context guard.
+/// Records a dependency when a tracking frame is active.
+#alias(get_untracked, deprecated="Use Reactive::read_permissive instead")
+fn[T] Reactive::read_permissive(self : Reactive[T]) -> T {
   self.rt.check_cross_runtime(self.rt.core.runtime_id, "Reactive")
   let cell_id = self.cell_id.id
   guard !self.rt.is_cell_disposed(cell_id) else {

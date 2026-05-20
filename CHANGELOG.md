@@ -4,7 +4,9 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ## [Unreleased]
 
-- No changes recorded yet.
+### Changed
+
+- Internal package-private read helpers on `Memo`, `HybridMemo`, and `Reactive` were renamed from `get_untracked` to `read_permissive` to clarify that they bypass the strict tracked-context guard but may still record a dependency when called with an active tracking frame. Deprecated package-private aliases keep the old names available during migration. No public API change.
 
 ## [0.5.2] - 2026-05-20
 
