@@ -181,6 +181,10 @@ clean up the dead logic.
 - [x] Test `Memo` with custom `Eq` types where structural equality differs from identity
 - [x] Test cycle detection across 3+ mutually recursive memos
 
+## Formal Verification
+
+- [ ] Build a machine-checked proof of the core consistency theorem for a formal model of `incr`: model the pure, acyclic pull core; define `scratch_eval(root, inputs)` as the from-scratch reference semantics; prove that successful verification leaves the root cache equal to `scratch_eval` under the current signal store. Keep the proof scoped to the model first — production `Runtime` refinement, push, datalog, GC/dispose, batching, and user callback effects remain separate future work.
+
 ## Package Structure
 
 - [x] Split flat single-package library into four MoonBit sub-packages (`types/`, `cells/`, `pipeline/`, root facade)
