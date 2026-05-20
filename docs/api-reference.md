@@ -1,6 +1,6 @@
 # API Reference
 
-Reference for the most commonly used public APIs in `incr`. This is not exhaustive — the authoritative surface is in `pkg.generated.mbti` and `cells/pkg.generated.mbti`. APIs surfaced here: `Runtime`, `Signal`, `Memo`, `HybridMemo`, `MemoMap`, `TrackedCell`, `Accumulator`, `CycleError`, the `Database`/`Readable`/`Trackable` traits, and the top-level helper functions. Specialised APIs (`Reactive`, `Effect`, `Relation`, `FunctionalRelation`, `Scope`, `Observer`) are documented next to their constructors in `cells/`.
+Reference for the most commonly used public APIs in `incr`. This is not exhaustive — the authoritative surface is in `pkg.generated.mbti` and `cells/pkg.generated.mbti`. APIs surfaced here: `Runtime`, `Signal`, `Memo`, `HybridMemo`, `MemoMap`, `TrackedCell`, `Accumulator`, `MemoEvent`, `CycleError`, the `Database`/`Readable`/`Trackable` traits, and the top-level helper functions. Specialised APIs (`Reactive`, `Effect`, `Relation`, `FunctionalRelation`, `Scope`, `Observer`) are documented next to their constructors in `cells/`.
 
 > **Recommended Pattern:** Use the `Database` trait to encapsulate your `Runtime` in a database type. This makes your API cleaner and hides implementation details. See the [Helper Functions](#helper-functions) section and [API Design Guidelines](design/api-design-guidelines.md) for details.
 
@@ -113,6 +113,76 @@ One-shot observe for `HybridMemo[T]`. Same shape as `read`.
 ### `Runtime::read_reactive[T](self, reactive: Reactive[T]) -> T`
 
 One-shot observe for `Reactive[T]`. Same shape as `read`.
+
+### `Runtime::on_memo_event(self, f: (MemoEvent) -> Unit) -> Unit raise Failure`
+
+Registers the runtime's memo recompute listener. The listener receives pull
+`Memo` and `HybridMemo` lifecycle events after the recompute path reaches a
+safe drain point; it is not called inline from the memo compute closure.
+
+Only one listener is stored. Calling `on_memo_event` replaces the previous
+listener.
+
+```moonbit
+let events : Array[MemoEvent] = []
+rt.on_memo_event(evt => events.push(evt))
+```
+
+The listener is a synchronous, non-raising callback. If a driver needs async
+logging, enqueue inside the callback and let another part of the driver drain
+that queue.
+
+Mutation guard:
+- `on_memo_event` raises `Failure` while an operation is in flight
+- Rejected windows include active recompute, open batch, non-idle propagation
+  phase, buffered-but-undrained events, and listener drain reentry
+- Register listeners between top-level operations, before starting the graph
+  work you want to observe
+
+### `Runtime::clear_memo_event_listener(self) -> Unit raise Failure`
+
+Removes the memo event listener. It has the same mutation guard as
+`on_memo_event`; clear it between operations, not from inside compute,
+`on_change`, or a memo-event listener.
+
+```moonbit
+rt.clear_memo_event_listener()
+```
+
+### `MemoEvent`
+
+`MemoEvent` is the public event payload delivered by
+`Runtime::on_memo_event`.
+
+```moonbit
+pub(all) enum MemoEvent {
+  EnteringCompute(MemoEnteringEvent)
+  Completed(MemoCompletedEvent)
+  Aborted(MemoAbortedEvent)
+}
+```
+
+`MemoEnteringEvent` fields:
+- `cell_id`: memo cell entering recompute
+- `started_revision`: runtime revision captured at recompute entry
+
+`MemoCompletedEvent` fields:
+- `cell_id`: memo cell that completed
+- `elapsed_ns`: best-effort elapsed duration for this recompute
+- `started_revision`: same entry revision carried from `EnteringCompute`
+- `verified_at`: memo verification revision after commit
+- `changed_at`: memo change revision after backdating
+- `backdated`: `true` when the recompute produced an equal value and preserved
+  `changed_at`
+
+`MemoAbortedEvent` fields:
+- `cell_id`: memo cell whose compute raised a catchable `Error`
+- `elapsed_ns`: best-effort elapsed duration before the raise
+- `started_revision`: same entry revision carried from `EnteringCompute`
+- `error`: the captured `Error`; stringify in the driver if needed
+
+Events are best-effort for catchable raises. A direct `abort()` inside a compute
+closure is uncatchable and may leave an unmatched `EnteringCompute` event.
 
 ---
 

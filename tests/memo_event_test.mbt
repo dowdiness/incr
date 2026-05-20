@@ -43,3 +43,58 @@ test "memo_event: listener mutation is rejected during recompute" {
   })
   inspect(rt.read(memo), content="1")
 }
+
+///|
+test "memo_event_listener_observes_hybrid_memo_recompute_events" {
+  let rt = Runtime()
+  let sig = Signal(rt, 1)
+  let hybrid = @incr.HybridMemo(rt, () => sig.get() + 1)
+  let events : Array[String] = []
+  rt.on_memo_event(evt => {
+    match evt {
+      EnteringCompute(_) => events.push("enter")
+      Completed(e) =>
+        if e.backdated {
+          events.push("completed@backdated")
+        } else {
+          events.push("completed")
+        }
+      Aborted(_) => events.push("aborted")
+    }
+  })
+  inspect(rt.read_hybrid(hybrid), content="2")
+  inspect(events.length(), content="2")
+  inspect(events[0], content="enter")
+  inspect(events[1], content="completed")
+  events.clear()
+  inspect(rt.read_hybrid(hybrid), content="2")
+  inspect(events.length(), content="0")
+  sig.set(2)
+  inspect(rt.read_hybrid(hybrid), content="3")
+  inspect(events.length(), content="2")
+  inspect(events[0], content="enter")
+  inspect(events[1], content="completed")
+}
+
+///|
+test "memo_event_no_listener_creates_no_backlog_for_later_listener" {
+  let rt = Runtime()
+  let sig = Signal(rt, 1)
+  let memo = Memo(rt, () => sig.get() + 1)
+  inspect(rt.read(memo), content="2")
+  let events : Array[String] = []
+  rt.on_memo_event(evt => {
+    match evt {
+      EnteringCompute(_) => events.push("enter")
+      Completed(_) => events.push("completed")
+      Aborted(_) => events.push("aborted")
+    }
+  })
+  inspect(rt.read(memo), content="2")
+  inspect(events.length(), content="0")
+  sig.set(2)
+  inspect(rt.read(memo), content="3")
+  inspect(events.length(), content="2")
+  inspect(events[0], content="enter")
+  inspect(events[1], content="completed")
+}

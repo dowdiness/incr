@@ -558,6 +558,104 @@ total.clear_on_change()
 
 ---
 
+## Pattern: Memo Event Stream for Visualization
+
+Use `Runtime::on_memo_event` when a driver needs recompute lifecycle data
+rather than only value-change notifications. The listener is runtime-wide and
+observes pull `Memo` / `HybridMemo` recomputes.
+
+```moonbit nocheck
+let rt = Runtime()
+let price = Signal(rt, 100, label="price")
+let total = Memo(rt, () => price.get() * 2, label="total")
+
+let frames : Array[String] = []
+
+rt.on_memo_event(evt => {
+  match evt {
+    EnteringCompute(e) => {
+      let label = match rt.cell_info(e.cell_id) {
+        Some(info) =>
+          match info.label {
+            Some(s) => s
+            None => e.cell_id.id.to_string()
+          }
+        None => e.cell_id.id.to_string()
+      }
+      frames.push("enter " + label)
+    }
+    Completed(e) => {
+      frames.push(
+        "complete " +
+        e.cell_id.id.to_string() +
+        " in " +
+        e.elapsed_ns.to_string() +
+        "ns",
+      )
+    }
+    Aborted(e) => {
+      frames.push("abort " + e.cell_id.id.to_string() + ": " + e.error.to_string())
+    }
+  }
+})
+
+inspect(rt.read(total), content="200")
+```
+
+Keep the listener small. It runs synchronously during the drain step, after the
+memo compute has left the tracking stack. If the visualizer needs to read
+other cells, use outside-the-graph reads such as `rt.read(memo)`; `Memo::get()`
+is for tracked compute closures and aborts from top-level event handlers.
+
+The event stream is not a transaction log. Batch boundaries, signal-change
+events, push-reactive events, snapshot/replay, and driver-owned event graphs
+are intentionally separate design surfaces.
+
+---
+
+## Pattern: Async Memo Event Logging
+
+Memo-event listeners are non-raising synchronous callbacks. For async logging,
+enqueue a compact record in the listener and flush it from the driver.
+
+```moonbit nocheck
+struct LogRow {
+  phase : String
+  cell : CellId
+  elapsed_ns : Int64
+}
+
+let rows : Array[LogRow] = []
+
+rt.on_memo_event(evt => {
+  match evt {
+    EnteringCompute(e) =>
+      rows.push({ phase: "enter", cell: e.cell_id, elapsed_ns: 0L })
+    Completed(e) =>
+      rows.push({
+        phase: if e.backdated { "backdated" } else { "completed" },
+        cell: e.cell_id,
+        elapsed_ns: e.elapsed_ns,
+      })
+    Aborted(e) =>
+      rows.push({ phase: "aborted", cell: e.cell_id, elapsed_ns: e.elapsed_ns })
+  }
+})
+
+fn flush_log_rows() -> Unit {
+  for row in rows {
+    write_log(row)
+  }
+  rows.clear()
+}
+```
+
+Replace the `Array` with the driver runtime's nonblocking queue when logging
+from an async application. Do not raise from the listener; catch or encode
+logging failures in the driver-owned queue.
+
+---
+
 ## Pattern: Tracked Struct
 
 Use `TrackedCell` fields to give each field of a struct its own dependency cell. Memos that read only one field are unaffected when a different field changes.
