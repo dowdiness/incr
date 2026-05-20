@@ -454,15 +454,15 @@ let named = MemoMap::new(rt, (id : Int) => id * 10, label="by_id")
 
 ### `MemoMap::get[K : Hash + Eq, V : Eq](self, key: K) -> V`
 
-Returns the value for `key`, creating and caching that key's memo on first access.
+Returns the value for `key`, creating and caching that key's memo on first access. This is the permissive read path: it works from top-level code, tests, and event handlers. If called while a tracking frame is active, it records the per-key memo as a dependency.
 
 ### `MemoMap::get_tracked[K : Hash + Eq, V : Eq](self, key: K) -> V`
 
-Same as `get`, but additionally records the per-key memo as a dependency of the surrounding computation. Use inside a memo when you want invalidation tied to a specific key rather than to the map as a whole.
+Strict-context peer of `get`. It records the same per-key dependency when called inside a tracked compute, but aborts when called from top-level code or any other non-tracked context. Use it as a guardrail when top-level use would be a bug.
 
 ### `MemoMap::get_result[K : Hash + Eq, V : Eq](self, key: K) -> Result[V, CycleError]`
 
-Result-returning variant of `get`, matching `Memo::get_result`.
+Result-returning permissive variant of `get`, matching `Memo::get_result`.
 
 ### `MemoMap::get_or[K : Hash + Eq, V : Eq](self, key: K, fallback: V) -> V`
 

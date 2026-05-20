@@ -334,6 +334,11 @@ Key behavior:
 - Different keys are isolated from each other (independent memo instances).
 - When dependencies change, each key recomputes lazily on its next read.
 
+Read modes:
+
+- `get(key)` is permissive: it works at top level and also records the per-key dependency when called inside a tracked compute.
+- `get_tracked(key)` is strict: it records the same per-key dependency, but aborts outside a tracked compute. Use it when top-level use would indicate a bug.
+
 This is a lightweight parameterized-query pattern built on top of `Memo`; it does not change runtime verification internals.
 
 ## Side-Channel Data with Accumulators

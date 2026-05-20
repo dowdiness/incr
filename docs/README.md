@@ -70,6 +70,7 @@ Architecture Decision Records — the *why* behind significant design choices. K
 | [2026-05-17](decisions/2026-05-17-t3-runtime-registry-gated.md) | T3 (`RuntimeRegistry`): design recorded, commissioning gated on multi-runtime async driver, MoonBit preemption, or observable test failure. Replaces two file-scope `Ref[Int]`s + heuristic forgiving-repair with principled liveness queries. |
 | [2026-05-17](decisions/2026-05-17-t1b-memo-commit-phase.md) | T1b (`MemoCommitPhase`): accepted with two design-witness implementors (accumulator shipped, visualization event tap designed). Priv trait; accumulator refactor in T1b's PR; public `Runtime::on_memo_event` API ships with the visualization tap follow-up. Snapshot/restore + CRDT time-travel explicitly deferred. |
 | [2026-05-17](decisions/2026-05-17-memo-event-observation.md) | `Runtime::on_memo_event` public API: driver-facing commit-phase event observation. `pub(all) enum MemoEvent` with `EnteringCompute` / `Completed(elapsed_ns, backdated)` / `Aborted(elapsed_ns, error)`. Single listener per runtime; sync callback (async bridged via aqueue). In-tree `EventBroadcastPhaseHook` bridges T1b's trait. Pull-memo only; push/fixpoint/batch events deferred. |
+| [2026-05-21](decisions/2026-05-21-public-api-ideal-naming.md) | Ideal public API naming: `Input`, `Derived`, `ReachableDerived`, `EagerDerived`, `DerivedMap`, `InputField`, `Watch`, `RuntimeContext`; `get`/`read` return `Result` for fallible derived reads and aborting shortcuts use `_or_abort`. |
 
 ---
 

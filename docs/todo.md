@@ -384,8 +384,13 @@ Context: PR #41 review surfaced that the old `get_untracked`/`get_tracked`
 naming misled — the package-private memo read still recorded per-key deps
 when a tracking frame was active (via `get_result_inner` calling
 `record_dependency`); the real distinction is **strict tracked-context guard
-vs permissive top-level read**, not tracking itself. This misread propagated
-through three revisions of `reactive-map-design.md` before Codex caught it.
+vs permissive top-level read**, not tracking itself. Follow-up design work
+expanded this into a first-principles ideal API vocabulary: `Signal ->
+Input`, `Memo -> Derived`, `HybridMemo -> ReachableDerived`,
+`Reactive -> EagerDerived`, `MemoMap -> DerivedMap`, `TrackedCell ->
+InputField`, `Trackable -> InputFieldOwner`, and `Database ->
+RuntimeContext`. This misread propagated through three revisions of
+`reactive-map-design.md` before Codex caught it.
 See [reactive-map-design.md](research/reactive-map-design.md) "Why v1's framing
 was wrong" and
 `~/.claude/projects/*/memory/feedback_code_verify_before_design.md`.
@@ -393,8 +398,8 @@ was wrong" and
 Package-private cleanup shipped: `Memo::get_untracked`,
 `HybridMemo::get_untracked`, and `Reactive::get_untracked` were renamed to
 `read_permissive`, with deprecated aliases left behind as a compile-time
-migration guard. Public `MemoMap::get` / `MemoMap::get_tracked`
-remain unchanged because that pair is part of the public API.
+migration guard. Public names remain unchanged until a dedicated breaking
+migration is planned.
 
 ### Method-name candidates
 
@@ -403,13 +408,13 @@ remain unchanged because that pair is part of the public API.
       `read_permissive`, leaving deprecated aliases under the old names.
       Body: "reads value, records dep iff tracking frame active, never
       aborts on missing context."
-- [ ] Reconsider `MemoMap::get` / `MemoMap::get_tracked` pair naming.
-      Current asymmetry (unadorned name = permissive, `_tracked` suffix
-      = strict) inverts the option-like convention (`get` strict,
-      `get_or` / `try_get` permissive). Candidate pairs:
-      `read` (permissive) + `get` (strict), or keep current. Public
-      API, so any rename is a breaking change — only do this if a
-      downstream consumer actually hits the footgun.
+- [x] Reconsider public naming from first principles. Decision:
+      recoverable derived reads own the simple names (`get` for strict
+      graph reads, `read` for permissive reads); aborting shortcuts carry
+      `_or_abort`; `MemoMap` becomes `DerivedMap`; `Database` becomes
+      `RuntimeContext`; constructor syntax replaces `create_*` helper
+      names in the ideal final API. See
+      [ADR 2026-05-21](decisions/2026-05-21-public-api-ideal-naming.md).
 - [x] Audit other `*_untracked` / `*_tracked` suffixes across
       `cells/` for the same misnaming pattern. Known candidates:
       `Runtime::ensure_computed_untracked` is retained because it
