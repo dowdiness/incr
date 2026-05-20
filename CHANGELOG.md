@@ -4,9 +4,21 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ## [Unreleased]
 
+- No changes recorded yet.
+
+## [0.5.2] - 2026-05-20
+
 ### Added
 
 - **Memo event listener API.** `Runtime::on_memo_event` and `Runtime::clear_memo_event_listener` expose pull-memo recompute events via public `MemoEvent` payloads (`EnteringCompute`, `Completed`, `Aborted`). Listener mutation is rejected while an operation is in flight.
+
+### Fixed
+
+- **Disallow listener mutation during callback dispatch.** The memo listener API now prevents registering, removing, or clearing listeners while memo event callbacks are in progress, avoiding re-entrancy hazards and maintaining event order guarantees.
+
+### Performance
+
+- **Lazy memo commit allocation.** `ActiveQuery` accumulator fields are now allocated lazily, reducing push fanout overhead in hot paths. In current benchmarks this appears as roughly a 16% improvement in active push fanout throughput.
 
 ### Documentation
 
@@ -194,7 +206,8 @@ Initial release.
 - Batch updates with atomic multi-signal commits
 - Cycle detection
 
-[Unreleased]: https://github.com/dowdiness/incr/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/dowdiness/incr/compare/v0.5.2...HEAD
+[0.5.2]: https://github.com/dowdiness/incr/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/dowdiness/incr/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/dowdiness/incr/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/dowdiness/incr/compare/v0.4.0...v0.4.1
