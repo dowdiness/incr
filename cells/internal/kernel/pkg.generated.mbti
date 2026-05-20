@@ -95,7 +95,7 @@ pub fn remove_gc_root(RuntimeCore, @types.CellId) -> Int
 
 pub fn remove_subscriber(RuntimeCore, PullState, PushState, DatalogState, @types.CellId, @types.CellId) -> Unit
 
-pub fn run_callback(RuntimeCore, () -> Unit) -> Unit
+pub fn run_callback(RuntimeCore, () -> Unit raise?) -> Unit raise?
 
 pub fn run_fixpoint(RuntimeCore, DatalogState) -> Array[@types.CellId]
 
