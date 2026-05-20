@@ -18,10 +18,23 @@ pub fn advance_revision(core : RuntimeCore, durability : Durability) -> Unit {
 }
 
 ///|
+/// Runs a user callback while marking listener drains as deferred.
+pub fn run_callback(core : RuntimeCore, f : () -> Unit raise?) -> Unit raise? {
+  core.callback_depth = core.callback_depth + 1
+  f() catch {
+    e => {
+      core.callback_depth = core.callback_depth - 1
+      raise e
+    }
+  }
+  core.callback_depth = core.callback_depth - 1
+}
+
+///|
 /// Fires the on_change callback if one is registered.
 pub fn fire_on_change(core : RuntimeCore) -> Unit {
   match core.on_change {
-    Some(f) => f()
+    Some(f) => run_callback(core, f)
     None => ()
   }
 }

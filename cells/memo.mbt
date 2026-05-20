@@ -204,9 +204,16 @@ pub fn[T] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
     abort("Memo::get called on a disposed memo")
   }
   self.rt.check_cross_runtime(self.rt.core.runtime_id, "Memo")
-  self.get_result_inner() catch {
-    e => abort("Memo compute raised: " + e.to_string())
+  let result = self.get_result_inner() catch {
+    e => {
+      self.rt.event_broadcast_hook.drain()
+      abort("Memo compute raised: " + e.to_string())
+    }
   }
+  if !self.rt.event_broadcast_hook.pending.is_empty() {
+    self.rt.drain_pending_events_if_idle()
+  }
+  result
 }
 
 ///|
@@ -290,12 +297,16 @@ fn[T] Memo::get_result_inner(
 /// Used by Observer to read from outside the dependency graph.
 fn[T] Memo::get_untracked(self : Memo[T]) -> T {
   let r = self.get_result_inner() catch {
-    e => abort("Memo compute raised: " + e.to_string())
+    e => {
+      self.rt.event_broadcast_hook.drain()
+      abort("Memo compute raised: " + e.to_string())
+    }
   }
-  match r {
+  let value = match r {
     Ok(value) => value
     Err(e) => abort(e.format_path())
   }
+  value
 }
 
 ///|
@@ -359,7 +370,7 @@ fn[T] Memo::recompute_inner(
       let changed = cell.meta.changed_at != old_changed_at
       if changed {
         match cell.on_change {
-          Some(f) => f()
+          Some(f) => @kernel.run_callback(self.rt.core, f)
           None => ()
         }
       }
@@ -421,17 +432,13 @@ fn[T] Runtime::memo_force_recompute(
   }
   cell.in_progress = true
   // MemoCommitPhase: before_recompute — fires before tracking is pushed.
-  for hook in self.commit_hooks {
-    hook.before_recompute(self, cell_id)
-  }
+  self.dispatch_before_recompute_hooks(cell_id)
   let old_deps = cell.dependencies
   @kernel.push_tracking(self.core, cell_id)
   let new_value = compute_fn() catch {
     e => {
       // MemoCommitPhase: after_abort — fires in catch arm, before pop.
-      for hook in self.commit_hooks {
-        hook.after_abort(self, cell_id, e)
-      }
+      self.dispatch_after_abort_hooks(cell_id, e)
       // Pop frame (discards staged deps).
       let _ = @kernel.pop_tracking_full(self.core)
       cell.in_progress = false
@@ -472,9 +479,7 @@ fn[T] Runtime::memo_force_recompute(
   // MemoCommitPhase: after_success — fires AFTER the cell-level epilogue
   // so changed_at / verified_at / has_been_computed are observable
   // (backdating detectable via cell.meta.changed_at < cell.verified_at).
-  for hook in self.commit_hooks {
-    hook.after_success(self, cell_id)
-  }
+  self.dispatch_after_success_hooks(cell_id)
   Ok(new_value)
 }
 

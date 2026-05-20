@@ -37,6 +37,8 @@ pub(all) struct Runtime {
   // cells/memo_commit_phase.mbt), so the array cannot live in kernel.
   priv commit_hooks : Array[&MemoCommitPhase]
   priv accumulator_commit_hook : AccumulatorCommitHook
+  priv event_broadcast_hook : EventBroadcastPhaseHook
+  priv event_broadcast_hook_index : Int
   // Accumulator state. Monotonic array; disposed slots keep their index
   // (their `disposed` field is set true). No slot-id reuse.
   priv accumulator_slots : Array[SlotMeta]
@@ -71,7 +73,8 @@ pub fn Runtime::Runtime(on_change? : () -> Unit) -> Runtime {
 ///   (or at the end of a batch if values actually changed).
 pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
   let id = @kernel.alloc_runtime_id()
-  let hook = AccumulatorCommitHook::new()
+  let accumulator_hook = AccumulatorCommitHook::new()
+  let event_hook = EventBroadcastPhaseHook::new()
   let rt : Runtime = {
     core: {
       runtime_id: id,
@@ -85,6 +88,7 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
       next_cell_id: 0,
       tracking: { stack: [] },
       batch: { depth: 0, pending: [], frames: [], max_durability: Low },
+      callback_depth: 0,
       on_change,
       cell_index: [],
       cell_ops: [],
@@ -102,15 +106,91 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
     datalog: { relations: [], functional_relations: [], rules: [] },
     cell_lifecycle: [],
     commit_hooks: [],
-    accumulator_commit_hook: hook,
+    accumulator_commit_hook: accumulator_hook,
+    event_broadcast_hook: event_hook,
+    event_broadcast_hook_index: 1,
     accumulator_slots: [],
     accumulator_snapshots: [],
     next_accumulator_id: 0,
     accumulator_contributions: @hashmap.HashMap([]),
   }
-  // Register the same hook object in the dispatch array.
-  rt.commit_hooks.push(hook)
+  // Register the same hook objects in dispatch order.
+  rt.commit_hooks.push(accumulator_hook)
+  rt.commit_hooks.push(event_hook)
   rt
+}
+
+///|
+fn Runtime::event_broadcast_enabled(self : Runtime) -> Bool {
+  match self.event_broadcast_hook.listener {
+    Some(_) => true
+    None => false
+  }
+}
+
+///|
+fn Runtime::dispatch_before_recompute_hooks(
+  self : Runtime,
+  cell_id : CellId,
+) -> Unit {
+  let event_enabled = self.event_broadcast_enabled()
+  if !event_enabled &&
+    self.commit_hooks.length() == self.event_broadcast_hook_index + 1 {
+    self.accumulator_commit_hook.before_recompute(self, cell_id)
+    return
+  }
+  for i = 0; i < self.commit_hooks.length(); i = i + 1 {
+    if event_enabled || i != self.event_broadcast_hook_index {
+      self.commit_hooks[i].before_recompute(self, cell_id)
+    }
+  }
+}
+
+///|
+fn Runtime::dispatch_after_abort_hooks(
+  self : Runtime,
+  cell_id : CellId,
+  error : Error,
+) -> Unit {
+  let event_enabled = self.event_broadcast_enabled()
+  if !event_enabled &&
+    self.commit_hooks.length() == self.event_broadcast_hook_index + 1 {
+    self.accumulator_commit_hook.after_abort(self, cell_id, error)
+    return
+  }
+  for i = 0; i < self.commit_hooks.length(); i = i + 1 {
+    if event_enabled || i != self.event_broadcast_hook_index {
+      self.commit_hooks[i].after_abort(self, cell_id, error)
+    }
+  }
+}
+
+///|
+fn Runtime::dispatch_after_success_hooks(
+  self : Runtime,
+  cell_id : CellId,
+) -> Unit {
+  let event_enabled = self.event_broadcast_enabled()
+  if !event_enabled &&
+    self.commit_hooks.length() == self.event_broadcast_hook_index + 1 {
+    self.accumulator_commit_hook.after_success(self, cell_id)
+    return
+  }
+  for i = 0; i < self.commit_hooks.length(); i = i + 1 {
+    if event_enabled || i != self.event_broadcast_hook_index {
+      self.commit_hooks[i].after_success(self, cell_id)
+    }
+  }
+}
+
+///|
+/// Drains pending memo events when no recompute frame or callback is active.
+fn Runtime::drain_pending_events_if_idle(self : Runtime) -> Unit {
+  if !self.event_broadcast_hook.pending.is_empty() &&
+    self.core.callback_depth == 0 &&
+    self.core.tracking.stack.is_empty() {
+    self.event_broadcast_hook.drain()
+  }
 }
 
 ///|
@@ -441,4 +521,7 @@ fn Runtime::remove_gc_root(self : Runtime, id : CellId) -> Int {
 /// reachable from the kernel sweep loop.
 pub fn Runtime::gc(self : Runtime) -> Unit {
   @kernel.gc(self.core, fn(id) { self.dispose_cell(id) })
+  if !self.event_broadcast_hook.pending.is_empty() {
+    self.drain_pending_events_if_idle()
+  }
 }

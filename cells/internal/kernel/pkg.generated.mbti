@@ -95,6 +95,8 @@ pub fn remove_gc_root(RuntimeCore, @types.CellId) -> Int
 
 pub fn remove_subscriber(RuntimeCore, PullState, PushState, DatalogState, @types.CellId, @types.CellId) -> Unit
 
+pub fn run_callback(RuntimeCore, () -> Unit raise?) -> Unit raise?
+
 pub fn run_fixpoint(RuntimeCore, DatalogState) -> Array[@types.CellId]
 
 pub fn set_current_computing_runtime_id(Int) -> Unit
@@ -179,6 +181,7 @@ pub(all) struct RuntimeCore {
   mut next_cell_id : Int
   tracking : TrackingState
   batch : BatchState
+  mut callback_depth : Int
   mut on_change : (() -> Unit)?
   cell_index : Array[@shared.CellRef]
   cell_ops : Array[&@shared.CellOps]

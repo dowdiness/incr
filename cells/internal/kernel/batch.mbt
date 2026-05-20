@@ -78,7 +78,7 @@ pub fn commit_batch(
       // If callbacks queue more signals, the while loop will process them.
       core.batch.depth = core.batch.depth + 1
       for cb in callbacks {
-        cb()
+        run_callback(core, cb)
       }
       core.batch.depth = core.batch.depth - 1
     } else {

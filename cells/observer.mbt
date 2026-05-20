@@ -22,7 +22,11 @@ pub struct Observer[T] {
 /// computed cached value.
 pub fn[T] Observer::get(self : Observer[T]) -> T {
   guard !self.disposed else { abort("Observer: already disposed") }
-  (self.getter)()
+  let value = (self.getter)()
+  if !self.runtime.event_broadcast_hook.pending.is_empty() {
+    self.runtime.drain_pending_events_if_idle()
+  }
+  value
 }
 
 ///|
@@ -122,29 +126,35 @@ pub fn[T] Reactive::observe(self : Reactive[T]) -> Observer[T] {
 ///
 /// Aborts if the memo has been disposed.
 pub fn[T] Runtime::read(self : Runtime, memo : Memo[T]) -> T {
-  ignore(self)
   let obs = memo.observe()
-  let val = obs.get()
+  let val = (obs.getter)()
   obs.dispose()
+  if !self.event_broadcast_hook.pending.is_empty() {
+    self.drain_pending_events_if_idle()
+  }
   val
 }
 
 ///|
 /// One-shot observe for HybridMemo.
 pub fn[T : Eq] Runtime::read_hybrid(self : Runtime, memo : HybridMemo[T]) -> T {
-  ignore(self)
   let obs = memo.observe()
-  let val = obs.get()
+  let val = (obs.getter)()
   obs.dispose()
+  if !self.event_broadcast_hook.pending.is_empty() {
+    self.drain_pending_events_if_idle()
+  }
   val
 }
 
 ///|
 /// One-shot observe for Reactive.
 pub fn[T] Runtime::read_reactive(self : Runtime, reactive : Reactive[T]) -> T {
-  ignore(self)
   let obs = reactive.observe()
-  let val = obs.get()
+  let val = (obs.getter)()
   obs.dispose()
+  if !self.event_broadcast_hook.pending.is_empty() {
+    self.drain_pending_events_if_idle()
+  }
   val
 }

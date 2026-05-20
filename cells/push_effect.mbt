@@ -42,6 +42,9 @@ pub fn Effect::new(rt : Runtime, f : () -> Unit) -> Effect {
   rt.push.effects[effect_idx].sources = new_sources
   rt.push.effects[effect_idx].level = rt.recompute_level(cell_id, new_sources)
   rt.finish_tracking(cell_id, [], new_sources, new_seen)
+  if !rt.event_broadcast_hook.pending.is_empty() {
+    rt.drain_pending_events_if_idle()
+  }
   effect
 }
 
