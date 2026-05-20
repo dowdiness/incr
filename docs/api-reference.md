@@ -4,6 +4,15 @@ Reference for the most commonly used public APIs in `incr`. This is not exhausti
 
 > **Recommended Pattern:** Use the `Database` trait to encapsulate your `Runtime` in a database type. This makes your API cleaner and hides implementation details. See the [Helper Functions](#helper-functions) section and [API Design Guidelines](design/api-design-guidelines.md) for details.
 
+> **Naming direction:** This page documents the current public API. The accepted
+> ideal naming ADR is [2026-05-21-public-api-ideal-naming](decisions/2026-05-21-public-api-ideal-naming.md):
+> `Signal -> Input`, `Memo -> Derived`, `HybridMemo -> ReachableDerived`,
+> `Reactive -> EagerDerived`, `MemoMap -> DerivedMap`, `TrackedCell ->
+> InputField`, `Observer -> Watch`, `FunctionalRelation -> MapRelation`,
+> `Readable -> Freshness`, `Trackable -> InputFieldOwner`, and `Database ->
+> RuntimeContext`. Code examples below keep current names until the migration
+> is implemented.
+
 ## Runtime
 
 Central coordinator for dependency tracking, revisions, and batching.
@@ -484,11 +493,15 @@ Returns the number of memo entries created so far.
 
 ## HybridMemo[T]
 
-A derived value that sits on the boundary between the push-driven and pull-driven engines. Push-reachable from upstream `Reactive`/`Effect` subscribers (so a live observer downstream keeps the chain reachable for GC), but recomputation is triggered purely by lazy pull verification — there is no separate dirty flag. Staleness is detected by `verified_at < current_revision`.
+Hybrid push-pull derived computation. It verifies lazily like `Memo`, but
+participates in reachability propagation so eager/rooted downstream cells can
+keep its upstream graph reachable across `Runtime::gc()` sweeps. The ideal
+future name is `ReachableDerived[T]`.
 
 ### `HybridMemo::new[T : Eq](rt: Runtime, compute: () -> T, label? : String) -> HybridMemo[T]`
 
-Creates a hybrid memo. Participates in `push_reachable_count` tracking so live reactive subscribers downstream keep upstream cells reachable.
+Creates a hybrid memo. It does not make the value eager; recomputation still
+happens on read.
 
 ```moonbit
 let h = HybridMemo::new(rt, () => signal.get() * 2)
@@ -497,7 +510,9 @@ let h = HybridMemo::new(rt, () => signal.get() * 2, label="doubled")
 
 ### `HybridMemo::get[T : Eq](self) -> T`
 
-Returns the memoized value, recomputing if necessary. **Must be called inside another memo's compute.** Outside the graph, use `rt.read_hybrid(h)` or `h.observe()`. Fast path: if already verified at the current revision, returns the cached value without walking dependencies. Aborts on cycle, cross-runtime read, or untracked top-level call.
+Returns the memoized value, recomputing if necessary. Fast path: if
+`verified_at >= current_revision`, returns cached value immediately without any
+dependency walk. Aborts on cycle, invalid context, or cross-runtime read.
 
 ```moonbit nocheck
 let value = rt.read_hybrid(h)
@@ -926,6 +941,13 @@ pub(open) trait Executable {
 
 ## Helper Functions
 
+The helper functions below are current API. In the ideal final API recorded by
+[ADR 2026-05-21](decisions/2026-05-21-public-api-ideal-naming.md), custom struct
+constructors such as `Signal(rt, value)` / `Memo(rt, f)` remain the primary
+construction surface, `Database` is renamed to `RuntimeContext`, and the
+`create_*` free helpers are not canonical. Keep using these helpers only where
+they make current code clearer or preserve compatibility.
+
 ### `create_signal`
 
 Creates a new signal using the database's runtime.
@@ -982,18 +1004,33 @@ create_tracked_cell(db, value, durability=High, label="cfg") // both
 
 ### `add_tracked[T : Trackable](scope: Scope, tracked: T) -> Unit`
 
-Registers every cell in a `Trackable` struct with `scope`, so that disposing the scope disposes all of the struct's fields in one call. This is the recommended way to manage `TrackedCell` lifetimes — see [Cookbook → Scope-owned accumulator](cookbook.md) and [Concepts → Tracked structs](concepts.md).
+Registers every cell in a `Trackable` struct with `scope`, so disposing the
+scope disposes all of the struct's fields in one call. This is the recommended
+way to manage `TrackedCell` lifetimes; see [Cookbook → Scope-owned accumulator](cookbook.md)
+and [Concepts → Tracked structs](concepts.md).
 
 ```moonbit nocheck
 let scope = create_scope(app)
-let tracked = MyTracked::MyTracked(app)
+let tracked = MyTracked(app)
 add_tracked(scope, tracked)
-scope.dispose() // disposes all of tracked's cells
+scope.dispose()
 ```
 
 ### `gc_tracked[T : Trackable](rt: Runtime, tracked: T) -> Unit`
 
-**Deprecated** no-op kept for source compatibility; use `add_tracked(scope, tracked)` instead. `TrackedCell` fields are leaves of the dependency graph, so marking them as GC roots keeps nothing alive — the original intent (since dispose/GC shipped) is better served by scope-bound lifetimes.
+Deprecated no-op kept for source compatibility; use `add_tracked(scope,
+tracked)` instead for lifecycle management. `TrackedCell` fields are leaves of
+the dependency graph, so marking them as GC roots keeps nothing alive. The
+ideal future names are `InputField`, `InputFieldOwner`, and
+`add_input_fields`.
+
+```moonbit
+add_tracked(scope, my_tracked_struct)
+```
+
+```moonbit
+gc_tracked(rt, my_tracked_struct)
+```
 
 ### `batch[Db : Database](db: Db, f: () -> Unit raise?) -> Unit raise?`
 

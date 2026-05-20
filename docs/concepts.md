@@ -18,6 +18,12 @@ This document explains the key concepts behind `incr` without diving into implem
 - **Memos** are the interior nodes (derived values)
 - **Arrows** represent dependencies (automatically tracked)
 
+Naming note: this document uses the current public names. The accepted ideal
+API vocabulary is recorded in [ADR 2026-05-21](decisions/2026-05-21-public-api-ideal-naming.md):
+`Signal -> Input`, `Memo -> Derived`, `HybridMemo -> ReachableDerived`,
+`Reactive -> EagerDerived`, `MemoMap -> DerivedMap`, `TrackedCell ->
+InputField`, and `Database -> RuntimeContext`.
+
 ## Signals
 
 Signals hold input values that you set directly:
@@ -341,6 +347,11 @@ Read modes:
 
 This is a lightweight parameterized-query pattern built on top of `Memo`; it does not change runtime verification internals.
 
+Future naming: the ideal API name is `DerivedMap[K, V]`. In that model,
+fallible derived reads own the simple method names: `get(key)` is the strict
+tracked-context `Result` read, `read(key)` is the permissive `Result` read, and
+aborting conveniences use `_or_abort`.
+
 ## Side-Channel Data with Accumulators
 
 Sometimes a memo needs to report extra information — diagnostics, trace events, logs — that is semantically separate from its return value. Threading this data through return types forces allocations at every level of the graph and makes merging fragile. `Accumulator[T]` is the side channel:
@@ -418,21 +429,25 @@ inspect(rt.read_hybrid(h), content="10")
 
 ### How It Works
 
-`HybridMemo` uses the same lazy revision-based verification as `Memo` — there is **no separate dirty flag**. What makes it "hybrid" is *reachability*, not invalidation: it participates in `push_reachable_count` so that a live `Reactive`/`Effect` observer downstream keeps the memo and its upstream cells alive across `Runtime::gc()` sweeps.
-
-On `get()`:
+`HybridMemo` uses the same lazy revision-based verification as `Memo` — there
+is **no separate dirty flag**. What makes it "hybrid" is *reachability*, not
+invalidation: it participates in `push_reachable_count` so that a live
+`Reactive`/`Effect` observer downstream keeps the memo and its upstream cells
+alive across `Runtime::gc()` sweeps. When `get()` is called:
 
 - **Fast path**: If `verified_at >= current_revision` → return cached value immediately, no dependency walk needed
 - **Slow path**: Walk dependencies, recompute if needed
 
-Use `HybridMemo` when a derived value sits between push-reactive subscribers and pull-based memos and needs to remain reachable while observed. Use a regular `Memo` for plain pull-derived values.
+Future naming: the ideal API name is `ReachableDerived[T]`, because the
+deterministic trait is reachability propagation. It is still lazy and does not
+eagerly recompute itself.
 
 ### HybridMemo vs Memo
 
 | Property | Memo | HybridMemo |
 |----------|------|------------|
 | Invalidation | Lazy revision check on read | Lazy revision check on read (same) |
-| Reachable via push BFS | No | Yes — kept alive by downstream observers |
+| Reachable via push BFS | No | Yes — retained as reachable through eager/rooted dependents |
 | Use case | General derived values | Bridge between push and pull graphs that must survive GC while observed |
 
 Both support backdating — if a `HybridMemo` recomputes to the same value, downstream cells skip recomputation.
@@ -461,16 +476,16 @@ If you need to share data between two independent computation graphs, use a plai
 
 | Concept | Purpose |
 |---------|---------|
-| Signal | Input values you control |
-| Memo | Derived values with automatic caching |
-| HybridMemo | Pull memo that stays reachable while a push observer is attached downstream |
-| MemoMap | Per-key memoized derived values |
+| Signal (`Input` target name) | Input values you control |
+| Memo (`Derived` target name) | Derived values with automatic caching |
+| HybridMemo (`ReachableDerived` target name) | Pull memo that participates in reachability propagation through eager/rooted dependents |
+| MemoMap (`DerivedMap` target name) | Per-key memoized derived values |
 | Accumulator | Side-channel collector with push-set invalidation (diagnostics, logs) |
 | Revision | Global clock for tracking changes |
 | Backdating | Skip downstream work when values don't actually change |
 | Durability | Skip verification for stable subgraphs |
 | Batch | Atomic multi-signal updates |
-| TrackedCell | Field-level input cells for fine-grained dependency isolation |
+| TrackedCell (`InputField` target name) | Field-level input cells for fine-grained dependency isolation |
 | Labels | Zero-cost names for readable error messages and debug output |
 | Runtime Isolation | Each Runtime is independent; cross-runtime reads abort |
 

@@ -39,6 +39,15 @@ dowdiness/incr           ← Public API facade (root)
 
 The five `internal/` sub-packages use MoonBit's `internal` directory visibility, which the compiler enforces. The script `scripts/check-engine-isolation.sh` additionally enforces four hand-curated invariants on top of that (one-way kernel imports, leaf status of `shared`, no engine-to-engine sibling imports, no back-edges into `cells/`).
 
+Naming note: this page describes the current codebase. The accepted ideal
+public API naming target is recorded in
+[ADR 2026-05-21](decisions/2026-05-21-public-api-ideal-naming.md):
+`Signal -> Input`, `Memo -> Derived`, `HybridMemo -> ReachableDerived`,
+`Reactive -> EagerDerived`, `MemoMap -> DerivedMap`, `TrackedCell ->
+InputField`, `Observer -> Watch`, `FunctionalRelation -> MapRelation`,
+`Readable -> Freshness`, `Trackable -> InputFieldOwner`, and `Database ->
+RuntimeContext`.
+
 ---
 
 ## Main data flow
@@ -126,9 +135,9 @@ These are user-visible properties the library upholds. Internal implementation i
 
 ## Extension points
 
-Three traits define the supported extension surface:
+Three traits define the current supported extension surface:
 
-- **`Database`** — implement it on your own struct to encapsulate a `Runtime`. All `create_*` helpers and `batch` / `batch_result` accept any `Database`. This is the canonical idiom for production code.
+- **`Database`** — implement it on your own struct to encapsulate a `Runtime`. All `create_*` helpers and `batch` / `batch_result` accept any `Database`. This is the current production idiom; the ideal target name is `RuntimeContext`, and custom struct constructors are the target primary construction surface.
 - **`Readable`** — implemented for all cell-like handles, exposes `is_up_to_date(self) -> Bool`. Useful for writing generic introspection helpers.
 - **`Trackable`** — implement it on a tracked struct to expose its constituent `CellId`s as a single unit, enabling `add_tracked(scope, t)` for bulk lifecycle management.
 

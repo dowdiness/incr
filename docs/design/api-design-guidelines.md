@@ -48,11 +48,17 @@ let sig = Signal(10)
 let rt = Runtime()
 let sig = Signal(rt, 10)
 
-// ✓ Better (database pattern)
+// ✓ Better in current API (database pattern)
 struct MyDb { rt : Runtime }
 impl Database for MyDb with runtime(self) { self.rt }
 let sig = create_signal(db, 10)
 ```
+
+Future naming: [ADR 2026-05-21](../decisions/2026-05-21-public-api-ideal-naming.md)
+renames this capability to `RuntimeContext` and treats custom struct
+constructors as the primary construction API. The current `Database` /
+`create_*` shape remains documented here as current API, not as the ideal
+final surface.
 
 ### 4. Trait Composition
 
@@ -81,7 +87,7 @@ Users implement only what they need. No forced inheritance hierarchy.
 
 No confusion about what each type does.
 
-### Dual APIs for Error Handling
+### Current Dual APIs for Error Handling
 
 ```moonbit
 // Prototyping: fail fast
@@ -94,18 +100,31 @@ match memo.get_result() {
 }
 ```
 
-Smooth onboarding path: start simple, add robustness later.
+Current releases support a smooth onboarding path: start simple, add
+robustness later. The accepted ideal API flips the default for fallible derived
+reads so recoverable `Result` reads use the shortest names and aborting
+shortcuts carry `_or_abort`.
 
-### Smart Method Naming
+### Read Method Naming
+
+Current API:
 
 | Method | When to Use |
 |--------|-------------|
-| `set(value)` | Default (with same-value optimization) |
+| `set(value)` | Default input write with same-value optimization |
 | `set_unconditional(value)` | Force recomputation even if unchanged |
-| `get()` | Default (abort on error) |
-| `get_result()` | When error handling needed |
+| `get()` | Aborting derived read |
+| `get_result()` | Recoverable derived read |
 
-Naming makes behavior obvious without reading docs.
+Ideal API from [ADR 2026-05-21](../decisions/2026-05-21-public-api-ideal-naming.md):
+
+| Method | When to Use |
+|--------|-------------|
+| `get()` | Strict graph read returning `Result` |
+| `get_or_abort()` | Strict graph read convenience that aborts |
+| `read()` | Permissive read returning `Result` |
+| `read_or_abort()` | Permissive read convenience that aborts |
+| `force_set(value)` | Force an input write even if unchanged |
 
 ## Improvements
 
@@ -391,28 +410,43 @@ Only use `set_unconditional()` when you genuinely need to force update (e.g., ty
 
 ## Future Considerations
 
-### Planned: Naming Convention Rename (with Phase 4E)
-
-When the Salsa-style query API (Phase 4E) lands, rename core types to better reflect the multi-mode architecture. The current names come from the reactive signals tradition; the new names make the propagation model explicit.
+### Accepted: Ideal Public API Naming
 
 | Current | Proposed | Rationale |
 |---------|----------|-----------|
-| `Signal` | `Cell` | "Container for a value." `TrackedCell` wrapping `Cell` is natural. Aligns with Jane Street Incremental and Adapton. |
-| `Memo` | `Derived` | "Derived computation." Frees "memo/memoize" as a general concept for docs. 3 extra chars, but clearer in a multi-mode library. |
+| `Signal` | `Input` | User-provided value that enters the graph. |
+| `Memo` | `Derived` | Lazy value derived from graph dependencies. |
 | `Reactive` | `EagerDerived` | Clearly "a Derived that recomputes eagerly." Current name sounds unrelated to `Memo` even though both are derived computations. |
-| `HybridMemo` | `PingDerived` | "Ping" captures the hybrid behavior: a small, cheap dirty notification (not a full push recomputation, not polling). One syllable, no overlap with `EagerDerived`. |
+| `HybridMemo` | `ReachableDerived` | Lazy derived value that participates in reachability propagation through eager/rooted dependents. |
+| `MemoMap` | `DerivedMap` | Map-shaped derived computation; each key lazily owns one derived value. |
+| `TrackedCell` | `InputField` | Input cell intended to live as a field of a larger tracked value. |
+| `Observer` | `Watch` | Long-lived outside read handle that roots a derived value. |
+| `FunctionalRelation` | `MapRelation` | Relation-shaped Datalog input keyed like a map. |
+| `Readable` | `Freshness` | Capability for querying whether a node is fresh. |
+| `Trackable` | `InputFieldOwner` | Structured value that owns input fields. |
+| `Database` | `RuntimeContext` | User context that exposes an `incr` runtime. |
 | `Effect` | `Effect` | No change — already clear. |
 | `Relation` | `Relation` | No change. |
 | `Rule` | `Rule` | No change. |
-| `MemoMap` | `DerivedMap` | Follows from `Derived`. |
 
-**Why `Derived` over `Memo`:** In a library with four propagation modes and Datalog, clarity about what things are matters more than keystroke savings. `Memo` is ambiguous when tracked functions (also memoized) arrive. `Derived`, `EagerDerived`, `PingDerived` instantly communicates "same concept, different strategy."
+**Why `Input` / `Derived` over `Signal` / `Memo`:** These names describe graph
+role rather than ecosystem vocabulary or implementation technique. Inputs are
+set from outside the graph; derived values are computed from dependencies.
 
-**Why `PingDerived` over `PushDerived`:** Both `EagerDerived` and `PingDerived` use push propagation. The difference is what happens after: `EagerDerived` recomputes immediately, `PingDerived` just sets a dirty flag (the "ping") and defers verification to read time. `PushDerived` would be confused with `EagerDerived`.
+**Why `ReachableDerived`:** The current `HybridMemo` has no dirty ping. It is
+lazy like `Memo`; its deterministic trait is that it participates in
+reachability propagation through eager/rooted dependents.
 
-**Why `Cell` over `Atom`:** `TrackedCell` already exists as a wrapper — `TrackedCell` wrapping `Cell` is self-explanatory. `TrackedAtom` would be awkward.
+**Read method convention:** Fallible derived reads should own the simple names:
+`get` for strict graph reads and `read` for permissive reads. Aborting
+conveniences should carry `_or_abort`. Input reads remain direct because cycles
+are impossible.
 
-**Timing:** Do this rename alongside the Phase 4E query API work, not as a standalone breaking change.
+**Construction convention:** Use custom struct constructors as the primary API.
+The ideal final API does not rely on `create_*` free helpers.
+
+See [ADR 2026-05-21](../decisions/2026-05-21-public-api-ideal-naming.md). The
+ADR records a target design; migration staging belongs in a future plan.
 
 ### Deferred: RAII Batch Guards
 
@@ -461,9 +495,10 @@ Subscriber links are maintained incrementally in `force_recompute`: added when a
 
 **Show in this order:**
 
-1. **Database pattern** (hide Runtime details)
+1. **Database pattern** (current API; target name `RuntimeContext`)
 2. **Basic signals and memos** (simple API)
-3. **Error handling** (`get()` → `get_result()`)
+3. **Error handling** (current API: `get()` → `get_result()`; target API:
+   fallible `get()` / `read()` with `_or_abort` conveniences)
 4. **Optimization** (durability, batching)
 5. **Advanced** (introspection, custom traits)
 
@@ -471,19 +506,29 @@ Subscriber links are maintained incrementally in `force_recompute`: added when a
 
 **Emphasize:**
 
-1. **Trait design** (`Database`, `Readable`, pipeline traits)
+1. **Trait design** (`Database` / target `RuntimeContext`, `Readable` /
+   target `Freshness`, pipeline traits)
 2. **Type constraints** (when to require `Eq`)
 3. **Performance** (backdating, durability shortcuts)
 4. **Correctness** (cycle detection, batch semantics)
 
-## API Stability Guarantees
+## API Stability
 
-### Stable (Won't Break)
+### Current Compatibility Surface
 
-- Core types: `Signal[T]`, `Memo[T]`, `MemoMap[K, V]`, `HybridMemo[T]`, `Reactive[T]`, `Effect`, `Relation[T]`, `FunctionalRelation[K, V]`, `Runtime`
-- Core methods: constructors (`Signal(rt, ...)`, `Memo(rt, ...)`), `get`, `set`, `batch`
-- Core traits: `Database`, `Readable`
+Until a migration plan lands, code should continue to treat the current names
+as the source of truth:
+
+- Core types: `Signal[T]`, `Memo[T]`, `MemoMap[K, V]`, `HybridMemo[T]`,
+  `Reactive[T]`, `Effect`, `Relation[T]`, `FunctionalRelation[K, V]`,
+  `Runtime`
+- Core methods: constructors (`Signal(rt, ...)`, `Memo(rt, ...)`), `get`,
+  `set`, `batch`
+- Core traits: `Database`, `Readable`, `Trackable`
 - Error types: `CycleError`
+
+The accepted ideal naming ADR is explicitly a future target, not a statement
+that these names have already changed.
 
 ### Additive (Safe to Add)
 
