@@ -13,6 +13,12 @@ A Salsa-inspired incremental recomputation library for [MoonBit](https://www.moo
 
 Advanced features (push-reactive `Reactive[T]` / `Effect`, hybrid push-pull `HybridMemo`, field-level `TrackedCell`, side-channel `Accumulator[T]`, Datalog `Relation` / `FunctionalRelation` / fixpoint, batching, cycle-safe reads) are covered in [docs/](docs/README.md).
 
+Naming note: current releases use the names above. The ideal future naming
+direction is recorded in [ADR 2026-05-21](docs/decisions/2026-05-21-public-api-ideal-naming.md):
+`Signal -> Input`, `Memo -> Derived`, `HybridMemo -> ReachableDerived`,
+`Reactive -> EagerDerived`, `MemoMap -> DerivedMap`, `TrackedCell ->
+InputField`, and `Database -> RuntimeContext`.
+
 ## Installation
 
 Add `incr` to the `import` list of your `moon.pkg.json`:
