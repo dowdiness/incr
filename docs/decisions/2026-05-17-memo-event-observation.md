@@ -501,6 +501,7 @@ Verification: `moon info && moon fmt` produces only the expected `.mbti` additio
 - State restoration / replay API
 - CRDT / event-graph-walker integration
 - The visualization tool itself (canopy-side concern)
+- "incr for incr" event-log adapter: a driver-owned reactive log built from `Runtime::on_memo_event` callbacks, not same-runtime event publication from commit hooks. This remains a future milestone because event history is temporal data layered above the engine, while core hooks must stay buffer-only and avoid graph reentry.
 - Persistent caching using these events
 - Public clock-injection API (`Runtime::new(clock~ : () -> Int64)` rejected; not deferred)
 
