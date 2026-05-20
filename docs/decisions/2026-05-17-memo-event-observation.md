@@ -249,6 +249,7 @@ Concretely:
 ```moonbit
 priv fn Runtime::is_listener_mutation_safe(self : Runtime) -> Bool {
   self.core.phase is Idle
+  && self.core.callback_depth == 0
   && self.core.tracking.stack.is_empty()
   && self.core.batch.depth == 0
   && self.event_broadcast_hook.pending.is_empty()
@@ -270,6 +271,7 @@ Each conjunct catches a window the others miss:
 | Conjunct | Window it catches |
 |---|---|
 | `phase is Idle` | Push propagation, fixpoint iteration, gc sweep |
+| `callback_depth == 0` | Inside any user callback (`Signal::on_change`, `Runtime::on_change`, or memo-event listener-triggered callback path) even when no memo events are pending |
 | `tracking.stack.is_empty()` | Inside any compute closure (memo / hybrid_memo / push reactive / effect) |
 | `batch.depth == 0` | Inside `commit_batch`, between propagation and final on_change firing |
 | `pending.is_empty()` | The post-propagation / post-fixpoint on_change-callback window where all three above are satisfied but events were buffered by the just-completed operation. If events are queued, an operation is by definition still in flight |
@@ -420,13 +422,14 @@ Verification: `moon info && moon fmt` produces only the expected `.mbti` additio
   - Top-level abort: a memo compute closure that `raise`s causes `Memo::get_result` to abort, and the listener observes the `Aborted` event before the abort fires.
   - **Nested abort**: outer memo's compute closure reads inner memo via `Memo::get_result`; inner aborts (catchable `raise`); listener observes `EnteringCompute(outer)`, `EnteringCompute(inner)`, `Aborted(inner)` — all three — before the outer `abort()` propagates. The direct drain (not idle-guarded) is what makes this work; an idle-guarded drain would strand the inner `Aborted` because the outer frame is still on `tracking.stack`.
   - Uncatchable abort inside compute: a memo compute closure that calls `abort()` directly produces `EnteringCompute` only — no terminal event. Lifecycle bracketing weakened per §"Event ordering and guarantees" §1, §7. Test asserts the observable behavior.
-- **Listener-mutation guard tests** — five rejection paths, one per conjunct of `is_listener_mutation_safe()`:
+- **Listener-mutation guard tests** — rejection paths, one per conjunct of `is_listener_mutation_safe()`:
   - Inside a memo / push-reactive / effect compute closure: `tracking.stack` non-empty → raises.
   - Inside a `commit_batch` body: `batch.depth > 0` → raises.
   - Inside `Runtime::gc`, `fixpoint`, or push propagation: `phase != Idle` → raises.
+  - Inside a `Signal::on_change` callback with no buffered memo events: `callback_depth > 0` → raises.
   - Inside a `Signal::on_change` callback after propagation buffered events (or a `commit_batch` global `on_change`): `pending` non-empty → raises. **This is the critical test** — it proves the predicate is wider than naive `tracking.stack.is_empty()` or `phase == Idle`, which both fail open in this window.
   - Inside a memo-event listener itself: `draining` true → raises.
-- **Permissive test**: between operations (no compute active, no batch open, phase Idle, pending empty, not draining), both `on_memo_event` and `clear_memo_event_listener` succeed.
+- **Permissive test**: between operations (no compute active, no callback active, no batch open, phase Idle, pending empty, not draining), both `on_memo_event` and `clear_memo_event_listener` succeed.
 - **Raising-API drain-deferral test** (per §"Drain protocol" raising-API error-exit bullet): a `Memo::accumulated_result` (or other catchable-`raise` read API) that propagates a `Failure` leaves any events buffered prior to the raise in `pending` rather than flushing. The next drain-eligible operation (e.g., a no-op `Memo::get` on a stable cell) flushes them in arrival order. Proves the documented "events stay buffered, next drain flushes" behavior — and that drivers can recover delivery without special-case handling at the raise site.
 - Revision-capture test: a memo compute closure that calls `Signal::set_unconditional` (advancing revision mid-compute) — `EnteringCompute.started_revision < Completed.verified_at`; the event fields are consistent and don't claim equality the runtime can't honor.
 - Driver-facing test: register a listener, run a small graph, assert event sequence.
@@ -449,7 +452,7 @@ Verification: `moon info && moon fmt` produces only the expected `.mbti` additio
 | Whitebox test: top-level abort drain | A memo whose compute `raise`s delivers `Aborted` to the listener before `Memo::get_result`'s `abort()` fires |
 | Whitebox test: nested abort drain | Outer memo reads inner; inner aborts; listener observes all three events (Entering outer, Entering inner, Aborted inner) before the outer abort propagates — proves direct drain (not idle-guarded) works under outer-frame-active conditions |
 | Whitebox test: uncatchable abort during compute | A compute closure calling `abort()` directly produces `EnteringCompute` with no terminal event (documents the §1 / §7 weakening) |
-| Whitebox test: listener-mutation guard | `on_memo_event` / `clear_memo_event_listener` raise `Failure` for each of the five rejection paths of `is_listener_mutation_safe()`: (a) inside a memo compute (tracking.stack), (b) inside a `commit_batch` body (batch.depth), (c) inside `gc`/`fixpoint`/push propagation (phase), (d) inside a `Signal::on_change` callback with events buffered (pending), (e) inside a memo-event listener itself (draining). Phase 3 §"Listener-mutation guard tests" enumerates all five |
+| Whitebox test: listener-mutation guard | `on_memo_event` / `clear_memo_event_listener` raise `Failure` for each rejection path of `is_listener_mutation_safe()`: (a) inside a memo compute (tracking.stack), (b) inside a `commit_batch` body (batch.depth), (c) inside `gc`/`fixpoint`/push propagation (phase), (d) inside a `Signal::on_change` callback even when no events are pending (callback_depth), (e) inside a `Signal::on_change` callback with events buffered (pending), (f) inside a memo-event listener itself (draining). Phase 3 §"Listener-mutation guard tests" enumerates these paths |
 | Whitebox test: revision capture | A compute that calls `Signal::set_unconditional` produces `started_revision < verified_at`; fields consistent |
 | Driver test | End-to-end event-sequence assertion (no listener → quiet; listener attached → expected sequence) |
 
@@ -460,7 +463,7 @@ Verification: `moon info && moon fmt` produces only the expected `.mbti` additio
 | Listener callback throws / aborts | Listener type `(MemoEvent) -> Unit` is non-raising by MoonBit's type system; raising listeners cannot be registered. Listener `abort()` is uncatchable (it kills the process); listener must avoid `abort` and anything that calls `abort` (e.g., reading a disposed cell). Whitebox test asserts that listener `abort` is the user's problem; no test for raise (rejected at registration) |
 | Listener callback is slow | Documented as user-owned concern. Drivers wanting cheap callbacks enqueue events into an `@aqueue.Queue` and drain async per the async ADR |
 | Clock unavailable / low-resolution on some target | `elapsed_ns` falls back to 0 (worst case); precision varies by backend (native µs, wasm secs-f64 → µs, JS performance.now → µs). Document the `elapsed_ns` field as "best-effort monotonic elapsed nanoseconds; backend-resolution dependent" |
-| Listener-mutation during framework operation | `on_memo_event` / `clear_memo_event_listener` raise `Failure` unless the composite predicate `is_listener_mutation_safe()` holds (phase Idle, tracking stack empty, batch depth 0, pending empty, not draining). Prevents the timer-leak / broken-bracketing / dropped-pending failure modes. Whitebox tests cover all five rejection paths |
+| Listener-mutation during framework operation | `on_memo_event` / `clear_memo_event_listener` raise `Failure` unless the composite predicate `is_listener_mutation_safe()` holds (phase Idle, callback depth 0, tracking stack empty, batch depth 0, pending empty, not draining). Prevents the timer-leak / broken-bracketing / dropped-pending failure modes. Whitebox tests cover all rejection paths |
 | `Error` field on `MemoAbortedEvent` doesn't auto-Debug-derive | Resolved: do **not** apply `derive(Debug)` on the event structs / enum. MoonBit's `@debug.Debug` deriver does not recognize the `Error` supertype, and a fall-through would produce unhelpful output. Drivers stringify on demand via `e.error.to_string()` (the `%error.to_string` primitive). A manual `Show` impl that formats fields explicitly is an option for the implementation plan if log-friendly default rendering is later requested by a driver |
 | Backdating detection changes if `verified_at` semantics ever shift | `MemoCompletedEvent` carries both `changed_at` and `verified_at` as typed fields; `backdated` is the convenience derivation. If the underlying semantics shift, the typed fields keep working and the bool can be updated in one place |
 | Uncatchable-abort scope limit surprises drivers | Documented in §"Event ordering and guarantees" §7 (only catchable raises fire `after_abort`). Future ADR could add a separate uncatchable-abort tap; out of scope here |
@@ -482,7 +485,7 @@ Verification: `moon info && moon fmt` produces only the expected `.mbti` additio
 **In scope of this ADR's PR (post T1b merge, single PR):**
 - T1b ADR signature amendment: extend `MemoCommitPhase::after_abort` with `Error` parameter (Phase 0)
 - `pub(all) struct MemoEnteringEvent` / `MemoCompletedEvent` / `MemoAbortedEvent` + wrapping `pub(all) enum MemoEvent` (`cells/memo_event.mbt`)
-- `Runtime::on_memo_event` / `Runtime::clear_memo_event_listener` public API, both `raise Failure` unless `is_listener_mutation_safe()` (composite predicate: phase Idle, tracking stack empty, batch depth 0, pending empty, not draining)
+- `Runtime::on_memo_event` / `Runtime::clear_memo_event_listener` public API, both `raise Failure` unless `is_listener_mutation_safe()` (composite predicate: phase Idle, callback depth 0, tracking stack empty, batch depth 0, pending empty, not draining)
 - `EventBroadcastPhaseHook` internal impl (`cells/event_broadcast_hook.mbt`), `priv` and `cells/`-resident per the engine-isolation rule
 - `moonbitlang/core/bench` added to `cells/moon.pkg`'s main import block for the monotonic clock; private `capture_now()` / `elapsed_ns_from(ts)` wrappers
 - Drain protocol with idle-guarded drain at normal sites plus **direct (non-idle-guarded) drain at all public catch-to-abort sites**: `Memo::get_result` (`memo.mbt:207-209`), `Memo::get_untracked` (`memo.mbt:292-293`), `MemoMap::get_result` (`memo_map.mbt:93-95`), `HybridMemo::get_untracked` (`hybrid_memo.mbt:109-110, :126-127`), plus end-of-`Runtime::fixpoint` drain (covers the post-publish window)

@@ -131,6 +131,7 @@ fn Runtime::event_broadcast_enabled(self : Runtime) -> Bool {
 ///|
 fn Runtime::is_listener_mutation_safe(self : Runtime) -> Bool {
   self.core.phase is Idle &&
+  self.core.callback_depth == 0 &&
   self.core.tracking.stack.is_empty() &&
   self.core.batch.depth == 0 &&
   self.event_broadcast_hook.pending.is_empty() &&
@@ -141,7 +142,7 @@ fn Runtime::is_listener_mutation_safe(self : Runtime) -> Bool {
 fn Runtime::memo_event_listener_busy_message(operation : String) -> String {
   operation +
   " cannot be called while an operation is in flight: drain in progress, " +
-  "events buffered, batch open, recompute active, or non-Idle phase " +
+  "events buffered, callback active, batch open, recompute active, or non-Idle phase " +
   "(PushPropagating/InFixpoint/GarbageCollecting)"
 }
 

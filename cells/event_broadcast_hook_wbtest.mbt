@@ -297,6 +297,26 @@ test "memo_event: mutation guard rejects pending events inside on_change" {
 }
 
 ///|
+test "memo_event: mutation guard rejects on_change without pending events" {
+  let rt = Runtime()
+  let source = Signal(rt, 0)
+  rt.on_memo_event(_evt => ())
+  let saw_empty_pending = Ref(false)
+  let rejected = Ref(false)
+  source.on_change(_v => {
+    saw_empty_pending.val = rt.event_broadcast_hook.pending.is_empty()
+    let result : Result[Unit, Error] = try? rt.clear_memo_event_listener()
+    match result {
+      Ok(_) => ()
+      Err(_) => rejected.val = true
+    }
+  })
+  source.set(1)
+  inspect(saw_empty_pending.val, content="true")
+  inspect(rejected.val, content="true")
+}
+
+///|
 test "memo_event: mutation guard rejects listener reentry" {
   let rt = Runtime()
   let rejected = Ref(false)
