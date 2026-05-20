@@ -52,10 +52,10 @@ pub fn[K : Hash + Eq, V] MemoMap::new(
 ///|
 /// Returns the value for `key`, computing lazily on first access.
 ///
-/// Reads the memo outside any tracked context (untracked). This is the
-/// correct way to read from test code or other untracked call sites.
+/// Permissive read for test code and other top-level call sites.
+/// If called while a tracking frame is active, records the per-key dependency.
 pub fn[K : Hash + Eq, V : Eq] MemoMap::get(self : MemoMap[K, V], key : K) -> V {
-  let value = self.get_or_create_memo(key).get_untracked()
+  let value = self.get_or_create_memo(key).read_permissive()
   if !self.rt.event_broadcast_hook.pending.is_empty() {
     self.rt.drain_pending_events_if_idle()
   }
@@ -89,7 +89,7 @@ pub fn[K : Hash + Eq, V : Eq] MemoMap::get_tracked(
 ///|
 /// Returns the value for `key` as a Result, matching `Memo::get_result`.
 ///
-/// Reads the memo outside any tracked context (untracked).
+/// Permissive read for callers that want cycle errors as values.
 pub fn[K : Hash + Eq, V : Eq] MemoMap::get_result(
   self : MemoMap[K, V],
   key : K,

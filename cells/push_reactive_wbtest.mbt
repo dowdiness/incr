@@ -242,7 +242,7 @@ test "early cutoff: unchanged value does not propagate to downstream" {
     count += 1
     always5.get()
   })
-  let _ = downstream.get_untracked()
+  let _ = downstream.read_permissive()
   inspect(count, content="1")
   s.set(99) // always5 recomputes to 5 again → downstream not re-enqueued
   inspect(count, content="1")
@@ -304,7 +304,7 @@ test "dispose: sources' subscriber sets updated after reactive dispose" {
   let rt = Runtime::Runtime()
   let s = Signal::Signal(rt, 1)
   let r = Reactive::new(rt, () => s.get())
-  let _ = r.get_untracked()
+  let _ = r.read_permissive()
   let s_idx = match rt.core.cell_index[s.id().id] {
     PullSignal(i) => i
     _ => abort("expected PullSignal")
@@ -319,7 +319,7 @@ test "dispose: disposed reactive not reachable via subscriber walk" {
   let rt = Runtime::Runtime()
   let s = Signal::Signal(rt, 1)
   let r = Reactive::new(rt, () => s.get() * 2)
-  let _ = r.get_untracked()
+  let _ = r.read_permissive()
   r.dispose()
   let subs = rt.get_subscribers(s.id()).collect()
   inspect(subs.length(), content="0")

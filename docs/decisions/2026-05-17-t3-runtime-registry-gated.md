@@ -20,7 +20,7 @@ These power three concrete behaviors:
 
 1. **Runtime-id allocation** (`alloc_runtime_id()` at `state.mbt:32`) — monotonic counter, never decreases.
 2. **Strict cross-runtime guard** — `check_cross_runtime(cell_runtime_id, kind)` at `kernel/tracking.mbt:92`. Aborts if the cell's runtime_id differs from the active recompute's runtime_id. Called from 8+ sites: `Memo::get_result`, `HybridMemo`, `Reactive`, `Relation`, `FunctionalRelation`, `Accumulator` (4 read methods), and various memo-accumulated APIs.
-3. **Forgiving repair** — `Memo::get_result_inner` at `cells/memo.mbt:215-240`. If this runtime's tracking stack is empty AND `current_computing_runtime_id` is non-negative, treat the global as stale-from-abort and reset it to `-1` rather than aborting. Required by `get_untracked` and `MemoMap::get_or_create_memo` call patterns that bypass the outer strict check.
+3. **Forgiving repair** — `Memo::get_result_inner` at `cells/memo.mbt:215-240`. If this runtime's tracking stack is empty AND `current_computing_runtime_id` is non-negative, treat the global as stale-from-abort and reset it to `-1` rather than aborting. Required by `read_permissive` and `MemoMap::get_or_create_memo` call patterns that bypass the outer strict check.
 
 The forgiving-repair path is **load-bearing for panic-test isolation**. The 2026-04-19 refactor audit (Target #1) attempted to unify it with the strict helper and broke 5 tests — the comment at `memo.mbt:221-226` documents why: "stale-global" vs "legitimate cross-runtime" cannot be distinguished locally without a global registry that can answer "is runtime N still alive?"
 
@@ -161,7 +161,7 @@ Add tests *before* touching any production code. Each test must pass against the
 - Two-runtime alternating reads: task A reads memo on RtA, task B reads memo on RtB, repeat — `current_computing_runtime_id` discipline must hold.
 - Panic recovery: abort inside Runtime A's recompute, then Runtime B reads its own memo — must not falsely flag cross-runtime.
 - `MemoMap::get_or_create_memo` after panic: known forgiving-repair trigger; must still work.
-- `get_untracked` after panic: same.
+- `read_permissive` after panic: same.
 - Sync-only (no `moonbitlang/async`) and async-driven (if dependency available on the test target) variants.
 
 Land as a standalone PR if the volume warrants. Tests in `tests/cross_runtime_interleaving_test.mbt`.

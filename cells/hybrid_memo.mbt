@@ -88,13 +88,14 @@ pub fn[T : Eq] HybridMemo::get(self : HybridMemo[T]) -> T {
       "HybridMemo::get() called outside tracked context. Use rt.read_hybrid(memo) or memo.observe() to read from outside the graph.",
     )
   }
-  self.get_untracked()
+  self.read_permissive()
 }
 
 ///|
-/// Package-private untracked read. Bypasses the tracked-context guard.
-/// Used by Observer to read from outside the dependency graph.
-fn[T : Eq] HybridMemo::get_untracked(self : HybridMemo[T]) -> T {
+/// Package-private permissive read. Bypasses the tracked-context guard.
+/// Records a dependency when a tracking frame is active.
+#alias(get_untracked, deprecated="Use HybridMemo::read_permissive instead")
+fn[T : Eq] HybridMemo::read_permissive(self : HybridMemo[T]) -> T {
   guard !self.rt.is_cell_disposed(self.cell_id) else {
     abort("HybridMemo::get called on a disposed hybrid memo")
   }

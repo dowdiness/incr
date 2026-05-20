@@ -218,7 +218,7 @@ pub fn[T] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
 
 ///|
 /// Internal: the core verification logic, callable from both get_result()
-/// and get_untracked(). Does NOT check tracking context.
+/// and read_permissive(). Does NOT check tracking context.
 fn[T] Memo::get_result_inner(
   self : Memo[T],
 ) -> Result[T, CycleError] raise Failure {
@@ -229,7 +229,7 @@ fn[T] Memo::get_result_inner(
   // `current_computing_runtime_id` is stale from a prior aborted
   // computation; repair it instead of treating it as a cross-runtime read.
   // This forgiving repair is required by panic-test call patterns that
-  // bypass `get_result`'s outer strict check (e.g. `get_untracked`,
+  // bypass `get_result`'s outer strict check (e.g. `read_permissive`,
   // `MemoMap::get_or_create_memo`).
   let active_rt = @kernel.get_current_computing_runtime_id()
   if active_rt >= 0 {
@@ -293,9 +293,10 @@ fn[T] Memo::get_result_inner(
 }
 
 ///|
-/// Package-private untracked read. Bypasses the tracked-context guard.
-/// Used by Observer to read from outside the dependency graph.
-fn[T] Memo::get_untracked(self : Memo[T]) -> T {
+/// Package-private permissive read. Bypasses the tracked-context guard.
+/// Records a dependency when a tracking frame is active.
+#alias(get_untracked, deprecated="Use Memo::read_permissive instead")
+fn[T] Memo::read_permissive(self : Memo[T]) -> T {
   let r = self.get_result_inner() catch {
     e => {
       self.rt.event_broadcast_hook.drain()

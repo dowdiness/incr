@@ -162,8 +162,8 @@ test "memo_map: clear is idempotent on an empty map" {
 ///|
 test "panic memo_map: get_tracked at top level aborts" {
   // Regression guard: get_tracked must delegate to Memo::get (which
-  // aborts outside a tracked context), not get_untracked. Without this
-  // test, a refactor that reroutes through get_untracked would preserve
+  // aborts outside a tracked context), not read_permissive. Without this
+  // test, a refactor that reroutes through read_permissive would preserve
   // in-memo dep recording but silently lose the top-level contract.
   let rt = Runtime::Runtime()
   let by_key = MemoMap::MemoMap(rt, (key : Int) => key * 10)

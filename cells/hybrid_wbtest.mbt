@@ -131,11 +131,11 @@ test "hybrid regression: push propagation traverses hybrid to reactive" {
     recomputes = recomputes + 1
     h.get() + 1
   })
-  inspect(r.get_untracked(), content="3")
+  inspect(r.read_permissive(), content="3")
   inspect(recomputes, content="1")
   s.set(5)
   inspect(recomputes, content="2")
-  inspect(r.get_untracked(), content="11")
+  inspect(r.read_permissive(), content="11")
 }
 
 ///|

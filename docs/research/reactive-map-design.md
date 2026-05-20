@@ -21,7 +21,7 @@ to other defs.
 ## Why v1's framing was wrong (revised again)
 
 The v1 draft claimed `MemoMap::get` records no per-key dependency
-because it calls `get_untracked()`. **This is false.** `get_untracked`
+because it called the package-private permissive read. **This is false.** That helper
 only bypasses the tracked-context *abort guard*; the underlying
 `get_result_inner` still calls `record_dependency(self.cell_id)`
 whenever a tracking frame is active (`cells/memo.mbt:238, 247, 255`;
@@ -89,8 +89,9 @@ restriction: top-level (non-memo) reads abort. The driver example in
 §"Calling-site example" assumes `lookup_type(name)` can be called
 freely; in fact it would only be callable from inside another memo.
 
-Resolve: either (a) add `ReactiveMap::get_untracked(k) -> V` explicitly
-and document which call contexts use which, or (b) document that
+Resolve: either (a) add a permissive top-level read API
+(for example, `ReactiveMap::read(k) -> V`) explicitly and document which
+call contexts use which, or (b) document that
 `ReactiveMap::get` is tracked-only and restructure the driver example.
 
 ### Blocker 3: `remove_except` is not isolated bookkeeping
@@ -313,7 +314,7 @@ only when `foo`'s def changes, not when `bar`'s def changes.
 > **[SUPERSEDED — Blocker 2]** `resolved.get(name)` routes through the
 > tracked-only read path, so `lookup_type` as written aborts at top
 > level. It is callable only from inside another memo's compute. See
-> Blocker 2 above for resolution options (explicit `get_untracked`
+> Blocker 2 above for resolution options (explicit permissive-read
 > variant, or document tracked-only and restructure the example).
 
 ## Semantics / invariants
