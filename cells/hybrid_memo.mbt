@@ -107,7 +107,10 @@ fn[T : Eq] HybridMemo::get_untracked(self : HybridMemo[T]) -> T {
   match self.value {
     None => {
       let r = self.force_recompute() catch {
-        e => abort("HybridMemo compute raised: " + e.to_string())
+        e => {
+          self.rt.event_broadcast_hook.drain()
+          abort("HybridMemo compute raised: " + e.to_string())
+        }
       }
       match r {
         Ok(value) => {
@@ -121,23 +124,27 @@ fn[T : Eq] HybridMemo::get_untracked(self : HybridMemo[T]) -> T {
       let cell = self.rt.get_memo_data(self.cell_id)
       if cell.verified_at >= self.rt.core.revision.current_revision {
         self.rt.record_dependency(self.cell_id)
-        return cached
-      }
-      let vr = self.rt.pull_verify(self.cell_id) catch {
-        e => abort("HybridMemo compute raised: " + e.to_string())
-      }
-      match vr {
-        Ok(_) => {
-          self.rt.record_dependency(self.cell_id)
-          match self.value {
-            Some(v) => v
-            None =>
-              abort(
-                "unreachable: value is always Some after successful verification",
-              )
+        cached
+      } else {
+        let vr = self.rt.pull_verify(self.cell_id) catch {
+          e => {
+            self.rt.event_broadcast_hook.drain()
+            abort("HybridMemo compute raised: " + e.to_string())
           }
         }
-        Err(e) => abort(e.format_path())
+        match vr {
+          Ok(_) => {
+            self.rt.record_dependency(self.cell_id)
+            match self.value {
+              Some(v) => v
+              None =>
+                abort(
+                  "unreachable: value is always Some after successful verification",
+                )
+            }
+          }
+          Err(e) => abort(e.format_path())
+        }
       }
     }
   }

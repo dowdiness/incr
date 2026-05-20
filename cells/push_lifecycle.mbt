@@ -62,6 +62,9 @@ impl CellLifecycle for PushReactiveData with on_observe(self, rt, cell_id) {
   self.sources = new_sources
   self.level = rt.recompute_level(cell_id, new_sources)
   self.dirty = false
+  if !rt.event_broadcast_hook.pending.is_empty() {
+    rt.drain_pending_events_if_idle()
+  }
 }
 
 ///|

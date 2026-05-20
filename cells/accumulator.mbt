@@ -415,10 +415,14 @@ pub fn[T, A] Memo::accumulated(
     None => ()
   }
   // Return defensive copy of buffer.
-  match acc.per_memo.get(self.cell_id) {
+  let result = match acc.per_memo.get(self.cell_id) {
     Some(vs) => vs.copy()
     None => []
   }
+  if !self.rt.event_broadcast_hook.pending.is_empty() {
+    self.rt.drain_pending_events_if_idle()
+  }
+  result
 }
 
 ///|
@@ -444,7 +448,7 @@ pub fn[T, A] Memo::accumulated_result(
   if self.rt.is_cell_disposed(self.cell_id) {
     fail("Memo::accumulated_result called on disposed target memo")
   }
-  match self.rt.ensure_computed_untracked(self.cell_id) {
+  let result = match self.rt.ensure_computed_untracked(self.cell_id) {
     Err(e) => Err(e)
     Ok(_) => {
       let current_rev = (slot.push_revised_at_for)(self.cell_id)
@@ -468,6 +472,10 @@ pub fn[T, A] Memo::accumulated_result(
       Ok(vs)
     }
   }
+  if !self.rt.event_broadcast_hook.pending.is_empty() {
+    self.rt.drain_pending_events_if_idle()
+  }
+  result
 }
 
 ///|

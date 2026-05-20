@@ -124,6 +124,9 @@ fn Runtime::complete_batch_frame_success(self : Runtime) -> Unit {
 /// spelling out the kernel state refs.
 fn Runtime::commit_batch(self : Runtime) -> Unit {
   @kernel.commit_batch(self.core, self.pull, self.push, self.datalog)
+  if !self.event_broadcast_hook.pending.is_empty() {
+    self.drain_pending_events_if_idle()
+  }
 }
 
 ///|

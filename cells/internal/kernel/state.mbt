@@ -190,6 +190,7 @@ pub(all) struct RuntimeCore {
   mut next_cell_id : Int
   tracking : TrackingState
   batch : BatchState
+  mut callback_depth : Int
   mut on_change : (() -> Unit)?
   cell_index : Array[CellRef]
   cell_ops : Array[&CellOps]

@@ -55,7 +55,11 @@ pub fn[K : Hash + Eq, V] MemoMap::new(
 /// Reads the memo outside any tracked context (untracked). This is the
 /// correct way to read from test code or other untracked call sites.
 pub fn[K : Hash + Eq, V : Eq] MemoMap::get(self : MemoMap[K, V], key : K) -> V {
-  self.get_or_create_memo(key).get_untracked()
+  let value = self.get_or_create_memo(key).get_untracked()
+  if !self.rt.event_broadcast_hook.pending.is_empty() {
+    self.rt.drain_pending_events_if_idle()
+  }
+  value
 }
 
 ///|
@@ -90,9 +94,17 @@ pub fn[K : Hash + Eq, V : Eq] MemoMap::get_result(
   self : MemoMap[K, V],
   key : K,
 ) -> Result[V, CycleError] {
-  self.get_or_create_memo(key).get_result_inner() catch {
-    e => abort("MemoMap compute raised: " + e.to_string())
+  let memo = self.get_or_create_memo(key)
+  let result = memo.get_result_inner() catch {
+    e => {
+      self.rt.event_broadcast_hook.drain()
+      abort("MemoMap compute raised: " + e.to_string())
+    }
   }
+  if !self.rt.event_broadcast_hook.pending.is_empty() {
+    self.rt.drain_pending_events_if_idle()
+  }
+  result
 }
 
 ///|
