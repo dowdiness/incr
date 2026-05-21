@@ -47,6 +47,7 @@ For contributors and advanced users who want to understand or modify `incr`.
 
 - [Roadmap](roadmap.md) — phased future direction
 - [Active plans](plans/) — concrete implementation plans for upcoming work
+- [Ideal API Rename Migration Plan](plans/2026-05-21-ideal-api-rename-migration.md) — staged compatibility plan for the accepted public API target names
 - [TODO](todo.md) — contributor task list organized by priority
 
 **Research notes — exploratory, not implemented:**
