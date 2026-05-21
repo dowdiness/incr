@@ -256,16 +256,9 @@ not the target `Result`-returning read surface.
 Stage them as compatibility API:
 
 1. Keep all three current methods during the additive target-name phase.
-2. Add target one-shot names only if there is a real driver that prefers the
-   runtime receiver over direct `derived.read_or_abort()` or `derived.watch()`.
-   If added, use explicit names such as:
-
-   ```moonbit
-   rt.read_or_abort(derived)
-   rt.read_reachable_or_abort(reachable)
-   rt.read_eager_or_abort(eager)
-   ```
-
+2. Do not add replacement target runtime read names during the additive phase.
+   The ideal target surface puts reads on handles:
+   `derived.read()`, `derived.read_or_abort()`, and `derived.watch()`.
 3. Do not rename `Runtime::read(memo) -> T` to target `read(...)`, because target
    `read(...)` means `Result`-returning permissive read.
 4. Do not assume MoonBit can overload `Runtime::read` by argument type while the
@@ -273,19 +266,14 @@ Stage them as compatibility API:
    whether same-name receiver methods can differ only by parameter type. If not,
    reserve runtime-receiver `read(...) -> Result[...]` for a breaking phase after
    old `Runtime::read` has been removed or renamed.
-5. If a `Runtime`-receiver target API is added, provide `Result`-returning peers
-   separately; do not reuse the old aborting names:
-
-   ```moonbit
-   rt.read(derived) -> Result[T, CycleError]
-   rt.read_reachable(reachable) -> Result[T, CycleError]
-   rt.read_eager(eager) -> Result[T, CycleError]
-   ```
-
-6. Prefer final docs that show direct target methods:
-   `derived.read_or_abort()` for one-shot reads and `derived.watch()` for
-   long-lived outside-the-graph reads. Keep `Runtime::read*` in the compatibility
-   table unless downstream code proves the runtime receiver is still clearer.
+5. After target handle reads exist and docs have moved, deprecate
+   `Runtime::read*` as legacy compatibility. Remove it in a breaking release.
+6. Delay any decision about new `Runtime` read helpers until after the old
+   helpers are gone and a concrete downstream driver proves `Runtime` adds
+   semantics beyond direct handle reads.
+7. Do not add `Runtime::read_all`. Do not add `Runtime::snapshot` unless it
+   enforces a real runtime invariant such as write exclusion, grouped event
+   draining, or temporary roots for the duration of a read group.
 
 ## `Scope` helper staging
 
