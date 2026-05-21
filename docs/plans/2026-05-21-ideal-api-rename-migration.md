@@ -339,6 +339,29 @@ Before a public implementation PR, verify:
 This spike should be discarded or kept as a tiny preparatory PR; it should not
 mix with the migration itself.
 
+Phase 0 spike result (2026-05-21): compile probes live under
+`spikes/ideal_api_rename_phase0/` and verify the mechanics above.
+
+- Public `#alias` works for custom constructors and public methods across a
+  package boundary.
+- `#deprecated` works on public `pub type Alias[T] = Target[T]`, and methods
+  resolve through the alias to the target type.
+- Short constructor syntax through a type alias does not resolve:
+  `RenamedCell(3)` fails with `Value RenamedCell not found in package`.
+  Alias-only type renames therefore cannot provide target constructor syntax
+  such as `Input(...)`.
+- Arbitrary blanket compatibility impls are rejected:
+  `pub impl[T : CurrentFreshness] CompatReadable for T` fails with
+  `Invalid type for "self": must be a type constructor`. Compatibility traits
+  need per-type impls and downstream dual-impl guidance instead.
+- Same-receiver overloads by argument type are rejected: a second
+  `ReadRuntime::read(...)` fails with `The method read for type ReadRuntime has
+  been defined`. Do not stage a future `Runtime::read(...) -> Result[...]`
+  overload while the current `Runtime::read(memo) -> T` remains.
+- Because alias method resolution exposes the target type's current methods,
+  `DerivedMap` should be a wrapper/facade if `DerivedMap::get(key)` needs strict
+  `Result` semantics during compatibility.
+
 ### Phase 1: additive target surface
 
 Add target names without changing existing contracts:

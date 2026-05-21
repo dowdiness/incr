@@ -1,0 +1,34 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/incr/spikes/ideal_api_rename_phase0/consumer"
+
+import {
+  "dowdiness/incr/spikes/ideal_api_rename_phase0/provider",
+}
+
+// Values
+pub fn probe_blanket_trait_compatibility() -> Bool
+
+pub fn probe_public_aliases() -> Int
+
+pub fn probe_same_receiver_overload() -> Int
+
+// Errors
+
+// Types and methods
+pub(all) struct DownstreamFresh {
+  ok : Bool
+}
+pub fn DownstreamFresh::DownstreamFresh(Bool) -> Self
+pub impl @provider.CompatReadable for DownstreamFresh
+pub impl @provider.CurrentFreshness for DownstreamFresh
+
+pub(all) struct DownstreamLegacy {
+  ok : Bool
+}
+pub fn DownstreamLegacy::DownstreamLegacy(Bool) -> Self
+pub impl @provider.CompatReadable for DownstreamLegacy
+
+// Type aliases
+
+// Traits
+
