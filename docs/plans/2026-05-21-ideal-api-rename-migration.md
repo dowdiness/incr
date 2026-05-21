@@ -77,11 +77,11 @@ spike confirms the receiver is unchanged.
 | Current callable | Target callable | Direct alias condition |
 |---|---|---|
 | `Type::new(...)` on cell constructors | `Type::Type(...)` custom constructor | Same type receiver. Keep `::new` as a deprecated alias after the target constructor is canonical. |
-| `Signal::set_unconditional(value)` | `Signal::force_set(value)` or alias-preserved `Input::force_set(value)` | Same receiver after `Input` aliasing. |
-| `TrackedCell::set_unconditional(value)` | `TrackedCell::force_set(value)` or alias-preserved `InputField::force_set(value)` | Same receiver after `InputField` aliasing. |
+| `Signal::set_unconditional(value)` | `Signal::force_set(value)` | Same receiver only. `Input::force_set(value)` is a facade forwarding method. |
+| `TrackedCell::set_unconditional(value)` | `TrackedCell::force_set(value)` | Same receiver only. `InputField::force_set(value)` is a facade forwarding method. |
 | `is_up_to_date()` concrete methods | `is_fresh()` concrete methods | Same receiver. Trait migration is separate. |
-| `observe()` | `watch()` | Same receiver for `Memo`, `HybridMemo`, and `Reactive`, or alias-preserved target names. |
-| `Observer::get()` | `Observer::read()` or alias-preserved `Watch::read()` | Same receiver after `Watch` aliasing. |
+| `observe()` | `watch()` | Same receiver for `Memo`, `HybridMemo`, and `Reactive` only. Target facades define their own `watch()` methods. |
+| `Observer::get()` | `Observer::read()` | Same receiver only. `Watch::read()` is a target facade method with target semantics. |
 | `Memo::get_result()` | `Memo::read()` | Same receiver only. Do not alias it to target `get()`. |
 | `Memo::get()` | `Memo::get_or_abort()` | Same receiver only. This alias is invalid once `get` is also the target `Result` method on that receiver. |
 | `Memo::get_or(fallback)` | `Memo::read_or(fallback)` | Same receiver only. |
@@ -126,26 +126,20 @@ is chosen.
 
 ### Public type names
 
-Type renames are not `#alias` work. Implementation should start with a small
-compile spike proving which of these is available and ergonomic:
+Type renames are not `#alias` work. Phase 0 proved that type aliases preserve
+method resolution but do not provide target constructor syntax, so the target
+surface should use facade types when it needs examples such as `Input(...)` or
+when target methods must differ from current compatibility methods.
 
-1. A deprecated type-alias mechanism that preserves method resolution.
-2. A thin wrapper/facade type around the current implementation.
-
-Prefer type aliases for pure vocabulary changes where method behavior does not
-need to diverge during compatibility:
+Use wrapper/facade types for the target public handles:
 
 - `Signal[T] -> Input[T]`
 - `TrackedCell[T] -> InputField[T]`
 - `Observer[T] -> Watch[T]`
 - `FunctionalRelation[K, V] -> MapRelation[K, V]`
-
-Prefer wrapper/facade types where target methods must differ from current
-methods while old code still compiles:
-
 - `Memo[T] -> Derived[T]`
 - `HybridMemo[T] -> ReachableDerived[T]`
-- `Reactive[T] -> EagerDerived[T]` if it adopts `Result`-returning read names
+- `Reactive[T] -> EagerDerived[T]`
 - `MemoMap[K, V] -> DerivedMap[K, V]`
 
 The wrapper phase lets new code call `Derived::get() -> Result[...]` while old
@@ -243,6 +237,9 @@ two sequences:
 
 The preferred facade keeps docs honest: target-name examples can show target
 semantics without breaking existing `MemoMap` users.
+
+The facade/read contract is specified in
+[`docs/design/specs/2026-05-21-ideal-api-facade-read-semantics.md`](../design/specs/2026-05-21-ideal-api-facade-read-semantics.md).
 
 ## `Runtime::read*` staging
 
@@ -366,9 +363,8 @@ Phase 0 spike result (2026-05-21): compile probes live under
 
 Add target names without changing existing contracts:
 
-- Add `Input`, `InputField`, `Watch`, and `MapRelation` as aliases or wrappers.
-- Add `Derived`, `ReachableDerived`, `EagerDerived`, and `DerivedMap` as facades
-  if target read semantics would collide with current method names.
+- Add `Input`, `InputField`, `Watch`, `MapRelation`, `Derived`,
+  `ReachableDerived`, `EagerDerived`, and `DerivedMap` as facades.
 - Add non-conflicting target methods and deprecated callable aliases.
 - Add `RuntimeContext`, `Freshness`, and `InputFieldOwner` while keeping
   `Database`, `Readable`, and `Trackable`.
@@ -383,8 +379,8 @@ After Phase 1 compiles:
 
 - Update API reference and concepts docs to list target names first and current
   names as deprecated compatibility.
-- Switch examples that only need safe aliases: `Input`, `InputField`, `Watch`,
-  `force_set`, `is_fresh`, and cache method names.
+- Switch examples that only need safe facade forwarding: `Input`, `InputField`,
+  `Watch`, `force_set`, `is_fresh`, and cache method names.
 - Keep examples involving `Derived::get()` and `DerivedMap::get()` on current
   names unless the wrapper facade already implements target `Result` semantics.
 - Add migration notes showing old-to-new read vocabulary.
