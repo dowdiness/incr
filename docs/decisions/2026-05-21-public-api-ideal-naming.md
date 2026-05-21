@@ -118,6 +118,11 @@ coordination concerns such as batching, GC, fixpoint, and introspection.
 Existing `Runtime::read*` methods are compatibility conveniences, not the
 target naming pattern.
 
+Target facade handles should not expose public bridge methods to or from the
+current compatibility handles. During migration, old and target handles coexist;
+users construct the surface they intend to use instead of converting between
+them.
+
 ## Rationale
 
 1. **Names should describe graph role, not implementation.** `Input` and

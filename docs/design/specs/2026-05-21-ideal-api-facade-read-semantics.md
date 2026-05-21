@@ -73,22 +73,15 @@ pub fn[T : Eq] Derived::Derived(
 This is necessary because `pub type Derived[T] = Memo[T]` would allow method
 resolution but not `Derived(...)` constructor syntax.
 
-### Facade interop is explicit
+### Facade interop is intentionally absent
 
 Facades are the target public handles. They should not expose their inner
 compatibility handles as fields.
 
-If migration needs interop between old and target handles, add named bridge
-methods instead of relying on representation:
-
-```moonbit
-Derived::from_memo(memo) -> Derived[T]
-derived.as_memo()        -> Memo[T]
-```
-
-Only add these bridges when a downstream migration needs them. If added, they
-are compatibility aids and should be documented separately from the ideal
-surface.
+Do not add public bridge methods such as `Derived::from_memo` or
+`derived.as_memo()`. Compatibility and target handles should coexist during the
+migration window, but users should construct the target handle they want rather
+than converting between old and new surfaces.
 
 ### Compatibility handles remain canonical for old code
 
@@ -98,8 +91,7 @@ Do not mutate the current method contracts:
 - `Memo::get_result() -> Result[T, CycleError]` remains permissive.
 - `MemoMap::get(key) -> V` remains permissive and aborting.
 - `MemoMap::get_tracked(key) -> V` remains strict and aborting.
-- `Runtime::read*` methods remain aborting one-shot compatibility helpers until
-  the target handle reads exist and users have a migration window.
+- `Runtime::read*` methods remain aborting one-shot compatibility helpers.
 
 Target facades call new package-private primitives where the target behavior
 does not already exist.
@@ -329,10 +321,11 @@ derived.read_or_abort()
 derived.watch()
 ```
 
-After target handle reads exist, deprecate `Runtime::read*`. Remove them in a
-breaking release. Delay any decision about new runtime-receiver read helpers
-until after the compatibility methods are gone and a concrete downstream use
-case proves that `Runtime` adds semantics beyond direct handle reads.
+Deprecate `Runtime::read*` in the same PR that introduces the target handle
+outside-read methods. Remove `Runtime::read*` in a breaking release. Delay any
+decision about new runtime-receiver read helpers until after the compatibility
+methods are gone and a concrete downstream use case proves that `Runtime` adds
+semantics beyond direct handle reads.
 
 Do not add a `Runtime::read_all` helper. A name like `read_all` does not handle
 heterogeneous reads cleanly, and `Runtime` currently adds no snapshot invariant
@@ -350,8 +343,8 @@ the group exits, or holding temporary roots until exit. Without those semantics,
 2. Add target facade structs in `cells/` with constructors and direct read
    methods.
 3. Add `Watch[T]` with `Result`-returning `read()` while keeping `Observer[T]`.
-4. Mark `Runtime::read*` as legacy compatibility once target handle reads cover
-   the documented outside-read use cases. Do not add replacement runtime reads.
+4. In the same PR as target handle outside reads, mark `Runtime::read*` as
+   deprecated legacy compatibility. Do not add replacement runtime reads.
 5. Add `Scope` and `RuntimeContext` helpers that return target facades.
 6. Switch docs examples from compatibility handles to target handles only after
    the exact examples compile.
@@ -379,6 +372,8 @@ Add focused tests before broad docs rewrites:
 
 - Do not remove compatibility names in this phase.
 - Do not change `MemoMap::get` semantics.
+- Do not add public bridge methods between compatibility handles and target
+  facades.
 - Do not introduce a broad read trait with associated result types. MoonBit
   traits do not have associated types, and the read shapes differ by handle.
 - Do not add runtime-receiver overloads for target reads.
