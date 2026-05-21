@@ -73,6 +73,23 @@ pub fn[T : Eq] Derived::Derived(
 This is necessary because `pub type Derived[T] = Memo[T]` would allow method
 resolution but not `Derived(...)` constructor syntax.
 
+### Facade interop is explicit
+
+Facades are the target public handles. They should not expose their inner
+compatibility handles as fields.
+
+If migration needs interop between old and target handles, add named bridge
+methods instead of relying on representation:
+
+```moonbit
+Derived::from_memo(memo) -> Derived[T]
+derived.as_memo()        -> Memo[T]
+```
+
+Only add these bridges when a downstream migration needs them. If added, they
+are compatibility aids and should be documented separately from the ideal
+surface.
+
 ### Compatibility handles remain canonical for old code
 
 Do not mutate the current method contracts:
@@ -81,7 +98,8 @@ Do not mutate the current method contracts:
 - `Memo::get_result() -> Result[T, CycleError]` remains permissive.
 - `MemoMap::get(key) -> V` remains permissive and aborting.
 - `MemoMap::get_tracked(key) -> V` remains strict and aborting.
-- `Runtime::read*` methods remain aborting one-shot compatibility helpers.
+- `Runtime::read*` methods remain aborting one-shot compatibility helpers until
+  the target handle reads exist and users have a migration window.
 
 Target facades call new package-private primitives where the target behavior
 does not already exist.
@@ -193,6 +211,10 @@ does not run pull verification and has no `CycleError` path. Do not force an
 always-`Ok` `Result` onto `EagerDerived`; reserve `Result` for reads with a real
 recoverable failure mode.
 
+This is an explicit exception to the broad "derived reads return `Result`"
+vocabulary in the ADR. `EagerDerived` is derived in graph role, but its read
+does not have the recoverable cycle failure that pull-derived reads have.
+
 `get()` remains strict and aborts outside a tracked context. `read()` is
 permissive and records a dependency if already tracking.
 
@@ -265,14 +287,39 @@ watch.is_disposed()    -> Bool
 `Observer`, but it needs a `Result`-returning getter. `Observer[T]` stays as the
 compatibility handle with `Observer::get() -> T`.
 
+Implementation should factor shared private helpers for root registration,
+root disposal, disposed-target cleanup, and `on_observe` / `on_unobserve`
+dispatch. `Watch` must not duplicate this lifecycle logic independently from
+`Observer`, because diverging root-count behavior would risk leaks or double
+`on_unobserve` calls.
+
 `EagerDerived::watch()` can return a `Watch[T]` whose getter always returns
 `Ok(value)` after the ordinary disposed/cross-runtime guards.
 
 ## Runtime Receiver Reads
 
-Do not add `Runtime::read(...)` target overloads in the additive phase. Phase 0
-proved MoonBit rejects same-receiver overloads by parameter type, and the
-current compatibility method already owns `Runtime::read(memo : Memo[T]) -> T`.
+From first principles, the ideal API should have no `Runtime` receiver read
+methods. A handle already carries its owning runtime, and the operation is
+"read this handle", not "read the runtime".
+
+The final rule is:
+
+- `Runtime` coordinates revision, batching, fixpoint, GC, and introspection.
+- handles own reads.
+- `Watch` owns long-lived outside-the-graph read roots.
+- `Scope` owns lifecycle groups.
+
+Keep current `Runtime::read*` only as legacy compatibility:
+
+```moonbit
+rt.read(memo)              // compatibility: aborting one-shot Memo read
+rt.read_hybrid(hybrid)     // compatibility: aborting one-shot HybridMemo read
+rt.read_reactive(reactive) // compatibility: aborting one-shot Reactive read
+```
+
+Do not add target `Runtime::read(...)` overloads. Phase 0 proved MoonBit rejects
+same-receiver overloads by parameter type, and the current compatibility method
+already owns `Runtime::read(memo : Memo[T]) -> T`.
 
 Preferred target examples should use direct handle methods:
 
@@ -282,19 +329,19 @@ derived.read_or_abort()
 derived.watch()
 ```
 
-If a runtime-receiver form gets a real downstream driver later, use names that
-cannot collide with each other:
+After target handle reads exist, deprecate `Runtime::read*`. Remove them in a
+breaking release. Delay any decision about new runtime-receiver read helpers
+until after the compatibility methods are gone and a concrete downstream use
+case proves that `Runtime` adds semantics beyond direct handle reads.
 
-```moonbit
-rt.read_derived(derived)                 -> Result[T, CycleError]
-rt.read_derived_or_abort(derived)        -> T
-rt.read_reachable(reachable)             -> Result[T, CycleError]
-rt.read_reachable_or_abort(reachable)    -> T
-rt.read_eager(eager)                     -> T
-```
+Do not add a `Runtime::read_all` helper. A name like `read_all` does not handle
+heterogeneous reads cleanly, and `Runtime` currently adds no snapshot invariant
+that direct handle reads lack.
 
-Do not use `Runtime::read_or_abort(...)` as a generic receiver name unless only
-one such method will ever exist.
+Likewise, do not add `Runtime::snapshot` unless it enforces a real invariant
+such as forbidding writes during the read group, deferring event drains until
+the group exits, or holding temporary roots until exit. Without those semantics,
+`snapshot` is only ceremony around handle reads.
 
 ## Implementation Order
 
@@ -303,8 +350,10 @@ one such method will ever exist.
 2. Add target facade structs in `cells/` with constructors and direct read
    methods.
 3. Add `Watch[T]` with `Result`-returning `read()` while keeping `Observer[T]`.
-4. Add `Scope` and `RuntimeContext` helpers that return target facades.
-5. Switch docs examples from compatibility handles to target handles only after
+4. Mark `Runtime::read*` as legacy compatibility once target handle reads cover
+   the documented outside-read use cases. Do not add replacement runtime reads.
+5. Add `Scope` and `RuntimeContext` helpers that return target facades.
+6. Switch docs examples from compatibility handles to target handles only after
    the exact examples compile.
 
 ## Test Cases
@@ -324,6 +373,7 @@ Add focused tests before broad docs rewrites:
 - `Watch::read()` keeps the target alive across `Runtime::gc()`.
 - Existing `MemoMap::get`, `MemoMap::get_tracked`, `MemoMap::get_result`, and
   `Runtime::read*` behavior remains unchanged.
+- Target docs contain no new `Runtime` read examples.
 
 ## Non-Goals
 
@@ -332,3 +382,5 @@ Add focused tests before broad docs rewrites:
 - Do not introduce a broad read trait with associated result types. MoonBit
   traits do not have associated types, and the read shapes differ by handle.
 - Do not add runtime-receiver overloads for target reads.
+- Do not add `Runtime::read_all` or `Runtime::snapshot` without a concrete
+  runtime-level invariant that direct handle reads cannot express.
