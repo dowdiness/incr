@@ -266,8 +266,8 @@ Stage them as compatibility API:
    whether same-name receiver methods can differ only by parameter type. If not,
    reserve runtime-receiver `read(...) -> Result[...]` for a breaking phase after
    old `Runtime::read` has been removed or renamed.
-5. After target handle reads exist and docs have moved, deprecate
-   `Runtime::read*` as legacy compatibility. Remove it in a breaking release.
+5. Deprecate `Runtime::read*` as legacy compatibility in the same PR that adds
+   the target handle outside-read methods. Remove it in a breaking release.
 6. Delay any decision about new `Runtime` read helpers until after the old
    helpers are gone and a concrete downstream driver proves `Runtime` adds
    semantics beyond direct handle reads.
