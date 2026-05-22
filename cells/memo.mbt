@@ -166,12 +166,7 @@ pub fn[T] Memo::new_no_backdate(
 /// Use `get_result()` for error-returning cycle handling, or `rt.read()`
 /// for outside-the-graph reads.
 pub fn[T] Memo::get(self : Memo[T]) -> T {
-  guard self.rt.core.tracking.stack.length() > 0 else {
-    abort(
-      "Memo::get() called outside tracked context. Use rt.read(memo) or memo.observe() to read from outside the graph.",
-    )
-  }
-  match self.get_result() {
+  match self.get_strict_result() {
     Ok(value) => value
     Err(e) => abort(e.format_path())
   }
@@ -200,6 +195,23 @@ pub fn[T] Memo::get(self : Memo[T]) -> T {
 /// }
 /// ```
 pub fn[T] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
+  self.read_result()
+}
+
+///|
+/// Package-private strict Result read. Requires an active tracked context.
+fn[T] Memo::get_strict_result(self : Memo[T]) -> Result[T, CycleError] {
+  guard self.rt.core.tracking.stack.length() > 0 else {
+    abort(
+      "Memo::get() called outside tracked context. Use rt.read(memo) or memo.observe() to read from outside the graph.",
+    )
+  }
+  self.read_result()
+}
+
+///|
+/// Package-private permissive Result read. Records a dependency when tracked.
+fn[T] Memo::read_result(self : Memo[T]) -> Result[T, CycleError] {
   guard !self.rt.is_cell_disposed(self.cell_id) else {
     abort("Memo::get called on a disposed memo")
   }
@@ -217,8 +229,8 @@ pub fn[T] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
 }
 
 ///|
-/// Internal: the core verification logic, callable from both get_result()
-/// and read_permissive(). Does NOT check tracking context.
+/// Internal: the core verification logic shared by Result and aborting reads.
+/// Does NOT check tracking context.
 fn[T] Memo::get_result_inner(
   self : Memo[T],
 ) -> Result[T, CycleError] raise Failure {

@@ -94,6 +94,29 @@ pub fn[K : Hash + Eq, V : Eq] MemoMap::get_result(
   self : MemoMap[K, V],
   key : K,
 ) -> Result[V, CycleError] {
+  self.read_result(key)
+}
+
+///|
+/// Package-private strict Result read. Requires an active tracked context.
+fn[K : Hash + Eq, V : Eq] MemoMap::get_strict_result(
+  self : MemoMap[K, V],
+  key : K,
+) -> Result[V, CycleError] {
+  guard self.rt.core.tracking.stack.length() > 0 else {
+    abort(
+      "MemoMap::get_strict_result() called outside tracked context. Use MemoMap::get_result(key) to read from outside the graph.",
+    )
+  }
+  self.read_result(key)
+}
+
+///|
+/// Package-private permissive Result read. Records a dependency when tracked.
+fn[K : Hash + Eq, V : Eq] MemoMap::read_result(
+  self : MemoMap[K, V],
+  key : K,
+) -> Result[V, CycleError] {
   let memo = self.get_or_create_memo(key)
   let result = memo.get_result_inner() catch {
     e => {

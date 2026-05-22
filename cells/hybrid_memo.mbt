@@ -83,19 +83,47 @@ pub fn[T : Eq] HybridMemo::new(
 /// Must be called inside a tracked context (another memo's compute function).
 /// Outside a compute function, use `rt.read_hybrid(memo)` or `memo.observe()`.
 pub fn[T : Eq] HybridMemo::get(self : HybridMemo[T]) -> T {
+  match self.get_strict_result() {
+    Ok(value) => value
+    Err(e) => abort(e.format_path())
+  }
+}
+
+///|
+/// Package-private strict Result read. Requires an active tracked context.
+fn[T : Eq] HybridMemo::get_strict_result(
+  self : HybridMemo[T],
+) -> Result[T, CycleError] {
   guard self.rt.core.tracking.stack.length() > 0 else {
     abort(
       "HybridMemo::get() called outside tracked context. Use rt.read_hybrid(memo) or memo.observe() to read from outside the graph.",
     )
   }
-  self.read_permissive()
+  self.read_result()
 }
 
 ///|
-/// Package-private permissive read. Bypasses the tracked-context guard.
-/// Records a dependency when a tracking frame is active.
-#alias(get_untracked, deprecated="Use HybridMemo::read_permissive instead")
-fn[T : Eq] HybridMemo::read_permissive(self : HybridMemo[T]) -> T {
+/// Package-private permissive Result read. Records a dependency when tracked.
+fn[T : Eq] HybridMemo::read_result(
+  self : HybridMemo[T],
+) -> Result[T, CycleError] {
+  let result = self.read_result_inner() catch {
+    e => {
+      self.rt.event_broadcast_hook.drain()
+      abort("HybridMemo compute raised: " + e.to_string())
+    }
+  }
+  if !self.rt.event_broadcast_hook.pending.is_empty() {
+    self.rt.drain_pending_events_if_idle()
+  }
+  result
+}
+
+///|
+/// Internal: HybridMemo verification logic shared by Result and aborting reads.
+fn[T : Eq] HybridMemo::read_result_inner(
+  self : HybridMemo[T],
+) -> Result[T, CycleError] raise Failure {
   guard !self.rt.is_cell_disposed(self.cell_id) else {
     abort("HybridMemo::get called on a disposed hybrid memo")
   }
@@ -105,49 +133,57 @@ fn[T : Eq] HybridMemo::read_permissive(self : HybridMemo[T]) -> T {
       "HybridMemo::get() cannot be called during fixpoint(); read relations directly or call get() after fixpoint() completes",
     )
   }
-  match self.value {
+  let result = match self.value {
     None => {
-      let r = self.force_recompute() catch {
-        e => {
-          self.rt.event_broadcast_hook.drain()
-          abort("HybridMemo compute raised: " + e.to_string())
-        }
-      }
+      let r = self.force_recompute()
       match r {
         Ok(value) => {
           self.rt.record_dependency(self.cell_id)
-          value
+          Ok(value)
         }
-        Err(e) => abort(e.format_path())
+        Err(e) => Err(e)
       }
     }
     Some(cached) => {
       let cell = self.rt.get_memo_data(self.cell_id)
       if cell.verified_at >= self.rt.core.revision.current_revision {
         self.rt.record_dependency(self.cell_id)
-        cached
+        Ok(cached)
       } else {
-        let vr = self.rt.pull_verify(self.cell_id) catch {
-          e => {
-            self.rt.event_broadcast_hook.drain()
-            abort("HybridMemo compute raised: " + e.to_string())
-          }
-        }
+        let vr = self.rt.pull_verify(self.cell_id)
         match vr {
           Ok(_) => {
             self.rt.record_dependency(self.cell_id)
             match self.value {
-              Some(v) => v
+              Some(v) => Ok(v)
               None =>
                 abort(
                   "unreachable: value is always Some after successful verification",
                 )
             }
           }
-          Err(e) => abort(e.format_path())
+          Err(e) => Err(e)
         }
       }
     }
+  }
+  result
+}
+
+///|
+/// Package-private permissive read. Bypasses the tracked-context guard.
+/// Records a dependency when a tracking frame is active.
+#alias(get_untracked, deprecated="Use HybridMemo::read_permissive instead")
+fn[T : Eq] HybridMemo::read_permissive(self : HybridMemo[T]) -> T {
+  let r = self.read_result_inner() catch {
+    e => {
+      self.rt.event_broadcast_hook.drain()
+      abort("HybridMemo compute raised: " + e.to_string())
+    }
+  }
+  match r {
+    Ok(value) => value
+    Err(e) => abort(e.format_path())
   }
 }
 
