@@ -17,20 +17,18 @@ Handle computations where multiple paths converge:
 ```moonbit
 let rt = Runtime()
 
-let a = Signal(rt, 10)
-let b = Memo(rt, () => a.get() * 2)
-let c = Memo(rt, () => a.get() + 5)
-let d = Memo(rt, () => b.get() + c.get())
-let d_reader = d.observe()
+let a = Input(rt, 10)
+let b = Derived(rt, () => a.get() * 2)
+let c = Derived(rt, () => a.get() + 5)
+let d = Derived(rt, () => b.get_or_abort() + c.get_or_abort())
 
-inspect(d_reader.get(), content="35")  // (10*2) + (10+5)
+inspect(d.read_or_abort(), content="35")  // (10*2) + (10+5)
 
 a.set(20)
-inspect(d_reader.get(), content="65")  // (20*2) + (20+5)
-d_reader.dispose()
+inspect(d.read_or_abort(), content="65")  // (20*2) + (20+5)
 ```
 
-`incr` handles diamonds correctly — `a` is only read once per computation of each memo.
+`incr` handles diamonds correctly — `a` is only read once per computation of each derived value.
 
 ---
 
@@ -41,30 +39,28 @@ Dependencies can vary based on runtime conditions:
 ```moonbit
 let rt = Runtime()
 
-let use_cache = Signal(rt, true)
-let cache = Signal(rt, "cached_value")
-let expensive_source = Signal(rt, "computed_value")
+let use_cache = Input(rt, true)
+let cache = Input(rt, "cached_value")
+let expensive_source = Input(rt, "computed_value")
 
-let result = Memo(rt, () => {
+let result = Derived(rt, () => {
   if use_cache.get() {
     cache.get()
   } else {
     expensive_source.get()
   }
 })
-let result_reader = result.observe()
 
 // With caching enabled
-inspect(result_reader.get(), content="cached_value")
+inspect(result.read_or_abort(), content="cached_value")
 
 // Changes to expensive_source don't trigger recomputation
 expensive_source.set("new_computed")
-inspect(result_reader.get(), content="cached_value")  // Still cached
+inspect(result.read_or_abort(), content="cached_value")  // Still cached
 
 // Switch to computed mode
 use_cache.set(false)
-inspect(result_reader.get(), content="new_computed")
-result_reader.dispose()
+inspect(result.read_or_abort(), content="new_computed")
 ```
 
 ---
@@ -77,39 +73,40 @@ Use durability to optimize stable configuration:
 let rt = Runtime()
 
 // Configuration changes rarely
-let multiplier = Signal(rt, 1.5, durability=High)
-let precision = Signal(rt, 2, durability=High)
+let multiplier = Input(rt, 1.5, durability=High)
+let precision = Input(rt, 2, durability=High)
 
 // Data changes frequently
-let measurements : Array[Signal[Double]] = []
+let measurements : Array[Input[Double]] = []
 for i = 0; i < 1000; i = i + 1 {
-  measurements.push(Signal(rt, 0.0))
+  measurements.push(Input(rt, 0.0))
 }
 
 // Config-only computation
-let config_factor = Memo(rt, () => multiplier.get() * 10.0.pow(precision.get().to_double()))
+let config_factor = Derived(rt, () => multiplier.get() * 10.0.pow(precision.get().to_double()))
 
 // Mixed computation
-let process = (i : Int) => Memo(rt, () => measurements[i].get() * config_factor.get())
+let process = (i : Int) => Derived(rt, () => {
+  measurements[i].get() * config_factor.get_or_abort()
+})
 ```
 
 When measurements change:
-- `config_factor` skips verification entirely (durability shortcut)
-- Only affected `process` memos recompute
+- `config_factor` skips verification entirely when only lower-durability data changed
+- Only affected `process` derived values recompute
 
 ---
 
 ## Pattern: Atomic Multi-Update
 
-Update related signals together:
+Update related inputs together:
 
 ```moonbit
 let rt = Runtime()
 
-let x = Signal(rt, 0)
-let y = Signal(rt, 0)
-let position = Memo(rt, () => (x.get(), y.get()))
-let position_reader = position.observe()
+let x = Input(rt, 0)
+let y = Input(rt, 0)
+let position = Derived(rt, () => (x.get(), y.get()))
 
 // Without batch: two revision bumps, position could see inconsistent state
 // With batch: single revision bump, atomic update
@@ -118,8 +115,7 @@ rt.batch(() => {
   y.set(200)
 })
 
-inspect(position_reader.get(), content="(100, 200)")
-position_reader.dispose()
+inspect(position.read_or_abort(), content="(100, 200)")
 ```
 
 ---
@@ -131,8 +127,8 @@ Use batch semantics for speculative changes:
 ```moonbit
 let rt = Runtime()
 
-let value = Signal(rt, 10)
-let derived = Memo(rt, () => value.get() * 2)
+let value = Input(rt, 10)
+let derived = Derived(rt, () => value.get() * 2)
 
 // Get initial state
 let initial = value.get()
@@ -153,27 +149,25 @@ rt.batch(() => {
 
 ## Pattern: Computed Defaults
 
-Derive default values from other signals:
+Derive default values from other inputs:
 
 ```moonbit
 let rt = Runtime()
 
-let user_override : Signal[Int?] = Signal(rt, None)
-let computed_default = Signal(rt, 100)
+let user_override : Input[Int?] = Input(rt, None)
+let computed_default = Input(rt, 100)
 
-let effective_value = Memo(rt, () => {
+let effective_value = Derived(rt, () => {
   match user_override.get() {
     Some(v) => v
     None => computed_default.get()
   }
 })
-let effective_reader = effective_value.observe()
 
-inspect(effective_reader.get(), content="100")  // Uses default
+inspect(effective_value.read_or_abort(), content="100")  // Uses default
 
 user_override.set(Some(42))
-inspect(effective_reader.get(), content="42")   // Uses override
-effective_reader.dispose()
+inspect(effective_value.read_or_abort(), content="42")   // Uses override
 ```
 
 ---
@@ -186,35 +180,33 @@ Build computation layers with natural caching:
 let rt = Runtime()
 
 // Raw input
-let raw_data = Signal(rt, "  Hello World  ")
+let raw_data = Input(rt, "  Hello World  ")
 
 // Layer 1: Normalize
-let normalized = Memo(rt, () => raw_data.get().trim())
+let normalized = Derived(rt, () => raw_data.get().trim())
 
 // Layer 2: Transform
-let transformed = Memo(rt, () => normalized.get().to_lower())
+let transformed = Derived(rt, () => normalized.get_or_abort().to_lower())
 
 // Layer 3: Format
-let formatted = Memo(rt, () => "[" + transformed.get() + "]")
-let formatted_reader = formatted.observe()
+let formatted = Derived(rt, () => "[" + transformed.get_or_abort() + "]")
 
-inspect(formatted_reader.get(), content="[hello world]")
+inspect(formatted.read_or_abort(), content="[hello world]")
 
 // Change input
 raw_data.set("  Hello World  ")  // Same after trim — no-op!
 // Nothing recomputes due to same-value optimization
-formatted_reader.dispose()
 ```
 
 ---
 
 ## Pattern: Backdating with Custom Equality
 
-Backdating suppresses downstream recomputation when a memo's output is equal to its previous value. The comparison uses the type's `Eq` implementation, so you control exactly what "equal" means. This is useful when your type carries metadata that memo consumers don't care about.
+Backdating suppresses downstream recomputation when a derived value's output is equal to its previous value. The comparison uses the type's `Eq` implementation, so you control exactly what "equal" means. This is useful when your type carries metadata that downstream consumers don't care about.
 
 ### Ignoring a Generation Counter
 
-A common case: a value has a `generation` or `version` field that increments on every write, but downstream memos only care about the semantic content.
+A common case: a value has a `generation` or `version` field that increments on every write, but downstream derived values only care about the semantic content.
 
 ```moonbit
 struct Versioned {
@@ -229,28 +221,26 @@ impl Eq for Versioned with equal(self, other) -> Bool {
 
 ```moonbit
 let rt = Runtime()
-let input = Signal(rt, 100, label="input")
+let input = Input(rt, 100, label="input")
 
 let mut gen = 0
-let versioned = Memo(rt, () => {
+let versioned = Derived(rt, () => {
   gen = gen + 1
   Versioned(input.get() / 10, gen)  // value=10, generation always increments
 }, label="versioned")
 
-let handler = Memo(rt, () => {
-  versioned.get().value * 2  // only reads .value
+let handler = Derived(rt, () => {
+  versioned.get_or_abort().value * 2  // only reads .value
 }, label="handler")
-let handler_reader = handler.observe()
 
-inspect(handler_reader.get(), content="20")  // Computes: Versioned(10, gen=1) → 20
+inspect(handler.read_or_abort(), content="20")  // Computes: Versioned(10, gen=1) → 20
 
 input.set(105)                           // value still 10 (105/10 = 10), gen=2
-inspect(handler_reader.get(), content="20")  // handler does NOT recompute — backdated
+inspect(handler.read_or_abort(), content="20")  // handler does NOT recompute — backdated
 inspect(gen, content="2")                // versioned recomputed, but Eq said same value
-handler_reader.dispose()
 ```
 
-`versioned` recomputed because `input` changed, but `handler` was skipped: the new `Versioned(10, 2)` equals the old `Versioned(10, 1)` under the custom `Eq`, so `changed_at` was preserved.
+`versioned` recomputed because `input` changed, but `handler` was skipped: the new `Versioned(10, 2)` equals the old `Versioned(10, 1)` under the custom `Eq`, so downstream derived values did not see a change.
 
 ### Ignoring Unstable Fields in Enums
 
@@ -275,40 +265,38 @@ impl Eq for Status with equal(self, other) -> Bool {
 
 ```moonbit
 let rt = Runtime()
-let error_code = Signal(rt, 404, label="error_code")
-let error_msg  = Signal(rt, "Not Found", label="error_msg")
+let error_code = Input(rt, 404, label="error_code")
+let error_msg  = Input(rt, "Not Found", label="error_msg")
 
-let status = Memo(rt, () => Error(code=error_code.get(), message=error_msg.get()), label="status")
-let handler = Memo(rt, () => match status.get() {
+let status = Derived(rt, () => Error(code=error_code.get(), message=error_msg.get()), label="status")
+let handler = Derived(rt, () => match status.get_or_abort() {
   Error(code=c, ..) => "Error: " + c.to_string()
   Ready(data=d)     => "Data: " + d.to_string()
   Loading(progress=p) => "Loading: " + p.to_string() + "%"
 }, label="handler")
-let handler_reader = handler.observe()
 
-inspect(handler_reader.get(), content="Error: 404")
+inspect(handler.read_or_abort(), content="Error: 404")
 
 error_msg.set("Page Not Found")      // Different message, same code
-inspect(handler_reader.get(), content="Error: 404")  // handler does NOT recompute — backdated
-handler_reader.dispose()
+inspect(handler.read_or_abort(), content="Error: 404")  // handler does NOT recompute — backdated
 ```
 
 `status` recomputed when the message changed, but `handler` was skipped because the new `Error(code=404, message="Page Not Found")` equals the old one under the custom `Eq`.
 
 ### The Footgun: Excluding Fields That Are Actually Read
 
-**Backdating only holds when the excluded fields are never read by any downstream memo.** If a memo reads a field excluded from `Eq`, it will receive a stale value silently — no error, no warning.
+**Backdating only holds when the excluded fields are never read by any downstream derived value.** If a derived value reads a field excluded from `Eq`, it will receive a stale value silently — no error, no warning.
 
 ```moonbit
 // SAFE: handler only reads .value; .generation is never read downstream
-let handler = Memo(rt, () => versioned.get().value * 2)
+let handler = Derived(rt, () => versioned.get_or_abort().value * 2)
 
 // UNSAFE: handler reads .generation, but generation is excluded from Eq
 //         When generation changes, handler will not recompute
-let handler = Memo(rt, () => versioned.get().generation)  // stale!
+let handler = Derived(rt, () => versioned.get_or_abort().generation)  // stale!
 ```
 
-**Rule:** Only exclude a field from `Eq` if you are certain no memo in the graph reads that field from this type's values. When in doubt, include the field in `Eq` and accept the recomputation cost.
+**Rule:** Only exclude a field from `Eq` if you are certain no derived value in the graph reads that field from this type's values. When in doubt, include the field in `Eq` and accept the recomputation cost.
 
 ---
 
@@ -319,13 +307,13 @@ Efficiently aggregate over multiple inputs:
 ```moonbit
 let rt = Runtime()
 
-let items : Array[Signal[Int]] = [
-  Signal(rt, 10),
-  Signal(rt, 20),
-  Signal(rt, 30),
+let items : Array[Input[Int]] = [
+  Input(rt, 10),
+  Input(rt, 20),
+  Input(rt, 30),
 ]
 
-let sum = Memo(rt, () => {
+let sum = Derived(rt, () => {
   let mut total = 0
   for item in items {
     total = total + item.get()
@@ -334,18 +322,14 @@ let sum = Memo(rt, () => {
 })
 
 let count = items.length()
-let average = Memo(rt, () => sum.get() / count)
-let sum_reader = sum.observe()
-let average_reader = average.observe()
+let average = Derived(rt, () => sum.get_or_abort() / count)
 
-inspect(sum_reader.get(), content="60")
-inspect(average_reader.get(), content="20")
+inspect(sum.read_or_abort(), content="60")
+inspect(average.read_or_abort(), content="20")
 
 items[1].set(50)  // Change one item
-inspect(sum_reader.get(), content="90")
-inspect(average_reader.get(), content="30")
-sum_reader.dispose()
-average_reader.dispose()
+inspect(sum.read_or_abort(), content="90")
+inspect(average.read_or_abort(), content="30")
 ```
 
 ---
@@ -364,7 +348,7 @@ another memo, with correct incremental invalidation). See the
 
 ```moonbit nocheck
 let rt = Runtime()
-let width = Signal(rt, -5)
+let width = Input(rt, -5)
 
 let diags : Accumulator[String] = Accumulator::new(rt~, label="diags")
 
@@ -390,7 +374,7 @@ checked_reader.dispose()
 ```
 
 **Top-frame restriction.** `push` is only legal inside a `Memo` or
-`HybridMemo` compute. Calling `diags.push(...)` from a `Signal::set`,
+`HybridMemo` compute. Calling `diags.push(...)` from an `Input::set`,
 `Effect`, or bare function call raises `Failure`.
 
 ---
@@ -405,7 +389,7 @@ rather than returning an `Array` from the producer.
 
 ```moonbit nocheck
 let rt = Runtime()
-let width = Signal(rt, -5)
+let width = Input(rt, -5)
 
 let diags : Accumulator[String] = Accumulator::new(rt~, label="diags")
 
@@ -472,7 +456,7 @@ fn rebuild_chain(
   module       : ResolvedModule,
 ) -> Unit {
   // Dispose the old chain. Disposing the scope disposes every cell
-  // allocated through it — memos, signals, effects, AND the accumulator.
+  // allocated through it — memos, input cells, effects, AND the accumulator.
   match state.chain_scope {
     Some(old) => old.dispose()
     None      => ()
@@ -512,8 +496,8 @@ Observe committed updates with `Runtime::set_on_change`:
 
 ```moonbit
 let rt = Runtime()
-let a = Signal(rt, 0)
-let b = Signal(rt, 0)
+let a = Input(rt, 0)
+let b = Input(rt, 0)
 let mut notifications = 0
 
 rt.set_on_change(() => { notifications = notifications + 1 })
@@ -538,30 +522,24 @@ Useful for:
 
 ## Pattern: Per-Cell Change Callbacks
 
-For finer-grained observation, `Signal` and `Memo` each support a single per-cell callback:
+For finer-grained observation of field-level inputs, `InputField` supports a single per-cell callback:
 
 ```moonbit
 let rt = Runtime()
-let price = Signal(rt, 100, label="price")
-let total = Memo(rt, () => price.get() * 2, label="total")
+let price = InputField(rt, 100, label="price")
 
 // Fires immediately after price changes, before the global on_change
 price.on_change(new_price => println("price changed to: \{new_price}"))
 
-// Fires after force_recompute, only when the computed value actually changed
-// (skipped by backdating when the value is unchanged)
-total.on_change(new_total => println("total changed to: \{new_total}"))
-
 price.set(200)
 // Prints "price changed to: 200"
-// Prints "total changed to: 400" (when total.get() is next called)
 ```
 
 **Callback ordering:**
-1. Per-cell callbacks fire in the order signals changed
+1. Per-cell callbacks fire in the order input fields changed
 2. The global `Runtime::set_on_change` callback fires after all per-cell callbacks
 
-**Inside a batch**, per-cell callbacks fire once per changed signal at the end of the batch — not once per `set()` call:
+**Inside a batch**, per-cell callbacks fire once per changed field at the end of the batch — not once per `set()` call:
 
 ```moonbit
 rt.batch(() => {
@@ -575,8 +553,10 @@ To remove a callback:
 
 ```moonbit
 price.clear_on_change()
-total.clear_on_change()
 ```
+
+Compatibility `Signal` and `Memo` handles also expose per-cell callbacks for
+code that still needs their introspection surface.
 
 ---
 
@@ -584,12 +564,13 @@ total.clear_on_change()
 
 Use `Runtime::on_memo_event` when a driver needs recompute lifecycle data
 rather than only value-change notifications. The listener is runtime-wide and
-observes pull `Memo` / `HybridMemo` recomputes.
+observes pull `Memo` / `HybridMemo` recomputes, including target
+`Derived` / `ReachableDerived` wrappers.
 
 ```moonbit nocheck
 let rt = Runtime()
-let price = Signal(rt, 100, label="price")
-let total = Memo(rt, () => price.get() * 2, label="total")
+let price = Input(rt, 100, label="price")
+let total = Derived(rt, () => price.get() * 2, label="total")
 
 let frames : Array[String] = []
 
@@ -621,16 +602,14 @@ rt.on_memo_event(evt => {
   }
 })
 
-let total_reader = total.observe()
-inspect(total_reader.get(), content="200")
-total_reader.dispose()
+inspect(total.read_or_abort(), content="200")
 ```
 
 Keep the listener small. It runs synchronously during the drain step, after the
 memo compute has left the tracking stack. If the visualizer needs to read
-other cells, use target facade `read()` / `read_or_abort()` methods or an
-observer; `Memo::get()` is for tracked compute closures and aborts from
-top-level event handlers.
+other cells, use target facade `read()` / `read_or_abort()` methods or a
+watch; compatibility `Memo::get()` is for tracked compute closures and aborts
+from top-level event handlers.
 
 The event stream is not a transaction log. Batch boundaries, signal-change
 events, push-reactive events, snapshot/replay, and driver-owned event graphs
@@ -681,67 +660,62 @@ logging failures in the driver-owned queue.
 
 ---
 
-## Pattern: Tracked Struct
+## Pattern: Field-Level Inputs
 
-Use `TrackedCell` fields to give each field of a struct its own dependency cell. Memos that read only one field are unaffected when a different field changes.
+Use `InputField` fields to give each field of a struct its own dependency cell. Derived values that read only one field are unaffected when a different field changes.
 
-### When to Use TrackedCell vs Signal
+### When to Use InputField vs Input
 
 | Situation | Recommendation |
 |-----------|----------------|
-| Single scalar value | `Signal[T]` |
-| Multiple related fields with independent consumers | `TrackedCell[T]` in a tracked struct |
-| Monolithic struct updated atomically | `Signal[MyStruct]` with `batch` |
+| Single scalar value | `Input[T]` |
+| Multiple related fields with independent consumers | `InputField[T]` in an owner struct |
+| Monolithic struct updated atomically | `Input[MyStruct]` with `batch` |
 
-### Defining a Tracked Struct
+### Defining an InputField Owner
 
-Declare the struct with `TrackedCell` fields, implement the `Trackable` trait, and provide a constructor:
+Declare the struct with `InputField` fields, implement the `InputFieldOwner` trait, and provide a constructor:
 
 ```moonbit
 struct SourceFile {
-  path    : @incr.TrackedCell[String]
-  content : @incr.TrackedCell[String]
-  version : @incr.TrackedCell[Int]
-
-  fn new(
-    rt      : @incr.Runtime,
-    path    : String,
-    content : String,
-    version~ : Int,
-  ) -> SourceFile
+  path    : @incr.InputField[String]
+  content : @incr.InputField[String]
+  version : @incr.InputField[Int]
 }
 
-impl @incr.Trackable for SourceFile with cell_ids(self) {
+impl @incr.InputFieldOwner for SourceFile with cell_ids(self) {
   [self.path.id(), self.content.id(), self.version.id()]
 }
 
-fn SourceFile::new(
+fn SourceFile::SourceFile(
   rt      : @incr.Runtime,
   path    : String,
   content : String,
   version~ : Int = 0,
 ) -> SourceFile {
   {
-    path:    @incr.TrackedCell(rt, path,    label="SourceFile.path"),
-    content: @incr.TrackedCell(rt, content, label="SourceFile.content"),
-    version: @incr.TrackedCell(rt, version, label="SourceFile.version"),
+    path:    @incr.InputField(rt, path,    label="SourceFile.path"),
+    content: @incr.InputField(rt, content, label="SourceFile.content"),
+    version: @incr.InputField(rt, version, label="SourceFile.version"),
   }
 }
 ```
 
-### Composing with Memos
+### Composing with Derived Values
 
-Each memo declares dependency only on the fields it actually reads:
+Each derived value declares dependency only on the fields it actually reads:
 
 ```moonbit
 let rt   = @incr.Runtime()
 let file = SourceFile(rt, "/src/main.mbt", "fn main { 42 }")
 
-let word_count = @incr.Memo(rt, () => file.content.get().split(" ").fold(init=0, (acc, _s) => acc + 1))
+let word_count = @incr.Derived(rt, () => {
+  file.content.get().split(" ").fold(init=0, (acc, _s) => acc + 1)
+})
 
-let is_test = @incr.Memo(rt, () => file.path.get().ends_with("_test.mbt"))
+let is_test = @incr.Derived(rt, () => file.path.get().ends_with("_test.mbt"))
 
-// Change version — neither memo recomputes
+// Change version — neither derived value recomputes
 file.version.set(1)
 
 // Change content — only word_count recomputes; is_test is not touched
@@ -758,103 +732,106 @@ rt.batch(() => {
   file.content.set("pub fn greet() -> String { \"hello\" }")
   file.version.set(2)
 })
-// Single revision bump; downstream memos reverify once
+// Single revision bump; downstream derived values reverify once
 ```
 
-### Using Database with TrackedCell
+### Using RuntimeContext with InputField
 
-When your runtime is wrapped in a database type, use `create_tracked_cell` instead of calling `TrackedCell(...)` directly:
+When your runtime is wrapped in a context type, use `create_input_field` instead of calling `InputField(...)` directly:
 
 ```moonbit
 struct MyDb {
   rt : @incr.Runtime
-
-  fn new() -> MyDb
 }
 
-impl @incr.Database for MyDb with runtime(self) { self.rt }
-
-fn MyDb::new() -> MyDb {
+fn MyDb::MyDb() -> MyDb {
   { rt: @incr.Runtime() }
 }
 
+impl @incr.RuntimeContext for MyDb with runtime(self) { self.rt }
+
 let db   = MyDb()
-let path = @incr.create_tracked_cell(db, "/src/main.mbt", label="path")
+let path = @incr.create_input_field(db, "/src/main.mbt", label="path")
 ```
 
-### Lifecycle: register a tracked struct with a Scope
+### Lifecycle: Register Field Owners with a Scope
 
-`gc_tracked` is **deprecated** (it has always been a no-op — `TrackedCell` is a leaf and marking it as a root keeps nothing alive). Use `add_tracked(scope, tracked)` to register all of a struct's `TrackedCell` fields with a `Scope`; disposing the scope disposes the cells:
+Use `add_input_fields(scope, owner)` to register all of a struct's `InputField`
+fields with a `Scope`; disposing the scope disposes the fields:
 
 ```moonbit nocheck
-let scope = @incr.create_scope(db)
-let file = MyTrackedStruct::new(db)
-@incr.add_tracked(scope, file)
+let scope = @incr.Scope::new(db.runtime())
+let file = SourceFile(db.runtime(), "/src/main.mbt", "fn main { 42 }")
+@incr.add_input_fields(scope, file)
 // ... later ...
-scope.dispose()  // disposes every TrackedCell field of `file`
+scope.dispose()  // disposes every InputField field of `file`
 ```
 
-### Migration: Signal[MyStruct] → Tracked Struct
+Compatibility `TrackedCell` structs use `Trackable` and `add_tracked(scope,
+tracked)`. `gc_tracked` is deprecated and remains a no-op kept for source
+compatibility.
 
-If you have an existing `Signal[MyStruct]` and memo recomputation is too coarse, migrate field by field:
+### Migration: Input[MyStruct] → Field-Level Inputs
+
+If you have an existing `Input[MyStruct]` and derived recomputation is too coarse, migrate field by field:
 
 ```moonbit
 // Before
 struct Doc { content : String; version : Int }
-let doc = Signal(rt, { content: "hello", version: 0 })
-let length_memo = Memo(rt, () => doc.get().content.length())
-// Updating version also invalidates length_memo — unnecessary work
+let doc = Input(rt, { content: "hello", version: 0 })
+let length = Derived(rt, () => doc.get().content.length())
+// Updating version also invalidates length — unnecessary work
 
 // After
 struct Doc {
-  content : @incr.TrackedCell[String]
-  version : @incr.TrackedCell[Int]
+  content : @incr.InputField[String]
+  version : @incr.InputField[Int]
 }
-// Now version.set(...) does not touch length_memo at all
+// Now version.set(...) does not touch length at all
 ```
 
 ---
 
-## Pattern: Keyed Queries with MemoMap
+## Pattern: Keyed Queries with DerivedMap
 
-Use `MemoMap[K, V]` when you want one memoized computation per key.
+Use `DerivedMap[K, V]` when you want one lazy derived computation per key.
 
 ```moonbit
 let rt = Runtime()
-let base = Signal(rt, 10)
-let by_id = MemoMap::new(rt, (id : Int) => base.get() + id)
+let base = Input(rt, 10)
+let by_id = DerivedMap(rt, (id : Int) => base.get() + id)
 
-inspect(by_id.get(1), content="11")  // creates memo for key=1
-inspect(by_id.get(1), content="11")  // cache hit for key=1
-inspect(by_id.get(2), content="12")  // creates memo for key=2
-inspect(by_id.length(), content="2")
+inspect(by_id.read_or_abort(1), content="11")  // creates entry for key=1
+inspect(by_id.read_or_abort(1), content="11")  // cache hit for key=1
+inspect(by_id.read_or_abort(2), content="12")  // creates entry for key=2
+inspect(by_id.cache_len(), content="2")
 
 base.set(20)
-inspect(by_id.get(1), content="21")  // key=1 recomputes lazily
-inspect(by_id.get(2), content="22")  // key=2 recomputes when read
+inspect(by_id.read_or_abort(1), content="21")  // key=1 recomputes lazily
+inspect(by_id.read_or_abort(2), content="22")  // key=2 recomputes when read
 ```
 
-For `Database`-style code, use `create_memo_map(db, f, label?)`.
+For `RuntimeContext`-style code, use `create_derived_map(ctx, f, label?)`.
 
 ---
 
 ## Anti-Pattern: Reading During Batch
 
-Avoid reading memos inside a batch — they see pre-batch values:
+Avoid reading derived values inside a batch — they see pre-batch values:
 
 ```moonbit
 let rt = Runtime()
 
-let x = Signal(rt, 10)
-let doubled = Memo(rt, () => x.get() * 2)
+let x = Input(rt, 10)
+let doubled = Derived(rt, () => x.get() * 2)
 
 rt.batch(() => {
   x.set(20)
-  // doubled.get() still returns 20, not 40!
+  // doubled.read_or_abort() still returns 20, not 40!
   // Batch provides transactional isolation
 })
 
-// After batch, doubled.get() returns 40
+// After batch, doubled.read_or_abort() returns 40
 ```
 
 ---
@@ -865,18 +842,18 @@ Keep compute functions focused:
 
 ```moonbit
 // Bad: Monolithic computation
-let result = Memo(rt, () => {
+let result = Derived(rt, () => {
   let a = step1(input.get())
   let b = step2(a)
   let c = step3(b)
   step4(c)
 })
 
-// Better: Composable memos
-let step1_result = Memo(rt, () => step1(input.get()))
-let step2_result = Memo(rt, () => step2(step1_result.get()))
-let step3_result = Memo(rt, () => step3(step2_result.get()))
-let final_result = Memo(rt, () => step4(step3_result.get()))
+// Better: Composable derived values
+let step1_result = Derived(rt, () => step1(input.get()))
+let step2_result = Derived(rt, () => step2(step1_result.get_or_abort()))
+let step3_result = Derived(rt, () => step3(step2_result.get_or_abort()))
+let final_result = Derived(rt, () => step4(step3_result.get_or_abort()))
 ```
 
 Benefits:
@@ -893,23 +870,21 @@ Handle potential cycles with fallback values instead of aborting:
 ```moonbit
 let rt = Runtime()
 
-// Self-referential memo that handles cycles gracefully
-let memo_ref : Ref[Memo[Int]?] = { val: None }
-let memo = Memo(rt, () => {
-  match memo_ref.val {
-    Some(m) =>
-      match m.get_result() {
+// Self-referential derived value that handles cycles gracefully
+let derived_ref : Ref[Derived[Int]?] = { val: None }
+let derived = Derived(rt, () => {
+  match derived_ref.val {
+    Some(d) =>
+      match d.get() {
         Ok(v) => v + 1
         Err(CycleDetected(_, _, _)) => 0  // Base case on cycle
       }
     None => 0
   }
 })
-memo_ref.val = Some(memo)
-let memo_reader = memo.observe()
+derived_ref.val = Some(derived)
 
-inspect(memo_reader.get(), content="0")  // Returns fallback, doesn't abort
-memo_reader.dispose()
+inspect(derived.read_or_abort(), content="0")  // Returns fallback, doesn't abort
 ```
 
 ### Use Cases
@@ -920,13 +895,17 @@ memo_reader.dispose()
 
 ### Important Notes
 
-1. **Handle errors inside compute**: If the `Err` propagates out of the compute function, the outer `get()` will still abort
-2. **No spurious dependencies**: Failed `get_result()` calls don't record dependencies, so subsequent accesses work correctly
+1. **Handle errors inside compute**: If the `Err` propagates out of the compute function, the outer `read_or_abort()` will still abort
+2. **No spurious dependencies**: Failed `get()` calls don't record dependencies, so subsequent accesses work correctly
 3. **State consistency**: The runtime remains usable after cycle errors
 
 ---
 
 ## Debugging
+
+Target facades are intentionally small. When you need low-level cell IDs,
+dependency lists, revisions, or changed-at timestamps, use the compatibility
+`Signal` / `Memo` handles shown in these introspection recipes.
 
 ### Why Did This Memo Recompute?
 
@@ -1090,12 +1069,12 @@ This helps identify:
 
 ## Debugging Tips
 
-### Check if a Memo Recomputed
+### Check if a Derived Value Recomputed
 
 Add logging inside compute functions during development:
 
 ```moonbit
-let expensive = Memo(rt, () => {
+let expensive = Derived(rt, () => {
   println("Computing expensive...")
   heavy_computation(input.get())
 })
@@ -1103,30 +1082,26 @@ let expensive = Memo(rt, () => {
 
 ### Verify Durability Shortcuts
 
-High-durability memos should not log when only low-durability inputs change:
+High-durability derived values should not log when only low-durability inputs change:
 
 ```moonbit
-let config = Signal(rt, 100, durability=High)
-let data = Signal(rt, 1)
+let config = Input(rt, 100, durability=High)
+let data = Input(rt, 1)
 
-let config_derived = Memo(rt, () => {
+let config_derived = Derived(rt, () => {
   println("Config derived computing...")  // Should not print when data changes
   config.get() * 2
 })
 
-let data_derived = Memo(rt, () => {
+let data_derived = Derived(rt, () => {
   println("Data derived computing...")
   data.get() * 2
 })
-let config_reader = config_derived.observe()
-let data_reader = data_derived.observe()
 
-config_reader.get()
-data_reader.get()
+config_derived.read_or_abort()
+data_derived.read_or_abort()
 
 data.set(2)  // Only data_derived should recompute
-data_reader.get()
-config_reader.get()
-data_reader.dispose()
-config_reader.dispose()
+data_derived.read_or_abort()
+config_derived.read_or_abort()
 ```
