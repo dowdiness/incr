@@ -38,6 +38,7 @@ pub(all) struct Derived[T] {
 pub fn[T : Eq] Derived::Derived(Runtime, () -> T raise Failure, label? : String) -> Self[T]
 pub fn[T] Derived::get(Self[T]) -> Result[T, @types.CycleError]
 pub fn[T] Derived::get_or_abort(Self[T]) -> T
+pub fn[T] Derived::is_fresh(Self[T]) -> Bool
 pub fn[T] Derived::read(Self[T]) -> Result[T, @types.CycleError]
 pub fn[T] Derived::read_or_abort(Self[T]) -> T
 pub fn[T] Derived::watch(Self[T]) -> Watch[T]
@@ -104,8 +105,26 @@ pub(all) struct Input[T] {
 pub fn[T] Input::Input(Runtime, T, durability? : @types.Durability, label? : String) -> Self[T]
 pub fn[T] Input::force_set(Self[T], T) -> Unit
 pub fn[T] Input::get(Self[T]) -> T
+pub fn[T] Input::is_fresh(Self[T]) -> Bool
 pub fn[T] Input::peek(Self[T]) -> T
 pub fn[T : Eq] Input::set(Self[T], T) -> Unit
+
+pub(all) struct InputField[T] {
+  // private fields
+}
+pub fn[T] InputField::InputField(Runtime, T, durability? : @types.Durability, label? : String) -> Self[T]
+pub fn[T] InputField::as_tracked_cell(Self[T]) -> TrackedCell[T]
+pub fn[T] InputField::clear_on_change(Self[T]) -> Unit
+pub fn[T] InputField::dispose(Self[T]) -> Unit
+pub fn[T] InputField::durability(Self[T]) -> @types.Durability
+pub fn[T] InputField::force_set(Self[T], T) -> Unit
+pub fn[T] InputField::get(Self[T]) -> T
+pub fn[T] InputField::id(Self[T]) -> @types.CellId
+pub fn[T] InputField::is_disposed(Self[T]) -> Bool
+pub fn[T] InputField::is_fresh(Self[T]) -> Bool
+pub fn[T] InputField::on_change(Self[T], (T) -> Unit) -> Unit
+pub fn[T] InputField::peek(Self[T]) -> T
+pub fn[T : Eq] InputField::set(Self[T], T) -> Unit
 
 pub(all) struct Memo[T] {
   // private fields
@@ -187,6 +206,7 @@ pub(all) struct ReachableDerived[T] {
 pub fn[T : Eq] ReachableDerived::ReachableDerived(Runtime, () -> T raise Failure, label? : String) -> Self[T]
 pub fn[T : Eq] ReachableDerived::get(Self[T]) -> Result[T, @types.CycleError]
 pub fn[T : Eq] ReachableDerived::get_or_abort(Self[T]) -> T
+pub fn[T] ReachableDerived::is_fresh(Self[T]) -> Bool
 pub fn[T : Eq] ReachableDerived::read(Self[T]) -> Result[T, @types.CycleError]
 pub fn[T : Eq] ReachableDerived::read_or_abort(Self[T]) -> T
 pub fn[T : Eq] ReachableDerived::watch(Self[T]) -> Watch[T]
@@ -253,6 +273,7 @@ pub fn[T : Eq] Scope::eager_derived(Self, () -> T) -> EagerDerived[T]
 pub fn Scope::effect(Self, () -> Unit) -> Effect
 pub fn[T : Eq] Scope::hybrid_memo(Self, () -> T raise Failure, label? : String) -> HybridMemo[T]
 pub fn[T] Scope::input(Self, T, durability? : @types.Durability, label? : String) -> Input[T]
+pub fn[T] Scope::input_field(Self, T, durability? : @types.Durability, label? : String) -> InputField[T]
 pub fn Scope::is_disposed(Self) -> Bool
 pub fn[T : Eq] Scope::memo(Self, () -> T raise Failure, label? : String) -> Memo[T]
 pub fn Scope::new(Runtime) -> Self
@@ -309,4 +330,3 @@ pub fn[T] Watch::read_or_abort(Self[T]) -> T
 // Type aliases
 
 // Traits
-

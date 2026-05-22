@@ -11,6 +11,8 @@ pub const DURABILITY_COUNT : Int = 3
 
 pub const MAX_CYCLE_DISPLAY_STEPS : Int = 20
 
+pub fn[T : InputFieldOwner] add_input_fields(@cells.Scope, T) -> Unit
+
 pub fn[T : Trackable] add_tracked(@cells.Scope, T) -> Unit
 
 pub fn[Db : Database] batch(Db, () -> Unit raise?) -> Unit raise?
@@ -28,6 +30,8 @@ pub fn[Ctx : RuntimeContext, T : Eq] create_eager_derived(Ctx, () -> T) -> @cell
 pub fn[Db : Database, T : Eq] create_hybrid_memo(Db, () -> T raise Failure, label? : String) -> @cells.HybridMemo[T]
 
 pub fn[Ctx : RuntimeContext, T] create_input(Ctx, T, durability? : @types.Durability, label? : String) -> @cells.Input[T]
+
+pub fn[Ctx : RuntimeContext, T] create_input_field(Ctx, T, durability? : @types.Durability, label? : String) -> @cells.InputField[T]
 
 pub fn[Db : Database, T : Eq] create_memo(Db, () -> T raise Failure, label? : String) -> @cells.Memo[T]
 
@@ -78,6 +82,8 @@ pub using @types {type GcRole}
 pub using @cells {type HybridMemo}
 
 pub using @cells {type Input}
+
+pub using @cells {type InputField}
 
 pub using @types {type InternId}
 
@@ -134,6 +140,18 @@ pub(open) trait Database {
   runtime(Self) -> @cells.Runtime
 }
 
+pub(open) trait Freshness {
+  is_fresh(Self) -> Bool
+}
+pub impl[T] Freshness for @cells.Derived[T]
+pub impl[T] Freshness for @cells.Input[T]
+pub impl[T] Freshness for @cells.InputField[T]
+pub impl[T] Freshness for @cells.ReachableDerived[T]
+
+pub(open) trait InputFieldOwner {
+  cell_ids(Self) -> Array[@types.CellId]
+}
+
 pub(open) trait Readable {
   is_up_to_date(Self) -> Bool
 }
@@ -149,4 +167,3 @@ pub(open) trait RuntimeContext {
 pub(open) trait Trackable {
   cell_ids(Self) -> Array[@types.CellId]
 }
-

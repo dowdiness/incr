@@ -26,6 +26,7 @@ pub using @internal {
   type CellInfo,
   type Signal,
   type Input,
+  type InputField,
   type Memo,
   type Derived,
   type MemoEnteringEvent,

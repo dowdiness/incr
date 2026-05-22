@@ -122,6 +122,22 @@ pub fn[T] Scope::input(
 }
 
 ///|
+/// Creates an input-field facade owned by this scope.
+pub fn[T] Scope::input_field(
+  self : Scope,
+  initial : T,
+  durability? : Durability = Low,
+  label? : String,
+) -> InputField[T] {
+  guard !self.disposed else {
+    abort("Scope::input_field called on a disposed scope")
+  }
+  let field = InputField(self.runtime, initial, durability~, label?)
+  self.cells.push(field.inner.id())
+  field
+}
+
+///|
 /// Creates a memo owned by this scope.
 pub fn[T : Eq] Scope::memo(
   self : Scope,
