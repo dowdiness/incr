@@ -56,8 +56,8 @@ High-level future direction for the `incr` library, organized by phase. Each pha
   - `Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `EagerDerived`, `Watch`, and `MapRelation`
   - Compatibility handles (`Signal`, `Memo`, `HybridMemo`, `MemoMap`, `TrackedCell`, `Reactive`, `Observer`, `FunctionalRelation`) remain source-compatible during migration
 - ~~**Target read semantics**: Make target derived reads explicit about context and failure~~ ✓ Implemented
-  - Strict graph reads are guarded and return cycle `Result`s: `get()` / `get_or_abort()`
-  - Permissive outside-graph reads return cycle `Result`s: `read()` / `read_or_abort()`
+  - Strict graph reads are guarded and return cycle `Result`s via `get()`; `get_or_abort()` aborts on invalid context or cycle
+  - Permissive outside-graph reads return cycle `Result`s via `read()`; `read_or_abort()` aborts on cycle
 - ~~**Target context and lifecycle helpers**~~ ✓ Implemented
   - `RuntimeContext`, `Freshness`, `InputFieldOwner`
   - `create_input`, `create_derived`, `create_reachable_derived`, `create_eager_derived`, `create_derived_map`, and `add_input_fields`
