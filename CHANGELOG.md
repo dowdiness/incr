@@ -4,6 +4,10 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Added target facade handles `Input`, `Derived`, `ReachableDerived`, `EagerDerived`, and `DerivedMap` with constructor syntax and direct read methods. Compatibility handles and `Runtime::read*` remain unchanged in this slice.
+
 ### Changed
 
 - Internal package-private read helpers on `Memo`, `HybridMemo`, and `Reactive` were renamed from `get_untracked` to `read_permissive` to clarify that they bypass the strict tracked-context guard but may still record a dependency when called with an active tracking frame. Deprecated package-private aliases keep the old names available during migration. No public API change.
