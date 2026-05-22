@@ -398,7 +398,12 @@ Returns whether this derived value is verified at the current revision.
 
 ### `Memo::accumulated[T, A](self, acc: Accumulator[A]) -> Array[A] raise Failure`
 
-Returns the values this memo pushed into `acc` during its most recent compute, in push order, and **records a synthetic dependency** so the caller reinvalidates when the push set changes — even when the memo's ordinary return value is unchanged. Forces verification of the target memo first, so stale results are never returned.
+Returns the values this memo pushed into `acc` during its most recent compute,
+in push order. When called from a `Memo` or `HybridMemo` compute frame, it
+records a synthetic dependency so that caller reinvalidates when the push set
+changes — even when the memo's ordinary return value is unchanged. Outside a
+memo compute, it returns data without registering a dependency. Forces
+verification of the target memo first, so stale results are never returned.
 
 Raises `Failure` on: disposed accumulator, cross-runtime accumulator, disposed target memo, a cycle involving the target, or a `Failure` raised inside the target's compute.
 
@@ -530,7 +535,11 @@ Returns whether this reachable derived value is verified at the current revision
 
 Side-channel collector: compatibility memos push values during their compute, downstream readers pull them back with correct incremental invalidation. Use when a producer's ordinary return value (e.g. a `TypeResult`) is semantically distinct from log-like data it emits along the way (diagnostics, trace events, decorations).
 
-Consumers reading via `Memo::accumulated` are invalidated whenever a producing compatibility memo recomputes and its push set differs from the previous run — even when the producer's return value is structurally equal. See the ADR: [Accumulator API](decisions/2026-04-20-accumulator-api.md).
+Consumers that call `Memo::accumulated` from a `Memo` or `HybridMemo` compute
+are invalidated whenever a producing compatibility memo recomputes and its push
+set differs from the previous run — even when the producer's return value is
+structurally equal. Driver/debug reads outside a memo compute do not register
+that synthetic dependency. See the ADR: [Accumulator API](decisions/2026-04-20-accumulator-api.md).
 
 **Local-only semantics.** `memo.accumulated(acc)` returns only the values `memo` itself pushed — not its dependencies. Transitive aggregation is the driver's job (see the [Scope-owned accumulator](cookbook.md#pattern-scope-owned-accumulator-lifecycle) cookbook pattern).
 
@@ -1243,7 +1252,7 @@ The backdate decision — whether a recomputed value counts as "changed" — is 
 | `Memo::new_memo` | `T : BackdateEq` | `a.backdate_equal(b)` (revision comparison by default; override for custom logic) |
 | `Memo::new_no_backdate` | none | always `false` — never backdates |
 
-Read methods have **no** trait constraint; the equality decision is baked into the closure at construction.
+Compatibility `Memo` read methods have **no additional** trait constraint; the equality decision is baked into the closure at construction. Target facade read constraints are listed below.
 
 Use `BackdateEq` through the compatibility `Memo::new_memo` constructor when structural `Eq` is too expensive (e.g. comparing large collections) and you can instead embed a `Revision` in the value that tracks when its content last changed. Use `Memo::new_no_backdate` when downstream derived values always need to recompute, or when `T` has no `Eq` instance.
 
