@@ -50,6 +50,21 @@ High-level future direction for the `incr` library, organized by phase. Each pha
   - `Memo::get_or(fallback : T) -> T`, `Memo::get_or_else(fallback : (CycleError) -> T) -> T`
   - `MemoMap::get_or`, `MemoMap::get_or_else` with identical semantics
 
+### Phase 2E: Target API Facade Migration ✓
+
+- ~~**Target handle names**: Add target facades while keeping compatibility names available~~ ✓ Implemented
+  - `Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `EagerDerived`, `Watch`, and `MapRelation`
+  - Compatibility handles (`Signal`, `Memo`, `HybridMemo`, `MemoMap`, `TrackedCell`, `Reactive`, `Observer`, `FunctionalRelation`) remain source-compatible during migration
+- ~~**Target read semantics**: Make target derived reads explicit about context and failure~~ ✓ Implemented
+  - Strict graph reads are guarded and return cycle `Result`s: `get()` / `get_or_abort()`
+  - Permissive outside-graph reads return cycle `Result`s: `read()` / `read_or_abort()`
+- ~~**Target context and lifecycle helpers**~~ ✓ Implemented
+  - `RuntimeContext`, `Freshness`, `InputFieldOwner`
+  - `create_input`, `create_derived`, `create_reachable_derived`, `create_eager_derived`, `create_derived_map`, and `add_input_fields`
+- **Docs/examples migration**: In progress
+  - README, getting-started, concepts, API reference, cookbook, and architecture docs are target-first where target facades already cover the behavior
+  - Accumulator and low-level introspection recipes still document compatibility handles where target facades do not expose equivalent APIs
+
 ## Phase 3 — Performance
 
 - ~~**HashSet-based dependency deduplication**: Replace linear scan in `ActiveQuery::record` with a `HashSet` for O(1) dedup~~ ✓ Implemented
