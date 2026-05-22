@@ -44,6 +44,7 @@ pub using @internal {
   type Effect,
   type Scope,
   type Observer,
+  type Watch,
   type Accumulator,
 }
 
@@ -51,6 +52,5 @@ pub using @internal {
 // internal/ to enable pub using to work for external consumers who import
 // dowdiness/incr). The alias name @internal is preserved for source compat.
 
-// Traits and helper functions (Database, Readable, Trackable, create_signal,
-// create_memo, create_memo_map, create_tracked_cell, batch, gc_tracked) are
-// defined in traits.mbt and are part of this package's public API.
+// Traits and helper functions are defined in traits.mbt and are part of this
+// package's public API.

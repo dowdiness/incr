@@ -25,6 +25,15 @@ pub(open) trait Database {
 }
 
 ///|
+/// A lightweight provider for target-facade constructors.
+///
+/// `RuntimeContext` intentionally mirrors `Database::runtime` without changing
+/// the existing `Database` trait or its compatibility helper surface.
+pub(open) trait RuntimeContext {
+  runtime(Self) -> Runtime
+}
+
+///|
 /// A readable incremental node (Signal or Memo).
 ///
 /// This trait provides a common interface for checking whether
@@ -127,6 +136,56 @@ pub fn[Db : Database, K : Hash + Eq, V] create_memo_map(
   label? : String,
 ) -> MemoMap[K, V] {
   MemoMap(db.runtime(), f, label?)
+}
+
+///|
+/// Creates a target-name input facade using the context runtime.
+pub fn[Ctx : RuntimeContext, T] create_input(
+  ctx : Ctx,
+  value : T,
+  durability? : Durability = Low,
+  label? : String,
+) -> Input[T] {
+  Input(ctx.runtime(), value, durability~, label?)
+}
+
+///|
+/// Creates a target-name lazy derived facade using the context runtime.
+pub fn[Ctx : RuntimeContext, T : Eq] create_derived(
+  ctx : Ctx,
+  f : () -> T raise Failure,
+  label? : String,
+) -> Derived[T] {
+  Derived(ctx.runtime(), f, label?)
+}
+
+///|
+/// Creates a target-name reachable lazy derived facade using the context runtime.
+pub fn[Ctx : RuntimeContext, T : Eq] create_reachable_derived(
+  ctx : Ctx,
+  f : () -> T raise Failure,
+  label? : String,
+) -> ReachableDerived[T] {
+  ReachableDerived(ctx.runtime(), f, label?)
+}
+
+///|
+/// Creates a target-name eager derived facade using the context runtime.
+pub fn[Ctx : RuntimeContext, T : Eq] create_eager_derived(
+  ctx : Ctx,
+  compute : () -> T,
+) -> EagerDerived[T] {
+  EagerDerived(ctx.runtime(), compute)
+}
+
+///|
+/// Creates a target-name keyed derived facade using the context runtime.
+pub fn[Ctx : RuntimeContext, K : Hash + Eq, V] create_derived_map(
+  ctx : Ctx,
+  f : (K) -> V raise Failure,
+  label? : String,
+) -> DerivedMap[K, V] {
+  DerivedMap(ctx.runtime(), f, label?)
 }
 
 ///|
@@ -294,7 +353,7 @@ pub fn[Db : Database] create_scope(db : Db) -> Scope {
 /// to register all of a struct's TrackedCells with a scope for bulk disposal.
 ///
 /// This function is a no-op and will be removed in a future version.
-#deprecated("Use `add_tracked(scope, tracked)` instead — `gc_tracked` is a no-op kept for source compatibility")
+#deprecated("Use `add_tracked(scope, tracked)` instead — `gc_tracked` is a no-op kept for source compatibility", skip_current_package=true)
 pub fn[T : Trackable] gc_tracked(rt : Runtime, tracked : T) -> Unit {
   // Deprecated no-op — use add_tracked(scope, tracked) instead.
   let _ = tracked.cell_ids()

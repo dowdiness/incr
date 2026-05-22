@@ -78,12 +78,12 @@ pub fn[T : Eq] Reactive::new(rt : Runtime, compute_fn : () -> T) -> Reactive[T] 
 /// Returns the current cached value of the reactive cell.
 ///
 /// Must be called inside a tracked context (a memo or reactive compute function).
-/// Outside a compute function, use `rt.read_reactive(reactive)` or
-/// `reactive.observe()`.
+/// Outside a compute function, use the target facade `EagerDerived::read()` or
+/// `EagerDerived::watch()`.
 pub fn[T] Reactive::get(self : Reactive[T]) -> T {
   guard self.rt.core.tracking.stack.length() > 0 else {
     abort(
-      "Reactive::get() called outside tracked context. Use rt.read_reactive(reactive) or reactive.observe() to read from outside the graph.",
+      "Reactive::get() called outside tracked context. Use EagerDerived::read() or EagerDerived::watch() to read from outside the graph.",
     )
   }
   self.read_permissive()

@@ -19,11 +19,21 @@ pub fn[Db : Database] batch_result(Db, () -> Unit raise?) -> Result[Unit, Error]
 
 pub fn[Db : Database, T : Eq] create_accumulator(Db, label? : String) -> @cells.Accumulator[T]
 
+pub fn[Ctx : RuntimeContext, T : Eq] create_derived(Ctx, () -> T raise Failure, label? : String) -> @cells.Derived[T]
+
+pub fn[Ctx : RuntimeContext, K : Hash + Eq, V] create_derived_map(Ctx, (K) -> V raise Failure, label? : String) -> @cells.DerivedMap[K, V]
+
+pub fn[Ctx : RuntimeContext, T : Eq] create_eager_derived(Ctx, () -> T) -> @cells.EagerDerived[T]
+
 pub fn[Db : Database, T : Eq] create_hybrid_memo(Db, () -> T raise Failure, label? : String) -> @cells.HybridMemo[T]
+
+pub fn[Ctx : RuntimeContext, T] create_input(Ctx, T, durability? : @types.Durability, label? : String) -> @cells.Input[T]
 
 pub fn[Db : Database, T : Eq] create_memo(Db, () -> T raise Failure, label? : String) -> @cells.Memo[T]
 
 pub fn[Db : Database, K : Hash + Eq, V] create_memo_map(Db, (K) -> V raise Failure, label? : String) -> @cells.MemoMap[K, V]
+
+pub fn[Ctx : RuntimeContext, T : Eq] create_reachable_derived(Ctx, () -> T raise Failure, label? : String) -> @cells.ReachableDerived[T]
 
 pub fn[Db : Database] create_scope(Db) -> @cells.Scope
 
@@ -113,6 +123,8 @@ pub using @types {type SignalId}
 
 pub using @cells {type TrackedCell}
 
+pub using @cells {type Watch}
+
 pub using @types {trait BackdateEq}
 
 pub using @types {trait HasChangedAt}
@@ -129,6 +141,10 @@ pub impl[T] Readable for @cells.HybridMemo[T]
 pub impl[T] Readable for @cells.Memo[T]
 pub impl[T] Readable for @cells.Signal[T]
 pub impl[T] Readable for @cells.TrackedCell[T]
+
+pub(open) trait RuntimeContext {
+  runtime(Self) -> @cells.Runtime
+}
 
 pub(open) trait Trackable {
   cell_ids(Self) -> Array[@types.CellId]
