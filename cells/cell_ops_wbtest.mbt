@@ -58,7 +58,7 @@ test "cell_ops: memo dep_changed_since returns None" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 1)
   let m = Memo::Memo(rt, () => sig.get())
-  let _ = rt.read(m)
+  let _ = read_memo_for_test(m)
   let ops = rt.core.cell_ops[m.id().id]
   // Memo-like cells return None (requires deep verification)
   debug_inspect(ops.dep_changed_since(Revision::initial()), content="None")
@@ -100,7 +100,7 @@ test "cell_ops: hybrid memo dep_changed_since returns None" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 1)
   let hm = HybridMemo::HybridMemo(rt, () => sig.get())
-  let _ = rt.read_hybrid(hm)
+  let _ = read_hybrid_for_test(hm)
   let ops = rt.core.cell_ops[hm.id().id]
   // Hybrid memo-like cells return None (requires deep verification)
   debug_inspect(ops.dep_changed_since(Revision::initial()), content="None")
@@ -172,7 +172,7 @@ test "gc_dependencies: memo returns its dependencies" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 10)
   let m = Memo::Memo(rt, fn() { sig.get() })
-  let _ = rt.read(m)
+  let _ = read_memo_for_test(m)
   let ops = rt.core.cell_ops[m.id().id]
   let deps = ops.gc_dependencies()
   inspect(deps.length(), content="1")
@@ -199,7 +199,7 @@ test "cell_lifecycle: dispose_cell dispatches via lifecycle array for memo" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 10)
   let m = Memo::Memo(rt, fn() { sig.get() })
-  let _ = rt.read(m)
+  let _ = read_memo_for_test(m)
   // Verify lifecycle array is populated
   inspect(rt.cell_lifecycle.length(), content="2")
   // Dispose via dispose_cell (uses cell_lifecycle dispatch)

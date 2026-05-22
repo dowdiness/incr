@@ -22,9 +22,9 @@ test "memo read primitive: get_strict_result records dependency in tracked conte
     }
   })
 
-  inspect(rt.read(view), content="21")
+  inspect(read_memo_for_test(view), content="21")
   source.set(11)
-  inspect(rt.read(view), content="23")
+  inspect(read_memo_for_test(view), content="23")
 }
 
 ///|
@@ -76,9 +76,9 @@ test "hybrid read primitive: get_strict_result records dependency in tracked con
     }
   })
 
-  inspect(rt.read(view), content="21")
+  inspect(read_memo_for_test(view), content="21")
   source.set(11)
-  inspect(rt.read(view), content="23")
+  inspect(read_memo_for_test(view), content="23")
 }
 
 ///|
@@ -128,9 +128,9 @@ test "memo_map read primitive: get_strict_result records dependency in tracked c
     }
   })
 
-  inspect(rt.read(view), content="22")
+  inspect(read_memo_for_test(view), content="22")
   source.set(20)
-  inspect(rt.read(view), content="42")
+  inspect(read_memo_for_test(view), content="42")
 }
 
 ///|

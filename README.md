@@ -34,7 +34,7 @@ The library has no runtime dependencies beyond `moonbitlang/core`.
 ## Quick Start
 
 ```moonbit nocheck
-// Recommended: Database pattern (encapsulates Runtime)
+// Recommended: RuntimeContext pattern (encapsulates Runtime)
 struct MyApp {
   rt : Runtime
 }
@@ -43,27 +43,27 @@ fn MyApp::MyApp() -> MyApp {
   { rt: Runtime::new() }
 }
 
-impl Database for MyApp with runtime(self) { self.rt }
+impl RuntimeContext for MyApp with runtime(self) { self.rt }
 
 let app = MyApp()
 
-// Create input signals
-let x = create_signal(app, 10)
-let y = create_signal(app, 20)
+// Create inputs
+let x = create_input(app, 10)
+let y = create_input(app, 20)
 
 // Create derived computations
-let sum = create_memo(app, () => x.get() + y.get())
+let sum = create_derived(app, () => x.get() + y.get())
 
-// `.get()` is only legal inside a memo's compute. Outside the graph
-// (top-level code, tests, event handlers) read with `rt.read(memo)`.
-inspect(app.runtime().read(sum), content="30")
+// `.get()` is only legal inside another derived computation.
+// Outside the graph, use `read_or_abort()` or `read()`.
+inspect(sum.read_or_abort(), content="30")
 
 // Update an input — downstream memos recompute on the next read
 x.set(5)
-inspect(app.runtime().read(sum), content="25")
+inspect(sum.read_or_abort(), content="25")
 ```
 
-For simple scripts, `Runtime` can also be used directly (`Signal::new(rt, ...)`, `Memo::new(rt, ...)`). Both styles are fully supported — see [Getting Started](docs/getting-started.md).
+For simple scripts, `Runtime` can also be used directly (`Input(rt, ...)`, `Derived(rt, ...)`). Both styles are fully supported — see [Getting Started](docs/getting-started.md).
 
 > **Note on the example above:** It is `nocheck` because it embeds top-level statements alongside type declarations, which `moon check` does not run as a script. The same construction is exercised end-to-end by [`tests/quickstart_test.mbt`](tests/quickstart_test.mbt) — if you edit the example, update that test in lockstep.
 

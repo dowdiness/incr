@@ -3,7 +3,7 @@ test "subscriber: dependents accessible via public API" {
   let rt = Runtime::Runtime()
   let x = Signal::Signal(rt, 10)
   let doubled = Memo::Memo(rt, () => x.get() * 2)
-  let _ = rt.read(doubled)
+  let _ = read_memo_for_test(doubled)
   let deps = rt.dependents(x.id())
   inspect(deps.length(), content="1")
   inspect(deps.contains(doubled.id()), content="true")
@@ -15,7 +15,7 @@ test "subscriber: chain dependencies tracked" {
   let a = Signal::Signal(rt, 1)
   let b = Memo::Memo(rt, () => a.get() + 1)
   let c = Memo::Memo(rt, () => b.get() * 2)
-  let _ = rt.read(c)
+  let _ = read_memo_for_test(c)
   // a -> b -> c
   let a_deps = rt.dependents(a.id())
   inspect(a_deps.length(), content="1")
@@ -34,12 +34,12 @@ test "subscriber: dynamic deps update dependents via public API" {
   let a = Signal::Signal(rt, 10)
   let b = Signal::Signal(rt, 20)
   let pick = Memo::Memo(rt, () => if flag.get() { a.get() } else { b.get() })
-  let _ = rt.read(pick) // deps: flag, a
+  let _ = read_memo_for_test(pick) // deps: flag, a
   inspect(rt.dependents(a.id()).contains(pick.id()), content="true")
   inspect(rt.dependents(b.id()).contains(pick.id()), content="false")
   // Switch branch: deps become flag, b
   flag.set(false)
-  let _ = rt.read(pick)
+  let _ = read_memo_for_test(pick)
   inspect(rt.dependents(a.id()).contains(pick.id()), content="false")
   inspect(rt.dependents(b.id()).contains(pick.id()), content="true")
   // flag always has pick as a dependent

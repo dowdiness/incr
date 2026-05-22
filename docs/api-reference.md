@@ -109,7 +109,7 @@ rt.clear_on_change()
 
 ### `Runtime::read[T](self, memo: Memo[T]) -> T`
 
-Legacy compatibility helper for reading a memo from **outside** a tracked
+Deprecated legacy compatibility helper for reading a memo from **outside** a tracked
 compute. It observes once, reads the value, and disposes the observer in one
 call. New target-facade code should prefer `Derived::read()`,
 `Derived::read_or_abort()`, or `Derived::watch()`. Aborts if the memo has been
@@ -121,14 +121,14 @@ let value = rt.read(my_memo)
 
 ### `Runtime::read_hybrid[T : Eq](self, memo: HybridMemo[T]) -> T`
 
-Legacy one-shot observe for `HybridMemo[T]`. New target-facade code should
+Deprecated legacy one-shot observe for `HybridMemo[T]`. New target-facade code should
 prefer `ReachableDerived::read()`, `ReachableDerived::read_or_abort()`, or
 `ReachableDerived::watch()`.
 
 ### `Runtime::read_reactive[T](self, reactive: Reactive[T]) -> T`
 
-Legacy one-shot observe for `Reactive[T]`. New target-facade code should prefer
-`EagerDerived::read()` or `EagerDerived::watch()`.
+Deprecated legacy one-shot observe for `Reactive[T]`. New target-facade code
+should prefer `EagerDerived::read()` or `EagerDerived::watch()`.
 
 ### `Runtime::on_memo_event(self, f: (MemoEvent) -> Unit) -> Unit raise Failure`
 
@@ -369,15 +369,16 @@ Returns cached value, recomputing if stale. **Must be called inside another
 memo's compute** (it records a dependency on `self`). Aborts when called outside
 a tracked context. Target-facade code should use `Derived::read()`,
 `Derived::read_or_abort()`, or `Derived::watch()` from top-level code, tests, or
-event handlers; legacy `Memo` callers can still use `rt.read(memo)` or
-`memo.observe()`. Aborts on cycle and on cross-runtime use.
+event handlers; legacy `Memo` callers can still use `memo.observe()`. Aborts on
+cycle and on cross-runtime use.
 
 ```moonbit nocheck
 // Inside another memo's compute:
 let total = Memo(rt, () => doubled.get() + 1)
 
-// Outside the graph:
-let value = rt.read(doubled)
+// Outside the graph through a target facade:
+let derived = Derived(rt, () => count.get() * 2)
+let value = derived.read_or_abort()
 ```
 
 ### `Memo::get_result(self) -> Result[T, CycleError]`
@@ -530,7 +531,8 @@ Target-facade code should use `ReachableDerived::read()`,
 tracked context.
 
 ```moonbit nocheck
-let value = rt.read_hybrid(h)
+let reachable = ReachableDerived(rt, () => signal.get() * 2)
+let value = reachable.read_or_abort()
 ```
 
 ### `HybridMemo::id(self) -> CellId`
@@ -778,7 +780,9 @@ Returns the list of cells this memo currently depends on. Empty if the memo has 
 ```moonbit
 let x = Signal(rt, 1)
 let doubled = Memo(rt, () => x.get() * 2)
-let _ = rt.read(doubled)
+let observer = doubled.observe()
+let _ = observer.get()
+observer.dispose()
 inspect(doubled.dependencies().contains(x.id()), content="true")
 ```
 
@@ -803,7 +807,9 @@ Returns an empty array if the cell ID is invalid, out of bounds, or belongs to a
 let rt = Runtime()
 let x = Signal(rt, 10)
 let doubled = Memo(rt, () => x.get() * 2)
-let _ = rt.read(doubled)
+let observer = doubled.observe()
+let _ = observer.get()
+observer.dispose()
 let deps = rt.dependents(x.id())
 inspect(deps.contains(doubled.id()), content="true")
 ```

@@ -3,9 +3,9 @@ test "hybrid: basic get and update" {
   let rt = Runtime::Runtime()
   let s = Signal::Signal(rt, 1)
   let h = @incr.HybridMemo::HybridMemo(rt, () => s.get() * 2)
-  inspect(rt.read_hybrid(h), content="2")
+  inspect(read_hybrid_for_test(h), content="2")
   s.set(5)
-  inspect(rt.read_hybrid(h), content="10")
+  inspect(read_hybrid_for_test(h), content="10")
 }
 
 ///|
@@ -13,9 +13,9 @@ test "hybrid: create_hybrid_memo helper" {
   let db = TestDb()
   let s = @incr.create_signal(db, 3)
   let h = @incr.create_hybrid_memo(db, () => s.get() + 1)
-  inspect(db.rt.read_hybrid(h), content="4")
+  inspect(read_hybrid_for_test(h), content="4")
   s.set(10)
-  inspect(db.rt.read_hybrid(h), content="11")
+  inspect(read_hybrid_for_test(h), content="11")
 }
 
 ///|
@@ -32,11 +32,11 @@ test "hybrid: is_up_to_date via Readable" {
   let rt = Runtime::Runtime()
   let s = Signal::Signal(rt, 1)
   let h = @incr.HybridMemo::HybridMemo(rt, () => s.get())
-  let _ = rt.read_hybrid(h)
+  let _ = read_hybrid_for_test(h)
   inspect(h.is_up_to_date(), content="true")
   s.set(2)
   inspect(h.is_up_to_date(), content="false")
-  let _ = rt.read_hybrid(h)
+  let _ = read_hybrid_for_test(h)
   inspect(h.is_up_to_date(), content="true")
 }
 
@@ -51,10 +51,10 @@ test "hybrid: unchanged value does not propagate (backdating)" {
     count = count + 1
     h.get() + 1
   })
-  inspect(rt.read(m), content="1")
+  inspect(read_memo_for_test(m), content="1")
   inspect(count, content="1")
   s.set(4) // h still computes 0 → backdated → m should not recompute
-  inspect(rt.read(m), content="1")
+  inspect(read_memo_for_test(m), content="1")
   inspect(count, content="1") // no recompute
 }
 
@@ -69,10 +69,10 @@ test "hybrid: diamond — signal → two hybrids → memo" {
     count = count + 1
     h1.get() + h2.get()
   })
-  inspect(rt.read(m), content="10") // (3+1) + (3*2) = 4 + 6 = 10
+  inspect(read_memo_for_test(m), content="10") // (3+1) + (3*2) = 4 + 6 = 10
   inspect(count, content="1")
   s.set(5)
-  inspect(rt.read(m), content="16") // (5+1) + (5*2) = 6 + 10 = 16
+  inspect(read_memo_for_test(m), content="16") // (5+1) + (5*2) = 6 + 10 = 16
   inspect(count, content="2")
 }
 
@@ -86,13 +86,13 @@ test "hybrid: batch update — single revision" {
     count = count + 1
     x.get() + y.get()
   })
-  inspect(rt.read_hybrid(h), content="3")
+  inspect(read_hybrid_for_test(h), content="3")
   inspect(count, content="1")
   rt.batch(fn() {
     x.set(10)
     y.set(20)
   })
-  inspect(rt.read_hybrid(h), content="30")
+  inspect(read_hybrid_for_test(h), content="30")
   inspect(count, content="2") // only one recompute despite two signal changes
 }
 
@@ -102,9 +102,9 @@ test "hybrid: chained hybrids" {
   let s = Signal::Signal(rt, 1)
   let h1 = @incr.HybridMemo::HybridMemo(rt, () => s.get() + 1)
   let h2 = @incr.HybridMemo::HybridMemo(rt, () => h1.get() * 10)
-  inspect(rt.read_hybrid(h2), content="20")
+  inspect(read_hybrid_for_test(h2), content="20")
   s.set(2)
-  inspect(rt.read_hybrid(h2), content="30")
+  inspect(read_hybrid_for_test(h2), content="30")
 }
 
 ///|
@@ -117,9 +117,9 @@ test "hybrid: hybrid as dep of memo — pull chain" {
     count = count + 1
     h.get() + 1
   })
-  inspect(rt.read(m), content="3")
+  inspect(read_memo_for_test(m), content="3")
   inspect(count, content="1")
   s.set(3)
-  inspect(rt.read(m), content="7")
+  inspect(read_memo_for_test(m), content="7")
   inspect(count, content="2")
 }

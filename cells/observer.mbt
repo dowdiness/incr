@@ -220,6 +220,7 @@ fn[T] Reactive::watch_result(self : Reactive[T]) -> Watch[T] {
 /// # Panics
 ///
 /// Aborts if the memo has been disposed.
+#deprecated("Use target facade read_or_abort()/watch() methods; Runtime::read is legacy compatibility", skip_current_package=true)
 pub fn[T] Runtime::read(self : Runtime, memo : Memo[T]) -> T {
   let obs = memo.observe()
   let val = (obs.getter)()
@@ -232,6 +233,7 @@ pub fn[T] Runtime::read(self : Runtime, memo : Memo[T]) -> T {
 
 ///|
 /// One-shot observe for HybridMemo.
+#deprecated("Use target facade read_or_abort()/watch() methods; Runtime::read_hybrid is legacy compatibility", skip_current_package=true)
 pub fn[T : Eq] Runtime::read_hybrid(self : Runtime, memo : HybridMemo[T]) -> T {
   let obs = memo.observe()
   let val = (obs.getter)()
@@ -244,6 +246,7 @@ pub fn[T : Eq] Runtime::read_hybrid(self : Runtime, memo : HybridMemo[T]) -> T {
 
 ///|
 /// One-shot observe for Reactive.
+#deprecated("Use target facade read()/watch() methods; Runtime::read_reactive is legacy compatibility", skip_current_package=true)
 pub fn[T] Runtime::read_reactive(self : Runtime, reactive : Reactive[T]) -> T {
   let obs = reactive.observe()
   let val = (obs.getter)()

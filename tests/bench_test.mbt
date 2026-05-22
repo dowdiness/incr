@@ -39,8 +39,8 @@ test "memo: get warm (up-to-date, no recompute)" (b : @bench.T) {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 42)
   let m = Memo::Memo(rt, () => sig.get() * 2)
-  ignore(rt.read(m)) // prime
-  b.bench(fn() { b.keep(rt.read(m)) })
+  ignore(read_memo_for_test(m)) // prime
+  b.bench(fn() { b.keep(read_memo_for_test(m)) })
 }
 
 ///|
@@ -48,12 +48,12 @@ test "memo: get stale (signal changed, recompute)" (b : @bench.T) {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 0)
   let m = Memo::Memo(rt, () => sig.get() * 2)
-  ignore(rt.read(m)) // prime
+  ignore(read_memo_for_test(m)) // prime
   let mut v = 0
   b.bench(fn() {
     v = v + 1
     sig.set(v)
-    b.keep(rt.read(m))
+    b.keep(read_memo_for_test(m))
   })
 }
 
@@ -69,12 +69,12 @@ test "memo: deep chain get (100 levels, stale)" (b : @bench.T) {
     memos.push(Memo::Memo(rt, () => prev.get() + 1))
   }
   let leaf = memos[depth - 1]
-  ignore(rt.read(leaf)) // prime
+  ignore(read_memo_for_test(leaf)) // prime
   let mut v = 0
   b.bench(fn() {
     v = v + 1
     sig.set(v)
-    b.keep(rt.read(leaf))
+    b.keep(read_memo_for_test(leaf))
   })
 }
 
@@ -89,14 +89,14 @@ test "memo: wide fanout get (1 signal, 50 memos, stale)" (b : @bench.T) {
     memos.push(Memo::Memo(rt, () => sig.get() * multiplier))
   }
   for i = 0; i < width; i = i + 1 {
-    ignore(rt.read(memos[i])) // prime all
+    ignore(read_memo_for_test(memos[i])) // prime all
   }
   let mut v = 0
   b.bench(fn() {
     v = v + 1
     sig.set(v)
     for i = 0; i < width; i = i + 1 {
-      b.keep(rt.read(memos[i]))
+      b.keep(read_memo_for_test(memos[i]))
     }
   })
 }
@@ -133,14 +133,14 @@ test "memo: no-accumulator recompute fanout" (b : @bench.T) {
     memos.push(Memo::Memo(rt, () => sig.get()))
   }
   for i = 0; i < width; i = i + 1 {
-    ignore(rt.read(memos[i])) // prime all
+    ignore(read_memo_for_test(memos[i])) // prime all
   }
   let mut v = 0
   b.bench(fn() {
     v = v + 1
     sig.set(v)
     for i = 0; i < width; i = i + 1 {
-      b.keep(rt.read(memos[i]))
+      b.keep(read_memo_for_test(memos[i]))
     }
   })
 }
@@ -150,8 +150,8 @@ test "hybrid: get warm (up-to-date, no recompute)" (b : @bench.T) {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 42)
   let h = @incr.HybridMemo::HybridMemo(rt, () => sig.get() * 2)
-  ignore(rt.read_hybrid(h)) // prime
-  b.bench(fn() { b.keep(rt.read_hybrid(h)) })
+  ignore(read_hybrid_for_test(h)) // prime
+  b.bench(fn() { b.keep(read_hybrid_for_test(h)) })
 }
 
 ///|
@@ -159,12 +159,12 @@ test "hybrid: get stale (signal changed, recompute)" (b : @bench.T) {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 0)
   let h = @incr.HybridMemo::HybridMemo(rt, () => sig.get() * 2)
-  ignore(rt.read_hybrid(h)) // prime
+  ignore(read_hybrid_for_test(h)) // prime
   let mut v = 0
   b.bench(fn() {
     v = v + 1
     sig.set(v)
-    b.keep(rt.read_hybrid(h))
+    b.keep(read_hybrid_for_test(h))
   })
 }
 
@@ -293,7 +293,7 @@ test "layer1: memo create-dispose cycle (free list)" (b : @bench.T) {
   let sig = Signal::Signal(rt, 0)
   b.bench(fn() {
     let m = Memo::Memo(rt, fn() { sig.get() })
-    ignore(rt.read(m))
+    ignore(read_memo_for_test(m))
     m.dispose()
   })
 }
@@ -376,7 +376,7 @@ test "observer: observe + dispose cycle" (b : @bench.T) {
   let rt = @incr.Runtime::Runtime()
   let sig = @incr.Signal::Signal(rt, 42)
   let m = @incr.Memo::Memo(rt, fn() { sig.get() * 2 })
-  ignore(rt.read(m)) // prime
+  ignore(read_memo_for_test(m)) // prime
   b.bench(fn() {
     let obs = m.observe()
     b.keep(obs.get())
@@ -407,7 +407,7 @@ test "gc: sweep 1k all-dead" (b : @bench.T) {
   let sig = @incr.Signal::Signal(rt, 1)
   for i = 0; i < 1000; i = i + 1 {
     let m = @incr.Memo::Memo(rt, fn() { sig.get() + i })
-    ignore(rt.read(m))
+    ignore(read_memo_for_test(m))
   }
   // First gc disposes all, subsequent gcs are sweeps over Disposed entries
   rt.gc()
@@ -440,8 +440,8 @@ test "runtime: read one-shot" (b : @bench.T) {
   let rt = @incr.Runtime::Runtime()
   let sig = @incr.Signal::Signal(rt, 42)
   let m = @incr.Memo::Memo(rt, fn() { sig.get() * 2 })
-  ignore(rt.read(m)) // prime
-  b.bench(fn() { b.keep(rt.read(m)) })
+  ignore(read_memo_for_test(m)) // prime
+  b.bench(fn() { b.keep(read_memo_for_test(m)) })
 }
 
 ///|

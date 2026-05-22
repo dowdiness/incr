@@ -21,12 +21,12 @@ test "backdating: intermediate memo unchanged stops downstream recompute" {
     }
   })
   // Initial computation
-  inspect(rt.read(downstream), content="even")
+  inspect(read_memo_for_test(downstream), content="even")
   inspect(is_even_count, content="1")
   inspect(downstream_count, content="1")
   // Change input from 4 to 6: is_even still true (backdated)
   input.set(6)
-  inspect(rt.read(downstream), content="even")
+  inspect(read_memo_for_test(downstream), content="even")
   // is_even recomputed (its input changed)
   inspect(is_even_count, content="2")
   // downstream should NOT recompute because is_even's value didn't change (backdated)
@@ -51,10 +51,10 @@ test "backdating: value actually changes propagates" {
       "odd"
     }
   })
-  inspect(rt.read(downstream), content="even")
+  inspect(read_memo_for_test(downstream), content="even")
   // Change input from 4 to 5: is_even changes from true to false
   input.set(5)
-  inspect(rt.read(downstream), content="odd")
+  inspect(read_memo_for_test(downstream), content="odd")
   inspect(is_even_count, content="2")
   inspect(downstream_count, content="2") // downstream DID recompute
 }
@@ -80,12 +80,12 @@ test "backdating: three-level chain with stable middle" {
     doubled_count = doubled_count + 1
     abs_val.get() * 2
   })
-  inspect(rt.read(doubled), content="10")
+  inspect(read_memo_for_test(doubled), content="10")
   inspect(abs_count, content="1")
   inspect(doubled_count, content="1")
   // Change to -5: abs is still 5 (backdated)
   input.set(-5)
-  inspect(rt.read(doubled), content="10")
+  inspect(read_memo_for_test(doubled), content="10")
   inspect(abs_count, content="2") // abs recomputed
   inspect(doubled_count, content="1") // doubled did NOT recompute
 }
@@ -111,19 +111,19 @@ test "backdating: multiple changes, some stable some not" {
     fmt_count = fmt_count + 1
     clamped.get()
   })
-  inspect(rt.read(formatted), content="10")
+  inspect(read_memo_for_test(formatted), content="10")
   // Change within range: value changes, downstream recomputes
   input.set(50)
-  inspect(rt.read(formatted), content="50")
+  inspect(read_memo_for_test(formatted), content="50")
   inspect(clamp_count, content="2")
   inspect(fmt_count, content="2")
   // Change from 200 to 300: both above 100, clamp returns 100 both times
   input.set(200)
-  inspect(rt.read(formatted), content="100")
+  inspect(read_memo_for_test(formatted), content="100")
   inspect(clamp_count, content="3")
   inspect(fmt_count, content="3")
   input.set(300)
-  inspect(rt.read(formatted), content="100")
+  inspect(read_memo_for_test(formatted), content="100")
   inspect(clamp_count, content="4")
   inspect(fmt_count, content="3") // backdated: clamped didn't change
 }

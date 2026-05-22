@@ -129,10 +129,10 @@ test "fixpoint: pull memo depending on relation recomputes after fixpoint" {
   rel.insert(1) |> ignore
   rel.insert(2) |> ignore
   rt.fixpoint()
-  inspect(rt.read(m), content="3")
+  inspect(read_memo_for_test(m), content="3")
   rel.insert(3) |> ignore
   rt.fixpoint()
-  inspect(rt.read(m), content="6")
+  inspect(read_memo_for_test(m), content="6")
 }
 
 ///|
@@ -144,11 +144,11 @@ test "fixpoint: pull memo depending on relation contains recomputes after fixpoi
     compute_count = compute_count + 1
     rel.contains(1)
   })
-  inspect(rt.read(m), content="false")
+  inspect(read_memo_for_test(m), content="false")
   inspect(compute_count, content="1")
   rel.insert(1) |> ignore
   rt.fixpoint()
-  inspect(rt.read(m), content="true")
+  inspect(read_memo_for_test(m), content="true")
   inspect(compute_count, content="2")
 }
 
@@ -158,7 +158,7 @@ test "panic fixpoint: Memo::get() inside rule body aborts" {
   let rel : Relation[Int] = Relation::Relation(rt)
   let m = Memo::Memo(rt, () => rel.iter().fold(init=0, (acc, x) => acc + x))
   // Pre-verify the memo so the fast-path would otherwise return stale data
-  inspect(rt.read(m), content="0")
+  inspect(read_memo_for_test(m), content="0")
   let _ = rt.new_rule([rel.id()], [rel.id()], () => {
     // This must abort — Memo::get() during fixpoint could return stale values
     let _ = m.get()
@@ -174,7 +174,7 @@ test "panic fixpoint: HybridMemo::get() inside rule body aborts" {
   let h = HybridMemo::HybridMemo(rt, () => {
     rel.iter().fold(init=0, (acc, x) => acc + x)
   })
-  inspect(rt.read_hybrid(h), content="0")
+  inspect(read_hybrid_for_test(h), content="0")
   let _ = rt.new_rule([rel.id()], [rel.id()], () => {
     let _ = h.get()
   })
@@ -190,7 +190,7 @@ test "panic relation: iter cross-runtime read aborts inside memo" {
   let memo_a = Memo::Memo(rt_a, () => {
     rel_b.iter().fold(init=0, (acc, x) => acc + x)
   })
-  let _ = rt_a.read(memo_a)
+  let _ = read_memo_for_test(memo_a)
 }
 
 ///|
@@ -199,7 +199,7 @@ test "panic relation: contains cross-runtime read aborts inside memo" {
   let rt_b = Runtime::Runtime()
   let rel_b : Relation[Int] = Relation::Relation(rt_b)
   let memo_a = Memo::Memo(rt_a, () => rel_b.contains(1))
-  let _ = rt_a.read(memo_a)
+  let _ = read_memo_for_test(memo_a)
 }
 
 ///|
@@ -274,9 +274,9 @@ test "fixpoint: push Reactive downstream of Relation recomputes before on_change
   let rel : Relation[Int] = Relation::Relation(rt)
   // Reactive reads the relation's current set; depends on rel's CellId.
   let r = Reactive::new(rt, () => rel.iter().fold(init=0, (acc, x) => acc + x))
-  let _ = rt.read_reactive(r) // establish dependency
+  let _ = read_reactive_for_test(r) // establish dependency
   let mut reactive_val_at_callback = -1
-  rt.set_on_change(fn() { reactive_val_at_callback = rt.read_reactive(r) })
+  rt.set_on_change(fn() { reactive_val_at_callback = read_reactive_for_test(r) })
   rel.insert(7) |> ignore
   rt.fixpoint()
   // The reactive must have been recomputed (via push propagation) before

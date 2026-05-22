@@ -92,10 +92,10 @@ test "on_change with memo and backdating" {
   rt.set_on_change(() => count = count + 1)
   let x = Signal::Signal(rt, 10)
   let parity = Memo::Memo(rt, () => x.get() % 2 == 0)
-  inspect(rt.read(parity), content="true")
+  inspect(read_memo_for_test(parity), content="true")
   x.set(12)
   inspect(count, content="1")
-  inspect(rt.read(parity), content="true")
+  inspect(read_memo_for_test(parity), content="true")
 }
 
 ///|

@@ -49,7 +49,7 @@ test "cycle path: simple two-cell cycle" {
   c_ref.val = Some(c)
 
   // Trigger the cycle
-  let _ = rt.read(b)
+  let _ = read_memo_for_test(b)
 
   match captured_path.val {
     Some(path) => {
@@ -84,7 +84,7 @@ test "cycle path: format_path produces readable output" {
   self_ref.val = Some(m)
 
   // Trigger the cycle
-  let _ = rt.read(m)
+  let _ = read_memo_for_test(m)
 
   // Verify format
   let formatted = captured_formatted.val
@@ -142,7 +142,7 @@ test "cycle path: long cycle is truncated" {
   memos_ref.val = Some(memos)
 
   // Trigger the cycle from the first memo
-  let _ = rt.read(memos[0])
+  let _ = read_memo_for_test(memos[0])
 
   // Should contain truncation message since path will be > 20 cells
   match captured_path.val {
@@ -184,7 +184,7 @@ test "format_path uses label when available" {
   memo_ref.val = Some(memo)
 
   // Trigger the cycle
-  let _ = rt.read(memo)
+  let _ = read_memo_for_test(memo)
   let msg = captured_formatted.val
   inspect(msg.contains("self_ref"), content="true")
 }

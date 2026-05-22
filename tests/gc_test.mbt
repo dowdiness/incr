@@ -21,7 +21,7 @@ test "gc: scope dispose + gc sweeps orphaned interior cells" {
 
   // Create another memo not observed
   let m_orphan = @incr.Memo(rt, fn() { sig.get() + 2 })
-  ignore(rt.read(m_orphan))
+  ignore(read_memo_for_test(m_orphan))
 
   obs.dispose()
   scope.dispose()
@@ -35,7 +35,7 @@ test "gc: Runtime::read does not leak gc roots" {
   let rt = @incr.Runtime()
   let sig = @incr.Signal(rt, 5)
   let m = @incr.Memo(rt, fn() { sig.get() * 3 })
-  let val = rt.read(m)
+  let val = read_memo_for_test(m)
   inspect(val, content="15")
   // After read, no gc roots should remain for m
   rt.gc()

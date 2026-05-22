@@ -3,7 +3,7 @@ test "gc: disposes all unobserved interior cells" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 1)
   let m = Memo::Memo(rt, fn() { sig.get() * 2 })
-  ignore(rt.read(m))
+  ignore(read_memo_for_test(m))
   rt.gc()
   assert_true(m.is_disposed())
   // Source is never collected
@@ -46,7 +46,7 @@ test "gc: disposes unreachable memo in diamond" {
   let m_top = Memo::Memo(rt, fn() { m_used.get() })
   let obs = m_top.observe()
   ignore(obs.get())
-  ignore(rt.read(m_unused)) // compute to establish deps, but not observed
+  ignore(read_memo_for_test(m_unused)) // compute to establish deps, but not observed
   rt.gc()
   assert_false(m_used.is_disposed())
   assert_false(m_top.is_disposed())
@@ -93,7 +93,7 @@ test "gc: idempotent (running twice is safe)" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 1)
   let m = Memo::Memo(rt, fn() { sig.get() })
-  ignore(rt.read(m))
+  ignore(read_memo_for_test(m))
   rt.gc()
   assert_true(m.is_disposed())
   rt.gc() // second gc is a no-op
@@ -105,7 +105,7 @@ test "gc: after manual dispose is safe" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 1)
   let m = Memo::Memo(rt, fn() { sig.get() })
-  ignore(rt.read(m))
+  ignore(read_memo_for_test(m))
   m.dispose()
   rt.gc() // already disposed, gc skips it
   assert_true(m.is_disposed())
@@ -120,7 +120,7 @@ test "gc: diamond keeps shared deps alive" {
   let right = Memo::Memo(rt, fn() { shared.get() + 2 })
   let obs_left = left.observe()
   ignore(obs_left.get())
-  ignore(rt.read(right)) // compute but not observed
+  ignore(read_memo_for_test(right)) // compute but not observed
   rt.gc()
   assert_false(shared.is_disposed()) // reachable from left
   assert_false(left.is_disposed())
@@ -146,7 +146,7 @@ test "panic gc: during active computation aborts" {
     rt.gc()
     sig.get()
   })
-  ignore(rt.read(_m))
+  ignore(read_memo_for_test(_m))
 }
 
 ///|

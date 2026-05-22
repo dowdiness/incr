@@ -13,7 +13,7 @@ test "free list: reactive slot reused after dispose" {
   let rt = Runtime::Runtime()
   let s = Signal::Signal(rt, 1)
   let r = Reactive::new(rt, () => s.get())
-  let _ = rt.read_reactive(r)
+  let _ = read_reactive_for_test(r)
   let r_idx = match rt.core.cell_index[r.id().id] {
     PushReactive(i) => i
     _ => abort("expected PushReactive")
@@ -21,7 +21,7 @@ test "free list: reactive slot reused after dispose" {
   r.dispose()
   inspect(rt.push.free_reactives.length(), content="1")
   let r2 = Reactive::new(rt, () => s.get() + 1)
-  let _ = rt.read_reactive(r2)
+  let _ = read_reactive_for_test(r2)
   let r2_idx = match rt.core.cell_index[r2.id().id] {
     PushReactive(i) => i
     _ => abort("expected PushReactive")
@@ -107,9 +107,9 @@ test "push propagation: signal → memo → reactive chain (pull-memo bridge)" {
   let s = Signal::Signal(rt, 1)
   let m = Memo::Memo(rt, () => s.get() * 10)
   let r = Reactive::new(rt, () => m.get() + 1)
-  debug_inspect(rt.read_reactive(r), content="11") // s=1, m=10, r=11
+  debug_inspect(read_reactive_for_test(r), content="11") // s=1, m=10, r=11
   s.set(3)
-  debug_inspect(rt.read_reactive(r), content="31") // s=3, m=30, r=31
+  debug_inspect(read_reactive_for_test(r), content="31") // s=3, m=30, r=31
 }
 
 ///|
@@ -155,7 +155,7 @@ test "panic reactive: get after dispose aborts" {
   let s = Signal::Signal(rt, 0)
   let r = Reactive::new(rt, () => s.get())
   r.dispose()
-  let _ = rt.read_reactive(r) // disposed reactive → abort
+  let _ = read_reactive_for_test(r) // disposed reactive → abort
 }
 
 ///|
@@ -166,7 +166,7 @@ test "panic reactive: cross-runtime get aborts" {
   let reactive_b = Reactive::new(rt_b, () => s_b.get())
   // memo_a computes on rt_a but reads reactive_b from rt_b → abort
   let memo_a = Memo::Memo(rt_a, () => reactive_b.get())
-  let _ = rt_a.read(memo_a)
+  let _ = read_memo_for_test(memo_a)
 }
 
 // ─── Task 3: push_propagate_from ────────────────────────────────────────────
@@ -176,9 +176,9 @@ test "push propagation: basic reactive chain Signal → Reactive" {
   let rt = Runtime::Runtime()
   let s = Signal::Signal(rt, 1)
   let r = Reactive::new(rt, () => s.get() * 2)
-  let _ = rt.read_reactive(r) // initial: 2
+  let _ = read_reactive_for_test(r) // initial: 2
   s.set(5) // triggers push propagation
-  inspect(rt.read_reactive(r), content="10")
+  inspect(read_reactive_for_test(r), content="10")
 }
 
 ///|
@@ -199,11 +199,11 @@ test "push propagation: glitch prevention in diamond" {
     }
     bv + cv
   })
-  let _ = rt.read_reactive(d) // a=1: b=2, c=10, d=12
+  let _ = read_reactive_for_test(d) // a=1: b=2, c=10, d=12
   a.set(5) // a=5: b=6, c=50, d=56
-  let _ = rt.read_reactive(d)
+  let _ = read_reactive_for_test(d)
   inspect(saw_glitch, content="false")
-  inspect(rt.read_reactive(d), content="56")
+  inspect(read_reactive_for_test(d), content="56")
 }
 
 // ─── Task 4: level helpers + early cutoff ───────────────────────────────────
@@ -214,8 +214,8 @@ test "level: reactive level is source max + 1" {
   let s = Signal::Signal(rt, 1)
   let r1 = Reactive::new(rt, () => s.get())
   let r2 = Reactive::new(rt, () => r1.get() + 1)
-  let _ = rt.read_reactive(r1)
-  let _ = rt.read_reactive(r2)
+  let _ = read_reactive_for_test(r1)
+  let _ = read_reactive_for_test(r2)
   let r1_idx = match rt.core.cell_index[r1.id().id] {
     PushReactive(i) => i
     _ => abort("expected PushReactive")
@@ -255,8 +255,8 @@ test "reactive: get() returns cached value" {
   let rt = Runtime::Runtime()
   let s = Signal::Signal(rt, 10)
   let r = Reactive::new(rt, () => s.get() * 3)
-  inspect(rt.read_reactive(r), content="30")
-  inspect(rt.read_reactive(r), content="30") // cached
+  inspect(read_reactive_for_test(r), content="30")
+  inspect(read_reactive_for_test(r), content="30") // cached
 }
 
 ///|
@@ -279,12 +279,12 @@ test "push: batch commit triggers propagation" {
   let rt = Runtime::Runtime()
   let s = Signal::Signal(rt, 0)
   let r = Reactive::new(rt, () => s.get() * 2)
-  let _ = rt.read_reactive(r)
+  let _ = read_reactive_for_test(r)
   rt.batch(() => {
     s.set(5)
-    inspect(rt.read_reactive(r), content="0") // not yet propagated inside batch
+    inspect(read_reactive_for_test(r), content="0") // not yet propagated inside batch
   })
-  inspect(rt.read_reactive(r), content="10") // propagated after commit
+  inspect(read_reactive_for_test(r), content="10") // propagated after commit
 }
 
 ///|
@@ -294,7 +294,7 @@ test "mixed pull/push: Memo reads Reactive; Reactive reads Signal" {
   let r = Reactive::new(rt, () => s.get() + 1)
   let m = Memo::Memo(rt, () => r.get() * 10)
   s.set(4)
-  inspect(rt.read(m), content="50") // r = 5, m = 50
+  inspect(read_memo_for_test(m), content="50") // r = 5, m = 50
 }
 
 // ─── Task 7: disposal ────────────────────────────────────────────────────────

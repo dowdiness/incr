@@ -36,7 +36,7 @@ fn bench_restore(b : @bench.T, n : Int) -> Unit {
     }
     0
   })
-  ignore(rt.read(m))
+  ignore(read_memo_for_test(m))
   let prev_ids = prev_accs.map(fn(a) { a.id() })
   let touched_ids = touched_accs.map(fn(a) { a.id() })
   let m_id = m.id()

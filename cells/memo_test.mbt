@@ -3,7 +3,7 @@ test "memo: basic computation" {
   let rt = Runtime::Runtime()
   let input = Signal::Signal(rt, 10)
   let doubled = Memo::Memo(rt, () => input.get() * 2)
-  inspect(rt.read(doubled), content="20")
+  inspect(read_memo_for_test(doubled), content="20")
 }
 
 ///|
@@ -15,10 +15,10 @@ test "memo: cache hit on second read" {
     compute_count = compute_count + 1
     input.get() + 1
   })
-  inspect(rt.read(memo), content="6")
+  inspect(read_memo_for_test(memo), content="6")
   inspect(compute_count, content="1")
   // Second get should use cache, not recompute
-  inspect(rt.read(memo), content="6")
+  inspect(read_memo_for_test(memo), content="6")
   inspect(compute_count, content="1")
 }
 
@@ -31,10 +31,10 @@ test "memo: recomputes on input change" {
     compute_count = compute_count + 1
     input.get() * 3
   })
-  inspect(rt.read(memo), content="9")
+  inspect(read_memo_for_test(memo), content="9")
   inspect(compute_count, content="1")
   input.set(4)
-  inspect(rt.read(memo), content="12")
+  inspect(read_memo_for_test(memo), content="12")
   inspect(compute_count, content="2")
 }
 
@@ -44,9 +44,9 @@ test "memo: chain of two memos" {
   let input = Signal::Signal(rt, 2)
   let step1 = Memo::Memo(rt, () => input.get() + 10)
   let step2 = Memo::Memo(rt, () => step1.get() * 2)
-  inspect(rt.read(step2), content="24") // (2 + 10) * 2
+  inspect(read_memo_for_test(step2), content="24") // (2 + 10) * 2
   input.set(5)
-  inspect(rt.read(step2), content="30") // (5 + 10) * 2
+  inspect(read_memo_for_test(step2), content="30") // (5 + 10) * 2
 }
 
 ///|
@@ -58,11 +58,11 @@ test "memo: no recompute when input unchanged" {
     compute_count = compute_count + 1
     input.get()
   })
-  inspect(rt.read(memo), content="7")
+  inspect(read_memo_for_test(memo), content="7")
   inspect(compute_count, content="1")
   // Set same value — no revision bump
   input.set(7)
-  inspect(rt.read(memo), content="7")
+  inspect(read_memo_for_test(memo), content="7")
   inspect(compute_count, content="1")
 }
 
@@ -72,11 +72,11 @@ test "memo: multiple inputs" {
   let a = Signal::Signal(rt, 3)
   let b = Signal::Signal(rt, 4)
   let sum = Memo::Memo(rt, () => a.get() + b.get())
-  inspect(rt.read(sum), content="7")
+  inspect(read_memo_for_test(sum), content="7")
   a.set(10)
-  inspect(rt.read(sum), content="14")
+  inspect(read_memo_for_test(sum), content="14")
   b.set(20)
-  inspect(rt.read(sum), content="30")
+  inspect(read_memo_for_test(sum), content="30")
 }
 
 ///|
@@ -86,9 +86,9 @@ test "memo: three-level chain" {
   let l1 = Memo::Memo(rt, () => input.get() + 1)
   let l2 = Memo::Memo(rt, () => l1.get() + 1)
   let l3 = Memo::Memo(rt, () => l2.get() + 1)
-  inspect(rt.read(l3), content="4") // 1 + 1 + 1 + 1
+  inspect(read_memo_for_test(l3), content="4") // 1 + 1 + 1 + 1
   input.set(10)
-  inspect(rt.read(l3), content="13") // 10 + 1 + 1 + 1
+  inspect(read_memo_for_test(l3), content="13") // 10 + 1 + 1 + 1
 }
 
 ///|
@@ -99,7 +99,7 @@ test "panic cross-runtime: Signal::get aborts when read inside a memo on a diffe
   let rt_b = Runtime::Runtime()
   let sig_b = Signal::Signal(rt_b, 10)
   let memo_a = Memo::Memo(rt_a, () => sig_b.get())
-  let _ = rt_a.read(memo_a) // aborts: sig_b is on rt_b, memo_a computes on rt_a
+  let _ = read_memo_for_test(memo_a) // aborts: sig_b is on rt_b, memo_a computes on rt_a
 }
 
 ///|
@@ -108,7 +108,7 @@ test "panic cross-runtime: Memo::get aborts when read inside a memo on a differe
   let rt_b = Runtime::Runtime()
   let memo_b = Memo::Memo(rt_b, () => 42)
   let memo_a = Memo::Memo(rt_a, () => memo_b.get())
-  let _ = rt_a.read(memo_a) // aborts: memo_b is on rt_b, memo_a computes on rt_a
+  let _ = read_memo_for_test(memo_a) // aborts: memo_b is on rt_b, memo_a computes on rt_a
 }
 
 ///|
@@ -141,7 +141,7 @@ test "Memo::get() inside tracked context succeeds" {
   let s = Signal::Signal(rt, 10)
   let m = Memo::Memo(rt, () => s.get() * 2)
   let m2 = Memo::Memo(rt, () => m.get() + 1)
-  inspect(rt.read(m2), content="21")
+  inspect(read_memo_for_test(m2), content="21")
 }
 
 ///|
@@ -155,7 +155,7 @@ test "Signal::peek() reads without tracking" {
     ignore(s.peek())
     0
   })
-  ignore(rt.read(m))
+  ignore(read_memo_for_test(m))
   inspect(m.dependencies().length(), content="0")
 }
 

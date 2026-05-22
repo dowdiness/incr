@@ -21,11 +21,13 @@ let a = Signal(rt, 10)
 let b = Memo(rt, () => a.get() * 2)
 let c = Memo(rt, () => a.get() + 5)
 let d = Memo(rt, () => b.get() + c.get())
+let d_reader = d.observe()
 
-inspect(rt.read(d), content="35")  // (10*2) + (10+5)
+inspect(d_reader.get(), content="35")  // (10*2) + (10+5)
 
 a.set(20)
-inspect(rt.read(d), content="65")  // (20*2) + (20+5)
+inspect(d_reader.get(), content="65")  // (20*2) + (20+5)
+d_reader.dispose()
 ```
 
 `incr` handles diamonds correctly — `a` is only read once per computation of each memo.
@@ -50,17 +52,19 @@ let result = Memo(rt, () => {
     expensive_source.get()
   }
 })
+let result_reader = result.observe()
 
 // With caching enabled
-inspect(rt.read(result), content="cached_value")
+inspect(result_reader.get(), content="cached_value")
 
 // Changes to expensive_source don't trigger recomputation
 expensive_source.set("new_computed")
-inspect(rt.read(result), content="cached_value")  // Still cached
+inspect(result_reader.get(), content="cached_value")  // Still cached
 
 // Switch to computed mode
 use_cache.set(false)
-inspect(rt.read(result), content="new_computed")
+inspect(result_reader.get(), content="new_computed")
+result_reader.dispose()
 ```
 
 ---
@@ -105,6 +109,7 @@ let rt = Runtime()
 let x = Signal(rt, 0)
 let y = Signal(rt, 0)
 let position = Memo(rt, () => (x.get(), y.get()))
+let position_reader = position.observe()
 
 // Without batch: two revision bumps, position could see inconsistent state
 // With batch: single revision bump, atomic update
@@ -113,7 +118,8 @@ rt.batch(() => {
   y.set(200)
 })
 
-inspect(rt.read(position), content="(100, 200)")
+inspect(position_reader.get(), content="(100, 200)")
+position_reader.dispose()
 ```
 
 ---
@@ -161,11 +167,13 @@ let effective_value = Memo(rt, () => {
     None => computed_default.get()
   }
 })
+let effective_reader = effective_value.observe()
 
-inspect(rt.read(effective_value), content="100")  // Uses default
+inspect(effective_reader.get(), content="100")  // Uses default
 
 user_override.set(Some(42))
-inspect(rt.read(effective_value), content="42")   // Uses override
+inspect(effective_reader.get(), content="42")   // Uses override
+effective_reader.dispose()
 ```
 
 ---
@@ -188,12 +196,14 @@ let transformed = Memo(rt, () => normalized.get().to_lower())
 
 // Layer 3: Format
 let formatted = Memo(rt, () => "[" + transformed.get() + "]")
+let formatted_reader = formatted.observe()
 
-inspect(rt.read(formatted), content="[hello world]")
+inspect(formatted_reader.get(), content="[hello world]")
 
 // Change input
 raw_data.set("  Hello World  ")  // Same after trim — no-op!
 // Nothing recomputes due to same-value optimization
+formatted_reader.dispose()
 ```
 
 ---
@@ -230,12 +240,14 @@ let versioned = Memo(rt, () => {
 let handler = Memo(rt, () => {
   versioned.get().value * 2  // only reads .value
 }, label="handler")
+let handler_reader = handler.observe()
 
-inspect(rt.read(handler), content="20")  // Computes: Versioned(10, gen=1) → 20
+inspect(handler_reader.get(), content="20")  // Computes: Versioned(10, gen=1) → 20
 
 input.set(105)                           // value still 10 (105/10 = 10), gen=2
-inspect(rt.read(handler), content="20")  // handler does NOT recompute — backdated
+inspect(handler_reader.get(), content="20")  // handler does NOT recompute — backdated
 inspect(gen, content="2")                // versioned recomputed, but Eq said same value
+handler_reader.dispose()
 ```
 
 `versioned` recomputed because `input` changed, but `handler` was skipped: the new `Versioned(10, 2)` equals the old `Versioned(10, 1)` under the custom `Eq`, so `changed_at` was preserved.
@@ -272,11 +284,13 @@ let handler = Memo(rt, () => match status.get() {
   Ready(data=d)     => "Data: " + d.to_string()
   Loading(progress=p) => "Loading: " + p.to_string() + "%"
 }, label="handler")
+let handler_reader = handler.observe()
 
-inspect(rt.read(handler), content="Error: 404")
+inspect(handler_reader.get(), content="Error: 404")
 
 error_msg.set("Page Not Found")      // Different message, same code
-inspect(rt.read(handler), content="Error: 404")  // handler does NOT recompute — backdated
+inspect(handler_reader.get(), content="Error: 404")  // handler does NOT recompute — backdated
+handler_reader.dispose()
 ```
 
 `status` recomputed when the message changed, but `handler` was skipped because the new `Error(code=404, message="Page Not Found")` equals the old one under the custom `Eq`.
@@ -321,13 +335,17 @@ let sum = Memo(rt, () => {
 
 let count = items.length()
 let average = Memo(rt, () => sum.get() / count)
+let sum_reader = sum.observe()
+let average_reader = average.observe()
 
-inspect(rt.read(sum), content="60")
-inspect(rt.read(average), content="20")
+inspect(sum_reader.get(), content="60")
+inspect(average_reader.get(), content="20")
 
 items[1].set(50)  // Change one item
-inspect(rt.read(sum), content="90")
-inspect(rt.read(average), content="30")
+inspect(sum_reader.get(), content="90")
+inspect(average_reader.get(), content="30")
+sum_reader.dispose()
+average_reader.dispose()
 ```
 
 ---
@@ -358,15 +376,17 @@ let checked = Memo(rt, fn() raise {
   w.abs()
 })
 
-let _ = rt.read(checked)
+let checked_reader = checked.observe()
+let _ = checked_reader.get()
 
 // Outside any compute: read pushes permissively (empty if producer never ran).
 debug_inspect(checked.accumulated_peek(diags), content="[\"negative width: -5\"]")
 
 width.set(10)
-let _ = rt.read(checked)
+let _ = checked_reader.get()
 // Producer re-ran; push set is empty this time.
 debug_inspect(checked.accumulated_peek(diags), content="[]")
+checked_reader.dispose()
 ```
 
 **Top-frame restriction.** `push` is only legal inside a `Memo` or
@@ -404,13 +424,15 @@ let report = Memo(rt, fn() raise {
   let ds = checked.accumulated(diags)
   "size=\{size}, diags=\{ds.length()}"
 })
+let report_reader = report.observe()
 
-inspect(rt.read(report), content="size=5, diags=1")
+inspect(report_reader.get(), content="size=5, diags=1")
 
 // Flip sign — producer's return value stays 5 (abs is symmetric),
 // but the push set flips from [one diag] to [].
 width.set(5)
-inspect(rt.read(report), content="size=5, diags=0")
+inspect(report_reader.get(), content="size=5, diags=0")
+report_reader.dispose()
 ```
 
 Without the accumulator, `report` would not invalidate: `checked.get()`
@@ -599,13 +621,16 @@ rt.on_memo_event(evt => {
   }
 })
 
-inspect(rt.read(total), content="200")
+let total_reader = total.observe()
+inspect(total_reader.get(), content="200")
+total_reader.dispose()
 ```
 
 Keep the listener small. It runs synchronously during the drain step, after the
 memo compute has left the tracking stack. If the visualizer needs to read
-other cells, use outside-the-graph reads such as `rt.read(memo)`; `Memo::get()`
-is for tracked compute closures and aborts from top-level event handlers.
+other cells, use target facade `read()` / `read_or_abort()` methods or an
+observer; `Memo::get()` is for tracked compute closures and aborts from
+top-level event handlers.
 
 The event stream is not a transaction log. Batch boundaries, signal-change
 events, push-reactive events, snapshot/replay, and driver-owned event graphs
@@ -881,8 +906,10 @@ let memo = Memo(rt, () => {
   }
 })
 memo_ref.val = Some(memo)
+let memo_reader = memo.observe()
 
-inspect(rt.read(memo), content="0")  // Returns fallback, doesn't abort
+inspect(memo_reader.get(), content="0")  // Returns fallback, doesn't abort
+memo_reader.dispose()
 ```
 
 ### Use Cases
@@ -910,13 +937,14 @@ let rt = Runtime()
 let x = Signal(rt, 10)
 let y = Signal(rt, 20)
 let sum = Memo(rt, () => x.get() + y.get())
+let sum_reader = sum.observe()
 
-rt.read(sum) |> ignore
+sum_reader.get() |> ignore
 let baseline = sum.verified_at()
 
 // Make some changes
 x.set(15)
-rt.read(sum) |> ignore
+sum_reader.get() |> ignore
 
 // Find the culprit
 for dep_id in sum.dependencies() {
@@ -929,6 +957,7 @@ for dep_id in sum.dependencies() {
     None => ()
   }
 }
+sum_reader.dispose()
 ```
 
 ### Analyzing Dependency Chains
@@ -961,10 +990,12 @@ let rt = Runtime()
 let source = Signal(rt, 1, label="source")
 let doubled = Memo(rt, () => source.get() * 2, label="doubled")
 let tripled = Memo(rt, () => source.get() * 3, label="tripled")
+let doubled_reader = doubled.observe()
+let tripled_reader = tripled.observe()
 
 // Must read memos at least once to establish dependencies
-rt.read(doubled) |> ignore
-rt.read(tripled) |> ignore
+doubled_reader.get() |> ignore
+tripled_reader.get() |> ignore
 
 // Inspect who depends on source
 for dep_id in rt.dependents(source.id()) {
@@ -975,6 +1006,8 @@ for dep_id in rt.dependents(source.id()) {
 }
 // Prints: "depends on source: doubled"
 // Prints: "depends on source: tripled"
+doubled_reader.dispose()
+tripled_reader.dispose()
 ```
 
 This is useful for impact analysis — understanding how wide the blast radius of a change will be before committing it.
@@ -989,12 +1022,14 @@ test "memo only depends on x, not y" {
   let x = Signal(rt, 1)
   let y = Signal(rt, 2)
   let uses_x_only = Memo(rt, () => x.get() * 2)
+  let uses_x_only_reader = uses_x_only.observe()
 
-  rt.read(uses_x_only) |> ignore
+  uses_x_only_reader.get() |> ignore
 
   let deps = uses_x_only.dependencies()
   inspect(deps.contains(x.id()), content="true")
   inspect(deps.contains(y.id()), content="false")
+  uses_x_only_reader.dispose()
 }
 ```
 
@@ -1004,14 +1039,16 @@ Check if a memo's value actually changed:
 
 ```moonbit
 let memo = Memo(rt, () => config.get().length())
-rt.read(memo) |> ignore
+let memo_reader = memo.observe()
+memo_reader.get() |> ignore
 let old_changed = memo.changed_at()
 
 config.set("same_length")  // Different string, same length
-rt.read(memo) |> ignore
+memo_reader.get() |> ignore
 
 // Backdating: value didn't change, so changed_at is preserved
 inspect(memo.changed_at() == old_changed, content="true")
+memo_reader.dispose()
 ```
 
 ### Debugging Cycles
@@ -1081,11 +1118,15 @@ let data_derived = Memo(rt, () => {
   println("Data derived computing...")
   data.get() * 2
 })
+let config_reader = config_derived.observe()
+let data_reader = data_derived.observe()
 
-rt.read(config_derived)
-rt.read(data_derived)
+config_reader.get()
+data_reader.get()
 
 data.set(2)  // Only data_derived should recompute
-rt.read(data_derived)
-rt.read(config_derived)
+data_reader.get()
+config_reader.get()
+data_reader.dispose()
+config_reader.dispose()
 ```

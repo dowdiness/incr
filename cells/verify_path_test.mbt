@@ -52,7 +52,7 @@ test "verify: cycle path includes all traversed cells" {
   c_ref.val = Some(c)
 
   // Trigger the cycle by accessing b
-  let _ = rt.read(b)
+  let _ = read_memo_for_test(b)
 
   match captured_path.val {
     Some(path) => {
@@ -94,7 +94,7 @@ test "verify: self-cycle path shows cell twice" {
   })
   memo_ref.val = Some(memo)
 
-  let _ = rt.read(memo)
+  let _ = read_memo_for_test(memo)
 
   match captured_path.val {
     Some(path) => {

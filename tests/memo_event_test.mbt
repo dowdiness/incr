@@ -21,13 +21,13 @@ test "memo_event: listener observes public event types" {
       Aborted(_) => events.push("aborted")
     }
   })
-  inspect(rt.read(memo), content="2")
+  inspect(read_memo_for_test(memo), content="2")
   inspect(events.length(), content="2")
   inspect(events[0], content="enter@0")
   inspect(events[1], content="completed")
   rt.clear_memo_event_listener()
   sig.set(2)
-  inspect(rt.read(memo), content="3")
+  inspect(read_memo_for_test(memo), content="3")
   inspect(events.length(), content="2")
 }
 
@@ -41,7 +41,7 @@ test "memo_event: listener mutation is rejected during recompute" {
       Err(_) => 1
     }
   })
-  inspect(rt.read(memo), content="1")
+  inspect(read_memo_for_test(memo), content="1")
 }
 
 ///|
@@ -62,15 +62,15 @@ test "memo_event_listener_observes_hybrid_memo_recompute_events" {
       Aborted(_) => events.push("aborted")
     }
   })
-  inspect(rt.read_hybrid(hybrid), content="2")
+  inspect(read_hybrid_for_test(hybrid), content="2")
   inspect(events.length(), content="2")
   inspect(events[0], content="enter")
   inspect(events[1], content="completed")
   events.clear()
-  inspect(rt.read_hybrid(hybrid), content="2")
+  inspect(read_hybrid_for_test(hybrid), content="2")
   inspect(events.length(), content="0")
   sig.set(2)
-  inspect(rt.read_hybrid(hybrid), content="3")
+  inspect(read_hybrid_for_test(hybrid), content="3")
   inspect(events.length(), content="2")
   inspect(events[0], content="enter")
   inspect(events[1], content="completed")
@@ -81,7 +81,7 @@ test "memo_event_no_listener_creates_no_backlog_for_later_listener" {
   let rt = Runtime()
   let sig = Signal(rt, 1)
   let memo = Memo(rt, () => sig.get() + 1)
-  inspect(rt.read(memo), content="2")
+  inspect(read_memo_for_test(memo), content="2")
   let events : Array[String] = []
   rt.on_memo_event(evt => {
     match evt {
@@ -90,10 +90,10 @@ test "memo_event_no_listener_creates_no_backlog_for_later_listener" {
       Aborted(_) => events.push("aborted")
     }
   })
-  inspect(rt.read(memo), content="2")
+  inspect(read_memo_for_test(memo), content="2")
   inspect(events.length(), content="0")
   sig.set(2)
-  inspect(rt.read(memo), content="3")
+  inspect(read_memo_for_test(memo), content="3")
   inspect(events.length(), content="2")
   inspect(events[0], content="enter")
   inspect(events[1], content="completed")

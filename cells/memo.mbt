@@ -19,11 +19,13 @@
 /// let a = Signal(rt, 10)
 /// let b = Signal(rt, 20)
 /// let sum = Memo(rt, () => a.get() + b.get())
+/// let observer = sum.observe()
 ///
-/// inspect(rt.read(sum), content="30")  // Computes and caches
+/// inspect(observer.get(), content="30")  // Computes and caches
 ///
 /// a.set(15)
-/// inspect(rt.read(sum), content="35")  // Recomputes because `a` changed
+/// inspect(observer.get(), content="35")  // Recomputes because `a` changed
+/// observer.dispose()
 /// ```
 pub(all) struct Memo[T] {
   priv label : String?
@@ -526,7 +528,9 @@ pub fn[T] Memo::id(self : Memo[T]) -> CellId {
 /// ```moonbit nocheck
 /// let x = Signal(rt, 1)
 /// let m = Memo(rt, () => x.get() * 2)
-/// rt.read(m) |> ignore
+/// let observer = m.observe()
+/// observer.get() |> ignore
+/// observer.dispose()
 /// inspect(m.dependencies().contains(x.id()), content="true")
 /// ```
 pub fn[T] Memo::dependencies(self : Memo[T]) -> Array[CellId] {

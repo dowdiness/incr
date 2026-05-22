@@ -3,7 +3,7 @@ test "memo closure accepts non-raising function (auto-promotion)" {
   let rt = Runtime::Runtime()
   let s = Signal::Signal(rt, 10)
   let m = Memo::Memo(rt, () => s.get() * 2)
-  inspect(rt.read(m), content="20")
+  inspect(read_memo_for_test(m), content="20")
 }
 
 ///|
@@ -17,7 +17,7 @@ test "memo closure accepts raising function" {
       s.get() * 2
     }
   })
-  inspect(rt.read(m), content="0")
+  inspect(read_memo_for_test(m), content="0")
 }
 
 ///|
@@ -31,5 +31,5 @@ test "panic memo closure that raises aborts caller" {
       s.get()
     }
   })
-  let _ = rt.read(m)
+  let _ = read_memo_for_test(m)
 }

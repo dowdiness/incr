@@ -84,7 +84,7 @@ test "memo: dependencies() includes all inputs after computation" {
   let y = Signal::Signal(rt, 2)
   let sum = Memo::Memo(rt, () => x.get() + y.get())
 
-  rt.read(sum) |> ignore
+  read_memo_for_test(sum) |> ignore
   let deps = sum.dependencies()
   inspect(deps.length(), content="2")
   inspect(deps.contains(x.id()), content="true")
@@ -98,7 +98,7 @@ test "memo: changed_at and verified_at track revisions" {
   x.set(10) // Bump revision to 1
   let doubled = Memo::Memo(rt, () => x.get() * 2)
 
-  rt.read(doubled) |> ignore
+  read_memo_for_test(doubled) |> ignore
   let initial_changed = doubled.changed_at()
   let initial_verified = doubled.verified_at()
 
@@ -107,7 +107,7 @@ test "memo: changed_at and verified_at track revisions" {
 
   // Change input
   x.set(20)
-  rt.read(doubled) |> ignore
+  read_memo_for_test(doubled) |> ignore
 
   inspect(doubled.changed_at().value > initial_changed.value, content="true")
   inspect(doubled.verified_at().value > initial_verified.value, content="true")
@@ -122,13 +122,13 @@ test "memo: dependencies update on recomputation" {
 
   let dynamic = Memo::Memo(rt, () => if cond.get() { a.get() } else { b.get() })
 
-  rt.read(dynamic) |> ignore
+  read_memo_for_test(dynamic) |> ignore
   let deps1 = dynamic.dependencies()
   inspect(deps1.contains(a.id()), content="true")
   inspect(deps1.contains(b.id()), content="false")
 
   cond.set(false)
-  rt.read(dynamic) |> ignore
+  read_memo_for_test(dynamic) |> ignore
   let deps2 = dynamic.dependencies()
   inspect(deps2.contains(a.id()), content="false")
   inspect(deps2.contains(b.id()), content="true")
@@ -139,7 +139,7 @@ test "memo: label stored via optional param" {
   let rt = Runtime::Runtime()
   let x = Signal::Signal(rt, 1)
   let m = Memo::Memo(rt, () => x.get() * 2, label="doubled")
-  let _ = rt.read(m)
+  let _ = read_memo_for_test(m)
   match rt.cell_info(m.id()) {
     Some(info) =>
       debug_inspect(
@@ -157,7 +157,7 @@ test "memo: no label gives None in cell_info" {
   let rt = Runtime::Runtime()
   let x = Signal::Signal(rt, 1)
   let m = Memo::Memo(rt, () => x.get() * 2)
-  let _ = rt.read(m)
+  let _ = read_memo_for_test(m)
   match rt.cell_info(m.id()) {
     Some(info) => debug_inspect(info.label, content="None")
     None => abort("expected cell info")
@@ -188,7 +188,7 @@ test "runtime: cell_info() returns metadata for memo" {
   x.set(20) // Bump revision to 1
   let doubled = Memo::Memo(rt, () => x.get() * 2)
 
-  rt.read(doubled) |> ignore
+  read_memo_for_test(doubled) |> ignore
 
   match rt.cell_info(doubled.id()) {
     Some(info) => {
@@ -275,17 +275,17 @@ test "integration: debug why memo recomputed" {
   let y = Signal::Signal(rt, 20)
   let sum = Memo::Memo(rt, () => x.get() + y.get())
 
-  rt.read(sum) |> ignore
+  read_memo_for_test(sum) |> ignore
   let initial_verified = sum.verified_at()
 
   // Same value - backdating means no effective change
   x.set(10)
-  rt.read(sum) |> ignore
+  read_memo_for_test(sum) |> ignore
   inspect(sum.verified_at() == initial_verified, content="true")
 
   // Different value - should trigger recomputation
   y.set(30)
-  rt.read(sum) |> ignore
+  read_memo_for_test(sum) |> ignore
   inspect(sum.verified_at().value > initial_verified.value, content="true")
 
   // Identify which dependency caused recomputation
@@ -311,7 +311,7 @@ test "integration: analyze dependency chain" {
   let step2 = Memo::Memo(rt, () => step1.get() + 10)
   let step3 = Memo::Memo(rt, () => step2.get() * 3)
 
-  rt.read(step3) |> ignore
+  read_memo_for_test(step3) |> ignore
 
   inspect(step3.dependencies().contains(step2.id()), content="true")
   inspect(step2.dependencies().contains(step1.id()), content="true")
@@ -330,7 +330,7 @@ test "integration: diamond dependency has no duplicates" {
   let right = Memo::Memo(rt, () => input.get() + 2)
   let merge = Memo::Memo(rt, () => left.get() + right.get())
 
-  rt.read(merge) |> ignore
+  read_memo_for_test(merge) |> ignore
 
   let merge_deps = merge.dependencies()
   inspect(merge_deps.contains(left.id()), content="true")
@@ -367,13 +367,13 @@ test "integration: understanding backdating with introspection" {
     }
   })
 
-  rt.read(abs_value) |> ignore
+  read_memo_for_test(abs_value) |> ignore
   let old_changed_at = abs_value.changed_at()
   let old_verified_at = abs_value.verified_at()
 
   // Change input from 5 to -5: different input, same output (5)
   input.set(-5)
-  rt.read(abs_value) |> ignore
+  read_memo_for_test(abs_value) |> ignore
 
   // Backdating: changed_at didn't advance because output is still 5
   inspect(abs_value.changed_at() == old_changed_at, content="true")

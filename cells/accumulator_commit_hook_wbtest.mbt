@@ -47,7 +47,11 @@ fn entry_present(rt : Runtime, cell_id : CellId) -> Bool {
 }
 
 ///|
-impl MemoCommitPhase for SentinelHook with before_recompute(self, rt, cell_id) {
+impl MemoCommitPhase for SentinelHook with before_recompute(
+  self,
+  rt,
+  cell_id,
+) {
   self.before_log.push(
     (cell_id, entry_present(rt, cell_id), snapshot_active_keys(rt)),
   )
@@ -83,7 +87,7 @@ test "MemoCommitPhase: forward dispatch order on success" {
     acc.push(1)
     42
   })
-  ignore(rt.read(m))
+  ignore(read_memo_for_test(m))
   let m_id = m.id()
   inspect(sentinel.before_log.length(), content="1")
   inspect(sentinel.before_log[0].0 == m_id, content="true")
@@ -127,7 +131,7 @@ test "MemoCommitPhase: Memo::accumulated from a reactive frame leaves no entry" 
     acc.push(7)
     1
   })
-  ignore(rt.read(m))
+  ignore(read_memo_for_test(m))
   // Reactive::new runs the initial compute synchronously inside a
   // PushReactive tracking frame. accumulated/accumulated_result raise
   // Failure for disposed inputs only; wrap in try? because Reactive's
@@ -210,7 +214,7 @@ test "MemoCommitPhase: ensure_for_cell lazy-creates entry when fast-path took be
     0
   })
   inspect(rt.accumulator_commit_hook.active.is_empty(), content="true")
-  ignore(rt.read(m))
+  ignore(read_memo_for_test(m))
   // after_success cleaned up the entry that ensure_for_cell lazy-created
   // during the push.
   inspect(rt.accumulator_commit_hook.active.is_empty(), content="true")
