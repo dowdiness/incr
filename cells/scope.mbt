@@ -108,6 +108,20 @@ pub fn[T] Scope::signal(
 }
 
 ///|
+/// Creates an input facade owned by this scope.
+pub fn[T] Scope::input(
+  self : Scope,
+  initial : T,
+  durability? : Durability = Low,
+  label? : String,
+) -> Input[T] {
+  guard !self.disposed else { abort("Scope::input called on a disposed scope") }
+  let input = Input(self.runtime, initial, durability~, label?)
+  self.cells.push(input.inner.id())
+  input
+}
+
+///|
 /// Creates a memo owned by this scope.
 pub fn[T : Eq] Scope::memo(
   self : Scope,
@@ -118,6 +132,21 @@ pub fn[T : Eq] Scope::memo(
   let m = Memo::new(self.runtime, f, label?)
   self.cells.push(m.id())
   m
+}
+
+///|
+/// Creates a lazy derived facade owned by this scope.
+pub fn[T : Eq] Scope::derived(
+  self : Scope,
+  f : () -> T raise Failure,
+  label? : String,
+) -> Derived[T] {
+  guard !self.disposed else {
+    abort("Scope::derived called on a disposed scope")
+  }
+  let derived = Derived(self.runtime, f, label?)
+  self.cells.push(derived.inner.id())
+  derived
 }
 
 ///|
@@ -133,6 +162,36 @@ pub fn[T : Eq] Scope::hybrid_memo(
   let hm = HybridMemo::new(self.runtime, f, label?)
   self.cells.push(hm.id())
   hm
+}
+
+///|
+/// Creates a reachable lazy derived facade owned by this scope.
+pub fn[T : Eq] Scope::reachable_derived(
+  self : Scope,
+  f : () -> T raise Failure,
+  label? : String,
+) -> ReachableDerived[T] {
+  guard !self.disposed else {
+    abort("Scope::reachable_derived called on a disposed scope")
+  }
+  let derived = ReachableDerived(self.runtime, f, label?)
+  self.cells.push(derived.inner.id())
+  derived
+}
+
+///|
+/// Creates a keyed derived facade whose cached entries are cleared on dispose.
+pub fn[K : Hash + Eq, V] Scope::derived_map(
+  self : Scope,
+  compute : (K) -> V raise Failure,
+  label? : String,
+) -> DerivedMap[K, V] {
+  guard !self.disposed else {
+    abort("Scope::derived_map called on a disposed scope")
+  }
+  let map = DerivedMap(self.runtime, compute, label?)
+  self.dispose_hooks.push(fn() { map.dispose_from_scope() })
+  map
 }
 
 ///|
@@ -173,6 +232,20 @@ pub fn[T : Eq] Scope::reactive(
   let r = Reactive::new(self.runtime, compute_fn)
   self.cells.push(r.id())
   r
+}
+
+///|
+/// Creates an eager derived facade owned by this scope.
+pub fn[T : Eq] Scope::eager_derived(
+  self : Scope,
+  compute_fn : () -> T,
+) -> EagerDerived[T] {
+  guard !self.disposed else {
+    abort("Scope::eager_derived called on a disposed scope")
+  }
+  let derived = EagerDerived(self.runtime, compute_fn)
+  self.cells.push(derived.inner.id())
+  derived
 }
 
 ///|

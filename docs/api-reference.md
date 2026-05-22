@@ -10,8 +10,8 @@ Reference for the most commonly used public APIs in `incr`. This is not exhausti
 > `Reactive -> EagerDerived`, `MemoMap -> DerivedMap`, `TrackedCell ->
 > InputField`, `Observer -> Watch`, `FunctionalRelation -> MapRelation`,
 > `Readable -> Freshness`, `Trackable -> InputFieldOwner`, and `Database ->
-> RuntimeContext`. Code examples below keep current names until the migration
-> is implemented.
+> RuntimeContext`. The target facade names for cells are available; legacy
+> compatibility APIs remain documented while migration continues.
 
 ## Runtime
 
@@ -109,7 +109,11 @@ rt.clear_on_change()
 
 ### `Runtime::read[T](self, memo: Memo[T]) -> T`
 
-Reads a memo from **outside** a tracked compute. `Memo::get()` aborts when called from top-level code, tests, or event handlers (it requires a tracked context); `rt.read(memo)` is the canonical replacement — it observes once, reads the value, and disposes the observer in one call. Aborts if the memo has been disposed.
+Legacy compatibility helper for reading a memo from **outside** a tracked
+compute. It observes once, reads the value, and disposes the observer in one
+call. New target-facade code should prefer `Derived::read()`,
+`Derived::read_or_abort()`, or `Derived::watch()`. Aborts if the memo has been
+disposed.
 
 ```moonbit
 let value = rt.read(my_memo)
@@ -117,11 +121,14 @@ let value = rt.read(my_memo)
 
 ### `Runtime::read_hybrid[T : Eq](self, memo: HybridMemo[T]) -> T`
 
-One-shot observe for `HybridMemo[T]`. Same shape as `read`.
+Legacy one-shot observe for `HybridMemo[T]`. New target-facade code should
+prefer `ReachableDerived::read()`, `ReachableDerived::read_or_abort()`, or
+`ReachableDerived::watch()`.
 
 ### `Runtime::read_reactive[T](self, reactive: Reactive[T]) -> T`
 
-One-shot observe for `Reactive[T]`. Same shape as `read`.
+Legacy one-shot observe for `Reactive[T]`. New target-facade code should prefer
+`EagerDerived::read()` or `EagerDerived::watch()`.
 
 ### `Runtime::on_memo_event(self, f: (MemoEvent) -> Unit) -> Unit raise Failure`
 
@@ -358,7 +365,12 @@ let tax = Memo(rt, () => price.get() * 0.1, label="tax")
 
 ### `Memo::get(self) -> T`
 
-Returns cached value, recomputing if stale. **Must be called inside another memo's compute** (it records a dependency on `self`). Aborts when called outside a tracked context — from top-level code, tests, or event handlers, use `rt.read(memo)` or `memo.observe()` instead. Aborts on cycle and on cross-runtime use.
+Returns cached value, recomputing if stale. **Must be called inside another
+memo's compute** (it records a dependency on `self`). Aborts when called outside
+a tracked context. Target-facade code should use `Derived::read()`,
+`Derived::read_or_abort()`, or `Derived::watch()` from top-level code, tests, or
+event handlers; legacy `Memo` callers can still use `rt.read(memo)` or
+`memo.observe()`. Aborts on cycle and on cross-runtime use.
 
 ```moonbit nocheck
 // Inside another memo's compute:
@@ -513,6 +525,9 @@ let h = HybridMemo::new(rt, () => signal.get() * 2, label="doubled")
 Returns the memoized value, recomputing if necessary. Fast path: if
 `verified_at >= current_revision`, returns cached value immediately without any
 dependency walk. Aborts on cycle, invalid context, or cross-runtime read.
+Target-facade code should use `ReachableDerived::read()`,
+`ReachableDerived::read_or_abort()`, or `ReachableDerived::watch()` outside a
+tracked context.
 
 ```moonbit nocheck
 let value = rt.read_hybrid(h)

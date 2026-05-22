@@ -151,7 +151,8 @@ pub fn[T] Memo::new_no_backdate(
 /// Returns the memoized value, recomputing if necessary.
 ///
 /// Must be called inside a tracked context (another memo's compute function).
-/// Outside a compute function, use `rt.read(memo)` or `memo.observe()`.
+/// Outside a compute function, use the target facade `Derived::read()`,
+/// `Derived::read_or_abort()`, or `Derived::watch()`.
 ///
 /// If called inside another memo's compute function, this automatically
 /// records a dependency.
@@ -163,8 +164,8 @@ pub fn[T] Memo::new_no_backdate(
 /// # Panics
 ///
 /// Aborts if called outside tracked context, or if a cycle is detected.
-/// Use `get_result()` for error-returning cycle handling, or `rt.read()`
-/// for outside-the-graph reads.
+/// Use `get_result()` for error-returning cycle handling, or the target facade
+/// read/watch methods for outside-the-graph reads.
 pub fn[T] Memo::get(self : Memo[T]) -> T {
   match self.get_strict_result() {
     Ok(value) => value
@@ -203,7 +204,7 @@ pub fn[T] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
 fn[T] Memo::get_strict_result(self : Memo[T]) -> Result[T, CycleError] {
   guard self.rt.core.tracking.stack.length() > 0 else {
     abort(
-      "Memo::get() called outside tracked context. Use rt.read(memo) or memo.observe() to read from outside the graph.",
+      "Memo::get() called outside tracked context. Use Derived::read(), Derived::read_or_abort(), or Derived::watch() to read from outside the graph.",
     )
   }
   self.read_result()

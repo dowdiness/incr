@@ -81,7 +81,9 @@ pub fn[T : Eq] HybridMemo::new(
 /// Returns the memoized value, recomputing if necessary.
 ///
 /// Must be called inside a tracked context (another memo's compute function).
-/// Outside a compute function, use `rt.read_hybrid(memo)` or `memo.observe()`.
+/// Outside a compute function, use the target facade
+/// `ReachableDerived::read()`, `ReachableDerived::read_or_abort()`, or
+/// `ReachableDerived::watch()`.
 pub fn[T : Eq] HybridMemo::get(self : HybridMemo[T]) -> T {
   match self.get_strict_result() {
     Ok(value) => value
@@ -96,7 +98,7 @@ fn[T : Eq] HybridMemo::get_strict_result(
 ) -> Result[T, CycleError] {
   guard self.rt.core.tracking.stack.length() > 0 else {
     abort(
-      "HybridMemo::get() called outside tracked context. Use rt.read_hybrid(memo) or memo.observe() to read from outside the graph.",
+      "HybridMemo::get() called outside tracked context. Use ReachableDerived::read(), ReachableDerived::read_or_abort(), or ReachableDerived::watch() to read from outside the graph.",
     )
   }
   self.read_result()

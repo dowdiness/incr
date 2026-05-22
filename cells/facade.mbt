@@ -86,6 +86,12 @@ pub fn[T] Derived::read_or_abort(self : Derived[T]) -> T {
 }
 
 ///|
+/// Creates a long-lived outside-graph reader that returns cycle errors.
+pub fn[T] Derived::watch(self : Derived[T]) -> Watch[T] {
+  self.inner.watch_result()
+}
+
+///|
 /// Target-name reachable lazy derived cell facade over `HybridMemo`.
 pub(all) struct ReachableDerived[T] {
   priv inner : HybridMemo[T]
@@ -136,6 +142,12 @@ pub fn[T : Eq] ReachableDerived::read_or_abort(self : ReachableDerived[T]) -> T 
 }
 
 ///|
+/// Creates a long-lived outside-graph reader that returns cycle errors.
+pub fn[T : Eq] ReachableDerived::watch(self : ReachableDerived[T]) -> Watch[T] {
+  self.inner.watch_result()
+}
+
+///|
 /// Target-name eager derived cell facade over `Reactive`.
 pub(all) struct EagerDerived[T] {
   priv inner : Reactive[T]
@@ -163,9 +175,16 @@ pub fn[T] EagerDerived::read(self : EagerDerived[T]) -> T {
 }
 
 ///|
+/// Creates a long-lived outside-graph reader for this eager derived value.
+pub fn[T] EagerDerived::watch(self : EagerDerived[T]) -> Watch[T] {
+  self.inner.watch_result()
+}
+
+///|
 /// Target-name keyed derived facade over `MemoMap`.
 pub(all) struct DerivedMap[K, V] {
   priv inner : MemoMap[K, V]
+  priv disposed : Ref[Bool]
 }
 
 ///|
@@ -175,7 +194,21 @@ pub fn[K : Hash + Eq, V] DerivedMap::DerivedMap(
   compute : (K) -> V raise Failure,
   label? : String,
 ) -> DerivedMap[K, V] {
-  { inner: MemoMap(rt, compute, label?) }
+  { inner: MemoMap(rt, compute, label?), disposed: { val: false } }
+}
+
+///|
+fn[K, V] DerivedMap::guard_live(self : DerivedMap[K, V]) -> Unit {
+  guard !self.disposed.val else {
+    abort("DerivedMap called after owning scope was disposed")
+  }
+}
+
+///|
+fn[K, V] DerivedMap::dispose_from_scope(self : DerivedMap[K, V]) -> Unit {
+  guard !self.disposed.val else { return }
+  self.disposed.val = true
+  self.inner.clear()
 }
 
 ///|
@@ -184,6 +217,7 @@ pub fn[K : Hash + Eq, V : Eq] DerivedMap::get(
   self : DerivedMap[K, V],
   key : K,
 ) -> Result[V, CycleError] {
+  self.guard_live()
   self.inner.get_strict_result(key)
 }
 
@@ -205,6 +239,7 @@ pub fn[K : Hash + Eq, V : Eq] DerivedMap::read(
   self : DerivedMap[K, V],
   key : K,
 ) -> Result[V, CycleError] {
+  self.guard_live()
   self.inner.read_result(key)
 }
 
@@ -252,12 +287,14 @@ pub fn[K : Hash + Eq, V] DerivedMap::has_cached(
   self : DerivedMap[K, V],
   key : K,
 ) -> Bool {
+  self.guard_live()
   self.inner.contains(key)
 }
 
 ///|
 /// Returns the number of cached entries.
 pub fn[K, V] DerivedMap::cache_len(self : DerivedMap[K, V]) -> Int {
+  self.guard_live()
   self.inner.length()
 }
 
@@ -266,11 +303,13 @@ pub fn[K, V] DerivedMap::cache_len(self : DerivedMap[K, V]) -> Int {
 pub fn[K : Hash + Eq, V] DerivedMap::sweep_cache(
   self : DerivedMap[K, V],
 ) -> Int {
+  self.guard_live()
   self.inner.sweep()
 }
 
 ///|
 /// Clears all cached entries.
 pub fn[K, V] DerivedMap::clear_cache(self : DerivedMap[K, V]) -> Unit {
+  self.guard_live()
   self.inner.clear()
 }

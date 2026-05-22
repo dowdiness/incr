@@ -7,6 +7,8 @@ All notable changes to `dowdiness/incr` are documented in this file.
 ### Added
 
 - Added target facade handles `Input`, `Derived`, `ReachableDerived`, `EagerDerived`, and `DerivedMap` with constructor syntax and direct read methods. Compatibility handles and `Runtime::read*` remain unchanged in this slice.
+- Added `Watch[T]` for long-lived target-facade outside reads that preserve cycle errors as `Result` values.
+- Added target-facade constructors on `Scope` and `RuntimeContext` helper constructors for `Input`, `Derived`, `ReachableDerived`, `EagerDerived`, and `DerivedMap`.
 
 ### Changed
 

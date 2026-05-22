@@ -77,6 +77,31 @@ test "facade derived: read inside tracked context records dependency" {
 }
 
 ///|
+test "facade derived: watch reads outside graph and keeps target alive" {
+  let rt = @incr.Runtime()
+  let input = @incr.Input(rt, 1)
+  let derived = @incr.Derived(rt, () => input.get() + 1)
+  let watch : @incr.Watch[Int] = derived.watch()
+
+  inspect(watch.read_or_abort(), content="2")
+  rt.gc()
+  input.set(2)
+  inspect(watch.read_or_abort(), content="3")
+  watch.dispose()
+  inspect(watch.is_disposed(), content="true")
+}
+
+///|
+test "panic facade derived: watch read after dispose aborts" {
+  let rt = @incr.Runtime()
+  let derived = @incr.Derived(rt, () => 1)
+  let watch = derived.watch()
+
+  watch.dispose()
+  ignore(watch.read())
+}
+
+///|
 test "panic facade derived: get outside tracked context aborts" {
   let rt = @incr.Runtime()
   let derived = @incr.Derived(rt, () => 1)
@@ -105,6 +130,20 @@ test "facade reachable derived: read and tracked get work" {
 }
 
 ///|
+test "facade reachable derived: watch reads outside graph" {
+  let rt = @incr.Runtime()
+  let input = @incr.Input(rt, 2)
+  let reachable = @incr.ReachableDerived(rt, () => input.get() * 4)
+  let watch = reachable.watch()
+
+  inspect(watch.read_or_abort(), content="8")
+  rt.gc()
+  input.set(3)
+  inspect(watch.read_or_abort(), content="12")
+  watch.dispose()
+}
+
+///|
 test "panic facade reachable derived: get outside tracked context aborts" {
   let rt = @incr.Runtime()
   let reachable = @incr.ReachableDerived(rt, () => 1)
@@ -123,6 +162,20 @@ test "facade eager derived: read outside and get inside tracked context" {
   input.set(5)
   inspect(eager.read(), content="15")
   inspect(view.read_or_abort(), content="16")
+}
+
+///|
+test "facade eager derived: watch reads outside graph" {
+  let rt = @incr.Runtime()
+  let input = @incr.Input(rt, 4)
+  let eager = @incr.EagerDerived(rt, () => input.get() * 5)
+  let watch = eager.watch()
+
+  inspect(watch.read_or_abort(), content="20")
+  rt.gc()
+  input.set(6)
+  inspect(watch.read_or_abort(), content="30")
+  watch.dispose()
 }
 
 ///|
@@ -194,4 +247,65 @@ test "panic facade derived_map: get outside tracked context aborts" {
   let by_key = @incr.DerivedMap(rt, (key : Int) => key * 10)
 
   ignore(by_key.get(1))
+}
+
+///|
+struct FacadeContext {
+  rt : @incr.Runtime
+}
+
+///|
+fn FacadeContext::FacadeContext() -> FacadeContext {
+  { rt: @incr.Runtime() }
+}
+
+///|
+impl @incr.RuntimeContext for FacadeContext with runtime(self) {
+  self.rt
+}
+
+///|
+test "facade runtime context: creates target handles" {
+  let ctx = FacadeContext()
+  let input = @incr.create_input(ctx, 3)
+  let derived = @incr.create_derived(ctx, () => input.get() + 1)
+  let reachable = @incr.create_reachable_derived(ctx, () => {
+    derived.read_or_abort() + 1
+  })
+  let eager = @incr.create_eager_derived(ctx, () => input.get() * 10)
+  let by_key = @incr.create_derived_map(ctx, (key : Int) => input.get() + key)
+
+  inspect(derived.read_or_abort(), content="4")
+  inspect(reachable.read_or_abort(), content="5")
+  inspect(eager.read(), content="30")
+  inspect(by_key.read_or_abort(2), content="5")
+}
+
+///|
+test "facade scope: creates target handles" {
+  let rt = @incr.Runtime()
+  let scope = @incr.Scope::new(rt)
+  let input = scope.input(2)
+  let derived = scope.derived(() => input.get() + 1)
+  let reachable = scope.reachable_derived(() => derived.read_or_abort() + 1)
+  let eager = scope.eager_derived(() => input.get() * 10)
+  let by_key = scope.derived_map((key : Int) => input.get() + key)
+
+  inspect(derived.read_or_abort(), content="3")
+  inspect(reachable.read_or_abort(), content="4")
+  inspect(eager.read(), content="20")
+  inspect(by_key.read_or_abort(5), content="7")
+  inspect(by_key.cache_len(), content="1")
+  scope.dispose()
+}
+
+///|
+test "panic facade scope: derived_map read after dispose aborts" {
+  let rt = @incr.Runtime()
+  let scope = @incr.Scope::new(rt)
+  let by_key = scope.derived_map((key : Int) => key * 2)
+
+  inspect(by_key.read_or_abort(5), content="10")
+  scope.dispose()
+  ignore(by_key.read(5))
 }

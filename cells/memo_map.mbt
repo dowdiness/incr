@@ -105,7 +105,7 @@ fn[K : Hash + Eq, V : Eq] MemoMap::get_strict_result(
 ) -> Result[V, CycleError] {
   guard self.rt.core.tracking.stack.length() > 0 else {
     abort(
-      "MemoMap::get_strict_result() called outside tracked context. Use MemoMap::get_result(key) to read from outside the graph.",
+      "MemoMap::get() called outside tracked context. Use DerivedMap::read(key) or DerivedMap::read_or_abort(key) to read from outside the graph.",
     )
   }
   self.read_result(key)
