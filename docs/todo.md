@@ -378,7 +378,7 @@ The remaining Reactive Collections work is **driver discovery**, which belongs t
 - **canopy:** Identify a concrete driver for `Relation::subscribe_delta` (Family A — logging / UI reconciliation / IPC). Plus, **redesign needed** before implementation: plain `Relation[T]` is monotonic with no retractions, no commit seam exists for direct inserts, failed batches don't roll back relation writes. See [relation-delta-observer-design.md](research/relation-delta-observer-design.md).
 - **canopy:** Identify a concrete driver for Family C (nominal memoization + persistent trees) — evaluator / layout / tree-shaped type-checker state. Long-horizon bet. See [reactive-collections.md](research/reactive-collections.md) "Family C" section.
 
-## API Naming Cleanup (Deferred)
+## API Naming Cleanup (Migration In Progress)
 
 Context: PR #41 review surfaced that the old `get_untracked`/`get_tracked`
 naming misled — the package-private memo read still recorded per-key deps
@@ -388,7 +388,8 @@ vs permissive top-level read**, not tracking itself. Follow-up design work
 expanded this into a first-principles ideal API vocabulary: `Signal ->
 Input`, `Memo -> Derived`, `HybridMemo -> ReachableDerived`,
 `Reactive -> EagerDerived`, `MemoMap -> DerivedMap`, `TrackedCell ->
-InputField`, `Trackable -> InputFieldOwner`, and `Database ->
+InputField`, `Observer -> Watch`, `FunctionalRelation -> MapRelation`,
+`Readable -> Freshness`, `Trackable -> InputFieldOwner`, and `Database ->
 RuntimeContext`. This misread propagated through three revisions of
 `reactive-map-design.md` before Codex caught it.
 See [reactive-map-design.md](research/reactive-map-design.md) "Why v1's framing
@@ -398,8 +399,14 @@ was wrong" and
 Package-private cleanup shipped: `Memo::get_untracked`,
 `HybridMemo::get_untracked`, and `Reactive::get_untracked` were renamed to
 `read_permissive`, with deprecated aliases left behind as a compile-time
-migration guard. Public names remain unchanged until a dedicated breaking
-migration is planned.
+migration guard.
+
+Public target facades have now shipped for the main handle families
+(`Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`,
+`EagerDerived`, `Watch`, `MapRelation`) and for target extension traits
+(`RuntimeContext`, `Freshness`, `InputFieldOwner`). Compatibility names remain
+available; final removal or breaking semantic flips are still deferred to a
+dedicated migration window.
 
 ### Method-name candidates
 
@@ -415,11 +422,25 @@ migration is planned.
       `RuntimeContext`; constructor syntax replaces `create_*` helper
       names in the ideal final API. See
       [ADR 2026-05-21](decisions/2026-05-21-public-api-ideal-naming.md).
+- [x] Add package-private strict/permissive `Result` read primitives for
+      `Memo`, `HybridMemo`, and `MemoMap` as the internal substrate for target
+      read semantics.
+- [x] Add public target facades and helpers for `Input`, `Derived`,
+      `ReachableDerived`, `DerivedMap`, `InputField`, `EagerDerived`,
+      `Watch`, `MapRelation`, `RuntimeContext`, `Freshness`, and
+      `InputFieldOwner`, while preserving compatibility handles.
+- [x] Mark legacy `Runtime::read*` helpers as compatibility APIs after
+      migrating in-repo callers off the new deprecation warnings.
+- [x] Start Phase 2 docs/examples migration: README, getting-started,
+      concepts, API reference, cookbook, and architecture now prefer target
+      names where target facades cover the behavior.
 - [x] Audit other `*_untracked` / `*_tracked` suffixes across
       `cells/` for the same misnaming pattern. Known candidates:
       `Runtime::ensure_computed_untracked` is retained because it
       explicitly avoids ordinary dependency recording; Observer methods
       now call `read_permissive`.
+- [ ] Convert high-value target examples to checked `.mbt.md` examples or
+      ` ```mbt check` blocks so future docs/API drift is caught by tooling.
 
 ### Doc-comment audits
 
