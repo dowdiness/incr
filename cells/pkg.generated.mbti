@@ -126,6 +126,18 @@ pub fn[T] InputField::on_change(Self[T], (T) -> Unit) -> Unit
 pub fn[T] InputField::peek(Self[T]) -> T
 pub fn[T : Eq] InputField::set(Self[T], T) -> Unit
 
+pub(all) struct MapRelation[K, V] {
+  // private fields
+}
+pub fn[K : Hash + Eq, V] MapRelation::MapRelation(Runtime, merge? : (V, V) -> V, label? : String) -> Self[K, V]
+pub fn[K, V] MapRelation::delta_iter(Self[K, V]) -> Iter[(K, V)]
+pub fn[K, V] MapRelation::dispose(Self[K, V]) -> Unit
+pub fn[K : Hash + Eq, V] MapRelation::get(Self[K, V], K) -> V?
+pub fn[K, V] MapRelation::id(Self[K, V]) -> @types.CellId
+pub fn[K : Hash + Eq, V : Eq] MapRelation::insert(Self[K, V], K, V) -> Bool
+pub fn[K, V] MapRelation::is_disposed(Self[K, V]) -> Bool
+pub fn[K, V] MapRelation::iter(Self[K, V]) -> Iter[(K, V)]
+
 pub(all) struct Memo[T] {
   // private fields
 } derive(@debug.Debug)

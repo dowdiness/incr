@@ -304,6 +304,62 @@ test "panic facade derived_map: get outside tracked context aborts" {
 }
 
 ///|
+test "facade map_relation: insert get iter and delta_iter" {
+  let rt = @incr.Runtime()
+  let map : @incr.MapRelation[String, Int] = @incr.MapRelation(rt)
+
+  inspect(map.insert("a", 1), content="true")
+  inspect(map.insert("b", 2), content="true")
+  debug_inspect(map.get("a"), content="None")
+  inspect(
+    map.delta_iter().fold(init=0, fn(acc, _entry) { acc + 1 }),
+    content="2",
+  )
+  inspect(map.iter().fold(init=0, fn(acc, _entry) { acc + 1 }), content="0")
+
+  rt.fixpoint()
+  debug_inspect(map.get("a"), content="Some(1)")
+  inspect(map.iter().fold(init=0, fn(acc, _entry) { acc + 1 }), content="2")
+}
+
+///|
+test "facade map_relation: id participates in rules" {
+  let rt = @incr.Runtime()
+  let edges : @incr.Relation[(Int, Int)] = @incr.Relation(rt)
+  let weights : @incr.MapRelation[(Int, Int), Int] = @incr.MapRelation(rt)
+
+  ignore(edges.insert((1, 2)))
+  ignore(
+    rt.new_rule([edges.id()], [weights.id()], fn() {
+      for edge in edges.delta_iter() {
+        ignore(weights.insert(edge, 1))
+      }
+    }),
+  )
+  rt.fixpoint()
+  debug_inspect(weights.get((1, 2)), content="Some(1)")
+}
+
+///|
+test "facade map_relation: dispose marks relation disposed" {
+  let rt = @incr.Runtime()
+  let map : @incr.MapRelation[String, Int] = @incr.MapRelation(rt)
+
+  inspect(map.is_disposed(), content="false")
+  map.dispose()
+  inspect(map.is_disposed(), content="true")
+}
+
+///|
+test "panic facade map_relation: get after dispose aborts" {
+  let rt = @incr.Runtime()
+  let map : @incr.MapRelation[String, Int] = @incr.MapRelation(rt)
+
+  map.dispose()
+  ignore(map.get("a"))
+}
+
+///|
 struct FacadeContext {
   rt : @incr.Runtime
 }

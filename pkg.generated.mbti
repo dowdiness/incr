@@ -89,6 +89,8 @@ pub using @types {type InternId}
 
 pub using @types {type InternTable}
 
+pub using @cells {type MapRelation}
+
 pub using @cells {type Memo}
 
 pub using @cells {type MemoAbortedEvent}
