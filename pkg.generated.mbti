@@ -49,7 +49,13 @@ pub using @cells {type CellInfo}
 
 pub using @types {type CycleError}
 
+pub using @cells {type Derived}
+
+pub using @cells {type DerivedMap}
+
 pub using @types {type Durability}
+
+pub using @cells {type EagerDerived}
 
 pub using @cells {type Effect}
 
@@ -60,6 +66,8 @@ pub using @types {type FunctionalRelationId}
 pub using @types {type GcRole}
 
 pub using @cells {type HybridMemo}
+
+pub using @cells {type Input}
 
 pub using @types {type InternId}
 
@@ -80,6 +88,8 @@ pub using @types {type MemoId}
 pub using @cells {type MemoMap}
 
 pub using @cells {type Observer}
+
+pub using @cells {type ReachableDerived}
 
 pub using @cells {type Reactive}
 
