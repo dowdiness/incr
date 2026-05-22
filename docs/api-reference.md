@@ -28,7 +28,8 @@ tracked-context reads:
 | `MemoMap::get(key)` | `DerivedMap::read_or_abort(key)` |
 | `MemoMap::get_tracked(key)` | `DerivedMap::get_or_abort(key)` |
 | `MemoMap::contains(key)` / `length()` | `DerivedMap::has_cached(key)` / `cache_len()` |
-| `HybridMemo::get()` outside the graph | `ReachableDerived::read_or_abort()` |
+| `rt.read_hybrid(hybrid)` | `reachable.read_or_abort()` or `reachable.read()` |
+| `hybrid.observe().get()` | `reachable.watch().read_or_abort()` or `reachable.watch().read()` |
 
 ## Runtime
 
