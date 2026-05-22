@@ -2,6 +2,10 @@
 
 This guide walks you through using `incr` from your first computation to advanced patterns.
 
+The core target-API examples in this guide are mirrored by checked literate
+tests in [`target_api_examples.mbt.md`](target_api_examples.mbt.md), so changes
+to constructor or read semantics are caught by `moon check`.
+
 ## Installation
 
 Add `incr` to your `moon.pkg`:
@@ -14,52 +18,41 @@ import {
 
 ## Your First Incremental Computation
 
-### Recommended Approach: RuntimeContext Pattern
+### Step 1: Create a Runtime
 
-The recommended way to use `incr` is to encapsulate the `Runtime` in your own context type. This keeps the runtime as an implementation detail and makes your API cleaner.
-
-```moonbit nocheck
-struct MyApp {
-  rt : Runtime
-}
-
-fn MyApp::MyApp() -> MyApp {
-  { rt: Runtime::new() }
-}
-
-impl RuntimeContext for MyApp with runtime(self) { self.rt }
-```
-
-The `MyApp()` constructor syntax is enabled by the `fn MyApp::MyApp(...) -> MyApp` declaration. (An older, deprecated form declared `fn new()` *inside* the struct body — avoid it in new code.)
-
-Now you can use the context-centric target API throughout your code without passing `Runtime` around explicitly.
-
-### Alternative: Direct Runtime
-
-For simple scripts or when learning, you can use the `Runtime` directly:
+Start with a `Runtime`. It owns the dependency graph, revision counter, and
+garbage-collection roots.
 
 ```moonbit
 let rt = Runtime()
 ```
 
-The rest of this guide will show **both patterns** — use whichever fits your needs.
+For long-lived subsystems, create cells through a `Scope` so disposal is one
+operation:
+
+```moonbit
+let scope = Scope::new(rt)
+```
+
+`RuntimeContext` remains available for app structs that want to hide the
+runtime, but the primary target API uses direct constructors (`Input(rt, ...)`,
+`Derived(rt, ...)`) and scope helpers (`scope.input(...)`,
+`scope.derived(...)`).
 
 ### Step 2: Create Inputs
 
 Inputs are your settable values — the leaves of the dependency graph.
 
-**RuntimeContext pattern:**
 ```moonbit
-let app = MyApp()
-let price = create_input(app, 100, label="price")
-let quantity = create_input(app, 5, label="quantity")
-```
-
-**Direct Runtime:**
-```moonbit nocheck
-let rt = Runtime::new()
 let price = Input(rt, 100, label="price")
 let quantity = Input(rt, 5, label="quantity")
+```
+
+If these inputs should be disposed with a scope:
+
+```moonbit
+let scoped_price = scope.input(100, label="price")
+let scoped_quantity = scope.input(5, label="quantity")
 ```
 
 > **Tip:** Always set a `label`. It has no runtime cost and makes cycle error messages and debug output much easier to read. For example, instead of `"Runtime 0 / Cell 2 → Cell 0 → …"` you'll see `"price → total → …"`.
@@ -68,14 +61,17 @@ let quantity = Input(rt, 5, label="quantity")
 
 Derived values compute lazily and automatically track their dependencies.
 
-**RuntimeContext pattern:**
 ```moonbit
-let total = create_derived(app, () => price.get() * quantity.get(), label="total")
+let total = Derived(rt, () => price.get() * quantity.get(), label="total")
 ```
 
-**Direct Runtime:**
-```moonbit nocheck
-let total = Derived(rt, () => price.get() * quantity.get(), label="total")
+Or scope-owned:
+
+```moonbit
+let scoped_total = scope.derived(
+  () => scoped_price.get() * scoped_quantity.get(),
+  label="total",
+)
 ```
 
 ### Step 4: Read and Update
@@ -115,10 +111,9 @@ as values and `get_or_abort()` when an aborting strict read is acceptable.
 
 Use `Runtime::set_on_change` to run a callback whenever the runtime commits a change.
 
-**RuntimeContext pattern:**
 ```moonbit
 let mut changes = 0
-app.runtime().set_on_change(() => { changes = changes + 1 })
+rt.set_on_change(() => { changes = changes + 1 })
 
 quantity.set(12)
 inspect(changes, content="1")
@@ -139,22 +134,9 @@ suberror BatchStop {
 }
 ```
 
-**RuntimeContext pattern:**
-```moonbit
-let amount = @incr.create_input(app, 100)
-let res = app.runtime().batch_result(fn() raise {
-  amount.set(999)
-  raise Stop
-})
-
-inspect(res is Err(_), content="true")
-inspect(amount.get(), content="100") // rolled back
-```
-
-**Direct Runtime:**
 ```moonbit
 let amount = Input(rt, 100)
-let res : Result[Unit, Error] = try? rt.batch(fn() raise {
+let res = rt.batch_result(fn() raise {
   amount.set(999)
   raise Stop
 })

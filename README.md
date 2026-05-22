@@ -33,25 +33,14 @@ The library has no runtime dependencies beyond `moonbitlang/core`.
 ## Quick Start
 
 ```moonbit nocheck
-// Recommended: RuntimeContext pattern (encapsulates Runtime)
-struct MyApp {
-  rt : Runtime
-}
-
-fn MyApp::MyApp() -> MyApp {
-  { rt: Runtime::new() }
-}
-
-impl RuntimeContext for MyApp with runtime(self) { self.rt }
-
-let app = MyApp()
+let rt = Runtime()
 
 // Create inputs
-let x = create_input(app, 10)
-let y = create_input(app, 20)
+let x = Input(rt, 10, label="x")
+let y = Input(rt, 20, label="y")
 
 // Create derived computations
-let sum = create_derived(app, () => x.get() + y.get())
+let sum = Derived(rt, () => x.get() + y.get(), label="sum")
 
 // `.get()` is only legal inside another derived computation.
 // Outside the graph, use `read_or_abort()` or `read()`.
@@ -62,9 +51,11 @@ x.set(5)
 inspect(sum.read_or_abort(), content="25")
 ```
 
-For simple scripts, `Runtime` can also be used directly (`Input(rt, ...)`, `Derived(rt, ...)`). Both styles are fully supported — see [Getting Started](docs/getting-started.md).
+When a group of cells shares a lifetime, construct them through a `Scope`
+(`scope.input(...)`, `scope.derived(...)`) so one `scope.dispose()` tears the
+group down. See [Getting Started](docs/getting-started.md).
 
-> **Note on the example above:** It is `nocheck` because it embeds top-level statements alongside type declarations, which `moon check` does not run as a script. The same construction is exercised end-to-end by [`tests/quickstart_test.mbt`](tests/quickstart_test.mbt) — if you edit the example, update that test in lockstep.
+> **Note on the example above:** It is `nocheck` because this Markdown file is not a MoonBit package. The same construction is checked in [`docs/target_api_examples.mbt.md`](docs/target_api_examples.mbt.md) and exercised end-to-end by [`tests/quickstart_test.mbt`](tests/quickstart_test.mbt) — if you edit the example, update those in lockstep.
 
 ## Learn More
 

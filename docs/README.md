@@ -11,6 +11,7 @@ New to `incr`? Read these in order:
 1. [Getting Started](getting-started.md) — step-by-step tutorial from your first signal to advanced patterns
 2. [Core Concepts](concepts.md) — signals, memos, revisions, durability, backdating
 3. [Cookbook](cookbook.md) — practical patterns and anti-patterns
+4. [Checked Target API Examples](target_api_examples.mbt.md) — literate tests mirroring the README and getting-started target facade examples
 
 ## API Reference
 

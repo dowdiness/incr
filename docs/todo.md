@@ -441,6 +441,9 @@ dedicated migration window.
       now call `read_permissive`.
 - [ ] Convert high-value target examples to checked `.mbt.md` examples or
       ` ```mbt check` blocks so future docs/API drift is caught by tooling.
+      Started with `docs/target_api_examples.mbt.md` for README and
+      getting-started target constructor, scope, and read examples; continue
+      with API reference and cookbook snippets.
 
 ### Doc-comment audits
 
