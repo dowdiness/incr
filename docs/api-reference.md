@@ -1,6 +1,6 @@
 # API Reference
 
-Reference for the most commonly used public APIs in `incr`. This is not exhaustive — the authoritative surface is in `pkg.generated.mbti` and `cells/pkg.generated.mbti`. APIs surfaced here: `Runtime`, `Signal`, `Memo`, `HybridMemo`, `MemoMap`, `TrackedCell`, `Accumulator`, `MemoEvent`, `CycleError`, the `Database`/`Readable`/`Trackable` traits, and the top-level helper functions. Specialised APIs (`Reactive`, `Effect`, `Relation`, `FunctionalRelation`, `Scope`, `Observer`) are documented next to their constructors in `cells/`.
+Reference for the most commonly used public APIs in `incr`. This is not exhaustive — the authoritative surface is in `pkg.generated.mbti` and `cells/pkg.generated.mbti`. APIs surfaced here: `Runtime`, `Signal`, `Memo`, `HybridMemo`, `MemoMap`, `TrackedCell`, target facades such as `Input` / `InputField` / `Derived`, `Accumulator`, `MemoEvent`, `CycleError`, the `Database`/`RuntimeContext`/`Readable`/`Freshness`/`Trackable`/`InputFieldOwner` traits, and the top-level helper functions. Specialised APIs (`Reactive`, `Effect`, `Relation`, `FunctionalRelation`, `Scope`, `Observer`) are documented next to their constructors in `cells/`.
 
 > **Recommended Pattern:** Use the `Database` trait to encapsulate your `Runtime` in a database type. This makes your API cleaner and hides implementation details. See the [Helper Functions](#helper-functions) section and [API Design Guidelines](design/api-design-guidelines.md) for details.
 
@@ -267,9 +267,11 @@ let value = count.peek() // value observed, dependency NOT recorded
 
 ---
 
-## TrackedCell[T]
+## TrackedCell[T] / InputField[T]
 
 A named, field-level input cell. `TrackedCell[T]` wraps a `Signal[T]` and provides an identical API; it is intended for use as a field in a tracked struct where you want each field to be tracked independently.
+
+`InputField[T]` is the target-name facade over `TrackedCell[T]`. New target-style code can use `InputField(rt, value)`, `field.force_set(value)`, and `field.is_fresh()` while compatibility code can keep `TrackedCell`.
 
 ### `TrackedCell::new[T](rt: Runtime, initial: T, durability?: Durability, label?: String) -> TrackedCell[T]`
 
@@ -305,6 +307,8 @@ path.set("/src/lib.mbt") // No-op
 
 Sets a new value without equality checking; always treated as a change.
 
+Target-name code should use `InputField::force_set(value)`.
+
 ### `TrackedCell::id(self) -> CellId`
 
 Returns the unique identifier for this cell. Use with `Runtime::cell_info()` or when implementing `Trackable`.
@@ -328,6 +332,8 @@ Removes the registered `on_change` callback.
 ### `TrackedCell::is_up_to_date(self) -> Bool`
 
 Always `true`. TrackedCells are input cells with directly-set values.
+
+Target-name code can use `InputField::is_fresh()` or the `Freshness` trait.
 
 ### `TrackedCell::as_signal(self) -> Signal[T]`
 
@@ -1023,6 +1029,14 @@ create_tracked_cell(db, value, durability=High, label="cfg") // both
 
 **Returns:** `TrackedCell[T]`
 
+### `create_input_field[Ctx : RuntimeContext, T](ctx: Ctx, value: T, durability?: Durability, label?: String) -> InputField[T]`
+
+Creates a target-name `InputField` using the context runtime.
+
+```moonbit nocheck
+let path = create_input_field(ctx, "/src/main.mbt", label="SourceFile.path")
+```
+
 ### `add_tracked[T : Trackable](scope: Scope, tracked: T) -> Unit`
 
 Registers every cell in a `Trackable` struct with `scope`, so disposing the
@@ -1037,12 +1051,24 @@ add_tracked(scope, tracked)
 scope.dispose()
 ```
 
+### `add_input_fields[T : InputFieldOwner](scope: Scope, owner: T) -> Unit`
+
+Registers every cell in an `InputFieldOwner` struct with `scope`, so disposing
+the scope disposes all of the struct's input fields in one call.
+
+```moonbit nocheck
+let scope = Scope::new(rt)
+let fields = MyInputFields(rt)
+add_input_fields(scope, fields)
+scope.dispose()
+```
+
 ### `gc_tracked[T : Trackable](rt: Runtime, tracked: T) -> Unit`
 
 Deprecated no-op kept for source compatibility; use `add_tracked(scope,
 tracked)` instead for lifecycle management. `TrackedCell` fields are leaves of
 the dependency graph, so marking them as GC roots keeps nothing alive. The
-ideal future names are `InputField`, `InputFieldOwner`, and
+target names for new code are `InputField`, `InputFieldOwner`, and
 `add_input_fields`.
 
 ```moonbit

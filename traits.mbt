@@ -54,6 +54,17 @@ pub(open) trait Readable {
 }
 
 ///|
+/// Target-name freshness trait for readable incremental nodes.
+///
+/// `Freshness` mirrors `Readable` during the compatibility window while using
+/// target API vocabulary. Use it for new generic code that only needs to ask
+/// whether a handle is current with its runtime's latest revision.
+pub(open) trait Freshness {
+  /// Returns true if the node is fresh at the current revision.
+  is_fresh(Self) -> Bool
+}
+
+///|
 /// Signals are always up-to-date since they are input cells
 /// with directly-set values.
 pub impl[T] Readable for Signal[T] with is_up_to_date(self) {
@@ -65,6 +76,30 @@ pub impl[T] Readable for Signal[T] with is_up_to_date(self) {
 /// runtime's current revision.
 pub impl[T] Readable for Memo[T] with is_up_to_date(self) {
   Memo::is_up_to_date(self)
+}
+
+///|
+/// Target inputs are always fresh because they are directly-set cells.
+pub impl[T] Freshness for Input[T] with is_fresh(self) {
+  Input::is_fresh(self)
+}
+
+///|
+/// Target input fields are always fresh because they are directly-set cells.
+pub impl[T] Freshness for InputField[T] with is_fresh(self) {
+  InputField::is_fresh(self)
+}
+
+///|
+/// A target derived value is fresh when its cached value is verified.
+pub impl[T] Freshness for Derived[T] with is_fresh(self) {
+  Derived::is_fresh(self)
+}
+
+///|
+/// A reachable target derived value is fresh when its cached value is verified.
+pub impl[T] Freshness for ReachableDerived[T] with is_fresh(self) {
+  ReachableDerived::is_fresh(self)
 }
 
 ///|
@@ -147,6 +182,17 @@ pub fn[Ctx : RuntimeContext, T] create_input(
   label? : String,
 ) -> Input[T] {
   Input(ctx.runtime(), value, durability~, label?)
+}
+
+///|
+/// Creates a target-name input-field facade using the context runtime.
+pub fn[Ctx : RuntimeContext, T] create_input_field(
+  ctx : Ctx,
+  value : T,
+  durability? : Durability = Low,
+  label? : String,
+) -> InputField[T] {
+  InputField(ctx.runtime(), value, durability~, label?)
 }
 
 ///|
@@ -286,6 +332,15 @@ pub(open) trait Trackable {
 }
 
 ///|
+/// Target-name contract for types that own `InputField` fields.
+///
+/// The returned cell IDs must be stable across calls and belong to the runtime
+/// of any scope they are registered with.
+pub(open) trait InputFieldOwner {
+  cell_ids(Self) -> Array[CellId]
+}
+
+///|
 /// Creates a new TrackedCell using the database's runtime.
 ///
 /// Follows the same pattern as `create_signal` and `create_memo`.
@@ -325,6 +380,12 @@ pub fn[Db : Database, T] create_tracked_cell(
 /// ```
 pub fn[T : Trackable] add_tracked(scope : Scope, tracked : T) -> Unit {
   scope.add_cell_ids(tracked.cell_ids())
+}
+
+///|
+/// Registers all cells from an `InputFieldOwner` with a scope for bulk disposal.
+pub fn[T : InputFieldOwner] add_input_fields(scope : Scope, owner : T) -> Unit {
+  scope.add_cell_ids(owner.cell_ids())
 }
 
 ///|

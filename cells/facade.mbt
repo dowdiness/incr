@@ -40,6 +40,101 @@ pub fn[T] Input::force_set(self : Input[T], new_value : T) -> Unit {
 }
 
 ///|
+/// Returns true. Inputs are directly-set cells and are always fresh.
+pub fn[T] Input::is_fresh(self : Input[T]) -> Bool {
+  self.inner.is_up_to_date()
+}
+
+///|
+/// Target-name field-level input facade over `TrackedCell`.
+pub(all) struct InputField[T] {
+  priv inner : TrackedCell[T]
+}
+
+///|
+/// Creates a field-level input cell with the given initial value.
+pub fn[T] InputField::InputField(
+  rt : Runtime,
+  initial : T,
+  durability? : Durability = Low,
+  label? : String,
+) -> InputField[T] {
+  { inner: TrackedCell(rt, initial, durability~, label?) }
+}
+
+///|
+/// Returns the current value and records a dependency when tracked.
+pub fn[T] InputField::get(self : InputField[T]) -> T {
+  self.inner.get()
+}
+
+///|
+/// Returns the current value without recording a dependency.
+pub fn[T] InputField::peek(self : InputField[T]) -> T {
+  self.inner.peek()
+}
+
+///|
+/// Sets the field to a new value, skipping same-value updates.
+pub fn[T : Eq] InputField::set(self : InputField[T], new_value : T) -> Unit {
+  self.inner.set(new_value)
+}
+
+///|
+/// Sets the field to a value and always bumps the relevant revision.
+pub fn[T] InputField::force_set(self : InputField[T], new_value : T) -> Unit {
+  self.inner.set_unconditional(new_value)
+}
+
+///|
+/// Returns the unique identifier for this field.
+pub fn[T] InputField::id(self : InputField[T]) -> CellId {
+  self.inner.id()
+}
+
+///|
+/// Returns the durability level configured at construction.
+pub fn[T] InputField::durability(self : InputField[T]) -> Durability {
+  self.inner.durability()
+}
+
+///|
+/// Registers a callback that fires whenever this field's value changes.
+pub fn[T] InputField::on_change(self : InputField[T], f : (T) -> Unit) -> Unit {
+  self.inner.on_change(f)
+}
+
+///|
+/// Removes this field's `on_change` callback.
+pub fn[T] InputField::clear_on_change(self : InputField[T]) -> Unit {
+  self.inner.clear_on_change()
+}
+
+///|
+/// Returns true. Input fields are directly-set cells and are always fresh.
+pub fn[T] InputField::is_fresh(self : InputField[T]) -> Bool {
+  self.inner.is_up_to_date()
+}
+
+///|
+/// Disposes this field by disposing its underlying tracked cell.
+pub fn[T] InputField::dispose(self : InputField[T]) -> Unit {
+  self.inner.dispose()
+}
+
+///|
+/// Returns true if this field has been disposed.
+pub fn[T] InputField::is_disposed(self : InputField[T]) -> Bool {
+  self.inner.is_disposed()
+}
+
+///|
+/// Returns the compatibility tracked-cell handle for interop.
+pub fn[T] InputField::as_tracked_cell(self : InputField[T]) -> TrackedCell[T] {
+  self.inner
+}
+
+///|
 /// Target-name lazy derived cell facade over `Memo`.
 pub(all) struct Derived[T] {
   priv inner : Memo[T]
@@ -89,6 +184,12 @@ pub fn[T] Derived::read_or_abort(self : Derived[T]) -> T {
 /// Creates a long-lived outside-graph reader that returns cycle errors.
 pub fn[T] Derived::watch(self : Derived[T]) -> Watch[T] {
   self.inner.watch_result()
+}
+
+///|
+/// Returns whether this derived value is verified at the current revision.
+pub fn[T] Derived::is_fresh(self : Derived[T]) -> Bool {
+  self.inner.is_up_to_date()
 }
 
 ///|
@@ -145,6 +246,12 @@ pub fn[T : Eq] ReachableDerived::read_or_abort(self : ReachableDerived[T]) -> T 
 /// Creates a long-lived outside-graph reader that returns cycle errors.
 pub fn[T : Eq] ReachableDerived::watch(self : ReachableDerived[T]) -> Watch[T] {
   self.inner.watch_result()
+}
+
+///|
+/// Returns whether this reachable derived value is verified at the current revision.
+pub fn[T] ReachableDerived::is_fresh(self : ReachableDerived[T]) -> Bool {
+  self.inner.is_up_to_date()
 }
 
 ///|
