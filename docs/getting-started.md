@@ -153,7 +153,7 @@ inspect(amount.get(), content="100") // rolled back
 
 **Direct Runtime:**
 ```moonbit
-let amount = Signal(rt, 100)
+let amount = Input(rt, 100)
 let res : Result[Unit, Error] = try? rt.batch(fn() raise {
   amount.set(999)
   raise Stop
@@ -187,7 +187,7 @@ fn main {
   println("Tax: \{tax.read_or_abort()}")            // 20.0
   println("Total: \{total.read_or_abort()}")        // 220.0
 
-  // Change quantity — only affected memos recompute
+  // Change quantity — only affected derived values recompute
   quantity.set(3)
   println("New total: \{total.read_or_abort()}")    // 330.0
 }
@@ -198,14 +198,14 @@ fn main {
 When you call `quantity.set(3)`, `incr` doesn't immediately recompute everything. Instead:
 
 1. It notes that `quantity` changed at a new revision
-2. When you read `total.get()`, it checks if `total`'s dependencies changed
+2. When you read `total.read_or_abort()`, it checks if `total`'s dependencies changed
 3. It walks the dependency chain: `total` → `subtotal` → `quantity` (changed!)
-4. Only the affected memos (`subtotal`, `tax`, `total`) recompute
+4. Only the affected derived values (`subtotal`, `tax`, `total`) recompute
 
-If you had 100 other memos that don't depend on `quantity`, they wouldn't even be checked.
+If you had 100 other derived values that don't depend on `quantity`, they wouldn't even be checked.
 
 ## Next Steps
 
-- [Core Concepts](./concepts.md) — Understand Signals, Memos, Revisions, and Durability
+- [Core Concepts](./concepts.md) — Understand Inputs, Derived values, Revisions, and Durability
 - [API Reference](./api-reference.md) — Complete reference for all public types and methods
 - [Cookbook](./cookbook.md) — Common patterns and recipes

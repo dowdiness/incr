@@ -6,18 +6,17 @@ A Salsa-inspired incremental recomputation library for [MoonBit](https://www.moo
 
 **Core primitives:**
 
-- **`Signal[T]`** — input cells you write to directly
-- **`Memo[T]`** — derived computations that memoize and auto-track dependencies
-- **`MemoMap[K, V]`** — keyed memoization, one memo per key, created lazily
+- **`Input[T]`** — input cells you write to directly
+- **`Derived[T]`** — derived computations that memoize and auto-track dependencies
+- **`DerivedMap[K, V]`** — keyed memoization, one derived value per key, created lazily
 - **Backdating + durability** — skip downstream work when values didn't really change or inputs rarely do
 
-Advanced features (push-reactive `Reactive[T]` / `Effect`, hybrid push-pull `HybridMemo`, field-level `TrackedCell`, side-channel `Accumulator[T]`, Datalog `Relation` / `FunctionalRelation` / fixpoint, batching, cycle-safe reads) are covered in [docs/](docs/README.md).
+Advanced features (push-reactive `EagerDerived[T]` / `Effect`, reachable lazy `ReachableDerived[T]`, field-level `InputField[T]`, side-channel `Accumulator[T]`, Datalog `Relation` / `MapRelation` / fixpoint, batching, cycle-safe reads) are covered in [docs/](docs/README.md).
 
-Naming note: current releases use the names above. The ideal future naming
-direction is recorded in [ADR 2026-05-21](docs/decisions/2026-05-21-public-api-ideal-naming.md):
-`Signal -> Input`, `Memo -> Derived`, `HybridMemo -> ReachableDerived`,
-`Reactive -> EagerDerived`, `MemoMap -> DerivedMap`, `TrackedCell ->
-InputField`, and `Database -> RuntimeContext`.
+Naming note: the target facade names above are the recommended API. Legacy
+compatibility names remain available during migration: `Signal`, `Memo`,
+`HybridMemo`, `Reactive`, `MemoMap`, `TrackedCell`, and `Database`. The naming
+direction is recorded in [ADR 2026-05-21](docs/decisions/2026-05-21-public-api-ideal-naming.md).
 
 ## Installation
 
@@ -58,7 +57,7 @@ let sum = create_derived(app, () => x.get() + y.get())
 // Outside the graph, use `read_or_abort()` or `read()`.
 inspect(sum.read_or_abort(), content="30")
 
-// Update an input — downstream memos recompute on the next read
+// Update an input — downstream derived values recompute on the next read
 x.set(5)
 inspect(sum.read_or_abort(), content="25")
 ```
@@ -81,7 +80,7 @@ Full documentation index: [docs/README.md](docs/README.md).
 ```bash
 moon check    # Type-check
 moon build    # Build
-moon test     # Run all tests (~590 test blocks across cells/ and tests/)
+moon test     # Run all tests (~630 test blocks across cells/ and tests/)
 moon bench    # Run benchmarks (always pass --release for representative numbers)
 ```
 
