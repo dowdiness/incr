@@ -217,3 +217,68 @@ pub fn[K, V] FunctionalRelation::delta_iter(
 ) -> Iter[(K, V)] {
   self.delta.val.iter()
 }
+
+///|
+/// Target-name facade for a Datalog functional relation.
+pub(all) struct MapRelation[K, V] {
+  priv inner : FunctionalRelation[K, V]
+}
+
+///|
+/// Creates a relation-shaped map input.
+pub fn[K : Hash + Eq, V] MapRelation::MapRelation(
+  rt : Runtime,
+  merge? : (V, V) -> V,
+  label? : String,
+) -> MapRelation[K, V] {
+  { inner: FunctionalRelation(rt, merge?, label?) }
+}
+
+///|
+/// Returns the CellId for this map relation.
+pub fn[K, V] MapRelation::id(self : MapRelation[K, V]) -> CellId {
+  self.inner.id()
+}
+
+///|
+/// Inserts or updates a key-value pair in the map relation's delta layer.
+pub fn[K : Hash + Eq, V : Eq] MapRelation::insert(
+  self : MapRelation[K, V],
+  key : K,
+  value : V,
+) -> Bool {
+  self.inner.insert(key, value)
+}
+
+///|
+/// Looks up a key in the current materialized map.
+pub fn[K : Hash + Eq, V] MapRelation::get(
+  self : MapRelation[K, V],
+  key : K,
+) -> V? {
+  self.inner.get(key)
+}
+
+///|
+/// Iterates over the current materialized map.
+pub fn[K, V] MapRelation::iter(self : MapRelation[K, V]) -> Iter[(K, V)] {
+  self.inner.iter()
+}
+
+///|
+/// Iterates over the current delta layer.
+pub fn[K, V] MapRelation::delta_iter(self : MapRelation[K, V]) -> Iter[(K, V)] {
+  self.inner.delta_iter()
+}
+
+///|
+/// Disposes this map relation.
+pub fn[K, V] MapRelation::dispose(self : MapRelation[K, V]) -> Unit {
+  self.inner.dispose()
+}
+
+///|
+/// Returns true if this map relation has been disposed.
+pub fn[K, V] MapRelation::is_disposed(self : MapRelation[K, V]) -> Bool {
+  self.inner.is_disposed()
+}

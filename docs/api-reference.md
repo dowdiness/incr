@@ -1,6 +1,6 @@
 # API Reference
 
-Reference for the most commonly used public APIs in `incr`. This is not exhaustive — the authoritative surface is in `pkg.generated.mbti` and `cells/pkg.generated.mbti`. APIs surfaced here: `Runtime`, `Signal`, `Memo`, `HybridMemo`, `MemoMap`, `TrackedCell`, target facades such as `Input` / `InputField` / `Derived`, `Accumulator`, `MemoEvent`, `CycleError`, the `Database`/`RuntimeContext`/`Readable`/`Freshness`/`Trackable`/`InputFieldOwner` traits, and the top-level helper functions. Specialised APIs (`Reactive`, `Effect`, `Relation`, `FunctionalRelation`, `Scope`, `Observer`) are documented next to their constructors in `cells/`.
+Reference for the most commonly used public APIs in `incr`. This is not exhaustive — the authoritative surface is in `pkg.generated.mbti` and `cells/pkg.generated.mbti`. APIs surfaced here: `Runtime`, `Signal`, `Memo`, `HybridMemo`, `MemoMap`, `TrackedCell`, target facades such as `Input` / `InputField` / `Derived`, `Accumulator`, `MemoEvent`, `CycleError`, the `Database`/`RuntimeContext`/`Readable`/`Freshness`/`Trackable`/`InputFieldOwner` traits, and the top-level helper functions. Specialised APIs (`Reactive`, `Effect`, `Relation`, `FunctionalRelation` / `MapRelation`, `Scope`, `Observer`) are documented next to their constructors in `cells/`.
 
 > **Recommended Pattern:** Use the `Database` trait to encapsulate your `Runtime` in a database type. This makes your API cleaner and hides implementation details. See the [Helper Functions](#helper-functions) section and [API Design Guidelines](design/api-design-guidelines.md) for details.
 
@@ -962,6 +962,21 @@ pub(open) trait Checkable {
 pub(open) trait Executable {
   run(Self) -> Array[String]
 }
+```
+
+---
+
+## MapRelation[K, V]
+
+`MapRelation[K, V]` is the target-name facade over `FunctionalRelation[K, V]`.
+It keeps the same Datalog map behavior: `insert` stages key-value changes,
+`get` and `iter` read the current materialized map, and `delta_iter` reads the
+current frontier during fixpoint rules.
+
+```moonbit nocheck
+let weights : MapRelation[(Int, Int), Int] = MapRelation(rt)
+ignore(weights.insert((1, 2), 10))
+rt.fixpoint()
 ```
 
 ---

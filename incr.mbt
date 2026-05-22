@@ -40,6 +40,7 @@ pub using @internal {
   type ReachableDerived,
   type Relation,
   type FunctionalRelation,
+  type MapRelation,
   type Reactive,
   type EagerDerived,
   type Effect,
