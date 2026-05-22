@@ -77,11 +77,11 @@ spike confirms the receiver is unchanged.
 | Current callable | Target callable | Direct alias condition |
 |---|---|---|
 | `Type::new(...)` on cell constructors | `Type::Type(...)` custom constructor | Same type receiver. Keep `::new` as a deprecated alias after the target constructor is canonical. |
-| `Signal::set_unconditional(value)` | `Signal::force_set(value)` or alias-preserved `Input::force_set(value)` | Same receiver after `Input` aliasing. |
-| `TrackedCell::set_unconditional(value)` | `TrackedCell::force_set(value)` or alias-preserved `InputField::force_set(value)` | Same receiver after `InputField` aliasing. |
+| `Signal::set_unconditional(value)` | `Signal::force_set(value)` | Same receiver only. `Input::force_set(value)` is a facade forwarding method. |
+| `TrackedCell::set_unconditional(value)` | `TrackedCell::force_set(value)` | Same receiver only. `InputField::force_set(value)` is a facade forwarding method. |
 | `is_up_to_date()` concrete methods | `is_fresh()` concrete methods | Same receiver. Trait migration is separate. |
-| `observe()` | `watch()` | Same receiver for `Memo`, `HybridMemo`, and `Reactive`, or alias-preserved target names. |
-| `Observer::get()` | `Observer::read()` or alias-preserved `Watch::read()` | Same receiver after `Watch` aliasing. |
+| `observe()` | `watch()` | Same receiver for `Memo`, `HybridMemo`, and `Reactive` only. Target facades define their own `watch()` methods. |
+| `Observer::get()` | `Observer::read()` | Same receiver only. `Watch::read()` is a target facade method with target semantics. |
 | `Memo::get_result()` | `Memo::read()` | Same receiver only. Do not alias it to target `get()`. |
 | `Memo::get()` | `Memo::get_or_abort()` | Same receiver only. This alias is invalid once `get` is also the target `Result` method on that receiver. |
 | `Memo::get_or(fallback)` | `Memo::read_or(fallback)` | Same receiver only. |
@@ -126,26 +126,20 @@ is chosen.
 
 ### Public type names
 
-Type renames are not `#alias` work. Implementation should start with a small
-compile spike proving which of these is available and ergonomic:
+Type renames are not `#alias` work. Phase 0 proved that type aliases preserve
+method resolution but do not provide target constructor syntax, so the target
+surface should use facade types when it needs examples such as `Input(...)` or
+when target methods must differ from current compatibility methods.
 
-1. A deprecated type-alias mechanism that preserves method resolution.
-2. A thin wrapper/facade type around the current implementation.
-
-Prefer type aliases for pure vocabulary changes where method behavior does not
-need to diverge during compatibility:
+Use wrapper/facade types for the target public handles:
 
 - `Signal[T] -> Input[T]`
 - `TrackedCell[T] -> InputField[T]`
 - `Observer[T] -> Watch[T]`
 - `FunctionalRelation[K, V] -> MapRelation[K, V]`
-
-Prefer wrapper/facade types where target methods must differ from current
-methods while old code still compiles:
-
 - `Memo[T] -> Derived[T]`
 - `HybridMemo[T] -> ReachableDerived[T]`
-- `Reactive[T] -> EagerDerived[T]` if it adopts `Result`-returning read names
+- `Reactive[T] -> EagerDerived[T]`
 - `MemoMap[K, V] -> DerivedMap[K, V]`
 
 The wrapper phase lets new code call `Derived::get() -> Result[...]` while old
@@ -244,6 +238,9 @@ two sequences:
 The preferred facade keeps docs honest: target-name examples can show target
 semantics without breaking existing `MemoMap` users.
 
+The facade/read contract is specified in
+[`docs/design/specs/2026-05-21-ideal-api-facade-read-semantics.md`](../design/specs/2026-05-21-ideal-api-facade-read-semantics.md).
+
 ## `Runtime::read*` staging
 
 Current outside-the-graph one-shot reads are receiver methods on `Runtime`:
@@ -259,16 +256,9 @@ not the target `Result`-returning read surface.
 Stage them as compatibility API:
 
 1. Keep all three current methods during the additive target-name phase.
-2. Add target one-shot names only if there is a real driver that prefers the
-   runtime receiver over direct `derived.read_or_abort()` or `derived.watch()`.
-   If added, use explicit names such as:
-
-   ```moonbit
-   rt.read_or_abort(derived)
-   rt.read_reachable_or_abort(reachable)
-   rt.read_eager_or_abort(eager)
-   ```
-
+2. Do not add replacement target runtime read names during the additive phase.
+   The ideal target surface puts reads on handles:
+   `derived.read()`, `derived.read_or_abort()`, and `derived.watch()`.
 3. Do not rename `Runtime::read(memo) -> T` to target `read(...)`, because target
    `read(...)` means `Result`-returning permissive read.
 4. Do not assume MoonBit can overload `Runtime::read` by argument type while the
@@ -276,19 +266,14 @@ Stage them as compatibility API:
    whether same-name receiver methods can differ only by parameter type. If not,
    reserve runtime-receiver `read(...) -> Result[...]` for a breaking phase after
    old `Runtime::read` has been removed or renamed.
-5. If a `Runtime`-receiver target API is added, provide `Result`-returning peers
-   separately; do not reuse the old aborting names:
-
-   ```moonbit
-   rt.read(derived) -> Result[T, CycleError]
-   rt.read_reachable(reachable) -> Result[T, CycleError]
-   rt.read_eager(eager) -> Result[T, CycleError]
-   ```
-
-6. Prefer final docs that show direct target methods:
-   `derived.read_or_abort()` for one-shot reads and `derived.watch()` for
-   long-lived outside-the-graph reads. Keep `Runtime::read*` in the compatibility
-   table unless downstream code proves the runtime receiver is still clearer.
+5. Deprecate `Runtime::read*` as legacy compatibility in the same PR that adds
+   the target handle outside-read methods. Remove it in a breaking release.
+6. Delay any decision about new `Runtime` read helpers until after the old
+   helpers are gone and a concrete downstream driver proves `Runtime` adds
+   semantics beyond direct handle reads.
+7. Do not add `Runtime::read_all`. Do not add `Runtime::snapshot` unless it
+   enforces a real runtime invariant such as write exclusion, grouped event
+   draining, or temporary roots for the duration of a read group.
 
 ## `Scope` helper staging
 
@@ -366,9 +351,8 @@ Phase 0 spike result (2026-05-21): compile probes live under
 
 Add target names without changing existing contracts:
 
-- Add `Input`, `InputField`, `Watch`, and `MapRelation` as aliases or wrappers.
-- Add `Derived`, `ReachableDerived`, `EagerDerived`, and `DerivedMap` as facades
-  if target read semantics would collide with current method names.
+- Add `Input`, `InputField`, `Watch`, `MapRelation`, `Derived`,
+  `ReachableDerived`, `EagerDerived`, and `DerivedMap` as facades.
 - Add non-conflicting target methods and deprecated callable aliases.
 - Add `RuntimeContext`, `Freshness`, and `InputFieldOwner` while keeping
   `Database`, `Readable`, and `Trackable`.
@@ -383,8 +367,8 @@ After Phase 1 compiles:
 
 - Update API reference and concepts docs to list target names first and current
   names as deprecated compatibility.
-- Switch examples that only need safe aliases: `Input`, `InputField`, `Watch`,
-  `force_set`, `is_fresh`, and cache method names.
+- Switch examples that only need safe facade forwarding: `Input`, `InputField`,
+  `Watch`, `force_set`, `is_fresh`, and cache method names.
 - Keep examples involving `Derived::get()` and `DerivedMap::get()` on current
   names unless the wrapper facade already implements target `Result` semantics.
 - Add migration notes showing old-to-new read vocabulary.

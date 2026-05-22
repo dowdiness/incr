@@ -112,6 +112,17 @@ Constructors should take an explicit `Runtime`. Receiver-based
 convenience methods may be provided on `Scope` or `RuntimeContext`, but
 the final API should not rely on `create_*` free helper functions.
 
+`Runtime` should not define the ideal read surface. Handles own reads,
+`Watch` owns long-lived outside-the-graph read roots, and `Runtime` owns
+coordination concerns such as batching, GC, fixpoint, and introspection.
+Existing `Runtime::read*` methods are compatibility conveniences, not the
+target naming pattern.
+
+Target facade handles should not expose public bridge methods to or from the
+current compatibility handles. During migration, old and target handles coexist;
+users construct the surface they intend to use instead of converting between
+them.
+
 ## Rationale
 
 1. **Names should describe graph role, not implementation.** `Input` and
