@@ -119,7 +119,7 @@ compatibility `FunctionalRelation[K, V]`.
 
 | Type | Role | Created via |
 |---|---|---|
-| `Runtime` | Owns all dependency state, revision counter, batch frames, GC roots, lifecycle dispatch tables | `Runtime::new(on_change?)` |
+| `Runtime` | Owns all dependency state, revision counter, batch frames, GC roots, lifecycle dispatch tables | `Runtime(on_change?)` or `Runtime::new(on_change?)` |
 | `Input[T]` | Externally settable input cell | `Input(rt, value, durability?, label?)` or `scope.input(...)` |
 | `Derived[T]` | Lazy pull-derived value with strict guarded `get()` and permissive `read()` `Result` APIs | `Derived(rt, compute, label?)` or `scope.derived(...)` |
 | `DerivedMap[K, V]` | Lazy per-key derived values with target cache helpers | `DerivedMap(rt, compute, label?)` or `scope.derived_map(...)` |

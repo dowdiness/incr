@@ -166,12 +166,12 @@ fn main {
   // Outside-graph reads use `read()` / `read_or_abort()`. Inside another
   // derived compute, use `get()` / `get_or_abort()` to record a dependency.
   println("Subtotal: \{subtotal.read_or_abort()}")  // 200
-  println("Tax: \{tax.read_or_abort()}")            // 20.0
-  println("Total: \{total.read_or_abort()}")        // 220.0
+  println("Tax: \{tax.read_or_abort()}")            // 20
+  println("Total: \{total.read_or_abort()}")        // 220
 
   // Change quantity — only affected derived values recompute
   quantity.set(3)
-  println("New total: \{total.read_or_abort()}")    // 330.0
+  println("New total: \{total.read_or_abort()}")    // 330
 }
 ```
 

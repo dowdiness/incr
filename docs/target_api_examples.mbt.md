@@ -82,8 +82,10 @@ test "docs target api: read result and strict get inside derived" {
 test "docs target api: watch keeps derived live across gc" {
   let rt = @incr.Runtime()
   let input = @incr.Input(rt, 1, label="input")
-  let derived = @incr.Derived(rt, () => input.get() + 1, label="derived")
-  let watch = derived.watch()
+  let watch = {
+    let derived = @incr.Derived(rt, () => input.get() + 1, label="derived")
+    derived.watch()
+  }
 
   inspect(watch.read_or_abort(), content="2")
   rt.gc()
