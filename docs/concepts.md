@@ -7,29 +7,28 @@ This document explains the key concepts behind `incr` without diving into implem
 `incr` models your computations as a directed graph:
 
 ```
-[Signal: price] ──┐
-                  ├──► [Memo: subtotal] ──► [Memo: total]
-[Signal: qty]   ──┘                              ▲
-                                                 │
-[Signal: tax_rate] ──► [Memo: tax] ─────────────┘
+[Input: price] ──┐
+                 ├──► [Derived: subtotal] ──► [Derived: total]
+[Input: qty]   ──┘                                  ▲
+                                                     │
+[Input: tax_rate] ──► [Derived: tax] ───────────────┘
 ```
 
-- **Signals** are the leaves (inputs you control)
-- **Memos** are the interior nodes (derived values)
+- **Inputs** are the leaves (values you control)
+- **Derived values** are the interior nodes (cached computations)
 - **Arrows** represent dependencies (automatically tracked)
 
-Naming note: this document uses the current public names. The accepted ideal
-API vocabulary is recorded in [ADR 2026-05-21](decisions/2026-05-21-public-api-ideal-naming.md):
-`Signal -> Input`, `Memo -> Derived`, `HybridMemo -> ReachableDerived`,
-`Reactive -> EagerDerived`, `MemoMap -> DerivedMap`, `TrackedCell ->
-InputField`, and `Database -> RuntimeContext`.
+Naming note: this document uses the target facade names. Legacy compatibility
+names remain available while migration continues: `Signal`, `Memo`,
+`HybridMemo`, `Reactive`, `MemoMap`, `TrackedCell`, and `Database`.
+The naming direction is recorded in [ADR 2026-05-21](decisions/2026-05-21-public-api-ideal-naming.md).
 
-## Signals
+## Inputs
 
-Signals hold input values that you set directly:
+Inputs hold values that you set directly:
 
 ```moonbit
-let count = Signal(rt, 0)
+let count = Input(rt, 0)
 
 // Read the value
 let current = count.get()  // 0
@@ -40,7 +39,7 @@ count.set(5)
 
 ### Same-Value Optimization
 
-Setting a signal to its current value is a no-op — no revision bump, no recomputation:
+Setting an input to its current value is a no-op — no revision bump, no recomputation:
 
 ```moonbit
 count.set(5)  // Bumps revision
@@ -50,31 +49,31 @@ count.set(5)  // No-op, value unchanged
 To force an update even with the same value:
 
 ```moonbit
-count.set_unconditional(5)  // Always bumps revision
+count.force_set(5)  // Always bumps revision
 ```
 
 ## Labels
 
-Every `Signal`, `Memo`, and `TrackedCell` accepts an optional `label` parameter:
+Every `Input`, `Derived`, and `InputField` accepts an optional `label` parameter:
 
 ```moonbit
-let price = Signal(rt, 100, label="price")
-let total = Memo(rt, () => price.get() * qty.get(), label="total")
+let price = Input(rt, 100, label="price")
+let total = Derived(rt, () => price.get() * qty.get(), label="total")
 ```
 
 Labels have **no runtime cost** — they are stored as `String?` on the cell metadata and never read during normal computation. They only appear in:
 
 - **Cycle error messages**: `"price → subtotal → total → price"` instead of `"Cell 2 → Cell 5 → Cell 8 → Cell 2"`
-- **Debug output**: `Signal::debug()` and `Memo::debug()` include the label when set
+- **Introspection output**: `Runtime::cell_info` exposes the label when set
 
 **Best practice: always set a label.** Debugging a cycle or reading `format_path` output is significantly easier with names attached.
 
-## Memos
+## Derived Values
 
-Memos compute derived values and cache the result:
+Derived values compute from inputs or other derived values and cache the result:
 
 ```moonbit
-let doubled = Memo(rt, () => count.get() * 2)
+let doubled = Derived(rt, () => count.get() * 2)
 ```
 
 Key properties:
@@ -107,11 +106,11 @@ let value = doubled.read_or_abort()
 You don't declare dependencies. `incr` discovers them:
 
 ```moonbit
-let mode = Signal(rt, "add")
-let x = Signal(rt, 10)
-let y = Signal(rt, 20)
+let mode = Input(rt, "add")
+let x = Input(rt, 10)
+let y = Input(rt, 20)
 
-let result = Memo(rt, () => {
+let result = Derived(rt, () => {
   if mode.get() == "add" {
     x.get() + y.get()
   } else {
@@ -124,7 +123,7 @@ Dependencies can change between recomputations. If `mode = "add"`, `result` depe
 
 ## Revisions
 
-A **Revision** is a global counter that increments when any signal changes:
+A **Revision** is a global counter that increments when any input changes:
 
 | Event | Global Revision |
 |-------|-----------------|
@@ -138,11 +137,11 @@ Every cell tracks two timestamps:
 - **`changed_at`** — When the cell's value last actually changed
 - **`verified_at`** — When the cell was last confirmed up-to-date
 
-A memo is stale when `verified_at < current_revision`.
+A derived value is stale when `verified_at < current_revision`.
 
 ## Backdating
 
-**Backdating** is the key optimization. When a memo recomputes to the **same value** as before, its `changed_at` stays at the old revision:
+**Backdating** is the key optimization. When a derived value recomputes to the **same value** as before, its `changed_at` stays at the old revision:
 
 ```moonbit
 let input = Input(rt, 4)
@@ -164,13 +163,13 @@ This prevents unnecessary cascading through the graph.
 
 ### Backdating strategies
 
-Three memo constructors offer different backdate strategies:
+Three compatibility `Memo` constructors offer different backdate strategies:
 
 - **`Memo::new[T : Eq]`** — uses `a == b`. Standard choice for most types.
 - **`Memo::new_memo[T : BackdateEq]`** — uses `a.backdate_equal(b)`. By default compares `changed_at` revisions (O(1)). Useful when structural equality is expensive and you can embed a revision in the value instead.
 - **`Memo::new_no_backdate[T]`** — never backdates. Use when downstream consumers always need to rerun, or when `T` has no `Eq` instance.
 
-The `create_memo` helper always uses `Memo::new`. For the other strategies, call the constructors directly.
+The target `Derived` constructor and `create_derived` helper use `Memo::new` internally. For the other strategies, use the compatibility `Memo` constructors directly.
 
 ## Durability
 
@@ -183,43 +182,43 @@ The `create_memo` helper always uses `Memo::new`. For the other strategies, call
 | `High` | Rarely changing (configuration, schemas) |
 
 ```moonbit
-let config = Signal(rt, 100, durability=High)
-let input = Signal(rt, 1)  // Default: Low
+let config = Input(rt, 100, durability=High)
+let input = Input(rt, 1)  // Default: Low
 ```
 
 ### Durability Shortcut
 
-When only low-durability inputs change, memos that depend solely on high-durability inputs skip verification entirely:
+When only low-durability inputs change, derived values that depend solely on high-durability inputs skip verification entirely:
 
 ```moonbit
-let config = Signal(rt, "production", durability=High)
-let user_input = Signal(rt, "hello")  // Low durability
+let config = Input(rt, "production", durability=High)
+let user_input = Input(rt, "hello")  // Low durability
 
-let config_hash = Memo(rt, () => hash(config.get()))
-let processed = Memo(rt, () => process(user_input.get()))
+let config_hash = Derived(rt, () => hash(config.get()))
+let processed = Derived(rt, () => process(user_input.get()))
 
 // Only user_input changed
 user_input.set("world")
 
-// config_hash.get() → skips verification (durability shortcut)
-// processed.get() → verifies and recomputes
+// config_hash.read_or_abort() → skips verification (durability shortcut)
+// processed.read_or_abort() → verifies and recomputes
 ```
 
 ### Inherited Durability
 
-Memos inherit the **minimum** durability of their dependencies:
+Derived values inherit the **minimum** durability of their dependencies:
 
 ```moonbit
-let high = Signal(rt, 1, durability=High)
-let low = Signal(rt, 2)  // Low durability
+let high = Input(rt, 1, durability=High)
+let low = Input(rt, 2)  // Low durability
 
-let mixed = Memo(rt, () => high.get() + low.get())
+let mixed = Derived(rt, () => high.get() + low.get())
 // mixed inherits Low durability (can't use the shortcut)
 ```
 
 ## Batch Updates
 
-Update multiple signals atomically:
+Update multiple inputs atomically:
 
 ```moonbit
 rt.batch(() => {
@@ -278,84 +277,85 @@ When a cycle is detected via a `Result` read:
 
 ## Field-Level Tracking
 
-When a struct has several logically related fields, you often want memos that depend on only one field to skip recomputation when a different field changes. `Signal[MyStruct]` cannot do this — updating any field forces every downstream memo to reverify.
+When a struct has several logically related fields, you often want derived values that depend on only one field to skip recomputation when a different field changes. `Input[MyStruct]` cannot do this — updating any field forces every downstream derived value to reverify.
 
-**`TrackedCell[T]`** solves this by giving each field its own independent cell:
+**`InputField[T]`** solves this by giving each field its own independent input cell:
 
 ```moonbit
 struct SourceFile {
-  path    : TrackedCell[String]
-  content : TrackedCell[String]
-  version : TrackedCell[Int]
+  path    : InputField[String]
+  content : InputField[String]
+  version : InputField[Int]
 }
 ```
 
-Each `TrackedCell` is an input cell identical to `Signal[T]` in every way — same-value optimization, durability levels, change hooks — but it belongs to a named field.
+Each `InputField` has the same core input behavior as `Input[T]` — same-value optimization, durability levels, change hooks — but it belongs to a named field.
 
-### Trackable Trait
+### InputFieldOwner Trait
 
-Implement the `Trackable` trait to declare which cells a struct owns:
+Implement the `InputFieldOwner` trait to declare which fields a struct owns:
 
 ```moonbit
-impl Trackable for SourceFile with cell_ids(self) {
+impl InputFieldOwner for SourceFile with cell_ids(self) {
   [self.path.id(), self.content.id(), self.version.id()]
 }
 ```
 
-This enables bulk operations on all cells in the struct (e.g., introspection, future GC).
+This enables bulk lifecycle operations with `add_input_fields(scope, owner)`.
 
 ### Field-Level Dependency Isolation
 
-Memos that read individual `TrackedCell` fields only depend on those fields, not on the whole struct:
+Derived values that read individual `InputField` fields only depend on those fields, not on the whole struct:
 
 ```moonbit
-let word_count = Memo(rt, () => {
+let word_count = Derived(rt, () => {
   file.content.get().split(" ").fold(init=0, (acc, _s) => acc + 1)
 })
 
-let is_test = Memo(rt, () => file.path.get().ends_with("_test.mbt"))
+let is_test = Derived(rt, () => file.path.get().ends_with("_test.mbt"))
 
-// Change version — neither memo recomputes
+// Change version — neither derived value recomputes
 file.version.set(1)
 
 // Change content — only word_count recomputes; is_test is untouched
 file.content.set("fn main { let x = 42 }")
 ```
 
-### When to Use TrackedCell vs Signal
+### When to Use InputField vs Input
 
 | Situation | Recommendation |
 |-----------|----------------|
-| Single scalar value | `Signal[T]` |
-| Multiple related fields with independent consumers | `TrackedCell[T]` in a tracked struct |
-| Monolithic struct updated atomically | `Signal[MyStruct]` with batch |
+| Single scalar value | `Input[T]` |
+| Multiple related fields with independent consumers | `InputField[T]` in a field-owner struct |
+| Monolithic struct updated atomically | `Input[MyStruct]` with batch |
 
-## Keyed Queries with MemoMap
+## Keyed Queries with DerivedMap
 
-Sometimes the same logical query is asked for many keys (e.g. file ID, symbol ID, route ID). `MemoMap[K, V]` provides one memoized computation per key:
+Sometimes the same logical query is asked for many keys (e.g. file ID, symbol ID, route ID). `DerivedMap[K, V]` provides one memoized derived computation per key:
 
 ```moonbit
-let by_id = MemoMap::new(rt, (id : Int) => expensive_lookup(id))
+let by_id = DerivedMap(rt, (id : Int) => expensive_lookup(id))
 ```
 
 Key behavior:
 
-- The first `get(key)` creates that key's memo and computes it.
-- Subsequent `get(key)` calls reuse the same key-local memo cache.
-- Different keys are isolated from each other (independent memo instances).
+- The first read creates that key's derived value and computes it.
+- Subsequent reads reuse the same key-local cache.
+- Different keys are isolated from each other (independent derived instances).
 - When dependencies change, each key recomputes lazily on its next read.
 
 Read modes:
 
-- `get(key)` is permissive: it works at top level and also records the per-key dependency when called inside a tracked compute.
-- `get_tracked(key)` is strict: it records the same per-key dependency, but aborts outside a tracked compute. Use it when top-level use would indicate a bug.
+- `read(key)` is permissive: it works at top level and also records the per-key dependency when called inside a tracked compute.
+- `read_or_abort(key)` is the aborting convenience for permissive reads.
+- `get(key)` is strict: it records the same per-key dependency and returns cycle errors as `Result`, but aborts outside a tracked compute. Use it when top-level use would indicate a bug.
+- `get_or_abort(key)` is the aborting convenience for strict reads.
 
 This is a lightweight parameterized-query pattern built on top of `Memo`; it does not change runtime verification internals.
 
-Future naming: the ideal API name is `DerivedMap[K, V]`. In that model,
-fallible derived reads own the simple method names: `get(key)` is the strict
-tracked-context `Result` read, `read(key)` is the permissive `Result` read, and
-aborting conveniences use `_or_abort`.
+Compatibility code can keep using `MemoMap[K, V]` while migrating. In the
+target facade, cache helpers use target names: `has_cached(key)`, `cache_len()`,
+`sweep_cache()`, and `clear_cache()`.
 
 ## Side-Channel Data with Accumulators
 
@@ -363,7 +363,7 @@ Sometimes a memo needs to report extra information — diagnostics, trace events
 
 ```moonbit
 let rt = Runtime()
-let width = Signal(rt, -5)
+let width = Input(rt, -5)
 let diags : Accumulator[String] = Accumulator::new(rt~, label="diags")
 
 let checked = Memo(rt, fn() raise {
@@ -379,7 +379,7 @@ checked_observer.dispose()
 debug_inspect(checked.accumulated_peek(diags), content="[\"negative width: -5\"]")
 ```
 
-Producers call `acc.push(v)` inside a `Memo` or `HybridMemo` compute. Consumers have three read methods:
+Producers call `acc.push(v)` inside a `Memo` or `HybridMemo` compute. Consumers have three compatibility read methods:
 
 | Method | Records dep? | On disposal/cycle |
 |--------|--------------|-------------------|
@@ -420,9 +420,9 @@ Runtime-owned accumulators live until explicitly disposed, so drivers that rebui
 
 See the [Cookbook](./cookbook.md#pattern-side-channel-diagnostics-with-accumulator) for complete worked examples, and the [ADR](./decisions/2026-04-20-accumulator-api.md) for the design rationale.
 
-## Hybrid Push-Pull (HybridMemo)
+## Reachable Derived Values
 
-`HybridMemo[T]` lives on the boundary between the push-driven and pull-driven engines:
+`ReachableDerived[T]` lives on the boundary between the push-driven and pull-driven engines:
 
 ```moonbit
 let rt = Runtime()
@@ -436,68 +436,70 @@ inspect(h.read_or_abort(), content="10")
 
 ### How It Works
 
-`HybridMemo` uses the same lazy revision-based verification as `Memo` — there
-is **no separate dirty flag**. What makes it "hybrid" is *reachability*, not
+`ReachableDerived` uses the same lazy revision-based verification as `Derived` — there
+is **no separate dirty flag**. What makes it "reachable" is *reachability*, not
 invalidation: it participates in `push_reachable_count` so that a live
-`Reactive`/`Effect` observer downstream keeps the memo and its upstream cells
+`EagerDerived`/`Effect` observer downstream keeps the derived value and its upstream cells
 alive across `Runtime::gc()` sweeps. When `get()` is called:
 
 - **Fast path**: If `verified_at >= current_revision` → return cached value immediately, no dependency walk needed
 - **Slow path**: Walk dependencies, recompute if needed
 
-Future naming: the ideal API name is `ReachableDerived[T]`, because the
-deterministic trait is reachability propagation. It is still lazy and does not
-eagerly recompute itself.
+Compatibility code can keep using `HybridMemo[T]`. The target name is
+`ReachableDerived[T]`, because the deterministic trait is reachability
+propagation. It is still lazy and does not eagerly recompute itself.
 
-### HybridMemo vs Memo
+### ReachableDerived vs Derived
 
-| Property | Memo | HybridMemo |
+| Property | Derived | ReachableDerived |
 |----------|------|------------|
 | Invalidation | Lazy revision check on read | Lazy revision check on read (same) |
 | Reachable via push BFS | No | Yes — retained as reachable through eager/rooted dependents |
 | Use case | General derived values | Bridge between push and pull graphs that must survive GC while observed |
 
-Both support backdating — if a `HybridMemo` recomputes to the same value, downstream cells skip recomputation.
+Both support backdating — if a `ReachableDerived` recomputes to the same value, downstream cells skip recomputation.
 
 ## Runtime Isolation
 
-Each `Runtime` is a completely isolated universe. Signals and Memos belong to exactly one Runtime, and cross-runtime reads are a hard error:
+Each `Runtime` is a completely isolated universe. Inputs and derived values belong to exactly one Runtime, and cross-runtime reads are a hard error:
 
 ```moonbit
 let rt_a = Runtime()
 let rt_b = Runtime()
-let sig_b = Input(rt_b, 42)
+let input_b = Input(rt_b, 42)
 
-// This aborts: sig_b belongs to rt_b, not rt_a
-let bad = Derived(rt_a, () => sig_b.get())
+// This aborts: input_b belongs to rt_b, not rt_a
+let bad = Derived(rt_a, () => input_b.get())
 bad.read_or_abort()  // abort: "Cross-runtime dependency"
 ```
 
 The design is intentional:
-- **No accidental stale data**: a silent cross-runtime read would return a value that never invalidates when the foreign signal changes
-- **Consistent with fail-fast philosophy**: `Runtime::get_cell` aborts on wrong-runtime cell IDs; `Signal::get` and `Memo::get` follow the same rule
+- **No accidental stale data**: a silent cross-runtime read would return a value that never invalidates when the foreign input changes
+- **Consistent with fail-fast philosophy**: `Runtime::get_cell` aborts on wrong-runtime cell IDs; `Input::get` and `Derived::get` follow the same rule
 
-If you need to share data between two independent computation graphs, use a plain variable or a shared `Signal` on a common Runtime.
+If you need to share data between two independent computation graphs, use a plain variable or a shared `Input` on a common Runtime.
 
 ## Summary
 
 | Concept | Purpose |
 |---------|---------|
-| Signal (`Input` target name) | Input values you control |
-| Memo (`Derived` target name) | Derived values with automatic caching |
-| HybridMemo (`ReachableDerived` target name) | Pull memo that participates in reachability propagation through eager/rooted dependents |
-| MemoMap (`DerivedMap` target name) | Per-key memoized derived values |
+| Input (`Signal` compatibility name) | Input values you control |
+| Derived (`Memo` compatibility name) | Derived values with automatic caching |
+| ReachableDerived (`HybridMemo` compatibility name) | Pull memo that participates in reachability propagation through eager/rooted dependents |
+| DerivedMap (`MemoMap` compatibility name) | Per-key memoized derived values |
 | Accumulator | Side-channel collector with push-set invalidation (diagnostics, logs) |
 | Revision | Global clock for tracking changes |
 | Backdating | Skip downstream work when values don't actually change |
 | Durability | Skip verification for stable subgraphs |
-| Batch | Atomic multi-signal updates |
-| TrackedCell (`InputField` target name) | Field-level input cells for fine-grained dependency isolation |
+| Batch | Atomic multi-input updates |
+| InputField (`TrackedCell` compatibility name) | Field-level input cells for fine-grained dependency isolation |
+| EagerDerived (`Reactive` compatibility name) | Push-reactive derived value |
+| MapRelation (`FunctionalRelation` compatibility name) | Functional Datalog relation keyed by map keys |
 | Labels | Zero-cost names for readable error messages and debug output |
 | Runtime Isolation | Each Runtime is independent; cross-runtime reads abort |
 
 ## Further Reading
 
 - [API Reference](./api-reference.md) — Complete method reference
-- [Cookbook](./cookbook.md) — Common patterns (including the Tracked Struct recipe)
+- [Cookbook](./cookbook.md) — Common patterns (including the field-level input recipe)
 - [design/internals.md](design/internals.md) — Implementation details

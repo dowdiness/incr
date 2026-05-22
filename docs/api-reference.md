@@ -1,17 +1,34 @@
 # API Reference
 
-Reference for the most commonly used public APIs in `incr`. This is not exhaustive — the authoritative surface is in `pkg.generated.mbti` and `cells/pkg.generated.mbti`. APIs surfaced here: `Runtime`, `Signal`, `Memo`, `HybridMemo`, `MemoMap`, `TrackedCell`, target facades such as `Input` / `InputField` / `Derived`, `Accumulator`, `MemoEvent`, `CycleError`, the `Database`/`RuntimeContext`/`Readable`/`Freshness`/`Trackable`/`InputFieldOwner` traits, and the top-level helper functions. Specialised APIs (`Reactive`, `Effect`, `Relation`, `FunctionalRelation` / `MapRelation`, `Scope`, `Observer`) are documented next to their constructors in `cells/`.
+Reference for the most commonly used public APIs in `incr`. This is not exhaustive — the authoritative surface is in `pkg.generated.mbti` and `cells/pkg.generated.mbti`. APIs surfaced here: `Runtime`, `Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, legacy compatibility handles (`Signal`, `Memo`, `HybridMemo`, `MemoMap`, `TrackedCell`), `Accumulator`, `MemoEvent`, `CycleError`, the `RuntimeContext`/`Database`/`Freshness`/`Readable`/`InputFieldOwner`/`Trackable` traits, and the top-level helper functions. Specialised APIs (`EagerDerived` / `Reactive`, `Effect`, `Relation`, `MapRelation` / `FunctionalRelation`, `Scope`, `Watch` / `Observer`) are documented next to their constructors in `cells/`.
 
-> **Recommended Pattern:** Use the `Database` trait to encapsulate your `Runtime` in a database type. This makes your API cleaner and hides implementation details. See the [Helper Functions](#helper-functions) section and [API Design Guidelines](design/api-design-guidelines.md) for details.
+> **Recommended Pattern:** Use the `RuntimeContext` trait to encapsulate your
+> `Runtime` in an application context type. This makes your API cleaner and
+> hides implementation details. Compatibility helpers still accept `Database`.
+> See the [Helper Functions](#helper-functions) section and [API Design Guidelines](design/api-design-guidelines.md) for details.
 
-> **Naming direction:** This page documents the current public API. The accepted
-> ideal naming ADR is [2026-05-21-public-api-ideal-naming](decisions/2026-05-21-public-api-ideal-naming.md):
-> `Signal -> Input`, `Memo -> Derived`, `HybridMemo -> ReachableDerived`,
-> `Reactive -> EagerDerived`, `MemoMap -> DerivedMap`, `TrackedCell ->
-> InputField`, `Observer -> Watch`, `FunctionalRelation -> MapRelation`,
-> `Readable -> Freshness`, `Trackable -> InputFieldOwner`, and `Database ->
-> RuntimeContext`. The target facade names for cells are available; legacy
-> compatibility APIs remain documented while migration continues.
+> **Naming direction:** Target facade names are recommended for new code.
+> Legacy compatibility names remain available while migration continues:
+> `Signal`, `Memo`, `HybridMemo`, `Reactive`, `MemoMap`, `TrackedCell`,
+> `Observer`, `FunctionalRelation`, `Readable`, `Trackable`, and `Database`.
+> The mapping is recorded in [2026-05-21-public-api-ideal-naming](decisions/2026-05-21-public-api-ideal-naming.md).
+
+## Read Vocabulary Migration
+
+Target reads use `read` for permissive outside-graph reads and `get` for strict
+tracked-context reads:
+
+| Legacy compatibility | Target facade |
+|---|---|
+| `rt.read(memo)` | `derived.read_or_abort()` or `derived.read()` |
+| `memo.observe().get()` | `derived.watch().read_or_abort()` or `derived.watch().read()` |
+| `Memo::get()` inside a compute | `Derived::get_or_abort()` |
+| `Memo::get_result()` outside the graph | `Derived::read()` |
+| `Memo::get_result()` inside a compute | `Derived::get()` |
+| `MemoMap::get(key)` | `DerivedMap::read_or_abort(key)` |
+| `MemoMap::get_tracked(key)` | `DerivedMap::get_or_abort(key)` |
+| `MemoMap::contains(key)` / `length()` | `DerivedMap::has_cached(key)` / `cache_len()` |
+| `HybridMemo::get()` outside the graph | `ReachableDerived::read_or_abort()` |
 
 ## Runtime
 
@@ -28,9 +45,9 @@ let rt = Runtime(on_change=() => rerender())
 
 ### `Runtime::batch(self, f: () -> Unit raise?) -> Unit raise?`
 
-Executes `f` with batched signal updates.
+Executes `f` with batched input updates.
 
-Inside a batch, `Signal::set()` and `Signal::set_unconditional()` writes are deferred and committed when the outermost batch exits.
+Inside a batch, `Input::set()` and `Input::force_set()` writes are deferred and committed when the outermost batch exits. Compatibility `Signal::set()` and `Signal::set_unconditional()` have the same batching behavior.
 
 ```moonbit
 rt.batch(() => {
@@ -43,25 +60,25 @@ Behavior:
 - Nested batches are supported (only the outermost batch commits)
 - If an inner batch raises, its writes are rolled back before the error is re-raised
 - All committed changes share one revision bump
-- Revert detection applies to `Signal::set()` writes (`5 -> 0 -> 5` can result in no net change)
+- Revert detection applies to `Input::set()` writes (`5 -> 0 -> 5` can result in no net change)
 - Reads during a batch observe pre-batch values
 - If `f` raises, pending writes are rolled back and the error is re-raised
 
 Limit — abort safety:
-- `abort()` is not catchable in MoonBit. If `f` calls `abort()` (directly or indirectly), the catch block inside `batch()` never runs. The runtime is left in inconsistent state: `batch_depth` is not decremented, the batch frame stack is not popped, and pending signals retain dangling `commit_pending`/`rollback_pending` closures. The runtime should be considered unusable after an abort.
-- The most common indirect source of `abort()` inside a batch is calling `Memo::get()` on a memo involved in a dependency cycle. Use `Memo::get_result()` inside batch functions to handle cycles gracefully instead of aborting.
+- `abort()` is not catchable in MoonBit. If `f` calls `abort()` (directly or indirectly), the catch block inside `batch()` never runs. The runtime is left in inconsistent state: `batch_depth` is not decremented, the batch frame stack is not popped, and pending inputs retain dangling `commit_pending`/`rollback_pending` closures. The runtime should be considered unusable after an abort.
+- The most common indirect source of `abort()` inside a batch is using an aborting read on a derived value involved in a dependency cycle. Use `Derived::read()` inside batch functions to handle cycles gracefully instead of aborting.
 
 ```moonbit
 // Dangerous: cycle causes abort(), leaving batch state corrupted
 rt.batch(() => {
   x.set(1)
-  let _ = cyclic_memo.get()  // aborts if cycle exists
+  let _ = cyclic_derived.read_or_abort()  // aborts if cycle exists
 })
 
 // Safe: cycle is returned as Err, batch rolls back cleanly on raise
 rt.batch(fn() raise {
   x.set(1)
-  match cyclic_memo.get_result() {
+  match cyclic_derived.read() {
     Ok(v) => use_value(v)
     Err(e) => raise e  // triggers rollback
   }
@@ -96,8 +113,8 @@ rt.set_on_change(() => { count = count + 1 })
 
 Behavior:
 - Outside batch: fires immediately after each committed change
-- Inside batch: fires once at batch end if at least one signal actually changed
-- No fire for no-op `Signal::set()` (same value)
+- Inside batch: fires once at batch end if at least one input actually changed
+- No fire for no-op `Input::set()` (same value)
 
 ### `Runtime::clear_on_change(self) -> Unit`
 
@@ -202,364 +219,321 @@ closure is uncatchable and may leave an unmatched `EnteringCompute` event.
 
 ---
 
-## Signal[T]
+## Input[T] / Signal[T]
 
-Input cells with externally controlled values.
+`Input[T]` is the target-name facade for externally controlled values. `Signal[T]` remains available as the compatibility handle.
 
-### `Signal::new[T](rt: Runtime, initial: T, durability? : Durability, label? : String) -> Signal[T]`
+### `Input[T](rt: Runtime, initial: T, durability? : Durability, label? : String) -> Input[T]`
 
-Creates a signal. Both `durability` (default `Low`) and `label` are optional.
+Creates an input. Both `durability` (default `Low`) and `label` are optional.
 
 The `label` string is used in cycle error messages and `Runtime::cell_info` output. Without a label, cells appear as `Cell[42]` in diagnostics. **Prefer always setting a label** — it has no runtime cost and makes debugging significantly easier.
 
 ```moonbit
-let count = Signal(rt, 0)                                    // defaults
-let config = Signal(rt, "prod", durability=High, label="config")  // explicit
+let count = Input(rt, 0)
+let config = Input(rt, "prod", durability=High, label="config")
 ```
 
-### `Signal::get(self) -> T`
+### `Input::get(self) -> T`
 
-Returns the current signal value and records dependency when called inside a memo computation. Aborts if called inside a memo computation that belongs to a different `Runtime`.
+Returns the current input value and records a dependency when called inside a derived computation. Aborts on cross-runtime reads.
 
-```moonbit
-let value = count.get()
-```
+### `Input::peek(self) -> T`
 
-### `Signal::get_result(self) -> Result[T, CycleError]`
+Returns the current value **without** recording a dependency, even when called inside a derived computation. Use for telemetry, logging, or any read that should not invalidate the caller when the input changes.
 
-Always returns `Ok(value)`. Present for API symmetry with `Memo::get_result()`.
+### `Input::set[T : Eq](self, value: T) -> Unit`
 
-```moonbit
-match count.get_result() {
-  Ok(v) => println(v.to_string())
-  Err(_) => () // Never happens for signals
-}
-```
+Sets a new value. If the new value equals the current value (`old == new`), the call is a no-op: no revision is bumped and downstream derived values are not invalidated. Requires `T : Eq`. See [Type Constraints](#type-constraints) for why.
 
-### `Signal::set[T : Eq](self, value: T) -> Unit`
-
-Sets a new value. If the new value equals the current value (`old == new`), the call is a no-op: no revision is bumped and downstream memos are not invalidated. Requires `T : Eq`. See [Type Constraints](#type-constraints) for why.
-
-```moonbit
-count.set(5)
-count.set(5) // No-op: value unchanged, no revision bump
-```
-
-### `Signal::set_unconditional[T](self, value: T) -> Unit`
+### `Input::force_set[T](self, value: T) -> Unit`
 
 Sets a new value without equality checking; always treated as a change when committed.
 
-```moonbit
-count.set_unconditional(5) // Forces downstream reverification
-```
+### `Input::is_fresh(self) -> Bool`
 
-### `Signal::is_up_to_date(self) -> Bool`
+Always returns `true`. Inputs are directly-set cells.
 
-Signals are always up-to-date (`true`).
+### Compatibility `Signal[T]`
 
-### `Signal::peek(self) -> T`
+`Signal[T]` exposes the same underlying input cell with legacy names:
 
-Returns the current value **without** recording a dependency, even when called inside a memo. Use for telemetry, logging, or any read that should not invalidate the caller when the signal changes. Aborts on cross-runtime read.
-
-```moonbit
-let value = count.peek() // value observed, dependency NOT recorded
-```
+- `Signal(rt, value, durability?, label?)` constructs a compatibility input handle.
+- `Signal::set_unconditional(value)` is `Input::force_set(value)`.
+- `Signal::is_up_to_date()` is `Input::is_fresh()`.
+- `Signal::get_result()` always returns `Ok(value)` and exists for legacy symmetry with `Memo::get_result()`.
+- `Signal::id()`, `Signal::durability()`, `Signal::on_change()`, and `Signal::clear_on_change()` remain available on the compatibility handle for introspection and callbacks.
 
 ---
 
-## TrackedCell[T] / InputField[T]
+## InputField[T] / TrackedCell[T]
 
-A named, field-level input cell. `TrackedCell[T]` wraps a `Signal[T]` and provides an identical API; it is intended for use as a field in a tracked struct where you want each field to be tracked independently.
+`InputField[T]` is the target-name field-level input facade. `TrackedCell[T]` remains available as the compatibility handle.
 
-`InputField[T]` is the target-name facade over `TrackedCell[T]`. New target-style code can use `InputField(rt, value)`, `field.force_set(value)`, and `field.is_fresh()` while compatibility code can keep `TrackedCell`.
+### `InputField[T](rt: Runtime, initial: T, durability?: Durability, label?: String) -> InputField[T]`
 
-### `TrackedCell::new[T](rt: Runtime, initial: T, durability?: Durability, label?: String) -> TrackedCell[T]`
-
-Creates a tracked cell. Both `durability` (default `Low`) and `label` are optional. As with signals, **prefer always setting a label** — it appears in cycle errors and `Runtime::cell_info`. A label like `"SourceFile.path"` identifies which field of which struct caused a problem.
+Creates a field-level input. Both `durability` (default `Low`) and `label` are optional. A label like `"SourceFile.path"` identifies which field of which struct caused a problem.
 
 ```moonbit
-let path    = TrackedCell(rt, "/src/main.mbt", label="SourceFile.path")
-let version = TrackedCell(rt, 0, durability=High, label="SourceFile.version")
+let path = InputField(rt, "/src/main.mbt", label="SourceFile.path")
+let version = InputField(rt, 0, durability=High, label="SourceFile.version")
 ```
 
-### `TrackedCell::get(self) -> T`
+### `InputField::get(self) -> T`
 
-Returns the current value and records a dependency when called inside a memo computation.
+Returns the current field value and records a dependency when called inside a derived computation.
 
-```moonbit
-let value = path.get()
-```
+### `InputField::peek(self) -> T`
 
-### `TrackedCell::get_result(self) -> Result[T, CycleError]`
+Returns the current field value without recording a dependency.
 
-Always returns `Ok(value)`. Present for API symmetry with `Memo::get_result()`.
+### `InputField::set[T : Eq](self, value: T) -> Unit`
 
-### `TrackedCell::set[T : Eq](self, value: T) -> Unit`
+Sets a new value with same-value optimization.
 
-Sets a new value with same-value optimization (no-op when value is unchanged).
-
-```moonbit
-path.set("/src/lib.mbt")
-path.set("/src/lib.mbt") // No-op
-```
-
-### `TrackedCell::set_unconditional[T](self, value: T) -> Unit`
+### `InputField::force_set[T](self, value: T) -> Unit`
 
 Sets a new value without equality checking; always treated as a change.
 
-Target-name code should use `InputField::force_set(value)`.
+### `InputField::id(self) -> CellId`
 
-### `TrackedCell::id(self) -> CellId`
+Returns the unique identifier for this field. Use with `Runtime::cell_info()` or when implementing `InputFieldOwner`.
 
-Returns the unique identifier for this cell. Use with `Runtime::cell_info()` or when implementing `Trackable`.
-
-```moonbit
-let id = path.id()
-```
-
-### `TrackedCell::durability(self) -> Durability`
+### `InputField::durability(self) -> Durability`
 
 Returns the durability level set at construction time.
 
-### `TrackedCell::on_change(self, f: (T) -> Unit) -> Unit`
+### `InputField::on_change(self, f: (T) -> Unit) -> Unit`
 
-Registers a callback fired when this cell's value changes. Replaces any previously registered callback.
+Registers a callback fired when this field's value changes. Replaces any previously registered callback.
 
-### `TrackedCell::clear_on_change(self) -> Unit`
+### `InputField::clear_on_change(self) -> Unit`
 
 Removes the registered `on_change` callback.
 
-### `TrackedCell::is_up_to_date(self) -> Bool`
+### `InputField::is_fresh(self) -> Bool`
 
-Always `true`. TrackedCells are input cells with directly-set values.
+Always returns `true`. Input fields are directly-set cells.
 
-Target-name code can use `InputField::is_fresh()` or the `Freshness` trait.
+### `InputField::dispose(self) -> Unit`
 
-### `TrackedCell::as_signal(self) -> Signal[T]`
+Disposes the underlying tracked cell. Reads or writes after disposal abort.
 
-Returns the underlying `Signal[T]` for interop with APIs that expect a plain signal.
+### `InputField::is_disposed(self) -> Bool`
 
-```moonbit
-let sig = path.as_signal()
-let memo = Memo(rt, () => sig.get().length())
-```
+Returns whether the field has been disposed.
 
-### `TrackedCell::peek(self) -> T`
+### `InputField::as_tracked_cell(self) -> TrackedCell[T]`
 
-Returns the current value without recording a dependency, like `Signal::peek`.
+Returns the compatibility `TrackedCell[T]` handle for interop.
+
+### Compatibility `TrackedCell[T]`
+
+`TrackedCell[T]` exposes the same underlying field cell with legacy names:
+
+- `TrackedCell(rt, value, durability?, label?)` constructs a compatibility field handle.
+- `TrackedCell::set_unconditional(value)` is `InputField::force_set(value)`.
+- `TrackedCell::is_up_to_date()` is `InputField::is_fresh()`.
+- `TrackedCell::get_result()` always returns `Ok(value)` and exists for legacy symmetry with `Memo::get_result()`.
+- `TrackedCell::as_signal()` returns the underlying compatibility `Signal[T]`.
 
 ---
 
-## Memo[T]
+## Derived[T] / Memo[T]
 
-Derived computations with dependency tracking and memoization.
+`Derived[T]` is the target-name lazy derived-value facade. `Memo[T]` remains available as the compatibility handle.
 
-### `Memo::new[T : Eq](rt: Runtime, compute: () -> T, label? : String) -> Memo[T]`
+### `Derived[T : Eq](rt: Runtime, compute: () -> T raise Failure, label? : String) -> Derived[T]`
 
-Creates a lazily evaluated memo using structural equality (`T : Eq`) for backdating. When a recomputation produces a value equal to the previous one, the memo's `changed_at` timestamp is preserved rather than advanced, preventing unnecessary downstream invalidation. The optional `label` names the memo for debug output and cycle error messages.
-
-Two alternative constructors exist for different backdating strategies:
-- `Memo::new_memo[T : BackdateEq]` — uses revision-based backdate detection via the `BackdateEq` trait (O(1) comparison; useful when structural equality is expensive or unavailable)
-- `Memo::new_no_backdate[T]` — never backdates; always advances `changed_at` on recomputation; no trait constraint on `T`
-
-See [Type Constraints](#type-constraints) for details.
+Creates a lazily evaluated derived value using structural equality (`T : Eq`) for backdating. When a recomputation produces a value equal to the previous one, the derived value's `changed_at` timestamp is preserved rather than advanced, preventing unnecessary downstream invalidation.
 
 ```moonbit
-let doubled = Memo(rt, () => count.get() * 2)
-let tax = Memo(rt, () => price.get() * 0.1, label="tax")
+let doubled = Derived(rt, () => count.get() * 2)
+let tax = Derived(rt, () => price.get() * 0.1, label="tax")
 ```
 
-### `Memo::get(self) -> T`
+### `Derived::get(self) -> Result[T, CycleError]`
 
-Returns cached value, recomputing if stale. **Must be called inside another
-memo's compute** (it records a dependency on `self`). Aborts when called outside
-a tracked context. Target-facade code should use `Derived::read()`,
-`Derived::read_or_abort()`, or `Derived::watch()` from top-level code, tests, or
-event handlers; legacy `Memo` callers can still use `memo.observe()`. Aborts on
-cycle and on cross-runtime use.
+Strict graph read. It must be called inside another derived compute function, where it records a dependency. It aborts outside a tracked context and returns `Err(CycleError)` for cycles.
 
-```moonbit nocheck
-// Inside another memo's compute:
-let total = Memo(rt, () => doubled.get() + 1)
+### `Derived::get_or_abort(self) -> T`
 
-// Outside the graph through a target facade:
-let derived = Derived(rt, () => count.get() * 2)
-let value = derived.read_or_abort()
-```
+Strict graph read that aborts on invalid context or cycle.
 
-### `Memo::get_result(self) -> Result[T, CycleError]`
+### `Derived::read(self) -> Result[T, CycleError]`
 
-Returns cached value as `Result`, allowing graceful cycle handling. Aborts (does not return `Err`) if called inside a memo computation that belongs to a different `Runtime`.
+Permissive read. It works from top-level code, tests, event handlers, and callbacks, and it still records a dependency when called inside a tracked compute.
 
 ```moonbit
-match doubled.get_result() {
+match doubled.read() {
   Ok(v) => println(v.to_string())
-  Err(CycleDetected(cell, _path, _labels)) => println("Cycle: " + cell.to_string())
+  Err(cycle) => println(cycle.format_path())
 }
 ```
 
-### `Memo::get_or(self, fallback: T) -> T`
+### `Derived::read_or_abort(self) -> T`
 
-Returns cached value, or `fallback` if a cycle error occurs.
+Permissive read that aborts on cycle.
 
-```moonbit
-let value = doubled.get_or(0)
-```
+### `Derived::watch(self) -> Watch[T]`
 
-### `Memo::get_or_else(self, fallback: (CycleError) -> T) -> T`
+Creates a long-lived outside-graph reader. The `Watch` is a GC root until disposed, and `watch.read()` returns `Result[T, CycleError]`.
 
-If a cycle error occurs, computes a fallback from the cycle error; otherwise returns the cached value.
+### `Derived::is_fresh(self) -> Bool`
 
-```moonbit
-fn read_or_fallback(doubled : Memo[Int]) -> Int {
-  doubled.get_or_else(err => {
-    println(err.format_path())
-    0
-  })
-}
-```
+Returns whether this derived value is verified at the current revision.
 
-`CycleError::format_path` is a pure-value render: it uses labels captured at
-detection time and needs no runtime handle.
+### Compatibility `Memo[T]`
 
-### `Memo::is_up_to_date(self) -> Bool`
+`Memo[T]` exposes the underlying lazy cell with legacy names and additional compatibility-only APIs:
 
-Returns:
-- `false` if the memo has never been computed
-- `true` only when cached and verified at current revision
+- `Memo(rt, f, label?)` constructs a compatibility memo using `T : Eq` backdating.
+- `Memo::new_memo[T : BackdateEq]` and `Memo::new_no_backdate[T]` expose alternate backdating strategies.
+- `Memo::get()` is the legacy strict aborting graph read.
+- `Memo::get_result()`, `get_or()`, and `get_or_else()` are legacy permissive cycle-safe reads.
+- `Memo::is_up_to_date()` is `Derived::is_fresh()`.
+- `Memo::observe()` creates a legacy `Observer[T]`.
+- `Memo::id()`, `dependencies()`, `changed_at()`, `verified_at()`, `on_change()`, and `clear_on_change()` remain available on the compatibility handle.
 
 ### `Memo::accumulated[T, A](self, acc: Accumulator[A]) -> Array[A] raise Failure`
 
-Returns the values this memo pushed into `acc` during its most recent compute, in push order, and **records a synthetic dependency** so the caller (if itself a memo) reinvalidates when the push set changes — even when the memo's ordinary return value is unchanged. Forces verification of the target memo first, so stale results are never returned.
+Returns the values this memo pushed into `acc` during its most recent compute, in push order, and **records a synthetic dependency** so the caller reinvalidates when the push set changes — even when the memo's ordinary return value is unchanged. Forces verification of the target memo first, so stale results are never returned.
 
 Raises `Failure` on: disposed accumulator, cross-runtime accumulator, disposed target memo, a cycle involving the target, or a `Failure` raised inside the target's compute.
-
-```moonbit nocheck
-let diags = report.accumulated(diag_acc)
-for d in diags {
-  println(d.message)
-}
-```
-
-Use inside a memo compute when the consumer should recompute whenever the producer's diagnostics change. See [Accumulator[T]](#accumulatort).
 
 ### `Memo::accumulated_peek[T, A](self, acc: Accumulator[A]) -> Array[A]`
 
 Untracked read of the values the memo pushed into `acc` during its most recent compute. Does **not** record a dependency, does **not** force verification, and is **permissive on disposal** — returns `[]` when the accumulator or target is disposed, or when the target has never been computed.
 
-```moonbit nocheck
-// Read-only inspection from outside the graph (no invalidation wired):
-let so_far = report.accumulated_peek(diag_acc)
-```
-
-Prefer `accumulated` inside memo compute; use `accumulated_peek` from drivers, debug output, or tests that only observe.
-
 ### `Memo::accumulated_result[T, A](self, acc: Accumulator[A]) -> Result[Array[A], CycleError] raise Failure`
 
 Tracked, verifying read that surfaces a cycle in the target as `Err(CycleError)` rather than raising. Other defect classes (disposed handles, cross-runtime reuse) still raise `Failure`.
 
-```moonbit nocheck
-match report.accumulated_result(diag_acc) {
-  Ok(diags) => render(diags)
-  Err(cycle) => log_cycle(cycle.format_path())
-}
+---
+
+## DerivedMap[K, V] / MemoMap[K, V]
+
+`DerivedMap[K, V]` is the target-name keyed derived facade. `MemoMap[K, V]` remains available as the compatibility handle.
+
+### `DerivedMap[K : Hash + Eq, V](rt: Runtime, compute: (K) -> V raise Failure, label? : String) -> DerivedMap[K, V]`
+
+Creates an empty derived map. No per-key derived value is allocated until first read of that key.
+
+```moonbit
+let by_id = DerivedMap(rt, (id : Int) => id * 10)
+let named = DerivedMap(rt, (id : Int) => id * 10, label="by_id")
 ```
+
+### `DerivedMap::read[K : Hash + Eq, V : Eq](self, key: K) -> Result[V, CycleError]`
+
+Permissive read for `key`. It works outside the graph and records a per-key dependency when called inside a tracked compute.
+
+### `DerivedMap::read_or_abort[K : Hash + Eq, V : Eq](self, key: K) -> V`
+
+Permissive read that aborts on cycle.
+
+### `DerivedMap::get[K : Hash + Eq, V : Eq](self, key: K) -> Result[V, CycleError]`
+
+Strict graph read for `key`. It records the per-key dependency inside a tracked compute, aborts outside a tracked context, and returns `Err(CycleError)` for cycles.
+
+### `DerivedMap::get_or_abort[K : Hash + Eq, V : Eq](self, key: K) -> V`
+
+Strict graph read that aborts on invalid context or cycle.
+
+### `DerivedMap::read_or[K : Hash + Eq, V : Eq](self, key: K, fallback: V) -> V`
+
+Returns the value for `key`, or `fallback` if a cycle is detected.
+
+### `DerivedMap::read_or_else[K : Hash + Eq, V : Eq](self, key: K, fallback: (CycleError) -> V) -> V`
+
+Returns the value for `key`, or computes a fallback from the cycle error.
+
+### `DerivedMap::has_cached[K : Hash + Eq, V](self, key: K) -> Bool`
+
+Returns whether a cached entry exists for `key`.
+
+### `DerivedMap::cache_len(self) -> Int`
+
+Returns the number of cached entries.
+
+### `DerivedMap::sweep_cache[K : Hash + Eq, V](self) -> Int`
+
+Removes cached entries whose underlying cells have been disposed.
+
+### `DerivedMap::clear_cache(self) -> Unit`
+
+Clears all cached entries.
+
+### Compatibility `MemoMap[K, V]`
+
+`MemoMap[K, V]` exposes the underlying keyed memo cache with legacy names:
+
+- `MemoMap(rt, f, label?)` constructs a compatibility keyed memo map.
+- `MemoMap::get(key)` is the legacy permissive aborting read.
+- `MemoMap::get_tracked(key)` is the legacy strict aborting read.
+- `MemoMap::get_result(key)`, `get_or(key, fallback)`, and `get_or_else(key, fallback)` are legacy permissive cycle-safe reads.
+- `MemoMap::contains(key)` is `DerivedMap::has_cached(key)`.
+- `MemoMap::length()` is `DerivedMap::cache_len()`.
 
 ---
 
-## MemoMap[K, V]
+## ReachableDerived[T] / HybridMemo[T]
 
-Keyed memoization map with one lazily-created `Memo[V]` per key.
+`ReachableDerived[T]` is a lazy derived value that participates in reachability propagation so eager/rooted downstream cells can keep its upstream graph reachable across `Runtime::gc()` sweeps. `HybridMemo[T]` remains available as the compatibility handle.
 
-### `MemoMap::new[K : Hash + Eq, V](rt: Runtime, compute: (K) -> V, label? : String) -> MemoMap[K, V]`
+### `ReachableDerived[T : Eq](rt: Runtime, compute: () -> T raise Failure, label? : String) -> ReachableDerived[T]`
 
-Creates an empty memo map. No per-key memo is allocated until first read of that key.
-
-```moonbit
-let by_id = MemoMap::new(rt, (id : Int) => id * 10)
-let named = MemoMap::new(rt, (id : Int) => id * 10, label="by_id")
-```
-
-### `MemoMap::get[K : Hash + Eq, V : Eq](self, key: K) -> V`
-
-Returns the value for `key`, creating and caching that key's memo on first access. This is the permissive read path: it works from top-level code, tests, and event handlers. If called while a tracking frame is active, it records the per-key memo as a dependency.
-
-### `MemoMap::get_tracked[K : Hash + Eq, V : Eq](self, key: K) -> V`
-
-Strict-context peer of `get`. It records the same per-key dependency when called inside a tracked compute, but aborts when called from top-level code or any other non-tracked context. Use it as a guardrail when top-level use would be a bug.
-
-### `MemoMap::get_result[K : Hash + Eq, V : Eq](self, key: K) -> Result[V, CycleError]`
-
-Result-returning permissive variant of `get`, matching `Memo::get_result`.
-
-### `MemoMap::get_or[K : Hash + Eq, V : Eq](self, key: K, fallback: V) -> V`
-
-Returns `get(key)` value, or `fallback` if a cycle error occurs.
-
-### `MemoMap::get_or_else[K : Hash + Eq, V : Eq](self, key: K, fallback: (CycleError) -> V) -> V`
-
-Returns `get(key)` value, or computes a fallback from the cycle error.
-
-### `MemoMap::contains[K : Hash + Eq, V](self, key: K) -> Bool`
-
-Returns whether a memo entry for `key` has already been created.
-
-### `MemoMap::length(self) -> Int`
-
-Returns the number of memo entries created so far.
-
----
-
-## HybridMemo[T]
-
-Hybrid push-pull derived computation. It verifies lazily like `Memo`, but
-participates in reachability propagation so eager/rooted downstream cells can
-keep its upstream graph reachable across `Runtime::gc()` sweeps. The ideal
-future name is `ReachableDerived[T]`.
-
-### `HybridMemo::new[T : Eq](rt: Runtime, compute: () -> T, label? : String) -> HybridMemo[T]`
-
-Creates a hybrid memo. It does not make the value eager; recomputation still
-happens on read.
+Creates a reachable derived value. It does not make the value eager; recomputation still happens on read.
 
 ```moonbit
-let h = HybridMemo::new(rt, () => signal.get() * 2)
-let h = HybridMemo::new(rt, () => signal.get() * 2, label="doubled")
+let reachable = ReachableDerived(rt, () => input.get() * 2, label="doubled")
 ```
 
-### `HybridMemo::get[T : Eq](self) -> T`
+### `ReachableDerived::get[T : Eq](self) -> Result[T, CycleError]`
 
-Returns the memoized value, recomputing if necessary. Fast path: if
-`verified_at >= current_revision`, returns cached value immediately without any
-dependency walk. Aborts on cycle, invalid context, or cross-runtime read.
-Target-facade code should use `ReachableDerived::read()`,
-`ReachableDerived::read_or_abort()`, or `ReachableDerived::watch()` outside a
-tracked context.
+Strict graph read. It must be called inside another derived compute function, aborts outside a tracked context, and returns `Err(CycleError)` for cycles.
 
-```moonbit nocheck
-let reachable = ReachableDerived(rt, () => signal.get() * 2)
-let value = reachable.read_or_abort()
-```
+### `ReachableDerived::get_or_abort[T : Eq](self) -> T`
 
-### `HybridMemo::id(self) -> CellId`
+Strict graph read that aborts on invalid context or cycle.
 
-Returns the unique identifier for this hybrid memo.
+### `ReachableDerived::read[T : Eq](self) -> Result[T, CycleError]`
 
-### `HybridMemo::is_up_to_date(self) -> Bool`
+Permissive read. It works outside the graph and records a dependency when called inside a tracked compute.
 
-Returns `true` only when the hybrid memo has a cached value and `verified_at` matches the current revision.
+### `ReachableDerived::read_or_abort[T : Eq](self) -> T`
+
+Permissive read that aborts on cycle.
+
+### `ReachableDerived::watch[T : Eq](self) -> Watch[T]`
+
+Creates a long-lived outside-graph reader. The `Watch` is a GC root until disposed.
+
+### `ReachableDerived::is_fresh(self) -> Bool`
+
+Returns whether this reachable derived value is verified at the current revision.
+
+### Compatibility `HybridMemo[T]`
+
+`HybridMemo[T]` exposes the same lazy reachable cell with legacy names:
+
+- `HybridMemo(rt, f, label?)` constructs a compatibility reachable memo.
+- `HybridMemo::get()` is the legacy strict aborting graph read.
+- `HybridMemo::is_up_to_date()` is `ReachableDerived::is_fresh()`.
+- `HybridMemo::observe()` creates a legacy `Observer[T]`.
+- `HybridMemo::id()`, `dispose()`, and `is_disposed()` remain available on the compatibility handle.
 
 ---
 
 ## Accumulator[T]
 
-Side-channel collector: memos push values during their compute, downstream readers pull them back with correct incremental invalidation. Use when a producer's ordinary return value (e.g. a `TypeResult`) is semantically distinct from log-like data it emits along the way (diagnostics, trace events, decorations).
+Side-channel collector: compatibility memos push values during their compute, downstream readers pull them back with correct incremental invalidation. Use when a producer's ordinary return value (e.g. a `TypeResult`) is semantically distinct from log-like data it emits along the way (diagnostics, trace events, decorations).
 
-Consumers reading via `Memo::accumulated` are invalidated whenever a producing memo recomputes and its push set differs from the previous run — even when the producer's return value is structurally equal. See the ADR: [Accumulator API](decisions/2026-04-20-accumulator-api.md).
+Consumers reading via `Memo::accumulated` are invalidated whenever a producing compatibility memo recomputes and its push set differs from the previous run — even when the producer's return value is structurally equal. See the ADR: [Accumulator API](decisions/2026-04-20-accumulator-api.md).
 
 **Local-only semantics.** `memo.accumulated(acc)` returns only the values `memo` itself pushed — not its dependencies. Transitive aggregation is the driver's job (see the [Scope-owned accumulator](cookbook.md#pattern-scope-owned-accumulator-lifecycle) cookbook pattern).
 
-**Top-frame restriction.** `push` is only legal inside a `Memo` or `HybridMemo` compute. Pushing from a `Signal`, `Effect`, `Reactive`, or outside any compute raises `Failure`.
+**Top-frame restriction.** `push` is only legal inside a compatibility `Memo` or `HybridMemo` compute. Pushing from an input, `Effect`, `EagerDerived` / `Reactive`, or outside any compute raises `Failure`.
 
 ### `Accumulator::new[T : Eq](rt~: Runtime, label? : String) -> Accumulator[T]`
 
@@ -616,7 +590,7 @@ Returns `true` after `dispose` has been called.
 
 Returns a human-readable summary (label, id, disposed state, per-memo push counts).
 
-Read methods live on `Memo[T]`: see `Memo::accumulated`, `Memo::accumulated_peek`, and `Memo::accumulated_result` in the [Memo[T]](#memot) section above.
+Read methods live on the compatibility `Memo[T]` handle: see `Memo::accumulated`, `Memo::accumulated_peek`, and `Memo::accumulated_result` in the Derived / Memo section above.
 
 ---
 
@@ -649,13 +623,13 @@ enum Durability {
 Ordering: `Low < Medium < High`.
 Direct comparisons (`<`, `<=`, `>`, `>=`) are supported.
 
-Memos inherit the minimum durability of their dependencies.
+Derived values inherit the minimum durability of their dependencies.
 
 ---
 
 ## CycleError
 
-Cycle detection error returned by `Memo::get_result()`.
+Cycle detection error returned by target `Result` reads such as `Derived::read()`, `Derived::get()`, `DerivedMap::read(key)`, and `ReachableDerived::read()`.
 
 ```moonbit
 pub(all) suberror CycleError {
@@ -673,7 +647,7 @@ bound memory even for pathological long cycles; `path()` is always full.
 Returns the cell that caused the cycle.
 
 ```moonbit
-match memo.get_result() {
+match derived.read() {
   Ok(v) => println(v.to_string())
   Err(err) => println(err.cell().to_string())
 }
@@ -684,7 +658,7 @@ match memo.get_result() {
 Returns the full dependency path that forms the cycle.
 
 ```moonbit
-match memo.get_result() {
+match derived.read() {
   Ok(v) => println(v.to_string())
   Err(err) => {
     let path = err.path()
@@ -699,7 +673,7 @@ Formats the cycle path as a human-readable string. Pure value — no runtime
 handle required, because labels are captured at detection time.
 
 ```moonbit
-match memo.get_result() {
+match derived.read() {
   Ok(v) => println(v.to_string())
   Err(err) => println(err.format_path())
 }
@@ -710,7 +684,7 @@ match memo.get_result() {
 When a cycle is detected, `CycleError` now includes the full dependency path:
 
 ```moonbit
-match memo.get_result() {
+match derived.read() {
   Err(err) => {
     println("Cycle detected at: " + err.cell().to_string())
     println("Dependency path:")
@@ -738,7 +712,7 @@ With labels:
 Cycle detected: price → tax → price
 ```
 
-Labels are set via the `label` parameter on `Signal::new`, `Memo::new`, and `TrackedCell::new`. They have no runtime cost. **Always set labels on signals and memos** — unlabeled output is difficult to map back to specific cells in a large graph.
+Labels are set via the `label` parameter on `Input`, `Derived`, `ReachableDerived`, `DerivedMap`, and `InputField` constructors. They have no runtime cost. **Always set labels on inputs and derived values** — unlabeled output is difficult to map back to specific cells in a large graph.
 
 For long cycles (>20 cells), the output is truncated regardless of labels:
 
@@ -750,11 +724,15 @@ Cycle detected: Cell[0] → Cell[1] → Cell[2] → ... → Cell[19] → ...
 
 ## Introspection and Debugging
 
-### Signal Introspection
+The target facades keep their surface focused on read/write semantics. Deeper
+cell introspection currently lives on compatibility handles such as `Signal`
+and `Memo`, or on `InputField` where field ownership requires `CellId`s.
+
+### Compatibility Input Introspection
 
 #### `Signal::id(self) -> CellId`
 
-Returns the unique identifier for this signal.
+Returns the unique identifier for a compatibility input handle.
 
 **Example:**
 ```moonbit
@@ -764,7 +742,7 @@ let id = sig.id()
 
 #### `Signal::durability(self) -> Durability`
 
-Returns the durability level of this signal (`Low`, `Medium`, or `High`).
+Returns the durability level of this compatibility input handle (`Low`, `Medium`, or `High`).
 
 **Example:**
 ```moonbit
@@ -772,15 +750,15 @@ let config = Signal(rt, "prod", durability=High)
 inspect(config.durability(), content="High")
 ```
 
-### Memo Introspection
+### Compatibility Derived Introspection
 
 #### `Memo::id(self) -> CellId`
 
-Returns the unique identifier for this memo.
+Returns the unique identifier for a compatibility derived handle.
 
 #### `Memo::dependencies(self) -> Array[CellId]`
 
-Returns the list of cells this memo currently depends on. Empty if the memo has never been computed.
+Returns the list of cells this compatibility derived handle currently depends on. Empty if it has never been computed.
 
 **Example:**
 ```moonbit
@@ -794,11 +772,11 @@ inspect(doubled.dependencies().contains(x.id()), content="true")
 
 #### `Memo::changed_at(self) -> Revision`
 
-Returns when this memo's value last changed. Reflects backdating: if recomputation produces the same value, this timestamp is preserved.
+Returns when this compatibility derived value last changed. Reflects backdating: if recomputation produces the same value, this timestamp is preserved.
 
 #### `Memo::verified_at(self) -> Revision`
 
-Returns when this memo was last verified up-to-date.
+Returns when this compatibility derived value was last verified up-to-date.
 
 ### Runtime Introspection
 
@@ -849,15 +827,19 @@ pub struct CellInfo {
 }
 ```
 
-For signals, `dependencies` is empty. `subscribers` contains the cell IDs that depend on this cell (reverse edges).
+For inputs, `dependencies` is empty. `subscribers` contains the cell IDs that depend on this cell (reverse edges).
 
 ---
 
 ## Per-Cell Callbacks
 
+Target `InputField` exposes callbacks directly. For plain inputs and lazy
+derived values, callbacks currently live on the compatibility `Signal` and
+`Memo` handles.
+
 ### `Signal::on_change(self, f : (T) -> Unit) -> Unit`
 
-Registers a callback fired when this signal's value changes. Replaces any previously registered callback.
+Registers a callback fired when this compatibility input's value changes. Replaces any previously registered callback.
 
 ```moonbit
 let count = Signal(rt, 0)
@@ -866,7 +848,7 @@ count.on_change(new_val => println("Count: " + new_val.to_string()))
 
 ### `Signal::clear_on_change(self) -> Unit`
 
-Removes the registered `on_change` callback for this signal.
+Removes the registered `on_change` callback for this compatibility input.
 
 ```moonbit
 count.clear_on_change()
@@ -874,7 +856,7 @@ count.clear_on_change()
 
 ### `Memo::on_change(self, f : (T) -> Unit) -> Unit`
 
-Registers a callback fired when this memo's value changes.
+Registers a callback fired when this compatibility derived value changes.
 
 ```moonbit
 let doubled = Memo(rt, () => count.get() * 2)
@@ -883,7 +865,7 @@ doubled.on_change(new_val => update_ui(new_val))
 
 ### `Memo::clear_on_change(self) -> Unit`
 
-Removes the registered `on_change` callback for this memo.
+Removes the registered `on_change` callback for this compatibility derived value.
 
 ```moonbit
 doubled.clear_on_change()
@@ -898,7 +880,56 @@ doubled.clear_on_change()
 
 ## Core Traits
 
-### `Database`
+### `RuntimeContext`
+
+```moonbit
+pub(open) trait RuntimeContext {
+  runtime(Self) -> Runtime
+}
+```
+
+Implemented by application context types that own an `incr` runtime. Target
+constructor helpers such as `create_input` and `create_derived` use this trait.
+
+### `Freshness`
+
+```moonbit
+pub(open) trait Freshness {
+  is_fresh(Self) -> Bool
+}
+```
+
+Implemented for `Input[T]`, `InputField[T]`, `Derived[T]`, and
+`ReachableDerived[T]`.
+
+### `InputFieldOwner`
+
+```moonbit
+pub(open) trait InputFieldOwner {
+  cell_ids(Self) -> Array[CellId]
+}
+```
+
+Implemented by structs that contain `InputField` fields. The returned `CellId`s
+must be stable across calls and belong to the runtime of any scope they are
+registered with.
+
+```moonbit
+struct SourceFile {
+  path    : InputField[String]
+  content : InputField[String]
+  version : InputField[Int]
+}
+
+impl InputFieldOwner for SourceFile with cell_ids(self) {
+  [self.path.id(), self.content.id(), self.version.id()]
+}
+```
+
+Use `add_input_fields(scope, owner)` to register every field with a scope for
+bulk disposal.
+
+### Compatibility `Database`
 
 ```moonbit
 pub(open) trait Database {
@@ -906,7 +937,10 @@ pub(open) trait Database {
 }
 ```
 
-### `Readable`
+Compatibility trait used by legacy helper functions such as `create_signal`,
+`create_memo`, and `batch`.
+
+### Compatibility `Readable`
 
 ```moonbit
 pub(open) trait Readable {
@@ -916,7 +950,7 @@ pub(open) trait Readable {
 
 Implemented for `Signal[T]`, `Memo[T]`, `HybridMemo[T]`, and `TrackedCell[T]`.
 
-### `Trackable`
+### Compatibility `Trackable`
 
 ```moonbit
 pub(open) trait Trackable {
@@ -924,7 +958,9 @@ pub(open) trait Trackable {
 }
 ```
 
-Implemented by structs that contain `TrackedCell` fields. The single method returns the `CellId` of every cell owned by the struct, in a stable order.
+Implemented by structs that contain compatibility `TrackedCell` fields. The
+single method returns the `CellId` of every cell owned by the struct, in a
+stable order.
 
 ```moonbit
 struct SourceFile {
@@ -983,33 +1019,90 @@ rt.fixpoint()
 
 ## Helper Functions
 
-The helper functions below are current API. In the ideal final API recorded by
-[ADR 2026-05-21](decisions/2026-05-21-public-api-ideal-naming.md), custom struct
-constructors such as `Signal(rt, value)` / `Memo(rt, f)` remain the primary
-construction surface, `Database` is renamed to `RuntimeContext`, and the
-`create_*` free helpers are not canonical. Keep using these helpers only where
-they make current code clearer or preserve compatibility.
+Target helper functions take `Ctx : RuntimeContext` and construct target facade
+handles from the context runtime. Compatibility helpers that take
+`Db : Database` remain documented below.
+
+### `create_input[Ctx : RuntimeContext, T](ctx: Ctx, value: T, durability?: Durability, label?: String) -> Input[T]`
+
+Creates a target-name `Input` using the context runtime.
+
+```moonbit nocheck
+create_input(ctx, value)
+create_input(ctx, value, durability=High, label="config")
+```
+
+### `create_input_field[Ctx : RuntimeContext, T](ctx: Ctx, value: T, durability?: Durability, label?: String) -> InputField[T]`
+
+Creates a target-name `InputField` using the context runtime.
+
+```moonbit nocheck
+let path = create_input_field(ctx, "/src/main.mbt", label="SourceFile.path")
+```
+
+### `create_derived[Ctx : RuntimeContext, T : Eq](ctx: Ctx, f: () -> T raise Failure, label?: String) -> Derived[T]`
+
+Creates a target-name lazy `Derived` using the context runtime.
+
+```moonbit nocheck
+let doubled = create_derived(ctx, () => input.get() * 2, label="doubled")
+```
+
+### `create_reachable_derived[Ctx : RuntimeContext, T : Eq](ctx: Ctx, f: () -> T raise Failure, label?: String) -> ReachableDerived[T]`
+
+Creates a target-name reachable lazy derived value using the context runtime.
+
+### `create_eager_derived[Ctx : RuntimeContext, T : Eq](ctx: Ctx, compute: () -> T) -> EagerDerived[T]`
+
+Creates a target-name eager derived value using the context runtime.
+
+### `create_derived_map[Ctx : RuntimeContext, K : Hash + Eq, V](ctx: Ctx, f: (K) -> V raise Failure, label?: String) -> DerivedMap[K, V]`
+
+Creates a target-name keyed derived map using the context runtime.
+
+### `add_input_fields[T : InputFieldOwner](scope: Scope, owner: T) -> Unit`
+
+Registers every cell in an `InputFieldOwner` struct with `scope`, so disposing
+the scope disposes all of the struct's input fields in one call.
+
+```moonbit nocheck
+let scope = Scope::new(rt)
+let fields = MyInputFields(rt)
+add_input_fields(scope, fields)
+scope.dispose()
+```
+
+### Scope Target Constructors
+
+`Scope` also exposes target constructor methods that automatically register
+owned cells for disposal:
+
+- `scope.input(value, durability?, label?) -> Input[T]`
+- `scope.input_field(value, durability?, label?) -> InputField[T]`
+- `scope.derived(f, label?) -> Derived[T]`
+- `scope.reachable_derived(f, label?) -> ReachableDerived[T]`
+- `scope.eager_derived(compute) -> EagerDerived[T]`
+- `scope.derived_map(f, label?) -> DerivedMap[K, V]`
+- `scope.accumulator(label?) -> Accumulator[T]`
+
+### Compatibility helpers
+
+The helpers below take `Db : Database` and return compatibility handles.
 
 ### `create_signal`
 
-Creates a new signal using the database's runtime.
+Creates a new `Signal` using the database's runtime.
 
 ```moonbit nocheck
-create_signal(db, value)                               // Low durability, no label
-create_signal(db, value, durability=High)              // explicit durability
-create_signal(db, value, label="config")               // with debug label
-create_signal(db, value, durability=High, label="cfg") // both
+create_signal(db, value)
+create_signal(db, value, durability=High, label="config")
 ```
 
-**Parameters:** `db: Db` (Database), `value: T`, `durability?: Durability = Low`, `label?: String`
-
-**Returns:** `Signal[T]`
-
-### `create_memo[Db : Database, T : Eq](db: Db, f: () -> T, label? : String) -> Memo[T]`
+### `create_memo[Db : Database, T : Eq](db: Db, f: () -> T raise Failure, label? : String) -> Memo[T]`
 
 Creates a memo using `db.runtime()`. Uses `Memo::new` internally — requires `T : Eq` for backdating via structural equality. For revision-based backdating use `Memo::new_memo` directly; for no backdating use `Memo::new_no_backdate` directly.
 
-### `create_hybrid_memo[Db : Database, T : Eq](db: Db, f: () -> T, label? : String) -> HybridMemo[T]`
+### `create_hybrid_memo[Db : Database, T : Eq](db: Db, f: () -> T raise Failure, label? : String) -> HybridMemo[T]`
 
 Creates a hybrid memo using `db.runtime()`.
 
@@ -1017,7 +1110,7 @@ Creates a hybrid memo using `db.runtime()`.
 let h = create_hybrid_memo(app, () => signal.get() * 2, label="doubled")
 ```
 
-### `create_memo_map[Db : Database, K : Hash + Eq, V](db: Db, f: (K) -> V, label? : String) -> MemoMap[K, V]`
+### `create_memo_map[Db : Database, K : Hash + Eq, V](db: Db, f: (K) -> V raise Failure, label? : String) -> MemoMap[K, V]`
 
 Creates a memo map using `db.runtime()`. Each key is memoized independently.
 
@@ -1031,50 +1124,27 @@ let diags = create_accumulator(app, label="diags")
 
 ### `create_tracked_cell`
 
-Creates a new `TrackedCell` using the database's runtime. Follows the same pattern as `create_signal`.
+Creates a new `TrackedCell` using the database's runtime.
 
 ```moonbit nocheck
-create_tracked_cell(db, value)                               // Low durability, no label
-create_tracked_cell(db, value, durability=High)              // explicit durability
-create_tracked_cell(db, value, label="SourceFile.path")      // with debug label
-create_tracked_cell(db, value, durability=High, label="cfg") // both
+create_tracked_cell(db, value)
+create_tracked_cell(db, value, durability=High, label="SourceFile.path")
 ```
 
-**Parameters:** `db: Db` (Database), `value: T`, `durability?: Durability = Low`, `label?: String`
+### `create_scope[Db : Database](db: Db) -> Scope`
 
-**Returns:** `TrackedCell[T]`
-
-### `create_input_field[Ctx : RuntimeContext, T](ctx: Ctx, value: T, durability?: Durability, label?: String) -> InputField[T]`
-
-Creates a target-name `InputField` using the context runtime.
-
-```moonbit nocheck
-let path = create_input_field(ctx, "/src/main.mbt", label="SourceFile.path")
-```
+Creates a root `Scope` using the database's runtime. Target-style code can also
+construct a scope directly with `Scope::new(ctx.runtime())`.
 
 ### `add_tracked[T : Trackable](scope: Scope, tracked: T) -> Unit`
 
-Registers every cell in a `Trackable` struct with `scope`, so disposing the
-scope disposes all of the struct's fields in one call. This is the recommended
-way to manage `TrackedCell` lifetimes; see [Cookbook → Scope-owned accumulator](cookbook.md)
-and [Concepts → Tracked structs](concepts.md).
+Compatibility helper for `TrackedCell` owners. Target-name code should use
+`add_input_fields(scope, owner)`.
 
 ```moonbit nocheck
 let scope = create_scope(app)
 let tracked = MyTracked(app)
 add_tracked(scope, tracked)
-scope.dispose()
-```
-
-### `add_input_fields[T : InputFieldOwner](scope: Scope, owner: T) -> Unit`
-
-Registers every cell in an `InputFieldOwner` struct with `scope`, so disposing
-the scope disposes all of the struct's input fields in one call.
-
-```moonbit nocheck
-let scope = Scope::new(rt)
-let fields = MyInputFields(rt)
-add_input_fields(scope, fields)
 scope.dispose()
 ```
 
@@ -1102,8 +1172,8 @@ This is the Database helper form of `rt.batch(...)`.
 ```moonbit
 fn update_cart[Db : Database](
   app : Db,
-  price : Signal[Int],
-  quantity : Signal[Int],
+  price : Input[Int],
+  quantity : Input[Int],
 ) -> Unit raise? {
   @incr.batch(app, fn() raise {
     price.set(100)
@@ -1124,8 +1194,8 @@ suberror BatchStop {
 
 fn update_cart_result[Db : Database](
   app : Db,
-  price : Signal[Int],
-  quantity : Signal[Int],
+  price : Input[Int],
+  quantity : Input[Int],
 ) -> Result[Unit, Error] {
   let res = @incr.batch_result(app, fn() raise {
     price.set(100)
@@ -1145,26 +1215,26 @@ fn update_cart_result[Db : Database](
 
 `Eq` is used in two distinct optimizations:
 
-**Same-value optimization (`Signal::set`, `TrackedCell::set`):** Before recording a change, the library compares the new value against the current one. If they are equal, the call is treated as a no-op: the global revision counter is not incremented and downstream memos are not invalidated. This avoids spurious recomputation when a signal is set to the value it already holds.
+**Same-value optimization (`Input::set`, `InputField::set`):** Before recording a change, the library compares the new value against the current one. If they are equal, the call is treated as a no-op: the global revision counter is not incremented and downstream derived values are not invalidated. This avoids spurious recomputation when an input is set to the value it already holds. Compatibility `Signal::set` and `TrackedCell::set` use the same rule.
 
-**Backdating (`Memo::new`):** After a memo recomputes, the library compares the new result against the previous cached value. If they are equal, the memo's `changed_at` timestamp is kept at its previous value rather than advanced to the current revision. Any cell that depends on this memo therefore sees no change, and its own verification is skipped entirely.
+**Backdating (`Derived`, `ReachableDerived`, `Memo::new`):** After a derived value recomputes, the library compares the new result against the previous cached value. If they are equal, the underlying memo's `changed_at` timestamp is kept at its previous value rather than advanced to the current revision. Any cell that depends on this derived value therefore sees no change, and its own verification is skipped entirely.
 
-**Custom `Eq` implementations:** If your type derives `Eq` with fields intentionally excluded — for example, a generation counter or metadata field that shouldn't influence downstream computation — backdating will treat updates to those fields as no-ops. This is correct and useful (the computation result hasn't changed semantically), but it must be intentional: if you rely on those excluded fields inside a memo's `compute` function, you will get stale results. Only exclude fields from `Eq` that are never read by any memo.
+**Custom `Eq` implementations:** If your type derives `Eq` with fields intentionally excluded — for example, a generation counter or metadata field that shouldn't influence downstream computation — backdating will treat updates to those fields as no-ops. This is correct and useful (the computation result hasn't changed semantically), but it must be intentional: if you rely on those excluded fields inside a derived compute function, you will get stale results. Only exclude fields from `Eq` that are never read by any derived value.
 
 ```moonbit
-// Safe: gen is never read by any memo
+// Safe: gen is never read by any derived value
 struct Versioned {
   value : Int
   gen   : Int  // excluded from Eq by custom impl
 }
 
-// Dangerous: gen IS read by the memo, but excluded from Eq causes stale cache
-let m = Memo(rt, () => src.get().gen)  // will not recompute when gen changes
+// Dangerous: gen IS read by the derived value, but excluded from Eq causes stale cache
+let m = Derived(rt, () => src.get().gen)  // will not recompute when gen changes
 ```
 
 ### Backdating strategies
 
-The backdate decision — whether a recomputed value counts as "changed" — is captured at memo construction, not at read time. Three constructors offer different strategies:
+The backdate decision — whether a recomputed value counts as "changed" — is captured at construction, not at read time. Target `Derived` and `ReachableDerived` use structural `Eq`. Compatibility `Memo` exposes three constructors for different strategies:
 
 | Constructor | Constraint | Backdate logic |
 |---|---|---|
@@ -1172,14 +1242,22 @@ The backdate decision — whether a recomputed value counts as "changed" — is 
 | `Memo::new_memo` | `T : BackdateEq` | `a.backdate_equal(b)` (revision comparison by default; override for custom logic) |
 | `Memo::new_no_backdate` | none | always `false` — never backdates |
 
-Read methods (`get`, `get_result`, `get_or`, `get_or_else`) have **no** trait constraint; the equality decision is baked into the closure at construction.
+Read methods have **no** trait constraint; the equality decision is baked into the closure at construction.
 
-Use `BackdateEq` when structural `Eq` is too expensive (e.g. comparing large collections) and you can instead embed a `Revision` in the value that tracks when its content last changed. Use `new_no_backdate` when downstream memos always need to recompute, or when `T` has no `Eq` instance.
+Use `BackdateEq` through the compatibility `Memo::new_memo` constructor when structural `Eq` is too expensive (e.g. comparing large collections) and you can instead embed a `Revision` in the value that tracks when its content last changed. Use `Memo::new_no_backdate` when downstream derived values always need to recompute, or when `T` has no `Eq` instance.
 
 ### Constraint reference
 
 | API | Constraint |
 |---|---|
+| `Input::set`, `InputField::set` | `T : Eq` |
+| `Input`, `Input::get`, `Input::peek`, `Input::force_set` | none |
+| `InputField`, `InputField::get`, `InputField::peek`, `InputField::force_set` | none |
+| `Derived`, `ReachableDerived` | `T : Eq` |
+| `Derived::get`, `read`, `watch` | none |
+| `ReachableDerived::get`, `read`, `watch` | `T : Eq` |
+| `DerivedMap::get`, `read`, `read_or`, `read_or_else` | `K : Hash + Eq`, `V : Eq` |
+| `DerivedMap::has_cached`, `sweep_cache` | `K : Hash + Eq` |
 | `Memo::new` | `T : Eq` |
 | `Memo::new_memo` | `T : BackdateEq` (supertrait: `HasChangedAt`) |
 | `Memo::new_no_backdate` | none |
