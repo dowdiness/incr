@@ -8,7 +8,11 @@ For the verification algorithm, type erasure, push propagation, and storage layo
 
 ## Package responsibility map
 
-There are five MoonBit packages in `dowdiness/incr`. Users import only the root facade; everything else is implementation detail.
+The main MoonBit packages in `dowdiness/incr` are mapped below. Users import
+only the root facade; everything else is implementation detail, tests, checked
+documentation, or historical spike material. `moon.mod.json` excludes `docs/**`
+and `spikes/**` from the published module, but `docs/` is still a package in
+the worktree so literate examples can be checked.
 
 ```
 dowdiness/incr           ← Public API facade (root)
@@ -21,7 +25,8 @@ dowdiness/incr           ← Public API facade (root)
 │       ├── datalog/     ← Datalog SoA storage (Relation, Rule, …)
 │       └── kernel/      ← Graph-mechanics algorithms (verify, propagate, gc, …)
 ├── pipeline/            ← Experimental trait sketches (Sourceable / Parseable / …)
-└── tests/               ← Integration tests against the public API
+├── tests/               ← Integration tests against the public API
+└── docs/                ← Checked literate documentation examples
 ```
 
 | Package | Responsibility | Depends on |
@@ -36,6 +41,7 @@ dowdiness/incr           ← Public API facade (root)
 | `cells/internal/kernel/` | Graph-mechanics algorithms used by the coordinator: pull-verify, push-propagate, batch commit, dispose/GC, dispatch, cycle detection, subscriber diff, fixpoint | `shared`, `pull`, `push`, `datalog` |
 | `pipeline/` | Single file, 52 LOC: experimental traits `Sourceable` / `Parseable` / `Checkable` / `Executable`. Used only by `tests/`. Stability and direction are uncommitted — treat as a sketch. | none |
 | `tests/` | Integration tests exercising only the public API | root, `pipeline` |
+| `docs/` | Checked literate examples for documentation. Excluded from the published module; imports the root facade only for test blocks. Historical `spikes/**` packages are also excluded and intentionally omitted from this map. | root |
 
 The five `internal/` sub-packages use MoonBit's `internal` directory visibility, which the compiler enforces. The script `scripts/check-engine-isolation.sh` additionally enforces four hand-curated invariants on top of that (one-way kernel imports, leaf status of `shared`, no engine-to-engine sibling imports, no back-edges into `cells/`).
 
