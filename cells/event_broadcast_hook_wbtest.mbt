@@ -93,7 +93,7 @@ test "memo_event: hook order follows accumulator then event hook" {
     acc.push(1)
     42
   })
-  inspect(rt.read(memo), content="42")
+  inspect(read_memo_for_test(memo), content="42")
   let memo_id = memo.id()
   inspect(sentinel.before_log.length(), content="1")
   inspect(sentinel.before_log[0].0 == memo_id, content="true")
@@ -143,7 +143,7 @@ test "memo_event: nested recomputes buffer until outermost frame exits" {
     value + 1
   })
   rt.on_memo_event(evt => push_event_kind(events, evt))
-  inspect(rt.read(outer), content="3")
+  inspect(read_memo_for_test(outer), content="3")
   inspect(pending_seen_inside_outer.length(), content="1")
   inspect(pending_seen_inside_outer[0], content="3")
   inspect(events.length(), content="4")
@@ -169,13 +169,13 @@ test "memo_event: listener read does not pollute drained memo dependencies" {
       Completed(_) =>
         if !did_read.val {
           did_read.val = true
-          probe_reads.push(rt.read(probe))
+          probe_reads.push(read_memo_for_test(probe))
         }
       _ => ()
     }
   })
   let outer = Memo(rt, () => source.get() + 1)
-  inspect(rt.read(outer), content="2")
+  inspect(read_memo_for_test(outer), content="2")
   inspect(probe_reads.length(), content="1")
   inspect(probe_reads[0], content="10")
   let deps = rt.get_memo_data(outer.id()).dependencies
@@ -214,7 +214,7 @@ test "memo_event: listener set can enqueue recursive memo events" {
       _ => ()
     }
   })
-  inspect(rt.read(outer), content="1")
+  inspect(read_memo_for_test(outer), content="1")
   inspect(observed.length(), content="1")
   inspect(observed[0], content="11")
   inspect(events.length(), content="4")
@@ -232,10 +232,10 @@ test "memo_event: no event fires for green verification path" {
   let memo = Memo(rt, () => source.get() + 1)
   let events : Array[String] = []
   rt.on_memo_event(evt => push_event_kind(events, evt))
-  inspect(rt.read(memo), content="2")
+  inspect(read_memo_for_test(memo), content="2")
   events.clear()
   unrelated.set(1)
-  inspect(rt.read(memo), content="2")
+  inspect(read_memo_for_test(memo), content="2")
   inspect(events.length(), content="0")
 }
 
@@ -328,7 +328,7 @@ test "memo_event: mutation guard rejects listener reentry" {
       Err(_) => rejected.val = true
     }
   })
-  inspect(rt.read(memo), content="1")
+  inspect(read_memo_for_test(memo), content="1")
   inspect(rejected.val, content="true")
 }
 
@@ -361,7 +361,7 @@ test "memo_event: raising API defers drain until next operation" {
   inspect(events.length(), content="0")
   inspect(rt.event_broadcast_hook.pending.length(), content="4")
   let stable = Memo(rt, () => 7)
-  inspect(rt.read(stable), content="7")
+  inspect(read_memo_for_test(stable), content="7")
   inspect(events.length(), content="6")
   inspect(events[0], content="enter")
   inspect(events[1], content="enter")
@@ -388,7 +388,7 @@ test "memo_event: revision capture survives mid-compute revision bump" {
     tick.set_unconditional(tick.peek() + 1)
     99
   })
-  inspect(rt.read(memo), content="99")
+  inspect(read_memo_for_test(memo), content="99")
   inspect(started.length(), content="1")
   inspect(verified.length(), content="1")
   inspect(started[0] < verified[0], content="true")

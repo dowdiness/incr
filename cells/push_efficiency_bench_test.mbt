@@ -10,7 +10,7 @@ test "push efficiency: signal set, 100 hybrid subs, no push nodes (baseline)" (
   for i = 0; i < 100; i = i + 1 {
     let multiplier = i + 1
     let h = HybridMemo::HybridMemo(rt, () => s.get() * multiplier)
-    ignore(rt.read_hybrid(h))
+    ignore(read_hybrid_for_test(h))
   }
   let mut v = 0
   b.bench(fn() {
@@ -34,7 +34,7 @@ test "push efficiency: signal set, 100 hybrid subs, distant reactive (mixed)" (
   for i = 0; i < 100; i = i + 1 {
     let multiplier = i + 1
     let h = HybridMemo::HybridMemo(rt, () => s.get() * multiplier)
-    ignore(rt.read_hybrid(h))
+    ignore(read_hybrid_for_test(h))
   }
   let s2 = Signal::Signal(rt, 0)
   let _r = Reactive::new(rt, () => s2.get() + 1)
@@ -55,7 +55,7 @@ test "push efficiency: signal set, 1000 hybrid subs, distant reactive (mixed)" (
   for i = 0; i < 1000; i = i + 1 {
     let multiplier = i + 1
     let h = HybridMemo::HybridMemo(rt, () => s.get() * multiplier)
-    ignore(rt.read_hybrid(h))
+    ignore(read_hybrid_for_test(h))
   }
   let s2 = Signal::Signal(rt, 0)
   let _r = Reactive::new(rt, () => s2.get() + 1)

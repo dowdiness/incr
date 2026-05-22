@@ -231,8 +231,11 @@ pub fn Runtime::gc(Self) -> Unit
 pub fn Runtime::new(on_change? : () -> Unit) -> Self
 pub fn Runtime::new_rule(Self, Array[@types.CellId], Array[@types.CellId], () -> Unit, label? : String) -> @types.RuleId
 pub fn Runtime::on_memo_event(Self, (MemoEvent) -> Unit) -> Unit raise Failure
+#deprecated
 pub fn[T] Runtime::read(Self, Memo[T]) -> T
+#deprecated
 pub fn[T : Eq] Runtime::read_hybrid(Self, HybridMemo[T]) -> T
+#deprecated
 pub fn[T] Runtime::read_reactive(Self, Reactive[T]) -> T
 pub fn Runtime::set_on_change(Self, () -> Unit) -> Unit
 

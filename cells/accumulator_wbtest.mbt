@@ -193,7 +193,7 @@ test "accumulated: tracked read inside memo stages synthetic dep" {
   })
   let consumer = Memo::Memo(rt, () => producer.accumulated(a).length())
   let _ = rt.ensure_computed_untracked(consumer.id())
-  inspect(rt.read(consumer), content="1")
+  inspect(read_memo_for_test(consumer), content="1")
   // Consumer's MemoData should have a synthetic read entry for (a.slot_id, producer.cell_id)
   let data = rt.get_memo_data(consumer.id())
   let key = (a.slot_id, producer.id())
@@ -244,7 +244,7 @@ test "durability shortcut: bypassed when memo has accumulator_reads" {
   })
   let consumer = Memo::Memo(rt, () => producer.accumulated(a).length())
   // Force first read; populates consumer.accumulator_reads.
-  let _ = rt.read(consumer)
+  let _ = read_memo_for_test(consumer)
   let consumer_data = rt.get_memo_data(consumer.id())
   inspect(consumer_data.accumulator_reads.is_empty(), content="false")
   // Bump revision; consumer.verified_at < current_revision.
@@ -252,7 +252,7 @@ test "durability shortcut: bypassed when memo has accumulator_reads" {
   // A second read must not crash — the bypass opens the dep-walk path.
   // Task 15 will make this read see the new push-set; Task 14 just ensures
   // pull_verify doesn't short-circuit inappropriately.
-  let _ = rt.read(consumer)
+  let _ = read_memo_for_test(consumer)
 }
 
 ///|
@@ -265,11 +265,11 @@ test "synthetic dep check: reader invalidates when producer's push_revised_at bu
     1
   })
   let consumer = Memo::Memo(rt, () => producer.accumulated(a)[0])
-  inspect(rt.read(consumer), content="1")
+  inspect(read_memo_for_test(consumer), content="1")
   s.set(42)
   // producer's accumulated push-set changed; consumer must recompute and
   // return the new value.
-  inspect(rt.read(consumer), content="42")
+  inspect(read_memo_for_test(consumer), content="42")
 }
 
 ///|
@@ -283,7 +283,7 @@ test "memo dispose clears entries from all accumulators" {
     b.push(2)
     0
   })
-  let _ = rt.read(producer)
+  let _ = read_memo_for_test(producer)
   inspect(a.per_memo.contains(producer.id()), content="true")
   inspect(b.per_memo.contains(producer.id()), content="true")
   scope.dispose()
@@ -430,7 +430,7 @@ test "verify: raise-path from compute does not leak in_progress on ancestors" {
   // treats outer as mid-computation and returns a CycleError (which
   // rt.read converts to abort). The test then panics on rt.read.
   should_fail.set(false)
-  inspect(rt.read(outer), content="2")
+  inspect(read_memo_for_test(outer), content="2")
 }
 
 ///|
@@ -449,11 +449,11 @@ test "verify: non-root frame checks accumulator_reads" {
   })
   let middle = Memo::Memo(rt, () => producer.accumulated(a)[0])
   let top = Memo::Memo(rt, () => middle.get() * 10)
-  inspect(rt.read(top), content="10")
+  inspect(read_memo_for_test(top), content="10")
   s.set(5)
   // Without the non-root synthetic check, middle skips recompute even
   // though producer's push-set changed, and top returns stale 10.
-  inspect(rt.read(top), content="50")
+  inspect(read_memo_for_test(top), content="50")
 }
 
 ///|
@@ -516,7 +516,7 @@ test "verify: aborted new-slot push preserves prior push_revised_at" {
     producer.accumulated(acc).length()
   })
   // R0: sig=1 → producer pushes [1]; consumer reads len=1; stored=R0.
-  inspect(rt.read(consumer), content="1")
+  inspect(read_memo_for_test(consumer), content="1")
   // R1: sig=0 → producer recomputes directly (pushes nothing;
   // push_revised_at bumps, per_memo entry is removed). Consumer does NOT
   // read here, so its stored revision stays at R0.
@@ -540,5 +540,5 @@ test "verify: aborted new-slot push preserves prior push_revised_at" {
   // push_revised_at (prev=[], current=[], same). Consumer must see the
   // updated state via the preserved R1 marker — not a stale 1 from R0.
   sig.set(0)
-  inspect(rt.read(consumer), content="0")
+  inspect(read_memo_for_test(consumer), content="0")
 }

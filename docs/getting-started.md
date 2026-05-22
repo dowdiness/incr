@@ -14,9 +14,9 @@ import {
 
 ## Your First Incremental Computation
 
-### Recommended Approach: Database Pattern
+### Recommended Approach: RuntimeContext Pattern
 
-The recommended way to use `incr` is to encapsulate the `Runtime` in your own database type. This keeps the runtime as an implementation detail and makes your API cleaner.
+The recommended way to use `incr` is to encapsulate the `Runtime` in your own context type. This keeps the runtime as an implementation detail and makes your API cleaner.
 
 ```moonbit nocheck
 struct MyApp {
@@ -27,12 +27,12 @@ fn MyApp::MyApp() -> MyApp {
   { rt: Runtime::new() }
 }
 
-impl Database for MyApp with runtime(self) { self.rt }
+impl RuntimeContext for MyApp with runtime(self) { self.rt }
 ```
 
 The `MyApp()` constructor syntax is enabled by the `fn MyApp::MyApp(...) -> MyApp` declaration. (An older, deprecated form declared `fn new()` *inside* the struct body — avoid it in new code.)
 
-Now you can use the database-centric API throughout your code without passing `Runtime` around explicitly.
+Now you can use the context-centric target API throughout your code without passing `Runtime` around explicitly.
 
 ### Alternative: Direct Runtime
 
@@ -44,61 +44,61 @@ let rt = Runtime()
 
 The rest of this guide will show **both patterns** — use whichever fits your needs.
 
-### Step 2: Create Input Signals
+### Step 2: Create Inputs
 
-Signals are your input values — the leaves of the dependency graph.
+Inputs are your settable values — the leaves of the dependency graph.
 
-**Database pattern:**
+**RuntimeContext pattern:**
 ```moonbit
 let app = MyApp()
-let price = create_signal(app, 100, label="price")
-let quantity = create_signal(app, 5, label="quantity")
+let price = create_input(app, 100, label="price")
+let quantity = create_input(app, 5, label="quantity")
 ```
 
 **Direct Runtime:**
 ```moonbit nocheck
 let rt = Runtime::new()
-let price = Signal::new(rt, 100, label="price")
-let quantity = Signal::new(rt, 5, label="quantity")
+let price = Input(rt, 100, label="price")
+let quantity = Input(rt, 5, label="quantity")
 ```
 
 > **Tip:** Always set a `label`. It has no runtime cost and makes cycle error messages and debug output much easier to read. For example, instead of `"Runtime 0 / Cell 2 → Cell 0 → …"` you'll see `"price → total → …"`.
 
-### Step 3: Create Derived Computations (Memos)
+### Step 3: Create Derived Computations
 
-Memos are computed values that automatically track their dependencies.
+Derived values compute lazily and automatically track their dependencies.
 
-**Database pattern:**
+**RuntimeContext pattern:**
 ```moonbit
-let total = create_memo(app, () => price.get() * quantity.get(), label="total")
+let total = create_derived(app, () => price.get() * quantity.get(), label="total")
 ```
 
 **Direct Runtime:**
 ```moonbit nocheck
-let total = Memo::new(rt, () => price.get() * quantity.get(), label="total")
+let total = Derived(rt, () => price.get() * quantity.get(), label="total")
 ```
 
 ### Step 4: Read and Update
 
 ```moonbit
-// `Memo::get()` is only valid inside another memo's compute function.
+// `Derived::get()` is only valid inside another derived compute function.
 // From outside the graph — top-level code, tests, event handlers —
-// read with `rt.read(memo)`. Both forms recompute lazily.
-inspect(app.runtime().read(total), content="500")
+// read with `read()` or `read_or_abort()`. Both forms recompute lazily.
+inspect(total.read_or_abort(), content="500")
 
 // Change an input
 quantity.set(10)
 
 // Next read — recomputes because quantity changed
-inspect(app.runtime().read(total), content="1000")
+inspect(total.read_or_abort(), content="1000")
 ```
 
 ### Step 4.5: Prefer Graceful Reads
 
-`Memo::get()` is convenient but aborts on cycle errors. For resilient applications, use `get_result()`:
+`read_or_abort()` is convenient but aborts on cycle errors. For resilient applications, use `read()`:
 
 ```moonbit
-match total.get_result() {
+match total.read() {
   Ok(value) => println("Total: \{value}")
   Err(err) => println(err.format_path())
 }
@@ -108,20 +108,14 @@ match total.get_result() {
 detection time, so errors render the same regardless of where and when you
 format them.
 
-`Signal::get_result()` is always `Ok`, but useful for API symmetry in generic code.
-
-For a shorter form without pattern matching, use `get_or` or `get_or_else`:
-
-```moonbit
-let value = total.get_or(0)                           // inline fallback
-let value = total.get_or_else(err => default_value)   // computed fallback
-```
+Inside another derived computation, use `get()` when you want to handle cycles
+as values and `get_or_abort()` when an aborting strict read is acceptable.
 
 ### Step 5: Observe Committed Changes
 
 Use `Runtime::set_on_change` to run a callback whenever the runtime commits a change.
 
-**Database pattern:**
+**RuntimeContext pattern:**
 ```moonbit
 let mut changes = 0
 app.runtime().set_on_change(() => { changes = changes + 1 })
@@ -145,10 +139,10 @@ suberror BatchStop {
 }
 ```
 
-**Database pattern:**
+**RuntimeContext pattern:**
 ```moonbit
-let amount = @incr.create_signal(app, 100)
-let res = @incr.batch_result(app, fn() raise {
+let amount = @incr.create_input(app, 100)
+let res = app.runtime().batch_result(fn() raise {
   amount.set(999)
   raise Stop
 })
@@ -178,24 +172,24 @@ fn main {
   let rt = Runtime()
 
   // Inputs
-  let base_price = Signal(rt, 100, label="base_price")
-  let tax_rate = Signal(rt, 0.1, label="tax_rate")
-  let quantity = Signal(rt, 2, label="quantity")
+  let base_price = Input(rt, 100, label="base_price")
+  let tax_rate = Input(rt, 0.1, label="tax_rate")
+  let quantity = Input(rt, 2, label="quantity")
 
   // Derived values
-  let subtotal = Memo(rt, () => base_price.get() * quantity.get(), label="subtotal")
-  let tax = Memo(rt, () => subtotal.get().to_double() * tax_rate.get(), label="tax")
-  let total = Memo(rt, () => subtotal.get().to_double() + tax.get(), label="total")
+  let subtotal = Derived(rt, () => base_price.get() * quantity.get(), label="subtotal")
+  let tax = Derived(rt, () => subtotal.get_or_abort().to_double() * tax_rate.get(), label="tax")
+  let total = Derived(rt, () => subtotal.get_or_abort().to_double() + tax.get_or_abort(), label="total")
 
-  // Outside-graph reads use `rt.read(memo)`. Inside another memo's compute,
-  // use `memo.get()` instead — that records a dependency.
-  println("Subtotal: \{rt.read(subtotal)}")  // 200
-  println("Tax: \{rt.read(tax)}")            // 20.0
-  println("Total: \{rt.read(total)}")        // 220.0
+  // Outside-graph reads use `read()` / `read_or_abort()`. Inside another
+  // derived compute, use `get()` / `get_or_abort()` to record a dependency.
+  println("Subtotal: \{subtotal.read_or_abort()}")  // 200
+  println("Tax: \{tax.read_or_abort()}")            // 20.0
+  println("Total: \{total.read_or_abort()}")        // 220.0
 
   // Change quantity — only affected memos recompute
   quantity.set(3)
-  println("New total: \{rt.read(total)}")    // 330.0
+  println("New total: \{total.read_or_abort()}")    // 330.0
 }
 ```
 

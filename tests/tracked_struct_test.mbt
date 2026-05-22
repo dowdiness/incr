@@ -3,9 +3,9 @@ test "TrackedCell dependency tracking" {
   let rt = @incr.Runtime::Runtime()
   let cell = @incr.TrackedCell::TrackedCell(rt, 10)
   let doubled = @incr.Memo::Memo(rt, () => cell.get() * 2)
-  inspect(rt.read(doubled), content="20")
+  inspect(read_memo_for_test(doubled), content="20")
   cell.set(15)
-  inspect(rt.read(doubled), content="30")
+  inspect(read_memo_for_test(doubled), content="30")
 }
 
 ///|
@@ -17,9 +17,9 @@ test "TrackedCell same-value optimization" {
     compute_count = compute_count + 1
     cell.get()
   })
-  let _ = rt.read(memo) // compute_count = 1
+  let _ = read_memo_for_test(memo) // compute_count = 1
   cell.set(5) // same value — no revision bump
-  let _ = rt.read(memo) // should NOT recompute
+  let _ = read_memo_for_test(memo) // should NOT recompute
   inspect(compute_count, content="1")
 }
 
@@ -49,12 +49,12 @@ test "TrackedCell batch integration" {
   let a = @incr.TrackedCell::TrackedCell(rt, 1)
   let b = @incr.TrackedCell::TrackedCell(rt, 2)
   let sum = @incr.Memo::Memo(rt, () => a.get() + b.get())
-  inspect(rt.read(sum), content="3")
+  inspect(read_memo_for_test(sum), content="3")
   rt.batch(() => {
     a.set(10)
     b.set(20)
   })
-  inspect(rt.read(sum), content="30")
+  inspect(read_memo_for_test(sum), content="30")
 }
 
 ///|
@@ -66,12 +66,12 @@ test "TrackedCell batch revert detection" {
     compute_count = compute_count + 1
     cell.get()
   })
-  let _ = rt.read(memo) // compute_count = 1
+  let _ = read_memo_for_test(memo) // compute_count = 1
   rt.batch(() => {
     cell.set(99)
     cell.set(0) // revert to original
   })
-  let _ = rt.read(memo) // should NOT recompute (net change = 0)
+  let _ = read_memo_for_test(memo) // should NOT recompute (net change = 0)
   inspect(compute_count, content="1")
 }
 
@@ -82,9 +82,9 @@ test "TrackedCell as_signal interop" {
   let sig = cell.as_signal()
   // A Memo using the raw Signal still tracks the same dependency
   let memo = @incr.Memo::Memo(rt, () => sig.get() + 1)
-  inspect(rt.read(memo), content="8")
+  inspect(read_memo_for_test(memo), content="8")
   cell.set(10)
-  inspect(rt.read(memo), content="11")
+  inspect(read_memo_for_test(memo), content="11")
 }
 
 // --- Phase 2: Trackable trait + gc_tracked ---
@@ -149,20 +149,20 @@ test "field-level dependency isolation" {
   })
 
   // Initial computation
-  let _ = rt.read(name_len) // name_reads = 1
-  let _ = rt.read(value_doubled) // value_reads = 1
+  let _ = read_memo_for_test(name_len) // name_reads = 1
+  let _ = read_memo_for_test(value_doubled) // value_reads = 1
 
   // Change only `value` — name_len should NOT recompute
   t.value.set(10)
-  let _ = rt.read(name_len) // name_reads still 1
-  let _ = rt.read(value_doubled) // value_reads = 2
+  let _ = read_memo_for_test(name_len) // name_reads still 1
+  let _ = read_memo_for_test(value_doubled) // value_reads = 2
   inspect(name_reads, content="1")
   inspect(value_reads, content="2")
 
   // Change only `name` — value_doubled should NOT recompute
   t.name.set("hello")
-  let _ = rt.read(name_len) // name_reads = 2
-  let _ = rt.read(value_doubled) // value_reads still 2
+  let _ = read_memo_for_test(name_len) // name_reads = 2
+  let _ = read_memo_for_test(value_doubled) // value_reads still 2
   inspect(name_reads, content="2")
   inspect(value_reads, content="2")
 }
@@ -213,9 +213,9 @@ test "TrackedCell set_unconditional always recomputes" {
     compute_count = compute_count + 1
     cell.get()
   })
-  let _ = rt.read(memo) // compute_count = 1
+  let _ = read_memo_for_test(memo) // compute_count = 1
   cell.set_unconditional(5) // same value but unconditional — bumps revision
-  let _ = rt.read(memo) // should recompute
+  let _ = read_memo_for_test(memo) // should recompute
   inspect(compute_count, content="2")
 }
 

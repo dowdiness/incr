@@ -6,13 +6,17 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ### Added
 
-- Added target facade handles `Input`, `Derived`, `ReachableDerived`, `EagerDerived`, and `DerivedMap` with constructor syntax and direct read methods. Compatibility handles and `Runtime::read*` remain unchanged in this slice.
+- Added target facade handles `Input`, `Derived`, `ReachableDerived`, `EagerDerived`, and `DerivedMap` with constructor syntax and direct read methods. Compatibility handles remain source-compatible in this slice.
 - Added `Watch[T]` for long-lived target-facade outside reads that preserve cycle errors as `Result` values.
 - Added target-facade constructors on `Scope` and `RuntimeContext` helper constructors for `Input`, `Derived`, `ReachableDerived`, `EagerDerived`, and `DerivedMap`.
 
 ### Changed
 
 - Internal package-private read helpers on `Memo`, `HybridMemo`, and `Reactive` were renamed from `get_untracked` to `read_permissive` to clarify that they bypass the strict tracked-context guard but may still record a dependency when called with an active tracking frame. Deprecated package-private aliases keep the old names available during migration. No public API change.
+
+### Deprecated
+
+- `Runtime::read`, `Runtime::read_hybrid`, and `Runtime::read_reactive` are now legacy compatibility helpers; target facade `read*` and `watch()` methods are the preferred API.
 
 ## [0.5.2] - 2026-05-20
 

@@ -45,7 +45,7 @@ test "get_subscribers: contains memo after first get" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 1)
   let m = Memo::Memo(rt, () => sig.get())
-  let _ = rt.read(m)
+  let _ = read_memo_for_test(m)
   let subs : Array[CellId] = []
   for sub in rt.get_subscribers(sig.id()) {
     subs.push(sub)

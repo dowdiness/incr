@@ -83,18 +83,23 @@ Key properties:
 2. **Cached** — Same value returned until dependencies change
 3. **Auto-tracking** — Dependencies discovered by intercepting `get()` calls
 
-### Reading from inside vs outside a memo
+### Reading from inside vs outside a derived value
 
-`Memo::get()` is only legal **inside** another memo's compute function — that's where it records the dependency for auto-tracking. From outside the graph — top-level code, tests, event handlers, callbacks — calling `memo.get()` aborts. Use `rt.read(memo)` instead; it observes the memo once, reads, and disposes the observer in one call. The same shape applies for `HybridMemo` (`rt.read_hybrid`) and `Reactive` (`rt.read_reactive`).
+Target facade reads separate strict graph reads from permissive outside reads:
+`Derived::get()` is only legal **inside** another derived compute function,
+where it records the dependency for auto-tracking. From outside the graph —
+top-level code, tests, event handlers, callbacks — use `read()` or
+`read_or_abort()`. The same shape applies for `ReachableDerived` and keyed
+`DerivedMap` reads.
 
 ```moonbit
-let doubled = Memo(rt, () => count.get() * 2)
+let doubled = Derived(rt, () => count.get() * 2)
 
-// Inside another memo: use .get() — records the dependency.
-let plus_one = Memo(rt, () => doubled.get() + 1)
+// Inside another derived value: use get() / get_or_abort() to record the dependency.
+let plus_one = Derived(rt, () => doubled.get_or_abort() + 1)
 
-// Outside any memo: use rt.read() — aborts if you call .get() here.
-let value = rt.read(doubled)
+// Outside any derived value: use read() / read_or_abort().
+let value = doubled.read_or_abort()
 ```
 
 ### Dependency Tracking
@@ -140,11 +145,11 @@ A memo is stale when `verified_at < current_revision`.
 **Backdating** is the key optimization. When a memo recomputes to the **same value** as before, its `changed_at` stays at the old revision:
 
 ```moonbit
-let input = Signal(rt, 4)
-let is_even = Memo(rt, () => input.get() % 2 == 0)
-let label = Memo(rt, () => if is_even.get() { "even" } else { "odd" })
+let input = Input(rt, 4)
+let is_even = Derived(rt, () => input.get() % 2 == 0)
+let label = Derived(rt, () => if is_even.get_or_abort() { "even" } else { "odd" })
 
-inspect(rt.read(label), content="even")
+inspect(label.read_or_abort(), content="even")
 
 // Change 4 → 6 (both even)
 input.set(6)
@@ -152,7 +157,7 @@ input.set(6)
 // is_even recomputes: true → true (same!)
 // Backdating: is_even.changed_at stays at R0
 // label sees no change, skips recomputation
-inspect(rt.read(label), content="even")  // Did NOT recompute
+inspect(label.read_or_abort(), content="even")  // Did NOT recompute
 ```
 
 This prevents unnecessary cascading through the graph.
@@ -242,31 +247,31 @@ rt.batch(() => {
 Cyclic dependencies are detected at runtime:
 
 ```moonbit
-let a = Memo(rt, () => b.get() + 1)
-let b = Memo(rt, () => a.get() + 1)
+let a = Derived(rt, () => b.get_or_abort() + 1)
+let b = Derived(rt, () => a.get_or_abort() + 1)
 
-rt.read(a)  // Aborts: "Cycle detected"
+a.read_or_abort()  // Aborts: "Cycle detected"
 ```
 
 ### Graceful Cycle Handling
 
-Use `get_result()` to handle cycles without aborting:
+Use `get()` inside a tracked compute or `read()` outside the graph to handle cycles without aborting:
 
 ```moonbit
-let memo = Memo(rt, () => {
-  match self_ref.get_result() {
+let memo = Derived(rt, () => {
+  match self_ref.get() {
     Ok(v) => v + 1
     Err(CycleDetected(_, _, _)) => -1  // Fallback value
   }
 })
 
-match memo.get_result() {
+match memo.read() {
   Ok(value) => println(value.to_string())  // Prints "-1"
   Err(_) => ()  // Only if error wasn't handled inside
 }
 ```
 
-When a cycle is detected via `get_result()`:
+When a cycle is detected via a `Result` read:
 - The error can be caught and handled in the compute function
 - No dependency is recorded for failed reads (prevents spurious future cycles)
 - The runtime remains in a consistent state for subsequent operations
@@ -367,7 +372,9 @@ let checked = Memo(rt, fn() raise {
   w.abs()
 })
 
-let _ = rt.read(checked)
+let checked_observer = checked.observe()
+let _ = checked_observer.get()
+checked_observer.dispose()
 // Outside any compute — untracked, permissive read:
 debug_inspect(checked.accumulated_peek(diags), content="[\"negative width: -5\"]")
 ```
@@ -419,12 +426,12 @@ See the [Cookbook](./cookbook.md#pattern-side-channel-diagnostics-with-accumulat
 
 ```moonbit
 let rt = Runtime()
-let s = Signal(rt, 1)
-let h = HybridMemo(rt, () => s.get() * 2)
+let s = Input(rt, 1)
+let h = ReachableDerived(rt, () => s.get() * 2)
 
-inspect(rt.read_hybrid(h), content="2")
+inspect(h.read_or_abort(), content="2")
 s.set(5)
-inspect(rt.read_hybrid(h), content="10")
+inspect(h.read_or_abort(), content="10")
 ```
 
 ### How It Works
@@ -459,11 +466,11 @@ Each `Runtime` is a completely isolated universe. Signals and Memos belong to ex
 ```moonbit
 let rt_a = Runtime()
 let rt_b = Runtime()
-let sig_b = Signal(rt_b, 42)
+let sig_b = Input(rt_b, 42)
 
 // This aborts: sig_b belongs to rt_b, not rt_a
-let bad = Memo(rt_a, () => sig_b.get())
-bad.get()  // abort: "Cross-runtime dependency"
+let bad = Derived(rt_a, () => sig_b.get())
+bad.read_or_abort()  // abort: "Cross-runtime dependency"
 ```
 
 The design is intentional:

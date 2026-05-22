@@ -10,7 +10,7 @@ test "integration: push in memo, peek returns values in push order" {
     diags.push("warn B")
     42
   })
-  let _ = rt.read(m)
+  let _ = read_memo_for_test(m)
   let vs = m.accumulated_peek(diags)
   debug_inspect(vs.length(), content="2")
   inspect(vs[0], content="error A")
@@ -29,8 +29,8 @@ test "integration: multiple memos push to same accumulator, keyed independently"
     acc.push(200)
     2
   })
-  let _ = rt.read(m1)
-  let _ = rt.read(m2)
+  let _ = read_memo_for_test(m1)
+  let _ = read_memo_for_test(m2)
   debug_inspect(m1.accumulated_peek(acc), content="[100]")
   debug_inspect(m2.accumulated_peek(acc), content="[200]")
 }
@@ -47,9 +47,9 @@ test "integration: stopped pushing invalidates reader" {
     0
   })
   let consumer = @incr.Memo::Memo(rt, () => producer.accumulated(acc).length())
-  debug_inspect(rt.read(consumer), content="1")
+  debug_inspect(read_memo_for_test(consumer), content="1")
   flag.set(false)
-  debug_inspect(rt.read(consumer), content="0")
+  debug_inspect(read_memo_for_test(consumer), content="0")
 }
 
 ///|
@@ -85,7 +85,7 @@ test "integration: zero pushes → empty" {
   let rt = @incr.Runtime::Runtime()
   let acc : @incr.Accumulator[Int] = @incr.Accumulator::new(rt~)
   let m = @incr.Memo::Memo(rt, () => 0)
-  let _ = rt.read(m)
+  let _ = read_memo_for_test(m)
   debug_inspect(m.accumulated_peek(acc), content="[]")
 }
 
@@ -97,7 +97,7 @@ test "integration: peek on disposed accumulator returns []" {
     acc.push(1)
     0
   })
-  let _ = rt.read(m)
+  let _ = read_memo_for_test(m)
   acc.dispose()
   debug_inspect(m.accumulated_peek(acc), content="[]")
 }
@@ -110,7 +110,7 @@ test "integration: accumulated on disposed accumulator raises Failure" {
     acc.push(1)
     0
   })
-  let _ = rt.read(m)
+  let _ = read_memo_for_test(m)
   acc.dispose()
   let caught = try {
     let _ = m.accumulated(acc)
@@ -135,11 +135,11 @@ test "integration: same push-set → backdate (consumer does not recompute)" {
     compute_count = compute_count + 1
     producer.accumulated(acc).length()
   })
-  let _ = rt.read(consumer)
+  let _ = read_memo_for_test(consumer)
   inspect(compute_count, content="1")
   sig.set(1)
   // producer recomputes; push-set unchanged; consumer should backdate.
-  let _ = rt.read(consumer)
+  let _ = read_memo_for_test(consumer)
   inspect(compute_count, content="1")
 }
 
@@ -157,10 +157,10 @@ test "integration: different push-set → invalidate (consumer recomputes)" {
     compute_count = compute_count + 1
     producer.accumulated(acc)[0]
   })
-  inspect(rt.read(consumer), content="0")
+  inspect(read_memo_for_test(consumer), content="0")
   inspect(compute_count, content="1")
   sig.set(42)
-  inspect(rt.read(consumer), content="42")
+  inspect(read_memo_for_test(consumer), content="42")
   inspect(compute_count, content="2")
 }
 
@@ -188,7 +188,7 @@ test "integration: diamond — reader reads same accumulator twice, consistent" 
     let b = producer.accumulated(acc).length()
     a + b
   })
-  inspect(rt.read(consumer), content="2")
+  inspect(read_memo_for_test(consumer), content="2")
 }
 
 ///|

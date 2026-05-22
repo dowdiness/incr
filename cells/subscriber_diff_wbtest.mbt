@@ -39,7 +39,7 @@ test "diff_subscribers: no change is no-op" {
   let m = Memo::Memo(rt, fn() { s1.get() })
   let obs = m.observe()
   // Force computation to establish subscriber links
-  rt.read(m) |> ignore
+  read_memo_for_test(m) |> ignore
   let deps = [s1.id()]
   // Diff identical lists — should be a no-op
   rt.diff_and_update_subscribers(m.id(), deps, deps) |> ignore

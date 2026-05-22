@@ -29,7 +29,7 @@ test "memo: dispose marks cell as disposed" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 10)
   let m = Memo::Memo(rt, fn() { sig.get() * 2 })
-  ignore(rt.read(m)) // prime
+  ignore(read_memo_for_test(m)) // prime
   assert_false(m.is_disposed())
   m.dispose()
   assert_true(m.is_disposed())
@@ -40,7 +40,7 @@ test "memo: dispose is idempotent" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 10)
   let m = Memo::Memo(rt, fn() { sig.get() * 2 })
-  ignore(rt.read(m))
+  ignore(read_memo_for_test(m))
   m.dispose()
   m.dispose() // no-op
   assert_true(m.is_disposed())
@@ -51,9 +51,9 @@ test "panic memo: get after dispose aborts" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 10)
   let m = Memo::Memo(rt, fn() { sig.get() * 2 })
-  ignore(rt.read(m))
+  ignore(read_memo_for_test(m))
   m.dispose()
-  ignore(rt.read(m)) // should abort
+  ignore(read_memo_for_test(m)) // should abort
 }
 
 ///|
@@ -61,10 +61,10 @@ test "memo: dispose then new memo works independently" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 10)
   let m1 = Memo::Memo(rt, fn() { sig.get() * 2 })
-  ignore(rt.read(m1))
+  ignore(read_memo_for_test(m1))
   m1.dispose()
   let m2 = Memo::Memo(rt, fn() { sig.get() * 3 })
-  assert_eq(rt.read(m2), 30)
+  assert_eq(read_memo_for_test(m2), 30)
   assert_true(m1.is_disposed())
   assert_false(m2.is_disposed())
 }
@@ -74,7 +74,7 @@ test "hybrid memo: is_disposed returns correct state" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 10)
   let h = HybridMemo::HybridMemo(rt, fn() { sig.get() * 2 })
-  ignore(rt.read_hybrid(h))
+  ignore(read_hybrid_for_test(h))
   assert_false(h.is_disposed())
   h.dispose()
   assert_true(h.is_disposed())
@@ -211,7 +211,7 @@ test "signal: dispose of a dependency during computation is safe" {
     other_sig.dispose() // dispose a DIFFERENT cell — allowed
     v
   })
-  inspect(rt.read(m), content="10")
+  inspect(read_memo_for_test(m), content="10")
   assert_true(other_sig.is_disposed())
 }
 
@@ -261,8 +261,8 @@ test "dispose_cell: dispatches to correct dispose method for each cell type" {
   let memo = Memo::Memo(rt, fn() { sig.get() * 2 })
   let hybrid = HybridMemo::HybridMemo(rt, fn() { sig.get() + 1 })
   // Force memos to compute so they have dependencies
-  let _ = rt.read(memo)
-  let _ = rt.read_hybrid(hybrid)
+  let _ = read_memo_for_test(memo)
+  let _ = read_hybrid_for_test(hybrid)
   // Dispose via generic dispatcher
   rt.dispose_cell(sig.id())
   rt.dispose_cell(memo.id())

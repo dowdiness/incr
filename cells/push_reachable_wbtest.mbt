@@ -23,7 +23,7 @@ test "collect_reachable_cells: memo returns memo + upstream signal" {
   let rt = Runtime::Runtime()
   let s = Signal::Signal(rt, 0)
   let m = Memo::Memo(rt, () => s.get())
-  ignore(rt.read(m)) // force compute so dependencies are recorded
+  ignore(read_memo_for_test(m)) // force compute so dependencies are recorded
   let cells = @kernel.collect_reachable_cells(rt.core, rt.pull, [m.id()])
   inspect(cells.contains(m.id()), content="true")
   inspect(cells.contains(s.id()), content="true")

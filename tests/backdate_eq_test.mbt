@@ -64,12 +64,12 @@ test "new_memo: backdates when backdate_equal returns true (same changed_at)" {
     0
   })
   // First compute
-  let _ = rt.read(_down)
+  let _ = read_memo_for_test(_down)
   inspect(m_count.val, content="1")
   inspect(down_count.val, content="1")
   // Trigger recompute of m (sig changed) but rev_ref stays same → backdate fires
   sig.set(1)
-  let _ = rt.read(_down)
+  let _ = read_memo_for_test(_down)
   inspect(m_count.val, content="2") // m recomputed
   inspect(down_count.val, content="1") // downstream did NOT recompute (backdated)
 }
@@ -93,11 +93,11 @@ test "new_memo: propagates when backdate_equal returns false (advanced changed_a
     down_count.val = down_count.val + 1
     0
   })
-  let _ = rt.read(_down)
+  let _ = read_memo_for_test(_down)
   inspect(m_count.val, content="1")
   inspect(down_count.val, content="1")
   sig.set(1)
-  let _ = rt.read(_down)
+  let _ = read_memo_for_test(_down)
   inspect(m_count.val, content="2") // m recomputed
   inspect(down_count.val, content="2") // downstream also recomputed (no backdate)
 }
@@ -118,11 +118,11 @@ test "new_no_backdate: always propagates even when value is identical" {
     down_count.val = down_count.val + 1
     0
   })
-  let _ = rt.read(_down)
+  let _ = read_memo_for_test(_down)
   inspect(m_count.val, content="1")
   inspect(down_count.val, content="1")
   sig.set(1)
-  let _ = rt.read(_down)
+  let _ = read_memo_for_test(_down)
   inspect(m_count.val, content="2") // m recomputed
   inspect(down_count.val, content="2") // downstream ALSO recomputed (never backdates)
 }
@@ -139,7 +139,7 @@ test "new_no_backdate: usable with non-Eq output type" {
   let sig = @incr.Signal::Signal(rt, 0)
   let m = @incr.Memo::new_no_backdate(rt, () => NoEq::{ data: [sig.get()] })
   // read() must work without T : Eq
-  inspect(rt.read(m).data[0], content="0")
+  inspect(read_memo_for_test(m).data[0], content="0")
   sig.set(42)
-  inspect(rt.read(m).data[0], content="42")
+  inspect(read_memo_for_test(m).data[0], content="42")
 }

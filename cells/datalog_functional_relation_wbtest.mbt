@@ -155,10 +155,10 @@ test "functional_relation: memo recomputes after fixpoint changes value" {
   let _ = fr.insert("x", 1)
   rt.fixpoint()
   let m = Memo::Memo(rt, fn() { fr.get("x").unwrap_or(0) })
-  debug_inspect(rt.read(m), content="1")
+  debug_inspect(read_memo_for_test(m), content="1")
   let _ = fr.insert("x", 2)
   rt.fixpoint()
-  debug_inspect(rt.read(m), content="2")
+  debug_inspect(read_memo_for_test(m), content="2")
 }
 
 ///|
@@ -171,7 +171,7 @@ test "panic functional_relation: cross-runtime read aborts" {
   let _ = fr.insert("x", 1)
   rt1.fixpoint()
   let memo = Memo::Memo(rt2, fn() { fr.get("x").unwrap_or(0) })
-  let _ = rt2.read(memo)
+  let _ = read_memo_for_test(memo)
 }
 
 ///|
