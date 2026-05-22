@@ -1,0 +1,59 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/incr/spikes/ideal_api_rename_phase0/provider"
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) struct FreshOnly {
+  ok : Bool
+}
+pub fn FreshOnly::FreshOnly(Bool) -> Self
+pub impl CompatReadable for FreshOnly
+pub impl CurrentFreshness for FreshOnly
+
+pub(all) struct LegacyOnly {
+  ok : Bool
+}
+pub fn LegacyOnly::LegacyOnly(Bool) -> Self
+pub impl CompatReadable for LegacyOnly
+
+#alias(DeprecatedCell, deprecated)
+#alias(RenamedCell)
+pub(all) struct ProbeCell[T] {
+  value : T
+}
+#alias(new, deprecated)
+pub fn[T] ProbeCell::ProbeCell(T) -> Self[T]
+#alias(old_value, deprecated)
+pub fn[T] ProbeCell::value(Self[T]) -> T
+
+pub(all) struct ReadMemo[T] {
+  value : T
+}
+pub fn[T] ReadMemo::ReadMemo(T) -> Self[T]
+
+pub(all) struct ReadReactive[T] {
+  value : T
+}
+pub fn[T] ReadReactive::ReadReactive(T) -> Self[T]
+
+pub(all) struct ReadRuntime {
+  marker : Unit
+}
+pub fn ReadRuntime::ReadRuntime() -> Self
+pub fn[T] ReadRuntime::read(Self, ReadMemo[T]) -> T
+pub fn[T] ReadRuntime::read_reactive(Self, ReadReactive[T]) -> T
+
+// Type aliases
+
+// Traits
+pub(open) trait CompatReadable {
+  readable(Self) -> Bool
+}
+
+pub(open) trait CurrentFreshness {
+  current(Self) -> Bool
+}
+
