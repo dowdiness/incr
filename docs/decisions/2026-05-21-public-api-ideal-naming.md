@@ -73,6 +73,37 @@ For `Input[T]`, cycles are impossible, so `Input::get()` can return `T`
 directly and record a dependency when a tracking frame is active.
 `Input::peek()` remains the no-dependency read.
 
+### Why `Result` over `T` for derived reads?
+
+Two structural reasons, both rooted in the framework's design space rather
+than aesthetic preference:
+
+1. **`incr`'s task abstraction is Monadic.** In the "Build Systems à la
+   Carte" sense (Mokhov, Mitchell, Peyton Jones 2020), compute functions
+   discover dependencies dynamically by calling other reads, and they can
+   branch on read values. A Monadic scheduler can discover a cycle only at
+   runtime — the dependency graph is unknown ahead of time. `Result[T,
+   CycleError]` is the type that correctly describes "a read that *could*
+   fail, but whose failure mode is named and recoverable."
+
+2. **`incr` chooses to support cycles as recoverable errors.** The
+   build-systems literature assumes acyclic task graphs; cycles are
+   undefined behavior or aborts in Make, Shake, Bazel, and Excel. `incr`
+   makes the opposite choice: cycles are first-class, with `CycleError`
+   carrying the offending path. Bare `T` returns force every cycle to be
+   handled by `abort()`, which prevents callers from recovering. `Result[T,
+   CycleError]` exposes the choice to the caller.
+
+Together these mean the bare-`T` `get()` on derived cells today is a
+historical artifact, not a design principle: it predates the introduction
+of `CycleError` and the formal commitment to Monadic + cycle-tolerant
+semantics. The ideal API surface returns `Result` from every derived read
+and offers `_or_abort` shortcuts for callers that prefer to escalate
+cycles to aborts.
+
+`Input::get()` remains bare-`T` because inputs cannot cycle — they have no
+deps to form a cycle with. The asymmetry is intentional and load-bearing.
+
 For `DerivedMap[K, V]`, the target read surface is:
 
 ```moonbit

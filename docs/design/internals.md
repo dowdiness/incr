@@ -36,6 +36,29 @@ Invalidation strategies for dependency graphs fall into three families:
 - **`Signal`/`Memo`** — Pure pull. `Signal::set()` only bumps a revision counter. All verification and recomputation happens lazily when `Memo::get()` is called.
 - **`HybridMemo`** — Pull memo that participates in `push_reachable_count` so live `Reactive`/`Effect` observers downstream keep upstream cells reachable for `gc()`. Recomputation is the same lazy `verified_at < current_revision` check as `Memo`; there is no separate dirty flag. The "hybrid" is reachability, not invalidation.
 
+### Where `incr` Sits in the Design Space
+
+Mokhov, Mitchell, and Peyton Jones (2020) decompose incremental build systems along two orthogonal axes: a **scheduler** (Topological / Restarting / Suspending) and a **rebuilder** (Dirty bit / Verifying traces / Constructive traces / Deep constructive traces). The taxonomy applies cleanly to incremental computation libraries too. `incr` is a **(Suspending, Verifying traces) system with cycle detection added**.
+
+| Axis | `incr`'s choice | What that means |
+|---|---|---|
+| Scheduler | Suspending | When a derived value is read, the scheduler recursively verifies dependencies on demand. `pull_verify` is the suspending scheduler. |
+| Rebuilder | Verifying traces via revisions | `verified_at` / `changed_at` play the role of input/output hashes in the paper's framework. Revisions are cheaper to compare than hashes (single integer, transitively monotonic, no collision risk) but cannot be shared across processes — see the Constructive traces feasibility study in [todo.md](../todo.md). |
+| Task abstraction | Monadic | Compute functions can branch on read values; the dependency graph cannot be predicted ahead of time. Equivalent to Shake or Excel's task model, strictly more general than Selective. |
+| Beyond the paper | Recoverable cycles via `CycleError` | The build-systems literature assumes acyclic task graphs. `incr` chooses to report cycles as recoverable errors rather than aborts. This is what motivates `Result[T, CycleError]` as the canonical read return type on derived cells. |
+
+Named correspondences with the paper:
+
+- **Early cutoff** (paper) = **backdating** (`incr`). When a memo recomputes to the same value, its `changed_at` is preserved, so dependents see no change and skip verification.
+- **Verifying traces** (paper) = the `verified_at`/`changed_at` revision pair plus per-cell deps. The verification predicate `verified_at >= current_revision OR no dep changed_at > my verified_at` is the revision-based analogue of "stored input hash == current input hash."
+- **Durability shortcut** (`incr`) has no direct paper analogue. It coarsens the verifying-trace check at the input-class level — if no input of class `D` has changed since this cell was verified, skip the dep walk entirely. Effectively a fast path on top of the Verifying-traces rebuilder.
+
+Comparison to neighboring systems in the same cell:
+
+- **Salsa** (rust-analyzer): (Suspending, Verifying via revisions). Same family as `incr`. Different cycle treatment — Salsa aborts on cycle by default and offers an opt-in recovery pattern; `incr` returns `Result[T, CycleError]` from the default read.
+- **Shake** (Haskell build tool): (Suspending, Verifying via content hashes). Same scheduler shape as `incr`. Different rebuilder — hashes enable cross-process caching but require explicit hash computation per task; revisions don't.
+- **alien-signals / Vue 3.6 reactivity**: (Suspending, Verifying) but with a push-pull-hybrid bolt-on — the push phase pre-marks subtrees as `Pending` before any read. See [comparison-with-alien-signals.md](./comparison-with-alien-signals.md) for the full bilateral comparison.
+
 ## Core Concepts
 
 ### Signals and Memos

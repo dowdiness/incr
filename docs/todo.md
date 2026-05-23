@@ -27,6 +27,15 @@ Concrete, actionable tasks for the `incr` library.
 
 - [ ] **Push-engine link-list port (deprioritized)** — `cells/internal/push/`. The original investigation surfaced 1.2–1.5× speedup on the BFS iter path, smaller than the Vue 3.6 headline because incr is already SoA. Realistic but narrower than the targets above. Revisit if a future workload shifts the cost balance (very-low-cost compute closures making subscriber-set iter dominant). Investigation record: [docs/performance/2026-05-16-push-engine-linklist-microbench.md](performance/2026-05-16-push-engine-linklist-microbench.md).
 
+- [ ] **Constructive traces — feasibility and cost-benefit study (research)**. `incr` is currently a (Suspending, Verifying-via-revisions) system in the "Build Systems à la Carte" taxonomy (Mokhov, Mitchell, Peyton Jones 2020). Promoting the rebuilder to **Constructive traces** would store hashed `(task description, input hash → output)` triples, enabling cross-process and cross-machine result reuse (the Bazel / Cloud Shake / Nix capability that revisions cannot support — revisions don't survive process boundaries). Open questions:
+  - **(a) Closure hashing.** What is the right hash domain for `Memo` compute closures? Closure identity is not a stable hash; needs either content hashing of the closure body, user-supplied stable keys, or a `#[derive(Hash)]`-shaped annotation.
+  - **(b) Workload fit.** Does the storage cost amortize for typical `incr` workloads (rust-analyzer-style query graphs vs. CRDT projection memos vs. live UI reactivity)? Different workloads have different read/write/cache-hit ratios.
+  - **(c) Cycle interaction.** Does cycle handling translate? Constructive caches assume deterministic outputs, and `CycleError` paths violate that determinism per-cell. A cycle-positive read cannot be cached at all, or the cache must be keyed on the cycle structure rather than just inputs.
+  - **(d) Interaction with durability shortcut.** Does the trace store subsume `durability_last_changed[level]`, or coexist with it? Durability is a coarse-grained invalidation that may be redundant in the presence of fine-grained constructive traces.
+  - **(e) Distributed cache architecture.** If pursued, what is the storage backend (filesystem, KV store, content-addressable object store like Bazel's CAS)?
+
+  Write a feasibility doc (`docs/research/constructive-traces-feasibility.md`) before committing to or rejecting this direction. Out of scope for the current architecture; tracked here so future "why doesn't incr cache across processes?" questions have a documented answer. See [docs/design/internals.md](design/internals.md) §"Where `incr` Sits in the Design Space".
+
 ## API Improvements
 
 - [x] Add `Runtime::batch(fn)` that defers revision bump until the closure completes
