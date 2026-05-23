@@ -8,7 +8,11 @@ For the verification algorithm, type erasure, push propagation, and storage layo
 
 ## Package responsibility map
 
-There are five MoonBit packages in `dowdiness/incr`. Users import only the root facade; everything else is implementation detail.
+The main MoonBit packages in `dowdiness/incr` are mapped below. Users import
+only the root facade; everything else is implementation detail, tests, checked
+documentation, or historical spike material. `moon.mod.json` excludes `docs/**`
+and `spikes/**` from the published module, but `docs/` is still a package in
+the worktree so literate examples can be checked.
 
 ```
 dowdiness/incr           ← Public API facade (root)
@@ -21,12 +25,13 @@ dowdiness/incr           ← Public API facade (root)
 │       ├── datalog/     ← Datalog SoA storage (Relation, Rule, …)
 │       └── kernel/      ← Graph-mechanics algorithms (verify, propagate, gc, …)
 ├── pipeline/            ← Experimental trait sketches (Sourceable / Parseable / …)
-└── tests/               ← Integration tests against the public API
+├── tests/               ← Integration tests against the public API
+└── docs/                ← Checked literate documentation examples
 ```
 
 | Package | Responsibility | Depends on |
 |---|---|---|
-| Root (`incr.mbt`, `traits.mbt`) | Re-exports the target facade (`Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `EagerDerived`, `Watch`, `MapRelation`, `RuntimeContext`, `Freshness`, `InputFieldOwner`) plus compatibility handles (`Signal`, `Memo`, `HybridMemo`, `MemoMap`, `TrackedCell`, `Reactive`, `Observer`, `FunctionalRelation`, `Database`, `Readable`, `Trackable`); provides target `create_*` helpers, compatibility helpers, and batching/lifecycle helpers | `cells`, `types` |
+| Root (`incr.mbt`, `traits.mbt`) | Re-exports the target facade (`Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `EagerDerived`, `Watch`, `MapRelation`, `RuntimeContext`, `Freshness`, `InputFieldOwner`) plus compatibility handles (`Signal`, `Memo`, `HybridMemo`, `MemoMap`, `TrackedCell`, `Reactive`, `Observer`, `FunctionalRelation`, `Database`, `Readable`, `Trackable`); provides RuntimeContext convenience helpers, compatibility helpers, and batching/lifecycle helpers | `cells`, `types` |
 | `types/` | Pure value types: `Revision`, `Durability`, `CellId`, `CycleError`, ID types, `BackdateEq` / `HasChangedAt` traits | none |
 | `cells/` | The `Runtime` coordinator (~430 LOC of thin delegators), target facades (`Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `EagerDerived`, `Watch`, `MapRelation`), compatibility handles (`Signal`, `Memo`, `MemoMap`, `HybridMemo`, `TrackedCell`, `Reactive`, `Observer`, `FunctionalRelation`), Datalog/effect/accumulator/scope handles, and per-cell-kind lifecycle wiring | `types`, all `cells/internal/*` packages |
 | `cells/internal/shared/` | Coordinator-only trait abstractions: `CellOps`, `HasCellMeta`, `Committable`, `CellMeta`, `CellRef`, `SlotSnapshot` | (leaf) |
@@ -36,6 +41,7 @@ dowdiness/incr           ← Public API facade (root)
 | `cells/internal/kernel/` | Graph-mechanics algorithms used by the coordinator: pull-verify, push-propagate, batch commit, dispose/GC, dispatch, cycle detection, subscriber diff, fixpoint | `shared`, `pull`, `push`, `datalog` |
 | `pipeline/` | Single file, 52 LOC: experimental traits `Sourceable` / `Parseable` / `Checkable` / `Executable`. Used only by `tests/`. Stability and direction are uncommitted — treat as a sketch. | none |
 | `tests/` | Integration tests exercising only the public API | root, `pipeline` |
+| `docs/` | Checked literate examples for documentation. Excluded from the published module; imports the root facade only for test blocks. Historical `spikes/**` packages are also excluded and intentionally omitted from this map. | root |
 
 The five `internal/` sub-packages use MoonBit's `internal` directory visibility, which the compiler enforces. The script `scripts/check-engine-isolation.sh` additionally enforces four hand-curated invariants on top of that (one-way kernel imports, leaf status of `shared`, no engine-to-engine sibling imports, no back-edges into `cells/`).
 
@@ -119,12 +125,12 @@ compatibility `FunctionalRelation[K, V]`.
 
 | Type | Role | Created via |
 |---|---|---|
-| `Runtime` | Owns all dependency state, revision counter, batch frames, GC roots, lifecycle dispatch tables | `Runtime::new(on_change?)` |
-| `Input[T]` | Externally settable input cell | `Input(rt, value, durability?, label?)` or `create_input(ctx, ...)` |
-| `Derived[T]` | Lazy pull-derived value with strict guarded `get()` and permissive `read()` `Result` APIs | `Derived(rt, compute, label?)` or `create_derived(ctx, ...)` |
-| `DerivedMap[K, V]` | Lazy per-key derived values with target cache helpers | `DerivedMap(rt, compute, label?)` or `create_derived_map(ctx, ...)` |
-| `ReachableDerived[T]` | Lazy derived value with strict guarded `get()` and permissive `read()` APIs; push-reachable from downstream `EagerDerived`/`Effect`; no dirty flag — same lazy revision check as `Derived` | `ReachableDerived(rt, compute, label?)` or `create_reachable_derived(ctx, ...)` |
-| `InputField[T]` | Field-level input cell for structs implementing `InputFieldOwner` | `InputField(rt, value, durability?, label?)` or `create_input_field(ctx, ...)` |
+| `Runtime` | Owns all dependency state, revision counter, batch frames, GC roots, lifecycle dispatch tables | `Runtime(on_change?)` or `Runtime::new(on_change?)` |
+| `Input[T]` | Externally settable input cell | `Input(rt, value, durability?, label?)` or `scope.input(...)` |
+| `Derived[T]` | Lazy pull-derived value with strict guarded `get()` and permissive `read()` `Result` APIs | `Derived(rt, compute, label?)` or `scope.derived(...)` |
+| `DerivedMap[K, V]` | Lazy per-key derived values with target cache helpers | `DerivedMap(rt, compute, label?)` or `scope.derived_map(...)` |
+| `ReachableDerived[T]` | Lazy derived value with strict guarded `get()` and permissive `read()` APIs; push-reachable from downstream `EagerDerived`/`Effect`; no dirty flag — same lazy revision check as `Derived` | `ReachableDerived(rt, compute, label?)` or `scope.reachable_derived(...)` |
+| `InputField[T]` | Field-level input cell for structs implementing `InputFieldOwner` | `InputField(rt, value, durability?, label?)` or `scope.input_field(...)` |
 | `EagerDerived[T]`, `Effect` | Push-mode primitives | `EagerDerived(rt, compute)`, `Effect::new` |
 | `Relation[T]`, `MapRelation[K,V]`, `Rule` | Datalog primitives, driven by `rt.fixpoint()` | `Relation::new`, `MapRelation(rt)`, `rt.new_rule(...)`, … |
 | `Accumulator[T]` | Side-channel collector pushed to from memo computes; consumers currently read via compatibility `Memo::accumulated` and are correctly invalidated. See [ADR](decisions/2026-04-20-accumulator-api.md). | `Accumulator::new` or `create_accumulator` |
@@ -156,7 +162,7 @@ These are user-visible properties the library upholds. Internal implementation i
 
 Target traits define the preferred extension surface:
 
-- **`RuntimeContext`** — implement it on your own struct to encapsulate a `Runtime`. Target helper functions such as `create_input`, `create_derived`, `create_reachable_derived`, `create_eager_derived`, and `create_derived_map` accept any `RuntimeContext`.
+- **`RuntimeContext`** — implement it on your own struct to encapsulate a `Runtime`. Convenience helpers such as `create_input`, `create_derived`, `create_reachable_derived`, `create_eager_derived`, and `create_derived_map` accept any `RuntimeContext`; direct constructors and `Scope` methods are the primary target construction surface.
 - **`Freshness`** — implemented for target readable handles, exposes `is_fresh(self) -> Bool`. Useful for generic freshness checks.
 - **`InputFieldOwner`** — implement it on a struct with `InputField` fields to expose its constituent `CellId`s as a single unit, enabling `add_input_fields(scope, owner)` for bulk lifecycle management.
 
@@ -192,7 +198,7 @@ Items the audit verified against current code; if any of these is wrong, the cod
 - **`pipeline/` is uncommitted.** The four traits in that package are not used internally and have no roadmap item. Treat as exploratory.
 - **`gc_tracked(rt, t)` is a deprecated no-op.** For target field owners, use `add_input_fields(scope, owner)`. For compatibility `TrackedCell` owners, use `add_tracked(scope, tracked)`. The `#deprecated` attribute on `gc_tracked` in `traits.mbt` confirms this.
 - **Hand-maintained `docs/api-reference.md`.** It has drifted from `.mbti` at least once (caught in the most recent audit). Treat the `.mbti` files as authoritative when they disagree.
-- **No `mbt check` blocks across the user-facing docs at the time of this writing.** Examples are illustrative; drift catches only show up in integration tests under `tests/`. Migration toward `.mbt.md` literate examples is a recommended follow-up.
+- **Most prose examples are still illustrative.** The target-API examples in [`target_api_examples.mbt.md`](target_api_examples.mbt.md) are checked by `moon check`, but many longer ` ```moonbit` snippets in prose docs are still unchecked. Continue migrating high-value examples to `.mbt.md` literate tests as APIs stabilize.
 - **No CI in this submodule.** Verification is delegated to the parent `canopy` repo; running `moon check && moon test` locally before pushing is the operative discipline.
 
 ---
