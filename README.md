@@ -71,7 +71,7 @@ Full documentation index: [docs/README.md](docs/README.md).
 ```bash
 moon check    # Type-check
 moon build    # Build
-moon test     # Run all tests (~630 test blocks across cells/ and tests/)
+moon test     # Run all tests (~680 test blocks across cells/ and tests/)
 moon bench    # Run benchmarks (always pass --release for representative numbers)
 ```
 

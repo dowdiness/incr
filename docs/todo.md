@@ -324,7 +324,7 @@ Post-Stage-5 audit of `cells/` + Codex validation. Stage 6 (engine extraction) r
 
 Six cell read paths inlined the same ~10-line `current_computing_runtime_id` guard (abort on cross-runtime, reset global before aborting). `Memo::get_result_inner` uniquely had a *forgiving* variant that additionally repairs stale global state when this runtime's tracking stack is empty — required for panic-test isolation because `read_permissive` / `MemoMap` bypass the outer strict check.
 
-- [x] Extract `Runtime::check_cross_runtime(cell_runtime_id, kind)` helper (strict variant) — `cells/tracking.mbt:149`
+- [x] Extract `Runtime::check_cross_runtime(cell_runtime_id, kind)` helper (strict variant) — `cells/tracking.mbt:68` (was `:149` pre-R1)
 - [x] Replace 6 strict sites: `signal.mbt`, `memo.mbt` (outer), `hybrid_memo.mbt`, `push_reactive.mbt`, `datalog_relation.mbt`, `datalog_functional_relation.mbt`
 - [x] Leave `Memo::get_result_inner` with its original forgiving repair logic — it cannot be unified with the strict helper because "stale-global" vs "legitimate cross-runtime" cannot be distinguished locally without a global runtime registry (the forgiving repair relies on checking THIS runtime's stack, which is correct only because `read_permissive` / `MemoMap` paths are same-runtime by construction)
 

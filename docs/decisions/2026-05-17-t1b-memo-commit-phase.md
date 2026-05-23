@@ -2,6 +2,17 @@
 
 **Date:** 2026-05-17 (amended same-day after Codex pre-implementation review)
 **Status:** Accepted — refactor scope defined; implementation gated on a written plan
+
+> **Historical note (post-T1b shipping):** symbol and line references below describe
+> the pre-T1b code state used to justify the trait extraction. The three free
+> functions named throughout this ADR — `memo_snapshot_accumulator_contributions`,
+> `memo_restore_on_abort`, `memo_commit_accumulator_phase` (originally at
+> `cells/memo.mbt:423-449` and `cells/accumulator.mbt`) — were collapsed into the
+> shipped `MemoCommitPhase` trait dispatch (`dispatch_before_recompute_hooks` /
+> `dispatch_after_abort_hooks` / `dispatch_after_success_hooks` in
+> `cells/memo.mbt`) and the `AccumulatorCommitHook` impl in
+> `cells/accumulator_commit_hook.mbt`. Do not edit the original references —
+> they are the design rationale, not current-source citations.
 **Anchors:** [Async-at-the-edges](2026-05-17-async-at-the-edges.md), [T3 deferred](2026-05-17-t3-runtime-registry-gated.md), [Accumulator API](2026-04-20-accumulator-api.md), [2026-04-20 architecture assessment](../design/specs/2026-04-20-architecture-assessment.md) (AP1, §4 T1b)
 
 **Amendments (2026-05-17, post-Codex):**

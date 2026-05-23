@@ -32,7 +32,7 @@ Generated `pkg.generated.mbti` files are **not edited by hand** — `moon info` 
 ```bash
 moon check          # Type-check; fast; run after every edit
 moon build          # Compile
-moon test           # Full test suite (~590 test blocks)
+moon test           # Full test suite (~680 test blocks)
 moon bench --release  # Microbenchmarks — only meaningful with --release
 moon fmt            # Apply standard formatting
 moon info           # Regenerate all pkg.generated.mbti files
