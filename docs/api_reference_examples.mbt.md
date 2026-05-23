@@ -111,6 +111,41 @@ test "docs api-ref: derived_map clear_cache drops cached entries" {
   inspect(by_key.cache_len(), content="0")
   inspect(by_key.has_cached(1), content="false")
 }
+
+///|
+test "docs api-ref: derived_map read_or / read_or_else return the value on the happy path" {
+  let rt = @incr.Runtime()
+  let by_key : @incr.DerivedMap[Int, Int] = @incr.DerivedMap(rt, (key : Int) => {
+    key * 100
+  })
+
+  // No cycle — both fallback forms see Ok(value) and pass through.
+  inspect(by_key.read_or(3, 999), content="300")
+  inspect(by_key.read_or_else(4, _err => -1), content="400")
+}
+
+///|
+test "docs api-ref: derived_map sweep_cache prunes gc-disposed entries" {
+  let rt = @incr.Runtime()
+  let source = @incr.Input(rt, 10, label="source")
+  let by_key : @incr.DerivedMap[Int, Int] = @incr.DerivedMap(
+    rt,
+    (key : Int) => source.get() + key,
+    label="by_key",
+  )
+
+  // Populate three entries with no persistent observer.
+  inspect(by_key.read_or_abort(1), content="11")
+  inspect(by_key.read_or_abort(2), content="12")
+  inspect(by_key.read_or_abort(3), content="13")
+  inspect(by_key.cache_len(), content="3")
+
+  // `rt.gc()` disposes the unobserved interior memos; `sweep_cache` then
+  // drops the now-stale entries from the cache.
+  rt.gc()
+  inspect(by_key.sweep_cache(), content="3")
+  inspect(by_key.cache_len(), content="0")
+}
 ```
 
 ## `ReachableDerived` — lazy reads that participate in reachability
@@ -137,6 +172,28 @@ test "docs api-ref: reachable_derived chained with watch survives gc" {
   input.set(5)
   inspect(watch.read_or_abort(), content="110")
   inspect(reachable.is_fresh(), content="true")
+  watch.dispose()
+}
+
+///|
+test "docs api-ref: reachable_derived.watch is a GC root for the reachable cell itself" {
+  let rt = @incr.Runtime()
+  let input = @incr.Input(rt, 2, label="input")
+  let watch = {
+    let reachable = @incr.ReachableDerived(
+      rt,
+      () => input.get() * 3,
+      label="reachable_watched",
+    )
+    reachable.watch()
+  }
+
+  // The local `reachable` handle is gone, but `watch` keeps the cell alive
+  // across gc — the next read still reflects updated input.
+  inspect(watch.read_or_abort(), content="6")
+  rt.gc()
+  input.set(4)
+  inspect(watch.read_or_abort(), content="12")
   watch.dispose()
 }
 ```
