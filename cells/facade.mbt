@@ -193,6 +193,18 @@ pub fn[T] Derived::is_fresh(self : Derived[T]) -> Bool {
 }
 
 ///|
+/// Returns the unique cell identifier for this derived value.
+pub fn[T] Derived::id(self : Derived[T]) -> CellId {
+  self.inner.id()
+}
+
+///|
+/// Creates a one-shot keep-alive observer for this derived value.
+pub fn[T] Derived::observe(self : Derived[T]) -> Observer[T] {
+  self.inner.observe()
+}
+
+///|
 /// Target-name reachable lazy derived cell facade over `HybridMemo`.
 pub(all) struct ReachableDerived[T] {
   priv inner : HybridMemo[T]
