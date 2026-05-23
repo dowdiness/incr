@@ -43,7 +43,7 @@ dowdiness/incr/
 │
 ├── cells/                      (coordinator + handles + lifecycle; algorithms live in internal/kernel)
 │   ├── moon.pkg                (imports @shared, @pull, @push, @datalog, @kernel)
-│   ├── runtime.mbt             (Runtime struct + Runtime::new + thin @kernel delegators for propagate_changes, publish_cell_changes, dispose_cell, gc, add/remove_gc_root, advance_revision; RevisionManager + Tracker trait impls; accumulator fields + commit_hooks/accumulator_commit_hook fields — 444 LOC)
+│   ├── runtime.mbt             (Runtime struct + Runtime::new + thin @kernel delegators for propagate_changes, publish_cell_changes, dispose_cell, gc, add/remove_gc_root, advance_revision; RevisionManager + Tracker trait impls; accumulator fields + commit_hooks/accumulator_commit_hook fields — 570 LOC)
 │   ├── pull_memo_lifecycle.mbt (CellLifecycle for MemoData)
 │   ├── pull_lifecycle.mbt      (CellLifecycle for PullSignalData)
 │   ├── push_lifecycle.mbt      (CellLifecycle for PushReactiveData, PushEffectData)
