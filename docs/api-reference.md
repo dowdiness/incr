@@ -1,5 +1,11 @@
 # API Reference
 
+> **Checked companion:** [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md)
+> contains literate tests that pin the target facade snippets in this document
+> (`Derived`, `DerivedMap`, `ReachableDerived`, `Scope` / `RuntimeContext`
+> helpers, and `CycleError`). The README and getting-started target snippets are
+> covered by [`target_api_examples.mbt.md`](target_api_examples.mbt.md).
+
 Reference for the most commonly used public APIs in `incr`. This is not exhaustive — the authoritative surface is in `pkg.generated.mbti` and `cells/pkg.generated.mbti`. APIs surfaced here: `Runtime`, `Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, legacy compatibility handles (`Signal`, `Memo`, `HybridMemo`, `MemoMap`, `TrackedCell`), `Accumulator`, `MemoEvent`, `CycleError`, the `RuntimeContext`/`Database`/`Freshness`/`Readable`/`InputFieldOwner`/`Trackable` traits, and the top-level helper functions. Specialised APIs (`EagerDerived` / `Reactive`, `Effect`, `Relation`, `MapRelation` / `FunctionalRelation`, `Scope`, `Watch` / `Observer`) are documented next to their constructors in `cells/`.
 
 > **Recommended Pattern:** Use the `RuntimeContext` trait to encapsulate your

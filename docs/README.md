@@ -12,10 +12,12 @@ New to `incr`? Read these in order:
 2. [Core Concepts](concepts.md) — signals, memos, revisions, durability, backdating
 3. [Cookbook](cookbook.md) — practical patterns and anti-patterns
 4. [Checked Target API Examples](target_api_examples.mbt.md) — literate tests mirroring the README and getting-started target facade examples
+5. [Checked API Reference Examples](api_reference_examples.mbt.md) — literate tests covering target facades from the API reference (`Derived`, `DerivedMap`, `ReachableDerived`, `Scope` / `RuntimeContext`, `CycleError`)
 
 ## API Reference
 
 - [API Reference](api-reference.md) — common public types, methods, and helpers (not exhaustive; the `.mbti` files in each package are authoritative)
+- [Checked API Reference Examples](api_reference_examples.mbt.md) — companion literate tests pinning the executable snippets from the reference
 - [Architecture](architecture.md) — package responsibility map, four execution modes (pull / push / hybrid / Datalog), key types and invariants, extension points
 
 ## Performance
