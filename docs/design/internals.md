@@ -43,7 +43,7 @@ Mokhov, Mitchell, and Peyton Jones (2020) decompose incremental build systems al
 | Axis | `incr`'s choice | What that means |
 |---|---|---|
 | Scheduler | Suspending | When a derived value is read, the scheduler recursively verifies dependencies on demand. `pull_verify` is the suspending scheduler. |
-| Rebuilder | Verifying traces via revisions | `verified_at` / `changed_at` play the role of input/output hashes in the paper's framework. Revisions are cheaper to compare than hashes (single integer, transitively monotonic, no collision risk) but cannot be shared across processes — see the Constructive traces non-goal in [todo.md](../todo.md). |
+| Rebuilder | Verifying traces via revisions | `verified_at` / `changed_at` play the role of input/output hashes in the paper's framework. Revisions are cheaper to compare than hashes (single integer, transitively monotonic, no collision risk) but cannot be shared across processes — see the Constructive traces feasibility study in [todo.md](../todo.md). |
 | Task abstraction | Monadic | Compute functions can branch on read values; the dependency graph cannot be predicted ahead of time. Equivalent to Shake or Excel's task model, strictly more general than Selective. |
 | Beyond the paper | Recoverable cycles via `CycleError` | The build-systems literature assumes acyclic task graphs. `incr` chooses to report cycles as recoverable errors rather than aborts. This is what motivates `Result[T, CycleError]` as the canonical read return type on derived cells. |
 
