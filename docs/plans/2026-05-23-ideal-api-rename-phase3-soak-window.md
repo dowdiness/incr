@@ -23,6 +23,28 @@ Phase 3a is the *soak window* preparation. Downstream submodule consumers
 (loom, canopy) migrate at their own pace against the additive surface this PR
 publishes. Their migration is explicitly **not** coordinated in this PR.
 
+## Theoretical framing
+
+The `get` vs `read` distinction is the API surface for incr's **Monadic
+task abstraction** in the "Build Systems à la Carte" sense (Mokhov, Mitchell,
+Peyton Jones 2020): compute functions discover dependencies dynamically by
+calling other reads, and they can branch on read values, so the dependency
+graph cannot be predicted ahead of time. `get` is the in-graph read that
+participates in this Monadic discovery — it requires an active tracking
+frame and records a dependency. `read` is the permissive read that works in
+or out of graph; it records a dependency only when a tracking frame happens
+to be active.
+
+`Result[T, CycleError]` as the return type of both shapes is a forced
+consequence of the Monadic abstraction plus incr's cycle support. A Monadic
+scheduler can discover a cycle only at runtime — and incr, unlike the
+build-systems literature which assumes acyclic task graphs, chooses to
+report cycles as recoverable errors rather than aborts. This makes
+`Result[T, CycleError]` the canonical read return type. Phase 3b's flip on
+`Memo::get` is therefore not a naming preference; it aligns the
+compatibility surface with the only return type that correctly describes a
+Monadic, cycle-tolerant read.
+
 ## Goals
 
 1. Every existing compatibility handle (`Memo`, `HybridMemo`, `MemoMap`) gains
@@ -330,7 +352,14 @@ shifts later.
 - Behavior: every new name delegates to the same internal code path as the old name.
 - Return types: `Memo::get` and `MemoMap::get` still return bare values today.
 - `Signal::get` (target name `Input::get`) is unchanged. Inputs cannot cycle.
-- `Runtime::read*` is unchanged; already marked legacy compatibility in PR #70.
+- `Runtime::read*` is unchanged; already marked legacy compatibility in PR
+  #70. The deeper rationale: tracking is a **handle concern**, not a
+  **runtime concern**. `Runtime::read(memo)` confused those layers by
+  letting the runtime perform a read on behalf of a handle, which prevents
+  the runtime from being self-tracking in any disciplined way. Handle-owned
+  reads (`Memo::get`, `Memo::read`, etc.) make the participation in Monadic
+  dep tracking visible at the call site, which is the right layer for that
+  decision.
 
 #### Future breaking release
 
