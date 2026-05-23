@@ -139,11 +139,11 @@ pub using @types {trait HasChangedAt}
 
 // Traits
 pub(open) trait Database {
-  runtime(Self) -> @cells.Runtime
+  fn runtime(Self) -> @cells.Runtime
 }
 
 pub(open) trait Freshness {
-  is_fresh(Self) -> Bool
+  fn is_fresh(Self) -> Bool
 }
 pub impl[T] Freshness for @cells.Derived[T]
 pub impl[T] Freshness for @cells.Input[T]
@@ -151,11 +151,11 @@ pub impl[T] Freshness for @cells.InputField[T]
 pub impl[T] Freshness for @cells.ReachableDerived[T]
 
 pub(open) trait InputFieldOwner {
-  cell_ids(Self) -> Array[@types.CellId]
+  fn cell_ids(Self) -> Array[@types.CellId]
 }
 
 pub(open) trait Readable {
-  is_up_to_date(Self) -> Bool
+  fn is_up_to_date(Self) -> Bool
 }
 pub impl[T] Readable for @cells.HybridMemo[T]
 pub impl[T] Readable for @cells.Memo[T]
@@ -163,9 +163,10 @@ pub impl[T] Readable for @cells.Signal[T]
 pub impl[T] Readable for @cells.TrackedCell[T]
 
 pub(open) trait RuntimeContext {
-  runtime(Self) -> @cells.Runtime
+  fn runtime(Self) -> @cells.Runtime
 }
 
 pub(open) trait Trackable {
-  cell_ids(Self) -> Array[@types.CellId]
+  fn cell_ids(Self) -> Array[@types.CellId]
 }
+

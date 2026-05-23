@@ -50,10 +50,10 @@ pub fn[T] ReadRuntime::read_reactive(Self, ReadReactive[T]) -> T
 
 // Traits
 pub(open) trait CompatReadable {
-  readable(Self) -> Bool
+  fn readable(Self) -> Bool
 }
 
 pub(open) trait CurrentFreshness {
-  current(Self) -> Bool
+  fn current(Self) -> Bool
 }
 

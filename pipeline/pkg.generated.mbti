@@ -11,19 +11,19 @@ package "dowdiness/incr/pipeline"
 
 // Traits
 pub(open) trait Checkable {
-  check_errors(Self) -> Array[String]
+  fn check_errors(Self) -> Array[String]
 }
 
 pub(open) trait Executable {
-  run(Self) -> Array[String]
+  fn run(Self) -> Array[String]
 }
 
 pub(open) trait Parseable {
-  parse_errors(Self) -> Array[String]
+  fn parse_errors(Self) -> Array[String]
 }
 
 pub(open) trait Sourceable {
-  set_source_text(Self, String) -> Unit
-  source_text(Self) -> String
+  fn set_source_text(Self, String) -> Unit
+  fn source_text(Self) -> String
 }
 

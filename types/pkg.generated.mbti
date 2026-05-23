@@ -99,10 +99,10 @@ pub(all) struct SignalId[T] {
 
 // Traits
 pub(open) trait BackdateEq : HasChangedAt {
-  backdate_equal(Self, Self) -> Bool = _
+  fn backdate_equal(Self, Self) -> Bool = _
 }
 
 pub(open) trait HasChangedAt {
-  changed_at(Self) -> Revision
+  fn changed_at(Self) -> Revision
 }
 
