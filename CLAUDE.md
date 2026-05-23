@@ -17,18 +17,24 @@ moon test           # Run all tests across all packages
 moon test -p dowdiness/incr/cells -f memo_test.mbt           # Run tests in a specific file
 moon test -p dowdiness/incr/cells -f memo_test.mbt -i 0      # Run a single test by index
 moon test -p dowdiness/incr/tests                               # Run integration tests only
+moon check docs/target_api_examples.mbt.md                  # Check literate target API examples
+moon test docs/target_api_examples.mbt.md                   # Run checked docs examples
 moon bench          # Run benchmarks (tests/bench_test.mbt)
 ```
 
 ## Architecture
 
-This library is organized into four MoonBit sub-packages:
+The canonical package map is [docs/architecture.md](docs/architecture.md).
+The tree below is a working orientation for Claude Code. `moon.mod.json`
+excludes `docs/**` and `spikes/**` from the published module, but `docs/` is
+still a MoonBit package in the worktree so literate documentation examples can
+be checked.
 
 ```
 dowdiness/incr/
 ├── moon.pkg                    (root facade — imports types + cells + pipeline)
-├── incr.mbt                    (pub type re-exports for all public types)
-├── traits.mbt                  (Database, Readable, Trackable traits; create_signal, create_memo, create_hybrid_memo, create_tracked_cell, batch, gc_tracked helpers)
+├── incr.mbt                    (transparent pub type aliases for target facades + compatibility handles)
+├── traits.mbt                  (RuntimeContext/Freshness/InputFieldOwner plus compatibility traits and helpers)
 │
 ├── types/                      (pure value types, zero dependencies)
 │   ├── revision.mbt            (Revision, Durability, DURABILITY_COUNT)
@@ -83,18 +89,34 @@ dowdiness/incr/
 ├── pipeline/                   (experimental pipeline traits, zero dependencies)
 │   └── pipeline_traits.mbt     (Sourceable, Parseable, Checkable, Executable)
 │
-└── tests/                      (integration tests — exercises the full @incr public API)
-    ├── moon.pkg                (imports dowdiness/incr and dowdiness/incr/pipeline for test)
-    ├── integration_test.mbt    (end-to-end graph scenarios)
-    ├── fanout_test.mbt         (wide fanout stress tests)
-    ├── traits_test.mbt         (Database, Readable, and pipeline trait tests)
-    ├── tracked_struct_test.mbt (TrackedCell, Trackable, and gc_tracked tests)
-    ├── hybrid_test.mbt         (HybridMemo public API integration tests)
-    ├── subscriber_test.mbt     (subscriber link integration tests)
-    └── bench_test.mbt          (microbenchmarks — run with moon bench)
+├── tests/                      (integration tests — exercises the full @incr public API)
+│   ├── moon.pkg                (imports dowdiness/incr and dowdiness/incr/pipeline for test)
+│   ├── integration_test.mbt    (end-to-end graph scenarios)
+│   ├── fanout_test.mbt         (wide fanout stress tests)
+│   ├── traits_test.mbt         (Database, Readable, and pipeline trait tests)
+│   ├── tracked_struct_test.mbt (TrackedCell, Trackable, and gc_tracked tests)
+│   ├── hybrid_test.mbt         (HybridMemo public API integration tests)
+│   ├── subscriber_test.mbt     (subscriber link integration tests)
+│   └── bench_test.mbt          (microbenchmarks — run with moon bench)
+│
+└── docs/                       (worktree-only checked docs package)
+    ├── moon.pkg                (imports dowdiness/incr for literate tests)
+    ├── target_api_examples.mbt.md
+    └── pkg.generated.mbti
 ```
 
-The root package re-exports all public types via `pub type` transparent aliases in `incr.mbt`, so downstream users see a unified `@incr` API with no awareness of the internal package structure.
+The root package re-exports all public types via transparent `pub type` aliases
+in `incr.mbt`, so downstream users see a unified `@incr` API with no awareness
+of the internal package structure.
+
+Current public API direction: target facade names are preferred in docs and new
+examples (`Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`,
+`EagerDerived`, `Watch`, `MapRelation`, `RuntimeContext`, `Freshness`,
+`InputFieldOwner`). Compatibility names (`Signal`, `Memo`, `HybridMemo`,
+`MemoMap`, `TrackedCell`, `Reactive`, `Observer`, `FunctionalRelation`,
+`Database`, `Readable`, `Trackable`) remain available and should still be used
+for behavior with no target facade yet, especially accumulator and low-level
+memo/introspection recipes.
 
 For deep internals (verification algorithm, type erasure, SoA storage, push propagation, data flow), see [docs/design/internals.md](docs/design/internals.md).
 
@@ -117,6 +139,10 @@ For deep internals (verification algorithm, type erasure, SoA storage, push prop
 - Plans = implementation details (struct defs, code examples, file paths). Archived on completion.
 - Performance docs = dated snapshots. New measurements go in new files, old ones are not updated.
 - Code is the source of truth — if a doc and the code disagree, the doc is wrong.
+- High-value target API examples should be checked in `.mbt.md` files or
+  ` ```mbt check` blocks. `docs/target_api_examples.mbt.md` currently covers
+  README/getting-started target constructor, `Scope`, read, and `Watch`
+  examples. Next migration slice: add checked examples for
+  `docs/api-reference.md`, then remaining cookbook snippets.
 
 When contributing, read [docs/design/internals.md](docs/design/internals.md) before modifying core algorithm files like `cells/verify.mbt` or `cells/memo.mbt`.
-
