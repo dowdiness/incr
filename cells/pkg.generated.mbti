@@ -38,7 +38,9 @@ pub(all) struct Derived[T] {
 pub fn[T : Eq] Derived::Derived(Runtime, () -> T raise Failure, label? : String) -> Self[T]
 pub fn[T] Derived::get(Self[T]) -> Result[T, @types.CycleError]
 pub fn[T] Derived::get_or_abort(Self[T]) -> T
+pub fn[T] Derived::id(Self[T]) -> @types.CellId
 pub fn[T] Derived::is_fresh(Self[T]) -> Bool
+pub fn[T] Derived::observe(Self[T]) -> Observer[T]
 pub fn[T] Derived::read(Self[T]) -> Result[T, @types.CycleError]
 pub fn[T] Derived::read_or_abort(Self[T]) -> T
 pub fn[T] Derived::watch(Self[T]) -> Watch[T]
@@ -342,3 +344,4 @@ pub fn[T] Watch::read_or_abort(Self[T]) -> T
 // Type aliases
 
 // Traits
+

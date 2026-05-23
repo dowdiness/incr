@@ -193,6 +193,23 @@ pub fn[T] Derived::is_fresh(self : Derived[T]) -> Bool {
 }
 
 ///|
+/// Returns the unique cell identifier for this derived value. Stable
+/// across reads — useful for graph-shape probes (gc anchoring, edge
+/// inspection) where a cell needs an identity independent of its value.
+pub fn[T] Derived::id(self : Derived[T]) -> CellId {
+  self.inner.id()
+}
+
+///|
+/// Acquires an `Observer` that roots this derived cell against gc. The
+/// caller must `dispose()` the returned observer when done; otherwise
+/// the cell (and its dependency cone) stays pinned indefinitely. See
+/// `Memo::observe` for the underlying semantics.
+pub fn[T] Derived::observe(self : Derived[T]) -> Observer[T] {
+  self.inner.observe()
+}
+
+///|
 /// Target-name reachable lazy derived cell facade over `HybridMemo`.
 pub(all) struct ReachableDerived[T] {
   priv inner : HybridMemo[T]
