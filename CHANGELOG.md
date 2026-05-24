@@ -2,15 +2,16 @@
 
 All notable changes to `dowdiness/incr` are documented in this file.
 
-## [Unreleased]
+## [0.6.0] - 2026-05-24
 
 ### Added
 
 - Added target facade handles `Input`, `Derived`, `ReachableDerived`, `EagerDerived`, and `DerivedMap` with constructor syntax and direct read methods. Compatibility handles remain source-compatible in this slice.
 - Added `MapRelation[K, V]` as the target facade over `FunctionalRelation[K, V]`.
 - Added `Watch[T]` for long-lived target-facade outside reads that preserve cycle errors as `Result` values.
-- Added `InputField[T]`, `Freshness`, and `InputFieldOwner` target surfaces for field-level inputs and readable target-handle freshness checks.
+- Added `InputField[T]`, `Freshness`, `InputFieldOwner`, and `add_input_fields(scope, owner)` target surfaces for field-level inputs; `Freshness` is implemented for `Input`, `InputField`, `Derived`, and `ReachableDerived`.
 - Added target-facade constructors on `Scope` and `RuntimeContext` helper constructors for `Input`, `InputField`, `Derived`, `ReachableDerived`, `EagerDerived`, and `DerivedMap`.
+- Added `Derived::id` and `Derived::observe` forwarders on the public facade, lifting the underlying `HybridMemo` accessors so callers can inspect a derived cell's identity and acquire keep-alive `Observer`s without reaching through the wrapped handle.
 
 ### Changed
 
@@ -19,6 +20,10 @@ All notable changes to `dowdiness/incr` are documented in this file.
 ### Deprecated
 
 - `Runtime::read`, `Runtime::read_hybrid`, and `Runtime::read_reactive` are now legacy compatibility helpers; target facade `read*` and `watch()` methods are the preferred API.
+
+### Documentation
+
+- Updated the API reference, cookbook, architecture overview, docs index, and checked literate examples for the target-facade migration; added the public API naming ADR, the facade read-semantics design spec, and the rename/Phase 3a soak-window plans. `docs/design/internals.md` now positions `incr` in the Build Systems à la Carte design space.
 
 ## [0.5.2] - 2026-05-20
 
