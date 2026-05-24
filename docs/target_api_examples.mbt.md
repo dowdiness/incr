@@ -2,10 +2,15 @@
 
 These literate tests mirror the high-value target API examples in
 [`README.md`](../README.md) and [`getting-started.md`](getting-started.md).
-They exist to catch docs/API drift for the recommended facade names and read
-semantics.
+They exist to catch docs/API drift for the recommended facade names, read
+semantics, committed-change callbacks, and batch rollback behavior.
 
 ```mbt check
+///|
+suberror TargetApiBatchResultError {
+  TargetApiBatchStop
+}
+
 ///|
 test "docs target api: direct constructor quick start" {
   let rt = @incr.Runtime()
@@ -45,6 +50,33 @@ test "docs target api: scope constructors own lifecycle" {
   inspect(sum.read_or_abort(), content="30")
   scope.dispose()
   inspect(scope.is_disposed(), content="true")
+}
+
+///|
+test "docs target api: committed-change callback skips same-value input set" {
+  let rt = @incr.Runtime()
+  let quantity = @incr.Input(rt, 10, label="quantity")
+  let changes : Ref[Int] = { val: 0 }
+  rt.set_on_change(() => changes.val = changes.val + 1)
+
+  quantity.set(12)
+  inspect(changes.val, content="1")
+
+  quantity.set(12)
+  inspect(changes.val, content="1")
+}
+
+///|
+test "docs target api: batch_result rolls back raised errors" {
+  let rt = @incr.Runtime()
+  let amount = @incr.Input(rt, 100, label="amount")
+  let result = rt.batch_result(fn() raise {
+    amount.set(999)
+    raise TargetApiBatchStop
+  })
+
+  inspect(result is Err(_), content="true")
+  inspect(amount.get(), content="100")
 }
 
 ///|

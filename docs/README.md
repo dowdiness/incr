@@ -13,7 +13,7 @@ New to `incr`? Read these in order:
 3. [Checked Concepts Examples](concepts_examples.mbt.md) — literate tests for high-value concepts behavior
 4. [Cookbook](cookbook.md) — practical patterns and anti-patterns
 5. [Checked Cookbook Examples](cookbook_examples.mbt.md) — literate tests for high-value cookbook patterns, including target facades, scoped watches, accumulators, and memo events
-6. [Checked Target API Examples](target_api_examples.mbt.md) — literate tests mirroring the README and getting-started target facade examples
+6. [Checked Target API Examples](target_api_examples.mbt.md) — literate tests mirroring the README and getting-started target facade, callback, and batch examples
 7. [Checked API Reference Examples](api_reference_examples.mbt.md) — literate tests covering target facades from the API reference (`Derived`, `DerivedMap`, `ReachableDerived`, `MapRelation`, `Scope` / `RuntimeContext`, `CycleError`) plus compatibility accumulator behavior
 
 ## API Reference

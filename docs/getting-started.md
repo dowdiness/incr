@@ -4,7 +4,8 @@ This guide walks you through using `incr` from your first computation to advance
 
 The core target-API examples in this guide are mirrored by checked literate
 tests in [`target_api_examples.mbt.md`](target_api_examples.mbt.md), so changes
-to constructor or read semantics are caught by `moon check`.
+to constructor, read, committed-change callback, or batch rollback semantics are
+caught by `moon check`.
 
 ## Installation
 
