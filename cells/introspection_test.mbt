@@ -355,6 +355,26 @@ test "integration: diamond dependency has no duplicates" {
 }
 
 ///|
+test "gc_root_count tracks Watch lifecycle" {
+  let rt = Runtime::Runtime()
+  let d = Derived::Derived(rt, fn() { 42 }, label="test_cell")
+  let id = d.id()
+  assert_eq(rt.gc_root_count(id), 0)
+  let watch = d.watch()
+  assert_eq(rt.gc_root_count(id), 1)
+  watch.dispose()
+  assert_eq(rt.gc_root_count(id), 0)
+}
+
+///|
+test "gc_root_count returns 0 for an unknown CellId" {
+  let rt = Runtime::Runtime()
+  let d = Derived::Derived(rt, fn() { 0 }, label="anchor")
+  let unknown : CellId = { id: d.id().id + 999, runtime_id: d.id().runtime_id }
+  assert_eq(rt.gc_root_count(unknown), 0)
+}
+
+///|
 test "integration: understanding backdating with introspection" {
   let rt = Runtime::Runtime()
   let input = Signal::Signal(rt, 5)

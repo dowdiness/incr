@@ -262,6 +262,7 @@ pub fn Runtime::dispose_cell(Self, @types.CellId) -> Unit
 pub fn Runtime::dispose_rule(Self, @types.RuleId) -> Unit
 pub fn Runtime::fixpoint(Self) -> Unit
 pub fn Runtime::gc(Self) -> Unit
+pub fn Runtime::gc_root_count(Self, @types.CellId) -> Int
 pub fn Runtime::new(on_change? : () -> Unit) -> Self
 pub fn Runtime::new_rule(Self, Array[@types.CellId], Array[@types.CellId], () -> Unit, label? : String) -> @types.RuleId
 pub fn Runtime::on_memo_event(Self, (MemoEvent) -> Unit) -> Unit raise Failure
