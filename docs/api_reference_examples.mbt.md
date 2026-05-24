@@ -10,6 +10,61 @@ Snippets that legitimately require compatibility names (`Accumulator` push,
 `Memo::observe`, introspection-only handles) are not duplicated here; their
 prose examples remain in `api-reference.md`.
 
+## Runtime and `InputField` change callbacks
+
+```mbt check
+///|
+test "docs api-ref: Runtime on_change fires for committed changes" {
+  let rt = @incr.Runtime()
+  let input = @incr.Input(rt, 0, label="input")
+  let notifications : Ref[Int] = { val: 0 }
+
+  rt.set_on_change(() => { notifications.val = notifications.val + 1 })
+
+  input.set(1)
+  inspect(notifications.val, content="1")
+
+  input.set(1)
+  inspect(notifications.val, content="1")
+
+  rt.batch(() => {
+    input.set(2)
+    input.set(3)
+  })
+  inspect(input.get(), content="3")
+  inspect(notifications.val, content="2")
+
+  rt.clear_on_change()
+  input.set(4)
+  inspect(notifications.val, content="2")
+}
+
+///|
+test "docs api-ref: InputField on_change fires before Runtime on_change" {
+  let rt = @incr.Runtime()
+  let price = @incr.InputField(rt, 100, label="price")
+  let log : Ref[String] = { val: "" }
+
+  price.on_change(new_price => {
+    log.val = log.val + "cell:" + new_price.to_string() + ";"
+  })
+  rt.set_on_change(() => { log.val = log.val + "global;" })
+
+  price.set(200)
+  inspect(log.val, content="cell:200;global;")
+
+  rt.batch(() => {
+    price.set(150)
+    price.set(250)
+  })
+  inspect(log.val, content="cell:200;global;cell:250;global;")
+
+  price.clear_on_change()
+  price.set(300)
+  inspect(log.val, content="cell:200;global;cell:250;global;global;")
+}
+```
+
 ## `Derived` — strict get, permissive read, watch
 
 ```mbt check
@@ -207,7 +262,7 @@ struct AppCtx {
 }
 
 ///|
-impl @incr.RuntimeContext for AppCtx with runtime(self) {
+impl @incr.RuntimeContext for AppCtx with fn runtime(self) {
   self.rt
 }
 
@@ -270,7 +325,7 @@ struct SourceFile {
 }
 
 ///|
-impl @incr.InputFieldOwner for SourceFile with cell_ids(self) {
+impl @incr.InputFieldOwner for SourceFile with fn cell_ids(self) {
   [self.path.id(), self.version.id()]
 }
 
@@ -298,6 +353,23 @@ test "docs api-ref: scope-owned target handles dispose together" {
   scope.dispose()
   inspect(scope.is_disposed(), content="true")
   inspect(path_field.is_disposed(), content="true")
+}
+
+///|
+test "docs api-ref: scope.add_watch owns target watch lifetime" {
+  let rt = @incr.Runtime()
+  let scope = @incr.Scope::new(rt)
+  let input = scope.input(20, label="input")
+  let summary = scope.derived(() => input.get() * 2, label="summary")
+  let watch = scope.add_watch(summary.watch())
+
+  inspect(watch.read_or_abort(), content="40")
+  rt.gc()
+  input.set(21)
+  inspect(watch.read_or_abort(), content="42")
+
+  scope.dispose()
+  inspect(watch.is_disposed(), content="true")
 }
 
 ///|
