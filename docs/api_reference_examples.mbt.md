@@ -513,6 +513,11 @@ impl @incr.RuntimeContext for AppCtx with fn runtime(self) {
 }
 
 ///|
+impl @incr.Database for AppCtx with fn runtime(self) {
+  self.rt
+}
+
+///|
 test "docs api-ref: create_input / create_derived / create_derived_map via context" {
   let ctx : AppCtx = { rt: @incr.Runtime() }
   let price = @incr.create_input(ctx, 100, label="price")
@@ -558,6 +563,55 @@ test "docs api-ref: create_input_field / create_reachable_derived / create_eager
   count.set(3)
   inspect(reachable.read_or_abort(), content="30")
   inspect(eager.read(), content="103")
+}
+
+///|
+test "docs api-ref: Database batch helper commits one atomic update" {
+  let app : AppCtx = { rt: @incr.Runtime() }
+  let price = @incr.Input(app.rt, 100, label="price")
+  let quantity = @incr.Input(app.rt, 2, label="quantity")
+  let total = @incr.Derived(
+    app.rt,
+    () => price.get() * quantity.get(),
+    label="total",
+  )
+  let notifications : Ref[Int] = { val: 0 }
+  app.rt.set_on_change(() => notifications.val = notifications.val + 1)
+
+  @incr.batch(app, () => {
+    price.set(125)
+    quantity.set(3)
+  })
+
+  inspect(total.read_or_abort(), content="375")
+  inspect(notifications.val, content="1")
+}
+
+///|
+test "docs api-ref: Database batch_result helper rolls back on Err" {
+  let app : AppCtx = { rt: @incr.Runtime() }
+  let price = @incr.Input(app.rt, 100, label="price")
+  let quantity = @incr.Input(app.rt, 2, label="quantity")
+  let total = @incr.Derived(
+    app.rt,
+    () => price.get() * quantity.get(),
+    label="total",
+  )
+
+  let result = @incr.batch_result(app, fn() raise {
+    price.set(500)
+    quantity.set(9)
+    raise ApiRefBatchStop
+  })
+
+  inspect(result is Err(_), content="true")
+  inspect(price.get(), content="100")
+  inspect(quantity.get(), content="2")
+  inspect(total.read_or_abort(), content="200")
+
+  let ok = @incr.batch_result(app, () => price.set(120))
+  inspect(ok is Ok(_), content="true")
+  inspect(total.read_or_abort(), content="240")
 }
 ```
 
