@@ -141,3 +141,18 @@ pub fn Runtime::dependents(self : Runtime, id : CellId) -> Array[CellId] {
   }
   snapshot_subscribers(self.core.cell_ops[id.id].subscribers())
 }
+
+///|
+/// Number of GC roots currently anchoring `id` — i.e. how many `Watch`
+/// or `Observer` handles or `gc_root = Root` cells reference it. Returns
+/// `0` for unknown or disposed cells (matches the `Runtime::dependents`
+/// soft-fail idiom).
+///
+/// Phase 1 coordinator use: registration-time mode-1 check that each
+/// protected cell is observer-rooted before the editor is published.
+pub fn Runtime::gc_root_count(self : Runtime, id : CellId) -> Int {
+  match self.core.gc_root_counts.get(id) {
+    Some(n) => n
+    None => 0
+  }
+}

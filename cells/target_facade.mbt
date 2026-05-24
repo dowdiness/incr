@@ -210,6 +210,44 @@ pub fn[T] Derived::observe(self : Derived[T]) -> Observer[T] {
 }
 
 ///|
+/// Revision at which this derived value's content last actually changed.
+/// Backdated by structural equality: when a recomputation produces a
+/// value equal to the previous one, `changed_at` is preserved rather than
+/// advanced. See `Memo::changed_at`.
+pub fn[T] Derived::changed_at(self : Derived[T]) -> Revision {
+  self.inner.changed_at()
+}
+
+///|
+/// Returns true if this derived value has been disposed.
+pub fn[T] Derived::is_disposed(self : Derived[T]) -> Bool {
+  self.inner.is_disposed()
+}
+
+///|
+/// Tracked accumulator read intended for use inside a compute closure.
+/// Returns a defensive copy of the values `self` pushed during its last
+/// successful compute, forces verification of `self`, and stages a
+/// synthetic dep on the current frame. See `Memo::accumulated`.
+pub fn[T, A] Derived::accumulated(
+  self : Derived[T],
+  acc : Accumulator[A],
+) -> Array[A] raise Failure {
+  self.inner.accumulated(acc)
+}
+
+///|
+/// Untracked accumulator read. Returns `[]` when the accumulator or
+/// target derived value is disposed; otherwise a defensive copy. See
+/// `Memo::accumulated_peek`.
+pub fn[T, A] Derived::accumulated_peek(
+  self : Derived[T],
+  acc : Accumulator[A],
+) -> Array[A] {
+  self.inner.accumulated_peek(acc)
+}
+
+///|
 /// Target-name reachable lazy derived cell facade over `HybridMemo`.
 pub(all) struct ReachableDerived[T] {
   priv inner : HybridMemo[T]

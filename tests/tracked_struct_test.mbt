@@ -98,7 +98,7 @@ struct TestTracked {
 }
 
 ///|
-impl @incr.Trackable for TestTracked with cell_ids(self) {
+impl @incr.Trackable for TestTracked with fn cell_ids(self) {
   [self.name.id(), self.value.id(), self.flag.id()]
 }
 
@@ -249,7 +249,7 @@ struct TwoFieldTracked {
 }
 
 ///|
-impl @incr.Trackable for TwoFieldTracked with cell_ids(self) {
+impl @incr.Trackable for TwoFieldTracked with fn cell_ids(self) {
   [self.a.id(), self.b.id()]
 }
 

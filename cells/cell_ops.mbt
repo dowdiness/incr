@@ -17,9 +17,9 @@ using @shared {type CellMeta, trait CellOps, trait Committable}
 /// so there is no vtable overhead. These could equivalently be `fn Runtime::` methods;
 /// the trait grouping provides navigability and documents the contract.
 priv trait Tracker {
-  push_tracking(Self, CellId) -> Unit
-  pop_tracking(Self) -> (Array[CellId], @hashset.HashSet[CellId])
-  record_dependency(Self, CellId) -> Unit
+  fn push_tracking(Self, CellId) -> Unit
+  fn pop_tracking(Self) -> (Array[CellId], @hashset.HashSet[CellId])
+  fn record_dependency(Self, CellId) -> Unit
 }
 
 ///|
@@ -33,8 +33,8 @@ priv trait Tracker {
 /// Same as `Tracker` — purely organizational, no polymorphic dispatch. All
 /// call sites use concrete `Runtime` receivers, so calls are resolved statically.
 priv trait RevisionManager {
-  advance_revision(Self, Durability) -> Unit
-  bump_revision(Self, Durability) -> Unit
+  fn advance_revision(Self, Durability) -> Unit
+  fn bump_revision(Self, Durability) -> Unit
 }
 
 ///|
@@ -50,19 +50,19 @@ priv trait RevisionManager {
 /// `on_observe` and `on_unobserve` are no-ops — Layer 4 fills them in
 /// for HybridMemo (push activation/suspension) and PushReactive.
 priv trait CellLifecycle {
-  dispose_cell(Self, Runtime, CellId) -> Unit
-  on_observe(Self, Runtime, CellId) -> Unit = _
-  on_unobserve(Self, Runtime, CellId) -> Unit = _
+  fn dispose_cell(Self, Runtime, CellId) -> Unit
+  fn on_observe(Self, Runtime, CellId) -> Unit = _
+  fn on_unobserve(Self, Runtime, CellId) -> Unit = _
 }
 
 ///|
 /// Default: on_observe is a no-op. Layer 4 overrides for push cells.
-impl CellLifecycle with on_observe(_self, _rt, _cell_id) -> Unit {
+impl CellLifecycle with fn on_observe(_self, _rt, _cell_id) -> Unit {
   ()
 }
 
 ///|
 /// Default: on_unobserve is a no-op. Layer 4 overrides for push cells.
-impl CellLifecycle with on_unobserve(_self, _rt, _cell_id) -> Unit {
+impl CellLifecycle with fn on_unobserve(_self, _rt, _cell_id) -> Unit {
   ()
 }

@@ -16,12 +16,12 @@ fn dispose_datalog_cell(
 }
 
 ///|
-impl CellLifecycle for RelationData with dispose_cell(self, rt, cell_id) -> Unit {
+impl CellLifecycle for RelationData with fn dispose_cell(self, rt, cell_id) -> Unit {
   dispose_datalog_cell(self.meta, rt, cell_id)
 }
 
 ///|
-impl CellLifecycle for FunctionalRelationData with dispose_cell(
+impl CellLifecycle for FunctionalRelationData with fn dispose_cell(
   self,
   rt,
   cell_id,
@@ -30,6 +30,6 @@ impl CellLifecycle for FunctionalRelationData with dispose_cell(
 }
 
 ///|
-impl CellLifecycle for RuleData with dispose_cell(self, rt, cell_id) -> Unit {
+impl CellLifecycle for RuleData with fn dispose_cell(self, rt, cell_id) -> Unit {
   dispose_datalog_cell(self.meta, rt, cell_id)
 }

@@ -19,7 +19,7 @@ fn TestDb::TestDb() -> TestDb {
 }
 
 ///|
-impl @incr.Database for TestDb with runtime(self) {
+impl @incr.Database for TestDb with fn runtime(self) {
   self.rt
 }
 
@@ -202,32 +202,32 @@ fn CalcPipeline::CalcPipeline() -> CalcPipeline {
 }
 
 ///|
-impl @incr.Database for CalcPipeline with runtime(self) {
+impl @incr.Database for CalcPipeline with fn runtime(self) {
   self.rt
 }
 
 ///|
-impl @pipeline.Sourceable for CalcPipeline with set_source_text(self, text) {
+impl @pipeline.Sourceable for CalcPipeline with fn set_source_text(self, text) {
   self.source.set(text)
 }
 
 ///|
-impl @pipeline.Sourceable for CalcPipeline with source_text(self) {
+impl @pipeline.Sourceable for CalcPipeline with fn source_text(self) {
   self.source.get()
 }
 
 ///|
-impl @pipeline.Parseable for CalcPipeline with parse_errors(_) {
+impl @pipeline.Parseable for CalcPipeline with fn parse_errors(_) {
   []
 }
 
 ///|
-impl @pipeline.Checkable for CalcPipeline with check_errors(self) {
+impl @pipeline.Checkable for CalcPipeline with fn check_errors(self) {
   read_memo_for_test(self.errors)
 }
 
 ///|
-impl @pipeline.Executable for CalcPipeline with run(self) {
+impl @pipeline.Executable for CalcPipeline with fn run(self) {
   read_memo_for_test(self.output)
 }
 

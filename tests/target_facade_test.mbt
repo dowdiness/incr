@@ -376,12 +376,12 @@ fn FacadeContext::FacadeContext() -> FacadeContext {
 }
 
 ///|
-impl @incr.RuntimeContext for FacadeContext with runtime(self) {
+impl @incr.RuntimeContext for FacadeContext with fn runtime(self) {
   self.rt
 }
 
 ///|
-impl @incr.InputFieldOwner for FacadeInputFields with cell_ids(self) {
+impl @incr.InputFieldOwner for FacadeInputFields with fn cell_ids(self) {
   [self.path.id(), self.version.id()]
 }
 

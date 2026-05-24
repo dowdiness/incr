@@ -198,7 +198,7 @@ struct AccDb {
 }
 
 ///|
-impl @incr.Database for AccDb with runtime(self) {
+impl @incr.Database for AccDb with fn runtime(self) {
   self.rt
 }
 

@@ -20,7 +20,7 @@ fn event_entry_present(rt : Runtime, cell_id : CellId) -> Bool {
 }
 
 ///|
-impl MemoCommitPhase for EventOrderSentinel with before_recompute(
+impl MemoCommitPhase for EventOrderSentinel with fn before_recompute(
   self,
   rt,
   cell_id,
@@ -36,7 +36,7 @@ impl MemoCommitPhase for EventOrderSentinel with before_recompute(
 }
 
 ///|
-impl MemoCommitPhase for EventOrderSentinel with after_success(
+impl MemoCommitPhase for EventOrderSentinel with fn after_success(
   self,
   rt,
   cell_id,
@@ -52,7 +52,7 @@ impl MemoCommitPhase for EventOrderSentinel with after_success(
 }
 
 ///|
-impl MemoCommitPhase for EventOrderSentinel with after_abort(
+impl MemoCommitPhase for EventOrderSentinel with fn after_abort(
   self,
   rt,
   cell_id,
