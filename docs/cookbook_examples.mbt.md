@@ -2,8 +2,149 @@
 
 Literate tests that pin high-value target facade snippets from
 [`cookbook.md`](cookbook.md). These examples focus on behavior that prose-only
-snippets can easily drift on: dynamic dependency changes, backdating with custom
-`Eq`, field-level inputs, and scoped watch lifetimes.
+snippets can easily drift on: diamond dependencies, batch semantics, dynamic
+dependency changes, backdating with custom `Eq`, field-level inputs, and scoped
+watch lifetimes.
+
+## Diamond dependencies and layered derived values
+
+```mbt check
+///|
+test "docs cookbook: diamond dependencies recompute each branch once" {
+  let rt = @incr.Runtime()
+  let a = @incr.Input(rt, 10, label="a")
+  let b_runs : Ref[Int] = { val: 0 }
+  let c_runs : Ref[Int] = { val: 0 }
+  let d_runs : Ref[Int] = { val: 0 }
+
+  let b = @incr.Derived(
+    rt,
+    () => {
+      b_runs.val = b_runs.val + 1
+      a.get() * 2
+    },
+    label="b",
+  )
+  let c = @incr.Derived(
+    rt,
+    () => {
+      c_runs.val = c_runs.val + 1
+      a.get() + 5
+    },
+    label="c",
+  )
+  let d = @incr.Derived(
+    rt,
+    () => {
+      d_runs.val = d_runs.val + 1
+      b.get_or_abort() + c.get_or_abort()
+    },
+    label="d",
+  )
+
+  inspect(d.read_or_abort(), content="35")
+  inspect(b_runs.val, content="1")
+  inspect(c_runs.val, content="1")
+  inspect(d_runs.val, content="1")
+
+  inspect(d.read_or_abort(), content="35")
+  inspect(b_runs.val, content="1")
+  inspect(c_runs.val, content="1")
+  inspect(d_runs.val, content="1")
+
+  a.set(20)
+  inspect(d.read_or_abort(), content="65")
+  inspect(b_runs.val, content="2")
+  inspect(c_runs.val, content="2")
+  inspect(d_runs.val, content="2")
+}
+
+///|
+test "docs cookbook: layered derived values cache intermediate results" {
+  let rt = @incr.Runtime()
+  let raw = @incr.Input(rt, 21, label="raw")
+  let normalized_runs : Ref[Int] = { val: 0 }
+  let transformed_runs : Ref[Int] = { val: 0 }
+  let formatted_runs : Ref[Int] = { val: 0 }
+
+  let normalized = @incr.Derived(
+    rt,
+    () => {
+      normalized_runs.val = normalized_runs.val + 1
+      raw.get() / 3
+    },
+    label="normalized",
+  )
+  let transformed = @incr.Derived(
+    rt,
+    () => {
+      transformed_runs.val = transformed_runs.val + 1
+      normalized.get_or_abort() * 10
+    },
+    label="transformed",
+  )
+  let formatted = @incr.Derived(
+    rt,
+    () => {
+      formatted_runs.val = formatted_runs.val + 1
+      "value=" + transformed.get_or_abort().to_string()
+    },
+    label="formatted",
+  )
+
+  inspect(formatted.read_or_abort(), content="value=70")
+  inspect(normalized_runs.val, content="1")
+  inspect(transformed_runs.val, content="1")
+  inspect(formatted_runs.val, content="1")
+
+  raw.set(22)
+  inspect(formatted.read_or_abort(), content="value=70")
+  inspect(normalized_runs.val, content="2")
+  inspect(transformed_runs.val, content="1")
+  inspect(formatted_runs.val, content="1")
+
+  raw.set(30)
+  inspect(formatted.read_or_abort(), content="value=100")
+  inspect(normalized_runs.val, content="3")
+  inspect(transformed_runs.val, content="2")
+  inspect(formatted_runs.val, content="2")
+}
+```
+
+## Computed defaults
+
+```mbt check
+///|
+test "docs cookbook: computed defaults yield to explicit overrides" {
+  let rt = @incr.Runtime()
+  let user_override : @incr.Input[Int?] = @incr.Input(rt, None, label="override")
+  let computed_default = @incr.Input(rt, 100, label="default")
+  let effective_value = @incr.Derived(
+    rt,
+    () => {
+      match user_override.get() {
+        Some(v) => v
+        None => computed_default.get()
+      }
+    },
+    label="effective_value",
+  )
+
+  inspect(effective_value.read_or_abort(), content="100")
+
+  computed_default.set(150)
+  inspect(effective_value.read_or_abort(), content="150")
+
+  user_override.set(Some(42))
+  inspect(effective_value.read_or_abort(), content="42")
+
+  computed_default.set(200)
+  inspect(effective_value.read_or_abort(), content="42")
+
+  user_override.set(None)
+  inspect(effective_value.read_or_abort(), content="200")
+}
+```
 
 ## Conditional dependencies
 
@@ -145,6 +286,21 @@ test "docs cookbook: on_change batches committed changes" {
 }
 
 ///|
+test "docs cookbook: batch commits related inputs atomically" {
+  let rt = @incr.Runtime()
+  let x = @incr.Input(rt, 0, label="x")
+  let y = @incr.Input(rt, 0, label="y")
+  let position = @incr.Derived(rt, () => (x.get(), y.get()), label="position")
+
+  rt.batch(() => {
+    x.set(100)
+    y.set(200)
+  })
+
+  debug_inspect(position.read_or_abort(), content="(100, 200)")
+}
+
+///|
 test "docs cookbook: reading during batch sees the pre-batch value" {
   let rt = @incr.Runtime()
   let x = @incr.Input(rt, 10, label="x")
@@ -159,6 +315,39 @@ test "docs cookbook: reading during batch sees the pre-batch value" {
 
   inspect(seen_inside_batch.val, content="20")
   inspect(doubled.read_or_abort(), content="40")
+}
+```
+
+## Graceful cycle handling
+
+```mbt check
+///|
+test "docs cookbook: derived.get can recover from a cycle inside compute" {
+  let rt = @incr.Runtime()
+  let derived_ref : Ref[@incr.Derived[Int]?] = { val: None }
+  let saw_cycle : Ref[Bool] = { val: false }
+
+  let derived = @incr.Derived(
+    rt,
+    () => {
+      match derived_ref.val {
+        Some(d) =>
+          match d.get() {
+            Ok(v) => v + 1
+            Err(_err) => {
+              saw_cycle.val = true
+              0
+            }
+          }
+        None => 0
+      }
+    },
+    label="self_recovering",
+  )
+  derived_ref.val = Some(derived)
+
+  inspect(derived.read_or_abort(), content="0")
+  inspect(saw_cycle.val, content="true")
 }
 ```
 
