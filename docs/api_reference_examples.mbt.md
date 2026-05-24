@@ -10,6 +10,248 @@ Snippets that legitimately require compatibility names (`Accumulator` push,
 `Memo::observe`, introspection-only handles) are not duplicated here; their
 prose examples remain in `api-reference.md`.
 
+## Runtime batching and change callbacks
+
+```mbt check
+///|
+suberror ApiRefBatchResultError {
+  ApiRefBatchStop
+}
+
+///|
+test "docs api-ref: Runtime batch_result returns Err and rolls back writes" {
+  let rt = @incr.Runtime()
+  let input = @incr.Input(rt, 0, label="input")
+  let notifications : Ref[Int] = { val: 0 }
+  rt.set_on_change(() => notifications.val = notifications.val + 1)
+
+  let result = rt.batch_result(fn() raise {
+    input.set(1)
+    raise ApiRefBatchStop
+  })
+
+  inspect(result is Err(_), content="true")
+  inspect(input.get(), content="0")
+  inspect(notifications.val, content="0")
+
+  input.set(2)
+  inspect(input.get(), content="2")
+  inspect(notifications.val, content="1")
+}
+
+///|
+test "docs api-ref: Runtime on_change fires for committed changes" {
+  let rt = @incr.Runtime()
+  let input = @incr.Input(rt, 0, label="input")
+  let notifications : Ref[Int] = { val: 0 }
+
+  rt.set_on_change(() => notifications.val = notifications.val + 1)
+
+  input.set(1)
+  inspect(notifications.val, content="1")
+
+  input.set(1)
+  inspect(notifications.val, content="1")
+
+  rt.batch(() => {
+    input.set(2)
+    input.set(3)
+  })
+  inspect(input.get(), content="3")
+  inspect(notifications.val, content="2")
+
+  rt.clear_on_change()
+  input.set(4)
+  inspect(notifications.val, content="2")
+}
+
+///|
+test "docs api-ref: InputField on_change fires before Runtime on_change" {
+  let rt = @incr.Runtime()
+  let price = @incr.InputField(rt, 100, label="price")
+  let log : Ref[String] = { val: "" }
+
+  price.on_change(new_price => {
+    log.val = log.val + "cell:" + new_price.to_string() + ";"
+  })
+  rt.set_on_change(() => log.val = log.val + "global;")
+
+  price.set(200)
+  inspect(log.val, content="cell:200;global;")
+
+  rt.batch(() => {
+    price.set(150)
+    price.set(250)
+  })
+  inspect(log.val, content="cell:200;global;cell:250;global;")
+
+  price.clear_on_change()
+  price.set(300)
+  inspect(log.val, content="cell:200;global;cell:250;global;global;")
+}
+```
+
+## `Input` and `InputField` basics
+
+```mbt check
+///|
+test "docs api-ref: Input get tracks, peek is untracked" {
+  let rt = @incr.Runtime()
+  let count = @incr.Input(rt, 1, label="count")
+  let tracked_runs : Ref[Int] = { val: 0 }
+  let peek_runs : Ref[Int] = { val: 0 }
+
+  let tracked = @incr.Derived(
+    rt,
+    () => {
+      tracked_runs.val = tracked_runs.val + 1
+      count.get() * 2
+    },
+    label="tracked_count",
+  )
+  let peeked = @incr.Derived(
+    rt,
+    () => {
+      peek_runs.val = peek_runs.val + 1
+      count.peek() * 2
+    },
+    label="peeked_count",
+  )
+
+  inspect(tracked.read_or_abort(), content="2")
+  inspect(peeked.read_or_abort(), content="2")
+  inspect(tracked_runs.val, content="1")
+  inspect(peek_runs.val, content="1")
+
+  count.set(2)
+  inspect(tracked.read_or_abort(), content="4")
+  inspect(tracked_runs.val, content="2")
+  inspect(peeked.read_or_abort(), content="2")
+  inspect(peek_runs.val, content="1")
+
+  // Same-value `set` is a no-op; `force_set` invalidates even equal values.
+  count.set(2)
+  inspect(tracked.read_or_abort(), content="4")
+  inspect(tracked_runs.val, content="2")
+  count.force_set(2)
+  inspect(tracked.read_or_abort(), content="4")
+  inspect(tracked_runs.val, content="3")
+}
+
+///|
+test "docs api-ref: InputField exposes field identity and participates in derived reads" {
+  let rt = @incr.Runtime()
+  let path = @incr.InputField(
+    rt,
+    "src/main.mbt",
+    durability=High,
+    label="SourceFile.path",
+  )
+  let read_count : Ref[Int] = { val: 0 }
+  let extension = @incr.Derived(
+    rt,
+    () => {
+      read_count.val = read_count.val + 1
+      if path.get().contains(".mbt") {
+        "moonbit"
+      } else {
+        "other"
+      }
+    },
+    label="SourceFile.extension",
+  )
+
+  inspect(path.get(), content="src/main.mbt")
+  inspect(path.peek(), content="src/main.mbt")
+  inspect(path.durability(), content="High")
+  match rt.cell_info(path.id()) {
+    Some(info) => {
+      debug_inspect(
+        info.label,
+        content=(
+          #|Some("SourceFile.path")
+        ),
+      )
+      inspect(info.durability, content="High")
+      debug_inspect(info.dependencies, content="[]")
+    }
+    None => abort("expected InputField cell_info")
+  }
+
+  inspect(extension.read_or_abort(), content="moonbit")
+  path.set("README.md")
+  inspect(extension.read_or_abort(), content="other")
+  inspect(read_count.val, content="2")
+}
+```
+
+## Labels, cycle paths, and cell introspection
+
+```mbt check
+///|
+test "docs api-ref: labels appear in cell_info and cycle errors" {
+  let rt = @incr.Runtime()
+  let version = @incr.InputField(rt, 1, label="SourceFile.version")
+  let doubled = @incr.Derived(
+    rt,
+    () => version.get() * 2,
+    label="SourceFile.version_doubled",
+  )
+
+  inspect(doubled.read_or_abort(), content="2")
+  match rt.cell_info(doubled.id()) {
+    Some(info) => {
+      debug_inspect(
+        info.label,
+        content=(
+          #|Some("SourceFile.version_doubled")
+        ),
+      )
+      inspect(info.dependencies.contains(version.id()), content="true")
+    }
+    None => abort("expected Derived cell_info")
+  }
+
+  let a_ref : Ref[@incr.Derived[Int]?] = { val: None }
+  let b_ref : Ref[@incr.Derived[Int]?] = { val: None }
+  let formatted : Ref[String] = { val: "" }
+  let a = @incr.Derived(
+    rt,
+    () => {
+      match b_ref.val {
+        Some(b) => b.get_or_abort() + 1
+        None => 0
+      }
+    },
+    label="price",
+  )
+  let b = @incr.Derived(
+    rt,
+    () => {
+      match a_ref.val {
+        Some(a0) =>
+          match a0.get() {
+            Ok(v) => v + 1
+            Err(err) => {
+              formatted.val = err.format_path()
+              -1
+            }
+          }
+        None => 0
+      }
+    },
+    label="tax",
+  )
+  a_ref.val = Some(a)
+  b_ref.val = Some(b)
+
+  let _ = a.read_or_abort()
+  inspect(formatted.val.contains("Cycle detected:"), content="true")
+  inspect(formatted.val.contains("price"), content="true")
+  inspect(formatted.val.contains("tax"), content="true")
+}
+```
+
 ## `Derived` — strict get, permissive read, watch
 
 ```mbt check
@@ -198,6 +440,65 @@ test "docs api-ref: reachable_derived.watch is a GC root for the reachable cell 
 }
 ```
 
+## `EagerDerived` — eager recomputation and outside reads
+
+```mbt check
+///|
+test "docs api-ref: eager_derived recomputes eagerly and can be read from outside" {
+  let rt = @incr.Runtime()
+  let input = @incr.Input(rt, 4, label="input")
+  let runs : Ref[Int] = { val: 0 }
+  let eager = @incr.EagerDerived(rt, () => {
+    runs.val = runs.val + 1
+    input.get() * 3
+  })
+  let view = @incr.Derived(rt, () => eager.get() + 1, label="eager_view")
+  let watch = eager.watch()
+
+  inspect(eager.read(), content="12")
+  inspect(view.read_or_abort(), content="13")
+  inspect(runs.val > 0, content="true")
+
+  let runs_before_set = runs.val
+  input.set(5)
+  inspect(runs.val == runs_before_set + 1, content="true")
+  inspect(watch.read_or_abort(), content="15")
+  inspect(view.read_or_abort(), content="16")
+
+  rt.gc()
+  input.set(6)
+  inspect(watch.read_or_abort(), content="18")
+  watch.dispose()
+}
+```
+
+## `MapRelation` — materialized reads after fixpoint
+
+```mbt check
+///|
+test "docs api-ref: map_relation staged values become visible after fixpoint" {
+  let rt = @incr.Runtime()
+  let weights : @incr.MapRelation[(Int, Int), Int] = @incr.MapRelation(
+    rt,
+    label="weights",
+  )
+
+  inspect(weights.insert((1, 2), 10), content="true")
+  inspect(weights.insert((2, 3), 5), content="true")
+  debug_inspect(weights.get((1, 2)), content="None")
+  inspect(
+    weights.delta_iter().fold(init=0, fn(acc, _entry) { acc + 1 }),
+    content="2",
+  )
+  inspect(weights.iter().fold(init=0, fn(acc, _entry) { acc + 1 }), content="0")
+
+  rt.fixpoint()
+  debug_inspect(weights.get((1, 2)), content="Some(10)")
+  inspect(weights.iter().fold(init=0, fn(acc, _entry) { acc + 1 }), content="2")
+  inspect(weights.insert((1, 2), 10), content="false")
+}
+```
+
 ## `RuntimeContext` and the `create_*` helpers
 
 ```mbt check
@@ -207,8 +508,24 @@ struct AppCtx {
 }
 
 ///|
-impl @incr.RuntimeContext for AppCtx with runtime(self) {
+impl @incr.RuntimeContext for AppCtx with fn runtime(self) {
   self.rt
+}
+
+///|
+impl @incr.Database for AppCtx with fn runtime(self) {
+  self.rt
+}
+
+///|
+struct CompatTrackedFields {
+  path : @incr.TrackedCell[String]
+  version : @incr.TrackedCell[Int]
+}
+
+///|
+impl @incr.Trackable for CompatTrackedFields with fn cell_ids(self) {
+  [self.path.id(), self.version.id()]
 }
 
 ///|
@@ -258,6 +575,162 @@ test "docs api-ref: create_input_field / create_reachable_derived / create_eager
   inspect(reachable.read_or_abort(), content="30")
   inspect(eager.read(), content="103")
 }
+
+///|
+test "docs api-ref: Database batch helper commits one atomic update" {
+  let app : AppCtx = { rt: @incr.Runtime() }
+  let price = @incr.Input(app.rt, 100, label="price")
+  let quantity = @incr.Input(app.rt, 2, label="quantity")
+  let total = @incr.Derived(
+    app.rt,
+    () => price.get() * quantity.get(),
+    label="total",
+  )
+  let notifications : Ref[Int] = { val: 0 }
+  app.rt.set_on_change(() => notifications.val = notifications.val + 1)
+
+  @incr.batch(app, () => {
+    price.set(125)
+    quantity.set(3)
+  })
+
+  inspect(total.read_or_abort(), content="375")
+  inspect(notifications.val, content="1")
+}
+
+///|
+test "docs api-ref: Database batch_result helper rolls back on Err" {
+  let app : AppCtx = { rt: @incr.Runtime() }
+  let price = @incr.Input(app.rt, 100, label="price")
+  let quantity = @incr.Input(app.rt, 2, label="quantity")
+  let total = @incr.Derived(
+    app.rt,
+    () => price.get() * quantity.get(),
+    label="total",
+  )
+
+  let result = @incr.batch_result(app, fn() raise {
+    price.set(500)
+    quantity.set(9)
+    raise ApiRefBatchStop
+  })
+
+  inspect(result is Err(_), content="true")
+  inspect(price.get(), content="100")
+  inspect(quantity.get(), content="2")
+  inspect(total.read_or_abort(), content="200")
+
+  let ok = @incr.batch_result(app, () => price.set(120))
+  inspect(ok is Ok(_), content="true")
+  inspect(total.read_or_abort(), content="240")
+}
+
+///|
+test "docs api-ref: compatibility helpers create_signal / hybrid_memo / memo_map" {
+  let app : AppCtx = { rt: @incr.Runtime() }
+  let signal = @incr.create_signal(
+    app,
+    10,
+    durability=High,
+    label="compat_signal",
+  )
+  let hybrid = @incr.create_hybrid_memo(
+    app,
+    () => signal.get() * 2,
+    label="compat_hybrid",
+  )
+  let by_key = @incr.create_memo_map(
+    app,
+    (key : Int) => signal.get() + key,
+    label="compat_by_key",
+  )
+
+  inspect(signal.get(), content="10")
+  inspect(signal.durability(), content="High")
+  match app.rt.cell_info(signal.id()) {
+    Some(info) =>
+      debug_inspect(
+        info.label,
+        content=(
+          #|Some("compat_signal")
+        ),
+      )
+    None => abort("expected signal cell_info")
+  }
+
+  let observer = hybrid.observe()
+  inspect(observer.get(), content="20")
+  inspect(by_key.get(5), content="15")
+  signal.set(11)
+  inspect(observer.get(), content="22")
+  inspect(by_key.get(5), content="16")
+  observer.dispose()
+}
+
+///|
+test "docs api-ref: compatibility create_accumulator captures memo pushes" {
+  let app : AppCtx = { rt: @incr.Runtime() }
+  let diags : @incr.Accumulator[String] = @incr.create_accumulator(
+    app,
+    label="diags",
+  )
+  let width = @incr.create_signal(app, -1, label="width")
+  let producer = @incr.create_memo(
+    app,
+    () => {
+      if width.get() < 0 {
+        diags.push("negative width")
+      }
+      width.get()
+    },
+    label="width_check",
+  )
+  let observer = producer.observe()
+
+  inspect(observer.get(), content="-1")
+  let first = producer.accumulated_peek(diags)
+  inspect(first.length(), content="1")
+  inspect(first[0], content="negative width")
+
+  width.set(4)
+  inspect(observer.get(), content="4")
+  inspect(producer.accumulated_peek(diags).length(), content="0")
+  observer.dispose()
+}
+
+///|
+test "docs api-ref: compatibility create_tracked_cell / create_scope / add_tracked" {
+  let app : AppCtx = { rt: @incr.Runtime() }
+  let scope = @incr.create_scope(app)
+  let tracked : CompatTrackedFields = {
+    path: @incr.create_tracked_cell(
+      app,
+      "src/main.mbt",
+      durability=High,
+      label="Tracked.path",
+    ),
+    version: @incr.create_tracked_cell(app, 1, label="Tracked.version"),
+  }
+
+  inspect(tracked.path.get(), content="src/main.mbt")
+  match app.rt.cell_info(tracked.path.id()) {
+    Some(info) => {
+      debug_inspect(
+        info.label,
+        content=(
+          #|Some("Tracked.path")
+        ),
+      )
+      inspect(info.durability, content="High")
+    }
+    None => abort("expected tracked path cell_info")
+  }
+
+  @incr.add_tracked(scope, tracked)
+  scope.dispose()
+  inspect(tracked.path.is_disposed(), content="true")
+  inspect(tracked.version.is_disposed(), content="true")
+}
 ```
 
 ## `Scope` constructors and `InputFieldOwner`
@@ -270,7 +743,7 @@ struct SourceFile {
 }
 
 ///|
-impl @incr.InputFieldOwner for SourceFile with cell_ids(self) {
+impl @incr.InputFieldOwner for SourceFile with fn cell_ids(self) {
   [self.path.id(), self.version.id()]
 }
 
@@ -298,6 +771,23 @@ test "docs api-ref: scope-owned target handles dispose together" {
   scope.dispose()
   inspect(scope.is_disposed(), content="true")
   inspect(path_field.is_disposed(), content="true")
+}
+
+///|
+test "docs api-ref: scope.add_watch owns target watch lifetime" {
+  let rt = @incr.Runtime()
+  let scope = @incr.Scope::new(rt)
+  let input = scope.input(20, label="input")
+  let summary = scope.derived(() => input.get() * 2, label="summary")
+  let watch = scope.add_watch(summary.watch())
+
+  inspect(watch.read_or_abort(), content="40")
+  rt.gc()
+  input.set(21)
+  inspect(watch.read_or_abort(), content="42")
+
+  scope.dispose()
+  inspect(watch.is_disposed(), content="true")
 }
 
 ///|

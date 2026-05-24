@@ -1,6 +1,6 @@
 # Cookbook
 
-Common patterns and recipes for using `incr` effectively.
+Common patterns and recipes for using `incr` effectively. Checked variants of the highest-value target facade snippets live in [`cookbook_examples.mbt.md`](cookbook_examples.mbt.md).
 
 ## Pattern: Diamond Dependencies
 
