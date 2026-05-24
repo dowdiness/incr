@@ -30,7 +30,7 @@ fn elapsed_ns_from(ts : @bench.Timestamp) -> Int64 {
 }
 
 ///|
-impl MemoCommitPhase for EventBroadcastPhaseHook with before_recompute(
+impl MemoCommitPhase for EventBroadcastPhaseHook with fn before_recompute(
   self,
   rt,
   cell_id,
@@ -47,7 +47,7 @@ impl MemoCommitPhase for EventBroadcastPhaseHook with before_recompute(
 }
 
 ///|
-impl MemoCommitPhase for EventBroadcastPhaseHook with after_success(
+impl MemoCommitPhase for EventBroadcastPhaseHook with fn after_success(
   self,
   rt,
   cell_id,
@@ -75,7 +75,7 @@ impl MemoCommitPhase for EventBroadcastPhaseHook with after_success(
 }
 
 ///|
-impl MemoCommitPhase for EventBroadcastPhaseHook with after_abort(
+impl MemoCommitPhase for EventBroadcastPhaseHook with fn after_abort(
   self,
   _rt,
   cell_id,

@@ -47,7 +47,7 @@ fn entry_present(rt : Runtime, cell_id : CellId) -> Bool {
 }
 
 ///|
-impl MemoCommitPhase for SentinelHook with before_recompute(
+impl MemoCommitPhase for SentinelHook with fn before_recompute(
   self,
   rt,
   cell_id,
@@ -58,14 +58,14 @@ impl MemoCommitPhase for SentinelHook with before_recompute(
 }
 
 ///|
-impl MemoCommitPhase for SentinelHook with after_success(self, rt, cell_id) {
+impl MemoCommitPhase for SentinelHook with fn after_success(self, rt, cell_id) {
   self.success_log.push(
     (cell_id, entry_present(rt, cell_id), snapshot_active_keys(rt)),
   )
 }
 
 ///|
-impl MemoCommitPhase for SentinelHook with after_abort(self, rt, cell_id, _e) {
+impl MemoCommitPhase for SentinelHook with fn after_abort(self, rt, cell_id, _e) {
   self.abort_log.push(
     (cell_id, entry_present(rt, cell_id), snapshot_active_keys(rt)),
   )

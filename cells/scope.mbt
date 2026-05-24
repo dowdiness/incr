@@ -32,7 +32,7 @@ pub struct Scope {
 ///|
 /// Manual Debug impl because `Array[() -> Unit]` cannot derive Debug
 /// (the `ignore` parameter only filters top-level field types, not nested types).
-pub impl Debug for Scope with to_repr(self) {
+pub impl Debug for Scope with fn to_repr(self) {
   Repr::record({
     "cells": to_repr(self.cells),
     "children": to_repr(self.children),

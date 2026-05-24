@@ -24,12 +24,12 @@ pub type DeprecatedCell[T] = ProbeCell[T]
 
 ///|
 pub(open) trait CurrentFreshness {
-  current(Self) -> Bool
+  fn current(Self) -> Bool
 }
 
 ///|
 pub(open) trait CompatReadable {
-  readable(Self) -> Bool
+  fn readable(Self) -> Bool
 }
 
 ///|
@@ -43,12 +43,12 @@ pub fn FreshOnly::FreshOnly(ok : Bool) -> FreshOnly {
 }
 
 ///|
-pub impl CurrentFreshness for FreshOnly with current(self) {
+pub impl CurrentFreshness for FreshOnly with fn current(self) {
   self.ok
 }
 
 ///|
-pub impl CompatReadable for FreshOnly with readable(self) {
+pub impl CompatReadable for FreshOnly with fn readable(self) {
   self.current()
 }
 
@@ -63,7 +63,7 @@ pub fn LegacyOnly::LegacyOnly(ok : Bool) -> LegacyOnly {
 }
 
 ///|
-pub impl CompatReadable for LegacyOnly with readable(self) {
+pub impl CompatReadable for LegacyOnly with fn readable(self) {
   self.ok
 }
 

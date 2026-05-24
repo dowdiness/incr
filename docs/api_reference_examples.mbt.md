@@ -207,7 +207,7 @@ struct AppCtx {
 }
 
 ///|
-impl @incr.RuntimeContext for AppCtx with runtime(self) {
+impl @incr.RuntimeContext for AppCtx with fn runtime(self) {
   self.rt
 }
 
@@ -270,7 +270,7 @@ struct SourceFile {
 }
 
 ///|
-impl @incr.InputFieldOwner for SourceFile with cell_ids(self) {
+impl @incr.InputFieldOwner for SourceFile with fn cell_ids(self) {
   [self.path.id(), self.version.id()]
 }
 

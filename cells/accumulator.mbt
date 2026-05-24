@@ -169,7 +169,7 @@ fn Runtime::register_accumulator_slot(
 
 ///|
 /// Verify-side view of a SlotMeta's disposal flag.
-impl @shared.SlotSnapshot for SlotMeta with disposed(self) -> Bool {
+impl @shared.SlotSnapshot for SlotMeta with fn disposed(self) -> Bool {
   self.disposed
 }
 
@@ -183,7 +183,10 @@ impl @shared.SlotSnapshot for SlotMeta with disposed(self) -> Bool {
 /// name disambiguates lexically — a parens-wrap `(self.field)(arg)`
 /// works too but is a parser subtlety that's easy to break in a later
 /// refactor.
-impl @shared.SlotSnapshot for SlotMeta with push_revised_at_for(self, cell_id) -> Revision {
+impl @shared.SlotSnapshot for SlotMeta with fn push_revised_at_for(
+  self,
+  cell_id,
+) -> Revision {
   let f = self.push_revised_at_for
   f(cell_id)
 }

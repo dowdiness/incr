@@ -16,12 +16,12 @@
 ///   rt : @incr.Runtime
 /// }
 ///
-/// impl @incr.Database for MyDb with runtime(self) {
+/// impl @incr.Database for MyDb with fn runtime(self) {
 ///   self.rt
 /// }
 /// ```
 pub(open) trait Database {
-  runtime(Self) -> Runtime
+  fn runtime(Self) -> Runtime
 }
 
 ///|
@@ -30,7 +30,7 @@ pub(open) trait Database {
 /// `RuntimeContext` intentionally mirrors `Database::runtime` without changing
 /// the existing `Database` trait or its compatibility helper surface.
 pub(open) trait RuntimeContext {
-  runtime(Self) -> Runtime
+  fn runtime(Self) -> Runtime
 }
 
 ///|
@@ -50,7 +50,7 @@ pub(open) trait RuntimeContext {
 /// ```
 pub(open) trait Readable {
   /// Returns true if the node's value is verified at the current revision.
-  is_up_to_date(Self) -> Bool
+  fn is_up_to_date(Self) -> Bool
 }
 
 ///|
@@ -61,44 +61,44 @@ pub(open) trait Readable {
 /// whether a handle is current with its runtime's latest revision.
 pub(open) trait Freshness {
   /// Returns true if the node is fresh at the current revision.
-  is_fresh(Self) -> Bool
+  fn is_fresh(Self) -> Bool
 }
 
 ///|
 /// Signals are always up-to-date since they are input cells
 /// with directly-set values.
-pub impl[T] Readable for Signal[T] with is_up_to_date(self) {
+pub impl[T] Readable for Signal[T] with fn is_up_to_date(self) {
   Signal::is_up_to_date(self)
 }
 
 ///|
 /// A memo is up-to-date when its verified_at matches the
 /// runtime's current revision.
-pub impl[T] Readable for Memo[T] with is_up_to_date(self) {
+pub impl[T] Readable for Memo[T] with fn is_up_to_date(self) {
   Memo::is_up_to_date(self)
 }
 
 ///|
 /// Target inputs are always fresh because they are directly-set cells.
-pub impl[T] Freshness for Input[T] with is_fresh(self) {
+pub impl[T] Freshness for Input[T] with fn is_fresh(self) {
   Input::is_fresh(self)
 }
 
 ///|
 /// Target input fields are always fresh because they are directly-set cells.
-pub impl[T] Freshness for InputField[T] with is_fresh(self) {
+pub impl[T] Freshness for InputField[T] with fn is_fresh(self) {
   InputField::is_fresh(self)
 }
 
 ///|
 /// A target derived value is fresh when its cached value is verified.
-pub impl[T] Freshness for Derived[T] with is_fresh(self) {
+pub impl[T] Freshness for Derived[T] with fn is_fresh(self) {
   Derived::is_fresh(self)
 }
 
 ///|
 /// A reachable target derived value is fresh when its cached value is verified.
-pub impl[T] Freshness for ReachableDerived[T] with is_fresh(self) {
+pub impl[T] Freshness for ReachableDerived[T] with fn is_fresh(self) {
   ReachableDerived::is_fresh(self)
 }
 
@@ -261,7 +261,7 @@ pub fn[Db : Database] batch_result(
 ///|
 /// A hybrid memo is up-to-date when its verified_at matches the
 /// runtime's current revision.
-pub impl[T] Readable for HybridMemo[T] with is_up_to_date(self) {
+pub impl[T] Readable for HybridMemo[T] with fn is_up_to_date(self) {
   HybridMemo::is_up_to_date(self)
 }
 
@@ -311,7 +311,7 @@ pub fn[Db : Database, T : Eq] create_accumulator(
 ///|
 /// Readable implementation for TrackedCell, matching the pattern of
 /// Signal and Memo implementations above.
-pub impl[T] Readable for TrackedCell[T] with is_up_to_date(self) {
+pub impl[T] Readable for TrackedCell[T] with fn is_up_to_date(self) {
   TrackedCell::is_up_to_date(self)
 }
 
@@ -328,7 +328,7 @@ pub impl[T] Readable for TrackedCell[T] with is_up_to_date(self) {
 /// The ordering of CellIds returned by cell_ids() must be stable across
 /// calls (i.e., always return fields in the same order).
 pub(open) trait Trackable {
-  cell_ids(Self) -> Array[CellId]
+  fn cell_ids(Self) -> Array[CellId]
 }
 
 ///|
@@ -337,7 +337,7 @@ pub(open) trait Trackable {
 /// The returned cell IDs must be stable across calls and belong to the runtime
 /// of any scope they are registered with.
 pub(open) trait InputFieldOwner {
-  cell_ids(Self) -> Array[CellId]
+  fn cell_ids(Self) -> Array[CellId]
 }
 
 ///|

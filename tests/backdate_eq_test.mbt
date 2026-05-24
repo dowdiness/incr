@@ -8,7 +8,7 @@ priv struct Stamped {
 }
 
 ///|
-impl @incr.HasChangedAt for Stamped with changed_at(self) -> @incr.Revision {
+impl @incr.HasChangedAt for Stamped with fn changed_at(self) -> @incr.Revision {
   self.changed_at
 }
 

@@ -72,7 +72,7 @@ priv struct Versioned {
 }
 
 ///|
-impl Eq for Versioned with equal(self, other) -> Bool {
+impl Eq for Versioned with fn equal(self, other) -> Bool {
   self.value == other.value
 }
 
@@ -133,7 +133,7 @@ priv enum Status {
 }
 
 ///|
-impl Eq for Status with equal(self, other) -> Bool {
+impl Eq for Status with fn equal(self, other) -> Bool {
   match (self, other) {
     (Loading(progress=p1), Loading(progress=p2)) => p1 == p2
     (Ready(data=d1), Ready(data=d2)) => d1 == d2

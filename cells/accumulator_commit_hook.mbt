@@ -89,7 +89,7 @@ fn RecomputeState::ensure_reads(
 /// is necessarily empty too, the snapshot loop is a no-op, and any push
 /// during this recompute will use `ensure_for_cell` to lazy-create the
 /// entry on demand.
-impl MemoCommitPhase for AccumulatorCommitHook with before_recompute(
+impl MemoCommitPhase for AccumulatorCommitHook with fn before_recompute(
   self,
   rt,
   cell_id,
@@ -118,7 +118,7 @@ impl MemoCommitPhase for AccumulatorCommitHook with before_recompute(
 ///|
 /// after_abort: restore prev snapshots; clear new-run buffer for
 /// touched-not-prev slots (preserves push_revised_at).
-impl MemoCommitPhase for AccumulatorCommitHook with after_abort(
+impl MemoCommitPhase for AccumulatorCommitHook with fn after_abort(
   self,
   rt,
   cell_id,
@@ -162,7 +162,7 @@ impl MemoCommitPhase for AccumulatorCommitHook with after_abort(
 ///|
 /// after_success: atomic per-slot finalize over prev ∪ touched; commit
 /// staged reads + rebuilt contributions.
-impl MemoCommitPhase for AccumulatorCommitHook with after_success(
+impl MemoCommitPhase for AccumulatorCommitHook with fn after_success(
   self,
   rt,
   cell_id,
