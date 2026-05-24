@@ -137,7 +137,7 @@ After the hybrid dirty-marking removal (HybridMemo no longer participates in pus
 the `dirty` field on `MemoData` is never set to `true`. All checks are no-ops. These tasks
 clean up the dead logic.
 
-- [x] Remove `dirty` field from `MemoData` in `cells/pull_memo.mbt`
+- [x] Remove `dirty` field from `MemoData` in `cells/internal/pull/memo_data.mbt` (formerly `cells/pull_memo.mbt` pre-R1)
 - [x] Remove `not(root.dirty)` guards in `cells/verify.mbt` (lines ~92, ~97, ~152)
 - [x] Remove `memo.dirty = false` assignment in `cells/verify.mbt` finalization (line ~205)
 - [x] Remove `cell.dirty = false` in `HybridMemo::get()` slow path (`cells/hybrid_memo.mbt`)
@@ -351,7 +351,7 @@ Six cell read paths inlined the same ~10-line `current_computing_runtime_id` gua
 ### Intentionally deferred / not recommended
 
 - **Runtime.mbt topic split** — `runtime.mbt` is 570 lines across ~16 sections, but most sections are cohesive and splitting is cosmetic without a concrete driver. Hard constraint for anyone who revisits: **subscriber management (`add/remove_subscriber`) and push-reachable accounting (`push_contribution` / `adjust_push_reachable`) must stay co-located** — they form one invariant cluster.
-- **Memo.mbt split** (547 lines) — coherent chapters, no duplication, no pain.
+- **Memo.mbt split** (620 lines) — coherent chapters, no duplication, no pain.
 - **cells/ folder reorg** — Stage 5 just moved SoA into `internal/`; another restructure now would churn without a driver.
 - **Stage 6 engine extraction** — was "waits for accumulators or similar"; accumulators shipped 2026-04-20 without needing this extraction, so the original motivation is void. Revisit only when parallel computation or a second major extension creates concrete need.
 
