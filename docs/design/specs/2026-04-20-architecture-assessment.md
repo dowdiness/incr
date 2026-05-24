@@ -16,16 +16,16 @@ The first draft of this assessment cited architectural pressures that, on verifi
 |---|---|---|
 | `6c7b5c1` | refactor+docs: complete pull-engine split; CycleError becomes pure-value | Moved `MemoData` to `cells/internal/pull/`; made `CycleError::format_path` runtime-free. Invalidated the "partial pull split" framing. |
 | `082f2a6` | refactor(incr): extract accumulator concerns from memo.mbt and runtime.mbt | Consolidated accumulator machinery in `accumulator.mbt` but **deliberately left** the three accumulator fields flat on `Runtime`. Invalidates any proposal to now extract a sub-struct without new justification. |
-| `a2b3354` | refactor+docs: dedup cross-runtime guard into shared helper | Target #1 of the 2026-04-19 audit. Forgiving-repair path in `Memo::get_result_inner` remains uniquely unmerged, documented as load-bearing. |
-| `ef1fae7` | refactor+docs: extract install_cell helper for free-list SoA kinds | Target #2 of the 2026-04-19 audit. Memo and HybridMemo intentionally left outside (closure cycle). |
+| `a2b3354` | refactor+docs: dedup cross-runtime guard into shared helper | Target #1 of the 2026-04-19 audit. Forgiving-repair path in `Derived::get_result_inner` remains uniquely unmerged, documented as load-bearing. |
+| `ef1fae7` | refactor+docs: extract install_cell helper for free-list SoA kinds | Target #2 of the 2026-04-19 audit. Derived and ReachableDerived intentionally left outside (closure cycle). |
 
 ## 1. Change pressures (verified)
 
 | # | Pressure | Evidence | Status |
 |---|---|---|---|
-| **P1** | Accumulator landed as cross-cutting surgery in the memo commit path + raw fields on `Runtime`. A second such feature will repeat the pattern. | `cells/memo.mbt` still calls three accumulator helpers by name (not via trait). `cells/runtime.mbt:155–165` has three accumulator fields flat on `Runtime`. `082f2a6` deliberately kept this shape. | Partial cleanup done; no declared extension point. |
+| **P1** | Accumulator landed as cross-cutting surgery in the memo commit path + raw fields on `Runtime`. A second such feature will repeat the pattern. | `cells/derived.mbt` still calls three accumulator helpers by name (not via trait). `cells/runtime.mbt:155–165` has three accumulator fields flat on `Runtime`. `082f2a6` deliberately kept this shape. | Partial cleanup done; no declared extension point. |
 | **P2** | `runtime.mbt` growth | 789 → 877 lines. Composed of `install_cell` (+24), accumulator fields + init (+~50), offset partially by `082f2a6` extraction. Not pathological. | Active, bounded. |
-| **P3** | Cross-runtime identity relies on a single `let current_computing_runtime_id : Ref[Int]` (`runtime.mbt:22`) + forgiving-repair in `Memo::get_result_inner`. | 2026-04-19 audit explicitly records that the "stale-from-abort vs legitimate-cross-runtime" distinction needs a global runtime registry. Currently masked by panic-test hygiene. | Unresolved; benign under single-threaded assumption. |
+| **P3** | Cross-runtime identity relies on a single `let current_computing_runtime_id : Ref[Int]` (`runtime.mbt:22`) + forgiving-repair in `Derived::get_result_inner`. | 2026-04-19 audit explicitly records that the "stale-from-abort vs legitimate-cross-runtime" distinction needs a global runtime registry. Currently masked by panic-test hygiene. | Unresolved; benign under single-threaded assumption. |
 | **~~P4~~** | `pipeline/` orphan package | `docs/todo.md:314,324` queues "move to `loom/src/pipeline/` then delete." Two test-file consumers inside `incr/`, zero external. | **Already decided, not a new proposal.** |
 | **P5** | **Process meta-issue: memory and docs trailed code by one refactor cycle.** | `project_architecture_analysis.md` (memory) claimed `MemoData` still lived in `cells/`; `docs/design/internals.md:504` said "one pull-engine SoA type remains in `cells/`." Both were authored before `6c7b5c1` landed. | Fixed in this session; preventive practice flagged below. |
 
@@ -35,14 +35,14 @@ The first draft of this assessment cited architectural pressures that, on verifi
 - Engine isolation enforced by `scripts/check-engine-isolation.sh`.
 - Pull-engine split is **complete**: `PullSignalData` and `MemoData` both in `cells/internal/pull/`.
 - `CycleError` is pure-value; labels snapshotted at raise time in `cells/cycle.mbt:13` (`CycleError::from_path`).
-- Accumulator state: three direct fields on `Runtime` (`accumulator_slots`, `next_accumulator_id`, `accumulator_contributions`) + helpers named-dispatched from `memo.mbt`.
+- Accumulator state: three direct fields on `Runtime` (`accumulator_slots`, `next_accumulator_id`, `accumulator_contributions`) + helpers named-dispatched from `derived.mbt`.
 - Runtime identity: two file-scope `Ref[Int]`s (`next_runtime_id`, `current_computing_runtime_id`); safe under MoonBit's single-threaded target.
 
 Shape is correct for today's problem set. Stage 6 engine extraction remains intentionally deferred; the accumulator feature shipped without needing it.
 
 ## 3. Architectural problems (narrowed)
 
-- **AP1 — No declared extension point for cross-cutting memo-commit concerns.** Accumulator's three hooks are called by name in `memo.mbt`. One implementor today; N+1 copy-edit cost when the next cross-cutting concern arrives.
+- **AP1 — No declared extension point for cross-cutting memo-commit concerns.** Accumulator's three hooks are called by name in `derived.mbt`. One implementor today; N+1 copy-edit cost when the next cross-cutting concern arrives.
 - **AP4 — Cross-runtime identification via single global `Ref[Int]`.** Fragile for future reentrancy or parallelism; currently load-bearing for panic-test hygiene.
 
 Other problems from prior drafts (AP2 "runtime god-object regrowth", AP3 "handle/SoA closure cycle", AP5 "pipeline orphan", AP6 "CycleError → Runtime coupling") are dropped as resolved, structural-limit-accepted, or already-queued.
@@ -59,20 +59,20 @@ priv trait MemoCommitPhase {
 }
 ```
 
-`memo.mbt` holds `Array[&MemoCommitPhase]`. Accumulator registers one implementor at runtime init. Three current hooks become method bodies.
+`derived.mbt` holds `Array[&MemoCommitPhase]`. Accumulator registers one implementor at runtime init. Three current hooks become method bodies.
 
 **Gate:** build only when a second concern is specified (persistent caching in roadmap Phase 5 is the leading candidate; delta observers secondary). For one implementor, the trait is pure overhead.
 
 ### T3 — `RuntimeRegistry` (gated on parallelism design)
 
-Replace the two file-scope `Ref[Int]`s with a registry that can answer "is runtime N still alive?" — giving `Memo::get_result_inner`'s forgiving-repair path a principled test instead of the current locally-scoped heuristic.
+Replace the two file-scope `Ref[Int]`s with a registry that can answer "is runtime N still alive?" — giving `Derived::get_result_inner`'s forgiving-repair path a principled test instead of the current locally-scoped heuristic.
 
 **Gate:** hold until Phase 5 parallelism or a reentrancy requirement is actually on the roadmap. Touching the heuristic today is a correctness risk without benefit.
 
 ### Dropped tracks (explicit non-goals)
 
 - **Stage 6 engine extraction.** Void since accumulators shipped without requiring it.
-- **Flat-`cells/` reorg, `memo.mbt` split, `runtime.mbt` topic split.** 2026-04-19 audit explicitly rejected.
+- **Flat-`cells/` reorg, `derived.mbt` split, `runtime.mbt` topic split.** 2026-04-19 audit explicitly rejected.
 - **`AccumulatorState` sub-struct.** `082f2a6` deliberately kept fields flat two weeks ago. Not re-litigated.
 - **Move `format_path` out of `types/`.** Shipped in `6c7b5c1`.
 - **Retire `pipeline/`.** Already backlog-ed in `docs/todo.md:314,324`.
@@ -110,7 +110,7 @@ Neither should be commissioned opportunistically.
 
 - **Accept speculative trait abstraction later** (T1b) over baking it in now. Rejected: build the trait with one implementor. Rationale: insufficient justification today; wait for a second driver to confirm hook shape.
 - **Accept continued reliance on single-threaded assumption** (T3 deferred) over preemptive redesign. Rationale: premature given current target platforms (WASM + single-threaded native); change risk exceeds benefit.
-- **Not revisiting:** Stage 6, `cells/` reorg, `memo.mbt`/`runtime.mbt` splits, `AccumulatorState` sub-struct. All have explicit prior decisions in memory or commits.
+- **Not revisiting:** Stage 6, `cells/` reorg, `derived.mbt`/`runtime.mbt` splits, `AccumulatorState` sub-struct. All have explicit prior decisions in memory or commits.
 
 ## 10. Scope
 

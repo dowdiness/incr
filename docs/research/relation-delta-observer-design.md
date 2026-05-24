@@ -57,7 +57,7 @@ Consequence: exposing a net delta per commit requires **snapshotting
 ## API sketch
 
 ```moonbit
-// Observer callback. Invoked at commit boundary with the net delta
+// Watch callback. Invoked at commit boundary with the net delta
 // since the last invocation (or since subscription, for the first
 // call if replay is enabled).
 pub trait DeltaObserver[T] {
@@ -203,7 +203,7 @@ Array[&DeltaDispatch]`. The runtime's commit-boundary code calls
    relation, observer-registration order.
 7. **No re-entry.** Callbacks that insert into the observed relation
    trigger `abort`.
-8. **No push-during-pull.** Observer callbacks are invoked outside
+8. **No push-during-pull.** Watch callbacks are invoked outside
    any tracking context; they cannot record dependencies.
 9. **Batch rollback invisibility.** `Runtime::batch` rolls back
    pending writes on raise. Observers fire after batch exit, so
@@ -216,7 +216,7 @@ Array[&DeltaDispatch]`. The runtime's commit-boundary code calls
   relation first gets an observer, or eagerly on every commit
   regardless? Proposal: lazy — only relations with at least one
   observer allocate.
-- **Observer dispatch under `gc()`.** If `gc()` disposes a relation
+- **Watch dispatch under `gc()`.** If `gc()` disposes a relation
   that has observers, do observers get a final `removed`-everything
   callback, or just silently disconnect? Proposal: silent
   disconnect matches existing dispose semantics; add a `disposed`
@@ -266,7 +266,7 @@ Requires changes in:
    `observers : Array[(Int, &DeltaObserver[T])]`, `shadow :
    Ref[@hashset.HashSet[T]?]`. Add `subscribe_delta`,
    `unsubscribe_delta`. Implement `DeltaDispatch`.
-2. **`cells/datalog_functional_relation.mbt`** — same, for
+2. **`cells/datalog_map_relation.mbt`** — same, for
    `FunctionalRelationData`.
 3. **`cells/runtime.mbt`** — add `delta_dispatch :
    Array[&DeltaDispatch]`. Call `snapshot_for_observers` before
@@ -278,8 +278,8 @@ Requires changes in:
 5. **`cells/scope.mbt`** — register subscription for auto-dispose
    via `dispose_hooks`.
 
-Non-changes: pull verification (`pull_verify`) untouched. `MemoMap`,
-`TrackedCell`, `HybridMemo` untouched. Batch / revision / durability
+Non-changes: pull verification (`pull_verify`) untouched. `DerivedMap`,
+`InputField`, `ReachableDerived` untouched. Batch / revision / durability
 unchanged. `Relation::insert`, `Relation::iter`, `Relation::contains`
 unchanged.
 

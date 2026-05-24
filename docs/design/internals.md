@@ -260,7 +260,7 @@ Each `MemoData` has an `in_progress : Bool` flag. It is set to `true` when a mem
 Cycle detection triggers in two places:
 
 1. **During verification** (`cells/verify.mbt`): if `pull_verify` encounters a `MemoData` with `in_progress == true`, it means we iteratively reached a memo that is currently being verified — a cycle. The path is built from the local `PullVerifyFrame` stack (traversal order).
-2. **During initial computation** (`cells/memo.mbt`): if `force_recompute` encounters a memo with `in_progress == true`, it means the Memo's compute function (directly or indirectly) tried to read its own value — also a cycle.
+2. **During initial computation** (`cells/derived.mbt`): if `force_recompute` encounters a memo with `in_progress == true`, it means the Memo's compute function (directly or indirectly) tried to read its own value — also a cycle.
 
 ### Error Handling
 
@@ -380,9 +380,9 @@ The library is split into four MoonBit sub-packages. The root package re-exports
 
 | File | Purpose |
 |------|---------|
-| `cells/signal.mbt` | `Signal[T]` — input cells with same-value optimization and durability |
+| `cells/input.mbt` | `Signal[T]` — input cells with same-value optimization and durability |
 | `cells/internal/pull/pull_signal.mbt` | `PullSignalData` — SoA entry for input cells; `CellOps` + `Committable` impls |
-| `cells/memo.mbt` | `Memo[T]` — derived cells with memoization, backdating, and dependency tracking |
+| `cells/derived.mbt` | `Memo[T]` — derived cells with memoization, backdating, and dependency tracking |
 | `cells/internal/pull/memo_data.mbt` | `MemoData` — unified SoA entry for pull and hybrid derived cells |
 | `cells/verify.mbt` | `Runtime::pull_verify` wrapper — body lives in `cells/internal/kernel/verify.mbt` |
 | `cells/internal/kernel/verify.mbt` | `pull_verify` + `synthetic_accumulator_changed` + `PullVerifyFrame` — SoA-native iterative verification algorithm. Takes `slot_snapshots : Array[&SlotSnapshot]` explicitly so kernel does not depend on Runtime's accumulator state. |
@@ -391,7 +391,7 @@ The library is split into four MoonBit sub-packages. The root package re-exports
 
 | File | Purpose |
 |------|---------|
-| `cells/push_reactive.mbt` | `Reactive[T]` — eagerly-recomputed derived cell handle |
+| `cells/eager_derived.mbt` | `Reactive[T]` — eagerly-recomputed derived cell handle |
 | `cells/internal/push/push_reactive_data.mbt` | `PushReactiveData` — SoA entry for reactive cells |
 | `cells/push_effect.mbt` | `Effect` — terminal side-effect cell handle |
 | `cells/internal/push/push_effect_data.mbt` | `PushEffectData` — SoA entry for effect cells |
@@ -402,7 +402,7 @@ The library is split into four MoonBit sub-packages. The root package re-exports
 
 | File | Purpose |
 |------|---------|
-| `cells/hybrid_memo.mbt` | `HybridMemo[T]` — push-notified, pull-verified memo; uses unified `MemoData` |
+| `cells/reachable_derived.mbt` | `HybridMemo[T]` — push-notified, pull-verified memo; uses unified `MemoData` |
 
 **Accumulators (reverse contributions to side-table slots):**
 
@@ -420,7 +420,7 @@ The accumulator's commit-path work runs through the `MemoCommitPhase` dispatch r
 |------|---------|
 | `cells/datalog_relation.mbt` | `Relation[T]` — set with delta tracking for semi-naive fixpoint (handle) |
 | `cells/internal/datalog/relation_data.mbt` | `RelationData` — SoA entry for relations |
-| `cells/datalog_functional_relation.mbt` | `FunctionalRelation[K, V]` — typed map relation with optional merge (handle) |
+| `cells/datalog_map_relation.mbt` | `FunctionalRelation[K, V]` — typed map relation with optional merge (handle) |
 | `cells/internal/datalog/functional_relation_data.mbt` | `FunctionalRelationData` — SoA entry for functional relations |
 | `cells/datalog_rule.mbt` | `Rule` — derives new facts from input relations (handle) |
 | `cells/internal/datalog/rule_data.mbt` | `RuleData` — SoA entry for rules |
@@ -458,9 +458,9 @@ The accumulator's commit-path work runs through the `MemoCommitPhase` dispatch r
 | File | Purpose |
 |------|---------|
 | `cells/scope.mbt` | `Scope` — hierarchical cell ownership with bulk disposal |
-| `cells/observer.mbt` | `Observer[T]` — keep-alive handle for untracked reads |
-| `cells/memo_map.mbt` | `MemoMap[K, V]` — keyed memoization with `sweep()` for post-GC cleanup |
-| `cells/tracked_cell.mbt` | `TrackedCell[T]` — field-level tracked struct wrapper |
+| `cells/watch.mbt` | `Observer[T]` — keep-alive handle for untracked reads |
+| `cells/derived_map.mbt` | `MemoMap[K, V]` — keyed memoization with `sweep()` for post-GC cleanup |
+| `cells/input_field.mbt` | `TrackedCell[T]` — field-level tracked struct wrapper |
 | `cells/introspection.mbt` | `Runtime::cell_info`, `Runtime::dependents` — graph introspection |
 
 ### `pipeline/` package (`dowdiness/incr/pipeline`)
@@ -475,8 +475,8 @@ Unit tests (`*_test.mbt`) and whitebox tests (`*_wbtest.mbt`) live in `cells/`. 
 
 | File | What it covers |
 |------|----------------|
-| `cells/memo_test.mbt` | Memo behavior, backdating, dependency tracking |
-| `cells/memo_map_test.mbt` | MemoMap keyed caching and lazy per-key recomputation |
+| `cells/derived_test.mbt` | Memo behavior, backdating, dependency tracking |
+| `cells/derived_map_test.mbt` | MemoMap keyed caching and lazy per-key recomputation |
 | `cells/backdating_test.mbt` | Backdating (value-unchanged skips downstream recomputation) |
 | `cells/callback_test.mbt` | `Runtime::on_change` global callback |
 | `cells/on_change_test.mbt` | `Signal::on_change` / `Memo::on_change` per-cell callbacks |
@@ -490,21 +490,21 @@ Unit tests (`*_test.mbt`) and whitebox tests (`*_wbtest.mbt`) live in `cells/`. 
 | `cells/durability_wbtest.mbt` | Durability shortcut internals (whitebox) |
 | `cells/cell_wbtest.mbt` | `CellId::hash` properties (whitebox) |
 | `cells/cell_ref_wbtest.mbt` | `CellRef` dispatch and SoA index properties (whitebox) |
-| `cells/signal_wbtest.mbt` | Signal internals (whitebox) |
+| `cells/input_wbtest.mbt` | Signal internals (whitebox) |
 | `cells/verify_wbtest.mbt` | `pull_verify` invariant violation abort (whitebox) |
 | `cells/pull_verify_wbtest.mbt` | `pull_verify` SoA dispatch and short-circuit behavior (whitebox) |
 | `cells/soa_wbtest.mbt` | SoA allocation and `cell_index` invariants (whitebox) |
-| `cells/memo_dep_diff_wbtest.mbt` | Dependency diff optimization internals (whitebox) |
+| `cells/derived_dep_diff_wbtest.mbt` | Dependency diff optimization internals (whitebox) |
 | `cells/runtime_wbtest.mbt` | Cross-runtime `get_pull_signal`/`get_pull_memo` abort (whitebox) |
 | `cells/subscriber_wbtest.mbt` | Subscriber tracking internals (whitebox) |
-| `cells/tracked_cell_wbtest.mbt` | `TrackedCell` field-level tracking internals (whitebox) |
-| `cells/memo_map_wbtest.mbt` | MemoMap internal key→memo mapping (whitebox) |
-| `cells/hybrid_wbtest.mbt` | `HybridMemo` revision-based verification, fast path, backdating, push-reachability accounting (whitebox) |
+| `cells/input_field_wbtest.mbt` | `TrackedCell` field-level tracking internals (whitebox) |
+| `cells/derived_map_wbtest.mbt` | MemoMap internal key→memo mapping (whitebox) |
+| `cells/reachable_derived_wbtest.mbt` | `HybridMemo` revision-based verification, fast path, backdating, push-reachability accounting (whitebox) |
 | `tests/integration_test.mbt` | End-to-end multi-signal/memo scenarios |
 | `tests/fanout_test.mbt` | Wide dependency graphs (diamond, multi-level) |
 | `tests/traits_test.mbt` | Pipeline trait (`CalcPipeline`) fixture tests |
 | `tests/tracked_struct_test.mbt` | `TrackedCell`, `Trackable`, and `gc_tracked` |
-| `tests/hybrid_test.mbt` | `HybridMemo` public API: get, update, backdating, diamond, batch, chained, pull chain |
+| `tests/reachable_derived_test.mbt` | `HybridMemo` public API: get, update, backdating, diamond, batch, chained, pull chain |
 
 ## Architecture Analysis (2026-04-16)
 

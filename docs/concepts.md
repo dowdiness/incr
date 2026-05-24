@@ -409,6 +409,10 @@ let diags = chain_scope.accumulator(label="typecheck_diags")
 
 Runtime-owned accumulators live until explicitly disposed, so drivers that rebuild on structural change accumulate stale per-memo buffers. Scope ownership ties cleanup to the chain that produced the data.
 
+The same lifecycle pattern applies to long-lived target readers: use
+`scope.add_watch(derived.watch())` when a `Watch` should be disposed with the
+scope that owns the surrounding graph.
+
 ### When to Use
 
 | Situation | Recommendation |

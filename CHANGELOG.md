@@ -11,6 +11,7 @@ All notable changes to `dowdiness/incr` are documented in this file.
 - Added `Watch[T]` for long-lived target-facade outside reads that preserve cycle errors as `Result` values.
 - Added `InputField[T]`, `Freshness`, `InputFieldOwner`, and `add_input_fields(scope, owner)` target surfaces for field-level inputs; `Freshness` is implemented for `Input`, `InputField`, `Derived`, and `ReachableDerived`.
 - Added target-facade constructors on `Scope` and `RuntimeContext` helper constructors for `Input`, `InputField`, `Derived`, `ReachableDerived`, `EagerDerived`, and `DerivedMap`.
+- Added `Scope::add_watch(watch)` for scope-owned `Watch` lifetimes.
 - Added `Derived::id` and `Derived::observe` forwarders on the public facade, lifting the underlying `HybridMemo` accessors so callers can inspect a derived cell's identity and acquire keep-alive `Observer`s without reaching through the wrapped handle.
 
 ### Changed

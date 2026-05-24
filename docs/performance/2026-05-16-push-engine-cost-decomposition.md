@@ -35,7 +35,7 @@ unexpected push-engine cost comes from:
 |---|---:|---:|---|
 | `signal: set new value` (no cells) | 5.25 ns | ~44 ns | Cold baseline; absolute number drifts with bench-harness noise on wasm-gc but the relative shape is stable. |
 | `100 disposed reactives on **separate** signal` (`bench_test.mbt:461`) | 45 ns | ~43 ns | Cell-index size alone is not the cost. |
-| `100 disposed reactives on **same** signal` (`bench_test.mbt:200`) | (claimed 27.75 µs — retracted) | ~45 ns | **Same cost as the separate-signal case.** Dispose lifecycle clears `sig.subscribers` and decrements `push.node_count` to 0, so `propagate_changes` skips `push_propagate_from`. Regression guard: `cells/push_reactive_wbtest.mbt` "dispose: 100 reactives on one signal leave subscribers empty and node_count zero". |
+| `100 disposed reactives on **same** signal` (`bench_test.mbt:200`) | (claimed 27.75 µs — retracted) | ~45 ns | **Same cost as the separate-signal case.** Dispose lifecycle clears `sig.subscribers` and decrements `push.node_count` to 0, so `propagate_changes` skips `push_propagate_from`. Regression guard: `cells/eager_derived_wbtest.mbt` "dispose: 100 reactives on one signal leave subscribers empty and node_count zero". |
 | `100 abandoned reactives` (handles dropped, never disposed) (`bench_test.mbt:216`) | (claimed 60 ns — retracted) | ~19 µs | **Matches `100 live reactives` fanout cost.** `rt.gc()` is never called, the SoA still holds them, `push.node_count` is 100. The wasm-gc compile-time-elimination hypothesis from 2026-05-16 was wrong — the closures are reachable from `rt.push.reactives[i].compute`. |
 | `100 live reactives` (held by array, no observer) (`bench_test.mbt:183`) | 1.73 µs (high σ — claimed wasm-gc elimination) | ~19–26 µs | Real fanout cost; the 2026-05-16 measurement was an outlier or different config. |
 | `500-reactive fanout` (held by array, observed via reactivity) | 138 µs / 276 ns/reactive | — | Trustworthy steady-state push fanout. |
@@ -63,7 +63,7 @@ Inferred breakdown of one push-BFS step + downstream work:
 | `pop_tracking` allocates `ActiveQuery` + 4 inner collections per recompute | **~80–150** | `cells/internal/kernel/state.mbt:96` `ActiveQuery::new` | **Buffer reuse** — pre-allocate on tracking-frame stack, clear between cells |
 | HashSet iter on `sig.subscribers` (outer BFS step) | ~50–100 | `cells/internal/kernel/push_propagate.mbt:145` | Link-list port (deprioritized — see companion doc) |
 | Priority-queue heap push + pop (log N) | ~30–50 | `push_propagate.mbt:124, 150, 178` | Scheduler rewrite (level-bucketed dirty list) |
-| Type-erased `compute : () -> Bool` indirect call | ~30–50 | `push_reactive.mbt:28` | Per-kind devirtualization (large refactor) |
+| Type-erased `compute : () -> Bool` indirect call | ~30–50 | `eager_derived.mbt:28` | Per-kind devirtualization (large refactor) |
 | `diff_and_update_subscribers` early-exit | ~30 | `subscriber_diff.mbt` | Folded into Link-list port if pursued |
 | match arms on `cell_index`, validate, `recompute_level` | ~30 | various | Not really. |
 
@@ -136,7 +136,7 @@ implementation cost.
 **No anomaly exists.** Reproduction on fed9428 measured the disposed-on-same-signal
 bench at ~45 ns/set (cold baseline), not 240 ns/cell. The 27.75 µs figure was the
 `100 abandoned reactives` bench — labels were swapped in the 2026-05-16 notebook.
-Regression guard pinned at `cells/push_reactive_wbtest.mbt` ("dispose: 100
+Regression guard pinned at `cells/eager_derived_wbtest.mbt` ("dispose: 100
 reactives on one signal leave subscribers empty and node_count zero"). Dispose
 lifecycle is correct; both `sig.subscribers` and `push.node_count` end at 0.
 

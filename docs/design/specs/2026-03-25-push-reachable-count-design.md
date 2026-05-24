@@ -8,7 +8,7 @@
 
 ## Problem
 
-When any push cell (Reactive or Effect) exists in a graph, `signal.set()` calls `push_propagate_from`, which runs a BFS through all subscriber links to find downstream push nodes. This BFS traverses HybridMemo and PullMemo subscribers even when no push node is reachable downstream of the changed signal.
+When any push cell (EagerDerived or Effect) exists in a graph, `signal.set()` calls `push_propagate_from`, which runs a BFS through all subscriber links to find downstream push nodes. This BFS traverses ReachableDerived and PullMemo subscribers even when no push node is reachable downstream of the changed signal.
 
 **Benchmark (release mode):**
 
@@ -30,7 +30,7 @@ The 82× overhead at 100 subscribers scales linearly to 1,700× at 1,000.
 
 ### What it does
 
-Adds `push_reachable_count : Int` to `CellMeta`. Every cell in the graph tracks the total subscriber-path weight to live push cells (Reactive/Effect) reachable downstream.
+Adds `push_reachable_count : Int` to `CellMeta`. Every cell in the graph tracks the total subscriber-path weight to live push cells (EagerDerived/Effect) reachable downstream.
 
 - The outer gate in `enqueue_push_subscribers` skips the BFS entirely if the source cell's count is zero.
 - Within the BFS, subscriber links that lead through a memo with count zero are pruned, avoiding dead-end traversals.
@@ -106,19 +106,19 @@ The count is a subscriber-path weight, not a count of distinct push cells. In a 
 Walk `sources` upstream through the dependency graph. For each unvisited source:
 - `PullSignal` → add to set; stop (leaf, no further deps)
 - `PullMemo(idx)` or `HybridMemo(idx)` → add to set; recurse into `pull.memos[idx].dependencies`
-- `PushReactive`, `Relation`, `FunctionalRelation`, `Rule` → **add to set; stop (do not recurse)**
+- `PushReactive`, `Relation`, `MapRelation`, `Rule` → **add to set; stop (do not recurse)**
 - `Disposed` → skip (do not add)
 - Use a visited set to prevent revisiting cells in DAGs (no memo cycles exist, but diamond fan-in is common)
 
-Returns a deduplicated set of cell IDs whose `push_reachable_count` must be adjusted. Crucially, **non-pull source cells (`PushReactive`, `Relation`, `FunctionalRelation`) are included in the set** so that `adjust_push_reachable([R1], +1)` increments `R1.push_reachable_count` directly. This is required for the outer gate to work when `enqueue_push_subscribers` is called with a reactive output or a relation as the source.
+Returns a deduplicated set of cell IDs whose `push_reachable_count` must be adjusted. Crucially, **non-pull source cells (`PushReactive`, `Relation`, `MapRelation`) are included in the set** so that `adjust_push_reachable([R1], +1)` increments `R1.push_reachable_count` directly. This is required for the outer gate to work when `enqueue_push_subscribers` is called with a reactive output or a relation as the source.
 
 Non-pull cells are leaf nodes in the count-propagation walk — their own sources are managed independently through the push propagation level system and do not need upstream count propagation here.
 
 **Uncomputed memos:** A memo that has never been computed has an empty `dependencies` array, so `collect_reachable_cells` returns `{memo}` (just the memo itself). The upstream signals are registered later, during the memo's first `memo_force_recompute`, which calls `add_subscriber(signal, memo)` for each discovered dep — and at that point the signal's count is updated via `adjust_push_reachable([signal], memo.push_reachable_count)`.
 
 Two cases:
-- **Reactive reads memo first (common case):** `add_subscriber(memo, reactive)` fires before the memo is computed (via `finish_tracking` during `Reactive::new`). `memo.push_reachable_count` becomes 1. When the reactive's first compute calls `memo.get()` → `memo_force_recompute`, `add_subscriber(signal, memo)` fires with contribution=1, correctly incrementing `signal.push_reachable_count`.
-- **User code calls `Memo::get()` first:** `memo_force_recompute` fires with `memo.push_reachable_count = 0`. `add_subscriber(signal, memo)` fires with contribution=0 — a no-op for `signal.push_reachable_count`. Correct: no reactive is yet downstream, so `signal.push_reachable_count` should be 0. When a reactive later subscribes to the memo, `add_subscriber(memo, reactive)` calls `adjust_push_reachable([memo], 1)`. At that point `memo.dependencies` is already populated (from the prior `Memo::get()`), so `collect_reachable_cells([memo])` includes `signal`, and `signal.push_reachable_count` is incremented correctly.
+- **EagerDerived reads memo first (common case):** `add_subscriber(memo, reactive)` fires before the memo is computed (via `finish_tracking` during `EagerDerived(...)`). `memo.push_reachable_count` becomes 1. When the reactive's first compute calls `memo.get()` → `memo_force_recompute`, `add_subscriber(signal, memo)` fires with contribution=1, correctly incrementing `signal.push_reachable_count`.
+- **User code calls `Derived::get()` first:** `memo_force_recompute` fires with `memo.push_reachable_count = 0`. `add_subscriber(signal, memo)` fires with contribution=0 — a no-op for `signal.push_reachable_count`. Correct: no reactive is yet downstream, so `signal.push_reachable_count` should be 0. When a reactive later subscribes to the memo, `add_subscriber(memo, reactive)` calls `adjust_push_reachable([memo], 1)`. At that point `memo.dependencies` is already populated (from the prior `Derived::get()`), so `collect_reachable_cells([memo])` includes `signal`, and `signal.push_reachable_count` is incremented correctly.
 
 ### `Runtime::adjust_push_reachable(sources: Array[CellId], delta: Int)`
 
@@ -128,7 +128,7 @@ Calls `collect_reachable_cells(sources)` and adds `delta` to `push_reachable_cou
 
 ## Maintenance — centralized in `add_subscriber`/`remove_subscriber`
 
-All maintenance scenarios (push cell creation, push cell dispose, push source-set changes on recompute, memo dep changes, and HybridMemo dispose) are handled by hooking into `add_subscriber` and `remove_subscriber`. No additional chokepoints are needed.
+All maintenance scenarios (push cell creation, push cell dispose, push source-set changes on recompute, memo dep changes, and ReachableDerived dispose) are handled by hooking into `add_subscriber` and `remove_subscriber`. No additional chokepoints are needed.
 
 ### `Runtime::push_contribution(sub_id) -> Int` (new private helper)
 
@@ -142,7 +142,7 @@ fn Runtime::push_contribution(self : Runtime, sub_id : CellId) -> Int {
 }
 ```
 
-Returns 0 for `Relation`, `FunctionalRelation`, `Rule`, and `Disposed`. Datalog Rules are not push cells — they drive fixpoint iteration, not the push reactive graph. A `Reactive` that directly reads from a `Relation` subscribes to it via `add_subscriber(relation, reactive)` with contribution=1 (R is `PushReactive`), correctly setting `relation.push_reachable_count = 1` so the outer gate stays open for relation-sourced BFS calls during fixpoint evaluation.
+Returns 0 for `Relation`, `MapRelation`, `Rule`, and `Disposed`. Datalog Rules are not push cells — they drive fixpoint iteration, not the push reactive graph. A `EagerDerived` that directly reads from a `Relation` subscribes to it via `add_subscriber(relation, reactive)` with contribution=1 (R is `PushReactive`), correctly setting `relation.push_reachable_count = 1` so the outer gate stays open for relation-sourced BFS calls during fixpoint evaluation.
 
 ### `Runtime::add_subscriber(dep_id, sub_id)` (extended)
 
@@ -177,8 +177,8 @@ Computing contribution before removal is critical: `push_contribution` reads `su
 | Push cell disposed, unsubscribes from sources | `dispose_reactive`/`dispose_effect` loop → `remove_subscriber(source, reactive/effect)` → contribution=1 |
 | Push cell recomputes, source set changes | `finish_tracking` → add/remove for changed sources → contribution=1 |
 | Pull/hybrid memo recomputes, dep set changes | `memo_force_recompute` → add/remove for changed deps → contribution=memo.push_reachable_count |
-| HybridMemo disposed | `dispose_hybrid_memo` loop → `remove_subscriber(dep, hybrid_memo)` → contribution=memo.push_reachable_count |
-| Memo first computed (previously empty deps) | `memo_force_recompute` → `add_subscriber(signal, memo)` → contribution=memo.push_reachable_count |
+| ReachableDerived disposed | `dispose_hybrid_memo` loop → `remove_subscriber(dep, hybrid_memo)` → contribution=memo.push_reachable_count |
+| Derived first computed (previously empty deps) | `memo_force_recompute` → `add_subscriber(signal, memo)` → contribution=memo.push_reachable_count |
 
 **The memo dep-change case is the key correctness improvement over Approach A.** When memo M switches from reading `sig1` to `sig2`:
 - `remove_subscriber(sig1, M)`: contribution = M.push_reachable_count (e.g. 1), `adjust_push_reachable([sig1], -1)` → sig1.count -= 1 = 0
@@ -212,7 +212,7 @@ Unlike Approach A's signal-only gate, this works for all source types — signal
 
 ### Inner BFS pruning
 
-Within the BFS loop, skip HybridMemo and PullMemo subscribers whose count is zero:
+Within the BFS loop, skip ReachableDerived and PullMemo subscribers whose count is zero:
 
 ```moonbit
 HybridMemo(i) =>
@@ -227,7 +227,7 @@ PullMemo(i) =>
 
 This prunes dead-end branches in graphs where push nodes are downstream of some but not all memo subscribers of a changed signal. The pruning is safe: if a memo's count is 0, no push cell is reachable through it, so skipping it cannot miss any notification.
 
-**Note:** `memo.mbt` requires no code changes. The new behavior in `add_subscriber`/`remove_subscriber` is injected into the existing calls in `memo_force_recompute` automatically — the call sites in `memo.mbt` remain unchanged.
+**Note:** `derived.mbt` requires no code changes. The new behavior in `add_subscriber`/`remove_subscriber` is injected into the existing calls in `memo_force_recompute` automatically — the call sites in `derived.mbt` remain unchanged.
 
 ---
 
@@ -240,7 +240,7 @@ When push cell R is reachable downstream of source S:
 - Neither the outer gate nor inner BFS pruning skip cells with count > 0.
 - Therefore, every live push cell's path is traced.
 
-### Memo dep change soundness (critical)
+### Derived dep change soundness (critical)
 
 The path `sig2 → M → R` becomes live only when M subscribes to sig2. That subscription happens inside `memo_force_recompute`, which is triggered from `pull_verify`, which is called during R's recompute. R's recompute is triggered by push propagation. Push propagation only runs for signals that have `push_reachable_count > 0`. But sig2 has count 0 *until* M subscribes to it — and M subscribes to it during `memo_force_recompute`, which calls `add_subscriber(sig2, M)` with contribution = M.push_reachable_count. After this call, sig2.count > 0 for any subsequent `sig2.set()`.
 
@@ -258,15 +258,15 @@ Counts are decremented symmetrically: every `add_subscriber` increment is matche
 
 ### Whitebox tests (`cells/push_reachable_wbtest.mbt`, new file)
 
-- Signal with no reactive downstream: `push_reachable_count == 0`
-- Signal with one direct reactive: signal.count == 1
-- Signal with one reactive through a hybrid memo: signal.count == 1, memo.count == 1
-- Signal with one reactive through a two-deep memo chain (`sig → memoA → memoB → reactive`): sig.count == 1, memoA.count == 1, memoB.count == 1
+- Input with no reactive downstream: `push_reachable_count == 0`
+- Input with one direct reactive: signal.count == 1
+- Input with one reactive through a hybrid memo: signal.count == 1, memo.count == 1
+- Input with one reactive through a two-deep memo chain (`sig → memoA → memoB → reactive`): sig.count == 1, memoA.count == 1, memoB.count == 1
 - **Diamond topology** (`sig → memoA → reactive`, `sig → memoB → reactive`): sig.count == 2, memoA.count == 1, memoB.count == 1; after dispose, sig.count == 0
-- Reactive dispose: all counts return to 0
-- Reactive source change (reads `sig1` then changes to `sig2`): `sig1.count == 0`, `sig2.count == 1`
-- **Memo dep change** (reactive reads `memoA` which lazily recomputes to read `sig2` instead of `sig1`): after memoA recomputes, `sig1.count == 0`, `sig2.count == 1`
-- **Reactive-to-reactive chain** (`sig → reactive1 → reactive2`): sig.count == 1, reactive1.count == 1; after reactive2 disposed, reactive1.count == 0, sig.count == 0
+- EagerDerived dispose: all counts return to 0
+- EagerDerived source change (reads `sig1` then changes to `sig2`): `sig1.count == 0`, `sig2.count == 1`
+- **Derived dep change** (reactive reads `memoA` which lazily recomputes to read `sig2` instead of `sig1`): after memoA recomputes, `sig1.count == 0`, `sig2.count == 1`
+- **EagerDerived-to-reactive chain** (`sig → reactive1 → reactive2`): sig.count == 1, reactive1.count == 1; after reactive2 disposed, reactive1.count == 0, sig.count == 0
 - **Relation-to-reactive** (reactive subscribes to a Relation): relation.count == 1; after reactive disposed, relation.count == 0
 - Gate behavioral test: `signal.set()` on a signal with count == 0 does not enqueue any push entries (verify: create a reactive on a separate signal only; mutate the first signal; confirm reactive does not recompute)
 - **Inner BFS pruning test (count-correctness proxy):** create `sig → memoA → reactive1` and `sig → memoB → reactive2`. Verify sig.count == 2, memoA.count == 1, memoB.count == 1. Dispose reactive2. Verify sig.count == 1, memoB.count == 0. Call `sig.set(new_value)`; verify reactive1 still fires with the correct value (the live branch still propagates). This test verifies that the count correctly reaches 0 on the pruned branch and that the live branch is unaffected. Direct BFS traversal is an internal implementation detail and is validated by the benchmark.
@@ -287,15 +287,15 @@ All 323 existing tests must pass unchanged.
 |---|---|
 | `cells/cell_ops.mbt` | Add `push_reachable_count : Int` to `CellMeta`; add `push_reachable_count(Self) -> Int` to `CellOps` with default impl |
 | `cells/runtime.mbt` | Add `collect_reachable_cells`, `adjust_push_reachable`, `push_contribution` helpers; extend `add_subscriber`/`remove_subscriber` to propagate count changes |
-| `cells/push_propagate.mbt` | Add outer O(1) gate in `enqueue_push_subscribers`; add inner BFS pruning for zero-count HybridMemo/PullMemo subscribers |
+| `cells/push_propagate.mbt` | Add outer O(1) gate in `enqueue_push_subscribers`; add inner BFS pruning for zero-count ReachableDerived/PullMemo subscribers |
 | `cells/push_reachable_wbtest.mbt` (new) | Whitebox tests for count maintenance and gate behavior |
 | `cells/push_efficiency_bench_test.mbt` | Verify benchmark improvement |
 
 **Files requiring constructor literal updates** (MoonBit requires every struct field to be set at construction, so `push_reachable_count: 0` must be added to each `CellMeta` literal):
-- `cells/memo.mbt` — add `push_reachable_count: 0` to the `CellMeta` literal in `Memo::new` / `HybridMemo::new`; `memo_force_recompute` already calls `add_subscriber`/`remove_subscriber` so count maintenance is injected automatically
+- `cells/derived.mbt` — add `push_reachable_count: 0` to the `CellMeta` literal in `Derived(...)` / `ReachableDerived(...)`; `memo_force_recompute` already calls `add_subscriber`/`remove_subscriber` so count maintenance is injected automatically
 - `cells/push_effect.mbt` — add `push_reachable_count: 0` to `PushEffectData.meta` literal; `CellOps` default covers `push_reachable_count` reads
-- `cells/push_reactive.mbt` — same as above for `PushReactiveData.meta`
-- `cells/datalog_relation.mbt`, `cells/datalog_functional_relation.mbt` — add `push_reachable_count: 0` to `RelationData.meta` and `FunctionalRelationData.meta` literals
+- `cells/eager_derived.mbt` — same as above for `PushReactiveData.meta`
+- `cells/datalog_relation.mbt`, `cells/datalog_map_relation.mbt` — add `push_reachable_count: 0` to `RelationData.meta` and `FunctionalRelationData.meta` literals
 - `cells/runtime.mbt` — add `push_reachable_count: 0` to the `PullSignalData.meta` literal in `new_signal_id`
 - `cells/cell_ref_wbtest.mbt` — update the test `PullSignalData` literal too
 

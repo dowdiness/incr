@@ -10,7 +10,7 @@
 > `cells/memo.mbt:423-449` and `cells/accumulator.mbt`) — were collapsed into the
 > shipped `MemoCommitPhase` trait dispatch (`dispatch_before_recompute_hooks` /
 > `dispatch_after_abort_hooks` / `dispatch_after_success_hooks` in
-> `cells/memo.mbt`) and the `AccumulatorCommitHook` impl in
+> `cells/derived.mbt`) and the `AccumulatorCommitHook` impl in
 > `cells/accumulator_commit_hook.mbt`. Do not edit the original references —
 > they are the design rationale, not current-source citations.
 **Anchors:** [Async-at-the-edges](2026-05-17-async-at-the-edges.md), [T3 deferred](2026-05-17-t3-runtime-registry-gated.md), [Accumulator API](2026-04-20-accumulator-api.md), [2026-04-20 architecture assessment](../design/specs/2026-04-20-architecture-assessment.md) (AP1, §4 T1b)
@@ -18,12 +18,12 @@
 **Amendments (2026-05-17, post-Codex):**
 - §"Trait shape": trait lives in `cells/`, not `cells/internal/kernel/`. The MoonBit engine-isolation rule forbids back-edges from `cells/internal/kernel/` into `cells/`, and a trait that takes `rt : Runtime` cannot live in kernel. Mirrors the `CellLifecycle` precedent.
 - §"Dispatch": `commit_hooks` field on `Runtime`, not `RuntimeCore`. Same reason.
-- §"Hook timing": `after_success` fires **after the cell-level epilogue** (after `changed_at` / `verified_at` / `has_been_computed` / `in_progress = false`). Backdating is detectable via `cell.meta.changed_at < cell.verified_at`. Accumulator's commit work is order-independent w.r.t. the epilogue (verified by reading `cells/memo.mbt:451–477` and `cells/accumulator.mbt::memo_commit_accumulator_phase`).
+- §"Hook timing": `after_success` fires **after the cell-level epilogue** (after `changed_at` / `verified_at` / `has_been_computed` / `in_progress = false`). Backdating is detectable via `cell.meta.changed_at < cell.verified_at`. Accumulator's commit work is order-independent w.r.t. the epilogue (verified by reading `cells/derived.mbt:451–477` and `cells/accumulator.mbt::memo_commit_accumulator_phase`).
 - §"Dispatch order": forward order on **both** success and abort. Explicit, contracted.
 - §"Accumulator refactor": dropped the `commit_hooks[0]` downcast pattern. Use a typed named field `priv accumulator_commit_hook : AccumulatorCommitHook` plus register the *same object* in `commit_hooks`. Drops the brittle invariant.
 
 **Amendments (2026-05-19, post-Codex commissioning review for the viz-tap follow-up):**
-- §"Trait shape" and §"Dispatch": **extend `after_abort` signature with an `Error` parameter.** New shape: `after_abort(Self, Runtime, CellId, Error) -> Unit`. The catch arm at `cells/memo.mbt:429-440` already has `e : Error` in scope; the dispatch loop passes it through. Driver: the [Memo Event Observation ADR](2026-05-17-memo-event-observation.md)'s `EventBroadcastPhaseHook` needs the typed `Error` value (not a runtime-state stash) to produce `MemoAbortedEvent { error : Error, ... }` without losing typed structure. Cost: one-line addition to `AccumulatorCommitHook::after_abort` (`_e : Error` ignored param). Asymmetry with the two non-abort methods is structural truth, not a design smell — only abort carries abort-specific data. This amendment lands **in the viz-tap PR**, not as a separate retroactive PR; T1b is otherwise stable.
+- §"Trait shape" and §"Dispatch": **extend `after_abort` signature with an `Error` parameter.** New shape: `after_abort(Self, Runtime, CellId, Error) -> Unit`. The catch arm at `cells/derived.mbt:429-440` already has `e : Error` in scope; the dispatch loop passes it through. Driver: the [Memo Event Observation ADR](2026-05-17-memo-event-observation.md)'s `EventBroadcastPhaseHook` needs the typed `Error` value (not a runtime-state stash) to produce `MemoAbortedEvent { error : Error, ... }` without losing typed structure. Cost: one-line addition to `AccumulatorCommitHook::after_abort` (`_e : Error` ignored param). Asymmetry with the two non-abort methods is structural truth, not a design smell — only abort carries abort-specific data. This amendment lands **in the viz-tap PR**, not as a separate retroactive PR; T1b is otherwise stable.
 - §"Risks" table: uncatchable `abort()` paths (cycle detection, disposed-cell guards, cross-runtime guards) do **not** trigger `after_abort`. The hook only observes catchable `raise` from the compute closure. This was implicit in T1b but explicit documentation belongs here so future hook authors don't assume universal abort coverage.
 
 ## Context
@@ -153,7 +153,7 @@ Three concrete reasons:
 
 1. **Typed value not yet written.** The hook fires inside `memo_force_recompute`, but the typed wrapper at `Memo::force_recompute` (and `HybridMemo::force_recompute`) writes `self.value = Some(new_value)` *after* this returns. A user callback that synchronously reads the memo would see the stale (or `None`) typed cache.
 2. **Nested-recompute dep pollution.** After `pop_tracking_full` for the inner recompute, an outer frame may still be live. `record_dep` records into the top frame unconditionally (`cells/internal/kernel/tracking.mbt:47`). A user callback that reads any memo from inside the hook would land its reads on the outer frame, corrupting the outer's dependency set.
-3. **`recompute_inner` decisions depend on epilogue state.** `recompute_inner` computes `changed = cell.meta.changed_at != old_changed_at` *after* `force_recompute` returns (`cells/memo.mbt:352-358`) and decides whether to fire `on_change`. A hook mutating `changed_at` would flip that decision.
+3. **`recompute_inner` decisions depend on epilogue state.** `recompute_inner` computes `changed = cell.meta.changed_at != old_changed_at` *after* `force_recompute` returns (`cells/derived.mbt:352-358`) and decides whether to fire `on_change`. A hook mutating `changed_at` would flip that decision.
 
 Implementors that need to surface events to user code must use **buffer-and-flush**: append to an internal queue inside the hook, and arrange for the queue to drain at a safe point (when `tracking_stack.is_empty()` and after the typed value is written). The visualization event tap follow-up ADR specifies the drain protocol; this contract pins the constraint at the trait level.
 

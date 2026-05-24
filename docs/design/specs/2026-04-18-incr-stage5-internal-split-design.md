@@ -15,7 +15,7 @@
 3. `PushEntry` stores `CellRef` → moving to `internal/push/` while `CellRef` stays in `cells/` creates a back-edge. (Round 1)
 4. `pub` struct fields are readonly across packages; `cells/` mutates and constructs engine SoA types → the move requires `pub(all)`, not `pub`. (Round 2)
 5. MoonBit only permits *private* extension methods on foreign types. `CycleError::format_path(rt : Runtime)` cannot live in `cells/` if `CycleError` is moved to `internal/shared/`. (Round 2)
-6. Engine source files contain public handle types and constructors (`Reactive`, `Effect`, `Relation`, `FunctionalRelation`, `Rule`) — they cannot be deleted; they must be split into "SoA moves, handle stays." (Round 2)
+6. Engine source files contain public handle types and constructors (`Reactive`, `Effect`, `Relation`, `MapRelation`, `Rule`) — they cannot be deleted; they must be split into "SoA moves, handle stays." (Round 2)
 
 This spec is **Option A: narrow scope** — the partition that survives all six constraints. It achieves structural isolation for push and datalog engines, and a *partial* split for pull (signals only), while leaving memos, `CycleError`, and all handles in `cells/`.
 
@@ -28,7 +28,7 @@ Partition `cells/` into a thinner coordinator plus three engine sub-packages (sh
 **Hard constraints:**
 - Zero public API change (`pkg.generated.mbti` for `incr/` and `incr/tests/` byte-identical before/after)
 - Zero algorithm change (`verify.mbt`, `push_propagate.mbt`, `batch.mbt`, `datalog_fixpoint.mbt` stay in `cells/` unchanged)
-- Zero handle relocation (`Signal[T]`, `Memo[T]`, `HybridMemo[T]`, `TrackedCell[T]`, `Reactive[T]`, `Effect`, `Relation[T]`, `FunctionalRelation[T, U]`, `Rule` all stay in `cells/`)
+- Zero handle relocation (`Input[T]`, `Derived[T]`, `ReachableDerived[T]`, `InputField[T]`, `EagerDerived[T]`, `Effect`, `Relation[T]`, `MapRelation[T, U]`, `Rule` all stay in `cells/`)
 - All 506 existing tests pass after every commit
 
 ---
@@ -70,8 +70,8 @@ cells/                           (coordinator: Runtime, CycleError, MemoData,
 | `cells/internal/shared/`     | **Traits** (`pub(open)`): `CellOps`, `Committable`, `HasCellMeta`. **Types** (`pub(all)`): `CellMeta`, `CellRef`.                                                                                                                                                                                                         | Imports `types/` (which already owns `GcRole`) and `moonbitlang/core/hashset` (`CellMeta.subscribers : HashSet[CellId]`; `CellOps::subscribers` returns the same). **No `CycleError`** — it stays in `cells/` (see [Why `CycleError` stays](#why-cycleerror-stays)). |
 | `cells/internal/pull/`       | **Type** (`pub(all)`): `PullSignalData`. **`pub impl`**: `CellOps for PullSignalData`, `HasCellMeta for PullSignalData`, `Committable for PullSignalData`.                                                                                                                                                                | **No `MemoData`** — it stays in `cells/` (see [Why `MemoData` stays](#why-memodata-stays)). No `PullVerifyFrame` — algorithm-local to `cells/verify.mbt`. |
 | `cells/internal/push/`       | **Types** (`pub(all)`): `PushReactiveData`, `PushEffectData`. **`pub impl`**: `CellOps for PushReactiveData`, `HasCellMeta for PushReactiveData`, `CellOps for PushEffectData`, `HasCellMeta for PushEffectData`.                                                                                                         | No `PushEntry` — algorithm-local, stores `CellRef`, stays in `cells/push_propagate.mbt`. |
-| `cells/internal/datalog/`    | **Types** (`pub(all)`): `RelationData`, `FunctionalRelationData`, `RuleData`. **`pub impl`**: `CellOps` + `HasCellMeta` for each.                                                                                                                                                                                         | Handle types (`Relation`, `FunctionalRelation`, `Rule`) stay in `cells/` — see Commit D. |
-| **Stays in `cells/`**        | `Runtime`, `RuntimeCore`, `RevisionState`, `TrackingState`, `BatchState`, `PullState`, `PushState`, `DatalogState`, `PropagationPhase`, `ActiveQuery`. **`CellLifecycle` trait** + engine impls that need co-location (see Commit B/C/D notes below). **`CycleError`** (data + all methods including `format_path`). **`MemoData`** (SoA for memo cells — including its own `CellLifecycle` impl, which stays alongside the struct). **`PushEntry`** (push propagation priority-queue item). **`PullVerifyFrame`** (iterative verify frame). All handles (`Signal`, `Memo`, `HybridMemo`, `TrackedCell`, `Relation`, `FunctionalRelation`, `Reactive`, `Effect`, `Scope`, `Observer`, `MemoMap`) + their constructors. Public rule API (`Runtime::new_rule`, `Runtime::assert_rule_relation_id` — there is no `Rule` handle type; the user-facing identifier is `RuleId` from `types/`). All algorithms (`verify.mbt`, `push_propagate.mbt`, `batch.mbt`, `datalog_fixpoint.mbt`, `tracking.mbt`, `runtime.mbt`, `scope.mbt`, `memo_map.mbt`, `introspection.mbt`). All `*_test.mbt` and `*_wbtest.mbt`. | |
+| `cells/internal/datalog/`    | **Types** (`pub(all)`): `RelationData`, `FunctionalRelationData`, `RuleData`. **`pub impl`**: `CellOps` + `HasCellMeta` for each.                                                                                                                                                                                         | Handle types (`Relation`, `MapRelation`, `Rule`) stay in `cells/` — see Commit D. |
+| **Stays in `cells/`**        | `Runtime`, `RuntimeCore`, `RevisionState`, `TrackingState`, `BatchState`, `PullState`, `PushState`, `DatalogState`, `PropagationPhase`, `ActiveQuery`. **`CellLifecycle` trait** + engine impls that need co-location (see Commit B/C/D notes below). **`CycleError`** (data + all methods including `format_path`). **`MemoData`** (SoA for memo cells — including its own `CellLifecycle` impl, which stays alongside the struct). **`PushEntry`** (push propagation priority-queue item). **`PullVerifyFrame`** (iterative verify frame). All handles (`Input`, `Derived`, `ReachableDerived`, `InputField`, `Relation`, `MapRelation`, `EagerDerived`, `Effect`, `Scope`, `Watch`, `DerivedMap`) + their constructors. Public rule API (`Runtime::new_rule`, `Runtime::assert_rule_relation_id` — there is no `Rule` handle type; the user-facing identifier is `RuleId` from `types/`). All algorithms (`verify.mbt`, `push_propagate.mbt`, `batch.mbt`, `datalog_fixpoint.mbt`, `tracking.mbt`, `runtime.mbt`, `scope.mbt`, `derived_map.mbt`, `introspection.mbt`). All `*_test.mbt` and `*_wbtest.mbt`. | |
 
 ### Why `CellLifecycle` stays
 
@@ -113,15 +113,15 @@ A follow-up ticket can revisit this once `CycleError` can be redesigned (e.g., m
 
 ### Why engine source files split, not delete
 
-Files like `cells/push_reactive.mbt` contain *both* the SoA struct (`PushReactiveData`) and the public handle type (`Reactive[T]`) with its constructor. Handles must stay in `cells/` as the unified user-facing surface. So each engine source file splits:
+Files like `cells/eager_derived.mbt` contain *both* the SoA struct (`PushReactiveData`) and the compatibility public handle type (`Reactive[T]`) with its constructor; the target `EagerDerived[T]` facade lives in `cells/target_facade.mbt`. Handles must stay in `cells/` as the unified user-facing surface. So each engine source file splits:
 
 | Original file                         | New location of SoA         | New location of handle                          |
 |---------------------------------------|-----------------------------|-------------------------------------------------|
-| `cells/pull_signal.mbt`               | `cells/internal/pull/pull_signal.mbt`   | (Signal handle is in `cells/signal.mbt` already) |
-| `cells/push_reactive.mbt`             | `cells/internal/push/push_reactive_data.mbt` | `cells/push_reactive.mbt` (trimmed to `Reactive[T]` + constructor) |
+| `cells/pull_signal.mbt`               | `cells/internal/pull/pull_signal.mbt`   | (Input handle is in `cells/input.mbt` already) |
+| `cells/eager_derived.mbt`             | `cells/internal/push/push_reactive_data.mbt` | `cells/eager_derived.mbt` (trimmed to `Reactive[T]` + constructor; target `EagerDerived[T]` remains in `cells/target_facade.mbt`) |
 | `cells/push_effect.mbt`               | `cells/internal/push/push_effect_data.mbt`   | `cells/push_effect.mbt` (trimmed to `Effect` + constructor) |
 | `cells/datalog_relation.mbt`          | `cells/internal/datalog/relation_data.mbt`   | `cells/datalog_relation.mbt` (trimmed to `Relation[T]` + constructor) |
-| `cells/datalog_functional_relation.mbt` | `cells/internal/datalog/functional_relation_data.mbt` | `cells/datalog_functional_relation.mbt` (trimmed to `FunctionalRelation[T, U]` + constructor) |
+| `cells/datalog_map_relation.mbt` | `cells/internal/datalog/functional_relation_data.mbt` | `cells/datalog_map_relation.mbt` (trimmed to `MapRelation[T, U]` + constructor) |
 | `cells/datalog_rule.mbt`              | `cells/internal/datalog/rule_data.mbt`       | `cells/datalog_rule.mbt` (trimmed to the public `Runtime::new_rule` function and the `Runtime::assert_rule_relation_id` helper — there is no `Rule` handle struct in this codebase; `RuleId` is the only user-facing identifier and already lives in `types/`). |
 
 ### Visibility changes summary
@@ -148,11 +148,11 @@ All visibility expansions are bounded by `internal/`: nothing leaks to external 
 
 ### Behavioral invariants (preserved by existing 506 tests — the safety net)
 
-1. **Push propagation is level-sorted.** Higher-level cells never compute before their lower-level inputs in a single propagation wave. Covered by `cells/push_reactive_wbtest.mbt`, `cells/push_reachable_wbtest.mbt`.
+1. **Push propagation is level-sorted.** Higher-level cells never compute before their lower-level inputs in a single propagation wave. Covered by `cells/eager_derived_wbtest.mbt`, `cells/push_reachable_wbtest.mbt`.
 2. **Callback snapshot before propagation.** In `commit_batch` and `signal.set_unconditional`, per-cell `on_change` callbacks are snapshotted *before* `propagate_changes` runs. Callbacks registered or cleared during propagation do not affect the current wave. Covered by `cells/callback_test.mbt`, `cells/batch_wbtest.mbt`.
 3. **Phase mutual exclusion.** `PropagationPhase` transitions never overlap; re-entry panics. Covered by `cells/cycle_test.mbt`.
 4. **Pull-verify cycle detection returns `CycleError`.** Self-referential or mutually recursive memos return `Err(CycleDetected(...))`, never abort. Covered by `cells/cycle_path_test.mbt`, `cells/cycle_test.mbt`.
-5. **Dispose/GC reference-count semantics.** `add_gc_root`/`remove_gc_root` maintain counts; `on_unobserve` fires only on `1→0` transitions. Covered by `cells/gc_test.mbt`, `cells/dispose_test.mbt`, `cells/observer_test.mbt`.
+5. **Dispose/GC reference-count semantics.** `add_gc_root`/`remove_gc_root` maintain counts; `on_unobserve` fires only on `1→0` transitions. Covered by `cells/gc_test.mbt`, `cells/dispose_test.mbt`, `cells/watch_test.mbt`.
 6. **Batch rollback preserves revision integrity.** A raised exception inside `Runtime::batch` rolls back pending writes; revision counter does not regress. Covered by `cells/batch_wbtest.mbt`, `tests/integration_test.mbt`.
 
 ### Structural invariants (new — verified by added boundary checks)
@@ -325,7 +325,7 @@ their method signatures or payloads reference Runtime.
 **Files modified:**
 - `cells/pull_signal.mbt` — delete (content moved).
 - `cells/pull_memo.mbt` — unchanged (struct, trait impls including `CellLifecycle`, all stay as they are today).
-- `cells/runtime.mbt`, `cells/verify.mbt`, `cells/batch.mbt`, `cells/signal.mbt`, `cells/memo.mbt`, `cells/hybrid_memo.mbt`, `cells/introspection.mbt` — add `import "dowdiness/incr/cells/internal/pull" @pull` or `using @pull { type PullSignalData }` as needed.
+- `cells/runtime.mbt`, `cells/verify.mbt`, `cells/batch.mbt`, `cells/input.mbt`, `cells/derived.mbt`, `cells/reachable_derived.mbt`, `cells/introspection.mbt` — add `import "dowdiness/incr/cells/internal/pull" @pull` or `using @pull { type PullSignalData }` as needed.
 - `cells/moon.pkg` — add the `@pull` import.
 - `cells/*_wbtest.mbt` files that touch `PullSignalData` — update to reach through `@pull`.
 
@@ -358,7 +358,7 @@ CellLifecycle impl moves to cells/pull_lifecycle.mbt.
 - `cells/push_lifecycle.mbt` — `impl CellLifecycle for PushReactiveData`, `impl CellLifecycle for PushEffectData`.
 
 **Files modified (file split, not delete):**
-- `cells/push_reactive.mbt` — remove `PushReactiveData` struct, its `CellOps`/`HasCellMeta` impls, and its `clear_slot` method (currently at approx. lines 1-114); keep `Reactive[T]` handle, `Reactive::new`, and user-facing methods (approx. lines 116-257). Add `using @push { type PushReactiveData }`.
+- `cells/eager_derived.mbt` — remove `PushReactiveData` struct, its `CellOps`/`HasCellMeta` impls, and its `clear_slot` method (currently at approx. lines 1-114); keep `Reactive[T]` handle, `Reactive::new(...)`, and user-facing methods (approx. lines 116-257). Add `using @push { type PushReactiveData }`. The target `EagerDerived[T]` facade remains in `cells/target_facade.mbt`.
 - `cells/push_effect.mbt` — remove `PushEffectData` struct, its `CellOps`/`HasCellMeta` impls, and its `clear_slot` method (approx. lines 1-89); keep `Effect` handle + constructor (approx. lines 91-164). Add `using @push { type PushEffectData }`.
 - `cells/push_propagate.mbt` — keep `PushEntry`; update imports.
 - `cells/runtime.mbt`, `cells/introspection.mbt`, `cells/scope.mbt` — update imports.
@@ -391,7 +391,7 @@ CellLifecycle impls move to cells/push_lifecycle.mbt.
 
 **Files modified (file split):**
 - `cells/datalog_relation.mbt` — remove `RelationData` struct + its `CellOps`/`HasCellMeta` impls (approx. lines 1-24); keep `Relation[T]` handle + `Relation::new` + user-facing methods (approx. lines 26-187). Add `using @datalog { type RelationData }`.
-- `cells/datalog_functional_relation.mbt` — remove `FunctionalRelationData` struct + impls (approx. lines 1-28); keep `FunctionalRelation[T, U]` handle + constructor (approx. lines 30-250). Add `using @datalog { type FunctionalRelationData }`.
+- `cells/datalog_map_relation.mbt` — remove `FunctionalRelationData` struct + impls (approx. lines 1-28); keep `MapRelation[T, U]` handle + constructor (approx. lines 30-250). Add `using @datalog { type FunctionalRelationData }`.
 - `cells/datalog_rule.mbt` — remove `RuleData` struct + its `CellOps`/`HasCellMeta` impls (approx. lines 1-28); keep the public `Runtime::new_rule` method and `Runtime::assert_rule_relation_id` helper (approx. lines 31-98). There is no `Rule` handle struct. Add `using @datalog { type RuleData }`.
 - `cells/datalog_fixpoint.mbt` — update imports.
 - `cells/runtime.mbt`, `cells/introspection.mbt` — update imports.
@@ -406,7 +406,7 @@ refactor: move datalog engine SoA to cells/internal/datalog
 
 RelationData, FunctionalRelationData, RuleData move to
 cells/internal/datalog with pub(all) visibility and pub impl for
-CellOps/HasCellMeta. Handle types (Relation[T], FunctionalRelation
+CellOps/HasCellMeta. Handle types (Relation[T], MapRelation
 [T, U]) and their constructors remain in cells/. RuleData has no
 handle type — rules are constructed via Runtime::new_rule, which
 stays in cells/ alongside its helpers. CellLifecycle impls in
@@ -464,19 +464,19 @@ requiring CycleError redesign.
 **Mitigation:** MoonBit's rule is "at least one of (trait, type) must be local." The trait is local to `cells/`; the impl is in the trait's home package. Caught immediately by `moon check` if wrong.
 
 ### R2: `pub(all)` visibility audit miss (medium)
-**Risk:** An SoA field accessed or mutated by `cells/runtime.mbt`, `cells/verify.mbt`, `cells/introspection.mbt`, `cells/batch.mbt`, a lifecycle impl, or a wbtest may fail to compile if the containing struct is declared `pub` (readonly) instead of `pub(all)`. Codex round 2 enumerated the specific call sites: `runtime.mbt:290`, `memo.mbt:53`, `hybrid_memo.mbt:38`, `push_reactive.mbt:159`, `datalog_relation.mbt:56`, `batch_wbtest.mbt:352`.
+**Risk:** An SoA field accessed or mutated by `cells/runtime.mbt`, `cells/verify.mbt`, `cells/introspection.mbt`, `cells/batch.mbt`, a lifecycle impl, or a wbtest may fail to compile if the containing struct is declared `pub` (readonly) instead of `pub(all)`. Codex round 2 enumerated the specific call sites: `runtime.mbt:290`, `derived.mbt:53`, `reachable_derived.mbt:38`, `eager_derived.mbt:159`, `datalog_relation.mbt:56`, `batch_wbtest.mbt:352`.
 **Mitigation:** Declare every moved struct `pub(all)` from the start. Per-commit `moon check` catches any miss. The exposure is bounded by `internal/` so no public API impact.
 
 ### R3: Missing `pub impl` on trait implementations (medium)
-**Risk:** If `impl CellOps for PullSignalData` in `internal/pull/` is not declared `pub impl`, `cells/` cannot dispatch through `&CellOps` across the package boundary. Affected call sites include `runtime.mbt:63, 308`, `memo.mbt:74`, `signal.mbt:260`.
+**Risk:** If `impl CellOps for PullSignalData` in `internal/pull/` is not declared `pub impl`, `cells/` cannot dispatch through `&CellOps` across the package boundary. Affected call sites include `runtime.mbt:63, 308`, `derived.mbt:74`, `input.mbt:260`.
 **Mitigation:** Every trait impl in a moved engine package must start with `pub impl`. Per-commit `moon check` catches omissions. Documented explicitly in each commit's file list.
 
 ### R4: Handle-file split leaves dead code or stale imports (medium)
-**Risk:** Commits C and D split files like `cells/push_reactive.mbt` by removing the SoA portion and keeping the handle portion. Dead imports or unused helper functions may linger.
+**Risk:** Commits C and D split files like `cells/eager_derived.mbt` by removing the SoA portion and keeping the handle portion. Dead imports or unused helper functions may linger.
 **Mitigation:** Run `moon check` for warnings after each split; delete any genuinely orphaned helper. Do not rename the remaining file unless the whole file is gone.
 
 ### R5: Whitebox test reachability (low)
-**Risk:** Whitebox tests (`cells/cell_ref_wbtest.mbt`, `cells/verify_wbtest.mbt`, `cells/memo_map_wbtest.mbt`, `cells/batch_wbtest.mbt`, `cells/push_reactive_wbtest.mbt`, `cells/datalog_wbtest.mbt`) directly construct or mutate engine SoA fields. With `pub(all)` fields in `internal/*/`, the parent `cells/` (where wbtests live) retains field access.
+**Risk:** Whitebox tests (`cells/cell_ref_wbtest.mbt`, `cells/verify_wbtest.mbt`, `cells/derived_map_wbtest.mbt`, `cells/batch_wbtest.mbt`, `cells/eager_derived_wbtest.mbt`, `cells/datalog_wbtest.mbt`) directly construct or mutate engine SoA fields. With `pub(all)` fields in `internal/*/`, the parent `cells/` (where wbtests live) retains field access.
 **Mitigation:** Per-commit `moon test` (506 tests). Failures expected to be stale imports; mechanical to fix.
 
 ### R6: Behavioral regression hidden by mechanical-looking edits (medium)
@@ -509,7 +509,7 @@ This spec exists because the prior Phase 2 PR 2 partition table was "validated" 
 
 **Lessons:**
 1. **"Validated" architecture-doc partition tables that haven't been compile-tested are not validated.** For any future partition refactor, the design step must include either a throwaway compile probe of the partition or explicit grep-based audits of (a) trait method signatures, (b) struct field types, (c) method visibility on types the plan moves.
-2. **Partition tables must distinguish SoA (data) from handle (API).** Engine source files in this codebase mix both. A plan that says "move `push_reactive.mbt` to `internal/push/`" is ambiguous without the split; stating it as a move leads to deleting public handle code by accident.
+2. **Partition tables must distinguish SoA (data) from handle (API).** Engine source files in this codebase mix both. A plan that says "move `eager_derived.mbt` to `internal/push/`" is ambiguous without the split; stating it as a move leads to deleting public handle code by accident.
 3. **MoonBit's `pub` is read-only across packages.** Any plan that moves a struct and has other packages write to its fields must use `pub(all)`, not `pub`. This is distinct from Rust/Go `pub` semantics.
 4. **Foreign-type methods in MoonBit can be added as local extensions only when private.** A public method must live in the type's home package. This constrains how error types with `Runtime`-aware rendering can be relocated.
 5. **Three rounds of Codex review were necessary here** — round 1 caught partition-graph errors (cycles); round 2 caught MoonBit-language-rule errors that required reading the language docs (visibility, orphan methods, file-split); round 3 caught self-consistency slip-ups inside the corrections themselves (a contradictory lifecycle-impl placement, a misnamed handle, a boundary script that didn't match the repo's `moon.pkg` comment style). For any partition refactor that moves ≥5 types across ≥3 new packages, budget three review rounds and don't conflate the "architecture is correct" and "prose is accurate" questions. Each correction risks introducing its own drift.

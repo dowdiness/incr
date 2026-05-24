@@ -426,6 +426,31 @@ test "facade scope: creates target handles" {
 }
 
 ///|
+test "facade scope: add_watch disposes target watch" {
+  let rt = @incr.Runtime()
+  let scope = @incr.Scope::new(rt)
+  let input = @incr.Input(rt, 2)
+  let derived = @incr.Derived(rt, () => input.get() + 1)
+  let watch = scope.add_watch(derived.watch())
+
+  inspect(watch.read_or_abort(), content="3")
+  inspect(watch.is_disposed(), content="false")
+  scope.dispose()
+  inspect(watch.is_disposed(), content="true")
+}
+
+///|
+test "panic facade scope: add_watch on disposed scope aborts" {
+  let rt = @incr.Runtime()
+  let scope = @incr.Scope::new(rt)
+  let derived = @incr.Derived(rt, () => 1)
+  let watch = derived.watch()
+
+  scope.dispose()
+  ignore(scope.add_watch(watch))
+}
+
+///|
 test "facade input_field_owner: add_input_fields registers fields" {
   let rt = @incr.Runtime()
   let scope = @incr.Scope::new(rt)

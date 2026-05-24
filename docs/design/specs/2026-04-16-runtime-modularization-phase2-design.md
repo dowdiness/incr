@@ -69,7 +69,7 @@ if changed.length() > 0 {
 
 **Critical invariant:** Callbacks are snapshot before `propagate_changes` runs. The current code documents (batch.mbt:164-167) that handlers are captured before any callback executes so that `clear_on_change()` or `on_change()` calls during propagation don't affect which handlers fire. Snapshotting after propagation would be a behavioral regression — a PushReactive's compute closure could mutate `sig.on_change` during propagation.
 
-**`signal.set_unconditional`** (signal.mbt) — non-batched single-signal path:
+**`signal.set_unconditional`** (input.mbt) — non-batched single-signal path:
 
 ```moonbit
 self.value = new_value
@@ -86,7 +86,7 @@ Note: This path is only entered when `batch_depth == 0`. The current code calls 
 
 - **`mark_input_changed`** (runtime.mbt:647) — both callers migrate away. Delete it.
 - **Comment in `cell_ops.mbt:67`** — references `mark_input_changed`. Update to reference `propagate_changes`.
-- **Doc comment on `publish_cell_changes`** (runtime.mbt:596-605) — states that `Signal::set_unconditional` and `commit_batch` "call the lower-level methods directly" and "cannot be expressed through this protocol without restructuring." After this PR, both callers use `propagate_changes`. Update the doc to reflect the new layering: `publish_cell_changes` = `propagate_changes` + `fire_on_change`, and callers that need custom callback sequencing use `propagate_changes` directly.
+- **Doc comment on `publish_cell_changes`** (runtime.mbt:596-605) — states that `Input::force_set` and `commit_batch` "call the lower-level methods directly" and "cannot be expressed through this protocol without restructuring." After this PR, both callers use `propagate_changes`. Update the doc to reflect the new layering: `publish_cell_changes` = `propagate_changes` + `fire_on_change`, and callers that need custom callback sequencing use `propagate_changes` directly.
 - **`bump_revision`** — still needed by batched signal paths (`set_batch`, `set_batch_unconditional`) which track `max_durability` during batch. Stays.
 
 ### Efficiency note
@@ -133,7 +133,7 @@ Tested with moon 0.1.20260409:
 | `internal/pull/` | `PullSignalData`, `MemoData`, `PullVerifyFrame` + their trait impls |
 | `internal/push/` | `PushReactiveData`, `PushEffectData`, `PushEntry` (+ `Eq`/`Compare`) + trait impls |
 | `internal/datalog/` | `RelationData`, `FunctionalRelationData`, `RuleData` + trait impls |
-| Stays in `cells/` | `Runtime`, `RuntimeCore`, `PullState`, `PushState`, `DatalogState`, `CellRef`, `PropagationPhase`, `BatchState`, `RevisionState`, `TrackingState`, `ActiveQuery`, all handles (`Signal`, `Memo`, `HybridMemo`), all algorithms (`verify.mbt`, `push_propagate.mbt`, `batch.mbt`, `datalog_fixpoint.mbt`, etc.), all tests |
+| Stays in `cells/` | `Runtime`, `RuntimeCore`, `PullState`, `PushState`, `DatalogState`, `CellRef`, `PropagationPhase`, `BatchState`, `RevisionState`, `TrackingState`, `ActiveQuery`, all handles (`Input`, `Derived`, `ReachableDerived`), all algorithms (`verify.mbt`, `push_propagate.mbt`, `batch.mbt`, `datalog_fixpoint.mbt`, etc.), all tests |
 
 ### Visibility changes
 
@@ -196,7 +196,7 @@ Stay in `cells/` — parent can access all `internal/` children. Tests that acce
 
 - No public API changes in either PR
 - No algorithm changes (push propagation, pull verification, fixpoint stay in `cells/`)
-- No handle changes (`Signal`, `Memo`, `HybridMemo` stay in `cells/`)
+- No handle changes (`Input`, `Derived`, `ReachableDerived` stay in `cells/`)
 - No new features — pure structural refactoring
 
 ## Risk assessment

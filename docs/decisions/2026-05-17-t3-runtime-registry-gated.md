@@ -20,9 +20,9 @@ These power three concrete behaviors:
 
 1. **Runtime-id allocation** (`alloc_runtime_id()` at `state.mbt:32`) — monotonic counter, never decreases.
 2. **Strict cross-runtime guard** — `check_cross_runtime(cell_runtime_id, kind)` at `kernel/tracking.mbt:92`. Aborts if the cell's runtime_id differs from the active recompute's runtime_id. Called from 8+ sites: `Memo::get_result`, `HybridMemo`, `Reactive`, `Relation`, `FunctionalRelation`, `Accumulator` (4 read methods), and various memo-accumulated APIs.
-3. **Forgiving repair** — `Memo::get_result_inner` at `cells/memo.mbt:215-240`. If this runtime's tracking stack is empty AND `current_computing_runtime_id` is non-negative, treat the global as stale-from-abort and reset it to `-1` rather than aborting. Required by `read_permissive` and `MemoMap::get_or_create_memo` call patterns that bypass the outer strict check.
+3. **Forgiving repair** — `Memo::get_result_inner` at `cells/derived.mbt:215-240`. If this runtime's tracking stack is empty AND `current_computing_runtime_id` is non-negative, treat the global as stale-from-abort and reset it to `-1` rather than aborting. Required by `read_permissive` and `MemoMap::get_or_create_memo` call patterns that bypass the outer strict check.
 
-The forgiving-repair path is **load-bearing for panic-test isolation**. The 2026-04-19 refactor audit (Target #1) attempted to unify it with the strict helper and broke 5 tests — the comment at `memo.mbt:221-226` documents why: "stale-global" vs "legitimate cross-runtime" cannot be distinguished locally without a global registry that can answer "is runtime N still alive?"
+The forgiving-repair path is **load-bearing for panic-test isolation**. The 2026-04-19 refactor audit (Target #1) attempted to unify it with the strict helper and broke 5 tests — the comment at `derived.mbt:221-226` documents why: "stale-global" vs "legitimate cross-runtime" cannot be distinguished locally without a global registry that can answer "is runtime N still alive?"
 
 The 2026-04-20 architecture assessment names this as **AP4** and proposes **T3 (`RuntimeRegistry`)** as the resolution, gated on a parallelism driver. The async-at-the-edges ADR (2026-05-17) reaffirms the gate with a more concrete trigger: "build when the first multi-runtime async driver lands."
 
@@ -40,7 +40,7 @@ So the global is correct-by-sync-bracketing-discipline. T3 makes it correct-by-d
 
 The cost is non-trivial:
 
-- **Highest-judgment change in the codebase.** The forgiving-repair path is referenced as load-bearing in three places (`memo.mbt:221-226`, audit doc, prior memory entries). Touching it without a regression net is a correctness risk.
+- **Highest-judgment change in the codebase.** The forgiving-repair path is referenced as load-bearing in three places (`derived.mbt:221-226`, audit doc, prior memory entries). Touching it without a regression net is a correctness risk.
 - **Test scaffolding has to come first.** An interleaving test suite (two-runtime alternating tasks, panic recovery, mid-task switches) must exist before any code change, so the refactor has something to verify against.
 - **No driver-visible benefit today.** Drivers cannot observe the difference between Ref-based and registry-based identity.
 
@@ -102,7 +102,7 @@ No behavior change for current call sites.
 
 ### Forgiving repair rewrite
 
-`Memo::get_result_inner`'s heuristic (`memo.mbt:221-240`) is replaced with a principled query:
+`Memo::get_result_inner`'s heuristic (`derived.mbt:221-240`) is replaced with a principled query:
 
 ```moonbit
 let active = @kernel.get_active_runtime()
@@ -211,7 +211,7 @@ Same gates as any structural PR, plus T3-specific items:
 
 ## Trade-offs accepted
 
-- **Accept correct-by-discipline today.** The two Refs work under sync-bracketing. Documenting the discipline (this ADR + the audit's existing notes at `memo.mbt:221-226`) is cheaper than rewriting until a driver makes the rewrite valuable.
+- **Accept correct-by-discipline today.** The two Refs work under sync-bracketing. Documenting the discipline (this ADR + the audit's existing notes at `derived.mbt:221-226`) is cheaper than rewriting until a driver makes the rewrite valuable.
 - **Accept the highest-judgment-change cost when commissioning.** Phase 1 interleaving tests are mandatory, not optional. Skipping them would be the failure mode the 2026-04-19 audit warned about.
 - **Accept that this ADR is largely documentation.** A future commissioning agent will not need to re-discover the design space — but they will need to make two concrete decisions (disposal hook shape, sync-vs-async variant of the interleaving tests) that this ADR deliberately leaves open.
 
@@ -219,7 +219,7 @@ Same gates as any structural PR, plus T3-specific items:
 
 **In scope:**
 - The two file-scope Refs in `cells/internal/kernel/state.mbt:17,28`.
-- The forgiving-repair block in `cells/memo.mbt:215-240`.
+- The forgiving-repair block in `cells/derived.mbt:215-240`.
 - The 8+ `check_cross_runtime` call sites (no behavior change required — they call `get_active_runtime` internally).
 - The disposal hook on `Runtime`.
 

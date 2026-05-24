@@ -118,7 +118,7 @@ buffer. So a pool only avoids re-growing capacity, not the first allocation.
 
 - **Pool of ActiveQuery instances.** Probe showed ~2% saving (noise).
   Rejected.
-- **Per-memo `MemoData.accumulator_reads` (`cells/memo.mbt:77`).** Separate
+- **Per-memo `MemoData.accumulator_reads` (`cells/derived.mbt:77`).** Separate
   field on `MemoData`, not on `ActiveQuery`. Could be made lazy too, but
   that's a different ~30 ns saving per memo recompute on memos that don't
   use accumulators. Track separately if a memo-heavy driver surfaces it.
@@ -132,7 +132,7 @@ buffer. So a pool only avoids re-growing capacity, not the first allocation.
    anomaly; the original 240 ns/cell claim was a label-swap with the abandoned
    bench. See [`2026-05-16-push-engine-cost-decomposition.md`](2026-05-16-push-engine-cost-decomposition.md)
    §"Key finding (retracted 2026-05-17)" and the regression test at
-   `cells/push_reactive_wbtest.mbt` "dispose: 100 reactives on one signal
+   `cells/eager_derived_wbtest.mbt` "dispose: 100 reactives on one signal
    leave subscribers empty and node_count zero".
 2. **Scheduler rewrite: priority-queue → level-bucketed dirty list** — ~30–50
    ns/reactive estimated. Gated on a driver demanding push-engine perf;

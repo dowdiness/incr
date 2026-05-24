@@ -87,7 +87,7 @@ test "TrackedCell as_signal interop" {
   inspect(read_memo_for_test(memo), content="11")
 }
 
-// --- Phase 2: Trackable trait + gc_tracked ---
+// --- Phase 2: Trackable trait + scoped lifecycle registration ---
 
 ///|
 /// Test fixture: a tracked struct with three fields
@@ -168,11 +168,18 @@ test "field-level dependency isolation" {
 }
 
 ///|
-test "gc_tracked compiles and runs (no-op)" {
+test "Trackable fields register with scope" {
   let rt = @incr.Runtime::Runtime()
+  let scope = @incr.Scope::new(rt)
   let t = TestTracked::new(rt)
-  @incr.gc_tracked(rt, t)
-  // No crash, no effect — just verifying call compiles
+  @incr.add_tracked(scope, t)
+  inspect(t.name.is_disposed(), content="false")
+  inspect(t.value.is_disposed(), content="false")
+  inspect(t.flag.is_disposed(), content="false")
+  scope.dispose()
+  inspect(t.name.is_disposed(), content="true")
+  inspect(t.value.is_disposed(), content="true")
+  inspect(t.flag.is_disposed(), content="true")
 }
 
 ///|

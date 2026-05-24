@@ -122,7 +122,7 @@ Per-iter cost breakdown at N=1000 fanout (289 ns/reactive/set):
 |---|---|---:|---|
 | Outer BFS step (sig.subscribers.iter()) | `push_propagate.mbt:145` | ~50–100 ns | **yes — iter** |
 | Priority-queue push + pop (heap, log N) | `push_propagate.mbt:150, 178` | ~30–50 ns | no (orthogonal — would need scheduler rewrite) |
-| Compute closure (sig.get + Int.add + Option match) | `push_reactive.mbt:28-36` | ~50–100 ns | no |
+| Compute closure (sig.get + Int.add + Option match) | `eager_derived.mbt:28-36` | ~50–100 ns | no |
 | `pop_tracking` returns new_seen HashSet (1 elem) | tracking.mbt | ~30–50 ns | no (allocation, not subscriber-set) |
 | `diff_and_update_subscribers` early-exit | `subscriber_diff.mbt` | ~30 ns | partial — early-exit case |
 | `recompute_level` | push_propagate.mbt | ~10 ns | no |
