@@ -346,32 +346,8 @@ Producers `push` during compute. Consumers read back via
 another memo, with correct incremental invalidation). See the
 [Accumulator API](api-reference.md#accumulatort) reference.
 
-```moonbit nocheck
-let rt = Runtime()
-let width = Input(rt, -5)
-
-let diags : Accumulator[String] = Accumulator::new(rt~, label="diags")
-
-let checked = Memo(rt, fn() raise {
-  let w = width.get()
-  if w < 0 {
-    diags.push("negative width: \{w}")
-  }
-  w.abs()
-})
-
-let checked_reader = checked.observe()
-let _ = checked_reader.get()
-
-// Outside any compute: read pushes permissively (empty if producer never ran).
-debug_inspect(checked.accumulated_peek(diags), content="[\"negative width: -5\"]")
-
-width.set(10)
-let _ = checked_reader.get()
-// Producer re-ran; push set is empty this time.
-debug_inspect(checked.accumulated_peek(diags), content="[]")
-checked_reader.dispose()
-```
+The checked companion demonstrates this pattern in
+[`cookbook_examples.mbt.md`](cookbook_examples.mbt.md#accumulator-diagnostics-and-synthetic-invalidation).
 
 **Top-frame restriction.** `push` is only legal inside a `Memo` or
 `HybridMemo` compute. Calling `diags.push(...)` from an `Input::set`,
@@ -387,37 +363,8 @@ when the push set changes — **even when the producer's ordinary return
 value is unchanged**. This is the primary reason to use an accumulator
 rather than returning an `Array` from the producer.
 
-```moonbit nocheck
-let rt = Runtime()
-let width = Input(rt, -5)
-
-let diags : Accumulator[String] = Accumulator::new(rt~, label="diags")
-
-// Producer returns only its size; diagnostics flow through the accumulator.
-let checked = Memo(rt, fn() raise {
-  let w = width.get()
-  if w < 0 {
-    diags.push("negative width: \{w}")
-  }
-  w.abs()
-})
-
-// Consumer's compute reads `accumulated`, so it tracks the push set.
-let report = Memo(rt, fn() raise {
-  let size = checked.get()
-  let ds = checked.accumulated(diags)
-  "size=\{size}, diags=\{ds.length()}"
-})
-let report_reader = report.observe()
-
-inspect(report_reader.get(), content="size=5, diags=1")
-
-// Flip sign — producer's return value stays 5 (abs is symmetric),
-// but the push set flips from [one diag] to [].
-width.set(5)
-inspect(report_reader.get(), content="size=5, diags=0")
-report_reader.dispose()
-```
+The checked companion pins this backdating-sensitive invalidation behavior in
+[`cookbook_examples.mbt.md`](cookbook_examples.mbt.md#accumulator-diagnostics-and-synthetic-invalidation).
 
 Without the accumulator, `report` would not invalidate: `checked.get()`
 still returns `5` (structurally equal, so backdated), and a plain
@@ -439,45 +386,11 @@ Tie the accumulator to a **child scope** that owns the whole chain.
 Disposing the scope disposes the accumulator automatically; allocating a
 fresh scope gives you a fresh accumulator with no manual bookkeeping.
 
-Shape (adapted from the lambda type-checker driver — see
-`loom/examples/lambda/src/typecheck/typecheck.mbt`):
-
-```moonbit nocheck
-priv struct PipelineState {
-  mut chain_scope : Scope?
-  mut type_memos  : Array[Memo[TypeResult]]
-  mut diags       : Accumulator[TypeDiagnostic]?
-  // ... other per-chain state
-}
-
-fn rebuild_chain(
-  state        : PipelineState,
-  parent_scope : Scope,
-  module       : ResolvedModule,
-) -> Unit {
-  // Dispose the old chain. Disposing the scope disposes every cell
-  // allocated through it — memos, input cells, effects, AND the accumulator.
-  match state.chain_scope {
-    Some(old) => old.dispose()
-    None      => ()
-  }
-
-  // Fresh scope → fresh accumulator in one call.
-  let chain_scope = parent_scope.child()
-  state.chain_scope = Some(chain_scope)
-  let diags = chain_scope.accumulator(label="typecheck_diags")
-  state.diags = Some(diags)
-
-  // Allocate per-def memos on the chain scope; each closes over `diags`
-  // and pushes diagnostics into it during compute.
-  let type_memos = []
-  for def in module.defs {
-    let m = chain_scope.memo(() => infer_def(def, diags), label=def.name)
-    type_memos.push(m)
-  }
-  state.type_memos = type_memos
-}
-```
+The operational shape is: store the current child `Scope` in the driver state,
+dispose it before rebuilding the chain, allocate a fresh `parent_scope.child()`,
+then allocate the accumulator and per-definition memos through that child scope.
+The checked API-reference companion covers the scope-owned disposal guarantee in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md#accumulator--compatibility-push-side-channel).
 
 The outer pipeline memo consumes diagnostics via `type_memo.accumulated(diags)`, so the invalidation chain is: def source changes → per-def memo recomputes → push set for that memo changes → pipeline memo invalidates → driver collects updated diagnostics.
 
@@ -567,43 +480,8 @@ rather than only value-change notifications. The listener is runtime-wide and
 observes pull `Memo` / `HybridMemo` recomputes, including target
 `Derived` / `ReachableDerived` wrappers.
 
-```moonbit nocheck
-let rt = Runtime()
-let price = Input(rt, 100, label="price")
-let total = Derived(rt, () => price.get() * 2, label="total")
-
-let frames : Array[String] = []
-
-rt.on_memo_event(evt => {
-  match evt {
-    EnteringCompute(e) => {
-      let label = match rt.cell_info(e.cell_id) {
-        Some(info) =>
-          match info.label {
-            Some(s) => s
-            None => e.cell_id.id.to_string()
-          }
-        None => e.cell_id.id.to_string()
-      }
-      frames.push("enter " + label)
-    }
-    Completed(e) => {
-      frames.push(
-        "complete " +
-        e.cell_id.id.to_string() +
-        " in " +
-        e.elapsed_ns.to_string() +
-        "ns",
-      )
-    }
-    Aborted(e) => {
-      frames.push("abort " + e.cell_id.id.to_string() + ": " + e.error.to_string())
-    }
-  }
-})
-
-inspect(total.read_or_abort(), content="200")
-```
+The checked companion records the same event phases in
+[`cookbook_examples.mbt.md`](cookbook_examples.mbt.md#memo-event-logging).
 
 Keep the listener small. It runs synchronously during the drain step, after the
 memo compute has left the tracking stack. If the visualizer needs to read
@@ -622,37 +500,8 @@ are intentionally separate design surfaces.
 Memo-event listeners are non-raising synchronous callbacks. For async logging,
 enqueue a compact record in the listener and flush it from the driver.
 
-```moonbit nocheck
-struct LogRow {
-  phase : String
-  cell : CellId
-  elapsed_ns : Int64
-}
-
-let rows : Array[LogRow] = []
-
-rt.on_memo_event(evt => {
-  match evt {
-    EnteringCompute(e) =>
-      rows.push({ phase: "enter", cell: e.cell_id, elapsed_ns: 0L })
-    Completed(e) =>
-      rows.push({
-        phase: if e.backdated { "backdated" } else { "completed" },
-        cell: e.cell_id,
-        elapsed_ns: e.elapsed_ns,
-      })
-    Aborted(e) =>
-      rows.push({ phase: "aborted", cell: e.cell_id, elapsed_ns: e.elapsed_ns })
-  }
-})
-
-fn flush_log_rows() -> Unit {
-  for row in rows {
-    write_log(row)
-  }
-  rows.clear()
-}
-```
+The checked companion shows the listener enqueuing compact log rows in
+[`cookbook_examples.mbt.md`](cookbook_examples.mbt.md#memo-event-logging).
 
 Replace the `Array` with the driver runtime's nonblocking queue when logging
 from an async application. Do not raise from the listener; catch or encode
@@ -759,13 +608,9 @@ let path = @incr.create_input_field(db, "/src/main.mbt", label="path")
 Use `add_input_fields(scope, owner)` to register all of a struct's `InputField`
 fields with a `Scope`; disposing the scope disposes the fields:
 
-```moonbit nocheck
-let scope = @incr.Scope::new(db.runtime())
-let file = SourceFile(db.runtime(), "/src/main.mbt", "fn main { 42 }")
-@incr.add_input_fields(scope, file)
-// ... later ...
-scope.dispose()  // disposes every InputField field of `file`
-```
+The checked companion verifies that `add_input_fields` wires all fields to the
+scope lifecycle in
+[`cookbook_examples.mbt.md`](cookbook_examples.mbt.md#field-level-inputs-and-scoped-watches).
 
 Compatibility `TrackedCell` structs use `Trackable` and `add_tracked(scope,
 tracked)`. `gc_tracked` is deprecated and remains a no-op kept for source
@@ -776,12 +621,9 @@ compatibility.
 Use `scope.add_watch(derived.watch())` when an outside-graph reader should live
 exactly as long as a `Scope`:
 
-```moonbit nocheck
-let scope = @incr.Scope::new(rt)
-let watch = scope.add_watch(summary.watch())
-inspect(watch.read_or_abort(), content="42")
-scope.dispose()  // disposes the watch before scope-owned cells
-```
+The checked companion verifies that `scope.add_watch` keeps the watch live
+across `gc()` and disposes it with the scope in
+[`cookbook_examples.mbt.md`](cookbook_examples.mbt.md#field-level-inputs-and-scoped-watches).
 
 ### Migration: Input[MyStruct] → Field-Level Inputs
 

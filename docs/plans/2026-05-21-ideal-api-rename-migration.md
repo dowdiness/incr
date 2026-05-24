@@ -157,18 +157,9 @@ the same method name on the same receiver.
    still useful during migration. Do not multiply `create_*` helpers unless a
    downstream migration needs them; the ADR's final API prefers constructors,
    `Scope`, and receiver-based conveniences over free `create_*` functions.
-4. Document the temporary dual-impl pattern for downstream contexts:
-
-   ```moonbit nocheck
-   impl @incr.RuntimeContext for MyDb with runtime(self) {
-     self.rt
-   }
-
-   impl @incr.Database for MyDb with runtime(self) {
-     self.rt
-   }
-   ```
-
+4. Document the temporary dual-impl pattern for downstream contexts. The
+   checked API-reference companion pins this shape in
+   [`../api_reference_examples.mbt.md`](../api_reference_examples.mbt.md#runtimecontext-and-the-create_-helpers).
 5. In a later breaking phase, flip generic helper bounds from `Database` to
    `RuntimeContext` or remove the helper if the constructor/scope path has
    replaced it.

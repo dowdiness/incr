@@ -3,8 +3,8 @@
 Literate tests that pin high-value target facade snippets from
 [`cookbook.md`](cookbook.md). These examples focus on behavior that prose-only
 snippets can easily drift on: diamond dependencies, batch semantics, dynamic
-dependency changes, backdating with custom `Eq`, field-level inputs, and scoped
-watch lifetimes.
+dependency changes, backdating with custom `Eq`, accumulator invalidation,
+memo-event logging, field-level inputs, and scoped watch lifetimes.
 
 ## Diamond dependencies and layered derived values
 
@@ -117,7 +117,11 @@ test "docs cookbook: layered derived values cache intermediate results" {
 ///|
 test "docs cookbook: computed defaults yield to explicit overrides" {
   let rt = @incr.Runtime()
-  let user_override : @incr.Input[Int?] = @incr.Input(rt, None, label="override")
+  let user_override : @incr.Input[Int?] = @incr.Input(
+    rt,
+    None,
+    label="override",
+  )
   let computed_default = @incr.Input(rt, 100, label="default")
   let effective_value = @incr.Derived(
     rt,
@@ -264,7 +268,7 @@ test "docs cookbook: on_change batches committed changes" {
   let b = @incr.Input(rt, 0, label="b")
   let notifications : Ref[Int] = { val: 0 }
 
-  rt.set_on_change(() => { notifications.val = notifications.val + 1 })
+  rt.set_on_change(() => notifications.val = notifications.val + 1)
 
   a.set(1)
   b.set(2)
@@ -348,6 +352,175 @@ test "docs cookbook: derived.get can recover from a cycle inside compute" {
 
   inspect(derived.read_or_abort(), content="0")
   inspect(saw_cycle.val, content="true")
+}
+```
+
+## Accumulator diagnostics and synthetic invalidation
+
+```mbt check
+///|
+test "docs cookbook: accumulator peek reads memo-local diagnostics" {
+  let rt = @incr.Runtime()
+  let width = @incr.Signal(rt, -5, label="width")
+  let diags : @incr.Accumulator[String] = @incr.Accumulator::new(
+    rt~,
+    label="diags",
+  )
+  let checked = @incr.Memo(
+    rt,
+    () => {
+      let w = width.get()
+      if w < 0 {
+        diags.push("negative width: " + w.to_string())
+      }
+      w.abs()
+    },
+    label="checked_width",
+  )
+  let checked_reader = checked.observe()
+
+  inspect(checked_reader.get(), content="5")
+  debug_inspect(
+    checked.accumulated_peek(diags),
+    content="[\"negative width: -5\"]",
+  )
+
+  width.set(10)
+  inspect(checked_reader.get(), content="10")
+  debug_inspect(checked.accumulated_peek(diags), content="[]")
+
+  checked_reader.dispose()
+  diags.dispose()
+}
+
+///|
+test "docs cookbook: accumulated invalidates when push set changes" {
+  let rt = @incr.Runtime()
+  let width = @incr.Signal(rt, -5, label="width")
+  let diags : @incr.Accumulator[String] = @incr.Accumulator::new(
+    rt~,
+    label="diags",
+  )
+  let checked = @incr.Memo(
+    rt,
+    () => {
+      let w = width.get()
+      if w < 0 {
+        diags.push("negative width: " + w.to_string())
+      }
+      w.abs()
+    },
+    label="checked_width",
+  )
+  let report_runs : Ref[Int] = { val: 0 }
+  let report = @incr.Memo(
+    rt,
+    () => {
+      report_runs.val = report_runs.val + 1
+      let size = checked.get()
+      let ds = checked.accumulated(diags)
+      "size=" + size.to_string() + ", diags=" + ds.length().to_string()
+    },
+    label="width_report",
+  )
+  let report_reader = report.observe()
+
+  inspect(report_reader.get(), content="size=5, diags=1")
+  inspect(report_runs.val, content="1")
+
+  width.set(5)
+  inspect(report_reader.get(), content="size=5, diags=0")
+  inspect(report_runs.val, content="2")
+
+  report_reader.dispose()
+  diags.dispose()
+}
+```
+
+## Memo event logging
+
+```mbt check
+///|
+struct CookbookLogRow {
+  phase : String
+  cell : @incr.CellId
+  elapsed_ns : Int64
+}
+
+///|
+test "docs cookbook: memo event listener records recompute phases" {
+  let rt = @incr.Runtime()
+  let price = @incr.Input(rt, 100, label="price")
+  let total = @incr.Derived(rt, () => price.get() * 2, label="total")
+  let frames : Array[String] = []
+
+  rt.on_memo_event(evt => {
+    match evt {
+      EnteringCompute(e) => {
+        let label = match rt.cell_info(e.cell_id) {
+          Some(info) =>
+            match info.label {
+              Some(s) => s
+              None => e.cell_id.id.to_string()
+            }
+          None => e.cell_id.id.to_string()
+        }
+        frames.push("enter " + label)
+      }
+      Completed(e) => frames.push("complete " + e.cell_id.id.to_string())
+      Aborted(e) => frames.push("abort " + e.cell_id.id.to_string())
+    }
+  })
+
+  inspect(total.read_or_abort(), content="200")
+  inspect(frames.length(), content="2")
+  inspect(frames[0], content="enter total")
+  inspect(frames[1].contains("complete "), content="true")
+  rt.clear_memo_event_listener()
+}
+
+///|
+test "docs cookbook: memo event listener can enqueue compact log rows" {
+  let rt = @incr.Runtime()
+  let input = @incr.Input(rt, 1, label="input")
+  let doubled = @incr.Derived(rt, () => input.get() * 2, label="doubled")
+  let rows : Array[CookbookLogRow] = []
+
+  rt.on_memo_event(evt => {
+    match evt {
+      EnteringCompute(e) =>
+        rows.push({ phase: "enter", cell: e.cell_id, elapsed_ns: 0L })
+      Completed(e) =>
+        rows.push({
+          phase: if e.backdated {
+            "backdated"
+          } else {
+            "completed"
+          },
+          cell: e.cell_id,
+          elapsed_ns: e.elapsed_ns,
+        })
+      Aborted(e) =>
+        rows.push({
+          phase: "aborted",
+          cell: e.cell_id,
+          elapsed_ns: e.elapsed_ns,
+        })
+    }
+  })
+
+  inspect(doubled.read_or_abort(), content="2")
+  inspect(rows.length(), content="2")
+  inspect(rows[0].phase, content="enter")
+  inspect(rows[1].phase, content="completed")
+  inspect(rows[0].cell == rows[1].cell, content="true")
+  inspect(rows[1].elapsed_ns >= 0L, content="true")
+  rows.clear()
+
+  input.set(2)
+  inspect(doubled.read_or_abort(), content="4")
+  inspect(rows.length(), content="2")
+  rt.clear_memo_event_listener()
 }
 ```
 
