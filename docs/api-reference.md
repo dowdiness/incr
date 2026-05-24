@@ -1113,10 +1113,9 @@ The helpers below take `Db : Database` and return compatibility handles.
 
 Creates a new `Signal` using the database's runtime.
 
-```moonbit nocheck
-create_signal(db, value)
-create_signal(db, value, durability=High, label="config")
-```
+The checked companion covers construction, durability, and label
+introspection in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ### `create_memo[Db : Database, T : Eq](db: Db, f: () -> T raise Failure, label? : String) -> Memo[T]`
 
@@ -1126,9 +1125,9 @@ Creates a memo using `db.runtime()`. Uses `Memo::new` internally — requires `T
 
 Creates a hybrid memo using `db.runtime()`.
 
-```moonbit nocheck
-let h = create_hybrid_memo(app, () => signal.get() * 2, label="doubled")
-```
+The checked companion covers `create_hybrid_memo` together with a long-lived
+observer read in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ### `create_memo_map[Db : Database, K : Hash + Eq, V](db: Db, f: (K) -> V raise Failure, label? : String) -> MemoMap[K, V]`
 
@@ -1138,18 +1137,16 @@ Creates a memo map using `db.runtime()`. Each key is memoized independently.
 
 Creates a runtime-owned accumulator using `db.runtime()`. Prefer `Scope::accumulator` for scope-bound lifetimes.
 
-```moonbit nocheck
-let diags = create_accumulator(app, label="diags")
-```
+The checked companion covers accumulator construction and memo push retrieval
+in [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ### `create_tracked_cell`
 
 Creates a new `TrackedCell` using the database's runtime.
 
-```moonbit nocheck
-create_tracked_cell(db, value)
-create_tracked_cell(db, value, durability=High, label="SourceFile.path")
-```
+The checked companion covers `create_tracked_cell`, durability, labels, and
+scope disposal in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ### `create_scope[Db : Database](db: Db) -> Scope`
 
@@ -1161,12 +1158,8 @@ construct a scope directly with `Scope::new(ctx.runtime())`.
 Compatibility helper for `TrackedCell` owners. Target-name code should use
 `add_input_fields(scope, owner)`.
 
-```moonbit nocheck
-let scope = create_scope(app)
-let tracked = MyTracked(app)
-add_tracked(scope, tracked)
-scope.dispose()
-```
+The checked companion covers `create_scope` and `add_tracked` disposal in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ### `gc_tracked[T : Trackable](rt: Runtime, tracked: T) -> Unit`
 

@@ -518,6 +518,17 @@ impl @incr.Database for AppCtx with fn runtime(self) {
 }
 
 ///|
+struct CompatTrackedFields {
+  path : @incr.TrackedCell[String]
+  version : @incr.TrackedCell[Int]
+}
+
+///|
+impl @incr.Trackable for CompatTrackedFields with fn cell_ids(self) {
+  [self.path.id(), self.version.id()]
+}
+
+///|
 test "docs api-ref: create_input / create_derived / create_derived_map via context" {
   let ctx : AppCtx = { rt: @incr.Runtime() }
   let price = @incr.create_input(ctx, 100, label="price")
@@ -612,6 +623,113 @@ test "docs api-ref: Database batch_result helper rolls back on Err" {
   let ok = @incr.batch_result(app, () => price.set(120))
   inspect(ok is Ok(_), content="true")
   inspect(total.read_or_abort(), content="240")
+}
+
+///|
+test "docs api-ref: compatibility helpers create_signal / hybrid_memo / memo_map" {
+  let app : AppCtx = { rt: @incr.Runtime() }
+  let signal = @incr.create_signal(
+    app,
+    10,
+    durability=High,
+    label="compat_signal",
+  )
+  let hybrid = @incr.create_hybrid_memo(
+    app,
+    () => signal.get() * 2,
+    label="compat_hybrid",
+  )
+  let by_key = @incr.create_memo_map(
+    app,
+    (key : Int) => signal.get() + key,
+    label="compat_by_key",
+  )
+
+  inspect(signal.get(), content="10")
+  inspect(signal.durability(), content="High")
+  match app.rt.cell_info(signal.id()) {
+    Some(info) =>
+      debug_inspect(
+        info.label,
+        content=(
+          #|Some("compat_signal")
+        ),
+      )
+    None => abort("expected signal cell_info")
+  }
+
+  let observer = hybrid.observe()
+  inspect(observer.get(), content="20")
+  inspect(by_key.get(5), content="15")
+  signal.set(11)
+  inspect(observer.get(), content="22")
+  inspect(by_key.get(5), content="16")
+  observer.dispose()
+}
+
+///|
+test "docs api-ref: compatibility create_accumulator captures memo pushes" {
+  let app : AppCtx = { rt: @incr.Runtime() }
+  let diags : @incr.Accumulator[String] = @incr.create_accumulator(
+    app,
+    label="diags",
+  )
+  let width = @incr.create_signal(app, -1, label="width")
+  let producer = @incr.create_memo(
+    app,
+    () => {
+      if width.get() < 0 {
+        diags.push("negative width")
+      }
+      width.get()
+    },
+    label="width_check",
+  )
+  let observer = producer.observe()
+
+  inspect(observer.get(), content="-1")
+  let first = producer.accumulated_peek(diags)
+  inspect(first.length(), content="1")
+  inspect(first[0], content="negative width")
+
+  width.set(4)
+  inspect(observer.get(), content="4")
+  inspect(producer.accumulated_peek(diags).length(), content="0")
+  observer.dispose()
+}
+
+///|
+test "docs api-ref: compatibility create_tracked_cell / create_scope / add_tracked" {
+  let app : AppCtx = { rt: @incr.Runtime() }
+  let scope = @incr.create_scope(app)
+  let tracked : CompatTrackedFields = {
+    path: @incr.create_tracked_cell(
+      app,
+      "src/main.mbt",
+      durability=High,
+      label="Tracked.path",
+    ),
+    version: @incr.create_tracked_cell(app, 1, label="Tracked.version"),
+  }
+
+  inspect(tracked.path.get(), content="src/main.mbt")
+  match app.rt.cell_info(tracked.path.id()) {
+    Some(info) => {
+      debug_inspect(
+        info.label,
+        content=(
+          #|Some("Tracked.path")
+        ),
+      )
+      inspect(info.durability, content="High")
+    }
+    None => abort("expected tracked path cell_info")
+  }
+
+  @incr.add_tracked(scope, tracked)
+  scope.dispose()
+  inspect(tracked.path.is_disposed(), content="true")
+  inspect(tracked.version.is_disposed(), content="true")
 }
 ```
 
