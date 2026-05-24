@@ -122,6 +122,39 @@ test "docs concepts: batch revert produces no committed change" {
 }
 
 ///|
+test "docs concepts: high-durability derived stays cached when low input changes" {
+  let rt = @incr.Runtime()
+  let config = @incr.Input(rt, "production", durability=High, label="config")
+  let user_input = @incr.Input(rt, "hello", label="user_input")
+  let config_runs : Ref[Int] = { val: 0 }
+  let processed_runs : Ref[Int] = { val: 0 }
+  let config_hash = @incr.Derived(
+    rt,
+    () => {
+      config_runs.val = config_runs.val + 1
+      config.get().length()
+    },
+    label="config_hash",
+  )
+  let processed = @incr.Derived(
+    rt,
+    () => {
+      processed_runs.val = processed_runs.val + 1
+      user_input.get().length()
+    },
+    label="processed",
+  )
+
+  inspect(config_hash.read_or_abort(), content="10")
+  inspect(processed.read_or_abort(), content="5")
+  user_input.set("world")
+  inspect(processed.read_or_abort(), content="5")
+  inspect(config_hash.read_or_abort(), content="10")
+  inspect(config_runs.val, content="1")
+  inspect(processed_runs.val, content="2")
+}
+
+///|
 test "docs concepts: dynamic dependencies follow active branch" {
   let rt = @incr.Runtime()
   let mode = @incr.Input(rt, "add", label="mode")

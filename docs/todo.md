@@ -457,7 +457,9 @@ dedicated migration window.
         `docs/concepts_examples.mbt.md`; cookbook target, accumulator, and
         memo-event snippets by `docs/cookbook_examples.mbt.md`; API-reference
         target facade and compatibility accumulator snippets by
-        `docs/api_reference_examples.mbt.md`.
+        `docs/api_reference_examples.mbt.md`. `docs/concepts.md` has been
+        reduced to pointers for already-covered behavior, with only summary
+        syntax / lower-priority narrative fences left.
       - **Narrative snippets still present:** current non-archive docs no
         longer contain explicit `moonbit nocheck` fences, but many untagged
         ` ```moonbit` fences remain. Prioritize public user docs first
