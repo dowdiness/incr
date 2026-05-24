@@ -14,19 +14,7 @@ Handle computations where multiple paths converge:
     [D]
 ```
 
-```moonbit
-let rt = Runtime()
-
-let a = Input(rt, 10)
-let b = Derived(rt, () => a.get() * 2)
-let c = Derived(rt, () => a.get() + 5)
-let d = Derived(rt, () => b.get_or_abort() + c.get_or_abort())
-
-inspect(d.read_or_abort(), content="35")  // (10*2) + (10+5)
-
-a.set(20)
-inspect(d.read_or_abort(), content="65")  // (20*2) + (20+5)
-```
+The checked companion pins the diamond shape and verifies each branch recomputes once in [`cookbook_examples.mbt.md`](cookbook_examples.mbt.md#diamond-dependencies-and-layered-derived-values).
 
 `incr` handles diamonds correctly — `a` is only read once per computation of each derived value.
 
@@ -36,60 +24,13 @@ inspect(d.read_or_abort(), content="65")  // (20*2) + (20+5)
 
 Dependencies can vary based on runtime conditions:
 
-```moonbit
-let rt = Runtime()
-
-let use_cache = Input(rt, true)
-let cache = Input(rt, "cached_value")
-let expensive_source = Input(rt, "computed_value")
-
-let result = Derived(rt, () => {
-  if use_cache.get() {
-    cache.get()
-  } else {
-    expensive_source.get()
-  }
-})
-
-// With caching enabled
-inspect(result.read_or_abort(), content="cached_value")
-
-// Changes to expensive_source don't trigger recomputation
-expensive_source.set("new_computed")
-inspect(result.read_or_abort(), content="cached_value")  // Still cached
-
-// Switch to computed mode
-use_cache.set(false)
-inspect(result.read_or_abort(), content="new_computed")
-```
+The checked companion verifies that dependency tracking follows the active branch and ignores inactive inputs in [`cookbook_examples.mbt.md`](cookbook_examples.mbt.md#conditional-dependencies).
 
 ---
 
 ## Pattern: Configuration + Data Separation
 
-Use durability to optimize stable configuration:
-
-```moonbit
-let rt = Runtime()
-
-// Configuration changes rarely
-let multiplier = Input(rt, 1.5, durability=High)
-let precision = Input(rt, 2, durability=High)
-
-// Data changes frequently
-let measurements : Array[Input[Double]] = []
-for i = 0; i < 1000; i = i + 1 {
-  measurements.push(Input(rt, 0.0))
-}
-
-// Config-only computation
-let config_factor = Derived(rt, () => multiplier.get() * 10.0.pow(precision.get().to_double()))
-
-// Mixed computation
-let process = (i : Int) => Derived(rt, () => {
-  measurements[i].get() * config_factor.get_or_abort()
-})
-```
+Use durability to optimize stable configuration. Mark rarely changing inputs as `High`; derived values that depend only on high-durability inputs can skip verification when only lower-durability data changed. The checked concepts companion pins the durability shortcut in [`concepts_examples.mbt.md`](concepts_examples.mbt.md#backdating-batching-and-dynamic-dependencies).
 
 When measurements change:
 - `config_factor` skips verification entirely when only lower-durability data changed
@@ -101,22 +42,7 @@ When measurements change:
 
 Update related inputs together:
 
-```moonbit
-let rt = Runtime()
-
-let x = Input(rt, 0)
-let y = Input(rt, 0)
-let position = Derived(rt, () => (x.get(), y.get()))
-
-// Without batch: two revision bumps, position could see inconsistent state
-// With batch: single revision bump, atomic update
-rt.batch(() => {
-  x.set(100)
-  y.set(200)
-})
-
-inspect(position.read_or_abort(), content="(100, 200)")
-```
+The checked companion verifies that batched related inputs commit atomically in [`cookbook_examples.mbt.md`](cookbook_examples.mbt.md#batch-callbacks-and-read-isolation).
 
 ---
 
@@ -124,26 +50,7 @@ inspect(position.read_or_abort(), content="(100, 200)")
 
 Use batch semantics for speculative changes:
 
-```moonbit
-let rt = Runtime()
-
-let value = Input(rt, 10)
-let derived = Derived(rt, () => value.get() * 2)
-
-// Get initial state
-let initial = value.get()
-
-rt.batch(() => {
-  // Try a change
-  value.set(99)
-
-  // Decide to rollback
-  value.set(initial)
-})
-
-// No revision bump occurred — revert detection
-// derived is not marked stale
-```
+The concepts companion pins this net-zero revert behavior in [`concepts_examples.mbt.md`](concepts_examples.mbt.md#backdating-batching-and-dynamic-dependencies).
 
 ---
 
@@ -151,24 +58,7 @@ rt.batch(() => {
 
 Derive default values from other inputs:
 
-```moonbit
-let rt = Runtime()
-
-let user_override : Input[Int?] = Input(rt, None)
-let computed_default = Input(rt, 100)
-
-let effective_value = Derived(rt, () => {
-  match user_override.get() {
-    Some(v) => v
-    None => computed_default.get()
-  }
-})
-
-inspect(effective_value.read_or_abort(), content="100")  // Uses default
-
-user_override.set(Some(42))
-inspect(effective_value.read_or_abort(), content="42")   // Uses override
-```
+The checked companion verifies that computed defaults yield to explicit overrides and resume when the override is removed in [`cookbook_examples.mbt.md`](cookbook_examples.mbt.md#computed-defaults).
 
 ---
 
@@ -176,27 +66,7 @@ inspect(effective_value.read_or_abort(), content="42")   // Uses override
 
 Build computation layers with natural caching:
 
-```moonbit
-let rt = Runtime()
-
-// Raw input
-let raw_data = Input(rt, "  Hello World  ")
-
-// Layer 1: Normalize
-let normalized = Derived(rt, () => raw_data.get().trim())
-
-// Layer 2: Transform
-let transformed = Derived(rt, () => normalized.get_or_abort().to_lower())
-
-// Layer 3: Format
-let formatted = Derived(rt, () => "[" + transformed.get_or_abort() + "]")
-
-inspect(formatted.read_or_abort(), content="[hello world]")
-
-// Change input
-raw_data.set("  Hello World  ")  // Same after trim — no-op!
-// Nothing recomputes due to same-value optimization
-```
+The checked companion verifies that layered derived values cache intermediate results and skip downstream recomputation after backdating in [`cookbook_examples.mbt.md`](cookbook_examples.mbt.md#diamond-dependencies-and-layered-derived-values).
 
 ---
 
@@ -208,37 +78,7 @@ Backdating suppresses downstream recomputation when a derived value's output is 
 
 A common case: a value has a `generation` or `version` field that increments on every write, but downstream derived values only care about the semantic content.
 
-```moonbit
-struct Versioned {
-  value      : Int
-  generation : Int // bumped on every recomputation — not semantically meaningful
-}
-
-impl Eq for Versioned with equal(self, other) -> Bool {
-  self.value == other.value  // generation intentionally excluded
-}
-```
-
-```moonbit
-let rt = Runtime()
-let input = Input(rt, 100, label="input")
-
-let mut gen = 0
-let versioned = Derived(rt, () => {
-  gen = gen + 1
-  Versioned(input.get() / 10, gen)  // value=10, generation always increments
-}, label="versioned")
-
-let handler = Derived(rt, () => {
-  versioned.get_or_abort().value * 2  // only reads .value
-}, label="handler")
-
-inspect(handler.read_or_abort(), content="20")  // Computes: Versioned(10, gen=1) → 20
-
-input.set(105)                           // value still 10 (105/10 = 10), gen=2
-inspect(handler.read_or_abort(), content="20")  // handler does NOT recompute — backdated
-inspect(gen, content="2")                // versioned recomputed, but Eq said same value
-```
+The checked companion defines the `Versioned` type and verifies that the downstream handler does not recompute when only the ignored generation changes in [`cookbook_examples.mbt.md`](cookbook_examples.mbt.md#backdating-with-custom-equality).
 
 `versioned` recomputed because `input` changed, but `handler` was skipped: the new `Versioned(10, 2)` equals the old `Versioned(10, 1)` under the custom `Eq`, so downstream derived values did not see a change.
 
@@ -304,33 +144,7 @@ let handler = Derived(rt, () => versioned.get_or_abort().generation)  // stale!
 
 Efficiently aggregate over multiple inputs:
 
-```moonbit
-let rt = Runtime()
-
-let items : Array[Input[Int]] = [
-  Input(rt, 10),
-  Input(rt, 20),
-  Input(rt, 30),
-]
-
-let sum = Derived(rt, () => {
-  let mut total = 0
-  for item in items {
-    total = total + item.get()
-  }
-  total
-})
-
-let count = items.length()
-let average = Derived(rt, () => sum.get_or_abort() / count)
-
-inspect(sum.read_or_abort(), content="60")
-inspect(average.read_or_abort(), content="20")
-
-items[1].set(50)  // Change one item
-inspect(sum.read_or_abort(), content="90")
-inspect(average.read_or_abort(), content="30")
-```
+The checked companion verifies that an aggregate derived value and its dependent average update when one input changes in [`cookbook_examples.mbt.md`](cookbook_examples.mbt.md#aggregate-computation).
 
 ---
 
@@ -435,38 +249,13 @@ Useful for:
 
 ## Pattern: Per-Cell Change Callbacks
 
-For finer-grained observation of field-level inputs, `InputField` supports a single per-cell callback:
-
-```moonbit
-let rt = Runtime()
-let price = InputField(rt, 100, label="price")
-
-// Fires immediately after price changes, before the global on_change
-price.on_change(new_price => println("price changed to: \{new_price}"))
-
-price.set(200)
-// Prints "price changed to: 200"
-```
+For finer-grained observation of field-level inputs, `InputField` supports a single per-cell callback. The API-reference companion checks that field callbacks fire before the global runtime callback in [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md#runtime-batching-and-change-callbacks).
 
 **Callback ordering:**
 1. Per-cell callbacks fire in the order input fields changed
 2. The global `Runtime::set_on_change` callback fires after all per-cell callbacks
 
-**Inside a batch**, per-cell callbacks fire once per changed field at the end of the batch — not once per `set()` call:
-
-```moonbit
-rt.batch(() => {
-  price.set(150)
-  price.set(200)  // Only the final value (200) is committed
-})
-// price on_change fires once with value 200
-```
-
-To remove a callback:
-
-```moonbit
-price.clear_on_change()
-```
+**Inside a batch**, per-cell callbacks fire once per changed field at the end of the batch — not once per `set()` call. Use `clear_on_change()` to remove the field callback.
 
 Compatibility `Signal` and `Memo` handles also expose per-cell callbacks for
 code that still needs their introspection surface.
@@ -523,66 +312,15 @@ Use `InputField` fields to give each field of a struct its own dependency cell. 
 
 ### Defining an InputField Owner
 
-Declare the struct with `InputField` fields, implement the `InputFieldOwner` trait, and provide a constructor:
-
-```moonbit
-struct SourceFile {
-  path    : @incr.InputField[String]
-  content : @incr.InputField[String]
-  version : @incr.InputField[Int]
-}
-
-impl @incr.InputFieldOwner for SourceFile with cell_ids(self) {
-  [self.path.id(), self.content.id(), self.version.id()]
-}
-
-fn SourceFile::SourceFile(
-  rt      : @incr.Runtime,
-  path    : String,
-  content : String,
-  version~ : Int = 0,
-) -> SourceFile {
-  {
-    path:    @incr.InputField(rt, path,    label="SourceFile.path"),
-    content: @incr.InputField(rt, content, label="SourceFile.content"),
-    version: @incr.InputField(rt, version, label="SourceFile.version"),
-  }
-}
-```
+Declare the struct with `InputField` fields, implement the `InputFieldOwner` trait, and provide a constructor. The checked companion includes the full owner struct and constructor shape in [`cookbook_examples.mbt.md`](cookbook_examples.mbt.md#field-level-inputs-and-scoped-watches).
 
 ### Composing with Derived Values
 
-Each derived value declares dependency only on the fields it actually reads:
-
-```moonbit
-let rt   = @incr.Runtime()
-let file = SourceFile(rt, "/src/main.mbt", "fn main { 42 }")
-
-let word_count = @incr.Derived(rt, () => {
-  file.content.get().split(" ").fold(init=0, (acc, _s) => acc + 1)
-})
-
-let is_test = @incr.Derived(rt, () => file.path.get().ends_with("_test.mbt"))
-
-// Change version — neither derived value recomputes
-file.version.set(1)
-
-// Change content — only word_count recomputes; is_test is not touched
-file.content.set("fn main { let x = 42\n  x }")
-```
+Each derived value declares dependency only on the fields it actually reads. The checked companion verifies that changing `version` does not recompute consumers of `path` or `content` in [`cookbook_examples.mbt.md`](cookbook_examples.mbt.md#field-level-inputs-and-scoped-watches).
 
 ### Batch Updates Across Multiple Fields
 
-Use `rt.batch` to update several fields atomically:
-
-```moonbit
-rt.batch(() => {
-  file.path.set("/src/lib.mbt")
-  file.content.set("pub fn greet() -> String { \"hello\" }")
-  file.version.set(2)
-})
-// Single revision bump; downstream derived values reverify once
-```
+Use `rt.batch` to update several fields atomically. The batch examples above cover the same single-commit behavior for related inputs.
 
 ### Using RuntimeContext with InputField
 
@@ -648,22 +386,7 @@ struct Doc {
 
 ## Pattern: Keyed Queries with DerivedMap
 
-Use `DerivedMap[K, V]` when you want one lazy derived computation per key.
-
-```moonbit
-let rt = Runtime()
-let base = Input(rt, 10)
-let by_id = DerivedMap(rt, (id : Int) => base.get() + id)
-
-inspect(by_id.read_or_abort(1), content="11")  // creates entry for key=1
-inspect(by_id.read_or_abort(1), content="11")  // cache hit for key=1
-inspect(by_id.read_or_abort(2), content="12")  // creates entry for key=2
-inspect(by_id.cache_len(), content="2")
-
-base.set(20)
-inspect(by_id.read_or_abort(1), content="21")  // key=1 recomputes lazily
-inspect(by_id.read_or_abort(2), content="22")  // key=2 recomputes when read
-```
+Use `DerivedMap[K, V]` when you want one lazy derived computation per key. The concepts companion pins per-key cache creation and lazy recomputation in [`concepts_examples.mbt.md`](concepts_examples.mbt.md#field-level-inputs-and-keyed-derived-values).
 
 For `RuntimeContext`-style code, use `create_derived_map(ctx, f, label?)`.
 
@@ -671,22 +394,7 @@ For `RuntimeContext`-style code, use `create_derived_map(ctx, f, label?)`.
 
 ## Anti-Pattern: Reading During Batch
 
-Avoid reading derived values inside a batch — they see pre-batch values:
-
-```moonbit
-let rt = Runtime()
-
-let x = Input(rt, 10)
-let doubled = Derived(rt, () => x.get() * 2)
-
-rt.batch(() => {
-  x.set(20)
-  // doubled.read_or_abort() still returns 20, not 40!
-  // Batch provides transactional isolation
-})
-
-// After batch, doubled.read_or_abort() returns 40
-```
+Avoid reading derived values inside a batch — they see pre-batch values. The checked companion demonstrates this read isolation in [`cookbook_examples.mbt.md`](cookbook_examples.mbt.md#batch-callbacks-and-read-isolation).
 
 ---
 
@@ -719,27 +427,7 @@ Benefits:
 
 ## Pattern: Graceful Cycle Handling
 
-Handle potential cycles with fallback values instead of aborting:
-
-```moonbit
-let rt = Runtime()
-
-// Self-referential derived value that handles cycles gracefully
-let derived_ref : Ref[Derived[Int]?] = { val: None }
-let derived = Derived(rt, () => {
-  match derived_ref.val {
-    Some(d) =>
-      match d.get() {
-        Ok(v) => v + 1
-        Err(CycleDetected(_, _, _)) => 0  // Base case on cycle
-      }
-    None => 0
-  }
-})
-derived_ref.val = Some(derived)
-
-inspect(derived.read_or_abort(), content="0")  // Returns fallback, doesn't abort
-```
+Handle potential cycles with fallback values instead of aborting. The checked companion verifies a self-referential derived value recovering inside its compute function in [`cookbook_examples.mbt.md`](cookbook_examples.mbt.md#graceful-cycle-handling).
 
 ### Use Cases
 

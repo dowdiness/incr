@@ -355,6 +355,44 @@ test "docs cookbook: derived.get can recover from a cycle inside compute" {
 }
 ```
 
+## Aggregate computation
+
+```mbt check
+///|
+test "docs cookbook: aggregate computation updates affected totals" {
+  let rt = @incr.Runtime()
+  let items : Array[@incr.Input[Int]] = [
+    @incr.Input(rt, 10, label="item_0"),
+    @incr.Input(rt, 20, label="item_1"),
+    @incr.Input(rt, 30, label="item_2"),
+  ]
+  let sum = @incr.Derived(
+    rt,
+    () => {
+      let mut total = 0
+      for item in items {
+        total = total + item.get()
+      }
+      total
+    },
+    label="sum",
+  )
+  let count = items.length()
+  let average = @incr.Derived(
+    rt,
+    () => sum.get_or_abort() / count,
+    label="average",
+  )
+
+  inspect(sum.read_or_abort(), content="60")
+  inspect(average.read_or_abort(), content="20")
+
+  items[1].set(50)
+  inspect(sum.read_or_abort(), content="90")
+  inspect(average.read_or_abort(), content="30")
+}
+```
+
 ## Accumulator diagnostics and synthetic invalidation
 
 ```mbt check
