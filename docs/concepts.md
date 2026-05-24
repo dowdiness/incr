@@ -2,6 +2,11 @@
 
 This document explains the key concepts behind `incr` without diving into implementation details. For the technical deep-dive, see [design/internals.md](design/internals.md).
 
+High-value behavior examples from this guide are mirrored by checked literate
+tests in [`concepts_examples.mbt.md`](concepts_examples.mbt.md), so constructor,
+read, backdating, batching, field-level input, accumulator, and reachable-derived
+semantics are caught by `moon check`.
+
 ## The Dependency Graph
 
 `incr` models your computations as a directed graph:

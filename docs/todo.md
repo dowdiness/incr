@@ -451,7 +451,8 @@ dedicated migration window.
 - [ ] Convert high-value target examples to checked `.mbt.md` examples or
       ` ```mbt check` blocks so future docs/API drift is caught by tooling.
       README / getting-started target snippets are covered by
-      `docs/target_api_examples.mbt.md`; cookbook target, accumulator, and
+      `docs/target_api_examples.mbt.md`; concepts behavior by
+      `docs/concepts_examples.mbt.md`; cookbook target, accumulator, and
       memo-event snippets by `docs/cookbook_examples.mbt.md`; API-reference
       target facade and compatibility accumulator snippets by
       `docs/api_reference_examples.mbt.md`. Current non-archive docs no longer
