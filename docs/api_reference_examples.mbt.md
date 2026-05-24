@@ -2,13 +2,12 @@
 
 Literate tests that mirror the executable snippets in [`api-reference.md`](api-reference.md).
 They exist to catch docs/API drift on the target facade surfaces — `Derived`,
-`DerivedMap`, `ReachableDerived`, and the `RuntimeContext` / `Scope` helper
-families — beyond the README and getting-started examples already covered by
-[`target_api_examples.mbt.md`](target_api_examples.mbt.md).
-
-Snippets that legitimately require compatibility names (`Accumulator` push,
-`Memo::observe`, introspection-only handles) are not duplicated here; their
-prose examples remain in `api-reference.md`.
+`DerivedMap`, `ReachableDerived`, `MapRelation`, and the `RuntimeContext` /
+`Scope` helper families — beyond the README and getting-started examples already
+covered by [`target_api_examples.mbt.md`](target_api_examples.mbt.md). The
+accumulator examples intentionally use compatibility `Memo` handles because
+`Accumulator::push` is only legal from compatibility `Memo` / `HybridMemo`
+compute frames.
 
 ## Runtime batching and change callbacks
 
@@ -469,6 +468,61 @@ test "docs api-ref: eager_derived recomputes eagerly and can be read from outsid
   input.set(6)
   inspect(watch.read_or_abort(), content="18")
   watch.dispose()
+}
+```
+
+## `Accumulator` — compatibility push side-channel
+
+```mbt check
+///|
+test "docs api-ref: Accumulator::new and push capture memo-local values" {
+  let rt = @incr.Runtime()
+  let width = @incr.Signal(rt, -1, label="width")
+  let diags : @incr.Accumulator[String] = @incr.Accumulator::new(
+    rt~,
+    label="diags",
+  )
+  let producer = @incr.Memo(
+    rt,
+    () => {
+      if width.get() < 0 {
+        diags.push("negative width")
+      }
+      width.get()
+    },
+    label="width_check",
+  )
+  let observer = producer.observe()
+
+  debug_inspect(
+    diags.label(),
+    content=(
+      #|Some("diags")
+    ),
+  )
+  inspect(observer.get(), content="-1")
+  let first = producer.accumulated_peek(diags)
+  inspect(first.length(), content="1")
+  inspect(first[0], content="negative width")
+
+  width.set(4)
+  inspect(observer.get(), content="4")
+  debug_inspect(producer.accumulated_peek(diags), content="[]")
+  observer.dispose()
+  diags.dispose()
+}
+
+///|
+test "docs api-ref: Scope::accumulator owns accumulator disposal" {
+  let rt = @incr.Runtime()
+  let scope = @incr.Scope::new(rt)
+  let diags : @incr.Accumulator[String] = scope.accumulator(
+    label="typecheck_diags",
+  )
+
+  inspect(diags.is_disposed(), content="false")
+  scope.dispose()
+  inspect(diags.is_disposed(), content="true")
 }
 ```
 

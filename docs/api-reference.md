@@ -2,8 +2,9 @@
 
 > **Checked companion:** [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md)
 > contains literate tests that pin the target facade snippets in this document
-> (`Derived`, `DerivedMap`, `ReachableDerived`, `Scope` / `RuntimeContext`
-> helpers, and `CycleError`). The README and getting-started target snippets are
+> (`Derived`, `DerivedMap`, `ReachableDerived`, `MapRelation`, `Scope` /
+> `RuntimeContext` helpers, and `CycleError`) plus the compatibility-only
+> accumulator push path. The README and getting-started target snippets are
 > covered by [`target_api_examples.mbt.md`](target_api_examples.mbt.md).
 
 Reference for the most commonly used public APIs in `incr`. This is not exhaustive — the authoritative surface is in `pkg.generated.mbti` and `cells/pkg.generated.mbti`. APIs surfaced here: `Runtime`, `Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, legacy compatibility handles (`Signal`, `Memo`, `HybridMemo`, `MemoMap`, `TrackedCell`), `Accumulator`, `MemoEvent`, `CycleError`, the `RuntimeContext`/`Database`/`Freshness`/`Readable`/`InputFieldOwner`/`Trackable` traits, and the top-level helper functions. Specialised APIs (`EagerDerived` / `Reactive`, `Effect`, `Relation`, `MapRelation` / `FunctionalRelation`, `Scope`, `Watch` / `Observer`) are documented next to their constructors in `cells/`.
@@ -555,9 +556,9 @@ that synthetic dependency. See the ADR: [Accumulator API](decisions/2026-04-20-a
 
 Creates a runtime-owned accumulator. Lives until explicitly disposed (or until the runtime is dropped).
 
-```moonbit nocheck
-let diags : Accumulator[TypeDiagnostic] = Accumulator::new(rt~, label="diags")
-```
+The checked companion pins direct `Accumulator::new` construction, label
+introspection, and push retrieval in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 Prefer `Scope::accumulator` when a scope is available — disposal is tied to the scope's lifecycle.
 
@@ -565,9 +566,8 @@ Prefer `Scope::accumulator` when a scope is available — disposal is tied to th
 
 Creates an accumulator owned by a scope. When the scope is disposed, the accumulator is disposed automatically and cleared from the runtime.
 
-```moonbit nocheck
-let diags = scope.accumulator(label="typecheck_diags")
-```
+The checked companion covers scope-owned accumulator disposal in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 This is the preferred constructor for driver code where the accumulator's lifetime matches a larger unit of work (a chain rebuild, a compilation pass). See the [Scope-owned accumulator](cookbook.md#pattern-scope-owned-accumulator-lifecycle) cookbook pattern.
 
@@ -578,13 +578,10 @@ Appends `value` to the current compute's push buffer. Raises `Failure` if called
 - from a non-`Memo` / non-`HybridMemo` top frame
 - on a disposed accumulator
 
-Pushes within a single compute are ordered by call sequence; `Memo::accumulated` returns them in that order.
-
-```moonbit nocheck
-if width < 0 {
-  diags.push(TypeDiagnostic("negative width", span))
-}
-```
+Pushes within a single compute are ordered by call sequence;
+`Memo::accumulated` returns them in that order. The checked companion shows
+`push` inside a compatibility `Memo` compute in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ### `Accumulator::dispose(self) -> Unit`
 
@@ -1023,13 +1020,9 @@ pub(open) trait Executable {
 `MapRelation[K, V]` is the target-name facade over `FunctionalRelation[K, V]`.
 It keeps the same Datalog map behavior: `insert` stages key-value changes,
 `get` and `iter` read the current materialized map, and `delta_iter` reads the
-current frontier during fixpoint rules.
-
-```moonbit nocheck
-let weights : MapRelation[(Int, Int), Int] = MapRelation(rt)
-ignore(weights.insert((1, 2), 10))
-rt.fixpoint()
-```
+current frontier during fixpoint rules. The checked companion covers staged
+inserts, delta reads, and materialized reads after `Runtime::fixpoint` in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ---
 
@@ -1041,28 +1034,21 @@ handles from the context runtime. Compatibility helpers that take
 
 ### `create_input[Ctx : RuntimeContext, T](ctx: Ctx, value: T, durability?: Durability, label?: String) -> Input[T]`
 
-Creates a target-name `Input` using the context runtime.
-
-```moonbit nocheck
-create_input(ctx, value)
-create_input(ctx, value, durability=High, label="config")
-```
+Creates a target-name `Input` using the context runtime. The checked companion
+covers construction, labels, and derived reads in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ### `create_input_field[Ctx : RuntimeContext, T](ctx: Ctx, value: T, durability?: Durability, label?: String) -> InputField[T]`
 
-Creates a target-name `InputField` using the context runtime.
-
-```moonbit nocheck
-let path = create_input_field(ctx, "/src/main.mbt", label="SourceFile.path")
-```
+Creates a target-name `InputField` using the context runtime. The checked
+companion covers `create_input_field` with labeled fields in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ### `create_derived[Ctx : RuntimeContext, T : Eq](ctx: Ctx, f: () -> T raise Failure, label?: String) -> Derived[T]`
 
-Creates a target-name lazy `Derived` using the context runtime.
-
-```moonbit nocheck
-let doubled = create_derived(ctx, () => input.get() * 2, label="doubled")
-```
+Creates a target-name lazy `Derived` using the context runtime. The checked
+companion covers `create_derived` together with context-created inputs in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ### `create_reachable_derived[Ctx : RuntimeContext, T : Eq](ctx: Ctx, f: () -> T raise Failure, label?: String) -> ReachableDerived[T]`
 
@@ -1079,14 +1065,9 @@ Creates a target-name keyed derived map using the context runtime.
 ### `add_input_fields[T : InputFieldOwner](scope: Scope, owner: T) -> Unit`
 
 Registers every cell in an `InputFieldOwner` struct with `scope`, so disposing
-the scope disposes all of the struct's input fields in one call.
-
-```moonbit nocheck
-let scope = Scope::new(rt)
-let fields = MyInputFields(rt)
-add_input_fields(scope, fields)
-scope.dispose()
-```
+the scope disposes all of the struct's input fields in one call. The checked
+companion covers struct-owned input fields and scope disposal in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ### Scope Target Constructors and Watch Lifetimes
 
