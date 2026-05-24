@@ -450,14 +450,21 @@ dedicated migration window.
       now call `read_permissive`.
 - [ ] Convert high-value target examples to checked `.mbt.md` examples or
       ` ```mbt check` blocks so future docs/API drift is caught by tooling.
-      README / getting-started target, callback, and batch snippets are covered
-      by `docs/target_api_examples.mbt.md`; concepts behavior by
-      `docs/concepts_examples.mbt.md`; cookbook target, accumulator, and
-      memo-event snippets by `docs/cookbook_examples.mbt.md`; API-reference
-      target facade and compatibility accumulator snippets by
-      `docs/api_reference_examples.mbt.md`. Current non-archive docs no longer
-      contain explicit `moonbit nocheck` fences; continue with remaining
-      untagged `moonbit` narrative snippets.
+      Split the remaining work into two buckets:
+      - **Checked companions added:** README / getting-started target,
+        callback, and batch snippets are covered by
+        `docs/target_api_examples.mbt.md`; concepts behavior by
+        `docs/concepts_examples.mbt.md`; cookbook target, accumulator, and
+        memo-event snippets by `docs/cookbook_examples.mbt.md`; API-reference
+        target facade and compatibility accumulator snippets by
+        `docs/api_reference_examples.mbt.md`.
+      - **Narrative snippets still present:** current non-archive docs no
+        longer contain explicit `moonbit nocheck` fences, but many untagged
+        ` ```moonbit` fences remain. Prioritize public user docs first
+        (`docs/getting-started.md`, `docs/concepts.md`, `docs/cookbook.md`,
+        `docs/api-reference.md`) by either replacing already-covered snippets
+        with checked-companion pointers or adding missing checked companion
+        coverage; then triage lower-priority ADR/design/performance snippets.
 
 ### Doc-comment audits
 
