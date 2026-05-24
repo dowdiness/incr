@@ -138,8 +138,8 @@ the `dirty` field on `MemoData` is never set to `true`. All checks are no-ops. T
 clean up the dead logic.
 
 - [x] Remove `dirty` field from `MemoData` in `cells/internal/pull/memo_data.mbt` (formerly `cells/pull_memo.mbt` pre-R1)
-- [x] Remove `not(root.dirty)` guards in `cells/verify.mbt` (lines ~92, ~97, ~152)
-- [x] Remove `memo.dirty = false` assignment in `cells/verify.mbt` finalization (line ~205)
+- [x] Remove `not(root.dirty)` guards in `cells/verify.mbt` (lines ~92, ~97, ~152 pre-R1; `pull_verify` body now in `cells/internal/kernel/verify.mbt`)
+- [x] Remove `memo.dirty = false` assignment in `cells/verify.mbt` finalization (line ~205 pre-R1; finalization now in `cells/internal/kernel/verify.mbt`)
 - [x] Remove `cell.dirty = false` in `HybridMemo::get()` slow path (`cells/hybrid_memo.mbt`)
 - [x] Remove `not(cell.dirty)` from `HybridMemo::get()` fast path — collapse to `verified_at >= current_revision`
 - [x] Update `HybridMemo::get()` doc comments that reference "dirty"
