@@ -134,3 +134,63 @@ test "facade scope: target handles are disposed with scope" {
   inspect(by_key.disposed.val, content="true")
   inspect(by_key.inner.length(), content="0")
 }
+
+///|
+test "Derived::is_disposed forwards to inner Memo" {
+  let rt = Runtime::Runtime()
+  let derived = Derived::Derived(rt, () => 1)
+  inspect(derived.is_disposed(), content="false")
+  derived.inner.dispose()
+  inspect(derived.is_disposed(), content="true")
+}
+
+///|
+test "Derived::changed_at forwards to inner Memo" {
+  let rt = Runtime::Runtime()
+  let input = Input::Input(rt, 0)
+  let derived = Derived::Derived(rt, () => input.get() * 2)
+  let _ = derived.read_or_abort()
+  let rev0 = derived.changed_at()
+  // Same input value → backdating keeps changed_at stable.
+  input.set(0)
+  let _ = derived.read_or_abort()
+  inspect(derived.changed_at() == rev0, content="true")
+  // Different value advances changed_at.
+  input.set(5)
+  let _ = derived.read_or_abort()
+  inspect(derived.changed_at() == rev0, content="false")
+}
+
+///|
+test "Derived::accumulated forwards through compute closure" {
+  let rt = Runtime::Runtime()
+  let acc : Accumulator[Int] = Accumulator::new(rt~, label="diags")
+  let producer = Derived::Derived(rt, () => {
+    acc.push(7)
+    acc.push(8)
+    42
+  })
+  // Force `producer` to run once so it pushes into `acc`.
+  let _ = producer.read_or_abort()
+  // Read `producer.accumulated(acc)` from inside another Derived's compute,
+  // matching Memo::accumulated's "tracked inside a compute frame" contract.
+  let reader = Derived::Derived(rt, () => producer.accumulated(acc).length())
+  inspect(reader.read_or_abort(), content="2")
+}
+
+///|
+test "Derived::accumulated_peek forwards (untracked, defensive copy)" {
+  let rt = Runtime::Runtime()
+  let acc : Accumulator[Int] = Accumulator::new(rt~)
+  let producer = Derived::Derived(rt, () => {
+    acc.push(1)
+    acc.push(2)
+    acc.push(3)
+    0
+  })
+  let _ = producer.read_or_abort()
+  inspect(producer.accumulated_peek(acc).length(), content="3")
+  // Disposal makes peek permissive: returns [].
+  producer.inner.dispose()
+  inspect(producer.accumulated_peek(acc).length(), content="0")
+}
