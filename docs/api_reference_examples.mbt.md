@@ -10,16 +10,42 @@ Snippets that legitimately require compatibility names (`Accumulator` push,
 `Memo::observe`, introspection-only handles) are not duplicated here; their
 prose examples remain in `api-reference.md`.
 
-## Runtime and `InputField` change callbacks
+## Runtime batching and change callbacks
 
 ```mbt check
+///|
+suberror ApiRefBatchResultError {
+  ApiRefBatchStop
+}
+
+///|
+test "docs api-ref: Runtime batch_result returns Err and rolls back writes" {
+  let rt = @incr.Runtime()
+  let input = @incr.Input(rt, 0, label="input")
+  let notifications : Ref[Int] = { val: 0 }
+  rt.set_on_change(() => notifications.val = notifications.val + 1)
+
+  let result = rt.batch_result(fn() raise {
+    input.set(1)
+    raise ApiRefBatchStop
+  })
+
+  inspect(result is Err(_), content="true")
+  inspect(input.get(), content="0")
+  inspect(notifications.val, content="0")
+
+  input.set(2)
+  inspect(input.get(), content="2")
+  inspect(notifications.val, content="1")
+}
+
 ///|
 test "docs api-ref: Runtime on_change fires for committed changes" {
   let rt = @incr.Runtime()
   let input = @incr.Input(rt, 0, label="input")
   let notifications : Ref[Int] = { val: 0 }
 
-  rt.set_on_change(() => { notifications.val = notifications.val + 1 })
+  rt.set_on_change(() => notifications.val = notifications.val + 1)
 
   input.set(1)
   inspect(notifications.val, content="1")
@@ -48,7 +74,7 @@ test "docs api-ref: InputField on_change fires before Runtime on_change" {
   price.on_change(new_price => {
     log.val = log.val + "cell:" + new_price.to_string() + ";"
   })
-  rt.set_on_change(() => { log.val = log.val + "global;" })
+  rt.set_on_change(() => log.val = log.val + "global;")
 
   price.set(200)
   inspect(log.val, content="cell:200;global;")
@@ -62,6 +88,167 @@ test "docs api-ref: InputField on_change fires before Runtime on_change" {
   price.clear_on_change()
   price.set(300)
   inspect(log.val, content="cell:200;global;cell:250;global;global;")
+}
+```
+
+## `Input` and `InputField` basics
+
+```mbt check
+///|
+test "docs api-ref: Input get tracks, peek is untracked" {
+  let rt = @incr.Runtime()
+  let count = @incr.Input(rt, 1, label="count")
+  let tracked_runs : Ref[Int] = { val: 0 }
+  let peek_runs : Ref[Int] = { val: 0 }
+
+  let tracked = @incr.Derived(
+    rt,
+    () => {
+      tracked_runs.val = tracked_runs.val + 1
+      count.get() * 2
+    },
+    label="tracked_count",
+  )
+  let peeked = @incr.Derived(
+    rt,
+    () => {
+      peek_runs.val = peek_runs.val + 1
+      count.peek() * 2
+    },
+    label="peeked_count",
+  )
+
+  inspect(tracked.read_or_abort(), content="2")
+  inspect(peeked.read_or_abort(), content="2")
+  inspect(tracked_runs.val, content="1")
+  inspect(peek_runs.val, content="1")
+
+  count.set(2)
+  inspect(tracked.read_or_abort(), content="4")
+  inspect(tracked_runs.val, content="2")
+  inspect(peeked.read_or_abort(), content="2")
+  inspect(peek_runs.val, content="1")
+
+  // Same-value `set` is a no-op; `force_set` invalidates even equal values.
+  count.set(2)
+  inspect(tracked.read_or_abort(), content="4")
+  inspect(tracked_runs.val, content="2")
+  count.force_set(2)
+  inspect(tracked.read_or_abort(), content="4")
+  inspect(tracked_runs.val, content="3")
+}
+
+///|
+test "docs api-ref: InputField exposes field identity and participates in derived reads" {
+  let rt = @incr.Runtime()
+  let path = @incr.InputField(
+    rt,
+    "src/main.mbt",
+    durability=High,
+    label="SourceFile.path",
+  )
+  let read_count : Ref[Int] = { val: 0 }
+  let extension = @incr.Derived(
+    rt,
+    () => {
+      read_count.val = read_count.val + 1
+      if path.get().contains(".mbt") {
+        "moonbit"
+      } else {
+        "other"
+      }
+    },
+    label="SourceFile.extension",
+  )
+
+  inspect(path.get(), content="src/main.mbt")
+  inspect(path.peek(), content="src/main.mbt")
+  inspect(path.durability(), content="High")
+  match rt.cell_info(path.id()) {
+    Some(info) => {
+      debug_inspect(
+        info.label,
+        content=(
+          #|Some("SourceFile.path")
+        ),
+      )
+      inspect(info.durability, content="High")
+      debug_inspect(info.dependencies, content="[]")
+    }
+    None => abort("expected InputField cell_info")
+  }
+
+  inspect(extension.read_or_abort(), content="moonbit")
+  path.set("README.md")
+  inspect(extension.read_or_abort(), content="other")
+  inspect(read_count.val, content="2")
+}
+```
+
+## Labels, cycle paths, and cell introspection
+
+```mbt check
+///|
+test "docs api-ref: labels appear in cell_info and cycle errors" {
+  let rt = @incr.Runtime()
+  let version = @incr.InputField(rt, 1, label="SourceFile.version")
+  let doubled = @incr.Derived(
+    rt,
+    () => version.get() * 2,
+    label="SourceFile.version_doubled",
+  )
+
+  inspect(doubled.read_or_abort(), content="2")
+  match rt.cell_info(doubled.id()) {
+    Some(info) => {
+      debug_inspect(
+        info.label,
+        content=(
+          #|Some("SourceFile.version_doubled")
+        ),
+      )
+      inspect(info.dependencies.contains(version.id()), content="true")
+    }
+    None => abort("expected Derived cell_info")
+  }
+
+  let a_ref : Ref[@incr.Derived[Int]?] = { val: None }
+  let b_ref : Ref[@incr.Derived[Int]?] = { val: None }
+  let formatted : Ref[String] = { val: "" }
+  let a = @incr.Derived(
+    rt,
+    () => {
+      match b_ref.val {
+        Some(b) => b.get_or_abort() + 1
+        None => 0
+      }
+    },
+    label="price",
+  )
+  let b = @incr.Derived(
+    rt,
+    () => {
+      match a_ref.val {
+        Some(a0) =>
+          match a0.get() {
+            Ok(v) => v + 1
+            Err(err) => {
+              formatted.val = err.format_path()
+              -1
+            }
+          }
+        None => 0
+      }
+    },
+    label="tax",
+  )
+  a_ref.val = Some(a)
+  b_ref.val = Some(b)
+
+  let _ = a.read_or_abort()
+  inspect(formatted.val.contains("Cycle detected:"), content="true")
+  inspect(formatted.val.contains("price"), content="true")
+  inspect(formatted.val.contains("tax"), content="true")
 }
 ```
 
