@@ -2,7 +2,7 @@
 
 **Status:** Approved
 
-**Goal:** Refactor cell lifecycle operations into trait-dispatched architecture, preparing for Layer 4 (Observer + gc) without changing user-visible behavior.
+**Goal:** Refactor cell lifecycle operations into trait-dispatched architecture, preparing for Layer 4 (Watch + gc) without changing user-visible behavior.
 
 **Depends on:** Layer 1 (manual dispose), Layer 2 (Scope)
 
@@ -91,8 +91,8 @@ priv struct MemoData {
 }
 ```
 
-- Set to `false` in `Memo::_create`
-- Set to `true` in `HybridMemo::_create`
+- Set to `false` in `Memo::_create` (`cells/derived.mbt`)
+- Set to `true` in `HybridMemo::new` (`cells/reachable_derived.mbt`)
 - Not read in Layer 3 (all observe methods are no-ops)
 - Required so `CellLifecycle` impl can distinguish PullMemo from HybridMemo in Layer 4
 

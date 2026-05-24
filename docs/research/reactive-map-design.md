@@ -5,41 +5,41 @@ collection-valued results. Extends Family B from
 [reactive-collections.md](reactive-collections.md).
 
 **Status:** Exploratory. v1 → v2 revision (2026-04-19) and v2 → Codex
-validation pass (2026-04-19) both misread the `MemoMap::get` tracking
+validation pass (2026-04-19) both misread the `DerivedMap::get` tracking
 semantics — see §"Why v1's framing was wrong" below. Subsequent PR-time
 code review surfaced additional blockers on `remove_except` and cross-key
 dispose (§"Codex review 2026-04-19"). **Do not implement from this doc
 without first re-motivating the primitive** against a concrete driver;
 the originally-stated value proposition turns out to be already available
-from `MemoMap`.
+from `DerivedMap`.
 **Driver:** Lambda name resolution currently returns
-`Memo[ResolvedModule]`; any def change invalidates the whole module's
+`Derived[ResolvedModule]`; any def change invalidates the whole module's
 downstream consumers. A `ReactiveMap[DefName, ResolvedDef]` whose per-key
 reads are *tracked* lets downstream memos that read one def ignore edits
 to other defs.
 
 ## Why v1's framing was wrong (revised again)
 
-The v1 draft claimed `MemoMap::get` records no per-key dependency
+The v1 draft claimed `DerivedMap::get` records no per-key dependency
 because it called the package-private permissive read. **This is false.** That helper
 only bypasses the tracked-context *abort guard*; the underlying
 `get_result_inner` still calls `record_dependency(self.cell_id)`
-whenever a tracking frame is active (`cells/memo.mbt:238, 247, 255`;
+whenever a tracking frame is active (`cells/derived.mbt:238, 247, 255`;
 `cells/tracking.mbt:60-65` is a no-op only when the stack is empty).
 
-So `map.get(k)` called from inside another `Memo` *does* record a
+So `map.get(k)` called from inside another `Derived` *does* record a
 dep on `k`'s per-key memo. The fine-grained-isolation capability was
 already present under the existing API. Both the v1 draft and the v2
 revision misread this.
 
 **What the v2 additions actually provide:**
 
-- `MemoMap::get_tracked` — *stricter-contract* peer of `get()`. Same
+- `DerivedMap::get_or_abort` — *stricter-contract* peer of `get()`. Same
   dep-recording behavior inside a tracked context; abort rather than
   silent read at top level. Useful as a misuse guardrail, not as a
   new capability.
 - The keys-memo coordination and sweep lifecycle *are* genuinely new
-  — `MemoMap` has no notion of an upstream key set.
+  — `DerivedMap` has no notion of an upstream key set.
 
 **Does `ReactiveMap` still pay for itself?** Open question. Its
 remaining value is coordination with an upstream key set (disposal
@@ -51,15 +51,15 @@ concrete driver before writing an implementation plan.
 
 A second validation pass against current HEAD surfaced blockers the
 v1→v2 revision did not address. The central tracking claim is correct
-(`MemoMap::get_or_create_memo(key).get()` records exactly the per-key
-memo's `CellId` as a dependency, via `cells/memo.mbt:157-166` →
+(`DerivedMap::get_or_create_derived(key).get()` records exactly the per-key
+memo's `CellId` as a dependency, via `cells/derived.mbt:157-166` →
 `cells/tracking.mbt:60-65`). The broken claims are about *disposal* and
 *call context*.
 
 ### Blocker 1: Cross-key dispose aborts, doesn't recompute
 
 §"Cross-key dep + key removal: cascade via dispose" (below) claims that
-disposing k₂'s memo via `sweep()` invalidates subscribers and triggers
+disposing k₂'s memo via `sweep_cache()` invalidates subscribers and triggers
 k₁'s recompute on next verify. **This is false at HEAD.** The pull-memo
 dispose path (`cells/pull_memo_lifecycle.mbt:8-22`) removes the disposed
 memo from its own upstream deps and clears its own subscriber set — but
@@ -82,7 +82,7 @@ Two options to resolve:
 
 ### Blocker 2: `ReactiveMap::get` is tracked-only
 
-`Memo::get` aborts at top level (`cells/memo.mbt:157-163`) — unlike
+`Derived::get` aborts at top level (`cells/derived.mbt:157-163`) — unlike
 `Relation::iter` / `Relation::contains`, which are usable outside a
 tracking context. The API sketch's `ReactiveMap::get` inherits this
 restriction: top-level (non-memo) reads abort. The driver example in
@@ -98,8 +98,8 @@ call contexts use which, or (b) document that
 
 §"Integration with existing engine" claims "Non-changes: pull
 verification". This is wrong once Blocker 1 is considered:
-`MemoMap::remove_except` triggers the same disposed-dep abort path as
-`sweep()`. It is *safe to call only when no downstream memo references
+`DerivedMap::remove_except` triggers the same disposed-dep abort path as
+`sweep_cache()`. It is *safe to call only when no downstream memo references
 the removed keys* — a contract the caller must enforce. Document this,
 or block `remove_except` behind Blocker 1's engine work.
 
@@ -107,16 +107,16 @@ or block `remove_except` behind Blocker 1's engine work.
 
 The 2–3 day / 2–3 PR estimate is credible for **"tracked per-key memo
 lookup exists without cross-key deps"** (Blocker 2 resolution +
-`MemoMap::get_tracked` alone). It is not credible for **"cross-key deps
+`DerivedMap::get_or_abort` alone). It is not credible for **"cross-key deps
 plus key removal are safe"** (Blocker 1 Option B), which requires
 engine work in `verify.mbt` and the dispose lifecycle and should be
 scoped separately.
 
 ### Recommended next step
 
-Land `MemoMap::get_tracked` alone as a standalone PR (3-line addition,
+Land `DerivedMap::get_or_abort` alone as a standalone PR (3-line addition,
 Codex-confirmed tracking path is correct). Do **not** land
-`MemoMap::remove_except` or `ReactiveMap` itself until the cross-key
+`DerivedMap::remove_except` or `ReactiveMap` itself until the cross-key
 dispose semantics are resolved. Then pick Option A (ship v1 with
 no-cross-key-deps restriction) or Option B (engine work, larger scope).
 
@@ -133,7 +133,7 @@ no-cross-key-deps restriction) or Option B (engine work, larger scope).
 The revised design treats `ReactiveMap` as a *lens*, not an input
 container:
 
-- The **key set** is a `Memo[Set[K]]` or `Signal[Set[K]]` owned by the
+- The **key set** is a `Derived[Set[K]]` or `Input[Set[K]]` owned by the
   caller (typically derived from a parsed source).
 - The **per-key compute** is a function fixed at construction.
 - The primitive's job is to offer two read channels — coarse
@@ -149,13 +149,13 @@ considered in §Alternatives.
 ```moonbit
 pub struct ReactiveMap[K, V] {
   priv rt : Runtime
-  priv keys : Memo[@immut/hashset.T[K]]
-  priv cells : MemoMap[K, V]
+  priv keys : Derived[@immut/hashset.T[K]]
+  priv cells : DerivedMap[K, V]
 }
 
 pub fn[K : Hash + Eq, V : Eq] ReactiveMap::new(
   rt : Runtime,
-  keys : Memo[@immut/hashset.T[K]],
+  keys : Derived[@immut/hashset.T[K]],
   compute : (K) -> V,
   label? : String,
 ) -> ReactiveMap[K, V]
@@ -164,7 +164,7 @@ pub fn[K : Hash + Eq, V : Eq] ReactiveMap::new(
 // only — NOT on the upstream key set. Used inside compute closures
 // that only care about one key's value.
 //
-// Requires MemoMap::get_tracked (new — see §Integration).
+// Requires DerivedMap::get_or_abort (new — see §Integration).
 pub fn[K : Hash + Eq, V : Eq] ReactiveMap::get(
   self : ReactiveMap[K, V],
   key : K,
@@ -188,37 +188,37 @@ pub fn[K : Hash + Eq, V : Eq] ReactiveMap::iter(
 // set. Idempotent. Call periodically (e.g. after each
 // Runtime::fire_on_change cycle) to prevent unbounded memo growth.
 //
-// Requires MemoMap::remove_except (new — see §Integration).
+// Requires DerivedMap::remove_except (new — see §Integration).
 pub fn[K : Hash + Eq, V] ReactiveMap::sweep(
   self : ReactiveMap[K, V],
 ) -> Int
 ```
 
-No mutation API on `ReactiveMap`. The upstream `keys : Memo` changes
+No mutation API on `ReactiveMap`. The upstream `keys : Derived` changes
 as its dependencies change; `ReactiveMap` reacts.
 
 ## Key design decisions
 
-### Tracked per-key read requires a `MemoMap` addition [SUPERSEDED]
+### Tracked per-key read requires a `DerivedMap` addition [SUPERSEDED]
 
-> **[SUPERSEDED]** The premise here ("`MemoMap::get` is deliberately
+> **[SUPERSEDED]** The premise here ("`DerivedMap::get` is deliberately
 > untracked") is wrong in the sense that matters for per-key
-> isolation — `MemoMap::get` DOES record the per-key memo as a
+> isolation — `DerivedMap::get` DOES record the per-key memo as a
 > dependency when called inside a tracked context. The addition that
-> actually shipped (`MemoMap::get_tracked`, PR #41) is a misuse
+> actually shipped (`DerivedMap::get_or_abort`, PR #41) is a misuse
 > guardrail, not a new tracking capability. See "Why v1's framing was
 > wrong" at the top of this doc.
 
-`MemoMap::get` is deliberately untracked (it's called from test and
+`DerivedMap::get` is deliberately untracked (it's called from test and
 lifecycle code). `ReactiveMap::get` needs a *tracked* read path. Add
-to `MemoMap`:
+to `DerivedMap`:
 
 ```moonbit
-pub fn[K : Hash + Eq, V : Eq] MemoMap::get_tracked(
-  self : MemoMap[K, V],
+pub fn[K : Hash + Eq, V : Eq] DerivedMap::get_or_abort(
+  self : DerivedMap[K, V],
   key : K,
 ) -> V {
-  self.get_or_create_memo(key).get()  // .get() is tracked
+  self.get_or_create_derived(key).get()  // .get() is tracked
 }
 ```
 
@@ -228,9 +228,9 @@ should land as a standalone PR before `ReactiveMap` builds on it.
 ### Absent-key semantics: auto-create, sweep explicitly
 
 `get(k)` for a key not in the upstream set *still creates and computes
-the per-key memo* — matching existing `MemoMap` behavior. The upstream
+the per-key memo* — matching existing `DerivedMap` behavior. The upstream
 `keys` memo is advisory, not enforced. Consistency is maintained by
-periodic `sweep()`, which disposes memos for keys that have left the
+periodic `sweep_cache()`, which disposes memos for keys that have left the
 upstream set.
 
 Alternatives considered:
@@ -261,7 +261,7 @@ If `compute(k1)` reads `rm.get(k2)` and `k2` is removed (disposed by
 `sweep`), the existing dispose path in `incr` invalidates subscribers
 of `k2`'s memo. On `k1`'s next verify, it sees a disposed dep and
 recomputes. If the recomputation no longer reads `k2`, no dangling
-reference; if it does, `MemoMap::get_or_create_memo` auto-creates a
+reference; if it does, `DerivedMap::get_or_create_derived` auto-creates a
 fresh entry.
 
 This works *if* subscribers are correctly notified on dispose — which
@@ -270,10 +270,10 @@ they are (PR #32's push-suspension machinery). Verify with a test.
 ### Scope integration is explicit, not ambient
 
 There is no ambient scope in `incr`. To integrate `ReactiveMap` with
-`Scope`-based lifecycle, add a `Scope::reactive_map(...)` constructor
+`Scope`-based lifecycle, add a `Scope::eager_derived_map(...)` constructor
 that registers `sweep` + final disposal on the scope's
-`dispose_hooks`. This is analogous to `Scope::signal` and
-`Scope::memo`.
+`dispose_hooks`. This is analogous to `Scope::input` and
+`Scope::derived`.
 
 ## Calling-site example
 
@@ -281,7 +281,7 @@ Before (lambda name resolution today):
 
 ```moonbit
 // One coarse memo — any def change invalidates the whole thing.
-let resolved : Memo[ResolvedModule] = Memo::new(rt, () =>
+let resolved : Derived[ResolvedModule] = Derived(rt, () =>
   resolve_all_defs(parse_memo.get())
 )
 
@@ -295,7 +295,7 @@ After:
 
 ```moonbit
 // Upstream: key set is itself a memo over parsed defs.
-let def_names : Memo[@immut/hashset.T[DefName]] = Memo::new(rt, () =>
+let def_names : Derived[@immut/hashset.T[DefName]] = Derived(rt, () =>
   parse_memo.get().defs.keys().collect()
 )
 
@@ -329,23 +329,23 @@ only when `foo`'s def changes, not when `bar`'s def changes.
    in which `get(k)` is called.
 4. **Advisory key set.** `get(k)` works for any `k`, regardless of
    whether `k` is in the upstream set. Consistency is an explicit
-   `sweep()` call, not an automatic check.
+   `sweep_cache()` call, not an automatic check.
 5. **Backdating.** Requires `V : Eq`; per-key memos use existing memo
    backdating. A `compute(k)` that returns a value equal to the
    cached one does not invalidate downstream.
 6. **Cross-key deps work.** A memo for `k1` that reads `get(k2)`
    records `k2`'s memo as a dep; edits to `k2` invalidate `k1`.
    **[SUPERSEDED — Blocker 1]** Edits-to-`k2` invalidation works, but
-   `sweep()`/`clear()` of `k2` does not cascade-invalidate; it causes
+   `sweep_cache()`/`clear()` of `k2` does not cascade-invalidate; it causes
    `k1`'s next verify to abort on the disposed dep.
 
 ## Open questions
 
 - **HashSet `Eq`.** Does `@immut/hashset.T[K]` implement structural
-  `Eq` so `Memo[Set[K]]` backdating works? Verify before committing
+  `Eq` so `Derived[Set[K]]` backdating works? Verify before committing
   to the type signature. (If not, the user can wrap in a newtype with
   a custom `Eq`.)
-- **Sweep frequency.** Who calls `sweep()`? Options: (a) caller's
+- **Sweep frequency.** Who calls `sweep_cache()`? Options: (a) caller's
   responsibility, (b) wired to `Runtime::fire_on_change`, (c) tied
   to scope dispose only. Proposal: (a) for v1 — explicit is better
   than magic; revisit after a real consumer exists.
@@ -364,7 +364,7 @@ only when `foo`'s def changes, not when `bar`'s def changes.
   invalidates `k1`'s memo.
 - Cycle across keys: `compute(k1)` reads `get(k2)` and vice versa;
   `get_result` returns `CycleError`.
-- `sweep`: after upstream key set drops `k`, `sweep()` disposes
+- `sweep`: after upstream key set drops `k`, `sweep_cache()` disposes
   `k`'s memo; subsequent `get(k)` auto-creates a fresh entry.
 - Cross-key + sweep: if `compute(k1)` depends on `get(k2)` and `k2`
   is swept, `k1`'s next verify recomputes. No dangling reads.
@@ -373,20 +373,20 @@ only when `foo`'s def changes, not when `bar`'s def changes.
   fail; see Blocker 1 above.
 - Backdating: upstream keys memo emits the same set on a
   non-structural edit; `keys()` consumers don't re-run.
-- Scope: `Scope::reactive_map` constructor; scope dispose sweeps all
+- Scope: `Scope::eager_derived_map` constructor; scope dispose sweeps all
   and disposes the map.
 
 ## Integration with existing engine
 
 Three additions required (in order):
 
-1. **`MemoMap::get_tracked(k) -> V`** — thin tracked wrapper over the
-   inner `Memo::get`. 3 lines. Ships as a standalone PR.
-2. **`MemoMap::remove_except(keys : Set[K]) -> Int`** — bulk disposal
+1. **`DerivedMap::get_or_abort(k) -> V`** — thin tracked wrapper over the
+   inner `Derived::get`. 3 lines. Ships as a standalone PR.
+2. **`DerivedMap::remove_except(keys : Set[K]) -> Int`** — bulk disposal
    of entries not in `keys`. Returns count disposed. ~15 lines. Ships
    with `ReactiveMap` since it's `ReactiveMap`'s driver.
-3. **`Scope::reactive_map(...)` constructor** — analogous to
-   `Scope::memo`. Optional for v1; can be added post-facto.
+3. **`Scope::eager_derived_map(...)` constructor** — analogous to
+   `Scope::derived`. Optional for v1; can be added post-facto.
 
 Non-changes: pull verification, subscription/dispose cascade, batch,
 durability.
@@ -398,10 +398,10 @@ durability.
 
 ## Scope estimate
 
-- `MemoMap::get_tracked` + `MemoMap::remove_except` + tests:
+- `DerivedMap::get_or_abort` + `DerivedMap::remove_except` + tests:
   ~0.5 day.
 - `ReactiveMap` source + tests: ~1 day.
-- `Scope::reactive_map` + test: ~0.5 day (can defer).
+- `Scope::eager_derived_map` + test: ~0.5 day (can defer).
 - Docs: cookbook entry, `reactive-collections.md` update, concepts
   note. ~0.5 day.
 - **Total: 2–3 days** of focused work, landing as 2–3 PRs.
@@ -409,13 +409,13 @@ durability.
 ## Alternatives considered
 
 **Self-contained with mutation API.** `insert_key(k)` / `remove_key(k)`
-on `ReactiveMap`, owning an internal `Signal[Set[K]]`. Rejected: adds
+on `ReactiveMap`, owning an internal `Input[Set[K]]`. Rejected: adds
 mutation-state to the primitive and forces users to manually
 synchronize with whatever upstream source actually drives the key set.
 For the driver (name resolution) the keys come from parsing —
 deriving from upstream is the natural shape.
 
-**Expose inner `Memo[V]` instead of `V`.** `get_memo(k) -> Memo[V]`,
+**Expose inner `Derived[V]` instead of `V`.** `get_memo(k) -> Derived[V]`,
 user calls `.get()`. Rejected: leaks internal cell identity, makes
 disposal semantics confusing (user might hold a reference to a
 disposed memo), and doesn't save any code over `get_tracked`.
@@ -423,7 +423,7 @@ disposed memo), and doesn't save any code over `get_tracked`.
 ## Non-goals
 
 - **Dynamic key-set derivation from scratch.** Users wire the
-  upstream `keys : Memo[Set[K]]` themselves. `ReactiveMap` does not
+  upstream `keys : Derived[Set[K]]` themselves. `ReactiveMap` does not
   infer keys from insertions.
 - **Aggregations (sum, fold, join across keys).** These still re-run
   on any key change. Family A (delta streams) is the direction.

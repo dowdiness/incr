@@ -1088,7 +1088,7 @@ add_input_fields(scope, fields)
 scope.dispose()
 ```
 
-### Scope Target Constructors
+### Scope Target Constructors and Watch Lifetimes
 
 `Scope` also exposes target constructor methods that automatically register
 owned cells for disposal:
@@ -1100,6 +1100,10 @@ owned cells for disposal:
 - `scope.eager_derived(compute) -> EagerDerived[T]`
 - `scope.derived_map(f, label?) -> DerivedMap[K, V]`
 - `scope.accumulator(label?) -> Accumulator[T]`
+
+Use `scope.add_watch(watch) -> Watch[T]` to tie a long-lived target `Watch` to
+the same scope. Disposing the scope disposes the watch before owned cells are
+disposed.
 
 ### Compatibility helpers
 

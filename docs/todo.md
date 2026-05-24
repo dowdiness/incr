@@ -21,7 +21,7 @@ Concrete, actionable tasks for the `incr` library.
 
 - [x] **Per-recompute allocation elimination (tracking-buffer reuse)** — `cells/internal/kernel/state.mbt` (`ActiveQuery`). **Shipped 2026-05-16** as lazy-allocation of the 2 accumulator-only fields (`accumulator_reads`, `touched_accumulator_slots`). Microbench probe rejected the pool-reuse half of the plan (~2% / within σ); lazy-allocation alone delivered −15.9% on 1000-reactive fanout (−46 ns/r). Result + corrected estimates: [docs/performance/2026-05-16-tracking-buffer-lazy-alloc.md](performance/2026-05-16-tracking-buffer-lazy-alloc.md).
 
-- [x] **Disposed-cell-on-same-signal anomaly — retracted 2026-05-17.** The 2026-05-16 cost-decomp doc claimed 100 reactives disposed on one signal cost 27 µs per `Signal::set` vs 45 ns on a separate signal. Reproduction on `fed9428` measured both at ~45 ns — indistinguishable from the cold-runtime baseline. The 27 µs cost attributed to the disposed bench was actually the `100 abandoned reactives` bench (`tests/bench_test.mbt:216`), where the SoA still holds the live reactives because `rt.gc()` is never called and `push.node_count` is 100. Labels swapped in the original analysis; no bug exists. Regression guard: `cells/push_reactive_wbtest.mbt` "dispose: 100 reactives on one signal leave subscribers empty and node_count zero". Cost-decomp doc corrected in the same commit.
+- [x] **Disposed-cell-on-same-signal anomaly — retracted 2026-05-17.** The 2026-05-16 cost-decomp doc claimed 100 reactives disposed on one signal cost 27 µs per `Signal::set` vs 45 ns on a separate signal. Reproduction on `fed9428` measured both at ~45 ns — indistinguishable from the cold-runtime baseline. The 27 µs cost attributed to the disposed bench was actually the `100 abandoned reactives` bench (`tests/bench_test.mbt:216`), where the SoA still holds the live reactives because `rt.gc()` is never called and `push.node_count` is 100. Labels swapped in the original analysis; no bug exists. Regression guard: `cells/eager_derived_wbtest.mbt` "dispose: 100 reactives on one signal leave subscribers empty and node_count zero". Cost-decomp doc corrected in the same commit.
 
 - [ ] **Push-engine scheduler rewrite** (deferred) — replace `@priority_queue.PriorityQueue[PushEntry]` heap with level-bucketed dirty list (`Array[Array[CellRef]]` indexed by topological level). Removes log N heap ops + one allocation per push entry. Estimated ~30–50 ns/reactive at N=1000. This is the *other half* of what alien-signals does in Vue 3.6. Defer until tracking-buffer reuse lands.
 
@@ -111,24 +111,24 @@ Concrete, actionable tasks for the `incr` library.
 - [x] Add `Runtime::dependents(CellId) -> Array[CellId]` (requires subscriber links)
 - [x] Add `CellOps` trait for uniform cell dispatch (`cells/cell_ops.mbt`)
 - [x] Add `Committable` trait for batch-commit dispatch
-- [x] Add `Reactive[T]` push-mode derived cell (`cells/push_reactive.mbt`)
+- [x] Add `Reactive[T]` push-mode derived cell (`cells/eager_derived.mbt`)
 - [x] Add `Effect` push-mode side-effect cell (`cells/push_effect.mbt`)
 - [x] Add level-sorted push propagation engine (`cells/push_propagate.mbt`)
-- [x] Add `HybridMemo[T]` push-pull hybrid memo (`cells/hybrid_memo.mbt`)
+- [x] Add `HybridMemo[T]` push-pull hybrid memo (`cells/reachable_derived.mbt`)
 - [x] Add `create_hybrid_memo` Database helper and `Readable` impl
 - [x] Re-export `HybridMemo` from root facade (`incr.mbt`)
 - [x] Add Datalog primitives: `Relation[T]`, `Rule`, `Runtime::fixpoint()`
 
 ## Tracked Struct Support
 
-- [x] Add `TrackedCell[T]` wrapping `Signal[T]` for field-level dependency isolation (`cells/tracked_cell.mbt`)
+- [x] Add `TrackedCell[T]` wrapping `Signal[T]` for field-level dependency isolation (`cells/input_field.mbt`)
 - [x] Add full `TrackedCell` API: `new`, `get`, `get_result`, `set`, `set_unconditional`, `id`, `durability`, `on_change`, `clear_on_change`, `is_up_to_date`, `as_signal`
 - [x] Add `Trackable` trait with `cell_ids(Self) -> Array[CellId]`
 - [x] Add `Readable` impl for `TrackedCell[T]`
 - [x] Add `create_tracked_cell` helper function (mirrors `create_signal` pattern)
 - [x] Add `gc_tracked[T : Trackable](rt, tracked)` no-op stub (call site established for Phase 4 migration)
 - [x] Re-export `TrackedCell` from root facade (`incr.mbt`)
-- [x] Whitebox tests in `cells/tracked_cell_wbtest.mbt`
+- [x] Whitebox tests in `cells/input_field_wbtest.mbt`
 - [x] Integration tests in `tests/tracked_struct_test.mbt`
 
 ## Cleanup: Vestigial `dirty` Flag
@@ -140,10 +140,10 @@ clean up the dead logic.
 - [x] Remove `dirty` field from `MemoData` in `cells/internal/pull/memo_data.mbt` (formerly `cells/pull_memo.mbt` pre-R1)
 - [x] Remove `not(root.dirty)` guards in `cells/verify.mbt` (lines ~92, ~97, ~152 pre-R1; `pull_verify` body now in `cells/internal/kernel/verify.mbt`)
 - [x] Remove `memo.dirty = false` assignment in `cells/verify.mbt` finalization (line ~205 pre-R1; finalization now in `cells/internal/kernel/verify.mbt`)
-- [x] Remove `cell.dirty = false` in `HybridMemo::get()` slow path (`cells/hybrid_memo.mbt`)
+- [x] Remove `cell.dirty = false` in `HybridMemo::get()` slow path (`cells/reachable_derived.mbt`)
 - [x] Remove `not(cell.dirty)` from `HybridMemo::get()` fast path — collapse to `verified_at >= current_revision`
 - [x] Update `HybridMemo::get()` doc comments that reference "dirty"
-- [x] Update `cells/hybrid_memo.mbt` top-of-file doc comment referencing dirty flag
+- [x] Update `cells/reachable_derived.mbt` top-of-file doc comment referencing dirty flag
 
 ## HybridMemo Lifecycle
 
@@ -175,7 +175,7 @@ clean up the dead logic.
 - [x] Improve `Memo::get` abort message to use `CycleError::format_path`
 - [x] Centralize cycle-path construction with `CycleError::from_path(path, closing_id)`
 - [x] Move pipeline traits to `pipeline/pipeline_traits.mbt`; mark experimental in docs
-- [x] Convert safe C-style loops to idiomatic `for .. in` syntax in `memo.mbt` and `runtime.mbt`
+- [x] Convert safe C-style loops to idiomatic `for .. in` syntax in `derived.mbt` and `runtime.mbt`
 - [x] Replace `Array[CellMeta]` with SoA layout: `pull_signals : Array[PullSignalData]`, `pull_memos : Array[PullMemoData]`, `cell_index : Array[CellRef]`
 - [x] Add `CellRef` enum (`PullSignal(Int) | PullMemo(Int)`) for O(1) dispatch via `cell_index`
 - [x] Replace `maybe_changed_after` with `pull_verify` using explicit `PullVerifyFrame` stack
@@ -325,7 +325,7 @@ Post-Stage-5 audit of `cells/` + Codex validation. Stage 6 (engine extraction) r
 Six cell read paths inlined the same ~10-line `current_computing_runtime_id` guard (abort on cross-runtime, reset global before aborting). `Memo::get_result_inner` uniquely had a *forgiving* variant that additionally repairs stale global state when this runtime's tracking stack is empty — required for panic-test isolation because `read_permissive` / `MemoMap` bypass the outer strict check.
 
 - [x] Extract `Runtime::check_cross_runtime(cell_runtime_id, kind)` helper (strict variant) — `cells/tracking.mbt:68` (was `:149` pre-R1)
-- [x] Replace 6 strict sites: `signal.mbt`, `memo.mbt` (outer), `hybrid_memo.mbt`, `push_reactive.mbt`, `datalog_relation.mbt`, `datalog_functional_relation.mbt`
+- [x] Replace 6 strict sites: `input.mbt`, `derived.mbt` (outer), `reachable_derived.mbt`, `eager_derived.mbt`, `datalog_relation.mbt`, `datalog_map_relation.mbt`
 - [x] Leave `Memo::get_result_inner` with its original forgiving repair logic — it cannot be unified with the strict helper because "stale-global" vs "legitimate cross-runtime" cannot be distinguished locally without a global runtime registry (the forgiving repair relies on checking THIS runtime's stack, which is correct only because `read_permissive` / `MemoMap` paths are same-runtime by construction)
 
 **What the audit got wrong:** the "latent bug" framing was overstated — the memo inner's repair is intentional defensive code for panic-test isolation, not a drifted invariant that should be applied everywhere. An attempted unified "repair everywhere" helper broke 5 tests (4 false-negative cross-runtime aborts + 1 surfaced state-leak). Codex's original direction (unify) was correct; the specific generalization (apply memo inner's heuristic uniformly) was not safe.

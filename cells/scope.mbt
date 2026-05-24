@@ -281,6 +281,21 @@ pub fn[T] Scope::add_observer(self : Scope, obs : Observer[T]) -> Observer[T] {
 }
 
 ///|
+/// Registers a watch with this scope for automatic disposal.
+///
+/// When the scope is disposed, the watch is disposed in the dispose_hooks
+/// phase (step 2 of disposal order — after children, before owned cells).
+///
+/// Returns the watch for immediate use.
+pub fn[T] Scope::add_watch(self : Scope, watch : Watch[T]) -> Watch[T] {
+  guard !self.disposed else {
+    abort("Scope::add_watch called on a disposed scope")
+  }
+  self.dispose_hooks.push(fn() { watch.dispose() })
+  watch
+}
+
+///|
 /// Registers an array of CellIds with this scope for bulk disposal.
 ///
 /// When the scope is disposed, all registered cells are disposed.

@@ -40,9 +40,9 @@ moon info           # Regenerate all pkg.generated.mbti files
 
 Targeted runs:
 ```bash
-moon test -p dowdiness/incr/cells -f memo_test.mbt        # one file
-moon test -p dowdiness/incr/cells -f memo_test.mbt -i 0   # one test by index
-moon test -p dowdiness/incr/tests                          # integration tests only
+moon test cells/derived_test.mbt                            # one file
+moon test cells/derived_test.mbt -i 0                       # one test by index
+moon test tests                                             # integration tests only
 ```
 
 There is no CI in this submodule directory. CI runs from the parent `canopy` repo.

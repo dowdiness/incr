@@ -51,9 +51,10 @@ x.set(5)
 inspect(sum.read_or_abort(), content="25")
 ```
 
-When a group of cells shares a lifetime, construct them through a `Scope`
-(`scope.input(...)`, `scope.derived(...)`) so one `scope.dispose()` tears the
-group down. See [Getting Started](docs/getting-started.md).
+When a group of cells or long-lived reads shares a lifetime, construct cells
+through a `Scope` (`scope.input(...)`, `scope.derived(...)`) and register
+watches with `scope.add_watch(...)` so one `scope.dispose()` tears the group
+down. See [Getting Started](docs/getting-started.md).
 
 > **Note on the example above:** It is `nocheck` because this Markdown file is not a MoonBit package. The same construction is checked in [`docs/target_api_examples.mbt.md`](docs/target_api_examples.mbt.md) and exercised end-to-end by [`tests/quickstart_test.mbt`](tests/quickstart_test.mbt) — if you edit the example, update those in lockstep.
 

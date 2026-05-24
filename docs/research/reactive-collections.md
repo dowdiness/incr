@@ -9,13 +9,13 @@ Phase 4E / Phase 5 for related open questions.
 
 ## The Problem
 
-When a memo returns a collection — `Memo[HashMap[K, V]]`, `Memo[Array[Def]]`,
+When a memo returns a collection — `Derived[HashMap[K, V]]`, `Derived[Array[Def]]`,
 etc. — the current engine treats the whole return value as the unit of change.
 Any downstream consumer re-runs when *any* key changes, even if it only cares
 about one key. The ad-hoc fix is to structure the computation as
-`MemoMap[K, V]` up front, but this requires knowing the key set in advance and
-scatters the pattern across primitives (`MemoMap`, `InternTable`,
-`TrackedCell`).
+`DerivedMap[K, V]` up front, but this requires knowing the key set in advance and
+scatters the pattern across primitives (`DerivedMap`, `InternTable`,
+`InputField`).
 
 The research question: **how do other systems propagate *which keys changed*
 instead of "the whole collection changed"?**
@@ -69,13 +69,13 @@ from *choosing* to split the computation across many cells/memos.
 
 ## Fit for `incr`
 
-`incr`'s existing shape: pull-based `Signal`/`Memo` with backdating, push-based
-`Reactive`/`Effect`, `HybridMemo`, semi-naive Datalog (`Relation[T]`),
-`MemoMap[K, V]`, `TrackedCell[T]`, `InternTable[T]`.
+`incr`'s existing shape: pull-based `Input`/`Derived` with backdating, push-based
+`EagerDerived`/`Effect`, `ReachableDerived`, semi-naive Datalog (`Relation[T]`),
+`DerivedMap[K, V]`, `InputField[T]`, `InternTable[T]`.
 
-- **Family B is the least-friction extension.** `MemoMap[K, V]` is already
+- **Family B is the least-friction extension.** `DerivedMap[K, V]` is already
   skeletal Family B; what's missing is an ergonomic `ReactiveMap[K, V]`
-  façade pairing a `Signal[Set[K]]` (key set) with per-key memos. No engine
+  façade pairing a `Input[Set[K]]` (key set) with per-key memos. No engine
   rework; preserves pull-based backdating. This is the natural direction for
   "incremental name resolution"-shaped problems in downstream language
   tooling.
@@ -104,17 +104,17 @@ drive it.
 
 Three ingredients, ordered by how much they disrupt the existing engine.
 
-**1. First-class names on memos.** Today `Memo::new` creates a fresh cell
+**1. First-class names on memos.** Today `Derived(...)` creates a fresh cell
 at each call site; identity is runtime-assigned via `CellId`. Family C
 needs *programmer-chosen* names so "the memo for subtree at position X"
 stays the same cell across rebuilds. API shape:
 
 ```moonbit
-pub fn[T] Memo::new_named(
+pub fn[T] Derived::named(
   rt : Runtime,
   name : Name,          // hierarchical, hashable
   compute : () -> T,
-) -> Memo[T]
+) -> Derived[T]
 ```
 
 Lookup is idempotent: same name in the current scope → same cell.
@@ -147,14 +147,14 @@ larger effort.
 | Family C needs | `incr` has today | Gap |
 |---|---|---|
 | Stable thunk identity | `CellId` (runtime-assigned) | Programmer-supplied names |
-| Keyed memoization | `MemoMap[K, V]` | Close — keys are flat, no hierarchical scoping |
+| Keyed memoization | `DerivedMap[K, V]` | Close — keys are flat, no hierarchical scoping |
 | Hash-consed IDs | `InternTable[T]` | Directly reusable as the `Name` type |
-| GC / lifecycle | `Scope` + `Observer` + `gc()` | Compatible — named memos hang off scopes |
+| GC / lifecycle | `Scope` + `Watch` + `gc()` | Compatible — named memos hang off scopes |
 | Persistent collections | MoonBit stdlib `@immut/*` | No memo-aware wrappers |
 
-`MemoMap` + `InternTable` + `Scope` already cover ~80% of the skeleton.
+`DerivedMap` + `InternTable` + `Scope` already cover ~80% of the skeleton.
 The genuinely new primitive is **hierarchical scoping** — conceptually a
-`MemoMap` keyed by `(ScopeId, LocalName)` with articulation points that
+`DerivedMap` keyed by `(ScopeId, LocalName)` with articulation points that
 push/pop the current scope on a runtime-wide stack.
 
 ### Hard parts
@@ -210,11 +210,11 @@ engine cost.
    suite that exercises the known failure modes (duplicate names,
    mis-scoped names, cross-runtime leakage).
 2. **`NamedMemo` + articulation.** Land as an experimental primitive
-   parallel to `MemoMap`. No structural-sharing collections yet.
+   parallel to `DerivedMap`. No structural-sharing collections yet.
 3. **One persistent collection.** `IncrMap[K, V]` or `IncrList[T]` on
    top of the primitive. Drive it with a concrete consumer — probably
    an evaluator microdemo.
-4. **GC integration.** Wire named memos into `Scope` / `Observer` /
+4. **GC integration.** Wire named memos into `Scope` / `Watch` /
    `gc()`. This is the step most likely to surface design problems.
 5. **Graduate or abandon.** Based on whether the demo's incrementality
    wins pay for the primitive's complexity.
@@ -290,7 +290,7 @@ Read these first to establish the conceptual vocabulary.
    [github.com/salsa-rs/salsa/issues/41](https://github.com/salsa-rs/salsa/issues/41)
    Long-running design discussion. Shows what a pull-first system looks
    like when it grapples with exposing deltas. Directly relevant to
-   `incr`'s `HybridMemo` design choices.
+   `incr`'s `ReachableDerived` design choices.
 
 9. **SolidJS — stores** —
    [docs.solidjs.com/concepts/stores](https://docs.solidjs.com/concepts/stores) ·

@@ -771,6 +771,18 @@ Compatibility `TrackedCell` structs use `Trackable` and `add_tracked(scope,
 tracked)`. `gc_tracked` is deprecated and remains a no-op kept for source
 compatibility.
 
+### Lifecycle: Register Watches with a Scope
+
+Use `scope.add_watch(derived.watch())` when an outside-graph reader should live
+exactly as long as a `Scope`:
+
+```moonbit nocheck
+let scope = @incr.Scope::new(rt)
+let watch = scope.add_watch(summary.watch())
+inspect(watch.read_or_abort(), content="42")
+scope.dispose()  // disposes the watch before scope-owned cells
+```
+
 ### Migration: Input[MyStruct] → Field-Level Inputs
 
 If you have an existing `Input[MyStruct]` and derived recomputation is too coarse, migrate field by field:

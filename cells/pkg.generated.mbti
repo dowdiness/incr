@@ -279,6 +279,7 @@ pub struct Scope {
 pub fn[T : Eq] Scope::accumulator(Self, label? : String) -> Accumulator[T]
 pub fn Scope::add_cell_ids(Self, Array[@types.CellId]) -> Unit
 pub fn[T] Scope::add_observer(Self, Observer[T]) -> Observer[T]
+pub fn[T] Scope::add_watch(Self, Watch[T]) -> Watch[T]
 pub fn Scope::child(Self) -> Self
 pub fn[T : Eq] Scope::derived(Self, () -> T raise Failure, label? : String) -> Derived[T]
 pub fn[K : Hash + Eq, V] Scope::derived_map(Self, (K) -> V raise Failure, label? : String) -> DerivedMap[K, V]

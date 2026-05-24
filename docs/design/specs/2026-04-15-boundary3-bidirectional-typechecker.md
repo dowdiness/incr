@@ -2,7 +2,7 @@
 
 **Status:** Design — ready for implementation planning
 
-**Goal:** Infrastructure validation — exercise InternTable, MemoMap, Scope-managed Memo chains, and diagnostic collection in `incr`. The type system is intentionally minimal; correctness of the incremental architecture matters more than language expressiveness.
+**Goal:** Infrastructure validation — exercise InternTable, DerivedMap, Scope-managed Derived chains, and diagnostic collection in `incr`. The type system is intentionally minimal; correctness of the incremental architecture matters more than language expressiveness.
 
 **Location:** `loom/examples/lambda/src/typecheck/`
 
@@ -130,7 +130,7 @@ No position info — the AST doesn't carry spans and this is infrastructure vali
 
 ### TypeEnv
 
-Plain immutable linked list — NOT a Signal or Memo:
+Plain immutable linked list — NOT a Input or Derived:
 
 ```moonbit
 enum TypeEnv {
@@ -179,9 +179,9 @@ InternTable::len(self) -> Int
 > shrunk to `{ name }` and position lookup moved to a `name_to_idx : HashMap[String, Int]`
 > on `PipelineState`. Inserting a def at position 0 no longer changes any existing
 > `InternId`, so caller-side caches keyed off `DefId` keep hitting across the edit.
-> `MemoMap::clear()` still fires on structural rebuild — identity stability is the
+> `DerivedMap::clear_cache()` still fires on structural rebuild — identity stability is the
 > API guarantee, not wrapper reuse. See `examples/lambda/src/typecheck/typecheck.mbt`
-> and the "MemoMap: DefId stays stable after prepending a def at position 0" whitebox test.
+> and the "DerivedMap: DefId stays stable after prepending a def at position 0" whitebox test.
 > The paragraphs below are the original design and are retained for context.
 
 ### DefEntry
@@ -203,46 +203,46 @@ struct DefEntry {
 
 A monotonic counter incremented during top-down tree walk assigns each definition a unique encounter order. On re-typecheck after edit, the counter resets and re-interns the same `DefEntry` values. Since `InternTable` deduplicates by value (`Hash + Eq`), unchanged definitions get the same `InternId`.
 
-**Trade-off:** Inserting a new def at position 0 shifts encounter-order for all subsequent defs → new `DefEntry` values → new `InternId`s → MemoMap cache misses. This is acceptable for infrastructure validation. Stable identity schemes (content-hashing, position-independent naming) are deferred.
+**Trade-off:** Inserting a new def at position 0 shifts encounter-order for all subsequent defs → new `DefEntry` values → new `InternId`s → DerivedMap cache misses. This is acceptable for infrastructure validation. Stable identity schemes (content-hashing, position-independent naming) are deferred.
 
 **Memory:** Stale InternTable entries from shifted encounter-orders are never cleaned up (grow-only). For a small example language with short editing sessions, this is acceptable. For production use, InternTable GC would be needed.
 
 ## 6. Incremental Architecture
 
-### Why Not MemoMap for the Env Chain
+### Why Not DerivedMap for the Env Chain
 
-`MemoMap` takes a single `compute: (K) -> V` closure at construction, shared across all keys. `MemoMap::get` is untracked — reads don't record dependencies. This means:
+`DerivedMap` takes a single `compute: (K) -> V` closure at construction, shared across all keys. `DerivedMap::get` is untracked — reads don't record dependencies. This means:
 
 1. The compute closure cannot close over a mutable env that changes per-def (all closures see the final env).
-2. Even with value-capture, changing def 0's type wouldn't invalidate def 1's MemoMap entry because the read isn't tracked.
+2. Even with value-capture, changing def 0's type wouldn't invalidate def 1's DerivedMap entry because the read isn't tracked.
 
-> **[Correction 2026-04-19]** Point 2 is factually wrong. `MemoMap::get`
+> **[Correction 2026-04-19]** Point 2 is factually wrong. `DerivedMap::get`
 > via `read_permissive` → `get_result_inner` DOES call `record_dependency`
-> whenever a tracking frame is active (see `cells/memo.mbt:238,247,255`
+> whenever a tracking frame is active (see `cells/derived.mbt:238,247,255`
 > and `cells/tracking.mbt:60-65`); `read_permissive` only bypasses the
 > abort guard. The shared-closure limitation in point 1 is still valid
-> and remains sufficient motivation for the Scope-managed Memo chain
+> and remains sufficient motivation for the Scope-managed Derived chain
 > design below. See `docs/reactive-map-design.md` for the full
 > correction.
 
-### Scope-Managed Memo Chain
+### Scope-Managed Derived Chain
 
-Instead, model the per-def type-check graph as stable `Memo` objects owned by a `Scope`. Each def gets:
+Instead, model the per-def type-check graph as stable `Derived` objects owned by a `Scope`. Each def gets:
 
-- An **env Memo** that reads the previous env Memo + the previous def's type Memo
-- A **type Memo** that reads its env Memo and the source term
+- An **env Derived** that reads the previous env Derived + the previous def's type Derived
+- A **type Derived** that reads its env Derived and the source term
 
 ```
-// Pseudocode — actual implementation uses Scope::memo()
+// Pseudocode — actual implementation uses Scope::derived()
 
 let scope = Scope::new(rt)
 
-// env_memo[0] reads parent_env (a Memo or Signal)
-// env_memo[i] = scope.memo(fn() {
+// env_memo[0] reads parent_env (a Derived or Input)
+// env_memo[i] = scope.derived(fn() {
 //   env_memo[i-1].get().extend(name_i, type_memo[i-1].get().typ)
 // })
 //
-// type_memo[i] = scope.memo(fn() {
+// type_memo[i] = scope.derived(fn() {
 //   let env = env_memo[i].get()
 //   infer(env, typed_term_i)
 // })
@@ -256,43 +256,43 @@ All `.get()` calls are inside memo compute closures (tracked context), so depend
 4. Cascade propagates through incr dependency tracking
 5. If `type_memo[i]` produces the same `TypeResult` as before → backdating stops the cascade
 
-### MemoMap Usage
+### DerivedMap Usage
 
-`MemoMap` is still used, but for a different purpose: **query-by-id access** to type results, providing the `MemoMap` integration test point. The primary incremental benefit comes from the Scope-managed Memo chain.
+`DerivedMap` is still used, but for a different purpose: **query-by-id access** to type results, providing the `DerivedMap` integration test point. The primary incremental benefit comes from the Scope-managed Derived chain.
 
-A `MemoMap[DefId, TypeResult]` serves as an index. Its `compute` closure captures the Memo chain's result array and performs a lookup by DefId → array index (maintained via a side-table from DefId to chain position). This means MemoMap entries are lazily created on first query and each entry's internal Memo reads the corresponding `type_memo[i]` from the chain, inheriting its dependency tracking.
+A `DerivedMap[DefId, TypeResult]` serves as an index. Its `compute` closure captures the Derived chain's result array and performs a lookup by DefId → array index (maintained via a side-table from DefId to chain position). This means DerivedMap entries are lazily created on first query and each entry's internal Derived reads the corresponding `type_memo[i]` from the chain, inheriting its dependency tracking.
 
-**Alternative considered:** A plain `HashMap[DefId, TypeResult]` populated eagerly after the chain runs would be simpler but wouldn't exercise MemoMap's lazy-per-key Memo creation — the feature we want to validate. If the compute closure proves awkward during implementation, fall back to the HashMap approach and test MemoMap separately.
+**Alternative considered:** A plain `HashMap[DefId, TypeResult]` populated eagerly after the chain runs would be simpler but wouldn't exercise DerivedMap's lazy-per-key Derived creation — the feature we want to validate. If the compute closure proves awkward during implementation, fall back to the HashMap approach and test DerivedMap separately.
 
 ### Scope Lifecycle
 
-When the source text changes and produces a structurally different Module (defs added/removed), the Scope is disposed and rebuilt. The InternTable persists across rebuilds — unchanged DefEntries get the same InternIds, so the MemoMap index preserves cache hits for stable defs.
+When the source text changes and produces a structurally different Module (defs added/removed), the Scope is disposed and rebuilt. The InternTable persists across rebuilds — unchanged DefEntries get the same InternIds, so the DerivedMap index preserves cache hits for stable defs.
 
-**Rebuild detection:** The top-level `typecheck.mbt` wiring maintains a `prev_def_keys : Array[(String, Int)]` (name + encounter_order per def). On each recomputation of the `Memo[TypedTerm]`, compare the new Module's def list against `prev_def_keys`. If lengths differ or any name changed → dispose old Scope, rebuild chain. If identical → reuse existing chain (individual term Memos detect their own changes). This comparison runs once per source edit, outside the Memo chain.
+**Rebuild detection:** The top-level `typecheck.mbt` wiring maintains a `prev_def_keys : Array[(String, Int)]` (name + encounter_order per def). On each recomputation of the `Derived[TypedTerm]`, compare the new Module's def list against `prev_def_keys`. If lengths differ or any name changed → dispose old Scope, rebuild chain. If identical → reuse existing chain (individual term Memos detect their own changes). This comparison runs once per source edit, outside the Derived chain.
 
 > **Superseded 2026-04-20** — the shipped wiring tracks `prev_def_names : Array[String]` (name only) and rebuilds when the list differs. The `name_to_idx` map is rebuilt alongside it. See the §5 top note.
 
-When the source changes but Module structure is the same (same number of defs, same names), the existing Memo chain is reused — only changed terms trigger recomputation.
+When the source changes but Module structure is the same (same number of defs, same names), the existing Derived chain is reused — only changed terms trigger recomputation.
 
 ### Full Pipeline
 
 ```
-Signal[String]
+Input[String]
   ↓ (existing parser)
-Memo[Term]                              // existing — untyped AST
+Derived[Term]                              // existing — untyped AST
   ↓ (conversion)
-Memo[TypedTerm]                         // NEW — with annotation slots
+Derived[TypedTerm]                         // NEW — with annotation slots
   ↓ (whole-tree, coarse but cached)
-Memo[ResolvedModule]                    // NEW — name resolution as Memo
+Derived[ResolvedModule]                    // NEW — name resolution as Derived
   ↓
-Scope-managed Memo chain:
-  Array[Memo[TypeEnv]]                  // env chain — one per def
-  Array[Memo[TypeResult]]               // type result — one per def
-  Memo[TypeResult]                      // body type
+Scope-managed Derived chain:
+  Array[Derived[TypeEnv]]                  // env chain — one per def
+  Array[Derived[TypeResult]]               // type result — one per def
+  Derived[TypeResult]                      // body type
   ↓
-MemoMap[DefId, TypeResult]              // index by DefId (for query pattern)
+DerivedMap[DefId, TypeResult]              // index by DefId (for query pattern)
   ↓
-Memo[ModuleTypeResult]                  // top-level aggregation
+Derived[ModuleTypeResult]                  // top-level aggregation
 ```
 
 ### ResolvedModule
@@ -304,7 +304,7 @@ struct ResolvedModule {
 } derive(Eq)
 ```
 
-Name resolution transforms `Var(name)` → `Var(name)` (bound) or `Unbound(name)` (free), walking the Module's def list to determine scope. This is the same logic currently in `resolve.mbt` but applied to `TypedTerm`. The result is memoized as a single coarse `Memo[ResolvedModule]`; per-def incremental resolution is out of scope (§10).
+Name resolution transforms `Var(name)` → `Var(name)` (bound) or `Unbound(name)` (free), walking the Module's def list to determine scope. This is the same logic currently in `resolve.mbt` but applied to `TypedTerm`. The result is memoized as a single coarse `Derived[ResolvedModule]`; per-def incremental resolution is out of scope (§10).
 
 ### ModuleTypeResult
 
@@ -385,7 +385,7 @@ loom/examples/lambda/src/typecheck/
                             //   TypeEnv, DefEntry, ModuleTypeResult
   convert.mbt               // Term -> TypedTerm conversion
   infer.mbt                 // bidirectional infer/check (pure, non-incremental core)
-  typecheck.mbt             // incremental wiring: Scope, Memo chain, MemoMap, InternTable
+  typecheck.mbt             // incremental wiring: Scope, Derived chain, DerivedMap, InternTable
   typecheck_test.mbt        // unit tests for type system + incremental behavior
 ```
 
@@ -431,14 +431,14 @@ loom/examples/lambda/src/typecheck/
 - `intern` same `DefEntry` twice → same `InternId`
 - `intern` different `DefEntry` → different `InternId`
 - `get` round-trips: `table.get(table.intern(x)) == x`
-- `MemoMap[DefId, TypeResult]` cache hit for stable DefIds across edits
+- `DerivedMap[DefId, TypeResult]` cache hit for stable DefIds across edits
 
 ## 10. Out of Scope
 
 - **Accumulators** — diagnostics are returned as data in `TypeResult`. Accumulator pattern deferred until this typechecker provides a concrete workload to validate against.
 - **Polymorphism / type variables / unification** — not needed for infrastructure validation.
 - **Position/span tracking** — the AST doesn't carry spans. Defer to editor integration.
-- **Incremental name resolution** — resolution stays whole-tree as a single Memo. Per-def resolution is a follow-up.
+- **Incremental name resolution** — resolution stays whole-tree as a single Derived. Per-def resolution is a follow-up.
 - **InternTable GC / generation counters** — grow-only is sufficient for this example.
 - **Stable identity across insertions** *(Shipped 2026-04-20 — `DefEntry` hashes on name only; see §5 top note.)* — encounter-order shifts on insertion. Content-hashing or path-independent identity schemes are deferred.
 
@@ -450,4 +450,4 @@ Suggested phasing (each phase is independently testable):
 2. **Type system core** — `types.mbt` + `infer.mbt` in typecheck/. Pure functions, no incr. Unit tests for all bidirectional rules.
 3. **Parser changes** — lexer, tokens, syntax kinds, parser, views, term_convert. Tests for parsing type annotations.
 4. **TypedTerm conversion** — `convert.mbt`. Bridge from `Term` to `TypedTerm`.
-5. **Incremental wiring** — `typecheck.mbt`. Scope-managed Memo chain + MemoMap index. Integration tests for incremental behavior.
+5. **Incremental wiring** — `typecheck.mbt`. Scope-managed Derived chain + DerivedMap index. Integration tests for incremental behavior.

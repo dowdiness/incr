@@ -59,9 +59,9 @@ Different applications choose different key strategies. `InternTable` only provi
 
 ## What Revision-Aware Interning Unlocks
 
-### Stable MemoMap keys
+### Stable DerivedMap keys
 
-Without stable IDs, `MemoMap[FunctionId, Type]` can't persist across revisions — keys change even when the entity doesn't. With stable IDs, unchanged entities hit the cache.
+Without stable IDs, `DerivedMap[FunctionId, Type]` can't persist across revisions — keys change even when the entity doesn't. With stable IDs, unchanged entities hit the cache.
 
 ### Automatic invalidation via generation counters
 
@@ -69,7 +69,7 @@ When an entity is deleted and its slot reused, the generation bumps. Any memo th
 
 ### Field-level tracking on interned entities
 
-If arena entries have independently tracked fields (via `TrackedCell`), changing only a function's body doesn't invalidate memos that only read its name.
+If arena entries have independently tracked fields (via `InputField`), changing only a function's body doesn't invalidate memos that only read its name.
 
 ### O(1) Datalog fact equality
 
@@ -79,9 +79,9 @@ If arena entries have independently tracked fields (via `TrackedCell`), changing
 
 With stable IDs, facts from previous revisions can persist. Only re-derive facts whose inputs changed. Generation counters signal which inputs changed.
 
-### Demand-driven semantic analysis via HybridMemo
+### Demand-driven semantic analysis via ReachableDerived
 
-Per-entity `HybridMemo` keyed by stable `InternId` — dirty-flagged when the entity's arena entry changes, lazily recomputed only when viewed.
+Per-entity `ReachableDerived` keyed by stable `InternId` — dirty-flagged when the entity's arena entry changes, lazily recomputed only when viewed.
 
 ## Design Decisions
 

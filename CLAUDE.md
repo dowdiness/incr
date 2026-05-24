@@ -14,9 +14,9 @@ A Salsa-inspired incremental recomputation library written in MoonBit. Provides 
 moon check          # Type-check without building
 moon build          # Build the library
 moon test           # Run all tests across all packages
-moon test -p dowdiness/incr/cells -f memo_test.mbt           # Run tests in a specific file
-moon test -p dowdiness/incr/cells -f memo_test.mbt -i 0      # Run a single test by index
-moon test -p dowdiness/incr/tests                               # Run integration tests only
+moon test cells/derived_test.mbt                                # Run tests in a specific file
+moon test cells/derived_test.mbt -i 0                           # Run a single test by index
+moon test tests                                                 # Run integration tests only
 moon check docs/target_api_examples.mbt.md                  # Check literate target API examples
 moon test docs/target_api_examples.mbt.md                   # Run checked docs examples
 moon bench          # Run benchmarks (tests/bench_test.mbt)
@@ -48,20 +48,21 @@ dowdiness/incr/
 │   ├── pull_lifecycle.mbt      (CellLifecycle for PullSignalData)
 │   ├── push_lifecycle.mbt      (CellLifecycle for PushReactiveData, PushEffectData)
 │   ├── datalog_lifecycle.mbt   (CellLifecycle for Relation/Functional/Rule)
-│   ├── push_reactive.mbt       (Reactive[T] handle; SoA moved to internal/push)
+│   ├── eager_derived.mbt       (Reactive[T] compatibility handle; SoA moved to internal/push)
 │   ├── push_effect.mbt         (Effect handle; SoA moved to internal/push)
 │   ├── push_propagate.mbt      (Runtime::push_propagate_from wrapper + recompute_level wrapper)
 │   ├── datalog_relation.mbt    (Relation[T] handle; SoA moved to internal/datalog)
-│   ├── datalog_functional_relation.mbt
+│   ├── datalog_map_relation.mbt (FunctionalRelation[K, V] compatibility handle + MapRelation[K, V] target facade)
 │   ├── datalog_rule.mbt        (Runtime::new_rule + helpers; RuleData moved)
 │   ├── datalog_fixpoint.mbt    (Runtime::fixpoint wrapper — body in kernel)
 │   ├── verify.mbt              (Runtime::pull_verify wrapper — body in kernel)
 │   ├── batch.mbt               (Runtime::batch/batch_result + frame/rollback + Runtime::commit_batch 1-line wrapper — commit_batch body in kernel)
 │   ├── subscriber_diff.mbt     (Runtime::diff_and_update_subscribers wrapper for wbtests)
-│   ├── signal.mbt, memo.mbt    (Signal[T], Memo[T] handles)
-│   ├── hybrid_memo.mbt         (HybridMemo[T] handle)
-│   ├── tracked_cell.mbt        (TrackedCell[T] handle)
-│   ├── memo_map.mbt            (MemoMap[K, V])
+│   ├── input.mbt, derived.mbt  (Signal[T] and Memo[T] compatibility handles)
+│   ├── reachable_derived.mbt   (HybridMemo[T] compatibility handle)
+│   ├── input_field.mbt         (TrackedCell[T] compatibility handle)
+│   ├── derived_map.mbt         (MemoMap[K, V] compatibility handle)
+│   ├── target_facade.mbt       (Input, InputField, Derived, ReachableDerived, EagerDerived, DerivedMap target facades)
 │   ├── memo_commit_phase.mbt   (priv MemoCommitPhase trait — commit-path extension point dispatched from memo_force_recompute; lives in cells/ not kernel/ because methods take Runtime)
 │   ├── accumulator_commit_hook.mbt (AccumulatorCommitHook — first MemoCommitPhase impl; owns per-recompute snapshot/restore/finalize state previously inline in accumulator.mbt)
 │   ├── scope.mbt, tracking.mbt, introspection.mbt, kernel_using.mbt
@@ -95,7 +96,7 @@ dowdiness/incr/
 │   ├── fanout_test.mbt         (wide fanout stress tests)
 │   ├── traits_test.mbt         (Database, Readable, and pipeline trait tests)
 │   ├── tracked_struct_test.mbt (TrackedCell, Trackable, and gc_tracked tests)
-│   ├── hybrid_test.mbt         (HybridMemo public API integration tests)
+│   ├── reachable_derived_test.mbt (HybridMemo / ReachableDerived public API integration tests)
 │   ├── subscriber_test.mbt     (subscriber link integration tests)
 │   └── bench_test.mbt          (microbenchmarks — run with moon bench)
 │
@@ -145,4 +146,4 @@ For deep internals (verification algorithm, type erasure, SoA storage, push prop
   examples. Next migration slice: add checked examples for
   `docs/api-reference.md`, then remaining cookbook snippets.
 
-When contributing, read [docs/design/internals.md](docs/design/internals.md) before modifying core algorithm files like `cells/verify.mbt` or `cells/memo.mbt`.
+When contributing, read [docs/design/internals.md](docs/design/internals.md) before modifying core algorithm files like `cells/verify.mbt` or `cells/derived.mbt`.
