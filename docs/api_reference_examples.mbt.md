@@ -440,6 +440,65 @@ test "docs api-ref: reachable_derived.watch is a GC root for the reachable cell 
 }
 ```
 
+## `EagerDerived` — eager recomputation and outside reads
+
+```mbt check
+///|
+test "docs api-ref: eager_derived recomputes eagerly and can be read from outside" {
+  let rt = @incr.Runtime()
+  let input = @incr.Input(rt, 4, label="input")
+  let runs : Ref[Int] = { val: 0 }
+  let eager = @incr.EagerDerived(rt, () => {
+    runs.val = runs.val + 1
+    input.get() * 3
+  })
+  let view = @incr.Derived(rt, () => eager.get() + 1, label="eager_view")
+  let watch = eager.watch()
+
+  inspect(eager.read(), content="12")
+  inspect(view.read_or_abort(), content="13")
+  inspect(runs.val > 0, content="true")
+
+  let runs_before_set = runs.val
+  input.set(5)
+  inspect(runs.val == runs_before_set + 1, content="true")
+  inspect(watch.read_or_abort(), content="15")
+  inspect(view.read_or_abort(), content="16")
+
+  rt.gc()
+  input.set(6)
+  inspect(watch.read_or_abort(), content="18")
+  watch.dispose()
+}
+```
+
+## `MapRelation` — materialized reads after fixpoint
+
+```mbt check
+///|
+test "docs api-ref: map_relation staged values become visible after fixpoint" {
+  let rt = @incr.Runtime()
+  let weights : @incr.MapRelation[(Int, Int), Int] = @incr.MapRelation(
+    rt,
+    label="weights",
+  )
+
+  inspect(weights.insert((1, 2), 10), content="true")
+  inspect(weights.insert((2, 3), 5), content="true")
+  debug_inspect(weights.get((1, 2)), content="None")
+  inspect(
+    weights.delta_iter().fold(init=0, fn(acc, _entry) { acc + 1 }),
+    content="2",
+  )
+  inspect(weights.iter().fold(init=0, fn(acc, _entry) { acc + 1 }), content="0")
+
+  rt.fixpoint()
+  debug_inspect(weights.get((1, 2)), content="Some(10)")
+  inspect(weights.iter().fold(init=0, fn(acc, _entry) { acc + 1 }), content="2")
+  inspect(weights.insert((1, 2), 10), content="false")
+}
+```
+
 ## `RuntimeContext` and the `create_*` helpers
 
 ```mbt check
