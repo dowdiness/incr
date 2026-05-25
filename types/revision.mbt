@@ -67,7 +67,10 @@ pub impl Show for Durability with output(self, logger) {
 /// Returns the numeric index of this durability level.
 ///
 /// Used internally for array-based durability tracking. `Low` has the smallest
-/// index (0), `High` has the largest (2).
+/// index (0), `High` has the largest (2). The invariant
+/// `Durability::High.index() + 1 == DURABILITY_COUNT` must hold — if a new
+/// variant is added, both this match and `DURABILITY_COUNT` must be updated
+/// together.
 ///
 /// # Returns
 ///
@@ -85,7 +88,10 @@ pub fn Durability::index(self : Durability) -> Int {
 ///|
 /// The number of durability levels (3: Low, Medium, High).
 ///
-/// Used internally to size the `durability_last_changed` array in Runtime.
+/// Must equal `Durability::High.index() + 1`. Adding a new `Durability`
+/// variant requires updating both `Durability::index()` and this constant;
+/// failing to do so will silently under-size the `durability_last_changed`
+/// array in Runtime, causing incorrect fast-path revision checks.
 pub const DURABILITY_COUNT : Int = 3
 
 ///|
