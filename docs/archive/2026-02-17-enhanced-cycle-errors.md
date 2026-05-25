@@ -480,9 +480,9 @@ When cycle detected, return full path instead of just cell ID.
 - Modify: `memo.mbt:118` (Memo::get_result doc comment)
 - Modify: `cycle.mbt:23` (CycleError doc comment)
 - Modify: `docs/api-design-guidelines.md:22,93,220,231,328`
-- Modify: `docs/concepts.md:213`
-- Modify: `docs/api-reference.md:151,187`
-- Modify: `docs/cookbook.md:339`
+- Modify: `docs/concepts.mbt.md:213`
+- Modify: `docs/api-reference.mbt.md:151,187`
+- Modify: `docs/cookbook.mbt.md:339`
 
 **Step 1: Update memo.mbt to use new pattern**
 
@@ -532,16 +532,16 @@ Modify `docs/api-design-guidelines.md`:
 - Line 220-234: Already has correct format in future section
 - Line 328: `Err(CycleDetected(_, _)) => 0  // Base case`
 
-Modify `docs/concepts.md` line 213:
+Modify `docs/concepts.mbt.md` line 213:
 ```moonbit
 Err(CycleDetected(_, _)) => -1  // Fallback value
 ```
 
-Modify `docs/api-reference.md`:
+Modify `docs/api-reference.mbt.md`:
 - Line 151: `Err(CycleDetected(cell, path)) => println("Cycle: " + cell.to_string())`
 - Line 187: `CycleDetected(CellId, Array[CellId])`
 
-Modify `docs/cookbook.md` line 339:
+Modify `docs/cookbook.mbt.md` line 339:
 ```moonbit
 Err(CycleDetected(_, _)) => 0  // Base case on cycle
 ```
@@ -679,12 +679,12 @@ format_path output, and long cycle truncation.
 ## Task 5: Update Documentation with Examples
 
 **Files:**
-- Modify: `docs/api-reference.md` (add cycle path section)
-- Modify: `docs/cookbook.md` (add debugging cycles recipe)
+- Modify: `docs/api-reference.mbt.md` (add cycle path section)
+- Modify: `docs/cookbook.mbt.md` (add debugging cycles recipe)
 
 **Step 1: Add cycle path documentation to API reference**
 
-Add to `docs/api-reference.md` after the CycleError section (around line 190):
+Add to `docs/api-reference.mbt.md` after the CycleError section (around line 190):
 
 ```markdown
 ### Cycle Path Debugging
@@ -722,7 +722,7 @@ Cycle detected: Cell[0] → Cell[1] → ... (18 more) → Cell[23] → Cell[0]
 
 **Step 2: Add debugging recipe to cookbook**
 
-Add to `docs/cookbook.md` in the Debugging section:
+Add to `docs/cookbook.mbt.md` in the Debugging section:
 
 ```markdown
 ### Debugging Cycles
@@ -764,7 +764,7 @@ This helps identify:
 **Step 3: Commit**
 
 ```bash
-git add docs/api-reference.md docs/cookbook.md
+git add docs/api-reference.mbt.md docs/cookbook.mbt.md
 git commit -m "docs: add cycle path debugging examples
 
 Add documentation showing how to use cycle path information

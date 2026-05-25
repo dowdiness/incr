@@ -1,7 +1,7 @@
 # Checked Concepts Examples
 
 Literate tests that pin high-value behavior described in
-[`concepts.md`](concepts.md). These examples focus on conceptual claims that can
+[`concepts.mbt.md`](concepts.mbt.md). These examples focus on conceptual claims that can
 silently drift: same-value input updates, labels in cell metadata, inside-vs-
 outside reads, backdating, batch revert detection, field-level dependency
 isolation, keyed derived maps, accumulators, and reachable derived reads.
@@ -119,6 +119,39 @@ test "docs concepts: batch revert produces no committed change" {
 
   inspect(counter.get(), content="0")
   inspect(notifications.val, content="0")
+}
+
+///|
+test "docs concepts: high-durability derived stays cached when low input changes" {
+  let rt = @incr.Runtime()
+  let config = @incr.Input(rt, "production", durability=High, label="config")
+  let user_input = @incr.Input(rt, "hello", label="user_input")
+  let config_runs : Ref[Int] = { val: 0 }
+  let processed_runs : Ref[Int] = { val: 0 }
+  let config_hash = @incr.Derived(
+    rt,
+    () => {
+      config_runs.val = config_runs.val + 1
+      config.get().length()
+    },
+    label="config_hash",
+  )
+  let processed = @incr.Derived(
+    rt,
+    () => {
+      processed_runs.val = processed_runs.val + 1
+      user_input.get().length()
+    },
+    label="processed",
+  )
+
+  inspect(config_hash.read_or_abort(), content="10")
+  inspect(processed.read_or_abort(), content="5")
+  user_input.set("world")
+  inspect(processed.read_or_abort(), content="5")
+  inspect(config_hash.read_or_abort(), content="10")
+  inspect(config_runs.val, content="1")
+  inspect(processed_runs.val, content="2")
 }
 
 ///|

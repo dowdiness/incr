@@ -32,41 +32,26 @@ The naming direction is recorded in [ADR 2026-05-21](decisions/2026-05-21-public
 
 Inputs hold values that you set directly:
 
-```moonbit
-let count = Input(rt, 0)
+```mbt check
+///|
+test "concepts: input read and update" {
+  let rt = @incr.Runtime()
+  let count = @incr.Input(rt, 0)
 
-// Read the value
-let current = count.get()  // 0
+  inspect(count.get(), content="0")
 
-// Update the value
-count.set(5)
+  count.set(5)
+  inspect(count.get(), content="5")
+}
 ```
 
 ### Same-Value Optimization
 
-Setting an input to its current value is a no-op — no revision bump, no recomputation:
-
-```moonbit
-count.set(5)  // Bumps revision
-count.set(5)  // No-op, value unchanged
-```
-
-To force an update even with the same value:
-
-```moonbit
-count.force_set(5)  // Always bumps revision
-```
+Setting an input to its current value is a no-op — no revision bump, no recomputation. Use `force_set` to bump the revision even when the value is equal. The checked companion pins both behaviors in [`concepts_examples.mbt.md`](concepts_examples.mbt.md#inputs-labels-and-read-vocabulary).
 
 ## Labels
 
-Every `Input`, `Derived`, and `InputField` accepts an optional `label` parameter:
-
-```moonbit
-let price = Input(rt, 100, label="price")
-let total = Derived(rt, () => price.get() * qty.get(), label="total")
-```
-
-Labels have **no runtime cost** — they are stored as `String?` on the cell metadata and never read during normal computation. They only appear in:
+Every `Input`, `Derived`, and `InputField` accepts an optional `label` parameter. Labels have **no runtime cost** — they are stored as `String?` on the cell metadata and never read during normal computation. The checked companion verifies label introspection in [`concepts_examples.mbt.md`](concepts_examples.mbt.md#inputs-labels-and-read-vocabulary). They only appear in:
 
 - **Cycle error messages**: `"price → subtotal → total → price"` instead of `"Cell 2 → Cell 5 → Cell 8 → Cell 2"`
 - **Introspection output**: `Runtime::cell_info` exposes the label when set
@@ -77,8 +62,15 @@ Labels have **no runtime cost** — they are stored as `String?` on the cell met
 
 Derived values compute from inputs or other derived values and cache the result:
 
-```moonbit
-let doubled = Derived(rt, () => count.get() * 2)
+```mbt check
+///|
+test "concepts: derived values read inputs" {
+  let rt = @incr.Runtime()
+  let count = @incr.Input(rt, 21)
+  let doubled = @incr.Derived(rt, () => count.get() * 2)
+
+  inspect(doubled.read_or_abort(), content="42")
+}
 ```
 
 Key properties:
@@ -94,37 +86,12 @@ Target facade reads separate strict graph reads from permissive outside reads:
 where it records the dependency for auto-tracking. From outside the graph —
 top-level code, tests, event handlers, callbacks — use `read()` or
 `read_or_abort()`. The same shape applies for `ReachableDerived` and keyed
-`DerivedMap` reads.
-
-```moonbit
-let doubled = Derived(rt, () => count.get() * 2)
-
-// Inside another derived value: use get() / get_or_abort() to record the dependency.
-let plus_one = Derived(rt, () => doubled.get_or_abort() + 1)
-
-// Outside any derived value: use read() / read_or_abort().
-let value = doubled.read_or_abort()
-```
+`DerivedMap` reads. The checked companion pins the inside-vs-outside shape in
+[`concepts_examples.mbt.md`](concepts_examples.mbt.md#inputs-labels-and-read-vocabulary).
 
 ### Dependency Tracking
 
-You don't declare dependencies. `incr` discovers them:
-
-```moonbit
-let mode = Input(rt, "add")
-let x = Input(rt, 10)
-let y = Input(rt, 20)
-
-let result = Derived(rt, () => {
-  if mode.get() == "add" {
-    x.get() + y.get()
-  } else {
-    x.get() * y.get()
-  }
-})
-```
-
-Dependencies can change between recomputations. If `mode = "add"`, `result` depends on `mode`, `x`, and `y`. If you change `mode` to `"multiply"`, the dependency set may differ on the next computation.
+You don't declare dependencies. `incr` discovers them from reads during the compute function. Dependencies can change between recomputations: if `mode = "add"`, a result may depend on `mode`, `x`, and `y`; if you change `mode` to `"multiply"`, the dependency set may differ on the next computation. The checked companion pins this dynamic-dependency behavior in [`concepts_examples.mbt.md`](concepts_examples.mbt.md#backdating-batching-and-dynamic-dependencies).
 
 ## Revisions
 
@@ -146,25 +113,7 @@ A derived value is stale when `verified_at < current_revision`.
 
 ## Backdating
 
-**Backdating** is the key optimization. When a derived value recomputes to the **same value** as before, its `changed_at` stays at the old revision:
-
-```moonbit
-let input = Input(rt, 4)
-let is_even = Derived(rt, () => input.get() % 2 == 0)
-let label = Derived(rt, () => if is_even.get_or_abort() { "even" } else { "odd" })
-
-inspect(label.read_or_abort(), content="even")
-
-// Change 4 → 6 (both even)
-input.set(6)
-
-// is_even recomputes: true → true (same!)
-// Backdating: is_even.changed_at stays at R0
-// label sees no change, skips recomputation
-inspect(label.read_or_abort(), content="even")  // Did NOT recompute
-```
-
-This prevents unnecessary cascading through the graph.
+**Backdating** is the key optimization. When a derived value recomputes to the **same value** as before, its `changed_at` stays at the old revision. This prevents unnecessary cascading through the graph. The checked companion demonstrates the classic `4 → 6` evenness case in [`concepts_examples.mbt.md`](concepts_examples.mbt.md#backdating-batching-and-dynamic-dependencies).
 
 ### Backdating strategies
 
@@ -186,94 +135,105 @@ The target `Derived` constructor and `create_derived` helper use `Memo::new` int
 | `Medium` | Moderately stable |
 | `High` | Rarely changing (configuration, schemas) |
 
-```moonbit
-let config = Input(rt, 100, durability=High)
-let input = Input(rt, 1)  // Default: Low
+```mbt nocheck
+///|
+let rt = @incr.Runtime()
+
+///|
+let config = @incr.Input(rt, 100, durability=High)
+
+///|
+let input = @incr.Input(rt, 1)
 ```
 
 ### Durability Shortcut
 
-When only low-durability inputs change, derived values that depend solely on high-durability inputs skip verification entirely:
-
-```moonbit
-let config = Input(rt, "production", durability=High)
-let user_input = Input(rt, "hello")  // Low durability
-
-let config_hash = Derived(rt, () => hash(config.get()))
-let processed = Derived(rt, () => process(user_input.get()))
-
-// Only user_input changed
-user_input.set("world")
-
-// config_hash.read_or_abort() → skips verification (durability shortcut)
-// processed.read_or_abort() → verifies and recomputes
-```
+When only low-durability inputs change, derived values that depend solely on high-durability inputs skip verification entirely. The checked companion verifies that a high-durability-only derived value stays cached when an unrelated low-durability input changes in [`concepts_examples.mbt.md`](concepts_examples.mbt.md#backdating-batching-and-dynamic-dependencies).
 
 ### Inherited Durability
 
 Derived values inherit the **minimum** durability of their dependencies:
 
-```moonbit
-let high = Input(rt, 1, durability=High)
-let low = Input(rt, 2)  // Low durability
+```mbt nocheck
+///|
+let rt = @incr.Runtime()
 
-let mixed = Derived(rt, () => high.get() + low.get())
-// mixed inherits Low durability (can't use the shortcut)
+///|
+let high = @incr.Input(rt, 1, durability=High)
+
+///|
+let low = @incr.Input(rt, 2)
+
+///|
+let mixed = @incr.Derived(rt, () => high.get() + low.get())
 ```
 
 ## Batch Updates
 
 Update multiple inputs atomically:
 
-```moonbit
-rt.batch(() => {
-  x.set(10)
-  y.set(20)
-  z.set(30)
-})
-// Single revision bump for all three changes
+```mbt check
+///|
+test "concepts: batch updates multiple inputs" {
+  let rt = @incr.Runtime()
+  let x = @incr.Input(rt, 0)
+  let y = @incr.Input(rt, 0)
+  let z = @incr.Input(rt, 0)
+
+  rt.batch(() => {
+    x.set(10)
+    y.set(20)
+    z.set(30)
+  })
+
+  inspect(x.get() + y.get() + z.get(), content="60")
+}
 ```
 
 Benefits:
 - Avoids intermediate recomputations
-- Enables **revert detection**: if you set and then reset a value within a batch, no change is recorded
-
-```moonbit
-rt.batch(() => {
-  counter.set(5)   // temporary
-  counter.set(0)   // back to original
-})
-// No revision bump — net change is zero
-```
+- Enables **revert detection**: if you set and then reset a value within a batch, no change is recorded. The checked companion pins this net-zero behavior in [`concepts_examples.mbt.md`](concepts_examples.mbt.md#backdating-batching-and-dynamic-dependencies).
 
 ## Cycle Detection
 
 Cyclic dependencies are detected at runtime:
 
-```moonbit
-let a = Derived(rt, () => b.get_or_abort() + 1)
-let b = Derived(rt, () => a.get_or_abort() + 1)
+```mbt check
+///|
+test "concepts: cycles surface through Result reads" {
+  let rt = @incr.Runtime()
+  let a_ref : Ref[@incr.Derived[Int]?] = { val: None }
+  let b_ref : Ref[@incr.Derived[Int]?] = { val: None }
+  let saw_cycle : Ref[Bool] = { val: false }
+  let a = @incr.Derived(rt, () => {
+    match b_ref.val.unwrap().get() {
+      Ok(v) => v + 1
+      Err(_err) => {
+        saw_cycle.val = true
+        0
+      }
+    }
+  })
+  let b = @incr.Derived(rt, () => {
+    match a_ref.val.unwrap().get() {
+      Ok(v) => v + 1
+      Err(_err) => {
+        saw_cycle.val = true
+        0
+      }
+    }
+  })
+  a_ref.val = Some(a)
+  b_ref.val = Some(b)
 
-a.read_or_abort()  // Aborts: "Cycle detected"
+  inspect(a.read_or_abort(), content="1")
+  inspect(saw_cycle.val, content="true")
+}
 ```
 
 ### Graceful Cycle Handling
 
-Use `get()` inside a tracked compute or `read()` outside the graph to handle cycles without aborting:
-
-```moonbit
-let memo = Derived(rt, () => {
-  match self_ref.get() {
-    Ok(v) => v + 1
-    Err(CycleDetected(_, _, _)) => -1  // Fallback value
-  }
-})
-
-match memo.read() {
-  Ok(value) => println(value.to_string())  // Prints "-1"
-  Err(_) => ()  // Only if error wasn't handled inside
-}
-```
+Use `get()` inside a tracked compute or `read()` outside the graph to handle cycles without aborting. The checked cookbook companion shows a self-referential derived value recovering inside its compute function in [`cookbook_examples.mbt.md`](cookbook_examples.mbt.md#graceful-cycle-handling).
 
 When a cycle is detected via a `Result` read:
 - The error can be caught and handled in the compute function
@@ -284,47 +244,15 @@ When a cycle is detected via a `Result` read:
 
 When a struct has several logically related fields, you often want derived values that depend on only one field to skip recomputation when a different field changes. `Input[MyStruct]` cannot do this — updating any field forces every downstream derived value to reverify.
 
-**`InputField[T]`** solves this by giving each field its own independent input cell:
-
-```moonbit
-struct SourceFile {
-  path    : InputField[String]
-  content : InputField[String]
-  version : InputField[Int]
-}
-```
-
-Each `InputField` has the same core input behavior as `Input[T]` — same-value optimization, durability levels, change hooks — but it belongs to a named field.
+**`InputField[T]`** solves this by giving each field its own independent input cell. Each `InputField` has the same core input behavior as `Input[T]` — same-value optimization, durability levels, change hooks — but it belongs to a named field. The checked companion defines a field-owner struct in [`concepts_examples.mbt.md`](concepts_examples.mbt.md#field-level-inputs-and-keyed-derived-values).
 
 ### InputFieldOwner Trait
 
-Implement the `InputFieldOwner` trait to declare which fields a struct owns:
-
-```moonbit
-impl InputFieldOwner for SourceFile with cell_ids(self) {
-  [self.path.id(), self.content.id(), self.version.id()]
-}
-```
-
-This enables bulk lifecycle operations with `add_input_fields(scope, owner)`.
+Implement the `InputFieldOwner` trait to declare which fields a struct owns. This enables bulk lifecycle operations with `add_input_fields(scope, owner)`; the checked companion exercises this lifecycle wiring in [`concepts_examples.mbt.md`](concepts_examples.mbt.md#field-level-inputs-and-keyed-derived-values).
 
 ### Field-Level Dependency Isolation
 
-Derived values that read individual `InputField` fields only depend on those fields, not on the whole struct:
-
-```moonbit
-let word_count = Derived(rt, () => {
-  file.content.get().split(" ").fold(init=0, (acc, _s) => acc + 1)
-})
-
-let is_test = Derived(rt, () => file.path.get().ends_with("_test.mbt"))
-
-// Change version — neither derived value recomputes
-file.version.set(1)
-
-// Change content — only word_count recomputes; is_test is untouched
-file.content.set("fn main { let x = 42 }")
-```
+Derived values that read individual `InputField` fields only depend on those fields, not on the whole struct. The checked companion verifies that changing `version` leaves `content` and `path` consumers untouched in [`concepts_examples.mbt.md`](concepts_examples.mbt.md#field-level-inputs-and-keyed-derived-values).
 
 ### When to Use InputField vs Input
 
@@ -336,11 +264,7 @@ file.content.set("fn main { let x = 42 }")
 
 ## Keyed Queries with DerivedMap
 
-Sometimes the same logical query is asked for many keys (e.g. file ID, symbol ID, route ID). `DerivedMap[K, V]` provides one memoized derived computation per key:
-
-```moonbit
-let by_id = DerivedMap(rt, (id : Int) => expensive_lookup(id))
-```
+Sometimes the same logical query is asked for many keys (e.g. file ID, symbol ID, route ID). `DerivedMap[K, V]` provides one memoized derived computation per key. The checked companion pins per-key cache creation and lazy recomputation in [`concepts_examples.mbt.md`](concepts_examples.mbt.md#field-level-inputs-and-keyed-derived-values).
 
 Key behavior:
 
@@ -364,25 +288,7 @@ target facade, cache helpers use target names: `has_cached(key)`, `cache_len()`,
 
 ## Side-Channel Data with Accumulators
 
-Sometimes a memo needs to report extra information — diagnostics, trace events, logs — that is semantically separate from its return value. Threading this data through return types forces allocations at every level of the graph and makes merging fragile. `Accumulator[T]` is the side channel:
-
-```moonbit
-let rt = Runtime()
-let width = Input(rt, -5)
-let diags : Accumulator[String] = Accumulator::new(rt~, label="diags")
-
-let checked = Memo(rt, fn() raise {
-  let w = width.get()
-  if w < 0 { diags.push("negative width: \{w}") }
-  w.abs()
-})
-
-let checked_observer = checked.observe()
-let _ = checked_observer.get()
-checked_observer.dispose()
-// Outside any compute — untracked, permissive read:
-debug_inspect(checked.accumulated_peek(diags), content="[\"negative width: -5\"]")
-```
+Sometimes a memo needs to report extra information — diagnostics, trace events, logs — that is semantically separate from its return value. Threading this data through return types forces allocations at every level of the graph and makes merging fragile. `Accumulator[T]` is the side channel; the checked companion shows memo-local diagnostic collection in [`concepts_examples.mbt.md`](concepts_examples.mbt.md#accumulators-and-reachable-derived-values).
 
 Producers call `acc.push(v)` inside a `Memo` or `HybridMemo` compute. Consumers have three compatibility read methods:
 
@@ -404,15 +310,7 @@ This is why an accumulator is not "just an `Array` you return": a plain return w
 
 ### Scope-Owned Lifecycle
 
-Prefer `Scope::accumulator` over `Accumulator::new(rt~, ...)` when the accumulator's lifetime matches a larger unit of work (a chain rebuild, a compilation pass):
-
-```moonbit
-let chain_scope = parent_scope.child()
-let diags = chain_scope.accumulator(label="typecheck_diags")
-// Disposing chain_scope also disposes diags and clears its push buffers.
-```
-
-Runtime-owned accumulators live until explicitly disposed, so drivers that rebuild on structural change accumulate stale per-memo buffers. Scope ownership ties cleanup to the chain that produced the data.
+Prefer `Scope::accumulator` over `Accumulator::new(rt~, ...)` when the accumulator's lifetime matches a larger unit of work (a chain rebuild, a compilation pass). Runtime-owned accumulators live until explicitly disposed, so drivers that rebuild on structural change accumulate stale per-memo buffers. Scope ownership ties cleanup to the chain that produced the data. The API-reference companion checks scope-owned accumulator disposal in [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md#accumulator--compatibility-push-side-channel).
 
 The same lifecycle pattern applies to long-lived target readers: use
 `scope.add_watch(derived.watch())` when a `Watch` should be disposed with the
@@ -427,21 +325,11 @@ scope that owns the surrounding graph.
 | Data flows to a single consumer already in the graph | return it — accumulator is overkill |
 | Data aggregates across many producers into one consumer | `Accumulator[T]` |
 
-See the [Cookbook](./cookbook.md#pattern-side-channel-diagnostics-with-accumulator) for complete worked examples, and the [ADR](./decisions/2026-04-20-accumulator-api.md) for the design rationale.
+See the [Cookbook](./cookbook.mbt.md#pattern-side-channel-diagnostics-with-accumulator) for complete worked examples, and the [ADR](./decisions/2026-04-20-accumulator-api.md) for the design rationale.
 
 ## Reachable Derived Values
 
-`ReachableDerived[T]` lives on the boundary between the push-driven and pull-driven engines:
-
-```moonbit
-let rt = Runtime()
-let s = Input(rt, 1)
-let h = ReachableDerived(rt, () => s.get() * 2)
-
-inspect(h.read_or_abort(), content="2")
-s.set(5)
-inspect(h.read_or_abort(), content="10")
-```
+`ReachableDerived[T]` lives on the boundary between the push-driven and pull-driven engines. The checked companion verifies lazy reads and updates in [`concepts_examples.mbt.md`](concepts_examples.mbt.md#accumulators-and-reachable-derived-values).
 
 ### How It Works
 
@@ -472,14 +360,18 @@ Both support backdating — if a `ReachableDerived` recomputes to the same value
 
 Each `Runtime` is a completely isolated universe. Inputs and derived values belong to exactly one Runtime, and cross-runtime reads are a hard error:
 
-```moonbit
-let rt_a = Runtime()
-let rt_b = Runtime()
-let input_b = Input(rt_b, 42)
+```mbt nocheck
+///|
+let rt_a = @incr.Runtime()
 
-// This aborts: input_b belongs to rt_b, not rt_a
-let bad = Derived(rt_a, () => input_b.get())
-bad.read_or_abort()  // abort: "Cross-runtime dependency"
+///|
+let rt_b = @incr.Runtime()
+
+///|
+let input_b = @incr.Input(rt_b, 42)
+
+///|
+let bad = @incr.Derived(rt_a, () => input_b.get())
 ```
 
 The design is intentional:
@@ -509,6 +401,6 @@ If you need to share data between two independent computation graphs, use a plai
 
 ## Further Reading
 
-- [API Reference](./api-reference.md) — Complete method reference
-- [Cookbook](./cookbook.md) — Common patterns (including the field-level input recipe)
+- [API Reference](./api-reference.mbt.md) — Complete method reference
+- [Cookbook](./cookbook.mbt.md) — Common patterns (including the field-level input recipe)
 - [design/internals.md](design/internals.md) — Implementation details

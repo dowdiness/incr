@@ -3,7 +3,8 @@
 > **Checked companion:** [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md)
 > contains literate tests that pin the target facade snippets in this document
 > (`Derived`, `DerivedMap`, `ReachableDerived`, `MapRelation`, `Scope` /
-> `RuntimeContext` helpers, and `CycleError`) plus the compatibility-only
+> `RuntimeContext` helpers, and `CycleError`) plus memo-event listener
+> lifecycle, compatibility introspection/callbacks, and the compatibility-only
 > accumulator push path. The README and getting-started target snippets are
 > covered by [`target_api_examples.mbt.md`](target_api_examples.mbt.md).
 
@@ -46,10 +47,8 @@ Central coordinator for dependency tracking, revisions, and batching.
 
 Creates a new runtime with an empty dependency graph. The optional `on_change` callback is equivalent to calling `Runtime::set_on_change` immediately after construction.
 
-```moonbit
-let rt = Runtime()
-let rt = Runtime(on_change=() => rerender())
-```
+Call `Runtime()` for the default constructor, or `Runtime(on_change=...)` to
+install the committed-change callback during construction.
 
 ### `Runtime::batch(self, f: () -> Unit raise?) -> Unit raise?`
 
@@ -57,12 +56,8 @@ Executes `f` with batched input updates.
 
 Inside a batch, `Input::set()` and `Input::force_set()` writes are deferred and committed when the outermost batch exits. Compatibility `Signal::set()` and `Signal::set_unconditional()` have the same batching behavior.
 
-```moonbit
-rt.batch(() => {
-  x.set(1)
-  y.set(2)
-})
-```
+The checked companion covers batched committed writes and rollback in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 Behavior:
 - Nested batches are supported (only the outermost batch commits)
@@ -76,48 +71,26 @@ Limit — abort safety:
 - `abort()` is not catchable in MoonBit. If `f` calls `abort()` (directly or indirectly), the catch block inside `batch()` never runs. The runtime is left in inconsistent state: `batch_depth` is not decremented, the batch frame stack is not popped, and pending inputs retain dangling `commit_pending`/`rollback_pending` closures. The runtime should be considered unusable after an abort.
 - The most common indirect source of `abort()` inside a batch is using an aborting read on a derived value involved in a dependency cycle. Use `Derived::read()` inside batch functions to handle cycles gracefully instead of aborting.
 
-```moonbit
-// Dangerous: cycle causes abort(), leaving batch state corrupted
-rt.batch(() => {
-  x.set(1)
-  let _ = cyclic_derived.read_or_abort()  // aborts if cycle exists
-})
-
-// Safe: cycle is returned as Err, batch rolls back cleanly on raise
-rt.batch(fn() raise {
-  x.set(1)
-  match cyclic_derived.read() {
-    Ok(v) => use_value(v)
-    Err(e) => raise e  // triggers rollback
-  }
-})
-```
+Dangerous pattern: calling an aborting read such as `read_or_abort()` inside a
+batch can leave batch state corrupted if it hits a cycle. Safer pattern: call a
+`Result`-returning read such as `read()`, then raise the returned error so the
+batch rollback path can run.
 
 ### `Runtime::batch_result(self, f: () -> Unit raise?) -> Result[Unit, Error]`
 
 Executes a batch and returns raised errors as `Result` instead of re-raising.
 Like `Runtime::batch`, this handles raised errors only; `abort()` still escapes, is not converted to `Err`, and leaves the runtime in the same inconsistent state described above.
 
-```moonbit
-suberror BatchStop {
-  Stop
-}
-
-let res = rt.batch_result(fn() raise {
-  x.set(1)
-  raise Stop
-})
-inspect(res is Err(_), content="true")
-```
+The checked companion covers `batch_result` returning `Err` and rolling back
+pending writes in [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ### `Runtime::set_on_change(self, f: () -> Unit) -> Unit`
 
 Registers a callback fired when the runtime records a committed change.
 
-```moonbit
-let mut count = 0
-rt.set_on_change(() => { count = count + 1 })
-```
+The checked companion covers committed-change callbacks, batching, no-op sets,
+and `clear_on_change` in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 Behavior:
 - Outside batch: fires immediately after each committed change
@@ -128,9 +101,8 @@ Behavior:
 
 Removes the registered change callback.
 
-```moonbit
-rt.clear_on_change()
-```
+See the checked callback examples in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ### `Runtime::read[T](self, memo: Memo[T]) -> T`
 
@@ -140,9 +112,8 @@ call. New target-facade code should prefer `Derived::read()`,
 `Derived::read_or_abort()`, or `Derived::watch()`. Aborts if the memo has been
 disposed.
 
-```moonbit
-let value = rt.read(my_memo)
-```
+Use this only in compatibility code, as `rt.read(my_memo)`. New target code
+should prefer the `Derived` read methods above.
 
 ### `Runtime::read_hybrid[T : Eq](self, memo: HybridMemo[T]) -> T`
 
@@ -164,10 +135,9 @@ safe drain point; it is not called inline from the memo compute closure.
 Only one listener is stored. Calling `on_memo_event` replaces the previous
 listener.
 
-```moonbit
-let events : Array[MemoEvent] = []
-rt.on_memo_event(evt => events.push(evt))
-```
+The checked companion covers listener registration and clearing in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md); cookbook examples
+show richer event logging patterns.
 
 The listener is a synchronous, non-raising callback. If a driver needs async
 logging, enqueue inside the callback and let another part of the driver drain
@@ -186,16 +156,16 @@ Removes the memo event listener. It has the same mutation guard as
 `on_memo_event`; clear it between operations, not from inside compute,
 `on_change`, or a memo-event listener.
 
-```moonbit
-rt.clear_memo_event_listener()
-```
+The checked companion covers `clear_memo_event_listener` in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ### `MemoEvent`
 
 `MemoEvent` is the public event payload delivered by
 `Runtime::on_memo_event`.
 
-```moonbit
+```mbt nocheck
+///|
 pub(all) enum MemoEvent {
   EnteringCompute(MemoEnteringEvent)
   Completed(MemoCompletedEvent)
@@ -237,10 +207,8 @@ Creates an input. Both `durability` (default `Low`) and `label` are optional.
 
 The `label` string is used in cycle error messages and `Runtime::cell_info` output. Without a label, cells appear as `Cell[42]` in diagnostics. **Prefer always setting a label** — it has no runtime cost and makes debugging significantly easier.
 
-```moonbit
-let count = Input(rt, 0)
-let config = Input(rt, "prod", durability=High, label="config")
-```
+The checked companion covers direct `Input` construction, labels, durability,
+and derived reads in [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ### `Input::get(self) -> T`
 
@@ -282,10 +250,9 @@ Always returns `true`. Inputs are directly-set cells.
 
 Creates a field-level input. Both `durability` (default `Low`) and `label` are optional. A label like `"SourceFile.path"` identifies which field of which struct caused a problem.
 
-```moonbit
-let path = InputField(rt, "/src/main.mbt", label="SourceFile.path")
-let version = InputField(rt, 0, durability=High, label="SourceFile.version")
-```
+The checked companion covers labeled `InputField` construction, durability,
+`cell_info`, and derived reads in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ### `InputField::get(self) -> T`
 
@@ -355,10 +322,9 @@ Returns the compatibility `TrackedCell[T]` handle for interop.
 
 Creates a lazily evaluated derived value using structural equality (`T : Eq`) for backdating. When a recomputation produces a value equal to the previous one, the derived value's `changed_at` timestamp is preserved rather than advanced, preventing unnecessary downstream invalidation.
 
-```moonbit
-let doubled = Derived(rt, () => count.get() * 2)
-let tax = Derived(rt, () => price.get() * 0.1, label="tax")
-```
+The checked companion covers `Derived` construction, labeled cells,
+inside-compute `get_or_abort`, and outside-graph `read` /
+`read_or_abort` in [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ### `Derived::get(self) -> Result[T, CycleError]`
 
@@ -372,12 +338,8 @@ Strict graph read that aborts on invalid context or cycle.
 
 Permissive read. It works from top-level code, tests, event handlers, and callbacks, and it still records a dependency when called inside a tracked compute.
 
-```moonbit
-match doubled.read() {
-  Ok(v) => println(v.to_string())
-  Err(cycle) => println(cycle.format_path())
-}
-```
+The checked companion covers `Derived::read()` returning `Result` and
+cycle-safe handling in [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ### `Derived::read_or_abort(self) -> T`
 
@@ -432,10 +394,9 @@ Tracked, verifying read that surfaces a cycle in the target as `Err(CycleError)`
 
 Creates an empty derived map. No per-key derived value is allocated until first read of that key.
 
-```moonbit
-let by_id = DerivedMap(rt, (id : Int) => id * 10)
-let named = DerivedMap(rt, (id : Int) => id * 10, label="by_id")
-```
+The checked companion covers `DerivedMap` construction, lazy keyed reads,
+strict tracked reads, fallback reads, and cache maintenance in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ### `DerivedMap::read[K : Hash + Eq, V : Eq](self, key: K) -> Result[V, CycleError]`
 
@@ -498,9 +459,8 @@ Clears all cached entries.
 
 Creates a reachable derived value. It does not make the value eager; recomputation still happens on read.
 
-```moonbit
-let reachable = ReachableDerived(rt, () => input.get() * 2, label="doubled")
-```
+The checked companion covers `ReachableDerived` construction, reads, watches,
+and GC reachability in [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ### `ReachableDerived::get[T : Eq](self) -> Result[T, CycleError]`
 
@@ -548,7 +508,7 @@ set differs from the previous run — even when the producer's return value is
 structurally equal. Driver/debug reads outside a memo compute do not register
 that synthetic dependency. See the ADR: [Accumulator API](decisions/2026-04-20-accumulator-api.md).
 
-**Local-only semantics.** `memo.accumulated(acc)` returns only the values `memo` itself pushed — not its dependencies. Transitive aggregation is the driver's job (see the [Scope-owned accumulator](cookbook.md#pattern-scope-owned-accumulator-lifecycle) cookbook pattern).
+**Local-only semantics.** `memo.accumulated(acc)` returns only the values `memo` itself pushed — not its dependencies. Transitive aggregation is the driver's job (see the [Scope-owned accumulator](cookbook.mbt.md#pattern-scope-owned-accumulator-lifecycle) cookbook pattern).
 
 **Top-frame restriction.** `push` is only legal inside a compatibility `Memo` or `HybridMemo` compute. Pushing from an input, `Effect`, `EagerDerived` / `Reactive`, or outside any compute raises `Failure`.
 
@@ -569,7 +529,7 @@ Creates an accumulator owned by a scope. When the scope is disposed, the accumul
 The checked companion covers scope-owned accumulator disposal in
 [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
-This is the preferred constructor for driver code where the accumulator's lifetime matches a larger unit of work (a chain rebuild, a compilation pass). See the [Scope-owned accumulator](cookbook.md#pattern-scope-owned-accumulator-lifecycle) cookbook pattern.
+This is the preferred constructor for driver code where the accumulator's lifetime matches a larger unit of work (a chain rebuild, a compilation pass). See the [Scope-owned accumulator](cookbook.mbt.md#pattern-scope-owned-accumulator-lifecycle) cookbook pattern.
 
 ### `Accumulator::push[T](self, value: T) -> Unit raise Failure`
 
@@ -613,11 +573,8 @@ Logical timestamp used by introspection APIs (`Memo::changed_at`, `Memo::verifie
 
 `Revision` supports direct ordering comparisons (`<`, `<=`, `>`, `>=`), which is what verification uses internally.
 
-```moonbit
-let changed = memo.changed_at()
-let verified = memo.verified_at()
-let changed_since_verified = changed > verified
-```
+The checked companion covers `changed_at`, `verified_at`, and direct revision
+comparison in [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ---
 
@@ -625,7 +582,8 @@ let changed_since_verified = changed > verified
 
 Classification used for verification skipping:
 
-```moonbit
+```mbt nocheck
+///|
 enum Durability {
   Low
   Medium
@@ -644,7 +602,8 @@ Derived values inherit the minimum durability of their dependencies.
 
 Cycle detection error returned by target `Result` reads such as `Derived::read()`, `Derived::get()`, `DerivedMap::read(key)`, and `ReachableDerived::read()`.
 
-```moonbit
+```mbt nocheck
+///|
 pub(all) suberror CycleError {
   CycleDetected(CellId, Array[CellId], Array[String?])
 }
@@ -659,59 +618,31 @@ bound memory even for pathological long cycles; `path()` is always full.
 
 Returns the cell that caused the cycle.
 
-```moonbit
-match derived.read() {
-  Ok(v) => println(v.to_string())
-  Err(err) => println(err.cell().to_string())
-}
-```
+The checked companion exercises labeled cycles and `CycleError` formatting in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ### `CycleError::path(self) -> Array[CellId]`
 
 Returns the full dependency path that forms the cycle.
 
-```moonbit
-match derived.read() {
-  Ok(v) => println(v.to_string())
-  Err(err) => {
-    let path = err.path()
-    println("Cycle length: " + path.length().to_string())
-  }
-}
-```
+The checked companion captures `err.path()` from inside a strict derived read in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ### `CycleError::format_path(self) -> String`
 
 Formats the cycle path as a human-readable string. Pure value — no runtime
 handle required, because labels are captured at detection time.
 
-```moonbit
-match derived.read() {
-  Ok(v) => println(v.to_string())
-  Err(err) => println(err.format_path())
-}
-```
+The checked companion asserts that `format_path()` includes the expected cycle
+labels in [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ### Cycle Path Debugging
 
 When a cycle is detected, `CycleError` now includes the full dependency path:
 
-```moonbit
-match derived.read() {
-  Err(err) => {
-    println("Cycle detected at: " + err.cell().to_string())
-    println("Dependency path:")
-    let path = err.path()
-    for i = 0; i < path.length(); i = i + 1 {
-      println("  " + path[i].to_string())
-    }
-
-    // Or use the formatted version
-    println(err.format_path())
-  }
-  Ok(value) => use_value(value)
-}
-```
+Use `err.cell()`, `err.path()`, and `err.format_path()` together when printing
+cycle diagnostics. The checked companion exercises these accessors in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 The `format_path()` method produces human-readable output. The quality of the output depends on whether labels were set at construction time:
 
@@ -747,21 +678,15 @@ and `Memo`, or on `InputField` where field ownership requires `CellId`s.
 
 Returns the unique identifier for a compatibility input handle.
 
-**Example:**
-```moonbit
-let sig = Signal(rt, 42)
-let id = sig.id()
-```
+The checked companion covers compatibility input IDs through `cell_info` in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 #### `Signal::durability(self) -> Durability`
 
 Returns the durability level of this compatibility input handle (`Low`, `Medium`, or `High`).
 
-**Example:**
-```moonbit
-let config = Signal(rt, "prod", durability=High)
-inspect(config.durability(), content="High")
-```
+The checked companion covers compatibility input durability in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ### Compatibility Derived Introspection
 
@@ -773,15 +698,8 @@ Returns the unique identifier for a compatibility derived handle.
 
 Returns the list of cells this compatibility derived handle currently depends on. Empty if it has never been computed.
 
-**Example:**
-```moonbit
-let x = Signal(rt, 1)
-let doubled = Memo(rt, () => x.get() * 2)
-let observer = doubled.observe()
-let _ = observer.get()
-observer.dispose()
-inspect(doubled.dependencies().contains(x.id()), content="true")
-```
+The checked companion covers compatibility memo dependencies in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 #### `Memo::changed_at(self) -> Revision`
 
@@ -799,36 +717,20 @@ Returns the cell IDs that depend on the given cell (reverse edges / subscriber l
 
 Returns an empty array if the cell ID is invalid, out of bounds, or belongs to a different runtime — matching `cell_info` semantics.
 
-**Example:**
-```moonbit
-let rt = Runtime()
-let x = Signal(rt, 10)
-let doubled = Memo(rt, () => x.get() * 2)
-let observer = doubled.observe()
-let _ = observer.get()
-observer.dispose()
-let deps = rt.dependents(x.id())
-inspect(deps.contains(doubled.id()), content="true")
-```
+The checked companion covers `Runtime::dependents` snapshots in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 #### `Runtime::cell_info(self, id : CellId) -> CellInfo?`
 
 Retrieves structured metadata for any cell. Returns `None` if the CellId is invalid.
 
-**Example:**
-```moonbit
-match rt.cell_info(memo.id()) {
-  Some(info) => {
-    println("Changed at: " + info.changed_at.value.to_string())
-    println("Dependencies: " + info.dependencies.length().to_string())
-  }
-  None => println("Cell not found")
-}
-```
+The checked companion covers `cell_info` labels and dependency snapshots in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ### CellInfo Structure
 
-```moonbit
+```mbt nocheck
+///|
 pub struct CellInfo {
   pub label : String?
   pub id : CellId
@@ -854,35 +756,29 @@ derived values, callbacks currently live on the compatibility `Signal` and
 
 Registers a callback fired when this compatibility input's value changes. Replaces any previously registered callback.
 
-```moonbit
-let count = Signal(rt, 0)
-count.on_change(new_val => println("Count: " + new_val.to_string()))
-```
+The checked companion covers compatibility input callbacks in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ### `Signal::clear_on_change(self) -> Unit`
 
 Removes the registered `on_change` callback for this compatibility input.
 
-```moonbit
-count.clear_on_change()
-```
+The checked companion covers `Signal::clear_on_change` in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ### `Memo::on_change(self, f : (T) -> Unit) -> Unit`
 
 Registers a callback fired when this compatibility derived value changes.
 
-```moonbit
-let doubled = Memo(rt, () => count.get() * 2)
-doubled.on_change(new_val => update_ui(new_val))
-```
+The checked companion covers compatibility memo callbacks in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ### `Memo::clear_on_change(self) -> Unit`
 
 Removes the registered `on_change` callback for this compatibility derived value.
 
-```moonbit
-doubled.clear_on_change()
-```
+The checked companion covers `Memo::clear_on_change` in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 **Behavior (on_change):**
 - Fires after the cell's value changes
@@ -895,9 +791,10 @@ doubled.clear_on_change()
 
 ### `RuntimeContext`
 
-```moonbit
+```mbt nocheck
+///|
 pub(open) trait RuntimeContext {
-  runtime(Self) -> Runtime
+  fn runtime(Self) -> Runtime
 }
 ```
 
@@ -906,9 +803,10 @@ constructor helpers such as `create_input` and `create_derived` use this trait.
 
 ### `Freshness`
 
-```moonbit
+```mbt nocheck
+///|
 pub(open) trait Freshness {
-  is_fresh(Self) -> Bool
+  fn is_fresh(Self) -> Bool
 }
 ```
 
@@ -917,9 +815,10 @@ Implemented for `Input[T]`, `InputField[T]`, `Derived[T]`, and
 
 ### `InputFieldOwner`
 
-```moonbit
+```mbt nocheck
+///|
 pub(open) trait InputFieldOwner {
-  cell_ids(Self) -> Array[CellId]
+  fn cell_ids(Self) -> Array[CellId]
 }
 ```
 
@@ -927,26 +826,19 @@ Implemented by structs that contain `InputField` fields. The returned `CellId`s
 must be stable across calls and belong to the runtime of any scope they are
 registered with.
 
-```moonbit
-struct SourceFile {
-  path    : InputField[String]
-  content : InputField[String]
-  version : InputField[Int]
-}
-
-impl InputFieldOwner for SourceFile with cell_ids(self) {
-  [self.path.id(), self.content.id(), self.version.id()]
-}
-```
+The checked companion covers an `InputFieldOwner` implementation and
+`add_input_fields` disposal in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 Use `add_input_fields(scope, owner)` to register every field with a scope for
 bulk disposal.
 
 ### Compatibility `Database`
 
-```moonbit
+```mbt nocheck
+///|
 pub(open) trait Database {
-  runtime(Self) -> Runtime
+  fn runtime(Self) -> Runtime
 }
 ```
 
@@ -955,9 +847,10 @@ Compatibility trait used by legacy helper functions such as `create_signal`,
 
 ### Compatibility `Readable`
 
-```moonbit
+```mbt nocheck
+///|
 pub(open) trait Readable {
-  is_up_to_date(Self) -> Bool
+  fn is_up_to_date(Self) -> Bool
 }
 ```
 
@@ -965,9 +858,10 @@ Implemented for `Signal[T]`, `Memo[T]`, `HybridMemo[T]`, and `TrackedCell[T]`.
 
 ### Compatibility `Trackable`
 
-```moonbit
+```mbt nocheck
+///|
 pub(open) trait Trackable {
-  cell_ids(Self) -> Array[CellId]
+  fn cell_ids(Self) -> Array[CellId]
 }
 ```
 
@@ -975,17 +869,8 @@ Implemented by structs that contain compatibility `TrackedCell` fields. The
 single method returns the `CellId` of every cell owned by the struct, in a
 stable order.
 
-```moonbit
-struct SourceFile {
-  path    : TrackedCell[String]
-  content : TrackedCell[String]
-  version : TrackedCell[Int]
-}
-
-impl Trackable for SourceFile with cell_ids(self) {
-  [self.path.id(), self.content.id(), self.version.id()]
-}
-```
+The checked companion covers a compatibility `Trackable` owner registered via
+`add_tracked` in [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 `Trackable` is required by `gc_tracked`. The ordering of IDs must be deterministic across calls.
 
@@ -994,22 +879,26 @@ impl Trackable for SourceFile with cell_ids(self) {
 > **Experimental.** These traits may change or be removed in future versions.
 > Defined in `pipeline/pipeline_traits.mbt` (`dowdiness/incr/pipeline` package).
 
-```moonbit
+```mbt nocheck
+///|
 pub(open) trait Sourceable {
-  set_source_text(Self, String) -> Unit
-  source_text(Self) -> String
+  fn set_source_text(Self, String) -> Unit
+  fn source_text(Self) -> String
 }
 
+///|
 pub(open) trait Parseable {
-  parse_errors(Self) -> Array[String]
+  fn parse_errors(Self) -> Array[String]
 }
 
+///|
 pub(open) trait Checkable {
-  check_errors(Self) -> Array[String]
+  fn check_errors(Self) -> Array[String]
 }
 
+///|
 pub(open) trait Executable {
-  run(Self) -> Array[String]
+  fn run(Self) -> Array[String]
 }
 ```
 
@@ -1150,56 +1039,28 @@ the dependency graph, so marking them as GC roots keeps nothing alive. The
 target names for new code are `InputField`, `InputFieldOwner`, and
 `add_input_fields`.
 
-```moonbit
-add_tracked(scope, my_tracked_struct)
-```
-
-```moonbit
-gc_tracked(rt, my_tracked_struct)
-```
+Use `add_tracked(scope, my_tracked_struct)` for lifecycle management; the
+checked companion covers this path in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md). The legacy
+`gc_tracked(rt, my_tracked_struct)` call remains as a deprecated no-op for
+source compatibility.
 
 ### `batch[Db : Database](db: Db, f: () -> Unit raise?) -> Unit raise?`
 
 Runs a batch using `db.runtime()`, including rollback-on-raise semantics.
 This is the Database helper form of `rt.batch(...)`.
 
-```moonbit
-fn update_cart[Db : Database](
-  app : Db,
-  price : Input[Int],
-  quantity : Input[Int],
-) -> Unit raise? {
-  @incr.batch(app, fn() raise {
-    price.set(100)
-    quantity.set(3)
-  })
-}
-```
+The checked companion covers the Database helper form of `batch` in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ### `batch_result[Db : Database](db: Db, f: () -> Unit raise?) -> Result[Unit, Error]`
 
 Runs a batch using `db.runtime()` and returns raised errors as `Result`.
 This is the Database helper form of `rt.batch_result(...)`.
 
-```moonbit
-suberror BatchStop {
-  Stop
-}
-
-fn update_cart_result[Db : Database](
-  app : Db,
-  price : Input[Int],
-  quantity : Input[Int],
-) -> Result[Unit, Error] {
-  let res = @incr.batch_result(app, fn() raise {
-    price.set(100)
-    quantity.set(3)
-    raise Stop
-  })
-  inspect(res is Err(_), content="true")
-  res
-}
-```
+The checked companion covers the Database helper form of `batch_result`,
+including rollback on `Err`, in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ---
 
@@ -1215,16 +1076,10 @@ fn update_cart_result[Db : Database](
 
 **Custom `Eq` implementations:** If your type derives `Eq` with fields intentionally excluded — for example, a generation counter or metadata field that shouldn't influence downstream computation — backdating will treat updates to those fields as no-ops. This is correct and useful (the computation result hasn't changed semantically), but it must be intentional: if you rely on those excluded fields inside a derived compute function, you will get stale results. Only exclude fields from `Eq` that are never read by any derived value.
 
-```moonbit
-// Safe: gen is never read by any derived value
-struct Versioned {
-  value : Int
-  gen   : Int  // excluded from Eq by custom impl
-}
-
-// Dangerous: gen IS read by the derived value, but excluded from Eq causes stale cache
-let m = Derived(rt, () => src.get().gen)  // will not recompute when gen changes
-```
+The checked cookbook companion covers custom equality and backdating in
+[`cookbook_examples.mbt.md`](cookbook_examples.mbt.md). Treat any field omitted
+from equality as forbidden input to downstream derived computations unless you
+intentionally want those changes to be invisible.
 
 ### Backdating strategies
 

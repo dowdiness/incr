@@ -165,7 +165,7 @@ These can be added to `scripts/` as a CI guard if desired; not commissioned now 
 
 - **Defer the JS-backend integration test until a driver exists.** Cost: no executable proof of the contract until then. Benefit: the test isn't load-bearing without a consumer, and adding it now would introduce a JS-target maintenance burden (different build chain) for no current user.
 - **Defer T3 until a multi-runtime async driver exists.** Cost: the Refs remain a discipline invariant. Benefit: no correctness risk on a load-bearing path absent a regression net.
-- **Document the synchrony contract here, not in user-facing docs.** Cost: drivers learning incr from `docs/getting-started.md` won't see the async story. Benefit: avoids over-promising on an experimental dependency. Promote to user docs when a driver actually ships.
+- **Document the synchrony contract here, not in user-facing docs.** Cost: drivers learning incr from `docs/getting-started.mbt.md` won't see the async story. Benefit: avoids over-promising on an experimental dependency. Promote to user docs when a driver actually ships.
 
 ## Scope
 
@@ -173,7 +173,7 @@ These can be added to `scripts/` as a CI guard if desired; not commissioned now 
 
 **Out of scope:**
 - Async drivers on the canopy / loom side — owned by those projects.
-- The contents of `docs/getting-started.md` / `cookbook.md` — async patterns are not yet user-facing recipes.
+- The contents of `docs/getting-started.mbt.md` / `cookbook.mbt.md` — async patterns are not yet user-facing recipes.
 - Phase 5 persistent caching design — the async-write pattern is one *enabler* of it, not a substitute for the persistence design itself.
 - The T1b (`MemoCommitPhase`) gating decision — separate concern, separate ADR, not unlocked by async.
 

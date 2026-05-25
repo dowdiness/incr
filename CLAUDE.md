@@ -131,7 +131,7 @@ For deep internals (verification algorithm, type erasure, SoA storage, push prop
 
 **Main docs:** [docs/](docs/)
 
-- **For users:** [getting-started.md](docs/getting-started.md), [concepts.md](docs/concepts.md), [api-reference.md](docs/api-reference.md), [cookbook.md](docs/cookbook.md)
+- **For users:** [getting-started.mbt.md](docs/getting-started.mbt.md), [concepts.mbt.md](docs/concepts.mbt.md), [api-reference.mbt.md](docs/api-reference.mbt.md), [cookbook.mbt.md](docs/cookbook.mbt.md)
 - **For contributors:** [design/internals.md](docs/design/internals.md) (deep internals), [roadmap.md](docs/roadmap.md), [todo.md](docs/todo.md), [design/api-design-guidelines.md](docs/design/api-design-guidelines.md)
 - **Archive:** `docs/archive/` — completed plans and stale documents. Do not search here unless you need historical context.
 
@@ -141,9 +141,9 @@ For deep internals (verification algorithm, type erasure, SoA storage, push prop
 - Performance docs = dated snapshots. New measurements go in new files, old ones are not updated.
 - Code is the source of truth — if a doc and the code disagree, the doc is wrong.
 - High-value target API examples should be checked in `.mbt.md` files or
-  ` ```mbt check` blocks. `docs/target_api_examples.mbt.md` currently covers
-  README/getting-started target constructor, `Scope`, read, and `Watch`
-  examples. Next migration slice: add checked examples for
-  `docs/api-reference.md`, then remaining cookbook snippets.
+  ` ```mbt check` blocks. The primary public docs are literate `.mbt.md`
+  files, with high-value behavior pinned by companion checked examples. See
+  `docs/todo.md` for the remaining lower-priority ADR/design/performance
+  snippet migration work.
 
 When contributing, read [docs/design/internals.md](docs/design/internals.md) before modifying core algorithm files like `cells/verify.mbt` or `cells/derived.mbt`.

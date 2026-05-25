@@ -731,13 +731,13 @@ Expected: No type errors
 ## Task 8: Update Documentation
 
 **Files:**
-- Modify: `docs/api-reference.md` (add introspection section)
-- Modify: `docs/cookbook.md` (add debugging recipes)
+- Modify: `docs/api-reference.mbt.md` (add introspection section)
+- Modify: `docs/cookbook.mbt.md` (add debugging recipes)
 - Modify: `docs/design.md` (note introspection API availability)
 
 **Step 1: Add introspection section to API reference**
 
-Add to `docs/api-reference.md` after the Memo section:
+Add to `docs/api-reference.mbt.md` after the Memo section:
 
 ```markdown
 ## Introspection and Debugging
@@ -824,7 +824,7 @@ For signals, `dependencies` is empty.
 
 **Step 2: Add debugging recipes to cookbook**
 
-Add to `docs/cookbook.md`:
+Add to `docs/cookbook.mbt.md`:
 
 ```markdown
 ## Debugging
@@ -928,7 +928,7 @@ Add a note in `docs/design.md` after the introduction:
 **Step 4: Commit documentation updates**
 
 ```bash
-git add docs/api-reference.md docs/cookbook.md docs/design.md
+git add docs/api-reference.mbt.md docs/cookbook.mbt.md docs/design.md
 git commit -m "docs: add introspection API documentation
 
 - API reference for Signal/Memo/Runtime introspection methods

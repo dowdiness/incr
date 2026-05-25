@@ -117,7 +117,7 @@ compatibility `FunctionalRelation[K, V]`.
 
 **Batching:**
 
-`batch` and `batch_result` defer all `set` operations and revision bumps to the end of the block, with rollback on raised errors. See the [Cookbook](cookbook.md) for revert detection semantics.
+`batch` and `batch_result` defer all `set` operations and revision bumps to the end of the block, with rollback on raised errors. See the [Cookbook](cookbook.mbt.md) for revert detection semantics.
 
 ---
 
@@ -197,7 +197,7 @@ Items the audit verified against current code; if any of these is wrong, the cod
 
 - **`pipeline/` is uncommitted.** The four traits in that package are not used internally and have no roadmap item. Treat as exploratory.
 - **`gc_tracked(rt, t)` is a deprecated no-op.** For target field owners, use `add_input_fields(scope, owner)`. For compatibility `TrackedCell` owners, use `add_tracked(scope, tracked)`. The `#deprecated` attribute on `gc_tracked` in `traits.mbt` confirms this.
-- **Hand-maintained `docs/api-reference.md`.** It has drifted from `.mbti` at least once (caught in the most recent audit). Treat the `.mbti` files as authoritative when they disagree.
+- **Hand-maintained `docs/api-reference.mbt.md`.** It has drifted from `.mbti` at least once (caught in the most recent audit). Treat the `.mbti` files as authoritative when they disagree.
 - **Most prose examples are still illustrative.** The target-API examples in [`target_api_examples.mbt.md`](target_api_examples.mbt.md) are checked by `moon check`, but many longer ` ```moonbit` snippets in prose docs are still unchecked. Continue migrating high-value examples to `.mbt.md` literate tests as APIs stabilize.
 - **No CI in this submodule.** Verification is delegated to the parent `canopy` repo; running `moon check && moon test` locally before pushing is the operative discipline.
 

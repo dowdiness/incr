@@ -1,4 +1,4 @@
-// Drift-catch for README.md and docs/getting-started.md quickstart examples.
+// Drift-catch for README.md and docs/getting-started.mbt.md quickstart examples.
 
 ///|
 test "quickstart: target constructors from README" {

@@ -17,7 +17,7 @@ The `2026-02-25-panic-safety-hardening` plan implemented raised-error rollback i
 
 **Approach B (selected):** Update tracking docs, close the plan file, and extend README.
 
-User-facing reference docs (`api-reference.md`, `design.md`, `getting-started.md`) are already comprehensive and require no changes.
+User-facing reference docs (`api-reference.mbt.md`, `design.md`, `getting-started.mbt.md`) are already comprehensive and require no changes.
 
 ## Changes
 
@@ -71,7 +71,7 @@ In the "Graceful Error Handling" section, insert after the `get_result()` exampl
 
 ## Out of Scope
 
-- `concepts.md` — raised-error rollback is already covered in `getting-started.md`; no duplication needed.
+- `concepts.mbt.md` — raised-error rollback is already covered in `getting-started.mbt.md`; no duplication needed.
 - `api-design-guidelines.md` — no new patterns to add.
 - Source code — no changes.
 
