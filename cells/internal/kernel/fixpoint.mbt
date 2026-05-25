@@ -34,15 +34,11 @@ pub fn run_fixpoint(
   enter_phase(core, InFixpoint)
   for ;; {
     // Materialize the current frontier while keeping it readable via delta_iter.
-    let mut ri = 0
-    while ri < datalog.relations.length() {
-      (datalog.relations[ri].drain_delta)()
-      ri = ri + 1
+    for rel in datalog.relations {
+      (rel.drain_delta)()
     }
-    let mut fi = 0
-    while fi < datalog.functional_relations.length() {
-      (datalog.functional_relations[fi].drain_delta)()
-      fi = fi + 1
+    for fr in datalog.functional_relations {
+      (fr.drain_delta)()
     }
     // Apply all rules (skip disposed)
     for rule in datalog.rules {
@@ -58,32 +54,24 @@ pub fn run_fixpoint(
     }
     // Check convergence over staged deltas + mark changed in a single pass
     let mut has_new_facts = false
-    ri = 0
-    while ri < datalog.relations.length() {
+    for ri = 0; ri < datalog.relations.length(); ri = ri + 1 {
       if !(datalog.relations[ri].is_staged_delta_empty)() {
         has_new_facts = true
         changed[ri] = true
       }
-      ri = ri + 1
     }
-    fi = 0
-    while fi < datalog.functional_relations.length() {
+    for fi = 0; fi < datalog.functional_relations.length(); fi = fi + 1 {
       if !(datalog.functional_relations[fi].is_staged_delta_empty)() {
         has_new_facts = true
         fr_changed[fi] = true
       }
-      fi = fi + 1
     }
     // Next iteration frontier = this iteration's newly derived facts.
-    ri = 0
-    while ri < datalog.relations.length() {
-      (datalog.relations[ri].promote_staged_delta)()
-      ri = ri + 1
+    for rel in datalog.relations {
+      (rel.promote_staged_delta)()
     }
-    fi = 0
-    while fi < datalog.functional_relations.length() {
-      (datalog.functional_relations[fi].promote_staged_delta)()
-      fi = fi + 1
+    for fr in datalog.functional_relations {
+      (fr.promote_staged_delta)()
     }
     if !has_new_facts {
       break
@@ -92,19 +80,15 @@ pub fn run_fixpoint(
   leave_phase(core)
   // Collect changed cell IDs
   let changed_ids : Array[CellId] = []
-  let mut ri = 0
-  while ri < datalog.relations.length() {
+  for ri = 0; ri < datalog.relations.length(); ri = ri + 1 {
     if changed[ri] {
       changed_ids.push(datalog.relations[ri].meta.cell_id)
     }
-    ri = ri + 1
   }
-  let mut fi = 0
-  while fi < datalog.functional_relations.length() {
+  for fi = 0; fi < datalog.functional_relations.length(); fi = fi + 1 {
     if fr_changed[fi] {
       changed_ids.push(datalog.functional_relations[fi].meta.cell_id)
     }
-    fi = fi + 1
   }
   changed_ids
 }

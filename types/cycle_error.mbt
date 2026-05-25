@@ -44,6 +44,19 @@ pub fn CycleError::new(
   path : Array[CellId],
   labels : Array[String?],
 ) -> CycleError {
+  let expected_labels = if path.length() < MAX_CYCLE_DISPLAY_STEPS {
+    path.length()
+  } else {
+    MAX_CYCLE_DISPLAY_STEPS
+  }
+  if labels.length() != expected_labels {
+    abort(
+      "CycleError::new: labels.length() must equal min(path.length(), MAX_CYCLE_DISPLAY_STEPS); got " +
+      labels.length().to_string() +
+      " want " +
+      expected_labels.to_string(),
+    )
+  }
   CycleDetected(cell, path, labels)
 }
 

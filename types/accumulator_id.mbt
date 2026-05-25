@@ -23,6 +23,5 @@ pub impl Hash for AccumulatorId with hash(self) {
 
 ///|
 pub impl Hash for AccumulatorId with hash_combine(self, hasher) {
-  self.runtime_id.hash_combine(hasher)
-  self.id.hash_combine(hasher)
+  self.hash().hash_combine(hasher)
 }
