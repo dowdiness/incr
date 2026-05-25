@@ -50,6 +50,7 @@ For contributors and advanced users who want to understand or modify `incr`.
 - [Implementation specs](design/specs/) — written-ahead design specs for individual subsystems (paired with [plans/](plans/) or already shipped)
 - [2026-04-20 Architecture Assessment](design/specs/2026-04-20-architecture-assessment.md) — verified snapshot of current architecture; records why no structural redesign is warranted today and what would justify revisiting T1b (commit-phase trait) and T3 (runtime registry)
 - [2026-05-21 Ideal API facades and read semantics](design/specs/2026-05-21-ideal-api-facade-read-semantics.md) — target facade shape and strict/permissive read contracts for the public API rename
+- [2026-05-25 `Expr[T]` Formula API](design/specs/2026-05-25-expr-formula-api.md) — proposed lazy formula layer over target facades, with same-runtime validation, explicit constants, and one-cell materialization
 
 **Project direction:**
 

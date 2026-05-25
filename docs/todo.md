@@ -72,6 +72,7 @@ Concrete, actionable tasks for the `incr` library.
       - how labels/debug output should describe composed formulas
       Start with a design doc and checked examples; target `InputField`-based
       immutable domain structs as the motivating recipe.
+      Proposed design: [2026-05-25 `Expr[T]` Formula API](design/specs/2026-05-25-expr-formula-api.md).
 
 ### Introspection API (Phase 2A - High Priority)
 
