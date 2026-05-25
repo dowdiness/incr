@@ -6,7 +6,7 @@ Common patterns and recipes for using `incr` effectively. Checked variants of th
 
 Handle computations where multiple paths converge:
 
-```
+```text
     [A]
    /   \
   [B]   [C]
