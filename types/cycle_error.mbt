@@ -51,10 +51,10 @@ pub fn CycleError::new(
   }
   if labels.length() != expected_labels {
     abort(
-      "CycleError::new: labels.length() must equal min(path.length(), MAX_CYCLE_DISPLAY_STEPS); got "
-      + labels.length().to_string()
-      + " want "
-      + expected_labels.to_string(),
+      "CycleError::new: labels.length() must equal min(path.length(), MAX_CYCLE_DISPLAY_STEPS); got " +
+      labels.length().to_string() +
+      " want " +
+      expected_labels.to_string(),
     )
   }
   CycleDetected(cell, path, labels)
