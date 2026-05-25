@@ -54,15 +54,15 @@ inspect(sum.read_or_abort(), content="25")
 When a group of cells or long-lived reads shares a lifetime, construct cells
 through a `Scope` (`scope.input(...)`, `scope.derived(...)`) and register
 watches with `scope.add_watch(...)` so one `scope.dispose()` tears the group
-down. See [Getting Started](docs/getting-started.md).
+down. See [Getting Started](docs/getting-started.mbt.md).
 
 > **Note on the example above:** It is `nocheck` because this Markdown file is not a MoonBit package. The same construction is checked in [`docs/target_api_examples.mbt.md`](docs/target_api_examples.mbt.md) and exercised end-to-end by [`tests/quickstart_test.mbt`](tests/quickstart_test.mbt) — if you edit the example, update those in lockstep.
 
 ## Learn More
 
-- **New to `incr`?** Start with [Getting Started](docs/getting-started.md), then [Core Concepts](docs/concepts.md).
-- **Looking for a specific pattern?** Backdating, durability, keyed queries, batched updates with rollback, cycle-safe reads, and more are covered in the [Cookbook](docs/cookbook.md).
-- **Looking up a type or method?** See the [API Reference](docs/api-reference.md).
+- **New to `incr`?** Start with [Getting Started](docs/getting-started.mbt.md), then [Core Concepts](docs/concepts.mbt.md).
+- **Looking for a specific pattern?** Backdating, durability, keyed queries, batched updates with rollback, cycle-safe reads, and more are covered in the [Cookbook](docs/cookbook.mbt.md).
+- **Looking up a type or method?** See the [API Reference](docs/api-reference.mbt.md).
 - **Working on `incr` itself?** [docs/architecture.md](docs/architecture.md) (package map) and [docs/design/internals.md](docs/design/internals.md) (algorithms).
 
 Full documentation index: [docs/README.md](docs/README.md).

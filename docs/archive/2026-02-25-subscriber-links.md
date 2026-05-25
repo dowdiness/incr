@@ -397,7 +397,7 @@ git commit -m "test: add subscriber links integration tests"
 
 **Step 1: Update docs**
 
-- Update `docs/api-reference.md` to document `Runtime::dependents(CellId)` and the `subscribers` field on `CellInfo`
+- Update `docs/api-reference.mbt.md` to document `Runtime::dependents(CellId)` and the `subscribers` field on `CellInfo`
 - Update `docs/roadmap.md` to mark subscriber links as ✓
 - Update `docs/todo.md` to check off subscriber links and `Runtime::dependents`
 

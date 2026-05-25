@@ -63,10 +63,10 @@ Where things go:
 | Content | Location |
 |---|---|
 | Quick pitch, install, minimal example, dev commands | `README.md` |
-| Tutorial / first computation | `docs/getting-started.md` |
-| Conceptual model (signals, durability, backdating, …) | `docs/concepts.md` |
-| Patterns and anti-patterns | `docs/cookbook.md` |
-| Public-API listing | `docs/api-reference.md` |
+| Tutorial / first computation | `docs/getting-started.mbt.md` |
+| Conceptual model (signals, durability, backdating, …) | `docs/concepts.mbt.md` |
+| Patterns and anti-patterns | `docs/cookbook.mbt.md` |
+| Public-API listing | `docs/api-reference.mbt.md` |
 | Architecture map, data flow, invariants | `docs/architecture.md` |
 | Verification algorithm, SoA layout, type erasure | `docs/design/internals.md` |
 | Significant decisions | `docs/decisions/` (ADRs) |

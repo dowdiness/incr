@@ -32,14 +32,17 @@ The naming direction is recorded in [ADR 2026-05-21](decisions/2026-05-21-public
 
 Inputs hold values that you set directly:
 
-```moonbit
-let count = Input(rt, 0)
+```mbt check
+///|
+test "concepts: input read and update" {
+  let rt = @incr.Runtime()
+  let count = @incr.Input(rt, 0)
 
-// Read the value
-let current = count.get()  // 0
+  inspect(count.get(), content="0")
 
-// Update the value
-count.set(5)
+  count.set(5)
+  inspect(count.get(), content="5")
+}
 ```
 
 ### Same-Value Optimization
@@ -59,8 +62,15 @@ Every `Input`, `Derived`, and `InputField` accepts an optional `label` parameter
 
 Derived values compute from inputs or other derived values and cache the result:
 
-```moonbit
-let doubled = Derived(rt, () => count.get() * 2)
+```mbt check
+///|
+test "concepts: derived values read inputs" {
+  let rt = @incr.Runtime()
+  let count = @incr.Input(rt, 21)
+  let doubled = @incr.Derived(rt, () => count.get() * 2)
+
+  inspect(doubled.read_or_abort(), content="42")
+}
 ```
 
 Key properties:
@@ -125,9 +135,15 @@ The target `Derived` constructor and `create_derived` helper use `Memo::new` int
 | `Medium` | Moderately stable |
 | `High` | Rarely changing (configuration, schemas) |
 
-```moonbit
-let config = Input(rt, 100, durability=High)
-let input = Input(rt, 1)  // Default: Low
+```mbt nocheck
+///|
+let rt = @incr.Runtime()
+
+///|
+let config = @incr.Input(rt, 100, durability=High)
+
+///|
+let input = @incr.Input(rt, 1)
 ```
 
 ### Durability Shortcut
@@ -138,25 +154,40 @@ When only low-durability inputs change, derived values that depend solely on hig
 
 Derived values inherit the **minimum** durability of their dependencies:
 
-```moonbit
-let high = Input(rt, 1, durability=High)
-let low = Input(rt, 2)  // Low durability
+```mbt nocheck
+///|
+let rt = @incr.Runtime()
 
-let mixed = Derived(rt, () => high.get() + low.get())
-// mixed inherits Low durability (can't use the shortcut)
+///|
+let high = @incr.Input(rt, 1, durability=High)
+
+///|
+let low = @incr.Input(rt, 2)
+
+///|
+let mixed = @incr.Derived(rt, () => high.get() + low.get())
 ```
 
 ## Batch Updates
 
 Update multiple inputs atomically:
 
-```moonbit
-rt.batch(() => {
-  x.set(10)
-  y.set(20)
-  z.set(30)
-})
-// Single revision bump for all three changes
+```mbt check
+///|
+test "concepts: batch updates multiple inputs" {
+  let rt = @incr.Runtime()
+  let x = @incr.Input(rt, 0)
+  let y = @incr.Input(rt, 0)
+  let z = @incr.Input(rt, 0)
+
+  rt.batch(() => {
+    x.set(10)
+    y.set(20)
+    z.set(30)
+  })
+
+  inspect(x.get() + y.get() + z.get(), content="60")
+}
 ```
 
 Benefits:
@@ -167,11 +198,37 @@ Benefits:
 
 Cyclic dependencies are detected at runtime:
 
-```moonbit
-let a = Derived(rt, () => b.get_or_abort() + 1)
-let b = Derived(rt, () => a.get_or_abort() + 1)
+```mbt check
+///|
+test "concepts: cycles surface through Result reads" {
+  let rt = @incr.Runtime()
+  let a_ref : Ref[@incr.Derived[Int]?] = { val: None }
+  let b_ref : Ref[@incr.Derived[Int]?] = { val: None }
+  let saw_cycle : Ref[Bool] = { val: false }
+  let a = @incr.Derived(rt, () => {
+    match b_ref.val.unwrap().get() {
+      Ok(v) => v + 1
+      Err(_err) => {
+        saw_cycle.val = true
+        0
+      }
+    }
+  })
+  let b = @incr.Derived(rt, () => {
+    match a_ref.val.unwrap().get() {
+      Ok(v) => v + 1
+      Err(_err) => {
+        saw_cycle.val = true
+        0
+      }
+    }
+  })
+  a_ref.val = Some(a)
+  b_ref.val = Some(b)
 
-a.read_or_abort()  // Aborts: "Cycle detected"
+  inspect(a.read_or_abort(), content="1")
+  inspect(saw_cycle.val, content="true")
+}
 ```
 
 ### Graceful Cycle Handling
@@ -268,7 +325,7 @@ scope that owns the surrounding graph.
 | Data flows to a single consumer already in the graph | return it — accumulator is overkill |
 | Data aggregates across many producers into one consumer | `Accumulator[T]` |
 
-See the [Cookbook](./cookbook.md#pattern-side-channel-diagnostics-with-accumulator) for complete worked examples, and the [ADR](./decisions/2026-04-20-accumulator-api.md) for the design rationale.
+See the [Cookbook](./cookbook.mbt.md#pattern-side-channel-diagnostics-with-accumulator) for complete worked examples, and the [ADR](./decisions/2026-04-20-accumulator-api.md) for the design rationale.
 
 ## Reachable Derived Values
 
@@ -303,14 +360,18 @@ Both support backdating — if a `ReachableDerived` recomputes to the same value
 
 Each `Runtime` is a completely isolated universe. Inputs and derived values belong to exactly one Runtime, and cross-runtime reads are a hard error:
 
-```moonbit
-let rt_a = Runtime()
-let rt_b = Runtime()
-let input_b = Input(rt_b, 42)
+```mbt nocheck
+///|
+let rt_a = @incr.Runtime()
 
-// This aborts: input_b belongs to rt_b, not rt_a
-let bad = Derived(rt_a, () => input_b.get())
-bad.read_or_abort()  // abort: "Cross-runtime dependency"
+///|
+let rt_b = @incr.Runtime()
+
+///|
+let input_b = @incr.Input(rt_b, 42)
+
+///|
+let bad = @incr.Derived(rt_a, () => input_b.get())
 ```
 
 The design is intentional:
@@ -340,6 +401,6 @@ If you need to share data between two independent computation graphs, use a plai
 
 ## Further Reading
 
-- [API Reference](./api-reference.md) — Complete method reference
-- [Cookbook](./cookbook.md) — Common patterns (including the field-level input recipe)
+- [API Reference](./api-reference.mbt.md) — Complete method reference
+- [Cookbook](./cookbook.mbt.md) — Common patterns (including the field-level input recipe)
 - [design/internals.md](design/internals.md) — Implementation details

@@ -108,7 +108,7 @@ Out of scope:
 ### Task 5: Add documentation example
 
 **Files:**
-- Modify: `docs/cookbook.md`
+- Modify: `docs/cookbook.mbt.md`
 
 **Steps:**
 - Add a short recipe showing:

@@ -50,8 +50,8 @@ Out of scope:
 
 **Files:**
 - Modify: `README.md`
-- Modify: `docs/getting-started.md`
-- Modify: `docs/api-reference.md`
+- Modify: `docs/getting-started.mbt.md`
+- Modify: `docs/api-reference.mbt.md`
 - Modify: `docs/design.md`
 
 Update docs to clearly state:

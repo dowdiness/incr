@@ -252,6 +252,6 @@ future readers don't re-derive them from the spec:
 - [docs/archive/completed-phases/2026-04-19-accumulator-api-design.md](../archive/completed-phases/2026-04-19-accumulator-api-design.md)
   — implementation spec (21 tasks, TDD-driven). Archive after
   retaining for historical context.
-- [docs/api-reference.md](../api-reference.md) §Accumulator — user-facing
+- [docs/api-reference.mbt.md](../api-reference.mbt.md) §Accumulator — user-facing
   API documentation.
-- [docs/cookbook.md](../cookbook.md) — (future) accumulator usage recipes.
+- [docs/cookbook.mbt.md](../cookbook.mbt.md) — (future) accumulator usage recipes.

@@ -107,7 +107,7 @@ let x = create_signal(app, 10)
 
 **Why updated:** Promotes the recommended pattern upfront, making it easier for new users to adopt best practices.
 
-### 5. `docs/getting-started.md`
+### 5. `docs/getting-started.mbt.md`
 
 **Changes:**
 - **New section:** "Recommended Approach: Database Pattern" added before runtime creation
@@ -117,7 +117,7 @@ let x = create_signal(app, 10)
 
 **Why updated:** Teaches the recommended pattern from the start while still showing the direct approach for comparison.
 
-### 6. `docs/api-reference.md`
+### 6. `docs/api-reference.mbt.md`
 
 **Changes:**
 - **New introductory note:** Recommends Database pattern at the top of the document
@@ -137,7 +137,7 @@ let x = create_signal(app, 10)
 
 **Changes:**
 - **Documentation Hierarchy section:** Added descriptions for updated documents
-- **User docs:** Added note about Database pattern in getting-started.md
+- **User docs:** Added note about Database pattern in getting-started.mbt.md
 - **Contributor docs:**
   - Updated ROADMAP description to mention Phase 2 details
   - Updated TODO description to note priority organization
@@ -269,8 +269,8 @@ let m = Memo(rt, () => sig.get() * 2, label="doubled")
 | `ROADMAP.md` | Updated | Reorganized Phase 2 with priorities |
 | `TODO.md` | Updated | Added 30+ concrete tasks |
 | `README.md` | Updated | Promote Database pattern first |
-| `docs/getting-started.md` | Updated | Show both patterns side-by-side |
-| `docs/api-reference.md` | Updated | Added planned API sections |
+| `docs/getting-started.mbt.md` | Updated | Show both patterns side-by-side |
+| `docs/api-reference.mbt.md` | Updated | Added planned API sections |
 | `CLAUDE.md` | Updated | Reference new docs structure |
 
 **Total:** 1 new document, 6 updated documents

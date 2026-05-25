@@ -165,7 +165,7 @@ Canonical references:
 - `docs/target_api_examples.mbt.md` — checked literate examples of the
   target facade form (`Input`, `Derived`, `Scope`, `Watch`,
   `read_or_abort`, `get_or_abort`).
-- `docs/getting-started.md` — narrative version with the
+- `docs/getting-started.mbt.md` — narrative version with the
   inside-vs-outside rule called out.
 - `tests/bench_test.mbt` — bench template using the compat names; still
   the canonical bench surface.
@@ -443,9 +443,9 @@ In this repo (`dowdiness/incr`):
 - `docs/target_api_examples.mbt.md` — checked literate target facade
   examples (`Input`, `Derived`, `Scope`, `Watch`, `read_or_abort`,
   `get_or_abort`). Verified by `moon check` — never out of date.
-- `docs/getting-started.md` — narrative walk-through with the
+- `docs/getting-started.mbt.md` — narrative walk-through with the
   inside-vs-outside read rule called out (steps 4 and 4.5).
-- `docs/api-reference.md` — compatibility ↔ target mapping tables for
+- `docs/api-reference.mbt.md` — compatibility ↔ target mapping tables for
   each handle; authoritative shape of `read` / `read_or_abort` /
   `get` / `get_or_abort` / `watch` / `observe`.
 - `tests/bench_test.mbt` — bench template (currently in compatibility

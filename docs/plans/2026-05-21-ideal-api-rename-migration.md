@@ -382,8 +382,8 @@ Only after the target facade has soaked, or in an explicitly breaking release:
 
 After Phase 3:
 
-- Switch `README.md`, `docs/getting-started.md`, `docs/concepts.md`,
-  `docs/cookbook.md`, and API examples to target names by default.
+- Switch `README.md`, `docs/getting-started.mbt.md`, `docs/concepts.mbt.md`,
+  `docs/cookbook.mbt.md`, and API examples to target names by default.
 - Keep one migration table in the API reference for the deprecated names.
 - Stop presenting `create_*` helpers as the preferred construction path.
 - Remove deprecated aliases only after at least one documented migration window

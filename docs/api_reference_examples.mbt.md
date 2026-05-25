@@ -1,13 +1,14 @@
 # Checked API Reference Examples
 
-Literate tests that mirror the executable snippets in [`api-reference.md`](api-reference.md).
+Literate tests that mirror the executable snippets in [`api-reference.mbt.md`](api-reference.mbt.md).
 They exist to catch docs/API drift on the target facade surfaces — `Derived`,
 `DerivedMap`, `ReachableDerived`, `MapRelation`, and the `RuntimeContext` /
 `Scope` helper families — beyond the README and getting-started examples already
-covered by [`target_api_examples.mbt.md`](target_api_examples.mbt.md). The
-accumulator examples intentionally use compatibility `Memo` handles because
-`Accumulator::push` is only legal from compatibility `Memo` / `HybridMemo`
-compute frames.
+covered by [`target_api_examples.mbt.md`](target_api_examples.mbt.md). They also
+pin memo-event listener lifecycle, compatibility introspection/callbacks, and the
+compatibility accumulator push path. The accumulator examples intentionally use
+compatibility `Memo` handles because `Accumulator::push` is only legal from
+compatibility `Memo` / `HybridMemo` compute frames.
 
 ## Runtime batching and change callbacks
 
@@ -87,6 +88,30 @@ test "docs api-ref: InputField on_change fires before Runtime on_change" {
   price.clear_on_change()
   price.set(300)
   inspect(log.val, content="cell:200;global;cell:250;global;global;")
+}
+```
+
+## Memo event listener lifecycle
+
+```mbt check
+///|
+test "docs api-ref: memo event listener records and can be cleared" {
+  let rt = @incr.Runtime()
+  let input = @incr.Signal(rt, 1, label="input")
+  let events : Ref[Int] = { val: 0 }
+
+  rt.on_memo_event(_evt => events.val = events.val + 1)
+
+  let doubled = @incr.Memo(rt, () => input.get() * 2, label="doubled")
+  let observer = doubled.observe()
+  inspect(observer.get(), content="2")
+  inspect(events.val, content="2")
+
+  rt.clear_memo_event_listener()
+  input.set(2)
+  inspect(observer.get(), content="4")
+  inspect(events.val, content="2")
+  observer.dispose()
 }
 ```
 
@@ -550,6 +575,70 @@ test "docs api-ref: map_relation staged values become visible after fixpoint" {
   debug_inspect(weights.get((1, 2)), content="Some(10)")
   inspect(weights.iter().fold(init=0, fn(acc, _entry) { acc + 1 }), content="2")
   inspect(weights.insert((1, 2), 10), content="false")
+}
+```
+
+## Compatibility introspection and callbacks
+
+```mbt check
+///|
+test "docs api-ref: compatibility introspection exposes ids dependencies and dependents" {
+  let rt = @incr.Runtime()
+  let input = @incr.Signal(rt, 10, durability=High, label="input")
+  let doubled = @incr.Memo(rt, () => input.get() * 2, label="doubled")
+  let observer = doubled.observe()
+
+  inspect(input.durability(), content="High")
+  inspect(observer.get(), content="20")
+  inspect(doubled.dependencies().contains(input.id()), content="true")
+  inspect(rt.dependents(input.id()).contains(doubled.id()), content="true")
+  match rt.cell_info(doubled.id()) {
+    Some(info) => {
+      debug_inspect(
+        info.label,
+        content=(
+          #|Some("doubled")
+        ),
+      )
+      inspect(info.dependencies.contains(input.id()), content="true")
+    }
+    None => abort("expected memo cell_info")
+  }
+
+  let changed = doubled.changed_at()
+  let verified = doubled.verified_at()
+  input.set(11)
+  inspect(observer.get(), content="22")
+  inspect(doubled.changed_at() > changed, content="true")
+  inspect(doubled.verified_at() > verified, content="true")
+  observer.dispose()
+}
+
+///|
+test "docs api-ref: compatibility per-cell callbacks can be registered and cleared" {
+  let rt = @incr.Runtime()
+  let input = @incr.Signal(rt, 1, label="input")
+  let doubled = @incr.Memo(rt, () => input.get() * 2, label="doubled")
+  let observer = doubled.observe()
+  let input_log : Ref[String] = { val: "" }
+  let memo_log : Ref[String] = { val: "" }
+
+  input.on_change(value => input_log.val = value.to_string())
+  doubled.on_change(value => memo_log.val = value.to_string())
+
+  inspect(observer.get(), content="2")
+  input.set(3)
+  inspect(input_log.val, content="3")
+  inspect(observer.get(), content="6")
+  inspect(memo_log.val, content="6")
+
+  input.clear_on_change()
+  doubled.clear_on_change()
+  input.set(4)
+  inspect(observer.get(), content="8")
+  inspect(input_log.val, content="3")
+  inspect(memo_log.val, content="6")
+  observer.dispose()
 }
 ```
 

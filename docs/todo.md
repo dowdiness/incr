@@ -42,6 +42,36 @@ Concrete, actionable tasks for the `incr` library.
 - [x] Add two-phase signal values with revert detection in batch mode
 - [x] Roll back pending batch writes when batch closure raises (graceful error path)
 - [x] `Signal::set_unconditional(value)` already exists — always bumps the revision
+- [ ] **Expression wrapper / formula API for operator-based derived values.**
+      Add a high-level `Expr[T]` (or `Formula[T]`) layer that lifts
+      `Input[T]`, `InputField[T]`, `Derived[T]`, and possibly
+      `ReachableDerived[T]` into composable expression values. Implement
+      builtin operator traits (`Add`, `Sub`, `Mul`, `Div`, `Mod`, `Neg`, and
+      maybe bitwise operators) on `Expr[T]`, then materialize with
+      `Expr::derived(label?) -> Derived[T]` and `Scope::derived_expr(...)`.
+      Motivation: make simple formulas declarative — e.g.
+      `(cart.price.expr() * cart.quantity.expr()).derived(label="subtotal")`
+      — while keeping mutation explicit at `Input` / `InputField` boundaries
+      and preserving one materialized derived cell per expression.
+      Do **not** overload operators directly on `Input` / `InputField`: MoonBit
+      operator traits return `Self`, so `Input + Input -> Input` would be the
+      wrong semantic shape. Avoid hidden intermediate `Derived` allocation in
+      operator chains; composition should stay lazy until `.derived(...)`.
+      Open design questions:
+      - how to expose/validate same-runtime composition (`Expr` stores a
+        `Runtime`? abort on mismatch at composition or materialization?)
+      - whether `Derived::expr()` should use strict tracked `get_or_abort()` or
+        graceful `get()` internally
+      - how to support constants (`Expr::constant(rt, value)`, `input.expr() +
+        1`, or explicit `lit(rt, 1)` helpers)
+      - whether indexing belongs on expression wrappers (`derived_map.expr()[k]
+        -> Expr[V]`) rather than on `DerivedMap` itself
+      - whether `_[_]`, `_[_]=_`, and `_[_:_]` should be reserved for future
+        indexed reactive collections (`InputMap`, `InputArray`, text/line
+        views) instead of scalar cells
+      - how labels/debug output should describe composed formulas
+      Start with a design doc and checked examples; target `InputField`-based
+      immutable domain structs as the motivating recipe.
 
 ### Introspection API (Phase 2A - High Priority)
 
@@ -454,20 +484,23 @@ dedicated migration window.
       - **Checked companions added:** README / getting-started target,
         callback, and batch snippets are covered by
         `docs/target_api_examples.mbt.md`; concepts behavior by
-        `docs/concepts_examples.mbt.md`; cookbook target, accumulator, and
-        memo-event snippets by `docs/cookbook_examples.mbt.md`; API-reference
-        target facade and compatibility accumulator snippets by
-        `docs/api_reference_examples.mbt.md`. `docs/concepts.md` and
-        `docs/cookbook.md` have been reduced to pointers for already-covered
-        behavior, with only summary syntax / lower-priority narrative fences
-        left.
+        `docs/concepts_examples.mbt.md`; cookbook target, accumulator,
+        memo-event, compatibility introspection, and custom-`Eq` snippets by
+        `docs/cookbook_examples.mbt.md`; API-reference target facade,
+        memo-event, compatibility introspection/callback, and compatibility
+        accumulator snippets by `docs/api_reference_examples.mbt.md`.
+        `docs/getting-started.mbt.md`, `docs/concepts.mbt.md`,
+        `docs/cookbook.mbt.md`, and `docs/api-reference.mbt.md` now use `mbt`,
+        `mbt check`, or intentional `mbt nocheck` fences for inline MoonBit
+        snippets instead of untagged `moonbit` fences. Executable behavior
+        coverage remains in the checked companion `.mbt.md` files.
       - **Narrative snippets still present:** current non-archive docs no
-        longer contain explicit `moonbit nocheck` fences, but many untagged
-        ` ```moonbit` fences remain. Prioritize public user docs first
-        (`docs/getting-started.md`, `docs/concepts.md`, `docs/cookbook.md`,
-        `docs/api-reference.md`) by either replacing already-covered snippets
-        with checked-companion pointers or adding missing checked companion
-        coverage; then triage lower-priority ADR/design/performance snippets.
+        longer contain explicit `moonbit nocheck` fences, and the primary public
+        user docs no longer contain untagged ` ```moonbit` fences. Remaining
+        work is lower-priority ADR/design/performance snippets: either convert
+        illustrative code to `mbt` / `mbt check`, mark intentionally incomplete
+        snippets as `mbt nocheck`, or move high-value behavior into checked
+        companions.
 
 ### Doc-comment audits
 

@@ -433,9 +433,9 @@ Verification: `moon info && moon fmt` produces only the expected `.mbti` additio
 - **Raising-API drain-deferral test** (per §"Drain protocol" raising-API error-exit bullet): a `Memo::accumulated_result` (or other catchable-`raise` read API) that propagates a `Failure` leaves any events buffered prior to the raise in `pending` rather than flushing. The next drain-eligible operation (e.g., a no-op `Memo::get` on a stable cell) flushes them in arrival order. Proves the documented "events stay buffered, next drain flushes" behavior — and that drivers can recover delivery without special-case handling at the raise site.
 - Revision-capture test: a memo compute closure that calls `Signal::set_unconditional` (advancing revision mid-compute) — `EnteringCompute.started_revision < Completed.verified_at`; the event fields are consistent and don't claim equality the runtime can't honor.
 - Driver-facing test: register a listener, run a small graph, assert event sequence.
-- Update `docs/api-reference.md` with the four new public types + two new fns.
-- Update `docs/cookbook.md` with one recipe ("animated graph visualization") and one recipe ("async event logging"). The §"What this enables" example in this ADR is a good seed for the visualization recipe.
-- Brief addition to `docs/getting-started.md` only if it fits naturally; not load-bearing.
+- Update `docs/api-reference.mbt.md` with the four new public types + two new fns.
+- Update `docs/cookbook.mbt.md` with one recipe ("animated graph visualization") and one recipe ("async event logging"). The §"What this enables" example in this ADR is a good seed for the visualization recipe.
+- Brief addition to `docs/getting-started.mbt.md` only if it fits naturally; not load-bearing.
 
 ## Verification
 

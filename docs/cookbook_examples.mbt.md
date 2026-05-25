@@ -1,10 +1,10 @@
 # Checked Cookbook Examples
 
-Literate tests that pin high-value target facade snippets from
-[`cookbook.md`](cookbook.md). These examples focus on behavior that prose-only
-snippets can easily drift on: diamond dependencies, batch semantics, dynamic
-dependency changes, backdating with custom `Eq`, accumulator invalidation,
-memo-event logging, field-level inputs, and scoped watch lifetimes.
+Literate tests that pin high-value snippets from [`cookbook.mbt.md`](cookbook.mbt.md).
+These examples focus on behavior that prose-only snippets can easily drift on:
+diamond dependencies, batch semantics, dynamic dependency changes, backdating
+with custom `Eq`, accumulator invalidation, memo-event logging, compatibility
+introspection, field-level inputs, and scoped watch lifetimes.
 
 ## Diamond dependencies and layered derived values
 
@@ -255,6 +255,85 @@ test "docs cookbook: backdating respects custom equality" {
   inspect(versioned_runs.val, content="3")
   inspect(handler_runs.val, content="2")
   inspect(versioned.read_or_abort().generation, content="3")
+}
+```
+
+```mbt check
+///|
+priv enum CookbookStatus {
+  CookbookLoading(progress~ : Int)
+  CookbookReady(data~ : Int)
+  CookbookError(code~ : Int, message~ : String)
+}
+
+///|
+impl Eq for CookbookStatus with fn equal(self, other) -> Bool {
+  match (self, other) {
+    (CookbookLoading(progress=p1), CookbookLoading(progress=p2)) => p1 == p2
+    (CookbookReady(data=d1), CookbookReady(data=d2)) => d1 == d2
+    (CookbookError(code=c1, ..), CookbookError(code=c2, ..)) => c1 == c2
+    _ => false
+  }
+}
+
+///|
+test "docs cookbook: enum backdating can ignore incidental fields" {
+  match CookbookLoading(progress=7) {
+    CookbookLoading(progress=p) => inspect(p, content="7")
+    _ => abort("expected loading")
+  }
+  match CookbookReady(data=42) {
+    CookbookReady(data=d) => inspect(d, content="42")
+    _ => abort("expected ready")
+  }
+  match CookbookError(code=500, message="boom") {
+    CookbookError(code=c, message=m) => {
+      inspect(c, content="500")
+      inspect(m, content="boom")
+    }
+    _ => abort("expected error")
+  }
+
+  let rt = @incr.Runtime()
+  let error_code = @incr.Input(rt, 404, label="error_code")
+  let error_msg = @incr.Input(rt, "Not Found", label="error_msg")
+  let status_runs : Ref[Int] = { val: 0 }
+  let handler_runs : Ref[Int] = { val: 0 }
+
+  let status = @incr.Derived(
+    rt,
+    () => {
+      status_runs.val = status_runs.val + 1
+      CookbookError(code=error_code.get(), message=error_msg.get())
+    },
+    label="status",
+  )
+  let handler = @incr.Derived(
+    rt,
+    () => {
+      handler_runs.val = handler_runs.val + 1
+      match status.get_or_abort() {
+        CookbookError(code=c, ..) => "Error: " + c.to_string()
+        CookbookReady(data=d) => "Data: " + d.to_string()
+        CookbookLoading(progress=p) => "Loading: " + p.to_string() + "%"
+      }
+    },
+    label="handler",
+  )
+
+  inspect(handler.read_or_abort(), content="Error: 404")
+  inspect(status_runs.val, content="1")
+  inspect(handler_runs.val, content="1")
+
+  error_msg.set("Page Not Found")
+  inspect(handler.read_or_abort(), content="Error: 404")
+  inspect(status_runs.val, content="2")
+  inspect(handler_runs.val, content="1")
+
+  error_code.set(500)
+  inspect(handler.read_or_abort(), content="Error: 500")
+  inspect(status_runs.val, content="3")
+  inspect(handler_runs.val, content="2")
 }
 ```
 
@@ -559,6 +638,58 @@ test "docs cookbook: memo event listener can enqueue compact log rows" {
   inspect(doubled.read_or_abort(), content="4")
   inspect(rows.length(), content="2")
   rt.clear_memo_event_listener()
+}
+```
+
+## Debugging with compatibility introspection
+
+```mbt check
+///|
+test "docs cookbook: introspection identifies changed dependencies and dependents" {
+  let rt = @incr.Runtime()
+  let x = @incr.Signal(rt, 10, label="x")
+  let y = @incr.Signal(rt, 20, label="y")
+  let sum = @incr.Memo(rt, () => x.get() + y.get(), label="sum")
+  let reader = sum.observe()
+
+  inspect(reader.get(), content="30")
+  let baseline = sum.verified_at()
+
+  x.set(15)
+  inspect(reader.get(), content="35")
+
+  let changed_deps : Array[String] = []
+  for dep_id in sum.dependencies() {
+    match rt.cell_info(dep_id) {
+      Some(info) =>
+        if info.changed_at.value > baseline.value {
+          match info.label {
+            Some(label) => changed_deps.push(label)
+            None => changed_deps.push(dep_id.id.to_string())
+          }
+        }
+      None => ()
+    }
+  }
+  debug_inspect(changed_deps, content="[\"x\"]")
+  inspect(rt.dependents(x.id()).contains(sum.id()), content="true")
+  reader.dispose()
+}
+
+///|
+test "docs cookbook: memo changed_at shows backdating" {
+  let rt = @incr.Runtime()
+  let config = @incr.Signal(rt, "abcd", label="config")
+  let length = @incr.Memo(rt, () => config.get().length(), label="length")
+  let reader = length.observe()
+
+  inspect(reader.get(), content="4")
+  let old_changed = length.changed_at()
+
+  config.set("wxyz")
+  inspect(reader.get(), content="4")
+  inspect(length.changed_at() == old_changed, content="true")
+  reader.dispose()
 }
 ```
 

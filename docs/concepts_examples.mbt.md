@@ -1,7 +1,7 @@
 # Checked Concepts Examples
 
 Literate tests that pin high-value behavior described in
-[`concepts.md`](concepts.md). These examples focus on conceptual claims that can
+[`concepts.mbt.md`](concepts.mbt.md). These examples focus on conceptual claims that can
 silently drift: same-value input updates, labels in cell metadata, inside-vs-
 outside reads, backdating, batch revert detection, field-level dependency
 isolation, keyed derived maps, accumulators, and reachable derived reads.

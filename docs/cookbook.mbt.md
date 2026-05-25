@@ -1,6 +1,6 @@
 # Cookbook
 
-Common patterns and recipes for using `incr` effectively. Checked variants of the highest-value target facade snippets live in [`cookbook_examples.mbt.md`](cookbook_examples.mbt.md).
+Common patterns and recipes for using `incr` effectively. Checked variants of the highest-value snippets live in [`cookbook_examples.mbt.md`](cookbook_examples.mbt.md).
 
 ## Pattern: Diamond Dependencies
 
@@ -86,39 +86,53 @@ The checked companion defines the `Versioned` type and verifies that the downstr
 
 The same pattern applies to enum variants where some fields are stable (drive behavior) and others are incidental (logging, diagnostics):
 
-```moonbit
+```mbt nocheck
+///|
 enum Status {
   Loading(progress~ : Int)
   Ready(data~ : Int)
   Error(code~ : Int, message~ : String)
 }
 
-impl Eq for Status with equal(self, other) -> Bool {
+///|
+impl Eq for Status with fn equal(self, other) -> Bool {
   match (self, other) {
-    (Loading(progress=p1),  Loading(progress=p2))  => p1 == p2
-    (Ready(data=d1),        Ready(data=d2))         => d1 == d2
-    (Error(code=c1, ..),    Error(code=c2, ..))     => c1 == c2  // message excluded
+    (Loading(progress=p1), Loading(progress=p2)) => p1 == p2
+    (Ready(data=d1), Ready(data=d2)) => d1 == d2
+    (Error(code=c1, ..), Error(code=c2, ..)) => c1 == c2
     _ => false
   }
 }
 ```
 
-```moonbit
-let rt = Runtime()
-let error_code = Input(rt, 404, label="error_code")
-let error_msg  = Input(rt, "Not Found", label="error_msg")
+The checked companion verifies the runtime behavior: changing only the excluded
+message field recomputes `status` but backdates it, so the downstream `handler`
+does not recompute. Changing the stable code field invalidates `handler`:
 
-let status = Derived(rt, () => Error(code=error_code.get(), message=error_msg.get()), label="status")
-let handler = Derived(rt, () => match status.get_or_abort() {
-  Error(code=c, ..) => "Error: " + c.to_string()
-  Ready(data=d)     => "Data: " + d.to_string()
-  Loading(progress=p) => "Loading: " + p.to_string() + "%"
-}, label="handler")
+```mbt nocheck
+let rt = @incr.Runtime()
+let error_code = @incr.Input(rt, 404, label="error_code")
+let error_msg = @incr.Input(rt, "Not Found", label="error_msg")
+
+let status = @incr.Derived(
+  rt,
+  () => Error(code=error_code.get(), message=error_msg.get()),
+  label="status",
+)
+let handler = @incr.Derived(
+  rt,
+  () =>
+    match status.get_or_abort() {
+      Error(code=c, ..) => "Error: " + c.to_string()
+      Ready(data=d) => "Data: " + d.to_string()
+      Loading(progress=p) => "Loading: " + p.to_string() + "%"
+    },
+  label="handler",
+)
 
 inspect(handler.read_or_abort(), content="Error: 404")
-
-error_msg.set("Page Not Found")      // Different message, same code
-inspect(handler.read_or_abort(), content="Error: 404")  // handler does NOT recompute — backdated
+error_msg.set("Page Not Found")
+inspect(handler.read_or_abort(), content="Error: 404")
 ```
 
 `status` recomputed when the message changed, but `handler` was skipped because the new `Error(code=404, message="Page Not Found")` equals the old one under the custom `Eq`.
@@ -127,14 +141,43 @@ inspect(handler.read_or_abort(), content="Error: 404")  // handler does NOT reco
 
 **Backdating only holds when the excluded fields are never read by any downstream derived value.** If a derived value reads a field excluded from `Eq`, it will receive a stale value silently — no error, no warning.
 
-```moonbit
-// SAFE: handler only reads .value; .generation is never read downstream
-let handler = Derived(rt, () => versioned.get_or_abort().value * 2)
+```mbt nocheck
+///|
+struct Versioned {
+  value : Int
+  generation : Int
+}
 
-// UNSAFE: handler reads .generation, but generation is excluded from Eq
-//         When generation changes, handler will not recompute
-let handler = Derived(rt, () => versioned.get_or_abort().generation)  // stale!
+///|
+impl Eq for Versioned with fn equal(self, other) -> Bool {
+  self.value == other.value
+}
+
+///|
+let rt = @incr.Runtime()
+
+///|
+let input = @incr.Input(rt, 100)
+
+///|
+let generation : Ref[Int] = { val: 0 }
+
+///|
+let versioned = @incr.Derived(rt, () => {
+  generation.val = generation.val + 1
+  { value: input.get() / 10, generation: generation.val }
+})
+
+///|
+let safe_handler = @incr.Derived(rt, () => versioned.get_or_abort().value * 2)
+
+///|
+let unsafe_handler = @incr.Derived(rt, () => versioned.get_or_abort().generation)
 ```
+
+The first derived value is safe because it only reads fields that participate in
+`Eq`. The second is unsafe: `generation` is excluded from `Eq`, so backdating can
+preserve the upstream timestamp and leave the downstream cached value stale.
 
 **Rule:** Only exclude a field from `Eq` if you are certain no derived value in the graph reads that field from this type's values. When in doubt, include the field in `Eq` and accept the recomputation cost.
 
@@ -158,7 +201,7 @@ graph; thread the log-like data through an `Accumulator[T]`.
 Producers `push` during compute. Consumers read back via
 `Memo::accumulated_peek` (outside the graph) or `Memo::accumulated` (inside
 another memo, with correct incremental invalidation). See the
-[Accumulator API](api-reference.md#accumulatort) reference.
+[Accumulator API](api-reference.mbt.md#accumulatort) reference.
 
 The checked companion demonstrates this pattern in
 [`cookbook_examples.mbt.md`](cookbook_examples.mbt.md#accumulator-diagnostics-and-synthetic-invalidation).
@@ -221,25 +264,26 @@ scope hierarchy rather than a discipline the driver must maintain.
 
 Observe committed updates with `Runtime::set_on_change`:
 
-```moonbit
-let rt = Runtime()
-let a = Input(rt, 0)
-let b = Input(rt, 0)
-let mut notifications = 0
+```mbt check
+///|
+test "cookbook: change notifications" {
+  let rt = @incr.Runtime()
+  let a = @incr.Input(rt, 0)
+  let b = @incr.Input(rt, 0)
+  let notifications : Ref[Int] = { val: 0 }
 
-rt.set_on_change(() => { notifications = notifications + 1 })
+  rt.set_on_change(() => notifications.val = notifications.val + 1)
 
-// Outside batch: one callback per committed change
-a.set(1)
-b.set(2)
-inspect(notifications, content="2")
+  a.set(1)
+  b.set(2)
+  inspect(notifications.val, content="2")
 
-// Inside batch: at most one callback at batch end
-rt.batch(() => {
-  a.set(3)
-  b.set(4)
-})
-inspect(notifications, content="3")
+  rt.batch(() => {
+    a.set(3)
+    b.set(4)
+  })
+  inspect(notifications.val, content="3")
+}
 ```
 
 Useful for:
@@ -326,18 +370,26 @@ Use `rt.batch` to update several fields atomically. The batch examples above cov
 
 When your runtime is wrapped in a context type, use `create_input_field` instead of calling `InputField(...)` directly:
 
-```moonbit
+```mbt nocheck
+///|
 struct MyDb {
   rt : @incr.Runtime
 }
 
+///|
 fn MyDb::MyDb() -> MyDb {
   { rt: @incr.Runtime() }
 }
 
-impl @incr.RuntimeContext for MyDb with runtime(self) { self.rt }
+///|
+impl @incr.RuntimeContext for MyDb with fn runtime(self) {
+  self.rt
+}
 
-let db   = MyDb()
+///|
+let db = MyDb()
+
+///|
 let path = @incr.create_input_field(db, "/src/main.mbt", label="path")
 ```
 
@@ -367,19 +419,46 @@ across `gc()` and disposes it with the scope in
 
 If you have an existing `Input[MyStruct]` and derived recomputation is too coarse, migrate field by field:
 
-```moonbit
-// Before
-struct Doc { content : String; version : Int }
-let doc = Input(rt, { content: "hello", version: 0 })
-let length = Derived(rt, () => doc.get().content.length())
-// Updating version also invalidates length — unnecessary work
+Before, any update to the `Doc` struct invalidates consumers of the whole input:
 
-// After
+```mbt nocheck
+///|
 struct Doc {
+  content : String
+  version : Int
+}
+
+///|
+let rt = @incr.Runtime()
+
+///|
+let doc = @incr.Input(rt, { content: "hello", version: 0 })
+
+///|
+let length = @incr.Derived(rt, () => doc.get().content.length())
+```
+
+After, consumers of `content` depend only on the `content` field, so
+`version.set(...)` does not touch them:
+
+```mbt nocheck
+///|
+struct FieldDoc {
   content : @incr.InputField[String]
   version : @incr.InputField[Int]
 }
-// Now version.set(...) does not touch length at all
+
+///|
+let rt = @incr.Runtime()
+
+///|
+let doc : FieldDoc = {
+  content: @incr.InputField(rt, "hello", label="Doc.content"),
+  version: @incr.InputField(rt, 0, label="Doc.version"),
+}
+
+///|
+let length = @incr.Derived(rt, () => doc.content.get().length())
 ```
 
 ---
@@ -402,21 +481,9 @@ Avoid reading derived values inside a batch — they see pre-batch values. The c
 
 Keep compute functions focused:
 
-```moonbit
-// Bad: Monolithic computation
-let result = Derived(rt, () => {
-  let a = step1(input.get())
-  let b = step2(a)
-  let c = step3(b)
-  step4(c)
-})
-
-// Better: Composable derived values
-let step1_result = Derived(rt, () => step1(input.get()))
-let step2_result = Derived(rt, () => step2(step1_result.get_or_abort()))
-let step3_result = Derived(rt, () => step3(step2_result.get_or_abort()))
-let final_result = Derived(rt, () => step4(step3_result.get_or_abort()))
-```
+Bad pattern: one monolithic `Derived` performs every step. Better pattern:
+compose one `Derived` per step, using `get_or_abort()` inside downstream compute
+functions. This lets each step cache and backdate independently.
 
 Benefits:
 - Each step can backdate independently
@@ -453,83 +520,25 @@ dependency lists, revisions, or changed-at timestamps, use the compatibility
 
 Use introspection to identify which dependency triggered recomputation:
 
-```moonbit
-let rt = Runtime()
-let x = Signal(rt, 10)
-let y = Signal(rt, 20)
-let sum = Memo(rt, () => x.get() + y.get())
-let sum_reader = sum.observe()
-
-sum_reader.get() |> ignore
-let baseline = sum.verified_at()
-
-// Make some changes
-x.set(15)
-sum_reader.get() |> ignore
-
-// Find the culprit
-for dep_id in sum.dependencies() {
-  match rt.cell_info(dep_id) {
-    Some(info) => {
-      if info.changed_at.value > baseline.value {
-        println("Dependency " + dep_id.id.to_string() + " changed")
-      }
-    }
-    None => ()
-  }
-}
-sum_reader.dispose()
-```
+The checked companion captures a `verified_at` baseline, changes one input,
+walks `sum.dependencies()`, and uses `Runtime::cell_info` to identify the changed
+dependency.
 
 ### Analyzing Dependency Chains
 
 Trace the full dependency path (forward edges — what does this memo depend on?):
 
-```moonbit
-fn print_dependencies(rt : Runtime, memo : Memo[Int], depth : Int) -> Unit {
-  let indent = "  ".repeat(depth)
-  println(indent + "Memo " + memo.id().id.to_string())
-
-  for dep_id in memo.dependencies() {
-    match rt.cell_info(dep_id) {
-      Some(info) => {
-        println(indent + "  -> Cell " + dep_id.id.to_string() +
-                " (changed_at=" + info.changed_at.value.to_string() + ")")
-      }
-      None => ()
-    }
-  }
-}
-```
+Walk `memo.dependencies()` for forward edges and call `Runtime::cell_info` for
+labels, durability, revisions, dependencies, and subscribers. The checked
+companion pins this introspection surface.
 
 ### Inspecting Dependents (Reverse Edges)
 
 Use `Runtime::dependents` or `Memo::dependents` to answer: "what will be invalidated if this cell changes?"
 
-```moonbit
-let rt = Runtime()
-let source = Signal(rt, 1, label="source")
-let doubled = Memo(rt, () => source.get() * 2, label="doubled")
-let tripled = Memo(rt, () => source.get() * 3, label="tripled")
-let doubled_reader = doubled.observe()
-let tripled_reader = tripled.observe()
-
-// Must read memos at least once to establish dependencies
-doubled_reader.get() |> ignore
-tripled_reader.get() |> ignore
-
-// Inspect who depends on source
-for dep_id in rt.dependents(source.id()) {
-  match rt.cell_info(dep_id) {
-    Some(info) => println("depends on source: " + info.label.or("(unlabeled)"))
-    None => ()
-  }
-}
-// Prints: "depends on source: doubled"
-// Prints: "depends on source: tripled"
-doubled_reader.dispose()
-tripled_reader.dispose()
-```
+Read the dependent memos at least once to establish edges, then call
+`rt.dependents(source.id())` and inspect each returned cell with
+`Runtime::cell_info`. The checked companion verifies this reverse-edge query.
 
 This is useful for impact analysis — understanding how wide the blast radius of a change will be before committing it.
 
@@ -537,70 +546,26 @@ This is useful for impact analysis — understanding how wide the blast radius o
 
 Verify that memos only depend on what they actually read:
 
-```moonbit
-test "memo only depends on x, not y" {
-  let rt = Runtime()
-  let x = Signal(rt, 1)
-  let y = Signal(rt, 2)
-  let uses_x_only = Memo(rt, () => x.get() * 2)
-  let uses_x_only_reader = uses_x_only.observe()
-
-  uses_x_only_reader.get() |> ignore
-
-  let deps = uses_x_only.dependencies()
-  inspect(deps.contains(x.id()), content="true")
-  inspect(deps.contains(y.id()), content="false")
-  uses_x_only_reader.dispose()
-}
-```
+In tests, read the memo once, inspect `memo.dependencies()`, and assert that the
+active input IDs are present while inactive IDs are absent. The checked
+companion demonstrates the same dependency snapshot mechanics.
 
 ### Understanding Backdating
 
 Check if a memo's value actually changed:
 
-```moonbit
-let memo = Memo(rt, () => config.get().length())
-let memo_reader = memo.observe()
-memo_reader.get() |> ignore
-let old_changed = memo.changed_at()
-
-config.set("same_length")  // Different string, same length
-memo_reader.get() |> ignore
-
-// Backdating: value didn't change, so changed_at is preserved
-inspect(memo.changed_at() == old_changed, content="true")
-memo_reader.dispose()
-```
+The checked companion reads a memo, stores `changed_at`, changes an input to a
+different value with the same computed length, and verifies that backdating
+preserves `changed_at`.
 
 ### Debugging Cycles
 
 When you encounter a cycle error, use the path information to understand the dependency chain:
 
-```moonbit
-match computation.get_result() {
-  Err(err) => {
-    let path = err.path()
-    let formatted = err.format_path()
-
-    println("Cycle detected!")
-    println(formatted)
-
-    // Analyze the cycle
-    println("\nDetailed path:")
-    for i = 0; i < path.length(); i = i + 1 {
-      match rt.cell_info(path[i]) {
-        Some(info) => {
-          println("  Step " + i.to_string() + ": Cell " + path[i].to_string())
-          println("    Changed at: " + info.changed_at.value.to_string())
-          println("    Dependencies: " + info.dependencies.length().to_string())
-        }
-        None => println("  Step " + i.to_string() + ": Unknown cell")
-      }
-    }
-  }
-  Ok(result) => use_result(result)
-}
-```
+On `Err(err)`, call `err.path()` for the full cell path and
+`err.format_path()` for display. Combine path entries with `Runtime::cell_info`
+when you need per-cell metadata. The API-reference checked companion exercises
+these `CycleError` accessors.
 
 This helps identify:
 - Which cells form the cycle
@@ -615,35 +580,13 @@ This helps identify:
 
 Add logging inside compute functions during development:
 
-```moonbit
-let expensive = Derived(rt, () => {
-  println("Computing expensive...")
-  heavy_computation(input.get())
-})
-```
+Add a temporary log line inside the `Derived` compute closure while developing,
+or better, count recomputes in a test as the checked companion examples do.
 
 ### Verify Durability Shortcuts
 
 High-durability derived values should not log when only low-durability inputs change:
 
-```moonbit
-let config = Input(rt, 100, durability=High)
-let data = Input(rt, 1)
-
-let config_derived = Derived(rt, () => {
-  println("Config derived computing...")  // Should not print when data changes
-  config.get() * 2
-})
-
-let data_derived = Derived(rt, () => {
-  println("Data derived computing...")
-  data.get() * 2
-})
-
-config_derived.read_or_abort()
-data_derived.read_or_abort()
-
-data.set(2)  // Only data_derived should recompute
-data_derived.read_or_abort()
-config_derived.read_or_abort()
-```
+The concepts checked companion verifies the durability shortcut: when only a
+low-durability input changes, derived values that depend only on high-durability
+inputs can skip verification.

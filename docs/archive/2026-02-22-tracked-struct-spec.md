@@ -764,9 +764,9 @@ test "TrackedCell introspection via Runtime::cell_info" {
 **Goal**: Add user-facing documentation and a cookbook recipe.
 
 **Files to create/modify**:
-- `docs/api-reference.md` — add TrackedCell, Trackable, gc_tracked sections
-- `docs/cookbook.md` — add "Tracked Struct" recipe
-- `docs/concepts.md` — add "Field-Level Tracking" concept section
+- `docs/api-reference.mbt.md` — add TrackedCell, Trackable, gc_tracked sections
+- `docs/cookbook.mbt.md` — add "Tracked Struct" recipe
+- `docs/concepts.mbt.md` — add "Field-Level Tracking" concept section
 - `README.md` — mention tracked structs in feature list
 
 **Cookbook recipe outline**:

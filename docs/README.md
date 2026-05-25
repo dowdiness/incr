@@ -8,17 +8,17 @@ Documentation for the `incr` incremental computation library.
 
 New to `incr`? Read these in order:
 
-1. [Getting Started](getting-started.md) — step-by-step tutorial from your first signal to advanced patterns
-2. [Core Concepts](concepts.md) — signals, memos, revisions, durability, backdating
+1. [Getting Started](getting-started.mbt.md) — step-by-step tutorial from your first signal to advanced patterns
+2. [Core Concepts](concepts.mbt.md) — signals, memos, revisions, durability, backdating
 3. [Checked Concepts Examples](concepts_examples.mbt.md) — literate tests for high-value concepts behavior
-4. [Cookbook](cookbook.md) — practical patterns and anti-patterns
+4. [Cookbook](cookbook.mbt.md) — practical patterns and anti-patterns
 5. [Checked Cookbook Examples](cookbook_examples.mbt.md) — literate tests for high-value cookbook patterns, including target facades, scoped watches, accumulators, and memo events
 6. [Checked Target API Examples](target_api_examples.mbt.md) — literate tests mirroring the README and getting-started target facade, callback, and batch examples
 7. [Checked API Reference Examples](api_reference_examples.mbt.md) — literate tests covering target facades from the API reference (`Derived`, `DerivedMap`, `ReachableDerived`, `MapRelation`, `Scope` / `RuntimeContext`, `CycleError`) plus compatibility accumulator behavior
 
 ## API Reference
 
-- [API Reference](api-reference.md) — common public types, methods, and helpers (not exhaustive; the `.mbti` files in each package are authoritative)
+- [API Reference](api-reference.mbt.md) — common public types, methods, and helpers (not exhaustive; the `.mbti` files in each package are authoritative)
 - [Checked Concepts Examples](concepts_examples.mbt.md) — companion literate tests pinning high-value behavior from the concepts guide
 - [Checked API Reference Examples](api_reference_examples.mbt.md) — companion literate tests pinning executable reference snippets and compatibility accumulator behavior
 - [Checked Cookbook Examples](cookbook_examples.mbt.md) — companion literate tests pinning high-value cookbook patterns, including target facades, scoped watches, accumulators, and memo events
