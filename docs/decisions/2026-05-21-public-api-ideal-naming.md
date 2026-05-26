@@ -183,6 +183,13 @@ This ADR intentionally does not define the migration sequence. A later
 implementation plan should decide staging, deprecated aliases, and whether
 any compatibility traits can be expressed cleanly.
 
+**2026-05-26 amendment:** do not add target-vocabulary read methods to
+`Memo`, `HybridMemo`, or `MemoMap` as same-receiver bridges. The target facades
+already provide the ideal surface, and the compatibility handles are eventual
+cleanup/removal targets. Migration should document and codemod construction of
+`Derived`, `ReachableDerived`, and `DerivedMap` instead of expanding the old
+handles.
+
 Relevant MoonBit migration tools:
 
 - `#alias(new, deprecated="...")` for old `new` constructors.
