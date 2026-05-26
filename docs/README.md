@@ -51,6 +51,8 @@ For contributors and advanced users who want to understand or modify `incr`.
 - [2026-04-20 Architecture Assessment](design/specs/2026-04-20-architecture-assessment.md) — verified snapshot of current architecture; records why no structural redesign is warranted today and what would justify revisiting T1b (commit-phase trait) and T3 (runtime registry)
 - [2026-05-21 Ideal API facades and read semantics](design/specs/2026-05-21-ideal-api-facade-read-semantics.md) — target facade shape and strict/permissive read contracts for the public API rename
 - [2026-05-25 `Expr[T]` Formula API](design/specs/2026-05-25-expr-formula-api.md) — proposed lazy formula layer over target facades, with same-runtime validation, explicit constants, and one-cell materialization
+- [2026-05-26 Build-oriented trait boundaries](design/specs/2026-05-26-build-trait-boundaries.md) — proposal for Build systems à la carte-inspired application trait boundaries on top of `Input`, `Derived`, and `DerivedMap`
+- [2026-05-26 Internal rebuild boundaries](design/specs/2026-05-26-internal-rebuild-boundaries.md) — proposal for improving `incr` internals with concrete freshness, rebuild, and observation seams without public scheduler traits
 
 **Project direction:**
 

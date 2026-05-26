@@ -32,7 +32,7 @@ be checked.
 
 ```
 dowdiness/incr/
-├── moon.pkg                    (root facade — imports types + cells + pipeline)
+├── moon.pkg                    (root facade — imports types + cells)
 ├── incr.mbt                    (transparent pub type aliases for target facades + compatibility handles)
 ├── traits.mbt                  (RuntimeContext/Freshness/InputFieldOwner plus compatibility traits and helpers)
 │
@@ -87,14 +87,14 @@ dowdiness/incr/
 │   │       └── gc.mbt              (gc, gc_sweep, mark_reachable, collect_gc_roots, add/remove_gc_root — gc_sweep/gc take dispose_fn callback)
 │   └── *_test.mbt, *_wbtest.mbt
 │
-├── pipeline/                   (experimental pipeline traits, zero dependencies)
+├── pipeline/                   (deprecated early pipeline traits, zero dependencies)
 │   └── pipeline_traits.mbt     (Sourceable, Parseable, Checkable, Executable)
 │
 ├── tests/                      (integration tests — exercises the full @incr public API)
-│   ├── moon.pkg                (imports dowdiness/incr and dowdiness/incr/pipeline for test)
+│   ├── moon.pkg                (imports dowdiness/incr for test)
 │   ├── integration_test.mbt    (end-to-end graph scenarios)
 │   ├── fanout_test.mbt         (wide fanout stress tests)
-│   ├── traits_test.mbt         (Database, Readable, and pipeline trait tests)
+│   ├── traits_test.mbt         (Database, Readable, and helper constructor tests)
 │   ├── tracked_struct_test.mbt (TrackedCell, Trackable, and gc_tracked tests)
 │   ├── reachable_derived_test.mbt (HybridMemo / ReachableDerived public API integration tests)
 │   ├── subscriber_test.mbt     (subscriber link integration tests)

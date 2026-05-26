@@ -10,18 +10,22 @@ package "dowdiness/incr/pipeline"
 // Type aliases
 
 // Traits
+#deprecated
 pub(open) trait Checkable {
   fn check_errors(Self) -> Array[String]
 }
 
+#deprecated
 pub(open) trait Executable {
   fn run(Self) -> Array[String]
 }
 
+#deprecated
 pub(open) trait Parseable {
   fn parse_errors(Self) -> Array[String]
 }
 
+#deprecated
 pub(open) trait Sourceable {
   fn set_source_text(Self, String) -> Unit
   fn source_text(Self) -> String

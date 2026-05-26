@@ -874,10 +874,13 @@ The checked companion covers a compatibility `Trackable` owner registered via
 
 `Trackable` is required by `gc_tracked`. The ordering of IDs must be deterministic across calls.
 
-### Pipeline Traits (Experimental)
+### Pipeline Traits (Deprecated)
 
-> **Experimental.** These traits may change or be removed in future versions.
-> Defined in `pipeline/pipeline_traits.mbt` (`dowdiness/incr/pipeline` package).
+> **Deprecated.** These early pipeline traits are too stringly-typed for shared
+> build-system use and have no production consumers. Define application-specific
+> `Source`, `Parser`, `ImportResolver`, `Checker`, and `Transformer` traits with
+> concrete domain types instead. Defined in `pipeline/pipeline_traits.mbt`
+> (`dowdiness/incr/pipeline` package).
 
 ```mbt nocheck
 ///|

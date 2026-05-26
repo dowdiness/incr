@@ -68,12 +68,14 @@ final surface.
 // Minimal: just incremental computation
 impl Database for MyDb { ... }
 
-// Add pipeline stages as needed
-impl Database + Sourceable for MyCompiler { ... }
-impl Database + Sourceable + Parseable for MyFullCompiler { ... }
+// Add application-local pipeline capabilities as needed
+impl Database + ProjectSource for MyCompiler { ... }
+impl Database + ProjectSource + ProjectParser for MyFullCompiler { ... }
 ```
 
-Users implement only what they need. No forced inheritance hierarchy.
+Users implement only what they need. No forced inheritance hierarchy. Keep
+pipeline traits local until their concrete key, source, syntax, diagnostic, and
+artifact types are stable across more than one consumer.
 
 ## Current API Strengths
 
@@ -312,20 +314,21 @@ fn process(app : MyApp) -> Memo[String] {
 
 ### Pattern 2: Trait Composition for Pipelines
 
-**Build up capabilities incrementally:**
+**Build up application-local capabilities incrementally:**
 
 ```moonbit
 // Stage 1: Just incremental
 trait MyDb : Database { ... }
 
-// Stage 2: Add source handling
-trait MyCompiler : Database + Sourceable { ... }
+// Stage 2: Add source handling over this package's ModuleKey/SourceText types
+trait MyCompiler : Database + ProjectSource { ... }
 
-// Stage 3: Full pipeline
-trait MyFullCompiler : Database + Sourceable + Parseable + Checkable { ... }
+// Stage 3: Add parsing/checking over this package's concrete syntax and diagnostics
+trait MyFullCompiler : Database + ProjectSource + ProjectParser + ProjectChecker { ... }
 ```
 
-**Why:** Pay only for what you use. No forced methods.
+**Why:** Pay only for what you use. No forced methods, and no shared stringly-typed
+pipeline abstraction before the domain types are real.
 
 ### Pattern 3: Graceful Cycle Handling
 
@@ -507,7 +510,7 @@ Subscriber links are maintained incrementally in `force_recompute`: added when a
 **Emphasize:**
 
 1. **Trait design** (`Database` / target `RuntimeContext`, `Readable` /
-   target `Freshness`, pipeline traits)
+   target `Freshness`; application pipeline traits should live in consumer packages)
 2. **Type constraints** (when to require `Eq`)
 3. **Performance** (backdating, durability shortcuts)
 4. **Correctness** (cycle detection, batch semantics)
@@ -536,9 +539,9 @@ that these names have already changed.
 - New traits (e.g., introspection)
 - New optional parameters via builder pattern
 
-### Experimental (May Change)
+### Deprecated / Internal
 
-- Pipeline traits (`Sourceable`, `Parseable`, etc.) — API shape still evolving
+- Pipeline traits (`Sourceable`, `Parseable`, etc.) — deprecated early sketch; define application-local build traits with concrete domain types instead
 - Internal details (`CellMeta`, `ActiveQuery`) — not public API
 
 ## Conclusion
