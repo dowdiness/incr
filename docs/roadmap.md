@@ -77,7 +77,7 @@ High-level future direction for the `incr` library, organized by phase. Each pha
 - ~~**Sub-package split**: Reorganize the flat single-package library into four MoonBit sub-packages~~ ✓ Implemented
   - `dowdiness/incr/types` — pure value types (`Revision`, `Durability`, `CellId`) with zero dependencies
   - `dowdiness/incr/cells` — all engine code (`Signal`, `Memo`, `Runtime`, verification algorithm)
-  - `dowdiness/incr/pipeline` — experimental pipeline traits, standalone with zero dependencies
+  - `dowdiness/incr/pipeline` — deprecated early pipeline traits, standalone with zero dependencies and retained only for source compatibility
   - Root facade re-exports all public types via `pub type` transparent aliases — zero breaking changes
 
 ### Phase 3C: Tracked Struct Support ✓

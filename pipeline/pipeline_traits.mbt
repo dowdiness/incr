@@ -1,32 +1,36 @@
-// === Pipeline Traits ===
-// These traits define the stages of a compilation/processing pipeline.
-// They are experimental and may change or be removed in future versions.
-// No production usage — currently only exercised by test fixtures (CalcPipeline).
+// === Deprecated Pipeline Traits ===
+// These traits were an early sketch of compilation/processing pipeline stages.
+// They are too stringly-typed for shared use and have no production consumers.
+// Define application-specific Source/Parser/Checker/Transformer traits instead.
 
 ///|
-/// **Experimental.** A system that has source text input.
+/// **Deprecated.** Early sketch for source text input.
 ///
-/// Implement this trait to provide get/set access to source text
-/// backed by an incremental Signal.
+/// Define an application-local `Source` trait with concrete key, source, and
+/// diagnostic types instead.
+#deprecated("Define application-specific Source/Parser/Checker/Transformer traits instead", skip_current_package=true)
 pub(open) trait Sourceable {
-  set_source_text(Self, String) -> Unit
-  source_text(Self) -> String
+  fn set_source_text(Self, String) -> Unit
+  fn source_text(Self) -> String
 }
 
 ///|
-/// **Experimental.** A system that can parse and report parse errors.
+/// **Deprecated.** Early sketch for parse diagnostics.
+#deprecated("Define application-specific Source/Parser/Checker/Transformer traits instead", skip_current_package=true)
 pub(open) trait Parseable {
-  parse_errors(Self) -> Array[String]
+  fn parse_errors(Self) -> Array[String]
 }
 
 ///|
-/// **Experimental.** A system that can check (type-check, lint, etc.) and report errors.
+/// **Deprecated.** Early sketch for checking diagnostics.
+#deprecated("Define application-specific Source/Parser/Checker/Transformer traits instead", skip_current_package=true)
 pub(open) trait Checkable {
-  check_errors(Self) -> Array[String]
+  fn check_errors(Self) -> Array[String]
 }
 
 ///|
-/// **Experimental.** A system that can execute/evaluate and produce output.
+/// **Deprecated.** Early sketch for execution output.
+#deprecated("Define application-specific Source/Parser/Checker/Transformer traits instead", skip_current_package=true)
 pub(open) trait Executable {
-  run(Self) -> Array[String]
+  fn run(Self) -> Array[String]
 }

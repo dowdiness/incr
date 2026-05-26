@@ -467,7 +467,7 @@ The accumulator's commit-path work runs through the `MemoCommitPhase` dispatch r
 
 | File | Purpose |
 |------|---------|
-| `pipeline/pipeline_traits.mbt` | `Sourceable`, `Parseable`, `Checkable`, `Executable` — experimental pipeline traits |
+| `pipeline/pipeline_traits.mbt` | `Sourceable`, `Parseable`, `Checkable`, `Executable` — deprecated early pipeline trait sketches retained for source compatibility |
 
 ### Test files
 
@@ -502,7 +502,7 @@ Unit tests (`*_test.mbt`) and whitebox tests (`*_wbtest.mbt`) live in `cells/`. 
 | `cells/reachable_derived_wbtest.mbt` | `HybridMemo` revision-based verification, fast path, backdating, push-reachability accounting (whitebox) |
 | `tests/integration_test.mbt` | End-to-end multi-signal/memo scenarios |
 | `tests/fanout_test.mbt` | Wide dependency graphs (diamond, multi-level) |
-| `tests/traits_test.mbt` | Pipeline trait (`CalcPipeline`) fixture tests |
+| `tests/traits_test.mbt` | Root trait/helper tests (`Database`, `Readable`, helper constructors) |
 | `tests/tracked_struct_test.mbt` | `TrackedCell`, `Trackable`, and `gc_tracked` |
 | `tests/reachable_derived_test.mbt` | `HybridMemo` public API: get, update, backdating, diamond, batch, chained, pull chain |
 

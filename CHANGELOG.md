@@ -2,6 +2,17 @@
 
 All notable changes to `dowdiness/incr` are documented in this file.
 
+## Unreleased
+
+### Deprecated
+
+- Deprecated the standalone `dowdiness/incr/pipeline` traits (`Sourceable`, `Parseable`, `Checkable`, `Executable`). They were an early stringly-typed sketch with no production consumers; application build pipelines should define local `Source`, `Parser`, `ImportResolver`, `Checker`, and `Transformer` traits over concrete domain types.
+
+### Documentation
+
+- Added build-oriented trait-boundary and internal rebuild-boundary proposal specs.
+- Removed the `CalcPipeline` fixture from integration tests so deprecated pipeline traits are no longer exercised by the test suite.
+
 ## [0.6.0] - 2026-05-24
 
 ### Added

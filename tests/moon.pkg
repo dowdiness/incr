@@ -1,5 +1,4 @@
 import {
   "dowdiness/incr" @incr,
-  "dowdiness/incr/pipeline" @pipeline,
   "moonbitlang/core/bench",
 } for "test"

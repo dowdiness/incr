@@ -24,7 +24,7 @@ dowdiness/incr           ← Public API facade (root)
 │       ├── push/        ← Push-engine SoA storage (Reactive, Effect)
 │       ├── datalog/     ← Datalog SoA storage (Relation, Rule, …)
 │       └── kernel/      ← Graph-mechanics algorithms (verify, propagate, gc, …)
-├── pipeline/            ← Experimental trait sketches (Sourceable / Parseable / …)
+├── pipeline/            ← Deprecated early pipeline trait sketches (Sourceable / Parseable / …)
 ├── tests/               ← Integration tests against the public API
 └── docs/                ← Checked literate documentation examples
 ```
@@ -39,8 +39,8 @@ dowdiness/incr           ← Public API facade (root)
 | `cells/internal/push/` | SoA storage for push-mode cells (`PushReactiveData`, `PushEffectData`) | `shared` |
 | `cells/internal/datalog/` | SoA storage for Datalog primitives (`RelationData`, `FunctionalRelationData`, `RuleData`) | `shared` |
 | `cells/internal/kernel/` | Graph-mechanics algorithms used by the coordinator: pull-verify, push-propagate, batch commit, dispose/GC, dispatch, cycle detection, subscriber diff, fixpoint | `shared`, `pull`, `push`, `datalog` |
-| `pipeline/` | Single file, 32 LOC: experimental traits `Sourceable` / `Parseable` / `Checkable` / `Executable`. Used only by `tests/`. Stability and direction are uncommitted — treat as a sketch. | none |
-| `tests/` | Integration tests exercising only the public API | root, `pipeline` |
+| `pipeline/` | Single file: deprecated early traits `Sourceable` / `Parseable` / `Checkable` / `Executable`. Too stringly-typed for shared build-system use; retained only for source compatibility. | none |
+| `tests/` | Integration tests exercising only the public API | root |
 | `docs/` | Checked literate examples for documentation. Excluded from the published module; imports the root facade only for test blocks. Historical `spikes/**` packages are also excluded and intentionally omitted from this map. | root |
 
 The five `internal/` sub-packages use MoonBit's `internal` directory visibility, which the compiler enforces. The script `scripts/check-engine-isolation.sh` additionally enforces four hand-curated invariants on top of that (one-way kernel imports, leaf status of `shared`, no engine-to-engine sibling imports, no back-edges into `cells/`).
@@ -195,7 +195,7 @@ These are inferred from the code's structure and the consistent direction of rec
 
 Items the audit verified against current code; if any of these is wrong, the code has moved and this doc should be updated.
 
-- **`pipeline/` is uncommitted.** The four traits in that package are not used internally and have no roadmap item. Treat as exploratory.
+- **`pipeline/` is deprecated.** The four traits in that package are too stringly-typed for shared build-system use and are not used internally. Define application-local build traits with concrete key, diagnostic, syntax, and artifact types instead.
 - **`gc_tracked(rt, t)` is a deprecated no-op.** For target field owners, use `add_input_fields(scope, owner)`. For compatibility `TrackedCell` owners, use `add_tracked(scope, tracked)`. The `#deprecated` attribute on `gc_tracked` in `traits.mbt` confirms this.
 - **Hand-maintained `docs/api-reference.mbt.md`.** It has drifted from `.mbti` at least once (caught in the most recent audit). Treat the `.mbti` files as authoritative when they disagree.
 - **Most prose examples are still illustrative.** The target-API examples in [`target_api_examples.mbt.md`](target_api_examples.mbt.md) are checked by `moon check`, but many longer ` ```moonbit` snippets in prose docs are still unchecked. Continue migrating high-value examples to `.mbt.md` literate tests as APIs stabilize.

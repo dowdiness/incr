@@ -205,7 +205,7 @@ clean up the dead logic.
 - [x] Simplify `Signal::get_result` to delegate to `Ok(self.get())`
 - [x] Improve `Memo::get` abort message to use `CycleError::format_path`
 - [x] Centralize cycle-path construction with `CycleError::from_path(path, closing_id)`
-- [x] Move pipeline traits to `pipeline/pipeline_traits.mbt`; mark experimental in docs
+- [x] Move pipeline traits to `pipeline/pipeline_traits.mbt`; deprecated on 2026-05-26
 - [x] Convert safe C-style loops to idiomatic `for .. in` syntax in `derived.mbt` and `runtime.mbt`
 - [x] Replace `Array[CellMeta]` with SoA layout: `pull_signals : Array[PullSignalData]`, `pull_memos : Array[PullMemoData]`, `cell_index : Array[CellRef]`
 - [x] Add `CellRef` enum (`PullSignal(Int) | PullMemo(Int)`) for O(1) dispatch via `cell_index`
@@ -230,7 +230,7 @@ clean up the dead logic.
 - [x] Split flat single-package library into four MoonBit sub-packages (`types/`, `cells/`, `pipeline/`, root facade)
 - [x] Move pure value types (`Revision`, `Durability`, `CellId`) to `dowdiness/incr/types`
 - [x] Move all engine code to `dowdiness/incr/cells`
-- [x] Move experimental pipeline traits to `dowdiness/incr/pipeline`
+- [x] Move now-deprecated pipeline traits to `dowdiness/incr/pipeline`
 - [x] Re-export all public types from root via `pub type` transparent aliases in `incr.mbt`
 - [x] Move whitebox tests (`*_wbtest.mbt`) to `cells/` for private field access
 - [x] Move unit tests (`*_test.mbt`) to `cells/` (co-located with source)
@@ -304,14 +304,14 @@ Boundary 3 (bidirectional type-checker) shipped in loom#81 + incr#34. The infras
 
 ## Pipeline Traits — Deferred (delete from incr; new design owned by loom)
 
-**Status (2026-04-08):** Deferred. Current pipeline traits (`Sourceable`, `Parseable`, `Checkable`, `Executable` in `incr/pipeline/`) are too generic to be useful — everything returns `Array[String]`, no typed AST/CST, no incremental semantics. Only exercised by a `CalcPipeline` test fixture; zero production usage.
+**Status (2026-05-26):** Deprecated. Current pipeline traits (`Sourceable`, `Parseable`, `Checkable`, `Executable` in `incr/pipeline/`) are too generic to be useful — everything returns `Array[String]`, no typed AST/CST, no incremental semantics. They have no production usage; the old `CalcPipeline` test fixture has been removed.
 
 **Decision:** The trait redesign + new home in `loom/src/pipeline/` is loom's call (gated on a second pipeline implementation, post-parse stages landing in canopy, or cross-language editor features). The only thing incr owes is removing the dead package once loom is ready to receive a replacement.
 
 ### Incr-owned tasks (when loom commits to the move)
 
 - [ ] Remove `incr/pipeline/` package and update `incr.mbt` re-exports.
-- [ ] Remove the `CalcPipeline` test fixture from `incr/tests/traits_test.mbt`.
+- [x] Remove the `CalcPipeline` test fixture from `incr/tests/traits_test.mbt`.
 
 ### Delegated outward (not actionable from incr)
 
