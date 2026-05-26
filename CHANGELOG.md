@@ -4,12 +4,17 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ## Unreleased
 
+### Added
+
+- Added `scripts/migrate-to-target-facades.py`, a dry-run-by-default helper for moving consumer code from compatibility handles (`Memo`, `HybridMemo`, `MemoMap`) to target facades (`Derived`, `ReachableDerived`, `DerivedMap`). It applies mechanically safe rewrites with `--apply`, skips files that still need manual choices, and reports context-sensitive read sites for manual migration.
+
 ### Deprecated
 
 - Deprecated the standalone `dowdiness/incr/pipeline` traits (`Sourceable`, `Parseable`, `Checkable`, `Executable`). They were an early stringly-typed sketch with no production consumers; application build pipelines should define local `Source`, `Parser`, `ImportResolver`, `Checker`, and `Transformer` traits over concrete domain types.
 
 ### Documentation
 
+- Added a Phase 3a migration guide for moving from `Memo` / `HybridMemo` / `MemoMap` directly to `Derived` / `ReachableDerived` / `DerivedMap`, skipping same-receiver bridge methods on the compatibility handles.
 - Added build-oriented trait-boundary and internal rebuild-boundary proposal specs.
 - Removed the `CalcPipeline` fixture from integration tests so deprecated pipeline traits are no longer exercised by the test suite.
 

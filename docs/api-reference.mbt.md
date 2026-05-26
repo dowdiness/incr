@@ -24,7 +24,11 @@ Reference for the most commonly used public APIs in `incr`. This is not exhausti
 ## Read Vocabulary Migration
 
 Target reads use `read` for permissive outside-graph reads and `get` for strict
-tracked-context reads:
+tracked-context reads. Migrate old handles to the target facade types; `Memo`,
+`HybridMemo`, and `MemoMap` will not grow same-receiver target-vocabulary bridge
+methods. The helper script `scripts/migrate-to-target-facades.py` can apply
+mechanically safe type/constructor/cache rewrites and report context-sensitive
+read sites.
 
 | Legacy compatibility | Target facade |
 |---|---|
@@ -355,15 +359,16 @@ Returns whether this derived value is verified at the current revision.
 
 ### Compatibility `Memo[T]`
 
-`Memo[T]` exposes the underlying lazy cell with legacy names and additional compatibility-only APIs:
+`Memo[T]` exposes the underlying lazy cell with legacy names and additional compatibility-only APIs. New code should construct `Derived[T]`; do not wait for `Memo` to grow `read` / `get_or_abort` bridge methods.
 
-- `Memo(rt, f, label?)` constructs a compatibility memo using `T : Eq` backdating.
-- `Memo::new_memo[T : BackdateEq]` and `Memo::new_no_backdate[T]` expose alternate backdating strategies.
-- `Memo::get()` is the legacy strict aborting graph read.
-- `Memo::get_result()`, `get_or()`, and `get_or_else()` are legacy permissive cycle-safe reads.
+- `Memo(rt, f, label?)` constructs a compatibility memo using `T : Eq` backdating. Migrate ordinary derived values to `Derived(rt, f, label?)`.
+- `Memo::new_memo[T : BackdateEq]` and `Memo::new_no_backdate[T]` expose alternate backdating strategies that do not yet have target-facade constructors.
+- `Memo::get()` is the legacy strict aborting graph read. After migrating the handle, use `Derived::get_or_abort()` inside tracked compute functions.
+- `Memo::get_result()` is context-sensitive: after migrating the handle, use `Derived::get()` inside tracked compute functions and `Derived::read()` outside the graph.
+- `Memo::get_or()` and `Memo::get_or_else()` are legacy permissive cycle-safe reads. After migrating the handle, use an explicit `match derived.read()` fallback.
 - `Memo::is_up_to_date()` is `Derived::is_fresh()`.
-- `Memo::observe()` creates a legacy `Observer[T]`.
-- `Memo::id()`, `dependencies()`, `changed_at()`, `verified_at()`, `on_change()`, and `clear_on_change()` remain available on the compatibility handle.
+- `Memo::observe()` creates a legacy `Observer[T]`; prefer `Derived::watch()` on target facades.
+- `Memo::id()`, `dependencies()`, `changed_at()`, `verified_at()`, `on_change()`, and `clear_on_change()` remain available on the compatibility handle for diagnostics and low-level integration.
 
 ### `Memo::accumulated[T, A](self, acc: Accumulator[A]) -> Array[A] raise Failure`
 
@@ -440,14 +445,17 @@ Clears all cached entries.
 
 ### Compatibility `MemoMap[K, V]`
 
-`MemoMap[K, V]` exposes the underlying keyed memo cache with legacy names:
+`MemoMap[K, V]` exposes the underlying keyed memo cache with legacy names. New code should construct `DerivedMap[K, V]`; do not wait for `MemoMap` to grow `read` / `get_or_abort` bridge methods.
 
-- `MemoMap(rt, f, label?)` constructs a compatibility keyed memo map.
-- `MemoMap::get(key)` is the legacy permissive aborting read.
-- `MemoMap::get_tracked(key)` is the legacy strict aborting read.
-- `MemoMap::get_result(key)`, `get_or(key, fallback)`, and `get_or_else(key, fallback)` are legacy permissive cycle-safe reads.
+- `MemoMap(rt, f, label?)` constructs a compatibility keyed memo map. Migrate ordinary keyed derived values to `DerivedMap(rt, f, label?)`.
+- `MemoMap::get(key)` is the legacy permissive aborting read. After migrating the handle, use `DerivedMap::read_or_abort(key)` for the same behavior.
+- `MemoMap::get_tracked(key)` is the legacy strict aborting read. After migrating the handle, use `DerivedMap::get_or_abort(key)`.
+- `MemoMap::get_result(key)` is context-sensitive: after migrating the handle, use `DerivedMap::get(key)` inside tracked compute functions and `DerivedMap::read(key)` outside the graph.
+- `MemoMap::get_or(key, fallback)` and `MemoMap::get_or_else(key, fallback)` map to `DerivedMap::read_or(key, fallback)` and `DerivedMap::read_or_else(key, fallback)`.
 - `MemoMap::contains(key)` is `DerivedMap::has_cached(key)`.
 - `MemoMap::length()` is `DerivedMap::cache_len()`.
+- `MemoMap::sweep()` is `DerivedMap::sweep_cache()`.
+- `MemoMap::clear()` is `DerivedMap::clear_cache()`.
 
 ---
 
@@ -488,12 +496,12 @@ Returns whether this reachable derived value is verified at the current revision
 
 ### Compatibility `HybridMemo[T]`
 
-`HybridMemo[T]` exposes the same lazy reachable cell with legacy names:
+`HybridMemo[T]` exposes the same lazy reachable cell with legacy names. New code should construct `ReachableDerived[T]`; do not wait for `HybridMemo` to grow `read` / `get_or_abort` bridge methods.
 
-- `HybridMemo(rt, f, label?)` constructs a compatibility reachable memo.
-- `HybridMemo::get()` is the legacy strict aborting graph read.
+- `HybridMemo(rt, f, label?)` constructs a compatibility reachable memo. Migrate ordinary reachable derived values to `ReachableDerived(rt, f, label?)`.
+- `HybridMemo::get()` is the legacy strict aborting graph read. After migrating the handle, use `ReachableDerived::get_or_abort()` inside tracked compute functions, or `ReachableDerived::read()` / `read_or_abort()` outside the graph.
 - `HybridMemo::is_up_to_date()` is `ReachableDerived::is_fresh()`.
-- `HybridMemo::observe()` creates a legacy `Observer[T]`.
+- `HybridMemo::observe()` creates a legacy `Observer[T]`; prefer `ReachableDerived::watch()` on target facades.
 - `HybridMemo::id()`, `dispose()`, and `is_disposed()` remain available on the compatibility handle.
 
 ---

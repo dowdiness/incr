@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-23
 **Revised:** 2026-05-26
-**Status:** Draft docs/codemod spec (pre-implementation)
+**Status:** Implemented docs/tooling slice (2026-05-26)
 **Parent plan:** [2026-05-21-ideal-api-rename-migration.md](2026-05-21-ideal-api-rename-migration.md)
 **ADR:** [2026-05-21-public-api-ideal-naming.md](../decisions/2026-05-21-public-api-ideal-naming.md)
 
@@ -167,8 +167,10 @@ reference in the message:
 - `.get_result()` on values whose old type was `Memo` or `MemoMap`.
 - `Runtime::read(...)`, `read_hybrid(...)`, or `read_reactive(...)` when the
   argument type cannot be proven from the local syntax.
-- Any migrated handle that still calls compatibility-only APIs such as
-  `accumulated`, `dependencies`, `changed_at`, or `verified_at`.
+- Any migrated handle that still calls compatibility-only or non-automated APIs
+  such as `Memo::get_or`, `Memo::get_or_else`, `Memo::dependencies`,
+  `Memo::verified_at`, `Memo::on_change`, `HybridMemo::id`,
+  `HybridMemo::dispose`, or `HybridMemo::is_disposed`.
 
 A codemod that cannot distinguish tracked compute closures from top-level code
 must not guess. It should leave a report for the developer to apply the strict
@@ -176,7 +178,7 @@ vs permissive rule manually.
 
 ## Implementation PR shape
 
-Single docs/tooling PR, no public API edits:
+Implemented as a docs/tooling slice with no public API edits:
 
 1. **`docs(incr): document compatibility-to-facade read migration`**
    - Update `CHANGELOG.md` with a migration guide.
@@ -188,7 +190,10 @@ Single docs/tooling PR, no public API edits:
 2. **`chore(incr): add conservative target-facade migration codemod`**
    - Add a script under `scripts/`.
    - Support a dry-run/report mode by default.
-   - Require an explicit `--apply` flag for safe rewrites.
+   - Require an explicit `--apply` flag for safe rewrites; files with manual
+     findings are skipped rather than half-migrated.
+   - Scan MoonBit sources and `.mbt.md` literate examples by default; require
+     `--include-md` before touching prose Markdown.
    - Print report-only sites for manual strict/permissive decisions.
 
 3. **`docs(incr): revise Phase 3 plan around facade migration`**
