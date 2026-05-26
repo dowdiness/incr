@@ -55,6 +55,10 @@ one, based on the current public signatures:
    names.
 5. Do not switch tutorials and checked examples to target-only spelling until
    the target spelling is available in code and the examples can be checked.
+6. Do not add target-vocabulary read methods to `Memo`, `HybridMemo`, or
+   `MemoMap` merely as a bridge. Those compatibility handles are eventual
+   cleanup/removal targets; migration should move callers to `Derived`,
+   `ReachableDerived`, and `DerivedMap` instead.
 
 ## Aliasable callable renames
 
@@ -69,10 +73,14 @@ is a true alias that preserves method resolution. If the target type is a
 wrapper/facade, implement target forwarding methods on the wrapper and keep or
 deprecate the old receiver separately.
 
-### Direct same-receiver alias candidates
+### Same-receiver aliasability analysis
 
-These candidates keep the same behavior and can use `#alias` after a compile
-spike confirms the receiver is unchanged.
+These candidates keep the same behavior if the target name is implemented on the
+same receiver, and can use `#alias` after a compile spike confirms the receiver
+is unchanged. This is an aliasability analysis, not a blanket implementation
+instruction. The 2026-05-26 revision rejects same-receiver read bridges on
+`Memo`, `HybridMemo`, and `MemoMap`; migrate those callers to the target facades
+instead.
 
 | Current callable | Target callable | Direct alias condition |
 |---|---|---|
@@ -220,13 +228,13 @@ two sequences:
    read the per-key memo through a `Result` path so cycles are returned rather
    than aborted. After that primitive exists, `MemoMap::get(key)` can remain
    compatibility API.
-2. Fallback: if wrappers are rejected, keep `MemoMap` as the only runtime type
-   through an additive phase and add every non-conflicting target method first:
-   `read`, `read_or_abort`, `read_or`, `read_or_else`, `get_or_abort`,
-   `has_cached`, `cache_len`, `sweep_cache`, and `clear_cache`. Defer the
-   `get(key) -> Result[...]` spelling to a breaking release.
+2. Rejected fallback: keep `MemoMap` as the only runtime type and add every
+   non-conflicting target method directly to it. This was plausible before the
+   facade shipped, but it is now unnecessary churn. `DerivedMap` exists and keeps
+   docs honest: target-name examples can show target semantics without expanding
+   the compatibility handle.
 
-The preferred facade keeps docs honest: target-name examples can show target
+The facade path keeps docs honest: target-name examples can show target
 semantics without breaking existing `MemoMap` users.
 
 The facade/read contract is specified in
@@ -366,19 +374,19 @@ After Phase 1 compiles:
 - Prefer checked examples (` ```mbt check`) or literate `.mbt.md` examples for
   any new target-only snippet.
 
-### Phase 3: semantic read flip
+### Phase 3: compatibility-to-facade migration
 
-Only after the target facade has soaked, or in an explicitly breaking release:
+After the target facades have shipped:
 
-- Make `get(...)` the strict `Result` read on derived target types.
-- Make `get_or_abort(...)` the strict aborting shortcut.
-- Make `read(...)` the permissive `Result` read.
-- Make `read_or_abort(...)` the permissive aborting shortcut.
-- Remove or isolate old `get()` aliases that returned bare values.
-- Keep `MemoMap::get` compatibility only if `MemoMap` remains a separate old
-  facade; otherwise this is the breaking point.
+- publish a migration guide from `Memo`, `HybridMemo`, and `MemoMap` to
+  `Derived`, `ReachableDerived`, and `DerivedMap`;
+- provide a conservative codemod for type, constructor, and unambiguous method
+  rewrites;
+- report context-sensitive reads (`get_result`, top-level vs tracked-context
+  reads) for manual migration;
+- do not add same-receiver target-vocabulary methods to compatibility handles.
 
-### Phase 4: final docs switch and cleanup
+### Phase 4: final docs switch and compatibility cleanup
 
 After Phase 3:
 
@@ -386,8 +394,8 @@ After Phase 3:
   `docs/cookbook.mbt.md`, and API examples to target names by default.
 - Keep one migration table in the API reference for the deprecated names.
 - Stop presenting `create_*` helpers as the preferred construction path.
-- Remove deprecated aliases only after at least one documented migration window
-  and a changelog entry.
+- Remove deprecated aliases or compatibility handles only after at least one
+  documented migration window and a changelog entry.
 
 ## Documentation switch rule
 
