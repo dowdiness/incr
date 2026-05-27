@@ -233,6 +233,7 @@ fn[T] StaticDerivedProbe::read_impl(
   self : StaticDerivedProbe[T],
   record_dependency~ : Bool,
 ) -> Result[T, CycleError] {
+  self.rt.check_cross_runtime(self.rt.core.runtime_id, "StaticDerivedProbe")
   let result = self.read_inner(record_dependency~) catch {
     e => {
       self.rt.event_broadcast_hook.drain()

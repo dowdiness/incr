@@ -289,6 +289,18 @@ test "panic static derived probe: rejects cross-runtime fixed dependency" {
 }
 
 ///|
+test "panic static derived probe: permissive read rejects cross-runtime compute" {
+  let rt1 = Runtime()
+  let rt2 = Runtime()
+  let input = Input(rt1, 1)
+  let derived = static_derived_map1_probe(input, x => x + 1)
+  inspect(derived.read_or_abort(), content="2")
+  let trigger = Input(rt2, 0)
+  let foreign = Derived(rt2, () => derived.read_or_abort() + trigger.get())
+  ignore(foreign.read_or_abort())
+}
+
+///|
 test "panic static derived probe: declared fixed-source read rejects undeclared dep" {
   let rt = Runtime()
   let input = Input(rt, 1)
