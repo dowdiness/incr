@@ -176,22 +176,21 @@ pub(all) enum DependencyFreshness {
 This makes the current broad loop easier to audit. It also prevents disposed
 state and cycle state from being hidden behind a boolean "changed" result.
 
-### Pull rebuild summary
+### Derived rebuild summary
 
-A rebuild summary is stable observation data. It should describe what happened,
-not how the runtime should continue.
+A derived rebuild summary is stable observation data. It says that a derived
+compute closure actually ran and committed; it should not be used for pure
+freshness reuse or durability-skip observations.
 
 ```moonbit
-pub(all) enum PullRebuildDisposition {
-  Reused
+pub(all) enum DerivedRebuildDisposition {
   RecomputedChanged
   RecomputedBackdated
-  Aborted
 }
 
-pub(all) struct PullRebuildSummary {
+pub(all) struct DerivedRebuildSummary {
   cell_id : CellId
-  disposition : PullRebuildDisposition
+  disposition : DerivedRebuildDisposition
   dependency_count_before : Int
   dependency_count_after : Int
   changed_at_before : Revision
@@ -199,38 +198,43 @@ pub(all) struct PullRebuildSummary {
   verified_at : Revision
   had_synthetic_accumulator_reads : Bool
 }
+
+pub(all) struct DerivedRebuildAbortSummary {
+  cell_id : CellId
+  dependency_count_before : Int
+  changed_at_before : Revision
+  verified_at_before : Revision
+  error : String
+}
 ```
 
-The summary should be created only after dependency lists, typed caches,
-`verified_at`, `changed_at`, subscriber links, and runtime phase state are safe
-for observation.
+The summary may be constructed once dependency lists, `verified_at`,
+`changed_at`, subscriber links, and other graph metadata are committed. It must
+remain buffered until typed wrapper caches, runtime phase state, callback depth,
+and dependency lists are safe for observation. This distinction matters because
+the shared derived recompute helper returns before the typed handle writes its
+cached value. If verification reuse/skips need observation, add a separate
+`DerivedVerificationSummary`; do not fold those transitions into rebuild data.
 
 ### Push propagation summaries
 
-Push evaluation is not pull rebuild. It is level-ordered propagation from
-changed sources through eager nodes and effects. Its event data should say that,
-instead of squeezing it into `PullRebuildSummary`.
+Eager-derived evaluation is not derived rebuild. It is level-ordered propagation
+from changed sources through eager nodes and effects. Its event data should say
+that, instead of squeezing it into `DerivedRebuildSummary`.
 
 Keep queue processing separate from node evaluation. A stale queue entry is not
 an eager recompute, so it should not be reported with dependency counts or
 `changed_at` fields.
 
 ```moonbit
-pub(all) enum PushEvaluationKind {
-  EagerDerived
-  Effect
-}
-
-pub(all) enum PushEvaluationDisposition {
+pub(all) enum EagerDerivedEvaluationDisposition {
   RecomputedChanged
   RecomputedUnchanged
-  EffectExecuted
 }
 
-pub(all) struct PushEvaluationSummary {
+pub(all) struct EagerDerivedEvaluationSummary {
   cell_id : CellId
-  kind : PushEvaluationKind
-  disposition : PushEvaluationDisposition
+  disposition : EagerDerivedEvaluationDisposition
   level_before : Int
   level_after : Int
   dependency_count_before : Int
@@ -239,21 +243,31 @@ pub(all) struct PushEvaluationSummary {
   changed_at_after : Revision
 }
 
-pub(all) struct PushEvaluationAbortSummary {
+pub(all) struct EffectExecutionSummary {
   cell_id : CellId
-  kind : PushEvaluationKind
-  level : Int
+  level_before : Int
+  level_after : Int
   dependency_count_before : Int
-  changed_at_before : Revision
-  error : String
+  dependency_count_after : Int
+}
+
+pub(all) enum PushQueueSkipReason {
+  StaleLevel
+  DisposedOrKindMismatch
+  NotDirty
 }
 
 pub(all) struct PushQueueSkipSummary {
   cell_id : CellId
   queued_level : Int
   current_level : Int
+  reason : PushQueueSkipReason
 }
 ```
+
+A production push abort payload should be designed with the first real raising
+push path; do not add unused abort helpers or catches just to make the vocabulary
+look symmetrical.
 
 A propagation pass may also emit a coarser pass summary if a visualizer or
 profiler needs totals:
@@ -261,9 +275,9 @@ profiler needs totals:
 ```moonbit
 pub(all) struct PushPropagationSummary {
   changed_source_count : Int
-  eager_evaluation_count : Int
+  eager_derived_evaluation_count : Int
   effect_execution_count : Int
-  skipped_stale_queue_entries : Int
+  skipped_queue_entry_count : Int
 }
 ```
 
@@ -275,10 +289,10 @@ are not the public or architectural boundary.
 
 ```moonbit
 pub(all) enum RuntimeEvaluationEvent {
-  PullRebuild(PullRebuildSummary)
-  PullRebuildAborted(CellId, String)
-  PushEvaluation(PushEvaluationSummary)
-  PushEvaluationAborted(PushEvaluationAbortSummary)
+  DerivedRebuilt(DerivedRebuildSummary)
+  DerivedRebuildAborted(DerivedRebuildAbortSummary)
+  EagerDerivedEvaluated(EagerDerivedEvaluationSummary)
+  EffectExecuted(EffectExecutionSummary)
   PushQueueSkipped(PushQueueSkipSummary)
   PushPropagationCompleted(PushPropagationSummary)
   FixpointCompleted(FixpointSummary)
@@ -293,8 +307,12 @@ Layering rule: an observer trait whose methods take `Runtime` belongs in
 `cells/`, like today's `MemoCommitPhase` and `CellLifecycle`. The kernel cannot
 import `cells/`, so kernel code should either return concrete event data, push
 it into a `RuntimeCore`-owned buffer, or call a kernel-local callback that does
-not mention `Runtime`. User callbacks must still drain from the `cells/` facade
-after typed caches, phase state, and dependency lists are safe.
+not mention `Runtime`. A `pub(all)` event enum in an internal package is still an
+implementation detail; do not re-export it from `cells` or the root facade until
+a public observation phase deliberately accepts that API. User callbacks must
+still drain from the `cells/` facade after typed caches, phase state, and
+dependency lists are safe. When observation is disabled, the facade should pass
+no sink so kernel hot paths avoid constructing summaries that will be dropped.
 
 `FixpointSummary` is intentionally only named here; its fields should be designed
 with the Datalog/fixpoint code when that event family is implemented. The key
@@ -345,11 +363,12 @@ with push-specific transitions:
    on change.
 7. **Execute effect node.** Run the effect under tracking, diff dependencies,
    and update level. Effect execution is a terminal event, not a value rebuild.
-8. **Abort cleanup.** If an eager compute or effect execution raises, restore the
-   runtime phase, discard transient tracking state, preserve the previously
-   committed dependency list, and report `PushEvaluationAborted`. The previous
-   value/effect dependency set remains the last committed state; a later retry
-   policy must be explicit rather than an accident of a half-updated dirty flag.
+8. **Abort cleanup.** If a future eager compute or effect execution path can
+   raise, restore the runtime phase, discard transient tracking state, preserve
+   the previously committed dependency list, and report a mode-specific abort
+   summary. The previous value/effect dependency set remains the last committed
+   state; a later retry policy must be explicit rather than an accident of a
+   half-updated dirty flag.
 9. **Propagate level change.** Recalculate downstream levels when an eager/effect
    source set changes.
 10. **Leave propagation.** Restore runtime phase and emit pass-level observation
@@ -368,17 +387,18 @@ freshness helpers.
 A normal dependency can often be skipped by durability or checked by
 `CellOps::dep_changed_since`. A synthetic accumulator dependency must also
 consider accumulator-slot disposal, target-cell disposal, cycles involving the
-target, and `push_revised_at` advancing past the revision recorded by the memo.
+target, and `push_revised_at` advancing past the revision recorded by the derived
+cell.
 
 Therefore:
 
 ```text
-Durability shortcut is valid only when the memo has no synthetic accumulator
-reads recorded for the cached value being verified.
+Durability shortcut is valid only when the derived cell has no synthetic
+accumulator reads recorded for the cached value being verified.
 ```
 
 Make this a helper boundary, for example
-`can_skip_dep_walk_by_durability(memo)`, so a cleanup cannot accidentally hide
+`can_skip_dep_walk_by_durability(derived)`, so a cleanup cannot accidentally hide
 the exception inside a broad boolean expression.
 
 ## Reachability and protected-cell invariant
@@ -516,7 +536,7 @@ Extract helpers inside the existing kernel package first:
 
 | Helper | Responsibility |
 | --- | --- |
-| `memo_is_revision_fresh` | `verified_at >= current_revision` fast path. |
+| `derived_is_revision_fresh` | `verified_at >= current_revision` fast path. |
 | `can_skip_dep_walk_by_durability` | Durability shortcut, disabled by synthetic accumulator reads. |
 | `classify_dependency_freshness` | Wrap dependency changed/disposed/fixpoint/cycle checks. |
 | `enter_pull_frame` | Push frame, set `in_progress`, build cycle path if needed. |
@@ -580,14 +600,15 @@ trace storage, or scheduler/rebuilder internals.
 ### Phase 7 — expose public observation only when needed
 
 Expose public runtime events only when a real driver needs them for tracing,
-progress, visualization, or profiling. The API should be observation-only:
+progress, visualization, or profiling. The sketch below is future-illustrative;
+it is not part of Phase 2. The API should be observation-only:
 
 ```moonbit
 pub(all) enum RuntimeEvent {
-  PullRebuild(PullRebuildSummary)
-  PullRebuildAborted(CellId, String)
-  PushEvaluation(PushEvaluationSummary)
-  PushEvaluationAborted(PushEvaluationAbortSummary)
+  DerivedRebuilt(DerivedRebuildSummary)
+  DerivedRebuildAborted(DerivedRebuildAbortSummary)
+  EagerDerivedEvaluated(EagerDerivedEvaluationSummary)
+  EffectExecuted(EffectExecutionSummary)
   PushQueueSkipped(PushQueueSkipSummary)
   PushPropagationCompleted(PushPropagationSummary)
 }
