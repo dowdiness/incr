@@ -40,9 +40,10 @@ calling `Parser::new` or `new_parser`, read that one too.
 
 Per `~/.claude/CLAUDE.md` and `loom/incr/CLAUDE.md`, v0.6.0 introduced
 target facade names as the preferred form for new docs and examples.
-Compatibility names remain fully supported and should still be used for
-behavior with no target facade yet (accumulators, low-level memo
-introspection recipes).
+Compatibility names remain supported, but ordinary new code should use
+the target facades. Keep compatibility handles only where the target
+facade intentionally does not expose the behavior yet (accumulators,
+low-level memo introspection recipes, or legacy downstream code).
 
 | Compatibility | Target facade |
 |---------------|---------------|
@@ -64,7 +65,16 @@ introspection recipes).
 `Runtime`, `Scope`, `Accumulator`, `Effect`, `MemoEvent`, `CycleError`
 are the same name in both worlds. New code should pick one column and
 stay there per cell chain — don't mix `Memo` and `Derived` for the same
-graph, even though the types are aliased.
+graph unless a compatibility-only API forces that boundary.
+
+**Phase 3a decision (2026-05-26, PR #90):** do **not** add target-vocabulary
+bridge methods to compatibility handles (`Memo::read`, `Memo::get_or_abort`,
+`MemoMap::read`, etc.). The compatibility handles are eventual cleanup/removal
+targets; migrating users to new methods on them would create churn. For ordinary
+migration, move the handle type/constructor to `Derived`, `ReachableDerived`, or
+`DerivedMap`. Use `scripts/migrate-to-target-facades.py` for a dry-run report
+and conservative safe rewrites; it skips files with context-sensitive reads or
+compatibility-only methods that need manual judgment.
 
 ## Quick Reference
 
@@ -447,7 +457,12 @@ In this repo (`dowdiness/incr`):
   inside-vs-outside read rule called out (steps 4 and 4.5).
 - `docs/api-reference.mbt.md` — compatibility ↔ target mapping tables for
   each handle; authoritative shape of `read` / `read_or_abort` /
-  `get` / `get_or_abort` / `watch` / `observe`.
+  `get` / `get_or_abort` / `watch` / `observe`, plus current guidance to
+  migrate old handles directly to target facades rather than adding bridge
+  methods to compatibility handles.
+- `scripts/migrate-to-target-facades.py` — dry-run-by-default helper for
+  compatibility-to-facade migrations; reports context-sensitive read sites
+  and skips files with manual findings under `--apply`.
 - `tests/bench_test.mbt` — bench template (currently in compatibility
   names; either column is fine — match what's there).
 - `CLAUDE.md` — package map (where each cell type lives), the
@@ -490,8 +505,11 @@ written, update the skill — don't trust the path.
   workflow guidance.
 - Migrating existing library constructors (`Memo::new` etc.) to
   `::Type` form. The convention is for new user code.
-- The Phase 3a read-vocabulary soak window
-  (`docs/plans/2026-05-23-ideal-api-rename-phase3-soak-window.md`).
-  When that soak expires and `rt.read*` is formally deprecated, refresh
-  the "outside the graph" rows here to drop the compat path. Until then
-  both forms are first-class.
+- Adding same-receiver target-vocabulary bridge methods to compatibility
+  handles (`Memo::read`, `Memo::get_or_abort`, `MemoMap::read`, etc.).
+  Phase 3a shipped as docs/tooling in PR #90: migrate ordinary consumers
+  directly to `Derived` / `ReachableDerived` / `DerivedMap` instead.
+- Removing compatibility-handle guidance entirely. Compatibility names are
+  still present and remain necessary for accumulator and low-level
+  introspection recipes until a future breaking cleanup explicitly removes
+  or isolates them.
