@@ -3,7 +3,7 @@ fn Runtime::push_propagate_from(
   self : Runtime,
   changed_sources : Array[CellId],
 ) -> Unit {
-  @kernel.push_propagate_from_with_events(
+  self.evaluation_strategies.push_propagate_from(
     self.core,
     self.pull,
     self.push,

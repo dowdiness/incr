@@ -123,7 +123,7 @@ fn Runtime::complete_batch_frame_success(self : Runtime) -> Unit {
 /// callers + batch_wbtest.mbt can invoke it via `rt.commit_batch()` without
 /// spelling out the kernel state refs.
 fn Runtime::commit_batch(self : Runtime) -> Unit {
-  @kernel.commit_batch_with_events(
+  self.evaluation_strategies.commit_batch(
     self.core,
     self.pull,
     self.push,

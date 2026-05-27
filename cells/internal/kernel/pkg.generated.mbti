@@ -203,6 +203,17 @@ pub(all) struct EffectExecutionSummary {
   dependency_count_after : Int
 } derive(@debug.Debug)
 
+pub struct EvaluationStrategies {
+  // private fields
+}
+pub fn EvaluationStrategies::commit_batch(Self, RuntimeCore, PullState, PushState, DatalogState, ((RuntimeEvaluationEvent) -> Unit)?) -> Unit
+pub fn EvaluationStrategies::default() -> Self
+pub fn EvaluationStrategies::propagate_changes(Self, RuntimeCore, PullState, PushState, DatalogState, Array[@types.CellId], @types.Durability, ((RuntimeEvaluationEvent) -> Unit)?) -> Unit
+pub fn EvaluationStrategies::publish_cell_changes(Self, RuntimeCore, PullState, PushState, DatalogState, Array[@types.CellId], @types.Durability, ((RuntimeEvaluationEvent) -> Unit)?) -> Unit
+pub fn EvaluationStrategies::pull_verify(Self, RuntimeCore, PullState, Array[&@shared.SlotSnapshot], @types.CellId) -> Result[Unit, @types.CycleError] raise Failure
+pub fn EvaluationStrategies::push_propagate_from(Self, RuntimeCore, PullState, PushState, DatalogState, Array[@types.CellId], ((RuntimeEvaluationEvent) -> Unit)?) -> Unit
+pub fn EvaluationStrategies::run_fixpoint(Self, RuntimeCore, DatalogState) -> Array[@types.CellId]
+
 pub(all) enum PropagationPhase {
   Idle
   PushPropagating
