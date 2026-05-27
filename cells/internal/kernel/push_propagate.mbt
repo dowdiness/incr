@@ -7,16 +7,33 @@
 priv struct PushEntry {
   neg_level : Int
   cell_ref : CellRef
+  cell_id : CellId
 }
 
 ///|
-impl Eq for PushEntry with equal(self, other) {
-  self.neg_level == other.neg_level
+impl Eq for PushEntry with fn equal(self, other) {
+  self.neg_level == other.neg_level && self.cell_id == other.cell_id
 }
 
 ///|
-impl Compare for PushEntry with compare(self, other) {
+impl Compare for PushEntry with fn compare(self, other) {
   self.neg_level.compare(other.neg_level)
+}
+
+///|
+priv struct PushPropagationCounters {
+  mut eager_derived_evaluation_count : Int
+  mut effect_execution_count : Int
+  mut skipped_queue_entry_count : Int
+}
+
+///|
+fn PushPropagationCounters::new() -> PushPropagationCounters {
+  {
+    eager_derived_evaluation_count: 0,
+    effect_execution_count: 0,
+    skipped_queue_entry_count: 0,
+  }
 }
 
 ///|
@@ -81,6 +98,7 @@ fn propagate_push_level_change(
               update_queue.push({
                 neg_level: -new_level,
                 cell_ref: CellRef::PushReactive(i),
+                cell_id: sub_id,
               })
             }
             worklist.push(sub_id)
@@ -95,6 +113,7 @@ fn propagate_push_level_change(
               update_queue.push({
                 neg_level: -new_level,
                 cell_ref: CellRef::PushEffect(i),
+                cell_id: sub_id,
               })
             }
             // Effects are terminal nodes with empty subscriber sets.
@@ -138,6 +157,7 @@ fn enqueue_reachable_push_subscribers(
             update_queue.push({
               neg_level: -push.reactives[i].level,
               cell_ref: CellRef::PushReactive(i),
+              cell_id: sub_id,
             })
           }
         PushEffect(i) =>
@@ -146,6 +166,7 @@ fn enqueue_reachable_push_subscribers(
             update_queue.push({
               neg_level: -push.effects[i].level,
               cell_ref: CellRef::PushEffect(i),
+              cell_id: sub_id,
             })
           }
         HybridMemo(i) | PullMemo(i) =>
@@ -160,39 +181,155 @@ fn enqueue_reachable_push_subscribers(
 }
 
 ///|
+fn emit_queue_skip(
+  event_sink : ((RuntimeEvaluationEvent) -> Unit)?,
+  counters : PushPropagationCounters?,
+  cell_id : CellId,
+  queued_level : Int,
+  current_level : Int,
+  reason : PushQueueSkipReason,
+) -> Unit {
+  match (event_sink, counters) {
+    (Some(emit), Some(c)) => {
+      c.skipped_queue_entry_count = c.skipped_queue_entry_count + 1
+      emit(PushQueueSkipped({ cell_id, queued_level, current_level, reason }))
+    }
+    _ => ()
+  }
+}
+
+///|
 fn dequeue_push_evaluation(
   core : RuntimeCore,
   push : PushState,
   update_queue : @priority_queue.PriorityQueue[PushEntry],
+  event_sink : ((RuntimeEvaluationEvent) -> Unit)?,
+  counters : PushPropagationCounters?,
 ) -> CellRef? {
   while !update_queue.is_empty() {
     let entry = update_queue.pop().unwrap()
     let queued_level = -entry.neg_level
     match entry.cell_ref {
       PushReactive(idx) => {
-        let reactive = push.reactives[idx]
-        if queued_level != reactive.level {
+        guard validate_cell_soft(core, entry.cell_id) else {
+          emit_queue_skip(
+            event_sink,
+            counters,
+            entry.cell_id,
+            queued_level,
+            0,
+            DisposedOrKindMismatch,
+          )
           continue
         }
-        match core.cell_index[reactive.meta.cell_id.id] {
-          PushReactive(_) => ()
-          _ => continue
+        match core.cell_index[entry.cell_id.id] {
+          PushReactive(current_idx) =>
+            if current_idx != idx {
+              emit_queue_skip(
+                event_sink,
+                counters,
+                entry.cell_id,
+                queued_level,
+                get_level(core, entry.cell_id),
+                DisposedOrKindMismatch,
+              )
+              continue
+            }
+          _ => {
+            emit_queue_skip(
+              event_sink,
+              counters,
+              entry.cell_id,
+              queued_level,
+              get_level(core, entry.cell_id),
+              DisposedOrKindMismatch,
+            )
+            continue
+          }
+        }
+        let reactive = push.reactives[idx]
+        if queued_level != reactive.level {
+          emit_queue_skip(
+            event_sink,
+            counters,
+            entry.cell_id,
+            queued_level,
+            reactive.level,
+            StaleLevel,
+          )
+          continue
         }
         if !reactive.dirty {
+          emit_queue_skip(
+            event_sink,
+            counters,
+            entry.cell_id,
+            queued_level,
+            reactive.level,
+            NotDirty,
+          )
           continue
         }
         return Some(entry.cell_ref)
       }
       PushEffect(idx) => {
-        let effect = push.effects[idx]
-        if queued_level != effect.level {
+        guard validate_cell_soft(core, entry.cell_id) else {
+          emit_queue_skip(
+            event_sink,
+            counters,
+            entry.cell_id,
+            queued_level,
+            0,
+            DisposedOrKindMismatch,
+          )
           continue
         }
-        match core.cell_index[effect.meta.cell_id.id] {
-          PushEffect(_) => ()
-          _ => continue
+        match core.cell_index[entry.cell_id.id] {
+          PushEffect(current_idx) =>
+            if current_idx != idx {
+              emit_queue_skip(
+                event_sink,
+                counters,
+                entry.cell_id,
+                queued_level,
+                get_level(core, entry.cell_id),
+                DisposedOrKindMismatch,
+              )
+              continue
+            }
+          _ => {
+            emit_queue_skip(
+              event_sink,
+              counters,
+              entry.cell_id,
+              queued_level,
+              get_level(core, entry.cell_id),
+              DisposedOrKindMismatch,
+            )
+            continue
+          }
+        }
+        let effect = push.effects[idx]
+        if queued_level != effect.level {
+          emit_queue_skip(
+            event_sink,
+            counters,
+            entry.cell_id,
+            queued_level,
+            effect.level,
+            StaleLevel,
+          )
+          continue
         }
         if !effect.dirty {
+          emit_queue_skip(
+            event_sink,
+            counters,
+            entry.cell_id,
+            queued_level,
+            effect.level,
+            NotDirty,
+          )
           continue
         }
         return Some(entry.cell_ref)
@@ -212,11 +349,21 @@ fn evaluate_push_reactive(
   idx : Int,
   update_queue : @priority_queue.PriorityQueue[PushEntry],
   bfs_worklist : Array[CellId],
+  event_sink : ((RuntimeEvaluationEvent) -> Unit)?,
+  counters : PushPropagationCounters?,
 ) -> Unit {
   let reactive = push.reactives[idx]
   reactive.dirty = false
+  match counters {
+    Some(c) =>
+      c.eager_derived_evaluation_count = c.eager_derived_evaluation_count + 1
+    None => ()
+  }
   let reactive_cell_id = reactive.meta.cell_id
+  let level_before = reactive.level
+  let changed_at_before = reactive.meta.changed_at
   let old_sources = reactive.sources
+  let dependency_count_before = old_sources.length()
   push_tracking(core, reactive_cell_id)
   let changed = (reactive.compute)()
   let (new_sources, new_seen) = pop_tracking(core)
@@ -243,6 +390,26 @@ fn evaluate_push_reactive(
       core, pull, push, reactive_cell_id, update_queue, bfs_worklist,
     )
   }
+  match event_sink {
+    Some(emit) =>
+      emit(
+        EagerDerivedEvaluated({
+          cell_id: reactive_cell_id,
+          disposition: if changed {
+            RecomputedChanged
+          } else {
+            RecomputedUnchanged
+          },
+          level_before,
+          level_after: reactive.level,
+          dependency_count_before,
+          dependency_count_after: reactive.sources.length(),
+          changed_at_before,
+          changed_at_after: reactive.meta.changed_at,
+        }),
+      )
+    None => ()
+  }
 }
 
 ///|
@@ -252,11 +419,19 @@ fn execute_push_effect(
   push : PushState,
   datalog : DatalogState,
   idx : Int,
+  event_sink : ((RuntimeEvaluationEvent) -> Unit)?,
+  counters : PushPropagationCounters?,
 ) -> Unit {
   let effect = push.effects[idx]
   effect.dirty = false
+  match counters {
+    Some(c) => c.effect_execution_count = c.effect_execution_count + 1
+    None => ()
+  }
   let effect_cell_id = effect.meta.cell_id
+  let level_before = effect.level
   let old_sources = effect.sources
+  let dependency_count_before = old_sources.length()
   push_tracking(core, effect_cell_id)
   (effect.execute)()
   let (new_sources, new_seen) = pop_tracking(core)
@@ -273,11 +448,41 @@ fn execute_push_effect(
   |> ignore
   effect.sources = new_sources
   effect.level = recompute_level(core, effect_cell_id, new_sources)
+  match event_sink {
+    Some(emit) =>
+      emit(
+        EffectExecuted({
+          cell_id: effect_cell_id,
+          level_before,
+          level_after: effect.level,
+          dependency_count_before,
+          dependency_count_after: effect.sources.length(),
+        }),
+      )
+    None => ()
+  }
 }
 
 ///|
-fn finish_push_propagation(core : RuntimeCore) -> Unit {
+fn finish_push_propagation(
+  core : RuntimeCore,
+  changed_source_count : Int,
+  event_sink : ((RuntimeEvaluationEvent) -> Unit)?,
+  counters : PushPropagationCounters?,
+) -> Unit {
   leave_phase(core)
+  match (event_sink, counters) {
+    (Some(emit), Some(c)) =>
+      emit(
+        PushPropagationCompleted({
+          changed_source_count,
+          eager_derived_evaluation_count: c.eager_derived_evaluation_count,
+          effect_execution_count: c.effect_execution_count,
+          skipped_queue_entry_count: c.skipped_queue_entry_count,
+        }),
+      )
+    _ => ()
+  }
 }
 
 ///|
@@ -294,11 +499,34 @@ pub fn push_propagate_from(
   datalog : DatalogState,
   changed_sources : Array[CellId],
 ) -> Unit {
+  push_propagate_from_with_events(
+    core,
+    pull,
+    push,
+    datalog,
+    changed_sources,
+    None,
+  )
+}
+
+///|
+pub fn push_propagate_from_with_events(
+  core : RuntimeCore,
+  pull : PullState,
+  push : PushState,
+  datalog : DatalogState,
+  changed_sources : Array[CellId],
+  event_sink : ((RuntimeEvaluationEvent) -> Unit)?,
+) -> Unit {
   enter_phase(core, PushPropagating)
   let update_queue : @priority_queue.PriorityQueue[PushEntry] = @priority_queue.PriorityQueue([],
   )
   // Reused across enqueue_reachable_push_subscribers calls to avoid per-call allocation.
   let bfs_worklist : Array[CellId] = []
+  let counters = match event_sink {
+    Some(_) => Some(PushPropagationCounters::new())
+    None => None
+  }
 
   for changed_id in changed_sources {
     enqueue_reachable_push_subscribers(
@@ -307,15 +535,19 @@ pub fn push_propagate_from(
   }
 
   while !update_queue.is_empty() {
-    match dequeue_push_evaluation(core, push, update_queue) {
+    match
+      dequeue_push_evaluation(core, push, update_queue, event_sink, counters) {
       Some(PushReactive(idx)) =>
         evaluate_push_reactive(
-          core, pull, push, datalog, idx, update_queue, bfs_worklist,
+          core, pull, push, datalog, idx, update_queue, bfs_worklist, event_sink,
+          counters,
         )
       Some(PushEffect(idx)) =>
-        execute_push_effect(core, pull, push, datalog, idx)
+        execute_push_effect(
+          core, pull, push, datalog, idx, event_sink, counters,
+        )
       Some(_) | None => ()
     }
   }
-  finish_push_propagation(core)
+  finish_push_propagation(core, changed_sources.length(), event_sink, counters)
 }

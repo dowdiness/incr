@@ -28,6 +28,17 @@ pub fn commit_batch(
   push : PushState,
   datalog : DatalogState,
 ) -> Unit {
+  commit_batch_with_events(core, pull, push, datalog, None)
+}
+
+///|
+pub fn commit_batch_with_events(
+  core : RuntimeCore,
+  pull : PullState,
+  push : PushState,
+  datalog : DatalogState,
+  event_sink : ((RuntimeEvaluationEvent) -> Unit)?,
+) -> Unit {
   let mut any_changed = false
   while core.batch.pending.length() > 0 {
     // Phase 1: commit pending values and collect which actually changed
@@ -63,13 +74,14 @@ pub fn commit_batch(
         }
       }
       let changed_ids : Array[CellId] = changed.map(fn(c) { c.cell_id() })
-      propagate_changes(
+      propagate_changes_with_events(
         core,
         pull,
         push,
         datalog,
         changed_ids,
         core.batch.max_durability,
+        event_sink,
       )
       core.batch.max_durability = Low
       // Raise batch_depth while invoking callbacks so that any signal.set()

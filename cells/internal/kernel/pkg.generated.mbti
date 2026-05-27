@@ -41,6 +41,8 @@ pub fn collect_tracking_path(RuntimeCore) -> Array[@types.CellId]
 
 pub fn commit_batch(RuntimeCore, PullState, PushState, DatalogState) -> Unit
 
+pub fn commit_batch_with_events(RuntimeCore, PullState, PushState, DatalogState, ((RuntimeEvaluationEvent) -> Unit)?) -> Unit
+
 pub fn construct_cycle_error(RuntimeCore, Array[@types.CellId], @types.CellId) -> @types.CycleError
 
 pub fn diff_and_update_subscribers(RuntimeCore, PullState, PushState, DatalogState, @types.CellId, Array[@types.CellId], Array[@types.CellId], new_seen? : @hashset.HashSet[@types.CellId]) -> Bool
@@ -77,13 +79,19 @@ pub fn pop_tracking_full(RuntimeCore) -> ActiveQuery
 
 pub fn propagate_changes(RuntimeCore, PullState, PushState, DatalogState, Array[@types.CellId], @types.Durability) -> Unit
 
+pub fn propagate_changes_with_events(RuntimeCore, PullState, PushState, DatalogState, Array[@types.CellId], @types.Durability, ((RuntimeEvaluationEvent) -> Unit)?) -> Unit
+
 pub fn publish_cell_changes(RuntimeCore, PullState, PushState, DatalogState, Array[@types.CellId], @types.Durability) -> Unit
+
+pub fn publish_cell_changes_with_events(RuntimeCore, PullState, PushState, DatalogState, Array[@types.CellId], @types.Durability, ((RuntimeEvaluationEvent) -> Unit)?) -> Unit
 
 pub fn pull_verify(RuntimeCore, PullState, Array[&@shared.SlotSnapshot], @types.CellId) -> Result[Unit, @types.CycleError] raise Failure
 
 pub fn push_contribution(RuntimeCore, PullState, @types.CellId) -> Int
 
 pub fn push_propagate_from(RuntimeCore, PullState, PushState, DatalogState, Array[@types.CellId]) -> Unit
+
+pub fn push_propagate_from_with_events(RuntimeCore, PullState, PushState, DatalogState, Array[@types.CellId], ((RuntimeEvaluationEvent) -> Unit)?) -> Unit
 
 pub fn push_tracking(RuntimeCore, @types.CellId) -> Unit
 
@@ -147,6 +155,54 @@ pub(all) struct DatalogState {
   rules : Array[@datalog.RuleData]
 }
 
+pub(all) struct DerivedRebuildAbortSummary {
+  cell_id : @types.CellId
+  dependency_count_before : Int
+  changed_at_before : @types.Revision
+  verified_at_before : @types.Revision
+  error : String
+} derive(@debug.Debug)
+
+pub(all) enum DerivedRebuildDisposition {
+  RecomputedChanged
+  RecomputedBackdated
+} derive(Eq, @debug.Debug)
+
+pub(all) struct DerivedRebuildSummary {
+  cell_id : @types.CellId
+  disposition : DerivedRebuildDisposition
+  dependency_count_before : Int
+  dependency_count_after : Int
+  changed_at_before : @types.Revision
+  changed_at_after : @types.Revision
+  verified_at : @types.Revision
+  had_synthetic_accumulator_reads : Bool
+} derive(@debug.Debug)
+
+pub(all) enum EagerDerivedEvaluationDisposition {
+  RecomputedChanged
+  RecomputedUnchanged
+} derive(Eq, @debug.Debug)
+
+pub(all) struct EagerDerivedEvaluationSummary {
+  cell_id : @types.CellId
+  disposition : EagerDerivedEvaluationDisposition
+  level_before : Int
+  level_after : Int
+  dependency_count_before : Int
+  dependency_count_after : Int
+  changed_at_before : @types.Revision
+  changed_at_after : @types.Revision
+} derive(@debug.Debug)
+
+pub(all) struct EffectExecutionSummary {
+  cell_id : @types.CellId
+  level_before : Int
+  level_after : Int
+  dependency_count_before : Int
+  dependency_count_after : Int
+} derive(@debug.Debug)
+
 pub(all) enum PropagationPhase {
   Idle
   PushPropagating
@@ -161,6 +217,26 @@ pub(all) struct PullState {
   free_signals : Array[Int]
   free_memos : Array[Int]
 }
+
+pub(all) struct PushPropagationSummary {
+  changed_source_count : Int
+  eager_derived_evaluation_count : Int
+  effect_execution_count : Int
+  skipped_queue_entry_count : Int
+} derive(@debug.Debug)
+
+pub(all) enum PushQueueSkipReason {
+  StaleLevel
+  DisposedOrKindMismatch
+  NotDirty
+} derive(Eq, @debug.Debug)
+
+pub(all) struct PushQueueSkipSummary {
+  cell_id : @types.CellId
+  queued_level : Int
+  current_level : Int
+  reason : PushQueueSkipReason
+} derive(@debug.Debug)
 
 pub(all) struct PushState {
   reactives : Array[@push.PushReactiveData]
@@ -188,6 +264,15 @@ pub(all) struct RuntimeCore {
   mut phase : PropagationPhase
   gc_root_counts : @hashmap.HashMap[@types.CellId, Int]
 }
+
+pub(all) enum RuntimeEvaluationEvent {
+  DerivedRebuilt(DerivedRebuildSummary)
+  DerivedRebuildAborted(DerivedRebuildAbortSummary)
+  EagerDerivedEvaluated(EagerDerivedEvaluationSummary)
+  EffectExecuted(EffectExecutionSummary)
+  PushQueueSkipped(PushQueueSkipSummary)
+  PushPropagationCompleted(PushPropagationSummary)
+} derive(@debug.Debug)
 
 pub(all) struct TrackingState {
   stack : Array[ActiveQuery]

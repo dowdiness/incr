@@ -422,7 +422,7 @@ pub fn[T, A] Memo::accumulated(
     Some(vs) => vs.copy()
     None => []
   }
-  if !self.rt.event_broadcast_hook.pending.is_empty() {
+  if self.rt.has_pending_events() {
     self.rt.drain_pending_events_if_idle()
   }
   result
@@ -475,7 +475,7 @@ pub fn[T, A] Memo::accumulated_result(
       Ok(vs)
     }
   }
-  if !self.rt.event_broadcast_hook.pending.is_empty() {
+  if self.rt.has_pending_events() {
     self.rt.drain_pending_events_if_idle()
   }
   result

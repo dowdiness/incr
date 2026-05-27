@@ -68,7 +68,7 @@ pub fn[T : Eq] Reactive::new(rt : Runtime, compute_fn : () -> T) -> Reactive[T] 
     cell_id, new_sources,
   )
   rt.finish_tracking(cell_id, [], new_sources, new_seen)
-  if !rt.event_broadcast_hook.pending.is_empty() {
+  if rt.has_pending_events() {
     rt.drain_pending_events_if_idle()
   }
   reactive

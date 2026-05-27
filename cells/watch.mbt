@@ -43,7 +43,7 @@ fn Runtime::remove_read_root(self : Runtime, id : CellId) -> Unit {
 pub fn[T] Observer::get(self : Observer[T]) -> T {
   guard !self.disposed else { abort("Observer: already disposed") }
   let value = (self.getter)()
-  if !self.runtime.event_broadcast_hook.pending.is_empty() {
+  if self.runtime.has_pending_events() {
     self.runtime.drain_pending_events_if_idle()
   }
   value
@@ -86,7 +86,7 @@ pub struct Watch[T] {
 pub fn[T] Watch::read(self : Watch[T]) -> Result[T, CycleError] {
   guard !self.disposed else { abort("Watch: already disposed") }
   let value = (self.getter)()
-  if !self.runtime.event_broadcast_hook.pending.is_empty() {
+  if self.runtime.has_pending_events() {
     self.runtime.drain_pending_events_if_idle()
   }
   value
@@ -225,7 +225,7 @@ pub fn[T] Runtime::read(self : Runtime, memo : Memo[T]) -> T {
   let obs = memo.observe()
   let val = (obs.getter)()
   obs.dispose()
-  if !self.event_broadcast_hook.pending.is_empty() {
+  if self.has_pending_events() {
     self.drain_pending_events_if_idle()
   }
   val
@@ -238,7 +238,7 @@ pub fn[T : Eq] Runtime::read_hybrid(self : Runtime, memo : HybridMemo[T]) -> T {
   let obs = memo.observe()
   let val = (obs.getter)()
   obs.dispose()
-  if !self.event_broadcast_hook.pending.is_empty() {
+  if self.has_pending_events() {
     self.drain_pending_events_if_idle()
   }
   val
@@ -251,7 +251,7 @@ pub fn[T] Runtime::read_reactive(self : Runtime, reactive : Reactive[T]) -> T {
   let obs = reactive.observe()
   let val = (obs.getter)()
   obs.dispose()
-  if !self.event_broadcast_hook.pending.is_empty() {
+  if self.has_pending_events() {
     self.drain_pending_events_if_idle()
   }
   val

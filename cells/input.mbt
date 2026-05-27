@@ -100,7 +100,7 @@ pub fn[T] Signal::get(self : Signal[T]) -> T {
   self.rt.check_cross_runtime(self.rt.core.runtime_id, "Signal")
   self.rt.record_dependency(self.cell_id)
   let value = self.value
-  if !self.rt.event_broadcast_hook.pending.is_empty() {
+  if self.rt.has_pending_events() {
     self.rt.drain_pending_events_if_idle()
   }
   value
@@ -205,7 +205,7 @@ pub fn[T : Eq] Signal::set(self : Signal[T], new_value : T) -> Unit {
     self.set_batch(new_value)
   } else {
     if self.value == new_value {
-      if !self.rt.event_broadcast_hook.pending.is_empty() {
+      if self.rt.has_pending_events() {
         self.rt.drain_pending_events_if_idle()
       }
       return
@@ -243,7 +243,7 @@ pub fn[T] Signal::set_unconditional(self : Signal[T], new_value : T) -> Unit {
       None => ()
     }
     self.rt.fire_on_change()
-    if !self.rt.event_broadcast_hook.pending.is_empty() {
+    if self.rt.has_pending_events() {
       self.rt.drain_pending_events_if_idle()
     }
   }

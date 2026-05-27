@@ -221,11 +221,11 @@ fn[T] Memo::read_result(self : Memo[T]) -> Result[T, CycleError] {
   self.rt.check_cross_runtime(self.rt.core.runtime_id, "Memo")
   let result = self.get_result_inner() catch {
     e => {
-      self.rt.event_broadcast_hook.drain()
+      self.rt.drain_pending_events_direct()
       abort("Memo compute raised: " + e.to_string())
     }
   }
-  if !self.rt.event_broadcast_hook.pending.is_empty() {
+  if self.rt.has_pending_events() {
     self.rt.drain_pending_events_if_idle()
   }
   result
@@ -314,7 +314,7 @@ fn[T] Memo::get_result_inner(
 fn[T] Memo::read_permissive(self : Memo[T]) -> T {
   let r = self.get_result_inner() catch {
     e => {
-      self.rt.event_broadcast_hook.drain()
+      self.rt.drain_pending_events_direct()
       abort("Memo compute raised: " + e.to_string())
     }
   }
