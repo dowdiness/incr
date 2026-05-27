@@ -130,9 +130,14 @@ Push propagation helpers:
 - `dequeue_push_evaluation`
 - `evaluate_push_reactive`
 - `execute_push_effect`
-- `abort_push_evaluation`
 - `propagate_push_level_change`
 - `finish_push_propagation`
+
+Deferred from Phase 1: `abort_push_evaluation`. Current production push
+closures are non-raising, so there is no behavior-preserving production abort
+path to extract. Adding an unused helper or unused `catch` would fail
+`--deny-warn`; introducing a raising push-evaluation API belongs to a later,
+deliberate behavior change, not this helper-only refactor.
 
 Validation:
 
