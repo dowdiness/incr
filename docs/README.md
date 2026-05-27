@@ -65,6 +65,8 @@ For contributors and advanced users who want to understand or modify `incr`.
 
 **Research notes — exploratory, not implemented:**
 
+- [Next-sessions Runtime Roadmap](research/next-sessions-runtime-roadmap.md) — shared onboarding + invariants + backlog template for continuing Loom + Canopy integration work across sessions.
+
 - [Constructive Traces Feasibility](research/constructive-traces-feasibility.md) — evaluates Build Systems à la Carte constructive traces for `incr`; recommends keeping revision verifying traces as the default and investigating static/applicative derived APIs first
 - [Multi-Mode App Ideas](research/multi-mode-app-ideas.md) — app concepts combining pull / push / hybrid / Datalog modes
 - [Semantic Interning](research/semantic-interning.md) — design exploration for revision-aware `InternTable[T]`
