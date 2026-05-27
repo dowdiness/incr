@@ -1,0 +1,304 @@
+///|
+fn static_probe_subscriber_contains(
+  rt : Runtime,
+  dep : CellId,
+  subscriber : CellId,
+) -> Bool {
+  match rt.core.cell_index[dep.id] {
+    PullSignal(idx) =>
+      rt.pull.signals[idx].meta.subscribers.contains(subscriber)
+    PullMemo(idx) | HybridMemo(idx) =>
+      rt.pull.memos[idx].meta.subscribers.contains(subscriber)
+    _ => abort("expected pull dependency")
+  }
+}
+
+///|
+fn static_probe_subscriber_count(rt : Runtime, dep : CellId) -> Int {
+  match rt.core.cell_index[dep.id] {
+    PullSignal(idx) => rt.pull.signals[idx].meta.subscribers.length()
+    PullMemo(idx) | HybridMemo(idx) =>
+      rt.pull.memos[idx].meta.subscribers.length()
+    _ => abort("expected pull dependency")
+  }
+}
+
+///|
+test "static derived probe: registers fixed deps and subscribers once" {
+  let rt = Runtime()
+  let left = Input(rt, 1)
+  let right = Input(rt, 2)
+  let derived = static_derived_map2_probe(left, right, (a, b) => a + b)
+  inspect(derived.dependencies().length(), content="2")
+  inspect(
+    static_probe_subscriber_contains(rt, left.inner.id(), derived.id()),
+    content="true",
+  )
+  inspect(
+    static_probe_subscriber_contains(rt, right.inner.id(), derived.id()),
+    content="true",
+  )
+  inspect(derived.read_or_abort(), content="3")
+  left.set(10)
+  inspect(derived.read_or_abort(), content="12")
+  inspect(derived.dependencies().length(), content="2")
+}
+
+///|
+test "static derived probe: normalizes duplicate fixed deps" {
+  let rt = Runtime()
+  let input = Input(rt, 1)
+  let derived = static_derived_probe(
+    rt,
+    [input.inner.id(), input.inner.id()],
+    () => input.peek() + 1,
+    (a, b) => a == b,
+  )
+  inspect(derived.dependencies().length(), content="1")
+  inspect(static_probe_subscriber_count(rt, input.inner.id()), content="1")
+  inspect(derived.read_or_abort(), content="2")
+}
+
+///|
+test "static derived probe: backdates equal recompute" {
+  let rt = Runtime()
+  let input = Input(rt, 1)
+  let derived = static_derived_map1_probe(input, x => x % 2)
+  inspect(derived.read_or_abort(), content="1")
+  let original_changed_at = derived.changed_at()
+  input.set(3)
+  inspect(derived.read_or_abort(), content="1")
+  inspect(derived.changed_at() == original_changed_at, content="true")
+  input.set(4)
+  inspect(derived.read_or_abort(), content="0")
+  inspect(derived.changed_at() == original_changed_at, content="false")
+}
+
+///|
+test "static derived probe: dynamic parent records only static cell" {
+  let rt = Runtime()
+  let input = Input(rt, 1)
+  let addend = Input(rt, 10)
+  let static_derived = static_derived_map1_probe(input, x => x + 1)
+  let parent = Derived(rt, () => static_derived.get_or_abort() + addend.get())
+  inspect(parent.read_or_abort(), content="12")
+  let deps = parent.inner.dependencies()
+  inspect(deps.contains(static_derived.id()), content="true")
+  inspect(deps.contains(addend.inner.id()), content="true")
+  inspect(deps.contains(input.inner.id()), content="false")
+  input.set(2)
+  inspect(parent.read_or_abort(), content="13")
+}
+
+///|
+test "static derived probe: dispose removes fixed subscriber links" {
+  let rt = Runtime()
+  let input = Input(rt, 1)
+  let derived = static_derived_map1_probe(input, x => x + 1)
+  inspect(derived.read_or_abort(), content="2")
+  inspect(
+    static_probe_subscriber_contains(rt, input.inner.id(), derived.id()),
+    content="true",
+  )
+  derived.dispose()
+  inspect(
+    static_probe_subscriber_contains(rt, input.inner.id(), derived.id()),
+    content="false",
+  )
+}
+
+///|
+test "static derived probe: static child dispose removes parent subscriber link" {
+  let rt = Runtime()
+  let input = Input(rt, 1)
+  let parent = static_derived_map1_probe(input, x => x + 1)
+  let child = static_derived_map_static1_probe(parent, x => x * 2)
+  inspect(child.read_or_abort(), content="4")
+  inspect(
+    static_probe_subscriber_contains(rt, parent.id(), child.id()),
+    content="true",
+  )
+  child.dispose()
+  inspect(
+    static_probe_subscriber_contains(rt, parent.id(), child.id()),
+    content="false",
+  )
+}
+
+///|
+test "static derived probe: gc traverses static dependency chain" {
+  let rt = Runtime()
+  let input = Input(rt, 1)
+  let parent = static_derived_map1_probe(input, x => x + 1)
+  let child = static_derived_map_static1_probe(parent, x => x * 2)
+  inspect(child.read_or_abort(), content="4")
+  rt.add_read_root(child.id())
+  rt.gc()
+  inspect(rt.is_cell_disposed(input.inner.id()), content="false")
+  inspect(rt.is_cell_disposed(parent.id()), content="false")
+  inspect(rt.is_cell_disposed(child.id()), content="false")
+  rt.remove_read_root(child.id())
+  rt.gc()
+  inspect(rt.is_cell_disposed(parent.id()), content="true")
+  inspect(rt.is_cell_disposed(child.id()), content="true")
+}
+
+///|
+test "static derived probe: compute failure clears in-progress and hooks" {
+  let rt = Runtime()
+  rt.on_memo_event(_evt => ())
+  let _acc : Accumulator[Int] = Accumulator::new(rt~)
+  let should_fail : Ref[Bool] = { val: true }
+  let derived : StaticDerivedProbe[Int] = static_derived_probe(
+    rt,
+    [],
+    () => {
+      if should_fail.val {
+        raise Failure("boom")
+      }
+      42
+    },
+    (a, b) => a == b,
+  )
+  let result : Result[Result[Int, CycleError], Failure] = try? derived.force_recompute()
+  inspect(result is Err(_), content="true")
+  inspect(rt.get_memo_data(derived.id()).in_progress, content="false")
+  inspect(rt.static_recompute_depth, content="0")
+  inspect(
+    rt.accumulator_commit_hook.active.contains(derived.id()),
+    content="false",
+  )
+  inspect(
+    rt.event_broadcast_hook.active.contains(derived.id()),
+    content="false",
+  )
+  should_fail.val = false
+  inspect(derived.read_or_abort(), content="42")
+}
+
+///|
+test "static derived probe: cycle reporting follows fixed deps" {
+  let rt = Runtime()
+  let input = Input(rt, 0)
+  let parent = static_derived_map1_probe(input, x => x, label="static-a")
+  let child = static_derived_map_static1_probe(
+    parent,
+    x => x + 1,
+    label="static-b",
+  )
+  inspect(child.read_or_abort(), content="1")
+  let parent_data = rt.get_memo_data(parent.id())
+  parent_data.dependencies = [child.id(), input.inner.id()]
+  rt.add_subscriber(child.id(), parent.id())
+  input.set(1)
+  match child.read() {
+    Ok(_) => abort("expected fixed-dep cycle")
+    Err(e) => {
+      inspect(e.path().length(), content="3")
+      inspect(
+        e.format_path(),
+        content="Cycle detected: static-b → static-a → static-b",
+      )
+    }
+  }
+  inspect(rt.get_memo_data(parent.id()).in_progress, content="false")
+  inspect(rt.get_memo_data(child.id()).in_progress, content="false")
+}
+
+///|
+test "static derived probe: accumulator use fails explicitly" {
+  let rt = Runtime()
+  let pushed : Accumulator[Int] = Accumulator::new(rt~)
+  let push_probe = static_derived_probe(
+    rt,
+    [],
+    () => {
+      pushed.push(1)
+      1
+    },
+    (a, b) => a == b,
+  )
+  let push_result : Result[Result[Int, CycleError], Failure] = try? push_probe.force_recompute()
+  match push_result {
+    Ok(_) => abort("expected accumulator push failure")
+    Err(e) =>
+      inspect(
+        e
+        .to_string()
+        .contains("Accumulator::push is unsupported inside static Derived"),
+        content="true",
+      )
+  }
+  inspect(rt.static_recompute_depth, content="0")
+
+  let read_acc : Accumulator[Int] = Accumulator::new(rt~)
+  let producer = Derived(rt, () => {
+    read_acc.push(7)
+    7
+  })
+  inspect(producer.read_or_abort(), content="7")
+  let read_probe = static_derived_probe(
+    rt,
+    [producer.id()],
+    () => {
+      ignore(producer.accumulated(read_acc))
+      0
+    },
+    (a, b) => a == b,
+  )
+  let read_result : Result[Result[Int, CycleError], Failure] = try? read_probe.force_recompute()
+  match read_result {
+    Ok(_) => abort("expected accumulator read failure")
+    Err(e) =>
+      inspect(
+        e
+        .to_string()
+        .contains("Memo::accumulated is unsupported inside static Derived"),
+        content="true",
+      )
+  }
+  inspect(rt.static_recompute_depth, content="0")
+}
+
+///|
+test "static derived probe: event hook pairs enter and completed" {
+  let rt = Runtime()
+  let events : Array[String] = []
+  rt.on_memo_event(evt => {
+    events.push(
+      match evt {
+        EnteringCompute(_) => "enter"
+        Completed(_) => "completed"
+        Aborted(_) => "aborted"
+      },
+    )
+  })
+  let input = Input(rt, 1)
+  let derived = static_derived_map1_probe(input, x => x + 1)
+  inspect(derived.read_or_abort(), content="2")
+  debug_inspect(events, content="[\"enter\", \"completed\"]")
+}
+
+///|
+test "panic static derived probe: rejects cross-runtime fixed dependency" {
+  let rt1 = Runtime()
+  let rt2 = Runtime()
+  let left = Input(rt1, 1)
+  let right = Input(rt2, 2)
+  let _ = static_derived_map2_probe(left, right, (a, b) => a + b)
+}
+
+///|
+test "panic static derived probe: declared fixed-source read rejects undeclared dep" {
+  let rt = Runtime()
+  let input = Input(rt, 1)
+  let other = Input(rt, 10)
+  let source = static_derived_map1_probe(input, x => x + 1)
+  let probe = install_static_derived_probe(
+    rt,
+    [other.inner.id()],
+    dependent => source.read_declared_fixed_dep_or_abort(dependent),
+    (a, b) => a == b,
+  )
+  ignore(probe.read_or_abort())
+}

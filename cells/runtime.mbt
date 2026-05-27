@@ -37,6 +37,7 @@ pub(all) struct Runtime {
   // MemoCommitPhase takes Runtime as a parameter (see
   // cells/memo_commit_phase.mbt), so the array cannot live in kernel.
   priv commit_hooks : Array[&MemoCommitPhase]
+  priv mut static_recompute_depth : Int
   priv accumulator_commit_hook : AccumulatorCommitHook
   priv event_broadcast_hook : EventBroadcastPhaseHook
   priv event_broadcast_hook_index : Int
@@ -111,6 +112,7 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
     evaluation_strategies: EvaluationStrategies::default(),
     cell_lifecycle: [],
     commit_hooks: [],
+    static_recompute_depth: 0,
     accumulator_commit_hook: accumulator_hook,
     event_broadcast_hook: event_hook,
     event_broadcast_hook_index: 1,
