@@ -43,7 +43,7 @@ Mokhov, Mitchell, and Peyton Jones (2020) decompose incremental build systems al
 | Axis | `incr`'s choice | What that means |
 |---|---|---|
 | Scheduler | Suspending | When a derived value is read, the scheduler recursively verifies dependencies on demand. `pull_verify` is the suspending scheduler. |
-| Rebuilder | Verifying traces via revisions | `verified_at` / `changed_at` play the role of input/output hashes in the paper's framework. Revisions are cheaper to compare than hashes (single integer, transitively monotonic, no collision risk) but cannot be shared across processes — see the Constructive traces feasibility study in [todo.md](../todo.md). |
+| Rebuilder | Verifying traces via revisions | `verified_at` / `changed_at` play the role of input/output hashes in the paper's framework. Revisions are cheaper to compare than hashes (single integer, transitively monotonic, no collision risk) but cannot be shared across processes. See the [Constructive traces feasibility study](../research/constructive-traces-feasibility.md) for why constructive traces remain opt-in research rather than the default rebuilder. |
 | Task abstraction | Monadic | Compute functions can branch on read values; the dependency graph cannot be predicted ahead of time. Equivalent to Shake or Excel's task model, strictly more general than Selective. |
 | Beyond the paper | Recoverable cycles via `CycleError` | The build-systems literature assumes acyclic task graphs. `incr` chooses to report cycles as recoverable errors rather than aborts. This is what motivates `Result[T, CycleError]` as the canonical read return type on derived cells. |
 
@@ -58,6 +58,34 @@ Comparison to neighboring systems in the same cell:
 - **Salsa** (rust-analyzer): (Suspending, Verifying via revisions). Same family as `incr`. Different cycle treatment — Salsa aborts on cycle by default and offers an opt-in recovery pattern; `incr` returns `Result[T, CycleError]` from the default read.
 - **Shake** (Haskell build tool): (Suspending, Verifying via content hashes). Same scheduler shape as `incr`. Different rebuilder — hashes enable cross-process caching but require explicit hash computation per task; revisions don't.
 - **alien-signals / Vue 3.6 reactivity**: (Suspending, Verifying) but with a push-pull-hybrid bolt-on — the push phase pre-marks subtrees as `Pending` before any read. See [comparison-with-alien-signals.md](./comparison-with-alien-signals.md) for the full bilateral comparison.
+
+### Operational Vocabulary for Current `incr`
+
+Use these names consistently in design notes, issue triage, and tests. They describe the current engine; they are **not** pluggable extension points.
+
+| Name | In `incr` | Responsibility |
+|---|---|---|
+| **Task** | A `Memo` / `Derived` compute closure | Produces one value and discovers dependencies by reading other cells. |
+| **Scheduler** | The `pull_verify` traversal | Decides which stale dependency to verify next, using suspension/recursion rather than a precomputed topological order. |
+| **Rebuilder** | Revision-based verification around a memo | Decides whether the task must run or whether the cached value is still valid. |
+| **Trace** | Last successful dependency list plus `verified_at` / `changed_at` | Records the dynamic dependencies that justify future skip/recompute decisions. |
+| **Green path** | Dependency verification finds no changed dependency | Marks the memo verified without running the compute closure. |
+| **Red path** | A dependency changed or the memo has no valid value | Runs the compute closure, captures a new trace, and commits the result. |
+| **Early cutoff** | Backdating | Stops downstream recomputation when the red path produces an equal value. |
+
+### Current-Model Invariants
+
+These invariants are the hardening checklist for future refactors. A change should name which invariant it preserves or intentionally changes.
+
+1. **Scheduler and rebuilder stay separate.** Traversal order belongs to the scheduler (`pull_verify`). The decision to reuse, recompute, or backdate belongs to the rebuilder logic around a memo's stored trace. Performance work should say which side it changes.
+2. **The trace is the last successful dynamic read set.** Dependencies are not a static over-approximation. A conditional memo records the branch it actually read on the last successful recompute, and a later successful recompute replaces that trace.
+3. **Failed computations do not create valid traces.** Cycle errors, raised failures, and aborting reads must not install a new dependency list or cache entry. Cleanup may restore flags, but the previous successful trace remains the last authority.
+4. **A stale memo may skip recomputation only by proof.** The proof is either the current-revision fast path, a durability shortcut, or a dependency walk showing no dependency has `changed_at` after the memo's previous verification point. A push dirty bit alone is not enough for pull-mode correctness.
+5. **Backdating is the early-cutoff boundary.** If recomputation returns an equal value, `verified_at` advances but `changed_at` is preserved. Dependents compare dependency `changed_at` values against their own verification point, so preserving `changed_at` is what prevents downstream work.
+6. **Dependency replacement must update both directions.** When a successful recompute discovers a different dependency set, the forward dependency list and reverse subscriber links must be diffed together. Otherwise GC, push reachability, and later verification disagree about graph shape.
+7. **Constructive caching is opt-in research.** The default trace stores revisions, not content hashes or serialized values. Cross-session or content-addressed reuse requires a separate cacheable-query contract; it should not leak into ordinary `Derived` / `Memo` reads.
+
+Useful regression-test names follow the same vocabulary: "dynamic dependency replacement", "green path skips recompute", "backdating early cutoff", "failed read does not record dependency", and "cycle cleanup preserves previous trace".
 
 ## Core Concepts
 

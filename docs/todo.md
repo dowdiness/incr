@@ -27,14 +27,9 @@ Concrete, actionable tasks for the `incr` library.
 
 - [ ] **Push-engine link-list port (deprioritized)** — `cells/internal/push/`. The original investigation surfaced 1.2–1.5× speedup on the BFS iter path, smaller than the Vue 3.6 headline because incr is already SoA. Realistic but narrower than the targets above. Revisit if a future workload shifts the cost balance (very-low-cost compute closures making subscriber-set iter dominant). Investigation record: [docs/performance/2026-05-16-push-engine-linklist-microbench.md](performance/2026-05-16-push-engine-linklist-microbench.md).
 
-- [ ] **Constructive traces — feasibility and cost-benefit study (research)**. `incr` is currently a (Suspending, Verifying-via-revisions) system in the "Build Systems à la Carte" taxonomy (Mokhov, Mitchell, Peyton Jones 2020). Promoting the rebuilder to **Constructive traces** would store hashed `(task description, input hash → output)` triples, enabling cross-process and cross-machine result reuse (the Bazel / Cloud Shake / Nix capability that revisions cannot support — revisions don't survive process boundaries). Open questions:
-  - **(a) Closure hashing.** What is the right hash domain for `Memo` compute closures? Closure identity is not a stable hash; needs either content hashing of the closure body, user-supplied stable keys, or a `#[derive(Hash)]`-shaped annotation.
-  - **(b) Workload fit.** Does the storage cost amortize for typical `incr` workloads (rust-analyzer-style query graphs vs. CRDT projection memos vs. live UI reactivity)? Different workloads have different read/write/cache-hit ratios.
-  - **(c) Cycle interaction.** Does cycle handling translate? Constructive caches assume deterministic outputs, and `CycleError` paths violate that determinism per-cell. A cycle-positive read cannot be cached at all, or the cache must be keyed on the cycle structure rather than just inputs.
-  - **(d) Interaction with durability shortcut.** Does the trace store subsume `durability_last_changed[level]`, or coexist with it? Durability is a coarse-grained invalidation that may be redundant in the presence of fine-grained constructive traces.
-  - **(e) Distributed cache architecture.** If pursued, what is the storage backend (filesystem, KV store, content-addressable object store like Bazel's CAS)?
+- [x] **Constructive traces — feasibility and cost-benefit study (research)**. Completed 2026-05-27: [docs/research/constructive-traces-feasibility.md](research/constructive-traces-feasibility.md). Conclusion: do **not** promote the default rebuilder from revision-based verifying traces to constructive traces. For the current priority (local editor/UI latency across both semantic-query and UI-reactivity workloads), constructive traces are only plausible as an opt-in cacheable-query layer for expensive deterministic semantic computations with stable user-supplied query keys, rule versions, cheap dependency fingerprints, and no cached cycle/error paths. The paper's more actionable near-term idea is static/applicative dependency APIs.
 
-  Write a feasibility doc (`docs/research/constructive-traces-feasibility.md`) before committing to or rejecting this direction. Out of scope for the current architecture; tracked here so future "why doesn't incr cache across processes?" questions have a documented answer. See [docs/design/internals.md](design/internals.md) §"Where `incr` Sits in the Design Space".
+- [ ] **Static/applicative `Derived` fast-path probe.** Inspired by the "Build Systems à la Carte" applicative-vs-monadic task distinction. Prototype fixed-dependency APIs (`Derived::map`, `map2`, `map3`, or `Scope::derived_static`) that avoid tracking-stack allocation and dependency-list diffing for common UI-shaped graphs. Benchmark against current dynamic `Derived` on flat/layered/sparse/tree UI benches. Reject if gains are within noise or API complexity outweighs measured latency savings.
 
 ## API Improvements
 
@@ -220,6 +215,7 @@ clean up the dead logic.
 - [x] Wide fanout test: single signal with many downstream memos
 - [x] Test `Memo` with custom `Eq` types where structural equality differs from identity
 - [x] Test cycle detection across 3+ mutually recursive memos
+- [x] Add focused regression tests using the current-model vocabulary from [design/internals.md](design/internals.md#operational-vocabulary-for-current-incr): `cells/current_model_wbtest.mbt` covers "dynamic dependency replacement", "green path skips recompute", "backdating early cutoff", "failed read does not record dependency", and "cycle cleanup preserves previous trace".
 
 ## Formal Verification
 

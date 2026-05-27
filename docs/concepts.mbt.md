@@ -93,6 +93,45 @@ top-level code, tests, event handlers, callbacks — use `read()` or
 
 You don't declare dependencies. `incr` discovers them from reads during the compute function. Dependencies can change between recomputations: if `mode = "add"`, a result may depend on `mode`, `x`, and `y`; if you change `mode` to `"multiply"`, the dependency set may differ on the next computation. The checked companion pins this dynamic-dependency behavior in [`concepts_examples.mbt.md`](concepts_examples.mbt.md#backdating-batching-and-dynamic-dependencies).
 
+## How `incr` Decides What to Recompute
+
+A useful mental model is:
+
+> `incr` stores the dependency trace from the last successful run, then verifies that trace lazily on the next read.
+
+When you call `input.set(...)`, `incr` does **not** eagerly recompute every downstream `Derived`. It records that an input changed. Later, when some derived value is read, `incr` walks backward through the dependency graph and asks one question at each derived node:
+
+> Can the cached value be proven still valid?
+
+There are three common outcomes:
+
+1. **Already verified** — the derived value was already checked at the current revision, so its cached value is returned immediately.
+2. **Green path** — its recorded dependencies are checked and none of them changed, so the compute function does not run.
+3. **Red path** — some recorded dependency changed, so the compute function runs again and records a fresh dependency trace.
+
+Backdating is the final cutoff: if the red path computes the same value as before, downstream derived values still see "unchanged" and can take their own green path.
+
+This is why `incr` works well with dynamic dependencies. The trace is not a static declaration; it is the set of cells actually read during the last successful compute. If a later compute takes a different branch, the trace is replaced with the new branch's dependencies.
+
+## Choosing a Computation Mode
+
+Most programs should start with pull mode and add push mode only at UI or side-effect boundaries.
+
+| Mode | Public types | Update behavior | Best fit | Avoid when |
+|---|---|---|---|---|
+| Pull | `Input`, `Derived`, `DerivedMap`, `InputField` | Inputs bump revisions; derived values verify and recompute lazily when read | Semantic queries, parser/typechecker projections, expensive work, values that may not be observed after every edit | You need a sink to update immediately after every input write |
+| Push | `EagerDerived`, `Effect` | Upstream changes eagerly propagate in topological-level order; reads return already-maintained cached values | UI-facing state, subscriptions, side effects, low-cost derived values that should stay current | Computation is expensive and often unobserved |
+| Reachable lazy | `ReachableDerived` | Same lazy revision verification as `Derived`; additionally participates in push reachability and `Watch`/GC lifetimes | Bridges from pull-derived values into push subscribers; long-lived watched lazy values | You expect eager recomputation — use `EagerDerived` instead |
+| Datalog | `Relation`, `MapRelation`, `Rule` | `fixpoint()` derives facts until no new facts appear | Relational closure, graph reachability, rule systems | Ordinary one-value derived computations |
+
+Guidelines:
+
+- Choose `Derived` for ordinary derived state. It has the strongest default cost model because unused values do no work.
+- Choose `DerivedMap` when the natural computation is a keyed query, such as `type_of(function_id)`.
+- Choose `EagerDerived` when the value is part of a push-maintained UI graph and should already be current by the time it is read.
+- Choose `Effect` for eager side effects; do not smuggle side effects through a `Derived` return value.
+- Choose `ReachableDerived` when you need lazy pull semantics but the value must stay reachable through downstream `EagerDerived`/`Effect` subscribers or long-lived `Watch` roots.
+
 ## Revisions
 
 A **Revision** is a global counter that increments when any input changes:
