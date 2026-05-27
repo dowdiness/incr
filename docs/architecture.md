@@ -10,9 +10,9 @@ For the verification algorithm, type erasure, push propagation, and storage layo
 
 The main MoonBit packages in `dowdiness/incr` are mapped below. Users import
 only the root facade; everything else is implementation detail, tests, checked
-documentation, or historical spike material. `moon.mod.json` excludes `docs/**`
-and `spikes/**` from the published module, but `docs/` is still a package in
-the worktree so literate examples can be checked.
+documentation, or historical spike material. `moon.mod` excludes `docs/**` and
+`spikes/**` from the published module, but `docs/` is still a package in the
+worktree so literate examples can be checked.
 
 ```
 dowdiness/incr           ← Public API facade (root)
