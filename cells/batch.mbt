@@ -123,8 +123,14 @@ fn Runtime::complete_batch_frame_success(self : Runtime) -> Unit {
 /// callers + batch_wbtest.mbt can invoke it via `rt.commit_batch()` without
 /// spelling out the kernel state refs.
 fn Runtime::commit_batch(self : Runtime) -> Unit {
-  @kernel.commit_batch(self.core, self.pull, self.push, self.datalog)
-  if !self.event_broadcast_hook.pending.is_empty() {
+  @kernel.commit_batch_with_events(
+    self.core,
+    self.pull,
+    self.push,
+    self.datalog,
+    self.runtime_evaluation_event_sink(),
+  )
+  if self.has_pending_events() {
     self.drain_pending_events_if_idle()
   }
 }

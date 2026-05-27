@@ -50,12 +50,35 @@ pub fn propagate_changes(
   changed_ids : Array[CellId],
   durability : Durability,
 ) -> Unit {
+  propagate_changes_with_events(
+    core,
+    pull,
+    push,
+    datalog,
+    changed_ids,
+    durability,
+    None,
+  )
+}
+
+///|
+pub fn propagate_changes_with_events(
+  core : RuntimeCore,
+  pull : PullState,
+  push : PushState,
+  datalog : DatalogState,
+  changed_ids : Array[CellId],
+  durability : Durability,
+  event_sink : ((RuntimeEvaluationEvent) -> Unit)?,
+) -> Unit {
   advance_revision(core, durability)
   for id in changed_ids {
     core.cell_ops[id.id].set_changed_at(core.revision.current_revision)
   }
   if push.node_count > 0 {
-    push_propagate_from(core, pull, push, datalog, changed_ids)
+    push_propagate_from_with_events(
+      core, pull, push, datalog, changed_ids, event_sink,
+    )
   }
 }
 
@@ -70,6 +93,29 @@ pub fn publish_cell_changes(
   changed_ids : Array[CellId],
   durability : Durability,
 ) -> Unit {
-  propagate_changes(core, pull, push, datalog, changed_ids, durability)
+  publish_cell_changes_with_events(
+    core,
+    pull,
+    push,
+    datalog,
+    changed_ids,
+    durability,
+    None,
+  )
+}
+
+///|
+pub fn publish_cell_changes_with_events(
+  core : RuntimeCore,
+  pull : PullState,
+  push : PushState,
+  datalog : DatalogState,
+  changed_ids : Array[CellId],
+  durability : Durability,
+  event_sink : ((RuntimeEvaluationEvent) -> Unit)?,
+) -> Unit {
+  propagate_changes_with_events(
+    core, pull, push, datalog, changed_ids, durability, event_sink,
+  )
   fire_on_change(core)
 }

@@ -111,11 +111,11 @@ fn[T : Eq] HybridMemo::read_result(
 ) -> Result[T, CycleError] {
   let result = self.read_result_inner() catch {
     e => {
-      self.rt.event_broadcast_hook.drain()
+      self.rt.drain_pending_events_direct()
       abort("HybridMemo compute raised: " + e.to_string())
     }
   }
-  if !self.rt.event_broadcast_hook.pending.is_empty() {
+  if self.rt.has_pending_events() {
     self.rt.drain_pending_events_if_idle()
   }
   result
@@ -179,7 +179,7 @@ fn[T : Eq] HybridMemo::read_result_inner(
 fn[T : Eq] HybridMemo::read_permissive(self : HybridMemo[T]) -> T {
   let r = self.read_result_inner() catch {
     e => {
-      self.rt.event_broadcast_hook.drain()
+      self.rt.drain_pending_events_direct()
       abort("HybridMemo compute raised: " + e.to_string())
     }
   }

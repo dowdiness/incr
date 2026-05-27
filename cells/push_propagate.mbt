@@ -3,12 +3,13 @@ fn Runtime::push_propagate_from(
   self : Runtime,
   changed_sources : Array[CellId],
 ) -> Unit {
-  @kernel.push_propagate_from(
+  @kernel.push_propagate_from_with_events(
     self.core,
     self.pull,
     self.push,
     self.datalog,
     changed_sources,
+    self.runtime_evaluation_event_sink(),
   )
 }
 

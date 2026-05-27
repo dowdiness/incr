@@ -2,7 +2,7 @@
 using @push {type PushReactiveData, type PushEffectData}
 
 ///|
-impl CellLifecycle for PushReactiveData with dispose_cell(self, rt, cell_id) -> Unit {
+impl CellLifecycle for PushReactiveData with fn dispose_cell(self, rt, cell_id) -> Unit {
   match rt.core.cell_index[cell_id.id] {
     PushReactive(idx) => {
       for dep in self.sources {
@@ -34,7 +34,7 @@ impl CellLifecycle for PushReactiveData with dispose_cell(self, rt, cell_id) -> 
 /// → rt.gc() integration flow, upstream cells must not be considered
 /// preserved by this stale list. Do not refactor away the "suspend
 /// without clearing sources" invariant — `on_observe` depends on it.
-impl CellLifecycle for PushReactiveData with on_unobserve(self, rt, cell_id) {
+impl CellLifecycle for PushReactiveData with fn on_unobserve(self, rt, cell_id) {
   guard self.meta.subscribers.is_empty() else { return }
   for source in self.sources {
     rt.remove_subscriber(source, cell_id)
@@ -48,7 +48,7 @@ impl CellLifecycle for PushReactiveData with on_unobserve(self, rt, cell_id) {
 /// a correct cached value. Passes [] as old_sources because subscriber
 /// links were removed during suspension. For fresh cells (never
 /// suspended), add_subscriber is idempotent.
-impl CellLifecycle for PushReactiveData with on_observe(self, rt, cell_id) {
+impl CellLifecycle for PushReactiveData with fn on_observe(self, rt, cell_id) {
   guard !(rt.core.phase is PushPropagating) else {
     abort("on_observe: cannot activate during push propagation")
   }
@@ -62,13 +62,13 @@ impl CellLifecycle for PushReactiveData with on_observe(self, rt, cell_id) {
   self.sources = new_sources
   self.level = rt.recompute_level(cell_id, new_sources)
   self.dirty = false
-  if !rt.event_broadcast_hook.pending.is_empty() {
+  if rt.has_pending_events() {
     rt.drain_pending_events_if_idle()
   }
 }
 
 ///|
-impl CellLifecycle for PushEffectData with dispose_cell(self, rt, cell_id) -> Unit {
+impl CellLifecycle for PushEffectData with fn dispose_cell(self, rt, cell_id) -> Unit {
   match rt.core.cell_index[cell_id.id] {
     PushEffect(idx) => {
       for dep in self.sources {

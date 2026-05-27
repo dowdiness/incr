@@ -56,7 +56,7 @@ pub fn[K : Hash + Eq, V] MemoMap::new(
 /// If called while a tracking frame is active, records the per-key dependency.
 pub fn[K : Hash + Eq, V : Eq] MemoMap::get(self : MemoMap[K, V], key : K) -> V {
   let value = self.get_or_create_memo(key).read_permissive()
-  if !self.rt.event_broadcast_hook.pending.is_empty() {
+  if self.rt.has_pending_events() {
     self.rt.drain_pending_events_if_idle()
   }
   value
@@ -120,11 +120,11 @@ fn[K : Hash + Eq, V : Eq] MemoMap::read_result(
   let memo = self.get_or_create_memo(key)
   let result = memo.get_result_inner() catch {
     e => {
-      self.rt.event_broadcast_hook.drain()
+      self.rt.drain_pending_events_direct()
       abort("MemoMap compute raised: " + e.to_string())
     }
   }
-  if !self.rt.event_broadcast_hook.pending.is_empty() {
+  if self.rt.has_pending_events() {
     self.rt.drain_pending_events_if_idle()
   }
   result

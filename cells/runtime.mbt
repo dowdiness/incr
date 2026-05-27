@@ -39,6 +39,8 @@ pub(all) struct Runtime {
   priv accumulator_commit_hook : AccumulatorCommitHook
   priv event_broadcast_hook : EventBroadcastPhaseHook
   priv event_broadcast_hook_index : Int
+  priv runtime_evaluation_event_hook : RuntimeEvaluationEventHook
+  priv runtime_evaluation_event_hook_index : Int
   // Accumulator state. Monotonic array; disposed slots keep their index
   // (their `disposed` field is set true). No slot-id reuse.
   priv accumulator_slots : Array[SlotMeta]
@@ -75,6 +77,7 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
   let id = @kernel.alloc_runtime_id()
   let accumulator_hook = AccumulatorCommitHook::new()
   let event_hook = EventBroadcastPhaseHook::new()
+  let runtime_event_hook = RuntimeEvaluationEventHook::new()
   let rt : Runtime = {
     core: {
       runtime_id: id,
@@ -109,6 +112,8 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
     accumulator_commit_hook: accumulator_hook,
     event_broadcast_hook: event_hook,
     event_broadcast_hook_index: 1,
+    runtime_evaluation_event_hook: runtime_event_hook,
+    runtime_evaluation_event_hook_index: 2,
     accumulator_slots: [],
     accumulator_snapshots: [],
     next_accumulator_id: 0,
@@ -117,6 +122,7 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
   // Register the same hook objects in dispatch order.
   rt.commit_hooks.push(accumulator_hook)
   rt.commit_hooks.push(event_hook)
+  rt.commit_hooks.push(runtime_event_hook)
   rt
 }
 
@@ -129,13 +135,36 @@ fn Runtime::event_broadcast_enabled(self : Runtime) -> Bool {
 }
 
 ///|
+fn Runtime::runtime_evaluation_events_enabled(self : Runtime) -> Bool {
+  self.runtime_evaluation_event_hook.enabled()
+}
+
+///|
+fn Runtime::has_pending_events(self : Runtime) -> Bool {
+  !self.event_broadcast_hook.pending.is_empty() ||
+  !self.runtime_evaluation_event_hook.pending.is_empty()
+}
+
+///|
+fn Runtime::runtime_evaluation_event_sink(
+  self : Runtime,
+) -> ((@kernel.RuntimeEvaluationEvent) -> Unit)? {
+  if self.runtime_evaluation_events_enabled() {
+    Some(fn(event) { self.runtime_evaluation_event_hook.push_event(event) })
+  } else {
+    None
+  }
+}
+
+///|
 fn Runtime::is_listener_mutation_safe(self : Runtime) -> Bool {
   self.core.phase is Idle &&
   self.core.callback_depth == 0 &&
   self.core.tracking.stack.is_empty() &&
   self.core.batch.depth == 0 &&
-  self.event_broadcast_hook.pending.is_empty() &&
-  !self.event_broadcast_hook.draining
+  !self.has_pending_events() &&
+  !self.event_broadcast_hook.draining &&
+  !self.runtime_evaluation_event_hook.draining
 }
 
 ///|
@@ -177,13 +206,16 @@ fn Runtime::dispatch_before_recompute_hooks(
   cell_id : CellId,
 ) -> Unit {
   let event_enabled = self.event_broadcast_enabled()
+  let runtime_event_enabled = self.runtime_evaluation_events_enabled()
   if !event_enabled &&
-    self.commit_hooks.length() == self.event_broadcast_hook_index + 1 {
+    !runtime_event_enabled &&
+    self.commit_hooks.length() == self.runtime_evaluation_event_hook_index + 1 {
     self.accumulator_commit_hook.before_recompute(self, cell_id)
     return
   }
   for i = 0; i < self.commit_hooks.length(); i = i + 1 {
-    if event_enabled || i != self.event_broadcast_hook_index {
+    if (event_enabled || i != self.event_broadcast_hook_index) &&
+      (runtime_event_enabled || i != self.runtime_evaluation_event_hook_index) {
       self.commit_hooks[i].before_recompute(self, cell_id)
     }
   }
@@ -196,13 +228,16 @@ fn Runtime::dispatch_after_abort_hooks(
   error : Error,
 ) -> Unit {
   let event_enabled = self.event_broadcast_enabled()
+  let runtime_event_enabled = self.runtime_evaluation_events_enabled()
   if !event_enabled &&
-    self.commit_hooks.length() == self.event_broadcast_hook_index + 1 {
+    !runtime_event_enabled &&
+    self.commit_hooks.length() == self.runtime_evaluation_event_hook_index + 1 {
     self.accumulator_commit_hook.after_abort(self, cell_id, error)
     return
   }
   for i = 0; i < self.commit_hooks.length(); i = i + 1 {
-    if event_enabled || i != self.event_broadcast_hook_index {
+    if (event_enabled || i != self.event_broadcast_hook_index) &&
+      (runtime_event_enabled || i != self.runtime_evaluation_event_hook_index) {
       self.commit_hooks[i].after_abort(self, cell_id, error)
     }
   }
@@ -214,26 +249,46 @@ fn Runtime::dispatch_after_success_hooks(
   cell_id : CellId,
 ) -> Unit {
   let event_enabled = self.event_broadcast_enabled()
+  let runtime_event_enabled = self.runtime_evaluation_events_enabled()
   if !event_enabled &&
-    self.commit_hooks.length() == self.event_broadcast_hook_index + 1 {
+    !runtime_event_enabled &&
+    self.commit_hooks.length() == self.runtime_evaluation_event_hook_index + 1 {
     self.accumulator_commit_hook.after_success(self, cell_id)
     return
   }
   for i = 0; i < self.commit_hooks.length(); i = i + 1 {
-    if event_enabled || i != self.event_broadcast_hook_index {
+    if (event_enabled || i != self.event_broadcast_hook_index) &&
+      (runtime_event_enabled || i != self.runtime_evaluation_event_hook_index) {
       self.commit_hooks[i].after_success(self, cell_id)
     }
   }
 }
 
 ///|
-/// Drains pending memo events when no recompute frame or callback is active.
-fn Runtime::drain_pending_events_if_idle(self : Runtime) -> Unit {
-  if !self.event_broadcast_hook.pending.is_empty() &&
-    self.core.callback_depth == 0 &&
-    self.core.tracking.stack.is_empty() {
-    self.event_broadcast_hook.drain()
+fn Runtime::drain_pending_events_direct(self : Runtime) -> Unit {
+  let mut progressed = true
+  while self.has_pending_events() && progressed {
+    progressed = false
+    if !self.event_broadcast_hook.pending.is_empty() &&
+      !self.event_broadcast_hook.draining {
+      self.event_broadcast_hook.drain()
+      progressed = true
+    }
+    if !self.runtime_evaluation_event_hook.pending.is_empty() &&
+      !self.runtime_evaluation_event_hook.draining {
+      self.runtime_evaluation_event_hook.drain()
+      progressed = true
+    }
   }
+}
+
+///|
+/// Drains pending events when no recompute frame or callback is active.
+fn Runtime::drain_pending_events_if_idle(self : Runtime) -> Unit {
+  if self.core.callback_depth != 0 || !self.core.tracking.stack.is_empty() {
+    return
+  }
+  self.drain_pending_events_direct()
 }
 
 ///|
@@ -472,13 +527,14 @@ fn Runtime::propagate_changes(
   changed_ids : Array[CellId],
   durability : Durability,
 ) -> Unit {
-  @kernel.propagate_changes(
+  @kernel.propagate_changes_with_events(
     self.core,
     self.pull,
     self.push,
     self.datalog,
     changed_ids,
     durability,
+    self.runtime_evaluation_event_sink(),
   )
 }
 
@@ -490,25 +546,26 @@ fn Runtime::publish_cell_changes(
   changed_ids : Array[CellId],
   durability : Durability,
 ) -> Unit {
-  @kernel.publish_cell_changes(
+  @kernel.publish_cell_changes_with_events(
     self.core,
     self.pull,
     self.push,
     self.datalog,
     changed_ids,
     durability,
+    self.runtime_evaluation_event_sink(),
   )
 }
 
 ///|
 /// Advance the global revision counter and record which durability level changed.
-impl RevisionManager for Runtime with advance_revision(self, durability) {
+impl RevisionManager for Runtime with fn advance_revision(self, durability) {
   @kernel.advance_revision(self.core, durability)
 }
 
 ///|
 /// Bumps the global revision counter and records which durability level changed.
-impl RevisionManager for Runtime with bump_revision(self, durability) {
+impl RevisionManager for Runtime with fn bump_revision(self, durability) {
   if self.core.batch.depth > 0 {
     // Track the maximum durability seen during this batch
     if durability > self.core.batch.max_durability {
@@ -564,7 +621,7 @@ fn Runtime::remove_gc_root(self : Runtime, id : CellId) -> Int {
 /// reachable from the kernel sweep loop.
 pub fn Runtime::gc(self : Runtime) -> Unit {
   @kernel.gc(self.core, fn(id) { self.dispose_cell(id) })
-  if !self.event_broadcast_hook.pending.is_empty() {
+  if self.has_pending_events() {
     self.drain_pending_events_if_idle()
   }
 }
