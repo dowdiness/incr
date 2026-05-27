@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-27
 
-**Last rerun:** 2026-05-28, after private hardening
+**Last rerun:** 2026-05-28, after rebasing onto `origin/main` (`01be6ee`)
 
 **Backends:** wasm-gc (default), JS (Node + V8)
 
@@ -22,29 +22,29 @@ This probe measures that idea before designing any public API. The lower-bound b
 
 | Backend | Shape | Dynamic `Derived` lower-bound row | Manual lower bound | Dynamic `Derived` integrated row | Generalized static prototype |
 |---|---:|---:|---:|---:|---:|
-| wasm-gc | map1 | 284 ns | 55 ns | 300 ns | 187 ns |
-| wasm-gc | map2 | 346 ns | 64 ns | 360 ns | 198 ns |
-| wasm-gc | map3 | 417 ns | 75 ns | 401 ns | 202 ns |
-| JS | map1 | 444 ns | 55 ns | 459 ns | 249 ns |
-| JS | map2 | 509 ns | 58 ns | 572 ns | 287 ns |
-| JS | map3 | 532 ns | 63 ns | 564 ns | 268 ns |
+| wasm-gc | map1 | 292 ns | 63 ns | 299 ns | 195 ns |
+| wasm-gc | map2 | 341 ns | 84 ns | 344 ns | 199 ns |
+| wasm-gc | map3 | 403 ns | 89 ns | 398 ns | 205 ns |
+| JS | map1 | 486 ns | 61 ns | 521 ns | 290 ns |
+| JS | map2 | 541 ns | 69 ns | 564 ns | 277 ns |
+| JS | map3 | 561 ns | 72 ns | 609 ns | 295 ns |
 
 ## Interpretation
 
-The lower-bound gap is large enough to matter for tiny UI computations: dynamic tracking costs roughly 228–469 ns more than direct fixed-dependency recomputation in these shapes.
+The lower-bound gap is large enough to matter for tiny UI computations: dynamic tracking costs roughly 228–489 ns more than direct fixed-dependency recomputation in these shapes.
 
 The generalized prototype does not merely win against an artificial baseline. It keeps the current pull scheduler, graph metadata, and commit-hook pairing, yet saves:
 
 | Backend | Shape | Static vs integrated dynamic `Derived` | Dynamic/manual gap recovered by static prototype |
 |---|---:|---:|---:|
-| wasm-gc | map1 | 1.60× faster, -113 ns | 46% |
-| wasm-gc | map2 | 1.82× faster, -162 ns | 55% |
-| wasm-gc | map3 | 1.99× faster, -199 ns | 61% |
-| JS | map1 | 1.84× faster, -210 ns | 52% |
-| JS | map2 | 2.00× faster, -285 ns | 55% |
-| JS | map3 | 2.10× faster, -295 ns | 59% |
+| wasm-gc | map1 | 1.54× faster, -105 ns | 44% |
+| wasm-gc | map2 | 1.73× faster, -145 ns | 56% |
+| wasm-gc | map3 | 1.94× faster, -193 ns | 62% |
+| JS | map1 | 1.79× faster, -230 ns | 50% |
+| JS | map2 | 2.04× faster, -287 ns | 58% |
+| JS | map3 | 2.06× faster, -314 ns | 59% |
 
-The remaining distance to the manual lower bound is still material: about 127–134 ns on wasm-gc and 194–229 ns on JS. That residual is the cost of staying inside the real runtime path: cell lookup, revision checks, dependency verification, `Result` plumbing, closure dispatch, typed cache storage, and commit-hook pairing. It is acceptable for a private engine prototype because the generalized path still recovers about half or more of the theoretical headroom without bypassing the graph.
+The remaining distance to the manual lower bound is still material: about 115–131 ns on wasm-gc and 208–230 ns on JS. That residual is the cost of staying inside the real runtime path: cell lookup, revision checks, dependency verification, `Result` plumbing, closure dispatch, typed cache storage, and commit-hook pairing. It is acceptable for a private engine prototype because the generalized path still recovers about half or more of the theoretical headroom without bypassing the graph.
 
 ## UI-Shape Follow-Up
 
@@ -52,12 +52,12 @@ After the generalized scalar probe, `cells/static_derived_ui_shape_bench_wbtest.
 
 | Backend | Shape | Dynamic `Derived` | Static private `Derived` | Change |
 |---|---:|---:|---:|---:|
-| wasm-gc | layered 1000 eager leaves | 231 µs | 230 µs | within noise / -1 µs |
-| wasm-gc | tree 1023 derived + 512 eager leaves | 577 µs | 426 µs | 1.35× faster, -151 µs |
-| JS | layered 1000 eager leaves | 372 µs | 360 µs | 1.03× faster, -12 µs |
-| JS | tree 1023 derived + 512 eager leaves | 893 µs | 618 µs | 1.45× faster, -275 µs |
+| wasm-gc | layered 1000 eager leaves | 231 µs | 226 µs | within noise / -5 µs |
+| wasm-gc | tree 1023 derived + 512 eager leaves | 661 µs | 445 µs | 1.48× faster, -216 µs |
+| JS | layered 1000 eager leaves | 380 µs | 362 µs | 1.05× faster, -18 µs |
+| JS | tree 1023 derived + 512 eager leaves | 937 µs | 594 µs | 1.58× faster, -343 µs |
 
-Interpretation: the static path barely moves the layered fanout because the one derived recompute is amortized across 1000 eager leaves; push propagation and leaf evaluation dominate. The tree shape is the stronger driver: every interior derived node is a tiny fixed-dependency recompute, so avoiding tracking and dependency diffing still removes roughly 150–275 µs from a 1535-cell update on both deployment-relevant backends.
+Interpretation: the static path barely moves the layered fanout because the one derived recompute is amortized across 1000 eager leaves; push propagation and leaf evaluation dominate. The tree shape is the stronger driver: every interior derived node is a tiny fixed-dependency recompute, so avoiding tracking and dependency diffing still removes roughly 200–340 µs from a 1535-cell update on both deployment-relevant backends.
 
 ## Decision
 

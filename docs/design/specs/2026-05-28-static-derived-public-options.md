@@ -29,13 +29,13 @@ Measured after hardening:
 
 - Scalar stale recomputes: static recovers about half or more of the
   dynamic/manual gap.
-  - wasm-gc: ~46–61% gap recovery; ~1.6–2.0× faster than dynamic `Derived`.
-  - JS: ~52–59% gap recovery; ~1.8–2.1× faster than dynamic `Derived`.
+  - wasm-gc: ~44–62% gap recovery; ~1.5–1.9× faster than dynamic `Derived`.
+  - JS: ~50–59% gap recovery; ~1.8–2.1× faster than dynamic `Derived`.
 - UI-shaped benches:
   - layered fanout: at noise level, because one derived recompute is amortized
     across 1000 eager leaves;
-  - tree of tiny derived nodes: material win on both targets, roughly 1.35× on
-    wasm-gc and 1.45× on JS in the latest run.
+  - tree of tiny derived nodes: material win on both targets, roughly 1.5× on
+    wasm-gc and 1.6× on JS in the latest run.
 
 Conclusion: a static path is worth keeping private and is worth a public-surface
 review. The signal does not justify rushing a broad public API.
