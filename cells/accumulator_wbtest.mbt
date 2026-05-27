@@ -426,11 +426,47 @@ test "verify: raise-path from compute does not leak in_progress on ancestors" {
     _ => true
   }
   inspect(caught, content="true")
+  inspect(rt.get_memo_data(inner.id()).in_progress, content="false")
+  inspect(rt.get_memo_data(outer.id()).in_progress, content="false")
+  inspect(rt.core.tracking.stack.length(), content="0")
   // If the raise-path forgot to clear outer.in_progress, the next verify
   // treats outer as mid-computation and returns a CycleError (which
   // rt.read converts to abort). The test then panics on rt.read.
   should_fail.set(false)
   inspect(read_memo_for_test(outer), content="2")
+}
+
+///|
+/// Regression: synthetic accumulator dependency verification must surface
+/// cycles found while verifying the accumulated producer, and cleanup must
+/// leave both participating memos out of progress with no tracking frames.
+test "verify: synthetic accumulator dep surfaces target cycle and cleans up" {
+  let rt = Runtime::Runtime()
+  let tick = Signal::Signal(rt, 0)
+  let acc : Accumulator[Int] = Accumulator::new(rt~)
+  let producer = Memo::Memo(rt, () => {
+    acc.push(tick.get())
+    1
+  })
+  let consumer = Memo::Memo(rt, () => producer.accumulated(acc).length())
+  inspect(read_memo_for_test(consumer), content="1")
+
+  let producer_data = rt.get_memo_data(producer.id())
+  producer_data.dependencies = [consumer.id()]
+  tick.set(1)
+
+  match consumer.get_result() {
+    Ok(_) => fail("expected synthetic accumulator cycle")
+    Err(e) => {
+      let path = e.path()
+      inspect(path.length(), content="2")
+      inspect(path[0] == producer.id(), content="true")
+      inspect(path[1] == consumer.id(), content="true")
+    }
+  }
+  inspect(producer_data.in_progress, content="false")
+  inspect(rt.get_memo_data(consumer.id()).in_progress, content="false")
+  inspect(rt.core.tracking.stack.length(), content="0")
 }
 
 ///|

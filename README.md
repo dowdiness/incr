@@ -1,8 +1,10 @@
 # incr
 
-A Salsa-inspired incremental recomputation library for [MoonBit](https://www.moonbitlang.com/).
+A Salsa- and [Build Systems à la Carte](https://hackage.haskell.org/package/build)-inspired incremental recomputation library for [MoonBit](https://www.moonbitlang.com/).
 
 `incr` tracks dependencies automatically, memoizes derived values, and skips unnecessary work when inputs change — so you write straight-line code and the runtime figures out what to recompute.
+
+Salsa informs the demand-driven incremental recomputation model. Build Systems à la Carte informs the separation between task meaning, store/trace data, scheduler, and rebuilder strategy; see the [build-oriented boundary design](docs/design/specs/2026-05-26-build-trait-boundaries.md) and [internal evaluation boundaries](docs/design/specs/2026-05-26-internal-rebuild-boundaries.md).
 
 **Core primitives:**
 
