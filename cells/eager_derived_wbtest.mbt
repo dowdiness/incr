@@ -272,6 +272,80 @@ test "effect: runs on creation, then re-runs on each dependency change" {
   debug_inspect(log, content="[0, 1, 2]")
 }
 
+///|
+fn push_failure_cleanup_harness_for_test(
+  rt : Runtime,
+  cell_id : CellId,
+  run_body : () -> Unit raise Failure,
+) -> Result[Unit, Error] {
+  let run = fn() raise Failure {
+    rt.enter_phase(PushPropagating)
+    rt.push_tracking(cell_id)
+    run_body() catch {
+      e => {
+        ignore(@kernel.pop_tracking_full(rt.core))
+        rt.leave_phase()
+        raise e
+      }
+    }
+    ignore(@kernel.pop_tracking_full(rt.core))
+    rt.leave_phase()
+  }
+  try? run()
+}
+
+///|
+test "push abort: reactive failure restores phase stack and sources" {
+  let rt = Runtime::Runtime()
+  let s = Signal::Signal(rt, 0)
+  let other = Signal::Signal(rt, 100)
+  let r = Reactive::new(rt, () => s.get() + 1)
+  let r_idx = match rt.core.cell_index[r.id().id] {
+    PushReactive(i) => i
+    _ => abort("expected PushReactive")
+  }
+  let data = rt.push.reactives[r_idx]
+  let old_sources = data.sources.copy()
+
+  let result = push_failure_cleanup_harness_for_test(rt, r.id(), () => {
+    ignore(other.get())
+    fail("reactive boom")
+  })
+  inspect(result is Err(_), content="true")
+  inspect(rt.core.phase, content="Idle")
+  inspect(rt.core.tracking.stack.length(), content="0")
+  inspect(@kernel.get_current_computing_runtime_id(), content="-1")
+  inspect(data.sources.length(), content="1")
+  inspect(data.sources[0] == old_sources[0], content="true")
+  inspect(data.sources.contains(other.id()), content="false")
+}
+
+///|
+test "push abort: effect failure restores phase stack and sources" {
+  let rt = Runtime::Runtime()
+  let s = Signal::Signal(rt, 0)
+  let other = Signal::Signal(rt, 100)
+  let effect = Effect::new(rt, () => ignore(s.get()))
+  let effect_idx = match rt.core.cell_index[effect.id().id] {
+    PushEffect(i) => i
+    _ => abort("expected PushEffect")
+  }
+  let data = rt.push.effects[effect_idx]
+  let old_sources = data.sources.copy()
+
+  let result = push_failure_cleanup_harness_for_test(rt, effect.id(), () => {
+    ignore(other.get())
+    fail("effect boom")
+  })
+  inspect(result is Err(_), content="true")
+  inspect(rt.core.phase, content="Idle")
+  inspect(rt.core.tracking.stack.length(), content="0")
+  inspect(@kernel.get_current_computing_runtime_id(), content="-1")
+  inspect(data.sources.length(), content="1")
+  inspect(data.sources[0] == old_sources[0], content="true")
+  inspect(data.sources.contains(other.id()), content="false")
+}
+
 // ─── Task 6: batch + mixed pull/push ────────────────────────────────────────
 
 ///|

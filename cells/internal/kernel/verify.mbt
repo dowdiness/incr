@@ -23,6 +23,110 @@ fn clear_verify_stack(pull : PullState, stack : Array[PullVerifyFrame]) -> Unit 
 }
 
 ///|
+fn derived_is_revision_fresh(
+  core : RuntimeCore,
+  derived : @pull.MemoData,
+) -> Bool {
+  derived.verified_at >= core.revision.current_revision
+}
+
+///|
+fn can_skip_dep_walk_by_durability(
+  core : RuntimeCore,
+  derived : @pull.MemoData,
+) -> Bool {
+  derived.accumulator_reads.is_empty() &&
+  core.revision.durability_last_changed[derived.meta.durability.index()] <=
+  derived.verified_at
+}
+
+///|
+priv enum DependencyFreshness {
+  DependencyUnchanged
+  DependencyChanged
+  DependencyNeedsVerification(Int)
+}
+
+///|
+fn classify_dependency_freshness(
+  core : RuntimeCore,
+  dep_id : CellId,
+  dep_variant : CellRef,
+  verified_at : Revision,
+) -> DependencyFreshness {
+  let dep_ops = core.cell_ops[dep_id.id]
+  match dep_ops.dep_changed_since(verified_at) {
+    Some(true) => DependencyChanged
+    Some(false) => DependencyUnchanged
+    None =>
+      match dep_variant {
+        PullMemo(dep_idx) | HybridMemo(dep_idx) =>
+          DependencyNeedsVerification(dep_idx)
+        _ => DependencyUnchanged
+      }
+  }
+}
+
+///|
+fn enter_pull_frame(
+  stack : Array[PullVerifyFrame],
+  derived : @pull.MemoData,
+  cell_id : CellId,
+  derived_idx : Int,
+) -> Unit {
+  derived.in_progress = true
+  stack.push({ cell_id, memo_idx: derived_idx, dep_cursor: 0, changed: false })
+}
+
+///|
+fn abort_pull_rebuild(pull : PullState, stack : Array[PullVerifyFrame]) -> Unit {
+  clear_verify_stack(pull, stack)
+}
+
+///|
+fn run_pull_recompute(
+  pull : PullState,
+  stack : Array[PullVerifyFrame],
+  derived : @pull.MemoData,
+  changed : Bool,
+) -> Result[Unit, @incr_types.CycleError] raise Failure {
+  if !changed {
+    return Ok(())
+  }
+  let compute_result = (derived.compute)() catch {
+    e => {
+      abort_pull_rebuild(pull, stack)
+      raise e
+    }
+  }
+  match compute_result {
+    Ok(_) => Ok(())
+    Err(e) => {
+      abort_pull_rebuild(pull, stack)
+      Err(e)
+    }
+  }
+}
+
+///|
+fn commit_pull_rebuild(
+  core : RuntimeCore,
+  pull : PullState,
+  stack : Array[PullVerifyFrame],
+  derived : @pull.MemoData,
+) -> Unit {
+  derived.verified_at = core.revision.current_revision
+  if stack.length() > 0 {
+    let parent_top = stack.length() - 1
+    let parent_derived = pull.memos[stack[parent_top].memo_idx]
+    if derived.meta.changed_at > parent_derived.verified_at {
+      stack[parent_top].changed = true
+      stack[parent_top].dep_cursor = parent_derived.dependencies.length()
+    }
+  }
+}
+
+///|
 /// Returns `Ok(true)` if any synthetic accumulator dep of `memo` has been
 /// invalidated (target/slot disposed, or producer `push_revised_at` advanced
 /// past the stored read revision). Returns `Ok(false)` if all synthetic deps
@@ -88,7 +192,7 @@ pub fn pull_verify(
     Disposed => abort("pull_verify: cell has been disposed")
     PullMemo(root_idx) | HybridMemo(root_idx) => {
       let root = pull.memos[root_idx]
-      if root.verified_at >= core.revision.current_revision {
+      if derived_is_revision_fresh(core, root) {
         return Ok(())
       }
       // Durability fast-path: if no input at root's durability level changed
@@ -96,9 +200,7 @@ pub fn pull_verify(
       // SKIP this optimization when root has accumulator_reads — synthetic
       // deps can be invalidated by low-durability pushes that don't appear
       // in the durability index.
-      if root.accumulator_reads.is_empty() &&
-        core.revision.durability_last_changed[root.meta.durability.index()] <=
-        root.verified_at {
+      if can_skip_dep_walk_by_durability(core, root) {
         root.verified_at = core.revision.current_revision
         return Ok(())
       }
@@ -108,8 +210,7 @@ pub fn pull_verify(
         )
       }
       let stack : Array[PullVerifyFrame] = []
-      root.in_progress = true
-      stack.push({ cell_id, memo_idx: root_idx, dep_cursor: 0, changed: false })
+      enter_pull_frame(stack, root, cell_id, root_idx)
       while stack.length() > 0 {
         let top = stack.length() - 1
         let memo = pull.memos[stack[top].memo_idx]
@@ -131,65 +232,57 @@ pub fn pull_verify(
             Disposed => abort("pull_verify: dependency has been disposed")
             Relation(_) | FunctionalRelation(_) | Rule(_) =>
               if core.phase is InFixpoint {
-                clear_verify_stack(pull, stack)
+                abort_pull_rebuild(pull, stack)
                 abort(
                   "pull_verify: cannot verify memo with Relation dependency during fixpoint()",
                 )
               }
             _ => ()
           }
-          let dep_ops = core.cell_ops[dep_id.id]
-          match dep_ops.dep_changed_since(memo.verified_at) {
-            Some(true) => {
+          match
+            classify_dependency_freshness(
+              core,
+              dep_id,
+              dep_variant,
+              memo.verified_at,
+            ) {
+            DependencyChanged => {
               stack[top].changed = true
               stack[top].dep_cursor = memo.dependencies.length()
             }
-            Some(false) => ()
-            None =>
-              // Needs deep verification — only PullMemo and HybridMemo reach here
-              match dep_variant {
-                PullMemo(dep_idx) | HybridMemo(dep_idx) => {
-                  let dep = pull.memos[dep_idx]
-                  if dep.verified_at < core.revision.current_revision {
-                    // Durability shortcut: if no input at dep's durability level
-                    // changed since dep was last verified, skip traversal.
-                    // SKIP when dep has accumulator_reads (synthetic deps
-                    // need the walk to check push_revised_at).
-                    if dep.accumulator_reads.is_empty() &&
-                      core.revision.durability_last_changed[dep.meta.durability.index()] <=
-                      dep.verified_at {
-                      dep.verified_at = core.revision.current_revision
-                      if dep.meta.changed_at > memo.verified_at {
-                        stack[top].changed = true
-                        stack[top].dep_cursor = memo.dependencies.length()
-                      }
-                    } else {
-                      // Dep needs verification; push a new frame.
-                      if dep.in_progress {
-                        // Cycle detected — build path from stack (traversal order),
-                        // clear flags, return error.
-                        let path : Array[CellId] = []
-                        for frame in stack {
-                          path.push(frame.cell_id)
-                        }
-                        clear_verify_stack(pull, stack)
-                        return Err(construct_cycle_error(core, path, dep_id))
-                      }
-                      dep.in_progress = true
-                      stack.push({
-                        cell_id: dep_id,
-                        memo_idx: dep_idx,
-                        dep_cursor: 0,
-                        changed: false,
-                      })
-                    }
-                  } else if dep.meta.changed_at > memo.verified_at {
+            DependencyUnchanged => ()
+            DependencyNeedsVerification(dep_idx) => {
+              let dep = pull.memos[dep_idx]
+              if !derived_is_revision_fresh(core, dep) {
+                // Durability shortcut: if no input at dep's durability level
+                // changed since dep was last verified, skip traversal.
+                // SKIP when dep has accumulator_reads (synthetic deps
+                // need the walk to check push_revised_at).
+                if can_skip_dep_walk_by_durability(core, dep) {
+                  dep.verified_at = core.revision.current_revision
+                  if dep.meta.changed_at > memo.verified_at {
                     stack[top].changed = true
                     stack[top].dep_cursor = memo.dependencies.length()
                   }
+                } else {
+                  // Dep needs verification; push a new frame.
+                  if dep.in_progress {
+                    // Cycle detected — build path from stack (traversal order),
+                    // clear flags, return error.
+                    let path : Array[CellId] = []
+                    for frame in stack {
+                      path.push(frame.cell_id)
+                    }
+                    abort_pull_rebuild(pull, stack)
+                    return Err(construct_cycle_error(core, path, dep_id))
+                  }
+                  enter_pull_frame(stack, dep, dep_id, dep_idx)
                 }
-                _ => () // unreachable — Disposed caught above; only memo-like cells return None
+              } else if dep.meta.changed_at > memo.verified_at {
+                stack[top].changed = true
+                stack[top].dep_cursor = memo.dependencies.length()
               }
+            }
           }
         } else {
           // All deps inspected; finalize this memo. Check synthetic
@@ -201,14 +294,14 @@ pub fn pull_verify(
             core, pull, slot_snapshots, memo,
           ) catch {
             e => {
-              clear_verify_stack(pull, stack)
+              abort_pull_rebuild(pull, stack)
               raise e
             }
           }
           let acc_changed = match acc_result {
             Ok(b) => b
             Err(e) => {
-              clear_verify_stack(pull, stack)
+              abort_pull_rebuild(pull, stack)
               return Err(e)
             }
           }
@@ -216,34 +309,11 @@ pub fn pull_verify(
           let _ = stack.pop()
           // memo is still valid — MemoData is heap-allocated (has mut fields)
           memo.in_progress = false
-          if frame_changed {
-            let compute_result = (memo.compute)() catch {
-              e => {
-                // Raised Failure from compute: clear remaining frames so
-                // ancestors do not stay stuck as in-progress.
-                clear_verify_stack(pull, stack)
-                raise e
-              }
-            }
-            match compute_result {
-              Ok(_) => () // recompute done; may backdate memo.changed_at
-              Err(e) => {
-                // Clean up remaining in_progress flags before propagating error.
-                clear_verify_stack(pull, stack)
-                return Err(e)
-              }
-            }
+          match run_pull_recompute(pull, stack, memo, frame_changed) {
+            Ok(_) => ()
+            Err(e) => return Err(e)
           }
-          memo.verified_at = core.revision.current_revision
-          // Tell the parent frame whether this memo's value changed.
-          if stack.length() > 0 {
-            let parent_top = stack.length() - 1
-            let parent_memo = pull.memos[stack[parent_top].memo_idx]
-            if memo.meta.changed_at > parent_memo.verified_at {
-              stack[parent_top].changed = true
-              stack[parent_top].dep_cursor = parent_memo.dependencies.length()
-            }
-          }
+          commit_pull_rebuild(core, pull, stack, memo)
         }
       }
       Ok(())

@@ -22,7 +22,7 @@ impl Compare for PushEntry with compare(self, other) {
 ///|
 /// Returns the topological level of a cell from the push perspective.
 ///
-/// Pull cells (signals and memos) are level 0 — they are inputs to the
+/// Pull cells (signals and derived cells) are level 0 — they are inputs to the
 /// push graph. Push reactives use their stored `level`. Disposed cells
 /// and effects return 0 (effects are leaf nodes, not read by others).
 pub fn get_level(core : RuntimeCore, cell_id : CellId) -> Int {
@@ -61,7 +61,7 @@ pub fn recompute_level(
 /// updates levels lazily: re-queued dirty nodes get a fresh entry in
 /// `update_queue` at the new level; the old stale entry is harmlessly
 /// skipped by the dequeue loop's `queued_level != node.level` guard.
-fn propagate_level_change(
+fn propagate_push_level_change(
   core : RuntimeCore,
   push : PushState,
   changed_cell : CellId,
@@ -107,74 +107,64 @@ fn propagate_level_change(
 }
 
 ///|
-/// Eagerly propagates changes from `changed_sources` through the push
-/// reactive graph in topological (level-ascending) order.
-///
-/// Takes `datalog` because the reactive/effect recompute path calls
-/// `diff_and_update_subscribers`, which threads datalog through to
-/// `adjust_push_reachable` for Relation/FunctionalRelation/Rule source arms.
-pub fn push_propagate_from(
+fn enqueue_reachable_push_subscribers(
   core : RuntimeCore,
   pull : PullState,
   push : PushState,
-  datalog : DatalogState,
-  changed_sources : Array[CellId],
+  source_id : CellId,
+  update_queue : @priority_queue.PriorityQueue[PushEntry],
+  bfs_worklist : Array[CellId],
 ) -> Unit {
-  enter_phase(core, PushPropagating)
-  let update_queue : @priority_queue.PriorityQueue[PushEntry] = @priority_queue.PriorityQueue([],
-  )
-  // Reused across all enqueue_push_subscribers calls to avoid per-call allocation.
-  let bfs_worklist : Array[CellId] = []
-
-  fn enqueue_push_subscribers(source_id : CellId) -> Unit {
-    // Per-source O(1) gate: if this source has no reachable push cells
-    // (Reactive/Effect), skip the entire BFS. push_reachable_count is
-    // maintained by add_subscriber/remove_subscriber via adjust_push_reachable.
-    if source_id.id >= 0 &&
-      source_id.id < core.cell_ops.length() &&
-      core.cell_ops[source_id.id].push_reachable_count() == 0 {
-      return
-    }
-    // BFS through pull/hybrid memos to reach downstream push nodes.
-    bfs_worklist.clear()
-    bfs_worklist.push(source_id)
-    let mut wi = 0
-    while wi < bfs_worklist.length() {
-      let id = bfs_worklist[wi]
-      wi += 1
-      for sub_id in get_subscribers(core, id) {
-        match core.cell_index[sub_id.id] {
-          PushReactive(i) =>
-            if !push.reactives[i].dirty {
-              push.reactives[i].dirty = true
-              update_queue.push({
-                neg_level: -push.reactives[i].level,
-                cell_ref: CellRef::PushReactive(i),
-              })
-            }
-          PushEffect(i) =>
-            if !push.effects[i].dirty {
-              push.effects[i].dirty = true
-              update_queue.push({
-                neg_level: -push.effects[i].level,
-                cell_ref: CellRef::PushEffect(i),
-              })
-            }
-          HybridMemo(i) | PullMemo(i) =>
-            // Inner pruning: skip memo branches with no downstream push cells.
-            if pull.memos[i].meta.push_reachable_count > 0 {
-              bfs_worklist.push(sub_id)
-            }
-          _ => ()
-        }
+  // Per-source O(1) gate: if this source has no reachable push cells
+  // (Reactive/Effect), skip the entire BFS. push_reachable_count is
+  // maintained by add_subscriber/remove_subscriber via adjust_push_reachable.
+  if source_id.id >= 0 &&
+    source_id.id < core.cell_ops.length() &&
+    core.cell_ops[source_id.id].push_reachable_count() == 0 {
+    return
+  }
+  // BFS through pull/hybrid derived cells to reach downstream push nodes.
+  bfs_worklist.clear()
+  bfs_worklist.push(source_id)
+  let mut wi = 0
+  while wi < bfs_worklist.length() {
+    let id = bfs_worklist[wi]
+    wi += 1
+    for sub_id in get_subscribers(core, id) {
+      match core.cell_index[sub_id.id] {
+        PushReactive(i) =>
+          if !push.reactives[i].dirty {
+            push.reactives[i].dirty = true
+            update_queue.push({
+              neg_level: -push.reactives[i].level,
+              cell_ref: CellRef::PushReactive(i),
+            })
+          }
+        PushEffect(i) =>
+          if !push.effects[i].dirty {
+            push.effects[i].dirty = true
+            update_queue.push({
+              neg_level: -push.effects[i].level,
+              cell_ref: CellRef::PushEffect(i),
+            })
+          }
+        HybridMemo(i) | PullMemo(i) =>
+          // Inner pruning: skip derived branches with no downstream push cells.
+          if pull.memos[i].meta.push_reachable_count > 0 {
+            bfs_worklist.push(sub_id)
+          }
+        _ => ()
       }
     }
   }
+}
 
-  for changed_id in changed_sources {
-    enqueue_push_subscribers(changed_id)
-  }
-
+///|
+fn dequeue_push_evaluation(
+  core : RuntimeCore,
+  push : PushState,
+  update_queue : @priority_queue.PriorityQueue[PushEntry],
+) -> CellRef? {
   while !update_queue.is_empty() {
     let entry = update_queue.pop().unwrap()
     let queued_level = -entry.neg_level
@@ -191,33 +181,7 @@ pub fn push_propagate_from(
         if !reactive.dirty {
           continue
         }
-        reactive.dirty = false
-        let reactive_cell_id = reactive.meta.cell_id
-        let old_sources = reactive.sources
-        push_tracking(core, reactive_cell_id)
-        let changed = (reactive.compute)()
-        let (new_sources, new_seen) = pop_tracking(core)
-        diff_and_update_subscribers(
-          core,
-          pull,
-          push,
-          datalog,
-          reactive_cell_id,
-          old_sources,
-          new_sources,
-          new_seen~,
-        )
-        |> ignore
-        reactive.sources = new_sources
-        let new_level = recompute_level(core, reactive_cell_id, new_sources)
-        if new_level != reactive.level {
-          reactive.level = new_level
-          propagate_level_change(core, push, reactive_cell_id, update_queue)
-        }
-        if changed {
-          reactive.meta.changed_at = core.revision.current_revision
-          enqueue_push_subscribers(reactive_cell_id)
-        }
+        return Some(entry.cell_ref)
       }
       PushEffect(idx) => {
         let effect = push.effects[idx]
@@ -231,28 +195,127 @@ pub fn push_propagate_from(
         if !effect.dirty {
           continue
         }
-        effect.dirty = false
-        let effect_cell_id = effect.meta.cell_id
-        let old_sources = effect.sources
-        push_tracking(core, effect_cell_id)
-        (effect.execute)()
-        let (new_sources, new_seen) = pop_tracking(core)
-        diff_and_update_subscribers(
-          core,
-          pull,
-          push,
-          datalog,
-          effect_cell_id,
-          old_sources,
-          new_sources,
-          new_seen~,
-        )
-        |> ignore
-        effect.sources = new_sources
-        effect.level = recompute_level(core, effect_cell_id, new_sources)
+        return Some(entry.cell_ref)
       }
       _ => ()
     }
   }
+  None
+}
+
+///|
+fn evaluate_push_reactive(
+  core : RuntimeCore,
+  pull : PullState,
+  push : PushState,
+  datalog : DatalogState,
+  idx : Int,
+  update_queue : @priority_queue.PriorityQueue[PushEntry],
+  bfs_worklist : Array[CellId],
+) -> Unit {
+  let reactive = push.reactives[idx]
+  reactive.dirty = false
+  let reactive_cell_id = reactive.meta.cell_id
+  let old_sources = reactive.sources
+  push_tracking(core, reactive_cell_id)
+  let changed = (reactive.compute)()
+  let (new_sources, new_seen) = pop_tracking(core)
+  diff_and_update_subscribers(
+    core,
+    pull,
+    push,
+    datalog,
+    reactive_cell_id,
+    old_sources,
+    new_sources,
+    new_seen~,
+  )
+  |> ignore
+  reactive.sources = new_sources
+  let new_level = recompute_level(core, reactive_cell_id, new_sources)
+  if new_level != reactive.level {
+    reactive.level = new_level
+    propagate_push_level_change(core, push, reactive_cell_id, update_queue)
+  }
+  if changed {
+    reactive.meta.changed_at = core.revision.current_revision
+    enqueue_reachable_push_subscribers(
+      core, pull, push, reactive_cell_id, update_queue, bfs_worklist,
+    )
+  }
+}
+
+///|
+fn execute_push_effect(
+  core : RuntimeCore,
+  pull : PullState,
+  push : PushState,
+  datalog : DatalogState,
+  idx : Int,
+) -> Unit {
+  let effect = push.effects[idx]
+  effect.dirty = false
+  let effect_cell_id = effect.meta.cell_id
+  let old_sources = effect.sources
+  push_tracking(core, effect_cell_id)
+  (effect.execute)()
+  let (new_sources, new_seen) = pop_tracking(core)
+  diff_and_update_subscribers(
+    core,
+    pull,
+    push,
+    datalog,
+    effect_cell_id,
+    old_sources,
+    new_sources,
+    new_seen~,
+  )
+  |> ignore
+  effect.sources = new_sources
+  effect.level = recompute_level(core, effect_cell_id, new_sources)
+}
+
+///|
+fn finish_push_propagation(core : RuntimeCore) -> Unit {
   leave_phase(core)
+}
+
+///|
+/// Eagerly propagates changes from `changed_sources` through the push
+/// reactive graph in topological (level-ascending) order.
+///
+/// Takes `datalog` because the reactive/effect recompute path calls
+/// `diff_and_update_subscribers`, which threads datalog through to
+/// `adjust_push_reachable` for Relation/FunctionalRelation/Rule source arms.
+pub fn push_propagate_from(
+  core : RuntimeCore,
+  pull : PullState,
+  push : PushState,
+  datalog : DatalogState,
+  changed_sources : Array[CellId],
+) -> Unit {
+  enter_phase(core, PushPropagating)
+  let update_queue : @priority_queue.PriorityQueue[PushEntry] = @priority_queue.PriorityQueue([],
+  )
+  // Reused across enqueue_reachable_push_subscribers calls to avoid per-call allocation.
+  let bfs_worklist : Array[CellId] = []
+
+  for changed_id in changed_sources {
+    enqueue_reachable_push_subscribers(
+      core, pull, push, changed_id, update_queue, bfs_worklist,
+    )
+  }
+
+  while !update_queue.is_empty() {
+    match dequeue_push_evaluation(core, push, update_queue) {
+      Some(PushReactive(idx)) =>
+        evaluate_push_reactive(
+          core, pull, push, datalog, idx, update_queue, bfs_worklist,
+        )
+      Some(PushEffect(idx)) =>
+        execute_push_effect(core, pull, push, datalog, idx)
+      Some(_) | None => ()
+    }
+  }
+  finish_push_propagation(core)
 }
