@@ -27,6 +27,7 @@ pub(all) struct Runtime {
   priv pull : PullState
   priv push : PushState
   priv datalog : DatalogState
+  priv evaluation_strategies : EvaluationStrategies
   // cell_lifecycle is lifted out of RuntimeCore: the CellLifecycle trait
   // takes `Runtime` as a parameter (see cells/cell_ops.mbt), so moving it
   // into kernel would create a circular type reference.
@@ -107,6 +108,7 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
       node_count: 0,
     },
     datalog: { relations: [], functional_relations: [], rules: [] },
+    evaluation_strategies: EvaluationStrategies::default(),
     cell_lifecycle: [],
     commit_hooks: [],
     accumulator_commit_hook: accumulator_hook,
@@ -527,7 +529,7 @@ fn Runtime::propagate_changes(
   changed_ids : Array[CellId],
   durability : Durability,
 ) -> Unit {
-  @kernel.propagate_changes_with_events(
+  self.evaluation_strategies.propagate_changes(
     self.core,
     self.pull,
     self.push,
@@ -546,7 +548,7 @@ fn Runtime::publish_cell_changes(
   changed_ids : Array[CellId],
   durability : Durability,
 ) -> Unit {
-  @kernel.publish_cell_changes_with_events(
+  self.evaluation_strategies.publish_cell_changes(
     self.core,
     self.pull,
     self.push,

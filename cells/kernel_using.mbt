@@ -7,6 +7,7 @@ using @kernel {
   type ActiveQuery,
   type BatchFrame,
   type DatalogState,
+  type EvaluationStrategies,
   type PropagationPhase,
   type PullState,
   type PushState,
