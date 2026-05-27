@@ -25,10 +25,10 @@ moon bench          # Run benchmarks (tests/bench_test.mbt)
 ## Architecture
 
 The canonical package map is [docs/architecture.md](docs/architecture.md).
-The tree below is a working orientation for Claude Code. `moon.mod.json`
-excludes `docs/**` and `spikes/**` from the published module, but `docs/` is
-still a MoonBit package in the worktree so literate documentation examples can
-be checked.
+The tree below is a working orientation for Claude Code. `moon.mod` excludes
+`docs/**` and `spikes/**` from the published module, but `docs/` is still a
+MoonBit package in the worktree so literate documentation examples can be
+checked.
 
 ```
 dowdiness/incr/

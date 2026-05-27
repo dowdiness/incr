@@ -65,6 +65,7 @@ For contributors and advanced users who want to understand or modify `incr`.
 
 **Research notes — exploratory, not implemented:**
 
+- [Constructive Traces Feasibility](research/constructive-traces-feasibility.md) — evaluates Build Systems à la Carte constructive traces for `incr`; recommends keeping revision verifying traces as the default and investigating static/applicative derived APIs first
 - [Multi-Mode App Ideas](research/multi-mode-app-ideas.md) — app concepts combining pull / push / hybrid / Datalog modes
 - [Semantic Interning](research/semantic-interning.md) — design exploration for revision-aware `InternTable[T]`
 - [Reactive Collections — Research Summary](research/reactive-collections.md) — survey of delta / per-item / nominal approaches across Differential Dataflow, Salsa, Adapton, SolidJS, etc.

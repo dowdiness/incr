@@ -60,6 +60,49 @@ down. See [Getting Started](docs/getting-started.mbt.md).
 
 > **Note on the example above:** It is `nocheck` because this Markdown file is not a MoonBit package. The same construction is checked in [`docs/target_api_examples.mbt.md`](docs/target_api_examples.mbt.md) and exercised end-to-end by [`tests/quickstart_test.mbt`](tests/quickstart_test.mbt) — if you edit the example, update those in lockstep.
 
+## Mental Model
+
+`incr` has three coordinated modes:
+
+- **Pull-first by default**: `Input` + `Derived` verify recorded dependency traces lazily on read.
+- **Push-first when requested**: `EagerDerived` + `Effect` recompute eagerly when upstream inputs change.
+- **Hybrid reachability**: `ReachableDerived` is still lazy like `Derived`, but stays reachable through downstream push subscribers and `Watch` roots.
+
+In the vocabulary of "Build Systems à la Carte", the pull engine is a
+**suspending scheduler** plus a **revision-based verifying trace** rebuilder:
+
+- A `Derived` compute closure is the task.
+- The runtime records the dependencies read by the last successful compute.
+- An `Input::set(...)` bumps a revision; it does not eagerly recompute the pull graph.
+- A later `Derived::read()` / `get()` verifies the recorded trace on demand.
+- If no dependency changed, the compute closure does not run — the **green path**.
+- If a dependency changed, the closure reruns and records a new trace — the **red path**.
+- If the red path produces an equal value, **backdating** preserves `changed_at`, so downstream derived values still skip work.
+
+The push engine uses a different contract: `EagerDerived` computes immediately at construction, then recomputes during `Input::set(...)` / batch commit propagation in topological-level order. Reads return the already-maintained cached value.
+
+Hard guarantees to rely on:
+
+- Dynamic dependencies are supported: conditional reads replace the dependency trace on each successful recompute.
+- Failed computations and cycle errors do not install a new valid trace.
+- Pull mode verifies traces, not dirty flags; push dirty state is not the source of truth for `Derived` correctness.
+- `ReachableDerived` is hybrid only in reachability/GC behavior; recomputation is still the same lazy revision check as `Derived`.
+- Cross-session/content-addressed caching is not automatic. See the [constructive traces feasibility note](docs/research/constructive-traces-feasibility.md) for why it remains opt-in research.
+
+### Which mode should I use?
+
+| Need | Use |
+|---|---|
+| Default cached computation, especially if it may not be read after every input write | `Derived` |
+| One memoized value per semantic key, created lazily | `DerivedMap` |
+| Field-level invalidation inside a larger object | `InputField` |
+| UI-facing value that should stay eagerly current after input writes | `EagerDerived` |
+| Side effect that should run eagerly when dependencies change | `Effect` |
+| Lazy derived value that must stay alive through downstream push subscribers or long-lived watches | `ReachableDerived` |
+| Relational/fixpoint computation | `Relation` / `MapRelation` |
+
+When unsure, start with `Derived`. Move to `EagerDerived` only when the consumer really benefits from push-first maintenance.
+
 ## Learn More
 
 - **New to `incr`?** Start with [Getting Started](docs/getting-started.mbt.md), then [Core Concepts](docs/concepts.mbt.md).

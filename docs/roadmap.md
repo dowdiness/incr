@@ -204,5 +204,5 @@ The following features build toward a Salsa-style query API where users write no
 ## Phase 5 — Ecosystem
 
 - **"incr for incr" event-log adapter**: Build a driver-owned reactive event log on top of `Runtime::on_memo_event`, likely using a separate `Runtime` / `Relation` / `MemoMap` layer to model memo-event history for visualization and profiling. Keep this out of the core engine until a real driver proves the callback API is too low-level; same-runtime event publication from commit hooks remains rejected because commit hooks must not re-enter the graph.
-- **Persistent caching**: Serialize the dependency graph and cached values to disk for cross-session incrementality. Prerequisite: stable `InternId` across revisions (Phase 4E).
+- **Persistent caching / constructive traces**: Serialize selected query results for cross-session incrementality only after an opt-in cacheable-query prototype proves value on a real semantic workload. The [constructive traces feasibility study](research/constructive-traces-feasibility.md) rejects automatic caching for default `Derived` / `Memo`; prerequisites include stable query keys, rule versions, cheap dependency fingerprints, and stable `InternId` across revisions (Phase 4E).
 - **Parallel computation**: Explore concurrent memo evaluation if MoonBit gains thread or async support

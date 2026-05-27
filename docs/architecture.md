@@ -10,9 +10,9 @@ For the verification algorithm, type erasure, push propagation, and storage layo
 
 The main MoonBit packages in `dowdiness/incr` are mapped below. Users import
 only the root facade; everything else is implementation detail, tests, checked
-documentation, or historical spike material. `moon.mod.json` excludes `docs/**`
-and `spikes/**` from the published module, but `docs/` is still a package in
-the worktree so literate examples can be checked.
+documentation, or historical spike material. `moon.mod` excludes `docs/**` and
+`spikes/**` from the published module, but `docs/` is still a package in the
+worktree so literate examples can be checked.
 
 ```
 dowdiness/incr           ← Public API facade (root)
@@ -149,6 +149,7 @@ These are user-visible properties the library upholds. Internal implementation i
 
 - **Revision monotonicity.** `current_revision` only increases. Same-value `set()` on an `Input[T : Eq]` or `InputField[T : Eq]` is a no-op and does not bump it.
 - **Lazy pull, eager push.** A `Derived` value recomputes only when read; an `EagerDerived` value propagates immediately when upstream inputs change (or at batch commit if inside one).
+- **Pull mode verifies traces, not dirty flags.** A pull-derived value records the dependencies read by its last successful compute. On the next read, the runtime verifies that recorded trace; it does not rely on an eagerly propagated dirty bit as the source of truth.
 - **Backdating preserves `changed_at`.** When a derived value recomputes to a value equal (by `Eq` or compatibility `BackdateEq`) to its previous result, its `changed_at` is *not* bumped — downstream consumers see no change and skip work.
 - **Durability shortcut.** Derived values whose inputs are all `High` durability skip the full verify walk when no `High` input has changed.
 - **Cycle detection returns `Result`.** Target `Derived::get()` / `read()` and `DerivedMap::get(key)` / `read(key)` surface cycles as `Err(CycleError)`; strict `get` methods still abort when called without an active tracked context. `_or_abort` shortcuts abort on cycle. Compatibility `Memo::get_result()` exposes the same error value. `CycleError` is pure (no `Runtime` reference) and can be formatted standalone.
