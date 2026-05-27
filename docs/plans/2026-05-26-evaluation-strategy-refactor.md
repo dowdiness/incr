@@ -116,7 +116,7 @@ behavior unchanged.
 
 Pull verification helpers:
 
-- `memo_is_revision_fresh`
+- `derived_is_revision_fresh`
 - `can_skip_dep_walk_by_durability`
 - `classify_dependency_freshness`
 - `enter_pull_frame`
@@ -150,29 +150,84 @@ Expected public API change: none.
 
 ## Phase 2 — concrete event data, still internal
 
-Introduce internal summary data for pull and push transitions. Keep user
-callbacks buffered and drained from the `cells/` facade after safe state points.
+Introduce concrete internal evaluation summaries using target API vocabulary.
+New payload names must say `Derived` / `EagerDerived`, not `Memo`, except when
+explicitly referring to the existing legacy `MemoEvent` compatibility API or to
+current implementation types such as `MemoData` / `MemoCommitPhase`.
 
-Event families:
+Phase 2 has two layers only:
 
-- pull rebuild summary and abort summary;
-- push evaluation summary and abort summary;
-- push queue-skip summary;
-- push propagation pass summary.
+1. **Internal payload vocabulary.** Add concrete internal summary structs/enums
+   for committed evaluation facts:
+   - `DerivedRebuildSummary`
+   - `DerivedRebuildAbortSummary`
+   - `EagerDerivedEvaluationSummary`
+   - `EffectExecutionSummary`
+   - `PushQueueSkipSummary` plus a `PushQueueSkipReason` enum
+   - `PushPropagationSummary`
+   - a private/internal `RuntimeEvaluationEvent` umbrella over those families
+2. **Private `cells/` buffer and drain hook.** Runtime-owned code receives those
+   summaries, buffers them, and drains only from safe `cells/` facade points.
+   Kernel code must not call user callbacks and must not mention `Runtime`.
 
-Do not expose a public event API in this phase. Existing memo-event compatibility
-can remain until a deliberate migration PR replaces it.
+Buffering and delivery are distinct. A summary may be constructed and buffered
+as soon as the relevant graph metadata is committed, but user-visible drain must
+wait until typed wrapper caches, dependency lists, phase state, and callback
+depth are safe. For derived recomputes, remember that the shared recompute
+helper returns before the typed handle writes its cached value.
+
+Required emission scope for the Phase 2 implementation PR:
+
+- derived rebuild success and catchable abort: buffer from the shared derived
+  recompute/commit path so first computes, direct recomputes, and verification-
+  triggered recomputes are covered; deliver only from later safe facade drains;
+- pull verification freshness/reuse skips: defer by default. If the PR includes
+  them, use an explicitly named `DerivedVerificationSummary`; do not report a
+  pure reuse/skip as a rebuild;
+- eager derived evaluation success and effect execution success: emit from the
+  push helper seams after dependency lists, levels, dirty flags, and
+  `changed_at` state are settled;
+- queue skips: emit `PushQueueSkipSummary` with a reason for stale level,
+  disposed/kind mismatch, or no-longer-dirty entries;
+- propagation pass totals: emit after leaving `PushPropagating`, with counters
+  for eager evaluations, effect executions, and queue skips;
+- eager-derived/effect abort summaries: keep deferred until a production
+  raising push path exists. Do not add unused `abort_push_evaluation` helpers or
+  catches just to exercise vocabulary.
+
+Wiring requirement: normal public mutation paths must be covered. If push events
+are implemented through an optional kernel-local sink, thread that sink through
+`propagate_changes`, `publish_cell_changes`, and `commit_batch` (not only direct
+`push_propagate_from` calls), otherwise `Signal::set`, batch commits, and datalog
+publishing will miss push summaries. Existing no-event kernel functions may
+remain as wrappers over the event-aware variants with `None` so the no-listener
+fast path stays allocation-free. The `cells/` facade should pass `None` unless
+its private runtime-evaluation hook is enabled; disabled runs must not allocate
+summary payloads just to drop them.
+
+Do not expose a public runtime-event API in this phase. Existing `MemoEvent` /
+`Runtime::on_memo_event` compatibility remains untouched until a deliberate
+migration PR replaces or adapts it. New tests may use whitebox access to the
+private buffer/listener, but no new public `.mbti` surface should appear.
+`RuntimeEvaluationEvent` is an internal implementation type; do not re-export it
+from `cells` or the root facade.
 
 Validation:
 
 ```bash
-moon check
+moon fmt
+moon info
+moon check --deny-warn
+moon test cells/runtime_evaluation_event_hook_wbtest.mbt
 moon test cells/event_broadcast_hook_wbtest.mbt
 moon test cells/accumulator_commit_hook_wbtest.mbt
+moon test
+git diff -- '*.mbti'
 ```
 
-Expected public API change: none, unless the PR deliberately renames the existing
-memo-event API.
+Expected public API change: none. Internal kernel `.mbti` may change if event
+payloads must be visible from `cells/`; public/root `.mbti` drift is not
+accepted.
 
 ## Phase 3 — sealed internal strategy bundle
 
