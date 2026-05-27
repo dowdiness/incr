@@ -166,6 +166,7 @@ fn Runtime::is_listener_mutation_safe(self : Runtime) -> Bool {
   self.core.callback_depth == 0 &&
   self.core.tracking.stack.is_empty() &&
   self.core.batch.depth == 0 &&
+  self.static_recompute_depth == 0 &&
   !self.has_pending_events() &&
   !self.event_broadcast_hook.draining &&
   !self.runtime_evaluation_event_hook.draining

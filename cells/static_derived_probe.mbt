@@ -236,11 +236,11 @@ fn[T] StaticDerivedProbe::read_impl(
   self.rt.check_cross_runtime(self.rt.core.runtime_id, "StaticDerivedProbe")
   let result = self.read_inner(record_dependency~) catch {
     e => {
-      self.rt.event_broadcast_hook.drain()
+      self.rt.drain_pending_events_direct()
       abort("StaticDerivedProbe compute raised: " + e.to_string())
     }
   }
-  if !self.rt.event_broadcast_hook.pending.is_empty() {
+  if self.rt.has_pending_events() {
     self.rt.drain_pending_events_if_idle()
   }
   result

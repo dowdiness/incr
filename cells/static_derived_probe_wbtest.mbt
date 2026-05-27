@@ -147,6 +147,7 @@ test "static derived probe: gc traverses static dependency chain" {
 test "static derived probe: compute failure clears in-progress and hooks" {
   let rt = Runtime()
   rt.on_memo_event(_evt => ())
+  // Seeds accumulator hook state so the active-entry cleanup assertion is meaningful.
   let _acc : Accumulator[Int] = Accumulator::new(rt~)
   let should_fail : Ref[Bool] = { val: true }
   let derived : StaticDerivedProbe[Int] = static_derived_probe(
@@ -174,6 +175,24 @@ test "static derived probe: compute failure clears in-progress and hooks" {
   )
   should_fail.val = false
   inspect(derived.read_or_abort(), content="42")
+}
+
+///|
+test "static derived probe: listener mutation is blocked during recompute" {
+  let rt = Runtime()
+  let derived : StaticDerivedProbe[Int] = static_derived_probe(
+    rt,
+    [],
+    () => {
+      rt.on_memo_event(_evt => ())
+      1
+    },
+    (a, b) => a == b,
+  )
+  let result : Result[Result[Int, CycleError], Failure] = try? derived.force_recompute()
+  inspect(result is Err(_), content="true")
+  inspect(rt.static_recompute_depth, content="0")
+  inspect(rt.get_memo_data(derived.id()).in_progress, content="false")
 }
 
 ///|
@@ -277,6 +296,29 @@ test "static derived probe: event hook pairs enter and completed" {
   let derived = static_derived_map1_probe(input, x => x + 1)
   inspect(derived.read_or_abort(), content="2")
   debug_inspect(events, content="[\"enter\", \"completed\"]")
+}
+
+///|
+test "static derived probe: drains runtime evaluation events after read" {
+  let rt = Runtime()
+  let events : Array[String] = []
+  rt.runtime_evaluation_event_hook.listener = Some(event => {
+    events.push(
+      match event {
+        DerivedRebuilt(_) => "derived_rebuilt"
+        DerivedRebuildAborted(_) => "derived_aborted"
+        EagerDerivedEvaluated(_) => "eager_evaluated"
+        EffectExecuted(_) => "effect_executed"
+        PushQueueSkipped(_) => "queue_skipped"
+        PushPropagationCompleted(_) => "push_completed"
+      },
+    )
+  })
+  let input = Input(rt, 1)
+  let derived = static_derived_map1_probe(input, x => x + 1)
+  inspect(derived.read_or_abort(), content="2")
+  debug_inspect(events, content="[\"derived_rebuilt\"]")
+  inspect(rt.runtime_evaluation_event_hook.pending.length(), content="0")
 }
 
 ///|
