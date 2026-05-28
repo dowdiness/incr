@@ -14,13 +14,30 @@ pub struct Worksheet {
 ///|
 priv enum CellDefinition {
   Input(CellValue)
-  Formula(Array[CellId], CellType, (Array[CellValue]) -> CellResult)
+  Formula(Array[CellId], CellType, (Worksheet) -> CellResult)
 }
 
 ///|
 struct CellSlot {
   definition : @incr.InputField[CellDefinition]
   value : @incr.Derived[CellResult]
+}
+
+///|
+/// Whether a worksheet cell has a concrete value or formula definition.
+pub enum CellKind {
+  Input
+  Formula
+}
+
+///|
+/// A plain, read-only view of a single cell for UI and diagnostics.
+pub struct CellSnapshot {
+  id : CellId
+  present : Bool
+  kind : CellKind?
+  result : CellResult
+  dependencies : Array[CellId]
 }
 
 ///|
@@ -60,6 +77,57 @@ pub fn Worksheet::dispose(self : Worksheet) -> Unit {
 /// Reads the current cell result without aborting.
 pub fn Worksheet::read(self : Worksheet, id : CellId) -> CellResult {
   self.read_slot(id)
+}
+
+///|
+/// Returns a stable inspection snapshot for a single cell.
+pub fn Worksheet::inspect_cell(self : Worksheet, id : CellId) -> CellSnapshot {
+  if !self.owns_cell_id(id) {
+    return {
+      id,
+      present: false,
+      kind: None,
+      result: CellResult::RefError("foreign cell id"),
+      dependencies: [],
+    }
+  }
+
+  match self.cell_presence.get(id) {
+    Some(presence) => {
+      if !presence.get() {
+        return {
+          id,
+          present: false,
+          kind: None,
+          result: CellResult::RefError("no cell at the requested address"),
+          dependencies: [],
+        }
+      }
+
+      match self.cells.get(id) {
+        Some(slot) => {
+          let (kind, dependencies) = slot.definition.get().kind_and_deps()
+          { id, present: true, kind, result: slot.read(), dependencies }
+        }
+        None =>
+          {
+            id,
+            present: false,
+            kind: None,
+            result: CellResult::RefError("no cell at the requested address"),
+            dependencies: [],
+          }
+      }
+    }
+    None =>
+      {
+        id,
+        present: false,
+        kind: None,
+        result: CellResult::RefError("no cell at the requested address"),
+        dependencies: [],
+      }
+  }
 }
 
 ///|
@@ -115,7 +183,17 @@ pub fn Worksheet::set_formula(
     return Err(WorksheetError::ref_error("foreign dependency id"))
   }
 
-  let definition = CellDefinition::Formula(deps.copy(), declared, compute)
+  let dep_ids = deps.copy()
+  let definition = CellDefinition::Formula(dep_ids, declared, fn(worksheet) {
+    let values = []
+    for dep_id in dep_ids {
+      let value_result = worksheet.read_slot(dep_id)
+      guard value_result is CellResult::Ok(value) else { return value_result }
+
+      values.push(value)
+    }
+    compute(values)
+  })
   self.set_cell_definition(id, definition, label?)
 
   Ok(())
@@ -146,10 +224,8 @@ pub fn Worksheet::set_formula_ast(
   }
 
   let computed = formula
-  let definition = CellDefinition::Formula(([] : Array[CellId]), declared, fn(
-    _deps,
-  ) {
-    computed.evaluate(fn(dep_id) { self.read_slot(dep_id) })
+  let definition = CellDefinition::Formula(dep_ids, declared, fn(worksheet) {
+    computed.evaluate(fn(dep_id) { worksheet.read_slot(dep_id) })
   })
   self.set_cell_definition(id, definition, label?)
 
@@ -278,22 +354,25 @@ fn Worksheet::all_cell_ids_owned(self : Worksheet, ids : Array[CellId]) -> Bool 
 }
 
 ///|
+fn CellDefinition::kind_and_deps(
+  self : CellDefinition,
+) -> (CellKind?, Array[CellId]) {
+  match self {
+    CellDefinition::Input(_) => (Some(CellKind::Input), ([] : Array[CellId]))
+    CellDefinition::Formula(dep_ids, _, _) =>
+      (Some(CellKind::Formula), dep_ids.copy())
+  }
+}
+
+///|
 fn CellDefinition::evaluate(
   self : CellDefinition,
   worksheet : Worksheet,
 ) -> CellResult {
   match self {
     CellDefinition::Input(value) => CellResult::Ok(value)
-    CellDefinition::Formula(dep_ids, expected, evaluate) => {
-      let values = []
-      for dep_id in dep_ids {
-        let value_result = worksheet.read_slot(dep_id)
-        guard value_result is CellResult::Ok(value) else { return value_result }
-
-        values.push(value)
-      }
-
-      let result = evaluate(values)
+    CellDefinition::Formula(_dep_ids, expected, evaluate) => {
+      let result = evaluate(worksheet)
       match result {
         CellResult::Ok(value) =>
           if expected == CellType::TAny || expected.accepts(value) {

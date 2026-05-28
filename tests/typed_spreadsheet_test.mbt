@@ -60,6 +60,198 @@ test "typed spreadsheet: input and formula basics" {
 }
 
 ///|
+test "typed spreadsheet: inspect input snapshot" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(2))
+  let cell = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+
+  inspect(
+    sheet.set_input(cell, @typed_spreadsheet.CellValue::from_int(10)).is_ok(),
+    content="true",
+  )
+
+  let snapshot = sheet.inspect_cell(cell)
+  inspect(snapshot.id == cell, content="true")
+  inspect(snapshot.present, content="true")
+  match snapshot.kind {
+    Some(_) => inspect(true, content="true")
+    None => inspect(false, content="false")
+  }
+  inspect(snapshot.dependencies.length(), content="0")
+
+  match snapshot.result {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(value)) =>
+      inspect(value, content="10")
+    _ => abort("expected Ok(Int(10)) for input snapshot")
+  }
+}
+
+///|
+test "typed spreadsheet: inspect formula snapshot" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(3))
+  let a1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+  let a2 = @typed_spreadsheet.CellId(sheet.sheet_id(), "A2")
+  let target = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
+
+  inspect(
+    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(10)).is_ok(),
+    content="true",
+  )
+  inspect(
+    sheet.set_input(a2, @typed_spreadsheet.CellValue::from_int(20)).is_ok(),
+    content="true",
+  )
+  let _ = sheet.set_formula(
+    target,
+    @typed_spreadsheet.CellType::t_int(),
+    [a1, a2],
+    fn(deps) {
+      match deps[0] {
+        @typed_spreadsheet.CellValue::Int(lhs) =>
+          match deps[1] {
+            @typed_spreadsheet.CellValue::Int(rhs) =>
+              @typed_spreadsheet.CellResult::ok(
+                @typed_spreadsheet.CellValue::from_int(lhs + rhs),
+              )
+            _ =>
+              @typed_spreadsheet.CellResult::type_error(
+                "formula dependency mismatch",
+              )
+          }
+        _ =>
+          @typed_spreadsheet.CellResult::type_error(
+            "formula dependency mismatch",
+          )
+      }
+    },
+  )
+
+  let snapshot = sheet.inspect_cell(target)
+  inspect(snapshot.present, content="true")
+  inspect(snapshot.dependencies.length(), content="2")
+  inspect(snapshot.dependencies[0] == a1, content="true")
+  inspect(snapshot.dependencies[1] == a2, content="true")
+  match snapshot.kind {
+    Some(_) => inspect(true, content="true")
+    None => inspect(false, content="false")
+  }
+
+  match snapshot.result {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(value)) =>
+      inspect(value, content="30")
+    _ => abort("expected formula snapshot result to be Ok(Int(30))")
+  }
+}
+
+///|
+test "typed spreadsheet: inspect missing snapshot" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(4))
+  let missing = @typed_spreadsheet.CellId(sheet.sheet_id(), "Z9")
+
+  let snapshot = sheet.inspect_cell(missing)
+  inspect(snapshot.present, content="false")
+  match snapshot.kind {
+    Some(_) => inspect(false, content="false")
+    None => inspect(true, content="true")
+  }
+
+  match snapshot.result {
+    @typed_spreadsheet.CellResult::RefError(_) => inspect(true, content="true")
+    _ => abort("expected missing snapshot to report RefError")
+  }
+}
+
+///|
+test "typed spreadsheet: inspect deleted snapshot" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(5))
+  let cell = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+
+  inspect(
+    sheet.set_input(cell, @typed_spreadsheet.CellValue::from_int(1)).is_ok(),
+    content="true",
+  )
+
+  let before = sheet.inspect_cell(cell)
+  inspect(before.present, content="true")
+
+  inspect(sheet.delete(cell).is_ok(), content="true")
+
+  let after = sheet.inspect_cell(cell)
+  inspect(after.present, content="false")
+  match after.result {
+    @typed_spreadsheet.CellResult::RefError(_) => inspect(true, content="true")
+    _ => abort("expected deleted snapshot to report RefError")
+  }
+}
+
+///|
+test "typed spreadsheet: inspect formula AST snapshot refs" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(6))
+  let a1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+  let a2 = @typed_spreadsheet.CellId(sheet.sheet_id(), "A2")
+  let target = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
+
+  inspect(
+    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(2)).is_ok(),
+    content="true",
+  )
+  inspect(
+    sheet.set_input(a2, @typed_spreadsheet.CellValue::from_int(3)).is_ok(),
+    content="true",
+  )
+
+  let formula = @typed_spreadsheet.Formula::add(
+    @typed_spreadsheet.Formula::cell_ref(a1),
+    @typed_spreadsheet.Formula::add(
+      @typed_spreadsheet.Formula::cell_ref(a2),
+      @typed_spreadsheet.Formula::literal(
+        @typed_spreadsheet.CellValue::from_int(1),
+      ),
+    ),
+  )
+
+  let _ = sheet.set_formula_ast(
+    target,
+    @typed_spreadsheet.CellType::t_int(),
+    formula,
+  )
+
+  let snapshot = sheet.inspect_cell(target)
+  inspect(snapshot.dependencies.length(), content="2")
+  inspect(snapshot.dependencies[0] == a1, content="true")
+  inspect(snapshot.dependencies[1] == a2, content="true")
+
+  match snapshot.result {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(value)) =>
+      inspect(value, content="6")
+    _ => abort("expected AST snapshot result to be Ok(Int(6))")
+  }
+}
+
+///|
+test "typed spreadsheet: inspect cross-sheet cell is RefError" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(7))
+  let foreign = @typed_spreadsheet.Worksheet(
+    @incr.Runtime(),
+    @typed_spreadsheet.SheetId(70),
+  )
+  let foreign_cell = @typed_spreadsheet.CellId(foreign.sheet_id(), "A1")
+
+  let snapshot = sheet.inspect_cell(foreign_cell)
+  inspect(snapshot.present, content="false")
+
+  match snapshot.result {
+    @typed_spreadsheet.CellResult::RefError(_) => inspect(true, content="true")
+    _ => abort("expected cross-sheet inspect snapshot to return RefError")
+  }
+}
+
+///|
 test "typed spreadsheet: set_formula type error is propagated" {
   let rt = @incr.Runtime()
   let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(10))
