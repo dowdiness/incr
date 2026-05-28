@@ -330,6 +330,10 @@ The checked companion covers `Derived` construction, labeled cells,
 inside-compute `get_or_abort`, and outside-graph `read` /
 `read_or_abort` in [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
+### `Derived::fallible[V : Eq, E : Eq](rt: Runtime, compute: () -> Result[V, E], label? : String) -> Derived[Result[V, E]]`
+
+Creates a derived value whose `compute` is **noraise**: a recoverable, domain-specific failure is expressed in the value as `Result[V, E]`, never raised. The error then participates in caching and `Eq`-based backdating like any other value, and reads surface only graph failures (cycles), never an uncatchable abort. Prefer this over `Derived` for a fallible compute. A `raise Failure` from a plain `Derived` compute is a *defect*, not a domain-error channel — see [Honest Read-Error Ownership](design/specs/2026-05-28-honest-read-error-ownership.md).
+
 ### `Derived::get(self) -> Result[T, CycleError]`
 
 Strict graph read. It must be called inside another derived compute function, where it records a dependency. It aborts outside a tracked context and returns `Err(CycleError)` for cycles.
@@ -402,6 +406,10 @@ Creates an empty derived map. No per-key derived value is allocated until first 
 The checked companion covers `DerivedMap` construction, lazy keyed reads,
 strict tracked reads, fallback reads, and cache maintenance in
 [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
+
+### `DerivedMap::fallible[K : Hash + Eq, V, E](rt: Runtime, compute: (K) -> Result[V, E], label? : String) -> DerivedMap[K, Result[V, E]]`
+
+Keyed counterpart to `Derived::fallible`: each key's recoverable domain failure is expressed in the value as `Result[V, E]` (the `compute` is **noraise**). See [Honest Read-Error Ownership](design/specs/2026-05-28-honest-read-error-ownership.md).
 
 ### `DerivedMap::read[K : Hash + Eq, V : Eq](self, key: K) -> Result[V, CycleError]`
 

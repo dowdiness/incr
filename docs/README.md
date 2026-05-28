@@ -55,6 +55,7 @@ For contributors and advanced users who want to understand or modify `incr`.
 - [2026-05-26 Build-oriented boundary design](design/specs/2026-05-26-build-trait-boundaries.md) — ideal Build systems à la carte-inspired application boundaries on top of `Input`, `Derived`, and `DerivedMap`; traits are one seam, not the default
 - [2026-05-26 Internal evaluation boundaries](design/specs/2026-05-26-internal-rebuild-boundaries.md) — ideal runtime-evaluation state-machine design for pull verification, push propagation, lifetime, and observation seams without public scheduler traits
 - [2026-05-28 Static Derived Public-Surface Options](design/specs/2026-05-28-static-derived-public-options.md) — compares public API options for exposing the measured fixed-dependency `Derived` fast path without accepting or implementing a surface yet
+- [2026-05-28 Honest Read-Error Ownership](design/specs/2026-05-28-honest-read-error-ownership.md) — three-way split of read failures (graph→read channel, domain→value-as-`Result`, defects→abort); `Derived::fallible`/`DerivedMap::fallible` cheapest increment + `ReadError` full-ideal migration
 
 **Project direction:**
 
