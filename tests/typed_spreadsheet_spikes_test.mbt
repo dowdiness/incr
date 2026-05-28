@@ -120,6 +120,53 @@ test "typed spreadsheet spike: batch rollback restores deleted then recreated ce
 }
 
 ///|
+test "typed spreadsheet spike: batch rollback restores deleted formula cell" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(203))
+  let source = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+  let formula = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
+
+  inspect(
+    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(3)).is_ok(),
+    content="true",
+  )
+  let _ = sheet.set_formula(
+    formula,
+    @typed_spreadsheet.CellType::t_int(),
+    [source],
+    fn(deps) {
+      match deps[0] {
+        @typed_spreadsheet.CellValue::Int(value) =>
+          @typed_spreadsheet.CellResult::ok(
+            @typed_spreadsheet.CellValue::from_int(value + 1),
+          )
+        _ =>
+          @typed_spreadsheet.CellResult::type_error(
+            "formula dependency mismatch",
+          )
+      }
+    },
+  )
+  match sheet.read(formula) {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(value)) =>
+      inspect(value, content="4")
+    _ => abort("expected formula result before rollback")
+  }
+
+  let result = rt.batch_result(() => {
+    let _ = sheet.delete(formula)
+    raise SpreadsheetBatchError::Abort
+  })
+
+  inspect(result is Err(Abort), content="true")
+  match sheet.read(formula) {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(value)) =>
+      inspect(value, content="4")
+    _ => abort("expected formula cell to survive batch rollback")
+  }
+}
+
+///|
 test "typed spreadsheet spike: batch_result rollback on raised error" {
   let rt = @incr.Runtime()
   let source = @incr.InputField(rt, 1, label="source")
