@@ -63,6 +63,10 @@ pub fn Worksheet::set_input(
   declared? : CellType = CellType::TAny,
   label? : String,
 ) -> CellResult {
+  if !self.owns_cell_id(id) {
+    return CellResult::RefError("foreign cell id")
+  }
+
   let cell_type = if declared == CellType::TAny {
     value.cell_type()
   } else {
@@ -121,8 +125,9 @@ pub fn Worksheet::set_input(
 ///
 /// The `compute` function receives the dependency values in `deps` order.
 ///
-/// Returns `Unit` when installation succeeds. Read the cell through
-/// `read` to observe evaluation results such as `TypeError`/`RefError`.
+/// Returns `Result::Ok(())` when installation succeeds and `RefError` for
+/// boundary mismatches. Read the cell through `read` to observe
+/// evaluation results such as `TypeError`/`RefError`.
 ///
 /// This keeps install success and evaluation success decoupled.
 pub fn Worksheet::set_formula(
@@ -132,7 +137,17 @@ pub fn Worksheet::set_formula(
   deps : Array[CellId],
   compute : (Array[CellValue]) -> CellResult,
   label? : String,
-) -> Unit {
+) -> Result[Unit, WorksheetError] {
+  if !self.owns_cell_id(id) {
+    return Err(WorksheetError::ref_error("foreign cell id"))
+  }
+
+  for dep_id in deps {
+    if !self.owns_cell_id(dep_id) {
+      return Err(WorksheetError::ref_error("foreign dependency id"))
+    }
+  }
+
   let existing = self.cells.get(id)
 
   let dep_ids = deps.copy()
@@ -180,13 +195,16 @@ pub fn Worksheet::set_formula(
   }
 
   self.cells.set(id, CellSlot::Formula(derived))
+
+  Ok(())
 }
 
 ///|
 /// Sets a formula cell from a hand-built formula AST.
 ///
-/// Returns `Unit` when installation succeeds. Read the cell through
-/// `read` to observe evaluation results such as `TypeError`/`RefError`.
+/// Returns `Result::Ok(())` when installation succeeds and `RefError` for
+/// boundary mismatches. Read the cell through `read` to observe
+/// evaluation results such as `TypeError`/`RefError`.
 ///
 /// This keeps install success and evaluation success decoupled.
 pub fn Worksheet::set_formula_ast(
@@ -195,7 +213,17 @@ pub fn Worksheet::set_formula_ast(
   declared : CellType,
   formula : Formula,
   label? : String,
-) -> Unit {
+) -> Result[Unit, WorksheetError] {
+  if !self.owns_cell_id(id) {
+    return Err(WorksheetError::ref_error("foreign cell id"))
+  }
+
+  for dep_id in formula.refs() {
+    if !self.owns_cell_id(dep_id) {
+      return Err(WorksheetError::ref_error("foreign dependency id"))
+    }
+  }
+
   let existing = self.cells.get(id)
 
   let computed = formula
@@ -228,11 +256,17 @@ pub fn Worksheet::set_formula_ast(
   }
 
   self.cells.set(id, CellSlot::Formula(derived))
+
+  Ok(())
 }
 
 ///|
 /// Removes a cell definition and disposes its underlying `@incr` node.
 pub fn Worksheet::delete(self : Worksheet, id : CellId) -> CellResult {
+  if !self.owns_cell_id(id) {
+    return CellResult::RefError("foreign cell id")
+  }
+
   match self.cells.get(id) {
     Some(slot) => {
       self.runtime.dispose_cell(slot.cell_id())
@@ -245,10 +279,19 @@ pub fn Worksheet::delete(self : Worksheet, id : CellId) -> CellResult {
 
 ///|
 fn Worksheet::read_slot(self : Worksheet, id : CellId) -> CellResult {
+  if !self.owns_cell_id(id) {
+    return CellResult::RefError("foreign cell id")
+  }
+
   match self.cells.get(id) {
     Some(slot) => slot.read()
     None => CellResult::RefError("cell not found")
   }
+}
+
+///|
+fn Worksheet::owns_cell_id(self : Worksheet, id : CellId) -> Bool {
+  self.sheet_id == id.sheet_id
 }
 
 ///|

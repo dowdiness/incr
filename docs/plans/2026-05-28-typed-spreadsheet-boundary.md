@@ -99,8 +99,9 @@ Recommended minimal graph shape:
   plan before any `Expr`-style sugar work is started.
 
 - [x] Finalize `set_formula` / `set_formula_ast` contract:
-  - install succeeds with `Unit` when the formula is structurally accepted,
-  - both setters return Unit on installation,
+  - install succeeds with `Result::Ok(())` when the formula is structurally
+    accepted,
+  - boundary violations return `Result::Err(WorksheetError::RefError(...))`;
   - evaluation failures are surfaced via `Worksheet::read` as
     `CellResult::TypeError`/`CellResult::RefError`.
 - [x] Add panic regression test for operation failure (`disposed` worksheet) in

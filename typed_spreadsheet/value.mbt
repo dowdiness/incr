@@ -82,9 +82,21 @@ pub enum CellResult {
 } derive(Eq, Debug)
 
 ///|
+/// Errors returned by worksheet operations during installation.
+pub enum WorksheetError {
+  RefError(String)
+} derive(Eq, Debug)
+
+///|
 /// Constructs a successful cell result.
 pub fn CellResult::ok(value : CellValue) -> CellResult {
   Ok(value)
+}
+
+///|
+/// Constructs a worksheet-level reference error.
+pub fn WorksheetError::ref_error(message : String) -> WorksheetError {
+  RefError(message)
 }
 
 ///|

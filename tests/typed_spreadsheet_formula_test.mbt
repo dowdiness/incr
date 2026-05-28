@@ -46,6 +46,48 @@ test "typed spreadsheet: formula AST add over refs" {
 }
 
 ///|
+test "typed spreadsheet: formula AST follows input overwrite" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(104))
+  let source = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+  let target = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
+
+  inspect(
+    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(1)).is_ok(),
+    content="true",
+  )
+
+  let formula = @typed_spreadsheet.Formula::add(
+    @typed_spreadsheet.Formula::cell_ref(source),
+    @typed_spreadsheet.Formula::literal(
+      @typed_spreadsheet.CellValue::from_int(1),
+    ),
+  )
+  let _ = sheet.set_formula_ast(
+    target,
+    @typed_spreadsheet.CellType::t_int(),
+    formula,
+  )
+
+  match sheet.read(target) {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(value)) =>
+      inspect(value, content="2")
+    _ => abort("expected Ok(Int(2)) for formula AST before overwrite")
+  }
+
+  inspect(
+    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(10)).is_ok(),
+    content="true",
+  )
+
+  match sheet.read(target) {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(value)) =>
+      inspect(value, content="11")
+    _ => abort("expected Ok(Int(11)) for formula AST after overwrite")
+  }
+}
+
+///|
 test "typed spreadsheet: formula AST type error is propagated" {
   let rt = @incr.Runtime()
   let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(101))
