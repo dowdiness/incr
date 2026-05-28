@@ -81,27 +81,12 @@ pub fn Worksheet::set_input(
     declared
   }
 
-  match self.cells.get(id) {
-    Some(slot) => {
-      let presence = self.cell_presence_for(id)
-      if !cell_type.accepts(value) {
-        return type_error(cell_type, value)
-      }
-      if !presence.get() {
-        presence.set(true)
-      }
-      slot.definition.force_set(CellDefinition::Input(value))
-      CellResult::Ok(value)
-    }
-    None => {
-      if !cell_type.accepts(value) {
-        return type_error(cell_type, value)
-      }
-      let slot = self.new_slot(CellDefinition::Input(value), label?)
-      self.store_new_slot(id, slot)
-      CellResult::Ok(value)
-    }
+  if !cell_type.accepts(value) {
+    return type_error(cell_type, value)
   }
+
+  self.set_cell_definition(id, CellDefinition::Input(value), label?)
+  CellResult::Ok(value)
 }
 
 ///|
@@ -126,26 +111,12 @@ pub fn Worksheet::set_formula(
     return Err(WorksheetError::ref_error("foreign cell id"))
   }
 
-  for dep_id in deps {
-    if !self.owns_cell_id(dep_id) {
-      return Err(WorksheetError::ref_error("foreign dependency id"))
-    }
+  if !self.all_cell_ids_owned(deps) {
+    return Err(WorksheetError::ref_error("foreign dependency id"))
   }
 
   let definition = CellDefinition::Formula(deps.copy(), declared, compute)
-  match self.cells.get(id) {
-    Some(slot) => {
-      let presence = self.cell_presence_for(id)
-      if !presence.get() {
-        presence.set(true)
-      }
-      slot.definition.force_set(definition)
-    }
-    None => {
-      let slot = self.new_slot(definition, label?)
-      self.store_new_slot(id, slot)
-    }
-  }
+  self.set_cell_definition(id, definition, label?)
 
   Ok(())
 }
@@ -170,10 +141,8 @@ pub fn Worksheet::set_formula_ast(
   }
 
   let dep_ids = formula.refs()
-  for dep_id in dep_ids {
-    if !self.owns_cell_id(dep_id) {
-      return Err(WorksheetError::ref_error("foreign dependency id"))
-    }
+  if !self.all_cell_ids_owned(dep_ids) {
+    return Err(WorksheetError::ref_error("foreign dependency id"))
   }
 
   let computed = formula
@@ -182,19 +151,7 @@ pub fn Worksheet::set_formula_ast(
   ) {
     computed.evaluate(fn(dep_id) { self.read_slot(dep_id) })
   })
-  match self.cells.get(id) {
-    Some(slot) => {
-      let presence = self.cell_presence_for(id)
-      if !presence.get() {
-        presence.set(true)
-      }
-      slot.definition.force_set(definition)
-    }
-    None => {
-      let slot = self.new_slot(definition, label?)
-      self.store_new_slot(id, slot)
-    }
-  }
+  self.set_cell_definition(id, definition, label?)
 
   Ok(())
 }
@@ -286,6 +243,38 @@ fn Worksheet::cell_presence_for(
       field
     }
   }
+}
+
+///|
+fn Worksheet::set_cell_definition(
+  self : Worksheet,
+  id : CellId,
+  definition : CellDefinition,
+  label? : String,
+) -> Unit {
+  match self.cells.get(id) {
+    Some(slot) => {
+      let presence = self.cell_presence_for(id)
+      if !presence.get() {
+        presence.set(true)
+      }
+      slot.definition.force_set(definition)
+    }
+    None => {
+      let slot = self.new_slot(definition, label?)
+      self.store_new_slot(id, slot)
+    }
+  }
+}
+
+///|
+fn Worksheet::all_cell_ids_owned(self : Worksheet, ids : Array[CellId]) -> Bool {
+  for id in ids {
+    if !self.owns_cell_id(id) {
+      return false
+    }
+  }
+  true
 }
 
 ///|

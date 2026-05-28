@@ -92,20 +92,7 @@ fn Formula::evaluate(
         "Mul requires Int on the right side",
         fn(lhs_value, rhs_value) { CellValue::from_int(lhs_value * rhs_value) },
       )
-    Formula::Eq(lhs, rhs) => {
-      let left = lhs.evaluate(read)
-      match left {
-        CellResult::Ok(left_value) => {
-          let right = rhs.evaluate(read)
-          match right {
-            CellResult::Ok(right_value) =>
-              CellResult::ok(CellValue::Bool(left_value == right_value))
-            _ => right
-          }
-        }
-        _ => left
-      }
-    }
+    Formula::Eq(lhs, rhs) => evaluate_eq(lhs, rhs, read)
     Formula::Gt(lhs, rhs) =>
       evaluate_int_binary(
         lhs,
@@ -206,4 +193,19 @@ fn collect_binary_refs(
 ) -> Unit {
   lhs.collect_refs(refs)
   rhs.collect_refs(refs)
+}
+
+///|
+fn evaluate_eq(
+  lhs : Formula,
+  rhs : Formula,
+  read : (CellId) -> CellResult,
+) -> CellResult {
+  let left = lhs.evaluate(read)
+  guard left is CellResult::Ok(left_value) else { return left }
+
+  let right = rhs.evaluate(read)
+  guard right is CellResult::Ok(right_value) else { return right }
+
+  CellResult::ok(CellValue::Bool(left_value == right_value))
 }
