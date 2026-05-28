@@ -101,7 +101,8 @@ pub fn Worksheet::set_input(
           value.cell_type().to_string(),
         )
       }
-      self.cells.set(id, self.new_slot(CellDefinition::Input(value), label?))
+      let slot = self.new_slot(CellDefinition::Input(value), label?)
+      self.store_new_slot(id, slot)
       CellResult::Ok(value)
     }
   }
@@ -138,7 +139,10 @@ pub fn Worksheet::set_formula(
   let definition = CellDefinition::Formula(deps.copy(), declared, compute)
   match self.cells.get(id) {
     Some(slot) => slot.definition.force_set(definition)
-    None => self.cells.set(id, self.new_slot(definition, label?))
+    None => {
+      let slot = self.new_slot(definition, label?)
+      self.store_new_slot(id, slot)
+    }
   }
 
   Ok(())
@@ -176,7 +180,10 @@ pub fn Worksheet::set_formula_ast(
   })
   match self.cells.get(id) {
     Some(slot) => slot.definition.force_set(definition)
-    None => self.cells.set(id, self.new_slot(definition, label?))
+    None => {
+      let slot = self.new_slot(definition, label?)
+      self.store_new_slot(id, slot)
+    }
   }
 
   Ok(())
@@ -229,6 +236,22 @@ fn Worksheet::new_slot(
     label?,
   )
   CellSlot::{ definition, value }
+}
+
+///|
+fn Worksheet::store_new_slot(
+  self : Worksheet,
+  id : CellId,
+  slot : CellSlot,
+) -> Unit {
+  let definition_id = slot.definition.id()
+  let value_id = slot.value.id()
+  self.cells.set(id, slot)
+  self.runtime.record_batch_rollback(definition_id, fn() {
+    self.cells.remove(id)
+    self.runtime.dispose_cell(definition_id)
+    self.runtime.dispose_cell(value_id)
+  })
 }
 
 ///|

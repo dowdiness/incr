@@ -4,6 +4,70 @@ suberror SpreadsheetBatchError {
 }
 
 ///|
+test "typed spreadsheet spike: batch rollback removes newly created cells" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(200))
+  let source = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+  let formula = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
+  let formula_ast = @typed_spreadsheet.CellId(sheet.sheet_id(), "C1")
+
+  inspect(
+    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(1)).is_ok(),
+    content="true",
+  )
+
+  let result = rt.batch_result(() => {
+    let _ = sheet.set_input(
+      @typed_spreadsheet.CellId(sheet.sheet_id(), "D1"),
+      @typed_spreadsheet.CellValue::from_int(2),
+    )
+    let _ = sheet.set_formula(
+      formula,
+      @typed_spreadsheet.CellType::t_int(),
+      [],
+      fn(_deps) {
+        @typed_spreadsheet.CellResult::ok(
+          @typed_spreadsheet.CellValue::from_int(10),
+        )
+      },
+    )
+    let first = @typed_spreadsheet.Formula::literal(
+      @typed_spreadsheet.CellValue::from_int(20),
+    )
+    let _ = sheet.set_formula_ast(
+      formula_ast,
+      @typed_spreadsheet.CellType::t_int(),
+      first,
+    )
+    raise SpreadsheetBatchError::Abort
+  })
+
+  inspect(result is Err(Abort), content="true")
+
+  inspect(
+    match sheet.read(@typed_spreadsheet.CellId(sheet.sheet_id(), "D1")) {
+      @typed_spreadsheet.CellResult::RefError(_) => true
+      _ => false
+    },
+    content="true",
+  )
+  inspect(
+    match sheet.read(formula) {
+      @typed_spreadsheet.CellResult::RefError(_) => true
+      _ => false
+    },
+    content="true",
+  )
+  inspect(
+    match sheet.read(formula_ast) {
+      @typed_spreadsheet.CellResult::RefError(_) => true
+      _ => false
+    },
+    content="true",
+  )
+}
+
+///|
 test "typed spreadsheet spike: batch_result rollback on raised error" {
   let rt = @incr.Runtime()
   let source = @incr.InputField(rt, 1, label="source")
