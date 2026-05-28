@@ -154,8 +154,10 @@ fn Runtime::record_batch_signal(
 
 ///|
 /// Registers a rollback action for the current batch frame.
-/// Only the first write per signal in a frame stores an undo entry.
-fn Runtime::record_batch_rollback(
+///
+/// Only the first rollback registration per `cell_id` in the frame is stored.
+/// If not currently in a batch, this is a no-op.
+pub fn Runtime::record_batch_rollback(
   self : Runtime,
   cell_id : CellId,
   rollback : () -> Unit,
