@@ -177,12 +177,13 @@ fn Formula::collect_refs(self : Formula, refs : Array[CellId]) -> Unit {
 
 ///|
 fn formula_refs_contains(refs : Array[CellId], target : CellId) -> Bool {
-  for value in refs {
-    if value == target {
-      break true
-    }
+  let iter = refs.iter()
+  for found = false
+      iter.next() is Some(value)
+      found = found || value == target {
+
   } nobreak {
-    false
+    found
   }
 }
 
