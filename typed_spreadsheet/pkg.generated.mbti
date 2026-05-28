@@ -67,10 +67,18 @@ pub enum Formula {
   Literal(CellValue)
   Ref(CellId)
   Add(Formula, Formula)
+  Mul(Formula, Formula)
+  Eq(Formula, Formula)
+  Gt(Formula, Formula)
+  If(Formula, Formula, Formula)
 }
 pub fn Formula::add(Self, Self) -> Self
 pub fn Formula::cell_ref(CellId) -> Self
+pub fn Formula::eq(Self, Self) -> Self
+pub fn Formula::gt(Self, Self) -> Self
+pub fn Formula::if_(Self, Self, Self) -> Self
 pub fn Formula::literal(CellValue) -> Self
+pub fn Formula::mul(Self, Self) -> Self
 pub fn Formula::refs(Self) -> Array[CellId]
 
 pub struct SheetId {

@@ -7,6 +7,14 @@ pub enum Formula {
   Ref(CellId)
   /// Integer addition of two formulas.
   Add(Formula, Formula)
+  /// Integer multiplication of two formulas.
+  Mul(Formula, Formula)
+  /// Equality comparison of two formulas.
+  Eq(Formula, Formula)
+  /// Integer greater-than comparison of two formulas.
+  Gt(Formula, Formula)
+  /// Conditional formula execution.
+  If(Formula, Formula, Formula)
 }
 
 ///|
@@ -25,6 +33,34 @@ pub fn Formula::cell_ref(cell_id : CellId) -> Formula {
 /// Creates an integer-addition formula node.
 pub fn Formula::add(lhs : Formula, rhs : Formula) -> Formula {
   Formula::Add(lhs, rhs)
+}
+
+///|
+/// Creates an integer-multiplication formula node.
+pub fn Formula::mul(lhs : Formula, rhs : Formula) -> Formula {
+  Formula::Mul(lhs, rhs)
+}
+
+///|
+/// Creates an equality comparison formula node.
+pub fn Formula::eq(lhs : Formula, rhs : Formula) -> Formula {
+  Formula::Eq(lhs, rhs)
+}
+
+///|
+/// Creates an integer-greater-than comparison formula node.
+pub fn Formula::gt(lhs : Formula, rhs : Formula) -> Formula {
+  Formula::Gt(lhs, rhs)
+}
+
+///|
+/// Creates a conditional formula node.
+pub fn Formula::if_(
+  condition : Formula,
+  then_formula : Formula,
+  else_formula : Formula,
+) -> Formula {
+  Formula::If(condition, then_formula, else_formula)
 }
 
 ///|
@@ -63,6 +99,86 @@ fn Formula::evaluate(
         _ => left
       }
     }
+    Formula::Mul(lhs, rhs) => {
+      let left = lhs.evaluate(read)
+      match left {
+        CellResult::Ok(left_value) => {
+          let right = rhs.evaluate(read)
+          match right {
+            CellResult::Ok(right_value) =>
+              match left_value {
+                CellValue::Int(lhs_value) =>
+                  match right_value {
+                    CellValue::Int(rhs_value) =>
+                      CellResult::ok(CellValue::from_int(lhs_value * rhs_value))
+                    _ =>
+                      CellResult::type_error(
+                        "Mul requires Int on the right side",
+                      )
+                  }
+                _ => CellResult::type_error("Mul requires Int on the left side")
+              }
+            _ => right
+          }
+        }
+        _ => left
+      }
+    }
+    Formula::Eq(lhs, rhs) => {
+      let left = lhs.evaluate(read)
+      match left {
+        CellResult::Ok(left_value) => {
+          let right = rhs.evaluate(read)
+          match right {
+            CellResult::Ok(right_value) =>
+              CellResult::ok(CellValue::Bool(left_value == right_value))
+            _ => right
+          }
+        }
+        _ => left
+      }
+    }
+    Formula::Gt(lhs, rhs) => {
+      let left = lhs.evaluate(read)
+      match left {
+        CellResult::Ok(left_value) => {
+          let right = rhs.evaluate(read)
+          match right {
+            CellResult::Ok(right_value) =>
+              match left_value {
+                CellValue::Int(lhs_value) =>
+                  match right_value {
+                    CellValue::Int(rhs_value) =>
+                      CellResult::ok(
+                        CellValue::from_bool(lhs_value > rhs_value),
+                      )
+                    _ =>
+                      CellResult::type_error(
+                        "Gt requires Int on the right side",
+                      )
+                  }
+                _ => CellResult::type_error("Gt requires Int on the left side")
+              }
+            _ => right
+          }
+        }
+        _ => left
+      }
+    }
+    Formula::If(condition, then_formula, else_formula) =>
+      match condition.evaluate(read) {
+        CellResult::Ok(value) =>
+          match value {
+            CellValue::Bool(flag) =>
+              if flag {
+                then_formula.evaluate(read)
+              } else {
+                else_formula.evaluate(read)
+              }
+            _ => CellResult::type_error("If requires Bool condition")
+          }
+        result => result
+      }
   }
 }
 
@@ -85,6 +201,23 @@ fn Formula::collect_refs(self : Formula, refs : Array[CellId]) -> Unit {
     Formula::Add(lhs, rhs) => {
       lhs.collect_refs(refs)
       rhs.collect_refs(refs)
+    }
+    Formula::Mul(lhs, rhs) => {
+      lhs.collect_refs(refs)
+      rhs.collect_refs(refs)
+    }
+    Formula::Eq(lhs, rhs) => {
+      lhs.collect_refs(refs)
+      rhs.collect_refs(refs)
+    }
+    Formula::Gt(lhs, rhs) => {
+      lhs.collect_refs(refs)
+      rhs.collect_refs(refs)
+    }
+    Formula::If(condition, then_formula, else_formula) => {
+      condition.collect_refs(refs)
+      then_formula.collect_refs(refs)
+      else_formula.collect_refs(refs)
     }
   }
 }
