@@ -482,11 +482,10 @@ fn Worksheet::set_cell_definition(
 fn Worksheet::all_cell_ids_owned(self : Worksheet, ids : Array[CellId]) -> Bool {
   for id in ids {
     if !self.owns_cell_id(id) {
-      break false
+      return false
     }
-  } nobreak {
-    true
   }
+  true
 }
 
 ///|
