@@ -165,22 +165,23 @@ pub fn[T] Worksheet::trace(
   self : Worksheet,
   operation : () -> T,
 ) -> (T, WorksheetTrace) {
-  let formula_cells = self.formula_cells()
-  for id in formula_cells {
+  let pre_formula_cells = self.formula_cells()
+  for id in pre_formula_cells {
     let _ = self.read_slot(id)
   }
 
-  let before = self.formula_revision_snapshot_with_ids(formula_cells)
+  let before = self.formula_revision_snapshot_with_ids(pre_formula_cells)
   let output = operation()
-  for id in self.formula_cells() {
+  let post_formula_cells = self.formula_cells()
+  for id in post_formula_cells {
     let _ = self.read_slot(id)
   }
-  let after = self.formula_revision_snapshot()
+  let after = self.formula_revision_snapshot_with_ids(post_formula_cells)
 
   let recomputed : Array[CellId] = []
   let changed : Array[CellId] = []
   let unchanged : Array[CellId] = []
-  for id in self.formula_cells() {
+  for id in post_formula_cells {
     let after_info = after.get(id)
     match after_info {
       None => ()
@@ -379,28 +380,6 @@ fn Worksheet::formula_revision_snapshot_with_ids(
 ) -> @hashmap.HashMap[CellId, FormulaRevisionSnapshot] {
   let snapshot = @hashmap.HashMap([])
   for id in formula_cells {
-    match self.cells.get(id) {
-      Some(slot) =>
-        match self.runtime.cell_info(slot.value.id()) {
-          Some(info) =>
-            snapshot.set(id, FormulaRevisionSnapshot::{
-              changed_at: info.changed_at,
-              verified_at: info.verified_at,
-            })
-          None => ()
-        }
-      None => ()
-    }
-  }
-  snapshot
-}
-
-///|
-fn Worksheet::formula_revision_snapshot(
-  self : Worksheet,
-) -> @hashmap.HashMap[CellId, FormulaRevisionSnapshot] {
-  let snapshot = @hashmap.HashMap([])
-  for id in self.formula_cells() {
     match self.cells.get(id) {
       Some(slot) =>
         match self.runtime.cell_info(slot.value.id()) {
