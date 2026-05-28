@@ -85,12 +85,7 @@ pub fn Worksheet::set_input(
     Some(slot) => {
       let presence = self.cell_presence_for(id)
       if !cell_type.accepts(value) {
-        return CellResult::TypeError(
-          "value type mismatch: expected " +
-          cell_type.to_string() +
-          " and got " +
-          value.cell_type().to_string(),
-        )
+        return type_error(cell_type, value)
       }
       if !presence.get() {
         presence.set(true)
@@ -100,12 +95,7 @@ pub fn Worksheet::set_input(
     }
     None => {
       if !cell_type.accepts(value) {
-        return CellResult::TypeError(
-          "value type mismatch: expected " +
-          cell_type.to_string() +
-          " and got " +
-          value.cell_type().to_string(),
-        )
+        return type_error(cell_type, value)
       }
       let slot = self.new_slot(CellDefinition::Input(value), label?)
       self.store_new_slot(id, slot)
@@ -308,16 +298,10 @@ fn CellDefinition::evaluate(
     CellDefinition::Formula(dep_ids, expected, evaluate) => {
       let values = []
       for dep_id in dep_ids {
-        match worksheet.read_slot(dep_id) {
-          CellResult::Ok(value) => values.push(value)
-          CellResult::ParseError(message) =>
-            return CellResult::ParseError(message)
-          CellResult::TypeError(message) =>
-            return CellResult::TypeError(message)
-          CellResult::RefError(message) => return CellResult::RefError(message)
-          CellResult::CycleError(message) =>
-            return CellResult::CycleError(message)
-        }
+        let value_result = worksheet.read_slot(dep_id)
+        guard value_result is CellResult::Ok(value) else { return value_result }
+
+        values.push(value)
       }
 
       let result = evaluate(values)
@@ -337,6 +321,16 @@ fn CellDefinition::evaluate(
       }
     }
   }
+}
+
+///|
+fn type_error(cell_type : CellType, value : CellValue) -> CellResult {
+  CellResult::TypeError(
+    "value type mismatch: expected " +
+    cell_type.to_string() +
+    " and got " +
+    value.cell_type().to_string(),
+  )
 }
 
 ///|
