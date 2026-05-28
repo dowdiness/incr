@@ -187,7 +187,9 @@ pub fn Worksheet::set_formula_ast(
   }
 
   let computed = formula
-  let definition = CellDefinition::Formula(dep_ids, declared, fn(_deps) {
+  let definition = CellDefinition::Formula(([] : Array[CellId]), declared, fn(
+    _deps,
+  ) {
     computed.evaluate(fn(dep_id) { self.read_slot(dep_id) })
   })
   match self.cells.get(id) {

@@ -605,6 +605,66 @@ test "typed spreadsheet: formula AST if short-circuits unevaluated branch" {
 }
 
 ///|
+test "typed spreadsheet: formula AST if does not pre-read inactive missing branch" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(113))
+  let missing = @typed_spreadsheet.CellId(sheet.sheet_id(), "Z9")
+  let b1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
+
+  let formula = @typed_spreadsheet.Formula::if_(
+    @typed_spreadsheet.Formula::literal(
+      @typed_spreadsheet.CellValue::from_bool(true),
+    ),
+    @typed_spreadsheet.Formula::literal(
+      @typed_spreadsheet.CellValue::from_int(1),
+    ),
+    @typed_spreadsheet.Formula::cell_ref(missing),
+  )
+  let _ = sheet.set_formula_ast(
+    b1,
+    @typed_spreadsheet.CellType::t_int(),
+    formula,
+  )
+
+  match sheet.read(b1) {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(value)) =>
+      inspect(value, content="1")
+    _ =>
+      abort("expected true branch value to avoid reading missing false branch")
+  }
+}
+
+///|
+test "typed spreadsheet: formula AST if does not pre-read missing true branch" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(114))
+  let missing = @typed_spreadsheet.CellId(sheet.sheet_id(), "Z9")
+  let b1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
+
+  let formula = @typed_spreadsheet.Formula::if_(
+    @typed_spreadsheet.Formula::literal(
+      @typed_spreadsheet.CellValue::from_bool(false),
+    ),
+    @typed_spreadsheet.Formula::cell_ref(missing),
+    @typed_spreadsheet.Formula::literal(
+      @typed_spreadsheet.CellValue::from_int(2),
+    ),
+  )
+  let _ = sheet.set_formula_ast(
+    b1,
+    @typed_spreadsheet.CellType::t_int(),
+    formula,
+  )
+
+  match sheet.read(b1) {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(value)) =>
+      inspect(value, content="2")
+    _ =>
+      abort("expected false branch value to avoid reading missing true branch")
+  }
+}
+
+///|
 test "typed spreadsheet: formula AST resolves after missing dependency is created" {
   let rt = @incr.Runtime()
   let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(103))
