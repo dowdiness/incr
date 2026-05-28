@@ -142,8 +142,7 @@ test "typed spreadsheet spike: batch rollback preserves deleted formula dependen
           @typed_spreadsheet.CellResult::ok(
             @typed_spreadsheet.CellValue::from_int(value + 1),
           )
-        _ =>
-          @typed_spreadsheet.CellResult::type_error("dependency mismatch")
+        _ => @typed_spreadsheet.CellResult::type_error("dependency mismatch")
       }
     },
   )
@@ -157,8 +156,7 @@ test "typed spreadsheet spike: batch rollback preserves deleted formula dependen
           @typed_spreadsheet.CellResult::ok(
             @typed_spreadsheet.CellValue::from_int(value + 1),
           )
-        _ =>
-          @typed_spreadsheet.CellResult::type_error("dependency mismatch")
+        _ => @typed_spreadsheet.CellResult::type_error("dependency mismatch")
       }
     },
   )
@@ -272,6 +270,58 @@ test "typed spreadsheet spike: batch_result rollback on raised error" {
   inspect(modifier.get(), content="2")
   inspect(total.read_or_abort(), content="3")
   inspect(global_calls, content="0")
+}
+
+///|
+test "typed spreadsheet spike: batch rollback delete remains silent" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(205))
+  let source = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+
+  inspect(
+    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(10)).is_ok(),
+    content="true",
+  )
+
+  let mut global_calls = 0
+  rt.set_on_change(() => global_calls = global_calls + 1)
+
+  let result = rt.batch_result(() => {
+    let _ = sheet.delete(source)
+    raise SpreadsheetBatchError::Abort
+  })
+
+  inspect(result is Err(Abort), content="true")
+  inspect(global_calls, content="0")
+  match sheet.read(source) {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(value)) =>
+      inspect(value, content="10")
+    _ => abort("expected source to survive batch rollback")
+  }
+}
+
+///|
+test "typed spreadsheet spike: batch rollback create+delete stays absent" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(206))
+  let source = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+
+  let mut global_calls = 0
+  rt.set_on_change(() => global_calls = global_calls + 1)
+
+  let result = rt.batch_result(() => {
+    let _ = sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(11))
+    let _ = sheet.delete(source)
+    raise SpreadsheetBatchError::Abort
+  })
+
+  inspect(result is Err(Abort), content="true")
+  inspect(global_calls, content="0")
+  match sheet.read(source) {
+    @typed_spreadsheet.CellResult::RefError(message) =>
+      inspect(message, content="no cell at the requested address")
+    _ => abort("expected deleted create+delete rollback to leave no cell")
+  }
 }
 
 ///|

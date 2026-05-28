@@ -93,7 +93,7 @@ pub fn Worksheet::set_input(
         )
       }
       if !presence.get() {
-        presence.force_set(true)
+        presence.set(true)
       }
       slot.definition.force_set(CellDefinition::Input(value))
       CellResult::Ok(value)
@@ -147,7 +147,7 @@ pub fn Worksheet::set_formula(
     Some(slot) => {
       let presence = self.cell_presence_for(id)
       if !presence.get() {
-        presence.force_set(true)
+        presence.set(true)
       }
       slot.definition.force_set(definition)
     }
@@ -194,7 +194,7 @@ pub fn Worksheet::set_formula_ast(
     Some(slot) => {
       let presence = self.cell_presence_for(id)
       if !presence.get() {
-        presence.force_set(true)
+        presence.set(true)
       }
       slot.definition.force_set(definition)
     }
@@ -215,18 +215,13 @@ pub fn Worksheet::delete(self : Worksheet, id : CellId) -> CellResult {
   }
 
   match self.cells.get(id) {
-    Some(slot) => {
-      let definition = slot.definition.get()
+    Some(_) => {
       let presence = self.cell_presence_for(id)
       let previous_present = presence.get()
       if !previous_present {
         return CellResult::RefError("no cell at the requested address")
       }
-      presence.force_set(false)
-      self.runtime.record_batch_rollback(slot.definition.id(), fn() {
-        slot.definition.force_set(definition)
-        presence.force_set(previous_present)
-      })
+      presence.set(false)
       CellResult::Ok(CellValue::Blank)
     }
     None => CellResult::RefError("no cell at the requested address")
@@ -274,15 +269,13 @@ fn Worksheet::store_new_slot(
   slot : CellSlot,
 ) -> Unit {
   let presence = self.cell_presence_for(id)
-  let previous_present = presence.get()
-  presence.force_set(true)
+  presence.set(true)
 
   let definition_id = slot.definition.id()
   let value_id = slot.value.id()
   self.cells.set(id, slot)
   self.runtime.record_batch_rollback(definition_id, fn() {
     self.cells.remove(id)
-    presence.force_set(previous_present)
     self.runtime.dispose_cell(definition_id)
     self.runtime.dispose_cell(value_id)
   })
