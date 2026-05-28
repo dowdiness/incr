@@ -157,6 +157,17 @@ test "static derived probe: gc traverses static dependency chain" {
 }
 
 ///|
+test "panic static derived probe: gc is rejected during static recompute" {
+  let rt = Runtime()
+  let input = Input(rt, 1)
+  let derived = static_derived_map1_probe(input, x => {
+    rt.gc()
+    x + 1
+  })
+  ignore(derived.read_or_abort())
+}
+
+///|
 test "static derived probe: compute failure clears in-progress and hooks" {
   let rt = Runtime()
   rt.on_memo_event(_evt => ())
@@ -311,6 +322,18 @@ test "static derived probe: event hook pairs enter and completed" {
   let derived = static_derived_map1_probe(input, x => x + 1)
   inspect(derived.read_or_abort(), content="2")
   debug_inspect(events, content="[\"enter\", \"completed\"]")
+}
+
+///|
+test "static derived probe: nested events drain after outer recompute" {
+  let rt = Runtime()
+  let depths : Array[Int] = []
+  rt.on_memo_event(_evt => depths.push(rt.static_recompute_depth))
+  let input = Input(rt, 1)
+  let child = static_derived_map1_probe(input, x => x + 1)
+  let parent = static_derived_map_static1_probe(child, x => x * 2)
+  inspect(parent.read_or_abort(), content="4")
+  debug_inspect(depths, content="[0, 0, 0, 0]")
 }
 
 ///|

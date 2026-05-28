@@ -292,7 +292,9 @@ fn Runtime::drain_pending_events_direct(self : Runtime) -> Unit {
 ///|
 /// Drains pending events when no recompute frame or callback is active.
 fn Runtime::drain_pending_events_if_idle(self : Runtime) -> Unit {
-  if self.core.callback_depth != 0 || !self.core.tracking.stack.is_empty() {
+  if self.core.callback_depth != 0 ||
+    !self.core.tracking.stack.is_empty() ||
+    self.static_recompute_depth != 0 {
     return
   }
   self.drain_pending_events_direct()
@@ -627,6 +629,9 @@ fn Runtime::remove_gc_root(self : Runtime, id : CellId) -> Int {
 /// `self.dispose_cell`, so per-kind CellLifecycle dispatch remains
 /// reachable from the kernel sweep loop.
 pub fn Runtime::gc(self : Runtime) -> Unit {
+  guard self.static_recompute_depth == 0 else {
+    abort("gc: cannot run during static Derived recompute")
+  }
   @kernel.gc(self.core, fn(id) { self.dispose_cell(id) })
   if self.has_pending_events() {
     self.drain_pending_events_if_idle()
