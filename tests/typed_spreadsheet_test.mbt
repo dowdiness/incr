@@ -149,6 +149,187 @@ test "typed spreadsheet: inspect formula snapshot" {
 }
 
 ///|
+test "typed spreadsheet: trace captures recompute and change" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(4))
+  let a1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+  let a2 = @typed_spreadsheet.CellId(sheet.sheet_id(), "A2")
+  let target = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
+
+  inspect(
+    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(10)).is_ok(),
+    content="true",
+  )
+  inspect(
+    sheet.set_input(a2, @typed_spreadsheet.CellValue::from_int(20)).is_ok(),
+    content="true",
+  )
+  let _ = sheet.set_formula(
+    target,
+    @typed_spreadsheet.CellType::t_int(),
+    [a1, a2],
+    fn(deps) {
+      match deps[0] {
+        @typed_spreadsheet.CellValue::Int(lhs) =>
+          match deps[1] {
+            @typed_spreadsheet.CellValue::Int(rhs) =>
+              @typed_spreadsheet.CellResult::ok(
+                @typed_spreadsheet.CellValue::from_int(lhs + rhs),
+              )
+            _ =>
+              @typed_spreadsheet.CellResult::type_error(
+                "formula dependency mismatch",
+              )
+          }
+        _ =>
+          @typed_spreadsheet.CellResult::type_error(
+            "formula dependency mismatch",
+          )
+      }
+    },
+  )
+
+  // Prime baseline state so dependency change is observable.
+  match sheet.read(target) {
+    @typed_spreadsheet.CellResult::Ok(_) => ()
+    _ => abort("expected formula to evaluate initially")
+  }
+
+  let (_, trace) = sheet.trace(fn() {
+    let _ = sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(11))
+    ()
+  })
+
+  inspect(trace.recomputed.contains(target), content="true")
+  inspect(trace.changed.contains(target), content="true")
+  inspect(trace.unchanged.length(), content="0")
+  inspect(trace.changed.length(), content="1")
+}
+
+///|
+test "typed spreadsheet: trace captures unchanged recompute" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(5))
+  let a1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+  let target = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
+
+  inspect(
+    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(7)).is_ok(),
+    content="true",
+  )
+  let _ = sheet.set_formula(
+    target,
+    @typed_spreadsheet.CellType::t_int(),
+    [a1],
+    fn(deps) {
+      match deps[0] {
+        @typed_spreadsheet.CellValue::Int(value) =>
+          @typed_spreadsheet.CellResult::ok(
+            @typed_spreadsheet.CellValue::from_int(value + 1 - 1 + 0),
+          )
+        _ =>
+          @typed_spreadsheet.CellResult::type_error(
+            "formula dependency mismatch",
+          )
+      }
+    },
+  )
+
+  match sheet.read(target) {
+    @typed_spreadsheet.CellResult::Ok(_) => ()
+    _ => abort("expected formula to evaluate initially")
+  }
+
+  let (_, trace) = sheet.trace(fn() {
+    let _ = sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(7))
+    ()
+  })
+
+  inspect(trace.recomputed.contains(target), content="true")
+  inspect(trace.changed.contains(target), content="false")
+  inspect(trace.unchanged.contains(target), content="true")
+}
+
+///|
+test "typed spreadsheet: trace ignores pre-existing pending work" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(11))
+  let input = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+  let formula = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
+
+  inspect(
+    sheet.set_input(input, @typed_spreadsheet.CellValue::from_int(10)).is_ok(),
+    content="true",
+  )
+  let _ = sheet.set_formula(
+    formula,
+    @typed_spreadsheet.CellType::t_int(),
+    [input],
+    fn(deps) {
+      match deps[0] {
+        @typed_spreadsheet.CellValue::Int(value) =>
+          @typed_spreadsheet.CellResult::ok(
+            @typed_spreadsheet.CellValue::from_int(value + 1),
+          )
+        _ =>
+          @typed_spreadsheet.CellResult::type_error(
+            "formula dependency mismatch",
+          )
+      }
+    },
+  )
+
+  // Update input but do not read the formula, leaving it stale.
+  inspect(
+    sheet.set_input(input, @typed_spreadsheet.CellValue::from_int(11)).is_ok(),
+    content="true",
+  )
+
+  let (_, trace) = sheet.trace(fn() { () })
+
+  inspect(trace.recomputed.contains(formula), content="false")
+  inspect(trace.changed.contains(formula), content="false")
+  inspect(trace.unchanged.contains(formula), content="false")
+}
+
+///|
+test "typed spreadsheet: trace includes newly created formulas" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(6))
+  let input = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+  let formula = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
+
+  inspect(
+    sheet.set_input(input, @typed_spreadsheet.CellValue::from_int(3)).is_ok(),
+    content="true",
+  )
+
+  let (_, trace) = sheet.trace(fn() {
+    let _ = sheet.set_formula(
+      formula,
+      @typed_spreadsheet.CellType::t_int(),
+      [input],
+      fn(deps) {
+        match deps[0] {
+          @typed_spreadsheet.CellValue::Int(value) =>
+            @typed_spreadsheet.CellResult::ok(
+              @typed_spreadsheet.CellValue::from_int(value * 2),
+            )
+          _ =>
+            @typed_spreadsheet.CellResult::type_error(
+              "formula dependency mismatch",
+            )
+        }
+      },
+    )
+    ()
+  })
+
+  inspect(trace.recomputed.contains(formula), content="true")
+  inspect(trace.changed.contains(formula), content="true")
+}
+
+///|
 test "typed spreadsheet: inspect missing snapshot" {
   let rt = @incr.Runtime()
   let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(4))
