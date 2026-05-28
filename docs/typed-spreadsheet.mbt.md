@@ -24,6 +24,9 @@ for formula cells as three disjoint buckets:
 - `unchanged` — formula cells that reverified (`verified_at` advanced) but did not
   change value
 
+`unchanged` means the formula was reverified but produced the same result value; it
+does not imply no evaluation work happened.
+
 Use these buckets to distinguish *work done* from *values that actually changed*.
 
 ## `Worksheet::trace`
@@ -33,10 +36,20 @@ Use these buckets to distinguish *work done* from *values that actually changed*
 - `result` is the return value of `op`.
 - `trace` is a `WorksheetTrace` for visible formula changes in that worksheet.
 
+Design note:
+
+- `Worksheet::trace` is a before/after summary, not an event log.
+- It classifies formula cells by revision metadata observed before and after
+  `op`, after forcing reads.
+- Buckets include only formula cells present **after** `op`; deleted formula cells
+  are not represented as trace events.
+- `trace` does not make `op` atomic. Wrap `op` with `Runtime::batch` or
+  `Runtime::batch_result` if you need atomic semantics.
+
 Implementation note:
 
 - The method snapshots formula-cell revision metadata before and after `op` using
-   `Runtime::cell_info`.
+  `Runtime::cell_info`.
 - It first reads all existing formula cells to refresh stale revisions, then reads
   formula cells again after `op` to classify each cell as recomputed/changed/
   unchanged.
