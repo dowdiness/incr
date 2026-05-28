@@ -77,7 +77,8 @@ test "typed spreadsheet: inspect input snapshot" {
     Some(_) => inspect(true, content="true")
     None => inspect(false, content="false")
   }
-  inspect(snapshot.dependencies.length(), content="0")
+  inspect(snapshot.installed_dependencies.length(), content="0")
+  inspect(snapshot.static_references.length(), content="0")
 
   match snapshot.result {
     @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(value)) =>
@@ -129,9 +130,12 @@ test "typed spreadsheet: inspect formula snapshot" {
 
   let snapshot = sheet.inspect_cell(target)
   inspect(snapshot.present, content="true")
-  inspect(snapshot.dependencies.length(), content="2")
-  inspect(snapshot.dependencies[0] == a1, content="true")
-  inspect(snapshot.dependencies[1] == a2, content="true")
+  inspect(snapshot.installed_dependencies.length(), content="2")
+  inspect(snapshot.installed_dependencies[0] == a1, content="true")
+  inspect(snapshot.installed_dependencies[1] == a2, content="true")
+  inspect(snapshot.static_references.length(), content="2")
+  inspect(snapshot.static_references[0] == a1, content="true")
+  inspect(snapshot.static_references[1] == a2, content="true")
   match snapshot.kind {
     Some(_) => inspect(true, content="true")
     None => inspect(false, content="false")
@@ -221,14 +225,65 @@ test "typed spreadsheet: inspect formula AST snapshot refs" {
   )
 
   let snapshot = sheet.inspect_cell(target)
-  inspect(snapshot.dependencies.length(), content="2")
-  inspect(snapshot.dependencies[0] == a1, content="true")
-  inspect(snapshot.dependencies[1] == a2, content="true")
+  inspect(snapshot.installed_dependencies.length(), content="0")
+  inspect(snapshot.static_references.length(), content="2")
+  inspect(snapshot.static_references[0] == a1, content="true")
+  inspect(snapshot.static_references[1] == a2, content="true")
 
   match snapshot.result {
     @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(value)) =>
       inspect(value, content="6")
     _ => abort("expected AST snapshot result to be Ok(Int(6))")
+  }
+}
+
+///|
+test "typed spreadsheet: inspect AST snapshot keeps static refs for inactive branches" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(60))
+  let condition = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+  let inactive = @typed_spreadsheet.CellId(sheet.sheet_id(), "B9")
+  let target = @typed_spreadsheet.CellId(sheet.sheet_id(), "C1")
+
+  inspect(
+    sheet
+    .set_input(condition, @typed_spreadsheet.CellValue::from_bool(true))
+    .is_ok(),
+    content="true",
+  )
+
+  let formula = @typed_spreadsheet.Formula::if_(
+    @typed_spreadsheet.Formula::cell_ref(condition),
+    @typed_spreadsheet.Formula::literal(
+      @typed_spreadsheet.CellValue::from_int(1),
+    ),
+    @typed_spreadsheet.Formula::add(
+      @typed_spreadsheet.Formula::cell_ref(inactive),
+      @typed_spreadsheet.Formula::literal(
+        @typed_spreadsheet.CellValue::from_int(99),
+      ),
+    ),
+  )
+
+  let _ = sheet.set_formula_ast(
+    target,
+    @typed_spreadsheet.CellType::t_int(),
+    formula,
+  )
+
+  let snapshot = sheet.inspect_cell(target)
+  inspect(snapshot.installed_dependencies.length(), content="0")
+  inspect(snapshot.static_references.length(), content="2")
+  inspect(snapshot.static_references[0] == condition, content="true")
+  inspect(snapshot.static_references[1] == inactive, content="true")
+
+  match sheet.read(target) {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(value)) =>
+      inspect(value, content="1")
+    _ =>
+      abort(
+        "expected inactive branch to be skipped and return true-branch value",
+      )
   }
 }
 

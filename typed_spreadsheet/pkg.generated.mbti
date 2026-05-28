@@ -46,7 +46,8 @@ pub struct CellSnapshot {
   present : Bool
   kind : CellKind?
   result : CellResult
-  dependencies : Array[CellId]
+  installed_dependencies : Array[CellId]
+  static_references : Array[CellId]
 }
 
 pub enum CellType {
