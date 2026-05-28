@@ -104,6 +104,40 @@ test "panic static derived probe: rejects tracked reads during static recompute"
 }
 
 ///|
+test "static derived probe: establishes computing runtime during recompute" {
+  @kernel.set_current_computing_runtime_id(-1)
+  let rt = Runtime()
+  let seen_runtime : Ref[Int] = { val: -2 }
+  let static_derived = static_derived_probe(
+    rt,
+    [],
+    () => {
+      seen_runtime.val = @kernel.get_current_computing_runtime_id()
+      1
+    },
+    (a, b) => a == b,
+  )
+  inspect(@kernel.get_current_computing_runtime_id(), content="-1")
+  inspect(static_derived.read_or_abort(), content="1")
+  inspect(seen_runtime.val, content=rt.core.runtime_id.to_string())
+  inspect(@kernel.get_current_computing_runtime_id(), content="-1")
+}
+
+///|
+test "panic static derived probe: rejects foreign tracked read during static recompute" {
+  let rt = Runtime()
+  let foreign_rt = Runtime()
+  let foreign_input = Input(foreign_rt, 1)
+  let static_derived = static_derived_probe(
+    rt,
+    [],
+    () => foreign_input.get(),
+    (a, b) => a == b,
+  )
+  ignore(static_derived.read_or_abort())
+}
+
+///|
 test "static derived probe: dispose removes fixed subscriber links" {
   let rt = Runtime()
   let input = Input(rt, 1)
@@ -190,6 +224,7 @@ test "static derived probe: compute failure clears in-progress and hooks" {
   inspect(rt.get_memo_data(derived.id()).in_progress, content="false")
   inspect(rt.static_recompute_depth, content="0")
   inspect(rt.static_recompute_tracking_floors.length(), content="0")
+  inspect(rt.static_recompute_previous_runtime_ids.length(), content="0")
   inspect(
     rt.accumulator_commit_hook.active.contains(derived.id()),
     content="false",
@@ -218,6 +253,7 @@ test "static derived probe: listener mutation is blocked during recompute" {
   inspect(result is Err(_), content="true")
   inspect(rt.static_recompute_depth, content="0")
   inspect(rt.static_recompute_tracking_floors.length(), content="0")
+  inspect(rt.static_recompute_previous_runtime_ids.length(), content="0")
   inspect(rt.get_memo_data(derived.id()).in_progress, content="false")
 }
 

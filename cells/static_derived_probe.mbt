@@ -15,17 +15,28 @@ priv struct StaticDerivedProbe[T] {
 
 ///|
 fn Runtime::enter_static_recompute(self : Runtime) -> Unit {
+  let previous_runtime_id = if self.core.tracking.stack.is_empty() &&
+    self.static_recompute_depth == 0 {
+    -1
+  } else {
+    @kernel.get_current_computing_runtime_id()
+  }
   self.static_recompute_depth = self.static_recompute_depth + 1
   self.static_recompute_tracking_floors.push(self.core.tracking.stack.length())
+  self.static_recompute_previous_runtime_ids.push(previous_runtime_id)
+  @kernel.set_current_computing_runtime_id(self.core.runtime_id)
 }
 
 ///|
 fn Runtime::leave_static_recompute(self : Runtime) -> Unit {
   guard self.static_recompute_depth > 0 &&
-    !self.static_recompute_tracking_floors.is_empty() else {
+    !self.static_recompute_tracking_floors.is_empty() &&
+    !self.static_recompute_previous_runtime_ids.is_empty() else {
     abort("static recompute state underflow")
   }
   ignore(self.static_recompute_tracking_floors.pop())
+  let previous_runtime_id = self.static_recompute_previous_runtime_ids.pop().unwrap()
+  @kernel.set_current_computing_runtime_id(previous_runtime_id)
   self.static_recompute_depth = self.static_recompute_depth - 1
 }
 

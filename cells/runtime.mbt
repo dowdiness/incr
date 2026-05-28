@@ -39,6 +39,7 @@ pub(all) struct Runtime {
   priv commit_hooks : Array[&MemoCommitPhase]
   priv mut static_recompute_depth : Int
   priv static_recompute_tracking_floors : Array[Int]
+  priv static_recompute_previous_runtime_ids : Array[Int]
   priv accumulator_commit_hook : AccumulatorCommitHook
   priv event_broadcast_hook : EventBroadcastPhaseHook
   priv event_broadcast_hook_index : Int
@@ -115,6 +116,7 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
     commit_hooks: [],
     static_recompute_depth: 0,
     static_recompute_tracking_floors: [],
+    static_recompute_previous_runtime_ids: [],
     accumulator_commit_hook: accumulator_hook,
     event_broadcast_hook: event_hook,
     event_broadcast_hook_index: 1,
