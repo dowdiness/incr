@@ -135,7 +135,7 @@ pub fn Worksheet::set_formula(
 ) -> Unit {
   let existing = self.cells.get(id)
 
-  let dep_ids = deps
+  let dep_ids = deps.copy()
   let expected = declared
   let evaluator = compute
 
@@ -146,8 +146,9 @@ pub fn Worksheet::set_formula(
         match self.read_slot(dep_id) {
           CellResult::Ok(value) => values.push(value)
           CellResult::ParseError(message) =>
-            return CellResult::RefError(message)
-          CellResult::TypeError(message) => return CellResult::RefError(message)
+            return CellResult::ParseError(message)
+          CellResult::TypeError(message) =>
+            return CellResult::TypeError(message)
           CellResult::RefError(message) => return CellResult::RefError(message)
           CellResult::CycleError(message) =>
             return CellResult::CycleError(message)

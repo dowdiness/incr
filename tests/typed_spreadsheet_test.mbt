@@ -136,6 +136,76 @@ test "typed spreadsheet: set_formula undefined reference is RefError" {
 }
 
 ///|
+test "typed spreadsheet: set_formula preserves dependency TypeError" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(12))
+  let a1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+  let b1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
+
+  sheet.set_formula(a1, @typed_spreadsheet.CellType::t_int(), [], fn(_deps) {
+    @typed_spreadsheet.CellResult::type_error("dependency failed")
+  })
+
+  sheet.set_formula(b1, @typed_spreadsheet.CellType::t_int(), [a1], fn(deps) {
+    match deps[0] {
+      @typed_spreadsheet.CellValue::Int(value) =>
+        @typed_spreadsheet.CellResult::ok(
+          @typed_spreadsheet.CellValue::from_int(value + 1),
+        )
+      _ => @typed_spreadsheet.CellResult::type_error("bad value")
+    }
+  })
+
+  inspect(
+    match sheet.read(b1) {
+      @typed_spreadsheet.CellResult::TypeError(message) =>
+        message == "dependency failed"
+      _ => false
+    },
+    content="true",
+  )
+}
+
+///|
+test "typed spreadsheet: set_formula copies dependency array for safety" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(13))
+  let a1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+  let a2 = @typed_spreadsheet.CellId(sheet.sheet_id(), "A2")
+  let b1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
+
+  inspect(
+    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(5)).is_ok(),
+    content="true",
+  )
+
+  let deps = [a1]
+  sheet.set_formula(b1, @typed_spreadsheet.CellType::t_int(), deps, fn(deps) {
+    if deps.length() != 1 {
+      @typed_spreadsheet.CellResult::parse_error(
+        "dependency set unexpectedly changed",
+      )
+    } else {
+      match deps[0] {
+        @typed_spreadsheet.CellValue::Int(value) =>
+          @typed_spreadsheet.CellResult::ok(
+            @typed_spreadsheet.CellValue::from_int(value * 3),
+          )
+        _ => @typed_spreadsheet.CellResult::type_error("bad value")
+      }
+    }
+  })
+
+  deps.push(a2)
+
+  match sheet.read(b1) {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(value)) =>
+      inspect(value, content="15")
+    _ => abort("expected parse-safe formula to keep dependency list stable")
+  }
+}
+
+///|
 test "typed spreadsheet: declared type mismatch is rejected" {
   let rt = @incr.Runtime()
   let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(2))
@@ -179,18 +249,23 @@ test "typed spreadsheet: overwrite formula with input replaces formula cell" {
     content="true",
   )
 
-  let _ = sheet.set_formula(target, @typed_spreadsheet.CellType::t_int(), [source], fn(deps) {
-    match deps[0] {
-      @typed_spreadsheet.CellValue::Int(value) =>
-        @typed_spreadsheet.CellResult::ok(
-          @typed_spreadsheet.CellValue::from_int(value + 1),
-        )
-      _ =>
-        @typed_spreadsheet.CellResult::type_error(
-          "formula dependency mismatch",
-        )
-    }
-  })
+  let _ = sheet.set_formula(
+    target,
+    @typed_spreadsheet.CellType::t_int(),
+    [source],
+    fn(deps) {
+      match deps[0] {
+        @typed_spreadsheet.CellValue::Int(value) =>
+          @typed_spreadsheet.CellResult::ok(
+            @typed_spreadsheet.CellValue::from_int(value + 1),
+          )
+        _ =>
+          @typed_spreadsheet.CellResult::type_error(
+            "formula dependency mismatch",
+          )
+      }
+    },
+  )
 
   match sheet.read(target) {
     @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(total)) =>
@@ -230,18 +305,23 @@ test "typed spreadsheet: overwrite input with formula updates dependency reads" 
     content="true",
   )
 
-  let _ = sheet.set_formula(target, @typed_spreadsheet.CellType::t_int(), [source], fn(deps) {
-    match deps[0] {
-      @typed_spreadsheet.CellValue::Int(value) =>
-        @typed_spreadsheet.CellResult::ok(
-          @typed_spreadsheet.CellValue::from_int(value * 3),
-        )
-      _ =>
-        @typed_spreadsheet.CellResult::type_error(
-          "formula dependency mismatch",
-        )
-    }
-  })
+  let _ = sheet.set_formula(
+    target,
+    @typed_spreadsheet.CellType::t_int(),
+    [source],
+    fn(deps) {
+      match deps[0] {
+        @typed_spreadsheet.CellValue::Int(value) =>
+          @typed_spreadsheet.CellResult::ok(
+            @typed_spreadsheet.CellValue::from_int(value * 3),
+          )
+        _ =>
+          @typed_spreadsheet.CellResult::type_error(
+            "formula dependency mismatch",
+          )
+      }
+    },
+  )
 
   inspect(
     sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(2)).is_ok(),
