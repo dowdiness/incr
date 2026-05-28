@@ -8,17 +8,17 @@ pub(all) struct InternId {
 } derive(Eq, Debug, Compare)
 
 ///|
-pub impl Show for InternId with output(self, logger) {
+pub impl Show for InternId with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
 ///|
-pub impl Hash for InternId with hash(self) {
+pub impl Hash for InternId with fn hash(self) {
   self.index.hash()
 }
 
 ///|
-pub impl Hash for InternId with hash_combine(self, hasher) {
+pub impl Hash for InternId with fn hash_combine(self, hasher) {
   self.index.hash_combine(hasher)
 }
 

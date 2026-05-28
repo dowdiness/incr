@@ -33,7 +33,7 @@
 /// in `scripts/check-engine-isolation.sh`). Mirrors the `CellLifecycle`
 /// precedent at `cells/runtime.mbt:33`.
 priv trait MemoCommitPhase {
-  before_recompute(Self, Runtime, CellId) -> Unit
-  after_success(Self, Runtime, CellId) -> Unit
-  after_abort(Self, Runtime, CellId, Error) -> Unit
+  fn before_recompute(Self, Runtime, CellId) -> Unit
+  fn after_success(Self, Runtime, CellId) -> Unit
+  fn after_abort(Self, Runtime, CellId, Error) -> Unit
 }

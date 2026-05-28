@@ -128,12 +128,10 @@ test "panic static derived probe: rejects foreign tracked read during static rec
   let rt = Runtime()
   let foreign_rt = Runtime()
   let foreign_input = Input(foreign_rt, 1)
-  let static_derived = static_derived_probe(
-    rt,
-    [],
-    () => foreign_input.get(),
-    (a, b) => a == b,
-  )
+  let static_derived = static_derived_probe(rt, [], () => foreign_input.get(), (
+    a,
+    b,
+  ) => a == b)
   ignore(static_derived.read_or_abort())
 }
 

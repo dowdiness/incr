@@ -12,7 +12,7 @@ pub(all) struct PullSignalData {
 }
 
 ///|
-pub impl HasCellMeta for PullSignalData with meta(self) {
+pub impl HasCellMeta for PullSignalData with fn meta(self) {
   self.meta
 }
 
@@ -22,7 +22,7 @@ pub impl CellOps for PullSignalData
 
 ///|
 /// Committable dispatch for pull-signal cells.
-pub impl Committable for PullSignalData with do_commit(self) -> Bool {
+pub impl Committable for PullSignalData with fn do_commit(self) -> Bool {
   match self.commit_pending {
     Some(f) => {
       let changed = f()
@@ -37,11 +37,11 @@ pub impl Committable for PullSignalData with do_commit(self) -> Bool {
 }
 
 ///|
-pub impl Committable for PullSignalData with cell_id(self) -> CellId {
+pub impl Committable for PullSignalData with fn cell_id(self) -> CellId {
   self.meta.cell_id
 }
 
 ///|
-pub impl Committable for PullSignalData with durability(self) -> Durability {
+pub impl Committable for PullSignalData with fn durability(self) -> Durability {
   self.meta.durability
 }

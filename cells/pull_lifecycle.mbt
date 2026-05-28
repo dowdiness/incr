@@ -5,7 +5,7 @@ using @pull {type PullSignalData}
 /// CellLifecycle impl for PullSignalData (signals).
 /// Lives here rather than in internal/pull/ because it references
 /// Runtime-only helpers that cannot leak into an internal package.
-impl CellLifecycle for PullSignalData with dispose_cell(self, rt, cell_id) -> Unit {
+impl CellLifecycle for PullSignalData with fn dispose_cell(self, rt, cell_id) -> Unit {
   match rt.core.cell_index[cell_id.id] {
     PullSignal(idx) => {
       if rt.core.batch.depth > 0 {

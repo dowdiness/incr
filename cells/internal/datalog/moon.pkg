@@ -1,5 +1,5 @@
 import {
   "dowdiness/incr/types" @incr_types,
-  "dowdiness/incr/cells/internal/shared" @shared,
+  "dowdiness/incr/cells/internal/shared",
   "moonbitlang/core/hashset",
 }

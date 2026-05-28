@@ -5,7 +5,7 @@ using @pull {type MemoData}
 /// CellLifecycle impl for MemoData (pull memos and hybrid memos).
 /// Lives here rather than in internal/pull/ because it references Runtime,
 /// which cannot leak into an internal package.
-impl CellLifecycle for MemoData with dispose_cell(self, rt, cell_id) -> Unit {
+impl CellLifecycle for MemoData with fn dispose_cell(self, rt, cell_id) -> Unit {
   match rt.core.cell_index[cell_id.id] {
     PullMemo(idx) | HybridMemo(idx) => {
       for dep in self.dependencies {

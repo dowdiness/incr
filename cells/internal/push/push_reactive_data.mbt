@@ -16,7 +16,7 @@ pub(all) struct PushReactiveData {
 }
 
 ///|
-pub impl HasCellMeta for PushReactiveData with meta(self) {
+pub impl HasCellMeta for PushReactiveData with fn meta(self) {
   self.meta
 }
 
@@ -28,23 +28,23 @@ pub impl CellOps for PushReactiveData
 ///|
 /// Push cells have no Durability (they always propagate immediately).
 /// Returns `Low` as a sentinel value.
-pub impl CellOps for PushReactiveData with durability(self) -> Durability {
+pub impl CellOps for PushReactiveData with fn durability(self) -> Durability {
   ignore(self)
   Low
 }
 
 ///|
-pub impl CellOps for PushReactiveData with level(self) -> Int {
+pub impl CellOps for PushReactiveData with fn level(self) -> Int {
   self.level
 }
 
 ///|
-pub impl CellOps for PushReactiveData with gc_role(_self) -> GcRole {
+pub impl CellOps for PushReactiveData with fn gc_role(_self) -> GcRole {
   Interior
 }
 
 ///|
-pub impl CellOps for PushReactiveData with gc_dependencies(self) -> Array[
+pub impl CellOps for PushReactiveData with fn gc_dependencies(self) -> Array[
   CellId,
 ] {
   self.sources

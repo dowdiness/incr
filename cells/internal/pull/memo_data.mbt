@@ -28,7 +28,7 @@ pub(all) struct MemoData {
 }
 
 ///|
-pub impl HasCellMeta for MemoData with meta(self) {
+pub impl HasCellMeta for MemoData with fn meta(self) {
   self.meta
 }
 
@@ -38,16 +38,16 @@ pub impl HasCellMeta for MemoData with meta(self) {
 pub impl CellOps for MemoData
 
 ///|
-pub impl CellOps for MemoData with dep_changed_since(_self, _verified_at) -> Bool? {
+pub impl CellOps for MemoData with fn dep_changed_since(_self, _verified_at) -> Bool? {
   None
 }
 
 ///|
-pub impl CellOps for MemoData with gc_role(_self) -> GcRole {
+pub impl CellOps for MemoData with fn gc_role(_self) -> GcRole {
   Interior
 }
 
 ///|
-pub impl CellOps for MemoData with gc_dependencies(self) -> Array[CellId] {
+pub impl CellOps for MemoData with fn gc_dependencies(self) -> Array[CellId] {
   self.dependencies
 }
