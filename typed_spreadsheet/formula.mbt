@@ -165,20 +165,22 @@ fn Formula::evaluate(
         _ => left
       }
     }
-    Formula::If(condition, then_formula, else_formula) =>
-      match condition.evaluate(read) {
-        CellResult::Ok(value) =>
-          match value {
-            CellValue::Bool(flag) =>
-              if flag {
-                then_formula.evaluate(read)
-              } else {
-                else_formula.evaluate(read)
-              }
-            _ => CellResult::type_error("If requires Bool condition")
-          }
-        result => result
+    Formula::If(condition, then_formula, else_formula) => {
+      let condition_result = condition.evaluate(read)
+      guard condition_result is CellResult::Ok(condition_value) else {
+        return condition_result
       }
+
+      guard condition_value is CellValue::Bool(flag) else {
+        return CellResult::type_error("If requires Bool condition")
+      }
+
+      if flag {
+        then_formula.evaluate(read)
+      } else {
+        else_formula.evaluate(read)
+      }
+    }
   }
 }
 
