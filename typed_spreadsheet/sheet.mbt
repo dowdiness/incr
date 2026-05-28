@@ -198,9 +198,14 @@ pub fn Worksheet::delete(self : Worksheet, id : CellId) -> CellResult {
 
   match self.cells.get(id) {
     Some(slot) => {
+      let definition = slot.definition.get()
+      self.cells.remove(id)
+      self.runtime.record_batch_rollback(slot.definition.id(), fn() {
+        let slot = self.new_slot(definition)
+        self.cells.set(id, slot)
+      })
       self.runtime.dispose_cell(slot.definition.id())
       self.runtime.dispose_cell(slot.value.id())
-      self.cells.remove(id)
       CellResult::Ok(CellValue::Blank)
     }
     None => CellResult::RefError("no cell at the requested address")
