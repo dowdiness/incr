@@ -83,6 +83,10 @@ pub fn Worksheet::set_input(
 
   match self.cells.get(id) {
     Some(slot) => {
+      let presence = self.cell_presence_for(id)
+      if !presence.get() {
+        presence.force_set(true)
+      }
       if !cell_type.accepts(value) {
         return CellResult::TypeError(
           "value type mismatch: expected " +
@@ -140,7 +144,13 @@ pub fn Worksheet::set_formula(
 
   let definition = CellDefinition::Formula(deps.copy(), declared, compute)
   match self.cells.get(id) {
-    Some(slot) => slot.definition.force_set(definition)
+    Some(slot) => {
+      let presence = self.cell_presence_for(id)
+      if !presence.get() {
+        presence.force_set(true)
+      }
+      slot.definition.force_set(definition)
+    }
     None => {
       let slot = self.new_slot(definition, label?)
       self.store_new_slot(id, slot)
@@ -181,7 +191,13 @@ pub fn Worksheet::set_formula_ast(
     computed.evaluate(fn(dep_id) { self.read_slot(dep_id) })
   })
   match self.cells.get(id) {
-    Some(slot) => slot.definition.force_set(definition)
+    Some(slot) => {
+      let presence = self.cell_presence_for(id)
+      if !presence.get() {
+        presence.force_set(true)
+      }
+      slot.definition.force_set(definition)
+    }
     None => {
       let slot = self.new_slot(definition, label?)
       self.store_new_slot(id, slot)
@@ -192,7 +208,7 @@ pub fn Worksheet::set_formula_ast(
 }
 
 ///|
-/// Removes a cell definition and disposes its underlying `@incr` node.
+/// Marks a cell as deleted and wires batch rollback restoration.
 pub fn Worksheet::delete(self : Worksheet, id : CellId) -> CellResult {
   if !self.owns_cell_id(id) {
     return CellResult::RefError("foreign cell id")
@@ -201,17 +217,16 @@ pub fn Worksheet::delete(self : Worksheet, id : CellId) -> CellResult {
   match self.cells.get(id) {
     Some(slot) => {
       let definition = slot.definition.get()
-      self.cells.remove(id)
       let presence = self.cell_presence_for(id)
       let previous_present = presence.get()
+      if !previous_present {
+        return CellResult::RefError("no cell at the requested address")
+      }
       presence.force_set(false)
       self.runtime.record_batch_rollback(slot.definition.id(), fn() {
-        let slot = self.new_slot(definition)
-        self.cells.set(id, slot)
+        slot.definition.force_set(definition)
         presence.force_set(previous_present)
       })
-      self.runtime.dispose_cell(slot.definition.id())
-      self.runtime.dispose_cell(slot.value.id())
       CellResult::Ok(CellValue::Blank)
     }
     None => CellResult::RefError("no cell at the requested address")
@@ -224,10 +239,12 @@ fn Worksheet::read_slot(self : Worksheet, id : CellId) -> CellResult {
     return CellResult::RefError("foreign cell id")
   }
 
-  ignore(self.cell_presence_for(id).get())
+  if !self.cell_presence_for(id).get() {
+    return CellResult::RefError("no cell at the requested address")
+  }
   match self.cells.get(id) {
     Some(slot) => slot.read()
-    None => CellResult::RefError("cell not found")
+    None => CellResult::RefError("no cell at the requested address")
   }
 }
 
