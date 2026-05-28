@@ -273,6 +273,9 @@ fn Runtime::dispatch_after_success_hooks(
 
 ///|
 fn Runtime::drain_pending_events_direct(self : Runtime) -> Unit {
+  if self.static_recompute_depth != 0 {
+    return
+  }
   let mut progressed = true
   while self.has_pending_events() && progressed {
     progressed = false

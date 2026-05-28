@@ -337,6 +337,29 @@ test "static derived probe: nested events drain after outer recompute" {
 }
 
 ///|
+test "static derived probe: direct drain waits for static recompute unwind" {
+  let rt = Runtime()
+  let events : Array[String] = []
+  rt.on_memo_event(_evt => events.push("event"))
+  let input = Input(rt, 1)
+  let derived = static_derived_map1_probe(input, x => x + 1)
+  rt.event_broadcast_hook.pending.push(
+    EnteringCompute({
+      cell_id: derived.id(),
+      started_revision: rt.core.revision.current_revision,
+    }),
+  )
+  rt.static_recompute_depth = 1
+  rt.drain_pending_events_direct()
+  debug_inspect(events, content="[]")
+  inspect(rt.event_broadcast_hook.pending.length(), content="1")
+  rt.static_recompute_depth = 0
+  rt.drain_pending_events_direct()
+  debug_inspect(events, content="[\"event\"]")
+  inspect(rt.event_broadcast_hook.pending.length(), content="0")
+}
+
+///|
 test "static derived probe: drains runtime evaluation events after read" {
   let rt = Runtime()
   let events : Array[String] = []
