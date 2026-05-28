@@ -35,6 +35,7 @@ New to `incr`? Read these in order:
 - [2026-05-16 Tracking-buffer lazy-allocation result](performance/2026-05-16-tracking-buffer-lazy-alloc.md) — implements the chosen direction. Pool reuse rejected by probe; lazy-allocation alone delivered −15.9% on 1000-fanout (−46 ns/r).
 - [2026-05-17 T1b commit-path bench snapshot](performance/2026-05-17-t1b-bench-snapshot.md) — pre-T1b → Phase 1 → Phase 2 pre-fix → Phase 2 + lazy-entry fast-path. Fast-path beats pre-T1b by −25% on no-accumulator recompute fanout by eliminating per-recompute HashSet allocations the old `memo_commit_accumulator_phase` carried unconditionally.
 - [2026-05-18 UI-shape benches](performance/2026-05-18-ui-shape-benches.md) — push-engine throughput on UI-shaped workloads (flat / layered / sparse / tree) across wasm-gc + JS. Confirms 60 Hz headroom at 1000 nodes; baseline for any future UI-library work on incr.
+- [2026-05-27 Static/applicative Derived fast-path probe](performance/2026-05-27-static-derived-fast-path-probe.md) — lower-bound, integrated, and UI-shape benches for fixed-dependency derived recomputation; accepts continued private-engine work, without public API design yet.
 
 ---
 
@@ -53,6 +54,7 @@ For contributors and advanced users who want to understand or modify `incr`.
 - [2026-05-25 `Expr[T]` Formula API](design/specs/2026-05-25-expr-formula-api.md) — proposed lazy formula layer over target facades, with same-runtime validation, explicit constants, and one-cell materialization
 - [2026-05-26 Build-oriented boundary design](design/specs/2026-05-26-build-trait-boundaries.md) — ideal Build systems à la carte-inspired application boundaries on top of `Input`, `Derived`, and `DerivedMap`; traits are one seam, not the default
 - [2026-05-26 Internal evaluation boundaries](design/specs/2026-05-26-internal-rebuild-boundaries.md) — ideal runtime-evaluation state-machine design for pull verification, push propagation, lifetime, and observation seams without public scheduler traits
+- [2026-05-28 Static Derived Public-Surface Options](design/specs/2026-05-28-static-derived-public-options.md) — compares public API options for exposing the measured fixed-dependency `Derived` fast path without accepting or implementing a surface yet
 
 **Project direction:**
 

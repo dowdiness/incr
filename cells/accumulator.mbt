@@ -296,6 +296,9 @@ pub fn[T] Accumulator::push(
 ) -> Unit raise Failure {
   // Cross-runtime check (abort — pre-existing pattern).
   self.rt.check_cross_runtime(self.slot_id.runtime_id, "Accumulator")
+  if self.rt.static_recompute_depth > 0 {
+    fail("Accumulator::push is unsupported inside static Derived recompute")
+  }
   let slot = self.rt.accumulator_slots[self.slot_id.id]
   if slot.disposed {
     fail("Accumulator::push to disposed accumulator")
@@ -353,6 +356,11 @@ pub fn[T, A] Memo::accumulated_peek(
     acc.slot_id.runtime_id,
     "Memo::accumulated_peek (Accumulator)",
   )
+  if self.rt.static_recompute_depth > 0 {
+    abort(
+      "Memo::accumulated_peek is unsupported inside static Derived recompute",
+    )
+  }
   let slot = self.rt.accumulator_slots[acc.slot_id.id]
   if slot.disposed {
     return []
@@ -388,6 +396,9 @@ pub fn[T, A] Memo::accumulated(
     acc.slot_id.runtime_id,
     "Memo::accumulated (Accumulator)",
   )
+  if self.rt.static_recompute_depth > 0 {
+    fail("Memo::accumulated is unsupported inside static Derived recompute")
+  }
   let slot = self.rt.accumulator_slots[acc.slot_id.id]
   if slot.disposed {
     fail("Memo::accumulated called on disposed Accumulator")
@@ -444,6 +455,11 @@ pub fn[T, A] Memo::accumulated_result(
     acc.slot_id.runtime_id,
     "Memo::accumulated_result (Accumulator)",
   )
+  if self.rt.static_recompute_depth > 0 {
+    fail(
+      "Memo::accumulated_result is unsupported inside static Derived recompute",
+    )
+  }
   let slot = self.rt.accumulator_slots[acc.slot_id.id]
   if slot.disposed {
     fail("Memo::accumulated_result called on disposed Accumulator")

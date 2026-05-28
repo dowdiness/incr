@@ -37,6 +37,9 @@ pub(all) struct Runtime {
   // MemoCommitPhase takes Runtime as a parameter (see
   // cells/memo_commit_phase.mbt), so the array cannot live in kernel.
   priv commit_hooks : Array[&MemoCommitPhase]
+  priv mut static_recompute_depth : Int
+  priv static_recompute_tracking_floors : Array[Int]
+  priv static_recompute_previous_runtime_ids : Array[Int]
   priv accumulator_commit_hook : AccumulatorCommitHook
   priv event_broadcast_hook : EventBroadcastPhaseHook
   priv event_broadcast_hook_index : Int
@@ -111,6 +114,9 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
     evaluation_strategies: EvaluationStrategies::default(),
     cell_lifecycle: [],
     commit_hooks: [],
+    static_recompute_depth: 0,
+    static_recompute_tracking_floors: [],
+    static_recompute_previous_runtime_ids: [],
     accumulator_commit_hook: accumulator_hook,
     event_broadcast_hook: event_hook,
     event_broadcast_hook_index: 1,
@@ -164,6 +170,7 @@ fn Runtime::is_listener_mutation_safe(self : Runtime) -> Bool {
   self.core.callback_depth == 0 &&
   self.core.tracking.stack.is_empty() &&
   self.core.batch.depth == 0 &&
+  self.static_recompute_depth == 0 &&
   !self.has_pending_events() &&
   !self.event_broadcast_hook.draining &&
   !self.runtime_evaluation_event_hook.draining
@@ -268,6 +275,9 @@ fn Runtime::dispatch_after_success_hooks(
 
 ///|
 fn Runtime::drain_pending_events_direct(self : Runtime) -> Unit {
+  if self.static_recompute_depth != 0 {
+    return
+  }
   let mut progressed = true
   while self.has_pending_events() && progressed {
     progressed = false
@@ -287,7 +297,9 @@ fn Runtime::drain_pending_events_direct(self : Runtime) -> Unit {
 ///|
 /// Drains pending events when no recompute frame or callback is active.
 fn Runtime::drain_pending_events_if_idle(self : Runtime) -> Unit {
-  if self.core.callback_depth != 0 || !self.core.tracking.stack.is_empty() {
+  if self.core.callback_depth != 0 ||
+    !self.core.tracking.stack.is_empty() ||
+    self.static_recompute_depth != 0 {
     return
   }
   self.drain_pending_events_direct()
@@ -622,6 +634,9 @@ fn Runtime::remove_gc_root(self : Runtime, id : CellId) -> Int {
 /// `self.dispose_cell`, so per-kind CellLifecycle dispatch remains
 /// reachable from the kernel sweep loop.
 pub fn Runtime::gc(self : Runtime) -> Unit {
+  guard self.static_recompute_depth == 0 else {
+    abort("gc: cannot run during static Derived recompute")
+  }
   @kernel.gc(self.core, fn(id) { self.dispose_cell(id) })
   if self.has_pending_events() {
     self.drain_pending_events_if_idle()
