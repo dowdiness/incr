@@ -58,6 +58,7 @@ For contributors and advanced users who want to understand or modify `incr`.
 
 - [Roadmap](roadmap.md) — phased future direction
 - [Active plans](plans/) — concrete implementation plans for upcoming work
+- [Typed Spreadsheet Responsibility Boundary](plans/2026-05-28-typed-spreadsheet-boundary.md) — app-vs-library responsibility split before adding any spreadsheet-specific sugar
 - [Ideal API Rename Migration Plan](plans/2026-05-21-ideal-api-rename-migration.md) — staged compatibility plan for the accepted public API target names
 - [Phase 3a Compatibility-to-Facade Migration Spec](plans/2026-05-23-ideal-api-rename-phase3-soak-window.md) — documentation and codemod plan for moving from `Memo`/`HybridMemo`/`MemoMap` to `Derived`/`ReachableDerived`/`DerivedMap` without adding same-receiver bridge methods
 - [Evaluation Strategy Refactor Plan](plans/2026-05-26-evaluation-strategy-refactor.md) — staged refactor toward internal sealed scheduler/rebuilder strategies with fixed store/trace contracts and no first-step public pluggability
