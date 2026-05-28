@@ -82,6 +82,79 @@ test "typed spreadsheet: formula AST type error is propagated" {
 }
 
 ///|
+test "typed spreadsheet: AST overwrite keeps downstream dependencies fresh" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(104))
+  let source = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+  let target = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
+  let dependent = @typed_spreadsheet.CellId(sheet.sheet_id(), "C1")
+
+  inspect(
+    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(1)).is_ok(),
+    content="true",
+  )
+
+  let first = @typed_spreadsheet.Formula::add(
+    @typed_spreadsheet.Formula::cell_ref(source),
+    @typed_spreadsheet.Formula::literal(
+      @typed_spreadsheet.CellValue::from_int(1),
+    ),
+  )
+  let _ = sheet.set_formula_ast(
+    target,
+    @typed_spreadsheet.CellType::t_int(),
+    first,
+  )
+
+  let dependent_formula = @typed_spreadsheet.Formula::add(
+    @typed_spreadsheet.Formula::cell_ref(target),
+    @typed_spreadsheet.Formula::literal(
+      @typed_spreadsheet.CellValue::from_int(1),
+    ),
+  )
+  let _ = sheet.set_formula_ast(
+    dependent,
+    @typed_spreadsheet.CellType::t_int(),
+    dependent_formula,
+  )
+
+  match sheet.read(dependent) {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(total)) =>
+      inspect(total, content="3")
+    _ => abort("expected initial dependent AST result")
+  }
+
+  let updated = @typed_spreadsheet.Formula::add(
+    @typed_spreadsheet.Formula::cell_ref(source),
+    @typed_spreadsheet.Formula::literal(
+      @typed_spreadsheet.CellValue::from_int(10),
+    ),
+  )
+  let _ = sheet.set_formula_ast(
+    target,
+    @typed_spreadsheet.CellType::t_int(),
+    updated,
+  )
+
+  match sheet.read(dependent) {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(total)) =>
+      inspect(total, content="12")
+    _ => abort("expected dependent AST result after overwrite")
+  }
+
+  inspect(
+    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(2)).is_ok(),
+    content="true",
+  )
+
+  match sheet.read(dependent) {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(total)) =>
+      inspect(total, content="13")
+    _ => abort("expected dependent AST result after source mutation")
+  }
+}
+
+///|
 test "typed spreadsheet: formula AST undefined reference is RefError" {
   let rt = @incr.Runtime()
   let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(102))

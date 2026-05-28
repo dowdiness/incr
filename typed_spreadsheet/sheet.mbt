@@ -11,9 +11,15 @@ pub struct Worksheet {
 }
 
 ///|
-enum CellSlot {
-  Input(@incr.InputField[CellValue])
-  Formula(@incr.Derived[CellResult])
+priv enum CellDefinition {
+  Input(CellValue)
+  Formula(Array[CellId], CellType, (Array[CellValue]) -> CellResult)
+}
+
+///|
+struct CellSlot {
+  definition : @incr.InputField[CellDefinition]
+  value : @incr.Derived[CellResult]
 }
 
 ///|
@@ -70,36 +76,18 @@ pub fn Worksheet::set_input(
   }
 
   match self.cells.get(id) {
-    Some(slot) =>
-      match slot {
-        CellSlot::Input(input) => {
-          if !cell_type.accepts(value) {
-            return CellResult::TypeError(
-              "value type mismatch: expected " +
-              cell_type.to_string() +
-              " and got " +
-              value.cell_type().to_string(),
-            )
-          }
-          input.set(value)
-          self.cells.set(id, CellSlot::Input(input))
-          CellResult::Ok(value)
-        }
-        CellSlot::Formula(formula) => {
-          if !cell_type.accepts(value) {
-            return CellResult::TypeError(
-              "value type mismatch: expected " +
-              cell_type.to_string() +
-              " and got " +
-              value.cell_type().to_string(),
-            )
-          }
-          self.runtime.dispose_cell(formula.id())
-          let input = self.scope.input_field(value, label?)
-          self.cells.set(id, CellSlot::Input(input))
-          CellResult::Ok(value)
-        }
+    Some(slot) => {
+      if !cell_type.accepts(value) {
+        return CellResult::TypeError(
+          "value type mismatch: expected " +
+          cell_type.to_string() +
+          " and got " +
+          value.cell_type().to_string(),
+        )
       }
+      slot.definition.force_set(CellDefinition::Input(value))
+      CellResult::Ok(value)
+    }
     None => {
       if !cell_type.accepts(value) {
         return CellResult::TypeError(
@@ -109,8 +97,7 @@ pub fn Worksheet::set_input(
           value.cell_type().to_string(),
         )
       }
-      let input = self.scope.input_field(value, label?)
-      self.cells.set(id, CellSlot::Input(input))
+      self.cells.set(id, self.new_slot(CellDefinition::Input(value), label?))
       CellResult::Ok(value)
     }
   }
@@ -133,53 +120,11 @@ pub fn Worksheet::set_formula(
   compute : (Array[CellValue]) -> CellResult,
   label? : String,
 ) -> Unit {
-  let existing = self.cells.get(id)
-
-  let dep_ids = deps.copy()
-  let expected = declared
-  let evaluator = compute
-
-  let derived = self.scope.derived(
-    fn() {
-      let values = []
-      for dep_id in dep_ids {
-        match self.read_slot(dep_id) {
-          CellResult::Ok(value) => values.push(value)
-          CellResult::ParseError(message) =>
-            return CellResult::ParseError(message)
-          CellResult::TypeError(message) =>
-            return CellResult::TypeError(message)
-          CellResult::RefError(message) => return CellResult::RefError(message)
-          CellResult::CycleError(message) =>
-            return CellResult::CycleError(message)
-        }
-      }
-
-      let result = evaluator(values)
-      match result {
-        CellResult::Ok(value) =>
-          if expected == CellType::TAny || expected.accepts(value) {
-            CellResult::Ok(value)
-          } else {
-            CellResult::TypeError(
-              "formula result mismatch: expected " +
-              expected.to_string() +
-              " and got " +
-              value.cell_type().to_string(),
-            )
-          }
-        _ => result
-      }
-    },
-    label?,
-  )
-
-  match existing {
-    Some(existing_cell) => self.runtime.dispose_cell(existing_cell.cell_id())
-    None => ()
+  let definition = CellDefinition::Formula(deps.copy(), declared, compute)
+  match self.cells.get(id) {
+    Some(slot) => slot.definition.force_set(definition)
+    None => self.cells.set(id, self.new_slot(definition, label?))
   }
-
-  self.cells.set(id, CellSlot::Formula(derived))
 }
 
 ///|
@@ -196,38 +141,15 @@ pub fn Worksheet::set_formula_ast(
   formula : Formula,
   label? : String,
 ) -> Unit {
-  let existing = self.cells.get(id)
-
+  let dep_ids = formula.refs()
   let computed = formula
-  let expected = declared
-
-  let derived = self.scope.derived(
-    fn() {
-      let result = computed.evaluate(fn(dep_id) { self.read_slot(dep_id) })
-      match result {
-        CellResult::Ok(value) =>
-          if expected == CellType::TAny || expected.accepts(value) {
-            CellResult::Ok(value)
-          } else {
-            CellResult::TypeError(
-              "formula result mismatch: expected " +
-              expected.to_string() +
-              " and got " +
-              value.cell_type().to_string(),
-            )
-          }
-        _ => result
-      }
-    },
-    label?,
-  )
-
-  match existing {
-    Some(existing_cell) => self.runtime.dispose_cell(existing_cell.cell_id())
-    None => ()
+  let definition = CellDefinition::Formula(dep_ids, declared, fn(_deps) {
+    computed.evaluate(fn(dep_id) { self.read_slot(dep_id) })
+  })
+  match self.cells.get(id) {
+    Some(slot) => slot.definition.force_set(definition)
+    None => self.cells.set(id, self.new_slot(definition, label?))
   }
-
-  self.cells.set(id, CellSlot::Formula(derived))
 }
 
 ///|
@@ -235,7 +157,8 @@ pub fn Worksheet::set_formula_ast(
 pub fn Worksheet::delete(self : Worksheet, id : CellId) -> CellResult {
   match self.cells.get(id) {
     Some(slot) => {
-      self.runtime.dispose_cell(slot.cell_id())
+      self.runtime.dispose_cell(slot.definition.id())
+      self.runtime.dispose_cell(slot.value.id())
       self.cells.remove(id)
       CellResult::Ok(CellValue::Blank)
     }
@@ -252,21 +175,64 @@ fn Worksheet::read_slot(self : Worksheet, id : CellId) -> CellResult {
 }
 
 ///|
-fn CellSlot::read(self : CellSlot) -> CellResult {
+fn Worksheet::new_slot(
+  self : Worksheet,
+  definition : CellDefinition,
+  label? : String,
+) -> CellSlot {
+  let definition = self.scope.input_field(definition, label?)
+  let value = self.scope.derived(
+    fn() { definition.get().evaluate(self) },
+    label?,
+  )
+  CellSlot::{ definition, value }
+}
+
+///|
+fn CellDefinition::evaluate(
+  self : CellDefinition,
+  worksheet : Worksheet,
+) -> CellResult {
   match self {
-    Input(field) => CellResult::Ok(field.get())
-    Formula(derived) =>
-      match derived.read() {
-        Ok(value) => value
-        Err(err) => CellResult::CycleError(err.format_path())
+    CellDefinition::Input(value) => CellResult::Ok(value)
+    CellDefinition::Formula(dep_ids, expected, evaluate) => {
+      let values = []
+      for dep_id in dep_ids {
+        match worksheet.read_slot(dep_id) {
+          CellResult::Ok(value) => values.push(value)
+          CellResult::ParseError(message) =>
+            return CellResult::ParseError(message)
+          CellResult::TypeError(message) =>
+            return CellResult::TypeError(message)
+          CellResult::RefError(message) => return CellResult::RefError(message)
+          CellResult::CycleError(message) =>
+            return CellResult::CycleError(message)
+        }
       }
+
+      let result = evaluate(values)
+      match result {
+        CellResult::Ok(value) =>
+          if expected == CellType::TAny || expected.accepts(value) {
+            CellResult::Ok(value)
+          } else {
+            CellResult::TypeError(
+              "formula result mismatch: expected " +
+              expected.to_string() +
+              " and got " +
+              value.cell_type().to_string(),
+            )
+          }
+        _ => result
+      }
+    }
   }
 }
 
 ///|
-fn CellSlot::cell_id(self : CellSlot) -> @incr.CellId {
-  match self {
-    Input(field) => field.id()
-    Formula(derived) => derived.id()
+fn CellSlot::read(self : CellSlot) -> CellResult {
+  match self.value.read() {
+    Ok(value) => value
+    Err(err) => CellResult::CycleError(err.format_path())
   }
 }
