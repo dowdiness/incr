@@ -59,7 +59,7 @@ pub(all) enum Durability {
 } derive(Debug, Eq, Compare)
 
 ///|
-pub impl Show for Durability with output(self, logger) {
+pub impl Show for Durability with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -102,7 +102,7 @@ pub const DURABILITY_COUNT : Int = 3
 /// O(1) backdate decisions based on revision comparison rather than O(N)
 /// structural equality.
 pub(open) trait HasChangedAt {
-  changed_at(Self) -> Revision
+  fn changed_at(Self) -> Revision
 }
 
 ///|
@@ -117,11 +117,11 @@ pub(open) trait HasChangedAt {
 ///
 /// Requires `HasChangedAt` — the type must expose a `changed_at` revision.
 pub(open) trait BackdateEq: HasChangedAt {
-  backdate_equal(Self, Self) -> Bool = _
+  fn backdate_equal(Self, Self) -> Bool = _
 }
 
 ///|
-impl BackdateEq with backdate_equal(self, other) -> Bool {
+impl BackdateEq with fn backdate_equal(self, other) -> Bool {
   self.changed_at() == other.changed_at()
 }
 
@@ -138,6 +138,6 @@ pub(all) enum GcRole {
 } derive(Debug, Eq)
 
 ///|
-pub impl Show for GcRole with output(self, logger) {
+pub impl Show for GcRole with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }

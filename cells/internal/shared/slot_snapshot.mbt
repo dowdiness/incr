@@ -12,6 +12,6 @@
 /// `accumulator_slots : Array[SlotMeta]`. Kernel-resident code accesses
 /// slot data through the cached array, never through `SlotMeta` directly.
 pub(open) trait SlotSnapshot {
-  disposed(Self) -> Bool
-  push_revised_at_for(Self, CellId) -> Revision
+  fn disposed(Self) -> Bool
+  fn push_revised_at_for(Self, CellId) -> Revision
 }

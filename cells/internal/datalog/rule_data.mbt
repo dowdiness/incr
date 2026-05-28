@@ -8,7 +8,7 @@ pub(all) struct RuleData {
 }
 
 ///|
-pub impl HasCellMeta for RuleData with meta(self) {
+pub impl HasCellMeta for RuleData with fn meta(self) {
   self.meta
 }
 
@@ -16,6 +16,6 @@ pub impl HasCellMeta for RuleData with meta(self) {
 /// CellOps dispatch for rule cells — defaults via HasCellMeta plus a
 /// `gc_role` override. The `with` block alone registers the impl; a
 /// separate bare anchor would be redundant.
-pub impl CellOps for RuleData with gc_role(_self) -> GcRole {
+pub impl CellOps for RuleData with fn gc_role(_self) -> GcRole {
   Source
 }

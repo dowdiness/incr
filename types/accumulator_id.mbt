@@ -12,16 +12,16 @@ pub(all) struct AccumulatorId {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for AccumulatorId with output(self, logger) {
+pub impl Show for AccumulatorId with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
 ///|
-pub impl Hash for AccumulatorId with hash(self) {
+pub impl Hash for AccumulatorId with fn hash(self) {
   self.runtime_id.hash() * 31 + self.id.hash()
 }
 
 ///|
-pub impl Hash for AccumulatorId with hash_combine(self, hasher) {
+pub impl Hash for AccumulatorId with fn hash_combine(self, hasher) {
   self.hash().hash_combine(hasher)
 }

@@ -109,7 +109,9 @@ test "collect_gc_roots: live observer puts memo in roots via gc_root_counts" {
   ignore(obs.get())
   let roots = @kernel.collect_gc_roots(rt.core)
   let contains_memo = for id in roots {
-    if id == m.id() { break true }
+    if id == m.id() {
+      break true
+    }
   } nobreak {
     false
   }
@@ -125,7 +127,9 @@ test "collect_gc_roots: disposed observer is absent from roots" {
   ignore(read_memo_for_test(m)) // observe-read-dispose cycle
   let roots = @kernel.collect_gc_roots(rt.core)
   let contains_memo = for id in roots {
-    if id == m.id() { break true }
+    if id == m.id() {
+      break true
+    }
   } nobreak {
     false
   }
@@ -164,14 +168,18 @@ test "gc_sweep: unobserved interior cell is passed to dispose_fn" {
   let swept : Array[_] = []
   @kernel.gc_sweep(rt.core, fn(id) { swept.push(id) })
   let m_swept = for id in swept {
-    if id == m.id() { break true }
+    if id == m.id() {
+      break true
+    }
   } nobreak {
     false
   }
   inspect(m_swept, content="true")
   // Source-role cells (signals) are never selected by gc_sweep
   let sig_swept = for id in swept {
-    if id == sig.id() { break true }
+    if id == sig.id() {
+      break true
+    }
   } nobreak {
     false
   }
@@ -188,7 +196,9 @@ test "gc_sweep: observed interior cell is not passed to dispose_fn" {
   let swept : Array[_] = []
   @kernel.gc_sweep(rt.core, fn(id) { swept.push(id) })
   let m_swept = for id in swept {
-    if id == m.id() { break true }
+    if id == m.id() {
+      break true
+    }
   } nobreak {
     false
   }

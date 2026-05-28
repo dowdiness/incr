@@ -35,7 +35,9 @@ fn Runtime::leave_static_recompute(self : Runtime) -> Unit {
     abort("static recompute state underflow")
   }
   ignore(self.static_recompute_tracking_floors.pop())
-  let previous_runtime_id = self.static_recompute_previous_runtime_ids.pop().unwrap()
+  let previous_runtime_id = self.static_recompute_previous_runtime_ids
+    .pop()
+    .unwrap()
   @kernel.set_current_computing_runtime_id(previous_runtime_id)
   self.static_recompute_depth = self.static_recompute_depth - 1
 }
