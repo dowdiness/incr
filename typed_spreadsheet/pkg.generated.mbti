@@ -20,6 +20,11 @@ pub fn CellId::CellId(SheetId, String) -> Self
 pub fn CellId::of(SheetId, String) -> Self
 pub impl Hash for CellId
 
+pub enum CellKind {
+  Input
+  Formula
+}
+
 pub enum CellResult {
   Ok(CellValue)
   ParseError(String)
@@ -35,6 +40,14 @@ pub fn CellResult::ref_error(String) -> Self
 pub fn CellResult::type_error(String) -> Self
 
 type CellSlot
+
+pub struct CellSnapshot {
+  id : CellId
+  present : Bool
+  kind : CellKind?
+  result : CellResult
+  dependencies : Array[CellId]
+}
 
 pub enum CellType {
   TInt
@@ -97,6 +110,7 @@ pub struct Worksheet {
 pub fn Worksheet::Worksheet(@cells.Runtime, SheetId) -> Self
 pub fn Worksheet::delete(Self, CellId) -> CellResult
 pub fn Worksheet::dispose(Self) -> Unit
+pub fn Worksheet::inspect_cell(Self, CellId) -> CellSnapshot
 pub fn Worksheet::is_disposed(Self) -> Bool
 pub fn Worksheet::read(Self, CellId) -> CellResult
 pub fn Worksheet::set_formula(Self, CellId, CellType, Array[CellId], (Array[CellValue]) -> CellResult, label? : String) -> Result[Unit, WorksheetError]
