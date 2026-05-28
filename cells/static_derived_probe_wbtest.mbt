@@ -91,6 +91,19 @@ test "static derived probe: dynamic parent records only static cell" {
 }
 
 ///|
+test "panic static derived probe: rejects tracked reads during static recompute" {
+  let rt = Runtime()
+  let input = Input(rt, 1)
+  let static_derived = static_derived_probe(
+    rt,
+    [input.inner.id()],
+    () => input.get() + 1,
+    (a, b) => a == b,
+  )
+  ignore(static_derived.read_or_abort())
+}
+
+///|
 test "static derived probe: dispose removes fixed subscriber links" {
   let rt = Runtime()
   let input = Input(rt, 1)
@@ -165,6 +178,7 @@ test "static derived probe: compute failure clears in-progress and hooks" {
   inspect(result is Err(_), content="true")
   inspect(rt.get_memo_data(derived.id()).in_progress, content="false")
   inspect(rt.static_recompute_depth, content="0")
+  inspect(rt.static_recompute_tracking_floors.length(), content="0")
   inspect(
     rt.accumulator_commit_hook.active.contains(derived.id()),
     content="false",
@@ -192,6 +206,7 @@ test "static derived probe: listener mutation is blocked during recompute" {
   let result : Result[Result[Int, CycleError], Failure] = try? derived.force_recompute()
   inspect(result is Err(_), content="true")
   inspect(rt.static_recompute_depth, content="0")
+  inspect(rt.static_recompute_tracking_floors.length(), content="0")
   inspect(rt.get_memo_data(derived.id()).in_progress, content="false")
 }
 

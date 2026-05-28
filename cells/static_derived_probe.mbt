@@ -14,6 +14,22 @@ priv struct StaticDerivedProbe[T] {
 }
 
 ///|
+fn Runtime::enter_static_recompute(self : Runtime) -> Unit {
+  self.static_recompute_depth = self.static_recompute_depth + 1
+  self.static_recompute_tracking_floors.push(self.core.tracking.stack.length())
+}
+
+///|
+fn Runtime::leave_static_recompute(self : Runtime) -> Unit {
+  guard self.static_recompute_depth > 0 &&
+    !self.static_recompute_tracking_floors.is_empty() else {
+    abort("static recompute state underflow")
+  }
+  ignore(self.static_recompute_tracking_floors.pop())
+  self.static_recompute_depth = self.static_recompute_depth - 1
+}
+
+///|
 fn Runtime::normalize_static_derived_deps(
   self : Runtime,
   deps : Array[CellId],
@@ -308,16 +324,16 @@ fn[T] StaticDerivedProbe::force_recompute(
   }
   cell.in_progress = true
   self.rt.dispatch_before_recompute_hooks(self.cell_id)
-  self.rt.static_recompute_depth = self.rt.static_recompute_depth + 1
+  self.rt.enter_static_recompute()
   let new_value = (self.compute)(self.cell_id) catch {
     e => {
-      self.rt.static_recompute_depth = self.rt.static_recompute_depth - 1
+      self.rt.leave_static_recompute()
       self.rt.dispatch_after_abort_hooks(self.cell_id, e)
       cell.in_progress = false
       raise e
     }
   }
-  self.rt.static_recompute_depth = self.rt.static_recompute_depth - 1
+  self.rt.leave_static_recompute()
   let value_changed = match self.value {
     None => true
     Some(old) => !(self.backdate_eq)(old, new_value)

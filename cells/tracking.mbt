@@ -1,10 +1,27 @@
 ///|
+/// True when `record_dependency` would attach a static recompute's read to
+/// a caller frame instead of to a declared fixed-dependency boundary.
+fn Runtime::static_recompute_blocks_dependency_recording(
+  self : Runtime,
+) -> Bool {
+  let len = self.static_recompute_tracking_floors.length()
+  len > 0 &&
+  self.core.tracking.stack.length() <=
+  self.static_recompute_tracking_floors[len - 1]
+}
+
+///|
 /// Records a dependency from the currently computing memo to the given cell.
 ///
 /// Called internally by `Signal::get` and `Memo::get` when inside a memo's
 /// compute function. If no memo is currently computing (tracking stack is
 /// empty), this is a no-op.
-impl Tracker for Runtime with record_dependency(self, dep) {
+impl Tracker for Runtime with fn record_dependency(self, dep) {
+  if self.static_recompute_blocks_dependency_recording() {
+    abort(
+      "Tracked reads are unsupported inside static Derived recompute; use peek() or declared fixed-source reads",
+    )
+  }
   @kernel.record_dep(self.core, dep)
 }
 
@@ -14,13 +31,13 @@ impl Tracker for Runtime with record_dependency(self, dep) {
 /// Called internally at the start of a memo's recomputation. All subsequent
 /// `get()` calls will be recorded as dependencies until `pop_tracking` is
 /// called.
-impl Tracker for Runtime with push_tracking(self, cell_id) {
+impl Tracker for Runtime with fn push_tracking(self, cell_id) {
   @kernel.push_tracking(self.core, cell_id)
 }
 
 ///|
 /// Pops the tracking frame and returns the collected dependencies.
-impl Tracker for Runtime with pop_tracking(self) {
+impl Tracker for Runtime with fn pop_tracking(self) {
   @kernel.pop_tracking(self.core)
 }
 
