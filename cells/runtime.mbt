@@ -27,7 +27,7 @@ pub(all) struct Runtime {
   priv pull : PullState
   priv push : PushState
   priv datalog : DatalogState
-  priv evaluation_strategies : EvaluationStrategies
+  priv mut evaluation_strategies : EvaluationStrategies
   // cell_lifecycle is lifted out of RuntimeCore: the CellLifecycle trait
   // takes `Runtime` as a parameter (see cells/cell_ops.mbt), so moving it
   // into kernel would create a circular type reference.
@@ -129,6 +129,16 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
 }
 
 ///|
+/// Replaces the sealed internal evaluation strategy bundle.
+fn Runtime::install_evaluation_strategies(
+  self : Runtime,
+  strategies : EvaluationStrategies,
+) -> Unit {
+  self.runtime_evaluation_event_hook.trace_recorder = strategies.trace_recorder()
+  self.evaluation_strategies = strategies
+}
+
+///|
 fn Runtime::event_broadcast_enabled(self : Runtime) -> Bool {
   match self.event_broadcast_hook.listener {
     Some(_) => true
@@ -151,7 +161,7 @@ fn Runtime::has_pending_events(self : Runtime) -> Bool {
 fn Runtime::runtime_evaluation_event_sink(
   self : Runtime,
 ) -> ((@kernel.RuntimeEvaluationEvent) -> Unit)? {
-  if self.runtime_evaluation_events_enabled() {
+  if self.runtime_evaluation_event_hook.listener_enabled() {
     Some(fn(event) { self.runtime_evaluation_event_hook.push_event(event) })
   } else {
     None

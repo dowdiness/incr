@@ -213,6 +213,28 @@ pub fn EvaluationStrategies::publish_cell_changes(Self, RuntimeCore, PullState, 
 pub fn EvaluationStrategies::pull_verify(Self, RuntimeCore, PullState, Array[&@shared.SlotSnapshot], @types.CellId) -> Result[Unit, @types.CycleError] raise Failure
 pub fn EvaluationStrategies::push_propagate_from(Self, RuntimeCore, PullState, PushState, DatalogState, Array[@types.CellId], ((RuntimeEvaluationEvent) -> Unit)?) -> Unit
 pub fn EvaluationStrategies::run_fixpoint(Self, RuntimeCore, DatalogState) -> Array[@types.CellId]
+pub fn EvaluationStrategies::trace_recorder(Self) -> EvaluationTraceRecorder?
+pub fn EvaluationStrategies::tracing(EvaluationTraceRecorder) -> Self
+
+pub struct EvaluationTraceRecorder {
+  // private fields
+}
+pub fn EvaluationTraceRecorder::EvaluationTraceRecorder() -> Self
+pub fn EvaluationTraceRecorder::events(Self) -> Array[RuntimeEvaluationEvent]
+pub fn EvaluationTraceRecorder::record_event(Self, RuntimeEvaluationEvent) -> Unit
+pub fn EvaluationTraceRecorder::summary(Self) -> EvaluationTraceSummary
+
+pub(all) struct EvaluationTraceSummary {
+  derived_pull_verification_count : Int
+  derived_rebuild_count : Int
+  derived_rebuild_abort_count : Int
+  eager_derived_evaluation_count : Int
+  effect_execution_count : Int
+  push_queue_skip_count : Int
+  push_propagation_count : Int
+  changed_source_count : Int
+  fixpoint_run_count : Int
+} derive(@debug.Debug)
 
 pub(all) enum PropagationPhase {
   Idle
