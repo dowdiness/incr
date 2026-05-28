@@ -151,6 +151,25 @@ pub fn[T : Eq] Derived::Derived(
 }
 
 ///|
+/// Creates a fallible lazy derived value: a recoverable, domain-specific
+/// failure is expressed in the value as `Result[V, E]`, never raised. The
+/// compute is `noraise`, so the domain error is *forced* into the value, where
+/// it is cached, change-detected (`Eq`), and replayed like any other value;
+/// reads surface only graph failures (cycles), never an uncatchable abort.
+/// A `raise Failure` from a plain `Derived` compute is a defect, not a domain
+/// error. See docs/design/specs/2026-05-28-honest-read-error-ownership.md.
+pub fn[V : Eq, E : Eq] Derived::fallible(
+  rt : Runtime,
+  compute : () -> Result[V, E],
+  label? : String,
+) -> Derived[Result[V, E]] {
+  // The public `compute` is noraise (domain errors are forced into the value);
+  // the base ctor wants `raise Failure`, so wrap in a fresh lambda checked
+  // against that raising type. The wrapper never actually raises.
+  Derived::Derived(rt, fn() { compute() }, label?)
+}
+
+///|
 /// Strict graph read. Requires an active tracked context.
 pub fn[T] Derived::get(self : Derived[T]) -> Result[T, CycleError] {
   self.inner.get_strict_result()
@@ -357,6 +376,20 @@ pub fn[K : Hash + Eq, V] DerivedMap::DerivedMap(
   label? : String,
 ) -> DerivedMap[K, V] {
   { inner: MemoMap(rt, compute, label?), disposed: { val: false } }
+}
+
+///|
+/// Creates a fallible keyed derived map: a per-key recoverable domain failure
+/// is expressed in the value as `Result[V, E]`, never raised. The compute is
+/// `noraise`. See `Derived::fallible` and
+/// docs/design/specs/2026-05-28-honest-read-error-ownership.md.
+pub fn[K : Hash + Eq, V, E] DerivedMap::fallible(
+  rt : Runtime,
+  compute : (K) -> Result[V, E],
+  label? : String,
+) -> DerivedMap[K, Result[V, E]] {
+  // See `Derived::fallible`: wrap the noraise compute for the base ctor.
+  DerivedMap::DerivedMap(rt, fn(k) { compute(k) }, label?)
 }
 
 ///|
