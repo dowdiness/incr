@@ -1,6 +1,6 @@
 # Typed Spreadsheet Responsibility Boundary
 
-**Status:** In Progress (spike reconciliation)
+**Status:** Proposed
 
 **Date:** 2026-05-28
 
@@ -97,22 +97,3 @@ Recommended minimal graph shape:
   formula chain and one push-reactive chain.
 - [x] Add `tests/typed_spreadsheet_spikes_test.mbt` and `docs/README` link in this
   plan before any `Expr`-style sugar work is started.
-
-- [x] Finalize `set_formula` / `set_formula_ast` contract:
-  - install succeeds with `Result::Ok(())` when the formula is structurally
-    accepted,
-  - boundary violations return `Result::Err(WorksheetError::RefError(...))`;
-  - evaluation failures are surfaced via `Worksheet::read` as
-    `CellResult::TypeError`/`CellResult::RefError`.
-- [x] Add panic regression test for operation failure (`disposed` worksheet) in
-  `tests/typed_spreadsheet_formula_test.mbt`.
-
-## Worklist reconciliation (current step)
-
-- [x] `typed_spreadsheet` package exists with identifiers, values, and worksheet
-  boundary.
-- [x] `tests/typed_spreadsheet_test.mbt` exists and passes under `moon test
-  tests/typed_spreadsheet_test.mbt`.
-- [x] `tests/moon.pkg` imports `dowdiness/incr/typed_spreadsheet`.
-- [x] Boundary plan checklist is current for the spike scope; `Typed Spreadsheet
-  Responsibility Boundary` still marked as planned for post-spike extension.
