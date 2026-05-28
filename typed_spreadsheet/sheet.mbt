@@ -13,13 +13,10 @@ pub struct Worksheet {
 ///|
 priv enum CellDefinition {
   Input(CellValue)
-  Formula(
-    Array[CellId],
-    CellType,
-    (Array[CellValue]) -> CellResult,
-  )
+  Formula(Array[CellId], CellType, (Array[CellValue]) -> CellResult)
 }
 
+///|
 struct CellSlot {
   definition : @incr.InputField[CellDefinition]
   value : @incr.Derived[CellResult]
@@ -174,13 +171,9 @@ pub fn Worksheet::set_formula_ast(
   }
 
   let computed = formula
-  let definition = CellDefinition::Formula(
-    dep_ids,
-    declared,
-    fn(_deps) {
-      computed.evaluate(fn(dep_id) { self.read_slot(dep_id) })
-    },
-  )
+  let definition = CellDefinition::Formula(dep_ids, declared, fn(_deps) {
+    computed.evaluate(fn(dep_id) { self.read_slot(dep_id) })
+  })
   match self.cells.get(id) {
     Some(slot) => slot.definition.force_set(definition)
     None => self.cells.set(id, self.new_slot(definition, label?))
@@ -232,15 +225,10 @@ fn Worksheet::new_slot(
 ) -> CellSlot {
   let definition = self.scope.input_field(definition, label?)
   let value = self.scope.derived(
-    fn() {
-      definition.get().evaluate(self)
-    },
+    fn() { definition.get().evaluate(self) },
     label?,
   )
-  CellSlot::{
-    definition: definition,
-    value: value,
-  }
+  CellSlot::{ definition, value }
 }
 
 ///|
@@ -255,18 +243,13 @@ fn CellDefinition::evaluate(
       for dep_id in dep_ids {
         match worksheet.read_slot(dep_id) {
           CellResult::Ok(value) => values.push(value)
-          CellResult::ParseError(message) => {
+          CellResult::ParseError(message) =>
             return CellResult::ParseError(message)
-          }
-          CellResult::TypeError(message) => {
+          CellResult::TypeError(message) =>
             return CellResult::TypeError(message)
-          }
-          CellResult::RefError(message) => {
-            return CellResult::RefError(message)
-          }
-          CellResult::CycleError(message) => {
+          CellResult::RefError(message) => return CellResult::RefError(message)
+          CellResult::CycleError(message) =>
             return CellResult::CycleError(message)
-          }
         }
       }
 

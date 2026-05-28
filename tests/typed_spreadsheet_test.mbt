@@ -535,30 +535,40 @@ test "typed spreadsheet: overwrite formula keeps downstream dependencies fresh" 
     sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(1)).is_ok(),
     content="true",
   )
-  sheet.set_formula(target, @typed_spreadsheet.CellType::t_int(), [source], fn(
-    deps,
-  ) {
-    match deps[0] {
-      @typed_spreadsheet.CellValue::Int(value) =>
-        @typed_spreadsheet.CellResult::ok(
-          @typed_spreadsheet.CellValue::from_int(value + 1),
-        )
-      _ =>
-        @typed_spreadsheet.CellResult::type_error("formula dependency mismatch")
-    }
-  })
-  sheet.set_formula(dependent, @typed_spreadsheet.CellType::t_int(), [target], fn(
-    deps,
-  ) {
-    match deps[0] {
-      @typed_spreadsheet.CellValue::Int(value) =>
-        @typed_spreadsheet.CellResult::ok(
-          @typed_spreadsheet.CellValue::from_int(value + 1),
-        )
-      _ =>
-        @typed_spreadsheet.CellResult::type_error("formula dependency mismatch")
-    }
-  })
+  let _ = sheet.set_formula(
+    target,
+    @typed_spreadsheet.CellType::t_int(),
+    [source],
+    fn(deps) {
+      match deps[0] {
+        @typed_spreadsheet.CellValue::Int(value) =>
+          @typed_spreadsheet.CellResult::ok(
+            @typed_spreadsheet.CellValue::from_int(value + 1),
+          )
+        _ =>
+          @typed_spreadsheet.CellResult::type_error(
+            "formula dependency mismatch",
+          )
+      }
+    },
+  )
+  let _ = sheet.set_formula(
+    dependent,
+    @typed_spreadsheet.CellType::t_int(),
+    [target],
+    fn(deps) {
+      match deps[0] {
+        @typed_spreadsheet.CellValue::Int(value) =>
+          @typed_spreadsheet.CellResult::ok(
+            @typed_spreadsheet.CellValue::from_int(value + 1),
+          )
+        _ =>
+          @typed_spreadsheet.CellResult::type_error(
+            "formula dependency mismatch",
+          )
+      }
+    },
+  )
 
   match sheet.read(dependent) {
     @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(total)) =>
@@ -566,18 +576,23 @@ test "typed spreadsheet: overwrite formula keeps downstream dependencies fresh" 
     _ => abort("expected initial dependent result")
   }
 
-  sheet.set_formula(target, @typed_spreadsheet.CellType::t_int(), [source], fn(
-    deps,
-  ) {
-    match deps[0] {
-      @typed_spreadsheet.CellValue::Int(value) =>
-        @typed_spreadsheet.CellResult::ok(
-          @typed_spreadsheet.CellValue::from_int(value + 10),
-        )
-      _ =>
-        @typed_spreadsheet.CellResult::type_error("formula dependency mismatch")
-    }
-  })
+  let _ = sheet.set_formula(
+    target,
+    @typed_spreadsheet.CellType::t_int(),
+    [source],
+    fn(deps) {
+      match deps[0] {
+        @typed_spreadsheet.CellValue::Int(value) =>
+          @typed_spreadsheet.CellResult::ok(
+            @typed_spreadsheet.CellValue::from_int(value + 10),
+          )
+        _ =>
+          @typed_spreadsheet.CellResult::type_error(
+            "formula dependency mismatch",
+          )
+      }
+    },
+  )
 
   match sheet.read(dependent) {
     @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(total)) =>
