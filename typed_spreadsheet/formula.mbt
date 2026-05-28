@@ -159,10 +159,7 @@ pub fn Formula::refs(self : Formula) -> Array[CellId] {
 fn Formula::collect_refs(self : Formula, refs : Array[CellId]) -> Unit {
   match self {
     Formula::Literal(_) => ()
-    Formula::Ref(cell_id) =>
-      if !formula_refs_contains(refs, cell_id) {
-        refs.push(cell_id)
-      }
+    Formula::Ref(cell_id) => if !refs.contains(cell_id) { refs.push(cell_id) }
     Formula::Add(lhs, rhs) => collect_binary_refs(lhs, rhs, refs)
     Formula::Mul(lhs, rhs) => collect_binary_refs(lhs, rhs, refs)
     Formula::Eq(lhs, rhs) => collect_binary_refs(lhs, rhs, refs)
@@ -173,17 +170,6 @@ fn Formula::collect_refs(self : Formula, refs : Array[CellId]) -> Unit {
       else_formula.collect_refs(refs)
     }
   }
-}
-
-///|
-fn formula_refs_contains(refs : Array[CellId], target : CellId) -> Bool {
-  for value in refs {
-    if value == target {
-      return true
-    }
-  }
-
-  false
 }
 
 ///|
