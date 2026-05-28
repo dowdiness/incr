@@ -1,0 +1,107 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/incr/typed_spreadsheet"
+
+import {
+  "dowdiness/incr/cells",
+  "moonbitlang/core/debug",
+  "moonbitlang/core/hashmap",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct CellId {
+  sheet_id : SheetId
+  address : String
+} derive(Eq, @debug.Debug)
+pub fn CellId::CellId(SheetId, String) -> Self
+pub fn CellId::of(SheetId, String) -> Self
+pub impl Hash for CellId
+
+pub enum CellResult {
+  Ok(CellValue)
+  ParseError(String)
+  TypeError(String)
+  RefError(String)
+  CycleError(String)
+} derive(Eq, @debug.Debug)
+pub fn CellResult::cycle_error(String) -> Self
+pub fn CellResult::is_ok(Self) -> Bool
+pub fn CellResult::ok(CellValue) -> Self
+pub fn CellResult::parse_error(String) -> Self
+pub fn CellResult::ref_error(String) -> Self
+pub fn CellResult::type_error(String) -> Self
+
+type CellSlot
+
+pub enum CellType {
+  TInt
+  TBool
+  TString
+  TBlank
+  TAny
+} derive(Eq, @debug.Debug)
+pub fn CellType::accepts(Self, CellValue) -> Bool
+pub fn CellType::t_any() -> Self
+pub fn CellType::t_blank() -> Self
+pub fn CellType::t_bool() -> Self
+pub fn CellType::t_int() -> Self
+pub fn CellType::t_string() -> Self
+pub fn CellType::to_string(Self) -> String
+
+pub enum CellValue {
+  Int(Int)
+  Bool(Bool)
+  Text(String)
+  Blank
+} derive(Eq, @debug.Debug)
+pub fn CellValue::blank() -> Self
+pub fn CellValue::cell_type(Self) -> CellType
+pub fn CellValue::from_bool(Bool) -> Self
+pub fn CellValue::from_int(Int) -> Self
+pub fn CellValue::from_text(String) -> Self
+
+pub enum Formula {
+  Literal(CellValue)
+  Ref(CellId)
+  Add(Formula, Formula)
+}
+pub fn Formula::add(Self, Self) -> Self
+pub fn Formula::cell_ref(CellId) -> Self
+pub fn Formula::literal(CellValue) -> Self
+pub fn Formula::refs(Self) -> Array[CellId]
+
+pub struct SheetId {
+  value : Int
+} derive(Eq, @debug.Debug)
+pub fn SheetId::SheetId(Int) -> Self
+pub impl Hash for SheetId
+
+pub struct Worksheet {
+  runtime : @cells.Runtime
+  sheet_id : SheetId
+  scope : @cells.Scope
+  cells : @hashmap.HashMap[CellId, CellSlot]
+  cell_presence : @hashmap.HashMap[CellId, @cells.InputField[Bool]]
+}
+pub fn Worksheet::Worksheet(@cells.Runtime, SheetId) -> Self
+pub fn Worksheet::delete(Self, CellId) -> CellResult
+pub fn Worksheet::dispose(Self) -> Unit
+pub fn Worksheet::is_disposed(Self) -> Bool
+pub fn Worksheet::read(Self, CellId) -> CellResult
+pub fn Worksheet::set_formula(Self, CellId, CellType, Array[CellId], (Array[CellValue]) -> CellResult, label? : String) -> Result[Unit, WorksheetError]
+pub fn Worksheet::set_formula_ast(Self, CellId, CellType, Formula, label? : String) -> Result[Unit, WorksheetError]
+pub fn Worksheet::set_input(Self, CellId, CellValue, declared? : CellType, label? : String) -> CellResult
+pub fn Worksheet::sheet_id(Self) -> SheetId
+
+pub enum WorksheetError {
+  RefError(String)
+} derive(Eq, @debug.Debug)
+pub fn WorksheetError::ref_error(String) -> Self
+
+// Type aliases
+
+// Traits
+
