@@ -148,6 +148,17 @@ test "typed spreadsheet: set_formula undefined reference is RefError" {
     },
     content="true",
   )
+
+  inspect(
+    sheet.set_input(missing, @typed_spreadsheet.CellValue::from_int(10)).is_ok(),
+    content="true",
+  )
+
+  match sheet.read(b1) {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(value)) =>
+      inspect(value, content="11")
+    _ => abort("expected missing reference to resolve after input appears")
+  }
 }
 
 ///|

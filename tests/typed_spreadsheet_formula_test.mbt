@@ -231,6 +231,45 @@ test "typed spreadsheet: formula AST undefined reference is RefError" {
 }
 
 ///|
+test "typed spreadsheet: formula AST resolves after missing dependency is created" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(103))
+  let missing = @typed_spreadsheet.CellId(sheet.sheet_id(), "Z9")
+  let b1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
+
+  let formula = @typed_spreadsheet.Formula::add(
+    @typed_spreadsheet.Formula::cell_ref(missing),
+    @typed_spreadsheet.Formula::literal(
+      @typed_spreadsheet.CellValue::from_int(1),
+    ),
+  )
+  let _ = sheet.set_formula_ast(
+    b1,
+    @typed_spreadsheet.CellType::t_int(),
+    formula,
+  )
+
+  inspect(
+    match sheet.read(b1) {
+      @typed_spreadsheet.CellResult::RefError(_) => true
+      _ => false
+    },
+    content="true",
+  )
+
+  inspect(
+    sheet.set_input(missing, @typed_spreadsheet.CellValue::from_int(30)).is_ok(),
+    content="true",
+  )
+
+  match sheet.read(b1) {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(value)) =>
+      inspect(value, content="31")
+    _ => abort("expected missing dependency to resolve after creation")
+  }
+}
+
+///|
 test "panic typed spreadsheet: set formula AST on disposed worksheet" {
   let rt = @incr.Runtime()
   let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(103))

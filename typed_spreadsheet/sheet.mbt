@@ -8,6 +8,7 @@ pub struct Worksheet {
   sheet_id : SheetId
   scope : @incr.Scope
   cells : @hashmap.HashMap[CellId, CellSlot]
+  cell_presence : @hashmap.HashMap[CellId, @incr.InputField[Bool]]
 }
 
 ///|
@@ -33,6 +34,7 @@ pub fn Worksheet::Worksheet(
     sheet_id,
     scope: @incr.Scope::new(runtime),
     cells: @hashmap.HashMap([]),
+    cell_presence: @hashmap.HashMap([]),
   }
 }
 
@@ -200,9 +202,13 @@ pub fn Worksheet::delete(self : Worksheet, id : CellId) -> CellResult {
     Some(slot) => {
       let definition = slot.definition.get()
       self.cells.remove(id)
+      let presence = self.cell_presence_for(id)
+      let previous_present = presence.get()
+      presence.force_set(false)
       self.runtime.record_batch_rollback(slot.definition.id(), fn() {
         let slot = self.new_slot(definition)
         self.cells.set(id, slot)
+        presence.force_set(previous_present)
       })
       self.runtime.dispose_cell(slot.definition.id())
       self.runtime.dispose_cell(slot.value.id())
@@ -220,7 +226,10 @@ fn Worksheet::read_slot(self : Worksheet, id : CellId) -> CellResult {
 
   match self.cells.get(id) {
     Some(slot) => slot.read()
-    None => CellResult::RefError("cell not found")
+    None => {
+      ignore(self.cell_presence_for(id).get())
+      CellResult::RefError("cell not found")
+    }
   }
 }
 
@@ -249,14 +258,34 @@ fn Worksheet::store_new_slot(
   id : CellId,
   slot : CellSlot,
 ) -> Unit {
+  let presence = self.cell_presence_for(id)
+  let previous_present = presence.get()
+  presence.force_set(true)
+
   let definition_id = slot.definition.id()
   let value_id = slot.value.id()
   self.cells.set(id, slot)
   self.runtime.record_batch_rollback(definition_id, fn() {
     self.cells.remove(id)
+    presence.force_set(previous_present)
     self.runtime.dispose_cell(definition_id)
     self.runtime.dispose_cell(value_id)
   })
+}
+
+///|
+fn Worksheet::cell_presence_for(
+  self : Worksheet,
+  id : CellId,
+) -> @incr.InputField[Bool] {
+  match self.cell_presence.get(id) {
+    Some(field) => field
+    None => {
+      let field = self.scope.input_field(false)
+      self.cell_presence.set(id, field)
+      field
+    }
+  }
 }
 
 ///|
