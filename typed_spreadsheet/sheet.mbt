@@ -42,6 +42,14 @@ pub struct CellSnapshot {
 }
 
 ///|
+/// Plain trace data for worksheet operations.
+pub struct WorksheetTrace {
+  recomputed : Array[CellId]
+  changed : Array[CellId]
+  unchanged : Array[CellId]
+}
+
+///|
 /// Creates a worksheet bound to a runtime.
 pub fn Worksheet::Worksheet(
   runtime : @incr.Runtime,
@@ -142,6 +150,58 @@ pub fn Worksheet::inspect_cell(self : Worksheet, id : CellId) -> CellSnapshot {
         static_references: [],
       }
   }
+}
+
+///|
+/// Runs an operation and returns a recompute/change trace for this worksheet.
+///
+/// The method returns `recomputed`, `changed`, and `unchanged` formula cell IDs,
+/// with all formula cells re-read after the operation to capture final status.
+///
+/// - `recomputed`: formula cells whose verified revision advanced.
+/// - `changed`: formula cells that changed value (`changed_at` advanced).
+/// - `unchanged`: formula cells that reverified but did not change.
+pub fn[T] Worksheet::trace(
+  self : Worksheet,
+  operation : () -> T,
+) -> (T, WorksheetTrace) {
+  let before = self.formula_revision_snapshot()
+  let output = operation()
+  let formula_cells = self.formula_cells()
+  for id in formula_cells {
+    let _ = self.read_slot(id)
+  }
+  let after = self.formula_revision_snapshot()
+
+  let recomputed : Array[CellId] = []
+  let changed : Array[CellId] = []
+  let unchanged : Array[CellId] = []
+  for id in self.formula_cells() {
+    let after_info = after.get(id)
+    match after_info {
+      None => ()
+      Some(after_revision) => {
+        let before_info = before.get(id)
+        match before_info {
+          None => {
+            recomputed.push(id)
+            changed.push(id)
+          }
+          Some(before_revision) =>
+            if after_revision.verified_at != before_revision.verified_at {
+              recomputed.push(id)
+              if after_revision.changed_at != before_revision.changed_at {
+                changed.push(id)
+              } else {
+                unchanged.push(id)
+              }
+            }
+        }
+      }
+    }
+  }
+
+  (output, WorksheetTrace::{ recomputed, changed, unchanged })
 }
 
 ///|
@@ -287,6 +347,53 @@ fn Worksheet::read_slot(self : Worksheet, id : CellId) -> CellResult {
     Some(slot) => slot.read()
     None => CellResult::RefError("no cell at the requested address")
   }
+}
+
+///|
+fn Worksheet::formula_cells(self : Worksheet) -> Array[CellId] {
+  let formula_cells : Array[CellId] = []
+  for id in self.cells.keys() {
+    if !self.cell_presence_for(id).get() {
+      continue
+    }
+    match self.cells.get(id) {
+      Some(slot) =>
+        match slot.definition.get() {
+          CellDefinition::Formula(_, _, _, _) => formula_cells.push(id)
+          _ => ()
+        }
+      None => ()
+    }
+  }
+  formula_cells
+}
+
+///|
+fn Worksheet::formula_revision_snapshot(
+  self : Worksheet,
+) -> @hashmap.HashMap[CellId, FormulaRevisionSnapshot] {
+  let snapshot = @hashmap.HashMap([])
+  for id in self.formula_cells() {
+    match self.cells.get(id) {
+      Some(slot) =>
+        match self.runtime.cell_info(slot.value.id()) {
+          Some(info) =>
+            snapshot.set(id, FormulaRevisionSnapshot::{
+              changed_at: info.changed_at,
+              verified_at: info.verified_at,
+            })
+          None => ()
+        }
+      None => ()
+    }
+  }
+  snapshot
+}
+
+///|
+priv struct FormulaRevisionSnapshot {
+  changed_at : @incr.Revision
+  verified_at : @incr.Revision
 }
 
 ///|
