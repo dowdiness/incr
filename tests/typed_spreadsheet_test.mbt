@@ -251,6 +251,48 @@ test "typed spreadsheet: trace captures unchanged recompute" {
 }
 
 ///|
+test "typed spreadsheet: trace ignores pre-existing pending work" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(11))
+  let input = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+  let formula = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
+
+  inspect(
+    sheet.set_input(input, @typed_spreadsheet.CellValue::from_int(10)).is_ok(),
+    content="true",
+  )
+  let _ = sheet.set_formula(
+    formula,
+    @typed_spreadsheet.CellType::t_int(),
+    [input],
+    fn(deps) {
+      match deps[0] {
+        @typed_spreadsheet.CellValue::Int(value) =>
+          @typed_spreadsheet.CellResult::ok(
+            @typed_spreadsheet.CellValue::from_int(value + 1),
+          )
+        _ =>
+          @typed_spreadsheet.CellResult::type_error(
+            "formula dependency mismatch",
+          )
+      }
+    },
+  )
+
+  // Update input but do not read the formula, leaving it stale.
+  inspect(
+    sheet.set_input(input, @typed_spreadsheet.CellValue::from_int(11)).is_ok(),
+    content="true",
+  )
+
+  let (_, trace) = sheet.trace(fn() { () })
+
+  inspect(trace.recomputed.contains(formula), content="false")
+  inspect(trace.changed.contains(formula), content="false")
+  inspect(trace.unchanged.contains(formula), content="false")
+}
+
+///|
 test "typed spreadsheet: trace includes newly created formulas" {
   let rt = @incr.Runtime()
   let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(6))

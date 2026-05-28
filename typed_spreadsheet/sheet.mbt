@@ -165,10 +165,14 @@ pub fn[T] Worksheet::trace(
   self : Worksheet,
   operation : () -> T,
 ) -> (T, WorksheetTrace) {
-  let before = self.formula_revision_snapshot()
-  let output = operation()
   let formula_cells = self.formula_cells()
   for id in formula_cells {
+    let _ = self.read_slot(id)
+  }
+
+  let before = self.formula_revision_snapshot_with_ids(formula_cells)
+  let output = operation()
+  for id in self.formula_cells() {
     let _ = self.read_slot(id)
   }
   let after = self.formula_revision_snapshot()
@@ -366,6 +370,29 @@ fn Worksheet::formula_cells(self : Worksheet) -> Array[CellId] {
     }
   }
   formula_cells
+}
+
+///|
+fn Worksheet::formula_revision_snapshot_with_ids(
+  self : Worksheet,
+  formula_cells : Array[CellId],
+) -> @hashmap.HashMap[CellId, FormulaRevisionSnapshot] {
+  let snapshot = @hashmap.HashMap([])
+  for id in formula_cells {
+    match self.cells.get(id) {
+      Some(slot) =>
+        match self.runtime.cell_info(slot.value.id()) {
+          Some(info) =>
+            snapshot.set(id, FormulaRevisionSnapshot::{
+              changed_at: info.changed_at,
+              verified_at: info.verified_at,
+            })
+          None => ()
+        }
+      None => ()
+    }
+  }
+  snapshot
 }
 
 ///|

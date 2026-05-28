@@ -36,9 +36,10 @@ Use these buckets to distinguish *work done* from *values that actually changed*
 Implementation note:
 
 - The method snapshots formula-cell revision metadata before and after `op` using
-  `Runtime::cell_info`.
-- It then reads all existing formula cells to force any pending recomputation and
-  classify each formula as recomputed/changed/unchanged.
+   `Runtime::cell_info`.
+- It first reads all existing formula cells to refresh stale revisions, then reads
+  formula cells again after `op` to classify each cell as recomputed/changed/
+  unchanged.
 
 ### Signature
 
