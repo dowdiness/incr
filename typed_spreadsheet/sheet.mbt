@@ -224,12 +224,10 @@ fn Worksheet::read_slot(self : Worksheet, id : CellId) -> CellResult {
     return CellResult::RefError("foreign cell id")
   }
 
+  ignore(self.cell_presence_for(id).get())
   match self.cells.get(id) {
     Some(slot) => slot.read()
-    None => {
-      ignore(self.cell_presence_for(id).get())
-      CellResult::RefError("cell not found")
-    }
+    None => CellResult::RefError("cell not found")
   }
 }
 

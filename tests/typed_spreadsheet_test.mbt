@@ -406,6 +406,46 @@ test "typed spreadsheet: dependency error on overwrite/delete propagates downstr
 }
 
 ///|
+test "typed spreadsheet: delete invalidates cached dependent formula" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(204))
+  let b1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
+  let a1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+
+  inspect(
+    sheet.set_input(b1, @typed_spreadsheet.CellValue::from_int(10)).is_ok(),
+    content="true",
+  )
+  let _ = sheet.set_formula(a1, @typed_spreadsheet.CellType::t_int(), [b1], fn(
+    deps,
+  ) {
+    match deps[0] {
+      @typed_spreadsheet.CellValue::Int(value) =>
+        @typed_spreadsheet.CellResult::ok(
+          @typed_spreadsheet.CellValue::from_int(value + 1),
+        )
+      _ => @typed_spreadsheet.CellResult::type_error("dependency mismatch")
+    }
+  })
+
+  match sheet.read(a1) {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(total)) =>
+      inspect(total, content="11")
+    _ => abort("expected cached formula result before delete")
+  }
+
+  match sheet.delete(b1) {
+    @typed_spreadsheet.CellResult::Ok(_) => ()
+    _ => abort("delete should remove B1")
+  }
+
+  match sheet.read(a1) {
+    @typed_spreadsheet.CellResult::RefError(_) => ()
+    _ => abort("expected dependent formula to become RefError after delete")
+  }
+}
+
+///|
 test "typed spreadsheet: declared type mismatch is rejected" {
   let rt = @incr.Runtime()
   let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(2))
