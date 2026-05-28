@@ -361,6 +361,7 @@ fn Worksheet::formula_cells(self : Worksheet) -> Array[CellId] {
     if !self.cell_presence_for(id).get() {
       continue
     }
+
     match self.cells.get(id) {
       Some(slot) =>
         match slot.definition.get() {

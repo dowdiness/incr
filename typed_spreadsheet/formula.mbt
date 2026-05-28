@@ -179,10 +179,11 @@ fn Formula::collect_refs(self : Formula, refs : Array[CellId]) -> Unit {
 fn formula_refs_contains(refs : Array[CellId], target : CellId) -> Bool {
   for value in refs {
     if value == target {
-      return true
+      break true
     }
+  } nobreak {
+    false
   }
-  false
 }
 
 ///|
