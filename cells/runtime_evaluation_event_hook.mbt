@@ -9,6 +9,7 @@ priv struct DerivedRebuildStart {
 ///|
 priv struct RuntimeEvaluationEventHook {
   mut listener : ((@kernel.RuntimeEvaluationEvent) -> Unit)?
+  mut trace_recorder : @kernel.EvaluationTraceRecorder?
   mut draining : Bool
   active : @hashmap.HashMap[CellId, DerivedRebuildStart]
   mut pending : Array[@kernel.RuntimeEvaluationEvent]
@@ -16,11 +17,17 @@ priv struct RuntimeEvaluationEventHook {
 
 ///|
 fn RuntimeEvaluationEventHook::new() -> RuntimeEvaluationEventHook {
-  { listener: None, draining: false, active: @hashmap.HashMap([]), pending: [] }
+  {
+    listener: None,
+    trace_recorder: None,
+    draining: false,
+    active: @hashmap.HashMap([]),
+    pending: [],
+  }
 }
 
 ///|
-fn RuntimeEvaluationEventHook::enabled(
+fn RuntimeEvaluationEventHook::listener_enabled(
   self : RuntimeEvaluationEventHook,
 ) -> Bool {
   match self.listener {
@@ -30,11 +37,32 @@ fn RuntimeEvaluationEventHook::enabled(
 }
 
 ///|
+fn RuntimeEvaluationEventHook::enabled(
+  self : RuntimeEvaluationEventHook,
+) -> Bool {
+  self.listener_enabled() || self.trace_recorder is Some(_)
+}
+
+///|
+fn RuntimeEvaluationEventHook::emit(
+  self : RuntimeEvaluationEventHook,
+  event : @kernel.RuntimeEvaluationEvent,
+) -> Unit {
+  match self.trace_recorder {
+    Some(recorder) => recorder.record_event(event)
+    None => ()
+  }
+  if self.listener_enabled() {
+    self.pending.push(event)
+  }
+}
+
+///|
 fn RuntimeEvaluationEventHook::push_event(
   self : RuntimeEvaluationEventHook,
   event : @kernel.RuntimeEvaluationEvent,
 ) -> Unit {
-  guard self.enabled() else { return }
+  guard self.listener_enabled() else { return }
   self.pending.push(event)
 }
 
@@ -74,7 +102,7 @@ impl MemoCommitPhase for RuntimeEvaluationEventHook with fn after_success(
   } else {
     @kernel.DerivedRebuildDisposition::RecomputedBackdated
   }
-  self.pending.push(
+  self.emit(
     DerivedRebuilt({
       cell_id,
       disposition,
@@ -101,7 +129,7 @@ impl MemoCommitPhase for RuntimeEvaluationEventHook with fn after_abort(
   }
   self.active.remove(cell_id)
   guard self.enabled() else { return }
-  self.pending.push(
+  self.emit(
     DerivedRebuildAborted({
       cell_id,
       dependency_count_before: start.dependency_count_before,
