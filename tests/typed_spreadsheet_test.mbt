@@ -478,6 +478,50 @@ test "typed spreadsheet: delete disposes the wrapped cell" {
 }
 
 ///|
+test "typed spreadsheet: rejected overwrite keeps deleted cell absent" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(6))
+  let cell = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+
+  inspect(
+    sheet.set_input(cell, @typed_spreadsheet.CellValue::from_int(42)).is_ok(),
+    content="true",
+  )
+
+  inspect(sheet.delete(cell).is_ok(), content="true")
+
+  inspect(
+    sheet
+    .set_input(
+      cell,
+      @typed_spreadsheet.CellValue::from_text("bad"),
+      declared=@typed_spreadsheet.CellType::t_int(),
+    )
+    .is_ok(),
+    content="false",
+  )
+
+  inspect(
+    match sheet.read(cell) {
+      @typed_spreadsheet.CellResult::RefError(_) => true
+      _ => false
+    },
+    content="true",
+  )
+
+  inspect(
+    sheet.set_input(cell, @typed_spreadsheet.CellValue::from_int(43)).is_ok(),
+    content="true",
+  )
+
+  match sheet.read(cell) {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(value)) =>
+      inspect(value, content="43")
+    _ => abort("expected restored Int after valid overwrite")
+  }
+}
+
+///|
 test "typed spreadsheet: overwrite formula with input replaces formula cell" {
   let rt = @incr.Runtime()
   let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(4))

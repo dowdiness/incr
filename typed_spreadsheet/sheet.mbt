@@ -84,9 +84,6 @@ pub fn Worksheet::set_input(
   match self.cells.get(id) {
     Some(slot) => {
       let presence = self.cell_presence_for(id)
-      if !presence.get() {
-        presence.force_set(true)
-      }
       if !cell_type.accepts(value) {
         return CellResult::TypeError(
           "value type mismatch: expected " +
@@ -94,6 +91,9 @@ pub fn Worksheet::set_input(
           " and got " +
           value.cell_type().to_string(),
         )
+      }
+      if !presence.get() {
+        presence.force_set(true)
       }
       slot.definition.force_set(CellDefinition::Input(value))
       CellResult::Ok(value)
