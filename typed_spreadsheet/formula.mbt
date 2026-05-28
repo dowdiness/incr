@@ -81,7 +81,7 @@ fn Formula::evaluate(
         read,
         "Add requires Int on the left side",
         "Add requires Int on the right side",
-        fn(lhs_value, rhs_value) { CellValue::from_int(lhs_value + rhs_value) },
+        (lhs_value, rhs_value) => CellValue::from_int(lhs_value + rhs_value),
       )
     Formula::Mul(lhs, rhs) =>
       evaluate_int_binary(
@@ -90,7 +90,7 @@ fn Formula::evaluate(
         read,
         "Mul requires Int on the left side",
         "Mul requires Int on the right side",
-        fn(lhs_value, rhs_value) { CellValue::from_int(lhs_value * rhs_value) },
+        (lhs_value, rhs_value) => CellValue::from_int(lhs_value * rhs_value),
       )
     Formula::Eq(lhs, rhs) => evaluate_eq(lhs, rhs, read)
     Formula::Gt(lhs, rhs) =>
@@ -100,7 +100,7 @@ fn Formula::evaluate(
         read,
         "Gt requires Int on the left side",
         "Gt requires Int on the right side",
-        fn(lhs_value, rhs_value) { CellValue::from_bool(lhs_value > rhs_value) },
+        (lhs_value, rhs_value) => CellValue::from_bool(lhs_value > rhs_value),
       )
     Formula::If(condition, then_formula, else_formula) => {
       let condition_result = condition.evaluate(read)
@@ -160,26 +160,19 @@ fn Formula::collect_refs(self : Formula, refs : Array[CellId]) -> Unit {
   match self {
     Formula::Literal(_) => ()
     Formula::Ref(cell_id) => if !refs.contains(cell_id) { refs.push(cell_id) }
-    Formula::Add(lhs, rhs) => collect_binary_refs(lhs, rhs, refs)
-    Formula::Mul(lhs, rhs) => collect_binary_refs(lhs, rhs, refs)
-    Formula::Eq(lhs, rhs) => collect_binary_refs(lhs, rhs, refs)
-    Formula::Gt(lhs, rhs) => collect_binary_refs(lhs, rhs, refs)
+    Formula::Add(lhs, rhs)
+    | Formula::Mul(lhs, rhs)
+    | Formula::Eq(lhs, rhs)
+    | Formula::Gt(lhs, rhs) => {
+      lhs.collect_refs(refs)
+      rhs.collect_refs(refs)
+    }
     Formula::If(condition, then_formula, else_formula) => {
       condition.collect_refs(refs)
       then_formula.collect_refs(refs)
       else_formula.collect_refs(refs)
     }
   }
-}
-
-///|
-fn collect_binary_refs(
-  lhs : Formula,
-  rhs : Formula,
-  refs : Array[CellId],
-) -> Unit {
-  lhs.collect_refs(refs)
-  rhs.collect_refs(refs)
 }
 
 ///|

@@ -92,63 +92,31 @@ pub fn Worksheet::read(self : Worksheet, id : CellId) -> CellResult {
 /// Returns a stable inspection snapshot for a single cell.
 pub fn Worksheet::inspect_cell(self : Worksheet, id : CellId) -> CellSnapshot {
   if !self.owns_cell_id(id) {
-    return {
-      id,
-      present: false,
-      kind: None,
-      result: CellResult::RefError("foreign cell id"),
-      installed_dependencies: [],
-      static_references: [],
-    }
+    return missing_cell_snapshot(id, "foreign cell id")
   }
 
   match self.cell_presence.get(id) {
-    Some(presence) => {
-      if !presence.get() {
-        return {
-          id,
-          present: false,
-          kind: None,
-          result: CellResult::RefError("no cell at the requested address"),
-          installed_dependencies: [],
-          static_references: [],
-        }
-      }
+    Some(presence) if !presence.get() =>
+      return missing_cell_snapshot(id, "no cell at the requested address")
+    Some(_) => ()
+    None => return missing_cell_snapshot(id, "no cell at the requested address")
+  }
 
-      match self.cells.get(id) {
-        Some(slot) => {
-          let (kind, installed_dependencies, static_references) = slot.definition
-            .get()
-            .kind_and_deps()
-          {
-            id,
-            present: true,
-            kind,
-            result: slot.read(),
-            installed_dependencies,
-            static_references,
-          }
-        }
-        None =>
-          {
-            id,
-            present: false,
-            kind: None,
-            result: CellResult::RefError("no cell at the requested address"),
-            installed_dependencies: [],
-            static_references: [],
-          }
-      }
-    }
-    None =>
+  match self.cells.get(id) {
+    Some(slot) => {
+      let (kind, installed_dependencies, static_references) = slot.definition
+        .get()
+        .kind_and_deps()
       {
         id,
-        present: false,
-        kind: None,
-        result: CellResult::RefError("no cell at the requested address"),
-        installed_dependencies: [],
-        static_references: [],
+        present: true,
+        kind,
+        result: slot.read(),
+        installed_dependencies,
+        static_references,
       }
+    }
+    None => missing_cell_snapshot(id, "no cell at the requested address")
   }
 }
 
@@ -166,45 +134,45 @@ pub fn[T] Worksheet::trace(
   operation : () -> T,
 ) -> (T, WorksheetTrace) {
   let pre_formula_cells = self.formula_cells()
-  for id in pre_formula_cells {
+  pre_formula_cells.each(id => {
     let _ = self.read_slot(id)
-  }
+  })
 
   let before = self.formula_revision_snapshot_with_ids(pre_formula_cells)
   let output = operation()
   let post_formula_cells = self.formula_cells()
-  for id in post_formula_cells {
+  post_formula_cells.each(id => {
     let _ = self.read_slot(id)
-  }
+  })
   let after = self.formula_revision_snapshot_with_ids(post_formula_cells)
-
-  let recomputed : Array[CellId] = []
-  let changed : Array[CellId] = []
-  let unchanged : Array[CellId] = []
-  for id in post_formula_cells {
-    let after_info = after.get(id)
-    match after_info {
-      None => ()
-      Some(after_revision) => {
-        let before_info = before.get(id)
-        match before_info {
-          None => {
-            recomputed.push(id)
-            changed.push(id)
-          }
-          Some(before_revision) =>
-            if after_revision.verified_at != before_revision.verified_at {
-              recomputed.push(id)
-              if after_revision.changed_at != before_revision.changed_at {
-                changed.push(id)
-              } else {
-                unchanged.push(id)
-              }
-            }
-        }
-      }
+  let (before_snapshot, after_snapshot) = (before, after)
+  let recomputed : Array[CellId] = post_formula_cells.filter_map(id => {
+    match (before_snapshot.get(id), after_snapshot.get(id)) {
+      (Some(before_revision), Some(after_revision)) if after_revision.verified_at !=
+        before_revision.verified_at => Some(id)
+      (None, Some(_)) => Some(id)
+      _ => None
     }
-  }
+  })
+
+  let changed : Array[CellId] = post_formula_cells.filter_map(id => {
+    match (before_snapshot.get(id), after_snapshot.get(id)) {
+      (Some(before_revision), Some(after_revision)) if after_revision.verified_at !=
+        before_revision.verified_at &&
+        after_revision.changed_at != before_revision.changed_at => Some(id)
+      (None, Some(_)) => Some(id)
+      _ => None
+    }
+  })
+
+  let unchanged : Array[CellId] = post_formula_cells.filter_map(id => {
+    match (before_snapshot.get(id), after_snapshot.get(id)) {
+      (Some(before_revision), Some(after_revision)) if after_revision.verified_at !=
+        before_revision.verified_at &&
+        after_revision.changed_at == before_revision.changed_at => Some(id)
+      _ => None
+    }
+  })
 
   (output, WorksheetTrace::{ recomputed, changed, unchanged })
 }
@@ -263,17 +231,22 @@ pub fn Worksheet::set_formula(
   }
 
   let dep_ids = deps.copy()
-  let definition = CellDefinition::Formula(dep_ids, dep_ids, declared, fn(
-    worksheet,
-  ) {
+  let definition = CellDefinition::Formula(dep_ids, dep_ids, declared, worksheet => {
     let values = []
-    for dep_id in dep_ids {
-      let value_result = worksheet.read_slot(dep_id)
-      guard value_result is CellResult::Ok(value) else { return value_result }
-
-      values.push(value)
+    let mut first_error : CellResult? = None
+    dep_ids.each(dep_id => {
+      if first_error is None {
+        let value_result = worksheet.read_slot(dep_id)
+        match value_result {
+          CellResult::Ok(value) => values.push(value)
+          _ => first_error = Some(value_result)
+        }
+      }
+    })
+    match first_error {
+      Some(error) => error
+      None => compute(values)
     }
-    compute(values)
   })
   self.set_cell_definition(id, definition, label?)
 
@@ -304,14 +277,11 @@ pub fn Worksheet::set_formula_ast(
     return Err(WorksheetError::ref_error("foreign dependency id"))
   }
 
-  let computed = formula
   let definition = CellDefinition::Formula(
     dep_ids,
     ([] : Array[CellId]),
     declared,
-    fn(worksheet) {
-      computed.evaluate(fn(dep_id) { worksheet.read_slot(dep_id) })
-    },
+    worksheet => formula.evaluate(dep_id => worksheet.read_slot(dep_id)),
   )
   self.set_cell_definition(id, definition, label?)
 
@@ -356,22 +326,26 @@ fn Worksheet::read_slot(self : Worksheet, id : CellId) -> CellResult {
 
 ///|
 fn Worksheet::formula_cells(self : Worksheet) -> Array[CellId] {
-  let formula_cells : Array[CellId] = []
-  for id in self.cells.keys() {
-    if !self.cell_presence_for(id).get() {
-      continue
-    }
+  [
+    for id in self.cells.keys().to_array() if self.is_formula_cell(id) => id
+  ]
+}
 
-    match self.cells.get(id) {
-      Some(slot) =>
-        match slot.definition.get() {
-          CellDefinition::Formula(_, _, _, _) => formula_cells.push(id)
-          _ => ()
-        }
-      None => ()
-    }
+///|
+fn Worksheet::is_formula_cell(self : Worksheet, id : CellId) -> Bool {
+  match self.cell_presence.get(id) {
+    Some(presence) if !presence.get() => false
+    Some(_) =>
+      match self.cells.get(id) {
+        Some(slot) =>
+          match slot.definition.get() {
+            CellDefinition::Formula(_, _, _, _) => true
+            _ => false
+          }
+        None => false
+      }
+    None => false
   }
-  formula_cells
 }
 
 ///|
@@ -380,7 +354,7 @@ fn Worksheet::formula_revision_snapshot_with_ids(
   formula_cells : Array[CellId],
 ) -> @hashmap.HashMap[CellId, FormulaRevisionSnapshot] {
   let snapshot = @hashmap.HashMap([])
-  for id in formula_cells {
+  formula_cells.each(id => {
     match self.cells.get(id) {
       Some(slot) =>
         match self.runtime.cell_info(slot.value.id()) {
@@ -393,7 +367,7 @@ fn Worksheet::formula_revision_snapshot_with_ids(
         }
       None => ()
     }
-  }
+  })
   snapshot
 }
 
@@ -415,10 +389,7 @@ fn Worksheet::new_slot(
   label? : String,
 ) -> CellSlot {
   let definition = self.scope.input_field(definition, label?)
-  let value = self.scope.derived(
-    fn() { definition.get().evaluate(self) },
-    label?,
-  )
+  let value = self.scope.derived(() => definition.get().evaluate(self), label?)
   CellSlot::{ definition, value }
 }
 
@@ -434,7 +405,7 @@ fn Worksheet::store_new_slot(
   let definition_id = slot.definition.id()
   let value_id = slot.value.id()
   self.cells.set(id, slot)
-  self.runtime.record_batch_rollback(definition_id, fn() {
+  self.runtime.record_batch_rollback(definition_id, () => {
     self.cells.remove(id)
     self.runtime.dispose_cell(definition_id)
     self.runtime.dispose_cell(value_id)
@@ -453,6 +424,18 @@ fn Worksheet::cell_presence_for(
       self.cell_presence.set(id, field)
       field
     }
+  }
+}
+
+///|
+fn missing_cell_snapshot(id : CellId, message : String) -> CellSnapshot {
+  {
+    id,
+    present: false,
+    kind: None,
+    result: CellResult::RefError(message),
+    installed_dependencies: [],
+    static_references: [],
   }
 }
 
@@ -480,12 +463,7 @@ fn Worksheet::set_cell_definition(
 
 ///|
 fn Worksheet::all_cell_ids_owned(self : Worksheet, ids : Array[CellId]) -> Bool {
-  for id in ids {
-    if !self.owns_cell_id(id) {
-      return false
-    }
-  }
-  true
+  ids.all(id => self.owns_cell_id(id))
 }
 
 ///|
