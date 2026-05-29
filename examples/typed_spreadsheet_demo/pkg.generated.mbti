@@ -3,9 +3,12 @@ package "dowdiness/incr/examples/typed_spreadsheet_demo"
 
 import {
   "dowdiness/incr/typed_spreadsheet",
+  "moonbitlang/core/debug",
 }
 
 // Values
+pub fn parse_cell_text_op(@typed_spreadsheet.CellId, String) -> Result[SheetOp, FormulaTextParseError]
+
 pub fn run_batched_op(@typed_spreadsheet.Worksheet, SheetOp, capture? : Array[@typed_spreadsheet.CellId]) -> WorksheetStepResult
 
 pub fn run_op(@typed_spreadsheet.Worksheet, SheetOp, capture? : Array[@typed_spreadsheet.CellId]) -> WorksheetStepResult
@@ -18,6 +21,13 @@ pub struct CellSnapshotChange {
   before : @typed_spreadsheet.CellSnapshot
   after : @typed_spreadsheet.CellSnapshot
 }
+
+pub(all) enum FormulaTextParseError {
+  EmptyInput
+  InvalidInteger(String)
+  InvalidCellReference(String)
+  UnsupportedFormula(String)
+} derive(Eq, @debug.Debug)
 
 pub(all) enum OpOutcome {
   SetInput(@typed_spreadsheet.CellResult)

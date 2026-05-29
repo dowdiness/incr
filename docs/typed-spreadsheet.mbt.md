@@ -108,4 +108,12 @@ moon run examples/typed_spreadsheet_cli_demo -- --format json
 ```
 
 The CLI uses `examples/typed_spreadsheet_demo`'s operation runner and prints the
-operation outcome, trace buckets, and before/after snapshots for each step.
+operation outcome, trace buckets, and before/after snapshots for each step. That
+same demo package also exposes a tiny text parser for demo cell edits:
+
+- `10` installs `SetInput(target, Int(10))`
+- `=A1 + 1` installs an integer addition formula
+- `=A1 * 2` installs an integer multiplication formula
+- `=if(A1 > 10, 1, 0)` installs an integer conditional formula
+
+The parser is intentionally demo-scoped and is not an Excel-compatible grammar.
