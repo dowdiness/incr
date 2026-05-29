@@ -9,7 +9,7 @@ fn view(emit : @rabbita.Emit[Msg], model : Model) -> @rabbita.Html {
         view_step_header(emit, model, step),
         view_trace(emit, step),
         view_grid(emit, model, step),
-        view_snapshots(emit, model, step),
+        view_snapshots(model, step),
       ]),
     ]),
   ])
@@ -17,20 +17,20 @@ fn view(emit : @rabbita.Emit[Msg], model : Model) -> @rabbita.Html {
 
 ///|
 fn view_hero(model : Model) -> @rabbita.Html {
-  let schema = model.scenario.schema_version
   let step = current_step(model)
   let total = model.scenario.steps.length()
   @html.header(class="hero", [
     @html.div(class="hero-copy", [
-      @html.div(class="eyebrow", "incr · typed spreadsheet · Rabbita"),
+      @html.div(class="eyebrow", "incremental engine · typed spreadsheet"),
       @html.h1(model.scenario.title),
-      @html.p(model.scenario.summary),
+      @html.p(
+        "A quiet trace of one formula: install B1, change A1, and watch what the incremental engine checks.",
+      ),
     ]),
     @html.div(class="hero-readout", [
-      view_readout("current step", "\{step.index}/\{total}"),
-      view_readout("operation", step.operation),
-      view_readout("watching", model.scenario.cells.join(" · ")),
-      view_readout("schema", "v\{schema}"),
+      view_readout("step", "\{step.index}/\{total}"),
+      view_readout("edit", step_detail(step)),
+      view_readout("cells", model.scenario.cells.join(" · ")),
     ]),
   ])
 }
@@ -46,6 +46,7 @@ fn view_readout(label : String, value : String) -> @rabbita.Html {
 ///|
 fn view_scenario_nav(emit : @rabbita.Emit[Msg], model : Model) -> @rabbita.Html {
   let items = []
+  let step = current_step(model)
   let total = model.scenario.steps.length()
   for index, step in model.scenario.steps {
     items.push(
@@ -57,8 +58,8 @@ fn view_scenario_nav(emit : @rabbita.Emit[Msg], model : Model) -> @rabbita.Html 
   }
   @html.aside(class="scenario-rail", [
     @html.div(class="rail-header", [
-      @html.h2("Scenario"),
-      @html.p("A fixed worksheet story; no editing in this demo."),
+      @html.h2("Step \{step.index} / \{total}"),
+      @html.p(step_title(step)),
     ]),
     @html.ol(class="step-list", items),
     view_status(model),
@@ -75,10 +76,11 @@ fn view_step_nav_button(
 ) -> @rabbita.Html {
   let active = index == current
   let number = index + 1
+  let operation = step_title(step)
   let label = if active {
-    "Current scenario step \{number} of \{total}: \{step.operation}"
+    "Current scenario step \{number} of \{total}: \{operation}"
   } else {
-    "Show scenario step \{number} of \{total}: \{step.operation}"
+    "Show scenario step \{number} of \{total}: \{operation}"
   }
   let attrs = if active {
     @html.Attrs::build().aria_current("step").aria_label(label)
@@ -91,7 +93,7 @@ fn view_step_nav_button(
     attrs~,
     [
       @html.span(class="step-list-number", "0\{number}"),
-      @html.span(class="step-list-operation", step.operation),
+      @html.span(class="step-list-operation", operation),
     ],
   )
 }
@@ -126,25 +128,25 @@ fn view_step_header(
   let total = model.scenario.steps.length()
   @html.div(class="step-header", [
     @html.div(class="step-title-block", [
-      @html.span(
-        class="step-kicker",
-        "walkthrough step \{step.index} / \{total}",
-      ),
-      @html.h2(step.operation),
+      @html.span(class="step-kicker", "step \{step.index} / \{total}"),
+      @html.h2(step_title(step)),
       @html.p(class="step-story", step_story(step)),
       @html.p(class="outcome", [
-        @html.span(class="outcome-label", "applied"),
+        @html.span(class="outcome-label", "result"),
         @html.code(friendly_outcome(step.outcome)),
       ]),
       @html.div(class="walkthrough-map", [
-        @html.span(class="sr-only", "Walkthrough order: edit, trace, evidence."),
+        @html.span(
+          class="sr-only",
+          "Walkthrough order: edit, engine, evidence.",
+        ),
         @html.span(class="walkthrough-node", "edit"),
         @html.span(
           class="walkthrough-arrow",
           attrs=@html.Attrs::build().aria_hidden("true"),
           "→",
         ),
-        @html.span(class="walkthrough-node", "trace"),
+        @html.span(class="walkthrough-node", "engine"),
         @html.span(
           class="walkthrough-arrow",
           attrs=@html.Attrs::build().aria_hidden("true"),
@@ -179,30 +181,30 @@ fn view_trace(
 ) -> @rabbita.Html {
   @html.section(class="trace-panel", [
     @html.div(class="section-heading", [
-      @html.h3("Follow the trace"),
+      @html.h3("What the engine checked"),
       @html.p(
-        "Read left to right: first what incr checked, then which results changed or stayed stable.",
+        "The incremental engine records what it checked, what changed, and what stayed stable.",
       ),
     ]),
     @html.div(class="trace-buckets", [
       view_trace_bucket(
         emit,
-        "1 · checked again",
-        "Formula cells incr re-read for this edit.",
+        "1 · checked",
+        "Formulas the engine re-read after the edit.",
         "violet",
         step.trace.recomputed,
       ),
       view_trace_bucket(
         emit,
-        "2 · changed result",
-        "Re-read cells whose displayed value moved.",
+        "2 · changed",
+        "Re-read cells with a new visible value.",
         "green",
         step.trace.changed,
       ),
       view_trace_bucket(
         emit,
-        "3 · same result",
-        "Re-read cells that stayed stable after checking.",
+        "3 · stable",
+        "Re-read cells whose value stayed the same.",
         "amber",
         step.trace.unchanged,
       ),
@@ -232,7 +234,7 @@ fn cell_chips(
   source : String,
 ) -> Array[@rabbita.Html] {
   if cells.length() == 0 {
-    [@html.span(class="empty-chip", "none this step")]
+    [@html.span(class="empty-chip", "none here")]
   } else {
     cells.map(cell => {
       @html.button(
@@ -258,8 +260,8 @@ fn view_grid(
   })
   @html.section(class="grid-panel", [
     @html.div(class="section-heading", [
-      @html.h3("Pick a cell to follow"),
-      @html.p("Select A1 or B1 to update the evidence card below."),
+      @html.h3("Choose a cell"),
+      @html.p("Select A1 or B1 to compare before and after."),
     ]),
     @html.div(class="worksheet-grid", cells),
   ])
@@ -305,25 +307,18 @@ fn view_grid_cell(
 
 ///|
 fn view_snapshots(
-  emit : @rabbita.Emit[Msg],
   model : Model,
   step : @demo.WorksheetStepViewModel,
 ) -> @rabbita.Html {
   let focused = focused_snapshot(model, step)
   let content = match focused {
-    Some(change) =>
-      @html.div(class="snapshot-list", [
-        view_snapshot_change(change),
-        view_secondary_snapshots(emit, step, change.cell),
-      ])
+    Some(change) => view_snapshot_change(change)
     None => @html.div(class="snapshot-empty", "No snapshots captured.")
   }
   @html.section(class="snapshot-panel", [
     @html.div(class="section-heading", [
-      @html.h3("Evidence for the chosen cell"),
-      @html.p(
-        "Before and after are paired so the focused cell reads like one trace sentence.",
-      ),
+      @html.h3("Before and after"),
+      @html.p("Compare the selected cell across this edit."),
     ]),
     content,
   ])
@@ -364,50 +359,6 @@ fn view_snapshot_change(
 }
 
 ///|
-fn view_secondary_snapshots(
-  emit : @rabbita.Emit[Msg],
-  step : @demo.WorksheetStepViewModel,
-  focused_cell : String,
-) -> @rabbita.Html {
-  let summaries = []
-  for change in step.snapshots {
-    if change.cell != focused_cell {
-      summaries.push(view_snapshot_summary(emit, change))
-    }
-  }
-  if summaries.length() == 0 {
-    @html.nothing
-  } else {
-    @html.div(class="snapshot-secondary", [
-      @html.div(class="snapshot-secondary-label", "Other observed cells"),
-      @html.div(class="snapshot-summary-list", summaries),
-    ])
-  }
-}
-
-///|
-fn view_snapshot_summary(
-  emit : @rabbita.Emit[Msg],
-  change : @demo.CellSnapshotChangeViewModel,
-) -> @rabbita.Html {
-  @html.button(
-    class="snapshot-summary",
-    on_click=emit(SelectCell(change.cell)),
-    attrs=@html.Attrs::build().aria_label(
-      "Select cell \{change.cell} snapshot diff: \{friendly_kind(change.before.kind)} to \{friendly_kind(change.after.kind)}, \{friendly_snapshot_result(change.after)}",
-    ),
-    [
-      @html.span(class="summary-cell", change.cell),
-      @html.span(
-        class="summary-transition",
-        "\{friendly_kind(change.before.kind)} → \{friendly_kind(change.after.kind)}",
-      ),
-      @html.span(class="summary-result", friendly_snapshot_result(change.after)),
-    ],
-  )
-}
-
-///|
 fn view_snapshot_side(
   label : String,
   snapshot : @demo.CellSnapshotViewModel,
@@ -420,10 +371,13 @@ fn view_snapshot_side(
       friendly_snapshot_result(snapshot),
     ),
     @html.div(class="snapshot-facts", [
-      view_fact("present", if snapshot.present { "yes" } else { "no" }),
-      view_fact("kind", friendly_kind(snapshot.kind)),
-      view_fact("deps", join_or_dash(snapshot.installed_dependencies)),
-      view_fact("refs", join_or_dash(snapshot.static_references)),
+      view_fact("cell exists", if snapshot.present { "yes" } else { "no" }),
+      view_fact("cell type", friendly_kind(snapshot.kind)),
+      view_fact(
+        "installed dependencies",
+        join_or_dash(snapshot.installed_dependencies),
+      ),
+      view_fact("static references", join_or_dash(snapshot.static_references)),
     ]),
   ])
 }
@@ -448,15 +402,51 @@ fn snapshot_for(
 }
 
 ///|
+fn step_title(step : @demo.WorksheetStepViewModel) -> String {
+  match step.index {
+    1 => "Setup input A1"
+    2 => "Install formula B1"
+    3 => "Change A1"
+    4 => "Re-enter A1"
+    5 => "Delete B1"
+    _ => friendly_operation(step.operation)
+  }
+}
+
+///|
+fn step_detail(step : @demo.WorksheetStepViewModel) -> String {
+  match step.index {
+    1 => "A1 = Int(10)"
+    2 => "B1 = A1 + Int(1)"
+    3 => "A1 = Int(15)"
+    4 => "A1 = Int(15) again"
+    5 => "Remove B1"
+    _ => friendly_operation(step.operation)
+  }
+}
+
+///|
 fn step_story(step : @demo.WorksheetStepViewModel) -> String {
   match step.index {
-    1 => "A1 becomes an input cell. No formula depends on it yet."
-    2 => "B1 becomes a formula that watches A1, so incr evaluates it once."
-    3 => "A1 changes; incr re-checks B1 and its visible result changes."
+    1 => "Setup: A1 becomes an input cell. No formula is watching it yet."
+    2 => "B1 starts watching A1. The engine checks B1 and stores Int(11)."
+    3 => "A1 changes. The engine checks B1, and its visible result moves."
     4 =>
       "A1 receives the same value; B1 is checked, but the result stays stable."
     5 => "B1 is removed, leaving A1 as the only visible cell."
-    _ => "This step shows how the worksheet state moves after one edit."
+    _ => "This step shows how the worksheet changes after one edit."
+  }
+}
+
+///|
+fn friendly_operation(operation : String) -> String {
+  match operation.strip_prefix("SetInput ") {
+    Some(rest) => "Set input " + rest.to_owned()
+    None =>
+      match operation.strip_prefix("SetFormulaAst ") {
+        Some(rest) => "Install formula " + rest.to_owned()
+        None => operation
+      }
   }
 }
 
