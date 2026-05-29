@@ -4,46 +4,29 @@ fn run_scenario() -> Array[@demo.WorksheetStepResult] {
   let sheet = @typed_spreadsheet.Worksheet(runtime, SheetId(1))
   let a1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
   let b1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
-  let add_one = add_one_formula(a1)
   let steps = []
+  steps.push(@demo.run_op(sheet, must_parse_cell_text_op(a1, "10")))
+  steps.push(@demo.run_op(sheet, must_parse_cell_text_op(b1, "=A1 + 1")))
   steps.push(
-    @demo.run_op(
-      sheet,
-      SetInput(a1, @typed_spreadsheet.CellValue::from_int(10)),
-    ),
+    @demo.run_op(sheet, must_parse_cell_text_op(a1, "15"), capture=[b1]),
   )
   steps.push(
-    @demo.run_op(
-      sheet,
-      SetFormulaAst(b1, @typed_spreadsheet.CellType::t_int(), add_one),
-    ),
-  )
-  steps.push(
-    @demo.run_op(
-      sheet,
-      SetInput(a1, @typed_spreadsheet.CellValue::from_int(15)),
-      capture=[b1],
-    ),
-  )
-  steps.push(
-    @demo.run_op(
-      sheet,
-      SetInput(a1, @typed_spreadsheet.CellValue::from_int(15)),
-      capture=[b1],
-    ),
+    @demo.run_op(sheet, must_parse_cell_text_op(a1, "15"), capture=[b1]),
   )
   steps.push(@demo.run_op(sheet, Delete(b1)))
   steps
 }
 
 ///|
-fn add_one_formula(
-  source : @typed_spreadsheet.CellId,
-) -> @typed_spreadsheet.Formula {
-  @typed_spreadsheet.Formula::add(
-    @typed_spreadsheet.Formula::cell_ref(source),
-    @typed_spreadsheet.Formula::literal(
-      @typed_spreadsheet.CellValue::from_int(1),
-    ),
-  )
+fn must_parse_cell_text_op(
+  target : @typed_spreadsheet.CellId,
+  text : String,
+) -> @demo.SheetOp {
+  match @demo.parse_cell_text_op(target, text) {
+    Ok(operation) => operation
+    Err(error) => {
+      let detail = repr(error)
+      abort("fixed typed spreadsheet demo parse failed: " + detail)
+    }
+  }
 }

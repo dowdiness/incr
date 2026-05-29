@@ -1,5 +1,6 @@
 import {
   "dowdiness/incr/typed_spreadsheet",
+  "moonbitlang/core/string",
 }
 
 import {
