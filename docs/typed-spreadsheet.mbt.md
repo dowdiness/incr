@@ -97,3 +97,15 @@ test "trace after input update" {
 
 For a complete runnable example set, see
 `tests/typed_spreadsheet_test.mbt`.
+
+## CLI demo
+
+Run the fixed five-step demo scenario from the repository root:
+
+```bash
+moon run examples/typed_spreadsheet_cli_demo
+moon run examples/typed_spreadsheet_cli_demo -- --format json
+```
+
+The CLI uses `examples/typed_spreadsheet_demo`'s operation runner and prints the
+operation outcome, trace buckets, and before/after snapshots for each step.
