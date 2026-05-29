@@ -1,0 +1,11 @@
+import {
+  "dowdiness/incr",
+  "dowdiness/incr/typed_spreadsheet",
+  "dowdiness/incr/examples/typed_spreadsheet_demo" @demo,
+  "moonbitlang/core/argparse",
+  "moonbitlang/core/json",
+}
+
+options(
+  "is-main": true,
+)
