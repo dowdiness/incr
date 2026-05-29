@@ -9,7 +9,7 @@ pub(all) struct RelationData {
 }
 
 ///|
-pub impl HasCellMeta for RelationData with meta(self) {
+pub impl HasCellMeta for RelationData with fn meta(self) {
   self.meta
 }
 

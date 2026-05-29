@@ -1,4 +1,4 @@
 import {
-  "dowdiness/incr" @incr,
+  "dowdiness/incr",
   "moonbitlang/core/bench",
 } for "test"

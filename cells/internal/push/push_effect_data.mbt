@@ -16,7 +16,7 @@ pub(all) struct PushEffectData {
 }
 
 ///|
-pub impl HasCellMeta for PushEffectData with meta(self) {
+pub impl HasCellMeta for PushEffectData with fn meta(self) {
   self.meta
 }
 
@@ -28,35 +28,40 @@ pub impl CellOps for PushEffectData
 ///|
 /// Effects have no changed_at semantics (they are terminal and never read).
 /// Returns Revision::initial() as a sentinel.
-pub impl CellOps for PushEffectData with changed_at(self) -> Revision {
+pub impl CellOps for PushEffectData with fn changed_at(self) -> Revision {
   ignore(self)
   Revision::initial()
 }
 
 ///|
-pub impl CellOps for PushEffectData with set_changed_at(self, _rev : Revision) -> Unit {
+pub impl CellOps for PushEffectData with fn set_changed_at(
+  self,
+  _rev : Revision,
+) -> Unit {
   ignore(self)
 }
 
 ///|
 /// Push effects have no Durability. Returns `Low` as a sentinel.
-pub impl CellOps for PushEffectData with durability(self) -> Durability {
+pub impl CellOps for PushEffectData with fn durability(self) -> Durability {
   ignore(self)
   Low
 }
 
 ///|
-pub impl CellOps for PushEffectData with level(self) -> Int {
+pub impl CellOps for PushEffectData with fn level(self) -> Int {
   self.level
 }
 
 ///|
-pub impl CellOps for PushEffectData with gc_role(_self) -> GcRole {
+pub impl CellOps for PushEffectData with fn gc_role(_self) -> GcRole {
   Root
 }
 
 ///|
-pub impl CellOps for PushEffectData with gc_dependencies(self) -> Array[CellId] {
+pub impl CellOps for PushEffectData with fn gc_dependencies(self) -> Array[
+  CellId,
+] {
   self.sources
 }
 

@@ -298,7 +298,8 @@ test "runtime_eval: queue skip keeps original cell id after slot reuse" {
         inspect(summary.cell_id != replacement_id, content="true")
         if summary.cell_id == queued_cell_id {
           inspect(
-            summary.reason == @kernel.PushQueueSkipReason::DisposedOrKindMismatch,
+            summary.reason ==
+            @kernel.PushQueueSkipReason::DisposedOrKindMismatch,
             content="true",
           )
           saw_original_skip = true
