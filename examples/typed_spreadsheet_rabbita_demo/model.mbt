@@ -20,9 +20,9 @@ fn init_model() -> Model {
   let scenario = @demo.fixed_scenario_view_model()
   {
     scenario,
-    current: 0,
-    selected_cell: Some("A1"),
-    status: step_status(0, scenario.steps.length()),
+    current: 1,
+    selected_cell: Some("B1"),
+    status: step_status(1, scenario.steps.length()),
     error: None,
   }
 }
@@ -38,7 +38,7 @@ fn update(msg : Msg, model : Model) -> Model {
       {
         ..model,
         selected_cell: Some(cell),
-        status: "Selected cell \{cell}.",
+        status: "Showing evidence for \{cell}.",
         error: None,
       }
   }
@@ -49,7 +49,7 @@ fn move_to_step(model : Model, index : Int, total : Int) -> Model {
   if index >= 0 && index < total {
     { ..model, current: index, status: step_status(index, total), error: None }
   } else {
-    { ..model, error: Some("The fixed scenario has no step at that position.") }
+    { ..model, error: Some("That step is not part of this fixed trace.") }
   }
 }
 
