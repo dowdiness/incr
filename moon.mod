@@ -20,6 +20,10 @@ keywords = [
 
 description = "Salsa-inspired incremental recomputation library with automatic dependency tracking, backdating, and durability-based verification skipping"
 
+import {
+  "moonbit-community/rabbita@0.12.3",
+}
+
 options(
   exclude: [ "docs/**", "spikes/**" ],
 )
