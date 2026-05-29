@@ -7,29 +7,82 @@ moon run examples/typed_spreadsheet_cli_demo
 moon run examples/typed_spreadsheet_cli_demo -- --format json
 ```
 
-Text output starts like this:
+The CLI drives the demo-layer operation runner from cell-edit text. The fixed
+scenario parses text such as `10`, `15`, and `=A1 + 1` into `SheetOp` values,
+then applies those operations to a `Worksheet` and prints trace/snapshot data.
+
+## Text output excerpt
 
 ```text
-typed spreadsheet demo scenario
-trace buckets summarize formula cells after each operation
-
-#1 SetInput A1 = Int(10)
-outcome: Ok(Int(10))
+#2 SetFormulaAst B1 : Int = (A1 + Int(1))
+outcome: Ok(())
 trace:
-  recomputed: []
-  changed: []
+  recomputed: [B1]
+  changed: [B1]
   unchanged: []
+snapshots:
+  B1:
+    before: missing RefError("no cell at the requested address")
+    after:  formula Ok(Int(11)) deps=[] refs=[A1]
+
+#4 SetInput A1 = Int(15)
+outcome: Ok(Int(15))
+trace:
+  recomputed: [B1]
+  changed: []
+  unchanged: [B1]
 ```
 
-The script applies the demo operation vocabulary from
-`examples/typed_spreadsheet_demo`:
+## JSON output excerpt
 
-1. `SetInput A1 = 10`
-2. `SetFormulaAst B1 = A1 + 1`
-3. `SetInput A1 = 15` with `B1` captured
-4. `SetInput A1 = 15` again to show an unchanged formula trace
-5. `Delete B1`
+```json
+{
+  "operation": "SetFormulaAst B1 : Int = (A1 + Int(1))",
+  "outcome": "Ok(())",
+  "trace": {
+    "recomputed": ["B1"],
+    "changed": ["B1"],
+    "unchanged": []
+  },
+  "snapshots": [
+    {
+      "cell": "B1",
+      "before": {
+        "cell": "B1",
+        "present": false,
+        "kind": "missing",
+        "result": "RefError(\"no cell at the requested address\")",
+        "installed_dependencies": [],
+        "static_references": []
+      },
+      "after": {
+        "cell": "B1",
+        "present": true,
+        "kind": "formula",
+        "result": "Ok(Int(11))",
+        "installed_dependencies": [],
+        "static_references": ["A1"]
+      }
+    }
+  ]
+}
+```
 
-Output includes each operation, outcome, trace buckets, and before/after cell
-snapshots. `Worksheet::trace` is a before/after summary of formula cells after
-post-operation reads, not an event log.
+## What this demonstrates
+
+- **Formula text → `SheetOp`**: demo text is parsed inside
+  `examples/typed_spreadsheet_demo`; the typed spreadsheet core does not own the
+  demo operation vocabulary or parser grammar.
+- **Static refs**: formula AST references are discovered before execution and
+  exposed as `refs=[A1]` / `static_references: ["A1"]`.
+- **Trace changed/unchanged**: changing `A1` from `10` to `15` marks `B1` as
+  changed, while setting `A1` to `15` again marks `B1` as unchanged after
+  revalidation.
+- **Before/after snapshots**: each step captures visible cells before and after
+  the operation, including missing cells, input values, formula results, and
+  static references.
+
+The parser is intentionally tiny and demo-scoped. It supports integer inputs,
+`=A1 + 1`, `=A1 * 2`, and `=if(A1 > 10, 1, 0)`; it is not an Excel-compatible
+parser and does not handle nested formulas or arbitrary whitespace forms such as
+`if (`.
