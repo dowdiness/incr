@@ -1,0 +1,44 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/incr/examples/typed_spreadsheet_demo"
+
+import {
+  "dowdiness/incr/typed_spreadsheet",
+}
+
+// Values
+pub fn run_batched_op(@typed_spreadsheet.Worksheet, SheetOp, capture? : Array[@typed_spreadsheet.CellId]) -> WorksheetStepResult
+
+pub fn run_op(@typed_spreadsheet.Worksheet, SheetOp, capture? : Array[@typed_spreadsheet.CellId]) -> WorksheetStepResult
+
+// Errors
+
+// Types and methods
+pub struct CellSnapshotChange {
+  id : @typed_spreadsheet.CellId
+  before : @typed_spreadsheet.CellSnapshot
+  after : @typed_spreadsheet.CellSnapshot
+}
+
+pub(all) enum OpOutcome {
+  SetInput(@typed_spreadsheet.CellResult)
+  SetFormulaAst(Result[Unit, @typed_spreadsheet.WorksheetError])
+  Delete(@typed_spreadsheet.CellResult)
+}
+
+pub(all) enum SheetOp {
+  SetInput(@typed_spreadsheet.CellId, @typed_spreadsheet.CellValue)
+  SetFormulaAst(@typed_spreadsheet.CellId, @typed_spreadsheet.CellType, @typed_spreadsheet.Formula)
+  Delete(@typed_spreadsheet.CellId)
+}
+
+pub struct WorksheetStepResult {
+  operation : SheetOp
+  outcome : OpOutcome
+  trace : @typed_spreadsheet.WorksheetTrace
+  cell_snapshots : Array[CellSnapshotChange]
+}
+
+// Type aliases
+
+// Traits
+

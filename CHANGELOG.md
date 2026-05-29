@@ -7,6 +7,7 @@ All notable changes to `dowdiness/incr` are documented in this file.
 ### Added
 
 - Added `scripts/migrate-to-target-facades.py`, a dry-run-by-default helper for moving consumer code from compatibility handles (`Memo`, `HybridMemo`, `MemoMap`) to target facades (`Derived`, `ReachableDerived`, `DerivedMap`). It applies mechanically safe rewrites with `--apply`, skips files that still need manual choices, and reports context-sensitive read sites for manual migration.
+- Added `dowdiness/incr/examples/typed_spreadsheet_demo`, a thin demo operation runner that applies typed spreadsheet operations and returns outcome, trace, and before/after cell snapshots, including a batched runner for trace-correct atomic demo steps.
 
 ### Deprecated
 

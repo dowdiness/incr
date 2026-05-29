@@ -1,0 +1,7 @@
+import {
+  "dowdiness/incr/typed_spreadsheet",
+}
+
+import {
+  "dowdiness/incr",
+} for "test"
