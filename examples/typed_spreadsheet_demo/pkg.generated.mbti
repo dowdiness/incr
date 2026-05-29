@@ -55,6 +55,7 @@ pub struct CellSnapshotViewModel {
   present : Bool
   kind : String
   result : String
+  result_status : String
   installed_dependencies : Array[String]
   static_references : Array[String]
 } derive(ToJson, @debug.Debug)

@@ -3,7 +3,7 @@ fn view(emit : @rabbita.Emit[Msg], model : Model) -> @rabbita.Html {
   let step = current_step(model)
   @html.div(class="app-shell", [
     view_hero(model),
-    @html.main_(class="workspace", attrs=@html.Attrs::build().role("main"), [
+    @html.main_(class="workspace", [
       view_scenario_nav(emit, model),
       @html.section(class="step-panel", [
         view_step_header(emit, model, step),
@@ -46,15 +46,21 @@ fn view_readout(label : String, value : String) -> @rabbita.Html {
 ///|
 fn view_scenario_nav(emit : @rabbita.Emit[Msg], model : Model) -> @rabbita.Html {
   let items = []
+  let total = model.scenario.steps.length()
   for index, step in model.scenario.steps {
-    items.push(view_step_nav_button(emit, model.current, index, step))
+    items.push(
+      @html.li(
+        class="step-list-entry",
+        view_step_nav_button(emit, model.current, index, total, step),
+      ),
+    )
   }
   @html.aside(class="scenario-rail", [
     @html.div(class="rail-header", [
       @html.h2("Scenario"),
       @html.p("A fixed worksheet story; no editing in this demo."),
     ]),
-    @html.div(class="step-list", attrs=@html.Attrs::build().role("list"), items),
+    @html.ol(class="step-list", items),
     view_status(model),
   ])
 }
@@ -64,15 +70,21 @@ fn view_step_nav_button(
   emit : @rabbita.Emit[Msg],
   current : Int,
   index : Int,
+  total : Int,
   step : @demo.WorksheetStepViewModel,
 ) -> @rabbita.Html {
   let active = index == current
-  let attrs = if active {
-    @html.Attrs::build().aria_current("step")
-  } else {
-    @html.Attrs::build()
-  }
   let number = index + 1
+  let label = if active {
+    "Current scenario step \{number} of \{total}: \{step.operation}"
+  } else {
+    "Show scenario step \{number} of \{total}: \{step.operation}"
+  }
+  let attrs = if active {
+    @html.Attrs::build().aria_current("step").aria_label(label)
+  } else {
+    @html.Attrs::build().aria_label(label)
+  }
   @html.button(
     class=active_class("step-list-item", active),
     on_click=emit(SelectStep(index)),
@@ -125,10 +137,19 @@ fn view_step_header(
         @html.code(friendly_outcome(step.outcome)),
       ]),
       @html.div(class="walkthrough-map", [
+        @html.span(class="sr-only", "Walkthrough order: edit, trace, evidence."),
         @html.span(class="walkthrough-node", "edit"),
-        @html.span(class="walkthrough-arrow", "→"),
+        @html.span(
+          class="walkthrough-arrow",
+          attrs=@html.Attrs::build().aria_hidden("true"),
+          "→",
+        ),
         @html.span(class="walkthrough-node", "trace"),
-        @html.span(class="walkthrough-arrow", "→"),
+        @html.span(
+          class="walkthrough-arrow",
+          attrs=@html.Attrs::build().aria_hidden("true"),
+          "→",
+        ),
         @html.span(class="walkthrough-node", "evidence"),
       ]),
     ]),
@@ -264,12 +285,17 @@ fn view_grid_cell(
     Some(change) => friendly_snapshot_result(change.after)
     None => "No snapshot"
   }
+  let state = cell_status_label(snapshot)
+  let pressed = if selected { "true" } else { "false" }
   @html.button(
     class=class_name,
     on_click=emit(SelectCell(cell)),
-    attrs=@html.Attrs::build().aria_label("Select worksheet cell \{cell}"),
+    attrs=@html.Attrs::build()
+      .aria_pressed(pressed)
+      .aria_label("Select worksheet cell \{cell}: \{state}, \{kind}, \{result}"),
     [
       @html.span(class="cell-address", cell),
+      @html.span(class="cell-status", state),
       @html.span(class="cell-kind", kind),
       @html.span(class="cell-value", result),
     ],
@@ -367,7 +393,7 @@ fn view_snapshot_summary(
     class="snapshot-summary",
     on_click=emit(SelectCell(change.cell)),
     attrs=@html.Attrs::build().aria_label(
-      "Select cell \{change.cell} snapshot diff",
+      "Select cell \{change.cell} snapshot diff: \{friendly_kind(change.before.kind)} to \{friendly_kind(change.after.kind)}, \{friendly_snapshot_result(change.after)}",
     ),
     [
       @html.span(class="summary-cell", change.cell),
@@ -387,6 +413,7 @@ fn view_snapshot_side(
 ) -> @rabbita.Html {
   @html.div(class="snapshot-side", [
     @html.div(class="snapshot-side-label", label),
+    @html.div(class="snapshot-result-status", snapshot_status_label(snapshot)),
     @html.div(
       class=snapshot_result_class(snapshot),
       friendly_snapshot_result(snapshot),
@@ -446,22 +473,17 @@ fn friendly_outcome(outcome : String) -> String {
 
 ///|
 fn friendly_snapshot_result(snapshot : @demo.CellSnapshotViewModel) -> String {
-  if !snapshot.present && is_missing_cell_result(snapshot.result) {
-    "Empty cell"
-  } else {
-    friendly_result(snapshot.result)
+  match snapshot.result_status {
+    "missing" => "Empty cell"
+    _ => friendly_result(snapshot.result)
   }
 }
 
 ///|
 fn friendly_result(result : String) -> String {
-  if is_missing_cell_result(result) {
-    "Empty cell"
-  } else {
-    match ok_value(result) {
-      Some(value) => value
-      None => result
-    }
+  match ok_value(result) {
+    Some(value) => value
+    None => result
   }
 }
 
@@ -475,12 +497,6 @@ fn ok_value(result : String) -> String? {
       }
     None => None
   }
-}
-
-///|
-fn is_missing_cell_result(result : String) -> Bool {
-  result.contains("RefError") &&
-  result.contains("no cell at the requested address")
 }
 
 ///|
@@ -513,28 +529,41 @@ fn cell_state_class(snapshot : @demo.CellSnapshotChangeViewModel?) -> String {
   match snapshot {
     None => "grid-cell grid-cell--unknown"
     Some(change) =>
-      if !change.after.present {
-        "grid-cell grid-cell--missing"
-      } else if change.after.result.contains("RefError") ||
-        change.after.result.contains("TypeError") ||
-        change.after.result.contains("CycleError") {
-        "grid-cell grid-cell--error"
-      } else {
-        "grid-cell grid-cell--ready"
+      match change.after.result_status {
+        "missing" => "grid-cell grid-cell--missing"
+        "ok" => "grid-cell grid-cell--ready"
+        _ => "grid-cell grid-cell--error"
       }
   }
 }
 
 ///|
+fn cell_status_label(snapshot : @demo.CellSnapshotChangeViewModel?) -> String {
+  match snapshot {
+    None => "not captured"
+    Some(change) => snapshot_status_label(change.after)
+  }
+}
+
+///|
+fn snapshot_status_label(snapshot : @demo.CellSnapshotViewModel) -> String {
+  match snapshot.result_status {
+    "ok" => "ready"
+    "missing" => "empty"
+    "parse_error" => "parse error"
+    "type_error" => "type error"
+    "ref_error" => "ref error"
+    "cycle_error" => "cycle error"
+    _ => "unknown"
+  }
+}
+
+///|
 fn snapshot_result_class(snapshot : @demo.CellSnapshotViewModel) -> String {
-  if !snapshot.present {
-    "snapshot-result snapshot-result--missing"
-  } else if snapshot.result.contains("RefError") ||
-    snapshot.result.contains("TypeError") ||
-    snapshot.result.contains("CycleError") {
-    "snapshot-result snapshot-result--error"
-  } else {
-    "snapshot-result snapshot-result--ok"
+  match snapshot.result_status {
+    "missing" => "snapshot-result snapshot-result--missing"
+    "ok" => "snapshot-result snapshot-result--ok"
+    _ => "snapshot-result snapshot-result--error"
   }
 }
 

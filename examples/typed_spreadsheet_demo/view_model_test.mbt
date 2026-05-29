@@ -23,9 +23,11 @@ test "typed spreadsheet demo view model captures visible before after cells" {
   inspect(first.snapshots[0].cell, content="A1")
   inspect(first.snapshots[0].before.present, content="false")
   inspect(first.snapshots[0].after.present, content="true")
+  inspect(first.snapshots[0].after.result_status, content="ok")
   inspect(first.snapshots[1].cell, content="B1")
   inspect(first.snapshots[1].before.present, content="false")
   inspect(first.snapshots[1].after.present, content="false")
+  inspect(first.snapshots[1].after.result_status, content="missing")
 
   let delete_step = model.steps[4]
   inspect(delete_step.snapshots.length(), content="2")
@@ -43,5 +45,6 @@ test "typed spreadsheet demo view model serializes as valid JSON" {
   inspect(@json.valid(json), content="true")
   inspect(json.contains("\"schema_version\": 1"), content="true")
   inspect(json.contains("\"operation\": \"Delete B1\""), content="true")
+  inspect(json.contains("\"result_status\": \"missing\""), content="true")
   inspect(json.contains("\"unchanged\": ["), content="true")
 }

@@ -43,6 +43,7 @@ pub struct CellSnapshotViewModel {
   present : Bool
   kind : String
   result : String
+  result_status : String
   installed_dependencies : Array[String]
   static_references : Array[String]
 } derive(ToJson, Debug)
@@ -120,7 +121,28 @@ fn snapshot_view_model(
     present: snapshot.present,
     kind: snapshot_kind(snapshot),
     result: format_cell_result(snapshot.result),
+    result_status: snapshot_result_status(snapshot),
     installed_dependencies: cell_id_strings(snapshot.installed_dependencies),
     static_references: cell_id_strings(snapshot.static_references),
+  }
+}
+
+///|
+fn snapshot_result_status(snapshot : @typed_spreadsheet.CellSnapshot) -> String {
+  if !snapshot.present {
+    "missing"
+  } else {
+    cell_result_status(snapshot.result)
+  }
+}
+
+///|
+fn cell_result_status(result : @typed_spreadsheet.CellResult) -> String {
+  match result {
+    Ok(_) => "ok"
+    ParseError(_) => "parse_error"
+    TypeError(_) => "type_error"
+    RefError(_) => "ref_error"
+    CycleError(_) => "cycle_error"
   }
 }
