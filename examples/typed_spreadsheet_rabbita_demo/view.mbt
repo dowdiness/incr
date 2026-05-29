@@ -9,7 +9,7 @@ fn view(emit : @rabbita.Emit[Msg], model : Model) -> @rabbita.Html {
         view_step_header(emit, model, step),
         view_trace(emit, step),
         view_grid(emit, model, step),
-        view_snapshots(model, step),
+        view_snapshots(emit, model, step),
       ]),
     ]),
   ])
@@ -18,16 +18,28 @@ fn view(emit : @rabbita.Emit[Msg], model : Model) -> @rabbita.Html {
 ///|
 fn view_hero(model : Model) -> @rabbita.Html {
   let schema = model.scenario.schema_version
+  let step = current_step(model)
+  let total = model.scenario.steps.length()
   @html.header(class="hero", [
-    @html.div(class="eyebrow", "incr / typed spreadsheet / rabbita"),
     @html.div(class="hero-copy", [
+      @html.div(class="eyebrow", "incr · typed spreadsheet · Rabbita"),
       @html.h1(model.scenario.title),
       @html.p(model.scenario.summary),
     ]),
-    @html.div(class="hero-meta", [
-      @html.span(class="meta-pill", "schema v\{schema}"),
-      @html.span(class="meta-pill", "fixed 5-step scenario"),
+    @html.div(class="hero-readout", [
+      view_readout("current step", "\{step.index}/\{total}"),
+      view_readout("operation", step.operation),
+      view_readout("watching", model.scenario.cells.join(" · ")),
+      view_readout("schema", "v\{schema}"),
     ]),
+  ])
+}
+
+///|
+fn view_readout(label : String, value : String) -> @rabbita.Html {
+  @html.div(class="readout-cell", [
+    @html.span(class="readout-label", label),
+    @html.span(class="readout-value", value),
   ])
 }
 
@@ -104,9 +116,10 @@ fn view_step_header(
     @html.div(class="step-title-block", [
       @html.span(class="step-kicker", "step \{step.index} / \{total}"),
       @html.h2(step.operation),
+      @html.p(class="step-story", step_story(step)),
       @html.p(class="outcome", [
-        @html.span(class="outcome-label", "outcome"),
-        @html.code(step.outcome),
+        @html.span(class="outcome-label", "applied"),
+        @html.code(friendly_outcome(step.outcome)),
       ]),
     ]),
     @html.div(class="step-controls", [
@@ -135,15 +148,33 @@ fn view_trace(
 ) -> @rabbita.Html {
   @html.section(class="trace-panel", [
     @html.div(class="section-heading", [
-      @html.h3("Trace buckets"),
+      @html.h3("What did incr check?"),
       @html.p(
-        "Formula cells re-read after the operation, grouped by revision result.",
+        "Only formula cells that depend on the edit are re-read, then grouped by whether their visible result moved.",
       ),
     ]),
     @html.div(class="trace-buckets", [
-      view_trace_bucket(emit, "recomputed", "violet", step.trace.recomputed),
-      view_trace_bucket(emit, "changed", "green", step.trace.changed),
-      view_trace_bucket(emit, "unchanged", "amber", step.trace.unchanged),
+      view_trace_bucket(
+        emit,
+        "checked again",
+        "Formula cells incr re-read for this edit.",
+        "violet",
+        step.trace.recomputed,
+      ),
+      view_trace_bucket(
+        emit,
+        "changed result",
+        "Re-read cells whose displayed value moved.",
+        "green",
+        step.trace.changed,
+      ),
+      view_trace_bucket(
+        emit,
+        "same result",
+        "Re-read cells that stayed stable after checking.",
+        "amber",
+        step.trace.unchanged,
+      ),
     ]),
   ])
 }
@@ -152,11 +183,13 @@ fn view_trace(
 fn view_trace_bucket(
   emit : @rabbita.Emit[Msg],
   label : String,
+  help : String,
   tone : String,
   cells : Array[String],
 ) -> @rabbita.Html {
   @html.div(class="trace-bucket trace-bucket--\{tone}", [
     @html.div(class="trace-bucket-label", label),
+    @html.p(class="trace-bucket-help", help),
     @html.div(class="trace-chip-row", cell_chips(emit, cells, label)),
   ])
 }
@@ -168,7 +201,7 @@ fn cell_chips(
   source : String,
 ) -> Array[@rabbita.Html] {
   if cells.length() == 0 {
-    [@html.span(class="empty-chip", "none")]
+    [@html.span(class="empty-chip", "none this step")]
   } else {
     cells.map(cell => {
       @html.button(
@@ -212,11 +245,11 @@ fn view_grid_cell(
   let selected = selected_cell_is(model, cell)
   let class_name = active_class(cell_state_class(snapshot), selected)
   let kind = match snapshot {
-    Some(change) => change.after.kind
+    Some(change) => friendly_kind(change.after.kind)
     None => "not captured"
   }
   let result = match snapshot {
-    Some(change) => change.after.result
+    Some(change) => friendly_snapshot_result(change.after)
     None => "No snapshot"
   }
   @html.button(
@@ -233,44 +266,106 @@ fn view_grid_cell(
 
 ///|
 fn view_snapshots(
+  emit : @rabbita.Emit[Msg],
   model : Model,
   step : @demo.WorksheetStepViewModel,
 ) -> @rabbita.Html {
-  let cards = step.snapshots.map(change => view_snapshot_change(model, change))
+  let focused = focused_snapshot(model, step)
+  let content = match focused {
+    Some(change) =>
+      @html.div(class="snapshot-list", [
+        view_snapshot_change(change),
+        view_secondary_snapshots(emit, step, change.cell),
+      ])
+    None => @html.div(class="snapshot-empty", "No snapshots captured.")
+  }
   @html.section(class="snapshot-panel", [
     @html.div(class="section-heading", [
-      @html.h3("Before / after snapshots"),
+      @html.h3("Selected cell evidence"),
       @html.p(
-        "Snapshots stay in MoonBit; the UI only projects their serialized shape.",
+        "The focused cell gets the full before/after diff; other captured cells stay available as compact context.",
       ),
     ]),
-    @html.div(class="snapshot-list", cards),
+    content,
   ])
 }
 
 ///|
-fn view_snapshot_change(
+fn focused_snapshot(
   model : Model,
+  step : @demo.WorksheetStepViewModel,
+) -> @demo.CellSnapshotChangeViewModel? {
+  match model.selected_cell {
+    Some(cell) =>
+      match snapshot_for(step, cell) {
+        Some(change) => Some(change)
+        None => step.snapshots.get(0)
+      }
+    None => step.snapshots.get(0)
+  }
+}
+
+///|
+fn view_snapshot_change(
   change : @demo.CellSnapshotChangeViewModel,
 ) -> @rabbita.Html {
-  let selected = selected_cell_is(model, change.cell)
-  @html.article(class=active_class("snapshot-card", selected), [
-    @html.div(class="snapshot-card-header", [
-      @html.span(class="snapshot-cell", change.cell),
+  @html.article(
+    class="snapshot-evidence snapshot-evidence--primary is-active",
+    [
+      @html.div(class="snapshot-evidence-header", [
+        @html.span(class="snapshot-cell", change.cell),
+        @html.span(class="snapshot-state", "selected"),
+      ]),
+      @html.div(class="snapshot-sides", [
+        view_snapshot_side("before", change.before),
+        view_snapshot_side("after", change.after),
+      ]),
+    ],
+  )
+}
+
+///|
+fn view_secondary_snapshots(
+  emit : @rabbita.Emit[Msg],
+  step : @demo.WorksheetStepViewModel,
+  focused_cell : String,
+) -> @rabbita.Html {
+  let summaries = []
+  for change in step.snapshots {
+    if change.cell != focused_cell {
+      summaries.push(view_snapshot_summary(emit, change))
+    }
+  }
+  if summaries.length() == 0 {
+    @html.nothing
+  } else {
+    @html.div(class="snapshot-secondary", [
+      @html.div(class="snapshot-secondary-label", "Other observed cells"),
+      @html.div(class="snapshot-summary-list", summaries),
+    ])
+  }
+}
+
+///|
+fn view_snapshot_summary(
+  emit : @rabbita.Emit[Msg],
+  change : @demo.CellSnapshotChangeViewModel,
+) -> @rabbita.Html {
+  @html.button(
+    class="snapshot-summary",
+    on_click=emit(SelectCell(change.cell)),
+    attrs=@html.Attrs::build().aria_label(
+      "Select cell \{change.cell} snapshot diff",
+    ),
+    [
+      @html.span(class="summary-cell", change.cell),
       @html.span(
-        class="snapshot-state",
-        if selected {
-          "selected"
-        } else {
-          "observed"
-        },
+        class="summary-transition",
+        "\{friendly_kind(change.before.kind)} → \{friendly_kind(change.after.kind)}",
       ),
-    ]),
-    @html.div(class="snapshot-sides", [
-      view_snapshot_side("before", change.before),
-      view_snapshot_side("after", change.after),
-    ]),
-  ])
+      @html.span(class="summary-result", friendly_snapshot_result(change.after)),
+    ],
+  )
 }
 
 ///|
@@ -280,10 +375,13 @@ fn view_snapshot_side(
 ) -> @rabbita.Html {
   @html.div(class="snapshot-side", [
     @html.div(class="snapshot-side-label", label),
-    @html.div(class=snapshot_result_class(snapshot), snapshot.result),
+    @html.div(
+      class=snapshot_result_class(snapshot),
+      friendly_snapshot_result(snapshot),
+    ),
     @html.div(class="snapshot-facts", [
       view_fact("present", if snapshot.present { "yes" } else { "no" }),
-      view_fact("kind", snapshot.kind),
+      view_fact("kind", friendly_kind(snapshot.kind)),
       view_fact("deps", join_or_dash(snapshot.installed_dependencies)),
       view_fact("refs", join_or_dash(snapshot.static_references)),
     ]),
@@ -306,6 +404,78 @@ fn snapshot_for(
   match step.snapshots.search_by(change => change.cell == cell) {
     Some(index) => step.snapshots.get(index)
     None => None
+  }
+}
+
+///|
+fn step_story(step : @demo.WorksheetStepViewModel) -> String {
+  match step.index {
+    1 => "A1 becomes an input cell. No formula depends on it yet."
+    2 => "B1 becomes a formula that watches A1, so incr evaluates it once."
+    3 => "A1 changes; incr re-checks B1 and its visible result changes."
+    4 =>
+      "A1 receives the same value; B1 is checked, but the result stays stable."
+    5 => "B1 is removed, leaving A1 as the only visible cell."
+    _ => "This step shows how the worksheet state moves after one edit."
+  }
+}
+
+///|
+fn friendly_outcome(outcome : String) -> String {
+  if outcome == "Ok(())" {
+    "Applied"
+  } else {
+    match ok_value(outcome) {
+      Some(value) => "Stored \{value}"
+      None => friendly_result(outcome)
+    }
+  }
+}
+
+///|
+fn friendly_snapshot_result(snapshot : @demo.CellSnapshotViewModel) -> String {
+  if !snapshot.present && is_missing_cell_result(snapshot.result) {
+    "Empty cell"
+  } else {
+    friendly_result(snapshot.result)
+  }
+}
+
+///|
+fn friendly_result(result : String) -> String {
+  if is_missing_cell_result(result) {
+    "Empty cell"
+  } else {
+    match ok_value(result) {
+      Some(value) => value
+      None => result
+    }
+  }
+}
+
+///|
+fn ok_value(result : String) -> String? {
+  match result.strip_prefix("Ok(") {
+    Some(rest) =>
+      match rest.strip_suffix(")") {
+        Some(value) => Some(value.to_owned())
+        None => None
+      }
+    None => None
+  }
+}
+
+///|
+fn is_missing_cell_result(result : String) -> Bool {
+  result.contains("RefError") &&
+  result.contains("no cell at the requested address")
+}
+
+///|
+fn friendly_kind(kind : String) -> String {
+  match kind {
+    "missing" => "empty"
+    other => other
   }
 }
 
