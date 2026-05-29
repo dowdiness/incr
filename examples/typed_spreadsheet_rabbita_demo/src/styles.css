@@ -653,10 +653,10 @@ code,
 .cell-status,
 .snapshot-result-status {
   width: fit-content;
-  border: 1px solid color-mix(in oklch, currentColor, var(--border) 48%);
+  border: 1px solid color-mix(in oklch, currentcolor, var(--border) 48%);
   border-radius: 999px;
   padding: 0.22rem 0.48rem;
-  background: color-mix(in oklch, currentColor, transparent 91%);
+  background: color-mix(in oklch, currentcolor, transparent 91%);
 }
 
 .cell-value {
