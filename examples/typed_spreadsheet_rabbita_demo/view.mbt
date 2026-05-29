@@ -114,12 +114,22 @@ fn view_step_header(
   let total = model.scenario.steps.length()
   @html.div(class="step-header", [
     @html.div(class="step-title-block", [
-      @html.span(class="step-kicker", "step \{step.index} / \{total}"),
+      @html.span(
+        class="step-kicker",
+        "walkthrough step \{step.index} / \{total}",
+      ),
       @html.h2(step.operation),
       @html.p(class="step-story", step_story(step)),
       @html.p(class="outcome", [
         @html.span(class="outcome-label", "applied"),
         @html.code(friendly_outcome(step.outcome)),
+      ]),
+      @html.div(class="walkthrough-map", [
+        @html.span(class="walkthrough-node", "edit"),
+        @html.span(class="walkthrough-arrow", "→"),
+        @html.span(class="walkthrough-node", "trace"),
+        @html.span(class="walkthrough-arrow", "→"),
+        @html.span(class="walkthrough-node", "evidence"),
       ]),
     ]),
     @html.div(class="step-controls", [
@@ -148,29 +158,29 @@ fn view_trace(
 ) -> @rabbita.Html {
   @html.section(class="trace-panel", [
     @html.div(class="section-heading", [
-      @html.h3("What did incr check?"),
+      @html.h3("Follow the trace"),
       @html.p(
-        "Only formula cells that depend on the edit are re-read, then grouped by whether their visible result moved.",
+        "Read left to right: first what incr checked, then which results changed or stayed stable.",
       ),
     ]),
     @html.div(class="trace-buckets", [
       view_trace_bucket(
         emit,
-        "checked again",
+        "1 · checked again",
         "Formula cells incr re-read for this edit.",
         "violet",
         step.trace.recomputed,
       ),
       view_trace_bucket(
         emit,
-        "changed result",
+        "2 · changed result",
         "Re-read cells whose displayed value moved.",
         "green",
         step.trace.changed,
       ),
       view_trace_bucket(
         emit,
-        "same result",
+        "3 · same result",
         "Re-read cells that stayed stable after checking.",
         "amber",
         step.trace.unchanged,
@@ -227,8 +237,10 @@ fn view_grid(
   })
   @html.section(class="grid-panel", [
     @html.div(class="section-heading", [
-      @html.h3("Worksheet grid"),
-      @html.p("Click a cell to keep its snapshot diff in focus."),
+      @html.h3("Choose the cell to follow"),
+      @html.p(
+        "Trace chips and worksheet cells both focus the evidence card below.",
+      ),
     ]),
     @html.div(class="worksheet-grid", cells),
   ])
@@ -281,9 +293,9 @@ fn view_snapshots(
   }
   @html.section(class="snapshot-panel", [
     @html.div(class="section-heading", [
-      @html.h3("Selected cell evidence"),
+      @html.h3("Evidence for the chosen cell"),
       @html.p(
-        "The focused cell gets the full before/after diff; other captured cells stay available as compact context.",
+        "Before and after are paired so the focused cell reads like one trace sentence.",
       ),
     ]),
     content,
