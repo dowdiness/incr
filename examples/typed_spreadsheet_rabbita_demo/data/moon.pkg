@@ -1,0 +1,9 @@
+import {
+  "dowdiness/incr/examples/typed_spreadsheet_demo" @demo,
+}
+
+supported_targets = "js"
+
+options(
+  link: { "js": { "exports": [ "typed_spreadsheet_scenario_json" ] } },
+)

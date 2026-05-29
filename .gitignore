@@ -1,4 +1,5 @@
 _build/
+.mooncakes/
 target
 .worktrees/
 .claude/worktrees/

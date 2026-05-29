@@ -7,11 +7,33 @@ import {
 }
 
 // Values
+pub fn cell_id_strings(Array[@typed_spreadsheet.CellId]) -> Array[String]
+
+pub fn cell_id_to_string(@typed_spreadsheet.CellId) -> String
+
+pub fn fixed_scenario_json() -> String
+
+pub fn fixed_scenario_view_model() -> FixedScenarioViewModel
+
+pub fn format_cell_ids(Array[@typed_spreadsheet.CellId]) -> String
+
+pub fn format_cell_result(@typed_spreadsheet.CellResult) -> String
+
+pub fn format_op(SheetOp) -> String
+
+pub fn format_outcome(OpOutcome) -> String
+
+pub fn format_snapshot(@typed_spreadsheet.CellSnapshot) -> String
+
 pub fn parse_cell_text_op(@typed_spreadsheet.CellId, String) -> Result[SheetOp, FormulaTextParseError]
 
 pub fn run_batched_op(@typed_spreadsheet.Worksheet, SheetOp, capture? : Array[@typed_spreadsheet.CellId]) -> WorksheetStepResult
 
+pub fn run_fixed_scenario() -> Array[WorksheetStepResult]
+
 pub fn run_op(@typed_spreadsheet.Worksheet, SheetOp, capture? : Array[@typed_spreadsheet.CellId]) -> WorksheetStepResult
+
+pub fn snapshot_kind(@typed_spreadsheet.CellSnapshot) -> String
 
 // Errors
 
@@ -21,6 +43,30 @@ pub struct CellSnapshotChange {
   before : @typed_spreadsheet.CellSnapshot
   after : @typed_spreadsheet.CellSnapshot
 }
+
+pub struct CellSnapshotChangeViewModel {
+  cell : String
+  before : CellSnapshotViewModel
+  after : CellSnapshotViewModel
+} derive(ToJson, @debug.Debug)
+
+pub struct CellSnapshotViewModel {
+  cell : String
+  present : Bool
+  kind : String
+  result : String
+  installed_dependencies : Array[String]
+  static_references : Array[String]
+} derive(ToJson, @debug.Debug)
+
+pub struct FixedScenarioViewModel {
+  schema_version : Int
+  title : String
+  summary : String
+  cells : Array[String]
+  steps : Array[WorksheetStepViewModel]
+  extensions : Map[String, String]
+} derive(ToJson, @debug.Debug)
 
 pub(all) enum FormulaTextParseError {
   EmptyInput
@@ -41,12 +87,27 @@ pub(all) enum SheetOp {
   Delete(@typed_spreadsheet.CellId)
 }
 
+pub struct TraceViewModel {
+  recomputed : Array[String]
+  changed : Array[String]
+  unchanged : Array[String]
+} derive(ToJson, @debug.Debug)
+
 pub struct WorksheetStepResult {
   operation : SheetOp
   outcome : OpOutcome
   trace : @typed_spreadsheet.WorksheetTrace
   cell_snapshots : Array[CellSnapshotChange]
 }
+
+pub struct WorksheetStepViewModel {
+  index : Int
+  operation : String
+  outcome : String
+  trace : TraceViewModel
+  snapshots : Array[CellSnapshotChangeViewModel]
+  extensions : Map[String, String]
+} derive(ToJson, @debug.Debug)
 
 // Type aliases
 

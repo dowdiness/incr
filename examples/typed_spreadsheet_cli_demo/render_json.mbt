@@ -92,16 +92,3 @@ fn snapshot_json(snapshot : @typed_spreadsheet.CellSnapshot) -> SnapshotJson {
     static_references: cell_id_strings(snapshot.static_references),
   }
 }
-
-///|
-fn snapshot_kind(snapshot : @typed_spreadsheet.CellSnapshot) -> String {
-  match snapshot.kind {
-    Some(kind) => format_cell_kind(kind)
-    None => "missing"
-  }
-}
-
-///|
-fn cell_id_strings(ids : Array[@typed_spreadsheet.CellId]) -> Array[String] {
-  ids.map(id => cell_id_to_string(id))
-}

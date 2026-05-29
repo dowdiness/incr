@@ -1,0 +1,14 @@
+{
+  "name": "typed-spreadsheet-rabbita-demo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:moonbit": "cd ../.. && moon build --target js --release",
+    "dev": "npm run build:moonbit && vite",
+    "build": "npm run build:moonbit && vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^8.0.14"
+  }
+}
