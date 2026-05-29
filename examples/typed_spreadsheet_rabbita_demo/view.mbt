@@ -258,10 +258,8 @@ fn view_grid(
   })
   @html.section(class="grid-panel", [
     @html.div(class="section-heading", [
-      @html.h3("Choose the cell to follow"),
-      @html.p(
-        "Trace chips and worksheet cells both focus the evidence card below.",
-      ),
+      @html.h3("Pick a cell to follow"),
+      @html.p("Select A1 or B1 to update the evidence card below."),
     ]),
     @html.div(class="worksheet-grid", cells),
   ])
@@ -281,6 +279,7 @@ fn view_grid_cell(
     Some(change) => friendly_kind(change.after.kind)
     None => "not captured"
   }
+  let kind_label = cell_kind_label(kind)
   let result = match snapshot {
     Some(change) => friendly_snapshot_result(change.after)
     None => "No snapshot"
@@ -292,11 +291,13 @@ fn view_grid_cell(
     on_click=emit(SelectCell(cell)),
     attrs=@html.Attrs::build()
       .aria_pressed(pressed)
-      .aria_label("Select worksheet cell \{cell}: \{state}, \{kind}, \{result}"),
+      .aria_label(
+        "Select worksheet cell \{cell}: \{state}, \{kind_label}, \{result}",
+      ),
     [
       @html.span(class="cell-address", cell),
       @html.span(class="cell-status", state),
-      @html.span(class="cell-kind", kind),
+      @html.span(class="cell-kind", kind_label),
       @html.span(class="cell-value", result),
     ],
   )
@@ -504,6 +505,15 @@ fn friendly_kind(kind : String) -> String {
   match kind {
     "missing" => "empty"
     other => other
+  }
+}
+
+///|
+fn cell_kind_label(kind : String) -> String {
+  match kind {
+    "empty" => "no definition"
+    "not captured" => "not captured"
+    other => other + " cell"
   }
 }
 
