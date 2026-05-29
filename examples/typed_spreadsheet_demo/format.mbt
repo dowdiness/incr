@@ -143,8 +143,12 @@ fn format_worksheet_error(error : @typed_spreadsheet.WorksheetError) -> String {
 ///|
 /// Returns the JSON/ViewModel kind string for a snapshot.
 pub fn snapshot_kind(snapshot : @typed_spreadsheet.CellSnapshot) -> String {
-  match snapshot.kind {
-    Some(kind) => format_cell_kind(kind)
-    None => "missing"
+  if !snapshot.present {
+    "missing"
+  } else {
+    match snapshot.kind {
+      Some(kind) => format_cell_kind(kind)
+      None => "unknown"
+    }
   }
 }

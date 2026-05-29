@@ -36,7 +36,7 @@ MoonBit-only validation from the repository root:
 
 ```bash
 moon check --target js
-moon test examples/typed_spreadsheet_demo
+moon test
 ```
 
 ## UI scope
