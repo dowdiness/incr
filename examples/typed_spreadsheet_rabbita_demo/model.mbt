@@ -195,35 +195,24 @@ fn should_ignore_keyboard(event : @html.Keyboard) -> Bool {
 
 ///|
 fn move_selection(model : Model, delta_col : Int, delta_row : Int) -> Model {
-  match model.cells.search_by(cell => cell == model.selected_cell) {
-    Some(index) => {
-      let col_count = grid_column_count()
-      let row_count = grid_row_count()
-      if row_count == 0 {
-        model
-      } else {
-        let row = index / col_count
-        let col = index % col_count
-        let next_row = clamp_int(row + delta_row, 0, row_count - 1)
-        let next_col = clamp_int(col + delta_col, 0, col_count - 1)
-        let next_index = next_row * col_count + next_col
-        if next_index >= 0 && next_index < model.cells.length() {
-          let next_cell = model.cells[next_index]
-          if next_cell == model.selected_cell {
-            model
-          } else {
-            {
-              ..select_cell(model, next_cell),
-              status: "Selected \{next_cell}.",
-            }
-          }
-        } else {
-          model
-        }
-      }
-    }
-    None => model
+  guard model.cells.search_by(cell => cell == model.selected_cell)
+    is Some(index) else {
+    return model
   }
+  let col_count = grid_column_count()
+  let row_count = grid_row_count()
+  guard row_count != 0 else { return model }
+  let row = index / col_count
+  let col = index % col_count
+  let next_row = clamp_int(row + delta_row, 0, row_count - 1)
+  let next_col = clamp_int(col + delta_col, 0, col_count - 1)
+  let next_index = next_row * col_count + next_col
+  guard next_index >= 0 && next_index < model.cells.length() else {
+    return model
+  }
+  let next_cell = model.cells[next_index]
+  guard next_cell != model.selected_cell else { return model }
+  { ..select_cell(model, next_cell), status: "Selected \{next_cell}." }
 }
 
 ///|
@@ -304,14 +293,10 @@ fn grid_cells() -> Array[String] {
 
 ///|
 fn apply_inline_edit(model : Model, cell : String) -> Model {
-  match model.editing_cell {
-    Some(editing) =>
-      if editing == cell {
-        apply_text_edit(model, cell, draft_for(model, cell))
-      } else {
-        model
-      }
-    None => model
+  if model.editing_cell == Some(cell) {
+    apply_text_edit(model, cell, draft_for(model, cell))
+  } else {
+    model
   }
 }
 

@@ -106,15 +106,9 @@ fn parse_arithmetic_formula(
             @typed_spreadsheet.Formula::mul,
           )
         None =>
-          match parse_cell_ref_formula(target, formula_text) {
-            Ok(formula) => Ok(formula)
-            Err(_) =>
-              Err(
-                FormulaTextParseError::UnsupportedFormula(
-                  formula_text.to_owned(),
-                ),
-              )
-          }
+          parse_cell_ref_formula(target, formula_text).map_err(_ => {
+            FormulaTextParseError::UnsupportedFormula(formula_text.to_owned())
+          })
       }
   }
 }

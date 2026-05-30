@@ -479,39 +479,36 @@ fn cell_chips(
   cells : Array[String],
   source : String,
 ) -> Array[@rabbita.Html] {
-  if cells.length() == 0 {
-    [@html.span(class="empty-chip", "none")]
-  } else {
-    cells.map(cell => {
-      @html.button(
-        type_="button",
-        class="cell-chip",
-        on_click=emit(SelectCell(cell)),
-        attrs=@html.Attrs::build().aria_label(
-          "Select cell \{cell} from \{source} trace bucket",
-        ),
-        cell,
-      )
-    })
+  match cells {
+    [] => [@html.span(class="empty-chip", "none")]
+    _ =>
+      cells.map(cell => {
+        @html.button(
+          type_="button",
+          class="cell-chip",
+          on_click=emit(SelectCell(cell)),
+          attrs=@html.Attrs::build().aria_label(
+            "Select cell \{cell} from \{source} trace bucket",
+          ),
+          cell,
+        )
+      })
   }
 }
 
 ///|
 fn focused_snapshot(model : Model) -> @demo.CellSnapshotChange? {
-  match model.last_step {
-    Some(step) =>
-      match
-        step.cell_snapshots.search_by(change => {
-          @demo.cell_id_to_string(change.id) == model.selected_cell
-        }) {
-        Some(index) => step.cell_snapshots.get(index)
-        None =>
-          match step.cell_snapshots {
-            [first, ..] => Some(first)
-            [] => None
-          }
+  guard model.last_step is Some(step) else { return None }
+  match
+    step.cell_snapshots.search_by(change => {
+      @demo.cell_id_to_string(change.id) == model.selected_cell
+    }) {
+    Some(index) => step.cell_snapshots.get(index)
+    None =>
+      match step.cell_snapshots {
+        [first, ..] => Some(first)
+        [] => None
       }
-    None => None
   }
 }
 
@@ -598,10 +595,7 @@ fn selected_cell_is(model : Model, cell : String) -> Bool {
 
 ///|
 fn inline_editing_cell_is(model : Model, cell : String) -> Bool {
-  match model.editing_cell {
-    Some(editing) => editing == cell
-    None => false
-  }
+  model.editing_cell == Some(cell)
 }
 
 ///|
@@ -739,29 +733,20 @@ fn friendly_outcome(outcome : String) -> String {
 
 ///|
 fn friendly_result(result : String) -> String {
-  match ok_value(result) {
-    Some(value) => value
-    None => result
-  }
+  ok_value(result).unwrap_or(result)
 }
 
 ///|
 fn ok_value(result : String) -> String? {
-  match result.strip_prefix("Ok(") {
-    Some(rest) =>
-      match rest.strip_suffix(")") {
-        Some(value) => Some(value.to_owned())
-        None => None
-      }
-    None => None
-  }
+  guard result.strip_prefix("Ok(") is Some(rest) else { return None }
+  guard rest.strip_suffix(")") is Some(value) else { return None }
+  Some(value.to_owned())
 }
 
 ///|
 fn join_or_dash(values : Array[String]) -> String {
-  if values.length() == 0 {
-    "—"
-  } else {
-    values.join(", ")
+  match values {
+    [] => "—"
+    _ => values.join(", ")
   }
 }
