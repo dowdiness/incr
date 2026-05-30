@@ -299,6 +299,18 @@ fn apply_text_edit(model : Model, cell : String, text : String) -> Model {
         editing_cell: None,
       }
     }
+    // An empty edit is not a mistake to flag — fail gracefully: revert the
+    // draft to the committed text, leave the cell as-is, and keep the overlay
+    // state untouched (no error styling, no forced editor pop).
+    Err(EmptyInput) =>
+      {
+        ..model,
+        selected_cell: cell,
+        drafts: update_draft(model.drafts, cell, committed_for(model, cell)),
+        status: "Left \{cell} unchanged.",
+        error: None,
+        editing_cell: None,
+      }
     Err(error) =>
       {
         ..model,

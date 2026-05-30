@@ -69,6 +69,24 @@ test "typed spreadsheet Rabbita editor leaves worksheet unchanged after parse er
 }
 
 ///|
+test "typed spreadsheet Rabbita editor handles an empty edit gracefully" {
+  let model = init_model()
+  let drafted = update(UpdateDraft("A1", ""), model)
+  let applied = update(ApplySelected, drafted)
+
+  // Empty input fails gracefully: no error styling, no forced editor pop,
+  // calm status, and the cell keeps its committed value.
+  inspect(applied.error is None, content="true")
+  inspect(applied.status, content="Left A1 unchanged.")
+  inspect(overlay_status(applied.overlay), content="Panels hidden.")
+  inspect(draft_for(applied, "A1"), content="10")
+  inspect(
+    friendly_snapshot_result(applied.sheet.inspect_cell(cell_id(applied, "A1"))),
+    content="Int(10)",
+  )
+}
+
+///|
 test "typed spreadsheet Rabbita editor reset disposes old worksheet" {
   let model = init_model()
   let old_sheet = model.sheet
