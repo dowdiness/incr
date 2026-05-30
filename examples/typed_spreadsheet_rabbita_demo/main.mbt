@@ -5,5 +5,40 @@ fn main {
 
 ///|
 fn app() -> @rabbita.Cell {
-  @rabbita.simple_cell(model=init_model(), update~, view~)
+  @rabbita.cell(model=init_model(), update=update_with_cmd, view~)
 }
+
+///|
+fn update_with_cmd(
+  _emit : @rabbita.Emit[Msg],
+  msg : Msg,
+  model : Model,
+) -> (@rabbita.Cmd, Model) {
+  let next = update(msg, model)
+  let cmd = match msg {
+    BeginInlineEdit(cell) => focus_inline_editor_cmd(cell)
+    _ => @rabbita.none
+  }
+  (cmd, next)
+}
+
+///|
+fn focus_inline_editor_cmd(cell : String) -> @rabbita.Cmd {
+  @rabbita_cmd.custom_cmd(
+    fn(_) { js_focus_inline_editor(cell) },
+    kind=@rabbita_cmd.after_render,
+  )
+}
+
+///|
+extern "js" fn js_focus_inline_editor(cell : String) -> Unit =
+  #| function(cell) {
+  #|   var el = document.getElementById('inline-editor-' + cell);
+  #|   if (!el || typeof el.focus !== 'function') return;
+  #|   try {
+  #|     el.focus({ preventScroll: true });
+  #|   } catch (_) {
+  #|     el.focus();
+  #|   }
+  #|   if (typeof el.select === 'function') el.select();
+  #| }

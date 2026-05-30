@@ -12,6 +12,20 @@ test "typed spreadsheet demo parser: integer input text becomes SetInput" {
 }
 
 ///|
+test "typed spreadsheet demo parser: cell reference formula text becomes Formula::cell_ref" {
+  let target = cell("B1")
+  let source = cell("A1")
+
+  match parse_cell_text_op(target, "=A1") {
+    Ok(SetFormulaAst(id, TInt, Ref(ref_id))) => {
+      inspect(id == target, content="true")
+      inspect(ref_id == source, content="true")
+    }
+    _ => abort("expected SetFormulaAst TInt Ref(A1)")
+  }
+}
+
+///|
 test "typed spreadsheet demo parser: addition formula text becomes Formula::add" {
   let target = cell("B1")
   let source = cell("A1")
