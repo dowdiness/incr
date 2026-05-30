@@ -114,16 +114,16 @@ code,
 }
 
 .app-shell {
-  --page: oklch(0.995 0.002 82);
-  --page-deep: oklch(0.975 0.003 82);
-  --paper: oklch(0.995 0.002 86);
-  --paper-soft: oklch(0.975 0.003 86);
-  --paper-hover: oklch(0.955 0.004 86);
-  --ink: oklch(0.25 0.012 82);
-  --ink-soft: oklch(0.38 0.012 82);
-  --muted: oklch(0.5 0.014 82);
-  --line: oklch(0.89 0.004 82);
-  --line-strong: oklch(0.78 0.006 82);
+  --page: oklch(0.965 0.005 255);
+  --page-deep: oklch(0.945 0.006 255);
+  --paper: oklch(0.98 0.004 255);
+  --paper-soft: oklch(0.96 0.005 255);
+  --paper-hover: oklch(0.94 0.007 255);
+  --ink: oklch(0.25 0.012 262);
+  --ink-soft: oklch(0.38 0.012 262);
+  --muted: oklch(0.5 0.013 262);
+  --line: oklch(0.86 0.008 255);
+  --line-strong: oklch(0.75 0.01 255);
   --accent: oklch(0.52 0.08 285);
   --accent-soft: color-mix(in oklch, var(--accent), transparent 86%);
   --success: oklch(0.47 0.08 148);
