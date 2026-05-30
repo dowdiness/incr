@@ -161,13 +161,12 @@ code,
 
 .panel-rail {
   position: fixed;
-  top: var(--space-sm);
-  left: 50%;
+  bottom: var(--space-sm);
   z-index: 20;
   display: flex;
   gap: var(--space-xs);
   align-items: center;
-  max-width: calc(100vw - 2 * var(--space-sm));
+  max-width: calc(50vw - 1.5 * var(--space-sm));
   padding: 4px;
   overflow-x: auto;
   border: 1px solid color-mix(in oklch, var(--line-strong), transparent 20%);
@@ -175,7 +174,14 @@ code,
   background: color-mix(in oklch, var(--paper), transparent 18%);
   box-shadow: 0 18px 52px color-mix(in oklch, var(--ink), transparent 88%);
   backdrop-filter: blur(16px);
-  transform: translateX(-50%);
+}
+
+.panel-rail--left {
+  left: var(--space-sm);
+}
+
+.panel-rail--right {
+  right: var(--space-sm);
 }
 
 .status-line,
@@ -633,11 +639,11 @@ code,
 
 .inspector-panel {
   position: fixed;
-  top: calc(var(--space-sm) + 54px);
+  bottom: calc(var(--space-sm) + 58px);
   right: clamp(var(--space-sm), 2vw, var(--space-xl));
   z-index: 30;
   width: min(420px, calc(100vw - 2 * var(--space-md)));
-  max-height: calc(100vh - 84px);
+  max-height: calc(100vh - 92px);
   overflow: auto;
   display: grid;
   gap: var(--space-md);
@@ -838,8 +844,16 @@ code,
 
 @media (max-width: 720px) {
   .panel-rail {
-    top: var(--space-xs);
-    max-width: calc(100vw - 2 * var(--space-xs));
+    bottom: var(--space-xs);
+    max-width: calc(50vw - 1.5 * var(--space-xs));
+  }
+
+  .panel-rail--left {
+    left: var(--space-xs);
+  }
+
+  .panel-rail--right {
+    right: var(--space-xs);
   }
 
   .status-line {

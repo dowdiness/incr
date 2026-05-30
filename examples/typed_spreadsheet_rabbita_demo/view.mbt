@@ -5,7 +5,8 @@ fn view(emit : @rabbita.Emit[Msg], model : Model) -> @rabbita.Html {
     on_keydown=event => emit(HandleAppKey(event)),
     [
       @html.main_(class="sheet-workspace", [view_sheet(emit, model)]),
-      view_panel_rail(emit, model),
+      view_panel_rail_left(emit, model),
+      view_panel_rail_right(emit, model),
       view_overlay(emit, model),
     ],
   )
@@ -17,10 +18,13 @@ fn app_shell_class(model : Model) -> String {
 }
 
 ///|
-fn view_panel_rail(emit : @rabbita.Emit[Msg], model : Model) -> @rabbita.Html {
+fn view_panel_rail_left(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> @rabbita.Html {
   @html.nav(
-    class="panel-rail",
-    attrs=@html.Attrs::build().aria_label("Spreadsheet panels"),
+    class="panel-rail panel-rail--left",
+    attrs=@html.Attrs::build().aria_label("Sheet editing"),
     [
       view_overlay_button(
         emit,
@@ -29,6 +33,19 @@ fn view_panel_rail(emit : @rabbita.Emit[Msg], model : Model) -> @rabbita.Html {
         "edit",
         model.selected_cell,
       ),
+    ],
+  )
+}
+
+///|
+fn view_panel_rail_right(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> @rabbita.Html {
+  @html.nav(
+    class="panel-rail panel-rail--right",
+    attrs=@html.Attrs::build().aria_label("Sheet inspectors"),
+    [
       view_overlay_button(
         emit,
         model,
