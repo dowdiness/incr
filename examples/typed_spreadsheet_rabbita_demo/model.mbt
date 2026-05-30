@@ -45,7 +45,7 @@ enum Msg {
   CancelSelected
   BeginInlineEdit(String)
   ApplyInlineEdit(String)
-  HandleGridKey(@html.Keyboard)
+  MoveSelection(Int, Int)
   HandleAppKey(@html.Keyboard)
   SetAppearance(Appearance)
   SetOverlay(OverlayPanel)
@@ -122,7 +122,12 @@ fn update(msg : Msg, model : Model) -> Model {
     CancelSelected => cancel_selected(model)
     BeginInlineEdit(cell) => begin_inline_edit(model, cell)
     ApplyInlineEdit(cell) => apply_inline_edit(model, cell)
-    HandleGridKey(event) => handle_grid_key(model, event)
+    MoveSelection(delta_col, delta_row) =>
+      if model.editing_cell is Some(_) {
+        model
+      } else {
+        move_selection(model, delta_col, delta_row)
+      }
     HandleAppKey(event) => handle_app_key(model, event)
     SetAppearance(appearance) => set_appearance(model, appearance)
     SetOverlay(overlay) => set_overlay(model, overlay)
@@ -147,28 +152,6 @@ fn handle_app_key(model : Model, event : @html.Keyboard) -> Model {
     model
   } else {
     match event.key() {
-      "Escape" => cancel_selected(model)
-      _ => model
-    }
-  }
-}
-
-///|
-fn handle_grid_key(model : Model, event : @html.Keyboard) -> Model {
-  if model.editing_cell is Some(_) || should_ignore_keyboard(event) {
-    model
-  } else {
-    match event.key() {
-      "ArrowLeft" => move_selection(model, -1, 0)
-      "ArrowRight" => move_selection(model, 1, 0)
-      "ArrowUp" => move_selection(model, 0, -1)
-      "ArrowDown" => move_selection(model, 0, 1)
-      "Enter" =>
-        apply_text_edit(
-          model,
-          model.selected_cell,
-          draft_for(model, model.selected_cell),
-        )
       "Escape" => cancel_selected(model)
       _ => model
     }
@@ -204,8 +187,8 @@ fn move_selection(model : Model, delta_col : Int, delta_row : Int) -> Model {
   guard row_count != 0 else { return model }
   let row = index / col_count
   let col = index % col_count
-  let next_row = clamp_int(row + delta_row, 0, row_count - 1)
-  let next_col = clamp_int(col + delta_col, 0, col_count - 1)
+  let next_row = (row + delta_row).clamp(min=0, max=row_count - 1)
+  let next_col = (col + delta_col).clamp(min=0, max=col_count - 1)
   let next_index = next_row * col_count + next_col
   guard next_index >= 0 && next_index < model.cells.length() else {
     return model
@@ -213,17 +196,6 @@ fn move_selection(model : Model, delta_col : Int, delta_row : Int) -> Model {
   let next_cell = model.cells[next_index]
   guard next_cell != model.selected_cell else { return model }
   { ..select_cell(model, next_cell), status: "Selected \{next_cell}." }
-}
-
-///|
-fn clamp_int(value : Int, low : Int, high : Int) -> Int {
-  if value < low {
-    low
-  } else if value > high {
-    high
-  } else {
-    value
-  }
 }
 
 ///|
@@ -334,6 +306,7 @@ fn apply_text_edit(model : Model, cell : String, text : String) -> Model {
         error: Some(format_parse_error(error)),
         status: "Edit not applied.",
         overlay: EditorOverlay,
+        editing_cell: None,
       }
   }
 }
@@ -362,7 +335,7 @@ fn apply_operation(
     operation,
     capture=visible_cell_ids(model),
   )
-  let outcome = friendly_outcome(@demo.format_outcome(result.outcome))
+  let outcome = outcome_label(result.outcome)
   {
     ..model,
     last_step: Some(result),

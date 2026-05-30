@@ -25,15 +25,15 @@ fn update_with_cmd(
 ///|
 fn focus_inline_editor_cmd(cell : String) -> @rabbita.Cmd {
   @rabbita_cmd.custom_cmd(
-    fn(_) { js_focus_inline_editor(cell) },
+    fn(_) { js_focus_element_by_id(inline_editor_id(cell)) },
     kind=@rabbita_cmd.after_render,
   )
 }
 
 ///|
-extern "js" fn js_focus_inline_editor(cell : String) -> Unit =
-  #| function(cell) {
-  #|   var el = document.getElementById('inline-editor-' + cell);
+extern "js" fn js_focus_element_by_id(id : String) -> Unit =
+  #| function(id) {
+  #|   var el = document.getElementById(id);
   #|   if (!el || typeof el.focus !== 'function') return;
   #|   try {
   #|     el.focus({ preventScroll: true });

@@ -4,11 +4,28 @@ fn view(emit : @rabbita.Emit[Msg], model : Model) -> @rabbita.Html {
     class=app_shell_class(model),
     on_keydown=event => emit(HandleAppKey(event)),
     [
+      view_live_region(model),
       @html.main_(class="sheet-workspace", [view_sheet(emit, model)]),
       view_panel_rail_left(emit, model),
       view_panel_rail_right(emit, model),
       view_overlay(emit, model),
     ],
+  )
+}
+
+///|
+/// A permanently-mounted, visually hidden polite live region so status and
+/// error updates are announced to screen readers even when the (default-closed)
+/// editor overlay — which owns the visible status line — is not in the DOM.
+fn view_live_region(model : Model) -> @rabbita.Html {
+  let announcement = match model.error {
+    Some(message) => "\{model.status} \{message}"
+    None => model.status
+  }
+  @html.div(
+    class="sr-only",
+    attrs=@html.Attrs::build().role("status").aria_live("polite"),
+    announcement,
   )
 }
 
@@ -71,19 +88,15 @@ fn view_status(model : Model) -> @rabbita.Html {
     None => "status-line"
   }
   let error = match model.error {
-    Some(message) =>
-      @html.span(
-        class="status-error",
-        attrs=@html.Attrs::build().role("alert"),
-        message,
-      )
+    Some(message) => @html.span(class="status-error", message)
     None => @html.nothing
   }
-  @html.div(
-    class=class_name,
-    attrs=@html.Attrs::build().role("status").aria_live("polite"),
-    [@html.span(class="status-text", model.status), error],
-  )
+  // Visual only — announcements come from the persistent view_live_region so a
+  // closed overlay does not swallow them and an open one does not double-speak.
+  @html.div(class=class_name, [
+    @html.span(class="status-text", model.status),
+    error,
+  ])
 }
 
 ///|
@@ -227,17 +240,61 @@ fn view_sheet(emit : @rabbita.Emit[Msg], model : Model) -> @rabbita.Html {
   @html.section(class="sheet-stage", [
     @html.div(
       class="sheet-grid",
-      on_keydown=event => emit(HandleGridKey(event)),
       attrs=@html.Attrs::build()
         .role("grid")
         .tabindex(0)
-        .aria_label("50 by 50 typed spreadsheet. Arrow keys move selection.")
+        .aria_label(
+          "50 by 50 typed spreadsheet. Arrow keys move selection, Enter edits the cell.",
+        )
         .aria_colcount("\{grid_column_count()}")
         .aria_rowcount("\{grid_row_count()}")
-        .aria_activedescendant("cell-\{model.selected_cell}"),
+        .aria_activedescendant("cell-\{model.selected_cell}")
+        .on_keydown(event => grid_key_cmd(emit, model, event)),
       children,
     ),
   ])
+}
+
+///|
+/// Keyboard handling for the grid container. Wired through `Attrs::on_keydown`
+/// (not the element-level `on_keydown=`) so the callback receives the live
+/// `@dom.KeyboardEvent`: returning a `Cmd` lets us `prevent_default` so arrow
+/// keys move the selection instead of scrolling the focused grid, and `Enter`
+/// opens the inline editor (giving keyboard users a way into in-grid editing).
+///
+/// The modifier guard mirrors `should_ignore_keyboard` (model.mbt), which acts
+/// on the value-type `@html.Keyboard` from the document-level handler; the two
+/// keyboard types are distinct, so the four checks are repeated rather than
+/// shared.
+fn grid_key_cmd(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+  event : @dom.KeyboardEvent,
+) -> @rabbita.Cmd {
+  let modified = event.is_composing() ||
+    event.alt_key() ||
+    event.ctrl_key() ||
+    event.meta_key()
+  if model.editing_cell is Some(_) || modified {
+    return @rabbita.none
+  }
+  let msg = match event.key() {
+    "ArrowLeft" => Some(MoveSelection(-1, 0))
+    "ArrowRight" => Some(MoveSelection(1, 0))
+    "ArrowUp" => Some(MoveSelection(0, -1))
+    "ArrowDown" => Some(MoveSelection(0, 1))
+    "Enter" => Some(BeginInlineEdit(model.selected_cell))
+    "Escape" => Some(CancelSelected)
+    _ => None
+  }
+  match msg {
+    Some(next) => {
+      event.prevent_default()
+      event.stop_propagation()
+      emit(next)
+    }
+    None => @rabbita.none
+  }
 }
 
 ///|
@@ -308,11 +365,13 @@ fn view_cell_content(
   editing : Bool,
 ) -> @rabbita.Html {
   if editing {
+    // Focus is driven by the after-render BeginInlineEdit Cmd (main.mbt), which
+    // is reliable under vdom patching; no `autofocus` attribute (it would be a
+    // second, racing focus source).
     @html.input(
-      id="inline-editor-\{cell}",
+      id=inline_editor_id(cell),
       class="cell-inline-input",
       value=draft_for(model, cell),
-      autofocus=true,
       inputmode="text",
       on_input=value => emit(UpdateDraft(cell, value)),
       attrs=@html.Attrs::build()
@@ -324,6 +383,13 @@ fn view_cell_content(
   } else {
     @html.span(class="cell-value", cell_display_value(snapshot))
   }
+}
+
+///|
+/// The DOM id of a cell's inline editor input. Single source of truth shared by
+/// the view (which renders it) and the focus Cmd (which looks it up).
+fn inline_editor_id(cell : String) -> String {
+  "inline-editor-\{cell}"
 }
 
 ///|
@@ -628,39 +694,48 @@ fn grid_cell_class(
 }
 
 ///|
+/// The display-relevant state of a cell. Replaces a stringly-typed status so the
+/// styling/label helpers below match exhaustively — a new CellResult variant is
+/// a compile error here, not a silent fallthrough.
+enum CellStatus {
+  Missing
+  Ready
+  ParseErr
+  TypeErr
+  RefErr
+  CycleErr
+}
+
+///|
+fn cell_status(snapshot : @typed_spreadsheet.CellSnapshot) -> CellStatus {
+  guard snapshot.present else { return Missing }
+  match snapshot.result {
+    Ok(_) => Ready
+    ParseError(_) => ParseErr
+    TypeError(_) => TypeErr
+    RefError(_) => RefErr
+    CycleError(_) => CycleErr
+  }
+}
+
+///|
 fn cell_state_class(snapshot : @typed_spreadsheet.CellSnapshot) -> String {
-  match cell_result_status(snapshot) {
-    "missing" => "grid-cell grid-cell--missing"
-    "ok" => "grid-cell grid-cell--ready"
-    _ => "grid-cell grid-cell--error"
+  match cell_status(snapshot) {
+    Missing => "grid-cell grid-cell--missing"
+    Ready => "grid-cell grid-cell--ready"
+    ParseErr | TypeErr | RefErr | CycleErr => "grid-cell grid-cell--error"
   }
 }
 
 ///|
 fn snapshot_status_label(snapshot : @typed_spreadsheet.CellSnapshot) -> String {
-  match cell_result_status(snapshot) {
-    "ok" => "ready"
-    "missing" => "empty"
-    "parse_error" => "parse error"
-    "type_error" => "type error"
-    "ref_error" => "ref error"
-    "cycle_error" => "cycle error"
-    _ => "unknown"
-  }
-}
-
-///|
-fn cell_result_status(snapshot : @typed_spreadsheet.CellSnapshot) -> String {
-  if !snapshot.present {
-    "missing"
-  } else {
-    match snapshot.result {
-      Ok(_) => "ok"
-      ParseError(_) => "parse_error"
-      TypeError(_) => "type_error"
-      RefError(_) => "ref_error"
-      CycleError(_) => "cycle_error"
-    }
+  match cell_status(snapshot) {
+    Ready => "ready"
+    Missing => "empty"
+    ParseErr => "parse error"
+    TypeErr => "type error"
+    RefErr => "ref error"
+    CycleErr => "cycle error"
   }
 }
 
@@ -684,7 +759,29 @@ fn friendly_snapshot_result(
   if !snapshot.present {
     "Empty cell"
   } else {
-    friendly_result(@demo.format_cell_result(snapshot.result))
+    result_repr(snapshot.result)
+  }
+}
+
+///|
+/// Human label for a cell result: the bare value for `Ok` (`Int(10)`), the
+/// variant repr for an error. Replaces fragile `strip_prefix("Ok(")` string
+/// surgery — matching the enum keeps the `Ok` unwrap honest.
+fn result_repr(result : @typed_spreadsheet.CellResult) -> String {
+  match result {
+    Ok(value) => repr(value)
+    other => repr(other)
+  }
+}
+
+///|
+/// Human label for an operation outcome shown in the status line.
+fn outcome_label(outcome : @demo.OpOutcome) -> String {
+  match outcome {
+    SetFormulaAst(Ok(_)) => "Applied"
+    SetFormulaAst(Err(error)) => repr(error)
+    SetInput(result) => result_repr(result)
+    Delete(result) => result_repr(result)
   }
 }
 
@@ -715,32 +812,12 @@ fn cell_value_text(value : @typed_spreadsheet.CellValue) -> String {
 
 ///|
 fn snapshot_result_class(snapshot : @typed_spreadsheet.CellSnapshot) -> String {
-  match cell_result_status(snapshot) {
-    "missing" => "snapshot-result snapshot-result--missing"
-    "ok" => "snapshot-result snapshot-result--ok"
-    _ => "snapshot-result snapshot-result--error"
+  match cell_status(snapshot) {
+    Missing => "snapshot-result snapshot-result--missing"
+    Ready => "snapshot-result snapshot-result--ok"
+    ParseErr | TypeErr | RefErr | CycleErr =>
+      "snapshot-result snapshot-result--error"
   }
-}
-
-///|
-fn friendly_outcome(outcome : String) -> String {
-  if outcome == "Ok(())" {
-    "Applied"
-  } else {
-    friendly_result(outcome)
-  }
-}
-
-///|
-fn friendly_result(result : String) -> String {
-  ok_value(result).unwrap_or(result)
-}
-
-///|
-fn ok_value(result : String) -> String? {
-  guard result.strip_prefix("Ok(") is Some(rest) else { return None }
-  guard rest.strip_suffix(")") is Some(value) else { return None }
-  Some(value.to_owned())
 }
 
 ///|

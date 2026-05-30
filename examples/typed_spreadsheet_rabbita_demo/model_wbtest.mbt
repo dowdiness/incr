@@ -82,10 +82,10 @@ test "typed spreadsheet Rabbita editor reset disposes old worksheet" {
 ///|
 test "typed spreadsheet Rabbita editor moves selection with grid arrow keys" {
   let model = init_model()
-  let left = update(HandleGridKey(test_key("ArrowLeft")), model)
-  let down = update(HandleGridKey(test_key("ArrowDown")), left)
-  let right = update(HandleGridKey(test_key("ArrowRight")), down)
-  let up = update(HandleGridKey(test_key("ArrowUp")), right)
+  let left = update(MoveSelection(-1, 0), model)
+  let down = update(MoveSelection(0, 1), left)
+  let right = update(MoveSelection(1, 0), down)
+  let up = update(MoveSelection(0, -1), right)
 
   inspect(left.selected_cell, content="A1")
   inspect(down.selected_cell, content="A2")
@@ -126,7 +126,7 @@ test "typed spreadsheet Rabbita editor supports direct cell editing mode" {
   let model = init_model()
   let editing = update(BeginInlineEdit("C1"), model)
   let drafted = update(UpdateDraft("C1", "7"), editing)
-  let moved = update(HandleGridKey(test_key("ArrowRight")), drafted)
+  let moved = update(MoveSelection(1, 0), drafted)
   let applied = update(ApplyInlineEdit("C1"), moved)
   let stale_blur = update(ApplyInlineEdit("C1"), applied)
 
