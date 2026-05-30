@@ -1,17 +1,18 @@
 # Typed spreadsheet Rabbita demo
 
-Browser UI for the fixed five-step typed spreadsheet scenario. The demo keeps
-worksheet evaluation, dependency tracking, trace collection, and ViewModel
-serialization in MoonBit; Rabbita only renders and navigates the resulting data.
+Browser UI for a small editable typed spreadsheet. The app keeps worksheet
+evaluation, dependency tracking, trace collection, and snapshot inspection in
+MoonBit; Rabbita renders the sheet and routes user edits back to MoonBit
+operations.
 
 ## Responsibility map
 
 | Package | Responsibility |
 | --- | --- |
 | `dowdiness/incr/typed_spreadsheet` | Worksheet state, cell evaluation, formula dependencies, trace snapshots. |
-| `dowdiness/incr/examples/typed_spreadsheet_demo` | Demo operation vocabulary, tiny formula text parser, shared fixed scenario, serializable ViewModel. |
-| `dowdiness/incr/examples/typed_spreadsheet_cli_demo` | Text/JSON CLI rendering for the shared scenario. |
-| `dowdiness/incr/examples/typed_spreadsheet_rabbita_demo` | Rabbita model/update/view and browser packaging. No spreadsheet calculation is reimplemented here. |
+| `dowdiness/incr/examples/typed_spreadsheet_demo` | Demo operation vocabulary, tiny formula text parser, fixed scenario, and serializable fixed ViewModel. |
+| `dowdiness/incr/examples/typed_spreadsheet_cli_demo` | Text/JSON CLI rendering for the shared fixed scenario. |
+| `dowdiness/incr/examples/typed_spreadsheet_rabbita_demo` | Rabbita model/update/view and browser packaging for the editable prototype. No spreadsheet calculation is reimplemented here. |
 
 ## Run
 
@@ -36,34 +37,39 @@ MoonBit-only validation from the repository root:
 
 ```bash
 moon check --target js
-moon test
+moon test --target js
 ```
 
-## UI scope
+## Editor scope
 
-This PR intentionally does **not** add editing. The user task is to make the
-state transitions and dependency buckets easier to inspect than CLI output:
+The editor starts with a four-cell sheet:
 
-1. `A1 = 10`
-2. `B1 = A1 + 1`
-3. `A1 = 15` (`B1` changes)
-4. `A1 = 15` again (`B1` recomputes but remains unchanged)
-5. `delete B1`
+- `A1 = 10`
+- `B1 = A1 + 1`
+- `A2` and `B2` empty
 
-The UI exposes step navigation, trace buckets (`recomputed`, `changed`,
-`unchanged`), a tiny A1/B1 grid, and before/after snapshots.
+Users can select a cell, edit its draft text, apply the edit, or delete the
+cell. Supported text intentionally stays tiny:
 
-## ViewModel and JS export
+- `10` installs an integer input.
+- `=A1 + 1` installs an integer addition formula.
+- `=A1 * 2` installs an integer multiplication formula.
+- `=if(A1 > 10, 1, 0)` installs an integer conditional formula.
 
-`@demo.fixed_scenario_view_model()` returns a schema-versioned MoonBit
-ViewModel with reserved `extensions` maps. The sibling `data` package exports
-`typed_spreadsheet_scenario_json()` through the JS backend for tests or external
-demos that need the MoonBit-computed data without mounting the Rabbita app.
+After each applied edit, the UI shows trace buckets (`recomputed`, `changed`,
+`unchanged`), the current sheet cells, and before/after snapshots for the
+selected cell.
 
-## Future extensions
+Out of scope for this prototype: ranges, multiple sheets, persistence,
+collaboration, and a general Excel-compatible parser.
 
-- Range references can add fields under `extensions` before changing the schema.
-- Multiple sheets can extend the `cells` identifiers from addresses to
-  sheet-qualified labels.
-- Editing should be added as new `Msg` values and MoonBit operations, not as JS
-  spreadsheet logic.
+## Fixed scenario JSON export
+
+The sibling `data` package still exports the fixed five-step scenario for tests
+or external demos that need non-DOM JSON:
+
+- `@demo.fixed_scenario_view_model()` returns the schema-versioned MoonBit
+  ViewModel.
+- `typed_spreadsheet_scenario_json()` exposes that data through the JS backend.
+
+The editable Rabbita UI does not move or replace this non-DOM export.

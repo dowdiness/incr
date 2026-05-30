@@ -1,4 +1,6 @@
 import {
+  "dowdiness/incr",
+  "dowdiness/incr/typed_spreadsheet",
   "dowdiness/incr/examples/typed_spreadsheet_demo" @demo,
   "moonbit-community/rabbita",
   "moonbit-community/rabbita/html",
