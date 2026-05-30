@@ -114,8 +114,8 @@ code,
 }
 
 .app-shell {
-  --page: oklch(0.91 0.016 82);
-  --page-deep: oklch(0.86 0.018 82);
+  --page: oklch(0.965 0.005 82);
+  --page-deep: oklch(0.94 0.006 82);
   --paper: oklch(0.975 0.012 86);
   --paper-soft: oklch(0.948 0.014 86);
   --paper-hover: oklch(0.93 0.018 86);
