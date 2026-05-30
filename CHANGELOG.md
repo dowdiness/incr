@@ -11,6 +11,10 @@ All notable changes to `dowdiness/incr` are documented in this file.
 - Added `dowdiness/incr/examples/typed_spreadsheet_cli_demo`, an executable typed spreadsheet scenario that prints a fixed operation sequence with outcomes, trace buckets, and before/after snapshots in text or JSON.
 - Added `dowdiness/incr/examples/typed_spreadsheet_rabbita_demo`, a browser demo that renders the shared typed spreadsheet scenario with Rabbita, including trace buckets, an A1/B1 grid, before/after snapshots, and a schema-versioned ViewModel JSON export.
 
+### Changed
+
+- Changed the typed spreadsheet Rabbita demo from a fixed trace viewer into a small editable four-cell sheet while keeping the fixed scenario JSON export available for non-DOM consumers.
+
 ### Deprecated
 
 - Deprecated the standalone `dowdiness/incr/pipeline` traits (`Sourceable`, `Parseable`, `Checkable`, `Executable`). They were an early stringly-typed sketch with no production consumers; application build pipelines should define local `Source`, `Parser`, `ImportResolver`, `Checker`, and `Transformer` traits over concrete domain types.

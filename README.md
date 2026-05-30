@@ -108,7 +108,7 @@ When unsure, start with `Derived`. Move to `EagerDerived` only when the consumer
 - **New to `incr`?** Start with [Getting Started](docs/getting-started.mbt.md), then [Core Concepts](docs/concepts.mbt.md).
 - **Looking for a specific pattern?** Backdating, durability, keyed queries, batched updates with rollback, cycle-safe reads, and more are covered in the [Cookbook](docs/cookbook.mbt.md).
 - **Looking up a type or method?** See the [API Reference](docs/api-reference.mbt.md).
-- **Exploring the typed spreadsheet demo?** Run the [CLI demo](examples/typed_spreadsheet_cli_demo/README.md) or the [Rabbita Web demo](examples/typed_spreadsheet_rabbita_demo/README.md) to see operation outcomes, trace buckets, and before/after snapshots.
+- **Exploring the typed spreadsheet demo?** Run the [CLI demo](examples/typed_spreadsheet_cli_demo/README.md) for the fixed trace, or try the [editable Rabbita Web demo](examples/typed_spreadsheet_rabbita_demo/README.md) to change cells and inspect operation outcomes, trace buckets, and before/after snapshots.
 - **Working on `incr` itself?** [docs/architecture.md](docs/architecture.md) (package map) and [docs/design/internals.md](docs/design/internals.md) (algorithms).
 
 Full documentation index: [docs/README.md](docs/README.md).

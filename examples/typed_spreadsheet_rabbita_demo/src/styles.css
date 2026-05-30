@@ -61,11 +61,13 @@ body {
   color: var(--text);
 }
 
-button {
+button,
+input {
   font: inherit;
 }
 
-button:focus-visible {
+button:focus-visible,
+input:focus-visible {
   outline: 2px solid var(--identifier);
   outline-offset: 3px;
 }
@@ -83,6 +85,8 @@ button:focus-visible {
 code,
 .cell-address,
 .cell-value,
+.cell-draft,
+.editor-input,
 .snapshot-result,
 .fact-value,
 .readout-value,
@@ -185,7 +189,8 @@ code,
   font-size: clamp(2.55rem, 5.3vw, 5.6rem);
   font-weight: 700;
   line-height: 0.92;
-  letter-spacing: -0.08em;
+  letter-spacing: -0.065em;
+  word-spacing: 0.06em;
   text-wrap: balance;
 }
 
@@ -406,6 +411,18 @@ code,
   background: color-mix(in oklch, var(--error), transparent 88%);
 }
 
+.editor-rail .status-message {
+  position: static;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  margin: 0;
+  clip-path: none;
+  white-space: normal;
+  color: var(--text-secondary);
+  background: color-mix(in oklch, var(--surface), transparent 62%);
+}
+
 .step-panel {
   display: grid;
   gap: clamp(var(--space-xl), 4vw, var(--space-3xl));
@@ -536,6 +553,7 @@ code,
   opacity: 0.72;
 }
 
+.edit-panel,
 .trace-panel,
 .grid-panel,
 .snapshot-panel {
@@ -553,9 +571,65 @@ code,
   gap: var(--space-xs);
 }
 
+.editor-card,
 .trace-buckets,
 .worksheet-grid {
   min-width: 0;
+}
+
+.editor-card {
+  display: grid;
+  gap: var(--space-md);
+  border: 1px solid color-mix(in oklch, var(--border), transparent 18%);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  background: color-mix(in oklch, var(--surface), transparent 62%);
+}
+
+.editor-label,
+.example-label {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.035em;
+}
+
+.editor-label {
+  color: var(--identifier);
+  font-size: 0.9rem;
+}
+
+.editor-input {
+  width: 100%;
+  min-height: 54px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  background: color-mix(in oklch, var(--bg-deep), transparent 8%);
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.editor-input::placeholder {
+  color: var(--text-muted);
+}
+
+.editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.example-row {
+  display: grid;
+  gap: var(--space-xs);
+  border-top: 1px solid color-mix(in oklch, var(--border), transparent 24%);
+  padding-top: var(--space-sm);
+}
+
+.example-chip {
+  color: var(--text-secondary);
 }
 
 .trace-buckets {
@@ -673,7 +747,8 @@ code,
 }
 
 .cell-kind,
-.cell-value {
+.cell-value,
+.cell-draft {
   grid-column: 1 / -1;
 }
 
@@ -691,6 +766,14 @@ code,
   color: var(--text-secondary);
   font-size: 0.9rem;
   line-height: 1.45;
+}
+
+.cell-draft {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .snapshot-empty {
@@ -823,6 +906,7 @@ code,
     padding-left: 0;
   }
 
+  .edit-panel,
   .trace-panel,
   .grid-panel,
   .snapshot-panel {
@@ -851,9 +935,11 @@ code,
   }
 
   .hero h1 {
-    max-width: 11ch;
+    max-width: 12ch;
     margin-top: var(--space-md);
     font-size: clamp(2.05rem, 11vw, 3.05rem);
+    letter-spacing: -0.055em;
+    word-spacing: 0.08em;
   }
 
   .hero p {
@@ -924,6 +1010,16 @@ code,
     white-space: nowrap;
   }
 
+  .editor-rail .status-stack {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    margin: 0;
+    clip-path: none;
+    white-space: normal;
+  }
+
   .step-panel {
     gap: var(--space-md);
     padding-bottom: var(--space-lg);
@@ -973,6 +1069,7 @@ code,
     padding-left: var(--space-sm);
   }
 
+  .edit-panel,
   .trace-panel,
   .grid-panel,
   .snapshot-panel {
@@ -985,6 +1082,7 @@ code,
     background: color-mix(in oklch, var(--surface), transparent 72%);
   }
 
+  .edit-panel::before,
   .trace-panel::before,
   .grid-panel::before,
   .snapshot-panel::before {
@@ -1002,16 +1100,20 @@ code,
     font-size: 0.78rem;
   }
 
-  .trace-panel::before {
+  .edit-panel::before {
     content: "1";
   }
 
-  .grid-panel::before {
+  .trace-panel::before {
     content: "2";
   }
 
-  .snapshot-panel::before {
+  .grid-panel::before {
     content: "3";
+  }
+
+  .snapshot-panel::before {
+    content: "4";
   }
 
   .section-heading {
