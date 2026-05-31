@@ -510,6 +510,41 @@ Handle potential cycles with fallback values instead of aborting. The checked co
 
 ---
 
+## Pattern: Recoverable Domain Failures with `Derived::fallible`
+
+When a compute can fail in a way the caller should *recover from* — a parse
+error, a validation failure — express that failure as a **value**, not as a
+raised exception. `Derived::fallible` takes a `noraise` compute
+(`() -> Result[V, E]`) and produces a `Derived[Result[V, E]]`. The domain error
+is forced into the cached value, where it is change-detected (`Eq`), shared, and
+replayed like any other value. The checked companion verifies a fallible derived
+recovering across input changes in [`cookbook_examples.mbt.md`](cookbook_examples.mbt.md#recoverable-domain-failures-with-derivedfallible).
+
+A read then has **three** distinct outcomes, each owned by a different layer:
+
+| Read result | Meaning | What to do |
+|-------------|---------|------------|
+| `Err(_)` | graph-read failure (cycle, disposal) | report graph health |
+| `Ok(Err(e))` | domain failure, reified as a cached value | surface the diagnostic |
+| `Ok(Ok(v))` | the value | use it |
+
+### Important Notes
+
+1. **`raise Failure` from a plain `Derived` compute is a defect, not a domain
+   channel.** It is caught at the read boundary and converted to an uncatchable
+   abort. Use `Derived::fallible` for any failure a caller is meant to handle.
+2. **`E : Eq` matters.** The reified error participates in invalidation like a
+   value: an `Err → Ok` transition correctly invalidates downstream. A poor `Eq`
+   on the domain error causes stale reads or noisy recomputation.
+3. **Per-key analog:** `DerivedMap::fallible` produces a
+   `DerivedMap[K, Result[V, E]]` with the same value-as-`Result` contract for
+   keyed queries.
+
+See [the honest read-error ownership spec](design/specs/2026-05-28-honest-read-error-ownership.md)
+for the full rationale (why value-as-`Result` is the ideal, not a workaround).
+
+---
+
 ## Debugging
 
 Target facades are intentionally small. When you need low-level cell IDs,

@@ -434,6 +434,52 @@ test "docs cookbook: derived.get can recover from a cycle inside compute" {
 }
 ```
 
+## Recoverable domain failures with Derived::fallible
+
+```mbt check
+///|
+test "docs cookbook: Derived::fallible surfaces domain failure as a cached value" {
+  let rt = @incr.Runtime()
+  let n = @incr.Input(rt, 0, label="n")
+  // The compute is noraise: a domain failure is *returned* as Err, never raised.
+  let parsed : @incr.Derived[Result[Int, String]] = @incr.Derived::fallible(
+    rt,
+    () => {
+      let v = n.get()
+      if v < 0 {
+        Err("negative")
+      } else {
+        Ok(v * 2)
+      }
+    },
+    label="parsed",
+  )
+
+  // Three-way read outcome, each owned by a different layer:
+  //   Err(_)     -> a graph-read failure (cycle/disposal): graph health
+  //   Ok(Err(e)) -> a domain failure reified as a value: a diagnostic to report
+  //   Ok(Ok(v))  -> the value
+  guard parsed.read() is Ok(Ok(0)) else { fail("expected Ok(Ok(0))") }
+  n.set(5)
+  guard parsed.read() is Ok(Ok(10)) else {
+    fail("expected Ok(Ok(10)) after set(5)")
+  }
+
+  // A domain failure surfaces as Ok(Err(_)) — a cached value, not an abort.
+  n.set(-1)
+  guard parsed.read() is Ok(Err("negative")) else {
+    fail("expected Ok(Err(\"negative\")) after set(-1)")
+  }
+
+  // Recovery: a valid input invalidates and recomputes, proving the Err value
+  // is change-detected like any other value.
+  n.set(2)
+  guard parsed.read() is Ok(Ok(4)) else {
+    fail("expected Ok(Ok(4)) after recovery")
+  }
+}
+```
+
 ## Aggregate computation
 
 ```mbt check

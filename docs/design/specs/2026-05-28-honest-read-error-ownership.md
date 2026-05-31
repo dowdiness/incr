@@ -1,6 +1,6 @@
 # Honest Read-Error Ownership
 
-**Status:** Proposed
+**Status:** Tier 1 Shipped (#100); Tier 2 Proposed
 
 **Date:** 2026-05-28
 
