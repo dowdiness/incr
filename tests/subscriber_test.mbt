@@ -56,6 +56,18 @@ test "subscriber: dependents returns empty for cross-runtime id" {
 }
 
 ///|
+test "subscriber: dependents returns empty for disposed id" {
+  let rt = Runtime::Runtime()
+  let x = Signal::Signal(rt, 10)
+  let doubled = Memo::Memo(rt, () => x.get() * 2)
+  let _ = read_memo_for_test(doubled)
+  let x_id = x.id()
+  inspect(rt.dependents(x_id).contains(doubled.id()), content="true")
+  x.dispose()
+  inspect(rt.dependents(x_id).length(), content="0")
+}
+
+///|
 test "push suspension: full lifecycle via public API" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 10)

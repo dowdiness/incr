@@ -124,8 +124,8 @@ pub fn Runtime::cell_info(self : Runtime, id : CellId) -> CellInfo? {
 /// This enables introspection of the dependency graph in both directions.
 /// The returned array is a snapshot; modifying it does not affect the runtime.
 ///
-/// Returns an empty array if the cell ID is invalid, out of bounds, or
-/// belongs to a different runtime — matching `cell_info` semantics.
+/// Returns an empty array if the cell ID is invalid, disposed, out of bounds,
+/// or belongs to a different runtime — matching `cell_info` semantics.
 ///
 /// # Parameters
 ///
@@ -134,9 +134,12 @@ pub fn Runtime::cell_info(self : Runtime, id : CellId) -> CellInfo? {
 /// # Returns
 ///
 /// Array of CellIds that have `id` in their dependency list, or empty
-/// array if the cell ID is not valid for this runtime
+/// array if the cell ID is not valid for this runtime or has been disposed
 pub fn Runtime::dependents(self : Runtime, id : CellId) -> Array[CellId] {
   if !self.validate_cell_soft(id) {
+    return []
+  }
+  if self.is_cell_disposed(id) {
     return []
   }
   snapshot_subscribers(self.core.cell_ops[id.id].subscribers())
