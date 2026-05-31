@@ -40,13 +40,51 @@ test "typed spreadsheet Rabbita editor applies selected draft and captures formu
     content="Int(16)",
   )
   match applied.last_step {
-    Some(step) => inspect(step.cell_snapshots.length(), content="2500")
+    // Bounded evidence: a plain input edit captures only the edited cell, not
+    // every grid cell. See issue #129 Phase 1.
+    Some(step) => inspect(step.cell_snapshots.length(), content="1")
     None => abort("expected applied edit")
   }
   let (recomputed, changed, unchanged) = trace_cells(applied)
   debug_inspect(recomputed, content="[\"B1\"]")
   debug_inspect(changed, content="[\"B1\"]")
   debug_inspect(unchanged, content="[]")
+}
+
+///|
+test "typed spreadsheet Rabbita editor bounds snapshot evidence to the edited cell (issue #129)" {
+  let model = init_model()
+  let drafted = update(UpdateDraft("A1", "15"), model)
+  let applied = update(ApplySelected, drafted)
+
+  match applied.last_step {
+    Some(step) => {
+      // A single ordinary edit must NOT retain a snapshot per grid cell.
+      inspect(step.cell_snapshots.length(), content="1")
+      inspect(
+        step.cell_snapshots.length() < model.cells.length(),
+        content="true",
+      )
+      // The captured snapshot is the edited cell itself.
+      inspect(@demo.cell_id_to_string(step.cell_snapshots[0].id), content="A1")
+    }
+    None => abort("expected applied edit")
+  }
+}
+
+///|
+test "typed spreadsheet Rabbita editor captures a formula's direct references, still bounded (issue #129)" {
+  let model = init_model()
+  let drafted = update(UpdateDraft("C1", "=A1 + 1"), model)
+  let applied = update(ApplySelected, drafted)
+
+  match applied.last_step {
+    Some(step) =>
+      // Target C1 plus its one direct reference A1 — bounded to the formula's
+      // affected surface, far below the 2,500 grid cells.
+      inspect(step.cell_snapshots.length(), content="2")
+    None => abort("expected applied edit")
+  }
 }
 
 ///|

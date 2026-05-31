@@ -342,11 +342,13 @@ fn apply_operation(
   operation : @demo.SheetOp,
   edit_label : String,
 ) -> Model {
-  let result = @demo.run_op(
-    model.sheet,
-    operation,
-    capture=visible_cell_ids(model),
-  )
+  // Bounded evidence surface: the operation target and (for formulas) its
+  // direct references are captured automatically by `run_op`. We add only the
+  // focused cell so the Evidence panel has before/after for what the user is
+  // editing — not all ~2,500 grid cells, which hid the incremental boundary.
+  let result = @demo.run_op(model.sheet, operation, capture=[
+    cell_id(model, model.selected_cell),
+  ])
   let outcome = outcome_label(result.outcome)
   {
     ..model,
@@ -355,11 +357,6 @@ fn apply_operation(
     status: "Applied \{edit_label}: \{outcome}.",
     error: None,
   }
-}
-
-///|
-fn visible_cell_ids(model : Model) -> Array[@typed_spreadsheet.CellId] {
-  model.cells.map(cell => cell_id(model, cell))
 }
 
 ///|
