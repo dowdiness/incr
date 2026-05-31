@@ -88,6 +88,49 @@ test "typed spreadsheet: formula AST follows input overwrite" {
 }
 
 ///|
+test "typed spreadsheet: formula AST slot survives Runtime::gc with input dependency" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(1280))
+  let a1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+  let b1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
+
+  inspect(
+    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(1)).is_ok(),
+    content="true",
+  )
+
+  let formula = @typed_spreadsheet.Formula::add(
+    @typed_spreadsheet.Formula::cell_ref(a1),
+    @typed_spreadsheet.Formula::literal(
+      @typed_spreadsheet.CellValue::from_int(1),
+    ),
+  )
+  let _ = sheet.set_formula_ast(
+    b1,
+    @typed_spreadsheet.CellType::t_int(),
+    formula,
+  )
+
+  rt.gc()
+
+  match sheet.read(b1) {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(value)) =>
+      inspect(value, content="2")
+    _ => abort("expected formula slot to survive Runtime::gc")
+  }
+
+  inspect(
+    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(2)).is_ok(),
+    content="true",
+  )
+  match sheet.read(b1) {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(value)) =>
+      inspect(value, content="3")
+    _ => abort("expected formula dependency to survive Runtime::gc")
+  }
+}
+
+///|
 test "typed spreadsheet: formula AST type error is propagated" {
   let rt = @incr.Runtime()
   let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(101))

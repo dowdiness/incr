@@ -60,6 +60,60 @@ test "typed spreadsheet: input and formula basics" {
 }
 
 ///|
+test "typed spreadsheet: input slot survives Runtime::gc" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(128))
+  let a1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+
+  inspect(
+    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(1)).is_ok(),
+    content="true",
+  )
+  rt.gc()
+
+  match sheet.read(a1) {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(value)) =>
+      inspect(value, content="1")
+    _ => abort("expected input slot to survive Runtime::gc")
+  }
+}
+
+///|
+test "typed spreadsheet: set_formula does not evaluate before read or gc" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(129))
+  let a1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+  let mut compute_count = 0
+
+  inspect(
+    match
+      sheet.set_formula(a1, @typed_spreadsheet.CellType::t_int(), [], fn(
+        _deps,
+      ) {
+        compute_count = compute_count + 1
+        @typed_spreadsheet.CellResult::ok(
+          @typed_spreadsheet.CellValue::from_int(1),
+        )
+      }) {
+      Ok(_) => true
+      _ => false
+    },
+    content="true",
+  )
+  inspect(compute_count, content="0")
+
+  rt.gc()
+  inspect(compute_count, content="0")
+
+  match sheet.read(a1) {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(value)) =>
+      inspect(value, content="1")
+    _ => abort("expected formula to evaluate on first read")
+  }
+  inspect(compute_count, content="1")
+}
+
+///|
 test "typed spreadsheet: inspect input snapshot" {
   let rt = @incr.Runtime()
   let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(2))
