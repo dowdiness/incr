@@ -2,6 +2,32 @@
 
 Concrete, actionable tasks for the `incr` library.
 
+## Known Bugs
+
+Open correctness issues tracked on GitHub. Each breaks an invariant other cell
+types respect; neither is a regression introduced by recent work.
+
+- [ ] **`Runtime::dependents` does not guard against disposed cell IDs or
+      push-slot reuse** ([#17](https://github.com/dowdiness/incr/issues/17)).
+      `Runtime::dependents` (`cells/runtime.mbt`) passes the bounds check then
+      reads `cell_ops[id.id].subscribers()` without checking `cell_index[id.id]
+      == Disposed`. It returns `[]` for a disposed id only by accident (dispose
+      calls `subscribers.clear()`), and free-list slot reuse can make a stale id
+      observe a *new* cell's subscribers. Fix: add an explicit `Disposed` check
+      (and generation/slot-reuse guard) so the documented "empty for invalid id"
+      contract holds by construction, not by luck. Add tests for both the
+      disposed-read and slot-reuse cases.
+- [ ] **Spurious `changed_at` advancement when values revert in
+      `Relation`/`FunctionalRelation`** ([#22](https://github.com/dowdiness/incr/issues/22)).
+      Both mark themselves changed whenever a non-empty frontier exists during
+      fixpoint, regardless of whether the final materialized state differs from
+      the pre-fixpoint state (e.g. `insert("x",2)` then `insert("x",1)` back to
+      the original still advances `changed_at`), so dependents recompute
+      spuriously — breaking the backdating contract `Signal`/`Memo` honor. Fix:
+      net-change tracking — snapshot pre-fixpoint state, and only advance
+      `changed_at` for relations whose final committed content actually changed.
+      Found during PR #21 review.
+
 ## Error Handling
 
 - [x] Define a `CycleError` type and return it instead of calling `abort()` in verification
