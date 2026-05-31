@@ -105,7 +105,7 @@ closure or not?**
 
 - `input.get()` — Inputs are non-fallible; just reads and records the dep.
 - `derived.get_or_abort()` — strict read; aborts on cycle.
-- `derived.get()` — graceful read; returns `Result[T, CycleError]`.
+- `derived.get()` — graceful read; returns `Result[T, ReadError]`.
 
 These record the dep on the surrounding tracking frame at zero observer
 cost.
@@ -114,11 +114,20 @@ cost.
 consumer methods):
 
 - `derived.read_or_abort()` — strict; aborts on cycle.
-- `derived.read()` — returns `Result[T, CycleError]`.
+- `derived.read()` — returns `Result[T, ReadError]`.
 - Through a long-lived anchor: `watch.read_or_abort()` / `watch.read()`
   (or compat: `observer.get()`).
 - Legacy: `rt.read(memo)` / `rt.read_hybrid(h)` / `rt.read_reactive(r)`
   still work for the compat-named handles.
+
+The target-facade read channel — `Derived` / `ReachableDerived` /
+`DerivedMap` `.get()` / `.read()` / `.read_or_else()` and `Watch::read` —
+returns `Result[T, ReadError]`, where
+`ReadError = Cycle(CycleError) | Disposed(CellId)` distinguishes a
+dependency cycle from a read on a disposed cell (use `.is_cycle()` /
+`.is_disposed()`, or `.format_path()` for a message). The compat
+`get_result` family (`Memo` / `HybridMemo` / `MemoMap` / `Signal`) is
+**unchanged** — it still returns `Result[T, CycleError]`.
 
 ### Why mixing breaks
 
