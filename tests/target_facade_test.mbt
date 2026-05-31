@@ -468,12 +468,15 @@ test "facade input_field_owner: add_input_fields registers fields" {
 }
 
 ///|
-test "panic facade scope: derived_map read after dispose aborts" {
+test "facade scope: derived_map read after dispose returns Err" {
   let rt = @incr.Runtime()
   let scope = @incr.Scope::new(rt)
   let by_key = scope.derived_map((key : Int) => key * 2)
 
   inspect(by_key.read_or_abort(5), content="10")
   scope.dispose()
-  ignore(by_key.read(5))
+  guard by_key.read(5) is Err(e) else {
+    fail("expected Err after derived_map scope disposal")
+  }
+  inspect(e.is_disposed(), content="true")
 }

@@ -316,7 +316,7 @@ Read modes:
 
 - `read(key)` is permissive: it works at top level and also records the per-key dependency when called inside a tracked compute.
 - `read_or_abort(key)` is the aborting convenience for permissive reads.
-- `get(key)` is strict: it records the same per-key dependency and returns cycle errors as `Result`, but aborts outside a tracked compute. Use it when top-level use would indicate a bug.
+- `get(key)` is strict: it records the same per-key dependency and returns read errors as `Result`, but aborts outside a tracked compute. Use it when top-level use would indicate a bug.
 - `get_or_abort(key)` is the aborting convenience for strict reads.
 
 This is a lightweight parameterized-query pattern built on top of `Memo`; it does not change runtime verification internals.
@@ -333,19 +333,20 @@ Producers call `acc.push(v)` inside a `Memo` or `HybridMemo` compute. Consumers 
 
 | Method | Records dep? | On disposal/cycle |
 |--------|--------------|-------------------|
-| `memo.accumulated(acc)` | yes — invalidates consumer when push set changes | raises `Failure` |
+| `memo.accumulated(acc)` | yes, on `Ok` — invalidates consumer when push set changes | `Result[_, ReadError]` for target cycles/disposal; raises `Failure` for accumulator misuse |
+| `memo.accumulated_or_abort(acc)` | yes — strict compute-closure convenience | aborts on `ReadError`; raises `Failure` for accumulator misuse |
 | `memo.accumulated_peek(acc)` | no — driver/debug use | returns `[]` |
-| `memo.accumulated_result(acc)` | yes | `Result[_, CycleError]` |
+| `memo.accumulated_result(acc)` | yes, on `Ok` | alias of `accumulated` |
 
 ### Push-Set Invalidation
 
-The key property: when a producer memo recomputes and its push set differs from the previous run, downstream consumers reading via `accumulated` invalidate — **even when the producer's return value is structurally equal and would otherwise be backdated**. A per-memo `push_revised_at` counter tracks push-set revisions independently of value equality.
+The key property: when a producer memo recomputes and its push set differs from the previous run, downstream consumers reading via `accumulated` (or the strict `accumulated_or_abort`) invalidate — **even when the producer's return value is structurally equal and would otherwise be backdated**. A per-memo `push_revised_at` counter tracks push-set revisions independently of value equality.
 
 This is why an accumulator is not "just an `Array` you return": a plain return would either lose the change (backdated) or force every level to allocate fresh arrays that merge upward.
 
 ### Local-Only Scope
 
-`memo.accumulated(acc)` returns only the values that memo's own compute pushed — **not** values pushed by its dependencies. Transitive aggregation across a subgraph (e.g. collecting diagnostics from every def in a module) is the driver's job: read each producer's `accumulated` at the boundary and union the results.
+`memo.accumulated(acc)` returns only the values that memo's own compute pushed — **not** values pushed by its dependencies. Transitive aggregation across a subgraph (e.g. collecting diagnostics from every def in a module) is the driver's job: read each producer's `accumulated` at the boundary and union the successful results.
 
 ### Scope-Owned Lifecycle
 

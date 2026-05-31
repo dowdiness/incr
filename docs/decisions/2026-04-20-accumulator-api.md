@@ -5,6 +5,7 @@
 **Implementation plan:** [docs/archive/completed-phases/2026-04-19-accumulator-api-design.md](../archive/completed-phases/2026-04-19-accumulator-api-design.md)
 **Driver adoption:** [loom/examples/lambda PR #94](https://github.com/dowdiness/loom/pull/94)
 **Shipped in:** [PR #42](https://github.com/dowdiness/incr/pull/42) (API) + [`1715981`](https://github.com/dowdiness/incr/commit/1715981) (abort-preservation fix)
+**Update 2026-05-31:** the honest read-error migration widened verifying accumulator reads to `ReadError`; see [Honest Read-Error Ownership](../design/specs/2026-05-28-honest-read-error-ownership.md).
 
 ## Context
 
@@ -41,13 +42,14 @@ though the memo's ordinary return value might be equal.
 
 Add an `Accumulator[T]` primitive owned by a `Scope` (or directly by
 the `Runtime`). Producers call `acc.push(v)` inside their memo's
-compute; consumers read via one of three methods on `Memo[_]`:
+compute; consumers read via methods on `Memo[_]`:
 
 | Method | Tracks? | On failure |
 |---|---|---|
-| `Memo::accumulated(acc)` | records synthetic dep + forces verify | `raise Failure` |
+| `Memo::accumulated(acc)` | records synthetic dep on `Ok` + forces verify | `Result[_, ReadError] raise Failure` for target cycle/disposal plus accumulator misuse |
+| `Memo::accumulated_or_abort(acc)` | records synthetic dep + forces verify | aborts on `ReadError`, raises on accumulator misuse |
 | `Memo::accumulated_peek(acc)` | untracked, permissive on disposal | returns `[]` |
-| `Memo::accumulated_result(acc)` | tracks, forces verify | `Result[_, CycleError] raise Failure` |
+| `Memo::accumulated_result(acc)` | alias of `accumulated` | `Result[_, ReadError] raise Failure` |
 
 Incremental invalidation uses a **per-memo `push_revised_at` counter**
 held in the accumulator's handle-local state. When a memo recomputes
@@ -113,7 +115,7 @@ gains broader handler support.
 
 ## Error model
 
-### Decision: `raise Failure` (B1), not `Result` (B2)
+### Decision: `raise Failure` for `push`; `ReadError` for verifying reads
 
 `Accumulator::push` raises `Failure` for three defect classes:
 
@@ -121,10 +123,9 @@ gains broader handler support.
 - called from a non-Memo top frame (see §Top-frame restriction)
 - called on a disposed accumulator
 
-`Memo::accumulated` raises `Failure` on disposal / cycle / the
-target memo's own raise.
+`Memo::accumulated` originally raised `Failure` for disposal / cycle / the target memo's own raise. The 2026-05-31 honest read-error migration changed target cell cycle/disposal to `Result[_, ReadError]`; disposed accumulators and static-Derived misuse still raise `Failure`, and a target memo's own raise remains a defect and aborts.
 
-Rejected B2 ("return `Result[Unit, Error]`") because:
+Rejected B2 for `Accumulator::push` ("return `Result[Unit, Error]`") because:
 
 1. Memo compute closures are already `() -> T raise Failure`, so
    raises propagate without ceremony. A `Result`-returning `push`
@@ -136,9 +137,7 @@ Rejected B2 ("return `Result[Unit, Error]`") because:
    defect classes (disposed handles, cross-runtime reuse) raise
    rather than return.
 
-`CycleError` in `accumulated_result` is the exception: a recoverable
-signal that a consumer might legitimately branch on, so it's an
-`Err`-side value rather than a raise.
+`ReadError` in `accumulated` / `accumulated_result` is the exception: a recoverable mechanism signal that a consumer might legitimately branch on, so it's an `Err`-side value rather than a raise.
 
 ## Top-frame restriction: Memo / HybridMemo only
 
@@ -190,14 +189,11 @@ Rejected alternatives:
 ### Accepted
 
 - **Public API additions.** New types (`Accumulator`, `AccumulatorId`),
-  new `Memo` methods (`accumulated`, `accumulated_peek`,
-  `accumulated_result`), new `Scope::accumulator` factory. The
+  new `Memo` methods (`accumulated`, `accumulated_or_abort`,
+  `accumulated_peek`, `accumulated_result`), new `Scope::accumulator` factory. The
   public-surface growth is worth it — drivers beyond lambda are
   expected to adopt the pattern.
-- **`Memo::accumulated` raises `Failure`.** Consumers calling from
-  inside a memo compute propagate transparently; consumers reading
-  from outside use `try?` at the boundary. This was the deciding
-  factor for error-model B1.
+- **`Memo::accumulated` now returns `Result[_, ReadError] raise Failure`.** Consumers calling from inside strict memo computes use `accumulated_or_abort`; consumers that need graceful target cycle/disposal handling match on the `Result`. Accumulator misuse remains a catchable `Failure`.
 - **Per-memo HashMap overhead.** Each accumulator carries
   `per_memo : HashMap[CellId, Array[T]]` and
   `push_revised_at : HashMap[CellId, Revision]`. Sized by the number
@@ -216,12 +212,7 @@ future readers don't re-derive them from the spec:
    broken on fresh runtimes** — `current_revision` also starts at
    `initial()`. Added an explicit `has_been_computed : Bool` flag on
    `MemoData` to disambiguate.
-2. **`Memo::accumulated` signature narrowed from bare `raise`
-   (Error) to `raise Failure`.** MoonBit rejects `raise Error`
-   closures called from `raise Failure` contexts; since memo compute
-   is always `raise Failure`, `accumulated` had to match. `CycleError`
-   is wrapped via `fail(...)` inside `accumulated`, or surfaced
-   through `accumulated_result` for explicit handling.
+2. **`Memo::accumulated` signature changed twice.** It first narrowed from bare `raise` (Error) to `raise Failure` during the original implementation. The later honest read-error migration changed it to `Result[Array[A], ReadError] raise Failure` and added `accumulated_or_abort` for strict compute-closure use.
 3. **Synthetic dep check must first force-verify the target memo.**
    The spec read `push_revised_at_for(target_id)` directly; if the
    target had its own invalidated ordinary deps, that check saw a

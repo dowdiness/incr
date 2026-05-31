@@ -332,7 +332,7 @@ inside-compute `get_or_abort`, and outside-graph `read` /
 
 ### `Derived::fallible[V : Eq, E : Eq](rt: Runtime, compute: () -> Result[V, E], label? : String) -> Derived[Result[V, E]]`
 
-Creates a derived value whose `compute` is **noraise**: a recoverable, domain-specific failure is expressed in the value as `Result[V, E]`, never raised. The error then participates in caching and `Eq`-based backdating like any other value, and reads surface only graph failures (cycles), never an uncatchable abort. Prefer this over `Derived` for a fallible compute. A `raise Failure` from a plain `Derived` compute is a *defect*, not a domain-error channel — see [Honest Read-Error Ownership](design/specs/2026-05-28-honest-read-error-ownership.md).
+Creates a derived value whose `compute` is **noraise**: a recoverable, domain-specific failure is expressed in the value as `Result[V, E]`, never raised. The error then participates in caching and `Eq`-based backdating like any other value, and reads surface only graph failures (cycles/disposal), never an uncatchable abort. Prefer this over `Derived` for a fallible compute. A `raise Failure` from a plain `Derived` compute is a *defect*, not a domain-error channel — see [Honest Read-Error Ownership](design/specs/2026-05-28-honest-read-error-ownership.md).
 
 ### `Derived::get(self) -> Result[T, ReadError]`
 
@@ -340,7 +340,7 @@ Strict graph read. It must be called inside another derived compute function, wh
 
 ### `Derived::get_or_abort(self) -> T`
 
-Strict graph read that aborts on invalid context or cycle.
+Strict graph read that aborts on invalid context or any `ReadError`.
 
 ### `Derived::read(self) -> Result[T, ReadError]`
 
@@ -351,7 +351,7 @@ cycle-safe handling in [`api_reference_examples.mbt.md`](api_reference_examples.
 
 ### `Derived::read_or_abort(self) -> T`
 
-Permissive read that aborts on cycle.
+Permissive read that aborts on any `ReadError`.
 
 ### `Derived::watch(self) -> Watch[T]`
 
@@ -360,6 +360,13 @@ Creates a long-lived outside-graph reader. The `Watch` is a GC root until dispos
 ### `Derived::is_fresh(self) -> Bool`
 
 Returns whether this derived value is verified at the current revision.
+
+### `Derived::accumulated(self, acc: Accumulator[A]) -> Result[Array[A], ReadError] raise Failure`
+
+Target-facade forwarding method for `Memo::accumulated`; useful when an
+accumulator producer has already been migrated to `Derived`.
+`Derived::accumulated_or_abort` is the strict unwrap convenience, and
+`Derived::accumulated_peek` is the untracked cached read.
 
 ### Compatibility `Memo[T]`
 
@@ -374,24 +381,36 @@ Returns whether this derived value is verified at the current revision.
 - `Memo::observe()` creates a legacy `Observer[T]`; prefer `Derived::watch()` on target facades.
 - `Memo::id()`, `dependencies()`, `changed_at()`, `verified_at()`, `on_change()`, and `clear_on_change()` remain available on the compatibility handle for diagnostics and low-level integration.
 
-### `Memo::accumulated[T, A](self, acc: Accumulator[A]) -> Array[A] raise Failure`
+### `Memo::accumulated[T, A](self, acc: Accumulator[A]) -> Result[Array[A], ReadError] raise Failure`
 
 Returns the values this memo pushed into `acc` during its most recent compute,
-in push order. When called from a `Memo` or `HybridMemo` compute frame, it
-records a synthetic dependency so that caller reinvalidates when the push set
-changes — even when the memo's ordinary return value is unchanged. Outside a
-memo compute, it returns data without registering a dependency. Forces
-verification of the target memo first, so stale results are never returned.
+in push order. When called from a `Memo` or `HybridMemo` compute frame and the
+read succeeds, it records a synthetic dependency so that caller reinvalidates
+when the push set changes — even when the memo's ordinary return value is
+unchanged. Outside a memo compute, it returns data without registering a
+dependency. Forces verification of the target memo first, so stale results are
+never returned.
 
-Raises `Failure` on: disposed accumulator, cross-runtime accumulator, disposed target memo, a cycle involving the target, or a `Failure` raised inside the target's compute.
+The read channel reports cycles as `Err(ReadError::Cycle(_))` and a directly
+disposed target memo as `Err(ReadError::Disposed(_))`. Domain failures returned
+as a value (for example `Memo[Result[V, E]]`) are successful computes; pushes
+from that compute are committed and returned as `Ok(...)`. A target compute that
+raises `Failure` is a defect and aborts. Disposed accumulators and
+static-Derived recompute misuse raise `Failure`; cross-runtime reuse aborts.
+
+### `Memo::accumulated_or_abort[T, A](self, acc: Accumulator[A]) -> Array[A] raise Failure`
+
+Tracked, verifying accumulator read that unwraps `Memo::accumulated` and aborts
+on `ReadError`. This is the strict convenience to use inside compute closures
+that should treat graph mechanism failures as fatal.
 
 ### `Memo::accumulated_peek[T, A](self, acc: Accumulator[A]) -> Array[A]`
 
 Untracked read of the values the memo pushed into `acc` during its most recent compute. Does **not** record a dependency, does **not** force verification, and is **permissive on disposal** — returns `[]` when the accumulator or target is disposed, or when the target has never been computed.
 
-### `Memo::accumulated_result[T, A](self, acc: Accumulator[A]) -> Result[Array[A], CycleError] raise Failure`
+### `Memo::accumulated_result[T, A](self, acc: Accumulator[A]) -> Result[Array[A], ReadError] raise Failure`
 
-Tracked, verifying read that surfaces a cycle in the target as `Err(CycleError)` rather than raising. Other defect classes (disposed handles, cross-runtime reuse) still raise `Failure`.
+Compatibility alias for `Memo::accumulated`.
 
 ---
 
@@ -413,11 +432,11 @@ Keyed counterpart to `Derived::fallible`: each key's recoverable domain failure 
 
 ### `DerivedMap::read[K : Hash + Eq, V : Eq](self, key: K) -> Result[V, ReadError]`
 
-Permissive read for `key`. It works outside the graph and records a per-key dependency when called inside a tracked compute. Returns `Err(Disposed(_))` if the per-key memo was gc-disposed while the map still caches the entry.
+Permissive read for `key`. It works outside the graph and records a per-key dependency when called inside a tracked compute. Returns `Err(Disposed(_))` if the per-key memo was gc-disposed while the map still caches the entry, or if the owning scope disposed the map.
 
 ### `DerivedMap::read_or_abort[K : Hash + Eq, V : Eq](self, key: K) -> V`
 
-Permissive read that aborts on cycle.
+Permissive read that aborts on any `ReadError`.
 
 ### `DerivedMap::get[K : Hash + Eq, V : Eq](self, key: K) -> Result[V, ReadError]`
 
@@ -425,11 +444,11 @@ Strict graph read for `key`. It records the per-key dependency inside a tracked 
 
 ### `DerivedMap::get_or_abort[K : Hash + Eq, V : Eq](self, key: K) -> V`
 
-Strict graph read that aborts on invalid context or cycle.
+Strict graph read that aborts on invalid context or any `ReadError`.
 
 ### `DerivedMap::read_or[K : Hash + Eq, V : Eq](self, key: K, fallback: V) -> V`
 
-Returns the value for `key`, or `fallback` if a cycle is detected.
+Returns the value for `key`, or `fallback` if a `ReadError` is detected.
 
 ### `DerivedMap::read_or_else[K : Hash + Eq, V : Eq](self, key: K, fallback: (ReadError) -> V) -> V`
 
@@ -484,7 +503,7 @@ Strict graph read. It must be called inside another derived compute function, ab
 
 ### `ReachableDerived::get_or_abort[T : Eq](self) -> T`
 
-Strict graph read that aborts on invalid context or cycle.
+Strict graph read that aborts on invalid context or any `ReadError`.
 
 ### `ReachableDerived::read[T : Eq](self) -> Result[T, ReadError]`
 
@@ -492,7 +511,7 @@ Permissive read. It works outside the graph and records a dependency when called
 
 ### `ReachableDerived::read_or_abort[T : Eq](self) -> T`
 
-Permissive read that aborts on cycle.
+Permissive read that aborts on any `ReadError`.
 
 ### `ReachableDerived::watch[T : Eq](self) -> Watch[T]`
 
@@ -524,7 +543,7 @@ set differs from the previous run — even when the producer's return value is
 structurally equal. Driver/debug reads outside a memo compute do not register
 that synthetic dependency. See the ADR: [Accumulator API](decisions/2026-04-20-accumulator-api.md).
 
-**Local-only semantics.** `memo.accumulated(acc)` returns only the values `memo` itself pushed — not its dependencies. Transitive aggregation is the driver's job (see the [Scope-owned accumulator](cookbook.mbt.md#pattern-scope-owned-accumulator-lifecycle) cookbook pattern).
+**Local-only semantics.** `memo.accumulated(acc)` returns only the values `memo` itself pushed — not its dependencies. Transitive aggregation is the driver's job (see the [Scope-owned accumulator](cookbook.mbt.md#pattern-scope-owned-accumulator-lifecycle) cookbook pattern). Use `accumulated_or_abort` for strict compute-closure reads.
 
 **Top-frame restriction.** `push` is only legal inside a compatibility `Memo` or `HybridMemo` compute. Pushing from an input, `Effect`, `EagerDerived` / `Reactive`, or outside any compute raises `Failure`.
 
@@ -555,13 +574,13 @@ Appends `value` to the current compute's push buffer. Raises `Failure` if called
 - on a disposed accumulator
 
 Pushes within a single compute are ordered by call sequence;
-`Memo::accumulated` returns them in that order. The checked companion shows
-`push` inside a compatibility `Memo` compute in
+`Memo::accumulated` returns them in that order inside `Ok(...)`. The checked
+companion shows `push` inside a compatibility `Memo` compute in
 [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ### `Accumulator::dispose(self) -> Unit`
 
-Disposes the accumulator. Subsequent `push` calls raise `Failure`; subsequent `accumulated_peek` returns `[]`; subsequent `accumulated` / `accumulated_result` raise `Failure`. Idempotent.
+Disposes the accumulator. Subsequent `push`, `accumulated`, `accumulated_result`, and `accumulated_or_abort` calls raise `Failure`; subsequent `accumulated_peek` returns `[]`. Idempotent.
 
 ### `Accumulator::id(self) -> AccumulatorId`
 
@@ -579,7 +598,7 @@ Returns `true` after `dispose` has been called.
 
 Returns a human-readable summary (label, id, disposed state, per-memo push counts).
 
-Read methods live on the compatibility `Memo[T]` handle: see `Memo::accumulated`, `Memo::accumulated_peek`, and `Memo::accumulated_result` in the Derived / Memo section above.
+Read methods live on the compatibility `Memo[T]` handle: see `Memo::accumulated`, `Memo::accumulated_or_abort`, `Memo::accumulated_peek`, and `Memo::accumulated_result` in the Derived / Memo section above.
 
 ---
 

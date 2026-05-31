@@ -315,7 +315,7 @@ test "static derived: accumulator use fails explicitly" {
     rt,
     [producer.id()],
     () => {
-      ignore(producer.accumulated(read_acc))
+      ignore(producer.accumulated_or_abort(read_acc))
       0
     },
     (a, b) => a == b,

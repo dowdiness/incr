@@ -133,9 +133,10 @@ test "MemoCommitPhase: Memo::accumulated from a reactive frame leaves no entry" 
   })
   ignore(read_memo_for_test(m))
   // Reactive::new runs the initial compute synchronously inside a
-  // PushReactive tracking frame. accumulated/accumulated_result raise
-  // Failure for disposed inputs only; wrap in try? because Reactive's
-  // compute signature is `() -> T` (non-raising).
+  // PushReactive tracking frame. The accumulator reads should be silent
+  // no-ops for the non-memo tracking frame. Wrap in try? because Reactive's
+  // compute signature is `() -> T` (non-raising) and accumulator misuse
+  // defects still raise Failure.
   let _r = Reactive::new(rt, () => {
     let _ = try? m.accumulated(acc)
     let _ = try? m.accumulated_result(acc)

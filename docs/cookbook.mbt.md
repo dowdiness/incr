@@ -199,8 +199,9 @@ often semantically distinct from log-like data it emits along the way
 graph; thread the log-like data through an `Accumulator[T]`.
 
 Producers `push` during compute. Consumers read back via
-`Memo::accumulated_peek` (outside the graph) or `Memo::accumulated` (inside
-another memo, with correct incremental invalidation). See the
+`Memo::accumulated_peek` (outside the graph), `Memo::accumulated` (Result-style
+read), or `Memo::accumulated_or_abort` (strict compute-closure convenience),
+with correct incremental invalidation. See the
 [Accumulator API](api-reference.mbt.md#accumulatort) reference.
 
 The checked companion demonstrates this pattern in
@@ -214,11 +215,12 @@ The checked companion demonstrates this pattern in
 
 ## Pattern: Accumulator-Driven Incremental Invalidation
 
-When a consumer memo reads pushes via `Memo::accumulated`, it records a
-synthetic dependency on the producer's push set. The consumer reinvalidates
-when the push set changes — **even when the producer's ordinary return
-value is unchanged**. This is the primary reason to use an accumulator
-rather than returning an `Array` from the producer.
+When a consumer memo successfully reads pushes via `Memo::accumulated` (or the
+strict `Memo::accumulated_or_abort`), it records a synthetic dependency on the
+producer's push set. The consumer reinvalidates when the push set changes —
+**even when the producer's ordinary return value is unchanged**. This is the
+primary reason to use an accumulator rather than returning an `Array` from the
+producer.
 
 The checked companion pins this backdating-sensitive invalidation behavior in
 [`cookbook_examples.mbt.md`](cookbook_examples.mbt.md#accumulator-diagnostics-and-synthetic-invalidation).
@@ -228,8 +230,9 @@ still returns `5` (structurally equal, so backdated), and a plain
 `checked.diagnostics` field would require a fresh `Array` allocation on
 every compute to carry the change through.
 
-Use `accumulated_result` at the boundary when a cycle in the producer
-should surface as `Err(CycleError)` rather than raising.
+Use `accumulated` at the boundary when a cycle in the producer should surface
+as `Err(ReadError::Cycle(_))`; use `accumulated_or_abort` inside strict compute
+closures.
 
 ---
 
@@ -249,7 +252,7 @@ then allocate the accumulator and per-definition memos through that child scope.
 The checked API-reference companion covers the scope-owned disposal guarantee in
 [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md#accumulator--compatibility-push-side-channel).
 
-The outer pipeline memo consumes diagnostics via `type_memo.accumulated(diags)`, so the invalidation chain is: def source changes → per-def memo recomputes → push set for that memo changes → pipeline memo invalidates → driver collects updated diagnostics.
+The outer pipeline memo consumes diagnostics via `type_memo.accumulated_or_abort(diags)`, so the invalidation chain is: def source changes → per-def memo recomputes → push set for that memo changes → pipeline memo invalidates → driver collects updated diagnostics.
 
 **Why child scope, not runtime-owned.** An `Accumulator::new(rt~, ...)`
 lives until explicitly disposed. In a driver that rebuilds on every

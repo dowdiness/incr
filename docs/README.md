@@ -56,7 +56,7 @@ For contributors and advanced users who want to understand or modify `incr`.
 - [2026-05-26 Build-oriented boundary design](design/specs/2026-05-26-build-trait-boundaries.md) — ideal Build systems à la carte-inspired application boundaries on top of `Input`, `Derived`, and `DerivedMap`; traits are one seam, not the default
 - [2026-05-26 Internal evaluation boundaries](design/specs/2026-05-26-internal-rebuild-boundaries.md) — ideal runtime-evaluation state-machine design for pull verification, push propagation, lifetime, and observation seams without public scheduler traits
 - [2026-05-28 Static Derived Public-Surface Options](design/specs/2026-05-28-static-derived-public-options.md) — compares public API options for exposing the measured fixed-dependency `Derived` fast path without accepting or implementing a surface yet
-- [2026-05-28 Honest Read-Error Ownership](design/specs/2026-05-28-honest-read-error-ownership.md) — three-way split of read failures (graph→read channel, domain→value-as-`Result`, defects→abort); `Derived::fallible`/`DerivedMap::fallible` cheapest increment + `ReadError` full-ideal migration
+- [2026-05-28 Honest Read-Error Ownership](design/specs/2026-05-28-honest-read-error-ownership.md) — three-way split of read failures (graph→read channel, domain→value-as-`Result`, defects→abort/fail); `Derived::fallible`/`DerivedMap::fallible`; `ReadError` migration for target reads and accumulator verifying reads
 
 **Project direction:**
 
@@ -85,7 +85,7 @@ Architecture Decision Records — the *why* behind significant design choices. K
 
 | Date | Decision |
 |------|----------|
-| [2026-04-20](decisions/2026-04-20-accumulator-api.md) | Accumulator API: side-channel collector with per-memo `push_revised_at` incremental invalidation (local-only scope; `raise Failure` error model) |
+| [2026-04-20](decisions/2026-04-20-accumulator-api.md) | Accumulator API: side-channel collector with per-memo `push_revised_at` incremental invalidation (local-only scope; verifying reads now use `ReadError`) |
 | [2026-04-26](decisions/2026-04-26-r2-runtime-decomposition-deferred.md) | R2 (Runtime → services decomposition): deferred indefinitely. Post-R1 Runtime is 427 LOC of thin delegators; service decomposition would be a wrapper-rename without a driver. |
 | [2026-04-26](decisions/2026-04-26-modal-runtime-split-not-warranted.md) | Modal Runtime split (per-mode Runtime types): investigation closed. Runtime::new costs 0.11 µs and unused-mode "luggage" is sub-KB; no concrete X→Y per-mode design wish names a shared-CellId-compatible change. |
 | [2026-05-17](decisions/2026-05-17-async-at-the-edges.md) | Async-at-the-edges with `moonbitlang/async`: no library changes required. Function coloring enforces the synchrony contract statically. Supported patterns documented; T3 + JS integration test gated on a real driver. |

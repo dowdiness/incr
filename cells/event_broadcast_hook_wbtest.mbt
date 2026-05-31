@@ -348,15 +348,12 @@ test "memo_event: raising API defers drain until next operation" {
   let rt = Runtime()
   let events : Array[String] = []
   rt.on_memo_event(evt => push_event_kind(events, evt))
-  let acc : Accumulator[Int] = Accumulator::new(rt~)
   let inner = Memo(rt, () => 1)
   let target : Memo[Int] = Memo(rt, () => {
     ignore(inner.get())
     raise Failure("target failed")
   })
-  let result : Result[Result[Array[Int], CycleError], Error] = try? target.accumulated_result(
-    acc,
-  )
+  let result : Result[Result[Int, CycleError], Error] = try? target.force_recompute()
   inspect(result is Err(_), content="true")
   inspect(events.length(), content="0")
   inspect(rt.event_broadcast_hook.pending.length(), content="4")

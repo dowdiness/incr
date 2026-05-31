@@ -46,7 +46,9 @@ test "integration: stopped pushing invalidates reader" {
     }
     0
   })
-  let consumer = @incr.Memo::Memo(rt, () => producer.accumulated(acc).length())
+  let consumer = @incr.Memo::Memo(rt, () => {
+    producer.accumulated_or_abort(acc).length()
+  })
   debug_inspect(read_memo_for_test(consumer), content="1")
   flag.set(false)
   debug_inspect(read_memo_for_test(consumer), content="0")
@@ -133,7 +135,7 @@ test "integration: same push-set → backdate (consumer does not recompute)" {
   })
   let consumer = @incr.Memo::Memo(rt, () => {
     compute_count = compute_count + 1
-    producer.accumulated(acc).length()
+    producer.accumulated_or_abort(acc).length()
   })
   let _ = read_memo_for_test(consumer)
   inspect(compute_count, content="1")
@@ -155,7 +157,7 @@ test "integration: different push-set → invalidate (consumer recomputes)" {
   })
   let consumer = @incr.Memo::Memo(rt, () => {
     compute_count = compute_count + 1
-    producer.accumulated(acc)[0]
+    producer.accumulated_or_abort(acc)[0]
   })
   inspect(read_memo_for_test(consumer), content="0")
   inspect(compute_count, content="1")
@@ -184,8 +186,8 @@ test "integration: diamond — reader reads same accumulator twice, consistent" 
     0
   })
   let consumer = @incr.Memo::Memo(rt, () => {
-    let a = producer.accumulated(acc).length()
-    let b = producer.accumulated(acc).length()
+    let a = producer.accumulated_or_abort(acc).length()
+    let b = producer.accumulated_or_abort(acc).length()
     a + b
   })
   inspect(read_memo_for_test(consumer), content="2")
