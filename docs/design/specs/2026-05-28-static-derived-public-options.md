@@ -20,22 +20,23 @@ implementation.
 
 ## Current measured signal
 
-The hardened private prototype reuses the existing pull backend storage
-(`MemoData` / `PullMemo` internally), registers fixed dependencies once, skips
-dynamic tracking and dependency-list diffing on recompute, and preserves normal
-subscriber, GC, cycle, and commit-hook behavior.
+The package-private path reuses the existing pull backend storage
+(`MemoData` / `PullMemo` internally), returns normal `Derived` handles,
+registers fixed dependencies once, skips dynamic tracking and dependency-list
+diffing on recompute, and preserves normal subscriber, GC, cycle, watch, and
+commit-hook behavior.
 
 Measured after hardening:
 
-- Scalar stale recomputes: static recovers about half or more of the
+- Scalar stale recomputes: static recovers a large fraction of the
   dynamic/manual gap.
-  - wasm-gc: ~45–64% gap recovery; ~1.5–2.0× faster than dynamic `Derived`.
-  - JS: ~53–62% gap recovery; ~1.8–2.2× faster than dynamic `Derived`.
+  - wasm-gc: ~37–58% gap recovery; ~1.4–1.9× faster than dynamic `Derived`.
+  - JS: ~42–54% gap recovery; ~1.6–1.9× faster than dynamic `Derived`.
 - UI-shaped benches:
   - layered fanout: at noise level, because one derived recompute is amortized
     across 1000 eager leaves;
-  - tree of tiny derived nodes: material win on both targets, roughly 1.3× on
-    wasm-gc and 1.5× on JS in the latest run.
+  - tree of tiny derived nodes: material win on both targets, roughly 1.1× on
+    wasm-gc and 1.2× on JS in the latest run.
 
 Conclusion: a static path is worth keeping private and is worth a public-surface
 review. The signal does not justify rushing a broad public API.
@@ -244,6 +245,20 @@ asks for it.
 This is acceptable if the next release should avoid new public API. It should be
 paired with a short list of criteria that would reopen the decision.
 
+### Reopen criteria
+
+Revisit the public surface only when at least one of these is true:
+
+- an `Expr[T]` / formula layer needs to lower a pure fixed-source expression
+  graph into materialized cells;
+- a scope-owned attachment pipeline creates a tree of tiny fixed-dependency
+  nodes where the private path changes an end-to-end benchmark;
+- a UI-library or downstream app duplicates fixed-source `Derived` wrappers often
+  enough that the private path is inaccessible where it matters.
+
+The first public API should still be designed from that consumer's shape, not
+from the raw private installer.
+
 ## Cross-cutting design questions
 
 Before implementation, answer these in a real design spec:
@@ -273,8 +288,9 @@ Before implementation, answer these in a real design spec:
 Do not implement a public static-derived API from this note alone.
 
 The private implementation is hardened enough that a public decision is now a
-surface-design question, not a correctness-probe question. The next step should
-be a short decision/spec pass that chooses between:
+surface-design question, not a correctness-probe question. Keep the path private
+until one of the reopen criteria above supplies a concrete consumer. When that
+happens, run a short decision/spec pass that chooses between:
 
 - **Option A** for the smallest direct user-facing API;
 - **Option B** if scope-owned attachment pipelines are the first target driver;

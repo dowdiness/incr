@@ -1,11 +1,10 @@
 ///|
-/// Integrated static/applicative `Derived` prototype benchmarks.
+/// Integrated static/applicative `Derived` private-path benchmarks.
 ///
-/// The static rows use the private generalized `StaticDerivedProbe` path from
-/// `static_derived_probe.mbt`: a real pull backend entry with fixed
-/// dependencies, existing `pull_verify`, and no dynamic tracking frame or
-/// dependency-list diff on recompute. This remains benchmark-only and is not a
-/// public API proposal.
+/// The static rows use the package-private generalized `Derived` path: a real
+/// pull backend entry with fixed dependencies, existing `pull_verify`, and no
+/// dynamic tracking frame or dependency-list diff on recompute. This remains a
+/// benchmark of private internals, not a public API proposal.
 
 ///|
 test "integrated-applicative-probe: map1 dynamic Derived stale" (b : @bench.T) {
@@ -22,12 +21,12 @@ test "integrated-applicative-probe: map1 dynamic Derived stale" (b : @bench.T) {
 }
 
 ///|
-test "integrated-applicative-probe: map1 static Derived prototype stale" (
+test "integrated-applicative-probe: map1 static Derived private stale" (
   b : @bench.T,
 ) {
   let rt = Runtime()
   let input = Input(rt, 0)
-  let derived = static_derived_map1_probe(input, x => x + 1)
+  let derived = static_derived_map1(input, x => x + 1)
   ignore(derived.read_or_abort())
   let mut v = 0
   b.bench(fn() {
@@ -53,13 +52,13 @@ test "integrated-applicative-probe: map2 dynamic Derived stale" (b : @bench.T) {
 }
 
 ///|
-test "integrated-applicative-probe: map2 static Derived prototype stale" (
+test "integrated-applicative-probe: map2 static Derived private stale" (
   b : @bench.T,
 ) {
   let rt = Runtime()
   let left = Input(rt, 0)
   let right = Input(rt, 10)
-  let derived = static_derived_map2_probe(left, right, (l, r) => l + r)
+  let derived = static_derived_map2(left, right, (l, r) => l + r)
   ignore(derived.read_or_abort())
   let mut v = 0
   b.bench(fn() {
@@ -86,16 +85,14 @@ test "integrated-applicative-probe: map3 dynamic Derived stale" (b : @bench.T) {
 }
 
 ///|
-test "integrated-applicative-probe: map3 static Derived prototype stale" (
+test "integrated-applicative-probe: map3 static Derived private stale" (
   b : @bench.T,
 ) {
   let rt = Runtime()
   let first = Input(rt, 0)
   let second = Input(rt, 10)
   let third = Input(rt, 100)
-  let derived = static_derived_map3_probe(first, second, third, (a, b, c) => {
-    a + b + c
-  })
+  let derived = static_derived_map3(first, second, third, (a, b, c) => a + b + c)
   ignore(derived.read_or_abort())
   let mut v = 0
   b.bench(fn() {
