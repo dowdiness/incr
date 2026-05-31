@@ -32,6 +32,7 @@ pub(all) struct Memo[T] {
   priv rt : Runtime
   priv cell_id : CellId
   priv compute : () -> T raise Failure
+  priv is_static : Bool
   priv backdate_eq : (T, T) -> Bool // captured at construction; replaces hardcoded a==b
   priv mut value : T?
 } derive(Debug(ignore=[Runtime, Fn, CellId]))
@@ -60,7 +61,15 @@ fn[T] Memo::_create(
 ) -> Memo[T] {
   let memo_idx = rt.pull.free_memos.pop().unwrap_or(rt.pull.memos.length())
   let cell_id = rt.alloc_cell_id(PullMemo(memo_idx))
-  let memo : Memo[T] = { label, rt, cell_id, compute, backdate_eq, value: None }
+  let memo : Memo[T] = {
+    label,
+    rt,
+    cell_id,
+    compute,
+    is_static: false,
+    backdate_eq,
+    value: None,
+  }
   let new_data : MemoData = {
     meta: {
       cell_id,
@@ -221,11 +230,19 @@ fn[T] Memo::get_strict_honest(self : Memo[T]) -> Result[T, ReadError] {
 /// dependency surfaced during verification still aborts inside `pull_verify`.
 /// Records a dependency when tracked (only on a successful read).
 fn[T] Memo::read_honest(self : Memo[T]) -> Result[T, ReadError] {
+  self.read_honest_impl(record_dependency=true)
+}
+
+///|
+fn[T] Memo::read_honest_impl(
+  self : Memo[T],
+  record_dependency~ : Bool,
+) -> Result[T, ReadError] {
   guard !self.rt.is_cell_disposed(self.cell_id) else {
     return Err(ReadError::disposed(self.cell_id))
   }
   self.rt.check_cross_runtime(self.rt.core.runtime_id, "Memo")
-  let result = self.get_result_inner() catch {
+  let result = self.get_result_inner_impl(record_dependency~) catch {
     e => {
       self.rt.drain_pending_events_direct()
       abort("Memo compute raised: " + e.to_string())
@@ -270,6 +287,14 @@ fn[T] Memo::read_result(self : Memo[T]) -> Result[T, CycleError] {
 fn[T] Memo::get_result_inner(
   self : Memo[T],
 ) -> Result[T, CycleError] raise Failure {
+  self.get_result_inner_impl(record_dependency=true)
+}
+
+///|
+fn[T] Memo::get_result_inner_impl(
+  self : Memo[T],
+  record_dependency~ : Bool,
+) -> Result[T, CycleError] raise Failure {
   guard !self.rt.is_cell_disposed(self.cell_id) else {
     abort("Memo::get called on a disposed memo")
   }
@@ -305,7 +330,9 @@ fn[T] Memo::get_result_inner(
         Ok(value) => {
           // Only record dependency on successful read to avoid poisoning
           // the dependency graph with failed cyclic edges
-          self.rt.record_dependency(self.cell_id)
+          if record_dependency {
+            self.rt.record_dependency(self.cell_id)
+          }
           Ok(value)
         }
         Err(e) => Err(e)
@@ -314,7 +341,9 @@ fn[T] Memo::get_result_inner(
       // Fast path: already verified this revision
       let cell = self.rt.get_memo_data(self.cell_id)
       if cell.verified_at >= self.rt.core.revision.current_revision {
-        self.rt.record_dependency(self.cell_id)
+        if record_dependency {
+          self.rt.record_dependency(self.cell_id)
+        }
         return Ok(cached)
       }
       // Check if any dependency changed since last verification.
@@ -322,7 +351,9 @@ fn[T] Memo::get_result_inner(
       // (via compute closure) to determine if value actually changed.
       match self.rt.pull_verify(self.cell_id) {
         Ok(_) => {
-          self.rt.record_dependency(self.cell_id)
+          if record_dependency {
+            self.rt.record_dependency(self.cell_id)
+          }
           // Re-read self.value: pull_verify may have called
           // force_recompute, replacing the cached value with a new one.
           // The outer Some(cached) binding may be stale.
@@ -382,19 +413,28 @@ pub fn[T] Memo::get_or_else(self : Memo[T], fallback : (CycleError) -> T) -> T {
 }
 
 ///|
-/// Force recomputation: delegates to shared memo_force_recompute helper.
+/// Force recomputation: delegates to the dynamic or static memo recompute helper.
 ///
 /// Returns `Ok(new_value)` on success, or `Err(CycleError)` if a cycle is detected.
 fn[T] Memo::force_recompute(
   self : Memo[T],
 ) -> Result[T, CycleError] raise Failure {
-  match
+  let result = if self.is_static {
+    self.rt.static_memo_force_recompute(
+      self.cell_id,
+      self.compute,
+      self.value,
+      self.backdate_eq,
+    )
+  } else {
     self.rt.memo_force_recompute(
       self.cell_id,
       self.compute,
       self.value,
       self.backdate_eq,
-    ) {
+    )
+  }
+  match result {
     Ok(new_value) => {
       self.value = Some(new_value)
       Ok(new_value)
@@ -530,6 +570,74 @@ fn[T] Runtime::memo_force_recompute(
   // (backdating detectable via cell.meta.changed_at < cell.verified_at).
   self.dispatch_after_success_hooks(cell_id)
   Ok(new_value)
+}
+
+///|
+fn[T] Runtime::static_memo_force_recompute(
+  self : Runtime,
+  cell_id : CellId,
+  compute_fn : () -> T raise Failure,
+  old_value : T?,
+  eq_fn : (T, T) -> Bool,
+) -> Result[T, CycleError] raise Failure {
+  let cell = self.get_memo_data(cell_id)
+  if cell.in_progress {
+    return Err(
+      @kernel.construct_cycle_error(
+        self.core,
+        @kernel.collect_in_progress_path(self.pull),
+        cell.meta.cell_id,
+      ),
+    )
+  }
+  cell.in_progress = true
+  self.dispatch_before_recompute_hooks(cell_id)
+  self.enter_static_recompute()
+  let new_value = compute_fn() catch {
+    e => {
+      self.leave_static_recompute()
+      self.dispatch_after_abort_hooks(cell_id, e)
+      cell.in_progress = false
+      raise e
+    }
+  }
+  self.leave_static_recompute()
+  let value_changed = match old_value {
+    None => true
+    Some(old) => !eq_fn(old, new_value)
+  }
+  if value_changed {
+    cell.meta.changed_at = self.core.revision.current_revision
+  }
+  cell.verified_at = self.core.revision.current_revision
+  cell.has_been_computed = true
+  cell.in_progress = false
+  self.dispatch_after_success_hooks(cell_id)
+  Ok(new_value)
+}
+
+///|
+fn[T] Memo::read_declared_fixed_dep_or_abort(
+  self : Memo[T],
+  dependent : CellId,
+) -> T raise Failure {
+  guard self.rt.validate_cell_soft(dependent) else {
+    fail("static Derived fixed-source read from a different runtime")
+  }
+  let dependent_data = self.rt.get_memo_data(dependent)
+  guard dependent_data.in_progress else {
+    fail("static Derived fixed-source read outside dependent recompute")
+  }
+  guard dependent_data.dependencies.contains(self.cell_id) else {
+    fail("static Derived fixed-source read without a declared dependency")
+  }
+  match self.read_honest_impl(record_dependency=false) {
+    Ok(value) => {
+      @kernel.set_current_computing_runtime_id(self.rt.core.runtime_id)
+      value
+    }
+    Err(e) => abort(e.format_path())
+  }
 }
 
 ///|

@@ -30,6 +30,7 @@ test "Memo derives Debug before compute" {
       #|  rt: ...,
       #|  cell_id: ...,
       #|  compute: <function: ...>,
+      #|  is_static: false,
       #|  backdate_eq: <function: ...>,
       #|  value: None,
       #|}
@@ -51,6 +52,7 @@ test "Memo derives Debug after compute" {
       #|  rt: ...,
       #|  cell_id: ...,
       #|  compute: <function: ...>,
+      #|  is_static: false,
       #|  backdate_eq: <function: ...>,
       #|  value: Some(20),
       #|}

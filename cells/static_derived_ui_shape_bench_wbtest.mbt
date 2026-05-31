@@ -1,5 +1,5 @@
 ///|
-/// UI-shaped benchmarks for the private static `Derived` probe.
+/// UI-shaped benchmarks for the private static `Derived` path.
 ///
 /// These mirror the `tests/ui_shape_bench_test.mbt` layered and tree shapes,
 /// which are the shapes where fixed-dependency derived nodes can replace
@@ -28,7 +28,7 @@ test "ui-static-probe: layered 1000 eager via dynamic Derived" (b : @bench.T) {
 test "ui-static-probe: layered 1000 eager via static Derived" (b : @bench.T) {
   let rt = Runtime()
   let input = Input(rt, 0)
-  let derived = static_derived_map1_probe(input, x => x * 2)
+  let derived = static_derived_map1(input, x => x * 2)
   let leaves : Array[EagerDerived[Int]] = []
   for i = 0; i < 1000; i = i + 1 {
     let idx = i
@@ -76,14 +76,14 @@ test "ui-static-probe: tree 1023 static Derived + 512 eager leaves" (
 ) {
   let rt = Runtime()
   let input = Input(rt, 0)
-  let nodes : Array[StaticDerivedProbe[Int]] = []
-  nodes.push(static_derived_map1_probe(input, x => x))
+  let nodes : Array[Derived[Int]] = []
+  nodes.push(static_derived_map1(input, x => x))
   for i = 0; i < 511; i = i + 1 {
     let parent = nodes[i]
     let li = 2 * i + 1
     let ri = 2 * i + 2
-    nodes.push(static_derived_map_static1_probe(parent, x => x + li))
-    nodes.push(static_derived_map_static1_probe(parent, x => x + ri))
+    nodes.push(static_derived_map_derived1(parent, x => x + li))
+    nodes.push(static_derived_map_derived1(parent, x => x + ri))
   }
   let leaves : Array[EagerDerived[Int]] = []
   for i = 511; i < 1023; i = i + 1 {
