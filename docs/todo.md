@@ -4,19 +4,14 @@ Concrete, actionable tasks for the `incr` library.
 
 ## Known Bugs
 
-Open correctness issues tracked on GitHub. Each breaks an invariant other cell
-types respect; neither is a regression introduced by recent work.
+Correctness issues tracked on GitHub. Unchecked items are open.
 
-- [ ] **`Runtime::dependents` does not guard against disposed cell IDs or
+- [x] **`Runtime::dependents` does not guard against disposed cell IDs or
       push-slot reuse** ([#17](https://github.com/dowdiness/incr/issues/17)).
-      `Runtime::dependents` (`cells/runtime.mbt`) passes the bounds check then
-      reads `cell_ops[id.id].subscribers()` without checking `cell_index[id.id]
-      == Disposed`. It returns `[]` for a disposed id only by accident (dispose
-      calls `subscribers.clear()`), and free-list slot reuse can make a stale id
-      observe a *new* cell's subscribers. Fix: add an explicit `Disposed` check
-      (and generation/slot-reuse guard) so the documented "empty for invalid id"
-      contract holds by construction, not by luck. Add tests for both the
-      disposed-read and slot-reuse cases.
+      `Runtime::dependents` (`cells/introspection.mbt`) now checks for disposed
+      IDs before reading `cell_ops[id.id].subscribers()`, so the documented
+      "empty for invalid id" contract holds by construction. Regression tests
+      cover both disposed reads and stale push-slot reuse.
 - [ ] **Spurious `changed_at` advancement when values revert in
       `Relation`/`FunctionalRelation`** ([#22](https://github.com/dowdiness/incr/issues/22)).
       Both mark themselves changed whenever a non-empty frontier exists during
