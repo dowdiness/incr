@@ -162,6 +162,71 @@ test "functional_relation: memo recomputes after fixpoint changes value" {
 }
 
 ///|
+test "functional_relation: revert before fixpoint preserves changed_at and cached dependents" {
+  let rt = Runtime::Runtime()
+  let fr : FunctionalRelation[String, Int] = FunctionalRelation::FunctionalRelation(
+    rt,
+  )
+  fr.insert("x", 1) |> ignore
+  rt.fixpoint()
+  let changed_at_before = rt.get_changed_at(fr.id())
+  let mut memo_count = 0
+  let m = Memo::Memo(rt, fn() {
+    memo_count += 1
+    fr.get("x").unwrap_or(0)
+  })
+  debug_inspect(read_memo_for_test(m), content="1")
+  let mut reactive_count = 0
+  let r = Reactive::new(rt, fn() {
+    reactive_count += 1
+    fr.get("x").unwrap_or(0)
+  })
+  let observer = r.observe()
+  debug_inspect(observer.get(), content="1")
+  let reactive_count_before = reactive_count
+  fr.insert("x", 2) |> ignore
+  fr.insert("x", 1) |> ignore
+  rt.fixpoint()
+  debug_inspect(fr.get("x"), content="Some(1)")
+  inspect(rt.get_changed_at(fr.id()) == changed_at_before, content="true")
+  debug_inspect(read_memo_for_test(m), content="1")
+  debug_inspect(observer.get(), content="1")
+  inspect(memo_count, content="1")
+  inspect(reactive_count, content=reactive_count_before.to_string())
+  observer.dispose()
+}
+
+///|
+test "functional_relation: staged revert during fixpoint preserves changed_at" {
+  let rt = Runtime::Runtime()
+  let trigger : Relation[Int] = Relation::Relation(rt)
+  let fr : FunctionalRelation[String, Int] = FunctionalRelation::FunctionalRelation(
+    rt,
+  )
+  fr.insert("x", 1) |> ignore
+  rt.fixpoint()
+  let changed_at_before = rt.get_changed_at(fr.id())
+  let mut memo_count = 0
+  let m = Memo::Memo(rt, fn() {
+    memo_count += 1
+    fr.get("x").unwrap_or(0)
+  })
+  debug_inspect(read_memo_for_test(m), content="1")
+  let _ = rt.new_rule([trigger.id()], [fr.id()], fn() {
+    for _ in trigger.delta_iter() {
+      fr.insert("x", 2) |> ignore
+      fr.insert("x", 1) |> ignore
+    }
+  })
+  trigger.insert(0) |> ignore
+  rt.fixpoint()
+  debug_inspect(fr.get("x"), content="Some(1)")
+  inspect(rt.get_changed_at(fr.id()) == changed_at_before, content="true")
+  debug_inspect(read_memo_for_test(m), content="1")
+  inspect(memo_count, content="1")
+}
+
+///|
 test "panic functional_relation: cross-runtime read aborts" {
   let rt1 = Runtime::Runtime()
   let rt2 = Runtime::Runtime()

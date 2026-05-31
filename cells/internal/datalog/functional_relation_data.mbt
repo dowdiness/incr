@@ -6,6 +6,8 @@ pub(all) struct FunctionalRelationData {
   is_delta_empty : () -> Bool
   promote_staged_delta : () -> Unit
   is_staged_delta_empty : () -> Bool
+  begin_fixpoint : () -> Unit
+  finish_fixpoint_changed : () -> Bool
 }
 
 ///|

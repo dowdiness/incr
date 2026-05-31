@@ -3,15 +3,15 @@
 /// are derived. Returns the array of changed relation cell IDs.
 ///
 /// Algorithm (semi-naive evaluation):
-/// 1. Materialize each relation's current frontier `delta` into `current`
-/// 2. Apply all rules — rule bodies read `delta` (frontier) and `current`,
+/// 1. Snapshot each relation's materialized state for net-change checks
+/// 2. Materialize each relation's current frontier `delta` into `current`
+/// 3. Apply all rules — rule bodies read `delta` (frontier) and `current`,
 ///    and insert newly derived facts into staged deltas
-/// 3. Record which relations produced staged deltas this iteration
 /// 4. Promote staged deltas to next iteration's frontier (clears old
 ///    frontier)
 /// 5. If no staged deltas were produced, stop; otherwise repeat
-/// 6. Collect changed cell IDs — the caller (Runtime::fixpoint) calls
-///    publish_cell_changes if any changed.
+/// 6. Collect net-changed cell IDs — the caller (Runtime::fixpoint) calls
+///    publish_cell_changes if any materialized state changed.
 pub fn run_fixpoint(
   core : RuntimeCore,
   datalog : DatalogState,
@@ -22,14 +22,11 @@ pub fn run_fixpoint(
   if core.batch.depth > 0 {
     abort("fixpoint: cannot run fixpoint() inside a batch")
   }
-  // Track which relation SoA indices changed during this fixpoint run
-  let changed : Array[Bool] = []
   for rel in datalog.relations {
-    changed.push(!(rel.is_delta_empty)())
+    (rel.begin_fixpoint)()
   }
-  let fr_changed : Array[Bool] = []
   for fr in datalog.functional_relations {
-    fr_changed.push(!(fr.is_delta_empty)())
+    (fr.begin_fixpoint)()
   }
   enter_phase(core, InFixpoint)
   for ;; {
@@ -45,25 +42,16 @@ pub fn run_fixpoint(
       guard !is_cell_disposed(core, rule.meta.cell_id) else { continue }
       (rule.apply_delta)()
     }
-    // Rules may add relations during fixpoint; track any new entries.
-    while changed.length() < datalog.relations.length() {
-      changed.push(false)
-    }
-    while fr_changed.length() < datalog.functional_relations.length() {
-      fr_changed.push(false)
-    }
-    // Check convergence over staged deltas + mark changed in a single pass
+    // Check convergence over staged deltas.
     let mut has_new_facts = false
-    for ri = 0; ri < datalog.relations.length(); ri = ri + 1 {
-      if !(datalog.relations[ri].is_staged_delta_empty)() {
+    for rel in datalog.relations {
+      if !(rel.is_staged_delta_empty)() {
         has_new_facts = true
-        changed[ri] = true
       }
     }
-    for fi = 0; fi < datalog.functional_relations.length(); fi = fi + 1 {
-      if !(datalog.functional_relations[fi].is_staged_delta_empty)() {
+    for fr in datalog.functional_relations {
+      if !(fr.is_staged_delta_empty)() {
         has_new_facts = true
-        fr_changed[fi] = true
       }
     }
     // Next iteration frontier = this iteration's newly derived facts.
@@ -78,16 +66,16 @@ pub fn run_fixpoint(
     }
   }
   leave_phase(core)
-  // Collect changed cell IDs
+  // Collect net changed cell IDs.
   let changed_ids : Array[CellId] = []
-  for ri = 0; ri < datalog.relations.length(); ri = ri + 1 {
-    if changed[ri] {
-      changed_ids.push(datalog.relations[ri].meta.cell_id)
+  for rel in datalog.relations {
+    if (rel.finish_fixpoint_changed)() {
+      changed_ids.push(rel.meta.cell_id)
     }
   }
-  for fi = 0; fi < datalog.functional_relations.length(); fi = fi + 1 {
-    if fr_changed[fi] {
-      changed_ids.push(datalog.functional_relations[fi].meta.cell_id)
+  for fr in datalog.functional_relations {
+    if (fr.finish_fixpoint_changed)() {
+      changed_ids.push(fr.meta.cell_id)
     }
   }
   changed_ids

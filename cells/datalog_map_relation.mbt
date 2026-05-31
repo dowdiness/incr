@@ -21,6 +21,8 @@ pub(all) struct FunctionalRelation[K, V] {
   priv delta : Ref[@hashmap.HashMap[K, V]]
   priv staged_delta : Ref[@hashmap.HashMap[K, V]]
   priv merge : ((V, V) -> V)?
+  priv original_values : Ref[@hashmap.HashMap[K, V?]]
+  priv changed_keys : Ref[@hashset.HashSet[K]]
 }
 
 ///|
@@ -46,6 +48,10 @@ pub fn[K : Hash + Eq, V] FunctionalRelation::new(
   let current : Ref[@hashmap.HashMap[K, V]] = { val: @hashmap.HashMap([]) }
   let delta : Ref[@hashmap.HashMap[K, V]] = { val: @hashmap.HashMap([]) }
   let staged_delta : Ref[@hashmap.HashMap[K, V]] = { val: @hashmap.HashMap([]) }
+  let original_values : Ref[@hashmap.HashMap[K, V?]] = {
+    val: @hashmap.HashMap([]),
+  }
+  let changed_keys : Ref[@hashset.HashSet[K]] = { val: @hashset.HashSet([]) }
   let data : FunctionalRelationData = {
     meta: {
       cell_id,
@@ -64,13 +70,29 @@ pub fn[K : Hash + Eq, V] FunctionalRelation::new(
       staged_delta.val.clear()
     },
     is_staged_delta_empty: () => staged_delta.val.is_empty(),
+    begin_fixpoint: () => (),
+    finish_fixpoint_changed: () => {
+      let changed = !changed_keys.val.is_empty()
+      original_values.val.clear()
+      changed_keys.val.clear()
+      changed
+    },
   }
   rt.datalog.functional_relations.push(data)
   let ops : &CellOps = rt.datalog.functional_relations[idx]
   rt.core.cell_ops.push(ops)
   let lifecycle : &CellLifecycle = rt.datalog.functional_relations[idx]
   rt.cell_lifecycle.push(lifecycle)
-  { rt, cell_id, current, delta, staged_delta, merge }
+  {
+    rt,
+    cell_id,
+    current,
+    delta,
+    staged_delta,
+    merge,
+    original_values,
+    changed_keys,
+  }
 }
 
 ///|
@@ -97,6 +119,31 @@ fn[K : Hash + Eq, V] FunctionalRelation::effective_value(
   match self.delta.val.get(key) {
     Some(v) => Some(v)
     None => self.current.val.get(key)
+  }
+}
+
+///|
+fn[K : Hash + Eq, V : Eq] FunctionalRelation::record_net_change(
+  self : FunctionalRelation[K, V],
+  key : K,
+  resolved : V,
+) -> Unit {
+  let original = match self.original_values.val.get(key) {
+    Some(v) => v
+    None => {
+      let v = self.current.val.get(key)
+      self.original_values.val.set(key, v)
+      v
+    }
+  }
+  match original {
+    Some(v) =>
+      if resolved == v {
+        self.changed_keys.val.remove(key)
+      } else {
+        self.changed_keys.val.add(key)
+      }
+    None => self.changed_keys.val.add(key)
   }
 }
 
@@ -138,6 +185,7 @@ pub fn[K : Hash + Eq, V : Eq] FunctionalRelation::insert(
         None => value
       }
   }
+  self.record_net_change(key, resolved)
   if self.rt.core.phase is InFixpoint {
     self.staged_delta.val.set(key, resolved)
   } else {
@@ -197,6 +245,8 @@ pub fn[K, V] FunctionalRelation::dispose(
   self.current.val.clear()
   self.delta.val.clear()
   self.staged_delta.val.clear()
+  self.original_values.val.clear()
+  self.changed_keys.val.clear()
 }
 
 ///|
