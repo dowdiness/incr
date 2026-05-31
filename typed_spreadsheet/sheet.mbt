@@ -19,8 +19,12 @@ priv enum CellDefinition {
 
 ///|
 struct CellSlot {
+  presence : @incr.InputField[Bool]
   definition : @incr.InputField[CellDefinition]
   value : @incr.Derived[CellResult]
+  metadata_root : @incr.Derived[Unit]
+  watch : @incr.Watch[CellResult]
+  metadata_watch : @incr.Watch[Unit]
 }
 
 ///|
@@ -236,7 +240,7 @@ pub fn Worksheet::set_formula(
     let mut first_error : CellResult? = None
     dep_ids.each(dep_id => {
       if first_error is None {
-        let value_result = worksheet.read_slot(dep_id)
+        let value_result = worksheet.get_slot(dep_id)
         match value_result {
           CellResult::Ok(value) => values.push(value)
           _ => first_error = Some(value_result)
@@ -281,7 +285,7 @@ pub fn Worksheet::set_formula_ast(
     dep_ids,
     ([] : Array[CellId]),
     declared,
-    worksheet => formula.evaluate(dep_id => worksheet.read_slot(dep_id)),
+    worksheet => formula.evaluate(dep_id => worksheet.get_slot(dep_id)),
   )
   self.set_cell_definition(id, definition, label?)
 
@@ -311,6 +315,20 @@ pub fn Worksheet::delete(self : Worksheet, id : CellId) -> CellResult {
 
 ///|
 fn Worksheet::read_slot(self : Worksheet, id : CellId) -> CellResult {
+  self.with_live_slot(id, slot => slot.read())
+}
+
+///|
+fn Worksheet::get_slot(self : Worksheet, id : CellId) -> CellResult {
+  self.with_live_slot(id, slot => slot.get())
+}
+
+///|
+fn Worksheet::with_live_slot(
+  self : Worksheet,
+  id : CellId,
+  consume_slot : (CellSlot) -> CellResult,
+) -> CellResult {
   if !self.owns_cell_id(id) {
     return CellResult::RefError("foreign cell id")
   }
@@ -319,7 +337,7 @@ fn Worksheet::read_slot(self : Worksheet, id : CellId) -> CellResult {
     return CellResult::RefError("no cell at the requested address")
   }
   match self.cells.get(id) {
-    Some(slot) => slot.read()
+    Some(slot) => consume_slot(slot)
     None => CellResult::RefError("no cell at the requested address")
   }
 }
@@ -385,12 +403,40 @@ fn Worksheet::owns_cell_id(self : Worksheet, id : CellId) -> Bool {
 ///|
 fn Worksheet::new_slot(
   self : Worksheet,
+  id : CellId,
   definition : CellDefinition,
   label? : String,
 ) -> CellSlot {
+  let presence = self.cell_presence_for(id)
   let definition = self.scope.input_field(definition, label?)
-  let value = self.scope.derived(() => definition.get().evaluate(self), label?)
-  CellSlot::{ definition, value }
+  let value = self.scope.derived(
+    () => {
+      if presence.get() {
+        definition.get().evaluate(self)
+      } else {
+        CellResult::RefError("no cell at the requested address")
+      }
+    },
+    label?,
+  )
+  let metadata_root = self.scope.derived(
+    () => {
+      let _ = presence.get()
+      let _ = definition.get()
+      ()
+    },
+    label?,
+  )
+  let watch = self.scope.add_watch(value.watch())
+  let metadata_watch = self.scope.add_watch(metadata_root.watch())
+  CellSlot::{
+    presence,
+    definition,
+    value,
+    metadata_root,
+    watch,
+    metadata_watch,
+  }
 }
 
 ///|
@@ -399,17 +445,21 @@ fn Worksheet::store_new_slot(
   id : CellId,
   slot : CellSlot,
 ) -> Unit {
-  let presence = self.cell_presence_for(id)
-  presence.set(true)
+  slot.presence.set(true)
 
   let definition_id = slot.definition.id()
   let value_id = slot.value.id()
+  let metadata_root_id = slot.metadata_root.id()
   self.cells.set(id, slot)
   self.runtime.record_batch_rollback(definition_id, () => {
     self.cells.remove(id)
+    slot.watch.dispose()
+    slot.metadata_watch.dispose()
     self.runtime.dispose_cell(definition_id)
     self.runtime.dispose_cell(value_id)
+    self.runtime.dispose_cell(metadata_root_id)
   })
+  let _ = slot.metadata_watch.read()
 }
 
 ///|
@@ -448,14 +498,13 @@ fn Worksheet::set_cell_definition(
 ) -> Unit {
   match self.cells.get(id) {
     Some(slot) => {
-      let presence = self.cell_presence_for(id)
-      if !presence.get() {
-        presence.set(true)
+      if !slot.presence.get() {
+        slot.presence.set(true)
       }
       slot.definition.force_set(definition)
     }
     None => {
-      let slot = self.new_slot(definition, label?)
+      let slot = self.new_slot(id, definition, label?)
       self.store_new_slot(id, slot)
     }
   }
@@ -521,7 +570,15 @@ fn type_error(cell_type : CellType, value : CellValue) -> CellResult {
 
 ///|
 fn CellSlot::read(self : CellSlot) -> CellResult {
-  match self.value.read() {
+  match self.watch.read() {
+    Ok(value) => value
+    Err(err) => CellResult::CycleError(err.format_path())
+  }
+}
+
+///|
+fn CellSlot::get(self : CellSlot) -> CellResult {
+  match self.value.get() {
     Ok(value) => value
     Err(err) => CellResult::CycleError(err.format_path())
   }

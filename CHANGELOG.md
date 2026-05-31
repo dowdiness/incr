@@ -15,6 +15,10 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 - Changed the typed spreadsheet Rabbita demo from a fixed trace viewer into a small editable four-cell sheet while keeping the fixed scenario JSON export available for non-DOM consumers.
 
+### Fixed
+
+- Fixed typed spreadsheet worksheet slots so live inputs and formulas remain readable after `Runtime::gc()`.
+
 ### Deprecated
 
 - Deprecated the standalone `dowdiness/incr/pipeline` traits (`Sourceable`, `Parseable`, `Checkable`, `Executable`). They were an early stringly-typed sketch with no production consumers; application build pipelines should define local `Source`, `Parser`, `ImportResolver`, `Checker`, and `Transformer` traits over concrete domain types.
