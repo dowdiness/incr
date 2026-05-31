@@ -171,8 +171,8 @@ pub fn[V : Eq, E : Eq] Derived::fallible(
 
 ///|
 /// Strict graph read. Requires an active tracked context.
-pub fn[T] Derived::get(self : Derived[T]) -> Result[T, CycleError] {
-  self.inner.get_strict_result()
+pub fn[T] Derived::get(self : Derived[T]) -> Result[T, ReadError] {
+  self.inner.get_strict_honest()
 }
 
 ///|
@@ -186,8 +186,8 @@ pub fn[T] Derived::get_or_abort(self : Derived[T]) -> T {
 
 ///|
 /// Permissive read. Works outside the graph and records a dependency if tracked.
-pub fn[T] Derived::read(self : Derived[T]) -> Result[T, CycleError] {
-  self.inner.read_result()
+pub fn[T] Derived::read(self : Derived[T]) -> Result[T, ReadError] {
+  self.inner.read_honest()
 }
 
 ///|
@@ -286,8 +286,8 @@ pub fn[T : Eq] ReachableDerived::ReachableDerived(
 /// Strict graph read. Requires an active tracked context.
 pub fn[T : Eq] ReachableDerived::get(
   self : ReachableDerived[T],
-) -> Result[T, CycleError] {
-  self.inner.get_strict_result()
+) -> Result[T, ReadError] {
+  self.inner.get_strict_honest()
 }
 
 ///|
@@ -303,8 +303,8 @@ pub fn[T : Eq] ReachableDerived::get_or_abort(self : ReachableDerived[T]) -> T {
 /// Permissive read. Works outside the graph and records a dependency if tracked.
 pub fn[T : Eq] ReachableDerived::read(
   self : ReachableDerived[T],
-) -> Result[T, CycleError] {
-  self.inner.read_result()
+) -> Result[T, ReadError] {
+  self.inner.read_honest()
 }
 
 ///|
@@ -411,9 +411,9 @@ fn[K, V] DerivedMap::dispose_from_scope(self : DerivedMap[K, V]) -> Unit {
 pub fn[K : Hash + Eq, V : Eq] DerivedMap::get(
   self : DerivedMap[K, V],
   key : K,
-) -> Result[V, CycleError] {
+) -> Result[V, ReadError] {
   self.guard_live()
-  self.inner.get_strict_result(key)
+  self.inner.get_strict_honest(key)
 }
 
 ///|
@@ -433,9 +433,9 @@ pub fn[K : Hash + Eq, V : Eq] DerivedMap::get_or_abort(
 pub fn[K : Hash + Eq, V : Eq] DerivedMap::read(
   self : DerivedMap[K, V],
   key : K,
-) -> Result[V, CycleError] {
+) -> Result[V, ReadError] {
   self.guard_live()
-  self.inner.read_result(key)
+  self.inner.read_honest(key)
 }
 
 ///|
@@ -464,11 +464,11 @@ pub fn[K : Hash + Eq, V : Eq] DerivedMap::read_or(
 }
 
 ///|
-/// Returns the value for `key`, or computes a fallback from the cycle error.
+/// Returns the value for `key`, or computes a fallback from the read error.
 pub fn[K : Hash + Eq, V : Eq] DerivedMap::read_or_else(
   self : DerivedMap[K, V],
   key : K,
-  fallback : (CycleError) -> V,
+  fallback : (ReadError) -> V,
 ) -> V {
   match self.read(key) {
     Ok(value) => value

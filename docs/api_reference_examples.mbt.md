@@ -952,19 +952,21 @@ test "docs api-ref: add_input_fields wires struct-owned input fields to a scope"
 }
 ```
 
-## `CycleError` captured via strict `Derived::get` inside a compute
+## `ReadError::Cycle` captured via strict `Derived::get` inside a compute
 
 When a compute reads a derived value that is part of a cycle, `Derived::get`
-returns `Err(CycleError)` to the *inner* call site. The compute closure is
-expected to react to that (by returning a sentinel, raising `Failure`, or
-otherwise handling it) — outer `read()` / `read_or_abort()` do not catch the
-cycle after the closure has produced a value. See
+returns `Err(ReadError::Cycle(_))` to the *inner* call site (the read channel
+carries `ReadError = Cycle | Disposed`; `ReadError::path` / `format_path`
+delegate to the underlying cycle). The compute closure is expected to react to
+that (by returning a sentinel, raising `Failure`, or otherwise handling it) —
+outer `read()` / `read_or_abort()` do not catch the cycle after the closure has
+produced a value. See
 [`cells/cycle_path_test.mbt`](../cells/cycle_path_test.mbt) for the full set of
 cycle shapes.
 
 ```mbt check
 ///|
-test "docs api-ref: derived.get surfaces Err(CycleError) inside compute" {
+test "docs api-ref: derived.get surfaces Err(ReadError::Cycle) inside compute" {
   let rt = @incr.Runtime()
   let self_ref : Ref[@incr.Derived[Int]?] = { val: None }
   let captured_formatted : Ref[String] = { val: "" }

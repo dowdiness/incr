@@ -202,21 +202,27 @@ pub fn[T] Memo::get_result(self : Memo[T]) -> Result[T, CycleError] {
 }
 
 ///|
-/// Package-private strict Result read. Requires an active tracked context.
-fn[T] Memo::get_strict_result(self : Memo[T]) -> Result[T, CycleError] {
+/// Package-private strict honest read. Requires an active tracked context;
+/// reports mechanism failures (cycle / disposed) as `ReadError`.
+fn[T] Memo::get_strict_honest(self : Memo[T]) -> Result[T, ReadError] {
   guard self.rt.core.tracking.stack.length() > 0 else {
     abort(
       "Memo::get() called outside tracked context. Use Derived::read(), Derived::read_or_abort(), or Derived::watch() to read from outside the graph.",
     )
   }
-  self.read_result()
+  self.read_honest()
 }
 
 ///|
-/// Package-private permissive Result read. Records a dependency when tracked.
-fn[T] Memo::read_result(self : Memo[T]) -> Result[T, CycleError] {
+/// Package-private honest permissive read — the single source of truth for the
+/// read channel. A disposed read returns `Err(Disposed(_))` (not an abort); a
+/// cycle returns `Err(Cycle(_))`. A compute `raise Failure` is a *defect* and
+/// still aborts. Reports `Disposed` only for *this* cell; a disposed transitive
+/// dependency surfaced during verification still aborts inside `pull_verify`.
+/// Records a dependency when tracked (only on a successful read).
+fn[T] Memo::read_honest(self : Memo[T]) -> Result[T, ReadError] {
   guard !self.rt.is_cell_disposed(self.cell_id) else {
-    abort("Memo::get called on a disposed memo")
+    return Err(ReadError::disposed(self.cell_id))
   }
   self.rt.check_cross_runtime(self.rt.core.runtime_id, "Memo")
   let result = self.get_result_inner() catch {
@@ -228,7 +234,34 @@ fn[T] Memo::read_result(self : Memo[T]) -> Result[T, CycleError] {
   if self.rt.has_pending_events() {
     self.rt.drain_pending_events_if_idle()
   }
-  result
+  match result {
+    Ok(v) => Ok(v)
+    Err(e) => Err(ReadError::cycle(e))
+  }
+}
+
+///|
+/// Package-private strict Result read. Requires an active tracked context.
+/// Compatibility projection of `get_strict_honest` onto `CycleError`.
+fn[T] Memo::get_strict_result(self : Memo[T]) -> Result[T, CycleError] {
+  guard self.rt.core.tracking.stack.length() > 0 else {
+    abort(
+      "Memo::get() called outside tracked context. Use Derived::read(), Derived::read_or_abort(), or Derived::watch() to read from outside the graph.",
+    )
+  }
+  self.read_result()
+}
+
+///|
+/// Package-private permissive Result read. Records a dependency when tracked.
+/// Compatibility projection of `read_honest` onto `CycleError`: a disposed read
+/// aborts (preserving the legacy contract), a cycle is `Err(CycleError)`.
+fn[T] Memo::read_result(self : Memo[T]) -> Result[T, CycleError] {
+  match self.read_honest() {
+    Ok(v) => Ok(v)
+    Err(ReadError::Cycle(e)) => Err(e)
+    Err(ReadError::Disposed(_)) => abort("Memo::get called on a disposed memo")
+  }
 }
 
 ///|

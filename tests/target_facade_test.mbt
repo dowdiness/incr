@@ -272,7 +272,7 @@ test "facade derived_map: read cache and fallback helpers" {
   inspect(by_key.has_cached(2), content="true")
   inspect(by_key.cache_len(), content="1")
   inspect(by_key.read_or(2, -1), content="12")
-  inspect(by_key.read_or_else(2, (_ : @incr.CycleError) => -2), content="12")
+  inspect(by_key.read_or_else(2, (_ : @incr.ReadError) => -2), content="12")
   inspect(by_key.sweep_cache(), content="0")
   by_key.clear_cache()
   inspect(by_key.cache_len(), content="0")

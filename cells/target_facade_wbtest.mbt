@@ -97,7 +97,7 @@ test "facade derived_map: read_or fallbacks only on cycle" {
 
   inspect(by_key.read_or(2, -1), content="-1")
   inspect(
-    by_key.read_or_else(2, (err : CycleError) => {
+    by_key.read_or_else(2, (err : ReadError) => {
       if err.cell() == cell_id {
         -2
       } else {

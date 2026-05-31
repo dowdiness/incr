@@ -7,6 +7,7 @@
 using @incr_types {
   type CellId,
   type CycleError,
+  type ReadError,
   type Durability,
   type Revision,
   trait BackdateEq,

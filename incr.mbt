@@ -10,6 +10,7 @@ pub using @incr_types {
   type RuleId,
   type FunctionalRelationId,
   type CycleError,
+  type ReadError,
   DURABILITY_COUNT,
   MAX_CYCLE_DISPLAY_STEPS,
   trait HasChangedAt,

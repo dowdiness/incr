@@ -77,13 +77,14 @@ pub fn[T] Observer::is_disposed(self : Observer[T]) -> Bool {
 pub struct Watch[T] {
   priv runtime : Runtime
   priv target_id : CellId
-  priv getter : () -> Result[T, CycleError]
+  priv getter : () -> Result[T, ReadError]
   priv mut disposed : Bool
 } derive(Debug(ignore=[Runtime, Fn, CellId]))
 
 ///|
-/// Returns the current value or a cycle error from the watched cell.
-pub fn[T] Watch::read(self : Watch[T]) -> Result[T, CycleError] {
+/// Returns the current value or a mechanism error (cycle / disposed) from the
+/// watched cell.
+pub fn[T] Watch::read(self : Watch[T]) -> Result[T, ReadError] {
   guard !self.disposed else { abort("Watch: already disposed") }
   let value = (self.getter)()
   if self.runtime.has_pending_events() {
@@ -143,7 +144,7 @@ fn[T] Memo::watch_result(self : Memo[T]) -> Watch[T] {
   {
     runtime: rt,
     target_id: self.cell_id,
-    getter: fn() { self.read_result() },
+    getter: fn() { self.read_honest() },
     disposed: false,
   }
 }
@@ -174,7 +175,7 @@ fn[T : Eq] HybridMemo::watch_result(self : HybridMemo[T]) -> Watch[T] {
   {
     runtime: rt,
     target_id: self.cell_id,
-    getter: fn() { self.read_result() },
+    getter: fn() { self.read_honest() },
     disposed: false,
   }
 }
@@ -207,7 +208,16 @@ fn[T] Reactive::watch_result(self : Reactive[T]) -> Watch[T] {
   {
     runtime: rt,
     target_id: cell_id,
-    getter: fn() { Ok(self.read_permissive()) },
+    // EagerDerived has no cycle/raise channel (its compute is `() -> T`), but
+    // the `Watch` contract is uniformly honest about disposal: a read after the
+    // target is disposed returns `Err(Disposed(_))` rather than aborting.
+    getter: fn() {
+      if self.rt.is_cell_disposed(cell_id) {
+        Err(ReadError::disposed(cell_id))
+      } else {
+        Ok(self.read_permissive())
+      }
+    },
     disposed: false,
   }
 }

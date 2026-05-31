@@ -98,7 +98,49 @@ pub fn[K : Hash + Eq, V : Eq] MemoMap::get_result(
 }
 
 ///|
+/// Package-private strict honest read. Requires an active tracked context;
+/// reports mechanism failures (cycle / disposed per-key memo) as `ReadError`.
+fn[K : Hash + Eq, V : Eq] MemoMap::get_strict_honest(
+  self : MemoMap[K, V],
+  key : K,
+) -> Result[V, ReadError] {
+  guard self.rt.core.tracking.stack.length() > 0 else {
+    abort(
+      "MemoMap::get() called outside tracked context. Use DerivedMap::read(key) or DerivedMap::read_or_abort(key) to read from outside the graph.",
+    )
+  }
+  self.read_honest(key)
+}
+
+///|
+/// Package-private honest permissive read — the single source of truth for the
+/// read channel. A read of a per-key memo that gc disposed (while the map still
+/// caches the entry) returns `Err(Disposed(_))`; a cycle returns
+/// `Err(Cycle(_))`; a compute `raise Failure` is a defect and still aborts.
+fn[K : Hash + Eq, V : Eq] MemoMap::read_honest(
+  self : MemoMap[K, V],
+  key : K,
+) -> Result[V, ReadError] {
+  let memo = self.get_or_create_memo(key)
+  guard !memo.is_disposed() else { return Err(ReadError::disposed(memo.id())) }
+  let result = memo.get_result_inner() catch {
+    e => {
+      self.rt.drain_pending_events_direct()
+      abort("MemoMap compute raised: " + e.to_string())
+    }
+  }
+  if self.rt.has_pending_events() {
+    self.rt.drain_pending_events_if_idle()
+  }
+  match result {
+    Ok(v) => Ok(v)
+    Err(e) => Err(ReadError::cycle(e))
+  }
+}
+
+///|
 /// Package-private strict Result read. Requires an active tracked context.
+/// Compatibility projection of `get_strict_honest` onto `CycleError`.
 fn[K : Hash + Eq, V : Eq] MemoMap::get_strict_result(
   self : MemoMap[K, V],
   key : K,
@@ -113,21 +155,18 @@ fn[K : Hash + Eq, V : Eq] MemoMap::get_strict_result(
 
 ///|
 /// Package-private permissive Result read. Records a dependency when tracked.
+/// Compatibility projection of `read_honest` onto `CycleError`: a disposed
+/// per-key memo aborts (legacy contract), a cycle is `Err(CycleError)`.
 fn[K : Hash + Eq, V : Eq] MemoMap::read_result(
   self : MemoMap[K, V],
   key : K,
 ) -> Result[V, CycleError] {
-  let memo = self.get_or_create_memo(key)
-  let result = memo.get_result_inner() catch {
-    e => {
-      self.rt.drain_pending_events_direct()
-      abort("MemoMap compute raised: " + e.to_string())
-    }
+  match self.read_honest(key) {
+    Ok(v) => Ok(v)
+    Err(ReadError::Cycle(e)) => Err(e)
+    Err(ReadError::Disposed(_)) =>
+      abort("MemoMap::get called on a disposed memo")
   }
-  if self.rt.has_pending_events() {
-    self.rt.drain_pending_events_if_idle()
-  }
-  result
 }
 
 ///|

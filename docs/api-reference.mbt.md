@@ -334,17 +334,17 @@ inside-compute `get_or_abort`, and outside-graph `read` /
 
 Creates a derived value whose `compute` is **noraise**: a recoverable, domain-specific failure is expressed in the value as `Result[V, E]`, never raised. The error then participates in caching and `Eq`-based backdating like any other value, and reads surface only graph failures (cycles), never an uncatchable abort. Prefer this over `Derived` for a fallible compute. A `raise Failure` from a plain `Derived` compute is a *defect*, not a domain-error channel — see [Honest Read-Error Ownership](design/specs/2026-05-28-honest-read-error-ownership.md).
 
-### `Derived::get(self) -> Result[T, CycleError]`
+### `Derived::get(self) -> Result[T, ReadError]`
 
-Strict graph read. It must be called inside another derived compute function, where it records a dependency. It aborts outside a tracked context and returns `Err(CycleError)` for cycles.
+Strict graph read. It must be called inside another derived compute function, where it records a dependency. It aborts outside a tracked context and returns `Err(ReadError)` for mechanism failures — `Cycle` for cycles, `Disposed` for a read of this disposed cell.
 
 ### `Derived::get_or_abort(self) -> T`
 
 Strict graph read that aborts on invalid context or cycle.
 
-### `Derived::read(self) -> Result[T, CycleError]`
+### `Derived::read(self) -> Result[T, ReadError]`
 
-Permissive read. It works from top-level code, tests, event handlers, and callbacks, and it still records a dependency when called inside a tracked compute.
+Permissive read. It works from top-level code, tests, event handlers, and callbacks, and it still records a dependency when called inside a tracked compute. The read channel carries only *mechanism* failures (`ReadError = Cycle | Disposed`); a domain failure lives in the value (`Derived::fallible`). A read of a directly-disposed cell returns `Err(Disposed(_))` rather than aborting.
 
 The checked companion covers `Derived::read()` returning `Result` and
 cycle-safe handling in [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
@@ -355,7 +355,7 @@ Permissive read that aborts on cycle.
 
 ### `Derived::watch(self) -> Watch[T]`
 
-Creates a long-lived outside-graph reader. The `Watch` is a GC root until disposed, and `watch.read()` returns `Result[T, CycleError]`.
+Creates a long-lived outside-graph reader. The `Watch` is a GC root until disposed, and `watch.read()` returns `Result[T, ReadError]`.
 
 ### `Derived::is_fresh(self) -> Bool`
 
@@ -411,17 +411,17 @@ strict tracked reads, fallback reads, and cache maintenance in
 
 Keyed counterpart to `Derived::fallible`: each key's recoverable domain failure is expressed in the value as `Result[V, E]` (the `compute` is **noraise**). See [Honest Read-Error Ownership](design/specs/2026-05-28-honest-read-error-ownership.md).
 
-### `DerivedMap::read[K : Hash + Eq, V : Eq](self, key: K) -> Result[V, CycleError]`
+### `DerivedMap::read[K : Hash + Eq, V : Eq](self, key: K) -> Result[V, ReadError]`
 
-Permissive read for `key`. It works outside the graph and records a per-key dependency when called inside a tracked compute.
+Permissive read for `key`. It works outside the graph and records a per-key dependency when called inside a tracked compute. Returns `Err(Disposed(_))` if the per-key memo was gc-disposed while the map still caches the entry.
 
 ### `DerivedMap::read_or_abort[K : Hash + Eq, V : Eq](self, key: K) -> V`
 
 Permissive read that aborts on cycle.
 
-### `DerivedMap::get[K : Hash + Eq, V : Eq](self, key: K) -> Result[V, CycleError]`
+### `DerivedMap::get[K : Hash + Eq, V : Eq](self, key: K) -> Result[V, ReadError]`
 
-Strict graph read for `key`. It records the per-key dependency inside a tracked compute, aborts outside a tracked context, and returns `Err(CycleError)` for cycles.
+Strict graph read for `key`. It records the per-key dependency inside a tracked compute, aborts outside a tracked context, and returns `Err(ReadError)` for mechanism failures (cycle / disposed per-key memo).
 
 ### `DerivedMap::get_or_abort[K : Hash + Eq, V : Eq](self, key: K) -> V`
 
@@ -431,9 +431,9 @@ Strict graph read that aborts on invalid context or cycle.
 
 Returns the value for `key`, or `fallback` if a cycle is detected.
 
-### `DerivedMap::read_or_else[K : Hash + Eq, V : Eq](self, key: K, fallback: (CycleError) -> V) -> V`
+### `DerivedMap::read_or_else[K : Hash + Eq, V : Eq](self, key: K, fallback: (ReadError) -> V) -> V`
 
-Returns the value for `key`, or computes a fallback from the cycle error.
+Returns the value for `key`, or computes a fallback from the read error.
 
 ### `DerivedMap::has_cached[K : Hash + Eq, V](self, key: K) -> Bool`
 
@@ -478,17 +478,17 @@ Creates a reachable derived value. It does not make the value eager; recomputati
 The checked companion covers `ReachableDerived` construction, reads, watches,
 and GC reachability in [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
-### `ReachableDerived::get[T : Eq](self) -> Result[T, CycleError]`
+### `ReachableDerived::get[T : Eq](self) -> Result[T, ReadError]`
 
-Strict graph read. It must be called inside another derived compute function, aborts outside a tracked context, and returns `Err(CycleError)` for cycles.
+Strict graph read. It must be called inside another derived compute function, aborts outside a tracked context, and returns `Err(ReadError)` for mechanism failures (cycle / disposed).
 
 ### `ReachableDerived::get_or_abort[T : Eq](self) -> T`
 
 Strict graph read that aborts on invalid context or cycle.
 
-### `ReachableDerived::read[T : Eq](self) -> Result[T, CycleError]`
+### `ReachableDerived::read[T : Eq](self) -> Result[T, ReadError]`
 
-Permissive read. It works outside the graph and records a dependency when called inside a tracked compute.
+Permissive read. It works outside the graph and records a dependency when called inside a tracked compute. A read of a directly-disposed cell returns `Err(Disposed(_))` rather than aborting.
 
 ### `ReachableDerived::read_or_abort[T : Eq](self) -> T`
 

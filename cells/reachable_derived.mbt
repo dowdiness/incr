@@ -92,7 +92,48 @@ pub fn[T : Eq] HybridMemo::get(self : HybridMemo[T]) -> T {
 }
 
 ///|
+/// Package-private strict honest read. Requires an active tracked context;
+/// reports mechanism failures (cycle / disposed) as `ReadError`.
+fn[T : Eq] HybridMemo::get_strict_honest(
+  self : HybridMemo[T],
+) -> Result[T, ReadError] {
+  guard self.rt.core.tracking.stack.length() > 0 else {
+    abort(
+      "HybridMemo::get() called outside tracked context. Use ReachableDerived::read(), ReachableDerived::read_or_abort(), or ReachableDerived::watch() to read from outside the graph.",
+    )
+  }
+  self.read_honest()
+}
+
+///|
+/// Package-private honest permissive read — the single source of truth for the
+/// read channel. A disposed read returns `Err(Disposed(_))`; a cycle returns
+/// `Err(Cycle(_))`; a compute `raise Failure` is a defect and still aborts.
+/// Records a dependency when tracked (only on a successful read).
+fn[T : Eq] HybridMemo::read_honest(
+  self : HybridMemo[T],
+) -> Result[T, ReadError] {
+  guard !self.rt.is_cell_disposed(self.cell_id) else {
+    return Err(ReadError::disposed(self.cell_id))
+  }
+  let result = self.read_result_inner() catch {
+    e => {
+      self.rt.drain_pending_events_direct()
+      abort("HybridMemo compute raised: " + e.to_string())
+    }
+  }
+  if self.rt.has_pending_events() {
+    self.rt.drain_pending_events_if_idle()
+  }
+  match result {
+    Ok(v) => Ok(v)
+    Err(e) => Err(ReadError::cycle(e))
+  }
+}
+
+///|
 /// Package-private strict Result read. Requires an active tracked context.
+/// Compatibility projection of `get_strict_honest` onto `CycleError`.
 fn[T : Eq] HybridMemo::get_strict_result(
   self : HybridMemo[T],
 ) -> Result[T, CycleError] {
@@ -106,19 +147,17 @@ fn[T : Eq] HybridMemo::get_strict_result(
 
 ///|
 /// Package-private permissive Result read. Records a dependency when tracked.
+/// Compatibility projection of `read_honest` onto `CycleError`: a disposed read
+/// aborts (legacy contract), a cycle is `Err(CycleError)`.
 fn[T : Eq] HybridMemo::read_result(
   self : HybridMemo[T],
 ) -> Result[T, CycleError] {
-  let result = self.read_result_inner() catch {
-    e => {
-      self.rt.drain_pending_events_direct()
-      abort("HybridMemo compute raised: " + e.to_string())
-    }
+  match self.read_honest() {
+    Ok(v) => Ok(v)
+    Err(ReadError::Cycle(e)) => Err(e)
+    Err(ReadError::Disposed(_)) =>
+      abort("HybridMemo::get called on a disposed hybrid memo")
   }
-  if self.rt.has_pending_events() {
-    self.rt.drain_pending_events_if_idle()
-  }
-  result
 }
 
 ///|
