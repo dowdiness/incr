@@ -1,12 +1,48 @@
 # ADR: ReachableDerived — Differentiate or Collapse
 
 **Date:** 2026-05-30
-**Status:** Proposed
+**Status:** Deferred (resolved 2026-05-31 — see [Resolution](#resolution-2026-05-31-deferred))
 **Driver:** the `typed_spreadsheet` example (boundary over `@incr`)
 **Evidence:** spike branch `spike/spreadsheet-reachable-derived`, probe `tests/spike_reachable_probe_test.mbt`
 **Builds on:** [2026-05-17 memo-event-observation](2026-05-17-memo-event-observation.md), [2026-05-21 public-api-ideal-naming](2026-05-21-public-api-ideal-naming.md)
 
 This is a target design, not an implementation plan.
+
+## Resolution (2026-05-31): Deferred
+
+Re-validated on fresh context (including a second-opinion design review) after
+the ADR + probe landed on `main` (PR #119). Outcome: **defer option (b); do not
+implement now.** The recommendation below (option b) stands as the intended
+direction *if and when* the trigger fires; it is not commissioned. Rationale:
+
+- **No live consumer.** The named driver (`typed_spreadsheet`) is merged and
+  scope-closed. A sweep of loom + canopy found `ReachableDerived` / `HybridMemo`
+  have **zero usages** anywhere, and no consumer exhibits the O(all-cells)
+  post-mutation scan that (b) exists to remove. Building the behavioral fork +
+  event vocabulary on spec alone would be solution-first.
+- **Interim = option (c), sanctioned.** The resting state is "keep the type,
+  docs corrected": PR #119 already corrected `architecture.md` to state the
+  present `Derived`-equivalence, so the type is now *honest documented* debt, not
+  a silent false distinction. Per this ADR's own framing, (c) is acceptable as a
+  stopgap when paired with (b)'s recorded plan (this document).
+- **Not collapsed (option a) now**, because `ReachableDerived` is a *reserved
+  extension point*: the [naming ADR](2026-05-21-public-api-ideal-naming.md)
+  promoted it to a target-facade name in v0.6.0, and re-introducing a
+  differentiated type later is additive (per Alternatives below), so
+  collapse-now-then-readd is strictly more churn than reserving the name.
+
+**Re-open trigger (falsifiable).** Commission (b) when an in-repo maintained
+consumer needs to observe the per-edit change-set (recomputed / changed /
+verified-clean) of a *bounded visible region* of a lazy derived graph — the
+concrete candidate being a projectional-editor viewport over
+`canopy/core/projection_memo.mbt`'s `Derived[ProjNode] → registry → SourceMap`
+chain. That consumer adopting a viewport anchor and consuming the events is the
+driver; absent it, do not implement.
+
+**Sunset.** If no such driver materializes before `incr` commits to API
+stability for external users (the point at which deprecating a public name stops
+being free), resolve this ADR by executing **option (a) collapse** rather than
+carrying the reserved name past the cheap-removal window.
 
 ## Context
 
@@ -86,7 +122,10 @@ changed_at_before, changed_at_after }`). A genuine hybrid recompute should emit
 the same vocabulary so a trace can read recomputed / changed / verified-clean
 off the stream instead of scanning.
 
-## Decision (proposed)
+## Recommended direction if commissioned (option b)
+
+> Deferred per the [Resolution](#resolution-2026-05-31-deferred) above — this
+> section is the intended shape *when* a driver lands, not a commissioned plan.
 
 Adopt **option (b): differentiate `ReachableDerived` into a genuine
 eager-when-reachable memo.** Target behavior:
