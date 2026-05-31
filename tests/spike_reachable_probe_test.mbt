@@ -1,10 +1,11 @@
-// SPIKE PROBE (scratch branch only). Measures whether a downstream push Effect
-// anchor drives eager recompute of a lazy `Derived` vs a `ReachableDerived`, to
-// settle whether `ReachableDerived` is *required* for the spreadsheet's
-// viewport-anchor pattern or whether a plain `Derived` (PullMemo) participates
-// in push reachability identically. The `content=` values below encode the
-// hypothesis (PullMemo == HybridMemo for this pattern); a failure reveals the
-// real behavior.
+// Equivalence baseline pinning the finding of ADR 2026-05-30
+// (docs/decisions/2026-05-30-reachable-derived-differentiate-or-collapse.md):
+// today `Derived` (PullMemo) and `ReachableDerived` (HybridMemo) behave
+// identically under a downstream push `Effect` anchor — both stay lazy with no
+// anchor, both recompute eagerly with one. The `content=` values encode that
+// equivalence. If ADR option (b) is ever commissioned (differentiate
+// `ReachableDerived` into a genuine eager-when-reachable memo), the
+// `reachable_derived` cases here are the sentinel that must be re-baselined.
 
 ///|
 test "spike: Derived with no anchor stays lazy after input change" {
