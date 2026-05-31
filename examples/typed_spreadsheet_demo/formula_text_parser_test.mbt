@@ -12,6 +12,42 @@ test "typed spreadsheet demo parser: integer input text becomes SetInput" {
 }
 
 ///|
+test "typed spreadsheet demo parser: cell reference formula text becomes Formula::cell_ref" {
+  let target = cell("B1")
+  let source = cell("A1")
+
+  match parse_cell_text_op(target, "=A1") {
+    Ok(SetFormulaAst(id, TInt, Ref(ref_id))) => {
+      inspect(id == target, content="true")
+      inspect(ref_id == source, content="true")
+    }
+    _ => abort("expected SetFormulaAst TInt Ref(A1)")
+  }
+}
+
+///|
+test "typed spreadsheet demo parser: malformed bare reference is rejected, not parsed as a cell ref" {
+  // Operator-free but not A1-shaped: must NOT silently become a cell reference.
+  match parse_cell_text_op(cell("A1"), "=hello") {
+    Err(UnsupportedFormula("hello")) => inspect(true, content="true")
+    _ => abort("expected =hello to be rejected")
+  }
+  match parse_cell_text_op(cell("A1"), "=123") {
+    Err(UnsupportedFormula("123")) => inspect(true, content="true")
+    _ => abort("expected =123 to be rejected")
+  }
+  match parse_cell_text_op(cell("A1"), "=A1B") {
+    Err(UnsupportedFormula("A1B")) => inspect(true, content="true")
+    _ => abort("expected =A1B to be rejected")
+  }
+  // A well-formed multi-letter address is still accepted as a reference.
+  match parse_cell_text_op(cell("A1"), "=ZZ9") {
+    Ok(SetFormulaAst(_, TInt, Ref(_))) => inspect(true, content="true")
+    _ => abort("expected =ZZ9 to parse as a cell reference")
+  }
+}
+
+///|
 test "typed spreadsheet demo parser: addition formula text becomes Formula::add" {
   let target = cell("B1")
   let source = cell("A1")

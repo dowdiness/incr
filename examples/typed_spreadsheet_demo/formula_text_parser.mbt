@@ -17,6 +17,7 @@ pub(all) enum FormulaTextParseError {
 /// Supported text is deliberately small:
 ///
 /// - `10` installs an integer input.
+/// - `=A1` installs an integer cell-reference formula.
 /// - `=A1 + 1` installs an integer addition formula.
 /// - `=A1 * 2` installs an integer multiplication formula.
 /// - `=if(A1 > 10, 1, 0)` installs an integer conditional formula.
@@ -105,9 +106,9 @@ fn parse_arithmetic_formula(
             @typed_spreadsheet.Formula::mul,
           )
         None =>
-          Err(
-            FormulaTextParseError::UnsupportedFormula(formula_text.to_owned()),
-          )
+          parse_cell_ref_formula(target, formula_text).map_err(_ => {
+            FormulaTextParseError::UnsupportedFormula(formula_text.to_owned())
+          })
       }
   }
 }
@@ -175,15 +176,38 @@ fn parse_cell_ref_formula(
   text : StringView,
 ) -> Result[@typed_spreadsheet.Formula, FormulaTextParseError] {
   let address = text.trim()
-  if address.is_empty() || address.contains_any(chars=" \t\r\n+*>,()=") {
-    Err(FormulaTextParseError::InvalidCellReference(address.to_owned()))
-  } else {
+  if is_a1_address(address) {
     Ok(
       @typed_spreadsheet.Formula::cell_ref(
         @typed_spreadsheet.CellId::of(target.sheet_id, address.to_owned()),
       ),
     )
+  } else {
+    Err(FormulaTextParseError::InvalidCellReference(address.to_owned()))
   }
+}
+
+///|
+/// Returns true when `address` has the A1 shape: one or more uppercase column
+/// letters followed by a positive row number with no leading zero (`A1`, `ZZ9`).
+/// This rejects bare words and numbers (`hello`, `123`, `A1B`) so they surface
+/// as parse errors instead of silently installing references to phantom cells.
+fn is_a1_address(address : StringView) -> Bool {
+  let mut letters = 0
+  let mut digits = 0
+  for ch in address {
+    if ch is ('A'..='Z') && digits == 0 {
+      letters += 1
+    } else if ch is ('0'..='9') && letters > 0 {
+      if digits == 0 && ch == '0' {
+        return false
+      }
+      digits += 1
+    } else {
+      return false
+    }
+  }
+  letters > 0 && digits > 0
 }
 
 ///|
