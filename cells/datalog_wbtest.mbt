@@ -266,6 +266,27 @@ test "get_changed_at: relation changed_at updated by fixpoint" {
 }
 
 ///|
+test "get_changed_at: relation duplicate frontier preserves changed_at" {
+  let rt = Runtime::Runtime()
+  let rel : Relation[Int] = Relation::Relation(rt)
+  rel.insert(1) |> ignore
+  rt.fixpoint()
+  let changed_at_before = rt.get_changed_at(rel.id())
+  let mut memo_count = 0
+  let m = Memo::Memo(rt, fn() {
+    memo_count += 1
+    rel.contains(1)
+  })
+  inspect(read_memo_for_test(m), content="true")
+  // Inject a duplicate frontier to pin RelationData's net-change check.
+  rel.delta.val.add(1)
+  rt.fixpoint()
+  inspect(rt.get_changed_at(rel.id()) == changed_at_before, content="true")
+  inspect(read_memo_for_test(m), content="true")
+  inspect(memo_count, content="1")
+}
+
+///|
 /// Regression: publish_cell_changes must run push_propagate_from before
 /// fire_on_change so that push nodes downstream of a Relation are recomputed
 /// before any on_change callback fires.

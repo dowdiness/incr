@@ -12,16 +12,13 @@ Correctness issues tracked on GitHub. Unchecked items are open.
       IDs before reading `cell_ops[id.id].subscribers()`, so the documented
       "empty for invalid id" contract holds by construction. Regression tests
       cover both disposed reads and stale push-slot reuse.
-- [ ] **Spurious `changed_at` advancement when values revert in
+- [x] **Spurious `changed_at` advancement when values revert in
       `Relation`/`FunctionalRelation`** ([#22](https://github.com/dowdiness/incr/issues/22)).
-      Both mark themselves changed whenever a non-empty frontier exists during
-      fixpoint, regardless of whether the final materialized state differs from
-      the pre-fixpoint state (e.g. `insert("x",2)` then `insert("x",1)` back to
-      the original still advances `changed_at`), so dependents recompute
-      spuriously — breaking the backdating contract `Signal`/`Memo` honor. Fix:
-      net-change tracking — snapshot pre-fixpoint state, and only advance
-      `changed_at` for relations whose final committed content actually changed.
-      Found during PR #21 review.
+      Fixpoint now publishes only relations with a net materialized-state
+      change. `Relation` snapshots its current size for the monotonic set case;
+      `FunctionalRelation` tracks each touched key against its pre-fixpoint
+      value, so `insert("x", 2)` followed by `insert("x", 1)` does not advance
+      `changed_at` or recompute dependents.
 
 ## Error Handling
 

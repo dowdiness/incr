@@ -36,6 +36,7 @@ pub fn[T : Hash + Eq] Relation::new(
   let current : Ref[@hashset.HashSet[T]] = { val: @hashset.HashSet([]) }
   let delta : Ref[@hashset.HashSet[T]] = { val: @hashset.HashSet([]) }
   let staged_delta : Ref[@hashset.HashSet[T]] = { val: @hashset.HashSet([]) }
+  let current_len_before_fixpoint : Ref[Int] = { val: 0 }
   let data : RelationData = {
     meta: {
       cell_id,
@@ -59,6 +60,10 @@ pub fn[T : Hash + Eq] Relation::new(
       staged_delta.val.clear()
     },
     is_staged_delta_empty: () => staged_delta.val.is_empty(),
+    begin_fixpoint: () => current_len_before_fixpoint.val = current.val.length(),
+    finish_fixpoint_changed: () => {
+      current.val.length() != current_len_before_fixpoint.val
+    },
   }
   rt.datalog.relations.push(data)
   let ops : &CellOps = rt.datalog.relations[idx]
