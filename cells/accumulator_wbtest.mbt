@@ -191,7 +191,7 @@ test "accumulated: tracked read inside memo stages synthetic dep" {
     a.push(42)
     1
   })
-  let consumer = Memo::Memo(rt, () => producer.accumulated(a).length())
+  let consumer = Memo::Memo(rt, () => producer.accumulated_or_abort(a).length())
   let _ = rt.ensure_computed_untracked(consumer.id())
   inspect(read_memo_for_test(consumer), content="1")
   // Consumer's MemoData should have a synthetic read entry for (a.slot_id, producer.cell_id)
@@ -231,6 +231,27 @@ test "accumulated_result: Ok on success" {
 }
 
 ///|
+test "accumulated: commits pushes when producer value is Err" {
+  let rt = Runtime::Runtime()
+  let a : Accumulator[Int] = Accumulator::new(rt~)
+  let p : Memo[Result[Int, String]] = Memo::Memo(rt, () => {
+    a.push(7)
+    Err("domain")
+  })
+  match p.accumulated(a) {
+    Ok(vs) => {
+      inspect(vs.length(), content="1")
+      inspect(vs[0], content="7")
+    }
+    Err(e) => fail("expected Ok accumulated pushes, got " + e.to_string())
+  }
+  match read_memo_for_test(p) {
+    Err(message) => inspect(message, content="domain")
+    Ok(_) => fail("expected cached Err value")
+  }
+}
+
+///|
 /// Task 14 guard: verify the durability fast-path is skipped when a memo has
 /// non-empty accumulator_reads. Directly asserted via whitebox inspection —
 /// end-to-end invalidation requires Task 15's synthetic dep check.
@@ -242,7 +263,7 @@ test "durability shortcut: bypassed when memo has accumulator_reads" {
     a.push(s.get())
     1
   })
-  let consumer = Memo::Memo(rt, () => producer.accumulated(a).length())
+  let consumer = Memo::Memo(rt, () => producer.accumulated_or_abort(a).length())
   // Force first read; populates consumer.accumulator_reads.
   let _ = read_memo_for_test(consumer)
   let consumer_data = rt.get_memo_data(consumer.id())
@@ -264,7 +285,7 @@ test "synthetic dep check: reader invalidates when producer's push_revised_at bu
     a.push(s.get())
     1
   })
-  let consumer = Memo::Memo(rt, () => producer.accumulated(a)[0])
+  let consumer = Memo::Memo(rt, () => producer.accumulated_or_abort(a)[0])
   inspect(read_memo_for_test(consumer), content="1")
   s.set(42)
   // producer's accumulated push-set changed; consumer must recompute and
@@ -313,7 +334,7 @@ test "edge: ActiveQuery.accumulator_reads discarded on recompute failure" {
   })
   let _ = rt.ensure_computed_untracked(producer.id())
   let consumer = Memo::Memo(rt, () => {
-    let _ = producer.accumulated(acc_a)
+    let _ = producer.accumulated_or_abort(acc_a)
     if should_fail.get() {
       fail("abort")
     }
@@ -448,7 +469,9 @@ test "verify: synthetic accumulator dep surfaces target cycle and cleans up" {
     acc.push(tick.get())
     1
   })
-  let consumer = Memo::Memo(rt, () => producer.accumulated(acc).length())
+  let consumer = Memo::Memo(rt, () => {
+    producer.accumulated_or_abort(acc).length()
+  })
   inspect(read_memo_for_test(consumer), content="1")
 
   let producer_data = rt.get_memo_data(producer.id())
@@ -483,7 +506,7 @@ test "verify: non-root frame checks accumulator_reads" {
     a.push(s.get())
     1
   })
-  let middle = Memo::Memo(rt, () => producer.accumulated(a)[0])
+  let middle = Memo::Memo(rt, () => producer.accumulated_or_abort(a)[0])
   let top = Memo::Memo(rt, () => middle.get() * 10)
   inspect(read_memo_for_test(top), content="10")
   s.set(5)
@@ -549,7 +572,7 @@ test "verify: aborted new-slot push preserves prior push_revised_at" {
     0
   })
   let consumer = Memo::new_no_backdate(rt, () => {
-    producer.accumulated(acc).length()
+    producer.accumulated_or_abort(acc).length()
   })
   // R0: sig=1 → producer pushes [1]; consumer reads len=1; stored=R0.
   inspect(read_memo_for_test(consumer), content="1")

@@ -103,3 +103,38 @@ test "DerivedMap::read on a gc-disposed per-key memo returns Err(Disposed)" {
   }
   guard e.is_disposed() else { fail("expected Err(Disposed), got \{e}") }
 }
+
+///|
+test "DerivedMap::read after scope disposal returns Err(Disposed)" {
+  let rt = @incr.Runtime::new()
+  let scope = @incr.Scope::new(rt)
+  let m = scope.derived_map((k : Int) => k * 2, label="m")
+  guard m.read(3) is Ok(6) else { fail("expected Ok(6)") }
+  scope.dispose()
+  guard m.read(3) is Err(e) else {
+    fail("expected Err on scope-disposed map read")
+  }
+  guard e.is_disposed() else { fail("expected Err(Disposed), got \{e}") }
+}
+
+///|
+test "Memo::accumulated on disposed target returns Err(Disposed)" {
+  let rt = @incr.Runtime::new()
+  let acc : @incr.Accumulator[Int] = @incr.Accumulator::new(rt~)
+  let m = @incr.Memo(rt, () => {
+    acc.push(1)
+    0
+  })
+  match m.accumulated(acc) {
+    Ok(vs) =>
+      if vs.length() != 1 {
+        fail("expected one accumulated value before disposal")
+      }
+    Err(e) => fail("expected accumulated Ok before disposal, got \{e}")
+  }
+  m.dispose()
+  guard m.accumulated(acc) is Err(e) else {
+    fail("expected Err on disposed accumulated target")
+  }
+  guard e.is_disposed() else { fail("expected Err(Disposed), got \{e}") }
+}

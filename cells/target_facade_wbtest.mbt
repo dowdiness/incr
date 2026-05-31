@@ -84,7 +84,7 @@ test "facade derived_map: read returns cycle error" {
 }
 
 ///|
-test "facade derived_map: read_or fallbacks only on cycle" {
+test "facade derived_map: read_or falls back on read error" {
   let rt = Runtime::Runtime()
   let by_key = DerivedMap::DerivedMap(rt, (key : Int) => key * 10)
 
@@ -131,7 +131,7 @@ test "facade scope: target handles are disposed with scope" {
   inspect(derived.inner.is_disposed(), content="true")
   inspect(reachable.inner.is_disposed(), content="true")
   inspect(eager.inner.is_disposed(), content="true")
-  inspect(by_key.disposed.val, content="true")
+  inspect(by_key.disposed.val is Some(_), content="true")
   inspect(by_key.inner.length(), content="0")
 }
 
@@ -172,9 +172,12 @@ test "Derived::accumulated forwards through compute closure" {
   })
   // Force `producer` to run once so it pushes into `acc`.
   let _ = producer.read_or_abort()
-  // Read `producer.accumulated(acc)` from inside another Derived's compute,
-  // matching Memo::accumulated's "tracked inside a compute frame" contract.
-  let reader = Derived::Derived(rt, () => producer.accumulated(acc).length())
+  // Read `producer.accumulated_or_abort(acc)` from inside another Derived's
+  // compute, matching Memo::accumulated_or_abort's "tracked inside a compute
+  // frame" contract.
+  let reader = Derived::Derived(rt, () => {
+    producer.accumulated_or_abort(acc).length()
+  })
   inspect(reader.read_or_abort(), content="2")
 }
 

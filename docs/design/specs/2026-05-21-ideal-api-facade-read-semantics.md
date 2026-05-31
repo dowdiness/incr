@@ -357,12 +357,12 @@ Add focused tests before broad docs rewrites:
 - `Derived::get()` outside a tracked context aborts.
 - `Derived::read()` outside a tracked context returns `Ok`.
 - `Derived::read()` inside a tracked context records a dependency.
-- `ReachableDerived::read()` returns `Err(CycleError)` for a cycle rather than
-  aborting.
+- `ReachableDerived::read()` returns `Err(ReadError::Cycle(_))` for a cycle rather
+  than aborting.
 - `DerivedMap::get(key)` inside a memo returns `Ok`.
 - `DerivedMap::get(key)` outside a tracked context aborts.
 - `DerivedMap::read(key)` outside a tracked context returns `Ok`.
-- `DerivedMap::read_or(key, fallback)` only uses the fallback on cycles.
+- `DerivedMap::read_or(key, fallback)` uses the fallback on any `ReadError`.
 - `Watch::read()` keeps the target alive across `Runtime::gc()`.
 - Existing `MemoMap::get`, `MemoMap::get_tracked`, `MemoMap::get_result`, and
   `Runtime::read*` behavior remains unchanged.

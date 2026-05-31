@@ -377,20 +377,21 @@ pub fn[T, A] Memo::accumulated_peek(
 ///|
 /// Tracked read: returns the accumulated values pushed by `self` during
 /// its last successful compute, records a synthetic dep on the current
-/// compute frame, and forces verification of `self` via
+/// compute frame on success, and forces verification of `self` via
 /// `ensure_computed_untracked`.
 ///
-/// # Errors
+/// The read channel reports graph mechanism failures as `ReadError`: cycles
+/// return `Err(Cycle(_))`, and a directly disposed target memo returns
+/// `Err(Disposed(_))`. A target compute that raises `Failure` is a defect and
+/// aborts, matching `Derived::read`.
 ///
-/// Raises `Failure` on any error (disposal, cycle, or target memo's own
-/// raised compute). The type is unified into `Failure` because memo
-/// compute closures are `() -> T raise Failure`, and `accumulated` is
-/// designed to be called from within a compute closure. Use
-/// `accumulated_result` for Result-style cycle handling.
+/// Disposed accumulators and static-Derived recompute use are programmer
+/// defects that raise `Failure`; cross-runtime misuse aborts via the runtime
+/// guard rather than surfacing as `ReadError`.
 pub fn[T, A] Memo::accumulated(
   self : Memo[T],
   acc : Accumulator[A],
-) -> Array[A] raise Failure {
+) -> Result[Array[A], ReadError] raise Failure {
   self.rt.check_cross_runtime(self.rt.core.runtime_id, "Memo::accumulated")
   self.rt.check_cross_runtime(
     acc.slot_id.runtime_id,
@@ -404,76 +405,24 @@ pub fn[T, A] Memo::accumulated(
     fail("Memo::accumulated called on disposed Accumulator")
   }
   if self.rt.is_cell_disposed(self.cell_id) {
-    fail("Memo::accumulated called on disposed target memo")
+    return Err(ReadError::disposed(self.cell_id))
   }
-  // Force verification of target memo without recording an ordinary dep.
-  match self.rt.ensure_computed_untracked(self.cell_id) {
-    Ok(_) => ()
-    Err(e) => fail("Memo::accumulated: " + e.format_path())
+  let verified = self.rt.ensure_computed_untracked(self.cell_id) catch {
+    e => {
+      self.rt.drain_pending_events_direct()
+      abort("Memo::accumulated target compute raised: " + e.to_string())
+    }
   }
-  // Stage synthetic read on current frame (if any).
-  let current_rev = (slot.push_revised_at_for)(self.cell_id)
-  match self.rt.top_active_query() {
-    Some(frame) =>
-      // Gate on memo-frame check: preserves silent-no-op for push-reactive
-      // and effect frames calling accumulated. Inside a memo frame,
-      // ensure_for_cell lazy-creates the entry if before_recompute skipped.
-      match self.rt.core.cell_index[frame.cell_id.id] {
-        PullMemo(_) | HybridMemo(_) =>
-          self.rt.accumulator_commit_hook
-          .ensure_for_cell(frame.cell_id)
-          .ensure_reads()
-          .set((acc.slot_id, self.cell_id), current_rev)
-        _ => () // non-memo frame (push-reactive/effect) — silent no-op
-      }
-    None => ()
-  }
-  // Return defensive copy of buffer.
-  let result = match acc.per_memo.get(self.cell_id) {
-    Some(vs) => vs.copy()
-    None => []
-  }
-  if self.rt.has_pending_events() {
-    self.rt.drain_pending_events_if_idle()
-  }
-  result
-}
-
-///|
-/// Result-style variant of `accumulated` that converts `CycleError` to
-/// `Err(...)` while still raising `Failure` on disposed accumulator /
-/// target (those are defects, not recoverable signals).
-pub fn[T, A] Memo::accumulated_result(
-  self : Memo[T],
-  acc : Accumulator[A],
-) -> Result[Array[A], CycleError] raise Failure {
-  self.rt.check_cross_runtime(
-    self.rt.core.runtime_id,
-    "Memo::accumulated_result",
-  )
-  self.rt.check_cross_runtime(
-    acc.slot_id.runtime_id,
-    "Memo::accumulated_result (Accumulator)",
-  )
-  if self.rt.static_recompute_depth > 0 {
-    fail(
-      "Memo::accumulated_result is unsupported inside static Derived recompute",
-    )
-  }
-  let slot = self.rt.accumulator_slots[acc.slot_id.id]
-  if slot.disposed {
-    fail("Memo::accumulated_result called on disposed Accumulator")
-  }
-  if self.rt.is_cell_disposed(self.cell_id) {
-    fail("Memo::accumulated_result called on disposed target memo")
-  }
-  let result = match self.rt.ensure_computed_untracked(self.cell_id) {
-    Err(e) => Err(e)
+  let result = match verified {
+    Err(e) => Err(ReadError::cycle(e))
     Ok(_) => {
+      // Stage synthetic read on current frame (if any).
       let current_rev = (slot.push_revised_at_for)(self.cell_id)
       match self.rt.top_active_query() {
         Some(frame) =>
-          // Same gate as Memo::accumulated above.
+          // Gate on memo-frame check: preserves silent-no-op for push-reactive
+          // and effect frames calling accumulated. Inside a memo frame,
+          // ensure_for_cell lazy-creates the entry if before_recompute skipped.
           match self.rt.core.cell_index[frame.cell_id.id] {
             PullMemo(_) | HybridMemo(_) =>
               self.rt.accumulator_commit_hook
@@ -484,6 +433,7 @@ pub fn[T, A] Memo::accumulated_result(
           }
         None => ()
       }
+      // Return defensive copy of buffer.
       let vs = match acc.per_memo.get(self.cell_id) {
         Some(arr) => arr.copy()
         None => []
@@ -495,6 +445,27 @@ pub fn[T, A] Memo::accumulated_result(
     self.rt.drain_pending_events_if_idle()
   }
   result
+}
+
+///|
+/// Tracked accumulator read that aborts on a graph mechanism failure.
+pub fn[T, A] Memo::accumulated_or_abort(
+  self : Memo[T],
+  acc : Accumulator[A],
+) -> Array[A] raise Failure {
+  match self.accumulated(acc) {
+    Ok(vs) => vs
+    Err(e) => abort(e.format_path())
+  }
+}
+
+///|
+/// Compatibility alias for the Result-style accumulator read.
+pub fn[T, A] Memo::accumulated_result(
+  self : Memo[T],
+  acc : Accumulator[A],
+) -> Result[Array[A], ReadError] raise Failure {
+  self.accumulated(acc)
 }
 
 ///|

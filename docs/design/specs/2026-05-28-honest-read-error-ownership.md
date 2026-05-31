@@ -1,6 +1,6 @@
 # Honest Read-Error Ownership
 
-**Status:** Tier 1 Shipped (#100); Tier 2 Shipped (read family — see below)
+**Status:** Tier 1 Shipped (#100); Tier 2 Shipped (read family + accumulators — see below)
 
 **Date:** 2026-05-28
 
@@ -93,8 +93,9 @@ DerivedMap::fallible(rt, compute : (K) -> Result[V, E], label?) -> DerivedMap[K,
 Derived::read(self)          -> Result[T, ReadError]   // full ideal
 Derived::read_or_abort(self) -> T                      // unwraps; survives
 // ... mirrored on ReachableDerived, DerivedMap, Watch.
-Memo::accumulated(acc)       -> Result[Array[A], ReadError]
-Memo::accumulated_peek(acc)  -> Array[A]               // pure cached side-data
+Memo::accumulated(acc)          -> Result[Array[A], ReadError] raise Failure
+Memo::accumulated_or_abort(acc) -> Array[A] raise Failure // unwrap convenience
+Memo::accumulated_peek(acc)     -> Array[A]             // pure cached side-data
 ```
 
 A domain-recovering consumer (e.g. a workspace diagnostics aggregator that must
@@ -108,10 +109,11 @@ never catches a compute exception.
 `accumulated*` is the one path that reads cached side-data while *synchronously*
 forcing target-memo verification, so it is neither cleanly cached nor
 pass-through. Treatment: `accumulated_peek` stays a pure cached read;
-`accumulated` returns `Result[Array[A], ReadError]` for mechanism failures, and a
-domain failure is simply the target memo's cached value. Open semantic question:
-whether accumulator pushes during an `Err` value are committed — recommended
-**yes**, because `Err` is a successful cached value.
+`accumulated` returns `Result[Array[A], ReadError]` for target memo mechanism
+failures, and a domain failure is simply the target memo's cached value.
+Accumulator misuse (for example a disposed accumulator or static-Derived
+recompute) remains a `Failure`, not a read-channel error. Accumulator pushes
+during an `Err` value are committed because `Err` is a successful cached value.
 
 ## Migration
 
@@ -128,7 +130,7 @@ Non-breaking; downstream `canopy` (which already wraps `Watch::read` in an
 - Redefine the meaning of a compute `raise Failure` as **defect-only** in the
   docs (api-reference, cookbook); stop advertising it as a domain-error channel.
 
-### Tier 2 — full ideal (breaking) — **Shipped for the read family**
+### Tier 2 — full ideal (breaking) — **Shipped for reads and accumulators**
 
 Done:
 
@@ -137,22 +139,24 @@ Done:
   `CycleError`, plus `is_cycle` / `is_disposed`; re-exported as `@incr.ReadError`).
 - Read family widened from `Result[T, CycleError]` to `Result[T, ReadError]`:
   `Derived::get`/`read`, `ReachableDerived::get`/`read`, `DerivedMap::get`/`read`
-  (+ `read_or_else` fallback `(ReadError) -> V`), and `Watch::read`.
+  (+ `read_or_else` fallback `(ReadError) -> V`), `Watch::read`, and
+  accumulator verifying reads (`Memo::accumulated`, `accumulated_result`).
 - A read of a **directly-disposed** cell returns `Err(Disposed(_))` instead of
   aborting. Implemented as a single honest source (`Memo`/`HybridMemo`/`MemoMap`
-  `read_honest`) with the compatibility `*_result` methods kept as
+  `read_honest`) with legacy cell `*_result` methods kept as
   `CycleError`-projections (disposed → abort) — so compat handles
   (`Memo`/`HybridMemo`/`MemoMap`/`Signal::get_result`) are unchanged.
 - A retained compute `raise Failure` stays a **defect** (abort), per the
   first-principles split above.
+- `Memo::accumulated_or_abort` is the strict accumulator unwrap convenience;
+  `Memo::accumulated_result` is kept as a compatibility alias for
+  `Memo::accumulated`.
+- Accumulator pushes produced during a successful cached value of `Err(...)`
+  (for example `Memo[Result[V, E]]`) are committed. The `Err` is a domain value,
+  not a read-channel failure.
 
 Deferred (known remaining dishonest surfaces — not yet converted):
 
-- **`accumulated*`** stays `Array[A] raise Failure` / `accumulated_result ->
-  Result[_, CycleError] raise Failure`. The idiomatic use is *inside* a compute
-  closure where the raise propagates as the compute's own raise, and the
-  push-during-`Err` commit semantics (below) are unresolved. Converting it to a
-  `Result[Array[A], ReadError]` return awaits that decision.
 - **Transitive disposed dependencies** still `abort` inside `pull_verify`
   (`cells/internal/kernel/verify.mbt`): the honest channel reports `Disposed`
   only for the *directly read* cell. A still-depended-upon cell that is disposed
@@ -161,11 +165,12 @@ Deferred (known remaining dishonest surfaces — not yet converted):
   coordinated submodule-bump PR chain, after this lands. `_or_abort` variants
   survive as the unwrapping convenience.
 
-## Risks & open questions
+## Risks & follow-up
 
 - **`CycleError → ReadError` widening** touches many call sites (Tier 2 cost).
 - **`E : Eq` quality.** A poor `Eq` on the domain error causes missed
   invalidation (stale) or noisy recomputation. Reified errors are change-detected
   like values; transient/non-deterministic failure should be modeled as an
   *input* cell, never hidden inside a compute.
-- **`accumulated*` push-during-`Err`** commit semantics (recommended: commit).
+- Downstream `canopy` removal of its now-obsolete `AbortReport` workaround is
+  tracked in the coordinated submodule-bump work.

@@ -581,7 +581,7 @@ test "docs cookbook: accumulated invalidates when push set changes" {
     () => {
       report_runs.val = report_runs.val + 1
       let size = checked.get()
-      let ds = checked.accumulated(diags)
+      let ds = checked.accumulated_or_abort(diags)
       "size=" + size.to_string() + ", diags=" + ds.length().to_string()
     },
     label="width_report",

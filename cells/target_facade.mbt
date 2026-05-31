@@ -176,7 +176,7 @@ pub fn[T] Derived::get(self : Derived[T]) -> Result[T, ReadError] {
 }
 
 ///|
-/// Strict graph read that aborts on invalid context or cycle.
+/// Strict graph read that aborts on invalid context or any read error.
 pub fn[T] Derived::get_or_abort(self : Derived[T]) -> T {
   match self.get() {
     Ok(value) => value
@@ -191,7 +191,7 @@ pub fn[T] Derived::read(self : Derived[T]) -> Result[T, ReadError] {
 }
 
 ///|
-/// Permissive read that aborts on cycle.
+/// Permissive read that aborts on any read error.
 pub fn[T] Derived::read_or_abort(self : Derived[T]) -> T {
   match self.read() {
     Ok(value) => value
@@ -200,7 +200,7 @@ pub fn[T] Derived::read_or_abort(self : Derived[T]) -> T {
 }
 
 ///|
-/// Creates a long-lived outside-graph reader that returns cycle errors.
+/// Creates a long-lived outside-graph reader that returns read errors.
 pub fn[T] Derived::watch(self : Derived[T]) -> Watch[T] {
   self.inner.watch_result()
 }
@@ -251,8 +251,17 @@ pub fn[T] Derived::is_disposed(self : Derived[T]) -> Bool {
 pub fn[T, A] Derived::accumulated(
   self : Derived[T],
   acc : Accumulator[A],
-) -> Array[A] raise Failure {
+) -> Result[Array[A], ReadError] raise Failure {
   self.inner.accumulated(acc)
+}
+
+///|
+/// Tracked accumulator read that aborts on a graph mechanism failure.
+pub fn[T, A] Derived::accumulated_or_abort(
+  self : Derived[T],
+  acc : Accumulator[A],
+) -> Array[A] raise Failure {
+  self.inner.accumulated_or_abort(acc)
 }
 
 ///|
@@ -291,7 +300,7 @@ pub fn[T : Eq] ReachableDerived::get(
 }
 
 ///|
-/// Strict graph read that aborts on invalid context or cycle.
+/// Strict graph read that aborts on invalid context or any read error.
 pub fn[T : Eq] ReachableDerived::get_or_abort(self : ReachableDerived[T]) -> T {
   match self.get() {
     Ok(value) => value
@@ -308,7 +317,7 @@ pub fn[T : Eq] ReachableDerived::read(
 }
 
 ///|
-/// Permissive read that aborts on cycle.
+/// Permissive read that aborts on any read error.
 pub fn[T : Eq] ReachableDerived::read_or_abort(self : ReachableDerived[T]) -> T {
   match self.read() {
     Ok(value) => value
@@ -317,7 +326,7 @@ pub fn[T : Eq] ReachableDerived::read_or_abort(self : ReachableDerived[T]) -> T 
 }
 
 ///|
-/// Creates a long-lived outside-graph reader that returns cycle errors.
+/// Creates a long-lived outside-graph reader that returns read errors.
 pub fn[T : Eq] ReachableDerived::watch(self : ReachableDerived[T]) -> Watch[T] {
   self.inner.watch_result()
 }
@@ -365,7 +374,7 @@ pub fn[T] EagerDerived::watch(self : EagerDerived[T]) -> Watch[T] {
 /// Target-name keyed derived facade over `MemoMap`.
 pub(all) struct DerivedMap[K, V] {
   priv inner : MemoMap[K, V]
-  priv disposed : Ref[Bool]
+  priv disposed : Ref[CellId?]
 }
 
 ///|
@@ -375,7 +384,7 @@ pub fn[K : Hash + Eq, V] DerivedMap::DerivedMap(
   compute : (K) -> V raise Failure,
   label? : String,
 ) -> DerivedMap[K, V] {
-  { inner: MemoMap(rt, compute, label?), disposed: { val: false } }
+  { inner: MemoMap(rt, compute, label?), disposed: { val: None } }
 }
 
 ///|
@@ -393,16 +402,37 @@ pub fn[K : Hash + Eq, V, E] DerivedMap::fallible(
 }
 
 ///|
-fn[K, V] DerivedMap::guard_live(self : DerivedMap[K, V]) -> Unit {
-  guard !self.disposed.val else {
-    abort("DerivedMap called after owning scope was disposed")
+fn[K, V] DerivedMap::guard_live(
+  self : DerivedMap[K, V],
+) -> Result[Unit, ReadError] {
+  match self.disposed.val {
+    None => Ok(())
+    Some(id) => Err(ReadError::disposed(id))
   }
 }
 
 ///|
 fn[K, V] DerivedMap::dispose_from_scope(self : DerivedMap[K, V]) -> Unit {
-  guard !self.disposed.val else { return }
-  self.disposed.val = true
+  guard self.disposed.val is None else { return }
+  let mut disposed_id : CellId? = None
+  for _, memo in self.inner.entries {
+    if disposed_id is None {
+      disposed_id = Some(memo.id())
+    }
+  }
+  let id = match disposed_id {
+    Some(id) => id
+    None => {
+      let tombstone = Memo::new(
+        self.inner.rt,
+        () => (),
+        label="derived_map_disposed",
+      )
+      tombstone.dispose()
+      tombstone.id()
+    }
+  }
+  self.disposed.val = Some(id)
   self.inner.clear()
 }
 
@@ -412,12 +442,14 @@ pub fn[K : Hash + Eq, V : Eq] DerivedMap::get(
   self : DerivedMap[K, V],
   key : K,
 ) -> Result[V, ReadError] {
-  self.guard_live()
-  self.inner.get_strict_honest(key)
+  match self.guard_live() {
+    Ok(_) => self.inner.get_strict_honest(key)
+    Err(e) => Err(e)
+  }
 }
 
 ///|
-/// Strict graph read for `key` that aborts on invalid context or cycle.
+/// Strict graph read for `key` that aborts on invalid context or any read error.
 pub fn[K : Hash + Eq, V : Eq] DerivedMap::get_or_abort(
   self : DerivedMap[K, V],
   key : K,
@@ -434,12 +466,14 @@ pub fn[K : Hash + Eq, V : Eq] DerivedMap::read(
   self : DerivedMap[K, V],
   key : K,
 ) -> Result[V, ReadError] {
-  self.guard_live()
-  self.inner.read_honest(key)
+  match self.guard_live() {
+    Ok(_) => self.inner.read_honest(key)
+    Err(e) => Err(e)
+  }
 }
 
 ///|
-/// Permissive read for `key` that aborts on cycle.
+/// Permissive read for `key` that aborts on any read error.
 pub fn[K : Hash + Eq, V : Eq] DerivedMap::read_or_abort(
   self : DerivedMap[K, V],
   key : K,
@@ -451,7 +485,7 @@ pub fn[K : Hash + Eq, V : Eq] DerivedMap::read_or_abort(
 }
 
 ///|
-/// Returns the value for `key`, or `fallback` if a cycle is detected.
+/// Returns the value for `key`, or `fallback` if a read error is detected.
 pub fn[K : Hash + Eq, V : Eq] DerivedMap::read_or(
   self : DerivedMap[K, V],
   key : K,
@@ -482,15 +516,19 @@ pub fn[K : Hash + Eq, V] DerivedMap::has_cached(
   self : DerivedMap[K, V],
   key : K,
 ) -> Bool {
-  self.guard_live()
-  self.inner.contains(key)
+  match self.guard_live() {
+    Ok(_) => self.inner.contains(key)
+    Err(e) => abort(e.format_path())
+  }
 }
 
 ///|
 /// Returns the number of cached entries.
 pub fn[K, V] DerivedMap::cache_len(self : DerivedMap[K, V]) -> Int {
-  self.guard_live()
-  self.inner.length()
+  match self.guard_live() {
+    Ok(_) => self.inner.length()
+    Err(e) => abort(e.format_path())
+  }
 }
 
 ///|
@@ -498,13 +536,17 @@ pub fn[K, V] DerivedMap::cache_len(self : DerivedMap[K, V]) -> Int {
 pub fn[K : Hash + Eq, V] DerivedMap::sweep_cache(
   self : DerivedMap[K, V],
 ) -> Int {
-  self.guard_live()
-  self.inner.sweep()
+  match self.guard_live() {
+    Ok(_) => self.inner.sweep()
+    Err(e) => abort(e.format_path())
+  }
 }
 
 ///|
 /// Clears all cached entries.
 pub fn[K, V] DerivedMap::clear_cache(self : DerivedMap[K, V]) -> Unit {
-  self.guard_live()
-  self.inner.clear()
+  match self.guard_live() {
+    Ok(_) => self.inner.clear()
+    Err(e) => abort(e.format_path())
+  }
 }

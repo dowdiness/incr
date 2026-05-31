@@ -36,7 +36,8 @@ pub(all) struct Derived[T] {
   // private fields
 }
 pub fn[T : Eq] Derived::Derived(Runtime, () -> T raise Failure, label? : String) -> Self[T]
-pub fn[T, A] Derived::accumulated(Self[T], Accumulator[A]) -> Array[A] raise Failure
+pub fn[T, A] Derived::accumulated(Self[T], Accumulator[A]) -> Result[Array[A], @types.ReadError] raise Failure
+pub fn[T, A] Derived::accumulated_or_abort(Self[T], Accumulator[A]) -> Array[A] raise Failure
 pub fn[T, A] Derived::accumulated_peek(Self[T], Accumulator[A]) -> Array[A]
 pub fn[T] Derived::changed_at(Self[T]) -> @types.Revision
 pub fn[V : Eq, E : Eq] Derived::fallible(Runtime, () -> Result[V, E], label? : String) -> Self[Result[V, E]]
@@ -150,9 +151,10 @@ pub(all) struct Memo[T] {
   // private fields
 } derive(@debug.Debug)
 pub fn[T : Eq] Memo::Memo(Runtime, () -> T raise Failure, label? : String) -> Self[T]
-pub fn[T, A] Memo::accumulated(Self[T], Accumulator[A]) -> Array[A] raise Failure
+pub fn[T, A] Memo::accumulated(Self[T], Accumulator[A]) -> Result[Array[A], @types.ReadError] raise Failure
+pub fn[T, A] Memo::accumulated_or_abort(Self[T], Accumulator[A]) -> Array[A] raise Failure
 pub fn[T, A] Memo::accumulated_peek(Self[T], Accumulator[A]) -> Array[A]
-pub fn[T, A] Memo::accumulated_result(Self[T], Accumulator[A]) -> Result[Array[A], @types.CycleError] raise Failure
+pub fn[T, A] Memo::accumulated_result(Self[T], Accumulator[A]) -> Result[Array[A], @types.ReadError] raise Failure
 pub fn[T] Memo::changed_at(Self[T]) -> @types.Revision
 pub fn[T] Memo::clear_on_change(Self[T]) -> Unit
 pub fn[T] Memo::dependencies(Self[T]) -> Array[@types.CellId]

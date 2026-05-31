@@ -73,7 +73,7 @@ pub fn[T] Observer::is_disposed(self : Observer[T]) -> Bool {
 /// A typed keep-alive handle that reads `Result` values from outside the graph.
 ///
 /// `Watch` has the same GC-rooting semantics as `Observer`, but preserves
-/// cycle errors as values for target-facade read APIs.
+/// read errors as values for target-facade read APIs.
 pub struct Watch[T] {
   priv runtime : Runtime
   priv target_id : CellId
@@ -94,7 +94,7 @@ pub fn[T] Watch::read(self : Watch[T]) -> Result[T, ReadError] {
 }
 
 ///|
-/// Returns the current value, aborting if a cycle is detected.
+/// Returns the current value, aborting if a read error is detected.
 pub fn[T] Watch::read_or_abort(self : Watch[T]) -> T {
   match self.read() {
     Ok(value) => value
