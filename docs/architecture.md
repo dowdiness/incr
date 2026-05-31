@@ -79,8 +79,9 @@ EagerDerived`, `MemoMap -> DerivedMap`, `TrackedCell -> InputField`, `Observer
 ```
 \* `ReachableDerived` wraps the hybrid memo engine: recomputation is pull-driven
 (lazy verification on read), but the underlying memo is push-reachable from
-downstream `EagerDerived`/`Effect` subscribers. A `Watch` on a terminal target
-also keeps that watched value alive across `gc()`.
+downstream `EagerDerived`/`Effect` subscribers — though so is a plain `Derived`
+today (see Hybrid mode below). A `Watch` on a terminal target also keeps that
+watched value alive across `gc()`.
 
 **Pull mode (Input → Derived):**
 
@@ -103,11 +104,15 @@ also keeps that watched value alive across `gc()`.
 **Hybrid mode (`ReachableDerived` / compatibility `HybridMemo`):**
 
 `ReachableDerived` is a pull-derived facade whose underlying hybrid memo uses
-the same revision check as `Derived` — there is no separate dirty flag. What
-makes it hybrid is *reachability*, not invalidation: it participates in
-`push_reachable_count` so that a live `EagerDerived`/`Effect` subscriber
-downstream keeps the memo and its upstream cells alive across `gc()`. Use it on
-the boundary between push-reactive subscribers and pull-derived values.
+the same revision check as `Derived` — there is no separate dirty flag. **Today
+it is behaviorally identical to `Derived`:** both participate in
+`push_reachable_count`, so a live `EagerDerived`/`Effect` subscriber downstream
+keeps either one (and its upstream cells) alive across `gc()`, and the
+`is_hybrid` flag is read by no behavioral branch. The type is currently a
+boundary marker for the push/pull seam, not a distinct behavior. See
+[ADR 2026-05-30](decisions/2026-05-30-reachable-derived-differentiate-or-collapse.md)
+for the decision to either differentiate it into a genuine eager-when-reachable
+memo or collapse it into `Derived`.
 
 **Datalog mode (`Relation`, `Rule`, fixpoint):**
 
@@ -129,7 +134,7 @@ compatibility `FunctionalRelation[K, V]`.
 | `Input[T]` | Externally settable input cell | `Input(rt, value, durability?, label?)` or `scope.input(...)` |
 | `Derived[T]` | Lazy pull-derived value with strict guarded `get()` and permissive `read()` `Result` APIs | `Derived(rt, compute, label?)` or `scope.derived(...)` |
 | `DerivedMap[K, V]` | Lazy per-key derived values with target cache helpers | `DerivedMap(rt, compute, label?)` or `scope.derived_map(...)` |
-| `ReachableDerived[T]` | Lazy derived value with strict guarded `get()` and permissive `read()` APIs; push-reachable from downstream `EagerDerived`/`Effect`; no dirty flag — same lazy revision check as `Derived` | `ReachableDerived(rt, compute, label?)` or `scope.reachable_derived(...)` |
+| `ReachableDerived[T]` | Lazy derived value with strict guarded `get()` and permissive `read()` APIs; push-reachable from downstream `EagerDerived`/`Effect`; no dirty flag — behaviorally identical to `Derived` today (see [ADR 2026-05-30](decisions/2026-05-30-reachable-derived-differentiate-or-collapse.md)) | `ReachableDerived(rt, compute, label?)` or `scope.reachable_derived(...)` |
 | `InputField[T]` | Field-level input cell for structs implementing `InputFieldOwner` | `InputField(rt, value, durability?, label?)` or `scope.input_field(...)` |
 | `EagerDerived[T]`, `Effect` | Push-mode primitives | `EagerDerived(rt, compute)`, `Effect::new` |
 | `Relation[T]`, `MapRelation[K,V]`, `Rule` | Datalog primitives, driven by `rt.fixpoint()` | `Relation::new`, `MapRelation(rt)`, `rt.new_rule(...)`, … |
