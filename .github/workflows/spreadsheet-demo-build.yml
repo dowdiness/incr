@@ -1,0 +1,62 @@
+name: Spreadsheet demo build
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/spreadsheet-demo-build.yml'
+      - '.github/workflows/spreadsheet-cloudflare-pages.yml'
+      - 'cells/**'
+      - 'examples/typed_spreadsheet_demo/**'
+      - 'examples/typed_spreadsheet_rabbita_demo/**'
+      - 'incr.mbt'
+      - 'moon.mod'
+      - 'moon.pkg'
+      - 'traits.mbt'
+      - 'typed_spreadsheet/**'
+      - 'types/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NEW_MOON_MOD: '0'
+
+jobs:
+  build:
+    name: Build typed spreadsheet site
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install MoonBit
+        uses: hustcer/setup-moonbit@v1.22
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Verify MoonBit
+        run: moon version --all
+
+      - name: moon update
+        run: moon update
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: examples/typed_spreadsheet_rabbita_demo/package-lock.json
+
+      - name: Install demo dependencies
+        working-directory: examples/typed_spreadsheet_rabbita_demo
+        run: npm ci
+
+      - name: Build demo
+        working-directory: examples/typed_spreadsheet_rabbita_demo
+        run: npm run build

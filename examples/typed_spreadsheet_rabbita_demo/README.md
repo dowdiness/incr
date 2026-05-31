@@ -55,9 +55,10 @@ npm run build
 
 ## Cloudflare Pages deployment
 
-`.github/workflows/spreadsheet-cloudflare-pages.yml` builds this demo on PRs that
-change the spreadsheet app or its MoonBit dependencies. Pushes to `main` and
-manual workflow runs deploy the built `dist/` directory to Cloudflare Pages.
+`.github/workflows/spreadsheet-demo-build.yml` builds this demo on PRs that
+change the spreadsheet app or its MoonBit dependencies.
+`.github/workflows/spreadsheet-cloudflare-pages.yml` deploys the built `dist/`
+directory to Cloudflare Pages on pushes to `main` and manual workflow runs.
 
 Configure these repository settings before enabling deploys:
 

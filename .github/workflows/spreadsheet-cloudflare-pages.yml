@@ -1,19 +1,6 @@
 name: Spreadsheet Cloudflare Pages
 
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - '.github/workflows/spreadsheet-cloudflare-pages.yml'
-      - 'cells/**'
-      - 'examples/typed_spreadsheet_demo/**'
-      - 'examples/typed_spreadsheet_rabbita_demo/**'
-      - 'incr.mbt'
-      - 'moon.mod'
-      - 'moon.pkg'
-      - 'traits.mbt'
-      - 'typed_spreadsheet/**'
-      - 'types/**'
   push:
     branches: [main]
     paths:
@@ -84,7 +71,6 @@ jobs:
     name: Deploy typed spreadsheet to Cloudflare Pages
     needs: build
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
     environment: cloudflare-pages
     steps:
       - name: Checkout
