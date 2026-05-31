@@ -77,6 +77,19 @@ pub(all) struct ReactiveId[T] {
   id : CellId
 }
 
+pub enum ReadError {
+  Cycle(CycleError)
+  Disposed(CellId)
+}
+pub fn ReadError::cell(Self) -> CellId
+pub fn ReadError::cycle(CycleError) -> Self
+pub fn ReadError::disposed(CellId) -> Self
+pub fn ReadError::format_path(Self) -> String
+pub fn ReadError::is_cycle(Self) -> Bool
+pub fn ReadError::is_disposed(Self) -> Bool
+pub fn ReadError::path(Self) -> Array[CellId]
+pub impl Show for ReadError
+
 pub(all) struct RelationId[T] {
   id : CellId
 }

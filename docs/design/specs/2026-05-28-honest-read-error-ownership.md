@@ -1,6 +1,6 @@
 # Honest Read-Error Ownership
 
-**Status:** Tier 1 Shipped (#100); Tier 2 Proposed
+**Status:** Tier 1 Shipped (#100); Tier 2 Shipped (read family — see below)
 
 **Date:** 2026-05-28
 
@@ -128,14 +128,38 @@ Non-breaking; downstream `canopy` (which already wraps `Watch::read` in an
 - Redefine the meaning of a compute `raise Failure` as **defect-only** in the
   docs (api-reference, cookbook); stop advertising it as a domain-error channel.
 
-### Tier 2 — full ideal (later, breaking)
+### Tier 2 — full ideal (breaking) — **Shipped for the read family**
 
-- Introduce `ReadError`; widen the read family from `Result[T, CycleError]` to
-  `Result[T, ReadError]`.
-- Convert disposed-read `abort` sites to `Err(Disposed(_))`.
-- Ripple through `Watch`, `Derived`, `ReachableDerived`, `DerivedMap`,
-  `accumulated*`, and downstream (`canopy`'s `WorkspaceMemoHandle::read`,
-  `ProtectedCell`). `_or_abort` variants survive as unwrapping convenience.
+Done:
+
+- `ReadError = Cycle(CycleError) | Disposed(CellId)` introduced in
+  `types/read_error.mbt` (accessors `cell` / `path` / `format_path` mirror
+  `CycleError`, plus `is_cycle` / `is_disposed`; re-exported as `@incr.ReadError`).
+- Read family widened from `Result[T, CycleError]` to `Result[T, ReadError]`:
+  `Derived::get`/`read`, `ReachableDerived::get`/`read`, `DerivedMap::get`/`read`
+  (+ `read_or_else` fallback `(ReadError) -> V`), and `Watch::read`.
+- A read of a **directly-disposed** cell returns `Err(Disposed(_))` instead of
+  aborting. Implemented as a single honest source (`Memo`/`HybridMemo`/`MemoMap`
+  `read_honest`) with the compatibility `*_result` methods kept as
+  `CycleError`-projections (disposed → abort) — so compat handles
+  (`Memo`/`HybridMemo`/`MemoMap`/`Signal::get_result`) are unchanged.
+- A retained compute `raise Failure` stays a **defect** (abort), per the
+  first-principles split above.
+
+Deferred (known remaining dishonest surfaces — not yet converted):
+
+- **`accumulated*`** stays `Array[A] raise Failure` / `accumulated_result ->
+  Result[_, CycleError] raise Failure`. The idiomatic use is *inside* a compute
+  closure where the raise propagates as the compute's own raise, and the
+  push-during-`Err` commit semantics (below) are unresolved. Converting it to a
+  `Result[Array[A], ReadError]` return awaits that decision.
+- **Transitive disposed dependencies** still `abort` inside `pull_verify`
+  (`cells/internal/kernel/verify.mbt`): the honest channel reports `Disposed`
+  only for the *directly read* cell. A still-depended-upon cell that is disposed
+  is a GC/lifecycle defect (hold a `Watch`/`Observer` anchor to prevent it).
+- **Downstream** (`canopy`'s `WorkspaceMemoHandle::read`, `ProtectedCell`) — a
+  coordinated submodule-bump PR chain, after this lands. `_or_abort` variants
+  survive as the unwrapping convenience.
 
 ## Risks & open questions
 

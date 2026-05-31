@@ -113,6 +113,8 @@ pub using @cells {type Reactive}
 
 pub using @types {type ReactiveId}
 
+pub using @types {type ReadError}
+
 pub using @cells {type Relation}
 
 pub using @types {type RelationId}
