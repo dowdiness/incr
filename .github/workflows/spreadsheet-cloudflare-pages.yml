@@ -1,0 +1,109 @@
+name: Spreadsheet Cloudflare Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/spreadsheet-cloudflare-pages.yml'
+      - 'cells/**'
+      - 'examples/typed_spreadsheet_demo/**'
+      - 'examples/typed_spreadsheet_rabbita_demo/**'
+      - 'incr.mbt'
+      - 'moon.mod'
+      - 'moon.pkg'
+      - 'traits.mbt'
+      - 'typed_spreadsheet/**'
+      - 'types/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NEW_MOON_MOD: '0'
+
+jobs:
+  build:
+    name: Build typed spreadsheet site
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install MoonBit
+        uses: hustcer/setup-moonbit@v1.22
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Verify MoonBit
+        run: moon version --all
+
+      - name: moon update
+        run: moon update
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: examples/typed_spreadsheet_rabbita_demo/package-lock.json
+
+      - name: Install demo dependencies
+        working-directory: examples/typed_spreadsheet_rabbita_demo
+        run: npm ci
+
+      - name: Build demo
+        working-directory: examples/typed_spreadsheet_rabbita_demo
+        run: npm run build
+
+      - name: Upload Pages artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: typed-spreadsheet-pages-dist
+          path: examples/typed_spreadsheet_rabbita_demo/dist
+          if-no-files-found: error
+
+  deploy:
+    name: Deploy typed spreadsheet to Cloudflare Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment: cloudflare-pages
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Download Pages artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: typed-spreadsheet-pages-dist
+          path: examples/typed_spreadsheet_rabbita_demo/dist
+
+      - name: Verify Cloudflare configuration
+        env:
+          CLOUDFLARE_ACCOUNT_ID_VALUE: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN_VALUE: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_PAGES_PROJECT_NAME_VALUE: ${{ vars.CLOUDFLARE_PAGES_PROJECT_NAME }}
+        run: |
+          if [[ -z "$CLOUDFLARE_ACCOUNT_ID_VALUE" ]]; then
+            echo "::error::Set the CLOUDFLARE_ACCOUNT_ID repository secret."
+            exit 1
+          fi
+          if [[ -z "$CLOUDFLARE_API_TOKEN_VALUE" ]]; then
+            echo "::error::Set the CLOUDFLARE_API_TOKEN repository secret."
+            exit 1
+          fi
+          if [[ -z "$CLOUDFLARE_PAGES_PROJECT_NAME_VALUE" ]]; then
+            echo "::error::Set the CLOUDFLARE_PAGES_PROJECT_NAME repository variable."
+            exit 1
+          fi
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy examples/typed_spreadsheet_rabbita_demo/dist --project-name=${{ vars.CLOUDFLARE_PAGES_PROJECT_NAME }} --branch=${{ github.ref_name }}

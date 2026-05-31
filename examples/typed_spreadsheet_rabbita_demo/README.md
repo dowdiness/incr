@@ -53,6 +53,19 @@ Production build:
 npm run build
 ```
 
+## Cloudflare Pages deployment
+
+`.github/workflows/spreadsheet-demo-build.yml` builds this demo on PRs that
+change the spreadsheet app or its MoonBit dependencies.
+`.github/workflows/spreadsheet-cloudflare-pages.yml` deploys the built `dist/`
+directory to Cloudflare Pages on pushes to `main` and manual workflow runs.
+
+Configure these repository settings before enabling deploys:
+
+- secret `CLOUDFLARE_API_TOKEN` with Cloudflare Pages edit/deploy access
+- secret `CLOUDFLARE_ACCOUNT_ID`
+- variable `CLOUDFLARE_PAGES_PROJECT_NAME`
+
 MoonBit-only validation from the repository root:
 
 ```bash
