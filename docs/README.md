@@ -36,7 +36,7 @@ New to `incr`? Read these in order:
 - [2026-05-16 Tracking-buffer lazy-allocation result](performance/2026-05-16-tracking-buffer-lazy-alloc.md) — implements the chosen direction. Pool reuse rejected by probe; lazy-allocation alone delivered −15.9% on 1000-fanout (−46 ns/r).
 - [2026-05-17 T1b commit-path bench snapshot](performance/2026-05-17-t1b-bench-snapshot.md) — pre-T1b → Phase 1 → Phase 2 pre-fix → Phase 2 + lazy-entry fast-path. Fast-path beats pre-T1b by −25% on no-accumulator recompute fanout by eliminating per-recompute HashSet allocations the old `memo_commit_accumulator_phase` carried unconditionally.
 - [2026-05-18 UI-shape benches](performance/2026-05-18-ui-shape-benches.md) — push-engine throughput on UI-shaped workloads (flat / layered / sparse / tree) across wasm-gc + JS. Confirms 60 Hz headroom at 1000 nodes; baseline for any future UI-library work on incr.
-- [2026-05-27 Static/applicative Derived fast-path probe](performance/2026-05-27-static-derived-fast-path-probe.md) — lower-bound, integrated, and UI-shape benches for fixed-dependency derived recomputation; records the package-private static path, without accepting a public API yet.
+- [2026-05-27 Static/applicative Derived fast-path probe](performance/2026-05-27-static-derived-fast-path-probe.md) — lower-bound, integrated, and UI-shape benches for fixed-dependency derived recomputation; records the package-private static path. Public exposure remains closed by the 2026-06-01 ADR.
 
 ---
 
@@ -55,7 +55,7 @@ For contributors and advanced users who want to understand or modify `incr`.
 - [2026-05-25 `Expr[T]` Formula API](design/specs/2026-05-25-expr-formula-api.md) — proposed lazy formula layer over target facades, with same-runtime validation, explicit constants, and one-cell materialization
 - [2026-05-26 Build-oriented boundary design](design/specs/2026-05-26-build-trait-boundaries.md) — ideal Build systems à la carte-inspired application boundaries on top of `Input`, `Derived`, and `DerivedMap`; traits are one seam, not the default
 - [2026-05-26 Internal evaluation boundaries](design/specs/2026-05-26-internal-rebuild-boundaries.md) — ideal runtime-evaluation state-machine design for pull verification, push propagation, lifetime, and observation seams without public scheduler traits
-- [2026-05-28 Static Derived Public-Surface Options](design/specs/2026-05-28-static-derived-public-options.md) — compares public API options for exposing the measured fixed-dependency `Derived` fast path without accepting or implementing a surface yet
+- [2026-05-28 Static Derived Public-Surface Options](design/specs/2026-05-28-static-derived-public-options.md) — compares public API options and hard requirements for the measured fixed-dependency `Derived` fast path; resolved by the 2026-06-01 ADR as keep-private-with-reopen-criteria
 - [2026-05-28 Honest Read-Error Ownership](design/specs/2026-05-28-honest-read-error-ownership.md) — three-way split of read failures (graph→read channel, domain→value-as-`Result`, defects→abort/fail); `Derived::fallible`/`DerivedMap::fallible`; `ReadError` migration for target reads and accumulator verifying reads
 
 **Project direction:**
@@ -94,6 +94,7 @@ Architecture Decision Records — the *why* behind significant design choices. K
 | [2026-05-17](decisions/2026-05-17-memo-event-observation.md) | `Runtime::on_memo_event` public API: driver-facing commit-phase event observation. `pub(all) enum MemoEvent` with `EnteringCompute` / `Completed(elapsed_ns, backdated)` / `Aborted(elapsed_ns, error)`. Single listener per runtime; sync callback (async bridged via aqueue). In-tree `EventBroadcastPhaseHook` bridges T1b's trait. Pull-memo only; push/fixpoint/batch events deferred. |
 | [2026-05-21](decisions/2026-05-21-public-api-ideal-naming.md) | Ideal public API naming: `Input`, `Derived`, `ReachableDerived`, `EagerDerived`, `DerivedMap`, `InputField`, `Watch`, `RuntimeContext`; `get`/`read` return `Result` for fallible derived reads and aborting shortcuts use `_or_abort`. |
 | [2026-05-30](decisions/2026-05-30-reachable-derived-differentiate-or-collapse.md) | ReachableDerived — differentiate or collapse. Spike (typed-spreadsheet driver) found `Derived` ≡ `ReachableDerived` today: identical read paths, identical `push_reachable_count` participation, vestigial `is_hybrid`. Proposes (b) differentiate into a genuine eager-when-reachable memo that recomputes during push propagation + emits unified eval events; fallback (a) collapse/deprecate. Status: **Deferred** (2026-05-31) — interim keep + docs corrected; re-open trigger = a projectional-editor viewport over `core/projection_memo.mbt` needing per-edit change-set observation; sunset to (a) collapse before external-user API stability. |
+| [2026-06-01](decisions/2026-06-01-static-derived-public-surface.md) | Static Derived public surface: keep the measured static/applicative fast path package-private. No public `Derived::map*`, `Scope::derived_static*`, compatibility conveniences, or raw installer until an `Expr[T]` lowering need, a measured scope-owned attachment win, or downstream UI wrapper duplication supplies a concrete driver. |
 
 ---
 
