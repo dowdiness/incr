@@ -8,6 +8,10 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 - Reorganized the repository as a MoonBit workspace: the `dowdiness/incr` library module now lives under `incr/`, while typed-spreadsheet demos and retained spikes live under `examples/` as standalone workspace modules.
 
+### Documentation
+
+- Refreshed ADR and plan references for the workspace layout so source paths use the `incr/` module prefix.
+
 ## [0.7.0] - 2026-06-01
 
 ### Added

@@ -8,12 +8,12 @@ For the verification algorithm, type erasure, push propagation, and storage layo
 
 ## Package responsibility map
 
-The repository follows the same workspace shape as MoUI: the publishable MoonBit
-module lives under `incr/`, checked documentation examples live under `docs/`,
-and demos/spikes are separate workspace members under `examples/`. The main
-packages in `dowdiness/incr` are mapped below. Users import only the root facade; everything
-else is implementation detail, tests, checked documentation, or standalone demo
-code.
+The repository is a MoonBit workspace: the publishable MoonBit module lives
+under `incr/`, checked documentation examples live under `docs/`, and
+demos/spikes are separate workspace members under `examples/`. The main packages
+in `dowdiness/incr` are mapped below. Users import only the root facade;
+everything else is implementation detail, tests, checked documentation, or
+standalone demo code.
 
 ```
 moon.work

@@ -3,7 +3,7 @@
 **Date:** 2026-05-30
 **Status:** Deferred (resolved 2026-05-31 — see [Resolution](#resolution-2026-05-31-deferred))
 **Driver:** the `typed_spreadsheet` example (boundary over `@incr`)
-**Evidence:** spike branch `spike/spreadsheet-reachable-derived`, probe `tests/spike_reachable_probe_test.mbt`
+**Evidence:** spike branch `spike/spreadsheet-reachable-derived`, probe `incr/tests/spike_reachable_probe_test.mbt`
 **Builds on:** [2026-05-17 memo-event-observation](2026-05-17-memo-event-observation.md), [2026-05-21 public-api-ideal-naming](2026-05-21-public-api-ideal-naming.md)
 
 This is a target design, not an implementation plan.
@@ -69,7 +69,7 @@ It falsified the premise.
 
 ## Finding: `Derived` and `ReachableDerived` are identical today
 
-Measured on the spike branch (`tests/spike_reachable_probe_test.mbt`, four
+Measured on the spike branch (`incr/tests/spike_reachable_probe_test.mbt`, four
 probes, all green):
 
 | Cell type | Downstream `Effect` anchor? | After an upstream `Input::set`, with no manual read |

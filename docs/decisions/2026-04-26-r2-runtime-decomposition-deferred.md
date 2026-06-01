@@ -7,21 +7,21 @@
 
 ## Context
 
-R1 (kernel split, PRs #45–48) closed on 2026-04-26. The post-R1 architecture leaves `cells/runtime.mbt` at **427 LOC across 22 methods**, of which the majority are 1–13-line delegators to `cells/internal/kernel/`. A persistent backlog item carried in memory under the label "R2" proposed the next structural move: decomposing `Runtime` into typed service objects (e.g. `BatchService`, `GcService`, `PropagationService`) so each kernel-facing concern would own its own struct.
+R1 (kernel split, PRs #45–48) closed on 2026-04-26. The post-R1 architecture leaves `incr/cells/runtime.mbt` at **427 LOC across 22 methods**, of which the majority are 1–13-line delegators to `incr/cells/internal/kernel/`. A persistent backlog item carried in memory under the label "R2" proposed the next structural move: decomposing `Runtime` into typed service objects (e.g. `BatchService`, `GcService`, `PropagationService`) so each kernel-facing concern would own its own struct.
 
 This ADR records the decision not to pursue that decomposition without a concrete driver, and retires the R2-as-imminent-track framing from rolling memory.
 
-## Empirical state of `cells/runtime.mbt` (2026-04-26)
+## Empirical state of `incr/cells/runtime.mbt` (2026-04-26)
 
 Measurements taken against `main @ be86ed5` immediately after the R1 closer merged.
 
 | Metric | Pre-R1 (2026-04-21) | Post-R1 (2026-04-26) |
 |---|---|---|
-| `cells/runtime.mbt` LOC | 877 | **427** |
+| `incr/cells/runtime.mbt` LOC | 877 | **427** |
 | Runtime method count | ~30 | **22** |
 | Largest Runtime method body | n/a | **13 lines** (`check_table_invariant`) |
 | Coordinator-primitive methods (≥10 lines) | several with full algorithm bodies | **5**: `propagate_changes`, `publish_cell_changes`, `add_subscriber`, `remove_subscriber`, `check_accumulator_cache_invariant` — all 11–13 lines, all 1-line delegators wrapped in argument-shuffling |
-| Algorithm bodies | inline | **0** — all in `cells/internal/kernel/*.mbt` |
+| Algorithm bodies | inline | **0** — all in `incr/cells/internal/kernel/*.mbt` |
 
 `Runtime` is no longer a god-object. It is a Salsa-style facade holding handles to `RuntimeCore` + per-engine state, plus a thin dispatch layer. The "R2" framing was inherited from when `runtime.mbt` was 877 LOC and held algorithm bodies. That premise is gone.
 
@@ -71,6 +71,6 @@ Memory carried a notional R3/R5/R6/R7 catalog parallel to R2. After cross-checki
 
 ## Verification
 
-- `cells/runtime.mbt` line count and method profile: confirmed against `main @ be86ed5` on 2026-04-26.
+- `incr/cells/runtime.mbt` line count and method profile: confirmed against `main @ be86ed5` on 2026-04-26.
 - Architecture-assessment doc (2026-04-20) read in full; T1b and T3 are the only structural tracks with written specs.
 - No outstanding R2 plan or notes file in `docs/plans/` or `docs/design/specs/`.

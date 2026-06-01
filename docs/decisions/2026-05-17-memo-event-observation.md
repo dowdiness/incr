@@ -7,14 +7,14 @@
 **Amendments (2026-05-17, post-Codex):**
 - §"Internal implementation": confirmed `backdated` detection via `cell.meta.changed_at < cell.verified_at` works correctly because T1b ADR was amended same-day to fire `after_success` *after* the cell-level epilogue. Without that timing fix, backdating would not have been detectable from the hook.
 - §"Internal implementation": **buffer-and-flush** rather than inline listener dispatch. Per T1b's hook contract amendment, hooks must not call user code inline (typed memo cache not yet written, nested-recompute dep pollution, `recompute_inner.changed` decision depends on epilogue state). The `EventBroadcastPhaseHook` appends to an internal `pending_events` queue inside each hook method and drains at a safe point. See §"Drain protocol" below.
-- §"Context" and §"Internal implementation": file placement is `cells/`, **not** `cells/internal/kernel/`. Same engine-isolation rule as T1b (kernel cannot import `cells/`, and `MemoCommitPhase` takes `rt : Runtime`).
+- §"Context" and §"Internal implementation": file placement is `incr/cells/`, **not** `incr/cells/internal/kernel/`. Same engine-isolation rule as T1b (kernel cannot import `incr/cells/`, and `MemoCommitPhase` takes `rt : Runtime`).
 
 **Amendments (2026-05-19, post-Codex commissioning review):** The three "deferred to plan" items at §"Three implementation details deferred to the plan" are resolved by this amendment block. Affected sections updated below in-place; this block records the deltas with rationale.
 
 - §"Public API" — variant shape: switch from labelled-positional enum constructors to **struct-per-variant** (`MemoEnteringEvent` / `MemoCompletedEvent` / `MemoAbortedEvent` carried by enum variants). Forward-compatible field additions don't break driver match exhaustiveness. The semantic content table is updated to match.
 - §"Public API" — error payload: change `Aborted.error` from `String` to `Error`. Three reasons: (1) `Error` is already in incr's public surface via `Runtime::batch_result -> Result[Unit, Error]`; the enum doesn't grow the public footprint. (2) Drivers get the typed value for pattern-matched error handling; stringification moves to the listener side. (3) Avoids running `to_string` in commit-path context. MoonBit's `Error::to_string` is the `%error.to_string` primitive (not arbitrary user-`Show` dispatch), so the original concern was overstated — but deferring to the listener still side-steps it entirely with no cost.
-- §"Public API" — revision payload: split into `started_revision : Revision` on **all** terminal events (captured in `before_recompute`, stored with the timer, reused on the matched Completed/Aborted), plus `verified_at : Revision` and `changed_at : Revision` on `Completed`. Reasoning: (1) `rt.cell_info(id)` does NOT expose `current_revision` (verified against `cells/introspection.mbt:15` — only `changed_at` / `verified_at` are surfaced); the prior "available from cell_info anyway" claim was wrong and is removed. (2) `EnteringCompute.revision == Completed.revision` is NOT structurally guaranteed — `Signal::set_unconditional` advances revision via propagation (`cells/input.mbt:222`) and is not currently guarded against an active tracking stack, so revision *can* advance during a compute closure. Capturing once at hook entry and threading it through is the only honest way to keep events bracketed. **Transaction grouping** (driver wanting "events from one batch") is explicitly NOT exposed via these fields — deferred to a future ADR for `BatchStart`/`BatchEnd` variants or batched delivery, when a driver names the need.
-- §"Internal implementation" — clock source: `moonbitlang/core/bench.monotonic_clock_start / monotonic_clock_end` (added to `cells/moon.pkg` main import block; currently test/wbtest only). Wrap with private `capture_now() -> @bench.Timestamp` / `elapsed_ns_from(ts) -> Int64` to localize the awkward name. **No public clock-injection API** (`Runtime::new(clock~ : () -> Int64)` was considered and rejected — running user code on the commit path violates T1b's hook contract for the same reason inline listener dispatch does).
+- §"Public API" — revision payload: split into `started_revision : Revision` on **all** terminal events (captured in `before_recompute`, stored with the timer, reused on the matched Completed/Aborted), plus `verified_at : Revision` and `changed_at : Revision` on `Completed`. Reasoning: (1) `rt.cell_info(id)` does NOT expose `current_revision` (verified against `incr/cells/introspection.mbt:15` — only `changed_at` / `verified_at` are surfaced); the prior "available from cell_info anyway" claim was wrong and is removed. (2) `EnteringCompute.revision == Completed.revision` is NOT structurally guaranteed — `Signal::set_unconditional` advances revision via propagation (`incr/cells/input.mbt:222`) and is not currently guarded against an active tracking stack, so revision *can* advance during a compute closure. Capturing once at hook entry and threading it through is the only honest way to keep events bracketed. **Transaction grouping** (driver wanting "events from one batch") is explicitly NOT exposed via these fields — deferred to a future ADR for `BatchStart`/`BatchEnd` variants or batched delivery, when a driver names the need.
+- §"Internal implementation" — clock source: `moonbitlang/core/bench.monotonic_clock_start / monotonic_clock_end` (added to `incr/cells/moon.pkg` main import block; currently test/wbtest only). Wrap with private `capture_now() -> @bench.Timestamp` / `elapsed_ns_from(ts) -> Int64` to localize the awkward name. **No public clock-injection API** (`Runtime::new(clock~ : () -> Int64)` was considered and rejected — running user code on the commit path violates T1b's hook contract for the same reason inline listener dispatch does).
 - §"Internal implementation" — `elapsed_ns` field documented as **best-effort monotonic elapsed nanoseconds; backend-resolution dependent**. Underlying clocks vary by target (native: timespec, exposed as µs precision; wasm: secs-f64 → µs; JS: `performance.now()` → µs). The `Int64` ns type is for consumer convenience, not a precision promise.
 - §"Internal implementation" — **listener-mutation guard**: `Runtime::on_memo_event` and `Runtime::clear_memo_event_listener` `raise Failure` unless a **composite "no operation in flight" predicate** holds:
 
@@ -28,17 +28,17 @@
 
   Three earlier attempts at the boundary were insufficient and rejected:
   - `tracking.stack.is_empty()` alone (too narrow): post-propagation on_change callbacks run with empty stack but buffered events.
-  - `phase == Idle` alone (still too narrow per third-pass Codex review): `PropagationPhase` is `Idle | PushPropagating | InFixpoint | GarbageCollecting` (verified at `cells/internal/kernel/state.mbt:54`). Memo compute, `commit_batch` post-propagation, `commit_batch`'s on_change firing, and post-`run_fixpoint` publish all run with `phase == Idle` — the guard would fail open.
+  - `phase == Idle` alone (still too narrow per third-pass Codex review): `PropagationPhase` is `Idle | PushPropagating | InFixpoint | GarbageCollecting` (verified at `incr/cells/internal/kernel/state.mbt:54`). Memo compute, `commit_batch` post-propagation, `commit_batch`'s on_change firing, and post-`run_fixpoint` publish all run with `phase == Idle` — the guard would fail open.
   - Combining `phase` and `tracking.stack` (still misses on_change windows).
 
   The composite predicate above covers all cases. The `pending.is_empty()` term is the key generalization: if events are buffered, an operation is in flight by definition, and listener mutation must wait. The `!draining` term forbids listener mutation from inside a listener callback itself (which would otherwise be the one user-code window where the predicate could simultaneously look idle yet have side effects). Mirrors the accumulator API's "called outside tracked context" defect class.
 - §"Drain protocol" — drain-before-abort sites use a **direct** `event_broadcast_hook.drain()` call, **not** `drain_pending_events_if_idle()`. The idle-guarded helper returns early when `tracking.stack` is non-empty, which is exactly the case during nested aborts (`Memo::get_result` called from inside an outer memo's compute closure — outer frame remains, inner aborts). Stranding the event was the failure mode in the first-pass amendment. Justification for bypassing the idle guard at abort sites: control isn't returning to the outer frame — `abort()` is uncatchable — so the "listener shouldn't pollute an outer dep frame" rationale that normally requires `tracking.stack.is_empty()` doesn't apply. The listener observes events with `tracking.stack` non-empty in this one path; document the exception in §"What user callbacks may and may not do".
-- §"Drain protocol" — abort-site coverage extended beyond `Memo::get_result` to all public catch-to-abort sites: `Memo::read_permissive` (`cells/derived.mbt`), `MemoMap::get_result` (`cells/derived_map.mbt`), `HybridMemo::read_permissive` (`cells/reachable_derived.mbt`). Phase 1 audits the codebase for further sites that match the pattern. **Uncatchable `abort()` paths from outside the compute** (cycle detection, disposed-cell access, cross-runtime guards) do not trigger `after_abort` because they bypass `memo_force_recompute`'s catch arm. **`abort()` called from inside the compute closure** fires `before_recompute` but does NOT fire `after_abort` — `abort` is uncatchable so the catch arm at `cells/derived.mbt:429-440` is bypassed. The buffered `EnteringCompute` is the last record for that cell; the lifecycle-bracketing guarantee is weakened accordingly (see §"Event ordering and guarantees" §1, §7).
+- §"Drain protocol" — abort-site coverage extended beyond `Memo::get_result` to all public catch-to-abort sites: `Memo::read_permissive` (`incr/cells/derived.mbt`), `MemoMap::get_result` (`incr/cells/derived_map.mbt`), `HybridMemo::read_permissive` (`incr/cells/reachable_derived.mbt`). Phase 1 audits the codebase for further sites that match the pattern. **Uncatchable `abort()` paths from outside the compute** (cycle detection, disposed-cell access, cross-runtime guards) do not trigger `after_abort` because they bypass `memo_force_recompute`'s catch arm. **`abort()` called from inside the compute closure** fires `before_recompute` but does NOT fire `after_abort` — `abort` is uncatchable so the catch arm at `incr/cells/derived.mbt:429-440` is bypassed. The buffered `EnteringCompute` is the last record for that cell; the lifecycle-bracketing guarantee is weakened accordingly (see §"Event ordering and guarantees" §1, §7).
 - §"Internal implementation": T1b ADR amended same-day to extend `MemoCommitPhase::after_abort` with an `Error` parameter. The hook captures `Error` (not a string) into the event payload; stringification is the listener's responsibility.
 
 ## Context
 
-T1b (2026-05-17, amended same-day) introduces a `priv` `MemoCommitPhase` trait inside `cells/` (not `cells/internal/kernel/` — engine isolation forbids the trait there because it takes `rt : Runtime`). The trait has three hooks: `before_recompute` / `after_success` (post-epilogue) / `after_abort`. T1b's PR scope is internal — it refactors the accumulator's three named calls into a trait impl. No public API change.
+T1b (2026-05-17, amended same-day) introduces a `priv` `MemoCommitPhase` trait inside `incr/cells/` (not `incr/cells/internal/kernel/` — engine isolation forbids the trait there because it takes `rt : Runtime`). The trait has three hooks: `before_recompute` / `after_success` (post-epilogue) / `after_abort`. T1b's PR scope is internal — it refactors the accumulator's three named calls into a trait impl. No public API change.
 
 This ADR specifies the **driver-facing** half of the visualization story: a public callback API that drivers register against to observe pull-memo commit-phase events. The implementation is an in-tree `MemoCommitPhase` impl that bridges trait dispatch into user-supplied closures.
 
@@ -67,7 +67,7 @@ Same callback shape powers a CLI profiler (`top`-style rate of recomputes per me
 ## Public API
 
 ```moonbit
-// cells/memo_event.mbt (placement firmed up 2026-05-19)
+// incr/cells/memo_event.mbt (placement firmed up 2026-05-19)
 
 pub(all) struct MemoEnteringEvent {
   cell_id : CellId
@@ -132,16 +132,16 @@ The *semantic content* is fixed at commissioning (post 2026-05-19 resolution):
 | `Completed` | `cell_id`, `elapsed_ns`, `started_revision`, `verified_at`, `changed_at`, `backdated` |
 | `Aborted` | `cell_id`, `elapsed_ns`, `started_revision`, `error : Error` |
 
-`started_revision` is captured in `before_recompute` and reused on the matched terminal event — drain-time `rt.core.revision.current_revision` is unreliable because listener-triggered `Signal::set` can advance revision between the buffered event and delivery, and `Signal::set_unconditional` (`cells/input.mbt:222`) is not currently guarded against an active tracking stack so revision can advance mid-recompute. `verified_at` and `changed_at` are read off `MemoData` after the cell-level epilogue settles them; `backdated = changed_at < verified_at` is kept as a convenience derivation (driver code is cleaner with the bool). Note: `rt.cell_info(id)` exposes `changed_at` and `verified_at` (`cells/introspection.mbt:15`) but **not** runtime-wide `current_revision` — driver-side reconstruction of `started_revision` without it on the event payload is impossible. Transaction grouping (driver use case for "events from one batch") is **not** exposed via these fields — deferred to a future ADR for `BatchStart`/`BatchEnd` variants or batched delivery, when a driver names the need.
+`started_revision` is captured in `before_recompute` and reused on the matched terminal event — drain-time `rt.core.revision.current_revision` is unreliable because listener-triggered `Signal::set` can advance revision between the buffered event and delivery, and `Signal::set_unconditional` (`incr/cells/input.mbt:222`) is not currently guarded against an active tracking stack so revision can advance mid-recompute. `verified_at` and `changed_at` are read off `MemoData` after the cell-level epilogue settles them; `backdated = changed_at < verified_at` is kept as a convenience derivation (driver code is cleaner with the bool). Note: `rt.cell_info(id)` exposes `changed_at` and `verified_at` (`incr/cells/introspection.mbt:15`) but **not** runtime-wide `current_revision` — driver-side reconstruction of `started_revision` without it on the event payload is impossible. Transaction grouping (driver use case for "events from one batch") is **not** exposed via these fields — deferred to a future ADR for `BatchStart`/`BatchEnd` variants or batched delivery, when a driver names the need.
 
 ## Internal implementation
 
-One new in-tree implementor of T1b's trait, plus a runtime-side drain protocol. Both live in `cells/`, not in `cells/internal/kernel/`.
+One new in-tree implementor of T1b's trait, plus a runtime-side drain protocol. Both live in `incr/cells/`, not in `incr/cells/internal/kernel/`.
 
 Per T1b's hook contract, the hook **must not** call the user listener inline (typed memo cache not yet written; nested-recompute dep frame pollution; `recompute_inner.changed` decision can be perturbed). Instead, the hook **buffers** events into an internal queue and the runtime **drains** the queue at a safe point.
 
 ```moonbit
-// cells/event_broadcast_hook.mbt
+// incr/cells/event_broadcast_hook.mbt
 
 // Per-cell state between before_recompute and the matched terminal event.
 // Captures the timer + revision once, regardless of listener changes after.
@@ -242,7 +242,7 @@ The hook is **always registered** at `Runtime::new`. `Runtime::on_memo_event` fl
 
 ### Listener mutation guard
 
-`on_memo_event` and `clear_memo_event_listener` `raise Failure` unless the runtime is genuinely between operations. "Genuinely between operations" is a composite predicate, not a single field check — `PropagationPhase` alone is insufficient because the runtime never enters a phase for top-level memo compute, batch-commit, or post-propagation on_change callback firing (`PropagationPhase` is `Idle | PushPropagating | InFixpoint | GarbageCollecting` per `cells/internal/kernel/state.mbt:54`).
+`on_memo_event` and `clear_memo_event_listener` `raise Failure` unless the runtime is genuinely between operations. "Genuinely between operations" is a composite predicate, not a single field check — `PropagationPhase` alone is insufficient because the runtime never enters a phase for top-level memo compute, batch-commit, or post-propagation on_change callback firing (`PropagationPhase` is `Idle | PushPropagating | InFixpoint | GarbageCollecting` per `incr/cells/internal/kernel/state.mbt:54`).
 
 Concretely:
 
@@ -290,17 +290,17 @@ The drain fires at the **completion of every framework operation that could sync
 
 - **End of every public read API** that goes through `force_recompute` — `Memo::get`, `Memo::get_result`, `Memo::get_or`, `Memo::get_or_else`, `HybridMemo::get`, `HybridMemo::get_result`, plus `MemoMap` variants, **plus `Memo::accumulated` and `Memo::accumulated_result`** (which call `ensure_computed_untracked`, which calls `force_recompute`). Specifically: after the typed cache assignment, when `tracking_stack.is_empty()`.
 
-  *Why this and not just "end of `recompute_inner`":* per Codex review round 3, `force_recompute` is also called from `get_result_inner` directly on first-compute paths that don't pass through `recompute_inner` (`cells/derived.mbt:246`, `:338`). Drain placement must cover all callers, not assume a single path.
+  *Why this and not just "end of `recompute_inner`":* per Codex review round 3, `force_recompute` is also called from `get_result_inner` directly on first-compute paths that don't pass through `recompute_inner` (`incr/cells/derived.mbt:246`, `:338`). Drain placement must cover all callers, not assume a single path.
 - **End of `Observer::get`** and any `Runtime::read*` helpers (Database trait readers) — same reason as above; these are user-facing read entry points.
 - **End of `Signal::set` outside a batch** — calls `propagate_changes` synchronously, which can trigger push-reactive recomputes; effect closures inside those recomputes can read memos, which buffer events. Drain at the bottom of `Signal::set` catches those.
 - **End of `commit_batch`** after `propagate_changes` returns. Ordering matters: drain fires **after** existing `on_change` callbacks complete, so on_change handlers' synchronously-triggered recomputes flush in the same drain pass. (The `draining : Bool` reentry guard ensures any drain attempt nested inside an on_change handler returns immediately; the outer drain's while-loop picks up the tail.)
 - **End of `Runtime::gc`** — defensive. gc can dispose memos, which is a recompute-adjacent operation; even though gc doesn't itself fire memo events today, future hook additions might.
-- **End of `Runtime::fixpoint`** — after `run_fixpoint` returns and the datalog publish phase completes. Push reactives created during publish can read memos (which buffer events), and the publish phase runs with `phase` already back to `Idle` (`run_fixpoint` exits `InFixpoint` before publication — see `cells/datalog_fixpoint.mbt:113`), so the post-fixpoint window has the exact "looks idle but events pending" shape that motivates the composite listener-mutation guard.
+- **End of `Runtime::fixpoint`** — after `run_fixpoint` returns and the datalog publish phase completes. Push reactives created during publish can read memos (which buffer events), and the publish phase runs with `phase` already back to `Idle` (`run_fixpoint` exits `InFixpoint` before publication — see `incr/cells/datalog_fixpoint.mbt:113`), so the post-fixpoint window has the exact "looks idle but events pending" shape that motivates the composite listener-mutation guard.
 - **Catchable internal recompute error-exit** — if an internal recompute API such as `Memo::force_recompute` `raise`s a catchable `Failure` (not abort), buffered events stay in `pending`. They flush at the next drain-eligible operation. This is documented behavior, not a missed drain: the caller has the typed `Failure` in hand and can choose to retry, log, or terminate. Public verifying reads no longer expose this catchable path after the honest `ReadError` accumulator migration; `Memo::accumulated` / `accumulated_result` now abort on a target compute `Failure`, matching other read APIs.
 - **Direct drain at public catch-to-abort sites** — *not* via the idle-guarded helper. These are the points where a memo's compute `raise`s, the inner `memo_force_recompute` catch arm fires `after_abort` (buffering `Aborted`), and the public-API wrapper then translates the propagating raise into an uncatchable `abort()`. The buffered event would be stranded if drain were idle-guarded, because `tracking.stack` may still hold an *outer* compute frame (nested case: outer memo's compute closure called inner memo's get path; inner aborts; outer is still on the stack). The audit covers all such sites:
-  - `Memo::get_result` catch arm at `cells/derived.mbt:207-209`
+  - `Memo::get_result` catch arm at `incr/cells/derived.mbt:207-209`
   - `Memo::read_permissive`
-  - `MemoMap::get_result` at `cells/derived_map.mbt:93-95`
+  - `MemoMap::get_result` at `incr/cells/derived_map.mbt:93-95`
   - `HybridMemo::read_permissive`
   - Phase 1 audits the codebase for further sites matching the pattern `... catch { e => abort(...) }` at the public-API boundary.
 
@@ -359,7 +359,7 @@ The implementation plan must explicitly mark these drain sites in the source as 
 
 **Three implementation details — resolved 2026-05-19 (Codex commissioning review).** Summarized here for historical record; see the 2026-05-19 amendments block at the top of this ADR for the full rationale.
 
-1. **Monotonic clock source.** Resolved: `moonbitlang/core/bench.monotonic_clock_start / monotonic_clock_end`, added to `cells/moon.pkg` main imports; wrapped via private `capture_now()` / `elapsed_ns_from(ts)`. No public clock-injection API. `elapsed_ns` documented as best-effort, backend-resolution dependent.
+1. **Monotonic clock source.** Resolved: `moonbitlang/core/bench.monotonic_clock_start / monotonic_clock_end`, added to `incr/cells/moon.pkg` main imports; wrapped via private `capture_now()` / `elapsed_ns_from(ts)`. No public clock-injection API. `elapsed_ns` documented as best-effort, backend-resolution dependent.
 2. **Error capture on abort.** Resolved: T1b's `MemoCommitPhase::after_abort` extended with an `Error` parameter (2026-05-19 amendment to T1b ADR). Hook captures `Error` typed value into `MemoAbortedEvent.error`; stringification is the listener's responsibility. Drop-in change to `AccumulatorCommitHook::after_abort` (`_e : Error` ignored).
 3. **`was_backdated` detection.** Resolved: a pure read of cell state — `cell.meta.changed_at < cell.verified_at` — captured into `MemoCompletedEvent` as both the typed `changed_at`/`verified_at` fields and the `backdated : Bool` convenience flag. T1b's amended timing already ensures both are settled when `after_success` fires.
 
@@ -385,18 +385,18 @@ Single PR after T1b's PR has merged. Codex pre-implementation review of the even
 
 Before any viz-tap code lands, extend the `MemoCommitPhase` trait shipped by T1b (PR #52, commit `5788223`) to carry `Error` on `after_abort`. This is a 5-file mechanical change inside this PR (not a separate prior PR):
 
-- `cells/memo_commit_phase.mbt`: change `after_abort(Self, Runtime, CellId) -> Unit` to `after_abort(Self, Runtime, CellId, Error) -> Unit`.
-- `cells/accumulator_commit_hook.mbt`: update the existing `impl MemoCommitPhase for AccumulatorCommitHook with after_abort(self, rt, cell_id)` to `after_abort(self, rt, cell_id, _e)`; body unchanged (accumulator ignores the error).
-- `cells/derived.mbt:432-434`: update the dispatch loop to pass `e` through (`hook.after_abort(self, cell_id, e)`).
-- `cells/accumulator_commit_hook_wbtest.mbt:64`: test-only `MemoCommitPhase` impl for `SentinelHook` — update the impl signature to accept `_e : Error` so it matches the trait.
-- `cells/accumulator_restore_bench_wbtest.mbt:57`: benchmark that calls `after_abort` directly — update the call site to pass an `Error` argument.
+- `incr/cells/memo_commit_phase.mbt`: change `after_abort(Self, Runtime, CellId) -> Unit` to `after_abort(Self, Runtime, CellId, Error) -> Unit`.
+- `incr/cells/accumulator_commit_hook.mbt`: update the existing `impl MemoCommitPhase for AccumulatorCommitHook with after_abort(self, rt, cell_id)` to `after_abort(self, rt, cell_id, _e)`; body unchanged (accumulator ignores the error).
+- `incr/cells/derived.mbt:432-434`: update the dispatch loop to pass `e` through (`hook.after_abort(self, cell_id, e)`).
+- `incr/cells/accumulator_commit_hook_wbtest.mbt:64`: test-only `MemoCommitPhase` impl for `SentinelHook` — update the impl signature to accept `_e : Error` so it matches the trait.
+- `incr/cells/accumulator_restore_bench_wbtest.mbt:57`: benchmark that calls `after_abort` directly — update the call site to pass an `Error` argument.
 
 Verification: full test suite green. The change is signature-only for the `_e`-ignoring accumulator impl, so no behavior change. T1b ADR amended same-day to record the signature change.
 
 ### Phase 1 — Internal hook + zero-listener wiring + drain sites
 
-- Add `"moonbitlang/core/bench"` to `cells/moon.pkg`'s **main** import block (currently test/wbtest only). No downstream impact — bench is package-local.
-- Add `cells/event_broadcast_hook.mbt` with `EventBroadcastPhaseHook` struct (per the §"Internal implementation" code block above): `active : @hashmap.HashMap[CellId, RecomputeStart]` for per-cell state, `pending : Array[MemoEvent]` buffer, `draining : Bool` reentry guard, and `mut listener` flipped by the public API. Private `capture_now()` / `elapsed_ns_from(ts)` clock wrappers. Drain helper with `while !pending.is_empty()` loop for tail flush. **No try/catch** — listener type `(MemoEvent) -> Unit` is non-raising; raising listeners cannot be registered (type-system rejection at `on_memo_event` call).
+- Add `"moonbitlang/core/bench"` to `incr/cells/moon.pkg`'s **main** import block (currently test/wbtest only). No downstream impact — bench is package-local.
+- Add `incr/cells/event_broadcast_hook.mbt` with `EventBroadcastPhaseHook` struct (per the §"Internal implementation" code block above): `active : @hashmap.HashMap[CellId, RecomputeStart]` for per-cell state, `pending : Array[MemoEvent]` buffer, `draining : Bool` reentry guard, and `mut listener` flipped by the public API. Private `capture_now()` / `elapsed_ns_from(ts)` clock wrappers. Drain helper with `while !pending.is_empty()` loop for tail flush. **No try/catch** — listener type `(MemoEvent) -> Unit` is non-raising; raising listeners cannot be registered (type-system rejection at `on_memo_event` call).
 - Register at `Runtime::new` with `listener: None`. Add typed field `priv event_broadcast_hook : EventBroadcastPhaseHook` on `Runtime`, mirroring the `accumulator_commit_hook` pattern from T1b. Register the same object in `commit_hooks`.
 - Add `priv fn Runtime::drain_pending_events_if_idle()` helper that checks `tracking_stack.is_empty()` and then calls `event_broadcast_hook.drain()`.
 - Add **idle-guarded** drain calls at the safe points enumerated in §"Drain protocol": all public read APIs (`Memo::get*`, `HybridMemo::get*`, `MemoMap::get*`, `Memo::accumulated*`, `Observer::get`, `Runtime::read*`), end of `Signal::set` when outside a batch, end of `commit_batch` (after on_change firing per §"Drain protocol"), end of `Runtime::gc`. These call `Runtime::drain_pending_events_if_idle()`.
@@ -407,7 +407,7 @@ Verification: all existing tests green; bench gate ±2% on commit-path benches w
 
 ### Phase 2 — Public API
 
-- Add `cells/memo_event.mbt` with `pub(all) struct MemoEnteringEvent`, `pub(all) struct MemoCompletedEvent`, `pub(all) struct MemoAbortedEvent` (per §"Public API" code block), and `pub(all) enum MemoEvent` wrapping them.
+- Add `incr/cells/memo_event.mbt` with `pub(all) struct MemoEnteringEvent`, `pub(all) struct MemoCompletedEvent`, `pub(all) struct MemoAbortedEvent` (per §"Public API" code block), and `pub(all) enum MemoEvent` wrapping them.
 - **Do not** apply `derive(Debug)` on the event structs or wrapping enum. MoonBit's `@debug.Debug` deriver does not recognize the `Error` supertype, so deriving would either fail to compile or produce unhelpful fall-through output. Drivers stringify on demand via `e.error.to_string()` (the `%error.to_string` primitive — safe to call, non-fallible). A manual `Show` impl that formats fields explicitly is an option only if a driver later names default log-rendering as a need.
 - Add `pub fn Runtime::on_memo_event(...) -> Unit raise Failure` and `pub fn Runtime::clear_memo_event_listener(...) -> Unit raise Failure`. Both `fail()` unless the composite predicate `is_listener_mutation_safe()` holds (see §"Listener mutation guard"). Wire to `EventBroadcastPhaseHook.listener`.
 - Add the new accessors to `.mbti` via `moon info`.
@@ -443,7 +443,7 @@ Verification: `moon info && moon fmt` produces only the expected `.mbti` additio
 |---|---|
 | `moon test` | All existing tests + new event-hook tests green (Phase 0 is a signature-only change to the `_e`-ignoring accumulator impl; full suite must stay green with no behavior change) |
 | `moon info && moon fmt` | The 4 new public types + 2 new fns surface in `.mbti`; no unintended diff (Phase 0 has no `.mbti` diff — trait is `priv`) |
-| `moon bench --release` on `tests/bench_test.mbt` | Commit-path benches with no listener within ±2% of post-T1b baseline; with listener (single trivial callback) within ±5% |
+| `moon bench --release` on `incr/tests/bench_test.mbt` | Commit-path benches with no listener within ±2% of post-T1b baseline; with listener (single trivial callback) within ±5% |
 | `scripts/check-engine-isolation.sh` | Green |
 | Codex pre-implementation | Event shape + timing capture + drain-site coverage (commissioning review completed 2026-05-19) |
 | Codex post-implementation | The hook impl + drain-before-abort path + listener-mutation guard |
@@ -484,10 +484,10 @@ Verification: `moon info && moon fmt` produces only the expected `.mbti` additio
 
 **In scope of this ADR's PR (post T1b merge, single PR):**
 - T1b ADR signature amendment: extend `MemoCommitPhase::after_abort` with `Error` parameter (Phase 0)
-- `pub(all) struct MemoEnteringEvent` / `MemoCompletedEvent` / `MemoAbortedEvent` + wrapping `pub(all) enum MemoEvent` (`cells/memo_event.mbt`)
+- `pub(all) struct MemoEnteringEvent` / `MemoCompletedEvent` / `MemoAbortedEvent` + wrapping `pub(all) enum MemoEvent` (`incr/cells/memo_event.mbt`)
 - `Runtime::on_memo_event` / `Runtime::clear_memo_event_listener` public API, both `raise Failure` unless `is_listener_mutation_safe()` (composite predicate: phase Idle, callback depth 0, tracking stack empty, batch depth 0, pending empty, not draining)
-- `EventBroadcastPhaseHook` internal impl (`cells/event_broadcast_hook.mbt`), `priv` and `cells/`-resident per the engine-isolation rule
-- `moonbitlang/core/bench` added to `cells/moon.pkg`'s main import block for the monotonic clock; private `capture_now()` / `elapsed_ns_from(ts)` wrappers
+- `EventBroadcastPhaseHook` internal impl (`incr/cells/event_broadcast_hook.mbt`), `priv` and `incr/cells/`-resident per the engine-isolation rule
+- `moonbitlang/core/bench` added to `incr/cells/moon.pkg`'s main import block for the monotonic clock; private `capture_now()` / `elapsed_ns_from(ts)` wrappers
 - Drain protocol with idle-guarded drain at normal sites plus **direct (non-idle-guarded) drain at all public catch-to-abort sites**: `Memo::get_result`, `Memo::read_permissive`, `MemoMap::get_result`, `HybridMemo::read_permissive`, plus end-of-`Runtime::fixpoint` drain (covers the post-publish window)
 - Tests + docs as listed in Phase 3
 

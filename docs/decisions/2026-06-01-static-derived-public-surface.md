@@ -8,7 +8,7 @@
 
 ## Context
 
-PR [#135](https://github.com/dowdiness/incr/pull/135) shipped a package-private static/applicative `Derived` fast path. It returns normal target-facade `Derived` handles backed by the pull backend, registers a fixed dependency list once, and recomputes without dynamic tracking-stack allocation or dependency-list diffing. The private entry points remain package-local (`StaticDerivedSource`, `Runtime::install_static_derived`, and helpers in `cells/static_derived_probe.mbt`).
+PR [#135](https://github.com/dowdiness/incr/pull/135) shipped a package-private static/applicative `Derived` fast path. It returns normal target-facade `Derived` handles backed by the pull backend, registers a fixed dependency list once, and recomputes without dynamic tracking-stack allocation or dependency-list diffing. The private entry points remain package-local (`StaticDerivedSource`, `Runtime::install_static_derived`, and helpers in `incr/cells/static_derived_probe.mbt`).
 
 The measured signal is real: scalar map1/map2/map3 stale recomputes are roughly 1.4–1.9× faster than dynamic `Derived`, and the UI tree-shaped graph still wins on both wasm-gc and JS. The layered fanout shape is noise/small-win level because one derived recompute is amortized across many eager leaves.
 
