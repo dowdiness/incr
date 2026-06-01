@@ -4,7 +4,7 @@
 
 **Backends:** wasm-gc (default), JS (Node + V8)
 
-**Fixture/bench files:** [`tests/graph_editor_fixture_test.mbt`](../../tests/graph_editor_fixture_test.mbt), [`tests/graph_editor_bench_test.mbt`](../../tests/graph_editor_bench_test.mbt)
+**Fixture/bench files:** [`tests/graph_editor_fixture_test.mbt`](../../incr/tests/graph_editor_fixture_test.mbt), [`tests/graph_editor_bench_test.mbt`](../../incr/tests/graph_editor_bench_test.mbt)
 
 **Question:** For a future node-graph editor, how should `incr` consumers separate durable document recomputation from high-frequency ephemeral UI state such as hover, drag preview, pan, and zoom?
 

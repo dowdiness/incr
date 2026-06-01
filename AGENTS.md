@@ -4,24 +4,27 @@ This file is the canonical entry point for human contributors and coding agents 
 
 ## Project Overview
 
-`incr` is a Salsa-inspired incremental recomputation library in MoonBit. The codebase has roughly five public packages and five `internal/` engine sub-packages under `cells/`. See [`docs/architecture.md`](docs/architecture.md) for the package map and [`docs/design/internals.md`](docs/design/internals.md) for the verification algorithm.
+`incr` is a Salsa-inspired incremental recomputation library in MoonBit. The repository root is a MoonBit workspace: the publishable library module lives under `incr/`, checked docs live under `docs/`, and demos/spikes live under `examples/` as separate workspace modules. The library has roughly five public packages and five `internal/` engine sub-packages under `incr/cells/`. See [`docs/architecture.md`](docs/architecture.md) for the package map and [`docs/design/internals.md`](docs/design/internals.md) for the verification algorithm.
 
-Users care about: `Signal`, `Memo`, `MemoMap`, `HybridMemo`, `TrackedCell`, `Reactive`, `Effect`, `Relation`, `Accumulator`, `Scope`, plus the `Database` / `Readable` / `Trackable` traits. Anything under `cells/internal/` is implementation detail and the compiler enforces that visibility.
+Users care about: `Signal`, `Memo`, `MemoMap`, `HybridMemo`, `TrackedCell`, `Reactive`, `Effect`, `Relation`, `Accumulator`, `Scope`, plus the `Database` / `Readable` / `Trackable` traits. Anything under `incr/cells/internal/` is implementation detail and the compiler enforces that visibility.
 
 ## Project Structure & Module Organization
 
 ```
-incr.mbt, traits.mbt        ← Root facade (re-exports + `create_*` helpers)
-types/                      ← Pure value types
-cells/                      ← Engine: handles, lifecycles, the Runtime coordinator
-cells/internal/             ← shared, pull, push, datalog, kernel (compiler-enforced)
-pipeline/                   ← Experimental, single 52-LOC file
-tests/                      ← Integration tests against the public API
-docs/                       ← Index in docs/README.md
+moon.work                   ← Workspace root, MoUI-style member fanout
+incr/                       ← `dowdiness/incr` library module
+  incr.mbt, traits.mbt      ← Root facade (re-exports + `create_*` helpers)
+  types/                    ← Pure value types
+  cells/                    ← Engine: handles, lifecycles, the Runtime coordinator
+  cells/internal/           ← shared, pull, push, datalog, kernel (compiler-enforced)
+  pipeline/                 ← Experimental, single 52-LOC file
+  tests/                    ← Integration tests against the public API
+docs/                       ← Checked docs workspace member + docs/README.md index
+examples/                   ← Standalone workspace modules for demos and spikes
 scripts/                    ← check-engine-isolation.sh enforces internal-package invariants
 ```
 
-Tests inside `cells/` live beside source:
+Tests inside `incr/cells/` live beside source:
 - Black-box: `*_test.mbt` (cannot construct private fields)
 - White-box: `*_wbtest.mbt` (same package — can reach `priv` state)
 
@@ -30,19 +33,19 @@ Generated `pkg.generated.mbti` files are **not edited by hand** — `moon info` 
 ## Build, Test, and Development Commands
 
 ```bash
-moon check          # Type-check; fast; run after every edit
-moon build          # Compile
-moon test           # Full test suite (~650 test blocks)
-moon bench --release  # Microbenchmarks — only meaningful with --release
-moon fmt            # Apply standard formatting
+moon check          # Type-check the workspace; fast; run after every edit
+moon build          # Compile the workspace
+moon test           # Full workspace test suite (~878 test blocks)
+moon bench --release  # Microbenchmarks — always pass --release
+moon fmt            # Apply standard formatting across workspace members
 moon info           # Regenerate all pkg.generated.mbti files
 ```
 
 Targeted runs:
 ```bash
-moon test cells/derived_test.mbt                            # one file
-moon test cells/derived_test.mbt -i 0                       # one test by index
-moon test tests                                             # integration tests only
+moon test incr/cells/derived_test.mbt                       # one file
+moon test incr/cells/derived_test.mbt -i 0                  # one test by index
+moon test incr/tests                                        # integration tests only
 ```
 
 There is no CI in this submodule directory. CI runs from the parent `canopy` repo.
@@ -62,7 +65,7 @@ Where things go:
 
 | Content | Location |
 |---|---|
-| Quick pitch, install, minimal example, dev commands | `README.md` |
+| Quick pitch, install, minimal example, dev commands | `incr/README.mbt.md` (root `README.md` is a workspace pointer) |
 | Tutorial / first computation | `docs/getting-started.mbt.md` |
 | Conceptual model (signals, durability, backdating, …) | `docs/concepts.mbt.md` |
 | Patterns and anti-patterns | `docs/cookbook.mbt.md` |
@@ -102,7 +105,7 @@ When adding a new example you want the toolchain to catch:
 - Put it in a `.mbt.md` file (literate test), or
 - Use a ` ```mbt check` block inside a doc comment.
 
-Integration tests in `tests/*_test.mbt` are the strongest correctness signal; prefer adding a test there for any non-trivial behavior you describe in prose.
+Integration tests in `incr/tests/*_test.mbt` are the strongest correctness signal; prefer adding a test there for any non-trivial behavior you describe in prose.
 
 ## Files and outputs not to edit manually
 

@@ -1,5 +1,0 @@
-import {
-  "dowdiness/incr/spikes/ideal_api_rename_phase0/provider" @probe,
-}
-
-warnings = "-20"

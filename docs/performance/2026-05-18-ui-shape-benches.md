@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-18
 **Backends:** wasm-gc (default), JS (Node + V8)
-**Bench file:** [`tests/ui_shape_bench_test.mbt`](../../tests/ui_shape_bench_test.mbt)
+**Bench file:** [`tests/ui_shape_bench_test.mbt`](../../incr/tests/ui_shape_bench_test.mbt)
 **Question:** Can incr's push engine — tuned for parser-shaped (deep, batchy) workloads — drive a UI library at 60 Hz with on the order of 1000 reactive cells?
 
 ## Why this exists

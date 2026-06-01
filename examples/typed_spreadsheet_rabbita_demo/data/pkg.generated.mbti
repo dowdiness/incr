@@ -1,7 +1,8 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "examples/typed_spreadsheet_cli_demo"
+package "examples/typed_spreadsheet_rabbita_demo/data"
 
 // Values
+pub fn typed_spreadsheet_scenario_json() -> String
 
 // Errors
 

@@ -1,8 +1,8 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "dowdiness/incr/spikes/ideal_api_rename_phase0/consumer"
+package "examples/spikes/ideal_api_rename_phase0/consumer"
 
 import {
-  "dowdiness/incr/spikes/ideal_api_rename_phase0/provider",
+  "examples/spikes/ideal_api_rename_phase0/provider",
 }
 
 // Values

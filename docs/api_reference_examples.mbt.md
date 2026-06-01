@@ -961,7 +961,7 @@ delegate to the underlying cycle). The compute closure is expected to react to
 that (by returning a sentinel, raising `Failure`, or otherwise handling it) —
 outer `read()` / `read_or_abort()` do not catch the cycle after the closure has
 produced a value. See
-[`cells/cycle_path_test.mbt`](../cells/cycle_path_test.mbt) for the full set of
+[`cells/cycle_path_test.mbt`](../incr/cells/cycle_path_test.mbt) for the full set of
 cycle shapes.
 
 ```mbt check

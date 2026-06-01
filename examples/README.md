@@ -1,0 +1,30 @@
+# Examples
+
+Standalone workspace modules that exercise or demonstrate `dowdiness/incr` without adding demo-only dependencies to the core library module.
+
+## Typed spreadsheet
+
+- [`typed_spreadsheet_demo/`](typed_spreadsheet_demo/) — shared operation vocabulary, formula text parser, fixed scenario, and serializable view model.
+- [`typed_spreadsheet_cli_demo/`](typed_spreadsheet_cli_demo/) — CLI rendering for the shared fixed scenario.
+- [`typed_spreadsheet_rabbita_demo/`](typed_spreadsheet_rabbita_demo/) — editable browser UI built with Rabbita.
+
+## Spikes
+
+- [`spikes/ideal_api_rename_phase0/`](spikes/ideal_api_rename_phase0/) — checked language-mechanics probe for the public API rename migration plan.
+
+## Commands
+
+Run from the repository root:
+
+```bash
+moon check
+moon test
+moon run examples/typed_spreadsheet_cli_demo -- --format json
+```
+
+Run the browser demo from its module directory:
+
+```bash
+cd examples/typed_spreadsheet_rabbita_demo
+npm run dev
+```

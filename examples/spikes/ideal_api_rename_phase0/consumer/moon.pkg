@@ -1,0 +1,5 @@
+import {
+  "examples/spikes/ideal_api_rename_phase0/provider" @probe,
+}
+
+warnings = "-20"

@@ -4,6 +4,10 @@
 set -euo pipefail
 
 fail=0
+src_root="${INCR_SRC_ROOT:-incr}"
+if [ ! -d "$src_root/cells" ] && [ -d "cells" ]; then
+  src_root="."
+fi
 # Engine siblings — sibling-isolation rule (invariant 1) applies to these.
 engines=(pull push datalog)
 # All internal packages — back-edge rule (invariant 3) applies to all of these,
@@ -30,7 +34,7 @@ extract_imports() {
 
 # Invariant 1: no cross-engine sibling imports.
 for engine in "${engines[@]}"; do
-  pkg="cells/internal/$engine/moon.pkg"
+  pkg="$src_root/cells/internal/$engine/moon.pkg"
   if [ ! -f "$pkg" ]; then
     echo "MISSING: $pkg"
     fail=1
@@ -40,7 +44,7 @@ for engine in "${engines[@]}"; do
   for other in "${engines[@]}"; do
     [ "$engine" = "$other" ] && continue
     if echo "$imports" | grep -Fxq "dowdiness/incr/cells/internal/$other"; then
-      echo "FAIL: cells/internal/$engine imports cells/internal/$other"
+      echo "FAIL: $src_root/cells/internal/$engine imports cells/internal/$other"
       fail=1
     fi
   done
@@ -50,12 +54,12 @@ done
 # (no engine, no kernel — shared is the leaf the rest of internal/ rests on).
 # The back-edge check for shared is covered by invariant 3 below; invariant 4
 # covers shared not importing kernel.
-shared_pkg="cells/internal/shared/moon.pkg"
+shared_pkg="$src_root/cells/internal/shared/moon.pkg"
 if [ -f "$shared_pkg" ]; then
   imports=$(extract_imports "$shared_pkg")
   for other in "${engines[@]}"; do
     if echo "$imports" | grep -Fxq "dowdiness/incr/cells/internal/$other"; then
-      echo "FAIL: cells/internal/shared imports cells/internal/$other"
+      echo "FAIL: $src_root/cells/internal/shared imports cells/internal/$other"
       fail=1
     fi
   done
@@ -66,26 +70,26 @@ fi
 
 # Invariant 3: no back-edges from any internal/* (engines, shared, kernel) to cells/.
 for pkg_name in "${internals[@]}"; do
-  pkg="cells/internal/$pkg_name/moon.pkg"
+  pkg="$src_root/cells/internal/$pkg_name/moon.pkg"
   [ -f "$pkg" ] || continue
   imports=$(extract_imports "$pkg")
   # Any import starting with "dowdiness/incr/cells" that is NOT a
   # "dowdiness/incr/cells/internal/..." path counts as a back-edge.
   if echo "$imports" | grep -E '^dowdiness/incr/cells($|/)' | grep -vE '^dowdiness/incr/cells/internal($|/)' | grep -q .; then
-    echo "FAIL: cells/internal/$pkg_name imports cells/ (back-edge)"
+    echo "FAIL: $src_root/cells/internal/$pkg_name imports cells/ (back-edge)"
     fail=1
   fi
 done
 
 # Invariant 4: kernel is one-way — engines/shared must not import kernel.
-# Only cells/*.mbt (top level) may import @kernel, otherwise we form a cycle
+# Only incr/cells/*.mbt (top level) may import @kernel, otherwise we form a cycle
 # with invariant 3 (kernel imports the engines + shared).
 for pkg_name in "${engines[@]}" shared; do
-  pkg="cells/internal/$pkg_name/moon.pkg"
+  pkg="$src_root/cells/internal/$pkg_name/moon.pkg"
   [ -f "$pkg" ] || continue
   imports=$(extract_imports "$pkg")
   if echo "$imports" | grep -Fxq 'dowdiness/incr/cells/internal/kernel'; then
-    echo "FAIL: cells/internal/$pkg_name imports cells/internal/kernel (must be cells/*.mbt only)"
+    echo "FAIL: $src_root/cells/internal/$pkg_name imports cells/internal/kernel (must be $src_root/cells/*.mbt only)"
     fail=1
   fi
 done

@@ -1,5 +1,5 @@
 import {
-  "dowdiness/incr/examples/typed_spreadsheet_demo" @demo,
+  "examples/typed_spreadsheet_demo" @demo,
 }
 
 supported_targets = "js"

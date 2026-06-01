@@ -97,6 +97,7 @@ Architecture Decision Records — the *why* behind significant design choices. K
 | [2026-05-21](decisions/2026-05-21-public-api-ideal-naming.md) | Ideal public API naming: `Input`, `Derived`, `ReachableDerived`, `EagerDerived`, `DerivedMap`, `InputField`, `Watch`, `RuntimeContext`; `get`/`read` return `Result` for fallible derived reads and aborting shortcuts use `_or_abort`. |
 | [2026-05-30](decisions/2026-05-30-reachable-derived-differentiate-or-collapse.md) | ReachableDerived — differentiate or collapse. Spike (typed-spreadsheet driver) found `Derived` ≡ `ReachableDerived` today: identical read paths, identical `push_reachable_count` participation, vestigial `is_hybrid`. Proposes (b) differentiate into a genuine eager-when-reachable memo that recomputes during push propagation + emits unified eval events; fallback (a) collapse/deprecate. Status: **Deferred** (2026-05-31) — interim keep + docs corrected; re-open trigger = a projectional-editor viewport over `core/projection_memo.mbt` needing per-edit change-set observation; sunset to (a) collapse before external-user API stability. |
 | [2026-06-01](decisions/2026-06-01-static-derived-public-surface.md) | Static Derived public surface: keep the measured static/applicative fast path package-private. No public `Derived::map*`, `Scope::derived_static*`, compatibility conveniences, or raw installer until an `Expr[T]` lowering need, a measured scope-owned attachment win, or downstream UI wrapper duplication supplies a concrete driver. |
+| [2026-06-01](decisions/2026-06-01-moui-style-workspace-layout.md) | MoUI-style workspace layout: repository-level `moon.work`, publishable `dowdiness/incr` module under `incr/`, checked docs as a workspace member, and standalone example modules. |
 
 ---
 
@@ -124,7 +125,7 @@ Large historical collection under [`archive/`](archive/) covering completed plan
 
 ## External Resources
 
-- [Main README](../README.md) — project overview and quick start
+- [Library README](../incr/README.mbt.md) — project overview and quick start
 - [CLAUDE.md](../CLAUDE.md) — contributor/AI-agent guidance on commands and architecture
-- Source code: root directory `.mbt` files
-- Tests: `*_test.mbt` and `*_wbtest.mbt` files
+- Source code: [`../incr/`](../incr/) module packages
+- Tests: `*_test.mbt` and `*_wbtest.mbt` files under `../incr/` and example modules

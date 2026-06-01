@@ -14,24 +14,24 @@ A Salsa-inspired incremental recomputation library written in MoonBit. Provides 
 moon check          # Type-check without building
 moon build          # Build the library
 moon test           # Run all tests across all packages
-moon test cells/derived_test.mbt                                # Run tests in a specific file
-moon test cells/derived_test.mbt -i 0                           # Run a single test by index
-moon test tests                                                 # Run integration tests only
+moon test incr/cells/derived_test.mbt                           # Run tests in a specific file
+moon test incr/cells/derived_test.mbt -i 0                      # Run a single test by index
+moon test incr/tests                                            # Run integration tests only
 moon check docs/target_api_examples.mbt.md                  # Check literate target API examples
 moon test docs/target_api_examples.mbt.md                   # Run checked docs examples
-moon bench          # Run benchmarks (tests/bench_test.mbt)
+moon bench          # Run benchmarks (incr/tests/bench_test.mbt)
 ```
 
 ## Architecture
 
 The canonical package map is [docs/architecture.md](docs/architecture.md).
-The tree below is a working orientation for Claude Code. `moon.mod` excludes
-`docs/**` and `spikes/**` from the published module, but `docs/` is still a
-MoonBit package in the worktree so literate documentation examples can be
-checked.
+The repository root is a MoonBit workspace. The publishable `dowdiness/incr`
+module lives under `incr/`; checked documentation examples live under `docs/`;
+demos and spikes live under `examples/` as standalone workspace modules. The tree below is
+a working orientation for Claude Code.
 
 ```
-dowdiness/incr/
+incr/                           (module `dowdiness/incr`)
 ├── moon.pkg                    (root facade — imports types + cells)
 ├── incr.mbt                    (transparent pub type aliases for target facades + compatibility handles)
 ├── traits.mbt                  (RuntimeContext/Freshness/InputFieldOwner plus compatibility traits and helpers)
@@ -100,10 +100,11 @@ dowdiness/incr/
 │   ├── subscriber_test.mbt     (subscriber link integration tests)
 │   └── bench_test.mbt          (microbenchmarks — run with moon bench)
 │
-└── docs/                       (worktree-only checked docs package)
-    ├── moon.pkg                (imports dowdiness/incr for literate tests)
-    ├── target_api_examples.mbt.md
-    └── pkg.generated.mbti
+docs/                           (workspace-root checked docs module)
+├── moon.mod                    (imports dowdiness/incr)
+├── moon.pkg                    (imports dowdiness/incr for literate tests)
+├── target_api_examples.mbt.md
+└── pkg.generated.mbti
 ```
 
 The root package re-exports all public types via transparent `pub type` aliases
@@ -123,9 +124,9 @@ For deep internals (verification algorithm, type erasure, SoA storage, push prop
 
 ### Key Facts
 
-- `cells/moon.pkg` suppresses warning 15 (`unused_mut`) because some `mut` fields on `MemoData`/`PullSignalData` are only written in whitebox test compilation, not source-only compilation
-- The `cells/` package imports `moonbitlang/core/hashset` and `moonbitlang/core/hashmap` as external dependencies
-- `cells/internal/{shared,pull,push,datalog,kernel}/` use MoonBit's `internal` package feature. External consumers cannot import them. `scripts/check-engine-isolation.sh` enforces four invariants (R1 Stage 5, 2026-04-25): no cross-engine sibling imports; `shared` is the leaf; no back-edges from any internal package to `cells/`; kernel is one-way (engines/shared cannot import kernel — only `cells/*.mbt` may). Kernel owns graph-mechanics algorithms + coordinator primitives.
+- `incr/cells/moon.pkg` suppresses warning 15 (`unused_mut`) because some `mut` fields on `MemoData`/`PullSignalData` are only written in whitebox test compilation, not source-only compilation
+- The `incr/cells/` package imports `moonbitlang/core/hashset` and `moonbitlang/core/hashmap` as external dependencies
+- `incr/cells/internal/{shared,pull,push,datalog,kernel}/` use MoonBit's `internal` package feature. External consumers cannot import them. `scripts/check-engine-isolation.sh` enforces four invariants (R1 Stage 5, 2026-04-25): no cross-engine sibling imports; `shared` is the leaf; no back-edges from any internal package to `cells/`; kernel is one-way (engines/shared cannot import kernel — only `incr/cells/*.mbt` may). Kernel owns graph-mechanics algorithms + coordinator primitives.
 
 ## Documentation
 
@@ -146,4 +147,4 @@ For deep internals (verification algorithm, type erasure, SoA storage, push prop
   `docs/todo.md` for the remaining lower-priority ADR/design/performance
   snippet migration work.
 
-When contributing, read [docs/design/internals.md](docs/design/internals.md) before modifying core algorithm files like `cells/verify.mbt` or `cells/derived.mbt`.
+When contributing, read [docs/design/internals.md](docs/design/internals.md) before modifying core algorithm files like `incr/cells/verify.mbt` or `incr/cells/derived.mbt`.

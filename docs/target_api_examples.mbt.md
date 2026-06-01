@@ -1,7 +1,7 @@
 # Checked Target API Examples
 
 These literate tests mirror the high-value target API examples in
-[`README.md`](../README.md) and [`getting-started.mbt.md`](getting-started.mbt.md).
+[`incr/README.mbt.md`](../incr/README.mbt.md) and [`getting-started.mbt.md`](getting-started.mbt.md).
 They exist to catch docs/API drift for the recommended facade names, read
 semantics, committed-change callbacks, and batch rollback behavior.
 

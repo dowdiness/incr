@@ -4,7 +4,7 @@
 
 **Backends:** wasm-gc (default), JS (Node + V8)
 
-**Bench file:** [`tests/dsl_authoring_bench_test.mbt`](../../tests/dsl_authoring_bench_test.mbt)
+**Bench file:** [`tests/dsl_authoring_bench_test.mbt`](../../incr/tests/dsl_authoring_bench_test.mbt)
 
 **Question:** For editor/control-side DSL authoring pipelines, should a facade start with coarse staged `Derived` recomputation or pay the complexity of per-node `DerivedMap` caching?
 

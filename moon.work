@@ -1,0 +1,8 @@
+members = [
+  "./incr",
+  "./docs",
+  "./examples/typed_spreadsheet_demo",
+  "./examples/spikes/ideal_api_rename_phase0",
+  "./examples/typed_spreadsheet_cli_demo",
+  "./examples/typed_spreadsheet_rabbita_demo",
+]
