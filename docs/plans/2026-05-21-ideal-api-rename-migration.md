@@ -324,7 +324,7 @@ This spike should be discarded or kept as a tiny preparatory PR; it should not
 mix with the migration itself.
 
 Phase 0 spike result (2026-05-21): compile probes live under
-`spikes/ideal_api_rename_phase0/` and verify the mechanics above.
+`examples/spikes/ideal_api_rename_phase0/` and verify the mechanics above.
 
 - Public `#alias` works for custom constructors and public methods across a
   package boundary.

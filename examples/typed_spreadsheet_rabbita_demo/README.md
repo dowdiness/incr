@@ -10,9 +10,9 @@ operations.
 | Package | Responsibility |
 | --- | --- |
 | `dowdiness/incr/typed_spreadsheet` | Worksheet state, cell evaluation, formula dependencies, trace snapshots. |
-| `dowdiness/incr/examples/typed_spreadsheet_demo` | Demo operation vocabulary, tiny formula text parser, fixed scenario, and serializable fixed ViewModel. |
-| `dowdiness/incr/examples/typed_spreadsheet_cli_demo` | Text/JSON CLI rendering for the shared fixed scenario. |
-| `dowdiness/incr/examples/typed_spreadsheet_rabbita_demo` | Rabbita model/update/view and browser packaging for the editable prototype. No spreadsheet calculation is reimplemented here. |
+| `examples/typed_spreadsheet_demo` | Demo operation vocabulary, tiny formula text parser, fixed scenario, and serializable fixed ViewModel. |
+| `examples/typed_spreadsheet_cli_demo` | Text/JSON CLI rendering for the shared fixed scenario. |
+| `examples/typed_spreadsheet_rabbita_demo` | Rabbita model/update/view and browser packaging for the editable prototype. No spreadsheet calculation is reimplemented here. |
 
 ## Interface direction
 

@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "dowdiness/incr/examples/typed_spreadsheet_cli_demo"
+package "examples/typed_spreadsheet_cli_demo"
 
 // Values
 

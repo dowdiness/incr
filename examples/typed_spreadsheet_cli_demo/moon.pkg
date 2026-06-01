@@ -1,6 +1,6 @@
 import {
   "dowdiness/incr/typed_spreadsheet",
-  "dowdiness/incr/examples/typed_spreadsheet_demo" @demo,
+  "examples/typed_spreadsheet_demo" @demo,
   "moonbitlang/core/argparse",
   "moonbitlang/core/json",
 }

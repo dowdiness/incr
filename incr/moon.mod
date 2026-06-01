@@ -2,7 +2,7 @@ name = "dowdiness/incr"
 
 version = "0.7.0"
 
-readme = "README.md"
+readme = "README.mbt.md"
 
 repository = "https://github.com/dowdiness/incr"
 
@@ -19,11 +19,3 @@ keywords = [
 ]
 
 description = "Salsa-inspired incremental recomputation library with automatic dependency tracking, backdating, and durability-based verification skipping"
-
-import {
-  "moonbit-community/rabbita@0.12.3",
-}
-
-options(
-  exclude: [ "docs/**", "spikes/**" ],
-)

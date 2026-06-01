@@ -8,25 +8,29 @@ For the verification algorithm, type erasure, push propagation, and storage layo
 
 ## Package responsibility map
 
-The main MoonBit packages in `dowdiness/incr` are mapped below. Users import
-only the root facade; everything else is implementation detail, tests, checked
-documentation, or historical spike material. `moon.mod` excludes `docs/**` and
-`spikes/**` from the published module, but `docs/` is still a package in the
-worktree so literate examples can be checked.
+The repository follows the same workspace shape as MoUI: the publishable MoonBit
+module lives under `incr/`, checked documentation examples live under `docs/`,
+and demos/spikes are separate workspace members under `examples/`. The main
+packages in `dowdiness/incr` are mapped below. Users import only the root facade; everything
+else is implementation detail, tests, checked documentation, or standalone demo
+code.
 
 ```
-dowdiness/incr           ← Public API facade (root)
-├── types/               ← Pure value types, zero dependencies
-├── cells/               ← Engine: coordinator + handle types + per-kind lifecycles
-│   └── internal/
-│       ├── shared/      ← Coordinator-only abstractions (CellOps, CellMeta, …)
-│       ├── pull/        ← Pull-engine SoA storage (inputs + lazy derived values)
-│       ├── push/        ← Push-engine SoA storage (Reactive, Effect)
-│       ├── datalog/     ← Datalog SoA storage (Relation, Rule, …)
-│       └── kernel/      ← Graph-mechanics algorithms (verify, propagate, gc, …)
-├── pipeline/            ← Deprecated early pipeline trait sketches (Sourceable / Parseable / …)
-├── tests/               ← Integration tests against the public API
-└── docs/                ← Checked literate documentation examples
+moon.work
+├── incr/                ← module `dowdiness/incr`
+│   ├── .               ← Public API facade (root package)
+│   ├── types/          ← Pure value types, zero dependencies
+│   ├── cells/          ← Engine: coordinator + handle types + per-kind lifecycles
+│   │   └── internal/
+│   │       ├── shared/  ← Coordinator-only abstractions (CellOps, CellMeta, …)
+│   │       ├── pull/    ← Pull-engine SoA storage (inputs + lazy derived values)
+│   │       ├── push/    ← Push-engine SoA storage (Reactive, Effect)
+│   │       ├── datalog/ ← Datalog SoA storage (Relation, Rule, …)
+│   │       └── kernel/  ← Graph-mechanics algorithms (verify, propagate, gc, …)
+│   ├── pipeline/       ← Deprecated early pipeline trait sketches (Sourceable / Parseable / …)
+│   └── tests/          ← Integration tests against the public API
+├── docs/               ← Checked literate documentation examples
+└── examples/           ← Standalone workspace modules for demos and spikes
 ```
 
 | Package | Responsibility | Depends on |
@@ -41,7 +45,7 @@ dowdiness/incr           ← Public API facade (root)
 | `cells/internal/kernel/` | Graph-mechanics algorithms used by the coordinator: pull-verify, push-propagate, batch commit, dispose/GC, dispatch, cycle detection, subscriber diff, fixpoint | `shared`, `pull`, `push`, `datalog` |
 | `pipeline/` | Single file: deprecated early traits `Sourceable` / `Parseable` / `Checkable` / `Executable`. Too stringly-typed for shared build-system use; retained only for source compatibility. | none |
 | `tests/` | Integration tests exercising only the public API | root |
-| `docs/` | Checked literate examples for documentation. Excluded from the published module; imports the root facade only for test blocks. Historical `spikes/**` packages are also excluded and intentionally omitted from this map. | root |
+| `../docs/` | Checked literate examples for documentation. A separate workspace member that imports the root facade only for test blocks. | root |
 
 The five `internal/` sub-packages use MoonBit's `internal` directory visibility, which the compiler enforces. The script `scripts/check-engine-isolation.sh` additionally enforces four hand-curated invariants on top of that (one-way kernel imports, leaf status of `shared`, no engine-to-engine sibling imports, no back-edges into `cells/`).
 

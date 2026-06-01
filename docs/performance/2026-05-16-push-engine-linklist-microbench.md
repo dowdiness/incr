@@ -33,13 +33,13 @@ covers step 1.
 Two paths in the push engine are theoretically improved by a Link-list port:
 
 1. **Subscriber-list iteration during push BFS**
-   ([`cells/internal/kernel/push_propagate.mbt:145`](../../cells/internal/kernel/push_propagate.mbt) —
+   ([`cells/internal/kernel/push_propagate.mbt:145`](../../incr/cells/internal/kernel/push_propagate.mbt) —
    `for sub_id in get_subscribers(core, id)`). `get_subscribers` returns
    `@hashset.HashSet[CellId].iter()`; Link-list replaces hashset traversal with
    pointer-chase.
 
 2. **Source rebinding via `diff_and_update_subscribers`**
-   ([`cells/internal/kernel/subscriber_diff.mbt`](../../cells/internal/kernel/subscriber_diff.mbt)). HashSet
+   ([`cells/internal/kernel/subscriber_diff.mbt`](../../incr/cells/internal/kernel/subscriber_diff.mbt)). HashSet
    `contains` / `add` / `remove_and_check` each hash the `CellId`; Link-list
    eliminates the hashing per dep.
 

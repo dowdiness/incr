@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "dowdiness/incr/examples/typed_spreadsheet_demo"
+package "examples/typed_spreadsheet_demo"
 
 import {
   "dowdiness/incr/typed_spreadsheet",

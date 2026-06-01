@@ -6,15 +6,16 @@ on:
     paths:
       - '.github/workflows/spreadsheet-demo-build.yml'
       - '.github/workflows/spreadsheet-cloudflare-pages.yml'
-      - 'cells/**'
+      - 'moon.work'
+      - 'incr/cells/**'
+      - 'incr/incr.mbt'
+      - 'incr/moon.mod'
+      - 'incr/moon.pkg'
+      - 'incr/traits.mbt'
+      - 'incr/typed_spreadsheet/**'
+      - 'incr/types/**'
       - 'examples/typed_spreadsheet_demo/**'
       - 'examples/typed_spreadsheet_rabbita_demo/**'
-      - 'incr.mbt'
-      - 'moon.mod'
-      - 'moon.pkg'
-      - 'traits.mbt'
-      - 'typed_spreadsheet/**'
-      - 'types/**'
   workflow_dispatch:
 
 concurrency:

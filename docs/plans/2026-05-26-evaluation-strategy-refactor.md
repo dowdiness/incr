@@ -218,9 +218,9 @@ Validation:
 moon fmt
 moon info
 moon check --deny-warn
-moon test cells/runtime_evaluation_event_hook_wbtest.mbt
-moon test cells/event_broadcast_hook_wbtest.mbt
-moon test cells/accumulator_commit_hook_wbtest.mbt
+moon test incr/cells/runtime_evaluation_event_hook_wbtest.mbt
+moon test incr/cells/event_broadcast_hook_wbtest.mbt
+moon test incr/cells/accumulator_commit_hook_wbtest.mbt
 moon test
 git diff -- '*.mbti'
 ```

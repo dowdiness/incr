@@ -6,7 +6,7 @@
 
 **Backends:** wasm-gc (default), JS (Node + V8)
 
-**Bench files:** [`tests/static_derived_probe_bench_test.mbt`](../../tests/static_derived_probe_bench_test.mbt), [`cells/static_derived_integrated_probe_bench_wbtest.mbt`](../../cells/static_derived_integrated_probe_bench_wbtest.mbt), [`cells/static_derived_ui_shape_bench_wbtest.mbt`](../../cells/static_derived_ui_shape_bench_wbtest.mbt)
+**Bench files:** [`tests/static_derived_probe_bench_test.mbt`](../../incr/tests/static_derived_probe_bench_test.mbt), [`cells/static_derived_integrated_probe_bench_wbtest.mbt`](../../incr/cells/static_derived_integrated_probe_bench_wbtest.mbt), [`cells/static_derived_ui_shape_bench_wbtest.mbt`](../../incr/cells/static_derived_ui_shape_bench_wbtest.mbt)
 
 **Question:** Does a fixed-dependency `Derived` path have enough measured headroom to justify a private generalized engine path?
 

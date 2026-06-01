@@ -3,7 +3,7 @@
 **Date:** 2026-04-26
 **Backend:** wasm-gc (`moon bench --release`)
 **Bench file:** `cells/accumulator_restore_bench_wbtest.mbt`
-**Validates:** the open performance TODO at [`cells/accumulator.mbt:295-302`](../../cells/accumulator.mbt) — *"O(n²) linear scan of `prev_contributions` during `touched` iteration is negligible at single-digit accumulator counts but should be verified before either keeping or rewriting the loop."*
+**Validates:** the open performance TODO at [`cells/accumulator.mbt:295-302`](../../incr/cells/accumulator.mbt) — *"O(n²) linear scan of `prev_contributions` during `touched` iteration is negligible at single-digit accumulator counts but should be verified before either keeping or rewriting the loop."*
 
 ## Setup
 

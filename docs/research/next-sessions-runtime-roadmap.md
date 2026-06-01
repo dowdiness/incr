@@ -85,7 +85,7 @@ Use this sequence unless the current task is documentation-only.
 1. `git status --short` — confirm worktree scope and avoid drifting into unrelated edits.
 2. `moon fmt` — keep style/format stable before checks.
 3. `moon check` — required for any source change.
-4. `moon test cells` — engine-level validation for `loom/incr` core.
-5. `moon test tests` — integration-level public API checks.
+4. `moon test incr/cells` — engine-level validation for `loom/incr` core.
+5. `moon test incr/tests` — integration-level public API checks.
 6. If runtime-orchestration assumptions changed, add the canopy probe package you touched in the parent workspace suite.
 7. If this session edits both `incr` and parent `canopy` files, run the owning module/parent workspace tests from the `canopy` checkout as a final integration gate.
