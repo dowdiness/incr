@@ -22,6 +22,7 @@ enum OverlayPanel {
 struct Model {
   sheet : @typed_spreadsheet.Worksheet
   cells : Array[String]
+  grid_snapshot_cache : @hashmap.HashMap[String, GridCellSnapshot]
   drafts : Array[CellDraft]
   committed : Array[CellDraft]
   selected_cell : String
@@ -65,6 +66,7 @@ fn init_model() -> Model {
   let base = {
     sheet,
     cells,
+    grid_snapshot_cache: HashMap([]),
     drafts: seed_drafts,
     committed: seed_drafts,
     selected_cell: "B1",
@@ -352,6 +354,7 @@ fn apply_operation(
   let outcome = outcome_label(result.outcome)
   {
     ..model,
+    grid_snapshot_cache: refresh_grid_snapshot_cache(model, result),
     last_step: Some(result),
     last_edit: edit_label,
     status: "Applied \{edit_label}: \{outcome}.",

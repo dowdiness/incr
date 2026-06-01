@@ -18,6 +18,19 @@ test "typed spreadsheet Rabbita editor starts with seeded sheet and no user trac
     friendly_snapshot_result(model.sheet.inspect_cell(cell_id(model, "B1"))),
     content="Int(11)",
   )
+  inspect(model.grid_snapshot_cache.length(), content="2")
+  inspect(
+    friendly_grid_result(grid_snapshot_for(model, "A1")),
+    content="Int(10)",
+  )
+  inspect(
+    friendly_grid_result(grid_snapshot_for(model, "B1")),
+    content="Int(11)",
+  )
+  inspect(
+    friendly_grid_result(grid_snapshot_for(model, "AX50")),
+    content="Empty cell",
+  )
 }
 
 ///|
@@ -39,6 +52,15 @@ test "typed spreadsheet Rabbita editor applies selected draft and captures formu
     friendly_snapshot_result(applied.sheet.inspect_cell(cell_id(applied, "B1"))),
     content="Int(16)",
   )
+  inspect(applied.grid_snapshot_cache.length(), content="2")
+  inspect(
+    friendly_grid_result(grid_snapshot_for(applied, "A1")),
+    content="Int(15)",
+  )
+  inspect(
+    friendly_grid_result(grid_snapshot_for(applied, "B1")),
+    content="Int(16)",
+  )
   match applied.last_step {
     // Bounded evidence: a plain input edit captures only the edited cell, not
     // every grid cell. See issue #129 Phase 1.
@@ -49,6 +71,40 @@ test "typed spreadsheet Rabbita editor applies selected draft and captures formu
   debug_inspect(recomputed, content="[\"B1\"]")
   debug_inspect(changed, content="[\"B1\"]")
   debug_inspect(unchanged, content="[]")
+}
+
+///|
+test "typed spreadsheet Rabbita grid render keeps the sparse snapshot cache unchanged" {
+  let model = init_model()
+
+  ignore(view(noop_emit, model))
+
+  inspect(model.grid_snapshot_cache.length(), content="2")
+  inspect(
+    friendly_grid_result(grid_snapshot_for(model, "AX50")),
+    content="Empty cell",
+  )
+}
+
+///|
+test "typed spreadsheet Rabbita grid snapshot cache refreshes deletes and changed dependents" {
+  let model = init_model()
+  let selected = update(SelectCell("A1"), model)
+  let deleted = update(DeleteSelected, selected)
+
+  inspect(deleted.grid_snapshot_cache.length(), content="1")
+  inspect(
+    friendly_grid_result(grid_snapshot_for(deleted, "A1")),
+    content="Empty cell",
+  )
+  inspect(
+    grid_status_label(grid_snapshot_for(deleted, "B1")),
+    content="ref error",
+  )
+  inspect(
+    grid_cell_display_value(grid_snapshot_for(deleted, "B1")),
+    content="ref error",
+  )
 }
 
 ///|
@@ -198,6 +254,11 @@ test "typed spreadsheet Rabbita editor supports direct cell editing mode" {
   )
   inspect(applied.editing_cell is None, content="true")
   inspect(stale_blur.last_edit, content="C1 ← 7")
+}
+
+///|
+fn noop_emit(_msg : Msg) -> @rabbita.Cmd {
+  @rabbita.none
 }
 
 ///|
