@@ -60,6 +60,10 @@ jobs:
         working-directory: examples/typed_spreadsheet_rabbita_demo
         run: npm run build
 
+      - name: Smoke built demo
+        working-directory: examples/typed_spreadsheet_rabbita_demo
+        run: npm run smoke
+
       - name: Upload Pages artifact
         uses: actions/upload-artifact@v7
         with:

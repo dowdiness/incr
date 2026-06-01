@@ -47,11 +47,15 @@ Then open the Vite URL printed by the command. `npm run dev` first runs
 `moon build --target js --release` from the repository root so the MoonBit app
 exists under `_build/js/release/...` before Vite imports it.
 
-Production build:
+Production build and local smoke check:
 
 ```bash
 npm run build
+npm run smoke
 ```
+
+`npm run smoke` serves `dist/` on localhost, fetches the built page and local
+assets, and checks that the typed sheet editor bundle and styles are present.
 
 ## Cloudflare Pages deployment
 
@@ -62,6 +66,8 @@ directory to Cloudflare Pages on pushes to `main` and manual workflow runs.
 
 Configure these repository settings before enabling deploys:
 
+- Cloudflare Pages Git-connected builds disabled/disconnected, so GitHub Actions
+  is the only deploy writer for the project
 - secret `CLOUDFLARE_API_TOKEN` with Cloudflare Pages edit/deploy access
 - secret `CLOUDFLARE_ACCOUNT_ID`
 - variable `CLOUDFLARE_PAGES_PROJECT_NAME`

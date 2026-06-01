@@ -60,3 +60,7 @@ jobs:
       - name: Build demo
         working-directory: examples/typed_spreadsheet_rabbita_demo
         run: npm run build
+
+      - name: Smoke built demo
+        working-directory: examples/typed_spreadsheet_rabbita_demo
+        run: npm run smoke
