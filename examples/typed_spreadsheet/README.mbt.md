@@ -1,8 +1,9 @@
-# Typed Spreadsheet API
+# Typed Spreadsheet Example
 
-The `typed_spreadsheet` package provides a typed, formula-oriented spreadsheet
-boundary on top of `incr` cells. It is intentionally small: install inputs and
-formulas into `Worksheet`, then read results or inspect dependency metadata.
+The `examples/typed_spreadsheet` package provides a typed, formula-oriented
+spreadsheet boundary on top of `incr` cells. It is intentionally small: install
+inputs and formulas into `Worksheet`, then read results or inspect dependency
+metadata.
 
 ## Package surface
 
@@ -65,7 +66,7 @@ pub fn[T] Worksheet::trace(
 
 ## Example
 
-```mbt nocheck
+```mbt check
 ///|
 test "trace after input update" {
   let rt = @incr.Runtime()

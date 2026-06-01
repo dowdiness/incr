@@ -19,11 +19,14 @@ New to `incr`? Read these in order:
 ## API Reference
 
 - [API Reference](api-reference.mbt.md) — common public types, methods, and helpers (not exhaustive; the `.mbti` files in each package are authoritative)
-- [Typed Spreadsheet API](typed-spreadsheet.mbt.md) — typed spreadsheet boundary, installation APIs, post-change recompute traces, and the CLI demo entry point
 - [Checked Concepts Examples](concepts_examples.mbt.md) — companion literate tests pinning high-value behavior from the concepts guide
 - [Checked API Reference Examples](api_reference_examples.mbt.md) — companion literate tests pinning executable reference snippets and compatibility accumulator behavior
 - [Checked Cookbook Examples](cookbook_examples.mbt.md) — companion literate tests pinning high-value cookbook patterns, including target facades, long-lived authoring pipelines, scoped watches, accumulators, and memo events
 - [Architecture](architecture.md) — package responsibility map, four execution modes (pull / push / hybrid / Datalog), key types and invariants, extension points
+
+## Examples
+
+- [Typed Spreadsheet](../examples/typed_spreadsheet/README.mbt.md) — example worksheet boundary, formula evaluation, post-change recompute traces, and the CLI demo entry point
 
 ## Performance
 

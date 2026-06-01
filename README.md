@@ -22,8 +22,8 @@ being pleasant.
   Getting started, concepts, cookbook patterns, API reference, architecture,
   design notes, decisions, and performance snapshots.
 - **Examples and spikes:** [`examples/`](examples/)  
-  Typed-spreadsheet demos and retained exploratory work that exercise the
-  library from separate workspace modules.
+  Typed-spreadsheet examples, browser/CLI demos, and retained exploratory work
+  that exercise the library from separate workspace modules.
 - **Contributor guidance:** [`AGENTS.md`](AGENTS.md)  
   Repository conventions, validation commands, documentation rules, and agent
   workflow notes.

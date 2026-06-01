@@ -4,6 +4,7 @@ Standalone workspace modules that exercise or demonstrate `dowdiness/incr` witho
 
 ## Typed spreadsheet
 
+- [`typed_spreadsheet/`](typed_spreadsheet/) — worksheet state, cell evaluation, formula dependencies, trace snapshots, and tests for the example boundary.
 - [`typed_spreadsheet_demo/`](typed_spreadsheet_demo/) — shared operation vocabulary, formula text parser, fixed scenario, and serializable view model.
 - [`typed_spreadsheet_cli_demo/`](typed_spreadsheet_cli_demo/) — CLI rendering for the shared fixed scenario.
 - [`typed_spreadsheet_rabbita_demo/`](typed_spreadsheet_rabbita_demo/) — editable browser UI built with Rabbita.

@@ -22,8 +22,8 @@ Adopt a workspace layout for `incr`:
 - The publishable library module `dowdiness/incr` lives under `incr/`.
 - Checked documentation examples live under `docs/` as a separate workspace
   member that depends on `dowdiness/incr`.
-- Typed-spreadsheet demos and retained spikes live under `examples/` as
-  standalone workspace modules.
+- Typed-spreadsheet example packages and retained spikes live under `examples/`
+  as standalone workspace modules.
 - The root `README.md` is a workspace pointer; the package README lives at
   `incr/README.mbt.md`.
 
@@ -31,8 +31,8 @@ Adopt a workspace layout for `incr`:
 
 - Public library imports remain `dowdiness/incr`, `dowdiness/incr/cells`,
   `dowdiness/incr/types`, and so on.
-- Demo package imports become `examples/typed_spreadsheet_demo`,
-  `examples/typed_spreadsheet_cli_demo`, and
+- Example package imports become `examples/typed_spreadsheet`,
+  `examples/typed_spreadsheet_demo`, `examples/typed_spreadsheet_cli_demo`,
   `examples/typed_spreadsheet_rabbita_demo`, and
   `examples/spikes/ideal_api_rename_phase0`.
 - The core library module no longer depends on Rabbita; only the Rabbita demo

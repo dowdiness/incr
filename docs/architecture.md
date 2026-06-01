@@ -31,6 +31,7 @@ moon.work
 │   └── tests/          ← Integration tests against the public API
 ├── docs/               ← Checked literate documentation examples
 └── examples/           ← Standalone workspace modules for demos and spikes
+    └── typed_spreadsheet/ ← Example worksheet/formula boundary (not published as `dowdiness/incr`)
 ```
 
 | Package | Responsibility | Depends on |

@@ -1,5 +1,4 @@
 import {
   "dowdiness/incr",
   "moonbitlang/core/bench",
-  "dowdiness/incr/typed_spreadsheet",
 } for "test"
