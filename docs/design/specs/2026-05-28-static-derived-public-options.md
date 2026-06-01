@@ -1,22 +1,32 @@
 # Static Derived Public-Surface Options
 
-**Status:** Options note — no public API accepted
+**Status:** Resolved — public API remains closed
 
 **Date:** 2026-05-28
+
+**Resolved:** 2026-06-01 by [ADR: Static Derived Public Surface — Keep Private](../../decisions/2026-06-01-static-derived-public-surface.md)
 
 **Parent TODO:** [`docs/todo.md`](../../todo.md#investigation-queue)
 
 **Evidence:** [Static/applicative Derived fast-path probe](../../performance/2026-05-27-static-derived-fast-path-probe.md), [Expr formula API proposal](2026-05-25-expr-formula-api.md), [Build-oriented boundary design](2026-05-26-build-trait-boundaries.md)
 
+## Resolution
+
+The 2026-06-01 ADR chooses **Option D: keep the static path private**. Do not
+add public `Derived::map`, `map2`, `map3`, `Scope::derived_static*`,
+compatibility-handle static conveniences, or a raw static installer from this
+note. Reopen only when one of the ADR's concrete-driver triggers fires: an
+`Expr[T]` lowering need, a measured scope-owned attachment win, or downstream UI
+wrapper duplication.
+
 ## Goal
 
-Decide what public surface, if any, should expose the private
-static/applicative `Derived` fast path.
+Record the public-surface options for the private static/applicative `Derived`
+fast path and the hard requirements any future public surface must satisfy.
 
 The private probe has already answered the performance question: fixed-dependency
 recomputation can win when many tiny `Derived` nodes form tree-shaped graphs.
-This note is about API shape only. It does not choose an API and does not ask for
-implementation.
+This note is about API shape only. It does not implement an API.
 
 ## Current measured signal
 
@@ -283,19 +293,19 @@ Before implementation, answer these in a real design spec:
 8. **Fallback path:** If a user needs dynamic dependencies or accumulator reads,
    the answer should remain ordinary `Derived`.
 
-## Recommendation for the next step
+## Decision record
 
 Do not implement a public static-derived API from this note alone.
 
-The private implementation is hardened enough that a public decision is now a
-surface-design question, not a correctness-probe question. Keep the path private
-until one of the reopen criteria above supplies a concrete consumer. When that
-happens, run a short decision/spec pass that chooses between:
+The private implementation is hardened enough that a future public decision is a
+surface-design question, not a correctness-probe question. Per the 2026-06-01
+ADR, keep the path private until one of the reopen criteria above supplies a
+concrete consumer. When that happens, run a short decision/spec pass that chooses
+between:
 
 - **Option A** for the smallest direct user-facing API;
 - **Option B** if scope-owned attachment pipelines are the first target driver;
-- **Option D** if keeping the public API closed for one more release is more
-  valuable than exposing the measured win now.
+- **Option C** as a likely future lowering strategy once the formula API itself
+  is accepted.
 
-Treat **Option C** as a likely future lowering strategy for the formula API, not
-as the first public static-derived surface.
+Until then, the accepted public-surface direction is **no public API**.
