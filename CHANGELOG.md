@@ -4,12 +4,15 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ## Unreleased
 
+## [0.7.1] - 2026-06-01
+
 ### Changed
 
 - Reorganized the repository as a MoonBit workspace: the `dowdiness/incr` library module now lives under `incr/`, while typed-spreadsheet demos and retained spikes live under `examples/` as standalone workspace modules.
 
 ### Documentation
 
+- Expanded the root README into a friendlier workspace landing page that explicitly points readers to the detailed library README.
 - Refreshed ADR and plan references for the workspace layout so source paths use the `incr/` module prefix.
 
 ## [0.7.0] - 2026-06-01
@@ -280,7 +283,8 @@ Initial release.
 - Batch updates with atomic multi-signal commits
 - Cycle detection
 
-[Unreleased]: https://github.com/dowdiness/incr/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/dowdiness/incr/compare/v0.7.1...HEAD
+[0.7.1]: https://github.com/dowdiness/incr/compare/4302e80...v0.7.1
 [0.7.0]: https://github.com/dowdiness/incr/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/dowdiness/incr/compare/v0.5.2...v0.6.0
 [0.5.2]: https://github.com/dowdiness/incr/compare/v0.5.1...v0.5.2
