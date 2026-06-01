@@ -331,12 +331,12 @@ fn view_grid_cell(
   row_index : Int,
   column_index : Int,
 ) -> @rabbita.Html {
-  let snapshot = model.sheet.inspect_cell(cell_id(model, cell))
+  let snapshot = grid_snapshot_for(model, cell)
   let selected = selected_cell_is(model, cell)
   let dirty = draft_is_dirty(model, cell)
   let editing = inline_editing_cell_is(model, cell)
-  let status = snapshot_status_label(snapshot)
-  let kind = friendly_kind(snapshot)
+  let status = grid_status_label(snapshot)
+  let kind = friendly_grid_kind(snapshot)
   let selected_text = if selected { "true" } else { "false" }
   let click = if editing { @rabbita.none } else { emit(SelectCell(cell)) }
   @html.div(
@@ -349,7 +349,7 @@ fn view_grid_cell(
       .aria_rowindex("\{row_index}")
       .aria_colindex("\{column_index}")
       .aria_label(
-        "Select cell \{cell}: \{status}, \{kind}, \{friendly_snapshot_result(snapshot)}",
+        "Select cell \{cell}: \{status}, \{kind}, \{friendly_grid_result(snapshot)}",
       )
       .on_dblclick(_ => emit(BeginInlineEdit(cell))),
     view_cell_content(emit, model, cell, snapshot, editing),
@@ -361,7 +361,7 @@ fn view_cell_content(
   emit : @rabbita.Emit[Msg],
   model : Model,
   cell : String,
-  snapshot : @typed_spreadsheet.CellSnapshot,
+  snapshot : GridCellSnapshot,
   editing : Bool,
 ) -> @rabbita.Html {
   if editing {
@@ -381,7 +381,7 @@ fn view_cell_content(
       @html.nothing,
     )
   } else {
-    @html.span(class="cell-value", cell_display_value(snapshot))
+    @html.span(class="cell-value", grid_cell_display_value(snapshot))
   }
 }
 
@@ -675,12 +675,12 @@ fn active_class(base : String, active : Bool) -> String {
 
 ///|
 fn grid_cell_class(
-  snapshot : @typed_spreadsheet.CellSnapshot,
+  snapshot : GridCellSnapshot,
   selected : Bool,
   dirty : Bool,
   editing : Bool,
 ) -> String {
-  let selected_class = active_class(cell_state_class(snapshot), selected)
+  let selected_class = active_class(grid_cell_state_class(snapshot), selected)
   let dirty_class = if dirty {
     selected_class + " is-dirty"
   } else {
@@ -707,9 +707,12 @@ enum CellStatus {
 }
 
 ///|
-fn cell_status(snapshot : @typed_spreadsheet.CellSnapshot) -> CellStatus {
-  guard snapshot.present else { return Missing }
-  match snapshot.result {
+fn cell_status_from(
+  present : Bool,
+  result : @typed_spreadsheet.CellResult,
+) -> CellStatus {
+  guard present else { return Missing }
+  match result {
     Ok(_) => Ready
     ParseError(_) => ParseErr
     TypeError(_) => TypeErr
@@ -719,8 +722,20 @@ fn cell_status(snapshot : @typed_spreadsheet.CellSnapshot) -> CellStatus {
 }
 
 ///|
-fn cell_state_class(snapshot : @typed_spreadsheet.CellSnapshot) -> String {
-  match cell_status(snapshot) {
+fn snapshot_cell_status(
+  snapshot : @typed_spreadsheet.CellSnapshot,
+) -> CellStatus {
+  cell_status_from(snapshot.present, snapshot.result)
+}
+
+///|
+fn grid_cell_status(snapshot : GridCellSnapshot) -> CellStatus {
+  cell_status_from(snapshot.present, snapshot.result)
+}
+
+///|
+fn grid_cell_state_class(snapshot : GridCellSnapshot) -> String {
+  match grid_cell_status(snapshot) {
     Missing => "grid-cell grid-cell--missing"
     Ready => "grid-cell grid-cell--ready"
     ParseErr | TypeErr | RefErr | CycleErr => "grid-cell grid-cell--error"
@@ -728,8 +743,8 @@ fn cell_state_class(snapshot : @typed_spreadsheet.CellSnapshot) -> String {
 }
 
 ///|
-fn snapshot_status_label(snapshot : @typed_spreadsheet.CellSnapshot) -> String {
-  match cell_status(snapshot) {
+fn status_label(status : CellStatus) -> String {
+  match status {
     Ready => "ready"
     Missing => "empty"
     ParseErr => "parse error"
@@ -740,11 +755,21 @@ fn snapshot_status_label(snapshot : @typed_spreadsheet.CellSnapshot) -> String {
 }
 
 ///|
-fn friendly_kind(snapshot : @typed_spreadsheet.CellSnapshot) -> String {
-  if !snapshot.present {
+fn snapshot_status_label(snapshot : @typed_spreadsheet.CellSnapshot) -> String {
+  status_label(snapshot_cell_status(snapshot))
+}
+
+///|
+fn grid_status_label(snapshot : GridCellSnapshot) -> String {
+  status_label(grid_cell_status(snapshot))
+}
+
+///|
+fn kind_label(present : Bool, kind : @typed_spreadsheet.CellKind?) -> String {
+  if !present {
     "empty"
   } else {
-    match snapshot.kind {
+    match kind {
       Some(Input) => "input"
       Some(Formula) => "formula"
       None => "unknown"
@@ -753,14 +778,37 @@ fn friendly_kind(snapshot : @typed_spreadsheet.CellSnapshot) -> String {
 }
 
 ///|
+fn friendly_kind(snapshot : @typed_spreadsheet.CellSnapshot) -> String {
+  kind_label(snapshot.present, snapshot.kind)
+}
+
+///|
+fn friendly_grid_kind(snapshot : GridCellSnapshot) -> String {
+  kind_label(snapshot.present, snapshot.kind)
+}
+
+///|
+fn result_label(
+  present : Bool,
+  result : @typed_spreadsheet.CellResult,
+) -> String {
+  if !present {
+    "Empty cell"
+  } else {
+    result_repr(result)
+  }
+}
+
+///|
 fn friendly_snapshot_result(
   snapshot : @typed_spreadsheet.CellSnapshot,
 ) -> String {
-  if !snapshot.present {
-    "Empty cell"
-  } else {
-    result_repr(snapshot.result)
-  }
+  result_label(snapshot.present, snapshot.result)
+}
+
+///|
+fn friendly_grid_result(snapshot : GridCellSnapshot) -> String {
+  result_label(snapshot.present, snapshot.result)
 }
 
 ///|
@@ -786,7 +834,7 @@ fn outcome_label(outcome : @demo.OpOutcome) -> String {
 }
 
 ///|
-fn cell_display_value(snapshot : @typed_spreadsheet.CellSnapshot) -> String {
+fn grid_cell_display_value(snapshot : GridCellSnapshot) -> String {
   if !snapshot.present {
     ""
   } else {
@@ -812,7 +860,7 @@ fn cell_value_text(value : @typed_spreadsheet.CellValue) -> String {
 
 ///|
 fn snapshot_result_class(snapshot : @typed_spreadsheet.CellSnapshot) -> String {
-  match cell_status(snapshot) {
+  match snapshot_cell_status(snapshot) {
     Missing => "snapshot-result snapshot-result--missing"
     Ready => "snapshot-result snapshot-result--ok"
     ParseErr | TypeErr | RefErr | CycleErr =>
