@@ -4,8 +4,16 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ## Unreleased
 
+## [0.7.0] - 2026-06-01
+
 ### Added
 
+- Added `ReadError` (`Cycle` / `Disposed`) and re-exported it from the root package so public read APIs can report disposed-cell failures separately from dependency cycles.
+- Added `Derived::fallible` and `DerivedMap::fallible` for caching domain failures as `Result` values instead of raising graph/runtime failures.
+- Added target-facade lifecycle and introspection helpers for long-lived editors: `Scope::add_watch`, `Derived::changed_at`, `Derived::is_disposed`, and `Runtime::gc_root_count`.
+- Added target-facade accumulator reads on `Derived`: `accumulated`, `accumulated_or_abort`, and `accumulated_peek`.
+- Added `Runtime::record_batch_rollback` for batch-aware extension code that owns mutable state outside ordinary input cells.
+- Added `dowdiness/incr/typed_spreadsheet` with `Worksheet`, typed `CellValue` / `CellType`, formula AST (`Formula`), dependency snapshots, and `Worksheet::trace`.
 - Added `scripts/migrate-to-target-facades.py`, a dry-run-by-default helper for moving consumer code from compatibility handles (`Memo`, `HybridMemo`, `MemoMap`) to target facades (`Derived`, `ReachableDerived`, `DerivedMap`). It applies mechanically safe rewrites with `--apply`, skips files that still need manual choices, and reports context-sensitive read sites for manual migration.
 - Added `dowdiness/incr/examples/typed_spreadsheet_demo`, a thin demo operation runner that applies typed spreadsheet operations and returns outcome, trace, and before/after cell snapshots, including a batched runner for trace-correct atomic demo steps.
 - Added `dowdiness/incr/examples/typed_spreadsheet_cli_demo`, an executable typed spreadsheet scenario that prints a fixed operation sequence with outcomes, trace buckets, and before/after snapshots in text or JSON.
@@ -13,20 +21,32 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ### Changed
 
+- **Breaking:** Changed `Derived`, `DerivedMap`, `ReachableDerived`, and `Watch` read APIs from `Result[..., CycleError]` to `Result[..., ReadError]`. `DerivedMap::read_or_else` and `Memo::accumulated*` now use `ReadError` as well.
 - Changed the typed spreadsheet Rabbita demo from a fixed trace viewer into a small editable four-cell sheet while keeping the fixed scenario JSON export available for non-DOM consumers.
 
 ### Fixed
 
+- Fixed Datalog relation publication so fixpoint runs publish relation cells only when net contents changed.
+- Fixed `Runtime::dependents` to soft-fail on disposed cell IDs instead of indexing disposed metadata.
+- Fixed accumulator read APIs so disposed-cell failures are preserved as `ReadError` rather than collapsed into cycle-only results.
+- Fixed typed spreadsheet rollback, deletion, and formula-dependency paths so aborted batches and recreated cells restore dependency state correctly.
 - Fixed typed spreadsheet worksheet slots so live inputs and formulas remain readable after `Runtime::gc()`.
 
 ### Deprecated
 
 - Deprecated the standalone `dowdiness/incr/pipeline` traits (`Sourceable`, `Parseable`, `Checkable`, `Executable`). They were an early stringly-typed sketch with no production consumers; application build pipelines should define local `Source`, `Parser`, `ImportResolver`, `Checker`, and `Transformer` traits over concrete domain types.
 
+### Performance
+
+- Graduated the measured static `Derived` fast path as a package-private implementation path; no new public static-derived API is exposed in this release.
+- Added DSL-shaped authoring pipeline benchmarks and graph-editor recompute path benchmarks, including durable edit, sparse inspector, viewport, and live-drag measurements for wasm-gc and JS.
+- Cached typed spreadsheet grid snapshots in the Rabbita demo to reduce repeated view-model allocation during UI updates.
+
 ### Documentation
 
 - Added a Phase 3a migration guide for moving from `Memo` / `HybridMemo` / `MemoMap` directly to `Derived` / `ReachableDerived` / `DerivedMap`, skipping same-receiver bridge methods on the compatibility handles.
 - Added build-oriented trait-boundary and internal rebuild-boundary proposal specs.
+- Added the honest read-error ownership spec, the ReachableDerived differentiate-or-collapse ADR resolution, the static-derived public-surface ADR, and target-facade authoring pipeline guidance.
 - Removed the `CalcPipeline` fixture from integration tests so deprecated pipeline traits are no longer exercised by the test suite.
 
 ## [0.6.0] - 2026-05-24
@@ -38,7 +58,6 @@ All notable changes to `dowdiness/incr` are documented in this file.
 - Added `Watch[T]` for long-lived target-facade outside reads that preserve cycle errors as `Result` values.
 - Added `InputField[T]`, `Freshness`, `InputFieldOwner`, and `add_input_fields(scope, owner)` target surfaces for field-level inputs; `Freshness` is implemented for `Input`, `InputField`, `Derived`, and `ReachableDerived`.
 - Added target-facade constructors on `Scope` and `RuntimeContext` helper constructors for `Input`, `InputField`, `Derived`, `ReachableDerived`, `EagerDerived`, and `DerivedMap`.
-- Added `Scope::add_watch(watch)` for scope-owned `Watch` lifetimes.
 - Added `Derived::id` and `Derived::observe` forwarders on the public facade, lifting the underlying `HybridMemo` accessors so callers can inspect a derived cell's identity and acquire keep-alive `Observer`s without reaching through the wrapped handle.
 
 ### Changed
@@ -253,7 +272,9 @@ Initial release.
 - Batch updates with atomic multi-signal commits
 - Cycle detection
 
-[Unreleased]: https://github.com/dowdiness/incr/compare/v0.5.2...HEAD
+[Unreleased]: https://github.com/dowdiness/incr/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/dowdiness/incr/compare/v0.6.0...v0.7.0
+[0.6.0]: https://github.com/dowdiness/incr/compare/v0.5.2...v0.6.0
 [0.5.2]: https://github.com/dowdiness/incr/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/dowdiness/incr/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/dowdiness/incr/compare/v0.4.1...v0.5.0
