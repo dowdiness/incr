@@ -466,6 +466,69 @@ let length = @incr.Derived(rt, () => doc.content.get().length())
 
 ---
 
+## Pattern: Long-Lived Authoring Pipeline
+
+Use this shape for editors, DSL workbenches, and other authoring surfaces that
+live longer than a single read. The facade owns `Scope` / `Watch` lifetime, the
+graph owns deterministic cached stages, and boundary code owns side effects.
+
+```text
+Input[String] or Input[Patch]
+  -> Derived[ParseResult]
+  -> Derived[Projection]
+  -> Derived[SemanticGraph]
+  -> Derived[LoweredGraph]
+  -> Derived[TerminalState]
+  -> Watch[TerminalState]
+```
+
+Create parsers and heavyweight engines before installing cells, then capture
+those handles as collaborators. A `Derived` closure may read upstream cells and
+run deterministic stage work over the current value; it should not construct a
+parser, start a worker, perform IO, or publish render/audio side effects.
+
+Use one `Derived` per stage rather than one monolithic `Derived`. Inside stage
+closures, read `Input` with `.get()`, upstream `Derived` / `ReachableDerived`
+values with `.get_or_abort()` (or `.get()` when graph read errors are explicit
+data), and upstream `EagerDerived` values with `.get()`. Outside the graph —
+event handlers, facade methods, tests, and drivers — use outside-read methods
+(`Derived` / `ReachableDerived`: `.read()` / `.read_or_abort()`;
+`EagerDerived`: `.read()`) or read through a persistent `Watch`. A public
+`snapshot()` method should read a terminal `Watch`, not call `.get_or_abort()`.
+Prime each terminal `Watch` once before exposing the facade if `Runtime::gc()`
+can run before the first consumer read: a watch roots its terminal cell
+immediately, but upstream dependencies are recorded only after the terminal
+computes. If the facade stores last-good state, seed it from that priming read.
+
+Keep recoverable parse, projection, and semantic failures in the cached value
+(`Result`), following the same ownership split as
+[`Derived::fallible`](#pattern-recoverable-domain-failures-with-derivedfallible).
+For the last-good result pattern, store the last successful semantic/lowered
+value at the facade boundary. On a successful terminal read, update `last_good`;
+on an invalid current input, publish diagnostics while returning the previous
+`last_good` value. Do not mutate that state from inside a `Derived` closure —
+recomputation order should not become domain state.
+
+Use `ReachableDerived` for sparse panels by mounting the panel in a child scope
+only while it is visible, then storing and priming a `Watch` for that panel's
+terminal read. Do not keep an un-watched or unprimed `ReachableDerived` as a
+public read surface across `Runtime::gc()`. Introduce `DerivedMap` only after a
+measurement shows that per-key caching is worth the extra shape; otherwise, a
+linear chain of named `Derived` stages is easier to inspect and dispose.
+
+Reserve `EagerDerived` / `Effect` for control-side reactions to prepared
+terminal state: enqueue UI invalidation, mirror diagnostics to the host, or hand
+off immutable snapshots to another subsystem. Parser construction, parser
+mutation, audio callbacks, and other heavy or realtime work should stay outside
+those closures.
+
+The checked companion demonstrates this target-facade recipe, including a
+primed terminal `Watch`, a primed child-scope `ReachableDerived` panel, explicit
+disposal, and last-good diagnostics in
+[`cookbook_examples.mbt.md`](cookbook_examples.mbt.md#long-lived-authoring-pipelines).
+
+---
+
 ## Pattern: Keyed Queries with DerivedMap
 
 Use `DerivedMap[K, V]` when you want one lazy derived computation per key. The concepts companion pins per-key cache creation and lazy recomputation in [`concepts_examples.mbt.md`](concepts_examples.mbt.md#field-level-inputs-and-keyed-derived-values).
