@@ -38,6 +38,7 @@ New to `incr`? Read these in order:
 - [2026-05-18 UI-shape benches](performance/2026-05-18-ui-shape-benches.md) — push-engine throughput on UI-shaped workloads (flat / layered / sparse / tree) across wasm-gc + JS. Confirms 60 Hz headroom at 1000 nodes; baseline for any future UI-library work on incr.
 - [2026-05-27 Static/applicative Derived fast-path probe](performance/2026-05-27-static-derived-fast-path-probe.md) — lower-bound, integrated, and UI-shape benches for fixed-dependency derived recomputation; records the package-private static path. Public exposure remains closed by the 2026-06-01 ADR.
 - [2026-06-01 DSL-shaped authoring pipeline benches](performance/2026-06-01-dsl-authoring-benches.md) — coarse staged `Derived` authoring chain vs per-node `DerivedMap` and sparse `ReachableDerived` inspector variants across wasm-gc + JS.
+- [2026-06-01 Graph-editor recompute path benches](performance/2026-06-01-graph-editor-recompute-benches.md) — durable graph/document recomputation vs ephemeral hover, drag preview, and viewport updates; records live-drag and commit-at-end behavior across wasm-gc + JS.
 
 ---
 
