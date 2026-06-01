@@ -1,4 +1,4 @@
-# ADR: MoUI-style workspace layout
+# ADR: Workspace layout
 
 **Status:** Accepted  
 **Date:** 2026-06-01
@@ -7,15 +7,16 @@
 
 The repository used the module root as both the publishable `dowdiness/incr`
 MoonBit module and the place for repository-level docs, scripts, CI, and demos.
-That made the top-level tree flatter than MoUI's workspace shape and kept demo
-dependencies, such as Rabbita, attached to the library module.
+That kept demo dependencies, such as Rabbita, attached to the library module and
+made repository-root commands less explicit about which files belong to the
+published package.
 
-MoUI uses a clearer split: a repository-level `moon.work`, a named library
-module directory, and standalone example modules.
+A clearer split is a repository-level workspace, a named library module
+directory, and standalone example modules.
 
 ## Decision
 
-Adopt the MoUI-style layout for `incr`:
+Adopt a workspace layout for `incr`:
 
 - `moon.work` lives at the repository root.
 - The publishable library module `dowdiness/incr` lives under `incr/`.

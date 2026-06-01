@@ -95,5 +95,5 @@ Recommended minimal graph shape:
   preserving unrelated scopes.
 - [x] Add an observability smoke test combining `set_on_change` and `Watch` for one
   formula chain and one push-reactive chain.
-- [x] Add `tests/typed_spreadsheet_spikes_test.mbt` and `docs/README` link in this
+- [x] Add `incr/tests/typed_spreadsheet_spikes_test.mbt` and `docs/README.md` link in this
   plan before any `Expr`-style sugar work is started.

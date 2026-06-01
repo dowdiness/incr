@@ -16,7 +16,7 @@ Per the rule "if both premises refute, write a short ADR recording the measureme
 
 ## Premise 1 — measurement (refuted)
 
-A microbench was added at `tests/bench_test.mbt:8` measuring `Runtime::new()` in isolation, on wasm-gc --release.
+A microbench was added at `incr/tests/bench_test.mbt:8` measuring `Runtime::new()` in isolation, on wasm-gc --release.
 
 | Operation | Mean cost |
 |---|---|
@@ -110,7 +110,7 @@ Salsa + ripple **validate the unified-Runtime choice** for the modes they share.
 
 1. **Do not split `Runtime` per propagation mode.** No PR, no plan, no spike.
 2. **Retire the per-mode-split question from rolling memory.** Update `project_per_mode_redesign_question.md` to point at this ADR.
-3. **Flag the actually-actionable follow-up.** The link-list win is real; the right scope is "can `cells/internal/push/` adopt alien-signals-style link records while keeping the `CellId`/`cell_ops` boundary intact?" That is a much smaller refactor, scoped to one engine package, preserving all cross-mode integration. It has a concrete driver (Vue's 3× push-bench result) and would not appear on the deferred list. If pursued, it should be opened as its own ADR with a microbench-first investigation per the moonbit-perf-investigation skill.
+3. **Flag the actually-actionable follow-up.** The link-list win is real; the right scope is "can `incr/cells/internal/push/` adopt alien-signals-style link records while keeping the `CellId`/`cell_ops` boundary intact?" That is a much smaller refactor, scoped to one engine package, preserving all cross-mode integration. It has a concrete driver (Vue's 3× push-bench result) and would not appear on the deferred list. If pursued, it should be opened as its own ADR with a microbench-first investigation per the moonbit-perf-investigation skill.
 
 ## Trade-offs accepted
 
@@ -119,6 +119,6 @@ Salsa + ripple **validate the unified-Runtime choice** for the modes they share.
 
 ## Verification
 
-- `Runtime::new()` measurement: confirmed against `tests/bench_test.mbt:8` on wasm-gc --release.
+- `Runtime::new()` measurement: confirmed against `incr/tests/bench_test.mbt:8` on wasm-gc --release.
 - Comparison libraries surveyed: salsa-rs/salsa, mizchi/ripple, mizchi/signals.mbt, stackblitz/alien-signals, vuejs/core PR #12349, milomg.dev Reactively writeup, preactjs.com signal-boosting writeup.
 - No existing ADR or written spec proposed per-mode Runtime separation prior to this investigation; the question lived only in rolling memory.

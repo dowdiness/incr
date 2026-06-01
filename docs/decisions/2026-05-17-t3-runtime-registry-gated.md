@@ -9,10 +9,10 @@
 Cross-runtime identity in incr today relies on two file-scope mutable refs:
 
 ```moonbit
-// cells/internal/kernel/state.mbt:17
+// incr/cells/internal/kernel/state.mbt:17
 let next_runtime_id : Ref[Int] = { val: 0 }
 
-// cells/internal/kernel/state.mbt:28
+// incr/cells/internal/kernel/state.mbt:28
 let current_computing_runtime_id : Ref[Int] = { val: -1 }
 ```
 
@@ -20,7 +20,7 @@ These power three concrete behaviors:
 
 1. **Runtime-id allocation** (`alloc_runtime_id()` at `state.mbt:32`) — monotonic counter, never decreases.
 2. **Strict cross-runtime guard** — `check_cross_runtime(cell_runtime_id, kind)` at `kernel/tracking.mbt:92`. Aborts if the cell's runtime_id differs from the active recompute's runtime_id. Called from 8+ sites: `Memo::get_result`, `HybridMemo`, `Reactive`, `Relation`, `FunctionalRelation`, `Accumulator` (4 read methods), and various memo-accumulated APIs.
-3. **Forgiving repair** — `Memo::get_result_inner` at `cells/derived.mbt:215-240`. If this runtime's tracking stack is empty AND `current_computing_runtime_id` is non-negative, treat the global as stale-from-abort and reset it to `-1` rather than aborting. Required by `read_permissive` and `MemoMap::get_or_create_memo` call patterns that bypass the outer strict check.
+3. **Forgiving repair** — `Memo::get_result_inner` at `incr/cells/derived.mbt:215-240`. If this runtime's tracking stack is empty AND `current_computing_runtime_id` is non-negative, treat the global as stale-from-abort and reset it to `-1` rather than aborting. Required by `read_permissive` and `MemoMap::get_or_create_memo` call patterns that bypass the outer strict check.
 
 The forgiving-repair path is **load-bearing for panic-test isolation**. The 2026-04-19 refactor audit (Target #1) attempted to unify it with the strict helper and broke 5 tests — the comment at `derived.mbt:221-226` documents why: "stale-global" vs "legitimate cross-runtime" cannot be distinguished locally without a global registry that can answer "is runtime N still alive?"
 
@@ -50,10 +50,10 @@ The right time to spend that cost is when a driver creates a regression-net nece
 
 ### Data structure
 
-A registry living alongside the existing module-state in `cells/internal/kernel/`. Single struct, two queries, monotonic allocation, no slot reuse.
+A registry living alongside the existing module-state in `incr/cells/internal/kernel/`. Single struct, two queries, monotonic allocation, no slot reuse.
 
 ```moonbit
-// cells/internal/kernel/runtime_registry.mbt (new file)
+// incr/cells/internal/kernel/runtime_registry.mbt (new file)
 priv struct RuntimeRegistry {
   // Bitmap or sparse set indexed by runtime_id. true == alive.
   mut alive : Array[Bool]
@@ -128,7 +128,7 @@ Today, Runtimes have no explicit `dispose` API. They're released when no handles
 
 **Open design question** (deliberately deferred to commissioning): whether `Runtime::dispose` is `pub` (driver-callable) or only invoked from teardown code. The forgiving-repair path's existing trigger is an *unhandled abort* inside a recompute — the test fixture never explicitly disposes the runtime. Two viable answers:
 
-1. **Implicit disposal via abort recovery.** A new `cells/internal/kernel/abort_repair.mbt` helper detects "current active_runtime aborted while computing" and marks the runtime disposed. Matches current behavior.
+1. **Implicit disposal via abort recovery.** A new `incr/cells/internal/kernel/abort_repair.mbt` helper detects "current active_runtime aborted while computing" and marks the runtime disposed. Matches current behavior.
 2. **Explicit `Runtime::dispose` in panic-test setup.** Cleaner contract; requires test fixture changes.
 
 Pick during commissioning when the driver constraints are concrete.
@@ -164,13 +164,13 @@ Add tests *before* touching any production code. Each test must pass against the
 - `read_permissive` after panic: same.
 - Sync-only (no `moonbitlang/async`) and async-driven (if dependency available on the test target) variants.
 
-Land as a standalone PR if the volume warrants. Tests in `tests/cross_runtime_interleaving_test.mbt`.
+Land as a standalone PR if the volume warrants. Tests in `incr/tests/cross_runtime_interleaving_test.mbt`.
 
 ### Phase 2 — Registry skeleton (no behavior change)
 
-Add `cells/internal/kernel/runtime_registry.mbt` with the struct + accessors above. Wire `alloc_runtime_id` / `get_active_runtime` / `set_active_runtime` to delegate to the registry while keeping the same public names. The two Refs become private inside the registry struct; no caller change.
+Add `incr/cells/internal/kernel/runtime_registry.mbt` with the struct + accessors above. Wire `alloc_runtime_id` / `get_active_runtime` / `set_active_runtime` to delegate to the registry while keeping the same public names. The two Refs become private inside the registry struct; no caller change.
 
-All 508+ existing tests + phase-1 tests must remain green. Bench gate ±5% on `tests/bench_test.mbt`.
+All 508+ existing tests + phase-1 tests must remain green. Bench gate ±5% on `incr/tests/bench_test.mbt`.
 
 ### Phase 3 — Forgiving-repair principled rewrite
 
@@ -181,7 +181,7 @@ All phase-1 interleaving tests must remain green. All panic-isolation tests must
 ### Phase 4 — Audit and document
 
 - Grep for any remaining direct use of `current_computing_runtime_id` outside the registry module. Should be zero.
-- Update `cells/internal/kernel/state.mbt` to remove the two Refs (they now live in `runtime_registry.mbt`).
+- Update `incr/cells/internal/kernel/state.mbt` to remove the two Refs (they now live in `runtime_registry.mbt`).
 - Update `docs/design/internals.md` cycle-detection / cross-runtime section.
 - Add a memory entry retiring the "Verify code not memory" caveat for the cross-runtime mechanism.
 
@@ -194,7 +194,7 @@ Same gates as any structural PR, plus T3-specific items:
 | Phase-1 interleaving suite | All green before phase 2 starts |
 | `moon test` | 508+ → 508+ + new interleaving tests, all green |
 | `scripts/check-engine-isolation.sh` | Green (no new cross-engine imports) |
-| `moon bench --release` on `tests/bench_test.mbt` | Within ±5% of pre-T3 baseline |
+| `moon bench --release` on `incr/tests/bench_test.mbt` | Within ±5% of pre-T3 baseline |
 | `moon info && moon fmt` | No unintended `.mbti` diffs (registry is `priv`; no public API change expected) |
 | Codex review | Pre-implementation on registry shape + post-implementation on the rewritten `get_result_inner` block |
 | Manual audit | Zero direct uses of `current_computing_runtime_id` outside `runtime_registry.mbt` |
@@ -218,14 +218,14 @@ Same gates as any structural PR, plus T3-specific items:
 ## Scope
 
 **In scope:**
-- The two file-scope Refs in `cells/internal/kernel/state.mbt:17,28`.
-- The forgiving-repair block in `cells/derived.mbt:215-240`.
+- The two file-scope Refs in `incr/cells/internal/kernel/state.mbt:17,28`.
+- The forgiving-repair block in `incr/cells/derived.mbt:215-240`.
 - The 8+ `check_cross_runtime` call sites (no behavior change required — they call `get_active_runtime` internally).
 - The disposal hook on `Runtime`.
 
 **Out of scope:**
 - The `Runtime` struct's overall shape (covered by R2 ADR; deferred).
-- Any other architectural restructuring of `cells/internal/kernel/`.
+- Any other architectural restructuring of `incr/cells/internal/kernel/`.
 - Public-API changes to `Signal`/`Memo`/`Reactive`/`Effect`/`Relation`/`Rule`.
 - Drivers' use of `Runtime::dispose` (driver-side concern).
 - Compute parallelism (no help here; orthogonal).

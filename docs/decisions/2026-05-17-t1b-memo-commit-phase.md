@@ -7,28 +7,29 @@
 > the pre-T1b code state used to justify the trait extraction. The three free
 > functions named throughout this ADR — `memo_snapshot_accumulator_contributions`,
 > `memo_restore_on_abort`, `memo_commit_accumulator_phase` (originally at
-> `cells/memo.mbt:423-449` and `cells/accumulator.mbt`) — were collapsed into the
+> `incr/cells/memo.mbt:423-449` and `incr/cells/accumulator.mbt`) — were collapsed into the
 > shipped `MemoCommitPhase` trait dispatch (`dispatch_before_recompute_hooks` /
 > `dispatch_after_abort_hooks` / `dispatch_after_success_hooks` in
-> `cells/derived.mbt`) and the `AccumulatorCommitHook` impl in
-> `cells/accumulator_commit_hook.mbt`. Do not edit the original references —
-> they are the design rationale, not current-source citations.
+> `incr/cells/derived.mbt`) and the `AccumulatorCommitHook` impl in
+> `incr/cells/accumulator_commit_hook.mbt`. The `incr/` prefix reflects the
+> current workspace layout; the symbols and line ranges remain historical design
+> rationale, not current-source citations.
 **Anchors:** [Async-at-the-edges](2026-05-17-async-at-the-edges.md), [T3 deferred](2026-05-17-t3-runtime-registry-gated.md), [Accumulator API](2026-04-20-accumulator-api.md), [2026-04-20 architecture assessment](../design/specs/2026-04-20-architecture-assessment.md) (AP1, §4 T1b)
 
 **Amendments (2026-05-17, post-Codex):**
-- §"Trait shape": trait lives in `cells/`, not `cells/internal/kernel/`. The MoonBit engine-isolation rule forbids back-edges from `cells/internal/kernel/` into `cells/`, and a trait that takes `rt : Runtime` cannot live in kernel. Mirrors the `CellLifecycle` precedent.
+- §"Trait shape": trait lives in `incr/cells/`, not `incr/cells/internal/kernel/`. The MoonBit engine-isolation rule forbids back-edges from `incr/cells/internal/kernel/` into `incr/cells/`, and a trait that takes `rt : Runtime` cannot live in kernel. Mirrors the `CellLifecycle` precedent.
 - §"Dispatch": `commit_hooks` field on `Runtime`, not `RuntimeCore`. Same reason.
-- §"Hook timing": `after_success` fires **after the cell-level epilogue** (after `changed_at` / `verified_at` / `has_been_computed` / `in_progress = false`). Backdating is detectable via `cell.meta.changed_at < cell.verified_at`. Accumulator's commit work is order-independent w.r.t. the epilogue (verified by reading `cells/derived.mbt:451–477` and `cells/accumulator.mbt::memo_commit_accumulator_phase`).
+- §"Hook timing": `after_success` fires **after the cell-level epilogue** (after `changed_at` / `verified_at` / `has_been_computed` / `in_progress = false`). Backdating is detectable via `cell.meta.changed_at < cell.verified_at`. Accumulator's commit work is order-independent w.r.t. the epilogue (verified by reading `incr/cells/derived.mbt:451–477` and `incr/cells/accumulator.mbt::memo_commit_accumulator_phase`).
 - §"Dispatch order": forward order on **both** success and abort. Explicit, contracted.
 - §"Accumulator refactor": dropped the `commit_hooks[0]` downcast pattern. Use a typed named field `priv accumulator_commit_hook : AccumulatorCommitHook` plus register the *same object* in `commit_hooks`. Drops the brittle invariant.
 
 **Amendments (2026-05-19, post-Codex commissioning review for the viz-tap follow-up):**
-- §"Trait shape" and §"Dispatch": **extend `after_abort` signature with an `Error` parameter.** New shape: `after_abort(Self, Runtime, CellId, Error) -> Unit`. The catch arm at `cells/derived.mbt:429-440` already has `e : Error` in scope; the dispatch loop passes it through. Driver: the [Memo Event Observation ADR](2026-05-17-memo-event-observation.md)'s `EventBroadcastPhaseHook` needs the typed `Error` value (not a runtime-state stash) to produce `MemoAbortedEvent { error : Error, ... }` without losing typed structure. Cost: one-line addition to `AccumulatorCommitHook::after_abort` (`_e : Error` ignored param). Asymmetry with the two non-abort methods is structural truth, not a design smell — only abort carries abort-specific data. This amendment lands **in the viz-tap PR**, not as a separate retroactive PR; T1b is otherwise stable.
+- §"Trait shape" and §"Dispatch": **extend `after_abort` signature with an `Error` parameter.** New shape: `after_abort(Self, Runtime, CellId, Error) -> Unit`. The catch arm at `incr/cells/derived.mbt:429-440` already has `e : Error` in scope; the dispatch loop passes it through. Driver: the [Memo Event Observation ADR](2026-05-17-memo-event-observation.md)'s `EventBroadcastPhaseHook` needs the typed `Error` value (not a runtime-state stash) to produce `MemoAbortedEvent { error : Error, ... }` without losing typed structure. Cost: one-line addition to `AccumulatorCommitHook::after_abort` (`_e : Error` ignored param). Asymmetry with the two non-abort methods is structural truth, not a design smell — only abort carries abort-specific data. This amendment lands **in the viz-tap PR**, not as a separate retroactive PR; T1b is otherwise stable.
 - §"Risks" table: uncatchable `abort()` paths (cycle detection, disposed-cell guards, cross-runtime guards) do **not** trigger `after_abort`. The hook only observes catchable `raise` from the compute closure. This was implicit in T1b but explicit documentation belongs here so future hook authors don't assume universal abort coverage.
 
 ## Context
 
-The 2026-04-20 architecture assessment identified **AP1** — the accumulator feature's three commit-path hooks (`memo_snapshot_accumulator_contributions`, `memo_restore_on_abort`, `memo_commit_accumulator_phase`) are called by literal name from `cells/memo.mbt:423-449`. With one implementor, naming the hooks is fine. The gate for the proposed **T1b** trait abstraction was a *second* cross-cutting concern with the same hook shape.
+The 2026-04-20 architecture assessment identified **AP1** — the accumulator feature's three commit-path hooks (`memo_snapshot_accumulator_contributions`, `memo_restore_on_abort`, `memo_commit_accumulator_phase`) are called by literal name from `incr/cells/memo.mbt:423-449`. With one implementor, naming the hooks is fine. The gate for the proposed **T1b** trait abstraction was a *second* cross-cutting concern with the same hook shape.
 
 That driver has been named: **live event-stream observation for visualization** of the dependency graph. A visualization tool wants to render commit-phase events — which memos entered recompute, which completed, which aborted, with what timing — and the natural hook shape is identical to the accumulator's:
 
@@ -57,16 +58,16 @@ The trade now pays: refactor the three named calls in `memo.mbt` into trait disp
 
 ## Current state to be refactored
 
-Three named-call sites in `cells/memo.mbt::memo_force_recompute` (verified against `main @ 7726cff`):
+Three named-call sites in `incr/cells/memo.mbt::memo_force_recompute` (verified against `main @ 7726cff`):
 
 ```moonbit
-// cells/memo.mbt:423 — BEFORE_CLOSURE
+// incr/cells/memo.mbt:423 — BEFORE_CLOSURE
 let prev_contributions = memo_snapshot_accumulator_contributions(self, cell_id)
 
-// cells/memo.mbt:430 — AFTER_ABORT (inside catch arm)
+// incr/cells/memo.mbt:430 — AFTER_ABORT (inside catch arm)
 memo_restore_on_abort(self, cell_id, prev_contributions)
 
-// cells/memo.mbt:442-449 — AFTER_SUCCESS
+// incr/cells/memo.mbt:442-449 — AFTER_SUCCESS
 memo_commit_accumulator_phase(
   self, cell, cell_id, prev_contributions,
   query.touched_accumulator_slots,
@@ -81,7 +82,7 @@ The success path additionally consumes two accumulator-specific fields from `Act
 ### Trait shape
 
 ```moonbit
-// cells/memo_commit_phase.mbt (new file — NOT in cells/internal/kernel/)
+// incr/cells/memo_commit_phase.mbt (new file — NOT in incr/cells/internal/kernel/)
 // Signature post 2026-05-19 amendment (after_abort carries Error).
 priv trait MemoCommitPhase {
   before_recompute(Self, Runtime, CellId) -> Unit
@@ -97,7 +98,7 @@ Three methods, no `Snapshot` associated type, no return values. Each implementor
 
 The trade-off: implementors carry more state. Worth it because the alternative is type erasure on the hot commit path.
 
-**Trait file placement is `cells/`, not `cells/internal/kernel/`.** Because the trait methods take `rt : Runtime`, and `Runtime` lives in `cells/`, a kernel-resident trait would force a back-edge from `cells/internal/kernel/` into `cells/`, which `scripts/check-engine-isolation.sh` forbids (invariant #4). This mirrors the `CellLifecycle` precedent: it stays on `Runtime` for exactly the same reason (`cells/runtime.mbt:30`).
+**Trait file placement is `incr/cells/`, not `incr/cells/internal/kernel/`.** Because the trait methods take `rt : Runtime`, and `Runtime` lives in `incr/cells/`, a kernel-resident trait would force a back-edge from `incr/cells/internal/kernel/` into `incr/cells/`, which `scripts/check-engine-isolation.sh` forbids (invariant #4). This mirrors the `CellLifecycle` precedent: it stays on `Runtime` for exactly the same reason (`incr/cells/runtime.mbt:30`).
 
 ### Dispatch
 
@@ -152,8 +153,8 @@ Ok(new_value)
 Three concrete reasons:
 
 1. **Typed value not yet written.** The hook fires inside `memo_force_recompute`, but the typed wrapper at `Memo::force_recompute` (and `HybridMemo::force_recompute`) writes `self.value = Some(new_value)` *after* this returns. A user callback that synchronously reads the memo would see the stale (or `None`) typed cache.
-2. **Nested-recompute dep pollution.** After `pop_tracking_full` for the inner recompute, an outer frame may still be live. `record_dep` records into the top frame unconditionally (`cells/internal/kernel/tracking.mbt:47`). A user callback that reads any memo from inside the hook would land its reads on the outer frame, corrupting the outer's dependency set.
-3. **`recompute_inner` decisions depend on epilogue state.** `recompute_inner` computes `changed = cell.meta.changed_at != old_changed_at` *after* `force_recompute` returns (`cells/derived.mbt:352-358`) and decides whether to fire `on_change`. A hook mutating `changed_at` would flip that decision.
+2. **Nested-recompute dep pollution.** After `pop_tracking_full` for the inner recompute, an outer frame may still be live. `record_dep` records into the top frame unconditionally (`incr/cells/internal/kernel/tracking.mbt:47`). A user callback that reads any memo from inside the hook would land its reads on the outer frame, corrupting the outer's dependency set.
+3. **`recompute_inner` decisions depend on epilogue state.** `recompute_inner` computes `changed = cell.meta.changed_at != old_changed_at` *after* `force_recompute` returns (`incr/cells/derived.mbt:352-358`) and decides whether to fire `on_change`. A hook mutating `changed_at` would flip that decision.
 
 Implementors that need to surface events to user code must use **buffer-and-flush**: append to an internal queue inside the hook, and arrange for the queue to drain at a safe point (when `tracking_stack.is_empty()` and after the typed value is written). The visualization event tap follow-up ADR specifies the drain protocol; this contract pins the constraint at the trait level.
 
@@ -165,7 +166,7 @@ The earlier draft placed `after_success` *before* the cell-level epilogue (where
 
 Resolution: fire `after_success` after the epilogue. Backdating is then detectable from cell state alone — `cell.meta.changed_at < cell.verified_at` ⟺ recompute happened but did not advance changed_at ⟺ backdated.
 
-Accumulator correctness under this move was verified by reading `cells/accumulator.mbt::memo_commit_accumulator_phase`: it reads `rt.core.revision.current_revision` (runtime-wide, not cell-specific), writes to per-memo accumulator buffers and slot `push_revised_at`, and does **not** depend on epilogue values (`cell.dependencies`, `cell.meta.changed_at`, `cell.verified_at`, `has_been_computed`). The original placement before-epilogue was happenstance, not a load-bearing ordering invariant.
+Accumulator correctness under this move was verified by reading `incr/cells/accumulator.mbt::memo_commit_accumulator_phase`: it reads `rt.core.revision.current_revision` (runtime-wide, not cell-specific), writes to per-memo accumulator buffers and slot `push_revised_at`, and does **not** depend on epilogue values (`cell.dependencies`, `cell.meta.changed_at`, `cell.verified_at`, `has_been_computed`). The original placement before-epilogue was happenstance, not a load-bearing ordering invariant.
 
 `after_abort` keeps its place in the catch arm before pop. Today's `memo_restore_on_abort` reads `top_active_query()` for `touched_accumulator_slots`; under shape (2) below, the hook reads its own per-cell state instead, so this timing also becomes order-independent — but kept here to minimize diff against the existing code structure.
 
@@ -191,7 +192,7 @@ priv struct Runtime {
 }
 ```
 
-Push paths in `cells/accumulator.mbt` reach the hook through `self.rt.accumulator_commit_hook`, not via array-index downcast. The dispatch array exists for trait-polymorphic iteration in `memo_force_recompute`; the named field exists for typed access. (An earlier draft used `commit_hooks[0]` plus a `priv fn Runtime::accumulator_hook(self)` downcast accessor. That pattern is a brittle hidden invariant — if any future code inserts a hook ahead of accumulator, the invariant silently breaks. The typed field eliminates the question.)
+Push paths in `incr/cells/accumulator.mbt` reach the hook through `self.rt.accumulator_commit_hook`, not via array-index downcast. The dispatch array exists for trait-polymorphic iteration in `memo_force_recompute`; the named field exists for typed access. (An earlier draft used `commit_hooks[0]` plus a `priv fn Runtime::accumulator_hook(self)` downcast accessor. That pattern is a brittle hidden invariant — if any future code inserts a hook ahead of accumulator, the invariant silently breaks. The typed field eliminates the question.)
 
 **Decision: shape (2) is the default.** `touched_accumulator_slots` and `accumulator_reads` move **off** `ActiveQuery` and **onto** the `AccumulatorCommitHook`'s per-cell state. Rationale:
 
@@ -200,9 +201,9 @@ Push paths in `cells/accumulator.mbt` reach the hook through `self.rt.accumulato
 
 **Behavior preservation rule (load-bearing — preserves current semantics):** when redirecting the three push sites, the lookup-by-recomputing-cell must preserve current "no frame → no-op" tolerance at the two tracked variants:
 
-- `cells/accumulator.mbt:464` (`Accumulator::push`) — requires a memo recompute frame. The existing function aborts at `:451` if the current frame is not Memo/HybridMemo. Redirect: look up `accumulator_commit_hook.active[cell_id]`; if absent (shouldn't happen given the line-451 check), abort with the same message.
-- `cells/accumulator.mbt:540` (`Memo::accumulated`) — has `match top_active_query() { Some(frame) => ...; None => () }` at `:542`. Today this silently no-ops when called outside any tracking frame. Under shape (2): look up `accumulator_commit_hook.active[cell_id_of_top_frame]`; if frame absent OR entry absent, **silently no-op**. Preserves current behavior.
-- `cells/accumulator.mbt:581` (`Memo::accumulated_result`) — same shape as `accumulated`. Same redirect rule.
+- `incr/cells/accumulator.mbt:464` (`Accumulator::push`) — requires a memo recompute frame. The existing function aborts at `:451` if the current frame is not Memo/HybridMemo. Redirect: look up `accumulator_commit_hook.active[cell_id]`; if absent (shouldn't happen given the line-451 check), abort with the same message.
+- `incr/cells/accumulator.mbt:540` (`Memo::accumulated`) — has `match top_active_query() { Some(frame) => ...; None => () }` at `:542`. Today this silently no-ops when called outside any tracking frame. Under shape (2): look up `accumulator_commit_hook.active[cell_id_of_top_frame]`; if frame absent OR entry absent, **silently no-op**. Preserves current behavior.
+- `incr/cells/accumulator.mbt:581` (`Memo::accumulated_result`) — same shape as `accumulated`. Same redirect rule.
 
 `Memo::accumulated_peek` at `:474–499` is untracked and never calls `ensure_accumulator_reads` — **not a redirect site**. Earlier plan drafts misidentified this. Verified by reading the function body.
 
@@ -233,14 +234,14 @@ The earlier draft of this section staged the work as "trait skeleton → accumul
 
 ### Phase 1 — Trait + dispatch loops, hook *not yet registered* (no behavior change)
 
-- Add `cells/memo_commit_phase.mbt` with the `priv trait`.
+- Add `incr/cells/memo_commit_phase.mbt` with the `priv trait`.
 - Add `priv mut commit_hooks : Array[&MemoCommitPhase]` field on `Runtime`. Initialize to `[]`.
 - Modify `memo_force_recompute` to call the three dispatch loops at the timing points in §"Dispatch":
   - `before_recompute` loop before `push_tracking`
   - `after_abort` loop inside the catch arm before `pop_tracking_full`
   - `after_success` loop **after** the cell-level epilogue
 - **Keep all three existing named calls in `memo_force_recompute`.** The dispatch list is empty, so the loops are no-ops. Behavior is byte-identical to pre-T1b.
-- **Add a `memo: no-accumulator recompute fanout` microbench** to `tests/bench_test.mbt` — pure-pull workload that recomputes memos without touching accumulators, the path that pays hook dispatch + HashMap insert/remove for no benefit. Capturing this number while in Phase 1 establishes a pre-switchover baseline against which Phase 2 is measured.
+- **Add a `memo: no-accumulator recompute fanout` microbench** to `incr/tests/bench_test.mbt` — pure-pull workload that recomputes memos without touching accumulators, the path that pays hook dispatch + HashMap insert/remove for no benefit. Capturing this number while in Phase 1 establishes a pre-switchover baseline against which Phase 2 is measured.
 
 Verification: all 508+ tests stay green. Bench gate ±5% on commit-path benches (overhead expected to be sub-1ns; if measurable, add `commit_hooks.is_empty()` fast-path).
 
@@ -249,13 +250,13 @@ Verification: all 508+ tests stay green. Bench gate ±5% on commit-path benches 
 Single atomic change. Do **not** stage this across multiple commits — the corrupting double-snapshot intermediate state is the failure mode Codex flagged.
 
 In one commit:
-1. Add `cells/accumulator_commit_hook.mbt` with `priv struct AccumulatorCommitHook` + impl. Use the per-cell `HashMap[CellId, RecomputeState]` (shape (2)) with the behavior-preservation rules from §"Accumulator refactor".
+1. Add `incr/cells/accumulator_commit_hook.mbt` with `priv struct AccumulatorCommitHook` + impl. Use the per-cell `HashMap[CellId, RecomputeState]` (shape (2)) with the behavior-preservation rules from §"Accumulator refactor".
 2. Add `priv accumulator_commit_hook : AccumulatorCommitHook` field to `Runtime`.
 3. In `Runtime::new`, construct the hook once and use the same reference in both the typed field and the `commit_hooks.push(...)` registration.
-4. Redirect the three push sites in `cells/accumulator.mbt` (lines 464, 540, 581 in the current source — verify against `main` before editing) to write through `self.rt.accumulator_commit_hook.active[recomputing_cell_id]` instead of `frame.ensure_*`. Preserve the "frame absent → no-op" behavior at lines 540 and 581.
+4. Redirect the three push sites in `incr/cells/accumulator.mbt` (lines 464, 540, 581 in the current source — verify against `main` before editing) to write through `self.rt.accumulator_commit_hook.active[recomputing_cell_id]` instead of `frame.ensure_*`. Preserve the "frame absent → no-op" behavior at lines 540 and 581.
 5. Delete the three named call sites in `memo_force_recompute` (the locations marked BEFORE/ON_ABORT/AFTER_SUCCESS in §"Dispatch").
-6. Delete the three free functions in `cells/accumulator.mbt` (`memo_snapshot_accumulator_contributions`, `memo_restore_on_abort`, `memo_commit_accumulator_phase`).
-7. Remove `accumulator_reads` and `touched_accumulator_slots` fields from `ActiveQuery` in `cells/internal/kernel/state.mbt`, along with the `ensure_*` helpers and the `None` initializers.
+6. Delete the three free functions in `incr/cells/accumulator.mbt` (`memo_snapshot_accumulator_contributions`, `memo_restore_on_abort`, `memo_commit_accumulator_phase`).
+7. Remove `accumulator_reads` and `touched_accumulator_slots` fields from `ActiveQuery` in `incr/cells/internal/kernel/state.mbt`, along with the `ensure_*` helpers and the `None` initializers.
 8. Migrate any whitebox test that directly inspects those `ActiveQuery` fields.
 
 Verification: all 508+ tests stay green, including 41 accumulator tests + the lambda type-checker incrementality test (loom PR #94 — retroactively, by building loom against the new incr). Specifically, the abort-preservation invariant (`1715981`) must hold — `after_abort` must restore exactly what `before_recompute` snapshotted.
@@ -264,7 +265,7 @@ Verification: all 508+ tests stay green, including 41 accumulator tests + the la
 
 - Update `docs/design/internals.md` "Accumulator" section: hooks are trait-dispatched; list `MemoCommitPhase` as the extension point. Document that it is an internal extension point, not a public API.
 - Add a paragraph explaining how a future hook (e.g., visualization) would be registered.
-- Update `CLAUDE.md` Package Map to include `cells/memo_commit_phase.mbt` + `cells/accumulator_commit_hook.mbt`.
+- Update `CLAUDE.md` Package Map to include `incr/cells/memo_commit_phase.mbt` + `incr/cells/accumulator_commit_hook.mbt`.
 - Bench gate (final): commit-path benches within ±5% of the **Phase 1 baseline** (per §"Migration plan" Phase 1, the `memo: no-accumulator recompute fanout` bench was added there to establish a pre-switchover number against which Phase 2 is measured).
 
 ## Verification
@@ -272,15 +273,15 @@ Verification: all 508+ tests stay green, including 41 accumulator tests + the la
 | Check | Requirement |
 |---|---|
 | `moon test` | 508+ tests, all green (including 41 accumulator + loom-driver coverage) |
-| `scripts/check-engine-isolation.sh` | Green — new files live in `cells/`, no engine-boundary violation |
-| `moon bench --release` on `tests/bench_test.mbt` | Commit-path benches within ±5% of pre-T1b baseline. **Including the `memo: no-accumulator recompute fanout` bench** added in Phase 1 (per §"Migration plan") as a pre-switchover baseline against which Phase 2 is measured. If overhead is measurable, add `commit_hooks.is_empty()` fast-path |
+| `scripts/check-engine-isolation.sh` | Green — new files live in `incr/cells/`, no engine-boundary violation |
+| `moon bench --release` on `incr/tests/bench_test.mbt` | Commit-path benches within ±5% of pre-T1b baseline. **Including the `memo: no-accumulator recompute fanout` bench** added in Phase 1 (per §"Migration plan") as a pre-switchover baseline against which Phase 2 is measured. If overhead is measurable, add `commit_hooks.is_empty()` fast-path |
 | `moon info && moon fmt` | No public `.mbti` diff (trait is `priv`; no API change) |
 | Codex pre-trait-shape review (Gate 1) | Trait location + signatures + Runtime field placement |
 | Codex pre-atomic-switchover review (Gate 2) | Hook struct + impl + push-path redirects, paper review before any code lands |
 | Codex post-implementation review (Gate 3) | The merged Phase 2 commit reviewed against the rewritten `memo_force_recompute` + accumulator hook + push redirects |
 | Hook ordering test | Whitebox test verifying forward-insertion-order dispatch on both success and abort (matters when a second impl lands) |
 | Abort-preservation test | Existing accumulator test `1715981` covers this; must remain green |
-| Non-memo-frame test (new) | Whitebox: `Memo::accumulated` and `accumulated_result` called from inside a push-reactive or effect compute frame stay no-op. Preserves behavior currently relied upon (per `cells/accumulator.mbt:537–543` and `:578–584`) |
+| Non-memo-frame test (new) | Whitebox: `Memo::accumulated` and `accumulated_result` called from inside a push-reactive or effect compute frame stay no-op. Preserves behavior currently relied upon (per `incr/cells/accumulator.mbt:537–543` and `:578–584`) |
 | Nested-recompute test (new) | Whitebox: outer memo M1 recompute reads inner memo M2 → inner recompute pushes accumulator state → inner aborts → outer continues. Verify M1's hook entry is intact and M2's hook entry is gone |
 
 ## Risks
@@ -302,8 +303,8 @@ Verification: all 508+ tests stay green, including 41 accumulator tests + the la
 ## Scope
 
 **In scope of T1b's PR:**
-- New file `cells/memo_commit_phase.mbt` with the `priv trait` (lives in `cells/`, **not** `cells/internal/kernel/` — see §"Trait shape")
-- New file `cells/accumulator_commit_hook.mbt` with `AccumulatorCommitHook` + impl
+- New file `incr/cells/memo_commit_phase.mbt` with the `priv trait` (lives in `incr/cells/`, **not** `incr/cells/internal/kernel/` — see §"Trait shape")
+- New file `incr/cells/accumulator_commit_hook.mbt` with `AccumulatorCommitHook` + impl
 - `commit_hooks : Array[&MemoCommitPhase]` field on `Runtime` (not `RuntimeCore`)
 - `accumulator_commit_hook : AccumulatorCommitHook` typed field on `Runtime`
 - Refactor `memo_force_recompute` to dispatch via trait (with `after_success` placed AFTER the cell-level epilogue per §"Hook timing")

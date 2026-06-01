@@ -25,9 +25,9 @@ Read from the repo's `README.md` + `src/pkg.generated.mbti` on 2026-05-17:
 
 Audited against `main @ 7726cff`:
 
-- **Zero `async fn` or `await` in source.** `grep -rn "async fn\|\\bawait\\b" cells/ types/ pipeline/ traits.mbt incr.mbt` returns no hits. The framework never yields.
+- **Zero `async fn` or `await` in source.** `grep -rn "async fn\|\\bawait\\b" incr/cells/ incr/types/ incr/pipeline/ incr/traits.mbt incr/incr.mbt` returns no hits. The framework never yields.
 - **All user-supplied closures are sync.** `Memo::new(rt, f : () -> T)`, `Signal::on_change(f : (T) -> Unit)`, `Runtime::batch(f : () -> Unit)`, `Runtime::batch_result(f : () -> Unit raise?)`, `Accumulator` push-producing memo bodies, `Effect` callbacks, `Rule` apply closures. None are typed as `async`.
-- **All `cells/internal/kernel/*.mbt` algorithm bodies are sync.** Verification, propagation, fixpoint, batch commit, gc, dispose — none yield.
+- **All `incr/cells/internal/kernel/*.mbt` algorithm bodies are sync.** Verification, propagation, fixpoint, batch commit, gc, dispose — none yield.
 - **Primary build target is wasm-gc.** `_build/wasm-gc/` is canonical; native and JS targets exist for the JS-target bench/build chain.
 
 ## Finding 1 — MoonBit's function coloring enforces the synchrony contract automatically
@@ -57,7 +57,7 @@ Given Finding 1, every concern in the prior async-readiness analysis dissolves:
 | Mid-batch state visible to another task | Safe — batch closure typed sync |
 | `cell_index`/`cell_ops`/`cell_lifecycle` mid-alloc invariant | Safe — allocation is sync |
 | `current_revision` bumped by another task mid-recompute | Safe — `Signal::set` and `force_recompute` cannot interleave |
-| Module-scope `current_computing_runtime_id : Ref[Int]` (`cells/runtime.mbt:22`) | Safe today — set/cleared inside sync brackets, no task switch possible between them |
+| Module-scope `current_computing_runtime_id : Ref[Int]` (`incr/cells/runtime.mbt:22`) | Safe today — set/cleared inside sync brackets, no task switch possible between them |
 
 Between any two consecutive synchronous incr API calls, no other task can run. Each call is atomic from the scheduler's point of view.
 
@@ -70,7 +70,7 @@ Between any two consecutive synchronous incr API calls, no other task can run. E
 3. **Two follow-ups are recorded but stay gated.** Neither is needed for the supported pattern to work; both are robustness improvements that pay off only when a concrete async driver lands.
 
    - **Integration test on the JS backend** demonstrating the canonical pattern (`with_task_group` + `spawn` + `rt.batch(fn() { sig.set(v) })` + concurrent reads). Makes the synchrony contract executable. Gated on: first canopy/loom driver actually using async.
-   - **T3 (`RuntimeRegistry`)** replacing the two file-scope `Ref[Int]`s in `cells/runtime.mbt`. Robustifies multi-runtime + async patterns; today the Refs are correct-by-sync-bracketing discipline. To be written as a separate ADR with its own gate.
+   - **T3 (`RuntimeRegistry`)** replacing the two file-scope `Ref[Int]`s in `incr/cells/runtime.mbt`. Robustifies multi-runtime + async patterns; today the Refs are correct-by-sync-bracketing discipline. To be written as a separate ADR with its own gate.
 
 ## Supported patterns (driver-side, no library code needed)
 
@@ -140,7 +140,7 @@ The `Effect` closure stays sync; the consumer drains async.
 - **Compute parallelism.** `moonbitlang/async` is single-threaded. Multiple memos still recompute serially. Parallel evaluation remains a Phase 5 question with no current design.
 - **`async` API surface on `Signal`/`Memo`/`Runtime`.** Public API stays sync. Drivers that need an `async` wrapper write a thin facade in their own crate.
 - **wasm-gc backend for async.** `moonbitlang/async` does not currently support wasm-gc. Re-evaluate this ADR if that changes.
-- **Internal `await`.** No `cells/*.mbt` or `cells/internal/**/*.mbt` file may introduce `await`. Any such change requires reopening this ADR.
+- **Internal `await`.** No `incr/cells/*.mbt` or `incr/cells/internal/**/*.mbt` file may introduce `await`. Any such change requires reopening this ADR.
 
 ## Verification
 
@@ -148,9 +148,9 @@ Three invariants to preserve. All are checkable today by grep.
 
 | Invariant | Check |
 |---|---|
-| Framework never yields | `grep -rn "async fn\|\\bawait\\b" cells/ types/ pipeline/ traits.mbt incr.mbt` returns no hits |
-| All user-supplied closures are sync | `grep -rn "fn.*async.*->\|: async " cells/ types/ traits.mbt incr.mbt` returns no hits in non-test code |
-| Public `.mbti` interfaces declare no `async` | `grep -rn "async fn\|async (" *.mbti cells/*.mbti` returns no hits |
+| Framework never yields | `grep -rn "async fn\|\\bawait\\b" incr/cells/ incr/types/ incr/pipeline/ incr/traits.mbt incr/incr.mbt` returns no hits |
+| All user-supplied closures are sync | `grep -rn "fn.*async.*->\|: async " incr/cells/ incr/types/ incr/traits.mbt incr/incr.mbt` returns no hits in non-test code |
+| Public `.mbti` interfaces declare no `async` | `grep -rn "async fn\|async (" *.mbti incr/cells/*.mbti` returns no hits |
 
 These can be added to `scripts/` as a CI guard if desired; not commissioned now (no driver, no failure history).
 
