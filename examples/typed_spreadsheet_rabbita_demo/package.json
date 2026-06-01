@@ -6,6 +6,7 @@
     "build:moonbit": "cd ../.. && moon build --target js --release",
     "dev": "npm run build:moonbit && vite",
     "build": "npm run build:moonbit && vite build",
+    "smoke": "node scripts/smoke-dist.mjs",
     "preview": "vite preview"
   },
   "devDependencies": {
