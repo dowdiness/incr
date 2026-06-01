@@ -1,6 +1,4 @@
 import {
   "dowdiness/incr",
   "examples/typed_spreadsheet",
-  "moonbitlang/core/json",
-  "moonbitlang/core/string",
-}
+} for "test"

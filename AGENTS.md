@@ -4,7 +4,7 @@ This file is the canonical entry point for human contributors and coding agents 
 
 ## Project Overview
 
-`incr` is a Salsa-inspired incremental recomputation library in MoonBit. The repository root is a MoonBit workspace: the publishable library module lives under `incr/`, checked docs live under `docs/`, and demos/spikes live under `examples/` as separate workspace modules. The library has roughly five public packages and five `internal/` engine sub-packages under `incr/cells/`. See [`docs/architecture.md`](docs/architecture.md) for the package map and [`docs/design/internals.md`](docs/design/internals.md) for the verification algorithm.
+`incr` is a Salsa-inspired incremental recomputation library in MoonBit. The repository root is a MoonBit workspace: the publishable library module lives under `incr/`, checked docs live under `docs/`, and demos/spikes live under `examples/` as separate workspace modules. The library has roughly four public packages and five `internal/` engine sub-packages under `incr/cells/`. See [`docs/architecture.md`](docs/architecture.md) for the package map and [`docs/design/internals.md`](docs/design/internals.md) for the verification algorithm.
 
 Users care about: `Signal`, `Memo`, `MemoMap`, `HybridMemo`, `TrackedCell`, `Reactive`, `Effect`, `Relation`, `Accumulator`, `Scope`, plus the `Database` / `Readable` / `Trackable` traits. Anything under `incr/cells/internal/` is implementation detail and the compiler enforces that visibility.
 

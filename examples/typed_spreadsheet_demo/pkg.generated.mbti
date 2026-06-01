@@ -2,7 +2,7 @@
 package "examples/typed_spreadsheet_demo"
 
 import {
-  "dowdiness/incr/typed_spreadsheet",
+  "examples/typed_spreadsheet",
   "moonbitlang/core/debug",
 }
 

@@ -4,6 +4,10 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ## Unreleased
 
+### Changed
+
+- Moved the typed spreadsheet boundary and tests out of the publishable `dowdiness/incr` module into the standalone `examples/typed_spreadsheet` workspace module.
+
 ## [0.7.1] - 2026-06-01
 
 ### Changed

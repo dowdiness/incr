@@ -71,8 +71,9 @@ trace:
 ## What this demonstrates
 
 - **Formula text → `SheetOp`**: demo text is parsed inside
-  `examples/typed_spreadsheet_demo`; the typed spreadsheet core does not own the
-  demo operation vocabulary or parser grammar.
+  `examples/typed_spreadsheet_demo`; the typed spreadsheet boundary in
+  `examples/typed_spreadsheet` does not own the demo operation vocabulary or
+  parser grammar.
 - **Static refs**: formula AST references are discovered before execution and
   exposed as `refs=[A1]` / `static_references: ["A1"]`.
 - **Trace changed/unchanged**: changing `A1` from `10` to `15` marks `B1` as
