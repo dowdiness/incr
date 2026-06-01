@@ -12,7 +12,7 @@ New to `incr`? Read these in order:
 2. [Core Concepts](concepts.mbt.md) — signals, memos, revisions, durability, backdating
 3. [Checked Concepts Examples](concepts_examples.mbt.md) — literate tests for high-value concepts behavior
 4. [Cookbook](cookbook.mbt.md) — practical patterns and anti-patterns
-5. [Checked Cookbook Examples](cookbook_examples.mbt.md) — literate tests for high-value cookbook patterns, including target facades, scoped watches, accumulators, and memo events
+5. [Checked Cookbook Examples](cookbook_examples.mbt.md) — literate tests for high-value cookbook patterns, including target facades, long-lived authoring pipelines, scoped watches, accumulators, and memo events
 6. [Checked Target API Examples](target_api_examples.mbt.md) — literate tests mirroring the README and getting-started target facade, callback, and batch examples
 7. [Checked API Reference Examples](api_reference_examples.mbt.md) — literate tests covering target facades from the API reference (`Derived`, `DerivedMap`, `ReachableDerived`, `MapRelation`, `Scope` / `RuntimeContext`, `CycleError`) plus compatibility accumulator behavior
 
@@ -22,7 +22,7 @@ New to `incr`? Read these in order:
 - [Typed Spreadsheet API](typed-spreadsheet.mbt.md) — typed spreadsheet boundary, installation APIs, post-change recompute traces, and the CLI demo entry point
 - [Checked Concepts Examples](concepts_examples.mbt.md) — companion literate tests pinning high-value behavior from the concepts guide
 - [Checked API Reference Examples](api_reference_examples.mbt.md) — companion literate tests pinning executable reference snippets and compatibility accumulator behavior
-- [Checked Cookbook Examples](cookbook_examples.mbt.md) — companion literate tests pinning high-value cookbook patterns, including target facades, scoped watches, accumulators, and memo events
+- [Checked Cookbook Examples](cookbook_examples.mbt.md) — companion literate tests pinning high-value cookbook patterns, including target facades, long-lived authoring pipelines, scoped watches, accumulators, and memo events
 - [Architecture](architecture.md) — package responsibility map, four execution modes (pull / push / hybrid / Datalog), key types and invariants, extension points
 
 ## Performance

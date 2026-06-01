@@ -4,7 +4,8 @@ Literate tests that pin high-value snippets from [`cookbook.mbt.md`](cookbook.mb
 These examples focus on behavior that prose-only snippets can easily drift on:
 diamond dependencies, batch semantics, dynamic dependency changes, backdating
 with custom `Eq`, accumulator invalidation, memo-event logging, compatibility
-introspection, field-level inputs, and scoped watch lifetimes.
+introspection, field-level inputs, long-lived authoring pipelines, and scoped
+watch lifetimes.
 
 ## Diamond dependencies and layered derived values
 
@@ -836,5 +837,217 @@ test "docs cookbook: scope.add_watch keeps a target watch scoped" {
 
   scope.dispose()
   inspect(watch.is_disposed(), content="true")
+}
+```
+
+## Long-lived authoring pipelines
+
+```mbt check
+///|
+priv struct CookbookAuthoringTerminal {
+  lowered : Result[String, String]
+}
+
+///|
+impl Eq for CookbookAuthoringTerminal with fn equal(self, other) -> Bool {
+  match (self.lowered, other.lowered) {
+    (Ok(a), Ok(b)) => a == b
+    (Err(a), Err(b)) => a == b
+    _ => false
+  }
+}
+
+///|
+priv struct CookbookAuthoringSnapshot {
+  active : String?
+  diagnostics : String
+}
+
+///|
+priv struct CookbookAuthoringPipeline {
+  scope : @incr.Scope
+  source : @incr.Input[String]
+  terminal_cell : @incr.Derived[CookbookAuthoringTerminal]
+  terminal_watch : @incr.Watch[CookbookAuthoringTerminal]
+  last_good : Ref[String?]
+}
+
+///|
+priv struct CookbookInspectorPanel {
+  scope : @incr.Scope
+  watch : @incr.Watch[String]
+}
+
+///|
+fn CookbookAuthoringPipeline::CookbookAuthoringPipeline(
+  rt : @incr.Runtime,
+) -> CookbookAuthoringPipeline {
+  let scope = @incr.Scope::new(rt)
+  let source = scope.input("ok", label="authoring.source")
+  let parse = scope.derived(
+    () => {
+      let text = source.get()
+      if text.contains("parse-error") {
+        Err("parse: invalid token")
+      } else {
+        Ok(text)
+      }
+    },
+    label="authoring.parse",
+  )
+  let projection = scope.derived(
+    () => {
+      match parse.get_or_abort() {
+        Ok(text) => Ok("project(" + text + ")")
+        Err(diag) => Err(diag)
+      }
+    },
+    label="authoring.projection",
+  )
+  let semantic = scope.derived(
+    () => {
+      match projection.get_or_abort() {
+        Ok(projected) =>
+          if projected.contains("semantic-error") {
+            Err("semantic: unknown symbol")
+          } else {
+            Ok("sem(" + projected + ")")
+          }
+        Err(diag) => Err(diag)
+      }
+    },
+    label="authoring.semantic",
+  )
+  let lowered = scope.derived(
+    () => {
+      match semantic.get_or_abort() {
+        Ok(graph) => Ok("lower(" + graph + ")")
+        Err(diag) => Err(diag)
+      }
+    },
+    label="authoring.lowered",
+  )
+  let terminal_cell = scope.derived(
+    () => { lowered: lowered.get_or_abort() },
+    label="authoring.terminal",
+  )
+  let terminal_watch = scope.add_watch(terminal_cell.watch())
+  let last_good : Ref[String?] = { val: None }
+  // Prime before exposing: an uncomputed watched cell has no recorded deps for gc().
+  match terminal_watch.read_or_abort().lowered {
+    Ok(graph) => last_good.val = Some(graph)
+    Err(_) => ()
+  }
+  { scope, source, terminal_cell, terminal_watch, last_good }
+}
+
+///|
+fn CookbookAuthoringPipeline::snapshot(
+  self : CookbookAuthoringPipeline,
+) -> CookbookAuthoringSnapshot {
+  let terminal = self.terminal_watch.read_or_abort()
+  match terminal.lowered {
+    Ok(graph) => {
+      self.last_good.val = Some(graph)
+      { active: Some(graph), diagnostics: "" }
+    }
+    Err(diag) => { active: self.last_good.val, diagnostics: diag }
+  }
+}
+
+///|
+fn CookbookAuthoringPipeline::open_inspector(
+  self : CookbookAuthoringPipeline,
+) -> CookbookInspectorPanel {
+  let panel_scope = self.scope.child()
+  let inspector = panel_scope.reachable_derived(
+    () => {
+      match self.terminal_cell.get_or_abort().lowered {
+        Ok(graph) => "inspect:" + graph
+        Err(diag) => "diagnostic:" + diag
+      }
+    },
+    label="authoring.inspector",
+  )
+  let watch = panel_scope.add_watch(inspector.watch())
+  // Prime before exposing so a pre-read gc keeps panel dependencies alive.
+  ignore(watch.read_or_abort())
+  { scope: panel_scope, watch }
+}
+
+///|
+fn CookbookAuthoringPipeline::dispose(self : CookbookAuthoringPipeline) -> Unit {
+  self.scope.dispose()
+}
+
+///|
+fn CookbookInspectorPanel::read(self : CookbookInspectorPanel) -> String {
+  self.watch.read_or_abort()
+}
+
+///|
+fn CookbookInspectorPanel::dispose(self : CookbookInspectorPanel) -> Unit {
+  self.scope.dispose()
+}
+
+///|
+test "docs cookbook: long-lived authoring pipeline keeps last good result" {
+  let rt = @incr.Runtime()
+  let early_invalid = CookbookAuthoringPipeline(rt)
+  rt.gc()
+  early_invalid.source.set("parse-error")
+  let early_parse_invalid = early_invalid.snapshot()
+  guard early_parse_invalid.active is Some(early_active) else {
+    fail("expected primed last good graph after early parse failure")
+  }
+  inspect(early_active, content="lower(sem(project(ok)))")
+  inspect(early_parse_invalid.diagnostics, content="parse: invalid token")
+  early_invalid.dispose()
+
+  let pipeline = CookbookAuthoringPipeline(rt)
+  rt.gc()
+
+  let first = pipeline.snapshot()
+  guard first.active is Some(first_active) else {
+    fail("expected initial active graph")
+  }
+  inspect(first_active, content="lower(sem(project(ok)))")
+  inspect(first.diagnostics, content="")
+
+  let panel = pipeline.open_inspector()
+  rt.gc()
+  inspect(panel.read(), content="inspect:lower(sem(project(ok)))")
+
+  pipeline.source.set("semantic-error")
+  let invalid = pipeline.snapshot()
+  guard invalid.active is Some(still_active) else {
+    fail("expected last good graph")
+  }
+  inspect(still_active, content="lower(sem(project(ok)))")
+  inspect(invalid.diagnostics, content="semantic: unknown symbol")
+  inspect(panel.read(), content="diagnostic:semantic: unknown symbol")
+
+  pipeline.source.set("parse-error")
+  let parse_invalid = pipeline.snapshot()
+  guard parse_invalid.active is Some(still_active) else {
+    fail("expected last good graph after parse failure")
+  }
+  inspect(still_active, content="lower(sem(project(ok)))")
+  inspect(parse_invalid.diagnostics, content="parse: invalid token")
+  inspect(panel.read(), content="diagnostic:parse: invalid token")
+
+  pipeline.source.set("next")
+  let recovered = pipeline.snapshot()
+  guard recovered.active is Some(recovered_active) else {
+    fail("expected recovered graph")
+  }
+  inspect(recovered_active, content="lower(sem(project(next)))")
+  inspect(recovered.diagnostics, content="")
+  inspect(panel.read(), content="inspect:lower(sem(project(next)))")
+
+  panel.dispose()
+  inspect(panel.watch.is_disposed(), content="true")
+  pipeline.dispose()
+  inspect(pipeline.terminal_watch.is_disposed(), content="true")
 }
 ```

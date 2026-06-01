@@ -60,7 +60,7 @@ low-level memo introspection recipes, or legacy downstream code).
 | `memo.observe()` | `derived.watch()` |
 | `rt.read(memo)` | `derived.read()` / `derived.read_or_abort()` |
 | `rt.read_hybrid(h)` | `reachable.read()` / `reachable.read_or_abort()` |
-| `rt.read_reactive(r)` | `eager.read()` / `eager.read_or_abort()` |
+| `rt.read_reactive(r)` | `eager.read()` |
 
 `Runtime`, `Scope`, `Accumulator`, `Effect`, `MemoEvent`, `CycleError`
 are the same name in both worlds. New code should pick one column and
@@ -84,10 +84,11 @@ parentheses.
 | Situation | Use | Not |
 |-----------|-----|-----|
 | Read an `Input` from inside any compute closure | `input.get()` | wrapping in `rt.read(...)` — Inputs are non-fallible; `.get()` records the dep at zero observer cost |
-| Read a `Derived` / `ReachableDerived` / `EagerDerived` from inside another compute closure | `derived.get_or_abort()` (strict) or `derived.get()` returning `Result` (graceful) | `rt.read(derived)` — does one-shot observer lifecycle work that's wasted inside an already-tracked frame; on layered/tree shapes the user measured ~25–30% inflation (see `feedback_api_misuse_pattern.md`) |
-| Read a `Derived` (or `Memo`) from outside the reactive graph (tests, top-level, non-tracked consumer methods) | `derived.read_or_abort()` or `derived.read() -> Result` (or persistent `watch.read_or_abort()` / `observer.get()`) | calling `.get()` at top level — would silently record a stray dep on whatever tracking frame is active |
+| Read a `Derived` / `ReachableDerived` from inside another compute closure | `derived.get_or_abort()` / `reachable.get_or_abort()` (strict) or `.get()` returning `Result` (graceful) | `rt.read(...)`, `.read_or_abort()`, or `.read()` — outside-read APIs do one-shot observer work or obscure the tracked boundary |
+| Read an `EagerDerived` from inside another compute closure | `eager.get()` | `eager.read()` — it is permissive and should be reserved for outside-graph reads unless a boundary wrapper deliberately needs that behavior |
+| Read a `Derived` (or `Memo`) from outside the reactive graph (tests, top-level, non-tracked consumer methods) | `derived.read_or_abort()` or `derived.read() -> Result` (or persistent `watch.read_or_abort()` / `observer.get()`) | calling strict graph reads (`.get()` / `.get_or_abort()`) outside a tracked context aborts, or records a dependency if a compute frame is unexpectedly active |
 | Read a `ReachableDerived` (or `HybridMemo`) from outside the graph | `reachable.read_or_abort()` or `reachable.read()` (or `watch.read_or_abort()`) | mixing `rt.read(h)` — `Runtime::read` is `Memo[T]`-only; for the compat handle, `rt.read_hybrid(h)` works but is the legacy form |
-| Read an `EagerDerived` (or `Reactive`) from outside the graph | `eager.read_or_abort()` or `eager.read()` (or `watch.read_or_abort()`) | mixing `rt.read(r)` — same as above; the compat form is `rt.read_reactive(r)` |
+| Read an `EagerDerived` (or `Reactive`) from outside the graph | `eager.read()` (or `watch.read_or_abort()`); compat: `rt.read_reactive(r)` or `observer.get()` | calling `eager.get()` / `reactive.get()` outside a tracked context aborts |
 | Read anything after `dispose()` | Don't — disposed cells/observers/watches abort | — |
 | Define a new struct's primary constructor | `fn MyStruct::MyStruct(...) -> MyStruct` | `fn MyStruct::new(...) -> MyStruct` (older idiom; `Type::Type` is project convention per `~/.claude/moonbit-base.md`) |
 | Attach long-lived derived cells to a parser/runtime | `Scope` + persistent `Watch` (preferred) or `Observer` (compat) — see templates below | Bare `Derived(rt, ...)` / `Memo::new` with no GC root — `rt.gc()` will sweep the chain |
@@ -104,8 +105,9 @@ closure or not?**
 `HybridMemo::new`, `Reactive::new`, `scope.memo`):
 
 - `input.get()` — Inputs are non-fallible; just reads and records the dep.
-- `derived.get_or_abort()` — strict read; aborts on cycle.
-- `derived.get()` — graceful read; returns `Result[T, ReadError]`.
+- `derived.get_or_abort()` / `reachable.get_or_abort()` — strict read; aborts on cycle.
+- `derived.get()` / `reachable.get()` — graceful read; returns `Result[T, ReadError]`.
+- `eager.get()` — strict tracked read of an eager/push value. `EagerDerived` has no `Result` or `_or_abort` read channel.
 
 These record the dep on the surrounding tracking frame at zero observer
 cost.
@@ -113,8 +115,9 @@ cost.
 **Outside the graph** (top-level, tests, event handlers, non-tracked
 consumer methods):
 
-- `derived.read_or_abort()` — strict; aborts on cycle.
-- `derived.read()` — returns `Result[T, ReadError]`.
+- `derived.read_or_abort()` / `reachable.read_or_abort()` — strict; aborts on cycle.
+- `derived.read()` / `reachable.read()` — returns `Result[T, ReadError]`.
+- `eager.read()` — reads the current eager/push value outside the graph.
 - Through a long-lived anchor: `watch.read_or_abort()` / `watch.read()`
   (or compat: `observer.get()`).
 - Legacy: `rt.read(memo)` / `rt.read_hybrid(h)` / `rt.read_reactive(r)`
@@ -132,16 +135,19 @@ dependency cycle from a read on a disposed cell (use `.is_cycle()` /
 ### Why mixing breaks
 
 Calling `rt.read(memo)` from inside a compute closure (or
-`derived.read_or_abort()` — same shape) opens and closes a one-shot
-observer to do the read, on top of the tracking frame that's already
-live. The 2026-05-18 measurement put the inflation at ~25–30% on
-layered/tree shapes (see `feedback_api_misuse_pattern.md`). Correctness
-is fine, so the bug is invisible without a microbench.
+`derived.read_or_abort()` / `reachable.read_or_abort()` — same shape)
+opens and closes a one-shot observer to do the read, on top of the
+tracking frame that's already live. The 2026-05-18 measurement put the
+inflation at ~25–30% on layered/tree shapes (see
+`feedback_api_misuse_pattern.md`). Correctness is fine, so the bug is
+invisible without a microbench.
 
-Calling `.get()` / `.get_or_abort()` at top level silently records a
-stray dep on whatever tracking frame is active — typically none, but if
-you're inside a test that ran a `scope.derived(...)` setup helper, the
-dep will land on that closure's frame.
+Calling strict graph reads (`derived.get()`, `derived.get_or_abort()`,
+`reachable.get()`, `reachable.get_or_abort()`, `eager.get()`, or compat
+`memo.get()` / `reactive.get()`) at top level aborts outside a tracked
+context; inside a helper that happens to run during another compute, it
+records a dependency on that active frame. Outside code should use
+read/watch APIs instead.
 
 ### Examples
 
@@ -204,11 +210,15 @@ subsequent reads abort.
 **Rule:** if you build a downstream chain that should survive
 `Runtime::gc()` (anything stored in a struct field with a public `get`),
 hold a persistent `Watch` (target) or `Observer` (compat) on the
-terminal Derived/Memo and register it with a `Scope`.
+terminal Derived/Memo and register it with a `Scope`. Prime that terminal
+read before exposing the facade if `Runtime::gc()` can run before the
+first consumer read: an uncomputed watched/observed cell is rooted, but
+has no recorded upstream `gc_dependencies()` yet. If the facade keeps a
+last-good cache, seed it from that priming read.
 
 GC traversal follows `gc_dependencies()` from anchored roots, so the
 parser's interior cells stay reachable as long as one downstream cell is
-watched/observed.
+watched/observed and has been computed at least once.
 
 ### Template — target facade (preferred for new code)
 
@@ -232,9 +242,11 @@ pub fn MyAttachment::attach(
     () => finalize(stage_one.get_or_abort()),
     label="result",
   )
-  // `derived.watch()` allocates and registers the GC root. Scope owns
-  // its disposal — no separate `scope.add_*` call required.
-  { scope, watch: result.watch() }
+  // Register the watch with the scope for disposal, then prime it so a
+  // pre-read Runtime::gc() sees the upstream dependencies.
+  let watch = scope.add_watch(result.watch())
+  ignore(watch.read_or_abort())
+  { scope, watch }
 }
 
 pub fn MyAttachment::get(self : MyAttachment) -> Result {
@@ -271,6 +283,7 @@ pub fn attach_my_thing(
     label="derived_result",
   )
   let observer = scope.add_observer(result.observe())
+  ignore(observer.get())
   { scope, observer }
 }
 
@@ -382,9 +395,11 @@ Conventions to match verbatim:
   `Memo::new` / `Runtime::new` (compat) or `Input(rt, ...)` /
   `Derived(rt, ...)` / `Runtime()` (target). Don't invent
   `Input::new` — the target facade uses direct-constructor sugar.
-- **Inside compute closures use `.get()` / `.get_or_abort()`; outside
-  use `rt.read(...)` (compat) or `.read_or_abort()` / `.read()` (target).**
-  The bench file is the template for both rules at once.
+- **Inside compute closures use `.get()` (Input/EagerDerived) or
+  `.get_or_abort()` / `.get()` (Derived/ReachableDerived); outside use
+  `rt.read(...)` (compat), `.read_or_abort()` / `.read()`
+  (Derived/ReachableDerived), or `.read()` (EagerDerived).** The bench
+  file is the template for both rules at once.
 - **Label derived cells** in attached pipelines (`label="..."`) — labels
   show up in introspection, which is the whole point of having them.
 
@@ -398,13 +413,14 @@ Before any non-trivial `Derived(rt, ...)` / `ReachableDerived` /
    (`Input`/`Derived`/`Watch`) or compatibility
    (`Signal`/`Memo`/`Observer`) and match the file you're editing.
    Don't half-migrate one chain.
-2. **Am I inside a tracked closure?** If yes, use `.get()` (Input) or
-   `.get_or_abort()` / `.get()` (Derived/ReachableDerived/EagerDerived
-   — the latter returns `Result`). If outside (top-level, test setup, a
-   public method that's not a compute body), use `.read_or_abort()` /
-   `.read()` (target) or `rt.read(...)` / `rt.read_hybrid(...)` /
-   `rt.read_reactive(...)` (compat), or a persistent
-   `watch.read_or_abort()` / `observer.get()`.
+2. **Am I inside a tracked closure?** If yes, use `.get()` for
+   `Input` / `EagerDerived`, or `.get_or_abort()` / `.get()` for
+   `Derived` / `ReachableDerived` (the latter returns `Result`). If
+   outside (top-level, test setup, a public method that's not a compute
+   body), use `.read_or_abort()` / `.read()` for `Derived` /
+   `ReachableDerived`, `.read()` for `EagerDerived`, `rt.read(...)` /
+   `rt.read_hybrid(...)` / `rt.read_reactive(...)` (compat), or a
+   persistent `watch.read_or_abort()` / `observer.get()`.
 3. **Will this cell survive `rt.gc()`?** If it's owned by a struct with
    a public `get`/`dispose` surface, it needs a `Scope` + persistent
    `Watch` (target) or `Observer` (compat) GC anchor. If it's transient
@@ -419,9 +435,9 @@ Before any non-trivial `Derived(rt, ...)` / `ReachableDerived` /
 
 | Mistake | Symptom | Fix |
 |---------|---------|-----|
-| `rt.read(cell)` or `derived.read_or_abort()` inside a compute closure | Bench numbers inflated 25-30% on layered shapes; correctness OK so easy to miss | Replace with `cell.get()` / `derived.get_or_abort()`. Audit the bench file in the same package as the canonical template. |
-| Calling `.get()` / `.get_or_abort()` from top-level test or handler | Silent stray dep recorded on whatever frame happens to be active; flaky or surprising recomputes later | Use `.read_or_abort()` / `.read()` (target) or `rt.read(...)` (compat). |
-| Forgot the GC anchor on an `attach_*` helper | Tests pass until `rt.gc()` runs; then `attachment.get()` aborts | Target: store `result.watch()` in the struct (Scope owns disposal). Compat: store `scope.add_observer(result.observe())`. |
+| `rt.read(cell)` or `derived.read_or_abort()` / `reachable.read_or_abort()` inside a compute closure | Bench numbers inflated 25-30% on layered shapes; correctness OK so easy to miss | Replace with `input.get()` / `eager.get()` or `derived.get_or_abort()` / `reachable.get_or_abort()`. Audit the bench file in the same package as the canonical template. |
+| Calling strict graph reads (`.get()` / `.get_or_abort()`) from top-level test or handler | Aborts outside a tracked context, or records a surprising dependency if a compute frame is active | Use `.read_or_abort()` / `.read()` for `Derived` / `ReachableDerived`, `.read()` for `EagerDerived`, or `rt.read(...)` / `rt.read_hybrid(...)` / `rt.read_reactive(...)` for compat handles. |
+| Forgot the GC anchor or priming read on an `attach_*` helper | Tests pass until `rt.gc()` runs before the first read; then `attachment.get()` aborts | Target: store `scope.add_watch(result.watch())` and prime with `watch.read_or_abort()`. Compat: store `scope.add_observer(result.observe())` and prime with `observer.get()`. |
 | Mixed `Memo`/`Derived` for the same chain | Reviewers/Codex flag the inconsistency; types still align because of aliasing so it compiles | Pick one column per chain. |
 | Defined `MyType::new(...)` for a new struct | Inconsistent with project convention; Codex/code review will flag | Rename to `MyType::MyType(...)`. |
 | Wrote `Input::new(...)` / `Derived::new(...)` | Target facade ships direct constructors, not `::new` | Use `Input(rt, v, label=...)` / `Derived(rt, f, label=...)` directly. |
@@ -429,16 +445,19 @@ Before any non-trivial `Derived(rt, ...)` / `ReachableDerived` /
 
 ## Red Flags — Pause and Verify
 
-- About to type `rt.read(` or `.read_or_abort()` inside a closure
-  passed to `Derived` / `ReachableDerived` / `EagerDerived` /
-  `Memo::new` / `HybridMemo::new` / `Reactive::new` / `scope.derived` /
-  `scope.memo` / `scope.reachable_derived` / `scope.eager_derived` /
-  `scope.hybrid_memo` / `scope.reactive` → switch to `.get()` (Input)
-  or `.get_or_abort()` (Derived family).
+- About to type `rt.read(`, `derived.read_or_abort()`, or
+  `reachable.read_or_abort()` inside a closure passed to `Derived` /
+  `ReachableDerived` / `EagerDerived` / `Memo::new` /
+  `HybridMemo::new` / `Reactive::new` / `scope.derived` / `scope.memo` /
+  `scope.reachable_derived` / `scope.eager_derived` /
+  `scope.hybrid_memo` / `scope.reactive` → switch to `.get()` (Input /
+  EagerDerived) or `.get_or_abort()` (Derived / ReachableDerived).
+- About to type `eager.read()` inside a tracked closure → prefer
+  `eager.get()` so the code documents that it requires a compute frame.
 - About to type `rt.read(h)` on a `HybridMemo` or `rt.read(r)` on a
   `Reactive` (outside the graph) → use `rt.read_hybrid` /
   `rt.read_reactive`, or a persistent `observer.get()`. For target
-  names, just call `reachable.read_or_abort()` / `eager.read_or_abort()`.
+  names, call `reachable.read_or_abort()` / `eager.read()`.
 - About to define `fn MyType::new(` for a brand-new struct → switch to
   `fn MyType::MyType(`.
 - About to call `Input::new(...)` or `Derived::new(...)` → the target
