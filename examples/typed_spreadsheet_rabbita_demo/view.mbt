@@ -2,7 +2,7 @@
 fn view(emit : @rabbita.Emit[Msg], model : Model) -> @rabbita.Html {
   @html.div(
     class=app_shell_class(model),
-    on_click=emit(CloseIntro),
+    on_click=close_intro_click(emit, model.intro_visible),
     on_keydown=event => emit(HandleAppKey(event)),
     [
       view_live_region(model),
@@ -41,34 +41,42 @@ fn view_demo_intro(
   intro_visible : Bool,
   overlay : OverlayPanel,
 ) -> @rabbita.Html {
-  if !intro_visible {
-    @html.nothing
+  match (intro_visible, overlay) {
+    (true, OverlayClosed) =>
+      @html.aside(
+        class="demo-intro",
+        attrs=@html.Attrs::build()
+          .role("complementary")
+          .aria_label("What this demo shows")
+          .on_click(event => {
+            event.stop_propagation()
+            @rabbita.none
+          }),
+        [
+          @html.p(class="demo-intro-kicker", "incr demo"),
+          @html.h2(
+            class="demo-intro-title",
+            "Edit one cell. Watch only the necessary work happen.",
+          ),
+          @html.p(
+            class="demo-intro-copy",
+            "Cells are MoonBit incremental computations; formulas track the cells they read. Use the bottom rail: edit a value, then open trace and evidence.",
+          ),
+        ],
+      )
+    _ => @html.nothing
+  }
+}
+
+///|
+fn close_intro_click(
+  emit : @rabbita.Emit[Msg],
+  intro_visible : Bool,
+) -> @rabbita.Cmd {
+  if intro_visible {
+    emit(CloseIntro)
   } else {
-    match overlay {
-      OverlayClosed =>
-        @html.aside(
-          class="demo-intro",
-          attrs=@html.Attrs::build()
-            .role("complementary")
-            .aria_label("What this demo shows")
-            .on_click(event => {
-              event.stop_propagation()
-              @rabbita.none
-            }),
-          [
-            @html.p(class="demo-intro-kicker", "incr demo"),
-            @html.h2(
-              class="demo-intro-title",
-              "Edit one cell. Watch only the necessary work happen.",
-            ),
-            @html.p(
-              class="demo-intro-copy",
-              "Cells are MoonBit incremental computations; formulas track the cells they read. Use the bottom rail: edit a value, then open trace and evidence.",
-            ),
-          ],
-        )
-      _ => @html.nothing
-    }
+    @rabbita.none
   }
 }
 
