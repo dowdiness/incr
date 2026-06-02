@@ -10,6 +10,7 @@ test "typed spreadsheet Rabbita editor starts with seeded sheet and no user trac
   inspect(model.last_step is None, content="true")
   inspect(appearance_label(model.appearance), content="paper")
   inspect(overlay_status(model.overlay), content="Panels hidden.")
+  inspect(model.intro_visible, content="true")
   inspect(
     friendly_snapshot_result(model.sheet.inspect_cell(cell_id(model, "A1"))),
     content="Int(10)",
@@ -231,6 +232,18 @@ test "typed spreadsheet Rabbita editor appearance and inspector toggles are valu
   inspect(appearance_label(night.appearance), content="night")
   inspect(overlay_status(trace.overlay), content="Trace inspector open.")
   inspect(overlay_status(closed.overlay), content="Panels hidden.")
+}
+
+///|
+test "typed spreadsheet Rabbita editor closes intro independently" {
+  let model = init_model()
+  let closed_intro = update(CloseIntro, model)
+  let closed_again = update(CloseIntro, closed_intro)
+  let reset = update(ResetSheet, closed_intro)
+
+  inspect(closed_intro.intro_visible, content="false")
+  inspect(closed_again.intro_visible, content="false")
+  inspect(reset.intro_visible, content="true")
 }
 
 ///|

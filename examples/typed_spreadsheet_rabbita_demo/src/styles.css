@@ -197,7 +197,6 @@ code,
   padding: var(--space-sm);
   background: color-mix(in oklch, var(--paper), transparent 10%);
   box-shadow: 0 18px 52px color-mix(in oklch, var(--ink), transparent 88%);
-  pointer-events: none;
   backdrop-filter: blur(16px);
 }
 

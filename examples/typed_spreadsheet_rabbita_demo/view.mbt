@@ -2,11 +2,12 @@
 fn view(emit : @rabbita.Emit[Msg], model : Model) -> @rabbita.Html {
   @html.div(
     class=app_shell_class(model),
+    on_click=emit(CloseIntro),
     on_keydown=event => emit(HandleAppKey(event)),
     [
       view_live_region(model),
       @html.main_(class="sheet-workspace", [view_sheet(emit, model)]),
-      view_demo_intro(model.overlay),
+      view_demo_intro(model.intro_visible, model.overlay),
       view_panel_rail_left(emit, model),
       view_panel_rail_right(emit, model),
       view_overlay(emit, model),
@@ -36,27 +37,38 @@ fn app_shell_class(model : Model) -> String {
 }
 
 ///|
-fn view_demo_intro(overlay : OverlayPanel) -> @rabbita.Html {
-  match overlay {
-    OverlayClosed =>
-      @html.aside(
-        class="demo-intro",
-        attrs=@html.Attrs::build()
-          .role("complementary")
-          .aria_label("What this demo shows"),
-        [
-          @html.p(class="demo-intro-kicker", "incr demo"),
-          @html.h2(
-            class="demo-intro-title",
-            "Edit one cell. Watch only the necessary work happen.",
-          ),
-          @html.p(
-            class="demo-intro-copy",
-            "Cells are MoonBit incremental computations; formulas track the cells they read. Use the bottom rail: edit a value, then open trace and evidence.",
-          ),
-        ],
-      )
-    _ => @html.nothing
+fn view_demo_intro(
+  intro_visible : Bool,
+  overlay : OverlayPanel,
+) -> @rabbita.Html {
+  if !intro_visible {
+    @html.nothing
+  } else {
+    match overlay {
+      OverlayClosed =>
+        @html.aside(
+          class="demo-intro",
+          attrs=@html.Attrs::build()
+            .role("complementary")
+            .aria_label("What this demo shows")
+            .on_click(event => {
+              event.stop_propagation()
+              @rabbita.none
+            }),
+          [
+            @html.p(class="demo-intro-kicker", "incr demo"),
+            @html.h2(
+              class="demo-intro-title",
+              "Edit one cell. Watch only the necessary work happen.",
+            ),
+            @html.p(
+              class="demo-intro-copy",
+              "Cells are MoonBit incremental computations; formulas track the cells they read. Use the bottom rail: edit a value, then open trace and evidence.",
+            ),
+          ],
+        )
+      _ => @html.nothing
+    }
   }
 }
 

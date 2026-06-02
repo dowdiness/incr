@@ -33,6 +33,7 @@ struct Model {
   error : String?
   appearance : Appearance
   overlay : OverlayPanel
+  intro_visible : Bool
 }
 
 ///|
@@ -50,6 +51,7 @@ enum Msg {
   HandleAppKey(@html.Keyboard)
   SetAppearance(Appearance)
   SetOverlay(OverlayPanel)
+  CloseIntro
 }
 
 ///|
@@ -77,6 +79,7 @@ fn init_model() -> Model {
     error: None,
     appearance: Paper,
     overlay: OverlayClosed,
+    intro_visible: true,
   }
   let seeded = apply_text_edit(
     apply_text_edit(base, "A1", "10"),
@@ -92,6 +95,7 @@ fn init_model() -> Model {
     status: "Ready. Edit the formula bar or move across the sheet with arrow keys.",
     error: None,
     overlay: OverlayClosed,
+    intro_visible: true,
   }
 }
 
@@ -133,6 +137,7 @@ fn update(msg : Msg, model : Model) -> Model {
     HandleAppKey(event) => handle_app_key(model, event)
     SetAppearance(appearance) => set_appearance(model, appearance)
     SetOverlay(overlay) => set_overlay(model, overlay)
+    CloseIntro => close_intro(model)
   }
 }
 
@@ -214,6 +219,15 @@ fn set_appearance(model : Model, appearance : Appearance) -> Model {
 fn set_overlay(model : Model, overlay : OverlayPanel) -> Model {
   let next = if model.overlay == overlay { OverlayClosed } else { overlay }
   { ..model, overlay: next, status: overlay_status(next), error: None }
+}
+
+///|
+fn close_intro(model : Model) -> Model {
+  if model.intro_visible {
+    { ..model, intro_visible: false }
+  } else {
+    model
+  }
 }
 
 ///|
