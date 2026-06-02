@@ -6,6 +6,7 @@ fn view(emit : @rabbita.Emit[Msg], model : Model) -> @rabbita.Html {
     [
       view_live_region(model),
       @html.main_(class="sheet-workspace", [view_sheet(emit, model)]),
+      view_demo_intro(model),
       view_panel_rail_left(emit, model),
       view_panel_rail_right(emit, model),
       view_overlay(emit, model),
@@ -32,6 +33,36 @@ fn view_live_region(model : Model) -> @rabbita.Html {
 ///|
 fn app_shell_class(model : Model) -> String {
   "app-shell app-shell--\{appearance_label(model.appearance)}"
+}
+
+///|
+fn view_demo_intro(model : Model) -> @rabbita.Html {
+  match model.overlay {
+    OverlayClosed =>
+      @html.aside(
+        class="demo-intro",
+        attrs=@html.Attrs::build()
+          .role("complementary")
+          .aria_label("What this demo shows"),
+        [
+          @html.p(class="demo-intro-kicker", "incr demo"),
+          @html.h2(
+            class="demo-intro-title",
+            "Edit one cell. Watch only the necessary work happen.",
+          ),
+          @html.p(
+            class="demo-intro-copy",
+            "Cells are MoonBit incremental computations; formulas track the cells they read. Use the bottom rail: edit a value, then open trace and evidence.",
+          ),
+          @html.div(class="demo-intro-controls", [
+            @html.span(class="demo-intro-control", "edit"),
+            @html.span(class="demo-intro-control", "trace"),
+            @html.span(class="demo-intro-control", "evidence"),
+          ]),
+        ],
+      )
+    _ => @html.nothing
+  }
 }
 
 ///|
@@ -471,9 +502,16 @@ fn view_trace_overlay(
     [
       view_inspector_header(emit, "Trace", "what the engine revisited"),
       @html.div(class="trace-buckets", [
-        view_trace_bucket(emit, "checked", "Formula cells re-read.", recomputed),
-        view_trace_bucket(emit, "changed", "Visible value moved.", changed),
-        view_trace_bucket(emit, "stable", "Re-read with same value.", unchanged),
+        view_trace_bucket(
+          emit, "recomputed", "Dependency check or evaluation ran after the edit.",
+          recomputed,
+        ),
+        view_trace_bucket(
+          emit, "changed", "The visible result changed.", changed,
+        ),
+        view_trace_bucket(
+          emit, "unchanged", "Work ran, but the result stayed the same.", unchanged,
+        ),
       ]),
     ],
   )
@@ -499,6 +537,10 @@ fn view_snapshot_overlay(
       .aria_label("Snapshot inspector"),
     [
       view_inspector_header(emit, "Evidence", "before and after the last edit"),
+      @html.p(
+        class="snapshot-panel-help",
+        "Before/after snapshots show what the MoonBit worksheet engine observed around the last edit.",
+      ),
       content,
     ],
   )

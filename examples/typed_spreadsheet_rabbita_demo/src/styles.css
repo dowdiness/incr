@@ -184,6 +184,69 @@ code,
   right: var(--space-sm);
 }
 
+.demo-intro {
+  position: fixed;
+  top: var(--space-md);
+  right: var(--space-md);
+  z-index: 12;
+  display: grid;
+  gap: var(--space-xs);
+  width: min(360px, calc(100vw - 2 * var(--space-md)));
+  border: 1px solid color-mix(in oklch, var(--line-strong), transparent 24%);
+  border-radius: var(--radius-lg);
+  padding: var(--space-sm);
+  background: color-mix(in oklch, var(--paper), transparent 10%);
+  box-shadow: 0 18px 52px color-mix(in oklch, var(--ink), transparent 88%);
+  pointer-events: none;
+  backdrop-filter: blur(16px);
+}
+
+.demo-intro-kicker,
+.demo-intro-title,
+.demo-intro-copy,
+.snapshot-panel-help {
+  margin: 0;
+}
+
+.demo-intro-kicker {
+  color: var(--accent);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.demo-intro-title {
+  color: var(--ink);
+  font-size: 0.98rem;
+  line-height: 1.18;
+  letter-spacing: -0.018em;
+}
+
+.demo-intro-copy,
+.snapshot-panel-help {
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.demo-intro-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.demo-intro-control {
+  border: 1px solid color-mix(in oklch, var(--accent), var(--line) 54%);
+  border-radius: 999px;
+  padding: 0.2rem 0.5rem;
+  background: var(--accent-soft);
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
 .status-line,
 .formula-cell-label,
 .example-label,
@@ -854,6 +917,30 @@ code,
 
   .panel-rail--right {
     right: var(--space-xs);
+  }
+
+  .demo-intro {
+    top: auto;
+    right: var(--space-xs);
+    bottom: calc(var(--space-xs) + 62px);
+    left: var(--space-xs);
+    width: auto;
+    gap: 6px;
+    border-radius: var(--radius-md);
+    padding: var(--space-xs);
+  }
+
+  .demo-intro-title {
+    font-size: 0.86rem;
+  }
+
+  .demo-intro-copy,
+  .snapshot-panel-help {
+    font-size: 0.76rem;
+  }
+
+  .demo-intro-control {
+    font-size: 0.68rem;
   }
 
   .status-line {
