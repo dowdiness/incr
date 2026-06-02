@@ -10,6 +10,7 @@ test "typed spreadsheet Rabbita editor starts with seeded sheet and no user trac
   inspect(model.last_step is None, content="true")
   inspect(appearance_label(model.appearance), content="paper")
   inspect(overlay_status(model.overlay), content="Panels hidden.")
+  inspect(model.intro_visible, content="true")
   inspect(
     friendly_snapshot_result(model.sheet.inspect_cell(cell_id(model, "A1"))),
     content="Int(10)",
@@ -234,6 +235,18 @@ test "typed spreadsheet Rabbita editor appearance and inspector toggles are valu
 }
 
 ///|
+test "typed spreadsheet Rabbita editor closes intro independently" {
+  let model = init_model()
+  let closed_intro = update(CloseIntro, model)
+  let closed_again = update(CloseIntro, closed_intro)
+  let reset = update(ResetSheet, closed_intro)
+
+  inspect(closed_intro.intro_visible, content="false")
+  inspect(closed_again.intro_visible, content="false")
+  inspect(reset.intro_visible, content="true")
+}
+
+///|
 test "typed spreadsheet Rabbita editor supports direct cell editing mode" {
   let model = init_model()
   let editing = update(BeginInlineEdit("C1"), model)
@@ -243,6 +256,7 @@ test "typed spreadsheet Rabbita editor supports direct cell editing mode" {
   let stale_blur = update(ApplyInlineEdit("C1"), applied)
 
   inspect(editing.selected_cell, content="C1")
+  inspect(editing.intro_visible, content="false")
   match editing.editing_cell {
     Some(cell) => inspect(cell, content="C1")
     None => abort("expected inline editor")
