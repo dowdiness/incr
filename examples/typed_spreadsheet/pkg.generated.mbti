@@ -109,6 +109,7 @@ pub struct Worksheet {
   cell_presence : @hashmap.HashMap[CellId, @cells.InputField[Bool]]
 }
 pub fn Worksheet::Worksheet(@cells.Runtime, SheetId) -> Self
+pub fn Worksheet::compact_deleted_cells(Self) -> Int
 pub fn Worksheet::delete(Self, CellId) -> CellResult
 pub fn Worksheet::dispose(Self) -> Unit
 pub fn Worksheet::inspect_cell(Self, CellId) -> CellSnapshot

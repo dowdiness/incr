@@ -31,6 +31,29 @@ contract, not an install-time proof.
 See [ADR 2026-06-02](../../docs/decisions/2026-06-02-typed-spreadsheet-runtime-checking.md)
 for the decision record.
 
+## Deleted-cell tombstones and compaction
+
+`Worksheet::delete` marks an address absent by setting a stable per-address
+presence anchor to `false`. The worksheet keeps that lightweight anchor even
+after compaction so formulas that reference a missing address are invalidated
+when the address is recreated.
+
+By default, delete also leaves the heavier cell slot in place. That tombstone
+lets recreating the same address reuse the existing definition/value slot and
+keeps rollback bookkeeping simple. Long-lived sparse sessions can call
+`Worksheet::compact_deleted_cells()` after a successful edit (or after
+`Runtime::batch`/`batch_result` returns) to remove those heavyweight slots while
+retaining the presence anchors. Compaction refreshes present formulas before
+pruning so dependents of deleted cells re-anchor on presence rather than on the
+soon-to-be-disposed value slot.
+
+Compaction is a post-commit maintenance operation, not a batch-body edit: reads
+inside an open batch see pre-commit values, so call it after the batch has
+succeeded or failed. The method returns the number of deleted slots pruned.
+
+See [ADR 2026-06-02](../../docs/decisions/2026-06-02-typed-spreadsheet-tombstone-lifecycle.md)
+for the lifecycle decision record.
+
 ## `WorksheetTrace`
 
 `WorksheetTrace` is returned from `Worksheet::trace` and tracks recompute outcome
