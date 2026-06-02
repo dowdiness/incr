@@ -4,8 +4,8 @@ Literate tests that pin high-value snippets from [`cookbook.mbt.md`](cookbook.mb
 These examples focus on behavior that prose-only snippets can easily drift on:
 diamond dependencies, batch semantics, dynamic dependency changes, backdating
 with custom `Eq`, accumulator invalidation, memo-event logging, compatibility
-introspection, field-level inputs, long-lived authoring pipelines, and scoped
-watch lifetimes.
+introspection, field-level inputs, sparse presence anchors, long-lived authoring
+pipelines, and scoped watch lifetimes.
 
 ## Diamond dependencies and layered derived values
 
@@ -837,6 +837,114 @@ test "docs cookbook: scope.add_watch keeps a target watch scoped" {
 
   scope.dispose()
   inspect(watch.is_disposed(), content="true")
+}
+```
+
+## Sparse address maps with presence anchors
+
+```mbt check
+///|
+priv struct CookbookSparseTable {
+  rt : @incr.Runtime
+  presence : Map[String, @incr.InputField[Bool]]
+  values : Map[String, @incr.InputField[Int]]
+}
+
+///|
+fn CookbookSparseTable::CookbookSparseTable(
+  rt : @incr.Runtime,
+) -> CookbookSparseTable {
+  { rt, presence: Map([]), values: Map([]) }
+}
+
+///|
+fn CookbookSparseTable::presence_for(
+  self : CookbookSparseTable,
+  key : String,
+) -> @incr.InputField[Bool] {
+  self.presence.get_or_init(key, () => {
+    @incr.InputField(self.rt, false, label="presence:" + key)
+  })
+}
+
+///|
+fn CookbookSparseTable::set(
+  self : CookbookSparseTable,
+  key : String,
+  value : Int,
+) -> Unit {
+  match self.values.get(key) {
+    Some(field) => field.set(value)
+    None =>
+      self.values[key] = @incr.InputField(self.rt, value, label="value:" + key)
+  }
+  self.presence_for(key).set(true)
+}
+
+///|
+fn CookbookSparseTable::delete(
+  self : CookbookSparseTable,
+  key : String,
+) -> Unit {
+  self.presence_for(key).set(false)
+}
+
+///|
+fn CookbookSparseTable::read_with_presence(
+  self : CookbookSparseTable,
+  key : String,
+  presence : @incr.InputField[Bool],
+) -> Result[Int, String] {
+  if !presence.get() {
+    Err("missing " + key)
+  } else {
+    match self.values.get(key) {
+      Some(field) => Ok(field.get())
+      None => Err("missing value slot for " + key)
+    }
+  }
+}
+
+///|
+test "docs cookbook: sparse map presence anchors invalidate missing reads" {
+  let rt = @incr.Runtime()
+  let table = CookbookSparseTable(rt)
+  let z9_presence = table.presence_for("Z9")
+  let runs : Ref[Int] = { val: 0 }
+  let z9_plus_one = @incr.Derived::fallible(
+    rt,
+    () => {
+      runs.val = runs.val + 1
+      match table.read_with_presence("Z9", z9_presence) {
+        Ok(value) => Ok(value + 1)
+        Err(message) => Err(message)
+      }
+    },
+    label="z9_plus_one",
+  )
+
+  guard z9_plus_one.read() is Ok(Err("missing Z9")) else {
+    fail("expected missing read to be a domain error")
+  }
+  inspect(runs.val, content="1")
+
+  table.set("Z9", 41)
+  guard z9_plus_one.read() is Ok(Ok(42)) else {
+    fail("expected creation to invalidate and resolve")
+  }
+  inspect(runs.val, content="2")
+
+  table.delete("Z9")
+  guard z9_plus_one.read() is Ok(Err("missing Z9")) else {
+    fail("expected deletion to invalidate back to a domain error")
+  }
+  inspect(runs.val, content="3")
+
+  table.set("Z9", 9)
+  guard z9_plus_one.read() is Ok(Ok(10)) else {
+    fail("expected recreation to invalidate and resolve")
+  }
+  inspect(runs.val, content="4")
 }
 ```
 

@@ -466,6 +466,49 @@ let length = @incr.Derived(rt, () => doc.content.get().length())
 
 ---
 
+## Pattern: Sparse Address Maps with Presence Anchors
+
+Sparse application maps often need a derived value to depend on an address that
+is currently missing. A plain map miss records no dependency, so later creation
+of that key will not invalidate the derived value. Keep a lightweight
+per-address presence anchor, usually `InputField[Bool]`, and make missing reads
+consult that anchor before returning a domain error.
+
+Use this shape:
+
+- `Map[Key, InputField[Bool]]` for stable presence anchors
+- `Map[Key, ValueSlot]` for heavier value, formula, parser, or cache slots
+- read: call `presence.get()` first; if false, return `Err(...)` or a domain
+  `RefError` value
+- create/recreate: install or update the value slot, then set presence `true`
+- delete: set presence `false`; decide separately whether to retain or compact
+  the heavyweight slot
+
+**Compaction warning:** if the heavyweight slot is itself an incremental cell and
+a dependent last read it while the key was present, that dependent's dependency
+list can still point at the heavyweight value slot. Disposing or removing the
+slot immediately after setting presence `false` can make the next pull
+verification fail on a disposed dependency before the dependent compute runs and
+re-anchors on presence. A compactor must either retain the slot, or force
+affected dependents to reread the missing state before disposing/removing the
+heavyweight cell. The typed spreadsheet compactor does this by refreshing
+present formulas before pruning deleted slots.
+
+Allocate the presence anchor when installing the query/formula, or lazily on
+first read if the driver can safely allocate a lightweight cell there. The
+important invariant is that every future read for the same logical key reuses the
+same anchor. The checked companion shows a missing read returning a domain error,
+then resolving after creation, failing again after deletion, and resolving again
+after recreation in
+[`cookbook_examples.mbt.md`](cookbook_examples.mbt.md#sparse-address-maps-with-presence-anchors).
+
+This is an invalidation-identity pattern, not a core collection API. Deleted-slot
+lifecycle is application policy: the typed spreadsheet example keeps lightweight
+presence anchors and exposes example-local compaction for heavyweight tombstones.
+See the lifecycle ADR for [GitHub issue #130](decisions/2026-06-02-typed-spreadsheet-tombstone-lifecycle.md).
+
+---
+
 ## Pattern: Long-Lived Authoring Pipeline
 
 Use this shape for editors, DSL workbenches, and other authoring surfaces that
