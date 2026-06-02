@@ -3,9 +3,10 @@
 Literate tests that pin high-value snippets from [`cookbook.mbt.md`](cookbook.mbt.md).
 These examples focus on behavior that prose-only snippets can easily drift on:
 diamond dependencies, batch semantics, dynamic dependency changes, backdating
-with custom `Eq`, accumulator invalidation, memo-event logging, compatibility
-introspection, extension-owned batch rollback, field-level inputs, sparse
-presence anchors, long-lived authoring pipelines, and scoped watch lifetimes.
+with custom `Eq`, domain errors as values, accumulator invalidation, memo-event
+logging, compatibility introspection, extension-owned batch rollback, field-level
+inputs, sparse presence anchors, long-lived authoring pipelines, and scoped watch
+lifetimes.
 
 ## Diamond dependencies and layered derived values
 
@@ -518,7 +519,91 @@ test "docs cookbook: derived.get can recover from a cycle inside compute" {
 }
 ```
 
-## Recoverable domain failures with Derived::fallible
+## Domain errors as values
+
+```mbt check
+///|
+priv struct CookbookDiagnostic {
+  code : String
+  message : String
+} derive(Eq)
+
+///|
+priv enum CookbookQuantityStatus {
+  QuantityOk(Int)
+  QuantityDiagnostics(Array[CookbookDiagnostic])
+} derive(Eq)
+
+///|
+test "docs cookbook: custom domain diagnostics are cached as values" {
+  let rt = @incr.Runtime()
+  let raw = @incr.Input(rt, -1, label="raw_quantity")
+  let status_runs = Ref(0)
+  let rendered_runs = Ref(0)
+
+  let status : @incr.Derived[CookbookQuantityStatus] = @incr.Derived(
+    rt,
+    () => {
+      status_runs.val += 1
+      let v = raw.get()
+      if v < 0 {
+        QuantityDiagnostics([
+          {
+            code: "negative_quantity",
+            message: "quantity must be non-negative",
+          },
+        ])
+      } else {
+        QuantityOk(v)
+      }
+    },
+    label="quantity_status",
+  )
+
+  let rendered : @incr.Derived[String] = @incr.Derived(
+    rt,
+    () => {
+      rendered_runs.val += 1
+      match status.get_or_abort() {
+        QuantityOk(v) => "ok:" + v.to_string()
+        QuantityDiagnostics([{ code, message }, ..]) =>
+          "diagnostic:" + code + ":" + message
+        QuantityDiagnostics([]) => "diagnostic:<empty>"
+      }
+    },
+    label="rendered_quantity_status",
+  )
+
+  guard status.read() is Ok(QuantityDiagnostics(_)) else {
+    fail("expected graph read to succeed with diagnostics")
+  }
+  inspect(
+    rendered.read_or_abort(),
+    content="diagnostic:negative_quantity:quantity must be non-negative",
+  )
+  inspect(status_runs.val, content="1")
+  inspect(rendered_runs.val, content="1")
+
+  raw.set(-2)
+  guard status.read() is Ok(QuantityDiagnostics(_)) else {
+    fail("expected equal diagnostics to remain a domain value")
+  }
+  inspect(status_runs.val, content="2")
+  inspect(
+    rendered.read_or_abort(),
+    content="diagnostic:negative_quantity:quantity must be non-negative",
+  )
+  inspect(rendered_runs.val, content="1")
+
+  raw.set(3)
+  guard status.read() is Ok(QuantityOk(3)) else {
+    fail("expected recovery to a valid quantity")
+  }
+  inspect(rendered.read_or_abort(), content="ok:3")
+  inspect(status_runs.val, content="3")
+  inspect(rendered_runs.val, content="2")
+}
+```
 
 ```mbt check
 ///|

@@ -577,14 +577,14 @@ can run before the first consumer read: a watch roots its terminal cell
 immediately, but upstream dependencies are recorded only after the terminal
 computes. If the facade stores last-good state, seed it from that priming read.
 
-Keep recoverable parse, projection, and semantic failures in the cached value
-(`Result`), following the same ownership split as
-[`Derived::fallible`](#pattern-recoverable-domain-failures-with-derivedfallible).
-For the last-good result pattern, store the last successful semantic/lowered
-value at the facade boundary. On a successful terminal read, update `last_good`;
-on an invalid current input, publish diagnostics while returning the previous
-`last_good` value. Do not mutate that state from inside a `Derived` closure —
-recomputation order should not become domain state.
+Keep recoverable parse, projection, and semantic failures in the cached value,
+following the same ownership split as
+[domain errors as values](#pattern-domain-errors-as-values). For the last-good
+result pattern, store the last successful semantic/lowered value at the facade
+boundary. On a successful terminal read, update `last_good`; on an invalid
+current input, publish diagnostics while returning the previous `last_good`
+value. Do not mutate that state from inside a `Derived` closure — recomputation
+order should not become domain state.
 
 Use `ReachableDerived` for sparse panels by mounting the panel in a child scope
 only while it is visible, then storing and priming a `Watch` for that panel's
@@ -653,17 +653,41 @@ Handle potential cycles with fallback values instead of aborting. The checked co
 
 ---
 
-## Pattern: Recoverable Domain Failures with `Derived::fallible`
+## Pattern: Domain Errors as Values
 
-When a compute can fail in a way the caller should *recover from* — a parse
-error, a validation failure — express that failure as a **value**, not as a
-raised exception. `Derived::fallible` takes a `noraise` compute
-(`() -> Result[V, E]`) and produces a `Derived[Result[V, E]]`. The domain error
-is forced into the cached value, where it is change-detected (`Eq`), shared, and
-replayed like any other value. The checked companion verifies a fallible derived
-recovering across input changes in [`cookbook_examples.mbt.md`](cookbook_examples.mbt.md#recoverable-domain-failures-with-derivedfallible).
+When a compute can fail in a way the caller should *recover from* — parse
+errors, type errors, reference errors, validation failures, diagnostics — make
+that failure part of the computed **value**, not a raised exception and not the
+read channel. The value can be `Result[V, E]`, a custom enum, or a diagnostics
+payload inside the `T` of `Derived[T]`.
 
-A read then has **three** distinct outcomes, each owned by a different layer:
+This keeps the ownership split honest:
+
+- graph/runtime failures live in reads: `Err(ReadError)` for cycles, disposal,
+  and other mechanism failures;
+- domain/application failures live in values: `Ok(Diagnostics(...))`,
+  `Ok(Err(parse_error))`, `Ok(TypeError(...))`, etc.;
+- defects still abort or fail.
+
+Because the domain failure is a value, it is cached, shared, replayed, compared
+with `Eq`, and backdated like any other derived state. The typed spreadsheet
+example is the motivating boundary: formula evaluation returns `CellResult`
+variants for type/reference/parse outcomes instead of raising, while the
+spreadsheet API itself stays example-local.
+
+The checked companion includes both a custom diagnostics enum and the
+`Result`-shaped specialization in
+[`cookbook_examples.mbt.md`](cookbook_examples.mbt.md#domain-errors-as-values).
+
+### `Result` Specialization: `Derived::fallible`
+
+Use `Derived::fallible` when the domain shape is exactly `Result[V, E]`. It takes
+a `noraise` compute (`() -> Result[V, E]`) and produces a
+`Derived[Result[V, E]]`, forcing recoverable failures into the cached value at
+the type level.
+
+A read of `Derived[Result[V, E]]` has **three** distinct outcomes, each owned by
+a different layer:
 
 | Read result | Meaning | What to do |
 |-------------|---------|------------|
@@ -671,20 +695,28 @@ A read then has **three** distinct outcomes, each owned by a different layer:
 | `Ok(Err(e))` | domain failure, reified as a cached value | surface the diagnostic |
 | `Ok(Ok(v))` | the value | use it |
 
+For a custom enum or diagnostics payload, replace the inner `Result` with your
+application's value shape; the outer `Ok(...)` still means the graph read
+succeeded.
+
 ### Important Notes
 
 1. **`raise Failure` from a plain `Derived` compute is a defect, not a domain
    channel.** It is caught at the read boundary and converted to an uncatchable
-   abort. Use `Derived::fallible` for any failure a caller is meant to handle.
-2. **`E : Eq` matters.** The reified error participates in invalidation like a
-   value: an `Err → Ok` transition correctly invalidates downstream. A poor `Eq`
-   on the domain error causes stale reads or noisy recomputation.
+   abort. Return a domain value, or use `Derived::fallible` when `Result` is the
+   right shape.
+2. **`Eq` quality matters.** Reified domain failures participate in invalidation
+   like values: an error-to-success transition correctly invalidates downstream,
+   and two equal diagnostic payloads can backdate and avoid noisy recomputation.
+   A poor `Eq` causes stale reads or unnecessary work.
 3. **Per-key analog:** `DerivedMap::fallible` produces a
    `DerivedMap[K, Result[V, E]]` with the same value-as-`Result` contract for
-   keyed queries.
+   keyed queries. A custom enum payload works with ordinary `DerivedMap` values
+   by the same rule.
 
-See [the honest read-error ownership spec](design/specs/2026-05-28-honest-read-error-ownership.md)
-for the full rationale (why value-as-`Result` is the ideal, not a workaround).
+See the [honest read-error ownership spec](design/specs/2026-05-28-honest-read-error-ownership.md)
+for the full rationale and the [`Derived::fallible` API reference](api-reference.mbt.md#derivedt--memot)
+for the constructor contract.
 
 ---
 

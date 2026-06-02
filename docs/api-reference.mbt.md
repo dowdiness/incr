@@ -359,7 +359,7 @@ inside-compute `get_or_abort`, and outside-graph `read` /
 
 ### `Derived::fallible[V : Eq, E : Eq](rt: Runtime, compute: () -> Result[V, E], label? : String) -> Derived[Result[V, E]]`
 
-Creates a derived value whose `compute` is **noraise**: a recoverable, domain-specific failure is expressed in the value as `Result[V, E]`, never raised. The error then participates in caching and `Eq`-based backdating like any other value, and reads surface only graph failures (cycles/disposal), never an uncatchable abort. Prefer this over `Derived` for a fallible compute. A `raise Failure` from a plain `Derived` compute is a *defect*, not a domain-error channel — see [Honest Read-Error Ownership](design/specs/2026-05-28-honest-read-error-ownership.md).
+Creates a derived value whose `compute` is **noraise**: a recoverable, domain-specific failure is expressed in the value as `Result[V, E]`, never raised. The error then participates in caching and `Eq`-based backdating like any other value, and reads surface only graph failures (cycles/disposal), never an uncatchable abort. Prefer this over `Derived` when `Result` is the domain value shape. For custom enums or diagnostics payloads, use an ordinary `Derived[T]` and keep the recoverable failure in `T`; this is the same [domain errors as values](cookbook.mbt.md#pattern-domain-errors-as-values) pattern. A `raise Failure` from a plain `Derived` compute is a *defect*, not a domain-error channel — see [Honest Read-Error Ownership](design/specs/2026-05-28-honest-read-error-ownership.md).
 
 ### `Derived::get(self) -> Result[T, ReadError]`
 
@@ -371,7 +371,7 @@ Strict graph read that aborts on invalid context or any `ReadError`.
 
 ### `Derived::read(self) -> Result[T, ReadError]`
 
-Permissive read. It works from top-level code, tests, event handlers, and callbacks, and it still records a dependency when called inside a tracked compute. The read channel carries only *mechanism* failures (`ReadError = Cycle | Disposed`); a domain failure lives in the value (`Derived::fallible`). A read of a directly-disposed cell returns `Err(Disposed(_))` rather than aborting.
+Permissive read. It works from top-level code, tests, event handlers, and callbacks, and it still records a dependency when called inside a tracked compute. The read channel carries only *mechanism* failures (`ReadError = Cycle | Disposed`); a domain failure lives in the value (`Derived::fallible` for `Result`, or a custom domain value). A read of a directly-disposed cell returns `Err(Disposed(_))` rather than aborting.
 
 The checked companion covers `Derived::read()` returning `Result` and
 cycle-safe handling in [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
@@ -455,7 +455,7 @@ strict tracked reads, fallback reads, and cache maintenance in
 
 ### `DerivedMap::fallible[K : Hash + Eq, V, E](rt: Runtime, compute: (K) -> Result[V, E], label? : String) -> DerivedMap[K, Result[V, E]]`
 
-Keyed counterpart to `Derived::fallible`: each key's recoverable domain failure is expressed in the value as `Result[V, E]` (the `compute` is **noraise**). See [Honest Read-Error Ownership](design/specs/2026-05-28-honest-read-error-ownership.md).
+Keyed counterpart to `Derived::fallible`: each key's recoverable domain failure is expressed in the value as `Result[V, E]` (the `compute` is **noraise**). For non-`Result` diagnostics, keep the custom domain status in the map value by the same [domain errors as values](cookbook.mbt.md#pattern-domain-errors-as-values) pattern. See [Honest Read-Error Ownership](design/specs/2026-05-28-honest-read-error-ownership.md).
 
 ### `DerivedMap::read[K : Hash + Eq, V : Eq](self, key: K) -> Result[V, ReadError]`
 
