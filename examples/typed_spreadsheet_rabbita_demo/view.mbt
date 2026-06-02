@@ -6,7 +6,7 @@ fn view(emit : @rabbita.Emit[Msg], model : Model) -> @rabbita.Html {
     [
       view_live_region(model),
       @html.main_(class="sheet-workspace", [view_sheet(emit, model)]),
-      view_demo_intro(model),
+      view_demo_intro(model.overlay),
       view_panel_rail_left(emit, model),
       view_panel_rail_right(emit, model),
       view_overlay(emit, model),
@@ -36,8 +36,8 @@ fn app_shell_class(model : Model) -> String {
 }
 
 ///|
-fn view_demo_intro(model : Model) -> @rabbita.Html {
-  match model.overlay {
+fn view_demo_intro(overlay : OverlayPanel) -> @rabbita.Html {
+  match overlay {
     OverlayClosed =>
       @html.aside(
         class="demo-intro",
@@ -54,11 +54,12 @@ fn view_demo_intro(model : Model) -> @rabbita.Html {
             class="demo-intro-copy",
             "Cells are MoonBit incremental computations; formulas track the cells they read. Use the bottom rail: edit a value, then open trace and evidence.",
           ),
-          @html.div(class="demo-intro-controls", [
-            @html.span(class="demo-intro-control", "edit"),
-            @html.span(class="demo-intro-control", "trace"),
-            @html.span(class="demo-intro-control", "evidence"),
-          ]),
+          @html.div(
+            class="demo-intro-controls",
+            ["edit", "trace", "evidence"].map(label => {
+              @html.span(class="demo-intro-control", label)
+            }),
+          ),
         ],
       )
     _ => @html.nothing
