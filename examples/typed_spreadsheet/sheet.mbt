@@ -3,8 +3,8 @@
 /// `@incr` cells.
 ///
 /// `Worksheet` owns a local scope for all cells in the sheet so callers can
-/// dispose an entire sheet by dropping the scope. Formula type mismatches are
-/// reported as `CellResult::TypeError` when the cell is read, not when the
+/// dispose an entire sheet through `Worksheet::dispose`. Formula type mismatches
+/// are reported as `CellResult::TypeError` when the cell is read, not when the
 /// formula is installed.
 pub struct Worksheet {
   runtime : @incr.Runtime
@@ -86,7 +86,12 @@ pub fn Worksheet::is_disposed(self : Worksheet) -> Bool {
 ///|
 /// Disposes all cells created through this worksheet.
 pub fn Worksheet::dispose(self : Worksheet) -> Unit {
+  for _, slot in self.cells {
+    slot.dispose(self.runtime)
+  }
+  self.cells.clear()
   self.scope.dispose()
+  self.cell_presence.clear()
 }
 
 ///|
@@ -298,7 +303,7 @@ pub fn Worksheet::set_formula_ast(
 }
 
 ///|
-/// Marks a cell as deleted and wires batch rollback restoration.
+/// Marks a cell as deleted while retaining its stable presence anchor.
 pub fn Worksheet::delete(self : Worksheet, id : CellId) -> CellResult {
   if !self.owns_cell_id(id) {
     return CellResult::RefError("foreign cell id")
@@ -315,6 +320,43 @@ pub fn Worksheet::delete(self : Worksheet, id : CellId) -> CellResult {
       CellResult::Ok(CellValue::Blank)
     }
     None => CellResult::RefError("no cell at the requested address")
+  }
+}
+
+///|
+/// Removes heavyweight slots for committed deleted cells.
+///
+/// Deleted addresses keep their lightweight presence anchors so formulas that
+/// reference a missing address are invalidated when that address is recreated.
+/// This method first refreshes present formulas so dependents of deleted slots
+/// re-anchor on presence before disposal. It then prunes the definition/value/
+/// watch slot for addresses whose committed presence is already `false`,
+/// returning the number of slots removed.
+///
+/// Call this after a successful edit or after `Runtime::batch`/`batch_result`
+/// returns. Reads inside an open batch see pre-commit values, so compaction is a
+/// post-commit maintenance step rather than part of the transactional edit body.
+pub fn Worksheet::compact_deleted_cells(self : Worksheet) -> Int {
+  let present_formulas = self.formula_cells()
+  present_formulas.each(id => {
+    let _ = self.read_slot(id)
+  })
+
+  let tombstones = [
+    for id in self.cells.keys().to_array() if self.is_compactable_deleted_cell(
+      id,
+    ) => id
+  ]
+  for id in tombstones; removed = 0 {
+    match self.cells.get(id) {
+      Some(slot) => {
+        self.dispose_slot(id, slot)
+        continue removed + 1
+      }
+      None => continue removed
+    }
+  } nobreak {
+    removed
   }
 }
 
@@ -413,8 +455,9 @@ fn Worksheet::new_slot(
   label? : String,
 ) -> CellSlot {
   let presence = self.cell_presence_for(id)
-  let definition = self.scope.input_field(definition, label?)
-  let value = self.scope.derived(
+  let definition = @incr.InputField(self.runtime, definition, label?)
+  let value = @incr.Derived(
+    self.runtime,
     () => {
       if presence.get() {
         definition.get().evaluate(self)
@@ -424,7 +467,8 @@ fn Worksheet::new_slot(
     },
     label?,
   )
-  let metadata_root = self.scope.derived(
+  let metadata_root = @incr.Derived(
+    self.runtime,
     () => {
       let _ = presence.get()
       let _ = definition.get()
@@ -432,8 +476,8 @@ fn Worksheet::new_slot(
     },
     label?,
   )
-  let watch = self.scope.add_watch(value.watch())
-  let metadata_watch = self.scope.add_watch(metadata_root.watch())
+  let watch = value.watch()
+  let metadata_watch = metadata_root.watch()
   CellSlot::{
     presence,
     definition,
@@ -453,18 +497,32 @@ fn Worksheet::store_new_slot(
   slot.presence.set(true)
 
   let definition_id = slot.definition.id()
-  let value_id = slot.value.id()
-  let metadata_root_id = slot.metadata_root.id()
   self.cells.set(id, slot)
   self.runtime.record_batch_rollback(definition_id, () => {
-    self.cells.remove(id)
-    slot.watch.dispose()
-    slot.metadata_watch.dispose()
-    self.runtime.dispose_cell(definition_id)
-    self.runtime.dispose_cell(value_id)
-    self.runtime.dispose_cell(metadata_root_id)
+    self.dispose_slot(id, slot)
   })
   let _ = slot.metadata_watch.read()
+}
+
+///|
+fn Worksheet::is_compactable_deleted_cell(
+  self : Worksheet,
+  id : CellId,
+) -> Bool {
+  match self.cell_presence.get(id) {
+    Some(presence) => !presence.get()
+    None => true
+  }
+}
+
+///|
+fn Worksheet::dispose_slot(
+  self : Worksheet,
+  id : CellId,
+  slot : CellSlot,
+) -> Unit {
+  self.cells.remove(id)
+  slot.dispose(self.runtime)
 }
 
 ///|
@@ -587,4 +645,13 @@ fn CellSlot::get(self : CellSlot) -> CellResult {
     Ok(value) => value
     Err(err) => CellResult::CycleError(err.format_path())
   }
+}
+
+///|
+fn CellSlot::dispose(self : CellSlot, runtime : @incr.Runtime) -> Unit {
+  self.watch.dispose()
+  self.metadata_watch.dispose()
+  runtime.dispose_cell(self.definition.id())
+  runtime.dispose_cell(self.value.id())
+  runtime.dispose_cell(self.metadata_root.id())
 }

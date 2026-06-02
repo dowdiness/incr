@@ -120,6 +120,34 @@ test "typed spreadsheet spike: batch rollback restores deleted then recreated ce
 }
 
 ///|
+test "typed spreadsheet spike: compaction after rollback keeps restored cells" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(203))
+  let source = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+
+  inspect(
+    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(7)).is_ok(),
+    content="true",
+  )
+
+  let result = rt.batch_result(() => {
+    let _ = sheet.delete(source)
+    let _ = sheet
+      .set_input(source, @typed_spreadsheet.CellValue::from_int(99))
+      .is_ok()
+    raise SpreadsheetBatchError::Abort
+  })
+
+  inspect(result is Err(Abort), content="true")
+  inspect(sheet.compact_deleted_cells(), content="0")
+  match sheet.read(source) {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(value)) =>
+      inspect(value, content="7")
+    _ => abort("expected original value to survive rollback and compaction")
+  }
+}
+
+///|
 test "typed spreadsheet spike: batch rollback preserves deleted formula dependencies" {
   let rt = @incr.Runtime()
   let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(204))

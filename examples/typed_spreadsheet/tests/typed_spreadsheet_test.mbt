@@ -964,6 +964,62 @@ test "typed spreadsheet: delete invalidates cached dependent formula" {
 }
 
 ///|
+test "typed spreadsheet: compacted deleted dependency resolves when recreated" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(205))
+  let source = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
+  let formula = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+
+  inspect(
+    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(10)).is_ok(),
+    content="true",
+  )
+  let _ = sheet.set_formula(
+    formula,
+    @typed_spreadsheet.CellType::t_int(),
+    [source],
+    fn(deps) {
+      match deps[0] {
+        @typed_spreadsheet.CellValue::Int(value) =>
+          @typed_spreadsheet.CellResult::ok(
+            @typed_spreadsheet.CellValue::from_int(value + 1),
+          )
+        _ => @typed_spreadsheet.CellResult::type_error("dependency mismatch")
+      }
+    },
+  )
+
+  match sheet.read(formula) {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(value)) =>
+      inspect(value, content="11")
+    _ => abort("expected formula result before delete")
+  }
+  match sheet.delete(source) {
+    @typed_spreadsheet.CellResult::Ok(_) => ()
+    _ => abort("delete should remove source")
+  }
+
+  inspect(sheet.compact_deleted_cells(), content="1")
+  inspect(
+    match sheet.read(formula) {
+      @typed_spreadsheet.CellResult::RefError(_) => true
+      _ => false
+    },
+    content="true",
+  )
+
+  inspect(
+    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(20)).is_ok(),
+    content="true",
+  )
+  match sheet.read(formula) {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(value)) =>
+      inspect(value, content="21")
+    _ => abort("expected formula to recover after source recreation")
+  }
+}
+
+///|
 test "typed spreadsheet: declared type mismatch is rejected" {
   let rt = @incr.Runtime()
   let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(2))

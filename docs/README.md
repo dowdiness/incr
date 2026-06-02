@@ -102,6 +102,7 @@ Architecture Decision Records — the *why* behind significant design choices. K
 | [2026-06-01](decisions/2026-06-01-static-derived-public-surface.md) | Static Derived public surface: keep the measured static/applicative fast path package-private. No public `Derived::map*`, `Scope::derived_static*`, compatibility conveniences, or raw installer until an `Expr[T]` lowering need, a measured scope-owned attachment win, or downstream UI wrapper duplication supplies a concrete driver. |
 | [2026-06-01](decisions/2026-06-01-workspace-layout.md) | Workspace layout: repository-level `moon.work`, publishable `dowdiness/incr` module under `incr/`, checked docs as a workspace member, and standalone example modules. |
 | [2026-06-02](decisions/2026-06-02-typed-spreadsheet-runtime-checking.md) | Typed Spreadsheet formula checking: keep the example boundary runtime-checked. Formula installation validates worksheet ownership/cross-sheet references; formula/operator/result type mismatches are reported as `CellResult::TypeError` on read. |
+| [2026-06-02](decisions/2026-06-02-typed-spreadsheet-tombstone-lifecycle.md) | Typed Spreadsheet deleted-cell tombstone lifecycle: keep stable lightweight presence anchors; add `Worksheet::compact_deleted_cells()` to prune heavyweight deleted slots after commit without breaking delete/recreate invalidation. |
 
 ---
 
