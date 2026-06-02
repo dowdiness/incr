@@ -26,7 +26,7 @@ New to `incr`? Read these in order:
 
 ## Examples
 
-- [Typed Spreadsheet](../examples/typed_spreadsheet/README.mbt.md) — example worksheet boundary, formula evaluation, post-change recompute traces, and the CLI demo entry point
+- [Typed Spreadsheet](../examples/typed_spreadsheet/README.mbt.md) — runtime-checked example worksheet boundary, formula evaluation, post-change recompute traces, and the CLI demo entry point
 
 ## Performance
 
@@ -101,6 +101,7 @@ Architecture Decision Records — the *why* behind significant design choices. K
 | [2026-05-30](decisions/2026-05-30-reachable-derived-differentiate-or-collapse.md) | ReachableDerived — differentiate or collapse. Spike (typed-spreadsheet driver) found `Derived` ≡ `ReachableDerived` today: identical read paths, identical `push_reachable_count` participation, vestigial `is_hybrid`. Proposes (b) differentiate into a genuine eager-when-reachable memo that recomputes during push propagation + emits unified eval events; fallback (a) collapse/deprecate. Status: **Deferred** (2026-05-31) — interim keep + docs corrected; re-open trigger = a projectional-editor viewport over `core/projection_memo.mbt` needing per-edit change-set observation; sunset to (a) collapse before external-user API stability. |
 | [2026-06-01](decisions/2026-06-01-static-derived-public-surface.md) | Static Derived public surface: keep the measured static/applicative fast path package-private. No public `Derived::map*`, `Scope::derived_static*`, compatibility conveniences, or raw installer until an `Expr[T]` lowering need, a measured scope-owned attachment win, or downstream UI wrapper duplication supplies a concrete driver. |
 | [2026-06-01](decisions/2026-06-01-workspace-layout.md) | Workspace layout: repository-level `moon.work`, publishable `dowdiness/incr` module under `incr/`, checked docs as a workspace member, and standalone example modules. |
+| [2026-06-02](decisions/2026-06-02-typed-spreadsheet-runtime-checking.md) | Typed Spreadsheet formula checking: keep the example boundary runtime-checked. Formula installation validates worksheet ownership/cross-sheet references; formula/operator/result type mismatches are reported as `CellResult::TypeError` on read. |
 
 ---
 

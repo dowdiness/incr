@@ -593,6 +593,42 @@ test "typed spreadsheet: set_formula type error is propagated" {
 }
 
 ///|
+test "typed spreadsheet: set_formula declared result mismatch is runtime checked" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(130))
+  let b1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
+
+  inspect(
+    match
+      sheet.set_formula(b1, @typed_spreadsheet.CellType::t_int(), [], fn(
+        _deps,
+      ) {
+        @typed_spreadsheet.CellResult::ok(
+          @typed_spreadsheet.CellValue::from_text("not an int"),
+        )
+      }) {
+      Ok(_) => true
+      _ => false
+    },
+    content="true",
+  )
+
+  inspect(
+    match sheet.read(b1) {
+      @typed_spreadsheet.CellResult::TypeError(message) => {
+        inspect(
+          message,
+          content="formula result mismatch: expected Int and got String",
+        )
+        true
+      }
+      _ => false
+    },
+    content="true",
+  )
+}
+
+///|
 test "typed spreadsheet: set_formula undefined reference is RefError" {
   let rt = @incr.Runtime()
   let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(11))
