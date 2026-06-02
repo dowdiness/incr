@@ -54,6 +54,40 @@ The concepts companion pins this net-zero revert behavior in [`concepts_examples
 
 ---
 
+## Pattern: Batch Rollback for Extension-Owned State
+
+Prefer ordinary `Input` / `InputField` mutation for state that can be modeled as
+cells; those writes already participate in `Runtime::batch` rollback. Use
+`Runtime::record_batch_rollback` only for app-owned mutable structures that sit
+beside the graph, such as indexes, slot maps, worksheet metadata, or caches that
+must stay transactional with a batch.
+
+Register the rollback immediately after mutating the external structure, and make
+the callback narrow and deterministic: restore a small map snapshot, restore one
+entry, remove one inserted slot, or reinstall one prior pointer.
+`record_batch_rollback` stores only the first rollback callback for a given
+`CellId` in each batch frame, so capture the pre-batch state on the first
+mutation of that rollback unit. Pick a stable cell ID that identifies the
+external state unit: an existing value-slot/input ID, a whole-structure rollback
+token, or a per-entry token whose own creation is not an untracked side effect in
+a failed batch.
+
+When `Runtime::batch_result` returns `Err(_)`, the current batch frame has already
+replayed these callbacks in reverse order. An outermost successful batch discards
+the rollback log; a successful nested batch merges its rollback entries into the
+parent frame so an outer failure can still restore them. This is not a general
+undo/redo API and not a replacement for modeling state as cells; it only keeps
+extension-owned side structures consistent with raised-error batch rollback.
+
+The checked companion demonstrates both insertion and replacement rollback for
+an external `Map` in
+[`cookbook_examples.mbt.md`](cookbook_examples.mbt.md#batch-callbacks-read-isolation-and-extension-rollback).
+The typed spreadsheet example uses the same pattern for worksheet-owned cell slot
+maps while ordinary value/presence cells remain `InputField` / `Derived` graph
+state.
+
+---
+
 ## Pattern: Computed Defaults
 
 Derive default values from other inputs:

@@ -88,6 +88,33 @@ Like `Runtime::batch`, this handles raised errors only; `abort()` still escapes,
 The checked companion covers `batch_result` returning `Err` and rolling back
 pending writes in [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
+### `Runtime::record_batch_rollback(self, cell_id: CellId, rollback: () -> Unit) -> Unit`
+
+Registers an extension-owned rollback callback for the current batch frame. This
+is for mutable side structures that are not themselves ordinary `Input` /
+`InputField` cells: indexes, slot maps, metadata tables, or caches that must be
+restored if `Runtime::batch` / `Runtime::batch_result` exits through a raised
+error.
+
+If no user batch frame is active, this is a no-op. If a batch frame is active,
+only the first callback registered for a given `cell_id` in that frame is kept;
+use a stable cell ID for the rollback unit and capture the pre-batch state on the
+first mutation. That unit can be a whole external structure, an existing value
+slot, or a per-entry token whose creation is not itself an untracked failed-batch
+side effect. Rollback callbacks run in reverse registration order when a raised
+error aborts the frame. An outermost successful batch discards the rollback log;
+a successful nested batch merges its rollback entries into the parent frame so an
+outer failure can still restore them.
+
+Prefer modeling state as `Input` / `InputField` when possible. Those writes
+already rollback through the normal batch machinery. `record_batch_rollback` is
+not an undo/redo API and does not make `abort()` recoverable; it only composes
+extension-owned side structures with raised-error batch rollback.
+
+The cookbook companion includes a checked external-map insertion/replacement
+example in
+[`cookbook_examples.mbt.md`](cookbook_examples.mbt.md#batch-callbacks-read-isolation-and-extension-rollback).
+
 ### `Runtime::set_on_change(self, f: () -> Unit) -> Unit`
 
 Registers a callback fired when the runtime records a committed change.

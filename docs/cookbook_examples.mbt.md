@@ -4,8 +4,8 @@ Literate tests that pin high-value snippets from [`cookbook.mbt.md`](cookbook.mb
 These examples focus on behavior that prose-only snippets can easily drift on:
 diamond dependencies, batch semantics, dynamic dependency changes, backdating
 with custom `Eq`, accumulator invalidation, memo-event logging, compatibility
-introspection, field-level inputs, sparse presence anchors, long-lived authoring
-pipelines, and scoped watch lifetimes.
+introspection, extension-owned batch rollback, field-level inputs, sparse
+presence anchors, long-lived authoring pipelines, and scoped watch lifetimes.
 
 ## Diamond dependencies and layered derived values
 
@@ -338,7 +338,7 @@ test "docs cookbook: enum backdating can ignore incidental fields" {
 }
 ```
 
-## Batch callbacks and read isolation
+## Batch callbacks, read isolation, and extension rollback
 
 ```mbt check
 ///|
@@ -399,6 +399,89 @@ test "docs cookbook: reading during batch sees the pre-batch value" {
 
   inspect(seen_inside_batch.val, content="20")
   inspect(doubled.read_or_abort(), content="40")
+}
+```
+
+```mbt check
+///|
+suberror CookbookExternalRollbackError {
+  CookbookRollbackAbort
+}
+
+///|
+priv struct CookbookExternalIndex {
+  rt : @incr.Runtime
+  rollback_token : @incr.InputField[Bool]
+  rows : Map[String, Int]
+}
+
+///|
+fn CookbookExternalIndex::CookbookExternalIndex(
+  rt : @incr.Runtime,
+) -> CookbookExternalIndex {
+  {
+    rt,
+    rollback_token: @incr.InputField(rt, false, label="external-index-rollback"),
+    rows: Map([]),
+  }
+}
+
+///|
+fn CookbookExternalIndex::restore_rows(
+  self : CookbookExternalIndex,
+  previous_rows : Map[String, Int],
+) -> Unit {
+  self.rows.clear()
+  for key, value in previous_rows {
+    self.rows[key] = value
+  }
+}
+
+///|
+fn CookbookExternalIndex::put(
+  self : CookbookExternalIndex,
+  key : String,
+  value : Int,
+) -> Unit {
+  let previous_rows = self.rows.copy()
+  self.rows[key] = value
+  self.rt.record_batch_rollback(self.rollback_token.id(), () => {
+    self.restore_rows(previous_rows)
+  })
+}
+
+///|
+test "docs cookbook: extension-owned map rollback restores insertion and replacement" {
+  let rt = @incr.Runtime()
+  let index = CookbookExternalIndex(rt)
+  index.put("existing", 1)
+
+  let result = rt.batch_result(() => {
+    index.put("inserted", 2)
+    index.put("existing", 99)
+    raise CookbookExternalRollbackError::CookbookRollbackAbort
+  })
+
+  inspect(result is Err(CookbookRollbackAbort), content="true")
+  inspect(index.rows.contains("inserted"), content="false")
+  match index.rows.get("existing") {
+    Some(value) => inspect(value, content="1")
+    None => abort("expected original value after rollback")
+  }
+
+  rt.batch(() => {
+    index.put("inserted", 2)
+    index.put("existing", 3)
+  })
+
+  match index.rows.get("inserted") {
+    Some(value) => inspect(value, content="2")
+    None => abort("expected committed insertion")
+  }
+  match index.rows.get("existing") {
+    Some(value) => inspect(value, content="3")
+    None => abort("expected committed replacement")
+  }
 }
 ```
 
