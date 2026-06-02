@@ -8,6 +8,10 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 - Moved the typed spreadsheet boundary and tests out of the publishable `dowdiness/incr` module into the standalone `examples/typed_spreadsheet` workspace module.
 
+### Documentation
+
+- Clarified that the typed spreadsheet example is runtime-checked: formula installation validates worksheet boundaries, while operator and declared-result type mismatches surface as `CellResult::TypeError` on read.
+
 ## [0.7.1] - 2026-06-01
 
 ### Changed

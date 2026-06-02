@@ -1,8 +1,11 @@
 ///|
-/// A typed spreadsheet worksheet built on top of existing `@incr` cells.
+/// A runtime-checked typed spreadsheet worksheet built on top of existing
+/// `@incr` cells.
 ///
 /// `Worksheet` owns a local scope for all cells in the sheet so callers can
-/// dispose an entire sheet by dropping the scope.
+/// dispose an entire sheet by dropping the scope. Formula type mismatches are
+/// reported as `CellResult::TypeError` when the cell is read, not when the
+/// formula is installed.
 pub struct Worksheet {
   runtime : @incr.Runtime
   sheet_id : SheetId
@@ -215,7 +218,8 @@ pub fn Worksheet::set_input(
 ///
 /// Returns `Result::Ok(())` when installation succeeds and `RefError` for
 /// boundary mismatches. Read the cell through `read` to observe
-/// evaluation results such as `TypeError`/`RefError`.
+/// evaluation results such as `TypeError`/`RefError`. The declared result type
+/// is checked during evaluation, not at installation.
 ///
 /// This keeps install success and evaluation success decoupled.
 pub fn Worksheet::set_formula(
@@ -262,7 +266,8 @@ pub fn Worksheet::set_formula(
 ///
 /// Returns `Result::Ok(())` when installation succeeds and `RefError` for
 /// boundary mismatches. Read the cell through `read` to observe
-/// evaluation results such as `TypeError`/`RefError`.
+/// evaluation results such as `TypeError`/`RefError`. Formula operator and
+/// declared result type checks happen during evaluation, not at installation.
 ///
 /// This keeps install success and evaluation success decoupled.
 pub fn Worksheet::set_formula_ast(

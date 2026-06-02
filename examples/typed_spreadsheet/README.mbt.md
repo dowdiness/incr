@@ -1,9 +1,9 @@
 # Typed Spreadsheet Example
 
-The `examples/typed_spreadsheet` package provides a typed, formula-oriented
-spreadsheet boundary on top of `incr` cells. It is intentionally small: install
-inputs and formulas into `Worksheet`, then read results or inspect dependency
-metadata.
+The `examples/typed_spreadsheet` package provides a runtime-checked,
+formula-oriented spreadsheet boundary on top of `incr` cells. It is
+intentionally small: install inputs and formulas into `Worksheet`, then read
+results or inspect dependency metadata.
 
 ## Package surface
 
@@ -14,6 +14,22 @@ The package exports:
 - `CellKind`, `CellSnapshot`
 - `Worksheet`, `WorksheetTrace`
 - Formula constructors in `Formula`
+
+## Runtime formula checking
+
+`examples/typed_spreadsheet` does not statically typecheck formulas when they
+are installed. `Worksheet::set_formula` and `Worksheet::set_formula_ast` validate
+the worksheet boundary (for example, rejecting foreign cell IDs), then install
+the cell definition. Operator argument checks, dependency errors, and declared
+result type checks happen when the cell is read.
+
+This means installation can succeed for a formula that later evaluates to
+`CellResult::TypeError`, such as `Text("x") + Int(1)` or a formula declared as
+`Int` whose compute closure returns `Text`. Treat `declared` as an evaluation
+contract, not an install-time proof.
+
+See [ADR 2026-06-02](../../docs/decisions/2026-06-02-typed-spreadsheet-runtime-checking.md)
+for the decision record.
 
 ## `WorksheetTrace`
 

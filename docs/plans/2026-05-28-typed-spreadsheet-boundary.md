@@ -59,7 +59,8 @@ Keep the following in `incr` (minimum contract):
 Move to spreadsheet application code:
 
 - Canonical typed model for cell identity, address spaces, and value types.
-- Formula language/parser and its static/typed semantics.
+- Formula language/parser and any static typechecking semantics beyond the demo
+  package's runtime checks.
 - Parsing and validating mutable editor state (selection, copy/paste, undo/redo,
   clipboard, imports/exports).
 - Domain-specific persistence and synchronization policies.

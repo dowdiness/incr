@@ -151,15 +151,53 @@ test "typed spreadsheet: formula AST type error is propagated" {
     @typed_spreadsheet.Formula::cell_ref(a1),
     @typed_spreadsheet.Formula::cell_ref(a2),
   )
-  let _ = sheet.set_formula_ast(
-    b1,
-    @typed_spreadsheet.CellType::t_int(),
-    formula,
+  inspect(
+    match
+      sheet.set_formula_ast(b1, @typed_spreadsheet.CellType::t_int(), formula) {
+      Ok(_) => true
+      _ => false
+    },
+    content="true",
   )
 
   inspect(
     match sheet.read(b1) {
       @typed_spreadsheet.CellResult::TypeError(_) => true
+      _ => false
+    },
+    content="true",
+  )
+}
+
+///|
+test "typed spreadsheet: formula AST operator mismatch is runtime checked" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(115))
+  let b1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
+
+  let formula = @typed_spreadsheet.Formula::add(
+    @typed_spreadsheet.Formula::literal(
+      @typed_spreadsheet.CellValue::from_text("x"),
+    ),
+    @typed_spreadsheet.Formula::literal(
+      @typed_spreadsheet.CellValue::from_int(1),
+    ),
+  )
+  inspect(
+    match
+      sheet.set_formula_ast(b1, @typed_spreadsheet.CellType::t_int(), formula) {
+      Ok(_) => true
+      _ => false
+    },
+    content="true",
+  )
+
+  inspect(
+    match sheet.read(b1) {
+      @typed_spreadsheet.CellResult::TypeError(message) => {
+        inspect(message, content="Add requires Int on the left side")
+        true
+      }
       _ => false
     },
     content="true",
