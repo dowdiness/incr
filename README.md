@@ -28,13 +28,17 @@ being pleasant.
   Repository conventions, validation commands, documentation rules, and agent
   workflow notes.
 
-## Practical demo
+## See `incr` in action
 
-The typed spreadsheet is a working practical demo of `incr`: cell formulas,
-dependency tracking, trace inspection, and before/after snapshots all stay in
-MoonBit while the browser UI edits a 50×50 sheet. Try it at
-[typed-spreadsheet.pages.dev](https://typed-spreadsheet.pages.dev), or run it
-from [`examples/typed_spreadsheet_rabbita_demo/`](examples/typed_spreadsheet_rabbita_demo/).
+Edit one cell. Watch only the necessary work happen.
+
+The live typed spreadsheet turns `incr`'s dependency graph into something you
+can touch: cell values are backed by MoonBit incremental computations, formulas
+record the cells they read, and the trace panels show which formulas recomputed,
+which values changed, and where work produced the same result. Try it at
+[typed-spreadsheet.pages.dev](https://typed-spreadsheet.pages.dev), or run the
+browser demo from
+[`examples/typed_spreadsheet_rabbita_demo/`](examples/typed_spreadsheet_rabbita_demo/).
 
 ## The short version
 

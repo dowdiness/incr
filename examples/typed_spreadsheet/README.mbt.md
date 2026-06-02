@@ -157,3 +157,10 @@ same demo package also exposes a tiny text parser for demo cell edits:
 - `=if(A1 > 10, 1, 0)` installs an integer conditional formula
 
 The parser is intentionally demo-scoped and is not an Excel-compatible grammar.
+
+## Web demo
+
+Try the editable browser demo at <https://typed-spreadsheet.pages.dev>, or run it
+locally from [`examples/typed_spreadsheet_rabbita_demo/`](../typed_spreadsheet_rabbita_demo/).
+It uses this package as the worksheet engine, so user edits, formula evaluation,
+dependency tracking, trace buckets, and before/after snapshots stay in MoonBit.
