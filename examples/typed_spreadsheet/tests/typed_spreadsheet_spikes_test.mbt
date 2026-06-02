@@ -386,7 +386,7 @@ test "typed spreadsheet spike: same-value set is callback-silent" {
 }
 
 ///|
-test "typed spreadsheet spike: on_memo_event tracks formula chain recompute" {
+test "typed spreadsheet spike: on_derived_event tracks formula chain recompute" {
   let rt = @incr.Runtime()
   let source = @incr.Input(rt, 1, label="source")
   let step_a = @incr.Derived(rt, () => source.get() + 1)
@@ -395,7 +395,7 @@ test "typed spreadsheet spike: on_memo_event tracks formula chain recompute" {
 
   let entering : Array[@incr.CellId] = []
   let completed : Array[@incr.CellId] = []
-  rt.on_memo_event(fn(evt) {
+  rt.on_derived_event(fn(evt) {
     match evt {
       EnteringCompute(e) => entering.push(e.cell_id)
       Completed(e) => completed.push(e.cell_id)

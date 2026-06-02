@@ -343,15 +343,15 @@ code that still needs their introspection surface.
 
 ---
 
-## Pattern: Memo Event Stream for Visualization
+## Pattern: Derived Event Stream for Visualization
 
-Use `Runtime::on_memo_event` when a driver needs recompute lifecycle data
+Use `Runtime::on_derived_event` when a driver needs recompute lifecycle data
 rather than only value-change notifications. The listener is runtime-wide and
 observes pull `Memo` / `HybridMemo` recomputes, including target
 `Derived` / `ReachableDerived` wrappers.
 
 The checked companion records the same event phases in
-[`cookbook_examples.mbt.md`](cookbook_examples.mbt.md#memo-event-logging).
+[`cookbook_examples.mbt.md`](cookbook_examples.mbt.md#derived-event-logging).
 
 Keep the listener small. It runs synchronously during the drain step, after the
 memo compute has left the tracking stack. If the visualizer needs to read
@@ -371,7 +371,7 @@ Memo-event listeners are non-raising synchronous callbacks. For async logging,
 enqueue a compact record in the listener and flush it from the driver.
 
 The checked companion shows the listener enqueuing compact log rows in
-[`cookbook_examples.mbt.md`](cookbook_examples.mbt.md#memo-event-logging).
+[`cookbook_examples.mbt.md`](cookbook_examples.mbt.md#derived-event-logging).
 
 Replace the `Array` with the driver runtime's nonblocking queue when logging
 from an async application. Do not raise from the listener; catch or encode

@@ -187,7 +187,7 @@ fn Runtime::is_listener_mutation_safe(self : Runtime) -> Bool {
 }
 
 ///|
-fn Runtime::memo_event_listener_busy_message(operation : String) -> String {
+fn Runtime::derived_event_listener_busy_message(operation : String) -> String {
   operation +
   " cannot be called while an operation is in flight: drain in progress, " +
   "events buffered, callback active, batch open, recompute active, or non-Idle phase " +
@@ -195,28 +195,49 @@ fn Runtime::memo_event_listener_busy_message(operation : String) -> String {
 }
 
 ///|
-/// Registers a listener for memo recompute lifecycle events.
-pub fn Runtime::on_memo_event(
+/// Registers a listener for derived recompute lifecycle events.
+pub fn Runtime::on_derived_event(
   self : Runtime,
-  f : (MemoEvent) -> Unit,
+  f : (DerivedEvent) -> Unit,
 ) -> Unit raise Failure {
   guard self.is_listener_mutation_safe() else {
-    fail(Runtime::memo_event_listener_busy_message("Runtime::on_memo_event"))
+    fail(
+      Runtime::derived_event_listener_busy_message("Runtime::on_derived_event"),
+    )
   }
   self.event_broadcast_hook.listener = Some(f)
 }
 
 ///|
-/// Clears the memo recompute lifecycle event listener.
-pub fn Runtime::clear_memo_event_listener(self : Runtime) -> Unit raise Failure {
+/// Clears the derived recompute lifecycle event listener.
+pub fn Runtime::clear_derived_event_listener(
+  self : Runtime,
+) -> Unit raise Failure {
   guard self.is_listener_mutation_safe() else {
     fail(
-      Runtime::memo_event_listener_busy_message(
-        "Runtime::clear_memo_event_listener",
+      Runtime::derived_event_listener_busy_message(
+        "Runtime::clear_derived_event_listener",
       ),
     )
   }
   self.event_broadcast_hook.listener = None
+}
+
+///|
+/// Deprecated alias of `Runtime::on_derived_event`.
+#deprecated("Use Runtime::on_derived_event", skip_current_package=true)
+pub fn Runtime::on_memo_event(
+  self : Runtime,
+  f : (DerivedEvent) -> Unit,
+) -> Unit raise Failure {
+  self.on_derived_event(f)
+}
+
+///|
+/// Deprecated alias of `Runtime::clear_derived_event_listener`.
+#deprecated("Use Runtime::clear_derived_event_listener", skip_current_package=true)
+pub fn Runtime::clear_memo_event_listener(self : Runtime) -> Unit raise Failure {
+  self.clear_derived_event_listener()
 }
 
 ///|

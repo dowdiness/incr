@@ -201,7 +201,7 @@ test "panic static derived: gc is rejected during static recompute" {
 ///|
 test "static derived: compute failure clears in-progress and hooks" {
   let rt = Runtime()
-  rt.on_memo_event(_evt => ())
+  rt.on_derived_event(_evt => ())
   // Seeds accumulator hook state so the active-entry cleanup assertion is meaningful.
   let _acc : Accumulator[Int] = Accumulator::new(rt~)
   let should_fail : Ref[Bool] = { val: true }
@@ -241,7 +241,7 @@ test "static derived: listener mutation is blocked during recompute" {
     rt,
     [],
     () => {
-      rt.on_memo_event(_evt => ())
+      rt.on_derived_event(_evt => ())
       1
     },
     (a, b) => a == b,
@@ -338,7 +338,7 @@ test "static derived: accumulator use fails explicitly" {
 test "static derived: event hook pairs enter and completed" {
   let rt = Runtime()
   let events : Array[String] = []
-  rt.on_memo_event(evt => {
+  rt.on_derived_event(evt => {
     events.push(
       match evt {
         EnteringCompute(_) => "enter"
@@ -357,7 +357,7 @@ test "static derived: event hook pairs enter and completed" {
 test "static derived: nested events drain after outer recompute" {
   let rt = Runtime()
   let depths : Array[Int] = []
-  rt.on_memo_event(_evt => depths.push(rt.static_recompute_depth))
+  rt.on_derived_event(_evt => depths.push(rt.static_recompute_depth))
   let input = Input(rt, 1)
   let child = static_derived_map1(input, x => x + 1)
   let parent = static_derived_map_derived1(child, x => x * 2)
@@ -369,7 +369,7 @@ test "static derived: nested events drain after outer recompute" {
 test "static derived: direct drain waits for static recompute unwind" {
   let rt = Runtime()
   let events : Array[String] = []
-  rt.on_memo_event(_evt => events.push("event"))
+  rt.on_derived_event(_evt => events.push("event"))
   let input = Input(rt, 1)
   let derived = static_derived_map1(input, x => x + 1)
   rt.event_broadcast_hook.pending.push(

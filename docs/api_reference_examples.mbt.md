@@ -5,7 +5,7 @@ They exist to catch docs/API drift on the target facade surfaces — `Derived`,
 `DerivedMap`, `ReachableDerived`, `MapRelation`, and the `RuntimeContext` /
 `Scope` helper families — beyond the README and getting-started examples already
 covered by [`target_api_examples.mbt.md`](target_api_examples.mbt.md). They also
-pin memo-event listener lifecycle, compatibility introspection/callbacks, and the
+pin derived-event listener lifecycle, compatibility introspection/callbacks, and the
 compatibility accumulator push path. The accumulator examples intentionally use
 compatibility `Memo` handles because `Accumulator::push` is only legal from
 compatibility `Memo` / `HybridMemo` compute frames.
@@ -91,23 +91,23 @@ test "docs api-ref: InputField on_change fires before Runtime on_change" {
 }
 ```
 
-## Memo event listener lifecycle
+## Derived event listener lifecycle
 
 ```mbt check
 ///|
-test "docs api-ref: memo event listener records and can be cleared" {
+test "docs api-ref: derived event listener records and can be cleared" {
   let rt = @incr.Runtime()
   let input = @incr.Signal(rt, 1, label="input")
   let events : Ref[Int] = { val: 0 }
 
-  rt.on_memo_event(_evt => events.val = events.val + 1)
+  rt.on_derived_event(_evt => events.val = events.val + 1)
 
   let doubled = @incr.Memo(rt, () => input.get() * 2, label="doubled")
   let observer = doubled.observe()
   inspect(observer.get(), content="2")
   inspect(events.val, content="2")
 
-  rt.clear_memo_event_listener()
+  rt.clear_derived_event_listener()
   input.set(2)
   inspect(observer.get(), content="4")
   inspect(events.val, content="2")

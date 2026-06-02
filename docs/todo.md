@@ -500,9 +500,9 @@ dedicated migration window.
         callback, and batch snippets are covered by
         `docs/target_api_examples.mbt.md`; concepts behavior by
         `docs/concepts_examples.mbt.md`; cookbook target, accumulator,
-        memo-event, compatibility introspection, and custom-`Eq` snippets by
+        derived-event, compatibility introspection, and custom-`Eq` snippets by
         `docs/cookbook_examples.mbt.md`; API-reference target facade,
-        memo-event, compatibility introspection/callback, and compatibility
+        derived-event, compatibility introspection/callback, and compatibility
         accumulator snippets by `docs/api_reference_examples.mbt.md`.
         `docs/getting-started.mbt.md`, `docs/concepts.mbt.md`,
         `docs/cookbook.mbt.md`, and `docs/api-reference.mbt.md` now use `mbt`,

@@ -8,10 +8,10 @@ priv struct RecomputeStart {
 ///|
 /// MemoCommitPhase implementor that buffers recompute events for later drain.
 priv struct EventBroadcastPhaseHook {
-  mut listener : ((MemoEvent) -> Unit)?
+  mut listener : ((DerivedEvent) -> Unit)?
   mut draining : Bool
   active : @hashmap.HashMap[CellId, RecomputeStart]
-  mut pending : Array[MemoEvent]
+  mut pending : Array[DerivedEvent]
 }
 
 ///|
