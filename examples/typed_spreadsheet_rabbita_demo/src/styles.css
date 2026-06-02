@@ -230,23 +230,6 @@ code,
   line-height: 1.45;
 }
 
-.demo-intro-controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-items: center;
-}
-
-.demo-intro-control {
-  border: 1px solid color-mix(in oklch, var(--accent), var(--line) 54%);
-  border-radius: 999px;
-  padding: 0.2rem 0.5rem;
-  background: var(--accent-soft);
-  color: var(--ink-soft);
-  font-size: 0.72rem;
-  font-weight: 650;
-}
-
 .status-line,
 .formula-cell-label,
 .example-label,
@@ -937,10 +920,6 @@ code,
   .demo-intro-copy,
   .snapshot-panel-help {
     font-size: 0.76rem;
-  }
-
-  .demo-intro-control {
-    font-size: 0.68rem;
   }
 
   .status-line {

@@ -54,12 +54,6 @@ fn view_demo_intro(overlay : OverlayPanel) -> @rabbita.Html {
             class="demo-intro-copy",
             "Cells are MoonBit incremental computations; formulas track the cells they read. Use the bottom rail: edit a value, then open trace and evidence.",
           ),
-          @html.div(
-            class="demo-intro-controls",
-            ["edit", "trace", "evidence"].map(label => {
-              @html.span(class="demo-intro-control", label)
-            }),
-          ),
         ],
       )
     _ => @html.nothing
