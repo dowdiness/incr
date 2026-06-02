@@ -256,6 +256,7 @@ test "typed spreadsheet Rabbita editor supports direct cell editing mode" {
   let stale_blur = update(ApplyInlineEdit("C1"), applied)
 
   inspect(editing.selected_cell, content="C1")
+  inspect(editing.intro_visible, content="false")
   match editing.editing_cell {
     Some(cell) => inspect(cell, content="C1")
     None => abort("expected inline editor")

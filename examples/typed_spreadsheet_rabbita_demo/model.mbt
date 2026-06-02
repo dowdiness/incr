@@ -172,6 +172,7 @@ fn begin_inline_edit(model : Model, cell : String) -> Model {
     editing_cell: Some(cell),
     status: "Editing \{cell} in the grid.",
     error: None,
+    intro_visible: false,
   }
 }
 
