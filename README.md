@@ -28,6 +28,14 @@ being pleasant.
   Repository conventions, validation commands, documentation rules, and agent
   workflow notes.
 
+## Practical demo
+
+The typed spreadsheet is a working practical demo of `incr`: cell formulas,
+dependency tracking, trace inspection, and before/after snapshots all stay in
+MoonBit while the browser UI edits a 50×50 sheet. Try it at
+[typed-spreadsheet.pages.dev](https://typed-spreadsheet.pages.dev), or run it
+from [`examples/typed_spreadsheet_rabbita_demo/`](examples/typed_spreadsheet_rabbita_demo/).
+
 ## The short version
 
 Core `incr` programs usually combine:

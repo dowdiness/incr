@@ -948,7 +948,7 @@ code,
 
   .sheet-grid {
     grid-template-columns: 30px repeat(50, minmax(56px, 64px));
-    grid-template-rows: 30px repeat(50, minmax(32px, 36px));
+    grid-template-rows: 30px repeat(50, minmax(34px, 36px));
   }
 
   .cell-state {
