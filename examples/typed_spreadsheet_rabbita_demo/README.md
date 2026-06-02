@@ -5,6 +5,19 @@ evaluation, dependency tracking, trace collection, and snapshot inspection in
 MoonBit; Rabbita renders the sheet and routes user edits back to MoonBit
 operations.
 
+Live demo: <https://typed-spreadsheet.pages.dev>
+
+## What this demonstrates
+
+Edit one cell. Watch only the necessary work happen.
+
+The sheet is a concrete, touchable example of `incr` as a dependency-tracked
+computation engine: cell values are backed by MoonBit incremental computations,
+formulas track the cells they read, and the trace/evidence panels show which
+formulas recomputed, which values changed, and where work produced the same
+result. The browser layer edits and renders the sheet; spreadsheet calculation
+stays in MoonBit.
+
 ## Responsibility map
 
 | Package | Responsibility |

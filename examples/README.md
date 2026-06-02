@@ -2,12 +2,16 @@
 
 Standalone workspace modules that exercise or demonstrate `dowdiness/incr` without adding demo-only dependencies to the core library module.
 
+The quickest practical demo is the live typed spreadsheet:
+<https://typed-spreadsheet.pages.dev>. Edit one cell, then inspect which formulas
+recomputed, which values changed, and where work produced the same result.
+
 ## Typed spreadsheet
 
 - [`typed_spreadsheet/`](typed_spreadsheet/) — worksheet state, cell evaluation, formula dependencies, trace snapshots, and tests for the example boundary.
 - [`typed_spreadsheet_demo/`](typed_spreadsheet_demo/) — shared operation vocabulary, formula text parser, fixed scenario, and serializable view model.
 - [`typed_spreadsheet_cli_demo/`](typed_spreadsheet_cli_demo/) — CLI rendering for the shared fixed scenario.
-- [`typed_spreadsheet_rabbita_demo/`](typed_spreadsheet_rabbita_demo/) — editable browser UI built with Rabbita.
+- [`typed_spreadsheet_rabbita_demo/`](typed_spreadsheet_rabbita_demo/) — editable browser UI built with Rabbita; deployed at <https://typed-spreadsheet.pages.dev>.
 
 ## Spikes
 

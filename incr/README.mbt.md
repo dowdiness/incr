@@ -20,6 +20,17 @@ compatibility names remain available during migration: `Signal`, `Memo`,
 `HybridMemo`, `Reactive`, `MemoMap`, `TrackedCell`, and `Database`. The naming
 direction is recorded in [ADR 2026-05-21](../docs/decisions/2026-05-21-public-api-ideal-naming.md).
 
+## Live practical demo
+
+Want to see the runtime before reading the API? Try the live
+[typed spreadsheet](https://typed-spreadsheet.pages.dev).
+
+Edit one cell. The sheet routes the edit through MoonBit operations, formula
+cells track the other cells they read, and trace/evidence panels separate
+formulas that recomputed from values that actually changed. It is a small
+example of the same shape behind editor state, build-like pipelines, and
+reactive app models: derived values stay fresh without recalculating everything.
+
 ## Installation
 
 Add `incr` to the `import` list of your `moon.pkg.json`:
@@ -108,7 +119,7 @@ When unsure, start with `Derived`. Move to `EagerDerived` only when the consumer
 - **New to `incr`?** Start with [Getting Started](../docs/getting-started.mbt.md), then [Core Concepts](../docs/concepts.mbt.md).
 - **Looking for a specific pattern?** Backdating, durability, keyed queries, batched updates with rollback, cycle-safe reads, and more are covered in the [Cookbook](../docs/cookbook.mbt.md).
 - **Looking up a type or method?** See the [API Reference](../docs/api-reference.mbt.md).
-- **Exploring the typed spreadsheet demo?** Run the [CLI demo](../examples/typed_spreadsheet_cli_demo/README.md) for the fixed trace, or try the [editable Rabbita Web demo](../examples/typed_spreadsheet_rabbita_demo/README.md) to change cells and inspect operation outcomes, trace buckets, and before/after snapshots.
+- **Exploring the practical demo?** Try the live [typed spreadsheet](https://typed-spreadsheet.pages.dev), run the [CLI demo](../examples/typed_spreadsheet_cli_demo/README.md) for the fixed trace, or build the [editable Rabbita Web demo](../examples/typed_spreadsheet_rabbita_demo/README.md) locally to change cells and inspect operation outcomes, trace buckets, and before/after snapshots.
 - **Working on `incr` itself?** [docs/architecture.md](../docs/architecture.md) (package map) and [docs/design/internals.md](../docs/design/internals.md) (algorithms).
 
 Full documentation index: [docs/README.md](../docs/README.md).
