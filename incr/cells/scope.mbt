@@ -304,7 +304,7 @@ pub fn Scope::add_cell_ids(self : Scope, ids : Array[CellId]) -> Unit {
   guard !self.disposed else {
     abort("Scope::add_cell_ids called on a disposed scope")
   }
-  let runtime_id = self.runtime.core.runtime_id
+  let runtime_id = @incr_types.RuntimeId(self.runtime.core.runtime_id)
   for id in ids {
     guard id.runtime_id == runtime_id else {
       abort("Scope::add_cell_ids: CellId belongs to a different Runtime")

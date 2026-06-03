@@ -4,8 +4,15 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- `RuntimeId`: a nominal runtime-identity value type (`Eq` / `Hash` / `Show`). Obtain it from `Runtime::id()` to ask "are these two runtimes the same?" without allocating a probe cell, or from `CellId::runtime_id` / `AccumulatorId::runtime_id`. It is a debug / introspection identity, not a stable application key.
+- `Runtime::id() -> RuntimeId` — direct runtime-identity accessor.
+- `Input::id`, `ReachableDerived::id`, `EagerDerived::id` — `id() -> CellId` forwarders, completing single-cell identity exposure across the target facades (it was previously only on `Derived`, `InputField`, `MapRelation`). Keyed `DerivedMap` deliberately remains without `id()`.
+
 ### Changed
 
+- **Breaking:** `CellId::runtime_id` and `AccumulatorId::runtime_id` are now `RuntimeId` instead of `Int`. Code that compared these against a raw `Int` must compare against a `RuntimeId` (`cell.id().runtime_id == rt.id()`); `RuntimeId == RuntimeId` comparisons and `to_string()` formatting are unchanged.
 - Renamed the public derived-recompute event API to `Derived*` naming: the enum `MemoEvent` → `DerivedEvent` and its payload structs `MemoEnteringEvent` / `MemoCompletedEvent` / `MemoAbortedEvent` → `DerivedEnteringEvent` / `DerivedCompletedEvent` / `DerivedAbortedEvent`; the runtime methods `Runtime::on_memo_event` / `Runtime::clear_memo_event_listener` → `Runtime::on_derived_event` / `Runtime::clear_derived_event_listener`. The enum variant names (`EnteringCompute` / `Completed` / `Aborted`) are unchanged, so existing `match` arms keep compiling.
 - Moved the typed spreadsheet boundary and tests out of the publishable `dowdiness/incr` module into the standalone `examples/typed_spreadsheet` workspace module.
 

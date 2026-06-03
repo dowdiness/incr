@@ -8,7 +8,7 @@
 /// This prevents cells from different runtimes being incorrectly queried
 /// against each other.
 pub(all) struct CellId {
-  runtime_id : Int
+  runtime_id : RuntimeId
   id : Int
 } derive(Eq, Debug)
 

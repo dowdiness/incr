@@ -87,7 +87,7 @@ fn EvaluationTraceRecorder::record_derived_pull_verification(
   core : RuntimeCore,
   cell_id : CellId,
 ) -> Unit {
-  guard cell_id.runtime_id == core.runtime_id &&
+  guard cell_id.runtime_id == @incr_types.RuntimeId(core.runtime_id) &&
     cell_id.id >= 0 &&
     cell_id.id < core.cell_index.length() else {
     return

@@ -7,7 +7,7 @@
 ///
 /// Each AccumulatorId is scoped to its originating runtime via `runtime_id`.
 pub(all) struct AccumulatorId {
-  runtime_id : Int
+  runtime_id : RuntimeId
   id : Int
 } derive(Eq, Debug)
 

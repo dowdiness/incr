@@ -71,6 +71,17 @@ pub fn Runtime::Runtime(on_change? : () -> Unit) -> Runtime {
 }
 
 ///|
+/// Returns this runtime's identity.
+///
+/// Use it to ask "are these two runtimes the same?" (`a.id() == b.id()`)
+/// without allocating a probe cell to read a `CellId`'s `runtime_id`. A
+/// `RuntimeId` is a debug / introspection identity, not a stable application
+/// key — see `RuntimeId`.
+pub fn Runtime::id(self : Runtime) -> @incr_types.RuntimeId {
+  @incr_types.RuntimeId(self.core.runtime_id)
+}
+
+///|
 /// Creates a new runtime with an empty dependency graph.
 ///
 /// # Parameters
@@ -356,7 +367,7 @@ fn Runtime::leave_phase(self : Runtime) -> Unit {
 fn Runtime::alloc_next_id(self : Runtime) -> CellId {
   let id = self.core.next_cell_id
   self.core.next_cell_id = id + 1
-  { runtime_id: self.core.runtime_id, id }
+  { runtime_id: @incr_types.RuntimeId(self.core.runtime_id), id }
 }
 
 ///|

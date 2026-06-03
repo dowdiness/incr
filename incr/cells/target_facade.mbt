@@ -46,6 +46,14 @@ pub fn[T] Input::is_fresh(self : Input[T]) -> Bool {
 }
 
 ///|
+/// Returns the unique cell identifier for this input. Stable across reads —
+/// useful for graph-shape probes and cross-runtime identity checks
+/// (`input.id().runtime_id`).
+pub fn[T] Input::id(self : Input[T]) -> CellId {
+  self.inner.id()
+}
+
+///|
 /// Target-name field-level input facade over `TrackedCell`.
 pub(all) struct InputField[T] {
   priv inner : TrackedCell[T]
@@ -338,6 +346,14 @@ pub fn[T] ReachableDerived::is_fresh(self : ReachableDerived[T]) -> Bool {
 }
 
 ///|
+/// Returns the unique cell identifier for this reachable derived value.
+/// Stable across reads — useful for graph-shape probes (gc anchoring, edge
+/// inspection) where a cell needs an identity independent of its value.
+pub fn[T] ReachableDerived::id(self : ReachableDerived[T]) -> CellId {
+  self.inner.id()
+}
+
+///|
 /// Target-name eager derived cell facade over `Reactive`.
 pub(all) struct EagerDerived[T] {
   priv inner : Reactive[T]
@@ -368,6 +384,14 @@ pub fn[T] EagerDerived::read(self : EagerDerived[T]) -> T {
 /// Creates a long-lived outside-graph reader for this eager derived value.
 pub fn[T] EagerDerived::watch(self : EagerDerived[T]) -> Watch[T] {
   self.inner.watch_result()
+}
+
+///|
+/// Returns the unique cell identifier for this eager derived value. Stable
+/// across reads — useful for graph-shape probes (gc anchoring, edge
+/// inspection) where a cell needs an identity independent of its value.
+pub fn[T] EagerDerived::id(self : EagerDerived[T]) -> CellId {
+  self.inner.id()
 }
 
 ///|

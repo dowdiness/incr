@@ -480,3 +480,48 @@ test "facade scope: derived_map read after dispose returns Err" {
   }
   inspect(e.is_disposed(), content="true")
 }
+
+///|
+test "facade id(): single-cell facades expose stable cell ids scoped to the runtime" {
+  let rt = @incr.Runtime()
+  let input = @incr.Input(rt, 1)
+  let reachable = @incr.ReachableDerived(rt, () => input.get())
+  let eager = @incr.EagerDerived(rt, () => input.get())
+
+  // id() is stable across calls.
+  inspect(input.id() == input.id(), content="true")
+  inspect(reachable.id() == reachable.id(), content="true")
+  inspect(eager.id() == eager.id(), content="true")
+
+  // Distinct cells have distinct ids.
+  inspect(input.id() == reachable.id(), content="false")
+  inspect(reachable.id() == eager.id(), content="false")
+
+  // Every cell's runtime component is its owning runtime's identity — no
+  // probe cell needed to reach it.
+  inspect(input.id().runtime_id == rt.id(), content="true")
+  inspect(reachable.id().runtime_id == rt.id(), content="true")
+  inspect(eager.id().runtime_id == rt.id(), content="true")
+}
+
+///|
+test "Runtime::id(): distinct runtimes have distinct ids; same runtime is stable" {
+  let rt1 = @incr.Runtime()
+  let rt2 = @incr.Runtime()
+
+  // Stable within a runtime, distinct across runtimes — this is the
+  // "are these two runtimes the same?" check, no probe cell required.
+  inspect(rt1.id() == rt1.id(), content="true")
+  inspect(rt1.id() == rt2.id(), content="false")
+
+  // Cells inherit their owning runtime's identity.
+  let a = @incr.Input(rt1, 0)
+  let b = @incr.Input(rt2, 0)
+  inspect(a.id().runtime_id == rt1.id(), content="true")
+  inspect(b.id().runtime_id == rt2.id(), content="true")
+  inspect(a.id().runtime_id == b.id().runtime_id, content="false")
+
+  // RuntimeId Show prints the bare allocation number, keeping error text and
+  // graph-visualization output readable (no "RuntimeId(..)" wrapper).
+  inspect(rt1.id().to_string().contains("RuntimeId"), content="false")
+}

@@ -99,6 +99,7 @@ pub(all) struct EagerDerived[T] {
 }
 pub fn[T : Eq] EagerDerived::EagerDerived(Runtime, () -> T) -> Self[T]
 pub fn[T] EagerDerived::get(Self[T]) -> T
+pub fn[T] EagerDerived::id(Self[T]) -> @types.CellId
 pub fn[T] EagerDerived::read(Self[T]) -> T
 pub fn[T] EagerDerived::watch(Self[T]) -> Watch[T]
 
@@ -141,6 +142,7 @@ pub(all) struct Input[T] {
 pub fn[T] Input::Input(Runtime, T, durability? : @types.Durability, label? : String) -> Self[T]
 pub fn[T] Input::force_set(Self[T], T) -> Unit
 pub fn[T] Input::get(Self[T]) -> T
+pub fn[T] Input::id(Self[T]) -> @types.CellId
 pub fn[T] Input::is_fresh(Self[T]) -> Bool
 pub fn[T] Input::peek(Self[T]) -> T
 pub fn[T : Eq] Input::set(Self[T], T) -> Unit
@@ -228,6 +230,7 @@ pub(all) struct ReachableDerived[T] {
 pub fn[T : Eq] ReachableDerived::ReachableDerived(Runtime, () -> T raise Failure, label? : String) -> Self[T]
 pub fn[T : Eq] ReachableDerived::get(Self[T]) -> Result[T, @types.ReadError]
 pub fn[T : Eq] ReachableDerived::get_or_abort(Self[T]) -> T
+pub fn[T] ReachableDerived::id(Self[T]) -> @types.CellId
 pub fn[T] ReachableDerived::is_fresh(Self[T]) -> Bool
 pub fn[T : Eq] ReachableDerived::read(Self[T]) -> Result[T, @types.ReadError]
 pub fn[T : Eq] ReachableDerived::read_or_abort(Self[T]) -> T
@@ -273,6 +276,7 @@ pub fn Runtime::dispose_rule(Self, @types.RuleId) -> Unit
 pub fn Runtime::fixpoint(Self) -> Unit
 pub fn Runtime::gc(Self) -> Unit
 pub fn Runtime::gc_root_count(Self, @types.CellId) -> Int
+pub fn Runtime::id(Self) -> @types.RuntimeId
 pub fn Runtime::new(on_change? : () -> Unit) -> Self
 pub fn Runtime::new_rule(Self, Array[@types.CellId], Array[@types.CellId], () -> Unit, label? : String) -> @types.RuleId
 pub fn Runtime::on_derived_event(Self, (DerivedEvent) -> Unit) -> Unit raise Failure

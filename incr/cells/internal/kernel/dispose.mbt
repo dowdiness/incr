@@ -12,7 +12,7 @@
 /// `false` if the cell is already disposed (idempotent short-circuit).
 /// Aborts on cross-runtime CellId.
 pub fn validate_cell_for_dispose(core : RuntimeCore, cell_id : CellId) -> Bool {
-  guard cell_id.runtime_id == core.runtime_id else {
+  guard cell_id.runtime_id == @incr_types.RuntimeId(core.runtime_id) else {
     abort("dispose_cell: CellId belongs to a different Runtime")
   }
   !is_cell_disposed(core, cell_id)

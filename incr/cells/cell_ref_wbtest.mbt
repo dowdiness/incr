@@ -1,6 +1,6 @@
 ///|
 test "pull_signal_data: can be constructed" {
-  let id = CellId::{ runtime_id: 0, id: 0 }
+  let id = CellId::{ runtime_id: @incr_types.RuntimeId(0), id: 0 }
   let data = PullSignalData::{
     meta: {
       cell_id: id,
@@ -18,7 +18,7 @@ test "pull_signal_data: can be constructed" {
 
 ///|
 test "signal_id_memo_id: newtype handles wrap CellId" {
-  let cid = CellId::{ runtime_id: 0, id: 5 }
+  let cid = CellId::{ runtime_id: @incr_types.RuntimeId(0), id: 5 }
   let sid : @incr_types.SignalId[Int] = @incr_types.SignalId::{ id: cid }
   let mid : @incr_types.MemoId[Int] = @incr_types.MemoId::{ id: cid }
   inspect(sid.id.id, content="5")
