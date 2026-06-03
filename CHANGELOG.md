@@ -20,6 +20,10 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 - `MemoEvent`, `MemoEnteringEvent`, `MemoCompletedEvent`, `MemoAbortedEvent`, `Runtime::on_memo_event`, and `Runtime::clear_memo_event_listener` are retained as deprecated aliases of their `Derived*` replacements and are scheduled for removal in a future major release.
 
+### Fixed
+
+- Closed a cross-runtime read guard hole on the direct read paths (`DerivedMap` / `MemoMap` reads and internal permissive reads). Reading a cell that belongs to one `Runtime` from inside an active computation on a *different* `Runtime` could previously succeed silently and corrupt the active runtime's tracking state; it now aborts, matching the strict `Derived` / `.get()` read paths. (#174)
+
 ### Documentation
 
 - Clarified that the typed spreadsheet example is runtime-checked: formula installation validates worksheet boundaries, while operator and declared-result type mismatches surface as `CellResult::TypeError` on read.
