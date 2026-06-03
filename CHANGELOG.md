@@ -4,6 +4,8 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-06-03
+
 ### Added
 
 - `RuntimeId`: a nominal runtime-identity value type (`Eq` / `Hash` / `Show`). Obtain it from `Runtime::id()` to ask "are these two runtimes the same?" without allocating a probe cell, or from `CellId::runtime_id` / `AccumulatorId::runtime_id`. It is a debug / introspection identity, not a stable application key.
