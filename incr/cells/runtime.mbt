@@ -39,7 +39,7 @@ pub(all) struct Runtime {
   priv commit_hooks : Array[&MemoCommitPhase]
   priv mut static_recompute_depth : Int
   priv static_recompute_tracking_floors : Array[Int]
-  priv static_recompute_previous_runtime_ids : Array[Int]
+  priv static_recompute_previous_runtime_ids : Array[@incr_types.RuntimeId?]
   priv accumulator_commit_hook : AccumulatorCommitHook
   priv event_broadcast_hook : EventBroadcastPhaseHook
   priv event_broadcast_hook_index : Int
@@ -78,7 +78,7 @@ pub fn Runtime::Runtime(on_change? : () -> Unit) -> Runtime {
 /// `RuntimeId` is a debug / introspection identity, not a stable application
 /// key — see `RuntimeId`.
 pub fn Runtime::id(self : Runtime) -> @incr_types.RuntimeId {
-  @incr_types.RuntimeId(self.core.runtime_id)
+  self.core.runtime_id
 }
 
 ///|
@@ -367,7 +367,7 @@ fn Runtime::leave_phase(self : Runtime) -> Unit {
 fn Runtime::alloc_next_id(self : Runtime) -> CellId {
   let id = self.core.next_cell_id
   self.core.next_cell_id = id + 1
-  { runtime_id: @incr_types.RuntimeId(self.core.runtime_id), id }
+  { runtime_id: self.core.runtime_id, id }
 }
 
 ///|

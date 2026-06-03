@@ -298,18 +298,17 @@ fn[T] Memo::get_result_inner_impl(
   guard !self.rt.is_cell_disposed(self.cell_id) else {
     abort("Memo::get called on a disposed memo")
   }
-  // If this runtime's tracking stack is empty, any non-negative
+  // If this runtime's tracking stack is empty, any active
   // `current_computing_runtime_id` is stale from a prior aborted
   // computation; repair it instead of treating it as a cross-runtime read.
   // This forgiving repair is required by panic-test call patterns that
   // bypass `get_result`'s outer strict check (e.g. `read_permissive`,
   // `MemoMap::get_or_create_memo`).
-  let active_rt = @kernel.get_current_computing_runtime_id()
-  if active_rt >= 0 {
+  if @kernel.get_current_computing_runtime_id() is Some(active_rt) {
     if self.rt.core.tracking.stack.is_empty() {
-      @kernel.set_current_computing_runtime_id(-1)
+      @kernel.set_current_computing_runtime_id(None)
     } else if active_rt != self.rt.core.runtime_id {
-      @kernel.set_current_computing_runtime_id(-1)
+      @kernel.set_current_computing_runtime_id(None)
       abort(
         "Cross-runtime dependency: Memo belongs to Runtime " +
         self.rt.core.runtime_id.to_string() +
@@ -633,7 +632,7 @@ fn[T] Memo::read_declared_fixed_dep_or_abort(
   }
   match self.read_honest_impl(record_dependency=false) {
     Ok(value) => {
-      @kernel.set_current_computing_runtime_id(self.rt.core.runtime_id)
+      @kernel.set_current_computing_runtime_id(Some(self.rt.core.runtime_id))
       value
     }
     Err(e) => abort(e.format_path())

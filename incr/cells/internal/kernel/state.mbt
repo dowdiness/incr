@@ -1,5 +1,5 @@
 ///|
-using @incr_types {type CellId, type Durability, type Revision}
+using @incr_types {type CellId, type Durability, type Revision, type RuntimeId}
 
 ///|
 using @shared {type CellRef, trait CellOps, trait Committable}
@@ -12,35 +12,35 @@ using @shared {type CellRef, trait CellOps, trait Committable}
 let next_runtime_id : Ref[Int] = { val: 0 }
 
 ///|
-/// Tracks the runtime_id currently executing a memo computation.
-/// -1 means no computation is active (sentinel; runtime IDs start at 0).
+/// Tracks the runtime currently executing a memo computation.
+/// `None` means no computation is active.
 ///
 /// Single-threaded assumption: MoonBit currently targets WebAssembly
 /// (inherently single-threaded) and a single-threaded native runtime, so a
-/// plain `Ref[Int]` is safe here. If parallel execution is ever introduced
-/// (e.g. native threads or shared-memory WASM), this sentinel must be
-/// replaced with a thread-local or an atomic.
-let current_computing_runtime_id : Ref[Int] = { val: -1 }
+/// plain `Ref` is safe here. If parallel execution is ever introduced
+/// (e.g. native threads or shared-memory WASM), this must be replaced with a
+/// thread-local or an atomic.
+let current_computing_runtime_id : Ref[RuntimeId?] = { val: None }
 
 ///|
 /// Allocates a fresh runtime id and advances the global counter.
-pub fn alloc_runtime_id() -> Int {
+pub fn alloc_runtime_id() -> RuntimeId {
   let id = next_runtime_id.val
   next_runtime_id.val = id + 1
-  id
+  RuntimeId(id)
 }
 
 ///|
-/// Returns the runtime_id of the Runtime currently executing a tracked
-/// computation, or -1 if none.
-pub fn get_current_computing_runtime_id() -> Int {
+/// Returns the runtime currently executing a tracked computation, or `None`
+/// if none.
+pub fn get_current_computing_runtime_id() -> RuntimeId? {
   current_computing_runtime_id.val
 }
 
 ///|
-/// Sets the runtime_id of the Runtime currently executing a tracked
-/// computation. Pass -1 to clear.
-pub fn set_current_computing_runtime_id(v : Int) -> Unit {
+/// Sets the runtime currently executing a tracked computation. Pass `None` to
+/// clear.
+pub fn set_current_computing_runtime_id(v : RuntimeId?) -> Unit {
   current_computing_runtime_id.val = v
 }
 
@@ -185,7 +185,7 @@ pub(all) struct DatalogState {
 /// not here. The CellLifecycle trait references Runtime directly (dispose
 /// semantics) which would create a cycle if moved into kernel.
 pub(all) struct RuntimeCore {
-  runtime_id : Int
+  runtime_id : RuntimeId
   revision : RevisionState
   mut next_cell_id : Int
   tracking : TrackingState
