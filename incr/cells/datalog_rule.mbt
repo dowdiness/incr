@@ -41,7 +41,7 @@ fn Runtime::assert_rule_relation_id(
   id : CellId,
   role : String,
 ) -> Unit {
-  if id.runtime_id != self.core.runtime_id {
+  if id.runtime_id != @incr_types.RuntimeId(self.core.runtime_id) {
     abort(
       "new_rule: " +
       role +

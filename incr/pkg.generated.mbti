@@ -137,6 +137,8 @@ pub using @types {type RuleId}
 
 pub using @cells {type Runtime}
 
+pub using @types {type RuntimeId}
+
 pub using @cells {type Scope}
 
 pub using @cells {type Signal}

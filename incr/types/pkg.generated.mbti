@@ -22,14 +22,14 @@ pub fn CycleError::path(Self) -> Array[CellId]
 
 // Types and methods
 pub(all) struct AccumulatorId {
-  runtime_id : Int
+  runtime_id : RuntimeId
   id : Int
 } derive(Eq, @debug.Debug)
 pub impl Hash for AccumulatorId
 pub impl Show for AccumulatorId
 
 pub(all) struct CellId {
-  runtime_id : Int
+  runtime_id : RuntimeId
   id : Int
 } derive(Eq, @debug.Debug)
 pub impl Hash for CellId
@@ -103,6 +103,12 @@ pub fn Revision::next(Self) -> Self
 pub(all) struct RuleId {
   id : CellId
 }
+
+pub(all) struct RuntimeId {
+  id : Int
+} derive(Eq, Hash, @debug.Debug)
+pub fn RuntimeId::RuntimeId(Int) -> Self
+pub impl Show for RuntimeId
 
 pub(all) struct SignalId[T] {
   id : CellId

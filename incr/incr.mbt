@@ -2,6 +2,7 @@
 pub using @incr_types {
   type Revision,
   type Durability,
+  type RuntimeId,
   type CellId,
   type SignalId,
   type MemoId,
