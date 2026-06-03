@@ -4,6 +4,14 @@
 **Status:** Accepted — implementation gated on T1b landing first
 **Anchors:** [T1b (`MemoCommitPhase`)](2026-05-17-t1b-memo-commit-phase.md), [Async-at-the-edges](2026-05-17-async-at-the-edges.md)
 
+> **Amended 0.8.0 (2026-06-03):** the API shipped as named in this ADR, then was
+> renamed in 0.8.0: `MemoEvent` → `DerivedEvent`, `MemoEnteringEvent` /
+> `MemoCompletedEvent` / `MemoAbortedEvent` → `DerivedEnteringEvent` /
+> `DerivedCompletedEvent` / `DerivedAbortedEvent`, and `Runtime::on_memo_event`
+> → `Runtime::on_derived_event`. The old names remain as deprecated aliases.
+> The body below preserves the original `Memo*` names as historical design
+> record; read `DerivedEvent` / `on_derived_event` wherever they appear.
+
 **Amendments (2026-05-17, post-Codex):**
 - §"Internal implementation": confirmed `backdated` detection via `cell.meta.changed_at < cell.verified_at` works correctly because T1b ADR was amended same-day to fire `after_success` *after* the cell-level epilogue. Without that timing fix, backdating would not have been detectable from the hook.
 - §"Internal implementation": **buffer-and-flush** rather than inline listener dispatch. Per T1b's hook contract amendment, hooks must not call user code inline (typed memo cache not yet written, nested-recompute dep pollution, `recompute_inner.changed` decision depends on epilogue state). The `EventBroadcastPhaseHook` appends to an internal `pending_events` queue inside each hook method and drains at a safe point. See §"Drain protocol" below.
