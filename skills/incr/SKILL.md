@@ -62,7 +62,7 @@ low-level memo introspection recipes, or legacy downstream code).
 | `rt.read_hybrid(h)` | `reachable.read()` / `reachable.read_or_abort()` |
 | `rt.read_reactive(r)` | `eager.read()` |
 
-`Runtime`, `Scope`, `Accumulator`, `Effect`, `MemoEvent`, `CycleError`
+`Runtime`, `Scope`, `Accumulator`, `Effect`, `DerivedEvent`, `CycleError`
 are the same name in both worlds. New code should pick one column and
 stay there per cell chain — don't mix `Memo` and `Derived` for the same
 graph unless a compatibility-only API forces that boundary.

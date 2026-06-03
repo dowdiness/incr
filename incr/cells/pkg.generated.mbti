@@ -51,6 +51,33 @@ pub fn[T] Derived::read(Self[T]) -> Result[T, @types.ReadError]
 pub fn[T] Derived::read_or_abort(Self[T]) -> T
 pub fn[T] Derived::watch(Self[T]) -> Watch[T]
 
+pub(all) struct DerivedAbortedEvent {
+  cell_id : @types.CellId
+  elapsed_ns : Int64
+  started_revision : @types.Revision
+  error : Error
+}
+
+pub(all) struct DerivedCompletedEvent {
+  cell_id : @types.CellId
+  elapsed_ns : Int64
+  started_revision : @types.Revision
+  verified_at : @types.Revision
+  changed_at : @types.Revision
+  backdated : Bool
+}
+
+pub(all) struct DerivedEnteringEvent {
+  cell_id : @types.CellId
+  started_revision : @types.Revision
+}
+
+pub(all) enum DerivedEvent {
+  EnteringCompute(DerivedEnteringEvent)
+  Completed(DerivedCompletedEvent)
+  Aborted(DerivedAbortedEvent)
+}
+
 pub(all) struct DerivedMap[K, V] {
   // private fields
 }
@@ -173,33 +200,6 @@ pub fn[T] Memo::observe(Self[T]) -> Observer[T]
 pub fn[T] Memo::on_change(Self[T], (T) -> Unit) -> Unit
 pub fn[T] Memo::verified_at(Self[T]) -> @types.Revision
 
-pub(all) struct MemoAbortedEvent {
-  cell_id : @types.CellId
-  elapsed_ns : Int64
-  started_revision : @types.Revision
-  error : Error
-}
-
-pub(all) struct MemoCompletedEvent {
-  cell_id : @types.CellId
-  elapsed_ns : Int64
-  started_revision : @types.Revision
-  verified_at : @types.Revision
-  changed_at : @types.Revision
-  backdated : Bool
-}
-
-pub(all) struct MemoEnteringEvent {
-  cell_id : @types.CellId
-  started_revision : @types.Revision
-}
-
-pub(all) enum MemoEvent {
-  EnteringCompute(MemoEnteringEvent)
-  Completed(MemoCompletedEvent)
-  Aborted(MemoAbortedEvent)
-}
-
 pub(all) struct MemoMap[K, V] {
   // private fields
 }
@@ -263,6 +263,8 @@ pub fn Runtime::Runtime(on_change? : () -> Unit) -> Self
 pub fn Runtime::batch(Self, () -> Unit raise?) -> Unit raise?
 pub fn Runtime::batch_result(Self, () -> Unit raise?) -> Result[Unit, Error]
 pub fn Runtime::cell_info(Self, @types.CellId) -> CellInfo?
+pub fn Runtime::clear_derived_event_listener(Self) -> Unit raise Failure
+#deprecated
 pub fn Runtime::clear_memo_event_listener(Self) -> Unit raise Failure
 pub fn Runtime::clear_on_change(Self) -> Unit
 pub fn Runtime::dependents(Self, @types.CellId) -> Array[@types.CellId]
@@ -273,7 +275,9 @@ pub fn Runtime::gc(Self) -> Unit
 pub fn Runtime::gc_root_count(Self, @types.CellId) -> Int
 pub fn Runtime::new(on_change? : () -> Unit) -> Self
 pub fn Runtime::new_rule(Self, Array[@types.CellId], Array[@types.CellId], () -> Unit, label? : String) -> @types.RuleId
-pub fn Runtime::on_memo_event(Self, (MemoEvent) -> Unit) -> Unit raise Failure
+pub fn Runtime::on_derived_event(Self, (DerivedEvent) -> Unit) -> Unit raise Failure
+#deprecated
+pub fn Runtime::on_memo_event(Self, (DerivedEvent) -> Unit) -> Unit raise Failure
 #deprecated
 pub fn[T] Runtime::read(Self, Memo[T]) -> T
 #deprecated

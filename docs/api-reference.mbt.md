@@ -3,12 +3,12 @@
 > **Checked companion:** [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md)
 > contains literate tests that pin the target facade snippets in this document
 > (`Derived`, `DerivedMap`, `ReachableDerived`, `MapRelation`, `Scope` /
-> `RuntimeContext` helpers, and `CycleError`) plus memo-event listener
+> `RuntimeContext` helpers, and `CycleError`) plus derived-event listener
 > lifecycle, compatibility introspection/callbacks, and the compatibility-only
 > accumulator push path. The README and getting-started target snippets are
 > covered by [`target_api_examples.mbt.md`](target_api_examples.mbt.md).
 
-Reference for the most commonly used public APIs in `incr`. This is not exhaustive — the authoritative surface is in `pkg.generated.mbti` and `cells/pkg.generated.mbti`. APIs surfaced here: `Runtime`, `Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, legacy compatibility handles (`Signal`, `Memo`, `HybridMemo`, `MemoMap`, `TrackedCell`), `Accumulator`, `MemoEvent`, `CycleError`, the `RuntimeContext`/`Database`/`Freshness`/`Readable`/`InputFieldOwner`/`Trackable` traits, and the top-level helper functions. Specialised APIs (`EagerDerived` / `Reactive`, `Effect`, `Relation`, `MapRelation` / `FunctionalRelation`, `Scope`, `Watch` / `Observer`) are documented next to their constructors in `cells/`.
+Reference for the most commonly used public APIs in `incr`. This is not exhaustive — the authoritative surface is in `pkg.generated.mbti` and `cells/pkg.generated.mbti`. APIs surfaced here: `Runtime`, `Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, legacy compatibility handles (`Signal`, `Memo`, `HybridMemo`, `MemoMap`, `TrackedCell`), `Accumulator`, `DerivedEvent`, `CycleError`, the `RuntimeContext`/`Database`/`Freshness`/`Readable`/`InputFieldOwner`/`Trackable` traits, and the top-level helper functions. Specialised APIs (`EagerDerived` / `Reactive`, `Effect`, `Relation`, `MapRelation` / `FunctionalRelation`, `Scope`, `Watch` / `Observer`) are documented next to their constructors in `cells/`.
 
 > **Recommended Pattern:** Use the `RuntimeContext` trait to encapsulate your
 > `Runtime` in an application context type. This makes your API cleaner and
@@ -157,13 +157,16 @@ prefer `ReachableDerived::read()`, `ReachableDerived::read_or_abort()`, or
 Deprecated legacy one-shot observe for `Reactive[T]`. New target-facade code
 should prefer `EagerDerived::read()` or `EagerDerived::watch()`.
 
-### `Runtime::on_memo_event(self, f: (MemoEvent) -> Unit) -> Unit raise Failure`
+### `Runtime::on_derived_event(self, f: (DerivedEvent) -> Unit) -> Unit raise Failure`
 
-Registers the runtime's memo recompute listener. The listener receives pull
+> Renamed in 0.8.0 from `Runtime::on_memo_event`, which remains as a deprecated
+> alias.
+
+Registers the runtime's derived recompute listener. The listener receives pull
 `Memo` and `HybridMemo` lifecycle events after the recompute path reaches a
-safe drain point; it is not called inline from the memo compute closure.
+safe drain point; it is not called inline from the compute closure.
 
-Only one listener is stored. Calling `on_memo_event` replaces the previous
+Only one listener is stored. Calling `on_derived_event` replaces the previous
 listener.
 
 The checked companion covers listener registration and clearing in
@@ -175,50 +178,58 @@ logging, enqueue inside the callback and let another part of the driver drain
 that queue.
 
 Mutation guard:
-- `on_memo_event` raises `Failure` while an operation is in flight
+- `on_derived_event` raises `Failure` while an operation is in flight
 - Rejected windows include active recompute, open batch, non-idle propagation
   phase, buffered-but-undrained events, and listener drain reentry
 - Register listeners between top-level operations, before starting the graph
   work you want to observe
 
-### `Runtime::clear_memo_event_listener(self) -> Unit raise Failure`
+### `Runtime::clear_derived_event_listener(self) -> Unit raise Failure`
 
-Removes the memo event listener. It has the same mutation guard as
-`on_memo_event`; clear it between operations, not from inside compute,
-`on_change`, or a memo-event listener.
+> Renamed in 0.8.0 from `Runtime::clear_memo_event_listener`, which remains as a
+> deprecated alias.
 
-The checked companion covers `clear_memo_event_listener` in
+Removes the derived event listener. It has the same mutation guard as
+`on_derived_event`; clear it between operations, not from inside compute,
+`on_change`, or a derived-event listener.
+
+The checked companion covers `clear_derived_event_listener` in
 [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
-### `MemoEvent`
+### `DerivedEvent`
 
-`MemoEvent` is the public event payload delivered by
-`Runtime::on_memo_event`.
+`DerivedEvent` is the public event payload delivered by
+`Runtime::on_derived_event`.
+
+> Renamed in 0.8.0 from `MemoEvent` (with payloads `MemoEnteringEvent` /
+> `MemoCompletedEvent` / `MemoAbortedEvent`). The old type names remain as
+> deprecated aliases; the variant names are unchanged, so existing `match`
+> arms keep compiling.
 
 ```mbt nocheck
 ///|
-pub(all) enum MemoEvent {
-  EnteringCompute(MemoEnteringEvent)
-  Completed(MemoCompletedEvent)
-  Aborted(MemoAbortedEvent)
+pub(all) enum DerivedEvent {
+  EnteringCompute(DerivedEnteringEvent)
+  Completed(DerivedCompletedEvent)
+  Aborted(DerivedAbortedEvent)
 }
 ```
 
-`MemoEnteringEvent` fields:
-- `cell_id`: memo cell entering recompute
+`DerivedEnteringEvent` fields:
+- `cell_id`: derived cell entering recompute
 - `started_revision`: runtime revision captured at recompute entry
 
-`MemoCompletedEvent` fields:
-- `cell_id`: memo cell that completed
+`DerivedCompletedEvent` fields:
+- `cell_id`: derived cell that completed
 - `elapsed_ns`: best-effort elapsed duration for this recompute
 - `started_revision`: same entry revision carried from `EnteringCompute`
-- `verified_at`: memo verification revision after commit
-- `changed_at`: memo change revision after backdating
+- `verified_at`: verification revision after commit
+- `changed_at`: change revision after backdating
 - `backdated`: `true` when the recompute produced an equal value and preserved
   `changed_at`
 
-`MemoAbortedEvent` fields:
-- `cell_id`: memo cell whose compute raised a catchable `Error`
+`DerivedAbortedEvent` fields:
+- `cell_id`: derived cell whose compute raised a catchable `Error`
 - `elapsed_ns`: best-effort elapsed duration before the raise
 - `started_revision`: same entry revision carried from `EnteringCompute`
 - `error`: the captured `Error`; stringify in the driver if needed

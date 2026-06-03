@@ -1,10 +1,10 @@
 ///|
-test "memo_event: listener observes public event types" {
+test "derived_event: listener observes public event types" {
   let rt = Runtime()
   let sig = Signal(rt, 1)
   let memo = Memo(rt, () => sig.get() + 1)
   let events : Array[String] = []
-  rt.on_memo_event(evt => {
+  rt.on_derived_event(evt => {
     match evt {
       EnteringCompute(e) =>
         if e.started_revision.value == 0 {
@@ -25,17 +25,17 @@ test "memo_event: listener observes public event types" {
   inspect(events.length(), content="2")
   inspect(events[0], content="enter@0")
   inspect(events[1], content="completed")
-  rt.clear_memo_event_listener()
+  rt.clear_derived_event_listener()
   sig.set(2)
   inspect(read_memo_for_test(memo), content="3")
   inspect(events.length(), content="2")
 }
 
 ///|
-test "memo_event: listener mutation is rejected during recompute" {
+test "derived_event: listener mutation is rejected during recompute" {
   let rt = Runtime()
   let memo = Memo(rt, () => {
-    let result : Result[Unit, Error] = try? rt.clear_memo_event_listener()
+    let result : Result[Unit, Error] = try? rt.clear_derived_event_listener()
     match result {
       Ok(_) => 0
       Err(_) => 1
@@ -45,12 +45,12 @@ test "memo_event: listener mutation is rejected during recompute" {
 }
 
 ///|
-test "memo_event_listener_observes_hybrid_memo_recompute_events" {
+test "derived_event_listener_observes_hybrid_memo_recompute_events" {
   let rt = Runtime()
   let sig = Signal(rt, 1)
   let hybrid = @incr.HybridMemo(rt, () => sig.get() + 1)
   let events : Array[String] = []
-  rt.on_memo_event(evt => {
+  rt.on_derived_event(evt => {
     match evt {
       EnteringCompute(_) => events.push("enter")
       Completed(e) =>
@@ -77,13 +77,13 @@ test "memo_event_listener_observes_hybrid_memo_recompute_events" {
 }
 
 ///|
-test "memo_event_no_listener_creates_no_backlog_for_later_listener" {
+test "derived_event_no_listener_creates_no_backlog_for_later_listener" {
   let rt = Runtime()
   let sig = Signal(rt, 1)
   let memo = Memo(rt, () => sig.get() + 1)
   inspect(read_memo_for_test(memo), content="2")
   let events : Array[String] = []
-  rt.on_memo_event(evt => {
+  rt.on_derived_event(evt => {
     match evt {
       EnteringCompute(_) => events.push("enter")
       Completed(_) => events.push("completed")

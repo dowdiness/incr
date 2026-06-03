@@ -69,7 +69,7 @@ impl MemoCommitPhase for EventOrderSentinel with fn after_abort(
 }
 
 ///|
-fn event_kind(evt : MemoEvent) -> String {
+fn event_kind(evt : DerivedEvent) -> String {
   match evt {
     EnteringCompute(_) => "enter"
     Completed(_) => "completed"
@@ -78,16 +78,16 @@ fn event_kind(evt : MemoEvent) -> String {
 }
 
 ///|
-fn push_event_kind(events : Array[String], evt : MemoEvent) -> Unit {
+fn push_event_kind(events : Array[String], evt : DerivedEvent) -> Unit {
   events.push(event_kind(evt))
 }
 
 ///|
-test "memo_event: hook order follows accumulator then event hook" {
+test "derived_event: hook order follows accumulator then event hook" {
   let rt = Runtime()
   let sentinel = EventOrderSentinel::new()
   rt.commit_hooks.push(sentinel)
-  rt.on_memo_event(_evt => ())
+  rt.on_derived_event(_evt => ())
   let acc : Accumulator[Int] = Accumulator::new(rt~)
   let memo = Memo(rt, () => {
     acc.push(1)
@@ -109,11 +109,11 @@ test "memo_event: hook order follows accumulator then event hook" {
 }
 
 ///|
-test "memo_event: hook order on abort removes active entries before later hooks" {
+test "derived_event: hook order on abort removes active entries before later hooks" {
   let rt = Runtime()
   let sentinel = EventOrderSentinel::new()
   rt.commit_hooks.push(sentinel)
-  rt.on_memo_event(_evt => ())
+  rt.on_derived_event(_evt => ())
   let _acc : Accumulator[Int] = Accumulator::new(rt~)
   let memo : Memo[Int] = Memo(rt, () => raise Failure("boom"))
   let _ : Result[Result[Int, CycleError], Failure] = try? memo.force_recompute()
@@ -132,7 +132,7 @@ test "memo_event: hook order on abort removes active entries before later hooks"
 }
 
 ///|
-test "memo_event: nested recomputes buffer until outermost frame exits" {
+test "derived_event: nested recomputes buffer until outermost frame exits" {
   let rt = Runtime()
   let events : Array[String] = []
   let pending_seen_inside_outer : Array[Int] = []
@@ -142,7 +142,7 @@ test "memo_event: nested recomputes buffer until outermost frame exits" {
     pending_seen_inside_outer.push(rt.event_broadcast_hook.pending.length())
     value + 1
   })
-  rt.on_memo_event(evt => push_event_kind(events, evt))
+  rt.on_derived_event(evt => push_event_kind(events, evt))
   inspect(read_memo_for_test(outer), content="3")
   inspect(pending_seen_inside_outer.length(), content="1")
   inspect(pending_seen_inside_outer[0], content="3")
@@ -155,7 +155,7 @@ test "memo_event: nested recomputes buffer until outermost frame exits" {
 }
 
 ///|
-test "memo_event: listener read does not pollute drained memo dependencies" {
+test "derived_event: listener read does not pollute drained memo dependencies" {
   let rt = Runtime()
   let source = Signal(rt, 1)
   let probe_source = Signal(rt, 10)
@@ -163,7 +163,7 @@ test "memo_event: listener read does not pollute drained memo dependencies" {
   let did_read = Ref(false)
   let probe_reads : Array[Int] = []
   let events : Array[String] = []
-  rt.on_memo_event(evt => {
+  rt.on_derived_event(evt => {
     push_event_kind(events, evt)
     match evt {
       Completed(_) =>
@@ -189,7 +189,7 @@ test "memo_event: listener read does not pollute drained memo dependencies" {
 }
 
 ///|
-test "memo_event: listener set can enqueue recursive memo events" {
+test "derived_event: listener set can enqueue recursive memo events" {
   let rt = Runtime()
   let source = Signal(rt, 0)
   let trigger = Signal(rt, 0)
@@ -203,7 +203,7 @@ test "memo_event: listener set can enqueue recursive memo events" {
   let outer = Memo(rt, () => source.get() + 1)
   let did_set = Ref(false)
   let events : Array[String] = []
-  rt.on_memo_event(evt => {
+  rt.on_derived_event(evt => {
     push_event_kind(events, evt)
     match evt {
       Completed(e) =>
@@ -225,13 +225,13 @@ test "memo_event: listener set can enqueue recursive memo events" {
 }
 
 ///|
-test "memo_event: no event fires for green verification path" {
+test "derived_event: no event fires for green verification path" {
   let rt = Runtime()
   let source = Signal(rt, 1)
   let unrelated = Signal(rt, 0)
   let memo = Memo(rt, () => source.get() + 1)
   let events : Array[String] = []
-  rt.on_memo_event(evt => push_event_kind(events, evt))
+  rt.on_derived_event(evt => push_event_kind(events, evt))
   inspect(read_memo_for_test(memo), content="2")
   events.clear()
   unrelated.set(1)
@@ -240,11 +240,11 @@ test "memo_event: no event fires for green verification path" {
 }
 
 ///|
-test "memo_event: mutation guard rejects batch body" {
+test "derived_event: mutation guard rejects batch body" {
   let rt = Runtime()
   let rejected = Ref(false)
   rt.batch(() => {
-    let result : Result[Unit, Error] = try? rt.on_memo_event(_evt => ())
+    let result : Result[Unit, Error] = try? rt.on_derived_event(_evt => ())
     match result {
       Ok(_) => ()
       Err(_) => rejected.val = true
@@ -254,21 +254,21 @@ test "memo_event: mutation guard rejects batch body" {
 }
 
 ///|
-test "memo_event: mutation guard rejects non-idle phase" {
+test "derived_event: mutation guard rejects non-idle phase" {
   let rt = Runtime()
   rt.enter_phase(GarbageCollecting)
-  let result : Result[Unit, Error] = try? rt.on_memo_event(_evt => ())
+  let result : Result[Unit, Error] = try? rt.on_derived_event(_evt => ())
   rt.leave_phase()
   inspect(result is Err(_), content="true")
 }
 
 ///|
-test "memo_event: mutation guard rejects push tracking frame" {
+test "derived_event: mutation guard rejects push tracking frame" {
   let rt = Runtime()
-  rt.on_memo_event(_evt => ())
+  rt.on_derived_event(_evt => ())
   let rejected = Ref(false)
   let _effect = Effect::new(rt, () => {
-    let result : Result[Unit, Error] = try? rt.clear_memo_event_listener()
+    let result : Result[Unit, Error] = try? rt.clear_derived_event_listener()
     match result {
       Ok(_) => ()
       Err(_) => rejected.val = true
@@ -278,15 +278,15 @@ test "memo_event: mutation guard rejects push tracking frame" {
 }
 
 ///|
-test "memo_event: mutation guard rejects pending events inside on_change" {
+test "derived_event: mutation guard rejects pending events inside on_change" {
   let rt = Runtime()
   let source = Signal(rt, 0)
   let hybrid = HybridMemo(rt, () => source.get() + 1)
   let _effect = Effect::new(rt, () => ignore(hybrid.get()))
-  rt.on_memo_event(_evt => ())
+  rt.on_derived_event(_evt => ())
   let rejected = Ref(false)
   source.on_change(_v => {
-    let result : Result[Unit, Error] = try? rt.clear_memo_event_listener()
+    let result : Result[Unit, Error] = try? rt.clear_derived_event_listener()
     match result {
       Ok(_) => ()
       Err(_) => rejected.val = true
@@ -297,15 +297,15 @@ test "memo_event: mutation guard rejects pending events inside on_change" {
 }
 
 ///|
-test "memo_event: mutation guard rejects on_change without pending events" {
+test "derived_event: mutation guard rejects on_change without pending events" {
   let rt = Runtime()
   let source = Signal(rt, 0)
-  rt.on_memo_event(_evt => ())
+  rt.on_derived_event(_evt => ())
   let saw_empty_pending = Ref(false)
   let rejected = Ref(false)
   source.on_change(_v => {
     saw_empty_pending.val = rt.event_broadcast_hook.pending.is_empty()
-    let result : Result[Unit, Error] = try? rt.clear_memo_event_listener()
+    let result : Result[Unit, Error] = try? rt.clear_derived_event_listener()
     match result {
       Ok(_) => ()
       Err(_) => rejected.val = true
@@ -317,12 +317,12 @@ test "memo_event: mutation guard rejects on_change without pending events" {
 }
 
 ///|
-test "memo_event: mutation guard rejects listener reentry" {
+test "derived_event: mutation guard rejects listener reentry" {
   let rt = Runtime()
   let rejected = Ref(false)
   let memo = Memo(rt, () => 1)
-  rt.on_memo_event(_evt => {
-    let result : Result[Unit, Error] = try? rt.clear_memo_event_listener()
+  rt.on_derived_event(_evt => {
+    let result : Result[Unit, Error] = try? rt.clear_derived_event_listener()
     match result {
       Ok(_) => ()
       Err(_) => rejected.val = true
@@ -333,21 +333,21 @@ test "memo_event: mutation guard rejects listener reentry" {
 }
 
 ///|
-test "memo_event: listener mutation succeeds between operations" {
+test "derived_event: listener mutation succeeds between operations" {
   let rt = Runtime()
-  let first : Result[Unit, Error] = try? rt.on_memo_event(_evt => ())
-  let clear : Result[Unit, Error] = try? rt.clear_memo_event_listener()
-  let second : Result[Unit, Error] = try? rt.on_memo_event(_evt => ())
+  let first : Result[Unit, Error] = try? rt.on_derived_event(_evt => ())
+  let clear : Result[Unit, Error] = try? rt.clear_derived_event_listener()
+  let second : Result[Unit, Error] = try? rt.on_derived_event(_evt => ())
   inspect(first is Ok(_), content="true")
   inspect(clear is Ok(_), content="true")
   inspect(second is Ok(_), content="true")
 }
 
 ///|
-test "memo_event: raising API defers drain until next operation" {
+test "derived_event: raising API defers drain until next operation" {
   let rt = Runtime()
   let events : Array[String] = []
-  rt.on_memo_event(evt => push_event_kind(events, evt))
+  rt.on_derived_event(evt => push_event_kind(events, evt))
   let inner = Memo(rt, () => 1)
   let target : Memo[Int] = Memo(rt, () => {
     ignore(inner.get())
@@ -369,12 +369,12 @@ test "memo_event: raising API defers drain until next operation" {
 }
 
 ///|
-test "memo_event: revision capture survives mid-compute revision bump" {
+test "derived_event: revision capture survives mid-compute revision bump" {
   let rt = Runtime()
   let tick = Signal(rt, 0)
   let started : Array[Int] = []
   let verified : Array[Int] = []
-  rt.on_memo_event(evt => {
+  rt.on_derived_event(evt => {
     match evt {
       EnteringCompute(e) => started.push(e.started_revision.value)
       Completed(e) => verified.push(e.verified_at.value)

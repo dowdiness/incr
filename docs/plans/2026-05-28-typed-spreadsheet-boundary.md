@@ -39,7 +39,7 @@ Use these APIs and invariants as the base contract:
   - Prefer `Watch` for new external subscribers; use `Observer` only for
     compatibility or when existing API requires it.
   - `Runtime::cell_info`/`CellInfo` provides point-in-time snapshots.
-  - `Runtime::on_memo_event` provides recompute trace events.
+  - `Runtime::on_derived_event` provides recompute trace events.
 
 - **Multi-mode execution support**
   - Pull verification and push/invalidation behavior remain stable via the public
@@ -82,7 +82,7 @@ Recommended minimal graph shape:
 - For batch failure handling, spreadsheet code should keep `Runtime::batch` paths
   `Result`-aware (through `batch_result` / `try?`) and avoid raising `Error`
   from within `Runtime::batch` if commit integrity matters.
-- Keep `Runtime::cell_info` (snapshot) and `Runtime::on_memo_event` (trace)
+- Keep `Runtime::cell_info` (snapshot) and `Runtime::on_derived_event` (trace)
   separate to avoid diagnostic role conflation.
 
 ## Acceptance checklist for next iteration

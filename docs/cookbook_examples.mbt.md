@@ -3,7 +3,7 @@
 Literate tests that pin high-value snippets from [`cookbook.mbt.md`](cookbook.mbt.md).
 These examples focus on behavior that prose-only snippets can easily drift on:
 diamond dependencies, batch semantics, dynamic dependency changes, backdating
-with custom `Eq`, domain errors as values, accumulator invalidation, memo-event
+with custom `Eq`, domain errors as values, accumulator invalidation, derived-event
 logging, compatibility introspection, extension-owned batch rollback, field-level
 inputs, sparse presence anchors, long-lived authoring pipelines, and scoped watch
 lifetimes.
@@ -769,7 +769,7 @@ test "docs cookbook: accumulated invalidates when push set changes" {
 }
 ```
 
-## Memo event logging
+## Derived event logging
 
 ```mbt check
 ///|
@@ -780,13 +780,13 @@ struct CookbookLogRow {
 }
 
 ///|
-test "docs cookbook: memo event listener records recompute phases" {
+test "docs cookbook: derived event listener records recompute phases" {
   let rt = @incr.Runtime()
   let price = @incr.Input(rt, 100, label="price")
   let total = @incr.Derived(rt, () => price.get() * 2, label="total")
   let frames : Array[String] = []
 
-  rt.on_memo_event(evt => {
+  rt.on_derived_event(evt => {
     match evt {
       EnteringCompute(e) => {
         let label = match rt.cell_info(e.cell_id) {
@@ -808,17 +808,17 @@ test "docs cookbook: memo event listener records recompute phases" {
   inspect(frames.length(), content="2")
   inspect(frames[0], content="enter total")
   inspect(frames[1].contains("complete "), content="true")
-  rt.clear_memo_event_listener()
+  rt.clear_derived_event_listener()
 }
 
 ///|
-test "docs cookbook: memo event listener can enqueue compact log rows" {
+test "docs cookbook: derived event listener can enqueue compact log rows" {
   let rt = @incr.Runtime()
   let input = @incr.Input(rt, 1, label="input")
   let doubled = @incr.Derived(rt, () => input.get() * 2, label="doubled")
   let rows : Array[CookbookLogRow] = []
 
-  rt.on_memo_event(evt => {
+  rt.on_derived_event(evt => {
     match evt {
       EnteringCompute(e) =>
         rows.push({ phase: "enter", cell: e.cell_id, elapsed_ns: 0L })
@@ -852,7 +852,7 @@ test "docs cookbook: memo event listener can enqueue compact log rows" {
   input.set(2)
   inspect(doubled.read_or_abort(), content="4")
   inspect(rows.length(), content="2")
-  rt.clear_memo_event_listener()
+  rt.clear_derived_event_listener()
 }
 ```
 

@@ -2,11 +2,16 @@
 
 All notable changes to `dowdiness/incr` are documented in this file.
 
-## Unreleased
+## [Unreleased]
 
 ### Changed
 
+- Renamed the public derived-recompute event API to `Derived*` naming: the enum `MemoEvent` → `DerivedEvent` and its payload structs `MemoEnteringEvent` / `MemoCompletedEvent` / `MemoAbortedEvent` → `DerivedEnteringEvent` / `DerivedCompletedEvent` / `DerivedAbortedEvent`; the runtime methods `Runtime::on_memo_event` / `Runtime::clear_memo_event_listener` → `Runtime::on_derived_event` / `Runtime::clear_derived_event_listener`. The enum variant names (`EnteringCompute` / `Completed` / `Aborted`) are unchanged, so existing `match` arms keep compiling.
 - Moved the typed spreadsheet boundary and tests out of the publishable `dowdiness/incr` module into the standalone `examples/typed_spreadsheet` workspace module.
+
+### Deprecated
+
+- `MemoEvent`, `MemoEnteringEvent`, `MemoCompletedEvent`, `MemoAbortedEvent`, `Runtime::on_memo_event`, and `Runtime::clear_memo_event_listener` are retained as deprecated aliases of their `Derived*` replacements and are scheduled for removal in a future major release.
 
 ### Documentation
 

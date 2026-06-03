@@ -65,6 +65,14 @@ pub using @types {type CycleError}
 
 pub using @cells {type Derived}
 
+pub using @cells {type DerivedAbortedEvent}
+
+pub using @cells {type DerivedCompletedEvent}
+
+pub using @cells {type DerivedEnteringEvent}
+
+pub using @cells {type DerivedEvent}
+
 pub using @cells {type DerivedMap}
 
 pub using @types {type Durability}
@@ -93,13 +101,17 @@ pub using @cells {type MapRelation}
 
 pub using @cells {type Memo}
 
-pub using @cells {type MemoAbortedEvent}
+#deprecated
+pub using @cells {type DerivedAbortedEvent as MemoAbortedEvent}
 
-pub using @cells {type MemoCompletedEvent}
+#deprecated
+pub using @cells {type DerivedCompletedEvent as MemoCompletedEvent}
 
-pub using @cells {type MemoEnteringEvent}
+#deprecated
+pub using @cells {type DerivedEnteringEvent as MemoEnteringEvent}
 
-pub using @cells {type MemoEvent}
+#deprecated
+pub using @cells {type DerivedEvent as MemoEvent}
 
 pub using @types {type MemoId}
 
