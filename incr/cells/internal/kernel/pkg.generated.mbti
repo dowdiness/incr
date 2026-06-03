@@ -13,6 +13,8 @@ import {
 }
 
 // Values
+pub fn abort_cross_runtime(String, @types.RuntimeId, @types.RuntimeId) -> Unit
+
 pub fn add_gc_root(RuntimeCore, @types.CellId) -> Int
 
 pub fn add_subscriber(RuntimeCore, PullState, PushState, DatalogState, @types.CellId, @types.CellId) -> Unit
@@ -27,7 +29,7 @@ pub fn cell_id_at(RuntimeCore, Int) -> @types.CellId
 
 pub fn cell_id_for(PullState, PushState, DatalogState, @shared.CellRef) -> @types.CellId
 
-pub fn check_cross_runtime(@types.RuntimeId, String) -> Unit
+pub fn check_cross_runtime_strict(@types.RuntimeId, String) -> Unit
 
 pub fn check_dispose_guard(RuntimeCore, @types.CellId) -> Unit
 
@@ -102,6 +104,8 @@ pub fn record_dep(RuntimeCore, @types.CellId) -> Unit
 pub fn remove_gc_root(RuntimeCore, @types.CellId) -> Int
 
 pub fn remove_subscriber(RuntimeCore, PullState, PushState, DatalogState, @types.CellId, @types.CellId) -> Unit
+
+pub fn repair_stale_runtime_sentinel_for_untracked_read(RuntimeCore, String) -> Unit
 
 pub fn run_callback(RuntimeCore, () -> Unit raise?) -> Unit raise?
 
