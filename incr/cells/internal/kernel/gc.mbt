@@ -115,7 +115,7 @@ pub fn gc(core : RuntimeCore, dispose_fn : (CellId) -> Unit) -> Unit {
     // Clean up global state before aborting so panic tests don't
     // contaminate subsequent tests via current_computing_runtime_id.
     core.tracking.stack.clear()
-    set_current_computing_runtime_id(-1)
+    set_current_computing_runtime_id(None)
     abort("gc: cannot run during active computation")
   }
   guard core.batch.depth == 0 else { abort("gc: cannot run during batch") }

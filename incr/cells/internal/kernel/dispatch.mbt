@@ -10,7 +10,7 @@
 /// Validates that a CellId belongs to this runtime and is within bounds.
 /// Aborts with a descriptive message on failure.
 pub fn validate_cell(core : RuntimeCore, id : CellId, caller : String) -> Unit {
-  if id.runtime_id != @incr_types.RuntimeId(core.runtime_id) {
+  if id.runtime_id != core.runtime_id {
     abort("Cell belongs to a different Runtime")
   }
   if id.id < 0 || id.id >= core.cell_ops.length() {
@@ -22,7 +22,7 @@ pub fn validate_cell(core : RuntimeCore, id : CellId, caller : String) -> Unit {
 /// Returns true if the CellId belongs to this runtime and is within bounds.
 /// Non-aborting variant for methods that return None/[] on invalid input.
 pub fn validate_cell_soft(core : RuntimeCore, id : CellId) -> Bool {
-  id.runtime_id == @incr_types.RuntimeId(core.runtime_id) &&
+  id.runtime_id == core.runtime_id &&
   id.id >= 0 &&
   id.id < core.cell_ops.length()
 }
@@ -218,5 +218,5 @@ pub fn add_subscriber(
 ///|
 /// Reconstructs a CellId from a cell_ops array index.
 pub fn cell_id_at(core : RuntimeCore, i : Int) -> CellId {
-  { runtime_id: @incr_types.RuntimeId(core.runtime_id), id: i }
+  { runtime_id: core.runtime_id, id: i }
 }

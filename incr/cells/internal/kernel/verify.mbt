@@ -218,7 +218,7 @@ pub fn pull_verify(
           // Advance cursor and inspect the next dependency.
           let dep_id = memo.dependencies[stack[top].dep_cursor]
           stack[top].dep_cursor = stack[top].dep_cursor + 1
-          if dep_id.runtime_id != @incr_types.RuntimeId(core.runtime_id) {
+          if dep_id.runtime_id != core.runtime_id {
             abort(
               "pull_verify: dependency belongs to a different Runtime: " +
               dep_id.id.to_string(),

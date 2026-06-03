@@ -6,7 +6,7 @@
 ///|
 /// Pushes a new dependency tracking frame for a memo computation.
 pub fn push_tracking(core : RuntimeCore, cell_id : CellId) -> Unit {
-  set_current_computing_runtime_id(core.runtime_id)
+  set_current_computing_runtime_id(Some(core.runtime_id))
   core.tracking.stack.push(ActiveQuery::new(cell_id))
 }
 
@@ -18,7 +18,7 @@ pub fn pop_tracking(
   match core.tracking.stack.pop() {
     Some(query) => {
       if core.tracking.stack.length() == 0 {
-        set_current_computing_runtime_id(-1)
+        set_current_computing_runtime_id(None)
       }
       (query.dependencies, query.seen)
     }
@@ -33,7 +33,7 @@ pub fn pop_tracking_full(core : RuntimeCore) -> ActiveQuery {
   match core.tracking.stack.pop() {
     Some(query) => {
       if core.tracking.stack.length() == 0 {
-        set_current_computing_runtime_id(-1)
+        set_current_computing_runtime_id(None)
       }
       query
     }
@@ -89,10 +89,10 @@ pub fn collect_in_progress_path(pull : PullState) -> Array[CellId] {
 /// Guards a cell read against occurring inside a computation on a different
 /// runtime. Aborts (after clearing global state) if the currently-computing
 /// runtime is not the one that owns `cell_runtime_id`.
-pub fn check_cross_runtime(cell_runtime_id : Int, kind : String) -> Unit {
-  let active_rt = get_current_computing_runtime_id()
-  if active_rt >= 0 && active_rt != cell_runtime_id {
-    set_current_computing_runtime_id(-1)
+pub fn check_cross_runtime(cell_runtime_id : RuntimeId, kind : String) -> Unit {
+  guard get_current_computing_runtime_id() is Some(active_rt) else { return }
+  if active_rt != cell_runtime_id {
+    set_current_computing_runtime_id(None)
     abort(
       "Cross-runtime dependency: " +
       kind +

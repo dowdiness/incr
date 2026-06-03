@@ -105,9 +105,9 @@ test "panic static derived: rejects tracked reads during static recompute" {
 
 ///|
 test "static derived: establishes computing runtime during recompute" {
-  @kernel.set_current_computing_runtime_id(-1)
+  @kernel.set_current_computing_runtime_id(None)
   let rt = Runtime()
-  let seen_runtime : Ref[Int] = { val: -2 }
+  let seen_runtime : Ref[@incr_types.RuntimeId?] = { val: None }
   let static_derived = static_derived(
     rt,
     [],
@@ -117,10 +117,10 @@ test "static derived: establishes computing runtime during recompute" {
     },
     (a, b) => a == b,
   )
-  inspect(@kernel.get_current_computing_runtime_id(), content="-1")
+  inspect(@kernel.get_current_computing_runtime_id() is None, content="true")
   inspect(static_derived.read_or_abort(), content="1")
-  inspect(seen_runtime.val, content=rt.core.runtime_id.to_string())
-  inspect(@kernel.get_current_computing_runtime_id(), content="-1")
+  inspect(seen_runtime.val == Some(rt.core.runtime_id), content="true")
+  inspect(@kernel.get_current_computing_runtime_id() is None, content="true")
 }
 
 ///|

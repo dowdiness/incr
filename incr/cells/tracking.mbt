@@ -84,7 +84,7 @@ fn Runtime::finish_tracking(
 /// and FunctionalRelation read paths.
 fn Runtime::check_cross_runtime(
   _self : Runtime,
-  cell_runtime_id : Int,
+  cell_runtime_id : @incr_types.RuntimeId,
   kind : String,
 ) -> Unit {
   @kernel.check_cross_runtime(cell_runtime_id, kind)

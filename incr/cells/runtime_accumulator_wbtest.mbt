@@ -70,10 +70,7 @@ test "slot_snapshots: push_revised_at_for via trait dispatch is non-recursive" {
   let rt = Runtime::Runtime()
   let _acc : Accumulator[Int] = Accumulator::new(rt~)
   let snaps = rt.slot_snapshots()
-  let some_cell : @incr_types.CellId = {
-    runtime_id: @incr_types.RuntimeId(rt.core.runtime_id),
-    id: 0,
-  }
+  let some_cell : @incr_types.CellId = { runtime_id: rt.core.runtime_id, id: 0 }
   // No memo has pushed to this slot, so the slot's push_revised_at map
   // has no entry for any cell — the closure returns Revision::initial().
   let rev = snaps[0].push_revised_at_for(some_cell)

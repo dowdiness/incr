@@ -21,13 +21,13 @@ pub fn adjust_push_reachable(RuntimeCore, PullState, PushState, DatalogState, Ar
 
 pub fn advance_revision(RuntimeCore, @types.Durability) -> Unit
 
-pub fn alloc_runtime_id() -> Int
+pub fn alloc_runtime_id() -> @types.RuntimeId
 
 pub fn cell_id_at(RuntimeCore, Int) -> @types.CellId
 
 pub fn cell_id_for(PullState, PushState, DatalogState, @shared.CellRef) -> @types.CellId
 
-pub fn check_cross_runtime(Int, String) -> Unit
+pub fn check_cross_runtime(@types.RuntimeId, String) -> Unit
 
 pub fn check_dispose_guard(RuntimeCore, @types.CellId) -> Unit
 
@@ -59,7 +59,7 @@ pub fn gc_sweep(RuntimeCore, (@types.CellId) -> Unit) -> Unit
 
 pub fn get_changed_at(RuntimeCore, @types.CellId) -> @types.Revision
 
-pub fn get_current_computing_runtime_id() -> Int
+pub fn get_current_computing_runtime_id() -> @types.RuntimeId?
 
 pub fn get_durability(RuntimeCore, @types.CellId) -> @types.Durability
 
@@ -107,7 +107,7 @@ pub fn run_callback(RuntimeCore, () -> Unit raise?) -> Unit raise?
 
 pub fn run_fixpoint(RuntimeCore, DatalogState) -> Array[@types.CellId]
 
-pub fn set_current_computing_runtime_id(Int) -> Unit
+pub fn set_current_computing_runtime_id(@types.RuntimeId?) -> Unit
 
 pub fn top_active_query(RuntimeCore) -> ActiveQuery?
 
@@ -285,7 +285,7 @@ pub(all) struct RevisionState {
 }
 
 pub(all) struct RuntimeCore {
-  runtime_id : Int
+  runtime_id : @types.RuntimeId
   revision : RevisionState
   mut next_cell_id : Int
   tracking : TrackingState

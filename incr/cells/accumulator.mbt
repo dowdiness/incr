@@ -164,7 +164,7 @@ fn Runtime::register_accumulator_slot(
   self.accumulator_slots.push(meta)
   self.accumulator_snapshots.push(meta)
   self.check_accumulator_cache_invariant()
-  { runtime_id: @incr_types.RuntimeId(self.core.runtime_id), id }
+  { runtime_id: self.core.runtime_id, id }
 }
 
 ///|
@@ -295,7 +295,7 @@ pub fn[T] Accumulator::push(
   value : T,
 ) -> Unit raise Failure {
   // Cross-runtime check (abort — pre-existing pattern).
-  self.rt.check_cross_runtime(self.slot_id.runtime_id.id, "Accumulator")
+  self.rt.check_cross_runtime(self.slot_id.runtime_id, "Accumulator")
   if self.rt.static_recompute_depth > 0 {
     fail("Accumulator::push is unsupported inside static Derived recompute")
   }
@@ -353,7 +353,7 @@ pub fn[T, A] Memo::accumulated_peek(
   // with an unhelpful bounds error.
   self.rt.check_cross_runtime(self.rt.core.runtime_id, "Memo::accumulated_peek")
   self.rt.check_cross_runtime(
-    acc.slot_id.runtime_id.id,
+    acc.slot_id.runtime_id,
     "Memo::accumulated_peek (Accumulator)",
   )
   if self.rt.static_recompute_depth > 0 {
@@ -394,7 +394,7 @@ pub fn[T, A] Memo::accumulated(
 ) -> Result[Array[A], ReadError] raise Failure {
   self.rt.check_cross_runtime(self.rt.core.runtime_id, "Memo::accumulated")
   self.rt.check_cross_runtime(
-    acc.slot_id.runtime_id.id,
+    acc.slot_id.runtime_id,
     "Memo::accumulated (Accumulator)",
   )
   if self.rt.static_recompute_depth > 0 {
