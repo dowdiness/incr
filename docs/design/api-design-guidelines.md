@@ -517,21 +517,25 @@ Subscriber links are maintained incrementally in `force_recompute`: added when a
 
 ## API Stability
 
-### Current Compatibility Surface
+### Naming Surface
 
-Until a migration plan lands, code should continue to treat the current names
-as the source of truth:
+As of v0.6.0 the target facade names are **preferred** in docs and new examples,
+and the compatibility names below remain available for behaviors with no facade
+yet:
 
-- Core types: `Signal[T]`, `Memo[T]`, `MemoMap[K, V]`, `HybridMemo[T]`,
-  `Reactive[T]`, `Effect`, `Relation[T]`, `FunctionalRelation[K, V]`,
-  `Runtime`
-- Core methods: constructors (`Signal(rt, ...)`, `Memo(rt, ...)`), `get`,
-  `set`, `batch`
-- Core traits: `Database`, `Readable`, `Trackable`
+- Preferred (target facades): `Input[T]`, `Derived[T]`, `DerivedMap[K, V]`,
+  `ReachableDerived[T]`, `EagerDerived[T]`, `InputField[T]`, `MapRelation[K, V]`,
+  `Effect`, `Relation[T]`, `Runtime`; traits `RuntimeContext` / `Freshness` /
+  `InputFieldOwner`
+- Compatibility (still available): `Signal[T]`, `Memo[T]`, `MemoMap[K, V]`,
+  `HybridMemo[T]`, `Reactive[T]`, `FunctionalRelation[K, V]`, `TrackedCell[T]`;
+  traits `Database` / `Readable` / `Trackable`
+- Core methods: `get`, `set`, `batch`, plus constructors (e.g. `Input(rt, ...)`,
+  `Derived(rt, ...)`)
 - Error types: `CycleError`
 
-The accepted ideal naming ADR is explicitly a future target, not a statement
-that these names have already changed.
+The compatibility names are retained, not removed; future breaking work is
+compatibility cleanup, not a semantic flip back to the old names.
 
 ### Additive (Safe to Add)
 

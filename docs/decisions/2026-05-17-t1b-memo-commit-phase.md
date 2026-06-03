@@ -16,6 +16,12 @@
 > rationale, not current-source citations.
 **Anchors:** [Async-at-the-edges](2026-05-17-async-at-the-edges.md), [T3 deferred](2026-05-17-t3-runtime-registry-gated.md), [Accumulator API](2026-04-20-accumulator-api.md), [2026-04-20 architecture assessment](../design/specs/2026-04-20-architecture-assessment.md) (AP1, §4 T1b)
 
+> **Amended 0.8.0 (2026-06-03):** the public observation API this trait backs was
+> renamed in 0.8.0 — `MemoEvent` → `DerivedEvent` and `Runtime::on_memo_event`
+> → `Runtime::on_derived_event` (old names kept as deprecated aliases). See the
+> [Memo Event Observation ADR](2026-05-17-memo-event-observation.md) amendment
+> note. The body below preserves the original names as historical design record.
+
 **Amendments (2026-05-17, post-Codex):**
 - §"Trait shape": trait lives in `incr/cells/`, not `incr/cells/internal/kernel/`. The MoonBit engine-isolation rule forbids back-edges from `incr/cells/internal/kernel/` into `incr/cells/`, and a trait that takes `rt : Runtime` cannot live in kernel. Mirrors the `CellLifecycle` precedent.
 - §"Dispatch": `commit_hooks` field on `Runtime`, not `RuntimeCore`. Same reason.

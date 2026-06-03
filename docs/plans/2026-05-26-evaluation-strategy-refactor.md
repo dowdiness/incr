@@ -152,7 +152,8 @@ Expected public API change: none.
 
 Introduce concrete internal evaluation summaries using target API vocabulary.
 New payload names must say `Derived` / `EagerDerived`, not `Memo`, except when
-explicitly referring to the existing legacy `MemoEvent` compatibility API or to
+explicitly referring to the existing public `DerivedEvent` event API (renamed
+from `MemoEvent` in 0.8.0; `MemoEvent` survives as a deprecated alias) or to
 current implementation types such as `MemoData` / `MemoCommitPhase`.
 
 Phase 2 has two layers only:
@@ -205,9 +206,10 @@ fast path stays allocation-free. The `incr/cells/` facade should pass `None` unl
 its private runtime-evaluation hook is enabled; disabled runs must not allocate
 summary payloads just to drop them.
 
-Do not expose a public runtime-event API in this phase. Existing `MemoEvent` /
-`Runtime::on_memo_event` compatibility remains untouched until a deliberate
-migration PR replaces or adapts it. New tests may use whitebox access to the
+Do not expose a public runtime-event API in this phase. The existing public
+`DerivedEvent` / `Runtime::on_derived_event` API (renamed from `MemoEvent` /
+`Runtime::on_memo_event` in 0.8.0, which survive as deprecated aliases) remains
+untouched until a deliberate migration PR replaces or adapts it. New tests may use whitebox access to the
 private buffer/listener, but no new public `.mbti` surface should appear.
 `RuntimeEvaluationEvent` is an internal implementation type; do not re-export it
 from `cells` or the root facade.

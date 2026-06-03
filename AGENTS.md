@@ -6,7 +6,7 @@ This file is the canonical entry point for human contributors and coding agents 
 
 `incr` is a Salsa-inspired incremental recomputation library in MoonBit. The repository root is a MoonBit workspace: the publishable library module lives under `incr/`, checked docs live under `docs/`, and demos/spikes live under `examples/` as separate workspace modules. The library has roughly four public packages and five `internal/` engine sub-packages under `incr/cells/`. See [`docs/architecture.md`](docs/architecture.md) for the package map and [`docs/design/internals.md`](docs/design/internals.md) for the verification algorithm.
 
-Users care about: `Signal`, `Memo`, `MemoMap`, `HybridMemo`, `TrackedCell`, `Reactive`, `Effect`, `Relation`, `Accumulator`, `Scope`, plus the `Database` / `Readable` / `Trackable` traits. Anything under `incr/cells/internal/` is implementation detail and the compiler enforces that visibility.
+Users care about the target facade names (preferred since v0.6.0): `Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `EagerDerived`, `Effect`, `Relation`, `MapRelation`, `Accumulator`, `Scope`, plus the `RuntimeContext` / `Freshness` / `InputFieldOwner` traits. The compatibility names (`Signal`, `Memo`, `MemoMap`, `HybridMemo`, `TrackedCell`, `Reactive`, `FunctionalRelation`, plus the `Database` / `Readable` / `Trackable` traits) remain available. Anything under `incr/cells/internal/` is implementation detail and the compiler enforces that visibility.
 
 ## Project Structure & Module Organization
 
@@ -48,7 +48,7 @@ moon test incr/cells/derived_test.mbt -i 0                  # one test by index
 moon test incr/tests                                        # integration tests only
 ```
 
-There is no CI in this submodule directory. CI runs from the parent `canopy` repo.
+CI on this repo (`dowdiness/incr`) is limited: a path-filtered "Build typed spreadsheet site" job plus a CodeRabbit review. There is no `moon test` / `moon check` job, so full test verification must be run locally before pushing. The library is also consumed by the parent `canopy` repo, whose CI exercises it transitively.
 
 ## Coding Style & Naming
 

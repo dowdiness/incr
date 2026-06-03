@@ -126,7 +126,9 @@ spreads further:
 - internal `MemoCommitPhase` should not become the top-level name. It can either
   become a private pull-specific helper, or be replaced by a runtime-level event
   sink that carries pull and push event variants;
-- public `MemoEvent` / `Runtime::on_memo_event`, if kept, should become a
+- public `DerivedEvent` / `Runtime::on_derived_event` (renamed from `MemoEvent` /
+  `Runtime::on_memo_event` in 0.8.0; the old names survive as deprecated aliases),
+  if kept, should become a
   runtime-level observation API such as `RuntimeEvent` /
   `Runtime::set_event_sink`, with pull, push, effect, and fixpoint variants
   added deliberately;
