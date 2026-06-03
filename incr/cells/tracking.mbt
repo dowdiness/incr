@@ -87,7 +87,7 @@ fn Runtime::check_cross_runtime(
   cell_runtime_id : @incr_types.RuntimeId,
   kind : String,
 ) -> Unit {
-  @kernel.check_cross_runtime(cell_runtime_id, kind)
+  @kernel.check_cross_runtime_strict(cell_runtime_id, kind)
 }
 
 ///|

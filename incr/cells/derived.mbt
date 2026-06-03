@@ -298,25 +298,10 @@ fn[T] Memo::get_result_inner_impl(
   guard !self.rt.is_cell_disposed(self.cell_id) else {
     abort("Memo::get called on a disposed memo")
   }
-  // If this runtime's tracking stack is empty, any active
-  // `current_computing_runtime_id` is stale from a prior aborted
-  // computation; repair it instead of treating it as a cross-runtime read.
-  // This forgiving repair is required by panic-test call patterns that
-  // bypass `get_result`'s outer strict check (e.g. `read_permissive`,
-  // `MemoMap::get_or_create_memo`).
-  if @kernel.get_current_computing_runtime_id() is Some(active_rt) {
-    if self.rt.core.tracking.stack.is_empty() {
-      @kernel.set_current_computing_runtime_id(None)
-    } else if active_rt != self.rt.core.runtime_id {
-      @kernel.set_current_computing_runtime_id(None)
-      abort(
-        "Cross-runtime dependency: Memo belongs to Runtime " +
-        self.rt.core.runtime_id.to_string() +
-        " but is read inside a computation on Runtime " +
-        active_rt.to_string(),
-      )
-    }
-  }
+  // This direct path bypasses the strict `check_cross_runtime` pre-check, so
+  // guard here too: a foreign active sentinel aborts; only a stale own-runtime
+  // sentinel (empty tracking stack) is cleared and the read allowed to proceed.
+  @kernel.repair_stale_runtime_sentinel_for_untracked_read(self.rt.core, "Memo")
   if self.rt.core.phase is InFixpoint {
     abort(
       "Memo::get() cannot be called during fixpoint(); read relations directly or call get() after fixpoint() completes",
