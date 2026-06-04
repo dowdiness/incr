@@ -15,6 +15,27 @@ The package exports:
 - `Worksheet`, `WorksheetTrace`
 - Formula constructors in `Formula`
 
+## `CellSnapshot` dependency fields
+
+`Worksheet::inspect_cell` returns three dependency views because spreadsheet
+formulas have both static syntax and dynamic runtime behavior:
+
+- `installed_dependencies` — dependencies declared through
+  `Worksheet::set_formula(deps, compute)`. For `set_formula_ast`, this remains
+  empty because the AST evaluator discovers active reads at runtime.
+- `static_references` — the syntactic reference over-approximation collected
+  from a `Formula` AST, including inactive conditional branches.
+- `last_dynamic_dependencies` — logical worksheet cells read by the last
+  completed snapshot/evaluation of the cell's value. Internal worksheet fields
+  such as the target cell's own presence/definition inputs are filtered out;
+  present dependencies and missing-reference presence checks are both reported as
+  the logical referenced `CellId`.
+
+For example, an `If` formula reports the condition and the active branch in
+`last_dynamic_dependencies`, while `static_references` retains both branches.
+If a missing reference is read, it still appears in `last_dynamic_dependencies`
+so callers can explain why creating that cell can make the formula resolve.
+
 ## Runtime formula checking
 
 `examples/typed_spreadsheet` does not statically typecheck formulas when they
@@ -143,8 +164,8 @@ For a complete runnable example set, see
 Run the fixed five-step demo scenario from the repository root:
 
 ```bash
-moon run examples/typed_spreadsheet_cli_demo
-moon run examples/typed_spreadsheet_cli_demo -- --format json
+moon run --target native examples/typed_spreadsheet_cli_demo
+moon run --target native examples/typed_spreadsheet_cli_demo -- --format json
 ```
 
 The CLI uses `examples/typed_spreadsheet_demo`'s operation runner and prints the

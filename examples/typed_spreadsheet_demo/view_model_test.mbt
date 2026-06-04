@@ -12,6 +12,10 @@ test "typed spreadsheet demo view model exposes fixed scenario" {
   )
   inspect(model.steps[2].trace.changed.contains("B1"), content="true")
   inspect(model.steps[3].trace.unchanged.contains("B1"), content="true")
+  inspect(
+    model.steps[1].snapshots[0].after.last_dynamic_dependencies.contains("A1"),
+    content="true",
+  )
   inspect(model.steps[4].operation, content="Delete B1")
 }
 
@@ -47,4 +51,5 @@ test "typed spreadsheet demo view model serializes as valid JSON" {
   inspect(json.contains("\"operation\": \"Delete B1\""), content="true")
   inspect(json.contains("\"result_status\": \"missing\""), content="true")
   inspect(json.contains("\"unchanged\": ["), content="true")
+  inspect(json.contains("\"last_dynamic_dependencies\": ["), content="true")
 }

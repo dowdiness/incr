@@ -58,6 +58,7 @@ pub struct CellSnapshotViewModel {
   result_status : String
   installed_dependencies : Array[String]
   static_references : Array[String]
+  last_dynamic_dependencies : Array[String]
 } derive(ToJson, @debug.Debug)
 
 pub struct FixedScenarioViewModel {

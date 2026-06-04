@@ -133,6 +133,7 @@ test "typed spreadsheet: inspect input snapshot" {
   }
   inspect(snapshot.installed_dependencies.length(), content="0")
   inspect(snapshot.static_references.length(), content="0")
+  inspect(snapshot.last_dynamic_dependencies.length(), content="0")
 
   match snapshot.result {
     @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(value)) =>
@@ -190,6 +191,9 @@ test "typed spreadsheet: inspect formula snapshot" {
   inspect(snapshot.static_references.length(), content="2")
   inspect(snapshot.static_references[0] == a1, content="true")
   inspect(snapshot.static_references[1] == a2, content="true")
+  inspect(snapshot.last_dynamic_dependencies.length(), content="2")
+  inspect(snapshot.last_dynamic_dependencies.contains(a1), content="true")
+  inspect(snapshot.last_dynamic_dependencies.contains(a2), content="true")
   match snapshot.kind {
     Some(_) => inspect(true, content="true")
     None => inspect(false, content="false")
@@ -464,6 +468,9 @@ test "typed spreadsheet: inspect formula AST snapshot refs" {
   inspect(snapshot.static_references.length(), content="2")
   inspect(snapshot.static_references[0] == a1, content="true")
   inspect(snapshot.static_references[1] == a2, content="true")
+  inspect(snapshot.last_dynamic_dependencies.length(), content="2")
+  inspect(snapshot.last_dynamic_dependencies.contains(a1), content="true")
+  inspect(snapshot.last_dynamic_dependencies.contains(a2), content="true")
 
   match snapshot.result {
     @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(value)) =>
@@ -511,6 +518,15 @@ test "typed spreadsheet: inspect AST snapshot keeps static refs for inactive bra
   inspect(snapshot.static_references.length(), content="2")
   inspect(snapshot.static_references[0] == condition, content="true")
   inspect(snapshot.static_references[1] == inactive, content="true")
+  inspect(snapshot.last_dynamic_dependencies.length(), content="1")
+  inspect(
+    snapshot.last_dynamic_dependencies.contains(condition),
+    content="true",
+  )
+  inspect(
+    snapshot.last_dynamic_dependencies.contains(inactive),
+    content="false",
+  )
 
   match sheet.read(target) {
     @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(value)) =>
@@ -519,6 +535,131 @@ test "typed spreadsheet: inspect AST snapshot keeps static refs for inactive bra
       abort(
         "expected inactive branch to be skipped and return true-branch value",
       )
+  }
+}
+
+///|
+test "typed spreadsheet: inspect AST dynamic deps follow active if branch" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(61))
+  let condition = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+  let true_value = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
+  let false_value = @typed_spreadsheet.CellId(sheet.sheet_id(), "C1")
+  let target = @typed_spreadsheet.CellId(sheet.sheet_id(), "D1")
+
+  inspect(
+    sheet
+    .set_input(condition, @typed_spreadsheet.CellValue::from_bool(true))
+    .is_ok(),
+    content="true",
+  )
+  inspect(
+    sheet
+    .set_input(true_value, @typed_spreadsheet.CellValue::from_int(10))
+    .is_ok(),
+    content="true",
+  )
+  inspect(
+    sheet
+    .set_input(false_value, @typed_spreadsheet.CellValue::from_int(20))
+    .is_ok(),
+    content="true",
+  )
+
+  let formula = @typed_spreadsheet.Formula::if_(
+    @typed_spreadsheet.Formula::cell_ref(condition),
+    @typed_spreadsheet.Formula::cell_ref(true_value),
+    @typed_spreadsheet.Formula::cell_ref(false_value),
+  )
+  let _ = sheet.set_formula_ast(
+    target,
+    @typed_spreadsheet.CellType::t_int(),
+    formula,
+  )
+
+  let true_snapshot = sheet.inspect_cell(target)
+  inspect(true_snapshot.static_references.length(), content="3")
+  inspect(
+    true_snapshot.last_dynamic_dependencies.contains(condition),
+    content="true",
+  )
+  inspect(
+    true_snapshot.last_dynamic_dependencies.contains(true_value),
+    content="true",
+  )
+  inspect(
+    true_snapshot.last_dynamic_dependencies.contains(false_value),
+    content="false",
+  )
+
+  inspect(
+    sheet
+    .set_input(condition, @typed_spreadsheet.CellValue::from_bool(false))
+    .is_ok(),
+    content="true",
+  )
+
+  let false_snapshot = sheet.inspect_cell(target)
+  inspect(
+    false_snapshot.last_dynamic_dependencies.contains(condition),
+    content="true",
+  )
+  inspect(
+    false_snapshot.last_dynamic_dependencies.contains(true_value),
+    content="false",
+  )
+  inspect(
+    false_snapshot.last_dynamic_dependencies.contains(false_value),
+    content="true",
+  )
+}
+
+///|
+test "typed spreadsheet: inspect AST dynamic deps include missing reference" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(62))
+  let missing = @typed_spreadsheet.CellId(sheet.sheet_id(), "Z9")
+  let target = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+
+  let formula = @typed_spreadsheet.Formula::add(
+    @typed_spreadsheet.Formula::cell_ref(missing),
+    @typed_spreadsheet.Formula::literal(
+      @typed_spreadsheet.CellValue::from_int(1),
+    ),
+  )
+  let _ = sheet.set_formula_ast(
+    target,
+    @typed_spreadsheet.CellType::t_int(),
+    formula,
+  )
+
+  let missing_snapshot = sheet.inspect_cell(target)
+  inspect(
+    missing_snapshot.last_dynamic_dependencies.contains(missing),
+    content="true",
+  )
+  inspect(
+    match missing_snapshot.result {
+      @typed_spreadsheet.CellResult::RefError(_) => true
+      _ => false
+    },
+    content="true",
+  )
+
+  inspect(
+    sheet.set_input(missing, @typed_spreadsheet.CellValue::from_int(30)).is_ok(),
+    content="true",
+  )
+
+  let resolved_snapshot = sheet.inspect_cell(target)
+  inspect(
+    resolved_snapshot.last_dynamic_dependencies.contains(missing),
+    content="true",
+  )
+  match resolved_snapshot.result {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(value)) =>
+      inspect(value, content="31")
+    _ => abort("expected missing dependency to resolve after creation")
   }
 }
 

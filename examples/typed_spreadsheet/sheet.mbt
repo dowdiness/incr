@@ -12,6 +12,7 @@ pub struct Worksheet {
   scope : @incr.Scope
   cells : @hashmap.HashMap[CellId, CellSlot]
   cell_presence : @hashmap.HashMap[CellId, @incr.InputField[Bool]]
+  priv logical_cell_by_runtime_cell : @hashmap.HashMap[@incr.CellId, CellId]
 }
 
 ///|
@@ -46,6 +47,7 @@ pub struct CellSnapshot {
   result : CellResult
   installed_dependencies : Array[CellId]
   static_references : Array[CellId]
+  last_dynamic_dependencies : Array[CellId]
 }
 
 ///|
@@ -68,6 +70,7 @@ pub fn Worksheet::Worksheet(
     scope: @incr.Scope::new(runtime),
     cells: @hashmap.HashMap([]),
     cell_presence: @hashmap.HashMap([]),
+    logical_cell_by_runtime_cell: @hashmap.HashMap([]),
   }
 }
 
@@ -92,6 +95,7 @@ pub fn Worksheet::dispose(self : Worksheet) -> Unit {
   self.cells.clear()
   self.scope.dispose()
   self.cell_presence.clear()
+  self.logical_cell_by_runtime_cell.clear()
 }
 
 ///|
@@ -119,13 +123,19 @@ pub fn Worksheet::inspect_cell(self : Worksheet, id : CellId) -> CellSnapshot {
       let (kind, installed_dependencies, static_references) = slot.definition
         .get()
         .kind_and_deps()
+      let result = slot.read()
+      let last_dynamic_dependencies = self.last_dynamic_dependencies(
+        id,
+        slot.value.id(),
+      )
       {
         id,
         present: true,
         kind,
-        result: slot.read(),
+        result,
         installed_dependencies,
         static_references,
+        last_dynamic_dependencies,
       }
     }
     None => missing_cell_snapshot(id, "no cell at the requested address")
@@ -448,6 +458,36 @@ fn Worksheet::owns_cell_id(self : Worksheet, id : CellId) -> Bool {
 }
 
 ///|
+fn Worksheet::last_dynamic_dependencies(
+  self : Worksheet,
+  target : CellId,
+  value_cell : @incr.CellId,
+) -> Array[CellId] {
+  match self.runtime.cell_info(value_cell) {
+    Some(info) => self.logical_dynamic_dependencies(target, info.dependencies)
+    None => []
+  }
+}
+
+///|
+fn Worksheet::logical_dynamic_dependencies(
+  self : Worksheet,
+  target : CellId,
+  dependencies : Array[@incr.CellId],
+) -> Array[CellId] {
+  let logical_dependencies : Array[CellId] = []
+  for dependency in dependencies {
+    match self.logical_cell_by_runtime_cell.get(dependency) {
+      Some(logical_id) if logical_id != target &&
+        !logical_dependencies.contains(logical_id) =>
+        logical_dependencies.push(logical_id)
+      _ => ()
+    }
+  }
+  logical_dependencies
+}
+
+///|
 fn Worksheet::new_slot(
   self : Worksheet,
   id : CellId,
@@ -498,6 +538,7 @@ fn Worksheet::store_new_slot(
 
   let definition_id = slot.definition.id()
   self.cells.set(id, slot)
+  self.logical_cell_by_runtime_cell.set(slot.value.id(), id)
   self.runtime.record_batch_rollback(definition_id, () => {
     self.dispose_slot(id, slot)
   })
@@ -522,6 +563,7 @@ fn Worksheet::dispose_slot(
   slot : CellSlot,
 ) -> Unit {
   self.cells.remove(id)
+  self.logical_cell_by_runtime_cell.remove(slot.value.id())
   slot.dispose(self.runtime)
 }
 
@@ -535,6 +577,7 @@ fn Worksheet::cell_presence_for(
     None => {
       let field = self.scope.input_field(false)
       self.cell_presence.set(id, field)
+      self.logical_cell_by_runtime_cell.set(field.id(), id)
       field
     }
   }
@@ -549,6 +592,7 @@ fn missing_cell_snapshot(id : CellId, message : String) -> CellSnapshot {
     result: CellResult::RefError(message),
     installed_dependencies: [],
     static_references: [],
+    last_dynamic_dependencies: [],
   }
 }
 

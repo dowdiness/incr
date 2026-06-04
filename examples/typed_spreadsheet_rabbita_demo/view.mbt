@@ -672,6 +672,10 @@ fn view_snapshot_side(
         "refs",
         join_or_dash(@demo.cell_id_strings(snapshot.static_references)),
       ),
+      view_fact(
+        "dyn",
+        join_or_dash(@demo.cell_id_strings(snapshot.last_dynamic_dependencies)),
+      ),
     ]),
   ])
 }

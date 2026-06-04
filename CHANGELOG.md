@@ -4,6 +4,10 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Typed spreadsheet snapshots now expose `last_dynamic_dependencies`, the logical cells read during the last completed cell evaluation.
+
 ## [0.8.0] - 2026-06-03
 
 ### Added
