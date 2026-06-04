@@ -48,7 +48,8 @@ pub fn format_snapshot(snapshot : @typed_spreadsheet.CellSnapshot) -> String {
     let result_text = format_cell_result(snapshot.result)
     let deps = format_cell_ids(snapshot.installed_dependencies)
     let refs = format_cell_ids(snapshot.static_references)
-    "\{kind_text} \{result_text} deps=\{deps} refs=\{refs}"
+    let dynamic_deps = format_cell_ids(snapshot.last_dynamic_dependencies)
+    "\{kind_text} \{result_text} deps=\{deps} refs=\{refs} dyn=\{dynamic_deps}"
   } else {
     let result_text = format_cell_result(snapshot.result)
     "missing \{result_text}"

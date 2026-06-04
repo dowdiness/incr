@@ -3,8 +3,8 @@
 Run the fixed typed-spreadsheet scenario from the repository root:
 
 ```bash
-moon run examples/typed_spreadsheet_cli_demo
-moon run examples/typed_spreadsheet_cli_demo -- --format json
+moon run --target native examples/typed_spreadsheet_cli_demo
+moon run --target native examples/typed_spreadsheet_cli_demo -- --format json
 ```
 
 The CLI drives the demo-layer operation runner from cell-edit text. The fixed
@@ -23,7 +23,7 @@ trace:
 snapshots:
   B1:
     before: missing RefError("no cell at the requested address")
-    after:  formula Ok(Int(11)) deps=[] refs=[A1]
+    after:  formula Ok(Int(11)) deps=[] refs=[A1] dyn=[A1]
 
 #4 SetInput A1 = Int(15)
 outcome: Ok(Int(15))
@@ -53,7 +53,8 @@ trace:
         "kind": "missing",
         "result": "RefError(\"no cell at the requested address\")",
         "installed_dependencies": [],
-        "static_references": []
+        "static_references": [],
+        "last_dynamic_dependencies": []
       },
       "after": {
         "cell": "B1",
@@ -61,7 +62,8 @@ trace:
         "kind": "formula",
         "result": "Ok(Int(11))",
         "installed_dependencies": [],
-        "static_references": ["A1"]
+        "static_references": ["A1"],
+        "last_dynamic_dependencies": ["A1"]
       }
     }
   ]
@@ -74,8 +76,10 @@ trace:
   `examples/typed_spreadsheet_demo`; the typed spreadsheet boundary in
   `examples/typed_spreadsheet` does not own the demo operation vocabulary or
   parser grammar.
-- **Static refs**: formula AST references are discovered before execution and
-  exposed as `refs=[A1]` / `static_references: ["A1"]`.
+- **Static refs vs dynamic deps**: formula AST references are discovered before
+  execution and exposed as `refs=[A1]` / `static_references: ["A1"]`; the last
+  logical cells read during evaluation are exposed as `dyn=[A1]` /
+  `last_dynamic_dependencies: ["A1"]`.
 - **Trace changed/unchanged**: changing `A1` from `10` to `15` marks `B1` as
   changed, while setting `A1` to `15` again marks `B1` as unchanged after
   revalidation.

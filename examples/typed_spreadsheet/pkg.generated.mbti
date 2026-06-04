@@ -48,6 +48,7 @@ pub struct CellSnapshot {
   result : CellResult
   installed_dependencies : Array[CellId]
   static_references : Array[CellId]
+  last_dynamic_dependencies : Array[CellId]
 }
 
 pub enum CellType {
@@ -107,6 +108,7 @@ pub struct Worksheet {
   scope : @cells.Scope
   cells : @hashmap.HashMap[CellId, CellSlot]
   cell_presence : @hashmap.HashMap[CellId, @cells.InputField[Bool]]
+  // private fields
 }
 pub fn Worksheet::Worksheet(@cells.Runtime, SheetId) -> Self
 pub fn Worksheet::compact_deleted_cells(Self) -> Int

@@ -49,6 +49,10 @@ test "typed spreadsheet demo op: SetFormulaAst exposes static refs and trace" {
   inspect(formula_change.id == b1, content="true")
   inspect(formula_change.after.static_references.contains(a1), content="true")
   inspect(formula_change.after.installed_dependencies.length(), content="0")
+  inspect(
+    formula_change.after.last_dynamic_dependencies.contains(a1),
+    content="true",
+  )
   match formula_change.after.result {
     Ok(Int(value)) => inspect(value, content="6")
     _ => abort("expected formula snapshot to contain Int(6)")
