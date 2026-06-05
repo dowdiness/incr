@@ -166,10 +166,15 @@ pub fn[V, E] CommittedDerived::watch_committed(
 ) -> Watch[V?]
 ```
 
-Open naming question: whether read-like methods should be named `read_current`,
-`read_committed`, and `read_snapshot` to make clear that they are outside-graph
-reads. The first implementation should follow the final read-channel policy in
-`Derived`/`Watch` at that time.
+Open naming/typing question: the signatures above are **provisional and elide the
+read-error channel**. Because a read can hit a `Cycle` or `Disposed` on the
+underlying cells, the real accessors must carry `ReadError` — either returning
+`Result[..., ReadError]` (mirroring `Derived`/`Watch` `.read()`) or pairing each
+with an `*_or_abort` variant — and may be renamed `read_current` /
+`read_committed` / `read_snapshot` to mark them as outside-graph reads. The first
+implementation should follow the final read-channel policy in `Derived`/`Watch`
+at that time. See [Error ownership](#error-ownership) for the `ReadError`
+semantics these accessors must expose.
 
 ## Implementation direction
 
@@ -196,6 +201,20 @@ for holding and accessing that retained slot is an implementation choice deferre
 to the stage-2 spike (see [Implementation stages](#implementation-stages)); the
 design fixes the observable transition rules in the state machine above and this
 no-self-edge constraint, not how the previous value is stored.
+
+Because `Derived` is lazy (pull-based), the commit-advancing cell (`snapshot`)
+must be driven on every candidate change — the commit state machine is a fold
+over the candidate sequence and must observe every transition, so it cannot rely
+on incidental pulls. Otherwise a transient successful candidate is lost: if a
+consumer observes only the current channel across an `Ok(v)` edit (reading
+`candidate` without forcing `snapshot`) and the committed channel is first read
+after a later `Err(e)`, the state machine never saw `Ok(v)` and `committed`
+wrongly remains at its prior value. The design therefore requires the commit cell
+to be evaluated eagerly per candidate revision (e.g. a persistent forcing
+`Watch` / `Effect`, or an eager cell); the exact forcing mechanism is deferred to
+the stage-2 spike. As a corollary, observing the current channel must not be able
+to bypass the commit — `current` is the candidate result, but its delivery must
+not let candidate changes advance without the commit cell also running.
 
 This mirrors the hand-written pattern downstream projects already use, but makes
 its lifecycle and read channels explicit.
@@ -347,6 +366,11 @@ When the API ships, tests should cover:
 - failure after success exposes current `Err` while preserving committed value;
 - later changed success replaces the committed value;
 - later equal success does not advance the committed changed revision/count;
+- a transient successful candidate is committed even when no consumer reads the
+  committed channel between that success and a later failure — i.e. observing only
+  the current channel across an `Ok(v)` edit, then reading `committed` after a
+  later `Err(e)`, still yields `Some(v)` (the commit advances without an
+  intervening committed read);
 - committed-only downstream consumers do not observe current-error churn;
 - snapshot/current consumers do observe current-error changes;
 - a candidate `ReadError` (`Cycle` / `Disposed`) while a committed value exists
