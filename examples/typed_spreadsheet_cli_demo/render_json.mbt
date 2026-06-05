@@ -33,6 +33,7 @@ priv struct SnapshotJson {
   present : Bool
   kind : String
   result : String
+  dependency_shape : String
   installed_dependencies : Array[String]
   static_references : Array[String]
   last_dynamic_dependencies : Array[String]
@@ -89,6 +90,7 @@ fn snapshot_json(snapshot : @typed_spreadsheet.CellSnapshot) -> SnapshotJson {
     present: snapshot.present,
     kind: snapshot_kind(snapshot),
     result: format_cell_result(snapshot.result),
+    dependency_shape: @demo.format_dependency_shape(snapshot.dependency_shape),
     installed_dependencies: cell_id_strings(snapshot.installed_dependencies),
     static_references: cell_id_strings(snapshot.static_references),
     last_dynamic_dependencies: cell_id_strings(

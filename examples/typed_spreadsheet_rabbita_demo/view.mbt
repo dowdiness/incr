@@ -665,6 +665,10 @@ fn view_snapshot_side(
       view_fact("exists", if snapshot.present { "yes" } else { "no" }),
       view_fact("kind", friendly_kind(snapshot)),
       view_fact(
+        "shape",
+        @demo.format_dependency_shape(snapshot.dependency_shape),
+      ),
+      view_fact(
         "deps",
         join_or_dash(@demo.cell_id_strings(snapshot.installed_dependencies)),
       ),

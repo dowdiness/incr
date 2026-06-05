@@ -18,6 +18,17 @@ pub enum Formula {
 } derive(Eq)
 
 ///|
+/// Dependency-shape classification for typed spreadsheet formulas.
+pub(all) enum FormulaDependencyShape {
+  /// Dependencies are known before evaluation.
+  Applicative
+  /// References are syntactically known, but an active branch is chosen at runtime.
+  Selective
+  /// Dependencies may be chosen by values read during evaluation.
+  Dynamic
+} derive(Eq, Debug)
+
+///|
 /// Creates a literal formula node.
 pub fn Formula::literal(value : CellValue) -> Formula {
   Formula::Literal(value)
@@ -61,6 +72,44 @@ pub fn Formula::if_(
   else_formula : Formula,
 ) -> Formula {
   Formula::If(condition, then_formula, else_formula)
+}
+
+///|
+/// Classifies the formula's dependency shape without evaluating it.
+pub fn Formula::dependency_shape(self : Formula) -> FormulaDependencyShape {
+  match self {
+    Literal(_) | Ref(_) => Applicative
+    Add(lhs, rhs) | Mul(lhs, rhs) | Eq(lhs, rhs) | Gt(lhs, rhs) =>
+      lhs.dependency_shape().join(rhs.dependency_shape())
+    If(condition, then_formula, else_formula) =>
+      condition
+      .dependency_shape()
+      .join(then_formula.dependency_shape())
+      .join(else_formula.dependency_shape())
+      .promote_to_selective()
+  }
+}
+
+///|
+fn FormulaDependencyShape::join(
+  self : FormulaDependencyShape,
+  other : FormulaDependencyShape,
+) -> FormulaDependencyShape {
+  match (self, other) {
+    (Dynamic, _) | (_, Dynamic) => Dynamic
+    (Selective, _) | (_, Selective) => Selective
+    (Applicative, Applicative) => Applicative
+  }
+}
+
+///|
+fn FormulaDependencyShape::promote_to_selective(
+  self : FormulaDependencyShape,
+) -> FormulaDependencyShape {
+  match self {
+    Dynamic => Dynamic
+    Applicative | Selective => Selective
+  }
 }
 
 ///|

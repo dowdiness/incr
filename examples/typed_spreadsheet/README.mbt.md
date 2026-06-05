@@ -14,11 +14,15 @@ The package exports:
 - `CellKind`, `CellSnapshot`
 - `Worksheet`, `WorksheetTrace`
 - Formula constructors in `Formula`
+- `FormulaDependencyShape` for dependency-shape inspection
 
 ## `CellSnapshot` dependency fields
 
-`Worksheet::inspect_cell` returns three dependency views because spreadsheet
+`Worksheet::inspect_cell` returns dependency metadata because spreadsheet
 formulas have both static syntax and dynamic runtime behavior:
+
+- `dependency_shape` — whether a formula is applicative/static, selective, or
+  dynamic. Input and missing cells report no dependency shape.
 
 - `installed_dependencies` — dependencies declared through
   `Worksheet::set_formula(deps, compute)`. For `set_formula_ast`, this remains
@@ -31,10 +35,31 @@ formulas have both static syntax and dynamic runtime behavior:
   present dependencies and missing-reference presence checks are both reported as
   the logical referenced `CellId`.
 
-For example, an `If` formula reports the condition and the active branch in
-`last_dynamic_dependencies`, while `static_references` retains both branches.
-If a missing reference is read, it still appears in `last_dynamic_dependencies`
-so callers can explain why creating that cell can make the formula resolve.
+For example, an `If` formula is `Selective`: it reports the condition and the
+active branch in `last_dynamic_dependencies`, while `static_references` retains
+both branches. If a missing reference is read, it still appears in
+`last_dynamic_dependencies` so callers can explain why creating that cell can
+make the formula resolve.
+
+## Formula dependency shapes
+
+`Formula::dependency_shape()` classifies formulas using the Build Systems à la
+Carte vocabulary:
+
+- `Applicative` — dependencies are known before evaluation. `Literal`, `Ref`,
+  `Add`, `Mul`, `Eq`, and `Gt` over applicative children are applicative.
+- `Selective` — all references are syntactically known, but evaluation chooses
+  an active branch at runtime. Current `If` formulas are selective unless a
+  future child formula becomes dynamic.
+- `Dynamic` — dependencies may be chosen from values read during evaluation.
+  The current AST has no dynamic-address constructor; this variant is reserved
+  for future formulas such as `INDIRECT`.
+
+This classification is inspection metadata only. The typed spreadsheet still
+lowers formulas to ordinary dynamic `Derived` evaluation, and this example is not
+yet a benchmark-backed driver for an `Expr[T]` API or public static-derived
+surface. The static/applicative derived fast path remains private per
+[ADR 2026-06-01](../../docs/decisions/2026-06-01-static-derived-public-surface.md).
 
 ## Runtime formula checking
 

@@ -52,6 +52,14 @@ struct CellSlot {
 }
 
 ///|
+priv struct CellSnapshotMetadata {
+  kind : CellKind?
+  dependency_shape : FormulaDependencyShape?
+  installed_dependencies : Array[CellId]
+  static_references : Array[CellId]
+}
+
+///|
 fn FormulaEvaluator::FormulaEvaluator(
   evaluate : (Worksheet) -> CellResult,
 ) -> FormulaEvaluator {
@@ -72,6 +80,7 @@ pub struct CellSnapshot {
   present : Bool
   kind : CellKind?
   result : CellResult
+  dependency_shape : FormulaDependencyShape?
   installed_dependencies : Array[CellId]
   static_references : Array[CellId]
   last_dynamic_dependencies : Array[CellId]
@@ -147,9 +156,7 @@ pub fn Worksheet::inspect_cell(self : Worksheet, id : CellId) -> CellSnapshot {
 
   match self.cells.get(id) {
     Some(slot) => {
-      let (kind, installed_dependencies, static_references) = slot.definition
-        .get()
-        .kind_and_deps()
+      let metadata = slot.definition.get().snapshot_metadata()
       let result = slot.read()
       let last_dynamic_dependencies = self.last_dynamic_dependencies(
         id,
@@ -158,10 +165,11 @@ pub fn Worksheet::inspect_cell(self : Worksheet, id : CellId) -> CellSnapshot {
       {
         id,
         present: true,
-        kind,
+        kind: metadata.kind,
         result,
-        installed_dependencies,
-        static_references,
+        dependency_shape: metadata.dependency_shape,
+        installed_dependencies: metadata.installed_dependencies,
+        static_references: metadata.static_references,
         last_dynamic_dependencies,
       }
     }
@@ -675,6 +683,7 @@ fn missing_cell_snapshot(id : CellId, message : String) -> CellSnapshot {
     present: false,
     kind: None,
     result: CellResult::RefError(message),
+    dependency_shape: None,
     installed_dependencies: [],
     static_references: [],
     last_dynamic_dependencies: [],
@@ -724,18 +733,34 @@ fn Worksheet::all_cell_ids_owned(self : Worksheet, ids : Array[CellId]) -> Bool 
 }
 
 ///|
-fn CellDefinition::kind_and_deps(
+fn CellDefinition::snapshot_metadata(
   self : CellDefinition,
-) -> (CellKind?, Array[CellId], Array[CellId]) {
+) -> CellSnapshotMetadata {
   match self {
     CellDefinition::Input(_) =>
-      (Some(CellKind::Input), ([] : Array[CellId]), ([] : Array[CellId]))
+      {
+        kind: Some(CellKind::Input),
+        dependency_shape: None,
+        installed_dependencies: [],
+        static_references: [],
+      }
     CellDefinition::Formula(facts) =>
-      (
-        Some(CellKind::Formula),
-        facts.installed_dependencies.copy(),
-        facts.static_references.copy(),
-      )
+      {
+        kind: Some(CellKind::Formula),
+        dependency_shape: Some(facts.dependency_shape()),
+        installed_dependencies: facts.installed_dependencies.copy(),
+        static_references: facts.static_references.copy(),
+      }
+  }
+}
+
+///|
+fn FormulaFacts::dependency_shape(
+  self : FormulaFacts,
+) -> FormulaDependencyShape {
+  match self.identity {
+    Ast(formula) => formula.dependency_shape()
+    Custom(_) => Applicative
   }
 }
 

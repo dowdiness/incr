@@ -44,6 +44,7 @@ pub struct CellSnapshotViewModel {
   kind : String
   result : String
   result_status : String
+  dependency_shape : String
   installed_dependencies : Array[String]
   static_references : Array[String]
   last_dynamic_dependencies : Array[String]
@@ -123,6 +124,7 @@ fn snapshot_view_model(
     kind: snapshot_kind(snapshot),
     result: format_cell_result(snapshot.result),
     result_status: snapshot_result_status(snapshot),
+    dependency_shape: format_dependency_shape(snapshot.dependency_shape),
     installed_dependencies: cell_id_strings(snapshot.installed_dependencies),
     static_references: cell_id_strings(snapshot.static_references),
     last_dynamic_dependencies: cell_id_strings(

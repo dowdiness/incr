@@ -2,6 +2,56 @@
 /// Tests for hand-built formula AST evaluation.
 
 ///|
+test "typed spreadsheet: formula dependency shape classifies static expressions" {
+  let sheet_id = @typed_spreadsheet.SheetId(1200)
+  let a1 = @typed_spreadsheet.CellId(sheet_id, "A1")
+  let a2 = @typed_spreadsheet.CellId(sheet_id, "A2")
+  let formula = @typed_spreadsheet.Formula::add(
+    @typed_spreadsheet.Formula::cell_ref(a1),
+    @typed_spreadsheet.Formula::mul(
+      @typed_spreadsheet.Formula::cell_ref(a2),
+      @typed_spreadsheet.Formula::literal(
+        @typed_spreadsheet.CellValue::from_int(2),
+      ),
+    ),
+  )
+
+  inspect(
+    formula.dependency_shape() ==
+    @typed_spreadsheet.FormulaDependencyShape::Applicative,
+    content="true",
+  )
+}
+
+///|
+test "typed spreadsheet: formula dependency shape classifies conditionals" {
+  let sheet_id = @typed_spreadsheet.SheetId(1201)
+  let condition = @typed_spreadsheet.CellId(sheet_id, "A1")
+  let true_value = @typed_spreadsheet.CellId(sheet_id, "A2")
+  let false_value = @typed_spreadsheet.CellId(sheet_id, "A3")
+  let formula = @typed_spreadsheet.Formula::if_(
+    @typed_spreadsheet.Formula::cell_ref(condition),
+    @typed_spreadsheet.Formula::cell_ref(true_value),
+    @typed_spreadsheet.Formula::cell_ref(false_value),
+  )
+
+  inspect(
+    formula.dependency_shape() ==
+    @typed_spreadsheet.FormulaDependencyShape::Selective,
+    content="true",
+  )
+}
+
+///|
+test "typed spreadsheet: dynamic dependency shape is reserved for future address formulas" {
+  let reserved = @typed_spreadsheet.FormulaDependencyShape::Dynamic
+  inspect(
+    reserved == @typed_spreadsheet.FormulaDependencyShape::Dynamic,
+    content="true",
+  )
+}
+
+///|
 test "typed spreadsheet: formula AST add over refs" {
   let rt = @incr.Runtime()
   let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(100))
