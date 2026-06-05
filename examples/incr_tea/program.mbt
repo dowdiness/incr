@@ -39,7 +39,7 @@ fn[Msg, View : Eq] Program::Program(
 /// Dispatches one message inside `Runtime::batch`.
 ///
 /// Returns `false` when the component has already been disposed; this prototype
-/// ignores post-unmount messages deterministically instead of aborting.
+/// ignores post-disposal messages deterministically instead of aborting.
 fn[Msg, View] Program::dispatch(self : Program[Msg, View], msg : Msg) -> Bool {
   guard !self.scope.is_disposed() else { false }
   self.runtime.batch(() => (self.update)(msg))
@@ -72,9 +72,9 @@ fn[Msg, View] Program::runtime(self : Program[Msg, View]) -> @incr.Runtime {
 }
 
 ///|
-/// Returns whether the component scope is still mounted.
-fn[Msg, View] Program::is_mounted(self : Program[Msg, View]) -> Bool {
-  !self.scope.is_disposed()
+/// Returns whether the component instance has been disposed.
+fn[Msg, View] Program::is_disposed(self : Program[Msg, View]) -> Bool {
+  self.scope.is_disposed()
 }
 
 ///|

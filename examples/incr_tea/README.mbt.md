@@ -19,6 +19,28 @@ are follow-up issues.
 | Lifetime | Mounted programs hold a persistent `Watch` on the terminal view and register it with the component scope. |
 | Effects | Not implemented in this slice. Effects must stay at the TEA edge through future `Cmd`/`Sub` adapters, never inside tracked view computations. |
 
+## Component lifecycle
+
+Creating a component starts one logical TEA instance: it allocates an
+`@incr.Scope`, registers model `InputField` cells with that scope, creates the
+terminal tracked view, registers a persistent `Watch` for the view root, and
+primes that watch so `Runtime::gc()` can see the current upstream dependencies
+before the first external read.
+
+Disposal is component teardown, not ordinary DOM detachment. `dispose()` is
+idempotent; it disposes the scope, releases the view `Watch`, and closes the
+public boundary. After disposal, `is_disposed()` returns `true`, dispatch
+returns `false`, and view/model getters return `None` instead of exposing
+disposed-cell aborts.
+
+A future DOM renderer may remove and reinsert DOM nodes without disposing the
+component. In that case the component scope and watch root must remain alive.
+Only destroy the scope when the logical TEA component instance is gone.
+
+While the component instance is alive, the persistent `Watch` keeps the view
+chain reachable across `Runtime::gc()`. After disposal, the scope and watch are
+released so a later GC can reclaim component internals.
+
 ## Counter smoke test
 
 ```mbt check

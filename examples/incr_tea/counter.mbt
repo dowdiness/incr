@@ -93,7 +93,7 @@ pub fn CounterApp::view_or_abort(self : CounterApp) -> CounterView {
 /// Returns the current committed count field without recording a dependency,
 /// or `None` after disposal.
 pub fn CounterApp::count(self : CounterApp) -> Int? {
-  if self.is_mounted() {
+  if !self.is_disposed() {
     Some(self.count.peek())
   } else {
     None
@@ -104,7 +104,7 @@ pub fn CounterApp::count(self : CounterApp) -> Int? {
 /// Returns the current committed title field without recording a dependency,
 /// or `None` after disposal.
 pub fn CounterApp::title(self : CounterApp) -> String? {
-  if self.is_mounted() {
+  if !self.is_disposed() {
     Some(self.title.peek())
   } else {
     None
@@ -115,7 +115,7 @@ pub fn CounterApp::title(self : CounterApp) -> String? {
 /// Returns the current committed unrelated field without recording a dependency,
 /// or `None` after disposal.
 pub fn CounterApp::unrelated(self : CounterApp) -> Int? {
-  if self.is_mounted() {
+  if !self.is_disposed() {
     Some(self.unrelated.peek())
   } else {
     None
@@ -129,13 +129,16 @@ pub fn CounterApp::runtime(self : CounterApp) -> @incr.Runtime {
 }
 
 ///|
-/// Returns whether the counter component is still mounted.
-pub fn CounterApp::is_mounted(self : CounterApp) -> Bool {
-  self.program.is_mounted()
+/// Returns whether the counter component instance has been disposed.
+pub fn CounterApp::is_disposed(self : CounterApp) -> Bool {
+  self.program.is_disposed()
 }
 
 ///|
 /// Disposes the counter component scope.
+///
+/// Disposal is idempotent and represents logical component teardown, not a
+/// future renderer's ordinary DOM remove/reinsert operation.
 pub fn CounterApp::dispose(self : CounterApp) -> Unit {
   self.program.dispose()
 }
