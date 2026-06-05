@@ -1,6 +1,7 @@
 import {
   "dowdiness/incr",
   "moonbitlang/core/hashmap",
+  "moonbitlang/core/hashset",
 }
 
 import {

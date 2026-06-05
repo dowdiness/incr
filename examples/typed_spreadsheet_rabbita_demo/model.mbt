@@ -362,10 +362,14 @@ fn apply_operation(
   // Bounded evidence surface: the operation target and (for formulas) its
   // direct references are captured automatically by `run_op`. We add only the
   // focused cell so the Evidence panel has before/after for what the user is
-  // editing — not all ~2,500 grid cells, which hid the incremental boundary.
-  let result = @demo.run_op(model.sheet, operation, capture=[
-    cell_id(model, model.selected_cell),
-  ])
+  // editing. The trace also observes the sparse grid cache so visible cached
+  // dependents refresh without scanning all ~2,500 grid cells.
+  let result = @demo.run_op(
+    model.sheet,
+    operation,
+    capture=[cell_id(model, model.selected_cell)],
+    trace_cells=cached_grid_cell_ids(model),
+  )
   let outcome = outcome_label(result.outcome)
   {
     ..model,
@@ -375,6 +379,15 @@ fn apply_operation(
     status: "Applied \{edit_label}: \{outcome}.",
     error: None,
   }
+}
+
+///|
+fn cached_grid_cell_ids(model : Model) -> Array[@typed_spreadsheet.CellId] {
+  [
+    for cell in model.grid_snapshot_cache.keys().to_array() => {
+      cell_id(model, cell)
+    }
+  ]
 }
 
 ///|

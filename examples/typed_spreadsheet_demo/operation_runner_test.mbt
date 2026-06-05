@@ -100,6 +100,85 @@ test "typed spreadsheet demo op: batched dependency update traces after commit" 
 }
 
 ///|
+test "typed spreadsheet demo op: bounded trace skips unobserved formulas" {
+  let sheet = new_sheet(7)
+  let source = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+  let visible = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
+  let hidden = @typed_spreadsheet.CellId(sheet.sheet_id(), "C1")
+  let mut visible_compute_count = 0
+  let mut hidden_compute_count = 0
+
+  inspect(
+    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(1)).is_ok(),
+    content="true",
+  )
+  inspect(
+    sheet.set_formula(visible, @typed_spreadsheet.CellType::t_int(), [source], fn(
+      deps,
+    ) {
+      visible_compute_count += 1
+      match deps[0] {
+        Int(value) =>
+          @typed_spreadsheet.CellResult::ok(
+            @typed_spreadsheet.CellValue::from_int(value),
+          )
+        _ => @typed_spreadsheet.CellResult::type_error("dependency mismatch")
+      }
+    })
+    is Ok(_),
+    content="true",
+  )
+  inspect(
+    sheet.set_formula(hidden, @typed_spreadsheet.CellType::t_int(), [source], fn(
+      deps,
+    ) {
+      hidden_compute_count += 1
+      match deps[0] {
+        Int(value) =>
+          @typed_spreadsheet.CellResult::ok(
+            @typed_spreadsheet.CellValue::from_int(value + 10),
+          )
+        _ => @typed_spreadsheet.CellResult::type_error("dependency mismatch")
+      }
+    })
+    is Ok(_),
+    content="true",
+  )
+
+  match sheet.read(visible) {
+    Ok(Int(value)) => inspect(value, content="1")
+    _ => abort("expected visible formula to evaluate initially")
+  }
+  match sheet.read(hidden) {
+    Ok(Int(value)) => inspect(value, content="11")
+    _ => abort("expected hidden formula to evaluate initially")
+  }
+  inspect(visible_compute_count, content="1")
+  inspect(hidden_compute_count, content="1")
+
+  let result = run_op(
+    sheet,
+    SetInput(source, @typed_spreadsheet.CellValue::from_int(2)),
+    trace_cells=[visible],
+  )
+
+  inspect(result.cell_snapshots.length(), content="1")
+  inspect(result.trace.recomputed.contains(visible), content="true")
+  inspect(result.trace.changed.contains(visible), content="true")
+  inspect(result.trace.recomputed.contains(hidden), content="false")
+  inspect(result.trace.changed.contains(hidden), content="false")
+  inspect(result.trace.changed.length(), content="1")
+  inspect(visible_compute_count, content="2")
+  inspect(hidden_compute_count, content="1")
+
+  match sheet.read(hidden) {
+    Ok(Int(value)) => inspect(value, content="12")
+    _ => abort("expected hidden formula to refresh on explicit read")
+  }
+  inspect(hidden_compute_count, content="2")
+}
+
+///|
 test "typed spreadsheet demo op: same-value dependency update is trace-silent" {
   let sheet = new_sheet(4)
   let a1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")

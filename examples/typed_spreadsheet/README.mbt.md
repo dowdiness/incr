@@ -116,8 +116,9 @@ for the lifecycle decision record.
 
 ## `WorksheetTrace`
 
-`WorksheetTrace` is returned from `Worksheet::trace` and tracks recompute outcome
-for formula cells as three disjoint buckets:
+`WorksheetTrace` is returned from `Worksheet::trace` and
+`Worksheet::trace_observed_formulas` and tracks recompute outcome for formula
+cells as three disjoint buckets:
 
 - `recomputed` — formula cells whose `verified_at` revision advanced
 - `changed` — formula cells where `changed_at` also advanced
@@ -131,36 +132,43 @@ force path when you deliberately want revalidation work.
 
 Use these buckets to distinguish *work done* from *values that actually changed*.
 
-## `Worksheet::trace`
+## Trace APIs
 
-`Worksheet::trace(op)` runs `op` and returns `(result, trace)`.
+`Worksheet::trace(op)` runs `op` and returns `(result, trace)` for the whole
+worksheet. `Worksheet::trace_observed_formulas(ids, op)` uses the same trace
+buckets, but limits reads and revision snapshots to caller-provided formula IDs.
 
 - `result` is the return value of `op`.
-- `trace` is a `WorksheetTrace` for visible formula changes in that worksheet.
+- `trace` is a `WorksheetTrace` for formula changes in the observed set.
 
 Design note:
 
-- `Worksheet::trace` is a before/after summary, not an event log.
-- It classifies formula cells by revision metadata observed before and after
-  `op`, after forcing reads.
+- Trace APIs produce before/after summaries, not event logs.
+- They classify formula cells by revision metadata observed before and after
+  `op`, after forcing reads for the observed formula cells.
 - Buckets include only formula cells present **after** `op`; deleted formula cells
   are not represented as trace events.
 - `trace` does not make `op` atomic. Wrap `op` with `Runtime::batch` or
   `Runtime::batch_result` if you need atomic semantics.
 
-Implementation note:
+Global vs bounded behavior:
 
-- The method snapshots formula-cell revision metadata before and after `op` using
-  `Runtime::cell_info`.
-- It first reads all existing formula cells to refresh stale revisions, then reads
-  formula cells again after `op` to classify each cell as recomputed/changed/
-  unchanged.
+- `Worksheet::trace` scans all formula cells before and after `op`.
+- `Worksheet::trace_observed_formulas` copies `ids`, ignores missing, foreign,
+  non-formula, and duplicate IDs, and does not read formulas outside that bounded
+  set. IDs that become formula cells during `op` can appear in the trace.
 
-### Signature
+### Signatures
 
 ```moonbit nocheck
 pub fn[T] Worksheet::trace(
   self : Worksheet,
+  operation : () -> T,
+) -> (T, WorksheetTrace)
+
+pub fn[T] Worksheet::trace_observed_formulas(
+  self : Worksheet,
+  observed_ids : Array[CellId],
   operation : () -> T,
 ) -> (T, WorksheetTrace)
 ```
@@ -188,7 +196,7 @@ test "trace after input update" {
     }),
   )
 
-  let (_, trace) = sheet.trace(fn() {
+  let (_, trace) = sheet.trace_observed_formulas([b1], fn() {
     ignore(sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(2)))
   })
 
