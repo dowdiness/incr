@@ -11,6 +11,14 @@ import {
 // Errors
 
 // Types and methods
+pub struct Cmd[Msg] {
+  // private fields
+}
+pub fn[Msg] Cmd::batch(ArrayView[Self[Msg]]) -> Self[Msg]
+pub fn[Msg] Cmd::effect(((Self[Msg]) -> Unit) -> Unit) -> Self[Msg]
+pub fn[Msg] Cmd::message(Msg) -> Self[Msg]
+pub fn[Msg] Cmd::none() -> Self[Msg]
+
 pub struct CounterApp {
   // private fields
 }
@@ -28,6 +36,7 @@ pub fn CounterApp::with_runtime(@cells.Runtime) -> Self
 
 pub(all) enum CounterMsg {
   Increment
+  IncrementTwice
   Decrement
   Reset
   SetTitle(String)
