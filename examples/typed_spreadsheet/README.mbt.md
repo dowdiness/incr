@@ -52,6 +52,20 @@ contract, not an install-time proof.
 See [ADR 2026-06-02](../../docs/decisions/2026-06-02-typed-spreadsheet-runtime-checking.md)
 for the decision record.
 
+## Semantic no-op edits and force paths
+
+`Worksheet::set_input` uses comparable worksheet facts, so setting the same input
+value is a no-op. `Worksheet::set_formula_ast` compares the structural `Formula`
+AST, so reinstalling the same AST is also a no-op.
+
+Opaque closure formulas installed with `Worksheet::set_formula` can opt into the
+same behavior by supplying `fingerprint`. The worksheet treats the dependency
+list, declared result type, and fingerprint as the formula's comparable identity.
+When no fingerprint is supplied, `set_formula` force-installs the closure so
+callers still have a deliberate revalidation path for opaque formulas. For input
+cells, use `Worksheet::force_set_input` to force revalidation even when the value
+is equal.
+
 ## Deleted-cell tombstones and compaction
 
 `Worksheet::delete` marks an address absent by setting a stable per-address
@@ -86,7 +100,9 @@ for formula cells as three disjoint buckets:
   change value
 
 `unchanged` means the formula was reverified but produced the same result value; it
-does not imply no evaluation work happened.
+does not imply no evaluation work happened. Ordinary semantic no-op edits, such as
+setting an input to the value it already has, do not appear in `unchanged`; use a
+force path when you deliberately want revalidation work.
 
 Use these buckets to distinguish *work done* from *values that actually changed*.
 

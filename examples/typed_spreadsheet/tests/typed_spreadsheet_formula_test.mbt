@@ -253,11 +253,17 @@ test "typed spreadsheet: AST overwrite keeps downstream dependencies fresh" {
       @typed_spreadsheet.CellValue::from_int(10),
     ),
   )
-  let _ = sheet.set_formula_ast(
-    target,
-    @typed_spreadsheet.CellType::t_int(),
-    updated,
-  )
+  let (_, trace) = sheet.trace(fn() {
+    let _ = sheet.set_formula_ast(
+      target,
+      @typed_spreadsheet.CellType::t_int(),
+      updated,
+    )
+    ()
+  })
+
+  inspect(trace.changed.contains(target), content="true")
+  inspect(trace.changed.contains(dependent), content="true")
 
   match sheet.read(dependent) {
     @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(total)) =>
@@ -274,6 +280,77 @@ test "typed spreadsheet: AST overwrite keeps downstream dependencies fresh" {
     @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(total)) =>
       inspect(total, content="13")
     _ => abort("expected dependent AST result after source mutation")
+  }
+}
+
+///|
+test "typed spreadsheet: same AST reinstall is worksheet no-op" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(124))
+  let source = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+  let target = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
+  let dependent = @typed_spreadsheet.CellId(sheet.sheet_id(), "C1")
+
+  inspect(
+    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(1)).is_ok(),
+    content="true",
+  )
+
+  let formula = @typed_spreadsheet.Formula::add(
+    @typed_spreadsheet.Formula::cell_ref(source),
+    @typed_spreadsheet.Formula::literal(
+      @typed_spreadsheet.CellValue::from_int(1),
+    ),
+  )
+  let _ = sheet.set_formula_ast(
+    target,
+    @typed_spreadsheet.CellType::t_int(),
+    formula,
+  )
+
+  let dependent_formula = @typed_spreadsheet.Formula::add(
+    @typed_spreadsheet.Formula::cell_ref(target),
+    @typed_spreadsheet.Formula::literal(
+      @typed_spreadsheet.CellValue::from_int(1),
+    ),
+  )
+  let _ = sheet.set_formula_ast(
+    dependent,
+    @typed_spreadsheet.CellType::t_int(),
+    dependent_formula,
+  )
+
+  match sheet.read(dependent) {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(total)) =>
+      inspect(total, content="3")
+    _ => abort("expected initial dependent AST result")
+  }
+
+  let same_formula = @typed_spreadsheet.Formula::add(
+    @typed_spreadsheet.Formula::cell_ref(source),
+    @typed_spreadsheet.Formula::literal(
+      @typed_spreadsheet.CellValue::from_int(1),
+    ),
+  )
+  let (_, trace) = sheet.trace(fn() {
+    let _ = sheet.set_formula_ast(
+      target,
+      @typed_spreadsheet.CellType::t_int(),
+      same_formula,
+    )
+    ()
+  })
+
+  inspect(trace.recomputed.contains(target), content="false")
+  inspect(trace.recomputed.contains(dependent), content="false")
+  inspect(trace.changed.contains(target), content="false")
+  inspect(trace.changed.contains(dependent), content="false")
+  inspect(trace.unchanged.contains(target), content="false")
+  inspect(trace.unchanged.contains(dependent), content="false")
+  match sheet.read(dependent) {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(total)) =>
+      inspect(total, content="3")
+    _ => abort("expected dependent AST result after no-op reinstall")
   }
 }
 

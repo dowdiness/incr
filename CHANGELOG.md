@@ -7,6 +7,7 @@ All notable changes to `dowdiness/incr` are documented in this file.
 ### Added
 
 - Typed spreadsheet snapshots now expose `last_dynamic_dependencies`, the logical cells read during the last completed cell evaluation.
+- Typed spreadsheet cells now distinguish comparable worksheet facts from opaque formula evaluators: same-value inputs and same-AST formulas are semantic no-ops, closure formulas can opt into no-op detection with a fingerprint, and force paths remain available for deliberate revalidation.
 
 ## [0.8.0] - 2026-06-03
 

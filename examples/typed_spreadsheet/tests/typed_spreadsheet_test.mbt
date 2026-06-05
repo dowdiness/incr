@@ -265,7 +265,7 @@ test "typed spreadsheet: trace captures recompute and change" {
 }
 
 ///|
-test "typed spreadsheet: trace captures unchanged recompute" {
+test "typed spreadsheet: force input traces unchanged recompute" {
   let rt = @incr.Runtime()
   let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(5))
   let a1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
@@ -299,13 +299,147 @@ test "typed spreadsheet: trace captures unchanged recompute" {
   }
 
   let (_, trace) = sheet.trace(fn() {
-    let _ = sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(7))
+    let _ = sheet.force_set_input(a1, @typed_spreadsheet.CellValue::from_int(7))
     ()
   })
 
   inspect(trace.recomputed.contains(target), content="true")
   inspect(trace.changed.contains(target), content="false")
   inspect(trace.unchanged.contains(target), content="true")
+}
+
+///|
+test "typed spreadsheet: same-value input set is worksheet no-op" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(501))
+  let a1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+  let target = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
+  let mut compute_count = 0
+
+  inspect(
+    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(7)).is_ok(),
+    content="true",
+  )
+  let _ = sheet.set_formula(
+    target,
+    @typed_spreadsheet.CellType::t_int(),
+    [a1],
+    fn(deps) {
+      compute_count = compute_count + 1
+      match deps[0] {
+        @typed_spreadsheet.CellValue::Int(value) =>
+          @typed_spreadsheet.CellResult::ok(
+            @typed_spreadsheet.CellValue::from_int(value),
+          )
+        _ => @typed_spreadsheet.CellResult::type_error("dependency mismatch")
+      }
+    },
+  )
+
+  match sheet.read(target) {
+    @typed_spreadsheet.CellResult::Ok(_) => ()
+    _ => abort("expected formula to evaluate initially")
+  }
+  inspect(compute_count, content="1")
+
+  let (_, trace) = sheet.trace(fn() {
+    let _ = sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(7))
+    ()
+  })
+
+  inspect(trace.recomputed.contains(target), content="false")
+  inspect(trace.changed.contains(target), content="false")
+  inspect(trace.unchanged.contains(target), content="false")
+  inspect(compute_count, content="1")
+}
+
+///|
+test "typed spreadsheet: custom formula fingerprint controls reinstall no-op" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(502))
+  let target = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+  let mut compute_count = 0
+
+  let install = fn(fingerprint : String) {
+    sheet.set_formula(
+      target,
+      @typed_spreadsheet.CellType::t_int(),
+      [],
+      fn(_deps) {
+        compute_count = compute_count + 1
+        @typed_spreadsheet.CellResult::ok(
+          @typed_spreadsheet.CellValue::from_int(1),
+        )
+      },
+      fingerprint~,
+    )
+  }
+
+  inspect(install("stable") is Ok(_), content="true")
+  match sheet.read(target) {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(value)) =>
+      inspect(value, content="1")
+    _ => abort("expected custom formula value")
+  }
+  inspect(compute_count, content="1")
+
+  let mut same_install_ok = false
+  let (_, same_trace) = sheet.trace(fn() {
+    same_install_ok = install("stable") is Ok(_)
+  })
+
+  inspect(same_install_ok, content="true")
+  inspect(same_trace.recomputed.contains(target), content="false")
+  inspect(same_trace.changed.contains(target), content="false")
+  inspect(same_trace.unchanged.contains(target), content="false")
+  inspect(compute_count, content="1")
+
+  let mut changed_install_ok = false
+  let (_, changed_trace) = sheet.trace(fn() {
+    changed_install_ok = install("changed") is Ok(_)
+  })
+
+  inspect(changed_install_ok, content="true")
+  inspect(changed_trace.recomputed.contains(target), content="true")
+  inspect(changed_trace.changed.contains(target), content="false")
+  inspect(changed_trace.unchanged.contains(target), content="true")
+  inspect(compute_count, content="2")
+}
+
+///|
+test "typed spreadsheet: opaque custom formula reinstall forces revalidation" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(503))
+  let target = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+  let mut compute_count = 0
+
+  let install = fn() {
+    sheet.set_formula(target, @typed_spreadsheet.CellType::t_int(), [], fn(
+      _deps,
+    ) {
+      compute_count = compute_count + 1
+      @typed_spreadsheet.CellResult::ok(
+        @typed_spreadsheet.CellValue::from_int(1),
+      )
+    })
+  }
+
+  inspect(install() is Ok(_), content="true")
+  match sheet.read(target) {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(value)) =>
+      inspect(value, content="1")
+    _ => abort("expected custom formula value")
+  }
+  inspect(compute_count, content="1")
+
+  let mut reinstall_ok = false
+  let (_, trace) = sheet.trace(fn() { reinstall_ok = install() is Ok(_) })
+
+  inspect(reinstall_ok, content="true")
+  inspect(trace.recomputed.contains(target), content="true")
+  inspect(trace.changed.contains(target), content="false")
+  inspect(trace.unchanged.contains(target), content="true")
+  inspect(compute_count, content="2")
 }
 
 ///|

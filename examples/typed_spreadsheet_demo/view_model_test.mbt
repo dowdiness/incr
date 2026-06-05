@@ -11,7 +11,7 @@ test "typed spreadsheet demo view model exposes fixed scenario" {
     content="SetFormulaAst B1 : Int = (A1 + Int(1))",
   )
   inspect(model.steps[2].trace.changed.contains("B1"), content="true")
-  inspect(model.steps[3].trace.unchanged.contains("B1"), content="true")
+  inspect(model.steps[3].trace.unchanged.contains("B1"), content="false")
   inspect(
     model.steps[1].snapshots[0].after.last_dynamic_dependencies.contains("A1"),
     content="true",
