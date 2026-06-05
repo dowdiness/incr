@@ -188,14 +188,25 @@ part out of `snapshot`; ordinary equality/backdating should prevent downstream
 committed-only consumers from observing changes when only the current diagnostic
 changed.
 
+Because `snapshot` must read its own previously committed value during compute,
+this is a self-referencing pattern. The concrete mechanism for holding and
+accessing that retained state is an implementation choice deferred to the
+stage-2 spike (see [Implementation stages](#implementation-stages)); the design
+fixes only the observable transition rules in the state machine above, not how
+the previous value is stored.
+
 This mirrors the hand-written pattern downstream projects already use, but makes
 its lifecycle and read channels explicit.
 
 ### Backdating and revisions
 
 `V : Eq` and `E : Eq` are required in v1 so the candidate and snapshot can use
-normal backdating. A no-backdate constructor can be considered later if a caller
-has non-`Eq` diagnostics or expensive comparisons.
+normal backdating. `V : Eq` drives the committed-value equality check in the
+state machine (`v == old`); `E : Eq` lets the current channel backdate when an
+error repeats (`Err(e1)` then `Err(e2)` with `e1 == e2`), so current-result
+observers are not woken for an unchanged diagnostic. A no-backdate constructor
+can be considered later if a caller has non-`Eq` diagnostics or expensive
+comparisons.
 
 The commit revision/count should advance only when the committed value actually
 changes, not on every successful candidate recomputation. This matters for
@@ -221,6 +232,17 @@ not confuse it with a domain document revision.
 
 The constructor should be noraise like `Derived::fallible` so recoverable domain
 errors cannot accidentally become uncaught compute failures.
+
+A `ReadError` raised while reading the underlying `candidate` cell (a `Cycle` or
+`Disposed`, never a domain `E`) is a structural read failure, not a candidate
+outcome. It does not drive the commit state machine: no `NoCommit` /
+`RetainedDueToError` transition occurs, and the internally retained committed
+value is left untouched. The `ReadError` instead surfaces on the read channel of
+`current`, `committed`, and `snapshot` exactly as it would for an ordinary
+`Derived`, and clears once the graph recovers — at which point the state machine
+resumes from the retained committed value. This keeps the read-channel error
+(`ReadError`) and the domain error (`E` inside `Result`) on separate channels,
+as the honest-read split intends.
 
 ## Interaction with Loom projection identity
 
@@ -325,7 +347,7 @@ When the API ships, tests should cover:
 - Should there be a no-backdate / no-`Eq` variant, and if so should it be public
   or internal only?
 - Should `snapshot` include the previous committed value in addition to the new
-  committed value for consumers that want transition effects? The default answer
-  should be no; transition effects belong at `Effect` / observer boundaries.
+  committed value for consumers that want transition effects? (Tentative
+  default: no — transition effects belong at `Effect` / observer boundaries.)
 - Should `CommittedDerived` live in `cells/` directly, or should it start as an
   example-local helper until a downstream replacement proves the public shape?
