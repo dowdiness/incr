@@ -13,6 +13,10 @@ recomputed, which values changed, and where work produced the same result.
 - [`typed_spreadsheet_cli_demo/`](typed_spreadsheet_cli_demo/) — CLI rendering for the shared fixed scenario.
 - [`typed_spreadsheet_rabbita_demo/`](typed_spreadsheet_rabbita_demo/) — editable browser UI built with Rabbita; deployed at <https://typed-spreadsheet.pages.dev>.
 
+## UI experiments
+
+- [`incr_tea/`](incr_tea/) — experimental `incr`-native TEA skeleton with scope-owned model fields, batched message dispatch, and watched tracked views.
+
 ## Spikes
 
 - [`spikes/ideal_api_rename_phase0/`](spikes/ideal_api_rename_phase0/) — checked language-mechanics probe for the public API rename migration plan.
@@ -24,6 +28,7 @@ Run from the repository root:
 ```bash
 moon check
 moon test
+moon test examples/incr_tea
 moon run examples/typed_spreadsheet_cli_demo -- --format json
 ```
 
