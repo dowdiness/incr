@@ -18,7 +18,7 @@ pub fn CounterApp::CounterApp() -> Self
 pub fn CounterApp::count(Self) -> Int?
 pub fn CounterApp::dispatch(Self, CounterMsg) -> Bool
 pub fn CounterApp::dispose(Self) -> Unit
-pub fn CounterApp::is_mounted(Self) -> Bool
+pub fn CounterApp::is_disposed(Self) -> Bool
 pub fn CounterApp::runtime(Self) -> @cells.Runtime
 pub fn CounterApp::title(Self) -> String?
 pub fn CounterApp::unrelated(Self) -> Int?

@@ -77,7 +77,7 @@ test "counter: disposed app ignores later messages" {
   let app = @incr_tea.CounterApp()
 
   app.dispose()
-  inspect(app.is_mounted(), content="false")
+  inspect(app.is_disposed(), content="true")
   inspect(app.dispatch(@incr_tea.CounterMsg::Increment), content="false")
   debug_inspect(app.view(), content="None")
   debug_inspect(app.count(), content="None")
