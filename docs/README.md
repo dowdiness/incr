@@ -45,6 +45,7 @@ New to `incr`? Read these in order:
 - [2026-06-01 DSL-shaped authoring pipeline benches](performance/2026-06-01-dsl-authoring-benches.md) — coarse staged `Derived` authoring chain vs per-node `DerivedMap` and sparse `ReachableDerived` inspector variants across wasm-gc + JS.
 - [2026-06-01 Graph-editor recompute path benches](performance/2026-06-01-graph-editor-recompute-benches.md) — durable graph/document recomputation vs ephemeral hover, drag preview, and viewport updates; records live-drag and commit-at-end behavior across wasm-gc + JS.
 - [2026-06-05 Typed Spreadsheet trace benches](performance/2026-06-05-typed-spreadsheet-trace-benches.md) — full-sheet `Worksheet::trace` scan vs bounded observed-formula tracing for issue #179 across wasm-gc + JS, with the manual regression workflow for future trace changes.
+- [2026-06-05 Typed Spreadsheet event trace feasibility](performance/2026-06-05-typed-spreadsheet-event-trace-feasibility.md) — issue #199 investigation: derived events can map to formula cells privately, but do not beat the current bounded snapshot path enough to justify the single-listener/API trade-off.
 
 ---
 
