@@ -189,11 +189,13 @@ committed-only consumers from observing changes when only the current diagnostic
 changed.
 
 Because `snapshot` must read its own previously committed value during compute,
-this is a self-referencing pattern. The concrete mechanism for holding and
-accessing that retained state is an implementation choice deferred to the
-stage-2 spike (see [Implementation stages](#implementation-stages)); the design
-fixes only the observable transition rules in the state machine above, not how
-the previous value is stored.
+this is a self-referencing pattern. The previous committed value must be held in
+retained state *outside* the reactive dependency graph — it must not be modeled
+as a derived self-dependency, which would form a cycle. The concrete mechanism
+for holding and accessing that retained slot is an implementation choice deferred
+to the stage-2 spike (see [Implementation stages](#implementation-stages)); the
+design fixes the observable transition rules in the state machine above and this
+no-self-edge constraint, not how the previous value is stored.
 
 This mirrors the hand-written pattern downstream projects already use, but makes
 its lifecycle and read channels explicit.
@@ -211,6 +213,11 @@ comparisons.
 The commit revision/count should advance only when the committed value actually
 changes, not on every successful candidate recomputation. This matters for
 source edits that parse successfully but produce the same semantic value.
+
+Invariant: the committed projection's identity (and its `Revision` /
+`commit_count`) is gated solely by `V`-equality on the committed value.
+Current-result churn — changing diagnostics, repeated errors, equal successful
+recomputations — must never advance it.
 
 Open design choice:
 
@@ -243,6 +250,14 @@ value is left untouched. The `ReadError` instead surfaces on the read channel of
 resumes from the retained committed value. This keeps the read-channel error
 (`ReadError`) and the domain error (`E` inside `Result`) on separate channels,
 as the honest-read split intends.
+
+Concretely, the observation accessors must expose a read channel that can carry
+`ReadError`, following the `Derived`/`Watch` `.read() -> Result[T, ReadError]`
+split (see the open read-channel naming question under "Proposed surface
+sketch"). The plain-return signatures in that sketch are provisional and cannot
+represent a `ReadError`. While a `ReadError` is active, no `CommittedSnapshot` is
+produced and the committed value, `status`, and commit revision are all
+unchanged — the read returns the error in place of a value.
 
 ## Interaction with Loom projection identity
 
@@ -334,6 +349,11 @@ When the API ships, tests should cover:
 - later equal success does not advance the committed changed revision/count;
 - committed-only downstream consumers do not observe current-error churn;
 - snapshot/current consumers do observe current-error changes;
+- a candidate `ReadError` (`Cycle` / `Disposed`) while a committed value exists
+  leaves the retained committed value, `status`, and commit revision unchanged,
+  and surfaces the error on the read channel rather than a snapshot value;
+- after a transient `ReadError` clears, the state machine resumes from the
+  retained committed value and transitions normally on the next candidate;
 - `Scope` + `Watch` ownership survives `Runtime::gc()` according to the normal
   persistent-watch rule;
 - `Runtime::batch` with several input changes publishes one coherent candidate
