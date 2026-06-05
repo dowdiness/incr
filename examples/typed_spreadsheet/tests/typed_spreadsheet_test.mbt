@@ -274,6 +274,83 @@ test "typed spreadsheet: trace captures recompute and change" {
 }
 
 ///|
+test "typed spreadsheet: observed trace leaves unobserved formulas lazy" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(504))
+  let source = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+  let visible = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
+  let hidden = @typed_spreadsheet.CellId(sheet.sheet_id(), "C1")
+  let mut visible_compute_count = 0
+  let mut hidden_compute_count = 0
+
+  inspect(
+    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(1)).is_ok(),
+    content="true",
+  )
+  let _ = sheet.set_formula(
+    visible,
+    @typed_spreadsheet.CellType::t_int(),
+    [source],
+    fn(deps) {
+      visible_compute_count += 1
+      match deps[0] {
+        @typed_spreadsheet.CellValue::Int(value) =>
+          @typed_spreadsheet.CellResult::ok(
+            @typed_spreadsheet.CellValue::from_int(value + 1),
+          )
+        _ => @typed_spreadsheet.CellResult::type_error("dependency mismatch")
+      }
+    },
+  )
+  let _ = sheet.set_formula(
+    hidden,
+    @typed_spreadsheet.CellType::t_int(),
+    [source],
+    fn(deps) {
+      hidden_compute_count += 1
+      match deps[0] {
+        @typed_spreadsheet.CellValue::Int(value) =>
+          @typed_spreadsheet.CellResult::ok(
+            @typed_spreadsheet.CellValue::from_int(value + 2),
+          )
+        _ => @typed_spreadsheet.CellResult::type_error("dependency mismatch")
+      }
+    },
+  )
+
+  match sheet.read(visible) {
+    @typed_spreadsheet.CellResult::Ok(_) => ()
+    _ => abort("expected visible formula to evaluate initially")
+  }
+  match sheet.read(hidden) {
+    @typed_spreadsheet.CellResult::Ok(_) => ()
+    _ => abort("expected hidden formula to evaluate initially")
+  }
+  inspect(visible_compute_count, content="1")
+  inspect(hidden_compute_count, content="1")
+
+  let (_, trace) = sheet.trace_observed_formulas([source, visible, visible], fn() {
+    let _ = sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(2))
+    ()
+  })
+
+  inspect(trace.recomputed.contains(visible), content="true")
+  inspect(trace.changed.contains(visible), content="true")
+  inspect(trace.recomputed.contains(hidden), content="false")
+  inspect(trace.changed.contains(hidden), content="false")
+  inspect(trace.changed.length(), content="1")
+  inspect(visible_compute_count, content="2")
+  inspect(hidden_compute_count, content="1")
+
+  match sheet.read(hidden) {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(value)) =>
+      inspect(value, content="4")
+    _ => abort("expected hidden formula to refresh on explicit read")
+  }
+  inspect(hidden_compute_count, content="2")
+}
+
+///|
 test "typed spreadsheet: force input traces unchanged recompute" {
   let rt = @incr.Runtime()
   let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(5))

@@ -65,6 +65,7 @@ For contributors and advanced users who want to understand or modify `incr`.
 - [2026-05-26 Internal evaluation boundaries](design/specs/2026-05-26-internal-rebuild-boundaries.md) — ideal runtime-evaluation state-machine design for pull verification, push propagation, lifetime, and observation seams without public scheduler traits
 - [2026-05-28 Static Derived Public-Surface Options](design/specs/2026-05-28-static-derived-public-options.md) — compares public API options and hard requirements for the measured fixed-dependency `Derived` fast path; resolved by the 2026-06-01 ADR as keep-private-with-reopen-criteria
 - [2026-05-28 Honest Read-Error Ownership](design/specs/2026-05-28-honest-read-error-ownership.md) — three-way split of read failures (graph→read channel, domain→value-as-`Result`, defects→abort/fail); `Derived::fallible`/`DerivedMap::fallible`; `ReadError` migration for target reads and accumulator verifying reads
+- [2026-06-05 Typed Spreadsheet bounded trace contract](design/specs/2026-06-05-typed-spreadsheet-bounded-trace-contract.md) — issue #179 example-local contract for caller-bounded formula traces after the benchmark baseline: preserve global `Worksheet::trace`, add observed-formula tracing, and keep unobserved formulas lazy.
 
 **Project direction:**
 

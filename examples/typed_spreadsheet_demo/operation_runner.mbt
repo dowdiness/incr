@@ -46,33 +46,38 @@ pub struct WorksheetStepResult {
 ///
 /// `capture` should list scenario-visible cells whose before/after snapshots
 /// the demo wants to show. The operation target is always captured. Formula AST
-/// references are also captured for `SetFormulaAst`.
+/// references are also captured for `SetFormulaAst`. `trace_cells` extends the
+/// bounded trace region without adding before/after snapshot evidence.
 ///
 /// This runner does not batch the operation. Do not wrap `run_op` itself in
-/// `Runtime::batch`: `Worksheet::trace` must observe the operation after any
+/// `Runtime::batch`: trace classification must observe the operation after any
 /// batch commit has completed. Use `run_batched_op` when the demo step needs
 /// batch commit semantics and trace correctness together.
 pub fn run_op(
   sheet : @typed_spreadsheet.Worksheet,
   operation : SheetOp,
   capture? : Array[@typed_spreadsheet.CellId] = [],
+  trace_cells? : Array[@typed_spreadsheet.CellId] = [],
 ) -> WorksheetStepResult {
-  run_op_with_apply(sheet, operation, capture, fn() { operation.apply(sheet) })
+  run_op_with_apply(sheet, operation, capture, trace_cells, fn() {
+    operation.apply(sheet)
+  })
 }
 
 ///|
 /// Applies one demo operation inside the worksheet runtime's batch.
 ///
-/// The batch is nested inside `Worksheet::trace`, so the batch commit completes
-/// before post-operation formula reads classify recomputed, changed, and
-/// unchanged cells. Call this from outside any existing `Runtime::batch`; an
+/// The batch is nested inside bounded trace classification, so the batch commit
+/// completes before post-operation formula reads classify recomputed, changed,
+/// and unchanged cells. Call this from outside any existing `Runtime::batch`; an
 /// outer batch would defer the real commit until after trace classification.
 pub fn run_batched_op(
   sheet : @typed_spreadsheet.Worksheet,
   operation : SheetOp,
   capture? : Array[@typed_spreadsheet.CellId] = [],
+  trace_cells? : Array[@typed_spreadsheet.CellId] = [],
 ) -> WorksheetStepResult {
-  run_op_with_apply(sheet, operation, capture, fn() {
+  run_op_with_apply(sheet, operation, capture, trace_cells, fn() {
     let outcome = Ref(None)
     sheet.runtime.batch(fn() { outcome.val = Some(operation.apply(sheet)) })
     match outcome.val {
@@ -87,12 +92,15 @@ fn run_op_with_apply(
   sheet : @typed_spreadsheet.Worksheet,
   operation : SheetOp,
   capture : Array[@typed_spreadsheet.CellId],
+  trace_cells : Array[@typed_spreadsheet.CellId],
   apply : () -> OpOutcome,
 ) -> WorksheetStepResult {
   let snapshot_ids = operation.snapshot_ids()
   append_unique_cells(snapshot_ids, capture)
+  let observed_ids = snapshot_ids.copy()
+  append_unique_cells(observed_ids, trace_cells)
   let before = snapshot_cells(sheet, snapshot_ids)
-  let (outcome, trace) = sheet.trace(apply)
+  let (outcome, trace) = sheet.trace_observed_formulas(observed_ids, apply)
   let after = snapshot_cells(sheet, snapshot_ids)
   {
     operation,

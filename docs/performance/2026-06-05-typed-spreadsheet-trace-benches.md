@@ -25,7 +25,7 @@ Scenarios:
 - **Global no-op**: one formula depends on the source and the other N-1 formulas are literals; the operation sets the source to the same value. This isolates global scan/snapshot overhead with no invalidation.
 - **Global one affected**: one formula depends on the source and the other N-1 formulas are literals; the operation changes the source. Only one formula should change, but current `Worksheet::trace` still scans all formulas.
 - **Global shared source**: N formulas all depend on one source; changing the source makes every formula in the sheet relevant.
-- **Bounded lower bound**: a wbtest-only helper uses the same read/snapshot/diff logic but receives a preselected visible formula set. It is not a proposed public API; it measures the best-case cost shape if callers already know the bounded region.
+- **Bounded lower bound**: the benchmark receives a preselected visible formula set and uses the same read/snapshot/diff logic with only that set. PR #195 established this with a wbtest-only helper before a public contract existed; the #179 follow-up can route the same scenario through a bounded trace API. It measures the best-case cost shape if callers already know the bounded region.
 
 Setup and first reads happen before timing. Each measured iteration applies one operation and keeps the returned `WorksheetTrace`.
 

@@ -104,55 +104,6 @@ fn trace_bench_visible_formula_ids(
 }
 
 ///|
-fn[T] Worksheet::trace_formula_cells_for_bench(
-  self : Worksheet,
-  formula_cells : Array[CellId],
-  operation : () -> T,
-) -> (T, WorksheetTrace) {
-  formula_cells.each(id => {
-    let _ = self.read_slot(id)
-  })
-
-  let before = self.formula_revision_snapshot_with_ids(formula_cells)
-  let output = operation()
-  formula_cells.each(id => {
-    let _ = self.read_slot(id)
-  })
-  let after = self.formula_revision_snapshot_with_ids(formula_cells)
-  let (before_snapshot, after_snapshot) = (before, after)
-
-  let recomputed : Array[CellId] = formula_cells.filter_map(id => {
-    match (before_snapshot.get(id), after_snapshot.get(id)) {
-      (Some(before_revision), Some(after_revision)) if after_revision.verified_at !=
-        before_revision.verified_at => Some(id)
-      (None, Some(_)) => Some(id)
-      _ => None
-    }
-  })
-
-  let changed : Array[CellId] = formula_cells.filter_map(id => {
-    match (before_snapshot.get(id), after_snapshot.get(id)) {
-      (Some(before_revision), Some(after_revision)) if after_revision.verified_at !=
-        before_revision.verified_at &&
-        after_revision.changed_at != before_revision.changed_at => Some(id)
-      (None, Some(_)) => Some(id)
-      _ => None
-    }
-  })
-
-  let unchanged : Array[CellId] = formula_cells.filter_map(id => {
-    match (before_snapshot.get(id), after_snapshot.get(id)) {
-      (Some(before_revision), Some(after_revision)) if after_revision.verified_at !=
-        before_revision.verified_at &&
-        after_revision.changed_at == before_revision.changed_at => Some(id)
-      _ => None
-    }
-  })
-
-  (output, { recomputed, changed, unchanged })
-}
-
-///|
 fn trace_bench_global_noop(
   b : @bench.T,
   formula_count : Int,
@@ -223,7 +174,7 @@ fn trace_bench_bounded_one_affected(
   let mut step = 0
   b.bench(fn() {
     step += 1
-    let (_, trace) = fixture.sheet.trace_formula_cells_for_bench(visible, () => {
+    let (_, trace) = fixture.sheet.trace_observed_formulas(visible, () => {
       fixture.sheet.set_input(source, CellValue::from_int(step))
     })
     b.keep(trace)
@@ -247,7 +198,7 @@ fn trace_bench_bounded_shared_source(
   let mut step = 0
   b.bench(fn() {
     step += 1
-    let (_, trace) = fixture.sheet.trace_formula_cells_for_bench(visible, () => {
+    let (_, trace) = fixture.sheet.trace_observed_formulas(visible, () => {
       fixture.sheet.set_input(source, CellValue::from_int(step))
     })
     b.keep(trace)

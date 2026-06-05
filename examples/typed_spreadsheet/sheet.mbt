@@ -178,7 +178,8 @@ pub fn Worksheet::inspect_cell(self : Worksheet, id : CellId) -> CellSnapshot {
 }
 
 ///|
-/// Runs an operation and returns a recompute/change trace for this worksheet.
+/// Runs an operation and returns a global recompute/change trace for this
+/// worksheet.
 ///
 /// The method returns `recomputed`, `changed`, and `unchanged` formula cell IDs,
 /// with all formula cells re-read after the operation to capture final status.
@@ -190,48 +191,22 @@ pub fn[T] Worksheet::trace(
   self : Worksheet,
   operation : () -> T,
 ) -> (T, WorksheetTrace) {
-  let pre_formula_cells = self.formula_cells()
-  pre_formula_cells.each(id => {
-    let _ = self.read_slot(id)
-  })
+  self.trace_formula_scope(None, operation)
+}
 
-  let before = self.formula_revision_snapshot_with_ids(pre_formula_cells)
-  let output = operation()
-  let post_formula_cells = self.formula_cells()
-  post_formula_cells.each(id => {
-    let _ = self.read_slot(id)
-  })
-  let after = self.formula_revision_snapshot_with_ids(post_formula_cells)
-  let (before_snapshot, after_snapshot) = (before, after)
-  let recomputed : Array[CellId] = post_formula_cells.filter_map(id => {
-    match (before_snapshot.get(id), after_snapshot.get(id)) {
-      (Some(before_revision), Some(after_revision)) if after_revision.verified_at !=
-        before_revision.verified_at => Some(id)
-      (None, Some(_)) => Some(id)
-      _ => None
-    }
-  })
-
-  let changed : Array[CellId] = post_formula_cells.filter_map(id => {
-    match (before_snapshot.get(id), after_snapshot.get(id)) {
-      (Some(before_revision), Some(after_revision)) if after_revision.verified_at !=
-        before_revision.verified_at &&
-        after_revision.changed_at != before_revision.changed_at => Some(id)
-      (None, Some(_)) => Some(id)
-      _ => None
-    }
-  })
-
-  let unchanged : Array[CellId] = post_formula_cells.filter_map(id => {
-    match (before_snapshot.get(id), after_snapshot.get(id)) {
-      (Some(before_revision), Some(after_revision)) if after_revision.verified_at !=
-        before_revision.verified_at &&
-        after_revision.changed_at == before_revision.changed_at => Some(id)
-      _ => None
-    }
-  })
-
-  (output, WorksheetTrace::{ recomputed, changed, unchanged })
+///|
+/// Runs an operation and returns a bounded recompute/change trace for the
+/// caller-provided observed formula cells.
+///
+/// Only IDs in `observed_ids` are considered. Missing, foreign, and non-formula
+/// IDs are ignored; duplicate IDs are collapsed in first-seen order. Listed IDs
+/// that become formula cells during `operation` can appear in the trace.
+pub fn[T] Worksheet::trace_observed_formulas(
+  self : Worksheet,
+  observed_ids : Array[CellId],
+  operation : () -> T,
+) -> (T, WorksheetTrace) {
+  self.trace_formula_scope(Some(observed_ids.copy()), operation)
 }
 
 ///|
@@ -490,6 +465,39 @@ fn Worksheet::with_live_slot(
 }
 
 ///|
+fn[T] Worksheet::trace_formula_scope(
+  self : Worksheet,
+  observed_ids : Array[CellId]?,
+  operation : () -> T,
+) -> (T, WorksheetTrace) {
+  let pre_formula_cells = self.formula_cells_for_trace_scope(observed_ids)
+  pre_formula_cells.each(id => {
+    let _ = self.read_slot(id)
+  })
+
+  let before = self.formula_revision_snapshot_with_ids(pre_formula_cells)
+  let output = operation()
+  let post_formula_cells = self.formula_cells_for_trace_scope(observed_ids)
+  post_formula_cells.each(id => {
+    let _ = self.read_slot(id)
+  })
+  let after = self.formula_revision_snapshot_with_ids(post_formula_cells)
+  let trace = trace_from_revision_snapshots(post_formula_cells, before, after)
+  (output, trace)
+}
+
+///|
+fn Worksheet::formula_cells_for_trace_scope(
+  self : Worksheet,
+  observed_ids : Array[CellId]?,
+) -> Array[CellId] {
+  match observed_ids {
+    Some(ids) => self.observed_formula_cells(ids)
+    None => self.formula_cells()
+  }
+}
+
+///|
 fn Worksheet::formula_cells(self : Worksheet) -> Array[CellId] {
   [
     for id in self.cells.keys().to_array() if self.is_formula_cell(id) => id
@@ -511,6 +519,22 @@ fn Worksheet::is_formula_cell(self : Worksheet, id : CellId) -> Bool {
       }
     None => false
   }
+}
+
+///|
+fn Worksheet::observed_formula_cells(
+  self : Worksheet,
+  observed_ids : Array[CellId],
+) -> Array[CellId] {
+  let formula_cells : Array[CellId] = []
+  let seen = @hashset.HashSet([])
+  for id in observed_ids {
+    if !seen.contains(id) && self.is_formula_cell(id) {
+      seen.add(id)
+      formula_cells.push(id)
+    }
+  }
+  formula_cells
 }
 
 ///|
@@ -540,6 +564,43 @@ fn Worksheet::formula_revision_snapshot_with_ids(
 priv struct FormulaRevisionSnapshot {
   changed_at : @incr.Revision
   verified_at : @incr.Revision
+}
+
+///|
+fn trace_from_revision_snapshots(
+  formula_cells : Array[CellId],
+  before_snapshot : @hashmap.HashMap[CellId, FormulaRevisionSnapshot],
+  after_snapshot : @hashmap.HashMap[CellId, FormulaRevisionSnapshot],
+) -> WorksheetTrace {
+  let recomputed : Array[CellId] = formula_cells.filter_map(id => {
+    match (before_snapshot.get(id), after_snapshot.get(id)) {
+      (Some(before_revision), Some(after_revision)) if after_revision.verified_at !=
+        before_revision.verified_at => Some(id)
+      (None, Some(_)) => Some(id)
+      _ => None
+    }
+  })
+
+  let changed : Array[CellId] = formula_cells.filter_map(id => {
+    match (before_snapshot.get(id), after_snapshot.get(id)) {
+      (Some(before_revision), Some(after_revision)) if after_revision.verified_at !=
+        before_revision.verified_at &&
+        after_revision.changed_at != before_revision.changed_at => Some(id)
+      (None, Some(_)) => Some(id)
+      _ => None
+    }
+  })
+
+  let unchanged : Array[CellId] = formula_cells.filter_map(id => {
+    match (before_snapshot.get(id), after_snapshot.get(id)) {
+      (Some(before_revision), Some(after_revision)) if after_revision.verified_at !=
+        before_revision.verified_at &&
+        after_revision.changed_at == before_revision.changed_at => Some(id)
+      _ => None
+    }
+  })
+
+  { recomputed, changed, unchanged }
 }
 
 ///|

@@ -29,11 +29,11 @@ pub fn format_snapshot(@typed_spreadsheet.CellSnapshot) -> String
 
 pub fn parse_cell_text_op(@typed_spreadsheet.CellId, String) -> Result[SheetOp, FormulaTextParseError]
 
-pub fn run_batched_op(@typed_spreadsheet.Worksheet, SheetOp, capture? : Array[@typed_spreadsheet.CellId]) -> WorksheetStepResult
+pub fn run_batched_op(@typed_spreadsheet.Worksheet, SheetOp, capture? : Array[@typed_spreadsheet.CellId], trace_cells? : Array[@typed_spreadsheet.CellId]) -> WorksheetStepResult
 
 pub fn run_fixed_scenario() -> Array[WorksheetStepResult]
 
-pub fn run_op(@typed_spreadsheet.Worksheet, SheetOp, capture? : Array[@typed_spreadsheet.CellId]) -> WorksheetStepResult
+pub fn run_op(@typed_spreadsheet.Worksheet, SheetOp, capture? : Array[@typed_spreadsheet.CellId], trace_cells? : Array[@typed_spreadsheet.CellId]) -> WorksheetStepResult
 
 pub fn snapshot_kind(@typed_spreadsheet.CellSnapshot) -> String
 

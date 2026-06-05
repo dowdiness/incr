@@ -131,6 +131,7 @@ pub fn Worksheet::set_formula_ast(Self, CellId, CellType, Formula, label? : Stri
 pub fn Worksheet::set_input(Self, CellId, CellValue, declared? : CellType, label? : String) -> CellResult
 pub fn Worksheet::sheet_id(Self) -> SheetId
 pub fn[T] Worksheet::trace(Self, () -> T) -> (T, WorksheetTrace)
+pub fn[T] Worksheet::trace_observed_formulas(Self, Array[CellId], () -> T) -> (T, WorksheetTrace)
 
 pub enum WorksheetError {
   RefError(String)
