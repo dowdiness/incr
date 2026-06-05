@@ -1,6 +1,6 @@
 ///|
-/// Benchmarks for the current full-sheet `Worksheet::trace` scan and a
-/// benchmark-only bounded lower bound for issue #179.
+/// Benchmarks for the full-sheet `Worksheet::trace` scan and the bounded
+/// observed-formula trace path for issue #179.
 
 ///|
 struct TraceBenchFixture {

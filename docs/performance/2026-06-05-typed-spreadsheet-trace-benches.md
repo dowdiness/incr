@@ -2,19 +2,49 @@
 
 **Date:** 2026-06-05
 
-**Commit:** `fc3312b` plus benchmark-only branch changes
+**Baselines:** `f7be677` (#195 initial full-sheet vs lower-bound trace baseline) and `fea8e6e` (#196 public bounded trace path)
 
 **Backends:** wasm-gc (default), JS (Node + V8)
 
 **Bench file:** [`examples/typed_spreadsheet/trace_bench_wbtest.mbt`](../../examples/typed_spreadsheet/trace_bench_wbtest.mbt)
 
-**Question:** Does `Worksheet::trace` materially pay for all formula cells when a UI-visible edit only needs a bounded trace region?
+**Question:** Does `Worksheet::trace` materially pay for all formula cells when a UI-visible edit only needs a bounded trace region, and what manual guardrail should future bounded-trace changes use?
 
 ## Performance gate
 
-Issue #179 identifies `Worksheet::trace` as an `O(all formula cells)` operation: it enumerates every present formula, reads all formulas before the operation, runs the operation, reads all formulas again, and diffs `changed_at` / `verified_at` snapshots. There was no prior dated measurement for this exact path, so this benchmark establishes the baseline before designing a bounded trace API.
+Issue #179 identified `Worksheet::trace` as an `O(all formula cells)` operation: it enumerates every present formula, reads all formulas before the operation, runs the operation, reads all formulas again, and diffs `changed_at` / `verified_at` snapshots. There was no prior dated measurement for this exact path, so PR #195 established the baseline before designing a bounded trace API.
 
-Existing mitigations do not remove this cost. Formula cells are lazy, and the Rabbita grid render path has a sparse snapshot cache, but `Worksheet::trace` itself still performs a global formula scan by design.
+Existing mitigations did not remove this cost. Formula cells are lazy, and the Rabbita grid render path has a sparse snapshot cache, but `Worksheet::trace` itself still performs a global formula scan by design.
+
+## Manual regression workflow
+
+Use this workflow as the pre-PR check for changes to:
+
+- `Worksheet::trace`, `Worksheet::trace_observed_formulas`, or trace snapshot/classification helpers;
+- typed spreadsheet formula slot lifecycle, read priming, or formula filtering;
+- Rabbita demo code that changes which cells are considered observed/cached for trace;
+- the trace benchmark fixture itself.
+
+Run both backends manually; do not add noisy benchmark assertions to CI:
+
+```bash
+# wasm-gc (default)
+moon bench --release -p examples/typed_spreadsheet -f trace_bench_wbtest.mbt
+
+# JS backend
+moon bench --release --target js -p examples/typed_spreadsheet -f trace_bench_wbtest.mbt
+```
+
+For demo-scale regressions, focus on the 2,500-formula rows with 100 observed formulas:
+
+- `trace bench: bounded one affected in 2500 formulas reads 100 formulas`
+- `trace bench: bounded shared source in 2500 formulas reads 100 formulas`
+
+Expected order of magnitude after #196: **sub-millisecond**, roughly **0.1–0.25 ms per traced edit** across wasm-gc and JS. Treat a repeatable move into millisecond-scale latency, or any bounded row that grows with all 2,500 formulas rather than the 100 observed formulas, as a regression to investigate before merging. Rerun once on the same host before calling a marginal result, especially on JS where V8 noise is higher.
+
+When changing the fixture, keep the scale explicit: "2,500 formulas" means 2,500 formula cells plus the source input cell, not a hidden 2N worksheet shape.
+
+If the guardrail fails, stop at measurement. Do not optimize further without a fresh microbenchmark that isolates the newly slow operation.
 
 ## Fixture
 
@@ -25,13 +55,15 @@ Scenarios:
 - **Global no-op**: one formula depends on the source and the other N-1 formulas are literals; the operation sets the source to the same value. This isolates global scan/snapshot overhead with no invalidation.
 - **Global one affected**: one formula depends on the source and the other N-1 formulas are literals; the operation changes the source. Only one formula should change, but current `Worksheet::trace` still scans all formulas.
 - **Global shared source**: N formulas all depend on one source; changing the source makes every formula in the sheet relevant.
-- **Bounded lower bound**: the benchmark receives a preselected visible formula set and uses the same read/snapshot/diff logic with only that set. PR #195 established this with a wbtest-only helper before a public contract existed; the #179 follow-up can route the same scenario through a bounded trace API. It measures the best-case cost shape if callers already know the bounded region.
+- **Bounded observed formulas**: the benchmark receives a preselected visible formula set and uses the same read/snapshot/diff logic with only that set. PR #195 established this as a wbtest-only lower bound before a public contract existed; PR #196 routes the same scenario through `Worksheet::trace_observed_formulas`. It measures the cost shape when callers already know the bounded observed region.
 
 Setup and first reads happen before timing. Each measured iteration applies one operation and keeps the returned `WorksheetTrace`.
 
 ## Measurements
 
 10 internal iterations per bench; mean ± σ. Values are per traced operation.
+
+The first table is the PR #195 baseline. Its bounded rows were benchmark-only lower-bound rows at capture time; keep them as historical target-shape evidence, not the current public API run. Use the post-#196 rows below as the current guardrail.
 
 | Scenario | Sheet formulas | Traced formulas | wasm-gc | JS (Node/V8) |
 |---|---:|---:|---:|---:|
@@ -51,24 +83,21 @@ Setup and first reads happen before timing. Each measured iteration applies one 
 | Bounded shared source | 2,500 | 10 | 13.71 µs ± 49.79 ns | 17.72 µs ± 155.15 ns |
 | Bounded shared source | 2,500 | 100 | 186.35 µs ± 4.26 µs | 207.31 µs ± 2.38 µs |
 
+Post-#196 public bounded API reference rows, rerun during the #201 docs update:
+
+| Scenario | Sheet formulas | Observed formulas | wasm-gc | JS (Node/V8) |
+|---|---:|---:|---:|---:|
+| Bounded one affected | 2,500 | 100 | 123.86 µs ± 1.59 µs | 132.33 µs ± 595.44 ns |
+| Bounded shared source | 2,500 | 100 | 185.65 µs ± 2.88 µs | 226.50 µs ± 1.52 µs |
+
 ## Interpretation
 
-The current global trace cost is reproduced and significant at the live demo's 50×50 scale. Even the sparse no-op and one-affected cases reach 5–9 ms at 2,500 formulas, because the trace path scans, reads, and snapshots every formula despite at most one formula changing. The shared-source case reaches 10–15 ms at 2,500 formulas, enough to consume most of a 60 Hz frame budget before rendering work.
+The full-sheet global trace cost is reproduced and significant at the live demo's 50×50 scale. Even the sparse no-op and one-affected cases reach 5–9 ms at 2,500 formulas, because the trace path scans, reads, and snapshots every formula despite at most one formula changing. The shared-source case reaches 10–15 ms at 2,500 formulas, enough to consume most of a 60 Hz frame budget before rendering work.
 
-The bounded lower bound is orders of magnitude smaller when the visible set is small. Against a 2,500-formula sheet, tracing 100 formulas costs 91–207 µs depending on backend and invalidation shape; tracing 1–10 formulas stays in the low microseconds. The shared-source bounded rows also show that changing an input with many subscribers does not itself force a global formula read in this pull-derived worksheet shape; the global cost comes from `Worksheet::trace` reading and diffing all formulas.
+The bounded path is orders of magnitude smaller when the visible set is small. Against a 2,500-formula sheet, tracing 100 formulas remains roughly 0.1–0.25 ms depending on backend and invalidation shape; tracing 1–10 formulas stays in the low microseconds. The shared-source bounded rows also show that changing an input with many subscribers does not itself force a global formula read in this pull-derived worksheet shape; the global cost comes from `Worksheet::trace` reading and diffing all formulas.
 
-This confirms #179 is worth designing. The next step should design a bounded trace contract that preserves lazy `Derived` semantics and makes the caller-provided observed region explicit. It should not add a global Excel-style calc chain to `incr` core.
+This confirmed #179 was worth designing. The bounded trace contract preserves lazy `Derived` semantics and makes the caller-provided observed region explicit. It does not add a global Excel-style calc chain to `incr` core.
 
-## Decision
+## Decision / status
 
-Proceed to a bounded trace design/implementation PR after this benchmark baseline. Keep this PR benchmark-only: it demonstrates the problem and gives the bounded API a measurable target.
-
-## Reproduce
-
-```bash
-# wasm-gc (default)
-moon bench --release -p examples/typed_spreadsheet -f trace_bench_wbtest.mbt
-
-# JS backend
-moon bench --release --target js -p examples/typed_spreadsheet -f trace_bench_wbtest.mbt
-```
+PR #195 established that global trace is millisecond-scale at the demo's 50×50 formula scale. PR #196 shipped the bounded observed-formula trace path and kept 100 observed formulas sub-millisecond. Future work should use the regression workflow above instead of broad CI benchmark gates.
