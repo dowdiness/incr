@@ -2,3 +2,7 @@ import {
   "dowdiness/incr",
   "moonbitlang/core/hashmap",
 }
+
+import {
+  "moonbitlang/core/bench",
+} for "wbtest"
