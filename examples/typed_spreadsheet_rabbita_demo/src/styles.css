@@ -203,7 +203,7 @@ code,
 .demo-intro-kicker,
 .demo-intro-title,
 .demo-intro-copy,
-.snapshot-panel-help {
+.inspector-note {
   margin: 0;
 }
 
@@ -223,7 +223,7 @@ code,
 }
 
 .demo-intro-copy,
-.snapshot-panel-help {
+.inspector-note {
   color: var(--ink-soft);
   font-size: 0.82rem;
   line-height: 1.45;
@@ -917,7 +917,7 @@ code,
   }
 
   .demo-intro-copy,
-  .snapshot-panel-help {
+  .inspector-note {
     font-size: 0.76rem;
   }
 
