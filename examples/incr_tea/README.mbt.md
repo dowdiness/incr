@@ -87,10 +87,10 @@ DOM patch attempts, skipped patches, and rAF flushes.
 
 Before implementing this slice, the Rabbita references read were:
 
-- `/home/antisatori/ghq/github.com/dowdiness/canopy/rabbita/doc/002_writing_html/readme.mbt.md`
-- `/home/antisatori/ghq/github.com/dowdiness/canopy/rabbita/rabbita/html/README.mbt.md`
-- `/home/antisatori/ghq/github.com/dowdiness/canopy/rabbita/rabbita/internal/runtime/README.mbt.md`
-- `/home/antisatori/ghq/github.com/dowdiness/canopy/rabbita/rabbita/tea.mbt`
+- [`rabbita/doc/002_writing_html/readme.mbt.md`](https://github.com/dowdiness/rabbita/blob/5f828eb7270cb14970f2be592dba25990a513c61/doc/002_writing_html/readme.mbt.md)
+- [`rabbita/rabbita/html/README.mbt.md`](https://github.com/dowdiness/rabbita/blob/5f828eb7270cb14970f2be592dba25990a513c61/rabbita/html/README.mbt.md)
+- [`rabbita/rabbita/internal/runtime/README.mbt.md`](https://github.com/dowdiness/rabbita/blob/5f828eb7270cb14970f2be592dba25990a513c61/rabbita/internal/runtime/README.mbt.md)
+- [`rabbita/rabbita/tea.mbt`](https://github.com/dowdiness/rabbita/blob/5f828eb7270cb14970f2be592dba25990a513c61/rabbita/tea.mbt)
 
 Reused ideas: an HTML value layer, event descriptors that re-enter a central
 scheduler, FIFO command execution, and rAF-batched rendering. New here: the

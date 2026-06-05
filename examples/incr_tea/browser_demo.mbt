@@ -182,23 +182,35 @@ fn render_stats(stats : RenderStats) -> String {
 
 ///|
 #cfg(target="js")
-fn update_stats(stats : RenderStats) -> Unit {
-  dom_set_text_by_id("render-stats", render_stats(stats))
+fn update_stats(host : DomElement, stats : RenderStats) -> Unit {
+  dom_set_element_text(host, render_stats(stats))
 }
 
 ///|
 /// Mounts the browser demo into the static hosts under `mount_id`.
 #cfg(target="js")
 pub fn mount_browser_demo(mount_id : String) -> Unit {
-  ignore(dom_get_element_by_id(mount_id))
+  let host = dom_get_element_by_id(mount_id)
+  let stats_host = dom_query_child_by_id(host, "render-stats")
   let runtime = @incr.Runtime()
-  let renderer = BrowserRenderer::BrowserRenderer(
-    runtime,
-    after_flush=update_stats,
+  let renderer = BrowserRenderer::BrowserRenderer(runtime, after_flush=stats => {
+    update_stats(stats_host, stats)
+  })
+  renderer.mount(
+    dom_query_child_by_id(host, "counter-root"),
+    counter_program(runtime),
   )
-  renderer.mount("counter-root", counter_program(runtime))
-  renderer.mount("panel-root", panel_program(runtime))
-  renderer.mount("nested-parent-root", parent_program(runtime))
-  renderer.mount("nested-child-root", child_program(runtime))
-  update_stats(renderer.stats())
+  renderer.mount(
+    dom_query_child_by_id(host, "panel-root"),
+    panel_program(runtime),
+  )
+  renderer.mount(
+    dom_query_child_by_id(host, "nested-parent-root"),
+    parent_program(runtime),
+  )
+  renderer.mount(
+    dom_query_child_by_id(host, "nested-child-root"),
+    child_program(runtime),
+  )
+  update_stats(stats_host, renderer.stats())
 }

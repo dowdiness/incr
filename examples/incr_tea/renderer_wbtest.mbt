@@ -218,6 +218,14 @@ test "renderer roots: child boundary skips unchanged watched root" {
   inspect(stats.patch_attempts, content="3")
   inspect(stats.skipped_patches, content="1")
 
+  inspect(child.dispatch(ChildOnly), content="true")
+  guard child_root.read_changed() is Some(_) else {
+    fail("child update should patch")
+  }
+  debug_inspect(parent_root.read_changed(), content="None")
+  inspect(stats.patch_attempts, content="4")
+  inspect(stats.skipped_patches, content="2")
+
   parent.dispose()
   child.dispose()
 }

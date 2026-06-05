@@ -15,6 +15,7 @@ priv struct Attribute {
 priv struct EventBinding[Msg] {
   name : String
   message : Msg
+  prevent_default : Bool
 } derive(Eq, Debug)
 
 ///|
@@ -56,8 +57,11 @@ fn[Msg] text(value : String) -> Html[Msg] {
 
 ///|
 #cfg(target="js")
-fn[Msg] on_click(message : Msg) -> EventBinding[Msg] {
-  { name: "click", message }
+fn[Msg] on_click(
+  message : Msg,
+  prevent_default? : Bool = false,
+) -> EventBinding[Msg] {
+  { name: "click", message, prevent_default }
 }
 
 ///|

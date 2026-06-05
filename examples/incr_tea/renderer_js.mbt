@@ -19,6 +19,18 @@ extern "js" fn dom_get_element_by_id(id : String) -> DomElement =
 
 ///|
 #cfg(target="js")
+extern "js" fn dom_query_child_by_id(
+  parent : DomElement,
+  id : String,
+) -> DomElement =
+  #| (parent, id) => {
+  #|   const el = parent.querySelector("#" + id);
+  #|   if (!el) throw new Error(`missing DOM mount #${id}`);
+  #|   return el;
+  #| }
+
+///|
+#cfg(target="js")
 extern "js" fn dom_create_element(tag : String) -> DomElement =
   #| (tag) => document.createElement(tag)
 
@@ -83,11 +95,12 @@ extern "js" fn dom_remove_attr(element : DomElement, name : String) -> Unit =
 extern "js" fn dom_add_event_listener(
   element : DomElement,
   name : String,
+  prevent_default : Bool,
   callback : () -> Unit,
 ) -> Unit =
-  #| (element, name, callback) => {
+  #| (element, name, preventDefault, callback) => {
   #|   element.addEventListener(name, event => {
-  #|     if (name === "click") event.preventDefault();
+  #|     if (preventDefault) event.preventDefault();
   #|     callback();
   #|   });
   #| }
@@ -99,11 +112,11 @@ extern "js" fn dom_request_animation_frame(callback : () -> Unit) -> Unit =
 
 ///|
 #cfg(target="js")
-extern "js" fn dom_set_text_by_id(id : String, value : String) -> Unit =
-  #| (id, value) => {
-  #|   const el = document.getElementById(id);
-  #|   if (el) el.textContent = value;
-  #| }
+extern "js" fn dom_set_element_text(
+  element : DomElement,
+  value : String,
+) -> Unit =
+  #| (element, value) => { element.textContent = value; }
 
 ///|
 #cfg(target="js")
@@ -204,7 +217,9 @@ fn[Msg] attach_events(
   dispatch : (Msg) -> Unit,
 ) -> Unit {
   for event in events {
-    dom_add_event_listener(element, event.name, () => dispatch(event.message))
+    dom_add_event_listener(element, event.name, event.prevent_default, () => {
+      dispatch(event.message)
+    })
   }
 }
 
@@ -407,18 +422,14 @@ fn[Msg] BrowserRenderer::stats(self : BrowserRenderer[Msg]) -> RenderStats {
 #cfg(target="js")
 fn[Msg : Eq] BrowserRenderer::mount(
   self : BrowserRenderer[Msg],
-  mount_id : String,
+  host : DomElement,
   program : Program[Msg, Html[Msg]],
 ) -> Unit {
   guard program.runtime().id() == self.runtime.id() else {
     abort("BrowserRenderer::mount called with a Program from another Runtime")
   }
   self.view_ids.val.push(program.view_id())
-  let root = BrowserRoot::BrowserRoot(
-    program,
-    dom_get_element_by_id(mount_id),
-    self.stats,
-  )
+  let root = BrowserRoot::BrowserRoot(program, host, self.stats)
   self.roots.push(root)
   root.flush()
   (self.after_flush)(self.stats)
