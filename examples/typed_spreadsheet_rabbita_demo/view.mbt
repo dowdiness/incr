@@ -60,7 +60,7 @@ fn view_demo_intro(
           ),
           @html.p(
             class="demo-intro-copy",
-            "Cells are MoonBit incremental computations; formulas track the cells they read. Use the bottom rail: edit a value, then open trace and evidence.",
+            "Cells are MoonBit incremental computations; formulas track the cells they read. Trace covers formulas the demo is already showing or caching, so formulas elsewhere stay lazy until observed.",
           ),
         ],
       )
@@ -515,17 +515,22 @@ fn view_trace_overlay(
       .role("complementary")
       .aria_label("Trace inspector"),
     [
-      view_inspector_header(emit, "Trace", "what the engine revisited"),
+      view_inspector_header(emit, "Trace", "observed formulas only"),
+      @html.p(
+        class="inspector-note",
+        "Trace covers formulas the demo is already showing, observing, or caching, not every formula in the 50×50 sheet. Other formulas stay lazy until the UI reads or observes them.",
+      ),
       @html.div(class="trace-buckets", [
         view_trace_bucket(
-          emit, "recomputed", "Dependency check or evaluation ran after the edit.",
+          emit, "recomputed", "An observed formula rechecked dependencies or evaluated after the edit.",
           recomputed,
         ),
         view_trace_bucket(
-          emit, "changed", "The visible result changed.", changed,
+          emit, "changed", "An observed formula produced a new value.", changed,
         ),
         view_trace_bucket(
-          emit, "unchanged", "Work ran, but the result stayed the same.", unchanged,
+          emit, "unchanged", "An observed formula rechecked dependencies or evaluated, then returned the same value.",
+          unchanged,
         ),
       ]),
     ],
@@ -553,8 +558,8 @@ fn view_snapshot_overlay(
     [
       view_inspector_header(emit, "Evidence", "before and after the last edit"),
       @html.p(
-        class="snapshot-panel-help",
-        "Before/after snapshots show what the MoonBit worksheet engine observed around the last edit.",
+        class="inspector-note",
+        "Evidence is narrower than trace: snapshots cover cells involved in the edit, plus direct formula references for formula installs, not every observed formula.",
       ),
       content,
     ],

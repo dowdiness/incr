@@ -14,9 +14,9 @@ Edit one cell. Watch only the necessary work happen.
 The sheet is a concrete, touchable example of `incr` as a dependency-tracked
 computation engine: cell values are backed by MoonBit incremental computations,
 formulas track the cells they read, and the trace/evidence panels show which
-formulas recomputed, which values changed, and where work produced the same
-result. The browser layer edits and renders the sheet; spreadsheet calculation
-stays in MoonBit.
+observed formulas recomputed, changed, or rechecked without changing value. The
+browser layer edits and renders the sheet; spreadsheet calculation stays in
+MoonBit.
 
 ## Responsibility map
 
@@ -113,6 +113,18 @@ After each applied edit, the toggle rail can reveal trace buckets (`recomputed`,
 `changed`, `unchanged`) and before/after snapshots for the selected cell. The
 grid scrolls in both directions and keeps row/column headers sticky while
 navigating the 2,500 cells.
+
+Trace and evidence are intentionally bounded:
+
+- Trace reports formulas the UI is already observing or caching, not every
+  formula in the worksheet. Formulas outside that set stay lazy until the UI
+  reads or observes them.
+- `recomputed` means an observed formula rechecked dependencies or evaluated.
+  `changed` means an observed formula produced a new value. `unchanged` means an
+  observed formula did work but returned the same value.
+- Evidence snapshots are narrower than trace. They show before/after details for
+  the edit target, selected cell, and formula references for formula installs
+  instead of full-grid before/after data.
 
 Out of scope for this prototype: ranges, multiple sheets, persistence,
 collaboration, and a general Excel-compatible parser.
