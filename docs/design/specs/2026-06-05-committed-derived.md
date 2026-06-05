@@ -162,18 +162,24 @@ pub fn[V : Eq, E : Eq] Scope::accepted_derived(
 Observation methods:
 
 ```moonbit
+// Reads carry the read-error channel, matching the Derived/Watch honest-read
+// split (`.read() -> Result[T, ReadError]`); each graceful read below also has a
+// strict `*_or_abort` variant (omitted) that returns the inner value and aborts
+// on ReadError. `current` nests two Results: the outer is the read channel
+// (Cycle/Disposed), the inner is the domain candidate (Ok/Err).
 pub fn[V, E] AcceptedDerived::current(
   self : AcceptedDerived[V, E],
-) -> Result[V, E]
+) -> Result[Result[V, E], ReadError]
 
 pub fn[V, E] AcceptedDerived::accepted(
   self : AcceptedDerived[V, E],
-) -> V?
+) -> Result[V?, ReadError]
 
 pub fn[V, E] AcceptedDerived::snapshot(
   self : AcceptedDerived[V, E],
-) -> AcceptedSnapshot[V, E]
+) -> Result[AcceptedSnapshot[V, E], ReadError]
 
+// Persistent anchors; `Watch::read` already returns `Result[T, ReadError]`.
 pub fn[V, E] AcceptedDerived::watch_snapshot(
   self : AcceptedDerived[V, E],
 ) -> Watch[AcceptedSnapshot[V, E]]
@@ -183,15 +189,14 @@ pub fn[V, E] AcceptedDerived::watch_accepted(
 ) -> Watch[V?]
 ```
 
-Open naming/typing question: the signatures above are **provisional and elide the
-read-error channel**. Because a read can hit a `Cycle` or `Disposed` on the
-underlying cells, the real accessors must carry `ReadError` — either returning
-`Result[..., ReadError]` (mirroring `Derived`/`Watch` `.read()`) or pairing each
-with an `*_or_abort` variant — and may be renamed `read_current` /
-`read_accepted` / `read_snapshot` to mark them as outside-graph reads. The first
-implementation should follow the final read-channel policy in `Derived`/`Watch`
-at that time. See [Error ownership](#error-ownership) for the `ReadError`
-semantics these accessors must expose.
+These read methods follow the established `Derived`/`Watch` honest-read contract:
+a graceful `.read() -> Result[T, ReadError]` (shown above) plus a strict
+`*_or_abort` variant that returns the inner value and aborts on `ReadError` (see
+[Error ownership](#error-ownership) and the honest-read-ownership spec). The only
+remaining open choice is cosmetic — whether to keep the bare `current` /
+`accepted` / `snapshot` names or prefix them `read_*` to signal outside-graph
+reads — to be settled against the final `Derived`/`Watch` surface at
+implementation time.
 
 ## Implementation direction
 
@@ -234,6 +239,14 @@ not be able to bypass the acceptance — `current` is the candidate result, but 
 delivery must not let candidate changes advance without the accept cell also
 running.
 
+The fold operates over *committed* candidate revisions, not intra-batch writes.
+`Runtime::batch` coalesces multiple input writes into a single revision, so a
+batch yields exactly one candidate transition (the post-commit candidate) and the
+accept cell is evaluated exactly once per committed revision; intermediate values
+written inside a batch are never separately accepted. The "every transition"
+requirement above therefore means every *committed revision's* transition, which
+is the granularity the lazy-pull hazard applies to.
+
 This mirrors the hand-written pattern downstream projects already use, but makes
 its lifecycle and read channels explicit.
 
@@ -243,9 +256,11 @@ its lifecycle and read channels explicit.
 normal backdating. `V : Eq` drives the accepted-value equality check in the
 state machine (`v == old`); `E : Eq` lets the current channel backdate when an
 error repeats (`Err(e1)` then `Err(e2)` with `e1 == e2`), so current-result
-observers are not woken for an unchanged diagnostic. A no-backdate constructor
-can be considered later if a caller has non-`Eq` diagnostics or expensive
-comparisons.
+observers are not woken for an unchanged diagnostic. v1 therefore does **not**
+support non-`Eq` `V` or `E`: a caller whose domain error is not cheaply `Eq` must
+wrap it in an `Eq` keying type (or accept that the current channel will not
+backdate). Lifting this via a no-backdate / no-`Eq` constructor is tracked as an
+open question below, not part of the v1 surface.
 
 The accept revision/count should advance only when the accepted value actually
 changes, not on every successful candidate recomputation. This matters for
@@ -288,13 +303,12 @@ resumes from the retained accepted value. This keeps the read-channel error
 (`ReadError`) and the domain error (`E` inside `Result`) on separate channels,
 as the honest-read split intends.
 
-Concretely, the observation accessors must expose a read channel that can carry
-`ReadError`, following the `Derived`/`Watch` `.read() -> Result[T, ReadError]`
-split (see the open read-channel naming question under "Proposed surface
-sketch"). The plain-return signatures in that sketch are provisional and cannot
-represent a `ReadError`. While a `ReadError` is active, no `AcceptedSnapshot` is
-produced and the accepted value, `status`, and accept revision are all
-unchanged — the read returns the error in place of a value.
+Concretely, the observation accessors carry this read channel (see the read
+signatures under "Proposed surface sketch"): the graceful reads return
+`Result[..., ReadError]` and the strict `*_or_abort` reads abort on `ReadError`.
+While a `ReadError` is active, no `AcceptedSnapshot` is produced and the accepted
+value, `status`, and accept revision are all unchanged — the read returns the
+error in place of a value.
 
 ## Interaction with Loom projection identity
 
@@ -384,6 +398,13 @@ When the API ships, tests should cover:
 - failure after success exposes current `Err` while preserving accepted value;
 - later changed success replaces the accepted value;
 - later equal success does not advance the accepted changed revision/count;
+- each `AcceptStatus` transition is asserted explicitly: `NoAccept` (no prior,
+  `Err`), `AcceptedChanged` (first `Ok`, and a later changed `Ok`),
+  `AcceptedUnchanged` (equal `Ok`), `RetainedDueToError` (prior value exists,
+  `Err`);
+- a repeated equal error (`Err(e)` then `Err(e)` with `e == e`) backdates the
+  current channel — current-result observers are not woken and the accept
+  revision/count does not advance;
 - a transient successful candidate is accepted even when no consumer reads the
   accepted channel between that success and a later failure — i.e. observing only
   the current channel across an `Ok(v)` edit, then reading `accepted` after a
