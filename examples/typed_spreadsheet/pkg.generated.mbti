@@ -46,6 +46,7 @@ pub struct CellSnapshot {
   present : Bool
   kind : CellKind?
   result : CellResult
+  dependency_shape : FormulaDependencyShape?
   installed_dependencies : Array[CellId]
   static_references : Array[CellId]
   last_dynamic_dependencies : Array[CellId]
@@ -89,12 +90,19 @@ pub enum Formula {
 } derive(Eq)
 pub fn Formula::add(Self, Self) -> Self
 pub fn Formula::cell_ref(CellId) -> Self
+pub fn Formula::dependency_shape(Self) -> FormulaDependencyShape
 pub fn Formula::eq(Self, Self) -> Self
 pub fn Formula::gt(Self, Self) -> Self
 pub fn Formula::if_(Self, Self, Self) -> Self
 pub fn Formula::literal(CellValue) -> Self
 pub fn Formula::mul(Self, Self) -> Self
 pub fn Formula::refs(Self) -> Array[CellId]
+
+pub(all) enum FormulaDependencyShape {
+  Applicative
+  Selective
+  Dynamic
+} derive(Eq, @debug.Debug)
 
 pub struct SheetId {
   value : Int

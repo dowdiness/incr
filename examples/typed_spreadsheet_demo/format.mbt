@@ -46,10 +46,11 @@ pub fn format_snapshot(snapshot : @typed_spreadsheet.CellSnapshot) -> String {
       None => "unknown"
     }
     let result_text = format_cell_result(snapshot.result)
+    let shape = format_dependency_shape(snapshot.dependency_shape)
     let deps = format_cell_ids(snapshot.installed_dependencies)
     let refs = format_cell_ids(snapshot.static_references)
     let dynamic_deps = format_cell_ids(snapshot.last_dynamic_dependencies)
-    "\{kind_text} \{result_text} deps=\{deps} refs=\{refs} dyn=\{dynamic_deps}"
+    "\{kind_text} \{result_text} shape=\{shape} deps=\{deps} refs=\{refs} dyn=\{dynamic_deps}"
   } else {
     let result_text = format_cell_result(snapshot.result)
     "missing \{result_text}"
@@ -62,6 +63,19 @@ fn format_cell_kind(kind : @typed_spreadsheet.CellKind) -> String {
   match kind {
     Input => "input"
     Formula => "formula"
+  }
+}
+
+///|
+/// Formats a formula dependency-shape classification.
+pub fn format_dependency_shape(
+  shape : @typed_spreadsheet.FormulaDependencyShape?,
+) -> String {
+  match shape {
+    None => "none"
+    Some(Applicative) => "applicative"
+    Some(Selective) => "selective"
+    Some(Dynamic) => "dynamic"
   }
 }
 

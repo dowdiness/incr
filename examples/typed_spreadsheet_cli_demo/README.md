@@ -23,7 +23,7 @@ trace:
 snapshots:
   B1:
     before: missing RefError("no cell at the requested address")
-    after:  formula Ok(Int(11)) deps=[] refs=[A1] dyn=[A1]
+    after:  formula Ok(Int(11)) shape=applicative deps=[] refs=[A1] dyn=[A1]
 
 #4 SetInput A1 = Int(15)
 outcome: Ok(Int(15))
@@ -52,6 +52,7 @@ trace:
         "present": false,
         "kind": "missing",
         "result": "RefError(\"no cell at the requested address\")",
+        "dependency_shape": "none",
         "installed_dependencies": [],
         "static_references": [],
         "last_dynamic_dependencies": []
@@ -61,6 +62,7 @@ trace:
         "present": true,
         "kind": "formula",
         "result": "Ok(Int(11))",
+        "dependency_shape": "applicative",
         "installed_dependencies": [],
         "static_references": ["A1"],
         "last_dynamic_dependencies": ["A1"]
@@ -76,10 +78,10 @@ trace:
   `examples/typed_spreadsheet_demo`; the typed spreadsheet boundary in
   `examples/typed_spreadsheet` does not own the demo operation vocabulary or
   parser grammar.
-- **Static refs vs dynamic deps**: formula AST references are discovered before
-  execution and exposed as `refs=[A1]` / `static_references: ["A1"]`; the last
-  logical cells read during evaluation are exposed as `dyn=[A1]` /
-  `last_dynamic_dependencies: ["A1"]`.
+- **Dependency shape, static refs, dynamic deps**: formula AST references are
+  discovered before execution and exposed as `shape=applicative`, `refs=[A1]` /
+  `static_references: ["A1"]`; the last logical cells read during evaluation are
+  exposed as `dyn=[A1]` / `last_dynamic_dependencies: ["A1"]`.
 - **Trace changed/no-op**: changing `A1` from `10` to `15` marks `B1` as
   changed, while setting `A1` to `15` again is a semantic no-op and leaves all
   trace buckets empty. The worksheet API still exposes explicit force paths when

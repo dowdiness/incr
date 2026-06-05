@@ -23,6 +23,10 @@ test "typed spreadsheet CLI scenario renders text and JSON" {
   let json = render_scenario(JsonFormat)
   inspect(@json.valid(json), content="true")
   inspect(json.contains("SetFormulaAst B1 : Int"), content="true")
+  inspect(
+    json.contains("\"dependency_shape\": \"applicative\""),
+    content="true",
+  )
   inspect(json.contains("\"unchanged\": ["), content="true")
   inspect(json.contains("\"B1\""), content="true")
 }

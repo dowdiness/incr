@@ -19,6 +19,8 @@ pub fn format_cell_ids(Array[@typed_spreadsheet.CellId]) -> String
 
 pub fn format_cell_result(@typed_spreadsheet.CellResult) -> String
 
+pub fn format_dependency_shape(@typed_spreadsheet.FormulaDependencyShape?) -> String
+
 pub fn format_op(SheetOp) -> String
 
 pub fn format_outcome(OpOutcome) -> String
@@ -56,6 +58,7 @@ pub struct CellSnapshotViewModel {
   kind : String
   result : String
   result_status : String
+  dependency_shape : String
   installed_dependencies : Array[String]
   static_references : Array[String]
   last_dynamic_dependencies : Array[String]

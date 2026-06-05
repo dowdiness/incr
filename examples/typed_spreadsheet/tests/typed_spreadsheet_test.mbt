@@ -131,6 +131,10 @@ test "typed spreadsheet: inspect input snapshot" {
     Some(_) => inspect(true, content="true")
     None => inspect(false, content="false")
   }
+  match snapshot.dependency_shape {
+    None => inspect(true, content="true")
+    Some(_) => inspect(false, content="false")
+  }
   inspect(snapshot.installed_dependencies.length(), content="0")
   inspect(snapshot.static_references.length(), content="0")
   inspect(snapshot.last_dynamic_dependencies.length(), content="0")
@@ -194,6 +198,11 @@ test "typed spreadsheet: inspect formula snapshot" {
   inspect(snapshot.last_dynamic_dependencies.length(), content="2")
   inspect(snapshot.last_dynamic_dependencies.contains(a1), content="true")
   inspect(snapshot.last_dynamic_dependencies.contains(a2), content="true")
+  inspect(
+    snapshot.dependency_shape ==
+    Some(@typed_spreadsheet.FormulaDependencyShape::Applicative),
+    content="true",
+  )
   match snapshot.kind {
     Some(_) => inspect(true, content="true")
     None => inspect(false, content="false")
@@ -605,6 +614,11 @@ test "typed spreadsheet: inspect formula AST snapshot refs" {
   inspect(snapshot.last_dynamic_dependencies.length(), content="2")
   inspect(snapshot.last_dynamic_dependencies.contains(a1), content="true")
   inspect(snapshot.last_dynamic_dependencies.contains(a2), content="true")
+  inspect(
+    snapshot.dependency_shape ==
+    Some(@typed_spreadsheet.FormulaDependencyShape::Applicative),
+    content="true",
+  )
 
   match snapshot.result {
     @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(value)) =>
@@ -661,6 +675,11 @@ test "typed spreadsheet: inspect AST snapshot keeps static refs for inactive bra
     snapshot.last_dynamic_dependencies.contains(inactive),
     content="false",
   )
+  inspect(
+    snapshot.dependency_shape ==
+    Some(@typed_spreadsheet.FormulaDependencyShape::Selective),
+    content="true",
+  )
 
   match sheet.read(target) {
     @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(value)) =>
@@ -713,6 +732,11 @@ test "typed spreadsheet: inspect AST dynamic deps follow active if branch" {
 
   let true_snapshot = sheet.inspect_cell(target)
   inspect(true_snapshot.static_references.length(), content="3")
+  inspect(
+    true_snapshot.dependency_shape ==
+    Some(@typed_spreadsheet.FormulaDependencyShape::Selective),
+    content="true",
+  )
   inspect(
     true_snapshot.last_dynamic_dependencies.contains(condition),
     content="true",
