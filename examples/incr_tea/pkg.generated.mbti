@@ -7,6 +7,7 @@ import {
 }
 
 // Values
+pub fn mount_browser_demo(String) -> Unit
 
 // Errors
 
@@ -49,6 +50,8 @@ pub(all) struct CounterView {
   title : String
   count : Int
 } derive(Eq, @debug.Debug)
+
+type DemoMsg derive(Eq, @debug.Debug)
 
 type Program[Msg, View]
 
