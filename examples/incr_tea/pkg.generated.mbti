@@ -1,0 +1,49 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "examples/incr_tea"
+
+import {
+  "dowdiness/incr/cells",
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct CounterApp {
+  // private fields
+}
+pub fn CounterApp::CounterApp() -> Self
+pub fn CounterApp::count(Self) -> Int?
+pub fn CounterApp::dispatch(Self, CounterMsg) -> Bool
+pub fn CounterApp::dispose(Self) -> Unit
+pub fn CounterApp::is_mounted(Self) -> Bool
+pub fn CounterApp::runtime(Self) -> @cells.Runtime
+pub fn CounterApp::title(Self) -> String?
+pub fn CounterApp::unrelated(Self) -> Int?
+pub fn CounterApp::view(Self) -> CounterView?
+pub fn CounterApp::view_or_abort(Self) -> CounterView
+pub fn CounterApp::with_runtime(@cells.Runtime) -> Self
+
+pub(all) enum CounterMsg {
+  Increment
+  Decrement
+  Reset
+  SetTitle(String)
+  SetCount(Int)
+  SetUnrelated(Int)
+  SetBoth(next_count~ : Int, next_title~ : String)
+} derive(@debug.Debug)
+
+pub(all) struct CounterView {
+  title : String
+  count : Int
+} derive(Eq, @debug.Debug)
+
+type Program[Msg, View]
+
+// Type aliases
+
+// Traits
+
