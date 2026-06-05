@@ -12,6 +12,7 @@ struct Program[Msg, View] {
   messages : @queue.Queue[Msg]
   mut is_draining : Bool
   view_watch : @incr.Watch[View]
+  _view_id : @incr.CellId
 }
 
 ///|
@@ -41,6 +42,7 @@ fn[Msg, View : Eq] Program::Program(
     messages: @queue.Queue([]),
     is_draining: false,
     view_watch,
+    _view_id: view_root.id(),
   }
 }
 

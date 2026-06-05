@@ -1,0 +1,206 @@
+/* Demo builds do not fetch web fonts; Inter and JetBrains Mono are preferred
+   local fonts with intentional system fallbacks. */
+:root {
+  color-scheme: dark;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #111222;
+  color: #f3f0ff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 18% 8%, rgba(130, 80, 223, 0.3), transparent 32rem),
+    linear-gradient(135deg, #111222 0%, #1a1a2e 58%, #171426 100%);
+}
+
+button {
+  font: inherit;
+}
+
+.app-shell {
+  width: min(1120px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 48px 0;
+}
+
+.hero-card,
+.mount-card,
+.stats-card {
+  border: 1px solid rgba(195, 232, 141, 0.14);
+  border-radius: 24px;
+  background: rgba(16, 18, 34, 0.72);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(18px);
+}
+
+.hero-card {
+  padding: 32px;
+  margin-bottom: 20px;
+}
+
+.hero-card h1 {
+  max-width: 720px;
+  margin: 0;
+  font-size: clamp(2.2rem, 6vw, 5rem);
+  line-height: 0.95;
+  letter-spacing: -0.06em;
+}
+
+.hero-card p {
+  max-width: 760px;
+  color: #c9c4dd;
+  line-height: 1.7;
+}
+
+.eyebrow {
+  margin: 0 0 10px;
+  color: #c3e88d;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.demo-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.mount-card,
+.stats-card {
+  min-height: 260px;
+  padding: 20px;
+}
+
+.demo-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.demo-card h2,
+.demo-card h3 {
+  margin: 0;
+  letter-spacing: -0.03em;
+}
+
+.demo-card p {
+  margin: 0;
+  color: #d8d3e8;
+}
+
+.metric-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px;
+  border-radius: 18px;
+  background: rgba(130, 80, 223, 0.18);
+}
+
+.metric-label,
+.demo-note {
+  color: #a8a1c2;
+}
+
+.metric-value {
+  color: #82aaff;
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 3rem;
+  font-weight: 700;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.demo-button {
+  border: 1px solid rgba(130, 80, 223, 0.55);
+  border-radius: 999px;
+  padding: 10px 14px;
+  color: #f7f3ff;
+  background: rgba(130, 80, 223, 0.18);
+  cursor: pointer;
+  transition: transform 140ms ease, background 140ms ease, border-color 140ms ease;
+}
+
+.demo-button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(195, 232, 141, 0.7);
+  background: rgba(130, 80, 223, 0.3);
+}
+
+.panel-detail {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border-left: 3px solid #c3e88d;
+  border-radius: 14px;
+  background: rgba(195, 232, 141, 0.08);
+}
+
+.nested-shell {
+  grid-column: span 2;
+  display: grid;
+  grid-template-columns: 0.8fr 1.2fr;
+  gap: 18px;
+}
+
+.nested-copy p:last-child {
+  margin: 0;
+  color: #c9c4dd;
+  line-height: 1.6;
+}
+
+.nested-roots {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.nested-parent,
+.nested-child {
+  min-height: 180px;
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.stats-card pre {
+  margin: 0;
+  color: #c3e88d;
+  font: 600 0.95rem/1.7 "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 760px) {
+  .app-shell {
+    width: min(100vw - 20px, 680px);
+    padding: 20px 0;
+  }
+
+  .hero-card {
+    padding: 24px;
+  }
+
+  .demo-grid,
+  .nested-shell,
+  .nested-roots {
+    grid-template-columns: 1fr;
+  }
+
+  .nested-shell {
+    grid-column: span 1;
+  }
+}

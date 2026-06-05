@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Incremental TEA renderer demo</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <main id="app" class="app-shell">
+      <section class="hero-card">
+        <p class="eyebrow">incr / TEA</p>
+        <h1>Watched Derived views, patched on rAF</h1>
+        <p>
+          The buttons below dispatch messages into package-private Programs. A
+          browser renderer reads watched Html roots on animation frames and skips
+          patching when incremental verification keeps a root unchanged.
+        </p>
+      </section>
+
+      <section class="demo-grid" aria-label="Incremental TEA demos">
+        <div id="counter-root" class="mount-card" aria-live="polite"></div>
+        <div id="panel-root" class="mount-card"></div>
+        <section class="nested-shell mount-card" aria-label="Nested component boundary demo">
+          <div class="nested-copy">
+            <p class="eyebrow">nested roots</p>
+            <p>Updating the parent schedules a flush for both roots, but the child root is read and skipped when unchanged.</p>
+          </div>
+          <div class="nested-roots">
+            <div id="nested-parent-root"></div>
+            <div id="nested-child-root"></div>
+          </div>
+        </section>
+        <aside class="stats-card" aria-label="Renderer instrumentation">
+          <p class="eyebrow">instrumentation</p>
+          <pre id="render-stats">loading…</pre>
+        </aside>
+      </section>
+    </main>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

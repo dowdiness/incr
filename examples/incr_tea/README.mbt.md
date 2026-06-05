@@ -4,16 +4,16 @@ Experimental `incr`-native TEA runtime skeleton for
 [`dowdiness/incr#191`](https://github.com/dowdiness/incr/issues/191).
 
 This is not a public `dowdiness/incr` API and not a Rabbita fork. The prototype
-now proves the core loop with a pure counter component plus a minimal
-Rabbita-style `Cmd` scheduler; browser rendering, Rabbita-compatible HTML/VDOM,
-subscriptions, async command adapters, and benchmark comparisons are follow-up
-issues.
+now proves the core loop with a pure counter component, a minimal
+Rabbita-style `Cmd` scheduler, and a browser-rendering slice for watched
+`Html` view roots. Rabbita-compatible HTML/VDOM, subscriptions, async command
+adapters, and benchmark comparisons are follow-up issues.
 
 ## BSaLC / TEA mapping
 
 | TEA concern | Prototype mapping |
 | --- | --- |
-| Scheduler | `CounterApp::dispatch` enqueues messages, runs each `update` in `Runtime::batch`, then executes returned `Cmd` values after the batch commits. A later renderer will add rAF flushing. |
+| Scheduler | `CounterApp::dispatch` enqueues messages, runs each `update` in `Runtime::batch`, then executes returned `Cmd` values after the batch commits. The browser renderer schedules rAF flushing from the runtime change hook. |
 | Store | Component model fields are `InputField` values owned by an `@incr.Scope`. |
 | Task | `view` is a pure tracked `Derived` computation. |
 | Rebuilder | The default `incr` verifying trace with backdating decides whether the view recomputes. |
@@ -55,6 +55,50 @@ after the model batch commits and outside tracked `Derived` view computations;
 it can enqueue another command to re-enter the TEA loop. Checked failure handling
 is intentionally unsupported at the command layer for now. Represent
 recoverable failures as messages carrying `Result`.
+
+## Browser renderer slice
+
+The renderer mounts package-private `Program[Msg, Html[Msg]]` roots, installs a
+runtime `on_change` hook, and schedules one `requestAnimationFrame` flush for a
+burst of model changes. A flush reads each root's persistent `Watch`; if the
+cacheable `Html` value is equal to the last rendered value, the renderer records
+a skipped patch and leaves the DOM alone. If the value changed, it records a
+patch attempt and applies a small positional VDOM diff.
+
+`Html` stores attributes, children, and pure event descriptors. DOM event
+listener closures are created only by the renderer boundary and dispatch
+messages back into the scheduler; they are not captured inside tracked
+`Derived` view computations. Command effects still run through `Cmd::effect`,
+after the model batch commits.
+
+The browser demo includes:
+
+- a counter root with an unread field mutation that schedules a flush but does
+  not recompute or patch the watched view;
+- a conditional panel whose closed view does not depend on the detail field, so
+  closed detail mutations are skipped until the panel opens;
+- a small parent/child nested-root demo where updating the parent leaves the
+  child watched root unchanged and skipped.
+
+Instrumentation is visible in the demo and counts mounted-root view recomputes,
+DOM patch attempts, skipped patches, and rAF flushes.
+
+### Rabbita reuse/adaptation note
+
+Before implementing this slice, the Rabbita references read were:
+
+- [`rabbita/doc/002_writing_html/readme.mbt.md`](https://github.com/dowdiness/rabbita/blob/5f828eb7270cb14970f2be592dba25990a513c61/doc/002_writing_html/readme.mbt.md)
+- [`rabbita/rabbita/html/README.mbt.md`](https://github.com/dowdiness/rabbita/blob/5f828eb7270cb14970f2be592dba25990a513c61/rabbita/html/README.mbt.md)
+- [`rabbita/rabbita/internal/runtime/README.mbt.md`](https://github.com/dowdiness/rabbita/blob/5f828eb7270cb14970f2be592dba25990a513c61/rabbita/internal/runtime/README.mbt.md)
+- [`rabbita/rabbita/tea.mbt`](https://github.com/dowdiness/rabbita/blob/5f828eb7270cb14970f2be592dba25990a513c61/rabbita/tea.mbt)
+
+Reused ideas: an HTML value layer, event descriptors that re-enter a central
+scheduler, FIFO command execution, and rAF-batched rendering. New here: the
+view root is an `@incr.Derived` watched by `Program`, the renderer reads the
+watch instead of calling `view(model)`, and patching is driven by `Html : Eq`
+backdating rather than Rabbita cell dirty flags. This is not a Rabbita fork: it
+imports no Rabbita runtime or HTML package and intentionally keeps the renderer
+boundary narrow so a measured Rabbita VDOM/HTML subset can be swapped in later.
 
 ## Counter smoke test
 
@@ -108,4 +152,8 @@ From the repository root:
 ```bash
 moon check
 moon test examples/incr_tea
+moon test --target js examples/incr_tea
+moon build --target js --release
+python3 -m http.server 8765
+# then open http://127.0.0.1:8765/examples/incr_tea/index.html
 ```
