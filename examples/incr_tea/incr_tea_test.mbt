@@ -29,6 +29,16 @@ test "counter: dispatch batches model update and tracked view update" {
 }
 
 ///|
+test "counter: command message emits follow-up increment" {
+  let app = @incr_tea.CounterApp()
+
+  inspect(app.dispatch(@incr_tea.CounterMsg::IncrementTwice), content="true")
+  let view = app.view_or_abort()
+  inspect(view.count, content="2")
+  inspect(view.title, content="Counter")
+}
+
+///|
 test "counter: unread field update does not recompute view" {
   let runtime = @incr.Runtime()
   let app = @incr_tea.CounterApp::with_runtime(runtime)

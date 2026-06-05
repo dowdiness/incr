@@ -2,6 +2,7 @@
 /// Messages understood by the Incremental TEA counter demo.
 pub(all) enum CounterMsg {
   Increment
+  IncrementTwice
   Decrement
   Reset
   SetTitle(String)
@@ -43,17 +44,40 @@ pub fn CounterApp::with_runtime(runtime : @incr.Runtime) -> CounterApp {
   let count = scope.input_field(0, label="counter.count")
   let title = scope.input_field("Counter", label="counter.title")
   let unrelated = scope.input_field(0, label="counter.unrelated")
-  let update : (CounterMsg) -> Unit = (msg : CounterMsg) => {
+  let update : (CounterMsg) -> Cmd[CounterMsg] = (msg : CounterMsg) => {
     match msg {
-      Increment => count.set(count.peek() + 1)
-      Decrement => count.set(count.peek() - 1)
-      Reset => count.set(0)
-      SetTitle(next) => title.set(next)
-      SetCount(next) => count.set(next)
-      SetUnrelated(next) => unrelated.set(next)
+      Increment => {
+        count.set(count.peek() + 1)
+        Cmd::none()
+      }
+      IncrementTwice => {
+        count.set(count.peek() + 1)
+        Cmd::message(Increment)
+      }
+      Decrement => {
+        count.set(count.peek() - 1)
+        Cmd::none()
+      }
+      Reset => {
+        count.set(0)
+        Cmd::none()
+      }
+      SetTitle(next) => {
+        title.set(next)
+        Cmd::none()
+      }
+      SetCount(next) => {
+        count.set(next)
+        Cmd::none()
+      }
+      SetUnrelated(next) => {
+        unrelated.set(next)
+        Cmd::none()
+      }
       SetBoth(next_count~, next_title~) => {
         count.set(next_count)
         title.set(next_title)
+        Cmd::none()
       }
     }
   }

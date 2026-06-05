@@ -1,3 +1,4 @@
 import {
   "dowdiness/incr",
+  "moonbitlang/core/queue",
 }
