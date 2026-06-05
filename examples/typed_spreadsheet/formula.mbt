@@ -15,7 +15,7 @@ pub enum Formula {
   Gt(Formula, Formula)
   /// Conditional formula execution.
   If(Formula, Formula, Formula)
-}
+} derive(Eq)
 
 ///|
 /// Creates a literal formula node.

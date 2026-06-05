@@ -100,7 +100,7 @@ test "typed spreadsheet demo op: batched dependency update traces after commit" 
 }
 
 ///|
-test "typed spreadsheet demo op: same-value dependency update traces unchanged formula" {
+test "typed spreadsheet demo op: same-value dependency update is trace-silent" {
   let sheet = new_sheet(4)
   let a1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
   let b1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
@@ -112,9 +112,9 @@ test "typed spreadsheet demo op: same-value dependency update traces unchanged f
     capture=[b1],
   )
 
-  inspect(result.trace.recomputed.contains(b1), content="true")
+  inspect(result.trace.recomputed.contains(b1), content="false")
   inspect(result.trace.changed.contains(b1), content="false")
-  inspect(result.trace.unchanged.contains(b1), content="true")
+  inspect(result.trace.unchanged.contains(b1), content="false")
   let formula_change = result.cell_snapshots[1]
   assert_snapshot_int(formula_change.before, 2)
   assert_snapshot_int(formula_change.after, 2)

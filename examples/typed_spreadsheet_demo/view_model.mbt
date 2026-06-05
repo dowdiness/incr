@@ -60,7 +60,7 @@ pub fn fixed_scenario_view_model() -> FixedScenarioViewModel {
   {
     schema_version: 1,
     title: "Typed spreadsheet trace demo",
-    summary: "Five fixed operations showing input edits, formula installation, changed/unchanged revalidation, and deletion.",
+    summary: "Five fixed operations showing input edits, formula installation, changed/no-op tracing, and deletion.",
     cells: ["A1", "B1"],
     steps: step_models,
     extensions: Map([]),

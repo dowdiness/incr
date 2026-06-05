@@ -28,9 +28,9 @@ snapshots:
 #4 SetInput A1 = Int(15)
 outcome: Ok(Int(15))
 trace:
-  recomputed: [B1]
+  recomputed: []
   changed: []
-  unchanged: [B1]
+  unchanged: []
 ```
 
 ## JSON output excerpt
@@ -80,9 +80,10 @@ trace:
   execution and exposed as `refs=[A1]` / `static_references: ["A1"]`; the last
   logical cells read during evaluation are exposed as `dyn=[A1]` /
   `last_dynamic_dependencies: ["A1"]`.
-- **Trace changed/unchanged**: changing `A1` from `10` to `15` marks `B1` as
-  changed, while setting `A1` to `15` again marks `B1` as unchanged after
-  revalidation.
+- **Trace changed/no-op**: changing `A1` from `10` to `15` marks `B1` as
+  changed, while setting `A1` to `15` again is a semantic no-op and leaves all
+  trace buckets empty. The worksheet API still exposes explicit force paths when
+  a caller wants revalidation work.
 - **Before/after snapshots**: each step captures visible cells before and after
   the operation, including missing cells, input values, formula results, and
   static references.

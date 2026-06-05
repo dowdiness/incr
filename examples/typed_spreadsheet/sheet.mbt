@@ -18,17 +18,44 @@ pub struct Worksheet {
 ///|
 priv enum CellDefinition {
   Input(CellValue)
-  Formula(Array[CellId], Array[CellId], CellType, (Worksheet) -> CellResult)
+  Formula(FormulaFacts)
+} derive(Eq)
+
+///|
+priv struct FormulaFacts {
+  static_references : Array[CellId]
+  installed_dependencies : Array[CellId]
+  declared : CellType
+  identity : FormulaIdentity
+} derive(Eq)
+
+///|
+priv enum FormulaIdentity {
+  Ast(Formula)
+  Custom(String?)
+} derive(Eq)
+
+///|
+priv struct FormulaEvaluator {
+  mut evaluate : (Worksheet) -> CellResult
 }
 
 ///|
 struct CellSlot {
   presence : @incr.InputField[Bool]
   definition : @incr.InputField[CellDefinition]
+  evaluator : FormulaEvaluator
   value : @incr.Derived[CellResult]
   metadata_root : @incr.Derived[Unit]
   watch : @incr.Watch[CellResult]
   metadata_watch : @incr.Watch[Unit]
+}
+
+///|
+fn FormulaEvaluator::FormulaEvaluator(
+  evaluate : (Worksheet) -> CellResult,
+) -> FormulaEvaluator {
+  { evaluate, }
 }
 
 ///|
@@ -201,11 +228,39 @@ pub fn[T] Worksheet::trace(
 
 ///|
 /// Sets a concrete value cell.
+///
+/// Setting the same stored value is a worksheet-level no-op. Use
+/// `force_set_input` when a caller deliberately wants revalidation even when
+/// the value is equal.
 pub fn Worksheet::set_input(
   self : Worksheet,
   id : CellId,
   value : CellValue,
   declared? : CellType = CellType::TAny,
+  label? : String,
+) -> CellResult {
+  self.set_input_with_policy(id, value, declared, force=false, label?)
+}
+
+///|
+/// Sets a concrete value cell and always invalidates/revalidates dependents.
+pub fn Worksheet::force_set_input(
+  self : Worksheet,
+  id : CellId,
+  value : CellValue,
+  declared? : CellType = CellType::TAny,
+  label? : String,
+) -> CellResult {
+  self.set_input_with_policy(id, value, declared, force=true, label?)
+}
+
+///|
+fn Worksheet::set_input_with_policy(
+  self : Worksheet,
+  id : CellId,
+  value : CellValue,
+  declared : CellType,
+  force~ : Bool,
   label? : String,
 ) -> CellResult {
   if !self.owns_cell_id(id) {
@@ -222,7 +277,13 @@ pub fn Worksheet::set_input(
     return type_error(cell_type, value)
   }
 
-  self.set_cell_definition(id, CellDefinition::Input(value), label?)
+  self.set_cell_definition(
+    id,
+    CellDefinition::Input(value),
+    inert_formula_evaluator,
+    force~,
+    label?,
+  )
   CellResult::Ok(value)
 }
 
@@ -236,6 +297,11 @@ pub fn Worksheet::set_input(
 /// evaluation results such as `TypeError`/`RefError`. The declared result type
 /// is checked during evaluation, not at installation.
 ///
+/// When `fingerprint` is supplied, it is treated as the formula's comparable
+/// identity: reinstalling the same dependency list, declared type, and
+/// fingerprint is a no-op. Without a fingerprint, opaque closure formulas are
+/// force-installed so callers retain an explicit revalidation path.
+///
 /// This keeps install success and evaluation success decoupled.
 pub fn Worksheet::set_formula(
   self : Worksheet,
@@ -243,6 +309,7 @@ pub fn Worksheet::set_formula(
   declared : CellType,
   deps : Array[CellId],
   compute : (Array[CellValue]) -> CellResult,
+  fingerprint? : String,
   label? : String,
 ) -> Result[Unit, WorksheetError] {
   if !self.owns_cell_id(id) {
@@ -254,7 +321,13 @@ pub fn Worksheet::set_formula(
   }
 
   let dep_ids = deps.copy()
-  let definition = CellDefinition::Formula(dep_ids, dep_ids, declared, worksheet => {
+  let definition = CellDefinition::Formula({
+    static_references: dep_ids,
+    installed_dependencies: dep_ids,
+    declared,
+    identity: FormulaIdentity::Custom(fingerprint),
+  })
+  let evaluator = (worksheet : Worksheet) => {
     let values = []
     let mut first_error : CellResult? = None
     dep_ids.each(dep_id => {
@@ -270,8 +343,14 @@ pub fn Worksheet::set_formula(
       Some(error) => error
       None => compute(values)
     }
-  })
-  self.set_cell_definition(id, definition, label?)
+  }
+  self.set_cell_definition(
+    id,
+    definition,
+    evaluator,
+    force=fingerprint is None,
+    label?,
+  )
 
   Ok(())
 }
@@ -301,13 +380,16 @@ pub fn Worksheet::set_formula_ast(
     return Err(WorksheetError::ref_error("foreign dependency id"))
   }
 
-  let definition = CellDefinition::Formula(
-    dep_ids,
-    ([] : Array[CellId]),
+  let definition = CellDefinition::Formula({
+    static_references: dep_ids,
+    installed_dependencies: ([] : Array[CellId]),
     declared,
-    worksheet => formula.evaluate(dep_id => worksheet.get_slot(dep_id)),
-  )
-  self.set_cell_definition(id, definition, label?)
+    identity: FormulaIdentity::Ast(formula),
+  })
+  let evaluator = (worksheet : Worksheet) => {
+    formula.evaluate(dep_id => worksheet.get_slot(dep_id))
+  }
+  self.set_cell_definition(id, definition, evaluator, force=false, label?)
 
   Ok(())
 }
@@ -414,7 +496,7 @@ fn Worksheet::is_formula_cell(self : Worksheet, id : CellId) -> Bool {
       match self.cells.get(id) {
         Some(slot) =>
           match slot.definition.get() {
-            CellDefinition::Formula(_, _, _, _) => true
+            CellDefinition::Formula(_) => true
             _ => false
           }
         None => false
@@ -491,16 +573,18 @@ fn Worksheet::logical_dynamic_dependencies(
 fn Worksheet::new_slot(
   self : Worksheet,
   id : CellId,
-  definition : CellDefinition,
+  cell_definition : CellDefinition,
+  evaluator : (Worksheet) -> CellResult,
   label? : String,
 ) -> CellSlot {
   let presence = self.cell_presence_for(id)
-  let definition = @incr.InputField(self.runtime, definition, label?)
+  let definition = @incr.InputField(self.runtime, cell_definition, label?)
+  let evaluator = FormulaEvaluator(evaluator)
   let value = @incr.Derived(
     self.runtime,
     () => {
       if presence.get() {
-        definition.get().evaluate(self)
+        definition.get().evaluate(self, evaluator)
       } else {
         CellResult::RefError("no cell at the requested address")
       }
@@ -521,6 +605,7 @@ fn Worksheet::new_slot(
   CellSlot::{
     presence,
     definition,
+    evaluator,
     value,
     metadata_root,
     watch,
@@ -601,17 +686,33 @@ fn Worksheet::set_cell_definition(
   self : Worksheet,
   id : CellId,
   definition : CellDefinition,
+  evaluator : (Worksheet) -> CellResult,
+  force~ : Bool,
   label? : String,
 ) -> Unit {
   match self.cells.get(id) {
     Some(slot) => {
-      if !slot.presence.get() {
+      let was_absent = !slot.presence.get()
+      if was_absent {
         slot.presence.set(true)
       }
-      slot.definition.force_set(definition)
+      if force || was_absent || slot.definition.peek() != definition {
+        let previous_evaluator = slot.evaluator.evaluate
+        // Evaluators live outside the comparable InputField, so they need a
+        // distinct undo key from the definition cell during batch rollback.
+        self.runtime.record_batch_rollback(slot.value.id(), () => {
+          slot.evaluator.evaluate = previous_evaluator
+        })
+        slot.evaluator.evaluate = evaluator
+      }
+      if force {
+        slot.definition.force_set(definition)
+      } else {
+        slot.definition.set(definition)
+      }
     }
     None => {
-      let slot = self.new_slot(id, definition, label?)
+      let slot = self.new_slot(id, definition, evaluator, label?)
       self.store_new_slot(id, slot)
     }
   }
@@ -629,11 +730,11 @@ fn CellDefinition::kind_and_deps(
   match self {
     CellDefinition::Input(_) =>
       (Some(CellKind::Input), ([] : Array[CellId]), ([] : Array[CellId]))
-    CellDefinition::Formula(static_references, installed_dependencies, _, _) =>
+    CellDefinition::Formula(facts) =>
       (
         Some(CellKind::Formula),
-        installed_dependencies.copy(),
-        static_references.copy(),
+        facts.installed_dependencies.copy(),
+        facts.static_references.copy(),
       )
   }
 }
@@ -642,19 +743,20 @@ fn CellDefinition::kind_and_deps(
 fn CellDefinition::evaluate(
   self : CellDefinition,
   worksheet : Worksheet,
+  evaluator : FormulaEvaluator,
 ) -> CellResult {
   match self {
     CellDefinition::Input(value) => CellResult::Ok(value)
-    CellDefinition::Formula(_, _, expected, evaluate) => {
-      let result = evaluate(worksheet)
+    CellDefinition::Formula(facts) => {
+      let result = (evaluator.evaluate)(worksheet)
       match result {
         CellResult::Ok(value) =>
-          if expected == CellType::TAny || expected.accepts(value) {
+          if facts.declared == CellType::TAny || facts.declared.accepts(value) {
             CellResult::Ok(value)
           } else {
             CellResult::TypeError(
               "formula result mismatch: expected " +
-              expected.to_string() +
+              facts.declared.to_string() +
               " and got " +
               value.cell_type().to_string(),
             )
@@ -673,6 +775,11 @@ fn type_error(cell_type : CellType, value : CellValue) -> CellResult {
     " and got " +
     value.cell_type().to_string(),
   )
+}
+
+///|
+fn inert_formula_evaluator(_worksheet : Worksheet) -> CellResult {
+  CellResult::RefError("cell has no formula evaluator")
 }
 
 ///|
