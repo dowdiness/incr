@@ -238,6 +238,12 @@ pub fn[V, E] AcceptedDerived::current(
 ///|
 /// The last accepted value, or a read error. The retained accepted value is
 /// left untouched by a read error; the read returns the error in its place.
+///
+/// This is an OUTSIDE-graph read: it surfaces the candidate read channel and,
+/// when called inside a tracked compute, records a dependency on the *current*
+/// candidate. An in-graph accepted-only consumer must use `accepted_get` /
+/// `accepted_get_or_abort` instead, which depend on the accepted projection and
+/// so re-run only when the accepted value changes — not on current-error churn.
 pub fn[V, E] AcceptedDerived::accepted(
   self : AcceptedDerived[V, E],
 ) -> Result[V?, ReadError] {
@@ -284,6 +290,31 @@ pub fn[V, E] AcceptedDerived::accepted_or_abort(
     Ok(a) => a
     Err(e) => abort(e.format_path())
   }
+}
+
+///|
+/// INSIDE-graph read of the accepted value. Call this from a compute closure
+/// (`Derived` / `EagerDerived` / `Effect`): it reads the accepted projection, so
+/// it records a dependency on the *accepted* value, not the candidate. The
+/// consumer therefore re-runs only when the accepted value actually changes —
+/// never on current-error churn (`Err(e1)` -> `Err(e2)` with the accepted value
+/// retained backdates the projection). Returns `Err` only for a read failure of
+/// the accepted projection itself; the candidate's read channel is the concern
+/// of the outside-graph `accepted` / `accepted_or_abort`.
+pub fn[V, E] AcceptedDerived::accepted_get(
+  self : AcceptedDerived[V, E],
+) -> Result[V?, ReadError] {
+  self.accepted_cell.get()
+}
+
+///|
+/// Strict inside-graph companion to `accepted_get`; aborts on a read error
+/// (cycle / disposed), as in-graph strict reads do. Records a dependency on the
+/// accepted projection.
+pub fn[V, E] AcceptedDerived::accepted_get_or_abort(
+  self : AcceptedDerived[V, E],
+) -> V? {
+  self.accepted_cell.get_or_abort()
 }
 
 ///|

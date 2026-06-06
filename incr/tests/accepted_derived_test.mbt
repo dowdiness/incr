@@ -171,6 +171,62 @@ test "public: watch_accepted stays put across current-error churn, advances on a
   watch.dispose()
 }
 
+///|
+test "public: in-graph accepted consumer gates on accepted value, not candidate churn" {
+  let rt = @incr.Runtime::Runtime()
+  let input = @incr.Input::Input(rt, "v1")
+  let ad = @incr.AcceptedDerived::AcceptedDerived(rt, () => {
+    ad_parse(input.get())
+  })
+  // An accepted-only in-graph consumer: reads the accepted value through the
+  // tracked accessor, so it depends on the accepted projection, not the candidate.
+  let runs = [0]
+  let consumer = @incr.Derived::Derived(rt, () => {
+    runs[0] = runs[0] + 1
+    ad.accepted_get_or_abort()
+  })
+  let watch = consumer.watch()
+  ignore(watch.read_or_abort()) // prime
+  let base = runs[0]
+  // Current-error churn: candidate changes (e1 -> e2) but the accepted value is
+  // retained, so the consumer must NOT re-run.
+  input.set("e1a")
+  ignore(watch.read_or_abort())
+  input.set("e2")
+  ignore(watch.read_or_abort())
+  inspect(runs[0] == base, content="true")
+  // A genuine accepted-value change DOES re-run the consumer.
+  input.set("v2")
+  ignore(watch.read_or_abort())
+  inspect(runs[0] > base, content="true")
+  watch.dispose()
+}
+
+///|
+test "public: accepted_get reads the accepted value in-graph" {
+  let rt = @incr.Runtime::Runtime()
+  let input = @incr.Input::Input(rt, "v1")
+  let ad = @incr.AcceptedDerived::AcceptedDerived(rt, () => {
+    ad_parse(input.get())
+  })
+  // Unwrap inside the consumer so the cell's value type is `Int?` (ReadError is
+  // not Eq, so a Result-valued Derived cannot backdate); the graceful in-graph
+  // read is still exercised in a tracked frame.
+  let consumer = @incr.Derived::Derived(rt, () => {
+    match ad.accepted_get() {
+      Ok(v) => v
+      Err(_) => None
+    }
+  })
+  let watch = consumer.watch()
+  inspect(watch.read_or_abort() is Some(1), content="true")
+  input.set("e1a") // retained: accepted unchanged
+  inspect(watch.read_or_abort() is Some(1), content="true")
+  input.set("v2") // accepted advances
+  inspect(watch.read_or_abort() is Some(2), content="true")
+  watch.dispose()
+}
+
 // --- snapshot coherence (validates AcceptedSnapshot field reads externally) --
 
 ///|

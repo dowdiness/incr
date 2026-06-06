@@ -25,6 +25,8 @@ pub struct AcceptedDerived[V, E] {
 pub fn[V : Eq, E : Eq] AcceptedDerived::AcceptedDerived(Runtime, () -> Result[V, E], label? : String) -> Self[V, E]
 pub fn[V, E] AcceptedDerived::accepted(Self[V, E]) -> Result[V?, @types.ReadError]
 pub fn[V, E] AcceptedDerived::accepted_changed_at(Self[V, E]) -> @types.Revision
+pub fn[V, E] AcceptedDerived::accepted_get(Self[V, E]) -> Result[V?, @types.ReadError]
+pub fn[V, E] AcceptedDerived::accepted_get_or_abort(Self[V, E]) -> V?
 pub fn[V, E] AcceptedDerived::accepted_or_abort(Self[V, E]) -> V?
 pub fn[V, E] AcceptedDerived::current(Self[V, E]) -> Result[Result[V, E], @types.ReadError]
 pub fn[V, E] AcceptedDerived::current_or_abort(Self[V, E]) -> Result[V, E]
