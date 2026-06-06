@@ -147,6 +147,30 @@ test "public: accepted-only consumers ignore current-error churn" {
   inspect(ad.accepted_changed_at() == r1, content="true")
 }
 
+///|
+test "public: watch_accepted stays put across current-error churn, advances on accepted change" {
+  let rt = @incr.Runtime::Runtime()
+  let input = @incr.Input::Input(rt, "v1")
+  let ad = @incr.AcceptedDerived::AcceptedDerived(rt, () => {
+    ad_parse(input.get())
+  })
+  // The public watch facade reads the accepted projection; it backdates on the
+  // accepted value, so current-error churn must not change what it reports.
+  let watch = ad.watch_accepted()
+  inspect(watch.read_or_abort() is Some(1), content="true")
+  let r1 = ad.accepted_changed_at()
+  input.set("e1a") // RetainedDueToError
+  input.set("e2") // different error, still retained
+  input.set("v1b") // equal success, no advance
+  inspect(watch.read_or_abort() is Some(1), content="true")
+  inspect(ad.accepted_changed_at() == r1, content="true")
+  // A genuine accepted-value change advances both the watched value and revision.
+  input.set("v2")
+  inspect(watch.read_or_abort() is Some(2), content="true")
+  inspect(ad.accepted_changed_at() == r1, content="false")
+  watch.dispose()
+}
+
 // --- snapshot coherence (validates AcceptedSnapshot field reads externally) --
 
 ///|
