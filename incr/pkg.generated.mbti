@@ -53,6 +53,12 @@ pub fn[T : Trackable] gc_tracked(@cells.Runtime, T) -> Unit
 // Types and methods
 
 // Type aliases
+pub using @cells {type AcceptStatus}
+
+pub using @cells {type AcceptedDerived}
+
+pub using @cells {type AcceptedSnapshot}
+
 pub using @cells {type Accumulator}
 
 pub using @types {type AccumulatorId}

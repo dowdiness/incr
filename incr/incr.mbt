@@ -50,6 +50,9 @@ pub using @internal {
   type Observer,
   type Watch,
   type Accumulator,
+  type AcceptedDerived,
+  type AcceptedSnapshot,
+  type AcceptStatus,
 }
 
 // Note: @internal alias above refers to dowdiness/incr/cells (renamed from
