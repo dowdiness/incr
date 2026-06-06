@@ -226,10 +226,9 @@ pub fn[V, E] AcceptedDerived::current(
 pub fn[V, E] AcceptedDerived::accepted(
   self : AcceptedDerived[V, E],
 ) -> Result[V?, ReadError] {
-  match self.candidate.read() {
-    Ok(_) => Ok(self.accepted_slot.val)
-    Err(e) => Err(e)
-  }
+  // A successful read returns the retained accepted value; a read error is
+  // propagated, leaving the retained value untouched.
+  self.candidate.read().map(_ => self.accepted_slot.val)
 }
 
 ///|
@@ -237,15 +236,15 @@ pub fn[V, E] AcceptedDerived::accepted(
 pub fn[V, E] AcceptedDerived::snapshot(
   self : AcceptedDerived[V, E],
 ) -> Result[AcceptedSnapshot[V, E], ReadError] {
-  match self.candidate.read() {
-    Ok(current) =>
-      Ok({
-        current,
-        accepted: self.accepted_slot.val,
-        status: self.last_status.val,
-      })
-    Err(e) => Err(e)
-  }
+  // Pair the freshly-read current result with the retained accepted value and
+  // status; a read error is propagated unchanged.
+  self.candidate
+  .read()
+  .map(current => {
+    current,
+    accepted: self.accepted_slot.val,
+    status: self.last_status.val,
+  })
 }
 
 ///|
