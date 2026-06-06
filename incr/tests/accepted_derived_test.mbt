@@ -231,6 +231,43 @@ test "public: from_candidate wraps an external candidate; dispose spares it" {
 }
 
 ///|
+test "public: disposed wrapper reports Disposed on all channels, candidate spared" {
+  let rt = @incr.Runtime::Runtime()
+  let input = @incr.Input::Input(rt, "v1")
+  let candidate = @incr.Derived::fallible(rt, () => ad_parse(input.get()))
+  let ad = @incr.AcceptedDerived::from_candidate(candidate)
+  inspect(ad.accepted_or_abort() is Some(1), content="true")
+  ad.dispose()
+  // The external candidate is spared (from_candidate contract), but the disposed
+  // wrapper must not bypass its own lifecycle: every read channel surfaces
+  // Disposed rather than an incoherent fresh-current / stale-accepted mix.
+  inspect(
+    match ad.current() {
+      Err(e) => e.is_disposed()
+      Ok(_) => false
+    },
+    content="true",
+  )
+  inspect(
+    match ad.accepted() {
+      Err(e) => e.is_disposed()
+      Ok(_) => false
+    },
+    content="true",
+  )
+  inspect(
+    match ad.snapshot() {
+      Err(e) => e.is_disposed()
+      Ok(_) => false
+    },
+    content="true",
+  )
+  // The externally-owned candidate remains readable by its owner after a later edit.
+  input.set("v2")
+  inspect(candidate.read_or_abort() is Ok(2), content="true")
+}
+
+///|
 test "public: Scope::accepted_derived disposes with its parent scope" {
   let rt = @incr.Runtime::Runtime()
   let input = @incr.Input::Input(rt, "v1")

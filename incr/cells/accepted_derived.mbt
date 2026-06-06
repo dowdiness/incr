@@ -211,12 +211,27 @@ pub fn[V : Eq, E : Eq] Scope::accepted_derived(
 }
 
 ///|
+/// The `Disposed` read error reported by every accessor once the wrapper itself
+/// is disposed. A disposed wrapper can no longer produce a coherent
+/// `(current, accepted, status)` view: the fold has stopped advancing the
+/// retained slot, so reading the candidate directly would mix a fresh current
+/// with a stale accepted value. We surface `Disposed` uniformly instead — even
+/// for `from_candidate`, where the external candidate is intentionally left
+/// alive (its owner reads it directly; the wrapper does not serve it).
+fn[V, E] AcceptedDerived::disposed_read_error(
+  self : AcceptedDerived[V, E],
+) -> ReadError {
+  ReadError::disposed(self.accepted_cell.inner.id())
+}
+
+///|
 /// The current candidate result for the latest committed revision. The outer
 /// `Result` is the read channel (`Cycle` / `Disposed`); the inner `Result[V, E]`
 /// is the domain candidate.
 pub fn[V, E] AcceptedDerived::current(
   self : AcceptedDerived[V, E],
 ) -> Result[Result[V, E], ReadError] {
+  guard !self.is_disposed() else { return Err(self.disposed_read_error()) }
   self.candidate.read()
 }
 
@@ -228,6 +243,7 @@ pub fn[V, E] AcceptedDerived::accepted(
 ) -> Result[V?, ReadError] {
   // A successful read returns the retained accepted value; a read error is
   // propagated, leaving the retained value untouched.
+  guard !self.is_disposed() else { return Err(self.disposed_read_error()) }
   self.candidate.read().map(_ => self.accepted_slot.val)
 }
 
@@ -238,6 +254,7 @@ pub fn[V, E] AcceptedDerived::snapshot(
 ) -> Result[AcceptedSnapshot[V, E], ReadError] {
   // Pair the freshly-read current result with the retained accepted value and
   // status; a read error is propagated unchanged.
+  guard !self.is_disposed() else { return Err(self.disposed_read_error()) }
   self.candidate
   .read()
   .map(current => {
