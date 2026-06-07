@@ -10,6 +10,7 @@ All notable changes to `dowdiness/incr` are documented in this file.
 - Typed spreadsheet snapshots now expose `last_dynamic_dependencies`, the logical cells read during the last completed cell evaluation.
 - Typed spreadsheet cells now distinguish comparable worksheet facts from opaque formula evaluators: same-value inputs and same-AST formulas are semantic no-ops, closure formulas can opt into no-op detection with a fingerprint, and force paths remain available for deliberate revalidation.
 - Typed spreadsheet formulas and cell snapshots now expose dependency-shape metadata (`Applicative`, `Selective`, `Dynamic`) for explaining static references versus active dynamic dependencies without changing engine APIs.
+- Typed spreadsheet worksheets now expose `Worksheet::formula_ast` with structured `FormulaAstQueryError` results for reading AST-backed formulas without conflating missing, deleted, input, and opaque closure-backed cells.
 
 ## [0.8.0] - 2026-06-03
 
