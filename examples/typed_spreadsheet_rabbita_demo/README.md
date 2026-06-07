@@ -114,7 +114,7 @@ After each applied edit, the toggle rail can reveal trace buckets (`recomputed`,
 grid scrolls in both directions and keeps row/column headers sticky while
 navigating the 2,500 cells.
 
-Trace and evidence are intentionally bounded:
+Trace, evidence, and AI/tool context are intentionally bounded:
 
 - Trace reports formulas the UI is already observing or caching, not every
   formula in the worksheet. Formulas outside that set stay lazy until the UI
@@ -125,6 +125,13 @@ Trace and evidence are intentionally bounded:
 - Evidence snapshots are narrower than trace. They show before/after details for
   the edit target, selected cell, and formula references for formula installs
   instead of full-grid before/after data.
+- AI/tool consumers should use the schema-versioned MoonBit context export
+  instead of scraping DOM text. The debug export is published on
+  `globalThis.typedSpreadsheetAIContextJson()` and
+  `globalThis.typedSpreadsheetAIContext()` after init and each update. It includes
+  the selected cell, a capped region, committed/draft text, `inspect_cell` value
+  and dependency metadata, `formula_ast`-backed formula shape when available, and
+  the latest trace/evidence summary.
 
 Out of scope for this prototype: ranges, multiple sheets, persistence,
 collaboration, and a general Excel-compatible parser.
