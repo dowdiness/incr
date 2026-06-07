@@ -95,6 +95,16 @@ pub struct WorksheetTrace {
 }
 
 ///|
+/// Errors returned when querying a worksheet cell for its formula AST.
+pub enum FormulaAstQueryError {
+  ForeignCellId(CellId)
+  MissingCell(CellId)
+  DeletedCell(CellId)
+  NotFormula(CellId)
+  OpaqueFormula(CellId)
+} derive(Eq, Debug)
+
+///|
 /// Creates a worksheet bound to a runtime.
 pub fn Worksheet::Worksheet(
   runtime : @incr.Runtime,
@@ -174,6 +184,38 @@ pub fn Worksheet::inspect_cell(self : Worksheet, id : CellId) -> CellSnapshot {
       }
     }
     None => missing_cell_snapshot(id, "no cell at the requested address")
+  }
+}
+
+///|
+/// Returns the stored formula AST for a present AST-backed formula cell.
+pub fn Worksheet::formula_ast(
+  self : Worksheet,
+  id : CellId,
+) -> Result[Formula, FormulaAstQueryError] {
+  if !self.owns_cell_id(id) {
+    return Err(FormulaAstQueryError::ForeignCellId(id))
+  }
+
+  match self.cell_presence.get(id) {
+    None => Err(FormulaAstQueryError::MissingCell(id))
+    Some(presence) if !presence.peek() =>
+      Err(FormulaAstQueryError::DeletedCell(id))
+    Some(_) =>
+      match self.cells.get(id) {
+        None => Err(FormulaAstQueryError::MissingCell(id))
+        Some(slot) =>
+          match slot.definition.peek() {
+            CellDefinition::Input(_) =>
+              Err(FormulaAstQueryError::NotFormula(id))
+            CellDefinition::Formula(facts) =>
+              match facts.identity {
+                FormulaIdentity::Ast(formula) => Ok(formula)
+                FormulaIdentity::Custom(_) =>
+                  Err(FormulaAstQueryError::OpaqueFormula(id))
+              }
+          }
+      }
   }
 }
 

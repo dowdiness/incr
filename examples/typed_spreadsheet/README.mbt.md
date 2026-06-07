@@ -11,6 +11,7 @@ The package exports:
 
 - `SheetId`, `CellId`
 - `CellValue`, `CellType`, `CellResult`, `WorksheetError`
+- `FormulaAstQueryError`
 - `CellKind`, `CellSnapshot`
 - `Worksheet`, `WorksheetTrace`
 - Formula constructors in `Formula`
@@ -76,6 +77,31 @@ contract, not an install-time proof.
 
 See [ADR 2026-06-02](../../docs/decisions/2026-06-02-typed-spreadsheet-runtime-checking.md)
 for the decision record.
+
+## Formula AST access
+
+`Worksheet::formula_ast(id)` returns the stored `Formula` AST for a present
+AST-backed formula cell. The returned formula is a value snapshot of the current
+cell definition; replacing the cell with another AST changes the returned shape,
+and replacing it with a closure-backed formula reports `OpaqueFormula`.
+
+```moonbit nocheck
+pub fn Worksheet::formula_ast(
+  self : Worksheet,
+  id : CellId,
+) -> Result[Formula, FormulaAstQueryError]
+```
+
+Query failures are structured so UI/tool callers can distinguish address state:
+
+- `ForeignCellId(id)` — the cell belongs to another worksheet.
+- `MissingCell(id)` — the worksheet has never registered a presence anchor for
+  the address.
+- `DeletedCell(id)` — the address has a presence anchor and is currently absent;
+  compaction keeps this tombstone state.
+- `NotFormula(id)` — the address is present but stores an input cell.
+- `OpaqueFormula(id)` — the address is present but stores a closure-backed
+  formula installed through `Worksheet::set_formula`.
 
 ## Semantic no-op edits and force paths
 

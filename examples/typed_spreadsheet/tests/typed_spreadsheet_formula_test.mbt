@@ -2,6 +2,46 @@
 /// Tests for hand-built formula AST evaluation.
 
 ///|
+enum ExpectedFormulaAstQueryError {
+  ExpectForeignCellId
+  ExpectMissingCell
+  ExpectDeletedCell
+  ExpectNotFormula
+  ExpectOpaqueFormula
+}
+
+///|
+fn formula_ast_error_is(
+  sheet : @typed_spreadsheet.Worksheet,
+  id : @typed_spreadsheet.CellId,
+  expected : ExpectedFormulaAstQueryError,
+) -> Bool {
+  match (sheet.formula_ast(id), expected) {
+    (
+      Err(@typed_spreadsheet.FormulaAstQueryError::ForeignCellId(actual)),
+      ExpectForeignCellId,
+    ) => actual == id
+    (
+      Err(@typed_spreadsheet.FormulaAstQueryError::MissingCell(actual)),
+      ExpectMissingCell,
+    ) => actual == id
+    (
+      Err(@typed_spreadsheet.FormulaAstQueryError::DeletedCell(actual)),
+      ExpectDeletedCell,
+    ) => actual == id
+    (
+      Err(@typed_spreadsheet.FormulaAstQueryError::NotFormula(actual)),
+      ExpectNotFormula,
+    ) => actual == id
+    (
+      Err(@typed_spreadsheet.FormulaAstQueryError::OpaqueFormula(actual)),
+      ExpectOpaqueFormula,
+    ) => actual == id
+    _ => false
+  }
+}
+
+///|
 test "typed spreadsheet: formula dependency shape classifies static expressions" {
   let sheet_id = @typed_spreadsheet.SheetId(1200)
   let a1 = @typed_spreadsheet.CellId(sheet_id, "A1")
@@ -93,6 +133,153 @@ test "typed spreadsheet: formula AST add over refs" {
       inspect(value, content="35")
     _ => abort("expected Ok(Int(35)) for B1 after update")
   }
+}
+
+///|
+test "typed spreadsheet: formula_ast returns AST-backed formula" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(1300))
+  let target = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
+
+  let formula = @typed_spreadsheet.Formula::add(
+    @typed_spreadsheet.Formula::literal(
+      @typed_spreadsheet.CellValue::from_int(1),
+    ),
+    @typed_spreadsheet.Formula::literal(
+      @typed_spreadsheet.CellValue::from_int(2),
+    ),
+  )
+  inspect(
+    sheet.set_formula_ast(target, @typed_spreadsheet.CellType::t_int(), formula) ==
+    Ok(()),
+    content="true",
+  )
+  inspect(sheet.formula_ast(target) == Ok(formula), content="true")
+}
+
+///|
+test "typed spreadsheet: formula_ast reports cell state errors" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(1301))
+  let input = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+  let deleted = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
+  let closure = @typed_spreadsheet.CellId(sheet.sheet_id(), "C1")
+  let missing = @typed_spreadsheet.CellId(sheet.sheet_id(), "Z9")
+  let foreign = @typed_spreadsheet.CellId(
+    @typed_spreadsheet.SheetId(1302),
+    "A1",
+  )
+
+  inspect(
+    sheet.set_input(input, @typed_spreadsheet.CellValue::from_int(1)).is_ok(),
+    content="true",
+  )
+  inspect(formula_ast_error_is(sheet, input, ExpectNotFormula), content="true")
+  inspect(
+    formula_ast_error_is(sheet, foreign, ExpectForeignCellId),
+    content="true",
+  )
+  inspect(
+    formula_ast_error_is(sheet, missing, ExpectMissingCell),
+    content="true",
+  )
+
+  inspect(
+    sheet.set_input(deleted, @typed_spreadsheet.CellValue::from_int(2)).is_ok(),
+    content="true",
+  )
+  inspect(sheet.delete(deleted).is_ok(), content="true")
+  inspect(
+    formula_ast_error_is(sheet, deleted, ExpectDeletedCell),
+    content="true",
+  )
+  inspect(sheet.compact_deleted_cells(), content="1")
+  inspect(
+    formula_ast_error_is(sheet, deleted, ExpectDeletedCell),
+    content="true",
+  )
+
+  inspect(
+    sheet.set_formula(closure, @typed_spreadsheet.CellType::t_int(), [], fn(
+      _deps,
+    ) {
+      @typed_spreadsheet.CellResult::ok(
+        @typed_spreadsheet.CellValue::from_int(3),
+      )
+    }) ==
+    Ok(()),
+    content="true",
+  )
+  inspect(
+    formula_ast_error_is(sheet, closure, ExpectOpaqueFormula),
+    content="true",
+  )
+}
+
+///|
+test "typed spreadsheet: formula_ast follows formula identity replacement" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(1303))
+  let target = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
+
+  let first = @typed_spreadsheet.Formula::literal(
+    @typed_spreadsheet.CellValue::from_int(1),
+  )
+  let second = @typed_spreadsheet.Formula::add(
+    @typed_spreadsheet.Formula::literal(
+      @typed_spreadsheet.CellValue::from_int(1),
+    ),
+    @typed_spreadsheet.Formula::literal(
+      @typed_spreadsheet.CellValue::from_int(2),
+    ),
+  )
+  let third = @typed_spreadsheet.Formula::mul(
+    @typed_spreadsheet.Formula::literal(
+      @typed_spreadsheet.CellValue::from_int(2),
+    ),
+    @typed_spreadsheet.Formula::literal(
+      @typed_spreadsheet.CellValue::from_int(3),
+    ),
+  )
+
+  let _ = sheet.set_formula_ast(
+    target,
+    @typed_spreadsheet.CellType::t_int(),
+    first,
+  )
+  inspect(sheet.formula_ast(target) == Ok(first), content="true")
+
+  let _ = sheet.set_formula_ast(
+    target,
+    @typed_spreadsheet.CellType::t_int(),
+    second,
+  )
+  inspect(sheet.formula_ast(target) == Ok(second), content="true")
+  inspect(sheet.formula_ast(target) != Ok(first), content="true")
+
+  inspect(
+    sheet.set_formula(target, @typed_spreadsheet.CellType::t_int(), [], fn(
+      _deps,
+    ) {
+      @typed_spreadsheet.CellResult::ok(
+        @typed_spreadsheet.CellValue::from_int(4),
+      )
+    }) ==
+    Ok(()),
+    content="true",
+  )
+  inspect(
+    formula_ast_error_is(sheet, target, ExpectOpaqueFormula),
+    content="true",
+  )
+
+  let _ = sheet.set_formula_ast(
+    target,
+    @typed_spreadsheet.CellType::t_int(),
+    third,
+  )
+  inspect(sheet.formula_ast(target) == Ok(third), content="true")
+  inspect(sheet.formula_ast(target) != Ok(second), content="true")
 }
 
 ///|

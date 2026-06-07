@@ -98,6 +98,14 @@ pub fn Formula::literal(CellValue) -> Self
 pub fn Formula::mul(Self, Self) -> Self
 pub fn Formula::refs(Self) -> Array[CellId]
 
+pub enum FormulaAstQueryError {
+  ForeignCellId(CellId)
+  MissingCell(CellId)
+  DeletedCell(CellId)
+  NotFormula(CellId)
+  OpaqueFormula(CellId)
+} derive(Eq, @debug.Debug)
+
 pub(all) enum FormulaDependencyShape {
   Applicative
   Selective
@@ -123,6 +131,7 @@ pub fn Worksheet::compact_deleted_cells(Self) -> Int
 pub fn Worksheet::delete(Self, CellId) -> CellResult
 pub fn Worksheet::dispose(Self) -> Unit
 pub fn Worksheet::force_set_input(Self, CellId, CellValue, declared? : CellType, label? : String) -> CellResult
+pub fn Worksheet::formula_ast(Self, CellId) -> Result[Formula, FormulaAstQueryError]
 pub fn Worksheet::inspect_cell(Self, CellId) -> CellSnapshot
 pub fn Worksheet::is_disposed(Self) -> Bool
 pub fn Worksheet::read(Self, CellId) -> CellResult
