@@ -271,6 +271,132 @@ test "typed spreadsheet Rabbita editor supports direct cell editing mode" {
 }
 
 ///|
+test "typed spreadsheet AI context exports input cell state" {
+  let model = update(SelectCell("A1"), init_model())
+  let context = model.ai_context_snapshot(region=["A1"])
+
+  inspect(context.schema_version, content="1")
+  inspect(context.selected_cell, content="A1")
+  inspect(context.truncated, content="false")
+  debug_inspect(context.region, content="[\"A1\"]")
+  inspect(context.cells.length(), content="1")
+  let cell = context.cells[0]
+  inspect(cell.id, content="A1")
+  inspect(cell.committed_text, content="10")
+  inspect(cell.draft_dirty, content="false")
+  inspect(cell.present, content="true")
+  inspect(cell.kind, content="input")
+  inspect(cell.result.status, content="ok")
+  match cell.result.value {
+    Some(value) => {
+      inspect(value.type_name, content="Int")
+      inspect(value.value, content="10")
+    }
+    None => abort("expected input value")
+  }
+  debug_inspect(cell.static_references, content="[]")
+  debug_inspect(cell.last_dynamic_dependencies, content="[]")
+  inspect(cell.formula is None, content="true")
+}
+
+///|
+test "typed spreadsheet AI context exports formula shape and dependencies" {
+  let context = init_model().ai_context_snapshot(region=["B1"])
+
+  inspect(context.selected_cell, content="B1")
+  debug_inspect(context.region, content="[\"B1\"]")
+  let cell = context.cells[0]
+  inspect(cell.id, content="B1")
+  inspect(cell.kind, content="formula")
+  inspect(cell.committed_text, content="=A1 + 1")
+  inspect(cell.result.status, content="ok")
+  inspect(cell.dependency_shape, content="applicative")
+  debug_inspect(cell.static_references, content="[\"A1\"]")
+  debug_inspect(cell.last_dynamic_dependencies, content="[\"A1\"]")
+  match cell.formula {
+    Some(formula) => {
+      inspect(formula.text, content="=A1 + 1")
+      inspect(formula.ast_status, content="ok")
+      match formula.shape {
+        Some(shape) => inspect(shape, content="Add(Ref(A1), Literal(Int(1)))")
+        None => abort("expected formula shape")
+      }
+    }
+    None => abort("expected formula context")
+  }
+}
+
+///|
+test "typed spreadsheet AI context exports missing cells without aborting" {
+  let model = update(SelectCell("C1"), init_model())
+  let context = model.ai_context_snapshot(region=["C1"])
+
+  inspect(context.selected_cell, content="C1")
+  debug_inspect(context.region, content="[\"C1\"]")
+  let cell = context.cells[0]
+  inspect(cell.id, content="C1")
+  inspect(cell.committed_text, content="")
+  inspect(cell.present, content="false")
+  inspect(cell.kind, content="missing")
+  inspect(cell.result.status, content="missing")
+  match cell.result.error {
+    Some(message) =>
+      inspect(message, content="no cell at the requested address")
+    None => abort("expected missing-cell error")
+  }
+  inspect(cell.formula is None, content="true")
+}
+
+///|
+test "typed spreadsheet AI context exports formula errors and latest evidence" {
+  let model = init_model()
+  let selected_a1 = update(SelectCell("A1"), model)
+  let deleted_a1 = update(DeleteSelected, selected_a1)
+  let selected_b1 = update(SelectCell("B1"), deleted_a1)
+  let context = selected_b1.ai_context_snapshot(region=["B1"])
+
+  let cell = context.cells[0]
+  inspect(cell.id, content="B1")
+  inspect(cell.kind, content="formula")
+  inspect(cell.result.status, content="ref_error")
+  match cell.result.error {
+    Some(message) =>
+      inspect(message, content="no cell at the requested address")
+    None => abort("expected ref error")
+  }
+  match context.latest_trace {
+    Some(trace) => {
+      inspect(trace.edit, content="delete A1")
+      debug_inspect(trace.changed, content="[\"B1\"]")
+    }
+    None => abort("expected latest trace")
+  }
+  match context.latest_evidence {
+    Some(evidence) => {
+      inspect(evidence.edit, content="delete A1")
+      inspect(evidence.cells.length(), content="1")
+      inspect(evidence.cells[0].id, content="A1")
+      inspect(evidence.cells[0].after_result_status, content="missing")
+    }
+    None => abort("expected latest evidence")
+  }
+}
+
+///|
+test "typed spreadsheet AI context bounds requested regions" {
+  let model = init_model()
+  let context = model.ai_context_snapshot(
+    region=["A1", "B1", "C1"],
+    max_cells=2,
+  )
+
+  inspect(context.max_cells, content="2")
+  inspect(context.truncated, content="true")
+  debug_inspect(context.region, content="[\"B1\", \"A1\"]")
+  inspect(context.cells.length(), content="2")
+}
+
+///|
 fn noop_emit(_msg : Msg) -> @rabbita.Cmd {
   @rabbita.none
 }

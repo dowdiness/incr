@@ -1,11 +1,13 @@
 ///|
 fn main {
-  @rabbita.new(app()).mount("app")
+  let model = init_model()
+  model.publish_ai_context()
+  @rabbita.new(app(model)).mount("app")
 }
 
 ///|
-fn app() -> @rabbita.Cell {
-  @rabbita.cell(model=init_model(), update=update_with_cmd, view~)
+fn app(model : Model) -> @rabbita.Cell {
+  @rabbita.cell(model~, update=update_with_cmd, view~)
 }
 
 ///|
@@ -19,7 +21,7 @@ fn update_with_cmd(
     BeginInlineEdit(cell) => focus_inline_editor_cmd(cell)
     _ => @rabbita.none
   }
-  (cmd, next)
+  (@rabbita.batch([cmd, next.publish_ai_context_cmd()]), next)
 }
 
 ///|
