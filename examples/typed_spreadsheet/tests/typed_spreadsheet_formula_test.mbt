@@ -120,7 +120,7 @@ test "typed spreadsheet: formula AST add over refs" {
 
   match sheet.read(b1) {
     @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(value)) =>
-      inspect(value, content="999")
+      inspect(value, content="30")
     _ => abort("expected Ok(Int(30)) for B1")
   }
 
