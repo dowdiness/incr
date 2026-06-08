@@ -27,11 +27,12 @@ pub fn[V, E] AcceptedDerived::accepted(Self[V, E]) -> Result[V?, @types.ReadErro
 pub fn[V, E] AcceptedDerived::accepted_changed_at(Self[V, E]) -> @types.Revision
 pub fn[V, E] AcceptedDerived::accepted_get(Self[V, E]) -> Result[V?, @types.ReadError]
 pub fn[V, E] AcceptedDerived::accepted_get_or_abort(Self[V, E]) -> V?
+pub fn[V : @types.BackdateEq, E : Eq] AcceptedDerived::accepted_memo(Runtime, () -> Result[V, E], label? : String) -> Self[V, E]
 pub fn[V, E] AcceptedDerived::accepted_or_abort(Self[V, E]) -> V?
 pub fn[V, E] AcceptedDerived::current(Self[V, E]) -> Result[Result[V, E], @types.ReadError]
 pub fn[V, E] AcceptedDerived::current_or_abort(Self[V, E]) -> Result[V, E]
 pub fn[V, E] AcceptedDerived::dispose(Self[V, E]) -> Unit
-pub fn[V : Eq, E : Eq] AcceptedDerived::from_candidate(Derived[Result[V, E]], label? : String) -> Self[V, E]
+pub fn[V : Eq, E] AcceptedDerived::from_candidate(Derived[Result[V, E]], label? : String) -> Self[V, E]
 pub fn[V, E] AcceptedDerived::is_disposed(Self[V, E]) -> Bool
 pub fn[V, E] AcceptedDerived::snapshot(Self[V, E]) -> Result[AcceptedSnapshot[V, E], @types.ReadError]
 pub fn[V, E] AcceptedDerived::snapshot_or_abort(Self[V, E]) -> AcceptedSnapshot[V, E]
@@ -327,6 +328,7 @@ pub struct Scope {
   // private fields
 }
 pub fn[V : Eq, E : Eq] Scope::accepted_derived(Self, () -> Result[V, E], label? : String) -> AcceptedDerived[V, E]
+pub fn[V : @types.BackdateEq, E : Eq] Scope::accepted_memo(Self, () -> Result[V, E], label? : String) -> AcceptedDerived[V, E]
 pub fn[T : Eq] Scope::accumulator(Self, label? : String) -> Accumulator[T]
 pub fn Scope::add_cell_ids(Self, Array[@types.CellId]) -> Unit
 pub fn[T] Scope::add_observer(Self, Observer[T]) -> Observer[T]

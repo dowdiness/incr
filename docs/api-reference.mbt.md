@@ -579,13 +579,25 @@ A success-gated derived authoring primitive. A fallible candidate `Result[V, E]`
 
 Builds an `AcceptedDerived` that owns its candidate compute. Like `Derived::fallible`, the compute is **noraise** — recoverable domain errors live in the `Result`, never raised.
 
-### `AcceptedDerived::from_candidate[V : Eq, E : Eq](candidate: Derived[Result[V, E]], label? : String) -> AcceptedDerived[V, E]`
+### `AcceptedDerived::from_candidate[V : Eq, E](candidate: Derived[Result[V, E]], label? : String) -> AcceptedDerived[V, E]`
 
 Wraps an existing candidate `Derived`. The candidate's lifecycle stays with the caller — `dispose()` does not dispose it.
 
 ### `Scope::accepted_derived[V : Eq, E : Eq](self, compute: () -> Result[V, E], label? : String) -> AcceptedDerived[V, E]`
 
 Scope-owned convenience mirroring `Scope::derived`; the result lives in a child scope and is disposed with the parent.
+
+#### `BackdateEq` tier — acceptance by revision identity
+
+For candidate value types that are **not** `Eq` but carry a `Revision` (so they implement `BackdateEq`). Acceptance is gated by `BackdateEq::backdate_equal` (revision identity) instead of structural `Eq`, mirroring `Memo::new` vs `Memo::new_memo`. Use this when the candidate holds closures or other non-`Eq` data — e.g. a projected document whose stable identity is a revision counter. `E : Eq` is retained, so the current channel still backdates on a repeated equal error.
+
+### `AcceptedDerived::accepted_memo[V : BackdateEq, E : Eq](rt: Runtime, compute: () -> Result[V, E], label? : String) -> AcceptedDerived[V, E]`
+
+`BackdateEq` companion of `AcceptedDerived(...)`: owns its candidate compute, accepts by revision identity.
+
+### `Scope::accepted_memo[V : BackdateEq, E : Eq](self, compute: () -> Result[V, E], label? : String) -> AcceptedDerived[V, E]`
+
+`BackdateEq` companion of `Scope::accepted_derived`: scope-owned, accepts by revision identity.
 
 ### `AcceptedDerived::current(self) -> Result[Result[V, E], ReadError]`
 
@@ -613,7 +625,7 @@ Strict inside-graph companion to `accepted_get`; aborts on a `ReadError`.
 
 ### `AcceptedDerived::accepted_changed_at(self) -> Revision`
 
-The revision at which the accepted value last actually changed. Gated solely by `V`-equality on the accepted value: current-result churn (changing diagnostics, repeated errors, equal recomputations) never advances it.
+The revision at which the accepted value last actually changed. Gated by the constructor's acceptance predicate — `==` for the `Eq` tier, `BackdateEq::backdate_equal` (revision identity) for the `BackdateEq` tier — so current-result churn (changing diagnostics, repeated errors, accepted-equal recomputations) never advances it.
 
 ### `AcceptedDerived::watch_accepted(self) -> Watch[V?]`
 
