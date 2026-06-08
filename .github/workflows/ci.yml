@@ -35,14 +35,28 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      # Install via the official MoonBit script (pinned) wrapped in a retry.
+      # We deliberately do NOT use hustcer/setup-moonbit: it pulls a Nu binary
+      # from a GitHub-releases CDN that intermittently 504s, reddening a random
+      # leg ~once per run (issue #229). The official script fetches only the
+      # pinned toolchain + core from cli.moonbitlang.com (no Nu), and the retry
+      # loop absorbs transient blips. Pinned for reproducibility (issue #227).
       - name: Install MoonBit
-        uses: hustcer/setup-moonbit@v1.22
-        with:
-          # Pinned for reproducible doc/example checks (issue #227).
-          version: 0.9.3+b53c2807d
-          core-version: 0.9.3+b53c2807d
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          MOONBIT_INSTALL_VERSION: 0.9.3+b53c2807d
+        run: |
+          install_moonbit() {
+            curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/moonbit-install.sh \
+              && bash /tmp/moonbit-install.sh
+          }
+          for attempt in 1 2 3; do
+            if install_moonbit; then break; fi
+            if [ "$attempt" = 3 ]; then
+              echo "MoonBit install failed after 3 attempts"; exit 1
+            fi
+            echo "install attempt $attempt failed; retrying in 10s..."; sleep 10
+          done
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
 
       - name: Verify MoonBit
         run: moon version --all
@@ -66,14 +80,28 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      # Install via the official MoonBit script (pinned) wrapped in a retry.
+      # We deliberately do NOT use hustcer/setup-moonbit: it pulls a Nu binary
+      # from a GitHub-releases CDN that intermittently 504s, reddening a random
+      # leg ~once per run (issue #229). The official script fetches only the
+      # pinned toolchain + core from cli.moonbitlang.com (no Nu), and the retry
+      # loop absorbs transient blips. Pinned for reproducibility (issue #227).
       - name: Install MoonBit
-        uses: hustcer/setup-moonbit@v1.22
-        with:
-          # Pinned for reproducible doc/example checks (issue #227).
-          version: 0.9.3+b53c2807d
-          core-version: 0.9.3+b53c2807d
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          MOONBIT_INSTALL_VERSION: 0.9.3+b53c2807d
+        run: |
+          install_moonbit() {
+            curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/moonbit-install.sh \
+              && bash /tmp/moonbit-install.sh
+          }
+          for attempt in 1 2 3; do
+            if install_moonbit; then break; fi
+            if [ "$attempt" = 3 ]; then
+              echo "MoonBit install failed after 3 attempts"; exit 1
+            fi
+            echo "install attempt $attempt failed; retrying in 10s..."; sleep 10
+          done
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
 
       - name: Verify MoonBit
         run: moon version --all
@@ -141,14 +169,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      # See the library job for why we use the official script (issue #229) and
+      # the pin rationale (issue #227).
       - name: Install MoonBit
-        uses: hustcer/setup-moonbit@v1.22
-        with:
-          # Pinned for reproducible checks (issue #227).
-          version: 0.9.3+b53c2807d
-          core-version: 0.9.3+b53c2807d
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          MOONBIT_INSTALL_VERSION: 0.9.3+b53c2807d
+        run: |
+          install_moonbit() {
+            curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/moonbit-install.sh \
+              && bash /tmp/moonbit-install.sh
+          }
+          for attempt in 1 2 3; do
+            if install_moonbit; then break; fi
+            if [ "$attempt" = 3 ]; then
+              echo "MoonBit install failed after 3 attempts"; exit 1
+            fi
+            echo "install attempt $attempt failed; retrying in 10s..."; sleep 10
+          done
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
 
       - name: Verify MoonBit
         run: moon version --all
