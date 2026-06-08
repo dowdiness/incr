@@ -1,0 +1,101 @@
+name: CI
+
+# Runs `moon check` + `moon test` for the library and the checked literate
+# `.mbt.md` examples in the docs module, so the public-facade contract and the
+# documentation drift guard are verified automatically (issue #227).
+#
+# The existing spreadsheet-demo deploy workflows are intentionally left alone;
+# this workflow only covers library/docs verification.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+# NEW_MOON_MOD=0 keeps moon on the committed manifests and disables the
+# experimental moon.mod auto-migration. Set workspace-wide so every `moon`
+# invocation in every step inherits it.
+env:
+  NEW_MOON_MOD: '0'
+
+jobs:
+  library:
+    name: Check + Test library
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install MoonBit
+        uses: hustcer/setup-moonbit@v1.22
+        with:
+          # Pinned for reproducible doc/example checks (issue #227).
+          version: 0.9.3+b53c2807d
+          core-version: 0.9.3+b53c2807d
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Verify MoonBit
+        run: moon version --all
+
+      - name: moon update
+        working-directory: incr
+        run: moon update
+
+      - name: moon check
+        working-directory: incr
+        run: moon check
+
+      - name: moon test
+        working-directory: incr
+        run: moon test
+
+  docs:
+    name: Check + Test docs examples
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install MoonBit
+        uses: hustcer/setup-moonbit@v1.22
+        with:
+          # Pinned for reproducible doc/example checks (issue #227).
+          version: 0.9.3+b53c2807d
+          core-version: 0.9.3+b53c2807d
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Verify MoonBit
+        run: moon version --all
+
+      - name: moon update
+        working-directory: docs
+        run: moon update
+
+      # Plain `moon test` does NOT pick up the literate `.mbt.md` examples — each
+      # checked file must be passed explicitly. `moon check` exercises `mbt check`
+      # blocks (no test body) and `moon test` exercises blocks with test bodies.
+      # The docs module is a `moon.work` member alongside `incr/`, so these
+      # examples resolve `dowdiness/incr` from the local library source — this is
+      # what makes the checks a real drift guard against the working tree.
+      - name: Check + test checked literate examples
+        working-directory: docs
+        run: |
+          status=0
+          for f in *.mbt.md; do
+            echo "::group::$f"
+            moon check "$f" || status=1
+            moon test "$f" || status=1
+            echo "::endgroup::"
+          done
+          exit $status
