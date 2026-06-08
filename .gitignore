@@ -5,3 +5,4 @@ target
 .claude/worktrees/
 .claude/projects/
 docs/papers/*.pdf
+.slopless/

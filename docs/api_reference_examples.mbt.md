@@ -501,6 +501,7 @@ test "docs api-ref: eager_derived recomputes eagerly and can be read from outsid
 `AcceptedDerived[V, E]` computes a fallible candidate `Result[V, E]` from current
 inputs, but only `Ok(v)` candidates advance the *accepted* value. On `Err(e)` the
 current channel reports the error while the previously accepted value is retained.
+
 The in-graph `accepted_get_or_abort` reads the accepted projection, so an
 accepted-only consumer re-runs only when the accepted value actually changes —
 never on current-error churn.
