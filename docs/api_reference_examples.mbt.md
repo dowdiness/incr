@@ -496,6 +496,190 @@ test "docs api-ref: eager_derived recomputes eagerly and can be read from outsid
 }
 ```
 
+## `AcceptedDerived` — success-gated retention
+
+`AcceptedDerived[V, E]` computes a fallible candidate `Result[V, E]` from current
+inputs, but only `Ok(v)` candidates advance the *accepted* value. On `Err(e)` the
+current channel reports the error while the previously accepted value is retained.
+
+The in-graph `accepted_get_or_abort` reads the accepted projection, so an
+accepted-only consumer re-runs only when the accepted value actually changes —
+never on current-error churn.
+
+```mbt check
+///|
+/// A toy fallible parse with hand-reasoned outcomes: `"1"` → `Ok(1)`, `"2"` →
+/// `Ok(2)`, anything else → `Err`.
+fn ad_doc_parse(src : String) -> Result[Int, String] {
+  match src {
+    "1" => Ok(1)
+    "2" => Ok(2)
+    _ => Err("cannot parse \"\{src}\"")
+  }
+}
+
+///|
+test "docs api-ref: accepted_derived retains last accepted value across errors" {
+  let rt = @incr.Runtime()
+  let source = @incr.Input(rt, "1", label="source")
+  let parsed = @incr.AcceptedDerived::AcceptedDerived(
+    rt,
+    () => ad_doc_parse(source.get()),
+    label="parsed",
+  )
+
+  // First success accepts the value.
+  inspect(parsed.accepted_or_abort() is Some(1), content="true")
+  inspect(parsed.snapshot_or_abort().status, content="AcceptedChanged")
+
+  // An in-graph accepted-only consumer reads through `accepted_get_or_abort`, so
+  // it depends on the accepted projection — not the candidate.
+  let runs = [0]
+  let consumer = @incr.Derived(rt, () => {
+    runs[0] = runs[0] + 1
+    parsed.accepted_get_or_abort()
+  })
+  let watch = consumer.watch()
+  ignore(watch.read_or_abort()) // prime
+  let base = runs[0]
+
+  // Err → the current channel reports the error, but the accepted value is
+  // RETAINED and the accepted-only consumer does NOT re-run.
+  source.set("oops")
+  inspect(parsed.current_or_abort() is Err(_), content="true")
+  inspect(parsed.accepted_or_abort() is Some(1), content="true")
+  inspect(parsed.snapshot_or_abort().status, content="RetainedDueToError")
+  ignore(watch.read_or_abort())
+  inspect(runs[0] == base, content="true")
+
+  // A genuine accepted-value change DOES advance the accepted projection and
+  // re-runs the consumer.
+  source.set("2")
+  ignore(watch.read_or_abort())
+  inspect(parsed.accepted_or_abort() is Some(2), content="true")
+  inspect(runs[0] > base, content="true")
+  watch.dispose()
+}
+
+///|
+test "docs api-ref: accepted_derived status transitions and accepted_changed_at gating" {
+  let rt = @incr.Runtime()
+  let source = @incr.Input(rt, "1", label="source")
+  let parsed = @incr.AcceptedDerived::AcceptedDerived(
+    rt,
+    () => ad_doc_parse(source.get()),
+    label="parsed",
+  )
+  let r1 = parsed.accepted_changed_at()
+
+  // Err while a value is accepted: the snapshot exposes the error current, the
+  // retained accepted value, and RetainedDueToError. `accepted_changed_at` does
+  // not advance — it is gated solely by accepted-value equality.
+  source.set("oops")
+  let snap = parsed.snapshot_or_abort()
+  inspect(snap.current is Err(_), content="true")
+  inspect(snap.accepted is Some(1), content="true")
+  inspect(snap.status, content="RetainedDueToError")
+  inspect(parsed.accepted_changed_at() == r1, content="true")
+
+  // Equal success (same accepted value from a different source): AcceptedUnchanged,
+  // still no advance.
+  source.set("1")
+  inspect(parsed.snapshot_or_abort().status, content="AcceptedUnchanged")
+  inspect(parsed.accepted_changed_at() == r1, content="true")
+
+  // Changed success: AcceptedChanged, and now `accepted_changed_at` advances.
+  source.set("2")
+  inspect(parsed.snapshot_or_abort().status, content="AcceptedChanged")
+  inspect(parsed.accepted_changed_at() == r1, content="false")
+}
+
+///|
+test "docs api-ref: accepted_derived accepts a transient success between failures" {
+  let rt = @incr.Runtime()
+  let source = @incr.Input(rt, "bad", label="source")
+  let parsed = @incr.AcceptedDerived::AcceptedDerived(
+    rt,
+    () => ad_doc_parse(source.get()),
+    label="parsed",
+  )
+  // No prior accepted value, candidate Err → NoAccept.
+  inspect(parsed.accepted_or_abort() is None, content="true")
+  inspect(parsed.snapshot_or_abort().status, content="NoAccept")
+
+  // A transient success, then a failure, with NO read in between. The accept fold
+  // runs eagerly once per committed revision, so it still observes the Ok(1) and
+  // retains it after the later Err.
+  source.set("1")
+  source.set("bad")
+  inspect(parsed.accepted_or_abort() is Some(1), content="true")
+  inspect(parsed.snapshot_or_abort().status, content="RetainedDueToError")
+}
+
+///|
+test "docs api-ref: batch coalesces intra-batch writes to one committed transition" {
+  let rt = @incr.Runtime()
+  let source = @incr.Input(rt, "bad", label="source")
+  let parsed = @incr.AcceptedDerived::AcceptedDerived(
+    rt,
+    () => ad_doc_parse(source.get()),
+    label="parsed",
+  )
+  inspect(parsed.accepted_or_abort() is None, content="true")
+
+  // A batch publishes a single committed revision: the transient Ok(1) written
+  // inside the batch is never separately accepted because the committed value is
+  // the trailing Err.
+  rt.batch(() => {
+    source.set("1")
+    source.set("bad")
+  })
+  inspect(parsed.accepted_or_abort() is None, content="true")
+  inspect(parsed.snapshot_or_abort().status, content="NoAccept")
+}
+
+///|
+test "docs api-ref: from_candidate wraps an external candidate and spares it on dispose" {
+  let rt = @incr.Runtime()
+  let source = @incr.Input(rt, "1", label="source")
+  // The caller owns this candidate `Derived`; the wrapper only adds the accept gate.
+  let candidate = @incr.Derived::fallible(rt, () => ad_doc_parse(source.get()))
+  let parsed = @incr.AcceptedDerived::from_candidate(candidate)
+
+  // `watch_accepted` is a persistent outside-graph anchor on the accepted value.
+  let watch = parsed.watch_accepted()
+  inspect(watch.read_or_abort() is Some(1), content="true")
+  source.set("2")
+  inspect(watch.read_or_abort() is Some(2), content="true")
+  watch.dispose()
+
+  // Disposing the wrapper spares the externally-owned candidate.
+  parsed.dispose()
+  inspect(parsed.is_disposed(), content="true")
+  inspect(candidate.read_or_abort() is Ok(2), content="true")
+}
+
+///|
+test "docs api-ref: scope-owned accepted_derived disposes with its scope" {
+  let rt = @incr.Runtime()
+  let source = @incr.Input(rt, "1", label="source")
+  let scope = @incr.Scope::new(rt)
+  let parsed = scope.accepted_derived(() => ad_doc_parse(source.get()))
+  inspect(parsed.accepted_or_abort() is Some(1), content="true")
+
+  scope.dispose()
+  inspect(parsed.is_disposed(), content="true")
+  // After disposal every read channel surfaces Disposed on its read-error channel.
+  inspect(
+    match parsed.current() {
+      Err(e) => e.is_disposed()
+      Ok(_) => false
+    },
+    content="true",
+  )
+}
+```
+
 ## `Accumulator` — compatibility push side-channel
 
 ```mbt check
