@@ -379,13 +379,15 @@ AcceptedDerived[Projection, Diagnostic]
 
 ## Implementation stages
 
-1. **Docs/spec only.** Land this design with no public API.
+1. **Docs/spec only.** Land this design with no public API. ✅ Done (PR #213).
 2. **Spike tests in `cells/` or `tests/`.** Implement the smallest private helper
-   or local test fixture that validates the state machine above.
+   or local test fixture that validates the state machine above. ✅ Done (PR #214);
+   fixture removed in stage 3 and its rows ported onto the public type.
 3. **Public target facade.** Add `AcceptedDerived`, `AcceptedSnapshot`, and
    `AcceptStatus` only after the stateful-cell/backdating behavior is proven.
-4. **Scope and docs integration.** Add `Scope::accepted_derived`, API reference
-   docs, and checked examples.
+   ✅ Done — see [Stage 3 resolution](#stage-3-resolution-2026-06-06).
+   `Scope::accepted_derived` landed here too.
+4. **Docs integration.** API reference docs and checked `.mbt.md` examples.
 5. **Downstream validation.** Replace one manual pattern in Canopy or MoonDsp and
    confirm tests still prove current diagnostics and last accepted semantics.
 
@@ -434,3 +436,49 @@ When the API ships, tests should cover:
   default: no — transition effects belong at `Effect` / observer boundaries.)
 - Should `AcceptedDerived` live in `cells/` directly, or should it start as an
   example-local helper until a downstream replacement proves the public shape?
+
+## Stage 3 resolution (2026-06-06)
+
+Stages 1–3 shipped (`incr/cells/accepted_derived.mbt` + `accepted_derived_wbtest.mbt`,
+re-exported from the root facade; the stage-2 spike fixture was removed and its
+state-machine rows ported onto the public type). The open questions were resolved
+as follows (design-validated by Codex before implementation):
+
+- **`from_candidate` in v1:** yes. v1 ships `AcceptedDerived::AcceptedDerived`
+  (owns-compute), `AcceptedDerived::from_candidate` (wraps an external candidate
+  `Derived`; the candidate's lifecycle stays with the caller), and
+  `Scope::accepted_derived`.
+- **Accepted projection identity:** `accepted_changed_at() -> Revision`,
+  implemented as the accepted-projection `Derived`'s `changed_at()`. Gating by
+  `V`-equality falls out of ordinary backdating; no manual accept counter is
+  kept. Documented as an `incr` graph `Revision`, not a domain document revision.
+- **No-backdate / no-`Eq` variant:** deferred. v1 requires `V : Eq, E : Eq`.
+- **Previous accepted value in `snapshot`:** no (transition effects belong at
+  `Effect` / observer boundaries).
+- **Location:** `incr/cells/` as a public target facade (the cross-repo
+  Canopy/MoonDsp reuse driver rules out an example-local home, and stage 2
+  proved the mechanism).
+- **Read API:** outside-graph accessors `current` / `accepted` / `snapshot`
+  (each `Result[…, ReadError]`) with strict `*_or_abort` variants, plus
+  `watch_accepted() -> Watch[V?]`. `watch_snapshot` is deferred — `Watch`'s
+  getter is constructed internally, so a `Watch` cannot compose the direct
+  `candidate.read()` the read-error channel requires; the accessor methods carry
+  it instead.
+
+**ReadError channel — engine limitation found during stage 3.** The accessors
+surface a candidate `ReadError` honestly by composing `candidate.read()`
+directly; the eager fold reads `candidate.get()` gracefully and skips advancing
+on `Err`, so a mechanism failure never drives the state machine. However, the
+only gracefully-surfaceable `ReadError` in this engine is **`Disposed`**: a
+transient, persistent `Err(Cycle)` is structurally unreachable — incr prevents
+recorded dependency cycles, so a cell either aborts (`get_or_abort` on an
+in-progress dep) or self-heals a cycle into a domain value (`get()` handled
+in-compute); it never leaves a clean transient `Err(Cycle)` to recover from.
+Therefore the acceptance row "after a transient ReadError clears, the state
+machine resumes" cannot be constructed for `Cycle` (and `Disposed` is permanent).
+Stage 3 tests the constructible behavior — `Disposed` non-driving + honest
+surfacing + retained accepted state untouched — and documents the
+resume-on-clear row as not applicable in this engine.
+
+Remaining: stage 4 (API-reference docs + checked `.mbt.md` examples) and stage 5
+(replace one Canopy/MoonDsp manual pattern).
