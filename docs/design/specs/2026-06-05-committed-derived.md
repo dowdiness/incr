@@ -452,7 +452,24 @@ as follows (design-validated by Codex before implementation):
   implemented as the accepted-projection `Derived`'s `changed_at()`. Gating by
   `V`-equality falls out of ordinary backdating; no manual accept counter is
   kept. Documented as an `incr` graph `Revision`, not a domain document revision.
-- **No-backdate / no-`Eq` variant:** deferred. v1 requires `V : Eq, E : Eq`.
+- **No-backdate / no-`Eq` variant:** partially resolved (2026-06-08). A
+  **`BackdateEq` tier** ships — `AcceptedDerived::accepted_memo` /
+  `Scope::accepted_memo` require `V : BackdateEq, E : Eq` and gate acceptance by
+  revision identity (`backdate_equal`) instead of structural `Eq`, mirroring
+  `Memo::new` vs `Memo::new_memo`. This is the tier real downstream candidate
+  types need: e.g. MoonDsp's `PatternDoc`/`PatternSnapshot` cannot derive `Eq`
+  at all (they hold closure fields like `(Pat[A]) -> Pat[A]`), but carry a
+  `Revision`. The **no-backdate** tier (no `V` bound; makes `AcceptedUnchanged`
+  unobservable and turns `accepted_changed_at()` into "advanced this revision")
+  remains deferred — it has no consumer and changes the observable contract, so
+  it warrants its own deliberate PR. The default `Eq` tier
+  (`AcceptedDerived::AcceptedDerived`, `from_candidate`, `Scope::accepted_derived`)
+  is unchanged, except `from_candidate`'s unused `E : Eq` bound was relaxed to
+  `E`. Implemented via a single internal `same : (V, V) -> Bool` predicate
+  threaded into both the accept transition and the accepted projection's
+  backdating; the eager fold carries a monotonic epoch `Int` (so it stays on the
+  `Eq`-bound `eager_derived`) that advances only on `AcceptedChanged`. Plan:
+  [docs/plans/2026-06-08-accepted-derived-backdate-eq-tier.md](../../plans/2026-06-08-accepted-derived-backdate-eq-tier.md).
 - **Previous accepted value in `snapshot`:** no (transition effects belong at
   `Effect` / observer boundaries).
 - **Location:** `incr/cells/` as a public target facade (the cross-repo

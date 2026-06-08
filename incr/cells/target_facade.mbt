@@ -178,6 +178,23 @@ pub fn[V : Eq, E : Eq] Derived::fallible(
 }
 
 ///|
+/// Internal: build a `Derived` with an explicit backdate comparator, for the
+/// non-`Eq` construction paths (`BackdateEq` / custom-predicate tiers) that
+/// cannot use the `Eq`-bound `Derived::Derived` / `Derived::fallible`. Threads
+/// the comparator straight into `Memo::_create`, mirroring how
+/// `Memo::new_memo` / `Memo::new_no_backdate` differ from `Memo::new` only in
+/// the comparator. Package-internal: no `T` bound, so it must not be exposed
+/// publicly without a deliberate API decision.
+fn[T] Derived::with_backdate(
+  rt : Runtime,
+  compute : () -> T raise Failure,
+  backdate_eq : (T, T) -> Bool,
+  label? : String,
+) -> Derived[T] {
+  { inner: Memo::_create(rt, compute, label?, backdate_eq) }
+}
+
+///|
 /// Strict graph read. Requires an active tracked context.
 pub fn[T] Derived::get(self : Derived[T]) -> Result[T, ReadError] {
   self.inner.get_strict_honest()

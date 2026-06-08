@@ -359,3 +359,202 @@ test "public: Scope::accepted_derived disposes with its parent scope" {
   scope.dispose()
   inspect(ad.is_disposed(), content="true")
 }
+
+// --- BackdateEq tier --------------------------------------------------------
+//
+// `AcceptedDerived::accepted_memo` / `Scope::accepted_memo` accept a candidate
+// value that is NOT `Eq` but carries a `Revision` (so it is `BackdateEq`).
+// Acceptance is gated by revision identity, not structural equality.
+
+///|
+/// Non-`Eq` candidate value: a `Revision` is the acceptance identity, `payload`
+/// can differ even when the revision is equal (proving acceptance gates on the
+/// revision, not the value). Deliberately does NOT derive `Eq`.
+priv struct AdDoc {
+  revision : @incr.Revision
+  payload : Int
+}
+
+///|
+impl @incr.HasChangedAt for AdDoc with fn changed_at(self) -> @incr.Revision {
+  self.revision
+}
+
+///|
+impl @incr.BackdateEq for AdDoc
+
+///|
+/// `Revision` at `steps` advances from the initial revision.
+fn ad_rev(steps : Int) -> @incr.Revision {
+  let mut r = @incr.Revision::initial()
+  for _ in 0..<steps {
+    r = r.next()
+  }
+  r
+}
+
+///|
+/// `"r1a"`/`"r1b"` → same revision (1), DIFFERENT payload (10 vs 99); `"r2"` →
+/// a new revision (2); `"e1a"`/`"e1b"` → equal `Err("e1")`; `"e2"` → distinct.
+fn ad_bd_parse(s : String) -> Result[AdDoc, String] {
+  match s {
+    "r1a" => Ok(AdDoc::{ revision: ad_rev(1), payload: 10 })
+    "r1b" => Ok(AdDoc::{ revision: ad_rev(1), payload: 99 })
+    "r2" => Ok(AdDoc::{ revision: ad_rev(2), payload: 20 })
+    "e1a" => Err("e1")
+    "e1b" => Err("e1")
+    "e2" => Err("e2")
+    _ => Err("other")
+  }
+}
+
+///|
+/// The retained accepted payload, or `-1` when nothing is accepted.
+fn ad_accepted_payload(ad : @incr.AcceptedDerived[AdDoc, String]) -> Int {
+  match ad.accepted_or_abort() {
+    Some(d) => d.payload
+    None => -1
+  }
+}
+
+///|
+test "bd: no prior, Ok → AcceptedChanged" {
+  let rt = @incr.Runtime::Runtime()
+  let input = @incr.Input::Input(rt, "r1a")
+  let ad = @incr.AcceptedDerived::accepted_memo(rt, () => {
+    ad_bd_parse(input.get())
+  })
+  inspect(ad_accepted_payload(ad), content="10")
+  inspect(ad.snapshot_or_abort().status, content="AcceptedChanged")
+}
+
+///|
+test "bd: same revision, different payload → AcceptedUnchanged, retains first doc" {
+  let rt = @incr.Runtime::Runtime()
+  let input = @incr.Input::Input(rt, "r1a")
+  let ad = @incr.AcceptedDerived::accepted_memo(rt, () => {
+    ad_bd_parse(input.get())
+  })
+  input.set("r1b") // same revision (1), payload 99 — but revision is the identity
+  inspect(ad.snapshot_or_abort().status, content="AcceptedUnchanged")
+  // The retained accepted value is the FIRST doc (payload 10), not 99: an equal
+  // revision does not advance the accepted value.
+  inspect(ad_accepted_payload(ad), content="10")
+}
+
+///|
+test "bd: new revision → AcceptedChanged" {
+  let rt = @incr.Runtime::Runtime()
+  let input = @incr.Input::Input(rt, "r1a")
+  let ad = @incr.AcceptedDerived::accepted_memo(rt, () => {
+    ad_bd_parse(input.get())
+  })
+  input.set("r2")
+  inspect(ad.snapshot_or_abort().status, content="AcceptedChanged")
+  inspect(ad_accepted_payload(ad), content="20")
+}
+
+///|
+test "bd: prior Some, Err → RetainedDueToError" {
+  let rt = @incr.Runtime::Runtime()
+  let input = @incr.Input::Input(rt, "r1a")
+  let ad = @incr.AcceptedDerived::accepted_memo(rt, () => {
+    ad_bd_parse(input.get())
+  })
+  input.set("e1a")
+  inspect(ad.snapshot_or_abort().status, content="RetainedDueToError")
+  inspect(ad_accepted_payload(ad), content="10")
+  inspect(ad.current_or_abort() is Err("e1"), content="true")
+}
+
+///|
+test "bd: transient success accepted without intervening read" {
+  let rt = @incr.Runtime::Runtime()
+  let input = @incr.Input::Input(rt, "e1a")
+  let ad = @incr.AcceptedDerived::accepted_memo(rt, () => {
+    ad_bd_parse(input.get())
+  })
+  input.set("r1a") // transient Ok: eager fold accepts it
+  input.set("e1a") // Err: retained, with no accepted read in between
+  inspect(ad.snapshot_or_abort().status, content="RetainedDueToError")
+  inspect(ad_accepted_payload(ad), content="10")
+}
+
+///|
+test "bd: changed_at advances only on revision change, not current-error churn" {
+  let rt = @incr.Runtime::Runtime()
+  let input = @incr.Input::Input(rt, "r1a")
+  let ad = @incr.AcceptedDerived::accepted_memo(rt, () => {
+    ad_bd_parse(input.get())
+  })
+  let r1 = ad.accepted_changed_at()
+  input.set("e1a") // RetainedDueToError
+  inspect(ad.accepted_changed_at() == r1, content="true")
+  input.set("e2") // different error — still no accepted change
+  inspect(ad.accepted_changed_at() == r1, content="true")
+  input.set("r1b") // same revision success — no accepted change
+  inspect(ad.accepted_changed_at() == r1, content="true")
+  input.set("r2") // new revision — accepted advances
+  inspect(ad.accepted_changed_at() == r1, content="false")
+}
+
+///|
+test "bd: in-graph accepted consumer ignores current-error churn, re-runs on revision change" {
+  let rt = @incr.Runtime::Runtime()
+  let input = @incr.Input::Input(rt, "r1a")
+  let ad = @incr.AcceptedDerived::accepted_memo(rt, () => {
+    ad_bd_parse(input.get())
+  })
+  let runs = [0]
+  let consumer = @incr.Derived::Derived(rt, () => {
+    runs[0] = runs[0] + 1
+    match ad.accepted_get() {
+      Ok(Some(d)) => d.payload
+      _ => -1
+    }
+  })
+  let watch = consumer.watch()
+  ignore(watch.read_or_abort())
+  let base = runs[0]
+  input.set("e1a") // current error: accepted retained → consumer must NOT re-run
+  ignore(watch.read_or_abort())
+  input.set("e2")
+  ignore(watch.read_or_abort())
+  input.set("r1b") // same revision: accepted retained → still no re-run
+  ignore(watch.read_or_abort())
+  inspect(runs[0] == base, content="true")
+  input.set("r2") // new revision: accepted advances → consumer re-runs
+  ignore(watch.read_or_abort())
+  inspect(runs[0] > base, content="true")
+  watch.dispose()
+}
+
+///|
+test "bd: chain survives Runtime::gc()" {
+  // The BackdateEq tier builds `accepted_cell` by hand (via `with_backdate` +
+  // `add_cell_ids`), not `scope.derived`. This pins that the gc anchor still
+  // keeps the chain (accepted_cell -> fold -> candidate) rooted across a gc.
+  let rt = @incr.Runtime::Runtime()
+  let input = @incr.Input::Input(rt, "r1a")
+  let ad = @incr.AcceptedDerived::accepted_memo(rt, () => {
+    ad_bd_parse(input.get())
+  })
+  inspect(ad_accepted_payload(ad), content="10")
+  rt.gc()
+  inspect(ad_accepted_payload(ad), content="10")
+  input.set("r2")
+  inspect(ad_accepted_payload(ad), content="20")
+}
+
+///|
+test "bd: Scope::accepted_memo disposes with its parent scope" {
+  let rt = @incr.Runtime::Runtime()
+  let input = @incr.Input::Input(rt, "r1a")
+  let scope = @incr.Scope::new(rt)
+  let ad = scope.accepted_memo(() => ad_bd_parse(input.get()))
+  inspect(ad_accepted_payload(ad), content="10")
+  input.set("r2")
+  inspect(ad_accepted_payload(ad), content="20")
+  scope.dispose()
+  inspect(ad.is_disposed(), content="true")
+}

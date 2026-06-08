@@ -75,7 +75,10 @@ pub struct AcceptedSnapshot[V, E] {
 ///|
 /// A success-gated derived value. Construct with `AcceptedDerived::AcceptedDerived`
 /// (owns its candidate compute), `AcceptedDerived::from_candidate` (wraps an
-/// existing candidate `Derived`), or `Scope::accepted_derived`.
+/// existing candidate `Derived`), or `Scope::accepted_derived` — all `V : Eq`.
+/// For candidate values that are not `Eq` but carry a `Revision`, use the
+/// `BackdateEq` tier (`AcceptedDerived::accepted_memo` / `Scope::accepted_memo`),
+/// which gates acceptance by revision identity.
 pub struct AcceptedDerived[V, E] {
   // The fallible candidate stage. Read DIRECTLY by the accessors so a graph
   // mechanism failure (Disposed) surfaces on the read channel.
@@ -85,8 +88,14 @@ pub struct AcceptedDerived[V, E] {
   // its `changed_at()` answers `accepted_changed_at()`.
   priv accepted_cell : Derived[V?]
   // The eager accept fold. Runs once per committed revision; advances the
-  // retained slot/status on a successful candidate read.
-  priv fold : EagerDerived[AcceptedSnapshot[V, E]?]
+  // retained slot/status on a successful candidate read. Carries a `Bool`
+  // accept-signal (always `Eq`, so the fold stays on the `Eq`-bound
+  // `eager_derived`) that is FLIPPED only on `AcceptedChanged`; on any other
+  // outcome it is unchanged, so the fold backdates and `accepted_cell` is not
+  // invalidated on current-only churn. Only the signal's CHANGE matters — the
+  // value itself is discarded by `accepted_cell` — so a toggle suffices (no
+  // counter, hence no overflow concept).
+  priv fold : EagerDerived[Bool]
   // Retained acceptance state, held OUTSIDE the reactive graph (no self-cycle).
   priv accepted_slot : Ref[V?]
   priv last_status : Ref[AcceptStatus]
@@ -100,17 +109,22 @@ pub struct AcceptedDerived[V, E] {
 
 ///|
 /// Pure acceptance transition: `(previous accepted, candidate) -> (new accepted,
-/// status)`. The retained value is held externally; this is the fold body.
-fn[V : Eq, E] accepted_transition(
+/// status)`. The retained value is held externally; this is the fold body. The
+/// `same` predicate is the single source of "did the accepted value change":
+/// the `Eq` tier passes `(a, b) => a == b`, the `BackdateEq` tier passes
+/// `(a, b) => a.backdate_equal(b)`. The SAME predicate also drives the accepted
+/// projection's backdating in `assemble`, so status and backdating cannot diverge.
+fn[V, E] accepted_transition(
   prev : V?,
   current : Result[V, E],
+  same : (V, V) -> Bool,
 ) -> (V?, AcceptStatus) {
   match (prev, current) {
     (None, Err(_)) => (None, NoAccept)
     (None, Ok(v)) => (Some(v), AcceptedChanged)
     (Some(old), Err(_)) => (Some(old), RetainedDueToError)
     (Some(old), Ok(v)) =>
-      if v == old {
+      if same(v, old) {
         (Some(old), AcceptedUnchanged)
       } else {
         (Some(v), AcceptedChanged)
@@ -123,9 +137,10 @@ fn[V : Eq, E] accepted_transition(
 /// `scope`, returning the assembled `AcceptedDerived`. The caller decides
 /// whether `candidate` is owned by `scope` (owns-compute) or external
 /// (`from_candidate`).
-fn[V : Eq, E : Eq] AcceptedDerived::assemble(
+fn[V, E] AcceptedDerived::assemble(
   scope : Scope,
   candidate : Derived[Result[V, E]],
+  same : (V, V) -> Bool,
   label? : String = "accepted_derived",
 ) -> AcceptedDerived[V, E] {
   let accepted_slot : Ref[V?] = { val: None }
@@ -133,31 +148,55 @@ fn[V : Eq, E : Eq] AcceptedDerived::assemble(
   // Eager accept fold: runs at construction and once per committed revision.
   // A graceful `candidate.get()` lets a Disposed read skip advancing without
   // aborting; a successful read (including a domain `Err(e)`) drives the state
-  // machine. Backdates on equal snapshot so an unchanged committed revision
-  // (e.g. `Err(e)` then equal `Err(e)`) does not wake snapshot watchers.
+  // machine. The fold carries a `Bool` accept-signal that is FLIPPED ONLY on
+  // `AcceptedChanged`, so an unchanged committed revision (e.g. `Err(e)` then
+  // equal `Err(e)`, or an `AcceptedUnchanged` success) leaves the signal and
+  // backdates the fold, not invalidating `accepted_cell`. The fold still RUNS
+  // every committed revision, so the slot/status advance even with no accepted
+  // read between a transient success and a later error.
+  let accept_signal : Ref[Bool] = { val: false }
   let fold = scope.eager_derived(() => {
     match candidate.get() {
       Ok(domain) => {
         let (new_accepted, status) = accepted_transition(
           accepted_slot.val,
           domain,
+          same,
         )
         accepted_slot.val = new_accepted
         last_status.val = status
-        Some({ current: domain, accepted: new_accepted, status })
+        if status is AcceptedChanged {
+          accept_signal.val = !accept_signal.val
+        }
+        accept_signal.val
       }
-      Err(_) => None // ReadError (Disposed): do not advance the state machine.
+      // ReadError (Disposed): do not advance the state machine.
+      Err(_) => accept_signal.val
     }
   })
-  // Accepted projection: recomputes when the fold's value changes, projects the
-  // retained accepted value, and backdates on `V?`-equality.
-  let accepted_cell = scope.derived(
+  // Accepted projection: re-runs when the epoch changes (i.e. on
+  // `AcceptedChanged`), projects the retained accepted value, and backdates on
+  // the `Option`-lifted `same` predicate so its `changed_at()` advances iff the
+  // accepted value actually changed. Built via the comparator-threading helper
+  // because `same` may not be `Eq` (the `Eq`-bound `scope.derived` cannot serve
+  // the `BackdateEq` / custom-predicate tiers).
+  let accepted_eq = fn(a : V?, b : V?) -> Bool {
+    match (a, b) {
+      (None, None) => true
+      (Some(x), Some(y)) => same(x, y)
+      _ => false
+    }
+  }
+  let accepted_cell = Derived::with_backdate(
+    scope.runtime,
     () => {
       ignore(fold.get())
       accepted_slot.val
     },
+    accepted_eq,
     label="\{label}.accepted",
   )
+  scope.add_cell_ids([accepted_cell.inner.id()])
   // gc anchor: root `accepted_cell` and prime it so its upstream
   // dependencies (fold -> candidate) are recorded before any `Runtime::gc()`.
   let anchor = scope.add_watch(accepted_cell.watch())
@@ -177,7 +216,7 @@ pub fn[V : Eq, E : Eq] AcceptedDerived::AcceptedDerived(
   let scope = Scope::new(rt)
   let candidate = Derived::fallible(rt, compute, label?)
   scope.add_cell_ids([candidate.inner.id()])
-  AcceptedDerived::assemble(scope, candidate, label?)
+  AcceptedDerived::assemble(scope, candidate, (a, b) => a == b, label?)
 }
 
 ///|
@@ -185,12 +224,12 @@ pub fn[V : Eq, E : Eq] AcceptedDerived::AcceptedDerived(
 /// candidate's lifecycle is owned by the CALLER — `AcceptedDerived::dispose`
 /// disposes only the fold, accepted projection, and gc anchor, not the
 /// candidate.
-pub fn[V : Eq, E : Eq] AcceptedDerived::from_candidate(
+pub fn[V : Eq, E] AcceptedDerived::from_candidate(
   candidate : Derived[Result[V, E]],
   label? : String,
 ) -> AcceptedDerived[V, E] {
   let scope = Scope::new(candidate.inner.rt)
-  AcceptedDerived::assemble(scope, candidate, label?)
+  AcceptedDerived::assemble(scope, candidate, (a, b) => a == b, label?)
 }
 
 ///|
@@ -207,7 +246,89 @@ pub fn[V : Eq, E : Eq] Scope::accepted_derived(
   let child = self.child()
   let candidate = Derived::fallible(child.runtime, compute, label?)
   child.add_cell_ids([candidate.inner.id()])
-  AcceptedDerived::assemble(child, candidate, label?)
+  AcceptedDerived::assemble(child, candidate, (a, b) => a == b, label?)
+}
+
+// --- BackdateEq tier --------------------------------------------------------
+//
+// For candidate value types that are NOT `Eq` but carry a `Revision` (so they
+// implement `BackdateEq`). Acceptance is gated by `BackdateEq::backdate_equal`
+// (revision identity) instead of structural `Eq`. The same `backdate_equal`
+// predicate drives both the accept-state-machine status and the accepted
+// projection's backdating, exactly like the `Eq` tier's `==`. `E : Eq` is
+// retained (downstream errors are simple, `Eq` types), so the current channel
+// still backdates on a repeated equal error.
+
+///|
+/// Builds the fallible candidate `Derived` for the `BackdateEq` tier. The
+/// candidate backdates on `backdate_equal` for `Ok` (revision identity) and on
+/// `Eq` for `Err`, so it cannot use the `Eq`-bound `Derived::fallible`.
+fn[V : BackdateEq, E : Eq] AcceptedDerived::backdate_candidate(
+  rt : Runtime,
+  compute : () -> Result[V, E],
+  label? : String,
+) -> Derived[Result[V, E]] {
+  let cand_eq = fn(a : Result[V, E], b : Result[V, E]) -> Bool {
+    match (a, b) {
+      (Ok(x), Ok(y)) => x.backdate_equal(y)
+      (Err(x), Err(y)) => x == y
+      _ => false
+    }
+  }
+  Derived::with_backdate(rt, fn() { compute() }, cand_eq, label?)
+}
+
+///|
+/// `BackdateEq` companion of `AcceptedDerived::AcceptedDerived`: owns its
+/// candidate compute, accepts by revision identity. Requires `V : BackdateEq,
+/// E : Eq`.
+pub fn[V : BackdateEq, E : Eq] AcceptedDerived::accepted_memo(
+  rt : Runtime,
+  compute : () -> Result[V, E],
+  label? : String,
+) -> AcceptedDerived[V, E] {
+  let scope = Scope::new(rt)
+  let candidate = AcceptedDerived::backdate_candidate(rt, compute, label?)
+  scope.add_cell_ids([candidate.inner.id()])
+  AcceptedDerived::assemble(
+    scope,
+    candidate,
+    (a, b) => a.backdate_equal(b),
+    label?,
+  )
+}
+
+// NOTE: a `BackdateEq` companion of `from_candidate` is intentionally NOT
+// shipped in this PR. It would take a `Derived[Result[V, E]]` with a non-`Eq`
+// `V`, but there is no public non-`Eq` `Derived` candidate constructor to build
+// that argument (`Derived::fallible` is `Eq`-bound). Adding it now would be dead,
+// untestable public surface. Add it together with a public non-`Eq` candidate
+// constructor when a `from_candidate` use case appears.
+
+///|
+/// `BackdateEq` companion of `Scope::accepted_derived`: scope-owned, accepts by
+/// revision identity. Requires `V : BackdateEq, E : Eq`.
+pub fn[V : BackdateEq, E : Eq] Scope::accepted_memo(
+  self : Scope,
+  compute : () -> Result[V, E],
+  label? : String,
+) -> AcceptedDerived[V, E] {
+  guard !self.is_disposed() else {
+    abort("Scope::accepted_memo called on a disposed scope")
+  }
+  let child = self.child()
+  let candidate = AcceptedDerived::backdate_candidate(
+    child.runtime,
+    compute,
+    label?,
+  )
+  child.add_cell_ids([candidate.inner.id()])
+  AcceptedDerived::assemble(
+    child,
+    candidate,
+    (a, b) => a.backdate_equal(b),
+    label?,
+  )
 }
 
 ///|
