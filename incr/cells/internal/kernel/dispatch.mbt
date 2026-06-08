@@ -191,8 +191,9 @@ pub fn remove_subscriber(
 }
 
 ///|
-/// Adds `subscriber` to the subscriber set of `dep` and propagates the
-/// subscriber's push contribution upstream through the pull dep graph.
+/// Adds `subscriber` to the subscriber set of `dep`. If the subscriber is
+/// live, `dep` gains one live subscriber, propagating the liveness signal
+/// upstream through the pull dep graph.
 pub fn add_subscriber(
   core : RuntimeCore,
   pull : PullState,
