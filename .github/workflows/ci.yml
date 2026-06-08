@@ -35,14 +35,28 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      # Install via the official MoonBit script (pinned) wrapped in a retry.
+      # We deliberately do NOT use hustcer/setup-moonbit: it pulls a Nu binary
+      # from a GitHub-releases CDN that intermittently 504s, reddening a random
+      # leg ~once per run (issue #229). The official script fetches only the
+      # pinned toolchain + core from cli.moonbitlang.com (no Nu), and the retry
+      # loop absorbs transient blips. Pinned for reproducibility (issue #227).
       - name: Install MoonBit
-        uses: hustcer/setup-moonbit@v1.22
-        with:
-          # Pinned for reproducible doc/example checks (issue #227).
-          version: 0.9.3+b53c2807d
-          core-version: 0.9.3+b53c2807d
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          MOONBIT_INSTALL_VERSION: 0.9.3+b53c2807d
+        run: |
+          install_moonbit() {
+            curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/moonbit-install.sh \
+              && bash /tmp/moonbit-install.sh
+          }
+          for attempt in 1 2 3; do
+            if install_moonbit; then break; fi
+            if [ "$attempt" = 3 ]; then
+              echo "MoonBit install failed after 3 attempts"; exit 1
+            fi
+            echo "install attempt $attempt failed; retrying in 10s..."; sleep 10
+          done
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
 
       - name: Verify MoonBit
         run: moon version --all
@@ -66,14 +80,28 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      # Install via the official MoonBit script (pinned) wrapped in a retry.
+      # We deliberately do NOT use hustcer/setup-moonbit: it pulls a Nu binary
+      # from a GitHub-releases CDN that intermittently 504s, reddening a random
+      # leg ~once per run (issue #229). The official script fetches only the
+      # pinned toolchain + core from cli.moonbitlang.com (no Nu), and the retry
+      # loop absorbs transient blips. Pinned for reproducibility (issue #227).
       - name: Install MoonBit
-        uses: hustcer/setup-moonbit@v1.22
-        with:
-          # Pinned for reproducible doc/example checks (issue #227).
-          version: 0.9.3+b53c2807d
-          core-version: 0.9.3+b53c2807d
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          MOONBIT_INSTALL_VERSION: 0.9.3+b53c2807d
+        run: |
+          install_moonbit() {
+            curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/moonbit-install.sh \
+              && bash /tmp/moonbit-install.sh
+          }
+          for attempt in 1 2 3; do
+            if install_moonbit; then break; fi
+            if [ "$attempt" = 3 ]; then
+              echo "MoonBit install failed after 3 attempts"; exit 1
+            fi
+            echo "install attempt $attempt failed; retrying in 10s..."; sleep 10
+          done
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
 
       - name: Verify MoonBit
         run: moon version --all
@@ -96,6 +124,88 @@ jobs:
             echo "::group::$f"
             moon check "$f" || status=1
             moon test "$f" || status=1
+            echo "::endgroup::"
+          done
+          exit $status
+
+  # Example workspace members are gated against the LOCAL incr source (workspace
+  # mode, no MOON_WORK=off), with sibling-member deps resolved through the
+  # workspace — so an incr/ API break that reaches an example fails here in the
+  # same PR, and the demos that depend on `examples/typed_spreadsheet` still
+  # resolve.
+  #
+  # Why per-package paths instead of a bare `moon test`: in this workspace a bare
+  # `moon test` from a member dir runs the incr module, not the member; and
+  # `moon test <module-path>` runs only that module's ROOT package (missing e.g.
+  # `typed_spreadsheet/tests`). So we enumerate every package dir under the
+  # member and check+test each explicitly. Passing the path keeps resolution in
+  # workspace mode (local incr) — the same mechanism the `docs` job relies on.
+  #
+  # `examples/spikes/ideal_api_rename_phase0` is intentionally NOT gated: a
+  # publish-excluded, frozen language-mechanics probe with no tests.
+  examples:
+    name: Check + Test ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: example typed_spreadsheet
+            path: examples/typed_spreadsheet
+            args: ''
+          - name: example typed_spreadsheet_demo
+            path: examples/typed_spreadsheet_demo
+            args: ''
+          - name: example typed_spreadsheet_cli_demo
+            path: examples/typed_spreadsheet_cli_demo
+            args: ''
+          - name: example typed_spreadsheet_rabbita_demo
+            path: examples/typed_spreadsheet_rabbita_demo
+            args: '--target js'
+          - name: example incr_tea
+            path: examples/incr_tea
+            args: '--target js'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      # See the library job for why we use the official script (issue #229) and
+      # the pin rationale (issue #227).
+      - name: Install MoonBit
+        env:
+          MOONBIT_INSTALL_VERSION: 0.9.3+b53c2807d
+        run: |
+          install_moonbit() {
+            curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/moonbit-install.sh \
+              && bash /tmp/moonbit-install.sh
+          }
+          for attempt in 1 2 3; do
+            if install_moonbit; then break; fi
+            if [ "$attempt" = 3 ]; then
+              echo "MoonBit install failed after 3 attempts"; exit 1
+            fi
+            echo "install attempt $attempt failed; retrying in 10s..."; sleep 10
+          done
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      - name: Verify MoonBit
+        run: moon version --all
+
+      - name: moon update
+        run: moon update
+
+      # Check + test every package directory under the member. Workspace mode
+      # (no MOON_WORK=off) resolves incr from the local source and sibling
+      # members from the workspace. `--target js` is applied for js-only members.
+      - name: Check + test member packages
+        run: |
+          status=0
+          pkgs=$(find "${{ matrix.path }}" -name moon.pkg \
+            -not -path '*/_build/*' -not -path '*/.mooncakes/*' -exec dirname {} \;)
+          for p in $pkgs; do
+            echo "::group::$p"
+            moon check ${{ matrix.args }} "$p" || status=1
+            moon test ${{ matrix.args }} "$p" || status=1
             echo "::endgroup::"
           done
           exit $status

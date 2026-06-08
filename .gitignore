@@ -4,5 +4,6 @@ target
 .worktrees/
 .claude/worktrees/
 .claude/projects/
+.claude/scheduled_tasks.lock
 docs/papers/*.pdf
 .slopless/
