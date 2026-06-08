@@ -77,75 +77,62 @@ pub fn get_subscribers(core : RuntimeCore, cell_id : CellId) -> Iter[CellId] {
 }
 
 ///|
-/// Returns the push-reachable contribution of `sub_id` as a subscriber.
-pub fn push_contribution(
+/// Whether `cell_id` counts as a *live* subscriber — i.e. a subscriber whose
+/// presence makes its dependency push-reachable. A push cell (Reactive/Effect)
+/// is always live; a pull/hybrid memo is live iff it is itself push-reachable
+/// (its own `push_reachable_count > 0`). Signals and datalog cells never make a
+/// dependency push-reachable as subscribers (this mirrors the old
+/// `push_contribution` returning 0 for those kinds).
+pub fn is_live_subscriber(
   core : RuntimeCore,
   pull : PullState,
-  sub_id : CellId,
-) -> Int {
-  if sub_id.id < 0 || sub_id.id >= core.cell_index.length() {
-    return 0
+  cell_id : CellId,
+) -> Bool {
+  if cell_id.id < 0 || cell_id.id >= core.cell_index.length() {
+    return false
   }
-  match core.cell_index[sub_id.id] {
-    PushReactive(_) | PushEffect(_) => 1
-    PullMemo(i) | HybridMemo(i) => pull.memos[i].meta.push_reachable_count
-    _ => 0
+  match core.cell_index[cell_id.id] {
+    PushReactive(_) | PushEffect(_) => true
+    PullMemo(i) | HybridMemo(i) => pull.memos[i].meta.push_reachable_count > 0
+    _ => false
   }
 }
 
 ///|
-/// Collects all cells reachable upstream of `sources` through the pull
-/// dependency graph.
-pub fn collect_reachable_cells(
-  core : RuntimeCore,
-  pull : PullState,
-  sources : Array[CellId],
-) -> @hashset.HashSet[CellId] {
-  let result : @hashset.HashSet[CellId] = @hashset.HashSet([])
-  let worklist : Array[CellId] = []
-  for id in sources {
-    worklist.push(id)
-  }
-  let mut wi = 0
-  while wi < worklist.length() {
-    let id = worklist[wi]
-    wi += 1
-    if result.contains(id) {
-      continue
-    }
-    if id.id < 0 || id.id >= core.cell_index.length() {
-      continue
-    }
-    match core.cell_index[id.id] {
-      Disposed => ()
-      PullSignal(_) => result.add(id)
-      PushReactive(_) | Relation(_) | FunctionalRelation(_) | Rule(_) =>
-        result.add(id)
-      PullMemo(i) | HybridMemo(i) => {
-        result.add(id)
-        for dep in pull.memos[i].dependencies {
-          worklist.push(dep)
-        }
-      }
-      PushEffect(_) => ()
-    }
-  }
-  result
-}
-
-///|
-/// Adjusts `push_reachable_count` by `delta` on every cell reachable upstream
-/// of `sources` (including the sources themselves).
-pub fn adjust_push_reachable(
+/// Incrementally maintains `push_reachable_count` as the number of a cell's
+/// DIRECT live subscribers (see `is_live_subscriber`). Applies `delta` to
+/// `start`'s count and, whenever a cell's own live/not-live status flips across
+/// the `count == 0` boundary, propagates a `+1`/`-1` to each of its upstream
+/// pull/hybrid-memo dependencies — because the flip changes whether that cell is
+/// itself a live subscriber of those dependencies. Propagation only follows
+/// boundary crossings, so total work is O(cells touched), with no path
+/// multiplicity (the diamond-arm-drop bug the deduped mass model had).
+///
+/// Upstream traversal goes through pull/hybrid memo `dependencies` only; all
+/// other kinds are leaves, so signals and datalog cells keep their previous
+/// reachability behavior.
+///
+/// Termination relies on the pull dependency graph being ACYCLIC (incr forbids
+/// recorded dependency cycles). Each cell flips its live status at most once per
+/// call and only then pushes its dependencies, so total work is O(edges) on a
+/// DAG. A "seen" dedup is intentionally NOT used: a cell legitimately appears on
+/// the worklist once per flipping subscriber (that multiplicity is exactly its
+/// direct-live-subscriber count), so deduping would corrupt the count.
+pub fn propagate_liveness(
   core : RuntimeCore,
   pull : PullState,
   push : PushState,
   datalog : DatalogState,
-  sources : Array[CellId],
+  start : CellId,
   delta : Int,
 ) -> Unit {
-  let cells = collect_reachable_cells(core, pull, sources)
-  for id in cells {
+  let stack : Array[(CellId, Int)] = [(start, delta)]
+  for ;; {
+    let (id, d) = match stack.pop() {
+      Some(pair) => pair
+      None => break
+    }
+    let was_live = is_live_subscriber(core, pull, id)
     // CellMeta is heap-allocated — extracting it gives a mutable reference.
     let meta = match core.cell_index[id.id] {
       PullSignal(i) => pull.signals[i].meta
@@ -157,25 +144,36 @@ pub fn adjust_push_reachable(
       Rule(i) => datalog.rules[i].meta
       Disposed => continue
     }
-    let new_count = meta.push_reachable_count + delta
+    let new_count = meta.push_reachable_count + d
     if new_count < 0 {
       abort(
-        "adjust_push_reachable: count went negative for cell " +
+        "propagate_liveness: count went negative for cell " +
         id.id.to_string() +
         " (delta=" +
-        delta.to_string() +
+        d.to_string() +
         ", was=" +
         meta.push_reachable_count.to_string() +
         ")",
       )
     }
     meta.push_reachable_count = new_count
+    let now_live = is_live_subscriber(core, pull, id)
+    if was_live != now_live {
+      let sub_delta = if now_live { 1 } else { -1 }
+      match core.cell_index[id.id] {
+        PullMemo(i) | HybridMemo(i) =>
+          for upstream in pull.memos[i].dependencies {
+            stack.push((upstream, sub_delta))
+          }
+        _ => ()
+      }
+    }
   }
 }
 
 ///|
-/// Removes `subscriber` from the subscriber set of `dep` and decrements the
-/// subscriber's push contribution from upstream cells.
+/// Removes `subscriber` from the subscriber set of `dep`. If the subscriber was
+/// live, `dep` loses one live subscriber, which may cascade upstream.
 pub fn remove_subscriber(
   core : RuntimeCore,
   pull : PullState,
@@ -185,16 +183,17 @@ pub fn remove_subscriber(
   subscriber : CellId,
 ) -> Unit {
   validate_cell(core, dep, "remove_subscriber(dep)")
-  let contribution = push_contribution(core, pull, subscriber)
+  let live = is_live_subscriber(core, pull, subscriber)
   let removed = core.cell_ops[dep.id].subscribers().remove_and_check(subscriber)
-  if removed && contribution > 0 {
-    adjust_push_reachable(core, pull, push, datalog, [dep], -contribution)
+  if removed && live {
+    propagate_liveness(core, pull, push, datalog, dep, -1)
   }
 }
 
 ///|
-/// Adds `subscriber` to the subscriber set of `dep` and propagates the
-/// subscriber's push contribution upstream through the pull dep graph.
+/// Adds `subscriber` to the subscriber set of `dep`. If the subscriber is
+/// live, `dep` gains one live subscriber, propagating the liveness signal
+/// upstream through the pull dep graph.
 pub fn add_subscriber(
   core : RuntimeCore,
   pull : PullState,
@@ -209,9 +208,8 @@ pub fn add_subscriber(
     return
   }
   subs.add(subscriber)
-  let contribution = push_contribution(core, pull, subscriber)
-  if contribution > 0 {
-    adjust_push_reachable(core, pull, push, datalog, [dep], contribution)
+  if is_live_subscriber(core, pull, subscriber) {
+    propagate_liveness(core, pull, push, datalog, dep, 1)
   }
 }
 
