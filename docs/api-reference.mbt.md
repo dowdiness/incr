@@ -625,7 +625,7 @@ Strict inside-graph companion to `accepted_get`; aborts on a `ReadError`.
 
 ### `AcceptedDerived::accepted_changed_at(self) -> Revision`
 
-The revision at which the accepted value last actually changed. Gated solely by `V`-equality on the accepted value: current-result churn (changing diagnostics, repeated errors, equal recomputations) never advances it.
+The revision at which the accepted value last actually changed. Gated by the constructor's acceptance predicate — `==` for the `Eq` tier, `BackdateEq::backdate_equal` (revision identity) for the `BackdateEq` tier — so current-result churn (changing diagnostics, repeated errors, accepted-equal recomputations) never advances it.
 
 ### `AcceptedDerived::watch_accepted(self) -> Watch[V?]`
 

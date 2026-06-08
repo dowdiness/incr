@@ -267,9 +267,10 @@ changes, not on every successful candidate recomputation. This matters for
 source edits that parse successfully but produce the same semantic value.
 
 Invariant: the accepted projection's identity (and its `Revision` /
-`accept_count`) is gated solely by `V`-equality on the accepted value.
-Current-result churn — changing diagnostics, repeated errors, equal successful
-recomputations — must never advance it.
+`accept_count`) is gated by the accepted value's acceptance predicate
+(`V`-equality for the `Eq` tier; `BackdateEq::backdate_equal` revision identity
+for the `BackdateEq` tier). Current-result churn — changing diagnostics,
+repeated errors, accepted-equal successful recomputations — must never advance it.
 
 Open design choice:
 
@@ -467,8 +468,10 @@ as follows (design-validated by Codex before implementation):
   is unchanged, except `from_candidate`'s unused `E : Eq` bound was relaxed to
   `E`. Implemented via a single internal `same : (V, V) -> Bool` predicate
   threaded into both the accept transition and the accepted projection's
-  backdating; the eager fold carries a monotonic epoch `Int` (so it stays on the
-  `Eq`-bound `eager_derived`) that advances only on `AcceptedChanged`. Plan:
+  backdating; the eager fold carries a `Bool` accept-signal (so it stays on the
+  `Eq`-bound `eager_derived`) that is flipped only on `AcceptedChanged` — only
+  its change matters to the downstream accepted projection, so a toggle suffices
+  (no counter, hence no overflow). Plan:
   [docs/plans/2026-06-08-accepted-derived-backdate-eq-tier.md](../../plans/2026-06-08-accepted-derived-backdate-eq-tier.md).
 - **Previous accepted value in `snapshot`:** no (transition effects belong at
   `Effect` / observer boundaries).

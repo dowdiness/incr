@@ -66,12 +66,14 @@ package-reachable from `accepted_derived.mbt`. Cells register with the scope via
    Its `changed_at()` answers `accepted_changed_at()`; the lifted `same` keeps it
    aligned with the transition status.
 
-3. **Fold** `EagerDerived[Int]` — **carries an epoch `Int`, not the snapshot.**
-   `Int : Eq`, so the fold stays on the existing `scope.eager_derived` (no
-   eager-tier addition needed). The epoch increments **iff** the transition
-   status is `AcceptedChanged`; on `AcceptedUnchanged` / `RetainedDueToError` /
-   `NoAccept` / a `Disposed` read it is unchanged → the fold backdates → its
-   downstream `accepted_cell` is not invalidated. The fold still RUNS every
+3. **Fold** `EagerDerived[Bool]` — **carries a `Bool` accept-signal, not the
+   snapshot.** `Bool : Eq`, so the fold stays on the existing
+   `scope.eager_derived` (no eager-tier addition needed). The signal is FLIPPED
+   **iff** the transition status is `AcceptedChanged`; on `AcceptedUnchanged` /
+   `RetainedDueToError` / `NoAccept` / a `Disposed` read it is unchanged → the
+   fold backdates → its downstream `accepted_cell` is not invalidated. Only the
+   signal's *change* matters (its value is discarded by `accepted_cell`), so a
+   toggle suffices — no counter, hence no overflow. The fold still RUNS every
    committed revision (eager/reachability-driven), so `accepted_slot` and
    `last_status` advance even with no accepted read between a transient success
    and a later error (spec row ~line 410). The snapshot is built by the
@@ -81,7 +83,7 @@ package-reachable from `accepted_derived.mbt`. Cells register with the scope via
 ### Invariant
 
 `accepted_changed_at()` advances **iff** the accepted value changed under `same`
-(BackdateEq tier). Mechanism: status `AcceptedChanged` ⟺ epoch bump ⟺ `accepted_cell`
+(BackdateEq tier). Mechanism: status `AcceptedChanged` ⟺ signal flip ⟺ `accepted_cell`
 re-run ⟺ its `changed_at` advances (its lifted-`same` backdate confirms the value
 genuinely differs).
 
@@ -90,13 +92,15 @@ genuinely differs).
 Mirror the existing constructor family, `V : BackdateEq, E : Eq`:
 
 - `AcceptedDerived::accepted_memo(rt, compute, label?)` — owns its candidate.
-- `AcceptedDerived::accepted_memo_from_candidate(candidate, label?)` — wraps an
-  external `Derived[Result[V,E]]` (caller-owned lifecycle, like `from_candidate`).
 - `Scope::accepted_memo(self, compute, label?)` — scope-owned convenience.
 
-Naming follows `Memo::new_memo`. The default `Eq` constructors
-(`AcceptedDerived::AcceptedDerived`, `from_candidate`, `Scope::accepted_derived`)
-are **unchanged**. Final names to be confirmed against `.mbti` at impl time.
+Naming follows `Memo::new_memo`. A `BackdateEq` companion of `from_candidate`
+is **not** shipped: there is no public non-`Eq` `Derived` candidate constructor
+to build its argument, so it would be dead/untestable surface (deferred until a
+`from_candidate` use case + such a constructor appear). The default `Eq`
+constructors (`AcceptedDerived::AcceptedDerived`, `from_candidate`,
+`Scope::accepted_derived`) are **unchanged**, except `from_candidate`'s unused
+`E : Eq` bound was relaxed to `E`.
 
 ## Step order (TDD; gate every code step with `NEW_MOON_MOD=0 moon check` then `moon test`)
 
@@ -116,7 +120,7 @@ are **unchanged**. Final names to be confirmed against `.mbti` at impl time.
    accepted_cell (a small private helper in `accepted_derived.mbt`, or
    `Derived::with_backdate(rt, compute, label?, eq)` in `target_facade.mbt` if it
    reads cleaner). Register cells via `scope.cells.push`/`add_cell_ids`.
-6. **Implement the epoch-`Int` fold** + `accepted_memo` / `_from_candidate` /
+6. **Implement the `Bool` accept-signal fold** + `accepted_memo` /
    `Scope::accepted_memo` constructors (pass `same = backdate_equal`). Green gate.
 7. `moon info && moon fmt`; inspect `git diff -- *.mbti` (only intended additions).
 8. **Docs closure:** flip spec open-Q #3 (BackdateEq delivered, no-backdate
@@ -135,17 +139,18 @@ Black-box (`accepted_derived_test.mbt`), `Stamped`-style non-`Eq` `V`:
 - transient success then later `Err` with NO accepted read in between → `accepted` still `Some(v)` (row 410).
 - `Scope::accepted_memo` matches the top-level constructor on the same rows.
 
-White-box (`accepted_derived_wbtest.mbt`):
+Wake-count behavior (covered black-box by the in-graph accepted-consumer test
+rather than a separate wbtest):
 - accepted-only consumer wake-count: does NOT wake on current-only `Err` churn; DOES wake on a real (new-revision) accepted change.
-- fold runs (slot advances) every committed revision even with no accepted read (epoch/transient probe).
-- epoch bumps iff `AcceptedChanged` (drives `accepted_changed_at`).
+- fold runs (slot advances) every committed revision even with no accepted read (transient-success probe).
+- the accept-signal flips iff `AcceptedChanged` (drives `accepted_changed_at`).
 
 ## What could make this wrong (risk list)
 
 1. `same` diverging between transition status and `accepted_cell` backdating —
    guard by threading ONE predicate from ONE source into both.
 2. A too-stable fold value (e.g. `Unit`) suppressing `accepted_cell` invalidation
-   after a real accept — the epoch must change on `AcceptedChanged`.
+   after a real accept — the accept-signal must flip on `AcceptedChanged`.
 3. Accidentally routing the candidate through `Derived::fallible` and
    re-imposing `V : Eq`.
 4. Wrong `Option`-lifted comparator on `accepted_cell` breaking
