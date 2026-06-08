@@ -36,11 +36,17 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Install MoonBit
-        uses: hustcer/setup-moonbit@v1.22
+        # Wrapped in a retry to absorb transient toolchain-CDN 504s that
+        # otherwise red CI on a random leg (~1/run before this — issue #229).
+        uses: Wandalen/wretry.action@v3.8.0
         with:
+          action: hustcer/setup-moonbit@v1.22
+          attempt_limit: 3
+          attempt_delay: 10000
           # Pinned for reproducible doc/example checks (issue #227).
-          version: 0.9.3+b53c2807d
-          core-version: 0.9.3+b53c2807d
+          with: |
+            version: 0.9.3+b53c2807d
+            core-version: 0.9.3+b53c2807d
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
@@ -67,11 +73,17 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Install MoonBit
-        uses: hustcer/setup-moonbit@v1.22
+        # Wrapped in a retry to absorb transient toolchain-CDN 504s that
+        # otherwise red CI on a random leg (~1/run before this — issue #229).
+        uses: Wandalen/wretry.action@v3.8.0
         with:
+          action: hustcer/setup-moonbit@v1.22
+          attempt_limit: 3
+          attempt_delay: 10000
           # Pinned for reproducible doc/example checks (issue #227).
-          version: 0.9.3+b53c2807d
-          core-version: 0.9.3+b53c2807d
+          with: |
+            version: 0.9.3+b53c2807d
+            core-version: 0.9.3+b53c2807d
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
@@ -142,11 +154,17 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Install MoonBit
-        uses: hustcer/setup-moonbit@v1.22
+        # Wrapped in a retry to absorb transient toolchain-CDN 504s that
+        # otherwise red CI on a random leg (~1/run before this — issue #229).
+        uses: Wandalen/wretry.action@v3.8.0
         with:
+          action: hustcer/setup-moonbit@v1.22
+          attempt_limit: 3
+          attempt_delay: 10000
           # Pinned for reproducible checks (issue #227).
-          version: 0.9.3+b53c2807d
-          core-version: 0.9.3+b53c2807d
+          with: |
+            version: 0.9.3+b53c2807d
+            core-version: 0.9.3+b53c2807d
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
