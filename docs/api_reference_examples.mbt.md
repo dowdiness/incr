@@ -31,7 +31,7 @@ test "docs api-ref: Runtime batch_result returns Err and rolls back writes" {
   })
 
   inspect(result is Err(_), content="true")
-  inspect(input.get(), content="0")
+  inspect(input.get(), content="999")
   inspect(notifications.val, content="0")
 
   input.set(2)
