@@ -10,53 +10,6 @@ test "push_reachable_count: new signal starts at 0" {
 }
 
 ///|
-test "collect_reachable_cells: signal returns {signal}" {
-  let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 0)
-  let cells = @kernel.collect_reachable_cells(rt.core, rt.pull, [s.id()])
-  inspect(cells.contains(s.id()), content="true")
-  inspect(cells.length(), content="1")
-}
-
-///|
-test "collect_reachable_cells: memo returns memo + upstream signal" {
-  let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 0)
-  let m = Memo::Memo(rt, () => s.get())
-  ignore(read_memo_for_test(m)) // force compute so dependencies are recorded
-  let cells = @kernel.collect_reachable_cells(rt.core, rt.pull, [m.id()])
-  inspect(cells.contains(m.id()), content="true")
-  inspect(cells.contains(s.id()), content="true")
-  inspect(cells.length(), content="2")
-}
-
-///|
-test "collect_reachable_cells: uncomputed memo returns only memo" {
-  let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 0)
-  let m = Memo::Memo(rt, () => s.get())
-  // m.get() NOT called — dependencies array is empty
-  let cells = @kernel.collect_reachable_cells(rt.core, rt.pull, [m.id()])
-  inspect(cells.contains(m.id()), content="true")
-  inspect(cells.length(), content="1")
-}
-
-///|
-test "push_contribution: reactive returns 1" {
-  let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 0)
-  let r = Reactive::new(rt, () => s.get())
-  inspect(@kernel.push_contribution(rt.core, rt.pull, r.id()), content="1")
-}
-
-///|
-test "push_contribution: signal returns 0" {
-  let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 0)
-  inspect(@kernel.push_contribution(rt.core, rt.pull, s.id()), content="0")
-}
-
-///|
 /// Helper: read push_reachable_count from any cell via CellOps trait dispatch.
 fn get_count(rt : Runtime, id : CellId) -> Int {
   rt.core.cell_ops[id.id].push_reachable_count()
@@ -219,6 +172,51 @@ test "push_reachable_count: no push cells = zero everywhere" {
   let s = Signal::Signal(rt, 0)
   let _m = Memo::Memo(rt, () => s.get())
   inspect(get_count(rt, s.id()), content="0")
+}
+
+///|
+/// Regression: a memo-INTERNAL diamond where one intermediate memo reads three
+/// sibling memos that share a common ancestor `sig`, then drops one arm via a
+/// dynamic dependency. Dropping the `c` arm must decrement the apex by exactly
+/// one (3 -> 2), not zero it — the `a` and `b` arms still connect `sig` to the
+/// fold. The old deduped "mass" model wrongly drove the apex to 0, after which
+/// the push BFS O(1) gate (push_propagate.mbt) skipped the whole propagation and
+/// the eager fold stopped recomputing on `sig` changes.
+test "push_reachable_count: dropping one arm of a memo-internal diamond keeps the apex live" {
+  let rt = Runtime::Runtime()
+  let sig = Signal::Signal(rt, 1)
+  let drop = Signal::Signal(rt, false)
+  let a = Memo::Memo(rt, () => sig.get())
+  let b = Memo::Memo(rt, () => sig.get())
+  let c = Memo::Memo(rt, () => sig.get())
+  // projected reads a,b always; reads c only when !drop (dynamic dependency).
+  let projected = Memo::Memo(rt, () => {
+    let base = a.get() + b.get()
+    if drop.get() {
+      base
+    } else {
+      base + c.get()
+    }
+  })
+  let candidate = Memo::Memo(rt, () => projected.get())
+  let runs : Ref[Int] = { val: 0 }
+  // Reactive::new computes eagerly, wiring the whole chain. Keep it alive (no
+  // observe/unobserve cycle, which would suspend it).
+  let fold = Reactive::new(rt, () => {
+    runs.val = runs.val + 1
+    candidate.get()
+  })
+  inspect(runs.val, content="1")
+  // Three live direct subscribers of sig (a, b, c each reach the fold).
+  inspect(get_count(rt, sig.id()), content="3")
+  drop.set(true)
+  let runs_after_drop = runs.val
+  // c arm dropped; a and b remain, so the apex drops by one and stays live.
+  inspect(get_count(rt, sig.id()), content="2")
+  // The eager fold must still recompute on a sig change.
+  sig.set(2)
+  inspect(runs.val > runs_after_drop, content="true")
+  ignore(fold)
 }
 
 ///|

@@ -136,7 +136,7 @@ fn enqueue_reachable_push_subscribers(
 ) -> Unit {
   // Per-source O(1) gate: if this source has no reachable push cells
   // (Reactive/Effect), skip the entire BFS. push_reachable_count is
-  // maintained by add_subscriber/remove_subscriber via adjust_push_reachable.
+  // maintained by add_subscriber/remove_subscriber via propagate_liveness.
   if source_id.id >= 0 &&
     source_id.id < core.cell_ops.length() &&
     core.cell_ops[source_id.id].push_reachable_count() == 0 {
@@ -491,7 +491,7 @@ fn finish_push_propagation(
 ///
 /// Takes `datalog` because the reactive/effect recompute path calls
 /// `diff_and_update_subscribers`, which threads datalog through to
-/// `adjust_push_reachable` for Relation/FunctionalRelation/Rule source arms.
+/// `propagate_liveness` for Relation/FunctionalRelation/Rule source arms.
 pub fn push_propagate_from(
   core : RuntimeCore,
   pull : PullState,

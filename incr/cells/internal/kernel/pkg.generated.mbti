@@ -19,8 +19,6 @@ pub fn add_gc_root(RuntimeCore, @types.CellId) -> Int
 
 pub fn add_subscriber(RuntimeCore, PullState, PushState, DatalogState, @types.CellId, @types.CellId) -> Unit
 
-pub fn adjust_push_reachable(RuntimeCore, PullState, PushState, DatalogState, Array[@types.CellId], Int) -> Unit
-
 pub fn advance_revision(RuntimeCore, @types.Durability) -> Unit
 
 pub fn alloc_runtime_id() -> @types.RuntimeId
@@ -36,8 +34,6 @@ pub fn check_dispose_guard(RuntimeCore, @types.CellId) -> Unit
 pub fn collect_gc_roots(RuntimeCore) -> Array[@types.CellId]
 
 pub fn collect_in_progress_path(PullState) -> Array[@types.CellId]
-
-pub fn collect_reachable_cells(RuntimeCore, PullState, Array[@types.CellId]) -> @hashset.HashSet[@types.CellId]
 
 pub fn collect_tracking_path(RuntimeCore) -> Array[@types.CellId]
 
@@ -71,6 +67,8 @@ pub fn get_subscribers(RuntimeCore, @types.CellId) -> Iter[@types.CellId]
 
 pub fn is_cell_disposed(RuntimeCore, @types.CellId) -> Bool
 
+pub fn is_live_subscriber(RuntimeCore, PullState, @types.CellId) -> Bool
+
 pub fn leave_phase(RuntimeCore) -> Unit
 
 pub fn mark_reachable(RuntimeCore, Array[@types.CellId]) -> @hashset.HashSet[@types.CellId]
@@ -83,13 +81,13 @@ pub fn propagate_changes(RuntimeCore, PullState, PushState, DatalogState, Array[
 
 pub fn propagate_changes_with_events(RuntimeCore, PullState, PushState, DatalogState, Array[@types.CellId], @types.Durability, ((RuntimeEvaluationEvent) -> Unit)?) -> Unit
 
+pub fn propagate_liveness(RuntimeCore, PullState, PushState, DatalogState, @types.CellId, Int) -> Unit
+
 pub fn publish_cell_changes(RuntimeCore, PullState, PushState, DatalogState, Array[@types.CellId], @types.Durability) -> Unit
 
 pub fn publish_cell_changes_with_events(RuntimeCore, PullState, PushState, DatalogState, Array[@types.CellId], @types.Durability, ((RuntimeEvaluationEvent) -> Unit)?) -> Unit
 
 pub fn pull_verify(RuntimeCore, PullState, Array[&@shared.SlotSnapshot], @types.CellId) -> Result[Unit, @types.CycleError] raise Failure
-
-pub fn push_contribution(RuntimeCore, PullState, @types.CellId) -> Int
 
 pub fn push_propagate_from(RuntimeCore, PullState, PushState, DatalogState, Array[@types.CellId]) -> Unit
 
