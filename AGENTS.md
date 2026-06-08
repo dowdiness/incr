@@ -48,7 +48,7 @@ moon test incr/cells/derived_test.mbt -i 0                  # one test by index
 moon test incr/tests                                        # integration tests only
 ```
 
-CI on this repo (`dowdiness/incr`) runs the `CI` workflow (`.github/workflows/ci.yml`) on every PR and on `main`: `moon check` + `moon test` for the library (`incr/`) and `moon check` + `moon test` over each checked literate `.mbt.md` example in the `docs/` module (the documentation drift guard). A pinned MoonBit toolchain keeps those checks reproducible. There is also a path-filtered "Build typed spreadsheet site" deploy job plus a CodeRabbit review. The library is additionally consumed by the parent `canopy` repo, whose CI exercises it transitively.
+CI on this repo (`dowdiness/incr`) runs the `CI` workflow (`.github/workflows/ci.yml`) on every PR and on `main`: `moon check` + `moon test` for the library (`incr/`), the same over each checked literate `.mbt.md` example in the `docs/` module (the documentation drift guard), and a per-member matrix that checks+tests the example workspace members (`examples/*`, except the publish-excluded `spikes/` probe) against the local `incr/` source. A pinned MoonBit toolchain keeps those checks reproducible. There is also a path-filtered "Build typed spreadsheet site" deploy job plus a CodeRabbit review. The library is additionally consumed by the parent `canopy` repo, whose CI exercises it transitively.
 
 ## Coding Style & Naming
 
