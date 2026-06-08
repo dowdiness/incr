@@ -1,5 +1,7 @@
 # incr
 
+[![CI](https://github.com/dowdiness/incr/actions/workflows/ci.yml/badge.svg)](https://github.com/dowdiness/incr/actions/workflows/ci.yml)
+
 `incr` is a MoonBit library for computations that need to stay fresh as their
 inputs change. It records what each derived value depends on, verifies those
 records on demand, and recomputes only the parts of the graph that need work.
