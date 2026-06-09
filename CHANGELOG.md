@@ -4,19 +4,26 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-06-09
+
 ### Added
 
 - Added `AcceptedDerived[V, E]`, a success-gated derived authoring primitive: a fallible candidate `Result[V, E]` only advances the *accepted* state on a differing `Ok(v)`, while `Err(e)` retains the prior accepted value and still reports the error on the *current* channel. Surfaces `current`/`accepted`/`snapshot` (outside-graph, carrying `ReadError`), `accepted_get`/`accepted_get_or_abort` (inside-graph, gated by accepted-value changes), `accepted_changed_at`, and `watch_accepted`, plus the `AcceptedSnapshot[V, E]` view and `AcceptStatus` enum. Construct via `AcceptedDerived(rt, compute, label?)`, `AcceptedDerived::from_candidate`, or `Scope::accepted_derived`. See [the design spec](docs/design/specs/2026-06-05-committed-derived.md).
 - Added a `BackdateEq` acceptance tier for `AcceptedDerived`: `AcceptedDerived::accepted_memo` and `Scope::accepted_memo` accept candidate value types that are *not* `Eq` but carry a `Revision` (so they implement `BackdateEq`), gating acceptance by revision identity instead of structural equality — mirroring `Memo::new` vs `Memo::new_memo`. `E : Eq` is retained. As part of this, `AcceptedDerived::from_candidate`'s `E` bound was relaxed from `Eq` to unconstrained (it wraps a pre-built candidate and never compares `E`). The no-`Eq` / no-backdate acceptance tier remains deferred.
+
+### Fixed
+
+- Corrected `push_reachable_count` maintenance for diamond dependency topologies. A push-reachable derived (e.g. a watched `AcceptedDerived` fold) could silently stop recomputing after a candidate dropped one arm of a dynamic diamond dependency: the previous deduplicated reachability "mass" model added and removed counts asymmetrically across diamonds, so dropping a shared dependency could leave a cell's reachable count above zero and freeze its eager updates. Push-reachability is now maintained as an incremental count of each cell's direct *live* subscribers, propagated only across `0 ↔ 1` liveness boundaries, making diamond add/remove symmetric. (#233)
+
+### Examples
+
+These changes are in `examples/` workspace members, not the published `dowdiness/incr` library.
+
 - Added `examples/incr_tea`, an experimental `incr`-native TEA skeleton with scope-owned model fields, batched message dispatch, a minimal Rabbita-style `Cmd` scheduler, and watched tracked views.
 - Typed spreadsheet snapshots now expose `last_dynamic_dependencies`, the logical cells read during the last completed cell evaluation.
 - Typed spreadsheet cells now distinguish comparable worksheet facts from opaque formula evaluators: same-value inputs and same-AST formulas are semantic no-ops, closure formulas can opt into no-op detection with a fingerprint, and force paths remain available for deliberate revalidation.
 - Typed spreadsheet formulas and cell snapshots now expose dependency-shape metadata (`Applicative`, `Selective`, `Dynamic`) for explaining static references versus active dynamic dependencies without changing engine APIs.
 - Typed spreadsheet worksheets now expose `Worksheet::formula_ast` with structured `FormulaAstQueryError` results for reading AST-backed formulas without conflating missing, deleted, input, and opaque closure-backed cells.
-
-### Fixed
-
-- Corrected `push_reachable_count` maintenance for diamond dependency topologies. A push-reachable derived (e.g. a watched `AcceptedDerived` fold) could silently stop recomputing after a candidate dropped one arm of a dynamic diamond dependency: the previous deduplicated reachability "mass" model added and removed counts asymmetrically across diamonds, so dropping a shared dependency could leave a cell's reachable count above zero and freeze its eager updates. Push-reachability is now maintained as an incremental count of each cell's direct *live* subscribers, propagated only across `0 ↔ 1` liveness boundaries, making diamond add/remove symmetric. (#233)
 
 ## [0.8.0] - 2026-06-03
 
