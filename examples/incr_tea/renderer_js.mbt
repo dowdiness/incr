@@ -108,7 +108,14 @@ extern "js" fn dom_add_event_listener(
 ///|
 #cfg(target="js")
 extern "js" fn dom_request_animation_frame(callback : () -> Unit) -> Unit =
-  #| (callback) => { window.requestAnimationFrame(() => callback()); }
+  #| (callback) => {
+  #|   if (typeof window !== "undefined" && window.requestAnimationFrame) {
+  #|     window.requestAnimationFrame(() => callback());
+  #|   }
+  #|   // No animation-frame clock (e.g. Node test runs): drop the frame. The
+  #|   // renderer never reaches the DOM here, and mount() still flushes
+  #|   // synchronously, so the lifecycle state machine stays exercisable.
+  #| }
 
 ///|
 #cfg(target="js")
@@ -141,11 +148,11 @@ fn install_render_recompute_counter(
   runtime : @incr.Runtime,
   view_ids : Ref[Array[@incr.CellId]],
   stats : RenderStats,
-) -> Unit {
+) -> @incr.ListenerId {
   // Additive listener (#210): mounting the renderer must not clobber any
   // derived-event listener a host integration already installed. The returned
-  // ListenerId is unused for now; #209 (unmount) will store it for removal.
-  let _ = try! runtime.add_derived_event_listener(event => {
+  // ListenerId is stored on the renderer so dispose (#209) can remove it.
+  try! runtime.add_derived_event_listener(event => {
     match event {
       @incr.DerivedEvent::Completed(completed) =>
         if view_id_is_tracked(view_ids.val, completed.cell_id) {
@@ -384,14 +391,55 @@ fn[Msg : Eq] BrowserRoot::flush(self : BrowserRoot[Msg]) -> Unit {
 }
 
 ///|
+/// The component cell id this root tracks — the key used to drop the root from
+/// the renderer's flush set and instrumentation filter.
+#cfg(target="js")
+fn[Msg] BrowserRoot::view_id(self : BrowserRoot[Msg]) -> @incr.CellId {
+  self.watched.program.view_id()
+}
+
+///|
+/// Removes the root's rendered subtree from its host without disposing the
+/// logical component. The program scope and watch stay alive, so the root can be
+/// re-mounted later via `BrowserRenderer::mount(host, program)`, which renders it
+/// from scratch (a fresh root starts with `rendered = None`).
+#cfg(target="js")
+fn[Msg] BrowserRoot::detach(self : BrowserRoot[Msg]) -> Unit {
+  match self.rendered {
+    Some(rendered) => {
+      dom_remove_child(self.host, rendered.node())
+      self.rendered = None
+    }
+    None => ()
+  }
+}
+
+///|
+/// Tears the root down logically: detaches its DOM, then disposes the program
+/// scope (releasing the view watch and owned cells). Idempotent — `detach` is a
+/// no-op once `rendered` is `None`, and `Program::dispose` is idempotent.
+#cfg(target="js")
+fn[Msg] BrowserRoot::destroy(self : BrowserRoot[Msg]) -> Unit {
+  self.detach()
+  self.watched.program.dispose()
+}
+
+///|
 #cfg(target="js")
 priv struct BrowserRenderer[Msg] {
   runtime : @incr.Runtime
-  roots : Array[BrowserRoot[Msg]]
+  mut roots : Array[BrowserRoot[Msg]]
   stats : RenderStats
   view_ids : Ref[Array[@incr.CellId]]
   mut frame_scheduled : Bool
   after_flush : (RenderStats) -> Unit
+  // Lifecycle (#209). The two listener ids are removed on dispose so a torn-down
+  // renderer stops reacting to runtime changes and view recomputes. The
+  // on_change id is set after construction because its listener closure captures
+  // `renderer` itself; it is `None` only during that construction window.
+  mut disposed : Bool
+  derived_listener_id : @incr.ListenerId
+  mut on_change_listener_id : @incr.ListenerId?
 }
 
 ///|
@@ -402,7 +450,9 @@ fn[Msg : Eq] BrowserRenderer::BrowserRenderer(
 ) -> BrowserRenderer[Msg] {
   let stats = RenderStats::RenderStats()
   let view_ids : Ref[Array[@incr.CellId]] = Ref([])
-  install_render_recompute_counter(runtime, view_ids, stats)
+  let derived_listener_id = install_render_recompute_counter(
+    runtime, view_ids, stats,
+  )
   let renderer = {
     runtime,
     roots: [],
@@ -410,9 +460,15 @@ fn[Msg : Eq] BrowserRenderer::BrowserRenderer(
     view_ids,
     frame_scheduled: false,
     after_flush,
+    disposed: false,
+    derived_listener_id,
+    on_change_listener_id: None,
   }
-  // Additive listener (#210): coexist with any pre-existing on-change hook.
-  let _ = runtime.add_on_change_listener(() => renderer.schedule_flush())
+  // Additive listener (#210): coexist with any pre-existing on-change hook. Its
+  // closure captures `renderer`, so the id is recorded after construction.
+  renderer.on_change_listener_id = Some(
+    runtime.add_on_change_listener(() => renderer.schedule_flush()),
+  )
   renderer
 }
 
@@ -428,7 +484,10 @@ fn[Msg : Eq] BrowserRenderer::mount(
   self : BrowserRenderer[Msg],
   host : DomElement,
   program : Program[Msg, Html[Msg]],
-) -> Unit {
+) -> BrowserRoot[Msg] {
+  guard !self.disposed else {
+    abort("BrowserRenderer::mount called after dispose")
+  }
   guard program.runtime().id() == self.runtime.id() else {
     abort("BrowserRenderer::mount called with a Program from another Runtime")
   }
@@ -437,6 +496,7 @@ fn[Msg : Eq] BrowserRenderer::mount(
   self.roots.push(root)
   root.flush()
   (self.after_flush)(self.stats)
+  root
 }
 
 ///|
@@ -444,15 +504,87 @@ fn[Msg : Eq] BrowserRenderer::mount(
 fn[Msg : Eq] BrowserRenderer::schedule_flush(
   self : BrowserRenderer[Msg],
 ) -> Unit {
+  guard !self.disposed else { return }
   if !self.frame_scheduled {
     self.frame_scheduled = true
     dom_request_animation_frame(() => {
       self.frame_scheduled = false
+      // A frame queued before dispose can still fire after it; iterating the
+      // (now empty) root set would be harmless, but bail explicitly so a
+      // disposed renderer never touches the DOM or runs after_flush.
+      guard !self.disposed else { return }
       self.stats.frame_flushes = self.stats.frame_flushes + 1
       for root in self.roots {
         root.flush()
       }
       (self.after_flush)(self.stats)
     })
+  }
+}
+
+///|
+/// Drops exactly `root` from the flush set (by physical identity, so a Program
+/// mounted in more than one place only loses the one being unmounted) and its
+/// cell id from the view-recompute instrumentation filter. Pure bookkeeping — no
+/// DOM or program access.
+#cfg(target="js")
+fn[Msg] BrowserRenderer::drop_root(
+  self : BrowserRenderer[Msg],
+  root : BrowserRoot[Msg],
+) -> Unit {
+  self.roots = self.roots.filter(other => !physical_equal(other, root))
+  let view_id = root.view_id()
+  // Keep the instrumentation id while any other live root still tracks it.
+  if !self.roots.iter().any(other => other.view_id() == view_id) {
+    self.view_ids.val = self.view_ids.val.filter(id => id != view_id)
+  }
+}
+
+///|
+/// Detaches a single root: removes its DOM subtree but keeps the logical
+/// component alive, and drops it from the flush set so a later rAF will not
+/// re-render it. Re-mount with `mount(host, program)`.
+#cfg(target="js")
+fn[Msg] BrowserRenderer::detach(
+  self : BrowserRenderer[Msg],
+  root : BrowserRoot[Msg],
+) -> Unit {
+  root.detach()
+  self.drop_root(root)
+}
+
+///|
+/// Destroys a single root: tears down its DOM and disposes the program, then
+/// drops it from the flush set and instrumentation filter. After this the
+/// logical component is gone (`Program::is_disposed` is `true`).
+#cfg(target="js")
+fn[Msg] BrowserRenderer::destroy(
+  self : BrowserRenderer[Msg],
+  root : BrowserRoot[Msg],
+) -> Unit {
+  root.destroy()
+  self.drop_root(root)
+}
+
+///|
+/// Tears the whole renderer down: removes its two runtime listeners, then
+/// destroys every mounted root. Idempotent. Listeners are removed before
+/// `disposed` is flipped so a retry stays possible if removal raises; the
+/// derived-event registry is Idle-only, so call dispose outside a flush /
+/// propagation window.
+#cfg(target="js")
+fn[Msg] BrowserRenderer::dispose(self : BrowserRenderer[Msg]) -> Unit {
+  guard !self.disposed else { return }
+  match self.on_change_listener_id {
+    Some(id) => self.runtime.remove_on_change_listener(id)
+    None => ()
+  }
+  try! self.runtime.remove_derived_event_listener(self.derived_listener_id)
+  self.disposed = true
+  // Snapshot before teardown: destroy() must not race a mutation of self.roots.
+  let roots = self.roots
+  self.roots = []
+  for root in roots {
+    root.destroy()
   }
 }

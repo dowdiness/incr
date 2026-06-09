@@ -51,7 +51,7 @@ test "#210: renderer instrumentation does not clobber a pre-existing derived-eve
   // which would have replaced the host listener).
   let view_ids : Ref[Array[@incr.CellId]] = Ref([])
   let stats = RenderStats::RenderStats()
-  install_render_recompute_counter(runtime, view_ids, stats)
+  install_render_recompute_counter(runtime, view_ids, stats) |> ignore
   // Drive a recompute and verify the host listener still fires.
   let s = @incr.Input(runtime, 1)
   let m = @incr.Derived(runtime, () => s.get() * 2)
@@ -252,4 +252,182 @@ test "renderer roots: child boundary skips unchanged watched root" {
 
   parent.dispose()
   child.dispose()
+}
+
+///|
+/// Test-only fake DOM host. The lifecycle tests below build `BrowserRoot`s with
+/// `rendered = None`, so detach/destroy never invoke a `dom_*` method on this
+/// value — it is a struct-field placeholder that lets us drive the unmount state
+/// machine in Node, where the real `dom_*` FFI (and `document`) are absent.
+#cfg(target="js")
+extern "js" fn test_fake_host() -> DomElement =
+  #| () => ({})
+
+///|
+#cfg(target="js")
+fn renderer_counter_program(
+  runtime : @incr.Runtime,
+  label : String,
+) -> Program[RendererMsg, Html[RendererMsg]] {
+  let scope = @incr.Scope::new(runtime)
+  let count = scope.input_field(0, label="\{label}.count")
+  let update : (RendererMsg) -> Cmd[RendererMsg] = msg => {
+    match msg {
+      Increment => {
+        count.set(count.peek() + 1)
+        Cmd::none()
+      }
+      _ => Cmd::none()
+    }
+  }
+  let view : () -> Html[RendererMsg] raise Failure = () => {
+    div([
+      span([text("count=\{count.get()}")]),
+      renderer_test_button(Increment, "+"),
+    ])
+  }
+  Program::Program(runtime, scope, update, view, label="\{label}.view")
+}
+
+///|
+#cfg(target="js")
+test "#209: BrowserRenderer::dispose removes the stored view-recompute listener" {
+  let runtime = @incr.Runtime()
+  // The renderer installs the derived-event (view-recompute) listener at
+  // construction; #209 stores its ListenerId so dispose can remove it.
+  let renderer : BrowserRenderer[RendererMsg] = BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  // Build a program but do NOT mount it (mount needs real DOM). The priming
+  // recompute inside Program::Program runs while view_ids is empty, so it is not
+  // counted; pushing the view id mimics what mount() registers.
+  let program = renderer_counter_program(runtime, "dispose.listener")
+  renderer.view_ids.val.push(program.view_id())
+
+  // A tracked recompute is counted by the stored derived-event listener.
+  inspect(program.dispatch(Increment), content="true")
+  ignore(program.read_view_or_abort())
+  inspect(renderer.stats().view_recomputes, content="1")
+
+  // dispose removes the listener. view_ids is intentionally left intact, so this
+  // assertion attributes the stop to listener removal, not view_ids clearing.
+  renderer.dispose()
+  inspect(program.dispatch(Increment), content="true")
+  ignore(program.read_view_or_abort())
+  inspect(renderer.stats().view_recomputes, content="1")
+
+  // dispose is idempotent.
+  renderer.dispose()
+  program.dispose()
+}
+
+///|
+#cfg(target="js")
+test "#209: BrowserRenderer::destroy disposes the root's program and drops it from the flush set" {
+  let runtime = @incr.Runtime()
+  let renderer : BrowserRenderer[RendererMsg] = BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  let program = renderer_counter_program(runtime, "destroy.root")
+  // Register a root directly (rendered = None) as mount() would, minus the DOM
+  // flush that needs a real browser.
+  let root = BrowserRoot::BrowserRoot(
+    program,
+    test_fake_host(),
+    renderer.stats(),
+  )
+  renderer.roots.push(root)
+  renderer.view_ids.val.push(program.view_id())
+
+  inspect(program.is_disposed(), content="false")
+  renderer.destroy(root)
+  // destroy is logical teardown: the program (scope + watch + cells) is disposed
+  // and the root leaves both the flush set and the instrumentation filter.
+  inspect(program.is_disposed(), content="true")
+  inspect(renderer.roots.length(), content="0")
+  inspect(renderer.view_ids.val.length(), content="0")
+}
+
+///|
+#cfg(target="js")
+test "#209: BrowserRenderer::detach drops the root from the flush set but keeps its program alive" {
+  let runtime = @incr.Runtime()
+  let renderer : BrowserRenderer[RendererMsg] = BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  let program = renderer_counter_program(runtime, "detach.root")
+  let root = BrowserRoot::BrowserRoot(
+    program,
+    test_fake_host(),
+    renderer.stats(),
+  )
+  renderer.roots.push(root)
+  renderer.view_ids.val.push(program.view_id())
+
+  renderer.detach(root)
+  // detach is DOM detachment, not teardown: the logical component stays alive
+  // (re-mountable via mount(host, program)), but it leaves the active flush set
+  // so a later rAF will not re-render it.
+  inspect(program.is_disposed(), content="false")
+  inspect(renderer.roots.length(), content="0")
+  inspect(renderer.view_ids.val.length(), content="0")
+  program.dispose()
+}
+
+///|
+#cfg(target="js")
+test "#209: BrowserRenderer::dispose destroys every mounted root" {
+  let runtime = @incr.Runtime()
+  let renderer : BrowserRenderer[RendererMsg] = BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  let a = renderer_counter_program(runtime, "dispose.all.a")
+  let b = renderer_counter_program(runtime, "dispose.all.b")
+  renderer.roots.push(
+    BrowserRoot::BrowserRoot(a, test_fake_host(), renderer.stats()),
+  )
+  renderer.roots.push(
+    BrowserRoot::BrowserRoot(b, test_fake_host(), renderer.stats()),
+  )
+
+  renderer.dispose()
+  inspect(a.is_disposed(), content="true")
+  inspect(b.is_disposed(), content="true")
+  inspect(renderer.roots.length(), content="0")
+}
+
+///|
+#cfg(target="js")
+test "#209: detach removes only the targeted root, leaving siblings mounted" {
+  let runtime = @incr.Runtime()
+  let renderer : BrowserRenderer[RendererMsg] = BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  let prog_a = renderer_counter_program(runtime, "detach.sibling.a")
+  let prog_b = renderer_counter_program(runtime, "detach.sibling.b")
+  let root_a = BrowserRoot::BrowserRoot(
+    prog_a,
+    test_fake_host(),
+    renderer.stats(),
+  )
+  let root_b = BrowserRoot::BrowserRoot(
+    prog_b,
+    test_fake_host(),
+    renderer.stats(),
+  )
+  renderer.roots.push(root_a)
+  renderer.roots.push(root_b)
+  renderer.view_ids.val.push(prog_a.view_id())
+  renderer.view_ids.val.push(prog_b.view_id())
+
+  // detach acts on the passed root by identity: only root_a leaves the flush set
+  // and the instrumentation filter; root_b stays mounted and both stay alive.
+  renderer.detach(root_a)
+  inspect(renderer.roots.length(), content="1")
+  inspect(renderer.view_ids.val.length(), content="1")
+  inspect(prog_a.is_disposed(), content="false")
+  inspect(prog_b.is_disposed(), content="false")
+
+  prog_a.dispose()
+  prog_b.dispose()
 }
