@@ -468,7 +468,7 @@ The accumulator's commit-path work runs through the `MemoCommitPhase` dispatch r
 | `cells/internal/shared/cell_meta.mbt` | `CellMeta`, `HasCellMeta` — shared metadata struct and access trait |
 | `cells/internal/shared/slot_snapshot.mbt` | `SlotSnapshot` trait — accumulator-slot freshness abstraction used by kernel verify |
 | `cells/internal/kernel/state.mbt` | `RuntimeCore` + `RevisionState` / `TrackingState` / `BatchState` / `PullState` / `PushState` / `DatalogState` + `PropagationPhase` + `ActiveQuery` + runtime-id helpers + `enter_phase` / `leave_phase` |
-| `cells/internal/kernel/dispatch.mbt` | Cell-index dispatch helpers: `validate_cell*`, `is_cell_disposed`, `cell_id_for`/`cell_id_at`, `get_changed_at`/`get_durability`/`get_subscribers`, `add_subscriber`/`remove_subscriber`, `push_contribution`, `collect_reachable_cells`, `adjust_push_reachable` |
+| `cells/internal/kernel/dispatch.mbt` | Cell-index dispatch helpers: `validate_cell*`, `is_cell_disposed`, `cell_id_for`/`cell_id_at`, `get_changed_at`/`get_durability`/`get_subscribers`, `add_subscriber`/`remove_subscriber`, `is_live_subscriber`, `propagate_liveness` |
 | `cells/internal/kernel/tracking.mbt` | `push_tracking` / `pop_tracking` / `pop_tracking_full` / `record_dep` / `top_active_query` / `collect_tracking_path` / `collect_in_progress_path` / `check_cross_runtime` |
 | `cells/internal/kernel/subscriber_diff.mbt` | `diff_and_update_subscribers` — tracking-stack epilogue that routes dep changes into subscriber links |
 | `cells/internal/kernel/cycle.mbt` | `construct_cycle_error` — captures cell labels for cycle diagnostics |

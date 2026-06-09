@@ -99,7 +99,7 @@ Architecture Decision Records — the *why* behind significant design choices. K
 | Date | Decision |
 |------|----------|
 | [2026-04-20](decisions/2026-04-20-accumulator-api.md) | Accumulator API: side-channel collector with per-memo `push_revised_at` incremental invalidation (local-only scope; verifying reads now use `ReadError`) |
-| [2026-04-26](decisions/2026-04-26-r2-runtime-decomposition-deferred.md) | R2 (Runtime → services decomposition): deferred indefinitely. Post-R1 Runtime is 427 LOC of thin delegators; service decomposition would be a wrapper-rename without a driver. |
+| [2026-04-26](decisions/2026-04-26-r2-runtime-decomposition-deferred.md) | R2 (Runtime → services decomposition): deferred indefinitely. Post-R1 Runtime was 427 LOC of thin delegators; service decomposition would be a wrapper-rename without a driver. |
 | [2026-04-26](decisions/2026-04-26-modal-runtime-split-not-warranted.md) | Modal Runtime split (per-mode Runtime types): investigation closed. Runtime::new costs 0.11 µs and unused-mode "luggage" is sub-KB; no concrete X→Y per-mode design wish names a shared-CellId-compatible change. |
 | [2026-05-17](decisions/2026-05-17-async-at-the-edges.md) | Async-at-the-edges with `moonbitlang/async`: no library changes required. Function coloring enforces the synchrony contract statically. Supported patterns documented; T3 + JS integration test gated on a real driver. |
 | [2026-05-17](decisions/2026-05-17-t3-runtime-registry-gated.md) | T3 (`RuntimeRegistry`): design recorded, commissioning gated on multi-runtime async driver, MoonBit preemption, or observable test failure. Replaces two file-scope `Ref[Int]`s + heuristic forgiving-repair with principled liveness queries. |
