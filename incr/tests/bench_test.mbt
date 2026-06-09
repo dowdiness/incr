@@ -575,7 +575,7 @@ test "linklist-port: fanout 1000 reactives, steady-state set" (b : @bench.T) {
 /// iteration N reactives churn their source set. This is the
 /// diff_and_update_subscribers (subscriber_diff.mbt) hot path: HashSet
 /// contains/add/remove_and_check on every dep diff. Link-list candidate
-/// site #2 — but the cost shares with adjust_push_reachable, which is
+/// site #2 — but the cost shares with propagate_liveness, which is
 /// independent of the Link-list change.
 test "linklist-port: branchy-rebind 100 reactives" (b : @bench.T) {
   let rt = Runtime::Runtime()
