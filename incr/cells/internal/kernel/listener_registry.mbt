@@ -55,21 +55,16 @@ pub fn[F] ListenerRegistry::remove(
   self : ListenerRegistry[F],
   id : ListenerId,
 ) -> Bool {
-  let mut found = -1
-  for i = 0; i < self.entries.length(); i = i + 1 {
-    if self.entries[i].id == id {
-      found = i
-      break
+  match self.entries.search_by(e => e.id == id) {
+    Some(idx) => {
+      self.entries.remove(idx) |> ignore
+      if self.singleton is Some(sid) && sid == id {
+        self.singleton = None
+      }
+      true
     }
+    None => false
   }
-  if found < 0 {
-    return false
-  }
-  self.entries.remove(found) |> ignore
-  if self.singleton is Some(sid) && sid == id {
-    self.singleton = None
-  }
-  true
 }
 
 ///|
@@ -83,17 +78,21 @@ pub fn[F] ListenerRegistry::set_singleton(
   alloc_id : () -> ListenerId,
   callback : F,
 ) -> Unit {
-  if self.singleton is Some(sid) {
-    for entry in self.entries {
-      if entry.id == sid {
-        entry.callback = callback
-        return
-      }
+  // Locate the live singleton entry (if any). The invariant guarantees a
+  // `Some(sid)` marker names an existing entry, so a `None` index here means
+  // there is no singleton to replace and we append a fresh one.
+  let existing = match self.singleton {
+    Some(sid) => self.entries.search_by(e => e.id == sid)
+    None => None
+  }
+  match existing {
+    Some(idx) => self.entries[idx].callback = callback
+    None => {
+      let id = alloc_id()
+      self.entries.push({ id, callback })
+      self.singleton = Some(id)
     }
   }
-  let id = alloc_id()
-  self.entries.push({ id, callback })
-  self.singleton = Some(id)
 }
 
 ///|
