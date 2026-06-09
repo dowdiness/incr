@@ -73,14 +73,18 @@ A new public opaque handle in `incr/types/` (`@incr_types`), re-exported through
 the facade, modeled on `RuntimeId`:
 
 ```
-pub(all) struct ListenerId { id : Int } derive(Eq, Hash, Debug)
+pub(all) struct ListenerId { runtime_id : RuntimeId; id : Int } derive(Eq, Hash, Debug)
 ```
 
-Ids are allocated from a single per-runtime monotonic counter
-(`RuntimeCore.next_listener_id`, via `@kernel.alloc_listener_id`) **shared across
-both registries**. Consequence: every listener on a runtime has a runtime-unique
-id, so passing an id to the wrong registry's `remove` is a guaranteed no-op
-rather than an accidental removal. Ids are introspection/debug identities (like
+An id pairs the originating `RuntimeId` with an allocation number drawn from a
+single per-runtime monotonic counter (`RuntimeCore.next_listener_id`, via
+`@kernel.alloc_listener_id`) **shared across both registries**. The two parts
+guard two different mismatches: the shared counter makes ids unique across the
+two registries *within* one runtime, and the `RuntimeId` makes them unique
+*across* runtimes (the bare counter alone would collide — the first listener of
+two runtimes would both be number 0, so an id from `rt1` would wrongly match and
+detach `rt2`'s first listener). Together, passing an id to the wrong registry or
+the wrong runtime is a no-op. Ids are introspection/debug identities (like
 `RuntimeId`), not stable cross-run keys.
 
 ### On-change registry (unguarded)

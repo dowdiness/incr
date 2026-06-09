@@ -43,7 +43,7 @@ pub fn alloc_runtime_id() -> RuntimeId {
 pub fn alloc_listener_id(core : RuntimeCore) -> ListenerId {
   let id = core.next_listener_id
   core.next_listener_id = id + 1
-  ListenerId(id)
+  ListenerId(core.runtime_id, id)
 }
 
 ///|

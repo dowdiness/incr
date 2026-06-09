@@ -208,6 +208,23 @@ test "on-change mutation during callback takes effect on the next fire (snapshot
 }
 
 ///|
+test "remove_on_change_listener with another runtime's id is a no-op (runtime-scoped ListenerId)" {
+  let rt1 = Runtime::Runtime()
+  let rt2 = Runtime::Runtime()
+  let mut count2 = 0
+  // The first listener of each runtime would share a bare counter value; the
+  // RuntimeId in the id keeps them distinct.
+  let id1 = rt1.add_on_change_listener(() => ())
+  let _id2 = rt2.add_on_change_listener(() => count2 = count2 + 1)
+  inspect(id1 == _id2, content="false")
+  // Removing rt1's id from rt2 must not detach rt2's listener.
+  rt2.remove_on_change_listener(id1)
+  let s2 = Signal::Signal(rt2, 0)
+  s2.set(1)
+  inspect(count2, content="1")
+}
+
+///|
 test "add_on_change_listener registered mid-batch participates in the batch-end fire" {
   let rt = Runtime::Runtime()
   let mut log = ""

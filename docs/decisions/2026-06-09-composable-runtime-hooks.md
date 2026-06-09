@@ -25,9 +25,13 @@ Reopen and resolve the deferral. Make both hooks composable via one generic
 so not public API). The singleton APIs map onto a reserved slot in the registry
 (replace-in-place, position-preserving) and stay source-compatible; new additive
 APIs `add_on_change_listener` / `add_derived_event_listener` append composable
-listeners and return a public `ListenerId` for idempotent `remove_*`. Listener
-ids come from one per-runtime monotonic counter shared across both registries, so
-a mismatched `remove` is a harmless no-op.
+listeners and return a public `ListenerId` for idempotent `remove_*`. A
+`ListenerId` pairs the originating `RuntimeId` with an allocation number from one
+per-runtime counter shared across both registries: the counter rules out
+cross-registry collisions within a runtime, the `RuntimeId` rules out
+cross-runtime collisions (the bare counter alone would make every runtime's first
+listener number 0). A mismatched `remove` — wrong registry or wrong runtime — is
+therefore a harmless no-op.
 
 Phase-safety stays **asymmetric, by design**:
 

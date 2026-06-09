@@ -251,9 +251,11 @@ mid-flight call raises `Failure`.
 
 Opaque handle returned by `add_on_change_listener` and
 `add_derived_event_listener`, passed back to the matching `remove_*` method to
-detach one listener. Ids are unique per-runtime across both hook surfaces, so a
-mismatched `remove` (wrong registry or wrong runtime) is a harmless no-op. Like
-`RuntimeId`, it is an introspection/debug identity, not a stable application key.
+detach one listener. An id carries its originating `RuntimeId` alongside a
+per-runtime counter shared across both hook surfaces, so a mismatched `remove`
+(wrong registry *or* wrong runtime) is a harmless no-op rather than an accidental
+detachment. Like `RuntimeId`, it is an introspection/debug identity, not a stable
+application key.
 
 ### `DerivedEvent`
 
