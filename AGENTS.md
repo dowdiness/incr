@@ -17,7 +17,7 @@ incr/                       ← `dowdiness/incr` library module
   types/                    ← Pure value types
   cells/                    ← Engine: handles, lifecycles, the Runtime coordinator
   cells/internal/           ← shared, pull, push, datalog, kernel (compiler-enforced)
-  pipeline/                 ← Experimental, single 52-LOC file
+  pipeline/                 ← Experimental, single 36-LOC file
   tests/                    ← Integration tests against the public API
 docs/                       ← Checked docs workspace member + docs/README.md index
 examples/                   ← Standalone workspace modules for demos and spikes
@@ -35,7 +35,7 @@ Generated `pkg.generated.mbti` files are **not edited by hand** — `moon info` 
 ```bash
 moon check          # Type-check the workspace; fast; run after every edit
 moon build          # Compile the workspace
-moon test           # Full workspace test suite (~878 test blocks)
+moon test           # Full workspace test suite (~924 test blocks)
 moon bench --release  # Microbenchmarks — always pass --release
 moon fmt            # Apply standard formatting across workspace members
 moon info           # Regenerate all pkg.generated.mbti files
