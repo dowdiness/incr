@@ -39,7 +39,7 @@ A single generic ordered registry, defined `pub(all)` in
 implementation. It is **not** part of the public API — `kernel` is an `internal/`
 package external consumers cannot import.
 
-```
+```mbt
 priv struct ListenerEntry[F] { id : ListenerId; mut callback : F }
 
 pub(all) struct ListenerRegistry[F] {
@@ -72,7 +72,7 @@ restores it to `None`.
 A new public opaque handle in `incr/types/` (`@incr_types`), re-exported through
 the facade, modeled on `RuntimeId`:
 
-```
+```mbt
 pub(all) struct ListenerId { runtime_id : RuntimeId; id : Int } derive(Eq, Hash, Debug)
 ```
 
@@ -96,7 +96,7 @@ ListenerRegistry[() -> Unit]`.
 `run_callback` (callback-depth raise), preserving the existing depth-guard
 behavior:
 
-```
+```mbt
 if core.on_change_listeners.is_empty() { return }
 let snapshot = core.on_change_listeners.snapshot()
 run_callback(core, () => { for f in snapshot { f() } })
@@ -122,7 +122,7 @@ ListenerRegistry[(DerivedEvent) -> Unit]`.
   buffered event (in pull-traversal order), every listener fires in registration
   order before the next event:
 
-```
+```mbt
 self.draining = true
 let listeners = self.listeners.snapshot()   // mutation forbidden while draining
 while !self.pending.is_empty() {

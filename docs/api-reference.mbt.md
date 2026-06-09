@@ -220,7 +220,7 @@ Mutation guard:
 > Renamed in 0.8.0 from `Runtime::clear_memo_event_listener`, which remains as a
 > deprecated alias.
 
-Removes the singleton derived event listener. Idempotent; additive listeners are
+Removes the singleton derived-event listener. Idempotent; additive listeners are
 unaffected. It has the same mutation guard as `on_derived_event`; clear it
 between operations, not from inside compute, `on_change`, or a derived-event
 listener.
