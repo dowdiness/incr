@@ -21,6 +21,8 @@ pub fn add_subscriber(RuntimeCore, PullState, PushState, DatalogState, @types.Ce
 
 pub fn advance_revision(RuntimeCore, @types.Durability) -> Unit
 
+pub fn alloc_listener_id(RuntimeCore) -> @types.ListenerId
+
 pub fn alloc_runtime_id() -> @types.RuntimeId
 
 pub fn cell_id_at(RuntimeCore, Int) -> @types.CellId
@@ -238,6 +240,23 @@ pub(all) struct EvaluationTraceSummary {
   fixpoint_run_count : Int
 } derive(@debug.Debug)
 
+pub(all) struct ListenerEntry[F] {
+  id : @types.ListenerId
+  mut callback : F
+}
+
+pub(all) struct ListenerRegistry[F] {
+  entries : Array[ListenerEntry[F]]
+  mut singleton : @types.ListenerId?
+}
+pub fn[F] ListenerRegistry::add(Self[F], @types.ListenerId, F) -> Unit
+pub fn[F] ListenerRegistry::clear_singleton(Self[F]) -> Unit
+pub fn[F] ListenerRegistry::is_empty(Self[F]) -> Bool
+pub fn[F] ListenerRegistry::new() -> Self[F]
+pub fn[F] ListenerRegistry::remove(Self[F], @types.ListenerId) -> Bool
+pub fn[F] ListenerRegistry::set_singleton(Self[F], () -> @types.ListenerId, F) -> Unit
+pub fn[F] ListenerRegistry::snapshot(Self[F]) -> Array[F]
+
 pub(all) enum PropagationPhase {
   Idle
   PushPropagating
@@ -293,7 +312,8 @@ pub(all) struct RuntimeCore {
   tracking : TrackingState
   batch : BatchState
   mut callback_depth : Int
-  mut on_change : (() -> Unit)?
+  on_change_listeners : ListenerRegistry[() -> Unit]
+  mut next_listener_id : Int
   cell_index : Array[@shared.CellRef]
   cell_ops : Array[&@shared.CellOps]
   mut phase : PropagationPhase

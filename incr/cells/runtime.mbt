@@ -107,7 +107,8 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
       tracking: { stack: [] },
       batch: { depth: 0, pending: [], frames: [], max_durability: Low },
       callback_depth: 0,
-      on_change,
+      on_change_listeners: @kernel.ListenerRegistry::new(),
+      next_listener_id: 0,
       cell_index: [],
       cell_ops: [],
       phase: Idle,
@@ -142,6 +143,12 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
   rt.commit_hooks.push(accumulator_hook)
   rt.commit_hooks.push(event_hook)
   rt.commit_hooks.push(runtime_event_hook)
+  // Seed the optional constructor on_change callback through the registry's
+  // singleton slot, preserving `Runtime(on_change=...)` semantics.
+  match on_change {
+    Some(f) => rt.set_on_change(f)
+    None => ()
+  }
   rt
 }
 
@@ -157,10 +164,13 @@ fn Runtime::install_evaluation_strategies(
 
 ///|
 fn Runtime::event_broadcast_enabled(self : Runtime) -> Bool {
-  match self.event_broadcast_hook.listener {
-    Some(_) => true
-    None => false
-  }
+  !self.event_broadcast_hook.listeners.is_empty()
+}
+
+///|
+/// Allocates a fresh listener id (shared counter across both registries).
+fn Runtime::alloc_listener_id(self : Runtime) -> ListenerId {
+  @kernel.alloc_listener_id(self.core)
 }
 
 ///|
@@ -206,7 +216,12 @@ fn Runtime::derived_event_listener_busy_message(operation : String) -> String {
 }
 
 ///|
-/// Registers a listener for derived recompute lifecycle events.
+/// Registers the singleton derived recompute lifecycle event listener.
+///
+/// Re-registering replaces the previous singleton listener in place (its
+/// registration position is preserved). Coexists with any additive listeners
+/// registered via `add_derived_event_listener`. Raises `Failure` unless the
+/// runtime is between operations (see `is_listener_mutation_safe`).
 pub fn Runtime::on_derived_event(
   self : Runtime,
   f : (DerivedEvent) -> Unit,
@@ -216,11 +231,16 @@ pub fn Runtime::on_derived_event(
       Runtime::derived_event_listener_busy_message("Runtime::on_derived_event"),
     )
   }
-  self.event_broadcast_hook.listener = Some(f)
+  self.event_broadcast_hook.listeners.set_singleton(
+    () => self.alloc_listener_id(),
+    f,
+  )
 }
 
 ///|
-/// Clears the derived recompute lifecycle event listener.
+/// Clears the singleton derived recompute lifecycle event listener. Idempotent;
+/// additive listeners are unaffected. Raises `Failure` unless the runtime is
+/// between operations.
 pub fn Runtime::clear_derived_event_listener(
   self : Runtime,
 ) -> Unit raise Failure {
@@ -231,7 +251,50 @@ pub fn Runtime::clear_derived_event_listener(
       ),
     )
   }
-  self.event_broadcast_hook.listener = None
+  self.event_broadcast_hook.listeners.clear_singleton()
+}
+
+///|
+/// Adds a composable derived-event listener and returns its `ListenerId`.
+///
+/// Multiple additive listeners (and the singleton) coexist on one runtime and
+/// fire event-major in registration order. Remove a specific listener with
+/// `remove_derived_event_listener`. Raises `Failure` unless the runtime is
+/// between operations (same idle guard as `on_derived_event`): the derived-event
+/// hook buffers events, so registration must not race a buffered/draining
+/// window.
+pub fn Runtime::add_derived_event_listener(
+  self : Runtime,
+  f : (DerivedEvent) -> Unit,
+) -> ListenerId raise Failure {
+  guard self.is_listener_mutation_safe() else {
+    fail(
+      Runtime::derived_event_listener_busy_message(
+        "Runtime::add_derived_event_listener",
+      ),
+    )
+  }
+  let id = self.alloc_listener_id()
+  self.event_broadcast_hook.listeners.add(id, f)
+  id
+}
+
+///|
+/// Removes the additive derived-event listener with `id`. Idempotent — an
+/// unknown or already-removed id is a no-op. Raises `Failure` unless the runtime
+/// is between operations (same idle guard rationale as registration).
+pub fn Runtime::remove_derived_event_listener(
+  self : Runtime,
+  id : ListenerId,
+) -> Unit raise Failure {
+  guard self.is_listener_mutation_safe() else {
+    fail(
+      Runtime::derived_event_listener_busy_message(
+        "Runtime::remove_derived_event_listener",
+      ),
+    )
+  }
+  self.event_broadcast_hook.listeners.remove(id) |> ignore
 }
 
 ///|
@@ -558,15 +621,48 @@ fn Runtime::add_subscriber(
 }
 
 ///|
-/// Registers a callback that fires whenever a revision bump occurs.
+/// Registers the singleton on-change callback that fires whenever a revision
+/// bump occurs.
+///
+/// Re-registering replaces the previous singleton in place (registration
+/// position preserved). Coexists with additive listeners registered via
+/// `add_on_change_listener`. Unlike the derived-event hook, on-change has no
+/// buffer/drain state and is read as a snapshot at one well-defined point, so
+/// registration is not phase-guarded.
 pub fn Runtime::set_on_change(self : Runtime, f : () -> Unit) -> Unit {
-  self.core.on_change = Some(f)
+  self.core.on_change_listeners.set_singleton(() => self.alloc_listener_id(), f)
 }
 
 ///|
-/// Removes the on_change callback.
+/// Removes the singleton on-change callback. Idempotent; additive listeners are
+/// unaffected.
 pub fn Runtime::clear_on_change(self : Runtime) -> Unit {
-  self.core.on_change = None
+  self.core.on_change_listeners.clear_singleton()
+}
+
+///|
+/// Adds a composable on-change listener and returns its `ListenerId`.
+///
+/// Multiple additive listeners (and the singleton) coexist and fire in
+/// registration order on every revision bump. Remove a specific listener with
+/// `remove_on_change_listener`. Not phase-guarded (see `set_on_change`).
+pub fn Runtime::add_on_change_listener(
+  self : Runtime,
+  f : () -> Unit,
+) -> ListenerId {
+  let id = self.alloc_listener_id()
+  self.core.on_change_listeners.add(id, f)
+  id
+}
+
+///|
+/// Removes the additive on-change listener with `id`. Idempotent — an unknown or
+/// already-removed id is a no-op.
+pub fn Runtime::remove_on_change_listener(
+  self : Runtime,
+  id : ListenerId,
+) -> Unit {
+  self.core.on_change_listeners.remove(id) |> ignore
 }
 
 ///|

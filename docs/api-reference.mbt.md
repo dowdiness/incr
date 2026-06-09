@@ -117,7 +117,10 @@ example in
 
 ### `Runtime::set_on_change(self, f: () -> Unit) -> Unit`
 
-Registers a callback fired when the runtime records a committed change.
+Registers the **singleton** on-change callback fired when the runtime records a
+committed change. Re-registering replaces the previous singleton callback in
+place (its registration position is preserved). It coexists with any additive
+listeners added via `add_on_change_listener`.
 
 The checked companion covers committed-change callbacks, batching, no-op sets,
 and `clear_on_change` in
@@ -130,10 +133,37 @@ Behavior:
 
 ### `Runtime::clear_on_change(self) -> Unit`
 
-Removes the registered change callback.
+Removes the singleton change callback. Idempotent; additive listeners are
+unaffected.
 
 See the checked callback examples in
 [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
+
+### `Runtime::add_on_change_listener(self, f: () -> Unit) -> ListenerId`
+
+Adds a **composable** on-change listener and returns a `ListenerId` for removal.
+Multiple additive listeners (and the singleton) coexist on one runtime; use this
+when several observers — a UI integration, a profiler, a test tap — must share a
+runtime without clobbering each other.
+
+- **Ordering:** listeners fire in registration order on every committed change.
+  The `set_on_change` singleton fires at the position where its slot is currently
+  registered.
+- **Mutation during a callback:** allowed. Adding or removing listeners from
+  inside an on-change callback takes effect on the *next* fire — the current fire
+  iterates a snapshot. This is why on-change registration is **not** phase-guarded
+  (unlike the derived-event hook, which buffers events).
+
+### `Runtime::remove_on_change_listener(self, id: ListenerId) -> Unit`
+
+Removes the additive on-change listener identified by `id`. Idempotent — an
+unknown or already-removed id is a no-op.
+
+### Singleton vs additive on-change
+
+Use `set_on_change` for a single, owner-controlled callback that should *replace*
+on re-registration (the back-compat "the" callback). Use `add_on_change_listener`
+for composable observers that must coexist and are individually removable by id.
 
 ### `Runtime::read[T](self, memo: Memo[T]) -> T`
 
@@ -166,8 +196,9 @@ Registers the runtime's derived recompute listener. The listener receives pull
 `Memo` and `HybridMemo` lifecycle events after the recompute path reaches a
 safe drain point; it is not called inline from the compute closure.
 
-Only one listener is stored. Calling `on_derived_event` replaces the previous
-listener.
+Registers the **singleton** derived-event listener: re-registering replaces the
+previous singleton in place. It coexists with any additive listeners added via
+`add_derived_event_listener`.
 
 The checked companion covers listener registration and clearing in
 [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md); cookbook examples
@@ -189,12 +220,42 @@ Mutation guard:
 > Renamed in 0.8.0 from `Runtime::clear_memo_event_listener`, which remains as a
 > deprecated alias.
 
-Removes the derived event listener. It has the same mutation guard as
-`on_derived_event`; clear it between operations, not from inside compute,
-`on_change`, or a derived-event listener.
+Removes the singleton derived-event listener. Idempotent; additive listeners are
+unaffected. It has the same mutation guard as `on_derived_event`; clear it
+between operations, not from inside compute, `on_change`, or a derived-event
+listener.
 
 The checked companion covers `clear_derived_event_listener` in
 [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
+
+### `Runtime::add_derived_event_listener(self, f: (DerivedEvent) -> Unit) -> ListenerId raise Failure`
+
+Adds a **composable** derived-event listener and returns a `ListenerId` for
+removal. Multiple additive listeners (and the singleton) coexist on one runtime.
+
+- **Ordering:** delivery is *event-major* — for each buffered event (in
+  pull-verification traversal order), every listener fires in registration order
+  before the next event.
+- **Mutation guard:** carries the same idle guard as `on_derived_event` and
+  raises `Failure` while an operation is in flight. The derived-event hook buffers
+  events, so listener mutation (including from inside a listener — the drain
+  reentry window) is rejected; register/remove between top-level operations.
+
+### `Runtime::remove_derived_event_listener(self, id: ListenerId) -> Unit raise Failure`
+
+Removes the additive derived-event listener identified by `id`. Idempotent within
+the safe window — an unknown id is a no-op; carries the same idle guard, so a
+mid-flight call raises `Failure`.
+
+### `ListenerId`
+
+Opaque handle returned by `add_on_change_listener` and
+`add_derived_event_listener`, passed back to the matching `remove_*` method to
+detach one listener. An id carries its originating `RuntimeId` alongside a
+per-runtime counter shared across both hook surfaces, so a mismatched `remove`
+(wrong registry *or* wrong runtime) is a harmless no-op rather than an accidental
+detachment. Like `RuntimeId`, it is an introspection/debug identity, not a stable
+application key.
 
 ### `DerivedEvent`
 

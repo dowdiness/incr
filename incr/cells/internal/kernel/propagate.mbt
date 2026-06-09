@@ -31,12 +31,23 @@ pub fn run_callback(core : RuntimeCore, f : () -> Unit raise?) -> Unit raise? {
 }
 
 ///|
-/// Fires the on_change callback if one is registered.
+/// Fires all registered on-change listeners, in registration order.
+///
+/// The listener list is snapshotted before firing so that a listener which
+/// adds or removes on-change listeners affects only the *next* fire, never the
+/// in-flight dispatch (the snapshot-before-fire invariant, extended from one
+/// handler to N). All listeners run under a single `run_callback` so the
+/// callback-depth guard behaves exactly as it did for the singleton handler.
 pub fn fire_on_change(core : RuntimeCore) -> Unit {
-  match core.on_change {
-    Some(f) => run_callback(core, f)
-    None => ()
+  if core.on_change_listeners.is_empty() {
+    return
   }
+  let listeners = core.on_change_listeners.snapshot()
+  run_callback(core, fn() {
+    for f in listeners {
+      f()
+    }
+  })
 }
 
 ///|
