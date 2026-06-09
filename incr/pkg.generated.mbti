@@ -103,6 +103,8 @@ pub using @types {type InternId}
 
 pub using @types {type InternTable}
 
+pub using @types {type ListenerId}
+
 pub using @cells {type MapRelation}
 
 pub using @cells {type Memo}

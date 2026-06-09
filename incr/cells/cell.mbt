@@ -10,6 +10,7 @@ using @incr_types {
   type ReadError,
   type Durability,
   type Revision,
+  type ListenerId,
   trait BackdateEq,
 }
 

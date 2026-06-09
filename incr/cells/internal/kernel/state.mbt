@@ -1,5 +1,11 @@
 ///|
-using @incr_types {type CellId, type Durability, type Revision, type RuntimeId}
+using @incr_types {
+  type CellId,
+  type Durability,
+  type Revision,
+  type RuntimeId,
+  type ListenerId,
+}
 
 ///|
 using @shared {type CellRef, trait CellOps, trait Committable}
@@ -28,6 +34,16 @@ pub fn alloc_runtime_id() -> RuntimeId {
   let id = next_runtime_id.val
   next_runtime_id.val = id + 1
   RuntimeId(id)
+}
+
+///|
+/// Allocates a fresh listener id from the runtime's monotonic counter. Shared
+/// by both the on-change and derived-event registries, so ids are unique
+/// per-runtime across the two hook surfaces.
+pub fn alloc_listener_id(core : RuntimeCore) -> ListenerId {
+  let id = core.next_listener_id
+  core.next_listener_id = id + 1
+  ListenerId(id)
 }
 
 ///|
@@ -191,7 +207,14 @@ pub(all) struct RuntimeCore {
   tracking : TrackingState
   batch : BatchState
   mut callback_depth : Int
-  mut on_change : (() -> Unit)?
+  /// Composable runtime-global on-change listeners. The `set_on_change`
+  /// singleton API maps onto the registry's reserved slot; `add_on_change_listener`
+  /// appends additive listeners. Fired (as a snapshot) by `fire_on_change`.
+  on_change_listeners : ListenerRegistry[() -> Unit]
+  /// Monotonic counter for `ListenerId` allocation, shared across both the
+  /// on-change and derived-event registries so every listener id is unique
+  /// within this runtime.
+  mut next_listener_id : Int
   cell_index : Array[CellRef]
   cell_ops : Array[&CellOps]
   mut phase : PropagationPhase

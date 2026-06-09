@@ -37,6 +37,30 @@ fn install_view_recompute_counter(
 
 ///|
 #cfg(target="js")
+test "#210: renderer instrumentation does not clobber a pre-existing derived-event listener" {
+  let runtime = @incr.Runtime()
+  // A host integration installs its own derived-event listener BEFORE the
+  // renderer mounts.
+  let host_completed = Ref(0)
+  try! runtime.on_derived_event(event => {
+    if event is @incr.DerivedEvent::Completed(_) {
+      host_completed.val = host_completed.val + 1
+    }
+  })
+  // Renderer instrumentation registers additively (was singleton pre-#210,
+  // which would have replaced the host listener).
+  let view_ids : Ref[Array[@incr.CellId]] = Ref([])
+  let stats = RenderStats::RenderStats()
+  install_render_recompute_counter(runtime, view_ids, stats)
+  // Drive a recompute and verify the host listener still fires.
+  let s = @incr.Input(runtime, 1)
+  let m = @incr.Derived(runtime, () => s.get() * 2)
+  ignore(m.read_or_abort())
+  inspect(host_completed.val, content="1")
+}
+
+///|
+#cfg(target="js")
 test "renderer root: patch attempts only when watched Html changes" {
   let runtime = @incr.Runtime()
   let scope = @incr.Scope::new(runtime)

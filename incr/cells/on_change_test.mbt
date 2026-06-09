@@ -117,6 +117,110 @@ test "on_change optional param defaults to none" {
 }
 
 ///|
+// --- Composable on-change listeners (#210) ---
+
+///|
+test "add_on_change_listener: two additive listeners both fire in registration order" {
+  let rt = Runtime::Runtime()
+  let mut log = ""
+  rt.add_on_change_listener(() => log = log + "a") |> ignore
+  rt.add_on_change_listener(() => log = log + "b") |> ignore
+  let s = Signal::Signal(rt, 0)
+  s.set(1)
+  inspect(log, content="ab")
+}
+
+///|
+test "remove_on_change_listener: stops that listener and is idempotent" {
+  let rt = Runtime::Runtime()
+  let mut count = 0
+  let id = rt.add_on_change_listener(() => count = count + 1)
+  let s = Signal::Signal(rt, 0)
+  s.set(1)
+  inspect(count, content="1")
+  rt.remove_on_change_listener(id)
+  s.set(2)
+  inspect(count, content="1")
+  // Removing again is a no-op, not an error.
+  rt.remove_on_change_listener(id)
+  s.set(3)
+  inspect(count, content="1")
+}
+
+///|
+test "set_on_change singleton coexists with additive listeners" {
+  let rt = Runtime::Runtime()
+  let mut log = ""
+  rt.set_on_change(() => log = log + "S")
+  rt.add_on_change_listener(() => log = log + "a") |> ignore
+  let s = Signal::Signal(rt, 0)
+  s.set(1)
+  inspect(log, content="Sa")
+}
+
+///|
+test "set_on_change replaces the singleton in place (position preserved)" {
+  let rt = Runtime::Runtime()
+  let mut log = ""
+  rt.set_on_change(() => log = log + "S1")
+  rt.add_on_change_listener(() => log = log + "a") |> ignore
+  rt.set_on_change(() => log = log + "S2")
+  let s = Signal::Signal(rt, 0)
+  s.set(1)
+  inspect(log, content="S2a")
+}
+
+///|
+test "clear_on_change then set_on_change re-appends at the end" {
+  let rt = Runtime::Runtime()
+  let mut log = ""
+  rt.set_on_change(() => log = log + "S1")
+  rt.add_on_change_listener(() => log = log + "a") |> ignore
+  rt.clear_on_change()
+  rt.set_on_change(() => log = log + "S2")
+  let s = Signal::Signal(rt, 0)
+  s.set(1)
+  inspect(log, content="aS2")
+}
+
+///|
+test "on-change mutation during callback takes effect on the next fire (snapshot)" {
+  let rt = Runtime::Runtime()
+  let mut log = ""
+  let mut added = false
+  rt.add_on_change_listener(() => {
+    log = log + "a"
+    if added {
+      ()
+    } else {
+      added = true
+      rt.add_on_change_listener(() => log = log + "b") |> ignore
+    }
+  })
+  |> ignore
+  let s = Signal::Signal(rt, 0)
+  s.set(1)
+  // "b" was registered during this fire but is not in the snapshot → not fired.
+  inspect(log, content="a")
+  s.set(2)
+  // second fire: snapshot now includes both, in registration order.
+  inspect(log, content="aab")
+}
+
+///|
+test "add_on_change_listener registered mid-batch participates in the batch-end fire" {
+  let rt = Runtime::Runtime()
+  let mut log = ""
+  rt.add_on_change_listener(() => log = log + "a") |> ignore
+  let s = Signal::Signal(rt, 0)
+  rt.batch(() => {
+    s.set(1)
+    rt.add_on_change_listener(() => log = log + "b") |> ignore
+  })
+  inspect(log, content="ab")
+}
+
+///|
 test "on_change fires for relation-derived updates via fixpoint" {
   let rt = Runtime::Runtime()
   let mut count = 0

@@ -8,7 +8,7 @@ priv struct RecomputeStart {
 ///|
 /// MemoCommitPhase implementor that buffers recompute events for later drain.
 priv struct EventBroadcastPhaseHook {
-  mut listener : ((DerivedEvent) -> Unit)?
+  listeners : @kernel.ListenerRegistry[(DerivedEvent) -> Unit]
   mut draining : Bool
   active : @hashmap.HashMap[CellId, RecomputeStart]
   mut pending : Array[DerivedEvent]
@@ -16,7 +16,12 @@ priv struct EventBroadcastPhaseHook {
 
 ///|
 fn EventBroadcastPhaseHook::new() -> EventBroadcastPhaseHook {
-  { listener: None, draining: false, active: @hashmap.HashMap([]), pending: [] }
+  {
+    listeners: @kernel.ListenerRegistry::new(),
+    draining: false,
+    active: @hashmap.HashMap([]),
+    pending: [],
+  }
 }
 
 ///|
@@ -35,7 +40,7 @@ impl MemoCommitPhase for EventBroadcastPhaseHook with fn before_recompute(
   rt,
   cell_id,
 ) {
-  guard self.listener is Some(_) else { return }
+  guard !self.listeners.is_empty() else { return }
   let start : RecomputeStart = {
     timer: capture_now(),
     started_revision: rt.core.revision.current_revision,
@@ -52,7 +57,7 @@ impl MemoCommitPhase for EventBroadcastPhaseHook with fn after_success(
   rt,
   cell_id,
 ) {
-  guard self.listener is Some(_) else { return }
+  guard !self.listeners.is_empty() else { return }
   let start = match self.active.get(cell_id) {
     Some(s) => s
     None => return
@@ -81,7 +86,7 @@ impl MemoCommitPhase for EventBroadcastPhaseHook with fn after_abort(
   cell_id,
   error,
 ) {
-  guard self.listener is Some(_) else { return }
+  guard !self.listeners.is_empty() else { return }
   let start = match self.active.get(cell_id) {
     Some(s) => s
     None => return
@@ -99,7 +104,15 @@ impl MemoCommitPhase for EventBroadcastPhaseHook with fn after_abort(
 }
 
 ///|
-/// Drains buffered memo events, including events queued by reentrant callbacks.
+/// Drains buffered derived events, including events queued by reentrant
+/// callbacks, to every registered listener.
+///
+/// Delivery is **event-major**: for each buffered event (in pull-verification
+/// traversal order), every listener fires in registration order before the next
+/// event. The listener set is snapshotted once at drain entry; listener mutation
+/// is forbidden while draining (the `draining` conjunct of
+/// `is_listener_mutation_safe`), so the snapshot stays valid across reentrant
+/// waves.
 fn EventBroadcastPhaseHook::drain(self : EventBroadcastPhaseHook) -> Unit {
   if self.pending.is_empty() {
     return
@@ -107,16 +120,19 @@ fn EventBroadcastPhaseHook::drain(self : EventBroadcastPhaseHook) -> Unit {
   if self.draining {
     return
   }
-  guard self.listener is Some(f) else {
+  if self.listeners.is_empty() {
     self.pending.clear()
     return
   }
+  let listeners = self.listeners.snapshot()
   self.draining = true
   while !self.pending.is_empty() {
     let events = self.pending
     self.pending = []
     for evt in events {
-      f(evt)
+      for f in listeners {
+        f(evt)
+      }
     }
   }
   self.draining = false

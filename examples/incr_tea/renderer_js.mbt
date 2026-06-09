@@ -142,7 +142,10 @@ fn install_render_recompute_counter(
   view_ids : Ref[Array[@incr.CellId]],
   stats : RenderStats,
 ) -> Unit {
-  try! runtime.on_derived_event(event => {
+  // Additive listener (#210): mounting the renderer must not clobber any
+  // derived-event listener a host integration already installed. The returned
+  // ListenerId is unused for now; #209 (unmount) will store it for removal.
+  let _ = try! runtime.add_derived_event_listener(event => {
     match event {
       @incr.DerivedEvent::Completed(completed) =>
         if view_id_is_tracked(view_ids.val, completed.cell_id) {
@@ -408,7 +411,8 @@ fn[Msg : Eq] BrowserRenderer::BrowserRenderer(
     frame_scheduled: false,
     after_flush,
   }
-  runtime.set_on_change(() => renderer.schedule_flush())
+  // Additive listener (#210): coexist with any pre-existing on-change hook.
+  let _ = runtime.add_on_change_listener(() => renderer.schedule_flush())
   renderer
 }
 

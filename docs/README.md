@@ -74,6 +74,7 @@ For contributors and advanced users who want to understand or modify `incr`.
 
 - [Roadmap](roadmap.md) — phased future direction
 - [Active plans](plans/) — concrete implementation plans for upcoming work
+- [2026-06-09 Composable Runtime Hooks](plans/2026-06-09-composable-runtime-hooks.md) — design (WHAT) for the #210 multi-listener on-change / derived-event registries; see the [ADR](decisions/2026-06-09-composable-runtime-hooks.md)
 - [2026-06-08 AcceptedDerived BackdateEq tier](plans/2026-06-08-accepted-derived-backdate-eq-tier.md) — revision-gated acceptance (`accepted_memo` / `Scope::accepted_memo`) for non-`Eq` candidate value types; incr-side complete, downstream `loom-mini-cst` validation pending
 - [Typed Spreadsheet Responsibility Boundary](plans/2026-05-28-typed-spreadsheet-boundary.md) — app-vs-library responsibility split before adding any spreadsheet-specific sugar
 - [Ideal API Rename Migration Plan](plans/2026-05-21-ideal-api-rename-migration.md) — staged compatibility plan for the accepted public API target names
@@ -111,6 +112,7 @@ Architecture Decision Records — the *why* behind significant design choices. K
 | [2026-06-01](decisions/2026-06-01-workspace-layout.md) | Workspace layout: repository-level `moon.work`, publishable `dowdiness/incr` module under `incr/`, checked docs as a workspace member, and standalone example modules. |
 | [2026-06-02](decisions/2026-06-02-typed-spreadsheet-runtime-checking.md) | Typed Spreadsheet formula checking: keep the example boundary runtime-checked. Formula installation validates worksheet ownership/cross-sheet references; formula/operator/result type mismatches are reported as `CellResult::TypeError` on read. |
 | [2026-06-02](decisions/2026-06-02-typed-spreadsheet-tombstone-lifecycle.md) | Typed Spreadsheet deleted-cell tombstone lifecycle: keep stable lightweight presence anchors; add `Worksheet::compact_deleted_cells()` to prune heavyweight deleted slots after commit without breaking delete/recreate invalidation. |
+| [2026-06-09](decisions/2026-06-09-composable-runtime-hooks.md) | Composable runtime hooks (#210): reopen the Memo Event Observation ADR's multi-listener deferral. One generic `ListenerRegistry[F]` backs both hooks; singleton APIs map to a reserved slot (source-compatible), additive `add_*_listener` return a public `ListenerId` for idempotent `remove_*`. On-change unguarded (snapshot-before-fire); derived-event keeps the idle guard (buffers events). TEA renderer switches to additive listeners. |
 
 ---
 

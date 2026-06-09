@@ -390,3 +390,93 @@ test "derived_event: revision capture survives mid-compute revision bump" {
   inspect(verified.length(), content="1")
   inspect(started[0] < verified[0], content="true")
 }
+
+///|
+// --- Composable derived-event listeners (#210) ---
+
+///|
+test "derived_event: two additive listeners observe events event-major in registration order" {
+  let rt = Runtime()
+  let mut log = ""
+  rt.add_derived_event_listener(evt => log = log + "a:" + event_kind(evt) + " ")
+  |> ignore
+  rt.add_derived_event_listener(evt => log = log + "b:" + event_kind(evt) + " ")
+  |> ignore
+  let s = Signal(rt, 1)
+  let m = Memo(rt, () => s.get() * 2)
+  inspect(read_memo_for_test(m), content="2")
+  // One recompute buffers [EnteringCompute, Completed]. Event-major drain:
+  // for each event, both listeners fire in registration order.
+  inspect(log, content="a:enter b:enter a:completed b:completed ")
+}
+
+///|
+test "derived_event: remove_derived_event_listener is idempotent and stops only that listener" {
+  let rt = Runtime()
+  let mut a = 0
+  let mut b = 0
+  let id_a = rt.add_derived_event_listener(evt => {
+    if event_kind(evt) == "completed" {
+      a = a + 1
+    }
+  })
+  rt.add_derived_event_listener(evt => {
+    if event_kind(evt) == "completed" {
+      b = b + 1
+    }
+  })
+  |> ignore
+  let s = Signal(rt, 1)
+  let m = Memo(rt, () => s.get() * 2)
+  inspect(read_memo_for_test(m), content="2")
+  inspect(a, content="1")
+  inspect(b, content="1")
+  rt.remove_derived_event_listener(id_a)
+  s.set(2)
+  inspect(read_memo_for_test(m), content="4")
+  inspect(a, content="1")
+  inspect(b, content="2")
+  // Removing again at idle is a no-op, not an error.
+  rt.remove_derived_event_listener(id_a)
+  s.set(3)
+  inspect(read_memo_for_test(m), content="6")
+  inspect(a, content="1")
+  inspect(b, content="3")
+}
+
+///|
+test "derived_event: on_derived_event singleton coexists with an additive listener" {
+  let rt = Runtime()
+  let mut log = ""
+  rt.on_derived_event(evt => {
+    if event_kind(evt) == "completed" {
+      log = log + "S"
+    }
+  })
+  rt.add_derived_event_listener(evt => {
+    if event_kind(evt) == "completed" {
+      log = log + "a"
+    }
+  })
+  |> ignore
+  let s = Signal(rt, 1)
+  let m = Memo(rt, () => s.get() * 2)
+  inspect(read_memo_for_test(m), content="2")
+  inspect(log, content="Sa")
+}
+
+///|
+test "derived_event: additive registration guard rejects inside a compute closure" {
+  let rt = Runtime()
+  let rejected : Ref[Bool] = Ref(false)
+  let s = Signal(rt, 1)
+  let memo = Memo(rt, () => {
+    let r : Result[ListenerId, Error] = try? rt.add_derived_event_listener(_e => {
+      ()
+    })
+    rejected.val = r is Err(_)
+    s.get()
+  })
+  inspect(read_memo_for_test(memo), content="1")
+  inspect(rejected.val, content="true")
+}
