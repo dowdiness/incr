@@ -14,6 +14,10 @@ All notable changes to `dowdiness/incr` are documented in this file.
 - Typed spreadsheet formulas and cell snapshots now expose dependency-shape metadata (`Applicative`, `Selective`, `Dynamic`) for explaining static references versus active dynamic dependencies without changing engine APIs.
 - Typed spreadsheet worksheets now expose `Worksheet::formula_ast` with structured `FormulaAstQueryError` results for reading AST-backed formulas without conflating missing, deleted, input, and opaque closure-backed cells.
 
+### Fixed
+
+- Corrected `push_reachable_count` maintenance for diamond dependency topologies. A push-reachable derived (e.g. a watched `AcceptedDerived` fold) could silently stop recomputing after a candidate dropped one arm of a dynamic diamond dependency: the previous deduplicated reachability "mass" model added and removed counts asymmetrically across diamonds, so dropping a shared dependency could leave a cell's reachable count above zero and freeze its eager updates. Push-reachability is now maintained as an incremental count of each cell's direct *live* subscribers, propagated only across `0 ↔ 1` liveness boundaries, making diamond add/remove symmetric. (#233)
+
 ## [0.8.0] - 2026-06-03
 
 ### Added
