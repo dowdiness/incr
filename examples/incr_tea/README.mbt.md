@@ -6,8 +6,9 @@ Experimental `incr`-native TEA runtime skeleton for
 This is not a public `dowdiness/incr` API and not a Rabbita fork. The prototype
 now proves the core loop with a pure counter component, a minimal
 Rabbita-style `Cmd` scheduler, and a browser-rendering slice for watched
-`Html` view roots. Rabbita-compatible HTML/VDOM, subscriptions, async command
-adapters, and benchmark comparisons are follow-up issues.
+`Html` view roots — including pure event-payload descriptors and keyed children
+(#211). Subscriptions, async command adapters, and benchmark comparisons are
+follow-up issues.
 
 ## BSaLC / TEA mapping
 
@@ -78,6 +79,32 @@ messages back into the scheduler; they are not captured inside tracked
 `Derived` view computations. Command effects still run through `Cmd::effect`,
 after the model batch commits.
 
+### Event payloads (#211)
+
+An event descriptor is pure data with meaningful `Eq`. `on_click(msg)` stores a
+fixed message; `on_input(tag~)` stores only a string `tag`. The renderer reads
+the input element's value at the browser boundary and resolves `(tag, value) ->
+Msg` through a mount-time resolver (`BrowserRenderer::mount(..., on_input=...)`),
+so a DOM-payload event (a text input) flows through `Cmd`/message dispatch
+**without storing a closure in the cacheable `Html` value**. Two `on_input`
+descriptors are equal iff their tags match, so an unchanged view still backdates.
+
+### Keyed children (#211)
+
+`keyed_node(tag, children=[(key, child), ...])` builds a `KeyedElem` whose
+children carry a stable business key (not an array index). On diff, the pure
+`plan_keyed_diff` matches old children to new children by key, so
+insert/remove/reorder reuse each key's existing DOM node (and its listeners)
+instead of re-patching by position; positional `div`/`p`/… children keep the
+simple index diff. The applier reconciles by removing vanished keys, then
+re-appending survivors and new nodes in the new order (`appendChild` moves an
+attached node), which preserves per-key identity. Keys must be unique and
+stable; duplicate keys are a usage error that degrades (a node is reused once,
+the rest are recreated) rather than crashing. This is not minimal-move — every
+keyed child is re-appended when the list changes — so an anchor-based
+minimal-move pass (LIS / two-ended) is a follow-up if focus-retention or a
+benchmark justifies it.
+
 The renderer stores the two additive runtime listener ids it registers (#210)
 — the `on_change` flush trigger and the derived-event view-recompute counter —
 and removes them on `dispose`, so a torn-down renderer stops reacting to runtime
@@ -95,7 +122,12 @@ The browser demo includes:
 - child-lifecycle controls (#209) that detach the child (DOM removed, program
   parked but alive), reattach it (state preserved), destroy it (program disposed
   when no sibling root references it), and dispose the whole renderer (which also
-  reclaims parked roots).
+  reclaims parked roots);
+- a text-input card (#211) whose `<input>` value is dispatched as a `Msg`
+  payload and echoed back into the view;
+- a keyed-list card (#211) with prepend / remove-first / reverse controls, where
+  each row carries an uncontrolled notes `<input>` whose typed text follows its
+  item across reorder because the keyed diff reuses the row's DOM node by key.
 
 Instrumentation is visible in the demo and counts mounted-root view recomputes,
 DOM patch attempts, skipped patches, and rAF flushes.
@@ -116,6 +148,30 @@ watch instead of calling `view(model)`, and patching is driven by `Html : Eq`
 backdating rather than Rabbita cell dirty flags. This is not a Rabbita fork: it
 imports no Rabbita runtime or HTML package and intentionally keeps the renderer
 boundary narrow so a measured Rabbita VDOM/HTML subset can be swapped in later.
+
+#### Keyed children and event payloads (#211)
+
+The reference read for this slice was
+[`rabbita/rabbita/html/README.mbt.md`](https://github.com/dowdiness/rabbita/blob/5f828eb7270cb14970f2be592dba25990a513c61/rabbita/html/README.mbt.md)
+(the "Keyed Children" and "Event Handlers" sections).
+
+- **Keyed children — reused, adapted.** Rabbita's idea is taken directly: a
+  stable, unique business key (not an array index) is matched across updates to
+  reuse a node, and changing a key drops the old node and creates a new one.
+  Rabbita expresses keyed children as `Map[String, Html]`; this prototype uses an
+  ordered `Array[(String, Html)]` instead, because the child order is part of the
+  `Eq`-cacheable view value and the diff must be deterministic — an unordered map
+  would lose both.
+- **Event payloads — deliberately NOT reused.** Rabbita writes payload handlers
+  as closures in the view (`on_mousedown=m => emit(StartDraw(m))`). That cannot
+  work here: the view value is a tracked `Derived` output that must stay `Eq` and
+  closure-free for backdating, and a fresh closure per recompute would never
+  compare equal. Instead the payload→message mapping is split — the `Html` stores
+  only a pure string tag (`on_input(tag~)`), and a resolver supplied at the js
+  mount boundary (`mount(..., on_input=...)`) turns `(tag, value)` into a message,
+  mirroring where the existing `dispatch` closure already lives. So Rabbita's
+  keyed-child semantics are adopted wholesale, while its closure-valued event API
+  is intentionally replaced with pure data plus a boundary resolver.
 
 ## Counter smoke test
 
