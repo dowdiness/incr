@@ -2,3 +2,7 @@ import {
   "dowdiness/incr",
   "moonbitlang/core/queue",
 }
+
+import {
+  "moonbitlang/core/bench",
+} for "test"

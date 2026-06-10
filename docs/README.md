@@ -46,6 +46,7 @@ New to `incr`? Read these in order:
 - [2026-06-01 Graph-editor recompute path benches](performance/2026-06-01-graph-editor-recompute-benches.md) — durable graph/document recomputation vs ephemeral hover, drag preview, and viewport updates; records live-drag and commit-at-end behavior across wasm-gc + JS.
 - [2026-06-05 Typed Spreadsheet trace benches](performance/2026-06-05-typed-spreadsheet-trace-benches.md) — full-sheet `Worksheet::trace` scan vs bounded observed-formula tracing for issue #179 across wasm-gc + JS, with the manual regression workflow for future trace changes.
 - [2026-06-05 Typed Spreadsheet event trace feasibility](performance/2026-06-05-typed-spreadsheet-event-trace-feasibility.md) — issue #199 investigation: derived events can map to formula cells privately, but do not beat the current bounded snapshot path enough to justify the single-listener/API trade-off.
+- [2026-06-10 Incremental TEA vs dirty-cell baseline](performance/2026-06-10-incr-tea-vs-dirty-cell-benches.md) — issue #189: the `incr_tea` renderer's verify+backdating skip vs a modeled dirty-cell rebuild. Unread-field mutations skip in O(1) (9.5–159× faster, growing with view size); read-relevant mutations run at par. Keyed planner buys DOM reuse at an O(n²) matching cost. DOM applier not benched (needs a browser).
 
 ---
 
