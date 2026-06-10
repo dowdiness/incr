@@ -9,7 +9,7 @@ pub(all) enum CounterMsg {
   SetCount(Int)
   SetUnrelated(Int)
   SetBoth(next_count~ : Int, next_title~ : String)
-} derive(Debug)
+} derive(Eq, Debug)
 
 ///|
 /// Pure view data produced by the counter's tracked view computation.

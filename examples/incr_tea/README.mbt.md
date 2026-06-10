@@ -128,9 +128,28 @@ The browser demo includes:
 - a keyed-list card (#211) with prepend / remove-first / reverse controls, where
   each row carries an uncontrolled notes `<input>` whose typed text follows its
   item across reorder because the keyed diff reuses the row's DOM node by key.
-
+- a timer subscription demo where each subscription is declared from model state
+  through a tracked `Derived[Subscriptions]` map and diffed into a side-effect
+  handle set.
 Instrumentation is visible in the demo and counts mounted-root view recomputes,
 DOM patch attempts, skipped patches, and rAF flushes.
+
+## Subscription keys and collisions
+
+Subscriptions are keyed by `SubKey`, which is a pair:
+`(namespace, identity)`. `namespace` groups ownership (for example, the
+timer demo uses `"demo"`), while `identity` identifies the logical resource
+within that namespace.
+
+This stable key guarantees that unrelated model changes do not cause churn: only
+values read by the subscription `Derived` can invalidate it, and the resulting
+map is reconciled by key.
+
+Collision risk is explicit: two different logical subscriptions that reuse the
+same `(namespace, identity)` pair will be treated as one subscription and
+updated in place. Choose unique namespaces and identities for independent
+streams, and keep identities stable across renders unless you intentionally want
+explicit replacement semantics.
 
 ### Rabbita reuse/adaptation note
 

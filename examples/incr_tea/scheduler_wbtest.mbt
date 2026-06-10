@@ -6,7 +6,7 @@ enum SchedulerMsg {
   Second
   Third
   Atomic
-} derive(Debug)
+} derive(Eq, Debug)
 
 ///|
 struct SchedulerView {

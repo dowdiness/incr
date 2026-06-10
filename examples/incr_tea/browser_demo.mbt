@@ -14,6 +14,15 @@ enum DemoMsg {
   ListPrepend
   ListRemoveFirst
   ListReverse
+  TimerEnable
+  TimerDisable
+  TimerSetFast
+  TimerSetSlow
+  TimerUseFastHandler
+  TimerUseSlowHandler
+  TimerTouchUnrelated
+  TimerTickFast
+  TimerTickSlow
 } derive(Eq, Debug)
 
 ///|
@@ -309,6 +318,125 @@ fn list_program(runtime : @incr.Runtime) -> Program[DemoMsg, Html[DemoMsg]] {
 
 ///|
 #cfg(target="js")
+fn timer_program(runtime : @incr.Runtime) -> Program[DemoMsg, Html[DemoMsg]] {
+  let scope = @incr.Scope::new(runtime)
+  let running = scope.input_field(false, label="demo.timer.running")
+  let interval = scope.input_field(500, label="demo.timer.interval_ms")
+  let use_fast_handler = scope.input_field(
+    true,
+    label="demo.timer.use_fast_handler",
+  )
+  let ticks = scope.input_field(0, label="demo.timer.ticks")
+  let unrelated = scope.input_field(0, label="demo.timer.unrelated")
+
+  let subscriptions : () -> Subscriptions[DemoMsg] raise Failure = () => {
+    let subscriptions = @hashmap.HashMap([])
+    if running.get() {
+      subscriptions.set(
+        SubKey::SubKey("demo", "timer"),
+        SubSpec::Timer(
+          interval.get(),
+          if use_fast_handler.get() {
+            TimerTickFast
+          } else {
+            TimerTickSlow
+          },
+        ),
+      )
+    }
+    subscriptions
+  }
+
+  let update : (DemoMsg) -> Cmd[DemoMsg] = msg => {
+    match msg {
+      TimerEnable => {
+        running.set(true)
+        Cmd::none()
+      }
+      TimerDisable => {
+        running.set(false)
+        Cmd::none()
+      }
+      TimerSetFast => {
+        interval.set(300)
+        Cmd::none()
+      }
+      TimerSetSlow => {
+        interval.set(900)
+        Cmd::none()
+      }
+      TimerUseFastHandler => {
+        use_fast_handler.set(true)
+        Cmd::none()
+      }
+      TimerUseSlowHandler => {
+        use_fast_handler.set(false)
+        Cmd::none()
+      }
+      TimerTickFast => {
+        ticks.set(ticks.peek() + 1)
+        Cmd::none()
+      }
+      TimerTickSlow => {
+        ticks.set(ticks.peek() + 10)
+        Cmd::none()
+      }
+      TimerTouchUnrelated => {
+        unrelated.set(unrelated.peek() + 1)
+        Cmd::none()
+      }
+      _ => Cmd::none()
+    }
+  }
+
+  let view : () -> Html[DemoMsg] raise Failure = () => {
+    let running_label = if running.get() { "on" } else { "off" }
+    let handler_label = if use_fast_handler.get() {
+      "tick +1"
+    } else {
+      "tick +10"
+    }
+    article(attrs=[class_attr("demo-card timer-card")], [
+      h2([text("Timer subscription")]),
+      p([text("running: \{running_label}")]),
+      p([text("interval ms: \{interval.get()}")]),
+      p([text("handler: \{handler_label}")]),
+      p([text("ticks: \{ticks.get()}")]),
+      p([text("unrelated field: \{unrelated.get()}")]),
+      p([
+        text(
+          "The third row swaps handler strategy without key changes; subscription should update in-place.",
+        ),
+      ]),
+      div(attrs=[class_attr("button-row")], [
+        if running.get() {
+          demo_button(TimerDisable, "disable")
+        } else {
+          demo_button(TimerEnable, "enable")
+        },
+        demo_button(TimerSetFast, "fast 300ms"),
+        demo_button(TimerSetSlow, "slow 900ms"),
+      ]),
+      div(attrs=[class_attr("button-row")], [
+        demo_button(TimerUseFastHandler, "+1 handler"),
+        demo_button(TimerUseSlowHandler, "+10 handler"),
+        demo_button(TimerTouchUnrelated, "touch unrelated field"),
+      ]),
+    ])
+  }
+
+  Program::with_subscriptions(
+    runtime,
+    scope,
+    update,
+    view,
+    subscriptions,
+    label="demo.timer.view",
+  )
+}
+
+///|
+#cfg(target="js")
 fn render_stats(stats : RenderStats) -> String {
   "view recomputes: \{stats.view_recomputes}\npatch attempts: \{stats.patch_attempts}\nskipped patches: \{stats.skipped_patches}\nrAF flushes: \{stats.frame_flushes}"
 }
@@ -417,5 +545,11 @@ pub fn mount_browser_demo(mount_id : String) -> Unit {
     child_root.val = None
     refresh()
   })
+  ignore(
+    renderer.mount(
+      dom_query_child_by_id(host, "timer-root"),
+      timer_program(runtime),
+    ),
+  )
   update_stats(stats_host, renderer.stats())
 }
