@@ -365,13 +365,64 @@ test "#209: BrowserRenderer::detach drops the root from the flush set but keeps 
   renderer.view_ids.val.push(program.view_id())
 
   renderer.detach(root)
-  // detach is DOM detachment, not teardown: the logical component stays alive
-  // (re-mountable via mount(host, program)), but it leaves the active flush set
-  // so a later rAF will not re-render it.
+  // detach is DOM detachment, not teardown: the root is parked (program alive,
+  // still owned by the renderer in `detached`), out of the active flush set. Its
+  // instrumentation id stays because the renderer still references the program.
   inspect(program.is_disposed(), content="false")
   inspect(renderer.roots.length(), content="0")
-  inspect(renderer.view_ids.val.length(), content="0")
+  inspect(renderer.detached.length(), content="1")
+  inspect(renderer.view_ids.val.length(), content="1")
   program.dispose()
+}
+
+///|
+#cfg(target="js")
+test "#209: destroy reclaims a detached (parked) root's program" {
+  let runtime = @incr.Runtime()
+  let renderer : BrowserRenderer[RendererMsg] = BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  let program = renderer_counter_program(runtime, "destroy.parked")
+  let root = BrowserRoot::BrowserRoot(
+    program,
+    test_fake_host(),
+    renderer.stats(),
+  )
+  renderer.roots.push(root)
+  renderer.view_ids.val.push(program.view_id())
+
+  renderer.detach(root)
+  inspect(renderer.detached.length(), content="1")
+  inspect(program.is_disposed(), content="false")
+
+  // destroy reaches a parked root, not just a mounted one.
+  renderer.destroy(root)
+  inspect(renderer.detached.length(), content="0")
+  inspect(program.is_disposed(), content="true")
+  inspect(renderer.view_ids.val.length(), content="0")
+}
+
+///|
+#cfg(target="js")
+test "#209: dispose reclaims detached roots, not just mounted ones" {
+  let runtime = @incr.Runtime()
+  let renderer : BrowserRenderer[RendererMsg] = BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  let program = renderer_counter_program(runtime, "dispose.parked")
+  let root = BrowserRoot::BrowserRoot(
+    program,
+    test_fake_host(),
+    renderer.stats(),
+  )
+  renderer.roots.push(root)
+  renderer.detach(root)
+  inspect(program.is_disposed(), content="false")
+
+  renderer.dispose()
+  // The parked root is owned by the renderer, so dispose disposes it too.
+  inspect(program.is_disposed(), content="true")
+  inspect(renderer.detached.length(), content="0")
 }
 
 ///|
@@ -420,11 +471,12 @@ test "#209: detach removes only the targeted root, leaving siblings mounted" {
   renderer.view_ids.val.push(prog_a.view_id())
   renderer.view_ids.val.push(prog_b.view_id())
 
-  // detach acts on the passed root by identity: only root_a leaves the flush set
-  // and the instrumentation filter; root_b stays mounted and both stay alive.
+  // detach acts on the passed root by identity: only root_a is parked; root_b
+  // stays mounted, both programs stay alive, and both instrumentation ids remain.
   renderer.detach(root_a)
   inspect(renderer.roots.length(), content="1")
-  inspect(renderer.view_ids.val.length(), content="1")
+  inspect(renderer.detached.length(), content="1")
+  inspect(renderer.view_ids.val.length(), content="2")
   inspect(prog_a.is_disposed(), content="false")
   inspect(prog_b.is_disposed(), content="false")
 

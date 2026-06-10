@@ -36,10 +36,14 @@ disposed-cell aborts.
 
 The browser renderer keeps DOM detachment and component disposal separate
 (#209). `BrowserRenderer::detach` removes a root's DOM subtree but keeps its
-`Program` scope and watch alive, so the same component can be re-mounted later
-with its state preserved. `BrowserRenderer::destroy` is the logical teardown: it
-disposes the program scope when the component instance is gone. Only `destroy`
-(and `dispose`, which destroys every root) touches the scope.
+`Program` scope and watch alive, parking the root so a flush skips it; the
+renderer still owns it, so `BrowserRenderer::reattach` re-mounts the same root
+with its state preserved, and `dispose` reclaims it rather than leaking it.
+`BrowserRenderer::destroy` is the logical teardown: it tears down the DOM and
+disposes the program scope when no sibling root still references it, so
+destroying one of several mounts of a shared component leaves the others
+working. Only `destroy` (and `dispose`, which destroys every owned root, mounted
+or parked) touches the scope.
 
 While the component instance is alive, the persistent `Watch` keeps the view
 chain reachable across `Runtime::gc()`. After disposal, the scope and watch are
@@ -89,8 +93,9 @@ The browser demo includes:
 - a small parent/child nested-root demo where updating the parent leaves the
   child watched root unchanged and skipped;
 - child-lifecycle controls (#209) that detach the child (DOM removed, program
-  alive), re-mount it (state preserved), destroy it (program disposed), and
-  dispose the whole renderer.
+  parked but alive), reattach it (state preserved), destroy it (program disposed
+  when no sibling root references it), and dispose the whole renderer (which also
+  reclaims parked roots).
 
 Instrumentation is visible in the demo and counts mounted-root view recomputes,
 DOM patch attempts, skipped patches, and rAF flushes.

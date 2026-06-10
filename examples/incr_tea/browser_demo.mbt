@@ -226,28 +226,30 @@ pub fn mount_browser_demo(mount_id : String) -> Unit {
       parent_program(runtime),
     ),
   )
-  // The nested child drives the #209 unmount lifecycle. Its Program is created
-  // once and held, so detach can remove the DOM while keeping the component
-  // alive and re-mountable; destroy disposes it; dispose tears the renderer down.
-  let child_host = dom_query_child_by_id(host, "nested-child-root")
-  let child = child_program(runtime)
+  // The nested child drives the #209 unmount lifecycle. The renderer owns the
+  // root across its whole life: detach parks it (DOM gone, Program alive),
+  // reattach restores it with state preserved, destroy reclaims it (mounted or
+  // parked), and dispose tears the whole renderer down including parked roots.
   let child_root : Ref[BrowserRoot[DemoMsg]?] = Ref(
-    Some(renderer.mount(child_host, child)),
+    Some(
+      renderer.mount(
+        dom_query_child_by_id(host, "nested-child-root"),
+        child_program(runtime),
+      ),
+    ),
   )
   let refresh = () => update_stats(stats_host, renderer.stats())
   wire_button(host, "detach-child", () => {
     match child_root.val {
-      Some(root) => {
-        renderer.detach(root)
-        child_root.val = None
-      }
+      Some(root) => renderer.detach(root)
       None => ()
     }
     refresh()
   })
   wire_button(host, "remount-child", () => {
-    if child_root.val is None && !renderer.disposed && !child.is_disposed() {
-      child_root.val = Some(renderer.mount(child_host, child))
+    match child_root.val {
+      Some(root) => renderer.reattach(root)
+      None => ()
     }
     refresh()
   })
@@ -263,11 +265,6 @@ pub fn mount_browser_demo(mount_id : String) -> Unit {
   })
   wire_button(host, "dispose-renderer", () => {
     renderer.dispose()
-    // dispose() destroys mounted roots, but a detached child is no longer in
-    // renderer.roots, so release it explicitly to complete teardown.
-    if child_root.val is None && !child.is_disposed() {
-      child.dispose()
-    }
     child_root.val = None
     refresh()
   })

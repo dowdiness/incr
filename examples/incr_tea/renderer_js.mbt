@@ -402,9 +402,11 @@ fn[Msg] BrowserRoot::view_id(self : BrowserRoot[Msg]) -> @incr.CellId {
 
 ///|
 /// Removes the root's rendered subtree from its host without disposing the
-/// logical component. The program scope and watch stay alive, so the root can be
-/// re-mounted later via `BrowserRenderer::mount(host, program)`, which renders it
-/// from scratch (a fresh root starts with `rendered = None`).
+/// logical component. The program scope and watch stay alive, so the renderer can
+/// re-attach the same root later (`BrowserRenderer::reattach`). Both DOM caches
+/// are reset — `rendered` and the watched `last_view` — because the subtree is
+/// gone, so a later re-attach renders from scratch instead of being skipped as
+/// "unchanged".
 #cfg(target="js")
 fn[Msg] BrowserRoot::detach(self : BrowserRoot[Msg]) -> Unit {
   match self.rendered {
@@ -414,6 +416,7 @@ fn[Msg] BrowserRoot::detach(self : BrowserRoot[Msg]) -> Unit {
     }
     None => ()
   }
+  self.watched.last_view = None
 }
 
 ///|
@@ -440,7 +443,12 @@ fn[Msg] BrowserRoot::destroy(self : BrowserRoot[Msg]) -> Unit {
 #cfg(target="js")
 priv struct BrowserRenderer[Msg] {
   runtime : @incr.Runtime
+  // Mounted roots, flushed on every animation frame.
   mut roots : Array[BrowserRoot[Msg]]
+  // Detached-but-alive roots (#209): removed from the DOM but their Program is
+  // kept so they can be re-attached. The renderer still owns them, so `dispose`
+  // tears them down too instead of leaking them.
+  mut detached : Array[BrowserRoot[Msg]]
   stats : RenderStats
   view_ids : Ref[Array[@incr.CellId]]
   mut frame_scheduled : Bool
@@ -468,6 +476,7 @@ fn[Msg : Eq] BrowserRenderer::BrowserRenderer(
   let renderer = {
     runtime,
     roots: [],
+    detached: [],
     stats,
     view_ids,
     frame_scheduled: false,
@@ -503,7 +512,11 @@ fn[Msg : Eq] BrowserRenderer::mount(
   guard program.runtime().id() == self.runtime.id() else {
     abort("BrowserRenderer::mount called with a Program from another Runtime")
   }
-  self.view_ids.val.push(program.view_id())
+  let view_id = program.view_id()
+  // One instrumentation id per Program, even if it backs several mounted roots.
+  if !view_id_is_tracked(self.view_ids.val, view_id) {
+    self.view_ids.val.push(view_id)
+  }
   let root = BrowserRoot::BrowserRoot(program, host, self.stats)
   self.roots.push(root)
   root.flush()
@@ -540,73 +553,118 @@ fn[Msg : Eq] BrowserRenderer::schedule_flush(
 }
 
 ///|
-/// Drops exactly `root` from the flush set (by physical identity, so a Program
-/// mounted in more than one place only loses the one being unmounted) and its
-/// cell id from the view-recompute instrumentation filter. Pure bookkeeping — no
-/// DOM or program access.
+/// Removes exactly `root` (by physical identity) from both the mounted and the
+/// detached buckets. Pure bookkeeping — no DOM or program access.
 #cfg(target="js")
-fn[Msg] BrowserRenderer::drop_root(
+fn[Msg] BrowserRenderer::remove_root(
   self : BrowserRenderer[Msg],
   root : BrowserRoot[Msg],
 ) -> Unit {
   self.roots = self.roots.filter(other => !physical_equal(other, root))
-  let view_id = root.view_id()
-  // Keep the instrumentation id while any other live root still tracks it.
-  if !self.roots.iter().any(other => other.view_id() == view_id) {
-    self.view_ids.val = self.view_ids.val.filter(id => id != view_id)
-  }
+  self.detached = self.detached.filter(other => !physical_equal(other, root))
 }
 
 ///|
-/// Detaches a single root: removes its DOM subtree but keeps the logical
-/// component alive, and drops it from the flush set so a later rAF will not
-/// re-render it. Re-mount with `mount(host, program)`.
+/// Whether any root the renderer still owns (mounted or detached) references the
+/// `Program` identified by `view_id`. The single source of truth for "is this the
+/// last root for this Program?", used to decide both program disposal and
+/// instrumentation-id removal.
+#cfg(target="js")
+fn[Msg] BrowserRenderer::references_program(
+  self : BrowserRenderer[Msg],
+  view_id : @incr.CellId,
+) -> Bool {
+  self.roots.iter().any(other => other.view_id() == view_id) ||
+  self.detached.iter().any(other => other.view_id() == view_id)
+}
+
+///|
+/// Detaches a mounted root: removes its DOM subtree but keeps the Program alive,
+/// and parks the root so a later rAF will not re-render it. The renderer still
+/// owns it (so `dispose` reclaims it); re-attach with `reattach`. No-op if `root`
+/// is not currently mounted.
 #cfg(target="js")
 fn[Msg] BrowserRenderer::detach(
   self : BrowserRenderer[Msg],
   root : BrowserRoot[Msg],
 ) -> Unit {
+  guard self.roots.iter().any(other => physical_equal(other, root)) else {
+    return
+  }
   root.detach()
-  self.drop_root(root)
+  self.roots = self.roots.filter(other => !physical_equal(other, root))
+  self.detached.push(root)
 }
 
 ///|
-/// Destroys a single root: tears down its DOM and drops it from the flush set
-/// and instrumentation filter, then disposes the program — but only when no
-/// sibling root still renders the same `Program`, so destroying one of several
-/// mounts of a shared component leaves the others working.
+/// Re-attaches a parked root: moves it back to the mounted set and renders it
+/// from scratch into its host (detach reset both DOM caches). No-op if the
+/// renderer is disposed or `root` is not currently detached.
+#cfg(target="js")
+fn[Msg : Eq] BrowserRenderer::reattach(
+  self : BrowserRenderer[Msg],
+  root : BrowserRoot[Msg],
+) -> Unit {
+  guard !self.disposed else { return }
+  guard self.detached.iter().any(other => physical_equal(other, root)) else {
+    return
+  }
+  self.detached = self.detached.filter(other => !physical_equal(other, root))
+  self.roots.push(root)
+  root.flush()
+}
+
+///|
+/// Destroys a single root — mounted or detached: tears down its DOM, removes it
+/// from both buckets, and disposes the Program when no sibling root still
+/// references it, so destroying one of several mounts of a shared component
+/// leaves the others working. The instrumentation id is dropped on the same
+/// last-reference condition.
 #cfg(target="js")
 fn[Msg] BrowserRenderer::destroy(
   self : BrowserRenderer[Msg],
   root : BrowserRoot[Msg],
 ) -> Unit {
   root.detach()
-  self.drop_root(root)
+  self.remove_root(root)
   let view_id = root.view_id()
-  if !self.roots.iter().any(other => other.view_id() == view_id) {
+  if !self.references_program(view_id) {
     root.dispose_program()
+    self.view_ids.val = self.view_ids.val.filter(id => id != view_id)
   }
 }
 
 ///|
 /// Tears the whole renderer down: removes its two runtime listeners, then
-/// destroys every mounted root. Idempotent. Listeners are removed before
-/// `disposed` is flipped so a retry stays possible if removal raises; the
-/// derived-event registry is Idle-only, so call dispose outside a flush /
-/// propagation window.
+/// destroys every root it owns — mounted and detached. Idempotent.
+///
+/// `remove_derived_event_listener` is Idle-only and raises otherwise, so dispose
+/// must be called outside a flush / propagation window; `try!` fails fast on
+/// misuse (a raise here aborts — it is not recoverable, and swallowing it would
+/// leave the view-recompute listener firing on a "disposed" renderer).
 #cfg(target="js")
 fn[Msg] BrowserRenderer::dispose(self : BrowserRenderer[Msg]) -> Unit {
   guard !self.disposed else { return }
+  // Remove the Idle-only (raising) listener FIRST. `remove_derived_event_listener`
+  // raises if called during a flush/propagation window, and `try!` turns that into
+  // a fail-fast abort. Doing it before any other teardown keeps the abort atomic:
+  // on misuse the renderer is still fully intact, never half-torn-down.
+  try! self.runtime.remove_derived_event_listener(self.derived_listener_id)
   match self.on_change_listener_id {
     Some(id) => self.runtime.remove_on_change_listener(id)
     None => ()
   }
-  try! self.runtime.remove_derived_event_listener(self.derived_listener_id)
   self.disposed = true
-  // Snapshot before teardown: destroy() must not race a mutation of self.roots.
-  let roots = self.roots
+  // Snapshot both buckets before teardown: destroy() must not race a mutation,
+  // and detached (parked-but-alive) roots must be reclaimed, not leaked.
+  let mounted = self.roots
+  let parked = self.detached
   self.roots = []
-  for root in roots {
+  self.detached = []
+  for root in mounted {
+    root.destroy()
+  }
+  for root in parked {
     root.destroy()
   }
 }
