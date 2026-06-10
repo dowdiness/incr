@@ -106,6 +106,25 @@ extern "js" fn dom_add_event_listener(
   #| }
 
 ///|
+/// DOM-payload listener for text inputs: forwards the target's string `value`.
+/// The value→message mapping stays at the browser boundary; `Html` only stores
+/// the pure tag (see `EventSpec::Input`).
+#cfg(target="js")
+extern "js" fn dom_add_value_listener(
+  element : DomElement,
+  name : String,
+  prevent_default : Bool,
+  callback : (String) -> Unit,
+) -> Unit =
+  #| (element, name, preventDefault, callback) => {
+  #|   element.addEventListener(name, event => {
+  #|     if (preventDefault) event.preventDefault();
+  #|     const target = event.target;
+  #|     callback(target && target.value != null ? String(target.value) : "");
+  #|   });
+  #| }
+
+///|
 #cfg(target="js")
 extern "js" fn dom_request_animation_frame(callback : () -> Unit) -> Bool =
   #| (callback) => {
@@ -176,6 +195,13 @@ priv enum Rendered[Msg] {
     children~ : Array[Rendered[Msg]],
     element~ : DomElement
   )
+  RenderedKeyedElem(
+    tag~ : String,
+    attrs~ : Array[Attribute],
+    events~ : Array[EventBinding[Msg]],
+    children~ : Array[(String, Rendered[Msg])],
+    element~ : DomElement
+  )
 }
 
 ///|
@@ -184,7 +210,20 @@ fn[Msg] Rendered::node(self : Rendered[Msg]) -> DomNode {
   match self {
     RenderedText(_, node) => node
     RenderedElem(element~, ..) => dom_element_node(element)
+    RenderedKeyedElem(element~, ..) => dom_element_node(element)
   }
+}
+
+///|
+/// Boundary handles the renderer threads through render/diff so DOM listeners
+/// can re-enter the program. `dispatch` forwards a fixed message; `resolve_text`
+/// maps a text input's `(tag, value)` to a message (or `None` to ignore it).
+/// Both are created once per flush at the browser boundary, never stored in the
+/// cacheable `Html` value.
+#cfg(target="js")
+priv struct EventSink[Msg] {
+  dispatch : (Msg) -> Unit
+  resolve_text : (String, String) -> Msg?
 }
 
 ///|
@@ -226,33 +265,61 @@ fn patch_attrs(
 fn[Msg] attach_events(
   element : DomElement,
   events : Array[EventBinding[Msg]],
-  dispatch : (Msg) -> Unit,
+  sink : EventSink[Msg],
 ) -> Unit {
+  let dispatch = sink.dispatch
+  let resolve_text = sink.resolve_text
   for event in events {
-    dom_add_event_listener(element, event.name, event.prevent_default, () => {
-      dispatch(event.message)
-    })
+    match event.spec {
+      Const(message) =>
+        dom_add_event_listener(element, event.name, event.prevent_default, () => {
+          dispatch(message)
+        })
+      Input(tag~) =>
+        dom_add_value_listener(element, event.name, event.prevent_default, value => {
+          match resolve_text(tag, value) {
+            Some(message) => dispatch(message)
+            None => ()
+          }
+        })
+    }
   }
 }
 
 ///|
 #cfg(target="js")
-fn[Msg] render_html(
-  html : Html[Msg],
-  dispatch : (Msg) -> Unit,
-) -> Rendered[Msg] {
+fn[Msg] render_html(html : Html[Msg], sink : EventSink[Msg]) -> Rendered[Msg] {
   match html {
     Text(value) => RenderedText(value, dom_create_text(value))
     Elem(tag~, attrs~, events~, children~) => {
       let element = dom_create_element(tag)
       patch_attrs([], attrs, element)
-      attach_events(element, events, dispatch)
+      attach_events(element, events, sink)
       let rendered_children = children.map(child => {
-        let rendered = render_html(child, dispatch)
+        let rendered = render_html(child, sink)
         dom_append_child(element, rendered.node())
         rendered
       })
       RenderedElem(tag~, attrs~, events~, children=rendered_children, element~)
+    }
+    KeyedElem(tag~, attrs~, events~, children~) => {
+      let element = dom_create_element(tag)
+      patch_attrs([], attrs, element)
+      attach_events(element, events, sink)
+      let rendered_children = []
+      for pair in children {
+        let (key, child) = pair
+        let rendered = render_html(child, sink)
+        dom_append_child(element, rendered.node())
+        rendered_children.push((key, rendered))
+      }
+      RenderedKeyedElem(
+        tag~,
+        attrs~,
+        events~,
+        children=rendered_children,
+        element~,
+      )
     }
   }
 }
@@ -263,7 +330,7 @@ fn[Msg : Eq] diff_rendered(
   old : Rendered[Msg],
   next : Html[Msg],
   parent : DomElement,
-  dispatch : (Msg) -> Unit,
+  sink : EventSink[Msg],
 ) -> Rendered[Msg] {
   match (old, next) {
     (RenderedText(old_text, node), Text(next_text)) => {
@@ -288,11 +355,11 @@ fn[Msg : Eq] diff_rendered(
       ),
     ) =>
       if old_tag != next_tag || old_events != next_events {
-        replace_rendered(old, next, parent, dispatch)
+        replace_rendered(old, next, parent, sink)
       } else {
         patch_attrs(old_attrs, next_attrs, element)
         let rendered_children = diff_children(
-          old_children, next_children, element, dispatch,
+          old_children, next_children, element, sink,
         )
         RenderedElem(
           tag=next_tag,
@@ -302,7 +369,38 @@ fn[Msg : Eq] diff_rendered(
           element~,
         )
       }
-    _ => replace_rendered(old, next, parent, dispatch)
+    (
+      RenderedKeyedElem(
+        tag=old_tag,
+        attrs=old_attrs,
+        events=old_events,
+        children=old_children,
+        element~
+      ),
+      KeyedElem(
+        tag=next_tag,
+        attrs=next_attrs,
+        events=next_events,
+        children=next_children
+      ),
+    ) =>
+      if old_tag != next_tag || old_events != next_events {
+        replace_rendered(old, next, parent, sink)
+      } else {
+        patch_attrs(old_attrs, next_attrs, element)
+        let rendered_children = diff_keyed_children(
+          old_children, next_children, element, sink,
+        )
+        RenderedKeyedElem(
+          tag=next_tag,
+          attrs=next_attrs,
+          events=next_events,
+          children=rendered_children,
+          element~,
+        )
+      }
+    // Mode switch (positional <-> keyed) or tag/kind change: rebuild the node.
+    _ => replace_rendered(old, next, parent, sink)
   }
 }
 
@@ -312,9 +410,9 @@ fn[Msg] replace_rendered(
   old : Rendered[Msg],
   next : Html[Msg],
   parent : DomElement,
-  dispatch : (Msg) -> Unit,
+  sink : EventSink[Msg],
 ) -> Rendered[Msg] {
-  let rendered = render_html(next, dispatch)
+  let rendered = render_html(next, sink)
   dom_replace_child(parent, rendered.node(), old.node())
   rendered
 }
@@ -325,7 +423,7 @@ fn[Msg : Eq] diff_children(
   old_children : Array[Rendered[Msg]],
   next_children : Array[Html[Msg]],
   parent : DomElement,
-  dispatch : (Msg) -> Unit,
+  sink : EventSink[Msg],
 ) -> Array[Rendered[Msg]] {
   let old_len = old_children.length()
   let next_len = next_children.length()
@@ -333,12 +431,12 @@ fn[Msg : Eq] diff_children(
   let rendered = []
   for i in 0..<common {
     rendered.push(
-      diff_rendered(old_children[i], next_children[i], parent, dispatch),
+      diff_rendered(old_children[i], next_children[i], parent, sink),
     )
   }
   if next_len > old_len {
     for i in old_len..<next_len {
-      let child = render_html(next_children[i], dispatch)
+      let child = render_html(next_children[i], sink)
       dom_append_child(parent, child.node())
       rendered.push(child)
     }
@@ -351,10 +449,58 @@ fn[Msg : Eq] diff_children(
 }
 
 ///|
+/// Keyed child reconciliation (#211). The pure `plan_keyed_diff` decides which
+/// new child reuses which old node (by key) and which old nodes are removed;
+/// this applier performs the DOM mutations.
+///
+/// Survivors and freshly created nodes are appended in new order: `appendChild`
+/// on an already-attached node moves it to the end, so replaying the new order
+/// left-to-right leaves the parent's children in exactly the new order while
+/// reusing each key's DOM node (and its listeners). Removals run first so a
+/// vanished node is detached before survivors are re-appended.
+///
+/// Tradeoff: every keyed child is re-appended when anything changes, so this is
+/// not minimal-move (a focused/selected reused node can be reparented). It only
+/// runs when the view value already changed (value-level `Eq` skips unchanged
+/// views), and identity is preserved per key. An anchor-based minimal-move pass
+/// (LIS / two-ended) is a follow-up if a benchmark or focus-retention need
+/// justifies it.
+#cfg(target="js")
+fn[Msg : Eq] diff_keyed_children(
+  old_children : Array[(String, Rendered[Msg])],
+  next_children : Array[(String, Html[Msg])],
+  parent : DomElement,
+  sink : EventSink[Msg],
+) -> Array[(String, Rendered[Msg])] {
+  let old_keys = old_children.map(pair => pair.0)
+  let new_keys = next_children.map(pair => pair.0)
+  let plan = plan_keyed_diff(old_keys, new_keys)
+  for index in plan.removals {
+    dom_remove_child(parent, old_children[index].1.node())
+  }
+  let rendered = []
+  for idx, step in plan.steps {
+    let (key, html) = next_children[idx]
+    let child = match step {
+      Some(old_index) =>
+        diff_rendered(old_children[old_index].1, html, parent, sink)
+      None => render_html(html, sink)
+    }
+    dom_append_child(parent, child.node())
+    rendered.push((key, child))
+  }
+  rendered
+}
+
+///|
 #cfg(target="js")
 priv struct BrowserRoot[Msg] {
   watched : WatchedHtmlRoot[Msg]
   host : DomElement
+  // Mount-time boundary resolver for text-input payloads: `(tag, value) -> Msg?`.
+  // Stays at the browser boundary (never in the cacheable `Html` value); roots
+  // without text inputs use the default that ignores every payload.
+  resolve_text : (String, String) -> Msg?
   mut rendered : Rendered[Msg]?
 }
 
@@ -364,10 +510,12 @@ fn[Msg] BrowserRoot::BrowserRoot(
   program : Program[Msg, Html[Msg]],
   host : DomElement,
   stats : RenderStats,
+  resolve_text? : (String, String) -> Msg? = (_, _) => None,
 ) -> BrowserRoot[Msg] {
   {
     watched: WatchedHtmlRoot::WatchedHtmlRoot(program, stats),
     host,
+    resolve_text,
     rendered: None,
   }
 }
@@ -378,15 +526,18 @@ fn[Msg : Eq] BrowserRoot::flush(self : BrowserRoot[Msg]) -> Unit {
   match self.watched.read_changed() {
     None => ()
     Some(next) => {
-      let dispatch = msg => ignore(self.watched.program.dispatch(msg))
+      let sink : EventSink[Msg] = {
+        dispatch: msg => ignore(self.watched.program.dispatch(msg)),
+        resolve_text: self.resolve_text,
+      }
       match self.rendered {
         None => {
-          let rendered = render_html(next, dispatch)
+          let rendered = render_html(next, sink)
           dom_replace_children(self.host, rendered.node())
           self.rendered = Some(rendered)
         }
         Some(old) =>
-          self.rendered = Some(diff_rendered(old, next, self.host, dispatch))
+          self.rendered = Some(diff_rendered(old, next, self.host, sink))
       }
     }
   }
@@ -505,6 +656,7 @@ fn[Msg : Eq] BrowserRenderer::mount(
   self : BrowserRenderer[Msg],
   host : DomElement,
   program : Program[Msg, Html[Msg]],
+  on_input? : (String, String) -> Msg? = (_, _) => None,
 ) -> BrowserRoot[Msg] {
   guard !self.disposed else {
     abort("BrowserRenderer::mount called after dispose")
@@ -517,7 +669,12 @@ fn[Msg : Eq] BrowserRenderer::mount(
   if !view_id_is_tracked(self.view_ids.val, view_id) {
     self.view_ids.val.push(view_id)
   }
-  let root = BrowserRoot::BrowserRoot(program, host, self.stats)
+  let root = BrowserRoot::BrowserRoot(
+    program,
+    host,
+    self.stats,
+    resolve_text=on_input,
+  )
   self.roots.push(root)
   root.flush()
   (self.after_flush)(self.stats)
