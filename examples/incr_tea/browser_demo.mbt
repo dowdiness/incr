@@ -187,6 +187,18 @@ fn update_stats(host : DomElement, stats : RenderStats) -> Unit {
 }
 
 ///|
+/// Attaches `action` to the click event of the `#id` button under `host`.
+#cfg(target="js")
+fn wire_button(host : DomElement, id : String, action : () -> Unit) -> Unit {
+  dom_add_event_listener(
+    dom_query_child_by_id(host, id),
+    "click",
+    false,
+    action,
+  )
+}
+
+///|
 /// Mounts the browser demo into the static hosts under `mount_id`.
 #cfg(target="js")
 pub fn mount_browser_demo(mount_id : String) -> Unit {
@@ -196,21 +208,65 @@ pub fn mount_browser_demo(mount_id : String) -> Unit {
   let renderer = BrowserRenderer::BrowserRenderer(runtime, after_flush=stats => {
     update_stats(stats_host, stats)
   })
-  renderer.mount(
-    dom_query_child_by_id(host, "counter-root"),
-    counter_program(runtime),
+  ignore(
+    renderer.mount(
+      dom_query_child_by_id(host, "counter-root"),
+      counter_program(runtime),
+    ),
   )
-  renderer.mount(
-    dom_query_child_by_id(host, "panel-root"),
-    panel_program(runtime),
+  ignore(
+    renderer.mount(
+      dom_query_child_by_id(host, "panel-root"),
+      panel_program(runtime),
+    ),
   )
-  renderer.mount(
-    dom_query_child_by_id(host, "nested-parent-root"),
-    parent_program(runtime),
+  ignore(
+    renderer.mount(
+      dom_query_child_by_id(host, "nested-parent-root"),
+      parent_program(runtime),
+    ),
   )
-  renderer.mount(
-    dom_query_child_by_id(host, "nested-child-root"),
-    child_program(runtime),
+  // The nested child drives the #209 unmount lifecycle. The renderer owns the
+  // root across its whole life: detach parks it (DOM gone, Program alive),
+  // reattach restores it with state preserved, destroy reclaims it (mounted or
+  // parked), and dispose tears the whole renderer down including parked roots.
+  let child_root : Ref[BrowserRoot[DemoMsg]?] = Ref(
+    Some(
+      renderer.mount(
+        dom_query_child_by_id(host, "nested-child-root"),
+        child_program(runtime),
+      ),
+    ),
   )
+  let refresh = () => update_stats(stats_host, renderer.stats())
+  wire_button(host, "detach-child", () => {
+    match child_root.val {
+      Some(root) => renderer.detach(root)
+      None => ()
+    }
+    refresh()
+  })
+  wire_button(host, "remount-child", () => {
+    match child_root.val {
+      Some(root) => renderer.reattach(root)
+      None => ()
+    }
+    refresh()
+  })
+  wire_button(host, "destroy-child", () => {
+    match child_root.val {
+      Some(root) => {
+        renderer.destroy(root)
+        child_root.val = None
+      }
+      None => ()
+    }
+    refresh()
+  })
+  wire_button(host, "dispose-renderer", () => {
+    renderer.dispose()
+    child_root.val = None
+    refresh()
+  })
   update_stats(stats_host, renderer.stats())
 }

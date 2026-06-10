@@ -34,9 +34,16 @@ public boundary. After disposal, `is_disposed()` returns `true`, dispatch
 returns `false`, and view/model getters return `None` instead of exposing
 disposed-cell aborts.
 
-A future DOM renderer may remove and reinsert DOM nodes without disposing the
-component. In that case the component scope and watch root must remain alive.
-Only destroy the scope when the logical TEA component instance is gone.
+The browser renderer keeps DOM detachment and component disposal separate
+(#209). `BrowserRenderer::detach` removes a root's DOM subtree but keeps its
+`Program` scope and watch alive, parking the root so a flush skips it; the
+renderer still owns it, so `BrowserRenderer::reattach` re-mounts the same root
+with its state preserved, and `dispose` reclaims it rather than leaking it.
+`BrowserRenderer::destroy` is the logical teardown: it tears down the DOM and
+disposes the program scope when no sibling root still references it, so
+destroying one of several mounts of a shared component leaves the others
+working. Only `destroy` (and `dispose`, which destroys every owned root, mounted
+or parked) touches the scope.
 
 While the component instance is alive, the persistent `Watch` keeps the view
 chain reachable across `Runtime::gc()`. After disposal, the scope and watch are
@@ -71,6 +78,12 @@ messages back into the scheduler; they are not captured inside tracked
 `Derived` view computations. Command effects still run through `Cmd::effect`,
 after the model batch commits.
 
+The renderer stores the two additive runtime listener ids it registers (#210)
+— the `on_change` flush trigger and the derived-event view-recompute counter —
+and removes them on `dispose`, so a torn-down renderer stops reacting to runtime
+changes. `dispose` also destroys every mounted root. A queued `requestAnimationFrame`
+that fires after `dispose` is a no-op, and `mount` after `dispose` is rejected.
+
 The browser demo includes:
 
 - a counter root with an unread field mutation that schedules a flush but does
@@ -78,7 +91,11 @@ The browser demo includes:
 - a conditional panel whose closed view does not depend on the detail field, so
   closed detail mutations are skipped until the panel opens;
 - a small parent/child nested-root demo where updating the parent leaves the
-  child watched root unchanged and skipped.
+  child watched root unchanged and skipped;
+- child-lifecycle controls (#209) that detach the child (DOM removed, program
+  parked but alive), reattach it (state preserved), destroy it (program disposed
+  when no sibling root references it), and dispose the whole renderer (which also
+  reclaims parked roots).
 
 Instrumentation is visible in the demo and counts mounted-root view recomputes,
 DOM patch attempts, skipped patches, and rAF flushes.
