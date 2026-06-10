@@ -270,7 +270,7 @@ fn list_program(runtime : @incr.Runtime) -> Program[DemoMsg, Html[DemoMsg]] {
       }
       ListRemoveFirst => {
         match items.peek() {
-          [_, .. rest] => items.set(rest.to_array())
+          [_, .. rest] => items.set(rest.to_owned())
           [] => ()
         }
         Cmd::none()
