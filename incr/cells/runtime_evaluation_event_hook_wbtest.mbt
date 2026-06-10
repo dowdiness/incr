@@ -97,8 +97,13 @@ test "runtime_eval: derived catchable abort reports abort summary" {
   let rt = Runtime()
   let events = collect_runtime_eval_events(rt)
   let derived : Memo[Int] = Memo(rt, () => raise Failure("derived boom"))
-  let result : Result[Result[Int, CycleError], Failure] = try? derived.force_recompute()
-  inspect(result is Err(_), content="true")
+  let mut failed = false
+  try derived.force_recompute() catch {
+    _ => failed = true
+  } noraise {
+    _ => ()
+  }
+  inspect(failed, content="true")
   rt.drain_pending_events_if_idle()
   inspect(events.length(), content="1")
   match events[0] {
@@ -117,8 +122,13 @@ test "runtime_eval: direct drain flushes abort with active tracking frame" {
   let outer = Memo(rt, () => 0)
   let derived : Memo[Int] = Memo(rt, () => raise Failure("nested boom"))
   rt.begin_tracking(outer.id())
-  let result : Result[Result[Int, CycleError], Failure] = try? derived.force_recompute()
-  inspect(result is Err(_), content="true")
+  let mut failed = false
+  try derived.force_recompute() catch {
+    _ => failed = true
+  } noraise {
+    _ => ()
+  }
+  inspect(failed, content="true")
   inspect(rt.core.tracking.stack.length(), content="1")
   rt.drain_pending_events_if_idle()
   inspect(events.length(), content="0")

@@ -2828,7 +2828,7 @@ git commit -m "feat(lambda): migrate typecheck diagnostics to Accumulator API"
 
 **Known risks / attention items:**
 - Task 10's `slot_still_contributes` helper is deliberately conservative (may retain accumulator_contributions entries one revision longer than necessary). If the memo-dispose cleanup test fails due to stale entries, add `SlotMeta.has_buffer_for` closure (per the note in Task 10 Step 4).
-- `accumulated`'s return type uses bare `raise` (unified CycleError + Failure). Callers that want exhaustive error matching use `accumulated_result` for cycles or `try?` at boundaries.
+- `accumulated`'s return type uses bare `raise` (unified CycleError + Failure). Callers that want exhaustive error matching use `accumulated_result` for cycles or `try ... catch ... noraise` at boundaries.
 - Task 15's `push_revised_at_for` closure in SlotMeta needs to handle the case where the memo has no entry: return `Revision::initial()`. The reader records this as "stored_rev"; a later bump produces `current > stored` → invalidation.
 
 ---

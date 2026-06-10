@@ -199,11 +199,18 @@ test "batch: diamond dependency with batch" {
 test "batch: raised error rolls back pending writes and restores depth" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 0)
-  let res : Result[Unit, Error] = try? rt.batch(fn() raise {
-    sig.set(1)
-    raise Stop
-  })
-  inspect(res is Err(_), content="true")
+  let mut failed = false
+  try
+    rt.batch(fn() raise {
+      sig.set(1)
+      raise Stop
+    })
+  catch {
+    _ => failed = true
+  } noraise {
+    _ => ()
+  }
+  inspect(failed, content="true")
   inspect(rt.core.batch.depth, content="0")
   inspect(sig.get(), content="0")
   inspect(rt.core.revision.current_revision.value, content="0")
@@ -217,14 +224,21 @@ test "batch: raised error rolls back pending writes and restores depth" {
 test "batch: nested raised error rolls back entire outer batch" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 0)
-  let res : Result[Unit, Error] = try? rt.batch(fn() raise {
-    sig.set(1)
+  let mut failed = false
+  try
     rt.batch(fn() raise {
-      sig.set(2)
-      raise Stop
+      sig.set(1)
+      rt.batch(fn() raise {
+        sig.set(2)
+        raise Stop
+      })
     })
-  })
-  inspect(res is Err(_), content="true")
+  catch {
+    _ => failed = true
+  } noraise {
+    _ => ()
+  }
+  inspect(failed, content="true")
   inspect(rt.core.batch.depth, content="0")
   inspect(sig.get(), content="0")
   inspect(rt.core.revision.current_revision.value, content="0")
@@ -265,11 +279,18 @@ test "batch: raised error does not fire on_change callback" {
   let mut fired = 0
   let rt = Runtime::Runtime(on_change=() => fired = fired + 1)
   let sig = Signal::Signal(rt, 0)
-  let res : Result[Unit, Error] = try? rt.batch(fn() raise {
-    sig.set(1)
-    raise Stop
-  })
-  inspect(res is Err(_), content="true")
+  let mut failed = false
+  try
+    rt.batch(fn() raise {
+      sig.set(1)
+      raise Stop
+    })
+  catch {
+    _ => failed = true
+  } noraise {
+    _ => ()
+  }
+  inspect(failed, content="true")
   inspect(fired, content="0")
   inspect(sig.get(), content="0")
 }

@@ -450,7 +450,7 @@ Pushes during `rt.batch(...)` use post-commit revision (same as signal commits).
 | `accumulated_peek` on disposed target memo | Not an error | Return `[]` (permissive) |
 | Cycle in target's verify | Expected failure | Raises existing `CycleError` |
 
-**Abort discipline:** no new abort sites. Cross-runtime reuses `Runtime::check_cross_runtime` which aborts (pre-existing tech debt, not introduced by this spec). Accumulator-specific caller misuse uses `fail` → `raise Failure`, catchable at FFI boundaries via `try? { ... }` → `Err(Failure(msg))`.
+**Abort discipline:** no new abort sites. Cross-runtime reuses `Runtime::check_cross_runtime` which aborts (pre-existing tech debt, not introduced by this spec). Accumulator-specific caller misuse uses `fail` → `raise Failure`, catchable at FFI boundaries via `try ... catch ... noraise` → `Err(Failure(msg))`.
 
 **Value-semantic T requirement (documented, not enforced):**
 
@@ -492,7 +492,7 @@ Pushes during `rt.batch(...)` use post-commit revision (same as signal commits).
 - **Durability interaction**: low-durability accumulator push + all-high-durability ordinary deps → reader invalidates (fixes Codex P0.1)
 - Contributor stopped pushing → reader sees empty, invalidates
 
-**Error paths (fail-based, testable via `try?`):**
+**Error paths (fail-based, testable via `try ... catch ... noraise`):**
 - Push outside tracked context → `Err(Failure(...))`
 - Push in non-Memo frame → `Err(Failure(...))`
 - Push to disposed accumulator → `Err(Failure(...))`

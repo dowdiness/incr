@@ -353,7 +353,7 @@ Drained-event listeners run **outside** any memo recompute. They may:
 
 They **must not**:
 - Call `abort()` — uncatchable; aborts the drain mid-event and the process dies. Listener must not call `abort` or anything that calls it (e.g., reading a disposed cell).
-- `raise` — the public callback type `(MemoEvent) -> Unit` is non-raising. MoonBit's type system rejects raising functions at registration. Listeners must handle their own errors internally (e.g., with `try?` and logging).
+- `raise` — the public callback type `(MemoEvent) -> Unit` is non-raising. MoonBit's type system rejects raising functions at registration. Listeners must handle their own errors internally (e.g., with `try ... catch ... noraise` and logging).
 
 ### Exception: listeners invoked at catch-to-abort drain sites
 
