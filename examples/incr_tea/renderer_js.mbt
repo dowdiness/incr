@@ -306,13 +306,12 @@ fn[Msg] render_html(html : Html[Msg], sink : EventSink[Msg]) -> Rendered[Msg] {
       let element = dom_create_element(tag)
       patch_attrs([], attrs, element)
       attach_events(element, events, sink)
-      let rendered_children = []
-      for pair in children {
+      let rendered_children = children.map(pair => {
         let (key, child) = pair
         let rendered = render_html(child, sink)
         dom_append_child(element, rendered.node())
-        rendered_children.push((key, rendered))
-      }
+        (key, rendered)
+      })
       RenderedKeyedElem(
         tag~,
         attrs~,
@@ -475,11 +474,13 @@ fn[Msg : Eq] diff_keyed_children(
   let old_keys = old_children.map(pair => pair.0)
   let new_keys = next_children.map(pair => pair.0)
   let plan = plan_keyed_diff(old_keys, new_keys)
-  for index in plan.removals {
+  plan.removals.each(index => {
     dom_remove_child(parent, old_children[index].1.node())
-  }
-  let rendered = []
-  for idx, step in plan.steps {
+  })
+  // Reconcile in new order: reuse the matched old node or render a fresh one,
+  // then append (appendChild moves an attached node, so replaying the new order
+  // leaves the parent's children in exactly the new order).
+  plan.steps.mapi((idx, step) => {
     let (key, html) = next_children[idx]
     let child = match step {
       Some(old_index) =>
@@ -487,9 +488,8 @@ fn[Msg : Eq] diff_keyed_children(
       None => render_html(html, sink)
     }
     dom_append_child(parent, child.node())
-    rendered.push((key, child))
-  }
-  rendered
+    (key, child)
+  })
 }
 
 ///|

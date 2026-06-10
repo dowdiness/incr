@@ -256,39 +256,28 @@ fn list_program(runtime : @incr.Runtime) -> Program[DemoMsg, Html[DemoMsg]] {
       ListPrepend => {
         let id = next_id.peek()
         next_id.set(id + 1)
-        let next = [("item-\{id}", "Item \{id}")]
-        for pair in items.peek() {
-          next.push(pair)
-        }
-        items.set(next)
+        items.set([("item-\{id}", "Item \{id}"), ..items.peek()])
         Cmd::none()
       }
       ListRemoveFirst => {
-        let current = items.peek()
-        let next = []
-        for i in 1..<current.length() {
-          next.push(current[i])
+        match items.peek() {
+          [_, .. rest] => items.set(rest.to_array())
+          [] => ()
         }
-        items.set(next)
         Cmd::none()
       }
       ListReverse => {
-        let current = items.peek()
-        let next = []
-        for i in current.length()>..0 {
-          next.push(current[i])
-        }
-        items.set(next)
+        items.set(items.peek().rev())
         Cmd::none()
       }
       _ => Cmd::none()
     }
   }
   let view : () -> Html[DemoMsg] raise Failure = () => {
-    let children = []
-    for pair in items.get() {
-      let (id, label) = pair
-      children.push(
+    let children = items
+      .get()
+      .map(pair => {
+        let (id, label) = pair
         (
           id,
           li(attrs=[class_attr("list-item")], [
@@ -298,9 +287,8 @@ fn list_program(runtime : @incr.Runtime) -> Program[DemoMsg, Html[DemoMsg]] {
               attr("placeholder", "notes — survive reorder"),
             ]),
           ]),
-        ),
-      )
-    }
+        )
+      })
     article(attrs=[class_attr("demo-card list-card")], [
       h2([text("Keyed list")]),
       p(attrs=[class_attr("demo-note")], [
