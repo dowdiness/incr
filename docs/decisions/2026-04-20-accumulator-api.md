@@ -131,8 +131,8 @@ Rejected B2 for `Accumulator::push` ("return `Result[Unit, Error]`") because:
    raises propagate without ceremony. A `Result`-returning `push`
    would force every error site in the driver to `match` or `?`.
 2. MoonBit's polymorphic `raise?` lets callers still downgrade to
-   `Result[_, Error]` at a boundary with `try?`, preserving B2
-   ergonomics for any caller that wants them.
+   `Result[_, Error]` at a boundary with `try ... catch ... noraise`,
+   preserving B2 ergonomics for any caller that wants them.
 3. `raise Failure` is consistent with the rest of the incr API where
    defect classes (disposed handles, cross-runtime reuse) raise
    rather than return.

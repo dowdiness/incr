@@ -101,8 +101,13 @@ test "evaluation strategy: tracing records lazy derived aborts without listener"
   rt.install_evaluation_strategies(EvaluationStrategies::tracing(recorder))
   let derived : Memo[Int] = Memo(rt, () => raise Failure("traced boom"))
 
-  let result : Result[Result[Int, CycleError], Failure] = try? derived.force_recompute()
-  inspect(result is Err(_), content="true")
+  let mut failed = false
+  try derived.force_recompute() catch {
+    _ => failed = true
+  } noraise {
+    _ => ()
+  }
+  inspect(failed, content="true")
   inspect(rt.runtime_evaluation_event_hook.pending.length(), content="0")
 
   let trace = recorder.summary()
