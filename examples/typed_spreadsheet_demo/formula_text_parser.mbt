@@ -228,9 +228,9 @@ fn parse_int_formula(
 ///|
 fn parse_int(text : StringView) -> Result[Int, FormulaTextParseError] {
   let input = text.trim()
-  let parsed : Result[Int, Error] = try? @string.parse_int(input)
-  match parsed {
-    Ok(value) => Ok(value)
-    Err(_) => Err(FormulaTextParseError::InvalidInteger(input.to_owned()))
+  try @string.parse_int(input) catch {
+    _ => Err(FormulaTextParseError::InvalidInteger(input.to_owned()))
+  } noraise {
+    value => Ok(value)
   }
 }
