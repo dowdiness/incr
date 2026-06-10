@@ -12,6 +12,8 @@ struct Program[Msg, View] {
   messages : @queue.Queue[Msg]
   mut is_draining : Bool
   view_watch : @incr.Watch[View]
+  subscriptions_watch : @incr.Watch[Subscriptions[Msg]]?
+  sub_manager : SubscriptionsManager[Msg]?
   _view_id : @incr.CellId
 }
 
@@ -35,6 +37,7 @@ fn[Msg, View : Eq] Program::Program(
   let view_root = scope.derived(view, label?)
   let view_watch = scope.add_watch(view_root.watch())
   ignore(view_watch.read_or_abort())
+
   {
     runtime,
     scope,
@@ -42,8 +45,47 @@ fn[Msg, View : Eq] Program::Program(
     messages: @queue.Queue([]),
     is_draining: false,
     view_watch,
+    subscriptions_watch: None,
+    sub_manager: None,
     _view_id: view_root.id(),
   }
+}
+
+///|
+/// Creates a mounted program with an additional tracked subscription spec root.
+///
+/// The `subscriptions` closure is evaluated as a tracked `Derived` and compared
+/// against the previous rendered subscriptions after each handled message.
+fn[Msg : Eq, View : Eq] Program::with_subscriptions(
+  runtime : @incr.Runtime,
+  scope : @incr.Scope,
+  update : (Msg) -> Cmd[Msg],
+  view : () -> View raise Failure,
+  subscriptions : () -> Subscriptions[Msg] raise Failure,
+  label? : String,
+) -> Program[Msg, View] {
+  guard !scope.is_disposed() else {
+    abort("Program::with_subscriptions called with a disposed scope")
+  }
+  let view_root = scope.derived(view, label?)
+  let view_watch = scope.add_watch(view_root.watch())
+  ignore(view_watch.read_or_abort())
+  let subscriptions_root = scope.derived(subscriptions)
+  let subscriptions_watch = scope.add_watch(subscriptions_root.watch())
+  ignore(subscriptions_watch.read_or_abort())
+  let program = {
+    runtime,
+    scope,
+    update,
+    messages: @queue.Queue([]),
+    is_draining: false,
+    view_watch,
+    subscriptions_watch: Some(subscriptions_watch),
+    sub_manager: Some(SubscriptionsManager::SubscriptionsManager()),
+    _view_id: view_root.id(),
+  }
+  program.reconcile_subscriptions()
+  program
 }
 
 ///|
@@ -79,6 +121,7 @@ fn[Msg, View] Program::handle_message(
   let cmd : Ref[Cmd[Msg]] = Ref(Cmd::none())
   self.runtime.batch(() => cmd.val = (self.update)(msg))
   self.run_cmd(cmd.val)
+  self.reconcile_subscriptions()
 }
 
 ///|
@@ -95,6 +138,19 @@ fn[Msg, View] Program::run_cmd(
       }
     Message(msg) => self.messages.push(msg)
     Effect(callback) => callback(next => self.run_cmd(next))
+  }
+}
+
+///|
+fn[Msg, View] Program::reconcile_subscriptions(
+  self : Program[Msg, View],
+) -> Unit {
+  match (self.subscriptions_watch, self.sub_manager) {
+    (Some(watch), Some(manager)) => {
+      let desired = watch.read_or_abort()
+      manager.reconcile(desired, msg => ignore(self.dispatch(msg)))
+    }
+    _ => ()
   }
 }
 
@@ -134,5 +190,9 @@ fn[Msg, View] Program::is_disposed(self : Program[Msg, View]) -> Bool {
 ///
 /// Disposal is idempotent.
 fn[Msg, View] Program::dispose(self : Program[Msg, View]) -> Unit {
+  match self.sub_manager {
+    Some(manager) => manager.dispose()
+    None => ()
+  }
   self.scope.dispose()
 }

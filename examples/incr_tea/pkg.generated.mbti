@@ -4,6 +4,7 @@ package "examples/incr_tea"
 import {
   "dowdiness/incr/cells",
   "moonbitlang/core/debug",
+  "moonbitlang/core/hashmap",
 }
 
 // Values
@@ -44,7 +45,7 @@ pub(all) enum CounterMsg {
   SetCount(Int)
   SetUnrelated(Int)
   SetBoth(next_count~ : Int, next_title~ : String)
-} derive(@debug.Debug)
+} derive(Eq, @debug.Debug)
 
 pub(all) struct CounterView {
   title : String
@@ -55,7 +56,18 @@ type DemoMsg derive(Eq, @debug.Debug)
 
 type Program[Msg, View]
 
+pub struct SubKey {
+  namespace_id : String
+  identity : String
+} derive(Eq, Hash, @debug.Debug)
+pub fn SubKey::SubKey(String, String) -> Self
+
+pub enum SubSpec[Msg] {
+  Timer(Int, Msg)
+} derive(Eq, @debug.Debug)
+
 // Type aliases
+pub type Subscriptions[Msg] = @hashmap.HashMap[SubKey, SubSpec[Msg]]
 
 // Traits
 
