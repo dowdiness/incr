@@ -107,14 +107,16 @@ extern "js" fn dom_add_event_listener(
 
 ///|
 #cfg(target="js")
-extern "js" fn dom_request_animation_frame(callback : () -> Unit) -> Unit =
+extern "js" fn dom_request_animation_frame(callback : () -> Unit) -> Bool =
   #| (callback) => {
   #|   if (typeof window !== "undefined" && window.requestAnimationFrame) {
   #|     window.requestAnimationFrame(() => callback());
+  #|     return true;
   #|   }
-  #|   // No animation-frame clock (e.g. Node test runs): drop the frame. The
-  #|   // renderer never reaches the DOM here, and mount() still flushes
-  #|   // synchronously, so the lifecycle state machine stays exercisable.
+  #|   // No animation-frame clock (e.g. Node test runs): drop the frame and
+  #|   // report that nothing was queued, so the caller does not latch a pending
+  #|   // frame that will never fire.
+  #|   return false;
   #| }
 
 ///|
@@ -415,13 +417,23 @@ fn[Msg] BrowserRoot::detach(self : BrowserRoot[Msg]) -> Unit {
 }
 
 ///|
+/// Disposes the root's program scope (releasing the view watch and owned cells).
+/// Idempotent. Kept separate from DOM teardown because the same `Program` can
+/// back more than one mounted root, so the caller decides when the last root is
+/// gone. See `BrowserRenderer::destroy`.
+#cfg(target="js")
+fn[Msg] BrowserRoot::dispose_program(self : BrowserRoot[Msg]) -> Unit {
+  self.watched.program.dispose()
+}
+
+///|
 /// Tears the root down logically: detaches its DOM, then disposes the program
-/// scope (releasing the view watch and owned cells). Idempotent — `detach` is a
-/// no-op once `rendered` is `None`, and `Program::dispose` is idempotent.
+/// scope. Used by the whole-renderer `dispose`, where every root is going away,
+/// so disposing each program (idempotent for a shared one) is correct.
 #cfg(target="js")
 fn[Msg] BrowserRoot::destroy(self : BrowserRoot[Msg]) -> Unit {
   self.detach()
-  self.watched.program.dispose()
+  self.dispose_program()
 }
 
 ///|
@@ -506,8 +518,10 @@ fn[Msg : Eq] BrowserRenderer::schedule_flush(
 ) -> Unit {
   guard !self.disposed else { return }
   if !self.frame_scheduled {
-    self.frame_scheduled = true
-    dom_request_animation_frame(() => {
+    // Only latch when a real animation frame was queued. In a non-browser env
+    // (no rAF clock) the frame is dropped, and latching would wedge the renderer
+    // permanently "scheduled" so no later change ever flushes.
+    let queued = dom_request_animation_frame(() => {
       self.frame_scheduled = false
       // A frame queued before dispose can still fire after it; iterating the
       // (now empty) root set would be harmless, but bail explicitly so a
@@ -519,6 +533,9 @@ fn[Msg : Eq] BrowserRenderer::schedule_flush(
       }
       (self.after_flush)(self.stats)
     })
+    if queued {
+      self.frame_scheduled = true
+    }
   }
 }
 
@@ -554,16 +571,21 @@ fn[Msg] BrowserRenderer::detach(
 }
 
 ///|
-/// Destroys a single root: tears down its DOM and disposes the program, then
-/// drops it from the flush set and instrumentation filter. After this the
-/// logical component is gone (`Program::is_disposed` is `true`).
+/// Destroys a single root: tears down its DOM and drops it from the flush set
+/// and instrumentation filter, then disposes the program — but only when no
+/// sibling root still renders the same `Program`, so destroying one of several
+/// mounts of a shared component leaves the others working.
 #cfg(target="js")
 fn[Msg] BrowserRenderer::destroy(
   self : BrowserRenderer[Msg],
   root : BrowserRoot[Msg],
 ) -> Unit {
-  root.destroy()
+  root.detach()
   self.drop_root(root)
+  let view_id = root.view_id()
+  if !self.roots.iter().any(other => other.view_id() == view_id) {
+    root.dispose_program()
+  }
 }
 
 ///|

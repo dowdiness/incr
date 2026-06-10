@@ -263,6 +263,11 @@ pub fn mount_browser_demo(mount_id : String) -> Unit {
   })
   wire_button(host, "dispose-renderer", () => {
     renderer.dispose()
+    // dispose() destroys mounted roots, but a detached child is no longer in
+    // renderer.roots, so release it explicitly to complete teardown.
+    if child_root.val is None && !child.is_disposed() {
+      child.dispose()
+    }
     child_root.val = None
     refresh()
   })

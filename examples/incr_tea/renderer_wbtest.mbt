@@ -431,3 +431,39 @@ test "#209: detach removes only the targeted root, leaving siblings mounted" {
   prog_a.dispose()
   prog_b.dispose()
 }
+
+///|
+#cfg(target="js")
+test "#209: destroy keeps a shared Program alive while another root still renders it" {
+  let runtime = @incr.Runtime()
+  let renderer : BrowserRenderer[RendererMsg] = BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  // The same Program backs two mounted roots (e.g. mounted into two hosts).
+  let program = renderer_counter_program(runtime, "destroy.shared")
+  let root_a = BrowserRoot::BrowserRoot(
+    program,
+    test_fake_host(),
+    renderer.stats(),
+  )
+  let root_b = BrowserRoot::BrowserRoot(
+    program,
+    test_fake_host(),
+    renderer.stats(),
+  )
+  renderer.roots.push(root_a)
+  renderer.roots.push(root_b)
+  renderer.view_ids.val.push(program.view_id())
+
+  // Destroying root_a drops it, but root_b still renders the shared Program, so
+  // the program must stay alive (its watch/cells still feed root_b).
+  renderer.destroy(root_a)
+  inspect(renderer.roots.length(), content="1")
+  inspect(program.is_disposed(), content="false")
+
+  // Destroying the last root finally disposes the program.
+  renderer.destroy(root_b)
+  inspect(renderer.roots.length(), content="0")
+  inspect(program.is_disposed(), content="true")
+  inspect(renderer.view_ids.val.length(), content="0")
+}
