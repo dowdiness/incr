@@ -1,9 +1,9 @@
-# Incremental TEA direction after Rabbita and Qwik comparison
+# Incremental TEA direction after Rabbita, Qwik, and Luna comparison
 
 `examples/incr_tea` is an experimental renderer for answering one question: what
 happens when a TEA-style UI is driven by `incr` dependency tracking instead of a
 coarse dirty-component signal? It should stay a research substrate for semantic
-incremental UI, not become a general-purpose Rabbita replacement.
+incremental UI, not become a general-purpose Rabbita or Luna replacement.
 
 ## Comparison summary
 
@@ -12,8 +12,9 @@ incremental UI, not become a general-purpose Rabbita replacement.
 | Rabbita | Practical MoonBit TEA framework | Dirty `Cell` boundaries plus VDOM diff/patch | Ordinary MoonBit web apps that need ergonomic HTML, commands, subscriptions, DOM/HTTP support |
 | `incr_tea` | Measure and prototype UI on top of `@incr` | `InputField` reads tracked by `Derived` view roots; `Watch` + `Html : Eq` backdating decide recompute/patch | Editor-shaped UI where most changes touch a small semantic slice |
 | Qwik | Web app startup performance through resumability | Server-serialized listener/state/reactivity metadata plus lazy QRL-loaded handlers/signals | SSR/SSG TypeScript apps where avoiding hydration and initial JS is central |
+| Luna UI | MoonBit/JS fine-grained UI plus islands | Signals/effects/memos update DOM directly; islands hydrate on load/idle/visible/media/manual triggers | MoonBit UI apps that want Solid-style reactivity, partial hydration, and WebComponent boundaries |
 
-The overlap is real but limited. All three care about not doing unnecessary UI
+The overlap is real but limited. All four care about not doing unnecessary UI
 work. They optimize different bottlenecks:
 
 - Rabbita optimizes authoring and avoids work at explicit `Cell` boundaries.
@@ -21,6 +22,8 @@ work. They optimize different bottlenecks:
   actually read changed inputs.
 - Qwik optimizes startup by avoiding eager hydration and by lazy-loading handlers
   only when interaction requires them.
+- Luna optimizes runtime DOM locality and activation cost with fine-grained
+  signals, direct DOM updates, and island hydration triggers.
 
 ## Direction
 
@@ -64,6 +67,22 @@ SSR/hydration and initial-JS costs; `incr_tea` is currently validating runtime
 locality. The right near-term work is to keep `Html` and event descriptors
 serializable-friendly, then research resumability separately. Follow-up: [#252].
 
+### From Luna UI
+
+Borrow the runtime-locality and island-boundary ideas, not a generic signal UI
+framework:
+
+- direct DOM updates are worth studying for hot leaf paths;
+- island activation triggers map well to visible/collapsed/idle editor panels;
+- WebComponent/custom-element boundaries may clarify host integration;
+- shared Rabbita/Luna/`incr_tea` benchmarks can prevent design-by-slogan.
+
+Do **not** make "no VDOM" a goal by itself. `incr_tea`'s cacheable `Html` value
+is useful because it gives `Html : Eq`, deterministic skip decisions, and
+backdating. A Luna-inspired direct patch path should start as a measured leaf
+optimization while the existing value-level renderer remains the baseline.
+Follow-ups: [#254], [#255], [#256], [#257].
+
 ## Near-term roadmap
 
 1. **Make the current renderer safer to evolve.** Add browser identity/focus
@@ -82,15 +101,30 @@ serializable-friendly, then research resumability separately. Follow-up: [#252].
 5. **Build an editor-shaped driver.** A small semantic-keyed editor demo should
    replace generic lists as the primary proof point for `incr_tea`. Follow-up:
    [#251].
+6. **Prototype direct leaf patching only where measured.** Study a Luna-style
+   direct DOM path for text/attribute/keyed-row leaves without discarding
+   value-level `Html : Eq`. Follow-up: [#254].
+7. **Prototype island-style activation.** Use visibility/idle/manual triggers to
+   decide when roots or panels hold watches and participate in flushes.
+   Follow-up: [#255].
+8. **Explore host-framework boundaries.** Test whether custom-element style
+   mounts make `incr_tea` roots easier to embed and lifecycle-test. Follow-up:
+   [#256].
+9. **Compare against real adjacent systems.** Use shared workloads before copying
+   Rabbita VDOM, Luna direct DOM, or Qwik lazy-boundary patterns. Follow-up:
+   [#257].
 
 ## Non-goals
 
 - Reimplement all of Rabbita inside `examples/incr_tea`.
+- Reimplement Luna as a generic signal/effect UI framework.
 - Stabilize `incr_tea` as a public `dowdiness/incr` API.
 - Add closure-valued event handlers to cacheable `Html` values.
-- Adopt Qwik resumability or QRL machinery before the renderer has an
-  editor-shaped driver.
-- Optimize keyed diff without rerunning the pure and browser benchmarks.
+- Adopt Qwik resumability, QRL machinery, or Luna island hydration before the
+  renderer has an editor-shaped driver.
+- Treat "no VDOM" as a goal independent of measured editor workload wins.
+- Optimize keyed diff or direct patching without rerunning the pure and browser
+  benchmarks.
 
 ## Success metrics
 
@@ -100,6 +134,9 @@ serializable-friendly, then research resumability separately. Follow-up: [#252].
 - unchanged child roots skip patching across parent updates;
 - keyed semantic nodes preserve DOM identity across insert/remove/reorder;
 - focus/selection behavior is explicit and tested;
+- hidden/collapsed/offscreen roots have explicit watch/reachability semantics;
+- direct leaf patch experiments beat the existing renderer on a measured hot path
+  before becoming permanent;
 - browser DOM benchmarks remain reproducible after renderer changes;
 - any ergonomic API still preserves `Html : Eq` and closure-free event data.
 
@@ -111,6 +148,10 @@ serializable-friendly, then research resumability separately. Follow-up: [#252].
 - [#250] Add browser tests for keyed DOM identity and focus retention.
 - [#251] Build an editor-shaped semantic-key rendering demo.
 - [#252] Research Qwik-style serializable and lazy UI boundaries.
+- [#254] Prototype Luna-style direct leaf DOM patch tasks.
+- [#255] Prototype visibility/idle-driven Watch activation for UI islands.
+- [#256] Explore WebComponent/custom-element mount boundaries.
+- [#257] Compare Rabbita, Luna, and `incr_tea` on shared UI-shaped benchmarks.
 
 [#241]: https://github.com/dowdiness/incr/issues/241
 [#248]: https://github.com/dowdiness/incr/issues/248
@@ -118,3 +159,7 @@ serializable-friendly, then research resumability separately. Follow-up: [#252].
 [#250]: https://github.com/dowdiness/incr/issues/250
 [#251]: https://github.com/dowdiness/incr/issues/251
 [#252]: https://github.com/dowdiness/incr/issues/252
+[#254]: https://github.com/dowdiness/incr/issues/254
+[#255]: https://github.com/dowdiness/incr/issues/255
+[#256]: https://github.com/dowdiness/incr/issues/256
+[#257]: https://github.com/dowdiness/incr/issues/257
