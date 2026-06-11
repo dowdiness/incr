@@ -182,10 +182,10 @@ runtime rows above:
 
 ## Gaps and follow-ups
 
-- **DOM applier not benchmarked.** `diff_keyed_children`, attribute patching, and
-  real listeners need a browser. The planner's *benefit* (DOM ops avoided) is
-  captured here only as reuse **counts**. A Playwright-driven wall-time
-  measurement in a real DOM is the follow-up that closes this gap.
+- **DOM applier now has a browser follow-up.** `diff_keyed_children`, attribute
+  patching, and real listeners need a browser. This snapshot captures the
+  planner's *benefit* only as reuse **counts**; the companion Playwright
+  wall-time run is [2026-06-12 Incremental TEA keyed DOM applier](2026-06-12-incr-tea-keyed-dom-applier-playwright.md).
 - **Planner O(n²) is empirically justified for the LIS/two-ended follow-up** the
   planner comment already anticipates ("a two-ended / LIS pass is a follow-up if
   a benchmark justifies it"). These numbers justify it for large keyed lists.
