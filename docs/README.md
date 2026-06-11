@@ -87,6 +87,7 @@ For contributors and advanced users who want to understand or modify `incr`.
 **Research notes — exploratory, not implemented:**
 
 - [Next-sessions Runtime Roadmap](research/next-sessions-runtime-roadmap.md) — shared onboarding + invariants + backlog template for continuing Loom + Canopy integration work across sessions.
+- [Incremental TEA direction after Rabbita, Qwik, and Luna comparison](research/incr-tea-ui-direction.md) — positions `examples/incr_tea` as a semantic incremental rendering substrate rather than a Rabbita/Luna replacement, with follow-up issues for Eq-safe HTML ergonomics, payload events, keyed DOM identity tests, editor-shaped demos, Qwik-style lazy-boundary research, Luna-style direct patching/islands, WebComponent boundaries, and shared UI benchmarks.
 
 - [Constructive Traces Feasibility](research/constructive-traces-feasibility.md) — evaluates Build Systems à la Carte constructive traces for `incr`; recommends keeping revision verifying traces as the default and investigating static/applicative derived APIs first
 - [Multi-Mode App Ideas](research/multi-mode-app-ideas.md) — app concepts combining pull / push / hybrid / Datalog modes
