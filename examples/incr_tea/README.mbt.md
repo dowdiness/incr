@@ -185,6 +185,8 @@ watch instead of calling `view(model)`, and patching is driven by `Html : Eq`
 backdating rather than Rabbita cell dirty flags. This is not a Rabbita fork: it
 imports no Rabbita runtime or HTML package and intentionally keeps the renderer
 boundary narrow so a measured Rabbita VDOM/HTML subset can be swapped in later.
+The broader Rabbita/Qwik comparison and roadmap live in
+[`docs/research/incr-tea-ui-direction.md`](../../docs/research/incr-tea-ui-direction.md).
 
 #### Keyed children and event payloads (#211)
 
