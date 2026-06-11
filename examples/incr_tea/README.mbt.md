@@ -134,6 +134,24 @@ The browser demo includes:
 Instrumentation is visible in the demo and counts mounted-root view recomputes,
 DOM patch attempts, skipped patches, and rAF flushes.
 
+## DOM applier benchmark
+
+The keyed DOM applier benchmark runs the renderer in a real Chromium document via
+Playwright and compares keyed reuse against a non-keyed list rebuild baseline:
+
+```bash
+cd examples/incr_tea
+npm install
+npx playwright install chromium   # one-time browser install if needed
+npm run bench:dom
+```
+
+The script builds the MoonBit browser-bench entry point, serves `bench.html`, and
+prints Markdown tables plus raw JSON. Tune the sampling budget with
+`INCR_TEA_DOM_BENCH_ITERATIONS` and `INCR_TEA_DOM_BENCH_SAMPLES`. The dated
+snapshot is recorded in
+[`docs/performance/2026-06-12-incr-tea-keyed-dom-applier-playwright.md`](../../docs/performance/2026-06-12-incr-tea-keyed-dom-applier-playwright.md).
+
 ## Subscription keys and collisions
 
 Subscriptions are keyed by `SubKey`, which is a pair:

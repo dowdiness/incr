@@ -1,0 +1,12 @@
+{
+  "name": "incr-tea-dom-bench",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:moonbit": "cd ../.. && NEW_MOON_MOD=0 moon build --target js --release examples/incr_tea/browser_bench",
+    "bench:dom": "npm run build:moonbit && node scripts/bench-keyed-dom.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.60.0"
+  }
+}

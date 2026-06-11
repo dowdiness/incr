@@ -1,0 +1,9 @@
+import {
+  "examples/incr_tea",
+}
+
+supported_targets = "js"
+
+options(
+  "is-main": true,
+)
