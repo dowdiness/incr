@@ -320,8 +320,8 @@ fn bench_keys(n : Int) -> Array[String] {
 
 ///|
 /// Reverse = full reorder: every new key matches an old key, so the planner
-/// reuses all N nodes (0 DOM creations) — but first-available-wins scans deep,
-/// exercising the O(n*m) worst case the planner's doc comment flags.
+/// reuses all N nodes (0 DOM creations). This was the old consumed-prefix
+/// scanner's worst case; after #241, N=256 measured 127.49 → 17.10 µs.
 #cfg(target="js")
 test "planner N=16: reverse (full reorder, all reuse)" (b : @bench.T) {
   let old_keys = bench_keys(16)
@@ -346,8 +346,9 @@ test "planner N=256: reverse (full reorder, all reuse)" (b : @bench.T) {
 }
 
 ///|
-/// Prepend one new key: N reuses + 1 create. The new head misses (scans the
-/// whole old list), each survivor matches at its old index (cheap first match).
+/// Prepend one new key: N reuses + 1 create. The new head misses; every
+/// survivor at N=64/256 hits the duplicate-free key-map path. Map setup is near
+/// break-even at N=64, but N=256 measured 51.29 → 17.63 µs.
 #cfg(target="js")
 test "planner N=16: prepend one (N reuse, 1 create)" (b : @bench.T) {
   let old_keys = bench_keys(16)
@@ -372,15 +373,10 @@ test "planner N=256: prepend one (N reuse, 1 create)" (b : @bench.T) {
 }
 
 ///|
-/// Unchanged list: the most reuse-favorable input, but NOT O(N) — the inner
-/// loop scans from index 0 every time, skipping `consumed` slots, so matching
-/// new[k] at old[k] still probes k consumed entries. Total work is O(N²), the
-/// same quadratic floor as `prepend`; the measured cost confirms it (≈ prepend
-/// at N=256). Only a two-ended / index-tracking variant would make this O(N).
+/// Unchanged list: the most reuse-favorable input. The key-map fast path avoids
+/// the old consumed-prefix re-scan; N=256 measured 52.31 → 19.69 µs.
 #cfg(target="js")
-test "planner N=256: unchanged (all reuse, still scans consumed prefix)" (
-  b : @bench.T,
-) {
+test "planner N=256: unchanged (all reuse, key-map fast path)" (b : @bench.T) {
   let old_keys = bench_keys(256)
   let new_keys = bench_keys(256)
   b.bench(() => b.keep(plan_keyed_diff(old_keys, new_keys)))
