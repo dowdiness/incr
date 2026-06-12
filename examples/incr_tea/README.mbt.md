@@ -102,8 +102,12 @@ attached node), which preserves per-key identity. Keys must be unique and
 stable; duplicate keys are a usage error that degrades (a node is reused once,
 the rest are recreated) rather than crashing. This is not minimal-move — every
 keyed child is re-appended when the list changes — so an anchor-based
-minimal-move pass (LIS / two-ended) is a follow-up if focus-retention or a
-benchmark justifies it.
+minimal-move pass (LIS / two-ended) is a follow-up if focus/selection behavior
+or a benchmark justifies it. The browser regression test records the current
+split without treating moved keyed survivors as focus loss: unchanged-list
+flushes keep focus on a keyed input, focused-row removal moves focus out of the
+list, and row identity plus uncontrolled input values are preserved across
+reorder.
 
 The renderer stores the two additive runtime listener ids it registers (#210)
 — the `on_change` flush trigger and the derived-event view-recompute counter —
@@ -151,6 +155,28 @@ prints Markdown tables plus raw JSON. Tune the sampling budget with
 `INCR_TEA_DOM_BENCH_ITERATIONS` and `INCR_TEA_DOM_BENCH_SAMPLES`. The dated
 snapshot is recorded in
 [`docs/performance/2026-06-12-incr-tea-keyed-dom-applier-playwright.md`](../../docs/performance/2026-06-12-incr-tea-keyed-dom-applier-playwright.md).
+
+## Keyed DOM browser regression tests
+
+The keyed DOM regression test runs the real browser demo through Playwright, so
+prepend / remove-first / reverse exercise the same `diff_keyed_children` path a
+user sees in Chromium:
+
+```bash
+cd examples/incr_tea
+npm install
+npx playwright install chromium   # one-time browser install if needed
+npm run test:dom
+```
+
+The test distinguishes identity from focus behavior. It asserts that keyed rows
+reuse their DOM nodes across prepend, remove-first, and reverse, and that
+uncontrolled notes `<input>` values follow their keyed rows across reorder. It
+also keeps the current focus baseline explicit without baselining moved-row focus
+loss: a focused keyed input survives an animation-frame flush when the list view
+is unchanged, while removing the focused key moves focus out of the list. A
+future minimal-move applier should update this baseline together with the
+implementation when it intentionally changes focus/selection behavior.
 
 ## Subscription keys and collisions
 

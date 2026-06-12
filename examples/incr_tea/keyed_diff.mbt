@@ -39,27 +39,24 @@ fn plan_keyed_diff(
   new_keys : Array[String],
 ) -> KeyedPlan {
   let consumed = Array::make(old_keys.length(), false)
-  let steps = []
-  for new_key in new_keys {
-    let mut matched = -1
-    for i in 0..<old_keys.length() {
-      if !consumed[i] && old_keys[i] == new_key {
-        matched = i
-        break
+  let steps = new_keys.map(new_key => {
+    let matched : Int? = for old_index, old_key in old_keys {
+      if !consumed[old_index] && old_key == new_key {
+        break Some(old_index)
       }
+    } nobreak {
+      None
     }
-    if matched >= 0 {
-      consumed[matched] = true
-      steps.push(Some(matched))
-    } else {
-      steps.push(None)
+    match matched {
+      Some(old_index) => {
+        consumed[old_index] = true
+        Some(old_index)
+      }
+      None => None
     }
-  }
-  let removals = []
-  for i in 0..<old_keys.length() {
-    if !consumed[i] {
-      removals.push(i)
-    }
-  }
+  })
+  let removals = [
+    for old_index in 0..<old_keys.length() if !consumed[old_index] => old_index
+  ]
   { steps, removals }
 }

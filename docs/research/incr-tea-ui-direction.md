@@ -85,9 +85,13 @@ Follow-ups: [#254], [#255], [#256], [#257].
 
 ## Near-term roadmap
 
-1. **Make the current renderer safer to evolve.** Add browser identity/focus
-   tests for keyed children so future keyed-diff optimization cannot regress the
-   editor UX contract. Follow-up: [#250].
+1. **Keep the current renderer safe to evolve.** The keyed DOM browser baseline
+   now lives in `examples/incr_tea/scripts/test-keyed-dom.mjs` and runs with
+   `npm run test:dom`: it pins row identity, uncontrolled input retention,
+   unchanged-list focus retention, and focus loss when the focused key is
+   removed. It intentionally does not baseline focus loss for moved keyed
+   survivors. Any future keyed-diff optimization should update this baseline
+   deliberately. Baseline issue: [#250].
 2. **Improve keyed diff only with benchmark evidence.** The pure planner is
    currently O(n²), and the DOM applier re-appends keyed children. Existing issue
    [#241] owns planner optimization; use the 2026-06-10 pure bench and
@@ -145,7 +149,8 @@ Follow-ups: [#254], [#255], [#256], [#257].
 - [#241] Optimize `plan_keyed_diff`; avoid duplicating this work elsewhere.
 - [#248] Design an Eq-safe HTML ergonomics layer informed by Rabbita.
 - [#249] Expand typed pure payload event descriptors.
-- [#250] Add browser tests for keyed DOM identity and focus retention.
+- [#250] Add browser tests for keyed DOM identity and focus retention — baseline
+  covered by `examples/incr_tea/scripts/test-keyed-dom.mjs` / `npm run test:dom`.
 - [#251] Build an editor-shaped semantic-key rendering demo.
 - [#252] Research Qwik-style serializable and lazy UI boundaries.
 - [#254] Prototype Luna-style direct leaf DOM patch tasks.
