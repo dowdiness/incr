@@ -51,7 +51,9 @@ Borrow the authoring ergonomics, not the runtime model wholesale:
 
 Do **not** copy closure-valued event handlers into `Html`. `incr_tea` relies on
 `Html : Eq` for backdating, so event descriptors must stay pure data and DOM
-payload extraction must stay at the renderer boundary. Follow-up: [#248].
+payload extraction must stay at the renderer boundary. The #249 slice extends
+that rule with typed text-input, keyboard, and pointer payload ids/resolvers;
+authoring ergonomics remain separate. Follow-up: [#248].
 
 ### From Qwik
 
@@ -99,9 +101,10 @@ Follow-ups: [#254], [#255], [#256], [#257].
    prepend, and 2.66× on unchanged lists; browser reverse improves 395→271 µs.
    The DOM applier still re-appends keyed children; treat any future
    move-minimization pass as a separate measured change.
-3. **Expand Eq-safe events.** Add typed pure payload descriptors beyond text
-   input while keeping resolver logic at the mount/browser boundary. Follow-up:
-   [#249].
+3. **Expand Eq-safe events.** The #249 slice adds typed pure descriptors for
+   text input, keyboard, and pointer payload events while keeping resolver logic
+   at the mount/browser boundary. Future editor demos can add focus/blur,
+   composition, or selection families by the same descriptor/resolver pattern.
 4. **Make authoring tolerable without sacrificing backdating.** Design a small
    Rabbita-informed HTML ergonomics layer that keeps `Html` closure-free.
    Follow-up: [#248].
@@ -151,7 +154,7 @@ Follow-ups: [#254], [#255], [#256], [#257].
 
 - [#241] Optimized `plan_keyed_diff` with a key-map large-list path (N=256 pure planner: 7.46× reverse, 2.91× prepend, 2.66× unchanged); avoid duplicating this work elsewhere.
 - [#248] Design an Eq-safe HTML ergonomics layer informed by Rabbita.
-- [#249] Expand typed pure payload event descriptors.
+- [#249] Expanded typed pure payload descriptors for text input, keyboard, and pointer events.
 - [#250] Add browser tests for keyed DOM identity and focus retention — baseline
   covered by `examples/incr_tea/scripts/test-keyed-dom.mjs` / `npm run test:dom`.
 - [#251] Build an editor-shaped semantic-key rendering demo.

@@ -7,18 +7,93 @@ priv struct Attribute {
 } derive(Eq, Debug)
 
 ///|
+/// Pure id for text-input payload events.
+#cfg(target="js")
+priv struct TextInputId {
+  name : String
+} derive(Eq, Debug)
+
+///|
+#cfg(target="js")
+fn TextInputId::TextInputId(name : String) -> TextInputId {
+  { name, }
+}
+
+///|
+/// Browser-extracted text input payload.
+#cfg(target="js")
+priv struct TextInputPayload {
+  value : String
+}
+
+///|
+/// Pure id for keyboard payload events.
+#cfg(target="js")
+priv struct KeyEventId {
+  name : String
+} derive(Eq, Debug)
+
+///|
+#cfg(target="js")
+fn KeyEventId::KeyEventId(name : String) -> KeyEventId {
+  { name, }
+}
+
+///|
+/// Browser-extracted keyboard payload.
+#cfg(target="js")
+priv struct KeyPayload {
+  key : String
+  code : String
+  alt_key : Bool
+  ctrl_key : Bool
+  meta_key : Bool
+  shift_key : Bool
+  repeat : Bool
+}
+
+///|
+/// Pure id for pointer payload events.
+#cfg(target="js")
+priv struct PointerEventId {
+  name : String
+} derive(Eq, Debug)
+
+///|
+#cfg(target="js")
+fn PointerEventId::PointerEventId(name : String) -> PointerEventId {
+  { name, }
+}
+
+///|
+/// Browser-extracted pointer payload.
+#cfg(target="js")
+priv struct PointerPayload {
+  pointer_id : Int
+  pointer_type : String
+  client_x : Double
+  client_y : Double
+  button : Int
+  buttons : Int
+  alt_key : Bool
+  ctrl_key : Bool
+  meta_key : Bool
+  shift_key : Bool
+}
+
+///|
 /// Pure description of the message an event produces.
 ///
 /// `Const` ignores the DOM payload and emits a fixed message (e.g. a click).
-/// `Input` carries only a pure string tag: the renderer reads the input
-/// element's value at the browser boundary and resolves `(tag, value) -> Msg`
-/// there, so no closure is stored in the cacheable `Html` view value. Equality
-/// is meaningful — two `Input` specs are equal iff their tags match, and a pure
-/// boundary resolver maps equal `(tag, value)` pairs to equal messages.
+/// Payload variants carry only typed pure ids; the renderer extracts browser
+/// payload data and resolves `(id, payload) -> Msg` at the mount boundary. No
+/// closure or DOM event object is stored in cacheable `Html` view data.
 #cfg(target="js")
 priv enum EventSpec[Msg] {
   Const(Msg)
-  Input(tag~ : String)
+  TextInput(id~ : TextInputId)
+  Key(id~ : KeyEventId)
+  Pointer(id~ : PointerEventId)
 } derive(Eq, Debug)
 
 ///|
@@ -89,16 +164,37 @@ fn[Msg] on_click(
 }
 
 ///|
-/// Pure text-input descriptor: a DOM-payload event that carries only a string
-/// `tag`. The renderer reads the input element's `value` at the browser boundary
-/// and resolves `(tag, value) -> Msg` through the mount-time resolver, so the
-/// `Html` value stays closure-free and `Eq`.
+/// Pure text-input descriptor. `tag` is wrapped as a typed `TextInputId`; the
+/// renderer reads the input element's `value` at the browser boundary and
+/// resolves `(id, payload) -> Msg` through the mount-time resolver.
 #cfg(target="js")
 fn[Msg] on_input(
   tag~ : String,
   prevent_default? : Bool = false,
 ) -> EventBinding[Msg] {
-  { name: "input", spec: Input(tag~), prevent_default }
+  { name: "input", spec: TextInput(id=TextInputId(tag)), prevent_default }
+}
+
+///|
+/// Pure keyboard descriptor. The browser boundary extracts key/code/modifier
+/// payload fields and resolves them through the mount-time keyboard resolver.
+#cfg(target="js")
+fn[Msg] on_keydown(
+  id~ : KeyEventId,
+  prevent_default? : Bool = false,
+) -> EventBinding[Msg] {
+  { name: "keydown", spec: Key(id~), prevent_default }
+}
+
+///|
+/// Pure pointer descriptor. The browser boundary extracts pointer coordinates,
+/// ids, buttons, type, and modifiers before resolving at the mount boundary.
+#cfg(target="js")
+fn[Msg] on_pointer_down(
+  id~ : PointerEventId,
+  prevent_default? : Bool = false,
+) -> EventBinding[Msg] {
+  { name: "pointerdown", spec: Pointer(id~), prevent_default }
 }
 
 ///|
@@ -183,7 +279,8 @@ fn[Msg] button(
 }
 
 ///|
-/// Void input element (no children). Pair with `on_input` for a text payload.
+/// Void input element (no children). Pair with pure payload descriptors such as
+/// `on_input`, `on_keydown`, or `on_pointer_down`.
 #cfg(target="js")
 fn[Msg] input(
   attrs? : Array[Attribute] = [],

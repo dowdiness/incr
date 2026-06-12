@@ -8,8 +8,10 @@ enum DemoMsg {
   PanelMutateDetail
   ParentTick
   ChildTick
-  // #211: text-input payload (carries the DOM input value through dispatch).
+  // #211/#249: DOM payload events carry browser data through dispatch.
   GreetNameInput(String)
+  GreetKeyPayload(String)
+  GreetPointerPayload(String)
   // #211: keyed-list operations (insert / remove / reorder).
   ListPrepend
   ListRemoveFirst
@@ -173,17 +175,24 @@ fn child_program(runtime : @incr.Runtime) -> Program[DemoMsg, Html[DemoMsg]] {
 }
 
 ///|
-/// #211 text-input payload demo. The `<input>` emits its DOM value through the
-/// pure `on_input(tag="greet.name")` descriptor; the renderer reads the value at
-/// the browser boundary and the mount-time resolver turns it into
-/// `GreetNameInput(value)`, which updates a model field the view echoes back.
+/// #211/#249 payload demo. The `<input>` emits text, keyboard, and pointer
+/// payloads through pure descriptors; the renderer extracts browser data at the
+/// boundary and mount-time typed resolvers turn it into messages that the view
+/// echoes back.
 #cfg(target="js")
 fn greet_program(runtime : @incr.Runtime) -> Program[DemoMsg, Html[DemoMsg]] {
   let scope = @incr.Scope::new(runtime)
   let name = scope.input_field("", label="demo.greet.name")
+  let last_key = scope.input_field("no key payload yet", label="demo.greet.key")
+  let last_pointer = scope.input_field(
+    "no pointer payload yet",
+    label="demo.greet.pointer",
+  )
   let update : (DemoMsg) -> Cmd[DemoMsg] = msg => {
     match msg {
       GreetNameInput(value) => name.set(value)
+      GreetKeyPayload(value) => last_key.set(value)
+      GreetPointerPayload(value) => last_pointer.set(value)
       _ => ()
     }
     Cmd::none()
@@ -195,6 +204,8 @@ fn greet_program(runtime : @incr.Runtime) -> Program[DemoMsg, Html[DemoMsg]] {
     } else {
       "Hello, \{current}!"
     }
+    let key_payload = last_key.get()
+    let pointer_payload = last_pointer.get()
     article(attrs=[class_attr("demo-card greet-card")], [
       h2([text("Text input payload")]),
       input(
@@ -204,13 +215,23 @@ fn greet_program(runtime : @incr.Runtime) -> Program[DemoMsg, Html[DemoMsg]] {
           attr("placeholder", "your name"),
           aria_attr("label", "Your name"),
         ],
-        events=[on_input(tag="greet.name")],
+        events=[
+          on_input(tag="greet.name"),
+          on_keydown(id=KeyEventId("greet.keys")),
+          on_pointer_down(id=PointerEventId("greet.pointer")),
+        ],
       ),
       p(attrs=[class_attr("metric-line")], [text(greeting)]),
       p(attrs=[class_attr("demo-note")], [
         text(
-          "The input's value is dispatched as a Msg payload — the Html stores only a pure tag.",
+          "The input's value is dispatched as a Msg payload; the Html stores only typed pure ids.",
         ),
+      ]),
+      p(attrs=[class_attr("demo-note")], [
+        text("Last key payload: \{key_payload}"),
+      ]),
+      p(attrs=[class_attr("demo-note")], [
+        text("Last pointer payload: \{pointer_payload}"),
       ]),
     ])
   }
@@ -219,11 +240,41 @@ fn greet_program(runtime : @incr.Runtime) -> Program[DemoMsg, Html[DemoMsg]] {
 
 ///|
 /// Resolver for the greet card's text input. Lives at the js mount boundary, not
-/// in the cacheable `Html` value: it maps `(tag, value)` to a message.
+/// in the cacheable `Html` value: it maps a typed id and payload to a message.
 #cfg(target="js")
-fn greet_on_input(tag : String, value : String) -> DemoMsg? {
-  match tag {
-    "greet.name" => Some(GreetNameInput(value))
+fn greet_on_input(id : TextInputId, payload : TextInputPayload) -> DemoMsg? {
+  match id.name {
+    "greet.name" => Some(GreetNameInput(payload.value))
+    _ => None
+  }
+}
+
+///|
+/// Resolver for the greet card's keyboard payload descriptor.
+#cfg(target="js")
+fn greet_on_key(id : KeyEventId, payload : KeyPayload) -> DemoMsg? {
+  match id.name {
+    "greet.keys" =>
+      Some(
+        GreetKeyPayload(
+          "key=\{payload.key} code=\{payload.code} alt=\{payload.alt_key} ctrl=\{payload.ctrl_key} meta=\{payload.meta_key} shift=\{payload.shift_key} repeat=\{payload.repeat}",
+        ),
+      )
+    _ => None
+  }
+}
+
+///|
+/// Resolver for the greet card's pointer payload descriptor.
+#cfg(target="js")
+fn greet_on_pointer(id : PointerEventId, payload : PointerPayload) -> DemoMsg? {
+  match id.name {
+    "greet.pointer" =>
+      Some(
+        GreetPointerPayload(
+          "id=\{payload.pointer_id} type=\{payload.pointer_type} x=\{payload.client_x} y=\{payload.client_y} button=\{payload.button} buttons=\{payload.buttons} alt=\{payload.alt_key} ctrl=\{payload.ctrl_key} meta=\{payload.meta_key} shift=\{payload.shift_key}",
+        ),
+      )
     _ => None
   }
 }
@@ -436,13 +487,15 @@ pub fn mount_browser_demo(mount_id : String) -> Unit {
       parent_program(runtime),
     ),
   )
-  // #211 text-input payload: the resolver maps the input value to a Msg at the
-  // mount boundary, keeping the Html view value closure-free.
+  // #211/#249 payload events: typed resolvers map browser payloads to Msg
+  // values at the mount boundary, keeping the Html view value closure-free.
   ignore(
     renderer.mount(
       dom_query_child_by_id(host, "greet-root"),
       greet_program(runtime),
       on_input=greet_on_input,
+      on_key=greet_on_key,
+      on_pointer=greet_on_pointer,
     ),
   )
   // #211 keyed list: prepend/remove/reverse preserve per-item DOM identity.

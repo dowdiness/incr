@@ -108,7 +108,7 @@ extern "js" fn dom_add_event_listener(
 ///|
 /// DOM-payload listener for text inputs: forwards the target's string `value`.
 /// The value→message mapping stays at the browser boundary; `Html` only stores
-/// the pure tag (see `EventSpec::Input`).
+/// a typed pure id (see `EventSpec::TextInput`).
 #cfg(target="js")
 extern "js" fn dom_add_value_listener(
   element : DomElement,
@@ -121,6 +121,63 @@ extern "js" fn dom_add_value_listener(
   #|     if (preventDefault) event.preventDefault();
   #|     const target = event.target;
   #|     callback(target && target.value != null ? String(target.value) : "");
+  #|   });
+  #| }
+
+///|
+/// DOM-payload listener for keyboard events. Only primitive data crosses the
+/// FFI callback; the renderer constructs the typed payload at the boundary.
+#cfg(target="js")
+extern "js" fn dom_add_key_listener(
+  element : DomElement,
+  name : String,
+  prevent_default : Bool,
+  callback : (String, String, Bool, Bool, Bool, Bool, Bool) -> Unit,
+) -> Unit =
+  #| (element, name, preventDefault, callback) => {
+  #|   element.addEventListener(name, event => {
+  #|     if (preventDefault) event.preventDefault();
+  #|     callback(
+  #|       event.key == null ? "" : String(event.key),
+  #|       event.code == null ? "" : String(event.code),
+  #|       !!event.altKey,
+  #|       !!event.ctrlKey,
+  #|       !!event.metaKey,
+  #|       !!event.shiftKey,
+  #|       !!event.repeat,
+  #|     );
+  #|   });
+  #| }
+
+///|
+/// DOM-payload listener for pointer events. Only primitive data crosses the
+/// FFI callback; the renderer constructs the typed payload at the boundary.
+#cfg(target="js")
+extern "js" fn dom_add_pointer_listener(
+  element : DomElement,
+  name : String,
+  prevent_default : Bool,
+  callback : (Int, String, Double, Double, Int, Int, Bool, Bool, Bool, Bool) -> Unit,
+) -> Unit =
+  #| (element, name, preventDefault, callback) => {
+  #|   const number = value => {
+  #|     const n = Number(value);
+  #|     return Number.isFinite(n) ? n : 0;
+  #|   };
+  #|   element.addEventListener(name, event => {
+  #|     if (preventDefault) event.preventDefault();
+  #|     callback(
+  #|       Math.trunc(number(event.pointerId)),
+  #|       event.pointerType == null ? "" : String(event.pointerType),
+  #|       number(event.clientX),
+  #|       number(event.clientY),
+  #|       Math.trunc(number(event.button)),
+  #|       Math.trunc(number(event.buttons)),
+  #|       !!event.altKey,
+  #|       !!event.ctrlKey,
+  #|       !!event.metaKey,
+  #|       !!event.shiftKey,
+  #|     );
   #|   });
   #| }
 
@@ -210,15 +267,34 @@ fn[Msg] Rendered::node(self : Rendered[Msg]) -> DomNode {
 }
 
 ///|
-/// Boundary handles the renderer threads through render/diff so DOM listeners
-/// can re-enter the program. `dispatch` forwards a fixed message; `resolve_text`
-/// maps a text input's `(tag, value)` to a message (or `None` to ignore it).
-/// Both are created once per flush at the browser boundary, never stored in the
-/// cacheable `Html` value.
+/// Mount-boundary payload resolvers. They map typed ids plus browser-extracted
+/// payload structs to messages (or `None` to ignore them). Executable mapping
+/// stays here, outside cacheable `Html` values.
+#cfg(target="js")
+priv struct PayloadResolvers[Msg] {
+  resolve_text : (TextInputId, TextInputPayload) -> Msg?
+  resolve_key : (KeyEventId, KeyPayload) -> Msg?
+  resolve_pointer : (PointerEventId, PointerPayload) -> Msg?
+}
+
+///|
+#cfg(target="js")
+fn[Msg] PayloadResolvers::PayloadResolvers(
+  resolve_text? : (TextInputId, TextInputPayload) -> Msg? = (_, _) => None,
+  resolve_key? : (KeyEventId, KeyPayload) -> Msg? = (_, _) => None,
+  resolve_pointer? : (PointerEventId, PointerPayload) -> Msg? = (_, _) => None,
+) -> PayloadResolvers[Msg] {
+  { resolve_text, resolve_key, resolve_pointer }
+}
+
+///|
+/// Boundary handle threaded through render/diff so DOM listeners can re-enter
+/// the program. `dispatch` forwards fixed messages; `payload_resolvers` handles
+/// DOM payload events without storing closures in `Html`.
 #cfg(target="js")
 priv struct EventSink[Msg] {
   dispatch : (Msg) -> Unit
-  resolve_text : (String, String) -> Msg?
+  payload_resolvers : PayloadResolvers[Msg]
 }
 
 ///|
@@ -265,16 +341,70 @@ fn[Msg] attach_events(
   sink : EventSink[Msg],
 ) -> Unit {
   let dispatch = sink.dispatch
-  let resolve_text = sink.resolve_text
+  let payload_resolvers = sink.payload_resolvers
   for event in events {
     match event.spec {
       Const(message) =>
         dom_add_event_listener(element, event.name, event.prevent_default, () => {
           dispatch(message)
         })
-      Input(tag~) =>
+      TextInput(id~) =>
         dom_add_value_listener(element, event.name, event.prevent_default, value => {
-          match resolve_text(tag, value) {
+          match (payload_resolvers.resolve_text)(id, { value, }) {
+            Some(message) => dispatch(message)
+            None => ()
+          }
+        })
+      Key(id~) =>
+        dom_add_key_listener(element, event.name, event.prevent_default, (
+          key,
+          code,
+          alt_key,
+          ctrl_key,
+          meta_key,
+          shift_key,
+          repeat,
+        ) => {
+          let payload : KeyPayload = {
+            key,
+            code,
+            alt_key,
+            ctrl_key,
+            meta_key,
+            shift_key,
+            repeat,
+          }
+          match (payload_resolvers.resolve_key)(id, payload) {
+            Some(message) => dispatch(message)
+            None => ()
+          }
+        })
+      Pointer(id~) =>
+        dom_add_pointer_listener(element, event.name, event.prevent_default, (
+          pointer_id,
+          pointer_type,
+          client_x,
+          client_y,
+          button,
+          buttons,
+          alt_key,
+          ctrl_key,
+          meta_key,
+          shift_key,
+        ) => {
+          let payload : PointerPayload = {
+            pointer_id,
+            pointer_type,
+            client_x,
+            client_y,
+            button,
+            buttons,
+            alt_key,
+            ctrl_key,
+            meta_key,
+            shift_key,
+          }
+          match (payload_resolvers.resolve_pointer)(id, payload) {
             Some(message) => dispatch(message)
             None => ()
           }
@@ -494,10 +624,10 @@ fn[Msg : Eq] diff_keyed_children(
 priv struct BrowserRoot[Msg] {
   watched : WatchedHtmlRoot[Msg]
   host : DomElement
-  // Mount-time boundary resolver for text-input payloads: `(tag, value) -> Msg?`.
-  // Stays at the browser boundary (never in the cacheable `Html` value); roots
-  // without text inputs use the default that ignores every payload.
-  resolve_text : (String, String) -> Msg?
+  // Mount-time boundary resolvers for DOM payload events. They stay at the
+  // browser boundary (never in the cacheable `Html` value); roots without a
+  // payload family use defaults that ignore every payload.
+  payload_resolvers : PayloadResolvers[Msg]
   mut rendered : Rendered[Msg]?
 }
 
@@ -507,12 +637,19 @@ fn[Msg] BrowserRoot::BrowserRoot(
   program : Program[Msg, Html[Msg]],
   host : DomElement,
   stats : RenderStats,
-  resolve_text? : (String, String) -> Msg? = (_, _) => None,
+  resolve_text? : (TextInputId, TextInputPayload) -> Msg? = (_, _) => None,
+  resolve_key? : (KeyEventId, KeyPayload) -> Msg? = (_, _) => None,
+  resolve_pointer? : (PointerEventId, PointerPayload) -> Msg? = (_, _) => None,
 ) -> BrowserRoot[Msg] {
+  let payload_resolvers = PayloadResolvers::PayloadResolvers(
+    resolve_text~,
+    resolve_key~,
+    resolve_pointer~,
+  )
   {
     watched: WatchedHtmlRoot::WatchedHtmlRoot(program, stats),
     host,
-    resolve_text,
+    payload_resolvers,
     rendered: None,
   }
 }
@@ -523,7 +660,7 @@ fn[Msg : Eq] BrowserRoot::flush(self : BrowserRoot[Msg]) -> Unit {
   guard self.watched.read_changed() is Some(next) else { return }
   let sink : EventSink[Msg] = {
     dispatch: msg => ignore(self.watched.program.dispatch(msg)),
-    resolve_text: self.resolve_text,
+    payload_resolvers: self.payload_resolvers,
   }
   self.rendered = Some(
     match self.rendered {
@@ -650,7 +787,9 @@ fn[Msg : Eq] BrowserRenderer::mount(
   self : BrowserRenderer[Msg],
   host : DomElement,
   program : Program[Msg, Html[Msg]],
-  on_input? : (String, String) -> Msg? = (_, _) => None,
+  on_input? : (TextInputId, TextInputPayload) -> Msg? = (_, _) => None,
+  on_key? : (KeyEventId, KeyPayload) -> Msg? = (_, _) => None,
+  on_pointer? : (PointerEventId, PointerPayload) -> Msg? = (_, _) => None,
 ) -> BrowserRoot[Msg] {
   guard !self.disposed else {
     abort("BrowserRenderer::mount called after dispose")
@@ -668,6 +807,8 @@ fn[Msg : Eq] BrowserRenderer::mount(
     host,
     self.stats,
     resolve_text=on_input,
+    resolve_key=on_key,
+    resolve_pointer=on_pointer,
   )
   self.roots.push(root)
   root.flush()

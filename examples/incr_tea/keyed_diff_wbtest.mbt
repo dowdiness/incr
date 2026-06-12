@@ -122,7 +122,7 @@ test "keyed plan: large duplicate-old path preserves scan degradation" {
 
 ///|
 #cfg(target="js")
-test "event spec: text bindings are equal iff their pure tag matches" {
+test "event spec: text bindings are equal iff their pure id matches" {
   let name1 : EventBinding[RendererMsg] = on_input(tag="name")
   let name2 : EventBinding[RendererMsg] = on_input(tag="name")
   let email : EventBinding[RendererMsg] = on_input(tag="email")
@@ -132,12 +132,50 @@ test "event spec: text bindings are equal iff their pure tag matches" {
 
 ///|
 #cfg(target="js")
-test "event spec: const click bindings stay Eq, differ from text bindings" {
+test "event spec: keyboard descriptors are pure Eq data" {
+  let editor_keys = KeyEventId("editor.keys")
+  let other_keys = KeyEventId("other.keys")
+  let keydown1 : EventBinding[RendererMsg] = on_keydown(id=editor_keys)
+  let keydown2 : EventBinding[RendererMsg] = on_keydown(id=editor_keys)
+  let prevented : EventBinding[RendererMsg] = on_keydown(
+    id=editor_keys,
+    prevent_default=true,
+  )
+  let other : EventBinding[RendererMsg] = on_keydown(id=other_keys)
+  inspect(keydown1 == keydown2, content="true")
+  inspect(keydown1 == prevented, content="false")
+  inspect(keydown1 == other, content="false")
+}
+
+///|
+#cfg(target="js")
+test "event spec: pointer descriptors are pure Eq data" {
+  let drag = PointerEventId("editor.drag")
+  let select = PointerEventId("editor.select")
+  let down1 : EventBinding[RendererMsg] = on_pointer_down(id=drag)
+  let down2 : EventBinding[RendererMsg] = on_pointer_down(id=drag)
+  let prevented : EventBinding[RendererMsg] = on_pointer_down(
+    id=drag,
+    prevent_default=true,
+  )
+  let other : EventBinding[RendererMsg] = on_pointer_down(id=select)
+  inspect(down1 == down2, content="true")
+  inspect(down1 == prevented, content="false")
+  inspect(down1 == other, content="false")
+}
+
+///|
+#cfg(target="js")
+test "event spec: const click bindings stay Eq, differ from payload bindings" {
   let click1 : EventBinding[RendererMsg] = on_click(Increment)
   let click2 : EventBinding[RendererMsg] = on_click(Increment)
   let text_binding : EventBinding[RendererMsg] = on_input(tag="name")
+  let key_binding : EventBinding[RendererMsg] = on_keydown(
+    id=KeyEventId("editor.keys"),
+  )
   inspect(click1 == click2, content="true")
   inspect(click1 == text_binding, content="false")
+  inspect(click1 == key_binding, content="false")
 }
 
 ///|
