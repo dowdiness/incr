@@ -155,12 +155,7 @@ fn[Msg, View] Program::view_id(self : Program[Msg, View]) -> @incr.CellId {
 ///|
 #cfg(target="js")
 fn view_id_is_tracked(ids : Array[@incr.CellId], id : @incr.CellId) -> Bool {
-  for tracked in ids {
-    if tracked == id {
-      return true
-    }
-  }
-  false
+  ids.iter().any(tracked => tracked == id)
 }
 
 ///|
@@ -231,10 +226,11 @@ priv struct EventSink[Msg] {
 fn attr_value(attrs : Array[Attribute], name : String) -> String? {
   for attr in attrs {
     if attr.name == name {
-      return Some(attr.value)
+      break Some(attr.value)
     }
+  } nobreak {
+    None
   }
-  None
 }
 
 ///|
@@ -245,8 +241,9 @@ fn patch_attrs(
   element : DomElement,
 ) -> Unit {
   for old in old_attrs {
-    if attr_value(new_attrs, old.name) is None {
-      dom_remove_attr(element, old.name)
+    match attr_value(new_attrs, old.name) {
+      None => dom_remove_attr(element, old.name)
+      Some(_) => ()
     }
   }
   for next in new_attrs {
@@ -426,7 +423,7 @@ fn[Msg : Eq] diff_children(
 ) -> Array[Rendered[Msg]] {
   let old_len = old_children.length()
   let next_len = next_children.length()
-  let common = if old_len < next_len { old_len } else { next_len }
+  let common = old_len.min(next_len)
   let rendered = []
   for i in 0..<common {
     rendered.push(
@@ -523,24 +520,21 @@ fn[Msg] BrowserRoot::BrowserRoot(
 ///|
 #cfg(target="js")
 fn[Msg : Eq] BrowserRoot::flush(self : BrowserRoot[Msg]) -> Unit {
-  match self.watched.read_changed() {
-    None => ()
-    Some(next) => {
-      let sink : EventSink[Msg] = {
-        dispatch: msg => ignore(self.watched.program.dispatch(msg)),
-        resolve_text: self.resolve_text,
-      }
-      match self.rendered {
-        None => {
-          let rendered = render_html(next, sink)
-          dom_replace_children(self.host, rendered.node())
-          self.rendered = Some(rendered)
-        }
-        Some(old) =>
-          self.rendered = Some(diff_rendered(old, next, self.host, sink))
-      }
-    }
+  guard self.watched.read_changed() is Some(next) else { return }
+  let sink : EventSink[Msg] = {
+    dispatch: msg => ignore(self.watched.program.dispatch(msg)),
+    resolve_text: self.resolve_text,
   }
+  self.rendered = Some(
+    match self.rendered {
+      None => {
+        let rendered = render_html(next, sink)
+        dom_replace_children(self.host, rendered.node())
+        rendered
+      }
+      Some(old) => diff_rendered(old, next, self.host, sink)
+    },
+  )
 }
 
 ///|
@@ -687,25 +681,24 @@ fn[Msg : Eq] BrowserRenderer::schedule_flush(
   self : BrowserRenderer[Msg],
 ) -> Unit {
   guard !self.disposed else { return }
-  if !self.frame_scheduled {
-    // Only latch when a real animation frame was queued. In a non-browser env
-    // (no rAF clock) the frame is dropped, and latching would wedge the renderer
-    // permanently "scheduled" so no later change ever flushes.
-    let queued = dom_request_animation_frame(() => {
-      self.frame_scheduled = false
-      // A frame queued before dispose can still fire after it; iterating the
-      // (now empty) root set would be harmless, but bail explicitly so a
-      // disposed renderer never touches the DOM or runs after_flush.
-      guard !self.disposed else { return }
-      self.stats.frame_flushes = self.stats.frame_flushes + 1
-      for root in self.roots {
-        root.flush()
-      }
-      (self.after_flush)(self.stats)
-    })
-    if queued {
-      self.frame_scheduled = true
+  guard !self.frame_scheduled else { return }
+  // Only latch when a real animation frame was queued. In a non-browser env
+  // (no rAF clock) the frame is dropped, and latching would wedge the renderer
+  // permanently "scheduled" so no later change ever flushes.
+  let queued = dom_request_animation_frame(() => {
+    self.frame_scheduled = false
+    // A frame queued before dispose can still fire after it; iterating the
+    // (now empty) root set would be harmless, but bail explicitly so a
+    // disposed renderer never touches the DOM or runs after_flush.
+    guard !self.disposed else { return }
+    self.stats.frame_flushes = self.stats.frame_flushes + 1
+    for root in self.roots {
+      root.flush()
     }
+    (self.after_flush)(self.stats)
+  })
+  if queued {
+    self.frame_scheduled = true
   }
 }
 

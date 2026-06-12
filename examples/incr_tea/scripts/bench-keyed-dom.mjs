@@ -1,12 +1,6 @@
-import { createServer } from 'node:http';
-import { readFile } from 'node:fs/promises';
-import { extname, resolve, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { assert, close, createStaticServer, host, listen } from './browser-harness.mjs';
 
-const scriptDir = fileURLToPath(new URL('.', import.meta.url));
-const repoRoot = resolve(scriptDir, '../../..');
-const host = '127.0.0.1';
 const sizes = [16, 64, 256];
 const operations = ['prepend', 'remove-first', 'reverse'];
 const modes = ['keyed', 'rebuild'];
@@ -16,48 +10,6 @@ const samples = positiveInt(process.env.INCR_TEA_DOM_BENCH_SAMPLES, 9);
 function positiveInt(value, fallback) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? Math.trunc(parsed) : fallback;
-}
-
-function assert(condition, message) {
-  if (!condition) {
-    throw new Error(message);
-  }
-}
-
-function contentType(filePath) {
-  switch (extname(filePath)) {
-    case '.html':
-      return 'text/html; charset=utf-8';
-    case '.js':
-      return 'text/javascript; charset=utf-8';
-    case '.css':
-      return 'text/css; charset=utf-8';
-    case '.json':
-      return 'application/json; charset=utf-8';
-    default:
-      return 'application/octet-stream';
-  }
-}
-
-function filePathForRequest(pathname) {
-  const localPath = pathname === '/' ? '/examples/incr_tea/bench.html' : decodeURIComponent(pathname);
-  const filePath = resolve(repoRoot, `.${localPath}`);
-  assert(
-    filePath === repoRoot || filePath.startsWith(`${repoRoot}${sep}`),
-    `Refusing to serve path outside repo: ${pathname}`,
-  );
-  return filePath;
-}
-
-function listen(server) {
-  return new Promise((resolveListen, reject) => {
-    server.once('error', reject);
-    server.listen(0, host, resolveListen);
-  });
-}
-
-function close(server) {
-  return new Promise(resolveClose => server.close(resolveClose));
 }
 
 function mean(values) {
@@ -154,18 +106,7 @@ function printReport({ browserVersion, userAgent, raw }) {
   console.log(report);
 }
 
-const server = createServer(async (request, response) => {
-  try {
-    const url = new URL(request.url ?? '/', `http://${request.headers.host ?? host}`);
-    const filePath = filePathForRequest(url.pathname);
-    const bytes = await readFile(filePath);
-    response.writeHead(200, { 'content-type': contentType(filePath) });
-    response.end(bytes);
-  } catch (error) {
-    response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
-    response.end(error instanceof Error ? error.message : 'not found');
-  }
-});
+const server = createStaticServer('/examples/incr_tea/bench.html');
 
 await listen(server);
 

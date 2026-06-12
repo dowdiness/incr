@@ -3,8 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build:moonbit": "cd ../.. && NEW_MOON_MOD=0 moon build --target js --release examples/incr_tea/browser_bench",
-    "bench:dom": "npm run build:moonbit && node scripts/bench-keyed-dom.mjs"
+    "build:bench": "cd ../.. && NEW_MOON_MOD=0 moon build --target js --release examples/incr_tea/browser_bench",
+    "build:demo": "cd ../.. && NEW_MOON_MOD=0 moon build --target js --release examples/incr_tea/browser_demo",
+    "build:moonbit": "npm run build:bench",
+    "bench:dom": "npm run build:bench && node scripts/bench-keyed-dom.mjs",
+    "test:dom": "npm run build:demo && node scripts/test-keyed-dom.mjs"
   },
   "devDependencies": {
     "playwright": "^1.60.0"

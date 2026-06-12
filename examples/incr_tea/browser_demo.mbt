@@ -39,20 +39,12 @@ fn counter_program(runtime : @incr.Runtime) -> Program[DemoMsg, Html[DemoMsg]] {
   let unrelated = scope.input_field(0, label="demo.counter.unrelated")
   let update : (DemoMsg) -> Cmd[DemoMsg] = msg => {
     match msg {
-      CounterIncrement => {
-        count.set(count.peek() + 1)
-        Cmd::none()
-      }
-      CounterDecrement => {
-        count.set(count.peek() - 1)
-        Cmd::none()
-      }
-      CounterTouchUnrelated => {
-        unrelated.set(unrelated.peek() + 1)
-        Cmd::none()
-      }
-      _ => Cmd::none()
+      CounterIncrement => count.set(count.peek() + 1)
+      CounterDecrement => count.set(count.peek() - 1)
+      CounterTouchUnrelated => unrelated.set(unrelated.peek() + 1)
+      _ => ()
     }
+    Cmd::none()
   }
   let view : () -> Html[DemoMsg] raise Failure = () => {
     article(attrs=[class_attr("demo-card counter-card")], [
@@ -96,16 +88,11 @@ fn panel_program(runtime : @incr.Runtime) -> Program[DemoMsg, Html[DemoMsg]] {
   let detail = scope.input_field(0, label="demo.panel.detail")
   let update : (DemoMsg) -> Cmd[DemoMsg] = msg => {
     match msg {
-      PanelToggle => {
-        open.set(!open.peek())
-        Cmd::none()
-      }
-      PanelMutateDetail => {
-        detail.set(detail.peek() + 1)
-        Cmd::none()
-      }
-      _ => Cmd::none()
+      PanelToggle => open.set(!open.peek())
+      PanelMutateDetail => detail.set(detail.peek() + 1)
+      _ => ()
     }
+    Cmd::none()
   }
   let view : () -> Html[DemoMsg] raise Failure = () => {
     let is_open = open.get()
@@ -148,12 +135,10 @@ fn parent_program(runtime : @incr.Runtime) -> Program[DemoMsg, Html[DemoMsg]] {
   let ticks = scope.input_field(0, label="demo.parent.ticks")
   let update : (DemoMsg) -> Cmd[DemoMsg] = msg => {
     match msg {
-      ParentTick => {
-        ticks.set(ticks.peek() + 1)
-        Cmd::none()
-      }
-      _ => Cmd::none()
+      ParentTick => ticks.set(ticks.peek() + 1)
+      _ => ()
     }
+    Cmd::none()
   }
   let view : () -> Html[DemoMsg] raise Failure = () => {
     article(attrs=[class_attr("demo-card nested-parent")], [
@@ -172,12 +157,10 @@ fn child_program(runtime : @incr.Runtime) -> Program[DemoMsg, Html[DemoMsg]] {
   let ticks = scope.input_field(0, label="demo.child.ticks")
   let update : (DemoMsg) -> Cmd[DemoMsg] = msg => {
     match msg {
-      ChildTick => {
-        ticks.set(ticks.peek() + 1)
-        Cmd::none()
-      }
-      _ => Cmd::none()
+      ChildTick => ticks.set(ticks.peek() + 1)
+      _ => ()
     }
+    Cmd::none()
   }
   let view : () -> Html[DemoMsg] raise Failure = () => {
     article(attrs=[class_attr("demo-card nested-child")], [
@@ -200,12 +183,10 @@ fn greet_program(runtime : @incr.Runtime) -> Program[DemoMsg, Html[DemoMsg]] {
   let name = scope.input_field("", label="demo.greet.name")
   let update : (DemoMsg) -> Cmd[DemoMsg] = msg => {
     match msg {
-      GreetNameInput(value) => {
-        name.set(value)
-        Cmd::none()
-      }
-      _ => Cmd::none()
+      GreetNameInput(value) => name.set(value)
+      _ => ()
     }
+    Cmd::none()
   }
   let view : () -> Html[DemoMsg] raise Failure = () => {
     let current = name.get()
@@ -266,21 +247,16 @@ fn list_program(runtime : @incr.Runtime) -> Program[DemoMsg, Html[DemoMsg]] {
         let id = next_id.peek()
         next_id.set(id + 1)
         items.set([("item-\{id}", "Item \{id}"), ..items.peek()])
-        Cmd::none()
       }
-      ListRemoveFirst => {
+      ListRemoveFirst =>
         match items.peek() {
           [_, .. rest] => items.set(rest.to_owned())
           [] => ()
         }
-        Cmd::none()
-      }
-      ListReverse => {
-        items.set(items.peek().rev())
-        Cmd::none()
-      }
-      _ => Cmd::none()
+      ListReverse => items.set(items.peek().rev())
+      _ => ()
     }
+    Cmd::none()
   }
   let view : () -> Html[DemoMsg] raise Failure = () => {
     let children = items
@@ -332,16 +308,14 @@ fn timer_program(runtime : @incr.Runtime) -> Program[DemoMsg, Html[DemoMsg]] {
   let subscriptions : () -> Subscriptions[DemoMsg] raise Failure = () => {
     let subscriptions = @hashmap.HashMap([])
     if running.get() {
+      let on_tick = if use_fast_handler.get() {
+        TimerTickFast
+      } else {
+        TimerTickSlow
+      }
       subscriptions.set(
-        SubKey::SubKey("demo", "timer"),
-        SubSpec::Timer(
-          interval.get(),
-          if use_fast_handler.get() {
-            TimerTickFast
-          } else {
-            TimerTickSlow
-          },
-        ),
+        SubKey("demo", "timer"),
+        SubSpec::Timer(interval.get(), on_tick),
       )
     }
     subscriptions
@@ -349,48 +323,23 @@ fn timer_program(runtime : @incr.Runtime) -> Program[DemoMsg, Html[DemoMsg]] {
 
   let update : (DemoMsg) -> Cmd[DemoMsg] = msg => {
     match msg {
-      TimerEnable => {
-        running.set(true)
-        Cmd::none()
-      }
-      TimerDisable => {
-        running.set(false)
-        Cmd::none()
-      }
-      TimerSetFast => {
-        interval.set(300)
-        Cmd::none()
-      }
-      TimerSetSlow => {
-        interval.set(900)
-        Cmd::none()
-      }
-      TimerUseFastHandler => {
-        use_fast_handler.set(true)
-        Cmd::none()
-      }
-      TimerUseSlowHandler => {
-        use_fast_handler.set(false)
-        Cmd::none()
-      }
-      TimerTickFast => {
-        ticks.set(ticks.peek() + 1)
-        Cmd::none()
-      }
-      TimerTickSlow => {
-        ticks.set(ticks.peek() + 10)
-        Cmd::none()
-      }
-      TimerTouchUnrelated => {
-        unrelated.set(unrelated.peek() + 1)
-        Cmd::none()
-      }
-      _ => Cmd::none()
+      TimerEnable => running.set(true)
+      TimerDisable => running.set(false)
+      TimerSetFast => interval.set(300)
+      TimerSetSlow => interval.set(900)
+      TimerUseFastHandler => use_fast_handler.set(true)
+      TimerUseSlowHandler => use_fast_handler.set(false)
+      TimerTickFast => ticks.set(ticks.peek() + 1)
+      TimerTickSlow => ticks.set(ticks.peek() + 10)
+      TimerTouchUnrelated => unrelated.set(unrelated.peek() + 1)
+      _ => ()
     }
+    Cmd::none()
   }
 
   let view : () -> Html[DemoMsg] raise Failure = () => {
-    let running_label = if running.get() { "on" } else { "off" }
+    let is_running = running.get()
+    let running_label = if is_running { "on" } else { "off" }
     let handler_label = if use_fast_handler.get() {
       "tick +1"
     } else {
@@ -409,7 +358,7 @@ fn timer_program(runtime : @incr.Runtime) -> Program[DemoMsg, Html[DemoMsg]] {
         ),
       ]),
       div(attrs=[class_attr("button-row")], [
-        if running.get() {
+        if is_running {
           demo_button(TimerDisable, "disable")
         } else {
           demo_button(TimerEnable, "enable")
