@@ -7,6 +7,8 @@ enum RendererMsg {
   MutatePanelDetail
   ParentOnly
   ChildOnly
+  KeyCaptured(String, String, Bool, Bool)
+  PointerCaptured(Int, String, Int, Bool)
 } derive(Eq, Debug)
 
 ///|
@@ -262,6 +264,152 @@ test "renderer roots: child boundary skips unchanged watched root" {
 #cfg(target="js")
 extern "js" fn test_fake_host() -> DomElement =
   #| () => ({})
+
+///|
+#cfg(target="js")
+extern "js" fn test_event_element() -> DomElement =
+  #| () => {
+  #|   const listeners = new Map();
+  #|   return {
+  #|     addEventListener(name, listener) {
+  #|       listeners.set(name, listener);
+  #|     },
+  #|     __trigger(name, event) {
+  #|       const listener = listeners.get(name);
+  #|       if (!listener) throw new Error(`missing listener for ${name}`);
+  #|       listener(event);
+  #|     },
+  #|   };
+  #| }
+
+///|
+#cfg(target="js")
+extern "js" fn test_trigger_keydown(
+  element : DomElement,
+  key : String,
+  code : String,
+  repeat : Bool,
+) -> Unit =
+  #| (element, key, code, repeat) => {
+  #|   element.__trigger("keydown", {
+  #|     key,
+  #|     code,
+  #|     altKey: false,
+  #|     ctrlKey: true,
+  #|     metaKey: false,
+  #|     shiftKey: true,
+  #|     repeat,
+  #|     preventDefault() { this.defaultPrevented = true; },
+  #|   });
+  #| }
+
+///|
+#cfg(target="js")
+extern "js" fn test_trigger_pointer_down(
+  element : DomElement,
+  pointer_id : Int,
+  pointer_type : String,
+  button : Int,
+  buttons : Int,
+) -> Unit =
+  #| (element, pointerId, pointerType, button, buttons) => {
+  #|   element.__trigger("pointerdown", {
+  #|     pointerId,
+  #|     pointerType,
+  #|     clientX: 12.5,
+  #|     clientY: 30.25,
+  #|     button,
+  #|     buttons,
+  #|     altKey: false,
+  #|     ctrlKey: false,
+  #|     metaKey: true,
+  #|     shiftKey: false,
+  #|     preventDefault() { this.defaultPrevented = true; },
+  #|   });
+  #| }
+
+///|
+#cfg(target="js")
+test "#249: typed keyboard and pointer payloads dispatch through Program::dispatch" {
+  let runtime = @incr.Runtime()
+  let scope = @incr.Scope::new(runtime)
+  let key_seen = scope.input_field("", label="renderer.events.key_seen")
+  let pointer_seen = scope.input_field("", label="renderer.events.pointer_seen")
+  let update : (RendererMsg) -> Cmd[RendererMsg] = msg => {
+    match msg {
+      KeyCaptured(key, code, repeat, shift_key) =>
+        key_seen.set("\{key}/\{code}/repeat=\{repeat}/shift=\{shift_key}")
+      PointerCaptured(pointer_id, pointer_type, button, meta_key) =>
+        pointer_seen.set(
+          "\{pointer_id}/\{pointer_type}/button=\{button}/meta=\{meta_key}",
+        )
+      _ => ()
+    }
+    Cmd::none()
+  }
+  let view : () -> Html[RendererMsg] raise Failure = () => {
+    div([text(key_seen.get()), text(pointer_seen.get())])
+  }
+  let program = Program::Program(
+    runtime,
+    scope,
+    update,
+    view,
+    label="renderer.events.view",
+  )
+  let key_id = KeyEventId("editor.keys")
+  let pointer_id = PointerEventId("editor.pointer")
+  let payload_resolvers = PayloadResolvers::PayloadResolvers(
+    resolve_key=(id, payload) => {
+      if id == key_id {
+        Some(
+          KeyCaptured(
+            payload.key,
+            payload.code,
+            payload.repeat,
+            payload.shift_key,
+          ),
+        )
+      } else {
+        None
+      }
+    },
+    resolve_pointer=(id, payload) => {
+      if id == pointer_id {
+        Some(
+          PointerCaptured(
+            payload.pointer_id,
+            payload.pointer_type,
+            payload.button,
+            payload.meta_key,
+          ),
+        )
+      } else {
+        None
+      }
+    },
+  )
+  let sink : EventSink[RendererMsg] = {
+    dispatch: msg => ignore(program.dispatch(msg)),
+    payload_resolvers,
+  }
+  let element = test_event_element()
+  attach_events(
+    element,
+    [
+      on_keydown(id=key_id, prevent_default=true),
+      on_pointer_down(id=pointer_id),
+    ],
+    sink,
+  )
+
+  test_trigger_keydown(element, "Enter", "Enter", true)
+  test_trigger_pointer_down(element, 7, "pen", 2, 3)
+
+  inspect(key_seen.peek(), content="Enter/Enter/repeat=true/shift=true")
+  inspect(pointer_seen.peek(), content="7/pen/button=2/meta=true")
+  program.dispose()
+}
 
 ///|
 #cfg(target="js")

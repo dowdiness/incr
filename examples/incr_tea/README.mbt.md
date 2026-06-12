@@ -6,9 +6,9 @@ Experimental `incr`-native TEA runtime skeleton for
 This is not a public `dowdiness/incr` API and not a Rabbita fork. The prototype
 now proves the core loop with a pure counter component, a minimal
 Rabbita-style `Cmd` scheduler, and a browser-rendering slice for watched
-`Html` view roots — including pure event-payload descriptors and keyed children
-(#211). Subscriptions, async command adapters, and benchmark comparisons are
-follow-up issues.
+`Html` view roots — including typed pure event-payload descriptors (#211/#249)
+and keyed children (#211). Subscriptions, async command adapters, and benchmark
+comparisons are follow-up issues.
 
 ## BSaLC / TEA mapping
 
@@ -79,15 +79,16 @@ messages back into the scheduler; they are not captured inside tracked
 `Derived` view computations. Command effects still run through `Cmd::effect`,
 after the model batch commits.
 
-### Event payloads (#211)
+### Event payloads (#211, #249)
 
 An event descriptor is pure data with meaningful `Eq`. `on_click(msg)` stores a
-fixed message; `on_input(tag~)` stores only a string `tag`. The renderer reads
-the input element's value at the browser boundary and resolves `(tag, value) ->
-Msg` through a mount-time resolver (`BrowserRenderer::mount(..., on_input=...)`),
-so a DOM-payload event (a text input) flows through `Cmd`/message dispatch
-**without storing a closure in the cacheable `Html` value**. Two `on_input`
-descriptors are equal iff their tags match, so an unchanged view still backdates.
+fixed message. Payload descriptors store typed pure ids (`TextInputId`,
+`KeyEventId`, `PointerEventId`) plus a DOM event name; the renderer extracts the
+browser payload at the boundary and resolves `(id, payload) -> Msg` through
+mount-time resolvers (`on_input`, `on_key`, `on_pointer`). Text input forwards
+`value`, keyboard forwards key/code/modifiers/repeat, and pointer forwards
+pointer id/type, coordinates, buttons, and modifiers. No closure or DOM event
+object is stored in cacheable `Html`, so equal descriptors still backdate.
 
 ### Keyed children (#211)
 
@@ -127,8 +128,8 @@ The browser demo includes:
   parked but alive), reattach it (state preserved), destroy it (program disposed
   when no sibling root references it), and dispose the whole renderer (which also
   reclaims parked roots);
-- a text-input card (#211) whose `<input>` value is dispatched as a `Msg`
-  payload and echoed back into the view;
+- a payload card (#211/#249) whose text-input, keyboard, and pointer payloads
+  dispatch as `Msg` values and echo back into the view;
 - a keyed-list card (#211) with prepend / remove-first / reverse controls, where
   each row carries an uncontrolled notes `<input>` whose typed text follows its
   item across reorder because the keyed diff reuses the row's DOM node by key.
@@ -214,7 +215,7 @@ boundary narrow so a measured Rabbita VDOM/HTML subset can be swapped in later.
 The broader Rabbita/Qwik/Luna comparison and roadmap live in
 [`docs/research/incr-tea-ui-direction.md`](../../docs/research/incr-tea-ui-direction.md).
 
-#### Keyed children and event payloads (#211)
+#### Keyed children and event payloads (#211, #249)
 
 The reference read for this slice was
 [`rabbita/rabbita/html/README.mbt.md`](https://github.com/dowdiness/rabbita/blob/5f828eb7270cb14970f2be592dba25990a513c61/rabbita/html/README.mbt.md)
@@ -232,11 +233,18 @@ The reference read for this slice was
   work here: the view value is a tracked `Derived` output that must stay `Eq` and
   closure-free for backdating, and a fresh closure per recompute would never
   compare equal. Instead the payload→message mapping is split — the `Html` stores
-  only a pure string tag (`on_input(tag~)`), and a resolver supplied at the js
-  mount boundary (`mount(..., on_input=...)`) turns `(tag, value)` into a message,
-  mirroring where the existing `dispatch` closure already lives. So Rabbita's
-  keyed-child semantics are adopted wholesale, while its closure-valued event API
-  is intentionally replaced with pure data plus a boundary resolver.
+  typed pure ids (`TextInputId`, `KeyEventId`, `PointerEventId`) and event names,
+  while resolvers supplied at the js mount boundary
+  (`mount(..., on_input=..., on_key=..., on_pointer=...)`) turn typed browser
+  payloads into messages, mirroring where the existing `dispatch` closure already
+  lives. So Rabbita's keyed-child semantics are adopted wholesale, while its
+  closure-valued event API is intentionally replaced with pure data plus boundary
+  resolvers.
+- **Qwik-style boundary — similar discipline, not QRL resumability.** Qwik stores
+  serializable lazy handler references and loads code on demand. This prototype
+  does not serialize roots or lazy-load handlers yet; it only keeps the same hard
+  boundary: `Html` carries stable data, and executable payload mapping lives
+  outside the value at an explicit browser/mount edge.
 
 ## Counter smoke test
 
