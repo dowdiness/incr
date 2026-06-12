@@ -102,11 +102,12 @@ attached node), which preserves per-key identity. Keys must be unique and
 stable; duplicate keys are a usage error that degrades (a node is reused once,
 the rest are recreated) rather than crashing. This is not minimal-move — every
 keyed child is re-appended when the list changes — so an anchor-based
-minimal-move pass (LIS / two-ended) is a follow-up if focus-retention or a
-benchmark justifies it. The browser regression test records the current split:
-unchanged-list flushes keep focus on a keyed input, while any list-changing keyed
-patch re-appends surviving rows and drops focus even though row identity and
-uncontrolled input values are preserved.
+minimal-move pass (LIS / two-ended) is a follow-up if focus/selection behavior
+or a benchmark justifies it. The browser regression test records the current
+split without treating moved keyed survivors as focus loss: unchanged-list
+flushes keep focus on a keyed input, focused-row removal moves focus out of the
+list, and row identity plus uncontrolled input values are preserved across
+reorder.
 
 The renderer stores the two additive runtime listener ids it registers (#210)
 — the `on_change` flush trigger and the derived-event view-recompute counter —
@@ -171,10 +172,11 @@ npm run test:dom
 The test distinguishes identity from focus behavior. It asserts that keyed rows
 reuse their DOM nodes across prepend, remove-first, and reverse, and that
 uncontrolled notes `<input>` values follow their keyed rows across reorder. It
-also keeps the current focus baseline explicit: a focused keyed input survives an
-animation-frame flush when the list view is unchanged, but loses focus when a
-list-changing keyed patch re-appends that surviving row. A future minimal-move
-applier should update this baseline together with the implementation.
+also keeps the current focus baseline explicit without baselining moved-row focus
+loss: a focused keyed input survives an animation-frame flush when the list view
+is unchanged, while removing the focused key moves focus out of the list. A
+future minimal-move applier should update this baseline together with the
+implementation when it intentionally changes focus/selection behavior.
 
 ## Subscription keys and collisions
 

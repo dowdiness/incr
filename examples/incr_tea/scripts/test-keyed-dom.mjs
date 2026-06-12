@@ -206,28 +206,28 @@ try {
     );
   });
 
-  await runTest('current all-reappend keyed applier drops focus when a focused survivor is re-appended', async () => {
+  await runTest('focused keyed input loses focus when its keyed row is removed', async () => {
     await gotoDemo(page, baseUrl);
-    await captureRows(page, 'before-focus-reverse');
-    await focusNote(page, 'item-2');
-    assert((await activeElementState(page)).key === 'item-2', 'setup failed to focus item-2 input');
+    await captureRows(page, 'before-focus-remove');
+    await focusNote(page, 'item-1');
+    assert((await activeElementState(page)).key === 'item-1', 'setup failed to focus item-1 input');
 
-    await clickListButton(page, 'reverse', ['item-3', 'item-2', 'item-1']);
+    await clickListButton(page, 'remove first', ['item-2', 'item-3']);
     await assertRowsMatchSnapshot(
       page,
-      'before-focus-reverse',
-      initialOrder,
-      'after reverse with focused survivor',
+      'before-focus-remove',
+      ['item-2', 'item-3'],
+      'after removing focused row',
     );
     const active = await activeElementState(page);
     assert(
       active.key === null && active.isBody,
-      `expected current all-reappend limitation to drop focus; update this baseline when minimal moves preserve it. active=${JSON.stringify(active)}`,
+      `expected focus to leave the list after removing the focused keyed row; active=${JSON.stringify(active)}`,
     );
   });
 
   const finalOrder = await rowKeys(page);
-  assert(sameOrder(finalOrder, ['item-3', 'item-2', 'item-1']), 'final keyed-list order sanity check failed');
+  assert(sameOrder(finalOrder, ['item-2', 'item-3']), 'final keyed-list order sanity check failed');
   assert(pageErrors.length === 0, `page error: ${pageErrors[0]?.stack ?? pageErrors[0]?.message}`);
 } finally {
   if (browser) await browser.close();

@@ -88,9 +88,10 @@ Follow-ups: [#254], [#255], [#256], [#257].
 1. **Keep the current renderer safe to evolve.** The keyed DOM browser baseline
    now lives in `examples/incr_tea/scripts/test-keyed-dom.mjs` and runs with
    `npm run test:dom`: it pins row identity, uncontrolled input retention,
-   unchanged-list focus retention, and the current all-reappend focus loss. Any
-   future keyed-diff optimization should update this baseline deliberately.
-   Baseline issue: [#250].
+   unchanged-list focus retention, and focus loss when the focused key is
+   removed. It intentionally does not baseline focus loss for moved keyed
+   survivors. Any future keyed-diff optimization should update this baseline
+   deliberately. Baseline issue: [#250].
 2. **Improve keyed diff only with benchmark evidence.** The pure planner is
    currently O(n²), and the DOM applier re-appends keyed children. Existing issue
    [#241] owns planner optimization; use the 2026-06-10 pure bench and
