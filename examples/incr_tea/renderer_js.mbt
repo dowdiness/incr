@@ -87,6 +87,14 @@ extern "js" fn dom_set_attr(
 
 ///|
 #cfg(target="js")
+extern "js" fn dom_set_value_property(
+  element : DomElement,
+  value : String,
+) -> Unit =
+  #| (element, value) => { element.value = value; }
+
+///|
+#cfg(target="js")
 extern "js" fn dom_remove_attr(element : DomElement, name : String) -> Unit =
   #| (element, name) => { element.removeAttribute(name); }
 
@@ -312,6 +320,7 @@ fn attr_value(attrs : Array[Attribute], name : String) -> String? {
 ///|
 #cfg(target="js")
 fn patch_attrs(
+  tag : String,
   old_attrs : Array[Attribute],
   new_attrs : Array[Attribute],
   element : DomElement,
@@ -324,12 +333,18 @@ fn patch_attrs(
   }
   for next in new_attrs {
     match attr_value(old_attrs, next.name) {
-      None => dom_set_attr(element, next.name, next.value)
-      Some(prev) =>
-        if prev != next.value {
-          dom_set_attr(element, next.name, next.value)
-        }
+      None => patch_attr(tag, element, next)
+      Some(prev) => if prev != next.value { patch_attr(tag, element, next) }
     }
+  }
+}
+
+///|
+#cfg(target="js")
+fn patch_attr(tag : String, element : DomElement, attr : Attribute) -> Unit {
+  dom_set_attr(element, attr.name, attr.value)
+  if tag == "input" && attr.name == "value" {
+    dom_set_value_property(element, attr.value)
   }
 }
 
@@ -420,7 +435,7 @@ fn[Msg] render_html(html : Html[Msg], sink : EventSink[Msg]) -> Rendered[Msg] {
     Text(value) => RenderedText(value, dom_create_text(value))
     Elem(tag~, attrs~, events~, children~) => {
       let element = dom_create_element(tag)
-      patch_attrs([], attrs, element)
+      patch_attrs(tag, [], attrs, element)
       attach_events(element, events, sink)
       let rendered_children = children.map(child => {
         let rendered = render_html(child, sink)
@@ -431,7 +446,7 @@ fn[Msg] render_html(html : Html[Msg], sink : EventSink[Msg]) -> Rendered[Msg] {
     }
     KeyedElem(tag~, attrs~, events~, children~) => {
       let element = dom_create_element(tag)
-      patch_attrs([], attrs, element)
+      patch_attrs(tag, [], attrs, element)
       attach_events(element, events, sink)
       let rendered_children = children.map(pair => {
         let (key, child) = pair
@@ -483,7 +498,7 @@ fn[Msg : Eq] diff_rendered(
       if old_tag != next_tag || old_events != next_events {
         replace_rendered(old, next, parent, sink)
       } else {
-        patch_attrs(old_attrs, next_attrs, element)
+        patch_attrs(next_tag, old_attrs, next_attrs, element)
         let rendered_children = diff_children(
           old_children, next_children, element, sink,
         )
@@ -513,7 +528,7 @@ fn[Msg : Eq] diff_rendered(
       if old_tag != next_tag || old_events != next_events {
         replace_rendered(old, next, parent, sink)
       } else {
-        patch_attrs(old_attrs, next_attrs, element)
+        patch_attrs(next_tag, old_attrs, next_attrs, element)
         let rendered_children = diff_keyed_children(
           old_children, next_children, element, sink,
         )
@@ -579,18 +594,20 @@ fn[Msg : Eq] diff_children(
 /// new child reuses which old node (by key) and which old nodes are removed;
 /// this applier performs the DOM mutations.
 ///
-/// Survivors and freshly created nodes are appended in new order: `appendChild`
-/// on an already-attached node moves it to the end, so replaying the new order
+/// When the key order is unchanged, children are diffed in place so a local
+/// editor-row update does not reparent the focused keyed input. Reorders still
+/// append survivors and fresh nodes in new order: `appendChild` on an
+/// already-attached node moves it to the end, so replaying the new order
 /// left-to-right leaves the parent's children in exactly the new order while
 /// reusing each key's DOM node (and its listeners). Removals run first so a
 /// vanished node is detached before survivors are re-appended.
 ///
-/// Tradeoff: every keyed child is re-appended when anything changes, so this is
-/// not minimal-move (a focused/selected reused node can be reparented). It only
-/// runs when the view value already changed (value-level `Eq` skips unchanged
-/// views), and identity is preserved per key. An anchor-based minimal-move pass
-/// (LIS / two-ended) is a follow-up if a benchmark or focus-retention need
-/// justifies it.
+/// Tradeoff: reordered keyed children are re-appended, so this is not
+/// minimal-move (a focused/selected reused node can be reparented on reorder).
+/// It only runs when the view value already changed (value-level `Eq` skips
+/// unchanged views), and identity is preserved per key. An anchor-based
+/// minimal-move pass (LIS / two-ended) is a follow-up if a benchmark or
+/// focus-retention need justifies it.
 #cfg(target="js")
 fn[Msg : Eq] diff_keyed_children(
   old_children : Array[(String, Rendered[Msg])],
@@ -600,23 +617,31 @@ fn[Msg : Eq] diff_keyed_children(
 ) -> Array[(String, Rendered[Msg])] {
   let old_keys = old_children.map(pair => pair.0)
   let new_keys = next_children.map(pair => pair.0)
-  let plan = plan_keyed_diff(old_keys, new_keys)
-  plan.removals.each(index => {
-    dom_remove_child(parent, old_children[index].1.node())
-  })
-  // Reconcile in new order: reuse the matched old node or render a fresh one,
-  // then append (appendChild moves an attached node, so replaying the new order
-  // leaves the parent's children in exactly the new order).
-  plan.steps.mapi((idx, step) => {
-    let (key, html) = next_children[idx]
-    let child = match step {
-      Some(old_index) =>
-        diff_rendered(old_children[old_index].1, html, parent, sink)
-      None => render_html(html, sink)
-    }
-    dom_append_child(parent, child.node())
-    (key, child)
-  })
+  if old_keys == new_keys {
+    next_children.mapi((idx, pair) => {
+      let (key, html) = pair
+      let child = diff_rendered(old_children[idx].1, html, parent, sink)
+      (key, child)
+    })
+  } else {
+    let plan = plan_keyed_diff(old_keys, new_keys)
+    plan.removals.each(index => {
+      dom_remove_child(parent, old_children[index].1.node())
+    })
+    // Reconcile in new order: reuse the matched old node or render a fresh one,
+    // then append (appendChild moves an attached node, so replaying the new order
+    // leaves the parent's children in exactly the new order).
+    plan.steps.mapi((idx, step) => {
+      let (key, html) = next_children[idx]
+      let child = match step {
+        Some(old_index) =>
+          diff_rendered(old_children[old_index].1, html, parent, sink)
+        None => render_html(html, sink)
+      }
+      dom_append_child(parent, child.node())
+      (key, child)
+    })
+  }
 }
 
 ///|

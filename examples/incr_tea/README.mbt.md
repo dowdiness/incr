@@ -6,9 +6,10 @@ Experimental `incr`-native TEA runtime skeleton for
 This is not a public `dowdiness/incr` API and not a Rabbita fork. The prototype
 now proves the core loop with a pure counter component, a minimal
 Rabbita-style `Cmd` scheduler, and a browser-rendering slice for watched
-`Html` view roots — including typed pure event-payload descriptors (#211/#249)
-and keyed children (#211). Subscriptions, async command adapters, and benchmark
-comparisons are follow-up issues.
+`Html` view roots — including typed pure event-payload descriptors (#211/#249),
+keyed children (#211), and a small semantic-keyed editor driver (#251).
+Subscriptions, async command adapters, and benchmark comparisons are follow-up
+issues.
 
 ## BSaLC / TEA mapping
 
@@ -90,6 +91,30 @@ mount-time resolvers (`on_input`, `on_key`, `on_pointer`). Text input forwards
 pointer id/type, coordinates, buttons, and modifiers. No closure or DOM event
 object is stored in cacheable `Html`, so equal descriptors still backdate.
 
+### Semantic editor driver (#251)
+
+The browser demo includes an editor-shaped workload because generic counters and
+todo-style lists do not exercise Canopy/Loom's hard path: semantic identity is
+stable while projection positions, local text, selection, diagnostics, and
+inspector views change independently. The demo keeps three semantic nodes
+(`sem-module`, `sem-binding`, `sem-call`) in a reorderable projection keyed by
+semantic id rather than position. A local text edit updates one semantic node,
+while keyed DOM reconciliation preserves unrelated row identity and browser
+focus on the edited input.
+
+The inspector is a separate watched view root that reads a different dependency
+slice from the projection: selection, selected text, and diagnostics, but not row
+order or viewport state. Diagnostic edits patch the inspector while the
+projection root is skipped; viewport/order edits patch the projection while the
+inspector is skipped. The shared renderer instrumentation reports the resulting
+view recomputes, patch attempts, and skipped patches.
+
+Selection/focus behavior is intentionally narrow: pointer or text-input payloads
+select a semantic id, the selected row gets `aria-selected`, and browser tests
+assert that a focused semantic input survives a local keyed text edit. Moving a
+focused row is not yet a focus-retention guarantee because the current keyed DOM
+applier still re-appends moved survivors.
+
 ### Keyed children (#211)
 
 `keyed_node(tag, children=[(key, child), ...])` builds a `KeyedElem` whose
@@ -97,18 +122,19 @@ children carry a stable business key (not an array index). On diff, the pure
 `plan_keyed_diff` matches old children to new children by key, so
 insert/remove/reorder reuse each key's existing DOM node (and its listeners)
 instead of re-patching by position; positional `div`/`p`/… children keep the
-simple index diff. The applier reconciles by removing vanished keys, then
-re-appending survivors and new nodes in the new order (`appendChild` moves an
-attached node), which preserves per-key identity. Keys must be unique and
-stable; duplicate keys are a usage error that degrades (a node is reused once,
-the rest are recreated) rather than crashing. This is not minimal-move — every
-keyed child is re-appended when the list changes — so an anchor-based
-minimal-move pass (LIS / two-ended) is a follow-up if focus/selection behavior
-or a benchmark justifies it. The browser regression test records the current
-split without treating moved keyed survivors as focus loss: unchanged-list
-flushes keep focus on a keyed input, focused-row removal moves focus out of the
-list, and row identity plus uncontrolled input values are preserved across
-reorder.
+simple index diff. If the key order is unchanged, children are diffed in place so
+local editor-row updates do not reparent focused inputs. If keys are inserted,
+removed, or reordered, the applier removes vanished keys, then re-appends
+survivors and new nodes in the new order (`appendChild` moves an attached node),
+which preserves per-key identity. Keys must be unique and stable; duplicate keys
+are a usage error that degrades (a node is reused once, the rest are recreated)
+rather than crashing. Reorders are not minimal-move — moved keyed children are
+re-appended — so an anchor-based minimal-move pass (LIS / two-ended) is a
+follow-up if focus/selection behavior or a benchmark justifies it. The browser
+regression test records the current split without treating moved keyed survivors
+as focus loss: unchanged-list flushes and same-order local editor edits keep
+focus on a keyed input, focused-row removal moves focus out of the list, and row
+identity plus uncontrolled input values are preserved across reorder.
 
 The renderer stores the two additive runtime listener ids it registers (#210)
 — the `on_change` flush trigger and the derived-event view-recompute counter —
@@ -130,6 +156,10 @@ The browser demo includes:
   reclaims parked roots);
 - a payload card (#211/#249) whose text-input, keyboard, and pointer payloads
   dispatch as `Msg` values and echo back into the view;
+- a semantic editor card (#251) whose projection rows are keyed by semantic ids,
+  support local text edits and position changes, preserve focused keyed inputs
+  on local edits, and drive a separate inspector root that reads diagnostics and
+  selected-node state instead of viewport/order state;
 - a keyed-list card (#211) with prepend / remove-first / reverse controls, where
   each row carries an uncontrolled notes `<input>` whose typed text follows its
   item across reorder because the keyed diff reuses the row's DOM node by key.
@@ -175,9 +205,13 @@ reuse their DOM nodes across prepend, remove-first, and reverse, and that
 uncontrolled notes `<input>` values follow their keyed rows across reorder. It
 also keeps the current focus baseline explicit without baselining moved-row focus
 loss: a focused keyed input survives an animation-frame flush when the list view
-is unchanged, while removing the focused key moves focus out of the list. A
-future minimal-move applier should update this baseline together with the
-implementation when it intentionally changes focus/selection behavior.
+is unchanged; same-order local editor edits keep focus on the edited input; and
+removing the focused key moves focus out of the list. The same browser run covers
+the semantic editor driver: semantic rows preserve DOM identity when their
+positions change, and a local text edit keeps focus on the edited semantic input
+while the inspector reflects the selected node. A future minimal-move applier
+should update this baseline together with the implementation when it intentionally
+changes focus/selection behavior.
 
 ## Subscription keys and collisions
 
