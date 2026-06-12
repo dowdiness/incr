@@ -90,6 +90,38 @@ test "keyed plan: duplicate OLD key reuses the first, removes the rest" {
 
 ///|
 #cfg(target="js")
+test "keyed plan: duplicate OLD and NEW keys consume each old occurrence once" {
+  let plan = plan_keyed_diff(["a", "a"], ["a", "a", "a"])
+  debug_inspect(plan.steps, content="[Some(0), Some(1), None]")
+  debug_inspect(plan.removals, content="[]")
+}
+
+///|
+#cfg(target="js")
+test "keyed plan: large unique-key path matches first-available scan" {
+  let old_keys = [ for i in 0..<40 => "item-\{i}" ]
+  let new_keys = ["missing", "item-39", "item-0", "item-20", "item-39"]
+  let plan = plan_keyed_diff(old_keys, new_keys)
+  let scan = plan_keyed_diff_by_first_available_scan(old_keys, new_keys)
+  inspect(plan.steps == scan.steps, content="true")
+  inspect(plan.removals == scan.removals, content="true")
+}
+
+///|
+#cfg(target="js")
+test "keyed plan: large duplicate-old path preserves scan degradation" {
+  let old_keys = [
+    for i in 0..<40 => if i == 0 || i == 35 { "dup" } else { "item-\{i}" }
+  ]
+  let new_keys = ["dup", "dup", "item-39"]
+  let plan = plan_keyed_diff(old_keys, new_keys)
+  let scan = plan_keyed_diff_by_first_available_scan(old_keys, new_keys)
+  inspect(plan.steps == scan.steps, content="true")
+  inspect(plan.removals == scan.removals, content="true")
+}
+
+///|
+#cfg(target="js")
 test "event spec: text bindings are equal iff their pure tag matches" {
   let name1 : EventBinding[RendererMsg] = on_input(tag="name")
   let name2 : EventBinding[RendererMsg] = on_input(tag="name")

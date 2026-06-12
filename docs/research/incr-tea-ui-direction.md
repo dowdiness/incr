@@ -92,10 +92,13 @@ Follow-ups: [#254], [#255], [#256], [#257].
    removed. It intentionally does not baseline focus loss for moved keyed
    survivors. Any future keyed-diff optimization should update this baseline
    deliberately. Baseline issue: [#250].
-2. **Improve keyed diff only with benchmark evidence.** The pure planner is
-   currently O(n²), and the DOM applier re-appends keyed children. Existing issue
-   [#241] owns planner optimization; use the 2026-06-10 pure bench and
-   2026-06-12 Playwright DOM bench as baselines.
+2. **Keep keyed diff changes benchmark-led.** Issue [#241] replaced the pure
+   planner's large-list duplicate-free O(n²) scan with a key-map path after the
+   2026-06-10 pure bench and 2026-06-12 Playwright DOM bench established the
+   baseline. The N=256 pure planner now improves 7.46× on reverse, 2.91× on
+   prepend, and 2.66× on unchanged lists; browser reverse improves 395→271 µs.
+   The DOM applier still re-appends keyed children; treat any future
+   move-minimization pass as a separate measured change.
 3. **Expand Eq-safe events.** Add typed pure payload descriptors beyond text
    input while keeping resolver logic at the mount/browser boundary. Follow-up:
    [#249].
@@ -146,7 +149,7 @@ Follow-ups: [#254], [#255], [#256], [#257].
 
 ## Issue map
 
-- [#241] Optimize `plan_keyed_diff`; avoid duplicating this work elsewhere.
+- [#241] Optimized `plan_keyed_diff` with a key-map large-list path (N=256 pure planner: 7.46× reverse, 2.91× prepend, 2.66× unchanged); avoid duplicating this work elsewhere.
 - [#248] Design an Eq-safe HTML ergonomics layer informed by Rabbita.
 - [#249] Expand typed pure payload event descriptors.
 - [#250] Add browser tests for keyed DOM identity and focus retention — baseline
