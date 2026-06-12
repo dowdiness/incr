@@ -12,6 +12,12 @@ enum DemoMsg {
   GreetNameInput(String)
   GreetKeyPayload(String)
   GreetPointerPayload(String)
+  EditorSelect(String)
+  EditorNodeInput(String, String)
+  EditorRenameSelected
+  EditorMoveSelectedDown
+  EditorTouchViewport
+  EditorBumpDiagnostics
   // #211: keyed-list operations (insert / remove / reorder).
   ListPrepend
   ListRemoveFirst
@@ -316,7 +322,7 @@ fn list_program(runtime : @incr.Runtime) -> Program[DemoMsg, Html[DemoMsg]] {
         let (id, label) = pair
         (
           id,
-          li(attrs=[class_attr("list-item")], [
+          li(attrs=[class_attr("list-item"), attr("data-semantic-id", id)], [
             span(attrs=[class_attr("list-label")], [text("\{label} (\{id})")]),
             input(attrs=[
               class_attr("list-note"),
@@ -496,6 +502,21 @@ pub fn mount_browser_demo(mount_id : String) -> Unit {
       on_input=greet_on_input,
       on_key=greet_on_key,
       on_pointer=greet_on_pointer,
+    ),
+  )
+  let editor_model = EditorDemoModel(runtime)
+  ignore(
+    renderer.mount(
+      dom_query_child_by_id(host, "editor-projection-root"),
+      editor_projection_program(runtime, editor_model),
+      on_input=editor_on_input,
+      on_pointer=editor_on_pointer,
+    ),
+  )
+  ignore(
+    renderer.mount(
+      dom_query_child_by_id(host, "editor-inspector-root"),
+      editor_inspector_program(runtime, editor_model),
     ),
   )
   // #211 keyed list: prepend/remove/reverse preserve per-item DOM identity.

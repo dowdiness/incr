@@ -90,17 +90,18 @@ Follow-ups: [#254], [#255], [#256], [#257].
 1. **Keep the current renderer safe to evolve.** The keyed DOM browser baseline
    now lives in `examples/incr_tea/scripts/test-keyed-dom.mjs` and runs with
    `npm run test:dom`: it pins row identity, uncontrolled input retention,
-   unchanged-list focus retention, and focus loss when the focused key is
-   removed. It intentionally does not baseline focus loss for moved keyed
-   survivors. Any future keyed-diff optimization should update this baseline
-   deliberately. Baseline issue: [#250].
+   unchanged-list and same-order local-edit focus retention, and focus loss when
+   the focused key is removed. It intentionally does not baseline focus loss for
+   moved keyed survivors. Any future keyed-diff optimization should update this
+   baseline deliberately. Baseline issue: [#250].
 2. **Keep keyed diff changes benchmark-led.** Issue [#241] replaced the pure
    planner's large-list duplicate-free O(n²) scan with a key-map path after the
    2026-06-10 pure bench and 2026-06-12 Playwright DOM bench established the
    baseline. The N=256 pure planner now improves 7.46× on reverse, 2.91× on
    prepend, and 2.66× on unchanged lists; browser reverse improves 395→271 µs.
-   The DOM applier still re-appends keyed children; treat any future
-   move-minimization pass as a separate measured change.
+   The DOM applier diffs in place when key order is unchanged, but still
+   re-appends moved keyed children; treat any future move-minimization pass as a
+   separate measured change.
 3. **Expand Eq-safe events.** The #249 slice adds typed pure descriptors for
    text input, keyboard, and pointer payload events while keeping resolver logic
    at the mount/browser boundary. Future editor demos can add focus/blur,
@@ -108,9 +109,10 @@ Follow-ups: [#254], [#255], [#256], [#257].
 4. **Make authoring tolerable without sacrificing backdating.** Design a small
    Rabbita-informed HTML ergonomics layer that keeps `Html` closure-free.
    Follow-up: [#248].
-5. **Build an editor-shaped driver.** A small semantic-keyed editor demo should
-   replace generic lists as the primary proof point for `incr_tea`. Follow-up:
-   [#251].
+5. **Build an editor-shaped driver.** The first semantic-keyed editor demo uses
+   stable semantic ids, local text edits, selection/focus checks, a viewport/order
+   projection root, and a separate inspector/diagnostics root as the primary
+   proof point for `incr_tea`. Follow-up: [#251].
 6. **Prototype direct leaf patching only where measured.** Study a Luna-style
    direct DOM path for text/attribute/keyed-row leaves without discarding
    value-level `Html : Eq`. Follow-up: [#254].
@@ -157,7 +159,9 @@ Follow-ups: [#254], [#255], [#256], [#257].
 - [#249] Expanded typed pure payload descriptors for text input, keyboard, and pointer events.
 - [#250] Add browser tests for keyed DOM identity and focus retention — baseline
   covered by `examples/incr_tea/scripts/test-keyed-dom.mjs` / `npm run test:dom`.
-- [#251] Build an editor-shaped semantic-key rendering demo.
+- [#251] Build an editor-shaped semantic-key rendering demo: initial browser
+  driver covers stable semantic ids, local edits, focus retention, viewport/order
+  updates, and a separate inspector diagnostics slice.
 - [#252] Research Qwik-style serializable and lazy UI boundaries.
 - [#254] Prototype Luna-style direct leaf DOM patch tasks.
 - [#255] Prototype visibility/idle-driven Watch activation for UI islands.

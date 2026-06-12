@@ -19,13 +19,13 @@ fn renderer_test_button(msg : RendererMsg, label : String) -> Html[RendererMsg] 
 
 ///|
 #cfg(target="js")
-fn install_view_recompute_counter(
+fn[Msg] install_view_recompute_counter(
   runtime : @incr.Runtime,
-  program : Program[RendererMsg, Html[RendererMsg]],
+  program : Program[Msg, Html[Msg]],
 ) -> Ref[Int] {
   let view_id = program.view_id()
   let recomputes = Ref(0)
-  try! runtime.on_derived_event(event => {
+  let _listener_id = try! runtime.add_derived_event_listener(event => {
     match event {
       @incr.DerivedEvent::Completed(completed) =>
         if completed.cell_id == view_id {
@@ -170,6 +170,53 @@ test "renderer root: closed panel has dynamic dependencies" {
   inspect(recomputes.val, content="2")
 
   program.dispose()
+}
+
+///|
+#cfg(target="js")
+test "#251: semantic editor projection and inspector skip distinct slices" {
+  let runtime = @incr.Runtime()
+  let model = EditorDemoModel(runtime)
+  let projection = editor_projection_program(runtime, model)
+  let inspector = editor_inspector_program(runtime, model)
+  let stats = RenderStats::RenderStats()
+  let projection_root = WatchedHtmlRoot::WatchedHtmlRoot(projection, stats)
+  let inspector_root = WatchedHtmlRoot::WatchedHtmlRoot(inspector, stats)
+  let projection_recomputes = install_view_recompute_counter(
+    runtime, projection,
+  )
+  let inspector_recomputes = install_view_recompute_counter(runtime, inspector)
+
+  guard projection_root.read_changed() is Some(_) else {
+    fail("projection initial patch")
+  }
+  guard inspector_root.read_changed() is Some(_) else {
+    fail("inspector initial patch")
+  }
+  inspect(stats.patch_attempts, content="2")
+
+  inspect(projection.dispatch(EditorBumpDiagnostics), content="true")
+  debug_inspect(projection_root.read_changed(), content="None")
+  guard inspector_root.read_changed() is Some(_) else {
+    fail("diagnostic edit should patch inspector")
+  }
+  inspect(stats.patch_attempts, content="3")
+  inspect(stats.skipped_patches, content="1")
+  inspect(projection_recomputes.val, content="0")
+  inspect(inspector_recomputes.val, content="1")
+
+  inspect(projection.dispatch(EditorTouchViewport), content="true")
+  guard projection_root.read_changed() is Some(_) else {
+    fail("viewport edit should patch projection")
+  }
+  debug_inspect(inspector_root.read_changed(), content="None")
+  inspect(stats.patch_attempts, content="4")
+  inspect(stats.skipped_patches, content="2")
+  inspect(projection_recomputes.val, content="1")
+  inspect(inspector_recomputes.val, content="1")
+
+  inspector.dispose()
+  projection.dispose()
 }
 
 ///|
