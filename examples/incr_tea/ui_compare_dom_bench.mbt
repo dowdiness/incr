@@ -17,6 +17,8 @@ fn ui_compare_incr_run(
       ui_compare_incr_run_keyed_list(operation, n, iterations, sample_count)
     "panel" | "hidden-panel" | "hidden_panel" =>
       ui_compare_incr_run_panel(operation, iterations, sample_count)
+    "row-leaf" | "row_leaf" | "locality" =>
+      ui_compare_incr_run_row_leaf(operation, n, iterations, sample_count)
     _ => abort("unknown UI compare suite: \{suite}")
   }
 }

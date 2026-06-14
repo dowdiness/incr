@@ -21,6 +21,10 @@ fn ui_compare_adjacent_run(
       )
     "panel" | "hidden-panel" | "hidden_panel" =>
       ui_compare_adjacent_run_panel(system, operation, iterations, sample_count)
+    "row-leaf" | "row_leaf" | "locality" =>
+      ui_compare_adjacent_run_row_leaf(
+        system, operation, n, iterations, sample_count,
+      )
     _ => abort("unknown UI compare suite: \{suite}")
   }
 }

@@ -47,6 +47,14 @@ priv enum UiComparePanelOperation {
 
 ///|
 #cfg(target="js")
+priv enum UiCompareRowLeafOperation {
+  UiCompareRowTextUpdate
+  UiCompareRowClassUpdate
+  UiCompareHotLeafTextUpdate
+} derive(Eq)
+
+///|
+#cfg(target="js")
 extern "js" fn ui_compare_dom_click_action(
   host : DomElement,
   action : String,
@@ -168,6 +176,26 @@ fn ui_compare_panel_operation(operation : String) -> UiComparePanelOperation {
 
 ///|
 #cfg(target="js")
+fn ui_compare_row_leaf_operation(
+  operation : String,
+) -> UiCompareRowLeafOperation {
+  match operation {
+    "row-text" | "row_text" | "same-order-row-text" | "same_order_row_text" =>
+      UiCompareRowTextUpdate
+    "row-class"
+    | "row_class"
+    | "row-attr"
+    | "row_attr"
+    | "row-attribute"
+    | "row_attribute" => UiCompareRowClassUpdate
+    "hot-leaf-text" | "hot_leaf_text" | "leaf-text" | "leaf_text" =>
+      UiCompareHotLeafTextUpdate
+    _ => abort("unknown UI compare row/leaf operation: \{operation}")
+  }
+}
+
+///|
+#cfg(target="js")
 fn UiComparePanelOperation::name(self : UiComparePanelOperation) -> String {
   match self {
     UiCompareHiddenUpdate => "hidden-update"
@@ -186,6 +214,31 @@ fn UiComparePanelOperation::action(self : UiComparePanelOperation) -> String {
     UiCompareVisibleUpdate => "visible-update"
     UiCompareClose => "close"
   }
+}
+
+///|
+#cfg(target="js")
+fn UiCompareRowLeafOperation::name(self : UiCompareRowLeafOperation) -> String {
+  match self {
+    UiCompareRowTextUpdate => "row-text"
+    UiCompareRowClassUpdate => "row-class"
+    UiCompareHotLeafTextUpdate => "hot-leaf-text"
+  }
+}
+
+///|
+#cfg(target="js")
+fn UiCompareRowLeafOperation::action(
+  self : UiCompareRowLeafOperation,
+) -> String {
+  self.name()
+}
+
+///|
+#cfg(target="js")
+fn ui_compare_row_leaf_hot_index(n : Int) -> Int {
+  guard n > 0 else { 0 }
+  n / 2
 }
 
 ///|
