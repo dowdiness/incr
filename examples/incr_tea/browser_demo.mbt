@@ -36,7 +36,11 @@ enum DemoMsg {
 ///|
 #cfg(target="js")
 fn demo_button(msg : DemoMsg, label : String) -> Html[DemoMsg] {
-  button(attrs=[class_attr("demo-button")], events=[on_click(msg)], label)
+  button(
+    attrs=Attrs::build().class("demo-button").to_array(),
+    events=[on_click(msg)],
+    label,
+  )
 }
 
 ///|
@@ -322,13 +326,21 @@ fn list_program(runtime : @incr.Runtime) -> Program[DemoMsg, Html[DemoMsg]] {
         let (id, label) = pair
         (
           id,
-          li(attrs=[class_attr("list-item"), attr("data-semantic-id", id)], [
-            span(attrs=[class_attr("list-label")], [text("\{label} (\{id})")]),
-            input(attrs=[
-              class_attr("list-note"),
-              attr("placeholder", "notes — survive reorder"),
-            ]),
-          ]),
+          li(
+            attrs=Attrs::build()
+              .class("list-item")
+              .data("semantic-id", id)
+              .to_array(),
+            [
+              span(attrs=[class_attr("list-label")], [text("\{label} (\{id})")]),
+              input(
+                attrs=Attrs::build()
+                  .class("list-note")
+                  .placeholder("notes — survive reorder")
+                  .to_array(),
+              ),
+            ],
+          ),
         )
       })
     article(attrs=[class_attr("demo-card list-card")], [
@@ -343,7 +355,7 @@ fn list_program(runtime : @incr.Runtime) -> Program[DemoMsg, Html[DemoMsg]] {
         demo_button(ListRemoveFirst, "remove first"),
         demo_button(ListReverse, "reverse"),
       ]),
-      keyed_node("ul", attrs=[class_attr("keyed-list")], children),
+      keyed_ul(attrs=Attrs::build().class("keyed-list").to_array(), children),
     ])
   }
   Program::Program(runtime, scope, update, view, label="demo.list.view")

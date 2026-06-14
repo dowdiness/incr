@@ -291,6 +291,16 @@ fn[Msg] input(
 
 ///|
 #cfg(target="js")
+fn[Msg] ul(
+  attrs? : Array[Attribute] = [],
+  events? : Array[EventBinding[Msg]] = [],
+  children : Array[Html[Msg]],
+) -> Html[Msg] {
+  node("ul", attrs~, events~, children)
+}
+
+///|
+#cfg(target="js")
 fn[Msg] li(
   attrs? : Array[Attribute] = [],
   events? : Array[EventBinding[Msg]] = [],
@@ -316,4 +326,24 @@ fn[Msg] keyed_node(
     events=events.copy(),
     children=children.copy(),
   )
+}
+
+///|
+#cfg(target="js")
+fn[Msg] keyed_ul(
+  attrs? : Array[Attribute] = [],
+  events? : Array[EventBinding[Msg]] = [],
+  children : Array[(String, Html[Msg])],
+) -> Html[Msg] {
+  keyed_node("ul", attrs~, events~, children)
+}
+
+///|
+#cfg(target="js")
+fn[Msg] keyed_ol(
+  attrs? : Array[Attribute] = [],
+  events? : Array[EventBinding[Msg]] = [],
+  children : Array[(String, Html[Msg])],
+) -> Html[Msg] {
+  keyed_node("ol", attrs~, events~, children)
 }

@@ -162,14 +162,13 @@ fn[Msg] dom_bench_keyed_list(items : Array[(String, String)]) -> Html[Msg] {
     let (id, label) = pair
     (id, dom_bench_row(id, label))
   })
-  keyed_node("ul", attrs=[class_attr("keyed-list")], children)
+  keyed_ul(attrs=[class_attr("keyed-list")], children)
 }
 
 ///|
 #cfg(target="js")
 fn[Msg] dom_bench_positional_list(items : Array[(String, String)]) -> Html[Msg] {
-  node(
-    "ul",
+  ul(
     attrs=[class_attr("keyed-list")],
     items.map(pair => {
       let (id, label) = pair

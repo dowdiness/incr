@@ -91,6 +91,38 @@ mount-time resolvers (`on_input`, `on_key`, `on_pointer`). Text input forwards
 pointer id/type, coordinates, buttons, and modifiers. No closure or DOM event
 object is stored in cacheable `Html`, so equal descriptors still backdate.
 
+### HTML authoring ergonomics (#248)
+
+The HTML layer now has a small Rabbita-informed convenience surface while keeping
+`Html` closure-free and `Eq`-comparable:
+
+```mbt nocheck
+///|
+let row_attrs = Attrs::build()
+  .class("editor-row is-selected")
+  .data("semantic-id", "sem-binding")
+  .role("option")
+  .aria_bool("selected", true)
+  .to_array()
+```
+
+Conventions:
+
+- Use `Attrs::build()` for common demo/editor attributes (`class`, `role`,
+  `value`, `placeholder`, `data-*`, and `aria-*`). Use `.attr(name, value)` as
+  the explicit escape hatch when a wrapper is missing a one-off attribute.
+- Attribute order is part of the `Html : Eq` value. Keep builder calls stable
+  across renders; do not generate attributes from unordered maps.
+- Children are explicit ordered arrays of `Html`. Wrap string content with
+  `text("...")`; `button(..., label)` is a narrow convenience for the common
+  labeled-button case, not a general string-children overload.
+- Prefer `ul` for ordinary ordered child arrays and `keyed_ul` / `keyed_ol` /
+  `keyed_node` for keyed children. Keyed children remain ordered
+  `Array[(String, Html)]` values, not maps, because both child order and key
+  identity feed deterministic diffing and value-level backdating.
+- Event helpers stay pure descriptors. Do not add closure-valued event handlers
+  to `Html`; payload-to-message logic belongs at `BrowserRenderer::mount`.
+
 ### Semantic editor driver (#251)
 
 The browser demo includes an editor-shaped workload because generic counters and

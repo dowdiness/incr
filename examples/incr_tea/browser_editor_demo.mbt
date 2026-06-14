@@ -191,13 +191,13 @@ fn editor_projection_program(
         (
           id,
           li(
-            attrs=[
-              class_attr(row_class),
-              attr("data-semantic-id", id),
-              attr("data-position", "\{position}"),
-              attr("role", "option"),
-              aria_attr("selected", if is_selected { "true" } else { "false" }),
-            ],
+            attrs=Attrs::build()
+              .class(row_class)
+              .data("semantic-id", id)
+              .data("position", "\{position}")
+              .role("option")
+              .aria_bool("selected", is_selected)
+              .to_array(),
             events=[on_pointer_down(id=PointerEventId("editor.select.\{id}"))],
             [
               span(attrs=[class_attr("editor-position")], [
@@ -208,12 +208,12 @@ fn editor_projection_program(
                 span(attrs=[class_attr("editor-node-id")], [text(id)]),
               ]),
               input(
-                attrs=[
-                  class_attr("editor-token-input"),
-                  attr("value", node.text.get()),
-                  attr("data-semantic-id", id),
-                  aria_attr("label", "Edit \{node.label}"),
-                ],
+                attrs=Attrs::build()
+                  .class("editor-token-input")
+                  .value(node.text.get())
+                  .data("semantic-id", id)
+                  .aria("label", "Edit \{node.label}")
+                  .to_array(),
                 events=[on_input(tag="editor.text.\{id}")],
               ),
               span(attrs=[class_attr("editor-node-label")], [text(node.label)]),
@@ -237,9 +237,11 @@ fn editor_projection_program(
       p(attrs=[class_attr("editor-viewport")], [
         text("viewport revision: \{viewport_revision}"),
       ]),
-      keyed_node(
-        "ol",
-        attrs=[class_attr("editor-projection"), attr("role", "listbox")],
+      keyed_ol(
+        attrs=Attrs::build()
+          .class("editor-projection")
+          .role("listbox")
+          .to_array(),
         rows,
       ),
     ])
