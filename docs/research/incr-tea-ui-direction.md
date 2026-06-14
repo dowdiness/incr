@@ -90,15 +90,18 @@ Follow-ups: [#254], [#255], [#256], [#257].
 
 The mounted matrix snapshot in
 [`docs/performance/2026-06-14-mounted-matrix-adjacent-framework-comparison.md`](../performance/2026-06-14-mounted-matrix-adjacent-framework-comparison.md)
-updates the research priorities:
+and the row/leaf locality follow-up in
+[`docs/performance/2026-06-14-mounted-row-leaf-locality-comparison.md`](../performance/2026-06-14-mounted-row-leaf-locality-comparison.md)
+update the research priorities:
 
 - **Counter and initial mount remain non-drivers.** All systems stay in the
   tens-of-microseconds range for tiny counters, so counter mount/leaf updates
   should not decide renderer architecture.
-- **List/row/leaf locality is the strongest next question.** `incr_tea` beats
+- **List/row/leaf locality is now the direct-patching gate.** `incr_tea` beats
   Rabbita on the comparable N=256 keyed-list rows, while Luna's direct DOM
-  path is still much faster. The next evidence should isolate same-order row
-  text/class changes and hot text/attribute leaves, not more toy counters.
+  path is still much faster. The follow-up row/leaf snapshot isolates same-order
+  row text/class changes and hot nested text leaves: `incr_tea` lands around
+  141–143 µs at N=256, Rabbita around 1.49–1.54 ms, and Luna around 3–4 µs.
 - **Activation islands are not yet justified by the small panel slice.** Closed
   panel updates are already single-digit microseconds in `incr_tea`; prototype
   visibility/idle watch activation only after a larger editor-shaped hidden
@@ -139,11 +142,11 @@ updates the research priorities:
    stable semantic ids, local text edits, selection/focus checks, a viewport/order
    projection root, and a separate inspector/diagnostics root as the primary
    proof point for `incr_tea`. Follow-up: [#251].
-6. **Measure row/leaf locality before direct patching.** Add mounted rows for a
-   same-order keyed-row text update, row class/attribute update, and hot leaf
-   text update at N=16/64/256; then study a Luna-style direct DOM path for the
-   rows that actually lose, without discarding value-level `Html : Eq`.
-   Follow-up: [#254].
+6. **Use row/leaf locality before direct patching.** The mounted row/leaf
+   snapshot now covers same-order keyed-row text, row class/attribute, and hot
+   nested text leaf updates at N=16/64/256. Study a Luna-style direct DOM path
+   for the measured N=256 row/leaf gap without discarding value-level
+   `Html : Eq`. Follow-up: [#254].
 7. **Gate island-style activation on larger hidden-subtree evidence.** Use
    visibility/idle/manual triggers to decide when roots or panels hold watches
    and participate in flushes only after editor-shaped hidden panels exceed the
