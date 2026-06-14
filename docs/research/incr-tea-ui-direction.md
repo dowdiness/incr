@@ -86,6 +86,28 @@ backdating. A Luna-inspired direct patch path should start as a measured leaf
 optimization while the existing value-level renderer remains the baseline.
 Follow-ups: [#254], [#255], [#256], [#257].
 
+## Post-matrix locality lessons
+
+The mounted matrix snapshot in
+[`docs/performance/2026-06-14-mounted-matrix-adjacent-framework-comparison.md`](../performance/2026-06-14-mounted-matrix-adjacent-framework-comparison.md)
+updates the research priorities:
+
+- **Counter and initial mount remain non-drivers.** All systems stay in the
+  tens-of-microseconds range for tiny counters, so counter mount/leaf updates
+  should not decide renderer architecture.
+- **List/row/leaf locality is the strongest next question.** `incr_tea` beats
+  Rabbita on the comparable N=256 keyed-list rows, while Luna's direct DOM
+  path is still much faster. The next evidence should isolate same-order row
+  text/class changes and hot text/attribute leaves, not more toy counters.
+- **Activation islands are not yet justified by the small panel slice.** Closed
+  panel updates are already single-digit microseconds in `incr_tea`; prototype
+  visibility/idle watch activation only after a larger editor-shaped hidden
+  subtree shows real cost.
+- **Raw closures should stay out of cacheable `Html`.** Closure-like ergonomics
+  are welcome only when they lower to pure `Eq`/serializable descriptors. Live
+  callbacks, watches, and DOM payload extraction belong at the renderer/mount
+  boundary so `Html : Eq` and backdating remain meaningful.
+
 ## Near-term roadmap
 
 1. **Keep the current renderer safe to evolve.** The keyed DOM browser baseline
@@ -117,12 +139,15 @@ Follow-ups: [#254], [#255], [#256], [#257].
    stable semantic ids, local text edits, selection/focus checks, a viewport/order
    projection root, and a separate inspector/diagnostics root as the primary
    proof point for `incr_tea`. Follow-up: [#251].
-6. **Prototype direct leaf patching only where measured.** Study a Luna-style
-   direct DOM path for text/attribute/keyed-row leaves without discarding
-   value-level `Html : Eq`. Follow-up: [#254].
-7. **Prototype island-style activation.** Use visibility/idle/manual triggers to
-   decide when roots or panels hold watches and participate in flushes.
-   Follow-up: [#255].
+6. **Measure row/leaf locality before direct patching.** Add mounted rows for a
+   same-order keyed-row text update, row class/attribute update, and hot leaf
+   text update at N=16/64/256; then study a Luna-style direct DOM path for the
+   rows that actually lose, without discarding value-level `Html : Eq`.
+   Follow-up: [#254].
+7. **Gate island-style activation on larger hidden-subtree evidence.** Use
+   visibility/idle/manual triggers to decide when roots or panels hold watches
+   and participate in flushes only after editor-shaped hidden panels exceed the
+   current small-panel cost envelope. Follow-up: [#255].
 8. **Explore host-framework boundaries.** Test whether custom-element style
    mounts make `incr_tea` roots easier to embed and lifecycle-test. Follow-up:
    [#256].
@@ -135,7 +160,8 @@ Follow-ups: [#254], [#255], [#256], [#257].
 - Reimplement all of Rabbita inside `examples/incr_tea`.
 - Reimplement Luna as a generic signal/effect UI framework.
 - Stabilize `incr_tea` as a public `dowdiness/incr` API.
-- Add closure-valued event handlers to cacheable `Html` values.
+- Add raw closure-valued event handlers to cacheable `Html` values; ergonomic
+  handler APIs must lower to pure descriptors instead.
 - Adopt Qwik resumability, QRL machinery, or Luna island hydration before the
   renderer has an editor-shaped driver.
 - Treat "no VDOM" as a goal independent of measured editor workload wins.
@@ -151,6 +177,7 @@ Follow-ups: [#254], [#255], [#256], [#257].
 - keyed semantic nodes preserve DOM identity across insert/remove/reorder;
 - focus/selection behavior is explicit and tested;
 - hidden/collapsed/offscreen roots have explicit watch/reachability semantics;
+- same-order row and hot leaf updates have measured list/row/leaf locality;
 - direct leaf patch experiments beat the existing renderer on a measured hot path
   before becoming permanent;
 - browser DOM benchmarks remain reproducible after renderer changes;
