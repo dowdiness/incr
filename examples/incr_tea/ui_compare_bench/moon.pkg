@@ -1,0 +1,8 @@
+supported_targets = "js"
+
+import {
+  "moonbitlang/core/bench",
+  "moonbit-community/rabbita",
+  "moonbit-community/rabbita/html" @rabbita_html,
+  "mizchi/luna",
+} for "wbtest"

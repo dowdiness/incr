@@ -230,9 +230,13 @@ update is included:
 ```bash
 NEW_MOON_MOD=0 moon bench --release -p examples/incr_tea \
   -f ui_compare_bench_wbtest.mbt --target js
+NEW_MOON_MOD=0 moon bench --release -p examples/incr_tea/ui_compare_bench \
+  --target js
 ```
 
-The dated plan and snapshot are recorded in
+The root package remains wasm-gc benchable; the Rabbita/Luna half of the slice
+lives in the JS-only `ui_compare_bench` subpackage. The dated plan and snapshot
+are recorded in
 [`docs/performance/2026-06-14-ui-shaped-adjacent-framework-comparison.md`](../../docs/performance/2026-06-14-ui-shaped-adjacent-framework-comparison.md).
 
 ## Keyed DOM browser regression tests

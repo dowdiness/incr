@@ -28,8 +28,11 @@ any direct-DOM, island-activation, or alternative-VDOM design is prioritized.
 | Rabbita | `moonbit-community/rabbita@0.12.3` | TEA cells, dirty-cell flags, Rabbita `@html` values, keyed children as `Map[String, Html]`, browser VDOM diff/patch. |
 | Luna | `mizchi/luna@0.23.0` | Fine-grained signals/resources, direct DOM updates for dynamic leaves, VNode/island abstractions, JS/browser target. |
 
-The dependencies are pinned only in `examples/incr_tea`; no demo-only UI package
-was added to core `dowdiness/incr`.
+The dependencies are pinned only in the `examples/incr_tea` module; no demo-only
+UI package was added to core `dowdiness/incr`. The root `examples/incr_tea`
+package remains target-agnostic so its existing wasm-gc gate benchmarks continue
+to run; the Rabbita/Luna slice lives in the JS-only
+`examples/incr_tea/ui_compare_bench` subpackage.
 
 ## Shared workload plan
 
@@ -56,9 +59,13 @@ lose DOM patching, or vice versa.
 
 ## First measured slice: pure counter/list view construction
 
-This snapshot adds `examples/incr_tea/ui_compare_bench_wbtest.mbt`, a small
-`moon bench` slice that builds equivalent counter and list-shaped view values in
-all three systems.
+This snapshot adds two small `moon bench` slices:
+
+- `examples/incr_tea/ui_compare_bench_wbtest.mbt` builds the `incr_tea` values
+  inside the root package, where the private `Html` helpers remain available.
+- `examples/incr_tea/ui_compare_bench/adjacent_wbtest.mbt` builds Rabbita and
+  Luna values from a JS-only subpackage, keeping Rabbita/Luna dependencies out of
+  the root package's wasm-gc benchmark surface.
 
 ### What is measured
 
@@ -90,10 +97,10 @@ harness, not enough to choose #254/#255/#256.
 | Toolchain | moon 0.1.20260608 / moonc v0.10.0+e66899a54 |
 | JS runtime | Node v24.14.1 |
 | Packages | `moonbit-community/rabbita@0.12.3`, `mizchi/luna@0.23.0` |
-| Command | `NEW_MOON_MOD=0 moon bench --release -p examples/incr_tea -f ui_compare_bench_wbtest.mbt --target js` |
+| Commands | `NEW_MOON_MOD=0 moon bench --release -p examples/incr_tea -f ui_compare_bench_wbtest.mbt --target js`<br>`NEW_MOON_MOD=0 moon bench --release -p examples/incr_tea/ui_compare_bench --target js` |
 
-The command was run twice after `NEW_MOON_MOD=0 moon check -p examples/incr_tea --deny-warn`.
-The tables below use the second run.
+The commands were run repeatedly after targeted `moon check --deny-warn` runs.
+The tables below use the final recorded run.
 
 ## Results
 
@@ -101,22 +108,22 @@ The tables below use the second run.
 
 | System | Mean |
 |---|---:|
-| `incr_tea` | 163 ns ± 4.1 ns |
-| Rabbita | 1.19 µs ± 0.027 µs |
-| Luna | 95 ns ± 4.3 ns |
+| `incr_tea` | 182 ns ± 3.3 ns |
+| Rabbita | 1.27 µs ± 0.056 µs |
+| Luna | 108 ns ± 5.3 ns |
 
 ### Keyed/list-shaped pure view build
 
 | N | `incr_tea` | Rabbita | Luna |
 |---:|---:|---:|---:|
-| 16 | 2.75 µs ± 0.046 µs | 22.57 µs ± 0.184 µs | 1.94 µs ± 0.086 µs |
-| 64 | 11.07 µs ± 0.269 µs | 89.17 µs ± 0.815 µs | 7.70 µs ± 0.153 µs |
-| 256 | 45.80 µs ± 1.10 µs | 376.13 µs ± 11.45 µs | 32.42 µs ± 0.783 µs |
+| 16 | 3.04 µs ± 0.211 µs | 21.69 µs ± 0.213 µs | 2.09 µs ± 0.052 µs |
+| 64 | 12.10 µs ± 0.185 µs | 90.14 µs ± 2.73 µs | 8.43 µs ± 0.142 µs |
+| 256 | 50.16 µs ± 1.07 µs | 366.18 µs ± 3.35 µs | 35.18 µs ± 0.564 µs |
 
 ## Interpretation
 
 1. **Pure view construction is not the bottleneck that decides the runtime
-   direction.** Even the largest measured `incr_tea` value build is ~46 µs; the
+   direction.** Even the largest measured `incr_tea` value build is ~50 µs; the
    prior browser DOM applier snapshot measured hundreds of microseconds per
    operation at N=256. The next comparison must move into a browser harness.
 2. **Rabbita's value construction is heavier in this slice, but that is not a
@@ -153,6 +160,8 @@ NEW_MOON_MOD=0 moon update
 NEW_MOON_MOD=0 moon check -p examples/incr_tea --deny-warn
 NEW_MOON_MOD=0 moon bench --release -p examples/incr_tea \
   -f ui_compare_bench_wbtest.mbt --target js
+NEW_MOON_MOD=0 moon bench --release -p examples/incr_tea/ui_compare_bench \
+  --target js
 ```
 
 For Rabbita and Luna API context, the benchmark was grounded in:
