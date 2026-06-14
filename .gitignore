@@ -7,3 +7,4 @@ target
 .claude/scheduled_tasks.lock
 docs/papers/*.pdf
 .slopless/
+examples/incr_tea/node_modules/
