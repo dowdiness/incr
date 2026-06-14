@@ -8,8 +8,9 @@ now proves the core loop with a pure counter component, a minimal
 Rabbita-style `Cmd` scheduler, and a browser-rendering slice for watched
 `Html` view roots — including typed pure event-payload descriptors (#211/#249),
 keyed children (#211), and a small semantic-keyed editor driver (#251).
-Subscriptions, async command adapters, and benchmark comparisons are follow-up
-issues.
+Async command adapters and deeper browser/runtime benchmark comparisons remain
+follow-up issues; a first pure adjacent-framework benchmark slice is documented
+below.
 
 ## BSaLC / TEA mapping
 
@@ -218,6 +219,25 @@ prints Markdown tables plus raw JSON. Tune the sampling budget with
 `INCR_TEA_DOM_BENCH_ITERATIONS` and `INCR_TEA_DOM_BENCH_SAMPLES`. The dated
 snapshot is recorded in
 [`docs/performance/2026-06-12-incr-tea-keyed-dom-applier-playwright.md`](../../docs/performance/2026-06-12-incr-tea-keyed-dom-applier-playwright.md).
+
+## Adjacent-framework pure comparison benchmark
+
+The first #257 comparison slice builds the same counter and list-shaped view
+values in `incr_tea`, Rabbita, and Luna. It is a pure JS-target `moon bench`
+measurement only — no browser DOM patching, dirty-cell flush, or Luna signal
+update is included:
+
+```bash
+NEW_MOON_MOD=0 moon bench --release -p examples/incr_tea \
+  -f ui_compare_bench_wbtest.mbt --target js
+NEW_MOON_MOD=0 moon bench --release -p examples/incr_tea/ui_compare_bench \
+  --target js
+```
+
+The root package remains wasm-gc benchable; the Rabbita/Luna half of the slice
+lives in the JS-only `ui_compare_bench` subpackage. The dated plan and snapshot
+are recorded in
+[`docs/performance/2026-06-14-ui-shaped-adjacent-framework-comparison.md`](../../docs/performance/2026-06-14-ui-shaped-adjacent-framework-comparison.md).
 
 ## Keyed DOM browser regression tests
 
