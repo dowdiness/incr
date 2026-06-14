@@ -53,6 +53,7 @@ New to `incr`? Read these in order:
 - [2026-06-14 Mounted counter adjacent-framework comparison](performance/2026-06-14-mounted-counter-adjacent-framework-comparison.md) — follow-up browser slice for #257: Playwright/Chromium initial mount, displayed-count update, and unrelated update across `incr_tea`, Rabbita, and Luna in hidden attached hosts.
 - [2026-06-14 Mounted matrix adjacent-framework comparison](performance/2026-06-14-mounted-matrix-adjacent-framework-comparison.md) — batch harness for counter, keyed-list N=16/64/256, and hidden/visible panel mounted cells across `incr_tea`, Rabbita, and Luna.
 - [2026-06-14 Mounted row/leaf locality comparison](performance/2026-06-14-mounted-row-leaf-locality-comparison.md) — same-order keyed-row text, row class, and hot nested text leaf mounted cells at N=16/64/256 across `incr_tea`, Rabbita, and Luna.
+- [2026-06-15 Incremental TEA direct leaf patching prototype](performance/2026-06-15-incr-tea-direct-leaf-patching-prototype.md) — issue #254 prototype: pure direct leaf/attribute ids in `Html`, mount-boundary watched string resolvers, and row/leaf `incr_tea-direct` browser timings.
 
 ---
 

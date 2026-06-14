@@ -1,29 +1,33 @@
 import { chromium } from 'playwright';
 import { assert, close, createStaticServer, host, listen } from './browser-harness.mjs';
 
-const systems = ['incr_tea', 'rabbita', 'luna'];
+const defaultSystems = ['incr_tea', 'rabbita', 'luna'];
 const suites = [
   {
     name: 'counter',
     title: 'Counter',
+    systems: defaultSystems,
     operations: ['initial-mount', 'displayed-count', 'unrelated'],
     sizes: [0],
   },
   {
     name: 'keyed-list',
     title: 'Keyed list',
+    systems: defaultSystems,
     operations: ['prepend', 'remove-first', 'reverse'],
     sizes: [16, 64, 256],
   },
   {
     name: 'panel',
     title: 'Hidden/visible panel',
+    systems: defaultSystems,
     operations: ['hidden-update', 'open', 'visible-update', 'close'],
     sizes: [0],
   },
   {
     name: 'row-leaf',
     title: 'Row/leaf locality',
+    systems: ['incr_tea', 'incr_tea-direct', 'rabbita', 'luna'],
     operations: ['row-text', 'row-class', 'hot-leaf-text'],
     sizes: [16, 64, 256],
   },
@@ -76,8 +80,12 @@ function summarize(raw) {
   return results;
 }
 
+function systemsFor(suiteName) {
+  return suites.find(item => item.name === suiteName)?.systems ?? defaultSystems;
+}
+
 function systemCells(results, suite, operation, n = 0) {
-  return systems.map(system => cell(results.get(keyOf({ system, suite, operation, n }))));
+  return systemsFor(suite).map(system => cell(results.get(keyOf({ system, suite, operation, n }))));
 }
 
 function counterTable(results) {
@@ -135,8 +143,8 @@ function rowLeafTable(results) {
   const lines = [
     `### ${suite.title} (µs/op)`,
     '',
-    '| operation | N | incr_tea | Rabbita | Luna |',
-    '|---|---:|---:|---:|---:|',
+    '| operation | N | incr_tea | incr_tea-direct | Rabbita | Luna |',
+    '|---|---:|---:|---:|---:|---:|',
   ];
   for (const operation of suite.operations) {
     for (const n of suite.sizes) {
@@ -153,7 +161,7 @@ function resultsTables(results) {
 function plannedCells() {
   const cells = [];
   for (const suite of suites) {
-    for (const system of systems) {
+    for (const system of suite.systems) {
       for (const operation of suite.operations) {
         for (const n of suite.sizes) {
           cells.push({ system, suite: suite.name, operation, n });
@@ -177,6 +185,7 @@ function printReport({ browserVersion, userAgent, raw }) {
     '- The page uses an immediate requestAnimationFrame shim so Rabbita measurements include the scheduled flush work without browser frame-wait latency.',
     '- Keyed-list reset work runs between timed operations and is not included in the timing window.',
     '- Row/leaf locality rows keep keys and order fixed; each operation toggles one hot middle row or nested leaf and includes no reset work in the timed window.',
+    '- incr_tea-direct is an experimental row/leaf-only direct patch path: Html stores pure leaf/attr ids, while mount-boundary watches resolve live text/class values.',
     '- Rabbita keyed children use its Map-based keyed-child API; Luna list rows use luna/dom for_each reference/value reconciliation over stable string ids. Treat identity/focus behavior as framework-specific rather than semantically identical.',
     '- † Rabbita has no ordered key-array API in this harness; read its reverse cells as keyed Map dirty/update costs, not ordered reversal equivalence.',
     '',

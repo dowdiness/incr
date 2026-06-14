@@ -120,6 +120,9 @@ extern "js" fn ui_compare_install_adjacent_api(
   #|     if (key === "incr_tea" && api.runIncrTeaCell) {
   #|       return api.runIncrTeaCell(suite, operation, n, iterations, samples);
   #|     }
+  #|     if (key === "incr_tea-direct" && api.runIncrTeaDirectCell) {
+  #|       return api.runIncrTeaDirectCell(suite, operation, n, iterations, samples);
+  #|     }
   #|     if (api.runAdjacentCell) {
   #|       return api.runAdjacentCell(key, suite, operation, n, iterations, samples);
   #|     }

@@ -105,6 +105,7 @@ fn[Msg : Eq] DomBenchRoot::flush(self : DomBenchRoot[Msg]) -> Unit {
       let sink : EventSink[Msg] = {
         dispatch: msg => ignore(self.program.dispatch(msg)),
         payload_resolvers: PayloadResolvers::PayloadResolvers(),
+        direct_resolvers: DirectPatchResolvers::DirectPatchResolvers(),
       }
       let rendered = match self.rendered {
         None => {

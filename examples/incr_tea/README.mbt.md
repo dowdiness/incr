@@ -92,6 +92,20 @@ mount-time resolvers (`on_input`, `on_key`, `on_pointer`). Text input forwards
 pointer id/type, coordinates, buttons, and modifiers. No closure or DOM event
 object is stored in cacheable `Html`, so equal descriptors still backdate.
 
+### Direct leaf patch prototype (#254)
+
+The row/leaf benchmark includes an experimental `incr_tea-direct` path. It is a
+narrow Luna-inspired locality probe, not a replacement renderer: `Html` may carry
+pure direct text/attribute ids and fallback values, while live `Watch[String]`
+leaves and resolver callbacks stay at the renderer/benchmark boundary. The
+prototype renders the static row/list shape once, collects the direct DOM leaves,
+and later flushes only those collected text/class leaves.
+
+The dated result is recorded in
+[`docs/performance/2026-06-15-incr-tea-direct-leaf-patching-prototype.md`](../../docs/performance/2026-06-15-incr-tea-direct-leaf-patching-prototype.md).
+At N=256 it brings the row text/class/hot-leaf cells down to roughly 4–5 µs while
+preserving closure-free `Html : Eq` for the cached view data.
+
 ### HTML authoring ergonomics (#248)
 
 The HTML layer now has a small Rabbita-informed convenience surface while keeping

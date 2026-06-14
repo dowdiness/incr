@@ -111,6 +111,22 @@ update the research priorities:
   callbacks, watches, and DOM payload extraction belong at the renderer/mount
   boundary so `Html : Eq` and backdating remain meaningful.
 
+## Direct leaf prototype result
+
+The #254 prototype is recorded in
+[`docs/performance/2026-06-15-incr-tea-direct-leaf-patching-prototype.md`](../performance/2026-06-15-incr-tea-direct-leaf-patching-prototype.md).
+It adds an experimental `incr_tea-direct` row/leaf benchmark path where `Html`
+stores only pure direct text/attribute ids and fallback values. The live
+`Watch[String]` leaves are resolved through renderer/benchmark-boundary callbacks,
+not stored in `Html`.
+
+At N=256, the direct path lands around 4.4–4.7 µs for row text, row class, and
+hot nested text leaves versus the existing `incr_tea` path around 152–161 µs in
+the same run. Treat this as evidence that leaf subscription locality is valuable,
+not as a reason to discard the ordinary `Html : Eq` renderer: structural list
+edits, keyed identity/focus semantics, and general changed views still use the
+existing diff path.
+
 ## Near-term roadmap
 
 1. **Keep the current renderer safe to evolve.** The keyed DOM browser baseline
@@ -142,11 +158,12 @@ update the research priorities:
    stable semantic ids, local text edits, selection/focus checks, a viewport/order
    projection root, and a separate inspector/diagnostics root as the primary
    proof point for `incr_tea`. Follow-up: [#251].
-6. **Use row/leaf locality before direct patching.** The mounted row/leaf
-   snapshot now covers same-order keyed-row text, row class/attribute, and hot
-   nested text leaf updates at N=16/64/256. Study a Luna-style direct DOM path
-   for the measured N=256 row/leaf gap without discarding value-level
-   `Html : Eq`. Follow-up: [#254].
+6. **Keep direct patching narrow and measured.** The #254 prototype shows that
+   pure direct leaf/attribute descriptors plus mount-boundary watched string
+   resolvers can patch the row/leaf hot path in ~4–5 µs at N=256 without
+   storing closures or watches in `Html`. Generalize only behind similarly
+   shaped editor evidence; keep the existing value-level renderer as the
+   fallback for structural and keyed-identity cases.
 7. **Gate island-style activation on larger hidden-subtree evidence.** Use
    visibility/idle/manual triggers to decide when roots or panels hold watches
    and participate in flushes only after editor-shaped hidden panels exceed the

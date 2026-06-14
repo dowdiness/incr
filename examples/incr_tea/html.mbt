@@ -1,10 +1,37 @@
 ///|
+/// Pure id for direct attribute patch descriptors.
+#cfg(target="js")
+priv struct DirectAttrId {
+  name : String
+} derive(Eq, Debug)
+
+///|
 /// Static attribute data for the minimal Incremental TEA HTML subset.
 #cfg(target="js")
 priv struct Attribute {
   name : String
   value : String
+  direct : DirectAttrId?
 } derive(Eq, Debug)
+
+///|
+#cfg(target="js")
+fn DirectAttrId::DirectAttrId(name : String) -> DirectAttrId {
+  { name, }
+}
+
+///|
+/// Pure id for direct text leaf patch descriptors.
+#cfg(target="js")
+priv struct DirectTextId {
+  name : String
+} derive(Eq, Debug)
+
+///|
+#cfg(target="js")
+fn DirectTextId::DirectTextId(name : String) -> DirectTextId {
+  { name, }
+}
 
 ///|
 /// Pure id for text-input payload events.
@@ -113,6 +140,7 @@ priv struct EventBinding[Msg] {
 #cfg(target="js")
 priv enum Html[Msg] {
   Text(String)
+  DirectText(id~ : DirectTextId, fallback~ : String)
   Elem(
     tag~ : String,
     attrs~ : Array[Attribute],
@@ -133,13 +161,29 @@ priv enum Html[Msg] {
 ///|
 #cfg(target="js")
 fn attr(name : String, value : String) -> Attribute {
-  { name, value }
+  { name, value, direct: None }
+}
+
+///|
+#cfg(target="js")
+fn direct_attr(
+  id~ : DirectAttrId,
+  name : String,
+  fallback : String,
+) -> Attribute {
+  { name, value: fallback, direct: Some(id) }
 }
 
 ///|
 #cfg(target="js")
 fn class_attr(value : String) -> Attribute {
   attr("class", value)
+}
+
+///|
+#cfg(target="js")
+fn direct_class_attr(id~ : DirectAttrId, fallback : String) -> Attribute {
+  direct_attr(id~, "class", fallback)
 }
 
 ///|
@@ -152,6 +196,12 @@ fn aria_attr(name : String, value : String) -> Attribute {
 #cfg(target="js")
 fn[Msg] text(value : String) -> Html[Msg] {
   Text(value)
+}
+
+///|
+#cfg(target="js")
+fn[Msg] direct_text(id~ : DirectTextId, fallback : String) -> Html[Msg] {
+  DirectText(id~, fallback~)
 }
 
 ///|
