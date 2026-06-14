@@ -51,6 +51,7 @@ New to `incr`? Read these in order:
 - [2026-06-12 Incremental TEA keyed planner optimization](performance/2026-06-12-incr-tea-keyed-planner-optimization.md) — issue #241: key-map planner path for duplicate-free large keyed lists. At N=256, pure JS planner reverse / prepend / unchanged improve 7.46× / 2.91× / 2.66×; browser reverse improves 395→271 µs with DOM applier behavior unchanged.
 - [2026-06-14 UI-shaped adjacent-framework comparison](performance/2026-06-14-ui-shaped-adjacent-framework-comparison.md) — issue #257: benchmark plan for Rabbita, Luna, and `incr_tea` across counter, keyed-list, grid, panel, and editor-shaped workloads, plus a first pure view-construction slice in JS. Records measurement boundaries and blocks direct-DOM/island follow-ups from using pure value-build numbers as runtime evidence.
 - [2026-06-14 Mounted counter adjacent-framework comparison](performance/2026-06-14-mounted-counter-adjacent-framework-comparison.md) — follow-up browser slice for #257: Playwright/Chromium initial mount, displayed-count update, and unrelated update across `incr_tea`, Rabbita, and Luna in hidden attached hosts.
+- [2026-06-14 Mounted matrix adjacent-framework comparison](performance/2026-06-14-mounted-matrix-adjacent-framework-comparison.md) — batch harness for counter, keyed-list N=16/64/256, and hidden/visible panel mounted cells across `incr_tea`, Rabbita, and Luna.
 
 ---
 
