@@ -45,7 +45,7 @@ where most state changes are local.
 Borrow the authoring ergonomics, not the runtime model wholesale:
 
 - wrapper-style HTML authoring and optional parameters;
-- an attribute-builder escape hatch;
+- an Eq-safe attribute-builder escape hatch for common editor/demo attributes;
 - keyed-child conventions based on stable business IDs;
 - TEA vocabulary (`Model`, `Msg`, `update`, `view`, `Cmd`, subscriptions).
 
@@ -53,7 +53,8 @@ Do **not** copy closure-valued event handlers into `Html`. `incr_tea` relies on
 `Html : Eq` for backdating, so event descriptors must stay pure data and DOM
 payload extraction must stay at the renderer boundary. The #249 slice extends
 that rule with typed text-input, keyboard, and pointer payload ids/resolvers;
-authoring ergonomics remain separate. Follow-up: [#248].
+the #248 slice adds attribute/list ergonomics without changing the event
+boundary.
 
 ### From Qwik
 
@@ -106,9 +107,12 @@ Follow-ups: [#254], [#255], [#256], [#257].
    text input, keyboard, and pointer payload events while keeping resolver logic
    at the mount/browser boundary. Future editor demos can add focus/blur,
    composition, or selection families by the same descriptor/resolver pattern.
-4. **Make authoring tolerable without sacrificing backdating.** Design a small
-   Rabbita-informed HTML ergonomics layer that keeps `Html` closure-free.
-   Follow-up: [#248].
+4. **Make authoring tolerable without sacrificing backdating.** Issue [#248]
+   added a small `Attrs::build()` convenience layer plus `ul` and keyed list
+   wrappers. It keeps `Html` closure-free, uses explicit ordered child
+   arrays, and treats `.attr(name, value)` as the escape hatch rather than
+   adopting Rabbita's closure-valued event handlers or map-shaped keyed
+   children.
 5. **Build an editor-shaped driver.** The first semantic-keyed editor demo uses
    stable semantic ids, local text edits, selection/focus checks, a viewport/order
    projection root, and a separate inspector/diagnostics root as the primary
@@ -155,7 +159,7 @@ Follow-ups: [#254], [#255], [#256], [#257].
 ## Issue map
 
 - [#241] Optimized `plan_keyed_diff` with a key-map large-list path (N=256 pure planner: 7.46× reverse, 2.91× prepend, 2.66× unchanged); avoid duplicating this work elsewhere.
-- [#248] Design an Eq-safe HTML ergonomics layer informed by Rabbita.
+- [#248] Added an Eq-safe `Attrs::build()` HTML ergonomics layer informed by Rabbita.
 - [#249] Expanded typed pure payload descriptors for text input, keyboard, and pointer events.
 - [#250] Add browser tests for keyed DOM identity and focus retention — baseline
   covered by `examples/incr_tea/scripts/test-keyed-dom.mjs` / `npm run test:dom`.
