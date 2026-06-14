@@ -142,11 +142,11 @@ The tables below use the final recorded run.
 
 ## Concrete guidance for follow-up work
 
-- **Next measured slice:** extend the existing Playwright DOM harness to mount a
-  counter in all three systems, then time displayed-count updates and unrelated
-  updates. This is the smallest browser slice that can separate `incr_tea`
-  backdating, Rabbita dirty-cell rerendering, and Luna dynamic text patching.
-- **Then keyed list:** port the current `bench-keyed-dom.mjs` operation matrix
+- **Mounted counter slice:** now recorded in
+  [2026-06-14 Mounted counter adjacent-framework comparison](2026-06-14-mounted-counter-adjacent-framework-comparison.md).
+  It mounts all three systems in Chromium and times initial mount,
+  displayed-count updates, and unrelated updates.
+- **Next measured slice:** port the current `bench-keyed-dom.mjs` operation matrix
   (`prepend`, `remove-first`, `reverse`, N=16/64/256) to Rabbita and Luna. Record
   focus/identity caveats instead of forcing false equivalence.
 - **Only after those:** use hidden/visible panel results to decide whether #255

@@ -239,6 +239,21 @@ lives in the JS-only `ui_compare_bench` subpackage. The dated plan and snapshot
 are recorded in
 [`docs/performance/2026-06-14-ui-shaped-adjacent-framework-comparison.md`](../../docs/performance/2026-06-14-ui-shaped-adjacent-framework-comparison.md).
 
+## Adjacent-framework mounted counter browser benchmark
+
+The next #257 slice mounts a minimal counter in `incr_tea`, Rabbita, and Luna in
+hidden attached Chromium hosts. It times initial mount, a displayed-count click,
+and an unrelated/non-visible state click where each framework has an equivalent:
+
+```bash
+cd examples/incr_tea
+npm install
+npm run bench:ui-compare-dom
+```
+
+The dated snapshot is recorded in
+[`docs/performance/2026-06-14-mounted-counter-adjacent-framework-comparison.md`](../../docs/performance/2026-06-14-mounted-counter-adjacent-framework-comparison.md).
+
 ## Keyed DOM browser regression tests
 
 The keyed DOM regression test runs the real browser demo through Playwright, so

@@ -10,6 +10,8 @@ import {
 // Values
 pub fn install_dom_bench_api() -> Unit
 
+pub fn install_ui_compare_dom_bench_api() -> Unit
+
 pub fn mount_browser_demo(String) -> Unit
 
 // Errors
