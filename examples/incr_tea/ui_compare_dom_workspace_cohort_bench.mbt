@@ -1,7 +1,7 @@
 ///|
 /// Multi-root inactive workspace cohort benchmark. The ordinary inactive-root
 /// bench varies subtree size; this one fixes each subtree at N=256 and varies
-/// how many inactive DOM roots share one workspace `Program`.
+/// how many inactive DOM roots share one workspace `Program` and view `Watch`.
 
 ///|
 #cfg(target="js")

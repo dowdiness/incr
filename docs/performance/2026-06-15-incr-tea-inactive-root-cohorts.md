@@ -6,9 +6,10 @@ policy, lifecycle semantics, `Watch` ownership, or the renderer's
 `deactivate`/`activate` contract.
 
 The new `workspace-inactive-root-cohort` suite mounts one shared workspace
-`Program` into multiple inactive DOM roots. Each root has its own DOM subtree and
-view `Watch`; the model state is shared so each burst is one application update
-stream, not N independent programs receiving N separate updates.
+`Program` into multiple inactive DOM roots. The `Program` owns one shared view
+`Watch`; per-root state is the DOM root plus its rendered/last-view cache. The
+model state is shared so each burst is one application update stream, not N
+independent programs receiving N separate updates.
 
 Per-root subtree size is fixed at N=256. The root-count axis is 1 / 4 / 16. Each
 burst performs 10 / 100 / 1000 model updates while all roots are inactive; after
