@@ -8,10 +8,10 @@ priv struct DirectAttrId {
 ///|
 /// Static attribute data for the minimal Incremental TEA HTML subset.
 #cfg(target="js")
-priv struct Attribute {
-  name : String
-  value : String
-  direct : DirectAttrId?
+pub struct Attribute {
+  priv name : String
+  priv value : String
+  priv direct : DirectAttrId?
 } derive(Eq, Debug)
 
 ///|
@@ -36,40 +36,46 @@ fn DirectTextId::DirectTextId(name : String) -> DirectTextId {
 ///|
 /// Pure id for text-input payload events.
 #cfg(target="js")
-priv struct TextInputId {
+pub struct TextInputId {
   name : String
 } derive(Eq, Debug)
 
 ///|
 #cfg(target="js")
-fn TextInputId::TextInputId(name : String) -> TextInputId {
+pub fn TextInputId::TextInputId(name : String) -> TextInputId {
   { name, }
 }
 
 ///|
 /// Browser-extracted text input payload.
 #cfg(target="js")
-priv struct TextInputPayload {
+pub struct TextInputPayload {
   value : String
+}
+
+///|
+#cfg(target="js")
+pub fn TextInputPayload::TextInputPayload(value : String) -> TextInputPayload {
+  { value, }
 }
 
 ///|
 /// Pure id for keyboard payload events.
 #cfg(target="js")
-priv struct KeyEventId {
+pub struct KeyEventId {
   name : String
 } derive(Eq, Debug)
 
 ///|
 #cfg(target="js")
-fn KeyEventId::KeyEventId(name : String) -> KeyEventId {
+pub fn KeyEventId::KeyEventId(name : String) -> KeyEventId {
   { name, }
 }
 
 ///|
 /// Browser-extracted keyboard payload.
 #cfg(target="js")
-priv struct KeyPayload {
+pub struct KeyPayload {
   key : String
   code : String
   alt_key : Bool
@@ -80,22 +86,36 @@ priv struct KeyPayload {
 }
 
 ///|
+#cfg(target="js")
+pub fn KeyPayload::KeyPayload(
+  key : String,
+  code : String,
+  alt_key : Bool,
+  ctrl_key : Bool,
+  meta_key : Bool,
+  shift_key : Bool,
+  repeat : Bool,
+) -> KeyPayload {
+  { key, code, alt_key, ctrl_key, meta_key, shift_key, repeat }
+}
+
+///|
 /// Pure id for pointer payload events.
 #cfg(target="js")
-priv struct PointerEventId {
+pub struct PointerEventId {
   name : String
 } derive(Eq, Debug)
 
 ///|
 #cfg(target="js")
-fn PointerEventId::PointerEventId(name : String) -> PointerEventId {
+pub fn PointerEventId::PointerEventId(name : String) -> PointerEventId {
   { name, }
 }
 
 ///|
 /// Browser-extracted pointer payload.
 #cfg(target="js")
-priv struct PointerPayload {
+pub struct PointerPayload {
   pointer_id : Int
   pointer_type : String
   client_x : Double
@@ -106,6 +126,34 @@ priv struct PointerPayload {
   ctrl_key : Bool
   meta_key : Bool
   shift_key : Bool
+}
+
+///|
+#cfg(target="js")
+pub fn PointerPayload::PointerPayload(
+  pointer_id : Int,
+  pointer_type : String,
+  client_x : Double,
+  client_y : Double,
+  button : Int,
+  buttons : Int,
+  alt_key : Bool,
+  ctrl_key : Bool,
+  meta_key : Bool,
+  shift_key : Bool,
+) -> PointerPayload {
+  {
+    pointer_id,
+    pointer_type,
+    client_x,
+    client_y,
+    button,
+    buttons,
+    alt_key,
+    ctrl_key,
+    meta_key,
+    shift_key,
+  }
 }
 
 ///|
@@ -129,16 +177,16 @@ priv enum EventSpec[Msg] {
 /// The renderer turns descriptors into DOM listeners at the boundary; tracked
 /// view computations do not allocate or cache browser callback closures.
 #cfg(target="js")
-priv struct EventBinding[Msg] {
-  name : String
-  spec : EventSpec[Msg]
-  prevent_default : Bool
+pub struct EventBinding[Msg] {
+  priv name : String
+  priv spec : EventSpec[Msg]
+  priv prevent_default : Bool
 } derive(Eq, Debug)
 
 ///|
-/// Minimal cacheable HTML/VDOM representation used by the renderer prototype.
+/// Private representation for cacheable HTML/VDOM values.
 #cfg(target="js")
-priv enum Html[Msg] {
+priv enum HtmlRepr[Msg] {
   Text(String)
   DirectText(id~ : DirectTextId, fallback~ : String)
   Elem(
@@ -159,8 +207,18 @@ priv enum Html[Msg] {
 } derive(Eq, Debug)
 
 ///|
+/// Minimal cacheable HTML/VDOM representation used by the renderer prototype.
+///
+/// The representation is opaque so callers construct values through helpers
+/// that defensively copy arrays, preserving stable `Html : Eq` cache behavior.
 #cfg(target="js")
-fn attr(name : String, value : String) -> Attribute {
+pub struct Html[Msg] {
+  priv repr : HtmlRepr[Msg]
+} derive(Eq, Debug)
+
+///|
+#cfg(target="js")
+pub fn attr(name : String, value : String) -> Attribute {
   { name, value, direct: None }
 }
 
@@ -176,7 +234,7 @@ fn direct_attr(
 
 ///|
 #cfg(target="js")
-fn class_attr(value : String) -> Attribute {
+pub fn class_attr(value : String) -> Attribute {
   attr("class", value)
 }
 
@@ -188,25 +246,25 @@ fn direct_class_attr(id~ : DirectAttrId, fallback : String) -> Attribute {
 
 ///|
 #cfg(target="js")
-fn aria_attr(name : String, value : String) -> Attribute {
+pub fn aria_attr(name : String, value : String) -> Attribute {
   attr("aria-" + name, value)
 }
 
 ///|
 #cfg(target="js")
-fn[Msg] text(value : String) -> Html[Msg] {
-  Text(value)
+pub fn[Msg] text(value : String) -> Html[Msg] {
+  { repr: Text(value) }
 }
 
 ///|
 #cfg(target="js")
 fn[Msg] direct_text(id~ : DirectTextId, fallback : String) -> Html[Msg] {
-  DirectText(id~, fallback~)
+  { repr: DirectText(id~, fallback~) }
 }
 
 ///|
 #cfg(target="js")
-fn[Msg] on_click(
+pub fn[Msg] on_click(
   message : Msg,
   prevent_default? : Bool = false,
 ) -> EventBinding[Msg] {
@@ -218,7 +276,7 @@ fn[Msg] on_click(
 /// renderer reads the input element's `value` at the browser boundary and
 /// resolves `(id, payload) -> Msg` through the mount-time resolver.
 #cfg(target="js")
-fn[Msg] on_input(
+pub fn[Msg] on_input(
   tag~ : String,
   prevent_default? : Bool = false,
 ) -> EventBinding[Msg] {
@@ -229,7 +287,7 @@ fn[Msg] on_input(
 /// Pure keyboard descriptor. The browser boundary extracts key/code/modifier
 /// payload fields and resolves them through the mount-time keyboard resolver.
 #cfg(target="js")
-fn[Msg] on_keydown(
+pub fn[Msg] on_keydown(
   id~ : KeyEventId,
   prevent_default? : Bool = false,
 ) -> EventBinding[Msg] {
@@ -240,7 +298,7 @@ fn[Msg] on_keydown(
 /// Pure pointer descriptor. The browser boundary extracts pointer coordinates,
 /// ids, buttons, type, and modifiers before resolving at the mount boundary.
 #cfg(target="js")
-fn[Msg] on_pointer_down(
+pub fn[Msg] on_pointer_down(
   id~ : PointerEventId,
   prevent_default? : Bool = false,
 ) -> EventBinding[Msg] {
@@ -249,18 +307,25 @@ fn[Msg] on_pointer_down(
 
 ///|
 #cfg(target="js")
-fn[Msg] node(
+pub fn[Msg] node(
   tag : String,
   attrs? : Array[Attribute] = [],
   events? : Array[EventBinding[Msg]] = [],
   children : Array[Html[Msg]],
 ) -> Html[Msg] {
-  Elem(tag~, attrs=attrs.copy(), events=events.copy(), children=children.copy())
+  {
+    repr: Elem(
+      tag~,
+      attrs=attrs.copy(),
+      events=events.copy(),
+      children=children.copy(),
+    ),
+  }
 }
 
 ///|
 #cfg(target="js")
-fn[Msg] div(
+pub fn[Msg] div(
   attrs? : Array[Attribute] = [],
   events? : Array[EventBinding[Msg]] = [],
   children : Array[Html[Msg]],
@@ -270,7 +335,7 @@ fn[Msg] div(
 
 ///|
 #cfg(target="js")
-fn[Msg] article(
+pub fn[Msg] article(
   attrs? : Array[Attribute] = [],
   events? : Array[EventBinding[Msg]] = [],
   children : Array[Html[Msg]],
@@ -280,7 +345,7 @@ fn[Msg] article(
 
 ///|
 #cfg(target="js")
-fn[Msg] p(
+pub fn[Msg] p(
   attrs? : Array[Attribute] = [],
   events? : Array[EventBinding[Msg]] = [],
   children : Array[Html[Msg]],
@@ -290,7 +355,7 @@ fn[Msg] p(
 
 ///|
 #cfg(target="js")
-fn[Msg] span(
+pub fn[Msg] span(
   attrs? : Array[Attribute] = [],
   events? : Array[EventBinding[Msg]] = [],
   children : Array[Html[Msg]],
@@ -300,7 +365,7 @@ fn[Msg] span(
 
 ///|
 #cfg(target="js")
-fn[Msg] h2(
+pub fn[Msg] h2(
   attrs? : Array[Attribute] = [],
   events? : Array[EventBinding[Msg]] = [],
   children : Array[Html[Msg]],
@@ -310,7 +375,7 @@ fn[Msg] h2(
 
 ///|
 #cfg(target="js")
-fn[Msg] h3(
+pub fn[Msg] h3(
   attrs? : Array[Attribute] = [],
   events? : Array[EventBinding[Msg]] = [],
   children : Array[Html[Msg]],
@@ -320,7 +385,7 @@ fn[Msg] h3(
 
 ///|
 #cfg(target="js")
-fn[Msg] button(
+pub fn[Msg] button(
   attrs? : Array[Attribute] = [],
   events? : Array[EventBinding[Msg]] = [],
   label : String,
@@ -332,7 +397,7 @@ fn[Msg] button(
 /// Void input element (no children). Pair with pure payload descriptors such as
 /// `on_input`, `on_keydown`, or `on_pointer_down`.
 #cfg(target="js")
-fn[Msg] input(
+pub fn[Msg] input(
   attrs? : Array[Attribute] = [],
   events? : Array[EventBinding[Msg]] = [],
 ) -> Html[Msg] {
@@ -341,7 +406,7 @@ fn[Msg] input(
 
 ///|
 #cfg(target="js")
-fn[Msg] ul(
+pub fn[Msg] ul(
   attrs? : Array[Attribute] = [],
   events? : Array[EventBinding[Msg]] = [],
   children : Array[Html[Msg]],
@@ -351,7 +416,7 @@ fn[Msg] ul(
 
 ///|
 #cfg(target="js")
-fn[Msg] li(
+pub fn[Msg] li(
   attrs? : Array[Attribute] = [],
   events? : Array[EventBinding[Msg]] = [],
   children : Array[Html[Msg]],
@@ -364,23 +429,25 @@ fn[Msg] li(
 /// (use a business id, not the array index). Reordering keys preserves the DOM
 /// node for each key; changing a key drops the old node and creates a new one.
 #cfg(target="js")
-fn[Msg] keyed_node(
+pub fn[Msg] keyed_node(
   tag : String,
   attrs? : Array[Attribute] = [],
   events? : Array[EventBinding[Msg]] = [],
   children : Array[(String, Html[Msg])],
 ) -> Html[Msg] {
-  KeyedElem(
-    tag~,
-    attrs=attrs.copy(),
-    events=events.copy(),
-    children=children.copy(),
-  )
+  {
+    repr: KeyedElem(
+      tag~,
+      attrs=attrs.copy(),
+      events=events.copy(),
+      children=children.copy(),
+    ),
+  }
 }
 
 ///|
 #cfg(target="js")
-fn[Msg] keyed_ul(
+pub fn[Msg] keyed_ul(
   attrs? : Array[Attribute] = [],
   events? : Array[EventBinding[Msg]] = [],
   children : Array[(String, Html[Msg])],
@@ -390,7 +457,7 @@ fn[Msg] keyed_ul(
 
 ///|
 #cfg(target="js")
-fn[Msg] keyed_ol(
+pub fn[Msg] keyed_ol(
   attrs? : Array[Attribute] = [],
   events? : Array[EventBinding[Msg]] = [],
   children : Array[(String, Html[Msg])],

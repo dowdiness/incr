@@ -228,6 +228,87 @@ test "scheduler: effects run outside tracked Derived computations" {
 }
 
 ///|
+test "scheduler: Cmd::after_flush waits for renderer drain" {
+  let runtime = @incr.Runtime()
+  let scope = @incr.Scope::new(runtime)
+  let count = scope.input_field(0, label="scheduler.after_flush.count")
+  let title = scope.input_field("Cmd", label="scheduler.after_flush.title")
+  let events : Ref[Array[String]] = Ref([])
+  let update : (SchedulerMsg) -> Cmd[SchedulerMsg] = msg => {
+    match msg {
+      Start => {
+        count.set(1)
+        Cmd::after_flush(_ => events.val.push("after count=\{count.peek()}"))
+      }
+      _ => Cmd::none()
+    }
+  }
+  let view : () -> SchedulerView raise Failure = () => {
+    count: count.get(),
+    title: title.get(),
+  }
+  let program = Program::Program(
+    runtime,
+    scope,
+    update,
+    view,
+    label="scheduler.after_flush.view",
+  )
+
+  inspect(program.dispatch(Start), content="true")
+  inspect(events.val.join(","), content="")
+  program.drain_after_flush()
+  inspect(events.val.join(","), content="after count=1")
+
+  program.dispose()
+}
+
+///|
+test "scheduler: Cmd::after_flush can enqueue follow-up messages" {
+  let runtime = @incr.Runtime()
+  let scope = @incr.Scope::new(runtime)
+  let count = scope.input_field(0, label="scheduler.after_flush_message.count")
+  let title = scope.input_field(
+    "Cmd",
+    label="scheduler.after_flush_message.title",
+  )
+  let events : Ref[Array[String]] = Ref([])
+  let update : (SchedulerMsg) -> Cmd[SchedulerMsg] = msg => {
+    match msg {
+      Start => {
+        count.set(1)
+        Cmd::after_flush(enqueue => enqueue(Cmd::message(FollowUp)))
+      }
+      FollowUp => {
+        events.val.push("followup count=\{count.peek()}")
+        count.set(2)
+        Cmd::none()
+      }
+      _ => Cmd::none()
+    }
+  }
+  let view : () -> SchedulerView raise Failure = () => {
+    count: count.get(),
+    title: title.get(),
+  }
+  let program = Program::Program(
+    runtime,
+    scope,
+    update,
+    view,
+    label="scheduler.after_flush_message.view",
+  )
+
+  inspect(program.dispatch(Start), content="true")
+  inspect(events.val.join(","), content="")
+  program.drain_after_flush()
+  inspect(events.val.join(","), content="followup count=1")
+  inspect(program.read_view_or_abort().count, content="2")
+
+  program.dispose()
+}
+
+///|
 test "scheduler: batched model writes remain atomic from view perspective" {
   let runtime = @incr.Runtime()
   let scope = @incr.Scope::new(runtime)

@@ -331,6 +331,124 @@ extern "js" fn test_event_element() -> DomElement =
 
 ///|
 #cfg(target="js")
+extern "js" fn test_install_focus_dom() -> DomElement =
+  #| () => {
+  #|   const byId = new Map();
+  #|   globalThis.__incrTeaPreviousDocument = globalThis.document;
+  #|   globalThis.__incrTeaPreviousWindow = globalThis.window;
+  #|   globalThis.__incrTeaFocusedId = "";
+  #|   globalThis.__incrTeaSelectedId = "";
+  #|   globalThis.__incrTeaRafs = [];
+  #|   class TextNode {
+  #|     constructor(value) { this.nodeValue = String(value); this.parentNode = null; }
+  #|   }
+  #|   class Element {
+  #|     constructor(tag) {
+  #|       this.tagName = String(tag).toUpperCase();
+  #|       this.children = [];
+  #|       this.parentNode = null;
+  #|       this.attributes = new Map();
+  #|       this.listeners = new Map();
+  #|       this.value = "";
+  #|     }
+  #|     appendChild(child) {
+  #|       if (child.parentNode) child.parentNode.removeChild(child);
+  #|       this.children.push(child);
+  #|       child.parentNode = this;
+  #|     }
+  #|     replaceChildren(child) {
+  #|       for (const old of this.children) old.parentNode = null;
+  #|       this.children = [];
+  #|       if (child) this.appendChild(child);
+  #|     }
+  #|     replaceChild(next, old) {
+  #|       const index = this.children.indexOf(old);
+  #|       if (index < 0) throw new Error("old child missing");
+  #|       if (next.parentNode) next.parentNode.removeChild(next);
+  #|       old.parentNode = null;
+  #|       this.children[index] = next;
+  #|       next.parentNode = this;
+  #|     }
+  #|     removeChild(child) {
+  #|       const index = this.children.indexOf(child);
+  #|       if (index >= 0) this.children.splice(index, 1);
+  #|       child.parentNode = null;
+  #|     }
+  #|     setAttribute(name, value) {
+  #|       const stringValue = String(value);
+  #|       this.attributes.set(name, stringValue);
+  #|       if (name === "id") byId.set(stringValue, this);
+  #|     }
+  #|     removeAttribute(name) {
+  #|       if (name === "id") byId.delete(this.attributes.get(name));
+  #|       this.attributes.delete(name);
+  #|     }
+  #|     addEventListener(name, listener) { this.listeners.set(name, listener); }
+  #|     querySelector(selector) {
+  #|       return selector.startsWith("#") ? (byId.get(selector.slice(1)) ?? null) : null;
+  #|     }
+  #|     focus() { globalThis.__incrTeaFocusedId = this.attributes.get("id") ?? ""; }
+  #|     select() { globalThis.__incrTeaSelectedId = this.attributes.get("id") ?? ""; }
+  #|   }
+  #|   globalThis.document = {
+  #|     createElement(tag) { return new Element(tag); },
+  #|     createTextNode(value) { return new TextNode(value); },
+  #|     getElementById(id) { return byId.get(String(id)) ?? null; },
+  #|   };
+  #|   globalThis.window = {
+  #|     requestAnimationFrame(callback) {
+  #|       globalThis.__incrTeaRafs.push(callback);
+  #|       return globalThis.__incrTeaRafs.length;
+  #|     },
+  #|   };
+  #|   return new Element("host");
+  #| }
+
+///|
+#cfg(target="js")
+extern "js" fn test_run_next_raf() -> Unit =
+  #| () => {
+  #|   const callback = globalThis.__incrTeaRafs.shift();
+  #|   if (!callback) throw new Error("missing queued rAF");
+  #|   callback();
+  #| }
+
+///|
+#cfg(target="js")
+extern "js" fn test_pending_raf_count() -> Int =
+  #| () => globalThis.__incrTeaRafs.length
+
+///|
+#cfg(target="js")
+extern "js" fn test_focused_id() -> String =
+  #| () => globalThis.__incrTeaFocusedId ?? ""
+
+///|
+#cfg(target="js")
+extern "js" fn test_selected_id() -> String =
+  #| () => globalThis.__incrTeaSelectedId ?? ""
+
+///|
+#cfg(target="js")
+extern "js" fn test_restore_dom() -> Unit =
+  #| () => {
+  #|   if (globalThis.__incrTeaPreviousDocument === undefined) {
+  #|     delete globalThis.document;
+  #|   } else {
+  #|     globalThis.document = globalThis.__incrTeaPreviousDocument;
+  #|   }
+  #|   if (globalThis.__incrTeaPreviousWindow === undefined) {
+  #|     delete globalThis.window;
+  #|   } else {
+  #|     globalThis.window = globalThis.__incrTeaPreviousWindow;
+  #|   }
+  #|   delete globalThis.__incrTeaPreviousDocument;
+  #|   delete globalThis.__incrTeaPreviousWindow;
+  #|   delete globalThis.__incrTeaRafs;
+  #| }
+
+///|
+#cfg(target="js")
 extern "js" fn test_trigger_keydown(
   element : DomElement,
   key : String,
@@ -483,6 +601,86 @@ fn renderer_counter_program(
     ])
   }
   Program::Program(runtime, scope, update, view, label="\{label}.view")
+}
+
+///|
+#cfg(target="js")
+test "#268: renderer schedules after_flush even when Html is unchanged" {
+  let host = test_install_focus_dom()
+  let runtime = @incr.Runtime()
+  let renderer : BrowserRenderer[RendererMsg] = BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  let scope = @incr.Scope::new(runtime)
+  let events : Ref[Array[String]] = Ref([])
+  let update : (RendererMsg) -> Cmd[RendererMsg] = _ => {
+    Cmd::after_flush(_ => events.val.push("after-flush"))
+  }
+  let view : () -> Html[RendererMsg] raise Failure = () => div([text("stable")])
+  let program = Program::Program(
+    runtime,
+    scope,
+    update,
+    view,
+    label="renderer.after_flush.view",
+  )
+  ignore(renderer.mount(host, program))
+
+  inspect(program.dispatch(Increment), content="true")
+  inspect(events.val.join(","), content="")
+  inspect(test_pending_raf_count(), content="1")
+  test_run_next_raf()
+  inspect(events.val.join(","), content="after-flush")
+
+  renderer.dispose()
+  test_restore_dom()
+}
+
+///|
+#cfg(target="js")
+test "#268: focus command runs after a scheduled DOM flush" {
+  let host = test_install_focus_dom()
+  let runtime = @incr.Runtime()
+  let renderer : BrowserRenderer[RendererMsg] = BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  let scope = @incr.Scope::new(runtime)
+  let editing = scope.input_field(false, label="renderer.focus.editing")
+  let update : (RendererMsg) -> Cmd[RendererMsg] = msg => {
+    match msg {
+      TogglePanel => {
+        editing.set(true)
+        Cmd::focus_element_by_id("focus-target", select=true)
+      }
+      _ => Cmd::none()
+    }
+  }
+  let view : () -> Html[RendererMsg] raise Failure = () => {
+    if editing.get() {
+      input(attrs=[attr("id", "focus-target")])
+    } else {
+      div([text("closed")])
+    }
+  }
+  let program = Program::Program(
+    runtime,
+    scope,
+    update,
+    view,
+    label="renderer.focus.view",
+  )
+  ignore(renderer.mount(host, program))
+
+  inspect(program.dispatch(TogglePanel), content="true")
+  inspect(test_focused_id(), content="")
+  inspect(test_selected_id(), content="")
+  inspect(test_pending_raf_count(), content="1")
+  test_run_next_raf()
+  inspect(test_focused_id(), content="focus-target")
+  inspect(test_selected_id(), content="focus-target")
+
+  renderer.dispose()
+  test_restore_dom()
 }
 
 ///|
@@ -678,6 +876,38 @@ test "#209: detach removes only the targeted root, leaving siblings mounted" {
 
   prog_a.dispose()
   prog_b.dispose()
+}
+
+///|
+#cfg(target="js")
+test "#268: destroy ignores roots owned by another renderer" {
+  let runtime = @incr.Runtime()
+  let renderer_a : BrowserRenderer[RendererMsg] = BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  let renderer_b : BrowserRenderer[RendererMsg] = BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  let program = renderer_counter_program(runtime, "destroy.foreign")
+  let root = BrowserRoot::BrowserRoot(
+    program,
+    test_fake_host(),
+    renderer_b.stats(),
+  )
+  renderer_b.roots.push(root)
+  renderer_b.view_ids.val.push(program.view_id())
+
+  renderer_a.destroy(root)
+  inspect(program.is_disposed(), content="false")
+  inspect(renderer_b.roots.length(), content="1")
+  inspect(renderer_b.view_ids.val.length(), content="1")
+
+  renderer_b.destroy(root)
+  inspect(program.is_disposed(), content="true")
+  inspect(renderer_b.roots.length(), content="0")
+  inspect(renderer_b.view_ids.val.length(), content="0")
+  renderer_a.dispose()
+  renderer_b.dispose()
 }
 
 ///|

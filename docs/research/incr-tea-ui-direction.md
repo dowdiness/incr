@@ -47,7 +47,8 @@ Borrow the authoring ergonomics, not the runtime model wholesale:
 - wrapper-style HTML authoring and optional parameters;
 - an Eq-safe attribute-builder escape hatch for common editor/demo attributes;
 - keyed-child conventions based on stable business IDs;
-- TEA vocabulary (`Model`, `Msg`, `update`, `view`, `Cmd`, subscriptions).
+- TEA vocabulary (`Model`, `Msg`, `update`, `view`, `Cmd`, subscriptions);
+- post-render command boundaries for DOM effects such as inline-editor focus.
 
 Do **not** copy closure-valued event handlers into `Html`. `incr_tea` relies on
 `Html : Eq` for backdating, so event descriptors must stay pure data and DOM
@@ -144,34 +145,44 @@ existing diff path.
    The DOM applier diffs in place when key order is unchanged, but still
    re-appends moved keyed children; treat any future move-minimization pass as a
    separate measured change.
-3. **Expand Eq-safe events.** The #249 slice adds typed pure descriptors for
+3. **Expose only the experimental surface needed by real in-repo drivers.**
+   Issue [#268] starts this by making `Program`, cacheable `Html`, `Attrs`, pure
+   event descriptors, payload ids, and `BrowserRenderer` roots/stats importable
+   by sibling examples. Keep the surface explicitly experimental until a
+   side-by-side typed spreadsheet proves it.
+4. **Keep DOM effects at the post-render boundary.** `Cmd::effect` remains the
+   synchronous post-batch hook; `Cmd::after_flush` and
+   `Cmd::focus_element_by_id` run after `BrowserRenderer` flushes mounted roots,
+   which is the right place for inline-editor focus/select without storing
+   closures or DOM objects in `Html`.
+5. **Expand Eq-safe events.** The #249 slice adds typed pure descriptors for
    text input, keyboard, and pointer payload events while keeping resolver logic
    at the mount/browser boundary. Future editor demos can add focus/blur,
    composition, or selection families by the same descriptor/resolver pattern.
-4. **Make authoring tolerable without sacrificing backdating.** Issue [#248]
+6. **Make authoring tolerable without sacrificing backdating.** Issue [#248]
    added a small `Attrs::build()` convenience layer plus `ul` and keyed list
    wrappers. It keeps `Html` closure-free, uses explicit ordered child
    arrays, and treats `.attr(name, value)` as the escape hatch rather than
    adopting Rabbita's closure-valued event handlers or map-shaped keyed
    children.
-5. **Build an editor-shaped driver.** The first semantic-keyed editor demo uses
+7. **Build an editor-shaped driver.** The first semantic-keyed editor demo uses
    stable semantic ids, local text edits, selection/focus checks, a viewport/order
    projection root, and a separate inspector/diagnostics root as the primary
    proof point for `incr_tea`. Follow-up: [#251].
-6. **Keep direct patching narrow and measured.** The #254 prototype shows that
+8. **Keep direct patching narrow and measured.** The #254 prototype shows that
    pure direct leaf/attribute descriptors plus mount-boundary watched string
    resolvers can patch the row/leaf hot path in ~4–5 µs at N=256 without
    storing closures or watches in `Html`. Generalize only behind similarly
    shaped editor evidence; keep the existing value-level renderer as the
    fallback for structural and keyed-identity cases.
-7. **Gate island-style activation on larger hidden-subtree evidence.** Use
+9. **Gate island-style activation on larger hidden-subtree evidence.** Use
    visibility/idle/manual triggers to decide when roots or panels hold watches
    and participate in flushes only after editor-shaped hidden panels exceed the
    current small-panel cost envelope. Follow-up: [#255].
-8. **Explore host-framework boundaries.** Test whether custom-element style
+10. **Explore host-framework boundaries.** Test whether custom-element style
    mounts make `incr_tea` roots easier to embed and lifecycle-test. Follow-up:
    [#256].
-9. **Compare against real adjacent systems.** Use shared workloads before copying
+11. **Compare against real adjacent systems.** Use shared workloads before copying
    Rabbita VDOM, Luna direct DOM, or Qwik lazy-boundary patterns. Follow-up:
    [#257].
 
@@ -218,6 +229,8 @@ existing diff path.
 - [#255] Prototype visibility/idle-driven Watch activation for UI islands.
 - [#256] Explore WebComponent/custom-element mount boundaries.
 - [#257] Compare Rabbita, Luna, and `incr_tea` on shared UI-shaped benchmarks.
+- [#268] Make `examples/incr_tea` reusable enough for a side-by-side typed
+  spreadsheet demo without sacrificing `Html : Eq`.
 
 [#241]: https://github.com/dowdiness/incr/issues/241
 [#248]: https://github.com/dowdiness/incr/issues/248
@@ -229,3 +242,4 @@ existing diff path.
 [#255]: https://github.com/dowdiness/incr/issues/255
 [#256]: https://github.com/dowdiness/incr/issues/256
 [#257]: https://github.com/dowdiness/incr/issues/257
+[#268]: https://github.com/dowdiness/incr/issues/268

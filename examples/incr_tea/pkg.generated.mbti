@@ -8,20 +8,104 @@ import {
 }
 
 // Values
+pub fn aria_attr(String, String) -> Attribute
+
+pub fn[Msg] article(attrs? : Array[Attribute], events? : Array[EventBinding[Msg]], Array[Html[Msg]]) -> Html[Msg]
+
+pub fn attr(String, String) -> Attribute
+
+pub fn[Msg] button(attrs? : Array[Attribute], events? : Array[EventBinding[Msg]], String) -> Html[Msg]
+
+pub fn class_attr(String) -> Attribute
+
+pub fn[Msg] div(attrs? : Array[Attribute], events? : Array[EventBinding[Msg]], Array[Html[Msg]]) -> Html[Msg]
+
+pub fn dom_get_element_by_id(String) -> DomElement
+
+pub fn dom_query_child_by_id(DomElement, String) -> DomElement
+
+pub fn[Msg] h2(attrs? : Array[Attribute], events? : Array[EventBinding[Msg]], Array[Html[Msg]]) -> Html[Msg]
+
+pub fn[Msg] h3(attrs? : Array[Attribute], events? : Array[EventBinding[Msg]], Array[Html[Msg]]) -> Html[Msg]
+
+pub fn[Msg] input(attrs? : Array[Attribute], events? : Array[EventBinding[Msg]]) -> Html[Msg]
+
 pub fn install_dom_bench_api() -> Unit
 
 pub fn install_ui_compare_dom_bench_api() -> Unit
 
+pub fn[Msg] keyed_node(String, attrs? : Array[Attribute], events? : Array[EventBinding[Msg]], Array[(String, Html[Msg])]) -> Html[Msg]
+
+pub fn[Msg] keyed_ol(attrs? : Array[Attribute], events? : Array[EventBinding[Msg]], Array[(String, Html[Msg])]) -> Html[Msg]
+
+pub fn[Msg] keyed_ul(attrs? : Array[Attribute], events? : Array[EventBinding[Msg]], Array[(String, Html[Msg])]) -> Html[Msg]
+
+pub fn[Msg] li(attrs? : Array[Attribute], events? : Array[EventBinding[Msg]], Array[Html[Msg]]) -> Html[Msg]
+
 pub fn mount_browser_demo(String) -> Unit
+
+pub fn[Msg] node(String, attrs? : Array[Attribute], events? : Array[EventBinding[Msg]], Array[Html[Msg]]) -> Html[Msg]
+
+pub fn[Msg] on_click(Msg, prevent_default? : Bool) -> EventBinding[Msg]
+
+pub fn[Msg] on_input(tag~ : String, prevent_default? : Bool) -> EventBinding[Msg]
+
+pub fn[Msg] on_keydown(id~ : KeyEventId, prevent_default? : Bool) -> EventBinding[Msg]
+
+pub fn[Msg] on_pointer_down(id~ : PointerEventId, prevent_default? : Bool) -> EventBinding[Msg]
+
+pub fn[Msg] p(attrs? : Array[Attribute], events? : Array[EventBinding[Msg]], Array[Html[Msg]]) -> Html[Msg]
+
+pub fn[Msg] span(attrs? : Array[Attribute], events? : Array[EventBinding[Msg]], Array[Html[Msg]]) -> Html[Msg]
+
+pub fn[Msg] text(String) -> Html[Msg]
+
+pub fn[Msg] ul(attrs? : Array[Attribute], events? : Array[EventBinding[Msg]], Array[Html[Msg]]) -> Html[Msg]
 
 // Errors
 
 // Types and methods
+pub struct Attribute {
+  // private fields
+} derive(Eq, @debug.Debug)
+
+pub struct Attrs {
+  // private fields
+}
+pub fn Attrs::append(Self, Attribute) -> Self
+pub fn Attrs::aria(Self, String, String) -> Self
+pub fn Attrs::aria_bool(Self, String, Bool) -> Self
+pub fn Attrs::attr(Self, String, String) -> Self
+pub fn Attrs::build() -> Self
+pub fn Attrs::class(Self, String) -> Self
+pub fn Attrs::data(Self, String, String) -> Self
+pub fn Attrs::placeholder(Self, String) -> Self
+pub fn Attrs::role(Self, String) -> Self
+pub fn Attrs::to_array(Self) -> Array[Attribute]
+pub fn Attrs::value(Self, String) -> Self
+
+pub struct BrowserRenderer[Msg] {
+  // private fields
+}
+pub fn[Msg : Eq] BrowserRenderer::BrowserRenderer(@cells.Runtime, after_flush? : (RenderStats) -> Unit) -> Self[Msg]
+pub fn[Msg] BrowserRenderer::destroy(Self[Msg], BrowserRoot[Msg]) -> Unit
+pub fn[Msg] BrowserRenderer::detach(Self[Msg], BrowserRoot[Msg]) -> Unit
+pub fn[Msg] BrowserRenderer::dispose(Self[Msg]) -> Unit
+pub fn[Msg : Eq] BrowserRenderer::mount(Self[Msg], DomElement, Program[Msg, Html[Msg]], on_input? : (TextInputId, TextInputPayload) -> Msg?, on_key? : (KeyEventId, KeyPayload) -> Msg?, on_pointer? : (PointerEventId, PointerPayload) -> Msg?) -> BrowserRoot[Msg]
+pub fn[Msg : Eq] BrowserRenderer::reattach(Self[Msg], BrowserRoot[Msg]) -> Unit
+pub fn[Msg] BrowserRenderer::stats(Self[Msg]) -> RenderStats
+
+pub struct BrowserRoot[Msg] {
+  // private fields
+}
+
 pub struct Cmd[Msg] {
   // private fields
 }
+pub fn[Msg] Cmd::after_flush(((Self[Msg]) -> Unit) -> Unit) -> Self[Msg]
 pub fn[Msg] Cmd::batch(ArrayView[Self[Msg]]) -> Self[Msg]
 pub fn[Msg] Cmd::effect(((Self[Msg]) -> Unit) -> Unit) -> Self[Msg]
+pub fn[Msg] Cmd::focus_element_by_id(String, select? : Bool) -> Self[Msg]
 pub fn[Msg] Cmd::message(Msg) -> Self[Msg]
 pub fn[Msg] Cmd::none() -> Self[Msg]
 
@@ -58,7 +142,72 @@ pub(all) struct CounterView {
 
 type DemoMsg derive(Eq, @debug.Debug)
 
-type Program[Msg, View]
+#external
+pub type DomElement
+
+pub struct EventBinding[Msg] {
+  // private fields
+} derive(Eq, @debug.Debug)
+
+pub struct Html[Msg] {
+  // private fields
+} derive(Eq, @debug.Debug)
+
+pub struct KeyEventId {
+  name : String
+} derive(Eq, @debug.Debug)
+pub fn KeyEventId::KeyEventId(String) -> Self
+
+pub struct KeyPayload {
+  key : String
+  code : String
+  alt_key : Bool
+  ctrl_key : Bool
+  meta_key : Bool
+  shift_key : Bool
+  repeat : Bool
+}
+pub fn KeyPayload::KeyPayload(String, String, Bool, Bool, Bool, Bool, Bool) -> Self
+
+pub struct PointerEventId {
+  name : String
+} derive(Eq, @debug.Debug)
+pub fn PointerEventId::PointerEventId(String) -> Self
+
+pub struct PointerPayload {
+  pointer_id : Int
+  pointer_type : String
+  client_x : Double
+  client_y : Double
+  button : Int
+  buttons : Int
+  alt_key : Bool
+  ctrl_key : Bool
+  meta_key : Bool
+  shift_key : Bool
+}
+pub fn PointerPayload::PointerPayload(Int, String, Double, Double, Int, Int, Bool, Bool, Bool, Bool) -> Self
+
+pub struct Program[Msg, View] {
+  // private fields
+}
+pub fn[Msg, View : Eq] Program::Program(@cells.Runtime, @cells.Scope, (Msg) -> Cmd[Msg], () -> View raise Failure, label? : String) -> Self[Msg, View]
+pub fn[Msg, View] Program::dispatch(Self[Msg, View], Msg) -> Bool
+pub fn[Msg, View] Program::dispose(Self[Msg, View]) -> Unit
+pub fn[Msg, View] Program::is_disposed(Self[Msg, View]) -> Bool
+pub fn[Msg, View] Program::read_view(Self[Msg, View]) -> View?
+pub fn[Msg, View] Program::read_view_or_abort(Self[Msg, View]) -> View
+pub fn[Msg, View] Program::runtime(Self[Msg, View]) -> @cells.Runtime
+pub fn[Msg : Eq, View : Eq] Program::with_subscriptions(@cells.Runtime, @cells.Scope, (Msg) -> Cmd[Msg], () -> View raise Failure, () -> @hashmap.HashMap[SubKey, SubSpec[Msg]] raise Failure, label? : String) -> Self[Msg, View]
+
+pub struct RenderStats {
+  // private fields
+}
+pub fn RenderStats::RenderStats() -> Self
+pub fn RenderStats::frame_flushes(Self) -> Int
+pub fn RenderStats::patch_attempts(Self) -> Int
+pub fn RenderStats::skipped_patches(Self) -> Int
+pub fn RenderStats::view_recomputes(Self) -> Int
 
 pub struct SubKey {
   namespace_id : String
@@ -69,6 +218,16 @@ pub fn SubKey::SubKey(String, String) -> Self
 pub enum SubSpec[Msg] {
   Timer(Int, Msg)
 } derive(Eq, @debug.Debug)
+
+pub struct TextInputId {
+  name : String
+} derive(Eq, @debug.Debug)
+pub fn TextInputId::TextInputId(String) -> Self
+
+pub struct TextInputPayload {
+  value : String
+}
+pub fn TextInputPayload::TextInputPayload(String) -> Self
 
 // Type aliases
 pub type Subscriptions[Msg] = @hashmap.HashMap[SubKey, SubSpec[Msg]]

@@ -1,22 +1,46 @@
 ///|
 /// Mutable instrumentation counters for mounted watched HTML roots.
 #cfg(target="js")
-priv struct RenderStats {
-  mut view_recomputes : Int
-  mut patch_attempts : Int
-  mut skipped_patches : Int
-  mut frame_flushes : Int
+pub struct RenderStats {
+  priv mut view_recomputes : Int
+  priv mut patch_attempts : Int
+  priv mut skipped_patches : Int
+  priv mut frame_flushes : Int
 }
 
 ///|
 #cfg(target="js")
-fn RenderStats::RenderStats() -> RenderStats {
+pub fn RenderStats::RenderStats() -> RenderStats {
   {
     view_recomputes: 0,
     patch_attempts: 0,
     skipped_patches: 0,
     frame_flushes: 0,
   }
+}
+
+///|
+/// Number of mounted view-root recomputes observed by renderer instrumentation.
+pub fn RenderStats::view_recomputes(self : RenderStats) -> Int {
+  self.view_recomputes
+}
+
+///|
+/// Number of DOM patch attempts performed for changed `Html` values.
+pub fn RenderStats::patch_attempts(self : RenderStats) -> Int {
+  self.patch_attempts
+}
+
+///|
+/// Number of flush reads skipped because the `Html` value was unchanged.
+pub fn RenderStats::skipped_patches(self : RenderStats) -> Int {
+  self.skipped_patches
+}
+
+///|
+/// Number of animation-frame flush callbacks completed by the renderer.
+pub fn RenderStats::frame_flushes(self : RenderStats) -> Int {
+  self.frame_flushes
 }
 
 ///|

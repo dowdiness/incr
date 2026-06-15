@@ -5,16 +5,18 @@
 /// `Runtime::batch`, and exposes the pure view through a persistent `Watch`.
 /// It is intentionally small: subscriptions, rAF, DOM rendering, and async
 /// command adapters are follow-up edges for the Incremental TEA prototype.
-struct Program[Msg, View] {
-  runtime : @incr.Runtime
-  scope : @incr.Scope
-  update : (Msg) -> Cmd[Msg]
-  messages : @queue.Queue[Msg]
-  mut is_draining : Bool
-  view_watch : @incr.Watch[View]
-  subscriptions_watch : @incr.Watch[Subscriptions[Msg]]?
-  sub_manager : SubscriptionsManager[Msg]?
-  _view_id : @incr.CellId
+pub struct Program[Msg, View] {
+  priv runtime : @incr.Runtime
+  priv scope : @incr.Scope
+  priv update : (Msg) -> Cmd[Msg]
+  priv messages : @queue.Queue[Msg]
+  priv after_flush : @queue.Queue[((Cmd[Msg]) -> Unit) -> Unit]
+  priv after_flush_schedulers : Array[() -> Unit]
+  priv mut is_draining : Bool
+  priv view_watch : @incr.Watch[View]
+  priv subscriptions_watch : @incr.Watch[Subscriptions[Msg]]?
+  priv sub_manager : SubscriptionsManager[Msg]?
+  priv _view_id : @incr.CellId
 }
 
 ///|
@@ -24,7 +26,7 @@ struct Program[Msg, View] {
 /// `Watch` with the same scope, and primes the watch once so `Runtime::gc()` can
 /// see the view root's current upstream dependencies before the first external
 /// read.
-fn[Msg, View : Eq] Program::Program(
+pub fn[Msg, View : Eq] Program::Program(
   runtime : @incr.Runtime,
   scope : @incr.Scope,
   update : (Msg) -> Cmd[Msg],
@@ -43,6 +45,8 @@ fn[Msg, View : Eq] Program::Program(
     scope,
     update,
     messages: @queue.Queue([]),
+    after_flush: @queue.Queue([]),
+    after_flush_schedulers: [],
     is_draining: false,
     view_watch,
     subscriptions_watch: None,
@@ -56,7 +60,7 @@ fn[Msg, View : Eq] Program::Program(
 ///
 /// The `subscriptions` closure is evaluated as a tracked `Derived` and compared
 /// against the previous rendered subscriptions after each handled message.
-fn[Msg : Eq, View : Eq] Program::with_subscriptions(
+pub fn[Msg : Eq, View : Eq] Program::with_subscriptions(
   runtime : @incr.Runtime,
   scope : @incr.Scope,
   update : (Msg) -> Cmd[Msg],
@@ -78,6 +82,8 @@ fn[Msg : Eq, View : Eq] Program::with_subscriptions(
     scope,
     update,
     messages: @queue.Queue([]),
+    after_flush: @queue.Queue([]),
+    after_flush_schedulers: [],
     is_draining: false,
     view_watch,
     subscriptions_watch: Some(subscriptions_watch),
@@ -93,7 +99,10 @@ fn[Msg : Eq, View : Eq] Program::with_subscriptions(
 ///
 /// Returns `false` when the component has already been disposed; this prototype
 /// ignores post-disposal messages deterministically instead of aborting.
-fn[Msg, View] Program::dispatch(self : Program[Msg, View], msg : Msg) -> Bool {
+pub fn[Msg, View] Program::dispatch(
+  self : Program[Msg, View],
+  msg : Msg,
+) -> Bool {
   guard !self.scope.is_disposed() else { false }
   self.messages.push(msg)
   if !self.is_draining {
@@ -138,6 +147,43 @@ fn[Msg, View] Program::run_cmd(
       }
     Message(msg) => self.messages.push(msg)
     Effect(callback) => callback(next => self.run_cmd(next))
+    AfterFlush(callback) => {
+      self.after_flush.push(callback)
+      self.request_after_flush()
+    }
+  }
+}
+
+///|
+fn[Msg, View] Program::add_after_flush_scheduler(
+  self : Program[Msg, View],
+  schedule : () -> Unit,
+) -> Unit {
+  self.after_flush_schedulers.push(schedule)
+}
+
+///|
+fn[Msg, View] Program::request_after_flush(self : Program[Msg, View]) -> Unit {
+  for schedule in self.after_flush_schedulers {
+    schedule()
+  }
+}
+
+///|
+fn[Msg, View] Program::drain_after_flush(self : Program[Msg, View]) -> Unit {
+  guard !self.scope.is_disposed() else { return }
+  let count = self.after_flush.length()
+  for _ in 0..<count {
+    guard !self.scope.is_disposed() else { return }
+    match self.after_flush.pop() {
+      Some(callback) => {
+        callback(next => self.run_cmd(next))
+        if !self.is_draining {
+          self.drain_messages()
+        }
+      }
+      None => ()
+    }
   }
 }
 
@@ -156,7 +202,7 @@ fn[Msg, View] Program::reconcile_subscriptions(
 
 ///|
 /// Reads the current watched view, or `None` after disposal.
-fn[Msg, View] Program::read_view(self : Program[Msg, View]) -> View? {
+pub fn[Msg, View] Program::read_view(self : Program[Msg, View]) -> View? {
   if self.scope.is_disposed() {
     None
   } else {
@@ -166,7 +212,9 @@ fn[Msg, View] Program::read_view(self : Program[Msg, View]) -> View? {
 
 ///|
 /// Reads the current watched view and aborts if the program has been disposed.
-fn[Msg, View] Program::read_view_or_abort(self : Program[Msg, View]) -> View {
+pub fn[Msg, View] Program::read_view_or_abort(
+  self : Program[Msg, View],
+) -> View {
   match self.read_view() {
     Some(view) => view
     None => abort("Program::read_view_or_abort called after dispose")
@@ -175,13 +223,13 @@ fn[Msg, View] Program::read_view_or_abort(self : Program[Msg, View]) -> View {
 
 ///|
 /// Returns the runtime backing this program.
-fn[Msg, View] Program::runtime(self : Program[Msg, View]) -> @incr.Runtime {
+pub fn[Msg, View] Program::runtime(self : Program[Msg, View]) -> @incr.Runtime {
   self.runtime
 }
 
 ///|
 /// Returns whether the component instance has been disposed.
-fn[Msg, View] Program::is_disposed(self : Program[Msg, View]) -> Bool {
+pub fn[Msg, View] Program::is_disposed(self : Program[Msg, View]) -> Bool {
   self.scope.is_disposed()
 }
 
@@ -189,7 +237,7 @@ fn[Msg, View] Program::is_disposed(self : Program[Msg, View]) -> Bool {
 /// Disposes the component scope, including the watched view root.
 ///
 /// Disposal is idempotent.
-fn[Msg, View] Program::dispose(self : Program[Msg, View]) -> Unit {
+pub fn[Msg, View] Program::dispose(self : Program[Msg, View]) -> Unit {
   match self.sub_manager {
     Some(manager) => manager.dispose()
     None => ()
