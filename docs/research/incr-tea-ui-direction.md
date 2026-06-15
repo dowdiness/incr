@@ -146,7 +146,8 @@ collapsed conditionals should keep using the current dynamic-dependency skip.
 The first prototype adds `BrowserRenderer::deactivate` / `activate`: inactive
 roots remain mounted with DOM attached and their `Program`/`Watch` alive, but
 scheduled frames skip their watched-view reads until activation performs one
-catch-up flush.
+catch-up flush. The follow-up benchmark is recorded in
+[`docs/performance/2026-06-15-incr-tea-inactive-root-prototype.md`](../performance/2026-06-15-incr-tea-inactive-root-prototype.md): inactive updates stay around 4–7 µs across N=64/256/512, while activation catch-up pays the deferred visible-scale flush once.
 
 ## Near-term roadmap
 
@@ -201,9 +202,9 @@ catch-up flush.
    The #255 benchmark shows that collapsed conditionals are already cheap, while
    hidden-mounted editor-shaped subtrees pay visible-update costs. The initial
    `BrowserRenderer::deactivate` / `activate` slice pauses watched-view reads
-   without discarding DOM; the next step should connect it to visibility/idle/
-   manual triggers and compare against the hidden-mounted rows. Follow-up:
-   [#255].
+   without discarding DOM and benchmarks inactive updates at collapsed-update
+   scale; the next step should connect it to visibility/idle/manual triggers.
+   Follow-up: [#255].
 10. **Explore host-framework boundaries.** Test whether custom-element style
    mounts make `incr_tea` roots easier to embed and lifecycle-test. Follow-up:
    [#256].

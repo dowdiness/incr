@@ -292,7 +292,8 @@ The browser demo includes:
   through a tracked `Derived[Subscriptions]` map and diffed into a side-effect
   handle set.
 Instrumentation is visible in the demo and counts mounted-root view recomputes,
-DOM patch attempts, skipped patches, and rAF flushes.
+DOM patch attempts, skipped patches, rAF flushes, inactive skipped flushes, and
+activation catch-up flushes.
 
 ## DOM applier benchmark
 
@@ -337,8 +338,10 @@ The #257 mounted browser harness runs a batch matrix across `incr_tea`, Rabbita,
 and Luna in hidden attached Chromium hosts. It covers the original counter rows,
 keyed-list prepend/remove-first/reverse at N=16/64/256, hidden/visible panel
 updates, row/leaf locality rows for same-order row text/class and hot nested
-text leaf updates at N=16/64/256, and a #255 workspace-island slice comparing
-collapsed, hidden-mounted, and visible editor/sidebar/inspector updates:
+text leaf updates at N=16/64/256, a #255 workspace-island slice comparing
+collapsed, hidden-mounted, and visible editor/sidebar/inspector updates, and an
+`incr_tea`-only inactive-root slice that measures active hidden-mounted updates,
+inactive DOM-preserving updates, and activation catch-up:
 
 ```bash
 cd examples/incr_tea
@@ -354,6 +357,8 @@ The row/leaf locality follow-up is recorded in
 [`docs/performance/2026-06-14-mounted-row-leaf-locality-comparison.md`](../../docs/performance/2026-06-14-mounted-row-leaf-locality-comparison.md).
 The activation-islands measurement gate is recorded in
 [`docs/performance/2026-06-15-incr-tea-activation-islands-measurement.md`](../../docs/performance/2026-06-15-incr-tea-activation-islands-measurement.md).
+The inactive-root prototype follow-up is recorded in
+[`docs/performance/2026-06-15-incr-tea-inactive-root-prototype.md`](../../docs/performance/2026-06-15-incr-tea-inactive-root-prototype.md).
 
 ## Keyed DOM browser regression tests
 
