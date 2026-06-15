@@ -313,6 +313,7 @@ priv enum UiCompareInactiveWorkspaceOperation {
   UiCompareInactiveWorkspaceActiveUpdate
   UiCompareInactiveWorkspaceInactiveUpdate
   UiCompareInactiveWorkspaceActivationCatchUp
+  UiCompareInactiveWorkspaceInactiveBurstActivation(Int)
 }
 
 ///|
@@ -329,6 +330,21 @@ fn ui_compare_inactive_workspace_operation(
       UiCompareInactiveWorkspaceInactiveUpdate
     "activation-catch-up" | "activation_catch_up" | "activate" =>
       UiCompareInactiveWorkspaceActivationCatchUp
+    "inactive-10-updates-activation"
+    | "inactive_10_updates_activation"
+    | "inactive-10-updates-then-activation"
+    | "inactive_10_updates_then_activation" =>
+      UiCompareInactiveWorkspaceInactiveBurstActivation(10)
+    "inactive-100-updates-activation"
+    | "inactive_100_updates_activation"
+    | "inactive-100-updates-then-activation"
+    | "inactive_100_updates_then_activation" =>
+      UiCompareInactiveWorkspaceInactiveBurstActivation(100)
+    "inactive-1000-updates-activation"
+    | "inactive_1000_updates_activation"
+    | "inactive-1000-updates-then-activation"
+    | "inactive_1000_updates_then_activation" =>
+      UiCompareInactiveWorkspaceInactiveBurstActivation(1000)
     _ => abort("unknown inactive workspace operation: \{operation}")
   }
 }
@@ -342,6 +358,8 @@ fn UiCompareInactiveWorkspaceOperation::name(
     UiCompareInactiveWorkspaceActiveUpdate => "active-hidden-mounted-update"
     UiCompareInactiveWorkspaceInactiveUpdate => "inactive-update"
     UiCompareInactiveWorkspaceActivationCatchUp => "activation-catch-up"
+    UiCompareInactiveWorkspaceInactiveBurstActivation(update_count) =>
+      "inactive-\{update_count}-updates-activation"
   }
 }
 
@@ -407,6 +425,8 @@ fn UiCompareIncrInactiveWorkspaceHarness::measure_operation(
         ui_compare_dom_click_action(self.host, "hidden-mounted-update")
         self.root.flush_if_active()
       }
+      UiCompareInactiveWorkspaceInactiveBurstActivation(_) =>
+        self.renderer.deactivate(self.root)
     }
     let started = dom_bench_now_ms()
     match operation {
@@ -420,6 +440,13 @@ fn UiCompareIncrInactiveWorkspaceHarness::measure_operation(
       }
       UiCompareInactiveWorkspaceActivationCatchUp =>
         self.renderer.activate(self.root)
+      UiCompareInactiveWorkspaceInactiveBurstActivation(update_count) => {
+        for _ in 0..<update_count {
+          ui_compare_dom_click_action(self.host, "hidden-mounted-update")
+          self.root.flush_if_active()
+        }
+        self.renderer.activate(self.root)
+      }
     }
     let elapsed = dom_bench_now_ms() - started
     continue total + elapsed
@@ -440,6 +467,7 @@ fn UiCompareIncrInactiveWorkspaceHarness::dispose(
 ///|
 #cfg(target="js")
 fn ui_compare_incr_run_inactive_workspace(
+  suite_name : String,
   operation : String,
   n : Int,
   iterations : Int,
@@ -461,7 +489,7 @@ fn ui_compare_incr_run_inactive_workspace(
   dom_bench_remove_host(host)
   ui_compare_result_json(
     "incr_tea",
-    "workspace-inactive-root",
+    suite_name,
     op.name(),
     size,
     iteration_count,
