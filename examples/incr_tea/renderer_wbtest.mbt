@@ -9,6 +9,8 @@ enum RendererMsg {
   ChildOnly
   KeyCaptured(String, String, Bool, Bool)
   PointerCaptured(Int, String, Int, Bool)
+  SpreadsheetEvent(String)
+  KeyActionCaptured(String)
 } derive(Eq, Debug)
 
 ///|
@@ -465,7 +467,51 @@ extern "js" fn test_trigger_keydown(
   #|     shiftKey: true,
   #|     repeat,
   #|     preventDefault() { this.defaultPrevented = true; },
+  #|     stopPropagation() { this.propagationStopped = true; },
   #|   });
+  #| }
+
+///|
+#cfg(target="js")
+extern "js" fn test_trigger_keydown_report(
+  element : DomElement,
+  key : String,
+  code : String,
+  repeat : Bool,
+) -> String =
+  #| (element, key, code, repeat) => {
+  #|   const event = {
+  #|     key,
+  #|     code,
+  #|     altKey: false,
+  #|     ctrlKey: true,
+  #|     metaKey: false,
+  #|     shiftKey: true,
+  #|     repeat,
+  #|     defaultPrevented: false,
+  #|     propagationStopped: false,
+  #|     preventDefault() { this.defaultPrevented = true; },
+  #|     stopPropagation() { this.propagationStopped = true; },
+  #|   };
+  #|   element.__trigger("keydown", event);
+  #|   return `prevented=${event.defaultPrevented}/stopped=${event.propagationStopped}`;
+  #| }
+
+///|
+#cfg(target="js")
+extern "js" fn test_trigger_event_report(
+  element : DomElement,
+  name : String,
+) -> String =
+  #| (element, name) => {
+  #|   const event = {
+  #|     defaultPrevented: false,
+  #|     propagationStopped: false,
+  #|     preventDefault() { this.defaultPrevented = true; },
+  #|     stopPropagation() { this.propagationStopped = true; },
+  #|   };
+  #|   element.__trigger(name, event);
+  #|   return `prevented=${event.defaultPrevented}/stopped=${event.propagationStopped}`;
   #| }
 
 ///|
@@ -490,6 +536,7 @@ extern "js" fn test_trigger_pointer_down(
   #|     metaKey: true,
   #|     shiftKey: false,
   #|     preventDefault() { this.defaultPrevented = true; },
+  #|     stopPropagation() { this.propagationStopped = true; },
   #|   });
   #| }
 
@@ -574,6 +621,136 @@ test "#249: typed keyboard and pointer payloads dispatch through Program::dispat
 
   inspect(key_seen.peek(), content="Enter/Enter/repeat=true/shift=true")
   inspect(pointer_seen.peek(), content="7/pen/button=2/meta=true")
+  program.dispose()
+}
+
+///|
+#cfg(target="js")
+test "#270: const spreadsheet descriptors dispatch and apply static event actions" {
+  let runtime = @incr.Runtime()
+  let scope = @incr.Scope::new(runtime)
+  let seen = scope.input_field([], label="renderer.events.spreadsheet")
+  let update : (RendererMsg) -> Cmd[RendererMsg] = msg => {
+    match msg {
+      SpreadsheetEvent(name) => {
+        let next = seen.peek().copy()
+        next.push(name)
+        seen.set(next)
+      }
+      _ => ()
+    }
+    Cmd::none()
+  }
+  let view : () -> Html[RendererMsg] raise Failure = () => div([text("events")])
+  let program = Program::Program(
+    runtime,
+    scope,
+    update,
+    view,
+    label="renderer.spreadsheet_events.view",
+  )
+  let sink : EventSink[RendererMsg] = {
+    dispatch: msg => ignore(program.dispatch(msg)),
+    payload_resolvers: PayloadResolvers::PayloadResolvers(),
+    direct_resolvers: DirectPatchResolvers::DirectPatchResolvers(),
+  }
+  let element = test_event_element()
+  attach_events(
+    element,
+    [
+      on_submit(SpreadsheetEvent("submit")),
+      on_blur(SpreadsheetEvent("blur")),
+      on_focus(SpreadsheetEvent("focus")),
+      on_dblclick(SpreadsheetEvent("dblclick"), stop_propagation=true),
+    ],
+    sink,
+  )
+
+  inspect(
+    test_trigger_event_report(element, "submit"),
+    content="prevented=true/stopped=false",
+  )
+  inspect(
+    test_trigger_event_report(element, "blur"),
+    content="prevented=false/stopped=false",
+  )
+  inspect(
+    test_trigger_event_report(element, "focus"),
+    content="prevented=false/stopped=false",
+  )
+  inspect(
+    test_trigger_event_report(element, "dblclick"),
+    content="prevented=false/stopped=true",
+  )
+  inspect(seen.peek().join(","), content="submit,blur,focus,dblclick")
+  program.dispose()
+}
+
+///|
+#cfg(target="js")
+test "#270: key resolver dispatch can prevent default and stop propagation" {
+  let runtime = @incr.Runtime()
+  let scope = @incr.Scope::new(runtime)
+  let seen = scope.input_field("", label="renderer.events.key_actions")
+  let update : (RendererMsg) -> Cmd[RendererMsg] = msg => {
+    match msg {
+      KeyActionCaptured(value) => seen.set(value)
+      _ => ()
+    }
+    Cmd::none()
+  }
+  let view : () -> Html[RendererMsg] raise Failure = () => {
+    div([text(seen.get())])
+  }
+  let program = Program::Program(
+    runtime,
+    scope,
+    update,
+    view,
+    label="renderer.key_actions.view",
+  )
+  let key_id = KeyEventId("sheet.keys")
+  let payload_resolvers = PayloadResolvers::PayloadResolvers(resolve_key_event=(
+    id,
+    payload,
+  ) => {
+    guard id == key_id else { None }
+    match payload.key {
+      "Enter" =>
+        Some(
+          KeyEventDispatch::message(
+            KeyActionCaptured("apply:\{payload.code}"),
+            prevent_default=true,
+            stop_propagation=true,
+          ),
+        )
+      "Escape" => Some(KeyEventDispatch::actions(stop_propagation=true))
+      _ => None
+    }
+  })
+  let sink : EventSink[RendererMsg] = {
+    dispatch: msg => ignore(program.dispatch(msg)),
+    payload_resolvers,
+    direct_resolvers: DirectPatchResolvers::DirectPatchResolvers(),
+  }
+  let element = test_event_element()
+  attach_events(element, [on_keydown(id=key_id)], sink)
+
+  inspect(
+    test_trigger_keydown_report(element, "ArrowLeft", "ArrowLeft", false),
+    content="prevented=false/stopped=false",
+  )
+  inspect(seen.peek(), content="")
+  inspect(
+    test_trigger_keydown_report(element, "Escape", "Escape", false),
+    content="prevented=false/stopped=true",
+  )
+  inspect(seen.peek(), content="")
+  inspect(
+    test_trigger_keydown_report(element, "Enter", "Enter", false),
+    content="prevented=true/stopped=true",
+  )
+  inspect(seen.peek(), content="apply:Enter")
   program.dispose()
 }
 

@@ -100,6 +100,74 @@ pub fn KeyPayload::KeyPayload(
 }
 
 ///|
+/// Pure DOM event actions stored in descriptors or returned by keyboard
+/// resolvers. The renderer applies them to the live event at the boundary.
+#cfg(target="js")
+priv struct EventActions {
+  prevent_default : Bool
+  stop_propagation : Bool
+} derive(Eq, Debug)
+
+///|
+#cfg(target="js")
+fn EventActions::EventActions(
+  prevent_default? : Bool = false,
+  stop_propagation? : Bool = false,
+) -> EventActions {
+  { prevent_default, stop_propagation }
+}
+
+///|
+#cfg(target="js")
+fn EventActions::action_mask(self : EventActions) -> Int {
+  let prevent = if self.prevent_default { 1 } else { 0 }
+  let stop = if self.stop_propagation { 2 } else { 0 }
+  prevent + stop
+}
+
+///|
+/// Keyboard resolver result produced at the browser boundary.
+///
+/// The optional message re-enters the TEA scheduler. The action flags are
+/// applied to the live DOM event by the renderer, so cacheable `Html` values
+/// still store only pure ids and static descriptor flags.
+#cfg(target="js")
+pub struct KeyEventDispatch[Msg] {
+  priv message : Msg?
+  priv actions : EventActions
+}
+
+///|
+/// Dispatches a message and optionally applies DOM event actions.
+#cfg(target="js")
+pub fn[Msg] KeyEventDispatch::message(
+  message : Msg,
+  prevent_default? : Bool = false,
+  stop_propagation? : Bool = false,
+) -> KeyEventDispatch[Msg] {
+  {
+    message: Some(message),
+    actions: EventActions(prevent_default~, stop_propagation~),
+  }
+}
+
+///|
+/// Applies DOM event actions without dispatching a message.
+#cfg(target="js")
+pub fn[Msg] KeyEventDispatch::actions(
+  prevent_default? : Bool = false,
+  stop_propagation? : Bool = false,
+) -> KeyEventDispatch[Msg] {
+  { message: None, actions: EventActions(prevent_default~, stop_propagation~) }
+}
+
+///|
+#cfg(target="js")
+fn[Msg] KeyEventDispatch::action_mask(self : KeyEventDispatch[Msg]) -> Int {
+  self.actions.action_mask()
+}
+
+///|
 /// Pure id for pointer payload events.
 #cfg(target="js")
 pub struct PointerEventId {
@@ -180,8 +248,19 @@ priv enum EventSpec[Msg] {
 pub struct EventBinding[Msg] {
   priv name : String
   priv spec : EventSpec[Msg]
-  priv prevent_default : Bool
+  priv actions : EventActions
 } derive(Eq, Debug)
+
+///|
+#cfg(target="js")
+fn[Msg] event_binding(
+  name : String,
+  spec : EventSpec[Msg],
+  prevent_default? : Bool = false,
+  stop_propagation? : Bool = false,
+) -> EventBinding[Msg] {
+  { name, spec, actions: EventActions(prevent_default~, stop_propagation~) }
+}
 
 ///|
 /// Private representation for cacheable HTML/VDOM values.
@@ -267,8 +346,55 @@ fn[Msg] direct_text(id~ : DirectTextId, fallback : String) -> Html[Msg] {
 pub fn[Msg] on_click(
   message : Msg,
   prevent_default? : Bool = false,
+  stop_propagation? : Bool = false,
 ) -> EventBinding[Msg] {
-  { name: "click", spec: Const(message), prevent_default }
+  event_binding("click", Const(message), prevent_default~, stop_propagation~)
+}
+
+///|
+/// Pure double-click descriptor for interactions such as spreadsheet inline edit.
+#cfg(target="js")
+pub fn[Msg] on_dblclick(
+  message : Msg,
+  prevent_default? : Bool = false,
+  stop_propagation? : Bool = false,
+) -> EventBinding[Msg] {
+  event_binding("dblclick", Const(message), prevent_default~, stop_propagation~)
+}
+
+///|
+/// Pure form-submit descriptor. The helper prevents the browser's native form
+/// submission by default; override `prevent_default=false` only when navigation
+/// is intentional.
+#cfg(target="js")
+pub fn[Msg] on_submit(
+  message : Msg,
+  prevent_default? : Bool = true,
+  stop_propagation? : Bool = false,
+) -> EventBinding[Msg] {
+  event_binding("submit", Const(message), prevent_default~, stop_propagation~)
+}
+
+///|
+/// Pure focus descriptor.
+#cfg(target="js")
+pub fn[Msg] on_focus(
+  message : Msg,
+  prevent_default? : Bool = false,
+  stop_propagation? : Bool = false,
+) -> EventBinding[Msg] {
+  event_binding("focus", Const(message), prevent_default~, stop_propagation~)
+}
+
+///|
+/// Pure blur descriptor.
+#cfg(target="js")
+pub fn[Msg] on_blur(
+  message : Msg,
+  prevent_default? : Bool = false,
+  stop_propagation? : Bool = false,
+) -> EventBinding[Msg] {
+  event_binding("blur", Const(message), prevent_default~, stop_propagation~)
 }
 
 ///|
@@ -279,8 +405,14 @@ pub fn[Msg] on_click(
 pub fn[Msg] on_input(
   tag~ : String,
   prevent_default? : Bool = false,
+  stop_propagation? : Bool = false,
 ) -> EventBinding[Msg] {
-  { name: "input", spec: TextInput(id=TextInputId(tag)), prevent_default }
+  event_binding(
+    "input",
+    TextInput(id=TextInputId(tag)),
+    prevent_default~,
+    stop_propagation~,
+  )
 }
 
 ///|
@@ -290,8 +422,9 @@ pub fn[Msg] on_input(
 pub fn[Msg] on_keydown(
   id~ : KeyEventId,
   prevent_default? : Bool = false,
+  stop_propagation? : Bool = false,
 ) -> EventBinding[Msg] {
-  { name: "keydown", spec: Key(id~), prevent_default }
+  event_binding("keydown", Key(id~), prevent_default~, stop_propagation~)
 }
 
 ///|
@@ -301,8 +434,14 @@ pub fn[Msg] on_keydown(
 pub fn[Msg] on_pointer_down(
   id~ : PointerEventId,
   prevent_default? : Bool = false,
+  stop_propagation? : Bool = false,
 ) -> EventBinding[Msg] {
-  { name: "pointerdown", spec: Pointer(id~), prevent_default }
+  event_binding(
+    "pointerdown",
+    Pointer(id~),
+    prevent_default~,
+    stop_propagation~,
+  )
 }
 
 ///|

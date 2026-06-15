@@ -473,6 +473,7 @@ fn wire_button(host : DomElement, id : String, action : () -> Unit) -> Unit {
     dom_query_child_by_id(host, id),
     "click",
     false,
+    false,
     action,
   )
 }

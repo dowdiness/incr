@@ -46,13 +46,21 @@ pub fn mount_browser_demo(String) -> Unit
 
 pub fn[Msg] node(String, attrs? : Array[Attribute], events? : Array[EventBinding[Msg]], Array[Html[Msg]]) -> Html[Msg]
 
-pub fn[Msg] on_click(Msg, prevent_default? : Bool) -> EventBinding[Msg]
+pub fn[Msg] on_blur(Msg, prevent_default? : Bool, stop_propagation? : Bool) -> EventBinding[Msg]
 
-pub fn[Msg] on_input(tag~ : String, prevent_default? : Bool) -> EventBinding[Msg]
+pub fn[Msg] on_click(Msg, prevent_default? : Bool, stop_propagation? : Bool) -> EventBinding[Msg]
 
-pub fn[Msg] on_keydown(id~ : KeyEventId, prevent_default? : Bool) -> EventBinding[Msg]
+pub fn[Msg] on_dblclick(Msg, prevent_default? : Bool, stop_propagation? : Bool) -> EventBinding[Msg]
 
-pub fn[Msg] on_pointer_down(id~ : PointerEventId, prevent_default? : Bool) -> EventBinding[Msg]
+pub fn[Msg] on_focus(Msg, prevent_default? : Bool, stop_propagation? : Bool) -> EventBinding[Msg]
+
+pub fn[Msg] on_input(tag~ : String, prevent_default? : Bool, stop_propagation? : Bool) -> EventBinding[Msg]
+
+pub fn[Msg] on_keydown(id~ : KeyEventId, prevent_default? : Bool, stop_propagation? : Bool) -> EventBinding[Msg]
+
+pub fn[Msg] on_pointer_down(id~ : PointerEventId, prevent_default? : Bool, stop_propagation? : Bool) -> EventBinding[Msg]
+
+pub fn[Msg] on_submit(Msg, prevent_default? : Bool, stop_propagation? : Bool) -> EventBinding[Msg]
 
 pub fn[Msg] p(attrs? : Array[Attribute], events? : Array[EventBinding[Msg]], Array[Html[Msg]]) -> Html[Msg]
 
@@ -91,7 +99,7 @@ pub fn[Msg : Eq] BrowserRenderer::BrowserRenderer(@cells.Runtime, after_flush? :
 pub fn[Msg] BrowserRenderer::destroy(Self[Msg], BrowserRoot[Msg]) -> Unit
 pub fn[Msg] BrowserRenderer::detach(Self[Msg], BrowserRoot[Msg]) -> Unit
 pub fn[Msg] BrowserRenderer::dispose(Self[Msg]) -> Unit
-pub fn[Msg : Eq] BrowserRenderer::mount(Self[Msg], DomElement, Program[Msg, Html[Msg]], on_input? : (TextInputId, TextInputPayload) -> Msg?, on_key? : (KeyEventId, KeyPayload) -> Msg?, on_pointer? : (PointerEventId, PointerPayload) -> Msg?) -> BrowserRoot[Msg]
+pub fn[Msg : Eq] BrowserRenderer::mount(Self[Msg], DomElement, Program[Msg, Html[Msg]], on_input? : (TextInputId, TextInputPayload) -> Msg?, on_key? : (KeyEventId, KeyPayload) -> Msg?, on_pointer? : (PointerEventId, PointerPayload) -> Msg?, on_key_event? : (KeyEventId, KeyPayload) -> KeyEventDispatch[Msg]?) -> BrowserRoot[Msg]
 pub fn[Msg : Eq] BrowserRenderer::reattach(Self[Msg], BrowserRoot[Msg]) -> Unit
 pub fn[Msg] BrowserRenderer::stats(Self[Msg]) -> RenderStats
 
@@ -152,6 +160,12 @@ pub struct EventBinding[Msg] {
 pub struct Html[Msg] {
   // private fields
 } derive(Eq, @debug.Debug)
+
+pub struct KeyEventDispatch[Msg] {
+  // private fields
+}
+pub fn[Msg] KeyEventDispatch::actions(prevent_default? : Bool, stop_propagation? : Bool) -> Self[Msg]
+pub fn[Msg] KeyEventDispatch::message(Msg, prevent_default? : Bool, stop_propagation? : Bool) -> Self[Msg]
 
 pub struct KeyEventId {
   name : String
