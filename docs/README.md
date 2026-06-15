@@ -57,6 +57,7 @@ New to `incr`? Read these in order:
 - [2026-06-15 Incremental TEA activation-islands measurement](performance/2026-06-15-incr-tea-activation-islands-measurement.md) — issue #255 measurement-first gate: editor/sidebar/inspector-shaped collapsed vs hidden-mounted vs visible update costs before any visibility/idle-driven Watch activation prototype.
 - [2026-06-15 Incremental TEA inactive-root prototype](performance/2026-06-15-incr-tea-inactive-root-prototype.md) — issue #255 prototype result: DOM-preserving inactive workspace roots keep hidden updates at collapsed-update scale and pay the deferred watched-view read/diff on activation catch-up.
 - [2026-06-15 Incremental TEA inactive-root amortized benchmark](performance/2026-06-15-incr-tea-inactive-root-amortized.md) — post-#255 amortized result: 10/100/1000 inactive updates plus one activation catch-up for the editor/sidebar/inspector-shaped workspace root.
+- [2026-06-15 Incremental TEA inactive-root cohort benchmark](performance/2026-06-15-incr-tea-inactive-root-cohorts.md) — multi-root follow-up: one shared workspace Program mounted into 1/4/16 inactive DOM roots, measuring 10/100/1000-update bursts and activation of one root versus all roots.
 
 ---
 

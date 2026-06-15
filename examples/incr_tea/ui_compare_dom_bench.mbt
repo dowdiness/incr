@@ -39,6 +39,13 @@ fn ui_compare_incr_run(
       ui_compare_incr_run_inactive_workspace(
         "workspace-inactive-root-amortized", operation, n, iterations, sample_count,
       )
+    "workspace-inactive-root-cohort"
+    | "workspace_inactive_root_cohort"
+    | "inactive-root-cohort"
+    | "inactive_root_cohort" =>
+      ui_compare_incr_run_inactive_workspace_cohort(
+        operation, n, iterations, sample_count,
+      )
     "direct:row-leaf" | "direct:row_leaf" | "row-leaf-direct" =>
       ui_compare_incr_run_row_leaf_direct(
         operation, n, iterations, sample_count,
