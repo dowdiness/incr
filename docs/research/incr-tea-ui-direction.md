@@ -146,8 +146,9 @@ collapsed conditionals should keep using the current dynamic-dependency skip.
 The first prototype adds `BrowserRenderer::deactivate` / `activate`: inactive
 roots remain mounted with DOM attached and their `Program`/`Watch` alive, but
 scheduled frames skip their watched-view reads until activation performs one
-catch-up flush. The follow-up benchmark is recorded in
-[`docs/performance/2026-06-15-incr-tea-inactive-root-prototype.md`](../performance/2026-06-15-incr-tea-inactive-root-prototype.md): inactive updates stay around 4–7 µs across N=64/256/512, while activation catch-up pays the deferred visible-scale flush once.
+catch-up flush. The first prototype benchmark is recorded in
+[`docs/performance/2026-06-15-incr-tea-inactive-root-prototype.md`](../performance/2026-06-15-incr-tea-inactive-root-prototype.md): inactive updates stay around 4–7 µs across N=64/256/512, while activation catch-up pays the deferred visible-scale flush once. The amortized follow-up is recorded in
+[`docs/performance/2026-06-15-incr-tea-inactive-root-amortized.md`](../performance/2026-06-15-incr-tea-inactive-root-amortized.md): 1000 inactive updates plus activation measured roughly 3.8–4.2 ms across N=64/256/512.
 
 ## Near-term roadmap
 
@@ -202,9 +203,10 @@ catch-up flush. The follow-up benchmark is recorded in
    The #255 benchmark shows that collapsed conditionals are already cheap, while
    hidden-mounted editor-shaped subtrees pay visible-update costs. The initial
    `BrowserRenderer::deactivate` / `activate` slice pauses watched-view reads
-   without discarding DOM and benchmarks inactive updates at collapsed-update
-   scale; the next step should connect it to visibility/idle/manual triggers.
-   Follow-up: [#255].
+   without discarding DOM, benchmarks inactive updates at collapsed-update scale,
+   and now has an amortized burst cost model. Connect it to visibility/idle/
+   manual triggers only when a concrete product shape needs that policy.
+   Baseline issue: [#255].
 10. **Explore host-framework boundaries.** Test whether custom-element style
    mounts make `incr_tea` roots easier to embed and lifecycle-test. Follow-up:
    [#256].

@@ -45,6 +45,17 @@ const suites = [
     operations: ['active-hidden-mounted-update', 'inactive-update', 'activation-catch-up'],
     sizes: [64, 256, 512],
   },
+  {
+    name: 'workspace-inactive-root-amortized',
+    title: 'Amortized inactive workspace root',
+    systems: ['incr_tea'],
+    operations: [
+      'inactive-10-updates-activation',
+      'inactive-100-updates-activation',
+      'inactive-1000-updates-activation',
+    ],
+    sizes: [64, 256, 512],
+  },
 ];
 const iterations = positiveInt(process.env.INCR_TEA_UI_COMPARE_DOM_BENCH_ITERATIONS, 200);
 const samples = positiveInt(process.env.INCR_TEA_UI_COMPARE_DOM_BENCH_SAMPLES, 9);
@@ -210,8 +221,29 @@ function inactiveWorkspaceTable(results) {
   return lines.join('\n');
 }
 
+function inactiveWorkspaceAmortizedTable(results) {
+  const suite = suites.find(item => item.name === 'workspace-inactive-root-amortized');
+  const labels = new Map([
+    ['inactive-10-updates-activation', '10 inactive updates + activation'],
+    ['inactive-100-updates-activation', '100 inactive updates + activation'],
+    ['inactive-1000-updates-activation', '1000 inactive updates + activation'],
+  ]);
+  const lines = [
+    `### ${suite.title} (µs/burst)`,
+    '',
+    '| burst | N | incr_tea total |',
+    '|---|---:|---:|',
+  ];
+  for (const operation of suite.operations) {
+    for (const n of suite.sizes) {
+      lines.push(`| ${labels.get(operation) ?? operation} | ${n} | ${systemCells(results, suite.name, operation, n).join(' | ')} |`);
+    }
+  }
+  return lines.join('\n');
+}
+
 function resultsTables(results) {
-  return [counterTable(results), keyedListTable(results), panelTable(results), rowLeafTable(results), workspaceIslandTable(results), inactiveWorkspaceTable(results)].join('\n\n');
+  return [counterTable(results), keyedListTable(results), panelTable(results), rowLeafTable(results), workspaceIslandTable(results), inactiveWorkspaceTable(results), inactiveWorkspaceAmortizedTable(results)].join('\n\n');
 }
 
 function plannedCells() {
@@ -243,6 +275,7 @@ function printReport({ browserVersion, userAgent, raw }) {
     '- Row/leaf locality rows keep keys and order fixed; each operation toggles one hot middle row or nested leaf and includes no reset work in the timed window.',
     '- Workspace-island rows keep one editor/sidebar/inspector-shaped subtree at a fixed size. Collapsed updates keep that subtree absent/untracked; hidden-mounted updates keep the subtree in the DOM with hidden/aria-hidden attributes and current active watchers; visible updates keep it visible. Mode reset work runs before the timed operation.',
     '- Workspace-inactive-root rows use the same subtree with the `BrowserRenderer` inactive-root prototype. Active hidden-mounted update is the same root active; inactive update keeps DOM attached but skips the watched-view read; activation catch-up measures the deferred flush after one inactive update. Reset work runs before the timed operation.',
+    '- Workspace-inactive-root-amortized rows time one burst: K inactive updates, each using the inactive flush-skip path, followed by one activation catch-up. Reset/deactivate work runs before the timed burst.',
     '- incr_tea-direct is an experimental row/leaf-only direct patch path: Html stores pure leaf/attr ids, while mount-boundary watches resolve live text/class values.',
     '- Rabbita keyed-list cells use its Map-based keyed-child API for every keyed-list operation; Luna list rows use luna/dom for_each reference/value reconciliation over stable string ids. Treat identity/focus behavior as framework-specific rather than semantically identical.',
     '- † Rabbita has no ordered key-array API in this harness; read its keyed-list cells, especially reverse, as keyed Map dirty/update costs rather than ordered-list equivalence.',
@@ -278,7 +311,11 @@ try {
     throw error;
   });
   await page.goto(`${baseUrl}/examples/incr_tea/ui-compare-bench.html`, { waitUntil: 'load' });
-  await page.waitForFunction(() => globalThis.__incrTeaUiCompareDomBench?.runCell);
+  await page.waitForFunction(
+    () => globalThis.__incrTeaUiCompareDomBench?.runCell,
+    undefined,
+    { polling: 50 },
+  );
   const userAgent = await page.evaluate(() => navigator.userAgent);
 
   const raw = [];
