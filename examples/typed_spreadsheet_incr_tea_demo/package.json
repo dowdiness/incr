@@ -1,0 +1,17 @@
+{
+  "name": "typed-spreadsheet-incr-tea-demo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:moonbit": "cd ../.. && NEW_MOON_MOD=0 moon build --target js --release examples/typed_spreadsheet_incr_tea_demo",
+    "dev": "npm run build:moonbit && vite",
+    "build": "npm run build:moonbit && vite build",
+    "smoke": "node scripts/smoke-dist.mjs",
+    "test:dom": "npm run build && node scripts/test-dom.mjs",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "playwright": "^1.60.0",
+    "vite": "^8.0.14"
+  }
+}

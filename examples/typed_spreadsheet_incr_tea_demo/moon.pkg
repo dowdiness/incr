@@ -1,0 +1,12 @@
+import {
+  "dowdiness/incr",
+  "examples/incr_tea" @tea,
+  "examples/typed_spreadsheet",
+  "examples/typed_spreadsheet_demo" @demo,
+}
+
+supported_targets = "js"
+
+options(
+  "is-main": true,
+)
