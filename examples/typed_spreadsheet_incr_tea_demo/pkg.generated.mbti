@@ -1,0 +1,23 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "examples/typed_spreadsheet_incr_tea_demo"
+
+// Values
+pub fn mount_typed_spreadsheet_incr_tea_demo(String) -> Unit
+
+// Errors
+
+// Types and methods
+type CellDraft
+
+type KeyResolution
+
+type Model
+
+type Msg derive(Eq)
+
+type TypedSheetApp
+
+// Type aliases
+
+// Traits
+

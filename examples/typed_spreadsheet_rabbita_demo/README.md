@@ -3,7 +3,9 @@
 Browser UI for an editable 50×50 typed spreadsheet. The app keeps worksheet
 evaluation, dependency tracking, trace collection, and snapshot inspection in
 MoonBit; Rabbita renders the sheet and routes user edits back to MoonBit
-operations.
+operations. This remains the primary/live spreadsheet demo; the sibling
+`examples/typed_spreadsheet_incr_tea_demo` is a side-by-side renderer proof, not
+a replacement.
 
 Live demo: <https://typed-spreadsheet.pages.dev>
 

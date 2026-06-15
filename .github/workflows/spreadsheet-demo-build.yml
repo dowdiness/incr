@@ -16,6 +16,7 @@ on:
       - 'incr/types/**'
       - 'examples/typed_spreadsheet_demo/**'
       - 'examples/typed_spreadsheet_rabbita_demo/**'
+      - 'examples/typed_spreadsheet_incr_tea_demo/**'
   workflow_dispatch:
 
 concurrency:
@@ -30,7 +31,7 @@ env:
 
 jobs:
   build:
-    name: Build typed spreadsheet site
+    name: Build typed spreadsheet demos
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -52,7 +53,9 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: examples/typed_spreadsheet_rabbita_demo/package-lock.json
+          cache-dependency-path: |
+            examples/typed_spreadsheet_rabbita_demo/package-lock.json
+            examples/typed_spreadsheet_incr_tea_demo/package-lock.json
 
       - name: Install demo dependencies
         working-directory: examples/typed_spreadsheet_rabbita_demo
@@ -65,3 +68,17 @@ jobs:
       - name: Smoke built demo
         working-directory: examples/typed_spreadsheet_rabbita_demo
         run: npm run smoke
+
+      - name: Install incr_tea proof dependencies
+        working-directory: examples/typed_spreadsheet_incr_tea_demo
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        working-directory: examples/typed_spreadsheet_incr_tea_demo
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser-test incr_tea proof
+        working-directory: examples/typed_spreadsheet_incr_tea_demo
+        run: npm run test:dom
