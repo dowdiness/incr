@@ -9,7 +9,7 @@ examples: `Program`, `Cmd`, cacheable `Html`, `Attrs`, pure event descriptors,
 payload ids, and `BrowserRenderer` roots/stats. It proves the core loop with a
 pure counter component, a minimal Rabbita-style `Cmd` scheduler, and a
 browser-rendering slice for watched `Html` view roots — including typed pure
-event-payload descriptors (#211/#249), keyed children (#211), a small
+event-payload descriptors (#211/#249/#270), keyed children (#211), a small
 semantic-keyed editor driver (#251), and post-render commands for DOM work that
 must run after a flush (#268). Async command adapters and deeper browser/runtime
 benchmark comparisons remain follow-up issues; a first pure adjacent-framework
@@ -107,16 +107,57 @@ messages back into the scheduler; they are not captured inside tracked
 `Cmd::after_flush` or the convenience `Cmd::focus_element_by_id` command so they
 run after the renderer boundary has patched the DOM.
 
-### Event payloads (#211, #249)
+### Event payloads and actions (#211, #249, #270)
 
 An event descriptor is pure data with meaningful `Eq`. `on_click(msg)` stores a
-fixed message. Payload descriptors store typed pure ids (`TextInputId`,
-`KeyEventId`, `PointerEventId`) plus a DOM event name; the renderer extracts the
-browser payload at the boundary and resolves `(id, payload) -> Msg` through
-mount-time resolvers (`on_input`, `on_key`, `on_pointer`). Text input forwards
-`value`, keyboard forwards key/code/modifiers/repeat, and pointer forwards
-pointer id/type, coordinates, buttons, and modifiers. No closure or DOM event
-object is stored in cacheable `Html`, so equal descriptors still backdate.
+fixed message; the spreadsheet-oriented fixed-message descriptors add
+`on_submit(msg)`, `on_blur(msg)`, `on_focus(msg)`, and `on_dblclick(msg)`.
+`on_submit` prevents the browser's native form submission by default. Payload
+descriptors store typed pure ids (`TextInputId`, `KeyEventId`, `PointerEventId`)
+plus a DOM event name; the renderer extracts the browser payload at the boundary
+and resolves `(id, payload) -> Msg` through mount-time resolvers (`on_input`,
+`on_key`, `on_pointer`). Text input forwards `value`, keyboard forwards
+key/code/modifiers/repeat, and pointer forwards pointer id/type, coordinates,
+buttons, and modifiers. No closure or DOM event object is stored in cacheable
+`Html`, so equal descriptors still backdate.
+
+Static `prevent_default` / `stop_propagation` flags are pure descriptor data, and
+the actual DOM calls are made only by the renderer listener. Keyboard handlers
+that need payload-dependent actions use the mount-boundary `on_key_event`
+resolver, which returns `KeyEventDispatch`:
+
+```mbt nocheck
+renderer.mount(
+  host,
+  program,
+  on_key_event=(id, payload) => {
+    if id == KeyEventId("sheet.keys") {
+      match payload.key {
+        "Enter" => Some(
+          KeyEventDispatch::message(
+            ApplyInlineEdit,
+            prevent_default=true,
+            stop_propagation=true,
+          ),
+        )
+        "Escape" => Some(
+          KeyEventDispatch::message(
+            CancelInlineEdit,
+            prevent_default=true,
+            stop_propagation=true,
+          ),
+        )
+        _ => None
+      }
+    } else {
+      None
+    }
+  },
+)
+```
+
+This keeps spreadsheet keyboard policy beside the payload-to-message resolver,
+not inside cached `Html`.
 
 ### Direct leaf patch prototype (#254)
 
@@ -162,7 +203,8 @@ Conventions:
   `Array[(String, Html)]` values, not maps, because both child order and key
   identity feed deterministic diffing and value-level backdating.
 - Event helpers stay pure descriptors. Do not add closure-valued event handlers
-  to `Html`; payload-to-message logic belongs at `BrowserRenderer::mount`.
+  to `Html`; payload-to-message logic and payload-dependent keyboard actions
+  belong at `BrowserRenderer::mount`.
 
 ### Semantic editor driver (#251)
 
@@ -362,7 +404,7 @@ boundary narrow so a measured Rabbita VDOM/HTML subset can be swapped in later.
 The broader Rabbita/Qwik/Luna comparison and roadmap live in
 [`docs/research/incr-tea-ui-direction.md`](../../docs/research/incr-tea-ui-direction.md).
 
-#### Keyed children and event payloads (#211, #249)
+#### Keyed children and event payloads (#211, #249, #270)
 
 The reference read for this slice was
 [`rabbita/rabbita/html/README.mbt.md`](https://github.com/dowdiness/rabbita/blob/5f828eb7270cb14970f2be592dba25990a513c61/rabbita/html/README.mbt.md)
@@ -382,11 +424,11 @@ The reference read for this slice was
   compare equal. Instead the payload→message mapping is split — the `Html` stores
   typed pure ids (`TextInputId`, `KeyEventId`, `PointerEventId`) and event names,
   while resolvers supplied at the js mount boundary
-  (`mount(..., on_input=..., on_key=..., on_pointer=...)`) turn typed browser
-  payloads into messages, mirroring where the existing `dispatch` closure already
-  lives. So Rabbita's keyed-child semantics are adopted wholesale, while its
-  closure-valued event API is intentionally replaced with pure data plus boundary
-  resolvers.
+  (`mount(..., on_input=..., on_key=..., on_pointer=..., on_key_event=...)`)
+  turn typed browser payloads into messages and payload-dependent keyboard
+  actions, mirroring where the existing `dispatch` closure already lives. So
+  Rabbita's keyed-child semantics are adopted wholesale, while its closure-valued
+  event API is intentionally replaced with pure data plus boundary resolvers.
 - **Qwik-style boundary — similar discipline, not QRL resumability.** Qwik stores
   serializable lazy handler references and loads code on demand. This prototype
   does not serialize roots or lazy-load handlers yet; it only keeps the same hard

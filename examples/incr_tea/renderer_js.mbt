@@ -132,11 +132,13 @@ extern "js" fn dom_add_event_listener(
   element : DomElement,
   name : String,
   prevent_default : Bool,
+  stop_propagation : Bool,
   callback : () -> Unit,
 ) -> Unit =
-  #| (element, name, preventDefault, callback) => {
+  #| (element, name, preventDefault, stopPropagation, callback) => {
   #|   element.addEventListener(name, event => {
-  #|     if (preventDefault) event.preventDefault();
+  #|     if (preventDefault && typeof event.preventDefault === "function") event.preventDefault();
+  #|     if (stopPropagation && typeof event.stopPropagation === "function") event.stopPropagation();
   #|     callback();
   #|   });
   #| }
@@ -150,11 +152,13 @@ extern "js" fn dom_add_value_listener(
   element : DomElement,
   name : String,
   prevent_default : Bool,
+  stop_propagation : Bool,
   callback : (String) -> Unit,
 ) -> Unit =
-  #| (element, name, preventDefault, callback) => {
+  #| (element, name, preventDefault, stopPropagation, callback) => {
   #|   element.addEventListener(name, event => {
-  #|     if (preventDefault) event.preventDefault();
+  #|     if (preventDefault && typeof event.preventDefault === "function") event.preventDefault();
+  #|     if (stopPropagation && typeof event.stopPropagation === "function") event.stopPropagation();
   #|     const target = event.target;
   #|     callback(target && target.value != null ? String(target.value) : "");
   #|   });
@@ -168,12 +172,14 @@ extern "js" fn dom_add_key_listener(
   element : DomElement,
   name : String,
   prevent_default : Bool,
-  callback : (String, String, Bool, Bool, Bool, Bool, Bool) -> Unit,
+  stop_propagation : Bool,
+  callback : (String, String, Bool, Bool, Bool, Bool, Bool) -> Int,
 ) -> Unit =
-  #| (element, name, preventDefault, callback) => {
+  #| (element, name, preventDefault, stopPropagation, callback) => {
   #|   element.addEventListener(name, event => {
-  #|     if (preventDefault) event.preventDefault();
-  #|     callback(
+  #|     if (preventDefault && typeof event.preventDefault === "function") event.preventDefault();
+  #|     if (stopPropagation && typeof event.stopPropagation === "function") event.stopPropagation();
+  #|     const actionMask = Number(callback(
   #|       event.key == null ? "" : String(event.key),
   #|       event.code == null ? "" : String(event.code),
   #|       !!event.altKey,
@@ -181,7 +187,9 @@ extern "js" fn dom_add_key_listener(
   #|       !!event.metaKey,
   #|       !!event.shiftKey,
   #|       !!event.repeat,
-  #|     );
+  #|     )) || 0;
+  #|     if ((actionMask & 1) !== 0 && typeof event.preventDefault === "function") event.preventDefault();
+  #|     if ((actionMask & 2) !== 0 && typeof event.stopPropagation === "function") event.stopPropagation();
   #|   });
   #| }
 
@@ -193,15 +201,17 @@ extern "js" fn dom_add_pointer_listener(
   element : DomElement,
   name : String,
   prevent_default : Bool,
+  stop_propagation : Bool,
   callback : (Int, String, Double, Double, Int, Int, Bool, Bool, Bool, Bool) -> Unit,
 ) -> Unit =
-  #| (element, name, preventDefault, callback) => {
+  #| (element, name, preventDefault, stopPropagation, callback) => {
   #|   const number = value => {
   #|     const n = Number(value);
   #|     return Number.isFinite(n) ? n : 0;
   #|   };
   #|   element.addEventListener(name, event => {
-  #|     if (preventDefault) event.preventDefault();
+  #|     if (preventDefault && typeof event.preventDefault === "function") event.preventDefault();
+  #|     if (stopPropagation && typeof event.stopPropagation === "function") event.stopPropagation();
   #|     callback(
   #|       Math.trunc(number(event.pointerId)),
   #|       event.pointerType == null ? "" : String(event.pointerType),
@@ -306,13 +316,14 @@ fn[Msg] Rendered::node(self : Rendered[Msg]) -> DomNode {
 
 ///|
 /// Mount-boundary payload resolvers. They map typed ids plus browser-extracted
-/// payload structs to messages (or `None` to ignore them). Executable mapping
-/// stays here, outside cacheable `Html` values.
+/// payload structs to messages or keyboard event actions (or `None` to ignore
+/// them). Executable mapping stays here, outside cacheable `Html` values.
 #cfg(target="js")
 priv struct PayloadResolvers[Msg] {
   resolve_text : (TextInputId, TextInputPayload) -> Msg?
   resolve_key : (KeyEventId, KeyPayload) -> Msg?
   resolve_pointer : (PointerEventId, PointerPayload) -> Msg?
+  resolve_key_event : (KeyEventId, KeyPayload) -> KeyEventDispatch[Msg]?
 }
 
 ///|
@@ -321,8 +332,12 @@ fn[Msg] PayloadResolvers::PayloadResolvers(
   resolve_text? : (TextInputId, TextInputPayload) -> Msg? = (_, _) => None,
   resolve_key? : (KeyEventId, KeyPayload) -> Msg? = (_, _) => None,
   resolve_pointer? : (PointerEventId, PointerPayload) -> Msg? = (_, _) => None,
+  resolve_key_event? : (KeyEventId, KeyPayload) -> KeyEventDispatch[Msg]? = (
+    _,
+    _,
+  ) => None,
 ) -> PayloadResolvers[Msg] {
-  { resolve_text, resolve_key, resolve_pointer }
+  { resolve_text, resolve_key, resolve_pointer, resolve_key_event }
 }
 
 ///|
@@ -374,8 +389,8 @@ fn DirectPatchResolvers::attr_value(
 
 ///|
 /// Boundary handle threaded through render/diff so DOM listeners can re-enter
-/// the program. `dispatch` forwards fixed messages; payload and direct-patch
-/// resolvers keep executable boundary state out of cacheable `Html`.
+/// the program. `dispatch` forwards fixed messages; payload/action and
+/// direct-patch resolvers keep executable boundary state out of cacheable `Html`.
 #cfg(target="js")
 priv struct EventSink[Msg] {
   dispatch : (Msg) -> Unit
@@ -465,56 +480,70 @@ fn[Msg] attach_events(
   let dispatch = sink.dispatch
   let payload_resolvers = sink.payload_resolvers
   for event in events {
+    let actions = event.actions
     match event.spec {
       Const(message) =>
-        dom_add_event_listener(element, event.name, event.prevent_default, () => {
-          dispatch(message)
-        })
+        dom_add_event_listener(
+          element,
+          event.name,
+          actions.prevent_default,
+          actions.stop_propagation,
+          () => dispatch(message),
+        )
       TextInput(id~) =>
-        dom_add_value_listener(element, event.name, event.prevent_default, value => {
-          match (payload_resolvers.resolve_text)(id, { value, }) {
-            Some(message) => dispatch(message)
-            None => ()
-          }
-        })
+        dom_add_value_listener(
+          element,
+          event.name,
+          actions.prevent_default,
+          actions.stop_propagation,
+          value => {
+            match (payload_resolvers.resolve_text)(id, { value, }) {
+              Some(message) => dispatch(message)
+              None => ()
+            }
+          },
+        )
       Key(id~) =>
-        dom_add_key_listener(element, event.name, event.prevent_default, (
-          key,
-          code,
-          alt_key,
-          ctrl_key,
-          meta_key,
-          shift_key,
-          repeat,
-        ) => {
-          let payload : KeyPayload = {
-            key,
-            code,
-            alt_key,
-            ctrl_key,
-            meta_key,
-            shift_key,
-            repeat,
-          }
-          match (payload_resolvers.resolve_key)(id, payload) {
-            Some(message) => dispatch(message)
-            None => ()
-          }
-        })
+        dom_add_key_listener(
+          element,
+          event.name,
+          actions.prevent_default,
+          actions.stop_propagation,
+          (key, code, alt_key, ctrl_key, meta_key, shift_key, repeat) => {
+            let payload : KeyPayload = {
+              key,
+              code,
+              alt_key,
+              ctrl_key,
+              meta_key,
+              shift_key,
+              repeat,
+            }
+            match (payload_resolvers.resolve_key_event)(id, payload) {
+              Some(result) => {
+                match result.message {
+                  Some(message) => dispatch(message)
+                  None => ()
+                }
+                result.action_mask()
+              }
+              None => {
+                match (payload_resolvers.resolve_key)(id, payload) {
+                  Some(message) => dispatch(message)
+                  None => ()
+                }
+                0
+              }
+            }
+          },
+        )
       Pointer(id~) =>
-        dom_add_pointer_listener(element, event.name, event.prevent_default, (
-          pointer_id,
-          pointer_type,
-          client_x,
-          client_y,
-          button,
-          buttons,
-          alt_key,
-          ctrl_key,
-          meta_key,
-          shift_key,
-        ) => {
-          let payload : PointerPayload = {
+        dom_add_pointer_listener(
+          element,
+          event.name,
+          actions.prevent_default,
+          actions.stop_propagation,
+          (
             pointer_id,
             pointer_type,
             client_x,
@@ -525,12 +554,25 @@ fn[Msg] attach_events(
             ctrl_key,
             meta_key,
             shift_key,
-          }
-          match (payload_resolvers.resolve_pointer)(id, payload) {
-            Some(message) => dispatch(message)
-            None => ()
-          }
-        })
+          ) => {
+            let payload : PointerPayload = {
+              pointer_id,
+              pointer_type,
+              client_x,
+              client_y,
+              button,
+              buttons,
+              alt_key,
+              ctrl_key,
+              meta_key,
+              shift_key,
+            }
+            match (payload_resolvers.resolve_pointer)(id, payload) {
+              Some(message) => dispatch(message)
+              None => ()
+            }
+          },
+        )
     }
   }
 }
@@ -975,9 +1017,9 @@ fn[Msg : Eq] diff_keyed_children(
 pub struct BrowserRoot[Msg] {
   priv watched : WatchedHtmlRoot[Msg]
   priv host : DomElement
-  // Mount-time boundary resolvers for DOM payload events. They stay at the
-  // browser boundary (never in the cacheable `Html` value); roots without a
-  // payload family use defaults that ignore every payload.
+  // Mount-time boundary resolvers for DOM payload events and keyboard actions.
+  // They stay at the browser boundary (never in the cacheable `Html` value);
+  // roots without a payload family use defaults that ignore every payload.
   priv payload_resolvers : PayloadResolvers[Msg]
   priv mut rendered : Rendered[Msg]?
 }
@@ -991,11 +1033,16 @@ fn[Msg] BrowserRoot::BrowserRoot(
   resolve_text? : (TextInputId, TextInputPayload) -> Msg? = (_, _) => None,
   resolve_key? : (KeyEventId, KeyPayload) -> Msg? = (_, _) => None,
   resolve_pointer? : (PointerEventId, PointerPayload) -> Msg? = (_, _) => None,
+  resolve_key_event? : (KeyEventId, KeyPayload) -> KeyEventDispatch[Msg]? = (
+    _,
+    _,
+  ) => None,
 ) -> BrowserRoot[Msg] {
   let payload_resolvers = PayloadResolvers::PayloadResolvers(
     resolve_text~,
     resolve_key~,
     resolve_pointer~,
+    resolve_key_event~,
   )
   {
     watched: WatchedHtmlRoot::WatchedHtmlRoot(program, stats),
@@ -1148,6 +1195,9 @@ pub fn[Msg : Eq] BrowserRenderer::mount(
   on_input? : (TextInputId, TextInputPayload) -> Msg? = (_, _) => None,
   on_key? : (KeyEventId, KeyPayload) -> Msg? = (_, _) => None,
   on_pointer? : (PointerEventId, PointerPayload) -> Msg? = (_, _) => None,
+  on_key_event? : (KeyEventId, KeyPayload) -> KeyEventDispatch[Msg]? = (_, _) => {
+    None
+  },
 ) -> BrowserRoot[Msg] {
   guard !self.disposed else {
     abort("BrowserRenderer::mount called after dispose")
@@ -1168,6 +1218,7 @@ pub fn[Msg : Eq] BrowserRenderer::mount(
     resolve_text=on_input,
     resolve_key=on_key,
     resolve_pointer=on_pointer,
+    resolve_key_event=on_key_event,
   )
   self.roots.push(root)
   root.flush()

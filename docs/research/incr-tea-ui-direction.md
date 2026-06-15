@@ -53,9 +53,10 @@ Borrow the authoring ergonomics, not the runtime model wholesale:
 Do **not** copy closure-valued event handlers into `Html`. `incr_tea` relies on
 `Html : Eq` for backdating, so event descriptors must stay pure data and DOM
 payload extraction must stay at the renderer boundary. The #249 slice extends
-that rule with typed text-input, keyboard, and pointer payload ids/resolvers;
-the #248 slice adds attribute/list ergonomics without changing the event
-boundary.
+that rule with typed text-input, keyboard, and pointer payload ids/resolvers; the
+#270 slice extends the same pattern to submit/focus/blur/double-click descriptors
+and payload-dependent keyboard actions. The #248 slice adds attribute/list
+ergonomics without changing the event boundary.
 
 ### From Qwik
 
@@ -109,8 +110,9 @@ update the research priorities:
   subtree shows real cost.
 - **Raw closures should stay out of cacheable `Html`.** Closure-like ergonomics
   are welcome only when they lower to pure `Eq`/serializable descriptors. Live
-  callbacks, watches, and DOM payload extraction belong at the renderer/mount
-  boundary so `Html : Eq` and backdating remain meaningful.
+  callbacks, watches, DOM payload extraction, and live `preventDefault` /
+  `stopPropagation` calls belong at the renderer/mount boundary so `Html : Eq`
+  and backdating remain meaningful.
 
 ## Direct leaf prototype result
 
@@ -157,8 +159,10 @@ existing diff path.
    closures or DOM objects in `Html`.
 5. **Expand Eq-safe events.** The #249 slice adds typed pure descriptors for
    text input, keyboard, and pointer payload events while keeping resolver logic
-   at the mount/browser boundary. Future editor demos can add focus/blur,
-   composition, or selection families by the same descriptor/resolver pattern.
+   at the mount/browser boundary. The #270 slice adds submit, focus/blur,
+   double-click, static `stop_propagation`, and payload-dependent keyboard
+   actions through the same descriptor/resolver pattern. Future editor demos can
+   add composition or selection families without changing the boundary.
 6. **Make authoring tolerable without sacrificing backdating.** Issue [#248]
    added a small `Attrs::build()` convenience layer plus `ul` and keyed list
    wrappers. It keeps `Html` closure-free, uses explicit ordered child
@@ -219,6 +223,7 @@ existing diff path.
 - [#241] Optimized `plan_keyed_diff` with a key-map large-list path (N=256 pure planner: 7.46× reverse, 2.91× prepend, 2.66× unchanged); avoid duplicating this work elsewhere.
 - [#248] Added an Eq-safe `Attrs::build()` HTML ergonomics layer informed by Rabbita.
 - [#249] Expanded typed pure payload descriptors for text input, keyboard, and pointer events.
+- [#270] Add Eq-safe spreadsheet event descriptors and renderer-boundary keyboard actions.
 - [#250] Add browser tests for keyed DOM identity and focus retention — baseline
   covered by `examples/incr_tea/scripts/test-keyed-dom.mjs` / `npm run test:dom`.
 - [#251] Build an editor-shaped semantic-key rendering demo: initial browser
@@ -243,3 +248,4 @@ existing diff path.
 [#256]: https://github.com/dowdiness/incr/issues/256
 [#257]: https://github.com/dowdiness/incr/issues/257
 [#268]: https://github.com/dowdiness/incr/issues/268
+[#270]: https://github.com/dowdiness/incr/issues/270

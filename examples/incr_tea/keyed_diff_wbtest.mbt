@@ -141,9 +141,14 @@ test "event spec: keyboard descriptors are pure Eq data" {
     id=editor_keys,
     prevent_default=true,
   )
+  let stopped : EventBinding[RendererMsg] = on_keydown(
+    id=editor_keys,
+    stop_propagation=true,
+  )
   let other : EventBinding[RendererMsg] = on_keydown(id=other_keys)
   inspect(keydown1 == keydown2, content="true")
   inspect(keydown1 == prevented, content="false")
+  inspect(keydown1 == stopped, content="false")
   inspect(keydown1 == other, content="false")
 }
 
@@ -169,13 +174,44 @@ test "event spec: pointer descriptors are pure Eq data" {
 test "event spec: const click bindings stay Eq, differ from payload bindings" {
   let click1 : EventBinding[RendererMsg] = on_click(Increment)
   let click2 : EventBinding[RendererMsg] = on_click(Increment)
+  let stopped_click : EventBinding[RendererMsg] = on_click(
+    Increment,
+    stop_propagation=true,
+  )
   let text_binding : EventBinding[RendererMsg] = on_input(tag="name")
   let key_binding : EventBinding[RendererMsg] = on_keydown(
     id=KeyEventId("editor.keys"),
   )
   inspect(click1 == click2, content="true")
+  inspect(click1 == stopped_click, content="false")
   inspect(click1 == text_binding, content="false")
   inspect(click1 == key_binding, content="false")
+}
+
+///|
+#cfg(target="js")
+test "event spec: spreadsheet const descriptors are pure Eq data" {
+  let submit1 : EventBinding[RendererMsg] = on_submit(Increment)
+  let submit2 : EventBinding[RendererMsg] = on_submit(
+    Increment,
+    prevent_default=true,
+  )
+  let submit_navigating : EventBinding[RendererMsg] = on_submit(
+    Increment,
+    prevent_default=false,
+  )
+  let blur1 : EventBinding[RendererMsg] = on_blur(TogglePanel)
+  let blur2 : EventBinding[RendererMsg] = on_blur(TogglePanel)
+  let focus : EventBinding[RendererMsg] = on_focus(TogglePanel)
+  let dblclick1 : EventBinding[RendererMsg] = on_dblclick(Increment)
+  let dblclick2 : EventBinding[RendererMsg] = on_dblclick(Increment)
+
+  inspect(submit1 == submit2, content="true")
+  inspect(submit1 == submit_navigating, content="false")
+  inspect(blur1 == blur2, content="true")
+  inspect(blur1 == focus, content="false")
+  inspect(dblclick1 == dblclick2, content="true")
+  inspect(dblclick1 == submit1, content="false")
 }
 
 ///|
