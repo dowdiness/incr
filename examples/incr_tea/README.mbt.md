@@ -32,7 +32,8 @@ Creating a component starts one logical TEA instance: it allocates an
 `@incr.Scope`, registers model `InputField` cells with that scope, creates the
 terminal tracked view, registers a persistent `Watch` for the view root, and
 primes that watch so `Runtime::gc()` can see the current upstream dependencies
-before the first external read.
+before the first external read. `Program` constructors reject a `Runtime`/`Scope`
+mismatch; the renderer relies on the program runtime for flush scheduling.
 
 Disposal is component teardown, not ordinary DOM detachment. `dispose()` is
 idempotent; it disposes the scope, releases the view `Watch`, and closes the

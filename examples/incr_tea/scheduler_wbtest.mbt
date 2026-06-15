@@ -15,6 +15,27 @@ struct SchedulerView {
 } derive(Eq, Debug)
 
 ///|
+test "panic program: constructor rejects a scope from another Runtime" {
+  let runtime = @incr.Runtime()
+  let foreign_runtime = @incr.Runtime()
+  let foreign_scope = @incr.Scope::new(foreign_runtime)
+  let update : (SchedulerMsg) -> Cmd[SchedulerMsg] = _ => Cmd::none()
+  let view : () -> SchedulerView raise Failure = () => {
+    count: 0,
+    title: "mismatch",
+  }
+  ignore(
+    Program::Program(
+      runtime,
+      foreign_scope,
+      update,
+      view,
+      label="scheduler.runtime_mismatch.view",
+    ),
+  )
+}
+
+///|
 test "scheduler: update returns Cmd" {
   let runtime = @incr.Runtime()
   let scope = @incr.Scope::new(runtime)

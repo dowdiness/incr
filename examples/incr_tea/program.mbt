@@ -37,6 +37,9 @@ pub fn[Msg, View : Eq] Program::Program(
     abort("Program::Program called with a disposed scope")
   }
   let view_root = scope.derived(view, label?)
+  guard view_root.id().runtime_id == runtime.id() else {
+    abort("Program::Program called with a scope from another Runtime")
+  }
   let view_watch = scope.add_watch(view_root.watch())
   ignore(view_watch.read_or_abort())
 
@@ -72,6 +75,11 @@ pub fn[Msg : Eq, View : Eq] Program::with_subscriptions(
     abort("Program::with_subscriptions called with a disposed scope")
   }
   let view_root = scope.derived(view, label?)
+  guard view_root.id().runtime_id == runtime.id() else {
+    abort(
+      "Program::with_subscriptions called with a scope from another Runtime",
+    )
+  }
   let view_watch = scope.add_watch(view_root.watch())
   ignore(view_watch.read_or_abort())
   let subscriptions_root = scope.derived(subscriptions)

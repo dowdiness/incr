@@ -101,6 +101,28 @@ fn[Msg] has_active_timer(
 }
 
 ///|
+test "panic subscriptions: constructor rejects a scope from another Runtime" {
+  let runtime = @incr.Runtime()
+  let foreign_runtime = @incr.Runtime()
+  let foreign_scope = @incr.Scope::new(foreign_runtime)
+  let update : (SubTestMsg) -> Cmd[SubTestMsg] = _ => Cmd::none()
+  let view : () -> Int raise Failure = () => 0
+  let subscriptions : () -> Subscriptions[SubTestMsg] raise Failure = () => {
+    @hashmap.HashMap([])
+  }
+  ignore(
+    Program::with_subscriptions(
+      runtime,
+      foreign_scope,
+      update,
+      view,
+      subscriptions,
+      label="subtest.runtime_mismatch.view",
+    ),
+  )
+}
+
+///|
 test "subscriptions: enable and disable starts/stops timer handle" {
   let runtime = @incr.Runtime()
   let key = SubKey::SubKey("timer-test", "subscription")
