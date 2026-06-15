@@ -37,12 +37,14 @@
             <div id="nested-child-root"></div>
           </div>
           <div class="lifecycle-copy">
-            <p class="eyebrow">child lifecycle (#209)</p>
-            <p>Detach removes the child's DOM but keeps its Program alive — re-mount restores the preserved count. Destroy disposes the child's scope for good; dispose tears the whole renderer down and removes its runtime listeners.</p>
+            <p class="eyebrow">child lifecycle (#209/#255)</p>
+            <p>Detach removes the child's DOM but keeps its Program alive — re-mount restores the preserved count. Deactivate keeps the DOM attached while scheduled flushes skip the child until activation catches up. Destroy disposes the child's scope for good; dispose tears the whole renderer down and removes its runtime listeners.</p>
           </div>
           <div class="button-row" role="group" aria-label="Child root lifecycle controls">
             <button id="detach-child" type="button" class="demo-button">Detach child</button>
             <button id="remount-child" type="button" class="demo-button">Re-mount child</button>
+            <button id="deactivate-child" type="button" class="demo-button">Deactivate child</button>
+            <button id="activate-child" type="button" class="demo-button">Activate child</button>
             <button id="destroy-child" type="button" class="demo-button">Destroy child</button>
             <button id="dispose-renderer" type="button" class="demo-button">Dispose renderer</button>
           </div>

@@ -10,8 +10,9 @@ payload ids, and `BrowserRenderer` roots/stats. It proves the core loop with a
 pure counter component, a minimal Rabbita-style `Cmd` scheduler, and a
 browser-rendering slice for watched `Html` view roots — including typed pure
 event-payload descriptors (#211/#249/#270), keyed children (#211), a small
-semantic-keyed editor driver (#251), and post-render commands for DOM work that
-must run after a flush (#268). Async command adapters and deeper browser/runtime
+semantic-keyed editor driver (#251), post-render commands for DOM work that
+must run after a flush (#268), and DOM-preserving inactive roots for activation
+island experiments (#255). Async command adapters and deeper browser/runtime
 benchmark comparisons remain follow-up issues; a first pure adjacent-framework
 benchmark slice is documented below.
 
@@ -46,11 +47,14 @@ The browser renderer keeps DOM detachment and component disposal separate
 `Program` scope and watch alive, parking the root so a flush skips it; the
 renderer still owns it, so `BrowserRenderer::reattach` re-mounts the same root
 with its state preserved, and `dispose` reclaims it rather than leaking it.
-`BrowserRenderer::destroy` is the logical teardown: it tears down the DOM and
-disposes the program scope when no sibling root still references it, so
-destroying one of several mounts of a shared component leaves the others
-working. Only `destroy` (and `dispose`, which destroys every owned root, mounted
-or parked) touches the scope.
+`BrowserRenderer::deactivate` is a narrower DOM-preserving state for #255: the
+root remains mounted and attached, with the same `Program` and view `Watch`, but
+scheduled flushes skip `root.flush()` until `BrowserRenderer::activate` performs
+one catch-up flush. `BrowserRenderer::destroy` is the logical teardown: it tears
+down the DOM and disposes the program scope when no sibling root still
+references it, so destroying one of several mounts of a shared component leaves
+the others working. Only `destroy` (and `dispose`, which destroys every owned
+root, mounted or parked) touches the scope.
 
 While the component instance is alive, the persistent `Watch` keeps the view
 chain reachable across `Runtime::gc()`. After disposal, the scope and watch are
@@ -72,9 +76,12 @@ for now. Represent recoverable failures as messages carrying `Result`.
 
 `Cmd::after_flush` queues the same callback shape for the renderer's post-flush
 phase. `Program` stores these callbacks outside cacheable `Html`, and
-`BrowserRenderer` drains the mounted roots after `root.flush()` has rendered or
-diffed the DOM. This is the boundary for DOM work that needs nodes created by the
-current patch, such as focusing and selecting an inline editor:
+`BrowserRenderer` drains active mounted roots after `root.flush()` has rendered
+or diffed the DOM. If a program has no active mounted root, its callbacks wait
+until activation's catch-up flush; callbacks are still program-scoped when one
+`Program` backs multiple roots. This is the boundary for DOM work that needs
+nodes created by the current patch, such as focusing and selecting an inline
+editor:
 
 ```mbt nocheck
 ///|
@@ -94,10 +101,13 @@ frame.
 
 The renderer mounts experimental public `Program[Msg, Html[Msg]]` roots,
 installs a runtime `on_change` hook, and schedules one `requestAnimationFrame`
-flush for a burst of model changes. A flush reads each root's persistent `Watch`; if the
-cacheable `Html` value is equal to the last rendered value, the renderer records
-a skipped patch and leaves the DOM alone. If the value changed, it records a
-patch attempt and applies a small positional VDOM diff.
+flush for a burst of model changes. A flush reads each active root's persistent
+`Watch`; if the cacheable `Html` value is equal to the last rendered value, the
+renderer records a skipped patch and leaves the DOM alone. If the value changed,
+it records a patch attempt and applies a small positional VDOM diff. Inactive
+mounted roots stay in the owned root set and keep their DOM attached, but the
+scheduled frame records an inactive skip instead of reading the watched view;
+activation records a catch-up flush and reads/diffs once.
 
 `Html` stores attributes, children, and pure event descriptors. DOM event
 listener closures are created only by the renderer boundary and dispatch

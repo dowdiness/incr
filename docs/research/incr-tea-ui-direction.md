@@ -143,6 +143,10 @@ the DOM cost roughly 104 µs at N=64, 297 µs at N=256, and 617 µs at N=512.
 That narrows the #255 prototype target: only DOM-preserving inactive roots or
 panels justify visibility/idle/manual `Watch` activation experiments. Ordinary
 collapsed conditionals should keep using the current dynamic-dependency skip.
+The first prototype adds `BrowserRenderer::deactivate` / `activate`: inactive
+roots remain mounted with DOM attached and their `Program`/`Watch` alive, but
+scheduled frames skip their watched-view reads until activation performs one
+catch-up flush.
 
 ## Near-term roadmap
 
@@ -195,10 +199,11 @@ collapsed conditionals should keep using the current dynamic-dependency skip.
    fallback for structural and keyed-identity cases.
 9. **Prototype island-style activation only for DOM-present hidden subtrees.**
    The #255 benchmark shows that collapsed conditionals are already cheap, while
-   hidden-mounted editor-shaped subtrees pay visible-update costs. A follow-up
-   should test visibility/idle/manual triggers that pause watched view
-   reads/flushes without discarding DOM, then compare against the new
-   hidden-mounted rows. Follow-up: [#255].
+   hidden-mounted editor-shaped subtrees pay visible-update costs. The initial
+   `BrowserRenderer::deactivate` / `activate` slice pauses watched-view reads
+   without discarding DOM; the next step should connect it to visibility/idle/
+   manual triggers and compare against the hidden-mounted rows. Follow-up:
+   [#255].
 10. **Explore host-framework boundaries.** Test whether custom-element style
    mounts make `incr_tea` roots easier to embed and lifecycle-test. Follow-up:
    [#256].

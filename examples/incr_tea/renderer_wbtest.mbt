@@ -422,6 +422,24 @@ extern "js" fn test_pending_raf_count() -> Int =
 
 ///|
 #cfg(target="js")
+extern "js" fn test_dom_child_count(element : DomElement) -> Int =
+  #| (element) => element.children.length
+
+///|
+#cfg(target="js")
+extern "js" fn test_dom_text(element : DomElement) -> String =
+  #| (element) => {
+  #|   const collect = node => {
+  #|     if (node && Object.prototype.hasOwnProperty.call(node, "nodeValue")) {
+  #|       return String(node.nodeValue);
+  #|     }
+  #|     return (node.children ?? []).map(collect).join("");
+  #|   };
+  #|   return collect(element);
+  #| }
+
+///|
+#cfg(target="js")
 extern "js" fn test_focused_id() -> String =
   #| () => globalThis.__incrTeaFocusedId ?? ""
 
@@ -855,6 +873,167 @@ test "#268: focus command runs after a scheduled DOM flush" {
   test_run_next_raf()
   inspect(test_focused_id(), content="focus-target")
   inspect(test_selected_id(), content="focus-target")
+
+  renderer.dispose()
+  test_restore_dom()
+}
+
+///|
+#cfg(target="js")
+test "#255: inactive root keeps Program and Watch alive across Runtime::gc" {
+  let host = test_install_focus_dom()
+  let runtime = @incr.Runtime()
+  let renderer : BrowserRenderer[RendererMsg] = BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  let program = renderer_counter_program(runtime, "inactive.gc")
+  let root = renderer.mount(host, program)
+  let view_id = program.view_id()
+
+  renderer.deactivate(root)
+  runtime.gc()
+
+  inspect(program.is_disposed(), content="false")
+  inspect(runtime.gc_root_count(view_id), content="1")
+
+  renderer.dispose()
+  test_restore_dom()
+}
+
+///|
+#cfg(target="js")
+test "#255: deactivation keeps the mounted DOM root attached" {
+  let host = test_install_focus_dom()
+  let runtime = @incr.Runtime()
+  let renderer : BrowserRenderer[RendererMsg] = BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  let program = renderer_counter_program(runtime, "inactive.dom")
+  let root = renderer.mount(host, program)
+
+  inspect(test_dom_child_count(host), content="1")
+  inspect(test_dom_text(host), content="count=0+")
+  renderer.deactivate(root)
+
+  inspect(renderer.roots.length(), content="1")
+  inspect(renderer.detached.length(), content="0")
+  inspect(test_dom_child_count(host), content="1")
+  inspect(test_dom_text(host), content="count=0+")
+
+  renderer.dispose()
+  test_restore_dom()
+}
+
+///|
+#cfg(target="js")
+test "#255: inactive model changes catch up on activation" {
+  let host = test_install_focus_dom()
+  let runtime = @incr.Runtime()
+  let renderer : BrowserRenderer[RendererMsg] = BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  let program = renderer_counter_program(runtime, "inactive.catchup")
+  let root = renderer.mount(host, program)
+
+  renderer.deactivate(root)
+  inspect(program.dispatch(Increment), content="true")
+  inspect(test_pending_raf_count(), content="1")
+  test_run_next_raf()
+  inspect(test_dom_text(host), content="count=0+")
+
+  renderer.activate(root)
+  inspect(test_dom_text(host), content="count=1+")
+  inspect(test_pending_raf_count(), content="0")
+
+  renderer.dispose()
+  test_restore_dom()
+}
+
+///|
+#cfg(target="js")
+test "#255: disposing an inactive root still tears down DOM and Program" {
+  let host = test_install_focus_dom()
+  let runtime = @incr.Runtime()
+  let renderer : BrowserRenderer[RendererMsg] = BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  let program = renderer_counter_program(runtime, "inactive.dispose")
+  let root = renderer.mount(host, program)
+
+  renderer.deactivate(root)
+  renderer.dispose()
+
+  inspect(program.is_disposed(), content="true")
+  inspect(renderer.roots.length(), content="0")
+  inspect(renderer.detached.length(), content="0")
+  inspect(test_dom_child_count(host), content="0")
+
+  test_restore_dom()
+}
+
+///|
+#cfg(target="js")
+test "#255: stats count inactive skips and activation catch-up flushes" {
+  let host = test_install_focus_dom()
+  let runtime = @incr.Runtime()
+  let renderer : BrowserRenderer[RendererMsg] = BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  let program = renderer_counter_program(runtime, "inactive.stats")
+  let root = renderer.mount(host, program)
+
+  inspect(renderer.stats().patch_attempts, content="1")
+  inspect(renderer.stats().inactive_skipped_flushes, content="0")
+  inspect(renderer.stats().activation_flushes, content="0")
+
+  renderer.deactivate(root)
+  inspect(program.dispatch(Increment), content="true")
+  test_run_next_raf()
+
+  inspect(renderer.stats().frame_flushes, content="1")
+  inspect(renderer.stats().inactive_skipped_flushes, content="1")
+  inspect(renderer.stats().activation_flushes, content="0")
+  inspect(renderer.stats().patch_attempts, content="1")
+
+  renderer.activate(root)
+  inspect(renderer.stats().activation_flushes, content="1")
+  inspect(renderer.stats().inactive_skipped_flushes, content="1")
+  inspect(renderer.stats().patch_attempts, content="2")
+
+  renderer.dispose()
+  test_restore_dom()
+}
+
+///|
+#cfg(target="js")
+test "#255: inactive after_flush callbacks wait for activation catch-up" {
+  let host = test_install_focus_dom()
+  let runtime = @incr.Runtime()
+  let renderer : BrowserRenderer[RendererMsg] = BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  let scope = @incr.Scope::new(runtime)
+  let events : Ref[Array[String]] = Ref([])
+  let update : (RendererMsg) -> Cmd[RendererMsg] = _ => {
+    Cmd::after_flush(_ => events.val.push("after-flush"))
+  }
+  let view : () -> Html[RendererMsg] raise Failure = () => div([text("stable")])
+  let program = Program::Program(
+    runtime,
+    scope,
+    update,
+    view,
+    label="inactive.after_flush.view",
+  )
+  let root = renderer.mount(host, program)
+
+  renderer.deactivate(root)
+  inspect(program.dispatch(Increment), content="true")
+  test_run_next_raf()
+  inspect(events.val.join(","), content="")
+
+  renderer.activate(root)
+  inspect(events.val.join(","), content="after-flush")
 
   renderer.dispose()
   test_restore_dom()

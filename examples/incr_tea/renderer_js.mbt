@@ -1022,6 +1022,7 @@ pub struct BrowserRoot[Msg] {
   // roots without a payload family use defaults that ignore every payload.
   priv payload_resolvers : PayloadResolvers[Msg]
   priv mut rendered : Rendered[Msg]?
+  priv mut active : Bool
 }
 
 ///|
@@ -1049,6 +1050,7 @@ fn[Msg] BrowserRoot::BrowserRoot(
     host,
     payload_resolvers,
     rendered: None,
+    active: true,
   }
 }
 
@@ -1071,6 +1073,17 @@ fn[Msg : Eq] BrowserRoot::flush(self : BrowserRoot[Msg]) -> Unit {
       Some(old) => diff_rendered(old, next, self.host, sink)
     },
   )
+}
+
+///|
+#cfg(target="js")
+fn[Msg : Eq] BrowserRoot::flush_if_active(self : BrowserRoot[Msg]) -> Unit {
+  if self.active {
+    self.flush()
+  } else {
+    let stats = self.watched.stats
+    stats.inactive_skipped_flushes = stats.inactive_skipped_flushes + 1
+  }
 }
 
 ///|
@@ -1128,9 +1141,20 @@ fn[Msg] BrowserRoot::drain_after_flush(self : BrowserRoot[Msg]) -> Unit {
 
 ///|
 #cfg(target="js")
+fn[Msg] BrowserRoot::drain_after_flush_if_active(
+  self : BrowserRoot[Msg],
+) -> Unit {
+  if self.active {
+    self.drain_after_flush()
+  }
+}
+
+///|
+#cfg(target="js")
 pub struct BrowserRenderer[Msg] {
   priv runtime : @incr.Runtime
-  // Mounted roots, flushed on every animation frame.
+  // Mounted roots. Active roots flush on every animation frame; inactive roots
+  // stay attached but skip scheduled flush reads until activation.
   priv mut roots : Array[BrowserRoot[Msg]]
   // Detached-but-alive roots (#209): removed from the DOM but their Program is
   // kept so they can be re-attached. The renderer still owns them, so `dispose`
@@ -1245,7 +1269,7 @@ fn[Msg : Eq] BrowserRenderer::schedule_flush(
     guard !self.disposed else { return }
     self.stats.frame_flushes = self.stats.frame_flushes + 1
     for root in self.roots {
-      root.flush()
+      root.flush_if_active()
     }
     self.drain_after_flush_commands()
     (self.after_flush)(self.stats)
@@ -1262,7 +1286,7 @@ fn[Msg] BrowserRenderer::drain_after_flush_commands(
 ) -> Unit {
   guard !self.disposed else { return }
   for root in self.roots {
-    root.drain_after_flush()
+    root.drain_after_flush_if_active()
   }
 }
 
@@ -1290,6 +1314,41 @@ fn[Msg] BrowserRenderer::references_program(
 ) -> Bool {
   self.roots.iter().any(other => other.view_id() == view_id) ||
   self.detached.iter().any(other => other.view_id() == view_id)
+}
+
+///|
+/// Marks a mounted root inactive without detaching its DOM or disposing its
+/// Program. Scheduled renderer frames keep ownership and post-dispose teardown,
+/// but skip `root.flush()` until `activate` performs a catch-up read.
+#cfg(target="js")
+pub fn[Msg] BrowserRenderer::deactivate(
+  self : BrowserRenderer[Msg],
+  root : BrowserRoot[Msg],
+) -> Unit {
+  guard self.roots.iter().any(other => physical_equal(other, root)) else {
+    return
+  }
+  root.active = false
+}
+
+///|
+/// Marks a mounted inactive root active and performs one catch-up flush while
+/// its DOM, Program, and view Watch are still the same objects.
+#cfg(target="js")
+pub fn[Msg : Eq] BrowserRenderer::activate(
+  self : BrowserRenderer[Msg],
+  root : BrowserRoot[Msg],
+) -> Unit {
+  guard !self.disposed else { return }
+  guard self.roots.iter().any(other => physical_equal(other, root)) else {
+    return
+  }
+  guard !root.active else { return }
+  root.active = true
+  self.stats.activation_flushes = self.stats.activation_flushes + 1
+  root.flush()
+  root.drain_after_flush()
+  (self.after_flush)(self.stats)
 }
 
 ///|
@@ -1324,6 +1383,7 @@ pub fn[Msg : Eq] BrowserRenderer::reattach(
     return
   }
   self.detached = self.detached.filter(other => !physical_equal(other, root))
+  root.active = true
   self.roots.push(root)
   root.flush()
   root.drain_after_flush()
