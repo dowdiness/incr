@@ -98,6 +98,13 @@ extern "js" fn ui_compare_dom_install_incr_api(
   #|     toInt(iterations, 200),
   #|     toInt(samples, 9),
   #|   ));
+  #|   api.runIncrTeaDirectCell = (suite, operation, n = 0, iterations = 200, samples = 9) => JSON.parse(run(
+  #|     `direct:${String(suite)}`,
+  #|     String(operation),
+  #|     toInt(n, 0),
+  #|     toInt(iterations, 200),
+  #|     toInt(samples, 9),
+  #|   ));
   #|   api.runIncrTea = (operation, iterations = 200, samples = 9) => api.runIncrTeaCell(
   #|     "counter",
   #|     operation,
@@ -109,6 +116,9 @@ extern "js" fn ui_compare_dom_install_incr_api(
   #|     const key = String(system);
   #|     if (key === "incr_tea") {
   #|       return api.runIncrTeaCell(suite, operation, n, iterations, samples);
+  #|     }
+  #|     if (key === "incr_tea-direct") {
+  #|       return api.runIncrTeaDirectCell(suite, operation, n, iterations, samples);
   #|     }
   #|     if (api.runAdjacentCell) {
   #|       return api.runAdjacentCell(key, suite, operation, n, iterations, samples);

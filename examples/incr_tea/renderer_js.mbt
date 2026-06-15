@@ -248,6 +248,7 @@ fn install_render_recompute_counter(
 #cfg(target="js")
 priv enum Rendered[Msg] {
   RenderedText(String, DomNode)
+  RenderedDirectText(DirectTextId, String, DomNode)
   RenderedElem(
     tag~ : String,
     attrs~ : Array[Attribute],
@@ -269,6 +270,7 @@ priv enum Rendered[Msg] {
 fn[Msg] Rendered::node(self : Rendered[Msg]) -> DomNode {
   match self {
     RenderedText(_, node) => node
+    RenderedDirectText(_, _, node) => node
     RenderedElem(element~, ..) => dom_element_node(element)
     RenderedKeyedElem(element~, ..) => dom_element_node(element)
   }
@@ -296,21 +298,69 @@ fn[Msg] PayloadResolvers::PayloadResolvers(
 }
 
 ///|
-/// Boundary handle threaded through render/diff so DOM listeners can re-enter
-/// the program. `dispatch` forwards fixed messages; `payload_resolvers` handles
-/// DOM payload events without storing closures in `Html`.
+/// Mount-boundary direct patch resolvers. `Html` carries only pure ids and
+/// fallback values; live watches stay behind these boundary callbacks.
 #cfg(target="js")
-priv struct EventSink[Msg] {
-  dispatch : (Msg) -> Unit
-  payload_resolvers : PayloadResolvers[Msg]
+priv struct DirectPatchResolvers {
+  resolve_text : (DirectTextId) -> String?
+  resolve_attr : (DirectAttrId) -> String?
 }
 
 ///|
 #cfg(target="js")
-fn attr_value(attrs : Array[Attribute], name : String) -> String? {
+fn DirectPatchResolvers::DirectPatchResolvers(
+  resolve_text? : (DirectTextId) -> String? = _ => None,
+  resolve_attr? : (DirectAttrId) -> String? = _ => None,
+) -> DirectPatchResolvers {
+  { resolve_text, resolve_attr }
+}
+
+///|
+#cfg(target="js")
+fn DirectPatchResolvers::text_value(
+  self : DirectPatchResolvers,
+  id : DirectTextId,
+  fallback : String,
+) -> String {
+  match (self.resolve_text)(id) {
+    Some(value) => value
+    None => fallback
+  }
+}
+
+///|
+#cfg(target="js")
+fn DirectPatchResolvers::attr_value(
+  self : DirectPatchResolvers,
+  attr : Attribute,
+) -> String {
+  match attr.direct {
+    Some(id) =>
+      match (self.resolve_attr)(id) {
+        Some(value) => value
+        None => attr.value
+      }
+    None => attr.value
+  }
+}
+
+///|
+/// Boundary handle threaded through render/diff so DOM listeners can re-enter
+/// the program. `dispatch` forwards fixed messages; payload and direct-patch
+/// resolvers keep executable boundary state out of cacheable `Html`.
+#cfg(target="js")
+priv struct EventSink[Msg] {
+  dispatch : (Msg) -> Unit
+  payload_resolvers : PayloadResolvers[Msg]
+  direct_resolvers : DirectPatchResolvers
+}
+
+///|
+#cfg(target="js")
+fn attr_by_name(attrs : Array[Attribute], name : String) -> Attribute? {
   for attr in attrs {
     if attr.name == name {
-      break Some(attr.value)
+      break Some(attr)
     }
   } nobreak {
     None
@@ -324,27 +374,56 @@ fn patch_attrs(
   old_attrs : Array[Attribute],
   new_attrs : Array[Attribute],
   element : DomElement,
+  direct_resolvers : DirectPatchResolvers,
 ) -> Unit {
   for old in old_attrs {
-    match attr_value(new_attrs, old.name) {
+    match attr_by_name(new_attrs, old.name) {
       None => dom_remove_attr(element, old.name)
       Some(_) => ()
     }
   }
   for next in new_attrs {
-    match attr_value(old_attrs, next.name) {
-      None => patch_attr(tag, element, next)
-      Some(prev) => if prev != next.value { patch_attr(tag, element, next) }
+    match attr_by_name(old_attrs, next.name) {
+      None => patch_attr(tag, element, next, direct_resolvers)
+      Some(prev) =>
+        if prev != next {
+          patch_attr(tag, element, next, direct_resolvers)
+        } else {
+          match (prev.direct, next.direct) {
+            (None, None) => ()
+            _ =>
+              if direct_resolvers.attr_value(prev) !=
+                direct_resolvers.attr_value(next) {
+                patch_attr(tag, element, next, direct_resolvers)
+              }
+          }
+        }
     }
   }
 }
 
 ///|
 #cfg(target="js")
-fn patch_attr(tag : String, element : DomElement, attr : Attribute) -> Unit {
-  dom_set_attr(element, attr.name, attr.value)
-  if tag == "input" && attr.name == "value" {
-    dom_set_value_property(element, attr.value)
+fn patch_attr(
+  tag : String,
+  element : DomElement,
+  attr : Attribute,
+  direct_resolvers : DirectPatchResolvers,
+) -> Unit {
+  set_attr_value(tag, element, attr.name, direct_resolvers.attr_value(attr))
+}
+
+///|
+#cfg(target="js")
+fn set_attr_value(
+  tag : String,
+  element : DomElement,
+  name : String,
+  value : String,
+) -> Unit {
+  dom_set_attr(element, name, value)
+  if tag == "input" && name == "value" {
+    dom_set_value_property(element, value)
   }
 }
 
@@ -433,9 +512,13 @@ fn[Msg] attach_events(
 fn[Msg] render_html(html : Html[Msg], sink : EventSink[Msg]) -> Rendered[Msg] {
   match html {
     Text(value) => RenderedText(value, dom_create_text(value))
+    DirectText(id~, fallback~) => {
+      let value = sink.direct_resolvers.text_value(id, fallback)
+      RenderedDirectText(id, value, dom_create_text(value))
+    }
     Elem(tag~, attrs~, events~, children~) => {
       let element = dom_create_element(tag)
-      patch_attrs(tag, [], attrs, element)
+      patch_attrs(tag, [], attrs, element, sink.direct_resolvers)
       attach_events(element, events, sink)
       let rendered_children = children.map(child => {
         let rendered = render_html(child, sink)
@@ -446,7 +529,7 @@ fn[Msg] render_html(html : Html[Msg], sink : EventSink[Msg]) -> Rendered[Msg] {
     }
     KeyedElem(tag~, attrs~, events~, children~) => {
       let element = dom_create_element(tag)
-      patch_attrs(tag, [], attrs, element)
+      patch_attrs(tag, [], attrs, element, sink.direct_resolvers)
       attach_events(element, events, sink)
       let rendered_children = children.map(pair => {
         let (key, child) = pair
@@ -480,6 +563,16 @@ fn[Msg : Eq] diff_rendered(
       }
       RenderedText(next_text, node)
     }
+    (RenderedDirectText(old_id, old_text, node), DirectText(id~, fallback~)) =>
+      if old_id != id {
+        replace_rendered(old, next, parent, sink)
+      } else {
+        let next_text = sink.direct_resolvers.text_value(id, fallback)
+        if old_text != next_text {
+          dom_set_text(node, next_text)
+        }
+        RenderedDirectText(id, next_text, node)
+      }
     (
       RenderedElem(
         tag=old_tag,
@@ -498,7 +591,13 @@ fn[Msg : Eq] diff_rendered(
       if old_tag != next_tag || old_events != next_events {
         replace_rendered(old, next, parent, sink)
       } else {
-        patch_attrs(next_tag, old_attrs, next_attrs, element)
+        patch_attrs(
+          next_tag,
+          old_attrs,
+          next_attrs,
+          element,
+          sink.direct_resolvers,
+        )
         let rendered_children = diff_children(
           old_children, next_children, element, sink,
         )
@@ -528,7 +627,13 @@ fn[Msg : Eq] diff_rendered(
       if old_tag != next_tag || old_events != next_events {
         replace_rendered(old, next, parent, sink)
       } else {
-        patch_attrs(next_tag, old_attrs, next_attrs, element)
+        patch_attrs(
+          next_tag,
+          old_attrs,
+          next_attrs,
+          element,
+          sink.direct_resolvers,
+        )
         let rendered_children = diff_keyed_children(
           old_children, next_children, element, sink,
         )
@@ -556,6 +661,199 @@ fn[Msg] replace_rendered(
   let rendered = render_html(next, sink)
   dom_replace_child(parent, rendered.node(), old.node())
   rendered
+}
+
+///|
+#cfg(target="js")
+priv struct DirectTextPatch {
+  id : DirectTextId
+  node : DomNode
+  mut last : String
+}
+
+///|
+#cfg(target="js")
+priv struct DirectAttrPatch {
+  id : DirectAttrId
+  tag : String
+  name : String
+  element : DomElement
+  mut last : String
+}
+
+///|
+#cfg(target="js")
+fn DirectTextPatch::flush(
+  self : DirectTextPatch,
+  direct_resolvers : DirectPatchResolvers,
+) -> Unit {
+  let next = direct_resolvers.text_value(self.id, self.last)
+  if self.last != next {
+    dom_set_text(self.node, next)
+    self.last = next
+  }
+}
+
+///|
+#cfg(target="js")
+fn DirectAttrPatch::flush(
+  self : DirectAttrPatch,
+  direct_resolvers : DirectPatchResolvers,
+) -> Unit {
+  let attr : Attribute = {
+    name: self.name,
+    value: self.last,
+    direct: Some(self.id),
+  }
+  let next = direct_resolvers.attr_value(attr)
+  if self.last != next {
+    set_attr_value(self.tag, self.element, self.name, next)
+    self.last = next
+  }
+}
+
+///|
+#cfg(target="js")
+fn collect_direct_attrs(
+  tag : String,
+  attrs : Array[Attribute],
+  element : DomElement,
+  attr_patches : Array[DirectAttrPatch],
+  direct_resolvers : DirectPatchResolvers,
+) -> Unit {
+  for attr in attrs {
+    match attr.direct {
+      Some(id) =>
+        attr_patches.push({
+          id,
+          tag,
+          name: attr.name,
+          element,
+          last: direct_resolvers.attr_value(attr),
+        })
+      None => ()
+    }
+  }
+}
+
+///|
+#cfg(target="js")
+fn[Msg] collect_direct_patches(
+  rendered : Rendered[Msg],
+  text_patches : Array[DirectTextPatch],
+  attr_patches : Array[DirectAttrPatch],
+  direct_resolvers : DirectPatchResolvers,
+) -> Unit {
+  match rendered {
+    RenderedText(_, _) => ()
+    RenderedDirectText(id, value, node) =>
+      text_patches.push({ id, node, last: value })
+    RenderedElem(tag~, attrs~, children~, element~, ..) => {
+      collect_direct_attrs(tag, attrs, element, attr_patches, direct_resolvers)
+      for child in children {
+        collect_direct_patches(
+          child, text_patches, attr_patches, direct_resolvers,
+        )
+      }
+    }
+    RenderedKeyedElem(tag~, attrs~, children~, element~, ..) => {
+      collect_direct_attrs(tag, attrs, element, attr_patches, direct_resolvers)
+      for pair in children {
+        collect_direct_patches(
+          pair.1,
+          text_patches,
+          attr_patches,
+          direct_resolvers,
+        )
+      }
+    }
+  }
+}
+
+///|
+#cfg(target="js")
+priv struct DirectPatchRoot[Msg] {
+  program : Program[Msg, Html[Msg]]
+  host : DomElement
+  direct_resolvers : DirectPatchResolvers
+  mut rendered : Rendered[Msg]?
+  mut text_patches : Array[DirectTextPatch]
+  mut attr_patches : Array[DirectAttrPatch]
+}
+
+///|
+#cfg(target="js")
+fn[Msg] DirectPatchRoot::DirectPatchRoot(
+  program : Program[Msg, Html[Msg]],
+  host : DomElement,
+  direct_resolvers : DirectPatchResolvers,
+) -> DirectPatchRoot[Msg] {
+  {
+    program,
+    host,
+    direct_resolvers,
+    rendered: None,
+    text_patches: [],
+    attr_patches: [],
+  }
+}
+
+///|
+#cfg(target="js")
+fn[Msg] DirectPatchRoot::event_sink(
+  self : DirectPatchRoot[Msg],
+) -> EventSink[Msg] {
+  {
+    dispatch: msg => ignore(self.program.dispatch(msg)),
+    payload_resolvers: PayloadResolvers::PayloadResolvers(),
+    direct_resolvers: self.direct_resolvers,
+  }
+}
+
+///|
+#cfg(target="js")
+fn[Msg] DirectPatchRoot::store_rendered(
+  self : DirectPatchRoot[Msg],
+  rendered : Rendered[Msg],
+) -> Unit {
+  self.text_patches = []
+  self.attr_patches = []
+  collect_direct_patches(
+    rendered,
+    self.text_patches,
+    self.attr_patches,
+    self.direct_resolvers,
+  )
+  self.rendered = Some(rendered)
+}
+
+///|
+#cfg(target="js")
+fn[Msg] DirectPatchRoot::flush_direct_patches(
+  self : DirectPatchRoot[Msg],
+) -> Unit {
+  for patch in self.text_patches {
+    patch.flush(self.direct_resolvers)
+  }
+  for patch in self.attr_patches {
+    patch.flush(self.direct_resolvers)
+  }
+}
+
+///|
+#cfg(target="js")
+fn[Msg] DirectPatchRoot::flush(self : DirectPatchRoot[Msg]) -> Unit {
+  match self.rendered {
+    None => {
+      let rendered = render_html(
+        self.program.read_view_or_abort(),
+        self.event_sink(),
+      )
+      dom_replace_children(self.host, rendered.node())
+      self.store_rendered(rendered)
+    }
+    Some(_) => self.flush_direct_patches()
+  }
 }
 
 ///|
@@ -686,6 +984,7 @@ fn[Msg : Eq] BrowserRoot::flush(self : BrowserRoot[Msg]) -> Unit {
   let sink : EventSink[Msg] = {
     dispatch: msg => ignore(self.watched.program.dispatch(msg)),
     payload_resolvers: self.payload_resolvers,
+    direct_resolvers: DirectPatchResolvers::DirectPatchResolvers(),
   }
   self.rendered = Some(
     match self.rendered {

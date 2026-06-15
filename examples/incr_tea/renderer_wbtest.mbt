@@ -439,6 +439,7 @@ test "#249: typed keyboard and pointer payloads dispatch through Program::dispat
   let sink : EventSink[RendererMsg] = {
     dispatch: msg => ignore(program.dispatch(msg)),
     payload_resolvers,
+    direct_resolvers: DirectPatchResolvers::DirectPatchResolvers(),
   }
   let element = test_event_element()
   attach_events(
