@@ -2,6 +2,14 @@ import { chromium } from 'playwright';
 import { assert, close, createStaticServer, host, listen } from './browser-harness.mjs';
 
 const defaultSystems = ['incr_tea', 'rabbita', 'luna'];
+const inactiveCohortBursts = [10, 100, 1000];
+const inactiveCohortActivationModes = ['activate-one', 'activate-all'];
+const inactiveCohortTimings = ['total', 'activation'];
+const inactiveCohortOperations = inactiveCohortBursts.flatMap(burst =>
+  inactiveCohortActivationModes.flatMap(mode =>
+    inactiveCohortTimings.map(timing => `inactive-${burst}-updates-${mode}-${timing}`),
+  ),
+);
 const suites = [
   {
     name: 'counter',
@@ -55,6 +63,13 @@ const suites = [
       'inactive-1000-updates-activation',
     ],
     sizes: [64, 256, 512],
+  },
+  {
+    name: 'workspace-inactive-root-cohort',
+    title: 'Inactive workspace root cohort',
+    systems: ['incr_tea'],
+    operations: inactiveCohortOperations,
+    sizes: [1, 4, 16],
   },
 ];
 const iterations = positiveInt(process.env.INCR_TEA_UI_COMPARE_DOM_BENCH_ITERATIONS, 200);
@@ -242,8 +257,35 @@ function inactiveWorkspaceAmortizedTable(results) {
   return lines.join('\n');
 }
 
+function inactiveCohortParts(operation) {
+  const match = /^inactive-(\d+)-updates-activate-(one|all)-(total|activation)$/.exec(operation);
+  if (!match) return { burst: operation, activation: '—', timing: '—' };
+  return {
+    burst: `${match[1]} inactive updates`,
+    activation: match[2] === 'one' ? 'one root' : 'all roots',
+    timing: match[3] === 'activation' ? 'activation only' : 'total burst',
+  };
+}
+
+function inactiveWorkspaceCohortTable(results) {
+  const suite = suites.find(item => item.name === 'workspace-inactive-root-cohort');
+  const lines = [
+    `### ${suite.title} (µs)`,
+    '',
+    '| burst | activation | timing | roots | incr_tea |',
+    '|---|---|---|---:|---:|',
+  ];
+  for (const operation of suite.operations) {
+    const parts = inactiveCohortParts(operation);
+    for (const n of suite.sizes) {
+      lines.push(`| ${parts.burst} | ${parts.activation} | ${parts.timing} | ${n} | ${systemCells(results, suite.name, operation, n).join(' | ')} |`);
+    }
+  }
+  return lines.join('\n');
+}
+
 function resultsTables(results) {
-  return [counterTable(results), keyedListTable(results), panelTable(results), rowLeafTable(results), workspaceIslandTable(results), inactiveWorkspaceTable(results), inactiveWorkspaceAmortizedTable(results)].join('\n\n');
+  return [counterTable(results), keyedListTable(results), panelTable(results), rowLeafTable(results), workspaceIslandTable(results), inactiveWorkspaceTable(results), inactiveWorkspaceAmortizedTable(results), inactiveWorkspaceCohortTable(results)].join('\n\n');
 }
 
 function plannedCells() {
@@ -276,6 +318,7 @@ function printReport({ browserVersion, userAgent, raw }) {
     '- Workspace-island rows keep one editor/sidebar/inspector-shaped subtree at a fixed size. Collapsed updates keep that subtree absent/untracked; hidden-mounted updates keep the subtree in the DOM with hidden/aria-hidden attributes and current active watchers; visible updates keep it visible. Mode reset work runs before the timed operation.',
     '- Workspace-inactive-root rows use the same subtree with the `BrowserRenderer` inactive-root prototype. Active hidden-mounted update is the same root active; inactive update keeps DOM attached but skips the watched-view read; activation catch-up measures the deferred flush after one inactive update. Reset work runs before the timed operation.',
     '- Workspace-inactive-root-amortized rows time one burst: K inactive updates, each using the inactive flush-skip path, followed by one activation catch-up. Reset/deactivate work runs before the timed burst.',
+    '- Workspace-inactive-root-cohort rows mount one shared workspace Program/view Watch into R inactive DOM roots (R is the roots column; per-root subtree N=256). Per-root state is the DOM root plus rendered/last-view cache. Each burst applies K model updates while all roots are inactive; every update walks the inactive flush-skip path for all roots. Total rows time updates plus activation; activation-only rows run the same burst before timing and measure only activating one root or all roots.',
     '- incr_tea-direct is an experimental row/leaf-only direct patch path: Html stores pure leaf/attr ids, while mount-boundary watches resolve live text/class values.',
     '- Rabbita keyed-list cells use its Map-based keyed-child API for every keyed-list operation; Luna list rows use luna/dom for_each reference/value reconciliation over stable string ids. Treat identity/focus behavior as framework-specific rather than semantically identical.',
     '- † Rabbita has no ordered key-array API in this harness; read its keyed-list cells, especially reverse, as keyed Map dirty/update costs rather than ordered-list equivalence.',
