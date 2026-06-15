@@ -306,3 +306,165 @@ fn ui_compare_incr_run_workspace(
     samples,
   )
 }
+
+///|
+#cfg(target="js")
+priv enum UiCompareInactiveWorkspaceOperation {
+  UiCompareInactiveWorkspaceActiveUpdate
+  UiCompareInactiveWorkspaceInactiveUpdate
+  UiCompareInactiveWorkspaceActivationCatchUp
+}
+
+///|
+#cfg(target="js")
+fn ui_compare_inactive_workspace_operation(
+  operation : String,
+) -> UiCompareInactiveWorkspaceOperation {
+  match operation {
+    "active-hidden-mounted-update"
+    | "active_hidden_mounted_update"
+    | "active-update"
+    | "active_update" => UiCompareInactiveWorkspaceActiveUpdate
+    "inactive-update" | "inactive_update" =>
+      UiCompareInactiveWorkspaceInactiveUpdate
+    "activation-catch-up" | "activation_catch_up" | "activate" =>
+      UiCompareInactiveWorkspaceActivationCatchUp
+    _ => abort("unknown inactive workspace operation: \{operation}")
+  }
+}
+
+///|
+#cfg(target="js")
+fn UiCompareInactiveWorkspaceOperation::name(
+  self : UiCompareInactiveWorkspaceOperation,
+) -> String {
+  match self {
+    UiCompareInactiveWorkspaceActiveUpdate => "active-hidden-mounted-update"
+    UiCompareInactiveWorkspaceInactiveUpdate => "inactive-update"
+    UiCompareInactiveWorkspaceActivationCatchUp => "activation-catch-up"
+  }
+}
+
+///|
+#cfg(target="js")
+priv struct UiCompareIncrInactiveWorkspaceHarness {
+  host : DomElement
+  renderer : BrowserRenderer[UiCompareWorkspaceMsg]
+  root : BrowserRoot[UiCompareWorkspaceMsg]
+}
+
+///|
+#cfg(target="js")
+fn UiCompareIncrInactiveWorkspaceHarness::UiCompareIncrInactiveWorkspaceHarness(
+  host : DomElement,
+  n : Int,
+) -> UiCompareIncrInactiveWorkspaceHarness {
+  let runtime = @incr.Runtime()
+  let renderer : BrowserRenderer[UiCompareWorkspaceMsg] = BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  // The benchmark page's immediate rAF shim would run and then latch the
+  // renderer's scheduled flag; drive the same flush helpers manually instead.
+  match renderer.on_change_listener_id {
+    Some(id) => {
+      runtime.remove_on_change_listener(id)
+      renderer.on_change_listener_id = None
+    }
+    None => ()
+  }
+  let program = ui_compare_incr_workspace_program(runtime, n)
+  let root = renderer.mount(host, program)
+  ui_compare_dom_click_action(host, "set-hidden-mounted")
+  root.flush()
+  { host, renderer, root }
+}
+
+///|
+#cfg(target="js")
+fn UiCompareIncrInactiveWorkspaceHarness::reset_hidden_active(
+  self : UiCompareIncrInactiveWorkspaceHarness,
+) -> Unit {
+  self.renderer.activate(self.root)
+  ui_compare_dom_click_action(self.host, "set-hidden-mounted")
+  self.root.flush()
+}
+
+///|
+#cfg(target="js")
+fn UiCompareIncrInactiveWorkspaceHarness::measure_operation(
+  self : UiCompareIncrInactiveWorkspaceHarness,
+  operation : UiCompareInactiveWorkspaceOperation,
+  iterations : Int,
+) -> Double {
+  let total = for _ in 0..<iterations; total = 0.0 {
+    self.reset_hidden_active()
+    match operation {
+      UiCompareInactiveWorkspaceActiveUpdate => ()
+      UiCompareInactiveWorkspaceInactiveUpdate =>
+        self.renderer.deactivate(self.root)
+      UiCompareInactiveWorkspaceActivationCatchUp => {
+        self.renderer.deactivate(self.root)
+        ui_compare_dom_click_action(self.host, "hidden-mounted-update")
+        self.root.flush_if_active()
+      }
+    }
+    let started = dom_bench_now_ms()
+    match operation {
+      UiCompareInactiveWorkspaceActiveUpdate => {
+        ui_compare_dom_click_action(self.host, "hidden-mounted-update")
+        self.root.flush()
+      }
+      UiCompareInactiveWorkspaceInactiveUpdate => {
+        ui_compare_dom_click_action(self.host, "hidden-mounted-update")
+        self.root.flush_if_active()
+      }
+      UiCompareInactiveWorkspaceActivationCatchUp =>
+        self.renderer.activate(self.root)
+    }
+    let elapsed = dom_bench_now_ms() - started
+    continue total + elapsed
+  } nobreak {
+    total
+  }
+  total / iterations.to_double()
+}
+
+///|
+#cfg(target="js")
+fn UiCompareIncrInactiveWorkspaceHarness::dispose(
+  self : UiCompareIncrInactiveWorkspaceHarness,
+) -> Unit {
+  self.renderer.dispose()
+}
+
+///|
+#cfg(target="js")
+fn ui_compare_incr_run_inactive_workspace(
+  operation : String,
+  n : Int,
+  iterations : Int,
+  sample_count : Int,
+) -> String {
+  let op = ui_compare_inactive_workspace_operation(operation)
+  let size = dom_bench_positive(n, 256)
+  let iteration_count = dom_bench_positive(iterations, 200)
+  let samples_len = dom_bench_positive(sample_count, 9)
+  let host = dom_bench_create_host()
+  let harness = UiCompareIncrInactiveWorkspaceHarness(host, size)
+  for _ in 0..<5 {
+    ignore(harness.measure_operation(op, 1))
+  }
+  let samples = [
+    for _ in 0..<samples_len => harness.measure_operation(op, iteration_count)
+  ]
+  harness.dispose()
+  dom_bench_remove_host(host)
+  ui_compare_result_json(
+    "incr_tea",
+    "workspace-inactive-root",
+    op.name(),
+    size,
+    iteration_count,
+    samples,
+  )
+}

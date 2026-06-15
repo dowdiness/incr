@@ -25,6 +25,13 @@ fn ui_compare_incr_run(
     | "activation_island"
     | "workspace" =>
       ui_compare_incr_run_workspace(operation, n, iterations, sample_count)
+    "workspace-inactive-root"
+    | "workspace_inactive_root"
+    | "inactive-root"
+    | "inactive_root" =>
+      ui_compare_incr_run_inactive_workspace(
+        operation, n, iterations, sample_count,
+      )
     "direct:row-leaf" | "direct:row_leaf" | "row-leaf-direct" =>
       ui_compare_incr_run_row_leaf_direct(
         operation, n, iterations, sample_count,

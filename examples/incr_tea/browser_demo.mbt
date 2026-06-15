@@ -456,7 +456,7 @@ fn timer_program(runtime : @incr.Runtime) -> Program[DemoMsg, Html[DemoMsg]] {
 ///|
 #cfg(target="js")
 fn render_stats(stats : RenderStats) -> String {
-  "view recomputes: \{stats.view_recomputes}\npatch attempts: \{stats.patch_attempts}\nskipped patches: \{stats.skipped_patches}\nrAF flushes: \{stats.frame_flushes}"
+  "view recomputes: \{stats.view_recomputes}\npatch attempts: \{stats.patch_attempts}\nskipped patches: \{stats.skipped_patches}\nrAF flushes: \{stats.frame_flushes}\ninactive skips: \{stats.inactive_skipped_flushes}\nactivation flushes: \{stats.activation_flushes}"
 }
 
 ///|
@@ -562,6 +562,20 @@ pub fn mount_browser_demo(mount_id : String) -> Unit {
   wire_button(host, "remount-child", () => {
     match child_root.val {
       Some(root) => renderer.reattach(root)
+      None => ()
+    }
+    refresh()
+  })
+  wire_button(host, "deactivate-child", () => {
+    match child_root.val {
+      Some(root) => renderer.deactivate(root)
+      None => ()
+    }
+    refresh()
+  })
+  wire_button(host, "activate-child", () => {
+    match child_root.val {
+      Some(root) => renderer.activate(root)
       None => ()
     }
     refresh()

@@ -6,6 +6,8 @@ pub struct RenderStats {
   priv mut patch_attempts : Int
   priv mut skipped_patches : Int
   priv mut frame_flushes : Int
+  priv mut inactive_skipped_flushes : Int
+  priv mut activation_flushes : Int
 }
 
 ///|
@@ -16,6 +18,8 @@ pub fn RenderStats::RenderStats() -> RenderStats {
     patch_attempts: 0,
     skipped_patches: 0,
     frame_flushes: 0,
+    inactive_skipped_flushes: 0,
+    activation_flushes: 0,
   }
 }
 
@@ -41,6 +45,18 @@ pub fn RenderStats::skipped_patches(self : RenderStats) -> Int {
 /// Number of animation-frame flush callbacks completed by the renderer.
 pub fn RenderStats::frame_flushes(self : RenderStats) -> Int {
   self.frame_flushes
+}
+
+///|
+/// Number of mounted roots skipped because they were marked inactive.
+pub fn RenderStats::inactive_skipped_flushes(self : RenderStats) -> Int {
+  self.inactive_skipped_flushes
+}
+
+///|
+/// Number of catch-up flushes performed when inactive roots were activated.
+pub fn RenderStats::activation_flushes(self : RenderStats) -> Int {
+  self.activation_flushes
 }
 
 ///|

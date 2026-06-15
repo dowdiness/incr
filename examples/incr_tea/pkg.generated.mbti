@@ -96,6 +96,8 @@ pub struct BrowserRenderer[Msg] {
   // private fields
 }
 pub fn[Msg : Eq] BrowserRenderer::BrowserRenderer(@cells.Runtime, after_flush? : (RenderStats) -> Unit) -> Self[Msg]
+pub fn[Msg : Eq] BrowserRenderer::activate(Self[Msg], BrowserRoot[Msg]) -> Unit
+pub fn[Msg] BrowserRenderer::deactivate(Self[Msg], BrowserRoot[Msg]) -> Unit
 pub fn[Msg] BrowserRenderer::destroy(Self[Msg], BrowserRoot[Msg]) -> Unit
 pub fn[Msg] BrowserRenderer::detach(Self[Msg], BrowserRoot[Msg]) -> Unit
 pub fn[Msg] BrowserRenderer::dispose(Self[Msg]) -> Unit
@@ -218,7 +220,9 @@ pub struct RenderStats {
   // private fields
 }
 pub fn RenderStats::RenderStats() -> Self
+pub fn RenderStats::activation_flushes(Self) -> Int
 pub fn RenderStats::frame_flushes(Self) -> Int
+pub fn RenderStats::inactive_skipped_flushes(Self) -> Int
 pub fn RenderStats::patch_attempts(Self) -> Int
 pub fn RenderStats::skipped_patches(Self) -> Int
 pub fn RenderStats::view_recomputes(Self) -> Int
