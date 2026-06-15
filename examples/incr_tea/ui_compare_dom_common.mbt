@@ -55,6 +55,31 @@ priv enum UiCompareRowLeafOperation {
 
 ///|
 #cfg(target="js")
+priv enum UiCompareWorkspaceMode {
+  UiCompareWorkspaceCollapsed
+  UiCompareWorkspaceHiddenMounted
+  UiCompareWorkspaceVisible
+} derive(Eq)
+
+///|
+#cfg(target="js")
+priv enum UiCompareWorkspaceMsg {
+  UiCompareWorkspaceSetCollapsed
+  UiCompareWorkspaceSetHiddenMounted
+  UiCompareWorkspaceSetVisible
+  UiCompareWorkspaceEdit
+} derive(Eq)
+
+///|
+#cfg(target="js")
+priv enum UiCompareWorkspaceOperation {
+  UiCompareWorkspaceCollapsedUpdate
+  UiCompareWorkspaceHiddenMountedUpdate
+  UiCompareWorkspaceVisibleUpdate
+}
+
+///|
+#cfg(target="js")
 extern "js" fn ui_compare_dom_click_action(
   host : DomElement,
   action : String,
@@ -242,6 +267,55 @@ fn UiCompareRowLeafOperation::action(
   self : UiCompareRowLeafOperation,
 ) -> String {
   self.name()
+}
+
+///|
+#cfg(target="js")
+fn ui_compare_workspace_operation(
+  operation : String,
+) -> UiCompareWorkspaceOperation {
+  match operation {
+    "collapsed-update" | "collapsed_update" => UiCompareWorkspaceCollapsedUpdate
+    "hidden-mounted-update"
+    | "hidden_mounted_update"
+    | "hidden-update"
+    | "hidden_update" => UiCompareWorkspaceHiddenMountedUpdate
+    "visible-update" | "visible_update" | "active-update" | "active_update" =>
+      UiCompareWorkspaceVisibleUpdate
+    _ => abort("unknown UI compare workspace operation: \{operation}")
+  }
+}
+
+///|
+#cfg(target="js")
+fn UiCompareWorkspaceOperation::name(
+  self : UiCompareWorkspaceOperation,
+) -> String {
+  match self {
+    UiCompareWorkspaceCollapsedUpdate => "collapsed-update"
+    UiCompareWorkspaceHiddenMountedUpdate => "hidden-mounted-update"
+    UiCompareWorkspaceVisibleUpdate => "visible-update"
+  }
+}
+
+///|
+#cfg(target="js")
+fn UiCompareWorkspaceOperation::action(
+  self : UiCompareWorkspaceOperation,
+) -> String {
+  self.name()
+}
+
+///|
+#cfg(target="js")
+fn UiCompareWorkspaceOperation::mode_action(
+  self : UiCompareWorkspaceOperation,
+) -> String {
+  match self {
+    UiCompareWorkspaceCollapsedUpdate => "set-collapsed"
+    UiCompareWorkspaceHiddenMountedUpdate => "set-hidden-mounted"
+    UiCompareWorkspaceVisibleUpdate => "set-visible"
+  }
 }
 
 ///|

@@ -19,6 +19,12 @@ fn ui_compare_incr_run(
       ui_compare_incr_run_panel(operation, iterations, sample_count)
     "row-leaf" | "row_leaf" | "locality" =>
       ui_compare_incr_run_row_leaf(operation, n, iterations, sample_count)
+    "workspace-island"
+    | "workspace_island"
+    | "activation-island"
+    | "activation_island"
+    | "workspace" =>
+      ui_compare_incr_run_workspace(operation, n, iterations, sample_count)
     "direct:row-leaf" | "direct:row_leaf" | "row-leaf-direct" =>
       ui_compare_incr_run_row_leaf_direct(
         operation, n, iterations, sample_count,
