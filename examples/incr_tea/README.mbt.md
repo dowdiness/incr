@@ -3,14 +3,17 @@
 Experimental `incr`-native TEA runtime skeleton for
 [`dowdiness/incr#191`](https://github.com/dowdiness/incr/issues/191).
 
-This is not a public `dowdiness/incr` API and not a Rabbita fork. The prototype
-now proves the core loop with a pure counter component, a minimal
-Rabbita-style `Cmd` scheduler, and a browser-rendering slice for watched
-`Html` view roots — including typed pure event-payload descriptors (#211/#249),
-keyed children (#211), and a small semantic-keyed editor driver (#251).
-Async command adapters and deeper browser/runtime benchmark comparisons remain
-follow-up issues; a first pure adjacent-framework benchmark slice is documented
-below.
+This is not a stable `dowdiness/incr` API and not a Rabbita fork. The prototype
+now exposes an experimental in-repo framework surface for other workspace
+examples: `Program`, `Cmd`, cacheable `Html`, `Attrs`, pure event descriptors,
+payload ids, and `BrowserRenderer` roots/stats. It proves the core loop with a
+pure counter component, a minimal Rabbita-style `Cmd` scheduler, and a
+browser-rendering slice for watched `Html` view roots — including typed pure
+event-payload descriptors (#211/#249), keyed children (#211), a small
+semantic-keyed editor driver (#251), and post-render commands for DOM work that
+must run after a flush (#268). Async command adapters and deeper browser/runtime
+benchmark comparisons remain follow-up issues; a first pure adjacent-framework
+benchmark slice is documented below.
 
 ## BSaLC / TEA mapping
 
@@ -21,7 +24,7 @@ below.
 | Task | `view` is a pure tracked `Derived` computation. |
 | Rebuilder | The default `incr` verifying trace with backdating decides whether the view recomputes. |
 | Lifetime | Mounted programs hold a persistent `Watch` on the terminal view and register it with the component scope. |
-| Effects | `Cmd::effect` is a low-level synchronous edge hook. Effects run outside tracked view computations and re-enter by enqueuing commands/messages. |
+| Effects | `Cmd::effect` is a low-level synchronous edge hook before DOM flush. `Cmd::after_flush` queues post-render effects that run after the browser renderer has committed a patch. Effects run outside tracked view computations and re-enter by enqueuing commands/messages. |
 
 ## Component lifecycle
 
@@ -29,7 +32,8 @@ Creating a component starts one logical TEA instance: it allocates an
 `@incr.Scope`, registers model `InputField` cells with that scope, creates the
 terminal tracked view, registers a persistent `Watch` for the view root, and
 primes that watch so `Runtime::gc()` can see the current upstream dependencies
-before the first external read.
+before the first external read. `Program` constructors reject a `Runtime`/`Scope`
+mismatch; the renderer relies on the program runtime for flush scheduling.
 
 Disposal is component teardown, not ordinary DOM detachment. `dispose()` is
 idempotent; it disposes the scope, releases the view `Watch`, and closes the
@@ -60,17 +64,37 @@ scheduler commits all model writes for the current message inside one
 snapshots its input and runs left-to-right, and `Cmd::message` appends follow-up
 messages to the FIFO queue, so a burst stays deterministic.
 
-The low-level `Cmd::effect` hook is synchronous in this slice. Its callback runs
-after the model batch commits and outside tracked `Derived` view computations;
-it can enqueue another command to re-enter the TEA loop. Checked failure handling
-is intentionally unsupported at the command layer for now. Represent
-recoverable failures as messages carrying `Result`.
+The low-level `Cmd::effect` hook is synchronous. Its callback runs after the
+model batch commits and outside tracked `Derived` view computations, but before
+the next browser DOM flush; it can enqueue another command to re-enter the TEA
+loop. Checked failure handling is intentionally unsupported at the command layer
+for now. Represent recoverable failures as messages carrying `Result`.
+
+`Cmd::after_flush` queues the same callback shape for the renderer's post-flush
+phase. `Program` stores these callbacks outside cacheable `Html`, and
+`BrowserRenderer` drains the mounted roots after `root.flush()` has rendered or
+diffed the DOM. This is the boundary for DOM work that needs nodes created by the
+current patch, such as focusing and selecting an inline editor:
+
+```mbt nocheck
+///|
+fn[Msg] focus_inline_editor_cmd(id : String) -> Cmd[Msg] {
+  Cmd::focus_element_by_id(id, select=true)
+}
+```
+
+A mounted `BrowserRenderer` schedules a flush when an `after_flush` command is
+queued, even if the model update does not change the `Html` value. A post-flush
+callback may enqueue follow-up commands/messages. Follow-up model writes run in
+normal `Runtime::batch` dispatch and, if they change the view, are rendered by a
+later animation-frame flush rather than recursively patching the current DOM
+frame.
 
 ## Browser renderer slice
 
-The renderer mounts package-private `Program[Msg, Html[Msg]]` roots, installs a
-runtime `on_change` hook, and schedules one `requestAnimationFrame` flush for a
-burst of model changes. A flush reads each root's persistent `Watch`; if the
+The renderer mounts experimental public `Program[Msg, Html[Msg]]` roots,
+installs a runtime `on_change` hook, and schedules one `requestAnimationFrame`
+flush for a burst of model changes. A flush reads each root's persistent `Watch`; if the
 cacheable `Html` value is equal to the last rendered value, the renderer records
 a skipped patch and leaves the DOM alone. If the value changed, it records a
 patch attempt and applies a small positional VDOM diff.
@@ -78,8 +102,10 @@ patch attempt and applies a small positional VDOM diff.
 `Html` stores attributes, children, and pure event descriptors. DOM event
 listener closures are created only by the renderer boundary and dispatch
 messages back into the scheduler; they are not captured inside tracked
-`Derived` view computations. Command effects still run through `Cmd::effect`,
-after the model batch commits.
+`Derived` view computations. Synchronous command effects still run through
+`Cmd::effect` after the model batch commits; DOM-dependent effects use
+`Cmd::after_flush` or the convenience `Cmd::focus_element_by_id` command so they
+run after the renderer boundary has patched the DOM.
 
 ### Event payloads (#211, #249)
 

@@ -6,11 +6,11 @@ priv type DomNode
 ///|
 #cfg(target="js")
 #external
-priv type DomElement
+pub type DomElement
 
 ///|
 #cfg(target="js")
-extern "js" fn dom_get_element_by_id(id : String) -> DomElement =
+pub extern "js" fn dom_get_element_by_id(id : String) -> DomElement =
   #| (id) => {
   #|   const el = document.getElementById(id);
   #|   if (!el) throw new Error(`missing DOM mount #${id}`);
@@ -19,7 +19,7 @@ extern "js" fn dom_get_element_by_id(id : String) -> DomElement =
 
 ///|
 #cfg(target="js")
-extern "js" fn dom_query_child_by_id(
+pub extern "js" fn dom_query_child_by_id(
   parent : DomElement,
   id : String,
 ) -> DomElement =
@@ -28,6 +28,34 @@ extern "js" fn dom_query_child_by_id(
   #|   if (!el) throw new Error(`missing DOM mount #${id}`);
   #|   return el;
   #| }
+
+///|
+#cfg(target="js")
+extern "js" fn dom_focus_element_by_id(id : String, select_text : Bool) -> Unit =
+  #| (id, selectText) => {
+  #|   const el = document.getElementById(id);
+  #|   if (!el || typeof el.focus !== "function") return;
+  #|   try {
+  #|     el.focus({ preventScroll: true });
+  #|   } catch (_) {
+  #|     el.focus();
+  #|   }
+  #|   if (selectText && typeof el.select === "function") el.select();
+  #| }
+
+///|
+/// Focuses a DOM element by id after the next renderer flush.
+///
+/// The effect is queued through `Cmd::after_flush`, so it can target elements
+/// that were created by the DOM patch for the message that returned this
+/// command. Set `select=true` for inline text editors.
+#cfg(target="js")
+pub fn[Msg] Cmd::focus_element_by_id(
+  id : String,
+  select? : Bool = false,
+) -> Cmd[Msg] {
+  Cmd::after_flush(_ => dom_focus_element_by_id(id, select))
+}
 
 ///|
 #cfg(target="js")
@@ -510,7 +538,7 @@ fn[Msg] attach_events(
 ///|
 #cfg(target="js")
 fn[Msg] render_html(html : Html[Msg], sink : EventSink[Msg]) -> Rendered[Msg] {
-  match html {
+  match html.repr {
     Text(value) => RenderedText(value, dom_create_text(value))
     DirectText(id~, fallback~) => {
       let value = sink.direct_resolvers.text_value(id, fallback)
@@ -556,7 +584,7 @@ fn[Msg : Eq] diff_rendered(
   parent : DomElement,
   sink : EventSink[Msg],
 ) -> Rendered[Msg] {
-  match (old, next) {
+  match (old, next.repr) {
     (RenderedText(old_text, node), Text(next_text)) => {
       if old_text != next_text {
         dom_set_text(node, next_text)
@@ -944,14 +972,14 @@ fn[Msg : Eq] diff_keyed_children(
 
 ///|
 #cfg(target="js")
-priv struct BrowserRoot[Msg] {
-  watched : WatchedHtmlRoot[Msg]
-  host : DomElement
+pub struct BrowserRoot[Msg] {
+  priv watched : WatchedHtmlRoot[Msg]
+  priv host : DomElement
   // Mount-time boundary resolvers for DOM payload events. They stay at the
   // browser boundary (never in the cacheable `Html` value); roots without a
   // payload family use defaults that ignore every payload.
-  payload_resolvers : PayloadResolvers[Msg]
-  mut rendered : Rendered[Msg]?
+  priv payload_resolvers : PayloadResolvers[Msg]
+  priv mut rendered : Rendered[Msg]?
 }
 
 ///|
@@ -1047,30 +1075,36 @@ fn[Msg] BrowserRoot::destroy(self : BrowserRoot[Msg]) -> Unit {
 
 ///|
 #cfg(target="js")
-priv struct BrowserRenderer[Msg] {
-  runtime : @incr.Runtime
-  // Mounted roots, flushed on every animation frame.
-  mut roots : Array[BrowserRoot[Msg]]
-  // Detached-but-alive roots (#209): removed from the DOM but their Program is
-  // kept so they can be re-attached. The renderer still owns them, so `dispose`
-  // tears them down too instead of leaking them.
-  mut detached : Array[BrowserRoot[Msg]]
-  stats : RenderStats
-  view_ids : Ref[Array[@incr.CellId]]
-  mut frame_scheduled : Bool
-  after_flush : (RenderStats) -> Unit
-  // Lifecycle (#209). The two listener ids are removed on dispose so a torn-down
-  // renderer stops reacting to runtime changes and view recomputes. The
-  // on_change id is set after construction because its listener closure captures
-  // `renderer` itself; it is `None` only during that construction window.
-  mut disposed : Bool
-  derived_listener_id : @incr.ListenerId
-  mut on_change_listener_id : @incr.ListenerId?
+fn[Msg] BrowserRoot::drain_after_flush(self : BrowserRoot[Msg]) -> Unit {
+  self.watched.program.drain_after_flush()
 }
 
 ///|
 #cfg(target="js")
-fn[Msg : Eq] BrowserRenderer::BrowserRenderer(
+pub struct BrowserRenderer[Msg] {
+  priv runtime : @incr.Runtime
+  // Mounted roots, flushed on every animation frame.
+  priv mut roots : Array[BrowserRoot[Msg]]
+  // Detached-but-alive roots (#209): removed from the DOM but their Program is
+  // kept so they can be re-attached. The renderer still owns them, so `dispose`
+  // tears them down too instead of leaking them.
+  priv mut detached : Array[BrowserRoot[Msg]]
+  priv stats : RenderStats
+  priv view_ids : Ref[Array[@incr.CellId]]
+  priv mut frame_scheduled : Bool
+  priv after_flush : (RenderStats) -> Unit
+  // Lifecycle (#209). The two listener ids are removed on dispose so a torn-down
+  // renderer stops reacting to runtime changes and view recomputes. The
+  // on_change id is set after construction because its listener closure captures
+  // `renderer` itself; it is `None` only during that construction window.
+  priv mut disposed : Bool
+  priv derived_listener_id : @incr.ListenerId
+  priv mut on_change_listener_id : @incr.ListenerId?
+}
+
+///|
+#cfg(target="js")
+pub fn[Msg : Eq] BrowserRenderer::BrowserRenderer(
   runtime : @incr.Runtime,
   after_flush? : (RenderStats) -> Unit = _ => (),
 ) -> BrowserRenderer[Msg] {
@@ -1101,13 +1135,13 @@ fn[Msg : Eq] BrowserRenderer::BrowserRenderer(
 
 ///|
 #cfg(target="js")
-fn[Msg] BrowserRenderer::stats(self : BrowserRenderer[Msg]) -> RenderStats {
+pub fn[Msg] BrowserRenderer::stats(self : BrowserRenderer[Msg]) -> RenderStats {
   self.stats
 }
 
 ///|
 #cfg(target="js")
-fn[Msg : Eq] BrowserRenderer::mount(
+pub fn[Msg : Eq] BrowserRenderer::mount(
   self : BrowserRenderer[Msg],
   host : DomElement,
   program : Program[Msg, Html[Msg]],
@@ -1122,6 +1156,7 @@ fn[Msg : Eq] BrowserRenderer::mount(
     abort("BrowserRenderer::mount called with a Program from another Runtime")
   }
   let view_id = program.view_id()
+  program.add_after_flush_scheduler(() => self.schedule_flush())
   // One instrumentation id per Program, even if it backs several mounted roots.
   if !view_id_is_tracked(self.view_ids.val, view_id) {
     self.view_ids.val.push(view_id)
@@ -1136,6 +1171,7 @@ fn[Msg : Eq] BrowserRenderer::mount(
   )
   self.roots.push(root)
   root.flush()
+  root.drain_after_flush()
   (self.after_flush)(self.stats)
   root
 }
@@ -1160,10 +1196,22 @@ fn[Msg : Eq] BrowserRenderer::schedule_flush(
     for root in self.roots {
       root.flush()
     }
+    self.drain_after_flush_commands()
     (self.after_flush)(self.stats)
   })
   if queued {
     self.frame_scheduled = true
+  }
+}
+
+///|
+#cfg(target="js")
+fn[Msg] BrowserRenderer::drain_after_flush_commands(
+  self : BrowserRenderer[Msg],
+) -> Unit {
+  guard !self.disposed else { return }
+  for root in self.roots {
+    root.drain_after_flush()
   }
 }
 
@@ -1199,7 +1247,7 @@ fn[Msg] BrowserRenderer::references_program(
 /// owns it (so `dispose` reclaims it); re-attach with `reattach`. No-op if `root`
 /// is not currently mounted.
 #cfg(target="js")
-fn[Msg] BrowserRenderer::detach(
+pub fn[Msg] BrowserRenderer::detach(
   self : BrowserRenderer[Msg],
   root : BrowserRoot[Msg],
 ) -> Unit {
@@ -1216,7 +1264,7 @@ fn[Msg] BrowserRenderer::detach(
 /// from scratch into its host (detach reset both DOM caches). No-op if the
 /// renderer is disposed or `root` is not currently detached.
 #cfg(target="js")
-fn[Msg : Eq] BrowserRenderer::reattach(
+pub fn[Msg : Eq] BrowserRenderer::reattach(
   self : BrowserRenderer[Msg],
   root : BrowserRoot[Msg],
 ) -> Unit {
@@ -1227,6 +1275,8 @@ fn[Msg : Eq] BrowserRenderer::reattach(
   self.detached = self.detached.filter(other => !physical_equal(other, root))
   self.roots.push(root)
   root.flush()
+  root.drain_after_flush()
+  (self.after_flush)(self.stats)
 }
 
 ///|
@@ -1236,10 +1286,14 @@ fn[Msg : Eq] BrowserRenderer::reattach(
 /// leaves the others working. The instrumentation id is dropped on the same
 /// last-reference condition.
 #cfg(target="js")
-fn[Msg] BrowserRenderer::destroy(
+pub fn[Msg] BrowserRenderer::destroy(
   self : BrowserRenderer[Msg],
   root : BrowserRoot[Msg],
 ) -> Unit {
+  guard self.roots.iter().any(other => physical_equal(other, root)) ||
+    self.detached.iter().any(other => physical_equal(other, root)) else {
+    return
+  }
   root.detach()
   self.remove_root(root)
   let view_id = root.view_id()
@@ -1258,7 +1312,7 @@ fn[Msg] BrowserRenderer::destroy(
 /// misuse (a raise here aborts — it is not recoverable, and swallowing it would
 /// leave the view-recompute listener firing on a "disposed" renderer).
 #cfg(target="js")
-fn[Msg] BrowserRenderer::dispose(self : BrowserRenderer[Msg]) -> Unit {
+pub fn[Msg] BrowserRenderer::dispose(self : BrowserRenderer[Msg]) -> Unit {
   guard !self.disposed else { return }
   // Remove the Idle-only (raising) listener FIRST. `remove_derived_event_listener`
   // raises if called during a flush/propagation window, and `try!` turns that into
