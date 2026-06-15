@@ -31,6 +31,13 @@ const suites = [
     operations: ['row-text', 'row-class', 'hot-leaf-text'],
     sizes: [16, 64, 256],
   },
+  {
+    name: 'workspace-island',
+    title: 'Collapsed/hidden workspace island',
+    systems: defaultSystems,
+    operations: ['collapsed-update', 'hidden-mounted-update', 'visible-update'],
+    sizes: [64, 256, 512],
+  },
 ];
 const iterations = positiveInt(process.env.INCR_TEA_UI_COMPARE_DOM_BENCH_ITERATIONS, 200);
 const samples = positiveInt(process.env.INCR_TEA_UI_COMPARE_DOM_BENCH_SAMPLES, 9);
@@ -154,8 +161,29 @@ function rowLeafTable(results) {
   return lines.join('\n');
 }
 
+function workspaceIslandTable(results) {
+  const suite = suites.find(item => item.name === 'workspace-island');
+  const labels = new Map([
+    ['collapsed-update', 'collapsed update'],
+    ['hidden-mounted-update', 'hidden mounted update'],
+    ['visible-update', 'visible update'],
+  ]);
+  const lines = [
+    `### ${suite.title} (µs/op)`,
+    '',
+    '| operation | N | incr_tea | Rabbita | Luna |',
+    '|---|---:|---:|---:|---:|',
+  ];
+  for (const operation of suite.operations) {
+    for (const n of suite.sizes) {
+      lines.push(`| ${labels.get(operation) ?? operation} | ${n} | ${systemCells(results, suite.name, operation, n).join(' | ')} |`);
+    }
+  }
+  return lines.join('\n');
+}
+
 function resultsTables(results) {
-  return [counterTable(results), keyedListTable(results), panelTable(results), rowLeafTable(results)].join('\n\n');
+  return [counterTable(results), keyedListTable(results), panelTable(results), rowLeafTable(results), workspaceIslandTable(results)].join('\n\n');
 }
 
 function plannedCells() {
@@ -185,9 +213,10 @@ function printReport({ browserVersion, userAgent, raw }) {
     '- The page uses an immediate requestAnimationFrame shim so Rabbita measurements include the scheduled flush work without browser frame-wait latency.',
     '- Keyed-list reset work runs between timed operations and is not included in the timing window.',
     '- Row/leaf locality rows keep keys and order fixed; each operation toggles one hot middle row or nested leaf and includes no reset work in the timed window.',
+    '- Workspace-island rows keep one editor/sidebar/inspector-shaped subtree at a fixed size. Collapsed updates keep that subtree absent/untracked; hidden-mounted updates keep the subtree in the DOM with hidden/aria-hidden attributes and current active watchers; visible updates keep it visible. Mode reset work runs before the timed operation.',
     '- incr_tea-direct is an experimental row/leaf-only direct patch path: Html stores pure leaf/attr ids, while mount-boundary watches resolve live text/class values.',
-    '- Rabbita keyed children use its Map-based keyed-child API; Luna list rows use luna/dom for_each reference/value reconciliation over stable string ids. Treat identity/focus behavior as framework-specific rather than semantically identical.',
-    '- † Rabbita has no ordered key-array API in this harness; read its reverse cells as keyed Map dirty/update costs, not ordered reversal equivalence.',
+    '- Rabbita keyed-list cells use its Map-based keyed-child API for every keyed-list operation; Luna list rows use luna/dom for_each reference/value reconciliation over stable string ids. Treat identity/focus behavior as framework-specific rather than semantically identical.',
+    '- † Rabbita has no ordered key-array API in this harness; read its keyed-list cells, especially reverse, as keyed Map dirty/update costs rather than ordered-list equivalence.',
     '',
     '## Results',
     '',

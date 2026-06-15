@@ -33,6 +33,20 @@ priv enum UiCompareRowLeafOperation {
 }
 
 ///|
+priv enum UiCompareWorkspaceMode {
+  UiCompareWorkspaceCollapsed
+  UiCompareWorkspaceHiddenMounted
+  UiCompareWorkspaceVisible
+} derive(Eq)
+
+///|
+priv enum UiCompareWorkspaceOperation {
+  UiCompareWorkspaceCollapsedUpdate
+  UiCompareWorkspaceHiddenMountedUpdate
+  UiCompareWorkspaceVisibleUpdate
+}
+
+///|
 extern "js" fn ui_compare_now_ms() -> Double =
   #| () => performance.now()
 
@@ -265,6 +279,51 @@ fn UiCompareRowLeafOperation::action(
   self : UiCompareRowLeafOperation,
 ) -> String {
   self.name()
+}
+
+///|
+fn ui_compare_workspace_operation(
+  operation : String,
+) -> UiCompareWorkspaceOperation {
+  match operation {
+    "collapsed-update" | "collapsed_update" => UiCompareWorkspaceCollapsedUpdate
+    "hidden-mounted-update"
+    | "hidden_mounted_update"
+    | "hidden-update"
+    | "hidden_update" => UiCompareWorkspaceHiddenMountedUpdate
+    "visible-update" | "visible_update" | "active-update" | "active_update" =>
+      UiCompareWorkspaceVisibleUpdate
+    _ => abort("unknown UI compare workspace operation: \{operation}")
+  }
+}
+
+///|
+fn UiCompareWorkspaceOperation::name(
+  self : UiCompareWorkspaceOperation,
+) -> String {
+  match self {
+    UiCompareWorkspaceCollapsedUpdate => "collapsed-update"
+    UiCompareWorkspaceHiddenMountedUpdate => "hidden-mounted-update"
+    UiCompareWorkspaceVisibleUpdate => "visible-update"
+  }
+}
+
+///|
+fn UiCompareWorkspaceOperation::action(
+  self : UiCompareWorkspaceOperation,
+) -> String {
+  self.name()
+}
+
+///|
+fn UiCompareWorkspaceOperation::mode_action(
+  self : UiCompareWorkspaceOperation,
+) -> String {
+  match self {
+    UiCompareWorkspaceCollapsedUpdate => "set-collapsed"
+    UiCompareWorkspaceHiddenMountedUpdate => "set-hidden-mounted"
+    UiCompareWorkspaceVisibleUpdate => "set-visible"
+  }
 }
 
 ///|

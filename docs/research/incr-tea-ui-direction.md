@@ -104,10 +104,11 @@ update the research priorities:
   path is still much faster. The follow-up row/leaf snapshot isolates same-order
   row text/class changes and hot nested text leaves: `incr_tea` lands around
   141–143 µs at N=256, Rabbita around 1.49–1.54 ms, and Luna around 3–4 µs.
-- **Activation islands are not yet justified by the small panel slice.** Closed
-  panel updates are already single-digit microseconds in `incr_tea`; prototype
-  visibility/idle watch activation only after a larger editor-shaped hidden
-  subtree shows real cost.
+- **Activation islands are not justified by collapsed conditionals, but
+  DOM-present hidden subtrees now have a measured cost.** Closed panel and
+  collapsed workspace updates are already single-digit to low-teens microseconds
+  in `incr_tea`; the #255 workspace-island slice shows hidden-mounted editor-shaped
+  updates at hundreds of microseconds when the DOM stays present and watched.
 - **Raw closures should stay out of cacheable `Html`.** Closure-like ergonomics
   are welcome only when they lower to pure `Eq`/serializable descriptors. Live
   callbacks, watches, DOM payload extraction, and live `preventDefault` /
@@ -129,6 +130,19 @@ the same run. Treat this as evidence that leaf subscription locality is valuable
 not as a reason to discard the ordinary `Html : Eq` renderer: structural list
 edits, keyed identity/focus semantics, and general changed views still use the
 existing diff path.
+
+## Activation-islands measurement result
+
+The #255 measurement gate is recorded in
+[`docs/performance/2026-06-15-incr-tea-activation-islands-measurement.md`](../performance/2026-06-15-incr-tea-activation-islands-measurement.md).
+It adds an editor/sidebar/inspector-shaped `workspace-island` browser benchmark
+without changing activation semantics. Collapsed updates stay flat at roughly
+8–14 µs for `incr_tea`, while hidden-mounted updates with the subtree still in
+the DOM cost roughly 104 µs at N=64, 297 µs at N=256, and 617 µs at N=512.
+
+That narrows the #255 prototype target: only DOM-preserving inactive roots or
+panels justify visibility/idle/manual `Watch` activation experiments. Ordinary
+collapsed conditionals should keep using the current dynamic-dependency skip.
 
 ## Near-term roadmap
 
@@ -179,10 +193,12 @@ existing diff path.
    storing closures or watches in `Html`. Generalize only behind similarly
    shaped editor evidence; keep the existing value-level renderer as the
    fallback for structural and keyed-identity cases.
-9. **Gate island-style activation on larger hidden-subtree evidence.** Use
-   visibility/idle/manual triggers to decide when roots or panels hold watches
-   and participate in flushes only after editor-shaped hidden panels exceed the
-   current small-panel cost envelope. Follow-up: [#255].
+9. **Prototype island-style activation only for DOM-present hidden subtrees.**
+   The #255 benchmark shows that collapsed conditionals are already cheap, while
+   hidden-mounted editor-shaped subtrees pay visible-update costs. A follow-up
+   should test visibility/idle/manual triggers that pause watched view
+   reads/flushes without discarding DOM, then compare against the new
+   hidden-mounted rows. Follow-up: [#255].
 10. **Explore host-framework boundaries.** Test whether custom-element style
    mounts make `incr_tea` roots easier to embed and lifecycle-test. Follow-up:
    [#256].

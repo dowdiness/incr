@@ -25,6 +25,14 @@ fn ui_compare_adjacent_run(
       ui_compare_adjacent_run_row_leaf(
         system, operation, n, iterations, sample_count,
       )
+    "workspace-island"
+    | "workspace_island"
+    | "activation-island"
+    | "activation_island"
+    | "workspace" =>
+      ui_compare_adjacent_run_workspace(
+        system, operation, n, iterations, sample_count,
+      )
     _ => abort("unknown UI compare suite: \{suite}")
   }
 }

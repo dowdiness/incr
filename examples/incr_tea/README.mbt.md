@@ -326,8 +326,9 @@ are recorded in
 The #257 mounted browser harness runs a batch matrix across `incr_tea`, Rabbita,
 and Luna in hidden attached Chromium hosts. It covers the original counter rows,
 keyed-list prepend/remove-first/reverse at N=16/64/256, hidden/visible panel
-updates, and row/leaf locality rows for same-order row text/class and hot nested
-text leaf updates at N=16/64/256:
+updates, row/leaf locality rows for same-order row text/class and hot nested
+text leaf updates at N=16/64/256, and a #255 workspace-island slice comparing
+collapsed, hidden-mounted, and visible editor/sidebar/inspector updates:
 
 ```bash
 cd examples/incr_tea
@@ -341,6 +342,8 @@ The mounted matrix snapshot is recorded in
 [`docs/performance/2026-06-14-mounted-matrix-adjacent-framework-comparison.md`](../../docs/performance/2026-06-14-mounted-matrix-adjacent-framework-comparison.md).
 The row/leaf locality follow-up is recorded in
 [`docs/performance/2026-06-14-mounted-row-leaf-locality-comparison.md`](../../docs/performance/2026-06-14-mounted-row-leaf-locality-comparison.md).
+The activation-islands measurement gate is recorded in
+[`docs/performance/2026-06-15-incr-tea-activation-islands-measurement.md`](../../docs/performance/2026-06-15-incr-tea-activation-islands-measurement.md).
 
 ## Keyed DOM browser regression tests
 
