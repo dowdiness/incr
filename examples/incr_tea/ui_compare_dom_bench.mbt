@@ -46,6 +46,15 @@ fn ui_compare_incr_run(
       ui_compare_incr_run_inactive_workspace_cohort(
         operation, n, iterations, sample_count,
       )
+    "workspace-inactive-root-independent-cohort"
+    | "workspace_inactive_root_independent_cohort"
+    | "inactive-root-independent-cohort"
+    | "inactive_root_independent_cohort"
+    | "independent-inactive-root-cohort"
+    | "independent_inactive_root_cohort" =>
+      ui_compare_incr_run_inactive_workspace_independent_cohort(
+        operation, n, iterations, sample_count,
+      )
     "direct:row-leaf" | "direct:row_leaf" | "row-leaf-direct" =>
       ui_compare_incr_run_row_leaf_direct(
         operation, n, iterations, sample_count,
