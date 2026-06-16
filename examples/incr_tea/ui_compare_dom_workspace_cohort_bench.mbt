@@ -1,7 +1,9 @@
 ///|
 /// Multi-root inactive workspace cohort benchmark. The ordinary inactive-root
 /// bench varies subtree size; this one fixes each subtree at N=256 and varies
-/// how many inactive DOM roots share one workspace `Program` and view `Watch`.
+/// how many inactive DOM roots share one workspace `Program` and view `Watch`,
+/// plus an independent-root variant where every root owns its own `Program` and
+/// view `Watch`.
 
 ///|
 #cfg(target="js")
@@ -145,15 +147,87 @@ fn UiCompareInactiveWorkspaceCohortOperation::name(
 
 ///|
 #cfg(target="js")
+priv enum UiCompareInactiveWorkspaceCohortOwnership {
+  UiCompareInactiveWorkspaceCohortSharedProgram
+  UiCompareInactiveWorkspaceCohortIndependentPrograms
+}
+
+///|
+#cfg(target="js")
+fn UiCompareInactiveWorkspaceCohortOwnership::suite_name(
+  self : UiCompareInactiveWorkspaceCohortOwnership,
+) -> String {
+  match self {
+    UiCompareInactiveWorkspaceCohortSharedProgram =>
+      "workspace-inactive-root-cohort"
+    UiCompareInactiveWorkspaceCohortIndependentPrograms =>
+      "workspace-inactive-root-independent-cohort"
+  }
+}
+
+///|
+#cfg(target="js")
+fn UiCompareInactiveWorkspaceCohortOwnership::mount_roots(
+  self : UiCompareInactiveWorkspaceCohortOwnership,
+  renderer : BrowserRenderer[UiCompareWorkspaceMsg],
+  runtime : @incr.Runtime,
+  root_count : Int,
+) -> Array[(DomElement, BrowserRoot[UiCompareWorkspaceMsg])] {
+  match self {
+    UiCompareInactiveWorkspaceCohortSharedProgram => {
+      let program = ui_compare_incr_workspace_program(
+        runtime,
+        UI_COMPARE_INACTIVE_COHORT_WORKSPACE_SIZE,
+      )
+      Array::makei(root_count, _ => {
+        let host = dom_bench_create_host()
+        let root = renderer.mount(host, program)
+        (host, root)
+      })
+    }
+    UiCompareInactiveWorkspaceCohortIndependentPrograms =>
+      Array::makei(root_count, _ => {
+        let host = dom_bench_create_host()
+        let program = ui_compare_incr_workspace_program(
+          runtime,
+          UI_COMPARE_INACTIVE_COHORT_WORKSPACE_SIZE,
+        )
+        let root = renderer.mount(host, program)
+        (host, root)
+      })
+  }
+}
+
+///|
+#cfg(target="js")
+fn UiCompareInactiveWorkspaceCohortOwnership::click_action(
+  self : UiCompareInactiveWorkspaceCohortOwnership,
+  roots : Array[(DomElement, BrowserRoot[UiCompareWorkspaceMsg])],
+  action : String,
+) -> Unit {
+  match self {
+    UiCompareInactiveWorkspaceCohortSharedProgram =>
+      ui_compare_dom_click_action(roots[0].0, action)
+    UiCompareInactiveWorkspaceCohortIndependentPrograms =>
+      for pair in roots {
+        ui_compare_dom_click_action(pair.0, action)
+      }
+  }
+}
+
+///|
+#cfg(target="js")
 priv struct UiCompareIncrInactiveWorkspaceCohortHarness {
   renderer : BrowserRenderer[UiCompareWorkspaceMsg]
   roots : Array[(DomElement, BrowserRoot[UiCompareWorkspaceMsg])]
+  ownership : UiCompareInactiveWorkspaceCohortOwnership
 }
 
 ///|
 #cfg(target="js")
 fn UiCompareIncrInactiveWorkspaceCohortHarness::UiCompareIncrInactiveWorkspaceCohortHarness(
   root_count : Int,
+  ownership : UiCompareInactiveWorkspaceCohortOwnership,
 ) -> UiCompareIncrInactiveWorkspaceCohortHarness {
   let runtime = @incr.Runtime()
   let renderer : BrowserRenderer[UiCompareWorkspaceMsg] = BrowserRenderer::BrowserRenderer(
@@ -166,20 +240,12 @@ fn UiCompareIncrInactiveWorkspaceCohortHarness::UiCompareIncrInactiveWorkspaceCo
     }
     None => ()
   }
-  let program = ui_compare_incr_workspace_program(
-    runtime,
-    UI_COMPARE_INACTIVE_COHORT_WORKSPACE_SIZE,
-  )
-  let roots = Array::makei(root_count, _ => {
-    let host = dom_bench_create_host()
-    let root = renderer.mount(host, program)
-    (host, root)
-  })
-  ui_compare_dom_click_action(roots[0].0, "set-hidden-mounted")
+  let roots = ownership.mount_roots(renderer, runtime, root_count)
+  ownership.click_action(roots, "set-hidden-mounted")
   for pair in roots {
     pair.1.flush()
   }
-  { renderer, roots }
+  { renderer, roots, ownership }
 }
 
 ///|
@@ -190,7 +256,7 @@ fn UiCompareIncrInactiveWorkspaceCohortHarness::reset_hidden_active(
   for pair in self.roots {
     self.renderer.activate(pair.1)
   }
-  ui_compare_dom_click_action(self.roots[0].0, "set-hidden-mounted")
+  self.ownership.click_action(self.roots, "set-hidden-mounted")
   for pair in self.roots {
     pair.1.flush()
   }
@@ -212,9 +278,8 @@ fn UiCompareIncrInactiveWorkspaceCohortHarness::inactive_updates(
   self : UiCompareIncrInactiveWorkspaceCohortHarness,
   update_count : Int,
 ) -> Unit {
-  let host = self.roots[0].0
   for _ in 0..<update_count {
-    ui_compare_dom_click_action(host, "hidden-mounted-update")
+    self.ownership.click_action(self.roots, "hidden-mounted-update")
     for pair in self.roots {
       pair.1.flush_if_active()
     }
@@ -277,17 +342,20 @@ fn UiCompareIncrInactiveWorkspaceCohortHarness::dispose(
 
 ///|
 #cfg(target="js")
-fn ui_compare_incr_run_inactive_workspace_cohort(
+fn ui_compare_incr_run_inactive_workspace_cohort_with_ownership(
   operation : String,
   n : Int,
   iterations : Int,
   sample_count : Int,
+  ownership : UiCompareInactiveWorkspaceCohortOwnership,
 ) -> String {
   let op = ui_compare_inactive_workspace_cohort_operation(operation)
   let root_count = dom_bench_positive(n, 4)
   let iteration_count = dom_bench_positive(iterations, 200)
   let samples_len = dom_bench_positive(sample_count, 9)
-  let harness = UiCompareIncrInactiveWorkspaceCohortHarness(root_count)
+  let harness = UiCompareIncrInactiveWorkspaceCohortHarness(
+    root_count, ownership,
+  )
   for _ in 0..<5 {
     ignore(harness.measure_operation(op, 1))
   }
@@ -297,10 +365,44 @@ fn ui_compare_incr_run_inactive_workspace_cohort(
   harness.dispose()
   ui_compare_result_json(
     "incr_tea",
-    "workspace-inactive-root-cohort",
+    ownership.suite_name(),
     op.name(),
     root_count,
     iteration_count,
     samples,
+  )
+}
+
+///|
+#cfg(target="js")
+fn ui_compare_incr_run_inactive_workspace_cohort(
+  operation : String,
+  n : Int,
+  iterations : Int,
+  sample_count : Int,
+) -> String {
+  ui_compare_incr_run_inactive_workspace_cohort_with_ownership(
+    operation,
+    n,
+    iterations,
+    sample_count,
+    UiCompareInactiveWorkspaceCohortSharedProgram,
+  )
+}
+
+///|
+#cfg(target="js")
+fn ui_compare_incr_run_inactive_workspace_independent_cohort(
+  operation : String,
+  n : Int,
+  iterations : Int,
+  sample_count : Int,
+) -> String {
+  ui_compare_incr_run_inactive_workspace_cohort_with_ownership(
+    operation,
+    n,
+    iterations,
+    sample_count,
+    UiCompareInactiveWorkspaceCohortIndependentPrograms,
   )
 }
