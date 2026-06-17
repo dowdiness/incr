@@ -8,7 +8,8 @@ No activation policy is chosen here. The renderer lifecycle contract is unchange
 `BrowserRenderer::deactivate(root)` marks a mounted root inactive, and
 `BrowserRenderer::activate(root)` marks it active and performs one catch-up flush.
 The probe exercises that existing path without hardening visibility, idle, or
-manual trigger policy.
+manual trigger policy. A later ADR uses this measurement to choose the
+[#280 manual-first hybrid policy](../decisions/2026-06-17-incr-tea-inactive-root-activation-policy.md).
 
 Per-root subtree size is fixed at N=256. The root-count axis is 1 / 4 / 16, with
 both shared-program and independent-program ownership. Before each timed sample,
@@ -75,9 +76,9 @@ measurement input only; it still does not select a default activation policy.
 - Compare `observer-activate-all` with `manual-activate-all` to see whether the
   browser batches or serializes observer callbacks when many roots become
   visible in the same DOM turn.
-- Treat the result as input to a later policy decision only. This document does
-  not choose visibility-driven, idle-callback, document-level, or manual
-  activation.
+- Treat the result as measurement input only. The later #280 ADR chooses the
+  manual-first hybrid policy; this document does not itself choose
+  visibility-driven, idle-callback, document-level, or manual activation.
 
 ## Reproduction
 

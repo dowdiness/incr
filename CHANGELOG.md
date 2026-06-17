@@ -17,6 +17,7 @@ These changes are in `examples/` workspace members, not the published `dowdiness
 - `examples/incr_tea` adds Eq-safe spreadsheet event descriptors (#270) for submit, focus/blur, and double-click, plus renderer-boundary keyboard actions for `preventDefault` / `stopPropagation` without closure-valued `Html` handlers.
 - `examples/incr_tea` adds a measurement-first activation-islands benchmark (#255) to the adjacent-framework mounted matrix: an editor/sidebar/inspector-shaped workspace compares collapsed, hidden-mounted, and visible update costs before any visibility/idle-driven `Watch` activation prototype.
 - `examples/incr_tea` adds a first DOM-preserving inactive-root prototype (#255): `BrowserRenderer::deactivate` keeps a mounted root's DOM, `Program`, and view `Watch` alive while scheduled frames skip its watched-view read; `BrowserRenderer::activate` performs a catch-up flush. Renderer stats now expose inactive skipped flushes and activation catch-up flushes, the browser demo exposes deactivate/activate child-root controls, and `npm run bench:ui-compare-dom` includes an `incr_tea`-only inactive workspace root suite.
+- `examples/incr_tea` chooses a manual-first hybrid inactive-root activation policy (#280): product/semantic actions activate roots directly, while visibility and idle triggers are advisory prewarm hints only.
 
 ## [0.9.0] - 2026-06-09
 
