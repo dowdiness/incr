@@ -1,6 +1,8 @@
 _build/
 .mooncakes/
 target
+__pycache__/
+*.py[cod]
 .worktrees/
 .claude/worktrees/
 .claude/projects/
