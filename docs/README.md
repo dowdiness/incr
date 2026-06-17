@@ -60,7 +60,7 @@ New to `incr`? Read these in order:
 - [2026-06-15 Incremental TEA inactive-root cohort benchmark](performance/2026-06-15-incr-tea-inactive-root-cohorts.md) — multi-root follow-up: one shared workspace Program mounted into 1/4/16 inactive DOM roots, measuring 10/100/1000-update bursts and activation of one root versus all roots.
 - [2026-06-16 Incremental TEA independent inactive-root cohort benchmark](performance/2026-06-16-incr-tea-independent-inactive-root-cohorts.md) — independent-root follow-up: one workspace Program/view Watch per inactive DOM root, broadcasting 10/100/1000-update bursts across 1/4/16 roots and measuring activation of one root versus all roots.
 - [2026-06-16 Incremental TEA shared vs independent inactive-root cohorts](performance/2026-06-16-incr-tea-shared-vs-independent-inactive-root-cohorts.md) — synthesis of PR #277 (shared Program/Watch across inactive roots) and PR #278 (independent Program/Watch per root): 16-root activation-only and total-burst ratios, evidence-backed conclusions only.
-- [2026-06-17 Incremental TEA activation-trigger overhead probe](performance/2026-06-17-incr-tea-activation-trigger-overhead.md) — measurement-only IntersectionObserver dispatch and observer-triggered activation probe before choosing visibility, idle, document-level, or manual activation policy.
+- [2026-06-17 Incremental TEA activation-trigger overhead probe](performance/2026-06-17-incr-tea-activation-trigger-overhead.md) — measurement-only IntersectionObserver dispatch and observer-triggered activation probe that informed the #280 manual-first hybrid policy.
 
 ---
 
@@ -129,6 +129,7 @@ Architecture Decision Records — the *why* behind significant design choices. K
 | [2026-06-02](decisions/2026-06-02-typed-spreadsheet-runtime-checking.md) | Typed Spreadsheet formula checking: keep the example boundary runtime-checked. Formula installation validates worksheet ownership/cross-sheet references; formula/operator/result type mismatches are reported as `CellResult::TypeError` on read. |
 | [2026-06-02](decisions/2026-06-02-typed-spreadsheet-tombstone-lifecycle.md) | Typed Spreadsheet deleted-cell tombstone lifecycle: keep stable lightweight presence anchors; add `Worksheet::compact_deleted_cells()` to prune heavyweight deleted slots after commit without breaking delete/recreate invalidation. |
 | [2026-06-09](decisions/2026-06-09-composable-runtime-hooks.md) | Composable runtime hooks (#210): reopen the Memo Event Observation ADR's multi-listener deferral. One generic `ListenerRegistry[F]` backs both hooks; singleton APIs map to a reserved slot (source-compatible), additive `add_*_listener` return a public `ListenerId` for idempotent `remove_*`. On-change unguarded (snapshot-before-fire); derived-event keeps the idle guard (buffers events). TEA renderer switches to additive listeners. |
+| [2026-06-17](decisions/2026-06-17-incr-tea-inactive-root-activation-policy.md) | Incremental TEA inactive-root activation policy (#280): manual-first hybrid — product/semantic actions activate directly; visibility/idle triggers are advisory prewarm hints only. |
 
 ---
 

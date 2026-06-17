@@ -204,9 +204,11 @@ catch-up flush. The first prototype benchmark is recorded in
    hidden-mounted editor-shaped subtrees pay visible-update costs. The initial
    `BrowserRenderer::deactivate` / `activate` slice pauses watched-view reads
    without discarding DOM, benchmarks inactive updates at collapsed-update scale,
-   and now has an amortized burst cost model. Connect it to visibility/idle/
-   manual triggers only when a concrete product shape needs that policy.
-   Baseline issue: [#255].
+   and now has an amortized burst cost model. The #280 policy chooses a
+   manual-first hybrid: product/semantic actions activate directly, while
+   visibility/idle triggers are advisory prewarm hints only.
+   Baseline issues: [#255], [#280]. Policy ADR:
+   [manual-first hybrid](../decisions/2026-06-17-incr-tea-inactive-root-activation-policy.md).
 10. **Explore host-framework boundaries.** Test whether custom-element style
    mounts make `incr_tea` roots easier to embed and lifecycle-test. Follow-up:
    [#256].
@@ -273,3 +275,4 @@ catch-up flush. The first prototype benchmark is recorded in
 [#257]: https://github.com/dowdiness/incr/issues/257
 [#268]: https://github.com/dowdiness/incr/issues/268
 [#270]: https://github.com/dowdiness/incr/issues/270
+[#280]: https://github.com/dowdiness/incr/issues/280
