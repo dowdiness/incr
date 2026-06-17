@@ -188,6 +188,8 @@ pub struct PointerPayload {
   pointer_type : String
   client_x : Double
   client_y : Double
+  offset_x : Double
+  offset_y : Double
   button : Int
   buttons : Int
   alt_key : Bool
@@ -203,6 +205,8 @@ pub fn PointerPayload::PointerPayload(
   pointer_type : String,
   client_x : Double,
   client_y : Double,
+  offset_x : Double,
+  offset_y : Double,
   button : Int,
   buttons : Int,
   alt_key : Bool,
@@ -215,6 +219,8 @@ pub fn PointerPayload::PointerPayload(
     pointer_type,
     client_x,
     client_y,
+    offset_x,
+    offset_y,
     button,
     buttons,
     alt_key,
@@ -409,6 +415,25 @@ pub fn[Msg] on_input(
 ) -> EventBinding[Msg] {
   event_binding(
     "input",
+    TextInput(id=TextInputId(tag)),
+    prevent_default~,
+    stop_propagation~,
+  )
+}
+
+///|
+/// Pure value-change descriptor for controls whose committed value changes on
+/// `change` rather than every text edit, such as selects and range sliders.
+/// The renderer reads the target's `value` at the browser boundary and resolves
+/// `(id, payload) -> Msg` through the mount-time text resolver.
+#cfg(target="js")
+pub fn[Msg] on_change(
+  tag~ : String,
+  prevent_default? : Bool = false,
+  stop_propagation? : Bool = false,
+) -> EventBinding[Msg] {
+  event_binding(
+    "change",
     TextInput(id=TextInputId(tag)),
     prevent_default~,
     stop_propagation~,

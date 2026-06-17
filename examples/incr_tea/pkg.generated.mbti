@@ -50,6 +50,8 @@ pub fn[Msg] node(String, attrs? : Array[Attribute], events? : Array[EventBinding
 
 pub fn[Msg] on_blur(Msg, prevent_default? : Bool, stop_propagation? : Bool) -> EventBinding[Msg]
 
+pub fn[Msg] on_change(tag~ : String, prevent_default? : Bool, stop_propagation? : Bool) -> EventBinding[Msg]
+
 pub fn[Msg] on_click(Msg, prevent_default? : Bool, stop_propagation? : Bool) -> EventBinding[Msg]
 
 pub fn[Msg] on_dblclick(Msg, prevent_default? : Bool, stop_propagation? : Bool) -> EventBinding[Msg]
@@ -205,6 +207,8 @@ pub struct PointerPayload {
   pointer_type : String
   client_x : Double
   client_y : Double
+  offset_x : Double
+  offset_y : Double
   button : Int
   buttons : Int
   alt_key : Bool
@@ -212,7 +216,7 @@ pub struct PointerPayload {
   meta_key : Bool
   shift_key : Bool
 }
-pub fn PointerPayload::PointerPayload(Int, String, Double, Double, Int, Int, Bool, Bool, Bool, Bool) -> Self
+pub fn PointerPayload::PointerPayload(Int, String, Double, Double, Double, Double, Int, Int, Bool, Bool, Bool, Bool) -> Self
 
 pub struct Program[Msg, View] {
   // private fields
@@ -243,7 +247,7 @@ pub struct SubKey {
 } derive(Eq, Hash, @debug.Debug)
 pub fn SubKey::SubKey(String, String) -> Self
 
-pub enum SubSpec[Msg] {
+pub(all) enum SubSpec[Msg] {
   Timer(Int, Msg)
 } derive(Eq, @debug.Debug)
 

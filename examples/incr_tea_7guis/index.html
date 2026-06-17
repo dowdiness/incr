@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>incr_tea 7GUIs stress test</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/iosevka@5.1.0/latin-400.css" />
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <main id="app" class="guis-shell">
+      <header class="hero">
+        <div class="kicker">incr_tea stress test</div>
+        <h1>7GUIs on cacheable Html</h1>
+        <p class="hero-copy">Seven tiny GUI tasks mount as separate incr_tea roots, preserving pure event descriptors and renderer-boundary payload resolvers.</p>
+      </header>
+      <div class="task-grid">
+        <section id="counter-root" class="task-mount" aria-label="Counter"></section>
+        <section id="temperature-root" class="task-mount" aria-label="Temperature Converter"></section>
+        <section id="flight-root" class="task-mount" aria-label="Flight Booker"></section>
+        <section id="timer-root" class="task-mount" aria-label="Timer"></section>
+        <section id="crud-root" class="task-mount" aria-label="CRUD"></section>
+        <section id="circle-root" class="task-mount" aria-label="Circle Drawer"></section>
+        <section id="cells-root" class="task-mount" aria-label="Cells"></section>
+      </div>
+    </main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

@@ -133,10 +133,11 @@ fixed message; the spreadsheet-oriented fixed-message descriptors add
 descriptors store typed pure ids (`TextInputId`, `KeyEventId`, `PointerEventId`)
 plus a DOM event name; the renderer extracts the browser payload at the boundary
 and resolves `(id, payload) -> Msg` through mount-time resolvers (`on_input`,
-`on_key`, `on_pointer`). Text input forwards `value`, keyboard forwards
-key/code/modifiers/repeat, and pointer forwards pointer id/type, coordinates,
-buttons, and modifiers. No closure or DOM event object is stored in cacheable
-`Html`, so equal descriptors still backdate.
+`on_key`, `on_pointer`). Text input and value-change descriptors forward
+`value`, keyboard forwards key/code/modifiers/repeat, and pointer forwards
+pointer id/type, viewport coordinates, target-local offsets, buttons, and
+modifiers. No closure or DOM event object is stored in cacheable `Html`, so
+equal descriptors still backdate.
 
 Static `prevent_default` / `stop_propagation` flags are pure descriptor data, and
 the actual DOM calls are made only by the renderer listener. Keyboard handlers

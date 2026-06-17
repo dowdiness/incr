@@ -29,6 +29,7 @@ New to `incr`? Read these in order:
 - [Live Typed Spreadsheet](https://typed-spreadsheet.pages.dev) — editable browser demo where cell formulas become dependency-tracked MoonBit computations and trace panels show recomputed, changed, and unchanged formula cells
 - [Typed Spreadsheet package](../examples/typed_spreadsheet/README.mbt.md) — runtime-checked example worksheet boundary, formula evaluation, post-change recompute traces, and the CLI demo entry point
 - [Typed Spreadsheet Rabbita demo](../examples/typed_spreadsheet_rabbita_demo/README.md) — local browser-demo build and deployment notes
+- [incr_tea 7GUIs stress test](../examples/incr_tea_7guis/README.md) — browser stress-test package covering the seven 7GUIs tasks with the experimental `incr_tea` renderer
 
 ## Performance
 

@@ -282,7 +282,7 @@ fn greet_on_pointer(id : PointerEventId, payload : PointerPayload) -> DemoMsg? {
     "greet.pointer" =>
       Some(
         GreetPointerPayload(
-          "id=\{payload.pointer_id} type=\{payload.pointer_type} x=\{payload.client_x} y=\{payload.client_y} button=\{payload.button} buttons=\{payload.buttons} alt=\{payload.alt_key} ctrl=\{payload.ctrl_key} meta=\{payload.meta_key} shift=\{payload.shift_key}",
+          "id=\{payload.pointer_id} type=\{payload.pointer_type} x=\{payload.client_x} y=\{payload.client_y} offset_x=\{payload.offset_x} offset_y=\{payload.offset_y} button=\{payload.button} buttons=\{payload.buttons} alt=\{payload.alt_key} ctrl=\{payload.ctrl_key} meta=\{payload.meta_key} shift=\{payload.shift_key}",
         ),
       )
     _ => None
