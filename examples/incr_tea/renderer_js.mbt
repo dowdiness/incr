@@ -243,6 +243,37 @@ extern "js" fn dom_request_animation_frame(callback : () -> Unit) -> Bool =
 
 ///|
 #cfg(target="js")
+extern "js" fn dom_create_intersection_observer(
+  element : DomElement,
+  callback : () -> Unit,
+) -> Int =
+  #| (element, callback) => {
+  #|   const store = globalThis.__incrTeaIntersectionObservers ??= new Map();
+  #|   const next = (globalThis.__incrTeaIntersectionObserverSeq ?? 0) + 1;
+  #|   globalThis.__incrTeaIntersectionObserverSeq = next;
+  #|   const observer = new IntersectionObserver(entries => {
+  #|     if (entries.some(entry => entry.isIntersecting || entry.intersectionRatio > 0)) {
+  #|       callback();
+  #|     }
+  #|   }, { threshold: 0 });
+  #|   observer.observe(element);
+  #|   store.set(next, observer);
+  #|   return next;
+  #| }
+
+///|
+#cfg(target="js")
+extern "js" fn dom_disconnect_intersection_observer(handle : Int) -> Unit =
+  #| (handle) => {
+  #|   const store = globalThis.__incrTeaIntersectionObservers;
+  #|   const observer = store?.get(handle);
+  #|   if (!observer) return;
+  #|   observer.disconnect();
+  #|   store.delete(handle);
+  #| }
+
+///|
+#cfg(target="js")
 extern "js" fn dom_set_element_text(
   element : DomElement,
   value : String,

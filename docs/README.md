@@ -60,6 +60,7 @@ New to `incr`? Read these in order:
 - [2026-06-15 Incremental TEA inactive-root cohort benchmark](performance/2026-06-15-incr-tea-inactive-root-cohorts.md) — multi-root follow-up: one shared workspace Program mounted into 1/4/16 inactive DOM roots, measuring 10/100/1000-update bursts and activation of one root versus all roots.
 - [2026-06-16 Incremental TEA independent inactive-root cohort benchmark](performance/2026-06-16-incr-tea-independent-inactive-root-cohorts.md) — independent-root follow-up: one workspace Program/view Watch per inactive DOM root, broadcasting 10/100/1000-update bursts across 1/4/16 roots and measuring activation of one root versus all roots.
 - [2026-06-16 Incremental TEA shared vs independent inactive-root cohorts](performance/2026-06-16-incr-tea-shared-vs-independent-inactive-root-cohorts.md) — synthesis of PR #277 (shared Program/Watch across inactive roots) and PR #278 (independent Program/Watch per root): 16-root activation-only and total-burst ratios, evidence-backed conclusions only.
+- [2026-06-17 Incremental TEA activation-trigger overhead probe](performance/2026-06-17-incr-tea-activation-trigger-overhead.md) — measurement-only IntersectionObserver dispatch and observer-triggered activation probe before choosing visibility, idle, document-level, or manual activation policy.
 
 ---
 

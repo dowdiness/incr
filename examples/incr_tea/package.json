@@ -9,6 +9,7 @@
     "build:moonbit": "npm run build:bench",
     "bench:dom": "npm run build:bench && node scripts/bench-keyed-dom.mjs",
     "bench:ui-compare-dom": "npm run build:ui-compare-bench && node scripts/bench-ui-compare-dom.mjs",
+    "bench:activation-trigger": "npm run build:bench && node scripts/bench-activation-trigger.mjs",
     "test:dom": "npm run build:demo && node scripts/test-keyed-dom.mjs"
   },
   "devDependencies": {
