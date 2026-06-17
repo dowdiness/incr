@@ -92,4 +92,5 @@ npm run bench:activation-trigger
 Set `INCR_TEA_ACTIVATION_TRIGGER_SAMPLES`,
 `INCR_TEA_ACTIVATION_TRIGGER_UPDATES`, or
 `INCR_TEA_ACTIVATION_TRIGGER_TIMEOUT_MS` to adjust the sampling budget and guard
-rail.
+rail. The current harness also emits manual-first policy-controller rows added
+by the follow-up [policy validation](2026-06-17-incr-tea-manual-first-hybrid-activation-policy.md); the table above is the original trigger-overhead slice.

@@ -3,13 +3,22 @@ import { assert, close, createStaticServer, host, listen } from './browser-harne
 
 const rootCounts = [1, 4, 16];
 const ownerships = ['shared', 'independent'];
-const operations = [
+const triggerOperations = [
   'observer-dispatch-only',
   'observer-activate-one',
   'observer-activate-all',
   'manual-activate-one',
   'manual-activate-all',
 ];
+const policyOperations = [
+  'semantic-show-one',
+  'prewarm-hit-one',
+  'prewarm-miss-one',
+  'semantic-show-all',
+  'prewarm-hit-all',
+  'prewarm-miss-all',
+];
+const operations = [...triggerOperations, ...policyOperations];
 const samples = positiveInt(process.env.INCR_TEA_ACTIVATION_TRIGGER_SAMPLES, 9);
 const inactiveUpdates = positiveInt(process.env.INCR_TEA_ACTIVATION_TRIGGER_UPDATES, 1);
 const timeoutMs = positiveInt(process.env.INCR_TEA_ACTIVATION_TRIGGER_TIMEOUT_MS, 1000);
@@ -74,18 +83,42 @@ async function measureCell(page, { ownership, rootCount, operation }) {
         api.inactiveUpdates(inactiveUpdates);
         await delay(0);
       };
-      const withTimeout = promise => Promise.race([
-        promise,
-        new Promise((_, reject) => setTimeout(() => reject(new Error(`timed out waiting for ${operation}`)), timeoutMs)),
-      ]);
+      const withTimeout = (promise, cleanup) => new Promise((resolve, reject) => {
+        let settled = false;
+        const timer = setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          reject(new Error(`timed out waiting for ${operation}`));
+        }, timeoutMs);
+        promise.then(
+          value => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            resolve(value);
+          },
+          error => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            reject(error);
+          },
+        );
+      });
       const observeOne = async callback => {
         const host = api.host(0);
+        let handle = null;
+        const cleanup = () => {
+          if (handle !== null) api.disconnect(handle);
+          handle = null;
+        };
         const done = new Promise(resolve => {
-          const handle = api.observe(0, () => {
+          handle = api.observe(0, () => {
             try {
               callback();
             } finally {
-              api.disconnect(handle);
+              cleanup();
               resolve(performance.now());
             }
           });
@@ -94,24 +127,32 @@ async function measureCell(page, { ownership, rootCount, operation }) {
         const started = performance.now();
         host.style.visibility = 'visible';
         host.style.left = '0px';
-        const ended = await withTimeout(done);
+        const ended = await withTimeout(done, cleanup);
         return ended - started;
       };
       const observeAll = async callback => {
         const count = api.hostCount();
         let remaining = count;
-        let firstHandle = null;
+        let callbackCalled = false;
+        const handles = [];
+        const cleanup = () => {
+          for (const handle of handles) api.disconnect(handle);
+          handles.length = 0;
+        };
         const done = new Promise(resolve => {
           for (let i = 0; i < count; i += 1) {
             const handle = api.observe(i, () => {
-              if (firstHandle === null) {
-                firstHandle = handle;
+              if (!callbackCalled) {
+                callbackCalled = true;
                 callback();
               }
               api.disconnect(handle);
+              const index = handles.indexOf(handle);
+              if (index >= 0) handles.splice(index, 1);
               remaining -= 1;
               if (remaining === 0) resolve(performance.now());
             });
+            handles.push(handle);
           }
         });
         await delay(0);
@@ -121,45 +162,76 @@ async function measureCell(page, { ownership, rootCount, operation }) {
           host.style.visibility = 'visible';
           host.style.left = '0px';
         }
-        const ended = await withTimeout(done);
+        const ended = await withTimeout(done, cleanup);
         return ended - started;
       };
 
-      api.setup(rootCount, ownership);
+      const setupInfo = api.setup(rootCount, ownership);
       const sampleValues = [];
+      const activationFlushes = () => api.stats().activationFlushes;
+      const expectActivationDelta = (before, expected, phase) => {
+        const actual = activationFlushes() - before;
+        if (actual !== expected) {
+          throw new Error(
+            `activation sanity check failed for ${operation} during ${phase}: expected delta ${expected}, saw ${actual}`,
+          );
+        }
+      };
       try {
         for (let sample = 0; sample < samples; sample += 1) {
           await prepareInactive();
+          let before = activationFlushes();
           if (operation === 'observer-dispatch-only') {
             sampleValues.push((await observeAll(() => {})) * 1000);
+            expectActivationDelta(before, 0, 'observer dispatch');
           } else if (operation === 'observer-activate-one') {
             sampleValues.push((await observeOne(() => api.activateOne())) * 1000);
+            expectActivationDelta(before, 1, 'observer activation');
           } else if (operation === 'observer-activate-all') {
             sampleValues.push((await observeAll(() => api.activateAll())) * 1000);
+            expectActivationDelta(before, setupInfo.rootCount, 'observer activation');
           } else if (operation === 'manual-activate-one') {
             const started = performance.now();
             api.activateOne();
             sampleValues.push((performance.now() - started) * 1000);
+            expectActivationDelta(before, 1, 'manual activation');
           } else if (operation === 'manual-activate-all') {
             const started = performance.now();
             api.activateAll();
             sampleValues.push((performance.now() - started) * 1000);
+            expectActivationDelta(before, setupInfo.rootCount, 'manual activation');
+          } else if (operation === 'semantic-show-one' || operation === 'prewarm-miss-one') {
+            const started = performance.now();
+            api.showOne();
+            sampleValues.push((performance.now() - started) * 1000);
+            expectActivationDelta(before, 1, 'semantic show');
+          } else if (operation === 'semantic-show-all' || operation === 'prewarm-miss-all') {
+            const started = performance.now();
+            api.showAll();
+            sampleValues.push((performance.now() - started) * 1000);
+            expectActivationDelta(before, setupInfo.rootCount, 'semantic show');
+          } else if (operation === 'prewarm-hit-one') {
+            api.prewarmOne();
+            expectActivationDelta(before, 1, 'prewarm');
+            before = activationFlushes();
+            const started = performance.now();
+            api.showOne();
+            sampleValues.push((performance.now() - started) * 1000);
+            expectActivationDelta(before, 0, 'prewarmed show');
+          } else if (operation === 'prewarm-hit-all') {
+            api.prewarmAll();
+            expectActivationDelta(before, setupInfo.rootCount, 'prewarm');
+            before = activationFlushes();
+            const started = performance.now();
+            api.showAll();
+            sampleValues.push((performance.now() - started) * 1000);
+            expectActivationDelta(before, 0, 'prewarmed show');
           } else {
             throw new Error(`unknown operation: ${operation}`);
           }
         }
         const finalStats = api.stats();
-        const expectedActivationFlushes = operation.endsWith('activate-all')
-          ? rootCount * samples
-          : operation.endsWith('activate-one')
-            ? samples
-            : 0;
-        if (finalStats.activationFlushes < expectedActivationFlushes) {
-          throw new Error(
-            `activation sanity check failed for ${operation}: expected at least ${expectedActivationFlushes}, saw ${finalStats.activationFlushes}`,
-          );
-        }
-        if (operation !== 'observer-dispatch-only' && finalStats.inactiveSkippedFlushes < samples) {
+        if (finalStats.inactiveSkippedFlushes < samples) {
           throw new Error(
             `inactive skip sanity check failed for ${operation}: saw ${finalStats.inactiveSkippedFlushes}`,
           );
@@ -170,7 +242,7 @@ async function measureCell(page, { ownership, rootCount, operation }) {
           operation,
           ownership,
           n: rootCount,
-          workspaceSize: 256,
+          workspaceSize: setupInfo.workspaceSize,
           inactiveUpdates,
           unit: 'us',
           samples: sampleValues,
@@ -190,7 +262,7 @@ function printReport({ browserVersion, userAgent, raw }) {
   const lines = [
     '# Incremental TEA activation-trigger overhead probe',
     '',
-    'Measurement-only probe. It times IntersectionObserver callback dispatch and observer-triggered activation against direct manual activation; it does not choose or implement an activation policy.',
+    'Measures IntersectionObserver callback dispatch, observer-triggered activation, direct manual activation, and the example-local manual-first policy helper accepted by the #280 ADR.',
     '',
     '## Environment',
     '',
@@ -206,9 +278,14 @@ function printReport({ browserVersion, userAgent, raw }) {
   ];
 
   for (const ownership of ownerships) {
-    lines.push(`### ${ownership}`, '', '| roots | observer dispatch | observer activate one | observer activate all | manual activate one | manual activate all |', '|---:|---:|---:|---:|---:|---:|');
+    lines.push(`### ${ownership}`, '', '#### Trigger and direct-activate controls', '', '| roots | observer dispatch | observer activate one | observer activate all | manual activate one | manual activate all |', '|---:|---:|---:|---:|---:|---:|');
     for (const rootCount of rootCounts) {
-      const row = operations.map(operation => cell(byKey.get(`${ownership}:${rootCount}:${operation}`)));
+      const row = triggerOperations.map(operation => cell(byKey.get(`${ownership}:${rootCount}:${operation}`)));
+      lines.push(`| ${rootCount} | ${row.join(' | ')} |`);
+    }
+    lines.push('', '#### Manual-first policy controller', '', '| roots | semantic show one | prewarm hit one | prewarm miss one | semantic show all | prewarm hit all | prewarm miss all |', '|---:|---:|---:|---:|---:|---:|---:|');
+    for (const rootCount of rootCounts) {
+      const row = policyOperations.map(operation => cell(byKey.get(`${ownership}:${rootCount}:${operation}`)));
       lines.push(`| ${rootCount} | ${row.join(' | ')} |`);
     }
     lines.push('');
@@ -220,6 +297,7 @@ function printReport({ browserVersion, userAgent, raw }) {
     '- Observer-dispatch rows install one observer per root, reveal every root, and resolve when every observer callback has run.',
     '- Observer rows move hidden hosts from offscreen (`left:-10000px`) into the viewport to force an IntersectionObserver threshold crossing.',
     '- Manual rows use the same prepared inactive state and call `BrowserRenderer::activate` directly as the control baseline.',
+    '- Policy rows use `BrowserRootActivationController`: semantic show is direct activation through the accepted helper, prewarm miss times show without an earlier prewarm, and prewarm hit performs prewarm before the timed semantic show.',
     '- `observer-activate-all` installs one observer per root and reveals all hosts in one DOM turn to expose browser callback batching/serialization behavior.',
     '',
     '<details><summary>Raw JSON</summary>',

@@ -108,9 +108,12 @@ it records a patch attempt and applies a small positional VDOM diff. Inactive
 mounted roots stay in the owned root set and keep their DOM attached, but the
 scheduled frame records an inactive skip instead of reading the watched view;
 activation records a catch-up flush and reads/diffs once. The chosen trigger
-policy is manual-first hybrid: product/semantic UI actions call `activate`
-directly before a root becomes interactive, while visibility or idle triggers
-may only prewarm roots opportunistically. See the
+policy is manual-first hybrid: product/semantic UI actions should use
+`BrowserRootActivationController::show` / `hide`, which wrap the existing
+`BrowserRenderer::activate` / `deactivate` lifecycle without adding a core
+scheduler. Visibility or idle triggers may call `prewarm` only for roots where
+early activation side effects are acceptable, because prewarm uses the same
+catch-up flush and after-flush drain as `show`. See the
 [#280 ADR](../../docs/decisions/2026-06-17-incr-tea-inactive-root-activation-policy.md).
 
 `Html` stores attributes, children, and pure event descriptors. DOM event

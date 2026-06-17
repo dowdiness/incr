@@ -90,6 +90,7 @@ fn UiCompareActivationTriggerOwnership::click_action(
 #cfg(target="js")
 priv struct UiCompareActivationTriggerBenchHarness {
   renderer : BrowserRenderer[UiCompareWorkspaceMsg]
+  controller : BrowserRootActivationController[UiCompareWorkspaceMsg]
   roots : Array[(DomElement, BrowserRoot[UiCompareWorkspaceMsg])]
   ownership : UiCompareActivationTriggerOwnership
 }
@@ -111,12 +112,13 @@ fn UiCompareActivationTriggerBenchHarness::UiCompareActivationTriggerBenchHarnes
     }
     None => ()
   }
+  let controller = BrowserRootActivationController(renderer)
   let roots = ownership.mount_roots(renderer, runtime, root_count)
   ownership.click_action(roots, "set-hidden-mounted")
   for pair in roots {
     pair.1.flush()
   }
-  { renderer, roots, ownership }
+  { renderer, controller, roots, ownership }
 }
 
 ///|
@@ -139,7 +141,7 @@ fn UiCompareActivationTriggerBenchHarness::deactivate_all(
   self : UiCompareActivationTriggerBenchHarness,
 ) -> Unit {
   for pair in self.roots {
-    self.renderer.deactivate(pair.1)
+    self.controller.hide(pair.1)
   }
 }
 
@@ -177,6 +179,42 @@ fn UiCompareActivationTriggerBenchHarness::activate_all(
 
 ///|
 #cfg(target="js")
+fn UiCompareActivationTriggerBenchHarness::show_one(
+  self : UiCompareActivationTriggerBenchHarness,
+) -> Unit {
+  self.controller.show(self.roots[0].1)
+}
+
+///|
+#cfg(target="js")
+fn UiCompareActivationTriggerBenchHarness::show_all(
+  self : UiCompareActivationTriggerBenchHarness,
+) -> Unit {
+  for pair in self.roots {
+    self.controller.show(pair.1)
+  }
+}
+
+///|
+#cfg(target="js")
+fn UiCompareActivationTriggerBenchHarness::prewarm_one(
+  self : UiCompareActivationTriggerBenchHarness,
+) -> Unit {
+  self.controller.prewarm(self.roots[0].1)
+}
+
+///|
+#cfg(target="js")
+fn UiCompareActivationTriggerBenchHarness::prewarm_all(
+  self : UiCompareActivationTriggerBenchHarness,
+) -> Unit {
+  for pair in self.roots {
+    self.controller.prewarm(pair.1)
+  }
+}
+
+///|
+#cfg(target="js")
 fn UiCompareActivationTriggerBenchHarness::stats_json(
   self : UiCompareActivationTriggerBenchHarness,
 ) -> String {
@@ -206,6 +244,10 @@ extern "js" fn dom_activation_trigger_install_api(
   inactive_updates : (Int) -> Unit,
   activate_one : () -> Unit,
   activate_all : () -> Unit,
+  show_one : () -> Unit,
+  show_all : () -> Unit,
+  prewarm_one : () -> Unit,
+  prewarm_all : () -> Unit,
   host_count : () -> Int,
   host : (Int) -> DomElement,
   stats : () -> String,
@@ -213,7 +255,7 @@ extern "js" fn dom_activation_trigger_install_api(
   observe : (Int, () -> Unit) -> Int,
   disconnect : (Int) -> Unit,
 ) -> Unit =
-  #| (setup, reset, deactivateAll, inactiveUpdates, activateOne, activateAll, hostCount, host, stats, dispose, observe, disconnect) => {
+  #| (setup, reset, deactivateAll, inactiveUpdates, activateOne, activateAll, showOne, showAll, prewarmOne, prewarmAll, hostCount, host, stats, dispose, observe, disconnect) => {
   #|   const toInt = (value, fallback) => {
   #|     const parsed = Number(value);
   #|     return Number.isFinite(parsed) ? Math.trunc(parsed) : fallback;
@@ -225,6 +267,10 @@ extern "js" fn dom_activation_trigger_install_api(
   #|   api.inactiveUpdates = (count = 1) => inactiveUpdates(toInt(count, 1));
   #|   api.activateOne = () => activateOne();
   #|   api.activateAll = () => activateAll();
+  #|   api.showOne = () => showOne();
+  #|   api.showAll = () => showAll();
+  #|   api.prewarmOne = () => prewarmOne();
+  #|   api.prewarmAll = () => prewarmAll();
   #|   api.hostCount = () => hostCount();
   #|   api.host = index => host(toInt(index, 0));
   #|   api.stats = () => JSON.parse(stats());
@@ -290,6 +336,10 @@ pub fn install_activation_trigger_bench_api() -> Unit {
     },
     () => ui_compare_activation_current(harness).activate_one(),
     () => ui_compare_activation_current(harness).activate_all(),
+    () => ui_compare_activation_current(harness).show_one(),
+    () => ui_compare_activation_current(harness).show_all(),
+    () => ui_compare_activation_current(harness).prewarm_one(),
+    () => ui_compare_activation_current(harness).prewarm_all(),
     () => ui_compare_activation_current(harness).roots.length(),
     index => ui_compare_activation_current(harness).roots[index].0,
     () => ui_compare_activation_current(harness).stats_json(),

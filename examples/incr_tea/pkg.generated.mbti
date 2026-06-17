@@ -111,6 +111,14 @@ pub struct BrowserRoot[Msg] {
   // private fields
 }
 
+pub struct BrowserRootActivationController[Msg] {
+  // private fields
+}
+pub fn[Msg] BrowserRootActivationController::BrowserRootActivationController(BrowserRenderer[Msg]) -> Self[Msg]
+pub fn[Msg] BrowserRootActivationController::hide(Self[Msg], BrowserRoot[Msg]) -> Unit
+pub fn[Msg : Eq] BrowserRootActivationController::prewarm(Self[Msg], BrowserRoot[Msg]) -> Unit
+pub fn[Msg : Eq] BrowserRootActivationController::show(Self[Msg], BrowserRoot[Msg]) -> Unit
+
 pub struct Cmd[Msg] {
   // private fields
 }

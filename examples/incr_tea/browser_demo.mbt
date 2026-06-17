@@ -488,6 +488,7 @@ pub fn mount_browser_demo(mount_id : String) -> Unit {
   let renderer = BrowserRenderer::BrowserRenderer(runtime, after_flush=stats => {
     update_stats(stats_host, stats)
   })
+  let activation = BrowserRootActivationController(renderer)
   ignore(
     renderer.mount(
       dom_query_child_by_id(host, "counter-root"),
@@ -568,14 +569,14 @@ pub fn mount_browser_demo(mount_id : String) -> Unit {
   })
   wire_button(host, "deactivate-child", () => {
     match child_root.val {
-      Some(root) => renderer.deactivate(root)
+      Some(root) => activation.hide(root)
       None => ()
     }
     refresh()
   })
   wire_button(host, "activate-child", () => {
     match child_root.val {
-      Some(root) => renderer.activate(root)
+      Some(root) => activation.show(root)
       None => ()
     }
     refresh()

@@ -61,6 +61,7 @@ New to `incr`? Read these in order:
 - [2026-06-16 Incremental TEA independent inactive-root cohort benchmark](performance/2026-06-16-incr-tea-independent-inactive-root-cohorts.md) — independent-root follow-up: one workspace Program/view Watch per inactive DOM root, broadcasting 10/100/1000-update bursts across 1/4/16 roots and measuring activation of one root versus all roots.
 - [2026-06-16 Incremental TEA shared vs independent inactive-root cohorts](performance/2026-06-16-incr-tea-shared-vs-independent-inactive-root-cohorts.md) — synthesis of PR #277 (shared Program/Watch across inactive roots) and PR #278 (independent Program/Watch per root): 16-root activation-only and total-burst ratios, evidence-backed conclusions only.
 - [2026-06-17 Incremental TEA activation-trigger overhead probe](performance/2026-06-17-incr-tea-activation-trigger-overhead.md) — measurement-only IntersectionObserver dispatch and observer-triggered activation probe that informed the #280 manual-first hybrid policy.
+- [2026-06-17 Incremental TEA manual-first hybrid activation policy](performance/2026-06-17-incr-tea-manual-first-hybrid-activation-policy.md) — validates the example-local `BrowserRootActivationController` prototype: semantic show/hide wraps direct renderer activation/deactivation, prewarm hit makes later show a no-op at timer resolution, and no core scheduler is added.
 
 ---
 

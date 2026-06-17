@@ -1041,6 +1041,102 @@ test "#255: inactive after_flush callbacks wait for activation catch-up" {
 
 ///|
 #cfg(target="js")
+test "#280: activation controller hide/show uses renderer lifecycle" {
+  let host = test_install_focus_dom()
+  let runtime = @incr.Runtime()
+  let renderer : BrowserRenderer[RendererMsg] = BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  let controller = BrowserRootActivationController(renderer)
+  let program = renderer_counter_program(runtime, "manual.first.show")
+  let root = renderer.mount(host, program)
+
+  controller.hide(root)
+  inspect(program.dispatch(Increment), content="true")
+  test_run_next_raf()
+  inspect(test_dom_text(host), content="count=0+")
+
+  controller.show(root)
+  inspect(test_dom_text(host), content="count=1+")
+  inspect(renderer.stats().activation_flushes, content="1")
+
+  renderer.dispose()
+  test_restore_dom()
+}
+
+///|
+#cfg(target="js")
+test "#280: show before pending frame catches up then leaves no-op frame" {
+  let host = test_install_focus_dom()
+  let runtime = @incr.Runtime()
+  let renderer : BrowserRenderer[RendererMsg] = BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  let controller = BrowserRootActivationController(renderer)
+  let program = renderer_counter_program(runtime, "manual.first.pending")
+  let root = renderer.mount(host, program)
+
+  controller.hide(root)
+  inspect(program.dispatch(Increment), content="true")
+  inspect(test_pending_raf_count(), content="1")
+
+  controller.show(root)
+  inspect(test_dom_text(host), content="count=1+")
+  inspect(renderer.stats().activation_flushes, content="1")
+  inspect(renderer.stats().patch_attempts, content="2")
+
+  test_run_next_raf()
+  inspect(test_dom_text(host), content="count=1+")
+  inspect(renderer.stats().frame_flushes, content="1")
+  inspect(renderer.stats().skipped_patches, content="1")
+  inspect(renderer.stats().patch_attempts, content="2")
+
+  renderer.dispose()
+  test_restore_dom()
+}
+
+///|
+#cfg(target="js")
+test "#280: prewarm is an early show and drains after_flush" {
+  let host = test_install_focus_dom()
+  let runtime = @incr.Runtime()
+  let renderer : BrowserRenderer[RendererMsg] = BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  let controller = BrowserRootActivationController(renderer)
+  let scope = @incr.Scope::new(runtime)
+  let events : Ref[Array[String]] = Ref([])
+  let update : (RendererMsg) -> Cmd[RendererMsg] = _ => {
+    Cmd::after_flush(_ => events.val.push("after-flush"))
+  }
+  let view : () -> Html[RendererMsg] raise Failure = () => div([text("stable")])
+  let program = Program::Program(
+    runtime,
+    scope,
+    update,
+    view,
+    label="manual.first.prewarm.view",
+  )
+  let root = renderer.mount(host, program)
+
+  controller.hide(root)
+  inspect(program.dispatch(Increment), content="true")
+  test_run_next_raf()
+  inspect(events.val.join(","), content="")
+
+  controller.prewarm(root)
+  inspect(events.val.join(","), content="after-flush")
+  inspect(renderer.stats().activation_flushes, content="1")
+
+  controller.show(root)
+  inspect(renderer.stats().activation_flushes, content="1")
+
+  renderer.dispose()
+  test_restore_dom()
+}
+
+///|
+#cfg(target="js")
 test "#209: BrowserRenderer::dispose removes the stored view-recompute listener" {
   let runtime = @incr.Runtime()
   // The renderer installs the derived-event (view-recompute) listener at

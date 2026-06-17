@@ -1356,6 +1356,7 @@ pub fn[Msg] BrowserRenderer::deactivate(
   self : BrowserRenderer[Msg],
   root : BrowserRoot[Msg],
 ) -> Unit {
+  guard !self.disposed else { return }
   guard self.roots.iter().any(other => physical_equal(other, root)) else {
     return
   }
@@ -1380,6 +1381,69 @@ pub fn[Msg : Eq] BrowserRenderer::activate(
   root.flush()
   root.drain_after_flush()
   (self.after_flush)(self.stats)
+}
+
+///|
+/// Example-local manual-first activation policy helper for mounted inactive
+/// roots.
+///
+/// Product/semantic UI actions should call `show` before a root becomes
+/// interactive and `hide` when it becomes non-interactive. `prewarm` is only an
+/// advisory early `show`: it uses the same activation path, including the
+/// catch-up flush and after-flush drain, so call it only when those early effects
+/// are acceptable for that root.
+#cfg(target="js")
+pub struct BrowserRootActivationController[Msg] {
+  priv renderer : BrowserRenderer[Msg]
+}
+
+///|
+/// Creates a policy helper that shares the underlying renderer object. Callers
+/// keep their `BrowserRenderer` reference for mounting, stats, and disposal.
+#cfg(target="js")
+pub fn[Msg] BrowserRootActivationController::BrowserRootActivationController(
+  renderer : BrowserRenderer[Msg],
+) -> BrowserRootActivationController[Msg] {
+  { renderer, }
+}
+
+///|
+/// Semantic hide for a mounted root. The DOM and `Program` remain attached, but
+/// scheduled renderer frames skip the watched-view read until `show` or
+/// `prewarm` activates the root.
+#cfg(target="js")
+pub fn[Msg] BrowserRootActivationController::hide(
+  self : BrowserRootActivationController[Msg],
+  root : BrowserRoot[Msg],
+) -> Unit {
+  self.renderer.deactivate(root)
+}
+
+///|
+/// Semantic show for a mounted root. This marks the root active and performs the
+/// renderer catch-up flush before callers let the root become interactive.
+#cfg(target="js")
+pub fn[Msg : Eq] BrowserRootActivationController::show(
+  self : BrowserRootActivationController[Msg],
+  root : BrowserRoot[Msg],
+) -> Unit {
+  self.renderer.activate(root)
+}
+
+///|
+/// Advisory prewarm for roots where early activation side effects are safe.
+///
+/// This intentionally reuses `show` rather than adding a side-effect-free
+/// scheduler path: it marks the root active, catches up the DOM, and drains
+/// after-flush commands. A later semantic `show` is then a no-op unless the root
+/// was hidden again.
+#cfg(target="js")
+pub fn[Msg : Eq] BrowserRootActivationController::prewarm(
+  self : BrowserRootActivationController[Msg],
+  root : BrowserRoot[Msg],
+) -> Unit {
+  // Intent only: prewarm is the same side-effecting activation as show.
+  self.show(root)
 }
 
 ///|
