@@ -30,6 +30,8 @@ pub fn[Msg] h3(attrs? : Array[Attribute], events? : Array[EventBinding[Msg]], Ar
 
 pub fn[Msg] input(attrs? : Array[Attribute], events? : Array[EventBinding[Msg]]) -> Html[Msg]
 
+pub fn install_activation_trigger_bench_api() -> Unit
+
 pub fn install_dom_bench_api() -> Unit
 
 pub fn install_ui_compare_dom_bench_api() -> Unit

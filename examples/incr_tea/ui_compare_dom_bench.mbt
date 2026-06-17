@@ -55,6 +55,10 @@ fn ui_compare_incr_run(
       ui_compare_incr_run_inactive_workspace_independent_cohort(
         operation, n, iterations, sample_count,
       )
+    "activation-trigger-overhead" | "activation_trigger_overhead" =>
+      ui_compare_incr_run_activation_trigger(
+        operation, n, iterations, sample_count,
+      )
     "direct:row-leaf" | "direct:row_leaf" | "row-leaf-direct" =>
       ui_compare_incr_run_row_leaf_direct(
         operation, n, iterations, sample_count,
