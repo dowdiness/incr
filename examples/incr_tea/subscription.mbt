@@ -23,7 +23,7 @@ pub fn SubKey::SubKey(namespace_id : String, identity : String) -> SubKey {
 /// Desired subscription behavior for one key.
 ///
 /// More variants can be added alongside `Timer` as the platform evolves.
-pub enum SubSpec[Msg] {
+pub(all) enum SubSpec[Msg] {
   Timer(Int, Msg)
 } derive(Eq, Debug)
 

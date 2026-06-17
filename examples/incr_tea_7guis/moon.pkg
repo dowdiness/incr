@@ -1,0 +1,16 @@
+import {
+  "examples/incr_tea" @tea,
+  "examples/incr_tea_7guis/cells",
+  "examples/incr_tea_7guis/circle_drawer",
+  "examples/incr_tea_7guis/counter",
+  "examples/incr_tea_7guis/crud",
+  "examples/incr_tea_7guis/flight_booker",
+  "examples/incr_tea_7guis/temperature_converter",
+  "examples/incr_tea_7guis/timer",
+}
+
+supported_targets = "js"
+
+options(
+  "is-main": true,
+)

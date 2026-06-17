@@ -1,0 +1,6 @@
+import {
+  "dowdiness/incr",
+  "examples/incr_tea" @tea,
+}
+
+supported_targets = "js"
