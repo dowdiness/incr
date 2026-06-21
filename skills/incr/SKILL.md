@@ -30,9 +30,8 @@ loom/canopy code): `Memo::new`, `Signal::new`, `HybridMemo::new`,
 `rt.read_reactive`.
 
 Also fires on: `parser.runtime()`, `attach_*`, `bench_test.mbt`,
-`.bench(`, `examples/incr_tea`, `BrowserRenderer`, `Html : Eq`,
-`keyed_node`, `diff_keyed_children` — or any time you are defining a new
-struct that owns reactive cells and exposes a `get`/`dispose` surface.
+`.bench(` — or any time you are defining a new struct that owns reactive cells
+and exposes a `get`/`dispose` surface.
 
 Sister skill: **loom** (parser-side conventions). If the task involves
 calling `Parser::new` or `new_parser`, read that one too.
@@ -73,9 +72,8 @@ bridge methods to compatibility handles (`Memo::read`, `Memo::get_or_abort`,
 `MemoMap::read`, etc.). The compatibility handles are eventual cleanup/removal
 targets; migrating users to new methods on them would create churn. For ordinary
 migration, move the handle type/constructor to `Derived`, `ReachableDerived`, or
-`DerivedMap`. Use `scripts/migrate-to-target-facades.py` for a dry-run report
-and conservative safe rewrites; it skips files with context-sensitive reads or
-compatibility-only methods that need manual judgment.
+`DerivedMap`. No migration script is currently tracked in this repo; use the
+API tables and `cells/pkg.generated.mbti` when doing manual rewrites.
 
 ## Quick Reference
 
@@ -124,9 +122,11 @@ consumer methods):
 - Legacy: `rt.read(memo)` / `rt.read_hybrid(h)` / `rt.read_reactive(r)`
   still work for the compat-named handles.
 
-The target-facade read channel — `Derived` / `ReachableDerived` /
-`DerivedMap` `.get()` / `.read()` / `.read_or_else()` and `Watch::read` —
-currently returns `Result[T, CycleError]`. Disposed cells still abort on strict
+The target-facade result-returning read channel — `Derived` /
+`ReachableDerived` `.get()` / `.read()`, `DerivedMap` `.get(key)` /
+`.read(key)`, and `Watch::read()` — currently returns `Result[..., CycleError]`.
+`DerivedMap::read_or(...)` and `DerivedMap::read_or_else(...)` return the value
+`V` directly after applying their fallback. Disposed cells still abort on strict
 reads. Keep generated code matching on `CycleError` until a broader read-error
 API appears in `cells/pkg.generated.mbti`.
 
@@ -188,7 +188,7 @@ Canonical references:
 - `docs/target_api_examples.mbt.md` — checked literate examples of the
   target facade form (`Input`, `Derived`, `Scope`, `Watch`,
   `read_or_abort`, `get_or_abort`).
-- `docs/getting-started.mbt.md` — narrative version with the
+- `docs/getting-started.md` — narrative version with the
   inside-vs-outside rule called out.
 - `tests/bench_test.mbt` — bench template using the compat names; still
   the canonical bench surface.
@@ -404,36 +404,6 @@ Conventions to match verbatim:
 - **Label derived cells** in attached pipelines (`label="..."`) — labels
   show up in introspection, which is the whole point of having them.
 
-## `examples/incr_tea` Renderer Notes
-
-`examples/incr_tea` is a research/example UI substrate on top of `@incr`, not a
-stable public library API. When touching it:
-
-- Preserve `Html : Eq`: cacheable `Html` values must stay closure-free. Event
-  descriptors are pure data (`on_click(msg)`, `on_input(tag=...)`,
-  `on_keydown(id=KeyEventId(...))`, `on_pointer_down(id=PointerEventId(...))`).
-  DOM payload extraction and message resolution belong at the browser/mount
-  boundary (`BrowserRenderer::mount(..., on_input=..., on_key=..., on_pointer=...)`).
-- Keep keyed responsibilities split: `plan_keyed_diff` is pure and DOM-free;
-  `diff_keyed_children` is the JS DOM applier. The current applier preserves
-  per-key DOM identity but re-appends every keyed survivor on list changes; do
-  not baseline focus loss for moved keyed survivors. The explicit focus-loss
-  baseline is removal of the focused key.
-- Do not optimize keyed diff under a behavior-test task. Issue #241 owns
-  planner/minimal-move work; use the pure benches plus the Playwright DOM bench
-  before changing asymptotics or DOM move strategy.
-- Browser behavior coverage lives in `examples/incr_tea/scripts/test-keyed-dom.mjs`.
-  Run `cd examples/incr_tea && npm run test:dom` after renderer/keyed-DOM
-  changes. It pins row identity, uncontrolled input retention, unchanged-list
-  focus retention, and focus loss when the focused key is removed.
-- Performance evidence for DOM applier changes comes from
-  `cd examples/incr_tea && npm run bench:dom`; tune with
-  `INCR_TEA_DOM_BENCH_ITERATIONS` and `INCR_TEA_DOM_BENCH_SAMPLES`.
-- Update `examples/incr_tea/README.mbt.md` and
-  `docs/research/incr-tea-ui-direction.md` when changing renderer contracts or
-  roadmap status. Keep `docs/performance/2026-06-12-incr-tea-keyed-dom-applier-playwright.md`
-  as the dated baseline unless you are adding a new dated performance snapshot.
-
 ## When You're About to Write New Reactive Code — Checklist
 
 Before any non-trivial `Derived(rt, ...)` / `ReachableDerived` /
@@ -512,29 +482,15 @@ In this repo (`dowdiness/incr`):
 - `docs/target_api_examples.mbt.md` — checked literate target facade
   examples (`Input`, `Derived`, `Scope`, `Watch`, `read_or_abort`,
   `get_or_abort`). Verified by `moon check` — never out of date.
-- `docs/getting-started.mbt.md` — narrative walk-through with the
-  inside-vs-outside read rule called out (steps 4 and 4.5).
-- `docs/api-reference.mbt.md` — compatibility ↔ target mapping tables for
+- `docs/getting-started.md` — narrative walk-through with the
+  inside-vs-outside read rule called out.
+- `docs/api-reference.md` — compatibility ↔ target mapping tables for
   each handle; authoritative shape of `read` / `read_or_abort` /
   `get` / `get_or_abort` / `watch` / `observe`, plus current guidance to
   migrate old handles directly to target facades rather than adding bridge
   methods to compatibility handles.
-- `scripts/migrate-to-target-facades.py` — dry-run-by-default helper for
-  compatibility-to-facade migrations; reports context-sensitive read sites
-  and skips files with manual findings under `--apply`.
 - `tests/bench_test.mbt` — bench template (currently in compatibility
   names; either column is fine — match what's there).
-- `examples/incr_tea/README.mbt.md` — experimental TEA renderer contract,
-  including closure-free typed payload event descriptors, keyed-child behavior,
-  DOM benchmark, and browser regression-test commands.
-- `docs/research/incr-tea-ui-direction.md` — project direction and roadmap for
-  `examples/incr_tea`; use it to separate behavior baselines from optimization
-  work (#241) and direct-DOM/lazy-boundary research.
-- `examples/incr_tea/scripts/test-keyed-dom.mjs` — Playwright browser baseline
-  for keyed DOM identity, uncontrolled input retention, and focus/focus-loss
-  behavior through the real `diff_keyed_children` path.
-- `docs/performance/2026-06-12-incr-tea-keyed-dom-applier-playwright.md` — dated
-  browser DOM applier benchmark baseline for keyed vs rebuild list operations.
 - `CLAUDE.md` — package map (where each cell type lives), the
   `cells/internal/*` isolation rule, and the target-facade preference
   for new docs/examples.
