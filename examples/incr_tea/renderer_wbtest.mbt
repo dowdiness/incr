@@ -55,7 +55,8 @@ test "#210: renderer instrumentation does not clobber a pre-existing derived-eve
   // which would have replaced the host listener).
   let view_ids : Ref[Array[@incr.CellId]] = Ref([])
   let stats = RenderStats::RenderStats()
-  install_render_recompute_counter(runtime, view_ids, stats) |> ignore
+  let dummy_map : Ref[Array[(@incr.CellId, String, RenderStats)]] = Ref([])
+  install_render_recompute_counter(runtime, view_ids, stats, dummy_map) |> ignore
   // Drive a recompute and verify the host listener still fires.
   let s = @incr.Input(runtime, 1)
   let m = @incr.Derived(runtime, () => s.get() * 2)

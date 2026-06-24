@@ -59,24 +59,43 @@ pub fn RenderStats::activation_flushes(self : RenderStats) -> Int {
   self.activation_flushes
 }
 
-///|
+#cfg(target="js")
+pub(all) struct RootStats {
+  label : String
+  view_recomputes : Int
+  patch_attempts : Int
+  skipped_patches : Int
+}
+///| Accumulates another RenderStats into this one (addition).
+#cfg(target="js")
+pub fn RenderStats::add(self : RenderStats, other : RenderStats) -> RenderStats {
+  {
+    view_recomputes: self.view_recomputes + other.view_recomputes,
+    patch_attempts: self.patch_attempts + other.patch_attempts,
+    skipped_patches: self.skipped_patches + other.skipped_patches,
+    frame_flushes: self.frame_flushes + other.frame_flushes,
+    inactive_skipped_flushes: self.inactive_skipped_flushes + other.inactive_skipped_flushes,
+    activation_flushes: self.activation_flushes + other.activation_flushes,
+  }
+}
+
 #cfg(target="js")
 priv struct WatchedHtmlRoot[Msg] {
   program : Program[Msg, Html[Msg]]
+  label : String
   stats : RenderStats
   mut last_view : Html[Msg]?
 }
 
-///|
 #cfg(target="js")
 fn[Msg] WatchedHtmlRoot::WatchedHtmlRoot(
   program : Program[Msg, Html[Msg]],
   stats : RenderStats,
+  label? : String = "",
 ) -> WatchedHtmlRoot[Msg] {
-  { program, stats, last_view: None }
+  { program, label, stats, last_view: None }
 }
 
-///|
 #cfg(target="js")
 fn[Msg : Eq] WatchedHtmlRoot::read_changed(
   self : WatchedHtmlRoot[Msg],
