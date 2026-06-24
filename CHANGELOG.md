@@ -19,9 +19,12 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ### Changed
 
-- Migrated all 31 deprecated `try?` usages across 12 files to idiomatic
-  `Ok(expr) catch { e => Err(e) }` / `try expr catch { } noraise { }` patterns
-  (#293). See `Breaking` above for the `batch_result` signature tightening.
+- Documented the `batch_result` breaking change introduced in PR #246 with
+  a `### Breaking` section and migration guide (above).
+- Added migration notes to `Runtime::batch_result` and `Database::batch_result`
+  in the API reference doc.
+- Simplified `Runtime::batch_result` implementation from a wrapper-function
+  pattern to `Ok(self.batch(f)) catch { e => Err(e) }`.
 
 ### Added
 
