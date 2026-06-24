@@ -238,6 +238,10 @@ extern "js" fn typed_sheet_test_run_raf() -> Unit =
   #| }
 
 #cfg(target="js")
+extern "js" fn typed_sheet_test_create_host() -> @tea.DomElement =
+  #| () => document.createElement("div")
+
+#cfg(target="js")
 extern "js" fn typed_sheet_test_restore_dom() -> Unit =
   #| () => {
   #|   if (globalThis.__incrTeaPreviousDocument === undefined) {
@@ -278,25 +282,25 @@ fn delta_skipped_patches(after : Array[@tea.RootStats], before : Array[@tea.Root
 }
 
 #cfg(target="js")
-fn mount_all_roots(renderer : @tea.BrowserRenderer[Msg], host : @tea.DomElement,
-  app : TypedSheetApp) -> Unit {
-  ignore(renderer.mount(host, app.prog_grid, label="grid"))
-  ignore(renderer.mount(host, app.prog_formula, label="formula-bar"))
-  ignore(renderer.mount(host, app.prog_status, label="status"))
-  ignore(renderer.mount(host, app.prog_trace, label="trace"))
+fn mount_all_roots(renderer : @tea.BrowserRenderer[Msg], app : TypedSheetApp) -> Unit {
+  ignore(renderer.mount(typed_sheet_test_create_host(), app.prog_grid, label="grid"))
+  ignore(renderer.mount(typed_sheet_test_create_host(), app.prog_formula, label="formula-bar"))
+  ignore(renderer.mount(typed_sheet_test_create_host(), app.prog_status, label="status"))
+  ignore(renderer.mount(typed_sheet_test_create_host(), app.prog_trace, label="trace"))
 }
+
 
 // ── Cross-root locality: 5 validation tests ─────────────────────
 
 #cfg(target="js")
 test "cross-root locality: selection-only patches grid, formula, status" {
-  let host = typed_sheet_test_setup_dom()
+  let _host = typed_sheet_test_setup_dom()
   let runtime = @incr.Runtime()
   let app = TypedSheetApp(runtime)
   let renderer : @tea.BrowserRenderer[Msg] = @tea.BrowserRenderer::BrowserRenderer(
     runtime,
   )
-  mount_all_roots(renderer, host, app)
+  mount_all_roots(renderer, app)
   let before = renderer.root_stats()
 
   ignore(app.prog_grid.dispatch(SelectCell("A2")))
@@ -319,13 +323,13 @@ test "cross-root locality: selection-only patches grid, formula, status" {
 
 #cfg(target="js")
 test "cross-root locality: draft-only patches grid, formula" {
-  let host = typed_sheet_test_setup_dom()
+  let _host = typed_sheet_test_setup_dom()
   let runtime = @incr.Runtime()
   let app = TypedSheetApp(runtime)
   let renderer : @tea.BrowserRenderer[Msg] = @tea.BrowserRenderer::BrowserRenderer(
     runtime,
   )
-  mount_all_roots(renderer, host, app)
+  mount_all_roots(renderer, app)
   let before = renderer.root_stats()
 
   ignore(app.prog_grid.dispatch(UpdateDraft("C1", "99")))
@@ -348,13 +352,13 @@ test "cross-root locality: draft-only patches grid, formula" {
 
 #cfg(target="js")
 test "cross-root locality: apply after draft patches grid, status, trace; formula skips" {
-  let host = typed_sheet_test_setup_dom()
+  let _host = typed_sheet_test_setup_dom()
   let runtime = @incr.Runtime()
   let app = TypedSheetApp(runtime)
   let renderer : @tea.BrowserRenderer[Msg] = @tea.BrowserRenderer::BrowserRenderer(
     runtime,
   )
-  mount_all_roots(renderer, host, app)
+  mount_all_roots(renderer, app)
 
   // Prime: set draft and flush so last_view captures draft state
   ignore(app.prog_grid.dispatch(UpdateDraft("A1", "42")))
@@ -383,13 +387,13 @@ test "cross-root locality: apply after draft patches grid, status, trace; formul
 
 #cfg(target="js")
 test "cross-root locality: begin-inline-edit patches grid, formula, status" {
-  let host = typed_sheet_test_setup_dom()
+  let _host = typed_sheet_test_setup_dom()
   let runtime = @incr.Runtime()
   let app = TypedSheetApp(runtime)
   let renderer : @tea.BrowserRenderer[Msg] = @tea.BrowserRenderer::BrowserRenderer(
     runtime,
   )
-  mount_all_roots(renderer, host, app)
+  mount_all_roots(renderer, app)
   let before = renderer.root_stats()
 
   ignore(app.prog_grid.dispatch(BeginInlineEdit("D1")))
@@ -412,13 +416,13 @@ test "cross-root locality: begin-inline-edit patches grid, formula, status" {
 
 #cfg(target="js")
 test "cross-root locality: clean apply patches only status and trace" {
-  let host = typed_sheet_test_setup_dom()
+  let _host = typed_sheet_test_setup_dom()
   let runtime = @incr.Runtime()
   let app = TypedSheetApp(runtime)
   let renderer : @tea.BrowserRenderer[Msg] = @tea.BrowserRenderer::BrowserRenderer(
     runtime,
   )
-  mount_all_roots(renderer, host, app)
+  mount_all_roots(renderer, app)
 
   // Prime: select A1 so ApplySelected targets it
   ignore(app.prog_grid.dispatch(SelectCell("A1")))
