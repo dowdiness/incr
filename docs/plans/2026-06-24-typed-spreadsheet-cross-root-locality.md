@@ -170,13 +170,10 @@ Each test records and asserts per-root recompute/patch counts, not just DOM stat
 - Compare against single-root baseline
 - Write `docs/performance/2026-06-24-typed-spreadsheet-cross-root-locality.md`
 - If any region fails to skip when expected, file a bug
+## Follow-up issues
+
+- [#295](https://github.com/dowdiness/incr/issues/295) — Per-root patch/skip counters: redesign stats to store per-root records (not keyed only by view_id)
+- [#296](https://github.com/dowdiness/incr/issues/296) — Cross-root locality validation tests: automated assertions for the 5 scenarios listed above
 
 ## Risks
-
-| Risk | Mitigation |
-|---|---|
-| `Cmd::focus_element_by_id` fails across roots | Already verified: post-flush `focusElementById` targets `document.getElementById` — root-agnostic |
-| Per-region `InputField` proliferation makes handler code noisy | Extract `SheetState { selected_cell, drafts, … }` struct holding all fields + scope; pass to handlers |
-| `BrowserRenderer` per-root stats not yet exposed by name | Phase 3 adds `root_label` to mount config; trivial change |
-| Four `Program`s on one `Runtime` degrade mount perf | Measure `Program::new` + mount cost; if measurable, compare against single-root baseline. The direction doc accepts this cost |
 
