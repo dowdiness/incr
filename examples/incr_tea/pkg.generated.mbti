@@ -105,8 +105,9 @@ pub fn[Msg] BrowserRenderer::deactivate(Self[Msg], BrowserRoot[Msg]) -> Unit
 pub fn[Msg] BrowserRenderer::destroy(Self[Msg], BrowserRoot[Msg]) -> Unit
 pub fn[Msg] BrowserRenderer::detach(Self[Msg], BrowserRoot[Msg]) -> Unit
 pub fn[Msg] BrowserRenderer::dispose(Self[Msg]) -> Unit
-pub fn[Msg : Eq] BrowserRenderer::mount(Self[Msg], DomElement, Program[Msg, Html[Msg]], on_input? : (TextInputId, TextInputPayload) -> Msg?, on_key? : (KeyEventId, KeyPayload) -> Msg?, on_pointer? : (PointerEventId, PointerPayload) -> Msg?, on_key_event? : (KeyEventId, KeyPayload) -> KeyEventDispatch[Msg]?) -> BrowserRoot[Msg]
+pub fn[Msg : Eq] BrowserRenderer::mount(Self[Msg], DomElement, Program[Msg, Html[Msg]], label? : String, on_input? : (TextInputId, TextInputPayload) -> Msg?, on_key? : (KeyEventId, KeyPayload) -> Msg?, on_pointer? : (PointerEventId, PointerPayload) -> Msg?, on_key_event? : (KeyEventId, KeyPayload) -> KeyEventDispatch[Msg]?) -> BrowserRoot[Msg]
 pub fn[Msg : Eq] BrowserRenderer::reattach(Self[Msg], BrowserRoot[Msg]) -> Unit
+pub fn[Msg] BrowserRenderer::root_stats(Self[Msg]) -> Array[RootStats]
 pub fn[Msg] BrowserRenderer::stats(Self[Msg]) -> RenderStats
 
 pub struct BrowserRoot[Msg] {
@@ -235,11 +236,19 @@ pub struct RenderStats {
 }
 pub fn RenderStats::RenderStats() -> Self
 pub fn RenderStats::activation_flushes(Self) -> Int
+pub fn RenderStats::add(Self, Self) -> Self
 pub fn RenderStats::frame_flushes(Self) -> Int
 pub fn RenderStats::inactive_skipped_flushes(Self) -> Int
 pub fn RenderStats::patch_attempts(Self) -> Int
 pub fn RenderStats::skipped_patches(Self) -> Int
 pub fn RenderStats::view_recomputes(Self) -> Int
+
+pub(all) struct RootStats {
+  label : String
+  view_recomputes : Int
+  patch_attempts : Int
+  skipped_patches : Int
+}
 
 pub struct SubKey {
   namespace_id : String

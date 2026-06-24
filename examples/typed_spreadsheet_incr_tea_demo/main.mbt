@@ -18,6 +18,7 @@ pub fn mount_typed_spreadsheet_incr_tea_demo(mount_id : String) -> Unit {
     renderer.mount(
       @tea.dom_get_element_by_id(mount_id + "-formula"),
       app.prog_formula,
+      label="formula-bar",
       on_input=resolve_text_input,
       on_key_event=resolve_key_event,
     ),
@@ -26,6 +27,7 @@ pub fn mount_typed_spreadsheet_incr_tea_demo(mount_id : String) -> Unit {
     renderer.mount(
       @tea.dom_get_element_by_id(mount_id + "-grid"),
       app.prog_grid,
+      label="grid",
       on_input=resolve_text_input,
       on_key_event=resolve_key_event,
     ),
@@ -34,12 +36,14 @@ pub fn mount_typed_spreadsheet_incr_tea_demo(mount_id : String) -> Unit {
     renderer.mount(
       @tea.dom_get_element_by_id(mount_id + "-status"),
       app.prog_status,
+      label="status",
     ),
   )
   ignore(
     renderer.mount(
       @tea.dom_get_element_by_id(mount_id + "-trace"),
       app.prog_trace,
+      label="trace",
     ),
   )
 }

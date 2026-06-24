@@ -455,7 +455,7 @@ fn state_grid(state : SheetState) -> @tea.Html[Msg] {
             .attr("aria-colindex", "\{column_index + 1}")
             .attr("aria-label", grid_cell_label(cell, snapshot))
             .to_array(),
-          events=if editing {
+          events=if editing_cell is Some(_) {
             []
           } else {
             [

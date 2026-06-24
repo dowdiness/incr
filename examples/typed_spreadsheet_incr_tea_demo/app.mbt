@@ -46,6 +46,8 @@ fn TypedSheetApp::dispose(self : TypedSheetApp) -> Unit {
   self.prog_formula.dispose()
   self.prog_status.dispose()
   self.prog_trace.dispose()
+  // Dispose the shared InputFields scope last — programs and sheet are gone.
+  self._state.val.scope.dispose()
 }
 
 ///|

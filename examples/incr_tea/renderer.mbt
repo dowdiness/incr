@@ -59,6 +59,9 @@ pub fn RenderStats::activation_flushes(self : RenderStats) -> Int {
   self.activation_flushes
 }
 
+///| Per-root named counters returned by `BrowserRenderer::root_stats()`.
+///| `view_recomputes` is incremented when the root's view Derived re-evaluates.
+///| `patch_attempts` and `skipped_patches` are per-root DOM patch/skip counters.
 #cfg(target="js")
 pub(all) struct RootStats {
   label : String

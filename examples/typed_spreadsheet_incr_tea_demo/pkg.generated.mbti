@@ -7,13 +7,17 @@ pub fn mount_typed_spreadsheet_incr_tea_demo(String) -> Unit
 // Errors
 
 // Types and methods
-type CellDraft
+type CellDraft derive(Eq)
 
 type KeyResolution
 
 type Model
 
 type Msg derive(Eq)
+
+type SheetState
+
+type TraceData derive(Eq)
 
 type TypedSheetApp
 
