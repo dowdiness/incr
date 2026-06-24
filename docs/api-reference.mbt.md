@@ -84,6 +84,12 @@ batch rollback path can run.
 
 Executes a batch and returns raised errors as `Result` instead of re-raising.
 Like `Runtime::batch`, this handles raised errors only; `abort()` still escapes, is not converted to `Err`, and leaves the runtime in the same inconsistent state described above.
+The `f` parameter was tightened from `raise?` (error-polymorphic) to `raise`
+(concrete `Error`) in PR #293 as part of the `try?` deprecation migration.
+Non-raising callers continue to work (`noraise` ⊂ `raise Error`);
+callers raising a custom error continue to work (any suberror lifts to `Error`).
+Downstream wrappers accepting `f: () -> Unit raise?` that forward to
+`batch_result` must change to `f: () -> Unit raise` (or `f: () -> Unit raise Error`).
 
 The checked companion covers `batch_result` returning `Err` and rolling back
 pending writes in [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
@@ -1268,6 +1274,7 @@ The checked companion covers the Database helper form of `batch` in
 
 Runs a batch using `db.runtime()` and returns raised errors as `Result`.
 This is the Database helper form of `rt.batch_result(...)`.
+See `Runtime::batch_result` above for the `raise?` → `raise` migration note.
 
 The checked companion covers the Database helper form of `batch_result`,
 including rollback on `Err`, in

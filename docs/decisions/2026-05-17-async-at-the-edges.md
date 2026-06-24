@@ -26,7 +26,7 @@ Read from the repo's `README.md` + `src/pkg.generated.mbti` on 2026-05-17:
 Audited against `main @ 7726cff`:
 
 - **Zero `async fn` or `await` in source.** `grep -rn "async fn\|\\bawait\\b" incr/cells/ incr/types/ incr/pipeline/ incr/traits.mbt incr/incr.mbt` returns no hits. The framework never yields.
-- **All user-supplied closures are sync.** `Memo::new(rt, f : () -> T)`, `Signal::on_change(f : (T) -> Unit)`, `Runtime::batch(f : () -> Unit)`, `Runtime::batch_result(f : () -> Unit raise?)`, `Accumulator` push-producing memo bodies, `Effect` callbacks, `Rule` apply closures. None are typed as `async`.
+- **All user-supplied closures are sync.** `Memo::new(rt, f : () -> T)`, `Signal::on_change(f : (T) -> Unit)`, `Runtime::batch(f : () -> Unit)`, `Runtime::batch_result(f : () -> Unit raise)`, `Accumulator` push-producing memo bodies, `Effect` callbacks, `Rule` apply closures. None are typed as `async`.
 - **All `incr/cells/internal/kernel/*.mbt` algorithm bodies are sync.** Verification, propagation, fixpoint, batch commit, gc, dispose — none yield.
 - **Primary build target is wasm-gc.** `_build/wasm-gc/` is canonical; native and JS targets exist for the JS-target bench/build chain.
 

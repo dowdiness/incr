@@ -4,13 +4,25 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ## [Unreleased]
 
+### Breaking
+
+- `Runtime::batch_result` and `Database::batch_result` tightened their `f` parameter
+  from `raise?` (error-polymorphic) to `raise` (concrete `Error`) (#293).
+  Required by the `try?` deprecation migration — `Ok(expr) catch` cannot bind a
+  `?Error` type variable.
+
+  **Migration guide:** This is not a practical breaking change under MoonBit's
+  effect subtyping:
+  - `noraise` callers continue to work (`noraise` ⊂ `raise Error`)
+  - Callers raising a custom `suberror E` continue to work (`E` lifts to `Error`)
+  - Only hypothetical code raising a non-`Error`-bounded type would break
+  - No source changes needed for any existing caller
+
 ### Changed
 
-- Migrated all 31 deprecated `try?` usages across 12 files to idiomatic `Ok(expr) catch { e => Err(e) }` / `try expr catch { } noraise { }` patterns (#293).
-  `Runtime::batch_result` and `Database::batch_result` tightened their `f` parameter
-  from `raise?` (error-polymorphic) to `raise` (concrete `Error`), required because
-  `Ok(expr) catch` cannot bind a `?Error` type variable. Non-raising callers continue
-  to work via `noraise` ⊂ `raise Error` subtyping.
+- Migrated all 31 deprecated `try?` usages across 12 files to idiomatic
+  `Ok(expr) catch { e => Err(e) }` / `try expr catch { } noraise { }` patterns
+  (#293). See `Breaking` above for the `batch_result` signature tightening.
 
 ### Added
 
