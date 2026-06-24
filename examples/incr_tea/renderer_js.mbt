@@ -1302,7 +1302,7 @@ pub fn[Msg : Eq] BrowserRenderer::mount(
   }
   // Register per-root stats for labeled recompute counting only.
   // patch_attempts/skipped_patches stay on the shared self.stats.
-  if !self.view_id_to_label.val.iter().any(fn(pair) { pair.0 == view_id }) {
+  if !self.view_id_to_label.val.iter().any(pair => pair.0 == view_id) {
     self.view_id_to_label.val.push((view_id, label, RenderStats::RenderStats()))
   }
   let root = BrowserRoot::BrowserRoot(
@@ -1560,7 +1560,7 @@ pub fn[Msg] BrowserRenderer::destroy(
   if !self.references_program(view_id) {
     root.dispose_program()
     self.view_ids.val = self.view_ids.val.filter(id => id != view_id)
-    self.view_id_to_label.val = self.view_id_to_label.val.filter(fn(pair) { pair.0 != view_id })
+    self.view_id_to_label.val = self.view_id_to_label.val.filter(pair => pair.0 != view_id)
   }
 }
 
