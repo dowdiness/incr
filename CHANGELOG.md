@@ -11,12 +11,11 @@ All notable changes to `dowdiness/incr` are documented in this file.
   Required by the `try?` deprecation migration — `Ok(expr) catch` cannot bind a
   `?Error` type variable.
 
-  **Migration guide:** This is not a practical breaking change under MoonBit's
-  effect subtyping:
-  - `noraise` callers continue to work (`noraise` ⊂ `raise Error`)
-  - Callers raising a custom `suberror E` continue to work (`E` lifts to `Error`)
-  - Only hypothetical code raising a non-`Error`-bounded type would break
-  - No source changes needed for any existing caller
+  **Migration guide:** Direct callers (passing a closure to `batch_result`) need no
+  changes — `noraise` callers work (`noraise` ⊂ `raise Error`), and callers raising
+  a custom `suberror E` work (`E` lifts to `Error`). Downstream wrappers that accept
+  `f: () -> Unit raise?` and forward to `batch_result` must change their own parameter
+  to `f: () -> Unit raise` (or `Unit raise Error`).
 
 ### Changed
 
