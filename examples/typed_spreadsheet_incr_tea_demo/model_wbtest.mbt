@@ -1,4 +1,4 @@
-///|
+///
 test "incr_tea spreadsheet proof starts with seeded representative grid" {
   let app = TypedSheetApp(@incr.Runtime())
   let model = app._state.val.peek_model()
@@ -24,7 +24,7 @@ test "incr_tea spreadsheet proof starts with seeded representative grid" {
   app.dispose()
 }
 
-///|
+///
 test "incr_tea spreadsheet proof applies and cancels through Program dispatch" {
   let app = TypedSheetApp(@incr.Runtime())
 
@@ -56,7 +56,7 @@ test "incr_tea spreadsheet proof applies and cancels through Program dispatch" {
   app.dispose()
 }
 
-///|
+///
 test "incr_tea spreadsheet proof applies formula bar edits and dependent formulas update" {
   let app = TypedSheetApp(@incr.Runtime())
 
@@ -82,7 +82,7 @@ test "incr_tea spreadsheet proof applies formula bar edits and dependent formula
   app.dispose()
 }
 
-///|
+///
 test "incr_tea spreadsheet proof maps payload descriptors at renderer boundary" {
   match
     resolve_text_input(
@@ -126,7 +126,7 @@ test "incr_tea spreadsheet proof maps payload descriptors at renderer boundary" 
   }
 }
 
-///|
+///
 test "incr_tea locality: draft-only does not change status" {
   let app = TypedSheetApp(@incr.Runtime())
   let before = app._state.val.peek_model()
@@ -148,4 +148,299 @@ test "incr_tea locality: draft-only does not change status" {
   inspect(after_select.status, content="Selected A1.")
 
   app.dispose()
+}
+
+// ── Cross-root locality: DOM/RAF shims ──────────────────────────
+// These set up a fake `document`/`window` for mount/flush without a
+// real browser. They manipulate the same `globalThis.__incrTea*` state
+// as the incr_tea wbtest helpers.
+
+#cfg(target="js")
+extern "js" fn typed_sheet_test_setup_dom() -> @tea.DomElement =
+  #| () => {
+  #|   const byId = new Map();
+  #|   globalThis.__incrTeaPreviousDocument = globalThis.document;
+  #|   globalThis.__incrTeaPreviousWindow = globalThis.window;
+  #|   globalThis.__incrTeaFocusedId = "";
+  #|   globalThis.__incrTeaSelectedId = "";
+  #|   globalThis.__incrTeaRafs = [];
+  #|   class TextNode {
+  #|     constructor(value) { this.nodeValue = String(value); this.parentNode = null; }
+  #|   }
+  #|   class Element {
+  #|     constructor(tag) {
+  #|       this.tagName = String(tag).toUpperCase();
+  #|       this.children = [];
+  #|       this.parentNode = null;
+  #|       this.attributes = new Map();
+  #|       this.listeners = new Map();
+  #|       this.value = "";
+  #|     }
+  #|     appendChild(child) {
+  #|       if (child.parentNode) child.parentNode.removeChild(child);
+  #|       this.children.push(child);
+  #|       child.parentNode = this;
+  #|     }
+  #|     replaceChildren(child) {
+  #|       for (const old of this.children) old.parentNode = null;
+  #|       this.children = [];
+  #|       if (child) this.appendChild(child);
+  #|     }
+  #|     replaceChild(next, old) {
+  #|       const index = this.children.indexOf(old);
+  #|       if (index < 0) throw new Error("old child missing");
+  #|       if (next.parentNode) next.parentNode.removeChild(next);
+  #|       old.parentNode = null;
+  #|       this.children[index] = next;
+  #|       next.parentNode = this;
+  #|     }
+  #|     removeChild(child) {
+  #|       const index = this.children.indexOf(child);
+  #|       if (index >= 0) this.children.splice(index, 1);
+  #|       child.parentNode = null;
+  #|     }
+  #|     setAttribute(name, value) {
+  #|       const stringValue = String(value);
+  #|       this.attributes.set(name, stringValue);
+  #|       if (name === "id") byId.set(stringValue, this);
+  #|     }
+  #|     removeAttribute(name) {
+  #|       if (name === "id") byId.delete(this.attributes.get(name));
+  #|       this.attributes.delete(name);
+  #|     }
+  #|     addEventListener(name, listener) { this.listeners.set(name, listener); }
+  #|     querySelector(selector) {
+  #|       return selector.startsWith("#") ? (byId.get(selector.slice(1)) ?? null) : null;
+  #|     }
+  #|     focus() { globalThis.__incrTeaFocusedId = this.attributes.get("id") ?? ""; }
+  #|     select() { globalThis.__incrTeaSelectedId = this.attributes.get("id") ?? ""; }
+  #|   }
+  #|   globalThis.document = {
+  #|     createElement(tag) { return new Element(tag); },
+  #|     createTextNode(value) { return new TextNode(value); },
+  #|     getElementById(id) { return byId.get(String(id)) ?? null; },
+  #|   };
+  #|   globalThis.window = {
+  #|     requestAnimationFrame(callback) {
+  #|       globalThis.__incrTeaRafs.push(callback);
+  #|       return globalThis.__incrTeaRafs.length;
+  #|     },
+  #|   };
+  #|   return new Element("host");
+  #| }
+
+#cfg(target="js")
+extern "js" fn typed_sheet_test_run_raf() -> Unit =
+  #| () => {
+  #|   const callback = globalThis.__incrTeaRafs.shift();
+  #|   if (!callback) throw new Error("missing queued rAF");
+  #|   callback();
+  #| }
+
+#cfg(target="js")
+extern "js" fn typed_sheet_test_restore_dom() -> Unit =
+  #| () => {
+  #|   if (globalThis.__incrTeaPreviousDocument === undefined) {
+  #|     delete globalThis.document;
+  #|   } else {
+  #|     globalThis.document = globalThis.__incrTeaPreviousDocument;
+  #|   }
+  #|   if (globalThis.__incrTeaPreviousWindow === undefined) {
+  #|     delete globalThis.window;
+  #|   } else {
+  #|     globalThis.window = globalThis.__incrTeaPreviousWindow;
+  #|   }
+  #|   delete globalThis.__incrTeaPreviousDocument;
+  #|   delete globalThis.__incrTeaPreviousWindow;
+  #|   delete globalThis.__incrTeaRafs;
+  #| }
+
+// ── Cross-root locality: helpers ─────────────────────────────────
+
+#cfg(target="js")
+fn find_by_label(stats : Array[@tea.RootStats], label : String) -> @tea.RootStats {
+  match stats.search_by(s => s.label == label) {
+    Some(i) => stats[i]
+    None => abort("missing root: \{label}")
+  }
+}
+
+#cfg(target="js")
+fn delta_patch_attempts(after : Array[@tea.RootStats], before : Array[@tea.RootStats],
+  label : String) -> Int {
+  find_by_label(after, label).patch_attempts - find_by_label(before, label).patch_attempts
+}
+
+#cfg(target="js")
+fn delta_skipped_patches(after : Array[@tea.RootStats], before : Array[@tea.RootStats],
+  label : String) -> Int {
+  find_by_label(after, label).skipped_patches - find_by_label(before, label).skipped_patches
+}
+
+#cfg(target="js")
+fn mount_all_roots(renderer : @tea.BrowserRenderer[Msg], host : @tea.DomElement,
+  app : TypedSheetApp) -> Unit {
+  ignore(renderer.mount(host, app.prog_grid, label="grid"))
+  ignore(renderer.mount(host, app.prog_formula, label="formula-bar"))
+  ignore(renderer.mount(host, app.prog_status, label="status"))
+  ignore(renderer.mount(host, app.prog_trace, label="trace"))
+}
+
+// ── Cross-root locality: 5 validation tests ─────────────────────
+
+#cfg(target="js")
+test "cross-root locality: selection-only patches grid, formula, status" {
+  let host = typed_sheet_test_setup_dom()
+  let runtime = @incr.Runtime()
+  let app = TypedSheetApp(runtime)
+  let renderer : @tea.BrowserRenderer[Msg] = @tea.BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  mount_all_roots(renderer, host, app)
+  let before = renderer.root_stats()
+
+  ignore(app.prog_grid.dispatch(SelectCell("A2")))
+  typed_sheet_test_run_raf()
+
+  let after = renderer.root_stats()
+  inspect(delta_patch_attempts(after, before, "grid"), content="1")
+  inspect(delta_skipped_patches(after, before, "grid"), content="0")
+  inspect(delta_patch_attempts(after, before, "formula-bar"), content="1")
+  inspect(delta_skipped_patches(after, before, "formula-bar"), content="0")
+  inspect(delta_patch_attempts(after, before, "status"), content="1")
+  inspect(delta_skipped_patches(after, before, "status"), content="0")
+  inspect(delta_patch_attempts(after, before, "trace"), content="0")
+  inspect(delta_skipped_patches(after, before, "trace"), content="1")
+
+  renderer.dispose()
+  app.dispose()
+  typed_sheet_test_restore_dom()
+}
+
+#cfg(target="js")
+test "cross-root locality: draft-only patches grid, formula" {
+  let host = typed_sheet_test_setup_dom()
+  let runtime = @incr.Runtime()
+  let app = TypedSheetApp(runtime)
+  let renderer : @tea.BrowserRenderer[Msg] = @tea.BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  mount_all_roots(renderer, host, app)
+  let before = renderer.root_stats()
+
+  ignore(app.prog_grid.dispatch(UpdateDraft("C1", "99")))
+  typed_sheet_test_run_raf()
+
+  let after = renderer.root_stats()
+  inspect(delta_patch_attempts(after, before, "grid"), content="1")
+  inspect(delta_skipped_patches(after, before, "grid"), content="0")
+  inspect(delta_patch_attempts(after, before, "formula-bar"), content="1")
+  inspect(delta_skipped_patches(after, before, "formula-bar"), content="0")
+  inspect(delta_patch_attempts(after, before, "status"), content="0")
+  inspect(delta_skipped_patches(after, before, "status"), content="1")
+  inspect(delta_patch_attempts(after, before, "trace"), content="0")
+  inspect(delta_skipped_patches(after, before, "trace"), content="1")
+
+  renderer.dispose()
+  app.dispose()
+  typed_sheet_test_restore_dom()
+}
+
+#cfg(target="js")
+test "cross-root locality: apply after draft patches grid, status, trace; formula skips" {
+  let host = typed_sheet_test_setup_dom()
+  let runtime = @incr.Runtime()
+  let app = TypedSheetApp(runtime)
+  let renderer : @tea.BrowserRenderer[Msg] = @tea.BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  mount_all_roots(renderer, host, app)
+
+  // Prime: set draft and flush so last_view captures draft state
+  ignore(app.prog_grid.dispatch(UpdateDraft("A1", "42")))
+  typed_sheet_test_run_raf()
+
+  let before = renderer.root_stats()
+
+  // Act: apply the draft — committed changes but formula-bar inputs stay
+  ignore(app.prog_grid.dispatch(ApplySelected))
+  typed_sheet_test_run_raf()
+
+  let after = renderer.root_stats()
+  inspect(delta_patch_attempts(after, before, "grid"), content="1")
+  inspect(delta_skipped_patches(after, before, "grid"), content="0")
+  inspect(delta_patch_attempts(after, before, "formula-bar"), content="0")
+  inspect(delta_skipped_patches(after, before, "formula-bar"), content="1")
+  inspect(delta_patch_attempts(after, before, "status"), content="1")
+  inspect(delta_skipped_patches(after, before, "status"), content="0")
+  inspect(delta_patch_attempts(after, before, "trace"), content="1")
+  inspect(delta_skipped_patches(after, before, "trace"), content="0")
+
+  renderer.dispose()
+  app.dispose()
+  typed_sheet_test_restore_dom()
+}
+
+#cfg(target="js")
+test "cross-root locality: begin-inline-edit patches grid, formula, status" {
+  let host = typed_sheet_test_setup_dom()
+  let runtime = @incr.Runtime()
+  let app = TypedSheetApp(runtime)
+  let renderer : @tea.BrowserRenderer[Msg] = @tea.BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  mount_all_roots(renderer, host, app)
+  let before = renderer.root_stats()
+
+  ignore(app.prog_grid.dispatch(BeginInlineEdit("D1")))
+  typed_sheet_test_run_raf()
+
+  let after = renderer.root_stats()
+  inspect(delta_patch_attempts(after, before, "grid"), content="1")
+  inspect(delta_skipped_patches(after, before, "grid"), content="0")
+  inspect(delta_patch_attempts(after, before, "formula-bar"), content="1")
+  inspect(delta_skipped_patches(after, before, "formula-bar"), content="0")
+  inspect(delta_patch_attempts(after, before, "status"), content="1")
+  inspect(delta_skipped_patches(after, before, "status"), content="0")
+  inspect(delta_patch_attempts(after, before, "trace"), content="0")
+  inspect(delta_skipped_patches(after, before, "trace"), content="1")
+
+  renderer.dispose()
+  app.dispose()
+  typed_sheet_test_restore_dom()
+}
+
+#cfg(target="js")
+test "cross-root locality: clean apply patches only status and trace" {
+  let host = typed_sheet_test_setup_dom()
+  let runtime = @incr.Runtime()
+  let app = TypedSheetApp(runtime)
+  let renderer : @tea.BrowserRenderer[Msg] = @tea.BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  mount_all_roots(renderer, host, app)
+
+  // Prime: select A1 so ApplySelected targets it
+  ignore(app.prog_grid.dispatch(SelectCell("A1")))
+  typed_sheet_test_run_raf()
+
+  let before = renderer.root_stats()
+
+  // Act: apply the same value — nothing in grid/formula-bar read-sets changes
+  ignore(app.prog_grid.dispatch(ApplySelected))
+  typed_sheet_test_run_raf()
+
+  let after = renderer.root_stats()
+  inspect(delta_patch_attempts(after, before, "grid"), content="0")
+  inspect(delta_skipped_patches(after, before, "grid"), content="1")
+  inspect(delta_patch_attempts(after, before, "formula-bar"), content="0")
+  inspect(delta_skipped_patches(after, before, "formula-bar"), content="1")
+  inspect(delta_patch_attempts(after, before, "status"), content="1")
+  inspect(delta_skipped_patches(after, before, "status"), content="0")
+  inspect(delta_patch_attempts(after, before, "trace"), content="1")
+  inspect(delta_skipped_patches(after, before, "trace"), content="0")
+
+  renderer.dispose()
+  app.dispose()
+  typed_sheet_test_restore_dom()
 }
