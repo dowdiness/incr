@@ -1327,19 +1327,15 @@ pub fn[Msg : Eq] BrowserRenderer::mount(
 ///| Per-root labeled stats for locality validation.
 #cfg(target="js")
 pub fn[Msg] BrowserRenderer::root_stats(self : BrowserRenderer[Msg]) -> Array[RootStats] {
-  let result : Array[RootStats] = []
-  for tuple in self.view_id_to_label.val {
+  self.view_id_to_label.val.map(fn(tuple) {
     let (_, label, root_stats) = tuple
-    result.push(
-      {
-        label,
-        view_recomputes: root_stats.view_recomputes,
-        patch_attempts: root_stats.patch_attempts,
-        skipped_patches: root_stats.skipped_patches,
-      },
-    )
-  }
-  result
+    {
+      label,
+      view_recomputes: root_stats.view_recomputes,
+      patch_attempts: root_stats.patch_attempts,
+      skipped_patches: root_stats.skipped_patches,
+    }
+  })
 }
 #cfg(target="js")
 fn[Msg : Eq] BrowserRenderer::schedule_flush(
