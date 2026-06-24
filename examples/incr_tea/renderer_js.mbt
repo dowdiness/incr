@@ -313,16 +313,25 @@ fn install_render_recompute_counter(
   runtime : @incr.Runtime,
   view_ids : Ref[Array[@incr.CellId]],
   stats : RenderStats,
+  view_id_to_label : Ref[Array[(@incr.CellId, String, RenderStats)]],
 ) -> @incr.ListenerId {
   // Additive listener (#210): mounting the renderer must not clobber any
   // derived-event listener a host integration already installed. The returned
   // ListenerId is stored on the renderer so dispose (#209) can remove it.
   try! runtime.add_derived_event_listener(event => {
     match event {
-      @incr.DerivedEvent::Completed(completed) =>
+      @incr.DerivedEvent::Completed(completed) => {
         if view_id_is_tracked(view_ids.val, completed.cell_id) {
           stats.view_recomputes = stats.view_recomputes + 1
         }
+        // Route to per-root stats
+        for tuple in view_id_to_label.val {
+          if tuple.0 == completed.cell_id {
+            tuple.2.view_recomputes = tuple.2.view_recomputes + 1
+          }
+        }
+        ()
+      }
       _ => ()
     }
   })
@@ -1081,6 +1090,7 @@ fn[Msg] BrowserRoot::BrowserRoot(
   program : Program[Msg, Html[Msg]],
   host : DomElement,
   stats : RenderStats,
+  label? : String = "",
   resolve_text? : (TextInputId, TextInputPayload) -> Msg? = (_, _) => None,
   resolve_key? : (KeyEventId, KeyPayload) -> Msg? = (_, _) => None,
   resolve_pointer? : (PointerEventId, PointerPayload) -> Msg? = (_, _) => None,
@@ -1096,7 +1106,7 @@ fn[Msg] BrowserRoot::BrowserRoot(
     resolve_key_event~,
   )
   {
-    watched: WatchedHtmlRoot::WatchedHtmlRoot(program, stats),
+    watched: WatchedHtmlRoot::WatchedHtmlRoot(program, stats, label~),
     host,
     payload_resolvers,
     rendered: None,
@@ -1212,6 +1222,8 @@ pub struct BrowserRenderer[Msg] {
   priv mut detached : Array[BrowserRoot[Msg]]
   priv stats : RenderStats
   priv view_ids : Ref[Array[@incr.CellId]]
+  // Per-root stats mapping for labeled recompute counting.
+  priv view_id_to_label : Ref[Array[(@incr.CellId, String, RenderStats)]]
   priv mut frame_scheduled : Bool
   priv after_flush : (RenderStats) -> Unit
   // Lifecycle (#209). The two listener ids are removed on dispose so a torn-down
@@ -1231,8 +1243,9 @@ pub fn[Msg : Eq] BrowserRenderer::BrowserRenderer(
 ) -> BrowserRenderer[Msg] {
   let stats = RenderStats::RenderStats()
   let view_ids : Ref[Array[@incr.CellId]] = Ref([])
+  let view_id_to_label : Ref[Array[(@incr.CellId, String, RenderStats)]] = Ref([])
   let derived_listener_id = install_render_recompute_counter(
-    runtime, view_ids, stats,
+    runtime, view_ids, stats, view_id_to_label,
   )
   let renderer = {
     runtime,
@@ -1240,6 +1253,7 @@ pub fn[Msg : Eq] BrowserRenderer::BrowserRenderer(
     detached: [],
     stats,
     view_ids,
+    view_id_to_label,
     frame_scheduled: false,
     after_flush,
     disposed: false,
@@ -1262,10 +1276,12 @@ pub fn[Msg] BrowserRenderer::stats(self : BrowserRenderer[Msg]) -> RenderStats {
 
 ///|
 #cfg(target="js")
+
 pub fn[Msg : Eq] BrowserRenderer::mount(
   self : BrowserRenderer[Msg],
   host : DomElement,
   program : Program[Msg, Html[Msg]],
+  label? : String = "",
   on_input? : (TextInputId, TextInputPayload) -> Msg? = (_, _) => None,
   on_key? : (KeyEventId, KeyPayload) -> Msg? = (_, _) => None,
   on_pointer? : (PointerEventId, PointerPayload) -> Msg? = (_, _) => None,
@@ -1285,10 +1301,13 @@ pub fn[Msg : Eq] BrowserRenderer::mount(
   if !view_id_is_tracked(self.view_ids.val, view_id) {
     self.view_ids.val.push(view_id)
   }
+  // Register per-root stats for recompute counting — one entry per mount.
+  self.view_id_to_label.val.push((view_id, label, RenderStats::RenderStats()))
   let root = BrowserRoot::BrowserRoot(
     program,
     host,
     self.stats,
+    label~,
     resolve_text=on_input,
     resolve_key=on_key,
     resolve_pointer=on_pointer,
@@ -1297,11 +1316,37 @@ pub fn[Msg : Eq] BrowserRenderer::mount(
   self.roots.push(root)
   root.flush()
   root.drain_after_flush()
-  (self.after_flush)(self.stats)
+  (self.after_flush)(self.stats())
   root
 }
 
-///|
+
+
+
+
+///| Per-root labeled stats for locality validation.
+pub fn[Msg] BrowserRenderer::root_stats(self : BrowserRenderer[Msg]) -> Array[RootStats] {
+  let result : Array[RootStats] = []
+  for root in self.roots {
+    let s = root.watched.stats
+    result.push({
+      label: root.watched.label,
+      view_recomputes: s.view_recomputes,
+      patch_attempts: s.patch_attempts,
+      skipped_patches: s.skipped_patches,
+    })
+  }
+  for root in self.detached {
+    let s = root.watched.stats
+    result.push({
+      label: root.watched.label,
+      view_recomputes: s.view_recomputes,
+      patch_attempts: s.patch_attempts,
+      skipped_patches: s.skipped_patches,
+    })
+  }
+  result
+}
 #cfg(target="js")
 fn[Msg : Eq] BrowserRenderer::schedule_flush(
   self : BrowserRenderer[Msg],
@@ -1322,7 +1367,7 @@ fn[Msg : Eq] BrowserRenderer::schedule_flush(
       root.flush_if_active()
     }
     self.drain_after_flush_commands()
-    (self.after_flush)(self.stats)
+    (self.after_flush)(self.stats())
   })
   if queued {
     self.frame_scheduled = true
@@ -1399,7 +1444,7 @@ pub fn[Msg : Eq] BrowserRenderer::activate(
   self.stats.activation_flushes = self.stats.activation_flushes + 1
   root.flush()
   root.drain_after_flush()
-  (self.after_flush)(self.stats)
+  (self.after_flush)(self.stats())
 }
 
 ///|
@@ -1501,7 +1546,7 @@ pub fn[Msg : Eq] BrowserRenderer::reattach(
   self.roots.push(root)
   root.flush()
   root.drain_after_flush()
-  (self.after_flush)(self.stats)
+  (self.after_flush)(self.stats())
 }
 
 ///|
@@ -1521,6 +1566,12 @@ pub fn[Msg] BrowserRenderer::destroy(
   }
   root.detach()
   self.remove_root(root)
+  // Remove this root's entry from the recompute fan-out map.
+  // physical_equal on the RenderStats identifies this mount's entry.
+  let root_stats = root.watched.stats
+  self.view_id_to_label.val = self.view_id_to_label.val.filter(
+    fn(pair) { !physical_equal(pair.2, root_stats) },
+  )
   let view_id = root.view_id()
   if !self.references_program(view_id) {
     root.dispose_program()
@@ -1561,4 +1612,6 @@ pub fn[Msg] BrowserRenderer::dispose(self : BrowserRenderer[Msg]) -> Unit {
   for root in parked {
     root.destroy()
   }
+  self.view_ids.val = []
+  self.view_id_to_label.val = []
 }

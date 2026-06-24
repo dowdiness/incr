@@ -55,7 +55,8 @@ test "#210: renderer instrumentation does not clobber a pre-existing derived-eve
   // which would have replaced the host listener).
   let view_ids : Ref[Array[@incr.CellId]] = Ref([])
   let stats = RenderStats::RenderStats()
-  install_render_recompute_counter(runtime, view_ids, stats) |> ignore
+  let dummy_map : Ref[Array[(@incr.CellId, String, RenderStats)]] = Ref([])
+  install_render_recompute_counter(runtime, view_ids, stats, dummy_map) |> ignore
   // Drive a recompute and verify the host listener still fires.
   let s = @incr.Input(runtime, 1)
   let m = @incr.Derived(runtime, () => s.get() * 2)
@@ -1396,4 +1397,37 @@ test "#209: destroy keeps a shared Program alive while another root still render
   inspect(renderer.roots.length(), content="0")
   inspect(program.is_disposed(), content="true")
   inspect(renderer.view_ids.val.length(), content="0")
+}
+
+///|
+#cfg(target="js")
+test "root_stats: shared-Program mounts each get their own row" {
+  let host = test_install_focus_dom()
+  let runtime = @incr.Runtime()
+  let renderer : BrowserRenderer[RendererMsg] = BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  let program = renderer_counter_program(runtime, "shared.multi")
+
+  // Mount same Program twice with distinct labels
+  let root_a = renderer.mount(host, program, label="alpha")
+  let root_b = renderer.mount(host, program, label="beta")
+
+  // Both roots appear in root_stats with their own labels
+  let stats = renderer.root_stats()
+  inspect(stats.length(), content="2")
+  inspect(stats[0].label == "alpha" || stats[1].label == "alpha", content="true")
+  inspect(stats[0].label == "beta" || stats[1].label == "beta", content="true")
+
+  // Destroy alpha — only beta remains
+  renderer.destroy(root_a)
+  let after_a = renderer.root_stats()
+  inspect(after_a.length(), content="1")
+  inspect(after_a[0].label, content="beta")
+
+  // Destroy beta — both gone
+  renderer.destroy(root_b)
+  inspect(renderer.root_stats().length(), content="0")
+
+  test_restore_dom()
 }

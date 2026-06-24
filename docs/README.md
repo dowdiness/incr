@@ -97,6 +97,7 @@ For contributors and advanced users who want to understand or modify `incr`.
 - [Ideal API Rename Migration Plan](plans/2026-05-21-ideal-api-rename-migration.md) — staged compatibility plan for the accepted public API target names
 - [Phase 3a Compatibility-to-Facade Migration Spec](plans/2026-05-23-ideal-api-rename-phase3-soak-window.md) — documentation and codemod plan for moving from `Memo`/`HybridMemo`/`MemoMap` to `Derived`/`ReachableDerived`/`DerivedMap` without adding same-receiver bridge methods
 - [Evaluation Strategy Refactor Plan](plans/2026-05-26-evaluation-strategy-refactor.md) — staged refactor toward internal sealed scheduler/rebuilder strategies with fixed store/trace contracts and no first-step public pluggability
+- [2026-06-24 Typed Spreadsheet Cross-Root Locality](plans/2026-06-24-typed-spreadsheet-cross-root-locality.md) — convert the proof-of-concept single-root spreadsheet into multi-root (grid, formula bar, status, trace), then validate and instrument per-root view recompute and DOM patch decisions
 - [TODO](todo.md) — contributor task list organized by priority
 
 **Research notes — exploratory, not implemented:**

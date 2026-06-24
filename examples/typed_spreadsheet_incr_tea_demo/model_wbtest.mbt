@@ -1,11 +1,11 @@
 ///|
 test "incr_tea spreadsheet proof starts with seeded representative grid" {
   let app = TypedSheetApp(@incr.Runtime())
-  let model = app._state.val
+  let model = app._state.val.peek_model()
 
   inspect(model.selected_cell, content="B1")
   inspect(model.cells.length(), content="16")
-  inspect(model.last_step is None, content="true")
+  inspect(model.trace_data is None, content="true")
   inspect(draft_for(model, "A1"), content="10")
   inspect(draft_for(model, "B1"), content="=A1 + 1")
   inspect(
@@ -17,23 +17,22 @@ test "incr_tea spreadsheet proof starts with seeded representative grid" {
     content="11",
   )
   inspect(
-    app.program.read_view_or_abort() == app.program.read_view_or_abort(),
+    app.prog_grid.read_view_or_abort() == app.prog_grid.read_view_or_abort(),
     content="true",
   )
 
-  app._state.val.sheet.dispose()
-  app.program.dispose()
+  app.dispose()
 }
 
 ///|
 test "incr_tea spreadsheet proof applies and cancels through Program dispatch" {
   let app = TypedSheetApp(@incr.Runtime())
 
-  ignore(app.program.dispatch(BeginInlineEdit("C1")))
-  ignore(app.program.dispatch(UpdateDraft("C1", "7")))
-  ignore(app.program.dispatch(MoveSelection(1, 0)))
-  ignore(app.program.dispatch(ApplyInlineEdit("C1")))
-  let applied = app._state.val
+  ignore(app.prog_grid.dispatch(BeginInlineEdit("C1")))
+  ignore(app.prog_grid.dispatch(UpdateDraft("C1", "7")))
+  ignore(app.prog_grid.dispatch(MoveSelection(1, 0)))
+  ignore(app.prog_grid.dispatch(ApplyInlineEdit("C1")))
+  let applied = app._state.val.peek_model()
 
   inspect(applied.selected_cell, content="C1")
   inspect(applied.editing_cell is None, content="true")
@@ -43,10 +42,10 @@ test "incr_tea spreadsheet proof applies and cancels through Program dispatch" {
   )
   inspect(applied.last_edit, content="C1 ← 7")
 
-  ignore(app.program.dispatch(BeginInlineEdit("C1")))
-  ignore(app.program.dispatch(UpdateDraft("C1", "8")))
-  ignore(app.program.dispatch(CancelSelected))
-  let cancelled = app._state.val
+  ignore(app.prog_grid.dispatch(BeginInlineEdit("C1")))
+  ignore(app.prog_grid.dispatch(UpdateDraft("C1", "8")))
+  ignore(app.prog_grid.dispatch(CancelSelected))
+  let cancelled = app._state.val.peek_model()
   inspect(draft_for(cancelled, "C1"), content="7")
   inspect(
     cell_result_text(
@@ -54,19 +53,17 @@ test "incr_tea spreadsheet proof applies and cancels through Program dispatch" {
     ),
     content="7",
   )
-
-  app._state.val.sheet.dispose()
-  app.program.dispose()
+  app.dispose()
 }
 
 ///|
 test "incr_tea spreadsheet proof applies formula bar edits and dependent formulas update" {
   let app = TypedSheetApp(@incr.Runtime())
 
-  ignore(app.program.dispatch(SelectCell("A1")))
-  ignore(app.program.dispatch(UpdateDraft("A1", "15")))
-  ignore(app.program.dispatch(ApplySelected))
-  let model = app._state.val
+  ignore(app.prog_grid.dispatch(SelectCell("A1")))
+  ignore(app.prog_grid.dispatch(UpdateDraft("A1", "15")))
+  ignore(app.prog_grid.dispatch(ApplySelected))
+  let model = app._state.val.peek_model()
 
   inspect(model.last_edit, content="A1 ← 15")
   inspect(
@@ -77,14 +74,12 @@ test "incr_tea spreadsheet proof applies formula bar edits and dependent formula
     cell_result_text(model.sheet.inspect_cell(cell_id(model, "B1")).result),
     content="16",
   )
-  match model.last_step {
-    Some(step) =>
-      inspect(@demo.format_cell_ids(step.trace.changed), content="[B1]")
+  match model.trace_data {
+    Some(td) =>
+      inspect(td.changed_str, content="[B1]")
     None => abort("expected applied edit")
   }
-
-  app._state.val.sheet.dispose()
-  app.program.dispose()
+  app.dispose()
 }
 
 ///|
@@ -129,4 +124,28 @@ test "incr_tea spreadsheet proof maps payload descriptors at renderer boundary" 
     Some(action) => inspect(action.message == CancelSelected, content="true")
     None => abort("expected formula Escape action")
   }
+}
+
+///|
+test "incr_tea locality: draft-only does not change status" {
+  let app = TypedSheetApp(@incr.Runtime())
+  let before = app._state.val.peek_model()
+  let initial_status = before.status
+
+  // UpdateDraft writes only selected_cell + drafts — status must stay unchanged
+  ignore(app.prog_grid.dispatch(UpdateDraft("C1", "99")))
+  let after_draft = app._state.val.peek_model()
+  inspect(after_draft.status, content=initial_status)
+
+  // UseExample is also draft-only — status must stay unchanged
+  ignore(app.prog_grid.dispatch(UseExample("42")))
+  let after_example = app._state.val.peek_model()
+  inspect(after_example.status, content=initial_status)
+
+  // SelectCell still patches status (selection is not draft-only)
+  ignore(app.prog_grid.dispatch(SelectCell("A1")))
+  let after_select = app._state.val.peek_model()
+  inspect(after_select.status, content="Selected A1.")
+
+  app.dispose()
 }
