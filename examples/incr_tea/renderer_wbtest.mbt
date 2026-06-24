@@ -1397,7 +1397,6 @@ test "#209: destroy keeps a shared Program alive while another root still render
   inspect(renderer.roots.length(), content="0")
   inspect(program.is_disposed(), content="true")
   inspect(renderer.view_ids.val.length(), content="0")
-  inspect(renderer.view_ids.val.length(), content="0")
 }
 
 ///|
