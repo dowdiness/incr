@@ -1443,15 +1443,23 @@ test "root_stats: shared-Program mounts each get their own row" {
   inspect(rows1[0].view_recomputes, content="1")
   inspect(rows1[1].view_recomputes, content="1")
 
-  // Destroy alpha — only beta remains
+  // Destroy alpha — only beta remains, but total patch count is preserved.
   renderer.destroy(root_a)
-  let after_a = renderer.root_stats()
-  inspect(after_a.length(), content="1")
-  inspect(after_a[0].label, content="beta")
+  inspect(renderer.root_stats().length(), content="1")
+  inspect(renderer.stats().patch_attempts, content="4")
+  inspect(renderer.stats().skipped_patches, content="0")
 
-  // Destroy beta — both gone
+  // Destroy beta — no roots remain, but historic totals survive.
   renderer.destroy(root_b)
   inspect(renderer.root_stats().length(), content="0")
+  inspect(renderer.stats().patch_attempts, content="4")
+  inspect(renderer.stats().skipped_patches, content="0")
+
+  // Dispose — totals remain even after arrays are cleared.
+  renderer.dispose()
+  inspect(renderer.stats().patch_attempts, content="4")
+  inspect(renderer.stats().skipped_patches, content="0")
+  inspect(renderer.stats().inactive_skipped_flushes, content="0")
 
   test_restore_dom()
 }

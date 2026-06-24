@@ -1280,6 +1280,11 @@ pub fn[Msg] BrowserRenderer::stats(self : BrowserRenderer[Msg]) -> RenderStats {
   total.view_recomputes = self.stats.view_recomputes
   total.frame_flushes = self.stats.frame_flushes
   total.activation_flushes = self.stats.activation_flushes
+  // Seed with historic values accumulated from destroyed/disposed roots.
+  total.patch_attempts = self.stats.patch_attempts
+  total.skipped_patches = self.stats.skipped_patches
+  total.inactive_skipped_flushes = self.stats.inactive_skipped_flushes
+  // Then sum in per-root counters from still-live roots.
   for root in self.roots {
     let s = root.watched.stats
     total.patch_attempts = total.patch_attempts + s.patch_attempts
@@ -1419,6 +1424,21 @@ fn[Msg] BrowserRenderer::remove_root(
 ) -> Unit {
   self.roots = self.roots.filter(other => !physical_equal(other, root))
   self.detached = self.detached.filter(other => !physical_equal(other, root))
+}
+///| Preserves a root's per-root patch/skip/inactive counters into the
+///| renderer-level aggregate before the root's RenderStats goes out of scope.
+///| Used by destroy() and dispose() so that renderer.stats() remains monotonic
+///| — destroyed roots' work is not lost when their arrays are cleared.
+#cfg(target="js")
+fn[Msg] BrowserRenderer::accumulate_stats(
+  self : BrowserRenderer[Msg],
+  root : BrowserRoot[Msg],
+) -> Unit {
+  let s = root.watched.stats
+  self.stats.patch_attempts = self.stats.patch_attempts + s.patch_attempts
+  self.stats.skipped_patches = self.stats.skipped_patches + s.skipped_patches
+  self.stats.inactive_skipped_flushes = self.stats.inactive_skipped_flushes +
+    s.inactive_skipped_flushes
 }
 
 ///|
@@ -1589,6 +1609,8 @@ pub fn[Msg] BrowserRenderer::destroy(
     return
   }
   root.detach()
+  // Preserve per-root counters into the renderer aggregate before removal.
+  self.accumulate_stats(root)
   self.remove_root(root)
   // Remove this root's entry from the recompute fan-out map.
   // physical_equal on the RenderStats identifies this mount's entry.
@@ -1628,14 +1650,14 @@ pub fn[Msg] BrowserRenderer::dispose(self : BrowserRenderer[Msg]) -> Unit {
   // and detached (parked-but-alive) roots must be reclaimed, not leaked.
   let mounted = self.roots
   let parked = self.detached
+  // Preserve per-root counters into the renderer aggregate before arrays are
+  // cleared, so renderer.stats() reports historic totals after dispose.
+  for root in mounted { self.accumulate_stats(root) }
+  for root in parked { self.accumulate_stats(root) }
   self.roots = []
   self.detached = []
-  for root in mounted {
-    root.destroy()
-  }
-  for root in parked {
-    root.destroy()
-  }
+  for root in mounted { root.destroy() }
+  for root in parked { root.destroy() }
   self.view_ids.val = []
   self.view_id_to_label.val = []
 }
