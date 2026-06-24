@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.10.1 (2026-06-24)
+
+### Fixed
+- Correct changelog: `batch_result` hook composability is backward-compatible, not breaking (additive APIs added alongside existing singletons)
+
 ## v0.10.0 (2026-06-24)
 
 ### Added
