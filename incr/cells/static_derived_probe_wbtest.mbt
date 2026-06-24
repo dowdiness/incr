@@ -216,7 +216,11 @@ test "static derived: compute failure clears in-progress and hooks" {
     },
     (a, b) => a == b,
   )
-  let result : Result[Result[Int, CycleError], Failure] = try? derived.inner.force_recompute()
+  let result = try derived.inner.force_recompute() catch {
+    e => Err(e)
+  } noraise {
+    v => Ok(v)
+  }
   inspect(result is Err(_), content="true")
   inspect(rt.get_memo_data(derived.id()).in_progress, content="false")
   inspect(rt.static_recompute_depth, content="0")
@@ -246,7 +250,11 @@ test "static derived: listener mutation is blocked during recompute" {
     },
     (a, b) => a == b,
   )
-  let result : Result[Result[Int, CycleError], Failure] = try? derived.inner.force_recompute()
+  let result = try derived.inner.force_recompute() catch {
+    e => Err(e)
+  } noraise {
+    v => Ok(v)
+  }
   inspect(result is Err(_), content="true")
   inspect(rt.static_recompute_depth, content="0")
   inspect(rt.static_recompute_tracking_floors.length(), content="0")
@@ -292,7 +300,11 @@ test "static derived: accumulator use fails explicitly" {
     },
     (a, b) => a == b,
   )
-  let push_result : Result[Result[Int, CycleError], Failure] = try? push_probe.inner.force_recompute()
+  let push_result = try push_probe.inner.force_recompute() catch {
+    e => Err(e)
+  } noraise {
+    v => Ok(v)
+  }
   match push_result {
     Ok(_) => abort("expected accumulator push failure")
     Err(e) =>
@@ -320,7 +332,11 @@ test "static derived: accumulator use fails explicitly" {
     },
     (a, b) => a == b,
   )
-  let read_result : Result[Result[Int, CycleError], Failure] = try? read_probe.inner.force_recompute()
+  let read_result = try read_probe.inner.force_recompute() catch {
+    e => Err(e)
+  } noraise {
+    v => Ok(v)
+  }
   match read_result {
     Ok(_) => abort("expected accumulator read failure")
     Err(e) =>

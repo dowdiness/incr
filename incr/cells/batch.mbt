@@ -73,9 +73,11 @@ pub fn Runtime::batch(self : Runtime, f : () -> Unit raise?) -> Unit raise? {
 /// only; `abort()` is not recoverable here and still escapes `Runtime::batch_result`.
 pub fn Runtime::batch_result(
   self : Runtime,
-  f : () -> Unit raise?,
+  f : () -> Unit raise,
 ) -> Result[Unit, Error] {
-  try? self.batch(f)
+  Ok(self.batch(f)) catch {
+    e => Err(e)
+  }
 }
 
 ///|

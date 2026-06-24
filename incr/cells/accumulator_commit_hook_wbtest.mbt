@@ -108,7 +108,11 @@ test "MemoCommitPhase: forward dispatch order on abort" {
   rt.commit_hooks.push(sentinel)
   let _acc : Accumulator[Int] = Accumulator::new(rt~)
   let m : Memo[Int] = Memo::new(rt, () => raise Failure("test abort"))
-  let _ : Result[Result[Int, CycleError], Failure] = try? m.force_recompute()
+  try m.force_recompute() catch {
+    _ => ()
+  } noraise {
+    _ => ()
+  }
   let m_id = m.id()
   inspect(sentinel.before_log.length(), content="1")
   inspect(sentinel.before_log[0].0 == m_id, content="true")
@@ -138,8 +142,16 @@ test "MemoCommitPhase: Memo::accumulated from a reactive frame leaves no entry" 
   // compute signature is `() -> T` (non-raising) and accumulator misuse
   // defects still raise Failure.
   let _r = Reactive::new(rt, () => {
-    let _ = try? m.accumulated(acc)
-    let _ = try? m.accumulated_result(acc)
+    try m.accumulated(acc) catch {
+      _ => ()
+    } noraise {
+      _ => ()
+    }
+    try m.accumulated_result(acc) catch {
+      _ => ()
+    } noraise {
+      _ => ()
+    }
     0
   })
   inspect(rt.accumulator_commit_hook.active.is_empty(), content="true")
@@ -167,7 +179,11 @@ test "MemoCommitPhase: nested recompute aborts clean up both entries" {
     let _ = m2.get_result_inner()
     0
   })
-  let _ : Result[Result[Int, CycleError], Failure] = try? m1.force_recompute()
+  try m1.force_recompute() catch {
+    _ => ()
+  } noraise {
+    _ => ()
+  }
   let m1_id = m1.id()
   let m2_id = m2.id()
   inspect(sentinel.before_log.length(), content="2")

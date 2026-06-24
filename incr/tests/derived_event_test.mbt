@@ -35,10 +35,10 @@ test "derived_event: listener observes public event types" {
 test "derived_event: listener mutation is rejected during recompute" {
   let rt = Runtime()
   let memo = Memo(rt, () => {
-    let result : Result[Unit, Error] = try? rt.clear_derived_event_listener()
-    match result {
-      Ok(_) => 0
-      Err(_) => 1
+    try rt.clear_derived_event_listener() catch {
+      _ => 1
+    } noraise {
+      _ => 0
     }
   })
   inspect(read_memo_for_test(memo), content="1")

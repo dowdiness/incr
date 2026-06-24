@@ -79,10 +79,16 @@ test "trait: batch via Database rolls back on raised error" {
   })
   inspect(read_memo_for_test(memo), content="2")
   inspect(compute_count, content="1")
-  let res = try? @incr.batch(db, () => {
-    x.set(10)
-    raise Stop
-  })
+  let res = try
+    @incr.batch(db, () => {
+      x.set(10)
+      raise Stop
+    })
+  catch {
+    e => Err(e)
+  } noraise {
+    _ => Ok(())
+  }
   inspect(res is Err(Stop), content="true")
   inspect(x.get(), content="1")
   // Rollback keeps previous committed state, so memo remains cached.

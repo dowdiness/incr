@@ -291,7 +291,11 @@ fn push_failure_cleanup_harness_for_test(
     ignore(@kernel.pop_tracking_full(rt.core))
     rt.leave_phase()
   }
-  try? run()
+  try run() catch {
+    e => Err(e)
+  } noraise {
+    _ => Ok(())
+  }
 }
 
 ///|

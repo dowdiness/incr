@@ -116,7 +116,11 @@ test "derived_event: hook order on abort removes active entries before later hoo
   rt.on_derived_event(_evt => ())
   let _acc : Accumulator[Int] = Accumulator::new(rt~)
   let memo : Memo[Int] = Memo(rt, () => raise Failure("boom"))
-  let _ : Result[Result[Int, CycleError], Failure] = try? memo.force_recompute()
+  let _ = try memo.force_recompute() catch {
+    e => Err(e)
+  } noraise {
+    v => Ok(v)
+  }
   let memo_id = memo.id()
   inspect(sentinel.before_log.length(), content="1")
   inspect(sentinel.before_log[0].0 == memo_id, content="true")
@@ -244,10 +248,10 @@ test "derived_event: mutation guard rejects batch body" {
   let rt = Runtime()
   let rejected = Ref(false)
   rt.batch(() => {
-    let result : Result[Unit, Error] = try? rt.on_derived_event(_evt => ())
-    match result {
-      Ok(_) => ()
-      Err(_) => rejected.val = true
+    try rt.on_derived_event(_evt => ()) catch {
+      _ => rejected.val = true
+    } noraise {
+      _ => ()
     }
   })
   inspect(rejected.val, content="true")
@@ -257,7 +261,11 @@ test "derived_event: mutation guard rejects batch body" {
 test "derived_event: mutation guard rejects non-idle phase" {
   let rt = Runtime()
   rt.enter_phase(GarbageCollecting)
-  let result : Result[Unit, Error] = try? rt.on_derived_event(_evt => ())
+  let result = try rt.on_derived_event(_evt => ()) catch {
+    e => Err(e)
+  } noraise {
+    _ => Ok(())
+  }
   rt.leave_phase()
   inspect(result is Err(_), content="true")
 }
@@ -268,10 +276,10 @@ test "derived_event: mutation guard rejects push tracking frame" {
   rt.on_derived_event(_evt => ())
   let rejected = Ref(false)
   let _effect = Effect::new(rt, () => {
-    let result : Result[Unit, Error] = try? rt.clear_derived_event_listener()
-    match result {
-      Ok(_) => ()
-      Err(_) => rejected.val = true
+    try rt.clear_derived_event_listener() catch {
+      _ => rejected.val = true
+    } noraise {
+      _ => ()
     }
   })
   inspect(rejected.val, content="true")
@@ -286,10 +294,10 @@ test "derived_event: mutation guard rejects pending events inside on_change" {
   rt.on_derived_event(_evt => ())
   let rejected = Ref(false)
   source.on_change(_v => {
-    let result : Result[Unit, Error] = try? rt.clear_derived_event_listener()
-    match result {
-      Ok(_) => ()
-      Err(_) => rejected.val = true
+    try rt.clear_derived_event_listener() catch {
+      _ => rejected.val = true
+    } noraise {
+      _ => ()
     }
   })
   source.set(1)
@@ -305,10 +313,10 @@ test "derived_event: mutation guard rejects on_change without pending events" {
   let rejected = Ref(false)
   source.on_change(_v => {
     saw_empty_pending.val = rt.event_broadcast_hook.pending.is_empty()
-    let result : Result[Unit, Error] = try? rt.clear_derived_event_listener()
-    match result {
-      Ok(_) => ()
-      Err(_) => rejected.val = true
+    try rt.clear_derived_event_listener() catch {
+      _ => rejected.val = true
+    } noraise {
+      _ => ()
     }
   })
   source.set(1)
@@ -322,10 +330,10 @@ test "derived_event: mutation guard rejects listener reentry" {
   let rejected = Ref(false)
   let memo = Memo(rt, () => 1)
   rt.on_derived_event(_evt => {
-    let result : Result[Unit, Error] = try? rt.clear_derived_event_listener()
-    match result {
-      Ok(_) => ()
-      Err(_) => rejected.val = true
+    try rt.clear_derived_event_listener() catch {
+      _ => rejected.val = true
+    } noraise {
+      _ => ()
     }
   })
   inspect(read_memo_for_test(memo), content="1")
@@ -335,9 +343,21 @@ test "derived_event: mutation guard rejects listener reentry" {
 ///|
 test "derived_event: listener mutation succeeds between operations" {
   let rt = Runtime()
-  let first : Result[Unit, Error] = try? rt.on_derived_event(_evt => ())
-  let clear : Result[Unit, Error] = try? rt.clear_derived_event_listener()
-  let second : Result[Unit, Error] = try? rt.on_derived_event(_evt => ())
+  let first = try rt.on_derived_event(_evt => ()) catch {
+    e => Err(e)
+  } noraise {
+    _ => Ok(())
+  }
+  let clear = try rt.clear_derived_event_listener() catch {
+    e => Err(e)
+  } noraise {
+    _ => Ok(())
+  }
+  let second = try rt.on_derived_event(_evt => ()) catch {
+    e => Err(e)
+  } noraise {
+    _ => Ok(())
+  }
   inspect(first is Ok(_), content="true")
   inspect(clear is Ok(_), content="true")
   inspect(second is Ok(_), content="true")
@@ -353,7 +373,11 @@ test "derived_event: raising API defers drain until next operation" {
     ignore(inner.get())
     raise Failure("target failed")
   })
-  let result : Result[Result[Int, CycleError], Error] = try? target.force_recompute()
+  let result = try target.force_recompute() catch {
+    e => Err(e)
+  } noraise {
+    v => Ok(v)
+  }
   inspect(result is Err(_), content="true")
   inspect(events.length(), content="0")
   inspect(rt.event_broadcast_hook.pending.length(), content="4")
