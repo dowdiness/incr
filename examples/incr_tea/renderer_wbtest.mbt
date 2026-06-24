@@ -56,7 +56,8 @@ test "#210: renderer instrumentation does not clobber a pre-existing derived-eve
   let view_ids : Ref[Array[@incr.CellId]] = Ref([])
   let stats = RenderStats::RenderStats()
   let dummy_map : Ref[Array[(@incr.CellId, String, RenderStats)]] = Ref([])
-  install_render_recompute_counter(runtime, view_ids, stats, dummy_map) |> ignore
+  install_render_recompute_counter(runtime, view_ids, stats, dummy_map)
+  |> ignore
   // Drive a recompute and verify the host listener still fires.
   let s = @incr.Input(runtime, 1)
   let m = @incr.Derived(runtime, () => s.get() * 2)
@@ -1416,18 +1417,49 @@ test "root_stats: shared-Program mounts each get their own row" {
   // Both roots appear in root_stats with their own labels
   let stats = renderer.root_stats()
   inspect(stats.length(), content="2")
-  inspect(stats[0].label == "alpha" || stats[1].label == "alpha", content="true")
+  inspect(
+    stats[0].label == "alpha" || stats[1].label == "alpha",
+    content="true",
+  )
   inspect(stats[0].label == "beta" || stats[1].label == "beta", content="true")
+  // Each root patched once during its mount flush. Both share the same Program
+  // so they have identical per-root counters.
+  inspect(renderer.stats().patch_attempts, content="2")
+  let rows0 = renderer.root_stats()
+  inspect(rows0[0].patch_attempts, content="1")
+  inspect(rows0[1].patch_attempts, content="1")
 
-  // Destroy alpha — only beta remains
+  // Dispatch Increment → view changes → both roots patch on next flush.
+  inspect(program.dispatch(Increment), content="true")
+  test_run_next_raf()
+  let rows1 = renderer.root_stats()
+  inspect(rows1[0].patch_attempts, content="2")
+  inspect(rows1[1].patch_attempts, content="2")
+  inspect(renderer.stats().patch_attempts, content="4")
+  // Aggregate view_recomputes counts unique recompute events (once per
+  // view-derived completion), while each root also tracks it via per-root
+  // routing in view_id_to_label.
+  inspect(renderer.stats().view_recomputes, content="1")
+  inspect(rows1[0].view_recomputes, content="1")
+  inspect(rows1[1].view_recomputes, content="1")
+
+  // Destroy alpha — only beta remains, but total patch count is preserved.
   renderer.destroy(root_a)
-  let after_a = renderer.root_stats()
-  inspect(after_a.length(), content="1")
-  inspect(after_a[0].label, content="beta")
+  inspect(renderer.root_stats().length(), content="1")
+  inspect(renderer.stats().patch_attempts, content="4")
+  inspect(renderer.stats().skipped_patches, content="0")
 
-  // Destroy beta — both gone
+  // Destroy beta — no roots remain, but historic totals survive.
   renderer.destroy(root_b)
   inspect(renderer.root_stats().length(), content="0")
+  inspect(renderer.stats().patch_attempts, content="4")
+  inspect(renderer.stats().skipped_patches, content="0")
+
+  // Dispose — totals remain even after arrays are cleared.
+  renderer.dispose()
+  inspect(renderer.stats().patch_attempts, content="4")
+  inspect(renderer.stats().skipped_patches, content="0")
+  inspect(renderer.stats().inactive_skipped_flushes, content="0")
 
   test_restore_dom()
 }
