@@ -218,7 +218,6 @@ fn use_example(state : Ref[SheetState], text : String) -> @tea.Cmd[Msg] {
   let cell = s.selected_cell.peek()
   let current_drafts = s.drafts.peek()
   s.drafts.set(update_draft(current_drafts, cell, text))
-  s.status.set("Loaded example text for \{cell}.")
   s.error.set(None)
   @tea.Cmd::none()
 }
@@ -229,7 +228,6 @@ fn update_draft_for_cell(state : Ref[SheetState], cell : String, text : String) 
   s.selected_cell.set(cell)
   let current_drafts = s.drafts.peek()
   s.drafts.set(update_draft(current_drafts, cell, text))
-  s.status.set("Drafting \{cell}.")
   s.error.set(None)
   @tea.Cmd::none()
 }

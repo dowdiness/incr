@@ -125,3 +125,27 @@ test "incr_tea spreadsheet proof maps payload descriptors at renderer boundary" 
     None => abort("expected formula Escape action")
   }
 }
+
+///|
+test "incr_tea locality: draft-only does not change status" {
+  let app = TypedSheetApp(@incr.Runtime())
+  let before = app._state.val.peek_model()
+  let initial_status = before.status
+
+  // UpdateDraft writes only selected_cell + drafts — status must stay unchanged
+  ignore(app.prog_grid.dispatch(UpdateDraft("C1", "99")))
+  let after_draft = app._state.val.peek_model()
+  inspect(after_draft.status, content=initial_status)
+
+  // UseExample is also draft-only — status must stay unchanged
+  ignore(app.prog_grid.dispatch(UseExample("42")))
+  let after_example = app._state.val.peek_model()
+  inspect(after_example.status, content=initial_status)
+
+  // SelectCell still patches status (selection is not draft-only)
+  ignore(app.prog_grid.dispatch(SelectCell("A1")))
+  let after_select = app._state.val.peek_model()
+  inspect(after_select.status, content="Selected A1.")
+
+  app.dispose()
+}
