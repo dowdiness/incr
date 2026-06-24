@@ -4,6 +4,28 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ## [Unreleased]
 
+### Breaking
+
+- `Runtime::batch_result` and the Database helper form `batch_result[Db : Database]`
+  from `raise?` (error-polymorphic) to `raise` (concrete `Error`) (#293).
+  Required by the `try?` deprecation migration — `Ok(expr) catch` cannot bind a
+  `?Error` type variable.
+
+  **Migration guide:** Direct callers (passing a closure to `batch_result`) need no
+  changes — `noraise` callers work (`noraise` ⊂ `raise Error`), and callers raising
+  a custom `suberror E` work (`E` lifts to `Error`). Downstream wrappers that accept
+  `f: () -> Unit raise?` and forward to `batch_result` must change their own parameter
+  to `f: () -> Unit raise` (or `Unit raise Error`).
+
+### Changed
+
+- Documented the `batch_result` breaking change introduced in PR #246 with
+  a `### Breaking` section and migration guide (above).
+- Added migration notes to `Runtime::batch_result` and `Database::batch_result`
+  in the API reference doc.
+- Simplified `Runtime::batch_result` implementation from a wrapper-function
+  pattern to `Ok(self.batch(f)) catch { e => Err(e) }`.
+
 ### Added
 
 - Made the two runtime-global hooks composable so multiple observers can share one `Runtime` (#210). New additive APIs `Runtime::add_on_change_listener` and `Runtime::add_derived_event_listener` register listeners that coexist with each other and with the existing singletons, each returning a `ListenerId` for `Runtime::remove_on_change_listener` / `Runtime::remove_derived_event_listener` (idempotent removal). On-change listeners fire in registration order; derived-event listeners fire event-major (every listener per event, in registration order). On-change registration is unguarded (snapshot-before-fire makes mid-callback mutation safe); derived-event registration keeps the existing idle guard (the hook buffers events). The singleton APIs (`set_on_change`/`clear_on_change`, `on_derived_event`/`clear_derived_event_listener`) are unchanged and source-compatible — they now drive a reserved slot in the same registry. Added the public `ListenerId` handle.

@@ -17,7 +17,7 @@ pub fn[T : Trackable] add_tracked(@cells.Scope, T) -> Unit
 
 pub fn[Db : Database] batch(Db, () -> Unit raise?) -> Unit raise?
 
-pub fn[Db : Database] batch_result(Db, () -> Unit raise?) -> Result[Unit, Error]
+pub fn[Db : Database] batch_result(Db, () -> Unit raise) -> Result[Unit, Error]
 
 pub fn[Db : Database, T : Eq] create_accumulator(Db, label? : String) -> @cells.Accumulator[T]
 

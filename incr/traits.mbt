@@ -253,7 +253,7 @@ pub fn[Db : Database] batch(db : Db, f : () -> Unit raise?) -> Unit raise? {
 /// Runs a batch and returns raised errors as `Result`.
 pub fn[Db : Database] batch_result(
   db : Db,
-  f : () -> Unit raise?,
+  f : () -> Unit raise,
 ) -> Result[Unit, Error] {
   db.runtime().batch_result(f)
 }

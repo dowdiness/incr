@@ -299,7 +299,7 @@ pub fn Runtime::Runtime(on_change? : () -> Unit) -> Self
 pub fn Runtime::add_derived_event_listener(Self, (DerivedEvent) -> Unit) -> @types.ListenerId raise Failure
 pub fn Runtime::add_on_change_listener(Self, () -> Unit) -> @types.ListenerId
 pub fn Runtime::batch(Self, () -> Unit raise?) -> Unit raise?
-pub fn Runtime::batch_result(Self, () -> Unit raise?) -> Result[Unit, Error]
+pub fn Runtime::batch_result(Self, () -> Unit raise) -> Result[Unit, Error]
 pub fn Runtime::cell_info(Self, @types.CellId) -> CellInfo?
 pub fn Runtime::clear_derived_event_listener(Self) -> Unit raise Failure
 #deprecated
