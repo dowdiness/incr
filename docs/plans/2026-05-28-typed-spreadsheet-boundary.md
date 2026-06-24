@@ -80,8 +80,8 @@ Recommended minimal graph shape:
 - Use `Watch` for external subscribers by default, and `Observer` only for
   compatibility or legacy usage.
 - For batch failure handling, spreadsheet code should keep `Runtime::batch` paths
-  `Result`-aware (through `batch_result` / `try?`) and avoid raising `Error`
-  from within `Runtime::batch` if commit integrity matters.
+  `Result`-aware (through `batch_result` / `try ... catch ... noraise`) and
+  avoid raising `Error` from within `Runtime::batch` if commit integrity matters.
 - Keep `Runtime::cell_info` (snapshot) and `Runtime::on_derived_event` (trace)
   separate to avoid diagnostic role conflation.
 

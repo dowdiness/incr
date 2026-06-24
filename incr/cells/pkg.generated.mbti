@@ -296,6 +296,8 @@ pub(all) struct Runtime {
   // private fields
 }
 pub fn Runtime::Runtime(on_change? : () -> Unit) -> Self
+pub fn Runtime::add_derived_event_listener(Self, (DerivedEvent) -> Unit) -> @types.ListenerId raise Failure
+pub fn Runtime::add_on_change_listener(Self, () -> Unit) -> @types.ListenerId
 pub fn Runtime::batch(Self, () -> Unit raise?) -> Unit raise?
 pub fn Runtime::batch_result(Self, () -> Unit raise) -> Result[Unit, Error]
 pub fn Runtime::cell_info(Self, @types.CellId) -> CellInfo?
@@ -322,6 +324,8 @@ pub fn[T : Eq] Runtime::read_hybrid(Self, HybridMemo[T]) -> T
 #deprecated
 pub fn[T] Runtime::read_reactive(Self, Reactive[T]) -> T
 pub fn Runtime::record_batch_rollback(Self, @types.CellId, () -> Unit) -> Unit
+pub fn Runtime::remove_derived_event_listener(Self, @types.ListenerId) -> Unit raise Failure
+pub fn Runtime::remove_on_change_listener(Self, @types.ListenerId) -> Unit
 pub fn Runtime::set_on_change(Self, () -> Unit) -> Unit
 
 pub struct Scope {

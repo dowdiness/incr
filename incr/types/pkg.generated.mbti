@@ -69,6 +69,13 @@ pub fn[T : Hash + Eq] InternTable::intern(Self[T], T) -> InternId
 pub fn[T] InternTable::len(Self[T]) -> Int
 pub fn[T : Hash + Eq] InternTable::new() -> Self[T]
 
+pub(all) struct ListenerId {
+  runtime_id : RuntimeId
+  id : Int
+} derive(Eq, Hash, @debug.Debug)
+pub fn ListenerId::ListenerId(RuntimeId, Int) -> Self
+pub impl Show for ListenerId
+
 pub(all) struct MemoId[T] {
   id : CellId
 }

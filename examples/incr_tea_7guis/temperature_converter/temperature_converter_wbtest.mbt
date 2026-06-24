@@ -1,0 +1,19 @@
+///|
+test "temperature converter maps input payloads" {
+  let app = App(@incr.Runtime())
+  ignore(app.program.dispatch(SetCelsius("100")))
+  inspect(app._state.val.fahrenheit, content="212")
+  ignore(app.program.dispatch(SetCelsius("37.5")))
+  inspect(app._state.val.fahrenheit, content="99.5")
+  ignore(app.program.dispatch(SetCelsius("1")))
+  inspect(app._state.val.fahrenheit, content="33.8")
+  match
+    resolve_text_input(
+      @tea.TextInputId("fahrenheit"),
+      @tea.TextInputPayload("32"),
+    ) {
+    Some(SetFahrenheit(value)) => inspect(value, content="32")
+    _ => abort("expected fahrenheit message")
+  }
+  app.program.dispose()
+}

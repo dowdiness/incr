@@ -1,0 +1,14 @@
+supported_targets = "js"
+
+import {
+  "moonbit-community/rabbita",
+  "moonbit-community/rabbita/html" @rabbita_html,
+  "mizchi/luna",
+  "mizchi/luna/dom" @luna_dom,
+  "mizchi/js/browser/dom" @js_dom,
+  "mizchi/signals",
+}
+
+options(
+  "is-main": true,
+)

@@ -6,15 +6,16 @@ suberror CallbackTestError {
 ///|
 test "run_callback restores callback_depth when callback raises" {
   let rt = Runtime::Runtime()
-  let result = try
+  let mut callback_failed = false
+  try
     @kernel.run_callback(rt.core, fn() raise {
       raise CallbackTestError::CallbackDepthStop
     })
   catch {
-    e => Err(e)
+    _ => callback_failed = true
   } noraise {
-    _ => Ok(())
+    _ => ()
   }
-  inspect(result is Err(_), content="true")
+  inspect(callback_failed, content="true")
   inspect(rt.core.callback_depth, content="0")
 }

@@ -1,0 +1,315 @@
+:root {
+  color-scheme: dark;
+  font-family: Manrope, Inter, ui-sans-serif, system-ui, sans-serif;
+  background: #151528;
+  color: #e8e8f0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 20% 0%, rgba(130, 80, 223, 0.18), transparent 34rem),
+    linear-gradient(135deg, #151528 0%, #1a1a2e 54%, #10101f 100%);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.loading-shell,
+.proof-shell {
+  min-height: 100vh;
+}
+
+.loading-shell {
+  display: grid;
+  place-items: center;
+  color: #c8c8e0;
+}
+
+.proof-shell {
+  width: min(1180px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 40px 0;
+}
+
+.proof-header {
+  margin-bottom: 20px;
+}
+
+.proof-kicker,
+.muted-label {
+  color: #9c93c8;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.proof-header h2 {
+  margin: 8px 0 10px;
+  font-size: clamp(2rem, 5vw, 4rem);
+  line-height: 0.95;
+  letter-spacing: -0.055em;
+}
+
+.proof-copy {
+  max-width: 760px;
+  margin: 0;
+  color: #c8c8e0;
+  line-height: 1.55;
+}
+
+.formula-bar,
+.status-panel,
+.trace-panel {
+  border: 1px solid #2a2a48;
+  background: rgba(30, 30, 54, 0.82);
+  box-shadow: 0 22px 80px rgba(0, 0, 0, 0.26);
+  backdrop-filter: blur(12px);
+}
+
+.formula-bar {
+  display: grid;
+  grid-template-columns: minmax(130px, 0.35fr) minmax(220px, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+  border-radius: 20px;
+}
+
+.formula-cell {
+  display: grid;
+  gap: 2px;
+}
+
+.cell-address {
+  font-family: Iosevka, ui-monospace, SFMono-Regular, monospace;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.formula-input,
+.cell-inline-input {
+  width: 100%;
+  border: 1px solid #34345a;
+  border-radius: 12px;
+  background: #151528;
+  color: #e8e8f0;
+  font-family: Iosevka, ui-monospace, SFMono-Regular, monospace;
+  outline: none;
+}
+
+.formula-input {
+  min-height: 48px;
+  padding: 0 14px;
+  font-size: 1.05rem;
+}
+
+.formula-input:focus,
+.cell-inline-input:focus,
+.sheet-grid:focus {
+  border-color: #8250df;
+  box-shadow: 0 0 0 3px rgba(130, 80, 223, 0.24);
+}
+
+.formula-actions,
+.example-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.formula-actions {
+  justify-content: flex-end;
+}
+
+button {
+  border: 1px solid #34345a;
+  border-radius: 999px;
+  padding: 10px 14px;
+  background: #252540;
+  color: #e8e8f0;
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: #5b4e8e;
+  background: #2d2d4b;
+}
+
+.primary-action {
+  border-color: #8250df;
+  background: #8250df;
+  color: white;
+}
+
+.danger-action {
+  color: #ff9aa8;
+}
+
+.example-strip {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  padding-top: 2px;
+}
+
+.example-chip {
+  padding: 7px 10px;
+  font-family: Iosevka, ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.9rem;
+}
+
+.sheet-stage {
+  margin-top: 18px;
+  overflow: auto;
+  border: 1px solid #2a2a48;
+  border-radius: 24px;
+  background: rgba(21, 21, 40, 0.72);
+}
+
+.sheet-grid {
+  display: grid;
+  grid-template-columns: 54px repeat(4, minmax(130px, 1fr));
+  min-width: 620px;
+  outline: none;
+}
+
+.sheet-corner,
+.sheet-column-header,
+.sheet-row-header,
+.sheet-cell {
+  min-height: 54px;
+  border-right: 1px solid #2a2a48;
+  border-bottom: 1px solid #2a2a48;
+}
+
+.sheet-corner,
+.sheet-column-header,
+.sheet-row-header {
+  display: grid;
+  place-items: center;
+  background: #1e1e36;
+  color: #9c93c8;
+  font-family: Iosevka, ui-monospace, SFMono-Regular, monospace;
+  font-weight: 500;
+}
+
+.sheet-cell {
+  position: relative;
+  display: grid;
+  align-items: center;
+  padding: 8px 10px;
+  background: rgba(37, 37, 64, 0.52);
+  font-family: Iosevka, ui-monospace, SFMono-Regular, monospace;
+}
+
+.sheet-cell:hover {
+  background: rgba(48, 48, 82, 0.72);
+}
+
+.sheet-cell.is-selected {
+  outline: 2px solid #8250df;
+  outline-offset: -2px;
+  background: rgba(130, 80, 223, 0.16);
+}
+
+.sheet-cell.is-dirty::after {
+  content: '';
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #c3e88d;
+}
+
+.sheet-cell--error {
+  color: #ff9aa8;
+}
+
+.cell-value {
+  min-height: 1.25rem;
+}
+
+.cell-inline-input {
+  min-height: 36px;
+  padding: 0 8px;
+}
+
+.status-panel,
+.trace-panel {
+  margin-top: 16px;
+  border-radius: 18px;
+  padding: 14px 16px;
+}
+
+.status-line {
+  font-weight: 600;
+}
+
+.hint-line,
+.error-line,
+.trace-panel p {
+  margin: 6px 0 0;
+  color: #c8c8e0;
+}
+
+.error-line {
+  color: #ff9aa8;
+}
+
+.trace-panel h3 {
+  margin: 0 0 10px;
+}
+
+.trace-bucket {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 10px;
+  padding: 6px 0;
+  border-top: 1px solid rgba(42, 42, 72, 0.72);
+}
+
+.trace-values,
+.trace-edit,
+.snapshot-count {
+  font-family: Iosevka, ui-monospace, SFMono-Regular, monospace;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 760px) {
+  .proof-shell {
+    width: min(100vw - 20px, 1180px);
+    padding: 24px 0;
+  }
+
+  .formula-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .formula-actions {
+    justify-content: flex-start;
+  }
+}

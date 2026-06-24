@@ -1,0 +1,18 @@
+{
+  "name": "incr-tea-dom-bench",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:bench": "cd ../.. && NEW_MOON_MOD=0 moon build --target js --release examples/incr_tea/browser_bench",
+    "build:ui-compare-bench": "npm run build:bench && cd ../.. && NEW_MOON_MOD=0 moon build --target js --release examples/incr_tea/browser_ui_compare_bench",
+    "build:demo": "cd ../.. && NEW_MOON_MOD=0 moon build --target js --release examples/incr_tea/browser_demo",
+    "build:moonbit": "npm run build:bench",
+    "bench:dom": "npm run build:bench && node scripts/bench-keyed-dom.mjs",
+    "bench:ui-compare-dom": "npm run build:ui-compare-bench && node scripts/bench-ui-compare-dom.mjs",
+    "bench:activation-trigger": "npm run build:bench && node scripts/bench-activation-trigger.mjs",
+    "test:dom": "npm run build:demo && node scripts/test-keyed-dom.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.60.0"
+  }
+}

@@ -75,8 +75,11 @@ pub fn Runtime::batch_result(
   self : Runtime,
   f : () -> Unit raise,
 ) -> Result[Unit, Error] {
-  Ok(self.batch(f)) catch {
+  let run = fn() raise { self.batch(f) }
+  try run() catch {
     e => Err(e)
+  } noraise {
+    _ => Ok(())
   }
 }
 

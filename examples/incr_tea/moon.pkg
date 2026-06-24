@@ -1,4 +1,13 @@
 import {
   "dowdiness/incr",
+  "moonbitlang/core/hashmap",
   "moonbitlang/core/queue",
 }
+
+import {
+  "moonbitlang/core/bench",
+} for "test"
+
+import {
+  "moonbitlang/core/bench",
+} for "wbtest"

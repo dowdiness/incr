@@ -1,0 +1,8 @@
+import {
+  "dowdiness/incr",
+  "examples/incr_tea" @tea,
+  "moonbitlang/core/hashmap",
+  "moonbitlang/core/string",
+}
+
+supported_targets = "js"

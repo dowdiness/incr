@@ -1,9 +1,12 @@
 _build/
 .mooncakes/
 target
+__pycache__/
+*.py[cod]
 .worktrees/
 .claude/worktrees/
 .claude/projects/
 .claude/scheduled_tasks.lock
 docs/papers/*.pdf
 .slopless/
+examples/incr_tea/node_modules/

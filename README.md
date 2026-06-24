@@ -39,8 +39,12 @@ can touch: cell values are backed by MoonBit incremental computations, formulas
 record the cells they read, and the trace panels show which formulas recomputed,
 which values changed, and where work produced the same result. Try it at
 [typed-spreadsheet.pages.dev](https://typed-spreadsheet.pages.dev), or run the
-browser demo from
+primary browser demo from
 [`examples/typed_spreadsheet_rabbita_demo/`](examples/typed_spreadsheet_rabbita_demo/).
+A smaller side-by-side `incr_tea` proof lives in
+[`examples/typed_spreadsheet_incr_tea_demo/`](examples/typed_spreadsheet_incr_tea_demo/);
+it validates renderer-boundary spreadsheet interactions without replacing the
+Rabbita demo.
 
 ## The short version
 

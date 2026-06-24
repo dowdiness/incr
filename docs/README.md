@@ -29,6 +29,7 @@ New to `incr`? Read these in order:
 - [Live Typed Spreadsheet](https://typed-spreadsheet.pages.dev) — editable browser demo where cell formulas become dependency-tracked MoonBit computations and trace panels show recomputed, changed, and unchanged formula cells
 - [Typed Spreadsheet package](../examples/typed_spreadsheet/README.mbt.md) — runtime-checked example worksheet boundary, formula evaluation, post-change recompute traces, and the CLI demo entry point
 - [Typed Spreadsheet Rabbita demo](../examples/typed_spreadsheet_rabbita_demo/README.md) — local browser-demo build and deployment notes
+- [incr_tea 7GUIs stress test](../examples/incr_tea_7guis/README.md) — browser stress-test package covering the seven 7GUIs tasks with the experimental `incr_tea` renderer
 
 ## Performance
 
@@ -46,6 +47,22 @@ New to `incr`? Read these in order:
 - [2026-06-01 Graph-editor recompute path benches](performance/2026-06-01-graph-editor-recompute-benches.md) — durable graph/document recomputation vs ephemeral hover, drag preview, and viewport updates; records live-drag and commit-at-end behavior across wasm-gc + JS.
 - [2026-06-05 Typed Spreadsheet trace benches](performance/2026-06-05-typed-spreadsheet-trace-benches.md) — full-sheet `Worksheet::trace` scan vs bounded observed-formula tracing for issue #179 across wasm-gc + JS, with the manual regression workflow for future trace changes.
 - [2026-06-05 Typed Spreadsheet event trace feasibility](performance/2026-06-05-typed-spreadsheet-event-trace-feasibility.md) — issue #199 investigation: derived events can map to formula cells privately, but do not beat the current bounded snapshot path enough to justify the single-listener/API trade-off.
+- [2026-06-10 Incremental TEA vs dirty-cell baseline](performance/2026-06-10-incr-tea-vs-dirty-cell-benches.md) — issue #189: the `incr_tea` renderer's verify+backdating skip vs a modeled dirty-cell rebuild. Unread-field mutations skip in O(1) (9.5–159× faster, growing with view size); read-relevant mutations run at par. Keyed planner buys DOM reuse at an O(n²) matching cost; DOM applier measured separately in the 2026-06-12 browser run.
+- [2026-06-12 Incremental TEA keyed DOM applier](performance/2026-06-12-incr-tea-keyed-dom-applier-playwright.md) — issue #242: Playwright/Chromium wall-time for keyed list prepend, remove-first, and reverse at N=16/64/256 against a non-keyed rebuild baseline. Keyed reuse wins in the browser (1.70–2.15× at N=256) while confirming reverse remains the weakest case under the original O(n²) planner/re-append applier.
+- [2026-06-12 Incremental TEA keyed planner optimization](performance/2026-06-12-incr-tea-keyed-planner-optimization.md) — issue #241: key-map planner path for duplicate-free large keyed lists. At N=256, pure JS planner reverse / prepend / unchanged improve 7.46× / 2.91× / 2.66×; browser reverse improves 395→271 µs with DOM applier behavior unchanged.
+- [2026-06-14 UI-shaped adjacent-framework comparison](performance/2026-06-14-ui-shaped-adjacent-framework-comparison.md) — issue #257: benchmark plan for Rabbita, Luna, and `incr_tea` across counter, keyed-list, grid, panel, and editor-shaped workloads, plus a first pure view-construction slice in JS. Records measurement boundaries and blocks direct-DOM/island follow-ups from using pure value-build numbers as runtime evidence.
+- [2026-06-14 Mounted counter adjacent-framework comparison](performance/2026-06-14-mounted-counter-adjacent-framework-comparison.md) — follow-up browser slice for #257: Playwright/Chromium initial mount, displayed-count update, and unrelated update across `incr_tea`, Rabbita, and Luna in hidden attached hosts.
+- [2026-06-14 Mounted matrix adjacent-framework comparison](performance/2026-06-14-mounted-matrix-adjacent-framework-comparison.md) — batch harness for counter, keyed-list N=16/64/256, and hidden/visible panel mounted cells across `incr_tea`, Rabbita, and Luna.
+- [2026-06-14 Mounted row/leaf locality comparison](performance/2026-06-14-mounted-row-leaf-locality-comparison.md) — same-order keyed-row text, row class, and hot nested text leaf mounted cells at N=16/64/256 across `incr_tea`, Rabbita, and Luna.
+- [2026-06-15 Incremental TEA direct leaf patching prototype](performance/2026-06-15-incr-tea-direct-leaf-patching-prototype.md) — issue #254 prototype: pure direct leaf/attribute ids in `Html`, mount-boundary watched string resolvers, and row/leaf `incr_tea-direct` browser timings.
+- [2026-06-15 Incremental TEA activation-islands measurement](performance/2026-06-15-incr-tea-activation-islands-measurement.md) — issue #255 measurement-first gate: editor/sidebar/inspector-shaped collapsed vs hidden-mounted vs visible update costs before any visibility/idle-driven Watch activation prototype.
+- [2026-06-15 Incremental TEA inactive-root prototype](performance/2026-06-15-incr-tea-inactive-root-prototype.md) — issue #255 prototype result: DOM-preserving inactive workspace roots keep hidden updates at collapsed-update scale and pay the deferred watched-view read/diff on activation catch-up.
+- [2026-06-15 Incremental TEA inactive-root amortized benchmark](performance/2026-06-15-incr-tea-inactive-root-amortized.md) — post-#255 amortized result: 10/100/1000 inactive updates plus one activation catch-up for the editor/sidebar/inspector-shaped workspace root.
+- [2026-06-15 Incremental TEA inactive-root cohort benchmark](performance/2026-06-15-incr-tea-inactive-root-cohorts.md) — multi-root follow-up: one shared workspace Program mounted into 1/4/16 inactive DOM roots, measuring 10/100/1000-update bursts and activation of one root versus all roots.
+- [2026-06-16 Incremental TEA independent inactive-root cohort benchmark](performance/2026-06-16-incr-tea-independent-inactive-root-cohorts.md) — independent-root follow-up: one workspace Program/view Watch per inactive DOM root, broadcasting 10/100/1000-update bursts across 1/4/16 roots and measuring activation of one root versus all roots.
+- [2026-06-16 Incremental TEA shared vs independent inactive-root cohorts](performance/2026-06-16-incr-tea-shared-vs-independent-inactive-root-cohorts.md) — synthesis of PR #277 (shared Program/Watch across inactive roots) and PR #278 (independent Program/Watch per root): 16-root activation-only and total-burst ratios, evidence-backed conclusions only.
+- [2026-06-17 Incremental TEA activation-trigger overhead probe](performance/2026-06-17-incr-tea-activation-trigger-overhead.md) — measurement-only IntersectionObserver dispatch and observer-triggered activation probe that informed the #280 manual-first hybrid policy.
+- [2026-06-17 Incremental TEA manual-first hybrid activation policy](performance/2026-06-17-incr-tea-manual-first-hybrid-activation-policy.md) — validates the example-local `BrowserRootActivationController` prototype: semantic show/hide wraps direct renderer activation/deactivation, prewarm hit makes later show a no-op at timer resolution, and no core scheduler is added.
 
 ---
 
@@ -74,6 +91,7 @@ For contributors and advanced users who want to understand or modify `incr`.
 
 - [Roadmap](roadmap.md) — phased future direction
 - [Active plans](plans/) — concrete implementation plans for upcoming work
+- [2026-06-09 Composable Runtime Hooks](plans/2026-06-09-composable-runtime-hooks.md) — design (WHAT) for the #210 multi-listener on-change / derived-event registries; see the [ADR](decisions/2026-06-09-composable-runtime-hooks.md)
 - [2026-06-08 AcceptedDerived BackdateEq tier](plans/2026-06-08-accepted-derived-backdate-eq-tier.md) — revision-gated acceptance (`accepted_memo` / `Scope::accepted_memo`) for non-`Eq` candidate value types; incr-side complete, downstream `loom-mini-cst` validation pending
 - [Typed Spreadsheet Responsibility Boundary](plans/2026-05-28-typed-spreadsheet-boundary.md) — app-vs-library responsibility split before adding any spreadsheet-specific sugar
 - [Ideal API Rename Migration Plan](plans/2026-05-21-ideal-api-rename-migration.md) — staged compatibility plan for the accepted public API target names
@@ -84,6 +102,7 @@ For contributors and advanced users who want to understand or modify `incr`.
 **Research notes — exploratory, not implemented:**
 
 - [Next-sessions Runtime Roadmap](research/next-sessions-runtime-roadmap.md) — shared onboarding + invariants + backlog template for continuing Loom + Canopy integration work across sessions.
+- [Incremental TEA direction after Rabbita, Qwik, and Luna comparison](research/incr-tea-ui-direction.md) — positions `examples/incr_tea` as a semantic incremental rendering substrate rather than a Rabbita/Luna replacement, with follow-up issues for Eq-safe HTML ergonomics, typed payload events, keyed DOM identity tests, editor-shaped demos, Qwik-style lazy-boundary research, Luna-style direct patching/islands, WebComponent boundaries, and shared UI benchmarks.
 
 - [Constructive Traces Feasibility](research/constructive-traces-feasibility.md) — evaluates Build Systems à la Carte constructive traces for `incr`; recommends keeping revision verifying traces as the default and investigating static/applicative derived APIs first
 - [Multi-Mode App Ideas](research/multi-mode-app-ideas.md) — app concepts combining pull / push / hybrid / Datalog modes
@@ -111,6 +130,8 @@ Architecture Decision Records — the *why* behind significant design choices. K
 | [2026-06-01](decisions/2026-06-01-workspace-layout.md) | Workspace layout: repository-level `moon.work`, publishable `dowdiness/incr` module under `incr/`, checked docs as a workspace member, and standalone example modules. |
 | [2026-06-02](decisions/2026-06-02-typed-spreadsheet-runtime-checking.md) | Typed Spreadsheet formula checking: keep the example boundary runtime-checked. Formula installation validates worksheet ownership/cross-sheet references; formula/operator/result type mismatches are reported as `CellResult::TypeError` on read. |
 | [2026-06-02](decisions/2026-06-02-typed-spreadsheet-tombstone-lifecycle.md) | Typed Spreadsheet deleted-cell tombstone lifecycle: keep stable lightweight presence anchors; add `Worksheet::compact_deleted_cells()` to prune heavyweight deleted slots after commit without breaking delete/recreate invalidation. |
+| [2026-06-09](decisions/2026-06-09-composable-runtime-hooks.md) | Composable runtime hooks (#210): reopen the Memo Event Observation ADR's multi-listener deferral. One generic `ListenerRegistry[F]` backs both hooks; singleton APIs map to a reserved slot (source-compatible), additive `add_*_listener` return a public `ListenerId` for idempotent `remove_*`. On-change unguarded (snapshot-before-fire); derived-event keeps the idle guard (buffers events). TEA renderer switches to additive listeners. |
+| [2026-06-17](decisions/2026-06-17-incr-tea-inactive-root-activation-policy.md) | Incremental TEA inactive-root activation policy (#280): manual-first hybrid — product/semantic actions activate directly; visibility/idle triggers are advisory prewarm hints only. |
 
 ---
 

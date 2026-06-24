@@ -116,10 +116,10 @@ test "derived_event: hook order on abort removes active entries before later hoo
   rt.on_derived_event(_evt => ())
   let _acc : Accumulator[Int] = Accumulator::new(rt~)
   let memo : Memo[Int] = Memo(rt, () => raise Failure("boom"))
-  let _ = try memo.force_recompute() catch {
-    e => Err(e)
+  try memo.force_recompute() catch {
+    _ => ()
   } noraise {
-    v => Ok(v)
+    _ => ()
   }
   let memo_id = memo.id()
   inspect(sentinel.before_log.length(), content="1")
@@ -261,13 +261,14 @@ test "derived_event: mutation guard rejects batch body" {
 test "derived_event: mutation guard rejects non-idle phase" {
   let rt = Runtime()
   rt.enter_phase(GarbageCollecting)
-  let result = try rt.on_derived_event(_evt => ()) catch {
-    e => Err(e)
+  let mut rejected = false
+  try rt.on_derived_event(_evt => ()) catch {
+    _ => rejected = true
   } noraise {
-    _ => Ok(())
+    _ => ()
   }
   rt.leave_phase()
-  inspect(result is Err(_), content="true")
+  inspect(rejected, content="true")
 }
 
 ///|
@@ -344,23 +345,23 @@ test "derived_event: mutation guard rejects listener reentry" {
 test "derived_event: listener mutation succeeds between operations" {
   let rt = Runtime()
   let first = try rt.on_derived_event(_evt => ()) catch {
-    e => Err(e)
+    _ => false
   } noraise {
-    _ => Ok(())
+    _ => true
   }
   let clear = try rt.clear_derived_event_listener() catch {
-    e => Err(e)
+    _ => false
   } noraise {
-    _ => Ok(())
+    _ => true
   }
   let second = try rt.on_derived_event(_evt => ()) catch {
-    e => Err(e)
+    _ => false
   } noraise {
-    _ => Ok(())
+    _ => true
   }
-  inspect(first is Ok(_), content="true")
-  inspect(clear is Ok(_), content="true")
-  inspect(second is Ok(_), content="true")
+  inspect(first, content="true")
+  inspect(clear, content="true")
+  inspect(second, content="true")
 }
 
 ///|
@@ -373,12 +374,13 @@ test "derived_event: raising API defers drain until next operation" {
     ignore(inner.get())
     raise Failure("target failed")
   })
-  let result = try target.force_recompute() catch {
-    e => Err(e)
+  let mut failed = false
+  try target.force_recompute() catch {
+    _ => failed = true
   } noraise {
-    v => Ok(v)
+    _ => ()
   }
-  inspect(result is Err(_), content="true")
+  inspect(failed, content="true")
   inspect(events.length(), content="0")
   inspect(rt.event_broadcast_hook.pending.length(), content="4")
   let stable = Memo(rt, () => 7)
@@ -413,4 +415,95 @@ test "derived_event: revision capture survives mid-compute revision bump" {
   inspect(started.length(), content="1")
   inspect(verified.length(), content="1")
   inspect(started[0] < verified[0], content="true")
+}
+
+///|
+// --- Composable derived-event listeners (#210) ---
+
+///|
+test "derived_event: two additive listeners observe events event-major in registration order" {
+  let rt = Runtime()
+  let mut log = ""
+  rt.add_derived_event_listener(evt => log = log + "a:" + event_kind(evt) + " ")
+  |> ignore
+  rt.add_derived_event_listener(evt => log = log + "b:" + event_kind(evt) + " ")
+  |> ignore
+  let s = Signal(rt, 1)
+  let m = Memo(rt, () => s.get() * 2)
+  inspect(read_memo_for_test(m), content="2")
+  // One recompute buffers [EnteringCompute, Completed]. Event-major drain:
+  // for each event, both listeners fire in registration order.
+  inspect(log, content="a:enter b:enter a:completed b:completed ")
+}
+
+///|
+test "derived_event: remove_derived_event_listener is idempotent and stops only that listener" {
+  let rt = Runtime()
+  let mut a = 0
+  let mut b = 0
+  let id_a = rt.add_derived_event_listener(evt => {
+    if event_kind(evt) == "completed" {
+      a = a + 1
+    }
+  })
+  rt.add_derived_event_listener(evt => {
+    if event_kind(evt) == "completed" {
+      b = b + 1
+    }
+  })
+  |> ignore
+  let s = Signal(rt, 1)
+  let m = Memo(rt, () => s.get() * 2)
+  inspect(read_memo_for_test(m), content="2")
+  inspect(a, content="1")
+  inspect(b, content="1")
+  rt.remove_derived_event_listener(id_a)
+  s.set(2)
+  inspect(read_memo_for_test(m), content="4")
+  inspect(a, content="1")
+  inspect(b, content="2")
+  // Removing again at idle is a no-op, not an error.
+  rt.remove_derived_event_listener(id_a)
+  s.set(3)
+  inspect(read_memo_for_test(m), content="6")
+  inspect(a, content="1")
+  inspect(b, content="3")
+}
+
+///|
+test "derived_event: on_derived_event singleton coexists with an additive listener" {
+  let rt = Runtime()
+  let mut log = ""
+  rt.on_derived_event(evt => {
+    if event_kind(evt) == "completed" {
+      log = log + "S"
+    }
+  })
+  rt.add_derived_event_listener(evt => {
+    if event_kind(evt) == "completed" {
+      log = log + "a"
+    }
+  })
+  |> ignore
+  let s = Signal(rt, 1)
+  let m = Memo(rt, () => s.get() * 2)
+  inspect(read_memo_for_test(m), content="2")
+  inspect(log, content="Sa")
+}
+
+///|
+test "derived_event: additive registration guard rejects inside a compute closure" {
+  let rt = Runtime()
+  let rejected : Ref[Bool] = Ref(false)
+  let s = Signal(rt, 1)
+  let memo = Memo(rt, () => {
+    try rt.add_derived_event_listener(_e => ()) catch {
+      _ => rejected.val = true
+    } noraise {
+      _ => ()
+    }
+    s.get()
+  })
+  inspect(read_memo_for_test(memo), content="1")
+  inspect(rejected.val, content="true")
 }

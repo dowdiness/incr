@@ -216,12 +216,13 @@ test "static derived: compute failure clears in-progress and hooks" {
     },
     (a, b) => a == b,
   )
-  let result = try derived.inner.force_recompute() catch {
-    e => Err(e)
+  let mut failed = false
+  try derived.inner.force_recompute() catch {
+    _ => failed = true
   } noraise {
-    v => Ok(v)
+    _ => ()
   }
-  inspect(result is Err(_), content="true")
+  inspect(failed, content="true")
   inspect(rt.get_memo_data(derived.id()).in_progress, content="false")
   inspect(rt.static_recompute_depth, content="0")
   inspect(rt.static_recompute_tracking_floors.length(), content="0")
@@ -250,12 +251,13 @@ test "static derived: listener mutation is blocked during recompute" {
     },
     (a, b) => a == b,
   )
-  let result = try derived.inner.force_recompute() catch {
-    e => Err(e)
+  let mut failed = false
+  try derived.inner.force_recompute() catch {
+    _ => failed = true
   } noraise {
-    v => Ok(v)
+    _ => ()
   }
-  inspect(result is Err(_), content="true")
+  inspect(failed, content="true")
   inspect(rt.static_recompute_depth, content="0")
   inspect(rt.static_recompute_tracking_floors.length(), content="0")
   inspect(rt.static_recompute_previous_runtime_ids.length(), content="0")
@@ -300,21 +302,15 @@ test "static derived: accumulator use fails explicitly" {
     },
     (a, b) => a == b,
   )
-  let push_result = try push_probe.inner.force_recompute() catch {
-    e => Err(e)
+  let push_failed = try push_probe.inner.force_recompute() catch {
+    e =>
+      e
+      .to_string()
+      .contains("Accumulator::push is unsupported inside static Derived")
   } noraise {
-    v => Ok(v)
+    _ => false
   }
-  match push_result {
-    Ok(_) => abort("expected accumulator push failure")
-    Err(e) =>
-      inspect(
-        e
-        .to_string()
-        .contains("Accumulator::push is unsupported inside static Derived"),
-        content="true",
-      )
-  }
+  inspect(push_failed, content="true")
   inspect(rt.static_recompute_depth, content="0")
 
   let read_acc : Accumulator[Int] = Accumulator::new(rt~)
@@ -332,21 +328,15 @@ test "static derived: accumulator use fails explicitly" {
     },
     (a, b) => a == b,
   )
-  let read_result = try read_probe.inner.force_recompute() catch {
-    e => Err(e)
+  let read_failed = try read_probe.inner.force_recompute() catch {
+    e =>
+      e
+      .to_string()
+      .contains("Memo::accumulated is unsupported inside static Derived")
   } noraise {
-    v => Ok(v)
+    _ => false
   }
-  match read_result {
-    Ok(_) => abort("expected accumulator read failure")
-    Err(e) =>
-      inspect(
-        e
-        .to_string()
-        .contains("Memo::accumulated is unsupported inside static Derived"),
-        content="true",
-      )
-  }
+  inspect(read_failed, content="true")
   inspect(rt.static_recompute_depth, content="0")
 }
 
