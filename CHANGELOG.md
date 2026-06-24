@@ -6,7 +6,7 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ### Breaking
 
-- `Runtime::batch_result` and `Database::batch_result` tightened their `f` parameter
+- `Runtime::batch_result` and the Database helper form `batch_result[Db : Database]`
   from `raise?` (error-polymorphic) to `raise` (concrete `Error`) (#293).
   Required by the `try?` deprecation migration — `Ok(expr) catch` cannot bind a
   `?Error` type variable.
