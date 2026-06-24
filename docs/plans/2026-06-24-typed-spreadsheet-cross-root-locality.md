@@ -1,7 +1,8 @@
 # Plan: Typed Spreadsheet — Cross-Root Locality Validation
 
 **Date:** 2026-06-24
-**Status:** Draft
+**Status:** Partial — Phases 1–3 complete, Phase 4 pending
+**PR:** [dowdiness/incr#294](https://github.com/dowdiness/incr/pull/294)
 **Driver:** [typed_spreadsheet_incr_tea_demo](../../examples/typed_spreadsheet_incr_tea_demo/)
 **Research context:** [incr_tea UI direction](../../docs/research/incr-tea-ui-direction.md) (success metric: "unchanged child roots skip patching across parent updates")
 **Performance baseline (single-root):** [incr_tea vs dirty-cell benches](../../docs/performance/2026-06-10-incr-tea-vs-dirty-cell-benches.md)
