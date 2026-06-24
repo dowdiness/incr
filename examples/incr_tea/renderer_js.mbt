@@ -1281,34 +1281,33 @@ pub fn[Msg : Eq] BrowserRenderer::mount(
   host : DomElement,
   program : Program[Msg, Html[Msg]],
   label? : String = "",
-  on_input? : (TextInputId, TextInputPayload) -> Msg? = (_, _) => None,
-  on_key? : (KeyEventId, KeyPayload) -> Msg? = (_, _) => None,
-  on_pointer? : (PointerEventId, PointerPayload) -> Msg? = (_, _) => None,
-  on_key_event? : (KeyEventId, KeyPayload) -> KeyEventDispatch[Msg]? = (_, _) => {
-    None
-  },
-) -> BrowserRoot[Msg] {
-  guard !self.disposed else {
-    abort("BrowserRenderer::mount called after dispose")
-  }
-  guard program.runtime().id() == self.runtime.id() else {
-    abort("BrowserRenderer::mount called with a Program from another Runtime")
-  }
   let view_id = program.view_id()
   program.add_after_flush_scheduler(() => self.schedule_flush())
   // One instrumentation id per Program, even if it backs several mounted roots.
   if !view_id_is_tracked(self.view_ids.val, view_id) {
     self.view_ids.val.push(view_id)
   }
-  // Register per-root stats for labeled recompute counting only.
-  // patch_attempts/skipped_patches stay on the shared self.stats.
-  if !self.view_id_to_label.val.iter().any(pair => pair.0 == view_id) {
-    self.view_id_to_label.val.push((view_id, label, RenderStats::RenderStats()))
-  }
+  // Register per-root stats for recompute counting — one entry per mount.
+  // patch/skip counters remain on shared self.stats (see #295).
+  self.view_id_to_label.val.push((view_id, label, RenderStats::RenderStats()))
   let root = BrowserRoot::BrowserRoot(
     program,
     host,
     self.stats,
+    label~,
+    resolve_text=on_input,
+    resolve_key=on_key,
+    resolve_pointer=on_pointer,
+    resolve_key_event=on_key_event,
+  )
+  self.roots.push(root)
+  root.flush()
+  root.drain_after_flush()
+  (self.after_flush)(self.stats())
+  root
+    program,
+    host,
+    root_stats,
     label~,
     resolve_text=on_input,
     resolve_key=on_key,
@@ -1325,17 +1324,27 @@ pub fn[Msg : Eq] BrowserRenderer::mount(
 
 
 ///| Per-root labeled stats for locality validation.
-#cfg(target="js")
 pub fn[Msg] BrowserRenderer::root_stats(self : BrowserRenderer[Msg]) -> Array[RootStats] {
-  self.view_id_to_label.val.map(fn(tuple) {
-    let (_, label, root_stats) = tuple
-    {
-      label,
-      view_recomputes: root_stats.view_recomputes,
-      patch_attempts: root_stats.patch_attempts,
-      skipped_patches: root_stats.skipped_patches,
-    }
-  })
+  let result : Array[RootStats] = []
+  for root in self.roots {
+    let s = root.watched.stats
+    result.push({
+      label: root.watched.label,
+      view_recomputes: s.view_recomputes,
+      patch_attempts: s.patch_attempts,
+      skipped_patches: s.skipped_patches,
+    })
+  }
+  for root in self.detached {
+    let s = root.watched.stats
+    result.push({
+      label: root.watched.label,
+      view_recomputes: s.view_recomputes,
+      patch_attempts: s.patch_attempts,
+      skipped_patches: s.skipped_patches,
+    })
+  }
+  result
 }
 #cfg(target="js")
 fn[Msg : Eq] BrowserRenderer::schedule_flush(
@@ -1556,11 +1565,16 @@ pub fn[Msg] BrowserRenderer::destroy(
   }
   root.detach()
   self.remove_root(root)
+  // Remove this root's entry from the recompute fan-out map.
+  // physical_equal on the RenderStats identifies this mount's entry.
+  let root_stats = root.watched.stats
+  self.view_id_to_label.val = self.view_id_to_label.val.filter(
+    fn(pair) { !physical_equal(pair.2, root_stats) },
+  )
   let view_id = root.view_id()
   if !self.references_program(view_id) {
     root.dispose_program()
     self.view_ids.val = self.view_ids.val.filter(id => id != view_id)
-    self.view_id_to_label.val = self.view_id_to_label.val.filter(pair => pair.0 != view_id)
   }
 }
 
