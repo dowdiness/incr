@@ -33,7 +33,7 @@ Correctness issues tracked on GitHub. Unchecked items are open.
 - [x] Convert recursive `maybe_changed_after` to iterative with explicit stack (prevents stack overflow on deep graphs)
 - [x] Diff old vs. new dependency lists in `Memo::force_recompute` instead of full replacement
 - [x] Explore push-pull hybrid invalidation (requires subscriber/reverse links) — implemented as `HybridMemo`
-- [ ] `memo_restore_on_abort` (cells/accumulator.mbt): replace O(n²) linear scan of `prev_contributions` during `touched` iteration with a HashSet lookup. **Validated 2026-04-26** ([bench](performance/2026-04-26-memo-restore-on-abort-bench.md), `cells/accumulator_restore_bench_wbtest.mbt`): N=5 → 0.28 µs, N=20 → 1.31 µs, N=100 → 12.51 µs (worst case, prev/touched disjoint). Quadratic scaling confirmed but constants small enough that linear setup dominates at N ≤ 20. Realistic drivers (lambda type-checker) use 1–2 accs per memo — not actionable. Reopen if a driver hits 50+ accs/memo with frequent aborts.
+- [ ] **`AccumulatorCommitHook::after_abort`** (cells/accumulator_commit_hook.mbt, formerly `memo_restore_on_abort` in cells/accumulator.mbt): replace O(n²) linear scan of `prev_contributions` during `touched` iteration with a HashSet lookup. **Validated 2026-04-26** ([bench](performance/2026-04-26-memo-restore-on-abort-bench.md), `cells/accumulator_restore_bench_wbtest.mbt`): N=5 → 0.28 µs, N=20 → 1.31 µs, N=100 → 12.51 µs (worst case, prev/touched disjoint). Quadratic scaling confirmed but constants small enough that linear setup dominates at N ≤ 20. Realistic drivers (lambda type-checker) use 1–2 accs per memo — not actionable. Reopen if a driver hits 50+ accs/memo with frequent aborts.
 
 ### Investigation queue
 

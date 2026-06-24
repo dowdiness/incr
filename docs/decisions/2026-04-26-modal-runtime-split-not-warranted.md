@@ -16,7 +16,7 @@ Per the rule "if both premises refute, write a short ADR recording the measureme
 
 ## Premise 1 — measurement (refuted)
 
-A microbench was added at `incr/tests/bench_test.mbt:8` measuring `Runtime::new()` in isolation, on wasm-gc --release.
+A microbench was added at `incr/tests/bench_test.mbt` measuring `Runtime::new()` in isolation, on wasm-gc --release (since removed; the data is preserved below).
 
 | Operation | Mean cost |
 |---|---|
@@ -119,6 +119,6 @@ Salsa + ripple **validate the unified-Runtime choice** for the modes they share.
 
 ## Verification
 
-- `Runtime::new()` measurement: confirmed against `incr/tests/bench_test.mbt:8` on wasm-gc --release.
+- `Runtime::new()` measurement: confirmed against `incr/tests/bench_test.mbt` (microbench since removed; data preserved in this ADR) on wasm-gc --release.
 - Comparison libraries surveyed: salsa-rs/salsa, mizchi/ripple, mizchi/signals.mbt, stackblitz/alien-signals, vuejs/core PR #12349, milomg.dev Reactively writeup, preactjs.com signal-boosting writeup.
 - No existing ADR or written spec proposed per-mode Runtime separation prior to this investigation; the question lived only in rolling memory.

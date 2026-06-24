@@ -143,7 +143,7 @@ Run in this order; do not push until each passes:
 
 ### Known deprecation warnings (status)
 
-The MoonBit v0.9.2 (2026-05-13) release introduced several deprecations. Status of the migration in this repository:
+The MoonBit v0.10.0 (2026-06-09) release introduced several deprecations. Status of the migration in this repository:
 
 - **`@hashmap.new()` / `@hashset.new()` / `@priority_queue.new()` / `Ref::new(x)`.** Migrated to `HashMap([])` / `HashSet([])` / `PriorityQueue([])` / `Ref(x)`.
 - **`Show`-on-container snapshots.** Migrated: test sites that pass `Option`, `Array`, `Map`, or other container values to `inspect` were switched to `debug_inspect` (which uses `Debug`, not the deprecated `Show` impl). Snapshots regenerated via `moon test --update`.

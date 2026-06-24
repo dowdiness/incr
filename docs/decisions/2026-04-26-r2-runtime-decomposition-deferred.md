@@ -23,6 +23,9 @@ Measurements taken against `main @ be86ed5` immediately after the R1 closer merg
 | Coordinator-primitive methods (≥10 lines) | several with full algorithm bodies | **5**: `propagate_changes`, `publish_cell_changes`, `add_subscriber`, `remove_subscriber`, `check_accumulator_cache_invariant` — all 11–13 lines, all 1-line delegators wrapped in argument-shuffling |
 | Algorithm bodies | inline | **0** — all in `incr/cells/internal/kernel/*.mbt` |
 
+
+Current (2026-06-24): `incr/cells/runtime.mbt` is 782 LOC, up from the 427 post-R1 count. The 17 new methods are additional facade delegators and the `EventBroadcastPhaseHook` integration; no algorithm body has been added to Runtime. The R2 judgment (decomposition not warranted) remains valid.
+
 `Runtime` is no longer a god-object. It is a Salsa-style facade holding handles to `RuntimeCore` + per-engine state, plus a thin dispatch layer. The "R2" framing was inherited from when `runtime.mbt` was 877 LOC and held algorithm bodies. That premise is gone.
 
 ## What R2-as-decomposition would actually do today

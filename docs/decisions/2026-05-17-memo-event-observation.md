@@ -21,7 +21,7 @@
 
 - §"Public API" — variant shape: switch from labelled-positional enum constructors to **struct-per-variant** (`MemoEnteringEvent` / `MemoCompletedEvent` / `MemoAbortedEvent` carried by enum variants). Forward-compatible field additions don't break driver match exhaustiveness. The semantic content table is updated to match.
 - §"Public API" — error payload: change `Aborted.error` from `String` to `Error`. Three reasons: (1) `Error` is already in incr's public surface via `Runtime::batch_result -> Result[Unit, Error]`; the enum doesn't grow the public footprint. (2) Drivers get the typed value for pattern-matched error handling; stringification moves to the listener side. (3) Avoids running `to_string` in commit-path context. MoonBit's `Error::to_string` is the `%error.to_string` primitive (not arbitrary user-`Show` dispatch), so the original concern was overstated — but deferring to the listener still side-steps it entirely with no cost.
-- §"Public API" — revision payload: split into `started_revision : Revision` on **all** terminal events (captured in `before_recompute`, stored with the timer, reused on the matched Completed/Aborted), plus `verified_at : Revision` and `changed_at : Revision` on `Completed`. Reasoning: (1) `rt.cell_info(id)` does NOT expose `current_revision` (verified against `incr/cells/introspection.mbt:15` — only `changed_at` / `verified_at` are surfaced); the prior "available from cell_info anyway" claim was wrong and is removed. (2) `EnteringCompute.revision == Completed.revision` is NOT structurally guaranteed — `Signal::set_unconditional` advances revision via propagation (`incr/cells/input.mbt:222`) and is not currently guarded against an active tracking stack, so revision *can* advance during a compute closure. Capturing once at hook entry and threading it through is the only honest way to keep events bracketed. **Transaction grouping** (driver wanting "events from one batch") is explicitly NOT exposed via these fields — deferred to a future ADR for `BatchStart`/`BatchEnd` variants or batched delivery, when a driver names the need.
+- §"Public API" — revision payload: split into `started_revision : Revision` on **all** terminal events (captured in `before_recompute`, stored with the timer, reused on the matched Completed/Aborted), plus `verified_at : Revision` and `changed_at : Revision` on `Completed`. Reasoning: (1) `rt.cell_info(id)` does NOT expose `current_revision` (verified against `incr/cells/introspection.mbt:86` — only `changed_at` / `verified_at` are surfaced); the prior "available from cell_info anyway" claim was wrong and is removed. (2) `EnteringCompute.revision == Completed.revision` is NOT structurally guaranteed — `Signal::set_unconditional` advances revision via propagation (`incr/cells/input.mbt:229`) and is not currently guarded against an active tracking stack, so revision can advance mid-recompute.
 - §"Internal implementation" — clock source: `moonbitlang/core/bench.monotonic_clock_start / monotonic_clock_end` (added to `incr/cells/moon.pkg` main import block; currently test/wbtest only). Wrap with private `capture_now() -> @bench.Timestamp` / `elapsed_ns_from(ts) -> Int64` to localize the awkward name. **No public clock-injection API** (`Runtime::new(clock~ : () -> Int64)` was considered and rejected — running user code on the commit path violates T1b's hook contract for the same reason inline listener dispatch does).
 - §"Internal implementation" — `elapsed_ns` field documented as **best-effort monotonic elapsed nanoseconds; backend-resolution dependent**. Underlying clocks vary by target (native: timespec, exposed as µs precision; wasm: secs-f64 → µs; JS: `performance.now()` → µs). The `Int64` ns type is for consumer convenience, not a precision promise.
 - §"Internal implementation" — **listener-mutation guard**: `Runtime::on_memo_event` and `Runtime::clear_memo_event_listener` `raise Failure` unless a **composite "no operation in flight" predicate** holds:
@@ -36,7 +36,7 @@
 
   Three earlier attempts at the boundary were insufficient and rejected:
   - `tracking.stack.is_empty()` alone (too narrow): post-propagation on_change callbacks run with empty stack but buffered events.
-  - `phase == Idle` alone (still too narrow per third-pass Codex review): `PropagationPhase` is `Idle | PushPropagating | InFixpoint | GarbageCollecting` (verified at `incr/cells/internal/kernel/state.mbt:54`). Memo compute, `commit_batch` post-propagation, `commit_batch`'s on_change firing, and post-`run_fixpoint` publish all run with `phase == Idle` — the guard would fail open.
+  - `phase == Idle` alone (still too narrow per third-pass Codex review): `PropagationPhase` is `Idle | PushPropagating | InFixpoint | GarbageCollecting` (verified at `incr/cells/internal/kernel/state.mbt:70`). Memo compute, `commit_batch` post-propagation, `commit_batch`'s on_change firing, and post-`run_fixpoint` publish all run with `phase == Idle` — the guard would fail open.
   - Combining `phase` and `tracking.stack` (still misses on_change windows).
 
   The composite predicate above covers all cases. The `pending.is_empty()` term is the key generalization: if events are buffered, an operation is in flight by definition, and listener mutation must wait. The `!draining` term forbids listener mutation from inside a listener callback itself (which would otherwise be the one user-code window where the predicate could simultaneously look idle yet have side effects). Mirrors the accumulator API's "called outside tracked context" defect class.
@@ -75,7 +75,7 @@ Same callback shape powers a CLI profiler (`top`-style rate of recomputes per me
 ## Public API
 
 ```moonbit
-// incr/cells/memo_event.mbt (placement firmed up 2026-05-19)
+// incr/cells/derived_event.mbt (placement firmed up 2026-05-19)
 
 pub(all) struct MemoEnteringEvent {
   cell_id : CellId
@@ -140,7 +140,7 @@ The *semantic content* is fixed at commissioning (post 2026-05-19 resolution):
 | `Completed` | `cell_id`, `elapsed_ns`, `started_revision`, `verified_at`, `changed_at`, `backdated` |
 | `Aborted` | `cell_id`, `elapsed_ns`, `started_revision`, `error : Error` |
 
-`started_revision` is captured in `before_recompute` and reused on the matched terminal event — drain-time `rt.core.revision.current_revision` is unreliable because listener-triggered `Signal::set` can advance revision between the buffered event and delivery, and `Signal::set_unconditional` (`incr/cells/input.mbt:222`) is not currently guarded against an active tracking stack so revision can advance mid-recompute. `verified_at` and `changed_at` are read off `MemoData` after the cell-level epilogue settles them; `backdated = changed_at < verified_at` is kept as a convenience derivation (driver code is cleaner with the bool). Note: `rt.cell_info(id)` exposes `changed_at` and `verified_at` (`incr/cells/introspection.mbt:15`) but **not** runtime-wide `current_revision` — driver-side reconstruction of `started_revision` without it on the event payload is impossible. Transaction grouping (driver use case for "events from one batch") is **not** exposed via these fields — deferred to a future ADR for `BatchStart`/`BatchEnd` variants or batched delivery, when a driver names the need.
+`started_revision` is captured in `before_recompute` and reused on the matched terminal event — drain-time `rt.core.revision.current_revision` is unreliable because listener-triggered `Signal::set` can advance revision between the buffered event and delivery, and `Signal::set_unconditional` (`incr/cells/input.mbt:229`) is not currently guarded against an active tracking stack so revision can advance mid-recompute. `verified_at` and `changed_at` are read off `MemoData` after the cell-level epilogue settles them; `backdated = changed_at < verified_at` is kept as a convenience derivation (driver code is cleaner with the bool). Note: `rt.cell_info(id)` exposes `changed_at` and `verified_at` (`incr/cells/introspection.mbt:86`) but **not** runtime-wide `current_re…
 
 ## Internal implementation
 
@@ -250,7 +250,7 @@ The hook is **always registered** at `Runtime::new`. `Runtime::on_memo_event` fl
 
 ### Listener mutation guard
 
-`on_memo_event` and `clear_memo_event_listener` `raise Failure` unless the runtime is genuinely between operations. "Genuinely between operations" is a composite predicate, not a single field check — `PropagationPhase` alone is insufficient because the runtime never enters a phase for top-level memo compute, batch-commit, or post-propagation on_change callback firing (`PropagationPhase` is `Idle | PushPropagating | InFixpoint | GarbageCollecting` per `incr/cells/internal/kernel/state.mbt:54`).
+`on_memo_event` and `clear_memo_event_listener` `raise Failure` unless the runtime is genuinely between operations. "Genuinely between operations" is a composite predicate, not a single field check — `PropagationPhase` alone is insufficient because the runtime never enters a phase for top-level memo compute, batch-commit, or post-propagation on_change callback firing (`PropagationPhase` is `Idle | PushPropagating | InFixpoint | GarbageCollecting` per `incr/cells/internal/kernel/state.mbt:70`).
 
 Concretely:
 
@@ -415,7 +415,7 @@ Verification: all existing tests green; bench gate ±2% on commit-path benches w
 
 ### Phase 2 — Public API
 
-- Add `incr/cells/memo_event.mbt` with `pub(all) struct MemoEnteringEvent`, `pub(all) struct MemoCompletedEvent`, `pub(all) struct MemoAbortedEvent` (per §"Public API" code block), and `pub(all) enum MemoEvent` wrapping them.
+- Add `incr/cells/derived_event.mbt` with `pub(all) struct MemoEnteringEvent`, `pub(all) struct MemoCompletedEvent`, `pub(all) struct MemoAbortedEvent` (per §"Public API" code block), `pub(all) enum MemoEvent`, `EventBroadcastPhaseHook`, `RecomputeStart`, and the private `capture_now()`/`elapsed_ns_from(ts)` wrappers
 - **Do not** apply `derive(Debug)` on the event structs or wrapping enum. MoonBit's `@debug.Debug` deriver does not recognize the `Error` supertype, so deriving would either fail to compile or produce unhelpful fall-through output. Drivers stringify on demand via `e.error.to_string()` (the `%error.to_string` primitive — safe to call, non-fallible). A manual `Show` impl that formats fields explicitly is an option only if a driver later names default log-rendering as a need.
 - Add `pub fn Runtime::on_memo_event(...) -> Unit raise Failure` and `pub fn Runtime::clear_memo_event_listener(...) -> Unit raise Failure`. Both `fail()` unless the composite predicate `is_listener_mutation_safe()` holds (see §"Listener mutation guard"). Wire to `EventBroadcastPhaseHook.listener`.
 - Add the new accessors to `.mbti` via `moon info`.
@@ -492,7 +492,7 @@ Verification: `moon info && moon fmt` produces only the expected `.mbti` additio
 
 **In scope of this ADR's PR (post T1b merge, single PR):**
 - T1b ADR signature amendment: extend `MemoCommitPhase::after_abort` with `Error` parameter (Phase 0)
-- `pub(all) struct MemoEnteringEvent` / `MemoCompletedEvent` / `MemoAbortedEvent` + wrapping `pub(all) enum MemoEvent` (`incr/cells/memo_event.mbt`)
+- `pub(all) struct MemoEnteringEvent` / `MemoCompletedEvent` / `MemoAbortedEvent` + wrapping `pub(all) enum MemoEvent` (`incr/cells/derived_event.mbt`)
 - `Runtime::on_memo_event` / `Runtime::clear_memo_event_listener` public API, both `raise Failure` unless `is_listener_mutation_safe()` (composite predicate: phase Idle, callback depth 0, tracking stack empty, batch depth 0, pending empty, not draining)
 - `EventBroadcastPhaseHook` internal impl (`incr/cells/event_broadcast_hook.mbt`), `priv` and `incr/cells/`-resident per the engine-isolation rule
 - `moonbitlang/core/bench` added to `incr/cells/moon.pkg`'s main import block for the monotonic clock; private `capture_now()` / `elapsed_ns_from(ts)` wrappers
