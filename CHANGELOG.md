@@ -11,9 +11,7 @@
 - `incr_tea` semantic editor demo
 
 ### Changed
-- **`batch_result` runtime on-change and derived-event hooks are now composable** (breaking)
-  - The `batch_result` registration signature changed — old single-hook callers must migrate to the composable form
-
+- Runtime on-change and derived-event hooks are now composable via `add_on_change_listener` / `add_derived_event_listener` (backward-compatible — existing `set_on_change` / `on_derived_event` remain available)
 ### Performance
 - Optimize `incr_tea` keyed diff planner
 - Compare adjacent UI view builds
