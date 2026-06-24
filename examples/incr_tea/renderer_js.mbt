@@ -1276,11 +1276,25 @@ pub fn[Msg] BrowserRenderer::stats(self : BrowserRenderer[Msg]) -> RenderStats {
 
 ///|
 #cfg(target="js")
+
 pub fn[Msg : Eq] BrowserRenderer::mount(
   self : BrowserRenderer[Msg],
   host : DomElement,
   program : Program[Msg, Html[Msg]],
   label? : String = "",
+  on_input? : (TextInputId, TextInputPayload) -> Msg? = (_, _) => None,
+  on_key? : (KeyEventId, KeyPayload) -> Msg? = (_, _) => None,
+  on_pointer? : (PointerEventId, PointerPayload) -> Msg? = (_, _) => None,
+  on_key_event? : (KeyEventId, KeyPayload) -> KeyEventDispatch[Msg]? = (_, _) => {
+    None
+  },
+) -> BrowserRoot[Msg] {
+  guard !self.disposed else {
+    abort("BrowserRenderer::mount called after dispose")
+  }
+  guard program.runtime().id() == self.runtime.id() else {
+    abort("BrowserRenderer::mount called with a Program from another Runtime")
+  }
   let view_id = program.view_id()
   program.add_after_flush_scheduler(() => self.schedule_flush())
   // One instrumentation id per Program, even if it backs several mounted roots.
@@ -1288,7 +1302,6 @@ pub fn[Msg : Eq] BrowserRenderer::mount(
     self.view_ids.val.push(view_id)
   }
   // Register per-root stats for recompute counting — one entry per mount.
-  // patch/skip counters remain on shared self.stats (see #295).
   self.view_id_to_label.val.push((view_id, label, RenderStats::RenderStats()))
   let root = BrowserRoot::BrowserRoot(
     program,
@@ -1305,21 +1318,9 @@ pub fn[Msg : Eq] BrowserRenderer::mount(
   root.drain_after_flush()
   (self.after_flush)(self.stats())
   root
-    program,
-    host,
-    root_stats,
-    label~,
-    resolve_text=on_input,
-    resolve_key=on_key,
-    resolve_pointer=on_pointer,
-    resolve_key_event=on_key_event,
-  )
-  self.roots.push(root)
-  root.flush()
-  root.drain_after_flush()
-  (self.after_flush)(self.stats())
-  root
 }
+
+
 
 
 
