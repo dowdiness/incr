@@ -1271,12 +1271,34 @@ pub fn[Msg : Eq] BrowserRenderer::BrowserRenderer(
 ///|
 #cfg(target="js")
 pub fn[Msg] BrowserRenderer::stats(self : BrowserRenderer[Msg]) -> RenderStats {
-  self.stats
+  // Build a fresh copy: MoonBit aliases mutable struct fields when assigned
+  // (`let total = self.stats` would alias, corrupting renderer state on
+  // repeated calls), and `stats()` is called during mount and after every
+  // flush cycle. Copy aggregate-only fields from self.stats, then sum per-root
+  // patch/skip/inactive counters from all live and detached roots.
+  let total = RenderStats::RenderStats()
+  total.view_recomputes = self.stats.view_recomputes
+  total.frame_flushes = self.stats.frame_flushes
+  total.activation_flushes = self.stats.activation_flushes
+  for root in self.roots {
+    let s = root.watched.stats
+    total.patch_attempts = total.patch_attempts + s.patch_attempts
+    total.skipped_patches = total.skipped_patches + s.skipped_patches
+    total.inactive_skipped_flushes = total.inactive_skipped_flushes +
+      s.inactive_skipped_flushes
+  }
+  for root in self.detached {
+    let s = root.watched.stats
+    total.patch_attempts = total.patch_attempts + s.patch_attempts
+    total.skipped_patches = total.skipped_patches + s.skipped_patches
+    total.inactive_skipped_flushes = total.inactive_skipped_flushes +
+      s.inactive_skipped_flushes
+  }
+  total
 }
 
 ///|
 #cfg(target="js")
-
 pub fn[Msg : Eq] BrowserRenderer::mount(
   self : BrowserRenderer[Msg],
   host : DomElement,
@@ -1302,11 +1324,12 @@ pub fn[Msg : Eq] BrowserRenderer::mount(
     self.view_ids.val.push(view_id)
   }
   // Register per-root stats for recompute counting — one entry per mount.
-  self.view_id_to_label.val.push((view_id, label, RenderStats::RenderStats()))
+  let root_stats = RenderStats::RenderStats()
+  self.view_id_to_label.val.push((view_id, label, root_stats))
   let root = BrowserRoot::BrowserRoot(
     program,
     host,
-    self.stats,
+    root_stats,
     label~,
     resolve_text=on_input,
     resolve_key=on_key,
@@ -1320,12 +1343,11 @@ pub fn[Msg : Eq] BrowserRenderer::mount(
   root
 }
 
-
-
-
-
-///| Per-root labeled stats for locality validation.
-pub fn[Msg] BrowserRenderer::root_stats(self : BrowserRenderer[Msg]) -> Array[RootStats] {
+///|
+/// Per-root labeled stats for locality validation.
+pub fn[Msg] BrowserRenderer::root_stats(
+  self : BrowserRenderer[Msg],
+) -> Array[RootStats] {
   let result : Array[RootStats] = []
   for root in self.roots {
     let s = root.watched.stats
@@ -1347,6 +1369,8 @@ pub fn[Msg] BrowserRenderer::root_stats(self : BrowserRenderer[Msg]) -> Array[Ro
   }
   result
 }
+
+///|
 #cfg(target="js")
 fn[Msg : Eq] BrowserRenderer::schedule_flush(
   self : BrowserRenderer[Msg],
@@ -1569,9 +1593,9 @@ pub fn[Msg] BrowserRenderer::destroy(
   // Remove this root's entry from the recompute fan-out map.
   // physical_equal on the RenderStats identifies this mount's entry.
   let root_stats = root.watched.stats
-  self.view_id_to_label.val = self.view_id_to_label.val.filter(
-    fn(pair) { !physical_equal(pair.2, root_stats) },
-  )
+  self.view_id_to_label.val = self.view_id_to_label.val.filter(fn(pair) {
+    !physical_equal(pair.2, root_stats)
+  })
   let view_id = root.view_id()
   if !self.references_program(view_id) {
     root.dispose_program()
