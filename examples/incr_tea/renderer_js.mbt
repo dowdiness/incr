@@ -1564,6 +1564,7 @@ pub fn[Msg] BrowserRenderer::destroy(
   if !self.references_program(view_id) {
     root.dispose_program()
     self.view_ids.val = self.view_ids.val.filter(id => id != view_id)
+    self.view_id_to_label.val = self.view_id_to_label.val.filter(fn(pair) { pair.0 != view_id })
   }
 }
 
@@ -1600,4 +1601,6 @@ pub fn[Msg] BrowserRenderer::dispose(self : BrowserRenderer[Msg]) -> Unit {
   for root in parked {
     root.destroy()
   }
+  self.view_ids.val = []
+  self.view_id_to_label.val = []
 }
