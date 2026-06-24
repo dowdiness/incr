@@ -80,7 +80,7 @@ batch can leave batch state corrupted if it hits a cycle. Safer pattern: call a
 `Result`-returning read such as `read()`, then raise the returned error so the
 batch rollback path can run.
 
-### `Runtime::batch_result(self, f: () -> Unit raise?) -> Result[Unit, Error]`
+### `Runtime::batch_result(self, f: () -> Unit raise) -> Result[Unit, Error]`
 
 Executes a batch and returns raised errors as `Result` instead of re-raising.
 Like `Runtime::batch`, this handles raised errors only; `abort()` still escapes, is not converted to `Err`, and leaves the runtime in the same inconsistent state described above.
@@ -1264,7 +1264,7 @@ This is the Database helper form of `rt.batch(...)`.
 The checked companion covers the Database helper form of `batch` in
 [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
-### `batch_result[Db : Database](db: Db, f: () -> Unit raise?) -> Result[Unit, Error]`
+### `batch_result[Db : Database](db: Db, f: () -> Unit raise) -> Result[Unit, Error]`
 
 Runs a batch using `db.runtime()` and returns raised errors as `Result`.
 This is the Database helper form of `rt.batch_result(...)`.
