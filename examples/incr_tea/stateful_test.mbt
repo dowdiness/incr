@@ -117,7 +117,6 @@ test "stateful: with empty subscriptions routes to with_subscriptions correctly"
 priv enum CMsg {
   CInc
   CIncTwice
-  CReset
 } derive(Eq)
 
 ///|
@@ -125,7 +124,6 @@ fn c_update(msg : CMsg, model : SModel) -> (SModel, @incr_tea.Cmd[CMsg]) {
   match msg {
     CInc => ({ count: model.count + 1 }, @incr_tea.Cmd::none())
     CIncTwice => ({ count: model.count + 1 }, @incr_tea.Cmd::message(CInc))
-    CReset => ({ count: 0 }, @incr_tea.Cmd::none())
   }
 }
 

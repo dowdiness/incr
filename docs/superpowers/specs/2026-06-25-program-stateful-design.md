@@ -26,8 +26,8 @@ pub fn[Msg : Eq, Model, View : Eq] Program::stateful(
   runtime : @incr.Runtime,
   initial : Model,
   update : (Msg, Model) -> Model,
-  view : (Model) -> View raise?,
-  subscriptions? : (Model) -> Subscriptions[Msg] raise?,
+  view : (Model) -> View,
+  subscriptions? : (Model) -> Subscriptions[Msg],
   label? : String,
 ) -> Program[Msg, View]
 
@@ -36,17 +36,17 @@ pub fn[Msg : Eq, Model, View : Eq] Program::stateful_cmd(
   runtime : @incr.Runtime,
   initial : Model,
   update : (Msg, Model) -> (Model, Cmd[Msg]),
-  view : (Model) -> View raise?,
-  subscriptions? : (Model) -> Subscriptions[Msg] raise?,
+  view : (Model) -> View,
+  subscriptions? : (Model) -> Subscriptions[Msg],
   label? : String,
 ) -> Program[Msg, View]
 ```
 
-Error polymorphism (`raise?`) on `view` and `subscriptions` lets callers pass
-either noraise or `raise Failure` functions without boilerplate. Any errors
-raised during view/subscription evaluation are captured by the `Derived` cell
-and surface as aborts via `read_or_abort` — they are defects, not recoverable
-failures.
+`view` and `subscriptions` take non-raising functions; internal adapter closures
+(`view_fn`, `subs_closure`) carry `raise Failure` for `Scope::derived`. MoonBit
+accepts non-raising functions where `raise Failure` is expected, so callers need
+no annotation. Any errors raised inside adapters surface as aborts via
+`read_or_abort` — they are defects, not recoverable failures.
 
 ## Internal Wiring
 
