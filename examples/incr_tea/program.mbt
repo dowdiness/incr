@@ -252,3 +252,99 @@ pub fn[Msg, View] Program::dispose(self : Program[Msg, View]) -> Unit {
   }
   self.scope.dispose()
 }
+
+///|
+/// Convenience constructor that hides the version-cell boilerplate for
+/// mutable-model apps.
+///
+/// Creates its own `Scope`, a `Ref[Model]`, and an `InputField[Int]` version
+/// cell internally. The user supplies pure `update` and `view` functions that
+/// take the model directly. The version bump and tracked read are wired
+/// automatically.
+///
+/// `view` and `subscriptions` must be non-raising. For components that need a
+/// `raise Failure` view, use `Program::Program` directly.
+pub fn[Msg : Eq, Model, View : Eq] Program::stateful(
+  runtime : @incr.Runtime,
+  initial : Model,
+  update : (Msg, Model) -> Model,
+  view : (Model) -> View,
+  subscriptions? : (Model) -> Subscriptions[Msg],
+  label? : String,
+) -> Program[Msg, View] {
+  let scope = @incr.Scope::new(runtime)
+  let state : Ref[Model] = Ref(initial)
+  let version = scope.input_field(0, label?=label.map(fn(l) { l + ".version" }))
+  let update_fn : (Msg) -> Cmd[Msg] = msg => {
+    state.val = update(msg, state.val)
+    version.set(version.peek() + 1)
+    Cmd::none()
+  }
+  let view_fn : () -> View raise Failure = () => {
+    ignore(version.get())
+    view(state.val)
+  }
+  match subscriptions {
+    None => Program::Program(runtime, scope, update_fn, view_fn, label?)
+    Some(subs_fn) => {
+      let subs : () -> Subscriptions[Msg] raise Failure = () => {
+        ignore(version.get())
+        subs_fn(state.val)
+      }
+      Program::with_subscriptions(
+        runtime,
+        scope,
+        update_fn,
+        view_fn,
+        subs,
+        label?,
+      )
+    }
+  }
+}
+
+///|
+/// Convenience constructor like `Program::stateful` but with full Cmd support.
+///
+/// The `update` function returns `(Model, Cmd[Msg])` — use `Cmd::none()` for
+/// updates that need no follow-up effects. Same non-raising constraint on
+/// `view` and `subscriptions` as `Program::stateful`.
+pub fn[Msg : Eq, Model, View : Eq] Program::stateful_cmd(
+  runtime : @incr.Runtime,
+  initial : Model,
+  update : (Msg, Model) -> (Model, Cmd[Msg]),
+  view : (Model) -> View,
+  subscriptions? : (Model) -> Subscriptions[Msg],
+  label? : String,
+) -> Program[Msg, View] {
+  let scope = @incr.Scope::new(runtime)
+  let state : Ref[Model] = Ref(initial)
+  let version = scope.input_field(0, label?=label.map(fn(l) { l + ".version" }))
+  let update_fn : (Msg) -> Cmd[Msg] = msg => {
+    let (new_model, cmd) = update(msg, state.val)
+    state.val = new_model
+    version.set(version.peek() + 1)
+    cmd
+  }
+  let view_fn : () -> View raise Failure = () => {
+    ignore(version.get())
+    view(state.val)
+  }
+  match subscriptions {
+    None => Program::Program(runtime, scope, update_fn, view_fn, label?)
+    Some(subs_fn) => {
+      let subs : () -> Subscriptions[Msg] raise Failure = () => {
+        ignore(version.get())
+        subs_fn(state.val)
+      }
+      Program::with_subscriptions(
+        runtime,
+        scope,
+        update_fn,
+        view_fn,
+        subs,
+        label?,
+      )
+    }
+  }
+}

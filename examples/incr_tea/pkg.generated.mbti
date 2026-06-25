@@ -229,6 +229,8 @@ pub fn[Msg, View] Program::is_disposed(Self[Msg, View]) -> Bool
 pub fn[Msg, View] Program::read_view(Self[Msg, View]) -> View?
 pub fn[Msg, View] Program::read_view_or_abort(Self[Msg, View]) -> View
 pub fn[Msg, View] Program::runtime(Self[Msg, View]) -> @cells.Runtime
+pub fn[Msg : Eq, Model, View : Eq] Program::stateful(@cells.Runtime, Model, (Msg, Model) -> Model, (Model) -> View, subscriptions? : (Model) -> @hashmap.HashMap[SubKey, SubSpec[Msg]], label? : String) -> Self[Msg, View]
+pub fn[Msg : Eq, Model, View : Eq] Program::stateful_cmd(@cells.Runtime, Model, (Msg, Model) -> (Model, Cmd[Msg]), (Model) -> View, subscriptions? : (Model) -> @hashmap.HashMap[SubKey, SubSpec[Msg]], label? : String) -> Self[Msg, View]
 pub fn[Msg : Eq, View : Eq] Program::with_subscriptions(@cells.Runtime, @cells.Scope, (Msg) -> Cmd[Msg], () -> View raise Failure, () -> @hashmap.HashMap[SubKey, SubSpec[Msg]] raise Failure, label? : String) -> Self[Msg, View]
 
 pub struct RenderStats {

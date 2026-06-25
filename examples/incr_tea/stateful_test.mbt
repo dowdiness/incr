@@ -1,0 +1,200 @@
+///|
+priv struct SModel {
+  count : Int
+} derive(Eq, Debug)
+
+///|
+priv enum SMsg {
+  Inc
+  Dec
+  Reset
+} derive(Eq)
+
+///|
+fn s_update(msg : SMsg, model : SModel) -> SModel {
+  match msg {
+    Inc => { count: model.count + 1 }
+    Dec => { count: model.count - 1 }
+    Reset => { count: 0 }
+  }
+}
+
+///|
+fn s_view(model : SModel) -> Int {
+  model.count
+}
+
+///|
+test "stateful: initial view reflects initial model" {
+  let runtime = @incr.Runtime()
+  let program = @incr_tea.Program::stateful(
+    runtime,
+    { count: 0 },
+    s_update,
+    s_view,
+  )
+  inspect(program.read_view_or_abort(), content="0")
+  program.dispose()
+}
+
+///|
+test "stateful: dispatch updates view" {
+  let runtime = @incr.Runtime()
+  let program = @incr_tea.Program::stateful(
+    runtime,
+    { count: 0 },
+    s_update,
+    s_view,
+  )
+  ignore(program.dispatch(Inc))
+  inspect(program.read_view_or_abort(), content="1")
+  program.dispose()
+}
+
+///|
+test "stateful: multiple dispatches accumulate correctly" {
+  let runtime = @incr.Runtime()
+  let program = @incr_tea.Program::stateful(
+    runtime,
+    { count: 0 },
+    s_update,
+    s_view,
+  )
+  ignore(program.dispatch(Inc))
+  ignore(program.dispatch(Inc))
+  ignore(program.dispatch(Dec))
+  inspect(program.read_view_or_abort(), content="1")
+  program.dispose()
+}
+
+///|
+test "stateful: disposal makes dispatch return false and view return None" {
+  let runtime = @incr.Runtime()
+  let program = @incr_tea.Program::stateful(
+    runtime,
+    { count: 0 },
+    s_update,
+    s_view,
+  )
+  program.dispose()
+  inspect(program.is_disposed(), content="true")
+  inspect(program.dispatch(Inc), content="false")
+  debug_inspect(program.read_view(), content="None")
+}
+
+///|
+test "stateful: gc after mount preserves watched view" {
+  let runtime = @incr.Runtime()
+  let program = @incr_tea.Program::stateful(
+    runtime,
+    { count: 0 },
+    s_update,
+    s_view,
+  )
+  runtime.gc()
+  ignore(program.dispatch(Inc))
+  inspect(program.read_view_or_abort(), content="1")
+  program.dispose()
+}
+
+///|
+test "stateful: with empty subscriptions routes to with_subscriptions correctly" {
+  let runtime = @incr.Runtime()
+  let program : @incr_tea.Program[SMsg, Int] = @incr_tea.Program::stateful(
+    runtime,
+    { count: 0 },
+    s_update,
+    s_view,
+    subscriptions=fn(_model) { @hashmap.HashMap([]) },
+  )
+  ignore(program.dispatch(Inc))
+  inspect(program.read_view_or_abort(), content="1")
+  program.dispose()
+}
+
+///|
+/// Messages for the stateful_cmd tests — IncTwice chains a follow-up Inc.
+priv enum CMsg {
+  CInc
+  CIncTwice
+} derive(Eq)
+
+///|
+fn c_update(msg : CMsg, model : SModel) -> (SModel, @incr_tea.Cmd[CMsg]) {
+  match msg {
+    CInc => ({ count: model.count + 1 }, @incr_tea.Cmd::none())
+    CIncTwice => ({ count: model.count + 1 }, @incr_tea.Cmd::message(CInc))
+  }
+}
+
+///|
+test "stateful_cmd: initial view reflects initial model" {
+  let runtime = @incr.Runtime()
+  let program = @incr_tea.Program::stateful_cmd(
+    runtime,
+    { count: 0 },
+    c_update,
+    s_view,
+  )
+  inspect(program.read_view_or_abort(), content="0")
+  program.dispose()
+}
+
+///|
+test "stateful_cmd: Cmd::none() update works as plain dispatch" {
+  let runtime = @incr.Runtime()
+  let program = @incr_tea.Program::stateful_cmd(
+    runtime,
+    { count: 0 },
+    c_update,
+    s_view,
+  )
+  ignore(program.dispatch(CInc))
+  inspect(program.read_view_or_abort(), content="1")
+  program.dispose()
+}
+
+///|
+test "stateful_cmd: Cmd::message triggers follow-up dispatch" {
+  let runtime = @incr.Runtime()
+  let program = @incr_tea.Program::stateful_cmd(
+    runtime,
+    { count: 0 },
+    c_update,
+    s_view,
+  )
+  // CIncTwice increments to 1 and queues CInc which increments to 2
+  ignore(program.dispatch(CIncTwice))
+  inspect(program.read_view_or_abort(), content="2")
+  program.dispose()
+}
+
+///|
+test "stateful_cmd: disposal makes dispatch return false" {
+  let runtime = @incr.Runtime()
+  let program = @incr_tea.Program::stateful_cmd(
+    runtime,
+    { count: 0 },
+    c_update,
+    s_view,
+  )
+  program.dispose()
+  inspect(program.is_disposed(), content="true")
+  inspect(program.dispatch(CInc), content="false")
+  debug_inspect(program.read_view(), content="None")
+}
+
+///|
+test "stateful_cmd: gc after mount preserves view" {
+  let runtime = @incr.Runtime()
+  let program = @incr_tea.Program::stateful_cmd(
+    runtime,
+    { count: 0 },
+    c_update,
+    s_view,
+  )
+  runtime.gc()
+  ignore(program.dispatch(CInc))
+  inspect(program.read_view_or_abort(), content="1")
+  program.dispose()
+}
