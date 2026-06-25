@@ -225,6 +225,7 @@ enum KeydownTestMsg {
   EnableKey
   DisableKey
   SwitchToKeyB
+  SwitchToMsgB
   KeepKeyA
   TouchUnrelatedKd
 } derive(Eq, Debug)
@@ -236,15 +237,21 @@ fn keydown_subscription_program(
   let scope = @incr.Scope::new(runtime)
   let running = scope.input_field(false, label="kdtest.running")
   let use_key_b = scope.input_field(false, label="kdtest.use_key_b")
+  let use_msg_b = scope.input_field(false, label="kdtest.use_msg_b")
   let unrelated = scope.input_field(0, label="kdtest.unrelated")
 
   let subscriptions : () -> Subscriptions[KeydownTestMsg] raise Failure = () => {
     let subs = @hashmap.HashMap([])
     if running.get() {
       let key_name = if use_key_b.get() { "b" } else { "a" }
+      let message = if use_msg_b.get() {
+        KeydownTestMsg::TouchUnrelatedKd
+      } else {
+        KeydownTestMsg::KeepKeyA
+      }
       subs.set(
         SubKey::SubKey("kd-test", "keydown"),
-        SubSpec::WindowKeydown(key_name, KeydownTestMsg::KeepKeyA),
+        SubSpec::WindowKeydown(key_name, message),
       )
     }
     subs
@@ -262,6 +269,10 @@ fn keydown_subscription_program(
       }
       SwitchToKeyB => {
         use_key_b.set(true)
+        Cmd::none()
+      }
+      SwitchToMsgB => {
+        use_msg_b.set(true)
         Cmd::none()
       }
       KeepKeyA | TouchUnrelatedKd => {
@@ -336,15 +347,19 @@ test "subscriptions: message-only update does not restart keydown listener" {
   }
 
   inspect(program.dispatch(EnableKey), content="true")
-  let sub_before = match active_keydown(manager, key) {
+  let sub = match active_keydown(manager, key) {
     Some(s) => s
     None => abort("missing keydown after enable")
   }
-  inspect(sub_before.key_name, content="a")
+  inspect(sub.key_name, content="a")
+  let is_keep_a = match sub.message.val { KeepKeyA => true; _ => false }
+  inspect(is_keep_a, content="true")
 
   let id_before = next_keydown_debug_id.val
-  ignore(program.dispatch(KeepKeyA))
+  ignore(program.dispatch(SwitchToMsgB))
   inspect(next_keydown_debug_id.val == id_before, content="true")
+  let is_touch = match sub.message.val { TouchUnrelatedKd => true; _ => false }
+  inspect(is_touch, content="true")
   inspect(manager.active.to_array().length(), content="1")
   program.dispose()
 }
