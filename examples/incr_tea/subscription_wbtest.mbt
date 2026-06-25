@@ -388,3 +388,117 @@ test "subscriptions: key name change restarts keydown listener" {
   inspect(manager.active.to_array().length(), content="1")
   program.dispose()
 }
+
+// ── Type-transition tests (same SubKey switching between sub families) ───────
+
+///|
+enum TransitionTestMsg {
+  Start
+  SwitchToKeydown
+  SwitchToTimer
+} derive(Eq, Debug)
+
+///|
+fn transition_program(
+  runtime : @incr.Runtime,
+) -> Program[TransitionTestMsg, Int] {
+  let scope = @incr.Scope::new(runtime)
+  let running = scope.input_field(false, label="trans.running")
+  let use_keydown = scope.input_field(false, label="trans.use_keydown")
+
+  let subscriptions : () -> Subscriptions[TransitionTestMsg] raise Failure = () => {
+    let subs = @hashmap.HashMap([])
+    if running.get() {
+      let spec = if use_keydown.get() {
+        SubSpec::WindowKeydown("x", SwitchToKeydown)
+      } else {
+        SubSpec::Timer(300, SwitchToTimer)
+      }
+      subs.set(SubKey::SubKey("trans-test", "sub"), spec)
+    }
+    subs
+  }
+
+  let update : (TransitionTestMsg) -> Cmd[TransitionTestMsg] = msg => {
+    match msg {
+      Start => {
+        running.set(true)
+        Cmd::none()
+      }
+      SwitchToKeydown => {
+        use_keydown.set(true)
+        Cmd::none()
+      }
+      SwitchToTimer => {
+        use_keydown.set(false)
+        Cmd::none()
+      }
+    }
+  }
+
+  let view : () -> Int raise Failure = () => if running.get() { 1 } else { 0 }
+
+  Program::with_subscriptions(
+    runtime,
+    scope,
+    update,
+    view,
+    subscriptions,
+    label="trans.view",
+  )
+}
+
+///|
+test "subscriptions: Timer→Keydown transition on same key stops timer and starts listener" {
+  let runtime = @incr.Runtime()
+  let key = SubKey::SubKey("trans-test", "sub")
+  let program = transition_program(runtime)
+  let manager = match program.sub_manager {
+    Some(m) => m
+    None => abort("expected subscription manager")
+  }
+
+  // Start as Timer
+  inspect(program.dispatch(Start), content="true")
+  inspect(has_active_timer(manager, key), content="true")
+  inspect(has_active_keydown(manager, key), content="false")
+  inspect(manager.active.to_array().length(), content="1")
+
+  // Switch same SubKey to Keydown — timer must stop, listener must start
+  let kd_id_before = next_keydown_debug_id.val
+  let timer_id_before = next_timer_debug_id.val
+  inspect(program.dispatch(SwitchToKeydown), content="true")
+  inspect(has_active_timer(manager, key), content="false")
+  inspect(has_active_keydown(manager, key), content="true")
+  inspect(next_keydown_debug_id.val == kd_id_before + 1, content="true")
+  inspect(next_timer_debug_id.val == timer_id_before, content="true")
+  inspect(manager.active.to_array().length(), content="1")
+  program.dispose()
+}
+
+///|
+test "subscriptions: Keydown→Timer transition on same key stops listener and starts timer" {
+  let runtime = @incr.Runtime()
+  let key = SubKey::SubKey("trans-test", "sub")
+  // Boot directly into the keydown state
+  let program = transition_program(runtime)
+  let manager = match program.sub_manager {
+    Some(m) => m
+    None => abort("expected subscription manager")
+  }
+  ignore(program.dispatch(Start))
+  ignore(program.dispatch(SwitchToKeydown))
+  inspect(has_active_keydown(manager, key), content="true")
+  inspect(has_active_timer(manager, key), content="false")
+
+  // Switch back to Timer
+  let kd_id_before = next_keydown_debug_id.val
+  let timer_id_before = next_timer_debug_id.val
+  inspect(program.dispatch(SwitchToTimer), content="true")
+  inspect(has_active_keydown(manager, key), content="false")
+  inspect(has_active_timer(manager, key), content="true")
+  inspect(next_timer_debug_id.val == timer_id_before + 1, content="true")
+  inspect(next_keydown_debug_id.val == kd_id_before, content="true")
+  inspect(manager.active.to_array().length(), content="1")
+  program.dispose()
+}
