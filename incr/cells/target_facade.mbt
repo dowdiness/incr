@@ -211,6 +211,113 @@ pub fn[T, U : Eq] Derived::map_eq(
 }
 
 ///|
+fn[T1, T2] Derived::check_same_runtime(
+  self : Derived[T1],
+  other : Derived[T2],
+  caller : String,
+) -> Unit {
+  let expected = self.inner.id().runtime_id
+  let actual = other.inner.id().runtime_id
+  if actual != expected {
+    abort(
+      caller +
+      ": input belongs to Runtime " +
+      actual.to_string() +
+      ", expected Runtime " +
+      expected.to_string(),
+    )
+  }
+}
+
+///|
+/// Combines two derived values on the same runtime.
+///
+/// The mapped value never backdates, so `U` does not need to implement `Eq`.
+/// Aborts if `other` belongs to a different runtime.
+pub fn[T1, T2, U] Derived::map2(
+  self : Derived[T1],
+  other : Derived[T2],
+  f : (T1, T2) -> U,
+  label? : String,
+) -> Derived[U] {
+  self.check_same_runtime(other, "Derived::map2")
+  {
+    inner: Memo::new_no_backdate(
+      self.inner.rt,
+      () => f(self.get_or_abort(), other.get_or_abort()),
+      label?,
+    ),
+  }
+}
+
+///|
+/// Combines two derived values into another `Eq`-backdated derived value.
+///
+/// Aborts if `other` belongs to a different runtime. When recomputation
+/// produces a mapped value equal to the previous mapped value, the returned
+/// cell preserves its `changed_at` timestamp so downstream dependents can skip
+/// recomputation.
+pub fn[T1, T2, U : Eq] Derived::map2_eq(
+  self : Derived[T1],
+  other : Derived[T2],
+  f : (T1, T2) -> U,
+  label? : String,
+) -> Derived[U] {
+  self.check_same_runtime(other, "Derived::map2_eq")
+  Derived(
+    self.inner.rt,
+    () => f(self.get_or_abort(), other.get_or_abort()),
+    label?,
+  )
+}
+
+///|
+/// Combines three derived values on the same runtime.
+///
+/// The mapped value never backdates, so `U` does not need to implement `Eq`.
+/// Aborts if any input belongs to a different runtime.
+pub fn[T1, T2, T3, U] Derived::map3(
+  self : Derived[T1],
+  second : Derived[T2],
+  third : Derived[T3],
+  f : (T1, T2, T3) -> U,
+  label? : String,
+) -> Derived[U] {
+  self.check_same_runtime(second, "Derived::map3")
+  self.check_same_runtime(third, "Derived::map3")
+  {
+    inner: Memo::new_no_backdate(
+      self.inner.rt,
+      () => f(self.get_or_abort(), second.get_or_abort(), third.get_or_abort()),
+      label?,
+    ),
+  }
+}
+
+///|
+/// Combines three derived values into another `Eq`-backdated derived value.
+///
+/// Aborts if any input belongs to a different runtime. When recomputation
+/// produces a mapped value equal to the previous mapped value, the returned
+/// cell preserves its `changed_at` timestamp so downstream dependents can skip
+/// recomputation.
+pub fn[T1, T2, T3, U : Eq] Derived::map3_eq(
+  self : Derived[T1],
+  second : Derived[T2],
+  third : Derived[T3],
+  f : (T1, T2, T3) -> U,
+  label? : String,
+) -> Derived[U] {
+  self.check_same_runtime(second, "Derived::map3_eq")
+  self.check_same_runtime(third, "Derived::map3_eq")
+  Derived(
+    self.inner.rt,
+    () => f(self.get_or_abort(), second.get_or_abort(), third.get_or_abort()),
+    label?,
+  )
+}
+
+///|
 /// Internal: build a `Derived` with an explicit backdate comparator, for the
 /// non-`Eq` construction paths (`BackdateEq` / custom-predicate tiers) that
 /// cannot use the `Eq`-bound `Derived::Derived` / `Derived::fallible`. Threads

@@ -431,9 +431,10 @@ Returns the compatibility `TrackedCell[T]` handle for interop.
 
 Creates a lazily evaluated derived value using structural equality (`T : Eq`) for backdating. When a recomputation produces a value equal to the previous one, the derived value's `changed_at` timestamp is preserved rather than advanced, preventing unnecessary downstream invalidation.
 
-The checked companion covers `Derived` construction, `map`, `map_eq`, labeled
-cells, inside-compute `get_or_abort`, and outside-graph `read` / `read_or_abort`
-in [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
+The checked companion covers `Derived` construction, `map`, `map2`, `map3`,
+`map_eq`, labeled cells, inside-compute `get_or_abort`, and outside-graph
+`read` / `read_or_abort` in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ### `Derived::fallible[V : Eq, E : Eq](rt: Runtime, compute: () -> Result[V, E], label? : String) -> Derived[Result[V, E]]`
 
@@ -447,6 +448,24 @@ the normal dependency edge and updates when the source changes. The mapped value
 does **not** backdate, so `U` does not need to implement `Eq`. The optional
 `label` is attached to the returned cell for introspection.
 
+### `Derived::map2[T2, U](self, other: Derived[T2], f: (T, T2) -> U, label? : String) -> Derived[U]`
+
+Combines two derived values into another derived value on `self`'s `Runtime`.
+The returned cell reads both inputs with strict tracked-context reads, so it
+updates when either input changes. It aborts if `other` belongs to a different
+`Runtime`. The mapped value does **not** backdate, so `U` does not need to
+implement `Eq`. The optional `label` is attached to the returned cell for
+introspection.
+
+### `Derived::map3[T2, T3, U](self, second: Derived[T2], third: Derived[T3], f: (T, T2, T3) -> U, label? : String) -> Derived[U]`
+
+Combines three derived values into another derived value on `self`'s `Runtime`.
+It aborts if `second` or `third` belongs to a different `Runtime`. Like `map`
+and `map2`, this uses no-backdate recomputation so `U` does not need to
+implement `Eq`. The optional `label` is attached to the returned cell for
+introspection.
+
+
 ### `Derived::map_eq[U : Eq](self, f: (T) -> U, label? : String) -> Derived[U]`
 
 Transforms this derived value into another derived value on the same `Runtime`
@@ -456,6 +475,19 @@ source change leaves the mapped value equal to its previous value. Use
 `Derived::map` instead when `U` cannot implement `Eq`.
 
 The optional `label` is attached to the returned cell for introspection.
+
+### `Derived::map2_eq[T2, U : Eq](self, other: Derived[T2], f: (T, T2) -> U, label? : String) -> Derived[U]`
+
+Combines two derived values into another derived value on `self`'s `Runtime`
+and keeps `Eq`-based backdating for the mapped output. It aborts if `other`
+belongs to a different `Runtime`.
+
+### `Derived::map3_eq[T2, T3, U : Eq](self, second: Derived[T2], third: Derived[T3], f: (T, T2, T3) -> U, label? : String) -> Derived[U]`
+
+Combines three derived values into another derived value on `self`'s `Runtime`
+and keeps `Eq`-based backdating for the mapped output. It aborts if `second` or
+`third` belongs to a different `Runtime`.
+
 
 
 ### `Derived::get(self) -> Result[T, ReadError]`

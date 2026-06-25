@@ -320,6 +320,25 @@ test "docs api-ref: derived map transforms a source value" {
 }
 
 ///|
+test "docs api-ref: derived map2 and map3 combine source values" {
+  let rt = @incr.Runtime()
+  let count = @incr.Input(rt, 2, label="count")
+  let bonus = @incr.Input(rt, 3, label="bonus")
+  let multiplier = @incr.Input(rt, 4, label="multiplier")
+  let base = @incr.Derived(rt, () => count.get(), label="base")
+  let extra = @incr.Derived(rt, () => bonus.get(), label="extra")
+  let scale = @incr.Derived(rt, () => multiplier.get(), label="scale")
+  let subtotal = base.map2(extra, (a, b) => a + b, label="subtotal")
+  let total = base.map3(extra, scale, (a, b, c) => (a + b) * c, label="total")
+
+  inspect(subtotal.read_or_abort(), content="5")
+  inspect(total.read_or_abort(), content="20")
+  bonus.set(5)
+  inspect(subtotal.read_or_abort(), content="7")
+  inspect(total.read_or_abort(), content="28")
+}
+
+///|
 test "docs api-ref: derived map_eq backdates equal output" {
   let rt = @incr.Runtime()
   let count = @incr.Input(rt, 21, label="count")
