@@ -306,3 +306,51 @@ pub fn[Msg : Eq, Model, View : Eq] Program::stateful(
     }
   }
 }
+
+///|
+/// Convenience constructor like `Program::stateful` but with full Cmd support.
+///
+/// The `update` function returns `(Model, Cmd[Msg])` — use `Cmd::none()` for
+/// updates that need no follow-up effects.
+pub fn[Msg : Eq, Model, View : Eq] Program::stateful_cmd(
+  runtime : @incr.Runtime,
+  initial : Model,
+  update : (Msg, Model) -> (Model, Cmd[Msg]),
+  view : (Model) -> View,
+  subscriptions? : (Model) -> Subscriptions[Msg],
+  label? : String,
+) -> Program[Msg, View] {
+  let scope = @incr.Scope::new(runtime)
+  let state : Ref[Model] = Ref(initial)
+  let version = scope.input_field(
+    0,
+    label?=label.map(fn(l) { l + ".version" }),
+  )
+  let update_fn : (Msg) -> Cmd[Msg] = msg => {
+    let (new_model, cmd) = update(msg, state.val)
+    state.val = new_model
+    version.set(version.peek() + 1)
+    cmd
+  }
+  let view_fn : () -> View raise Failure = () => {
+    ignore(version.get())
+    view(state.val)
+  }
+  match subscriptions {
+    None => Program::Program(runtime, scope, update_fn, view_fn, label?)
+    Some(subs_fn) => {
+      let subs : () -> Subscriptions[Msg] raise Failure = () => {
+        ignore(version.get())
+        subs_fn(state.val)
+      }
+      Program::with_subscriptions(
+        runtime,
+        scope,
+        update_fn,
+        view_fn,
+        subs,
+        label?,
+      )
+    }
+  }
+}
