@@ -431,9 +431,9 @@ Returns the compatibility `TrackedCell[T]` handle for interop.
 
 Creates a lazily evaluated derived value using structural equality (`T : Eq`) for backdating. When a recomputation produces a value equal to the previous one, the derived value's `changed_at` timestamp is preserved rather than advanced, preventing unnecessary downstream invalidation.
 
-The checked companion covers `Derived` construction, `map`, labeled cells,
-inside-compute `get_or_abort`, and outside-graph `read` / `read_or_abort` in
-[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
+The checked companion covers `Derived` construction, `map`, `map_eq`, labeled
+cells, inside-compute `get_or_abort`, and outside-graph `read` / `read_or_abort`
+in [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ### `Derived::fallible[V : Eq, E : Eq](rt: Runtime, compute: () -> Result[V, E], label? : String) -> Derived[Result[V, E]]`
 
@@ -446,6 +446,17 @@ The returned cell reads `self` with the strict tracked-context read, so it keeps
 the normal dependency edge and updates when the source changes. The mapped value
 does **not** backdate, so `U` does not need to implement `Eq`. The optional
 `label` is attached to the returned cell for introspection.
+
+### `Derived::map_eq[U : Eq](self, f: (T) -> U, label? : String) -> Derived[U]`
+
+Transforms this derived value into another derived value on the same `Runtime`
+and keeps `Eq`-based backdating for the mapped output. Use this when the mapped
+type implements `Eq` and downstream recomputation should be skipped when a
+source change leaves the mapped value equal to its previous value. Use
+`Derived::map` instead when `U` cannot implement `Eq`.
+
+The optional `label` is attached to the returned cell for introspection.
+
 
 ### `Derived::get(self) -> Result[T, ReadError]`
 

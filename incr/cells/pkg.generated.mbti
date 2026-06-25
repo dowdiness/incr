@@ -80,6 +80,7 @@ pub fn[T] Derived::id(Self[T]) -> @types.CellId
 pub fn[T] Derived::is_disposed(Self[T]) -> Bool
 pub fn[T] Derived::is_fresh(Self[T]) -> Bool
 pub fn[T, U] Derived::map(Self[T], (T) -> U, label? : String) -> Self[U]
+pub fn[T, U : Eq] Derived::map_eq(Self[T], (T) -> U, label? : String) -> Self[U]
 pub fn[T] Derived::observe(Self[T]) -> Observer[T]
 pub fn[T] Derived::read(Self[T]) -> Result[T, @types.ReadError]
 pub fn[T] Derived::read_or_abort(Self[T]) -> T
