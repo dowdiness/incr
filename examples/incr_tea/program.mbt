@@ -275,10 +275,7 @@ pub fn[Msg : Eq, Model, View : Eq] Program::stateful(
 ) -> Program[Msg, View] {
   let scope = @incr.Scope::new(runtime)
   let state : Ref[Model] = Ref(initial)
-  let version = scope.input_field(
-    0,
-    label?=label.map(fn(l) { l + ".version" }),
-  )
+  let version = scope.input_field(0, label?=label.map(fn(l) { l + ".version" }))
   let update_fn : (Msg) -> Cmd[Msg] = msg => {
     state.val = update(msg, state.val)
     version.set(version.peek() + 1)
@@ -322,10 +319,7 @@ pub fn[Msg : Eq, Model, View : Eq] Program::stateful_cmd(
 ) -> Program[Msg, View] {
   let scope = @incr.Scope::new(runtime)
   let state : Ref[Model] = Ref(initial)
-  let version = scope.input_field(
-    0,
-    label?=label.map(fn(l) { l + ".version" }),
-  )
+  let version = scope.input_field(0, label?=label.map(fn(l) { l + ".version" }))
   let update_fn : (Msg) -> Cmd[Msg] = msg => {
     let (new_model, cmd) = update(msg, state.val)
     state.val = new_model
