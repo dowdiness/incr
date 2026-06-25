@@ -10,6 +10,7 @@ All notable changes to `dowdiness/incr` are documented in this file.
 - Defined listener ordering and mutation rules for the new APIs. On-change listeners fire in registration order and snapshot before dispatch, so callbacks can add or remove listeners without affecting the current pass. Derived-event listeners run for each event in registration order and keep the existing idle mutation guard.
 - Added `Derived::map` for target-facade value transformations on the same runtime. The mapped result does not require `Eq` because it uses no-backdate recomputation.
 - Added `Derived::map_eq` for target-facade transformations whose mapped output implements `Eq`, preserving backdating so equal mapped values do not invalidate downstream dependents.
+- Added `Derived::map2` / `Derived::map3` and `Derived::map2_eq` / `Derived::map3_eq` for target-facade multi-input transformations. The non-`Eq` forms use no-backdate recomputation; the `_eq` forms preserve backdating for equal mapped outputs; all four abort on cross-runtime inputs.
 
 ### Examples
 
