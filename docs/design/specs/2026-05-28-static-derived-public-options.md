@@ -12,12 +12,13 @@
 
 ## Resolution
 
-The 2026-06-01 ADR chooses **Option D: keep the static path private**. Do not
-add public `Derived::map`, `map2`, `map3`, `Scope::derived_static*`,
-compatibility-handle static conveniences, or a raw static installer from this
-note. Reopen only when one of the ADR's concrete-driver triggers fires: an
-`Expr[T]` lowering need, a measured scope-owned attachment win, or downstream UI
-wrapper duplication.
+The 2026-06-01 ADR chooses **Option D: keep the static path private**.
+Issue #756 later added `Derived::map` as an ordinary dynamic convenience; this
+note still rejects exposing the static/applicative fast path as public `map2`,
+`map3`, `Scope::derived_static*`, compatibility-handle static conveniences, or a
+raw static installer. Reopen only when one of the ADR's concrete-driver triggers
+fires: an `Expr[T]` lowering need, a measured scope-owned attachment win, or
+downstream UI wrapper duplication.
 
 ## Goal
 

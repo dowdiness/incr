@@ -178,6 +178,24 @@ pub fn[V : Eq, E : Eq] Derived::fallible(
 }
 
 ///|
+/// Transforms this derived value into another derived value on the same runtime.
+///
+/// The mapped value never backdates, so `U` does not need to implement `Eq`.
+pub fn[T, U] Derived::map(
+  self : Derived[T],
+  f : (T) -> U,
+  label? : String,
+) -> Derived[U] {
+  {
+    inner: Memo::new_no_backdate(
+      self.inner.rt,
+      () => f(self.get_or_abort()),
+      label?,
+    ),
+  }
+}
+
+///|
 /// Internal: build a `Derived` with an explicit backdate comparator, for the
 /// non-`Eq` construction paths (`BackdateEq` / custom-predicate tiers) that
 /// cannot use the `Eq`-bound `Derived::Derived` / `Derived::fallible`. Threads

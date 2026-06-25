@@ -63,7 +63,7 @@ Interpretation: the static path barely moves the layered fanout because the one 
 
 Proceed with a **private generalized static path**. The 2026-05-31 implementation keeps this decision: scalar ratios remain material, and the UI tree-shaped bench still wins on both deployment-relevant targets.
 
-This is not a decision to add public `Derived::map`, `map2`, `map3`, or `Scope::derived_static`. The Int-only whitebox probe has been replaced by a package-private generalized path that preserves the current pull/runtime invariants and returns the normal target `Derived` facade. UI-shape benches show the private path matters most for tree-shaped derived graphs. The public-surface **options note** remains at the tradeoff/options level and does not choose or implement a public API.
+This is not a decision to expose the static/applicative fast path as public `map2`, `map3`, or `Scope::derived_static`. Issue #756 later added `Derived::map` as an ordinary dynamic convenience, outside this measurement. The Int-only whitebox probe has been replaced by a package-private generalized path that preserves the current pull/runtime invariants and returns the normal target `Derived` facade. UI-shape benches show the private path matters most for tree-shaped derived graphs. The public-surface **options note** remains at the tradeoff/options level and does not choose or implement a static public API.
 
 ## Smallest private engine shape
 

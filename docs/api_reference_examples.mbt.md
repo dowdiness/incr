@@ -308,6 +308,18 @@ test "docs api-ref: derived get inside compute, read outside" {
 }
 
 ///|
+test "docs api-ref: derived map transforms a source value" {
+  let rt = @incr.Runtime()
+  let count = @incr.Input(rt, 2, label="count")
+  let plus_one = @incr.Derived(rt, () => count.get() + 1, label="plus_one")
+  let doubled = plus_one.map(v => v * 2, label="doubled")
+
+  inspect(doubled.read_or_abort(), content="6")
+  count.set(4)
+  inspect(doubled.read_or_abort(), content="10")
+}
+
+///|
 test "docs api-ref: derived.watch survives gc and tracks updates" {
   let rt = @incr.Runtime()
   let input = @incr.Input(rt, 1, label="input")

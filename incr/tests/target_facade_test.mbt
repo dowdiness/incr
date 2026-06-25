@@ -72,6 +72,34 @@ test "facade derived: read works outside tracked context" {
 }
 
 ///|
+test "facade derived: map transforms and tracks source" {
+  let rt = @incr.Runtime()
+  let input = @incr.Input(rt, 10)
+  let source = @incr.Derived(rt, () => input.get() + 1)
+  let mapped = source.map(v => v * 2, label="mapped.double")
+
+  inspect(mapped.read_or_abort(), content="22")
+  guard rt.cell_info(mapped.id()) is Some(info) else {
+    fail("expected mapped cell info")
+  }
+  debug_inspect(info.label, content="Some(\"mapped.double\")")
+  input.set(20)
+  inspect(mapped.read_or_abort(), content="42")
+}
+
+///|
+test "facade derived: map accepts non-Eq output" {
+  let rt = @incr.Runtime()
+  let input = @incr.Input(rt, 3)
+  let source = @incr.Derived(rt, () => input.get())
+  let mapped = source.map(v => (x : Int) => x + v)
+
+  inspect(mapped.read_or_abort()(10), content="13")
+  input.set(4)
+  inspect(mapped.read_or_abort()(10), content="14")
+}
+
+///|
 test "facade derived: get works inside tracked context" {
   let rt = @incr.Runtime()
   let input = @incr.Input(rt, 10)
