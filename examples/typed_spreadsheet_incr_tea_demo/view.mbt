@@ -332,15 +332,10 @@ fn view_trace(model : Model) -> @tea.Html[Msg] {
 }
 
 ///|
-fn view_trace_bucket(
-  label : String,
-  value : String,
-) -> @tea.Html[Msg] {
+fn view_trace_bucket(label : String, value : String) -> @tea.Html[Msg] {
   @tea.div(attrs=[@tea.class_attr("trace-bucket")], [
     @tea.span(attrs=[@tea.class_attr("muted-label")], [@tea.text(label)]),
-    @tea.span(attrs=[@tea.class_attr("trace-values")], [
-      @tea.text(value),
-    ]),
+    @tea.span(attrs=[@tea.class_attr("trace-values")], [@tea.text(value)]),
   ])
 }
 
@@ -359,9 +354,7 @@ fn state_formula_bar(state : SheetState) -> @tea.Html[Msg] {
     [
       @tea.div(attrs=[@tea.class_attr("formula-cell")], [
         @tea.span(attrs=[@tea.class_attr("muted-label")], [@tea.text("cell")]),
-        @tea.span(attrs=[@tea.class_attr("cell-address")], [
-          @tea.text(cell),
-        ]),
+        @tea.span(attrs=[@tea.class_attr("cell-address")], [@tea.text(cell)]),
       ]),
       @tea.node(
         "label",
@@ -438,10 +431,13 @@ fn state_grid(state : SheetState) -> @tea.Html[Msg] {
     children.push(view_row_header("\{row}"))
     for column_index, column in column_labels() {
       let cell = "\{column}\{row}"
-      let snapshot = state.sheet.inspect_cell(cell_id_from_sheet(state.sheet, cell))
+      let snapshot = state.sheet.inspect_cell(
+        cell_id_from_sheet(state.sheet, cell),
+      )
       let selected = selected_cell == cell
       let editing = editing_cell == Some(cell)
-      let dirty = draft_text_from(current_drafts, cell) != draft_text_from(current_committed, cell)
+      let dirty = draft_text_from(current_drafts, cell) !=
+        draft_text_from(current_committed, cell)
       let class_name = grid_cell_class(snapshot, selected, dirty, editing)
       children.push(
         @tea.div(

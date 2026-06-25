@@ -1,4 +1,4 @@
-///
+///|
 test "incr_tea spreadsheet proof starts with seeded representative grid" {
   let app = TypedSheetApp(@incr.Runtime())
   let model = app._state.val.peek_model()
@@ -24,7 +24,7 @@ test "incr_tea spreadsheet proof starts with seeded representative grid" {
   app.dispose()
 }
 
-///
+///|
 test "incr_tea spreadsheet proof applies and cancels through Program dispatch" {
   let app = TypedSheetApp(@incr.Runtime())
 
@@ -56,7 +56,7 @@ test "incr_tea spreadsheet proof applies and cancels through Program dispatch" {
   app.dispose()
 }
 
-///
+///|
 test "incr_tea spreadsheet proof applies formula bar edits and dependent formulas update" {
   let app = TypedSheetApp(@incr.Runtime())
 
@@ -75,14 +75,13 @@ test "incr_tea spreadsheet proof applies formula bar edits and dependent formula
     content="16",
   )
   match model.trace_data {
-    Some(td) =>
-      inspect(td.changed_str, content="[B1]")
+    Some(td) => inspect(td.changed_str, content="[B1]")
     None => abort("expected applied edit")
   }
   app.dispose()
 }
 
-///
+///|
 test "incr_tea spreadsheet proof maps payload descriptors at renderer boundary" {
   match
     resolve_text_input(
@@ -126,7 +125,7 @@ test "incr_tea spreadsheet proof maps payload descriptors at renderer boundary" 
   }
 }
 
-///
+///|
 test "incr_tea locality: draft-only does not change status" {
   let app = TypedSheetApp(@incr.Runtime())
   let before = app._state.val.peek_model()
@@ -155,6 +154,7 @@ test "incr_tea locality: draft-only does not change status" {
 // real browser. They manipulate the same `globalThis.__incrTea*` state
 // as the incr_tea wbtest helpers.
 
+///|
 #cfg(target="js")
 extern "js" fn typed_sheet_test_setup_dom() -> @tea.DomElement =
   #| () => {
@@ -229,6 +229,7 @@ extern "js" fn typed_sheet_test_setup_dom() -> @tea.DomElement =
   #|   return new Element("host");
   #| }
 
+///|
 #cfg(target="js")
 extern "js" fn typed_sheet_test_run_raf() -> Unit =
   #| () => {
@@ -237,10 +238,12 @@ extern "js" fn typed_sheet_test_run_raf() -> Unit =
   #|   callback();
   #| }
 
+///|
 #cfg(target="js")
 extern "js" fn typed_sheet_test_create_host() -> @tea.DomElement =
   #| () => document.createElement("div")
 
+///|
 #cfg(target="js")
 extern "js" fn typed_sheet_test_restore_dom() -> Unit =
   #| () => {
@@ -261,37 +264,75 @@ extern "js" fn typed_sheet_test_restore_dom() -> Unit =
 
 // ── Cross-root locality: helpers ─────────────────────────────────
 
+///|
 #cfg(target="js")
-fn find_by_label(stats : Array[@tea.RootStats], label : String) -> @tea.RootStats {
+fn find_by_label(
+  stats : Array[@tea.RootStats],
+  label : String,
+) -> @tea.RootStats {
   match stats.search_by(s => s.label == label) {
     Some(i) => stats[i]
     None => abort("missing root: \{label}")
   }
 }
 
+///|
 #cfg(target="js")
-fn delta_patch_attempts(after : Array[@tea.RootStats], before : Array[@tea.RootStats],
-  label : String) -> Int {
-  find_by_label(after, label).patch_attempts - find_by_label(before, label).patch_attempts
+fn delta_patch_attempts(
+  after : Array[@tea.RootStats],
+  before : Array[@tea.RootStats],
+  label : String,
+) -> Int {
+  find_by_label(after, label).patch_attempts -
+  find_by_label(before, label).patch_attempts
 }
 
+///|
 #cfg(target="js")
-fn delta_skipped_patches(after : Array[@tea.RootStats], before : Array[@tea.RootStats],
-  label : String) -> Int {
-  find_by_label(after, label).skipped_patches - find_by_label(before, label).skipped_patches
+fn delta_skipped_patches(
+  after : Array[@tea.RootStats],
+  before : Array[@tea.RootStats],
+  label : String,
+) -> Int {
+  find_by_label(after, label).skipped_patches -
+  find_by_label(before, label).skipped_patches
 }
 
+///|
 #cfg(target="js")
-fn mount_all_roots(renderer : @tea.BrowserRenderer[Msg], app : TypedSheetApp) -> Unit {
-  ignore(renderer.mount(typed_sheet_test_create_host(), app.prog_grid, label="grid"))
-  ignore(renderer.mount(typed_sheet_test_create_host(), app.prog_formula, label="formula-bar"))
-  ignore(renderer.mount(typed_sheet_test_create_host(), app.prog_status, label="status"))
-  ignore(renderer.mount(typed_sheet_test_create_host(), app.prog_trace, label="trace"))
+fn mount_all_roots(
+  renderer : @tea.BrowserRenderer[Msg],
+  app : TypedSheetApp,
+) -> Unit {
+  ignore(
+    renderer.mount(typed_sheet_test_create_host(), app.prog_grid, label="grid"),
+  )
+  ignore(
+    renderer.mount(
+      typed_sheet_test_create_host(),
+      app.prog_formula,
+      label="formula-bar",
+    ),
+  )
+  ignore(
+    renderer.mount(
+      typed_sheet_test_create_host(),
+      app.prog_status,
+      label="status",
+    ),
+  )
+  ignore(
+    renderer.mount(
+      typed_sheet_test_create_host(),
+      app.prog_trace,
+      label="trace",
+    ),
+  )
 }
-
 
 // ── Cross-root locality: 5 validation tests ─────────────────────
 
+///|
 #cfg(target="js")
 test "cross-root locality: selection-only patches grid, formula, status" {
   let _host = typed_sheet_test_setup_dom()
@@ -321,6 +362,7 @@ test "cross-root locality: selection-only patches grid, formula, status" {
   typed_sheet_test_restore_dom()
 }
 
+///|
 #cfg(target="js")
 test "cross-root locality: draft-only patches grid, formula" {
   let _host = typed_sheet_test_setup_dom()
@@ -350,6 +392,7 @@ test "cross-root locality: draft-only patches grid, formula" {
   typed_sheet_test_restore_dom()
 }
 
+///|
 #cfg(target="js")
 test "cross-root locality: apply after draft patches grid, status, trace; formula skips" {
   let _host = typed_sheet_test_setup_dom()
@@ -385,6 +428,7 @@ test "cross-root locality: apply after draft patches grid, status, trace; formul
   typed_sheet_test_restore_dom()
 }
 
+///|
 #cfg(target="js")
 test "cross-root locality: begin-inline-edit patches grid, formula, status" {
   let _host = typed_sheet_test_setup_dom()
@@ -414,6 +458,7 @@ test "cross-root locality: begin-inline-edit patches grid, formula, status" {
   typed_sheet_test_restore_dom()
 }
 
+///|
 #cfg(target="js")
 test "cross-root locality: clean apply patches only status and trace" {
   let _host = typed_sheet_test_setup_dom()

@@ -16,4 +16,7 @@ pub fn mount_incr_tea_7guis(mount_id : String) -> Unit {
   @crud.mount(@tea.dom_query_child_by_id(app, "crud-root"))
   @circle_drawer.mount(@tea.dom_query_child_by_id(app, "circle-root"))
   @cells.mount(@tea.dom_query_child_by_id(app, "cells-root"))
+  @keyboard_shortcut.mount(
+    @tea.dom_query_child_by_id(app, "keyboard-shortcut-root"),
+  )
 }

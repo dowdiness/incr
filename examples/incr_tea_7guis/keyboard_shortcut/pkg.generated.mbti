@@ -1,0 +1,19 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "examples/incr_tea_7guis/keyboard_shortcut"
+
+import {
+  "examples/incr_tea",
+}
+
+// Values
+pub fn mount(@incr_tea.DomElement) -> Unit
+
+// Errors
+
+// Types and methods
+type Msg derive(Eq)
+
+// Type aliases
+
+// Traits
+
