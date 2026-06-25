@@ -431,13 +431,21 @@ Returns the compatibility `TrackedCell[T]` handle for interop.
 
 Creates a lazily evaluated derived value using structural equality (`T : Eq`) for backdating. When a recomputation produces a value equal to the previous one, the derived value's `changed_at` timestamp is preserved rather than advanced, preventing unnecessary downstream invalidation.
 
-The checked companion covers `Derived` construction, labeled cells,
-inside-compute `get_or_abort`, and outside-graph `read` /
-`read_or_abort` in [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
+The checked companion covers `Derived` construction, `map`, labeled cells,
+inside-compute `get_or_abort`, and outside-graph `read` / `read_or_abort` in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ### `Derived::fallible[V : Eq, E : Eq](rt: Runtime, compute: () -> Result[V, E], label? : String) -> Derived[Result[V, E]]`
 
 Creates a derived value whose `compute` is **noraise**: a recoverable, domain-specific failure is expressed in the value as `Result[V, E]`, never raised. The error then participates in caching and `Eq`-based backdating like any other value, and reads surface only graph failures (cycles/disposal), never an uncatchable abort. Prefer this over `Derived` when `Result` is the domain value shape. For custom enums or diagnostics payloads, use an ordinary `Derived[T]` and keep the recoverable failure in `T`; this is the same [domain errors as values](cookbook.mbt.md#pattern-domain-errors-as-values) pattern. A `raise Failure` from a plain `Derived` compute is a *defect*, not a domain-error channel — see [Honest Read-Error Ownership](design/specs/2026-05-28-honest-read-error-ownership.md).
+
+### `Derived::map[U](self, f: (T) -> U, label? : String) -> Derived[U]`
+
+Transforms this derived value into another derived value on the same `Runtime`.
+The returned cell reads `self` with the strict tracked-context read, so it keeps
+the normal dependency edge and updates when the source changes. The mapped value
+does **not** backdate, so `U` does not need to implement `Eq`. The optional
+`label` is attached to the returned cell for introspection.
 
 ### `Derived::get(self) -> Result[T, ReadError]`
 

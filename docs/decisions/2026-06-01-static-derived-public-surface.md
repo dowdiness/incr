@@ -5,6 +5,8 @@
 **Issue:** [#138](https://github.com/dowdiness/incr/issues/138)
 **Implementation plan:** None. This is a no-public-API decision. The option analysis and hard requirements remain in [2026-05-28 Static Derived Public-Surface Options](../design/specs/2026-05-28-static-derived-public-options.md).
 **Evidence:** [2026-05-27 Static/applicative Derived fast-path probe](../performance/2026-05-27-static-derived-fast-path-probe.md), [2026-05-25 `Expr[T]` Formula API](../design/specs/2026-05-25-expr-formula-api.md), [2026-05-26 Build-oriented boundary design](../design/specs/2026-05-26-build-trait-boundaries.md)
+**2026-06-25 amendment:** Issue [#756](https://github.com/dowdiness/canopy/issues/756) added `Derived::map` as an ordinary dynamic `Derived` convenience backed by no-backdate recomputation. This does not expose the static/applicative fast path governed by this ADR.
+
 
 ## Context
 
@@ -18,7 +20,7 @@ Issue #138 asked whether this private fast path should become a public API now. 
 
 Choose **Option D: keep the static path private**.
 
-Do not add public `Derived::map`, `Derived::map2`, `Derived::map3`, `Scope::derived_static*`, compatibility-handle static conveniences, or a raw `Array[CellId] + () -> T` installer from the options note.
+Do not add public static/applicative `Derived::map2`, `Derived::map3`, `Scope::derived_static*`, compatibility-handle static conveniences, or a raw `Array[CellId] + () -> T` installer from the options note.
 
 The private engine path may continue to support benchmarks, white-box tests, and future internal probes. Any future public surface must still satisfy the hard requirements from the options note: target-facade vocabulary, same-runtime validation, duplicate-dependency normalization, declaration-bound static-to-static reads, no accumulator support without a safe design, normal `Derived` semantics, failure cleanup, and unchanged inside/outside read semantics.
 
