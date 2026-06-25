@@ -196,6 +196,21 @@ pub fn[T, U] Derived::map(
 }
 
 ///|
+/// Transforms this derived value into another `Eq`-backdated derived value on
+/// the same runtime.
+///
+/// When recomputation produces a mapped value equal to the previous mapped
+/// value, the returned cell preserves its `changed_at` timestamp so downstream
+/// dependents can skip recomputation.
+pub fn[T, U : Eq] Derived::map_eq(
+  self : Derived[T],
+  f : (T) -> U,
+  label? : String,
+) -> Derived[U] {
+  Derived(self.inner.rt, () => f(self.get_or_abort()), label?)
+}
+
+///|
 /// Internal: build a `Derived` with an explicit backdate comparator, for the
 /// non-`Eq` construction paths (`BackdateEq` / custom-predicate tiers) that
 /// cannot use the `Eq`-bound `Derived::Derived` / `Derived::fallible`. Threads

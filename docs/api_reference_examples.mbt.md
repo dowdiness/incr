@@ -320,6 +320,24 @@ test "docs api-ref: derived map transforms a source value" {
 }
 
 ///|
+test "docs api-ref: derived map_eq backdates equal output" {
+  let rt = @incr.Runtime()
+  let count = @incr.Input(rt, 21, label="count")
+  let source = @incr.Derived(rt, () => count.get(), label="source")
+  let tens = source.map_eq(v => v / 10, label="tens")
+  let downstream_runs : Ref[Int] = { val: 0 }
+  let downstream = @incr.Derived(rt, () => {
+    downstream_runs.val = downstream_runs.val + 1
+    tens.get_or_abort()
+  })
+
+  inspect(downstream.read_or_abort(), content="2")
+  count.set(29)
+  inspect(downstream.read_or_abort(), content="2")
+  inspect(downstream_runs.val, content="1")
+}
+
+///|
 test "docs api-ref: derived.watch survives gc and tracks updates" {
   let rt = @incr.Runtime()
   let input = @incr.Input(rt, 1, label="input")

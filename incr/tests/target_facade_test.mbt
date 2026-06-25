@@ -100,6 +100,55 @@ test "facade derived: map accepts non-Eq output" {
 }
 
 ///|
+test "facade derived: map_eq backdates equal mapped output" {
+  let rt = @incr.Runtime()
+  let input = @incr.Input(rt, 21)
+  let source = @incr.Derived(rt, () => input.get())
+  let normalized = source.map_eq(v => v / 10)
+  let mut downstream_runs = 0
+  let downstream = @incr.Derived(rt, () => {
+    downstream_runs = downstream_runs + 1
+    normalized.get_or_abort()
+  })
+
+  inspect(downstream.read_or_abort(), content="2")
+  input.set(29)
+  inspect(downstream.read_or_abort(), content="2")
+  inspect(downstream_runs, content="1")
+}
+
+///|
+test "facade derived: map_eq invalidates when mapped output changes" {
+  let rt = @incr.Runtime()
+  let input = @incr.Input(rt, 21)
+  let source = @incr.Derived(rt, () => input.get())
+  let normalized = source.map_eq(v => v / 10)
+  let mut downstream_runs = 0
+  let downstream = @incr.Derived(rt, () => {
+    downstream_runs = downstream_runs + 1
+    normalized.get_or_abort()
+  })
+
+  inspect(downstream.read_or_abort(), content="2")
+  input.set(31)
+  inspect(downstream.read_or_abort(), content="3")
+  inspect(downstream_runs, content="2")
+}
+
+///|
+test "facade derived: map_eq propagates label" {
+  let rt = @incr.Runtime()
+  let input = @incr.Input(rt, 21)
+  let source = @incr.Derived(rt, () => input.get())
+  let normalized = source.map_eq(v => v / 10, label="normalized")
+
+  guard rt.cell_info(normalized.id()) is Some(info) else {
+    fail("expected mapped cell info")
+  }
+  debug_inspect(info.label, content="Some(\"normalized\")")
+}
+
+///|
 test "facade derived: get works inside tracked context" {
   let rt = @incr.Runtime()
   let input = @incr.Input(rt, 10)
