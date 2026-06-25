@@ -71,7 +71,7 @@ try {
 
   const titles = await page.locator('.task-card h2').allTextContents();
   assert(
-    ['Counter', 'Temperature Converter', 'Flight Booker', 'Timer', 'CRUD', 'Circle Drawer', 'Cells']
+    ['Counter', 'Temperature Converter', 'Flight Booker', 'Timer', 'CRUD', 'Circle Drawer', 'Cells', 'Keyboard Shortcut']
       .every(title => titles.includes(title)),
     `Expected all 7GUIs task roots to mount, got: ${titles.join(', ')}`,
   );
@@ -105,6 +105,44 @@ try {
   await page.waitForFunction(() =>
     document.querySelector('#flight-root .status')?.textContent?.trim() ===
       'Booked return flight from 2026-06-17 to 2026-06-19.',
+  );
+
+  // Keyboard shortcut: verify window keydown listener starts, dispatches, pauses, and resumes
+  await page.waitForSelector('#keyboard-shortcut-root .counter-readout');
+  assert(
+    (await page.locator('#keyboard-shortcut-root .counter-readout').textContent())?.trim() === '0',
+    'Keyboard shortcut counter should start at 0',
+  );
+  // Click the section to ensure the page (not an input) has focus before key presses
+  await page.locator('#keyboard-shortcut-root .counter-readout').click();
+  await page.keyboard.press('k');
+  await page.waitForFunction(
+    () => document.querySelector('#keyboard-shortcut-root .counter-readout')?.textContent?.trim() === '1',
+  );
+  await page.keyboard.press('k');
+  await page.waitForFunction(
+    () => document.querySelector('#keyboard-shortcut-root .counter-readout')?.textContent?.trim() === '2',
+  );
+  // Pause: listener should be removed; further key presses must not increment
+  await page.locator('#keyboard-shortcut-root button', { hasText: 'Pause' }).click();
+  await page.waitForFunction(
+    () => document.querySelector('#keyboard-shortcut-root .status')?.textContent?.trim() === 'Paused',
+  );
+  await page.keyboard.press('k');
+  // Wait one rAF so any renderer flush that would follow an erroneous dispatch has time to run
+  await page.evaluate(() => new Promise(r => requestAnimationFrame(r)));
+  assert(
+    (await page.locator('#keyboard-shortcut-root .counter-readout').textContent())?.trim() === '2',
+    'Counter must not increment while paused',
+  );
+  // Resume: listener restarts; next key press should increment again
+  await page.locator('#keyboard-shortcut-root button', { hasText: 'Resume' }).click();
+  await page.waitForFunction(
+    () => document.querySelector('#keyboard-shortcut-root .status')?.textContent?.trim() === 'Listening — press k',
+  );
+  await page.keyboard.press('k');
+  await page.waitForFunction(
+    () => document.querySelector('#keyboard-shortcut-root .counter-readout')?.textContent?.trim() === '3',
   );
 
   assert(pageErrors.length === 0, `Page errors: ${pageErrors.map(error => error.message).join('\n')}`);
