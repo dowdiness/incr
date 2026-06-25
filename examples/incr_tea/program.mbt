@@ -262,9 +262,8 @@ pub fn[Msg, View] Program::dispose(self : Program[Msg, View]) -> Unit {
 /// take the model directly. The version bump and tracked read are wired
 /// automatically.
 ///
-/// Errors raised by `view` or `subscriptions` are captured by their `Derived`
-/// cells and surface as aborts through `read_or_abort` — they are defects, not
-/// recoverable failures.
+/// `view` and `subscriptions` must be non-raising. For components that need a
+/// `raise Failure` view, use `Program::Program` directly.
 pub fn[Msg : Eq, Model, View : Eq] Program::stateful(
   runtime : @incr.Runtime,
   initial : Model,
@@ -308,7 +307,8 @@ pub fn[Msg : Eq, Model, View : Eq] Program::stateful(
 /// Convenience constructor like `Program::stateful` but with full Cmd support.
 ///
 /// The `update` function returns `(Model, Cmd[Msg])` — use `Cmd::none()` for
-/// updates that need no follow-up effects.
+/// updates that need no follow-up effects. Same non-raising constraint on
+/// `view` and `subscriptions` as `Program::stateful`.
 pub fn[Msg : Eq, Model, View : Eq] Program::stateful_cmd(
   runtime : @incr.Runtime,
   initial : Model,

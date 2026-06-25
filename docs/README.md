@@ -86,6 +86,7 @@ For contributors and advanced users who want to understand or modify `incr`.
 - [2026-05-28 Honest Read-Error Ownership](design/specs/2026-05-28-honest-read-error-ownership.md) — three-way split of read failures (graph→read channel, domain→value-as-`Result`, defects→abort/fail); `Derived::fallible`/`DerivedMap::fallible`; `ReadError` migration for target reads and accumulator verifying reads
 - [2026-06-05 `AcceptedDerived`](design/specs/2026-06-05-committed-derived.md) — proposed success-gated authoring primitive that exposes current fallible candidates while retaining the last accepted semantic value (renamed from `CommittedDerived`; file path retains the original slug)
 - [2026-06-05 Typed Spreadsheet bounded trace contract](design/specs/2026-06-05-typed-spreadsheet-bounded-trace-contract.md) — issue #179 example-local contract for caller-bounded formula traces after the benchmark baseline: preserve global `Worksheet::trace`, add observed-formula tracing, and keep unobserved formulas lazy.
+- [2026-06-25 `Program::stateful` and `Program::stateful_cmd`](design/specs/2026-06-25-program-stateful-design.md) — boilerplate-hiding constructors for mutable-model TEA apps; hides version-cell, `Ref[Model]`, and `Scope` wiring; Counter migration example
 
 **Project direction:**
 
@@ -98,6 +99,7 @@ For contributors and advanced users who want to understand or modify `incr`.
 - [Phase 3a Compatibility-to-Facade Migration Spec](plans/2026-05-23-ideal-api-rename-phase3-soak-window.md) — documentation and codemod plan for moving from `Memo`/`HybridMemo`/`MemoMap` to `Derived`/`ReachableDerived`/`DerivedMap` without adding same-receiver bridge methods
 - [Evaluation Strategy Refactor Plan](plans/2026-05-26-evaluation-strategy-refactor.md) — staged refactor toward internal sealed scheduler/rebuilder strategies with fixed store/trace contracts and no first-step public pluggability
 - [2026-06-24 Typed Spreadsheet Cross-Root Locality](plans/2026-06-24-typed-spreadsheet-cross-root-locality.md) — convert the proof-of-concept single-root spreadsheet into multi-root (grid, formula bar, status, trace), then validate and instrument per-root view recompute and DOM patch decisions
+- [2026-06-25 `Program::stateful` implementation plan](plans/2026-06-25-program-stateful.md) — 3-task SDD plan for `stateful`, `stateful_cmd`, and Counter migration (#287)
 - [TODO](todo.md) — contributor task list organized by priority
 
 **Research notes — exploratory, not implemented:**
