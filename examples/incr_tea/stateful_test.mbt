@@ -98,7 +98,7 @@ test "stateful: gc after mount preserves watched view" {
 }
 
 ///|
-test "stateful: subscriptions=None still works correctly" {
+test "stateful: with empty subscriptions routes to with_subscriptions correctly" {
   let runtime = @incr.Runtime()
   let program : @incr_tea.Program[SMsg, Int] = @incr_tea.Program::stateful(
     runtime,
