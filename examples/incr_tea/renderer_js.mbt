@@ -1425,10 +1425,15 @@ fn[Msg] BrowserRenderer::remove_root(
   self.roots = self.roots.filter(other => !physical_equal(other, root))
   self.detached = self.detached.filter(other => !physical_equal(other, root))
 }
+
 ///| Preserves a root's per-root patch/skip/inactive counters into the
+
 ///| renderer-level aggregate before the root's RenderStats goes out of scope.
+
 ///| Used by destroy() and dispose() so that renderer.stats() remains monotonic
-///| — destroyed roots' work is not lost when their arrays are cleared.
+
+///|
+/// — destroyed roots' work is not lost when their arrays are cleared.
 #cfg(target="js")
 fn[Msg] BrowserRenderer::accumulate_stats(
   self : BrowserRenderer[Msg],
@@ -1652,12 +1657,20 @@ pub fn[Msg] BrowserRenderer::dispose(self : BrowserRenderer[Msg]) -> Unit {
   let parked = self.detached
   // Preserve per-root counters into the renderer aggregate before arrays are
   // cleared, so renderer.stats() reports historic totals after dispose.
-  for root in mounted { self.accumulate_stats(root) }
-  for root in parked { self.accumulate_stats(root) }
+  for root in mounted {
+    self.accumulate_stats(root)
+  }
+  for root in parked {
+    self.accumulate_stats(root)
+  }
   self.roots = []
   self.detached = []
-  for root in mounted { root.destroy() }
-  for root in parked { root.destroy() }
+  for root in mounted {
+    root.destroy()
+  }
+  for root in parked {
+    root.destroy()
+  }
   self.view_ids.val = []
   self.view_id_to_label.val = []
 }

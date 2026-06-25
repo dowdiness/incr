@@ -10,29 +10,35 @@ struct TypedSheetApp {
 ///|
 fn TypedSheetApp::TypedSheetApp(runtime : @incr.Runtime) -> TypedSheetApp {
   let state = Ref(SheetState::new(runtime))
-  let update : (Msg) -> @tea.Cmd[Msg] = msg => {
-    handle_msg(runtime, state, msg)
-  }
+  let update : (Msg) -> @tea.Cmd[Msg] = msg => handle_msg(runtime, state, msg)
   // Shared update; each program gets its own scope for the view Derived +
   // Watch. Disposing any one program only tears down its view tracking, not
   // the shared InputFields owned by `state.val.scope`.
   let prog_grid = @tea.Program::Program(
-    runtime, @incr.Scope::new(runtime), update,
+    runtime,
+    @incr.Scope::new(runtime),
+    update,
     fn() { state_grid(state.val) },
     label="typed-sheet.grid",
   )
   let prog_formula = @tea.Program::Program(
-    runtime, @incr.Scope::new(runtime), update,
+    runtime,
+    @incr.Scope::new(runtime),
+    update,
     fn() { state_formula_bar(state.val) },
     label="typed-sheet.formula-bar",
   )
   let prog_status = @tea.Program::Program(
-    runtime, @incr.Scope::new(runtime), update,
+    runtime,
+    @incr.Scope::new(runtime),
+    update,
     fn() { state_status(state.val) },
     label="typed-sheet.status",
   )
   let prog_trace = @tea.Program::Program(
-    runtime, @incr.Scope::new(runtime), update,
+    runtime,
+    @incr.Scope::new(runtime),
+    update,
     fn() { state_trace(state.val) },
     label="typed-sheet.trace",
   )
@@ -68,7 +74,8 @@ fn handle_msg(
     BeginSelectedInlineEdit =>
       begin_inline_edit(state, state.val.selected_cell.peek())
     ApplyInlineEdit(cell) => apply_inline_edit_cmd(state, cell)
-    MoveSelection(delta_col, delta_row) => move_selection(state, delta_col, delta_row)
+    MoveSelection(delta_col, delta_row) =>
+      move_selection(state, delta_col, delta_row)
   }
 }
 

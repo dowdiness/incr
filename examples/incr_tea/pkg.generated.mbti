@@ -258,6 +258,7 @@ pub fn SubKey::SubKey(String, String) -> Self
 
 pub(all) enum SubSpec[Msg] {
   Timer(Int, Msg)
+  WindowKeydown(String, Msg)
 } derive(Eq, @debug.Debug)
 
 pub struct TextInputId {

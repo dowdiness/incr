@@ -25,6 +25,7 @@ pub fn SubKey::SubKey(namespace_id : String, identity : String) -> SubKey {
 /// More variants can be added alongside `Timer` as the platform evolves.
 pub(all) enum SubSpec[Msg] {
   Timer(Int, Msg)
+  WindowKeydown(String, Msg)
 } derive(Eq, Debug)
 
 ///|
@@ -86,6 +87,73 @@ fn dom_clear_interval(_timer_id : TimerHandleId) -> Unit {
 }
 
 ///|
+#cfg(target="js")
+#external
+priv type KeydownHandleId
+
+///|
+#cfg(not(target="js"))
+let next_keydown_id : Ref[Int] = Ref(0)
+
+///|
+#cfg(not(target="js"))
+type KeydownHandleId = Int
+
+///|
+let next_keydown_debug_id : Ref[Int] = Ref(0)
+
+///|
+#cfg(target="js")
+extern "js" fn dom_add_window_keydown_listener(
+  key_name : String,
+  callback : () -> Unit,
+) -> KeydownHandleId =
+  #| (keyName, callback) => {
+  #|   const store = globalThis.__incrTeaKeydownListeners ??= new Map();
+  #|   const next = (globalThis.__incrTeaKeydownListenerSeq ?? 0) + 1;
+  #|   globalThis.__incrTeaKeydownListenerSeq = next;
+  #|   const handler = event => {
+  #|     if (event.key === keyName) callback();
+  #|   };
+  #|   store.set(next, handler);
+  #|   if (typeof window !== "undefined" && window !== null) {
+  #|     window.addEventListener("keydown", handler);
+  #|   }
+  #|   return next;
+  #| }
+
+///|
+#cfg(not(target="js"))
+fn dom_add_window_keydown_listener(
+  _key_name : String,
+  _callback : () -> Unit,
+) -> KeydownHandleId {
+  next_keydown_id.val = next_keydown_id.val + 1
+  next_keydown_id.val
+}
+
+///|
+#cfg(target="js")
+extern "js" fn dom_remove_window_keydown_listener(
+  handle : KeydownHandleId,
+) -> Unit =
+  #| (handle) => {
+  #|   const store = globalThis.__incrTeaKeydownListeners;
+  #|   const handler = store?.get(handle);
+  #|   if (!handler) return;
+  #|   if (typeof window !== "undefined" && window !== null) {
+  #|     window.removeEventListener("keydown", handler);
+  #|   }
+  #|   store.delete(handle);
+  #| }
+
+///|
+#cfg(not(target="js"))
+fn dom_remove_window_keydown_listener(_handle : KeydownHandleId) -> Unit {
+  ()
+}
+
+///|
 priv struct TimerSub[Msg] {
   mut interval_ms : Int
   message : Ref[Msg]
@@ -96,6 +164,7 @@ priv struct TimerSub[Msg] {
 ///|
 priv enum ActiveSub[Msg] {
   Timer(TimerSub[Msg])
+  Keydown(KeydownSub[Msg])
 }
 
 ///|
@@ -144,16 +213,58 @@ fn[Msg] TimerSub::stop(self : TimerSub[Msg]) -> Unit {
 }
 
 ///|
-fn[Msg] ActiveSub::stop(self : ActiveSub[Msg]) -> Unit {
-  match self {
-    Timer(timer) => timer.stop()
-  }
+priv struct KeydownSub[Msg] {
+  mut key_name : String
+  message : Ref[Msg]
+  mut listener_handle : KeydownHandleId
+  dispatch : (Msg) -> Unit
 }
 
 ///|
-fn[Msg] ActiveSub::as_timer(self : ActiveSub[Msg]) -> TimerSub[Msg] {
+fn[Msg] KeydownSub::KeydownSub(
+  key_name : String,
+  message : Msg,
+  dispatch : (Msg) -> Unit,
+) -> KeydownSub[Msg] {
+  let message_ref = Ref(message)
+  let listener_handle = dom_add_window_keydown_listener(key_name, () => {
+    dispatch(message_ref.val)
+  })
+  next_keydown_debug_id.val = next_keydown_debug_id.val + 1
+  { key_name, message: message_ref, listener_handle, dispatch }
+}
+
+///|
+fn[Msg] KeydownSub::set_message(self : KeydownSub[Msg], message : Msg) -> Unit {
+  self.message.val = message
+}
+
+///|
+fn[Msg] KeydownSub::set_key_name(
+  self : KeydownSub[Msg],
+  key_name : String,
+) -> Unit {
+  guard key_name != self.key_name else { return }
+  dom_remove_window_keydown_listener(self.listener_handle)
+  let message = self.message
+  let dispatch = self.dispatch
+  self.listener_handle = dom_add_window_keydown_listener(key_name, () => {
+    dispatch(message.val)
+  })
+  self.key_name = key_name
+  next_keydown_debug_id.val = next_keydown_debug_id.val + 1
+}
+
+///|
+fn[Msg] KeydownSub::stop(self : KeydownSub[Msg]) -> Unit {
+  dom_remove_window_keydown_listener(self.listener_handle)
+}
+
+///|
+fn[Msg] ActiveSub::stop(self : ActiveSub[Msg]) -> Unit {
   match self {
-    Timer(timer) => timer
+    Timer(timer) => timer.stop()
+    Keydown(sub) => sub.stop()
   }
 }
 
@@ -175,16 +286,58 @@ fn[Msg] SubscriptionsManager::start_or_update_timer(
   dispatch : (Msg) -> Unit,
 ) -> Unit {
   match self.active.get(key) {
-    Some(existing) => {
-      let timer = existing.as_timer()
+    Some(Timer(timer)) => {
       timer.set_message(on_tick)
       timer.set_interval(interval_ms)
-      self.active.set(key, ActiveSub::Timer(timer))
+    }
+    Some(existing) => {
+      existing.stop()
+      self.active.set(
+        key,
+        SubscriptionsManager::start_timer(interval_ms, on_tick, dispatch),
+      )
     }
     None =>
       self.active.set(
         key,
         SubscriptionsManager::start_timer(interval_ms, on_tick, dispatch),
+      )
+  }
+}
+
+///|
+fn[Msg] SubscriptionsManager::start_keydown(
+  key_name : String,
+  message : Msg,
+  dispatch : (Msg) -> Unit,
+) -> ActiveSub[Msg] {
+  ActiveSub::Keydown(KeydownSub::KeydownSub(key_name, message, dispatch))
+}
+
+///|
+fn[Msg] SubscriptionsManager::start_or_update_keydown(
+  self : SubscriptionsManager[Msg],
+  key : SubKey,
+  key_name : String,
+  message : Msg,
+  dispatch : (Msg) -> Unit,
+) -> Unit {
+  match self.active.get(key) {
+    Some(Keydown(sub)) => {
+      sub.set_message(message)
+      sub.set_key_name(key_name)
+    }
+    Some(existing) => {
+      existing.stop()
+      self.active.set(
+        key,
+        SubscriptionsManager::start_keydown(key_name, message, dispatch),
+      )
+    }
+    None =>
+      self.active.set(
+        key,
+        SubscriptionsManager::start_keydown(key_name, message, dispatch),
       )
   }
 }
@@ -199,6 +352,8 @@ fn[Msg] SubscriptionsManager::reconcile(
     match pair {
       (key, SubSpec::Timer(interval_ms, on_tick)) =>
         self.start_or_update_timer(key, interval_ms, on_tick, dispatch)
+      (key, SubSpec::WindowKeydown(key_name, message)) =>
+        self.start_or_update_keydown(key, key_name, message, dispatch)
     }
   }
   for pair in self.active.to_array() {

@@ -60,8 +60,11 @@ pub fn RenderStats::activation_flushes(self : RenderStats) -> Int {
 }
 
 ///| Per-root named counters returned by `BrowserRenderer::root_stats()`.
+
 ///| `view_recomputes` is incremented when the root's view Derived re-evaluates.
-///| `patch_attempts` and `skipped_patches` are per-root DOM patch/skip counters.
+
+///|
+/// `patch_attempts` and `skipped_patches` are per-root DOM patch/skip counters.
 #cfg(target="js")
 pub(all) struct RootStats {
   label : String
@@ -69,7 +72,9 @@ pub(all) struct RootStats {
   patch_attempts : Int
   skipped_patches : Int
 }
-///| Accumulates another RenderStats into this one (addition).
+
+///|
+/// Accumulates another RenderStats into this one (addition).
 #cfg(target="js")
 pub fn RenderStats::add(self : RenderStats, other : RenderStats) -> RenderStats {
   {
@@ -77,11 +82,13 @@ pub fn RenderStats::add(self : RenderStats, other : RenderStats) -> RenderStats 
     patch_attempts: self.patch_attempts + other.patch_attempts,
     skipped_patches: self.skipped_patches + other.skipped_patches,
     frame_flushes: self.frame_flushes + other.frame_flushes,
-    inactive_skipped_flushes: self.inactive_skipped_flushes + other.inactive_skipped_flushes,
+    inactive_skipped_flushes: self.inactive_skipped_flushes +
+    other.inactive_skipped_flushes,
     activation_flushes: self.activation_flushes + other.activation_flushes,
   }
 }
 
+///|
 #cfg(target="js")
 priv struct WatchedHtmlRoot[Msg] {
   program : Program[Msg, Html[Msg]]
@@ -90,6 +97,7 @@ priv struct WatchedHtmlRoot[Msg] {
   mut last_view : Html[Msg]?
 }
 
+///|
 #cfg(target="js")
 fn[Msg] WatchedHtmlRoot::WatchedHtmlRoot(
   program : Program[Msg, Html[Msg]],
@@ -99,6 +107,7 @@ fn[Msg] WatchedHtmlRoot::WatchedHtmlRoot(
   { program, label, stats, last_view: None }
 }
 
+///|
 #cfg(target="js")
 fn[Msg : Eq] WatchedHtmlRoot::read_changed(
   self : WatchedHtmlRoot[Msg],
