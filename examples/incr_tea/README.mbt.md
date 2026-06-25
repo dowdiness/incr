@@ -135,7 +135,8 @@ plus a DOM event name; the renderer extracts the browser payload at the boundary
 and resolves `(id, payload) -> Msg` through mount-time resolvers (`on_input`,
 `on_key`, `on_pointer`). Text input and value-change descriptors forward
 `value`, keyboard forwards key/code/modifiers/repeat, and pointer forwards
-pointer id/type, viewport coordinates, target-local offsets, buttons, and
+pointer id/type, viewport coordinates (`client_x`/`client_y`), target-element-local
+offsets (`offset_x`/`offset_y`, from the browser's `offsetX`/`offsetY`), buttons, and
 modifiers. No closure or DOM event object is stored in cacheable `Html`, so
 equal descriptors still backdate.
 
