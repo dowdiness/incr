@@ -22,9 +22,11 @@ fn App::App(runtime : @incr.Runtime) -> App {
   let scope = @incr.Scope::new(runtime)
   let state = Ref({ count: 0, listening: true })
   let version = scope.input_field(0, label="7guis.keyboard_shortcut.version")
+  let listening = scope.input_field(true, label="7guis.keyboard_shortcut.listening")
   let update : (Msg) -> @tea.Cmd[Msg] = msg => {
     state.val = update_model(msg, state.val)
     version.set(version.peek() + 1)
+    listening.set(state.val.listening)
     @tea.Cmd::none()
   }
   let view : () -> @tea.Html[Msg] raise Failure = () => {
@@ -32,9 +34,8 @@ fn App::App(runtime : @incr.Runtime) -> App {
     view_model(state.val)
   }
   let subscriptions : () -> @tea.Subscriptions[Msg] raise Failure = () => {
-    ignore(version.get())
     let subs = @hashmap.HashMap([])
-    if state.val.listening {
+    if listening.get() {
       subs.set(
         @tea.SubKey("7guis", "keyboard_shortcut"),
         @tea.SubSpec::WindowKeydown("k", Pressed),
