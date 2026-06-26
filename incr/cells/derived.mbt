@@ -356,9 +356,6 @@ fn[T] Memo::get_result_inner_impl(
 }
 
 ///|
-/// Package-private permissive read. Bypasses the tracked-context guard.
-/// Records a dependency when a tracking frame is active.
-#alias(get_untracked, deprecated="Use Memo::read_permissive instead")
 fn[T] Memo::read_permissive(self : Memo[T]) -> T {
   let r = self.get_result_inner() catch {
     e => {

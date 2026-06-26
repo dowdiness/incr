@@ -308,8 +308,6 @@ pub fn Runtime::batch(Self, () -> Unit raise?) -> Unit raise?
 pub fn Runtime::batch_result(Self, () -> Unit raise) -> Result[Unit, Error]
 pub fn Runtime::cell_info(Self, @types.CellId) -> CellInfo?
 pub fn Runtime::clear_derived_event_listener(Self) -> Unit raise Failure
-#deprecated
-pub fn Runtime::clear_memo_event_listener(Self) -> Unit raise Failure
 pub fn Runtime::clear_on_change(Self) -> Unit
 pub fn Runtime::dependents(Self, @types.CellId) -> Array[@types.CellId]
 pub fn Runtime::dispose_cell(Self, @types.CellId) -> Unit
@@ -321,14 +319,6 @@ pub fn Runtime::id(Self) -> @types.RuntimeId
 pub fn Runtime::new(on_change? : () -> Unit) -> Self
 pub fn Runtime::new_rule(Self, Array[@types.CellId], Array[@types.CellId], () -> Unit, label? : String) -> @types.RuleId
 pub fn Runtime::on_derived_event(Self, (DerivedEvent) -> Unit) -> Unit raise Failure
-#deprecated
-pub fn Runtime::on_memo_event(Self, (DerivedEvent) -> Unit) -> Unit raise Failure
-#deprecated
-pub fn[T] Runtime::read(Self, Memo[T]) -> T
-#deprecated
-pub fn[T : Eq] Runtime::read_hybrid(Self, HybridMemo[T]) -> T
-#deprecated
-pub fn[T] Runtime::read_reactive(Self, Reactive[T]) -> T
 pub fn Runtime::record_batch_rollback(Self, @types.CellId, () -> Unit) -> Unit
 pub fn Runtime::remove_derived_event_listener(Self, @types.ListenerId) -> Unit raise Failure
 pub fn Runtime::remove_on_change_listener(Self, @types.ListenerId) -> Unit

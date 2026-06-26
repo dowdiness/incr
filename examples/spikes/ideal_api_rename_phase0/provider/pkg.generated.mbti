@@ -19,14 +19,11 @@ pub(all) struct LegacyOnly {
 pub fn LegacyOnly::LegacyOnly(Bool) -> Self
 pub impl CompatReadable for LegacyOnly
 
-#alias(DeprecatedCell, deprecated)
 #alias(RenamedCell)
 pub(all) struct ProbeCell[T] {
   value : T
 }
-#alias(new, deprecated)
 pub fn[T] ProbeCell::ProbeCell(T) -> Self[T]
-#alias(old_value, deprecated)
 pub fn[T] ProbeCell::value(Self[T]) -> T
 
 pub(all) struct ReadMemo[T] {

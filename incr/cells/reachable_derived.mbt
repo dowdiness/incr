@@ -212,9 +212,6 @@ fn[T : Eq] HybridMemo::read_result_inner(
 }
 
 ///|
-/// Package-private permissive read. Bypasses the tracked-context guard.
-/// Records a dependency when a tracking frame is active.
-#alias(get_untracked, deprecated="Use HybridMemo::read_permissive instead")
 fn[T : Eq] HybridMemo::read_permissive(self : HybridMemo[T]) -> T {
   let r = self.read_result_inner() catch {
     e => {

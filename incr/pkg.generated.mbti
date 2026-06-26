@@ -45,9 +45,6 @@ pub fn[Db : Database, T] create_signal(Db, T, durability? : @types.Durability, l
 
 pub fn[Db : Database, T] create_tracked_cell(Db, T, durability? : @types.Durability, label? : String) -> @cells.TrackedCell[T]
 
-#deprecated
-pub fn[T : Trackable] gc_tracked(@cells.Runtime, T) -> Unit
-
 // Errors
 
 // Types and methods
@@ -108,18 +105,6 @@ pub using @types {type ListenerId}
 pub using @cells {type MapRelation}
 
 pub using @cells {type Memo}
-
-#deprecated
-pub using @cells {type DerivedAbortedEvent as MemoAbortedEvent}
-
-#deprecated
-pub using @cells {type DerivedCompletedEvent as MemoCompletedEvent}
-
-#deprecated
-pub using @cells {type DerivedEnteringEvent as MemoEnteringEvent}
-
-#deprecated
-pub using @cells {type DerivedEvent as MemoEvent}
 
 pub using @types {type MemoId}
 

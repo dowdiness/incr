@@ -18,6 +18,20 @@ These changes are in `examples/` workspace members, not the published `dowdiness
 - Added `Program::stateful` and `Program::stateful_cmd` helpers to `examples/incr_tea` (#287, #302), letting demos keep mutable state behind a `Program` while preserving the explicit command/update flow.
 - Extended the typed-spreadsheet examples with multi-root locality instrumentation (#294, #295, #297, #298): per-region `InputField`s, per-root recompute stats, patch/skip counters, validation tests, and measurement docs for cross-root updates.
 
+### Removed
+
+- Removed deprecated event aliases (`MemoEvent`, `MemoEnteringEvent`, `MemoCompletedEvent`, `MemoAbortedEvent`) and deprecated runtime event helpers (`on_memo_event`, `clear_memo_event_listener`).
+- Removed deprecated runtime one-shot read helpers (`Runtime::read`, `Runtime::read_hybrid`, `Runtime::read_reactive`) in favor of target-facade reads/watches.
+- Removed the deprecated `gc_tracked` no-op and the deprecated `incr/pipeline` package.
+
+### Migration
+
+- Replace `MemoEvent` / `MemoEnteringEvent` / `MemoCompletedEvent` / `MemoAbortedEvent` with `DerivedEvent` / `DerivedEnteringEvent` / `DerivedCompletedEvent` / `DerivedAbortedEvent`.
+- Replace `Runtime::on_memo_event` / `Runtime::clear_memo_event_listener` with `Runtime::on_derived_event` / `Runtime::clear_derived_event_listener` or the additive listener APIs.
+- Replace `Runtime::read`, `Runtime::read_hybrid`, and `Runtime::read_reactive` with target-facade reads/watches (`Derived`, `ReachableDerived`, `EagerDerived`, `Watch`). Callers that still hold low-level `Memo` / `HybridMemo` / `Reactive` handles should migrate one-shot reads to `observe()`-based reads instead of the removed runtime helpers.
+- Replace `gc_tracked(rt, tracked)` with `add_tracked(scope, tracked)` for compatibility `TrackedCell` owners, or `add_input_fields(scope, owner)` for target-style `InputField` owners.
+- Remove imports of `dowdiness/incr/pipeline`; the package is gone. Define application-local build traits in downstream code instead of depending on `Sourceable` / `Parseable` / `Checkable` / `Executable`.
+
 ## v0.10.1 (2026-06-24)
 
 ### Fixed

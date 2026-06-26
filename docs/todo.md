@@ -241,10 +241,10 @@ clean up the dead logic.
 
 ## Package Structure
 
-- [x] Split flat single-package library into four MoonBit sub-packages (`types/`, `cells/`, `pipeline/`, root facade)
+- [x] Split the library into focused MoonBit packages (`types/`, `cells/`, root facade)
 - [x] Move pure value types (`Revision`, `Durability`, `CellId`) to `dowdiness/incr/types`
 - [x] Move all engine code to `dowdiness/incr/cells`
-- [x] Move now-deprecated pipeline traits to `dowdiness/incr/pipeline`
+- [x] Remove the temporary deprecated pipeline-traits compatibility package in the breaking cleanup
 - [x] Re-export all public types from root via `pub type` transparent aliases in `incr.mbt`
 - [x] Move whitebox tests (`*_wbtest.mbt`) to `cells/` for private field access
 - [x] Move unit tests (`*_test.mbt`) to `cells/` (co-located with source)

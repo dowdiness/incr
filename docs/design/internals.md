@@ -493,11 +493,6 @@ The accumulator's commit-path work runs through the `MemoCommitPhase` dispatch r
 | `cells/input_field.mbt` | `TrackedCell[T]` — field-level tracked struct wrapper |
 | `cells/introspection.mbt` | `Runtime::cell_info`, `Runtime::dependents` — graph introspection |
 
-### `pipeline/` package (`dowdiness/incr/pipeline`)
-
-| File | Purpose |
-|------|---------|
-| `pipeline/pipeline_traits.mbt` | `Sourceable`, `Parseable`, `Checkable`, `Executable` — deprecated early pipeline trait sketches retained for source compatibility |
 
 ### Test files
 
@@ -533,7 +528,7 @@ Unit tests (`*_test.mbt`) and whitebox tests (`*_wbtest.mbt`) live in `incr/cell
 | `tests/integration_test.mbt` | End-to-end multi-signal/memo scenarios |
 | `tests/fanout_test.mbt` | Wide dependency graphs (diamond, multi-level) |
 | `tests/traits_test.mbt` | Root trait/helper tests (`Database`, `Readable`, helper constructors) |
-| `tests/tracked_struct_test.mbt` | `TrackedCell`, `Trackable`, and `gc_tracked` |
+| `tests/tracked_struct_test.mbt` | `TrackedCell`, `Trackable`, and `add_tracked` |
 | `tests/reachable_derived_test.mbt` | `HybridMemo` public API: get, update, backdating, diamond, batch, chained, pull chain |
 
 ## Architecture Analysis (2026-04-16)

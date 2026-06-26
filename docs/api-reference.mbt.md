@@ -171,32 +171,10 @@ Use `set_on_change` for a single, owner-controlled callback that should *replace
 on re-registration (the back-compat "the" callback). Use `add_on_change_listener`
 for composable observers that must coexist and are individually removable by id.
 
-### `Runtime::read[T](self, memo: Memo[T]) -> T`
-
-Deprecated legacy compatibility helper for reading a memo from **outside** a tracked
-compute. It observes once, reads the value, and disposes the observer in one
-call. New target-facade code should prefer `Derived::read()`,
-`Derived::read_or_abort()`, or `Derived::watch()`. Aborts if the memo has been
-disposed.
-
-Use this only in compatibility code, as `rt.read(my_memo)`. New target code
-should prefer the `Derived` read methods above.
-
-### `Runtime::read_hybrid[T : Eq](self, memo: HybridMemo[T]) -> T`
-
-Deprecated legacy one-shot observe for `HybridMemo[T]`. New target-facade code should
-prefer `ReachableDerived::read()`, `ReachableDerived::read_or_abort()`, or
-`ReachableDerived::watch()`.
-
-### `Runtime::read_reactive[T](self, reactive: Reactive[T]) -> T`
-
-Deprecated legacy one-shot observe for `Reactive[T]`. New target-facade code
-should prefer `EagerDerived::read()` or `EagerDerived::watch()`.
 
 ### `Runtime::on_derived_event(self, f: (DerivedEvent) -> Unit) -> Unit raise Failure`
 
-> Renamed in 0.8.0 from `Runtime::on_memo_event`, which remains as a deprecated
-> alias.
+> Renamed in 0.8.0 from `Runtime::on_memo_event`; older ADRs may use that name.
 
 Registers the runtime's derived recompute listener. The listener receives pull
 `Memo` and `HybridMemo` lifecycle events after the recompute path reaches a
@@ -223,8 +201,7 @@ Mutation guard:
 
 ### `Runtime::clear_derived_event_listener(self) -> Unit raise Failure`
 
-> Renamed in 0.8.0 from `Runtime::clear_memo_event_listener`, which remains as a
-> deprecated alias.
+> Renamed in 0.8.0 from `Runtime::clear_memo_event_listener`; older ADRs may use that name.
 
 Removes the singleton derived-event listener. Idempotent; additive listeners are
 unaffected. It has the same mutation guard as `on_derived_event`; clear it
@@ -268,10 +245,8 @@ application key.
 `DerivedEvent` is the public event payload delivered by
 `Runtime::on_derived_event`.
 
-> Renamed in 0.8.0 from `MemoEvent` (with payloads `MemoEnteringEvent` /
-> `MemoCompletedEvent` / `MemoAbortedEvent`). The old type names remain as
-> deprecated aliases; the variant names are unchanged, so existing `match`
-> arms keep compiling.
+> Renamed in 0.8.0 from `MemoEvent` with payloads `MemoEnteringEvent` /
+> `MemoCompletedEvent` / `MemoAbortedEvent`; older ADRs may use those names.
 
 ```mbt nocheck
 ///|
@@ -1137,38 +1112,9 @@ stable order.
 The checked companion covers a compatibility `Trackable` owner registered via
 `add_tracked` in [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
-`Trackable` is required by `gc_tracked`. The ordering of IDs must be deterministic across calls.
+`Trackable` is required by `add_tracked`. The ordering of IDs must be deterministic across calls.
 
-### Pipeline Traits (Deprecated)
-
-> **Deprecated.** These early pipeline traits are too stringly-typed for shared
-> build-system use and have no production consumers. Define application-specific
-> `Source`, `Parser`, `ImportResolver`, `Checker`, and `Transformer` traits with
-> concrete domain types instead. Defined in `pipeline/pipeline_traits.mbt`
-> (`dowdiness/incr/pipeline` package).
-
-```mbt nocheck
-///|
-pub(open) trait Sourceable {
-  fn set_source_text(Self, String) -> Unit
-  fn source_text(Self) -> String
-}
-
-///|
-pub(open) trait Parseable {
-  fn parse_errors(Self) -> Array[String]
-}
-
-///|
-pub(open) trait Checkable {
-  fn check_errors(Self) -> Array[String]
-}
-
-///|
-pub(open) trait Executable {
-  fn run(Self) -> Array[String]
-}
-```
+The old standalone pipeline traits (`Sourceable`, `Parseable`, `Checkable`, `Executable`) were removed in the breaking cleanup. Define application-local build traits with concrete domain types instead.
 
 ---
 
@@ -1299,19 +1245,6 @@ Compatibility helper for `TrackedCell` owners. Target-name code should use
 The checked companion covers `create_scope` and `add_tracked` disposal in
 [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
-### `gc_tracked[T : Trackable](rt: Runtime, tracked: T) -> Unit`
-
-Deprecated no-op kept for source compatibility; use `add_tracked(scope,
-tracked)` instead for lifecycle management. `TrackedCell` fields are leaves of
-the dependency graph, so marking them as GC roots keeps nothing alive. The
-target names for new code are `InputField`, `InputFieldOwner`, and
-`add_input_fields`.
-
-Use `add_tracked(scope, my_tracked_struct)` for lifecycle management; the
-checked companion covers this path in
-[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md). The legacy
-`gc_tracked(rt, my_tracked_struct)` call remains as a deprecated no-op for
-source compatibility.
 
 ### `batch[Db : Database](db: Db, f: () -> Unit raise?) -> Unit raise?`
 
