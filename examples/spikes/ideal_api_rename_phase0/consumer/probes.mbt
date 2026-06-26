@@ -35,14 +35,16 @@ pub impl @probe.CompatReadable for DownstreamFresh with fn readable(self) {
 
 ///|
 pub fn probe_public_aliases() -> Int {
-  let from_constructor = @probe.ProbeCell::new(1)
-  let from_target = @probe.ProbeCell(2)
-  let from_type_alias : @probe.RenamedCell[Int] = @probe.RenamedCell::new(3)
-  let from_deprecated_alias : @probe.DeprecatedCell[Int] = @probe.ProbeCell(4)
-  from_constructor.old_value() +
+  let from_constructor = @probe.ProbeCell::ProbeCell(1)
+  let from_target = @probe.ProbeCell::ProbeCell(2)
+  let from_type_alias : @probe.RenamedCell[Int] = @probe.ProbeCell::ProbeCell(3)
+  let from_renamed_alias : @probe.RenamedCell[Int] = @probe.ProbeCell::ProbeCell(
+    4,
+  )
+  from_constructor.value() +
   from_target.value() +
   from_type_alias.value() +
-  from_deprecated_alias.value()
+  from_renamed_alias.value()
 }
 
 ///|

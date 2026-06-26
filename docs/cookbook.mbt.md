@@ -440,8 +440,7 @@ scope lifecycle in
 [`cookbook_examples.mbt.md`](cookbook_examples.mbt.md#field-level-inputs-and-scoped-watches).
 
 Compatibility `TrackedCell` structs use `Trackable` and `add_tracked(scope,
-tracked)`. `gc_tracked` is deprecated and remains a no-op kept for source
-compatibility.
+tracked)` for lifecycle management.
 
 ### Lifecycle: Register Watches with a Scope
 

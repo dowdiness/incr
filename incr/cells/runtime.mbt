@@ -298,23 +298,6 @@ pub fn Runtime::remove_derived_event_listener(
 }
 
 ///|
-/// Deprecated alias of `Runtime::on_derived_event`.
-#deprecated("Use Runtime::on_derived_event", skip_current_package=true)
-pub fn Runtime::on_memo_event(
-  self : Runtime,
-  f : (DerivedEvent) -> Unit,
-) -> Unit raise Failure {
-  self.on_derived_event(f)
-}
-
-///|
-/// Deprecated alias of `Runtime::clear_derived_event_listener`.
-#deprecated("Use Runtime::clear_derived_event_listener", skip_current_package=true)
-pub fn Runtime::clear_memo_event_listener(self : Runtime) -> Unit raise Failure {
-  self.clear_derived_event_listener()
-}
-
-///|
 fn Runtime::dispatch_before_recompute_hooks(
   self : Runtime,
   cell_id : CellId,

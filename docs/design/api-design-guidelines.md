@@ -543,9 +543,9 @@ compatibility cleanup, not a semantic flip back to the old names.
 - New traits (e.g., introspection)
 - New optional parameters via builder pattern
 
-### Deprecated / Internal
+### Removed / Internal
 
-- Pipeline traits (`Sourceable`, `Parseable`, etc.) — deprecated early sketch; define application-local build traits with concrete domain types instead
+- Pipeline traits (`Sourceable`, `Parseable`, etc.) were removed after the deprecated compatibility window; define application-local build traits with concrete domain types instead
 - Internal details (`CellMeta`, `ActiveQuery`) — not public API
 
 ## Conclusion

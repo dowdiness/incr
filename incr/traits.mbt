@@ -404,19 +404,3 @@ pub fn[T : InputFieldOwner] add_input_fields(scope : Scope, owner : T) -> Unit {
 pub fn[Db : Database] create_scope(db : Db) -> Scope {
   Scope::new(db.runtime())
 }
-
-///|
-/// **Deprecated:** Use `add_tracked(scope, tracked)` instead for lifecycle management.
-///
-/// This function was originally intended to mark TrackedCell fields as GC roots.
-/// However, TrackedCells are Sources with no downstream dependency edges, so
-/// marking them as roots keeps nothing alive. Use `add_tracked(scope, tracked)`
-/// to register all of a struct's TrackedCells with a scope for bulk disposal.
-///
-/// This function is a no-op and will be removed in a future version.
-#deprecated("Use `add_tracked(scope, tracked)` instead — `gc_tracked` is a no-op kept for source compatibility", skip_current_package=true)
-pub fn[T : Trackable] gc_tracked(rt : Runtime, tracked : T) -> Unit {
-  // Deprecated no-op — use add_tracked(scope, tracked) instead.
-  let _ = tracked.cell_ids()
-  ignore(rt)
-}

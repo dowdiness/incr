@@ -15,8 +15,13 @@ struct TraceData {
 } derive(Eq)
 
 ///|
+struct Model {
+  _marker : Unit
+}
+
+///|
 struct SheetState {
-  scope : @incr.Scope
+  _scope : @incr.Scope
   sheet : @typed_spreadsheet.Worksheet
   cells : @incr.InputField[Array[String]]
   drafts : @incr.InputField[Array[CellDraft]]
@@ -53,7 +58,7 @@ fn SheetState::new(runtime : @incr.Runtime) -> SheetState {
   let trace = scope.input_field(None, label="typed-sheet.trace")
   let last_edit = scope.input_field("Seed sheet", label="typed-sheet.last-edit")
   let state = {
-    scope,
+    _scope: scope,
     sheet,
     cells,
     drafts,
@@ -77,59 +82,6 @@ fn SheetState::new(runtime : @incr.Runtime) -> SheetState {
   )
   s.error.set(None)
   state_ref.val
-}
-
-///|
-/// Constructs a `Model` snapshot from current InputField values.
-fn SheetState::read_model(self : SheetState) -> Model {
-  {
-    sheet: self.sheet,
-    cells: self.cells.get(),
-    drafts: self.drafts.get(),
-    committed: self.committed.get(),
-    selected_cell: self.selected_cell.get(),
-    editing_cell: self.editing_cell.get(),
-    status: self.status.get(),
-    error: self.error.get(),
-    trace_data: self.trace.get(),
-    last_edit: self.last_edit.get(),
-  }
-}
-
-///|
-/// Test-only snapshot using `peek()` — no reactive dependency recorded.
-fn SheetState::peek_model(self : SheetState) -> Model {
-  {
-    sheet: self.sheet,
-    cells: self.cells.peek(),
-    drafts: self.drafts.peek(),
-    committed: self.committed.peek(),
-    selected_cell: self.selected_cell.peek(),
-    editing_cell: self.editing_cell.peek(),
-    status: self.status.peek(),
-    error: self.error.peek(),
-    trace_data: self.trace.peek(),
-    last_edit: self.last_edit.peek(),
-  }
-}
-
-///| Snapshot struct for view functions and test assertions.
-
-///| The view uses `SheetState::read_model` to construct this; handlers
-
-///|
-/// update `InputField`s directly without constructing a `Model`.
-struct Model {
-  sheet : @typed_spreadsheet.Worksheet
-  cells : Array[String]
-  drafts : Array[CellDraft]
-  committed : Array[CellDraft]
-  selected_cell : String
-  editing_cell : String?
-  trace_data : TraceData?
-  last_edit : String
-  status : String
-  error : String?
 }
 
 ///|
@@ -497,28 +449,6 @@ fn reset_sheet_cmd(
     seed_text_edit(state, "A1", "10")
     seed_text_edit(state, "B1", "=A1 + 1")
   })
-}
-
-// ── View helpers (pure, from Model snapshot) ───────────────────────
-
-///|
-fn draft_for(model : Model, cell : String) -> String {
-  draft_text_from(model.drafts, cell)
-}
-
-///|
-fn committed_for(model : Model, cell : String) -> String {
-  draft_text_from(model.committed, cell)
-}
-
-///|
-fn draft_is_dirty(model : Model, cell : String) -> Bool {
-  draft_for(model, cell) != committed_for(model, cell)
-}
-
-///|
-fn cell_id(model : Model, cell : String) -> @typed_spreadsheet.CellId {
-  cell_id_from_sheet(model.sheet, cell)
 }
 
 // ── Grid constants ─────────────────────────────────────────────────

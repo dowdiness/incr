@@ -5,6 +5,7 @@ struct TypedSheetApp {
   prog_status : @tea.Program[Msg, @tea.Html[Msg]]
   prog_trace : @tea.Program[Msg, @tea.Html[Msg]]
   _state : Ref[SheetState]
+  _model_marker : Model
 }
 
 ///|
@@ -13,7 +14,7 @@ fn TypedSheetApp::TypedSheetApp(runtime : @incr.Runtime) -> TypedSheetApp {
   let update : (Msg) -> @tea.Cmd[Msg] = msg => handle_msg(runtime, state, msg)
   // Shared update; each program gets its own scope for the view Derived +
   // Watch. Disposing any one program only tears down its view tracking, not
-  // the shared InputFields owned by `state.val.scope`.
+  // the shared InputFields owned by `state.val._scope`.
   let prog_grid = @tea.Program::Program(
     runtime,
     @incr.Scope::new(runtime),
@@ -42,18 +43,14 @@ fn TypedSheetApp::TypedSheetApp(runtime : @incr.Runtime) -> TypedSheetApp {
     fn() { state_trace(state.val) },
     label="typed-sheet.trace",
   )
-  { prog_grid, prog_formula, prog_status, prog_trace, _state: state }
-}
-
-///|
-fn TypedSheetApp::dispose(self : TypedSheetApp) -> Unit {
-  self._state.val.sheet.dispose()
-  self.prog_grid.dispose()
-  self.prog_formula.dispose()
-  self.prog_status.dispose()
-  self.prog_trace.dispose()
-  // Dispose the shared InputFields scope last — programs and sheet are gone.
-  self._state.val.scope.dispose()
+  {
+    prog_grid,
+    prog_formula,
+    prog_status,
+    prog_trace,
+    _state: state,
+    _model_marker: { _marker: () },
+  }
 }
 
 ///|

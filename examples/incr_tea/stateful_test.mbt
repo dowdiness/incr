@@ -1,7 +1,7 @@
 ///|
 priv struct SModel {
   count : Int
-} derive(Eq, Debug)
+}
 
 ///|
 priv enum SMsg {
@@ -64,6 +64,8 @@ test "stateful: multiple dispatches accumulate correctly" {
   ignore(program.dispatch(Inc))
   ignore(program.dispatch(Dec))
   inspect(program.read_view_or_abort(), content="1")
+  ignore(program.dispatch(Reset))
+  inspect(program.read_view_or_abort(), content="0")
   program.dispose()
 }
 

@@ -1,4 +1,50 @@
 ///|
+struct ModelSnapshot {
+  sheet : @typed_spreadsheet.Worksheet
+  cells : Array[String]
+  drafts : Array[CellDraft]
+  selected_cell : String
+  editing_cell : String?
+  trace_data : TraceData?
+  last_edit : String
+  status : String
+}
+
+///|
+fn SheetState::peek_model(self : SheetState) -> ModelSnapshot {
+  {
+    sheet: self.sheet,
+    cells: self.cells.peek(),
+    drafts: self.drafts.peek(),
+    selected_cell: self.selected_cell.peek(),
+    editing_cell: self.editing_cell.peek(),
+    trace_data: self.trace.peek(),
+    last_edit: self.last_edit.peek(),
+    status: self.status.peek(),
+  }
+}
+
+///|
+fn draft_for(model : ModelSnapshot, cell : String) -> String {
+  draft_text_from(model.drafts, cell)
+}
+
+///|
+fn cell_id(model : ModelSnapshot, cell : String) -> @typed_spreadsheet.CellId {
+  cell_id_from_sheet(model.sheet, cell)
+}
+
+///|
+fn TypedSheetApp::dispose(self : TypedSheetApp) -> Unit {
+  self._state.val.sheet.dispose()
+  self.prog_grid.dispose()
+  self.prog_formula.dispose()
+  self.prog_status.dispose()
+  self.prog_trace.dispose()
+  self._state.val._scope.dispose()
+}
+
+///|
 test "incr_tea spreadsheet proof starts with seeded representative grid" {
   let app = TypedSheetApp(@incr.Runtime())
   let model = app._state.val.peek_model()

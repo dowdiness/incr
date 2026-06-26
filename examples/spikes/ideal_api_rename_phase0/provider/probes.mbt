@@ -4,23 +4,17 @@ pub(all) struct ProbeCell[T] {
 }
 
 ///|
-#alias(new, deprecated="Use ProbeCell(value)")
+pub type RenamedCell[T] = ProbeCell[T]
+
+///|
 pub fn[T] ProbeCell::ProbeCell(value : T) -> ProbeCell[T] {
   { value, }
 }
 
 ///|
-#alias(old_value, deprecated="Use ProbeCell::value")
 pub fn[T] ProbeCell::value(self : ProbeCell[T]) -> T {
   self.value
 }
-
-///|
-pub type RenamedCell[T] = ProbeCell[T]
-
-///|
-#deprecated("Use RenamedCell")
-pub type DeprecatedCell[T] = ProbeCell[T]
 
 ///|
 pub(open) trait CurrentFreshness {

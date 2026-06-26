@@ -90,9 +90,6 @@ pub fn[T] Reactive::get(self : Reactive[T]) -> T {
 }
 
 ///|
-/// Package-private permissive read. Bypasses the tracked-context guard.
-/// Records a dependency when a tracking frame is active.
-#alias(get_untracked, deprecated="Use Reactive::read_permissive instead")
 fn[T] Reactive::read_permissive(self : Reactive[T]) -> T {
   self.rt.check_cross_runtime(self.rt.core.runtime_id, "Reactive")
   let cell_id = self.cell_id.id
