@@ -352,13 +352,19 @@ test "subscriptions: message-only update does not restart keydown listener" {
     None => abort("missing keydown after enable")
   }
   inspect(sub.key_name, content="a")
-  let is_keep_a = match sub.message.val { KeepKeyA => true; _ => false }
+  let is_keep_a = match sub.message.val {
+    KeepKeyA => true
+    _ => false
+  }
   inspect(is_keep_a, content="true")
 
   let id_before = next_keydown_debug_id.val
   ignore(program.dispatch(SwitchToMsgB))
   inspect(next_keydown_debug_id.val == id_before, content="true")
-  let is_touch = match sub.message.val { TouchUnrelatedKd => true; _ => false }
+  let is_touch = match sub.message.val {
+    TouchUnrelatedKd => true
+    _ => false
+  }
   inspect(is_touch, content="true")
   inspect(manager.active.to_array().length(), content="1")
   program.dispose()

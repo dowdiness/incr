@@ -22,7 +22,10 @@ fn App::App(runtime : @incr.Runtime) -> App {
   let scope = @incr.Scope::new(runtime)
   let state = Ref({ count: 0, listening: true })
   let version = scope.input_field(0, label="7guis.keyboard_shortcut.version")
-  let listening = scope.input_field(true, label="7guis.keyboard_shortcut.listening")
+  let listening = scope.input_field(
+    true,
+    label="7guis.keyboard_shortcut.listening",
+  )
   let update : (Msg) -> @tea.Cmd[Msg] = msg => {
     state.val = update_model(msg, state.val)
     version.set(version.peek() + 1)
