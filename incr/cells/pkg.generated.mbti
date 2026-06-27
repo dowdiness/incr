@@ -73,6 +73,8 @@ pub fn[T, A] Derived::accumulated(Self[T], Accumulator[A]) -> Result[Array[A], @
 pub fn[T, A] Derived::accumulated_or_abort(Self[T], Accumulator[A]) -> Array[A] raise Failure
 pub fn[T, A] Derived::accumulated_peek(Self[T], Accumulator[A]) -> Array[A]
 pub fn[T] Derived::changed_at(Self[T]) -> @types.Revision
+pub fn[T] Derived::clear_on_change(Self[T]) -> Unit
+pub fn[T] Derived::dependencies(Self[T]) -> Array[@types.CellId]
 pub fn[V : Eq, E : Eq] Derived::fallible(Runtime, () -> Result[V, E], label? : String) -> Self[Result[V, E]]
 pub fn[T] Derived::get(Self[T]) -> Result[T, @types.ReadError]
 pub fn[T] Derived::get_or_abort(Self[T]) -> T
@@ -86,8 +88,10 @@ pub fn[T1, T2, T3, U] Derived::map3(Self[T1], Self[T2], Self[T3], (T1, T2, T3) -
 pub fn[T1, T2, T3, U : Eq] Derived::map3_eq(Self[T1], Self[T2], Self[T3], (T1, T2, T3) -> U, label? : String) -> Self[U]
 pub fn[T, U : Eq] Derived::map_eq(Self[T], (T) -> U, label? : String) -> Self[U]
 pub fn[T] Derived::observe(Self[T]) -> Observer[T]
+pub fn[T] Derived::on_change(Self[T], (T) -> Unit) -> Unit
 pub fn[T] Derived::read(Self[T]) -> Result[T, @types.ReadError]
 pub fn[T] Derived::read_or_abort(Self[T]) -> T
+pub fn[T] Derived::verified_at(Self[T]) -> @types.Revision
 pub fn[T] Derived::watch(Self[T]) -> Watch[T]
 
 pub(all) struct DerivedAbortedEvent {
@@ -270,7 +274,9 @@ pub fn[T : Eq] ReachableDerived::ReachableDerived(Runtime, () -> T raise Failure
 pub fn[T : Eq] ReachableDerived::get(Self[T]) -> Result[T, @types.ReadError]
 pub fn[T : Eq] ReachableDerived::get_or_abort(Self[T]) -> T
 pub fn[T] ReachableDerived::id(Self[T]) -> @types.CellId
+pub fn[T] ReachableDerived::is_disposed(Self[T]) -> Bool
 pub fn[T] ReachableDerived::is_fresh(Self[T]) -> Bool
+pub fn[T : Eq] ReachableDerived::observe(Self[T]) -> Observer[T]
 pub fn[T : Eq] ReachableDerived::read(Self[T]) -> Result[T, @types.ReadError]
 pub fn[T : Eq] ReachableDerived::read_or_abort(Self[T]) -> T
 pub fn[T : Eq] ReachableDerived::watch(Self[T]) -> Watch[T]
@@ -339,11 +345,9 @@ pub fn[K : Hash + Eq, V] Scope::derived_map(Self, (K) -> V raise Failure, label?
 pub fn Scope::dispose(Self) -> Unit
 pub fn[T : Eq] Scope::eager_derived(Self, () -> T) -> EagerDerived[T]
 pub fn Scope::effect(Self, () -> Unit) -> Effect
-pub fn[T : Eq] Scope::hybrid_memo(Self, () -> T raise Failure, label? : String) -> HybridMemo[T]
 pub fn[T] Scope::input(Self, T, durability? : @types.Durability, label? : String) -> Input[T]
 pub fn[T] Scope::input_field(Self, T, durability? : @types.Durability, label? : String) -> InputField[T]
 pub fn Scope::is_disposed(Self) -> Bool
-pub fn[T : Eq] Scope::memo(Self, () -> T raise Failure, label? : String) -> Memo[T]
 pub fn Scope::new(Runtime) -> Self
 pub fn[T : Eq] Scope::reachable_derived(Self, () -> T raise Failure, label? : String) -> ReachableDerived[T]
 pub fn[T : Eq] Scope::reactive(Self, () -> T) -> Reactive[T]

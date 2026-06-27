@@ -299,11 +299,12 @@ test "memo dispose clears entries from all accumulators" {
   let a : Accumulator[Int] = Accumulator::new(rt~)
   let b : Accumulator[Int] = Accumulator::new(rt~)
   let scope = Scope::new(rt)
-  let producer : Memo[Int] = scope.memo(() => {
+  let producer : Memo[Int] = Memo::Memo(rt, () => {
     a.push(1)
     b.push(2)
     0
   })
+  scope.add_cell_ids([producer.id()])
   let _ = read_memo_for_test(producer)
   inspect(a.per_memo.contains(producer.id()), content="true")
   inspect(b.per_memo.contains(producer.id()), content="true")

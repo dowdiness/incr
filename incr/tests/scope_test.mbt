@@ -3,8 +3,8 @@ test "scope: create and dispose via public API" {
   let rt = @incr.Runtime::Runtime()
   let scope = @incr.Scope::new(rt)
   let sig = scope.signal(42)
-  let m = scope.memo(fn() { sig.get() * 2 })
-  inspect(read_memo_for_test(m), content="84")
+  let m = scope.derived(fn() { sig.get() * 2 })
+  inspect(read_derived_for_test(m), content="84")
   scope.dispose()
   inspect(sig.is_disposed(), content="true")
   inspect(m.is_disposed(), content="true")
@@ -25,9 +25,9 @@ test "scope: manual dispose before scope dispose is safe" {
   let rt = @incr.Runtime::Runtime()
   let scope = @incr.Scope::new(rt)
   let sig = scope.signal(1)
-  let m = scope.memo(fn() { sig.get() })
+  let m = scope.derived(fn() { sig.get() })
   // Manually dispose the memo before the scope
-  m.dispose()
+  rt.dispose_cell(m.id())
   inspect(m.is_disposed(), content="true")
   // Scope dispose should not abort — idempotent
   scope.dispose()
@@ -55,8 +55,8 @@ test "scope: child scope cells disposed before parent cells" {
   let child = parent.child()
   let child_sig = child.signal(200)
   // Child reads parent — this is the typical pattern
-  let child_memo = child.memo(fn() { parent_sig.get() + child_sig.get() })
-  inspect(read_memo_for_test(child_memo), content="300")
+  let child_memo = child.derived(fn() { parent_sig.get() + child_sig.get() })
+  inspect(read_derived_for_test(child_memo), content="300")
   parent.dispose()
   inspect(child_sig.is_disposed(), content="true")
   inspect(child_memo.is_disposed(), content="true")

@@ -385,6 +385,30 @@ pub fn[T] Derived::id(self : Derived[T]) -> CellId {
 }
 
 ///|
+/// Returns the array of cell IDs that this derived value depends on.
+pub fn[T] Derived::dependencies(self : Derived[T]) -> Array[CellId] {
+  self.inner.dependencies()
+}
+
+///|
+/// Returns the revision at which this derived value was last verified.
+pub fn[T] Derived::verified_at(self : Derived[T]) -> Revision {
+  self.inner.verified_at()
+}
+
+///|
+/// Registers a callback that fires whenever this derived value's output changes.
+pub fn[T] Derived::on_change(self : Derived[T], f : (T) -> Unit) -> Unit {
+  self.inner.on_change(f)
+}
+
+///|
+/// Removes the `on_change` callback for this derived value.
+pub fn[T] Derived::clear_on_change(self : Derived[T]) -> Unit {
+  self.inner.clear_on_change()
+}
+
+///|
 /// Acquires an `Observer` that roots this derived cell against gc. The
 /// caller must `dispose()` the returned observer when done; otherwise
 /// the cell (and its dependency cone) stays pinned indefinitely. See
@@ -508,6 +532,19 @@ pub fn[T] ReachableDerived::is_fresh(self : ReachableDerived[T]) -> Bool {
 /// inspection) where a cell needs an identity independent of its value.
 pub fn[T] ReachableDerived::id(self : ReachableDerived[T]) -> CellId {
   self.inner.id()
+}
+
+///|
+/// Acquires an `Observer` that roots this reachable derived cell against
+/// gc. The caller must `dispose()` the returned observer when done.
+pub fn[T : Eq] ReachableDerived::observe(self : ReachableDerived[T]) -> Observer[T] {
+  self.inner.observe()
+}
+
+///|
+/// Returns true if this reachable derived cell has been disposed.
+pub fn[T] ReachableDerived::is_disposed(self : ReachableDerived[T]) -> Bool {
+  self.inner.is_disposed()
 }
 
 ///|

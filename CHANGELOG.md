@@ -10,8 +10,14 @@ All notable changes to `dowdiness/incr` are documented in this file.
 - Added `Derived::map_eq` for target-facade transformations whose mapped output implements `Eq`, preserving backdating so equal mapped values do not invalidate downstream dependents.
 - Added `Derived::map2` / `Derived::map3` and `Derived::map2_eq` / `Derived::map3_eq` for target-facade multi-input transformations. The non-`Eq` forms use no-backdate recomputation; the `_eq` forms preserve backdating for equal mapped outputs; all four abort on cross-runtime inputs.
 
-### Examples
 
+### Changed
+
+- **Removed `@incr.Memo` / `@incr.MemoMap` / `@incr.HybridMemo` re-exports.** The internal types `Memo`, `MemoMap`, `HybridMemo` remain in `incr/cells/` (still used as `Derived.inner` etc.) but are no longer re-exported from `@incr`. Use `Derived`, `DerivedMap`, `ReachableDerived` instead. Added forwarding methods `dependencies()`, `verified_at()`, `on_change()`, `clear_on_change()` to `Derived` and `observe()`, `is_disposed()` to `ReachableDerived`.
+- **Removed `create_memo` / `create_memo_map` / `create_hybrid_memo` helpers.** Use `create_derived` / `create_derived_map` / `create_reachable_derived` (these accept `RuntimeContext`, mirroring the old `Database` pattern).
+- **Removed `Readable` trait impls for `Memo` / `HybridMemo`.** The `Freshness` trait covers `Derived` and `ReachableDerived` via `is_fresh()`.
+
+### Examples
 These changes are in `examples/` workspace members, not the published `dowdiness/incr` library.
 
 - Added `SubSpec::WindowKeydown` subscription family to `examples/incr_tea` (#290). `WindowKeydown(key_name, Msg)` reconciles a `window.addEventListener("keydown", ...)` listener — starting, updating in place (message or key name change), and stopping it without leaking browser listeners — alongside the existing `Timer` family. Demonstrated by a new `examples/incr_tea_7guis/keyboard_shortcut` task card.

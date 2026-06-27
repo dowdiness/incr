@@ -71,12 +71,6 @@ pub impl[T] Readable for Signal[T] with fn is_up_to_date(self) {
   Signal::is_up_to_date(self)
 }
 
-///|
-/// A memo is up-to-date when its verified_at matches the
-/// runtime's current revision.
-pub impl[T] Readable for Memo[T] with fn is_up_to_date(self) {
-  Memo::is_up_to_date(self)
-}
 
 ///|
 /// Target inputs are always fresh because they are directly-set cells.
@@ -124,54 +118,6 @@ pub fn[Db : Database, T] create_signal(
   Signal(db.runtime(), value, durability~, label?)
 }
 
-///|
-/// Creates a new memo using the database's runtime.
-///
-/// Uses `Memo::new` internally — requires `T : Eq` for backdating via
-/// structural equality. For other backdating strategies, use the Memo
-/// constructors directly:
-/// - `Memo::new_memo` for `BackdateEq`-based (revision) backdating
-/// - `Memo::new_no_backdate` for no backdating (no trait constraint on `T`)
-///
-/// # Parameters
-///
-/// - `db`: Any type implementing `Database`
-/// - `f`: The compute function for the memo
-/// - `label`: An optional human-readable name for debugging
-///
-/// # Returns
-///
-/// A new memo associated with the database's runtime
-pub fn[Db : Database, T : Eq] create_memo(
-  db : Db,
-  f : () -> T raise Failure,
-  label? : String,
-) -> Memo[T] {
-  Memo(db.runtime(), f, label?)
-}
-
-///|
-/// Creates a new keyed memoization map using the database's runtime.
-///
-/// Each key gets its own lazily-created memo. Repeated reads of the same
-/// key reuse that key's cached memoized value.
-///
-/// # Parameters
-///
-/// - `db`: Any type implementing `Database`
-/// - `f`: The compute function for each key
-/// - `label`: An optional label applied to each per-key memo
-///
-/// # Returns
-///
-/// A new memo map associated with the database's runtime
-pub fn[Db : Database, K : Hash + Eq, V] create_memo_map(
-  db : Db,
-  f : (K) -> V raise Failure,
-  label? : String,
-) -> MemoMap[K, V] {
-  MemoMap(db.runtime(), f, label?)
-}
 
 ///|
 /// Creates a target-name input facade using the context runtime.
@@ -256,44 +202,6 @@ pub fn[Db : Database] batch_result(
   f : () -> Unit raise,
 ) -> Result[Unit, Error] {
   db.runtime().batch_result(f)
-}
-
-///|
-/// A hybrid memo is up-to-date when its verified_at matches the
-/// runtime's current revision.
-pub impl[T] Readable for HybridMemo[T] with fn is_up_to_date(self) {
-  HybridMemo::is_up_to_date(self)
-}
-
-///|
-/// Creates a new hybrid memo using the database's runtime.
-///
-/// `HybridMemo[T]` uses the same lazy revision-based verification as
-/// `Memo[T]` — there is no separate dirty flag. The "hybrid" refers to
-/// *reachability*: the memo participates in `push_reachable_count`, so a
-/// live `Reactive` or `Effect` observer downstream keeps the memo and its
-/// upstream cells alive across `Runtime::gc()`.
-///
-/// Use `HybridMemo` when:
-/// - The memo sits between push-reactive nodes and pull-based memos
-/// - You want push notifications to reach downstream reactives without
-///   eagerly recomputing intermediate derived values
-///
-/// # Parameters
-///
-/// - `db`: Any type implementing `Database`
-/// - `f`: The compute function for the hybrid memo
-/// - `label`: An optional human-readable name for debugging
-///
-/// # Returns
-///
-/// A new hybrid memo associated with the database's runtime
-pub fn[Db : Database, T : Eq] create_hybrid_memo(
-  db : Db,
-  f : () -> T raise Failure,
-  label? : String,
-) -> HybridMemo[T] {
-  HybridMemo::new(db.runtime(), f, label?)
 }
 
 ///|

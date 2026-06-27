@@ -121,7 +121,7 @@ test "DerivedMap::read after scope disposal returns Err(Disposed)" {
 test "Memo::accumulated on disposed target returns Err(Disposed)" {
   let rt = @incr.Runtime::new()
   let acc : @incr.Accumulator[Int] = @incr.Accumulator::new(rt~)
-  let m = @incr.Memo(rt, () => {
+  let m = @incr.Derived(rt, () => {
     acc.push(1)
     0
   })
@@ -132,7 +132,7 @@ test "Memo::accumulated on disposed target returns Err(Disposed)" {
       }
     Err(e) => fail("expected accumulated Ok before disposal, got \{e}")
   }
-  m.dispose()
+  rt.dispose_cell(m.id())
   guard m.accumulated(acc) is Err(e) else {
     fail("expected Err on disposed accumulated target")
   }

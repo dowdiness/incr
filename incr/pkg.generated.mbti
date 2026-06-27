@@ -27,15 +27,9 @@ pub fn[Ctx : RuntimeContext, K : Hash + Eq, V] create_derived_map(Ctx, (K) -> V 
 
 pub fn[Ctx : RuntimeContext, T : Eq] create_eager_derived(Ctx, () -> T) -> @cells.EagerDerived[T]
 
-pub fn[Db : Database, T : Eq] create_hybrid_memo(Db, () -> T raise Failure, label? : String) -> @cells.HybridMemo[T]
-
 pub fn[Ctx : RuntimeContext, T] create_input(Ctx, T, durability? : @types.Durability, label? : String) -> @cells.Input[T]
 
 pub fn[Ctx : RuntimeContext, T] create_input_field(Ctx, T, durability? : @types.Durability, label? : String) -> @cells.InputField[T]
-
-pub fn[Db : Database, T : Eq] create_memo(Db, () -> T raise Failure, label? : String) -> @cells.Memo[T]
-
-pub fn[Db : Database, K : Hash + Eq, V] create_memo_map(Db, (K) -> V raise Failure, label? : String) -> @cells.MemoMap[K, V]
 
 pub fn[Ctx : RuntimeContext, T : Eq] create_reachable_derived(Ctx, () -> T raise Failure, label? : String) -> @cells.ReachableDerived[T]
 
@@ -90,8 +84,6 @@ pub using @types {type FunctionalRelationId}
 
 pub using @types {type GcRole}
 
-pub using @cells {type HybridMemo}
-
 pub using @cells {type Input}
 
 pub using @cells {type InputField}
@@ -104,11 +96,7 @@ pub using @types {type ListenerId}
 
 pub using @cells {type MapRelation}
 
-pub using @cells {type Memo}
-
 pub using @types {type MemoId}
-
-pub using @cells {type MemoMap}
 
 pub using @cells {type Observer}
 
@@ -166,8 +154,6 @@ pub(open) trait InputFieldOwner {
 pub(open) trait Readable {
   fn is_up_to_date(Self) -> Bool
 }
-pub impl[T] Readable for @cells.HybridMemo[T]
-pub impl[T] Readable for @cells.Memo[T]
 pub impl[T] Readable for @cells.Signal[T]
 pub impl[T] Readable for @cells.TrackedCell[T]
 

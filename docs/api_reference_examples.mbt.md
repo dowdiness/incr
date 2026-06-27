@@ -102,7 +102,7 @@ test "docs api-ref: derived event listener records and can be cleared" {
 
   rt.on_derived_event(_evt => events.val = events.val + 1)
 
-  let doubled = @incr.Memo(rt, () => input.get() * 2, label="doubled")
+  let doubled = @incr.Derived(rt, () => input.get() * 2, label="doubled")
   let observer = doubled.observe()
   inspect(observer.get(), content="2")
   inspect(events.val, content="2")
@@ -740,7 +740,7 @@ test "docs api-ref: Accumulator::new and push capture memo-local values" {
     rt~,
     label="diags",
   )
-  let producer = @incr.Memo(
+  let producer = @incr.Derived(
     rt,
     () => {
       if width.get() < 0 {
@@ -818,7 +818,7 @@ test "docs api-ref: map_relation staged values become visible after fixpoint" {
 test "docs api-ref: compatibility introspection exposes ids dependencies and dependents" {
   let rt = @incr.Runtime()
   let input = @incr.Signal(rt, 10, durability=High, label="input")
-  let doubled = @incr.Memo(rt, () => input.get() * 2, label="doubled")
+  let doubled = @incr.Derived(rt, () => input.get() * 2, label="doubled")
   let observer = doubled.observe()
 
   inspect(input.durability(), content="High")
@@ -851,7 +851,7 @@ test "docs api-ref: compatibility introspection exposes ids dependencies and dep
 test "docs api-ref: compatibility per-cell callbacks can be registered and cleared" {
   let rt = @incr.Runtime()
   let input = @incr.Signal(rt, 1, label="input")
-  let doubled = @incr.Memo(rt, () => input.get() * 2, label="doubled")
+  let doubled = @incr.Derived(rt, () => input.get() * 2, label="doubled")
   let observer = doubled.observe()
   let input_log : Ref[String] = { val: "" }
   let memo_log : Ref[String] = { val: "" }
@@ -1010,12 +1010,12 @@ test "docs api-ref: compatibility helpers create_signal / hybrid_memo / memo_map
     durability=High,
     label="compat_signal",
   )
-  let hybrid = @incr.create_hybrid_memo(
+  let hybrid = @incr.create_reachable_derived(
     app,
     () => signal.get() * 2,
     label="compat_hybrid",
   )
-  let by_key = @incr.create_memo_map(
+  let by_key = @incr.create_derived_map(
     app,
     (key : Int) => signal.get() + key,
     label="compat_by_key",
@@ -1036,10 +1036,10 @@ test "docs api-ref: compatibility helpers create_signal / hybrid_memo / memo_map
 
   let observer = hybrid.observe()
   inspect(observer.get(), content="20")
-  inspect(by_key.get(5), content="15")
+  inspect(by_key.read_or_abort(5), content="15")
   signal.set(11)
   inspect(observer.get(), content="22")
-  inspect(by_key.get(5), content="16")
+  inspect(by_key.read_or_abort(5), content="16")
   observer.dispose()
 }
 
@@ -1051,7 +1051,7 @@ test "docs api-ref: compatibility create_accumulator captures memo pushes" {
     label="diags",
   )
   let width = @incr.create_signal(app, -1, label="width")
-  let producer = @incr.create_memo(
+  let producer = @incr.create_derived(
     app,
     () => {
       if width.get() < 0 {

@@ -8,27 +8,19 @@
 > accumulator push path. The README and getting-started target snippets are
 > covered by [`target_api_examples.mbt.md`](target_api_examples.mbt.md).
 
-Reference for the most commonly used public APIs in `incr`. This is not exhaustive — the authoritative surface is in `pkg.generated.mbti` and `cells/pkg.generated.mbti`. APIs surfaced here: `Runtime`, `Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, legacy compatibility handles (`Signal`, `Memo`, `HybridMemo`, `MemoMap`, `TrackedCell`), `Accumulator`, `DerivedEvent`, `CycleError`, the `RuntimeContext`/`Database`/`Freshness`/`Readable`/`InputFieldOwner`/`Trackable` traits, and the top-level helper functions. Specialised APIs (`EagerDerived` / `Reactive`, `Effect`, `Relation`, `MapRelation` / `FunctionalRelation`, `Scope`, `Watch` / `Observer`) are documented next to their constructors in `cells/`.
+Reference for the most commonly used public APIs in `incr`. This is not exhaustive — the authoritative surface is in `pkg.generated.mbti` and `cells/pkg.generated.mbti`. APIs surfaced here: `Runtime`, `Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `Accumulator`, `DerivedEvent`, `CycleError`, the `RuntimeContext`/`Database`/`Freshness`/`Readable`/`InputFieldOwner`/`Trackable` traits, and the top-level helper functions. The internal types (`Signal`, `Memo`, `MemoMap`, `HybridMemo`, `TrackedCell`, `Reactive`, `Observer`, `FunctionalRelation`) remain available for low-level introspection. Specialised APIs (`EagerDerived` / `Reactive`, `Effect`, `Relation`, `MapRelation` / `FunctionalRelation`, `Scope`, `Watch` / `Observer`) are documented next to their constructors in `cells/`.
 
 > **Recommended Pattern:** Use the `RuntimeContext` trait to encapsulate your
 > `Runtime` in an application context type. This makes your API cleaner and
 > hides implementation details. Compatibility helpers still accept `Database`.
 > See the [Helper Functions](#helper-functions) section and [API Design Guidelines](design/api-design-guidelines.md) for details.
 
-> **Naming direction:** Target facade names are recommended for new code.
-> Legacy compatibility names remain available while migration continues:
-> `Signal`, `Memo`, `HybridMemo`, `Reactive`, `MemoMap`, `TrackedCell`,
-> `Observer`, `FunctionalRelation`, `Readable`, `Trackable`, and `Database`.
-> The mapping is recorded in [2026-05-21-public-api-ideal-naming](decisions/2026-05-21-public-api-ideal-naming.md).
+> **Migration complete:** Target facade types (`Derived`, `DerivedMap`, `ReachableDerived`) are the recommended names. Legacy compatibility names (`Signal`, `Memo`, `MemoMap`, `HybridMemo`, `TrackedCell`, `Reactive`, `Observer`, `FunctionalRelation`, `Readable`, `Trackable`, `Database`) remain for low-level introspection but `Memo`, `MemoMap`, and `HybridMemo` are no longer re-exported from `@incr` — use them through `@cells` directly for white-box access.
 
 ## Read Vocabulary Migration
 
 Target reads use `read` for permissive outside-graph reads and `get` for strict
-tracked-context reads. Migrate old handles to the target facade types; `Memo`,
-`HybridMemo`, and `MemoMap` will not grow same-receiver target-vocabulary bridge
-methods. The helper script `scripts/migrate-to-target-facades.py` can apply
-mechanically safe type/constructor/cache rewrites and report context-sensitive
-read sites.
+tracked-context reads. The target facades (`Derived`, `DerivedMap`, `ReachableDerived`) provide the full read vocabulary. Internal `Memo`, `HybridMemo`, and `MemoMap` types expose only legacy methods and will not grow target-vocabulary bridge methods.
 
 | Legacy compatibility | Target facade |
 |---|---|
@@ -176,17 +168,13 @@ for composable observers that must coexist and are individually removable by id.
 
 > Renamed in 0.8.0 from `Runtime::on_memo_event`; older ADRs may use that name.
 
-Registers the runtime's derived recompute listener. The listener receives pull
-`Memo` and `HybridMemo` lifecycle events after the recompute path reaches a
-safe drain point; it is not called inline from the compute closure.
-
 Registers the **singleton** derived-event listener: re-registering replaces the
 previous singleton in place. It coexists with any additive listeners added via
 `add_derived_event_listener`.
 
 The checked companion covers listener registration and clearing in
-[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md); cookbook examples
-show richer event logging patterns.
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md); cookbook
+examples show richer event logging patterns.
 
 The listener is a synchronous, non-raising callback. If a driver needs async
 logging, enqueue inside the callback and let another part of the driver drain
@@ -542,7 +530,6 @@ Untracked read of the values the memo pushed into `acc` during its most recent c
 ### `Memo::accumulated_result[T, A](self, acc: Accumulator[A]) -> Result[Array[A], ReadError] raise Failure`
 
 Compatibility alias for `Memo::accumulated`.
-
 ---
 
 ## DerivedMap[K, V] / MemoMap[K, V]
@@ -662,8 +649,6 @@ Returns whether this reachable derived value is verified at the current revision
 - `HybridMemo::observe()` creates a legacy `Observer[T]`; prefer `ReachableDerived::watch()` on target facades.
 - `HybridMemo::id()`, `dispose()`, and `is_disposed()` remain available on the compatibility handle.
 
----
-
 ## AcceptedDerived[V, E]
 
 A success-gated derived authoring primitive. A fallible candidate `Result[V, E]` is computed from current inputs; only `Ok(v)` candidates that differ from the last accepted value advance the *accepted* state. On `Err(e)` the previous accepted value is **retained** while the *current* channel still reports the error — keeping diagnostics honest without destroying the last good value that downstream UI, preview, or indexing stages need. A graph `ReadError` (cycle/disposal) does not drive the state machine; it surfaces on the read channel and leaves the retained accepted value untouched. See [the design spec](design/specs/2026-06-05-committed-derived.md).
@@ -750,15 +735,6 @@ that synthetic dependency. See the ADR: [Accumulator API](decisions/2026-04-20-a
 
 **Local-only semantics.** `memo.accumulated(acc)` returns only the values `memo` itself pushed — not its dependencies. Transitive aggregation is the driver's job (see the [Scope-owned accumulator](cookbook.mbt.md#pattern-scope-owned-accumulator-lifecycle) cookbook pattern). Use `accumulated_or_abort` for strict compute-closure reads.
 
-**Top-frame restriction.** `push` is only legal inside a compatibility `Memo` or `HybridMemo` compute. Pushing from an input, `Effect`, `EagerDerived` / `Reactive`, or outside any compute raises `Failure`.
-
-### `Accumulator::new[T : Eq](rt~: Runtime, label? : String) -> Accumulator[T]`
-
-Creates a runtime-owned accumulator. Lives until explicitly disposed (or until the runtime is dropped).
-
-The checked companion pins direct `Accumulator::new` construction, label
-introspection, and push retrieval in
-[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 Prefer `Scope::accumulator` when a scope is available — disposal is tied to the scope's lifecycle.
 
@@ -789,7 +765,7 @@ Disposes the accumulator. Subsequent `push`, `accumulated`, `accumulated_result`
 
 ### `Accumulator::id(self) -> AccumulatorId`
 
-Returns the accumulator's unique identifier (for debug/introspection).
+Returns the unique runtime identifier for this accumulator. Stable across pushes and reads — useful for diagnostics and graph-shape probes.
 
 ### `Accumulator::label(self) -> String?`
 
@@ -1082,18 +1058,6 @@ pub(open) trait Database {
 }
 ```
 
-Compatibility trait used by legacy helper functions such as `create_signal`,
-`create_memo`, and `batch`.
-
-### Compatibility `Readable`
-
-```mbt nocheck
-///|
-pub(open) trait Readable {
-  fn is_up_to_date(Self) -> Bool
-}
-```
-
 Implemented for `Signal[T]`, `Memo[T]`, `HybridMemo[T]`, and `TrackedCell[T]`.
 
 ### Compatibility `Trackable`
@@ -1201,21 +1165,6 @@ The checked companion covers construction, durability, and label
 introspection in
 [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
-### `create_memo[Db : Database, T : Eq](db: Db, f: () -> T raise Failure, label? : String) -> Memo[T]`
-
-Creates a memo using `db.runtime()`. Uses `Memo::new` internally — requires `T : Eq` for backdating via structural equality. For revision-based backdating use `Memo::new_memo` directly; for no backdating use `Memo::new_no_backdate` directly.
-
-### `create_hybrid_memo[Db : Database, T : Eq](db: Db, f: () -> T raise Failure, label? : String) -> HybridMemo[T]`
-
-Creates a hybrid memo using `db.runtime()`.
-
-The checked companion covers `create_hybrid_memo` together with a long-lived
-observer read in
-[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
-
-### `create_memo_map[Db : Database, K : Hash + Eq, V](db: Db, f: (K) -> V raise Failure, label? : String) -> MemoMap[K, V]`
-
-Creates a memo map using `db.runtime()`. Each key is memoized independently.
 
 ### `create_accumulator[Db : Database, T : Eq](db: Db, label? : String) -> Accumulator[T]`
 

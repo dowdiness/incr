@@ -698,7 +698,7 @@ test "docs cookbook: accumulator peek reads memo-local diagnostics" {
     rt~,
     label="diags",
   )
-  let checked = @incr.Memo(
+  let checked = @incr.Derived(
     rt,
     () => {
       let w = width.get()
@@ -733,7 +733,7 @@ test "docs cookbook: accumulated invalidates when push set changes" {
     rt~,
     label="diags",
   )
-  let checked = @incr.Memo(
+  let checked = @incr.Derived(
     rt,
     () => {
       let w = width.get()
@@ -745,11 +745,11 @@ test "docs cookbook: accumulated invalidates when push set changes" {
     label="checked_width",
   )
   let report_runs : Ref[Int] = { val: 0 }
-  let report = @incr.Memo(
+  let report = @incr.Derived(
     rt,
     () => {
       report_runs.val = report_runs.val + 1
-      let size = checked.get()
+      let size = checked.get_or_abort()
       let ds = checked.accumulated_or_abort(diags)
       "size=" + size.to_string() + ", diags=" + ds.length().to_string()
     },
@@ -864,7 +864,7 @@ test "docs cookbook: introspection identifies changed dependencies and dependent
   let rt = @incr.Runtime()
   let x = @incr.Signal(rt, 10, label="x")
   let y = @incr.Signal(rt, 20, label="y")
-  let sum = @incr.Memo(rt, () => x.get() + y.get(), label="sum")
+  let sum = @incr.Derived(rt, () => x.get() + y.get(), label="sum")
   let reader = sum.observe()
 
   inspect(reader.get(), content="30")
@@ -895,7 +895,7 @@ test "docs cookbook: introspection identifies changed dependencies and dependent
 test "docs cookbook: memo changed_at shows backdating" {
   let rt = @incr.Runtime()
   let config = @incr.Signal(rt, "abcd", label="config")
-  let length = @incr.Memo(rt, () => config.get().length(), label="length")
+  let length = @incr.Derived(rt, () => config.get().length(), label="length")
   let reader = length.observe()
 
   inspect(reader.get(), content="4")

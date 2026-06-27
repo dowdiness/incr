@@ -1,14 +1,14 @@
 ///|
-fn[T] read_memo_for_test(memo : @incr.Memo[T]) -> T {
-  let observer = memo.observe()
+fn[T] read_derived_for_test(derived : @incr.Derived[T]) -> T {
+  let observer = derived.observe()
   let value = observer.get()
   observer.dispose()
   value
 }
 
 ///|
-fn[T : Eq] read_hybrid_for_test(memo : @incr.HybridMemo[T]) -> T {
-  let observer = memo.observe()
+fn[T : Eq] read_reachable_for_test(reachable : @incr.ReachableDerived[T]) -> T {
+  let observer = reachable.observe()
   let value = observer.get()
   observer.dispose()
   value
@@ -21,3 +21,4 @@ fn[T] read_reactive_for_test(reactive : @incr.Reactive[T]) -> T {
   observer.dispose()
   value
 }
+
