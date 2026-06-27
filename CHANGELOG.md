@@ -14,8 +14,7 @@ All notable changes to `dowdiness/incr` are documented in this file.
 ### Changed
 
 - **Removed `@incr.Memo` / `@incr.MemoMap` / `@incr.HybridMemo` re-exports.** The internal types `Memo`, `MemoMap`, `HybridMemo` remain in `incr/cells/` (still used as `Derived.inner` etc.) but are no longer re-exported from `@incr`. Use `Derived`, `DerivedMap`, `ReachableDerived` instead. Added forwarding methods `dependencies()`, `verified_at()`, `on_change()`, `clear_on_change()` to `Derived` and `observe()`, `is_disposed()` to `ReachableDerived`.
-- **Removed `create_memo` / `create_memo_map` / `create_hybrid_memo` helpers.** Use `create_derived` / `create_derived_map` / `create_reachable_derived`. Both the old and new helpers require `RuntimeContext` (mirrors `Database`).
-- **Removed `Scope::memo` / `Scope::hybrid_memo`.** Use `Scope::derived` / `Scope::reachable_derived`.
+- **Removed `create_memo` / `create_memo_map` / `create_hybrid_memo` helpers.** Use `create_derived` / `create_derived_map` / `create_reachable_derived` (these accept `RuntimeContext`, mirroring the old `Database` pattern).
 - **Removed `Readable` trait impls for `Memo` / `HybridMemo`.** The `Freshness` trait covers `Derived` and `ReachableDerived` via `is_fresh()`.
 
 These changes are in `examples/` workspace members, not the published `dowdiness/incr` library.
