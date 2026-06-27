@@ -486,27 +486,108 @@ pub fn[T, A] Derived::accumulated(
   self : Derived[T],
   acc : Accumulator[A],
 ) -> Result[Array[A], ReadError] raise Failure {
-  self.inner.accumulated(acc)
+  let rt = self.inner.rt
+  rt.check_cross_runtime(rt.core.runtime_id, "Derived::accumulated")
+  rt.check_cross_runtime(
+    acc.slot_id.runtime_id,
+    "Derived::accumulated (Accumulator)",
+  )
+  if rt.static_recompute_depth > 0 {
+    fail("Derived::accumulated is unsupported inside static Derived recompute")
+  }
+  let slot = rt.accumulator_slots[acc.slot_id.id]
+  if slot.disposed {
+    fail("Derived::accumulated called on disposed Accumulator")
+  }
+  if rt.is_cell_disposed(self.inner.cell_id) {
+    return Err(ReadError::disposed(self.inner.cell_id))
+  }
+  let verified = rt.ensure_computed_untracked(self.inner.cell_id) catch {
+    e => {
+      rt.drain_pending_events_direct()
+      abort("Derived::accumulated target compute raised: " + e.to_string())
+    }
+  }
+  let result = match verified {
+    Err(e) => Err(ReadError::cycle(e))
+    Ok(_) => {
+      let current_rev = (slot.push_revised_at_for)(self.inner.cell_id)
+      match rt.top_active_query() {
+        Some(frame) =>
+          match rt.core.cell_index[frame.cell_id.id] {
+            PullMemo(_) | HybridMemo(_) =>
+              rt.accumulator_commit_hook
+              .ensure_for_cell(frame.cell_id)
+              .ensure_reads()
+              .set((acc.slot_id, self.inner.cell_id), current_rev)
+            _ => ()
+          }
+        None => ()
+      }
+      let vs = match acc.per_memo.get(self.inner.cell_id) {
+        Some(arr) => arr.copy()
+        None => []
+      }
+      Ok(vs)
+    }
+  }
+  if rt.has_pending_events() {
+    rt.drain_pending_events_if_idle()
+  }
+  result
 }
 
 ///|
-/// Tracked accumulator read that aborts on a graph mechanism failure.
 pub fn[T, A] Derived::accumulated_or_abort(
   self : Derived[T],
   acc : Accumulator[A],
 ) -> Array[A] raise Failure {
-  self.inner.accumulated_or_abort(acc)
+  match self.accumulated(acc) {
+    Ok(vs) => vs
+    Err(e) => abort(e.format_path())
+  }
 }
 
 ///|
 /// Untracked accumulator read. Returns `[]` when the accumulator or
-/// target derived value is disposed; otherwise a defensive copy. See
-/// `Memo::accumulated_peek`.
+/// target derived value is disposed; otherwise a defensive copy.
+/// Permissive on disposal: returns `[]` if the accumulator or target memo
+/// is disposed. Matches Signal::peek semantics.
 pub fn[T, A] Derived::accumulated_peek(
   self : Derived[T],
   acc : Accumulator[A],
 ) -> Array[A] {
-  self.inner.accumulated_peek(acc)
+  let rt = self.inner.rt
+  rt.check_cross_runtime(rt.core.runtime_id, "Derived::accumulated_peek")
+  rt.check_cross_runtime(
+    acc.slot_id.runtime_id,
+    "Derived::accumulated_peek (Accumulator)",
+  )
+  if rt.static_recompute_depth > 0 {
+    abort(
+      "Derived::accumulated_peek is unsupported inside static Derived recompute",
+    )
+  }
+  let slot = rt.accumulator_slots[acc.slot_id.id]
+  if slot.disposed {
+    return []
+  }
+  if rt.is_cell_disposed(self.inner.cell_id) {
+    return []
+  }
+  match acc.per_memo.get(self.inner.cell_id) {
+    Some(vs) => vs.copy()
+    None => []
+  }
+}
+
+///|
+/// Compatibility alias: Result-style accumulator read on `Derived`.
+pub fn[T, A] Derived::accumulated_result(
+  self : Derived[T],
+  acc : Accumulator[A],
+) -> Result[Array[A], ReadError] raise Failure {
+  self.accumulated(acc)
 }
 
 ///|

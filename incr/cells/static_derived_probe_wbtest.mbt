@@ -332,7 +332,7 @@ test "static derived: accumulator use fails explicitly" {
     e =>
       e
       .to_string()
-      .contains("Memo::accumulated is unsupported inside static Derived")
+      .contains("Derived::accumulated is unsupported inside static Derived")
   } noraise {
     _ => false
   }
