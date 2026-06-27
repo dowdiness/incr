@@ -73,12 +73,12 @@ test "batch: memo read after batch" {
   let a = Signal::Signal(rt, 1)
   let b = Signal::Signal(rt, 2)
   let mut compute_count = 0
-  let sum = Memo::Memo(rt, () => {
+  let sum = Derived(rt, () => {
     compute_count = compute_count + 1
     a.get() + b.get()
   })
   // Initial computation
-  inspect(read_memo_for_test(sum), content="3")
+  inspect(sum.read_or_abort(), content="3")
   inspect(compute_count, content="1")
   // Batch update both inputs
   rt.batch(() => {
@@ -86,7 +86,7 @@ test "batch: memo read after batch" {
     b.set(20)
   })
   // Memo should recompute once after batch
-  inspect(read_memo_for_test(sum), content="30")
+  inspect(sum.read_or_abort(), content="30")
   inspect(compute_count, content="2")
 }
 
@@ -107,12 +107,12 @@ test "batch: revert detection - set then revert is no-op" {
   let rt = Runtime::Runtime()
   let a = Signal::Signal(rt, 0)
   let mut compute_count = 0
-  let doubled = Memo::Memo(rt, () => {
+  let doubled = Derived(rt, () => {
     compute_count = compute_count + 1
     a.get() * 2
   })
   // Initial
-  inspect(read_memo_for_test(doubled), content="0")
+  inspect(doubled.read_or_abort(), content="0")
   inspect(compute_count, content="1")
   // Batch: set(1) then revert to set(0) — net effect is no change
   rt.batch(() => {
@@ -122,7 +122,7 @@ test "batch: revert detection - set then revert is no-op" {
   // No revision bump because the final value equals the original
   inspect(rt.core.revision.current_revision.value, content="0")
   // Memo should not need to recompute
-  inspect(read_memo_for_test(doubled), content="0")
+  inspect(doubled.read_or_abort(), content="0")
   inspect(compute_count, content="1")
 }
 
@@ -135,11 +135,11 @@ test "batch: multi-signal with mixed changes" {
   let b = Signal::Signal(rt, 20)
   let c = Signal::Signal(rt, 30)
   let mut compute_count = 0
-  let sum = Memo::Memo(rt, () => {
+  let sum = Derived(rt, () => {
     compute_count = compute_count + 1
     a.get() + b.get() + c.get()
   })
-  inspect(read_memo_for_test(sum), content="60")
+  inspect(sum.read_or_abort(), content="60")
   inspect(compute_count, content="1")
   // Batch: a changes, b reverts, c changes
   rt.batch(() => {
@@ -153,7 +153,7 @@ test "batch: multi-signal with mixed changes" {
   inspect(a.get(), content="100")
   inspect(b.get(), content="20") // b is still 20
   inspect(c.get(), content="300")
-  inspect(read_memo_for_test(sum), content="420") // 100 + 20 + 300
+  inspect(sum.read_or_abort(), content="420") // 100 + 20 + 300
   inspect(compute_count, content="2")
 }
 
@@ -165,22 +165,22 @@ test "batch: diamond dependency with batch" {
   let input = Signal::Signal(rt, 10)
   let extra = Signal::Signal(rt, 1)
   let mut a_count = 0
-  let a = Memo::Memo(rt, () => {
+  let a = Derived(rt, () => {
     a_count = a_count + 1
     input.get() + 1
   })
   let mut b_count = 0
-  let b = Memo::Memo(rt, () => {
+  let b = Derived(rt, () => {
     b_count = b_count + 1
     input.get() + extra.get()
   })
   let mut c_count = 0
-  let c = Memo::Memo(rt, () => {
+  let c = Derived(rt, () => {
     c_count = c_count + 1
-    a.get() + b.get()
+    a.read_or_abort() + b.read_or_abort()
   })
   // Initial
-  inspect(read_memo_for_test(c), content="22") // (10+1) + (10+1) = 11 + 11
+  inspect(c.read_or_abort(), content="22") // (10+1) + (10+1) = 11 + 11
   inspect(a_count, content="1")
   inspect(b_count, content="1")
   inspect(c_count, content="1")
@@ -189,7 +189,7 @@ test "batch: diamond dependency with batch" {
     input.set(5)
     extra.set(2)
   })
-  inspect(read_memo_for_test(c), content="13") // (5+1) + (5+2) = 6 + 7
+  inspect(c.read_or_abort(), content="13") // (5+1) + (5+2) = 6 + 7
   inspect(a_count, content="2")
   inspect(b_count, content="2")
   inspect(c_count, content="2")

@@ -4,13 +4,13 @@
 test "dep diff: stable deps preserve durability" {
   let rt = Runtime::Runtime()
   let a = Signal::Signal(rt, 1, durability=High)
-  let m = Memo::Memo(rt, () => a.get() + 1)
-  let _ = read_memo_for_test(m)
+  let m = Derived(rt, () => a.get() + 1)
+  let _ = m.read_or_abort()
   let memo_data = rt.get_memo_data(m.id())
   inspect(memo_data.meta.durability, content="High")
   // a changes value but dep list stays [a] — durability must stay High
   a.set(2)
-  let _ = read_memo_for_test(m)
+  let _ = m.read_or_abort()
   inspect(memo_data.meta.durability, content="High")
   inspect(memo_data.dependencies.length(), content="1")
 }
@@ -23,15 +23,15 @@ test "dep diff: dynamic deps update dep list and durability" {
   let flag = Signal::Signal(rt, true, durability=High)
   let a = Signal::Signal(rt, 1, durability=High)
   let b = Signal::Signal(rt, 2, durability=Low)
-  let m = Memo::Memo(rt, () => if flag.get() { a.get() } else { b.get() })
+  let m = Derived(rt, () => if flag.get() { a.get() } else { b.get() })
   // Initial: reads flag(High) and a(High) → min durability = High
-  let _ = read_memo_for_test(m)
+  let _ = m.read_or_abort()
   let memo_data = rt.get_memo_data(m.id())
   inspect(memo_data.meta.durability, content="High")
   inspect(memo_data.dependencies.length(), content="2")
   // Switch: reads flag(High) and b(Low) → min durability = Low
   flag.set(false)
-  let _ = read_memo_for_test(m)
+  let _ = m.read_or_abort()
   inspect(memo_data.meta.durability, content="Low")
   inspect(memo_data.dependencies.length(), content="2")
 }
