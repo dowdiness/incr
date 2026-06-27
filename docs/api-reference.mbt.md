@@ -509,10 +509,7 @@ Returns whether this derived value is verified at the current revision.
 
 ### `Derived::accumulated(self, acc: Accumulator[A]) -> Result[Array[A], ReadError] raise Failure`
 
-Target-facade forwarding method for `Memo::accumulated`; useful when an
-accumulator producer has already been migrated to `Derived`.
-`Derived::accumulated_or_abort` is the strict unwrap convenience, and
-`Derived::accumulated_peek` is the untracked cached read.
+Tracked accumulator read: returns the values pushed by `self` during its last successful compute, forces verification of `self`, and stages a synthetic dependency on the current tracking frame. `Derived::accumulated_or_abort` is the strict unwrap convenience, `Derived::accumulated_peek` is the untracked cached read, and `Derived::accumulated_result` is the `Result`-style alias.
 
 ### Compatibility `Memo[T]`
 
