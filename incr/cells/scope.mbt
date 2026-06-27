@@ -16,7 +16,7 @@
 /// ```moonbit nocheck
 /// let scope = Scope::new(rt)
 /// let local = scope.signal(42)
-/// let derived = scope.memo(fn() { local.get() * 2 })
+/// let derived = scope.derived(fn() { local.get() * 2 })
 ///
 /// // Component unmounts — one cleanup call
 /// scope.dispose()
@@ -137,18 +137,6 @@ pub fn[T] Scope::input_field(
   field
 }
 
-///|
-/// Creates a memo owned by this scope.
-pub fn[T : Eq] Scope::memo(
-  self : Scope,
-  f : () -> T raise Failure,
-  label? : String,
-) -> Memo[T] {
-  guard !self.disposed else { abort("Scope::memo called on a disposed scope") }
-  let m = Memo::new(self.runtime, f, label?)
-  self.cells.push(m.id())
-  m
-}
 
 ///|
 /// Creates a lazy derived facade owned by this scope.
@@ -165,20 +153,6 @@ pub fn[T : Eq] Scope::derived(
   derived
 }
 
-///|
-/// Creates a hybrid memo owned by this scope.
-pub fn[T : Eq] Scope::hybrid_memo(
-  self : Scope,
-  f : () -> T raise Failure,
-  label? : String,
-) -> HybridMemo[T] {
-  guard !self.disposed else {
-    abort("Scope::hybrid_memo called on a disposed scope")
-  }
-  let hm = HybridMemo::new(self.runtime, f, label?)
-  self.cells.push(hm.id())
-  hm
-}
 
 ///|
 /// Creates a reachable lazy derived facade owned by this scope.

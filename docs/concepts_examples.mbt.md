@@ -266,7 +266,7 @@ test "docs concepts: accumulators expose memo-local side-channel data" {
     rt~,
     label="diags",
   )
-  let checked = @incr.Memo(
+  let checked = @incr.Derived(
     rt,
     () => {
       let w = width.get()

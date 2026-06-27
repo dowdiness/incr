@@ -2,10 +2,10 @@
 test "TrackedCell dependency tracking" {
   let rt = @incr.Runtime::Runtime()
   let cell = @incr.TrackedCell::TrackedCell(rt, 10)
-  let doubled = @incr.Memo::Memo(rt, () => cell.get() * 2)
-  inspect(read_memo_for_test(doubled), content="20")
+  let doubled = @incr.Derived::Derived(rt, () => cell.get() * 2)
+  inspect(read_derived_for_test(doubled), content="20")
   cell.set(15)
-  inspect(read_memo_for_test(doubled), content="30")
+  inspect(read_derived_for_test(doubled), content="30")
 }
 
 ///|
@@ -13,13 +13,13 @@ test "TrackedCell same-value optimization" {
   let rt = @incr.Runtime::Runtime()
   let cell = @incr.TrackedCell::TrackedCell(rt, 5)
   let mut compute_count = 0
-  let memo = @incr.Memo::Memo(rt, () => {
+  let memo = @incr.Derived::Derived(rt, () => {
     compute_count = compute_count + 1
     cell.get()
   })
-  let _ = read_memo_for_test(memo) // compute_count = 1
+  let _ = read_derived_for_test(memo) // compute_count = 1
   cell.set(5) // same value — no revision bump
-  let _ = read_memo_for_test(memo) // should NOT recompute
+  let _ = read_derived_for_test(memo) // should NOT recompute
   inspect(compute_count, content="1")
 }
 
@@ -48,13 +48,13 @@ test "TrackedCell batch integration" {
   let rt = @incr.Runtime::Runtime()
   let a = @incr.TrackedCell::TrackedCell(rt, 1)
   let b = @incr.TrackedCell::TrackedCell(rt, 2)
-  let sum = @incr.Memo::Memo(rt, () => a.get() + b.get())
-  inspect(read_memo_for_test(sum), content="3")
+  let sum = @incr.Derived::Derived(rt, () => a.get() + b.get())
+  inspect(read_derived_for_test(sum), content="3")
   rt.batch(() => {
     a.set(10)
     b.set(20)
   })
-  inspect(read_memo_for_test(sum), content="30")
+  inspect(read_derived_for_test(sum), content="30")
 }
 
 ///|
@@ -62,16 +62,16 @@ test "TrackedCell batch revert detection" {
   let rt = @incr.Runtime::Runtime()
   let cell = @incr.TrackedCell::TrackedCell(rt, 0)
   let mut compute_count = 0
-  let memo = @incr.Memo::Memo(rt, () => {
+  let memo = @incr.Derived::Derived(rt, () => {
     compute_count = compute_count + 1
     cell.get()
   })
-  let _ = read_memo_for_test(memo) // compute_count = 1
+  let _ = read_derived_for_test(memo) // compute_count = 1
   rt.batch(() => {
     cell.set(99)
     cell.set(0) // revert to original
   })
-  let _ = read_memo_for_test(memo) // should NOT recompute (net change = 0)
+  let _ = read_derived_for_test(memo) // should NOT recompute (net change = 0)
   inspect(compute_count, content="1")
 }
 
@@ -81,10 +81,10 @@ test "TrackedCell as_signal interop" {
   let cell = @incr.TrackedCell::TrackedCell(rt, 7)
   let sig = cell.as_signal()
   // A Memo using the raw Signal still tracks the same dependency
-  let memo = @incr.Memo::Memo(rt, () => sig.get() + 1)
-  inspect(read_memo_for_test(memo), content="8")
+  let memo = @incr.Derived::Derived(rt, () => sig.get() + 1)
+  inspect(read_derived_for_test(memo), content="8")
   cell.set(10)
-  inspect(read_memo_for_test(memo), content="11")
+  inspect(read_derived_for_test(memo), content="11")
 }
 
 // --- Phase 2: Trackable trait + scoped lifecycle registration ---
@@ -139,30 +139,30 @@ test "field-level dependency isolation" {
   let t = TestTracked::new(rt)
   let mut name_reads = 0
   let mut value_reads = 0
-  let name_len = @incr.Memo::Memo(rt, () => {
+  let name_len = @incr.Derived::Derived(rt, () => {
     name_reads = name_reads + 1
     t.name.get().length()
   })
-  let value_doubled = @incr.Memo::Memo(rt, () => {
+  let value_doubled = @incr.Derived::Derived(rt, () => {
     value_reads = value_reads + 1
     t.value.get() * 2
   })
 
   // Initial computation
-  let _ = read_memo_for_test(name_len) // name_reads = 1
-  let _ = read_memo_for_test(value_doubled) // value_reads = 1
+  let _ = read_derived_for_test(name_len) // name_reads = 1
+  let _ = read_derived_for_test(value_doubled) // value_reads = 1
 
   // Change only `value` — name_len should NOT recompute
   t.value.set(10)
-  let _ = read_memo_for_test(name_len) // name_reads still 1
-  let _ = read_memo_for_test(value_doubled) // value_reads = 2
+  let _ = read_derived_for_test(name_len) // name_reads still 1
+  let _ = read_derived_for_test(value_doubled) // value_reads = 2
   inspect(name_reads, content="1")
   inspect(value_reads, content="2")
 
   // Change only `name` — value_doubled should NOT recompute
   t.name.set("hello")
-  let _ = read_memo_for_test(name_len) // name_reads = 2
-  let _ = read_memo_for_test(value_doubled) // value_reads still 2
+  let _ = read_derived_for_test(name_len) // name_reads = 2
+  let _ = read_derived_for_test(value_doubled) // value_reads still 2
   inspect(name_reads, content="2")
   inspect(value_reads, content="2")
 }
@@ -216,13 +216,13 @@ test "TrackedCell set_unconditional always recomputes" {
   let rt = @incr.Runtime::Runtime()
   let cell = @incr.TrackedCell::TrackedCell(rt, 5)
   let mut compute_count = 0
-  let memo = @incr.Memo::Memo(rt, () => {
+  let memo = @incr.Derived::Derived(rt, () => {
     compute_count = compute_count + 1
     cell.get()
   })
-  let _ = read_memo_for_test(memo) // compute_count = 1
+  let _ = read_derived_for_test(memo) // compute_count = 1
   cell.set_unconditional(5) // same value but unconditional — bumps revision
-  let _ = read_memo_for_test(memo) // should recompute
+  let _ = read_derived_for_test(memo) // should recompute
   inspect(compute_count, content="2")
 }
 

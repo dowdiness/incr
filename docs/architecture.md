@@ -35,9 +35,9 @@ moon.work
 
 | Package | Responsibility | Depends on |
 |---|---|---|
-| Root (`incr.mbt`, `traits.mbt`) | Re-exports the target facade (`Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `EagerDerived`, `Watch`, `MapRelation`, `RuntimeContext`, `Freshness`, `InputFieldOwner`) plus compatibility handles (`Signal`, `Memo`, `HybridMemo`, `MemoMap`, `TrackedCell`, `Reactive`, `Observer`, `FunctionalRelation`, `Database`, `Readable`, `Trackable`); provides RuntimeContext convenience helpers, compatibility helpers, and batching/lifecycle helpers | `cells`, `types` |
+| Root (`incr.mbt`, `traits.mbt`) | Re-exports the target facade (`Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `EagerDerived`, `Watch`, `MapRelation`, `RuntimeContext`, `Freshness`, `InputFieldOwner`) plus legacy compatibility handles (`Signal`, `TrackedCell`, `Reactive`, `Observer`, `FunctionalRelation`, `Database`, `Readable`, `Trackable`); provides RuntimeContext convenience helpers, compatibility helpers, and batching/lifecycle helpers (`Memo`, `MemoMap`, `HybridMemo` remain internal to `cells/` and are no longer re-exported) | `cells`, `types` |
 | `types/` | Pure value types: `Revision`, `Durability`, `CellId`, `CycleError`, ID types, `BackdateEq` / `HasChangedAt` traits | none |
-| `cells/` | The `Runtime` coordinator (~570 LOC of thin delegators), target facades (`Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `EagerDerived`, `Watch`, `MapRelation`), compatibility handles (`Signal`, `Memo`, `MemoMap`, `HybridMemo`, `TrackedCell`, `Reactive`, `Observer`, `FunctionalRelation`), Datalog/effect/accumulator/scope handles, and per-cell-kind lifecycle wiring | `types`, all `cells/internal/*` packages |
+| `cells/` | The `Runtime` coordinator (~570 LOC of thin delegators), target facades (`Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `EagerDerived`, `Watch`, `MapRelation`), internal legacy compatibility handles (`Signal`, `Memo`, `MemoMap`, `HybridMemo`, `TrackedCell`, `Reactive`, `Observer`, `FunctionalRelation`), Datalog/effect/accumulator/scope handles, and per-cell-kind lifecycle wiring | `types`, all `cells/internal/*` packages |
 | `cells/internal/shared/` | Coordinator-only trait abstractions: `CellOps`, `HasCellMeta`, `Committable`, `CellMeta`, `CellRef`, `SlotSnapshot` | (leaf) |
 | `cells/internal/pull/` | Struct-of-arrays storage for pull-mode cells (`PullSignalData`, `MemoData`) | `shared` |
 | `cells/internal/push/` | SoA storage for push-mode cells (`PushReactiveData`, `PushEffectData`) | `shared` |
@@ -144,7 +144,7 @@ compatibility `FunctionalRelation[K, V]`.
 | `Accumulator[T]` | Side-channel collector pushed to from memo computes; consumers currently read via compatibility `Memo::accumulated` and are correctly invalidated. See [ADR](decisions/2026-04-20-accumulator-api.md). | `Accumulator::new` or `create_accumulator` |
 | `Scope` | Lifecycle group: cells/accumulators registered to a scope are disposed when the scope is disposed | `Scope::new`, target `scope.input` / `scope.derived` helpers, or compatibility `create_scope` |
 | `Watch[T]` | Persistent attachment that keeps a derived/eager value alive past `gc()` sweeps and returns `Result` reads | `derived.watch()` / `reachable.watch()` / `eager.watch()` |
-| Compatibility handles | Older source-compatible names: `Signal`, `Memo`, `MemoMap`, `HybridMemo`, `TrackedCell`, `Reactive`, `Observer`, `FunctionalRelation`; keep using them for low-level introspection and APIs not yet surfaced on target facades | Compatibility constructors and helpers (`Signal::new`, `Memo::new*`, `create_signal`, `create_memo`, …) |
+| Compatibility handles | Older source-compatible names: `Signal`, `Memo`, `MemoMap`, `HybridMemo`, `TrackedCell`, `Reactive`, `Observer`, `FunctionalRelation`; keep using them for low-level introspection (`Memo`/`MemoMap`/`HybridMemo` are internal to `cells/` and no longer re-exported from `@incr`) | Compatibility constructors (`Signal::new`, `Memo::new*`, …) and helpers (`create_signal`, …) |
 | `CellId`, `CellInfo`, `CycleError`, `Revision`, `Durability` | Plain value types | constructors in `types/` |
 | Traits `RuntimeContext`, `Freshness`, `InputFieldOwner` | Target extension points (see below) | — |
 | Compatibility traits `Database`, `Readable`, `Trackable` | Older helper/introspection extension points retained during migration | — |
@@ -177,7 +177,7 @@ Target traits define the preferred extension surface:
 
 Compatibility traits remain available:
 
-- **`Database`** — older context trait used by compatibility helper functions such as `create_signal`, `create_memo`, `create_memo_map`, `batch`, and `batch_result`.
+- **`Database`** — older context trait used by compatibility helper functions such as `create_signal`, `batch`, and `batch_result`.
 - **`Readable`** — older freshness trait with `is_up_to_date(self) -> Bool`.
 - **`Trackable`** — older field-owner trait for structs with `TrackedCell` fields, used by `add_tracked(scope, tracked)`.
 

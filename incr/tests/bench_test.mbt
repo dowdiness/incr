@@ -38,22 +38,22 @@ test "signal: set new value" (b : @bench.T) {
 test "memo: get warm (up-to-date, no recompute)" (b : @bench.T) {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 42)
-  let m = Memo::Memo(rt, () => sig.get() * 2)
-  ignore(read_memo_for_test(m)) // prime
-  b.bench(fn() { b.keep(read_memo_for_test(m)) })
+  let m = Derived::Derived(rt, () => sig.get() * 2)
+  ignore(read_derived_for_test(m)) // prime
+  b.bench(fn() { b.keep(read_derived_for_test(m)) })
 }
 
 ///|
 test "memo: get stale (signal changed, recompute)" (b : @bench.T) {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 0)
-  let m = Memo::Memo(rt, () => sig.get() * 2)
-  ignore(read_memo_for_test(m)) // prime
+  let m = Derived::Derived(rt, () => sig.get() * 2)
+  ignore(read_derived_for_test(m)) // prime
   let mut v = 0
   b.bench(fn() {
     v = v + 1
     sig.set(v)
-    b.keep(read_memo_for_test(m))
+    b.keep(read_derived_for_test(m))
   })
 }
 
@@ -62,19 +62,19 @@ test "memo: deep chain get (100 levels, stale)" (b : @bench.T) {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 0)
   let depth = 100
-  let memos : Array[Memo[Int]] = []
-  memos.push(Memo::Memo(rt, () => sig.get()))
+  let memos : Array[Derived[Int]] = []
+  memos.push(Derived::Derived(rt, () => sig.get()))
   for i = 1; i < depth; i = i + 1 {
     let prev = memos[i - 1]
-    memos.push(Memo::Memo(rt, () => prev.get() + 1))
+    memos.push(Derived::Derived(rt, () => prev.get_or_abort() + 1))
   }
   let leaf = memos[depth - 1]
-  ignore(read_memo_for_test(leaf)) // prime
+  ignore(read_derived_for_test(leaf)) // prime
   let mut v = 0
   b.bench(fn() {
     v = v + 1
     sig.set(v)
-    b.keep(read_memo_for_test(leaf))
+    b.keep(read_derived_for_test(leaf))
   })
 }
 
@@ -83,20 +83,20 @@ test "memo: wide fanout get (1 signal, 50 memos, stale)" (b : @bench.T) {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 0)
   let width = 50
-  let memos : Array[Memo[Int]] = []
+  let memos : Array[Derived[Int]] = []
   for i = 0; i < width; i = i + 1 {
     let multiplier = i + 1
-    memos.push(Memo::Memo(rt, () => sig.get() * multiplier))
+    memos.push(Derived::Derived(rt, () => sig.get() * multiplier))
   }
   for i = 0; i < width; i = i + 1 {
-    ignore(read_memo_for_test(memos[i])) // prime all
+    ignore(read_derived_for_test(memos[i])) // prime all
   }
   let mut v = 0
   b.bench(fn() {
     v = v + 1
     sig.set(v)
     for i = 0; i < width; i = i + 1 {
-      b.keep(read_memo_for_test(memos[i]))
+      b.keep(read_derived_for_test(memos[i]))
     }
   })
 }
@@ -128,19 +128,19 @@ test "memo: no-accumulator recompute fanout" (b : @bench.T) {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 0)
   let width = 50
-  let memos : Array[Memo[Int]] = []
+  let memos : Array[Derived[Int]] = []
   for i = 0; i < width; i = i + 1 {
-    memos.push(Memo::Memo(rt, () => sig.get()))
+    memos.push(Derived::Derived(rt, () => sig.get()))
   }
   for i = 0; i < width; i = i + 1 {
-    ignore(read_memo_for_test(memos[i])) // prime all
+    ignore(read_derived_for_test(memos[i])) // prime all
   }
   let mut v = 0
   b.bench(fn() {
     v = v + 1
     sig.set(v)
     for i = 0; i < width; i = i + 1 {
-      b.keep(read_memo_for_test(memos[i]))
+      b.keep(read_derived_for_test(memos[i]))
     }
   })
 }
@@ -149,22 +149,22 @@ test "memo: no-accumulator recompute fanout" (b : @bench.T) {
 test "hybrid: get warm (up-to-date, no recompute)" (b : @bench.T) {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 42)
-  let h = @incr.HybridMemo::HybridMemo(rt, () => sig.get() * 2)
-  ignore(read_hybrid_for_test(h)) // prime
-  b.bench(fn() { b.keep(read_hybrid_for_test(h)) })
+  let h = @incr.ReachableDerived::ReachableDerived(rt, () => sig.get() * 2)
+  ignore(read_reachable_for_test(h)) // prime
+  b.bench(fn() { b.keep(read_reachable_for_test(h)) })
 }
 
 ///|
 test "hybrid: get stale (signal changed, recompute)" (b : @bench.T) {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 0)
-  let h = @incr.HybridMemo::HybridMemo(rt, () => sig.get() * 2)
-  ignore(read_hybrid_for_test(h)) // prime
+  let h = @incr.ReachableDerived::ReachableDerived(rt, () => sig.get() * 2)
+  ignore(read_reachable_for_test(h)) // prime
   let mut v = 0
   b.bench(fn() {
     v = v + 1
     sig.set(v)
-    b.keep(read_hybrid_for_test(h))
+    b.keep(read_reachable_for_test(h))
   })
 }
 
@@ -207,7 +207,7 @@ test "baseline: signal.set with 10k unreferenced memos" (b : @bench.T) {
   let sig = Signal::Signal(rt, 0)
   for i = 0; i < 10_000; i = i + 1 {
     let idx = i
-    ignore(Memo::Memo(rt, fn() { sig.get() + idx }))
+    ignore(Derived::Derived(rt, fn() { sig.get() + idx }))
   }
   let mut v = 0
   b.bench(fn() {
@@ -220,7 +220,7 @@ test "baseline: signal.set with 10k unreferenced memos" (b : @bench.T) {
 test "baseline: memo creation cost (monotonic SoA growth)" (b : @bench.T) {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 0)
-  b.bench(fn() { ignore(Memo::Memo(rt, fn() { sig.get() })) })
+  b.bench(fn() { ignore(Derived::Derived(rt, fn() { sig.get() })) })
 }
 
 ///|
@@ -292,9 +292,9 @@ test "layer1: memo create-dispose cycle (free list)" (b : @bench.T) {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 0)
   b.bench(fn() {
-    let m = Memo::Memo(rt, fn() { sig.get() })
-    ignore(read_memo_for_test(m))
-    m.dispose()
+    let m = Derived::Derived(rt, fn() { sig.get() })
+    ignore(read_derived_for_test(m))
+    rt.dispose_cell(m.id())
   })
 }
 
@@ -337,7 +337,7 @@ test "layer2: scope bulk dispose 100 mixed cells" (b : @bench.T) {
       let _ = scope.signal(i)
     }
     for _ in 0..<50 {
-      let _ = scope.memo(fn() { 0 })
+      let _ = scope.derived(fn() { 0 })
     }
     scope.dispose()
   })
@@ -364,7 +364,7 @@ test "layer2: nested scope (3 levels) create and dispose" (b : @bench.T) {
 test "observer: get warm (memo)" (b : @bench.T) {
   let rt = @incr.Runtime::Runtime()
   let sig = @incr.Signal::Signal(rt, 42)
-  let m = @incr.Memo::Memo(rt, fn() { sig.get() * 2 })
+  let m = @incr.Derived::Derived(rt, fn() { sig.get() * 2 })
   let obs = m.observe()
   ignore(obs.get()) // prime
   b.bench(fn() { b.keep(obs.get()) })
@@ -375,8 +375,8 @@ test "observer: get warm (memo)" (b : @bench.T) {
 test "observer: observe + dispose cycle" (b : @bench.T) {
   let rt = @incr.Runtime::Runtime()
   let sig = @incr.Signal::Signal(rt, 42)
-  let m = @incr.Memo::Memo(rt, fn() { sig.get() * 2 })
-  ignore(read_memo_for_test(m)) // prime
+  let m = @incr.Derived::Derived(rt, fn() { sig.get() * 2 })
+  ignore(read_derived_for_test(m)) // prime
   b.bench(fn() {
     let obs = m.observe()
     b.keep(obs.get())
@@ -390,7 +390,7 @@ test "gc: sweep 1k all-live" (b : @bench.T) {
   let sig = @incr.Signal::Signal(rt, 1)
   let observers : Array[@incr.Observer[Int]] = []
   for i = 0; i < 1000; i = i + 1 {
-    let m = @incr.Memo::Memo(rt, fn() { sig.get() + i })
+    let m = @incr.Derived::Derived(rt, fn() { sig.get() + i })
     let obs = m.observe()
     ignore(obs.get())
     observers.push(obs)
@@ -406,8 +406,8 @@ test "gc: sweep 1k all-dead" (b : @bench.T) {
   let rt = @incr.Runtime::Runtime()
   let sig = @incr.Signal::Signal(rt, 1)
   for i = 0; i < 1000; i = i + 1 {
-    let m = @incr.Memo::Memo(rt, fn() { sig.get() + i })
-    ignore(read_memo_for_test(m))
+    let m = @incr.Derived::Derived(rt, fn() { sig.get() + i })
+    ignore(read_derived_for_test(m))
   }
   // First gc disposes all, subsequent gcs are sweeps over Disposed entries
   rt.gc()
@@ -420,7 +420,7 @@ test "gc: sweep 1k 50pct dead" (b : @bench.T) {
   let sig = @incr.Signal::Signal(rt, 1)
   let observers : Array[@incr.Observer[Int]] = []
   for i = 0; i < 1000; i = i + 1 {
-    let m = @incr.Memo::Memo(rt, fn() { sig.get() + i })
+    let m = @incr.Derived::Derived(rt, fn() { sig.get() + i })
     let obs = m.observe()
     ignore(obs.get())
     if i % 2 == 0 {
@@ -439,9 +439,9 @@ test "gc: sweep 1k 50pct dead" (b : @bench.T) {
 test "runtime: read one-shot" (b : @bench.T) {
   let rt = @incr.Runtime::Runtime()
   let sig = @incr.Signal::Signal(rt, 42)
-  let m = @incr.Memo::Memo(rt, fn() { sig.get() * 2 })
-  ignore(read_memo_for_test(m)) // prime
-  b.bench(fn() { b.keep(read_memo_for_test(m)) })
+  let m = @incr.Derived::Derived(rt, fn() { sig.get() * 2 })
+  ignore(read_derived_for_test(m)) // prime
+  b.bench(fn() { b.keep(read_derived_for_test(m)) })
 }
 
 ///|

@@ -2,8 +2,8 @@
 test "subscriber: dependents accessible via public API" {
   let rt = Runtime::Runtime()
   let x = Signal::Signal(rt, 10)
-  let doubled = Memo::Memo(rt, () => x.get() * 2)
-  let _ = read_memo_for_test(doubled)
+  let doubled = Derived::Derived(rt, () => x.get() * 2)
+  let _ = read_derived_for_test(doubled)
   let deps = rt.dependents(x.id())
   inspect(deps.length(), content="1")
   inspect(deps.contains(doubled.id()), content="true")
@@ -13,9 +13,9 @@ test "subscriber: dependents accessible via public API" {
 test "subscriber: chain dependencies tracked" {
   let rt = Runtime::Runtime()
   let a = Signal::Signal(rt, 1)
-  let b = Memo::Memo(rt, () => a.get() + 1)
-  let c = Memo::Memo(rt, () => b.get() * 2)
-  let _ = read_memo_for_test(c)
+  let b = Derived::Derived(rt, () => a.get() + 1)
+  let c = Derived::Derived(rt, () => b.get_or_abort() * 2)
+  let _ = read_derived_for_test(c)
   // a -> b -> c
   let a_deps = rt.dependents(a.id())
   inspect(a_deps.length(), content="1")
@@ -33,13 +33,13 @@ test "subscriber: dynamic deps update dependents via public API" {
   let flag = Signal::Signal(rt, true)
   let a = Signal::Signal(rt, 10)
   let b = Signal::Signal(rt, 20)
-  let pick = Memo::Memo(rt, () => if flag.get() { a.get() } else { b.get() })
-  let _ = read_memo_for_test(pick) // deps: flag, a
+  let pick = Derived::Derived(rt, () => if flag.get() { a.get() } else { b.get() })
+  let _ = read_derived_for_test(pick) // deps: flag, a
   inspect(rt.dependents(a.id()).contains(pick.id()), content="true")
   inspect(rt.dependents(b.id()).contains(pick.id()), content="false")
   // Switch branch: deps become flag, b
   flag.set(false)
-  let _ = read_memo_for_test(pick)
+  let _ = read_derived_for_test(pick)
   inspect(rt.dependents(a.id()).contains(pick.id()), content="false")
   inspect(rt.dependents(b.id()).contains(pick.id()), content="true")
   // flag always has pick as a dependent
@@ -59,8 +59,8 @@ test "subscriber: dependents returns empty for cross-runtime id" {
 test "subscriber: dependents returns empty for disposed id" {
   let rt = Runtime::Runtime()
   let x = Signal::Signal(rt, 10)
-  let doubled = Memo::Memo(rt, () => x.get() * 2)
-  let _ = read_memo_for_test(doubled)
+  let doubled = Derived::Derived(rt, () => x.get() * 2)
+  let _ = read_derived_for_test(doubled)
   let x_id = x.id()
   inspect(rt.dependents(x_id).contains(doubled.id()), content="true")
   x.dispose()

@@ -2,7 +2,7 @@
 test "gc: observe → signal.set → observer.get sees update" {
   let rt = @incr.Runtime()
   let sig = @incr.Signal(rt, 10)
-  let m = @incr.Memo(rt, fn() { sig.get() * 2 })
+  let m = @incr.Derived(rt, fn() { sig.get() * 2 })
   let obs = m.observe()
   inspect(obs.get(), content="20")
   sig.set(15)
@@ -15,13 +15,13 @@ test "gc: scope dispose + gc sweeps orphaned interior cells" {
   let rt = @incr.Runtime()
   let sig = @incr.Signal(rt, 1)
   let scope = @incr.Scope::new(rt)
-  let m = scope.memo(fn() { sig.get() + 1 })
+  let m = scope.derived(fn() { sig.get() + 1 })
   let obs = m.observe()
   ignore(obs.get())
 
   // Create another memo not observed
-  let m_orphan = @incr.Memo(rt, fn() { sig.get() + 2 })
-  ignore(read_memo_for_test(m_orphan))
+  let m_orphan = @incr.Derived(rt, fn() { sig.get() + 2 })
+  ignore(read_derived_for_test(m_orphan))
 
   obs.dispose()
   scope.dispose()
@@ -34,8 +34,8 @@ test "gc: scope dispose + gc sweeps orphaned interior cells" {
 test "gc: Runtime::read does not leak gc roots" {
   let rt = @incr.Runtime()
   let sig = @incr.Signal(rt, 5)
-  let m = @incr.Memo(rt, fn() { sig.get() * 3 })
-  let val = read_memo_for_test(m)
+  let m = @incr.Derived(rt, fn() { sig.get() * 3 })
+  let val = read_derived_for_test(m)
   inspect(val, content="15")
   // After read, no gc roots should remain for m
   rt.gc()
@@ -46,10 +46,10 @@ test "gc: Runtime::read does not leak gc roots" {
 test "gc: manual dispose of observed cell then gc" {
   let rt = @incr.Runtime()
   let sig = @incr.Signal(rt, 1)
-  let m = @incr.Memo(rt, fn() { sig.get() })
+  let m = @incr.Derived(rt, fn() { sig.get() })
   let obs = m.observe()
   ignore(obs.get())
-  m.dispose()
+  rt.dispose_cell(m.id())
   obs.dispose() // safe — skips on_unobserve for dead cell
   rt.gc() // safe — m already disposed
 }
@@ -58,7 +58,7 @@ test "gc: manual dispose of observed cell then gc" {
 test "gc: hybrid memo reachable through observer" {
   let rt = @incr.Runtime()
   let sig = @incr.Signal(rt, 1)
-  let h = @incr.HybridMemo(rt, fn() { sig.get() + 10 })
+  let h = @incr.ReachableDerived(rt, fn() { sig.get() + 10 })
   let obs = h.observe()
   inspect(obs.get(), content="11")
   rt.gc()

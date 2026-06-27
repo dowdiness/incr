@@ -62,11 +62,11 @@ test "ui: flat 1000 reactives (root mutation)" (b : @bench.T) {
 test "ui: layered 1000 reactives via 1 memo (root mutation)" (b : @bench.T) {
   let rt = @incr.Runtime::new()
   let sig = @incr.Signal::new(rt, 0)
-  let derived = @incr.Memo::new(rt, fn() { sig.get() * 2 })
+  let derived = @incr.Derived::Derived(rt, fn() { sig.get() * 2 })
   let reactives : Array[@incr.Reactive[Int]] = []
   for i = 0; i < 1000; i = i + 1 {
     let idx = i
-    reactives.push(@incr.Reactive::new(rt, fn() { derived.get() + idx }))
+    reactives.push(@incr.Reactive::new(rt, fn() { derived.get_or_abort() + idx }))
   }
   let mut v = 0
   b.bench(fn() {
@@ -118,20 +118,20 @@ test "ui: tree 1023 memos + 512 leaf reactives (root mutation)" (b : @bench.T) {
   let rt = @incr.Runtime::new()
   let sig = @incr.Signal::new(rt, 0)
   // Build balanced binary tree of Memos, 1023 nodes total (depth 10)
-  let nodes : Array[@incr.Memo[Int]] = []
-  nodes.push(@incr.Memo::new(rt, fn() { sig.get() })) // root @ idx 0
+  let nodes : Array[@incr.Derived[Int]] = []
+  nodes.push(@incr.Derived::Derived(rt, fn() { sig.get() })) // root @ idx 0
   for i = 0; i < 511; i = i + 1 {
     let parent = nodes[i]
     let li = 2 * i + 1
     let ri = 2 * i + 2
-    nodes.push(@incr.Memo::new(rt, fn() { parent.get() + li }))
-    nodes.push(@incr.Memo::new(rt, fn() { parent.get() + ri }))
+    nodes.push(@incr.Derived::Derived(rt, fn() { parent.get_or_abort() + li }))
+    nodes.push(@incr.Derived::Derived(rt, fn() { parent.get_or_abort() + ri }))
   }
   // Attach a leaf Reactive to each of the 512 deepest nodes (indices 511..1022)
   let leaves : Array[@incr.Reactive[Int]] = []
   for i = 511; i < 1023; i = i + 1 {
     let node = nodes[i]
-    leaves.push(@incr.Reactive::new(rt, fn() { node.get() }))
+    leaves.push(@incr.Reactive::new(rt, fn() { node.get_or_abort() }))
   }
   let mut v = 0
   b.bench(fn() {
