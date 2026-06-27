@@ -34,6 +34,49 @@ test "facade input: get inside tracked context records dependency" {
 }
 
 ///|
+test "facade input: derive creates derived tracking input" {
+  let rt = @incr.Runtime()
+  let input = @incr.Input(rt, 10)
+  let derived = input.derived(fn(v) { v * 2 })
+
+  inspect(derived.read_or_abort(), content="20")
+  input.set(20)
+  inspect(derived.read_or_abort(), content="40")
+}
+
+///|
+test "facade input: derive backdates equal output" {
+  let rt = @incr.Runtime()
+  let input = @incr.Input(rt, 21)
+  let normalized = input.derived(fn(v) { v / 10 })
+  let mut downstream_runs = 0
+  let downstream = @incr.Derived(rt, () => {
+    downstream_runs = downstream_runs + 1
+    normalized.get_or_abort()
+  })
+
+  inspect(downstream.read_or_abort(), content="2")
+  input.set(29)
+  inspect(downstream.read_or_abort(), content="2")
+  inspect(downstream_runs, content="1")
+  input.set(31)
+  inspect(downstream.read_or_abort(), content="3")
+  inspect(downstream_runs, content="2")
+}
+
+///|
+test "facade input: derive propagates label" {
+  let rt = @incr.Runtime()
+  let input = @incr.Input(rt, 21)
+  let derived = input.derived(fn(v) { v / 10 }, label="derived")
+
+  guard rt.cell_info(derived.id()) is Some(info) else {
+    fail("expected derived cell info")
+  }
+  debug_inspect(info.label, content="Some(\"derived\")")
+}
+
+///|
 test "facade input_field: get peek set force_set and tracking" {
   let rt = @incr.Runtime()
   let field = @incr.InputField(rt, 2, label="field")
