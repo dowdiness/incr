@@ -4,18 +4,19 @@
 test "verify leak simulation: stale in_progress causes spurious cycle" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 0)
-  let memo = Memo::Memo(rt, () => sig.get() + 1)
+  let memo = Derived(rt, () => sig.get() + 1)
   let meta = rt.get_memo_data(memo.id())
   meta.in_progress = true
   rt.push_tracking(memo.id())
 
-  match memo.get_result() {
+  match memo.get() {
     Ok(_) => abort("expected cycle error")
-    Err(e) => {
+    Err(ReadError::Cycle(e)) => {
       inspect(e.cell() == memo.id(), content="true")
       // Path contains leaked tracking frame + closing id.
       inspect(e.path().length(), content="2")
     }
+    Err(ReadError::Disposed(_)) => abort("unexpected disposed")
   }
   inspect(meta.in_progress, content="true")
   inspect(rt.core.tracking.stack.length(), content="1")
@@ -27,7 +28,7 @@ test "verify leak simulation: stale in_progress causes spurious cycle" {
 test "verify leak simulation: manual cleanup recovers memo reads" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 0)
-  let memo = Memo::Memo(rt, () => sig.get() + 1)
+  let memo = Derived(rt, () => sig.get() + 1)
   let meta = rt.get_memo_data(memo.id())
   meta.in_progress = true
   rt.push_tracking(memo.id())
@@ -35,19 +36,22 @@ test "verify leak simulation: manual cleanup recovers memo reads" {
   meta.in_progress = false
   ignore(rt.pop_tracking())
 
-  inspect(read_memo_for_test(memo), content="1")
+  inspect(memo.read_or_abort(), content="1")
 }
 
-///|
 test "memo_get_or_returns_fallback_on_cycle_error" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 0)
-  let memo = Memo::Memo(rt, () => sig.get() + 1)
+  let memo = Derived(rt, () => sig.get() + 1)
   let meta = rt.get_memo_data(memo.id())
   meta.in_progress = true
   rt.push_tracking(memo.id())
 
-  inspect(memo.get_or(-123), content="-123")
+  match memo.get() {
+    Ok(v) => inspect(v, content="-123")
+    Err(ReadError::Cycle(_)) => inspect(-123, content="-123")
+    Err(ReadError::Disposed(_)) => abort("unexpected disposed")
+  }
 
   meta.in_progress = false
   ignore(rt.pop_tracking())
@@ -57,20 +61,22 @@ test "memo_get_or_returns_fallback_on_cycle_error" {
 test "memo_get_or_else_receives_cycle_error" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 0)
-  let memo = Memo::Memo(rt, () => sig.get() + 1)
+  let memo = Derived(rt, () => sig.get() + 1)
   let meta = rt.get_memo_data(memo.id())
   meta.in_progress = true
   rt.push_tracking(memo.id())
 
   let captured : Ref[CellId?] = { val: None }
-  let v = memo.get_or_else(err => {
-    captured.val = Some(err.cell())
-    -456
-  })
-
+  let v = match memo.get() {
+    Ok(v) => v
+    Err(ReadError::Cycle(err)) => {
+      captured.val = Some(err.cell())
+      -456
+    }
+    Err(ReadError::Disposed(_)) => abort("unexpected")
+  }
   inspect(v, content="-456")
   inspect(captured.val == Some(memo.id()), content="true")
-
   meta.in_progress = false
   ignore(rt.pop_tracking())
 }
@@ -81,11 +87,11 @@ test "memo_get_or_else_receives_cycle_error" {
 test "pull_verify: recomputes stale memo via MemoData.compute" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 0)
-  let memo = Memo::Memo(rt, () => sig.get() + 1)
+  let memo = Derived(rt, () => sig.get() + 1)
   // Force first computation to populate cell state
-  let _ = read_memo_for_test(memo)
+  let _ = memo.read_or_abort()
   // Trigger re-verification: change sig so the memo is stale
   sig.set(1)
   // pull_verify recomputes via MemoData.compute
-  inspect(read_memo_for_test(memo), content="2")
+  inspect(memo.read_or_abort(), content="2")
 }

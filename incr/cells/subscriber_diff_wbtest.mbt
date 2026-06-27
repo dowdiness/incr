@@ -3,7 +3,7 @@ test "diff_subscribers: add new deps" {
   let rt = Runtime::Runtime()
   let s1 = Signal::Signal(rt, 1)
   let s2 = Signal::Signal(rt, 2)
-  let m = Memo::Memo(rt, fn() { s1.get() })
+  let m = Derived(rt, fn() { s1.get() })
   let obs = m.observe()
   // m currently depends on s1 only. Simulate a dep change to [s1, s2].
   let old_deps = [s1.id()]
@@ -20,7 +20,7 @@ test "diff_subscribers: remove old deps" {
   let rt = Runtime::Runtime()
   let s1 = Signal::Signal(rt, 1)
   let s2 = Signal::Signal(rt, 2)
-  let m = Memo::Memo(rt, fn() { s1.get() + s2.get() })
+  let m = Derived(rt, fn() { s1.get() + s2.get() })
   let obs = m.observe()
   // m depends on [s1, s2]. Simulate dep change to [s1] only.
   let old_deps = [s1.id(), s2.id()]
@@ -36,10 +36,10 @@ test "diff_subscribers: remove old deps" {
 test "diff_subscribers: no change is no-op" {
   let rt = Runtime::Runtime()
   let s1 = Signal::Signal(rt, 1)
-  let m = Memo::Memo(rt, fn() { s1.get() })
+  let m = Derived(rt, fn() { s1.get() })
   let obs = m.observe()
   // Force computation to establish subscriber links
-  read_memo_for_test(m) |> ignore
+  m.read_or_abort() |> ignore
   let deps = [s1.id()]
   // Diff identical lists — should be a no-op
   rt.diff_and_update_subscribers(m.id(), deps, deps) |> ignore

@@ -125,14 +125,14 @@ test "fixpoint: semi-naive recursion preserves delta frontier across iterations"
 test "fixpoint: pull memo depending on relation recomputes after fixpoint" {
   let rt = Runtime::Runtime()
   let rel : Relation[Int] = Relation::Relation(rt)
-  let m = Memo::Memo(rt, () => rel.iter().fold(init=0, (acc, x) => acc + x))
+  let m = Derived(rt, () => rel.iter().fold(init=0, (acc, x) => acc + x))
   rel.insert(1) |> ignore
   rel.insert(2) |> ignore
   rt.fixpoint()
-  inspect(read_memo_for_test(m), content="3")
+  inspect(m.read_or_abort(), content="3")
   rel.insert(3) |> ignore
   rt.fixpoint()
-  inspect(read_memo_for_test(m), content="6")
+  inspect(m.read_or_abort(), content="6")
 }
 
 ///|
@@ -140,15 +140,15 @@ test "fixpoint: pull memo depending on relation contains recomputes after fixpoi
   let rt = Runtime::Runtime()
   let rel : Relation[Int] = Relation::Relation(rt)
   let mut compute_count = 0
-  let m = Memo::Memo(rt, () => {
+  let m = Derived(rt, () => {
     compute_count = compute_count + 1
     rel.contains(1)
   })
-  inspect(read_memo_for_test(m), content="false")
+  inspect(m.read_or_abort(), content="false")
   inspect(compute_count, content="1")
   rel.insert(1) |> ignore
   rt.fixpoint()
-  inspect(read_memo_for_test(m), content="true")
+  inspect(m.read_or_abort(), content="true")
   inspect(compute_count, content="2")
 }
 
@@ -156,12 +156,12 @@ test "fixpoint: pull memo depending on relation contains recomputes after fixpoi
 test "panic fixpoint: Memo::get() inside rule body aborts" {
   let rt = Runtime::Runtime()
   let rel : Relation[Int] = Relation::Relation(rt)
-  let m = Memo::Memo(rt, () => rel.iter().fold(init=0, (acc, x) => acc + x))
+  let m = Derived(rt, () => rel.iter().fold(init=0, (acc, x) => acc + x))
   // Pre-verify the memo so the fast-path would otherwise return stale data
-  inspect(read_memo_for_test(m), content="0")
+  inspect(m.read_or_abort(), content="0")
   let _ = rt.new_rule([rel.id()], [rel.id()], () => {
     // This must abort — Memo::get() during fixpoint could return stale values
-    let _ = m.get()
+    let _ = m.read_or_abort()
   })
   rel.insert(1) |> ignore
   rt.fixpoint()
@@ -187,10 +187,10 @@ test "panic relation: iter cross-runtime read aborts inside memo" {
   let rt_a = Runtime::Runtime()
   let rt_b = Runtime::Runtime()
   let rel_b : Relation[Int] = Relation::Relation(rt_b)
-  let memo_a = Memo::Memo(rt_a, () => {
+  let memo_a = Derived(rt_a, () => {
     rel_b.iter().fold(init=0, (acc, x) => acc + x)
   })
-  let _ = read_memo_for_test(memo_a)
+  let _ = memo_a.read_or_abort()
 }
 
 ///|
@@ -198,8 +198,8 @@ test "panic relation: contains cross-runtime read aborts inside memo" {
   let rt_a = Runtime::Runtime()
   let rt_b = Runtime::Runtime()
   let rel_b : Relation[Int] = Relation::Relation(rt_b)
-  let memo_a = Memo::Memo(rt_a, () => rel_b.contains(1))
-  let _ = read_memo_for_test(memo_a)
+  let memo_a = Derived(rt_a, () => rel_b.contains(1))
+  let _ = memo_a.read_or_abort()
 }
 
 ///|
@@ -273,16 +273,16 @@ test "get_changed_at: relation duplicate frontier preserves changed_at" {
   rt.fixpoint()
   let changed_at_before = rt.get_changed_at(rel.id())
   let mut memo_count = 0
-  let m = Memo::Memo(rt, fn() {
+  let m = Derived(rt, fn() {
     memo_count += 1
     rel.contains(1)
   })
-  inspect(read_memo_for_test(m), content="true")
+  inspect(m.read_or_abort(), content="true")
   // Inject a duplicate frontier to pin RelationData's net-change check.
   rel.delta.val.add(1)
   rt.fixpoint()
   inspect(rt.get_changed_at(rel.id()) == changed_at_before, content="true")
-  inspect(read_memo_for_test(m), content="true")
+  inspect(m.read_or_abort(), content="true")
   inspect(memo_count, content="1")
 }
 
