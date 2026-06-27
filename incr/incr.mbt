@@ -6,7 +6,6 @@ pub using @incr_types {
   type ListenerId,
   type CellId,
   type SignalId,
-  type MemoId,
   type ReactiveId,
   type RelationId,
   type RuleId,
