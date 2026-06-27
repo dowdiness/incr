@@ -210,6 +210,19 @@ pub fn[V : Eq, E : Eq] Derived::fallible(
 }
 
 ///|
+/// Creates a lazy derived value without equality-based backdating. Each
+/// recomputation advances the changed-at revision unconditionally, even when
+/// the output equals the previous value. Accepts output types that do not
+/// implement `Eq`.
+pub fn[T] Derived::derived_no_backdate(
+  rt : Runtime,
+  compute : () -> T raise Failure,
+  label? : String,
+) -> Derived[T] {
+  { inner: Memo::new_no_backdate(rt, compute, label?) }
+}
+
+///|
 /// Transforms this derived value into another derived value on the same runtime.
 ///
 /// The mapped value never backdates, so `U` does not need to implement `Eq`.
