@@ -52,7 +52,7 @@ test "Accumulator::push outside tracked context raises Failure" {
 test "Accumulator::push inside memo compute stages value" {
   let rt = Runtime::Runtime()
   let a : Accumulator[Int] = Accumulator::new(rt~, label="diags")
-  let memo = Memo::Memo(rt, () => {
+  let memo = Derived(rt, () => {
     a.push(1)
     a.push(2)
     99
@@ -76,7 +76,7 @@ test "Accumulator::push to disposed accumulator raises Failure" {
   let rt = Runtime::Runtime()
   let a : Accumulator[Int] = Accumulator::new(rt~)
   a.dispose()
-  let memo = Memo::Memo(rt, () => {
+  let memo = Derived(rt, () => {
     a.push(42)
     1
   })
@@ -94,7 +94,7 @@ test "accumulator: same push-set across recomputes → push_revised_at unchanged
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 0)
   let a : Accumulator[Int] = Accumulator::new(rt~)
-  let m = Memo::Memo(rt, () => {
+  let m = Derived(rt, () => {
     a.push(1)
     a.push(2)
     sig.get()
@@ -119,7 +119,7 @@ test "accumulator: different push-set across recomputes → push_revised_at bump
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 0)
   let a : Accumulator[Int] = Accumulator::new(rt~)
-  let m = Memo::Memo(rt, () => {
+  let m = Derived(rt, () => {
     a.push(sig.get())
     1
   })
@@ -141,7 +141,7 @@ test "accumulator: different push-set across recomputes → push_revised_at bump
 test "accumulated_peek: returns pushed values in order" {
   let rt = Runtime::Runtime()
   let a : Accumulator[Int] = Accumulator::new(rt~)
-  let m = Memo::Memo(rt, () => {
+  let m = Derived(rt, () => {
     a.push(10)
     a.push(20)
     a.push(30)
@@ -158,7 +158,7 @@ test "accumulated_peek: returns pushed values in order" {
 test "accumulated_peek: returns [] for disposed accumulator" {
   let rt = Runtime::Runtime()
   let a : Accumulator[Int] = Accumulator::new(rt~)
-  let m = Memo::Memo(rt, () => {
+  let m = Derived(rt, () => {
     a.push(1)
     0
   })
@@ -171,7 +171,7 @@ test "accumulated_peek: returns [] for disposed accumulator" {
 test "accumulated_peek: returns defensive copy" {
   let rt = Runtime::Runtime()
   let a : Accumulator[Int] = Accumulator::new(rt~)
-  let m = Memo::Memo(rt, () => {
+  let m = Derived(rt, () => {
     a.push(1)
     0
   })
@@ -187,13 +187,13 @@ test "accumulated_peek: returns defensive copy" {
 test "accumulated: tracked read inside memo stages synthetic dep" {
   let rt = Runtime::Runtime()
   let a : Accumulator[Int] = Accumulator::new(rt~)
-  let producer = Memo::Memo(rt, () => {
+  let producer = Derived(rt, () => {
     a.push(42)
     1
   })
-  let consumer = Memo::Memo(rt, () => producer.accumulated_or_abort(a).length())
+  let consumer = Derived(rt, () => producer.accumulated_or_abort(a).length())
   let _ = rt.ensure_computed_untracked(consumer.id())
-  inspect(read_memo_for_test(consumer), content="1")
+  inspect(consumer.read_or_abort(), content="1")
   // Consumer's MemoData should have a synthetic read entry for (a.slot_id, producer.cell_id)
   let data = rt.get_memo_data(consumer.id())
   let key = (a.slot_id, producer.id())
@@ -204,7 +204,7 @@ test "accumulated: tracked read inside memo stages synthetic dep" {
 test "accumulated: raises Failure on disposed accumulator" {
   let rt = Runtime::Runtime()
   let a : Accumulator[Int] = Accumulator::new(rt~)
-  let producer = Memo::Memo(rt, () => 1)
+  let producer = Derived(rt, () => 1)
   a.dispose()
   let caught = try {
     let _ = producer.accumulated(a)
@@ -219,7 +219,7 @@ test "accumulated: raises Failure on disposed accumulator" {
 test "accumulated_result: Ok on success" {
   let rt = Runtime::Runtime()
   let a : Accumulator[Int] = Accumulator::new(rt~)
-  let p = Memo::Memo(rt, () => {
+  let p = Derived(rt, () => {
     a.push(5)
     0
   })
@@ -234,7 +234,7 @@ test "accumulated_result: Ok on success" {
 test "accumulated: commits pushes when producer value is Err" {
   let rt = Runtime::Runtime()
   let a : Accumulator[Int] = Accumulator::new(rt~)
-  let p : Memo[Result[Int, String]] = Memo::Memo(rt, () => {
+  let p : Derived[Result[Int, String]] = Derived(rt, () => {
     a.push(7)
     Err("domain")
   })
@@ -245,7 +245,7 @@ test "accumulated: commits pushes when producer value is Err" {
     }
     Err(e) => fail("expected Ok accumulated pushes, got " + e.to_string())
   }
-  match read_memo_for_test(p) {
+  match p.read_or_abort() {
     Err(message) => inspect(message, content="domain")
     Ok(_) => fail("expected cached Err value")
   }
@@ -259,13 +259,13 @@ test "durability shortcut: bypassed when memo has accumulator_reads" {
   let rt = Runtime::Runtime()
   let s = Signal::Signal(rt, 0)
   let a : Accumulator[Int] = Accumulator::new(rt~)
-  let producer = Memo::Memo(rt, () => {
+  let producer = Derived(rt, () => {
     a.push(s.get())
     1
   })
-  let consumer = Memo::Memo(rt, () => producer.accumulated_or_abort(a).length())
+  let consumer = Derived(rt, () => producer.accumulated_or_abort(a).length())
   // Force first read; populates consumer.accumulator_reads.
-  let _ = read_memo_for_test(consumer)
+  let _ = consumer.read_or_abort()
   let consumer_data = rt.get_memo_data(consumer.id())
   inspect(consumer_data.accumulator_reads.is_empty(), content="false")
   // Bump revision; consumer.verified_at < current_revision.
@@ -273,7 +273,7 @@ test "durability shortcut: bypassed when memo has accumulator_reads" {
   // A second read must not crash — the bypass opens the dep-walk path.
   // Task 15 will make this read see the new push-set; Task 14 just ensures
   // pull_verify doesn't short-circuit inappropriately.
-  let _ = read_memo_for_test(consumer)
+  let _ = consumer.read_or_abort()
 }
 
 ///|
@@ -281,16 +281,16 @@ test "synthetic dep check: reader invalidates when producer's push_revised_at bu
   let rt = Runtime::Runtime()
   let s = Signal::Signal(rt, 1)
   let a : Accumulator[Int] = Accumulator::new(rt~)
-  let producer = Memo::Memo(rt, () => {
+  let producer = Derived(rt, () => {
     a.push(s.get())
     1
   })
-  let consumer = Memo::Memo(rt, () => producer.accumulated_or_abort(a)[0])
-  inspect(read_memo_for_test(consumer), content="1")
+  let consumer = Derived(rt, () => producer.accumulated_or_abort(a)[0])
+  inspect(consumer.read_or_abort(), content="1")
   s.set(42)
   // producer's accumulated push-set changed; consumer must recompute and
   // return the new value.
-  inspect(read_memo_for_test(consumer), content="42")
+  inspect(consumer.read_or_abort(), content="42")
 }
 
 ///|
@@ -299,13 +299,13 @@ test "memo dispose clears entries from all accumulators" {
   let a : Accumulator[Int] = Accumulator::new(rt~)
   let b : Accumulator[Int] = Accumulator::new(rt~)
   let scope = Scope::new(rt)
-  let producer : Memo[Int] = Memo::Memo(rt, () => {
+  let producer : Derived[Int] = Derived(rt, () => {
     a.push(1)
     b.push(2)
     0
   })
   scope.add_cell_ids([producer.id()])
-  let _ = read_memo_for_test(producer)
+  let _ = producer.read_or_abort()
   inspect(a.per_memo.contains(producer.id()), content="true")
   inspect(b.per_memo.contains(producer.id()), content="true")
   scope.dispose()
@@ -329,12 +329,12 @@ test "edge: ActiveQuery.accumulator_reads discarded on recompute failure" {
   let rt = Runtime::Runtime()
   let should_fail = Signal::Signal(rt, false)
   let acc_a : Accumulator[Int] = Accumulator::new(rt~)
-  let producer = Memo::Memo(rt, () => {
+  let producer = Derived(rt, () => {
     acc_a.push(1)
     0
   })
   let _ = rt.ensure_computed_untracked(producer.id())
-  let consumer = Memo::Memo(rt, () => {
+  let consumer = Derived(rt, () => {
     let _ = producer.accumulated_or_abort(acc_a)
     if should_fail.get() {
       fail("abort")
@@ -366,7 +366,7 @@ test "edge: new-run-only slot cleared on ON_ABORT" {
   let acc_a : Accumulator[Int] = Accumulator::new(rt~)
   let acc_b : Accumulator[Int] = Accumulator::new(rt~)
   // First run: pushes only to A
-  let m = Memo::Memo(rt, () => {
+  let m = Derived(rt, () => {
     acc_a.push(1)
     if use_b.get() {
       acc_b.push(99)
@@ -396,7 +396,7 @@ test "edge: first-push-to-fresh-memo correctly bumps push_revised_at" {
   let rt = Runtime::Runtime()
   let trigger = Signal::Signal(rt, false)
   let acc : Accumulator[Int] = Accumulator::new(rt~)
-  let m = Memo::Memo(rt, () => {
+  let m = Derived(rt, () => {
     if trigger.get() {
       acc.push(100)
     }
@@ -416,7 +416,7 @@ test "panic: Memo::accumulated_peek aborts on cross-runtime Accumulator" {
   let rt1 = Runtime::Runtime()
   let rt2 = Runtime::Runtime()
   let acc1 : Accumulator[Int] = Accumulator::new(rt=rt1)
-  let m2 = Memo::Memo(rt2, () => 1)
+  let m2 = Derived(rt2, () => 1)
   // Would silently index rt2.accumulator_slots with acc1.slot_id (from rt1)
   // without the cross-runtime guard on acc.slot_id.runtime_id.
   let _ = m2.accumulated_peek(acc1)
@@ -429,14 +429,14 @@ test "panic: Memo::accumulated_peek aborts on cross-runtime Accumulator" {
 test "verify: raise-path from compute does not leak in_progress on ancestors" {
   let rt = Runtime::Runtime()
   let should_fail = Signal::Signal(rt, false)
-  let inner : Memo[Int] = Memo::Memo(rt, () => {
+  let inner : Derived[Int] = Derived(rt, () => {
     if should_fail.get() {
       fail("boom")
     } else {
       1
     }
   })
-  let outer : Memo[Int] = Memo::Memo(rt, () => inner.get() + 1)
+  let outer : Derived[Int] = Derived(rt, () => inner.get_or_abort() + 1)
   // Prime dependency graph: outer depends on inner, both verified.
   let _ = rt.ensure_computed_untracked(outer.id())
   // Trigger failing recompute path — inner raises when verified through outer.
@@ -455,7 +455,7 @@ test "verify: raise-path from compute does not leak in_progress on ancestors" {
   // treats outer as mid-computation and returns a CycleError (which
   // rt.read converts to abort). The test then panics on rt.read.
   should_fail.set(false)
-  inspect(read_memo_for_test(outer), content="2")
+  inspect(outer.read_or_abort(), content="2")
 }
 
 ///|
@@ -466,27 +466,26 @@ test "verify: synthetic accumulator dep surfaces target cycle and cleans up" {
   let rt = Runtime::Runtime()
   let tick = Signal::Signal(rt, 0)
   let acc : Accumulator[Int] = Accumulator::new(rt~)
-  let producer = Memo::Memo(rt, () => {
+  let producer = Derived(rt, () => {
     acc.push(tick.get())
     1
   })
-  let consumer = Memo::Memo(rt, () => {
-    producer.accumulated_or_abort(acc).length()
-  })
-  inspect(read_memo_for_test(consumer), content="1")
+  let consumer = Derived(rt, () => producer.accumulated_or_abort(acc).length())
+  inspect(consumer.read_or_abort(), content="1")
 
   let producer_data = rt.get_memo_data(producer.id())
   producer_data.dependencies = [consumer.id()]
   tick.set(1)
 
-  match consumer.get_result() {
+  match consumer.read() {
     Ok(_) => fail("expected synthetic accumulator cycle")
-    Err(e) => {
+    Err(ReadError::Cycle(e)) => {
       let path = e.path()
       inspect(path.length(), content="2")
       inspect(path[0] == producer.id(), content="true")
       inspect(path[1] == consumer.id(), content="true")
     }
+    Err(ReadError::Disposed(_)) => abort("unexpected disposed")
   }
   inspect(producer_data.in_progress, content="false")
   inspect(rt.get_memo_data(consumer.id()).in_progress, content="false")
@@ -503,17 +502,17 @@ test "verify: non-root frame checks accumulator_reads" {
   let rt = Runtime::Runtime()
   let s = Signal::Signal(rt, 1)
   let a : Accumulator[Int] = Accumulator::new(rt~)
-  let producer = Memo::Memo(rt, () => {
+  let producer = Derived(rt, () => {
     a.push(s.get())
     1
   })
-  let middle = Memo::Memo(rt, () => producer.accumulated_or_abort(a)[0])
-  let top = Memo::Memo(rt, () => middle.get() * 10)
-  inspect(read_memo_for_test(top), content="10")
+  let middle = Derived(rt, () => producer.accumulated_or_abort(a)[0])
+  let top = Derived(rt, () => middle.get_or_abort() * 10)
+  inspect(top.read_or_abort(), content="10")
   s.set(5)
   // Without the non-root synthetic check, middle skips recompute even
   // though producer's push-set changed, and top returns stale 10.
-  inspect(read_memo_for_test(top), content="50")
+  inspect(top.read_or_abort(), content="50")
 }
 
 ///|
@@ -521,7 +520,7 @@ test "accumulator: ON_ABORT restores prior buffer on raised compute" {
   let rt = Runtime::Runtime()
   let should_fail = Signal::Signal(rt, false)
   let a : Accumulator[Int] = Accumulator::new(rt~)
-  let m : Memo[Int] = Memo::Memo(rt, () => {
+  let m : Derived[Int] = Derived(rt, () => {
     a.push(1)
     if should_fail.get() {
       fail("boom")
@@ -561,7 +560,7 @@ test "verify: aborted new-slot push preserves prior push_revised_at" {
   //   sig=1  → push [1]
   //   sig=0  → push nothing
   //   sig=99 → push [99], then fail
-  let producer = Memo::new_no_backdate(rt, () => {
+  let producer = Derived::derived_no_backdate(rt, () => {
     let v = sig.get()
     if v > 0 && v != 99 {
       acc.push(v)
@@ -572,11 +571,11 @@ test "verify: aborted new-slot push preserves prior push_revised_at" {
     }
     0
   })
-  let consumer = Memo::new_no_backdate(rt, () => {
+  let consumer = Derived::derived_no_backdate(rt, () => {
     producer.accumulated_or_abort(acc).length()
   })
   // R0: sig=1 → producer pushes [1]; consumer reads len=1; stored=R0.
-  inspect(read_memo_for_test(consumer), content="1")
+  inspect(consumer.read_or_abort(), content="1")
   // R1: sig=0 → producer recomputes directly (pushes nothing;
   // push_revised_at bumps, per_memo entry is removed). Consumer does NOT
   // read here, so its stored revision stays at R0.
@@ -600,5 +599,5 @@ test "verify: aborted new-slot push preserves prior push_revised_at" {
   // push_revised_at (prev=[], current=[], same). Consumer must see the
   // updated state via the preserved R1 marker — not a stale 1 from R0.
   sig.set(0)
-  inspect(read_memo_for_test(consumer), content="0")
+  inspect(consumer.read_or_abort(), content="0")
 }
