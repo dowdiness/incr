@@ -11,6 +11,8 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ### Changed
 
+- **Renamed `Derived` map family: safe default now uses short name.** `Derived::map_eq` → `Derived::map` (the safe `Eq`-backdating path), `Derived::map` → `Derived::map_no_backdate` (explicit no-backdate opt-in). Same convention for `map2`/`map2_eq` and `map3`/`map3_eq`. The short, ergonomic name is now the safe default. All callsites migrated.
+
 - **Removed `type MemoId` from `@incr` re-exports.** `MemoId[T]` was a phantom-typed wrapper around `CellId` that matched the old `Memo` naming. With `Memo` already removed from the public facade, the standalone ID alias is inconsistent. The type remains defined in `dowdiness/incr/types` for internal use; use `CellId` directly or reference it via `@incr_types.MemoId` for white-box access.
 
 ## v0.11.0 (2026-06-26)

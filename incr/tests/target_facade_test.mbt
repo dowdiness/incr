@@ -76,7 +76,7 @@ test "facade derived: map transforms and tracks source" {
   let rt = @incr.Runtime()
   let input = @incr.Input(rt, 10)
   let source = @incr.Derived(rt, () => input.get() + 1)
-  let mapped = source.map(v => v * 2, label="mapped.double")
+  let mapped = source.map_no_backdate(v => v * 2, label="mapped.double")
 
   inspect(mapped.read_or_abort(), content="22")
   guard rt.cell_info(mapped.id()) is Some(info) else {
@@ -92,7 +92,7 @@ test "facade derived: map accepts non-Eq output" {
   let rt = @incr.Runtime()
   let input = @incr.Input(rt, 3)
   let source = @incr.Derived(rt, () => input.get())
-  let mapped = source.map(v => (x : Int) => x + v)
+  let mapped = source.map_no_backdate(v => (x : Int) => x + v)
 
   inspect(mapped.read_or_abort()(10), content="13")
   input.set(4)
@@ -104,7 +104,7 @@ test "facade derived: map_eq backdates equal mapped output" {
   let rt = @incr.Runtime()
   let input = @incr.Input(rt, 21)
   let source = @incr.Derived(rt, () => input.get())
-  let normalized = source.map_eq(v => v / 10)
+  let normalized = source.map(v => v / 10)
   let mut downstream_runs = 0
   let downstream = @incr.Derived(rt, () => {
     downstream_runs = downstream_runs + 1
@@ -122,7 +122,7 @@ test "facade derived: map_eq invalidates when mapped output changes" {
   let rt = @incr.Runtime()
   let input = @incr.Input(rt, 21)
   let source = @incr.Derived(rt, () => input.get())
-  let normalized = source.map_eq(v => v / 10)
+  let normalized = source.map(v => v / 10)
   let mut downstream_runs = 0
   let downstream = @incr.Derived(rt, () => {
     downstream_runs = downstream_runs + 1
@@ -140,7 +140,7 @@ test "facade derived: map_eq propagates label" {
   let rt = @incr.Runtime()
   let input = @incr.Input(rt, 21)
   let source = @incr.Derived(rt, () => input.get())
-  let normalized = source.map_eq(v => v / 10, label="normalized")
+  let normalized = source.map(v => v / 10, label="normalized")
 
   guard rt.cell_info(normalized.id()) is Some(info) else {
     fail("expected mapped cell info")
@@ -155,7 +155,7 @@ test "facade derived: map2 reacts to left and right sources" {
   let right_input = @incr.Input(rt, 3)
   let left = @incr.Derived(rt, () => left_input.get())
   let right = @incr.Derived(rt, () => right_input.get())
-  let total = left.map2(right, (a, b) => a + b, label="total")
+  let total = left.map2_no_backdate(right, (a, b) => a + b, label="total")
 
   inspect(total.read_or_abort(), content="5")
   left_input.set(4)
@@ -175,7 +175,7 @@ test "facade derived: map2 accepts non-Eq output" {
   let right_input = @incr.Input(rt, 3)
   let left = @incr.Derived(rt, () => left_input.get())
   let right = @incr.Derived(rt, () => right_input.get())
-  let total = left.map2(right, (a, b) => (x : Int) => x + a + b)
+  let total = left.map2_no_backdate(right, (a, b) => (x : Int) => x + a + b)
 
   inspect(total.read_or_abort()(10), content="15")
   right_input.set(4)
@@ -189,7 +189,7 @@ test "facade derived: map2_eq backdates equal mapped output" {
   let right_input = @incr.Input(rt, 9)
   let left = @incr.Derived(rt, () => left_input.get())
   let right = @incr.Derived(rt, () => right_input.get())
-  let bucket = left.map2_eq(right, (a, b) => (a + b) / 10)
+  let bucket = left.map2(right, (a, b) => (a + b) / 10)
   let mut downstream_runs = 0
   let downstream = @incr.Derived(rt, () => {
     downstream_runs = downstream_runs + 1
@@ -212,7 +212,7 @@ test "panic facade derived: map2 rejects cross-runtime input" {
   let left = @incr.Derived(rt1, () => 1)
   let right = @incr.Derived(rt2, () => 2)
 
-  ignore(left.map2(right, (a, b) => a + b))
+  ignore(left.map2_no_backdate(right, (a, b) => a + b))
 }
 
 ///|
@@ -222,7 +222,7 @@ test "panic facade derived: map2_eq rejects cross-runtime input" {
   let left = @incr.Derived(rt1, () => 1)
   let right = @incr.Derived(rt2, () => 2)
 
-  ignore(left.map2_eq(right, (a, b) => a + b))
+  ignore(left.map2(right, (a, b) => a + b))
 }
 
 ///|
@@ -234,7 +234,12 @@ test "facade derived: map3 reacts to all sources" {
   let first = @incr.Derived(rt, () => first_input.get())
   let second = @incr.Derived(rt, () => second_input.get())
   let third = @incr.Derived(rt, () => third_input.get())
-  let total = first.map3(second, third, (a, b, c) => a + b + c, label="total3")
+  let total = first.map3_no_backdate(
+    second,
+    third,
+    (a, b, c) => a + b + c,
+    label="total3",
+  )
 
   inspect(total.read_or_abort(), content="6")
   first_input.set(10)
@@ -258,7 +263,9 @@ test "facade derived: map3 accepts non-Eq output" {
   let first = @incr.Derived(rt, () => first_input.get())
   let second = @incr.Derived(rt, () => second_input.get())
   let third = @incr.Derived(rt, () => third_input.get())
-  let total = first.map3(second, third, (a, b, c) => (x : Int) => x + a + b + c)
+  let total = first.map3_no_backdate(second, third, (a, b, c) => {
+    (x : Int) => x + a + b + c
+  })
 
   inspect(total.read_or_abort()(10), content="16")
   third_input.set(4)
@@ -274,7 +281,7 @@ test "facade derived: map3_eq backdates equal mapped output" {
   let first = @incr.Derived(rt, () => first_input.get())
   let second = @incr.Derived(rt, () => second_input.get())
   let third = @incr.Derived(rt, () => third_input.get())
-  let bucket = first.map3_eq(second, third, (a, b, c) => (a + b + c) / 10)
+  let bucket = first.map3(second, third, (a, b, c) => (a + b + c) / 10)
   let mut downstream_runs = 0
   let downstream = @incr.Derived(rt, () => {
     downstream_runs = downstream_runs + 1
@@ -298,7 +305,7 @@ test "panic facade derived: map3 rejects cross-runtime input" {
   let second = @incr.Derived(rt1, () => 2)
   let third = @incr.Derived(rt2, () => 3)
 
-  ignore(first.map3(second, third, (a, b, c) => a + b + c))
+  ignore(first.map3_no_backdate(second, third, (a, b, c) => a + b + c))
 }
 
 ///|
@@ -309,7 +316,7 @@ test "panic facade derived: map3 rejects cross-runtime second input" {
   let second = @incr.Derived(rt2, () => 2)
   let third = @incr.Derived(rt1, () => 3)
 
-  ignore(first.map3(second, third, (a, b, c) => a + b + c))
+  ignore(first.map3_no_backdate(second, third, (a, b, c) => a + b + c))
 }
 
 ///|
@@ -320,7 +327,7 @@ test "panic facade derived: map3_eq rejects cross-runtime input" {
   let second = @incr.Derived(rt1, () => 2)
   let third = @incr.Derived(rt2, () => 3)
 
-  ignore(first.map3_eq(second, third, (a, b, c) => a + b + c))
+  ignore(first.map3(second, third, (a, b, c) => a + b + c))
 }
 
 ///|
@@ -331,7 +338,7 @@ test "panic facade derived: map3_eq rejects cross-runtime second input" {
   let second = @incr.Derived(rt2, () => 2)
   let third = @incr.Derived(rt1, () => 3)
 
-  ignore(first.map3_eq(second, third, (a, b, c) => a + b + c))
+  ignore(first.map3(second, third, (a, b, c) => a + b + c))
 }
 
 ///|

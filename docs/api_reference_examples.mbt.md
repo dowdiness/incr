@@ -312,7 +312,7 @@ test "docs api-ref: derived map transforms a source value" {
   let rt = @incr.Runtime()
   let count = @incr.Input(rt, 2, label="count")
   let plus_one = @incr.Derived(rt, () => count.get() + 1, label="plus_one")
-  let doubled = plus_one.map(v => v * 2, label="doubled")
+  let doubled = plus_one.map_no_backdate(v => v * 2, label="doubled")
 
   inspect(doubled.read_or_abort(), content="6")
   count.set(4)
@@ -328,8 +328,13 @@ test "docs api-ref: derived map2 and map3 combine source values" {
   let base = @incr.Derived(rt, () => count.get(), label="base")
   let extra = @incr.Derived(rt, () => bonus.get(), label="extra")
   let scale = @incr.Derived(rt, () => multiplier.get(), label="scale")
-  let subtotal = base.map2(extra, (a, b) => a + b, label="subtotal")
-  let total = base.map3(extra, scale, (a, b, c) => (a + b) * c, label="total")
+  let subtotal = base.map2_no_backdate(extra, (a, b) => a + b, label="subtotal")
+  let total = base.map3_no_backdate(
+    extra,
+    scale,
+    (a, b, c) => (a + b) * c,
+    label="total",
+  )
 
   inspect(subtotal.read_or_abort(), content="5")
   inspect(total.read_or_abort(), content="20")
@@ -339,11 +344,11 @@ test "docs api-ref: derived map2 and map3 combine source values" {
 }
 
 ///|
-test "docs api-ref: derived map_eq backdates equal output" {
+test "docs api-ref: derived map backdates equal output" {
   let rt = @incr.Runtime()
   let count = @incr.Input(rt, 21, label="count")
   let source = @incr.Derived(rt, () => count.get(), label="source")
-  let tens = source.map_eq(v => v / 10, label="tens")
+  let tens = source.map(v => v / 10, label="tens")
   let downstream_runs : Ref[Int] = { val: 0 }
   let downstream = @incr.Derived(rt, () => {
     downstream_runs.val = downstream_runs.val + 1
