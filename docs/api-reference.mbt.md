@@ -168,10 +168,13 @@ for composable observers that must coexist and are individually removable by id.
 
 > Renamed in 0.8.0 from `Runtime::on_memo_event`; older ADRs may use that name.
 
-Registers the runtime's derived recompute listener. The listener receives pull
-`Derived` and `ReachableDerived` lifecycle events after the recompute path reaches a
-safe drain point; it is not called inline from the compute closure.
-show richer event logging patterns.
+Registers the **singleton** derived-event listener: re-registering replaces the
+previous singleton in place. It coexists with any additive listeners added via
+`add_derived_event_listener`.
+
+The checked companion covers listener registration and clearing in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md); cookbook
+examples show richer event logging patterns.
 
 The listener is a synchronous, non-raising callback. If a driver needs async
 logging, enqueue inside the callback and let another part of the driver drain

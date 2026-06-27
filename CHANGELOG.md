@@ -17,6 +17,7 @@ All notable changes to `dowdiness/incr` are documented in this file.
 - **Removed `create_memo` / `create_memo_map` / `create_hybrid_memo` helpers.** Use `create_derived` / `create_derived_map` / `create_reachable_derived` (these accept `RuntimeContext`, mirroring the old `Database` pattern).
 - **Removed `Readable` trait impls for `Memo` / `HybridMemo`.** The `Freshness` trait covers `Derived` and `ReachableDerived` via `is_fresh()`.
 
+### Examples
 These changes are in `examples/` workspace members, not the published `dowdiness/incr` library.
 
 - Added `SubSpec::WindowKeydown` subscription family to `examples/incr_tea` (#290). `WindowKeydown(key_name, Msg)` reconciles a `window.addEventListener("keydown", ...)` listener — starting, updating in place (message or key name change), and stopping it without leaking browser listeners — alongside the existing `Timer` family. Demonstrated by a new `examples/incr_tea_7guis/keyboard_shortcut` task card.
