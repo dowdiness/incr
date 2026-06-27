@@ -37,9 +37,9 @@ test "push_reachable_count: signal with reactive through hybrid memo" {
 test "push_reachable_count: two-deep memo chain" {
   let rt = Runtime::Runtime()
   let s = Signal::Signal(rt, 0)
-  let mA = Memo::Memo(rt, () => s.get())
-  let mB = Memo::Memo(rt, () => mA.get())
-  let _r = Reactive::new(rt, () => mB.get())
+  let mA = Derived(rt, () => s.get())
+  let mB = Derived(rt, () => mA.read_or_abort())
+  let _r = Reactive::new(rt, () => mB.read_or_abort())
   inspect(get_count(rt, s.id()), content="1")
   inspect(get_count(rt, mA.id()), content="1")
   inspect(get_count(rt, mB.id()), content="1")
@@ -49,9 +49,9 @@ test "push_reachable_count: two-deep memo chain" {
 test "push_reachable_count: diamond topology" {
   let rt = Runtime::Runtime()
   let s = Signal::Signal(rt, 0)
-  let mA = Memo::Memo(rt, () => s.get() + 1)
-  let mB = Memo::Memo(rt, () => s.get() + 2)
-  let _r = Reactive::new(rt, () => mA.get() + mB.get())
+  let mA = Derived(rt, () => s.get() + 1)
+  let mB = Derived(rt, () => s.get() + 2)
+  let _r = Reactive::new(rt, () => mA.read_or_abort() + mB.read_or_abort())
   // Two paths: s->mA->r and s->mB->r
   inspect(get_count(rt, s.id()), content="2")
   inspect(get_count(rt, mA.id()), content="1")
@@ -72,9 +72,9 @@ test "push_reachable_count: reactive dispose returns counts to 0" {
 test "push_reachable_count: diamond dispose returns to 0" {
   let rt = Runtime::Runtime()
   let s = Signal::Signal(rt, 0)
-  let mA = Memo::Memo(rt, () => s.get() + 1)
-  let mB = Memo::Memo(rt, () => s.get() + 2)
-  let r = Reactive::new(rt, () => mA.get() + mB.get())
+  let mA = Derived(rt, () => s.get() + 1)
+  let mB = Derived(rt, () => s.get() + 2)
+  let r = Reactive::new(rt, () => mA.read_or_abort() + mB.read_or_abort())
   inspect(get_count(rt, s.id()), content="2")
   r.dispose()
   inspect(get_count(rt, s.id()), content="0")
@@ -141,9 +141,9 @@ test "push_reachable_count: memo dep change updates upstream signal counts" {
   let s2 = Signal::Signal(rt, 0)
   let flag : Ref[Bool] = Ref(true)
   // memoA conditionally reads s1 or s2
-  let mA = Memo::Memo(rt, () => if flag.val { s1.get() } else { s2.get() })
+  let mA = Derived(rt, () => if flag.val { s1.get() } else { s2.get() })
   // reactive reads memoA (forces memoA to compute -> deps=[s1])
-  let _r = Reactive::new(rt, () => mA.get())
+  let _r = Reactive::new(rt, () => mA.read_or_abort())
   inspect(get_count(rt, s1.id()), content="1")
   inspect(get_count(rt, s2.id()), content="0")
   // switch memoA to read s2: change flag, trigger recompute via signal change
@@ -170,7 +170,7 @@ test "push_reachable_count: hybrid memo dispose decrements upstream" {
 test "push_reachable_count: no push cells = zero everywhere" {
   let rt = Runtime::Runtime()
   let s = Signal::Signal(rt, 0)
-  let _m = Memo::Memo(rt, () => s.get())
+  let _m = Derived(rt, () => s.get())
   inspect(get_count(rt, s.id()), content="0")
 }
 
@@ -186,25 +186,25 @@ test "push_reachable_count: dropping one arm of a memo-internal diamond keeps th
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 1)
   let drop = Signal::Signal(rt, false)
-  let a = Memo::Memo(rt, () => sig.get())
-  let b = Memo::Memo(rt, () => sig.get())
-  let c = Memo::Memo(rt, () => sig.get())
+  let a = Derived(rt, () => sig.get())
+  let b = Derived(rt, () => sig.get())
+  let c = Derived(rt, () => sig.get())
   // projected reads a,b always; reads c only when !drop (dynamic dependency).
-  let projected = Memo::Memo(rt, () => {
-    let base = a.get() + b.get()
+  let projected = Derived(rt, () => {
+    let base = a.read_or_abort() + b.read_or_abort()
     if drop.get() {
       base
     } else {
-      base + c.get()
+      base + c.read_or_abort()
     }
   })
-  let candidate = Memo::Memo(rt, () => projected.get())
+  let candidate = Derived(rt, () => projected.read_or_abort())
   let runs : Ref[Int] = { val: 0 }
   // Reactive::new computes eagerly, wiring the whole chain. Keep it alive (no
   // observe/unobserve cycle, which would suspend it).
   let fold = Reactive::new(rt, () => {
     runs.val = runs.val + 1
-    candidate.get()
+    candidate.read_or_abort()
   })
   inspect(runs.val, content="1")
   // Three live direct subscribers of sig (a, b, c each reach the fold).
@@ -244,14 +244,14 @@ test "gate: signal with count 0 does not trigger reactive on separate signal" {
 test "push_reachable_count: inner pruning — live branch still fires after dead branch count reaches 0" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 0)
-  let mA = Memo::Memo(rt, () => sig.get() + 1)
-  let mB = Memo::Memo(rt, () => sig.get() + 2)
+  let mA = Derived(rt, () => sig.get() + 1)
+  let mB = Derived(rt, () => sig.get() + 2)
   let mut r1_val = 0
   let r1 = Reactive::new(rt, () => {
-    r1_val = mA.get()
+    r1_val = mA.read_or_abort()
     r1_val
   })
-  let r2 = Reactive::new(rt, () => mB.get())
+  let r2 = Reactive::new(rt, () => mB.read_or_abort())
   inspect(get_count(rt, sig.id()), content="2")
   inspect(get_count(rt, mB.id()), content="1")
   r2.dispose()

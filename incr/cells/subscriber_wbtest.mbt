@@ -11,8 +11,8 @@ test "subscriber: memo subscribes to its dependencies" {
   let rt = Runtime::Runtime()
   let a = Signal::Signal(rt, 1)
   let b = Signal::Signal(rt, 2)
-  let sum = Memo::Memo(rt, () => a.get() + b.get())
-  let _ = read_memo_for_test(sum)
+  let sum = Derived(rt, () => a.get() + b.get())
+  let _ = sum.read_or_abort()
   // a and b should list sum as a subscriber
   let a_data = rt.get_pull_signal(a.id())
   let b_data = rt.get_pull_signal(b.id())
@@ -26,8 +26,8 @@ test "subscriber: dynamic dep change updates subscribers" {
   let flag = Signal::Signal(rt, true)
   let a = Signal::Signal(rt, 10)
   let b = Signal::Signal(rt, 20)
-  let pick = Memo::Memo(rt, () => if flag.get() { a.get() } else { b.get() })
-  let _ = read_memo_for_test(pick) // deps: flag, a
+  let pick = Derived(rt, () => if flag.get() { a.get() } else { b.get() })
+  let _ = pick.read_or_abort()
   let a_data = rt.get_pull_signal(a.id())
   let b_data = rt.get_pull_signal(b.id())
   inspect(a_data.meta.subscribers.contains(pick.id()), content="true")
@@ -35,7 +35,7 @@ test "subscriber: dynamic dep change updates subscribers" {
   // Switch branch: deps become flag, b
   // PullSignalData has reference semantics — no need to re-fetch
   flag.set(false)
-  let _ = read_memo_for_test(pick)
+  let _ = pick.read_or_abort()
   inspect(a_data.meta.subscribers.contains(pick.id()), content="false")
   inspect(b_data.meta.subscribers.contains(pick.id()), content="true")
 }
@@ -44,10 +44,10 @@ test "subscriber: dynamic dep change updates subscribers" {
 test "subscriber: dependents returns subscriber list" {
   let rt = Runtime::Runtime()
   let a = Signal::Signal(rt, 1)
-  let m1 = Memo::Memo(rt, () => a.get() + 1)
-  let m2 = Memo::Memo(rt, () => a.get() * 2)
-  let _ = read_memo_for_test(m1)
-  let _ = read_memo_for_test(m2)
+  let m1 = Derived(rt, () => a.get() + 1)
+  let m2 = Derived(rt, () => a.get() * 2)
+  let _ = m1.read_or_abort()
+  let _ = m2.read_or_abort()
   let deps = rt.dependents(a.id())
   inspect(deps.length(), content="2")
   inspect(deps.contains(m1.id()), content="true")
@@ -58,8 +58,8 @@ test "subscriber: dependents returns subscriber list" {
 test "subscriber: dependents returns empty for leaf memo" {
   let rt = Runtime::Runtime()
   let a = Signal::Signal(rt, 1)
-  let m = Memo::Memo(rt, () => a.get())
-  let _ = read_memo_for_test(m)
+  let m = Derived(rt, () => a.get())
+  let _ = m.read_or_abort()
   let deps = rt.dependents(m.id())
   inspect(deps.length(), content="0")
 }
@@ -93,9 +93,9 @@ test "subscriber: dependents ignores stale reactive id after slot reuse" {
 test "subscriber: memo.get() is idempotent for subscribers" {
   let rt = Runtime::Runtime()
   let a = Signal::Signal(rt, 1)
-  let m = Memo::Memo(rt, () => a.get() + 1)
-  let _ = read_memo_for_test(m)
-  let _ = read_memo_for_test(m)
+  let m = Derived(rt, () => a.get() + 1)
+  let _ = m.read_or_abort()
+  let _ = m.read_or_abort()
   let sig_data = rt.get_pull_signal(a.id())
   inspect(sig_data.meta.subscribers.contains(m.id()), content="true")
   inspect(sig_data.meta.subscribers.length(), content="1")
@@ -105,8 +105,8 @@ test "subscriber: memo.get() is idempotent for subscribers" {
 test "subscriber: cell_info includes subscribers" {
   let rt = Runtime::Runtime()
   let a = Signal::Signal(rt, 1)
-  let m = Memo::Memo(rt, () => a.get() + 1)
-  let _ = read_memo_for_test(m)
+  let m = Derived(rt, () => a.get() + 1)
+  let _ = m.read_or_abort()
   match rt.cell_info(a.id()) {
     Some(info) => inspect(info.subscribers.contains(m.id()), content="true")
     None => abort("expected cell info")
