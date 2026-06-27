@@ -75,6 +75,7 @@ pub fn[T, A] Derived::accumulated_peek(Self[T], Accumulator[A]) -> Array[A]
 pub fn[T] Derived::changed_at(Self[T]) -> @types.Revision
 pub fn[T] Derived::clear_on_change(Self[T]) -> Unit
 pub fn[T] Derived::dependencies(Self[T]) -> Array[@types.CellId]
+pub fn[T] Derived::derived_no_backdate(Runtime, () -> T raise Failure, label? : String) -> Self[T]
 pub fn[V : Eq, E : Eq] Derived::fallible(Runtime, () -> Result[V, E], label? : String) -> Self[Result[V, E]]
 pub fn[T] Derived::get(Self[T]) -> Result[T, @types.ReadError]
 pub fn[T] Derived::get_or_abort(Self[T]) -> T

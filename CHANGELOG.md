@@ -9,6 +9,7 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 - **Added `Scope::adopt` and `Trackable` impls for facade types.** `scope.adopt(tracked)` registers a `Trackable` cell (e.g. `Derived`, `Input`, `Effect`) with the scope for deterministic disposal — the method-style companion to `add_tracked(scope, tracked)`. Seven facade types gained `Trackable` impls: `Derived`, `Input`, `InputField`, `ReachableDerived`, `EagerDerived`, `Effect`, and `Reactive`. The `Trackable` trait was moved to `incr/cells` and re-exported from `@incr`.
 - **Added `Input::derived` for pipeline-uniform derived creation.** `input.derived(f)` creates a `Derived[U]` from an `Input[T]` by applying `f` on each read, replacing the `scope.derived(() => f(input.get()))` pattern with a chained `input.derived(f).map(g)`. Uses equality-based backdating (`U : Eq`).
+- **Added `Derived::derived_no_backdate` for standalone no-backdate construction.** `Derived::derived_no_backdate(rt, compute, label?)` creates a `Derived[T]` without equality-based backdating, accepting output types that do not implement `Eq`. The target-facade companion to `Memo::new_no_backdate`.
 
 ### Changed
 

@@ -413,6 +413,16 @@ The checked companion covers `Derived` construction, `map`, `map2`, `map3`,
 
 Creates a derived value whose `compute` is **noraise**: a recoverable, domain-specific failure is expressed in the value as `Result[V, E]`, never raised. The error then participates in caching and `Eq`-based backdating like any other value, and reads surface only graph failures (cycles/disposal), never an uncatchable abort. Prefer this over `Derived` when `Result` is the domain value shape. For custom enums or diagnostics payloads, use an ordinary `Derived[T]` and keep the recoverable failure in `T`; this is the same [domain errors as values](cookbook.mbt.md#pattern-domain-errors-as-values) pattern. A `raise Failure` from a plain `Derived` compute is a *defect*, not a domain-error channel — see [Honest Read-Error Ownership](design/specs/2026-05-28-honest-read-error-ownership.md).
 
+### `Derived::derived_no_backdate[T](rt: Runtime, compute: () -> T raise Failure, label?: String) -> Derived[T]`
+
+Creates a lazy derived value without equality-based backdating. Each
+recomputation advances the changed-at revision unconditionally, even when the
+output equals the previous value. Accepts output types that do not implement
+`Eq`.
+
+This is the target-facade constructor for the alternate backdating strategy
+exposed by `Memo::new_no_backdate`.
+
 ### `Derived::map_no_backdate[U](self, f: (T) -> U, label? : String) -> Derived[U]`
 
 Transforms this derived value into another derived value on the same `Runtime`.
@@ -502,7 +512,7 @@ accumulator producer has already been migrated to `Derived`.
 `Memo[T]` exposes the underlying lazy cell with legacy names and additional compatibility-only APIs. New code should construct `Derived[T]`; do not wait for `Memo` to grow `read` / `get_or_abort` bridge methods.
 
 - `Memo(rt, f, label?)` constructs a compatibility memo using `T : Eq` backdating. Migrate ordinary derived values to `Derived(rt, f, label?)`.
-- `Memo::new_memo[T : BackdateEq]` and `Memo::new_no_backdate[T]` expose alternate backdating strategies that do not yet have target-facade constructors.
+- `Memo::new_memo[T : BackdateEq]` and `Memo::new_no_backdate[T]` expose alternate backdating strategies. Use `Derived::derived_no_backdate` for the no-backdate target-facade constructor; `Memo::new_memo` remains the only path for `BackdateEq` strategy.
 - `Memo::get()` is the legacy strict aborting graph read. After migrating the handle, use `Derived::get_or_abort()` inside tracked compute functions.
 - `Memo::get_result()` is context-sensitive: after migrating the handle, use `Derived::get()` inside tracked compute functions and `Derived::read()` outside the graph.
 - `Memo::get_or()` and `Memo::get_or_else()` are legacy permissive cycle-safe reads. After migrating the handle, use an explicit `match derived.read()` fallback.
@@ -1281,6 +1291,7 @@ Use `BackdateEq` through the compatibility `Memo::new_memo` constructor when str
 | `Memo::get`, `get_result`, `get_or`, `get_or_else` | none |
 | `MemoMap::get`, `get_result`, `get_or`, `get_or_else` | `K : Hash + Eq`, `V : Eq` |
 | `MemoMap::contains` | `K : Hash + Eq` |
+| `Derived::derived_no_backdate` | none |
 | `Signal::set` | `T : Eq` |
 | `Signal::new`, `get`, `get_result`, `set_unconditional` | none |
 | `TrackedCell::set` | `T : Eq` |

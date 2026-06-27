@@ -838,3 +838,51 @@ test "Runtime::id(): distinct runtimes have distinct ids; same runtime is stable
   // graph-visualization output readable (no "RuntimeId(..)" wrapper).
   inspect(rt1.id().to_string().contains("RuntimeId"), content="false")
 }
+
+///|
+test "facade derived: derived_no_backdate accepts non-Eq output" {
+  let rt = @incr.Runtime()
+  let input = @incr.Input(rt, 3)
+  let derived = @incr.Derived::derived_no_backdate(rt, fn() {
+    (x : Int) => x + input.get()
+  })
+
+  inspect(derived.read_or_abort()(10), content="13")
+  input.set(4)
+  inspect(derived.read_or_abort()(10), content="14")
+}
+
+///|
+test "facade derived: derived_no_backdate propagates equal output" {
+  let rt = @incr.Runtime()
+  let input = @incr.Input(rt, 21)
+  let normalized = @incr.Derived::derived_no_backdate(rt, fn() {
+    input.get() / 10
+  })
+  let mut downstream_runs = 0
+  let downstream = @incr.Derived(rt, () => {
+    downstream_runs = downstream_runs + 1
+    normalized.get_or_abort()
+  })
+
+  inspect(downstream.read_or_abort(), content="2")
+  input.set(29)
+  inspect(downstream.read_or_abort(), content="2")
+  inspect(downstream_runs, content="2")
+}
+
+///|
+test "facade derived: derived_no_backdate propagates label" {
+  let rt = @incr.Runtime()
+  let input = @incr.Input(rt, 21)
+  let derived = @incr.Derived::derived_no_backdate(
+    rt,
+    fn() { input.get() / 10 },
+    label="derived-no-bd",
+  )
+
+  guard rt.cell_info(derived.id()) is Some(info) else {
+    fail("expected derived cell info")
+  }
+  debug_inspect(info.label, content="Some(\"derived-no-bd\")")
+}
