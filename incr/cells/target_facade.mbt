@@ -537,7 +537,9 @@ pub fn[T] ReachableDerived::id(self : ReachableDerived[T]) -> CellId {
 ///|
 /// Acquires an `Observer` that roots this reachable derived cell against
 /// gc. The caller must `dispose()` the returned observer when done.
-pub fn[T : Eq] ReachableDerived::observe(self : ReachableDerived[T]) -> Observer[T] {
+pub fn[T : Eq] ReachableDerived::observe(
+  self : ReachableDerived[T],
+) -> Observer[T] {
   self.inner.observe()
 }
 
@@ -767,4 +769,38 @@ pub fn[K, V] DerivedMap::clear_cache(self : DerivedMap[K, V]) -> Unit {
     Ok(_) => self.inner.clear()
     Err(e) => abort(e.format_path())
   }
+}
+
+///|
+/// Trackable implementation for input cells.
+pub impl[T] Trackable for Input[T] with fn cell_ids(self) -> Array[CellId] {
+  [self.id()]
+}
+
+///|
+/// Trackable implementation for input field cells.
+pub impl[T] Trackable for InputField[T] with fn cell_ids(self) -> Array[CellId] {
+  [self.id()]
+}
+
+///|
+/// Trackable implementation for derived cells (lazy recomputation).
+pub impl[T] Trackable for Derived[T] with fn cell_ids(self) -> Array[CellId] {
+  [self.id()]
+}
+
+///|
+/// Trackable implementation for reachable derived cells (lazy with GC-alive).
+pub impl[T] Trackable for ReachableDerived[T] with fn cell_ids(self) -> Array[
+  CellId,
+] {
+  [self.id()]
+}
+
+///|
+/// Trackable implementation for eager derived cells.
+pub impl[T] Trackable for EagerDerived[T] with fn cell_ids(self) -> Array[
+  CellId,
+] {
+  [self.id()]
 }

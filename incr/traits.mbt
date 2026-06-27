@@ -71,7 +71,6 @@ pub impl[T] Readable for Signal[T] with fn is_up_to_date(self) {
   Signal::is_up_to_date(self)
 }
 
-
 ///|
 /// Target inputs are always fresh because they are directly-set cells.
 pub impl[T] Freshness for Input[T] with fn is_fresh(self) {
@@ -117,7 +116,6 @@ pub fn[Db : Database, T] create_signal(
 ) -> Signal[T] {
   Signal(db.runtime(), value, durability~, label?)
 }
-
 
 ///|
 /// Creates a target-name input facade using the context runtime.
@@ -221,22 +219,6 @@ pub fn[Db : Database, T : Eq] create_accumulator(
 /// Signal and Memo implementations above.
 pub impl[T] Readable for TrackedCell[T] with fn is_up_to_date(self) {
   TrackedCell::is_up_to_date(self)
-}
-
-///|
-/// Contract for types that contain TrackedCell fields.
-///
-/// Implementing this trait declares that a type manages field-level
-/// incremental state. The trait requires a single method that returns
-/// all CellIds owned by the struct, enabling the runtime to perform
-/// operations like GC root scanning and bulk introspection.
-///
-/// A future MoonBit macro system could auto-derive this trait.
-///
-/// The ordering of CellIds returned by cell_ids() must be stable across
-/// calls (i.e., always return fields in the same order).
-pub(open) trait Trackable {
-  fn cell_ids(Self) -> Array[CellId]
 }
 
 ///|

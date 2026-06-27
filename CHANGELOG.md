@@ -5,6 +5,10 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Added `Scope::adopt` and `Trackable` impls for facade types.** `scope.adopt(tracked)` registers a `Trackable` cell (e.g. `Derived`, `Input`, `Effect`) with the scope for deterministic disposal — the method-style companion to `add_tracked(scope, tracked)`. Seven facade types gained `Trackable` impls: `Derived`, `Input`, `InputField`, `ReachableDerived`, `EagerDerived`, `Effect`, and `Reactive`. The `Trackable` trait was moved to `incr/cells` and re-exported from `@incr`.
+
 ### Changed
 
 - **Removed `type MemoId` from `@incr` re-exports.** `MemoId[T]` was a phantom-typed wrapper around `CellId` that matched the old `Memo` naming. With `Memo` already removed from the public facade, the standalone ID alias is inconsistent. The type remains defined in `dowdiness/incr/types` for internal use; use `CellId` directly or reference it via `@incr_types.MemoId` for white-box access.

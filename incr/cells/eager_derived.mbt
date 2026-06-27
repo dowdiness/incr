@@ -122,3 +122,9 @@ pub fn[T] Reactive::is_disposed(self : Reactive[T]) -> Bool {
 pub fn[T] Reactive::dispose(self : Reactive[T]) -> Unit {
   self.rt.dispose_cell(self.cell_id.id)
 }
+
+///|
+/// Trackable implementation for reactive cells.
+pub impl[T] Trackable for Reactive[T] with fn cell_ids(self) -> Array[CellId] {
+  [self.id()]
+}

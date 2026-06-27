@@ -101,7 +101,9 @@ test "hybrid: chained hybrids" {
   let rt = Runtime::Runtime()
   let s = Signal::Signal(rt, 1)
   let h1 = @incr.ReachableDerived::ReachableDerived(rt, () => s.get() + 1)
-  let h2 = @incr.ReachableDerived::ReachableDerived(rt, () => h1.get_or_abort() * 10)
+  let h2 = @incr.ReachableDerived::ReachableDerived(rt, () => {
+    h1.get_or_abort() * 10
+  })
   inspect(read_reachable_for_test(h2), content="20")
   s.set(2)
   inspect(read_reachable_for_test(h2), content="30")

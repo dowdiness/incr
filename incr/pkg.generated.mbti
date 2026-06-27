@@ -13,7 +13,7 @@ pub const MAX_CYCLE_DISPLAY_STEPS : Int = 20
 
 pub fn[T : InputFieldOwner] add_input_fields(@cells.Scope, T) -> Unit
 
-pub fn[T : Trackable] add_tracked(@cells.Scope, T) -> Unit
+pub fn[T : @cells.Trackable] add_tracked(@cells.Scope, T) -> Unit
 
 pub fn[Db : Database] batch(Db, () -> Unit raise?) -> Unit raise?
 
@@ -132,6 +132,8 @@ pub using @types {trait BackdateEq}
 
 pub using @types {trait HasChangedAt}
 
+pub using @cells {trait Trackable}
+
 // Traits
 pub(open) trait Database {
   fn runtime(Self) -> @cells.Runtime
@@ -157,9 +159,5 @@ pub impl[T] Readable for @cells.TrackedCell[T]
 
 pub(open) trait RuntimeContext {
   fn runtime(Self) -> @cells.Runtime
-}
-
-pub(open) trait Trackable {
-  fn cell_ids(Self) -> Array[@types.CellId]
 }
 

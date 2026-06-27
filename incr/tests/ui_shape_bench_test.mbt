@@ -66,7 +66,9 @@ test "ui: layered 1000 reactives via 1 memo (root mutation)" (b : @bench.T) {
   let reactives : Array[@incr.Reactive[Int]] = []
   for i = 0; i < 1000; i = i + 1 {
     let idx = i
-    reactives.push(@incr.Reactive::new(rt, fn() { derived.get_or_abort() + idx }))
+    reactives.push(
+      @incr.Reactive::new(rt, fn() { derived.get_or_abort() + idx }),
+    )
   }
   let mut v = 0
   b.bench(fn() {

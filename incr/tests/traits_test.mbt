@@ -165,6 +165,8 @@ test "trait: memo not yet computed is not up-to-date" {
   input.set(2)
   inspect(memo.is_fresh(), content="false")
 }
+
+///|
 test "trait: freshness trait dispatch for derived" {
   let rt = Runtime::Runtime()
   let input = Signal::Signal(rt, 1)
@@ -174,8 +176,6 @@ test "trait: freshness trait dispatch for derived" {
   input.set(2)
   inspect(check_is_fresh(memo), content="false")
 }
-
-
 
 ///|
 test "trait: create_signal with label" {

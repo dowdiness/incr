@@ -65,3 +65,9 @@ pub fn Effect::id(self : Effect) -> CellId {
 pub fn Effect::dispose(self : Effect) -> Unit {
   self.rt.dispose_cell(self.cell_id)
 }
+
+///|
+/// Trackable implementation for effect cells.
+pub impl Trackable for Effect with fn cell_ids(self) -> Array[CellId] {
+  [self.id()]
+}
