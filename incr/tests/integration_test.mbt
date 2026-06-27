@@ -135,7 +135,9 @@ test "integration: cascading updates" {
   let b = Signal::Signal(rt, 2)
   let sum = Derived::Derived(rt, () => a.get() + b.get())
   let product = Derived::Derived(rt, () => a.get() * b.get())
-  let combined = Derived::Derived(rt, () => sum.get_or_abort() + product.get_or_abort())
+  let combined = Derived::Derived(rt, () => {
+    sum.get_or_abort() + product.get_or_abort()
+  })
   inspect(read_derived_for_test(combined), content="5") // (1+2) + (1*2) = 3 + 2
   a.set(3)
   inspect(read_derived_for_test(combined), content="11") // (3+2) + (3*2) = 5 + 6

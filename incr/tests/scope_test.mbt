@@ -107,3 +107,43 @@ test "scope: dispose after push propagation completes" {
   inspect(sig.is_disposed(), content="true")
   inspect(eff.is_disposed(), content="true")
 }
+
+///|
+test "scope: map_eq-derived cell survives dispose without adopt" {
+  let rt = @incr.Runtime::Runtime()
+  let scope = @incr.Scope::new(rt)
+  let input = scope.input(42)
+  let base = scope.derived(fn() { input.get() })
+  let d = base.map_eq(fn(v) { v + 1 })
+  let id = d.id()
+  // Precondition: cell is alive
+  inspect(rt.cell_info(id) is Some(_), content="true")
+  scope.dispose()
+  // Cell survives because not registered with scope
+  inspect(rt.cell_info(id) is Some(_), content="true")
+}
+
+///|
+test "scope: adopt registers map_eq-derived cell for deterministic disposal" {
+  let rt = @incr.Runtime::Runtime()
+  let scope = @incr.Scope::new(rt)
+  let input = scope.input(42)
+  let base = scope.derived(fn() { input.get() })
+  let d = base.map_eq(fn(v) { v + 1 })
+  let adopted = scope.adopt(d)
+  let id = adopted.id()
+
+  inspect(rt.cell_info(id) is Some(_), content="true")
+  scope.dispose()
+  // Postcondition: cell is disposed
+  inspect(rt.cell_info(id) is None, content="true")
+}
+
+///|
+test "panic scope: adopt on disposed scope aborts" {
+  let rt = @incr.Runtime::Runtime()
+  let scope = @incr.Scope::new(rt)
+  scope.dispose()
+  let input = @incr.Input::Input(rt, 0)
+  let _ = scope.adopt(input)
+}

@@ -21,4 +21,3 @@ fn[T] read_reactive_for_test(reactive : @incr.Reactive[T]) -> T {
   observer.dispose()
   value
 }
-

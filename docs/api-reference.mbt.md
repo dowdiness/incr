@@ -1069,14 +1069,16 @@ pub(open) trait Trackable {
 }
 ```
 
-Implemented by structs that contain compatibility `TrackedCell` fields. The
-single method returns the `CellId` of every cell owned by the struct, in a
-stable order.
+Implemented by facade types (`Derived`, `Input`, `InputField`,
+`ReachableDerived`, `EagerDerived`, `Effect`, `Reactive`) and compatibility
+`TrackedCell` owners. The single method returns the `CellId` of every cell
+owned by the value, in a stable order.
 
+Use `scope.adopt(tracked)` to register a facade cell with a scope's lifecycle
+(see [Scope section](#scope-target-constructors-and-watch-lifetimes)).
 The checked companion covers a compatibility `Trackable` owner registered via
-`add_tracked` in [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
-
-`Trackable` is required by `add_tracked`. The ordering of IDs must be deterministic across calls.
+`add_tracked` in
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 The old standalone pipeline traits (`Sourceable`, `Parseable`, `Checkable`, `Executable`) were removed in the breaking cleanup. Define application-local build traits with concrete domain types instead.
 
@@ -1148,6 +1150,10 @@ owned cells for disposal:
 - `scope.eager_derived(compute) -> EagerDerived[T]`
 - `scope.derived_map(f, label?) -> DerivedMap[K, V]`
 - `scope.accumulator(label?) -> Accumulator[T]`
+
+Use `scope.adopt(tracked) -> T` to register a cell created outside the scope
+(e.g. via `map_eq` or raw constructors) with the scope's lifecycle. The cell
+must implement `Trackable`. Returns the cell for convenient chaining.
 
 Use `scope.add_watch(watch) -> Watch[T]` to tie a long-lived target `Watch` to
 the same scope. Disposing the scope disposes the watch before owned cells are

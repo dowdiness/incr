@@ -30,6 +30,16 @@ pub struct Scope {
 }
 
 ///|
+/// Implementing this trait declares that a type manages incremental state
+/// within cells that the runtime tracks by CellId.
+///
+/// The ordering of CellIds returned by cell_ids() must be stable across
+/// calls (i.e., always return fields in the same order).
+pub(open) trait Trackable {
+  fn cell_ids(Self) -> Array[CellId]
+}
+
+///|
 /// Manual Debug impl because `Array[() -> Unit]` cannot derive Debug
 /// (the `ignore` parameter only filters top-level field types, not nested types).
 pub impl Debug for Scope with fn to_repr(self) {
@@ -137,7 +147,6 @@ pub fn[T] Scope::input_field(
   field
 }
 
-
 ///|
 /// Creates a lazy derived facade owned by this scope.
 pub fn[T : Eq] Scope::derived(
@@ -152,7 +161,6 @@ pub fn[T : Eq] Scope::derived(
   self.cells.push(derived.inner.id())
   derived
 }
-
 
 ///|
 /// Creates a reachable lazy derived facade owned by this scope.
@@ -285,4 +293,28 @@ pub fn Scope::add_cell_ids(self : Scope, ids : Array[CellId]) -> Unit {
     }
     self.cells.push(id)
   }
+}
+
+///|
+/// Adopts all cells from a `Trackable` struct into this scope for bulk disposal.
+///
+/// This is the method-style version of `add_tracked(scope, tracked)`. Use it
+/// to register cells that were created outside a scope (e.g. via `map_eq` or
+/// raw constructors) with a scope's lifecycle.
+///
+/// Returns the trackable value for convenient chaining.
+///
+/// # Example
+///
+/// ```moonbit nocheck
+/// let scope = Scope::new(rt)
+/// let base = scope.derived(fn() { 42 })
+/// let d = base.map_eq(fn(v) { v + 1 })
+/// scope.adopt(d)
+/// scope.dispose()   // d is disposed
+/// ```
+pub fn[T : Trackable] Scope::adopt(self : Scope, tracked : T) -> T {
+  guard !self.disposed else { abort("Scope::adopt called on a disposed scope") }
+  self.add_cell_ids(tracked.cell_ids())
+  tracked
 }

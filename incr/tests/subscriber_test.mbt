@@ -33,7 +33,13 @@ test "subscriber: dynamic deps update dependents via public API" {
   let flag = Signal::Signal(rt, true)
   let a = Signal::Signal(rt, 10)
   let b = Signal::Signal(rt, 20)
-  let pick = Derived::Derived(rt, () => if flag.get() { a.get() } else { b.get() })
+  let pick = Derived::Derived(rt, () => {
+    if flag.get() {
+      a.get()
+    } else {
+      b.get()
+    }
+  })
   let _ = read_derived_for_test(pick) // deps: flag, a
   inspect(rt.dependents(a.id()).contains(pick.id()), content="true")
   inspect(rt.dependents(b.id()).contains(pick.id()), content="false")
