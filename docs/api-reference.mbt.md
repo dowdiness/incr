@@ -492,6 +492,19 @@ accumulator producer has already been migrated to `Derived`.
 - `Memo::new_memo[T : BackdateEq]` and `Memo::new_no_backdate[T]` expose alternate backdating strategies that do not yet have target-facade constructors.
 - `Memo::get()` is the legacy strict aborting graph read. After migrating the handle, use `Derived::get_or_abort()` inside tracked compute functions.
 - `Memo::get_result()` is context-sensitive: after migrating the handle, use `Derived::get()` inside tracked compute functions and `Derived::read()` outside the graph.
+- `Memo::get_or()` and `Memo::get_or_else()` are legacy permissive cycle-safe reads. After migrating the handle, use an explicit `match derived.read()` fallback.
+- `Memo::is_up_to_date()` is `Derived::is_fresh()`.
+- `Memo::observe()` creates a legacy `Observer[T]`; prefer `Derived::watch()` on target facades.
+- `Memo::id()`, `dependencies()`, `changed_at()`, `verified_at()`, `on_change()`, and `clear_on_change()` remain available on the compatibility handle for diagnostics and low-level integration.
+
+### `Memo::accumulated[T, A](self, acc: Accumulator[A]) -> Result[Array[A], ReadError] raise Failure`
+
+Returns the values this memo pushed into `acc` during its most recent compute,
+in push order. When called from a `Memo` or `HybridMemo` compute frame and the
+read succeeds, it records a synthetic dependency so that caller reinvalidates
+when the push set changes — even when the memo's ordinary return value is
+unchanged. Outside a memo compute, it returns data without registering a
+dependency. Forces verification of the target memo first, so stale results are
 never returned.
 
 The read channel reports cycles as `Err(ReadError::Cycle(_))` and a directly
@@ -514,7 +527,6 @@ Untracked read of the values the memo pushed into `acc` during its most recent c
 ### `Memo::accumulated_result[T, A](self, acc: Accumulator[A]) -> Result[Array[A], ReadError] raise Failure`
 
 Compatibility alias for `Memo::accumulated`.
-
 ---
 
 ## DerivedMap[K, V] / MemoMap[K, V]
@@ -633,6 +645,13 @@ Returns whether this reachable derived value is verified at the current revision
 - `HybridMemo::is_up_to_date()` is `ReachableDerived::is_fresh()`.
 - `HybridMemo::observe()` creates a legacy `Observer[T]`; prefer `ReachableDerived::watch()` on target facades.
 - `HybridMemo::id()`, `dispose()`, and `is_disposed()` remain available on the compatibility handle.
+
+## AcceptedDerived[V, E]
+
+A success-gated derived authoring primitive. A fallible candidate `Result[V, E]` is computed from current inputs; only `Ok(v)` candidates that differ from the last accepted value advance the *accepted* state. On `Err(e)` the previous accepted value is **retained** while the *current* channel still reports the error — keeping diagnostics honest without destroying the last good value that downstream UI, preview, or indexing stages need. A graph `ReadError` (cycle/disposal) does not drive the state machine; it surfaces on the read channel and leaves the retained accepted value untouched. See [the design spec](design/specs/2026-06-05-committed-derived.md).
+
+### `AcceptedDerived[V : Eq, E : Eq](rt: Runtime, compute: () -> Result[V, E], label? : String) -> AcceptedDerived[V, E]`
+
 Builds an `AcceptedDerived` that owns its candidate compute. Like `Derived::fallible`, the compute is **noraise** — recoverable domain errors live in the `Result`, never raised.
 
 ### `AcceptedDerived::from_candidate[V : Eq, E](candidate: Derived[Result[V, E]], label? : String) -> AcceptedDerived[V, E]`
@@ -736,6 +755,14 @@ Pushes within a single compute are ordered by call sequence;
 `Memo::accumulated` returns them in that order inside `Ok(...)`. The checked
 companion shows `push` inside a compatibility `Memo` compute in
 [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
+
+### `Accumulator::dispose(self) -> Unit`
+
+Disposes the accumulator. Subsequent `push`, `accumulated`, `accumulated_result`, and `accumulated_or_abort` calls raise `Failure`; subsequent `accumulated_peek` returns `[]`. Idempotent.
+
+### `Accumulator::id(self) -> AccumulatorId`
+
+Returns the unique runtime identifier for this accumulator. Stable across pushes and reads — useful for diagnostics and graph-shape probes.
 
 ### `Accumulator::label(self) -> String?`
 
