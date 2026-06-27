@@ -186,6 +186,7 @@ pub(all) struct Input[T] {
   // private fields
 }
 pub fn[T] Input::Input(Runtime, T, durability? : @types.Durability, label? : String) -> Self[T]
+pub fn[T, U : Eq] Input::derived(Self[T], (T) -> U, label? : String) -> Derived[U]
 pub fn[T] Input::force_set(Self[T], T) -> Unit
 pub fn[T] Input::get(Self[T]) -> T
 pub fn[T] Input::id(Self[T]) -> @types.CellId

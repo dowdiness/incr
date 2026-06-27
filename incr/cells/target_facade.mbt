@@ -54,6 +54,22 @@ pub fn[T] Input::id(self : Input[T]) -> CellId {
 }
 
 ///|
+/// Creates a new `Derived[U]` from this input by applying `f` to the current
+/// value on each read. Uses equality-based backdating: when recomputation
+/// produces a value equal to the previous output, downstream dependents skip
+/// recomputation.
+///
+/// Equivalent to `scope.derived(() => f(input.get()))` but without the scope
+/// parameter — the input already holds a runtime reference.
+pub fn[T, U : Eq] Input::derived(
+  self : Input[T],
+  f : (T) -> U,
+  label? : String,
+) -> Derived[U] {
+  Derived(self.inner.rt, () => f(self.get()), label?)
+}
+
+///|
 /// Target-name field-level input facade over `TrackedCell`.
 pub(all) struct InputField[T] {
   priv inner : TrackedCell[T]

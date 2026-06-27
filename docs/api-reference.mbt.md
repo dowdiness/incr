@@ -302,6 +302,16 @@ Sets a new value without equality checking; always treated as a change when comm
 
 Always returns `true`. Inputs are directly-set cells.
 
+### `Input::derived[T, U : Eq](self, f: (T) -> U, label?: String) -> Derived[U]`
+
+Creates a new `Derived[U]` from this input by applying `f` to the current
+value on each read. Provides pipeline-uniform `.derived(...)` access from an
+input, replacing the `scope.derived(() => f(input.get()))` pattern with a
+chained `input.derived(f).map(g)`.
+
+Uses equality-based backdating: when recomputation produces a value equal to
+the previous output, downstream dependents skip recomputation.
+
 ### Compatibility `Signal[T]`
 
 `Signal[T]` exposes the same underlying input cell with legacy names:
@@ -1257,6 +1267,7 @@ Use `BackdateEq` through the compatibility `Memo::new_memo` constructor when str
 | API | Constraint |
 |---|---|
 | `Input::set`, `InputField::set` | `T : Eq` |
+| `Input::derived` | `U : Eq` (backdating) |
 | `Input`, `Input::get`, `Input::peek`, `Input::force_set` | none |
 | `InputField`, `InputField::get`, `InputField::peek`, `InputField::force_set` | none |
 | `Derived`, `ReachableDerived` | `T : Eq` |
