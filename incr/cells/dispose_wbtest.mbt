@@ -2,8 +2,8 @@
 test "signal dispose: removes from downstream subscriber sets" {
   let rt = Runtime()
   let sig = Signal(rt, 10)
-  let m = Memo(rt, fn() { sig.get() * 2 })
-  ignore(read_memo_for_test(m)) // establish dependency: sig -> m
+  let m = Derived(rt, fn() { sig.get() * 2 })
+  ignore(m.read_or_abort()) // establish dependency: sig -> m
   let sig_id = sig.id()
   let subs = rt.get_subscribers(sig_id).collect()
   assert_true(subs.length() > 0)
@@ -17,8 +17,8 @@ test "signal dispose: removes from downstream subscriber sets" {
 test "memo dispose: removes from upstream subscriber sets" {
   let rt = Runtime()
   let sig = Signal(rt, 10)
-  let m = Memo(rt, fn() { sig.get() * 2 })
-  ignore(read_memo_for_test(m)) // establish sig -> m dependency
+  let m = Derived(rt, fn() { sig.get() * 2 })
+  ignore(m.read_or_abort()) // establish sig -> m dependency
   let sig_subs_before = rt.get_subscribers(sig.id()).collect().length()
   assert_true(sig_subs_before > 0)
   m.dispose()
@@ -51,8 +51,8 @@ test "signal dispose: free list enables slot reuse" {
 test "memo dispose: free list enables slot reuse" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 10)
-  let m1 = Memo::Memo(rt, fn() { sig.get() * 2 })
-  ignore(read_memo_for_test(m1))
+  let m1 = Derived(rt, fn() { sig.get() * 2 })
+  ignore(m1.read_or_abort())
   let idx1 = match rt.core.cell_index[m1.id().id] {
     PullMemo(i) => i
     _ => abort("expected PullMemo")
@@ -60,11 +60,11 @@ test "memo dispose: free list enables slot reuse" {
   m1.dispose()
   assert_true(rt.pull.free_memos.contains(idx1))
   // New memo should reuse the slot
-  let m2 = Memo::Memo(rt, fn() { sig.get() + 1 })
+  let m2 = Derived(rt, fn() { sig.get() + 1 })
   let idx2 = match rt.core.cell_index[m2.id().id] {
     PullMemo(i) => i
     _ => abort("expected PullMemo")
   }
   assert_eq(idx1, idx2)
-  assert_eq(read_memo_for_test(m2), 11)
+  assert_eq(m2.read_or_abort(), 11)
 }
