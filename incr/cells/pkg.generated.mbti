@@ -187,6 +187,7 @@ pub(all) struct Input[T] {
 }
 pub fn[T] Input::Input(Runtime, T, durability? : @types.Durability, label? : String) -> Self[T]
 pub fn[T, U : Eq] Input::derived(Self[T], (T) -> U, label? : String) -> Derived[U]
+pub fn[T, U] Input::derived_no_backdate(Self[T], (T) -> U, label? : String) -> Derived[U]
 pub fn[T] Input::force_set(Self[T], T) -> Unit
 pub fn[T] Input::get(Self[T]) -> T
 pub fn[T] Input::id(Self[T]) -> @types.CellId
@@ -351,6 +352,7 @@ pub fn[T : Trackable] Scope::adopt(Self, T) -> T
 pub fn Scope::child(Self) -> Self
 pub fn[T : Eq] Scope::derived(Self, () -> T raise Failure, label? : String) -> Derived[T]
 pub fn[K : Hash + Eq, V] Scope::derived_map(Self, (K) -> V raise Failure, label? : String) -> DerivedMap[K, V]
+pub fn[T] Scope::derived_no_backdate(Self, () -> T raise Failure, label? : String) -> Derived[T]
 pub fn Scope::dispose(Self) -> Unit
 pub fn[T : Eq] Scope::eager_derived(Self, () -> T) -> EagerDerived[T]
 pub fn Scope::effect(Self, () -> Unit) -> Effect

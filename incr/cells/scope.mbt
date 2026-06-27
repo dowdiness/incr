@@ -163,6 +163,26 @@ pub fn[T : Eq] Scope::derived(
 }
 
 ///|
+/// Creates a lazy derived facade owned by this scope, without equality-based
+/// backdating. Each recomputation advances the changed-at revision
+/// unconditionally, even when the output equals the previous value. Accepts
+/// output types that do not implement `Eq`.
+pub fn[T] Scope::derived_no_backdate(
+  self : Scope,
+  f : () -> T raise Failure,
+  label? : String,
+) -> Derived[T] {
+  guard !self.disposed else {
+    abort("Scope::derived_no_backdate called on a disposed scope")
+  }
+  let derived : Derived[T] = {
+    inner: Memo::new_no_backdate(self.runtime, f, label?),
+  }
+  self.cells.push(derived.inner.id())
+  derived
+}
+
+///|
 /// Creates a reachable lazy derived facade owned by this scope.
 pub fn[T : Eq] Scope::reachable_derived(
   self : Scope,
