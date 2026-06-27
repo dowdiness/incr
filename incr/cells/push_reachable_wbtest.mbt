@@ -38,7 +38,7 @@ test "push_reachable_count: two-deep memo chain" {
   let rt = Runtime::Runtime()
   let s = Signal::Signal(rt, 0)
   let mA = Derived(rt, () => s.get())
-  let mB = Derived(rt, () => mA.read_or_abort())
+  let mB = Derived(rt, () => mA.get_or_abort())
   let _r = Reactive::new(rt, () => mB.read_or_abort())
   inspect(get_count(rt, s.id()), content="1")
   inspect(get_count(rt, mA.id()), content="1")
@@ -191,14 +191,14 @@ test "push_reachable_count: dropping one arm of a memo-internal diamond keeps th
   let c = Derived(rt, () => sig.get())
   // projected reads a,b always; reads c only when !drop (dynamic dependency).
   let projected = Derived(rt, () => {
-    let base = a.read_or_abort() + b.read_or_abort()
+    let base = a.get_or_abort() + b.get_or_abort()
     if drop.get() {
       base
     } else {
-      base + c.read_or_abort()
+      base + c.get_or_abort()
     }
   })
-  let candidate = Derived(rt, () => projected.read_or_abort())
+  let candidate = Derived(rt, () => projected.get_or_abort())
   let runs : Ref[Int] = { val: 0 }
   // Reactive::new computes eagerly, wiring the whole chain. Keep it alive (no
   // observe/unobserve cycle, which would suspend it).

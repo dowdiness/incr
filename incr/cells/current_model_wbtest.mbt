@@ -75,7 +75,7 @@ test "backdating early cutoff: stable middle prevents downstream recompute" {
   })
   let label = Derived(rt, () => {
     label_runs += 1
-    if is_even.read_or_abort() {
+    if is_even.get_or_abort() {
       "even"
     } else {
       "odd"
