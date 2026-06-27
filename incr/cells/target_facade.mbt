@@ -70,6 +70,22 @@ pub fn[T, U : Eq] Input::derived(
 }
 
 ///|
+/// Creates a new `Derived[U]` from this input by applying `f` to the current
+/// value on each read, without equality-based backdating. Each recomputation
+/// advances the changed-at revision unconditionally, even when the output
+/// equals the previous value. Accepts output types that do not implement `Eq`.
+///
+/// Equivalent to `scope.derived_no_backdate(() => f(input.get()))` but without
+/// the scope parameter — the input already holds a runtime reference.
+pub fn[T, U] Input::derived_no_backdate(
+  self : Input[T],
+  f : (T) -> U,
+  label? : String,
+) -> Derived[U] {
+  { inner: Memo::new_no_backdate(self.inner.rt, () => f(self.get()), label?) }
+}
+
+///|
 /// Target-name field-level input facade over `TrackedCell`.
 pub(all) struct InputField[T] {
   priv inner : TrackedCell[T]

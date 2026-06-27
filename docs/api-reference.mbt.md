@@ -312,6 +312,13 @@ chained `input.derived(f).map(g)`.
 Uses equality-based backdating: when recomputation produces a value equal to
 the previous output, downstream dependents skip recomputation.
 
+### `Input::derived_no_backdate[T, U](self, f: (T) -> U, label?: String) -> Derived[U]`
+
+Creates a new `Derived[U]` from this input by applying `f` to the current
+value on each read, without equality-based backdating. Each recomputation
+advances the changed-at revision unconditionally, even when the output
+equals the previous value. Accepts output types that do not implement `Eq`.
+
 ### Compatibility `Signal[T]`
 
 `Signal[T]` exposes the same underlying input cell with legacy names:
@@ -1159,6 +1166,7 @@ owned cells for disposal:
 - `scope.reachable_derived(f, label?) -> ReachableDerived[T]`
 - `scope.eager_derived(compute) -> EagerDerived[T]`
 - `scope.derived_map(f, label?) -> DerivedMap[K, V]`
+- `scope.derived_no_backdate(f, label?) -> Derived[T]` — no `Eq` bound, no backdating
 - `scope.accumulator(label?) -> Accumulator[T]`
 
 Use `scope.adopt(tracked) -> T` to register a cell created outside the scope
@@ -1269,6 +1277,8 @@ Use `BackdateEq` through the compatibility `Memo::new_memo` constructor when str
 | `Input::set`, `InputField::set` | `T : Eq` |
 | `Input::derived` | `U : Eq` (backdating) |
 | `Input`, `Input::get`, `Input::peek`, `Input::force_set` | none |
+| `Input::derived_no_backdate` | none |
+| `Scope::derived_no_backdate` | none |
 | `InputField`, `InputField::get`, `InputField::peek`, `InputField::force_set` | none |
 | `Derived`, `ReachableDerived` | `T : Eq` |
 | `Derived::get`, `read`, `watch` | none |

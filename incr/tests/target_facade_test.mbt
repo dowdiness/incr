@@ -77,6 +77,50 @@ test "facade input: derive propagates label" {
 }
 
 ///|
+test "facade input: derived_no_backdate accepts non-Eq output" {
+  let rt = @incr.Runtime()
+  let input = @incr.Input(rt, 3)
+  let derived = input.derived_no_backdate(fn(v) { (x : Int) => x + v })
+
+  inspect(derived.read_or_abort()(10), content="13")
+  input.set(4)
+  inspect(derived.read_or_abort()(10), content="14")
+}
+
+///|
+test "facade input: derived_no_backdate propagates equal output" {
+  let rt = @incr.Runtime()
+  let input = @incr.Input(rt, 21)
+  let normalized = input.derived_no_backdate(fn(v) { v / 10 })
+  let mut downstream_runs = 0
+  let downstream = @incr.Derived(rt, () => {
+    downstream_runs = downstream_runs + 1
+    normalized.get_or_abort()
+  })
+
+  inspect(downstream.read_or_abort(), content="2")
+  // Same mapped output (2) but no backdate — downstream MUST rerun
+  input.set(29)
+  inspect(downstream.read_or_abort(), content="2")
+  inspect(downstream_runs, content="2")
+}
+
+///|
+test "facade input: derived_no_backdate propagates label" {
+  let rt = @incr.Runtime()
+  let input = @incr.Input(rt, 21)
+  let derived = input.derived_no_backdate(
+    fn(v) { v / 10 },
+    label="derived-no-bd",
+  )
+
+  guard rt.cell_info(derived.id()) is Some(info) else {
+    fail("expected derived cell info")
+  }
+  debug_inspect(info.label, content="Some(\"derived-no-bd\")")
+}
+
+///|
 test "facade input_field: get peek set force_set and tracking" {
   let rt = @incr.Runtime()
   let field = @incr.InputField(rt, 2, label="field")

@@ -147,3 +147,60 @@ test "panic scope: adopt on disposed scope aborts" {
   let input = @incr.Input::Input(rt, 0)
   let _ = scope.adopt(input)
 }
+
+///|
+test "scope: derived_no_backdate accepts non-Eq output" {
+  let rt = @incr.Runtime()
+  let scope = @incr.Scope::new(rt)
+  let sig = scope.signal(3)
+  let derived = scope.derived_no_backdate(fn() { (x : Int) => x + sig.get() })
+
+  inspect(derived.read_or_abort()(10), content="13")
+  sig.set(4)
+  inspect(derived.read_or_abort()(10), content="14")
+  scope.dispose()
+}
+
+///|
+test "scope: derived_no_backdate propagates equal output" {
+  let rt = @incr.Runtime()
+  let scope = @incr.Scope::new(rt)
+  let input = scope.input(21)
+  let normalized = scope.derived_no_backdate(fn() { input.get() / 10 })
+  let mut downstream_runs = 0
+  let downstream = @incr.Derived(rt, () => {
+    downstream_runs = downstream_runs + 1
+    normalized.get_or_abort()
+  })
+
+  inspect(downstream.read_or_abort(), content="2")
+  input.set(29)
+  inspect(downstream.read_or_abort(), content="2")
+  inspect(downstream_runs, content="2")
+  scope.dispose()
+}
+
+///|
+test "scope: derived_no_backdate propagates label" {
+  let rt = @incr.Runtime()
+  let scope = @incr.Scope::new(rt)
+  let input = scope.input(21)
+  let derived = scope.derived_no_backdate(
+    fn() { input.get() / 10 },
+    label="scope-no-bd",
+  )
+
+  guard rt.cell_info(derived.id()) is Some(info) else {
+    fail("expected derived cell info")
+  }
+  debug_inspect(info.label, content="Some(\"scope-no-bd\")")
+  scope.dispose()
+}
+
+///|
+test "panic scope: derived_no_backdate on disposed scope aborts" {
+  let rt = @incr.Runtime()
+  let scope = @incr.Scope::new(rt)
+  scope.dispose()
+  let _ = scope.derived_no_backdate(fn() { 1 })
+}
