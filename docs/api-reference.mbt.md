@@ -162,16 +162,13 @@ should prefer `EagerDerived::read()` or `EagerDerived::watch()`.
 > Renamed in 0.8.0 from `Runtime::on_memo_event`, which remains as a deprecated
 > alias.
 
-Registers the runtime's derived recompute listener. The listener receives pull
-`Memo` and `HybridMemo` lifecycle events after the recompute path reaches a
-safe drain point; it is not called inline from the compute closure.
-
-Only one listener is stored. Calling `on_derived_event` replaces the previous
-listener.
+Registers the **singleton** derived-event listener: re-registering replaces the
+previous singleton in place. It coexists with any additive listeners added via
+`add_derived_event_listener`.
 
 The checked companion covers listener registration and clearing in
-[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md); cookbook examples
-show richer event logging patterns.
+[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md); cookbook
+examples show richer event logging patterns.
 
 The listener is a synchronous, non-raising callback. If a driver needs async
 logging, enqueue inside the callback and let another part of the driver drain
