@@ -181,7 +181,7 @@ pub fn[V : Eq, E : Eq] Derived::fallible(
 /// Transforms this derived value into another derived value on the same runtime.
 ///
 /// The mapped value never backdates, so `U` does not need to implement `Eq`.
-pub fn[T, U] Derived::map(
+pub fn[T, U] Derived::map_no_backdate(
   self : Derived[T],
   f : (T) -> U,
   label? : String,
@@ -202,7 +202,7 @@ pub fn[T, U] Derived::map(
 /// When recomputation produces a mapped value equal to the previous mapped
 /// value, the returned cell preserves its `changed_at` timestamp so downstream
 /// dependents can skip recomputation.
-pub fn[T, U : Eq] Derived::map_eq(
+pub fn[T, U : Eq] Derived::map(
   self : Derived[T],
   f : (T) -> U,
   label? : String,
@@ -234,13 +234,13 @@ fn[T1, T2] Derived::check_same_runtime(
 ///
 /// The mapped value never backdates, so `U` does not need to implement `Eq`.
 /// Aborts if `other` belongs to a different runtime.
-pub fn[T1, T2, U] Derived::map2(
+pub fn[T1, T2, U] Derived::map2_no_backdate(
   self : Derived[T1],
   other : Derived[T2],
   f : (T1, T2) -> U,
   label? : String,
 ) -> Derived[U] {
-  self.check_same_runtime(other, "Derived::map2")
+  self.check_same_runtime(other, "Derived::map2_no_backdate")
   {
     inner: Memo::new_no_backdate(
       self.inner.rt,
@@ -257,13 +257,13 @@ pub fn[T1, T2, U] Derived::map2(
 /// produces a mapped value equal to the previous mapped value, the returned
 /// cell preserves its `changed_at` timestamp so downstream dependents can skip
 /// recomputation.
-pub fn[T1, T2, U : Eq] Derived::map2_eq(
+pub fn[T1, T2, U : Eq] Derived::map2(
   self : Derived[T1],
   other : Derived[T2],
   f : (T1, T2) -> U,
   label? : String,
 ) -> Derived[U] {
-  self.check_same_runtime(other, "Derived::map2_eq")
+  self.check_same_runtime(other, "Derived::map2")
   Derived(
     self.inner.rt,
     () => f(self.get_or_abort(), other.get_or_abort()),
@@ -276,15 +276,15 @@ pub fn[T1, T2, U : Eq] Derived::map2_eq(
 ///
 /// The mapped value never backdates, so `U` does not need to implement `Eq`.
 /// Aborts if any input belongs to a different runtime.
-pub fn[T1, T2, T3, U] Derived::map3(
+pub fn[T1, T2, T3, U] Derived::map3_no_backdate(
   self : Derived[T1],
   second : Derived[T2],
   third : Derived[T3],
   f : (T1, T2, T3) -> U,
   label? : String,
 ) -> Derived[U] {
-  self.check_same_runtime(second, "Derived::map3")
-  self.check_same_runtime(third, "Derived::map3")
+  self.check_same_runtime(second, "Derived::map3_no_backdate")
+  self.check_same_runtime(third, "Derived::map3_no_backdate")
   {
     inner: Memo::new_no_backdate(
       self.inner.rt,
@@ -301,15 +301,15 @@ pub fn[T1, T2, T3, U] Derived::map3(
 /// produces a mapped value equal to the previous mapped value, the returned
 /// cell preserves its `changed_at` timestamp so downstream dependents can skip
 /// recomputation.
-pub fn[T1, T2, T3, U : Eq] Derived::map3_eq(
+pub fn[T1, T2, T3, U : Eq] Derived::map3(
   self : Derived[T1],
   second : Derived[T2],
   third : Derived[T3],
   f : (T1, T2, T3) -> U,
   label? : String,
 ) -> Derived[U] {
-  self.check_same_runtime(second, "Derived::map3_eq")
-  self.check_same_runtime(third, "Derived::map3_eq")
+  self.check_same_runtime(second, "Derived::map3")
+  self.check_same_runtime(third, "Derived::map3")
   Derived(
     self.inner.rt,
     () => f(self.get_or_abort(), second.get_or_abort(), third.get_or_abort()),

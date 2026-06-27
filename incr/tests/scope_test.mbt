@@ -114,7 +114,7 @@ test "scope: map_eq-derived cell survives dispose without adopt" {
   let scope = @incr.Scope::new(rt)
   let input = scope.input(42)
   let base = scope.derived(fn() { input.get() })
-  let d = base.map_eq(fn(v) { v + 1 })
+  let d = base.map(fn(v) { v + 1 })
   let id = d.id()
   // Precondition: cell is alive
   inspect(rt.cell_info(id) is Some(_), content="true")
@@ -129,7 +129,7 @@ test "scope: adopt registers map_eq-derived cell for deterministic disposal" {
   let scope = @incr.Scope::new(rt)
   let input = scope.input(42)
   let base = scope.derived(fn() { input.get() })
-  let d = base.map_eq(fn(v) { v + 1 })
+  let d = base.map(fn(v) { v + 1 })
   let adopted = scope.adopt(d)
   let id = adopted.id()
 

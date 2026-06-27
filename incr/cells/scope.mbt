@@ -299,7 +299,7 @@ pub fn Scope::add_cell_ids(self : Scope, ids : Array[CellId]) -> Unit {
 /// Adopts all cells from a `Trackable` struct into this scope for bulk disposal.
 ///
 /// This is the method-style version of `add_tracked(scope, tracked)`. Use it
-/// to register cells that were created outside a scope (e.g. via `map_eq` or
+/// to register cells that were created outside a scope (e.g. via `map` or
 /// raw constructors) with a scope's lifecycle.
 ///
 /// Returns the trackable value for convenient chaining.
@@ -309,7 +309,7 @@ pub fn Scope::add_cell_ids(self : Scope, ids : Array[CellId]) -> Unit {
 /// ```moonbit nocheck
 /// let scope = Scope::new(rt)
 /// let base = scope.derived(fn() { 42 })
-/// let d = base.map_eq(fn(v) { v + 1 })
+/// let d = base.map(fn(v) { v + 1 })
 /// scope.adopt(d)
 /// scope.dispose()   // d is disposed
 /// ```
