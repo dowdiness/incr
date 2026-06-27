@@ -58,7 +58,6 @@ test "memo_get_or_returns_fallback_on_cycle_error" {
 }
 
 ///|
-///|
 test "memo_get_or_else_receives_cycle_error" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 0)
@@ -76,6 +75,8 @@ test "memo_get_or_else_receives_cycle_error" {
     }
     Err(ReadError::Disposed(_)) => abort("unexpected")
   }
+  inspect(v, content="-456")
+  inspect(captured.val == Some(memo.id()), content="true")
   meta.in_progress = false
   ignore(rt.pop_tracking())
 }
