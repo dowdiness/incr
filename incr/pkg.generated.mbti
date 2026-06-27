@@ -96,8 +96,6 @@ pub using @types {type ListenerId}
 
 pub using @cells {type MapRelation}
 
-pub using @types {type MemoId}
-
 pub using @cells {type Observer}
 
 pub using @cells {type ReachableDerived}
