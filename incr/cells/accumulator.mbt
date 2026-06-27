@@ -346,32 +346,8 @@ pub fn[T, A] Memo::accumulated_peek(
   self : Memo[T],
   acc : Accumulator[A],
 ) -> Array[A] {
-  // Cross-runtime guards: both self (the memo) and acc (the accumulator)
-  // must belong to self.rt. The second check is load-bearing — without it,
-  // `acc.slot_id.id` indexes self.rt.accumulator_slots with an ID from a
-  // different runtime and either silently returns the wrong slot or panics
-  // with an unhelpful bounds error.
-  self.rt.check_cross_runtime(self.rt.core.runtime_id, "Memo::accumulated_peek")
-  self.rt.check_cross_runtime(
-    acc.slot_id.runtime_id,
-    "Memo::accumulated_peek (Accumulator)",
-  )
-  if self.rt.static_recompute_depth > 0 {
-    abort(
-      "Memo::accumulated_peek is unsupported inside static Derived recompute",
-    )
-  }
-  let slot = self.rt.accumulator_slots[acc.slot_id.id]
-  if slot.disposed {
-    return []
-  }
-  if self.rt.is_cell_disposed(self.cell_id) {
-    return []
-  }
-  match acc.per_memo.get(self.cell_id) {
-    Some(vs) => vs.copy()
-    None => []
-  }
+  let d : Derived[T] = { inner: self }
+  d.accumulated_peek(acc)
 }
 
 ///|
@@ -392,59 +368,8 @@ pub fn[T, A] Memo::accumulated(
   self : Memo[T],
   acc : Accumulator[A],
 ) -> Result[Array[A], ReadError] raise Failure {
-  self.rt.check_cross_runtime(self.rt.core.runtime_id, "Memo::accumulated")
-  self.rt.check_cross_runtime(
-    acc.slot_id.runtime_id,
-    "Memo::accumulated (Accumulator)",
-  )
-  if self.rt.static_recompute_depth > 0 {
-    fail("Memo::accumulated is unsupported inside static Derived recompute")
-  }
-  let slot = self.rt.accumulator_slots[acc.slot_id.id]
-  if slot.disposed {
-    fail("Memo::accumulated called on disposed Accumulator")
-  }
-  if self.rt.is_cell_disposed(self.cell_id) {
-    return Err(ReadError::disposed(self.cell_id))
-  }
-  let verified = self.rt.ensure_computed_untracked(self.cell_id) catch {
-    e => {
-      self.rt.drain_pending_events_direct()
-      abort("Memo::accumulated target compute raised: " + e.to_string())
-    }
-  }
-  let result = match verified {
-    Err(e) => Err(ReadError::cycle(e))
-    Ok(_) => {
-      // Stage synthetic read on current frame (if any).
-      let current_rev = (slot.push_revised_at_for)(self.cell_id)
-      match self.rt.top_active_query() {
-        Some(frame) =>
-          // Gate on memo-frame check: preserves silent-no-op for push-reactive
-          // and effect frames calling accumulated. Inside a memo frame,
-          // ensure_for_cell lazy-creates the entry if before_recompute skipped.
-          match self.rt.core.cell_index[frame.cell_id.id] {
-            PullMemo(_) | HybridMemo(_) =>
-              self.rt.accumulator_commit_hook
-              .ensure_for_cell(frame.cell_id)
-              .ensure_reads()
-              .set((acc.slot_id, self.cell_id), current_rev)
-            _ => () // non-memo frame (push-reactive/effect) — silent no-op
-          }
-        None => ()
-      }
-      // Return defensive copy of buffer.
-      let vs = match acc.per_memo.get(self.cell_id) {
-        Some(arr) => arr.copy()
-        None => []
-      }
-      Ok(vs)
-    }
-  }
-  if self.rt.has_pending_events() {
-    self.rt.drain_pending_events_if_idle()
-  }
-  result
+  let d : Derived[T] = { inner: self }
+  d.accumulated(acc)
 }
 
 ///|
