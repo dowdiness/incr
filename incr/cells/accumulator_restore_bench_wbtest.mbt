@@ -30,13 +30,13 @@ fn bench_restore(b : @bench.T, n : Int) -> Unit {
   }
   // Prime: run a memo that pushes to all prev accumulators so that
   // every prev slot has a real per_memo[cell_id] buffer to restore.
-  let m = Memo::Memo(rt, () => {
+  let m = Derived(rt, () => {
     for acc in prev_accs {
       acc.push(1)
     }
     0
   })
-  ignore(read_memo_for_test(m))
+  ignore(m.read_or_abort())
   let prev_ids = prev_accs.map(fn(a) { a.id() })
   let touched_ids = touched_accs.map(fn(a) { a.id() })
   let m_id = m.id()

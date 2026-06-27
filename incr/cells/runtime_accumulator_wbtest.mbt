@@ -3,7 +3,7 @@ test "ensure_computed_untracked: first-read on never-computed memo triggers comp
   let rt = Runtime::Runtime()
   let signal = Signal::Signal(rt, 7)
   let mut compute_count = 0
-  let memo = Memo::Memo(rt, () => {
+  let memo = Derived(rt, () => {
     compute_count = compute_count + 1
     signal.get() * 2
   })
@@ -24,13 +24,13 @@ test "ensure_computed_untracked: first-read on never-computed memo triggers comp
 test "ensure_computed_untracked: does not record ordinary dep on caller frame" {
   let rt = Runtime::Runtime()
   let signal = Signal::Signal(rt, 1)
-  let inner = Memo::Memo(rt, () => signal.get() * 10)
+  let inner = Derived(rt, () => signal.get() * 10)
   // Pre-compute inner outside tracking.
   let _ = rt.ensure_computed_untracked(inner.id())
 
   // Outer memo calls ensure_computed_untracked on inner but must NOT
   // record inner as an ordinary dep.
-  let outer = Memo::Memo(rt, () => {
+  let outer = Derived(rt, () => {
     let _ = rt.ensure_computed_untracked(inner.id())
     42
   })

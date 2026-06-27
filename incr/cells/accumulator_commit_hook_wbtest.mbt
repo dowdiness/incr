@@ -83,11 +83,11 @@ test "MemoCommitPhase: forward dispatch order on success" {
   // Real accumulator slot disables the AccumulatorCommitHook fast-path so
   // entries are actually installed/removed during recompute.
   let acc : Accumulator[Int] = Accumulator::new(rt~)
-  let m = Memo::new(rt, () => {
+  let m = Derived(rt, () => {
     acc.push(1)
     42
   })
-  ignore(read_memo_for_test(m))
+  ignore(m.read_or_abort())
   let m_id = m.id()
   inspect(sentinel.before_log.length(), content="1")
   inspect(sentinel.before_log[0].0 == m_id, content="true")
@@ -107,8 +107,8 @@ test "MemoCommitPhase: forward dispatch order on abort" {
   let sentinel = SentinelHook::new()
   rt.commit_hooks.push(sentinel)
   let _acc : Accumulator[Int] = Accumulator::new(rt~)
-  let m : Memo[Int] = Memo::new(rt, () => raise Failure("test abort"))
-  try m.force_recompute() catch {
+  let m : Derived[Int] = Derived(rt, () => raise Failure("test abort"))
+  try m.inner.force_recompute() catch {
     _ => ()
   } noraise {
     _ => ()
@@ -131,11 +131,11 @@ test "MemoCommitPhase: forward dispatch order on abort" {
 test "MemoCommitPhase: Memo::accumulated from a reactive frame leaves no entry" {
   let rt = Runtime::Runtime()
   let acc : Accumulator[Int] = Accumulator::new(rt~)
-  let m = Memo::new(rt, () => {
+  let m = Derived(rt, () => {
     acc.push(7)
     1
   })
-  ignore(read_memo_for_test(m))
+  ignore(m.read_or_abort())
   // Reactive::new runs the initial compute synchronously inside a
   // PushReactive tracking frame. The accumulator reads should be silent
   // no-ops for the non-memo tracking frame. If misuse errors occur,
@@ -174,12 +174,12 @@ test "MemoCommitPhase: nested recompute aborts clean up both entries" {
   let sentinel = SentinelHook::new()
   rt.commit_hooks.push(sentinel)
   let _acc : Accumulator[Int] = Accumulator::new(rt~)
-  let m2 : Memo[Int] = Memo::new(rt, () => raise Failure("inner abort"))
-  let m1 = Memo::new(rt, () => {
-    let _ = m2.get_result_inner()
+  let m2 : Derived[Int] = Derived(rt, () => raise Failure("inner abort"))
+  let m1 = Derived(rt, () => {
+    let _ = m2.inner.get_result_inner()
     0
   })
-  try m1.force_recompute() catch {
+  try m1.inner.force_recompute() catch {
     _ => ()
   } noraise {
     _ => ()
@@ -218,7 +218,7 @@ test "MemoCommitPhase: ensure_for_cell lazy-creates entry when fast-path took be
   // takes its fast-path. The Ref lets the memo's compute register the
   // accumulator on first run and reuse it on subsequent runs.
   let acc_ref : Ref[Accumulator[Int]?] = { val: None }
-  let m = Memo::new(rt, () => {
+  let m = Derived(rt, () => {
     let acc = match acc_ref.val {
       Some(a) => a
       None => {
@@ -231,7 +231,7 @@ test "MemoCommitPhase: ensure_for_cell lazy-creates entry when fast-path took be
     0
   })
   inspect(rt.accumulator_commit_hook.active.is_empty(), content="true")
-  ignore(read_memo_for_test(m))
+  ignore(m.read_or_abort())
   // after_success cleaned up the entry that ensure_for_cell lazy-created
   // during the push.
   inspect(rt.accumulator_commit_hook.active.is_empty(), content="true")

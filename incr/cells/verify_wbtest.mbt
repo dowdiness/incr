@@ -39,6 +39,7 @@ test "verify leak simulation: manual cleanup recovers memo reads" {
   inspect(memo.read_or_abort(), content="1")
 }
 
+///|
 test "memo_get_or_returns_fallback_on_cycle_error" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 0)
