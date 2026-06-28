@@ -54,9 +54,9 @@ fn snapshot_subscribers(
 ///
 /// ```moonbit nocheck
 /// let rt = Runtime()
-/// let sig = Signal(rt, 42)
-/// let memo = Memo(rt, () => sig.get() * 2)
-/// let _ = memo.get()  // Force computation
+  let sig = Signal(rt, 42)
+  let memo = Derived(rt, fn() { sig.get() * 2 })
+  let _ = memo.read_or_abort()  // Force computation
 ///
 /// // Query signal metadata
 /// match rt.cell_info(sig.id()) {
@@ -70,7 +70,7 @@ fn snapshot_subscribers(
 /// // Query memo metadata
 /// match rt.cell_info(memo.id()) {
 ///   Some(info) => {
-///     println("Memo durability: \{info.durability}")
+///     println("Derived durability: \{info.durability}")
 ///     println("Depends on \{info.dependencies.length()} cells")
 ///   }
 ///   None => println("Cell not found")
@@ -81,7 +81,7 @@ fn snapshot_subscribers(
 ///
 /// - The dependency array is a copy; modifying it does not affect the runtime
 /// - For signals, the dependencies array is always empty
-/// - For memos, dependencies are populated after the first computation
+/// - For derived cells, dependencies are populated after the first computation
 /// - The method performs bounds checking and returns None for invalid IDs
 pub fn Runtime::cell_info(self : Runtime, id : CellId) -> CellInfo? {
   if !self.validate_cell_soft(id) {
