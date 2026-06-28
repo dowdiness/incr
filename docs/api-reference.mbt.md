@@ -518,8 +518,8 @@ dependency. A failure in the underlying verify that was never caught as a cycle 
 never returned.
 
 The read channel reports cycles as `Err(ReadError::Cycle(_))` and a directly
-disposed target memo as `Err(ReadError::Disposed(_))`. Domain failures returned
-as a value (for example `Memo[Result[V, E]]`) are successful computes; pushes
+disposed target derived as `Err(ReadError::Disposed(_))`. Domain failures returned
+as a value (for example `Derived[Result[V, E]]`) are successful computes; pushes
 from that compute are committed and returned as `Ok(...)`. A target compute that
 raises `Failure` is a defect and aborts. Disposed accumulators and
 static-Derived recompute misuse raise `Failure`; cross-runtime reuse aborts.
@@ -581,25 +581,9 @@ Removes cached entries whose underlying cells have been disposed.
 
 Clears all cached entries.
 
-### Compatibility `MemoMap[K, V]`
-
-`MemoMap[K, V]` exposes the underlying keyed memo cache with legacy names. New code should construct `DerivedMap[K, V]`; do not wait for `MemoMap` to grow `read` / `get_or_abort` bridge methods.
-
-- `MemoMap(rt, f, label?)` constructs a compatibility keyed memo map. Migrate ordinary keyed derived values to `DerivedMap(rt, f, label?)`.
-- `MemoMap::get(key)` is the legacy permissive aborting read. After migrating the handle, use `DerivedMap::read_or_abort(key)` for the same behavior.
-- `MemoMap::get_tracked(key)` is the legacy strict aborting read. After migrating the handle, use `DerivedMap::get_or_abort(key)`.
-- `MemoMap::get_result(key)` is context-sensitive: after migrating the handle, use `DerivedMap::get(key)` inside tracked compute functions and `DerivedMap::read(key)` outside the graph.
-- `MemoMap::get_or(key, fallback)` and `MemoMap::get_or_else(key, fallback)` map to `DerivedMap::read_or(key, fallback)` and `DerivedMap::read_or_else(key, fallback)`.
-- `MemoMap::contains(key)` is `DerivedMap::has_cached(key)`.
-- `MemoMap::length()` is `DerivedMap::cache_len()`.
-- `MemoMap::sweep()` is `DerivedMap::sweep_cache()`.
-- `MemoMap::clear()` is `DerivedMap::clear_cache()`.
-
 ---
 
-## ReachableDerived[T] / HybridMemo[T]
-
-`ReachableDerived[T]` is a lazy derived value that participates in reachability propagation so eager/rooted downstream cells can keep its upstream graph reachable across `Runtime::gc()` sweeps. `HybridMemo[T]` remains available as the compatibility handle.
+`ReachableDerived[T]` is a lazy derived value that participates in reachability propagation so eager/rooted downstream cells can keep its upstream graph reachable across `Runtime::gc()` sweeps. The legacy `HybridMemo[T]` type has been removed in v0.12.0.
 
 ### `ReachableDerived[T : Eq](rt: Runtime, compute: () -> T raise Failure, label? : String) -> ReachableDerived[T]`
 
@@ -718,15 +702,14 @@ The transition status of a committed revision: `NoAccept` (no prior value, candi
 
 ## Accumulator[T]
 
-Side-channel collector: compatibility memos push values during their compute, downstream readers pull them back with correct incremental invalidation. Use when a producer's ordinary return value (e.g. a `TypeResult`) is semantically distinct from log-like data it emits along the way (diagnostics, trace events, decorations).
+Side-channel collector: derived cells push values during their compute, downstream readers pull them back with correct incremental invalidation. Use when a producer's ordinary return value (e.g. a `TypeResult`) is semantically distinct from log-like data it emits along the way (diagnostics, trace events, decorations).
 
-Consumers that call `Memo::accumulated` from a `Memo` or `HybridMemo` compute
-are invalidated whenever a producing compatibility memo recomputes and its push
+Consumers that call `Derived::accumulated` from a `Derived` or `ReachableDerived` compute
+are invalidated whenever a producing derived cell recomputes and its push
 set differs from the previous run — even when the producer's return value is
-structurally equal. Driver/debug reads outside a memo compute do not register
-that synthetic dependency. See the ADR: [Accumulator API](decisions/2026-04-20-accumulator-api.md).
+structurally equal. Driver/debug reads outside a derived compute do not register
 
-**Local-only semantics.** `memo.accumulated(acc)` returns only the values `memo` itself pushed — not its dependencies. Transitive aggregation is the driver's job (see the [Scope-owned accumulator](cookbook.mbt.md#pattern-scope-owned-accumulator-lifecycle) cookbook pattern). Use `accumulated_or_abort` for strict compute-closure reads.
+**Local-only semantics.** `derived.accumulated(acc)` returns only the values `derived` itself pushed — not its dependencies. Transitive aggregation is the driver's job (see the [Scope-owned accumulator](cookbook.mbt.md#pattern-scope-owned-accumulator-lifecycle) cookbook pattern). Use `accumulated_or_abort` for strict compute-closure reads.
 
 
 Prefer `Scope::accumulator` when a scope is available — disposal is tied to the scope's lifecycle.
@@ -744,12 +727,12 @@ This is the preferred constructor for driver code where the accumulator's lifeti
 
 Appends `value` to the current compute's push buffer. Raises `Failure` if called:
 - outside a tracked compute context
-- from a non-`Memo` / non-`HybridMemo` top frame
+- from a non-`Derived` / non-`ReachableDerived` top frame
 - on a disposed accumulator
 
 Pushes within a single compute are ordered by call sequence;
-`Memo::accumulated` returns them in that order inside `Ok(...)`. The checked
-companion shows `push` inside a compatibility `Memo` compute in
+`Derived::accumulated` returns them in that order inside `Ok(...)`. The checked
+companion shows `push` inside a `Derived` compute in
 [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ### `Accumulator::dispose(self) -> Unit`
@@ -772,13 +755,13 @@ Returns `true` after `dispose` has been called.
 
 Returns a human-readable summary (label, id, disposed state, per-memo push counts).
 
-Read methods live on the compatibility `Memo[T]` handle: see `Memo::accumulated`, `Memo::accumulated_or_abort`, `Memo::accumulated_peek`, and `Memo::accumulated_result` in the Derived / Memo section above.
+Read methods live on the `Derived` target facade: see `Derived::accumulated`, `Derived::accumulated_or_abort`, `Derived::accumulated_peek`, and `Derived::accumulated_result` in the Derived section above.
 
 ---
 
 ## Revision
 
-Logical timestamp used by introspection APIs (`Memo::changed_at`, `Memo::verified_at`, and `CellInfo` fields).
+Logical timestamp used by introspection APIs (`Derived::changed_at`, `Derived::verified_at`, and `CellInfo` fields).
 
 `Revision` supports direct ordering comparisons (`<`, `<=`, `>`, `>=`), which is what verification uses internally.
 
@@ -878,8 +861,9 @@ Cycle detected: Cell[0] → Cell[1] → Cell[2] → ... → Cell[19] → ...
 ## Introspection and Debugging
 
 The target facades keep their surface focused on read/write semantics. Deeper
-cell introspection currently lives on compatibility handles such as `Signal`
-and `Memo`, or on `InputField` where field ownership requires `CellId`s.
+cell introspection is available on facade types such as `Derived`,
+`ReachableDerived`, `Input`, and `InputField` (via `id()`, `cell_id`),
+or on compatibility handles such as `Signal`
 
 ### Compatibility Input Introspection
 
@@ -897,26 +881,19 @@ Returns the durability level of this compatibility input handle (`Low`, `Medium`
 The checked companion covers compatibility input durability in
 [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
-### Compatibility Derived Introspection
+### Derived Introspection
 
-#### `Memo::id(self) -> CellId`
+#### `Derived::id(self) -> CellId`
 
-Returns the unique identifier for a compatibility derived handle.
+Returns the unique identifier for a derived cell.
 
-#### `Memo::dependencies(self) -> Array[CellId]`
+#### `Derived::dependencies(self) -> Array[CellId]`
 
-Returns the list of cells this compatibility derived handle currently depends on. Empty if it has never been computed.
+Returns the list of cells this derived cell currently depends on. Empty if it has never been computed.
 
-The checked companion covers compatibility memo dependencies in
+The checked companion covers derived cell dependencies in
 [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
-#### `Memo::changed_at(self) -> Revision`
-
-Returns when this compatibility derived value last changed. Reflects backdating: if recomputation produces the same value, this timestamp is preserved.
-
-#### `Memo::verified_at(self) -> Revision`
-
-Returns when this compatibility derived value was last verified up-to-date.
 
 ### Runtime Introspection
 
@@ -958,8 +935,7 @@ For inputs, `dependencies` is empty. `subscribers` contains the cell IDs that de
 ## Per-Cell Callbacks
 
 Target `InputField` exposes callbacks directly. For plain inputs and lazy
-derived values, callbacks currently live on the compatibility `Signal` and
-`Memo` handles.
+derived values, callbacks live on `Derived` and the compatibility `Signal` handles.
 
 ### `Signal::on_change(self, f : (T) -> Unit) -> Unit`
 
@@ -975,18 +951,18 @@ Removes the registered `on_change` callback for this compatibility input.
 The checked companion covers `Signal::clear_on_change` in
 [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
-### `Memo::on_change(self, f : (T) -> Unit) -> Unit`
+### `Derived::on_change(self, f : (T) -> Unit) -> Unit`
 
-Registers a callback fired when this compatibility derived value changes.
+Registers a callback fired when this derived value's output changes.
 
-The checked companion covers compatibility memo callbacks in
+The checked companion covers derived cell callbacks in
 [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
-### `Memo::clear_on_change(self) -> Unit`
+### `Derived::clear_on_change(self) -> Unit`
 
-Removes the registered `on_change` callback for this compatibility derived value.
+Removes the registered `on_change` callback for this derived value.
 
-The checked companion covers `Memo::clear_on_change` in
+The checked companion covers `Derived::clear_on_change` in
 [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 **Behavior (on_change):**
@@ -1051,7 +1027,7 @@ pub(open) trait Database {
 }
 ```
 
-Implemented for `Signal[T]`, `Memo[T]`, `HybridMemo[T]`, and `TrackedCell[T]`.
+Implemented for `Signal[T]` and `TrackedCell[T]`.
 
 ### Compatibility `Trackable`
 
@@ -1223,7 +1199,7 @@ including rollback on `Err`, in
 
 **Same-value optimization (`Input::set`, `InputField::set`):** Before recording a change, the library compares the new value against the current one. If they are equal, the call is treated as a no-op: the global revision counter is not incremented and downstream derived values are not invalidated. This avoids spurious recomputation when an input is set to the value it already holds. Compatibility `Signal::set` and `TrackedCell::set` use the same rule.
 
-**Backdating (`Derived`, `ReachableDerived`, `Memo::new`):** After a derived value recomputes, the library compares the new result against the previous cached value. If they are equal, the underlying memo's `changed_at` timestamp is kept at its previous value rather than advanced to the current revision. Any cell that depends on this derived value therefore sees no change, and its own verification is skipped entirely.
+**Backdating (`Derived`, `ReachableDerived`):** After a derived value recomputes, the library compares the new result against the previous cached value. If they are equal, the underlying memo's `changed_at` timestamp is kept at its previous value rather than advanced to the current revision. Any cell that depends on this derived value therefore sees no change, and its own verification is skipped entirely.
 
 **Custom `Eq` implementations:** If your type derives `Eq` with fields intentionally excluded — for example, a generation counter or metadata field that shouldn't influence downstream computation — backdating will treat updates to those fields as no-ops. This is correct and useful (the computation result hasn't changed semantically), but it must be intentional: if you rely on those excluded fields inside a derived compute function, you will get stale results. Only exclude fields from `Eq` that are never read by any derived value.
 
@@ -1234,18 +1210,7 @@ intentionally want those changes to be invisible.
 
 ### Backdating strategies
 
-The backdate decision — whether a recomputed value counts as "changed" — is captured at construction, not at read time. Target `Derived` and `ReachableDerived` use structural `Eq`. Compatibility `Memo` exposes three constructors for different strategies:
-
-| Constructor | Constraint | Backdate logic |
-|---|---|---|
-| `Memo::new` | `T : Eq` | `a == b` (structural equality) |
-| `Memo::new_memo` | `T : BackdateEq` | `a.backdate_equal(b)` (revision comparison by default; override for custom logic) |
-| `Memo::new_no_backdate` | none | always `false` — never backdates |
-
-Compatibility `Memo` read methods have **no additional** trait constraint; the equality decision is baked into the closure at construction. Target facade read constraints are listed below.
-
-Use `BackdateEq` through the compatibility `Memo::new_memo` constructor when structural `Eq` is too expensive (e.g. comparing large collections) and you can instead embed a `Revision` in the value that tracks when its content last changed. Use `Memo::new_no_backdate` when downstream derived values always need to recompute, or when `T` has no `Eq` instance.
-
+The backdate decision — whether a recomputed value counts as "changed" — is captured at construction, not at read time. Target `Derived` and `ReachableDerived` use structural `Eq`. For custom backdating strategies, see the `BackdateEq` trait and `Derived::with_backdate` (package-internal).
 ### Constraint reference
 
 | API | Constraint |
@@ -1261,13 +1226,6 @@ Use `BackdateEq` through the compatibility `Memo::new_memo` constructor when str
 | `ReachableDerived::get`, `read`, `watch` | `T : Eq` |
 | `DerivedMap::get`, `read`, `read_or`, `read_or_else` | `K : Hash + Eq`, `V : Eq` |
 | `DerivedMap::has_cached`, `sweep_cache` | `K : Hash + Eq` |
-| `Memo::new` | `T : Eq` |
-| `Memo::new_memo` | `T : BackdateEq` (supertrait: `HasChangedAt`) |
-| `Memo::new_no_backdate` | none |
-| `Memo::get`, `get_result`, `get_or`, `get_or_else` | none |
-| `MemoMap::get`, `get_result`, `get_or`, `get_or_else` | `K : Hash + Eq`, `V : Eq` |
-| `MemoMap::contains` | `K : Hash + Eq` |
-| `Derived::derived_no_backdate` | none |
 | `Signal::set` | `T : Eq` |
 | `Signal::new`, `get`, `get_result`, `set_unconditional` | none |
 | `TrackedCell::set` | `T : Eq` |

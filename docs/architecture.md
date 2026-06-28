@@ -162,7 +162,7 @@ These are user-visible properties the library upholds. Internal implementation i
 - **Reads return `Result` for mechanism failures.** Target `Derived::get()` / `read()`, `ReachableDerived::get()` / `read()`, `DerivedMap::get(key)` / `read(key)`, `Watch::read()`, and accumulator verifying reads surface mechanism failures as `Err(ReadError)`, where `ReadError = Cycle | Disposed`: a cycle is `Cycle`, and a read of a directly-disposed cell is `Disposed` (rather than an abort). Strict `get` methods still abort when called without an active tracked context, and a retained compute `raise Failure` is a defect that still aborts. `_or_abort` shortcuts abort on any `ReadError`. Compatibility `Memo::get_result()` still exposes the cycle as `Err(CycleError)` (and aborts on disposed, unchanged). `CycleError` is pure (no `Runtime` reference) and can be formatted standalone. See the [Honest Read-Error Ownership](design/specs/2026-05-28-honest-read-error-ownership.md) spec.
 - **Cross-runtime reads are illegal.** Reading a cell from a runtime other than the one owning the surrounding compute aborts.
 - **Batch atomicity.** A `batch` that raises rolls back all writes inside it (state and revision counter included). `abort()` is *not* catchable and leaves the runtime in an undefined state.
-| **Top-frame restriction on `Accumulator::push`.** Pushes are only legal inside a `Derived` or `ReachableDerived` compute; pushing from elsewhere raises `Failure`. See the [Accumulator ADR](decisions/2026-04-20-accumulator-api.md). |
+- **Top-frame restriction on `Accumulator::push`.** Pushes are only legal inside a `Derived` or `ReachableDerived` compute; pushing from elsewhere raises `Failure`. See the [Accumulator ADR](decisions/2026-04-20-accumulator-api.md).
 
 ---
 

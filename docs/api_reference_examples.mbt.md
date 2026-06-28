@@ -5,10 +5,9 @@ They exist to catch docs/API drift on the target facade surfaces — `Derived`,
 `DerivedMap`, `ReachableDerived`, `MapRelation`, and the `RuntimeContext` /
 `Scope` helper families — beyond the README and getting-started examples already
 covered by [`target_api_examples.mbt.md`](target_api_examples.mbt.md). They also
-pin derived-event listener lifecycle, compatibility introspection/callbacks, and the
-compatibility accumulator push path. The accumulator examples intentionally use
-compatibility `Memo` handles because `Accumulator::push` is only legal from
-compatibility `Memo` / `HybridMemo` compute frames.
+pin derived-event listener lifecycle, compatibility introspection/callbacks, and
+the accumulator push path. The accumulator examples use target facade
+`Derived` / `ReachableDerived` compute frames.
 
 ## Runtime batching and change callbacks
 
