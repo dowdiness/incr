@@ -18,10 +18,10 @@ All notable changes to `dowdiness/incr` are documented in this file.
   types have been fully removed. Use `Derived`, `DerivedMap`, and
   `ReachableDerived` respectively. `Memo::new_memo` and
   `Memo::new_no_backdate` are gone — use
-  `Derived::with_backdate` and `Derived::derived_no_backdate`. The
+  `Derived::with_backdate` (public, requires `T : BackdateEq`) and
+  `Derived::derived_no_backdate`. The
   `Memo::accumulated*` wrappers have been removed — use `Derived::accumulated*`
   directly.
-
 ### Migration
 
 - `Memo(rt, compute)` → `Derived(rt, compute)`

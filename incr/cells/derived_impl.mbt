@@ -228,12 +228,12 @@ fn[T] Derived::_create_static(
 
 ///|
 /// Internal: the core verification logic. Does NOT check tracking context.
+/// Aborts during fixpoint (see InFixpoint guard below).
 fn[T] Derived::get_result_inner(
   self : Derived[T],
 ) -> Result[T, CycleError] raise Failure {
   self.get_result_inner_impl(record_dependency=true)
 }
-
 ///|
 fn[T] Derived::get_result_inner_impl(
   self : Derived[T],
@@ -246,6 +246,11 @@ fn[T] Derived::get_result_inner_impl(
     self.rt.core,
     "Derived",
   )
+  if self.rt.core.phase is InFixpoint {
+    abort(
+      "Derived::get() cannot be called during fixpoint(); read relations directly or call get() after fixpoint() completes",
+    )
+  }
   match self.value {
     None => {
       let r = self.force_recompute()

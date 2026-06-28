@@ -96,6 +96,7 @@ pub fn[T] Derived::read(Self[T]) -> Result[T, @types.ReadError]
 pub fn[T] Derived::read_or_abort(Self[T]) -> T
 pub fn[T] Derived::verified_at(Self[T]) -> @types.Revision
 pub fn[T] Derived::watch(Self[T]) -> Watch[T]
+pub fn[T : @types.BackdateEq] Derived::with_backdate(Runtime, () -> T raise Failure, label? : String) -> Self[T]
 pub impl[T] Trackable for Derived[T]
 pub impl[T : @debug.Debug] @debug.Debug for Derived[T]
 

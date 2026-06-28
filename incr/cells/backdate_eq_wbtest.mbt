@@ -59,10 +59,8 @@ test "with_backdate: backdates when backdate_equal returns true (same changed_at
     () => {
       let _ = sig.get()
       m_count.val = m_count.val + 1
-      // Don't advance rev_ref — value is "unchanged"
       Stamped::{ value: 42, changed_at: rev_ref.val }
     },
-    (a, b) => a.backdate_equal(b),
   )
   let down_count : Ref[Int] = { val: 0 }
   let _down = Derived(rt, () => {
@@ -96,7 +94,6 @@ test "with_backdate: propagates when backdate_equal returns false (advanced chan
       rev_ref.val = rev_ref.val.next()
       Stamped::{ value: v, changed_at: rev_ref.val }
     },
-    (a, b) => a.backdate_equal(b),
   )
   let down_count : Ref[Int] = { val: 0 }
   let _down = Derived(rt, () => {
@@ -157,7 +154,6 @@ test "derived_no_backdate: usable with non-Eq output type" {
 
 ///|
 test "compatibility: Derived::with_backdate backdates via BackdateEq (unchanged changed_at)" {
-  // Created through Derived::with_backdate, not Memo::new_memo.
   let rt = Runtime::Runtime()
   let rev_ref : Ref[Revision] = { val: Revision::initial() }
   let sig = Signal::Signal(rt, 0)
@@ -167,7 +163,6 @@ test "compatibility: Derived::with_backdate backdates via BackdateEq (unchanged 
       let _ = sig.get()
       Stamped::{ value: 42, changed_at: rev_ref.val }
     },
-    (a, b) => a.backdate_equal(b),
   )
   let down_count = Ref(0)
   let down = Derived(rt, () => {

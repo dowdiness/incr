@@ -371,22 +371,17 @@ pub fn[T1, T2, T3, U : Eq] Derived::map3(
 }
 
 ///|
-/// Internal: build a `Derived` with an explicit backdate comparator, for the
-/// non-`Eq` construction paths (`BackdateEq` / custom-predicate tiers) that
-/// cannot use the `Eq`-bound `Derived::Derived` / `Derived::fallible`. Threads
-/// the comparator straight into `Memo::_create`, mirroring how
-/// `Memo::new_memo` / `Memo::new_no_backdate` differ from `Memo::new` only in
-/// the comparator. Package-internal: no `T` bound, so it must not be exposed
-/// publicly without a deliberate API decision.
-fn[T] Derived::with_backdate(
+/// Creates a lazy derived value using `BackdateEq` for change detection.
+///
+/// `T` must implement `BackdateEq` (and its supertrait `HasChangedAt`).
+/// The backdate check calls `BackdateEq::backdate_equal`, not structural `Eq`.
+pub fn[T : BackdateEq] Derived::with_backdate(
   rt : Runtime,
   compute : () -> T raise Failure,
-  backdate_eq : (T, T) -> Bool,
   label? : String,
 ) -> Derived[T] {
-  Derived::_create(rt, compute, label?, backdate_eq)
+  Derived::_create(rt, compute, label?, (a, b) => a.backdate_equal(b))
 }
-
 ///|
 /// Strict graph read. Requires an active tracked context.
 pub fn[T] Derived::get(self : Derived[T]) -> Result[T, ReadError] {

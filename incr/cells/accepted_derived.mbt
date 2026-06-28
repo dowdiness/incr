@@ -187,14 +187,14 @@ fn[V, E] AcceptedDerived::assemble(
       _ => false
     }
   }
-  let accepted_cell = Derived::with_backdate(
+  let accepted_cell = Derived::_create(
     scope.runtime,
     () => {
       ignore(fold.get())
       accepted_slot.val
     },
-    accepted_eq,
     label="\{label}.accepted",
+    accepted_eq,
   )
   scope.add_cell_ids([accepted_cell.cell_id])
   // gc anchor: root `accepted_cell` and prime it so its upstream
@@ -275,7 +275,7 @@ fn[V : BackdateEq, E : Eq] AcceptedDerived::backdate_candidate(
       _ => false
     }
   }
-  Derived::with_backdate(rt, fn() { compute() }, cand_eq, label?)
+  Derived::_create(rt, fn() { compute() }, label?, cand_eq)
 }
 
 ///|
