@@ -13,22 +13,22 @@ fn run_evaluation_strategy_scenario(
   let rt = Runtime()
   rt.install_evaluation_strategies(strategies)
   let source = Signal(rt, 1)
-  let derived = Memo(rt, () => source.get() * 10)
-  let eager = Reactive::new(rt, () => derived.get() + 1)
+  let derived = Derived(rt, () => source.get() * 10)
+  let eager = Reactive::new(rt, () => derived.get_or_abort() + 1)
   let effect_log : Array[Int] = []
   let _effect = Effect::new(rt, () => effect_log.push(eager.get()))
   let derived_values : Array[Int] = []
   let eager_derived_values : Array[Int] = []
-  derived_values.push(read_memo_for_test(derived))
+  derived_values.push(derived.read_or_abort())
   eager_derived_values.push(read_reactive_for_test(eager))
   source.set(2)
-  derived_values.push(read_memo_for_test(derived))
+  derived_values.push(derived.read_or_abort())
   eager_derived_values.push(read_reactive_for_test(eager))
   rt.batch(() => {
     source.set(3)
     source.set(4)
   })
-  derived_values.push(read_memo_for_test(derived))
+  derived_values.push(derived.read_or_abort())
   eager_derived_values.push(read_reactive_for_test(eager))
   {
     derived_values,
@@ -72,12 +72,12 @@ test "evaluation strategy: tracing records lazy derived rebuilds without listene
   let rt = Runtime()
   rt.install_evaluation_strategies(EvaluationStrategies::tracing(recorder))
   let source = Signal(rt, 1)
-  let derived = Memo(rt, () => source.get() + 1)
+  let derived = Derived(rt, () => source.get() + 1)
 
-  inspect(read_memo_for_test(derived), content="2")
+  inspect(derived.read_or_abort(), content="2")
   inspect(rt.runtime_evaluation_event_hook.pending.length(), content="0")
   source.set(2)
-  inspect(read_memo_for_test(derived), content="3")
+  inspect(derived.read_or_abort(), content="3")
 
   let trace = recorder.summary()
   inspect(trace.derived_pull_verification_count, content="1")
@@ -99,10 +99,10 @@ test "evaluation strategy: tracing records lazy derived aborts without listener"
   let recorder = @kernel.EvaluationTraceRecorder()
   let rt = Runtime()
   rt.install_evaluation_strategies(EvaluationStrategies::tracing(recorder))
-  let derived : Memo[Int] = Memo(rt, () => raise Failure("traced boom"))
+  let derived : Derived[Int] = Derived(rt, () => raise Failure("traced boom"))
 
   let mut failed = false
-  try derived.force_recompute() catch {
+  try derived.inner.force_recompute() catch {
     _ => failed = true
   } noraise {
     _ => ()

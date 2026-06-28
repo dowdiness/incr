@@ -54,25 +54,29 @@ test "new_memo: backdates when backdate_equal returns true (same changed_at)" {
   let rev_ref : Ref[Revision] = { val: Revision::initial() }
   let m_count : Ref[Int] = { val: 0 }
   let sig = Signal::Signal(rt, 0)
-  let m = Memo::new_memo(rt, () => {
-    let _ = sig.get()
-    m_count.val = m_count.val + 1
-    // Don't advance rev_ref — value is "unchanged"
-    Stamped::{ value: 42, changed_at: rev_ref.val }
-  })
+  let m = Derived::with_backdate(
+    rt,
+    () => {
+      let _ = sig.get()
+      m_count.val = m_count.val + 1
+      // Don't advance rev_ref — value is "unchanged"
+      Stamped::{ value: 42, changed_at: rev_ref.val }
+    },
+    (a, b) => a.backdate_equal(b),
+  )
   let down_count : Ref[Int] = { val: 0 }
-  let _down = Memo::Memo(rt, () => {
-    let _ = m.get()
+  let _down = Derived(rt, () => {
+    let _ = m.get_or_abort()
     down_count.val = down_count.val + 1
     0
   })
   // First compute
-  let _ = read_memo_for_test(_down)
+  let _ = _down.read_or_abort()
   inspect(m_count.val, content="1")
   inspect(down_count.val, content="1")
   // Trigger recompute of m (sig changed) but rev_ref stays same → backdate fires
   sig.set(1)
-  let _ = read_memo_for_test(_down)
+  let _ = _down.read_or_abort()
   inspect(m_count.val, content="2") // m recomputed
   inspect(down_count.val, content="1") // downstream did NOT recompute (backdated)
 }
@@ -83,24 +87,28 @@ test "new_memo: propagates when backdate_equal returns false (advanced changed_a
   let rev_ref : Ref[Revision] = { val: Revision::initial() }
   let m_count : Ref[Int] = { val: 0 }
   let sig = Signal::Signal(rt, 0)
-  let m = Memo::new_memo(rt, () => {
-    let v = sig.get()
-    m_count.val = m_count.val + 1
-    // Advance rev_ref — value is "changed"
-    rev_ref.val = rev_ref.val.next()
-    Stamped::{ value: v, changed_at: rev_ref.val }
-  })
+  let m = Derived::with_backdate(
+    rt,
+    () => {
+      let v = sig.get()
+      m_count.val = m_count.val + 1
+      // Advance rev_ref — value is "changed"
+      rev_ref.val = rev_ref.val.next()
+      Stamped::{ value: v, changed_at: rev_ref.val }
+    },
+    (a, b) => a.backdate_equal(b),
+  )
   let down_count : Ref[Int] = { val: 0 }
-  let _down = Memo::Memo(rt, () => {
-    let _ = m.get()
+  let _down = Derived(rt, () => {
+    let _ = m.get_or_abort()
     down_count.val = down_count.val + 1
     0
   })
-  let _ = read_memo_for_test(_down)
+  let _ = _down.read_or_abort()
   inspect(m_count.val, content="1")
   inspect(down_count.val, content="1")
   sig.set(1)
-  let _ = read_memo_for_test(_down)
+  let _ = _down.read_or_abort()
   inspect(m_count.val, content="2") // m recomputed
   inspect(down_count.val, content="2") // downstream also recomputed (no backdate)
 }
@@ -110,22 +118,22 @@ test "new_no_backdate: always propagates even when value is identical" {
   let rt = Runtime::Runtime()
   let m_count : Ref[Int] = { val: 0 }
   let sig = Signal::Signal(rt, 0)
-  let m = Memo::new_no_backdate(rt, () => {
+  let m = Derived::derived_no_backdate(rt, () => {
     let _ = sig.get()
     m_count.val = m_count.val + 1 // always returns same value
     42
   })
   let down_count : Ref[Int] = { val: 0 }
-  let _down = Memo::Memo(rt, () => {
-    let _ = m.get()
+  let _down = Derived(rt, () => {
+    let _ = m.get_or_abort()
     down_count.val = down_count.val + 1
     0
   })
-  let _ = read_memo_for_test(_down)
+  let _ = _down.read_or_abort()
   inspect(m_count.val, content="1")
   inspect(down_count.val, content="1")
   sig.set(1)
-  let _ = read_memo_for_test(_down)
+  let _ = _down.read_or_abort()
   inspect(m_count.val, content="2") // m recomputed
   inspect(down_count.val, content="2") // downstream ALSO recomputed (never backdates)
 }
@@ -140,9 +148,36 @@ priv struct NoEq {
 test "new_no_backdate: usable with non-Eq output type" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 0)
-  let m = Memo::new_no_backdate(rt, () => NoEq::{ data: [sig.get()] })
+  let m = Derived::derived_no_backdate(rt, () => NoEq::{ data: [sig.get()] })
   // read() must work without T : Eq
-  inspect(read_memo_for_test(m).data[0], content="0")
+  inspect(m.read_or_abort().data[0], content="0")
   sig.set(42)
-  inspect(read_memo_for_test(m).data[0], content="42")
+  inspect(m.read_or_abort().data[0], content="42")
+}
+
+
+///|
+test "compatibility: Memo::new_memo backdates via BackdateEq (unchanged changed_at)" {
+  // Regression guard for the public BackdateEq constructor. Created through
+  // Memo::new_memo, not Derived::with_backdate, to catch wiring regressions
+  // in the compatibility path (still present until Phase 2 removal).
+  let rt = Runtime::Runtime()
+  let rev_ref : Ref[Revision] = { val: Revision::initial() }
+  let sig = Signal::Signal(rt, 0)
+  let m = Memo::new_memo(rt, () => {
+    let _ = sig.get()
+    Stamped::{ value: 42, changed_at: rev_ref.val }
+  })
+  let down_count = Ref(0)
+  let down = Derived(rt, () => {
+    let _ = m.get()
+    down_count.val = down_count.val + 1
+    0
+  })
+  let _ = down.read_or_abort()
+  inspect(down_count.val, content="1")
+  // sig changes but rev_ref stays same → BackdateEq says unchanged → backdate fires
+  sig.set(1)
+  let _ = down.read_or_abort()
+  inspect(down_count.val, content="1") // downstream NOT recomputed (backdated)
 }
