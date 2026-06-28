@@ -158,7 +158,7 @@ pub fn[T : Eq] Scope::derived(
     abort("Scope::derived called on a disposed scope")
   }
   let derived = Derived(self.runtime, f, label?)
-  self.cells.push(derived.inner.id())
+  self.cells.push(derived.id())
   derived
 }
 
@@ -175,10 +175,12 @@ pub fn[T] Scope::derived_no_backdate(
   guard !self.disposed else {
     abort("Scope::derived_no_backdate called on a disposed scope")
   }
-  let derived : Derived[T] = {
-    inner: Memo::new_no_backdate(self.runtime, f, label?),
-  }
-  self.cells.push(derived.inner.id())
+  let derived : Derived[T] = Derived::derived_no_backdate(
+    self.runtime,
+    f,
+    label?,
+  )
+  self.cells.push(derived.id())
   derived
 }
 
@@ -193,7 +195,7 @@ pub fn[T : Eq] Scope::reachable_derived(
     abort("Scope::reachable_derived called on a disposed scope")
   }
   let derived = ReachableDerived(self.runtime, f, label?)
-  self.cells.push(derived.inner.id())
+  self.cells.push(derived.id())
   derived
 }
 

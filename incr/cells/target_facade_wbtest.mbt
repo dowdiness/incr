@@ -2,7 +2,7 @@
 test "facade derived: get returns cycle error in tracked context" {
   let rt = Runtime::Runtime()
   let derived = Derived::Derived(rt, () => 1)
-  let cell_id = derived.inner.id()
+  let cell_id = derived.cell_id
   let meta = rt.get_memo_data(cell_id)
   meta.in_progress = true
   rt.push_tracking(cell_id)
@@ -20,7 +20,7 @@ test "facade derived: get returns cycle error in tracked context" {
 test "facade derived: read returns cycle error" {
   let rt = Runtime::Runtime()
   let derived = Derived::Derived(rt, () => 1)
-  let cell_id = derived.inner.id()
+  let cell_id = derived.cell_id
   let meta = rt.get_memo_data(cell_id)
   meta.in_progress = true
 
@@ -36,7 +36,7 @@ test "facade derived: read returns cycle error" {
 test "facade derived: watch read returns cycle error" {
   let rt = Runtime::Runtime()
   let derived = Derived::Derived(rt, () => 1)
-  let cell_id = derived.inner.id()
+  let cell_id = derived.cell_id
   let meta = rt.get_memo_data(cell_id)
   let watch = derived.watch()
   meta.in_progress = true
@@ -53,8 +53,8 @@ test "facade derived: watch read returns cycle error" {
 ///|
 test "facade reachable derived: read returns cycle error" {
   let rt = Runtime::Runtime()
-  let reachable = ReachableDerived::ReachableDerived(rt, () => 1)
-  let cell_id = reachable.inner.id()
+  let reachable = ReachableDerived(rt, () => 1)
+  let cell_id = reachable.cell_id
   let meta = rt.get_memo_data(cell_id)
   meta.in_progress = true
 
@@ -70,8 +70,8 @@ test "facade reachable derived: read returns cycle error" {
 test "facade derived_map: read returns cycle error" {
   let rt = Runtime::Runtime()
   let by_key = DerivedMap::DerivedMap(rt, (key : Int) => key * 10)
-  let memo = by_key.inner.get_or_create_memo(1)
-  let cell_id = memo.id()
+  let entry = by_key.get_or_create_entry(1)
+  let cell_id = entry.id()
   let meta = rt.get_memo_data(cell_id)
   meta.in_progress = true
 
@@ -90,8 +90,8 @@ test "facade derived_map: read_or falls back on read error" {
 
   inspect(by_key.read_or(1, -1), content="10")
 
-  let memo = by_key.inner.get_or_create_memo(2)
-  let cell_id = memo.id()
+  let entry = by_key.get_or_create_entry(2)
+  let cell_id = entry.id()
   let meta = rt.get_memo_data(cell_id)
   meta.in_progress = true
 
@@ -128,11 +128,11 @@ test "facade scope: target handles are disposed with scope" {
   scope.dispose()
 
   inspect(input.inner.is_disposed(), content="true")
-  inspect(derived.inner.is_disposed(), content="true")
-  inspect(reachable.inner.is_disposed(), content="true")
+  inspect(derived.is_disposed(), content="true")
+  inspect(reachable.is_disposed(), content="true")
   inspect(eager.inner.is_disposed(), content="true")
   inspect(by_key.disposed.val is Some(_), content="true")
-  inspect(by_key.inner.length(), content="0")
+  inspect(by_key.entries.length(), content="0")
 }
 
 ///|
@@ -140,7 +140,7 @@ test "Derived::is_disposed forwards to inner Memo" {
   let rt = Runtime::Runtime()
   let derived = Derived::Derived(rt, () => 1)
   inspect(derived.is_disposed(), content="false")
-  derived.inner.dispose()
+  derived.dispose()
   inspect(derived.is_disposed(), content="true")
 }
 
@@ -194,6 +194,6 @@ test "Derived::accumulated_peek forwards (untracked, defensive copy)" {
   let _ = producer.read_or_abort()
   inspect(producer.accumulated_peek(acc).length(), content="3")
   // Disposal makes peek permissive: returns [].
-  producer.inner.dispose()
+  producer.dispose()
   inspect(producer.accumulated_peek(acc).length(), content="0")
 }

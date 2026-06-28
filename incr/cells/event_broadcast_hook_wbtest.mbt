@@ -116,7 +116,7 @@ test "derived_event: hook order on abort removes active entries before later hoo
   rt.on_derived_event(_evt => ())
   let _acc : Accumulator[Int] = Accumulator::new(rt~)
   let memo : Derived[Int] = Derived(rt, () => raise Failure("boom"))
-  try memo.inner.force_recompute() catch {
+  try memo.force_recompute() catch {
     _ => ()
   } noraise {
     _ => ()
@@ -290,7 +290,7 @@ test "derived_event: mutation guard rejects push tracking frame" {
 test "derived_event: mutation guard rejects pending events inside on_change" {
   let rt = Runtime()
   let source = Signal(rt, 0)
-  let hybrid = HybridMemo(rt, () => source.get() + 1)
+  let hybrid = ReachableDerived(rt, () => source.get() + 1)
   let _effect = Effect::new(rt, () => ignore(hybrid.get()))
   rt.on_derived_event(_evt => ())
   let rejected = Ref(false)
@@ -375,7 +375,7 @@ test "derived_event: raising API defers drain until next operation" {
     raise Failure("target failed")
   })
   let mut failed = false
-  try target.inner.force_recompute() catch {
+  try target.force_recompute() catch {
     _ => failed = true
   } noraise {
     _ => ()

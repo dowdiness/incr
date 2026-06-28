@@ -21,7 +21,7 @@ test "Signal derives Debug" {
 test "Memo derives Debug before compute" {
   let rt = Runtime::Runtime()
   let s = Signal::Signal(rt, 10)
-  let m = Memo::Memo(rt, () => s.get() * 2)
+  let m = Derived::Derived(rt, () => s.get() * 2)
   debug_inspect(
     m,
     content=(
@@ -42,8 +42,8 @@ test "Memo derives Debug before compute" {
 test "Memo derives Debug after compute" {
   let rt = Runtime::Runtime()
   let s = Signal::Signal(rt, 10)
-  let m = Memo::Memo(rt, () => s.get() * 2)
-  let _ = read_memo_for_test(m)
+  let m = Derived::Derived(rt, () => s.get() * 2)
+  let _ = m.read_or_abort()
   debug_inspect(
     m,
     content=(
