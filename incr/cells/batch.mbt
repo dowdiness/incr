@@ -6,7 +6,7 @@
 ///
 /// - **Atomicity**: Memos see either all changes or none
 /// - **Efficiency**: One verification pass instead of many
-/// - **Revert detection**: Setting a input back to its original value is a no-op
+/// - **Revert detection**: Setting an input back to its original value is a no-op
 ///
 /// Batches can be nested. Only the outermost batch commits changes.
 ///
@@ -140,7 +140,7 @@ fn Runtime::commit_batch(self : Runtime) -> Unit {
 }
 
 ///|
-/// Records a input as having a pending change during a batch.
+/// Records an input as having a pending change during a batch.
 ///
 /// Called internally by `Input::set` during batch operations.
 ///
