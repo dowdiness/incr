@@ -11,7 +11,7 @@ test "cell_ops: signal has ops at its id index" {
 ///|
 test "cell_ops: memo has ops at its id index" {
   let rt = Runtime::Runtime()
-  let m = Memo::Memo(rt, () => 0)
+  let m = Derived(rt, () => 0)
   inspect(rt.core.cell_ops.length(), content="1")
   let ops = rt.core.cell_ops[m.id().id]
   inspect(ops.cell_id() == m.id(), content="true")
@@ -57,8 +57,8 @@ test "cell_ops: signal dep_changed_since returns Some" {
 test "cell_ops: memo dep_changed_since returns None" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 1)
-  let m = Memo::Memo(rt, () => sig.get())
-  let _ = read_memo_for_test(m)
+  let m = Derived(rt, () => sig.get())
+  let _ = m.read_or_abort()
   let ops = rt.core.cell_ops[m.id().id]
   // Memo-like cells return None (requires deep verification)
   debug_inspect(ops.dep_changed_since(Revision::initial()), content="None")
@@ -67,7 +67,7 @@ test "cell_ops: memo dep_changed_since returns None" {
 ///|
 test "cell_ops: memo level defaults to 0" {
   let rt = Runtime::Runtime()
-  let m = Memo::Memo(rt, () => 0)
+  let m = Derived(rt, () => 0)
   let ops = rt.core.cell_ops[m.id().id]
   inspect(ops.level(), content="0")
 }
@@ -110,7 +110,7 @@ test "cell_ops: hybrid memo dep_changed_since returns None" {
 test "cell_ops: signal and memo ids are distinct when both exist" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 1)
-  let m = Memo::Memo(rt, () => sig.get())
+  let m = Derived(rt, () => sig.get())
   inspect(rt.core.cell_ops.length(), content="2")
   inspect(rt.core.cell_ops[sig.id().id].cell_id() == sig.id(), content="true")
   inspect(rt.core.cell_ops[m.id().id].cell_id() == m.id(), content="true")
@@ -129,7 +129,7 @@ test "gc_role: signal is Source" {
 test "gc_role: memo is Interior" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 10)
-  let m = Memo::Memo(rt, fn() { sig.get() })
+  let m = Derived(rt, fn() { sig.get() })
   let ops = rt.core.cell_ops[m.id().id]
   inspect(ops.gc_role(), content="Interior")
   m.dispose()
@@ -171,8 +171,8 @@ test "gc_dependencies: signal has empty deps" {
 test "gc_dependencies: memo returns its dependencies" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 10)
-  let m = Memo::Memo(rt, fn() { sig.get() })
-  let _ = read_memo_for_test(m)
+  let m = Derived(rt, fn() { sig.get() })
+  let _ = m.read_or_abort()
   let ops = rt.core.cell_ops[m.id().id]
   let deps = ops.gc_dependencies()
   inspect(deps.length(), content="1")
@@ -198,8 +198,8 @@ test "gc_dependencies: effect returns its sources" {
 test "cell_lifecycle: dispose_cell dispatches via lifecycle array for memo" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 10)
-  let m = Memo::Memo(rt, fn() { sig.get() })
-  let _ = read_memo_for_test(m)
+  let m = Derived(rt, fn() { sig.get() })
+  let _ = m.read_or_abort()
   // Verify lifecycle array is populated
   inspect(rt.cell_lifecycle.length(), content="2")
   // Dispose via dispose_cell (uses cell_lifecycle dispatch)
@@ -225,7 +225,7 @@ test "cell_lifecycle: dispose_cell dispatches via lifecycle array for relation" 
 test "is_hybrid: memo has is_hybrid false" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 10)
-  let m = Memo::Memo(rt, fn() { sig.get() })
+  let m = Derived(rt, fn() { sig.get() })
   inspect(rt.pull.memos[0].is_hybrid, content="false")
   m.dispose()
   sig.dispose()

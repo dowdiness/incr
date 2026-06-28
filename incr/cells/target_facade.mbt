@@ -472,6 +472,13 @@ pub fn[T] Derived::changed_at(self : Derived[T]) -> Revision {
 }
 
 ///|
+/// Disposes this derived value, freeing associated resources. After disposal,
+/// reads abort with `Disposed`.
+pub fn[T] Derived::dispose(self : Derived[T]) -> Unit {
+  self.inner.dispose()
+}
+
+///|
 /// Returns true if this derived value has been disposed.
 pub fn[T] Derived::is_disposed(self : Derived[T]) -> Bool {
   self.inner.is_disposed()

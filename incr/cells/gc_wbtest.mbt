@@ -59,7 +59,7 @@ test "cell_id_at: reconstructs CellId from index" {
 test "dispose_cell: removes gc_root_counts entry for observed cell" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 1)
-  let m = Memo::Memo(rt, fn() { sig.get() })
+  let m = Derived(rt, fn() { sig.get() })
   let obs = m.observe()
   // gc_root_counts has entry
   inspect(rt.core.gc_root_counts.get(m.id()) is None, content="false")
@@ -75,7 +75,7 @@ test "dispose_cell: removes gc_root_counts entry for observed cell" {
 test "dispose_cell: clears gc_root_counts with multiple observers" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 1)
-  let m = Memo::Memo(rt, fn() { sig.get() })
+  let m = Derived(rt, fn() { sig.get() })
   let obs1 = m.observe()
   let obs2 = m.observe()
   debug_inspect(rt.core.gc_root_counts.get(m.id()), content="Some(2)")
@@ -104,7 +104,7 @@ test "phase: Idle by default" {
 test "collect_gc_roots: live observer puts memo in roots via gc_root_counts" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 1)
-  let m = Memo::Memo(rt, fn() { sig.get() })
+  let m = Derived(rt, fn() { sig.get() })
   let obs = m.observe()
   ignore(obs.get())
   let roots = @kernel.collect_gc_roots(rt.core)
@@ -123,8 +123,10 @@ test "collect_gc_roots: live observer puts memo in roots via gc_root_counts" {
 test "collect_gc_roots: disposed observer is absent from roots" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 1)
-  let m = Memo::Memo(rt, fn() { sig.get() })
-  ignore(read_memo_for_test(m)) // observe-read-dispose cycle
+  let m = Derived(rt, fn() { sig.get() })
+  let obs = m.observe()
+  ignore(obs.get())
+  obs.dispose()
   let roots = @kernel.collect_gc_roots(rt.core)
   let contains_memo = for id in roots {
     if id == m.id() {
@@ -140,8 +142,8 @@ test "collect_gc_roots: disposed observer is absent from roots" {
 test "mark_reachable: signal is reachable through dependent memo" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 1)
-  let m = Memo::Memo(rt, fn() { sig.get() })
-  ignore(read_memo_for_test(m)) // compute to establish m→sig dependency
+  let m = Derived(rt, fn() { sig.get() })
+  ignore(m.read_or_abort()) // compute to establish m→sig dependency
   let reachable = @kernel.mark_reachable(rt.core, [m.id()])
   inspect(reachable.contains(m.id()), content="true")
   inspect(reachable.contains(sig.id()), content="true")
@@ -151,8 +153,8 @@ test "mark_reachable: signal is reachable through dependent memo" {
 test "mark_reachable: traversal stops at a disposed dependency" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 1)
-  let m = Memo::Memo(rt, fn() { sig.get() })
-  ignore(read_memo_for_test(m)) // establish m→sig dependency before disposing
+  let m = Derived(rt, fn() { sig.get() })
+  ignore(m.read_or_abort()) // establish m→sig dependency before disposing
   sig.dispose()
   let reachable = @kernel.mark_reachable(rt.core, [m.id()])
   inspect(reachable.contains(m.id()), content="true")
@@ -163,8 +165,8 @@ test "mark_reachable: traversal stops at a disposed dependency" {
 test "gc_sweep: unobserved interior cell is passed to dispose_fn" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 1)
-  let m = Memo::Memo(rt, fn() { sig.get() })
-  ignore(read_memo_for_test(m)) // compute but release observer
+  let m = Derived(rt, fn() { sig.get() })
+  ignore(m.read_or_abort()) // compute but release observer
   let swept : Array[_] = []
   @kernel.gc_sweep(rt.core, fn(id) { swept.push(id) })
   let m_swept = for id in swept {
@@ -190,7 +192,7 @@ test "gc_sweep: unobserved interior cell is passed to dispose_fn" {
 test "gc_sweep: observed interior cell is not passed to dispose_fn" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 1)
-  let m = Memo::Memo(rt, fn() { sig.get() })
+  let m = Derived(rt, fn() { sig.get() })
   let obs = m.observe()
   ignore(obs.get())
   let swept : Array[_] = []

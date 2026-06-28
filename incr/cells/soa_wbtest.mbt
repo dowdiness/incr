@@ -42,8 +42,8 @@ test "Signal::Signal: allocates into pull_signals" {
 test "Memo::Memo: allocates into pull_memos" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 1)
-  let m = Memo::Memo(rt, () => sig.get())
-  let _ = read_memo_for_test(m)
+  let m = Derived(rt, () => sig.get())
+  let _ = m.read_or_abort()
   inspect(rt.pull.memos.length(), content="1")
   match rt.core.cell_index[m.id().id] {
     PullMemo(i) => inspect(i, content="0")
@@ -60,8 +60,8 @@ test "runtime: dispatch tables stay index-aligned across all cell kinds" {
   rt.check_table_invariant()
   let sig = Signal::Signal(rt, 1)
   rt.check_table_invariant()
-  let m = Memo::Memo(rt, () => sig.get())
-  let _ = read_memo_for_test(m)
+  let m = Derived(rt, () => sig.get())
+  let _ = m.read_or_abort()
   rt.check_table_invariant()
   let hm = HybridMemo::HybridMemo(rt, () => sig.get())
   let _ = read_hybrid_for_test(hm)
