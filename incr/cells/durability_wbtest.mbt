@@ -57,10 +57,10 @@ test "durability: medium durability signal" {
   let rt = Runtime::Runtime()
   let med = Signal::Signal(rt, 5, durability=Medium)
   let low = Signal::Signal(rt, 10)
-  let memo = Derived(rt, () => med.get() + low.get())
-  inspect(memo.read_or_abort(), content="15")
+  let derived = Derived(rt, () => med.get() + low.get())
+  inspect(derived.read_or_abort(), content="15")
   // Memo should have Low durability (min of Medium and Low)
-  let cell = rt.get_memo_data(memo.id())
+  let cell = rt.get_memo_data(derived.id())
   inspect(cell.meta.durability, content="Low")
 }
 

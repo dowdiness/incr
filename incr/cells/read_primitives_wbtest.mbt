@@ -2,9 +2,9 @@
 test "memo read primitive: read_result works outside tracked context" {
   let rt = Runtime::Runtime()
   let source = Signal::Signal(rt, 10)
-  let memo = Derived(rt, () => source.get() * 2)
+  let derived = Derived(rt, () => source.get() * 2)
 
-  match memo.read_result() {
+  match derived.read_result() {
     Ok(value) => inspect(value, content="20")
     Err(_) => abort("expected memo read_result to succeed")
   }
@@ -14,9 +14,9 @@ test "memo read primitive: read_result works outside tracked context" {
 test "memo read primitive: get_strict_result records dependency in tracked context" {
   let rt = Runtime::Runtime()
   let source = Signal::Signal(rt, 10)
-  let memo = Derived(rt, () => source.get() * 2)
+  let derived = Derived(rt, () => source.get() * 2)
   let view = Derived(rt, () => {
-    match memo.get_strict_result() {
+    match derived.get_strict_result() {
       Ok(value) => value + 1
       Err(_) => -1
     }
@@ -30,22 +30,22 @@ test "memo read primitive: get_strict_result records dependency in tracked conte
 ///|
 test "panic memo read primitive: get_strict_result outside tracked context aborts" {
   let rt = Runtime::Runtime()
-  let memo = Derived(rt, () => 1)
+  let derived = Derived(rt, () => 1)
 
-  ignore(memo.get_strict_result())
+  ignore(derived.get_strict_result())
 }
 
 ///|
 test "memo read primitive: read_result returns cycle error" {
   let rt = Runtime::Runtime()
-  let memo = Derived(rt, () => 1)
-  let meta = rt.get_memo_data(memo.id())
+  let derived = Derived(rt, () => 1)
+  let meta = rt.get_memo_data(derived.id())
   meta.in_progress = true
-  rt.push_tracking(memo.id())
+  rt.push_tracking(derived.id())
 
-  let got_cycle = match memo.read_result() {
+  let got_cycle = match derived.read_result() {
     Ok(_) => false
-    Err(err) => err.cell() == memo.id()
+    Err(err) => err.cell() == derived.id()
   }
   meta.in_progress = false
   ignore(rt.pop_tracking())

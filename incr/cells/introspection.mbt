@@ -54,9 +54,9 @@ fn snapshot_subscribers(
 ///
 /// ```moonbit nocheck
 /// let rt = Runtime()
-  let sig = Signal(rt, 42)
-  let memo = Derived(rt, fn() { sig.get() * 2 })
-  let _ = memo.read_or_abort()  // Force computation
+/// let sig = Signal(rt, 42)
+/// let derived = Derived(rt, fn() { sig.get() * 2 })
+/// let _ = derived.read_or_abort()  // Force computation
 ///
 /// // Query signal metadata
 /// match rt.cell_info(sig.id()) {
@@ -67,8 +67,8 @@ fn snapshot_subscribers(
 ///   None => println("Cell not found")
 /// }
 ///
-/// // Query memo metadata
-/// match rt.cell_info(memo.id()) {
+/// // Query derived metadata
+/// match rt.cell_info(derived.id()) {
 ///   Some(info) => {
 ///     println("Derived durability: \{info.durability}")
 ///     println("Depends on \{info.dependencies.length()} cells")

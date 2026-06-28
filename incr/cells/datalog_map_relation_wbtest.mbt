@@ -235,8 +235,8 @@ test "panic functional_relation: cross-runtime read aborts" {
   )
   let _ = fr.insert("x", 1)
   rt1.fixpoint()
-  let memo = Derived(rt2, fn() { fr.get("x").unwrap_or(0) })
-  let _ = memo.read_or_abort()
+  let derived = Derived(rt2, fn() { fr.get("x").unwrap_or(0) })
+  let _ = derived.read_or_abort()
 }
 
 ///|
