@@ -1203,7 +1203,7 @@ intentionally want those changes to be invisible.
 
 ### Backdating strategies
 
-The backdate decision — whether a recomputed value counts as "changed" — is captured at construction, not at read time. Target `Derived` and `ReachableDerived` use structural `Eq`. For custom backdating strategies, see the `BackdateEq` trait and `Derived::with_backdate` (package-internal).
+The backdate decision — whether a recomputed value counts as "changed" — is captured at construction, not at read time. Target `Derived` and `ReachableDerived` use structural `Eq`. For custom backdating strategies, see the `BackdateEq` trait and `Derived::with_backdate`.
 ### Constraint reference
 
 | API | Constraint |
@@ -1215,6 +1215,7 @@ The backdate decision — whether a recomputed value counts as "changed" — is 
 | `Scope::derived_no_backdate` | none |
 | `InputField`, `InputField::get`, `InputField::peek`, `InputField::force_set` | none |
 | `Derived`, `ReachableDerived` | `T : Eq` |
+| `Derived::with_backdate` | `T : BackdateEq` (supertrait: `HasChangedAt`) |
 | `Derived::get`, `read`, `watch` | none |
 | `ReachableDerived::get`, `read`, `watch` | `T : Eq` |
 | `DerivedMap::get`, `read`, `read_or`, `read_or_else` | `K : Hash + Eq`, `V : Eq` |
