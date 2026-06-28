@@ -8,14 +8,14 @@
 > accumulator push path. The README and getting-started target snippets are
 > covered by [`target_api_examples.mbt.md`](target_api_examples.mbt.md).
 
-Reference for the most commonly used public APIs in `incr`. This is not exhaustive — the authoritative surface is in `pkg.generated.mbti` and `cells/pkg.generated.mbti`. APIs surfaced here: `Runtime`, `Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `Accumulator`, `DerivedEvent`, `CycleError`, the `RuntimeContext`/`Database`/`Freshness`/`Readable`/`InputFieldOwner`/`Trackable` traits, and the top-level helper functions. The internal types (`Signal`, `Memo`, `MemoMap`, `HybridMemo`, `TrackedCell`, `Reactive`, `Observer`, `FunctionalRelation`) remain available for low-level introspection. Specialised APIs (`EagerDerived` / `Reactive`, `Effect`, `Relation`, `MapRelation` / `FunctionalRelation`, `Scope`, `Watch` / `Observer`) are documented next to their constructors in `cells/`.
+Reference for the most commonly used public APIs in `incr`. This is not exhaustive — the authoritative surface is in `pkg.generated.mbti` and `cells/pkg.generated.mbti`. APIs surfaced here: `Runtime`, `Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `Accumulator`, `DerivedEvent`, `CycleError`, the `RuntimeContext`/`Database`/`Freshness`/`Readable`/`InputFieldOwner`/`Trackable` traits, and the top-level helper functions. The legacy Memo-family types (`Memo`, `MemoMap`, `HybridMemo`) are not re-exported from `@incr` — import them through `@cells` directly for white-box access. Other legacy types (`Signal`, `TrackedCell`, `Reactive`, `FunctionalRelation`) remain re-exported from `@incr` for source compatibility.
 
 > **Recommended Pattern:** Use the `RuntimeContext` trait to encapsulate your
 > `Runtime` in an application context type. This makes your API cleaner and
 > hides implementation details. Compatibility helpers still accept `Database`.
 > See the [Helper Functions](#helper-functions) section and [API Design Guidelines](design/api-design-guidelines.md) for details.
 
-> **Migration complete:** Target facade types (`Derived`, `DerivedMap`, `ReachableDerived`) are the recommended names. Legacy compatibility names (`Signal`, `Memo`, `MemoMap`, `HybridMemo`, `TrackedCell`, `Reactive`, `Observer`, `FunctionalRelation`, `Readable`, `Trackable`, `Database`) remain for low-level introspection but `Memo`, `MemoMap`, and `HybridMemo` are no longer re-exported from `@incr` — use them through `@cells` directly for white-box access.
+> **Target-name migration:** Target facade types (`Derived`, `DerivedMap`, `ReachableDerived`) are the recommended names. The legacy Memo-family types (`Memo`, `MemoMap`, `HybridMemo`) are no longer re-exported from `@incr` — use them through `@cells` directly for white-box access. These types will be removed in a future milestone. Other legacy compatibility names (`Signal`, `TrackedCell`, `Reactive`, `Observer`, `FunctionalRelation`, `Readable`, `Trackable`, `Database`) remain re-exported from `@incr` for source compatibility.
 
 ## Read Vocabulary Migration
 
@@ -403,9 +403,9 @@ Returns the compatibility `TrackedCell[T]` handle for interop.
 
 ---
 
-## Derived[T] / Memo[T]
+## Derived[T]
 
-`Derived[T]` is the target-name lazy derived-value facade. `Memo[T]` remains available as the compatibility handle.
+`Derived[T]` is the target-name lazy derived-value facade. `Memo[T]` remains available as a compatibility handle but will be removed in a future milestone.
 
 ### `Derived[T : Eq](rt: Runtime, compute: () -> T raise Failure, label? : String) -> Derived[T]`
 
@@ -511,14 +511,14 @@ Returns whether this derived value is verified at the current revision.
 
 Tracked accumulator read: returns the values pushed by `self` during its last successful compute, forces verification of `self`, and stages a synthetic dependency on the current tracking frame. `Derived::accumulated_or_abort` is the strict unwrap convenience, `Derived::accumulated_peek` is the untracked cached read, and `Derived::accumulated_result` is the `Result`-style alias.
 
-### Compatibility `Memo[T]`
+### Compatibility `Memo[T]` (to be removed)
 
-`Memo[T]` exposes the underlying lazy cell with legacy names and additional compatibility-only APIs. New code should construct `Derived[T]`; do not wait for `Memo` to grow `read` / `get_or_abort` bridge methods.
+`Memo[T]` is the legacy compatibility lazy cell handle. New code should use `Derived[T]`.
 
 - `Memo(rt, f, label?)` constructs a compatibility memo using `T : Eq` backdating. Migrate ordinary derived values to `Derived(rt, f, label?)`.
-- `Memo::new_memo[T : BackdateEq]` and `Memo::new_no_backdate[T]` expose alternate backdating strategies. Use `Derived::derived_no_backdate` for the no-backdate target-facade constructor; `Memo::new_memo` remains the only path for `BackdateEq` strategy.
-- `Memo::get()` is the legacy strict aborting graph read. After migrating the handle, use `Derived::get_or_abort()` inside tracked compute functions.
-- `Memo::get_result()` is context-sensitive: after migrating the handle, use `Derived::get()` inside tracked compute functions and `Derived::read()` outside the graph.
+- `Memo::new_memo[T : BackdateEq]` and `Memo::new_no_backdate[T]` expose alternate backdating strategies. Use `Derived::derived_no_backdate` for the no-backdate target-facade constructor.
+- `Memo::get()` is the legacy strict aborting graph read. Use `Derived::get_or_abort()` inside tracked compute functions.
+- `Memo::get_result()` is context-sensitive: use `Derived::get()` inside tracked compute functions and `Derived::read()` outside the graph.
 - `Memo::get_or()` and `Memo::get_or_else()` are legacy permissive cycle-safe reads. After migrating the handle, use an explicit `match derived.read()` fallback.
 - `Memo::is_up_to_date()` is `Derived::is_fresh()`.
 - `Memo::observe()` creates a legacy `Observer[T]`; prefer `Derived::watch()` on target facades.

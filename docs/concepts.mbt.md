@@ -24,9 +24,11 @@ semantics are caught by `moon check`.
 - **Arrows** represent dependencies (automatically tracked)
 
 Naming note: this document uses the target facade names. Legacy compatibility
-names remain available while migration continues: `Signal`, `Memo`,
-`HybridMemo`, `Reactive`, `MemoMap`, `TrackedCell`, and `Database`.
-The naming direction is recorded in [ADR 2026-05-21](decisions/2026-05-21-public-api-ideal-naming.md).
+names remain available: `Signal`, `Memo`,
+`HybridMemo`, `Reactive`, `MemoMap`, `TrackedCell`, and `Database` are still
+importable — Memo-family handles (`Memo`, `MemoMap`, `HybridMemo`) are in the `cells`
+package; `Database` and other compatibility names are in `@incr`. These will be
+removed in a future milestone.
 
 ## Inputs
 
@@ -155,14 +157,12 @@ A derived value is stale when `verified_at < current_revision`.
 **Backdating** is the key optimization. When a derived value recomputes to the **same value** as before, its `changed_at` stays at the old revision. This prevents unnecessary cascading through the graph. The checked companion demonstrates the classic `4 → 6` evenness case in [`concepts_examples.mbt.md`](concepts_examples.mbt.md#backdating-batching-and-dynamic-dependencies).
 
 ### Backdating strategies
+Two public `Derived` constructors offer different backdate strategies:
 
-Three compatibility `Memo` constructors offer different backdate strategies:
+- **`Derived::Derived[T : Eq]`** — uses `a == b`. Standard choice for most types.
+- **`Derived::derived_no_backdate[T]`** — never backdates. Use when downstream consumers always need to rerun, or when `T` has no `Eq` instance.
 
-- **`Memo::new[T : Eq]`** — uses `a == b`. Standard choice for most types.
-- **`Memo::new_memo[T : BackdateEq]`** — uses `a.backdate_equal(b)`. By default compares `changed_at` revisions (O(1)). Useful when structural equality is expensive and you can embed a revision in the value instead.
-- **`Memo::new_no_backdate[T]`** — never backdates. Use when downstream consumers always need to rerun, or when `T` has no `Eq` instance.
-
-The target `Derived` constructor and `create_derived` helper use `Memo::new` internally. For the other strategies, use the compatibility `Memo` constructors directly.
+For custom backdate logic (e.g. comparing `changed_at` revisions instead of values), use the compatibility `Memo::new_memo[T : BackdateEq]` constructor. See the [API reference](api-reference.mbt.md) for details.
 
 ## Durability
 
@@ -213,7 +213,7 @@ Update multiple inputs atomically:
 
 ```mbt check
 ///|
-test "concepts: batch updates multiple inputs" {
+test "concepts: batch updates" {
   let rt = @incr.Runtime()
   let x = @incr.Input(rt, 0)
   let y = @incr.Input(rt, 0)
@@ -318,35 +318,35 @@ Read modes:
 - `read_or_abort(key)` is the aborting convenience for permissive reads.
 - `get(key)` is strict: it records the same per-key dependency and returns read errors as `Result`, but aborts outside a tracked compute. Use it when top-level use would indicate a bug.
 - `get_or_abort(key)` is the aborting convenience for strict reads.
+This is a lightweight parameterized-query pattern built on top of `DerivedMap`; it does not change runtime verification internals.
 
-This is a lightweight parameterized-query pattern built on top of `Memo`; it does not change runtime verification internals.
-
-Compatibility code can keep using `MemoMap[K, V]` while migrating. In the
-target facade, cache helpers use target names: `has_cached(key)`, `cache_len()`,
+Cache helpers use target names: `has_cached(key)`, `cache_len()`,
 `sweep_cache()`, and `clear_cache()`.
 
 ## Side-Channel Data with Accumulators
 
-Sometimes a memo needs to report extra information — diagnostics, trace events, logs — that is semantically separate from its return value. Threading this data through return types forces allocations at every level of the graph and makes merging fragile. `Accumulator[T]` is the side channel; the checked companion shows memo-local diagnostic collection in [`concepts_examples.mbt.md`](concepts_examples.mbt.md#accumulators-and-reachable-derived-values).
-
-Producers call `acc.push(v)` inside a `Memo` or `HybridMemo` compute. Consumers have three compatibility read methods:
+Sometimes a derived value needs to report extra information — diagnostics, trace events, logs — that is semantically separate from its return value. Threading this data through return types forces allocations at every level of the graph and makes merging fragile. `Accumulator[T]` is the side channel; the checked companion shows derived-local diagnostic collection in [`concepts_examples.mbt.md`](concepts_examples.mbt.md#accumulators-and-reachable-derived-values).
+Producers call `acc.push(v)` inside a `Derived` compute. Consumers read back via target methods:
 
 | Method | Records dep? | On disposal/cycle |
 |--------|--------------|-------------------|
-| `memo.accumulated(acc)` | yes, on `Ok` — invalidates consumer when push set changes | `Result[_, ReadError]` for target cycles/disposal; raises `Failure` for accumulator misuse |
-| `memo.accumulated_or_abort(acc)` | yes — strict compute-closure convenience | aborts on `ReadError`; raises `Failure` for accumulator misuse |
-| `memo.accumulated_peek(acc)` | no — driver/debug use | returns `[]` |
-| `memo.accumulated_result(acc)` | yes, on `Ok` | alias of `accumulated` |
+| `derived.accumulated(acc)` | Yes (inside tracked context) | `Err(ReadError)` for target cycle/disposal; raises `Failure` for disposed accumulator |
+| `derived.accumulated_or_abort(acc)` | Yes (inside tracked context) | aborts |
+| `derived.accumulated_peek(acc)` | No | returns `[]` on disposed |
+| `derived.accumulated_result(acc)` | Yes (inside tracked context) | `Err(ReadError)` (alias) |
+
+Legacy compatibility methods (`Memo::accumulated`, etc.) remain available.
 
 ### Push-Set Invalidation
 
-The key property: when a producer memo recomputes and its push set differs from the previous run, downstream consumers reading via `accumulated` (or the strict `accumulated_or_abort`) invalidate — **even when the producer's return value is structurally equal and would otherwise be backdated**. A per-memo `push_revised_at` counter tracks push-set revisions independently of value equality.
+The key property: when a producer recomputes and its push set differs from the previous run, downstream consumers reading via `accumulated` (or the strict `accumulated_or_abort`) invalidate — **even when the producer's return value is structurally equal and would otherwise be backdated**. A `push_revised_at` counter tracks push-set revisions independently of value equality.
+
 
 This is why an accumulator is not "just an `Array` you return": a plain return would either lose the change (backdated) or force every level to allocate fresh arrays that merge upward.
 
 ### Local-Only Scope
 
-`memo.accumulated(acc)` returns only the values that memo's own compute pushed — **not** values pushed by its dependencies. Transitive aggregation across a subgraph (e.g. collecting diagnostics from every def in a module) is the driver's job: read each producer's `accumulated` at the boundary and union the successful results.
+`derived.accumulated(acc)` returns only the values that producer pushed — **not** values pushed by its dependencies. Transitive aggregation across a subgraph (e.g. collecting diagnostics from every def in a module) is the driver's job: read each producer's `accumulated` at the boundary and union the successful results.
 
 ### Scope-Owned Lifecycle
 
@@ -381,10 +381,7 @@ alive across `Runtime::gc()` sweeps. When `get()` is called:
 
 - **Fast path**: If `verified_at >= current_revision` → return cached value immediately, no dependency walk needed
 - **Slow path**: Walk dependencies, recompute if needed
-
-Compatibility code can keep using `HybridMemo[T]`. The target name is
-`ReachableDerived[T]`, because the deterministic trait is reachability
-propagation. It is still lazy and does not eagerly recompute itself.
+`ReachableDerived[T]` is the target facade. It is still lazy and does not eagerly recompute itself.
 
 ### ReachableDerived vs Derived
 
@@ -424,10 +421,10 @@ If you need to share data between two independent computation graphs, use a plai
 
 | Concept | Purpose |
 |---------|---------|
-| Input (`Signal` compatibility name) | Input values you control |
-| Derived (`Memo` compatibility name) | Derived values with automatic caching |
-| ReachableDerived (`HybridMemo` compatibility name) | Pull memo that participates in reachability propagation through eager/rooted dependents |
-| DerivedMap (`MemoMap` compatibility name) | Per-key memoized derived values |
+| Input | Input values you control |
+| Derived | Derived values with automatic caching |
+| ReachableDerived | Pull memo that participates in reachability propagation through eager/rooted dependents |
+| DerivedMap | Per-key memoized derived values |
 | Accumulator | Side-channel collector with push-set invalidation (diagnostics, logs) |
 | Revision | Global clock for tracking changes |
 | Backdating | Skip downstream work when values don't actually change |
