@@ -48,7 +48,7 @@ test "BackdateEq default: same value but different changed_at → backdate_equal
 }
 
 ///|
-test "new_memo: backdates when backdate_equal returns true (same changed_at)" {
+test "with_backdate: backdates when backdate_equal returns true (same changed_at)" {
   // Stamped returns same changed_at when value is "unchanged" — downstream skips
   let rt = Runtime::Runtime()
   let rev_ref : Ref[Revision] = { val: Revision::initial() }
@@ -82,7 +82,7 @@ test "new_memo: backdates when backdate_equal returns true (same changed_at)" {
 }
 
 ///|
-test "new_memo: propagates when backdate_equal returns false (advanced changed_at)" {
+test "with_backdate: propagates when backdate_equal returns false (advanced changed_at)" {
   let rt = Runtime::Runtime()
   let rev_ref : Ref[Revision] = { val: Revision::initial() }
   let m_count : Ref[Int] = { val: 0 }
@@ -114,7 +114,7 @@ test "new_memo: propagates when backdate_equal returns false (advanced changed_a
 }
 
 ///|
-test "new_no_backdate: always propagates even when value is identical" {
+test "derived_no_backdate: always propagates even when value is identical" {
   let rt = Runtime::Runtime()
   let m_count : Ref[Int] = { val: 0 }
   let sig = Signal::Signal(rt, 0)
@@ -145,7 +145,7 @@ priv struct NoEq {
 }
 
 ///|
-test "new_no_backdate: usable with non-Eq output type" {
+test "derived_no_backdate: usable with non-Eq output type" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 0)
   let m = Derived::derived_no_backdate(rt, () => NoEq::{ data: [sig.get()] })
