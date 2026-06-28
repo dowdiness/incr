@@ -2,14 +2,14 @@
 using @pull {type PullSignalData}
 
 ///|
-/// CellLifecycle impl for PullSignalData (signals).
+/// CellLifecycle impl for PullSignalData (inputs).
 /// Lives here rather than in internal/pull/ because it references
 /// Runtime-only helpers that cannot leak into an internal package.
 impl CellLifecycle for PullSignalData with fn dispose_cell(self, rt, cell_id) -> Unit {
   match rt.core.cell_index[cell_id.id] {
     PullSignal(idx) => {
       if rt.core.batch.depth > 0 {
-        rt.remove_batch_signal(cell_id)
+        rt.remove_batch_input(cell_id)
       }
       self.meta.subscribers.clear()
       self.meta.label = None

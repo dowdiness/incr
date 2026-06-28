@@ -65,10 +65,10 @@ test "panic scope: child of disposed scope aborts" {
 }
 
 ///|
-test "scope: signal creates cell and registers for disposal" {
+test "scope: input creates cell and registers for disposal" {
   let rt = Runtime::Runtime()
   let scope = Scope::new(rt)
-  let sig = scope.signal(42)
+  let sig = scope.input(42)
   inspect(sig.get(), content="42")
   scope.dispose()
   inspect(sig.is_disposed(), content="true")
@@ -78,7 +78,7 @@ test "scope: signal creates cell and registers for disposal" {
 test "scope: memo creates cell and registers for disposal" {
   let rt = Runtime::Runtime()
   let scope = Scope::new(rt)
-  let sig = scope.signal(10)
+  let sig = scope.input(10)
   let m = scope.derived(fn() { sig.get() * 2 })
   inspect(m.read_or_abort(), content="20")
   scope.dispose()
@@ -90,7 +90,7 @@ test "scope: memo creates cell and registers for disposal" {
 test "scope: hybrid_memo creates cell and registers for disposal" {
   let rt = Runtime::Runtime()
   let scope = Scope::new(rt)
-  let sig = scope.signal(5)
+  let sig = scope.input(5)
   let hm = scope.reachable_derived(fn() { sig.get() + 1 })
   inspect(hm.read_or_abort(), content="6")
   scope.dispose()
@@ -102,7 +102,7 @@ test "scope: effect creates cell and registers for disposal" {
   let rt = Runtime::Runtime()
   let scope = Scope::new(rt)
   let ran : Ref[Int] = { val: 0 }
-  let sig = scope.signal(1)
+  let sig = scope.input(1)
   let eff = scope.effect(fn() { ran.val = ran.val + sig.get() })
   inspect(ran.val, content="1")
   scope.dispose()
@@ -113,7 +113,7 @@ test "scope: effect creates cell and registers for disposal" {
 test "scope: reactive creates cell and registers for disposal" {
   let rt = Runtime::Runtime()
   let scope = Scope::new(rt)
-  let sig = scope.signal(3)
+  let sig = scope.input(3)
   let r : Reactive[Int] = scope.reactive(fn() { sig.get() * 3 })
   inspect(read_reactive_for_test(r), content="9")
   scope.dispose()
@@ -124,8 +124,8 @@ test "scope: reactive creates cell and registers for disposal" {
 test "scope: mixed cells all disposed together" {
   let rt = Runtime::Runtime()
   let scope = Scope::new(rt)
-  let s1 = scope.signal(1)
-  let s2 = scope.signal(2)
+  let s1 = scope.input(1)
+  let s2 = scope.input(2)
   let m = scope.derived(fn() { s1.get() + s2.get() })
   let hm = scope.reachable_derived(fn() { m.get_or_abort() * 10 })
   let _ = hm.read_or_abort()
@@ -137,11 +137,11 @@ test "scope: mixed cells all disposed together" {
 }
 
 ///|
-test "panic scope: signal on disposed scope aborts" {
+test "panic scope: input on disposed scope aborts" {
   let rt = Runtime::Runtime()
   let scope = Scope::new(rt)
   scope.dispose()
-  let _ = scope.signal(1)
+  let _ = scope.input(1)
 }
 
 ///|
@@ -155,7 +155,7 @@ test "panic scope: memo on disposed scope aborts" {
 ///|
 test "scope: add_observer disposes observer on scope dispose" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 10)
+  let sig = Input::Input(rt, 10)
   let d = Derived::Derived(rt, fn() { sig.get() * 2 })
   let scope = Scope::new(rt)
   let obs = scope.add_observer(d.observe())
@@ -168,7 +168,7 @@ test "scope: add_observer disposes observer on scope dispose" {
 ///|
 test "scope: manual observer dispose before scope dispose is safe" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let d = Derived::Derived(rt, fn() { sig.get() })
   let scope = Scope::new(rt)
   let obs = scope.add_observer(d.observe())
@@ -181,7 +181,7 @@ test "scope: manual observer dispose before scope dispose is safe" {
 test "scope: observer disposed before owned cells" {
   let rt = Runtime::Runtime()
   let scope = Scope::new(rt)
-  let sig = scope.signal(10)
+  let sig = scope.input(10)
   let m = scope.derived(fn() { sig.get() * 2 })
   let obs = scope.add_observer(m.observe())
   ignore(obs.get())
@@ -193,7 +193,7 @@ test "scope: observer disposed before owned cells" {
 ///|
 test "panic scope: add_observer on disposed scope aborts" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let d = Derived::Derived(rt, fn() { sig.get() })
   let scope = Scope::new(rt)
   scope.dispose()

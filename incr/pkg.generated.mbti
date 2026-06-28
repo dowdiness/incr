@@ -35,8 +35,6 @@ pub fn[Ctx : RuntimeContext, T : Eq] create_reachable_derived(Ctx, () -> T raise
 
 pub fn[Db : Database] create_scope(Db) -> @cells.Scope
 
-pub fn[Db : Database, T] create_signal(Db, T, durability? : @types.Durability, label? : String) -> @cells.Signal[T]
-
 pub fn[Db : Database, T] create_tracked_cell(Db, T, durability? : @types.Durability, label? : String) -> @cells.TrackedCell[T]
 
 // Errors
@@ -88,6 +86,8 @@ pub using @cells {type Input}
 
 pub using @cells {type InputField}
 
+pub using @types {type InputId}
+
 pub using @types {type InternId}
 
 pub using @types {type InternTable}
@@ -120,10 +120,6 @@ pub using @types {type RuntimeId}
 
 pub using @cells {type Scope}
 
-pub using @cells {type Signal}
-
-pub using @types {type SignalId}
-
 pub using @cells {type TrackedCell}
 
 pub using @cells {type Watch}
@@ -154,7 +150,8 @@ pub(open) trait InputFieldOwner {
 pub(open) trait Readable {
   fn is_up_to_date(Self) -> Bool
 }
-pub impl[T] Readable for @cells.Signal[T]
+pub impl[T] Readable for @cells.Input[T]
+pub impl[T] Readable for @cells.InputField[T]
 pub impl[T] Readable for @cells.TrackedCell[T]
 
 pub(open) trait RuntimeContext {

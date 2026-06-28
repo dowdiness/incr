@@ -424,7 +424,7 @@ test "typed spreadsheet spike: on_derived_event tracks formula chain recompute" 
 test "typed spreadsheet spike: cell_info tracks revision and deps" {
   let rt = @incr.Runtime()
   let scope = @incr.Scope::new(rt)
-  let source = scope.signal(10, label="source")
+  let source = scope.input(10, label="source")
   let derived = scope.derived(() => source.get() / 2)
 
   let _ = derived.read_or_abort()
@@ -435,7 +435,7 @@ test "typed spreadsheet spike: cell_info tracks revision and deps" {
       let before_verified = before.verified_at.value
       inspect(before.dependencies.contains(source.id()), content="true")
 
-      source.set_unconditional(10)
+      source.force_set(10)
       inspect(derived.read_or_abort(), content="5")
 
       match rt.cell_info(derived.id()) {

@@ -1,7 +1,7 @@
 ///|
 test "subscriber: dependents accessible via public API" {
   let rt = Runtime::Runtime()
-  let x = Signal::Signal(rt, 10)
+  let x = Input::Input(rt, 10)
   let doubled = Derived::Derived(rt, () => x.get() * 2)
   let _ = read_derived_for_test(doubled)
   let deps = rt.dependents(x.id())
@@ -12,7 +12,7 @@ test "subscriber: dependents accessible via public API" {
 ///|
 test "subscriber: chain dependencies tracked" {
   let rt = Runtime::Runtime()
-  let a = Signal::Signal(rt, 1)
+  let a = Input::Input(rt, 1)
   let b = Derived::Derived(rt, () => a.get() + 1)
   let c = Derived::Derived(rt, () => b.get_or_abort() * 2)
   let _ = read_derived_for_test(c)
@@ -30,9 +30,9 @@ test "subscriber: chain dependencies tracked" {
 ///|
 test "subscriber: dynamic deps update dependents via public API" {
   let rt = Runtime::Runtime()
-  let flag = Signal::Signal(rt, true)
-  let a = Signal::Signal(rt, 10)
-  let b = Signal::Signal(rt, 20)
+  let flag = Input::Input(rt, true)
+  let a = Input::Input(rt, 10)
+  let b = Input::Input(rt, 20)
   let pick = Derived::Derived(rt, () => {
     if flag.get() {
       a.get()
@@ -56,7 +56,7 @@ test "subscriber: dynamic deps update dependents via public API" {
 test "subscriber: dependents returns empty for cross-runtime id" {
   let rt1 = Runtime::Runtime()
   let rt2 = Runtime::Runtime()
-  let x = Signal::Signal(rt1, 10)
+  let x = Input::Input(rt1, 10)
   let deps = rt2.dependents(x.id())
   inspect(deps.length(), content="0")
 }
@@ -64,7 +64,7 @@ test "subscriber: dependents returns empty for cross-runtime id" {
 ///|
 test "subscriber: dependents returns empty for disposed id" {
   let rt = Runtime::Runtime()
-  let x = Signal::Signal(rt, 10)
+  let x = Input::Input(rt, 10)
   let doubled = Derived::Derived(rt, () => x.get() * 2)
   let _ = read_derived_for_test(doubled)
   let x_id = x.id()
@@ -76,7 +76,7 @@ test "subscriber: dependents returns empty for disposed id" {
 ///|
 test "push suspension: full lifecycle via public API" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 10)
+  let sig = Input::Input(rt, 10)
   let r = @incr.Reactive::new(rt, fn() { sig.get() * 2 })
   // Observe
   let obs = r.observe()

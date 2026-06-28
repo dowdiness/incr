@@ -20,8 +20,21 @@ All notable changes to `dowdiness/incr` are documented in this file.
   `Memo::new_no_backdate` are gone — use
   `Derived::with_backdate` (public, requires `T : BackdateEq`) and
   `Derived::derived_no_backdate`. The
-  `Memo::accumulated*` wrappers have been removed — use `Derived::accumulated*`
   directly.
+- **Remove `Signal` type.** The legacy compatibility type `Signal[T]`
+  has been removed. Use `Input[T]` instead. This includes:
+  - `Signal(rt, v)` → `Input(rt, v)`
+  - `Signal::new(rt, v)` → `Input::new(rt, v)`
+  - `Signal::set_unconditional(v)` → `Input::force_set(v)`
+  - `Signal::is_up_to_date()` → `Input::is_fresh()` or `Input::is_up_to_date()`
+  - `create_signal(db, v)` → `create_input(db, v)`
+  - `Scope::signal(self, v)` → `Scope::input(self, v)`
+  - `SignalId[T]` → `InputId[T]`
+  - `TrackedCell::as_signal()` → `TrackedCell::as_input()`
+  - The `Input` wrapper struct in `target_facade.mbt` has been deleted;
+    `Input[T]` is now the primary type in `input.mbt`.
+  - `Readable` trait impl moved from `Signal` to `Input`.
+  - `Freshness` trait impl for `Input` is unchanged.
 ### Migration
 
 - `Memo(rt, compute)` → `Derived(rt, compute)`
@@ -29,6 +42,13 @@ All notable changes to `dowdiness/incr` are documented in this file.
 - `HybridMemo(rt, compute)` → `ReachableDerived(rt, compute)`
 - `memo.accumulated(acc)` → `derived.accumulated(acc)`
 - `.inner.*` → direct method calls
+- `Signal(rt, v)` → `Input(rt, v)`
+- `Signal::set_unconditional(v)` → `Input::force_set(v)`
+- `Signal::is_up_to_date()` → `Input::is_fresh()`
+- `create_signal(db, v)` → `create_input(ctx, v)`
+- `scope.signal(v)` → `scope.input(v)`
+- `cell.as_signal()` → `cell.as_input()`
+- `SignalId[T]` → `InputId[T]`
 
 ### Changed
 

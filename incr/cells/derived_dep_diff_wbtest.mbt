@@ -3,7 +3,7 @@
 // its durability must be preserved correctly across multiple recomputations.
 test "dep diff: stable deps preserve durability" {
   let rt = Runtime::Runtime()
-  let a = Signal::Signal(rt, 1, durability=High)
+  let a = Input::Input(rt, 1, durability=High)
   let m = Derived(rt, () => a.get() + 1)
   let _ = m.read_or_abort()
   let memo_data = rt.get_memo_data(m.id())
@@ -16,13 +16,13 @@ test "dep diff: stable deps preserve durability" {
 }
 
 ///|
-// When a conditional memo switches which signal it reads, the dependency
+// When a conditional memo switches which input it reads, the dependency
 // list and durability must both reflect the new set of dependencies.
 test "dep diff: dynamic deps update dep list and durability" {
   let rt = Runtime::Runtime()
-  let flag = Signal::Signal(rt, true, durability=High)
-  let a = Signal::Signal(rt, 1, durability=High)
-  let b = Signal::Signal(rt, 2, durability=Low)
+  let flag = Input::Input(rt, true, durability=High)
+  let a = Input::Input(rt, 1, durability=High)
+  let b = Input::Input(rt, 2, durability=Low)
   let m = Derived(rt, () => if flag.get() { a.get() } else { b.get() })
   // Initial: reads flag(High) and a(High) → min durability = High
   let _ = m.read_or_abort()

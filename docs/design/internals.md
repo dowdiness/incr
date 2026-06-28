@@ -33,7 +33,7 @@ Invalidation strategies for dependency graphs fall into three families:
 
 `incr` started with a pure pull-based strategy and has since added a hybrid cell type:
 
-- **`Signal`/`Memo`** — Pure pull. `Signal::set()` only bumps a revision counter. All verification and recomputation happens lazily when `Memo::get()` is called.
+- **`Input`/`Derived`** — Pure pull. `Input::set()` only bumps a revision counter. All verification and recomputation happens lazily when `Memo::get()` is called.
 - **`HybridMemo`** — Pull memo that participates in `push_reachable_count` so live `Reactive`/`Effect` observers downstream keep upstream cells reachable for `gc()`. Recomputation is the same lazy `verified_at < current_revision` check as `Memo`; there is no separate dirty flag. The "hybrid" is reachability, not invalidation.
 
 ### Where `incr` Sits in the Design Space
@@ -93,21 +93,21 @@ Useful regression-test names follow the same vocabulary: "dynamic dependency rep
 
 The library's core pull-mode building blocks are two cell types:
 
-- **Signal[T]** — An input cell. Its value is set externally by the user via `set()`. Signals are the leaves of the dependency graph.
+- **Input[T]** — An input cell. Its value is set externally by the user via `set()`. Signals are the leaves of the dependency graph.
 - **Memo[T]** — A derived cell. Its value is computed by a user-provided function that may read other Signals and Memos. Memos are the interior nodes of the dependency graph.
 
 This two-tier model keeps the API surface small while supporting arbitrarily complex computation graphs.
 
 ### The Dependency Graph
 
-The dependency graph is **implicit** and **dynamically discovered**. There is no upfront declaration of which Memos depend on which Signals. Instead, when a Memo's compute function runs, every `Signal::get()` or `Memo::get()` call it makes is recorded as a dependency. This means:
+The dependency graph is **implicit** and **dynamically discovered**. There is no upfront declaration of which Memos depend on which Signals. Instead, when a Memo's compute function runs, every `Input::get()` or `Derived::get()` call it makes is recorded as a dependency. This means:
 
 - Dependencies can change between recomputations (a Memo might conditionally read different inputs).
 - The graph is rebuilt each time a Memo recomputes, always reflecting the current computation structure.
 
 ### Revisions as a Global Clock
 
-A **Revision** is a monotonically increasing integer that serves as the system's logical clock. Each time a Signal's value changes, the global revision is bumped. Every cell records two timestamps:
+A **Revision** is a monotonically increasing integer that serves as the system's logical clock. Each time a input's value changes, the global revision is bumped. Every cell records two timestamps:
 
 - **`changed_at`** — The revision at which this cell's value last actually changed.
 - **`verified_at`** — The revision at which this cell was last confirmed to be up-to-date.
@@ -124,7 +124,7 @@ The `Runtime` maintains a `tracking_stack`: an array of `ActiveQuery` frames. Ea
 The mechanism works as follows:
 
 1. When a Memo needs to recompute, it pushes a new `ActiveQuery` frame onto the stack (`Runtime::push_tracking`).
-2. The Memo's compute function runs. Every `Signal::get()` or `Memo::get()` call invokes `Runtime::record_dependency`, which appends the read cell's ID to the top frame.
+2. The Memo's compute function runs. Every `Input::get()` or `Derived::get()` call invokes `Runtime::record_dependency`, which appends the read cell's ID to the top frame.
 3. When the compute function returns, the frame is popped (`Runtime::pop_tracking`) and the collected dependency list is stored on the Memo's `MemoData`.
 
 ### Deduplication
@@ -179,7 +179,7 @@ If we encounter a memo that is already being verified, we have a cycle.
 
 ```
 for each dependency:
-    if dep is Signal:
+    if dep is Input:
         if signal.changed_at > memo.verified_at: changed = true; break
     if dep is Memo:
         push PullVerifyFrame and recurse iteratively
@@ -261,9 +261,9 @@ Three durability levels (Low, Medium, High) classify how often an input changes.
 
 ### Type Erasure via Per-Engine SoA
 
-The runtime stores cells in per-engine Structure-of-Arrays (SoA) grouped by propagation mode: pull-mode signals and memos, push-mode reactives and effects, and datalog relations/rules. Typed values stay in user-facing handles (`Signal[T]`, `Memo[T]`); the runtime sees only type-erased closures and metadata. Two dispatch tables (`cell_ops`, `cell_lifecycle`) provide uniform behavioral access via trait objects indexed by `CellId`. See [`cells/runtime.mbt`](../../incr/cells/runtime.mbt) for the SoA layout and [`cells/internal/shared/cell_ops.mbt`](../../incr/cells/internal/shared/cell_ops.mbt) for the trait interfaces.
+The runtime stores cells in per-engine Structure-of-Arrays (SoA) grouped by propagation mode: pull-mode inputs and deriveds, push-mode reactives and effects, and datalog relations/rules. Typed values stay in user-facing handles (`Input[T]`, `Derived[T]`); the runtime sees only type-erased closures and metadata. Two dispatch tables (`cell_ops`, `cell_lifecycle`) provide uniform behavioral access via trait objects indexed by `CellId`. See [`cells/runtime.mbt`](../../incr/cells/runtime.mbt) for the SoA layout and [`cells/internal/shared/cell_ops.mbt`](../../incr/cells/internal/shared/cell_ops.mbt) for the trait interfaces.
 
-This design means the verification algorithm in `cells/verify.mbt` operates entirely on `PullSignalData`/`MemoData` without knowing any value types, and the batch commit logic can commit pending signal values without knowing their types.
+This design means the verification algorithm in `cells/verify.mbt` operates entirely on `PullSignalData`/`MemoData` without knowing any value types, and the batch commit logic can commit pending input values without knowing their types.
 
 ### Reference Semantics Invariant
 
@@ -321,13 +321,13 @@ When an error occurs during the iterative verification walk, the `clear_verify_s
 
 ### The Problem
 
-Without batching, each `Signal::set()` call bumps the global revision independently. If a user needs to update multiple signals atomically (e.g., setting both `x` and `y` coordinates), intermediate states are visible to memo reads, and each set triggers a separate verification pass.
+Without batching, each `Input::set()` call bumps the global revision independently. If a user needs to update multiple signals atomically (e.g., setting both `x` and `y` coordinates), intermediate states are visible to memo reads, and each set triggers a separate verification pass.
 
 ### Two-Phase Batch Commit
 
 `Runtime::batch(fn)` groups multiple signal updates into a single revision:
 
-1. **Write phase**: Inside the batch closure, `Signal::set()` stores new values as `pending_value` on the Signal rather than committing immediately. The actual `value` field is unchanged, so any `get()` calls during the batch see the pre-batch values (transactional semantics — reads don't see uncommitted writes). Each signal registers a type-erased `commit_pending` closure on its `PullSignalData`.
+1. **Write phase**: Inside the batch closure, `Input::set()` stores new values as `pending_value` on the Signal rather than committing immediately. The actual `value` field is unchanged, so any `get()` calls during the batch see the pre-batch values (transactional semantics — reads don't see uncommitted writes). Each signal registers a type-erased `commit_pending` closure on its `PullSignalData`.
 
 2. **Commit phase**: When the outermost batch ends, the runtime iterates over `batch_pending : Array[&Committable]` and calls each entry's `do_commit()` method via the `Committable` trait object. Each `do_commit()` invokes the signal's `commit_pending` closure, which compares the pending value against the current value using `Eq`. Only signals whose values actually changed are marked with the new revision. The pending list is then cleared via `.clear()`.
 
@@ -410,7 +410,7 @@ The library is split into four MoonBit sub-packages. The root package re-exports
 
 | File | Purpose |
 |------|---------|
-| `cells/input.mbt` | `Signal[T]` — input cells with same-value optimization and durability |
+| `cells/input.mbt` | `Input[T]` — input cells with same-value optimization and durability |
 | `cells/internal/pull/pull_signal.mbt` | `PullSignalData` — SoA entry for input cells; `CellOps` + `Committable` impls |
 | `cells/derived.mbt` | `Memo[T]` — derived cells with memoization, backdating, and dependency tracking |
 | `cells/internal/pull/memo_data.mbt` | `MemoData` — unified SoA entry for pull and hybrid derived cells |
@@ -504,18 +504,18 @@ Unit tests (`*_test.mbt`) and whitebox tests (`*_wbtest.mbt`) live in `incr/cell
 | `cells/derived_map_test.mbt` | MemoMap keyed caching and lazy per-key recomputation |
 | `cells/backdating_test.mbt` | Backdating (value-unchanged skips downstream recomputation) |
 | `cells/callback_test.mbt` | `Runtime::on_change` global callback |
-| `cells/on_change_test.mbt` | `Signal::on_change` / `Memo::on_change` per-cell callbacks |
+| `cells/on_change_test.mbt` | `Input::on_change` / `Derived::on_change` per-cell callbacks |
 | `cells/cycle_test.mbt` | Cycle detection via `get_result()` and `get()` panics |
 | `cells/cycle_path_test.mbt` | Cycle error path formatting and content |
 | `cells/verify_path_test.mbt` | Cycle detection during verification (reverification path) |
 | `cells/custom_eq_test.mbt` | Custom `Eq` implementations and backdating interaction |
 | `cells/debug_test.mbt` | Debug output and formatting |
-| `cells/introspection_test.mbt` | `Signal::cell_info`, `Memo::cell_info`, `Runtime::cell_info` |
+| `cells/introspection_test.mbt` | `Input::cell_info`, `Memo::cell_info`, `Runtime::cell_info` |
 | `cells/batch_wbtest.mbt` | Batch internals: revision, revert detection, panic guards (whitebox) |
 | `cells/durability_wbtest.mbt` | Durability shortcut internals (whitebox) |
 | `cells/cell_wbtest.mbt` | `CellId::hash` properties (whitebox) |
 | `cells/cell_ref_wbtest.mbt` | `CellRef` dispatch and SoA index properties (whitebox) |
-| `cells/input_wbtest.mbt` | Signal internals (whitebox) |
+| `cells/input_wbtest.mbt` | Input internals (whitebox) |
 | `cells/verify_wbtest.mbt` | `pull_verify` invariant violation abort (whitebox) |
 | `cells/pull_verify_wbtest.mbt` | `pull_verify` SoA dispatch and short-circuit behavior (whitebox) |
 | `cells/soa_wbtest.mbt` | SoA allocation and `cell_index` invariants (whitebox) |

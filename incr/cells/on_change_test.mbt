@@ -1,9 +1,9 @@
 ///|
-test "on_change fires on signal set" {
+test "on_change fires on input set" {
   let rt = Runtime::Runtime()
   let mut count = 0
   rt.set_on_change(() => count = count + 1)
-  let s = Signal::Signal(rt, 0)
+  let s = Input::Input(rt, 0)
   s.set(1)
   inspect(count, content="1")
   s.set(2)
@@ -15,7 +15,7 @@ test "on_change does not fire on same value" {
   let rt = Runtime::Runtime()
   let mut count = 0
   rt.set_on_change(() => count = count + 1)
-  let s = Signal::Signal(rt, 0)
+  let s = Input::Input(rt, 0)
   s.set(0)
   inspect(count, content="0")
 }
@@ -25,8 +25,8 @@ test "on_change fires once at batch end" {
   let rt = Runtime::Runtime()
   let mut count = 0
   rt.set_on_change(() => count = count + 1)
-  let a = Signal::Signal(rt, 0)
-  let b = Signal::Signal(rt, 0)
+  let a = Input::Input(rt, 0)
+  let b = Input::Input(rt, 0)
   rt.batch(() => {
     a.set(1)
     b.set(2)
@@ -39,7 +39,7 @@ test "on_change does not fire on batch revert" {
   let rt = Runtime::Runtime()
   let mut count = 0
   rt.set_on_change(() => count = count + 1)
-  let s = Signal::Signal(rt, 0)
+  let s = Input::Input(rt, 0)
   rt.batch(() => {
     s.set(5)
     s.set(0)
@@ -52,8 +52,8 @@ test "on_change with set_unconditional" {
   let rt = Runtime::Runtime()
   let mut count = 0
   rt.set_on_change(() => count = count + 1)
-  let s = Signal::Signal(rt, 0)
-  s.set_unconditional(0)
+  let s = Input::Input(rt, 0)
+  s.force_set(0)
   inspect(count, content="1")
 }
 
@@ -62,7 +62,7 @@ test "clear_on_change stops notifications" {
   let rt = Runtime::Runtime()
   let mut count = 0
   rt.set_on_change(() => count = count + 1)
-  let s = Signal::Signal(rt, 0)
+  let s = Input::Input(rt, 0)
   s.set(1)
   inspect(count, content="1")
   rt.clear_on_change()
@@ -75,7 +75,7 @@ test "on_change does not fire during batch" {
   let rt = Runtime::Runtime()
   let mut fired_during_batch = false
   let mut check_inside_batch = false
-  let s = Signal::Signal(rt, 0)
+  let s = Input::Input(rt, 0)
   rt.set_on_change(() => fired_during_batch = true)
   rt.batch(() => {
     s.set(1)
@@ -90,7 +90,7 @@ test "on_change with memo and backdating" {
   let rt = Runtime::Runtime()
   let mut count = 0
   rt.set_on_change(() => count = count + 1)
-  let x = Signal::Signal(rt, 10)
+  let x = Input::Input(rt, 10)
   let parity = Derived::Derived(rt, () => x.get() % 2 == 0)
   inspect(parity.read_or_abort(), content="true")
   x.set(12)
@@ -99,10 +99,10 @@ test "on_change with memo and backdating" {
 }
 
 ///|
-test "on_change optional param fires on signal set" {
+test "on_change optional param fires on input set" {
   let mut count = 0
   let rt = Runtime::Runtime(on_change=() => count = count + 1)
-  let s = Signal::Signal(rt, 0)
+  let s = Input::Input(rt, 0)
   s.set(1)
   inspect(count, content="1")
 }
@@ -111,7 +111,7 @@ test "on_change optional param fires on signal set" {
 test "on_change optional param defaults to none" {
   let count = 0
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 0)
+  let s = Input::Input(rt, 0)
   s.set(1)
   inspect(count, content="0")
 }
@@ -125,7 +125,7 @@ test "add_on_change_listener: two additive listeners both fire in registration o
   let mut log = ""
   rt.add_on_change_listener(() => log = log + "a") |> ignore
   rt.add_on_change_listener(() => log = log + "b") |> ignore
-  let s = Signal::Signal(rt, 0)
+  let s = Input::Input(rt, 0)
   s.set(1)
   inspect(log, content="ab")
 }
@@ -135,7 +135,7 @@ test "remove_on_change_listener: stops that listener and is idempotent" {
   let rt = Runtime::Runtime()
   let mut count = 0
   let id = rt.add_on_change_listener(() => count = count + 1)
-  let s = Signal::Signal(rt, 0)
+  let s = Input::Input(rt, 0)
   s.set(1)
   inspect(count, content="1")
   rt.remove_on_change_listener(id)
@@ -153,7 +153,7 @@ test "set_on_change singleton coexists with additive listeners" {
   let mut log = ""
   rt.set_on_change(() => log = log + "S")
   rt.add_on_change_listener(() => log = log + "a") |> ignore
-  let s = Signal::Signal(rt, 0)
+  let s = Input::Input(rt, 0)
   s.set(1)
   inspect(log, content="Sa")
 }
@@ -165,7 +165,7 @@ test "set_on_change replaces the singleton in place (position preserved)" {
   rt.set_on_change(() => log = log + "S1")
   rt.add_on_change_listener(() => log = log + "a") |> ignore
   rt.set_on_change(() => log = log + "S2")
-  let s = Signal::Signal(rt, 0)
+  let s = Input::Input(rt, 0)
   s.set(1)
   inspect(log, content="S2a")
 }
@@ -178,7 +178,7 @@ test "clear_on_change then set_on_change re-appends at the end" {
   rt.add_on_change_listener(() => log = log + "a") |> ignore
   rt.clear_on_change()
   rt.set_on_change(() => log = log + "S2")
-  let s = Signal::Signal(rt, 0)
+  let s = Input::Input(rt, 0)
   s.set(1)
   inspect(log, content="aS2")
 }
@@ -198,7 +198,7 @@ test "on-change mutation during callback takes effect on the next fire (snapshot
     }
   })
   |> ignore
-  let s = Signal::Signal(rt, 0)
+  let s = Input::Input(rt, 0)
   s.set(1)
   // "b" was registered during this fire but is not in the snapshot → not fired.
   inspect(log, content="a")
@@ -219,7 +219,7 @@ test "remove_on_change_listener with another runtime's id is a no-op (runtime-sc
   inspect(id1 == _id2, content="false")
   // Removing rt1's id from rt2 must not detach rt2's listener.
   rt2.remove_on_change_listener(id1)
-  let s2 = Signal::Signal(rt2, 0)
+  let s2 = Input::Input(rt2, 0)
   s2.set(1)
   inspect(count2, content="1")
 }
@@ -229,7 +229,7 @@ test "add_on_change_listener registered mid-batch participates in the batch-end 
   let rt = Runtime::Runtime()
   let mut log = ""
   rt.add_on_change_listener(() => log = log + "a") |> ignore
-  let s = Signal::Signal(rt, 0)
+  let s = Input::Input(rt, 0)
   rt.batch(() => {
     s.set(1)
     rt.add_on_change_listener(() => log = log + "b") |> ignore

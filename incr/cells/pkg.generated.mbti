@@ -177,14 +177,22 @@ pub fn[K : Hash + Eq, V] FunctionalRelation::new(Runtime, merge? : (V, V) -> V, 
 
 pub(all) struct Input[T] {
   // private fields
-}
+} derive(@debug.Debug)
 pub fn[T] Input::Input(Runtime, T, durability? : @types.Durability, label? : String) -> Self[T]
+pub fn[T] Input::clear_on_change(Self[T]) -> Unit
 pub fn[T, U : Eq] Input::derived(Self[T], (T) -> U, label? : String) -> Derived[U]
 pub fn[T, U] Input::derived_no_backdate(Self[T], (T) -> U, label? : String) -> Derived[U]
+pub fn[T] Input::dispose(Self[T]) -> Unit
+pub fn[T] Input::durability(Self[T]) -> @types.Durability
 pub fn[T] Input::force_set(Self[T], T) -> Unit
 pub fn[T] Input::get(Self[T]) -> T
+pub fn[T] Input::get_result(Self[T]) -> Result[T, @types.CycleError]
 pub fn[T] Input::id(Self[T]) -> @types.CellId
+pub fn[T] Input::is_disposed(Self[T]) -> Bool
 pub fn[T] Input::is_fresh(Self[T]) -> Bool
+pub fn[T] Input::is_up_to_date(Self[T]) -> Bool
+pub fn[T] Input::new(Runtime, T, durability? : @types.Durability, label? : String) -> Self[T]
+pub fn[T] Input::on_change(Self[T], (T) -> Unit) -> Unit
 pub fn[T] Input::peek(Self[T]) -> T
 pub fn[T : Eq] Input::set(Self[T], T) -> Unit
 pub impl[T] Trackable for Input[T]
@@ -199,6 +207,7 @@ pub fn[T] InputField::dispose(Self[T]) -> Unit
 pub fn[T] InputField::durability(Self[T]) -> @types.Durability
 pub fn[T] InputField::force_set(Self[T], T) -> Unit
 pub fn[T] InputField::get(Self[T]) -> T
+pub fn[T] InputField::get_result(Self[T]) -> Result[T, @types.CycleError]
 pub fn[T] InputField::id(Self[T]) -> @types.CellId
 pub fn[T] InputField::is_disposed(Self[T]) -> Bool
 pub fn[T] InputField::is_fresh(Self[T]) -> Bool
@@ -315,35 +324,17 @@ pub fn Scope::is_disposed(Self) -> Bool
 pub fn Scope::new(Runtime) -> Self
 pub fn[T : Eq] Scope::reachable_derived(Self, () -> T raise Failure, label? : String) -> ReachableDerived[T]
 pub fn[T : Eq] Scope::reactive(Self, () -> T) -> Reactive[T]
-pub fn[T] Scope::signal(Self, T, durability? : @types.Durability, label? : String) -> Signal[T]
 pub impl @debug.Debug for Scope
-
-pub(all) struct Signal[T] {
-  // private fields
-} derive(@debug.Debug)
-pub fn[T] Signal::Signal(Runtime, T, durability? : @types.Durability, label? : String) -> Self[T]
-pub fn[T] Signal::clear_on_change(Self[T]) -> Unit
-pub fn[T] Signal::dispose(Self[T]) -> Unit
-pub fn[T] Signal::durability(Self[T]) -> @types.Durability
-pub fn[T] Signal::get(Self[T]) -> T
-pub fn[T] Signal::get_result(Self[T]) -> Result[T, @types.CycleError]
-pub fn[T] Signal::id(Self[T]) -> @types.CellId
-pub fn[T] Signal::is_disposed(Self[T]) -> Bool
-pub fn[T] Signal::is_up_to_date(Self[T]) -> Bool
-pub fn[T] Signal::new(Runtime, T, durability? : @types.Durability, label? : String) -> Self[T]
-pub fn[T] Signal::on_change(Self[T], (T) -> Unit) -> Unit
-pub fn[T] Signal::peek(Self[T]) -> T
-pub fn[T : Eq] Signal::set(Self[T], T) -> Unit
-pub fn[T] Signal::set_unconditional(Self[T], T) -> Unit
 
 pub(all) struct TrackedCell[T] {
   // private fields
 } derive(@debug.Debug)
 pub fn[T] TrackedCell::TrackedCell(Runtime, T, durability? : @types.Durability, label? : String) -> Self[T]
-pub fn[T] TrackedCell::as_signal(Self[T]) -> Signal[T]
+pub fn[T] TrackedCell::as_input(Self[T]) -> Input[T]
 pub fn[T] TrackedCell::clear_on_change(Self[T]) -> Unit
 pub fn[T] TrackedCell::dispose(Self[T]) -> Unit
 pub fn[T] TrackedCell::durability(Self[T]) -> @types.Durability
+pub fn[T] TrackedCell::force_set(Self[T], T) -> Unit
 pub fn[T] TrackedCell::get(Self[T]) -> T
 pub fn[T] TrackedCell::get_result(Self[T]) -> Result[T, @types.CycleError]
 pub fn[T] TrackedCell::id(Self[T]) -> @types.CellId
@@ -353,7 +344,6 @@ pub fn[T] TrackedCell::new(Runtime, T, durability? : @types.Durability, label? :
 pub fn[T] TrackedCell::on_change(Self[T], (T) -> Unit) -> Unit
 pub fn[T] TrackedCell::peek(Self[T]) -> T
 pub fn[T : Eq] TrackedCell::set(Self[T], T) -> Unit
-pub fn[T] TrackedCell::set_unconditional(Self[T], T) -> Unit
 
 pub struct Watch[T] {
   // private fields

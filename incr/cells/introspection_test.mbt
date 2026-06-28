@@ -1,36 +1,36 @@
-// Signal introspection
+// Input introspection
 
 ///|
-test "signal: id() returns valid CellId" {
+test "input: id() returns valid CellId" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 42)
+  let sig = Input::Input(rt, 42)
   let id = sig.id()
   inspect(id.id >= 0, content="true")
 }
 
 ///|
-test "signal: durability() returns construction durability" {
+test "input: durability() returns construction durability" {
   let rt = Runtime::Runtime()
-  let low_sig = Signal::Signal(rt, 1)
-  let high_sig = Signal::Signal(rt, 2, durability=High)
+  let low_sig = Input::Input(rt, 1)
+  let high_sig = Input::Input(rt, 2, durability=High)
 
   inspect(low_sig.durability(), content="Low")
   inspect(high_sig.durability(), content="High")
 }
 
 ///|
-test "signal: multiple signals have distinct IDs" {
+test "input: multiple inputs have distinct IDs" {
   let rt = Runtime::Runtime()
-  let a = Signal::Signal(rt, 10)
-  let b = Signal::Signal(rt, 20)
+  let a = Input::Input(rt, 10)
+  let b = Input::Input(rt, 20)
 
   inspect(a.id() != b.id(), content="true")
 }
 
 ///|
-test "signal: label stored via optional param" {
+test "input: label stored via optional param" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 42, label="answer")
+  let sig = Input::Input(rt, 42, label="answer")
   match rt.cell_info(sig.id()) {
     Some(info) =>
       debug_inspect(
@@ -44,16 +44,16 @@ test "signal: label stored via optional param" {
 }
 
 ///|
-test "signal: durability optional param works" {
+test "input: durability optional param works" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 42, durability=High)
+  let sig = Input::Input(rt, 42, durability=High)
   inspect(sig.durability(), content="High")
 }
 
 ///|
-test "signal: no label gives None in cell_info" {
+test "input: no label gives None in cell_info" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   match rt.cell_info(sig.id()) {
     Some(info) => debug_inspect(info.label, content="None")
     None => abort("expected cell info")
@@ -80,8 +80,8 @@ test "derived: dependencies() returns empty before computation" {
 ///|
 test "derived: dependencies() includes all inputs after computation" {
   let rt = Runtime::Runtime()
-  let x = Signal::Signal(rt, 1)
-  let y = Signal::Signal(rt, 2)
+  let x = Input::Input(rt, 1)
+  let y = Input::Input(rt, 2)
   let sum = Derived::Derived(rt, () => x.get() + y.get())
 
   sum.read_or_abort() |> ignore
@@ -94,7 +94,7 @@ test "derived: dependencies() includes all inputs after computation" {
 ///|
 test "derived: changed_at and verified_at track revisions" {
   let rt = Runtime::Runtime()
-  let x = Signal::Signal(rt, 5)
+  let x = Input::Input(rt, 5)
   x.set(10) // Bump revision to 1
   let doubled = Derived::Derived(rt, () => x.get() * 2)
 
@@ -116,9 +116,9 @@ test "derived: changed_at and verified_at track revisions" {
 ///|
 test "derived: dependencies update on recomputation" {
   let rt = Runtime::Runtime()
-  let cond = Signal::Signal(rt, true)
-  let a = Signal::Signal(rt, 1)
-  let b = Signal::Signal(rt, 2)
+  let cond = Input::Input(rt, true)
+  let a = Input::Input(rt, 1)
+  let b = Input::Input(rt, 2)
 
   let dynamic = Derived::Derived(rt, () => {
     if cond.get() {
@@ -143,7 +143,7 @@ test "derived: dependencies update on recomputation" {
 ///|
 test "derived: label stored via optional param" {
   let rt = Runtime::Runtime()
-  let x = Signal::Signal(rt, 1)
+  let x = Input::Input(rt, 1)
   let d = Derived::Derived(rt, () => x.get() * 2, label="doubled")
   let _ = d.read_or_abort()
   match rt.cell_info(d.id()) {
@@ -161,7 +161,7 @@ test "derived: label stored via optional param" {
 ///|
 test "derived: no label gives None in cell_info" {
   let rt = Runtime::Runtime()
-  let x = Signal::Signal(rt, 1)
+  let x = Input::Input(rt, 1)
   let d = Derived::Derived(rt, () => x.get() * 2)
   let _ = d.read_or_abort()
   match rt.cell_info(d.id()) {
@@ -173,9 +173,9 @@ test "derived: no label gives None in cell_info" {
 // Runtime cell_info
 
 ///|
-test "runtime: cell_info() returns metadata for signal" {
+test "runtime: cell_info() returns metadata for input" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 42, durability=High)
+  let sig = Input::Input(rt, 42, durability=High)
 
   match rt.cell_info(sig.id()) {
     Some(info) => {
@@ -190,7 +190,7 @@ test "runtime: cell_info() returns metadata for signal" {
 ///|
 test "runtime: cell_info() returns metadata for derived" {
   let rt = Runtime::Runtime()
-  let x = Signal::Signal(rt, 10)
+  let x = Input::Input(rt, 10)
   x.set(20) // Bump revision to 1
   let doubled = Derived::Derived(rt, () => x.get() * 2)
 
@@ -210,7 +210,7 @@ test "runtime: cell_info() returns metadata for derived" {
 ///|
 test "runtime: cell_info() returns None for out-of-bounds CellId" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   let invalid_id : CellId = { runtime_id: sig.id().runtime_id, id: 999 }
 
   match rt.cell_info(invalid_id) {
@@ -222,7 +222,7 @@ test "runtime: cell_info() returns None for out-of-bounds CellId" {
 ///|
 test "runtime: cell_info() returns None for unused slot" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let beyond_id : CellId = { runtime_id: sig.id().runtime_id, id: 1000 }
 
   match rt.cell_info(beyond_id) {
@@ -234,7 +234,7 @@ test "runtime: cell_info() returns None for unused slot" {
 ///|
 test "runtime: cell_info() returns None for negative CellId" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 42)
+  let sig = Input::Input(rt, 42)
   let negative_id : CellId = { runtime_id: sig.id().runtime_id, id: -1 }
 
   match rt.cell_info(negative_id) {
@@ -248,8 +248,8 @@ test "runtime: cell_info() returns None for CellId from different runtime" {
   let rt1 = Runtime::Runtime()
   let rt2 = Runtime::Runtime()
 
-  let sig1 = Signal::Signal(rt1, 100)
-  let sig2 = Signal::Signal(rt2, 200)
+  let sig1 = Input::Input(rt1, 100)
+  let sig2 = Input::Input(rt2, 200)
 
   match rt2.cell_info(sig1.id()) {
     Some(_) => abort("Expected None for CellId from different runtime")
@@ -277,8 +277,8 @@ test "runtime: cell_info() returns None for CellId from different runtime" {
 ///|
 test "integration: debug why derived recomputed" {
   let rt = Runtime::Runtime()
-  let x = Signal::Signal(rt, 10)
-  let y = Signal::Signal(rt, 20)
+  let x = Input::Input(rt, 10)
+  let y = Input::Input(rt, 20)
   let sum = Derived::Derived(rt, () => x.get() + y.get())
 
   sum.read_or_abort() |> ignore
@@ -312,7 +312,7 @@ test "integration: debug why derived recomputed" {
 ///|
 test "integration: analyze dependency chain" {
   let rt = Runtime::Runtime()
-  let input = Signal::Signal(rt, 5)
+  let input = Input::Input(rt, 5)
   let step1 = Derived::Derived(rt, () => input.get() * 2)
   let step2 = Derived::Derived(rt, () => step1.get_or_abort() + 10)
   let step3 = Derived::Derived(rt, () => step2.get_or_abort() * 3)
@@ -331,7 +331,7 @@ test "integration: analyze dependency chain" {
 ///|
 test "integration: diamond dependency has no duplicates" {
   let rt = Runtime::Runtime()
-  let input = Signal::Signal(rt, 10)
+  let input = Input::Input(rt, 10)
   let left = Derived::Derived(rt, () => input.get() + 1)
   let right = Derived::Derived(rt, () => input.get() + 2)
   let merge = Derived::Derived(rt, () => {
@@ -385,7 +385,7 @@ test "gc_root_count returns 0 for an unknown CellId" {
 ///|
 test "integration: understanding backdating with introspection" {
   let rt = Runtime::Runtime()
-  let input = Signal::Signal(rt, 5)
+  let input = Input::Input(rt, 5)
   let abs_value = Derived::Derived(rt, () => {
     let val = input.get()
     if val < 0 {

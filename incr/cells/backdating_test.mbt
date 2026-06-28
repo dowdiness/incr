@@ -1,11 +1,11 @@
 ///|
 test "backdating: intermediate memo unchanged stops downstream recompute" {
-  // Signal -> clamp (caps at 100) -> downstream
-  // When signal changes from 50 to 60, clamp still returns the same capped value?
+  // Input -> clamp (caps at 100) -> downstream
+  // When input changes from 50 to 60, clamp still returns the same capped value?
   // No — let's use a clearer example:
-  // signal (parity-irrelevant) -> is_even -> downstream
+  // input (parity-irrelevant) -> is_even -> downstream
   let rt = Runtime::Runtime()
-  let input = Signal::Signal(rt, 4)
+  let input = Input::Input(rt, 4)
   let mut is_even_count = 0
   let is_even = Derived::Derived(rt, () => {
     is_even_count = is_even_count + 1
@@ -36,7 +36,7 @@ test "backdating: intermediate memo unchanged stops downstream recompute" {
 ///|
 test "backdating: value actually changes propagates" {
   let rt = Runtime::Runtime()
-  let input = Signal::Signal(rt, 4)
+  let input = Input::Input(rt, 4)
   let mut is_even_count = 0
   let is_even = Derived::Derived(rt, () => {
     is_even_count = is_even_count + 1
@@ -64,7 +64,7 @@ test "backdating: three-level chain with stable middle" {
   // input -> abs (absolute value) -> doubled
   // Change input from 5 to -5: abs stays 5, doubled should not recompute
   let rt = Runtime::Runtime()
-  let input = Signal::Signal(rt, 5)
+  let input = Input::Input(rt, 5)
   let mut abs_count = 0
   let abs_val = Derived::Derived(rt, () => {
     abs_count = abs_count + 1
@@ -93,7 +93,7 @@ test "backdating: three-level chain with stable middle" {
 ///|
 test "backdating: multiple changes, some stable some not" {
   let rt = Runtime::Runtime()
-  let input = Signal::Signal(rt, 10)
+  let input = Input::Input(rt, 10)
   let mut clamp_count = 0
   let clamped = Derived::Derived(rt, () => {
     clamp_count = clamp_count + 1

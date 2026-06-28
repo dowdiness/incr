@@ -15,7 +15,7 @@
 ///
 /// ```moonbit nocheck
 /// let scope = Scope::new(rt)
-/// let local = scope.signal(42)
+/// let local = scope.input(42)
 /// let derived = scope.derived(fn() { local.get() * 2 })
 ///
 /// // Component unmounts — one cleanup call
@@ -102,22 +102,6 @@ pub fn Scope::dispose(self : Scope) -> Unit {
 }
 
 ///|
-/// Creates a signal owned by this scope.
-pub fn[T] Scope::signal(
-  self : Scope,
-  initial : T,
-  durability? : Durability = Low,
-  label? : String,
-) -> Signal[T] {
-  guard !self.disposed else {
-    abort("Scope::signal called on a disposed scope")
-  }
-  let sig = Signal::new(self.runtime, initial, durability~, label?)
-  self.cells.push(sig.id())
-  sig
-}
-
-///|
 /// Creates an input facade owned by this scope.
 pub fn[T] Scope::input(
   self : Scope,
@@ -127,7 +111,7 @@ pub fn[T] Scope::input(
 ) -> Input[T] {
   guard !self.disposed else { abort("Scope::input called on a disposed scope") }
   let input = Input(self.runtime, initial, durability~, label?)
-  self.cells.push(input.inner.id())
+  self.cells.push(input.id())
   input
 }
 
@@ -143,7 +127,7 @@ pub fn[T] Scope::input_field(
     abort("Scope::input_field called on a disposed scope")
   }
   let field = InputField(self.runtime, initial, durability~, label?)
-  self.cells.push(field.inner.id())
+  self.cells.push(field.id())
   field
 }
 

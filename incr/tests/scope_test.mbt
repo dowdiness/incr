@@ -2,7 +2,7 @@
 test "scope: create and dispose via public API" {
   let rt = @incr.Runtime::Runtime()
   let scope = @incr.Scope::new(rt)
-  let sig = scope.signal(42)
+  let sig = scope.input(42)
   let m = scope.derived(fn() { sig.get() * 2 })
   inspect(read_derived_for_test(m), content="84")
   scope.dispose()
@@ -15,7 +15,7 @@ test "scope: nested scopes via public API" {
   let rt = @incr.Runtime::Runtime()
   let parent = @incr.Scope::new(rt)
   let child = parent.child()
-  let sig = child.signal(10)
+  let sig = child.input(10)
   parent.dispose()
   inspect(sig.is_disposed(), content="true")
 }
@@ -24,7 +24,7 @@ test "scope: nested scopes via public API" {
 test "scope: manual dispose before scope dispose is safe" {
   let rt = @incr.Runtime::Runtime()
   let scope = @incr.Scope::new(rt)
-  let sig = scope.signal(1)
+  let sig = scope.input(1)
   let m = scope.derived(fn() { sig.get() })
   // Manually dispose the memo before the scope
   rt.dispose_cell(m.id())
@@ -38,12 +38,12 @@ test "scope: manual dispose before scope dispose is safe" {
 test "scope: scope does not interfere with unscoped cells" {
   let rt = @incr.Runtime::Runtime()
   let scope = @incr.Scope::new(rt)
-  let scoped_sig = scope.signal(1)
-  let unscoped_sig = @incr.Signal::Signal(rt, 2)
+  let scoped_sig = scope.input(1)
+  let unscoped_sig = @incr.Input::Input(rt, 2)
   scope.dispose()
   inspect(scoped_sig.is_disposed(), content="true")
   inspect(unscoped_sig.is_disposed(), content="false")
-  // Unscoped signal still works
+  // Unscoped input still works
   inspect(unscoped_sig.get(), content="2")
 }
 
@@ -51,9 +51,9 @@ test "scope: scope does not interfere with unscoped cells" {
 test "scope: child scope cells disposed before parent cells" {
   let rt = @incr.Runtime::Runtime()
   let parent = @incr.Scope::new(rt)
-  let parent_sig = parent.signal(100)
+  let parent_sig = parent.input(100)
   let child = parent.child()
-  let child_sig = child.signal(200)
+  let child_sig = child.input(200)
   // Child reads parent — this is the typical pattern
   let child_memo = child.derived(fn() { parent_sig.get() + child_sig.get() })
   inspect(read_derived_for_test(child_memo), content="300")
@@ -64,10 +64,10 @@ test "scope: child scope cells disposed before parent cells" {
 }
 
 ///|
-test "scope: dispose during batch — pending signal writes discarded" {
+test "scope: dispose during batch — pending input writes discarded" {
   let rt = @incr.Runtime::Runtime()
   let scope = @incr.Scope::new(rt)
-  let sig = scope.signal(1)
+  let sig = scope.input(1)
   rt.batch(fn() {
     sig.set(99)
     // Dispose the scope mid-batch — pending write should be discarded
@@ -80,8 +80,8 @@ test "scope: dispose during batch — pending signal writes discarded" {
 test "scope: cell manually disposed before scope dispose is safe" {
   let rt = @incr.Runtime::Runtime()
   let scope = @incr.Scope::new(rt)
-  let sig1 = scope.signal(1)
-  let sig2 = scope.signal(2)
+  let sig1 = scope.input(1)
+  let sig2 = scope.input(2)
   // Manually dispose one cell
   sig1.dispose()
   inspect(sig1.is_disposed(), content="true")
@@ -95,7 +95,7 @@ test "scope: cell manually disposed before scope dispose is safe" {
 test "scope: dispose after push propagation completes" {
   let rt = @incr.Runtime::Runtime()
   let scope = @incr.Scope::new(rt)
-  let sig = scope.signal(1)
+  let sig = scope.input(1)
   let count : Ref[Int] = { val: 0 }
   let eff = scope.effect(fn() { count.val = count.val + sig.get() })
   inspect(count.val, content="1")
@@ -152,7 +152,7 @@ test "panic scope: adopt on disposed scope aborts" {
 test "scope: derived_no_backdate accepts non-Eq output" {
   let rt = @incr.Runtime()
   let scope = @incr.Scope::new(rt)
-  let sig = scope.signal(3)
+  let sig = scope.input(3)
   let derived = scope.derived_no_backdate(fn() { (x : Int) => x + sig.get() })
 
   inspect(derived.read_or_abort()(10), content="13")

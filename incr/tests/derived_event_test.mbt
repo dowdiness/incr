@@ -1,7 +1,7 @@
 ///|
 test "derived_event: listener observes public event types" {
   let rt = Runtime()
-  let sig = Signal(rt, 1)
+  let sig = Input(rt, 1)
   let memo = Derived::Derived(rt, () => sig.get() + 1)
   let events : Array[String] = []
   rt.on_derived_event(evt => {
@@ -47,7 +47,7 @@ test "derived_event: listener mutation is rejected during recompute" {
 ///|
 test "derived_event_listener_observes_hybrid_memo_recompute_events" {
   let rt = Runtime()
-  let sig = Signal(rt, 1)
+  let sig = Input(rt, 1)
   let hybrid = @incr.ReachableDerived(rt, () => sig.get() + 1)
   let events : Array[String] = []
   rt.on_derived_event(evt => {
@@ -79,7 +79,7 @@ test "derived_event_listener_observes_hybrid_memo_recompute_events" {
 ///|
 test "derived_event_no_listener_creates_no_backlog_for_later_listener" {
   let rt = Runtime()
-  let sig = Signal(rt, 1)
+  let sig = Input(rt, 1)
   let memo = Derived::Derived(rt, () => sig.get() + 1)
   inspect(read_derived_for_test(memo), content="2")
   let events : Array[String] = []

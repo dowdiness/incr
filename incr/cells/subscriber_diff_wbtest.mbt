@@ -1,8 +1,8 @@
 ///|
 test "diff_subscribers: add new deps" {
   let rt = Runtime::Runtime()
-  let s1 = Signal::Signal(rt, 1)
-  let s2 = Signal::Signal(rt, 2)
+  let s1 = Input::Input(rt, 1)
+  let s2 = Input::Input(rt, 2)
   let m = Derived(rt, fn() { s1.get() })
   let obs = m.observe()
   // m currently depends on s1 only. Simulate a dep change to [s1, s2].
@@ -18,8 +18,8 @@ test "diff_subscribers: add new deps" {
 ///|
 test "diff_subscribers: remove old deps" {
   let rt = Runtime::Runtime()
-  let s1 = Signal::Signal(rt, 1)
-  let s2 = Signal::Signal(rt, 2)
+  let s1 = Input::Input(rt, 1)
+  let s2 = Input::Input(rt, 2)
   let m = Derived(rt, fn() { s1.get() + s2.get() })
   let obs = m.observe()
   // m depends on [s1, s2]. Simulate dep change to [s1] only.
@@ -35,7 +35,7 @@ test "diff_subscribers: remove old deps" {
 ///|
 test "diff_subscribers: no change is no-op" {
   let rt = Runtime::Runtime()
-  let s1 = Signal::Signal(rt, 1)
+  let s1 = Input::Input(rt, 1)
   let m = Derived(rt, fn() { s1.get() })
   let obs = m.observe()
   // Force computation to establish subscriber links

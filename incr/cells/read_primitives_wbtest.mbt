@@ -1,7 +1,7 @@
 ///|
 test "memo read primitive: read_result works outside tracked context" {
   let rt = Runtime::Runtime()
-  let source = Signal::Signal(rt, 10)
+  let source = Input::Input(rt, 10)
   let derived = Derived(rt, () => source.get() * 2)
 
   match derived.read_result() {
@@ -13,7 +13,7 @@ test "memo read primitive: read_result works outside tracked context" {
 ///|
 test "memo read primitive: get_strict_result records dependency in tracked context" {
   let rt = Runtime::Runtime()
-  let source = Signal::Signal(rt, 10)
+  let source = Input::Input(rt, 10)
   let derived = Derived(rt, () => source.get() * 2)
   let view = Derived(rt, () => {
     match derived.get_strict_result() {
@@ -55,7 +55,7 @@ test "memo read primitive: read_result returns cycle error" {
 ///|
 test "hybrid read primitive: read_result works outside tracked context" {
   let rt = Runtime::Runtime()
-  let source = Signal::Signal(rt, 10)
+  let source = Input::Input(rt, 10)
   let hybrid = ReachableDerived(rt, () => source.get() * 2)
 
   match hybrid.read_result() {
@@ -67,7 +67,7 @@ test "hybrid read primitive: read_result works outside tracked context" {
 ///|
 test "hybrid read primitive: get_strict_result records dependency in tracked context" {
   let rt = Runtime::Runtime()
-  let source = Signal::Signal(rt, 10)
+  let source = Input::Input(rt, 10)
   let hybrid = ReachableDerived(rt, () => source.get() * 2)
   let view = Derived(rt, () => {
     match hybrid.get_strict_result() {
@@ -107,7 +107,7 @@ test "hybrid read primitive: read_result returns cycle error" {
 ///|
 test "memo_map read primitive: read_result works outside tracked context" {
   let rt = Runtime::Runtime()
-  let source = Signal::Signal(rt, 10)
+  let source = Input::Input(rt, 10)
   let by_key = DerivedMap(rt, (key : Int) => source.get() + key)
 
   match by_key.read_result(2) {
@@ -119,7 +119,7 @@ test "memo_map read primitive: read_result works outside tracked context" {
 ///|
 test "memo_map read primitive: get_strict_result records dependency in tracked context" {
   let rt = Runtime::Runtime()
-  let source = Signal::Signal(rt, 10)
+  let source = Input::Input(rt, 10)
   let by_key = DerivedMap(rt, (key : Int) => source.get() + key)
   let view = Derived(rt, () => {
     match by_key.get_strict_result(1) {

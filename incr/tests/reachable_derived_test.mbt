@@ -1,7 +1,7 @@
 ///|
 test "hybrid: basic get and update" {
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 1)
+  let s = Input::Input(rt, 1)
   let h = @incr.ReachableDerived::ReachableDerived(rt, () => s.get() * 2)
   inspect(read_reachable_for_test(h), content="2")
   s.set(5)
@@ -11,7 +11,7 @@ test "hybrid: basic get and update" {
 ///|
 test "hybrid: create_hybrid_memo helper" {
   let db = TestDb()
-  let s = @incr.create_signal(db, 3)
+  let s = @incr.create_input(db, 3)
   let h = @incr.create_reachable_derived(db, () => s.get() + 1)
   inspect(read_reachable_for_test(h), content="4")
   s.set(10)
@@ -21,7 +21,7 @@ test "hybrid: create_hybrid_memo helper" {
 ///|
 test "hybrid: is_up_to_date before first get returns false" {
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 1)
+  let s = Input::Input(rt, 1)
   let h = @incr.ReachableDerived::ReachableDerived(rt, () => s.get())
   // Never-computed memo has no cached value — must not be considered up-to-date.
   inspect(h.is_fresh(), content="false")
@@ -30,7 +30,7 @@ test "hybrid: is_up_to_date before first get returns false" {
 ///|
 test "hybrid: is_up_to_date via Readable" {
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 1)
+  let s = Input::Input(rt, 1)
   let h = @incr.ReachableDerived::ReachableDerived(rt, () => s.get())
   let _ = read_reachable_for_test(h)
   inspect(h.is_fresh(), content="true")
@@ -44,7 +44,7 @@ test "hybrid: is_up_to_date via Readable" {
 test "hybrid: unchanged value does not propagate (backdating)" {
   // If the hybrid memo recomputes to the same value, downstream memos skip.
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 2)
+  let s = Input::Input(rt, 2)
   let h = @incr.ReachableDerived::ReachableDerived(rt, () => s.get() % 2) // always 0
   let mut count = 0
   let m = Derived::Derived(rt, () => {
@@ -59,9 +59,9 @@ test "hybrid: unchanged value does not propagate (backdating)" {
 }
 
 ///|
-test "hybrid: diamond — signal → two hybrids → memo" {
+test "hybrid: diamond — input → two hybrids → memo" {
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 3)
+  let s = Input::Input(rt, 3)
   let h1 = @incr.ReachableDerived::ReachableDerived(rt, () => s.get() + 1)
   let h2 = @incr.ReachableDerived::ReachableDerived(rt, () => s.get() * 2)
   let mut count = 0
@@ -79,8 +79,8 @@ test "hybrid: diamond — signal → two hybrids → memo" {
 ///|
 test "hybrid: batch update — single revision" {
   let rt = Runtime::Runtime()
-  let x = Signal::Signal(rt, 1)
-  let y = Signal::Signal(rt, 2)
+  let x = Input::Input(rt, 1)
+  let y = Input::Input(rt, 2)
   let mut count = 0
   let h = @incr.ReachableDerived::ReachableDerived(rt, () => {
     count = count + 1
@@ -93,13 +93,13 @@ test "hybrid: batch update — single revision" {
     y.set(20)
   })
   inspect(read_reachable_for_test(h), content="30")
-  inspect(count, content="2") // only one recompute despite two signal changes
+  inspect(count, content="2") // only one recompute despite two input changes
 }
 
 ///|
 test "hybrid: chained hybrids" {
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 1)
+  let s = Input::Input(rt, 1)
   let h1 = @incr.ReachableDerived::ReachableDerived(rt, () => s.get() + 1)
   let h2 = @incr.ReachableDerived::ReachableDerived(rt, () => {
     h1.get_or_abort() * 10
@@ -112,7 +112,7 @@ test "hybrid: chained hybrids" {
 ///|
 test "hybrid: hybrid as dep of memo — pull chain" {
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 1)
+  let s = Input::Input(rt, 1)
   let h = @incr.ReachableDerived::ReachableDerived(rt, () => s.get() * 2)
   let mut count = 0
   let m = Derived::Derived(rt, () => {

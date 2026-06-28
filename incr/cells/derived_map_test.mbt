@@ -1,7 +1,7 @@
 ///|
 test "derived_map: cache hit for same key" {
   let rt = Runtime::Runtime()
-  let source = Signal::Signal(rt, 10)
+  let source = Input::Input(rt, 10)
   let mut compute_count = 0
   let by_key = DerivedMap::DerivedMap(rt, (key : Int) => {
     compute_count = compute_count + 1
@@ -38,7 +38,7 @@ test "derived_map: independent caching per key" {
 ///|
 test "derived_map: source change triggers lazy recompute per key" {
   let rt = Runtime::Runtime()
-  let source = Signal::Signal(rt, 100)
+  let source = Input::Input(rt, 100)
   let mut compute_count = 0
   let by_key = DerivedMap::DerivedMap(rt, (key : Int) => {
     compute_count = compute_count + 1
@@ -98,7 +98,7 @@ test "derived_map: read_or and read_or_else mirror successful read" {
 ///|
 test "derived_map: sweep removes disposed entries" {
   let rt = Runtime::Runtime()
-  let source = Signal::Signal(rt, 10)
+  let source = Input::Input(rt, 10)
   let by_key = DerivedMap::DerivedMap(rt, (key : Int) => source.get() + key)
   // Force creation of 3 entries by reading them
   inspect(by_key.read_or_abort(1), content="11")
@@ -122,7 +122,7 @@ test "derived_map: sweep on empty map returns 0" {
 ///|
 test "derived_map: sweep with all entries alive returns 0" {
   let rt = Runtime::Runtime()
-  let source = Signal::Signal(rt, 1)
+  let source = Input::Input(rt, 1)
   let by_key = DerivedMap::DerivedMap(rt, (key : Int) => source.get() + key)
   ignore(by_key.read_or_abort(1))
   ignore(by_key.read_or_abort(2))
@@ -134,7 +134,7 @@ test "derived_map: sweep with all entries alive returns 0" {
 ///|
 test "derived_map: clear disposes every wrapper and empties the map" {
   let rt = Runtime::Runtime()
-  let source = Signal::Signal(rt, 1)
+  let source = Input::Input(rt, 1)
   let by_key = DerivedMap::DerivedMap(rt, (key : Int) => source.get() + key)
   ignore(by_key.read_or_abort(1))
   ignore(by_key.read_or_abort(2))
@@ -174,8 +174,8 @@ test "panic derived_map: get_tracked at top level aborts" {
 ///|
 test "derived_map: get_tracked records per-key dep, not cross-key" {
   let rt = Runtime::Runtime()
-  let src1 = Signal::Signal(rt, 10)
-  let src2 = Signal::Signal(rt, 20)
+  let src1 = Input::Input(rt, 10)
+  let src2 = Input::Input(rt, 20)
   let by_key = DerivedMap::DerivedMap(rt, (key : Int) => {
     if key == 1 {
       src1.get()

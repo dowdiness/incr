@@ -1,7 +1,7 @@
 ///|
 test "observer: derived observe and get" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 10)
+  let sig = Input::Input(rt, 10)
   let d = Derived::Derived(rt, fn() { sig.get() * 2 })
   let obs = d.observe()
   inspect(obs.get(), content="20")
@@ -11,7 +11,7 @@ test "observer: derived observe and get" {
 ///|
 test "observer: reachable derived observe and get" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 5)
+  let sig = Input::Input(rt, 5)
   let rd = ReachableDerived::ReachableDerived(rt, fn() { sig.get() + 1 })
   let obs = rd.observe()
   inspect(obs.get(), content="6")
@@ -21,7 +21,7 @@ test "observer: reachable derived observe and get" {
 ///|
 test "observer: reactive observe and get" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 3)
+  let sig = Input::Input(rt, 3)
   let r = Reactive::new(rt, fn() { sig.get() * 3 })
   let obs = r.observe()
   inspect(obs.get(), content="9")
@@ -31,7 +31,7 @@ test "observer: reactive observe and get" {
 ///|
 test "observer: dispose sets is_disposed" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let d = Derived::Derived(rt, fn() { sig.get() })
   let obs = d.observe()
   inspect(obs.is_disposed(), content="false")
@@ -42,7 +42,7 @@ test "observer: dispose sets is_disposed" {
 ///|
 test "observer: dispose is idempotent" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let d = Derived::Derived(rt, fn() { sig.get() })
   let obs = d.observe()
   obs.dispose()
@@ -53,7 +53,7 @@ test "observer: dispose is idempotent" {
 ///|
 test "panic observer: get after dispose aborts" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let d = Derived::Derived(rt, fn() { sig.get() })
   let obs = d.observe()
   obs.dispose()
@@ -63,7 +63,7 @@ test "panic observer: get after dispose aborts" {
 ///|
 test "observer: multiple observers on same cell are ref-counted" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let d = Derived::Derived(rt, fn() { sig.get() })
   let obs1 = d.observe()
   let obs2 = d.observe()
@@ -78,7 +78,7 @@ test "observer: multiple observers on same cell are ref-counted" {
 ///|
 test "observer: on_observe fires only on 0-to-1 transition" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 10)
+  let sig = Input::Input(rt, 10)
   let r = Reactive::new(rt, fn() { sig.get() * 2 })
   // First observer: 0→1 transition
   let obs1 = r.observe()
@@ -94,22 +94,22 @@ test "observer: on_observe fires only on 0-to-1 transition" {
 ///|
 test "observer: reactive suspends on last observer removal when no subscribers" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 10)
+  let sig = Input::Input(rt, 10)
   let r = Reactive::new(rt, fn() { sig.get() * 2 })
   let obs = r.observe()
   inspect(obs.get(), content="20")
-  // Signal has reactive in subscriber set
+  // Input has reactive in subscriber set
   inspect(rt.dependents(sig.id()).length(), content="1")
   obs.dispose()
   // After last observer removed and no subscribers: reactive suspended
-  // Signal's subscriber set should be empty (reactive unsubscribed)
+  // Input's subscriber set should be empty (reactive unsubscribed)
   inspect(rt.dependents(sig.id()).length(), content="0")
 }
 
 ///|
 test "observer: reactive does NOT suspend when it has subscribers" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 10)
+  let sig = Input::Input(rt, 10)
   let r = Reactive::new(rt, fn() { sig.get() * 2 })
   // Memo reads the reactive — creates a subscriber link
   let d = Derived::Derived(rt, fn() { r.get() + 1 })
@@ -130,13 +130,13 @@ test "observer: reactive does NOT suspend when it has subscribers" {
 ///|
 test "observer: reactive reactivation catches up on missed changes" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 10)
+  let sig = Input::Input(rt, 10)
   let r = Reactive::new(rt, fn() { sig.get() * 2 })
   // Observe, verify, unobserve
   let obs1 = r.observe()
   inspect(obs1.get(), content="20")
   obs1.dispose()
-  // Signal changes while reactive is suspended
+  // Input changes while reactive is suspended
   sig.set(50)
   // Re-observe — should see updated value
   let obs2 = r.observe()
@@ -147,7 +147,7 @@ test "observer: reactive reactivation catches up on missed changes" {
 ///|
 test "observer: repeated suspend/activate cycles" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let r = Reactive::new(rt, fn() { sig.get() * 10 })
   // Cycle 1
   let obs1 = r.observe()
@@ -168,7 +168,7 @@ test "observer: repeated suspend/activate cycles" {
 ///|
 test "observer: multiple observers prevent suspension until last disposed" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 5)
+  let sig = Input::Input(rt, 5)
   let r = Reactive::new(rt, fn() { sig.get() + 1 })
   let obs1 = r.observe()
   let obs2 = r.observe()
@@ -191,7 +191,7 @@ test "observer: multiple observers prevent suspension until last disposed" {
 ///|
 test "observer: dispose suspended reactive is idempotent" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let r = Reactive::new(rt, fn() { sig.get() })
   let obs = r.observe()
   ignore(obs.get())
@@ -206,8 +206,8 @@ test "observer: dispose suspended reactive is idempotent" {
 ///|
 test "observer: source disposed during suspension — reactivation uses fresh sources" {
   let rt = Runtime::Runtime()
-  let sig1 = Signal::Signal(rt, 10)
-  let sig2 = Signal::Signal(rt, 20)
+  let sig1 = Input::Input(rt, 10)
+  let sig2 = Input::Input(rt, 20)
   let use_sig1 : Ref[Bool] = { val: true }
   let r = Reactive::new(rt, fn() {
     if use_sig1.val {
@@ -232,7 +232,7 @@ test "observer: source disposed during suspension — reactivation uses fresh so
 ///|
 test "observer: reachable derived reading reactive prevents suspension" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 5)
+  let sig = Input::Input(rt, 5)
   let r = Reactive::new(rt, fn() { sig.get() * 3 })
   let rd = ReachableDerived::ReachableDerived(rt, fn() { r.get() + 1 })
   let obs_rd = rd.observe()
@@ -250,7 +250,7 @@ test "observer: reachable derived reading reactive prevents suspension" {
 ///|
 test "panic observer: on_observe during fixpoint aborts" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let r = Reactive::new(rt, fn() { sig.get() })
   let input : Relation[Int] = Relation::Relation(rt)
   let output : Relation[Int] = Relation::Relation(rt)
@@ -266,7 +266,7 @@ test "panic observer: on_observe during fixpoint aborts" {
 ///|
 test "panic observer: observe disposed memo aborts" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let d = Derived::Derived(rt, fn() { sig.get() })
   d.dispose()
   ignore(d.observe())

@@ -1,7 +1,7 @@
 ///|
 /// Type-erased metadata for a Pull Signal cell in the SoA layout.
 ///
-/// The actual typed value lives in the `Signal[T]` handle held by user code.
+/// The actual typed value lives in the `Input[T]` handle held by user code.
 /// The Runtime stores only the metadata needed for verification and callbacks.
 pub(all) struct PullSignalData {
   meta : CellMeta
@@ -17,11 +17,11 @@ pub impl HasCellMeta for PullSignalData with fn meta(self) {
 }
 
 ///|
-/// CellOps dispatch for pull-signal cells — all defaults via HasCellMeta.
+/// CellOps dispatch for pull-input cells — all defaults via HasCellMeta.
 pub impl CellOps for PullSignalData
 
 ///|
-/// Committable dispatch for pull-signal cells.
+/// Committable dispatch for pull-input cells.
 pub impl Committable for PullSignalData with fn do_commit(self) -> Bool {
   match self.commit_pending {
     Some(f) => {

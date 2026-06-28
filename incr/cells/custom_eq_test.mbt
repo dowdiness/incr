@@ -25,7 +25,7 @@ test "custom_eq: backdating with Point struct" {
   // A memo that produces Point with coordinates based on input mod 10.
   // Different inputs can produce equal Points (e.g., 5 and 15 both -> Point(5, 0))
   let rt = Runtime::Runtime()
-  let input = Signal::Signal(rt, 5)
+  let input = Input::Input(rt, 5)
 
   let mut point_count = 0
   let point_derived = Derived::Derived(rt, () => {
@@ -84,7 +84,7 @@ fn Versioned::Versioned(value : Int, generation : Int) -> Versioned {
 ///|
 test "custom_eq: backdating ignores generation field" {
   let rt = Runtime::Runtime()
-  let input = Signal::Signal(rt, 100)
+  let input = Input::Input(rt, 100)
 
   let mut gen = 0
   let mut versioned_count = 0
@@ -147,8 +147,8 @@ impl Eq for Status with fn equal(self, other) -> Bool {
 ///|
 test "custom_eq: enum with selective field comparison" {
   let rt = Runtime::Runtime()
-  let error_code = Signal::Signal(rt, 404)
-  let error_msg = Signal::Signal(rt, "Not Found")
+  let error_code = Input::Input(rt, 404)
+  let error_msg = Input::Input(rt, "Not Found")
 
   let mut status_count = 0
   let status_derived : Derived[Status] = Derived::Derived(rt, () => {
@@ -210,7 +210,7 @@ test "custom_eq: status variants and fields are used" {
 /// Test with Array where content equality matters
 test "custom_eq: array content equality" {
   let rt = Runtime::Runtime()
-  let size = Signal::Signal(rt, 3)
+  let size = Input::Input(rt, 3)
 
   let mut array_count = 0
   let array_derived : Derived[Array[Int]] = Derived::Derived(rt, () => {
@@ -241,9 +241,9 @@ test "custom_eq: array content equality" {
   // Same size -> creates new array with same content
   // Array equality is by content, so backdating should apply
   size.set(3)
-  // Note: Signal same-value optimization means no revision bump
+  // Note: Input same-value optimization means no revision bump
   inspect(sum_derived.read_or_abort(), content="6")
-  inspect(array_count, content="1") // No recompute due to signal optimization
+  inspect(array_count, content="1") // No recompute due to input optimization
   inspect(sum_count, content="1")
   // Force recomputation by changing then reverting
   size.set(4) // [0, 2, 4, 6] -> sum = 12

@@ -6,8 +6,8 @@ suberror BatchTestError {
 ///|
 test "batch: basic - single revision for multiple sets" {
   let rt = Runtime::Runtime()
-  let a = Signal::Signal(rt, 1)
-  let b = Signal::Signal(rt, 2)
+  let a = Input::Input(rt, 1)
+  let b = Input::Input(rt, 2)
   inspect(rt.core.revision.current_revision.value, content="0")
   rt.batch(() => {
     a.set(10)
@@ -22,9 +22,9 @@ test "batch: basic - single revision for multiple sets" {
 ///|
 test "batch: nested - only outermost commits" {
   let rt = Runtime::Runtime()
-  let a = Signal::Signal(rt, 1)
-  let b = Signal::Signal(rt, 2)
-  let c = Signal::Signal(rt, 3)
+  let a = Input::Input(rt, 1)
+  let b = Input::Input(rt, 2)
+  let c = Input::Input(rt, 3)
   rt.batch(() => {
     a.set(10)
     rt.batch(() => {
@@ -43,7 +43,7 @@ test "batch: nested - only outermost commits" {
 ///|
 test "batch: empty - no revision bump" {
   let rt = Runtime::Runtime()
-  let _a = Signal::Signal(rt, 1)
+  let _a = Input::Input(rt, 1)
   rt.batch(() => ())
   inspect(rt.core.revision.current_revision.value, content="0")
 }
@@ -51,8 +51,8 @@ test "batch: empty - no revision bump" {
 ///|
 test "batch: mixed durabilities" {
   let rt = Runtime::Runtime()
-  let low = Signal::Signal(rt, 1)
-  let high = Signal::Signal(rt, 100, durability=High)
+  let low = Input::Input(rt, 1)
+  let high = Input::Input(rt, 100, durability=High)
   rt.batch(() => {
     low.set(2)
     high.set(200)
@@ -70,8 +70,8 @@ test "batch: mixed durabilities" {
 ///|
 test "batch: memo read after batch" {
   let rt = Runtime::Runtime()
-  let a = Signal::Signal(rt, 1)
-  let b = Signal::Signal(rt, 2)
+  let a = Input::Input(rt, 1)
+  let b = Input::Input(rt, 2)
   let mut compute_count = 0
   let sum = Derived(rt, () => {
     compute_count = compute_count + 1
@@ -93,7 +93,7 @@ test "batch: memo read after batch" {
 ///|
 test "batch: same-value set is still no-op in batch" {
   let rt = Runtime::Runtime()
-  let a = Signal::Signal(rt, 42)
+  let a = Input::Input(rt, 42)
   rt.batch(() => a.set(42), // same value, should not record pending
   )
   // Same-value optimization still applies
@@ -102,10 +102,10 @@ test "batch: same-value set is still no-op in batch" {
 
 ///|
 test "batch: revert detection - set then revert is no-op" {
-  // Two-phase values enable detecting when a signal is set and then
+  // Two-phase values enable detecting when a input is set and then
   // reverted to its original value within the same batch.
   let rt = Runtime::Runtime()
-  let a = Signal::Signal(rt, 0)
+  let a = Input::Input(rt, 0)
   let mut compute_count = 0
   let doubled = Derived(rt, () => {
     compute_count = compute_count + 1
@@ -127,13 +127,13 @@ test "batch: revert detection - set then revert is no-op" {
 }
 
 ///|
-test "batch: multi-signal with mixed changes" {
-  // Some signals change, some revert — only actually-changed signals
+test "batch: multi-input with mixed changes" {
+  // Some inputs change, some revert — only actually-changed inputs
   // should produce a revision bump.
   let rt = Runtime::Runtime()
-  let a = Signal::Signal(rt, 10)
-  let b = Signal::Signal(rt, 20)
-  let c = Signal::Signal(rt, 30)
+  let a = Input::Input(rt, 10)
+  let b = Input::Input(rt, 20)
+  let c = Input::Input(rt, 30)
   let mut compute_count = 0
   let sum = Derived(rt, () => {
     compute_count = compute_count + 1
@@ -162,8 +162,8 @@ test "batch: diamond dependency with batch" {
   // input -> A -> C
   //       -> B -> C
   let rt = Runtime::Runtime()
-  let input = Signal::Signal(rt, 10)
-  let extra = Signal::Signal(rt, 1)
+  let input = Input::Input(rt, 10)
+  let extra = Input::Input(rt, 1)
   let mut a_count = 0
   let a = Derived(rt, () => {
     a_count = a_count + 1
@@ -198,7 +198,7 @@ test "batch: diamond dependency with batch" {
 ///|
 test "batch: raised error rolls back pending writes and restores depth" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   let mut failed = false
   try
     rt.batch(fn() raise {
@@ -215,7 +215,7 @@ test "batch: raised error rolls back pending writes and restores depth" {
   inspect(sig.get(), content="0")
   inspect(rt.core.revision.current_revision.value, content="0")
   inspect(rt.core.batch.pending.length(), content="0")
-  // Ensure signal remains fully reusable after rollback.
+  // Ensure input remains fully reusable after rollback.
   sig.set(100)
   inspect(sig.get(), content="100")
 }
@@ -223,7 +223,7 @@ test "batch: raised error rolls back pending writes and restores depth" {
 ///|
 test "batch: nested raised error rolls back entire outer batch" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   let mut failed = false
   try
     rt.batch(fn() raise {
@@ -248,9 +248,9 @@ test "batch: nested raised error rolls back entire outer batch" {
 ///|
 test "batch: failed inner batch_result rolls back before outer continues" {
   let rt = Runtime::Runtime()
-  let outer_only = Signal::Signal(rt, 0)
-  let shared = Signal::Signal(rt, 0)
-  let inner_only = Signal::Signal(rt, 0)
+  let outer_only = Input::Input(rt, 0)
+  let shared = Input::Input(rt, 0)
+  let inner_only = Input::Input(rt, 0)
 
   rt.batch(() => {
     outer_only.set(10)
@@ -278,7 +278,7 @@ test "batch: failed inner batch_result rolls back before outer continues" {
 test "batch: raised error does not fire on_change callback" {
   let mut fired = 0
   let rt = Runtime::Runtime(on_change=() => fired = fired + 1)
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   let mut failed = false
   try
     rt.batch(fn() raise {
@@ -298,7 +298,7 @@ test "batch: raised error does not fire on_change callback" {
 ///|
 test "batch_result: commits on success" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   let res = rt.batch_result(() => sig.set(5))
   inspect(res is Ok(_), content="true")
   inspect(sig.get(), content="5")
@@ -308,7 +308,7 @@ test "batch_result: commits on success" {
 ///|
 test "batch_result: returns Err and rolls back" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   let res = rt.batch_result(fn() raise {
     sig.set(5)
     raise Stop
@@ -324,7 +324,7 @@ test "batch_result: returns Err and rolls back" {
 // unwind/commit.
 test "batch leak simulation: stale batch_depth defers writes" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   rt.core.batch.depth = 1
   sig.set(1)
   inspect(sig.get(), content="0")
@@ -337,7 +337,7 @@ test "batch leak simulation: stale batch_depth defers writes" {
 // operation and commits pending writes.
 test "batch leak simulation: manual cleanup recovers state" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   rt.core.batch.depth = 1
   sig.set(1)
   rt.core.batch.depth = 0
@@ -360,14 +360,14 @@ test "panic batch: corrupted negative batch_depth triggers underflow abort" {
 ///|
 // Invariant test: if commit_pending is cleared before commit_batch runs,
 // do_commit must abort instead of silently skipping the entry. Skipping would
-// leave stale pending_value in the Signal handle and poison later batches.
+// leave stale pending_value in the Input handle and poison later batches.
 test "panic batch: missing commit_pending aborts during commit_batch" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   // Manually enter batch mode by directly setting batch_depth
   rt.core.batch.depth = 1
   // set() detects batch_depth > 0 and calls set_batch, which registers
-  // commit_pending and enqueues the signal as &Committable in batch_pending
+  // commit_pending and enqueues the input as &Committable in batch_pending
   sig.set(1)
   // Clear the commit_pending closure (simulates external clearing)
   let meta = rt.get_pull_signal(sig.id())

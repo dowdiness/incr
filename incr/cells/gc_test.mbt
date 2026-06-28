@@ -1,7 +1,7 @@
 ///|
 test "gc: disposes all unobserved interior cells" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let d = Derived::Derived(rt, fn() { sig.get() * 2 })
   ignore(d.read_or_abort())
   rt.gc()
@@ -13,7 +13,7 @@ test "gc: disposes all unobserved interior cells" {
 ///|
 test "gc: keeps observed memo alive" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let d = Derived::Derived(rt, fn() { sig.get() * 2 })
   let obs = d.observe()
   ignore(obs.get())
@@ -26,7 +26,7 @@ test "gc: keeps observed memo alive" {
 ///|
 test "gc: keeps transitive deps of observed memo alive" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let d1 = Derived::Derived(rt, fn() { sig.get() + 1 })
   let d2 = Derived::Derived(rt, fn() { d1.get_or_abort() * 2 })
   let obs = d2.observe()
@@ -40,7 +40,7 @@ test "gc: keeps transitive deps of observed memo alive" {
 ///|
 test "gc: disposes unreachable memo in diamond" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let d_used = Derived::Derived(rt, fn() { sig.get() + 1 })
   let d_unused = Derived::Derived(rt, fn() { sig.get() + 2 })
   let d_top = Derived::Derived(rt, fn() { d_used.get_or_abort() })
@@ -57,7 +57,7 @@ test "gc: disposes unreachable memo in diamond" {
 ///|
 test "gc: after observer dispose sweeps newly-unreachable" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let d = Derived::Derived(rt, fn() { sig.get() })
   let obs = d.observe()
   ignore(obs.get())
@@ -69,7 +69,7 @@ test "gc: after observer dispose sweeps newly-unreachable" {
 ///|
 test "gc: keeps effects alive as implicit roots" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let d = Derived::Derived(rt, fn() { sig.get() })
   let log : Ref[Int] = { val: 0 }
   let _eff = Effect::new(rt, fn() { log.val = d.get_or_abort() })
@@ -79,10 +79,10 @@ test "gc: keeps effects alive as implicit roots" {
 }
 
 ///|
-test "gc: skips sources (signals never collected)" {
+test "gc: skips sources (inputs never collected)" {
   let rt = Runtime::Runtime()
-  let sig1 = Signal::Signal(rt, 1)
-  let sig2 = Signal::Signal(rt, 2)
+  let sig1 = Input::Input(rt, 1)
+  let sig2 = Input::Input(rt, 2)
   rt.gc()
   assert_false(sig1.is_disposed())
   assert_false(sig2.is_disposed())
@@ -91,7 +91,7 @@ test "gc: skips sources (signals never collected)" {
 ///|
 test "gc: idempotent (running twice is safe)" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let d = Derived::Derived(rt, fn() { sig.get() })
   ignore(d.read_or_abort())
   rt.gc()
@@ -103,7 +103,7 @@ test "gc: idempotent (running twice is safe)" {
 ///|
 test "gc: after manual dispose is safe" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let d = Derived::Derived(rt, fn() { sig.get() })
   ignore(d.read_or_abort())
   d.dispose()
@@ -114,7 +114,7 @@ test "gc: after manual dispose is safe" {
 ///|
 test "gc: diamond keeps shared deps alive" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let shared = Derived::Derived(rt, fn() { sig.get() })
   let left = Derived::Derived(rt, fn() { shared.get_or_abort() + 1 })
   let right = Derived::Derived(rt, fn() { shared.get_or_abort() + 2 })
@@ -131,7 +131,7 @@ test "gc: diamond keeps shared deps alive" {
 ///|
 test "panic gc: during batch aborts" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   rt.batch(fn() {
     sig.set(2)
     rt.gc()
@@ -141,7 +141,7 @@ test "panic gc: during batch aborts" {
 ///|
 test "panic gc: during active computation aborts" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let _d = Derived::Derived(rt, fn() {
     rt.gc()
     sig.get()
@@ -152,7 +152,7 @@ test "panic gc: during active computation aborts" {
 ///|
 test "panic gc: during push propagation aborts" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let _eff = Effect::new(rt, fn() {
     ignore(sig.get())
     rt.gc()
@@ -163,7 +163,7 @@ test "panic gc: during push propagation aborts" {
 ///|
 test "gc: collects suspended reactive" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let r = Reactive::new(rt, fn() { sig.get() * 2 })
   // Observe then unobserve — reactive is suspended
   let obs = r.observe()
@@ -182,7 +182,7 @@ test "gc: collects suspended reactive" {
 // observed memos (call obs.get()) before calling gc().
 test "gc: uncomputed observed memo has empty deps — upstream is swept" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let d1 = Derived::Derived(rt, fn() { sig.get() + 1 })
   let d2 = Derived::Derived(rt, fn() { d1.get_or_abort() * 2 })
   // Observe m2 without computing it first

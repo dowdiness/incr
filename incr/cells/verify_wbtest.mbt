@@ -3,7 +3,7 @@
 // recomputation aborts after setting in_progress and pushing tracking.
 test "verify leak simulation: stale in_progress causes spurious cycle" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   let derived = Derived(rt, () => sig.get() + 1)
   let meta = rt.get_memo_data(derived.id())
   meta.in_progress = true
@@ -27,7 +27,7 @@ test "verify leak simulation: stale in_progress causes spurious cycle" {
 // succeed again.
 test "verify leak simulation: manual cleanup recovers memo reads" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   let derived = Derived(rt, () => sig.get() + 1)
   let meta = rt.get_memo_data(derived.id())
   meta.in_progress = true
@@ -42,7 +42,7 @@ test "verify leak simulation: manual cleanup recovers memo reads" {
 ///|
 test "memo_get_or_returns_fallback_on_cycle_error" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   let derived = Derived(rt, () => sig.get() + 1)
   let meta = rt.get_memo_data(derived.id())
   meta.in_progress = true
@@ -61,7 +61,7 @@ test "memo_get_or_returns_fallback_on_cycle_error" {
 ///|
 test "memo_get_or_else_receives_cycle_error" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   let derived = Derived(rt, () => sig.get() + 1)
   let meta = rt.get_memo_data(derived.id())
   meta.in_progress = true
@@ -87,7 +87,7 @@ test "memo_get_or_else_receives_cycle_error" {
 // This test verifies that stale memo recomputation via pull_verify succeeds.
 test "pull_verify: recomputes stale memo via MemoData.compute" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   let derived = Derived(rt, () => sig.get() + 1)
   // Force first computation to populate cell state
   let _ = derived.read_or_abort()

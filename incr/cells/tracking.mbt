@@ -13,7 +13,7 @@ fn Runtime::static_recompute_blocks_dependency_recording(
 ///|
 /// Records a dependency from the currently computing memo to the given cell.
 ///
-/// Called internally by `Signal::get` and `Memo::get` when inside a memo's
+/// Called internally by `Input::get` and `Memo::get` when inside a memo's
 /// compute function. If no memo is currently computing (tracking stack is
 /// empty), this is a no-op.
 impl Tracker for Runtime with fn record_dependency(self, dep) {
@@ -80,7 +80,7 @@ fn Runtime::finish_tracking(
 ///|
 /// Guards a cell read from occurring inside a computation on a different
 /// runtime. Centralizes the cross-runtime check that was previously
-/// duplicated across Signal, Memo (outer), HybridMemo, Reactive, Relation,
+/// duplicated across Input, Derived (outer), HybridMemo, Reactive, Relation,
 /// and FunctionalRelation read paths.
 fn Runtime::check_cross_runtime(
   _self : Runtime,

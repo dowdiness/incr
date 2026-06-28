@@ -11,7 +11,7 @@ using @incr_types {type CellId}
 ///|
 test "cycle path: simple two-cell cycle" {
   let rt = Runtime::Runtime()
-  let a = Signal::Signal(rt, 0)
+  let a = Input::Input(rt, 0)
 
   let b_ref : Ref[Derived[Int]?] = { val: None }
   let c_ref : Ref[Derived[Int]?] = { val: None }

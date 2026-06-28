@@ -1,5 +1,5 @@
 ///|
-/// Wbtest-accessible wrapper; exercises the full Runtime + Signal/Memo path.
+/// Wbtest-accessible wrapper; exercises the full Runtime + Input/Derived path.
 fn Runtime::diff_and_update_subscribers(
   self : Runtime,
   cell_id : CellId,

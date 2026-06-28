@@ -1,7 +1,7 @@
 ///|
 test "add_gc_root: inserts new entry with count 1 and returns 0" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 42)
+  let sig = Input::Input(rt, 42)
   let prev = rt.add_gc_root(sig.id())
   inspect(prev, content="0")
   debug_inspect(rt.core.gc_root_counts.get(sig.id()), content="Some(1)")
@@ -10,7 +10,7 @@ test "add_gc_root: inserts new entry with count 1 and returns 0" {
 ///|
 test "add_gc_root: increments existing entry and returns previous count" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 42)
+  let sig = Input::Input(rt, 42)
   let prev1 = rt.add_gc_root(sig.id())
   let prev2 = rt.add_gc_root(sig.id())
   inspect(prev1, content="0")
@@ -21,7 +21,7 @@ test "add_gc_root: increments existing entry and returns previous count" {
 ///|
 test "remove_gc_root: decrements and returns remaining" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 42)
+  let sig = Input::Input(rt, 42)
   ignore(rt.add_gc_root(sig.id()))
   ignore(rt.add_gc_root(sig.id()))
   let remaining = rt.remove_gc_root(sig.id())
@@ -32,7 +32,7 @@ test "remove_gc_root: decrements and returns remaining" {
 ///|
 test "remove_gc_root: removes entry at zero" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 42)
+  let sig = Input::Input(rt, 42)
   ignore(rt.add_gc_root(sig.id()))
   let remaining = rt.remove_gc_root(sig.id())
   inspect(remaining, content="0")
@@ -42,7 +42,7 @@ test "remove_gc_root: removes entry at zero" {
 ///|
 test "remove_gc_root: returns 0 for unknown cell" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 42)
+  let sig = Input::Input(rt, 42)
   let remaining = rt.remove_gc_root(sig.id())
   inspect(remaining, content="0")
 }
@@ -50,7 +50,7 @@ test "remove_gc_root: returns 0 for unknown cell" {
 ///|
 test "cell_id_at: reconstructs CellId from index" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 42)
+  let sig = Input::Input(rt, 42)
   let reconstructed = @kernel.cell_id_at(rt.core, sig.id().id)
   inspect(reconstructed == sig.id(), content="true")
 }
@@ -58,7 +58,7 @@ test "cell_id_at: reconstructs CellId from index" {
 ///|
 test "dispose_cell: removes gc_root_counts entry for observed cell" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let m = Derived(rt, fn() { sig.get() })
   let obs = m.observe()
   // gc_root_counts has entry
@@ -74,7 +74,7 @@ test "dispose_cell: removes gc_root_counts entry for observed cell" {
 ///|
 test "dispose_cell: clears gc_root_counts with multiple observers" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let m = Derived(rt, fn() { sig.get() })
   let obs1 = m.observe()
   let obs2 = m.observe()
@@ -103,7 +103,7 @@ test "phase: Idle by default" {
 ///|
 test "collect_gc_roots: live observer puts memo in roots via gc_root_counts" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let m = Derived(rt, fn() { sig.get() })
   let obs = m.observe()
   ignore(obs.get())
@@ -122,7 +122,7 @@ test "collect_gc_roots: live observer puts memo in roots via gc_root_counts" {
 ///|
 test "collect_gc_roots: disposed observer is absent from roots" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let m = Derived(rt, fn() { sig.get() })
   let obs = m.observe()
   ignore(obs.get())
@@ -139,9 +139,9 @@ test "collect_gc_roots: disposed observer is absent from roots" {
 }
 
 ///|
-test "mark_reachable: signal is reachable through dependent memo" {
+test "mark_reachable: input is reachable through dependent memo" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let m = Derived(rt, fn() { sig.get() })
   ignore(m.read_or_abort()) // compute to establish m→sig dependency
   let reachable = @kernel.mark_reachable(rt.core, [m.id()])
@@ -152,7 +152,7 @@ test "mark_reachable: signal is reachable through dependent memo" {
 ///|
 test "mark_reachable: traversal stops at a disposed dependency" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let m = Derived(rt, fn() { sig.get() })
   ignore(m.read_or_abort()) // establish m→sig dependency before disposing
   sig.dispose()
@@ -164,7 +164,7 @@ test "mark_reachable: traversal stops at a disposed dependency" {
 ///|
 test "gc_sweep: unobserved interior cell is passed to dispose_fn" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let m = Derived(rt, fn() { sig.get() })
   ignore(m.read_or_abort()) // compute but release observer
   let swept : Array[_] = []
@@ -177,7 +177,7 @@ test "gc_sweep: unobserved interior cell is passed to dispose_fn" {
     false
   }
   inspect(m_swept, content="true")
-  // Source-role cells (signals) are never selected by gc_sweep
+  // Source-role cells (inputs) are never selected by gc_sweep
   let sig_swept = for id in swept {
     if id == sig.id() {
       break true
@@ -191,7 +191,7 @@ test "gc_sweep: unobserved interior cell is passed to dispose_fn" {
 ///|
 test "gc_sweep: observed interior cell is not passed to dispose_fn" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let m = Derived(rt, fn() { sig.get() })
   let obs = m.observe()
   ignore(obs.get())

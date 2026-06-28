@@ -1,7 +1,7 @@
 ///|
 test "derived_map wb: get_or and get_or_else fallback on cycle error" {
   let rt = Runtime::Runtime()
-  let source = Signal::Signal(rt, 1)
+  let source = Input::Input(rt, 1)
   let by_key = DerivedMap(rt, (key : Int) => source.get() + key)
   inspect(by_key.read_or_abort(1), content="2")
 

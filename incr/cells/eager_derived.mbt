@@ -14,7 +14,7 @@ pub struct Reactive[T] {
 ///
 /// `compute_fn` is invoked immediately to set the initial value and establish
 /// dependencies. Whenever any dependency changes, the runtime calls
-/// `compute_fn` again via push propagation (triggered by `Signal::set` or
+/// `compute_fn` again via push propagation (triggered by `Input::set` or
 /// `Runtime::batch`).
 ///
 /// # Type Erasure

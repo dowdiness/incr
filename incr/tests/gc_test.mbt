@@ -1,7 +1,7 @@
 ///|
-test "gc: observe → signal.set → observer.get sees update" {
+test "gc: observe → input.set → observer.get sees update" {
   let rt = @incr.Runtime()
-  let sig = @incr.Signal(rt, 10)
+  let sig = @incr.Input(rt, 10)
   let m = @incr.Derived(rt, fn() { sig.get() * 2 })
   let obs = m.observe()
   inspect(obs.get(), content="20")
@@ -13,7 +13,7 @@ test "gc: observe → signal.set → observer.get sees update" {
 ///|
 test "gc: scope dispose + gc sweeps orphaned interior cells" {
   let rt = @incr.Runtime()
-  let sig = @incr.Signal(rt, 1)
+  let sig = @incr.Input(rt, 1)
   let scope = @incr.Scope::new(rt)
   let m = scope.derived(fn() { sig.get() + 1 })
   let obs = m.observe()
@@ -33,7 +33,7 @@ test "gc: scope dispose + gc sweeps orphaned interior cells" {
 ///|
 test "gc: Runtime::read does not leak gc roots" {
   let rt = @incr.Runtime()
-  let sig = @incr.Signal(rt, 5)
+  let sig = @incr.Input(rt, 5)
   let m = @incr.Derived(rt, fn() { sig.get() * 3 })
   let val = read_derived_for_test(m)
   inspect(val, content="15")
@@ -45,7 +45,7 @@ test "gc: Runtime::read does not leak gc roots" {
 ///|
 test "gc: manual dispose of observed cell then gc" {
   let rt = @incr.Runtime()
-  let sig = @incr.Signal(rt, 1)
+  let sig = @incr.Input(rt, 1)
   let m = @incr.Derived(rt, fn() { sig.get() })
   let obs = m.observe()
   ignore(obs.get())
@@ -57,7 +57,7 @@ test "gc: manual dispose of observed cell then gc" {
 ///|
 test "gc: hybrid memo reachable through observer" {
   let rt = @incr.Runtime()
-  let sig = @incr.Signal(rt, 1)
+  let sig = @incr.Input(rt, 1)
   let h = @incr.ReachableDerived(rt, fn() { sig.get() + 10 })
   let obs = h.observe()
   inspect(obs.get(), content="11")
@@ -71,7 +71,7 @@ test "gc: hybrid memo reachable through observer" {
 ///|
 test "gc: reactive reachable through observer" {
   let rt = @incr.Runtime()
-  let sig = @incr.Signal(rt, 1)
+  let sig = @incr.Input(rt, 1)
   let r = @incr.Reactive::new(rt, fn() { sig.get() * 4 })
   let obs = r.observe()
   inspect(obs.get(), content="4")

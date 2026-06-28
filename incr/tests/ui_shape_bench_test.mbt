@@ -6,24 +6,24 @@
 /// at 60 Hz (16.67 ms / frame budget).
 ///
 /// Five benchmark scenarios:
-///  - flat:    1 Signal → N Reactives (N ∈ {100, 1000})
-///  - layered: Signal → 1 Memo (derived state) → 1000 Reactives (DOM-writing
+///  - flat:    1 Input → N Reactives (N ∈ {100, 1000})
+///  - layered: Input → 1 Memo (derived state) → 1000 Reactives (DOM-writing
 ///             effects). Closest analogue to a component tree where leaves
 ///             react to a memoized projection of root state.
 ///  - sparse:  1000 Reactives total but only 10 subscribed to the mutated
-///             signal — the typical per-frame case (hover/scroll).
+///             input — the typical per-frame case (hover/scroll).
 ///  - tree:    balanced binary tree of 1023 Memos (depth 10) with a
 ///             Reactive at each of the 512 deepest nodes.
 ///
-/// Each bench measures one "root signal mutation" — the worst-case UI event
+/// Each bench measures one "root input mutation" — the worst-case UI event
 /// (router change, theme switch, store-wide update). Subscription patterns
 /// matter more than total cell count: see `flat 1000, sparse subscription`
 /// for the typical hover/scroll case where 1000 cells exist but only a few
-/// depend on the mutated signal.
+/// depend on the mutated input.
 ///
 test "ui: flat 100 reactives (root mutation)" (b : @bench.T) {
   let rt = @incr.Runtime::new()
-  let sig = @incr.Signal::new(rt, 0)
+  let sig = @incr.Input::new(rt, 0)
   let reactives : Array[@incr.Reactive[Int]] = []
   for i = 0; i < 100; i = i + 1 {
     let idx = i
@@ -40,7 +40,7 @@ test "ui: flat 100 reactives (root mutation)" (b : @bench.T) {
 ///|
 test "ui: flat 1000 reactives (root mutation)" (b : @bench.T) {
   let rt = @incr.Runtime::new()
-  let sig = @incr.Signal::new(rt, 0)
+  let sig = @incr.Input::new(rt, 0)
   let reactives : Array[@incr.Reactive[Int]] = []
   for i = 0; i < 1000; i = i + 1 {
     let idx = i
@@ -57,11 +57,11 @@ test "ui: flat 1000 reactives (root mutation)" (b : @bench.T) {
 ///|
 /// Realistic UI shape: state → derived → effect.
 /// 1000 leaf Reactives each read a single shared Memo (a derived value
-/// computed once from the root signal). Mirrors a component tree where
+/// computed once from the root input). Mirrors a component tree where
 /// children consume a Context-style selector.
 test "ui: layered 1000 reactives via 1 memo (root mutation)" (b : @bench.T) {
   let rt = @incr.Runtime::new()
-  let sig = @incr.Signal::new(rt, 0)
+  let sig = @incr.Input::new(rt, 0)
   let derived = @incr.Derived::Derived(rt, fn() { sig.get() * 2 })
   let reactives : Array[@incr.Reactive[Int]] = []
   for i = 0; i < 1000; i = i + 1 {
@@ -80,7 +80,7 @@ test "ui: layered 1000 reactives via 1 memo (root mutation)" (b : @bench.T) {
 
 ///|
 /// Sparse subscription: 1000 reactives exist (the rest of the app's UI tree)
-/// but only 10 actually depend on the mutated signal. This is the typical
+/// but only 10 actually depend on the mutated input. This is the typical
 /// per-frame case — hover state, scroll position, single-component local
 /// state. Total cell population should be amortized; only the live
 /// subscription set should cost.
@@ -88,15 +88,15 @@ test "ui: flat 1000 reactives, only 10 subscribed (sparse mutation)" (
   b : @bench.T,
 ) {
   let rt = @incr.Runtime::new()
-  let hot_sig = @incr.Signal::new(rt, 0)
-  let cold_sig = @incr.Signal::new(rt, 0)
+  let hot_sig = @incr.Input::new(rt, 0)
+  let cold_sig = @incr.Input::new(rt, 0)
   let reactives : Array[@incr.Reactive[Int]] = []
-  // 10 reactives subscribed to the hot signal
+  // 10 reactives subscribed to the hot input
   for i = 0; i < 10; i = i + 1 {
     let idx = i
     reactives.push(@incr.Reactive::new(rt, fn() { hot_sig.get() + idx }))
   }
-  // 990 reactives subscribed to an unrelated cold signal (other UI state)
+  // 990 reactives subscribed to an unrelated cold input (other UI state)
   for i = 0; i < 990; i = i + 1 {
     let idx = i
     reactives.push(@incr.Reactive::new(rt, fn() { cold_sig.get() + idx }))
@@ -118,7 +118,7 @@ test "ui: flat 1000 reactives, only 10 subscribed (sparse mutation)" (
 /// from a downstream cell; the leaf Reactives represent "DOM updates."
 test "ui: tree 1023 memos + 512 leaf reactives (root mutation)" (b : @bench.T) {
   let rt = @incr.Runtime::new()
-  let sig = @incr.Signal::new(rt, 0)
+  let sig = @incr.Input::new(rt, 0)
   // Build balanced binary tree of Memos, 1023 nodes total (depth 10)
   let nodes : Array[@incr.Derived[Int]] = []
   nodes.push(@incr.Derived::Derived(rt, fn() { sig.get() })) // root @ idx 0

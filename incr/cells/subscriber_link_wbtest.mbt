@@ -1,8 +1,8 @@
 ///|
 test "subscriber: after memo.get(), memo is in all deps' subscribers" {
   let rt = Runtime::Runtime()
-  let a = Signal::Signal(rt, 1)
-  let b = Signal::Signal(rt, 2)
+  let a = Input::Input(rt, 1)
+  let b = Input::Input(rt, 2)
   let sum = Derived(rt, () => a.get() + b.get())
   let _ = sum.read_or_abort()
   let a_idx = match rt.core.cell_index[a.id().id] {
@@ -26,9 +26,9 @@ test "subscriber: after memo.get(), memo is in all deps' subscribers" {
 ///|
 test "subscriber: dynamic dep changes update subscriber links" {
   let rt = Runtime::Runtime()
-  let flag = Signal::Signal(rt, true)
-  let a = Signal::Signal(rt, 10)
-  let b = Signal::Signal(rt, 20)
+  let flag = Input::Input(rt, true)
+  let a = Input::Input(rt, 10)
+  let b = Input::Input(rt, 20)
   let pick = Derived(rt, () => if flag.get() { a.get() } else { b.get() })
   let _ = pick.read_or_abort() // deps: flag, a
   let a_idx = match rt.core.cell_index[a.id().id] {
@@ -62,7 +62,7 @@ test "subscriber: dynamic dep changes update subscriber links" {
 ///|
 test "subscriber: memo.get() idempotent — no duplicate subscriber entries" {
   let rt = Runtime::Runtime()
-  let a = Signal::Signal(rt, 1)
+  let a = Input::Input(rt, 1)
   let m = Derived(rt, () => a.get() + 1)
   let _ = m.read_or_abort()
   let _ = m.read_or_abort()

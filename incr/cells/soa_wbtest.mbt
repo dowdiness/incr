@@ -1,7 +1,7 @@
 ///|
 test "get_changed_at: dispatches via cell_index" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let rev = rt.get_changed_at(sig.id())
   inspect(rev >= Revision::initial(), content="true")
 }
@@ -9,7 +9,7 @@ test "get_changed_at: dispatches via cell_index" {
 ///|
 test "cell_id_for: round-trips through cell_index" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let cell_id = @kernel.cell_id_for(
     rt.pull,
     rt.push,
@@ -28,9 +28,9 @@ test "runtime: SoA fields exist and start empty" {
 }
 
 ///|
-test "Signal::Signal: allocates into pull_signals" {
+test "Input::Input: allocates into pull_signals" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 42)
+  let sig = Input::Input(rt, 42)
   inspect(rt.pull.signals.length(), content="1")
   match rt.core.cell_index[sig.id().id] {
     PullSignal(i) => inspect(i, content="0")
@@ -41,7 +41,7 @@ test "Signal::Signal: allocates into pull_signals" {
 ///|
 test "Memo::Memo: allocates into pull_memos" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let m = Derived(rt, () => sig.get())
   let _ = m.read_or_abort()
   inspect(rt.pull.memos.length(), content="1")
@@ -58,7 +58,7 @@ test "runtime: dispatch tables stay index-aligned across all cell kinds" {
   // together. This is load-bearing for dispatch by cell_id.id.
   let rt = Runtime::Runtime()
   rt.check_table_invariant()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   rt.check_table_invariant()
   let m = Derived(rt, () => sig.get())
   let _ = m.read_or_abort()

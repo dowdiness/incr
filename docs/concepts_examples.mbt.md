@@ -261,7 +261,7 @@ test "docs concepts: derived maps cache per key and recompute lazily" {
 ///|
 test "docs concepts: accumulators expose memo-local side-channel data" {
   let rt = @incr.Runtime()
-  let width = @incr.Signal(rt, -5, label="width")
+  let width = @incr.Input(rt, -5, label="width")
   let diags : @incr.Accumulator[String] = @incr.Accumulator::new(
     rt~,
     label="diags",

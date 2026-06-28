@@ -1,25 +1,25 @@
 ///|
-test "signal: dispose marks cell as disposed" {
+test "input: dispose marks cell as disposed" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 42)
+  let sig = Input::Input(rt, 42)
   assert_false(sig.is_disposed())
   sig.dispose()
   assert_true(sig.is_disposed())
 }
 
 ///|
-test "signal: dispose is idempotent" {
+test "input: dispose is idempotent" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 42)
+  let sig = Input::Input(rt, 42)
   sig.dispose()
   sig.dispose() // second call is no-op, no abort
   assert_true(sig.is_disposed())
 }
 
 ///|
-test "panic signal: get after dispose aborts" {
+test "panic input: get after dispose aborts" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 42)
+  let sig = Input::Input(rt, 42)
   sig.dispose()
   ignore(sig.get()) // should abort
 }
@@ -27,7 +27,7 @@ test "panic signal: get after dispose aborts" {
 ///|
 test "derived: dispose marks cell as disposed" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 10)
+  let sig = Input::Input(rt, 10)
   let d = Derived::Derived(rt, fn() { sig.get() * 2 })
   ignore(d.read_or_abort()) // prime
   assert_false(d.is_disposed())
@@ -38,7 +38,7 @@ test "derived: dispose marks cell as disposed" {
 ///|
 test "derived: dispose is idempotent" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 10)
+  let sig = Input::Input(rt, 10)
   let d = Derived::Derived(rt, fn() { sig.get() * 2 })
   ignore(d.read_or_abort())
   d.dispose()
@@ -49,7 +49,7 @@ test "derived: dispose is idempotent" {
 ///|
 test "panic derived: read_or_abort after dispose aborts" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 10)
+  let sig = Input::Input(rt, 10)
   let d = Derived::Derived(rt, fn() { sig.get() * 2 })
   ignore(d.read_or_abort())
   d.dispose()
@@ -59,7 +59,7 @@ test "panic derived: read_or_abort after dispose aborts" {
 ///|
 test "derived: dispose then new derived works independently" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 10)
+  let sig = Input::Input(rt, 10)
   let d1 = Derived::Derived(rt, fn() { sig.get() * 2 })
   ignore(d1.read_or_abort())
   d1.dispose()
@@ -72,7 +72,7 @@ test "derived: dispose then new derived works independently" {
 ///|
 test "reachable derived: is_disposed returns correct state" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 10)
+  let sig = Input::Input(rt, 10)
   let rd = ReachableDerived::ReachableDerived(rt, fn() { sig.get() * 2 })
   ignore(rd.read_or_abort())
   assert_false(rd.is_disposed())
@@ -83,7 +83,7 @@ test "reachable derived: is_disposed returns correct state" {
 ///|
 test "reactive: is_disposed returns correct state" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 10)
+  let sig = Input::Input(rt, 10)
   let r = Reactive::new(rt, fn() { sig.get() * 2 })
   assert_false(r.is_disposed())
   r.dispose()
@@ -93,7 +93,7 @@ test "reactive: is_disposed returns correct state" {
 ///|
 test "effect: is_disposed returns correct state" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 10)
+  let sig = Input::Input(rt, 10)
   let eff = Effect::new(rt, fn() { ignore(sig.get()) })
   assert_false(eff.is_disposed())
   eff.dispose()
@@ -170,7 +170,7 @@ test "rule: dispose_rule is idempotent" {
 }
 
 ///|
-test "tracked cell: dispose delegates to inner signal" {
+test "tracked cell: dispose delegates to inner input" {
   let rt = Runtime::Runtime()
   let cell = TrackedCell::TrackedCell(rt, 42)
   assert_false(cell.is_disposed())
@@ -179,33 +179,33 @@ test "tracked cell: dispose delegates to inner signal" {
 }
 
 ///|
-test "signal: dispose during batch discards pending write" {
+test "input: dispose during batch discards pending write" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 10)
+  let sig = Input::Input(rt, 10)
   rt.batch(fn() {
     sig.set(20) // queued as pending
     sig.dispose() // should discard the pending write
   })
-  // Batch commits — disposed signal's write should be gone
+  // Batch commits — disposed input's write should be gone
   assert_true(sig.is_disposed())
 }
 
 ///|
-test "panic signal: set after dispose aborts" {
+test "panic input: set after dispose aborts" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 42)
+  let sig = Input::Input(rt, 42)
   sig.dispose()
   sig.set(99) // should abort
 }
 
 ///|
-test "signal: dispose of a dependency during computation is safe" {
+test "input: dispose of a dependency during computation is safe" {
   // Disposing a different cell during a memo's compute function is allowed.
   // The memo will still see the value it already read. Future reads of the
   // disposed cell will abort, which is the caller's responsibility.
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 10)
-  let other_sig = Signal::Signal(rt, 99)
+  let sig = Input::Input(rt, 10)
+  let other_sig = Input::Input(rt, 99)
   let d = Derived::Derived(rt, fn() {
     let v = sig.get()
     other_sig.dispose() // dispose a DIFFERENT cell — allowed
@@ -257,7 +257,7 @@ test "panic functional relation: insert after dispose aborts" {
 ///|
 test "dispose_cell: dispatches to correct dispose method for each cell type" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 10)
+  let sig = Input::Input(rt, 10)
   let d = Derived::Derived(rt, fn() { sig.get() * 2 })
   let rd = ReachableDerived::ReachableDerived(rt, fn() { sig.get() + 1 })
   // Force memos to compute so they have dependencies
@@ -275,7 +275,7 @@ test "dispose_cell: dispatches to correct dispose method for each cell type" {
 ///|
 test "dispose_cell: idempotent — disposing already-disposed cell is no-op" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 42)
+  let sig = Input::Input(rt, 42)
   rt.dispose_cell(sig.id())
   // Second dispose should not abort
   rt.dispose_cell(sig.id())
@@ -285,7 +285,7 @@ test "dispose_cell: idempotent — disposing already-disposed cell is no-op" {
 ///|
 test "dispose_cell: push reactive and effect" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let reactive : Reactive[Int] = Reactive::new(rt, fn() { sig.get() })
   let effect_ran : Ref[Int] = { val: 0 }
   let eff = Effect::new(rt, fn() { effect_ran.val = effect_ran.val + sig.get() })
@@ -299,7 +299,7 @@ test "dispose_cell: push reactive and effect" {
 test "panic dispose_cell: rejects foreign runtime CellId" {
   let rt1 = Runtime::Runtime()
   let rt2 = Runtime::Runtime()
-  let sig = Signal::Signal(rt1, 42)
+  let sig = Input::Input(rt1, 42)
   // Attempting to dispose rt1's cell via rt2 should abort
   rt2.dispose_cell(sig.id())
 }

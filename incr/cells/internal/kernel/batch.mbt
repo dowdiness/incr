@@ -11,14 +11,14 @@
 /// 2. Outer `while pending.length() > 0` wave loop processes
 ///    callback-queued signals in later waves.
 /// 3. Temporary `batch.depth` raise around the callback loop prevents
-///    re-entrant `fire_on_change` when a callback calls `Signal::set`.
+///    re-entrant `fire_on_change` when a callback calls `Input::set`.
 /// 4. `any_changed` accumulator fires the final global `on_change`
 ///    exactly once after all waves complete.
 /// 5. `max_durability = Low` resets on all three paths (changed branch,
 ///    no-change branch, after the while loop).
 ///
 /// Commit pending batch changes using two-phase values.
-/// Phase 1: commit each signal's pending value, collecting which actually changed.
+/// Phase 1: commit each input's pending value, collecting which actually changed.
 /// Phase 2: if any changed, single revision bump and metadata update.
 /// Loops until no more callbacks queue additional signals, then fires the
 /// global on_change callback exactly once if anything changed.
@@ -55,7 +55,7 @@ pub fn commit_batch_with_events(
       // Snapshot on_change callbacks BEFORE propagation — preserves the
       // invariant that push propagation cannot affect which handlers fire
       // in this batch wave (a PushReactive's compute closure could call
-      // clear_on_change() or on_change() on a changed signal).
+      // clear_on_change() or on_change() on a changed input).
       let callbacks : Array[() -> Unit] = []
       for c in changed {
         let cell_id = c.cell_id()
@@ -64,7 +64,7 @@ pub fn commit_batch_with_events(
           PullSignal(idx) => pull.signals[idx]
           _ =>
             abort(
-              "Expected signal cell but found different kind: " +
+              "Expected input cell but found different kind: " +
               cell_id.id.to_string(),
             )
         }
@@ -84,8 +84,8 @@ pub fn commit_batch_with_events(
         event_sink,
       )
       core.batch.max_durability = Low
-      // Raise batch_depth while invoking callbacks so that any signal.set()
-      // inside a callback takes the batch path instead of set_unconditional,
+      // Raise batch_depth while invoking callbacks so that any input.set()
+      // inside a callback takes the batch path instead of force_set,
       // preventing re-entrant fire_on_change() calls.
       // If callbacks queue more signals, the while loop will process them.
       core.batch.depth = core.batch.depth + 1
