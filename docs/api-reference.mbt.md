@@ -583,6 +583,8 @@ Clears all cached entries.
 
 ---
 
+## ReachableDerived[T]
+
 `ReachableDerived[T]` is a lazy derived value that participates in reachability propagation so eager/rooted downstream cells can keep its upstream graph reachable across `Runtime::gc()` sweeps. The legacy `HybridMemo[T]` type has been removed in v0.12.0.
 
 ### `ReachableDerived[T : Eq](rt: Runtime, compute: () -> T raise Failure, label? : String) -> ReachableDerived[T]`
