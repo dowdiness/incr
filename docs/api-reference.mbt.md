@@ -8,19 +8,19 @@
 > accumulator push path. The README and getting-started target snippets are
 > covered by [`target_api_examples.mbt.md`](target_api_examples.mbt.md).
 
-Reference for the most commonly used public APIs in `incr`. This is not exhaustive — the authoritative surface is in `pkg.generated.mbti` and `cells/pkg.generated.mbti`. APIs surfaced here: `Runtime`, `Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `Accumulator`, `DerivedEvent`, `CycleError`, the `RuntimeContext`/`Database`/`Freshness`/`Readable`/`InputFieldOwner`/`Trackable` traits, and the top-level helper functions. The legacy Memo-family types (`Memo`, `MemoMap`, `HybridMemo`) are not re-exported from `@incr` — import them through `@cells` directly for white-box access. Other legacy types (`Signal`, `TrackedCell`, `Reactive`, `FunctionalRelation`) remain re-exported from `@incr` for source compatibility.
+Reference for the most commonly used public APIs in `incr`. This is not exhaustive — the authoritative surface is in `pkg.generated.mbti` and `cells/pkg.generated.mbti`. APIs surfaced here: `Runtime`, `Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `Accumulator`, `DerivedEvent`, `CycleError`, the `RuntimeContext`/`Database`/`Freshness`/`Readable`/`InputFieldOwner`/`Trackable` traits, and the top-level helper functions. The legacy Memo-family types (`Memo`, `MemoMap`, `HybridMemo`) have been removed in v0.12.0 — use `Derived`, `DerivedMap`, and `ReachableDerived` respectively. Other legacy types (`Signal`, `TrackedCell`, `Reactive`, `FunctionalRelation`) remain re-exported from `@incr` for source compatibility.
 
 > **Recommended Pattern:** Use the `RuntimeContext` trait to encapsulate your
 > `Runtime` in an application context type. This makes your API cleaner and
 > hides implementation details. Compatibility helpers still accept `Database`.
 > See the [Helper Functions](#helper-functions) section and [API Design Guidelines](design/api-design-guidelines.md) for details.
 
-> **Target-name migration:** Target facade types (`Derived`, `DerivedMap`, `ReachableDerived`) are the recommended names. The legacy Memo-family types (`Memo`, `MemoMap`, `HybridMemo`) are no longer re-exported from `@incr` — use them through `@cells` directly for white-box access. These types will be removed in a future milestone. Other legacy compatibility names (`Signal`, `TrackedCell`, `Reactive`, `Observer`, `FunctionalRelation`, `Readable`, `Trackable`, `Database`) remain re-exported from `@incr` for source compatibility.
+> **Target-name migration:** Target facade types (`Derived`, `DerivedMap`, `ReachableDerived`) are the recommended names. The legacy Memo-family types (`Memo`, `MemoMap`, `HybridMemo`) have been removed in v0.12.0. Other legacy compatibility names (`Signal`, `TrackedCell`, `Reactive`, `Observer`, `FunctionalRelation`, `Readable`, `Trackable`, `Database`) remain re-exported from `@incr` for source compatibility.
 
 ## Read Vocabulary Migration
 
 Target reads use `read` for permissive outside-graph reads and `get` for strict
-tracked-context reads. The target facades (`Derived`, `DerivedMap`, `ReachableDerived`) provide the full read vocabulary. Internal `Memo`, `HybridMemo`, and `MemoMap` types expose only legacy methods and will not grow target-vocabulary bridge methods.
+tracked-context reads. The target facades (`Derived`, `DerivedMap`, `ReachableDerived`) provide the full read vocabulary. The legacy `Memo`, `HybridMemo`, and `MemoMap` types have been removed in v0.12.0.
 
 | Legacy compatibility | Target facade |
 |---|---|
@@ -326,7 +326,7 @@ equals the previous value. Accepts output types that do not implement `Eq`.
 - `Signal(rt, value, durability?, label?)` constructs a compatibility input handle.
 - `Signal::set_unconditional(value)` is `Input::force_set(value)`.
 - `Signal::is_up_to_date()` is `Input::is_fresh()`.
-- `Signal::get_result()` always returns `Ok(value)` and exists for legacy symmetry with `Memo::get_result()`.
+- `Signal::get_result()` always returns `Ok(value)` and exists for legacy symmetry with `Memo::get_result()` (removed in v0.12.0).
 - `Signal::id()`, `Signal::durability()`, `Signal::on_change()`, and `Signal::clear_on_change()` remain available on the compatibility handle for introspection and callbacks.
 
 ---
@@ -398,14 +398,14 @@ Returns the compatibility `TrackedCell[T]` handle for interop.
 - `TrackedCell(rt, value, durability?, label?)` constructs a compatibility field handle.
 - `TrackedCell::set_unconditional(value)` is `InputField::force_set(value)`.
 - `TrackedCell::is_up_to_date()` is `InputField::is_fresh()`.
-- `TrackedCell::get_result()` always returns `Ok(value)` and exists for legacy symmetry with `Memo::get_result()`.
+- `TrackedCell::get_result()` always returns `Ok(value)` and exists for legacy symmetry with `Memo::get_result()` (removed in v0.12.0).
 - `TrackedCell::as_signal()` returns the underlying compatibility `Signal[T]`.
 
 ---
 
 ## Derived[T]
 
-`Derived[T]` is the target-name lazy derived-value facade. `Memo[T]` remains available as a compatibility handle but will be removed in a future milestone.
+`Derived[T]` is the target-name lazy derived-value facade. The legacy `Memo[T]` type has been removed in v0.12.0.
 
 ### `Derived[T : Eq](rt: Runtime, compute: () -> T raise Failure, label? : String) -> Derived[T]`
 
@@ -427,8 +427,7 @@ recomputation advances the changed-at revision unconditionally, even when the
 output equals the previous value. Accepts output types that do not implement
 `Eq`.
 
-This is the target-facade constructor for the alternate backdating strategy
-exposed by `Memo::new_no_backdate`.
+This is the target-facade constructor for the alternate backdating strategy.
 
 ### `Derived::map_no_backdate[U](self, f: (T) -> U, label? : String) -> Derived[U]`
 
@@ -507,31 +506,15 @@ Creates a long-lived outside-graph reader. The `Watch` is a GC root until dispos
 
 Returns whether this derived value is verified at the current revision.
 
+
 ### `Derived::accumulated(self, acc: Accumulator[A]) -> Result[Array[A], ReadError] raise Failure`
 
-Tracked accumulator read: returns the values pushed by `self` during its last successful compute, forces verification of `self`, and stages a synthetic dependency on the current tracking frame. `Derived::accumulated_or_abort` is the strict unwrap convenience, `Derived::accumulated_peek` is the untracked cached read, and `Derived::accumulated_result` is the `Result`-style alias.
-
-### Compatibility `Memo[T]` (to be removed)
-
-`Memo[T]` is the legacy compatibility lazy cell handle. New code should use `Derived[T]`.
-
-- `Memo(rt, f, label?)` constructs a compatibility memo using `T : Eq` backdating. Migrate ordinary derived values to `Derived(rt, f, label?)`.
-- `Memo::new_memo[T : BackdateEq]` and `Memo::new_no_backdate[T]` expose alternate backdating strategies. Use `Derived::derived_no_backdate` for the no-backdate target-facade constructor.
-- `Memo::get()` is the legacy strict aborting graph read. Use `Derived::get_or_abort()` inside tracked compute functions.
-- `Memo::get_result()` is context-sensitive: use `Derived::get()` inside tracked compute functions and `Derived::read()` outside the graph.
-- `Memo::get_or()` and `Memo::get_or_else()` are legacy permissive cycle-safe reads. After migrating the handle, use an explicit `match derived.read()` fallback.
-- `Memo::is_up_to_date()` is `Derived::is_fresh()`.
-- `Memo::observe()` creates a legacy `Observer[T]`; prefer `Derived::watch()` on target facades.
-- `Memo::id()`, `dependencies()`, `changed_at()`, `verified_at()`, `on_change()`, and `clear_on_change()` remain available on the compatibility handle for diagnostics and low-level integration.
-
-### `Memo::accumulated[T, A](self, acc: Accumulator[A]) -> Result[Array[A], ReadError] raise Failure`
-
-Returns the values this memo pushed into `acc` during its most recent compute,
-in push order. When called from a `Memo` or `HybridMemo` compute frame and the
+Returns the values this derived cell pushed into `acc` during its most recent compute,
+in push order. When called from a `Derived` or `ReachableDerived` compute frame and the
 read succeeds, it records a synthetic dependency so that caller reinvalidates
-when the push set changes — even when the memo's ordinary return value is
-unchanged. Outside a memo compute, it returns data without registering a
-dependency. Forces verification of the target memo first, so stale results are
+when the push set changes — even when the derived cell's ordinary return value is
+unchanged. Outside a derived-cell compute, it returns data without registering a
+dependency. A failure in the underlying verify that was never caught as a cycle error is
 never returned.
 
 The read channel reports cycles as `Err(ReadError::Cycle(_))` and a directly
@@ -541,24 +524,10 @@ from that compute are committed and returned as `Ok(...)`. A target compute that
 raises `Failure` is a defect and aborts. Disposed accumulators and
 static-Derived recompute misuse raise `Failure`; cross-runtime reuse aborts.
 
-### `Memo::accumulated_or_abort[T, A](self, acc: Accumulator[A]) -> Array[A] raise Failure`
 
-Tracked, verifying accumulator read that unwraps `Memo::accumulated` and aborts
-on `ReadError`. This is the strict convenience to use inside compute closures
-that should treat graph mechanism failures as fatal.
+## DerivedMap[K, V]
 
-### `Memo::accumulated_peek[T, A](self, acc: Accumulator[A]) -> Array[A]`
-
-Untracked read of the values the memo pushed into `acc` during its most recent compute. Does **not** record a dependency, does **not** force verification, and is **permissive on disposal** — returns `[]` when the accumulator or target is disposed, or when the target has never been computed.
-
-### `Memo::accumulated_result[T, A](self, acc: Accumulator[A]) -> Result[Array[A], ReadError] raise Failure`
-
-Compatibility alias for `Memo::accumulated`.
----
-
-## DerivedMap[K, V] / MemoMap[K, V]
-
-`DerivedMap[K, V]` is the target-name keyed derived facade. `MemoMap[K, V]` remains available as the compatibility handle.
+`DerivedMap[K, V]` is the target-name keyed derived facade. The legacy `MemoMap[K, V]` has been removed in v0.12.0.
 
 ### `DerivedMap[K : Hash + Eq, V](rt: Runtime, compute: (K) -> V raise Failure, label? : String) -> DerivedMap[K, V]`
 
