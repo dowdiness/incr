@@ -3,8 +3,8 @@
 ///
 /// This is the core trait that all incremental systems must implement.
 /// It connects user-defined database types to the incr runtime,
-/// enabling generic helper functions like `create_signal`, `create_memo`,
-/// and `create_memo_map`.
+/// enabling helpers like `create_signal`, `batch`, `create_accumulator`,
+/// `create_tracked_cell`, and `create_scope`.
 ///
 /// This trait corresponds to Salsa's `#[salsa::db]` trait, but without
 /// macro magic — users implement it explicitly.
@@ -34,12 +34,11 @@ pub(open) trait RuntimeContext {
 }
 
 ///|
-/// A readable incremental node (Signal or Memo).
+/// A readable incremental node.
 ///
 /// This trait provides a common interface for checking whether
 /// a node's cached value is current with the latest revision.
-/// Both Signal and Memo implement this trait.
-///
+/// Both Signal and TrackedCell implement this trait.
 /// Use the trait bound in generic functions to write code that
 /// works with any readable node:
 ///
@@ -203,8 +202,7 @@ pub fn[Db : Database] batch_result(
 }
 
 ///|
-/// Creates an accumulator bound to the database's underlying runtime.
-/// Convenience mirror of `create_signal` / `create_memo`.
+/// Convenience mirror of `create_signal` / `create_derived`.
 pub fn[Db : Database, T : Eq] create_accumulator(
   db : Db,
   label? : String,
@@ -216,7 +214,7 @@ pub fn[Db : Database, T : Eq] create_accumulator(
 
 ///|
 /// Readable implementation for TrackedCell, matching the pattern of
-/// Signal and Memo implementations above.
+/// the Signal implementation above.
 pub impl[T] Readable for TrackedCell[T] with fn is_up_to_date(self) {
   TrackedCell::is_up_to_date(self)
 }
@@ -232,8 +230,7 @@ pub(open) trait InputFieldOwner {
 
 ///|
 /// Creates a new TrackedCell using the database's runtime.
-///
-/// Follows the same pattern as `create_signal` and `create_memo`.
+/// Follows the same pattern as `create_signal` and `create_derived`.
 ///
 /// # Parameters
 ///
