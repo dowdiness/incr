@@ -25,8 +25,8 @@ fn collect_runtime_eval_events(
 test "runtime_eval: disabled hook does not buffer derived rebuild events" {
   let rt = Runtime()
   let source = Signal(rt, 1)
-  let derived = Memo(rt, () => source.get() + 1)
-  inspect(read_memo_for_test(derived), content="2")
+  let derived = Derived(rt, () => source.get() + 1)
+  inspect(derived.read_or_abort(), content="2")
   inspect(rt.runtime_evaluation_event_hook.pending.length(), content="0")
   inspect(rt.runtime_evaluation_event_hook.active.length(), content="0")
 }
@@ -35,17 +35,17 @@ test "runtime_eval: disabled hook does not buffer derived rebuild events" {
 test "runtime_eval: derived rebuild drains after typed cache is written" {
   let rt = Runtime()
   let source = Signal(rt, 1)
-  let derived = Memo(rt, () => source.get() + 1)
+  let derived = Derived(rt, () => source.get() + 1)
   let listener_reads : Array[Int] = []
   let events : Array[@kernel.RuntimeEvaluationEvent] = []
   rt.runtime_evaluation_event_hook.listener = Some(fn(event) {
     events.push(event)
     match event {
-      DerivedRebuilt(_) => listener_reads.push(read_memo_for_test(derived))
+      DerivedRebuilt(_) => listener_reads.push(derived.read_or_abort())
       _ => ()
     }
   })
-  inspect(read_memo_for_test(derived), content="2")
+  inspect(derived.read_or_abort(), content="2")
   inspect(listener_reads.length(), content="1")
   inspect(listener_reads[0], content="2")
   inspect(events.length(), content="1")
@@ -68,12 +68,12 @@ test "runtime_eval: derived rebuild drains after typed cache is written" {
 test "runtime_eval: derived backdated rebuild reports backdated disposition" {
   let rt = Runtime()
   let source = Signal(rt, 1)
-  let derived = Memo(rt, () => source.get() % 2)
+  let derived = Derived(rt, () => source.get() % 2)
   let events = collect_runtime_eval_events(rt)
-  inspect(read_memo_for_test(derived), content="1")
+  inspect(derived.read_or_abort(), content="1")
   events.clear()
   source.set(3)
-  inspect(read_memo_for_test(derived), content="1")
+  inspect(derived.read_or_abort(), content="1")
   inspect(events.length(), content="1")
   match events[0] {
     DerivedRebuilt(summary) => {
@@ -96,9 +96,9 @@ test "runtime_eval: derived backdated rebuild reports backdated disposition" {
 test "runtime_eval: derived catchable abort reports abort summary" {
   let rt = Runtime()
   let events = collect_runtime_eval_events(rt)
-  let derived : Memo[Int] = Memo(rt, () => raise Failure("derived boom"))
+  let derived : Derived[Int] = Derived(rt, () => raise Failure("derived boom"))
   let mut failed = false
-  try derived.force_recompute() catch {
+  try derived.inner.force_recompute() catch {
     _ => failed = true
   } noraise {
     _ => ()
@@ -119,11 +119,11 @@ test "runtime_eval: derived catchable abort reports abort summary" {
 test "runtime_eval: direct drain flushes abort with active tracking frame" {
   let rt = Runtime()
   let events = collect_runtime_eval_events(rt)
-  let outer = Memo(rt, () => 0)
-  let derived : Memo[Int] = Memo(rt, () => raise Failure("nested boom"))
+  let outer = Derived(rt, () => 0)
+  let derived : Derived[Int] = Derived(rt, () => raise Failure("nested boom"))
   rt.begin_tracking(outer.id())
   let mut failed = false
-  try derived.force_recompute() catch {
+  try derived.inner.force_recompute() catch {
     _ => failed = true
   } noraise {
     _ => ()
