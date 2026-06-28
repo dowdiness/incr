@@ -156,9 +156,9 @@ test "panic scope: memo on disposed scope aborts" {
 test "scope: add_observer disposes observer on scope dispose" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 10)
-  let m = Memo::Memo(rt, fn() { sig.get() * 2 })
+  let d = Derived::Derived(rt, fn() { sig.get() * 2 })
   let scope = Scope::new(rt)
-  let obs = scope.add_observer(m.observe())
+  let obs = scope.add_observer(d.observe())
   inspect(obs.get(), content="20")
   inspect(obs.is_disposed(), content="false")
   scope.dispose()
@@ -169,9 +169,9 @@ test "scope: add_observer disposes observer on scope dispose" {
 test "scope: manual observer dispose before scope dispose is safe" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 1)
-  let m = Memo::Memo(rt, fn() { sig.get() })
+  let d = Derived::Derived(rt, fn() { sig.get() })
   let scope = Scope::new(rt)
-  let obs = scope.add_observer(m.observe())
+  let obs = scope.add_observer(d.observe())
   obs.dispose()
   inspect(obs.is_disposed(), content="true")
   scope.dispose()
@@ -194,8 +194,8 @@ test "scope: observer disposed before owned cells" {
 test "panic scope: add_observer on disposed scope aborts" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 1)
-  let m = Memo::Memo(rt, fn() { sig.get() })
+  let d = Derived::Derived(rt, fn() { sig.get() })
   let scope = Scope::new(rt)
   scope.dispose()
-  ignore(scope.add_observer(m.observe()))
+  ignore(scope.add_observer(d.observe()))
 }

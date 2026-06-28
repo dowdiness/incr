@@ -17,44 +17,47 @@ test "get_result with handled inner errors returns sentinel value" {
   // This demonstrates the primary use case: compute functions can handle
   // cycle errors gracefully by returning sentinel values
   let rt = Runtime::Runtime()
-  let memo_ref : Ref[Memo[Int]?] = { val: None }
-  let memo = Memo::Memo(rt, () => {
-    match memo_ref.val {
+  let d_ref : Ref[Derived[Int]?] = { val: None }
+  let d = Derived::Derived(rt, () => {
+    match d_ref.val {
       Some(m) =>
         // Handle the error by returning a sentinel value
-        match m.get_result() {
+        match m.read() {
           Ok(v) => v + 1
-          Err(_) => -999 // Sentinel value for cycle
+          Err(@incr_types.ReadError::Cycle(_)) => -999 // Sentinel value for cycle
+          Err(_) => abort("unexpected read error")
         }
       None => 0
     }
   })
-  memo_ref.val = Some(memo)
+  d_ref.val = Some(d)
   // Since the error is handled inside, outer call returns Ok with sentinel
-  inspect(read_memo_for_test(memo), content="-999")
+  inspect(d.read_or_abort(), content="-999")
 }
 
 ///|
 test "get_result with handled errors in mutual recursion (2-way)" {
   let rt = Runtime::Runtime()
-  let memo_b_ref : Ref[Memo[Int]?] = { val: None }
-  let memo_a : Memo[Int] = Memo::Memo(rt, () => {
-    match memo_b_ref.val {
+  let d_b_ref : Ref[Derived[Int]?] = { val: None }
+  let d_a : Derived[Int] = Derived::Derived(rt, () => {
+    match d_b_ref.val {
       Some(b) =>
-        match b.get_result() {
+        match b.read() {
           Ok(v) => v + 1
-          Err(_) => -1000 // Cycle sentinel for memo_a
+          Err(@incr_types.ReadError::Cycle(_)) => -1000 // Cycle sentinel for memo_a
+          Err(_) => abort("unexpected read error")
         }
       None => 0
     }
   })
-  let memo_b = Memo::Memo(rt, () => {
-    match memo_a.get_result() {
+  let d_b = Derived::Derived(rt, () => {
+    match d_a.read() {
       Ok(v) => v + 1
-      Err(_) => -2000 // Cycle sentinel for memo_b
+      Err(@incr_types.ReadError::Cycle(_)) => -2000 // Cycle sentinel for memo_b
+      Err(_) => abort("unexpected read error")
     }
   })
-  memo_b_ref.val = Some(memo_b)
+  d_b_ref.val = Some(d_b)
   // memo_a calls memo_b which calls memo_a (cycle detected)
   // memo_a's inner get_result returns Err, so memo_a returns -2000
   // memo_b receives Ok(-2000), adds 1, returns -1999
@@ -63,47 +66,50 @@ test "get_result with handled errors in mutual recursion (2-way)" {
   // Actually: memo_a computes -> calls b.get_result() -> memo_b computes
   // -> calls memo_a.get_result() -> Err(cycle) -> returns -2000
   // -> memo_b returns Ok(-2000) to memo_a -> memo_a does -2000 + 1 = -1999
-  inspect(read_memo_for_test(memo_a), content="-1999")
+  inspect(d_a.read_or_abort(), content="-1999")
 }
 
 ///|
 test "get_result with handled errors in mutual recursion (3-way)" {
   let rt = Runtime::Runtime()
-  let memo_b_ref : Ref[Memo[Int]?] = { val: None }
-  let memo_c_ref : Ref[Memo[Int]?] = { val: None }
-  let memo_a : Memo[Int] = Memo::Memo(rt, () => {
-    match memo_b_ref.val {
+  let d_b_ref : Ref[Derived[Int]?] = { val: None }
+  let d_c_ref : Ref[Derived[Int]?] = { val: None }
+  let d_a : Derived[Int] = Derived::Derived(rt, () => {
+    match d_b_ref.val {
       Some(b) =>
-        match b.get_result() {
+        match b.read() {
           Ok(v) => v + 1
-          Err(_) => -1
+          Err(@incr_types.ReadError::Cycle(_)) => -1
+          Err(_) => abort("unexpected read error")
         }
       None => 0
     }
   })
-  let memo_b : Memo[Int] = Memo::Memo(rt, () => {
-    match memo_c_ref.val {
+  let d_b : Derived[Int] = Derived::Derived(rt, () => {
+    match d_c_ref.val {
       Some(c) =>
-        match c.get_result() {
+        match c.read() {
           Ok(v) => v + 1
-          Err(_) => -2
+          Err(@incr_types.ReadError::Cycle(_)) => -2
+          Err(_) => abort("unexpected read error")
         }
       None => 0
     }
   })
-  let memo_c = Memo::Memo(rt, () => {
-    match memo_a.get_result() {
+  let d_c = Derived::Derived(rt, () => {
+    match d_a.read() {
       Ok(v) => v + 1
-      Err(_) => -3 // This is hit when cycle detected
+      Err(@incr_types.ReadError::Cycle(_)) => -3 // This is hit when cycle detected
+      Err(_) => abort("unexpected read error")
     }
   })
-  memo_b_ref.val = Some(memo_b)
-  memo_c_ref.val = Some(memo_c)
+  d_b_ref.val = Some(d_b)
+  d_c_ref.val = Some(d_c)
   // memo_a -> memo_b -> memo_c -> memo_a (cycle!)
   // memo_c gets Err, returns -3
   // memo_b gets Ok(-3), returns -3 + 1 = -2
   // memo_a gets Ok(-2), returns -2 + 1 = -1
-  inspect(read_memo_for_test(memo_a), content="-1")
+  inspect(d_a.read_or_abort(), content="-1")
 }
 
 ///|
@@ -111,11 +117,11 @@ test "get_result returns Ok for non-cyclic memos" {
   let rt = Runtime::Runtime()
   let a = Signal::Signal(rt, 10)
   let b = Signal::Signal(rt, 20)
-  let sum = Memo::Memo(rt, () => a.get() + b.get())
-  let double_sum = Memo::Memo(rt, () => sum.get() * 2)
+  let sum = Derived::Derived(rt, () => a.get() + b.get())
+  let double_sum = Derived::Derived(rt, () => sum.get_or_abort() * 2)
   // Non-cyclic memos should return Ok
-  inspect(read_memo_for_test(sum), content="30")
-  inspect(read_memo_for_test(double_sum), content="60")
+  inspect(sum.read_or_abort(), content="30")
+  inspect(double_sum.read_or_abort(), content="60")
 }
 
 ///|
@@ -138,12 +144,12 @@ test "CycleError::cell_id returns correct cell ID (backward compatibility)" {
   // This test verifies backward compatibility - we can still access the cell ID
   // via the new cell() method which returns a CellId
   let rt = Runtime::Runtime()
-  let memo_ref : Ref[Memo[Int]?] = { val: None }
+  let d_ref : Ref[Derived[Int]?] = { val: None }
   let captured_id : Ref[Int] = { val: -1 }
-  let memo = Memo::Memo(rt, () => {
-    match memo_ref.val {
+  let d = Derived::Derived(rt, () => {
+    match d_ref.val {
       Some(m) =>
-        match m.get_result() {
+        match m.read() {
           Ok(v) => v + 1
           Err(err) => {
             captured_id.val = err.cell().id
@@ -153,8 +159,8 @@ test "CycleError::cell_id returns correct cell ID (backward compatibility)" {
       None => 0
     }
   })
-  memo_ref.val = Some(memo)
-  let _ = read_memo_for_test(memo)
+  d_ref.val = Some(d)
+  let _ = d.read_or_abort()
   // The captured cell_id should be 0 (first memo created)
   inspect(captured_id.val, content="0")
 }
@@ -166,12 +172,12 @@ test "CycleError::cell_id returns correct cell ID (backward compatibility)" {
 ///|
 test "CycleError::cell() returns the cycle-causing cell ID" {
   let rt = Runtime::Runtime()
-  let memo_ref : Ref[Memo[Int]?] = { val: None }
+  let d_ref : Ref[Derived[Int]?] = { val: None }
   let captured_cell : Ref[CellId?] = { val: None }
-  let memo = Memo::Memo(rt, () => {
-    match memo_ref.val {
+  let d = Derived::Derived(rt, () => {
+    match d_ref.val {
       Some(m) =>
-        match m.get_result() {
+        match m.read() {
           Ok(v) => v + 1
           Err(err) => {
             captured_cell.val = Some(err.cell())
@@ -181,11 +187,11 @@ test "CycleError::cell() returns the cycle-causing cell ID" {
       None => 0
     }
   })
-  memo_ref.val = Some(memo)
-  let _ = read_memo_for_test(memo)
+  d_ref.val = Some(d)
+  let _ = d.read_or_abort()
   // Verify captured cell matches memo's ID
   match captured_cell.val {
-    Some(cell_id) => inspect(cell_id == memo.id(), content="true")
+    Some(cell_id) => inspect(cell_id == d.id(), content="true")
     None => fail("Expected cycle error to be captured")
   }
 }
@@ -193,12 +199,12 @@ test "CycleError::cell() returns the cycle-causing cell ID" {
 ///|
 test "CycleError::path() returns the full dependency cycle" {
   let rt = Runtime::Runtime()
-  let memo_ref : Ref[Memo[Int]?] = { val: None }
+  let d_ref : Ref[Derived[Int]?] = { val: None }
   let captured_path : Ref[Array[CellId]?] = { val: None }
-  let memo = Memo::Memo(rt, () => {
-    match memo_ref.val {
+  let d = Derived::Derived(rt, () => {
+    match d_ref.val {
       Some(m) =>
-        match m.get_result() {
+        match m.read() {
           Ok(v) => v + 1
           Err(err) => {
             captured_path.val = Some(err.path())
@@ -208,8 +214,8 @@ test "CycleError::path() returns the full dependency cycle" {
       None => 0
     }
   })
-  memo_ref.val = Some(memo)
-  let _ = read_memo_for_test(memo)
+  d_ref.val = Some(d)
+  let _ = d.read_or_abort()
   // Note: Path tracking is now implemented (Task 2)
   // Path is populated with the cycle information
   match captured_path.val {
@@ -223,12 +229,12 @@ test "CycleError::path() returns the full dependency cycle" {
 ///|
 test "CycleError::format_path() produces readable output" {
   let rt = Runtime::Runtime()
-  let memo_ref : Ref[Memo[Int]?] = { val: None }
+  let d_ref : Ref[Derived[Int]?] = { val: None }
   let captured_message : Ref[String] = { val: "" }
-  let memo = Memo::Memo(rt, () => {
-    match memo_ref.val {
+  let d = Derived::Derived(rt, () => {
+    match d_ref.val {
       Some(m) =>
-        match m.get_result() {
+        match m.read() {
           Ok(v) => v + 1
           Err(err) => {
             captured_message.val = err.format_path()
@@ -238,8 +244,8 @@ test "CycleError::format_path() produces readable output" {
       None => 0
     }
   })
-  memo_ref.val = Some(memo)
-  let _ = read_memo_for_test(memo)
+  d_ref.val = Some(d)
+  let _ = d.read_or_abort()
   inspect(captured_message.val.contains("Cycle detected:"), content="true")
   inspect(captured_message.val.contains(" → "), content="true")
 }
@@ -248,11 +254,11 @@ test "CycleError::format_path() produces readable output" {
 test "CycleError::format_path() returns non-empty string for self-referencing memo" {
   let rt = Runtime::Runtime()
   let captured_message : Ref[String] = { val: "" }
-  let memo_ref : Ref[Memo[Int]?] = { val: None }
-  let memo = Memo::Memo(rt, () => {
-    match memo_ref.val {
+  let d_ref : Ref[Derived[Int]?] = { val: None }
+  let d = Derived::Derived(rt, () => {
+    match d_ref.val {
       Some(m) =>
-        match m.get_result() {
+        match m.read() {
           Ok(v) => v + 1
           Err(err) => {
             captured_message.val = err.format_path()
@@ -262,8 +268,8 @@ test "CycleError::format_path() returns non-empty string for self-referencing me
       None => 0
     }
   })
-  memo_ref.val = Some(memo)
-  let _ = read_memo_for_test(memo)
+  d_ref.val = Some(d)
+  let _ = d.read_or_abort()
   inspect(captured_message.val.contains("Cycle detected:"), content="true")
   inspect(captured_message.val.contains(" → "), content="true")
 }
@@ -271,39 +277,41 @@ test "CycleError::format_path() returns non-empty string for self-referencing me
 ///|
 test "state is cleaned up after cycle error with handled errors" {
   let rt = Runtime::Runtime()
-  let memo_ref : Ref[Memo[Int]?] = { val: None }
-  let memo = Memo::Memo(rt, () => {
-    match memo_ref.val {
+  let d_ref : Ref[Derived[Int]?] = { val: None }
+  let d = Derived::Derived(rt, () => {
+    match d_ref.val {
       Some(m) =>
-        match m.get_result() {
+        match m.read() {
           Ok(v) => v + 1
-          Err(_) => -999
+          Err(@incr_types.ReadError::Cycle(_)) => -999
+          Err(_) => abort("unexpected read error")
         }
       None => 0
     }
   })
-  memo_ref.val = Some(memo)
+  d_ref.val = Some(d)
   // First call triggers cycle (but handles it with sentinel)
-  inspect(read_memo_for_test(memo), content="-999")
+  inspect(d.read_or_abort(), content="-999")
   // Create a non-cyclic memo to verify runtime is still functional
   let sig = Signal::Signal(rt, 5)
-  let good_memo = Memo::Memo(rt, () => sig.get() * 2)
-  inspect(read_memo_for_test(good_memo), content="10")
+  let good_d = Derived::Derived(rt, () => sig.get() * 2)
+  inspect(good_d.read_or_abort(), content="10")
 }
 
 ///|
 test "cycle error during reverification returns error through get_result" {
   let rt = Runtime::Runtime()
   let trigger = Signal::Signal(rt, 0)
-  let memo_ref : Ref[Memo[Int]?] = { val: None }
+  let d_ref : Ref[Derived[Int]?] = { val: None }
   // This memo only creates a cycle when trigger > 0
-  let memo = Memo::Memo(rt, () => {
+  let d = Derived::Derived(rt, () => {
     if trigger.get() > 0 {
-      match memo_ref.val {
+      match d_ref.val {
         Some(m) =>
-          match m.get_result() {
+          match m.read() {
             Ok(v) => v + 1
-            Err(_) => -888 // Cycle sentinel
+            Err(@incr_types.ReadError::Cycle(_)) => -888
+            Err(_) => abort("unexpected error in cycle test")
           }
         None => 0
       }
@@ -311,13 +319,13 @@ test "cycle error during reverification returns error through get_result" {
       42
     }
   })
-  memo_ref.val = Some(memo)
+  d_ref.val = Some(d)
   // First call succeeds (no cycle when trigger = 0)
-  inspect(read_memo_for_test(memo), content="42")
+  inspect(d.read_or_abort(), content="42")
   // Change trigger to create cycle on next access
   trigger.set(1)
   // Now reverification detects cycle but handles it with sentinel
-  inspect(read_memo_for_test(memo), content="-888")
+  inspect(d.read_or_abort(), content="-888")
 }
 
 ///|
@@ -328,27 +336,28 @@ test "failed get_result does not create spurious dependency edges" {
   // to falsely detect a cycle during verification.
   let rt = Runtime::Runtime()
   let external = Signal::Signal(rt, 100)
-  let memo_ref : Ref[Memo[Int]?] = { val: None }
+  let d_ref : Ref[Derived[Int]?] = { val: None }
   let cycle_count : Ref[Int] = { val: 0 }
-  let memo = Memo::Memo(rt, () => {
+  let d = Derived::Derived(rt, () => {
     // Include external dependency so we can trigger recomputation
     let base = external.get()
-    match memo_ref.val {
+    match d_ref.val {
       Some(m) =>
-        match m.get_result() {
+        match m.read() {
           Ok(v) => v + 1
-          Err(_) => {
+          Err(@incr_types.ReadError::Cycle(_)) => {
             cycle_count.val = cycle_count.val + 1
-            base + cycle_count.val // Return sentinel based on external + cycle count
+            base + cycle_count.val
           }
+          Err(_) => abort("unexpected error in cycle test")
         }
       None => base
     }
   })
-  memo_ref.val = Some(memo)
+  d_ref.val = Some(d)
 
   // First access: cycle detected, handled with sentinel (100 + 1 = 101)
-  inspect(read_memo_for_test(memo), content="101")
+  inspect(d.read_or_abort(), content="101")
 
   // Bump external signal to force reverification
   external.set(200)
@@ -356,10 +365,10 @@ test "failed get_result does not create spurious dependency edges" {
   // Second access after revision bump: should recompute cleanly.
   // If the failed self-reference was recorded as a dependency, this would
   // fail with a spurious cycle error instead of recomputing.
-  inspect(read_memo_for_test(memo), content="202") // 200 + 2 (second cycle detection)
+  inspect(d.read_or_abort(), content="202") // 200 + 2 (second cycle detection)
 
   // Third access should use cached value (no new cycle detection)
-  inspect(read_memo_for_test(memo), content="202") // Same cached value
+  inspect(d.read_or_abort(), content="202") // Same cached value
   // Verify cycle count is still 2 (no new cycle detected on cached access)
   inspect(cycle_count.val, content="2")
 }
@@ -372,32 +381,32 @@ test "failed get_result does not create spurious dependency edges" {
 test "panic cycle on initial get: direct self-referencing memo aborts" {
   let rt = Runtime::Runtime()
   // Create a memo that references itself — this creates a cycle
-  let memo_ref : Ref[Memo[Int]?] = { val: None }
-  let memo = Memo::Memo(rt, () => {
-    match memo_ref.val {
-      Some(m) => m.get() + 1
+  let d_ref : Ref[Derived[Int]?] = { val: None }
+  let d = Derived::Derived(rt, () => {
+    match d_ref.val {
+      Some(m) => m.get_or_abort() + 1
       None => 0
     }
   })
-  memo_ref.val = Some(memo)
+  d_ref.val = Some(d)
   // First get() enters force_recompute(), then re-enters force_recompute() via m.get().
   // The second entry must abort with cycle detection rather than recurse indefinitely.
-  let _ = read_memo_for_test(memo)
+  let _ = d.read_or_abort()
 }
 
 ///|
 test "panic cycle on initial get: mutual recursion between two memos aborts" {
   let rt = Runtime::Runtime()
-  let memo_b_ref : Ref[Memo[Int]?] = { val: None }
-  let memo_a : Memo[Int] = Memo::Memo(rt, () => {
-    match memo_b_ref.val {
-      Some(b) => b.get() + 1
+  let d_b_ref : Ref[Derived[Int]?] = { val: None }
+  let d_a : Derived[Int] = Derived::Derived(rt, () => {
+    match d_b_ref.val {
+      Some(b) => b.get_or_abort() + 1
       None => 0
     }
   })
-  let memo_b = Memo::Memo(rt, () => memo_a.get() + 1)
-  memo_b_ref.val = Some(memo_b)
+  let d_b = Derived::Derived(rt, () => d_a.get_or_abort() + 1)
+  d_b_ref.val = Some(d_b)
   // First get() of memo_a reaches memo_b.get(), which re-enters memo_a.get().
   // This must abort immediately via the in-progress recompute guard.
-  let _ = read_memo_for_test(memo_a)
+  let _ = d_a.read_or_abort()
 }

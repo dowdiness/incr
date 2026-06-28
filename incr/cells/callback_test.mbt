@@ -24,28 +24,28 @@ test "Signal callback does not fire on same value" {
 }
 
 ///|
-test "Memo callback fires on get() when value changed" {
+test "Derived callback fires on get() when value changed" {
   let rt = Runtime::Runtime()
   let s = Signal::Signal(rt, 1)
-  let m = Memo::Memo(rt, () => s.get() * 10)
-  let _ = read_memo_for_test(m)
+  let d = Derived::Derived(rt, () => s.get() * 10)
+  let _ = d.read_or_abort()
   let received : Ref[Int] = { val: 0 }
-  m.on_change(v => received.val = v)
+  d.on_change(v => received.val = v)
   s.set(2)
-  let _ = read_memo_for_test(m)
+  let _ = d.read_or_abort()
   inspect(received.val, content="20")
 }
 
 ///|
-test "Memo callback does not fire when value backdated" {
+test "Derived callback does not fire when value backdated" {
   let rt = Runtime::Runtime()
   let s = Signal::Signal(rt, 2)
-  let m = Memo::Memo(rt, () => s.get() * 0 + 1)
-  let _ = read_memo_for_test(m)
+  let d = Derived::Derived(rt, () => s.get() * 0 + 1)
+  let _ = d.read_or_abort()
   let count : Ref[Int] = { val: 0 }
-  m.on_change(_v => count.val = count.val + 1)
+  d.on_change(_v => count.val = count.val + 1)
   s.set(4)
-  let _ = read_memo_for_test(m)
+  let _ = d.read_or_abort()
   inspect(count.val, content="0")
 }
 
@@ -65,13 +65,13 @@ test "signal callback sees fresh push-reactive state before memo read" {
   let rt = Runtime::Runtime()
   let s = Signal::Signal(rt, 1)
   let r = Reactive::new(rt, () => s.get() * 10)
-  let m = Memo::Memo(rt, () => r.get() + 1)
-  inspect(read_memo_for_test(m), content="11")
+  let d = Derived::Derived(rt, () => r.get() + 1)
+  inspect(d.read_or_abort(), content="11")
   let seen_at_callback : Ref[Int] = { val: -1 }
-  s.on_change(_v => seen_at_callback.val = read_memo_for_test(m))
+  s.on_change(_v => seen_at_callback.val = d.read_or_abort())
   s.set(2)
   inspect(seen_at_callback.val, content="21")
-  inspect(read_memo_for_test(m), content="21")
+  inspect(d.read_or_abort(), content="21")
 }
 
 ///|
@@ -113,19 +113,19 @@ test "non-batch: callback re-entrancy — set inside on_change propagates and me
   let rt = Runtime::Runtime()
   let s1 = Signal::Signal(rt, 0)
   let s2 = Signal::Signal(rt, 0)
-  let m = Memo::Memo(rt, () => s2.get() * 2)
-  let _ = read_memo_for_test(m) // prime: m = 0
+  let d = Derived::Derived(rt, () => s2.get() * 2)
+  let _ = d.read_or_abort() // prime: d = 0
   let mut count2 = 0
   s2.on_change(_v => count2 = count2 + 1)
   let mut memo_in_callback = -1
   s1.on_change(_v => {
     s2.set(10) // recursive set_unconditional; s2's callbacks fire, push propagates
-    memo_in_callback = read_memo_for_test(m) // pull-verify: s2 changed → recompute → 20
+    memo_in_callback = d.read_or_abort() // pull-verify: s2 changed → recompute → 20
   })
   s1.set(1)
   inspect(count2, content="1") // s2's on_change ran once during re-entrant call
   inspect(memo_in_callback, content="20") // callback saw updated memo value
-  inspect(read_memo_for_test(m), content="20")
+  inspect(d.read_or_abort(), content="20")
 }
 
 ///|
@@ -150,13 +150,13 @@ test "batch: callback sees fresh push-reactive state before memo read" {
   let rt = Runtime::Runtime()
   let s = Signal::Signal(rt, 1)
   let r = Reactive::new(rt, () => s.get() * 10)
-  let m = Memo::Memo(rt, () => r.get() + 1)
-  inspect(read_memo_for_test(m), content="11")
+  let d = Derived::Derived(rt, () => r.get() + 1)
+  inspect(d.read_or_abort(), content="11")
   let seen_at_callback : Ref[Int] = { val: -1 }
-  s.on_change(_v => seen_at_callback.val = read_memo_for_test(m))
+  s.on_change(_v => seen_at_callback.val = d.read_or_abort())
   rt.batch(() => s.set(2))
   inspect(seen_at_callback.val, content="21")
-  inspect(read_memo_for_test(m), content="21")
+  inspect(d.read_or_abort(), content="21")
 }
 
 ///|
@@ -176,17 +176,17 @@ test "batch: global on_change fires exactly once when callback sets another sign
 }
 
 ///|
-test "clear_on_change removes Memo callback" {
+test "clear_on_change removes Derived callback" {
   let rt = Runtime::Runtime()
   let s = Signal::Signal(rt, 0)
-  let m = Memo::Memo(rt, () => s.get() * 2)
-  let _ = read_memo_for_test(m)
+  let d = Derived::Derived(rt, () => s.get() * 2)
+  let _ = d.read_or_abort()
   let count : Ref[Int] = { val: 0 }
-  m.on_change(_v => count.val = count.val + 1)
+  d.on_change(_v => count.val = count.val + 1)
   s.set(1)
-  let _ = read_memo_for_test(m)
-  m.clear_on_change()
+  let _ = d.read_or_abort()
+  d.clear_on_change()
   s.set(2)
-  let _ = read_memo_for_test(m)
+  let _ = d.read_or_abort()
   inspect(count.val, content="1")
 }

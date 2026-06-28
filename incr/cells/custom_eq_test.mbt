@@ -28,7 +28,7 @@ test "custom_eq: backdating with Point struct" {
   let input = Signal::Signal(rt, 5)
 
   let mut point_count = 0
-  let point_memo = Memo::Memo(rt, () => {
+  let point_derived = Derived::Derived(rt, () => {
     point_count = point_count + 1
     // x is input mod 10, y is always 0
     // So 5, 15, 25, etc. all produce Point(5, 0)
@@ -36,14 +36,14 @@ test "custom_eq: backdating with Point struct" {
   })
 
   let mut downstream_count = 0
-  let downstream = Memo::Memo(rt, () => {
+  let downstream = Derived::Derived(rt, () => {
     downstream_count = downstream_count + 1
-    let p = point_memo.get()
+    let p = point_derived.get_or_abort()
     p.x * 100 + p.y
   })
 
   // Initial: input=5 -> Point(5, 0) -> 500
-  inspect(read_memo_for_test(downstream), content="500")
+  inspect(downstream.read_or_abort(), content="500")
   inspect(point_count, content="1")
   inspect(downstream_count, content="1")
 
@@ -51,13 +51,13 @@ test "custom_eq: backdating with Point struct" {
   // A new Point object is allocated but equals the old value via Eq
   // -> backdating should apply
   input.set(15)
-  inspect(read_memo_for_test(downstream), content="500")
+  inspect(downstream.read_or_abort(), content="500")
   inspect(point_count, content="2") // point_memo recomputed
   inspect(downstream_count, content="1") // downstream did NOT recompute (backdated!)
 
   // Change to 7: Point(7, 0) -> different coordinates
   input.set(7)
-  inspect(read_memo_for_test(downstream), content="700")
+  inspect(downstream.read_or_abort(), content="700")
   inspect(point_count, content="3")
   inspect(downstream_count, content="2") // downstream DID recompute
 }
@@ -88,7 +88,7 @@ test "custom_eq: backdating ignores generation field" {
 
   let mut gen = 0
   let mut versioned_count = 0
-  let versioned_memo : Memo[Versioned] = Memo::Memo(rt, () => {
+  let versioned_derived : Derived[Versioned] = Derived::Derived(rt, () => {
     versioned_count = versioned_count + 1
     gen = gen + 1
     // Each computation creates new generation but value based on input
@@ -96,30 +96,30 @@ test "custom_eq: backdating ignores generation field" {
   })
 
   let mut downstream_count = 0
-  let downstream = Memo::Memo(rt, () => {
+  let downstream = Derived::Derived(rt, () => {
     downstream_count = downstream_count + 1
-    versioned_memo.get().value * 2
+    versioned_derived.get_or_abort().value * 2
   })
 
   // Initial: input=100 -> Versioned(10, gen=1) -> 20
-  inspect(read_memo_for_test(downstream), content="20")
+  inspect(downstream.read_or_abort(), content="20")
   inspect(versioned_count, content="1")
   inspect(downstream_count, content="1")
 
   // Change to 105: value=10 (same), gen=2 (different)
   // But Eq only compares value, so backdating should apply
   input.set(105)
-  inspect(read_memo_for_test(downstream), content="20")
+  inspect(downstream.read_or_abort(), content="20")
   inspect(versioned_count, content="2") // versioned_memo recomputed
   inspect(downstream_count, content="1") // downstream did NOT recompute (backdated!)
 
   // Verify generation did increment
   inspect(gen, content="2")
-  inspect(read_memo_for_test(versioned_memo).generation, content="2")
+  inspect(versioned_derived.read_or_abort().generation, content="2")
 
   // Change to 200: value=20 (different), gen=3
   input.set(200)
-  inspect(read_memo_for_test(downstream), content="40")
+  inspect(downstream.read_or_abort(), content="40")
   inspect(versioned_count, content="3")
   inspect(downstream_count, content="2") // Now downstream recomputed
 }
@@ -151,15 +151,15 @@ test "custom_eq: enum with selective field comparison" {
   let error_msg = Signal::Signal(rt, "Not Found")
 
   let mut status_count = 0
-  let status_memo : Memo[Status] = Memo::Memo(rt, () => {
+  let status_derived : Derived[Status] = Derived::Derived(rt, () => {
     status_count = status_count + 1
     Error(code=error_code.get(), message=error_msg.get())
   })
 
   let mut handler_count = 0
-  let handler = Memo::Memo(rt, () => {
+  let handler = Derived::Derived(rt, () => {
     handler_count = handler_count + 1
-    match status_memo.get() {
+    match status_derived.get_or_abort() {
       Error(code=c, ..) => "Error: " + c.to_string()
       Ready(data=d) => "Data: " + d.to_string()
       Loading(progress=p) => "Loading: " + p.to_string() + "%"
@@ -167,19 +167,19 @@ test "custom_eq: enum with selective field comparison" {
   })
 
   // Initial
-  inspect(read_memo_for_test(handler), content="Error: 404")
+  inspect(handler.read_or_abort(), content="Error: 404")
   inspect(status_count, content="1")
   inspect(handler_count, content="1")
 
   // Change message but keep same code: Error eq ignores message
   error_msg.set("Page Not Found")
-  inspect(read_memo_for_test(handler), content="Error: 404")
+  inspect(handler.read_or_abort(), content="Error: 404")
   inspect(status_count, content="2") // recomputed
   inspect(handler_count, content="1") // backdated! Same error code
 
   // Change error code: now handler should recompute
   error_code.set(500)
-  inspect(read_memo_for_test(handler), content="Error: 500")
+  inspect(handler.read_or_abort(), content="Error: 500")
   inspect(status_count, content="3")
   inspect(handler_count, content="2")
 }
@@ -213,7 +213,7 @@ test "custom_eq: array content equality" {
   let size = Signal::Signal(rt, 3)
 
   let mut array_count = 0
-  let array_memo : Memo[Array[Int]] = Memo::Memo(rt, () => {
+  let array_derived : Derived[Array[Int]] = Derived::Derived(rt, () => {
     array_count = array_count + 1
     let arr : Array[Int] = []
     for i = 0; i < size.get(); i = i + 1 {
@@ -223,9 +223,9 @@ test "custom_eq: array content equality" {
   })
 
   let mut sum_count = 0
-  let sum_memo = Memo::Memo(rt, () => {
+  let sum_derived = Derived::Derived(rt, () => {
     sum_count = sum_count + 1
-    let arr = array_memo.get()
+    let arr = array_derived.get_or_abort()
     let mut total = 0
     for i = 0; i < arr.length(); i = i + 1 {
       total = total + arr[i]
@@ -234,7 +234,7 @@ test "custom_eq: array content equality" {
   })
 
   // Initial: [0, 2, 4] -> sum = 6
-  inspect(read_memo_for_test(sum_memo), content="6")
+  inspect(sum_derived.read_or_abort(), content="6")
   inspect(array_count, content="1")
   inspect(sum_count, content="1")
 
@@ -242,18 +242,17 @@ test "custom_eq: array content equality" {
   // Array equality is by content, so backdating should apply
   size.set(3)
   // Note: Signal same-value optimization means no revision bump
-  inspect(read_memo_for_test(sum_memo), content="6")
+  inspect(sum_derived.read_or_abort(), content="6")
   inspect(array_count, content="1") // No recompute due to signal optimization
   inspect(sum_count, content="1")
-
   // Force recomputation by changing then reverting
   size.set(4) // [0, 2, 4, 6] -> sum = 12
-  inspect(read_memo_for_test(sum_memo), content="12")
+  inspect(sum_derived.read_or_abort(), content="12")
   inspect(array_count, content="2")
   inspect(sum_count, content="2")
 
   size.set(3) // Back to [0, 2, 4] -> new array, but same content as initial
-  inspect(read_memo_for_test(sum_memo), content="6")
+  inspect(sum_derived.read_or_abort(), content="6")
   inspect(array_count, content="3") // Array memo recomputed
   inspect(sum_count, content="3") // Sum also recomputed since array changed (different object)
 }

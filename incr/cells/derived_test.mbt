@@ -1,130 +1,130 @@
 ///|
-test "memo: basic computation" {
+test "derived: basic computation" {
   let rt = Runtime::Runtime()
   let input = Signal::Signal(rt, 10)
-  let doubled = Memo::Memo(rt, () => input.get() * 2)
-  inspect(read_memo_for_test(doubled), content="20")
+  let doubled = Derived::Derived(rt, () => input.get() * 2)
+  inspect(doubled.read_or_abort(), content="20")
 }
 
 ///|
-test "memo: cache hit on second read" {
+test "derived: cache hit on second read" {
   let rt = Runtime::Runtime()
   let mut compute_count = 0
   let input = Signal::Signal(rt, 5)
-  let memo = Memo::Memo(rt, () => {
+  let d = Derived::Derived(rt, () => {
     compute_count = compute_count + 1
     input.get() + 1
   })
-  inspect(read_memo_for_test(memo), content="6")
+  inspect(d.read_or_abort(), content="6")
   inspect(compute_count, content="1")
   // Second get should use cache, not recompute
-  inspect(read_memo_for_test(memo), content="6")
+  inspect(d.read_or_abort(), content="6")
   inspect(compute_count, content="1")
 }
 
 ///|
-test "memo: recomputes on input change" {
+test "derived: recomputes on input change" {
   let rt = Runtime::Runtime()
   let mut compute_count = 0
   let input = Signal::Signal(rt, 3)
-  let memo = Memo::Memo(rt, () => {
+  let d = Derived::Derived(rt, () => {
     compute_count = compute_count + 1
     input.get() * 3
   })
-  inspect(read_memo_for_test(memo), content="9")
+  inspect(d.read_or_abort(), content="9")
   inspect(compute_count, content="1")
   input.set(4)
-  inspect(read_memo_for_test(memo), content="12")
+  inspect(d.read_or_abort(), content="12")
   inspect(compute_count, content="2")
 }
 
 ///|
-test "memo: chain of two memos" {
+test "derived: chain of two" {
   let rt = Runtime::Runtime()
   let input = Signal::Signal(rt, 2)
-  let step1 = Memo::Memo(rt, () => input.get() + 10)
-  let step2 = Memo::Memo(rt, () => step1.get() * 2)
-  inspect(read_memo_for_test(step2), content="24") // (2 + 10) * 2
+  let step1 = Derived::Derived(rt, () => input.get() + 10)
+  let step2 = Derived::Derived(rt, () => step1.get_or_abort() * 2)
+  inspect(step2.read_or_abort(), content="24") // (2 + 10) * 2
   input.set(5)
-  inspect(read_memo_for_test(step2), content="30") // (5 + 10) * 2
+  inspect(step2.read_or_abort(), content="30") // (5 + 10) * 2
 }
 
 ///|
-test "memo: no recompute when input unchanged" {
+test "derived: no recompute when input unchanged" {
   let rt = Runtime::Runtime()
   let mut compute_count = 0
   let input = Signal::Signal(rt, 7)
-  let memo = Memo::Memo(rt, () => {
+  let d = Derived::Derived(rt, () => {
     compute_count = compute_count + 1
     input.get()
   })
-  inspect(read_memo_for_test(memo), content="7")
+  inspect(d.read_or_abort(), content="7")
   inspect(compute_count, content="1")
   // Set same value — no revision bump
   input.set(7)
-  inspect(read_memo_for_test(memo), content="7")
+  inspect(d.read_or_abort(), content="7")
   inspect(compute_count, content="1")
 }
 
 ///|
-test "memo: multiple inputs" {
+test "derived: multiple inputs" {
   let rt = Runtime::Runtime()
   let a = Signal::Signal(rt, 3)
   let b = Signal::Signal(rt, 4)
-  let sum = Memo::Memo(rt, () => a.get() + b.get())
-  inspect(read_memo_for_test(sum), content="7")
+  let sum = Derived::Derived(rt, () => a.get() + b.get())
+  inspect(sum.read_or_abort(), content="7")
   a.set(10)
-  inspect(read_memo_for_test(sum), content="14")
+  inspect(sum.read_or_abort(), content="14")
   b.set(20)
-  inspect(read_memo_for_test(sum), content="30")
+  inspect(sum.read_or_abort(), content="30")
 }
 
 ///|
-test "memo: three-level chain" {
+test "derived: three-level chain" {
   let rt = Runtime::Runtime()
   let input = Signal::Signal(rt, 1)
-  let l1 = Memo::Memo(rt, () => input.get() + 1)
-  let l2 = Memo::Memo(rt, () => l1.get() + 1)
-  let l3 = Memo::Memo(rt, () => l2.get() + 1)
-  inspect(read_memo_for_test(l3), content="4") // 1 + 1 + 1 + 1
+  let l1 = Derived::Derived(rt, () => input.get() + 1)
+  let l2 = Derived::Derived(rt, () => l1.get_or_abort() + 1)
+  let l3 = Derived::Derived(rt, () => l2.get_or_abort() + 1)
+  inspect(l3.read_or_abort(), content="4") // 1 + 1 + 1 + 1
   input.set(10)
-  inspect(read_memo_for_test(l3), content="13") // 10 + 1 + 1 + 1
+  inspect(l3.read_or_abort(), content="13") // 10 + 1 + 1 + 1
 }
 
 ///|
-test "panic cross-runtime: Signal::get aborts when read inside a memo on a different runtime" {
+test "panic cross-runtime: Signal::get aborts when read inside a derived on a different runtime" {
   // Signal::get detects that the active computation belongs to a different
   // runtime and aborts rather than silently recording no dependency.
   let rt_a = Runtime::Runtime()
   let rt_b = Runtime::Runtime()
   let sig_b = Signal::Signal(rt_b, 10)
-  let memo_a = Memo::Memo(rt_a, () => sig_b.get())
-  let _ = read_memo_for_test(memo_a) // aborts: sig_b is on rt_b, memo_a computes on rt_a
+  let d_a = Derived::Derived(rt_a, () => sig_b.get())
+  let _ = d_a.read_or_abort() // aborts: sig_b is on rt_b, d_a computes on rt_a
 }
 
 ///|
-test "panic cross-runtime: Memo::get aborts when read inside a memo on a different runtime" {
+test "panic cross-runtime: Derived::get aborts when read inside a derived on a different runtime" {
   let rt_a = Runtime::Runtime()
   let rt_b = Runtime::Runtime()
-  let memo_b = Memo::Memo(rt_b, () => 42)
-  let memo_a = Memo::Memo(rt_a, () => memo_b.get())
-  let _ = read_memo_for_test(memo_a) // aborts: memo_b is on rt_b, memo_a computes on rt_a
+  let d_b = Derived::Derived(rt_b, () => 42)
+  let d_a = Derived::Derived(rt_a, () => d_b.get_or_abort())
+  let _ = d_a.read_or_abort() // aborts: d_b is on rt_b, d_a computes on rt_a
 }
 
 ///|
-test "panic Memo::get() outside tracked context" {
+test "panic Derived::get() outside tracked context" {
   let rt = Runtime::Runtime()
   let s = Signal::Signal(rt, 10)
-  let m = Memo::Memo(rt, () => s.get() * 2)
-  ignore(m.get())
+  let d = Derived::Derived(rt, () => s.get() * 2)
+  ignore(d.get_or_abort())
 }
 
 ///|
-test "panic HybridMemo::get() outside tracked context" {
+test "panic ReachableDerived::get() outside tracked context" {
   let rt = Runtime::Runtime()
   let s = Signal::Signal(rt, 10)
-  let h = HybridMemo::HybridMemo(rt, () => s.get() * 2)
-  ignore(h.get())
+  let rd = ReachableDerived::ReachableDerived(rt, () => s.get() * 2)
+  ignore(rd.get_or_abort())
 }
 
 ///|
@@ -136,12 +136,12 @@ test "panic Reactive::get() outside tracked context" {
 }
 
 ///|
-test "Memo::get() inside tracked context succeeds" {
+test "Derived::get() inside tracked context succeeds" {
   let rt = Runtime::Runtime()
   let s = Signal::Signal(rt, 10)
-  let m = Memo::Memo(rt, () => s.get() * 2)
-  let m2 = Memo::Memo(rt, () => m.get() + 1)
-  inspect(read_memo_for_test(m2), content="21")
+  let d = Derived::Derived(rt, () => s.get() * 2)
+  let d2 = Derived::Derived(rt, () => d.get_or_abort() + 1)
+  inspect(d2.read_or_abort(), content="21")
 }
 
 ///|
@@ -151,12 +151,12 @@ test "Signal::peek() reads without tracking" {
   // peek works from outside tracked context
   inspect(s.peek(), content="42")
   // peek does not record dependency
-  let m = Memo::Memo(rt, () => {
+  let d = Derived::Derived(rt, () => {
     ignore(s.peek())
     0
   })
-  ignore(read_memo_for_test(m))
-  inspect(m.dependencies().length(), content="0")
+  ignore(d.read_or_abort())
+  inspect(d.dependencies().length(), content="0")
 }
 
 ///|

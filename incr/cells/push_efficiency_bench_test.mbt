@@ -1,16 +1,15 @@
-///|
-/// Baseline: signal with N hybrid memo subscribers, no push nodes anywhere.
+/// Baseline: signal with N reachable derived subscribers, no push nodes anywhere.
 /// node_count == 0 → push_propagate_from is skipped entirely by the existing
 /// node_count gate before the per-source push_reachable_count gate is reached.
-test "push efficiency: signal set, 100 hybrid subs, no push nodes (baseline)" (
+test "push efficiency: signal set, 100 reachable derived subs, no push nodes (baseline)" (
   b : @bench.T,
 ) {
   let rt = Runtime::Runtime()
   let s = Signal::Signal(rt, 0)
   for i = 0; i < 100; i = i + 1 {
     let multiplier = i + 1
-    let h = HybridMemo::HybridMemo(rt, () => s.get() * multiplier)
-    ignore(read_hybrid_for_test(h))
+    let rd = ReachableDerived::ReachableDerived(rt, () => s.get() * multiplier)
+    ignore(rd.read_or_abort())
   }
   let mut v = 0
   b.bench(fn() {
@@ -19,22 +18,21 @@ test "push efficiency: signal set, 100 hybrid subs, no push nodes (baseline)" (
   })
 }
 
-///|
-/// Mixed graph: same signal + hybrid memo fan-out, but a distant reactive
+/// Mixed graph: same signal + reachable derived fan-out, but a distant reactive
 /// on a separate signal keeps node_count > 0. Without this PR,
-/// push_propagate_from BFS would traverse all 100 hybrid memo subscribers of
-/// s finding no push node — the unnecessary traversal. With this PR, the
+/// push_propagate_from BFS would traverse all 100 reachable derived subscribers
+/// of s finding no push node — the unnecessary traversal. With this PR, the
 /// per-source push_reachable_count gate in enqueue_push_subscribers skips the
-/// hybrid memo subscriber walk entirely for s (its count is 0).
-test "push efficiency: signal set, 100 hybrid subs, distant reactive (mixed)" (
+/// reachable derived subscriber walk entirely for s (its count is 0).
+test "push efficiency: signal set, 100 reachable derived subs, distant reactive (mixed)" (
   b : @bench.T,
 ) {
   let rt = Runtime::Runtime()
   let s = Signal::Signal(rt, 0)
   for i = 0; i < 100; i = i + 1 {
     let multiplier = i + 1
-    let h = HybridMemo::HybridMemo(rt, () => s.get() * multiplier)
-    ignore(read_hybrid_for_test(h))
+    let rd = ReachableDerived::ReachableDerived(rt, () => s.get() * multiplier)
+    ignore(rd.read_or_abort())
   }
   let s2 = Signal::Signal(rt, 0)
   let _r = Reactive::new(rt, () => s2.get() + 1)
@@ -46,16 +44,16 @@ test "push efficiency: signal set, 100 hybrid subs, distant reactive (mixed)" (
 }
 
 ///|
-/// Scale: 1000 hybrid subscribers, distant reactive.
-test "push efficiency: signal set, 1000 hybrid subs, distant reactive (mixed)" (
+/// Scale: 1000 reachable derived subscribers, distant reactive.
+test "push efficiency: signal set, 1000 reachable derived subs, distant reactive (mixed)" (
   b : @bench.T,
 ) {
   let rt = Runtime::Runtime()
   let s = Signal::Signal(rt, 0)
   for i = 0; i < 1000; i = i + 1 {
     let multiplier = i + 1
-    let h = HybridMemo::HybridMemo(rt, () => s.get() * multiplier)
-    ignore(read_hybrid_for_test(h))
+    let rd = ReachableDerived::ReachableDerived(rt, () => s.get() * multiplier)
+    ignore(rd.read_or_abort())
   }
   let s2 = Signal::Signal(rt, 0)
   let _r = Reactive::new(rt, () => s2.get() + 1)

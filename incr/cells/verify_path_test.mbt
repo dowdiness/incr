@@ -15,15 +15,15 @@ test "verify: cycle path includes all traversed cells" {
   // When b.get_result() is called, verification walks B→C→B,
   // and the path should contain both B and C cell IDs.
   let rt = Runtime::Runtime()
-  let b_ref : Ref[Memo[Int]?] = { val: None }
-  let c_ref : Ref[Memo[Int]?] = { val: None }
+  let b_ref : Ref[Derived[Int]?] = { val: None }
+  let c_ref : Ref[Derived[Int]?] = { val: None }
   let captured_path : Ref[Array[CellId]?] = { val: None }
 
   // Create memo B that depends on C
-  let b = Memo::Memo(rt, () => {
+  let b = Derived::Derived(rt, () => {
     match c_ref.val {
       Some(c) =>
-        match c.get_result() {
+        match c.read() {
           Ok(v) => v + 1
           Err(err) => {
             captured_path.val = Some(err.path())
@@ -36,10 +36,10 @@ test "verify: cycle path includes all traversed cells" {
   b_ref.val = Some(b)
 
   // Create memo C that depends on B (creating the cycle)
-  let c = Memo::Memo(rt, () => {
+  let c = Derived::Derived(rt, () => {
     match b_ref.val {
       Some(b_cell) =>
-        match b_cell.get_result() {
+        match b_cell.read() {
           Ok(v) => v + 2
           Err(err) => {
             captured_path.val = Some(err.path())
@@ -52,7 +52,7 @@ test "verify: cycle path includes all traversed cells" {
   c_ref.val = Some(c)
 
   // Trigger the cycle by accessing b
-  let _ = read_memo_for_test(b)
+  let _ = b.read_or_abort()
 
   match captured_path.val {
     Some(path) => {
@@ -77,12 +77,12 @@ test "verify: self-cycle path shows cell twice" {
   // (which is in_progress), producing path = [M, M]
   let rt = Runtime::Runtime()
   let captured_path : Ref[Array[CellId]?] = { val: None }
-  let memo_ref : Ref[Memo[Int]?] = { val: None }
+  let d_ref : Ref[Derived[Int]?] = { val: None }
 
-  let memo = Memo::Memo(rt, () => {
-    match memo_ref.val {
+  let d = Derived::Derived(rt, () => {
+    match d_ref.val {
       Some(m) =>
-        match m.get_result() {
+        match m.read() {
           Ok(v) => v + 1
           Err(err) => {
             captured_path.val = Some(err.path())
@@ -92,15 +92,15 @@ test "verify: self-cycle path shows cell twice" {
       None => 0
     }
   })
-  memo_ref.val = Some(memo)
+  d_ref.val = Some(d)
 
-  let _ = read_memo_for_test(memo)
+  let _ = d.read_or_abort()
 
   match captured_path.val {
     Some(path) => {
       inspect(path.length(), content="2")
-      inspect(path[0] == memo.id(), content="true")
-      inspect(path[1] == memo.id(), content="true")
+      inspect(path[0] == d.id(), content="true")
+      inspect(path[1] == d.id(), content="true")
     }
     None => fail("Expected cycle path to be captured")
   }

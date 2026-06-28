@@ -1,19 +1,19 @@
 ///|
-test "observer: memo observe and get" {
+test "observer: derived observe and get" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 10)
-  let m = Memo::Memo(rt, fn() { sig.get() * 2 })
-  let obs = m.observe()
+  let d = Derived::Derived(rt, fn() { sig.get() * 2 })
+  let obs = d.observe()
   inspect(obs.get(), content="20")
   obs.dispose()
 }
 
 ///|
-test "observer: hybrid_memo observe and get" {
+test "observer: reachable derived observe and get" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 5)
-  let h = HybridMemo::HybridMemo(rt, fn() { sig.get() + 1 })
-  let obs = h.observe()
+  let rd = ReachableDerived::ReachableDerived(rt, fn() { sig.get() + 1 })
+  let obs = rd.observe()
   inspect(obs.get(), content="6")
   obs.dispose()
 }
@@ -32,8 +32,8 @@ test "observer: reactive observe and get" {
 test "observer: dispose sets is_disposed" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 1)
-  let m = Memo::Memo(rt, fn() { sig.get() })
-  let obs = m.observe()
+  let d = Derived::Derived(rt, fn() { sig.get() })
+  let obs = d.observe()
   inspect(obs.is_disposed(), content="false")
   obs.dispose()
   inspect(obs.is_disposed(), content="true")
@@ -43,8 +43,8 @@ test "observer: dispose sets is_disposed" {
 test "observer: dispose is idempotent" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 1)
-  let m = Memo::Memo(rt, fn() { sig.get() })
-  let obs = m.observe()
+  let d = Derived::Derived(rt, fn() { sig.get() })
+  let obs = d.observe()
   obs.dispose()
   obs.dispose() // no abort
   inspect(obs.is_disposed(), content="true")
@@ -54,8 +54,8 @@ test "observer: dispose is idempotent" {
 test "panic observer: get after dispose aborts" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 1)
-  let m = Memo::Memo(rt, fn() { sig.get() })
-  let obs = m.observe()
+  let d = Derived::Derived(rt, fn() { sig.get() })
+  let obs = d.observe()
   obs.dispose()
   ignore(obs.get())
 }
@@ -64,9 +64,9 @@ test "panic observer: get after dispose aborts" {
 test "observer: multiple observers on same cell are ref-counted" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 1)
-  let m = Memo::Memo(rt, fn() { sig.get() })
-  let obs1 = m.observe()
-  let obs2 = m.observe()
+  let d = Derived::Derived(rt, fn() { sig.get() })
+  let obs1 = d.observe()
+  let obs2 = d.observe()
   inspect(obs1.get(), content="1")
   inspect(obs2.get(), content="1")
   obs1.dispose()
@@ -112,9 +112,9 @@ test "observer: reactive does NOT suspend when it has subscribers" {
   let sig = Signal::Signal(rt, 10)
   let r = Reactive::new(rt, fn() { sig.get() * 2 })
   // Memo reads the reactive — creates a subscriber link
-  let m = Memo::Memo(rt, fn() { r.get() + 1 })
-  let obs_m = m.observe()
-  ignore(obs_m.get())
+  let d = Derived::Derived(rt, fn() { r.get() + 1 })
+  let obs_d = d.observe()
+  ignore(obs_d.get())
   // Observe and unobserve the reactive itself
   let obs_r = r.observe()
   ignore(obs_r.get())
@@ -123,8 +123,8 @@ test "observer: reactive does NOT suspend when it has subscribers" {
   inspect(rt.dependents(sig.id()).length(), content="1")
   // Push propagation still works through to the memo
   sig.set(20)
-  inspect(obs_m.get(), content="41")
-  obs_m.dispose()
+  inspect(obs_d.get(), content="41")
+  obs_d.dispose()
 }
 
 ///|
@@ -230,21 +230,21 @@ test "observer: source disposed during suspension — reactivation uses fresh so
 }
 
 ///|
-test "observer: hybrid memo reading reactive prevents suspension" {
+test "observer: reachable derived reading reactive prevents suspension" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 5)
   let r = Reactive::new(rt, fn() { sig.get() * 3 })
-  let h = HybridMemo::HybridMemo(rt, fn() { r.get() + 1 })
-  let obs_h = h.observe()
-  ignore(obs_h.get())
+  let rd = ReachableDerived::ReachableDerived(rt, fn() { r.get() + 1 })
+  let obs_rd = rd.observe()
+  ignore(obs_rd.get())
   // Observe and unobserve the reactive
   let obs_r = r.observe()
   ignore(obs_r.get())
   obs_r.dispose()
-  // Reactive has h in its subscriber set — must NOT suspend
+  // Reactive has rd in its subscriber set — must NOT suspend
   sig.set(10)
-  inspect(obs_h.get(), content="31")
-  obs_h.dispose()
+  inspect(obs_rd.get(), content="31")
+  obs_rd.dispose()
 }
 
 ///|
@@ -267,7 +267,7 @@ test "panic observer: on_observe during fixpoint aborts" {
 test "panic observer: observe disposed memo aborts" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 1)
-  let m = Memo::Memo(rt, fn() { sig.get() })
-  m.dispose()
-  ignore(m.observe())
+  let d = Derived::Derived(rt, fn() { sig.get() })
+  d.dispose()
+  ignore(d.observe())
 }
