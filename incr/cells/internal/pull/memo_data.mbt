@@ -1,7 +1,7 @@
 ///|
 /// Type-erased metadata for a Pull Memo cell in the SoA layout.
 ///
-/// The actual typed value lives in the `Memo[T]` handle held by user code.
+/// The actual typed value lives in the `Derived[T]` or `ReachableDerived[T]` handle held by user code.
 /// `compute` is a closure captured at construction time that recomputes the
 /// memo and returns whether the value changed.
 pub(all) struct MemoData {

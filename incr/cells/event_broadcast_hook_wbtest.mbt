@@ -89,12 +89,12 @@ test "derived_event: hook order follows accumulator then event hook" {
   rt.commit_hooks.push(sentinel)
   rt.on_derived_event(_evt => ())
   let acc : Accumulator[Int] = Accumulator::new(rt~)
-  let memo = Derived(rt, () => {
+  let derived = Derived(rt, () => {
     acc.push(1)
     42
   })
-  inspect(memo.read_or_abort(), content="42")
-  let memo_id = memo.id()
+  inspect(derived.read_or_abort(), content="42")
+  let memo_id = derived.id()
   inspect(sentinel.before_log.length(), content="1")
   inspect(sentinel.before_log[0].0 == memo_id, content="true")
   inspect(sentinel.before_log[0].1, content="true")
@@ -115,13 +115,13 @@ test "derived_event: hook order on abort removes active entries before later hoo
   rt.commit_hooks.push(sentinel)
   rt.on_derived_event(_evt => ())
   let _acc : Accumulator[Int] = Accumulator::new(rt~)
-  let memo : Derived[Int] = Derived(rt, () => raise Failure("boom"))
-  try memo.inner.force_recompute() catch {
+  let derived : Derived[Int] = Derived(rt, () => raise Failure("boom"))
+  try derived.force_recompute() catch {
     _ => ()
   } noraise {
     _ => ()
   }
-  let memo_id = memo.id()
+  let memo_id = derived.id()
   inspect(sentinel.before_log.length(), content="1")
   inspect(sentinel.before_log[0].0 == memo_id, content="true")
   inspect(sentinel.before_log[0].1, content="true")
@@ -233,13 +233,13 @@ test "derived_event: no event fires for green verification path" {
   let rt = Runtime()
   let source = Signal(rt, 1)
   let unrelated = Signal(rt, 0)
-  let memo = Derived(rt, () => source.get() + 1)
+  let derived = Derived(rt, () => source.get() + 1)
   let events : Array[String] = []
   rt.on_derived_event(evt => push_event_kind(events, evt))
-  inspect(memo.read_or_abort(), content="2")
+  inspect(derived.read_or_abort(), content="2")
   events.clear()
   unrelated.set(1)
-  inspect(memo.read_or_abort(), content="2")
+  inspect(derived.read_or_abort(), content="2")
   inspect(events.length(), content="0")
 }
 
@@ -290,7 +290,7 @@ test "derived_event: mutation guard rejects push tracking frame" {
 test "derived_event: mutation guard rejects pending events inside on_change" {
   let rt = Runtime()
   let source = Signal(rt, 0)
-  let hybrid = HybridMemo(rt, () => source.get() + 1)
+  let hybrid = ReachableDerived(rt, () => source.get() + 1)
   let _effect = Effect::new(rt, () => ignore(hybrid.get()))
   rt.on_derived_event(_evt => ())
   let rejected = Ref(false)
@@ -329,7 +329,7 @@ test "derived_event: mutation guard rejects on_change without pending events" {
 test "derived_event: mutation guard rejects listener reentry" {
   let rt = Runtime()
   let rejected = Ref(false)
-  let memo = Derived(rt, () => 1)
+  let derived = Derived(rt, () => 1)
   rt.on_derived_event(_evt => {
     try rt.clear_derived_event_listener() catch {
       _ => rejected.val = true
@@ -337,7 +337,7 @@ test "derived_event: mutation guard rejects listener reentry" {
       _ => ()
     }
   })
-  inspect(memo.read_or_abort(), content="1")
+  inspect(derived.read_or_abort(), content="1")
   inspect(rejected.val, content="true")
 }
 
@@ -375,7 +375,7 @@ test "derived_event: raising API defers drain until next operation" {
     raise Failure("target failed")
   })
   let mut failed = false
-  try target.inner.force_recompute() catch {
+  try target.force_recompute() catch {
     _ => failed = true
   } noraise {
     _ => ()
@@ -407,11 +407,11 @@ test "derived_event: revision capture survives mid-compute revision bump" {
       Aborted(_) => ()
     }
   })
-  let memo = Derived(rt, () => {
+  let derived = Derived(rt, () => {
     tick.set_unconditional(tick.peek() + 1)
     99
   })
-  inspect(memo.read_or_abort(), content="99")
+  inspect(derived.read_or_abort(), content="99")
   inspect(started.length(), content="1")
   inspect(verified.length(), content="1")
   inspect(started[0] < verified[0], content="true")
@@ -496,7 +496,7 @@ test "derived_event: additive registration guard rejects inside a compute closur
   let rt = Runtime()
   let rejected : Ref[Bool] = Ref(false)
   let s = Signal(rt, 1)
-  let memo = Derived(rt, () => {
+  let derived = Derived(rt, () => {
     try rt.add_derived_event_listener(_e => ()) catch {
       _ => rejected.val = true
     } noraise {
@@ -504,6 +504,6 @@ test "derived_event: additive registration guard rejects inside a compute closur
     }
     s.get()
   })
-  inspect(memo.read_or_abort(), content="1")
+  inspect(derived.read_or_abort(), content="1")
   inspect(rejected.val, content="true")
 }

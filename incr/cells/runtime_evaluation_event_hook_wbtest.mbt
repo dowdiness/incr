@@ -98,7 +98,7 @@ test "runtime_eval: derived catchable abort reports abort summary" {
   let events = collect_runtime_eval_events(rt)
   let derived : Derived[Int] = Derived(rt, () => raise Failure("derived boom"))
   let mut failed = false
-  try derived.inner.force_recompute() catch {
+  try derived.force_recompute() catch {
     _ => failed = true
   } noraise {
     _ => ()
@@ -123,7 +123,7 @@ test "runtime_eval: direct drain flushes abort with active tracking frame" {
   let derived : Derived[Int] = Derived(rt, () => raise Failure("nested boom"))
   rt.begin_tracking(outer.id())
   let mut failed = false
-  try derived.inner.force_recompute() catch {
+  try derived.force_recompute() catch {
     _ => failed = true
   } noraise {
     _ => ()

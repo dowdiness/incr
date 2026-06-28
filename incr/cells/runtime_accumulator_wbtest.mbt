@@ -3,20 +3,20 @@ test "ensure_computed_untracked: first-read on never-computed memo triggers comp
   let rt = Runtime::Runtime()
   let signal = Signal::Signal(rt, 7)
   let mut compute_count = 0
-  let memo = Derived(rt, () => {
+  let derived = Derived(rt, () => {
     compute_count = compute_count + 1
     signal.get() * 2
   })
-  let data = rt.get_memo_data(memo.id())
+  let data = rt.get_memo_data(derived.id())
   // Fresh memo has never been computed.
   inspect(data.verified_at == Revision::initial(), content="true")
   // Note: `compute_count` will only hold 1 after ensure fires the first
   // compute — on a fresh runtime verify has nothing to do, so the plan's
   // `data.compute()` branch is the interesting one.
-  let _ = rt.ensure_computed_untracked(memo.id())
+  let _ = rt.ensure_computed_untracked(derived.id())
   inspect(compute_count, content="1")
   // Second call should not re-run the closure (pull_verify branch sees fresh).
-  let _ = rt.ensure_computed_untracked(memo.id())
+  let _ = rt.ensure_computed_untracked(derived.id())
   inspect(compute_count, content="1")
 }
 

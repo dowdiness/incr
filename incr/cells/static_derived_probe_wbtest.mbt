@@ -29,19 +29,19 @@ test "static derived: registers fixed deps and subscribers once" {
   let left = Input(rt, 1)
   let right = Input(rt, 2)
   let derived = static_derived_map2(left, right, (a, b) => a + b)
-  inspect(derived.inner.dependencies().length(), content="2")
+  inspect(derived.dependencies().length(), content="2")
   inspect(
-    static_probe_subscriber_contains(rt, left.inner.id(), derived.id()),
+    static_probe_subscriber_contains(rt, left.id(), derived.id()),
     content="true",
   )
   inspect(
-    static_probe_subscriber_contains(rt, right.inner.id(), derived.id()),
+    static_probe_subscriber_contains(rt, right.id(), derived.id()),
     content="true",
   )
   inspect(derived.read_or_abort(), content="3")
   left.set(10)
   inspect(derived.read_or_abort(), content="12")
-  inspect(derived.inner.dependencies().length(), content="2")
+  inspect(derived.dependencies().length(), content="2")
 }
 
 ///|
@@ -50,12 +50,12 @@ test "static derived: normalizes duplicate fixed deps" {
   let input = Input(rt, 1)
   let derived = static_derived(
     rt,
-    [input.inner.id(), input.inner.id()],
+    [input.id(), input.id()],
     () => input.peek() + 1,
     (a, b) => a == b,
   )
-  inspect(derived.inner.dependencies().length(), content="1")
-  inspect(static_probe_subscriber_count(rt, input.inner.id()), content="1")
+  inspect(derived.dependencies().length(), content="1")
+  inspect(static_probe_subscriber_count(rt, input.id()), content="1")
   inspect(derived.read_or_abort(), content="2")
 }
 
@@ -82,10 +82,10 @@ test "static derived: dynamic parent records only static cell" {
   let static_derived = static_derived_map1(input, x => x + 1)
   let parent = Derived(rt, () => static_derived.get_or_abort() + addend.get())
   inspect(parent.read_or_abort(), content="12")
-  let deps = parent.inner.dependencies()
+  let deps = parent.dependencies()
   inspect(deps.contains(static_derived.id()), content="true")
-  inspect(deps.contains(addend.inner.id()), content="true")
-  inspect(deps.contains(input.inner.id()), content="false")
+  inspect(deps.contains(addend.id()), content="true")
+  inspect(deps.contains(input.id()), content="false")
   input.set(2)
   inspect(parent.read_or_abort(), content="13")
 }
@@ -94,12 +94,10 @@ test "static derived: dynamic parent records only static cell" {
 test "panic static derived: rejects tracked reads during static recompute" {
   let rt = Runtime()
   let input = Input(rt, 1)
-  let static_derived = static_derived(
-    rt,
-    [input.inner.id()],
-    () => input.get() + 1,
-    (a, b) => a == b,
-  )
+  let static_derived = static_derived(rt, [input.id()], () => input.get() + 1, (
+    a,
+    b,
+  ) => a == b)
   ignore(static_derived.read_or_abort())
 }
 
@@ -141,12 +139,12 @@ test "static derived: dispose removes fixed subscriber links" {
   let derived = static_derived_map1(input, x => x + 1)
   inspect(derived.read_or_abort(), content="2")
   inspect(
-    static_probe_subscriber_contains(rt, input.inner.id(), derived.id()),
+    static_probe_subscriber_contains(rt, input.id(), derived.id()),
     content="true",
   )
-  derived.inner.dispose()
+  derived.dispose()
   inspect(
-    static_probe_subscriber_contains(rt, input.inner.id(), derived.id()),
+    static_probe_subscriber_contains(rt, input.id(), derived.id()),
     content="false",
   )
 }
@@ -162,7 +160,7 @@ test "static derived: static child dispose removes parent subscriber link" {
     static_probe_subscriber_contains(rt, parent.id(), child.id()),
     content="true",
   )
-  child.inner.dispose()
+  child.dispose()
   inspect(
     static_probe_subscriber_contains(rt, parent.id(), child.id()),
     content="false",
@@ -178,7 +176,7 @@ test "static derived: gc traverses static dependency chain" {
   inspect(child.read_or_abort(), content="4")
   rt.add_read_root(child.id())
   rt.gc()
-  inspect(rt.is_cell_disposed(input.inner.id()), content="false")
+  inspect(rt.is_cell_disposed(input.id()), content="false")
   inspect(rt.is_cell_disposed(parent.id()), content="false")
   inspect(rt.is_cell_disposed(child.id()), content="false")
   rt.remove_read_root(child.id())
@@ -217,7 +215,7 @@ test "static derived: compute failure clears in-progress and hooks" {
     (a, b) => a == b,
   )
   let mut failed = false
-  try derived.inner.force_recompute() catch {
+  try derived.force_recompute() catch {
     _ => failed = true
   } noraise {
     _ => ()
@@ -252,7 +250,7 @@ test "static derived: listener mutation is blocked during recompute" {
     (a, b) => a == b,
   )
   let mut failed = false
-  try derived.inner.force_recompute() catch {
+  try derived.force_recompute() catch {
     _ => failed = true
   } noraise {
     _ => ()
@@ -272,7 +270,7 @@ test "static derived: cycle reporting follows fixed deps" {
   let child = static_derived_map_derived1(parent, x => x + 1, label="static-b")
   inspect(child.read_or_abort(), content="1")
   let parent_data = rt.get_memo_data(parent.id())
-  parent_data.dependencies = [child.id(), input.inner.id()]
+  parent_data.dependencies = [child.id(), input.id()]
   rt.add_subscriber(child.id(), parent.id())
   input.set(1)
   match child.read() {
@@ -302,7 +300,7 @@ test "static derived: accumulator use fails explicitly" {
     },
     (a, b) => a == b,
   )
-  let push_failed = try push_probe.inner.force_recompute() catch {
+  let push_failed = try push_probe.force_recompute() catch {
     e =>
       e
       .to_string()
@@ -328,7 +326,7 @@ test "static derived: accumulator use fails explicitly" {
     },
     (a, b) => a == b,
   )
-  let read_failed = try read_probe.inner.force_recompute() catch {
+  let read_failed = try read_probe.force_recompute() catch {
     e =>
       e
       .to_string()
@@ -445,8 +443,8 @@ test "panic static derived: declared fixed-source read rejects undeclared dep" {
   let other = Input(rt, 10)
   let source = static_derived_map1(input, x => x + 1)
   let probe = rt.install_static_derived(
-    [other.inner.id()],
-    dependent => source.inner.read_declared_fixed_dep_or_abort(dependent),
+    [other.id()],
+    dependent => source.read_declared_fixed_dep_or_abort(dependent),
     (a, b) => a == b,
   )
   ignore(probe.read_or_abort())
@@ -459,9 +457,9 @@ test "static derived: dynamic source is a fixed declared dependency" {
   let source = Derived(rt, () => input.get() + 1)
   let child = static_derived_map_derived1(source, x => x * 2)
   inspect(child.read_or_abort(), content="4")
-  let deps = child.inner.dependencies()
+  let deps = child.dependencies()
   inspect(deps.contains(source.id()), content="true")
-  inspect(deps.contains(input.inner.id()), content="false")
+  inspect(deps.contains(input.id()), content="false")
   input.set(2)
   inspect(child.read_or_abort(), content="6")
 }
@@ -486,7 +484,7 @@ test "static derived: normal watch roots and disposed reads are honest" {
   inspect(watch.read_or_abort(), content="2")
   rt.gc()
   inspect(rt.is_cell_disposed(derived.id()), content="false")
-  derived.inner.dispose()
+  derived.dispose()
   match derived.read() {
     Ok(_) => abort("expected disposed read")
     Err(e) => inspect(e.is_disposed(), content="true")

@@ -1,3 +1,4 @@
+///|
 /// Baseline: signal with N reachable derived subscribers, no push nodes anywhere.
 /// node_count == 0 → push_propagate_from is skipped entirely by the existing
 /// node_count gate before the per-source push_reachable_count gate is reached.
@@ -18,6 +19,7 @@ test "push efficiency: signal set, 100 reachable derived subs, no push nodes (ba
   })
 }
 
+///|
 /// Mixed graph: same signal + reachable derived fan-out, but a distant reactive
 /// on a separate signal keeps node_count > 0. Without this PR,
 /// push_propagate_from BFS would traverse all 100 reachable derived subscribers

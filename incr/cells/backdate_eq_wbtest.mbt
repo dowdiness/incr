@@ -59,10 +59,8 @@ test "with_backdate: backdates when backdate_equal returns true (same changed_at
     () => {
       let _ = sig.get()
       m_count.val = m_count.val + 1
-      // Don't advance rev_ref — value is "unchanged"
       Stamped::{ value: 42, changed_at: rev_ref.val }
     },
-    (a, b) => a.backdate_equal(b),
   )
   let down_count : Ref[Int] = { val: 0 }
   let _down = Derived(rt, () => {
@@ -96,7 +94,6 @@ test "with_backdate: propagates when backdate_equal returns false (advanced chan
       rev_ref.val = rev_ref.val.next()
       Stamped::{ value: v, changed_at: rev_ref.val }
     },
-    (a, b) => a.backdate_equal(b),
   )
   let down_count : Ref[Int] = { val: 0 }
   let _down = Derived(rt, () => {
@@ -156,20 +153,20 @@ test "derived_no_backdate: usable with non-Eq output type" {
 }
 
 ///|
-test "compatibility: Memo::new_memo backdates via BackdateEq (unchanged changed_at)" {
-  // Regression guard for the public BackdateEq constructor. Created through
-  // Memo::new_memo, not Derived::with_backdate, to catch wiring regressions
-  // in the compatibility path (still present until Phase 2 removal).
+test "compatibility: Derived::with_backdate backdates via BackdateEq (unchanged changed_at)" {
   let rt = Runtime::Runtime()
   let rev_ref : Ref[Revision] = { val: Revision::initial() }
   let sig = Signal::Signal(rt, 0)
-  let m = Memo::new_memo(rt, () => {
-    let _ = sig.get()
-    Stamped::{ value: 42, changed_at: rev_ref.val }
-  })
+  let m = Derived::with_backdate(
+    rt,
+    () => {
+      let _ = sig.get()
+      Stamped::{ value: 42, changed_at: rev_ref.val }
+    },
+  )
   let down_count = Ref(0)
   let down = Derived(rt, () => {
-    let _ = m.get()
+    let _ = m.get_or_abort()
     down_count.val = down_count.val + 1
     0
   })

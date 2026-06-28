@@ -27,8 +27,8 @@ test "push_reachable_count: signal with direct reactive counts 1" {
 test "push_reachable_count: signal with reactive through hybrid memo" {
   let rt = Runtime::Runtime()
   let s = Signal::Signal(rt, 0)
-  let h = HybridMemo::HybridMemo(rt, () => s.get())
-  let _r = Reactive::new(rt, () => h.get())
+  let h = ReachableDerived(rt, () => s.get())
+  let _r = Reactive::new(rt, () => h.read_or_abort())
   inspect(get_count(rt, s.id()), content="1")
   inspect(get_count(rt, h.id()), content="1")
 }
@@ -157,8 +157,8 @@ test "push_reachable_count: memo dep change updates upstream signal counts" {
 test "push_reachable_count: hybrid memo dispose decrements upstream" {
   let rt = Runtime::Runtime()
   let s = Signal::Signal(rt, 0)
-  let h = HybridMemo::HybridMemo(rt, () => s.get())
-  let _r = Reactive::new(rt, () => h.get())
+  let h = ReachableDerived(rt, () => s.get())
+  let _r = Reactive::new(rt, () => h.read_or_abort())
   inspect(get_count(rt, s.id()), content="1")
   inspect(get_count(rt, h.id()), content="1")
   h.dispose()

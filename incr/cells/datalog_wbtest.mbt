@@ -161,6 +161,20 @@ test "panic fixpoint: Memo::get() inside rule body aborts" {
   inspect(m.read_or_abort(), content="0")
   let _ = rt.new_rule([rel.id()], [rel.id()], () => {
     // This must abort — Memo::get() during fixpoint could return stale values
+    let _ = m.get_or_abort()
+  })
+  rel.insert(1) |> ignore
+  rt.fixpoint()
+}
+
+///|
+test "panic fixpoint: Derived::read_or_abort() inside rule body aborts" {
+  // The permissive read path also aborts during fixpoint (InFixpoint guard).
+  let rt = Runtime::Runtime()
+  let rel : Relation[Int] = Relation::Relation(rt)
+  let m = Derived(rt, () => rel.iter().fold(init=0, (acc, x) => acc + x))
+  inspect(m.read_or_abort(), content="0")
+  let _ = rt.new_rule([rel.id()], [rel.id()], () => {
     let _ = m.read_or_abort()
   })
   rel.insert(1) |> ignore
@@ -171,10 +185,10 @@ test "panic fixpoint: Memo::get() inside rule body aborts" {
 test "panic fixpoint: HybridMemo::get() inside rule body aborts" {
   let rt = Runtime::Runtime()
   let rel : Relation[Int] = Relation::Relation(rt)
-  let h = HybridMemo::HybridMemo(rt, () => {
+  let h = ReachableDerived(rt, () => {
     rel.iter().fold(init=0, (acc, x) => acc + x)
   })
-  inspect(read_hybrid_for_test(h), content="0")
+  inspect(h.read_or_abort(), content="0")
   let _ = rt.new_rule([rel.id()], [rel.id()], () => {
     let _ = h.get()
   })

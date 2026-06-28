@@ -52,16 +52,16 @@ test "Accumulator::push outside tracked context raises Failure" {
 test "Accumulator::push inside memo compute stages value" {
   let rt = Runtime::Runtime()
   let a : Accumulator[Int] = Accumulator::new(rt~, label="diags")
-  let memo = Derived(rt, () => {
+  let derived = Derived(rt, () => {
     a.push(1)
     a.push(2)
     99
   })
   // Trigger first compute via ensure_computed_untracked (buffer visible
   // without reading through tracked get()).
-  let _ = rt.ensure_computed_untracked(memo.id())
+  let _ = rt.ensure_computed_untracked(derived.id())
   // Buffer contains pushed values, keyed by memo's cell_id
-  match a.per_memo.get(memo.id()) {
+  match a.per_memo.get(derived.id()) {
     Some(vs) => {
       inspect(vs.length(), content="2")
       inspect(vs[0], content="1")
@@ -76,12 +76,12 @@ test "Accumulator::push to disposed accumulator raises Failure" {
   let rt = Runtime::Runtime()
   let a : Accumulator[Int] = Accumulator::new(rt~)
   a.dispose()
-  let memo = Derived(rt, () => {
+  let derived = Derived(rt, () => {
     a.push(42)
     1
   })
   let caught = try {
-    let _ = rt.ensure_computed_untracked(memo.id())
+    let _ = rt.ensure_computed_untracked(derived.id())
     false
   } catch {
     _ => true

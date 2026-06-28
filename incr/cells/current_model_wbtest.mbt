@@ -103,7 +103,7 @@ test "failed read does not record dependency: self cycle is not traced" {
   let source = Signal(rt, 100)
   let memo_ref : Ref[Derived[Int]?] = { val: None }
   let mut runs = 0
-  let memo = Derived(rt, () => {
+  let derived = Derived(rt, () => {
     runs += 1
     match memo_ref.val {
       Some(self) =>
@@ -115,16 +115,16 @@ test "failed read does not record dependency: self cycle is not traced" {
     }
     source.get()
   })
-  memo_ref.val = Some(memo)
+  memo_ref.val = Some(derived)
 
-  inspect(memo.read_or_abort(), content="100")
+  inspect(derived.read_or_abort(), content="100")
   inspect(runs, content="1")
-  inspect(memo.dependencies().contains(memo.id()), content="false")
+  inspect(derived.dependencies().contains(derived.id()), content="false")
 
   source.set(200)
-  inspect(memo.read_or_abort(), content="200")
+  inspect(derived.read_or_abort(), content="200")
   inspect(runs, content="2")
-  inspect(memo.dependencies().contains(memo.id()), content="false")
+  inspect(derived.dependencies().contains(derived.id()), content="false")
 }
 
 ///|
