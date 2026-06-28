@@ -616,15 +616,6 @@ Creates a long-lived outside-graph reader. The `Watch` is a GC root until dispos
 
 Returns whether this reachable derived value is verified at the current revision.
 
-### Compatibility `HybridMemo[T]`
-
-`HybridMemo[T]` exposes the same lazy reachable cell with legacy names. New code should construct `ReachableDerived[T]`; do not wait for `HybridMemo` to grow `read` / `get_or_abort` bridge methods.
-
-- `HybridMemo(rt, f, label?)` constructs a compatibility reachable memo. Migrate ordinary reachable derived values to `ReachableDerived(rt, f, label?)`.
-- `HybridMemo::get()` is the legacy strict aborting graph read. After migrating the handle, use `ReachableDerived::get_or_abort()` inside tracked compute functions, or `ReachableDerived::read()` / `read_or_abort()` outside the graph.
-- `HybridMemo::is_up_to_date()` is `ReachableDerived::is_fresh()`.
-- `HybridMemo::observe()` creates a legacy `Observer[T]`; prefer `ReachableDerived::watch()` on target facades.
-- `HybridMemo::id()`, `dispose()`, and `is_disposed()` remain available on the compatibility handle.
 
 ## AcceptedDerived[V, E]
 
