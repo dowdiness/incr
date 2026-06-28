@@ -16,16 +16,7 @@ fn reset_stale_sentinel_for_top_level_test_read() -> Unit {
 }
 
 ///|
-fn[T] read_memo_for_test(memo : Memo[T]) -> T {
-  reset_stale_sentinel_for_top_level_test_read()
-  let observer = memo.observe()
-  let value = observer.get()
-  observer.dispose()
-  value
-}
-
-///|
-fn[T : Eq] read_hybrid_for_test(memo : HybridMemo[T]) -> T {
+fn[T : Eq] read_hybrid_for_test(memo : ReachableDerived[T]) -> T {
   reset_stale_sentinel_for_top_level_test_read()
   let observer = memo.observe()
   let value = observer.get()

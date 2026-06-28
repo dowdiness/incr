@@ -108,7 +108,7 @@ test "MemoCommitPhase: forward dispatch order on abort" {
   rt.commit_hooks.push(sentinel)
   let _acc : Accumulator[Int] = Accumulator::new(rt~)
   let m : Derived[Int] = Derived(rt, () => raise Failure("test abort"))
-  try m.inner.force_recompute() catch {
+  try m.force_recompute() catch {
     _ => ()
   } noraise {
     _ => ()
@@ -176,10 +176,10 @@ test "MemoCommitPhase: nested recompute aborts clean up both entries" {
   let _acc : Accumulator[Int] = Accumulator::new(rt~)
   let m2 : Derived[Int] = Derived(rt, () => raise Failure("inner abort"))
   let m1 = Derived(rt, () => {
-    let _ = m2.inner.get_result_inner()
+    let _ = m2.get_result_inner()
     0
   })
-  try m1.inner.force_recompute() catch {
+  try m1.force_recompute() catch {
     _ => ()
   } noraise {
     _ => ()

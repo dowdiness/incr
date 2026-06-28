@@ -119,68 +119,6 @@ pub fn[T] Watch::is_disposed(self : Watch[T]) -> Bool {
 }
 
 ///|
-/// Creates an observer for a Memo cell.
-pub fn[T] Memo::observe(self : Memo[T]) -> Observer[T] {
-  guard !self.rt.is_cell_disposed(self.cell_id) else {
-    abort("Memo::observe called on a disposed memo")
-  }
-  let rt = self.rt
-  rt.add_read_root(self.cell_id)
-  {
-    runtime: rt,
-    target_id: self.cell_id,
-    getter: fn() { self.read_permissive() },
-    disposed: false,
-  }
-}
-
-///|
-fn[T] Memo::watch_result(self : Memo[T]) -> Watch[T] {
-  guard !self.rt.is_cell_disposed(self.cell_id) else {
-    abort("Memo::watch called on a disposed memo")
-  }
-  let rt = self.rt
-  rt.add_read_root(self.cell_id)
-  {
-    runtime: rt,
-    target_id: self.cell_id,
-    getter: fn() { self.read_honest() },
-    disposed: false,
-  }
-}
-
-///|
-/// Creates an observer for a HybridMemo cell.
-pub fn[T : Eq] HybridMemo::observe(self : HybridMemo[T]) -> Observer[T] {
-  guard !self.rt.is_cell_disposed(self.cell_id) else {
-    abort("HybridMemo::observe called on a disposed hybrid memo")
-  }
-  let rt = self.rt
-  rt.add_read_root(self.cell_id)
-  {
-    runtime: rt,
-    target_id: self.cell_id,
-    getter: fn() { self.read_permissive() },
-    disposed: false,
-  }
-}
-
-///|
-fn[T : Eq] HybridMemo::watch_result(self : HybridMemo[T]) -> Watch[T] {
-  guard !self.rt.is_cell_disposed(self.cell_id) else {
-    abort("HybridMemo::watch called on a disposed hybrid memo")
-  }
-  let rt = self.rt
-  rt.add_read_root(self.cell_id)
-  {
-    runtime: rt,
-    target_id: self.cell_id,
-    getter: fn() { self.read_honest() },
-    disposed: false,
-  }
-}
-
-///|
 /// Creates an observer for a Reactive cell.
 pub fn[T] Reactive::observe(self : Reactive[T]) -> Observer[T] {
   let cell_id = self.cell_id.id

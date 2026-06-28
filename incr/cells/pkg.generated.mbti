@@ -97,6 +97,7 @@ pub fn[T] Derived::read_or_abort(Self[T]) -> T
 pub fn[T] Derived::verified_at(Self[T]) -> @types.Revision
 pub fn[T] Derived::watch(Self[T]) -> Watch[T]
 pub impl[T] Trackable for Derived[T]
+pub impl[T : @debug.Debug] @debug.Debug for Derived[T]
 
 pub(all) struct DerivedAbortedEvent {
   cell_id : @types.CellId
@@ -173,18 +174,6 @@ pub fn[K, V] FunctionalRelation::is_disposed(Self[K, V]) -> Bool
 pub fn[K, V] FunctionalRelation::iter(Self[K, V]) -> Iter[(K, V)]
 pub fn[K : Hash + Eq, V] FunctionalRelation::new(Runtime, merge? : (V, V) -> V, label? : String) -> Self[K, V]
 
-pub(all) struct HybridMemo[T] {
-  // private fields
-} derive(@debug.Debug)
-pub fn[T : Eq] HybridMemo::HybridMemo(Runtime, () -> T raise Failure, label? : String) -> Self[T]
-pub fn[T] HybridMemo::dispose(Self[T]) -> Unit
-pub fn[T : Eq] HybridMemo::get(Self[T]) -> T
-pub fn[T] HybridMemo::id(Self[T]) -> @types.CellId
-pub fn[T] HybridMemo::is_disposed(Self[T]) -> Bool
-pub fn[T] HybridMemo::is_up_to_date(Self[T]) -> Bool
-pub fn[T : Eq] HybridMemo::new(Runtime, () -> T raise Failure, label? : String) -> Self[T]
-pub fn[T : Eq] HybridMemo::observe(Self[T]) -> Observer[T]
-
 pub(all) struct Input[T] {
   // private fields
 }
@@ -229,47 +218,6 @@ pub fn[K : Hash + Eq, V : Eq] MapRelation::insert(Self[K, V], K, V) -> Bool
 pub fn[K, V] MapRelation::is_disposed(Self[K, V]) -> Bool
 pub fn[K, V] MapRelation::iter(Self[K, V]) -> Iter[(K, V)]
 
-pub(all) struct Memo[T] {
-  // private fields
-} derive(@debug.Debug)
-pub fn[T : Eq] Memo::Memo(Runtime, () -> T raise Failure, label? : String) -> Self[T]
-pub fn[T, A] Memo::accumulated(Self[T], Accumulator[A]) -> Result[Array[A], @types.ReadError] raise Failure
-pub fn[T, A] Memo::accumulated_or_abort(Self[T], Accumulator[A]) -> Array[A] raise Failure
-pub fn[T, A] Memo::accumulated_peek(Self[T], Accumulator[A]) -> Array[A]
-pub fn[T, A] Memo::accumulated_result(Self[T], Accumulator[A]) -> Result[Array[A], @types.ReadError] raise Failure
-pub fn[T] Memo::changed_at(Self[T]) -> @types.Revision
-pub fn[T] Memo::clear_on_change(Self[T]) -> Unit
-pub fn[T] Memo::dependencies(Self[T]) -> Array[@types.CellId]
-pub fn[T] Memo::dispose(Self[T]) -> Unit
-pub fn[T] Memo::get(Self[T]) -> T
-pub fn[T] Memo::get_or(Self[T], T) -> T
-pub fn[T] Memo::get_or_else(Self[T], (@types.CycleError) -> T) -> T
-pub fn[T] Memo::get_result(Self[T]) -> Result[T, @types.CycleError]
-pub fn[T] Memo::id(Self[T]) -> @types.CellId
-pub fn[T] Memo::is_disposed(Self[T]) -> Bool
-pub fn[T] Memo::is_up_to_date(Self[T]) -> Bool
-pub fn[T : Eq] Memo::new(Runtime, () -> T raise Failure, label? : String) -> Self[T]
-pub fn[T : @types.BackdateEq] Memo::new_memo(Runtime, () -> T raise Failure, label? : String) -> Self[T]
-pub fn[T] Memo::new_no_backdate(Runtime, () -> T raise Failure, label? : String) -> Self[T]
-pub fn[T] Memo::observe(Self[T]) -> Observer[T]
-pub fn[T] Memo::on_change(Self[T], (T) -> Unit) -> Unit
-pub fn[T] Memo::verified_at(Self[T]) -> @types.Revision
-
-pub(all) struct MemoMap[K, V] {
-  // private fields
-}
-pub fn[K : Hash + Eq, V] MemoMap::MemoMap(Runtime, (K) -> V raise Failure, label? : String) -> Self[K, V]
-pub fn[K, V] MemoMap::clear(Self[K, V]) -> Unit
-pub fn[K : Hash + Eq, V] MemoMap::contains(Self[K, V], K) -> Bool
-pub fn[K : Hash + Eq, V : Eq] MemoMap::get(Self[K, V], K) -> V
-pub fn[K : Hash + Eq, V : Eq] MemoMap::get_or(Self[K, V], K, V) -> V
-pub fn[K : Hash + Eq, V : Eq] MemoMap::get_or_else(Self[K, V], K, (@types.CycleError) -> V) -> V
-pub fn[K : Hash + Eq, V : Eq] MemoMap::get_result(Self[K, V], K) -> Result[V, @types.CycleError]
-pub fn[K : Hash + Eq, V : Eq] MemoMap::get_tracked(Self[K, V], K) -> V
-pub fn[K, V] MemoMap::length(Self[K, V]) -> Int
-pub fn[K : Hash + Eq, V] MemoMap::new(Runtime, (K) -> V raise Failure, label? : String) -> Self[K, V]
-pub fn[K : Hash + Eq, V] MemoMap::sweep(Self[K, V]) -> Int
-
 pub struct Observer[T] {
   // private fields
 } derive(@debug.Debug)
@@ -279,7 +227,7 @@ pub fn[T] Observer::is_disposed(Self[T]) -> Bool
 
 pub(all) struct ReachableDerived[T] {
   // private fields
-}
+} derive(@debug.Debug)
 pub fn[T : Eq] ReachableDerived::ReachableDerived(Runtime, () -> T raise Failure, label? : String) -> Self[T]
 pub fn[T] ReachableDerived::dispose(Self[T]) -> Unit
 pub fn[T : Eq] ReachableDerived::get(Self[T]) -> Result[T, @types.ReadError]

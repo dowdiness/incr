@@ -82,7 +82,7 @@ pub fn[T, U] Input::derived_no_backdate(
   f : (T) -> U,
   label? : String,
 ) -> Derived[U] {
-  { inner: Memo::new_no_backdate(self.inner.rt, () => f(self.get()), label?) }
+  Derived::_create(self.inner.rt, () => f(self.get()), label?, (_, _) => false)
 }
 
 ///|
@@ -175,9 +175,27 @@ pub fn[T] InputField::as_tracked_cell(self : InputField[T]) -> TrackedCell[T] {
 }
 
 ///|
-/// Target-name lazy derived cell facade over `Memo`.
 pub(all) struct Derived[T] {
-  priv inner : Memo[T]
+  priv label : String?
+  priv rt : Runtime
+  priv cell_id : CellId
+  priv compute : () -> T raise Failure
+  priv is_static : Bool
+  priv backdate_eq : (T, T) -> Bool
+  priv mut value : T?
+}
+
+///|
+pub impl[T : Debug] Debug for Derived[T] with fn to_repr(self) -> Repr {
+  Repr::record({
+    "label": to_repr(self.label),
+    "rt": Repr::literal("..."),
+    "cell_id": Repr::literal("..."),
+    "compute": Repr::literal("<function: ...>"),
+    "is_static": to_repr(self.is_static),
+    "backdate_eq": Repr::literal("<function: ...>"),
+    "value": to_repr(self.value),
+  })
 }
 
 ///|
@@ -187,7 +205,7 @@ pub fn[T : Eq] Derived::Derived(
   compute : () -> T raise Failure,
   label? : String,
 ) -> Derived[T] {
-  { inner: Memo(rt, compute, label?) }
+  Derived::_create(rt, compute, label?, (a, b) => a == b)
 }
 
 ///|
@@ -219,7 +237,7 @@ pub fn[T] Derived::derived_no_backdate(
   compute : () -> T raise Failure,
   label? : String,
 ) -> Derived[T] {
-  { inner: Memo::new_no_backdate(rt, compute, label?) }
+  Derived::_create(rt, compute, label?, (_, _) => false)
 }
 
 ///|
@@ -231,13 +249,9 @@ pub fn[T, U] Derived::map_no_backdate(
   f : (T) -> U,
   label? : String,
 ) -> Derived[U] {
-  {
-    inner: Memo::new_no_backdate(
-      self.inner.rt,
-      () => f(self.get_or_abort()),
-      label?,
-    ),
-  }
+  Derived::_create(self.rt, () => f(self.read_or_abort()), label?, (_, _) => {
+    false
+  })
 }
 
 ///|
@@ -252,7 +266,7 @@ pub fn[T, U : Eq] Derived::map(
   f : (T) -> U,
   label? : String,
 ) -> Derived[U] {
-  Derived(self.inner.rt, () => f(self.get_or_abort()), label?)
+  Derived(self.rt, () => f(self.get_or_abort()), label?)
 }
 
 ///|
@@ -261,8 +275,8 @@ fn[T1, T2] Derived::check_same_runtime(
   other : Derived[T2],
   caller : String,
 ) -> Unit {
-  let expected = self.inner.id().runtime_id
-  let actual = other.inner.id().runtime_id
+  let expected = self.cell_id.runtime_id
+  let actual = other.cell_id.runtime_id
   if actual != expected {
     abort(
       caller +
@@ -286,13 +300,12 @@ pub fn[T1, T2, U] Derived::map2_no_backdate(
   label? : String,
 ) -> Derived[U] {
   self.check_same_runtime(other, "Derived::map2_no_backdate")
-  {
-    inner: Memo::new_no_backdate(
-      self.inner.rt,
-      () => f(self.get_or_abort(), other.get_or_abort()),
-      label?,
-    ),
-  }
+  Derived::_create(
+    self.rt,
+    () => f(self.get_or_abort(), other.get_or_abort()),
+    label?,
+    (_, _) => false,
+  )
 }
 
 ///|
@@ -309,11 +322,7 @@ pub fn[T1, T2, U : Eq] Derived::map2(
   label? : String,
 ) -> Derived[U] {
   self.check_same_runtime(other, "Derived::map2")
-  Derived(
-    self.inner.rt,
-    () => f(self.get_or_abort(), other.get_or_abort()),
-    label?,
-  )
+  Derived(self.rt, () => f(self.get_or_abort(), other.get_or_abort()), label?)
 }
 
 ///|
@@ -330,13 +339,12 @@ pub fn[T1, T2, T3, U] Derived::map3_no_backdate(
 ) -> Derived[U] {
   self.check_same_runtime(second, "Derived::map3_no_backdate")
   self.check_same_runtime(third, "Derived::map3_no_backdate")
-  {
-    inner: Memo::new_no_backdate(
-      self.inner.rt,
-      () => f(self.get_or_abort(), second.get_or_abort(), third.get_or_abort()),
-      label?,
-    ),
-  }
+  Derived::_create(
+    self.rt,
+    () => f(self.get_or_abort(), second.get_or_abort(), third.get_or_abort()),
+    label?,
+    (_, _) => false,
+  )
 }
 
 ///|
@@ -356,7 +364,7 @@ pub fn[T1, T2, T3, U : Eq] Derived::map3(
   self.check_same_runtime(second, "Derived::map3")
   self.check_same_runtime(third, "Derived::map3")
   Derived(
-    self.inner.rt,
+    self.rt,
     () => f(self.get_or_abort(), second.get_or_abort(), third.get_or_abort()),
     label?,
   )
@@ -376,13 +384,13 @@ fn[T] Derived::with_backdate(
   backdate_eq : (T, T) -> Bool,
   label? : String,
 ) -> Derived[T] {
-  { inner: Memo::_create(rt, compute, label?, backdate_eq) }
+  Derived::_create(rt, compute, label?, backdate_eq)
 }
 
 ///|
 /// Strict graph read. Requires an active tracked context.
 pub fn[T] Derived::get(self : Derived[T]) -> Result[T, ReadError] {
-  self.inner.get_strict_honest()
+  self.get_strict_honest()
 }
 
 ///|
@@ -397,7 +405,7 @@ pub fn[T] Derived::get_or_abort(self : Derived[T]) -> T {
 ///|
 /// Permissive read. Works outside the graph and records a dependency if tracked.
 pub fn[T] Derived::read(self : Derived[T]) -> Result[T, ReadError] {
-  self.inner.read_honest()
+  self.read_honest()
 }
 
 ///|
@@ -412,13 +420,13 @@ pub fn[T] Derived::read_or_abort(self : Derived[T]) -> T {
 ///|
 /// Creates a long-lived outside-graph reader that returns read errors.
 pub fn[T] Derived::watch(self : Derived[T]) -> Watch[T] {
-  self.inner.watch_result()
+  self.watch_result()
 }
 
 ///|
 /// Returns whether this derived value is verified at the current revision.
 pub fn[T] Derived::is_fresh(self : Derived[T]) -> Bool {
-  self.inner.is_up_to_date()
+  self.is_up_to_date()
 }
 
 ///|
@@ -426,31 +434,36 @@ pub fn[T] Derived::is_fresh(self : Derived[T]) -> Bool {
 /// across reads — useful for graph-shape probes (gc anchoring, edge
 /// inspection) where a cell needs an identity independent of its value.
 pub fn[T] Derived::id(self : Derived[T]) -> CellId {
-  self.inner.id()
+  self.cell_id
 }
 
 ///|
 /// Returns the array of cell IDs that this derived value depends on.
 pub fn[T] Derived::dependencies(self : Derived[T]) -> Array[CellId] {
-  self.inner.dependencies()
+  self.rt.get_memo_data(self.cell_id).dependencies.copy()
 }
 
 ///|
 /// Returns the revision at which this derived value was last verified.
 pub fn[T] Derived::verified_at(self : Derived[T]) -> Revision {
-  self.inner.verified_at()
+  self.rt.get_memo_data(self.cell_id).verified_at
 }
 
 ///|
 /// Registers a callback that fires whenever this derived value's output changes.
 pub fn[T] Derived::on_change(self : Derived[T], f : (T) -> Unit) -> Unit {
-  self.inner.on_change(f)
+  self.rt.get_memo_data(self.cell_id).on_change = Some(() => {
+    match self.value {
+      Some(v) => f(v)
+      None => ()
+    }
+  })
 }
 
 ///|
 /// Removes the `on_change` callback for this derived value.
 pub fn[T] Derived::clear_on_change(self : Derived[T]) -> Unit {
-  self.inner.clear_on_change()
+  self.rt.get_memo_data(self.cell_id).on_change = None
 }
 
 ///|
@@ -459,7 +472,17 @@ pub fn[T] Derived::clear_on_change(self : Derived[T]) -> Unit {
 /// the cell (and its dependency cone) stays pinned indefinitely. See
 /// `Memo::observe` for the underlying semantics.
 pub fn[T] Derived::observe(self : Derived[T]) -> Observer[T] {
-  self.inner.observe()
+  guard !self.rt.is_cell_disposed(self.cell_id) else {
+    abort("Derived::observe called on a disposed derived cell")
+  }
+  let rt = self.rt
+  rt.add_read_root(self.cell_id)
+  {
+    runtime: rt,
+    target_id: self.cell_id,
+    getter: fn() { self.read_permissive() },
+    disposed: false,
+  }
 }
 
 ///|
@@ -468,20 +491,21 @@ pub fn[T] Derived::observe(self : Derived[T]) -> Observer[T] {
 /// value equal to the previous one, `changed_at` is preserved rather than
 /// advanced. See `Memo::changed_at`.
 pub fn[T] Derived::changed_at(self : Derived[T]) -> Revision {
-  self.inner.changed_at()
+  self.rt.get_memo_data(self.cell_id).meta.changed_at
 }
 
 ///|
 /// Disposes this derived value, freeing associated resources. After disposal,
 /// reads abort with `Disposed`.
 pub fn[T] Derived::dispose(self : Derived[T]) -> Unit {
-  self.inner.dispose()
+  self.rt.dispose_cell(self.cell_id)
+  self.value = None
 }
 
 ///|
 /// Returns true if this derived value has been disposed.
 pub fn[T] Derived::is_disposed(self : Derived[T]) -> Bool {
-  self.inner.is_disposed()
+  self.rt.is_cell_disposed(self.cell_id)
 }
 
 ///|
@@ -493,8 +517,7 @@ pub fn[T, A] Derived::accumulated(
   self : Derived[T],
   acc : Accumulator[A],
 ) -> Result[Array[A], ReadError] raise Failure {
-  let rt = self.inner.rt
-  rt.check_cross_runtime(rt.core.runtime_id, "Derived::accumulated")
+  let rt = self.rt
   rt.check_cross_runtime(
     acc.slot_id.runtime_id,
     "Derived::accumulated (Accumulator)",
@@ -506,10 +529,10 @@ pub fn[T, A] Derived::accumulated(
   if slot.disposed {
     fail("Derived::accumulated called on disposed Accumulator")
   }
-  if rt.is_cell_disposed(self.inner.cell_id) {
-    return Err(ReadError::disposed(self.inner.cell_id))
+  if rt.is_cell_disposed(self.cell_id) {
+    return Err(ReadError::disposed(self.cell_id))
   }
-  let verified = rt.ensure_computed_untracked(self.inner.cell_id) catch {
+  let verified = rt.ensure_computed_untracked(self.cell_id) catch {
     e => {
       rt.drain_pending_events_direct()
       abort("Derived::accumulated target compute raised: " + e.to_string())
@@ -518,7 +541,7 @@ pub fn[T, A] Derived::accumulated(
   let result = match verified {
     Err(e) => Err(ReadError::cycle(e))
     Ok(_) => {
-      let current_rev = (slot.push_revised_at_for)(self.inner.cell_id)
+      let current_rev = (slot.push_revised_at_for)(self.cell_id)
       match rt.top_active_query() {
         Some(frame) =>
           match rt.core.cell_index[frame.cell_id.id] {
@@ -526,12 +549,12 @@ pub fn[T, A] Derived::accumulated(
               rt.accumulator_commit_hook
               .ensure_for_cell(frame.cell_id)
               .ensure_reads()
-              .set((acc.slot_id, self.inner.cell_id), current_rev)
+              .set((acc.slot_id, self.cell_id), current_rev)
             _ => ()
           }
         None => ()
       }
-      let vs = match acc.per_memo.get(self.inner.cell_id) {
+      let vs = match acc.per_memo.get(self.cell_id) {
         Some(arr) => arr.copy()
         None => []
       }
@@ -564,7 +587,7 @@ pub fn[T, A] Derived::accumulated_peek(
   self : Derived[T],
   acc : Accumulator[A],
 ) -> Array[A] {
-  let rt = self.inner.rt
+  let rt = self.rt
   rt.check_cross_runtime(rt.core.runtime_id, "Derived::accumulated_peek")
   rt.check_cross_runtime(
     acc.slot_id.runtime_id,
@@ -579,10 +602,10 @@ pub fn[T, A] Derived::accumulated_peek(
   if slot.disposed {
     return []
   }
-  if rt.is_cell_disposed(self.inner.cell_id) {
+  if rt.is_cell_disposed(self.cell_id) {
     return []
   }
-  match acc.per_memo.get(self.inner.cell_id) {
+  match acc.per_memo.get(self.cell_id) {
     Some(vs) => vs.copy()
     None => []
   }
@@ -598,10 +621,13 @@ pub fn[T, A] Derived::accumulated_result(
 }
 
 ///|
-/// Target-name reachable lazy derived cell facade over `HybridMemo`.
 pub(all) struct ReachableDerived[T] {
-  priv inner : HybridMemo[T]
-}
+  priv label : String?
+  priv rt : Runtime
+  priv cell_id : CellId
+  priv compute : () -> T raise Failure
+  priv mut value : T?
+} derive(Debug(ignore=[Runtime, Fn, CellId]))
 
 ///|
 /// Creates a reachable lazy derived value.
@@ -610,7 +636,7 @@ pub fn[T : Eq] ReachableDerived::ReachableDerived(
   compute : () -> T raise Failure,
   label? : String,
 ) -> ReachableDerived[T] {
-  { inner: HybridMemo(rt, compute, label?) }
+  ReachableDerived::_create(rt, compute, label?)
 }
 
 ///|
@@ -618,7 +644,7 @@ pub fn[T : Eq] ReachableDerived::ReachableDerived(
 pub fn[T : Eq] ReachableDerived::get(
   self : ReachableDerived[T],
 ) -> Result[T, ReadError] {
-  self.inner.get_strict_honest()
+  self.get_strict_honest()
 }
 
 ///|
@@ -635,7 +661,7 @@ pub fn[T : Eq] ReachableDerived::get_or_abort(self : ReachableDerived[T]) -> T {
 pub fn[T : Eq] ReachableDerived::read(
   self : ReachableDerived[T],
 ) -> Result[T, ReadError] {
-  self.inner.read_honest()
+  self.read_honest()
 }
 
 ///|
@@ -650,13 +676,13 @@ pub fn[T : Eq] ReachableDerived::read_or_abort(self : ReachableDerived[T]) -> T 
 ///|
 /// Creates a long-lived outside-graph reader that returns read errors.
 pub fn[T : Eq] ReachableDerived::watch(self : ReachableDerived[T]) -> Watch[T] {
-  self.inner.watch_result()
+  self.watch_result()
 }
 
 ///|
 /// Returns whether this reachable derived value is verified at the current revision.
 pub fn[T] ReachableDerived::is_fresh(self : ReachableDerived[T]) -> Bool {
-  self.inner.is_up_to_date()
+  self.is_up_to_date()
 }
 
 ///|
@@ -664,7 +690,7 @@ pub fn[T] ReachableDerived::is_fresh(self : ReachableDerived[T]) -> Bool {
 /// Stable across reads — useful for graph-shape probes (gc anchoring, edge
 /// inspection) where a cell needs an identity independent of its value.
 pub fn[T] ReachableDerived::id(self : ReachableDerived[T]) -> CellId {
-  self.inner.id()
+  self.cell_id
 }
 
 ///|
@@ -673,7 +699,19 @@ pub fn[T] ReachableDerived::id(self : ReachableDerived[T]) -> CellId {
 pub fn[T : Eq] ReachableDerived::observe(
   self : ReachableDerived[T],
 ) -> Observer[T] {
-  self.inner.observe()
+  guard !self.rt.is_cell_disposed(self.cell_id) else {
+    abort(
+      "ReachableDerived::observe called on a disposed reachable derived cell",
+    )
+  }
+  let rt = self.rt
+  rt.add_read_root(self.cell_id)
+  {
+    runtime: rt,
+    target_id: self.cell_id,
+    getter: fn() { self.read_permissive() },
+    disposed: false,
+  }
 }
 
 ///|
@@ -682,13 +720,14 @@ pub fn[T : Eq] ReachableDerived::observe(
 /// Disposes this reachable derived value, freeing associated resources. After
 /// disposal, reads abort with `Disposed`.
 pub fn[T] ReachableDerived::dispose(self : ReachableDerived[T]) -> Unit {
-  self.inner.dispose()
+  self.rt.dispose_cell(self.cell_id)
+  self.value = None
 }
 
 ///|
 /// Returns true if this reachable derived cell has been disposed.
 pub fn[T] ReachableDerived::is_disposed(self : ReachableDerived[T]) -> Bool {
-  self.inner.is_disposed()
+  self.rt.is_cell_disposed(self.cell_id)
 }
 
 ///|
@@ -733,9 +772,11 @@ pub fn[T] EagerDerived::id(self : EagerDerived[T]) -> CellId {
 }
 
 ///|
-/// Target-name keyed derived facade over `MemoMap`.
 pub(all) struct DerivedMap[K, V] {
-  priv inner : MemoMap[K, V]
+  priv rt : Runtime
+  priv compute : (K) -> V raise Failure
+  priv label : String?
+  priv entries : @hashmap.HashMap[K, Derived[V]]
   priv disposed : Ref[CellId?]
 }
 
@@ -746,7 +787,7 @@ pub fn[K : Hash + Eq, V] DerivedMap::DerivedMap(
   compute : (K) -> V raise Failure,
   label? : String,
 ) -> DerivedMap[K, V] {
-  { inner: MemoMap(rt, compute, label?), disposed: { val: None } }
+  { rt, compute, label, entries: @hashmap.HashMap([]), disposed: { val: None } }
 }
 
 ///|
@@ -777,16 +818,16 @@ fn[K, V] DerivedMap::guard_live(
 fn[K, V] DerivedMap::dispose_from_scope(self : DerivedMap[K, V]) -> Unit {
   guard self.disposed.val is None else { return }
   let mut disposed_id : CellId? = None
-  for _, memo in self.inner.entries {
+  for _, entry in self.entries {
     if disposed_id is None {
-      disposed_id = Some(memo.id())
+      disposed_id = Some(entry.id())
     }
   }
   let id = match disposed_id {
     Some(id) => id
     None => {
-      let tombstone = Memo::new(
-        self.inner.rt,
+      let tombstone = Derived::Derived(
+        self.rt,
         () => (),
         label="derived_map_disposed",
       )
@@ -795,7 +836,7 @@ fn[K, V] DerivedMap::dispose_from_scope(self : DerivedMap[K, V]) -> Unit {
     }
   }
   self.disposed.val = Some(id)
-  self.inner.clear()
+  self.clear_entries()
 }
 
 ///|
@@ -805,7 +846,7 @@ pub fn[K : Hash + Eq, V : Eq] DerivedMap::get(
   key : K,
 ) -> Result[V, ReadError] {
   match self.guard_live() {
-    Ok(_) => self.inner.get_strict_honest(key)
+    Ok(_) => self.get_strict_honest(key)
     Err(e) => Err(e)
   }
 }
@@ -829,7 +870,7 @@ pub fn[K : Hash + Eq, V : Eq] DerivedMap::read(
   key : K,
 ) -> Result[V, ReadError] {
   match self.guard_live() {
-    Ok(_) => self.inner.read_honest(key)
+    Ok(_) => self.read_honest(key)
     Err(e) => Err(e)
   }
 }
@@ -879,7 +920,7 @@ pub fn[K : Hash + Eq, V] DerivedMap::has_cached(
   key : K,
 ) -> Bool {
   match self.guard_live() {
-    Ok(_) => self.inner.contains(key)
+    Ok(_) => self.entries.contains(key)
     Err(e) => abort(e.format_path())
   }
 }
@@ -888,7 +929,7 @@ pub fn[K : Hash + Eq, V] DerivedMap::has_cached(
 /// Returns the number of cached entries.
 pub fn[K, V] DerivedMap::cache_len(self : DerivedMap[K, V]) -> Int {
   match self.guard_live() {
-    Ok(_) => self.inner.length()
+    Ok(_) => self.entries.length()
     Err(e) => abort(e.format_path())
   }
 }
@@ -899,7 +940,7 @@ pub fn[K : Hash + Eq, V] DerivedMap::sweep_cache(
   self : DerivedMap[K, V],
 ) -> Int {
   match self.guard_live() {
-    Ok(_) => self.inner.sweep()
+    Ok(_) => self.sweep_entries()
     Err(e) => abort(e.format_path())
   }
 }
@@ -908,7 +949,7 @@ pub fn[K : Hash + Eq, V] DerivedMap::sweep_cache(
 /// Clears all cached entries.
 pub fn[K, V] DerivedMap::clear_cache(self : DerivedMap[K, V]) -> Unit {
   match self.guard_live() {
-    Ok(_) => self.inner.clear()
+    Ok(_) => self.clear_entries()
     Err(e) => abort(e.format_path())
   }
 }

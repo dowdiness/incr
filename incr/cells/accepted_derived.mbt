@@ -196,7 +196,7 @@ fn[V, E] AcceptedDerived::assemble(
     accepted_eq,
     label="\{label}.accepted",
   )
-  scope.add_cell_ids([accepted_cell.inner.id()])
+  scope.add_cell_ids([accepted_cell.cell_id])
   // gc anchor: root `accepted_cell` and prime it so its upstream
   // dependencies (fold -> candidate) are recorded before any `Runtime::gc()`.
   let anchor = scope.add_watch(accepted_cell.watch())
@@ -215,7 +215,7 @@ pub fn[V : Eq, E : Eq] AcceptedDerived::AcceptedDerived(
 ) -> AcceptedDerived[V, E] {
   let scope = Scope::new(rt)
   let candidate = Derived::fallible(rt, compute, label?)
-  scope.add_cell_ids([candidate.inner.id()])
+  scope.add_cell_ids([candidate.cell_id])
   AcceptedDerived::assemble(scope, candidate, (a, b) => a == b, label?)
 }
 
@@ -228,7 +228,7 @@ pub fn[V : Eq, E] AcceptedDerived::from_candidate(
   candidate : Derived[Result[V, E]],
   label? : String,
 ) -> AcceptedDerived[V, E] {
-  let scope = Scope::new(candidate.inner.rt)
+  let scope = Scope::new(candidate.rt)
   AcceptedDerived::assemble(scope, candidate, (a, b) => a == b, label?)
 }
 
@@ -245,7 +245,7 @@ pub fn[V : Eq, E : Eq] Scope::accepted_derived(
   }
   let child = self.child()
   let candidate = Derived::fallible(child.runtime, compute, label?)
-  child.add_cell_ids([candidate.inner.id()])
+  child.add_cell_ids([candidate.cell_id])
   AcceptedDerived::assemble(child, candidate, (a, b) => a == b, label?)
 }
 
@@ -289,7 +289,7 @@ pub fn[V : BackdateEq, E : Eq] AcceptedDerived::accepted_memo(
 ) -> AcceptedDerived[V, E] {
   let scope = Scope::new(rt)
   let candidate = AcceptedDerived::backdate_candidate(rt, compute, label?)
-  scope.add_cell_ids([candidate.inner.id()])
+  scope.add_cell_ids([candidate.cell_id])
   AcceptedDerived::assemble(
     scope,
     candidate,
@@ -322,7 +322,7 @@ pub fn[V : BackdateEq, E : Eq] Scope::accepted_memo(
     compute,
     label?,
   )
-  child.add_cell_ids([candidate.inner.id()])
+  child.add_cell_ids([candidate.cell_id])
   AcceptedDerived::assemble(
     child,
     candidate,
@@ -342,7 +342,7 @@ pub fn[V : BackdateEq, E : Eq] Scope::accepted_memo(
 fn[V, E] AcceptedDerived::disposed_read_error(
   self : AcceptedDerived[V, E],
 ) -> ReadError {
-  ReadError::disposed(self.accepted_cell.inner.id())
+  ReadError::disposed(self.accepted_cell.cell_id)
 }
 
 ///|

@@ -102,7 +102,7 @@ test "evaluation strategy: tracing records lazy derived aborts without listener"
   let derived : Derived[Int] = Derived(rt, () => raise Failure("traced boom"))
 
   let mut failed = false
-  try derived.inner.force_recompute() catch {
+  try derived.force_recompute() catch {
     _ => failed = true
   } noraise {
     _ => ()

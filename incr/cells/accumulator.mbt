@@ -312,7 +312,10 @@ pub fn[T] Accumulator::push(
   // Top-frame must be a PullMemo / HybridMemo cell.
   match self.rt.core.cell_index[m_id.id] {
     PullMemo(_) | HybridMemo(_) => ()
-    _ => fail("Accumulator::push only valid inside Memo compute")
+    _ =>
+      fail(
+        "Accumulator::push only valid inside Derived / ReachableDerived compute",
+      )
   }
   // Append to typed buffer.
   let buf = match self.per_memo.get(m_id) {
@@ -336,62 +339,6 @@ pub fn[T] Accumulator::push(
 }
 
 ///|
-/// Untracked read: returns the accumulated values pushed by `self` during
-/// its last successful compute. Does NOT force verification and does NOT
-/// record a dependency. Returns a defensive copy.
-///
-/// Permissive on disposal: returns `[]` if the accumulator or target memo
-/// is disposed. Matches Signal::peek semantics.
-pub fn[T, A] Memo::accumulated_peek(
-  self : Memo[T],
-  acc : Accumulator[A],
-) -> Array[A] {
-  let d : Derived[T] = { inner: self }
-  d.accumulated_peek(acc)
-}
-
-///|
-/// Tracked read: returns the accumulated values pushed by `self` during
-/// its last successful compute, records a synthetic dep on the current
-/// compute frame on success, and forces verification of `self` via
-/// `ensure_computed_untracked`.
-///
-/// The read channel reports graph mechanism failures as `ReadError`: cycles
-/// return `Err(Cycle(_))`, and a directly disposed target memo returns
-/// `Err(Disposed(_))`. A target compute that raises `Failure` is a defect and
-/// aborts, matching `Derived::read`.
-///
-/// Disposed accumulators and static-Derived recompute use are programmer
-/// defects that raise `Failure`; cross-runtime misuse aborts via the runtime
-/// guard rather than surfacing as `ReadError`.
-pub fn[T, A] Memo::accumulated(
-  self : Memo[T],
-  acc : Accumulator[A],
-) -> Result[Array[A], ReadError] raise Failure {
-  let d : Derived[T] = { inner: self }
-  d.accumulated(acc)
-}
-
-///|
-/// Tracked accumulator read that aborts on a graph mechanism failure.
-pub fn[T, A] Memo::accumulated_or_abort(
-  self : Memo[T],
-  acc : Accumulator[A],
-) -> Array[A] raise Failure {
-  match self.accumulated(acc) {
-    Ok(vs) => vs
-    Err(e) => abort(e.format_path())
-  }
-}
-
-///|
-/// Compatibility alias for the Result-style accumulator read.
-pub fn[T, A] Memo::accumulated_result(
-  self : Memo[T],
-  acc : Accumulator[A],
-) -> Result[Array[A], ReadError] raise Failure {
-  self.accumulated(acc)
-}
 
 ///|
 /// Debug representation.

@@ -60,7 +60,7 @@ test "accepted: disposed candidate surfaces ReadError, retains accepted state" {
   let input = Input::Input(rt, "v1")
   let ad = AcceptedDerived::AcceptedDerived(rt, () => ad_parse(input.get()))
   @debug.assert_eq(ad.accepted_or_abort(), Some(1))
-  ad.candidate.inner.dispose()
+  ad.candidate.dispose()
   inspect(
     match ad.current() {
       Err(e) => e.is_disposed()

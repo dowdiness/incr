@@ -60,59 +60,6 @@ fn Runtime::normalize_static_derived_deps(
 }
 
 ///|
-fn[T] Memo::_create_static(
-  rt : Runtime,
-  deps : Array[CellId],
-  compute : (CellId) -> T raise Failure,
-  label? : String,
-  backdate_eq : (T, T) -> Bool,
-) -> Memo[T] {
-  let fixed_deps = rt.normalize_static_derived_deps(deps)
-  let memo_idx = rt.pull.free_memos.pop().unwrap_or(rt.pull.memos.length())
-  let cell_id = rt.alloc_cell_id(PullMemo(memo_idx))
-  let memo : Memo[T] = {
-    label,
-    rt,
-    cell_id,
-    compute: () => compute(cell_id),
-    is_static: true,
-    backdate_eq,
-    value: None,
-  }
-  let data : MemoData = {
-    meta: {
-      cell_id,
-      label,
-      changed_at: Revision::initial(),
-      durability: compute_durability(rt, fixed_deps),
-      subscribers: @hashset.HashSet([]),
-      push_reachable_count: 0,
-    },
-    compute: () => memo.recompute_inner(),
-    verified_at: Revision::initial(),
-    dependencies: fixed_deps,
-    in_progress: false,
-    on_change: None,
-    is_hybrid: false,
-    accumulator_reads: @hashmap.HashMap([]),
-    has_been_computed: false,
-  }
-  if memo_idx < rt.pull.memos.length() {
-    rt.pull.memos[memo_idx] = data
-  } else {
-    rt.pull.memos.push(data)
-  }
-  let ops : &CellOps = rt.pull.memos[memo_idx]
-  rt.core.cell_ops.push(ops)
-  let lifecycle : &CellLifecycle = rt.pull.memos[memo_idx]
-  rt.cell_lifecycle.push(lifecycle)
-  for dep in fixed_deps {
-    rt.add_subscriber(dep, cell_id)
-  }
-  memo
-}
-
-///|
 fn[T] Runtime::install_static_derived(
   self : Runtime,
   deps : Array[CellId],
@@ -120,7 +67,7 @@ fn[T] Runtime::install_static_derived(
   backdate_eq : (T, T) -> Bool,
   label? : String,
 ) -> Derived[T] {
-  { inner: Memo::_create_static(self, deps, compute, label?, backdate_eq) }
+  Derived::_create_static(self, deps, compute, label?, backdate_eq)
 }
 
 ///|
@@ -157,10 +104,10 @@ fn[T] static_source_input_field(
 ///|
 fn[T] static_source_derived(source : Derived[T]) -> StaticDerivedSource[T] {
   {
-    rt: source.inner.rt,
+    rt: source.rt,
     id: source.id(),
     read_declared: dependent => {
-      source.inner.read_declared_fixed_dep_or_abort(dependent)
+      source.read_declared_fixed_dep_or_abort(dependent)
     },
   }
 }

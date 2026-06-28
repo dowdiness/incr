@@ -12,6 +12,24 @@ All notable changes to `dowdiness/incr` are documented in this file.
 - **Added `Derived::derived_no_backdate` for standalone no-backdate construction.** `Derived::derived_no_backdate(rt, compute, label?)` creates a `Derived[T]` without equality-based backdating, accepting output types that do not implement `Eq`. The target-facade companion to `Memo::new_no_backdate`.
 - **Added `Derived::accumulated_result` for Result-style accumulator reads.** `Derived::accumulated_result` is a `Result`-style alias for `Derived::accumulated` on the target facade, mirroring the existing `Memo::accumulated_result` compatibility alias. (#324)
 
+### Breaking Changes
+
+- **Remove `Memo`, `MemoMap`, `HybridMemo` types.** These legacy compatibility
+  types have been fully removed. Use `Derived`, `DerivedMap`, and
+  `ReachableDerived` respectively. `Memo::new_memo` and
+  `Memo::new_no_backdate` are gone — use
+  `Derived::with_backdate` and `Derived::derived_no_backdate`. The
+  `Memo::accumulated*` wrappers have been removed — use `Derived::accumulated*`
+  directly.
+
+### Migration
+
+- `Memo(rt, compute)` → `Derived(rt, compute)`
+- `MemoMap(rt, compute)` → `DerivedMap(rt, compute)`
+- `HybridMemo(rt, compute)` → `ReachableDerived(rt, compute)`
+- `memo.accumulated(acc)` → `derived.accumulated(acc)`
+- `.inner.*` → direct method calls
+
 ### Changed
 
 - **Renamed `Derived` map family: safe default now uses short name.** `Derived::map_eq` → `Derived::map` (the safe `Eq`-backdating path), `Derived::map` → `Derived::map_no_backdate` (explicit no-backdate opt-in). Same convention for `map2`/`map2_eq` and `map3`/`map3_eq`. The short, ergonomic name is now the safe default. All callsites migrated.

@@ -99,8 +99,8 @@ test "cell_ops: push reactive dep_changed_since returns Some" {
 test "cell_ops: hybrid memo dep_changed_since returns None" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 1)
-  let hm = HybridMemo::HybridMemo(rt, () => sig.get())
-  let _ = read_hybrid_for_test(hm)
+  let hm = ReachableDerived(rt, () => sig.get())
+  let _ = hm.read_or_abort()
   let ops = rt.core.cell_ops[hm.id().id]
   // Hybrid memo-like cells return None (requires deep verification)
   debug_inspect(ops.dep_changed_since(Revision::initial()), content="None")
@@ -235,7 +235,7 @@ test "is_hybrid: memo has is_hybrid false" {
 test "is_hybrid: hybrid memo has is_hybrid true" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 10)
-  let hm = HybridMemo::HybridMemo(rt, fn() { sig.get() })
+  let hm = ReachableDerived(rt, fn() { sig.get() })
   inspect(rt.pull.memos[0].is_hybrid, content="true")
   hm.dispose()
   sig.dispose()

@@ -3,9 +3,9 @@ test "derived_map wb: get_or and get_or_else fallback on cycle error" {
   let rt = Runtime::Runtime()
   let source = Signal::Signal(rt, 1)
   let by_key = DerivedMap(rt, (key : Int) => source.get() + key)
-  inspect(by_key.inner.get(1), content="2")
+  inspect(by_key.read_or_abort(1), content="2")
 
-  let inner_cell = by_key.inner.entries.get(1).unwrap()
+  let inner_cell = by_key.entries.get(1).unwrap()
   let meta = rt.get_memo_data(inner_cell.id())
   // Simulate leaked verifier state and force reverification on next read.
   meta.in_progress = true
@@ -31,8 +31,8 @@ test "derived_map wb: get_or and get_or_else fallback on cycle error" {
 test "derived_map wb: clear_cache disposes inner wrappers, not just evicts" {
   let rt = Runtime::Runtime()
   let by_key = DerivedMap(rt, (key : Int) => key + 5)
-  ignore(by_key.inner.get(1))
-  let inner_memo = by_key.inner.entries.get(1).unwrap()
+  ignore(by_key.read_or_abort(1))
+  let inner_memo = by_key.entries.get(1).unwrap()
   assert_false(inner_memo.is_disposed())
   by_key.clear_cache()
   assert_true(inner_memo.is_disposed()) // wrapper was disposed, not just evicted
