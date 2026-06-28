@@ -91,11 +91,11 @@ test "on_change with memo and backdating" {
   let mut count = 0
   rt.set_on_change(() => count = count + 1)
   let x = Signal::Signal(rt, 10)
-  let parity = Memo::Memo(rt, () => x.get() % 2 == 0)
-  inspect(read_memo_for_test(parity), content="true")
+  let parity = Derived::Derived(rt, () => x.get() % 2 == 0)
+  inspect(parity.read_or_abort(), content="true")
   x.set(12)
   inspect(count, content="1")
-  inspect(read_memo_for_test(parity), content="true")
+  inspect(parity.read_or_abort(), content="true")
 }
 
 ///|

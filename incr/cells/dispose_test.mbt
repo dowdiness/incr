@@ -25,59 +25,59 @@ test "panic signal: get after dispose aborts" {
 }
 
 ///|
-test "memo: dispose marks cell as disposed" {
+test "derived: dispose marks cell as disposed" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 10)
-  let m = Memo::Memo(rt, fn() { sig.get() * 2 })
-  ignore(read_memo_for_test(m)) // prime
-  assert_false(m.is_disposed())
-  m.dispose()
-  assert_true(m.is_disposed())
+  let d = Derived::Derived(rt, fn() { sig.get() * 2 })
+  ignore(d.read_or_abort()) // prime
+  assert_false(d.is_disposed())
+  d.dispose()
+  assert_true(d.is_disposed())
 }
 
 ///|
-test "memo: dispose is idempotent" {
+test "derived: dispose is idempotent" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 10)
-  let m = Memo::Memo(rt, fn() { sig.get() * 2 })
-  ignore(read_memo_for_test(m))
-  m.dispose()
-  m.dispose() // no-op
-  assert_true(m.is_disposed())
+  let d = Derived::Derived(rt, fn() { sig.get() * 2 })
+  ignore(d.read_or_abort())
+  d.dispose()
+  d.dispose() // no-op
+  assert_true(d.is_disposed())
 }
 
 ///|
-test "panic memo: get after dispose aborts" {
+test "panic derived: read_or_abort after dispose aborts" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 10)
-  let m = Memo::Memo(rt, fn() { sig.get() * 2 })
-  ignore(read_memo_for_test(m))
-  m.dispose()
-  ignore(read_memo_for_test(m)) // should abort
+  let d = Derived::Derived(rt, fn() { sig.get() * 2 })
+  ignore(d.read_or_abort())
+  d.dispose()
+  ignore(d.read_or_abort()) // should abort
 }
 
 ///|
-test "memo: dispose then new memo works independently" {
+test "derived: dispose then new derived works independently" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 10)
-  let m1 = Memo::Memo(rt, fn() { sig.get() * 2 })
-  ignore(read_memo_for_test(m1))
-  m1.dispose()
-  let m2 = Memo::Memo(rt, fn() { sig.get() * 3 })
-  assert_eq(read_memo_for_test(m2), 30)
-  assert_true(m1.is_disposed())
-  assert_false(m2.is_disposed())
+  let d1 = Derived::Derived(rt, fn() { sig.get() * 2 })
+  ignore(d1.read_or_abort())
+  d1.dispose()
+  let d2 = Derived::Derived(rt, fn() { sig.get() * 3 })
+  assert_eq(d2.read_or_abort(), 30)
+  assert_true(d1.is_disposed())
+  assert_false(d2.is_disposed())
 }
 
 ///|
-test "hybrid memo: is_disposed returns correct state" {
+test "reachable derived: is_disposed returns correct state" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 10)
-  let h = HybridMemo::HybridMemo(rt, fn() { sig.get() * 2 })
-  ignore(read_hybrid_for_test(h))
-  assert_false(h.is_disposed())
-  h.dispose()
-  assert_true(h.is_disposed())
+  let rd = ReachableDerived::ReachableDerived(rt, fn() { sig.get() * 2 })
+  ignore(rd.read_or_abort())
+  assert_false(rd.is_disposed())
+  rd.dispose()
+  assert_true(rd.is_disposed())
 }
 
 ///|
@@ -206,12 +206,12 @@ test "signal: dispose of a dependency during computation is safe" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 10)
   let other_sig = Signal::Signal(rt, 99)
-  let m = Memo::Memo(rt, fn() {
+  let d = Derived::Derived(rt, fn() {
     let v = sig.get()
     other_sig.dispose() // dispose a DIFFERENT cell — allowed
     v
   })
-  inspect(read_memo_for_test(m), content="10")
+  inspect(d.read_or_abort(), content="10")
   assert_true(other_sig.is_disposed())
 }
 
@@ -258,18 +258,18 @@ test "panic functional relation: insert after dispose aborts" {
 test "dispose_cell: dispatches to correct dispose method for each cell type" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 10)
-  let memo = Memo::Memo(rt, fn() { sig.get() * 2 })
-  let hybrid = HybridMemo::HybridMemo(rt, fn() { sig.get() + 1 })
+  let d = Derived::Derived(rt, fn() { sig.get() * 2 })
+  let rd = ReachableDerived::ReachableDerived(rt, fn() { sig.get() + 1 })
   // Force memos to compute so they have dependencies
-  let _ = read_memo_for_test(memo)
-  let _ = read_hybrid_for_test(hybrid)
+  let _ = d.read_or_abort()
+  let _ = rd.read_or_abort()
   // Dispose via generic dispatcher
   rt.dispose_cell(sig.id())
-  rt.dispose_cell(memo.id())
-  rt.dispose_cell(hybrid.id())
+  rt.dispose_cell(d.id())
+  rt.dispose_cell(rd.id())
   inspect(sig.is_disposed(), content="true")
-  inspect(memo.is_disposed(), content="true")
-  inspect(hybrid.is_disposed(), content="true")
+  inspect(d.is_disposed(), content="true")
+  inspect(rd.is_disposed(), content="true")
 }
 
 ///|

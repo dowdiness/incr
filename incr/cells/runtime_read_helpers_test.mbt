@@ -1,13 +1,7 @@
 ///|
+/// Compatibility helper for debug_test.mbt which tests Memo::Debug directly.
+/// All other callers should use Derived::read_or_abort().
 fn[T] read_memo_for_test(memo : Memo[T]) -> T {
-  let observer = memo.observe()
-  let value = observer.get()
-  observer.dispose()
-  value
-}
-
-///|
-fn[T : Eq] read_hybrid_for_test(memo : HybridMemo[T]) -> T {
   let observer = memo.observe()
   let value = observer.get()
   observer.dispose()

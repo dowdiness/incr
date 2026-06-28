@@ -2,10 +2,10 @@
 test "gc: disposes all unobserved interior cells" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 1)
-  let m = Memo::Memo(rt, fn() { sig.get() * 2 })
-  ignore(read_memo_for_test(m))
+  let d = Derived::Derived(rt, fn() { sig.get() * 2 })
+  ignore(d.read_or_abort())
   rt.gc()
-  assert_true(m.is_disposed())
+  assert_true(d.is_disposed())
   // Source is never collected
   assert_false(sig.is_disposed())
 }
@@ -14,11 +14,11 @@ test "gc: disposes all unobserved interior cells" {
 test "gc: keeps observed memo alive" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 1)
-  let m = Memo::Memo(rt, fn() { sig.get() * 2 })
-  let obs = m.observe()
+  let d = Derived::Derived(rt, fn() { sig.get() * 2 })
+  let obs = d.observe()
   ignore(obs.get())
   rt.gc()
-  assert_false(m.is_disposed())
+  assert_false(d.is_disposed())
   inspect(obs.get(), content="2")
   obs.dispose()
 }
@@ -27,13 +27,13 @@ test "gc: keeps observed memo alive" {
 test "gc: keeps transitive deps of observed memo alive" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 1)
-  let m1 = Memo::Memo(rt, fn() { sig.get() + 1 })
-  let m2 = Memo::Memo(rt, fn() { m1.get() * 2 })
-  let obs = m2.observe()
+  let d1 = Derived::Derived(rt, fn() { sig.get() + 1 })
+  let d2 = Derived::Derived(rt, fn() { d1.get_or_abort() * 2 })
+  let obs = d2.observe()
   ignore(obs.get())
   rt.gc()
-  assert_false(m1.is_disposed())
-  assert_false(m2.is_disposed())
+  assert_false(d1.is_disposed())
+  assert_false(d2.is_disposed())
   obs.dispose()
 }
 
@@ -41,16 +41,16 @@ test "gc: keeps transitive deps of observed memo alive" {
 test "gc: disposes unreachable memo in diamond" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 1)
-  let m_used = Memo::Memo(rt, fn() { sig.get() + 1 })
-  let m_unused = Memo::Memo(rt, fn() { sig.get() + 2 })
-  let m_top = Memo::Memo(rt, fn() { m_used.get() })
-  let obs = m_top.observe()
+  let d_used = Derived::Derived(rt, fn() { sig.get() + 1 })
+  let d_unused = Derived::Derived(rt, fn() { sig.get() + 2 })
+  let d_top = Derived::Derived(rt, fn() { d_used.get_or_abort() })
+  let obs = d_top.observe()
   ignore(obs.get())
-  ignore(read_memo_for_test(m_unused)) // compute to establish deps, but not observed
+  ignore(d_unused.read_or_abort()) // compute to establish deps, but not observed
   rt.gc()
-  assert_false(m_used.is_disposed())
-  assert_false(m_top.is_disposed())
-  assert_true(m_unused.is_disposed()) // unreachable from any root
+  assert_false(d_used.is_disposed())
+  assert_false(d_top.is_disposed())
+  assert_true(d_unused.is_disposed()) // unreachable from any root
   obs.dispose()
 }
 
@@ -58,24 +58,24 @@ test "gc: disposes unreachable memo in diamond" {
 test "gc: after observer dispose sweeps newly-unreachable" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 1)
-  let m = Memo::Memo(rt, fn() { sig.get() })
-  let obs = m.observe()
+  let d = Derived::Derived(rt, fn() { sig.get() })
+  let obs = d.observe()
   ignore(obs.get())
   obs.dispose()
   rt.gc()
-  assert_true(m.is_disposed())
+  assert_true(d.is_disposed())
 }
 
 ///|
 test "gc: keeps effects alive as implicit roots" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 1)
-  let m = Memo::Memo(rt, fn() { sig.get() })
+  let d = Derived::Derived(rt, fn() { sig.get() })
   let log : Ref[Int] = { val: 0 }
-  let _eff = Effect::new(rt, fn() { log.val = m.get() })
+  let _eff = Effect::new(rt, fn() { log.val = d.get_or_abort() })
   rt.gc()
   // Effect is a root — m is reachable through Effect's sources
-  assert_false(m.is_disposed())
+  assert_false(d.is_disposed())
 }
 
 ///|
@@ -92,35 +92,35 @@ test "gc: skips sources (signals never collected)" {
 test "gc: idempotent (running twice is safe)" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 1)
-  let m = Memo::Memo(rt, fn() { sig.get() })
-  ignore(read_memo_for_test(m))
+  let d = Derived::Derived(rt, fn() { sig.get() })
+  ignore(d.read_or_abort())
   rt.gc()
-  assert_true(m.is_disposed())
+  assert_true(d.is_disposed())
   rt.gc() // second gc is a no-op
-  assert_true(m.is_disposed())
+  assert_true(d.is_disposed())
 }
 
 ///|
 test "gc: after manual dispose is safe" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 1)
-  let m = Memo::Memo(rt, fn() { sig.get() })
-  ignore(read_memo_for_test(m))
-  m.dispose()
+  let d = Derived::Derived(rt, fn() { sig.get() })
+  ignore(d.read_or_abort())
+  d.dispose()
   rt.gc() // already disposed, gc skips it
-  assert_true(m.is_disposed())
+  assert_true(d.is_disposed())
 }
 
 ///|
 test "gc: diamond keeps shared deps alive" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 1)
-  let shared = Memo::Memo(rt, fn() { sig.get() })
-  let left = Memo::Memo(rt, fn() { shared.get() + 1 })
-  let right = Memo::Memo(rt, fn() { shared.get() + 2 })
+  let shared = Derived::Derived(rt, fn() { sig.get() })
+  let left = Derived::Derived(rt, fn() { shared.get_or_abort() + 1 })
+  let right = Derived::Derived(rt, fn() { shared.get_or_abort() + 2 })
   let obs_left = left.observe()
   ignore(obs_left.get())
-  ignore(read_memo_for_test(right)) // compute but not observed
+  ignore(right.read_or_abort()) // compute but not observed
   rt.gc()
   assert_false(shared.is_disposed()) // reachable from left
   assert_false(left.is_disposed())
@@ -142,11 +142,11 @@ test "panic gc: during batch aborts" {
 test "panic gc: during active computation aborts" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 1)
-  let _m = Memo::Memo(rt, fn() {
+  let _d = Derived::Derived(rt, fn() {
     rt.gc()
     sig.get()
   })
-  ignore(read_memo_for_test(_m))
+  ignore(_d.read_or_abort())
 }
 
 ///|
@@ -183,13 +183,13 @@ test "gc: collects suspended reactive" {
 test "gc: uncomputed observed memo has empty deps — upstream is swept" {
   let rt = Runtime::Runtime()
   let sig = Signal::Signal(rt, 1)
-  let m1 = Memo::Memo(rt, fn() { sig.get() + 1 })
-  let m2 = Memo::Memo(rt, fn() { m1.get() * 2 })
+  let d1 = Derived::Derived(rt, fn() { sig.get() + 1 })
+  let d2 = Derived::Derived(rt, fn() { d1.get_or_abort() * 2 })
   // Observe m2 without computing it first
-  let obs = m2.observe()
+  let obs = d2.observe()
   rt.gc()
   // m2 is kept alive (observed), but m1 is unreachable (m2.dependencies is empty)
-  assert_false(m2.is_disposed())
-  assert_true(m1.is_disposed()) // swept because not reachable
+  assert_false(d2.is_disposed())
+  assert_true(d1.is_disposed()) // swept because not reachable
   obs.dispose()
 }
