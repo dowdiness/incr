@@ -155,7 +155,6 @@ test "derived_no_backdate: usable with non-Eq output type" {
   inspect(m.read_or_abort().data[0], content="42")
 }
 
-
 ///|
 test "compatibility: Memo::new_memo backdates via BackdateEq (unchanged changed_at)" {
   // Regression guard for the public BackdateEq constructor. Created through

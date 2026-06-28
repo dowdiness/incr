@@ -105,11 +105,11 @@ test "push propagation: signal → memo → reactive chain (pull-memo bridge)" {
   // enqueue_push_subscribers must traverse through pull memos to reach push nodes.
   let rt = Runtime::Runtime()
   let s = Signal::Signal(rt, 1)
-  let m = Memo::Memo(rt, () => s.get() * 10)
-  let r = Reactive::new(rt, () => m.get() + 1)
-  debug_inspect(read_reactive_for_test(r), content="11") // s=1, m=10, r=11
+  let d = Derived(rt, () => s.get() * 10)
+  let r = Reactive::new(rt, () => d.get_or_abort() + 1)
+  debug_inspect(read_reactive_for_test(r), content="11") // s=1, d=10, r=11
   s.set(3)
-  debug_inspect(read_reactive_for_test(r), content="31") // s=3, m=30, r=31
+  debug_inspect(read_reactive_for_test(r), content="31") // s=3, d=30, r=31
 }
 
 ///|
@@ -164,9 +164,9 @@ test "panic reactive: cross-runtime get aborts" {
   let rt_b = Runtime::Runtime()
   let s_b = Signal::Signal(rt_b, 10)
   let reactive_b = Reactive::new(rt_b, () => s_b.get())
-  // memo_a computes on rt_a but reads reactive_b from rt_b → abort
-  let memo_a = Memo::Memo(rt_a, () => reactive_b.get())
-  let _ = read_memo_for_test(memo_a)
+  // d_a computes on rt_a but reads reactive_b from rt_b → abort
+  let d_a = Derived(rt_a, () => reactive_b.get())
+  let _ = d_a.read_or_abort()
 }
 
 // ─── Task 3: push_propagate_from ────────────────────────────────────────────
@@ -370,9 +370,9 @@ test "mixed pull/push: Memo reads Reactive; Reactive reads Signal" {
   let rt = Runtime::Runtime()
   let s = Signal::Signal(rt, 1)
   let r = Reactive::new(rt, () => s.get() + 1)
-  let m = Memo::Memo(rt, () => r.get() * 10)
+  let d = Derived(rt, () => r.get() * 10)
   s.set(4)
-  inspect(read_memo_for_test(m), content="50") // r = 5, m = 50
+  inspect(d.read_or_abort(), content="50") // r = 5, d = 50
 }
 
 // ─── Task 7: disposal ────────────────────────────────────────────────────────
