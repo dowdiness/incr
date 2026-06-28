@@ -1,12 +1,12 @@
 ///|
-test "memo_map wb: get_or and get_or_else fallback on cycle error" {
+test "derived_map wb: get_or and get_or_else fallback on cycle error" {
   let rt = Runtime::Runtime()
   let source = Signal::Signal(rt, 1)
   let by_key = DerivedMap(rt, (key : Int) => source.get() + key)
   inspect(by_key.inner.get(1), content="2")
 
-  let memo = by_key.inner.entries.get(1).unwrap()
-  let meta = rt.get_memo_data(memo.id())
+  let inner_cell = by_key.inner.entries.get(1).unwrap()
+  let meta = rt.get_memo_data(inner_cell.id())
   // Simulate leaked verifier state and force reverification on next read.
   meta.in_progress = true
   source.set(2)
@@ -21,7 +21,7 @@ test "memo_map wb: get_or and get_or_else fallback on cycle error" {
     }),
     content="-11",
   )
-  inspect(captured.val == Some(memo.id()), content="true")
+  inspect(captured.val == Some(inner_cell.id()), content="true")
 
   // Manual cleanup: restore MemoData.in_progress for test isolation.
   meta.in_progress = false
