@@ -1,9 +1,9 @@
 ///|
-test "TrackedCell wraps Signal" {
+test "TrackedCell wraps Input" {
   let rt = Runtime::Runtime()
   let cell = TrackedCell::TrackedCell(rt, 42, label="test_field")
-  // Access the priv signal field directly (whitebox)
-  inspect(cell.signal.get(), content="42")
+  // Access the priv input field directly (whitebox)
+  inspect(cell.input.get(), content="42")
 }
 
 ///|

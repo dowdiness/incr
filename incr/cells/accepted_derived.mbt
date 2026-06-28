@@ -89,10 +89,10 @@ pub struct AcceptedDerived[V, E] {
   priv accepted_cell : Derived[V?]
   // The eager accept fold. Runs once per committed revision; advances the
   // retained slot/status on a successful candidate read. Carries a `Bool`
-  // accept-signal (always `Eq`, so the fold stays on the `Eq`-bound
+  // accept-input (always `Eq`, so the fold stays on the `Eq`-bound
   // `eager_derived`) that is FLIPPED only on `AcceptedChanged`; on any other
   // outcome it is unchanged, so the fold backdates and `accepted_cell` is not
-  // invalidated on current-only churn. Only the signal's CHANGE matters — the
+  // invalidated on current-only churn. Only the input's CHANGE matters — the
   // value itself is discarded by `accepted_cell` — so a toggle suffices (no
   // counter, hence no overflow concept).
   priv fold : EagerDerived[Bool]
@@ -148,13 +148,13 @@ fn[V, E] AcceptedDerived::assemble(
   // Eager accept fold: runs at construction and once per committed revision.
   // A graceful `candidate.get()` lets a Disposed read skip advancing without
   // aborting; a successful read (including a domain `Err(e)`) drives the state
-  // machine. The fold carries a `Bool` accept-signal that is FLIPPED ONLY on
+  // machine. The fold carries a `Bool` accept-input that is FLIPPED ONLY on
   // `AcceptedChanged`, so an unchanged committed revision (e.g. `Err(e)` then
-  // equal `Err(e)`, or an `AcceptedUnchanged` success) leaves the signal and
+  // equal `Err(e)`, or an `AcceptedUnchanged` success) leaves the input and
   // backdates the fold, not invalidating `accepted_cell`. The fold still RUNS
   // every committed revision, so the slot/status advance even with no accepted
   // read between a transient success and a later error.
-  let accept_signal : Ref[Bool] = { val: false }
+  let accept_input : Ref[Bool] = { val: false }
   let fold = scope.eager_derived(() => {
     match candidate.get() {
       Ok(domain) => {
@@ -166,12 +166,12 @@ fn[V, E] AcceptedDerived::assemble(
         accepted_slot.val = new_accepted
         last_status.val = status
         if status is AcceptedChanged {
-          accept_signal.val = !accept_signal.val
+          accept_input.val = !accept_input.val
         }
-        accept_signal.val
+        accept_input.val
       }
       // ReadError (Disposed): do not advance the state machine.
-      Err(_) => accept_signal.val
+      Err(_) => accept_input.val
     }
   })
   // Accepted projection: re-runs when the epoch changes (i.e. on

@@ -38,7 +38,7 @@ test "integration: multiple memos push to same accumulator, keyed independently"
 ///|
 test "integration: stopped pushing invalidates reader" {
   let rt = @incr.Runtime::Runtime()
-  let flag = @incr.Signal::Signal(rt, true)
+  let flag = @incr.Input::Input(rt, true)
   let acc : @incr.Accumulator[Int] = @incr.Accumulator::new(rt~)
   let producer = @incr.Derived::Derived(rt, () => {
     if flag.get() {
@@ -126,7 +126,7 @@ test "integration: accumulated on disposed accumulator raises Failure" {
 ///|
 test "integration: same push-set → backdate (consumer does not recompute)" {
   let rt = @incr.Runtime::Runtime()
-  let sig = @incr.Signal::Signal(rt, 0)
+  let sig = @incr.Input::Input(rt, 0)
   let acc : @incr.Accumulator[Int] = @incr.Accumulator::new(rt~)
   let mut compute_count = 0
   let producer = @incr.Derived::Derived(rt, () => {
@@ -148,7 +148,7 @@ test "integration: same push-set → backdate (consumer does not recompute)" {
 ///|
 test "integration: different push-set → invalidate (consumer recomputes)" {
   let rt = @incr.Runtime::Runtime()
-  let sig = @incr.Signal::Signal(rt, 0)
+  let sig = @incr.Input::Input(rt, 0)
   let acc : @incr.Accumulator[Int] = @incr.Accumulator::new(rt~)
   let mut compute_count = 0
   let producer = @incr.Derived::Derived(rt, () => {
@@ -179,7 +179,7 @@ test "integration: scope disposal disposes accumulator" {
 ///|
 test "integration: diamond — reader reads same accumulator twice, consistent" {
   let rt = @incr.Runtime::Runtime()
-  let sig = @incr.Signal::Signal(rt, 10)
+  let sig = @incr.Input::Input(rt, 10)
   let acc : @incr.Accumulator[Int] = @incr.Accumulator::new(rt~)
   let producer = @incr.Derived::Derived(rt, () => {
     acc.push(sig.get())

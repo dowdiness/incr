@@ -10,7 +10,7 @@
 /// on a single definition.
 
 ///|
-pub(all) struct SignalId[T] {
+pub(all) struct InputId[T] {
   id : CellId
 }
 

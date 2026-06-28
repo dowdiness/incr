@@ -1,7 +1,7 @@
 ///|
-test "committable: batch commit updates signal value" {
+test "committable: batch commit updates input value" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   rt.batch(() => sig.set(2))
   inspect(sig.get(), content="2")
 }
@@ -9,7 +9,7 @@ test "committable: batch commit updates signal value" {
 ///|
 test "committable: batch with no-op set does not bump revision" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let before = rt.core.revision.current_revision
   rt.batch(() => sig.set(1)) // same value
   inspect(rt.core.revision.current_revision == before, content="true")
@@ -18,7 +18,7 @@ test "committable: batch with no-op set does not bump revision" {
 ///|
 test "committable: on_change fires via Committable after batch" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let mut fired = false
   sig.on_change(_v => fired = true)
   rt.batch(() => sig.set(2))
@@ -27,12 +27,12 @@ test "committable: on_change fires via Committable after batch" {
 
 ///|
 // Regression test: on_change handlers are snapshotted before any callback
-// executes. A callback that clears another signal's handler must not suppress
-// the other signal's notification in the same batch wave.
+// executes. A callback that clears another input's handler must not suppress
+// the other input's notification in the same batch wave.
 test "committable: on_change snapshot — clearing sibling handler does not drop notification" {
   let rt = Runtime::Runtime()
-  let sig1 = Signal::Signal(rt, 1)
-  let sig2 = Signal::Signal(rt, 10)
+  let sig1 = Input::Input(rt, 1)
+  let sig2 = Input::Input(rt, 10)
   let mut fired1 = false
   let mut fired2 = false
   // sig1's callback clears sig2's handler before it would run

@@ -3,7 +3,7 @@
 ///
 /// This is the core trait that all incremental systems must implement.
 /// It connects user-defined database types to the incr runtime,
-/// enabling helpers like `create_signal`, `batch`, `create_accumulator`,
+/// enabling helpers like `create_input`, `batch`, `create_accumulator`,
 /// `create_tracked_cell`, and `create_scope`.
 ///
 /// This trait corresponds to Salsa's `#[salsa::db]` trait, but without
@@ -38,7 +38,7 @@ pub(open) trait RuntimeContext {
 ///
 /// This trait provides a common interface for checking whether
 /// a node's cached value is current with the latest revision.
-/// Both Signal and TrackedCell implement this trait.
+/// Both Input and TrackedCell implement this trait.
 /// Use the trait bound in generic functions to write code that
 /// works with any readable node:
 ///
@@ -64,10 +64,10 @@ pub(open) trait Freshness {
 }
 
 ///|
-/// Signals are always up-to-date since they are input cells
+/// Inputs are always up-to-date since they are input cells
 /// with directly-set values.
-pub impl[T] Readable for Signal[T] with fn is_up_to_date(self) {
-  Signal::is_up_to_date(self)
+pub impl[T] Readable for Input[T] with fn is_up_to_date(self) {
+  Input::is_up_to_date(self)
 }
 
 ///|
@@ -83,6 +83,12 @@ pub impl[T] Freshness for InputField[T] with fn is_fresh(self) {
 }
 
 ///|
+/// Input fields are always up-to-date since they are directly-set cells.
+pub impl[T] Readable for InputField[T] with fn is_up_to_date(self) {
+  InputField::is_fresh(self)
+}
+
+///|
 /// A target derived value is fresh when its cached value is verified.
 pub impl[T] Freshness for Derived[T] with fn is_fresh(self) {
   Derived::is_fresh(self)
@@ -92,28 +98,6 @@ pub impl[T] Freshness for Derived[T] with fn is_fresh(self) {
 /// A reachable target derived value is fresh when its cached value is verified.
 pub impl[T] Freshness for ReachableDerived[T] with fn is_fresh(self) {
   ReachableDerived::is_fresh(self)
-}
-
-///|
-/// Creates a new signal using the database's runtime.
-///
-/// # Parameters
-///
-/// - `db`: Any type implementing `Database`
-/// - `value`: The initial value of the signal
-/// - `durability`: How often this signal is expected to change (default: `Low`)
-/// - `label`: An optional human-readable name for debugging
-///
-/// # Returns
-///
-/// A new signal associated with the database's runtime
-pub fn[Db : Database, T] create_signal(
-  db : Db,
-  value : T,
-  durability? : Durability = Low,
-  label? : String,
-) -> Signal[T] {
-  Signal(db.runtime(), value, durability~, label?)
 }
 
 ///|
@@ -178,16 +162,16 @@ pub fn[Ctx : RuntimeContext, K : Hash + Eq, V] create_derived_map(
 }
 
 ///|
-/// Executes a batch of signal updates using the database's runtime.
+/// Executes a batch of input updates using the database's runtime.
 ///
-/// All signal updates inside the closure are deferred until the batch ends,
+/// All input updates inside the closure are deferred until the batch ends,
 /// resulting in a single revision bump. If the closure raises, pending writes
 /// are rolled back and the error is re-raised.
 ///
 /// # Parameters
 ///
 /// - `db`: Any type implementing `Database`
-/// - `f`: The closure containing signal updates
+/// - `f`: The closure containing the input updates
 pub fn[Db : Database] batch(db : Db, f : () -> Unit raise?) -> Unit raise? {
   db.runtime().batch(f)
 }
@@ -202,7 +186,7 @@ pub fn[Db : Database] batch_result(
 }
 
 ///|
-/// Convenience mirror of `create_signal` / `create_derived`.
+/// Convenience mirror of `create_input` / `create_derived`.
 pub fn[Db : Database, T : Eq] create_accumulator(
   db : Db,
   label? : String,
@@ -214,7 +198,7 @@ pub fn[Db : Database, T : Eq] create_accumulator(
 
 ///|
 /// Readable implementation for TrackedCell, matching the pattern of
-/// the Signal implementation above.
+/// the Input implementation above.
 pub impl[T] Readable for TrackedCell[T] with fn is_up_to_date(self) {
   TrackedCell::is_up_to_date(self)
 }
@@ -230,7 +214,7 @@ pub(open) trait InputFieldOwner {
 
 ///|
 /// Creates a new TrackedCell using the database's runtime.
-/// Follows the same pattern as `create_signal` and `create_derived`.
+/// Follows the same pattern as `create_input` and `create_derived`.
 ///
 /// # Parameters
 ///

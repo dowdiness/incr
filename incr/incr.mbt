@@ -5,7 +5,7 @@ pub using @incr_types {
   type RuntimeId,
   type ListenerId,
   type CellId,
-  type SignalId,
+  type InputId,
   type ReactiveId,
   type RelationId,
   type RuleId,
@@ -26,7 +26,6 @@ pub using @incr_types {
 pub using @internal {
   type Runtime,
   type CellInfo,
-  type Signal,
   type Input,
   type InputField,
   type Derived,

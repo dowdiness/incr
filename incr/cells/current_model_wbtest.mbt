@@ -9,9 +9,9 @@ fn current_model_pull_memo_idx(rt : Runtime, cell_id : CellId) -> Int {
 ///|
 test "dynamic dependency replacement: trace follows current branch" {
   let rt = Runtime()
-  let choose_left = Signal(rt, true)
-  let left = Signal(rt, 10)
-  let right = Signal(rt, 20)
+  let choose_left = Input(rt, true)
+  let left = Input(rt, 10)
+  let right = Input(rt, 20)
   let mut runs = 0
   let selected = Derived(rt, () => {
     runs += 1
@@ -45,8 +45,8 @@ test "dynamic dependency replacement: trace follows current branch" {
 ///|
 test "green path skips recompute: unrelated revision only verifies" {
   let rt = Runtime()
-  let source = Signal(rt, 1)
-  let unrelated = Signal(rt, 0)
+  let source = Input(rt, 1)
+  let unrelated = Input(rt, 0)
   let mut runs = 0
   let derived = Derived(rt, () => {
     runs += 1
@@ -66,7 +66,7 @@ test "green path skips recompute: unrelated revision only verifies" {
 ///|
 test "backdating early cutoff: stable middle prevents downstream recompute" {
   let rt = Runtime()
-  let input = Signal(rt, 4)
+  let input = Input(rt, 4)
   let mut parity_runs = 0
   let mut label_runs = 0
   let is_even = Derived(rt, () => {
@@ -100,7 +100,7 @@ test "backdating early cutoff: stable middle prevents downstream recompute" {
 ///|
 test "failed read does not record dependency: self cycle is not traced" {
   let rt = Runtime()
-  let source = Signal(rt, 100)
+  let source = Input(rt, 100)
   let memo_ref : Ref[Derived[Int]?] = { val: None }
   let mut runs = 0
   let derived = Derived(rt, () => {
@@ -130,7 +130,7 @@ test "failed read does not record dependency: self cycle is not traced" {
 ///|
 test "cycle cleanup preserves previous trace: in_progress cleared on verify error" {
   let rt = Runtime()
-  let tick = Signal(rt, 0)
+  let tick = Input(rt, 0)
   let a = Derived(rt, () => 1)
   let b = Derived(rt, () => 2)
 

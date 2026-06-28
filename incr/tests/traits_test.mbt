@@ -1,5 +1,5 @@
 ///|
-using @incr {type Signal, type Runtime, type Derived}
+using @incr {type Input, type Runtime, type Derived}
 
 // === Test helpers ===
 
@@ -43,16 +43,16 @@ fn[R : @incr.Readable] check_up_to_date(node : R) -> Bool {
 // === Database + helper function tests ===
 
 ///|
-test "trait: create_signal via Database" {
+test "trait: create_input via Database" {
   let db = TestDb()
-  let sig = @incr.create_signal(db, 42)
+  let sig = @incr.create_input(db, 42)
   inspect(sig.get(), content="42")
 }
 
 ///|
-test "trait: create_signal with High durability" {
+test "trait: create_input with High durability" {
   let db = TestDb()
-  let sig = @incr.create_signal(db, "hello", durability=High)
+  let sig = @incr.create_input(db, "hello", durability=High)
   inspect(sig.get(), content="hello")
   inspect(sig.durability(), content="High")
 }
@@ -60,7 +60,7 @@ test "trait: create_signal with High durability" {
 ///|
 test "trait: create_derived via Database" {
   let db = TestDb()
-  let sig = @incr.create_signal(db, 10)
+  let sig = @incr.create_input(db, 10)
   let memo = @incr.create_derived(db, () => sig.get() * 2)
   inspect(read_derived_for_test(memo), content="20")
 }
@@ -68,8 +68,8 @@ test "trait: create_derived via Database" {
 ///|
 test "trait: batch via Database" {
   let db = TestDb()
-  let x = @incr.create_signal(db, 1)
-  let y = @incr.create_signal(db, 2)
+  let x = @incr.create_input(db, 1)
+  let y = @incr.create_input(db, 2)
   let sum = @incr.create_derived(db, () => x.get() + y.get())
   inspect(read_derived_for_test(sum), content="3")
   @incr.batch(db, () => {
@@ -82,7 +82,7 @@ test "trait: batch via Database" {
 ///|
 test "trait: batch via Database rolls back on raised error" {
   let db = TestDb()
-  let x = @incr.create_signal(db, 1)
+  let x = @incr.create_input(db, 1)
   let mut compute_count = 0
   let memo = @incr.create_derived(db, () => {
     compute_count = compute_count + 1
@@ -111,7 +111,7 @@ test "trait: batch via Database rolls back on raised error" {
 ///|
 test "trait: batch_result via Database" {
   let db = TestDb()
-  let x = @incr.create_signal(db, 1)
+  let x = @incr.create_input(db, 1)
   let ok = @incr.batch_result(db, () => x.set(2))
   inspect(ok is Ok(_), content="true")
   inspect(x.get(), content="2")
@@ -127,9 +127,9 @@ test "trait: batch_result via Database" {
 // === Readable tests ===
 
 ///|
-test "trait: signal is always up-to-date" {
+test "trait: input is always up-to-date" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 5)
+  let sig = Input::Input(rt, 5)
   inspect(sig.is_up_to_date(), content="true")
   sig.set(10)
   inspect(sig.is_up_to_date(), content="true")
@@ -138,7 +138,7 @@ test "trait: signal is always up-to-date" {
 ///|
 test "trait: memo is up-to-date after get" {
   let rt = Runtime::Runtime()
-  let input = Signal::Signal(rt, 1)
+  let input = Input::Input(rt, 1)
   let memo = Derived::Derived(rt, () => input.get() + 1)
   // After get, memo should be up-to-date
   let _ = read_derived_for_test(memo)
@@ -154,7 +154,7 @@ test "trait: memo is up-to-date after get" {
 ///|
 test "trait: memo not yet computed is not up-to-date" {
   let rt = Runtime::Runtime()
-  let input = Signal::Signal(rt, 1)
+  let input = Input::Input(rt, 1)
   let memo = Derived::Derived(rt, () => input.get() + 1)
   // Before any get, memo has no cached value, so it is not up-to-date
   inspect(memo.is_fresh(), content="false")
@@ -169,7 +169,7 @@ test "trait: memo not yet computed is not up-to-date" {
 ///|
 test "trait: freshness trait dispatch for derived" {
   let rt = Runtime::Runtime()
-  let input = Signal::Signal(rt, 1)
+  let input = Input::Input(rt, 1)
   let memo = Derived::Derived(rt, () => input.get() + 1)
   let _ = read_derived_for_test(memo)
   inspect(check_is_fresh(memo), content="true")
@@ -178,9 +178,9 @@ test "trait: freshness trait dispatch for derived" {
 }
 
 ///|
-test "trait: create_signal with label" {
+test "trait: create_input with label" {
   let db = TestDb()
-  let sig = @incr.create_signal(db, 42, label="count")
+  let sig = @incr.create_input(db, 42, label="count")
   match db.rt.cell_info(sig.id()) {
     Some(info) =>
       debug_inspect(
@@ -196,7 +196,7 @@ test "trait: create_signal with label" {
 ///|
 test "trait: create_derived with label" {
   let db = TestDb()
-  let x = @incr.create_signal(db, 1)
+  let x = @incr.create_input(db, 1)
   let m = @incr.create_derived(db, () => x.get() * 2, label="doubled")
   let _ = read_derived_for_test(m)
   match db.rt.cell_info(m.id()) {
@@ -214,7 +214,7 @@ test "trait: create_derived with label" {
 ///|
 test "trait: create_derived_map via Database" {
   let db = TestDb()
-  let source = @incr.create_signal(db, 10)
+  let source = @incr.create_input(db, 10)
   let by_key = @incr.create_derived_map(
     db,
     (key : Int) => source.get() + key,

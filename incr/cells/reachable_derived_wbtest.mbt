@@ -12,7 +12,7 @@ test "cell_ref: HybridMemo variant pattern-matches correctly" {
 test "runtime: hybrid memo does not increment push node_count" {
   let rt = Runtime::Runtime()
   inspect(rt.push.node_count, content="0")
-  let s = Signal::Signal(rt, 0)
+  let s = Input::Input(rt, 0)
   let _rd = ReachableDerived(rt, fn() { s.get() * 2 })
   inspect(rt.push.node_count, content="0") // hybrid memos don't count as push nodes
 }
@@ -20,7 +20,7 @@ test "runtime: hybrid memo does not increment push node_count" {
 ///|
 test "hybrid memo: basic get() returns correct value" {
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 1)
+  let s = Input::Input(rt, 1)
   let rd = ReachableDerived(rt, () => s.get() * 2)
   inspect(rd.read_or_abort(), content="2")
   s.set(5)
@@ -30,8 +30,8 @@ test "hybrid memo: basic get() returns correct value" {
 ///|
 test "hybrid memo: fast path skips compute when not dirtied" {
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 1)
-  let unrelated = Signal::Signal(rt, 99)
+  let s = Input::Input(rt, 1)
+  let unrelated = Input::Input(rt, 99)
   let mut count = 0
   let rd = ReachableDerived(rt, () => {
     count = count + 1
@@ -47,7 +47,7 @@ test "hybrid memo: fast path skips compute when not dirtied" {
 ///|
 test "hybrid memo: verified_at staleness triggers recompute on get" {
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 1)
+  let s = Input::Input(rt, 1)
   let rd = ReachableDerived(rt, () => s.get() + 10)
   let _ = rd.read_or_abort()
   s.set(5) // bumps revision — verified_at becomes stale
@@ -66,7 +66,7 @@ test "get_subscribers: HybridMemo arm returns subscribers" {
 ///|
 test "hybrid memo: backdating — unchanged value does not bump changed_at" {
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 1)
+  let s = Input::Input(rt, 1)
   let rd = ReachableDerived(rt, () => s.get())
   let _ = rd.read_or_abort()
   let rd_idx = match rt.core.cell_index[rd.id().id] {
@@ -74,7 +74,7 @@ test "hybrid memo: backdating — unchanged value does not bump changed_at" {
     _ => abort("")
   }
   let before = rt.pull.memos[rd_idx].meta.changed_at
-  s.set(1) // same value → signal backdating → h may not be dirtied
+  s.set(1) // same value → input backdating → h may not be dirtied
   let _ = rd.read_or_abort()
   inspect(rt.pull.memos[rd_idx].meta.changed_at == before, content="true")
 }
@@ -82,7 +82,7 @@ test "hybrid memo: backdating — unchanged value does not bump changed_at" {
 ///|
 test "hybrid memo: lazy verify after pull-memo backdating leaves HybridMemo up-to-date" {
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 1)
+  let s = Input::Input(rt, 1)
   let mut memo_runs = 0
   let m = Derived(rt, () => {
     memo_runs = memo_runs + 1
@@ -102,7 +102,7 @@ test "hybrid memo: lazy verify after pull-memo backdating leaves HybridMemo up-t
 ///|
 test "hybrid regression: pull memo rechecks stale hybrid deps" {
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 1)
+  let s = Input::Input(rt, 1)
   let rd = ReachableDerived(rt, () => s.get() * 2)
   let m = Derived(rt, () => rd.get_or_abort() + 1)
   inspect(m.read_or_abort(), content="3")
@@ -113,7 +113,7 @@ test "hybrid regression: pull memo rechecks stale hybrid deps" {
 ///|
 test "hybrid regression: nested hybrid verification rechecks upstream hybrid" {
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 1)
+  let s = Input::Input(rt, 1)
   let rd1 = ReachableDerived(rt, () => s.get() + 1)
   let rd2 = ReachableDerived(rt, () => rd1.get_or_abort() * 10)
   inspect(rd2.read_or_abort(), content="20")
@@ -124,7 +124,7 @@ test "hybrid regression: nested hybrid verification rechecks upstream hybrid" {
 ///|
 test "hybrid regression: push propagation traverses hybrid to reactive" {
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 1)
+  let s = Input::Input(rt, 1)
   let rd = ReachableDerived(rt, () => s.get() * 2)
   let mut recomputes = 0
   let r = Reactive::new(rt, () => {
@@ -141,7 +141,7 @@ test "hybrid regression: push propagation traverses hybrid to reactive" {
 ///|
 test "hybrid memo: dispose removes from upstream subscriber sets and marks Disposed" {
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 1)
+  let s = Input::Input(rt, 1)
   let rd = ReachableDerived(rt, () => s.get() * 2)
   let _ = rd.read_or_abort()
   let subs_before = rt.get_subscribers(s.id()).collect()
@@ -159,7 +159,7 @@ test "hybrid memo: dispose removes from upstream subscriber sets and marks Dispo
 ///|
 test "hybrid memo: dispose is idempotent" {
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 1)
+  let s = Input::Input(rt, 1)
   let rd = ReachableDerived(rt, () => s.get())
   let _ = rd.read_or_abort()
   rd.dispose()
@@ -171,8 +171,8 @@ test "hybrid memo: dispose is idempotent" {
 ///|
 test "panic hybrid verify: disposed dependency aborts verification" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
-  let unrelated = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 1)
+  let unrelated = Input::Input(rt, 0)
   let r = Reactive::new(rt, () => sig.get() * 2)
   let rd = ReachableDerived(rt, () => r.get() + 1)
   inspect(rd.read_or_abort(), content="3")
@@ -185,7 +185,7 @@ test "panic hybrid verify: disposed dependency aborts verification" {
 test "panic hybrid: cross-runtime get aborts" {
   let rt_a = Runtime::Runtime()
   let rt_b = Runtime::Runtime()
-  let s_b = Signal::Signal(rt_b, 10)
+  let s_b = Input::Input(rt_b, 10)
   let rd_b = ReachableDerived(rt_b, () => s_b.get())
   // d_a computes on rt_a but reads rd_b from rt_b → cross-runtime abort
   let d_a = Derived(rt_a, () => rd_b.get_or_abort())

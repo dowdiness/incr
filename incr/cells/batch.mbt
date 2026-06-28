@@ -1,12 +1,12 @@
 ///|
-/// Executes a closure with batched signal updates.
+/// Executes a closure with batched input updates.
 ///
-/// All `Signal::set` calls inside the closure are deferred. At batch end,
+/// All `Input::set` calls inside the closure are deferred. At batch end,
 /// a single revision bump occurs for all changes. This provides:
 ///
 /// - **Atomicity**: Memos see either all changes or none
 /// - **Efficiency**: One verification pass instead of many
-/// - **Revert detection**: Setting a signal back to its original value is a no-op
+/// - **Revert detection**: Setting an input back to its original value is a no-op
 ///
 /// Batches can be nested. Only the outermost batch commits changes.
 ///
@@ -140,16 +140,16 @@ fn Runtime::commit_batch(self : Runtime) -> Unit {
 }
 
 ///|
-/// Records a signal as having a pending change during a batch.
+/// Records an input as having a pending change during a batch.
 ///
-/// Called internally by `Signal::set` during batch operations.
+/// Called internally by `Input::set` during batch operations.
 ///
 /// # Parameters
 ///
 /// - `committable`: A `&Committable` wrapping the `PullSignalData` with a
 ///   pending value. `commit_batch` later calls `do_commit()` on it to apply
 ///   the pending change and `cell_id()` / `durability()` to update metadata.
-fn Runtime::record_batch_signal(
+fn Runtime::record_batch_input(
   self : Runtime,
   committable : &Committable,
 ) -> Unit {
@@ -181,12 +181,12 @@ pub fn Runtime::record_batch_rollback(
 }
 
 ///|
-/// Removes one pending signal registration by id.
+/// Removes one pending input registration by id.
 ///
 /// Called only from rollback closures during batch undo, which is rare.
 /// Uses O(n) copy-and-rebuild because `batch_pending` must remain an ordered
 /// queue — insertion order determines commit order in `commit_batch`.
-fn Runtime::remove_batch_signal(self : Runtime, cell_id : CellId) -> Unit {
+fn Runtime::remove_batch_input(self : Runtime, cell_id : CellId) -> Unit {
   let kept : Array[&Committable] = []
   let mut removed = false
   for c in self.core.batch.pending {
@@ -203,7 +203,7 @@ fn Runtime::remove_batch_signal(self : Runtime, cell_id : CellId) -> Unit {
 }
 
 ///|
-/// Recompute max durability from currently pending signals.
+/// Recompute max durability from currently pending inputs.
 fn Runtime::recompute_batch_max_durability(self : Runtime) -> Unit {
   let mut max_durability : Durability = Low
   for c in self.core.batch.pending {

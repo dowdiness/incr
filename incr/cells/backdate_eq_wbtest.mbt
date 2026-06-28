@@ -53,15 +53,12 @@ test "with_backdate: backdates when backdate_equal returns true (same changed_at
   let rt = Runtime::Runtime()
   let rev_ref : Ref[Revision] = { val: Revision::initial() }
   let m_count : Ref[Int] = { val: 0 }
-  let sig = Signal::Signal(rt, 0)
-  let m = Derived::with_backdate(
-    rt,
-    () => {
-      let _ = sig.get()
-      m_count.val = m_count.val + 1
-      Stamped::{ value: 42, changed_at: rev_ref.val }
-    },
-  )
+  let sig = Input::Input(rt, 0)
+  let m = Derived::with_backdate(rt, () => {
+    let _ = sig.get()
+    m_count.val = m_count.val + 1
+    Stamped::{ value: 42, changed_at: rev_ref.val }
+  })
   let down_count : Ref[Int] = { val: 0 }
   let _down = Derived(rt, () => {
     let _ = m.get_or_abort()
@@ -84,17 +81,14 @@ test "with_backdate: propagates when backdate_equal returns false (advanced chan
   let rt = Runtime::Runtime()
   let rev_ref : Ref[Revision] = { val: Revision::initial() }
   let m_count : Ref[Int] = { val: 0 }
-  let sig = Signal::Signal(rt, 0)
-  let m = Derived::with_backdate(
-    rt,
-    () => {
-      let v = sig.get()
-      m_count.val = m_count.val + 1
-      // Advance rev_ref — value is "changed"
-      rev_ref.val = rev_ref.val.next()
-      Stamped::{ value: v, changed_at: rev_ref.val }
-    },
-  )
+  let sig = Input::Input(rt, 0)
+  let m = Derived::with_backdate(rt, () => {
+    let v = sig.get()
+    m_count.val = m_count.val + 1
+    // Advance rev_ref — value is "changed"
+    rev_ref.val = rev_ref.val.next()
+    Stamped::{ value: v, changed_at: rev_ref.val }
+  })
   let down_count : Ref[Int] = { val: 0 }
   let _down = Derived(rt, () => {
     let _ = m.get_or_abort()
@@ -114,7 +108,7 @@ test "with_backdate: propagates when backdate_equal returns false (advanced chan
 test "derived_no_backdate: always propagates even when value is identical" {
   let rt = Runtime::Runtime()
   let m_count : Ref[Int] = { val: 0 }
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   let m = Derived::derived_no_backdate(rt, () => {
     let _ = sig.get()
     m_count.val = m_count.val + 1 // always returns same value
@@ -144,7 +138,7 @@ priv struct NoEq {
 ///|
 test "derived_no_backdate: usable with non-Eq output type" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   let m = Derived::derived_no_backdate(rt, () => NoEq::{ data: [sig.get()] })
   // read() must work without T : Eq
   inspect(m.read_or_abort().data[0], content="0")
@@ -156,14 +150,11 @@ test "derived_no_backdate: usable with non-Eq output type" {
 test "compatibility: Derived::with_backdate backdates via BackdateEq (unchanged changed_at)" {
   let rt = Runtime::Runtime()
   let rev_ref : Ref[Revision] = { val: Revision::initial() }
-  let sig = Signal::Signal(rt, 0)
-  let m = Derived::with_backdate(
-    rt,
-    () => {
-      let _ = sig.get()
-      Stamped::{ value: 42, changed_at: rev_ref.val }
-    },
-  )
+  let sig = Input::Input(rt, 0)
+  let m = Derived::with_backdate(rt, () => {
+    let _ = sig.get()
+    Stamped::{ value: 42, changed_at: rev_ref.val }
+  })
   let down_count = Ref(0)
   let down = Derived(rt, () => {
     let _ = m.get_or_abort()

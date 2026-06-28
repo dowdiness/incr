@@ -17,22 +17,22 @@ test "CellId::hash equal inputs produce equal hashes" {
 }
 
 ///|
-test "signal label stored in PullSignalData" {
+test "input label stored in PullSignalData" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 0, label="my_signal")
+  let sig = Input::Input(rt, 0, label="my_input")
   let data = rt.get_pull_signal(sig.id())
   debug_inspect(
     data.meta.label,
     content=(
-      #|Some("my_signal")
+      #|Some("my_input")
     ),
   )
 }
 
 ///|
-test "signal None label stored in PullSignalData" {
+test "input None label stored in PullSignalData" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   let data = rt.get_pull_signal(sig.id())
   debug_inspect(data.meta.label, content="None")
 }

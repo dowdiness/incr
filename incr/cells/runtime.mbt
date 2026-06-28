@@ -2,7 +2,7 @@
 /// Central coordinator for the incremental computation framework.
 ///
 /// The Runtime manages all bookkeeping for dependency tracking, revision
-/// counting, and batch operations. Every Signal and Memo is associated
+/// counting, and batch operations. Every Input and Derived is associated
 /// with exactly one Runtime.
 ///
 /// # Pointer chase tradeoff
@@ -18,7 +18,7 @@
 /// ```moonbit nocheck
 /// let rt = Runtime()
 ///
-/// let x = Signal(rt, 10)
+/// let x = Input(rt, 10)
 ///
 /// let doubled = Memo(rt, () => x.get() * 2)
 /// ```
@@ -86,7 +86,7 @@ pub fn Runtime::id(self : Runtime) -> @incr_types.RuntimeId {
 ///
 /// # Parameters
 ///
-/// - `on_change`: Optional callback invoked whenever any signal changes
+/// - `on_change`: Optional callback invoked whenever any input changes
 ///   (or at the end of a batch if values actually changed).
 pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
   let id = @kernel.alloc_runtime_id()
@@ -431,7 +431,7 @@ fn Runtime::alloc_cell_id(self : Runtime, cell_ref : CellRef) -> CellId {
 ///|
 /// Installs a new cell into a reusable-slot SoA array and registers it in
 /// the unified dispatch tables (`cell_ops`, `cell_lifecycle`). Shared by
-/// Signal, Memo, Reactive, and Effect constructors.
+/// Input, Derived, Reactive, and Effect constructors.
 fn[T : CellOps + CellLifecycle] Runtime::install_cell(
   self : Runtime,
   free_list : Array[Int],
@@ -522,14 +522,14 @@ fn Runtime::get_durability(self : Runtime, id : CellId) -> Durability {
 }
 
 ///|
-/// Returns the PullSignalData for a signal cell.
+/// Returns the PullSignalData for a input cell.
 fn Runtime::get_pull_signal(self : Runtime, id : CellId) -> PullSignalData {
   self.validate_cell(id, "get_pull_signal")
   match self.core.cell_index[id.id] {
     PullSignal(idx) => self.pull.signals[idx]
     _ =>
       abort(
-        "Expected signal cell but found different kind: " + id.id.to_string(),
+        "Expected input cell but found different kind: " + id.id.to_string(),
       )
   }
 }

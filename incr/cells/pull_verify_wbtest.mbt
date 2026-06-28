@@ -1,7 +1,7 @@
 ///|
-test "pull_verify: signal always returns Ok" {
+test "pull_verify: input always returns Ok" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   match rt.pull_verify(sig.id()) {
     Ok(_) => ()
     Err(_) => abort("expected Ok")
@@ -11,7 +11,7 @@ test "pull_verify: signal always returns Ok" {
 ///|
 test "pull_verify: up-to-date memo returns Ok without recompute" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let mut count = 0
   let m = Derived(rt, () => {
     count += 1
@@ -26,7 +26,7 @@ test "pull_verify: up-to-date memo returns Ok without recompute" {
 ///|
 test "pull_verify: stale memo recomputes on next get" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let m = Derived(rt, () => sig.get() + 10)
   let _ = m.read_or_abort()
   sig.set(5)
@@ -37,8 +37,8 @@ test "pull_verify: stale memo recomputes on next get" {
 ///|
 test "panic pull_verify: disposed dependency aborts verification" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
-  let unrelated = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 1)
+  let unrelated = Input::Input(rt, 0)
   let r = Reactive::new(rt, () => sig.get() * 2)
   let m = Derived(rt, () => r.get() + 1)
   inspect(m.read_or_abort(), content="3")

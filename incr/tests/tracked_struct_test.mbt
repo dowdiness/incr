@@ -76,11 +76,11 @@ test "TrackedCell batch revert detection" {
 }
 
 ///|
-test "TrackedCell as_signal interop" {
+test "TrackedCell as_input interop" {
   let rt = @incr.Runtime::Runtime()
   let cell = @incr.TrackedCell::TrackedCell(rt, 7)
-  let sig = cell.as_signal()
-  // A Memo using the raw Signal still tracks the same dependency
+  let sig = cell.as_input()
+  // A Memo using the raw Input still tracks the same dependency
   let memo = @incr.Derived::Derived(rt, () => sig.get() + 1)
   inspect(read_derived_for_test(memo), content="8")
   cell.set(10)
@@ -212,7 +212,7 @@ test "TrackedCell Readable trait" {
 }
 
 ///|
-test "TrackedCell set_unconditional always recomputes" {
+test "TrackedCell force_set always recomputes" {
   let rt = @incr.Runtime::Runtime()
   let cell = @incr.TrackedCell::TrackedCell(rt, 5)
   let mut compute_count = 0
@@ -221,7 +221,7 @@ test "TrackedCell set_unconditional always recomputes" {
     cell.get()
   })
   let _ = read_derived_for_test(memo) // compute_count = 1
-  cell.set_unconditional(5) // same value but unconditional — bumps revision
+  cell.force_set(5) // same value but unconditional — bumps revision
   let _ = read_derived_for_test(memo) // should recompute
   inspect(compute_count, content="2")
 }

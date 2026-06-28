@@ -1,7 +1,7 @@
 ///|
-test "Signal derives Debug" {
+test "Input derives Debug" {
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 42)
+  let s = Input::Input(rt, 42)
   debug_inspect(
     s,
     content=(
@@ -20,7 +20,7 @@ test "Signal derives Debug" {
 ///|
 test "Memo derives Debug before compute" {
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 10)
+  let s = Input::Input(rt, 10)
   let m = Derived::Derived(rt, () => s.get() * 2)
   debug_inspect(
     m,
@@ -41,7 +41,7 @@ test "Memo derives Debug before compute" {
 ///|
 test "Memo derives Debug after compute" {
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 10)
+  let s = Input::Input(rt, 10)
   let m = Derived::Derived(rt, () => s.get() * 2)
   let _ = m.read_or_abort()
   debug_inspect(
@@ -64,5 +64,5 @@ test "Memo derives Debug after compute" {
 test "TrackedCell derives Debug" {
   let rt = Runtime::Runtime()
   let cell = TrackedCell::TrackedCell(rt, 42, label="test")
-  debug_inspect(cell, content="{ signal: ... }")
+  debug_inspect(cell, content="{ input: ... }")
 }

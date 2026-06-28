@@ -24,7 +24,7 @@ fn collect_runtime_eval_events(
 ///|
 test "runtime_eval: disabled hook does not buffer derived rebuild events" {
   let rt = Runtime()
-  let source = Signal(rt, 1)
+  let source = Input(rt, 1)
   let derived = Derived(rt, () => source.get() + 1)
   inspect(derived.read_or_abort(), content="2")
   inspect(rt.runtime_evaluation_event_hook.pending.length(), content="0")
@@ -34,7 +34,7 @@ test "runtime_eval: disabled hook does not buffer derived rebuild events" {
 ///|
 test "runtime_eval: derived rebuild drains after typed cache is written" {
   let rt = Runtime()
-  let source = Signal(rt, 1)
+  let source = Input(rt, 1)
   let derived = Derived(rt, () => source.get() + 1)
   let listener_reads : Array[Int] = []
   let events : Array[@kernel.RuntimeEvaluationEvent] = []
@@ -67,7 +67,7 @@ test "runtime_eval: derived rebuild drains after typed cache is written" {
 ///|
 test "runtime_eval: derived backdated rebuild reports backdated disposition" {
   let rt = Runtime()
-  let source = Signal(rt, 1)
+  let source = Input(rt, 1)
   let derived = Derived(rt, () => source.get() % 2)
   let events = collect_runtime_eval_events(rt)
   inspect(derived.read_or_abort(), content="1")
@@ -145,9 +145,9 @@ test "runtime_eval: direct drain flushes abort with active tracking frame" {
 }
 
 ///|
-test "runtime_eval: signal set emits eager derived, effect, and pass summaries" {
+test "runtime_eval: input set emits eager derived, effect, and pass summaries" {
   let rt = Runtime()
-  let source = Signal(rt, 0)
+  let source = Input(rt, 0)
   let events = collect_runtime_eval_events(rt)
   let eager = Reactive::new(rt, () => source.get() + 1)
   let effect_log : Array[Int] = []
@@ -183,7 +183,7 @@ test "runtime_eval: signal set emits eager derived, effect, and pass summaries" 
 ///|
 test "runtime_eval: eager derived unchanged summary reports unchanged" {
   let rt = Runtime()
-  let source = Signal(rt, 0)
+  let source = Input(rt, 0)
   let events = collect_runtime_eval_events(rt)
   let eager = Reactive::new(rt, () => {
     ignore(source.get())
@@ -213,7 +213,7 @@ test "runtime_eval: eager derived unchanged summary reports unchanged" {
 ///|
 test "runtime_eval: queue skip and pass summary report stale entry" {
   let rt = Runtime()
-  let source = Signal(rt, 0)
+  let source = Input(rt, 0)
   let events = collect_runtime_eval_events(rt)
   let r2_ref : Ref[Reactive[Int]?] = { val: None }
   let r0 = Reactive::new(rt, () => {
@@ -259,7 +259,7 @@ test "runtime_eval: queue skip and pass summary report stale entry" {
 ///|
 test "runtime_eval: queue skip keeps original cell id after slot reuse" {
   let rt = Runtime()
-  let source = Signal(rt, 0)
+  let source = Input(rt, 0)
   let events = collect_runtime_eval_events(rt)
   let r2_ref : Ref[Reactive[Int]?] = { val: None }
   let replacement_ref : Ref[Reactive[Int]?] = { val: None }
@@ -324,7 +324,7 @@ test "runtime_eval: queue skip keeps original cell id after slot reuse" {
 ///|
 test "runtime_eval: batch commit threads push event sink" {
   let rt = Runtime()
-  let source = Signal(rt, 0)
+  let source = Input(rt, 0)
   let events = collect_runtime_eval_events(rt)
   let eager = Reactive::new(rt, () => source.get() + 1)
   events.clear()

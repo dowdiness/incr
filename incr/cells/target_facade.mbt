@@ -1,91 +1,4 @@
 ///|
-/// Target-name input cell facade over `Signal`.
-pub(all) struct Input[T] {
-  priv inner : Signal[T]
-}
-
-///|
-/// Creates an input cell with the given initial value.
-pub fn[T] Input::Input(
-  rt : Runtime,
-  initial : T,
-  durability? : Durability = Low,
-  label? : String,
-) -> Input[T] {
-  { inner: Signal(rt, initial, durability~, label?) }
-}
-
-///|
-/// Returns the current value and records a dependency when tracked.
-pub fn[T] Input::get(self : Input[T]) -> T {
-  self.inner.get()
-}
-
-///|
-/// Returns the current value without recording a dependency.
-pub fn[T] Input::peek(self : Input[T]) -> T {
-  self.inner.peek()
-}
-
-///|
-/// Sets the input to a new value, skipping same-value updates.
-pub fn[T : Eq] Input::set(self : Input[T], new_value : T) -> Unit {
-  self.inner.set(new_value)
-}
-
-///|
-/// Sets the input to a value and always bumps the relevant revision.
-pub fn[T] Input::force_set(self : Input[T], new_value : T) -> Unit {
-  self.inner.set_unconditional(new_value)
-}
-
-///|
-/// Returns true. Inputs are directly-set cells and are always fresh.
-pub fn[T] Input::is_fresh(self : Input[T]) -> Bool {
-  self.inner.is_up_to_date()
-}
-
-///|
-/// Returns the unique cell identifier for this input. Stable across reads —
-/// useful for graph-shape probes and cross-runtime identity checks
-/// (`input.id().runtime_id`).
-pub fn[T] Input::id(self : Input[T]) -> CellId {
-  self.inner.id()
-}
-
-///|
-/// Creates a new `Derived[U]` from this input by applying `f` to the current
-/// value on each read. Uses equality-based backdating: when recomputation
-/// produces a value equal to the previous output, downstream dependents skip
-/// recomputation.
-///
-/// Equivalent to `scope.derived(() => f(input.get()))` but without the scope
-/// parameter — the input already holds a runtime reference.
-pub fn[T, U : Eq] Input::derived(
-  self : Input[T],
-  f : (T) -> U,
-  label? : String,
-) -> Derived[U] {
-  Derived(self.inner.rt, () => f(self.get()), label?)
-}
-
-///|
-/// Creates a new `Derived[U]` from this input by applying `f` to the current
-/// value on each read, without equality-based backdating. Each recomputation
-/// advances the changed-at revision unconditionally, even when the output
-/// equals the previous value. Accepts output types that do not implement `Eq`.
-///
-/// Equivalent to `scope.derived_no_backdate(() => f(input.get()))` but without
-/// the scope parameter — the input already holds a runtime reference.
-pub fn[T, U] Input::derived_no_backdate(
-  self : Input[T],
-  f : (T) -> U,
-  label? : String,
-) -> Derived[U] {
-  Derived::_create(self.inner.rt, () => f(self.get()), label?, (_, _) => false)
-}
-
-///|
 /// Target-name field-level input facade over `TrackedCell`.
 pub(all) struct InputField[T] {
   priv inner : TrackedCell[T]
@@ -121,9 +34,18 @@ pub fn[T : Eq] InputField::set(self : InputField[T], new_value : T) -> Unit {
 }
 
 ///|
+/// Returns the current value of the field as a Result.
+///
+/// Since InputFields cannot have cycles (they are direct-set cells with no
+/// dependencies), this method always returns `Ok(value)`.
+pub fn[T] InputField::get_result(self : InputField[T]) -> Result[T, CycleError] {
+  self.inner.get_result()
+}
+
+///|
 /// Sets the field to a value and always bumps the relevant revision.
 pub fn[T] InputField::force_set(self : InputField[T], new_value : T) -> Unit {
-  self.inner.set_unconditional(new_value)
+  self.inner.force_set(new_value)
 }
 
 ///|
@@ -383,6 +305,7 @@ pub fn[T : BackdateEq] Derived::with_backdate(
 ) -> Derived[T] {
   Derived::_create(rt, compute, label?, (a, b) => a.backdate_equal(b))
 }
+
 ///|
 /// Strict graph read. Requires an active tracked context.
 pub fn[T] Derived::get(self : Derived[T]) -> Result[T, ReadError] {
@@ -577,7 +500,7 @@ pub fn[T, A] Derived::accumulated_or_abort(
 /// Untracked accumulator read. Returns `[]` when the accumulator or
 /// target derived value is disposed; otherwise a defensive copy.
 /// Permissive on disposal: returns `[]` if the accumulator or target memo
-/// is disposed. Matches Signal::peek semantics.
+/// is disposed. Matches Input::peek semantics.
 pub fn[T, A] Derived::accumulated_peek(
   self : Derived[T],
   acc : Accumulator[A],

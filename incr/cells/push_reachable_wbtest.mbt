@@ -1,7 +1,7 @@
 ///|
-test "push_reachable_count: new signal starts at 0" {
+test "push_reachable_count: new input starts at 0" {
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 0)
+  let s = Input::Input(rt, 0)
   let idx = match rt.core.cell_index[s.id().id] {
     PullSignal(i) => i
     _ => abort("expected PullSignal")
@@ -16,17 +16,17 @@ fn get_count(rt : Runtime, id : CellId) -> Int {
 }
 
 ///|
-test "push_reachable_count: signal with direct reactive counts 1" {
+test "push_reachable_count: input with direct reactive counts 1" {
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 0)
+  let s = Input::Input(rt, 0)
   let _r = Reactive::new(rt, () => s.get())
   inspect(get_count(rt, s.id()), content="1")
 }
 
 ///|
-test "push_reachable_count: signal with reactive through hybrid memo" {
+test "push_reachable_count: input with reactive through hybrid memo" {
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 0)
+  let s = Input::Input(rt, 0)
   let h = ReachableDerived(rt, () => s.get())
   let _r = Reactive::new(rt, () => h.read_or_abort())
   inspect(get_count(rt, s.id()), content="1")
@@ -36,7 +36,7 @@ test "push_reachable_count: signal with reactive through hybrid memo" {
 ///|
 test "push_reachable_count: two-deep memo chain" {
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 0)
+  let s = Input::Input(rt, 0)
   let mA = Derived(rt, () => s.get())
   let mB = Derived(rt, () => mA.get_or_abort())
   let _r = Reactive::new(rt, () => mB.read_or_abort())
@@ -48,7 +48,7 @@ test "push_reachable_count: two-deep memo chain" {
 ///|
 test "push_reachable_count: diamond topology" {
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 0)
+  let s = Input::Input(rt, 0)
   let mA = Derived(rt, () => s.get() + 1)
   let mB = Derived(rt, () => s.get() + 2)
   let _r = Reactive::new(rt, () => mA.read_or_abort() + mB.read_or_abort())
@@ -61,7 +61,7 @@ test "push_reachable_count: diamond topology" {
 ///|
 test "push_reachable_count: reactive dispose returns counts to 0" {
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 0)
+  let s = Input::Input(rt, 0)
   let r = Reactive::new(rt, () => s.get())
   inspect(get_count(rt, s.id()), content="1")
   r.dispose()
@@ -71,7 +71,7 @@ test "push_reachable_count: reactive dispose returns counts to 0" {
 ///|
 test "push_reachable_count: diamond dispose returns to 0" {
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 0)
+  let s = Input::Input(rt, 0)
   let mA = Derived(rt, () => s.get() + 1)
   let mB = Derived(rt, () => s.get() + 2)
   let r = Reactive::new(rt, () => mA.read_or_abort() + mB.read_or_abort())
@@ -100,7 +100,7 @@ test "push_reachable_count: relation-to-reactive" {
 ///|
 test "push_reachable_count: reactive-to-reactive chain" {
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 0)
+  let s = Input::Input(rt, 0)
   let r1 = Reactive::new(rt, () => s.get() + 1)
   let _r2 = Reactive::new(rt, () => r1.get() + 1)
   inspect(get_count(rt, s.id()), content="1")
@@ -110,7 +110,7 @@ test "push_reachable_count: reactive-to-reactive chain" {
 ///|
 test "push_reachable_count: effect increments and dispose decrements" {
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 0)
+  let s = Input::Input(rt, 0)
   let e = Effect::new(rt, () => ignore(s.get()))
   inspect(get_count(rt, s.id()), content="1")
   e.dispose()
@@ -120,8 +120,8 @@ test "push_reachable_count: effect increments and dispose decrements" {
 ///|
 test "push_reachable_count: source change on reactive recompute" {
   let rt = Runtime::Runtime()
-  let s1 = Signal::Signal(rt, 0)
-  let s2 = Signal::Signal(rt, 0)
+  let s1 = Input::Input(rt, 0)
+  let s2 = Input::Input(rt, 0)
   // reactive starts reading s1
   let flag : Ref[Bool] = Ref(true)
   let _r = Reactive::new(rt, () => if flag.val { s1.get() } else { s2.get() })
@@ -135,10 +135,10 @@ test "push_reachable_count: source change on reactive recompute" {
 }
 
 ///|
-test "push_reachable_count: memo dep change updates upstream signal counts" {
+test "push_reachable_count: memo dep change updates upstream input counts" {
   let rt = Runtime::Runtime()
-  let s1 = Signal::Signal(rt, 0)
-  let s2 = Signal::Signal(rt, 0)
+  let s1 = Input::Input(rt, 0)
+  let s2 = Input::Input(rt, 0)
   let flag : Ref[Bool] = Ref(true)
   // memoA conditionally reads s1 or s2
   let mA = Derived(rt, () => if flag.val { s1.get() } else { s2.get() })
@@ -146,7 +146,7 @@ test "push_reachable_count: memo dep change updates upstream signal counts" {
   let _r = Reactive::new(rt, () => mA.read_or_abort())
   inspect(get_count(rt, s1.id()), content="1")
   inspect(get_count(rt, s2.id()), content="0")
-  // switch memoA to read s2: change flag, trigger recompute via signal change
+  // switch memoA to read s2: change flag, trigger recompute via input change
   flag.val = false
   s1.set(1) // reactive recomputes -> pull_verify memoA -> memo recomputes -> s2 added
   inspect(get_count(rt, s1.id()), content="0")
@@ -156,7 +156,7 @@ test "push_reachable_count: memo dep change updates upstream signal counts" {
 ///|
 test "push_reachable_count: hybrid memo dispose decrements upstream" {
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 0)
+  let s = Input::Input(rt, 0)
   let h = ReachableDerived(rt, () => s.get())
   let _r = Reactive::new(rt, () => h.read_or_abort())
   inspect(get_count(rt, s.id()), content="1")
@@ -169,7 +169,7 @@ test "push_reachable_count: hybrid memo dispose decrements upstream" {
 ///|
 test "push_reachable_count: no push cells = zero everywhere" {
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 0)
+  let s = Input::Input(rt, 0)
   let _m = Derived(rt, () => s.get())
   inspect(get_count(rt, s.id()), content="0")
 }
@@ -184,8 +184,8 @@ test "push_reachable_count: no push cells = zero everywhere" {
 /// the eager fold stopped recomputing on `sig` changes.
 test "push_reachable_count: dropping one arm of a memo-internal diamond keeps the apex live" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
-  let drop = Signal::Signal(rt, false)
+  let sig = Input::Input(rt, 1)
+  let drop = Input::Input(rt, false)
   let a = Derived(rt, () => sig.get())
   let b = Derived(rt, () => sig.get())
   let c = Derived(rt, () => sig.get())
@@ -220,10 +220,10 @@ test "push_reachable_count: dropping one arm of a memo-internal diamond keeps th
 }
 
 ///|
-test "gate: signal with count 0 does not trigger reactive on separate signal" {
+test "gate: input with count 0 does not trigger reactive on separate input" {
   let rt = Runtime::Runtime()
-  let s1 = Signal::Signal(rt, 0)
-  let s2 = Signal::Signal(rt, 0)
+  let s1 = Input::Input(rt, 0)
+  let s2 = Input::Input(rt, 0)
   let mut recomputes = 0
   let _r = Reactive::new(rt, () => {
     recomputes = recomputes + 1
@@ -243,7 +243,7 @@ test "gate: signal with count 0 does not trigger reactive on separate signal" {
 /// must still propagate correctly when sig changes.
 test "push_reachable_count: inner pruning — live branch still fires after dead branch count reaches 0" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   let mA = Derived(rt, () => sig.get() + 1)
   let mB = Derived(rt, () => sig.get() + 2)
   let mut r1_val = 0

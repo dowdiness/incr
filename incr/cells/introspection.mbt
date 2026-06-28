@@ -1,8 +1,8 @@
 ///|
 /// Structured metadata about a cell in the dependency graph.
 ///
-/// This structure provides a uniform view of both Signal and Memo cells.
-/// For signals, the `dependencies` array will be empty.
+/// This structure provides a uniform view of both Input and Derived cells.
+/// For inputs, the `dependencies` array will be empty.
 ///
 /// # Fields
 ///
@@ -11,7 +11,7 @@
 /// - `changed_at`: When this cell's value last actually changed
 /// - `verified_at`: When this cell was last confirmed up-to-date
 /// - `durability`: How often this cell is expected to change
-/// - `dependencies`: Cell IDs this cell depends on (empty for signals)
+/// - `dependencies`: Cell IDs this cell depends on (empty for inputs)
 pub(all) struct CellInfo {
   label : String?
   id : CellId
@@ -35,15 +35,15 @@ fn snapshot_subscribers(
 }
 
 ///|
-/// Returns structured metadata for any cell (signal or memo).
+/// Returns structured metadata for any cell (input or derived).
 ///
 /// This method provides uniform introspection access to cell metadata regardless of
-/// whether the cell is a Signal or Memo. It returns CellInfo containing the cell's
+/// whether the cell is an Input or Memo. It returns CellInfo containing the cell's
 /// ID, type, revision information, durability, and dependency list.
 ///
 /// # Parameters
 ///
-/// - `id`: The CellId to query (obtained via Signal::id() or Memo::id())
+/// - `id`: The CellId to query (obtained via Input::id() or Memo::id())
 ///
 /// # Returns
 ///
@@ -54,14 +54,14 @@ fn snapshot_subscribers(
 ///
 /// ```moonbit nocheck
 /// let rt = Runtime()
-/// let sig = Signal(rt, 42)
+/// let sig = Input(rt, 42)
 /// let derived = Derived(rt, fn() { sig.get() * 2 })
 /// let _ = derived.read_or_abort()  // Force computation
 ///
-/// // Query signal metadata
+/// // Query input metadata
 /// match rt.cell_info(sig.id()) {
 ///   Some(info) => {
-///     println("Signal changed at: \{info.changed_at}")
+///     println("Input changed at: \{info.changed_at}")
 ///     println("Dependencies: \{info.dependencies.length()}")
 ///   }
 ///   None => println("Cell not found")
@@ -80,7 +80,7 @@ fn snapshot_subscribers(
 /// # Notes
 ///
 /// - The dependency array is a copy; modifying it does not affect the runtime
-/// - For signals, the dependencies array is always empty
+/// - For inputs, the dependencies array is always empty
 /// - For derived cells, dependencies are populated after the first computation
 /// - The method performs bounds checking and returns None for invalid IDs
 pub fn Runtime::cell_info(self : Runtime, id : CellId) -> CellInfo? {
@@ -95,7 +95,7 @@ pub fn Runtime::cell_info(self : Runtime, id : CellId) -> CellInfo? {
         label: ops.label(),
         id,
         changed_at: ca,
-        // Signals are always up-to-date after a set; verified_at == changed_at
+        // Inputs are always up-to-date after a set; verified_at == changed_at
         verified_at: ca,
         durability: ops.durability(),
         dependencies: [],

@@ -34,7 +34,7 @@ test "new_rule: registers rule with input and output relations" {
 ///|
 test "panic new_rule: non-relation cell_id in inputs aborts" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   rt.new_rule([sig.id()], [], () => ()) |> ignore
 }
 

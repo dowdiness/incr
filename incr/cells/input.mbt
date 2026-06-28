@@ -1,19 +1,19 @@
 ///|
 /// An input cell with an externally-set value.
 ///
-/// Signals are the leaves of the dependency graph — values you control directly.
-/// The `T: Eq` constraint enables same-value optimization: setting a signal to
+/// Inputs are the leaves of the dependency graph — values you control directly.
+/// The `T: Eq` constraint enables same-value optimization: setting an input to
 /// its current value is a no-op (no revision bump, no downstream recomputation).
 ///
 /// # Example
 ///
 /// ```moonbit nocheck
 /// let rt = Runtime()
-/// let count = Signal(rt, 0)
+/// let count = Input(rt, 0)
 /// count.set(5)
 /// inspect(count.get(), content="5")
 /// ```
-pub(all) struct Signal[T] {
+pub(all) struct Input[T] {
   priv label : String?
   priv rt : Runtime
   priv cell_id : CellId
@@ -23,46 +23,46 @@ pub(all) struct Signal[T] {
 } derive(Debug(ignore=[Runtime, CellId]))
 
 ///|
-/// Constructor-syntax alias of `Signal::new`. Enables `Signal(rt, value)` /
-/// `Signal(rt, value, label="...", durability=High)` call sites.
-pub fn[T] Signal::Signal(
+/// Constructor-syntax alias of `Input::new`. Enables `Input(rt, value)` /
+/// `Input(rt, value, label="...", durability=High)` call sites.
+pub fn[T] Input::Input(
   rt : Runtime,
   initial : T,
   durability? : Durability = Low,
   label? : String,
-) -> Signal[T] {
-  Signal::new(rt, initial, durability~, label?)
+) -> Input[T] {
+  Input::new(rt, initial, durability~, label?)
 }
 
 ///|
-/// Creates a new signal with the given initial value.
+/// Creates a new input with the given initial value.
 ///
 /// # Parameters
 ///
-/// - `rt`: The runtime that will manage this signal
-/// - `initial`: The initial value of the signal
-/// - `durability`: How often this signal is expected to change (default: `Low`)
+/// - `rt`: The runtime that will manage this input
+/// - `initial`: The initial value of the input
+/// - `durability`: How often this input is expected to change (default: `Low`)
 /// - `label`: An optional human-readable name for debugging and cycle error output
 ///
 /// # Returns
 ///
-/// A new signal containing the initial value
+/// A new input containing the initial value
 ///
 /// # Example
 ///
 /// ```moonbit nocheck
-/// let count = Signal(rt, 0)
+/// let count = Input(rt, 0)
 ///
-/// let config = Signal(rt, "prod", durability=High)
+/// let config = Input(rt, "prod", durability=High)
 ///
-/// let named = Signal(rt, 0, label="count")
+/// let named = Input(rt, 0, label="count")
 /// ```
-pub fn[T] Signal::new(
+pub fn[T] Input::new(
   rt : Runtime,
   initial : T,
   durability? : Durability = Low,
   label? : String,
-) -> Signal[T] {
+) -> Input[T] {
   let (cell_id, _) = rt.install_cell(
     rt.pull.free_signals,
     rt.pull.signals,
@@ -84,20 +84,20 @@ pub fn[T] Signal::new(
 }
 
 ///|
-/// Returns the current value of the signal.
+/// Returns the current value of the input.
 ///
-/// If called inside a memo's compute function, this automatically records
-/// a dependency from the memo to this signal. When the signal changes,
-/// the memo will know to reverify.
+/// If called inside a derived's compute function, this automatically records
+/// a dependency from the derived to this input. When the input changes,
+/// the derived will know to reverify.
 ///
 /// # Returns
 ///
-/// The current value of the signal
-pub fn[T] Signal::get(self : Signal[T]) -> T {
+/// The current value of the input
+pub fn[T] Input::get(self : Input[T]) -> T {
   guard !self.rt.is_cell_disposed(self.cell_id) else {
-    abort("Signal::get called on a disposed signal")
+    abort("Input::get called on a disposed input")
   }
-  self.rt.check_cross_runtime(self.rt.core.runtime_id, "Signal")
+  self.rt.check_cross_runtime(self.rt.core.runtime_id, "Input")
   self.rt.record_dependency(self.cell_id)
   let value = self.value
   if self.rt.has_pending_events() {
@@ -107,64 +107,63 @@ pub fn[T] Signal::get(self : Signal[T]) -> T {
 }
 
 ///|
-/// Returns the current value of the signal without recording a dependency.
+/// Returns the current value of the input without recording a dependency.
 ///
-/// Use `peek()` to read a signal's value from outside the dependency graph
+/// Use `peek()` to read an input's value from outside the dependency graph
 /// (e.g., in event handlers, logging, or tests). Unlike `get()`, this never
 /// records a dependency even when called inside a compute function.
 ///
 /// # Returns
 ///
-/// The current value of the signal
-pub fn[T] Signal::peek(self : Signal[T]) -> T {
+/// The current value of the input
+pub fn[T] Input::peek(self : Input[T]) -> T {
   guard !self.rt.is_cell_disposed(self.cell_id) else {
-    abort("Signal::peek called on a disposed signal")
+    abort("Input::peek called on a disposed input")
   }
   self.value
 }
 
 ///|
-/// Returns the current value of the signal as a Result.
+/// Returns the current value of the input as a Result.
 ///
-/// This method exists for API consistency with `Memo::get_result()`.
-/// Since signals cannot have cycles (they are input cells with no dependencies),
+/// Since inputs cannot have cycles (they are input cells with no dependencies),
 /// this method always returns `Ok(value)`.
 ///
 /// # Returns
 ///
-/// `Ok(value)` with the current value of the signal
-pub fn[T] Signal::get_result(self : Signal[T]) -> Result[T, CycleError] {
+/// `Ok(value)` with the current value of the input
+pub fn[T] Input::get_result(self : Input[T]) -> Result[T, CycleError] {
   Ok(self.get())
 }
 
 ///|
-/// Returns the unique identifier for this signal.
+/// Returns the unique identifier for this input.
 ///
 /// The CellId can be used with `Runtime::cell_info()` to retrieve
 /// metadata, or to compare cell identities.
 ///
 /// # Returns
 ///
-/// The cell identifier for this signal
+/// The cell identifier for this input
 ///
 /// # Example
 ///
 /// ```moonbit nocheck
-/// let sig = Signal(rt, 42)
-/// let id = sig.id()
+/// let inp = Input(rt, 42)
+/// let id = inp.id()
 /// match rt.cell_info(id) {
-///   Some(info) => println("Signal changed at: " + info.changed_at.to_string())
+///   Some(info) => println("Input changed at: " + info.changed_at.to_string())
 ///   None => ()
 /// }
 /// ```
-pub fn[T] Signal::id(self : Signal[T]) -> CellId {
+pub fn[T] Input::id(self : Input[T]) -> CellId {
   self.cell_id
 }
 
 ///|
-/// Returns the durability level of this signal.
+/// Returns the durability level of this input.
 ///
-/// Durability indicates how often this signal is expected to change:
+/// Durability indicates how often this input is expected to change:
 /// - `High`: Rarely changes (e.g., configuration)
 /// - `Medium`: Moderately stable
 /// - `Low`: Frequently changes (e.g., user input)
@@ -172,18 +171,18 @@ pub fn[T] Signal::id(self : Signal[T]) -> CellId {
 /// # Returns
 ///
 /// The durability level set at construction time
-pub fn[T] Signal::durability(self : Signal[T]) -> Durability {
+pub fn[T] Input::durability(self : Input[T]) -> Durability {
   self.durability
 }
 
 ///|
-/// Sets the signal to a new value.
+/// Sets the input to a new value.
 ///
 /// If the new value equals the current value (via `Eq`), this is a no-op:
-/// no revision bump occurs, and downstream memos won't reverify.
+/// no revision bump occurs, and downstream deriveds won't reverify.
 ///
 /// During a batch (`Runtime::batch`), the write is deferred. At batch end,
-/// only signals whose final value differs from the pre-batch value trigger
+/// only inputs whose final value differs from the pre-batch value trigger
 /// a revision bump. This enables revert detection.
 ///
 /// # Parameters
@@ -193,13 +192,13 @@ pub fn[T] Signal::durability(self : Signal[T]) -> Durability {
 /// # Same-Value Optimization
 ///
 /// ```moonbit nocheck
-/// let s = Signal(rt, 5)
+/// let s = Input(rt, 5)
 /// s.set(5)  // No-op: value unchanged, no revision bump
-/// s.set(6)  // Bumps revision, memos depending on s will reverify
+/// s.set(6)  // Bumps revision, deriveds depending on s will reverify
 /// ```
-pub fn[T : Eq] Signal::set(self : Signal[T], new_value : T) -> Unit {
+pub fn[T : Eq] Input::set(self : Input[T], new_value : T) -> Unit {
   guard !self.rt.is_cell_disposed(self.cell_id) else {
-    abort("Signal::set called on a disposed signal")
+    abort("Input::set called on a disposed input")
   }
   if self.rt.core.batch.depth > 0 {
     self.set_batch(new_value)
@@ -210,15 +209,15 @@ pub fn[T : Eq] Signal::set(self : Signal[T], new_value : T) -> Unit {
       }
       return
     }
-    self.set_unconditional(new_value)
+    self.force_set(new_value)
   }
 }
 
 ///|
-/// Sets the signal to a new value, always bumping the revision.
+/// Sets the input to a new value, always bumping the revision.
 ///
 /// Unlike `set`, this does not check for equality. Use this when you want
-/// to force downstream memos to reverify even if the value is the same,
+/// to force downstream deriveds to reverify even if the value is the same,
 /// or when your type doesn't implement `Eq`.
 ///
 /// During a batch, the value is stored as pending and committed at batch end.
@@ -226,12 +225,12 @@ pub fn[T : Eq] Signal::set(self : Signal[T], new_value : T) -> Unit {
 /// # Parameters
 ///
 /// - `new_value`: The new value to set
-pub fn[T] Signal::set_unconditional(self : Signal[T], new_value : T) -> Unit {
+pub fn[T] Input::force_set(self : Input[T], new_value : T) -> Unit {
   guard !self.rt.is_cell_disposed(self.cell_id) else {
-    abort("Signal::set_unconditional called on a disposed signal")
+    abort("Input::force_set called on a disposed input")
   }
   if self.rt.core.batch.depth > 0 {
-    self.set_batch_unconditional(new_value)
+    self.set_batch_force(new_value)
   } else {
     self.value = new_value
     // Snapshot callback before propagation — same invariant as commit_batch:
@@ -251,7 +250,7 @@ pub fn[T] Signal::set_unconditional(self : Signal[T], new_value : T) -> Unit {
 
 ///|
 /// Store a pending value during a batch (with Eq check).
-fn[T : Eq] Signal::set_batch(self : Signal[T], new_value : T) -> Unit {
+fn[T : Eq] Input::set_batch(self : Input[T], new_value : T) -> Unit {
   // Compare against current pending value (if any) or actual value
   let current = match self.pending_value {
     Some(pv) => pv
@@ -270,7 +269,7 @@ fn[T : Eq] Signal::set_batch(self : Signal[T], new_value : T) -> Unit {
     self.pending_value = previous_pending
     if !was_registered {
       sig_data.commit_pending = None
-      self.rt.remove_batch_signal(self.cell_id)
+      self.rt.remove_batch_input(self.cell_id)
     }
   })
   self.pending_value = Some(new_value)
@@ -278,14 +277,14 @@ fn[T : Eq] Signal::set_batch(self : Signal[T], new_value : T) -> Unit {
   if sig_data.commit_pending is None {
     sig_data.commit_pending = Some(() => self.commit())
     let sig_committable : &Committable = sig_data
-    self.rt.record_batch_signal(sig_committable)
+    self.rt.record_batch_input(sig_committable)
   }
   self.rt.bump_revision(self.durability)
 }
 
 ///|
 /// Store a pending value during a batch (unconditional).
-fn[T] Signal::set_batch_unconditional(self : Signal[T], new_value : T) -> Unit {
+fn[T] Input::set_batch_force(self : Input[T], new_value : T) -> Unit {
   let previous_pending = self.pending_value
   let sig_data = self.rt.get_pull_signal(self.cell_id)
   let was_registered = match sig_data.commit_pending {
@@ -296,21 +295,21 @@ fn[T] Signal::set_batch_unconditional(self : Signal[T], new_value : T) -> Unit {
     self.pending_value = previous_pending
     if !was_registered {
       sig_data.commit_pending = None
-      self.rt.remove_batch_signal(self.cell_id)
+      self.rt.remove_batch_input(self.cell_id)
     }
   })
   self.pending_value = Some(new_value)
   if sig_data.commit_pending is None {
-    sig_data.commit_pending = Some(() => self.commit_unconditional())
+    sig_data.commit_pending = Some(() => self.commit_force())
     let sig_committable : &Committable = sig_data
-    self.rt.record_batch_signal(sig_committable)
+    self.rt.record_batch_input(sig_committable)
   }
   self.rt.bump_revision(self.durability)
 }
 
 ///|
 /// Commit the pending value. Returns true if the value actually changed.
-fn[T : Eq] Signal::commit(self : Signal[T]) -> Bool {
+fn[T : Eq] Input::commit(self : Input[T]) -> Bool {
   match self.pending_value {
     None => false
     Some(pv) => {
@@ -327,7 +326,7 @@ fn[T : Eq] Signal::commit(self : Signal[T]) -> Bool {
 ///|
 /// Commit the pending value unconditionally. Always returns true if there
 /// is a pending value (no equality check).
-fn[T] Signal::commit_unconditional(self : Signal[T]) -> Bool {
+fn[T] Input::commit_force(self : Input[T]) -> Bool {
   match self.pending_value {
     None => false
     Some(pv) => {
@@ -339,48 +338,86 @@ fn[T] Signal::commit_unconditional(self : Signal[T]) -> Bool {
 }
 
 ///|
-/// Registers a callback that fires whenever this signal's value changes.
+/// Registers a callback that fires whenever this input's value changes.
 ///
 /// The callback receives the new value. It fires after the value is updated
 /// but before `Runtime::fire_on_change()`. Only one callback can be
 /// registered at a time; calling this again replaces the previous callback.
 ///
-/// Note: When using `set_unconditional`, the callback fires even if the
-/// new value equals the current value, since `set_unconditional` bypasses
+/// Note: When using `force_set`, the callback fires even if the
+/// new value equals the current value, since `force_set` bypasses
 /// the equality check.
 ///
 /// # Parameters
 ///
-/// - `f`: Called with the new value whenever this signal changes
-pub fn[T] Signal::on_change(self : Signal[T], f : (T) -> Unit) -> Unit {
+/// - `f`: Called with the new value whenever this input changes
+pub fn[T] Input::on_change(self : Input[T], f : (T) -> Unit) -> Unit {
   self.rt.get_pull_signal(self.cell_id).on_change = Some(() => f(self.value))
 }
 
 ///|
-/// Removes the `on_change` callback for this signal.
-pub fn[T] Signal::clear_on_change(self : Signal[T]) -> Unit {
+/// Removes the `on_change` callback for this input.
+pub fn[T] Input::clear_on_change(self : Input[T]) -> Unit {
   self.rt.get_pull_signal(self.cell_id).on_change = None
 }
 
 ///|
-/// Disposes this signal, releasing its resources and marking it as Disposed.
+/// Disposes this input, releasing its resources and marking it as Disposed.
 ///
 /// After disposal, calling `get()` or `set()` will abort. Disposal is
 /// idempotent — calling it multiple times is a no-op.
-pub fn[T] Signal::dispose(self : Signal[T]) -> Unit {
+pub fn[T] Input::dispose(self : Input[T]) -> Unit {
   self.rt.dispose_cell(self.cell_id)
 }
 
 ///|
-/// Returns true if this signal has been disposed.
-pub fn[T] Signal::is_disposed(self : Signal[T]) -> Bool {
+/// Returns true if this input has been disposed.
+pub fn[T] Input::is_disposed(self : Input[T]) -> Bool {
   self.rt.is_cell_disposed(self.cell_id)
 }
 
 ///|
-/// Returns true. Signals are always up-to-date since they are input cells
+/// Returns true. Inputs are always up-to-date since they are input cells
 /// with directly-set values.
-pub fn[T] Signal::is_up_to_date(self : Signal[T]) -> Bool {
+pub fn[T] Input::is_up_to_date(self : Input[T]) -> Bool {
   ignore(self)
   true
+}
+
+///|
+/// Returns true. Inputs are directly-set cells and are always fresh.
+pub fn[T] Input::is_fresh(self : Input[T]) -> Bool {
+  self.is_up_to_date()
+}
+
+///|
+/// Creates a new `Derived[U]` from this input by applying `f` to the current
+/// value on each read. Uses equality-based backdating: when recomputation
+/// produces a value equal to the previous output, downstream dependents skip
+/// recomputation.
+///
+/// Equivalent to `scope.derived(() => f(input.get()))` but without the scope
+/// parameter — the input already holds a runtime reference.
+pub fn[T, U : Eq] Input::derived(
+  self : Input[T],
+  f : (T) -> U,
+  label? : String,
+) -> Derived[U] {
+  Derived(self.rt, () => f(self.get()), label?)
+}
+
+///|
+/// Creates a new `Derived[U]` from this input by applying `f` to the current
+/// value on each read, without equality-based backdating. Each recomputation
+/// advances the changed-at revision unconditionally, even when the output
+/// equals the previous value. Accepts output types that do not implement `Eq`.
+///
+/// Equivalent to `scope.derived_no_backdate(() => f(input.get()))` but without
+/// the scope parameter — the input already holds a runtime reference.
+pub fn[T, U] Input::derived_no_backdate(
+  self : Input[T],
+  f : (T) -> U,
+  label? : String,
+) -> Derived[U] {
+  Derived::_create(self.rt, () => f(self.get()), label?, (_, _) => false)
 }

@@ -115,8 +115,8 @@ test "get_result with handled errors in mutual recursion (3-way)" {
 ///|
 test "get_result returns Ok for non-cyclic memos" {
   let rt = Runtime::Runtime()
-  let a = Signal::Signal(rt, 10)
-  let b = Signal::Signal(rt, 20)
+  let a = Input::Input(rt, 10)
+  let b = Input::Input(rt, 20)
   let sum = Derived::Derived(rt, () => a.get() + b.get())
   let double_sum = Derived::Derived(rt, () => sum.get_or_abort() * 2)
   // Non-cyclic memos should return Ok
@@ -125,17 +125,17 @@ test "get_result returns Ok for non-cyclic memos" {
 }
 
 ///|
-test "Signal::get_result always returns Ok" {
+test "Input::get_result always returns Ok" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 42)
+  let sig = Input::Input(rt, 42)
   match sig.get_result() {
     Ok(v) => inspect(v, content="42")
-    Err(_) => fail("Signal::get_result should never fail")
+    Err(_) => fail("Input::get_result should never fail")
   }
   sig.set(100)
   match sig.get_result() {
     Ok(v) => inspect(v, content="100")
-    Err(_) => fail("Signal::get_result should never fail")
+    Err(_) => fail("Input::get_result should never fail")
   }
 }
 
@@ -293,7 +293,7 @@ test "state is cleaned up after cycle error with handled errors" {
   // First call triggers cycle (but handles it with sentinel)
   inspect(d.read_or_abort(), content="-999")
   // Create a non-cyclic memo to verify runtime is still functional
-  let sig = Signal::Signal(rt, 5)
+  let sig = Input::Input(rt, 5)
   let good_d = Derived::Derived(rt, () => sig.get() * 2)
   inspect(good_d.read_or_abort(), content="10")
 }
@@ -301,7 +301,7 @@ test "state is cleaned up after cycle error with handled errors" {
 ///|
 test "cycle error during reverification returns error through get_result" {
   let rt = Runtime::Runtime()
-  let trigger = Signal::Signal(rt, 0)
+  let trigger = Input::Input(rt, 0)
   let d_ref : Ref[Derived[Int]?] = { val: None }
   // This memo only creates a cycle when trigger > 0
   let d = Derived::Derived(rt, () => {
@@ -335,7 +335,7 @@ test "failed get_result does not create spurious dependency edges" {
   // would have itself as a dependency, causing subsequent revision bumps
   // to falsely detect a cycle during verification.
   let rt = Runtime::Runtime()
-  let external = Signal::Signal(rt, 100)
+  let external = Input::Input(rt, 100)
   let d_ref : Ref[Derived[Int]?] = { val: None }
   let cycle_count : Ref[Int] = { val: 0 }
   let d = Derived::Derived(rt, () => {
@@ -359,7 +359,7 @@ test "failed get_result does not create spurious dependency edges" {
   // First access: cycle detected, handled with sentinel (100 + 1 = 101)
   inspect(d.read_or_abort(), content="101")
 
-  // Bump external signal to force reverification
+  // Bump external input to force reverification
   external.set(200)
 
   // Second access after revision bump: should recompute cleanly.

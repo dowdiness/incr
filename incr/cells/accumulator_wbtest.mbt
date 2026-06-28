@@ -92,7 +92,7 @@ test "Accumulator::push to disposed accumulator raises Failure" {
 ///|
 test "accumulator: same push-set across recomputes → push_revised_at unchanged" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   let a : Accumulator[Int] = Accumulator::new(rt~)
   let m = Derived(rt, () => {
     a.push(1)
@@ -117,7 +117,7 @@ test "accumulator: same push-set across recomputes → push_revised_at unchanged
 ///|
 test "accumulator: different push-set across recomputes → push_revised_at bumps" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   let a : Accumulator[Int] = Accumulator::new(rt~)
   let m = Derived(rt, () => {
     a.push(sig.get())
@@ -257,7 +257,7 @@ test "accumulated: commits pushes when producer value is Err" {
 /// end-to-end invalidation requires Task 15's synthetic dep check.
 test "durability shortcut: bypassed when memo has accumulator_reads" {
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 0)
+  let s = Input::Input(rt, 0)
   let a : Accumulator[Int] = Accumulator::new(rt~)
   let producer = Derived(rt, () => {
     a.push(s.get())
@@ -279,7 +279,7 @@ test "durability shortcut: bypassed when memo has accumulator_reads" {
 ///|
 test "synthetic dep check: reader invalidates when producer's push_revised_at bumps" {
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 1)
+  let s = Input::Input(rt, 1)
   let a : Accumulator[Int] = Accumulator::new(rt~)
   let producer = Derived(rt, () => {
     a.push(s.get())
@@ -327,7 +327,7 @@ test "Scope::accumulator disposed with scope" {
 ///|
 test "edge: ActiveQuery.accumulator_reads discarded on recompute failure" {
   let rt = Runtime::Runtime()
-  let should_fail = Signal::Signal(rt, false)
+  let should_fail = Input::Input(rt, false)
   let acc_a : Accumulator[Int] = Accumulator::new(rt~)
   let producer = Derived(rt, () => {
     acc_a.push(1)
@@ -362,7 +362,7 @@ test "edge: ActiveQuery.accumulator_reads discarded on recompute failure" {
 ///|
 test "edge: new-run-only slot cleared on ON_ABORT" {
   let rt = Runtime::Runtime()
-  let use_b = Signal::Signal(rt, false)
+  let use_b = Input::Input(rt, false)
   let acc_a : Accumulator[Int] = Accumulator::new(rt~)
   let acc_b : Accumulator[Int] = Accumulator::new(rt~)
   // First run: pushes only to A
@@ -394,7 +394,7 @@ test "edge: new-run-only slot cleared on ON_ABORT" {
 ///|
 test "edge: first-push-to-fresh-memo correctly bumps push_revised_at" {
   let rt = Runtime::Runtime()
-  let trigger = Signal::Signal(rt, false)
+  let trigger = Input::Input(rt, false)
   let acc : Accumulator[Int] = Accumulator::new(rt~)
   let m = Derived(rt, () => {
     if trigger.get() {
@@ -428,7 +428,7 @@ test "panic: Memo::accumulated_peek aborts on cross-runtime Accumulator" {
 /// reads report false CycleError.
 test "verify: raise-path from compute does not leak in_progress on ancestors" {
   let rt = Runtime::Runtime()
-  let should_fail = Signal::Signal(rt, false)
+  let should_fail = Input::Input(rt, false)
   let inner : Derived[Int] = Derived(rt, () => {
     if should_fail.get() {
       fail("boom")
@@ -464,7 +464,7 @@ test "verify: raise-path from compute does not leak in_progress on ancestors" {
 /// leave both participating memos out of progress with no tracking frames.
 test "verify: synthetic accumulator dep surfaces target cycle and cleans up" {
   let rt = Runtime::Runtime()
-  let tick = Signal::Signal(rt, 0)
+  let tick = Input::Input(rt, 0)
   let acc : Accumulator[Int] = Accumulator::new(rt~)
   let producer = Derived(rt, () => {
     acc.push(tick.get())
@@ -500,7 +500,7 @@ test "verify: synthetic accumulator dep surfaces target cycle and cleans up" {
 /// via ordinary get() see stale values.
 test "verify: non-root frame checks accumulator_reads" {
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 1)
+  let s = Input::Input(rt, 1)
   let a : Accumulator[Int] = Accumulator::new(rt~)
   let producer = Derived(rt, () => {
     a.push(s.get())
@@ -518,7 +518,7 @@ test "verify: non-root frame checks accumulator_reads" {
 ///|
 test "accumulator: ON_ABORT restores prior buffer on raised compute" {
   let rt = Runtime::Runtime()
-  let should_fail = Signal::Signal(rt, false)
+  let should_fail = Input::Input(rt, false)
   let a : Accumulator[Int] = Accumulator::new(rt~)
   let m : Derived[Int] = Derived(rt, () => {
     a.push(1)
@@ -554,7 +554,7 @@ test "accumulator: ON_ABORT restores prior buffer on raised compute" {
 /// after abort + retry.
 test "verify: aborted new-slot push preserves prior push_revised_at" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let acc : Accumulator[Int] = Accumulator::new(rt~)
   // Producer behavior:
   //   sig=1  → push [1]

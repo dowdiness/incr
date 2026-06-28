@@ -1,7 +1,7 @@
 ///|
 test "tracking: begin/end tracking records dependency" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 42)
+  let sig = Input::Input(rt, 42)
   let m = Derived(rt, () => 0)
   rt.begin_tracking(m.id())
   let _ = sig.get()
@@ -13,7 +13,7 @@ test "tracking: begin/end tracking records dependency" {
 ///|
 test "tracking: finish_tracking adds memo to dep subscribers" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let m = Derived(rt, () => 0)
   // Exercise finish_tracking directly: begin a tracking frame, read sig to
   // register it as a dependency, end the frame, then call finish_tracking
@@ -33,9 +33,9 @@ test "tracking: finish_tracking adds memo to dep subscribers" {
 }
 
 ///|
-test "get_subscribers: returns empty iter for new signal" {
+test "get_subscribers: returns empty iter for new input" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let count = rt.get_subscribers(sig.id()).fold(init=0, fn(acc, _) { acc + 1 })
   inspect(count, content="0")
 }
@@ -43,7 +43,7 @@ test "get_subscribers: returns empty iter for new signal" {
 ///|
 test "get_subscribers: contains memo after first get" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let m = Derived(rt, () => sig.get())
   let _ = m.read_or_abort()
   let subs : Array[CellId] = []

@@ -4,7 +4,7 @@ test "integration: diamond dependency" {
   //       -> B -> C
   // C depends on both A and B which both depend on input
   let rt = Runtime::Runtime()
-  let input = Signal::Signal(rt, 10)
+  let input = Input::Input(rt, 10)
   let mut a_count = 0
   let a = Derived::Derived(rt, () => {
     a_count = a_count + 1
@@ -36,7 +36,7 @@ test "integration: diamond dependency" {
 ///|
 test "integration: long chain (5 levels)" {
   let rt = Runtime::Runtime()
-  let input = Signal::Signal(rt, 1)
+  let input = Input::Input(rt, 1)
   let l1 = Derived::Derived(rt, () => input.get() + 1)
   let l2 = Derived::Derived(rt, () => l1.get_or_abort() + 1)
   let l3 = Derived::Derived(rt, () => l2.get_or_abort() + 1)
@@ -52,9 +52,9 @@ test "integration: long chain (5 levels)" {
 ///|
 test "integration: multiple independent inputs" {
   let rt = Runtime::Runtime()
-  let x = Signal::Signal(rt, 2)
-  let y = Signal::Signal(rt, 3)
-  let z = Signal::Signal(rt, 5)
+  let x = Input::Input(rt, 2)
+  let y = Input::Input(rt, 3)
+  let z = Input::Input(rt, 5)
   let mut compute_count = 0
   let result = Derived::Derived(rt, () => {
     compute_count = compute_count + 1
@@ -84,7 +84,7 @@ test "integration: diamond with backdating" {
   // - is_positive changes (true -> false), so result must recompute
   // - abs_val stays 5 (backdated)
   let rt = Runtime::Runtime()
-  let input = Signal::Signal(rt, 5)
+  let input = Input::Input(rt, 5)
   let is_positive = Derived::Derived(rt, () => input.get() > 0)
   let abs_val = Derived::Derived(rt, () => {
     let v = input.get()
@@ -115,7 +115,7 @@ test "integration: diamond with backdating" {
 ///|
 test "integration: multiple reads of same memo" {
   let rt = Runtime::Runtime()
-  let input = Signal::Signal(rt, 7)
+  let input = Input::Input(rt, 7)
   let mut compute_count = 0
   let memo = Derived::Derived(rt, () => {
     compute_count = compute_count + 1
@@ -131,8 +131,8 @@ test "integration: multiple reads of same memo" {
 ///|
 test "integration: cascading updates" {
   let rt = Runtime::Runtime()
-  let a = Signal::Signal(rt, 1)
-  let b = Signal::Signal(rt, 2)
+  let a = Input::Input(rt, 1)
+  let b = Input::Input(rt, 2)
   let sum = Derived::Derived(rt, () => a.get() + b.get())
   let product = Derived::Derived(rt, () => a.get() * b.get())
   let combined = Derived::Derived(rt, () => {
@@ -148,8 +148,8 @@ test "integration: cascading updates" {
 ///|
 test "integration: mixed durability chain" {
   let rt = Runtime::Runtime()
-  let config = Signal::Signal(rt, 10, durability=High)
-  let source = Signal::Signal(rt, 5)
+  let config = Input::Input(rt, 10, durability=High)
+  let source = Input::Input(rt, 5)
   let scaled = Derived::Derived(rt, () => source.get() * config.get())
   inspect(read_derived_for_test(scaled), content="50")
   // Only change low-durability input
@@ -163,7 +163,7 @@ test "integration: mixed durability chain" {
 ///|
 test "integration: repeated set-get cycles" {
   let rt = Runtime::Runtime()
-  let input = Signal::Signal(rt, 0)
+  let input = Input::Input(rt, 0)
   let doubled = Derived::Derived(rt, () => input.get() * 2)
   for i = 1; i <= 10; i = i + 1 {
     input.set(i)
@@ -177,7 +177,7 @@ test "integration: deep chain (200+ levels) - iterative verification" {
   // Stress test: a chain of 250 memos, each depending on the previous.
   // This would cause a stack overflow with recursive verification.
   let rt = Runtime::Runtime()
-  let input = Signal::Signal(rt, 1)
+  let input = Input::Input(rt, 1)
   let depth = 250
   // Build chain: memos[0] depends on input, memos[i] depends on memos[i-1]
   let memos : Array[Derived[Int]] = []
@@ -199,12 +199,12 @@ test "integration: deep chain (200+ levels) - iterative verification" {
 
 ///|
 test "integration: dynamic dependencies" {
-  // A memo that conditionally reads different signals based on a flag.
+  // A memo that conditionally reads different inputs based on a flag.
   // When the flag flips, the dependency set changes between invocations.
   let rt = Runtime::Runtime()
-  let flag = Signal::Signal(rt, true)
-  let a = Signal::Signal(rt, 10)
-  let b = Signal::Signal(rt, 20)
+  let flag = Input::Input(rt, true)
+  let a = Input::Input(rt, 10)
+  let b = Input::Input(rt, 20)
   let mut compute_count = 0
   let result = Derived::Derived(rt, () => {
     compute_count = compute_count + 1
@@ -238,12 +238,12 @@ test "integration: dynamic dependencies" {
 
 ///|
 test "integration: batch + on_change + memo chain fires once with correct final state" {
-  // Verifies that when a batch updates multiple signals, the global on_change
-  // fires exactly once, per-cell callbacks fire once per changed signal, and
+  // Verifies that when a batch updates multiple inputs, the global on_change
+  // fires exactly once, per-cell callbacks fire once per changed input, and
   // downstream memos see the fully committed state (not intermediate values).
   let rt = Runtime::Runtime()
-  let x = Signal::Signal(rt, 0, label="x")
-  let y = Signal::Signal(rt, 0, label="y")
+  let x = Input::Input(rt, 0, label="x")
+  let y = Input::Input(rt, 0, label="y")
   let sum = Derived::Derived(rt, () => x.get() + y.get(), label="sum")
   let product = Derived::Derived(rt, () => x.get() * y.get(), label="product")
   // Track callback invocations
@@ -258,12 +258,12 @@ test "integration: batch + on_change + memo chain fires once with correct final 
   })
   x.on_change(_v => x_fires.val = x_fires.val + 1)
   y.on_change(_v => y_fires.val = y_fires.val + 1)
-  // Batch: set both signals atomically
+  // Batch: set both inputs atomically
   rt.batch(() => {
     x.set(3)
     y.set(4)
   })
-  // Per-cell callbacks: one per changed signal
+  // Per-cell callbacks: one per changed input
   inspect(x_fires.val, content="1")
   inspect(y_fires.val, content="1")
   // Global callback fires exactly once
@@ -280,7 +280,7 @@ test "integration: batch + on_change + memo chain fires once with correct final 
     y.set(40)
     y.set(4) // revert to original batch-start value
   })
-  // No signal ended up changed, so no callbacks should fire.
+  // No input ended up changed, so no callbacks should fire.
   inspect(x_fires.val, content="1")
   inspect(y_fires.val, content="1")
   inspect(global_fires.val, content="1")
@@ -290,22 +290,22 @@ test "integration: batch + on_change + memo chain fires once with correct final 
 }
 
 ///|
-test "dispose: signal dispose cascades to memo staleness" {
+test "dispose: input dispose cascades to memo staleness" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 10)
+  let sig = Input::Input(rt, 10)
   let m = Derived::Derived(rt, fn() { sig.get() * 2 })
   inspect(read_derived_for_test(m), content="20")
   sig.dispose()
   // Memo's dependency is now disposed — verifying should abort
-  // But since we can't catch aborts in tests, verify the signal is disposed
+  // But since we can't catch aborts in tests, verify the input is disposed
   assert_true(sig.is_disposed())
 }
 
 ///|
-test "dispose: multiple signals, dispose one, others unaffected" {
+test "dispose: multiple inputs, dispose one, others unaffected" {
   let rt = Runtime::Runtime()
-  let a = Signal::Signal(rt, 1)
-  let b = Signal::Signal(rt, 2)
+  let a = Input::Input(rt, 1)
+  let b = Input::Input(rt, 2)
   let sum = Derived::Derived(rt, fn() { a.get() + b.get() })
   inspect(read_derived_for_test(sum), content="3")
   a.dispose()
@@ -317,7 +317,7 @@ test "dispose: multiple signals, dispose one, others unaffected" {
 ///|
 test "scope: add_observer triggers suspension on scope dispose" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 5)
+  let sig = Input::Input(rt, 5)
   let r = @incr.Reactive::new(rt, fn() { sig.get() + 1 })
   let scope = @incr.Scope::new(rt)
   let obs = scope.add_observer(r.observe())
@@ -334,7 +334,7 @@ test "scope: add_observer triggers suspension on scope dispose" {
 ///|
 test "memo_map: sweep after gc cleans up disposed entries" {
   let rt = Runtime::Runtime()
-  let source = Signal::Signal(rt, 1)
+  let source = Input::Input(rt, 1)
   let mm = @incr.DerivedMap::DerivedMap(rt, fn(k : Int) { source.get() + k })
   // Create entries
   ignore(mm.read_or_abort(10))

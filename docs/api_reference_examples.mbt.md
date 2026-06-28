@@ -96,7 +96,7 @@ test "docs api-ref: InputField on_change fires before Runtime on_change" {
 ///|
 test "docs api-ref: derived event listener records and can be cleared" {
   let rt = @incr.Runtime()
-  let input = @incr.Signal(rt, 1, label="input")
+  let input = @incr.Input(rt, 1, label="input")
   let events : Ref[Int] = { val: 0 }
 
   rt.on_derived_event(_evt => events.val = events.val + 1)
@@ -739,7 +739,7 @@ test "docs api-ref: scope-owned accepted_derived disposes with its scope" {
 ///|
 test "docs api-ref: Accumulator::new and push capture memo-local values" {
   let rt = @incr.Runtime()
-  let width = @incr.Signal(rt, -1, label="width")
+  let width = @incr.Input(rt, -1, label="width")
   let diags : @incr.Accumulator[String] = @incr.Accumulator::new(
     rt~,
     label="diags",
@@ -821,7 +821,7 @@ test "docs api-ref: map_relation staged values become visible after fixpoint" {
 ///|
 test "docs api-ref: compatibility introspection exposes ids dependencies and dependents" {
   let rt = @incr.Runtime()
-  let input = @incr.Signal(rt, 10, durability=High, label="input")
+  let input = @incr.Input(rt, 10, durability=High, label="input")
   let doubled = @incr.Derived(rt, () => input.get() * 2, label="doubled")
   let observer = doubled.observe()
 
@@ -854,7 +854,7 @@ test "docs api-ref: compatibility introspection exposes ids dependencies and dep
 ///|
 test "docs api-ref: compatibility per-cell callbacks can be registered and cleared" {
   let rt = @incr.Runtime()
-  let input = @incr.Signal(rt, 1, label="input")
+  let input = @incr.Input(rt, 1, label="input")
   let doubled = @incr.Derived(rt, () => input.get() * 2, label="doubled")
   let observer = doubled.observe()
   let input_log : Ref[String] = { val: "" }
@@ -1008,7 +1008,7 @@ test "docs api-ref: Database batch_result helper rolls back on Err" {
 ///|
 test "docs api-ref: compatibility helpers create_signal / hybrid_memo / memo_map" {
   let app : AppCtx = { rt: @incr.Runtime() }
-  let signal = @incr.create_signal(
+  let signal = @incr.create_input(
     app,
     10,
     durability=High,
@@ -1054,7 +1054,7 @@ test "docs api-ref: compatibility create_accumulator captures memo pushes" {
     app,
     label="diags",
   )
-  let width = @incr.create_signal(app, -1, label="width")
+  let width = @incr.create_input(app, -1, label="width")
   let producer = @incr.create_derived(
     app,
     () => {

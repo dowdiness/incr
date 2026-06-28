@@ -12,7 +12,7 @@ fn run_evaluation_strategy_scenario(
 ) -> EvaluationStrategyScenarioResult {
   let rt = Runtime()
   rt.install_evaluation_strategies(strategies)
-  let source = Signal(rt, 1)
+  let source = Input(rt, 1)
   let derived = Derived(rt, () => source.get() * 10)
   let eager = Reactive::new(rt, () => derived.get_or_abort() + 1)
   let effect_log : Array[Int] = []
@@ -71,7 +71,7 @@ test "evaluation strategy: tracing records lazy derived rebuilds without listene
   let recorder = @kernel.EvaluationTraceRecorder()
   let rt = Runtime()
   rt.install_evaluation_strategies(EvaluationStrategies::tracing(recorder))
-  let source = Signal(rt, 1)
+  let source = Input(rt, 1)
   let derived = Derived(rt, () => source.get() + 1)
 
   inspect(derived.read_or_abort(), content="2")
@@ -158,7 +158,7 @@ test "evaluation strategy: tracing forwards runtime evaluation events" {
   let recorder = @kernel.EvaluationTraceRecorder()
   let rt = Runtime()
   rt.install_evaluation_strategies(EvaluationStrategies::tracing(recorder))
-  let source = Signal(rt, 0)
+  let source = Input(rt, 0)
   let events : Array[@kernel.RuntimeEvaluationEvent] = []
   rt.runtime_evaluation_event_hook.listener = Some(fn(event) {
     events.push(event)

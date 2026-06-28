@@ -54,6 +54,10 @@ pub(all) enum GcRole {
 } derive(Eq, @debug.Debug)
 pub impl Show for GcRole
 
+pub(all) struct InputId[T] {
+  id : CellId
+}
+
 pub(all) struct InternId {
   index : Int
 } derive(Compare, Eq, @debug.Debug)
@@ -116,10 +120,6 @@ pub(all) struct RuntimeId {
 } derive(Eq, Hash, @debug.Debug)
 pub fn RuntimeId::RuntimeId(Int) -> Self
 pub impl Show for RuntimeId
-
-pub(all) struct SignalId[T] {
-  id : CellId
-}
 
 // Type aliases
 

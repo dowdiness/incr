@@ -3,30 +3,30 @@
 /// (memory/project_per_mode_redesign_question.md). Measures the cost of
 /// allocating one full Runtime including the PushState + DatalogState
 /// luggage that a pull-only consumer never touches. Compare against
-/// `signal: get` and `signal: set new value` below to size the luggage
+/// `input: get` and `input: set new value` below to size the luggage
 /// against the per-cell costs that already dominate any real workload.
 test "runtime: new (full, all modes)" (b : @bench.T) {
   b.bench(fn() { b.keep(Runtime::Runtime()) })
 }
 
 ///|
-test "signal: get" (b : @bench.T) {
+test "input: get" (b : @bench.T) {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 42)
+  let sig = Input::Input(rt, 42)
   b.bench(fn() { b.keep(sig.get()) })
 }
 
 ///|
-test "signal: set same value (no-op)" (b : @bench.T) {
+test "input: set same value (no-op)" (b : @bench.T) {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   b.bench(fn() { sig.set(0) })
 }
 
 ///|
-test "signal: set new value" (b : @bench.T) {
+test "input: set new value" (b : @bench.T) {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   let mut v = 0
   b.bench(fn() {
     v = v + 1
@@ -37,16 +37,16 @@ test "signal: set new value" (b : @bench.T) {
 ///|
 test "memo: get warm (up-to-date, no recompute)" (b : @bench.T) {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 42)
+  let sig = Input::Input(rt, 42)
   let m = Derived::Derived(rt, () => sig.get() * 2)
   ignore(read_derived_for_test(m)) // prime
   b.bench(fn() { b.keep(read_derived_for_test(m)) })
 }
 
 ///|
-test "memo: get stale (signal changed, recompute)" (b : @bench.T) {
+test "memo: get stale (input changed, recompute)" (b : @bench.T) {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   let m = Derived::Derived(rt, () => sig.get() * 2)
   ignore(read_derived_for_test(m)) // prime
   let mut v = 0
@@ -60,7 +60,7 @@ test "memo: get stale (signal changed, recompute)" (b : @bench.T) {
 ///|
 test "memo: deep chain get (100 levels, stale)" (b : @bench.T) {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   let depth = 100
   let memos : Array[Derived[Int]] = []
   memos.push(Derived::Derived(rt, () => sig.get()))
@@ -79,9 +79,9 @@ test "memo: deep chain get (100 levels, stale)" (b : @bench.T) {
 }
 
 ///|
-test "memo: wide fanout get (1 signal, 50 memos, stale)" (b : @bench.T) {
+test "memo: wide fanout get (1 input, 50 memos, stale)" (b : @bench.T) {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   let width = 50
   let memos : Array[Derived[Int]] = []
   for i = 0; i < width; i = i + 1 {
@@ -116,7 +116,7 @@ test "memo: wide fanout get (1 signal, 50 memos, stale)" (b : @bench.T) {
 /// not real perf):
 ///   bench                                    pre-T1b     Phase 1     Phase 2+fast-path
 ///   memo: no-accumulator recompute fanout    26.70 µs    25.41 µs    19.82 µs
-///   memo: wide fanout (1 signal, 50 memos)   25.81 µs    25.37 µs    21.37 µs
+///   memo: wide fanout (1 input, 50 memos)   25.81 µs    25.37 µs    21.37 µs
 ///   memo: deep chain (100 levels, stale)     39.24 µs    40.52 µs    29.50 µs
 ///   baseline: push propagation 100 live      22.27 µs    21.24 µs    20-32 µs (noisy)
 ///
@@ -126,7 +126,7 @@ test "memo: wide fanout get (1 signal, 50 memos, stale)" (b : @bench.T) {
 /// ensure_for_cell; before_recompute/after_* skip when slots empty).
 test "memo: no-accumulator recompute fanout" (b : @bench.T) {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   let width = 50
   let memos : Array[Derived[Int]] = []
   for i = 0; i < width; i = i + 1 {
@@ -148,16 +148,16 @@ test "memo: no-accumulator recompute fanout" (b : @bench.T) {
 ///|
 test "hybrid: get warm (up-to-date, no recompute)" (b : @bench.T) {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 42)
+  let sig = Input::Input(rt, 42)
   let h = @incr.ReachableDerived::ReachableDerived(rt, () => sig.get() * 2)
   ignore(read_reachable_for_test(h)) // prime
   b.bench(fn() { b.keep(read_reachable_for_test(h)) })
 }
 
 ///|
-test "hybrid: get stale (signal changed, recompute)" (b : @bench.T) {
+test "hybrid: get stale (input changed, recompute)" (b : @bench.T) {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   let h = @incr.ReachableDerived::ReachableDerived(rt, () => sig.get() * 2)
   ignore(read_reachable_for_test(h)) // prime
   let mut v = 0
@@ -169,11 +169,11 @@ test "hybrid: get stale (signal changed, recompute)" (b : @bench.T) {
 }
 
 ///|
-test "batch: 10 signals, single revision" (b : @bench.T) {
+test "batch: 10 inputs, single revision" (b : @bench.T) {
   let rt = Runtime::Runtime()
-  let sigs : Array[Signal[Int]] = []
+  let sigs : Array[Input[Int]] = []
   for i = 0; i < 10; i = i + 1 {
-    sigs.push(Signal::Signal(rt, i))
+    sigs.push(Input::Input(rt, i))
   }
   let mut v = 0
   b.bench(fn() {
@@ -188,9 +188,9 @@ test "batch: 10 signals, single revision" (b : @bench.T) {
 }
 
 ///|
-test "baseline: signal.set with clean runtime" (b : @bench.T) {
+test "baseline: input.set with clean runtime" (b : @bench.T) {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   let mut v = 0
   b.bench(fn() {
     v += 1
@@ -199,12 +199,12 @@ test "baseline: signal.set with clean runtime" (b : @bench.T) {
 }
 
 ///|
-test "baseline: signal.set with 10k unreferenced memos" (b : @bench.T) {
+test "baseline: input.set with 10k unreferenced memos" (b : @bench.T) {
   // Memos are created and immediately dropped. They persist in the SoA
   // arrays because they are not explicitly disposed. This measures whether
-  // accumulated SoA entries affect signal.set performance.
+  // accumulated SoA entries affect input.set performance.
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   for i = 0; i < 10_000; i = i + 1 {
     let idx = i
     ignore(Derived::Derived(rt, fn() { sig.get() + idx }))
@@ -219,14 +219,14 @@ test "baseline: signal.set with 10k unreferenced memos" (b : @bench.T) {
 ///|
 test "baseline: memo creation cost (monotonic SoA growth)" (b : @bench.T) {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   b.bench(fn() { ignore(Derived::Derived(rt, fn() { sig.get() })) })
 }
 
 ///|
 test "baseline: push propagation with 100 live reactives" (b : @bench.T) {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   let reactives : Array[@incr.Reactive[Int]] = []
   for i = 0; i < 100; i = i + 1 {
     let idx = i
@@ -243,7 +243,7 @@ test "baseline: push propagation with 100 live reactives" (b : @bench.T) {
 ///|
 test "baseline: push propagation with 100 disposed reactives" (b : @bench.T) {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   for i = 0; i < 100; i = i + 1 {
     let idx = i
     let r = @incr.Reactive::new(rt, fn() { sig.get() + idx })
@@ -263,7 +263,7 @@ test "baseline: push propagation with 100 abandoned reactives (handle dropped)" 
   // User dropped handle but reactive is still live in SoA — push still
   // propagates through it. This is the CPU waste GC should eliminate.
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   for i = 0; i < 100; i = i + 1 {
     let idx = i
     ignore(@incr.Reactive::new(rt, fn() { sig.get() + idx }))
@@ -280,7 +280,7 @@ test "baseline: reactive create-dispose cycle (existing free list)" (
   b : @bench.T,
 ) {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   b.bench(fn() {
     let r = @incr.Reactive::new(rt, fn() { sig.get() })
     r.dispose()
@@ -290,7 +290,7 @@ test "baseline: reactive create-dispose cycle (existing free list)" (
 ///|
 test "layer1: memo create-dispose cycle (free list)" (b : @bench.T) {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   b.bench(fn() {
     let m = Derived::Derived(rt, fn() { sig.get() })
     ignore(read_derived_for_test(m))
@@ -299,10 +299,10 @@ test "layer1: memo create-dispose cycle (free list)" (b : @bench.T) {
 }
 
 ///|
-test "layer1: signal create-dispose cycle (free list)" (b : @bench.T) {
+test "layer1: input create-dispose cycle (free list)" (b : @bench.T) {
   let rt = Runtime::Runtime()
   b.bench(fn() {
-    let sig = Signal::Signal(rt, 0)
+    let sig = Input::Input(rt, 0)
     sig.dispose()
   })
 }
@@ -317,12 +317,12 @@ test "layer2: scope create and dispose (empty)" (b : @bench.T) {
 }
 
 ///|
-test "layer2: scope create 10 signals and dispose" (b : @bench.T) {
+test "layer2: scope create 10 inputs and dispose" (b : @bench.T) {
   let rt = @incr.Runtime::Runtime()
   b.bench(fn() {
     let scope = @incr.Scope::new(rt)
     for i in 0..<10 {
-      let _ = scope.signal(i)
+      let _ = scope.input(i)
     }
     scope.dispose()
   })
@@ -334,7 +334,7 @@ test "layer2: scope bulk dispose 100 mixed cells" (b : @bench.T) {
   b.bench(fn() {
     let scope = @incr.Scope::new(rt)
     for i in 0..<50 {
-      let _ = scope.signal(i)
+      let _ = scope.input(i)
     }
     for _ in 0..<50 {
       let _ = scope.derived(fn() { 0 })
@@ -350,9 +350,9 @@ test "layer2: nested scope (3 levels) create and dispose" (b : @bench.T) {
     let root = @incr.Scope::new(rt)
     let mid = root.child()
     let leaf = mid.child()
-    let _ = root.signal(1)
-    let _ = mid.signal(2)
-    let _ = leaf.signal(3)
+    let _ = root.input(1)
+    let _ = mid.input(2)
+    let _ = leaf.input(3)
     root.dispose()
   })
 }
@@ -363,7 +363,7 @@ test "layer2: nested scope (3 levels) create and dispose" (b : @bench.T) {
 ///|
 test "observer: get warm (memo)" (b : @bench.T) {
   let rt = @incr.Runtime::Runtime()
-  let sig = @incr.Signal::Signal(rt, 42)
+  let sig = @incr.Input::Input(rt, 42)
   let m = @incr.Derived::Derived(rt, fn() { sig.get() * 2 })
   let obs = m.observe()
   ignore(obs.get()) // prime
@@ -374,7 +374,7 @@ test "observer: get warm (memo)" (b : @bench.T) {
 ///|
 test "observer: observe + dispose cycle" (b : @bench.T) {
   let rt = @incr.Runtime::Runtime()
-  let sig = @incr.Signal::Signal(rt, 42)
+  let sig = @incr.Input::Input(rt, 42)
   let m = @incr.Derived::Derived(rt, fn() { sig.get() * 2 })
   ignore(read_derived_for_test(m)) // prime
   b.bench(fn() {
@@ -387,7 +387,7 @@ test "observer: observe + dispose cycle" (b : @bench.T) {
 ///|
 test "gc: sweep 1k all-live" (b : @bench.T) {
   let rt = @incr.Runtime::Runtime()
-  let sig = @incr.Signal::Signal(rt, 1)
+  let sig = @incr.Input::Input(rt, 1)
   let observers : Array[@incr.Observer[Int]] = []
   for i = 0; i < 1000; i = i + 1 {
     let m = @incr.Derived::Derived(rt, fn() { sig.get() + i })
@@ -404,7 +404,7 @@ test "gc: sweep 1k all-live" (b : @bench.T) {
 ///|
 test "gc: sweep 1k all-dead" (b : @bench.T) {
   let rt = @incr.Runtime::Runtime()
-  let sig = @incr.Signal::Signal(rt, 1)
+  let sig = @incr.Input::Input(rt, 1)
   for i = 0; i < 1000; i = i + 1 {
     let m = @incr.Derived::Derived(rt, fn() { sig.get() + i })
     ignore(read_derived_for_test(m))
@@ -417,7 +417,7 @@ test "gc: sweep 1k all-dead" (b : @bench.T) {
 ///|
 test "gc: sweep 1k 50pct dead" (b : @bench.T) {
   let rt = @incr.Runtime::Runtime()
-  let sig = @incr.Signal::Signal(rt, 1)
+  let sig = @incr.Input::Input(rt, 1)
   let observers : Array[@incr.Observer[Int]] = []
   for i = 0; i < 1000; i = i + 1 {
     let m = @incr.Derived::Derived(rt, fn() { sig.get() + i })
@@ -438,7 +438,7 @@ test "gc: sweep 1k 50pct dead" (b : @bench.T) {
 ///|
 test "runtime: read one-shot" (b : @bench.T) {
   let rt = @incr.Runtime::Runtime()
-  let sig = @incr.Signal::Signal(rt, 42)
+  let sig = @incr.Input::Input(rt, 42)
   let m = @incr.Derived::Derived(rt, fn() { sig.get() * 2 })
   ignore(read_derived_for_test(m)) // prime
   b.bench(fn() { b.keep(read_derived_for_test(m)) })
@@ -486,11 +486,11 @@ test "fixpoint: one iteration, single fact delta (identity rule)" (b : @bench.T)
 /// proportional to disposed-cell count? Compare set-with-no-reactives-ever-created
 /// vs set-with-100-disposed. If the disposed setup is much slower, work scales
 /// with disposed SoA entries somehow (free-list? cell_index iteration?).
-test "diagnostic: signal set with cold runtime (no reactives ever created)" (
+test "diagnostic: input set with cold runtime (no reactives ever created)" (
   b : @bench.T,
 ) {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   let mut v = 0
   b.bench(fn() {
     v += 1
@@ -499,15 +499,15 @@ test "diagnostic: signal set with cold runtime (no reactives ever created)" (
 }
 
 ///|
-/// Diagnostic: signal set with 100 disposed REACTIVES on a SEPARATE signal.
+/// Diagnostic: input set with 100 disposed REACTIVES on a SEPARATE input.
 /// If this matches the 100-disposed bench, the cost is global (SoA-size driven).
 /// If it matches the cold runtime, the cost is from sig's own state.
-test "diagnostic: signal set with 100 disposed reactives on separate signal" (
+test "diagnostic: input set with 100 disposed reactives on separate input" (
   b : @bench.T,
 ) {
   let rt = Runtime::Runtime()
-  let sig_a = Signal::Signal(rt, 0)
-  let sig_b = Signal::Signal(rt, 0)
+  let sig_a = Input::Input(rt, 0)
+  let sig_b = Input::Input(rt, 0)
   for i = 0; i < 100; i = i + 1 {
     let idx = i
     let r = @incr.Reactive::new(rt, fn() { sig_b.get() + idx })
@@ -523,14 +523,14 @@ test "diagnostic: signal set with 100 disposed reactives on separate signal" (
 ///|
 /// push-engine link-list port investigation — N=500 fanout, steady-state set.
 ///
-/// One signal with N=500 reactives. Each set walks the signal's subscriber
-/// HashSet once (alien-signals Link-list candidate site #1: replace HashSet
+/// One input with N=500 reactives. Each set walks the input's subscriber
+/// HashSet once (alien-inputs Link-list candidate site #1: replace HashSet
 /// iter with intrusive linked-list traversal). Per-iter cost = ~N hashset-iter
 /// steps + N compute invocations + N priority-queue ops + N
 /// diff_and_update_subscribers calls (1-element new_seen each).
 test "linklist-port: fanout 500 reactives, steady-state set" (b : @bench.T) {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   let reactives : Array[@incr.Reactive[Int]] = []
   for i = 0; i < 500; i = i + 1 {
     let idx = i
@@ -547,14 +547,14 @@ test "linklist-port: fanout 500 reactives, steady-state set" (b : @bench.T) {
 ///|
 /// push-engine link-list port investigation — N=1000 fanout (Vue 3.6 driver).
 ///
-/// Scales the steady-state fanout bench to match alien-signals' reference
+/// Scales the steady-state fanout bench to match alien-inputs' reference
 /// benchmark size. If per-iter cost scales linearly with N (vs. 100-baseline),
 /// the inner loop is dominated by per-subscriber work — Link-list port has
 /// headroom. If it grows superlinearly, hash collisions / resize / GC pressure
 /// are also implicated.
 test "linklist-port: fanout 1000 reactives, steady-state set" (b : @bench.T) {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   let reactives : Array[@incr.Reactive[Int]] = []
   for i = 0; i < 1000; i = i + 1 {
     let idx = i
@@ -571,7 +571,7 @@ test "linklist-port: fanout 1000 reactives, steady-state set" (b : @bench.T) {
 ///|
 /// push-engine link-list port investigation — branchy-rebind, N=100.
 ///
-/// Each reactive picks between two signals based on a toggling flag, so every
+/// Each reactive picks between two inputs based on a toggling flag, so every
 /// iteration N reactives churn their source set. This is the
 /// diff_and_update_subscribers (subscriber_diff.mbt) hot path: HashSet
 /// contains/add/remove_and_check on every dep diff. Link-list candidate
@@ -579,9 +579,9 @@ test "linklist-port: fanout 1000 reactives, steady-state set" (b : @bench.T) {
 /// independent of the Link-list change.
 test "linklist-port: branchy-rebind 100 reactives" (b : @bench.T) {
   let rt = Runtime::Runtime()
-  let sig_a = Signal::Signal(rt, 0)
-  let sig_b = Signal::Signal(rt, 1)
-  let flag = Signal::Signal(rt, true)
+  let sig_a = Input::Input(rt, 0)
+  let sig_b = Input::Input(rt, 1)
+  let flag = Input::Input(rt, true)
   let reactives : Array[@incr.Reactive[Int]] = []
   for i = 0; i < 100; i = i + 1 {
     let idx = i

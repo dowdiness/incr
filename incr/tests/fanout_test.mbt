@@ -1,12 +1,12 @@
 ///|
-test "fanout: single signal with many downstream memos" {
+test "fanout: single input with many downstream memos" {
   let rt = Runtime::Runtime()
-  let input = Signal::Signal(rt, 10)
+  let input = Input::Input(rt, 10)
   let count = 100
   let memos : Array[Derived[Int]] = []
   let compute_counts : Array[Ref[Int]] = []
 
-  // Create many memos, each depending on the same signal
+  // Create many memos, each depending on the same input
   for i = 0; i < count; i = i + 1 {
     let counter : Ref[Int] = { val: 0 }
     compute_counts.push(counter)
@@ -34,7 +34,7 @@ test "fanout: single signal with many downstream memos" {
     inspect(compute_counts[i].val, content="2")
   }
 
-  // Set same value: no recomputation (signal same-value optimization)
+  // Set same value: no recomputation (input same-value optimization)
   input.set(20)
   for i = 0; i < count; i = i + 1 {
     let _ = read_derived_for_test(memos[i])
@@ -44,13 +44,13 @@ test "fanout: single signal with many downstream memos" {
 
 ///|
 test "fanout: aggregator memo over many inputs" {
-  // Reverse pattern: many signals feeding into one memo
+  // Reverse pattern: many inputs feeding into one memo
   let rt = Runtime::Runtime()
   let count = 50
-  let signals : Array[Signal[Int]] = []
+  let inputs : Array[Input[Int]] = []
 
   for i = 0; i < count; i = i + 1 {
-    signals.push(Signal::Signal(rt, i))
+    inputs.push(Input::Input(rt, i))
   }
 
   let mut compute_count = 0
@@ -58,7 +58,7 @@ test "fanout: aggregator memo over many inputs" {
     compute_count = compute_count + 1
     let mut total = 0
     for i = 0; i < count; i = i + 1 {
-      total = total + signals[i].get()
+      total = total + inputs[i].get()
     }
     total
   })
@@ -67,21 +67,21 @@ test "fanout: aggregator memo over many inputs" {
   inspect(read_derived_for_test(sum), content="1225")
   inspect(compute_count, content="1")
 
-  // Change one signal: sum increases by 100
-  signals[25].set(125) // was 25, now 125 (+100)
+  // Change one input: sum increases by 100
+  inputs[25].set(125) // was 25, now 125 (+100)
   inspect(read_derived_for_test(sum), content="1325")
   inspect(compute_count, content="2")
 
-  // Change another signal
-  signals[0].set(1000) // was 0, now 1000 (+1000)
+  // Change another input
+  inputs[0].set(1000) // was 0, now 1000 (+1000)
   inspect(read_derived_for_test(sum), content="2325")
   inspect(compute_count, content="3")
 }
 
 ///|
-test "fanout: two-level fanout (signal -> level1 -> level2)" {
+test "fanout: two-level fanout (input -> level1 -> level2)" {
   let rt = Runtime::Runtime()
-  let input = Signal::Signal(rt, 5)
+  let input = Input::Input(rt, 5)
 
   // Level 1: 10 memos directly depending on input
   let level1 : Array[Derived[Int]] = []

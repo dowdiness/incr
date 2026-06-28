@@ -1,7 +1,7 @@
 ///|
-test "signal dispose: removes from downstream subscriber sets" {
+test "input dispose: removes from downstream subscriber sets" {
   let rt = Runtime()
-  let sig = Signal(rt, 10)
+  let sig = Input(rt, 10)
   let m = Derived(rt, fn() { sig.get() * 2 })
   ignore(m.read_or_abort()) // establish dependency: sig -> m
   let sig_id = sig.id()
@@ -16,7 +16,7 @@ test "signal dispose: removes from downstream subscriber sets" {
 ///|
 test "memo dispose: removes from upstream subscriber sets" {
   let rt = Runtime()
-  let sig = Signal(rt, 10)
+  let sig = Input(rt, 10)
   let m = Derived(rt, fn() { sig.get() * 2 })
   ignore(m.read_or_abort()) // establish sig -> m dependency
   let sig_subs_before = rt.get_subscribers(sig.id()).collect().length()
@@ -27,9 +27,9 @@ test "memo dispose: removes from upstream subscriber sets" {
 }
 
 ///|
-test "signal dispose: free list enables slot reuse" {
+test "input dispose: free list enables slot reuse" {
   let rt = Runtime()
-  let sig1 = Signal(rt, 10)
+  let sig1 = Input(rt, 10)
   let idx1 = match rt.core.cell_index[sig1.id().id] {
     PullSignal(i) => i
     _ => abort("expected PullSignal")
@@ -37,8 +37,8 @@ test "signal dispose: free list enables slot reuse" {
   sig1.dispose()
   // Free list should contain idx1
   assert_true(rt.pull.free_signals.contains(idx1))
-  // Creating a new signal should reuse the slot
-  let sig2 = Signal(rt, 20)
+  // Creating a new input should reuse the slot
+  let sig2 = Input(rt, 20)
   let idx2 = match rt.core.cell_index[sig2.id().id] {
     PullSignal(i) => i
     _ => abort("expected PullSignal")
@@ -50,7 +50,7 @@ test "signal dispose: free list enables slot reuse" {
 ///|
 test "memo dispose: free list enables slot reuse" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 10)
+  let sig = Input::Input(rt, 10)
   let m1 = Derived(rt, fn() { sig.get() * 2 })
   ignore(m1.read_or_abort())
   let idx1 = match rt.core.cell_index[m1.id().id] {

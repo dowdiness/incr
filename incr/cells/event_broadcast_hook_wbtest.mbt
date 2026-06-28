@@ -161,8 +161,8 @@ test "derived_event: nested recomputes buffer until outermost frame exits" {
 ///|
 test "derived_event: listener read does not pollute drained memo dependencies" {
   let rt = Runtime()
-  let source = Signal(rt, 1)
-  let probe_source = Signal(rt, 10)
+  let source = Input(rt, 1)
+  let probe_source = Input(rt, 10)
   let probe = Derived(rt, () => probe_source.get())
   let did_read = Ref(false)
   let probe_reads : Array[Int] = []
@@ -195,8 +195,8 @@ test "derived_event: listener read does not pollute drained memo dependencies" {
 ///|
 test "derived_event: listener set can enqueue recursive memo events" {
   let rt = Runtime()
-  let source = Signal(rt, 0)
-  let trigger = Signal(rt, 0)
+  let source = Input(rt, 0)
+  let trigger = Input(rt, 0)
   let reentered = Derived(rt, () => trigger.get() + 10)
   let observed : Array[Int] = []
   let _effect = Effect::new(rt, () => {
@@ -231,8 +231,8 @@ test "derived_event: listener set can enqueue recursive memo events" {
 ///|
 test "derived_event: no event fires for green verification path" {
   let rt = Runtime()
-  let source = Signal(rt, 1)
-  let unrelated = Signal(rt, 0)
+  let source = Input(rt, 1)
+  let unrelated = Input(rt, 0)
   let derived = Derived(rt, () => source.get() + 1)
   let events : Array[String] = []
   rt.on_derived_event(evt => push_event_kind(events, evt))
@@ -289,7 +289,7 @@ test "derived_event: mutation guard rejects push tracking frame" {
 ///|
 test "derived_event: mutation guard rejects pending events inside on_change" {
   let rt = Runtime()
-  let source = Signal(rt, 0)
+  let source = Input(rt, 0)
   let hybrid = ReachableDerived(rt, () => source.get() + 1)
   let _effect = Effect::new(rt, () => ignore(hybrid.get()))
   rt.on_derived_event(_evt => ())
@@ -308,7 +308,7 @@ test "derived_event: mutation guard rejects pending events inside on_change" {
 ///|
 test "derived_event: mutation guard rejects on_change without pending events" {
   let rt = Runtime()
-  let source = Signal(rt, 0)
+  let source = Input(rt, 0)
   rt.on_derived_event(_evt => ())
   let saw_empty_pending = Ref(false)
   let rejected = Ref(false)
@@ -397,7 +397,7 @@ test "derived_event: raising API defers drain until next operation" {
 ///|
 test "derived_event: revision capture survives mid-compute revision bump" {
   let rt = Runtime()
-  let tick = Signal(rt, 0)
+  let tick = Input(rt, 0)
   let started : Array[Int] = []
   let verified : Array[Int] = []
   rt.on_derived_event(evt => {
@@ -408,7 +408,7 @@ test "derived_event: revision capture survives mid-compute revision bump" {
     }
   })
   let derived = Derived(rt, () => {
-    tick.set_unconditional(tick.peek() + 1)
+    tick.force_set(tick.peek() + 1)
     99
   })
   inspect(derived.read_or_abort(), content="99")
@@ -428,7 +428,7 @@ test "derived_event: two additive listeners observe events event-major in regist
   |> ignore
   rt.add_derived_event_listener(evt => log = log + "b:" + event_kind(evt) + " ")
   |> ignore
-  let s = Signal(rt, 1)
+  let s = Input(rt, 1)
   let m = Derived(rt, () => s.get() * 2)
   inspect(m.read_or_abort(), content="2")
   // One recompute buffers [EnteringCompute, Completed]. Event-major drain:
@@ -452,7 +452,7 @@ test "derived_event: remove_derived_event_listener is idempotent and stops only 
     }
   })
   |> ignore
-  let s = Signal(rt, 1)
+  let s = Input(rt, 1)
   let m = Derived(rt, () => s.get() * 2)
   inspect(m.read_or_abort(), content="2")
   inspect(a, content="1")
@@ -485,7 +485,7 @@ test "derived_event: on_derived_event singleton coexists with an additive listen
     }
   })
   |> ignore
-  let s = Signal(rt, 1)
+  let s = Input(rt, 1)
   let m = Derived(rt, () => s.get() * 2)
   inspect(m.read_or_abort(), content="2")
   inspect(log, content="Sa")
@@ -495,7 +495,7 @@ test "derived_event: on_derived_event singleton coexists with an additive listen
 test "derived_event: additive registration guard rejects inside a compute closure" {
   let rt = Runtime()
   let rejected : Ref[Bool] = Ref(false)
-  let s = Signal(rt, 1)
+  let s = Input(rt, 1)
   let derived = Derived(rt, () => {
     try rt.add_derived_event_listener(_e => ()) catch {
       _ => rejected.val = true

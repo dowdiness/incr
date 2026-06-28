@@ -1,7 +1,7 @@
 ///|
 test "publish_cell_changes: advances revision, marks changed_at, fires on_change" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 0)
+  let sig = Input::Input(rt, 0)
   let cell_id = sig.id()
   let before = rt.core.revision.current_revision
   let mut fired = false
@@ -28,7 +28,7 @@ test "panic cross-runtime: get_pull_signal aborts when cell belongs to a differe
   // verification walk would abort here rather than silently reading wrong state.
   let rt_a = Runtime::Runtime()
   let rt_b = Runtime::Runtime()
-  let sig_b = Signal::Signal(rt_b, 42)
+  let sig_b = Input::Input(rt_b, 42)
   // Directly querying rt_a with sig_b's cell_id must abort
   let _ = rt_a.get_pull_signal(sig_b.cell_id)
 }

@@ -127,7 +127,7 @@ test "facade scope: target handles are disposed with scope" {
 
   scope.dispose()
 
-  inspect(input.inner.is_disposed(), content="true")
+  inspect(input.is_disposed(), content="true")
   inspect(derived.is_disposed(), content="true")
   inspect(reachable.is_disposed(), content="true")
   inspect(eager.inner.is_disposed(), content="true")

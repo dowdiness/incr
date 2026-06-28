@@ -15,7 +15,7 @@ Reference for the most commonly used public APIs in `incr`. This is not exhausti
 > hides implementation details. Compatibility helpers still accept `Database`.
 > See the [Helper Functions](#helper-functions) section and [API Design Guidelines](design/api-design-guidelines.md) for details.
 
-> **Target-name migration:** Target facade types (`Derived`, `DerivedMap`, `ReachableDerived`) are the recommended names. The legacy Memo-family types (`Memo`, `MemoMap`, `HybridMemo`) have been removed in v0.12.0. Other legacy compatibility names (`Signal`, `TrackedCell`, `Reactive`, `Observer`, `FunctionalRelation`, `Readable`, `Trackable`, `Database`) remain re-exported from `@incr` for source compatibility.
+> **Target-name migration:** Target facade types (`Derived`, `DerivedMap`, `ReachableDerived`) are the recommended names. The legacy Memo-family types (`Memo`, `MemoMap`, `HybridMemo`) have been removed in v0.12.0. Other legacy compatibility names (`TrackedCell`, `Reactive`, `Observer`, `FunctionalRelation`, `Readable`, `Trackable`, `Database`) remain re-exported from `@incr` for source compatibility. `Signal` was removed in v0.14.0 — use `Input`.
 
 ## Read Vocabulary Migration
 
@@ -50,7 +50,7 @@ install the committed-change callback during construction.
 
 Executes `f` with batched input updates.
 
-Inside a batch, `Input::set()` and `Input::force_set()` writes are deferred and committed when the outermost batch exits. Compatibility `Signal::set()` and `Signal::set_unconditional()` have the same batching behavior.
+Inside a batch, `Input::set()` and `Input::force_set()` writes are deferred and committed when the outermost batch exits.
 
 The checked companion covers batched committed writes and rollback in
 [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
@@ -269,9 +269,9 @@ closure is uncatchable and may leave an unmatched `EnteringCompute` event.
 
 ---
 
-## Input[T] / Signal[T]
+## Input[T]
 
-`Input[T]` is the target-name facade for externally controlled values. `Signal[T]` remains available as the compatibility handle.
+`Input[T]` is the type for externally controlled values.
 
 ### `Input[T](rt: Runtime, initial: T, durability? : Durability, label? : String) -> Input[T]`
 
@@ -319,17 +319,7 @@ value on each read, without equality-based backdating. Each recomputation
 advances the changed-at revision unconditionally, even when the output
 equals the previous value. Accepts output types that do not implement `Eq`.
 
-### Compatibility `Signal[T]`
 
-`Signal[T]` exposes the same underlying input cell with legacy names:
-
-- `Signal(rt, value, durability?, label?)` constructs a compatibility input handle.
-- `Signal::set_unconditional(value)` is `Input::force_set(value)`.
-- `Signal::is_up_to_date()` is `Input::is_fresh()`.
-- `Signal::get_result()` always returns `Ok(value)` and exists for legacy symmetry with `Memo::get_result()` (removed in v0.12.0).
-- `Signal::id()`, `Signal::durability()`, `Signal::on_change()`, and `Signal::clear_on_change()` remain available on the compatibility handle for introspection and callbacks.
-
----
 
 ## InputField[T] / TrackedCell[T]
 
@@ -399,7 +389,7 @@ Returns the compatibility `TrackedCell[T]` handle for interop.
 - `TrackedCell::set_unconditional(value)` is `InputField::force_set(value)`.
 - `TrackedCell::is_up_to_date()` is `InputField::is_fresh()`.
 - `TrackedCell::get_result()` always returns `Ok(value)` and exists for legacy symmetry with `Memo::get_result()` (removed in v0.12.0).
-- `TrackedCell::as_signal()` returns the underlying compatibility `Signal[T]`.
+- `TrackedCell::as_input()` returns the underlying `Input[T]`.
 
 ---
 
@@ -855,93 +845,27 @@ Cycle detected: Cell[0] → Cell[1] → Cell[2] → ... → Cell[19] → ...
 
 The target facades keep their surface focused on read/write semantics. Deeper
 cell introspection is available on facade types such as `Derived`,
-`ReachableDerived`, `Input`, and `InputField` (via `id()`),
-or on compatibility handles such as `Signal`
-
-### Compatibility Input Introspection
-
-#### `Signal::id(self) -> CellId`
-
-Returns the unique identifier for a compatibility input handle.
-
-The checked companion covers compatibility input IDs through `cell_info` in
-[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
-
-#### `Signal::durability(self) -> Durability`
-
-Returns the durability level of this compatibility input handle (`Low`, `Medium`, or `High`).
-
-The checked companion covers compatibility input durability in
-[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
-
-### Derived Introspection
-
-#### `Derived::id(self) -> CellId`
-
-Returns the unique identifier for a derived cell.
-
-#### `Derived::dependencies(self) -> Array[CellId]`
-
-Returns the list of cells this derived cell currently depends on. Empty if it has never been computed.
-
-The checked companion covers derived cell dependencies in
-[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
+`ReachableDerived`, `Input`, and `InputField` (via `id()`)
 
 
-### Runtime Introspection
-
-#### `Runtime::dependents(self, id : CellId) -> Array[CellId]`
-
-Returns the cell IDs that depend on the given cell (reverse edges / subscriber links). The returned array is a snapshot; modifying it does not affect the runtime.
-
-Returns an empty array if the cell ID is invalid, out of bounds, or belongs to a different runtime — matching `cell_info` semantics.
-
-The checked companion covers `Runtime::dependents` snapshots in
-[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
-
-#### `Runtime::cell_info(self, id : CellId) -> CellInfo?`
-
-Retrieves structured metadata for any cell. Returns `None` if the CellId is invalid.
-
-The checked companion covers `cell_info` labels and dependency snapshots in
-[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
-
-### CellInfo Structure
-
-```mbt nocheck
-///|
-pub struct CellInfo {
-  pub label : String?
-  pub id : CellId
-  pub changed_at : Revision
-  pub verified_at : Revision
-  pub durability : Durability
-  pub dependencies : Array[CellId]
-  pub subscribers : Array[CellId]
-}
-```
-
-For inputs, `dependencies` is empty. `subscribers` contains the cell IDs that depend on this cell (reverse edges).
-
----
 
 ## Per-Cell Callbacks
 
 Target `InputField` exposes callbacks directly. For plain inputs and lazy
-derived values, callbacks live on `Derived` and the compatibility `Signal` handles.
+derived values, callbacks live on `Derived` and the `Input` handles.
 
-### `Signal::on_change(self, f : (T) -> Unit) -> Unit`
+### `Input::on_change(self, f : (T) -> Unit) -> Unit`
 
-Registers a callback fired when this compatibility input's value changes. Replaces any previously registered callback.
+Registers a callback fired when this input's value changes. Replaces any previously registered callback.
 
 The checked companion covers compatibility input callbacks in
 [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
-### `Signal::clear_on_change(self) -> Unit`
+### `Input::clear_on_change(self) -> Unit`
 
-Removes the registered `on_change` callback for this compatibility input.
+Removes the registered `on_change` callback for this input.
 
-The checked companion covers `Signal::clear_on_change` in
+The checked companion covers `Input::clear_on_change` in
 [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ### `Derived::on_change(self, f : (T) -> Unit) -> Unit`
@@ -1020,7 +944,7 @@ pub(open) trait Database {
 }
 ```
 
-Implemented for `Signal[T]` and `TrackedCell[T]`.
+Implemented for `Input[T]` and `TrackedCell[T]`.
 
 ### Compatibility `Trackable`
 
@@ -1126,9 +1050,9 @@ disposed.
 
 The helpers below take `Db : Database` and return compatibility handles.
 
-### `create_signal`
+### `create_input`
 
-Creates a new `Signal` using the database's runtime.
+Creates a new `Input` using the context runtime.
 
 The checked companion covers construction, durability, and label
 introspection in
@@ -1190,7 +1114,7 @@ including rollback on `Err`, in
 
 `Eq` is used in two distinct optimizations:
 
-**Same-value optimization (`Input::set`, `InputField::set`):** Before recording a change, the library compares the new value against the current one. If they are equal, the call is treated as a no-op: the global revision counter is not incremented and downstream derived values are not invalidated. This avoids spurious recomputation when an input is set to the value it already holds. Compatibility `Signal::set` and `TrackedCell::set` use the same rule.
+**Same-value optimization (`Input::set`, `InputField::set`):** Before recording a change, the library compares the new value against the current one. If they are equal, the call is treated as a no-op: the global revision counter is not incremented and downstream derived values are not invalidated. This avoids spurious recomputation when an input is set to the value it already holds.
 
 **Backdating (`Derived`, `ReachableDerived`):** After a derived value recomputes, the library compares the new result against the previous cached value. If they are equal, the underlying memo's `changed_at` timestamp is kept at its previous value rather than advanced to the current revision. Any cell that depends on this derived value therefore sees no change, and its own verification is skipped entirely.
 
@@ -1220,7 +1144,7 @@ The backdate decision — whether a recomputed value counts as "changed" — is 
 | `ReachableDerived::get`, `read`, `watch` | `T : Eq` |
 | `DerivedMap::get`, `read`, `read_or`, `read_or_else` | `K : Hash + Eq`, `V : Eq` |
 | `DerivedMap::has_cached`, `sweep_cache` | `K : Hash + Eq` |
-| `Signal::set` | `T : Eq` |
-| `Signal::new`, `get`, `get_result`, `set_unconditional` | none |
+| `Input::set` | `T : Eq` |
+| `Input::new`, `get`, `get_result`, `force_set` | none |
 | `TrackedCell::set` | `T : Eq` |
 | `TrackedCell::new`, `get`, `get_result`, `set_unconditional` | none |

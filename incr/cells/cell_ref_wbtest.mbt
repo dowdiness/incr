@@ -17,9 +17,9 @@ test "pull_signal_data: can be constructed" {
 }
 
 ///|
-test "signal_id_memo_id: newtype handles wrap CellId" {
+test "input_id_memo_id: newtype handles wrap CellId" {
   let cid = CellId::{ runtime_id: @incr_types.RuntimeId(0), id: 5 }
-  let sid : @incr_types.SignalId[Int] = @incr_types.SignalId::{ id: cid }
+  let sid : @incr_types.InputId[Int] = @incr_types.InputId::{ id: cid }
   let mid : @incr_types.MemoId[Int] = @incr_types.MemoId::{ id: cid }
   inspect(sid.id.id, content="5")
   inspect(mid.id.id, content="5")

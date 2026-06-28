@@ -1,8 +1,8 @@
 ///|
-test "durability: high durability signal skips verification" {
+test "durability: high durability input skips verification" {
   let rt = Runtime::Runtime()
-  let config = Signal::Signal(rt, "debug", durability=High)
-  let source = Signal::Signal(rt, "hello")
+  let config = Input::Input(rt, "debug", durability=High)
+  let source = Input::Input(rt, "hello")
   let mut config_reads = 0
   let config_memo = Derived(rt, () => {
     config_reads = config_reads + 1
@@ -18,7 +18,7 @@ test "durability: high durability signal skips verification" {
   inspect(source_memo.read_or_abort(), content="hello")
   inspect(config_reads, content="1")
   inspect(source_memo_reads, content="1")
-  // Change only the low-durability signal
+  // Change only the low-durability input
   source.set("world")
   // config_memo should be skipped via durability optimization
   // (no High-durability input changed)
@@ -32,8 +32,8 @@ test "durability: high durability signal skips verification" {
 ///|
 test "durability: memo inherits min durability from deps" {
   let rt = Runtime::Runtime()
-  let high = Signal::Signal(rt, 1, durability=High)
-  let low = Signal::Signal(rt, 2) // Low by default
+  let high = Input::Input(rt, 1, durability=High)
+  let low = Input::Input(rt, 2) // Low by default
   let combined = Derived(rt, () => high.get() + low.get())
   inspect(combined.read_or_abort(), content="3")
   // combined should have Low durability (min of High and Low)
@@ -44,8 +44,8 @@ test "durability: memo inherits min durability from deps" {
 ///|
 test "durability: memo with only high deps gets high durability" {
   let rt = Runtime::Runtime()
-  let a = Signal::Signal(rt, 10, durability=High)
-  let b = Signal::Signal(rt, 20, durability=High)
+  let a = Input::Input(rt, 10, durability=High)
+  let b = Input::Input(rt, 20, durability=High)
   let sum = Derived(rt, () => a.get() + b.get())
   inspect(sum.read_or_abort(), content="30")
   let cell = rt.get_memo_data(sum.id())
@@ -53,10 +53,10 @@ test "durability: memo with only high deps gets high durability" {
 }
 
 ///|
-test "durability: medium durability signal" {
+test "durability: medium durability input" {
   let rt = Runtime::Runtime()
-  let med = Signal::Signal(rt, 5, durability=Medium)
-  let low = Signal::Signal(rt, 10)
+  let med = Input::Input(rt, 5, durability=Medium)
+  let low = Input::Input(rt, 10)
   let derived = Derived(rt, () => med.get() + low.get())
   inspect(derived.read_or_abort(), content="15")
   // Memo should have Low durability (min of Medium and Low)
@@ -67,8 +67,8 @@ test "durability: medium durability signal" {
 ///|
 test "durability: high-only memo skips verify when low input changes" {
   let rt = Runtime::Runtime()
-  let config = Signal::Signal(rt, 100, durability=High)
-  let source = Signal::Signal(rt, 1)
+  let config = Input::Input(rt, 100, durability=High)
+  let source = Input::Input(rt, 1)
   let mut config_compute_count = 0
   let config_derived = Derived(rt, () => {
     config_compute_count = config_compute_count + 1
@@ -98,8 +98,8 @@ test "durability: shortcut boundary — High memo stays skipped when durability_
   //   rev 2 → data (Medium) changes; durability_last_changed[High] stays at 1
   //   shortcut check: 1 > 1 → false → shortcut fires → config_memo NOT recomputed
   let rt = Runtime::Runtime()
-  let config = Signal::Signal(rt, 1, durability=High)
-  let data = Signal::Signal(rt, 0, durability=Medium)
+  let config = Input::Input(rt, 1, durability=High)
+  let data = Input::Input(rt, 0, durability=Medium)
   let mut config_compute_count = 0
   let config_memo = Derived(rt, () => {
     config_compute_count = config_compute_count + 1
@@ -109,13 +109,13 @@ test "durability: shortcut boundary — High memo stays skipped when durability_
   inspect(config_memo.read_or_abort(), content="10")
   inspect(config_compute_count, content="1")
   inspect(rt.core.revision.current_revision.value, content="0")
-  // Change High signal: bumps to revision 1; durability_last_changed[High] = 1
+  // Change High input: bumps to revision 1; durability_last_changed[High] = 1
   config.set(2)
   inspect(rt.core.revision.current_revision.value, content="1")
   // Re-verify config_memo: verified_at = 1
   inspect(config_memo.read_or_abort(), content="20")
   inspect(config_compute_count, content="2")
-  // Change Medium signal: bumps to revision 2
+  // Change Medium input: bumps to revision 2
   // durability_last_changed[Medium] = 2, durability_last_changed[Low] = 2
   // durability_last_changed[High] stays at 1  ← key boundary condition
   data.set(99)

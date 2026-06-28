@@ -693,7 +693,7 @@ test "docs cookbook: aggregate computation updates affected totals" {
 ///|
 test "docs cookbook: accumulator peek reads memo-local diagnostics" {
   let rt = @incr.Runtime()
-  let width = @incr.Signal(rt, -5, label="width")
+  let width = @incr.Input(rt, -5, label="width")
   let diags : @incr.Accumulator[String] = @incr.Accumulator::new(
     rt~,
     label="diags",
@@ -728,7 +728,7 @@ test "docs cookbook: accumulator peek reads memo-local diagnostics" {
 ///|
 test "docs cookbook: accumulated invalidates when push set changes" {
   let rt = @incr.Runtime()
-  let width = @incr.Signal(rt, -5, label="width")
+  let width = @incr.Input(rt, -5, label="width")
   let diags : @incr.Accumulator[String] = @incr.Accumulator::new(
     rt~,
     label="diags",
@@ -862,8 +862,8 @@ test "docs cookbook: derived event listener can enqueue compact log rows" {
 ///|
 test "docs cookbook: introspection identifies changed dependencies and dependents" {
   let rt = @incr.Runtime()
-  let x = @incr.Signal(rt, 10, label="x")
-  let y = @incr.Signal(rt, 20, label="y")
+  let x = @incr.Input(rt, 10, label="x")
+  let y = @incr.Input(rt, 20, label="y")
   let sum = @incr.Derived(rt, () => x.get() + y.get(), label="sum")
   let reader = sum.observe()
 
@@ -894,7 +894,7 @@ test "docs cookbook: introspection identifies changed dependencies and dependent
 ///|
 test "docs cookbook: memo changed_at shows backdating" {
   let rt = @incr.Runtime()
-  let config = @incr.Signal(rt, "abcd", label="config")
+  let config = @incr.Input(rt, "abcd", label="config")
   let length = @incr.Derived(rt, () => config.get().length(), label="length")
   let reader = length.observe()
 

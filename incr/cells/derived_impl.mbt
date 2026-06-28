@@ -233,6 +233,7 @@ fn[T] Derived::get_result_inner(
 ) -> Result[T, CycleError] raise Failure {
   self.get_result_inner_impl(record_dependency=true)
 }
+
 ///|
 fn[T] Derived::get_result_inner_impl(
   self : Derived[T],

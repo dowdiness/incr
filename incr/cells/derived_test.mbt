@@ -1,7 +1,7 @@
 ///|
 test "derived: basic computation" {
   let rt = Runtime::Runtime()
-  let input = Signal::Signal(rt, 10)
+  let input = Input::Input(rt, 10)
   let doubled = Derived::Derived(rt, () => input.get() * 2)
   inspect(doubled.read_or_abort(), content="20")
 }
@@ -10,7 +10,7 @@ test "derived: basic computation" {
 test "derived: cache hit on second read" {
   let rt = Runtime::Runtime()
   let mut compute_count = 0
-  let input = Signal::Signal(rt, 5)
+  let input = Input::Input(rt, 5)
   let d = Derived::Derived(rt, () => {
     compute_count = compute_count + 1
     input.get() + 1
@@ -26,7 +26,7 @@ test "derived: cache hit on second read" {
 test "derived: recomputes on input change" {
   let rt = Runtime::Runtime()
   let mut compute_count = 0
-  let input = Signal::Signal(rt, 3)
+  let input = Input::Input(rt, 3)
   let d = Derived::Derived(rt, () => {
     compute_count = compute_count + 1
     input.get() * 3
@@ -41,7 +41,7 @@ test "derived: recomputes on input change" {
 ///|
 test "derived: chain of two" {
   let rt = Runtime::Runtime()
-  let input = Signal::Signal(rt, 2)
+  let input = Input::Input(rt, 2)
   let step1 = Derived::Derived(rt, () => input.get() + 10)
   let step2 = Derived::Derived(rt, () => step1.get_or_abort() * 2)
   inspect(step2.read_or_abort(), content="24") // (2 + 10) * 2
@@ -53,7 +53,7 @@ test "derived: chain of two" {
 test "derived: no recompute when input unchanged" {
   let rt = Runtime::Runtime()
   let mut compute_count = 0
-  let input = Signal::Signal(rt, 7)
+  let input = Input::Input(rt, 7)
   let d = Derived::Derived(rt, () => {
     compute_count = compute_count + 1
     input.get()
@@ -69,8 +69,8 @@ test "derived: no recompute when input unchanged" {
 ///|
 test "derived: multiple inputs" {
   let rt = Runtime::Runtime()
-  let a = Signal::Signal(rt, 3)
-  let b = Signal::Signal(rt, 4)
+  let a = Input::Input(rt, 3)
+  let b = Input::Input(rt, 4)
   let sum = Derived::Derived(rt, () => a.get() + b.get())
   inspect(sum.read_or_abort(), content="7")
   a.set(10)
@@ -82,7 +82,7 @@ test "derived: multiple inputs" {
 ///|
 test "derived: three-level chain" {
   let rt = Runtime::Runtime()
-  let input = Signal::Signal(rt, 1)
+  let input = Input::Input(rt, 1)
   let l1 = Derived::Derived(rt, () => input.get() + 1)
   let l2 = Derived::Derived(rt, () => l1.get_or_abort() + 1)
   let l3 = Derived::Derived(rt, () => l2.get_or_abort() + 1)
@@ -92,12 +92,12 @@ test "derived: three-level chain" {
 }
 
 ///|
-test "panic cross-runtime: Signal::get aborts when read inside a derived on a different runtime" {
-  // Signal::get detects that the active computation belongs to a different
+test "panic cross-runtime: Input::get aborts when read inside a derived on a different runtime" {
+  // Input::get detects that the active computation belongs to a different
   // runtime and aborts rather than silently recording no dependency.
   let rt_a = Runtime::Runtime()
   let rt_b = Runtime::Runtime()
-  let sig_b = Signal::Signal(rt_b, 10)
+  let sig_b = Input::Input(rt_b, 10)
   let d_a = Derived::Derived(rt_a, () => sig_b.get())
   let _ = d_a.read_or_abort() // aborts: sig_b is on rt_b, d_a computes on rt_a
 }
@@ -114,7 +114,7 @@ test "panic cross-runtime: Derived::get aborts when read inside a derived on a d
 ///|
 test "panic Derived::get() outside tracked context" {
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 10)
+  let s = Input::Input(rt, 10)
   let d = Derived::Derived(rt, () => s.get() * 2)
   ignore(d.get_or_abort())
 }
@@ -122,7 +122,7 @@ test "panic Derived::get() outside tracked context" {
 ///|
 test "panic ReachableDerived::get() outside tracked context" {
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 10)
+  let s = Input::Input(rt, 10)
   let rd = ReachableDerived::ReachableDerived(rt, () => s.get() * 2)
   ignore(rd.get_or_abort())
 }
@@ -130,7 +130,7 @@ test "panic ReachableDerived::get() outside tracked context" {
 ///|
 test "panic Reactive::get() outside tracked context" {
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 10)
+  let s = Input::Input(rt, 10)
   let r = Reactive::new(rt, () => s.get())
   ignore(r.get())
 }
@@ -138,16 +138,16 @@ test "panic Reactive::get() outside tracked context" {
 ///|
 test "Derived::get() inside tracked context succeeds" {
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 10)
+  let s = Input::Input(rt, 10)
   let d = Derived::Derived(rt, () => s.get() * 2)
   let d2 = Derived::Derived(rt, () => d.get_or_abort() + 1)
   inspect(d2.read_or_abort(), content="21")
 }
 
 ///|
-test "Signal::peek() reads without tracking" {
+test "Input::peek() reads without tracking" {
   let rt = Runtime::Runtime()
-  let s = Signal::Signal(rt, 42)
+  let s = Input::Input(rt, 42)
   // peek works from outside tracked context
   inspect(s.peek(), content="42")
   // peek does not record dependency

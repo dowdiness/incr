@@ -1,7 +1,7 @@
 ///|
-test "cell_ops: signal has ops at its id index" {
+test "cell_ops: input has ops at its id index" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 42)
+  let sig = Input::Input(rt, 42)
   inspect(rt.core.cell_ops.length(), content="1")
   let ops = rt.core.cell_ops[sig.id().id]
   inspect(ops.cell_id() == sig.id(), content="true")
@@ -20,7 +20,7 @@ test "cell_ops: memo has ops at its id index" {
 ///|
 test "cell_ops: set_changed_at mutates the SoA struct" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let ops = rt.core.cell_ops[sig.id().id]
   let rev1 = Revision::next(Revision::initial())
   ops.set_changed_at(rev1)
@@ -28,19 +28,19 @@ test "cell_ops: set_changed_at mutates the SoA struct" {
 }
 
 ///|
-test "cell_ops: signal level defaults to 0" {
+test "cell_ops: input level defaults to 0" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 42)
+  let sig = Input::Input(rt, 42)
   let ops = rt.core.cell_ops[sig.id().id]
   inspect(ops.level(), content="0")
 }
 
 ///|
-test "cell_ops: signal dep_changed_since returns Some" {
+test "cell_ops: input dep_changed_since returns Some" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let ops = rt.core.cell_ops[sig.id().id]
-  // Signal at initial revision, verified_at = initial → not changed
+  // Input at initial revision, verified_at = initial → not changed
   debug_inspect(
     ops.dep_changed_since(Revision::initial()),
     content="Some(false)",
@@ -56,7 +56,7 @@ test "cell_ops: signal dep_changed_since returns Some" {
 ///|
 test "cell_ops: memo dep_changed_since returns None" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let m = Derived(rt, () => sig.get())
   let _ = m.read_or_abort()
   let ops = rt.core.cell_ops[m.id().id]
@@ -75,7 +75,7 @@ test "cell_ops: memo level defaults to 0" {
 ///|
 test "cell_ops: push reactive level returns stored level" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let r = Reactive::new(rt, () => sig.get())
   let ops = rt.core.cell_ops[r.id().id]
   // Push reactive level = max(source levels) + 1 = 0 + 1 = 1
@@ -85,7 +85,7 @@ test "cell_ops: push reactive level returns stored level" {
 ///|
 test "cell_ops: push reactive dep_changed_since returns Some" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let r = Reactive::new(rt, () => sig.get())
   let ops = rt.core.cell_ops[r.id().id]
   // Push reactive uses the default (leaf-cell) dep_changed_since
@@ -98,7 +98,7 @@ test "cell_ops: push reactive dep_changed_since returns Some" {
 ///|
 test "cell_ops: hybrid memo dep_changed_since returns None" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let hm = ReachableDerived(rt, () => sig.get())
   let _ = hm.read_or_abort()
   let ops = rt.core.cell_ops[hm.id().id]
@@ -107,9 +107,9 @@ test "cell_ops: hybrid memo dep_changed_since returns None" {
 }
 
 ///|
-test "cell_ops: signal and memo ids are distinct when both exist" {
+test "cell_ops: input and memo ids are distinct when both exist" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let m = Derived(rt, () => sig.get())
   inspect(rt.core.cell_ops.length(), content="2")
   inspect(rt.core.cell_ops[sig.id().id].cell_id() == sig.id(), content="true")
@@ -117,9 +117,9 @@ test "cell_ops: signal and memo ids are distinct when both exist" {
 }
 
 ///|
-test "gc_role: signal is Source" {
+test "gc_role: input is Source" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 42)
+  let sig = Input::Input(rt, 42)
   let ops = rt.core.cell_ops[sig.id().id]
   inspect(ops.gc_role(), content="Source")
   sig.dispose()
@@ -128,7 +128,7 @@ test "gc_role: signal is Source" {
 ///|
 test "gc_role: memo is Interior" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 10)
+  let sig = Input::Input(rt, 10)
   let m = Derived(rt, fn() { sig.get() })
   let ops = rt.core.cell_ops[m.id().id]
   inspect(ops.gc_role(), content="Interior")
@@ -139,7 +139,7 @@ test "gc_role: memo is Interior" {
 ///|
 test "gc_role: reactive is Interior" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let r = Reactive::new(rt, fn() { sig.get() })
   let ops = rt.core.cell_ops[r.id().id]
   inspect(ops.gc_role(), content="Interior")
@@ -150,7 +150,7 @@ test "gc_role: reactive is Interior" {
 ///|
 test "gc_role: effect is Root" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let eff = Effect::new(rt, fn() { ignore(sig.get()) })
   let ops = rt.core.cell_ops[eff.id().id]
   inspect(ops.gc_role(), content="Root")
@@ -159,9 +159,9 @@ test "gc_role: effect is Root" {
 }
 
 ///|
-test "gc_dependencies: signal has empty deps" {
+test "gc_dependencies: input has empty deps" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 42)
+  let sig = Input::Input(rt, 42)
   let ops = rt.core.cell_ops[sig.id().id]
   inspect(ops.gc_dependencies().length(), content="0")
   sig.dispose()
@@ -170,7 +170,7 @@ test "gc_dependencies: signal has empty deps" {
 ///|
 test "gc_dependencies: memo returns its dependencies" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 10)
+  let sig = Input::Input(rt, 10)
   let m = Derived(rt, fn() { sig.get() })
   let _ = m.read_or_abort()
   let ops = rt.core.cell_ops[m.id().id]
@@ -184,7 +184,7 @@ test "gc_dependencies: memo returns its dependencies" {
 ///|
 test "gc_dependencies: effect returns its sources" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 1)
+  let sig = Input::Input(rt, 1)
   let eff = Effect::new(rt, fn() { ignore(sig.get()) })
   let ops = rt.core.cell_ops[eff.id().id]
   let deps = ops.gc_dependencies()
@@ -197,7 +197,7 @@ test "gc_dependencies: effect returns its sources" {
 ///|
 test "cell_lifecycle: dispose_cell dispatches via lifecycle array for memo" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 10)
+  let sig = Input::Input(rt, 10)
   let m = Derived(rt, fn() { sig.get() })
   let _ = m.read_or_abort()
   // Verify lifecycle array is populated
@@ -205,7 +205,7 @@ test "cell_lifecycle: dispose_cell dispatches via lifecycle array for memo" {
   // Dispose via dispose_cell (uses cell_lifecycle dispatch)
   rt.dispose_cell(m.id())
   inspect(m.is_disposed(), content="true")
-  // Signal still alive
+  // Input still alive
   inspect(sig.is_disposed(), content="false")
   sig.dispose()
 }
@@ -224,7 +224,7 @@ test "cell_lifecycle: dispose_cell dispatches via lifecycle array for relation" 
 ///|
 test "is_hybrid: memo has is_hybrid false" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 10)
+  let sig = Input::Input(rt, 10)
   let m = Derived(rt, fn() { sig.get() })
   inspect(rt.pull.memos[0].is_hybrid, content="false")
   m.dispose()
@@ -234,7 +234,7 @@ test "is_hybrid: memo has is_hybrid false" {
 ///|
 test "is_hybrid: hybrid memo has is_hybrid true" {
   let rt = Runtime::Runtime()
-  let sig = Signal::Signal(rt, 10)
+  let sig = Input::Input(rt, 10)
   let hm = ReachableDerived(rt, fn() { sig.get() })
   inspect(rt.pull.memos[0].is_hybrid, content="true")
   hm.dispose()
