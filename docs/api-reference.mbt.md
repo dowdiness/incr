@@ -637,7 +637,7 @@ Scope-owned convenience mirroring `Scope::derived`; the result lives in a child 
 
 #### `BackdateEq` tier — acceptance by revision identity
 
-For candidate value types that are **not** `Eq` but carry a `Revision` (so they implement `BackdateEq`). Acceptance is gated by `BackdateEq::backdate_equal` (revision identity) instead of structural `Eq`, mirroring `Memo::new` vs `Memo::new_memo`. Use this when the candidate holds closures or other non-`Eq` data — e.g. a projected document whose stable identity is a revision counter. `E : Eq` is retained, so the current channel still backdates on a repeated equal error.
+For candidate value types that are **not** `Eq` but carry a `Revision` (so they implement `BackdateEq`). Acceptance is gated by `BackdateEq::backdate_equal` (revision identity) instead of structural `Eq`, mirroring standard backdating vs `Derived::with_backdate`. Use this when the candidate holds closures or other non-`Eq` data — e.g. a projected document whose stable identity is a revision counter. `E : Eq` is retained, so the current channel still backdates on a repeated equal error.
 
 ### `AcceptedDerived::accepted_memo[V : BackdateEq, E : Eq](rt: Runtime, compute: () -> Result[V, E], label? : String) -> AcceptedDerived[V, E]`
 
@@ -855,7 +855,7 @@ Cycle detected: Cell[0] → Cell[1] → Cell[2] → ... → Cell[19] → ...
 
 The target facades keep their surface focused on read/write semantics. Deeper
 cell introspection is available on facade types such as `Derived`,
-`ReachableDerived`, `Input`, and `InputField` (via `id()`, `cell_id`),
+`ReachableDerived`, `Input`, and `InputField` (via `id()`),
 or on compatibility handles such as `Signal`
 
 ### Compatibility Input Introspection

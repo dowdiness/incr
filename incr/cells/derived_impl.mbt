@@ -52,7 +52,7 @@ fn[T] Runtime::memo_force_recompute(
   let query = @kernel.pop_tracking_full(self.core)
   let new_deps = query.dependencies
   let new_seen = query.seen
-  let deps_changed = @kernel.diff_and_update_subscribers(
+  let _ = @kernel.diff_and_update_subscribers(
     self.core,
     self.pull,
     self.push,
@@ -63,9 +63,7 @@ fn[T] Runtime::memo_force_recompute(
     new_seen~,
   )
   cell.dependencies = new_deps
-  if deps_changed {
-    cell.meta.durability = compute_durability(self, new_deps)
-  }
+  cell.meta.durability = compute_durability(self, new_deps)
   let value_changed = match old_value {
     None => true
     Some(old) => !eq_fn(old, new_value)
@@ -110,6 +108,7 @@ fn[T] Runtime::static_memo_force_recompute(
     }
   }
   self.leave_static_recompute()
+  cell.meta.durability = compute_durability(self, cell.dependencies)
   let value_changed = match old_value {
     None => true
     Some(old) => !eq_fn(old, new_value)

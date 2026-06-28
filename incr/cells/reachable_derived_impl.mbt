@@ -85,6 +85,10 @@ fn[T : Eq] ReachableDerived::read_result_inner(
   guard !self.rt.is_cell_disposed(self.cell_id) else {
     abort("ReachableDerived::get called on a disposed reachable derived cell")
   }
+  @kernel.repair_stale_runtime_sentinel_for_untracked_read(
+    self.rt.core,
+    "ReachableDerived",
+  )
   self.rt.check_cross_runtime(self.rt.core.runtime_id, "ReachableDerived")
   if self.rt.core.phase is InFixpoint {
     abort(

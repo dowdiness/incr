@@ -4,9 +4,9 @@
 // only the two cases below need to reach internals:
 //   * wake-counting the CURRENT channel (`ad.candidate`) to prove an equal error
 //     backdates it (no in-graph current handle is exposed publicly);
-//   * simulating a Disposed candidate read (`ad.candidate.inner.dispose()`) and
+//   * simulating a Disposed candidate read (`ad.candidate.dispose()`) and
 //     asserting the retained slot/status (`ad.accepted_slot`/`ad.last_status`)
-//     are untouched — a `Derived` has no public dispose.
+//     are untouched.
 
 ///|
 fn ad_parse(s : String) -> Result[Int, String] {

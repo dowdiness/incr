@@ -6,10 +6,10 @@
 ///      registration order; AccumulatorCommitHook is registered first in
 ///      `Runtime::new`, so any other hook observes its effects.
 ///   B. Non-memo-frame preservation — when a push reactive's compute
-///      reads memo accumulator state, the hook leaves no per-reactive
+///      reads derived accumulator state, the hook leaves no per-reactive
 ///      entry behind (the `cell_index` gate in cells/accumulator.mbt).
-///   C. Nested recompute correctness — when an inner memo aborts during
-///      an outer memo's recompute, the inner's hook entry is removed
+///   C. Nested recompute correctness — when an inner derived cell aborts during
+///      an outer derived cell's recompute, the inner's hook entry is removed
 ///      before the outer's catch arm fires.
 
 ///|
@@ -100,8 +100,8 @@ test "MemoCommitPhase: forward dispatch order on success" {
 
 ///|
 /// Test A — Dispatch order on abort.
-/// Uses `Memo::force_recompute` (package-private) to bypass `get_result`,
-/// which would `abort` the test on a raised Failure.
+/// Uses `Derived::force_recompute` (package-private) to bypass `read`,
+/// which would return `Err` on a raised Failure instead of aborting.
 test "MemoCommitPhase: forward dispatch order on abort" {
   let rt = Runtime::Runtime()
   let sentinel = SentinelHook::new()

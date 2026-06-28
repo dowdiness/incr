@@ -175,6 +175,7 @@ pub fn[T] InputField::as_tracked_cell(self : InputField[T]) -> TrackedCell[T] {
 }
 
 ///|
+/// Target-name lazy derived cell facade. Owns its fields directly — no wrapper indirection.
 pub(all) struct Derived[T] {
   priv label : String?
   priv rt : Runtime
@@ -464,8 +465,7 @@ pub fn[T] Derived::clear_on_change(self : Derived[T]) -> Unit {
 ///|
 /// Acquires an `Observer` that roots this derived cell against gc. The
 /// caller must `dispose()` the returned observer when done; otherwise
-/// the cell (and its dependency cone) stays pinned indefinitely. See
-/// `Memo::observe` for the underlying semantics.
+/// the cell (and its dependency cone) stays pinned indefinitely.
 pub fn[T] Derived::observe(self : Derived[T]) -> Observer[T] {
   guard !self.rt.is_cell_disposed(self.cell_id) else {
     abort("Derived::observe called on a disposed derived cell")
@@ -484,7 +484,7 @@ pub fn[T] Derived::observe(self : Derived[T]) -> Observer[T] {
 /// Revision at which this derived value's content last actually changed.
 /// Backdated by structural equality: when a recomputation produces a
 /// value equal to the previous one, `changed_at` is preserved rather than
-/// advanced. See `Memo::changed_at`.
+/// advanced.
 pub fn[T] Derived::changed_at(self : Derived[T]) -> Revision {
   self.rt.get_memo_data(self.cell_id).meta.changed_at
 }
@@ -507,7 +507,7 @@ pub fn[T] Derived::is_disposed(self : Derived[T]) -> Bool {
 /// Tracked accumulator read intended for use inside a compute closure.
 /// Returns a defensive copy of the values `self` pushed during its last
 /// successful compute, forces verification of `self`, and stages a
-/// synthetic dep on the current frame. See `Memo::accumulated`.
+/// synthetic dep on the current frame.
 pub fn[T, A] Derived::accumulated(
   self : Derived[T],
   acc : Accumulator[A],
