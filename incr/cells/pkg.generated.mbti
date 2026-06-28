@@ -281,6 +281,7 @@ pub(all) struct ReachableDerived[T] {
   // private fields
 }
 pub fn[T : Eq] ReachableDerived::ReachableDerived(Runtime, () -> T raise Failure, label? : String) -> Self[T]
+pub fn[T] ReachableDerived::dispose(Self[T]) -> Unit
 pub fn[T : Eq] ReachableDerived::get(Self[T]) -> Result[T, @types.ReadError]
 pub fn[T : Eq] ReachableDerived::get_or_abort(Self[T]) -> T
 pub fn[T] ReachableDerived::id(Self[T]) -> @types.CellId

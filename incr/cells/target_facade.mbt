@@ -677,6 +677,15 @@ pub fn[T : Eq] ReachableDerived::observe(
 }
 
 ///|
+
+///|
+/// Disposes this reachable derived value, freeing associated resources. After
+/// disposal, reads abort with `Disposed`.
+pub fn[T] ReachableDerived::dispose(self : ReachableDerived[T]) -> Unit {
+  self.inner.dispose()
+}
+
+///|
 /// Returns true if this reachable derived cell has been disposed.
 pub fn[T] ReachableDerived::is_disposed(self : ReachableDerived[T]) -> Bool {
   self.inner.is_disposed()

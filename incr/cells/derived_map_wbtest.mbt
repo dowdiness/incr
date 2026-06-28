@@ -2,20 +2,20 @@
 test "memo_map wb: get_or and get_or_else fallback on cycle error" {
   let rt = Runtime::Runtime()
   let source = Signal::Signal(rt, 1)
-  let by_key = MemoMap::MemoMap(rt, (key : Int) => source.get() + key)
-  inspect(by_key.get(1), content="2")
+  let by_key = DerivedMap(rt, (key : Int) => source.get() + key)
+  inspect(by_key.inner.get(1), content="2")
 
-  let memo = by_key.entries.get(1).unwrap()
+  let memo = by_key.inner.entries.get(1).unwrap()
   let meta = rt.get_memo_data(memo.id())
   // Simulate leaked verifier state and force reverification on next read.
   meta.in_progress = true
   source.set(2)
 
-  inspect(by_key.get_or(1, -10), content="-10")
+  inspect(by_key.read_or(1, -10), content="-10")
 
   let captured : Ref[CellId?] = { val: None }
   inspect(
-    by_key.get_or_else(1, err => {
+    by_key.read_or_else(1, err => {
       captured.val = Some(err.cell())
       -11
     }),
