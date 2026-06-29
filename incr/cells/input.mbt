@@ -22,10 +22,8 @@ pub(all) struct Input[T] {
   priv durability : Durability
 } derive(Debug(ignore=[Runtime, CellId]))
 
-///|
- /// Constructor-syntax alias of `Input::new`. Enables `Input(rt, value)` /
+/// Constructor-syntax alias of `Input::new`. Enables `Input(rt, value)` /
 /// `Input(rt, value, label="...", durability=High)` call sites.
-#alias(input, visibility="pub")
 pub fn[T] Input::Input(
   rt : Runtime,
   initial : T,
