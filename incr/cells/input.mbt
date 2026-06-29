@@ -23,7 +23,6 @@ pub(all) struct Input[T] {
 } derive(Debug(ignore=[Runtime, CellId]))
 
 ///|
-#alias(input, visibility="pub")
  /// Constructor-syntax alias of `Input::new`. Enables `Input(rt, value)` /
 /// `Input(rt, value, label="...", durability=High)` call sites.
 pub fn[T] Input::Input(

@@ -766,7 +766,7 @@ pub fn Runtime::gc(self : Runtime) -> Unit {
 
 ///|
 /// Creates an input cell owned by this runtime.
-#as_free_fn(visibility="pub")
+#as_free_fn(visibility="priv")
 pub fn[T] Runtime::input(
   self : Runtime,
   initial : T,
