@@ -16,7 +16,7 @@ test "docs target api: direct constructor quick start" {
   let rt = @incr.Runtime()
   let x = @incr.Input(rt, 10, label="x")
   let y = @incr.Input(rt, 20, label="y")
-  let sum = @incr.Derived(rt, () => x.get() + y.get(), label="sum")
+  let sum = x.derived2(y, (a, b) => a + b, label="sum")
 
   inspect(sum.read_or_abort(), content="30")
   x.set(5)

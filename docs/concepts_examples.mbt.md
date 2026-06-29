@@ -33,7 +33,7 @@ test "docs concepts: labels are available through cell_info" {
   let rt = @incr.Runtime()
   let price = @incr.Input(rt, 100, label="price")
   let qty = @incr.Input(rt, 2, label="qty")
-  let total = @incr.Derived(rt, () => price.get() * qty.get(), label="total")
+  let total = price.derived2(qty, (p, q) => p * q, label="total")
 
   match rt.cell_info(total.id()) {
     Some(info) =>

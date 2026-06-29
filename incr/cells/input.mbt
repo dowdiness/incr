@@ -391,6 +391,74 @@ pub fn[T] Input::is_fresh(self : Input[T]) -> Bool {
 }
 
 ///|
+/// Creates a new `Derived[V]` by combining this input with another input.
+/// Uses equality-based backdating. Aborts if inputs belong to different runtimes.
+pub fn[T, U, V : Eq] Input::derived2(
+  self : Input[T],
+  other : Input[U],
+  f : (T, U) -> V,
+  label? : String,
+) -> Derived[V] {
+  guard self.cell_id.runtime_id == other.cell_id.runtime_id else {
+    abort("Input::derived2: inputs belong to different runtimes")
+  }
+  Derived(self.rt, () => f(self.get(), other.get()), label?)
+}
+
+///|
+/// Creates a new `Derived[V]` by combining this input with another input,
+/// without equality-based backdating. Accepts output types that do not implement `Eq`.
+pub fn[T, U, V] Input::derived2_no_backdate(
+  self : Input[T],
+  other : Input[U],
+  f : (T, U) -> V,
+  label? : String,
+) -> Derived[V] {
+  guard self.cell_id.runtime_id == other.cell_id.runtime_id else {
+    abort("Input::derived2_no_backdate: inputs belong to different runtimes")
+  }
+  Derived::_create(self.rt, () => f(self.get(), other.get()), label?, (_, _) => false)
+}
+
+///|
+/// Creates a new `Derived[W]` by combining this input with two other inputs.
+/// Uses equality-based backdating. Aborts if inputs belong to different runtimes.
+pub fn[T, U, V, W : Eq] Input::derived3(
+  self : Input[T],
+  second : Input[U],
+  third : Input[V],
+  f : (T, U, V) -> W,
+  label? : String,
+) -> Derived[W] {
+  guard self.cell_id.runtime_id == second.cell_id.runtime_id else {
+    abort("Input::derived3: inputs belong to different runtimes")
+  }
+  guard self.cell_id.runtime_id == third.cell_id.runtime_id else {
+    abort("Input::derived3: inputs belong to different runtimes")
+  }
+  Derived(self.rt, () => f(self.get(), second.get(), third.get()), label?)
+}
+
+///|
+/// Creates a new `Derived[W]` by combining this input with two other inputs,
+/// without equality-based backdating. Accepts output types that do not implement `Eq`.
+pub fn[T, U, V, W] Input::derived3_no_backdate(
+  self : Input[T],
+  second : Input[U],
+  third : Input[V],
+  f : (T, U, V) -> W,
+  label? : String,
+) -> Derived[W] {
+  guard self.cell_id.runtime_id == second.cell_id.runtime_id else {
+    abort("Input::derived3_no_backdate: inputs belong to different runtimes")
+  }
+  guard self.cell_id.runtime_id == third.cell_id.runtime_id else {
+    abort("Input::derived3_no_backdate: inputs belong to different runtimes")
+  }
+  Derived::_create(self.rt, () => f(self.get(), second.get(), third.get()), label?, (_, _) => false)
+}
+
+///|
 /// Creates a new `Derived[U]` from this input by applying `f` to the current
 /// value on each read. Uses equality-based backdating: when recomputation
 /// produces a value equal to the previous output, downstream dependents skip

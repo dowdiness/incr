@@ -863,7 +863,7 @@ test "docs cookbook: introspection identifies changed dependencies and dependent
   let rt = @incr.Runtime()
   let x = @incr.Input(rt, 10, label="x")
   let y = @incr.Input(rt, 20, label="y")
-  let sum = @incr.Derived(rt, () => x.get() + y.get(), label="sum")
+  let sum = x.derived2(y, (a, b) => a + b, label="sum")
   let reader = sum.observe()
 
   inspect(reader.get(), content="30")
