@@ -95,11 +95,7 @@ test "docs target api: read result and strict get inside derived" {
     () => subtotal.get_or_abort().to_double() * tax_rate.get(),
     label="tax",
   )
-  let total = @incr.Derived(
-    rt,
-    () => subtotal.get_or_abort().to_double() + tax.get_or_abort(),
-    label="total",
-  )
+  let total = subtotal.map2(tax, (s, t) => s.to_double() + t, label="total")
 
   match total.read() {
     Ok(value) => inspect(value, content="220")
