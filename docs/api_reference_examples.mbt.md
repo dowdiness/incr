@@ -346,7 +346,7 @@ test "docs api-ref: derived map2 and map3 combine source values" {
 test "docs api-ref: derived map backdates equal output" {
   let rt = @incr.Runtime()
   let count = @incr.Input(rt, 21, label="count")
-  let source = @incr.Derived(rt, () => count.get(), label="source")
+  let source = count.derived(x => x, label="source")
   let tens = source.map(v => v / 10, label="tens")
   let downstream_runs : Ref[Int] = { val: 0 }
   let downstream = @incr.Derived(rt, () => {
@@ -365,7 +365,7 @@ test "docs api-ref: derived.watch survives gc and tracks updates" {
   let rt = @incr.Runtime()
   let input = @incr.Input(rt, 1, label="input")
   let watch = {
-    let derived = @incr.Derived(rt, () => input.get() * 10, label="derived")
+    let derived = input.derived(v => v * 10, label="derived")
     derived.watch()
   }
 

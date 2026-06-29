@@ -42,8 +42,8 @@ let scope = @incr.Scope::new(rt)
 
 `RuntimeContext` remains available for app structs that want to hide the
 runtime, but the primary target API uses direct constructors (`Input(rt, ...)`,
-`Derived(rt, ...)`) and scope helpers (`scope.input(...)`,
-`scope.derived(...)`).
+`Derived(rt, ...)` / `rt.input(...)` / `input.derived(...)`) and scope helpers
+(`scope.input(...)`, `scope.derived(...)`).
 
 ### Step 2: Create Inputs
 
@@ -54,10 +54,10 @@ Inputs are your settable values — the leaves of the dependency graph.
 let rt = @incr.Runtime()
 
 ///|
-let price = @incr.Input(rt, 100, label="price")
+let price = rt.input(100, label="price")
 
 ///|
-let quantity = @incr.Input(rt, 5, label="quantity")
+let quantity = rt.input(5, label="quantity")
 ```
 
 If these inputs should be disposed with a scope:
@@ -93,7 +93,7 @@ let price = @incr.Input(rt, 100, label="price")
 let quantity = @incr.Input(rt, 5, label="quantity")
 
 ///|
-let total = @incr.Derived(rt, () => price.get() * quantity.get(), label="total")
+let total = price.derived2(quantity, (p, q) => p * q, label="total")
 ```
 
 Or scope-owned:
@@ -128,13 +128,9 @@ or `read_or_abort()`. Both forms recompute lazily.
 ///|
 test "getting started: read and update" {
   let rt = @incr.Runtime()
-  let price = @incr.Input(rt, 100, label="price")
-  let quantity = @incr.Input(rt, 5, label="quantity")
-  let total = @incr.Derived(
-    rt,
-    () => price.get() * quantity.get(),
-    label="total",
-  )
+  let price = rt.input(100, label="price")
+  let quantity = rt.input(5, label="quantity")
+  let total = price.derived2(quantity, (p, q) => p * q, label="total")
 
   inspect(total.read_or_abort(), content="500")
 
@@ -151,13 +147,9 @@ test "getting started: read and update" {
 ///|
 test "getting started: graceful read" {
   let rt = @incr.Runtime()
-  let price = @incr.Input(rt, 100, label="price")
-  let quantity = @incr.Input(rt, 5, label="quantity")
-  let total = @incr.Derived(
-    rt,
-    () => price.get() * quantity.get(),
-    label="total",
-  )
+  let price = rt.input(100, label="price")
+  let quantity = rt.input(5, label="quantity")
+  let total = price.derived2(quantity, (p, q) => p * q, label="total")
 
   match total.read() {
     Ok(value) => inspect(value, content="500")
@@ -181,7 +173,7 @@ Use `Runtime::set_on_change` to run a callback whenever the runtime commits a ch
 ///|
 test "getting started: committed change callback" {
   let rt = @incr.Runtime()
-  let quantity = @incr.Input(rt, 10, label="quantity")
+  let quantity = rt.input(10, label="quantity")
   let changes : Ref[Int] = { val: 0 }
 
   rt.set_on_change(() => changes.val = changes.val + 1)
@@ -208,7 +200,7 @@ suberror GettingStartedBatchStop {
 ///|
 test "getting started: batch_result rollback" {
   let rt = @incr.Runtime()
-  let amount = @incr.Input(rt, 100)
+  let amount = rt.input(100)
   let result = rt.batch_result(fn() raise {
     amount.set(999)
     raise GettingStartedStop
@@ -228,20 +220,12 @@ Note: `abort()` is not catchable in MoonBit. Rollback applies to raised errors o
 test "getting started: complete example" {
   let rt = @incr.Runtime()
 
-  let base_price = @incr.Input(rt, 100, label="base_price")
-  let tax_rate = @incr.Input(rt, 0.1, label="tax_rate")
-  let quantity = @incr.Input(rt, 2, label="quantity")
+  let base_price = rt.input(100, label="base_price")
+  let tax_rate = rt.input(0.1, label="tax_rate")
+  let quantity = rt.input(2, label="quantity")
 
-  let subtotal = @incr.Derived(
-    rt,
-    () => base_price.get() * quantity.get(),
-    label="subtotal",
-  )
-  let tax = @incr.Derived(
-    rt,
-    () => subtotal.get_or_abort().to_double() * tax_rate.get(),
-    label="tax",
-  )
+  let subtotal = base_price.derived2(quantity, (p, q) => p * q, label="subtotal")
+  let tax = subtotal.map(v => v.to_double() * tax_rate.get(), label="tax")
   let total = subtotal.map2(tax, (s, t) => s.to_double() + t, label="total")
 
   inspect(subtotal.read_or_abort(), content="200")
