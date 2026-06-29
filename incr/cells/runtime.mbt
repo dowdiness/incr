@@ -529,7 +529,7 @@ fn Runtime::get_pull_input(self : Runtime, id : CellId) -> PullInputData {
     PullInput(idx) => self.pull.inputs[idx]
     _ =>
       abort(
-      "Expected input cell but found different kind: " + id.id.to_string(),
+        "Expected input cell but found different kind: " + id.id.to_string(),
       )
   }
 }

@@ -5,8 +5,7 @@ fn static_probe_subscriber_contains(
   subscriber : CellId,
 ) -> Bool {
   match rt.core.cell_index[dep.id] {
-    PullInput(idx) =>
-      rt.pull.inputs[idx].meta.subscribers.contains(subscriber)
+    PullInput(idx) => rt.pull.inputs[idx].meta.subscribers.contains(subscriber)
     PullMemo(idx) | HybridMemo(idx) =>
       rt.pull.memos[idx].meta.subscribers.contains(subscriber)
     _ => abort("expected pull dependency")
