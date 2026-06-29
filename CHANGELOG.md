@@ -21,6 +21,7 @@ All notable changes to `dowdiness/incr` are documented in this file.
   `Input` owned by the runtime without needing the `Input` type name in
   scope. The method is the primary creation path for new `Input` cells.
 - **Added `Derived::accumulated_result` for Result-style accumulator reads.** `Derived::accumulated_result` is a `Result`-style alias for `Derived::accumulated` on the target facade, mirroring the existing `Memo::accumulated_result` compatibility alias. (#324)
+- **Added `BrowserRenderer::flush_all()` for synchronous test flushes.** `renderer.flush_all()` synchronously flushes all mounted roots without waiting for an animation frame, drains after-flush commands, and fires the `after_flush` callback. Resets `frame_scheduled` after the full cycle completes so the next change triggers another flush cycle. (#339)
 
 ### Breaking Changes
 

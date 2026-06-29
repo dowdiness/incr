@@ -22,6 +22,7 @@ pub(all) struct Input[T] {
   priv durability : Durability
 } derive(Debug(ignore=[Runtime, CellId]))
 
+///|
 /// Constructor-syntax alias of `Input::new`. Enables `Input(rt, value)` /
 /// `Input(rt, value, label="...", durability=High)` call sites.
 pub fn[T] Input::Input(
@@ -416,7 +417,9 @@ pub fn[T, U, V] Input::derived2_no_backdate(
   guard self.cell_id.runtime_id == other.cell_id.runtime_id else {
     abort("Input::derived2_no_backdate: inputs belong to different runtimes")
   }
-  Derived::_create(self.rt, () => f(self.get(), other.get()), label?, (_, _) => false)
+  Derived::_create(self.rt, () => f(self.get(), other.get()), label?, (_, _) => {
+    false
+  })
 }
 
 ///|
@@ -454,7 +457,12 @@ pub fn[T, U, V, W] Input::derived3_no_backdate(
   guard self.cell_id.runtime_id == third.cell_id.runtime_id else {
     abort("Input::derived3_no_backdate: inputs belong to different runtimes")
   }
-  Derived::_create(self.rt, () => f(self.get(), second.get(), third.get()), label?, (_, _) => false)
+  Derived::_create(
+    self.rt,
+    () => f(self.get(), second.get(), third.get()),
+    label?,
+    (_, _) => false,
+  )
 }
 
 ///|

@@ -105,6 +105,7 @@ pub fn[Msg] BrowserRenderer::deactivate(Self[Msg], BrowserRoot[Msg]) -> Unit
 pub fn[Msg] BrowserRenderer::destroy(Self[Msg], BrowserRoot[Msg]) -> Unit
 pub fn[Msg] BrowserRenderer::detach(Self[Msg], BrowserRoot[Msg]) -> Unit
 pub fn[Msg] BrowserRenderer::dispose(Self[Msg]) -> Unit
+pub fn[Msg : Eq] BrowserRenderer::flush_all(Self[Msg]) -> Unit
 pub fn[Msg : Eq] BrowserRenderer::mount(Self[Msg], DomElement, Program[Msg, Html[Msg]], label? : String, on_input? : (TextInputId, TextInputPayload) -> Msg?, on_key? : (KeyEventId, KeyPayload) -> Msg?, on_pointer? : (PointerEventId, PointerPayload) -> Msg?, on_key_event? : (KeyEventId, KeyPayload) -> KeyEventDispatch[Msg]?) -> BrowserRoot[Msg]
 pub fn[Msg : Eq] BrowserRenderer::reattach(Self[Msg], BrowserRoot[Msg]) -> Unit
 pub fn[Msg] BrowserRenderer::root_stats(Self[Msg]) -> Array[RootStats]
