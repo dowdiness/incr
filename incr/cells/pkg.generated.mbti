@@ -68,6 +68,7 @@ pub(all) struct CellInfo {
 pub(all) struct Derived[T] {
   // private fields
 }
+#alias(derived)
 pub fn[T : Eq] Derived::Derived(Runtime, () -> T raise Failure, label? : String) -> Self[T]
 pub fn[T, A] Derived::accumulated(Self[T], Accumulator[A]) -> Result[Array[A], @types.ReadError] raise Failure
 pub fn[T, A] Derived::accumulated_or_abort(Self[T], Accumulator[A]) -> Array[A] raise Failure
@@ -78,6 +79,7 @@ pub fn[T] Derived::clear_on_change(Self[T]) -> Unit
 pub fn[T] Derived::dependencies(Self[T]) -> Array[@types.CellId]
 pub fn[T] Derived::derived_no_backdate(Runtime, () -> T raise Failure, label? : String) -> Self[T]
 pub fn[T] Derived::dispose(Self[T]) -> Unit
+#alias(derived_fallible)
 pub fn[V : Eq, E : Eq] Derived::fallible(Runtime, () -> Result[V, E], label? : String) -> Self[Result[V, E]]
 pub fn[T] Derived::get(Self[T]) -> Result[T, @types.ReadError]
 pub fn[T] Derived::get_or_abort(Self[T]) -> T
@@ -130,9 +132,11 @@ pub(all) enum DerivedEvent {
 pub(all) struct DerivedMap[K, V] {
   // private fields
 }
+#alias(derived_map)
 pub fn[K : Hash + Eq, V] DerivedMap::DerivedMap(Runtime, (K) -> V raise Failure, label? : String) -> Self[K, V]
 pub fn[K, V] DerivedMap::cache_len(Self[K, V]) -> Int
 pub fn[K, V] DerivedMap::clear_cache(Self[K, V]) -> Unit
+#alias(derived_map_fallible)
 pub fn[K : Hash + Eq, V, E] DerivedMap::fallible(Runtime, (K) -> Result[V, E], label? : String) -> Self[K, Result[V, E]]
 pub fn[K : Hash + Eq, V : Eq] DerivedMap::get(Self[K, V], K) -> Result[V, @types.ReadError]
 pub fn[K : Hash + Eq, V : Eq] DerivedMap::get_or_abort(Self[K, V], K) -> V
@@ -146,6 +150,7 @@ pub fn[K : Hash + Eq, V] DerivedMap::sweep_cache(Self[K, V]) -> Int
 pub(all) struct EagerDerived[T] {
   // private fields
 }
+#alias(eager_derived)
 pub fn[T : Eq] EagerDerived::EagerDerived(Runtime, () -> T) -> Self[T]
 pub fn[T] EagerDerived::get(Self[T]) -> T
 pub fn[T] EagerDerived::id(Self[T]) -> @types.CellId
@@ -178,6 +183,7 @@ pub fn[K : Hash + Eq, V] FunctionalRelation::new(Runtime, merge? : (V, V) -> V, 
 pub(all) struct Input[T] {
   // private fields
 } derive(@debug.Debug)
+#alias(input)
 pub fn[T] Input::Input(Runtime, T, durability? : @types.Durability, label? : String) -> Self[T]
 pub fn[T] Input::clear_on_change(Self[T]) -> Unit
 pub fn[T, U : Eq] Input::derived(Self[T], (T) -> U, label? : String) -> Derived[U]
@@ -204,6 +210,7 @@ pub impl[T] Trackable for Input[T]
 pub(all) struct InputField[T] {
   // private fields
 }
+#alias(input_field)
 pub fn[T] InputField::InputField(Runtime, T, durability? : @types.Durability, label? : String) -> Self[T]
 pub fn[T] InputField::as_tracked_cell(Self[T]) -> TrackedCell[T]
 pub fn[T] InputField::clear_on_change(Self[T]) -> Unit
@@ -242,6 +249,7 @@ pub fn[T] Observer::is_disposed(Self[T]) -> Bool
 pub(all) struct ReachableDerived[T] {
   // private fields
 } derive(@debug.Debug)
+#alias(reachable_derived)
 pub fn[T : Eq] ReachableDerived::ReachableDerived(Runtime, () -> T raise Failure, label? : String) -> Self[T]
 pub fn[T] ReachableDerived::dispose(Self[T]) -> Unit
 pub fn[T : Eq] ReachableDerived::get(Self[T]) -> Result[T, @types.ReadError]
@@ -297,6 +305,8 @@ pub fn Runtime::fixpoint(Self) -> Unit
 pub fn Runtime::gc(Self) -> Unit
 pub fn Runtime::gc_root_count(Self, @types.CellId) -> Int
 pub fn Runtime::id(Self) -> @types.RuntimeId
+#as_free_fn
+pub fn[T] Runtime::input(Self, T, durability? : @types.Durability, label? : String) -> Input[T]
 pub fn Runtime::new(on_change? : () -> Unit) -> Self
 pub fn Runtime::new_rule(Self, Array[@types.CellId], Array[@types.CellId], () -> Unit, label? : String) -> @types.RuleId
 pub fn Runtime::on_derived_event(Self, (DerivedEvent) -> Unit) -> Unit raise Failure
@@ -333,6 +343,7 @@ pub impl @debug.Debug for Scope
 pub(all) struct TrackedCell[T] {
   // private fields
 } derive(@debug.Debug)
+#alias(tracked_cell)
 pub fn[T] TrackedCell::TrackedCell(Runtime, T, durability? : @types.Durability, label? : String) -> Self[T]
 pub fn[T] TrackedCell::as_input(Self[T]) -> Input[T]
 pub fn[T] TrackedCell::clear_on_change(Self[T]) -> Unit

@@ -763,3 +763,15 @@ pub fn Runtime::gc(self : Runtime) -> Unit {
     self.drain_pending_events_if_idle()
   }
 }
+
+///|
+/// Creates an input cell owned by this runtime.
+#as_free_fn(visibility="pub")
+pub fn[T] Runtime::input(
+  self : Runtime,
+  initial : T,
+  durability? : Durability = Low,
+  label? : String,
+) -> Input[T] {
+  Input(self, initial, durability~, label?)
+}

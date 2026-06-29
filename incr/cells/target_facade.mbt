@@ -6,6 +6,7 @@ pub(all) struct InputField[T] {
 
 ///|
 /// Creates a field-level input cell with the given initial value.
+#alias(input_field, visibility="pub")
 pub fn[T] InputField::InputField(
   rt : Runtime,
   initial : T,
@@ -123,6 +124,7 @@ pub impl[T : Debug] Debug for Derived[T] with fn to_repr(self) -> Repr {
 
 ///|
 /// Creates a lazy derived value.
+#alias(derived, visibility="pub")
 pub fn[T : Eq] Derived::Derived(
   rt : Runtime,
   compute : () -> T raise Failure,
@@ -139,6 +141,7 @@ pub fn[T : Eq] Derived::Derived(
 /// reads surface only graph failures (cycles), never an uncatchable abort.
 /// A `raise Failure` from a plain `Derived` compute is a defect, not a domain
 /// error. See docs/design/specs/2026-05-28-honest-read-error-ownership.md.
+#alias(derived_fallible, visibility="pub")
 pub fn[V : Eq, E : Eq] Derived::fallible(
   rt : Runtime,
   compute : () -> Result[V, E],
@@ -549,6 +552,7 @@ pub(all) struct ReachableDerived[T] {
 
 ///|
 /// Creates a reachable lazy derived value.
+#alias(reachable_derived, visibility="pub")
 pub fn[T : Eq] ReachableDerived::ReachableDerived(
   rt : Runtime,
   compute : () -> T raise Failure,
@@ -656,6 +660,7 @@ pub(all) struct EagerDerived[T] {
 
 ///|
 /// Creates an eager derived value.
+#alias(eager_derived, visibility="pub")
 pub fn[T : Eq] EagerDerived::EagerDerived(
   rt : Runtime,
   compute : () -> T,
@@ -700,6 +705,7 @@ pub(all) struct DerivedMap[K, V] {
 
 ///|
 /// Creates a keyed derived map.
+#alias(derived_map, visibility="pub")
 pub fn[K : Hash + Eq, V] DerivedMap::DerivedMap(
   rt : Runtime,
   compute : (K) -> V raise Failure,
@@ -713,6 +719,7 @@ pub fn[K : Hash + Eq, V] DerivedMap::DerivedMap(
 /// is expressed in the value as `Result[V, E]`, never raised. The compute is
 /// `noraise`. See `Derived::fallible` and
 /// docs/design/specs/2026-05-28-honest-read-error-ownership.md.
+#alias(derived_map_fallible, visibility="pub")
 pub fn[K : Hash + Eq, V, E] DerivedMap::fallible(
   rt : Runtime,
   compute : (K) -> Result[V, E],
