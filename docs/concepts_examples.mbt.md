@@ -33,7 +33,7 @@ test "docs concepts: labels are available through cell_info" {
   let rt = @incr.Runtime()
   let price = @incr.Input(rt, 100, label="price")
   let qty = @incr.Input(rt, 2, label="qty")
-  let total = @incr.Derived(rt, () => price.get() * qty.get(), label="total")
+  let total = price.derived2(qty, (p, q) => p * q, label="total")
 
   match rt.cell_info(total.id()) {
     Some(info) =>
@@ -51,7 +51,7 @@ test "docs concepts: labels are available through cell_info" {
 test "docs concepts: derived get tracks inside and read works outside" {
   let rt = @incr.Runtime()
   let count = @incr.Input(rt, 2, label="count")
-  let doubled = @incr.Derived(rt, () => count.get() * 2, label="doubled")
+  let doubled = count.derived(x => x * 2, label="doubled")
   let plus_one = doubled.map(x => x + 1, label="plus_one")
 
   inspect(doubled.read_or_abort(), content="4")

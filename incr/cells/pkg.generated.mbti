@@ -181,6 +181,10 @@ pub(all) struct Input[T] {
 pub fn[T] Input::Input(Runtime, T, durability? : @types.Durability, label? : String) -> Self[T]
 pub fn[T] Input::clear_on_change(Self[T]) -> Unit
 pub fn[T, U : Eq] Input::derived(Self[T], (T) -> U, label? : String) -> Derived[U]
+pub fn[T, U, V : Eq] Input::derived2(Self[T], Self[U], (T, U) -> V, label? : String) -> Derived[V]
+pub fn[T, U, V] Input::derived2_no_backdate(Self[T], Self[U], (T, U) -> V, label? : String) -> Derived[V]
+pub fn[T, U, V, W : Eq] Input::derived3(Self[T], Self[U], Self[V], (T, U, V) -> W, label? : String) -> Derived[W]
+pub fn[T, U, V, W] Input::derived3_no_backdate(Self[T], Self[U], Self[V], (T, U, V) -> W, label? : String) -> Derived[W]
 pub fn[T, U] Input::derived_no_backdate(Self[T], (T) -> U, label? : String) -> Derived[U]
 pub fn[T] Input::dispose(Self[T]) -> Unit
 pub fn[T] Input::durability(Self[T]) -> @types.Durability
@@ -293,6 +297,7 @@ pub fn Runtime::fixpoint(Self) -> Unit
 pub fn Runtime::gc(Self) -> Unit
 pub fn Runtime::gc_root_count(Self, @types.CellId) -> Int
 pub fn Runtime::id(Self) -> @types.RuntimeId
+pub fn[T] Runtime::input(Self, T, durability? : @types.Durability, label? : String) -> Input[T]
 pub fn Runtime::new(on_change? : () -> Unit) -> Self
 pub fn Runtime::new_rule(Self, Array[@types.CellId], Array[@types.CellId], () -> Unit, label? : String) -> @types.RuleId
 pub fn Runtime::on_derived_event(Self, (DerivedEvent) -> Unit) -> Unit raise Failure
@@ -354,6 +359,19 @@ pub fn[T] Watch::read(Self[T]) -> Result[T, @types.ReadError]
 pub fn[T] Watch::read_or_abort(Self[T]) -> T
 
 // Type aliases
+pub using @types {type CellId}
+
+pub using @types {type CycleError}
+
+pub using @types {type Durability}
+
+pub using @types {type ListenerId}
+
+pub using @types {type ReadError}
+
+pub using @types {type Revision}
+
+pub using @types {trait BackdateEq}
 
 // Traits
 pub(open) trait Trackable {
