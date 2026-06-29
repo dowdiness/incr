@@ -20,7 +20,7 @@ suberror ApiRefBatchResultError {
 ///|
 test "docs api-ref: Runtime batch_result returns Err and rolls back writes" {
   let rt = @incr.Runtime()
-  let input = @incr.Input(rt, 0, label="input")
+  let input = rt.input( 0, label="input")
   let notifications : Ref[Int] = { val: 0 }
   rt.set_on_change(() => notifications.val = notifications.val + 1)
 
@@ -41,7 +41,7 @@ test "docs api-ref: Runtime batch_result returns Err and rolls back writes" {
 ///|
 test "docs api-ref: Runtime on_change fires for committed changes" {
   let rt = @incr.Runtime()
-  let input = @incr.Input(rt, 0, label="input")
+  let input = rt.input( 0, label="input")
   let notifications : Ref[Int] = { val: 0 }
 
   rt.set_on_change(() => notifications.val = notifications.val + 1)
@@ -96,7 +96,7 @@ test "docs api-ref: InputField on_change fires before Runtime on_change" {
 ///|
 test "docs api-ref: derived event listener records and can be cleared" {
   let rt = @incr.Runtime()
-  let input = @incr.Input(rt, 1, label="input")
+  let input = rt.input( 1, label="input")
   let events : Ref[Int] = { val: 0 }
 
   rt.on_derived_event(_evt => events.val = events.val + 1)
@@ -120,7 +120,7 @@ test "docs api-ref: derived event listener records and can be cleared" {
 ///|
 test "docs api-ref: Input get tracks, peek is untracked" {
   let rt = @incr.Runtime()
-  let count = @incr.Input(rt, 1, label="count")
+  let count = rt.input( 1, label="count")
   let tracked_runs : Ref[Int] = { val: 0 }
   let peek_runs : Ref[Int] = { val: 0 }
 
@@ -281,8 +281,8 @@ test "docs api-ref: labels appear in cell_info and cycle errors" {
 ///|
 test "docs api-ref: derived get inside compute, read outside" {
   let rt = @incr.Runtime()
-  let price = @incr.Input(rt, 100, label="price")
-  let tax_rate = @incr.Input(rt, 0.1, label="tax_rate")
+  let price = rt.input( 100, label="price")
+  let tax_rate = rt.input( 0.1, label="tax_rate")
   let tax = @incr.Derived(
     rt,
     () => price.get().to_double() * tax_rate.get(),
@@ -309,7 +309,7 @@ test "docs api-ref: derived get inside compute, read outside" {
 ///|
 test "docs api-ref: derived map transforms a source value" {
   let rt = @incr.Runtime()
-  let count = @incr.Input(rt, 2, label="count")
+  let count = rt.input( 2, label="count")
   let plus_one = count.derived(x => x + 1, label="plus_one")
   let doubled = plus_one.map_no_backdate(v => v * 2, label="doubled")
 
@@ -321,9 +321,9 @@ test "docs api-ref: derived map transforms a source value" {
 ///|
 test "docs api-ref: derived map2 and map3 combine source values" {
   let rt = @incr.Runtime()
-  let count = @incr.Input(rt, 2, label="count")
-  let bonus = @incr.Input(rt, 3, label="bonus")
-  let multiplier = @incr.Input(rt, 4, label="multiplier")
+  let count = rt.input( 2, label="count")
+  let bonus = rt.input( 3, label="bonus")
+  let multiplier = rt.input( 4, label="multiplier")
   let base = count.derived(x => x, label="base")
   let extra = bonus.derived(x => x, label="extra")
   let scale = multiplier.derived(x => x, label="scale")
@@ -345,7 +345,7 @@ test "docs api-ref: derived map2 and map3 combine source values" {
 ///|
 test "docs api-ref: derived map backdates equal output" {
   let rt = @incr.Runtime()
-  let count = @incr.Input(rt, 21, label="count")
+  let count = rt.input( 21, label="count")
   let source = count.derived(x => x, label="source")
   let tens = source.map(v => v / 10, label="tens")
   let downstream_runs : Ref[Int] = { val: 0 }
@@ -363,7 +363,7 @@ test "docs api-ref: derived map backdates equal output" {
 ///|
 test "docs api-ref: derived.watch survives gc and tracks updates" {
   let rt = @incr.Runtime()
-  let input = @incr.Input(rt, 1, label="input")
+  let input = rt.input( 1, label="input")
   let watch = {
     let derived = input.derived(v => v * 10, label="derived")
     derived.watch()
@@ -389,7 +389,7 @@ test "docs api-ref: derived.watch survives gc and tracks updates" {
 ///|
 test "docs api-ref: derived_map permissive and strict reads" {
   let rt = @incr.Runtime()
-  let multiplier = @incr.Input(rt, 10, label="multiplier")
+  let multiplier = rt.input( 10, label="multiplier")
   let by_id : @incr.DerivedMap[Int, Int] = @incr.DerivedMap(
     rt,
     (id : Int) => id * multiplier.get(),
@@ -446,7 +446,7 @@ test "docs api-ref: derived_map read_or / read_or_else return the value on the h
 ///|
 test "docs api-ref: derived_map sweep_cache prunes gc-disposed entries" {
   let rt = @incr.Runtime()
-  let source = @incr.Input(rt, 10, label="source")
+  let source = rt.input( 10, label="source")
   let by_key : @incr.DerivedMap[Int, Int] = @incr.DerivedMap(
     rt,
     (key : Int) => source.get() + key,
@@ -473,7 +473,7 @@ test "docs api-ref: derived_map sweep_cache prunes gc-disposed entries" {
 ///|
 test "docs api-ref: reachable_derived chained with watch survives gc" {
   let rt = @incr.Runtime()
-  let input = @incr.Input(rt, 1, label="input")
+  let input = rt.input( 1, label="input")
   let reachable = @incr.ReachableDerived(
     rt,
     () => input.get() * 2,
@@ -497,7 +497,7 @@ test "docs api-ref: reachable_derived chained with watch survives gc" {
 ///|
 test "docs api-ref: reachable_derived.watch is a GC root for the reachable cell itself" {
   let rt = @incr.Runtime()
-  let input = @incr.Input(rt, 2, label="input")
+  let input = rt.input( 2, label="input")
   let watch = {
     let reachable = @incr.ReachableDerived(
       rt,
@@ -523,7 +523,7 @@ test "docs api-ref: reachable_derived.watch is a GC root for the reachable cell 
 ///|
 test "docs api-ref: eager_derived recomputes eagerly and can be read from outside" {
   let rt = @incr.Runtime()
-  let input = @incr.Input(rt, 4, label="input")
+  let input = rt.input( 4, label="input")
   let runs : Ref[Int] = { val: 0 }
   let eager = @incr.EagerDerived(rt, () => {
     runs.val = runs.val + 1
@@ -574,7 +574,7 @@ fn ad_doc_parse(src : String) -> Result[Int, String] {
 ///|
 test "docs api-ref: accepted_derived retains last accepted value across errors" {
   let rt = @incr.Runtime()
-  let source = @incr.Input(rt, "1", label="source")
+  let source = rt.input( "1", label="source")
   let parsed = @incr.AcceptedDerived::AcceptedDerived(
     rt,
     () => ad_doc_parse(source.get()),
@@ -617,7 +617,7 @@ test "docs api-ref: accepted_derived retains last accepted value across errors" 
 ///|
 test "docs api-ref: accepted_derived status transitions and accepted_changed_at gating" {
   let rt = @incr.Runtime()
-  let source = @incr.Input(rt, "1", label="source")
+  let source = rt.input( "1", label="source")
   let parsed = @incr.AcceptedDerived::AcceptedDerived(
     rt,
     () => ad_doc_parse(source.get()),
@@ -650,7 +650,7 @@ test "docs api-ref: accepted_derived status transitions and accepted_changed_at 
 ///|
 test "docs api-ref: accepted_derived accepts a transient success between failures" {
   let rt = @incr.Runtime()
-  let source = @incr.Input(rt, "bad", label="source")
+  let source = rt.input( "bad", label="source")
   let parsed = @incr.AcceptedDerived::AcceptedDerived(
     rt,
     () => ad_doc_parse(source.get()),
@@ -672,7 +672,7 @@ test "docs api-ref: accepted_derived accepts a transient success between failure
 ///|
 test "docs api-ref: batch coalesces intra-batch writes to one committed transition" {
   let rt = @incr.Runtime()
-  let source = @incr.Input(rt, "bad", label="source")
+  let source = rt.input( "bad", label="source")
   let parsed = @incr.AcceptedDerived::AcceptedDerived(
     rt,
     () => ad_doc_parse(source.get()),
@@ -694,7 +694,7 @@ test "docs api-ref: batch coalesces intra-batch writes to one committed transiti
 ///|
 test "docs api-ref: from_candidate wraps an external candidate and spares it on dispose" {
   let rt = @incr.Runtime()
-  let source = @incr.Input(rt, "1", label="source")
+  let source = rt.input( "1", label="source")
   // The caller owns this candidate `Derived`; the wrapper only adds the accept gate.
   let candidate = @incr.Derived::fallible(rt, () => ad_doc_parse(source.get()))
   let parsed = @incr.AcceptedDerived::from_candidate(candidate)
@@ -715,7 +715,7 @@ test "docs api-ref: from_candidate wraps an external candidate and spares it on 
 ///|
 test "docs api-ref: scope-owned accepted_derived disposes with its scope" {
   let rt = @incr.Runtime()
-  let source = @incr.Input(rt, "1", label="source")
+  let source = rt.input( "1", label="source")
   let scope = @incr.Scope::new(rt)
   let parsed = scope.accepted_derived(() => ad_doc_parse(source.get()))
   inspect(parsed.accepted_or_abort() is Some(1), content="true")
@@ -739,7 +739,7 @@ test "docs api-ref: scope-owned accepted_derived disposes with its scope" {
 ///|
 test "docs api-ref: Accumulator::new and push capture memo-local values" {
   let rt = @incr.Runtime()
-  let width = @incr.Input(rt, -1, label="width")
+  let width = rt.input( -1, label="width")
   let diags : @incr.Accumulator[String] = @incr.Accumulator::new(
     rt~,
     label="diags",
@@ -821,7 +821,7 @@ test "docs api-ref: map_relation staged values become visible after fixpoint" {
 ///|
 test "docs api-ref: compatibility introspection exposes ids dependencies and dependents" {
   let rt = @incr.Runtime()
-  let input = @incr.Input(rt, 10, durability=High, label="input")
+  let input = rt.input( 10, durability=High, label="input")
   let doubled = @incr.Derived(rt, () => input.get() * 2, label="doubled")
   let observer = doubled.observe()
 
@@ -854,7 +854,7 @@ test "docs api-ref: compatibility introspection exposes ids dependencies and dep
 ///|
 test "docs api-ref: compatibility per-cell callbacks can be registered and cleared" {
   let rt = @incr.Runtime()
-  let input = @incr.Input(rt, 1, label="input")
+  let input = rt.input( 1, label="input")
   let doubled = @incr.Derived(rt, () => input.get() * 2, label="doubled")
   let observer = doubled.observe()
   let input_log : Ref[String] = { val: "" }
