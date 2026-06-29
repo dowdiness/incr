@@ -46,6 +46,19 @@ Creates a new runtime with an empty dependency graph. The optional `on_change` c
 Call `Runtime()` for the default constructor, or `Runtime(on_change=...)` to
 install the committed-change callback during construction.
 
+
+### `Runtime::input[T](self, initial: T, durability?: Durability, label?: String) -> Input[T]`
+
+Creates a new `Input` cell owned by this runtime. Equivalent to
+`Input(rt, initial, durability~, label?)` but reads more naturally in
+pipeline-style code.
+
+```mbt nocheck
+let rt = Runtime()
+let price = rt.input(100, label="price")
+let qty = rt.input(2, label="qty")
+let total = price.derived2(qty, (p, q) => p * q, label="total")
+```
 ### `Runtime::batch(self, f: () -> Unit raise?) -> Unit raise?`
 
 Executes `f` with batched input updates.
@@ -319,7 +332,27 @@ value on each read, without equality-based backdating. Each recomputation
 advances the changed-at revision unconditionally, even when the output
 equals the previous value. Accepts output types that do not implement `Eq`.
 
+### `Input::derived2[T, U, V : Eq](self, other: Input[U], f: (T, U) -> V, label?: String) -> Derived[V]`
 
+Combines this input with another input into a single derived value. Uses
+equality-based backdating: when recomputation produces a value equal to the
+previous output, downstream dependents skip recomputation. Aborts if the two
+inputs belong to different runtimes.
+
+### `Input::derived2_no_backdate[T, U, V](self, other: Input[U], f: (T, U) -> V, label?: String) -> Derived[V]`
+
+Combines this input with another input into a derived value, without
+equality-based backdating. Accepts output types that do not implement `Eq`.
+
+### `Input::derived3[T, U, V, W : Eq](self, second: Input[U], third: Input[V], f: (T, U, V) -> W, label?: String) -> Derived[W]`
+
+Combines three inputs into a single derived value. Uses equality-based
+backdating. Aborts if any input belongs to a different runtime.
+
+### `Input::derived3_no_backdate[T, U, V, W](self, second: Input[U], third: Input[V], f: (T, U, V) -> W, label?: String) -> Derived[W]`
+
+Combines three inputs into a derived value, without equality-based backdating.
+Accepts output types that do not implement `Eq`.
 
 ## InputField[T] / TrackedCell[T]
 

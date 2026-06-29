@@ -10,6 +10,16 @@ All notable changes to `dowdiness/incr` are documented in this file.
 - **Added `Scope::adopt` and `Trackable` impls for facade types.** `scope.adopt(tracked)` registers a `Trackable` cell (e.g. `Derived`, `Input`, `Effect`) with the scope for deterministic disposal — the method-style companion to `add_tracked(scope, tracked)`. Seven facade types gained `Trackable` impls: `Derived`, `Input`, `InputField`, `ReachableDerived`, `EagerDerived`, `Effect`, and `Reactive`. The `Trackable` trait was moved to `incr/cells` and re-exported from `@incr`.
 - **Added `Input::derived` for pipeline-uniform derived creation.** `input.derived(f)` creates a `Derived[U]` from an `Input[T]` by applying `f` on each read, replacing the `scope.derived(() => f(input.get()))` pattern with a chained `input.derived(f).map(g)`. Uses equality-based backdating (`U : Eq`).
 - **Added `Derived::derived_no_backdate` for standalone no-backdate construction.** `Derived::derived_no_backdate(rt, compute, label?)` creates a `Derived[T]` without equality-based backdating, accepting output types that do not implement `Eq`. The target-facade companion to `Memo::new_no_backdate`.
+- **Added `Input::derived2`, `Input::derived3`, and no-backdate variants.**
+  Combine 2 or 3 `Input` cells into a `Derived` without passing `Runtime`
+  explicitly. `price.derived2(qty, (p, q) => p * q)` replaces
+  `Derived(rt, () => price.get() * qty.get())`. Three-input variant
+  `derived3` handles 3-way combinations. `_no_backdate` variants accept
+  output types that do not implement `Eq`. Includes cross-runtime guards
+  matching `Derived::map2`.
+- **Added `Runtime::input` method.** `rt.input(2, label="count")` creates an
+  `Input` owned by the runtime without needing the `Input` type name in
+  scope. The method is the primary creation path for new `Input` cells.
 - **Added `Derived::accumulated_result` for Result-style accumulator reads.** `Derived::accumulated_result` is a `Result`-style alias for `Derived::accumulated` on the target facade, mirroring the existing `Memo::accumulated_result` compatibility alias. (#324)
 
 ### Breaking Changes
