@@ -20,7 +20,6 @@ pub(all) struct TrackedCell[T] {
 ///|
 /// Constructor-syntax alias of `TrackedCell::new`. Enables
 /// `TrackedCell(rt, value)` / `TrackedCell(rt, value, label="...")` call sites.
-#alias(tracked_cell, visibility="pub")
 pub fn[T] TrackedCell::TrackedCell(
   rt : Runtime,
   initial : T,
