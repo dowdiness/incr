@@ -242,11 +242,7 @@ test "getting started: complete example" {
     () => subtotal.get_or_abort().to_double() * tax_rate.get(),
     label="tax",
   )
-  let total = @incr.Derived(
-    rt,
-    () => subtotal.get_or_abort().to_double() + tax.get_or_abort(),
-    label="total",
-  )
+  let total = subtotal.map2(tax, (s, t) => s.to_double() + t, label="total")
 
   inspect(subtotal.read_or_abort(), content="200")
   inspect(tax.read_or_abort(), content="20")

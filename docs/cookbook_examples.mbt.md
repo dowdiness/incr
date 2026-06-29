@@ -560,11 +560,10 @@ test "docs cookbook: custom domain diagnostics are cached as values" {
     label="quantity_status",
   )
 
-  let rendered : @incr.Derived[String] = @incr.Derived(
-    rt,
-    () => {
+  let rendered = status.map(
+    fn(s) {
       rendered_runs.val += 1
-      match status.get_or_abort() {
+      match s {
         QuantityOk(v) => "ok:" + v.to_string()
         QuantityDiagnostics([{ code, message }, ..]) =>
           "diagnostic:" + code + ":" + message

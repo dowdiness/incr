@@ -52,11 +52,7 @@ test "docs concepts: derived get tracks inside and read works outside" {
   let rt = @incr.Runtime()
   let count = @incr.Input(rt, 2, label="count")
   let doubled = @incr.Derived(rt, () => count.get() * 2, label="doubled")
-  let plus_one = @incr.Derived(
-    rt,
-    () => doubled.get_or_abort() + 1,
-    label="plus_one",
-  )
+  let plus_one = doubled.map(x => x + 1, label="plus_one")
 
   inspect(doubled.read_or_abort(), content="4")
   inspect(plus_one.read_or_abort(), content="5")
