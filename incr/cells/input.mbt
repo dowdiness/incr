@@ -25,6 +25,7 @@ pub(all) struct Input[T] {
 ///|
  /// Constructor-syntax alias of `Input::new`. Enables `Input(rt, value)` /
 /// `Input(rt, value, label="...", durability=High)` call sites.
+#alias(input, visibility="pub")
 pub fn[T] Input::Input(
   rt : Runtime,
   initial : T,
