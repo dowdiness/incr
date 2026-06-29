@@ -101,7 +101,7 @@ test "docs api-ref: derived event listener records and can be cleared" {
 
   rt.on_derived_event(_evt => events.val = events.val + 1)
 
-  let doubled = @incr.Derived(rt, () => input.get() * 2, label="doubled")
+  let doubled = input.derived(x => x * 2, label="doubled")
   let observer = doubled.observe()
   inspect(observer.get(), content="2")
   inspect(events.val, content="2")
@@ -310,7 +310,7 @@ test "docs api-ref: derived get inside compute, read outside" {
 test "docs api-ref: derived map transforms a source value" {
   let rt = @incr.Runtime()
   let count = @incr.Input(rt, 2, label="count")
-  let plus_one = @incr.Derived(rt, () => count.get() + 1, label="plus_one")
+  let plus_one = count.derived(x => x + 1, label="plus_one")
   let doubled = plus_one.map_no_backdate(v => v * 2, label="doubled")
 
   inspect(doubled.read_or_abort(), content="6")
@@ -324,9 +324,9 @@ test "docs api-ref: derived map2 and map3 combine source values" {
   let count = @incr.Input(rt, 2, label="count")
   let bonus = @incr.Input(rt, 3, label="bonus")
   let multiplier = @incr.Input(rt, 4, label="multiplier")
-  let base = @incr.Derived(rt, () => count.get(), label="base")
-  let extra = @incr.Derived(rt, () => bonus.get(), label="extra")
-  let scale = @incr.Derived(rt, () => multiplier.get(), label="scale")
+  let base = count.derived(x => x, label="base")
+  let extra = bonus.derived(x => x, label="extra")
+  let scale = multiplier.derived(x => x, label="scale")
   let subtotal = base.map2_no_backdate(extra, (a, b) => a + b, label="subtotal")
   let total = base.map3_no_backdate(
     extra,

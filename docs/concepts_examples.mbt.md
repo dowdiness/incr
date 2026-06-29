@@ -51,7 +51,7 @@ test "docs concepts: labels are available through cell_info" {
 test "docs concepts: derived get tracks inside and read works outside" {
   let rt = @incr.Runtime()
   let count = @incr.Input(rt, 2, label="count")
-  let doubled = @incr.Derived(rt, () => count.get() * 2, label="doubled")
+  let doubled = count.derived(x => x * 2, label="doubled")
   let plus_one = doubled.map(x => x + 1, label="plus_one")
 
   inspect(doubled.read_or_abort(), content="4")

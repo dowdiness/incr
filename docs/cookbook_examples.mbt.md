@@ -389,7 +389,7 @@ test "docs cookbook: batch commits related inputs atomically" {
 test "docs cookbook: reading during batch sees the pre-batch value" {
   let rt = @incr.Runtime()
   let x = @incr.Input(rt, 10, label="x")
-  let doubled = @incr.Derived(rt, () => x.get() * 2, label="doubled")
+  let doubled = x.derived(v => v * 2, label="doubled")
   let seen_inside_batch : Ref[Int] = { val: -1 }
 
   inspect(doubled.read_or_abort(), content="20")
@@ -782,7 +782,7 @@ struct CookbookLogRow {
 test "docs cookbook: derived event listener records recompute phases" {
   let rt = @incr.Runtime()
   let price = @incr.Input(rt, 100, label="price")
-  let total = @incr.Derived(rt, () => price.get() * 2, label="total")
+  let total = price.derived(v => v * 2, label="total")
   let frames : Array[String] = []
 
   rt.on_derived_event(evt => {
@@ -814,7 +814,7 @@ test "docs cookbook: derived event listener records recompute phases" {
 test "docs cookbook: derived event listener can enqueue compact log rows" {
   let rt = @incr.Runtime()
   let input = @incr.Input(rt, 1, label="input")
-  let doubled = @incr.Derived(rt, () => input.get() * 2, label="doubled")
+  let doubled = input.derived(v => v * 2, label="doubled")
   let rows : Array[CookbookLogRow] = []
 
   rt.on_derived_event(evt => {

@@ -111,7 +111,7 @@ test "docs target api: watch keeps derived live across gc" {
   let rt = @incr.Runtime()
   let input = @incr.Input(rt, 1, label="input")
   let watch = {
-    let derived = @incr.Derived(rt, () => input.get() + 1, label="derived")
+    let derived = input.derived(v => v + 1, label="derived")
     derived.watch()
   }
 
