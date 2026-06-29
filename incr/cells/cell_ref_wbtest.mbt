@@ -1,7 +1,7 @@
 ///|
-test "pull_signal_data: can be constructed" {
+test "pull_input_data: can be constructed" {
   let id = CellId::{ runtime_id: @incr_types.RuntimeId(0), id: 0 }
-  let data = PullSignalData::{
+  let data = PullInputData::{
     meta: {
       cell_id: id,
       label: None,
@@ -26,11 +26,11 @@ test "input_id_memo_id: newtype handles wrap CellId" {
 }
 
 ///|
-test "cell_ref: PullSignal and PullMemo variants pattern-match correctly" {
-  let a : CellRef = CellRef::PullSignal(0)
+test "cell_ref: PullInput and PullMemo variants pattern-match correctly" {
+  let a : CellRef = CellRef::PullInput(0)
   let b : CellRef = CellRef::PullMemo(3)
   let ia = match a {
-    PullSignal(i) => i
+    PullInput(i) => i
     _ => -1
   }
   let ib = match b {

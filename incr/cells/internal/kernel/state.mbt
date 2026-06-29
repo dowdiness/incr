@@ -166,9 +166,9 @@ pub(all) struct RevisionState {
 ///|
 /// Pull-mode SoA storage (lazy verification).
 pub(all) struct PullState {
-  signals : Array[@pull.PullSignalData]
+  inputs : Array[@pull.PullInputData]
   memos : Array[@pull.MemoData]
-  free_signals : Array[Int]
+  free_inputs : Array[Int]
   free_memos : Array[Int]
 }
 

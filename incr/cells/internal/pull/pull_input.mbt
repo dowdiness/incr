@@ -1,9 +1,9 @@
 ///|
-/// Type-erased metadata for a Pull Signal cell in the SoA layout.
+/// Type-erased metadata for a Pull Input cell in the SoA layout.
 ///
 /// The actual typed value lives in the `Input[T]` handle held by user code.
 /// The Runtime stores only the metadata needed for verification and callbacks.
-pub(all) struct PullSignalData {
+pub(all) struct PullInputData {
   meta : CellMeta
   mut on_change : (() -> Unit)?
   mut commit_pending : (() -> Bool)?
@@ -12,17 +12,17 @@ pub(all) struct PullSignalData {
 }
 
 ///|
-pub impl HasCellMeta for PullSignalData with fn meta(self) {
+pub impl HasCellMeta for PullInputData with fn meta(self) {
   self.meta
 }
 
 ///|
 /// CellOps dispatch for pull-input cells — all defaults via HasCellMeta.
-pub impl CellOps for PullSignalData
+pub impl CellOps for PullInputData
 
 ///|
 /// Committable dispatch for pull-input cells.
-pub impl Committable for PullSignalData with fn do_commit(self) -> Bool {
+pub impl Committable for PullInputData with fn do_commit(self) -> Bool {
   match self.commit_pending {
     Some(f) => {
       let changed = f()
@@ -31,17 +31,17 @@ pub impl Committable for PullSignalData with fn do_commit(self) -> Bool {
     }
     None =>
       abort(
-        "invariant violation: batch_pending contained signal without commit_pending",
+        "invariant violation: batch_pending contained input without commit_pending",
       )
   }
 }
 
 ///|
-pub impl Committable for PullSignalData with fn cell_id(self) -> CellId {
+pub impl Committable for PullInputData with fn cell_id(self) -> CellId {
   self.meta.cell_id
 }
 
 ///|
-pub impl Committable for PullSignalData with fn durability(self) -> Durability {
+pub impl Committable for PullInputData with fn durability(self) -> Durability {
   self.meta.durability
 }

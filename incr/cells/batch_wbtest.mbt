@@ -370,7 +370,7 @@ test "panic batch: missing commit_pending aborts during commit_batch" {
   // commit_pending and enqueues the input as &Committable in batch_pending
   sig.set(1)
   // Clear the commit_pending closure (simulates external clearing)
-  let meta = rt.get_pull_signal(sig.id())
+  let meta = rt.get_pull_input(sig.id())
   meta.commit_pending = None
   // Manually exit batch and trigger commit_batch
   rt.core.batch.depth = 0

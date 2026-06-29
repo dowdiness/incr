@@ -146,7 +146,7 @@ fn Runtime::commit_batch(self : Runtime) -> Unit {
 ///
 /// # Parameters
 ///
-/// - `committable`: A `&Committable` wrapping the `PullSignalData` with a
+/// - `committable`: A `&Committable` wrapping the `PullInputData` with a
 ///   pending value. `commit_batch` later calls `do_commit()` on it to apply
 ///   the pending change and `cell_id()` / `durability()` to update metadata.
 fn Runtime::record_batch_input(

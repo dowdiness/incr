@@ -2,7 +2,7 @@
 test "subscriber: new cells have empty subscribers" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 10)
-  let sig_data = rt.get_pull_signal(sig.id())
+  let sig_data = rt.get_pull_input(sig.id())
   inspect(sig_data.meta.subscribers.length(), content="0")
 }
 
@@ -14,8 +14,8 @@ test "subscriber: memo subscribes to its dependencies" {
   let sum = Derived(rt, () => a.get() + b.get())
   let _ = sum.read_or_abort()
   // a and b should list sum as a subscriber
-  let a_data = rt.get_pull_signal(a.id())
-  let b_data = rt.get_pull_signal(b.id())
+  let a_data = rt.get_pull_input(a.id())
+  let b_data = rt.get_pull_input(b.id())
   inspect(a_data.meta.subscribers.contains(sum.id()), content="true")
   inspect(b_data.meta.subscribers.contains(sum.id()), content="true")
 }
@@ -28,12 +28,12 @@ test "subscriber: dynamic dep change updates subscribers" {
   let b = Input::Input(rt, 20)
   let pick = Derived(rt, () => if flag.get() { a.get() } else { b.get() })
   let _ = pick.read_or_abort()
-  let a_data = rt.get_pull_signal(a.id())
-  let b_data = rt.get_pull_signal(b.id())
+  let a_data = rt.get_pull_input(a.id())
+  let b_data = rt.get_pull_input(b.id())
   inspect(a_data.meta.subscribers.contains(pick.id()), content="true")
   inspect(b_data.meta.subscribers.contains(pick.id()), content="false")
   // Switch branch: deps become flag, b
-  // PullSignalData has reference semantics — no need to re-fetch
+  // PullInputData has reference semantics — no need to re-fetch
   flag.set(false)
   let _ = pick.read_or_abort()
   inspect(a_data.meta.subscribers.contains(pick.id()), content="false")
@@ -96,7 +96,7 @@ test "subscriber: memo.get() is idempotent for subscribers" {
   let m = Derived(rt, () => a.get() + 1)
   let _ = m.read_or_abort()
   let _ = m.read_or_abort()
-  let sig_data = rt.get_pull_signal(a.id())
+  let sig_data = rt.get_pull_input(a.id())
   inspect(sig_data.meta.subscribers.contains(m.id()), content="true")
   inspect(sig_data.meta.subscribers.length(), content="1")
 }

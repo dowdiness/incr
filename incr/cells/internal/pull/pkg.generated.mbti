@@ -26,14 +26,14 @@ pub(all) struct MemoData {
 pub impl @shared.CellOps for MemoData
 pub impl @shared.HasCellMeta for MemoData
 
-pub(all) struct PullSignalData {
+pub(all) struct PullInputData {
   meta : @shared.CellMeta
   mut on_change : (() -> Unit)?
   mut commit_pending : (() -> Bool)?
 }
-pub impl @shared.CellOps for PullSignalData
-pub impl @shared.Committable for PullSignalData
-pub impl @shared.HasCellMeta for PullSignalData
+pub impl @shared.CellOps for PullInputData
+pub impl @shared.Committable for PullInputData
+pub impl @shared.HasCellMeta for PullInputData
 
 // Type aliases
 
