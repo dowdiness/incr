@@ -183,6 +183,9 @@ jobs:
           - name: example incr_tea
             path: examples/incr_tea
             args: '--target js'
+          - name: example incr_tea_7guis
+            path: examples/incr_tea_7guis
+            args: '--target js'
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -227,3 +230,64 @@ jobs:
             echo "::endgroup::"
           done
           exit $status
+
+
+
+  #-------------------------------------------------------------------------------
+  # DOM (Playwright) test for the incr_tea 7GUIs example
+  #-------------------------------------------------------------------------------
+  # Exercises the full build pipeline (MoonBit JS release + Vite bundling) then
+  # runs real browser interactions against the served bundle via Playwright.
+  # This is kept separate from the examples matrix because it requires npm
+  # dependencies, a Vite build step, and system-level browser setup.
+  incr_tea_7guis-dom:
+    name: DOM test incr_tea_7guis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      # See the library job for why we use the official script (issue #229) and
+      # the pin rationale (issue #227).
+      - name: Install MoonBit
+        env:
+          MOONBIT_INSTALL_VERSION: 0.9.3+b53c2807d
+        run: |
+          install_moonbit() {
+            curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/moonbit-install.sh \
+              && bash /tmp/moonbit-install.sh
+          }
+          for attempt in 1 2 3; do
+            if install_moonbit; then break; fi
+            if [ "$attempt" = 3 ]; then
+              echo "MoonBit install failed after 3 attempts"; exit 1
+            fi
+            echo "install attempt $attempt failed; retrying in 10s..."; sleep 10
+          done
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      - name: Verify MoonBit
+        run: moon version --all
+
+      - name: moon update
+        run: moon update
+
+      - name: Install npm dependencies
+        working-directory: examples/incr_tea_7guis
+        run: npm ci
+
+      - name: Build MoonBit release JS
+        working-directory: examples/incr_tea_7guis
+        run: npm run build:moonbit
+
+      - name: Build Vite bundle
+        working-directory: examples/incr_tea_7guis
+        run: npx vite build
+
+      - name: Install Playwright chromium + system deps
+        working-directory: examples/incr_tea_7guis
+        run: npx playwright install chromium --with-deps
+
+      - name: Run Playwright DOM test
+        working-directory: examples/incr_tea_7guis
+        run: node scripts/test-dom.mjs

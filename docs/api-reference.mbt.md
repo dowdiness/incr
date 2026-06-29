@@ -54,9 +54,16 @@ Creates a new `Input` cell owned by this runtime. Equivalent to
 pipeline-style code.
 
 ```mbt nocheck
+///|
 let rt = Runtime()
+
+///|
 let price = rt.input(100, label="price")
+
+///|
 let qty = rt.input(2, label="qty")
+
+///|
 let total = price.derived2(qty, (p, q) => p * q, label="total")
 ```
 ### `Runtime::batch(self, f: () -> Unit raise?) -> Unit raise?`

@@ -224,7 +224,11 @@ test "getting started: complete example" {
   let tax_rate = rt.input(0.1, label="tax_rate")
   let quantity = rt.input(2, label="quantity")
 
-  let subtotal = base_price.derived2(quantity, (p, q) => p * q, label="subtotal")
+  let subtotal = base_price.derived2(
+    quantity,
+    (p, q) => p * q,
+    label="subtotal",
+  )
   let tax = subtotal.map(v => v.to_double() * tax_rate.get(), label="tax")
   let total = subtotal.map2(tax, (s, t) => s.to_double() + t, label="total")
 

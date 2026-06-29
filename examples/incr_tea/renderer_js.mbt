@@ -1376,6 +1376,26 @@ pub fn[Msg] BrowserRenderer::root_stats(
 }
 
 ///|
+/// Synchronously flushes all mounted roots without waiting for an animation
+/// frame.  For use in test environments where no rAF clock is available.
+/// Drains after-flush commands and fires the `after_flush` callback.
+/// Resets `frame_scheduled` after the full cycle completes so the next change triggers another flush cycle.
+#cfg(target="js")
+pub fn[Msg : Eq] BrowserRenderer::flush_all(
+  self : BrowserRenderer[Msg],
+) -> Unit {
+  guard !self.disposed else { return }
+  // Defer until after the full cycle so after_flush callbacks that dispatch
+  // (triggering schedule_flush) don't see a cleared flag and queue a rAF.
+  for root in self.roots {
+    root.flush_if_active()
+  }
+  self.drain_after_flush_commands()
+  (self.after_flush)(self.stats())
+  self.frame_scheduled = false
+}
+
+///|
 #cfg(target="js")
 fn[Msg : Eq] BrowserRenderer::schedule_flush(
   self : BrowserRenderer[Msg],
