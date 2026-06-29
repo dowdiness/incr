@@ -384,12 +384,12 @@ test "dispose: sources' subscriber sets updated after reactive dispose" {
   let r = Reactive::new(rt, () => s.get())
   let _ = r.read_permissive()
   let s_idx = match rt.core.cell_index[s.id().id] {
-    PullSignal(i) => i
-    _ => abort("expected PullSignal")
+    PullInput(i) => i
+    _ => abort("expected PullInput")
   }
-  inspect(rt.pull.signals[s_idx].meta.subscribers.length(), content="1")
+  inspect(rt.pull.inputs[s_idx].meta.subscribers.length(), content="1")
   r.dispose()
-  inspect(rt.pull.signals[s_idx].meta.subscribers.length(), content="0")
+  inspect(rt.pull.inputs[s_idx].meta.subscribers.length(), content="0")
 }
 
 ///|
@@ -417,15 +417,15 @@ test "dispose: 100 reactives on one input leave subscribers empty and node_count
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 0)
   let s_idx = match rt.core.cell_index[s.id().id] {
-    PullSignal(i) => i
-    _ => abort("expected PullSignal")
+    PullInput(i) => i
+    _ => abort("expected PullInput")
   }
   for i = 0; i < 100; i = i + 1 {
     let idx = i
     let r = Reactive::new(rt, () => s.get() + idx)
     r.dispose()
   }
-  inspect(rt.pull.signals[s_idx].meta.subscribers.length(), content="0")
+  inspect(rt.pull.inputs[s_idx].meta.subscribers.length(), content="0")
   inspect(rt.push.node_count, content="0")
 }
 

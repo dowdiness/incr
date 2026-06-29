@@ -57,7 +57,7 @@ pub fn cell_id_for(
   cell_ref : CellRef,
 ) -> CellId {
   match cell_ref {
-    PullSignal(idx) => pull.signals[idx].meta.cell_id
+    PullInput(idx) => pull.inputs[idx].meta.cell_id
     PullMemo(idx) => pull.memos[idx].meta.cell_id
     PushReactive(idx) => push.reactives[idx].meta.cell_id
     PushEffect(idx) => push.effects[idx].meta.cell_id
@@ -135,7 +135,7 @@ pub fn propagate_liveness(
     let was_live = is_live_subscriber(core, pull, id)
     // CellMeta is heap-allocated — extracting it gives a mutable reference.
     let meta = match core.cell_index[id.id] {
-      PullSignal(i) => pull.signals[i].meta
+      PullInput(i) => pull.inputs[i].meta
       PullMemo(i) | HybridMemo(i) => pull.memos[i].meta
       PushReactive(i) => push.reactives[i].meta
       PushEffect(i) => push.effects[i].meta

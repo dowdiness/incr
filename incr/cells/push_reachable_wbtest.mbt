@@ -3,10 +3,10 @@ test "push_reachable_count: new input starts at 0" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 0)
   let idx = match rt.core.cell_index[s.id().id] {
-    PullSignal(i) => i
-    _ => abort("expected PullSignal")
+    PullInput(i) => i
+    _ => abort("expected PullInput")
   }
-  inspect(rt.pull.signals[idx].meta.push_reachable_count, content="0")
+  inspect(rt.pull.inputs[idx].meta.push_reachable_count, content="0")
 }
 
 ///|

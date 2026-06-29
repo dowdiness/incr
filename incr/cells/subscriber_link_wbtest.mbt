@@ -6,19 +6,19 @@ test "subscriber: after memo.get(), memo is in all deps' subscribers" {
   let sum = Derived(rt, () => a.get() + b.get())
   let _ = sum.read_or_abort()
   let a_idx = match rt.core.cell_index[a.id().id] {
-    PullSignal(i) => i
-    _ => abort("expected PullSignal")
+    PullInput(i) => i
+    _ => abort("expected PullInput")
   }
   let b_idx = match rt.core.cell_index[b.id().id] {
-    PullSignal(i) => i
-    _ => abort("expected PullSignal")
+    PullInput(i) => i
+    _ => abort("expected PullInput")
   }
   inspect(
-    rt.pull.signals[a_idx].meta.subscribers.contains(sum.id()),
+    rt.pull.inputs[a_idx].meta.subscribers.contains(sum.id()),
     content="true",
   )
   inspect(
-    rt.pull.signals[b_idx].meta.subscribers.contains(sum.id()),
+    rt.pull.inputs[b_idx].meta.subscribers.contains(sum.id()),
     content="true",
   )
 }
@@ -32,29 +32,29 @@ test "subscriber: dynamic dep changes update subscriber links" {
   let pick = Derived(rt, () => if flag.get() { a.get() } else { b.get() })
   let _ = pick.read_or_abort() // deps: flag, a
   let a_idx = match rt.core.cell_index[a.id().id] {
-    PullSignal(i) => i
-    _ => abort("expected PullSignal")
+    PullInput(i) => i
+    _ => abort("expected PullInput")
   }
   let b_idx = match rt.core.cell_index[b.id().id] {
-    PullSignal(i) => i
-    _ => abort("expected PullSignal")
+    PullInput(i) => i
+    _ => abort("expected PullInput")
   }
   inspect(
-    rt.pull.signals[a_idx].meta.subscribers.contains(pick.id()),
+    rt.pull.inputs[a_idx].meta.subscribers.contains(pick.id()),
     content="true",
   )
   inspect(
-    rt.pull.signals[b_idx].meta.subscribers.contains(pick.id()),
+    rt.pull.inputs[b_idx].meta.subscribers.contains(pick.id()),
     content="false",
   )
   flag.set(false)
   let _ = pick.read_or_abort() // deps: flag, b
   inspect(
-    rt.pull.signals[a_idx].meta.subscribers.contains(pick.id()),
+    rt.pull.inputs[a_idx].meta.subscribers.contains(pick.id()),
     content="false",
   )
   inspect(
-    rt.pull.signals[b_idx].meta.subscribers.contains(pick.id()),
+    rt.pull.inputs[b_idx].meta.subscribers.contains(pick.id()),
     content="true",
   )
 }
@@ -67,8 +67,8 @@ test "subscriber: memo.get() idempotent — no duplicate subscriber entries" {
   let _ = m.read_or_abort()
   let _ = m.read_or_abort()
   let a_idx = match rt.core.cell_index[a.id().id] {
-    PullSignal(i) => i
-    _ => abort("expected PullSignal")
+    PullInput(i) => i
+    _ => abort("expected PullInput")
   }
-  inspect(rt.pull.signals[a_idx].meta.subscribers.length(), content="1")
+  inspect(rt.pull.inputs[a_idx].meta.subscribers.length(), content="1")
 }

@@ -181,7 +181,7 @@ pub fn pull_verify(
 ) -> Result[Unit, @incr_types.CycleError] raise Failure {
   validate_cell(core, cell_id, "pull_verify")
   match core.cell_index[cell_id.id] {
-    PullSignal(_) => Ok(()) // always fresh
+    PullInput(_) => Ok(()) // always fresh
     PushReactive(_) | PushEffect(_) => Ok(()) // freshness via push_propagate_from
     Relation(_) | FunctionalRelation(_) | Rule(_) => {
       if core.phase is InFixpoint {

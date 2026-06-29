@@ -22,19 +22,19 @@ test "cell_id_for: round-trips through cell_index" {
 ///|
 test "runtime: SoA fields exist and start empty" {
   let rt = Runtime::Runtime()
-  inspect(rt.pull.signals.length(), content="0")
+  inspect(rt.pull.inputs.length(), content="0")
   inspect(rt.pull.memos.length(), content="0")
   inspect(rt.core.cell_index.length(), content="0")
 }
 
 ///|
-test "Input::Input: allocates into pull_signals" {
+test "Input::Input: allocates into pull_inputs" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 42)
-  inspect(rt.pull.signals.length(), content="1")
+  inspect(rt.pull.inputs.length(), content="1")
   match rt.core.cell_index[sig.id().id] {
-    PullSignal(i) => inspect(i, content="0")
-    _ => abort("expected PullSignal")
+    PullInput(i) => inspect(i, content="0")
+    _ => abort("expected PullInput")
   }
 }
 
@@ -80,16 +80,16 @@ test "runtime: dispatch tables stay index-aligned across all cell kinds" {
 ///|
 test "runtime: alloc_cell_id populates cell_index" {
   // This test exercises alloc_cell_id in isolation. alloc_cell_id only grows
-  // cell_index; it does not populate rt.pull.signals. The transient
-  // inconsistency (cell_index[0] pointing to PullSignal(0) while
-  // rt.pull.signals is empty) is intentional — we are testing the low-level
+  // cell_index; it does not populate rt.pull.inputs. The transient
+  // inconsistency (cell_index[0] pointing to PullInput(0) while
+  // rt.pull.inputs is empty) is intentional — we are testing the low-level
   // allocation primitive, not the full Runtime invariants.
   let rt = Runtime::Runtime()
-  let cell_id = rt.alloc_cell_id(CellRef::PullSignal(0))
+  let cell_id = rt.alloc_cell_id(CellRef::PullInput(0))
   inspect(cell_id.id, content="0")
   inspect(rt.core.cell_index.length(), content="1")
   match rt.core.cell_index[0] {
-    PullSignal(i) => inspect(i, content="0")
-    _ => abort("expected PullSignal")
+    PullInput(i) => inspect(i, content="0")
+    _ => abort("expected PullInput")
   }
 }

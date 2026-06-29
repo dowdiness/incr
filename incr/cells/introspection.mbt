@@ -89,7 +89,7 @@ pub fn Runtime::cell_info(self : Runtime, id : CellId) -> CellInfo? {
   }
   let ops = self.core.cell_ops[id.id]
   match self.core.cell_index[id.id] {
-    PullSignal(_) => {
+    PullInput(_) => {
       let ca = ops.changed_at()
       Some(CellInfo::{
         label: ops.label(),

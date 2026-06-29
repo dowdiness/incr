@@ -61,7 +61,7 @@ pub fn commit_batch_with_events(
         let cell_id = c.cell_id()
         validate_cell(core, cell_id, "commit_batch")
         let sig = match core.cell_index[cell_id.id] {
-          PullSignal(idx) => pull.signals[idx]
+          PullInput(idx) => pull.inputs[idx]
           _ =>
             abort(
               "Expected input cell but found different kind: " +

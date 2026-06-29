@@ -2,11 +2,11 @@
 using @incr_types {type CellId, type Revision, type Durability, type GcRole}
 
 ///|
-/// Interface for signal cells that have pending values during a batch.
+/// Interface for input cells that have pending values during a batch.
 ///
-/// Implemented by `PullSignalData`. Stored as `&Committable` in
+/// Implemented by `PullInputData`. Stored as `&Committable` in
 /// `Runtime.core.batch.pending` so `commit_batch` can iterate and dispatch
-/// without a per-entry `CellId → PullSignalData` lookup.
+/// without a per-entry `CellId → PullInputData` lookup.
 ///
 /// `cell_id` and `durability` allow `commit_batch` and
 /// `recompute_batch_max_durability` to read signal metadata directly from
@@ -26,7 +26,7 @@ pub(open) trait HasCellMeta {
 ///|
 /// Uniform interface for all cell kinds in the dependency graph.
 ///
-/// Every cell kind (PullSignal, PullMemo, and future Phase 3+ kinds) implements
+/// Every cell kind (PullInput, PullMemo, and future Phase 3+ kinds) implements
 /// this trait so Runtime helpers can dispatch without a CellRef match.
 ///
 /// # Object Safety

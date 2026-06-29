@@ -64,9 +64,9 @@ pub fn[T] Input::new(
   label? : String,
 ) -> Input[T] {
   let (cell_id, _) = rt.install_cell(
-    rt.pull.free_signals,
-    rt.pull.signals,
-    idx => PullSignal(idx),
+    rt.pull.free_inputs,
+    rt.pull.inputs,
+    idx => PullInput(idx),
     cell_id => {
       meta: {
         cell_id,
@@ -235,7 +235,7 @@ pub fn[T] Input::force_set(self : Input[T], new_value : T) -> Unit {
     self.value = new_value
     // Snapshot callback before propagation — same invariant as commit_batch:
     // push propagation must not affect which handler fires.
-    let cb = self.rt.get_pull_signal(self.cell_id).on_change
+    let cb = self.rt.get_pull_input(self.cell_id).on_change
     self.rt.propagate_changes([self.cell_id], self.durability)
     match cb {
       Some(f) => @kernel.run_callback(self.rt.core, f)
@@ -260,7 +260,7 @@ fn[T : Eq] Input::set_batch(self : Input[T], new_value : T) -> Unit {
     return
   }
   let previous_pending = self.pending_value
-  let sig_data = self.rt.get_pull_signal(self.cell_id)
+  let sig_data = self.rt.get_pull_input(self.cell_id)
   let was_registered = match sig_data.commit_pending {
     Some(_) => true
     None => false
@@ -286,7 +286,7 @@ fn[T : Eq] Input::set_batch(self : Input[T], new_value : T) -> Unit {
 /// Store a pending value during a batch (unconditional).
 fn[T] Input::set_batch_force(self : Input[T], new_value : T) -> Unit {
   let previous_pending = self.pending_value
-  let sig_data = self.rt.get_pull_signal(self.cell_id)
+  let sig_data = self.rt.get_pull_input(self.cell_id)
   let was_registered = match sig_data.commit_pending {
     Some(_) => true
     None => false
@@ -352,13 +352,13 @@ fn[T] Input::commit_force(self : Input[T]) -> Bool {
 ///
 /// - `f`: Called with the new value whenever this input changes
 pub fn[T] Input::on_change(self : Input[T], f : (T) -> Unit) -> Unit {
-  self.rt.get_pull_signal(self.cell_id).on_change = Some(() => f(self.value))
+  self.rt.get_pull_input(self.cell_id).on_change = Some(() => f(self.value))
 }
 
 ///|
 /// Removes the `on_change` callback for this input.
 pub fn[T] Input::clear_on_change(self : Input[T]) -> Unit {
-  self.rt.get_pull_signal(self.cell_id).on_change = None
+  self.rt.get_pull_input(self.cell_id).on_change = None
 }
 
 ///|

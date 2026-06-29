@@ -114,7 +114,7 @@ pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
       phase: Idle,
       gc_root_counts: @hashmap.HashMap([]),
     },
-    pull: { signals: [], memos: [], free_signals: [], free_memos: [] },
+    pull: { inputs: [], memos: [], free_inputs: [], free_memos: [] },
     push: {
       reactives: [],
       effects: [],
@@ -420,7 +420,7 @@ fn Runtime::alloc_next_id(self : Runtime) -> CellId {
 /// Allocates a fresh cell identifier and registers it in the SoA cell_index.
 ///
 /// The `cell_ref` argument records which typed SoA array this cell lives in
-/// (e.g. `PullSignal(idx)` or `PullMemo(idx)`).  The returned `CellId.id`
+/// (e.g. `PullInput(idx)` or `PullMemo(idx)`).  The returned `CellId.id`
 /// is the index into `cell_index` for fast dispatch.
 fn Runtime::alloc_cell_id(self : Runtime, cell_ref : CellRef) -> CellId {
   let cell_id = self.alloc_next_id()
@@ -522,11 +522,11 @@ fn Runtime::get_durability(self : Runtime, id : CellId) -> Durability {
 }
 
 ///|
-/// Returns the PullSignalData for a input cell.
-fn Runtime::get_pull_signal(self : Runtime, id : CellId) -> PullSignalData {
-  self.validate_cell(id, "get_pull_signal")
+/// Returns the PullInputData for an input cell.
+fn Runtime::get_pull_input(self : Runtime, id : CellId) -> PullInputData {
+  self.validate_cell(id, "get_pull_input")
   match self.core.cell_index[id.id] {
-    PullSignal(idx) => self.pull.signals[idx]
+    PullInput(idx) => self.pull.inputs[idx]
     _ =>
       abort(
         "Expected input cell but found different kind: " + id.id.to_string(),

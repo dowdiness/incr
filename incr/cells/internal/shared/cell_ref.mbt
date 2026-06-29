@@ -1,6 +1,6 @@
 ///|
 pub(all) enum CellRef {
-  PullSignal(Int)
+  PullInput(Int)
   PullMemo(Int)
   PushReactive(Int)
   PushEffect(Int)

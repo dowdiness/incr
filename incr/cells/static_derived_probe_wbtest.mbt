@@ -5,8 +5,7 @@ fn static_probe_subscriber_contains(
   subscriber : CellId,
 ) -> Bool {
   match rt.core.cell_index[dep.id] {
-    PullSignal(idx) =>
-      rt.pull.signals[idx].meta.subscribers.contains(subscriber)
+    PullInput(idx) => rt.pull.inputs[idx].meta.subscribers.contains(subscriber)
     PullMemo(idx) | HybridMemo(idx) =>
       rt.pull.memos[idx].meta.subscribers.contains(subscriber)
     _ => abort("expected pull dependency")
@@ -16,7 +15,7 @@ fn static_probe_subscriber_contains(
 ///|
 fn static_probe_subscriber_count(rt : Runtime, dep : CellId) -> Int {
   match rt.core.cell_index[dep.id] {
-    PullSignal(idx) => rt.pull.signals[idx].meta.subscribers.length()
+    PullInput(idx) => rt.pull.inputs[idx].meta.subscribers.length()
     PullMemo(idx) | HybridMemo(idx) =>
       rt.pull.memos[idx].meta.subscribers.length()
     _ => abort("expected pull dependency")

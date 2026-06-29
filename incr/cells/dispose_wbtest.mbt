@@ -31,17 +31,17 @@ test "input dispose: free list enables slot reuse" {
   let rt = Runtime()
   let sig1 = Input(rt, 10)
   let idx1 = match rt.core.cell_index[sig1.id().id] {
-    PullSignal(i) => i
-    _ => abort("expected PullSignal")
+    PullInput(i) => i
+    _ => abort("expected PullInput")
   }
   sig1.dispose()
   // Free list should contain idx1
-  assert_true(rt.pull.free_signals.contains(idx1))
+  assert_true(rt.pull.free_inputs.contains(idx1))
   // Creating a new input should reuse the slot
   let sig2 = Input(rt, 20)
   let idx2 = match rt.core.cell_index[sig2.id().id] {
-    PullSignal(i) => i
-    _ => abort("expected PullSignal")
+    PullInput(i) => i
+    _ => abort("expected PullInput")
   }
   assert_eq(idx1, idx2)
   assert_eq(sig2.get(), 20)

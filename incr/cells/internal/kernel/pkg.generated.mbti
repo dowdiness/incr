@@ -266,9 +266,9 @@ pub(all) enum PropagationPhase {
 pub impl Show for PropagationPhase
 
 pub(all) struct PullState {
-  signals : Array[@pull.PullSignalData]
+  inputs : Array[@pull.PullInputData]
   memos : Array[@pull.MemoData]
-  free_signals : Array[Int]
+  free_inputs : Array[Int]
   free_memos : Array[Int]
 }
 
