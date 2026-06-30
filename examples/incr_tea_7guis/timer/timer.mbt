@@ -82,7 +82,7 @@ fn update_model(msg : Msg, model : Model) -> Model {
         { ..model, elapsed, running: elapsed < model.duration }
       }
     Frame => { ..model, frames: model.frames + 1 }
-    Reset => { ..model, elapsed: 0, running: true }
+    Reset => { ..model, elapsed: 0, frames: 0, running: true }
     SetDuration(value) =>
       match parse_int_or_none(value) {
         Some(duration) => {
