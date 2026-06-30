@@ -515,7 +515,7 @@ test "subscriptions: Keydown→Timer transition on same key stops listener and s
 
 // ── AnimationFrame subscription lifecycle tests ─────────────────────────
 
-///|
+///| Returns the active AnimationFrameSub for `key`, or `None`.
 fn[Msg] active_raf(
   manager : SubscriptionsManager[Msg],
   key : SubKey,
@@ -526,7 +526,7 @@ fn[Msg] active_raf(
   }
 }
 
-///|
+///| Returns whether an active AnimationFrame subscription exists for `key`.
 fn[Msg] has_active_raf(
   manager : SubscriptionsManager[Msg],
   key : SubKey,

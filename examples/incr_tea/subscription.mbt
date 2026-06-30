@@ -170,7 +170,12 @@ type RafHandleId = Int
 ///|
 let next_raf_debug_id : Ref[Int] = Ref(0)
 
+///| Starts a self-re-scheduling `requestAnimationFrame` loop.
 ///|
+///| Uses a store-based pattern: the loop callback checks `store.get(next)` before
+///| dispatching AND before re-requesting the next frame. The second check prevents
+///| a race where `stop()` (called during `callback()` → dispatch → reconcile) sets
+///| `store.set(id, null)` but control returns to the loop right before the re-request.
 #cfg(target="js")
 extern "js" fn dom_start_raf_loop(callback : () -> Unit) -> RafHandleId =
   #| (callback) => {
