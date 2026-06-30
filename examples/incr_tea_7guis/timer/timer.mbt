@@ -3,11 +3,13 @@ priv struct Model {
   elapsed : Int
   duration : Int
   running : Bool
+  frames : Int
 }
 
 ///|
 enum Msg {
   Tick
+  Frame
   Reset
   SetDuration(String)
   SetRunning(Bool)
@@ -22,7 +24,7 @@ priv struct App {
 ///|
 fn App::App(runtime : @incr.Runtime) -> App {
   let scope = @incr.Scope::new(runtime)
-  let state = Ref({ elapsed: 0, duration: 10000, running: true })
+  let state = Ref({ elapsed: 0, duration: 10000, running: true, frames: 0 })
   let version = scope.input_field(0, label="7guis.timer.version")
   let update : (Msg) -> @tea.Cmd[Msg] = msg => {
     state.val = update_model(msg, state.val)
@@ -40,6 +42,10 @@ fn App::App(runtime : @incr.Runtime) -> App {
       subscriptions.set(
         @tea.SubKey("7guis", "timer"),
         @tea.SubSpec::Timer(100, Tick),
+      )
+      subscriptions.set(
+        @tea.SubKey("7guis", "animation"),
+        @tea.SubSpec::AnimationFrame(Frame),
       )
     }
     subscriptions
@@ -75,13 +81,14 @@ fn update_model(msg : Msg, model : Model) -> Model {
         let elapsed = (model.elapsed + 100).clamp(min=0, max=model.duration)
         { ..model, elapsed, running: elapsed < model.duration }
       }
+    Frame => { ..model, frames: model.frames + 1 }
     Reset => { ..model, elapsed: 0, running: true }
     SetDuration(value) =>
       match parse_int_or_none(value) {
         Some(duration) => {
           let duration = duration.clamp(min=1000, max=30000)
           let elapsed = model.elapsed.clamp(min=0, max=duration)
-          { duration, elapsed, running: model.running && elapsed < duration }
+          { ..model, duration, elapsed, running: model.running && elapsed < duration }
         }
         None => model
       }
@@ -117,6 +124,9 @@ fn view_model(model : Model) -> @tea.Html[Msg] {
         @tea.text(
           "Elapsed: \{model.elapsed / 1000}s / \{model.duration / 1000}s",
         ),
+      ]),
+      @tea.p(attrs=[@tea.class_attr("status")], [
+        @tea.text("Frames: \{model.frames}"),
       ]),
       @tea.node("label", attrs=[@tea.class_attr("field")], [
         @tea.span([@tea.text("Duration")]),
