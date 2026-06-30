@@ -26,6 +26,7 @@ pub fn SubKey::SubKey(namespace_id : String, identity : String) -> SubKey {
 pub(all) enum SubSpec[Msg] {
   Timer(Int, Msg)
   WindowKeydown(String, Msg)
+  AnimationFrame(Msg)
 } derive(Eq, Debug)
 
 ///|
@@ -154,6 +155,69 @@ fn dom_remove_window_keydown_listener(_handle : KeydownHandleId) -> Unit {
 }
 
 ///|
+#cfg(target="js")
+#external
+priv type RafHandleId
+
+///|
+#cfg(not(target="js"))
+let next_raf_id : Ref[Int] = Ref(0)
+
+///|
+#cfg(not(target="js"))
+type RafHandleId = Int
+
+///|
+let next_raf_debug_id : Ref[Int] = Ref(0)
+
+///|
+#cfg(target="js")
+extern "js" fn dom_start_raf_loop(callback : () -> Unit) -> RafHandleId =
+  #| (callback) => {
+  #|   const store = globalThis.__incrTeaRafLoops ??= new Map();
+  #|   const next = (globalThis.__incrTeaRafLoopSeq ?? 0) + 1;
+  #|   globalThis.__incrTeaRafLoopSeq = next;
+  #|   const loop = () => {
+  #|     if (store.get(next) === null) return;
+  #|     callback();
+  #|     if (store.get(next) === null) return;
+  #|     if (typeof window !== "undefined" && window !== null) {
+  #|       store.set(next, window.requestAnimationFrame(loop));
+  #|     }
+  #|   };
+  #|   if (typeof window !== "undefined" && window !== null) {
+  #|     store.set(next, window.requestAnimationFrame(loop));
+  #|   }
+  #|   return next;
+  #| }
+
+///|
+#cfg(not(target="js"))
+fn dom_start_raf_loop(_callback : () -> Unit) -> RafHandleId {
+  next_raf_id.val = next_raf_id.val + 1
+  next_raf_id.val
+}
+
+///|
+#cfg(target="js")
+extern "js" fn dom_stop_raf_loop(handle : RafHandleId) -> Unit =
+  #| (id) => {
+  #|   const store = globalThis.__incrTeaRafLoops;
+  #|   const handle = store?.get(id);
+  #|   if (handle == null) return;
+  #|   store.set(id, null);
+  #|   if (typeof window !== "undefined" && window !== null) {
+  #|     window.cancelAnimationFrame(handle);
+  #|   }
+  #| }
+
+///|
+#cfg(not(target="js"))
+fn dom_stop_raf_loop(_handle : RafHandleId) -> Unit {
+  ()
+}
+
+///|
 priv struct TimerSub[Msg] {
   mut interval_ms : Int
   message : Ref[Msg]
@@ -162,9 +226,40 @@ priv struct TimerSub[Msg] {
 }
 
 ///|
+priv struct AnimationFrameSub[Msg] {
+  message : Ref[Msg]
+  handle : RafHandleId
+}
+
+///|
+fn[Msg] AnimationFrameSub::AnimationFrameSub(
+  message : Msg,
+  dispatch : (Msg) -> Unit,
+) -> AnimationFrameSub[Msg] {
+  let message_ref = Ref(message)
+  let handle = dom_start_raf_loop(() => dispatch(message_ref.val))
+  next_raf_debug_id.val = next_raf_debug_id.val + 1
+  { message: message_ref, handle }
+}
+
+///|
+fn[Msg] AnimationFrameSub::set_message(
+  self : AnimationFrameSub[Msg],
+  message : Msg,
+) -> Unit {
+  self.message.val = message
+}
+
+///|
+fn[Msg] AnimationFrameSub::stop(self : AnimationFrameSub[Msg]) -> Unit {
+  dom_stop_raf_loop(self.handle)
+}
+
+///|
 priv enum ActiveSub[Msg] {
   Timer(TimerSub[Msg])
   Keydown(KeydownSub[Msg])
+  AnimationFrame(AnimationFrameSub[Msg])
 }
 
 ///|
@@ -265,6 +360,7 @@ fn[Msg] ActiveSub::stop(self : ActiveSub[Msg]) -> Unit {
   match self {
     Timer(timer) => timer.stop()
     Keydown(sub) => sub.stop()
+    AnimationFrame(raf) => raf.stop()
   }
 }
 
@@ -343,6 +439,40 @@ fn[Msg] SubscriptionsManager::start_or_update_keydown(
 }
 
 ///|
+fn[Msg] SubscriptionsManager::start_animation_frame(
+  message : Msg,
+  dispatch : (Msg) -> Unit,
+) -> ActiveSub[Msg] {
+  ActiveSub::AnimationFrame(
+    AnimationFrameSub::AnimationFrameSub(message, dispatch),
+  )
+}
+
+///|
+fn[Msg] SubscriptionsManager::start_or_update_animation_frame(
+  self : SubscriptionsManager[Msg],
+  key : SubKey,
+  message : Msg,
+  dispatch : (Msg) -> Unit,
+) -> Unit {
+  match self.active.get(key) {
+    Some(AnimationFrame(raf)) => raf.set_message(message)
+    Some(existing) => {
+      existing.stop()
+      self.active.set(
+        key,
+        SubscriptionsManager::start_animation_frame(message, dispatch),
+      )
+    }
+    None =>
+      self.active.set(
+        key,
+        SubscriptionsManager::start_animation_frame(message, dispatch),
+      )
+  }
+}
+
+///|
 fn[Msg] SubscriptionsManager::reconcile(
   self : SubscriptionsManager[Msg],
   desired : Subscriptions[Msg],
@@ -354,6 +484,8 @@ fn[Msg] SubscriptionsManager::reconcile(
         self.start_or_update_timer(key, interval_ms, on_tick, dispatch)
       (key, SubSpec::WindowKeydown(key_name, message)) =>
         self.start_or_update_keydown(key, key_name, message, dispatch)
+      (key, SubSpec::AnimationFrame(message)) =>
+        self.start_or_update_animation_frame(key, message, dispatch)
     }
   }
   for pair in self.active.to_array() {

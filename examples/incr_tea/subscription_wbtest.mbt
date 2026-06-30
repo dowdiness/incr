@@ -77,7 +77,9 @@ fn[Msg] active_timer(
 ) -> TimerSub[Msg]? {
   match manager.active.get(key) {
     Some(Timer(timer)) => Some(timer)
-    Some(Keydown(_)) | None => None
+    Some(AnimationFrame(_)) => None
+    Some(Keydown(_)) => None
+    None => None
   }
 }
 
@@ -88,7 +90,9 @@ fn[Msg] active_keydown(
 ) -> KeydownSub[Msg]? {
   match manager.active.get(key) {
     Some(Keydown(sub)) => Some(sub)
-    Some(Timer(_)) | None => None
+    Some(AnimationFrame(_)) => None
+    Some(Timer(_)) => None
+    None => None
   }
 }
 
@@ -505,6 +509,172 @@ test "subscriptions: Keydown→Timer transition on same key stops listener and s
   inspect(has_active_timer(manager, key), content="true")
   inspect(next_timer_debug_id.val == timer_id_before + 1, content="true")
   inspect(next_keydown_debug_id.val == kd_id_before, content="true")
+  inspect(manager.active.to_array().length(), content="1")
+  program.dispose()
+}
+
+// ── AnimationFrame subscription lifecycle tests ─────────────────────────
+
+///|
+fn[Msg] active_raf(
+  manager : SubscriptionsManager[Msg],
+  key : SubKey,
+) -> AnimationFrameSub[Msg]? {
+  match manager.active.get(key) {
+    Some(AnimationFrame(raf)) => Some(raf)
+    Some(Keydown(_)) | Some(Timer(_)) | None => None
+  }
+}
+
+///|
+fn[Msg] has_active_raf(
+  manager : SubscriptionsManager[Msg],
+  key : SubKey,
+) -> Bool {
+  match active_raf(manager, key) {
+    Some(_) => true
+    None => false
+  }
+}
+
+///|
+enum RafTestMsg {
+  EnableRaf
+  DisableRaf
+  SwitchMsg
+  TouchUnrelatedRaf
+} derive(Eq, Debug)
+
+///|
+fn raf_subscription_program(
+  runtime : @incr.Runtime,
+) -> Program[RafTestMsg, Int] {
+  let scope = @incr.Scope::new(runtime)
+  let running = scope.input_field(false, label="raftest.running")
+  let use_msg_b = scope.input_field(false, label="raftest.use_msg_b")
+  let unrelated = scope.input_field(0, label="raftest.unrelated")
+
+  let subscriptions : () -> Subscriptions[RafTestMsg] raise Failure = () => {
+    let subs = @hashmap.HashMap([])
+    if running.get() {
+      let message = if use_msg_b.get() {
+        RafTestMsg::TouchUnrelatedRaf
+      } else {
+        RafTestMsg::SwitchMsg
+      }
+      subs.set(
+        SubKey::SubKey("raf-test", "animation"),
+        SubSpec::AnimationFrame(message),
+      )
+    }
+    subs
+  }
+
+  let update : (RafTestMsg) -> Cmd[RafTestMsg] = msg => {
+    match msg {
+      EnableRaf => {
+        running.set(true)
+        Cmd::none()
+      }
+      DisableRaf => {
+        running.set(false)
+        Cmd::none()
+      }
+      SwitchMsg => {
+        use_msg_b.set(true)
+        Cmd::none()
+      }
+      TouchUnrelatedRaf => {
+        unrelated.set(unrelated.peek() + 1)
+        Cmd::none()
+      }
+    }
+  }
+
+  let view : () -> Int raise Failure = () => if running.get() { 1 } else { 0 }
+
+  Program::with_subscriptions(
+    runtime,
+    scope,
+    update,
+    view,
+    subscriptions,
+    label="raftest.view",
+  )
+}
+
+///|
+test "subscriptions: enable and disable starts/stops rAF loop" {
+  let runtime = @incr.Runtime()
+  let key = SubKey::SubKey("raf-test", "animation")
+  let program = raf_subscription_program(runtime)
+  let manager = match program.sub_manager {
+    Some(m) => m
+    None => abort("expected subscription manager")
+  }
+
+  inspect(has_active_raf(manager, key), content="false")
+  inspect(manager.active.to_array().length(), content="0")
+
+  let id_before = next_raf_debug_id.val
+  inspect(program.dispatch(EnableRaf), content="true")
+  inspect(next_raf_debug_id.val == id_before + 1, content="true")
+  inspect(has_active_raf(manager, key), content="true")
+  inspect(manager.active.to_array().length(), content="1")
+
+  inspect(program.dispatch(DisableRaf), content="true")
+  inspect(has_active_raf(manager, key), content="false")
+  inspect(manager.active.to_array().length(), content="0")
+  program.dispose()
+}
+
+///|
+test "subscriptions: unrelated field changes do not churn rAF loop" {
+  let runtime = @incr.Runtime()
+  let program = raf_subscription_program(runtime)
+  let manager = match program.sub_manager {
+    Some(m) => m
+    None => abort("expected subscription manager")
+  }
+
+  inspect(program.dispatch(EnableRaf), content="true")
+  let id_before = next_raf_debug_id.val
+  inspect(program.dispatch(TouchUnrelatedRaf), content="true")
+  inspect(manager.active.to_array().length(), content="1")
+  inspect(next_raf_debug_id.val == id_before, content="true")
+  program.dispose()
+}
+
+///|
+test "subscriptions: message-only update does not restart rAF loop" {
+  let runtime = @incr.Runtime()
+  let key = SubKey::SubKey("raf-test", "animation")
+  let program = raf_subscription_program(runtime)
+  let manager = match program.sub_manager {
+    Some(m) => m
+    None => abort("expected subscription manager")
+  }
+
+  inspect(program.dispatch(EnableRaf), content="true")
+  let sub = match active_raf(manager, key) {
+    Some(s) => s
+    None => abort("missing rAF after enable")
+  }
+
+  let is_switch_msg = match sub.message.val {
+    RafTestMsg::SwitchMsg => true
+    _ => false
+  }
+  inspect(is_switch_msg, content="true")
+
+  let id_before = next_raf_debug_id.val
+  ignore(program.dispatch(SwitchMsg))
+  inspect(next_raf_debug_id.val == id_before, content="true")
+  let is_touch = match sub.message.val {
+    RafTestMsg::TouchUnrelatedRaf => true
+    _ => false
+  }
+  inspect(is_touch, content="true")
   inspect(manager.active.to_array().length(), content="1")
   program.dispose()
 }
