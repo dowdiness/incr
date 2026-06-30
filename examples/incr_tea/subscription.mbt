@@ -155,27 +155,37 @@ fn dom_remove_window_keydown_listener(_handle : KeydownHandleId) -> Unit {
 }
 
 ///|
+/// Opaque handle for a running rAF loop, unified under cfg across JS and non-JS targets.
 #cfg(target="js")
 #external
 priv type RafHandleId
 
 ///|
+/// Monotonic counter for non-JS rAF handle allocation.
 #cfg(not(target="js"))
 let next_raf_id : Ref[Int] = Ref(0)
 
 ///|
+/// Non-JS stub: a rAF handle is a monotonic counter value.
 #cfg(not(target="js"))
 type RafHandleId = Int
 
 ///|
+/// Debug counter incremented on each AnimationFrameSub construction, visible from wbtests.
 let next_raf_debug_id : Ref[Int] = Ref(0)
 
 ///| Starts a self-re-scheduling `requestAnimationFrame` loop.
+
 ///|
+
 ///| Uses a store-based pattern: the loop callback checks `store.get(next)` before
+
 ///| dispatching AND before re-requesting the next frame. The second check prevents
+
 ///| a race where `stop()` (called during `callback()` → dispatch → reconcile) sets
-///| `store.set(id, null)` but control returns to the loop right before the re-request.
+
+///|
+/// `store.set(id, null)` but control returns to the loop right before the re-request.
 #cfg(target="js")
 extern "js" fn dom_start_raf_loop(callback : () -> Unit) -> RafHandleId =
   #| (callback) => {
@@ -197,13 +207,17 @@ extern "js" fn dom_start_raf_loop(callback : () -> Unit) -> RafHandleId =
   #| }
 
 ///|
+/// Non-JS stub: returns a fresh monotonic handle id without creating a real rAF loop.
 #cfg(not(target="js"))
 fn dom_start_raf_loop(_callback : () -> Unit) -> RafHandleId {
   next_raf_id.val = next_raf_id.val + 1
   next_raf_id.val
 }
 
+///| Cancels a running rAF loop by marking the store entry null (so the pending
+
 ///|
+/// callback skips its re-request) and calling `cancelAnimationFrame`.
 #cfg(target="js")
 extern "js" fn dom_stop_raf_loop(handle : RafHandleId) -> Unit =
   #| (id) => {
@@ -217,6 +231,7 @@ extern "js" fn dom_stop_raf_loop(handle : RafHandleId) -> Unit =
   #| }
 
 ///|
+/// Non-JS stub: no-op.
 #cfg(not(target="js"))
 fn dom_stop_raf_loop(_handle : RafHandleId) -> Unit {
   ()
@@ -231,12 +246,14 @@ priv struct TimerSub[Msg] {
 }
 
 ///|
+/// A subscription that dispatches a message on each `requestAnimationFrame` tick.
 priv struct AnimationFrameSub[Msg] {
   message : Ref[Msg]
   handle : RafHandleId
 }
 
 ///|
+/// Starts a self-re-scheduling rAF loop that calls `dispatch(message)` on each frame.
 fn[Msg] AnimationFrameSub::AnimationFrameSub(
   message : Msg,
   dispatch : (Msg) -> Unit,
@@ -248,6 +265,7 @@ fn[Msg] AnimationFrameSub::AnimationFrameSub(
 }
 
 ///|
+/// Updates the message dispatched per frame without restarting the rAF loop.
 fn[Msg] AnimationFrameSub::set_message(
   self : AnimationFrameSub[Msg],
   message : Msg,
@@ -256,6 +274,7 @@ fn[Msg] AnimationFrameSub::set_message(
 }
 
 ///|
+/// Stops the rAF loop: marks the store entry null and cancels any pending frame.
 fn[Msg] AnimationFrameSub::stop(self : AnimationFrameSub[Msg]) -> Unit {
   dom_stop_raf_loop(self.handle)
 }
@@ -444,6 +463,7 @@ fn[Msg] SubscriptionsManager::start_or_update_keydown(
 }
 
 ///|
+/// Constructs a new AnimationFrame active subscription for reconcile.
 fn[Msg] SubscriptionsManager::start_animation_frame(
   message : Msg,
   dispatch : (Msg) -> Unit,
@@ -453,7 +473,10 @@ fn[Msg] SubscriptionsManager::start_animation_frame(
   )
 }
 
+///| Reconcile helper: updates message in-place if same sub type, replaces if
+
 ///|
+/// type changed, starts fresh if absent.
 fn[Msg] SubscriptionsManager::start_or_update_animation_frame(
   self : SubscriptionsManager[Msg],
   key : SubKey,
