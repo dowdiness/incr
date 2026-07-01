@@ -30,8 +30,7 @@ All notable changes to `dowdiness/incr` are documented in this file.
   `ReachableDerived` respectively. `Memo::new_memo` and
   `Memo::new_no_backdate` are gone — use
   `Derived::with_backdate` (public, requires `T : BackdateEq`) and
-  `Derived::derived_no_backdate`. The
-  directly.
+  `Derived::derived_no_backdate` directly.
 - **Remove `Signal` type.** The legacy compatibility type `Signal[T]`
   has been removed. Use `Input[T]` instead. This includes:
   - `Signal(rt, v)` → `Input(rt, v)`
