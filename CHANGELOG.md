@@ -67,7 +67,7 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 - **Removed `type MemoId` from `@incr` re-exports.** `MemoId[T]` was a phantom-typed wrapper around `CellId` that matched the old `Memo` naming. With `Memo` already removed from the public facade, the standalone ID alias is inconsistent. The type remains defined in `dowdiness/incr/types` for internal use; use `CellId` directly or reference it via `@incr_types.MemoId` for white-box access.
 
-## v0.11.0 (2026-06-26)
+## [v0.11.0] - 2026-06-26
 
 ### Added
 
@@ -103,12 +103,12 @@ These changes are in `examples/` workspace members, not the published `dowdiness
 - Replace `gc_tracked(rt, tracked)` with `add_tracked(scope, tracked)` for compatibility `TrackedCell` owners, or `add_input_fields(scope, owner)` for target-style `InputField` owners.
 - Remove imports of `dowdiness/incr/pipeline`; the package is gone. Define application-local build traits in downstream code instead of depending on `Sourceable` / `Parseable` / `Checkable` / `Executable`.
 
-## v0.10.1 (2026-06-24)
+## [v0.10.1] - 2026-06-24
 
 ### Fixed
 - Correct changelog: `batch_result` hook composability is backward-compatible, not breaking (additive APIs added alongside existing singletons)
 
-## v0.10.0 (2026-06-24)
+## [v0.10.0] - 2026-06-24
 
 ### Added
 - Experimental `incr_tea` module: keyed VDOM diff, pure event-payload descriptors, renderer lifecycle, and Eq-safe HTML ergonomics
@@ -130,3 +130,9 @@ These changes are in `examples/` workspace members, not the published `dowdiness
 
 ### Documentation
 - Document `incr_tea` architectural direction after Rabbita, Qwik, and Luna comparison
+
+[Unreleased]: https://github.com/dowdiness/incr/compare/v0.12.0...HEAD
+[v0.12.0]: https://github.com/dowdiness/incr/compare/v0.11.0...v0.12.0
+[v0.11.0]: https://github.com/dowdiness/incr/compare/v0.10.1...v0.11.0
+[v0.10.1]: https://github.com/dowdiness/incr/compare/v0.10.0...v0.10.1
+[v0.10.0]: https://github.com/dowdiness/incr/releases/tag/v0.10.0
