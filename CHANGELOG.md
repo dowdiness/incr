@@ -2,8 +2,9 @@
 
 All notable changes to `dowdiness/incr` are documented in this file.
 
-
 ## [Unreleased]
+
+## [0.12.0] - 2026-07-01
 
 ### Added
 
