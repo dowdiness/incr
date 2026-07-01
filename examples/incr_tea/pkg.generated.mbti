@@ -52,6 +52,8 @@ pub fn[Msg] on_blur(Msg, prevent_default? : Bool, stop_propagation? : Bool) -> E
 
 pub fn[Msg] on_change(tag~ : String, prevent_default? : Bool, stop_propagation? : Bool) -> EventBinding[Msg]
 
+pub fn[Msg] on_checked_change(tag~ : String, prevent_default? : Bool, stop_propagation? : Bool) -> EventBinding[Msg]
+
 pub fn[Msg] on_click(Msg, prevent_default? : Bool, stop_propagation? : Bool) -> EventBinding[Msg]
 
 pub fn[Msg] on_dblclick(Msg, prevent_default? : Bool, stop_propagation? : Bool) -> EventBinding[Msg]
@@ -67,6 +69,8 @@ pub fn[Msg] on_pointer_down(id~ : PointerEventId, prevent_default? : Bool, stop_
 pub fn[Msg] on_submit(Msg, prevent_default? : Bool, stop_propagation? : Bool) -> EventBinding[Msg]
 
 pub fn[Msg] p(attrs? : Array[Attribute], events? : Array[EventBinding[Msg]], Array[Html[Msg]]) -> Html[Msg]
+
+pub fn prop_bool(String) -> Attribute
 
 pub fn[Msg] span(attrs? : Array[Attribute], events? : Array[EventBinding[Msg]], Array[Html[Msg]]) -> Html[Msg]
 
@@ -89,10 +93,13 @@ pub fn Attrs::aria(Self, String, String) -> Self
 pub fn Attrs::aria_bool(Self, String, Bool) -> Self
 pub fn Attrs::attr(Self, String, String) -> Self
 pub fn Attrs::build() -> Self
+pub fn Attrs::checked(Self, Bool) -> Self
 pub fn Attrs::class(Self, String) -> Self
 pub fn Attrs::data(Self, String, String) -> Self
+pub fn Attrs::disabled(Self, Bool) -> Self
 pub fn Attrs::placeholder(Self, String) -> Self
 pub fn Attrs::role(Self, String) -> Self
+pub fn Attrs::selected(Self, Bool) -> Self
 pub fn Attrs::to_array(Self) -> Array[Attribute]
 pub fn Attrs::value(Self, String) -> Self
 
@@ -106,7 +113,7 @@ pub fn[Msg] BrowserRenderer::destroy(Self[Msg], BrowserRoot[Msg]) -> Unit
 pub fn[Msg] BrowserRenderer::detach(Self[Msg], BrowserRoot[Msg]) -> Unit
 pub fn[Msg] BrowserRenderer::dispose(Self[Msg]) -> Unit
 pub fn[Msg : Eq] BrowserRenderer::flush_all(Self[Msg]) -> Unit
-pub fn[Msg : Eq] BrowserRenderer::mount(Self[Msg], DomElement, Program[Msg, Html[Msg]], label? : String, on_input? : (TextInputId, TextInputPayload) -> Msg?, on_key? : (KeyEventId, KeyPayload) -> Msg?, on_pointer? : (PointerEventId, PointerPayload) -> Msg?, on_key_event? : (KeyEventId, KeyPayload) -> KeyEventDispatch[Msg]?) -> BrowserRoot[Msg]
+pub fn[Msg : Eq] BrowserRenderer::mount(Self[Msg], DomElement, Program[Msg, Html[Msg]], label? : String, on_input? : (TextInputId, TextInputPayload) -> Msg?, on_checked_change? : (CheckedInputId, CheckedPayload) -> Msg?, on_key? : (KeyEventId, KeyPayload) -> Msg?, on_pointer? : (PointerEventId, PointerPayload) -> Msg?, on_key_event? : (KeyEventId, KeyPayload) -> KeyEventDispatch[Msg]?) -> BrowserRoot[Msg]
 pub fn[Msg : Eq] BrowserRenderer::reattach(Self[Msg], BrowserRoot[Msg]) -> Unit
 pub fn[Msg] BrowserRenderer::root_stats(Self[Msg]) -> Array[RootStats]
 pub fn[Msg] BrowserRenderer::stats(Self[Msg]) -> RenderStats
@@ -122,6 +129,16 @@ pub fn[Msg] BrowserRootActivationController::BrowserRootActivationController(Bro
 pub fn[Msg] BrowserRootActivationController::hide(Self[Msg], BrowserRoot[Msg]) -> Unit
 pub fn[Msg : Eq] BrowserRootActivationController::prewarm(Self[Msg], BrowserRoot[Msg]) -> Unit
 pub fn[Msg : Eq] BrowserRootActivationController::show(Self[Msg], BrowserRoot[Msg]) -> Unit
+
+pub struct CheckedInputId {
+  name : String
+} derive(Eq, @debug.Debug)
+pub fn CheckedInputId::CheckedInputId(String) -> Self
+
+pub struct CheckedPayload {
+  checked : Bool
+}
+pub fn CheckedPayload::CheckedPayload(Bool) -> Self
 
 pub struct Cmd[Msg] {
   // private fields

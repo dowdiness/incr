@@ -222,10 +222,7 @@ fn button_attrs() -> Array[@tea.Attribute] {
 
 ///|
 fn disabled_button_attrs() -> Array[@tea.Attribute] {
-  @tea.Attrs::build()
-  .attr("type", "button")
-  .attr("disabled", "disabled")
-  .to_array()
+  @tea.Attrs::build().attr("type", "button").disabled(true).to_array()
 }
 
 ///|

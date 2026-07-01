@@ -288,7 +288,7 @@ Each `MemoData` has an `in_progress : Bool` flag. It is set to `true` when a mem
 Cycle detection triggers in two places:
 
 1. **During verification** (`cells/verify.mbt`): if `pull_verify` encounters a `MemoData` with `in_progress == true`, it means we iteratively reached a memo that is currently being verified — a cycle. The path is built from the local `PullVerifyFrame` stack (traversal order).
-2. **During initial computation** (`cells/derived.mbt`): if `force_recompute` encounters a memo with `in_progress == true`, it means the Memo's compute function (directly or indirectly) tried to read its own value — also a cycle.
+2. **During initial computation** (`cells/derived_impl.mbt`): if `force_recompute` encounters a memo with `in_progress == true`, it means the Memo's compute function (directly or indirectly) tried to read its own value — also a cycle.
 
 ### Error Handling
 
@@ -412,7 +412,7 @@ The library is split into four MoonBit sub-packages. The root package re-exports
 |------|---------|
 | `cells/input.mbt` | `Input[T]` — input cells with same-value optimization and durability |
 | `cells/internal/pull/pull_signal.mbt` | `PullSignalData` — SoA entry for input cells; `CellOps` + `Committable` impls |
-| `cells/derived.mbt` | `Memo[T]` — derived cells with memoization, backdating, and dependency tracking |
+| `cells/derived_impl.mbt` | `Memo[T]` — derived cells with memoization, backdating, and dependency tracking |
 | `cells/internal/pull/memo_data.mbt` | `MemoData` — unified SoA entry for pull and hybrid derived cells |
 | `cells/verify.mbt` | `Runtime::pull_verify` wrapper — body lives in `cells/internal/kernel/verify.mbt` |
 | `cells/internal/kernel/verify.mbt` | `pull_verify` + `synthetic_accumulator_changed` + `PullVerifyFrame` — SoA-native iterative verification algorithm. Takes `slot_snapshots : Array[&SlotSnapshot]` explicitly so kernel does not depend on Runtime's accumulator state. |
@@ -432,7 +432,7 @@ The library is split into four MoonBit sub-packages. The root package re-exports
 
 | File | Purpose |
 |------|---------|
-| `cells/reachable_derived.mbt` | `HybridMemo[T]` — push-notified, pull-verified memo; uses unified `MemoData` |
+| `cells/reachable_derived_impl.mbt` | `HybridMemo[T]` — push-notified, pull-verified memo; uses unified `MemoData` |
 
 **Accumulators (reverse contributions to side-table slots):**
 

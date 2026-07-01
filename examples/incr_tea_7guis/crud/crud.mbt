@@ -242,7 +242,7 @@ fn field(
 fn option_attrs(value : String, selected : Bool) -> Array[@tea.Attribute] {
   let attrs = @tea.Attrs::build().attr("value", value)
   if selected {
-    attrs.attr("selected", "selected").to_array()
+    attrs.selected(true).to_array()
   } else {
     attrs.to_array()
   }

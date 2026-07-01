@@ -88,7 +88,12 @@ fn update_model(msg : Msg, model : Model) -> Model {
         Some(duration) => {
           let duration = duration.clamp(min=1000, max=30000)
           let elapsed = model.elapsed.clamp(min=0, max=duration)
-          { ..model, duration, elapsed, running: model.running && elapsed < duration }
+          {
+            ..model,
+            duration,
+            elapsed,
+            running: model.running && elapsed < duration,
+          }
         }
         None => model
       }

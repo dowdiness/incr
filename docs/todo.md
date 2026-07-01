@@ -8,7 +8,7 @@ Correctness issues tracked on GitHub. Unchecked items are open.
 
 - [x] **`Runtime::dependents` does not guard against disposed cell IDs or
       push-slot reuse** ([#17](https://github.com/dowdiness/incr/issues/17)).
-      `Runtime::dependents` (`cells/introspection.mbt`) now checks for disposed
+      `Runtime::dependents` (`incr/cells/introspection.mbt`) now checks for disposed
       IDs before reading `cell_ops[id.id].subscribers()`, so the documented
       "empty for invalid id" contract holds by construction. Regression tests
       cover both disposed reads and stale push-slot reuse.
@@ -33,17 +33,17 @@ Correctness issues tracked on GitHub. Unchecked items are open.
 - [x] Convert recursive `maybe_changed_after` to iterative with explicit stack (prevents stack overflow on deep graphs)
 - [x] Diff old vs. new dependency lists in `Memo::force_recompute` instead of full replacement
 - [x] Explore push-pull hybrid invalidation (requires subscriber/reverse links) — implemented as `HybridMemo`
-- [ ] **`AccumulatorCommitHook::after_abort`** (cells/accumulator_commit_hook.mbt, formerly `memo_restore_on_abort` in cells/accumulator.mbt): replace O(n²) linear scan of `prev_contributions` during `touched` iteration with a HashSet lookup. **Validated 2026-04-26** ([bench](performance/2026-04-26-memo-restore-on-abort-bench.md), `cells/accumulator_restore_bench_wbtest.mbt`): N=5 → 0.28 µs, N=20 → 1.31 µs, N=100 → 12.51 µs (worst case, prev/touched disjoint). Quadratic scaling confirmed but constants small enough that linear setup dominates at N ≤ 20. Realistic drivers (lambda type-checker) use 1–2 accs per memo — not actionable. Reopen if a driver hits 50+ accs/memo with frequent aborts.
+- [ ] **`AccumulatorCommitHook::after_abort`** (incr/cells/accumulator_commit_hook.mbt, formerly `memo_restore_on_abort` in incr/cells/accumulator.mbt): replace O(n²) linear scan of `prev_contributions` during `touched` iteration with a HashSet lookup. **Validated 2026-04-26** ([bench](performance/2026-04-26-memo-restore-on-abort-bench.md), `incr/cells/accumulator_restore_bench_wbtest.mbt`): N=5 → 0.28 µs, N=20 → 1.31 µs, N=100 → 12.51 µs (worst case, prev/touched disjoint). Quadratic scaling confirmed but constants small enough that linear setup dominates at N ≤ 20. Realistic drivers (lambda type-checker) use 1–2 accs per memo — not actionable. Reopen if a driver hits 50+ accs/memo with frequent aborts.
 
 ### Investigation queue
 
-- [x] **Per-recompute allocation elimination (tracking-buffer reuse)** — `cells/internal/kernel/state.mbt` (`ActiveQuery`). **Shipped 2026-05-16** as lazy-allocation of the 2 accumulator-only fields (`accumulator_reads`, `touched_accumulator_slots`). Microbench probe rejected the pool-reuse half of the plan (~2% / within σ); lazy-allocation alone delivered −15.9% on 1000-reactive fanout (−46 ns/r). Result + corrected estimates: [docs/performance/2026-05-16-tracking-buffer-lazy-alloc.md](performance/2026-05-16-tracking-buffer-lazy-alloc.md).
+- [x] **Per-recompute allocation elimination (tracking-buffer reuse)** — `incr/cells/internal/kernel/state.mbt` (`ActiveQuery`). **Shipped 2026-05-16** as lazy-allocation of the 2 accumulator-only fields (`accumulator_reads`, `touched_accumulator_slots`). Microbench probe rejected the pool-reuse half of the plan (~2% / within σ); lazy-allocation alone delivered −15.9% on 1000-reactive fanout (−46 ns/r). Result + corrected estimates: [docs/performance/2026-05-16-tracking-buffer-lazy-alloc.md](performance/2026-05-16-tracking-buffer-lazy-alloc.md).
 
-- [x] **Disposed-cell-on-same-signal anomaly — retracted 2026-05-17.** The 2026-05-16 cost-decomp doc claimed 100 reactives disposed on one signal cost 27 µs per `Signal::set` vs 45 ns on a separate signal. Reproduction on `fed9428` measured both at ~45 ns — indistinguishable from the cold-runtime baseline. The 27 µs cost attributed to the disposed bench was actually the `100 abandoned reactives` bench (`tests/bench_test.mbt:216`), where the SoA still holds the live reactives because `rt.gc()` is never called and `push.node_count` is 100. Labels swapped in the original analysis; no bug exists. Regression guard: `cells/eager_derived_wbtest.mbt` "dispose: 100 reactives on one signal leave subscribers empty and node_count zero". Cost-decomp doc corrected in the same commit.
+- [x] **Disposed-cell-on-same-signal anomaly — retracted 2026-05-17.** The 2026-05-16 cost-decomp doc claimed 100 reactives disposed on one signal cost 27 µs per `Signal::set` vs 45 ns on a separate signal. Reproduction on `fed9428` measured both at ~45 ns — indistinguishable from the cold-runtime baseline. The 27 µs cost attributed to the disposed bench was actually the `100 abandoned reactives` bench (`tests/bench_test.mbt:216`), where the SoA still holds the live reactives because `rt.gc()` is never called and `push.node_count` is 100. Labels swapped in the original analysis; no bug exists. Regression guard: `incr/cells/eager_derived_wbtest.mbt` "dispose: 100 reactives on one signal leave subscribers empty and node_count zero". Cost-decomp doc corrected in the same commit.
 
 - [ ] **Push-engine scheduler rewrite** (deferred) — replace `@priority_queue.PriorityQueue[PushEntry]` heap with level-bucketed dirty list (`Array[Array[CellRef]]` indexed by topological level). Removes log N heap ops + one allocation per push entry. Estimated ~30–50 ns/reactive at N=1000. This is the *other half* of what alien-signals does in Vue 3.6. Defer until tracking-buffer reuse lands.
 
-- [ ] **Push-engine link-list port (deprioritized)** — `cells/internal/push/`. The original investigation surfaced 1.2–1.5× speedup on the BFS iter path, smaller than the Vue 3.6 headline because incr is already SoA. Realistic but narrower than the targets above. Revisit if a future workload shifts the cost balance (very-low-cost compute closures making subscriber-set iter dominant). Investigation record: [docs/performance/2026-05-16-push-engine-linklist-microbench.md](performance/2026-05-16-push-engine-linklist-microbench.md).
+- [ ] **Push-engine link-list port (deprioritized)** — `incr/cells/internal/push/`. The original investigation surfaced 1.2–1.5× speedup on the BFS iter path, smaller than the Vue 3.6 headline because incr is already SoA. Realistic but narrower than the targets above. Revisit if a future workload shifts the cost balance (very-low-cost compute closures making subscriber-set iter dominant). Investigation record: [docs/performance/2026-05-16-push-engine-linklist-microbench.md](performance/2026-05-16-push-engine-linklist-microbench.md).
 
 - [x] **Constructive traces — feasibility and cost-benefit study (research)**. Completed 2026-05-27: [docs/research/constructive-traces-feasibility.md](research/constructive-traces-feasibility.md). Conclusion: do **not** promote the default rebuilder from revision-based verifying traces to constructive traces. For the current priority (local editor/UI latency across both semantic-query and UI-reactivity workloads), constructive traces are only plausible as an opt-in cacheable-query layer for expensive deterministic semantic computations with stable user-supplied query keys, rule versions, cheap dependency fingerprints, and no cached cycle/error paths. The paper's more actionable near-term idea is static/applicative dependency APIs.
 
@@ -104,7 +104,7 @@ Correctness issues tracked on GitHub. Unchecked items are open.
 - [x] Change `CycleError` to include cycle path: `CycleDetected(CellId, Array[CellId])`
 - [x] Add `CycleError::path(self) -> Array[CellId]`
 - [x] Add `CycleError::format_path(self, Runtime) -> String` for human-readable output
-- [x] Update cycle detection in `cells/verify.mbt` to track path during traversal
+- [x] Update cycle detection in `incr/cells/verify.mbt` to track path during traversal
 
 ### Per-Cell Callbacks (Phase 2B - High Priority)
 
@@ -153,26 +153,26 @@ Correctness issues tracked on GitHub. Unchecked items are open.
 
 - [x] Add subscriber (reverse) links for push-based invalidation
 - [x] Add `Runtime::dependents(CellId) -> Array[CellId]` (requires subscriber links)
-- [x] Add `CellOps` trait for uniform cell dispatch (`cells/cell_ops.mbt`)
+- [x] Add `CellOps` trait for uniform cell dispatch (`incr/cells/cell_ops.mbt`)
 - [x] Add `Committable` trait for batch-commit dispatch
-- [x] Add `Reactive[T]` push-mode derived cell (`cells/eager_derived.mbt`)
-- [x] Add `Effect` push-mode side-effect cell (`cells/push_effect.mbt`)
-- [x] Add level-sorted push propagation engine (`cells/push_propagate.mbt`)
-- [x] Add `HybridMemo[T]` push-pull hybrid memo (`cells/reachable_derived.mbt`)
+- [x] Add `Reactive[T]` push-mode derived cell (`incr/cells/eager_derived.mbt`)
+- [x] Add `Effect` push-mode side-effect cell (`incr/cells/push_effect.mbt`)
+- [x] Add level-sorted push propagation engine (`incr/cells/push_propagate.mbt`)
+- [x] Add `HybridMemo[T]` push-pull hybrid memo (`incr/cells/reachable_derived_impl.mbt`)
 - [x] Add `create_hybrid_memo` Database helper and `Readable` impl
 - [x] Re-export `HybridMemo` from root facade (`incr.mbt`)
 - [x] Add Datalog primitives: `Relation[T]`, `Rule`, `Runtime::fixpoint()`
 
 ## Tracked Struct Support
 
-- [x] Add `TrackedCell[T]` wrapping `Signal[T]` for field-level dependency isolation (`cells/input_field.mbt`)
+- [x] Add `TrackedCell[T]` wrapping `Signal[T]` for field-level dependency isolation (`incr/cells/input_field.mbt`)
 - [x] Add full `TrackedCell` API: `new`, `get`, `get_result`, `set`, `set_unconditional`, `id`, `durability`, `on_change`, `clear_on_change`, `is_up_to_date`, `as_signal`
 - [x] Add `Trackable` trait with `cell_ids(Self) -> Array[CellId]`
 - [x] Add `Readable` impl for `TrackedCell[T]`
 - [x] Add `create_tracked_cell` helper function (mirrors `create_signal` pattern)
 - [x] Add `gc_tracked[T : Trackable](rt, tracked)` no-op stub (call site established for Phase 4 migration)
 - [x] Re-export `TrackedCell` from root facade (`incr.mbt`)
-- [x] Whitebox tests in `cells/input_field_wbtest.mbt`
+- [x] Whitebox tests in `incr/cells/input_field_wbtest.mbt`
 - [x] Integration tests in `tests/tracked_struct_test.mbt`
 
 ## Cleanup: Vestigial `dirty` Flag
@@ -181,13 +181,13 @@ After the hybrid dirty-marking removal (HybridMemo no longer participates in pus
 the `dirty` field on `MemoData` is never set to `true`. All checks are no-ops. These tasks
 clean up the dead logic.
 
-- [x] Remove `dirty` field from `MemoData` in `cells/internal/pull/memo_data.mbt` (formerly `cells/pull_memo.mbt` pre-R1)
-- [x] Remove `not(root.dirty)` guards in `cells/verify.mbt` (lines ~92, ~97, ~152 pre-R1; `pull_verify` body now in `cells/internal/kernel/verify.mbt`)
-- [x] Remove `memo.dirty = false` assignment in `cells/verify.mbt` finalization (line ~205 pre-R1; finalization now in `cells/internal/kernel/verify.mbt`)
-- [x] Remove `cell.dirty = false` in `HybridMemo::get()` slow path (`cells/reachable_derived.mbt`)
+- [x] Remove `dirty` field from `MemoData` in `incr/cells/internal/pull/memo_data.mbt` (formerly `incr/cells/pull_memo.mbt` pre-R1)
+- [x] Remove `not(root.dirty)` guards in `incr/cells/verify.mbt` (lines ~92, ~97, ~152 pre-R1; `pull_verify` body now in `incr/cells/internal/kernel/verify.mbt`)
+- [x] Remove `memo.dirty = false` assignment in `incr/cells/verify.mbt` finalization (line ~205 pre-R1; finalization now in `incr/cells/internal/kernel/verify.mbt`)
+- [x] Remove `cell.dirty = false` in `HybridMemo::get()` slow path (`incr/cells/reachable_derived_impl.mbt`)
 - [x] Remove `not(cell.dirty)` from `HybridMemo::get()` fast path — collapse to `verified_at >= current_revision`
 - [x] Update `HybridMemo::get()` doc comments that reference "dirty"
-- [x] Update `cells/reachable_derived.mbt` top-of-file doc comment referencing dirty flag
+- [x] Update `incr/cells/reachable_derived_impl.mbt` top-of-file doc comment referencing dirty flag
 
 ## HybridMemo Lifecycle
 
@@ -219,7 +219,7 @@ clean up the dead logic.
 - [x] Improve `Memo::get` abort message to use `CycleError::format_path`
 - [x] Centralize cycle-path construction with `CycleError::from_path(path, closing_id)`
 - [x] Move pipeline traits to `pipeline/pipeline_traits.mbt`; deprecated on 2026-05-26
-- [x] Convert safe C-style loops to idiomatic `for .. in` syntax in `derived.mbt` and `runtime.mbt`
+- [x] Convert safe C-style loops to idiomatic `for .. in` syntax in `derived_impl.mbt` and `runtime.mbt`
 - [x] Replace `Array[CellMeta]` with SoA layout: `pull_signals : Array[PullSignalData]`, `pull_memos : Array[PullMemoData]`, `cell_index : Array[CellRef]`
 - [x] Add `CellRef` enum (`PullSignal(Int) | PullMemo(Int)`) for O(1) dispatch via `cell_index`
 - [x] Replace `maybe_changed_after` with `pull_verify` using explicit `PullVerifyFrame` stack
@@ -233,7 +233,7 @@ clean up the dead logic.
 - [x] Wide fanout test: single signal with many downstream memos
 - [x] Test `Memo` with custom `Eq` types where structural equality differs from identity
 - [x] Test cycle detection across 3+ mutually recursive memos
-- [x] Add focused regression tests using the current-model vocabulary from [design/internals.md](design/internals.md#operational-vocabulary-for-current-incr): `cells/current_model_wbtest.mbt` covers "dynamic dependency replacement", "green path skips recompute", "backdating early cutoff", "failed read does not record dependency", and "cycle cleanup preserves previous trace".
+- [x] Add focused regression tests using the current-model vocabulary from [design/internals.md](design/internals.md#operational-vocabulary-for-current-incr): `incr/cells/current_model_wbtest.mbt` covers "dynamic dependency replacement", "green path skips recompute", "backdating early cutoff", "failed read does not record dependency", and "cycle cleanup preserves previous trace".
 
 ## Formal Verification
 
@@ -241,13 +241,13 @@ clean up the dead logic.
 
 ## Package Structure
 
-- [x] Split the library into focused MoonBit packages (`types/`, `cells/`, root facade)
+- [x] Split the library into focused MoonBit packages (`types/`, `incr/cells/`, root facade)
 - [x] Move pure value types (`Revision`, `Durability`, `CellId`) to `dowdiness/incr/types`
 - [x] Move all engine code to `dowdiness/incr/cells`
 - [x] Remove the temporary deprecated pipeline-traits compatibility package in the breaking cleanup
 - [x] Re-export all public types from root via `pub type` transparent aliases in `incr.mbt`
-- [x] Move whitebox tests (`*_wbtest.mbt`) to `cells/` for private field access
-- [x] Move unit tests (`*_test.mbt`) to `cells/` (co-located with source)
+- [x] Move whitebox tests (`*_wbtest.mbt`) to `incr/cells/` for private field access
+- [x] Move unit tests (`*_test.mbt`) to `incr/cells/` (co-located with source)
 - [x] Create `tests/` package for integration tests exercising the full `@incr` public API
 - [x] Zero breaking changes — downstream users see identical `@incr` API
 
@@ -356,21 +356,21 @@ Architecture analysis completed 2026-04-16. See [design/internals.md](design/int
 
 ### Remaining
 
-- [x] Internal package split — Engine types split across `cells/internal/{shared,pull,push,datalog}/`. Pull engine now contains both `PullSignalData` and `MemoData`; `CycleError` moved to `types/` as a pure-value error (see [spec](design/specs/2026-04-18-incr-stage5-internal-split-design.md) for Stage 5 rationale and the follow-up archive note for the CycleError untangle).
+- [x] Internal package split — Engine types split across `incr/cells/internal/{shared,pull,push,datalog}/`. Pull engine now contains both `PullSignalData` and `MemoData`; `CycleError` moved to `types/` as a pure-value error (see [spec](design/specs/2026-04-18-incr-stage5-internal-split-design.md) for Stage 5 rationale and the follow-up archive note for the CycleError untangle).
 - [x] Verify engine packages do not import each other — `scripts/check-engine-isolation.sh` enforces pairwise engine isolation and the no-back-edge invariant.
-- [x] Complete pull-engine split: `MemoData` moved to `cells/internal/pull/memo_data.mbt`. `CycleError` now lives in `types/` as a pure value; `format_path` drops its `Runtime` parameter (breaking change — labels are captured at error-construction time). `CellLifecycle` impl for `MemoData` stays in `cells/pull_memo_lifecycle.mbt` because it needs `Runtime`.
-- [x] Factor duplicated `dispose_cell` bodies in `cells/datalog_lifecycle.mbt` — extracted `dispose_datalog_cell` helper (commit `309d904`). Design note at [archive/2026-04-18-datalog-dispose-factoring.md](archive/2026-04-18-datalog-dispose-factoring.md) records why a trait-default alternative was rejected.
+- [x] Complete pull-engine split: `MemoData` moved to `incr/cells/internal/pull/memo_data.mbt`. `CycleError` now lives in `types/` as a pure value; `format_path` drops its `Runtime` parameter (breaking change — labels are captured at error-construction time). `CellLifecycle` impl for `MemoData` stays in `incr/cells/pull_memo_lifecycle.mbt` because it needs `Runtime`.
+- [x] Factor duplicated `dispose_cell` bodies in `incr/cells/datalog_lifecycle.mbt` — extracted `dispose_datalog_cell` helper (commit `309d904`). Design note at [archive/2026-04-18-datalog-dispose-factoring.md](archive/2026-04-18-datalog-dispose-factoring.md) records why a trait-default alternative was rejected.
 
 ## Refactor Audit Findings (2026-04-19)
 
-Post-Stage-5 audit of `cells/` + Codex validation. Stage 6 (engine extraction) remains intentionally deferred; these are the remaining concrete items that survived Codex review.
+Post-Stage-5 audit of `incr/cells/` + Codex validation. Stage 6 (engine extraction) remains intentionally deferred; these are the remaining concrete items that survived Codex review.
 
 ### Target #1 — Cross-runtime check duplication (DONE)
 
 Six cell read paths inlined the same ~10-line `current_computing_runtime_id` guard (abort on cross-runtime, reset global before aborting). `Memo::get_result_inner` uniquely had a *forgiving* variant that additionally repairs stale global state when this runtime's tracking stack is empty — required for panic-test isolation because `read_permissive` / `MemoMap` bypass the outer strict check.
 
-- [x] Extract `Runtime::check_cross_runtime(cell_runtime_id, kind)` helper (strict variant) — `cells/tracking.mbt:68` (was `:149` pre-R1)
-- [x] Replace 6 strict sites: `input.mbt`, `derived.mbt` (outer), `reachable_derived.mbt`, `eager_derived.mbt`, `datalog_relation.mbt`, `datalog_map_relation.mbt`
+- [x] Extract `Runtime::check_cross_runtime(cell_runtime_id, kind)` helper (strict variant) — `incr/cells/tracking.mbt:68` (was `:149` pre-R1)
+- [x] Replace 6 strict sites: `input.mbt`, `derived_impl.mbt` (outer), `reachable_derived_impl.mbt`, `eager_derived.mbt`, `datalog_relation.mbt`, `datalog_map_relation.mbt`
 - [x] Leave `Memo::get_result_inner` with its original forgiving repair logic — it cannot be unified with the strict helper because "stale-global" vs "legitimate cross-runtime" cannot be distinguished locally without a global runtime registry (the forgiving repair relies on checking THIS runtime's stack, which is correct only because `read_permissive` / `MemoMap` paths are same-runtime by construction)
 
 **What the audit got wrong:** the "latent bug" framing was overstated — the memo inner's repair is intentional defensive code for panic-test isolation, not a drifted invariant that should be applied everywhere. An attempted unified "repair everywhere" helper broke 5 tests (4 false-negative cross-runtime aborts + 1 surfaced state-leak). Codex's original direction (unify) was correct; the specific generalization (apply memo inner's heuristic uniformly) was not safe.
@@ -379,7 +379,7 @@ Six cell read paths inlined the same ~10-line `current_computing_runtime_id` gua
 
 ### Target #2 — Cell-registration ritual for free-list kinds (DONE, partial)
 
-- [x] Introduce `Runtime::install_cell[T : CellOps + CellLifecycle]` helper (cells/runtime.mbt) — one generic helper covering all free-list SoA kinds, parameterized over (free_list, array, `fn(Int) -> CellRef`, `fn(CellId) -> T`). Returns `(CellId, Int)` so callers needing the slot index (reactive/effect for post-install sources/level update) can destructure.
+- [x] Introduce `Runtime::install_cell[T : CellOps + CellLifecycle]` helper (incr/cells/runtime.mbt) — one generic helper covering all free-list SoA kinds, parameterized over (free_list, array, `fn(Int) -> CellRef`, `fn(CellId) -> T`). Returns `(CellId, Int)` so callers needing the slot index (reactive/effect for post-install sources/level update) can destructure.
 - [x] Migrate `Signal::new`, `Reactive::new`, `Effect::new`; delete `Runtime::new_signal_id`
 - [x] Leave `Memo::_create` and `HybridMemo::new` as-is — both have a closure-construction cycle (the typed handle is captured inside the stored compute closure); using `install_cell` there would force a `Ref[Memo[T]?]` dance that's worse than the current local pattern. The existing `_create` already factors the pattern within memo's own file.
 - [x] Leave datalog constructors as-is — append-only, different shape.
@@ -389,7 +389,7 @@ Six cell read paths inlined the same ~10-line `current_computing_runtime_id` gua
 
 ### Target #3 — push_lifecycle dispose dedup (DECLINED)
 
-`cells/push_lifecycle.mbt:5-16` (`PushReactiveData::dispose_cell`) and `:68-79` (`PushEffectData::dispose_cell`) are near-identical; differ only in variant arm, SoA array, and free-list. `datalog_lifecycle.mbt` factored this via `dispose_datalog_cell`.
+`incr/cells/push_lifecycle.mbt:5-16` (`PushReactiveData::dispose_cell`) and `:68-79` (`PushEffectData::dispose_cell`) are near-identical; differ only in variant arm, SoA array, and free-list. `datalog_lifecycle.mbt` factored this via `dispose_datalog_cell`.
 
 - [x] Evaluated, declined — after Targets #1 and #2, remaining duplication is ~6–10 lines. Unlike #1 (correctness-adjacent drift) and #2 (parallel-array invariant), **no load-bearing invariant rides on unification**; the two inline impls function as self-documenting summaries of push-specific teardown (source-link removal + slot free + `node_count--`). Land opportunistically if `push_lifecycle.mbt` is ever touched for a real reason.
 
@@ -397,7 +397,7 @@ Six cell read paths inlined the same ~10-line `current_computing_runtime_id` gua
 
 - **Runtime.mbt topic split** — `runtime.mbt` is 686 lines across ~16 sections, but most sections are cohesive and splitting is cosmetic without a concrete driver. Hard constraint for anyone who revisits: **subscriber management (`add/remove_subscriber`) and push-reachable accounting (`is_live_subscriber` / `propagate_liveness`) must stay co-located** — they form one invariant cluster.
 - **Memo.mbt split** (620 lines) — coherent chapters, no duplication, no pain.
-- **cells/ folder reorg** — Stage 5 just moved SoA into `internal/`; another restructure now would churn without a driver.
+- **incr/cells/ folder reorg** — Stage 5 just moved SoA into `internal/`; another restructure now would churn without a driver.
 - **Stage 6 engine extraction** — was "waits for accumulators or similar"; accumulators shipped 2026-04-20 without needing this extraction, so the original motivation is void. Revisit only when parallel computation or a second major extension creates concrete need.
 
 ## R1 Kernel Split Follow-ups (2026-04-26)
@@ -405,7 +405,7 @@ Six cell read paths inlined the same ~10-line `current_computing_runtime_id` gua
 Surfaced during the PR #48 final review. R1 itself is closed.
 
 - [x] ~~**gc_sweep abort-safety leak.**~~ **CLOSED 2026-04-26 — not actionable in MoonBit's execution model.** Audit (option b from the original framing) confirms every per-kind `dispose_cell` impl is abort-free during a gc context: RelationData/FunctionalRelationData/RuleData are pure clears; PullSignalData's only abort path (`remove_batch_signal`) is pre-eliminated by gc's `batch.depth==0` guard; MemoData's `remove_subscriber` does not abort on disposed deps and `slot.dispose_memo` is gated by `!slot.disposed`; PushReactive/PushEffect are similarly clean. `validate_cell_for_dispose` and `check_dispose_guard` aborts are also pre-eliminated by gc's own entry guards (own-runtime, empty tracking stack, batch.depth==0, phase Idle). Even if a future change *did* introduce a reachable abort, MoonBit's `abort` terminates execution unconditionally — there is no continuation that could observe the stuck `GarbageCollecting` phase, and `core.phase` is per-Runtime so it cannot contaminate the next test (which constructs a fresh `Runtime`). Adding a defensive phase reset would violate CLAUDE.md's "don't add error handling for scenarios that can't happen" rule. **Reopen only if:** (a) MoonBit gains catchable panics or shared-memory parallelism, or (b) a future `dispose_cell` impl introduces a reachable abort that the gc entry guards do not pre-eliminate.
-- [x] ~~**`Runtime::dispose_cell` thinning.**~~ **CLOSED 2026-04-26 — not actionable, same anti-pattern as R2.** Audit of `cells/runtime.mbt` confirms 14 of 22 methods are correct-shape 1-line `@kernel.X` delegators. The remaining bodies are: `install_cell`, `check_table_invariant`, `check_accumulator_cache_invariant` (cannot move — touch Runtime-only `cell_lifecycle` / accumulator state), and `bump_revision` / `get_pull_signal` / `get_memo_data` (could move but adds 3 kernel API surface fns + 3 wrapper bodies for ~24 LOC saved — same wrapper-without-driver pattern the [R2 ADR](decisions/2026-04-26-r2-runtime-decomposition-deferred.md) rejected). `dispose_cell` itself remains 3-line orchestration; collapsing requires retyping `CellLifecycle::dispose_cell(Self, Runtime, CellId)` to take `(RuntimeCore, PullState, PushState, DatalogState, accumulator state, Runtime-only methods)` — invasive change for cosmetic gain. **Reopen only if** the `CellLifecycle` trait is being restructured for an unrelated reason (e.g. T1b MemoCommitPhase landing, which would refactor lifecycle traits anyway).
+- [x] ~~**`Runtime::dispose_cell` thinning.**~~ **CLOSED 2026-04-26 — not actionable, same anti-pattern as R2.** Audit of `incr/cells/runtime.mbt` confirms 14 of 22 methods are correct-shape 1-line `@kernel.X` delegators. The remaining bodies are: `install_cell`, `check_table_invariant`, `check_accumulator_cache_invariant` (cannot move — touch Runtime-only `cell_lifecycle` / accumulator state), and `bump_revision` / `get_pull_signal` / `get_memo_data` (could move but adds 3 kernel API surface fns + 3 wrapper bodies for ~24 LOC saved — same wrapper-without-driver pattern the [R2 ADR](decisions/2026-04-26-r2-runtime-decomposition-deferred.md) rejected). `dispose_cell` itself remains 3-line orchestration; collapsing requires retyping `CellLifecycle::dispose_cell(Self, Runtime, CellId)` to take `(RuntimeCore, PullState, PushState, DatalogState, accumulator state, Runtime-only methods)` — invasive change for cosmetic gain. **Reopen only if** the `CellLifecycle` trait is being restructured for an unrelated reason (e.g. T1b MemoCommitPhase landing, which would refactor lifecycle traits anyway).
 
 ## Reactive Collections (2026-04-19)
 
@@ -489,7 +489,7 @@ dedicated migration window.
       concepts, API reference, cookbook, and architecture now prefer target
       names where target facades cover the behavior.
 - [x] Audit other `*_untracked` / `*_tracked` suffixes across
-      `cells/` for the same misnaming pattern. Known candidates:
+      `incr/cells/` for the same misnaming pattern. Known candidates:
       `Runtime::ensure_computed_untracked` is retained because it
       explicitly avoids ordinary dependency recording; Observer methods
       now call `read_permissive`.

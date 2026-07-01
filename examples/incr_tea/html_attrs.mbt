@@ -76,3 +76,42 @@ pub fn Attrs::aria_bool(self : Attrs, name : String, value : Bool) -> Attrs {
 pub fn Attrs::to_array(self : Attrs) -> Array[Attribute] {
   self.values.copy()
 }
+
+///|
+/// Sets the DOM `checked` property on checkbox/radio inputs. Presence sets
+/// `true`; omission sets `false`. Use instead of a string `checked` attribute,
+/// which does not reliably control the live `.checked` DOM property.
+#cfg(target="js")
+pub fn Attrs::checked(self : Attrs, value : Bool) -> Attrs {
+  if value {
+    self.append(prop_bool("checked"))
+  } else {
+    self
+  }
+}
+
+///|
+/// Sets the DOM `disabled` property on form controls. Presence sets `true`;
+/// omission sets `false`. Uses the DOM property directly (`element.disabled`)
+/// in addition to the HTML attribute.
+#cfg(target="js")
+pub fn Attrs::disabled(self : Attrs, value : Bool) -> Attrs {
+  if value {
+    self.append(prop_bool("disabled"))
+  } else {
+    self
+  }
+}
+
+///|
+/// Sets the DOM `selected` property on `<option>` elements. Presence sets
+/// `true`; omission sets `false`. Uses the DOM property (`element.selected`)
+/// in addition to the HTML attribute, matching controlled-select behavior.
+#cfg(target="js")
+pub fn Attrs::selected(self : Attrs, value : Bool) -> Attrs {
+  if value {
+    self.append(prop_bool("selected"))
+  } else {
+    self
+  }
+}

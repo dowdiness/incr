@@ -12,6 +12,7 @@ pub struct Attribute {
   priv name : String
   priv value : String
   priv direct : DirectAttrId?
+  priv is_bool : Bool
 } derive(Eq, Debug)
 
 ///|
@@ -57,6 +58,32 @@ pub struct TextInputPayload {
 #cfg(target="js")
 pub fn TextInputPayload::TextInputPayload(value : String) -> TextInputPayload {
   { value, }
+}
+
+///|
+/// Pure id for checkbox/radio checked-state payload events.
+#cfg(target="js")
+pub struct CheckedInputId {
+  name : String
+} derive(Eq, Debug)
+
+///|
+#cfg(target="js")
+pub fn CheckedInputId::CheckedInputId(name : String) -> CheckedInputId {
+  { name, }
+}
+
+///|
+/// Browser-extracted checkbox/radio checked payload.
+#cfg(target="js")
+pub struct CheckedPayload {
+  checked : Bool
+}
+
+///|
+#cfg(target="js")
+pub fn CheckedPayload::CheckedPayload(checked : Bool) -> CheckedPayload {
+  { checked, }
 }
 
 ///|
@@ -241,6 +268,7 @@ pub fn PointerPayload::PointerPayload(
 priv enum EventSpec[Msg] {
   Const(Msg)
   TextInput(id~ : TextInputId)
+  CheckedInput(id~ : CheckedInputId)
   Key(id~ : KeyEventId)
   Pointer(id~ : PointerEventId)
 } derive(Eq, Debug)
@@ -304,7 +332,7 @@ pub struct Html[Msg] {
 ///|
 #cfg(target="js")
 pub fn attr(name : String, value : String) -> Attribute {
-  { name, value, direct: None }
+  { name, value, direct: None, is_bool: false }
 }
 
 ///|
@@ -314,7 +342,17 @@ fn direct_attr(
   name : String,
   fallback : String,
 ) -> Attribute {
-  { name, value: fallback, direct: Some(id) }
+  { name, value: fallback, direct: Some(id), is_bool: false }
+}
+
+///|
+/// Creates a boolean property attribute. Presence in the attribute array means
+/// the property is `true`; absence means `false`. The renderer sets the DOM
+/// property (e.g. `element.disabled = true`) in addition to the HTML attribute,
+/// so boolean form controls behave correctly under framework-level control.
+#cfg(target="js")
+pub fn prop_bool(name : String) -> Attribute {
+  { name, value: "", direct: None, is_bool: true }
 }
 
 ///|
@@ -435,6 +473,24 @@ pub fn[Msg] on_change(
   event_binding(
     "change",
     TextInput(id=TextInputId(tag)),
+    prevent_default~,
+    stop_propagation~,
+  )
+}
+
+///|
+/// Pure checked-state descriptor for checkbox/radio controls. The renderer
+/// reads `event.target.checked` at the browser boundary and resolves
+/// `(id, payload) -> Msg` through the mount-time checked resolver.
+#cfg(target="js")
+pub fn[Msg] on_checked_change(
+  tag~ : String,
+  prevent_default? : Bool = false,
+  stop_propagation? : Bool = false,
+) -> EventBinding[Msg] {
+  event_binding(
+    "change",
+    CheckedInput(id=CheckedInputId(tag)),
     prevent_default~,
     stop_propagation~,
   )

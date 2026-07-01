@@ -154,7 +154,7 @@ fn date_field(
     .attr("id", id)
     .attr("type", "date")
     .value(value)
-  let attrs = if disabled { attrs.attr("disabled", "disabled") } else { attrs }
+  let attrs = if disabled { attrs.disabled(true) } else { attrs }
   @tea.node("label", attrs=[@tea.class_attr("field"), @tea.attr("for", id)], [
     @tea.span([@tea.text(label)]),
     @tea.input(
@@ -168,7 +168,7 @@ fn date_field(
 fn option_attrs(value : String, selected : Bool) -> Array[@tea.Attribute] {
   let attrs = @tea.Attrs::build().attr("value", value)
   if selected {
-    attrs.attr("selected", "selected").to_array()
+    attrs.selected(true).to_array()
   } else {
     attrs.to_array()
   }
@@ -181,10 +181,7 @@ fn button_attrs() -> Array[@tea.Attribute] {
 
 ///|
 fn disabled_button_attrs() -> Array[@tea.Attribute] {
-  @tea.Attrs::build()
-  .attr("type", "button")
-  .attr("disabled", "disabled")
-  .to_array()
+  @tea.Attrs::build().attr("type", "button").disabled(true).to_array()
 }
 
 ///|

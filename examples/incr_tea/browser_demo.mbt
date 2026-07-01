@@ -12,6 +12,7 @@ enum DemoMsg {
   GreetNameInput(String)
   GreetKeyPayload(String)
   GreetPointerPayload(String)
+  GreetCheckedChange(Bool)
   EditorSelect(String)
   EditorNodeInput(String, String)
   EditorRenameSelected
@@ -193,6 +194,7 @@ fn child_program(runtime : @incr.Runtime) -> Program[DemoMsg, Html[DemoMsg]] {
 fn greet_program(runtime : @incr.Runtime) -> Program[DemoMsg, Html[DemoMsg]] {
   let scope = @incr.Scope::new(runtime)
   let name = scope.input_field("", label="demo.greet.name")
+  let subscribed = scope.input_field(false, label="demo.greet.subscribed")
   let last_key = scope.input_field("no key payload yet", label="demo.greet.key")
   let last_pointer = scope.input_field(
     "no pointer payload yet",
@@ -201,6 +203,7 @@ fn greet_program(runtime : @incr.Runtime) -> Program[DemoMsg, Html[DemoMsg]] {
   let update : (DemoMsg) -> Cmd[DemoMsg] = msg => {
     match msg {
       GreetNameInput(value) => name.set(value)
+      GreetCheckedChange(value) => subscribed.set(value)
       GreetKeyPayload(value) => last_key.set(value)
       GreetPointerPayload(value) => last_pointer.set(value)
       _ => ()
@@ -216,6 +219,7 @@ fn greet_program(runtime : @incr.Runtime) -> Program[DemoMsg, Html[DemoMsg]] {
     }
     let key_payload = last_key.get()
     let pointer_payload = last_pointer.get()
+    let is_subscribed = subscribed.get()
     article(attrs=[class_attr("demo-card greet-card")], [
       h2([text("Text input payload")]),
       input(
@@ -232,6 +236,21 @@ fn greet_program(runtime : @incr.Runtime) -> Program[DemoMsg, Html[DemoMsg]] {
         ],
       ),
       p(attrs=[class_attr("metric-line")], [text(greeting)]),
+      // #286: Controlled checkbox with boolean property and checked-change payload.
+      node("label", attrs=[class_attr("field")], [
+        input(
+          attrs=Attrs::build()
+            .class("demo-checkbox")
+            .attr("type", "checkbox")
+            .checked(is_subscribed)
+            .to_array(),
+          events=[on_checked_change(tag="greet.subscribed")],
+        ),
+        span([text("Subscribe to newsletter")]),
+      ]),
+      p(attrs=[class_attr("metric-line")], [
+        text(if is_subscribed { "Subscribed" } else { "Not subscribed" }),
+      ]),
       p(attrs=[class_attr("demo-note")], [
         text(
           "The input's value is dispatched as a Msg payload; the Html stores only typed pure ids.",
@@ -285,6 +304,19 @@ fn greet_on_pointer(id : PointerEventId, payload : PointerPayload) -> DemoMsg? {
           "id=\{payload.pointer_id} type=\{payload.pointer_type} x=\{payload.client_x} y=\{payload.client_y} offset_x=\{payload.offset_x} offset_y=\{payload.offset_y} button=\{payload.button} buttons=\{payload.buttons} alt=\{payload.alt_key} ctrl=\{payload.ctrl_key} meta=\{payload.meta_key} shift=\{payload.shift_key}",
         ),
       )
+    _ => None
+  }
+}
+
+///|
+/// Resolver for the greet card's checkbox checked-change payload.
+#cfg(target="js")
+fn greet_on_checked_change(
+  id : CheckedInputId,
+  payload : CheckedPayload,
+) -> DemoMsg? {
+  match id.name {
+    "greet.subscribed" => Some(GreetCheckedChange(payload.checked))
     _ => None
   }
 }
@@ -514,6 +546,7 @@ pub fn mount_browser_demo(mount_id : String) -> Unit {
       dom_query_child_by_id(host, "greet-root"),
       greet_program(runtime),
       on_input=greet_on_input,
+      on_checked_change=greet_on_checked_change,
       on_key=greet_on_key,
       on_pointer=greet_on_pointer,
     ),

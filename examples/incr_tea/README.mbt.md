@@ -139,6 +139,23 @@ pointer id/type, viewport coordinates (`client_x`/`client_y`), target-element-lo
 offsets (`offset_x`/`offset_y`, from the browser's `offsetX`/`offsetY`), buttons, and
 modifiers. No closure or DOM event object is stored in cacheable `Html`, so
 equal descriptors still backdate.
+Checkbox/radio checked-state payloads use `on_checked_change(tag=...)` with
+`CheckedInputId` and `CheckedPayload{checked: Bool}`, following the same pure-id
+pattern. The renderer reads `event.target.checked` at the boundary and resolves
+`(id, payload) -> Msg` through the mount-time `on_checked_change` resolver:
+
+```mbt nocheck
+renderer.mount(
+  host,
+  program,
+  on_checked_change=(id, payload) => {
+    match id.name {
+      "subscribe" => Some(SetSubscribed(payload.checked))
+      _ => None
+    }
+  },
+)
+```
 
 Static `prevent_default` / `stop_propagation` flags are pure descriptor data, and
 the actual DOM calls are made only by the renderer listener. Keyboard handlers
@@ -224,6 +241,14 @@ Conventions:
 - Event helpers stay pure descriptors. Do not add closure-valued event handlers
   to `Html`; payload-to-message logic and payload-dependent keyboard actions
   belong at `BrowserRenderer::mount`.
+- Boolean form-control properties (`checked`, `disabled`, `selected`) use
+  `Attrs::checked(Bool)`, `Attrs::disabled(Bool)`, and `Attrs::selected(Bool)`.
+  These set the DOM property directly (e.g. `element.checked = true`) in addition
+  to the HTML attribute, so controlled-checkbox, disabled-button, and
+  selected-option state is reliable under framework-level re-rendering. Absence
+  of the builder call means `false` (the diff system removes the attribute and
+  resets the DOM property). For a one-off boolean property, use `prop_bool(name)`
+  directly.
 
 ### Semantic editor driver (#251)
 
@@ -288,8 +313,9 @@ The browser demo includes:
   parked but alive), reattach it (state preserved), destroy it (program disposed
   when no sibling root references it), and dispose the whole renderer (which also
   reclaims parked roots);
-- a payload card (#211/#249) whose text-input, keyboard, and pointer payloads
-  dispatch as `Msg` values and echo back into the view;
+- a payload card (#211/#249/#286) whose text-input, keyboard, pointer, and
+  checkbox checked-change payloads dispatch as `Msg` values and echo back
+  into the view;
 - a semantic editor card (#251) whose projection rows are keyed by semantic ids,
   support local text edits and position changes, preserve focused keyed inputs
   on local edits, and drive a separate inspector root that reads diagnostics and
