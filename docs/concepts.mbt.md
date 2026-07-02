@@ -23,12 +23,10 @@ semantics are caught by `moon check`.
 - **Derived values** are the interior nodes (cached computations)
 - **Arrows** represent dependencies (automatically tracked)
 
-Naming note: this document uses the current facade names. The legacy `Signal`,
-`Memo`, `MemoMap`, and `HybridMemo` types were removed in v0.12.0 — use
-`Input`, `Derived`, `DerivedMap`, and `ReachableDerived`. A few compatibility
-names remain available: `Reactive` (= `EagerDerived`), `TrackedCell`
-(= `InputField`), `FunctionalRelation` (= `MapRelation`), and the `Database`
-trait.
+Naming note: a few compatibility names remain available: `Reactive`
+(= `EagerDerived`), `TrackedCell` (= `InputField`), `FunctionalRelation`
+(= `MapRelation`), and the `Database` trait. Migrating pre-v0.12.0 code? See
+the [CHANGELOG](../CHANGELOG.md).
 
 ## Inputs
 

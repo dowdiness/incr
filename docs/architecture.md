@@ -35,7 +35,7 @@ moon.work
 
 | Package | Responsibility | Depends on |
 |---|---|---|
-| Root (`incr.mbt`, `traits.mbt`) | Re-exports the target facade (`Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `EagerDerived`, `Watch`, `MapRelation`, `RuntimeContext`, `Freshness`, `InputFieldOwner`) plus legacy compatibility handles (`TrackedCell`, `Reactive`, `Observer`, `FunctionalRelation`, `Database`, `Readable`, `Trackable`); provides RuntimeContext convenience helpers, compatibility helpers, and batching/lifecycle helpers (`Memo`, `MemoMap`, `HybridMemo` were removed in v0.12.0 — use the target facades) | none |
+| Root (`incr.mbt`, `traits.mbt`) | Re-exports the target facade (`Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `EagerDerived`, `Watch`, `MapRelation`, `RuntimeContext`, `Freshness`, `InputFieldOwner`) plus legacy compatibility handles (`TrackedCell`, `Reactive`, `Observer`, `FunctionalRelation`, `Database`, `Readable`, `Trackable`); provides RuntimeContext convenience helpers, compatibility helpers, and batching/lifecycle helpers | none |
 | `types/` | Pure value types: `Revision`, `Durability`, `CellId`, `CycleError`, ID types, `BackdateEq` / `HasChangedAt` traits | none |
 | `cells/` | The `Runtime` coordinator (thin delegators into `internal/kernel`), target facades (`Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `EagerDerived`, `Watch`, `MapRelation`), internal legacy compatibility handles (`TrackedCell`, `Reactive`, `Observer`, `FunctionalRelation`), Datalog/effect/accumulator/scope handles, and per-cell-kind lifecycle wiring | `types`, all `cells/internal/*` packages |
 | `cells/internal/shared/` | Coordinator-only trait abstractions: `CellOps`, `HasCellMeta`, `Committable`, `CellMeta`, `CellRef`, `SlotSnapshot` | (leaf) |
@@ -48,13 +48,13 @@ moon.work
 
 The five `internal/` sub-packages use MoonBit's `internal` directory visibility, which the compiler enforces. The script `scripts/check-engine-isolation.sh` additionally enforces four hand-curated invariants on top of that (one-way kernel imports, leaf status of `shared`, no engine-to-engine sibling imports, no back-edges into `cells/`).
 
-Naming note: this page is target-first for user-facing APIs. The older names
-remain available as compatibility handles while migration continues. The
-accepted naming target is recorded in
-[ADR 2026-05-21](decisions/2026-05-21-public-api-ideal-naming.md): `Signal -> Input` (completed v0.12.0), `Memo -> Derived`, `HybridMemo -> ReachableDerived`, `Reactive ->
-EagerDerived`, `MemoMap -> DerivedMap`, `TrackedCell -> InputField`, `Observer
--> Watch`, `FunctionalRelation -> MapRelation`, `Readable -> Freshness`,
-`Trackable -> InputFieldOwner`, and `Database -> RuntimeContext`.
+Naming note: this page is target-first for user-facing APIs. The remaining
+compatibility handles map to target names as follows: `Reactive ->
+EagerDerived`, `TrackedCell -> InputField`, `Observer -> Watch`,
+`FunctionalRelation -> MapRelation`, `Readable -> Freshness`, `Trackable ->
+InputFieldOwner`, and `Database -> RuntimeContext`. The naming target is
+recorded in [ADR 2026-05-21](decisions/2026-05-21-public-api-ideal-naming.md);
+for names already removed, the [CHANGELOG](../CHANGELOG.md) has the mapping.
 
 ---
 
@@ -103,7 +103,7 @@ watched value alive across `gc()`.
    trigger immediate level-by-level propagation through downstream push nodes.
 2. `Effect` is a sink — runs side-effecting closures at the appropriate level.
 
-**Hybrid mode (`ReachableDerived` / compatibility `HybridMemo`):**
+**Hybrid mode (`ReachableDerived`):**
 
 `ReachableDerived` is a pull-derived facade whose underlying hybrid memo uses
 the same revision check as `Derived` — there is no separate dirty flag. **Today
@@ -142,7 +142,7 @@ compatibility `FunctionalRelation[K, V]`.
 | `Accumulator[T]` | Side-channel collector pushed to from derived-cell computes; consumers read via `Derived::accumulated*`. See [ADR](decisions/2026-04-20-accumulator-api.md). | `Accumulator::new` or `create_accumulator` |
 | `Scope` | Lifecycle group: cells/accumulators registered to a scope are disposed when the scope is disposed | `Scope::new`, target `scope.input` / `scope.derived` helpers, or compatibility `create_scope` |
 | `Watch[T]` | Persistent attachment that keeps a derived/eager value alive past `gc()` sweeps and returns `Result` reads | `derived.watch()` / `reachable.watch()` / `eager.watch()` |
-| Compatibility handles | Older source-compatible names: `TrackedCell`, `Reactive`, `Observer`, `FunctionalRelation`; `Memo`, `MemoMap`, `HybridMemo`, and `Signal` were removed in v0.12.0 | Compatibility constructors (`TrackedCell::new`, …) and helpers |
+| Compatibility handles | Older source-compatible names: `TrackedCell`, `Reactive`, `Observer`, `FunctionalRelation` | Compatibility constructors (`TrackedCell::new`, …) and helpers |
 | `CellId`, `CellInfo`, `CycleError`, `Revision`, `Durability` | Plain value types | constructors in `types/` |
 | Traits `RuntimeContext`, `Freshness`, `InputFieldOwner` | Target extension points (see below) | — |
 | Compatibility traits `Database`, `Readable`, `Trackable` | Older helper/introspection extension points retained during migration | — |

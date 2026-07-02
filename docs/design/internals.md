@@ -4,12 +4,10 @@
 
 This document explains the theoretical foundations and implementation details of the `incr` library. For usage and API examples, see [incr/README.mbt.md](../../incr/README.mbt.md). For contributor/AI guidance, see [CLAUDE.md](../../CLAUDE.md).
 
-Naming: this document uses the current facade names — `Input`, `Derived`,
-`ReachableDerived`, `DerivedMap`, `EagerDerived`, `InputField`. The legacy
-names `Signal`, `Memo`, `HybridMemo`, and `MemoMap` were removed in v0.12.0.
-Internal identifiers (`MemoData`, `memo_force_recompute`, `pull.memos`) keep
-the word "memo"; that is deliberate — they name the memoization mechanism, not
-the removed public type.
+Naming: internal identifiers (`MemoData`, `memo_force_recompute`,
+`pull.memos`) use the word "memo" deliberately — they name the memoization
+mechanism, not a public type. The public facades are `Input`, `Derived`,
+`ReachableDerived`, `DerivedMap`, `EagerDerived`, and `InputField`.
 
 ## Motivation & Background
 

@@ -17,9 +17,8 @@ Advanced features (push-reactive `EagerDerived[T]` / `Effect`, reachable lazy `R
 
 Naming note: the target facade names above are the recommended API. Some legacy
 compatibility names remain available: `Reactive`, `TrackedCell`, and
-`Database`. The legacy `Memo`, `MemoMap`, `HybridMemo`, and `Signal` types were
-removed in v0.12.0 — use `Derived`, `DerivedMap`, `ReachableDerived`, and
-`Input` respectively.
+`Database`. Migrating pre-v0.12.0 code that used the removed `Memo`-family or
+`Signal` names? See the [CHANGELOG](../CHANGELOG.md).
 The naming direction is recorded in [ADR 2026-05-21](../docs/decisions/2026-05-21-public-api-ideal-naming.md).
 ## Live practical demo
 
