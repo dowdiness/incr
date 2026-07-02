@@ -1,6 +1,6 @@
 # incr
 
-A Salsa- and [Build Systems à la Carte](https://hackage.haskell.org/package/build)-inspired incremental recomputation library for [MoonBit](https://www.moonbitlang.com/).
+A [Salsa](https://github.com/salsa-rs/salsa)- and [Build Systems à la Carte](https://hackage.haskell.org/package/build)-inspired incremental recomputation library for [MoonBit](https://www.moonbitlang.com/).
 
 `incr` tracks dependencies automatically, memoizes derived values, and skips unnecessary work when inputs change — so you write straight-line code and the runtime figures out what to recompute.
 
