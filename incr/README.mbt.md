@@ -49,19 +49,22 @@ The core library packages use only `moonbitlang/core`; optional repository demos
 let rt = Runtime()
 
 // Create inputs
-let x = Input(rt, 10, label="x")
-let y = Input(rt, 20, label="y")
+let x = rt.input(10, label="x")
+let y = rt.input(20, label="y")
 
-// Create derived computations
-let sum = Derived(rt, () => x.get() + y.get(), label="sum")
+// Combine inputs and chain further derived stages
+let sum = x.derived2(y, (a, b) => a + b, label="sum")
+let doubled = sum.map(v => v * 2, label="doubled")
 
-// `.get()` is only legal inside another derived computation.
-// Outside the graph, use `read_or_abort()` or `read()`.
+// Outside the graph, read with `read_or_abort()` or `read()`.
+// (`.get()` is only legal inside another derived computation —
+// use `Derived(rt, () => ...)` when a stage reads several cells.)
 inspect(sum.read_or_abort(), content="30")
+inspect(doubled.read_or_abort(), content="60")
 
 // Update an input — downstream derived values recompute on the next read
 x.set(5)
-inspect(sum.read_or_abort(), content="25")
+inspect(doubled.read_or_abort(), content="50")
 ```
 
 When a group of cells or long-lived reads shares a lifetime, construct cells

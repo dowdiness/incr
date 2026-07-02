@@ -3,10 +3,12 @@
 ///|
 test "quickstart: target constructors from README" {
   let rt = @incr.Runtime()
-  let x = @incr.Input(rt, 10, label="x")
-  let y = @incr.Input(rt, 20, label="y")
-  let sum = @incr.Derived(rt, () => x.get() + y.get(), label="sum")
+  let x = rt.input(10, label="x")
+  let y = rt.input(20, label="y")
+  let sum = x.derived2(y, (a, b) => a + b, label="sum")
+  let doubled = sum.map(v => v * 2, label="doubled")
   inspect(sum.read_or_abort(), content="30")
+  inspect(doubled.read_or_abort(), content="60")
   x.set(5)
-  inspect(sum.read_or_abort(), content="25")
+  inspect(doubled.read_or_abort(), content="50")
 }
