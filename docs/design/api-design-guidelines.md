@@ -1,6 +1,8 @@
 # API Design Guidelines
 
-This document explains the design philosophy behind `incr`'s API and planned improvements.
+This document records the design philosophy behind `incr`'s public API, the
+improvements already shipped under it, and the deferred ideas. Code snippets
+are illustrative, not checked.
 
 ## Design Principles
 
@@ -10,16 +12,16 @@ This document explains the design philosophy behind `incr`'s API and planned imp
 
 ```moonbit
 // Beginner: Just works
-let count = Signal(rt, 0)
+let count = Input(rt, 0)
 
 // Intermediate: Optimization
-let config = Signal(rt, 100, durability=High)
+let config = Input(rt, 100, durability=High)
 
 // Advanced: Full control
-let memo = Memo(rt, () => {
-  match other_memo.get_result() {
+let derived = Derived(rt, () => {
+  match other_derived.get() {
     Ok(v) => v + 1
-    Err(CycleDetected(_, _)) => 0
+    Err(_) => 0
   }
 })
 ```
@@ -29,12 +31,13 @@ let memo = Memo(rt, () => {
 **Constraints only where needed:**
 
 ```moonbit
-Signal(rt, value)          // Constructor: no Eq needed (accepts any T)
-sig.set(value)             // set requires T : Eq — enables same-value optimization
-sig.set_unconditional(v)   // No Eq required — always bumps revision
+Input(rt, value)      // Constructor: no Eq needed (accepts any T)
+input.set(value)      // set requires T : Eq — enables same-value optimization
+input.force_set(v)    // No Eq required — always bumps revision
 ```
 
-Why: Maximum flexibility. Types without `Eq` can still be used (just skip optimization).
+Why: maximum flexibility. Types without `Eq` can still be used (just skip the
+same-value optimization).
 
 ### 3. Explicit Over Implicit
 
@@ -42,23 +45,20 @@ Why: Maximum flexibility. Types without `Eq` can still be used (just skip optimi
 
 ```moonbit
 // ❌ Bad (implicit global runtime)
-let sig = Signal(10)
+let input = Input(10)
 
 // ✓ Good (explicit runtime)
 let rt = Runtime()
-let sig = Signal(rt, 10)
+let input = Input(rt, 10)
 
-// ✓ Better in current API (database pattern)
+// ✓ Also good: hide the runtime behind your own context type
 struct MyDb { rt : Runtime }
-impl Database for MyDb with runtime(self) { self.rt }
-let sig = create_signal(db, 10)
+impl RuntimeContext for MyDb with runtime(self) { self.rt }
+let input = create_input(db, 10)
 ```
 
-Future naming: [ADR 2026-05-21](../decisions/2026-05-21-public-api-ideal-naming.md)
-renames this capability to `RuntimeContext` and treats custom struct
-constructors as the primary construction API. The current `Database` /
-`create_*` shape remains documented here as current API, not as the ideal
-final surface.
+The naming and construction direction is recorded in
+[ADR 2026-05-21](../decisions/2026-05-21-public-api-ideal-naming.md).
 
 ### 4. Trait Composition
 
@@ -66,11 +66,11 @@ final surface.
 
 ```moonbit
 // Minimal: just incremental computation
-impl Database for MyDb { ... }
+impl RuntimeContext for MyDb { ... }
 
 // Add application-local pipeline capabilities as needed
-impl Database + ProjectSource for MyCompiler { ... }
-impl Database + ProjectSource + ProjectParser for MyFullCompiler { ... }
+impl RuntimeContext + ProjectSource for MyCompiler { ... }
+impl RuntimeContext + ProjectSource + ProjectParser for MyFullCompiler { ... }
 ```
 
 Users implement only what they need. No forced inheritance hierarchy. Keep
@@ -83,148 +83,116 @@ artifact types are stable across more than one consumer.
 
 | Type | Role | Mutability |
 |------|------|------------|
-| `Signal[T]` | Input cell | User sets via `set()` |
-| `Memo[T]` | Derived cell | Framework computes via closure |
+| `Input[T]` | Input cell | User sets via `set()` |
+| `Derived[T]` | Derived cell | Framework computes via closure |
 | `Runtime` | Coordinator | Manages global state |
 
 No confusion about what each type does.
 
-### Current Dual APIs for Error Handling
+### Read and Write Naming
 
-```moonbit
-// Prototyping: fail fast
-let value = memo.get()  // Aborts on cycle
-
-// Production: graceful handling
-match memo.get_result() {
-  Ok(v) => use(v)
-  Err(CycleDetected(cell, path)) => fallback()
-}
-```
-
-Current releases support a smooth onboarding path: start simple, add
-robustness later. The accepted ideal API flips the default for fallible derived
-reads so recoverable `Result` reads use the shortest names and aborting
-shortcuts carry `_or_abort`.
-
-### Read Method Naming
-
-Current API:
+Fallible derived reads own the simple names; aborting conveniences carry
+`_or_abort`. Input reads stay direct because cycles are impossible there.
 
 | Method | When to Use |
 |--------|-------------|
 | `set(value)` | Default input write with same-value optimization |
-| `set_unconditional(value)` | Force recomputation even if unchanged |
-| `get()` | Aborting derived read |
-| `get_result()` | Recoverable derived read |
-
-Ideal API from [ADR 2026-05-21](../decisions/2026-05-21-public-api-ideal-naming.md):
-
-| Method | When to Use |
-|--------|-------------|
-| `get()` | Strict graph read returning `Result` |
-| `get_or_abort()` | Strict graph read convenience that aborts |
-| `read()` | Permissive read returning `Result` |
-| `read_or_abort()` | Permissive read convenience that aborts |
 | `force_set(value)` | Force an input write even if unchanged |
+| `get()` | Strict tracked-context read returning `Result` |
+| `get_or_abort()` | Strict read convenience that aborts |
+| `read()` | Permissive outside-graph read returning `Result` |
+| `read_or_abort()` | Permissive read convenience that aborts |
 
-## Improvements
+## Shipped Improvements
 
-### Phase 2A: Introspection API ✓
+These phases are implemented; they are kept here as the record of what the
+principles produced. Signatures below are illustrative — `pkg.generated.mbti`
+is authoritative.
+
+### Introspection API (Phase 2A) ✓
 
 **Goal:** Debug and understand dependency graphs.
 
 ```moonbit
 // Per-cell introspection
-pub fn[T] Signal::id(self) -> CellId
-pub fn[T] Signal::durability(self) -> Durability
-pub fn[T] Memo::dependencies(self) -> Array[CellId]
-pub fn[T] Memo::changed_at(self) -> Revision
-pub fn[T] Memo::verified_at(self) -> Revision
+pub fn[T] Input::id(self) -> CellId
+pub fn[T] Input::durability(self) -> Durability
+pub fn[T] Derived::dependencies(self) -> Array[CellId]
+pub fn[T] Derived::changed_at(self) -> Revision
+pub fn[T] Derived::verified_at(self) -> Revision
 
 // Runtime introspection
 pub fn Runtime::cell_info(self, id : CellId) -> CellInfo?
 
 pub struct CellInfo {
-  pub label : String?
-  pub id : CellId
-  pub changed_at : Revision
-  pub verified_at : Revision
-  pub durability : Durability
-  pub dependencies : Array[CellId]
+  label : String?
+  id : CellId
+  changed_at : Revision
+  verified_at : Revision
+  durability : Durability
+  dependencies : Array[CellId]
+  subscribers : Array[CellId]
 }
 ```
 
 **Use case:**
 
 ```moonbit
-// Debug: why did this memo recompute?
-if !expensive.is_up_to_date() {
-  for dep in expensive.dependencies() {
-    let info = rt.cell_info(dep)
-    if info.changed_at > expensive.verified_at() {
-      println("Recomputed due to: " + dep.to_string())
-    }
+// Debug: why did this derived value recompute?
+for dep in expensive.dependencies() {
+  match rt.cell_info(dep) {
+    Some(info) =>
+      if info.changed_at > expensive.verified_at() {
+        println("Recomputed due to: " + dep.to_string())
+      }
+    None => ()
   }
 }
 ```
 
-### Phase 2B: Per-Cell Change Callbacks ✓
+### Per-Cell Change Callbacks (Phase 2B) ✓
 
 **Goal:** Fine-grained observability without coupling to Runtime.
 
 ```moonbit
-pub fn[T] Signal::on_change(self, f : (T) -> Unit) -> Unit
-pub fn[T] Memo::on_change(self, f : (T) -> Unit) -> Unit
-pub fn[T] Signal::clear_on_change(self) -> Unit
-pub fn[T] Memo::clear_on_change(self) -> Unit
-```
-
-**Use case:**
-
-```moonbit
-let count = Signal(rt, 0)
-count.on_change(new_val => println("Count: " + new_val.to_string()))
-
-let doubled = Memo(rt, () => count.get() * 2)
-doubled.on_change(new_val => update_ui(new_val))
+pub fn[T] Input::on_change(self, f : (T) -> Unit) -> Unit
+pub fn[T] Derived::on_change(self, f : (T) -> Unit) -> Unit
+pub fn[T] Input::clear_on_change(self) -> Unit
+pub fn[T] Derived::clear_on_change(self) -> Unit
 ```
 
 **Behavior:**
 
-- Callbacks stored on `CellMeta` via type-erased closures
-- Fire after revision bump, before `Runtime::fire_on_change`
+- Callbacks stored on cell metadata via type-erased closures
+- Fire after revision bump, before the global `Runtime` on-change callback
 - During batch: fires at batch end for all changed cells
 
-### Phase 2C: Unified Constructors with Optional Params ✓
+### Unified Constructors with Optional Params (Phase 2C) ✓
 
-**Goal:** Ergonomic API without builder boilerplate.
-
-Instead of a builder pattern, MoonBit's optional parameters provide a cleaner solution:
+**Goal:** Ergonomic API without builder boilerplate. MoonBit's optional
+parameters replace the builder pattern:
 
 ```moonbit
-// Signal: durability and label are optional
-Signal(rt, 100)                                    // defaults
-Signal(rt, 100, durability=High)                   // explicit durability
-Signal(rt, 100, durability=High, label="config")   // both
+Input(rt, 100)                                    // defaults
+Input(rt, 100, durability=High)                   // explicit durability
+Input(rt, 100, durability=High, label="config")   // both
 
-// Memo: label is optional
-Memo(rt, () => x.get() * 2)                    // default
-Memo(rt, () => x.get() * 2, label="doubled")   // with label
+Derived(rt, () => x.get_or_abort() * 2, label="doubled")
 
-// Helper functions follow the same pattern
-create_signal(db, value, durability=High, label="cfg")
-create_memo(db, () => { ... }, label="tax")
+// RuntimeContext helpers follow the same pattern
+create_input(db, value, durability=High, label="cfg")
+create_derived(db, () => { ... }, label="tax")
 ```
 
-This replaced `Signal::new_with_durability` and `create_signal_durable` with unified constructors. Labels propagate through `CellMeta`, `CellInfo`, and `format_path` for debugging.
+This replaced separate `*_with_durability` constructors. Labels propagate
+through cell metadata, `CellInfo`, and `format_path` for debugging.
 
-### Phase 2A: Enhanced Error Diagnostics (High Priority) — Implemented
+### Enhanced Error Diagnostics ✓
 
 **Goal:** Better debugging for cycle errors.
 
 ```moonbit
-pub(all) suberror CycleError {
+pub suberror CycleError {
   CycleDetected(CellId, Array[CellId], Array[String?])  // (culprit, cycle_path, labels)
 }
 
@@ -235,12 +203,11 @@ pub fn CycleError::format_path(self) -> String
 **Use case:**
 
 ```moonbit
-match memo.get_result() {
-  Err(err) => {
-    println(err.format_path())
-    // "Cycle detected: price → tax → price"
-  }
-  Ok(v) => v
+match derived.read() {
+  Err(Cycle(err)) => println(err.format_path())
+  // "Cycle detected: price → tax → price"
+  Err(Disposed(_)) => println("cell disposed")
+  Ok(v) => use(v)
 }
 ```
 
@@ -248,22 +215,32 @@ match memo.get_result() {
 rendering doesn't need a runtime handle and stays informative even if cells
 are later renamed or disposed.
 
-### Phase 3: Method Chaining (Low Priority)
+### Subscriber Links ✓
 
-**Goal:** Fluent configuration.
+Reverse-edge lookup is available via `Runtime::dependents(id) -> Array[CellId]`
+(and per-cell `CellInfo::subscribers`). Subscriber links are maintained
+incrementally during recompute: added when a dependency is newly recorded,
+removed when a dependency is dropped (dynamic dep set). Useful for impact
+analysis and debugging.
+
+## Deferred Ideas
+
+### Method Chaining (Low Priority)
 
 ```moonbit
-pub fn Runtime::with_on_change(self, f : () -> Unit) -> Runtime {
-  self.set_on_change(f)
-  self
-}
-
-// Usage
 let rt = Runtime()
   .with_on_change(() => println("Changed!"))
 ```
 
-**Trade-off:** Requires mutable self, which conflicts with MoonBit's borrowing if runtime is already borrowed by signals. **Deferred** until usage patterns clarify this.
+**Trade-off:** requires mutable self, which conflicts with MoonBit's borrowing
+if the runtime is already borrowed by cells. **Deferred** until usage patterns
+clarify this.
+
+### RAII Batch Guards
+
+If MoonBit adds destructors, a `BatchGuard` whose drop auto-commits the
+outermost batch would remove the closure requirement from `batch`.
+**Deferred:** MoonBit doesn't have RAII/destructors yet.
 
 ## API Style Comparison
 
@@ -274,11 +251,11 @@ let rt = Runtime()
 | **SolidJS** | JSX integrated (`createSignal()`) | Natural for UI | Tightly coupled to UI framework |
 | **incr (MoonBit)** | Explicit constructors + traits | Clear, inspectable, no magic | Slightly verbose |
 
-**Position:** Explicitness over magic. This is correct for a foundational library.
+**Position:** explicitness over magic. This is correct for a foundational library.
 
 ## Recommended Usage Patterns
 
-### Pattern 1: Database-Centric API (Recommended)
+### Pattern 1: Context-Centric API (Recommended)
 
 **Instead of passing `Runtime` everywhere, encapsulate it:**
 
@@ -286,31 +263,24 @@ let rt = Runtime()
 struct MyApp {
   rt : Runtime
   // Domain state
-  config : Signal[String]
-  input : Signal[String]
-
-  fn new() -> MyApp
+  config : Input[String]
+  input : Input[String]
 }
 
-impl Database for MyApp with runtime(self) { self.rt }
+impl RuntimeContext for MyApp with runtime(self) { self.rt }
 
 fn MyApp::new() -> MyApp {
   let rt = Runtime()
-  let app = {
-    rt,
-    config: Signal(rt, "prod"),
-    input: Signal(rt, "")
-  }
-  app
+  { rt, config: Input(rt, "prod"), input: Input(rt, "") }
 }
 
 // Users never see Runtime
-fn process(app : MyApp) -> Memo[String] {
-  create_memo(app, () => app.input.get().to_upper() + " [" + app.config.get() + "]")
+fn process(app : MyApp) -> Derived[String] {
+  create_derived(app, () => app.input.get() + " [" + app.config.get() + "]")
 }
 ```
 
-**Why:** Domain-driven design. `Runtime` is an implementation detail.
+**Why:** domain-driven design. `Runtime` is an implementation detail.
 
 ### Pattern 2: Trait Composition for Pipelines
 
@@ -318,109 +288,87 @@ fn process(app : MyApp) -> Memo[String] {
 
 ```moonbit
 // Stage 1: Just incremental
-trait MyDb : Database { ... }
+trait MyDb : RuntimeContext { ... }
 
 // Stage 2: Add source handling over this package's ModuleKey/SourceText types
-trait MyCompiler : Database + ProjectSource { ... }
+trait MyCompiler : RuntimeContext + ProjectSource { ... }
 
 // Stage 3: Add parsing/checking over this package's concrete syntax and diagnostics
-trait MyFullCompiler : Database + ProjectSource + ProjectParser + ProjectChecker { ... }
+trait MyFullCompiler : RuntimeContext + ProjectSource + ProjectParser + ProjectChecker { ... }
 ```
 
-**Why:** Pay only for what you use. No forced methods, and no shared stringly-typed
-pipeline abstraction before the domain types are real.
+**Why:** pay only for what you use. No forced methods, and no shared
+stringly-typed pipeline abstraction before the domain types are real.
 
 ### Pattern 3: Graceful Cycle Handling
 
-**Use `get_result()` for self-referential or plugin systems:**
+**Use `get()`'s `Result` for self-referential or plugin systems:**
 
 ```moonbit
-let memo = Memo(rt, () => {
-  match potentially_cyclic.get_result() {
+let derived = Derived(rt, () => {
+  match potentially_cyclic.get() {
     Ok(v) => v + 1
-    Err(CycleDetected(_, _)) => 0  // Base case
+    Err(_) => 0  // Base case
   }
 })
 ```
 
-**Why:** Production systems shouldn't panic. Handle errors where they occur.
+**Why:** production systems shouldn't panic. Handle errors where they occur.
 
 ## Anti-Patterns
 
 ### ❌ Anti-Pattern 1: Monolithic Compute Functions
 
 ```moonbit
-// Bad: Large computation
-let result = Memo(rt, () => {
-  let a = step1(input.get())
-  let b = step2(a)
-  let c = step3(b)
-  step4(c)
-})
+// Bad: one large computation — no intermediate caching, no granular backdating
+let result = Derived(rt, () => step4(step3(step2(step1(input.get())))))
+
+// Good: composable pipeline — each stage caches and backdates independently
+let step1_out = Derived(rt, () => step1(input.get()))
+let step2_out = Derived(rt, () => step2(step1_out.get_or_abort()))
+let result = Derived(rt, () => step3(step2_out.get_or_abort()))
 ```
 
-**Problem:** No intermediate caching, no granular backdating.
-
-**Solution:** Break into composable memos:
+### ❌ Anti-Pattern 2: Reading Derived Values During Batch
 
 ```moonbit
-// Good: Composable pipeline
-let step1_out = Memo(rt, () => step1(input.get()))
-let step2_out = Memo(rt, () => step2(step1_out.get()))
-let step3_out = Memo(rt, () => step3(step2_out.get()))
-let result = Memo(rt, () => step4(step3_out.get()))
-```
-
-### ❌ Anti-Pattern 2: Reading Memos During Batch
-
-```moonbit
-// Bad: Unexpected behavior
+// Bad: batches are transactionally isolated — reads see pre-batch values
 rt.batch(() => {
   x.set(20)
-  println(doubled.get())  // Still returns old value!
+  println(doubled.read_or_abort())  // Still returns the old value!
 })
-```
 
-**Problem:** Batches provide transactional isolation — reads see pre-batch values.
-
-**Solution:** Read after batch:
-
-```moonbit
-// Good: Read after commit
-rt.batch(() => {
-  x.set(20)
-})
-println(doubled.get())  // Now sees new value
+// Good: read after commit
+rt.batch(() => x.set(20))
+println(doubled.read_or_abort())  // Now sees the new value
 ```
 
 ### ❌ Anti-Pattern 3: Ignoring Same-Value Optimization
 
 ```moonbit
-// Wasteful: Always use set_unconditional
-sig.set_unconditional(value)
+// Wasteful: forces downstream recomputation even when the value is unchanged
+input.force_set(value)
+
+// Good: no-op if the value is unchanged
+input.set(value)
 ```
 
-**Problem:** Forces downstream recomputation even when value unchanged.
+Only use `force_set()` when you genuinely need to force an update (e.g., types
+without `Eq`, or external side effects tied to writes).
 
-**Solution:** Use `set()` by default:
+## Naming Rationale (Completed Rename)
 
-```moonbit
-// Good: Automatic optimization
-sig.set(value)  // No-op if value unchanged
-```
+The public API rename recorded in
+[ADR 2026-05-21](../decisions/2026-05-21-public-api-ideal-naming.md) is
+complete. The rationale is kept because it explains what the current names
+mean:
 
-Only use `set_unconditional()` when you genuinely need to force update (e.g., types without `Eq`, or external side effects tied to writes).
-
-## Future Considerations
-
-### Accepted: Ideal Public API Naming
-
-| Current | Proposed | Rationale |
-|---------|----------|-----------|
+| Former | Current | Rationale |
+|--------|---------|-----------|
 | `Signal` | `Input` | User-provided value that enters the graph. |
 | `Memo` | `Derived` | Lazy value derived from graph dependencies. |
-| `Reactive` | `EagerDerived` | Clearly "a Derived that recomputes eagerly." Current name sounds unrelated to `Memo` even though both are derived computations. |
-| `HybridMemo` | `ReachableDerived` | Lazy derived value that participates in reachability propagation through eager/rooted dependents. |
+| `Reactive` | `EagerDerived` | Clearly "a Derived that recomputes eagerly." |
+| `HybridMemo` | `ReachableDerived` | Lazy derived value that participates in reachability propagation through eager/rooted dependents — it has no dirty ping. |
 | `MemoMap` | `DerivedMap` | Map-shaped derived computation; each key lazily owns one derived value. |
 | `TrackedCell` | `InputField` | Input cell intended to live as a field of a larger tracked value. |
 | `Observer` | `Watch` | Long-lived outside read handle that roots a derived value. |
@@ -428,69 +376,13 @@ Only use `set_unconditional()` when you genuinely need to force update (e.g., ty
 | `Readable` | `Freshness` | Capability for querying whether a node is fresh. |
 | `Trackable` | `InputFieldOwner` | Structured value that owns input fields. |
 | `Database` | `RuntimeContext` | User context that exposes an `incr` runtime. |
-| `Effect` | `Effect` | No change — already clear. |
-| `Relation` | `Relation` | No change. |
-| `Rule` | `Rule` | No change. |
+| `Effect`, `Relation`, `Rule` | (unchanged) | Already clear. |
 
-**Why `Input` / `Derived` over `Signal` / `Memo`:** These names describe graph
-role rather than ecosystem vocabulary or implementation technique. Inputs are
-set from outside the graph; derived values are computed from dependencies.
-
-**Why `ReachableDerived`:** The current `HybridMemo` has no dirty ping. It is
-lazy like `Memo`; its deterministic trait is that it participates in
-reachability propagation through eager/rooted dependents.
-
-**Read method convention:** Fallible derived reads should own the simple names:
-`get` for strict graph reads and `read` for permissive reads. Aborting
-conveniences should carry `_or_abort`. Input reads remain direct because cycles
-are impossible.
-
-**Construction convention:** Use custom struct constructors as the primary API.
-The ideal final API does not rely on `create_*` free helpers.
-
-See [ADR 2026-05-21](../decisions/2026-05-21-public-api-ideal-naming.md). The
-ADR records a target design; migration staging belongs in a future plan.
-
-### Deferred: RAII Batch Guards
-
-**If MoonBit adds destructors:**
-
-```moonbit
-pub struct BatchGuard {
-  rt : Runtime
-}
-
-impl Drop for BatchGuard {
-  drop(self) {
-    // Auto-commit on scope exit
-    if self.rt.batch_depth == 1 {
-      self.rt.commit_batch()
-    }
-    self.rt.batch_depth -= 1
-  }
-}
-
-// Usage
-{
-  let _guard = BatchGuard(rt)
-  x.set(1)
-  y.set(2)
-  // Auto-commits when guard drops
-}
-```
-
-**Why deferred:** MoonBit doesn't have RAII/destructors yet. Revisit when language supports it.
-
-### Subscriber Links API (Implemented)
-
-Reverse-edge lookup is available via:
-
-```moonbit
-pub fn Runtime::dependents(self, id : CellId) -> Array[CellId]
-pub fn[T] Memo::dependents(self) -> Array[CellId]
-```
-
-Subscriber links are maintained incrementally in `force_recompute`: added when a dependency is newly recorded, removed when a dependency is dropped (dynamic dep set). Useful for impact analysis and debugging.
+The names describe graph role rather than ecosystem vocabulary or
+implementation technique: inputs are set from outside the graph; derived
+values are computed from dependencies. Custom struct constructors are the
+primary construction API; `create_*` free helpers exist for `RuntimeContext`
+consumers.
 
 ## Documentation Strategy
 
@@ -498,10 +390,9 @@ Subscriber links are maintained incrementally in `force_recompute`: added when a
 
 **Show in this order:**
 
-1. **Database pattern** (current API; target name `RuntimeContext`)
-2. **Basic signals and memos** (simple API)
-3. **Error handling** (current API: `get()` → `get_result()`; target API:
-   fallible `get()` / `read()` with `_or_abort` conveniences)
+1. **Direct constructors and `RuntimeContext`** (hide the runtime in app types)
+2. **Basic inputs and derived values**
+3. **Error handling** (`get()` / `read()` return `Result`; `_or_abort` conveniences)
 4. **Optimization** (durability, batching)
 5. **Advanced** (introspection, custom traits)
 
@@ -509,8 +400,7 @@ Subscriber links are maintained incrementally in `force_recompute`: added when a
 
 **Emphasize:**
 
-1. **Trait design** (`Database` / target `RuntimeContext`, `Readable` /
-   target `Freshness`; application pipeline traits should live in consumer packages)
+1. **Trait design** (`RuntimeContext`, `Freshness`; application pipeline traits should live in consumer packages)
 2. **Type constraints** (when to require `Eq`)
 3. **Performance** (backdating, durability shortcuts)
 4. **Correctness** (cycle detection, batch semantics)
@@ -519,47 +409,31 @@ Subscriber links are maintained incrementally in `force_recompute`: added when a
 
 ### Naming Surface
 
-As of v0.6.0 the target facade names are **preferred** in docs and new examples,
-and the compatibility names below remain available for behaviors with no facade
-yet:
+Target facade names are the API: `Input[T]`, `Derived[T]`, `DerivedMap[K, V]`,
+`ReachableDerived[T]`, `EagerDerived[T]`, `InputField[T]`, `MapRelation[K, V]`,
+`Effect`, `Relation[T]`, `Runtime`; traits `RuntimeContext` / `Freshness` /
+`InputFieldOwner`. A small set of compatibility names remains re-exported:
+`Reactive[T]`, `TrackedCell[T]`, `FunctionalRelation[K, V]`, `Observer`;
+traits `Database` / `Readable` / `Trackable`. The removed pre-v0.12.0 names
+are mapped in the [CHANGELOG](../../CHANGELOG.md).
 
-- Preferred (target facades): `Input[T]`, `Derived[T]`, `DerivedMap[K, V]`,
-  `ReachableDerived[T]`, `EagerDerived[T]`, `InputField[T]`, `MapRelation[K, V]`,
-  `Effect`, `Relation[T]`, `Runtime`; traits `RuntimeContext` / `Freshness` /
-  `InputFieldOwner`
-- Compatibility (still available): `Signal[T]`, `Memo[T]`, `MemoMap[K, V]`,
-  `HybridMemo[T]`, `Reactive[T]`, `FunctionalRelation[K, V]`, `TrackedCell[T]`;
-  traits `Database` / `Readable` / `Trackable`
-- Core methods: `get`, `set`, `batch`, plus constructors (e.g. `Input(rt, ...)`,
-  `Derived(rt, ...)`)
-- Error types: `CycleError`
-
-The compatibility names are retained, not removed; future breaking work is
-compatibility cleanup, not a semantic flip back to the old names.
+Future breaking work is compatibility cleanup (removing the remaining old
+names), not a semantic flip back to them.
 
 ### Additive (Safe to Add)
 
 - New methods on existing types (e.g., `on_change`)
 - New traits (e.g., introspection)
-- New optional parameters via builder pattern
+- New optional parameters on constructors
 
 ### Removed / Internal
 
-- Pipeline traits (`Sourceable`, `Parseable`, etc.) were removed after the deprecated compatibility window; define application-local build traits with concrete domain types instead
+- Pipeline traits (`Sourceable`, `Parseable`, etc.) were removed; define application-local build traits with concrete domain types instead
 - Internal details (`CellMeta`, `ActiveQuery`) — not public API
 
 ## Conclusion
 
-`incr`'s API prioritizes **clarity, type safety, and explicitness** over brevity. This is the right trade-off for a foundational library:
-
-- **Clarity:** No magic, easy to debug
-- **Type safety:** Compiler catches mistakes
-- **Explicitness:** No hidden global state
-
-Future improvements will maintain these principles while adding:
-
-- **Discoverability:** Better ergonomics for common cases
-- **Observability:** Introspection and debugging tools
-- **Composability:** Trait-based extension points
-
-The goal: A library that's easy to start with, powerful to scale with, and pleasant to maintain.
+`incr`'s API prioritizes **clarity, type safety, and explicitness** over
+brevity — no magic, compiler-checked mistakes, no hidden global state. That is
+the right trade-off for a foundational library. Future work adds
+discoverability, observability, and composability without giving those up.
