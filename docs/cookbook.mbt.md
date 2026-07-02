@@ -227,30 +227,31 @@ The checked companion verifies that an aggregate derived value and its dependent
 
 ## Pattern: Side-Channel Diagnostics with Accumulator
 
-A memo's ordinary return value (a value, a type, a compiled artifact) is
-often semantically distinct from log-like data it emits along the way
-(diagnostics, trace events, stats). Thread return values through the memo
+A derived cell's ordinary return value (a value, a type, a compiled artifact)
+is often semantically distinct from log-like data it emits along the way
+(diagnostics, trace events, stats). Thread return values through the derived
 graph; thread the log-like data through an `Accumulator[T]`.
 
 Producers `push` during compute. Consumers read back via
-`Memo::accumulated_peek` (outside the graph), `Memo::accumulated` (Result-style
-read), or `Memo::accumulated_or_abort` (strict compute-closure convenience),
-with correct incremental invalidation. See the
+`Derived::accumulated_peek` (outside the graph), `Derived::accumulated`
+(Result-style read), or `Derived::accumulated_or_abort` (strict
+compute-closure convenience), with correct incremental invalidation. See the
 [Accumulator API](api-reference.mbt.md#accumulatort) reference.
 
 The checked companion demonstrates this pattern in
 [`cookbook_examples.mbt.md`](cookbook_examples.mbt.md#accumulator-diagnostics-and-synthetic-invalidation).
 
-**Top-frame restriction.** `push` is only legal inside a `Memo` or
-`HybridMemo` compute. Calling `diags.push(...)` from an `Input::set`,
+**Top-frame restriction.** `push` is only legal inside a `Derived` or
+`ReachableDerived` compute. Calling `diags.push(...)` from an `Input::set`,
 `Effect`, or bare function call raises `Failure`.
 
 ---
 
 ## Pattern: Accumulator-Driven Incremental Invalidation
 
-When a consumer memo successfully reads pushes via `Memo::accumulated` (or the
-strict `Memo::accumulated_or_abort`), it records a synthetic dependency on the
+When a consumer derived cell successfully reads pushes via
+`Derived::accumulated` (or the strict `Derived::accumulated_or_abort`), it
+records a synthetic dependency on the
 producer's push set. The consumer reinvalidates when the push set changes —
 **even when the producer's ordinary return value is unchanged**. This is the
 primary reason to use an accumulator rather than returning an `Array` from the
@@ -272,9 +273,9 @@ closures.
 
 ## Pattern: Scope-Owned Accumulator Lifecycle
 
-A driver that rebuilds its memo chain on structural change (new def set,
+A driver that rebuilds its derived chain on structural change (new def set,
 new schema, new file list) needs a matching rebuild of the accumulator —
-or stale per-memo push buffers leak from the old graph into the new one.
+or stale per-cell push buffers leak from the old graph into the new one.
 
 Tie the accumulator to a **child scope** that owns the whole chain.
 Disposing the scope disposes the accumulator automatically; allocating a
@@ -282,16 +283,16 @@ fresh scope gives you a fresh accumulator with no manual bookkeeping.
 
 The operational shape is: store the current child `Scope` in the driver state,
 dispose it before rebuilding the chain, allocate a fresh `parent_scope.child()`,
-then allocate the accumulator and per-definition memos through that child scope.
+then allocate the accumulator and per-definition derived cells through that child scope.
 The checked API-reference companion covers the scope-owned disposal guarantee in
 [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md#accumulator--compatibility-push-side-channel).
 
-The outer pipeline memo consumes diagnostics via `type_memo.accumulated_or_abort(diags)`, so the invalidation chain is: def source changes → per-def memo recomputes → push set for that memo changes → pipeline memo invalidates → driver collects updated diagnostics.
+The outer pipeline cell consumes diagnostics via `type_derived.accumulated_or_abort(diags)`, so the invalidation chain is: def source changes → per-def derived cell recomputes → push set for that cell changes → pipeline cell invalidates → driver collects updated diagnostics.
 
 **Why child scope, not runtime-owned.** An `Accumulator::new(rt~, ...)`
 lives until explicitly disposed. In a driver that rebuilds on every
-structural change, forgetting to dispose leaks per-memo state for every
-retired memo. `parent_scope.child()` couples the accumulator's lifetime to
+structural change, forgetting to dispose leaks per-cell state for every
+retired derived cell. `parent_scope.child()` couples the accumulator's lifetime to
 the chain it belongs to, so lifecycle correctness is a consequence of the
 scope hierarchy rather than a discipline the driver must maintain.
 
@@ -338,8 +339,8 @@ For finer-grained observation of field-level inputs, `InputField` supports a sin
 
 **Inside a batch**, per-cell callbacks fire once per changed field at the end of the batch — not once per `set()` call. Use `clear_on_change()` to remove the field callback.
 
-Compatibility `Signal` and `Memo` handles also expose per-cell callbacks for
-code that still needs their introspection surface.
+`Input::on_change` and `Derived::on_change` provide the same single per-cell
+callback on non-field cells; `clear_on_change()` removes it.
 
 ---
 
@@ -347,27 +348,26 @@ code that still needs their introspection surface.
 
 Use `Runtime::on_derived_event` when a driver needs recompute lifecycle data
 rather than only value-change notifications. The listener is runtime-wide and
-observes pull `Memo` / `HybridMemo` recomputes, including target
-`Derived` / `ReachableDerived` wrappers.
+observes every pull-mode recompute (`Derived` and `ReachableDerived`).
 
 The checked companion records the same event phases in
 [`cookbook_examples.mbt.md`](cookbook_examples.mbt.md#derived-event-logging).
 
-Keep the listener small. It runs synchronously during the drain step, after the
-memo compute has left the tracking stack. If the visualizer needs to read
-other cells, use target facade `read()` / `read_or_abort()` methods or a
-watch; compatibility `Memo::get()` is for tracked compute closures and aborts
-from top-level event handlers.
+Keep the listener small. It runs synchronously during the drain step, after
+the derived compute has left the tracking stack. If the visualizer needs to
+read other cells, use the outside-graph reads `read()` / `read_or_abort()` or
+a watch; `get()` is the in-graph read for tracked compute closures, not for
+event handlers.
 
-The event stream is not a transaction log. Batch boundaries, signal-change
+The event stream is not a transaction log. Batch boundaries, input-change
 events, push-reactive events, snapshot/replay, and driver-owned event graphs
 are intentionally separate design surfaces.
 
 ---
 
-## Pattern: Async Memo Event Logging
+## Pattern: Async Derived Event Logging
 
-Memo-event listeners are non-raising synchronous callbacks. For async logging,
+Derived-event listeners are non-raising synchronous callbacks. For async logging,
 enqueue a compact record in the listener and flush it from the driver.
 
 The checked companion shows the listener enqueuing compact log rows in
@@ -714,18 +714,18 @@ succeeded.
    by the same rule.
 
 See the [honest read-error ownership spec](design/specs/2026-05-28-honest-read-error-ownership.md)
-for the full rationale and the [`Derived::fallible` API reference](api-reference.mbt.md#derivedt--memot)
+for the full rationale and the [`Derived::fallible` API reference](api-reference.mbt.md#derivedt)
 for the constructor contract.
 
 ---
 
 ## Debugging
 
-Target facades are intentionally small. When you need low-level cell IDs,
-dependency lists, revisions, or changed-at timestamps, use the compatibility
-`Signal` / `Memo` handles shown in these introspection recipes.
+For low-level introspection, `Derived` exposes `id()`, `dependencies()`,
+`changed_at()`, and `verified_at()`; `Runtime` exposes `cell_info` and
+`dependents`. These are the tools the recipes below build on.
 
-### Why Did This Memo Recompute?
+### Why Did This Derived Value Recompute?
 
 Use introspection to identify which dependency triggered recomputation:
 
@@ -735,17 +735,17 @@ dependency.
 
 ### Analyzing Dependency Chains
 
-Trace the full dependency path (forward edges — what does this memo depend on?):
+Trace the full dependency path (forward edges — what does this derived value depend on?):
 
-Walk `memo.dependencies()` for forward edges and call `Runtime::cell_info` for
+Walk `derived.dependencies()` for forward edges and call `Runtime::cell_info` for
 labels, durability, revisions, dependencies, and subscribers. The checked
 companion pins this introspection surface.
 
 ### Inspecting Dependents (Reverse Edges)
 
-Use `Runtime::dependents` or `Memo::dependents` to answer: "what will be invalidated if this cell changes?"
+Use `Runtime::dependents` to answer: "what will be invalidated if this cell changes?"
 
-Read the dependent memos at least once to establish edges, then call
+Read the dependent derived cells at least once to establish edges, then call
 `rt.dependents(source.id())` and inspect each returned cell with
 `Runtime::cell_info`. The checked companion verifies this reverse-edge query.
 
@@ -753,17 +753,17 @@ This is useful for impact analysis — understanding how wide the blast radius o
 
 ### Testing Dependency Tracking
 
-Verify that memos only depend on what they actually read:
+Verify that derived cells only depend on what they actually read:
 
-In tests, read the memo once, inspect `memo.dependencies()`, and assert that the
+In tests, read the derived cell once, inspect `derived.dependencies()`, and assert that the
 active input IDs are present while inactive IDs are absent. The checked
 companion demonstrates the same dependency snapshot mechanics.
 
 ### Understanding Backdating
 
-Check if a memo's value actually changed:
+Check if a derived value actually changed:
 
-The checked companion reads a memo, stores `changed_at`, changes an input to a
+The checked companion reads a derived cell, stores `changed_at`, changes an input to a
 different value with the same computed length, and verifies that backdating
 preserves `changed_at`.
 

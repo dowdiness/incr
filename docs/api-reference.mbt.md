@@ -8,19 +8,17 @@
 > accumulator push path. The README and getting-started target snippets are
 > covered by [`target_api_examples.mbt.md`](target_api_examples.mbt.md).
 
-Reference for the most commonly used public APIs in `incr`. This is not exhaustive — the authoritative surface is in `pkg.generated.mbti` and `cells/pkg.generated.mbti`. APIs surfaced here: `Runtime`, `Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `Accumulator`, `DerivedEvent`, `CycleError`, the `RuntimeContext`/`Database`/`Freshness`/`Readable`/`InputFieldOwner`/`Trackable` traits, and the top-level helper functions. The legacy Memo-family types (`Memo`, `MemoMap`, `HybridMemo`) have been removed in v0.12.0 — use `Derived`, `DerivedMap`, and `ReachableDerived` respectively. Other legacy types (`Signal`, `TrackedCell`, `Reactive`, `FunctionalRelation`) remain re-exported from `@incr` for source compatibility.
+Reference for the most commonly used public APIs in `incr`. This is not exhaustive — the authoritative surface is in `pkg.generated.mbti` and `cells/pkg.generated.mbti`. APIs surfaced here: `Runtime`, `Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `Accumulator`, `DerivedEvent`, `CycleError`, the `RuntimeContext`/`Database`/`Freshness`/`Readable`/`InputFieldOwner`/`Trackable` traits, and the top-level helper functions. The legacy `Memo`, `MemoMap`, `HybridMemo`, and `Signal` types were removed in v0.12.0 — use `Derived`, `DerivedMap`, `ReachableDerived`, and `Input` respectively. Remaining compatibility names re-exported from `@incr`: `TrackedCell`, `Reactive`, `Observer`, `FunctionalRelation`, `Readable`, `Trackable`, `Database`.
 
 > **Recommended Pattern:** Use the `RuntimeContext` trait to encapsulate your
 > `Runtime` in an application context type. This makes your API cleaner and
 > hides implementation details. Compatibility helpers still accept `Database`.
 > See the [Helper Functions](#helper-functions) section and [API Design Guidelines](design/api-design-guidelines.md) for details.
 
-> **Target-name migration:** Target facade types (`Derived`, `DerivedMap`, `ReachableDerived`) are the recommended names. The legacy Memo-family types (`Memo`, `MemoMap`, `HybridMemo`) have been removed in v0.12.0. Other legacy compatibility names (`TrackedCell`, `Reactive`, `Observer`, `FunctionalRelation`, `Readable`, `Trackable`, `Database`) remain re-exported from `@incr` for source compatibility. `Signal` was removed in v0.14.0 — use `Input`.
-
 ## Read Vocabulary Migration
 
 Target reads use `read` for permissive outside-graph reads and `get` for strict
-tracked-context reads. The target facades (`Derived`, `DerivedMap`, `ReachableDerived`) provide the full read vocabulary. The legacy `Memo`, `HybridMemo`, and `MemoMap` types have been removed in v0.12.0.
+tracked-context reads. The target facades (`Derived`, `DerivedMap`, `ReachableDerived`) provide the full read vocabulary. The table below maps removed legacy calls to their current equivalents — skip it unless you are migrating old code.
 
 | Legacy compatibility | Target facade |
 |---|---|
@@ -96,12 +94,9 @@ batch rollback path can run.
 
 Executes a batch and returns raised errors as `Result` instead of re-raising.
 Like `Runtime::batch`, this handles raised errors only; `abort()` still escapes, is not converted to `Err`, and leaves the runtime in the same inconsistent state described above.
-The `f` parameter was tightened from `raise?` (error-polymorphic) to `raise`
-(concrete `Error`) in PR #293 as part of the `try?` deprecation migration.
-Non-raising callers continue to work (`noraise` ⊂ `raise Error`);
-callers raising a custom error continue to work (any suberror lifts to `Error`).
-Downstream wrappers accepting `f: () -> Unit raise?` that forward to
-`batch_result` must change to `f: () -> Unit raise` (or `f: () -> Unit raise Error`).
+The `f` parameter is `raise` (concrete `Error`), not `raise?`: non-raising
+callers and custom suberrors both work, but downstream wrappers that forward a
+`raise?` closure to `batch_result` must declare `f: () -> Unit raise`.
 
 The checked companion covers `batch_result` returning `Err` and rolling back
 pending writes in [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
@@ -426,16 +421,16 @@ Returns the compatibility `TrackedCell[T]` handle for interop.
 `TrackedCell[T]` exposes the same underlying field cell with legacy names:
 
 - `TrackedCell(rt, value, durability?, label?)` constructs a compatibility field handle.
-- `TrackedCell::set_unconditional(value)` is `InputField::force_set(value)`.
-- `TrackedCell::is_up_to_date()` is `InputField::is_fresh()`.
-- `TrackedCell::get_result()` always returns `Ok(value)` and exists for legacy symmetry with `Memo::get_result()` (removed in v0.12.0).
+- `TrackedCell::force_set(value)` matches `InputField::force_set(value)`.
+- `TrackedCell::is_up_to_date()` matches `InputField::is_fresh()`.
+- `TrackedCell::get_result()` always returns `Ok(value)` and exists for legacy symmetry with the removed `Memo::get_result()`.
 - `TrackedCell::as_input()` returns the underlying `Input[T]`.
 
 ---
 
 ## Derived[T]
 
-`Derived[T]` is the target-name lazy derived-value facade. The legacy `Memo[T]` type has been removed in v0.12.0.
+`Derived[T]` is the lazy derived-value facade (replaces the removed `Memo[T]`).
 
 ### `Derived[T : Eq](rt: Runtime, compute: () -> T raise Failure, label? : String) -> Derived[T]`
 
@@ -557,7 +552,7 @@ static-Derived recompute misuse raise `Failure`; cross-runtime reuse aborts.
 
 ## DerivedMap[K, V]
 
-`DerivedMap[K, V]` is the target-name keyed derived facade. The legacy `MemoMap[K, V]` has been removed in v0.12.0.
+`DerivedMap[K, V]` is the keyed derived facade (replaces the removed `MemoMap[K, V]`).
 
 ### `DerivedMap[K : Hash + Eq, V](rt: Runtime, compute: (K) -> V raise Failure, label? : String) -> DerivedMap[K, V]`
 
@@ -615,7 +610,7 @@ Clears all cached entries.
 
 ## ReachableDerived[T]
 
-`ReachableDerived[T]` is a lazy derived value that participates in reachability propagation so eager/rooted downstream cells can keep its upstream graph reachable across `Runtime::gc()` sweeps. The legacy `HybridMemo[T]` type has been removed in v0.12.0.
+`ReachableDerived[T]` is a lazy derived value that participates in reachability propagation so eager/rooted downstream cells can keep its upstream graph reachable across `Runtime::gc()` sweeps (replaces the removed `HybridMemo[T]`).
 
 ### `ReachableDerived[T : Eq](rt: Runtime, compute: () -> T raise Failure, label? : String) -> ReachableDerived[T]`
 
@@ -1187,4 +1182,4 @@ The backdate decision — whether a recomputed value counts as "changed" — is 
 | `Input::set` | `T : Eq` |
 | `Input::new`, `get`, `get_result`, `force_set` | none |
 | `TrackedCell::set` | `T : Eq` |
-| `TrackedCell::new`, `get`, `get_result`, `set_unconditional` | none |
+| `TrackedCell::new`, `get`, `get_result`, `force_set` | none |

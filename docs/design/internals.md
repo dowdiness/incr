@@ -2,9 +2,14 @@
 
 > **Note for users**: If you're new to `incr`, start with the [Getting Started](../getting-started.mbt.md) guide and [Core Concepts](../concepts.mbt.md). This document is for contributors or users who want to understand the implementation deeply.
 
-> **Note:** The introspection API (Phase 2A) is now available. See the [Phase 1 Introspection Design](../archive/2026-02-16-introspection-api-phase1-design.md) for details on the accessor methods and `CellInfo` structure.
-
 This document explains the theoretical foundations and implementation details of the `incr` library. For usage and API examples, see [incr/README.mbt.md](../../incr/README.mbt.md). For contributor/AI guidance, see [CLAUDE.md](../../CLAUDE.md).
+
+Naming: this document uses the current facade names — `Input`, `Derived`,
+`ReachableDerived`, `DerivedMap`, `EagerDerived`, `InputField`. The legacy
+names `Signal`, `Memo`, `HybridMemo`, and `MemoMap` were removed in v0.12.0.
+Internal identifiers (`MemoData`, `memo_force_recompute`, `pull.memos`) keep
+the word "memo"; that is deliberate — they name the memoization mechanism, not
+the removed public type.
 
 ## Motivation & Background
 
@@ -31,10 +36,11 @@ Invalidation strategies for dependency graphs fall into three families:
 - **Pull-based** (lazy): do nothing when an input changes. When a derived value is read, walk its dependencies to check if anything changed. This is what `incr` uses — it avoids wasted work at the cost of a verification walk on read.
 - **Hybrid**: combine push notifications with pull verification. Salsa itself has evolved toward hybrid approaches in newer versions.
 
-`incr` started with a pure pull-based strategy and has since added a hybrid cell type:
+`incr`'s cell types map onto these families as follows:
 
-- **`Input`/`Derived`** — Pure pull. `Input::set()` only bumps a revision counter. All verification and recomputation happens lazily when `Memo::get()` is called.
-- **`HybridMemo`** — Pull memo that participates in `push_reachable_count` so live `Reactive`/`Effect` observers downstream keep upstream cells reachable for `gc()`. Recomputation is the same lazy `verified_at < current_revision` check as `Memo`; there is no separate dirty flag. The "hybrid" is reachability, not invalidation.
+- **`Input` / `Derived`** — pure pull. `Input::set()` only bumps a revision counter; all verification and recomputation happens lazily when the derived value is read.
+- **`EagerDerived` / `Effect`** — push. They recompute eagerly during `Input::set()` / batch-commit propagation.
+- **`ReachableDerived`** — pull recomputation with push *reachability*. It participates in `push_reachable_count` so live `EagerDerived`/`Effect` observers downstream keep upstream cells reachable for `gc()`. Recomputation is the same lazy `verified_at < current_revision` check as `Derived`; there is no separate dirty flag. The "hybrid" is reachability, not invalidation.
 
 ### Where `incr` Sits in the Design Space
 
@@ -45,17 +51,17 @@ Mokhov, Mitchell, and Peyton Jones (2020) decompose incremental build systems al
 | Scheduler | Suspending | When a derived value is read, the scheduler recursively verifies dependencies on demand. `pull_verify` is the suspending scheduler. |
 | Rebuilder | Verifying traces via revisions | `verified_at` / `changed_at` play the role of input/output hashes in the paper's framework. Revisions are cheaper to compare than hashes (single integer, transitively monotonic, no collision risk) but cannot be shared across processes. See the [Constructive traces feasibility study](../research/constructive-traces-feasibility.md) for why constructive traces remain opt-in research rather than the default rebuilder. |
 | Task abstraction | Monadic | Compute functions can branch on read values; the dependency graph cannot be predicted ahead of time. Equivalent to Shake or Excel's task model, strictly more general than Selective. |
-| Beyond the paper | Recoverable cycles via `CycleError` | The build-systems literature assumes acyclic task graphs. `incr` chooses to report cycles as recoverable errors rather than aborts. This is what motivates `Result[T, CycleError]` as the canonical read return type on derived cells. |
+| Beyond the paper | Recoverable cycles via `CycleError` | The build-systems literature assumes acyclic task graphs. `incr` chooses to report cycles as recoverable errors rather than aborts. This is what motivates `Result[T, ReadError]` as the canonical read return type on derived cells. |
 
 Named correspondences with the paper:
 
-- **Early cutoff** (paper) = **backdating** (`incr`). When a memo recomputes to the same value, its `changed_at` is preserved, so dependents see no change and skip verification.
+- **Early cutoff** (paper) = **backdating** (`incr`). When a derived cell recomputes to the same value, its `changed_at` is preserved, so dependents see no change and skip verification.
 - **Verifying traces** (paper) = the `verified_at`/`changed_at` revision pair plus per-cell deps. The verification predicate `verified_at >= current_revision OR no dep changed_at > my verified_at` is the revision-based analogue of "stored input hash == current input hash."
 - **Durability shortcut** (`incr`) has no direct paper analogue. It coarsens the verifying-trace check at the input-class level — if no input of class `D` has changed since this cell was verified, skip the dep walk entirely. Effectively a fast path on top of the Verifying-traces rebuilder.
 
 Comparison to neighboring systems in the same cell:
 
-- **Salsa** (rust-analyzer): (Suspending, Verifying via revisions). Same family as `incr`. Different cycle treatment — Salsa aborts on cycle by default and offers an opt-in recovery pattern; `incr` returns `Result[T, CycleError]` from the default read.
+- **Salsa** (rust-analyzer): (Suspending, Verifying via revisions). Same family as `incr`. Different cycle treatment — Salsa aborts on cycle by default and offers an opt-in recovery pattern; `incr` returns `Result[T, ReadError]` from the default read.
 - **Shake** (Haskell build tool): (Suspending, Verifying via content hashes). Same scheduler shape as `incr`. Different rebuilder — hashes enable cross-process caching but require explicit hash computation per task; revisions don't.
 - **alien-signals / Vue 3.6 reactivity**: (Suspending, Verifying) but with a push-pull-hybrid bolt-on — the push phase pre-marks subtrees as `Pending` before any read. See [comparison-with-alien-signals.md](./comparison-with-alien-signals.md) for the full bilateral comparison.
 
@@ -65,52 +71,52 @@ Use these names consistently in design notes, issue triage, and tests. They desc
 
 | Name | In `incr` | Responsibility |
 |---|---|---|
-| **Task** | A `Memo` / `Derived` compute closure | Produces one value and discovers dependencies by reading other cells. |
+| **Task** | A `Derived` compute closure | Produces one value and discovers dependencies by reading other cells. |
 | **Scheduler** | The `pull_verify` traversal | Decides which stale dependency to verify next, using suspension/recursion rather than a precomputed topological order. |
-| **Rebuilder** | Revision-based verification around a memo | Decides whether the task must run or whether the cached value is still valid. |
+| **Rebuilder** | Revision-based verification around a derived cell | Decides whether the task must run or whether the cached value is still valid. |
 | **Trace** | Last successful dependency list plus `verified_at` / `changed_at` | Records the dynamic dependencies that justify future skip/recompute decisions. |
-| **Green path** | Dependency verification finds no changed dependency | Marks the memo verified without running the compute closure. |
-| **Red path** | A dependency changed or the memo has no valid value | Runs the compute closure, captures a new trace, and commits the result. |
+| **Green path** | Dependency verification finds no changed dependency | Marks the cell verified without running the compute closure. |
+| **Red path** | A dependency changed or the cell has no valid value | Runs the compute closure, captures a new trace, and commits the result. |
 | **Early cutoff** | Backdating | Stops downstream recomputation when the red path produces an equal value. |
 
 ### Current-Model Invariants
 
 These invariants are the hardening checklist for future refactors. A change should name which invariant it preserves or intentionally changes.
 
-1. **Scheduler and rebuilder stay separate.** Traversal order belongs to the scheduler (`pull_verify`). The decision to reuse, recompute, or backdate belongs to the rebuilder logic around a memo's stored trace. Performance work should say which side it changes.
-2. **The trace is the last successful dynamic read set.** Dependencies are not a static over-approximation. A conditional memo records the branch it actually read on the last successful recompute, and a later successful recompute replaces that trace.
+1. **Scheduler and rebuilder stay separate.** Traversal order belongs to the scheduler (`pull_verify`). The decision to reuse, recompute, or backdate belongs to the rebuilder logic around a derived cell's stored trace. Performance work should say which side it changes.
+2. **The trace is the last successful dynamic read set.** Dependencies are not a static over-approximation. A conditional derived cell records the branch it actually read on the last successful recompute, and a later successful recompute replaces that trace.
 3. **Failed computations do not create valid traces.** Cycle errors, raised failures, and aborting reads must not install a new dependency list or cache entry. Cleanup may restore flags, but the previous successful trace remains the last authority.
-4. **A stale memo may skip recomputation only by proof.** The proof is either the current-revision fast path, a durability shortcut, or a dependency walk showing no dependency has `changed_at` after the memo's previous verification point. A push dirty bit alone is not enough for pull-mode correctness.
+4. **A stale derived cell may skip recomputation only by proof.** The proof is either the current-revision fast path, a durability shortcut, or a dependency walk showing no dependency has `changed_at` after the cell's previous verification point. A push dirty bit alone is not enough for pull-mode correctness.
 5. **Backdating is the early-cutoff boundary.** If recomputation returns an equal value, `verified_at` advances but `changed_at` is preserved. Dependents compare dependency `changed_at` values against their own verification point, so preserving `changed_at` is what prevents downstream work.
 6. **Dependency replacement must update both directions.** When a successful recompute discovers a different dependency set, the forward dependency list and reverse subscriber links must be diffed together. Otherwise GC, push reachability, and later verification disagree about graph shape.
-7. **Constructive caching is opt-in research.** The default trace stores revisions, not content hashes or serialized values. Cross-session or content-addressed reuse requires a separate cacheable-query contract; it should not leak into ordinary `Derived` / `Memo` reads.
+7. **Constructive caching is opt-in research.** The default trace stores revisions, not content hashes or serialized values. Cross-session or content-addressed reuse requires a separate cacheable-query contract; it should not leak into ordinary `Derived` reads.
 
 Useful regression-test names follow the same vocabulary: "dynamic dependency replacement", "green path skips recompute", "backdating early cutoff", "failed read does not record dependency", and "cycle cleanup preserves previous trace".
 
 ## Core Concepts
 
-### Signals and Memos
+### Inputs and Deriveds
 
 The library's core pull-mode building blocks are two cell types:
 
-- **Input[T]** — An input cell. Its value is set externally by the user via `set()`. Signals are the leaves of the dependency graph.
-- **Memo[T]** — A derived cell. Its value is computed by a user-provided function that may read other Signals and Memos. Memos are the interior nodes of the dependency graph.
+- **`Input[T]`** — an input cell. Its value is set externally by the user via `set()`. Inputs are the leaves of the dependency graph.
+- **`Derived[T]`** — a derived cell. Its value is computed by a user-provided function that may read other inputs and derived cells. Derived cells are the interior nodes of the dependency graph.
 
 This two-tier model keeps the API surface small while supporting arbitrarily complex computation graphs.
 
 ### The Dependency Graph
 
-The dependency graph is **implicit** and **dynamically discovered**. There is no upfront declaration of which Memos depend on which Signals. Instead, when a Memo's compute function runs, every `Input::get()` or `Derived::get()` call it makes is recorded as a dependency. This means:
+The dependency graph is **implicit** and **dynamically discovered**. There is no upfront declaration of which derived cells depend on which inputs. Instead, when a derived cell's compute function runs, every `Input::get()` or `Derived::get()` call it makes is recorded as a dependency. This means:
 
-- Dependencies can change between recomputations (a Memo might conditionally read different inputs).
-- The graph is rebuilt each time a Memo recomputes, always reflecting the current computation structure.
+- Dependencies can change between recomputations (a derived cell might conditionally read different inputs).
+- The graph is rebuilt each time a derived cell recomputes, always reflecting the current computation structure.
 
 ### Revisions as a Global Clock
 
-A **Revision** is a monotonically increasing integer that serves as the system's logical clock. Each time a input's value changes, the global revision is bumped. Every cell records two timestamps:
+A **Revision** is a monotonically increasing integer that serves as the system's logical clock. Each time an input's value changes, the global revision is bumped. Every cell records two timestamps:
 
-- **`changed_at`** — The revision at which this cell's value last actually changed.
-- **`verified_at`** — The revision at which this cell was last confirmed to be up-to-date.
+- **`changed_at`** — the revision at which this cell's value last actually changed.
+- **`verified_at`** — the revision at which this cell was last confirmed to be up-to-date.
 
 These two timestamps are the foundation of the verification algorithm. A cell is stale if `verified_at < current_revision`. A cell has changed (relative to some observer) if `changed_at > observer.verified_at`.
 `Revision` derives ordering, so the implementation uses direct comparison operators (`<`, `<=`, `>`, `>=`) for these checks.
@@ -119,13 +125,13 @@ These two timestamps are the foundation of the verification algorithm. A cell is
 
 ### The Tracking Stack
 
-The `Runtime` maintains a `tracking_stack`: an array of `ActiveQuery` frames. Each frame collects the `CellId`s of every cell read during a single Memo computation.
+The `Runtime` maintains a `tracking_stack`: an array of `ActiveQuery` frames. Each frame collects the `CellId`s of every cell read during a single derived-cell computation.
 
 The mechanism works as follows:
 
-1. When a Memo needs to recompute, it pushes a new `ActiveQuery` frame onto the stack (`Runtime::push_tracking`).
-2. The Memo's compute function runs. Every `Input::get()` or `Derived::get()` call invokes `Runtime::record_dependency`, which appends the read cell's ID to the top frame.
-3. When the compute function returns, the frame is popped (`Runtime::pop_tracking`) and the collected dependency list is stored on the Memo's `MemoData`.
+1. When a derived cell needs to recompute, it pushes a new `ActiveQuery` frame onto the stack (`Runtime::push_tracking`).
+2. The compute function runs. Every `Input::get()` or `Derived::get()` call invokes dependency recording, which appends the read cell's ID to the top frame.
+3. When the compute function returns, the frame is popped (`Runtime::pop_tracking`) and the collected dependency list is stored on the cell's `MemoData`.
 
 ### Deduplication
 
@@ -133,24 +139,24 @@ If a compute function reads the same cell multiple times, `ActiveQuery::record` 
 
 ### Transparency
 
-From the user's perspective, dependency tracking is invisible. Users write ordinary functions that call `get()` on Signals and Memos. The framework handles everything behind the scenes — no manual dependency declarations, no subscription management.
+From the user's perspective, dependency tracking is invisible. Users write ordinary functions that call `get()` on inputs and derived cells. The framework handles everything behind the scenes — no manual dependency declarations, no subscription management.
 
 ## The Verification Algorithm (`pull_verify`)
 
 The core of the framework is the `pull_verify` function in `cells/internal/kernel/verify.mbt` (with a thin `Runtime::pull_verify` delegator in `cells/verify.mbt`). Given a cell ID, it verifies whether the cell is up-to-date at the current revision, recomputing if necessary.
 
-### For Input Cells (Signals)
+### For Input Cells
 
-Trivial: signals are always fresh — their `changed_at` is updated atomically on every `set()`. `pull_verify` dispatches via `cell_index` and returns immediately.
+Trivial: inputs are always fresh — their `changed_at` is updated atomically on every `set()`. `pull_verify` dispatches via `cell_index` and returns immediately.
 
-### For Derived Cells (Memos)
+### For Derived Cells
 
 The algorithm for derived cells has several fast paths before falling back to a full dependency walk:
 
 **1. Already verified (fast path)**
 
 ```
-if memo.verified_at >= current_revision:
+if cell.verified_at >= current_revision:
     return Ok(())
 ```
 
@@ -159,8 +165,8 @@ If the cell was already verified during this revision, return immediately.
 **2. Root durability shortcut**
 
 ```
-if durability_last_changed[memo.durability] <= memo.verified_at:
-    memo.verified_at = current_revision
+if durability_last_changed[cell.durability] <= cell.verified_at:
+    cell.verified_at = current_revision
     return Ok(())
 ```
 
@@ -169,29 +175,29 @@ If no input of this cell's durability level (or lower) has changed since the cel
 **3. Cycle detection**
 
 ```
-if memo.in_progress:
-    abort("Cycle detected")
+if cell.in_progress:
+    report cycle
 ```
 
-If we encounter a memo that is already being verified, we have a cycle.
+If we encounter a derived cell that is already being verified, we have a cycle.
 
 **4. Dependency walk**
 
 ```
 for each dependency:
     if dep is Input:
-        if signal.changed_at > memo.verified_at: changed = true; break
-    if dep is Memo:
+        if input.changed_at > cell.verified_at: changed = true; break
+    if dep is Derived:
         push PullVerifyFrame and recurse iteratively
 ```
 
-Iteratively check each dependency using an explicit stack of `PullVerifyFrame`s. Input (signal) dependencies are checked inline via direct SoA array access; derived (memo) dependencies push a new frame onto the explicit stack. This prevents stack overflow on deep dependency graphs — tested with chains of 250+ levels. When `changed = true`, `dep_cursor` is set to the end of the dependency list to short-circuit remaining checks.
+Iteratively check each dependency using an explicit stack of `PullVerifyFrame`s. Input dependencies are checked inline via direct SoA array access; derived dependencies push a new frame onto the explicit stack. This prevents stack overflow on deep dependency graphs — tested with chains of 250+ levels. When `changed = true`, `dep_cursor` is set to the end of the dependency list to short-circuit remaining checks.
 
 Per-dep durability shortcuts also apply: before pushing a frame for an intermediate stale dep, check its durability against `verified_at`. If that durability level hasn't changed, the dep can be skipped.
 
 **5a. If a dependency changed — recompute**
 
-Call `(memo.compute)()` to run the type-erased closure, which calls the typed `Memo[T]::recompute_inner()`. This is where backdating happens: the `backdate_eq` closure captured at construction compares old and new values, and if it returns `true`, `changed_at` is not updated.
+Run the type-erased compute closure, which calls the typed recompute path (`Runtime::memo_force_recompute` in `cells/derived_impl.mbt`). This is where backdating happens: the `backdate_eq` closure captured at construction compares old and new values, and if it returns `true`, `changed_at` is not updated.
 
 **5b. If no dependency changed — green path**
 
@@ -203,7 +209,7 @@ Backdating is the most important optimization in the framework. It prevents unne
 
 ### What Backdating Means
 
-When a Memo recomputes and produces the **same value** as before, its `changed_at` revision is **not updated**. It keeps its old `changed_at` timestamp, which tells downstream cells "nothing changed here."
+When a derived cell recomputes and produces the **same value** as before, its `changed_at` revision is **not updated**. It keeps its old `changed_at` timestamp, which tells downstream cells "nothing changed here."
 
 ### Concrete Example
 
@@ -222,58 +228,51 @@ input(4) → is_even(true) → label("even")
 7. Back in `label`'s verification: `is_even.changed_at = R1`, which is not after `label.verified_at = R1`. No dependency changed.
 8. **Green path**: `label` is confirmed unchanged. Its compute function never runs.
 
-### Without Backdating
-
 Without backdating, step 6 would set `is_even.changed_at = R2`, and `label` would needlessly recompute `"even"` again. In deep or wide graphs, this cascading recomputation can be very expensive. Backdating cuts it off at the earliest point where a value stabilizes.
 
 ### Backdating Strategies
 
-The backdate decision is captured at memo construction as a `(T, T) -> Bool` closure. Three constructors provide different strategies:
+The backdate decision is captured at construction as a `(T, T) -> Bool` closure. Three constructors provide different strategies:
 
-- **`Memo::new[T : Eq]`** — uses `a == b` (structural equality). The standard choice when `T` implements `Eq` cheaply.
-- **`Memo::new_memo[T : BackdateEq]`** — uses `a.backdate_equal(b)`. The default `BackdateEq` implementation compares `changed_at` revisions (O(1)), which is useful when `T` embeds a revision stamp and structural equality would be O(n). The default can be overridden for custom logic.
-- **`Memo::new_no_backdate[T]`** — always returns `false`; `changed_at` always advances on recomputation. Use this when downstream consumers always need to rerun, or when `T` has no suitable equality. Requires no trait constraint on `T`.
+- **`Derived::Derived` (i.e. `Derived(rt, fn)`), requires `T : Eq`** — uses `a == b` (structural equality). The standard choice when `T` implements `Eq` cheaply.
+- **`Derived::with_backdate`, requires `T : BackdateEq`** — uses `a.backdate_equal(b)`. The default `BackdateEq` implementation compares `changed_at` revisions (O(1)), which is useful when `T` embeds a revision stamp and structural equality would be O(n). The default can be overridden for custom logic.
+- **`Derived::derived_no_backdate`, no constraint on `T`** — always returns `false`; `changed_at` always advances on recomputation. Use this when downstream consumers always need to rerun, or when `T` has no suitable equality.
 
-All three constructors share the same read methods (`get`, `get_result`, `get_or`, `get_or_else`), which carry no trait constraint — the equality decision was baked into the closure at construction time.
+All three constructors share the same read methods (`get`, `read`, `get_or_abort`, `read_or_abort`), which carry no equality constraint — the equality decision was baked into the closure at construction time. `Scope::derived` / `Scope::derived_no_backdate` and the `Input::derived` / `Derived::map` families apply the same strategies with scope ownership or single-upstream sugar.
 
-## HybridMemo — Hybrid Push-Pull Cells
+## ReachableDerived — Pull Recomputation, Push Reachability
 
-### Motivation
+`ReachableDerived` exists to solve a *GC reachability* problem, not an invalidation problem.
 
-Pure pull-based verification (`Memo`) has excellent worst-case avoidance: cells never recompute unless read. But when downstream push-reactive nodes (`Reactive`, `Effect`) subscribe to derived values, the push propagation must bridge through those derived values to notify the reactives. With pure pull cells, the bridge is transparent — push propagation does a BFS through pull cell subscriber lists — but a `gc()` sweep that doesn't see the upstream chain as reachable from a live root would reclaim the intermediate cells.
+Pure pull verification (`Derived`) has excellent worst-case avoidance: cells never recompute unless read. But when downstream push-reactive nodes (`EagerDerived`, `Effect`) subscribe through derived values, push propagation bridges through those derived cells transparently — and a `gc()` sweep that doesn't see the upstream chain as reachable from a live root would reclaim the intermediate cells.
 
-`HybridMemo` solves the *reachability* half of that problem, not the invalidation half. It uses the same lazy revision-based verification as `Memo` — there is no separate dirty flag. The "hybrid" is that the memo participates in `push_reachable_count`, so a live `Reactive`/`Effect` observer downstream keeps the memo and its upstream cells alive across `Runtime::gc()`. Staleness is detected on `get()` by the standard `verified_at < current_revision` check:
+`ReachableDerived` participates in `push_reachable_count`, so a live `EagerDerived`/`Effect` observer downstream keeps the cell and its upstream alive across `Runtime::gc()`. Recomputation is unchanged: staleness is detected on read by the standard `verified_at < current_revision` check, through the same `pull_verify` path as `Derived`. There is no separate dirty flag.
 
-- **Fast path**: `verified_at >= current_revision` → return cached value immediately, no dep walk.
-- **Slow path**: call `pull_verify_hybrid`, which walks deps and recomputes if needed.
-
-### Unified Memo Handling
-
-`HybridMemo` and `PullMemo` share a single SoA array, distinguished by a flag and by `CellRef` variant. This lets the verification engine handle both cell types through the same code path. See [`cells/internal/pull/memo_data.mbt`](../../incr/cells/internal/pull/memo_data.mbt) for the unified entry layout.
+`ReachableDerived` and `Derived` share a single SoA array (`MemoData` entries), distinguished by a flag and by `CellRef` variant, so the verification engine handles both through the same code path. See [`cells/internal/pull/memo_data.mbt`](../../incr/cells/internal/pull/memo_data.mbt).
 
 ### Push vs Pull Propagation
 
-Push propagation BFS-walks downstream from changed sources in topological order, passing through pull/hybrid memos as transparent bridges to reach push-reactive and push-effect nodes. An inner pruning gate (`push_reachable_count`) skips memo branches with no downstream push cells. Only `Reactive` and `Effect` contribute to the push node count — `HybridMemo` relies on revision-based staleness detection instead. See [`cells/push_propagate.mbt`](../../incr/cells/push_propagate.mbt) and [`cells/verify.mbt`](../../incr/cells/verify.mbt).
+Push propagation BFS-walks downstream from changed sources in topological order, passing through pull derived cells as transparent bridges to reach push-reactive and push-effect nodes. An inner pruning gate (`push_reachable_count`) skips branches with no downstream push cells. Only `EagerDerived` and `Effect` contribute to the push node count — `ReachableDerived` relies on revision-based staleness detection instead. See [`cells/push_propagate.mbt`](../../incr/cells/push_propagate.mbt) and [`cells/internal/kernel/push_propagate.mbt`](../../incr/cells/internal/kernel/push_propagate.mbt).
 
-### Durability Tiers
+## Durability Tiers
 
-Three durability levels (Low, Medium, High) classify how often an input changes. The runtime tracks per-durability revision timestamps. When a signal changes, all levels up to its durability are stamped. During verification, a single comparison against this array lets entire stable subtrees skip dep-walking — if no input at the cell's durability level changed, verification is a no-op. Derived cells inherit the minimum durability of their dependencies.
+Three durability levels (Low, Medium, High) classify how often an input changes. The runtime tracks per-durability revision timestamps. When an input changes, all levels up to its durability are stamped. During verification, a single comparison against this array lets entire stable subtrees skip dep-walking — if no input at the cell's durability level changed, verification is a no-op. Derived cells inherit the minimum durability of their dependencies.
 
-### Type Erasure via Per-Engine SoA
+## Type Erasure via Per-Engine SoA
 
-The runtime stores cells in per-engine Structure-of-Arrays (SoA) grouped by propagation mode: pull-mode inputs and deriveds, push-mode reactives and effects, and datalog relations/rules. Typed values stay in user-facing handles (`Input[T]`, `Derived[T]`); the runtime sees only type-erased closures and metadata. Two dispatch tables (`cell_ops`, `cell_lifecycle`) provide uniform behavioral access via trait objects indexed by `CellId`. See [`cells/runtime.mbt`](../../incr/cells/runtime.mbt) for the SoA layout and [`cells/internal/shared/cell_ops.mbt`](../../incr/cells/internal/shared/cell_ops.mbt) for the trait interfaces.
+The runtime stores cells in per-engine Structure-of-Arrays (SoA) grouped by propagation mode: pull-mode inputs and deriveds, push-mode reactives and effects, and datalog relations/rules. Typed values stay in user-facing handles (`Input[T]`, `Derived[T]`); the runtime sees only type-erased closures and metadata. Dispatch tables provide uniform behavioral access via trait objects indexed by `CellId`. See [`cells/internal/kernel/state.mbt`](../../incr/cells/internal/kernel/state.mbt) for the SoA layout and [`cells/internal/shared/cell_ops.mbt`](../../incr/cells/internal/shared/cell_ops.mbt) for the trait interfaces.
 
-This design means the verification algorithm in `cells/verify.mbt` operates entirely on `PullSignalData`/`MemoData` without knowing any value types, and the batch commit logic can commit pending input values without knowing their types.
+This design means the verification algorithm operates entirely on `PullInputData`/`MemoData` without knowing any value types, and the batch commit logic can commit pending input values without knowing their types.
 
 ### Reference Semantics Invariant
 
-The entire framework relies on MoonBit's reference semantics for mutable structs. Because `MemoData` and `PullSignalData` have `mut` fields, they are heap-allocated — every variable, function parameter, or array slot holding one is a reference to the same object, not a copy. This means:
+The entire framework relies on MoonBit's reference semantics for mutable structs. Because `MemoData` and `PullInputData` have `mut` fields, they are heap-allocated — every variable, function parameter, or array slot holding one is a reference to the same object, not a copy. This means:
 
-- Indexed SoA access (`rt.pull.memos[idx]`, `rt.pull.signals[idx]`) returns a reference to the canonical entry, not a detached copy.
-- The `PullVerifyFrame` stack in `cells/internal/kernel/verify.mbt` stores `memo_idx : Int` rather than a direct reference. The loop accesses `pull.memos[frame.memo_idx]` (the kernel takes `pull : PullState` as an explicit parameter) to perform mutations. Mutations to `in_progress`, `verified_at`, or `changed_at` affect the runtime's canonical `MemoData`.
-- `Memo::force_recompute` (which delegates to the shared `memo_force_recompute` helper) mutates the canonical `MemoData` fields directly via the same indexed-array access.
+- Indexed SoA access (`pull.memos[idx]`, `pull.inputs[idx]`) returns a reference to the canonical entry, not a detached copy.
+- The `PullVerifyFrame` stack in `cells/internal/kernel/verify.mbt` stores `memo_idx : Int` rather than a direct reference. The loop accesses `pull.memos[frame.memo_idx]` (the kernel takes the pull state as an explicit parameter) to perform mutations. Mutations to `in_progress`, `verified_at`, or `changed_at` affect the runtime's canonical `MemoData`.
+- Forced recomputation (`Runtime::memo_force_recompute`) mutates the canonical `MemoData` fields directly via the same indexed-array access.
 
-If `MemoData` or `PullSignalData` were ever changed to value types (e.g., via MoonBit's `#valtype` annotation), this invariant would break — mutations would apply to copies, not originals, and the framework would silently produce incorrect results (e.g., `in_progress` flags stuck `true`, causing false cycle detection).
+If `MemoData` or `PullInputData` were ever changed to value types, this invariant would break — mutations would apply to copies, not originals, and the framework would silently produce incorrect results (e.g., `in_progress` flags stuck `true`, causing false cycle detection).
 
 **Important**: `PullVerifyFrame` is a simple struct with primitive fields (`memo_idx`, `dep_cursor`, `changed`, `cell_id`). To avoid potential copy semantics issues, the iterative verification loop accesses stack frames via `stack[top].field` directly rather than `let frame = stack[top]`. This ensures mutations to `dep_cursor` and `changed` persist correctly regardless of MoonBit's struct assignment semantics.
 
@@ -281,55 +280,60 @@ If `MemoData` or `PullSignalData` were ever changed to value types (e.g., via Mo
 
 ### The Approach
 
-Each `MemoData` has an `in_progress : Bool` flag. It is set to `true` when a memo enters verification or recomputation, and cleared when the operation completes. (Signals cannot participate in cycles since they have no compute function.)
+Each `MemoData` has an `in_progress : Bool` flag. It is set to `true` when a derived cell enters verification or recomputation, and cleared when the operation completes. (Inputs cannot participate in cycles since they have no compute function.)
 
 ### Where Detection Fires
 
 Cycle detection triggers in two places:
 
-1. **During verification** (`cells/verify.mbt`): if `pull_verify` encounters a `MemoData` with `in_progress == true`, it means we iteratively reached a memo that is currently being verified — a cycle. The path is built from the local `PullVerifyFrame` stack (traversal order).
-2. **During initial computation** (`cells/derived_impl.mbt`): if `force_recompute` encounters a memo with `in_progress == true`, it means the Memo's compute function (directly or indirectly) tried to read its own value — also a cycle.
+1. **During verification**: if `pull_verify` encounters a `MemoData` with `in_progress == true`, it means we iteratively reached a cell that is currently being verified — a cycle. The path is built from the local `PullVerifyFrame` stack (traversal order).
+2. **During initial computation**: if forced recomputation encounters a cell with `in_progress == true`, it means the compute function (directly or indirectly) tried to read its own value — also a cycle.
 
 ### Error Handling
 
-Cycle detection returns a `CycleError` type that can be handled gracefully:
+Cycle detection produces a `CycleError`, surfaced to readers wrapped in `ReadError`:
 
 ```moonbit
-pub(all) suberror CycleError {
+pub suberror CycleError {
   CycleDetected(CellId, Array[CellId], Array[String?])
-  //            ^culprit ^cycle_path    ^labels (snapshot, capped at 20)
+  //            ^culprit ^cycle_path    ^labels (snapshot, capped)
+}
+
+pub enum ReadError {
+  Cycle(CycleError)
+  Disposed(CellId)
 }
 ```
 
-**Two APIs:**
-- `Memo::get()` — Aborts on cycle (backward compatible)
-- `Memo::get_result()` — Returns `Result[T, CycleError]` for graceful handling
+**Two read families:**
+- `Derived::get()` (in-graph) and `Derived::read()` (outside the graph) — return `Result[T, ReadError]` for graceful handling.
+- `Derived::get_or_abort()` / `Derived::read_or_abort()` — abort on error; use only where a cycle or disposed read is a programming defect.
 
 ### Dependency Recording on Failure
 
-A critical invariant: **failed `get_result()` calls do not record dependencies**. This prevents spurious cyclic edges in the dependency graph.
+A critical invariant: **failed reads do not record dependencies**. This prevents spurious cyclic edges in the dependency graph.
 
-Without this invariant, a self-referential memo that handles its cycle error would have itself as a dependency. On subsequent revision bumps, verification would see the self-edge and falsely detect a cycle instead of recomputing with the handled fallback value.
+Without this invariant, a self-referential derived cell that handles its cycle error would have itself as a dependency. On subsequent revision bumps, verification would see the self-edge and falsely detect a cycle instead of recomputing with the handled fallback value.
 
-The fix: `Memo::get_result()` only calls `record_dependency()` after confirming the read succeeded. Error paths return without recording.
+The fix: `get()` only records a dependency after confirming the read succeeded. Error paths return without recording.
 
 ### Stack Cleanup
 
-When an error occurs during the iterative verification walk, the `clear_verify_stack()` helper clears `in_progress` flags on all `MemoData` entries in the verification stack. This restores consistent state so subsequent operations work correctly.
+When an error occurs during the iterative verification walk, the cleanup path clears `in_progress` flags on all `MemoData` entries in the verification stack. This restores consistent state so subsequent operations work correctly.
 
 ## Batch Updates
 
 ### The Problem
 
-Without batching, each `Input::set()` call bumps the global revision independently. If a user needs to update multiple signals atomically (e.g., setting both `x` and `y` coordinates), intermediate states are visible to memo reads, and each set triggers a separate verification pass.
+Without batching, each `Input::set()` call bumps the global revision independently. If a user needs to update multiple inputs atomically (e.g., setting both `x` and `y` coordinates), intermediate states are visible to reads, and each set triggers a separate verification pass.
 
 ### Two-Phase Batch Commit
 
-`Runtime::batch(fn)` groups multiple signal updates into a single revision:
+`Runtime::batch(fn)` groups multiple input updates into a single revision:
 
-1. **Write phase**: Inside the batch closure, `Input::set()` stores new values as `pending_value` on the Signal rather than committing immediately. The actual `value` field is unchanged, so any `get()` calls during the batch see the pre-batch values (transactional semantics — reads don't see uncommitted writes). Each signal registers a type-erased `commit_pending` closure on its `PullSignalData`.
+1. **Write phase**: inside the batch closure, `Input::set()` stores new values as `pending_value` on the input rather than committing immediately. The actual `value` field is unchanged, so any `get()` calls during the batch see the pre-batch values (transactional semantics — reads don't see uncommitted writes). Each input registers a type-erased `commit_pending` closure on its `PullInputData`.
 
-2. **Commit phase**: When the outermost batch ends, the runtime iterates over `batch_pending : Array[&Committable]` and calls each entry's `do_commit()` method via the `Committable` trait object. Each `do_commit()` invokes the signal's `commit_pending` closure, which compares the pending value against the current value using `Eq`. Only signals whose values actually changed are marked with the new revision. The pending list is then cleared via `.clear()`.
+2. **Commit phase**: when the outermost batch ends, the runtime iterates over the pending `&Committable` entries and calls each entry's `do_commit()` via the `Committable` trait object. Each `do_commit()` invokes the input's `commit_pending` closure, which compares the pending value against the current value using `Eq`. Only inputs whose values actually changed are marked with the new revision. The pending list is then cleared.
 
 ### Raised Error Rollback
 
@@ -337,7 +341,7 @@ If the batch closure raises, the runtime rolls back pending writes:
 
 - Only writes made in the failing batch frame are rolled back
 - `pending_value` and registration state are restored to the pre-frame snapshot
-- Signals first registered by the failing frame are removed from `batch_pending`
+- Inputs first registered by the failing frame are removed from the pending list
 - `batch_max_durability` is recomputed from the remaining pending writes
 - `batch_depth` is restored before re-raising
 
@@ -349,7 +353,7 @@ MoonBit `abort()` is not catchable. If user code aborts inside a batch closure, 
 
 ### Revert Detection
 
-The two-phase design enables revert detection: if a signal is set to a new value and then set back to its original value within the same batch, the commit phase sees no net change. No revision bump occurs, and downstream memos skip verification entirely.
+The two-phase design enables revert detection: if an input is set to a new value and then set back to its original value within the same batch, the commit phase sees no net change. No revision bump occurs, and downstream derived cells skip verification entirely.
 
 ### Nested Batches
 
@@ -359,192 +363,72 @@ Batches can be nested. A `batch_depth` counter tracks nesting, and each `Runtime
 - On inner failure, only that frame is rolled back before re-raising.
 - Only the outermost successful batch triggers the commit phase.
 
+## Commit-Path Extension Point (`MemoCommitPhase`)
+
+Cross-cutting concerns that must observe every pull-mode recompute register a `MemoCommitPhase` implementor on the `Runtime` instead of editing the recompute path. Implementors receive `before_recompute` / `after_success` / `after_abort` around each recompute. Hooks fire in registration order; `before_recompute` precedes the tracking-stack push, `after_abort` fires in the catch arm before the frame is popped, and `after_success` fires *after* the cell-level epilogue (post-`changed_at`, post-`verified_at`) so backdating is observable to the hook.
+
+Current implementors: the accumulator commit hook (`cells/accumulator_commit_hook.mbt`) and the event broadcast hook (`cells/event_broadcast_hook.mbt`). See the [T1b ADR](../decisions/2026-05-17-t1b-memo-commit-phase.md) for the trait's contract and placement rationale, and the [Derived Event Observation ADR](../decisions/2026-05-17-memo-event-observation.md) for the event tap built on it.
+
 ## Comparison with alien-signals
 
 [alien-signals](https://github.com/nicepkg/alien-signals) is a high-performance reactive framework that uses different design trade-offs. Several ideas from alien-signals have influenced `incr`:
 
 ### Ideas adopted
 
-- **SoA array storage**: Like alien-signals' flat arrays for dependency/subscriber links, `incr` uses three parallel SoA arrays (`pull_signals`, `pull_memos`, `cell_index`) with O(1) dispatch via `CellRef` instead of a HashMap. This gives O(1) cell lookup with better cache locality than a single heterogeneous array.
-- **HashSet deduplication**: Efficient O(1) dependency deduplication during tracking, similar to alien-signals' link-based dedup.
-- **Batch updates with two-phase values**: alien-signals buffers signal writes during batches. `incr` adopted this pattern with `pending_value` and commit closures on `PullSignalData`, enabling revert detection.
+- **SoA array storage**: like alien-signals' flat arrays for dependency/subscriber links, `incr` uses per-engine SoA arrays with O(1) dispatch via `CellRef` instead of a HashMap. This gives O(1) cell lookup with better cache locality than a single heterogeneous array.
+- **HashSet deduplication**: efficient O(1) dependency deduplication during tracking, similar to alien-signals' link-based dedup.
+- **Batch updates with two-phase values**: alien-signals buffers writes during batches. `incr` adopted this pattern with `pending_value` and commit closures on `PullInputData`, enabling revert detection.
 - **Iterative graph walking**: alien-signals uses iterative propagation. `incr` uses an iterative `pull_verify` with an explicit `PullVerifyFrame` stack to prevent stack overflow on deep graphs.
-
-### Ideas adopted (additions since initial implementation)
-
-- **Subscriber (reverse) links**: `incr` now maintains bidirectional edges — each cell knows both its dependencies (forward) and its subscribers (reverse). Subscriber links enable push-reachability tracking and are the foundation of `HybridMemo` and push-reactive cells.
-- **Push-pull hybrid**: `HybridMemo` cells stay reachable while a downstream `Reactive`/`Effect` observer is attached (push-reachability), but recomputation is the standard lazy revision check (pull). See the [HybridMemo section](#hybridmemo--hybrid-push-pull-cells) above.
+- **Subscriber (reverse) links**: `incr` maintains bidirectional edges — each cell knows both its dependencies (forward) and its subscribers (reverse). Subscriber links enable push-reachability tracking and are the foundation of `ReachableDerived` and push-reactive cells.
+- **Push-pull hybrid**: `ReachableDerived` cells stay reachable while a downstream `EagerDerived`/`Effect` observer is attached (push-reachability), but recomputation is the standard lazy revision check (pull). See the [ReachableDerived section](#reachablederived--pull-recomputation-push-reachability) above.
 
 ### Ideas deferred
 
-- **Effect system**: alien-signals has first-class `Effect` nodes that trigger side effects when observed values change. `incr` has `Reactive` and `Effect` (push-based), but no higher-level effect abstraction integrated with the pull graph.
-- **Automatic cleanup/GC**: alien-signals can garbage-collect unreachable nodes via subscriber reference counting. `incr` requires GC infrastructure (Phase 4 roadmap) before this is possible.
+- **Effect system**: alien-signals has first-class effect nodes integrated with its graph. `incr` has push-based `EagerDerived` and `Effect`, but no higher-level effect abstraction integrated with the pull graph.
+- **Link-list storage for subscriber edges**: measured at 1.2–1.5× realistic speedup for `incr`'s already-SoA layout; deprioritized. See [docs/performance/](../performance/) for the measurement snapshots.
 
-## File Map
+## Package Map
 
-File paths in this section are relative to the `incr/` library module directory.
+Detailed algorithms above name their home files inline. For the full,
+current package layout, [docs/architecture.md](../architecture.md) is the
+canonical map and the per-package `pkg.generated.mbti` files are the canonical
+API surface — this section only orients you. Paths are relative to the `incr/`
+library module.
 
-### Package structure
+| Package | Owns |
+|---|---|
+| root (`incr.mbt`, `traits.mbt`) | `pub using` re-exports of all public types; `RuntimeContext`/`Database`/`Readable` traits and `create_*` / `batch` helper functions |
+| `types/` | Pure value types: `Revision`, `Durability`, `CellId`, `CycleError`, `ReadError`, id types, `InternTable` |
+| `cells/` | Typed handles (`Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `EagerDerived`, `Effect`, `AcceptedDerived`, `Accumulator`, datalog handles), `Runtime` coordinator, `Scope`/`Watch`/`Observer` lifecycle, batch frontend, introspection. Facade constructors live in `cells/target_facade.mbt`; recompute bodies in `cells/derived_impl.mbt` |
+| `cells/internal/shared/` | Cross-engine leaf abstractions: `CellOps`, `Committable`, `CellMeta`, `CellRef`, `SlotSnapshot` |
+| `cells/internal/pull/` | Pull-engine SoA entries: `PullInputData`, `MemoData` |
+| `cells/internal/push/` | Push-engine SoA entries: `PushReactiveData`, `PushEffectData` |
+| `cells/internal/datalog/` | Datalog SoA entries: `RelationData`, `FunctionalRelationData`, `RuleData` |
+| `cells/internal/kernel/` | Graph mechanics and coordinator primitives: runtime state structs and phase machine (`state.mbt`), `pull_verify` (`verify.mbt`), push propagation, fixpoint, batch commit, tracking stack, subscriber diff, dispose/gc, cycle construction, evaluation events |
 
-The library is split into four MoonBit sub-packages. The root package re-exports all public types as transparent aliases so downstream users see a unified `@incr` API.
+Tests: unit tests (`*_test.mbt`) and whitebox tests (`*_wbtest.mbt`) live
+next to the code in `incr/cells/`; integration tests exercising the full
+public API live in `incr/tests/`. Test file names follow the feature they
+cover — start from the feature's source file name.
 
-### Root package (`dowdiness/incr`)
-
-| File | Purpose |
-|------|---------|
-| `incr.mbt` | `pub type` re-exports — transparent aliases for all public types |
-| `traits.mbt` | `Database`, `Readable` — core public traits; `create_signal`, `create_memo`, `create_memo_map`, `batch` helpers |
-
-### `types/` package (`dowdiness/incr/types`)
-
-| File | Purpose |
-|------|---------|
-| `types/revision.mbt` | `Revision`, `Durability`, `DURABILITY_COUNT` — revision counter and durability enum |
-| `types/cell_id.mbt` | `CellId` — cell identifier with `Hash` implementation |
-| `types/cell_handles.mbt` | `SignalId[T]`, `MemoId[T]`, `ReactiveId[T]`, `RelationId[T]`, `RuleId` — phantom-typed handles |
-| `types/intern_table.mbt` | `InternId`, `InternTable[T]` — grow-only value interning for stable identity |
-
-### `cells/` package (`dowdiness/incr/cells`)
-
-**Pull mode (lazy verification):**
-
-| File | Purpose |
-|------|---------|
-| `cells/input.mbt` | `Input[T]` — input cells with same-value optimization and durability |
-| `cells/internal/pull/pull_signal.mbt` | `PullSignalData` — SoA entry for input cells; `CellOps` + `Committable` impls |
-| `cells/derived_impl.mbt` | `Memo[T]` — derived cells with memoization, backdating, and dependency tracking |
-| `cells/internal/pull/memo_data.mbt` | `MemoData` — unified SoA entry for pull and hybrid derived cells |
-| `cells/verify.mbt` | `Runtime::pull_verify` wrapper — body lives in `cells/internal/kernel/verify.mbt` |
-| `cells/internal/kernel/verify.mbt` | `pull_verify` + `synthetic_accumulator_changed` + `PullVerifyFrame` — SoA-native iterative verification algorithm. Takes `slot_snapshots : Array[&SlotSnapshot]` explicitly so kernel does not depend on Runtime's accumulator state. |
-
-**Push mode (eager propagation):**
-
-| File | Purpose |
-|------|---------|
-| `cells/eager_derived.mbt` | `Reactive[T]` — eagerly-recomputed derived cell handle |
-| `cells/internal/push/push_reactive_data.mbt` | `PushReactiveData` — SoA entry for reactive cells |
-| `cells/push_effect.mbt` | `Effect` — terminal side-effect cell handle |
-| `cells/internal/push/push_effect_data.mbt` | `PushEffectData` — SoA entry for effect cells |
-| `cells/push_propagate.mbt` | `Runtime::push_propagate_from` + `Runtime::recompute_level` wrappers |
-| `cells/internal/kernel/push_propagate.mbt` | `push_propagate_from` + `propagate_level_change` + `get_level` + `recompute_level` + `PushEntry` — level-sorted eager push propagation |
-
-**Hybrid mode (push staleness + pull verification):**
-
-| File | Purpose |
-|------|---------|
-| `cells/reachable_derived_impl.mbt` | `HybridMemo[T]` — push-notified, pull-verified memo; uses unified `MemoData` |
-
-**Accumulators (reverse contributions to side-table slots):**
-
-| File | Purpose |
-|------|---------|
-| `cells/accumulator.mbt` | `Accumulator[T]` handle + `SlotMeta` — diagnostics-style reverse contributions captured during memo recompute and read back via `pull_verify` synthetic-dep checks |
-| `cells/memo_commit_phase.mbt` | `MemoCommitPhase` trait — commit-path extension point dispatched from `memo_force_recompute`. Implementors register on `Runtime` and receive `before_recompute` / `after_success` / `after_abort` for each pull-mode memo recompute |
-| `cells/accumulator_commit_hook.mbt` | `AccumulatorCommitHook` — the first `MemoCommitPhase` implementor; owns the per-cell snapshot/restore/finalize work the accumulator needs around recompute |
-
-The accumulator's commit-path work runs through the `MemoCommitPhase` dispatch rather than as named calls in `memo_force_recompute`. Hooks fire in registration order; `before_recompute` precedes the tracking-stack push, `after_abort` fires in the catch arm before the frame is popped, and `after_success` fires *after* the cell-level epilogue (post-`changed_at`, post-`verified_at`, post-`has_been_computed`) so backdating is observable to the hook. New commit-path concerns (e.g. the planned visualization event tap — see [Memo Event Observation ADR](../decisions/2026-05-17-memo-event-observation.md)) register additional implementors against the same trait instead of editing `memo_force_recompute`. See the [T1b ADR](../decisions/2026-05-17-t1b-memo-commit-phase.md) for the trait's contract and placement rationale.
-
-**Datalog mode (fixpoint evaluation):**
-
-| File | Purpose |
-|------|---------|
-| `cells/datalog_relation.mbt` | `Relation[T]` — set with delta tracking for semi-naive fixpoint (handle) |
-| `cells/internal/datalog/relation_data.mbt` | `RelationData` — SoA entry for relations |
-| `cells/datalog_map_relation.mbt` | `FunctionalRelation[K, V]` — typed map relation with optional merge (handle) |
-| `cells/internal/datalog/functional_relation_data.mbt` | `FunctionalRelationData` — SoA entry for functional relations |
-| `cells/datalog_rule.mbt` | `Rule` — derives new facts from input relations (handle) |
-| `cells/internal/datalog/rule_data.mbt` | `RuleData` — SoA entry for rules |
-| `cells/datalog_fixpoint.mbt` | `Runtime::fixpoint` wrapper — invokes kernel body then publishes cell changes |
-| `cells/internal/kernel/fixpoint.mbt` | `run_fixpoint` — semi-naive evaluation loop; returns changed cell IDs |
-
-**Runtime, dispatch, and shared infrastructure:**
-
-| File | Purpose |
-|------|---------|
-| `cells/runtime.mbt` | `Runtime` — handle struct + Runtime::new + thin `@kernel` delegators for coordinator primitives (`propagate_changes`, `publish_cell_changes`, `fire_on_change`, `dispose_cell`, `gc`, `add`/`remove_gc_root`, `advance_revision`); `RevisionManager` trait impls |
-| `cells/cell.mbt` | `CellInfo` struct for introspection output |
-| `cells/internal/shared/cell_ref.mbt` | `CellRef` enum — O(1) dispatch into per-engine SoA arrays |
-| `cells/internal/shared/cell_ops.mbt` | `CellOps`, `Committable` traits (canonical definitions) |
-| `cells/internal/shared/cell_meta.mbt` | `CellMeta`, `HasCellMeta` — shared metadata struct and access trait |
-| `cells/internal/shared/slot_snapshot.mbt` | `SlotSnapshot` trait — accumulator-slot freshness abstraction used by kernel verify |
-| `cells/internal/kernel/state.mbt` | `RuntimeCore` + `RevisionState` / `TrackingState` / `BatchState` / `PullState` / `PushState` / `DatalogState` + `PropagationPhase` + `ActiveQuery` + runtime-id helpers + `enter_phase` / `leave_phase` |
-| `cells/internal/kernel/dispatch.mbt` | Cell-index dispatch helpers: `validate_cell*`, `is_cell_disposed`, `cell_id_for`/`cell_id_at`, `get_changed_at`/`get_durability`/`get_subscribers`, `add_subscriber`/`remove_subscriber`, `is_live_subscriber`, `propagate_liveness` |
-| `cells/internal/kernel/tracking.mbt` | `push_tracking` / `pop_tracking` / `pop_tracking_full` / `record_dep` / `top_active_query` / `collect_tracking_path` / `collect_in_progress_path` / `check_cross_runtime` |
-| `cells/internal/kernel/subscriber_diff.mbt` | `diff_and_update_subscribers` — tracking-stack epilogue that routes dep changes into subscriber links |
-| `cells/internal/kernel/cycle.mbt` | `construct_cycle_error` — captures cell labels for cycle diagnostics |
-| `cells/internal/kernel/propagate.mbt` | `advance_revision` + `fire_on_change` + `propagate_changes` + `publish_cell_changes` — revision bumping and push propagation entry |
-| `cells/internal/kernel/batch.mbt` | `commit_batch` — two-phase commit coordinator; owns the I4 callback-snapshot-before-propagation invariant |
-| `cells/internal/kernel/dispose.mbt` | `validate_cell_for_dispose` + `drop_gc_root` + `check_dispose_guard` — pure-state dispose guards (CellLifecycle dispatch stays on Runtime) |
-| `cells/internal/kernel/gc.mbt` | `gc` + `gc_sweep` + `mark_reachable` + `collect_gc_roots` + `add`/`remove_gc_root` — mark-and-sweep gc; `gc`/`gc_sweep` take a `dispose_fn` callback so CellLifecycle dispatch stays reachable |
-| `cells/cell_ops.mbt` | Local `CellLifecycle`, `RevisionManager`, and `Tracker` traits; `using @shared {...}` re-exports |
-| `cells/kernel_using.mbt` | Package-scoped `using @kernel {...}` for short names in cells/ |
-| `cells/tracking.mbt` | `Tracker for Runtime` impls + thin Runtime wrappers for tracking-stack ops |
-| `cells/batch.mbt` | `Runtime::batch` / `Runtime::batch_result` + batch frame/rollback + `Runtime::commit_batch` 1-line wrapper — commit_batch body lives in `cells/internal/kernel/batch.mbt` |
-| `cells/subscriber_diff.mbt` | `Runtime::diff_and_update_subscribers` wrapper for wbtest access |
-| `types/cycle_error.mbt` | `CycleError` suberror — pure-value cycle error, label-aware `format_path` |
-
-**Lifecycle and memory management:**
-
-| File | Purpose |
-|------|---------|
-| `cells/scope.mbt` | `Scope` — hierarchical cell ownership with bulk disposal |
-| `cells/watch.mbt` | `Observer[T]` — keep-alive handle for untracked reads |
-| `cells/derived_map.mbt` | `MemoMap[K, V]` — keyed memoization with `sweep()` for post-GC cleanup |
-| `cells/input_field.mbt` | `TrackedCell[T]` — field-level tracked struct wrapper |
-| `cells/introspection.mbt` | `Runtime::cell_info`, `Runtime::dependents` — graph introspection |
-
-
-### Test files
-
-Unit tests (`*_test.mbt`) and whitebox tests (`*_wbtest.mbt`) live in `incr/cells/`. Integration tests live in `incr/tests/`.
-
-| File | What it covers |
-|------|----------------|
-| `cells/derived_test.mbt` | Memo behavior, backdating, dependency tracking |
-| `cells/derived_map_test.mbt` | MemoMap keyed caching and lazy per-key recomputation |
-| `cells/backdating_test.mbt` | Backdating (value-unchanged skips downstream recomputation) |
-| `cells/callback_test.mbt` | `Runtime::on_change` global callback |
-| `cells/on_change_test.mbt` | `Input::on_change` / `Derived::on_change` per-cell callbacks |
-| `cells/cycle_test.mbt` | Cycle detection via `get_result()` and `get()` panics |
-| `cells/cycle_path_test.mbt` | Cycle error path formatting and content |
-| `cells/verify_path_test.mbt` | Cycle detection during verification (reverification path) |
-| `cells/custom_eq_test.mbt` | Custom `Eq` implementations and backdating interaction |
-| `cells/debug_test.mbt` | Debug output and formatting |
-| `cells/introspection_test.mbt` | `Input::cell_info`, `Memo::cell_info`, `Runtime::cell_info` |
-| `cells/batch_wbtest.mbt` | Batch internals: revision, revert detection, panic guards (whitebox) |
-| `cells/durability_wbtest.mbt` | Durability shortcut internals (whitebox) |
-| `cells/cell_wbtest.mbt` | `CellId::hash` properties (whitebox) |
-| `cells/cell_ref_wbtest.mbt` | `CellRef` dispatch and SoA index properties (whitebox) |
-| `cells/input_wbtest.mbt` | Input internals (whitebox) |
-| `cells/verify_wbtest.mbt` | `pull_verify` invariant violation abort (whitebox) |
-| `cells/pull_verify_wbtest.mbt` | `pull_verify` SoA dispatch and short-circuit behavior (whitebox) |
-| `cells/soa_wbtest.mbt` | SoA allocation and `cell_index` invariants (whitebox) |
-| `cells/derived_dep_diff_wbtest.mbt` | Dependency diff optimization internals (whitebox) |
-| `cells/runtime_wbtest.mbt` | Cross-runtime `get_pull_signal`/`get_pull_memo` abort (whitebox) |
-| `cells/subscriber_wbtest.mbt` | Subscriber tracking internals (whitebox) |
-| `cells/input_field_wbtest.mbt` | `TrackedCell` field-level tracking internals (whitebox) |
-| `cells/derived_map_wbtest.mbt` | MemoMap internal key→memo mapping (whitebox) |
-| `cells/reachable_derived_wbtest.mbt` | `HybridMemo` revision-based verification, fast path, backdating, push-reachability accounting (whitebox) |
-| `tests/integration_test.mbt` | End-to-end multi-signal/memo scenarios |
-| `tests/fanout_test.mbt` | Wide dependency graphs (diamond, multi-level) |
-| `tests/traits_test.mbt` | Root trait/helper tests (`Database`, `Readable`, helper constructors) |
-| `tests/tracked_struct_test.mbt` | `TrackedCell`, `Trackable`, and `add_tracked` |
-| `tests/reachable_derived_test.mbt` | `HybridMemo` public API: get, update, backdating, diamond, batch, chained, pull chain |
+Engine-isolation invariants (no cross-engine imports, `shared` is the leaf,
+kernel is one-way) are enforced by `scripts/check-engine-isolation.sh`; see
+[CLAUDE.md](../../CLAUDE.md) for the current invariant list.
 
 ## Architecture Analysis (2026-04-16)
 
-> **Status: HISTORICAL — the migration described below is complete.** This section is preserved as the design rationale that drove R1 (the kernel split, completed 2026-04-25). For the current architecture, see the file map above (especially the `cells/internal/kernel/` rows) and the [Engine isolation](#engine-isolation-2026-04-18) paragraph. As of 2026-04-26, `cells/runtime.mbt` is **427 lines** of thin `@kernel` delegators with no algorithm bodies — the "gravity well" pressure described in *Change Pressures* below has been resolved. See [`docs/decisions/2026-04-26-r2-runtime-decomposition-deferred.md`](../decisions/2026-04-26-r2-runtime-decomposition-deferred.md) for why no further structural decomposition is planned.
+> **Status: HISTORICAL — the migration described below is complete.** This section is preserved as the design rationale that drove R1 (the kernel split, completed 2026-04-25). For the current architecture, see the package map above and the [Engine isolation](#engine-isolation-2026-04-18) paragraph. Line counts and type names below describe the pre-split codebase. See [`docs/decisions/2026-04-26-r2-runtime-decomposition-deferred.md`](../decisions/2026-04-26-r2-runtime-decomposition-deferred.md) for why no further structural decomposition is planned.
 
 ### Change Pressures
 
-1. **Runtime is a gravity well** — `runtime.mbt` (789 lines) owns state for four independent propagation modes (pull, push, hybrid, datalog), plus batch management, GC, tracking, revision management, subscriber maintenance, and introspection. Every new feature touches this file.
-2. **Cross-engine guards are ad-hoc** — `in_fixpoint`, `in_push_propagation`, `batch_depth > 0`, `tracking_stack.is_empty()` — four boolean/int guards scattered across `gc()`, `fixpoint()`, `push_propagate_from()`, `pull_verify()`, `Signal::set()`, and `dispose_cell()`. Each new engine interaction requires auditing all guard sites.
-3. **Subscriber diff duplication** — `memo_force_recompute` and `finish_tracking` both diff old/new deps and update subscriber links with slightly different optimizations.
-4. **Future features will intensify these pressures** — Accumulators need a second dependency graph. Persistent caching needs serialization hooks. Parallel computation needs thread-safety. All blocked by the monolithic structure.
+1. **Runtime is a gravity well** — at the time, `runtime.mbt` owned state for four independent propagation modes (pull, push, hybrid, datalog), plus batch management, GC, tracking, revision management, subscriber maintenance, and introspection. Every new feature touched this file.
+2. **Cross-engine guards are ad-hoc** — `in_fixpoint`, `in_push_propagation`, `batch_depth > 0`, `tracking_stack.is_empty()` — four boolean/int guards scattered across `gc()`, `fixpoint()`, `push_propagate_from()`, `pull_verify()`, and input/dispose paths. Each new engine interaction required auditing all guard sites.
+3. **Subscriber diff duplication** — the recompute path and the tracking epilogue both diffed old/new deps and updated subscriber links with slightly different optimizations.
+4. **Future features will intensify these pressures** — accumulators need a second dependency graph. Persistent caching needs serialization hooks. Parallel computation needs thread-safety. All blocked by the monolithic structure.
 
-### Current State
+### Current State (at the time)
 
-Runtime mixes three layers: **policy** (revision management, durability shortcuts), **orchestration** (batch commit sequencing, push-then-callback ordering), and **infrastructure** (SoA allocation, free-list management, dispatch table bookkeeping). The system has distinct phases (idle → batch → commit → push-propagate → idle; idle → fixpoint-loop → publish → idle) encoded as boolean flags rather than a typed state machine.
+Runtime mixed three layers: **policy** (revision management, durability shortcuts), **orchestration** (batch commit sequencing, push-then-callback ordering), and **infrastructure** (SoA allocation, free-list management, dispatch table bookkeeping). The system had distinct phases (idle → batch → commit → push-propagate → idle; idle → fixpoint-loop → publish → idle) encoded as boolean flags rather than a typed state machine.
 
 ### Target: Coordinator + Engines
 
@@ -553,9 +437,9 @@ Runtime (coordinator + phase machine)
 ├── RevisionState    — revision counter, durability tracking
 ├── TrackingState    — tracking stack, dependency recording
 ├── BatchState       — pending writes, commit, rollback
-├── PullState        — signal/memo SoA, pull_verify (already exists as struct)
-├── PushState        — reactive/effect SoA, push_propagate (already exists)
-├── DatalogState     — relation/rule SoA, fixpoint (already exists)
+├── PullState        — input/derived SoA, pull_verify
+├── PushState        — reactive/effect SoA, push_propagate
+├── DatalogState     — relation/rule SoA, fixpoint
 ├── LifecycleState   — GC root counts, scope management
 └── DispatchTable    — cell_index, cell_ops, cell_lifecycle
 ```
@@ -578,10 +462,10 @@ Runtime (coordinator + phase machine)
 | 5 | **Internal package split** — Move engine types to `cells/internal/` | Medium | Stages 1-3 |
 | 6 | **Further engine extraction** — Deferred until accumulators create need | — | Stage 5 |
 
-All stages preserve the public API with zero breaking changes. Downstream consumer is loom's `ReactiveParser`.
+All stages preserved the public API with zero breaking changes.
 
 ### Engine isolation (2026-04-18)
 
-Engine SoA storage is partitioned into internal sub-packages under `cells/internal/` using MoonBit's `internal` package visibility. Engines cannot import each other, and no engine package imports back into `cells/` — invariants enforced by `scripts/check-engine-isolation.sh`. All pull-, push-, and datalog-engine SoA types live in their respective `cells/internal/` sub-packages; `cells/` retains typed handles, algorithms, and cross-cutting coordinator services. Lifecycle trait impls (e.g. `pull_memo_lifecycle.mbt`) stay in `cells/` because they compose coordinator-owned capabilities — this is dispatch wiring, not SoA storage. The [Stage 5 design spec](specs/2026-04-18-incr-stage5-internal-split-design.md) carries the concrete type names and file map.
+Engine SoA storage is partitioned into internal sub-packages under `cells/internal/` using MoonBit's `internal` package visibility. Engines cannot import each other, and no engine package imports back into `cells/` — invariants enforced by `scripts/check-engine-isolation.sh`. All pull-, push-, and datalog-engine SoA types live in their respective `cells/internal/` sub-packages; `cells/` retains typed handles, algorithms, and cross-cutting coordinator services. Lifecycle trait impls (e.g. `pull_memo_lifecycle.mbt`) stay in `cells/` because they compose coordinator-owned capabilities — this is dispatch wiring, not SoA storage. The [Stage 5 design spec](specs/2026-04-18-incr-stage5-internal-split-design.md) carries the concrete type names and file map as of that stage.
 
-As of R1 Stage 4 (merged 2026-04-24), `cells/internal/kernel/` owns the runtime state sub-structs, phase machine, graph-mechanics algorithms, AND coordinator primitives: `RuntimeCore` + state sub-structs + `ActiveQuery` + `PropagationPhase` + runtime-id helpers (state.mbt), dispatch helpers (dispatch.mbt), `construct_cycle_error` (cycle.mbt), `diff_and_update_subscribers` (subscriber_diff.mbt), tracking-stack primitives (tracking.mbt), `pull_verify` + `synthetic_accumulator_changed` (verify.mbt), `push_propagate_from` + level helpers (push_propagate.mbt), `run_fixpoint` (fixpoint.mbt), `advance_revision` + `fire_on_change` + `propagate_changes` + `publish_cell_changes` (propagate.mbt), `commit_batch` (batch.mbt — owns the I4 callback-snapshot invariant), `validate_cell_for_dispose` + `drop_gc_root` + `check_dispose_guard` (dispose.mbt), and the gc family (gc.mbt). A `SlotSnapshot` trait in `cells/internal/shared/` lets kernel-side verify query accumulator slot state without depending on the (coordinator-owned) `SlotMeta` struct; `Runtime` caches an `Array[&SlotSnapshot]` parallel to `accumulator_slots` and threads it to `pull_verify` as an explicit parameter. `cell_lifecycle` is intentionally kept on `Runtime` (not `RuntimeCore`) because `CellLifecycle::dispose_cell` references `Runtime` directly; kernel `gc`/`gc_sweep` take a `dispose_fn : (CellId) -> Unit` callback to keep per-kind dispatch reachable without retyping the trait. The R1 plan ([archive/completed-phases/2026-04-21-r1-engine-package-split.md](../archive/completed-phases/2026-04-21-r1-engine-package-split.md)) has the full migration schedule. As of R1 Stage 5 (merged 2026-04-25), `scripts/check-engine-isolation.sh` enforces four invariants: (1) no cross-engine sibling imports among `pull`/`push`/`datalog`; (2) `internal/shared` imports no other internal packages; (3) no back-edges from any internal package (engines, shared, kernel) to `cells/` top-level; (4) kernel is one-way — engines and shared must not import kernel, only `cells/*.mbt` may. Together these guarantee kernel can import engines + shared without forming a cycle.
+As of R1 Stage 4 (merged 2026-04-24), `cells/internal/kernel/` owns the runtime state sub-structs, phase machine, graph-mechanics algorithms, AND coordinator primitives — see the package map above for the current file-level breakdown. A `SlotSnapshot` trait in `cells/internal/shared/` lets kernel-side verify query accumulator slot state without depending on the (coordinator-owned) `SlotMeta` struct; `Runtime` threads an `Array[&SlotSnapshot]` to `pull_verify` as an explicit parameter. `cell_lifecycle` is intentionally kept on `Runtime` (not `RuntimeCore`) because `CellLifecycle::dispose_cell` references `Runtime` directly; kernel `gc`/`gc_sweep` take a `dispose_fn : (CellId) -> Unit` callback to keep per-kind dispatch reachable without retyping the trait. The R1 plan ([archive/completed-phases/2026-04-21-r1-engine-package-split.md](../archive/completed-phases/2026-04-21-r1-engine-package-split.md)) has the full migration schedule. As of R1 Stage 5 (merged 2026-04-25), `scripts/check-engine-isolation.sh` enforces four invariants: (1) no cross-engine sibling imports among `pull`/`push`/`datalog`; (2) `internal/shared` imports no other internal packages; (3) no back-edges from any internal package (engines, shared, kernel) to `cells/` top-level; (4) kernel is one-way — engines and shared must not import kernel, only `cells/*.mbt` may. Together these guarantee kernel can import engines + shared without forming a cycle.
