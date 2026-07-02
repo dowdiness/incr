@@ -19,35 +19,12 @@ import {
 
 ## Your First Incremental Computation
 
-### Step 1: Create a Runtime
+### Step 1: Create a Runtime, Inputs, and Derived Values
 
-Start with a `Runtime`. It owns the dependency graph, revision counter, and
-garbage-collection roots.
-
-```mbt nocheck
-///|
-let rt = @incr.Runtime()
-```
-
-For long-lived subsystems, create cells through a `Scope` so disposal is one
-operation:
-
-```mbt nocheck
-///|
-let rt = @incr.Runtime()
-
-///|
-let scope = @incr.Scope::new(rt)
-```
-
-`RuntimeContext` remains available for app structs that want to hide the
-runtime, but the primary target API uses direct constructors (`Input(rt, ...)`,
-`Derived(rt, ...)` / `rt.input(...)` / `input.derived(...)`) and scope helpers
-(`scope.input(...)`, `scope.derived(...)`).
-
-### Step 2: Create Inputs
-
-Inputs are your settable values — the leaves of the dependency graph.
+Start with a `Runtime` (it owns the dependency graph, revision counter, and
+garbage-collection roots), create inputs — your settable values, the leaves of
+the graph — and derive computations from them. Derived values compute lazily
+and track their dependencies automatically.
 
 ```mbt nocheck
 ///|
@@ -58,45 +35,22 @@ let price = rt.input(100, label="price")
 
 ///|
 let quantity = rt.input(5, label="quantity")
-```
-
-If these inputs should be disposed with a scope:
-
-```mbt nocheck
-///|
-let rt = @incr.Runtime()
-
-///|
-let scope = @incr.Scope::new(rt)
-
-///|
-let scoped_price = scope.input(100, label="price")
-
-///|
-let scoped_quantity = scope.input(5, label="quantity")
-```
-
-> **Tip:** Always set a `label`. It has no runtime cost and makes cycle error messages and debug output much easier to read. For example, instead of `"Runtime 0 / Cell 2 → Cell 0 → …"` you'll see `"price → total → …"`.
-
-### Step 3: Create Derived Computations
-
-Derived values compute lazily and automatically track their dependencies.
-
-```mbt nocheck
-///|
-let rt = @incr.Runtime()
-
-///|
-let price = @incr.Input(rt, 100, label="price")
-
-///|
-let quantity = @incr.Input(rt, 5, label="quantity")
 
 ///|
 let total = price.derived2(quantity, (p, q) => p * q, label="total")
 ```
 
-Or scope-owned:
+For derived values reading more than two or three cells, use a compute closure:
+`@incr.Derived(rt, () => ..., label="...")`.
+
+> **Tip:** Always set a `label`. It has no runtime cost and makes cycle error messages and debug output much easier to read. For example, instead of `"Runtime 0 / Cell 2 → Cell 0 → …"` you'll see `"price → total → …"`.
+
+### Step 2: Group Lifetimes with a Scope (when needed)
+
+For long-lived subsystems, create the same cells through a `Scope` so one
+`scope.dispose()` tears the group down. The construction API is otherwise
+identical — `scope.input(...)` / `scope.derived(...)` instead of
+`rt.input(...)` / `Derived(rt, ...)`:
 
 ```mbt nocheck
 ///|
@@ -109,16 +63,14 @@ let scope = @incr.Scope::new(rt)
 let scoped_price = scope.input(100, label="price")
 
 ///|
-let scoped_quantity = scope.input(5, label="quantity")
-
-///|
-let scoped_total = scope.derived(
-  () => scoped_price.get() * scoped_quantity.get(),
-  label="total",
-)
+let scoped_total = scope.derived(() => scoped_price.get() * 2, label="total")
 ```
 
-### Step 4: Read and Update
+Skip scopes for short-lived or test code; add them when a group of cells
+shares a lifetime. `RuntimeContext` remains available for app structs that
+want to hide the runtime behind their own context type.
+
+### Step 3: Read and Update
 
 `Derived::get()` is only valid inside another derived compute function. From
 outside the graph — top-level code, tests, event handlers — read with `read()`
@@ -139,7 +91,7 @@ test "getting started: read and update" {
 }
 ```
 
-### Step 4.5: Prefer Graceful Reads
+### Step 4: Prefer Graceful Reads
 
 `read_or_abort()` is convenient but aborts on cycle errors. For resilient applications, use `read()`:
 
@@ -165,7 +117,7 @@ format them.
 Inside another derived computation, use `get()` when you want to handle cycles
 as values and `get_or_abort()` when an aborting strict read is acceptable.
 
-### Step 5: Observe Committed Changes
+### Step 5: Observe Committed Changes with `set_on_change`
 
 Use `Runtime::set_on_change` to run a callback whenever the runtime commits a change.
 
@@ -187,7 +139,7 @@ test "getting started: committed change callback" {
 }
 ```
 
-### Step 5.5: Batch Rollback on Raised Errors
+### Step 6: Batch Rollback on Raised Errors
 
 Batch writes are transactional for raised errors:
 
