@@ -1,3 +1,4 @@
-# Incremental TEA prototype
+# incr_tea browser harness
 
-See [`README.mbt.md`](README.mbt.md) for the checked documentation source.
+Demo/bench entry points, web assets, and adjacent-framework comparison benches
+for the [`dowdiness/incr_tea`](../../incr_tea/README.mbt.md) framework module.

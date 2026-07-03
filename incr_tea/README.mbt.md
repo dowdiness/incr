@@ -356,7 +356,7 @@ measurement only — no browser DOM patching, dirty-cell flush, or Luna signal
 update is included:
 
 ```bash
-NEW_MOON_MOD=0 moon bench --release -p examples/incr_tea \
+NEW_MOON_MOD=0 moon bench --release -p incr_tea \
   -f ui_compare_bench_wbtest.mbt --target js
 NEW_MOON_MOD=0 moon bench --release -p examples/incr_tea/ui_compare_bench \
   --target js
@@ -539,8 +539,8 @@ From the repository root:
 
 ```bash
 moon check
-moon test examples/incr_tea
-moon test --target js examples/incr_tea
+moon test incr_tea
+moon test --target js incr_tea
 moon build --target js --release
 python3 -m http.server 8765
 # then open http://127.0.0.1:8765/examples/incr_tea/index.html

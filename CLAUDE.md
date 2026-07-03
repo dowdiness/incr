@@ -26,8 +26,13 @@ moon bench          # Run benchmarks (incr/tests/bench_test.mbt)
 
 The canonical package map is [docs/architecture.md](docs/architecture.md).
 The repository root is a MoonBit workspace. The publishable `dowdiness/incr`
-module lives under `incr/`; checked documentation examples live under `docs/`;
-demos and spikes live under `examples/` as standalone workspace modules. The tree below is
+module lives under `incr/`; the experimental TEA UI framework built on it lives
+under `incr_tea/` (module `dowdiness/incr_tea`, split from `examples/incr_tea`
+in #344 Stage 1 — its package also carries the in-package browser benches and
+demo fixtures that need package-private access; `examples/incr_tea` remains as
+the browser harness module: subpackage mains, web assets, adjacent-framework
+compare benches); checked documentation examples live under `docs/`; demos and
+spikes live under `examples/` as standalone workspace modules. The tree below is
 a working orientation for Claude Code.
 
 ```

@@ -85,7 +85,7 @@ For contributors and advanced users who want to understand or modify `incr`.
 **Research notes — exploratory, not implemented:**
 
 - [Next-sessions Runtime Roadmap](research/next-sessions-runtime-roadmap.md) — onboarding + invariants + backlog template for Loom + Canopy integration sessions
-- [Incremental TEA direction](research/incr-tea-ui-direction.md) — positions `examples/incr_tea` as a semantic incremental rendering substrate, with follow-up issue map
+- [Incremental TEA direction](research/incr-tea-ui-direction.md) — positions `incr_tea` (now module `dowdiness/incr_tea`) as a semantic incremental rendering substrate, with follow-up issue map
 - [Constructive Traces Feasibility](research/constructive-traces-feasibility.md) — keep revision verifying traces as the default; investigate static/applicative APIs first
 - [Multi-Mode App Ideas](research/multi-mode-app-ideas.md) — app concepts combining pull / push / hybrid / Datalog modes
 - [Semantic Interning](research/semantic-interning.md) — design exploration for revision-aware `InternTable[T]`

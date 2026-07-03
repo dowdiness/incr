@@ -2,7 +2,7 @@
 package "examples/incr_tea_7guis/counter"
 
 import {
-  "examples/incr_tea",
+  "dowdiness/incr_tea",
 }
 
 // Values

@@ -1,6 +1,6 @@
 import {
   "dowdiness/incr",
-  "examples/incr_tea" @tea,
+  "dowdiness/incr_tea" @tea,
   "moonbitlang/core/string",
 }
 

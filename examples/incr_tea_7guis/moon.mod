@@ -8,5 +8,5 @@ supported_targets = "js"
 
 import {
   "dowdiness/incr@0.12.0",
-  "examples/incr_tea@0.1.0",
+  "dowdiness/incr_tea@0.1.0",
 }
