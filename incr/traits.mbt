@@ -1,10 +1,9 @@
 ///|
-/// An incremental database providing access to its runtime.
+/// A provider of the runtime that owns a piece of incremental state.
 ///
-/// This is the core trait that all incremental systems must implement.
-/// It connects user-defined database types to the incr runtime,
-/// enabling helpers like `create_input`, `batch`, `create_accumulator`,
-/// `create_tracked_cell`, and `create_scope`.
+/// This is the core trait that user-defined database/context types implement
+/// to connect to the incr runtime. It enables helpers like `create_input`,
+/// `create_derived`, `batch`, `create_accumulator`, and `create_scope`.
 ///
 /// This trait corresponds to Salsa's `#[salsa::db]` trait, but without
 /// macro magic — users implement it explicitly.
@@ -16,58 +15,22 @@
 ///   rt : @incr.Runtime
 /// }
 ///
-/// impl @incr.Database for MyDb with fn runtime(self) {
+/// impl @incr.RuntimeContext for MyDb with fn runtime(self) {
 ///   self.rt
 /// }
 /// ```
-pub(open) trait Database {
-  fn runtime(Self) -> Runtime
-}
-
-///|
-/// A lightweight provider for target-facade constructors.
-///
-/// `RuntimeContext` intentionally mirrors `Database::runtime` without changing
-/// the existing `Database` trait or its compatibility helper surface.
 pub(open) trait RuntimeContext {
   fn runtime(Self) -> Runtime
 }
 
 ///|
-/// A readable incremental node.
+/// Freshness trait for readable incremental nodes.
 ///
-/// This trait provides a common interface for checking whether
-/// a node's cached value is current with the latest revision.
-/// Both Input and TrackedCell implement this trait.
-/// Use the trait bound in generic functions to write code that
-/// works with any readable node:
-///
-/// ```moonbit nocheck
-/// fn[R : Readable] check(node : R) -> Bool {
-///   node.is_up_to_date()
-/// }
-/// ```
-pub(open) trait Readable {
-  /// Returns true if the node's value is verified at the current revision.
-  fn is_up_to_date(Self) -> Bool
-}
-
-///|
-/// Target-name freshness trait for readable incremental nodes.
-///
-/// `Freshness` mirrors `Readable` during the compatibility window while using
-/// target API vocabulary. Use it for new generic code that only needs to ask
-/// whether a handle is current with its runtime's latest revision.
+/// Use it for generic code that only needs to ask whether a handle is
+/// current with its runtime's latest revision.
 pub(open) trait Freshness {
   /// Returns true if the node is fresh at the current revision.
   fn is_fresh(Self) -> Bool
-}
-
-///|
-/// Inputs are always up-to-date since they are input cells
-/// with directly-set values.
-pub impl[T] Readable for Input[T] with fn is_up_to_date(self) {
-  Input::is_up_to_date(self)
 }
 
 ///|
@@ -79,12 +42,6 @@ pub impl[T] Freshness for Input[T] with fn is_fresh(self) {
 ///|
 /// Target input fields are always fresh because they are directly-set cells.
 pub impl[T] Freshness for InputField[T] with fn is_fresh(self) {
-  InputField::is_fresh(self)
-}
-
-///|
-/// Input fields are always up-to-date since they are directly-set cells.
-pub impl[T] Readable for InputField[T] with fn is_up_to_date(self) {
   InputField::is_fresh(self)
 }
 
@@ -162,7 +119,7 @@ pub fn[Ctx : RuntimeContext, K : Hash + Eq, V] create_derived_map(
 }
 
 ///|
-/// Executes a batch of input updates using the database's runtime.
+/// Executes a batch of input updates using the context runtime.
 ///
 /// All input updates inside the closure are deferred until the batch ends,
 /// resulting in a single revision bump. If the closure raises, pending writes
@@ -170,31 +127,34 @@ pub fn[Ctx : RuntimeContext, K : Hash + Eq, V] create_derived_map(
 ///
 /// # Parameters
 ///
-/// - `db`: Any type implementing `Database`
+/// - `ctx`: Any type implementing `RuntimeContext`
 /// - `f`: The closure containing the input updates
-pub fn[Db : Database] batch(db : Db, f : () -> Unit raise?) -> Unit raise? {
-  db.runtime().batch(f)
+pub fn[Ctx : RuntimeContext] batch(
+  ctx : Ctx,
+  f : () -> Unit raise?,
+) -> Unit raise? {
+  ctx.runtime().batch(f)
 }
 
 ///|
 /// Runs a batch and returns raised errors as `Result`.
-pub fn[Db : Database] batch_result(
-  db : Db,
+pub fn[Ctx : RuntimeContext] batch_result(
+  ctx : Ctx,
   f : () -> Unit raise,
 ) -> Result[Unit, Error] {
-  db.runtime().batch_result(f)
+  ctx.runtime().batch_result(f)
 }
 
 ///|
 /// Convenience mirror of `create_input` / `create_derived`.
-pub fn[Db : Database, T : Eq] create_accumulator(
-  db : Db,
+pub fn[Ctx : RuntimeContext, T : Eq] create_accumulator(
+  ctx : Ctx,
   label? : String,
 ) -> Accumulator[T] {
-  Accumulator::new(rt=db.runtime(), label?)
+  Accumulator::new(rt=ctx.runtime(), label?)
 }
 
-// --- Tracked Struct Support ---
+// --- Input-field owner support ---
 
 ///|
 /// Registers all cells from an `InputFieldOwner` with a scope for bulk disposal.
@@ -216,18 +176,18 @@ pub fn[T : InputFieldOwner] add_input_fields(scope : Scope, owner : T) -> Unit {
 }
 
 ///|
-/// Creates a new root scope using the database's runtime.
+/// Creates a new root scope using the context runtime.
 ///
 /// Cells created via the scope's constructors are automatically disposed
 /// when the scope is disposed. Use `scope.child()` for nested scopes.
 ///
 /// # Parameters
 ///
-/// - `db`: Any type implementing `Database`
+/// - `ctx`: Any type implementing `RuntimeContext`
 ///
 /// # Returns
 ///
-/// A new root scope associated with the database's runtime
-pub fn[Db : Database] create_scope(db : Db) -> Scope {
-  Scope::new(db.runtime())
+/// A new root scope associated with the context runtime
+pub fn[Ctx : RuntimeContext] create_scope(ctx : Ctx) -> Scope {
+  Scope::new(ctx.runtime())
 }

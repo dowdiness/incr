@@ -192,14 +192,6 @@ test "InputField introspection via Runtime::cell_info" {
 }
 
 ///|
-test "InputField Readable trait" {
-  let rt = @incr.Runtime::Runtime()
-  let cell = @incr.InputField::InputField(rt, 0)
-  // check_up_to_date is defined at the top level of traits_test.mbt (same package)
-  inspect(check_up_to_date(cell), content="true")
-}
-
-///|
 test "InputField Freshness trait" {
   let rt = @incr.Runtime::Runtime()
   let cell = @incr.InputField::InputField(rt, 0)

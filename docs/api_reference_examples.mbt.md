@@ -893,11 +893,6 @@ impl @incr.RuntimeContext for AppCtx with fn runtime(self) {
 }
 
 ///|
-impl @incr.Database for AppCtx with fn runtime(self) {
-  self.rt
-}
-
-///|
 struct CompatTrackedFields {
   path : @incr.InputField[String]
   version : @incr.InputField[Int]
@@ -957,7 +952,7 @@ test "docs api-ref: create_input_field / create_reachable_derived / create_eager
 }
 
 ///|
-test "docs api-ref: Database batch helper commits one atomic update" {
+test "docs api-ref: batch helper commits one atomic update" {
   let app : AppCtx = { rt: @incr.Runtime() }
   let price = @incr.Input(app.rt, 100, label="price")
   let quantity = @incr.Input(app.rt, 2, label="quantity")
@@ -979,7 +974,7 @@ test "docs api-ref: Database batch helper commits one atomic update" {
 }
 
 ///|
-test "docs api-ref: Database batch_result helper rolls back on Err" {
+test "docs api-ref: batch_result helper rolls back on Err" {
   let app : AppCtx = { rt: @incr.Runtime() }
   let price = @incr.Input(app.rt, 100, label="price")
   let quantity = @incr.Input(app.rt, 2, label="quantity")

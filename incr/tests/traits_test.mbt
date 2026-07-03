@@ -19,11 +19,6 @@ fn TestDb::TestDb() -> TestDb {
 }
 
 ///|
-impl @incr.Database for TestDb with fn runtime(self) {
-  self.rt
-}
-
-///|
 impl @incr.RuntimeContext for TestDb with fn runtime(self) {
   self.rt
 }
@@ -34,16 +29,10 @@ fn[R : @incr.Freshness] check_is_fresh(node : R) -> Bool {
   node.is_fresh()
 }
 
-///|
-/// Generic helper to test the Readable trait through trait dispatch.
-fn[R : @incr.Readable] check_up_to_date(node : R) -> Bool {
-  node.is_up_to_date()
-}
-
-// === Database + helper function tests ===
+// === RuntimeContext + helper function tests ===
 
 ///|
-test "trait: create_input via Database" {
+test "trait: create_input via RuntimeContext" {
   let db = TestDb()
   let sig = @incr.create_input(db, 42)
   inspect(sig.get(), content="42")
@@ -58,7 +47,7 @@ test "trait: create_input with High durability" {
 }
 
 ///|
-test "trait: create_derived via Database" {
+test "trait: create_derived via RuntimeContext" {
   let db = TestDb()
   let sig = @incr.create_input(db, 10)
   let memo = @incr.create_derived(db, () => sig.get() * 2)
@@ -66,7 +55,7 @@ test "trait: create_derived via Database" {
 }
 
 ///|
-test "trait: batch via Database" {
+test "trait: batch via RuntimeContext" {
   let db = TestDb()
   let x = @incr.create_input(db, 1)
   let y = @incr.create_input(db, 2)
@@ -80,7 +69,7 @@ test "trait: batch via Database" {
 }
 
 ///|
-test "trait: batch via Database rolls back on raised error" {
+test "trait: batch via RuntimeContext rolls back on raised error" {
   let db = TestDb()
   let x = @incr.create_input(db, 1)
   let mut compute_count = 0
@@ -109,7 +98,7 @@ test "trait: batch via Database rolls back on raised error" {
 }
 
 ///|
-test "trait: batch_result via Database" {
+test "trait: batch_result via RuntimeContext" {
   let db = TestDb()
   let x = @incr.create_input(db, 1)
   let ok = @incr.batch_result(db, () => x.set(2))
@@ -124,7 +113,7 @@ test "trait: batch_result via Database" {
   inspect(x.get(), content="2")
 }
 
-// === Readable tests ===
+// === Freshness tests ===
 
 ///|
 test "trait: input is always up-to-date" {
@@ -212,7 +201,7 @@ test "trait: create_derived with label" {
 }
 
 ///|
-test "trait: create_derived_map via Database" {
+test "trait: create_derived_map via RuntimeContext" {
   let db = TestDb()
   let source = @incr.create_input(db, 10)
   let by_key = @incr.create_derived_map(

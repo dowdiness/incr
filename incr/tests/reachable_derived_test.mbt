@@ -28,7 +28,7 @@ test "hybrid: is_up_to_date before first get returns false" {
 }
 
 ///|
-test "hybrid: is_up_to_date via Readable" {
+test "hybrid: is_fresh after read, stale after change" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 1)
   let h = @incr.ReachableDerived::ReachableDerived(rt, () => s.get())
