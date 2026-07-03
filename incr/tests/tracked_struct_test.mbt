@@ -75,7 +75,7 @@ test "InputField batch revert detection" {
   inspect(compute_count, content="1")
 }
 
-// --- Phase 2: Trackable trait + scoped lifecycle registration ---
+// --- Phase 2: InputFieldOwner trait + scoped lifecycle registration ---
 
 ///|
 /// Test fixture: a tracked struct with three fields
@@ -86,7 +86,7 @@ struct TestTracked {
 }
 
 ///|
-impl @incr.Trackable for TestTracked with fn cell_ids(self) {
+impl @incr.InputFieldOwner for TestTracked with fn cell_ids(self) {
   [self.name.id(), self.value.id(), self.flag.id()]
 }
 
@@ -100,7 +100,7 @@ fn TestTracked::new(rt : @incr.Runtime) -> TestTracked {
 }
 
 ///|
-test "Trackable cell_ids returns all field IDs" {
+test "InputFieldOwner cell_ids returns all field IDs" {
   let rt = @incr.Runtime::Runtime()
   let t = TestTracked::new(rt)
   let ids = t.cell_ids()
@@ -111,7 +111,7 @@ test "Trackable cell_ids returns all field IDs" {
 }
 
 ///|
-test "Trackable cell_ids ordering is stable" {
+test "InputFieldOwner cell_ids ordering is stable" {
   let rt = @incr.Runtime::Runtime()
   let t = TestTracked::new(rt)
   let ids1 = t.cell_ids()
@@ -156,11 +156,11 @@ test "field-level dependency isolation" {
 }
 
 ///|
-test "Trackable fields register with scope" {
+test "InputFieldOwner fields register with scope" {
   let rt = @incr.Runtime::Runtime()
   let scope = @incr.Scope::new(rt)
   let t = TestTracked::new(rt)
-  @incr.add_tracked(scope, t)
+  @incr.add_input_fields(scope, t)
   inspect(t.name.is_disposed(), content="false")
   inspect(t.value.is_disposed(), content="false")
   inspect(t.flag.is_disposed(), content="false")
@@ -235,29 +235,29 @@ test "InputField clear_on_change stops callback" {
   inspect(observed, content="1") // callback NOT fired (still 1)
 }
 
-// --- Phase 3: add_tracked ---
+// --- Phase 3: add_input_fields ---
 
 ///|
-/// Helper struct for add_tracked tests (2-field variant)
+/// Helper struct for add_input_fields tests (2-field variant)
 struct TwoFieldTracked {
   a : @incr.InputField[Int]
   b : @incr.InputField[Int]
 }
 
 ///|
-impl @incr.Trackable for TwoFieldTracked with fn cell_ids(self) {
+impl @incr.InputFieldOwner for TwoFieldTracked with fn cell_ids(self) {
   [self.a.id(), self.b.id()]
 }
 
 ///|
-test "scope: add_tracked registers all cell ids for disposal" {
+test "scope: add_input_fields registers all cell ids for disposal" {
   let rt = @incr.Runtime::Runtime()
   let scope = @incr.Scope::new(rt)
   let tracked : TwoFieldTracked = {
     a: @incr.InputField::InputField(rt, 1, label="a"),
     b: @incr.InputField::InputField(rt, 2, label="b"),
   }
-  @incr.add_tracked(scope, tracked)
+  @incr.add_input_fields(scope, tracked)
   inspect(tracked.a.get(), content="1")
   inspect(tracked.b.get(), content="2")
   scope.dispose()
@@ -266,7 +266,7 @@ test "scope: add_tracked registers all cell ids for disposal" {
 }
 
 ///|
-test "panic scope: add_tracked on disposed scope aborts" {
+test "panic scope: add_input_fields on disposed scope aborts" {
   let rt = @incr.Runtime::Runtime()
   let scope = @incr.Scope::new(rt)
   scope.dispose()
@@ -274,11 +274,11 @@ test "panic scope: add_tracked on disposed scope aborts" {
     a: @incr.InputField::InputField(rt, 1),
     b: @incr.InputField::InputField(rt, 2),
   }
-  @incr.add_tracked(scope, tracked)
+  @incr.add_input_fields(scope, tracked)
 }
 
 ///|
-test "panic scope: add_tracked with foreign runtime cells aborts at registration" {
+test "panic scope: add_input_fields with foreign runtime cells aborts at registration" {
   let rt1 = @incr.Runtime::Runtime()
   let rt2 = @incr.Runtime::Runtime()
   let scope = @incr.Scope::new(rt1)
@@ -287,5 +287,5 @@ test "panic scope: add_tracked with foreign runtime cells aborts at registration
     b: @incr.InputField::InputField(rt2, 2),
   }
   // Aborts at registration time, not at dispose time
-  @incr.add_tracked(scope, tracked)
+  @incr.add_input_fields(scope, tracked)
 }

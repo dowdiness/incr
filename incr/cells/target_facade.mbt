@@ -740,34 +740,34 @@ pub fn[K, V] DerivedMap::clear_cache(self : DerivedMap[K, V]) -> Unit {
 }
 
 ///|
-/// Trackable implementation for input cells.
-pub impl[T] Trackable for Input[T] with fn cell_ids(self) -> Array[CellId] {
+/// InputFieldOwner implementation for input cells.
+pub impl[T] InputFieldOwner for Input[T] with fn cell_ids(self) -> Array[CellId] {
   [self.id()]
 }
 
 ///|
-/// Trackable implementation for input field cells.
-pub impl[T] Trackable for InputField[T] with fn cell_ids(self) -> Array[CellId] {
+/// InputFieldOwner implementation for input field cells.
+pub impl[T] InputFieldOwner for InputField[T] with fn cell_ids(self) -> Array[CellId] {
   [self.id()]
 }
 
 ///|
-/// Trackable implementation for derived cells (lazy recomputation).
-pub impl[T] Trackable for Derived[T] with fn cell_ids(self) -> Array[CellId] {
+/// InputFieldOwner implementation for derived cells (lazy recomputation).
+pub impl[T] InputFieldOwner for Derived[T] with fn cell_ids(self) -> Array[CellId] {
   [self.id()]
 }
 
 ///|
-/// Trackable implementation for reachable derived cells (lazy with GC-alive).
-pub impl[T] Trackable for ReachableDerived[T] with fn cell_ids(self) -> Array[
+/// InputFieldOwner implementation for reachable derived cells (lazy with GC-alive).
+pub impl[T] InputFieldOwner for ReachableDerived[T] with fn cell_ids(self) -> Array[
   CellId,
 ] {
   [self.id()]
 }
 
 ///|
-/// Trackable implementation for eager derived cells.
-pub impl[T] Trackable for EagerDerived[T] with fn cell_ids(self) -> Array[
+/// InputFieldOwner implementation for eager derived cells.
+pub impl[T] InputFieldOwner for EagerDerived[T] with fn cell_ids(self) -> Array[
   CellId,
 ] {
   [self.id()]

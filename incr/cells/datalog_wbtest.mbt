@@ -308,7 +308,9 @@ test "fixpoint: push EagerDerived downstream of Relation recomputes before on_ch
   let rt = Runtime::Runtime()
   let rel : Relation[Int] = Relation::Relation(rt)
   // EagerDerived reads the relation's current set; depends on rel's CellId.
-  let r = EagerDerived::EagerDerived(rt, () => rel.iter().fold(init=0, (acc, x) => acc + x))
+  let r = EagerDerived::EagerDerived(rt, () => {
+    rel.iter().fold(init=0, (acc, x) => acc + x)
+  })
   let _ = read_reactive_for_test(r) // establish dependency
   let mut reactive_val_at_callback = -1
   rt.set_on_change(fn() { reactive_val_at_callback = read_reactive_for_test(r) })

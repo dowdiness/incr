@@ -27,7 +27,9 @@ test "ui: flat 100 reactives (root mutation)" (b : @bench.T) {
   let reactives : Array[@incr.EagerDerived[Int]] = []
   for i = 0; i < 100; i = i + 1 {
     let idx = i
-    reactives.push(@incr.EagerDerived::EagerDerived(rt, fn() { sig.get() + idx }))
+    reactives.push(
+      @incr.EagerDerived::EagerDerived(rt, fn() { sig.get() + idx }),
+    )
   }
   let mut v = 0
   b.bench(fn() {
@@ -44,7 +46,9 @@ test "ui: flat 1000 reactives (root mutation)" (b : @bench.T) {
   let reactives : Array[@incr.EagerDerived[Int]] = []
   for i = 0; i < 1000; i = i + 1 {
     let idx = i
-    reactives.push(@incr.EagerDerived::EagerDerived(rt, fn() { sig.get() + idx }))
+    reactives.push(
+      @incr.EagerDerived::EagerDerived(rt, fn() { sig.get() + idx }),
+    )
   }
   let mut v = 0
   b.bench(fn() {
@@ -94,12 +98,16 @@ test "ui: flat 1000 reactives, only 10 subscribed (sparse mutation)" (
   // 10 reactives subscribed to the hot input
   for i = 0; i < 10; i = i + 1 {
     let idx = i
-    reactives.push(@incr.EagerDerived::EagerDerived(rt, fn() { hot_sig.get() + idx }))
+    reactives.push(
+      @incr.EagerDerived::EagerDerived(rt, fn() { hot_sig.get() + idx }),
+    )
   }
   // 990 reactives subscribed to an unrelated cold input (other UI state)
   for i = 0; i < 990; i = i + 1 {
     let idx = i
-    reactives.push(@incr.EagerDerived::EagerDerived(rt, fn() { cold_sig.get() + idx }))
+    reactives.push(
+      @incr.EagerDerived::EagerDerived(rt, fn() { cold_sig.get() + idx }),
+    )
   }
   let mut v = 0
   b.bench(fn() {
@@ -133,7 +141,9 @@ test "ui: tree 1023 memos + 512 leaf reactives (root mutation)" (b : @bench.T) {
   let leaves : Array[@incr.EagerDerived[Int]] = []
   for i = 511; i < 1023; i = i + 1 {
     let node = nodes[i]
-    leaves.push(@incr.EagerDerived::EagerDerived(rt, fn() { node.get_or_abort() }))
+    leaves.push(
+      @incr.EagerDerived::EagerDerived(rt, fn() { node.get_or_abort() }),
+    )
   }
   let mut v = 0
   b.bench(fn() {

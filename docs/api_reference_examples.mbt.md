@@ -904,7 +904,7 @@ struct CompatTrackedFields {
 }
 
 ///|
-impl @incr.Trackable for CompatTrackedFields with fn cell_ids(self) {
+impl @incr.InputFieldOwner for CompatTrackedFields with fn cell_ids(self) {
   [self.path.id(), self.version.id()]
 }
 
@@ -1079,7 +1079,7 @@ test "docs api-ref: compatibility create_accumulator captures memo pushes" {
 }
 
 ///|
-test "docs api-ref: compatibility create_input_field / create_scope / add_tracked" {
+test "docs api-ref: compatibility create_input_field / create_scope / add_input_fields" {
   let app : AppCtx = { rt: @incr.Runtime() }
   let scope = @incr.create_scope(app)
   let tracked : CompatTrackedFields = {
@@ -1106,7 +1106,7 @@ test "docs api-ref: compatibility create_input_field / create_scope / add_tracke
     None => abort("expected tracked path cell_info")
   }
 
-  @incr.add_tracked(scope, tracked)
+  @incr.add_input_fields(scope, tracked)
   scope.dispose()
   inspect(tracked.path.is_disposed(), content="true")
   inspect(tracked.version.is_disposed(), content="true")

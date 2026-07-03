@@ -30,12 +30,14 @@ pub struct Scope {
 }
 
 ///|
-/// Implementing this trait declares that a type manages incremental state
-/// within cells that the runtime tracks by CellId.
+/// Contract for types that expose their runtime-tracked cell ids —
+/// typically structs that own `InputField` fields, but any cell handle
+/// qualifies.
 ///
 /// The ordering of CellIds returned by cell_ids() must be stable across
-/// calls (i.e., always return fields in the same order).
-pub(open) trait Trackable {
+/// calls (i.e., always return fields in the same order), and the ids must
+/// belong to the runtime of any scope they are registered with.
+pub(open) trait InputFieldOwner {
   fn cell_ids(Self) -> Array[CellId]
 }
 
@@ -273,7 +275,7 @@ pub fn[T] Scope::add_watch(self : Scope, watch : Watch[T]) -> Watch[T] {
 /// Registers an array of CellIds with this scope for bulk disposal.
 ///
 /// When the scope is disposed, all registered cells are disposed.
-/// This is the low-level building block for `add_tracked(scope, tracked)`.
+/// This is the low-level building block for `add_input_fields(scope, owner)`.
 pub fn Scope::add_cell_ids(self : Scope, ids : Array[CellId]) -> Unit {
   guard !self.disposed else {
     abort("Scope::add_cell_ids called on a disposed scope")
@@ -288,9 +290,9 @@ pub fn Scope::add_cell_ids(self : Scope, ids : Array[CellId]) -> Unit {
 }
 
 ///|
-/// Adopts all cells from a `Trackable` struct into this scope for bulk disposal.
+/// Adopts all cells from an `InputFieldOwner` into this scope for bulk disposal.
 ///
-/// This is the method-style version of `add_tracked(scope, tracked)`. Use it
+/// This is the method-style version of `add_input_fields(scope, owner)`. Use it
 /// to register cells that were created outside a scope (e.g. via `map` or
 /// raw constructors) with a scope's lifecycle.
 ///
@@ -305,7 +307,7 @@ pub fn Scope::add_cell_ids(self : Scope, ids : Array[CellId]) -> Unit {
 /// scope.adopt(d)
 /// scope.dispose()   // d is disposed
 /// ```
-pub fn[T : Trackable] Scope::adopt(self : Scope, tracked : T) -> T {
+pub fn[T : InputFieldOwner] Scope::adopt(self : Scope, tracked : T) -> T {
   guard !self.disposed else { abort("Scope::adopt called on a disposed scope") }
   self.add_cell_ids(tracked.cell_ids())
   tracked

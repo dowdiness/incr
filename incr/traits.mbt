@@ -197,34 +197,20 @@ pub fn[Db : Database, T : Eq] create_accumulator(
 // --- Tracked Struct Support ---
 
 ///|
-/// Target-name contract for types that own `InputField` fields.
-///
-/// The returned cell IDs must be stable across calls and belong to the runtime
-/// of any scope they are registered with.
-pub(open) trait InputFieldOwner {
-  fn cell_ids(Self) -> Array[CellId]
-}
-
-///|
-/// Registers all cells from a Trackable struct with a scope for bulk disposal.
+/// Registers all cells from an `InputFieldOwner` with a scope for bulk disposal.
 ///
 /// When the scope is disposed, all registered cells are disposed.
-/// This is the recommended way to manage TrackedCell lifetimes.
+/// This is the recommended way to manage the lifetimes of cells owned by a
+/// struct.
 ///
 /// # Example
 ///
 /// ```moonbit nocheck
 /// let scope = Scope::new(rt)
-/// let tracked = MyTracked::new(rt)
-/// add_tracked(scope, tracked)
-/// scope.dispose()  // disposes all tracked cells
+/// let owner = MyTracked::new(rt)
+/// add_input_fields(scope, owner)
+/// scope.dispose()  // disposes all owned cells
 /// ```
-pub fn[T : Trackable] add_tracked(scope : Scope, tracked : T) -> Unit {
-  scope.add_cell_ids(tracked.cell_ids())
-}
-
-///|
-/// Registers all cells from an `InputFieldOwner` with a scope for bulk disposal.
 pub fn[T : InputFieldOwner] add_input_fields(scope : Scope, owner : T) -> Unit {
   scope.add_cell_ids(owner.cell_ids())
 }

@@ -1,9 +1,7 @@
 ///|
 test "functional_relation: insert and get after fixpoint" {
   let rt = Runtime::Runtime()
-  let fr : MapRelation[String, Int] = MapRelation::MapRelation(
-    rt,
-  )
+  let fr : MapRelation[String, Int] = MapRelation::MapRelation(rt)
   let inserted = fr.insert("x", 42)
   inspect(inserted, content="true")
   // Not visible via get before fixpoint (still in delta)
@@ -16,9 +14,7 @@ test "functional_relation: insert and get after fixpoint" {
 ///|
 test "functional_relation: insert same key with different value replaces" {
   let rt = Runtime::Runtime()
-  let fr : MapRelation[String, Int] = MapRelation::MapRelation(
-    rt,
-  )
+  let fr : MapRelation[String, Int] = MapRelation::MapRelation(rt)
   let first = fr.insert("x", 1)
   inspect(first, content="true")
   let second = fr.insert("x", 2)
@@ -30,9 +26,7 @@ test "functional_relation: insert same key with different value replaces" {
 ///|
 test "functional_relation: insert same key with same value is no-op" {
   let rt = Runtime::Runtime()
-  let fr : MapRelation[String, Int] = MapRelation::MapRelation(
-    rt,
-  )
+  let fr : MapRelation[String, Int] = MapRelation::MapRelation(rt)
   let first = fr.insert("x", 1)
   inspect(first, content="true")
   let dup = fr.insert("x", 1)
@@ -42,9 +36,7 @@ test "functional_relation: insert same key with same value is no-op" {
 ///|
 test "functional_relation: effective value checked across layers" {
   let rt = Runtime::Runtime()
-  let fr : MapRelation[String, Int] = MapRelation::MapRelation(
-    rt,
-  )
+  let fr : MapRelation[String, Int] = MapRelation::MapRelation(rt)
   // Insert x=1 into delta
   let ins1 = fr.insert("x", 1)
   inspect(ins1, content="true")
@@ -62,10 +54,16 @@ test "functional_relation: effective value checked across layers" {
 ///|
 test "functional_relation: merge function resolves conflicts" {
   let rt = Runtime::Runtime()
-  let fr : MapRelation[String, Int] = MapRelation::MapRelation(
-    rt,
-    merge=fn(a, b) { if a > b { a } else { b } },
-  )
+  let fr : MapRelation[String, Int] = MapRelation::MapRelation(rt, merge=fn(
+    a,
+    b,
+  ) {
+    if a > b {
+      a
+    } else {
+      b
+    }
+  })
   // Insert x=10
   let ins1 = fr.insert("x", 10)
   inspect(ins1, content="true")
@@ -84,9 +82,7 @@ test "functional_relation: merge function resolves conflicts" {
 ///|
 test "functional_relation: delta_iter shows new and updated entries" {
   let rt = Runtime::Runtime()
-  let fr : MapRelation[String, Int] = MapRelation::MapRelation(
-    rt,
-  )
+  let fr : MapRelation[String, Int] = MapRelation::MapRelation(rt)
   fr.insert("a", 1) |> ignore
   fr.insert("b", 2) |> ignore
   let count = fr.delta_iter().fold(init=0, fn(acc, _kv) { acc + 1 })
@@ -96,9 +92,7 @@ test "functional_relation: delta_iter shows new and updated entries" {
 ///|
 test "functional_relation: iter reads current after fixpoint" {
   let rt = Runtime::Runtime()
-  let fr : MapRelation[String, Int] = MapRelation::MapRelation(
-    rt,
-  )
+  let fr : MapRelation[String, Int] = MapRelation::MapRelation(rt)
   fr.insert("a", 1) |> ignore
   fr.insert("b", 2) |> ignore
   // Before fixpoint, iter reads current which is empty
@@ -113,9 +107,7 @@ test "functional_relation: iter reads current after fixpoint" {
 ///|
 test "functional_relation: value update produces delta in next fixpoint" {
   let rt = Runtime::Runtime()
-  let fr : MapRelation[String, Int] = MapRelation::MapRelation(
-    rt,
-  )
+  let fr : MapRelation[String, Int] = MapRelation::MapRelation(rt)
   fr.insert("x", 1) |> ignore
   rt.fixpoint()
   debug_inspect(fr.get("x"), content="Some(1)")
@@ -132,9 +124,7 @@ test "functional_relation: value update produces delta in next fixpoint" {
 ///|
 test "functional_relation: no-op convergence terminates" {
   let rt = Runtime::Runtime()
-  let fr : MapRelation[String, Int] = MapRelation::MapRelation(
-    rt,
-  )
+  let fr : MapRelation[String, Int] = MapRelation::MapRelation(rt)
   // Rule that always re-inserts the same value — must not loop forever
   let _ = rt.new_rule([fr.id()], [fr.id()], fn() {
     for kv in fr.delta_iter() {
@@ -149,9 +139,7 @@ test "functional_relation: no-op convergence terminates" {
 ///|
 test "functional_relation: memo recomputes after fixpoint changes value" {
   let rt = Runtime::Runtime()
-  let fr : MapRelation[String, Int] = MapRelation::MapRelation(
-    rt,
-  )
+  let fr : MapRelation[String, Int] = MapRelation::MapRelation(rt)
   let _ = fr.insert("x", 1)
   rt.fixpoint()
   let m = Derived(rt, fn() { fr.get("x").unwrap_or(0) })
@@ -164,9 +152,7 @@ test "functional_relation: memo recomputes after fixpoint changes value" {
 ///|
 test "functional_relation: revert before fixpoint preserves changed_at and cached dependents" {
   let rt = Runtime::Runtime()
-  let fr : MapRelation[String, Int] = MapRelation::MapRelation(
-    rt,
-  )
+  let fr : MapRelation[String, Int] = MapRelation::MapRelation(rt)
   fr.insert("x", 1) |> ignore
   rt.fixpoint()
   let changed_at_before = rt.get_changed_at(fr.id())
@@ -200,9 +186,7 @@ test "functional_relation: revert before fixpoint preserves changed_at and cache
 test "functional_relation: staged revert during fixpoint preserves changed_at" {
   let rt = Runtime::Runtime()
   let trigger : Relation[Int] = Relation::Relation(rt)
-  let fr : MapRelation[String, Int] = MapRelation::MapRelation(
-    rt,
-  )
+  let fr : MapRelation[String, Int] = MapRelation::MapRelation(rt)
   fr.insert("x", 1) |> ignore
   rt.fixpoint()
   let changed_at_before = rt.get_changed_at(fr.id())
@@ -230,9 +214,7 @@ test "functional_relation: staged revert during fixpoint preserves changed_at" {
 test "panic functional_relation: cross-runtime read aborts" {
   let rt1 = Runtime::Runtime()
   let rt2 = Runtime::Runtime()
-  let fr : MapRelation[String, Int] = MapRelation::MapRelation(
-    rt1,
-  )
+  let fr : MapRelation[String, Int] = MapRelation::MapRelation(rt1)
   let _ = fr.insert("x", 1)
   rt1.fixpoint()
   let derived = Derived(rt2, fn() { fr.get("x").unwrap_or(0) })
@@ -243,9 +225,7 @@ test "panic functional_relation: cross-runtime read aborts" {
 test "functional_relation: mixed Relation and FunctionalRelation rule" {
   let rt = Runtime::Runtime()
   let edges : Relation[(Int, Int)] = Relation::Relation(rt)
-  let weights : MapRelation[(Int, Int), Int] = MapRelation::MapRelation(
-    rt,
-  )
+  let weights : MapRelation[(Int, Int), Int] = MapRelation::MapRelation(rt)
   let _ = edges.insert((1, 2))
   let _ = rt.new_rule([edges.id()], [weights.id()], fn() {
     for e in edges.delta_iter() {
@@ -259,9 +239,7 @@ test "functional_relation: mixed Relation and FunctionalRelation rule" {
 ///|
 test "functional_relation: multiple writes to same key converges" {
   let rt = Runtime::Runtime()
-  let fr : MapRelation[String, Int] = MapRelation::MapRelation(
-    rt,
-  )
+  let fr : MapRelation[String, Int] = MapRelation::MapRelation(rt)
   let _ = fr.insert("x", 1)
   let _ = rt.new_rule([fr.id()], [fr.id()], fn() {
     for entry in fr.delta_iter() {
@@ -283,9 +261,7 @@ test "functional_relation: created during rule execution converges" {
   let dynamic_fr_ref : Ref[MapRelation[Int, Int]?] = { val: None }
   let _ = rt.new_rule([trigger.id()], [], fn() {
     for _ in trigger.delta_iter() {
-      let fr : MapRelation[Int, Int] = MapRelation::MapRelation(
-        rt,
-      )
+      let fr : MapRelation[Int, Int] = MapRelation::MapRelation(rt)
       let _ = fr.insert(1, 42)
       dynamic_fr_ref.val = Some(fr)
     }

@@ -51,7 +51,9 @@ test "push_reachable_count: diamond topology" {
   let s = Input::Input(rt, 0)
   let mA = Derived(rt, () => s.get() + 1)
   let mB = Derived(rt, () => s.get() + 2)
-  let _r = EagerDerived::EagerDerived(rt, () => mA.read_or_abort() + mB.read_or_abort())
+  let _r = EagerDerived::EagerDerived(rt, () => {
+    mA.read_or_abort() + mB.read_or_abort()
+  })
   // Two paths: s->mA->r and s->mB->r
   inspect(get_count(rt, s.id()), content="2")
   inspect(get_count(rt, mA.id()), content="1")
@@ -74,7 +76,9 @@ test "push_reachable_count: diamond dispose returns to 0" {
   let s = Input::Input(rt, 0)
   let mA = Derived(rt, () => s.get() + 1)
   let mB = Derived(rt, () => s.get() + 2)
-  let r = EagerDerived::EagerDerived(rt, () => mA.read_or_abort() + mB.read_or_abort())
+  let r = EagerDerived::EagerDerived(rt, () => {
+    mA.read_or_abort() + mB.read_or_abort()
+  })
   inspect(get_count(rt, s.id()), content="2")
   r.dispose()
   inspect(get_count(rt, s.id()), content="0")
@@ -124,7 +128,13 @@ test "push_reachable_count: source change on reactive recompute" {
   let s2 = Input::Input(rt, 0)
   // reactive starts reading s1
   let flag : Ref[Bool] = Ref(true)
-  let _r = EagerDerived::EagerDerived(rt, () => if flag.val { s1.get() } else { s2.get() })
+  let _r = EagerDerived::EagerDerived(rt, () => {
+    if flag.val {
+      s1.get()
+    } else {
+      s2.get()
+    }
+  })
   inspect(get_count(rt, s1.id()), content="1")
   inspect(get_count(rt, s2.id()), content="0")
   // switch reactive to read s2 by changing flag and triggering recompute

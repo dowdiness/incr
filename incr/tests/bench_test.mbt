@@ -230,7 +230,9 @@ test "baseline: push propagation with 100 live reactives" (b : @bench.T) {
   let reactives : Array[@incr.EagerDerived[Int]] = []
   for i = 0; i < 100; i = i + 1 {
     let idx = i
-    reactives.push(@incr.EagerDerived::EagerDerived(rt, fn() { sig.get() + idx }))
+    reactives.push(
+      @incr.EagerDerived::EagerDerived(rt, fn() { sig.get() + idx }),
+    )
   }
   let mut v = 0
   b.bench(fn() {
@@ -534,7 +536,9 @@ test "linklist-port: fanout 500 reactives, steady-state set" (b : @bench.T) {
   let reactives : Array[@incr.EagerDerived[Int]] = []
   for i = 0; i < 500; i = i + 1 {
     let idx = i
-    reactives.push(@incr.EagerDerived::EagerDerived(rt, fn() { sig.get() + idx }))
+    reactives.push(
+      @incr.EagerDerived::EagerDerived(rt, fn() { sig.get() + idx }),
+    )
   }
   let mut v = 0
   b.bench(fn() {
@@ -558,7 +562,9 @@ test "linklist-port: fanout 1000 reactives, steady-state set" (b : @bench.T) {
   let reactives : Array[@incr.EagerDerived[Int]] = []
   for i = 0; i < 1000; i = i + 1 {
     let idx = i
-    reactives.push(@incr.EagerDerived::EagerDerived(rt, fn() { sig.get() + idx }))
+    reactives.push(
+      @incr.EagerDerived::EagerDerived(rt, fn() { sig.get() + idx }),
+    )
   }
   let mut v = 0
   b.bench(fn() {

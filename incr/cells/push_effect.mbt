@@ -67,7 +67,7 @@ pub fn Effect::dispose(self : Effect) -> Unit {
 }
 
 ///|
-/// Trackable implementation for effect cells.
-pub impl Trackable for Effect with fn cell_ids(self) -> Array[CellId] {
+/// InputFieldOwner implementation for effect cells.
+pub impl InputFieldOwner for Effect with fn cell_ids(self) -> Array[CellId] {
   [self.id()]
 }

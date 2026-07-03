@@ -122,9 +122,7 @@ test "relation: dispose is idempotent" {
 ///|
 test "map relation: dispose marks cell as disposed" {
   let rt = Runtime::Runtime()
-  let frel : MapRelation[Int, String] = MapRelation::MapRelation(
-    rt,
-  )
+  let frel : MapRelation[Int, String] = MapRelation::MapRelation(rt)
   frel.insert(1, "a") |> ignore
   assert_false(frel.is_disposed())
   frel.dispose()
@@ -134,9 +132,7 @@ test "map relation: dispose marks cell as disposed" {
 ///|
 test "map relation: dispose is idempotent" {
   let rt = Runtime::Runtime()
-  let frel : MapRelation[Int, String] = MapRelation::MapRelation(
-    rt,
-  )
+  let frel : MapRelation[Int, String] = MapRelation::MapRelation(rt)
   frel.dispose()
   frel.dispose() // no-op
   assert_true(frel.is_disposed())
@@ -247,9 +243,7 @@ test "panic relation: insert after dispose aborts" {
 ///|
 test "panic functional relation: insert after dispose aborts" {
   let rt = Runtime::Runtime()
-  let frel : MapRelation[Int, String] = MapRelation::MapRelation(
-    rt,
-  )
+  let frel : MapRelation[Int, String] = MapRelation::MapRelation(rt)
   frel.dispose()
   frel.insert(1, "a") |> ignore // should abort
 }
@@ -286,7 +280,9 @@ test "dispose_cell: idempotent — disposing already-disposed cell is no-op" {
 test "dispose_cell: push reactive and effect" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 1)
-  let reactive : EagerDerived[Int] = EagerDerived::EagerDerived(rt, fn() { sig.get() })
+  let reactive : EagerDerived[Int] = EagerDerived::EagerDerived(rt, fn() {
+    sig.get()
+  })
   let effect_ran : Ref[Int] = { val: 0 }
   let eff = Effect::new(rt, fn() { effect_ran.val = effect_ran.val + sig.get() })
   rt.dispose_cell(reactive.id())
