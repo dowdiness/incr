@@ -9,9 +9,10 @@ For the verification algorithm, type erasure, push propagation, and storage layo
 ## Package responsibility map
 
 The repository is a MoonBit workspace: the publishable MoonBit module lives
-under `incr/`, checked documentation examples live under `docs/`, and
-demos/spikes are separate workspace members under `examples/`. The main packages
-in `dowdiness/incr` are mapped below. Users import only the root facade;
+under `incr/`, the experimental TEA UI framework built on it lives under
+`incr_tea/` (module `dowdiness/incr_tea`), checked documentation examples live
+under `docs/`, and demos/spikes are separate workspace members under
+`examples/`. The main packages in `dowdiness/incr` are mapped below. Users import only the root facade;
 everything else is implementation detail, tests, checked documentation, or
 standalone demo code.
 
@@ -28,6 +29,7 @@ moon.work
 │   │       ├── datalog/ ← Datalog SoA storage (Relation, Rule, …)
 │   │       └── kernel/  ← Graph-mechanics algorithms (verify, propagate, gc, …)
 │   └── tests/          ← Integration tests against the public API
+├── incr_tea/            ← module `dowdiness/incr_tea`: experimental TEA UI framework on `dowdiness/incr`
 ├── docs/               ← Checked literate documentation examples
 └── examples/           ← Standalone workspace modules for demos and spikes
     └── typed_spreadsheet/ ← Example worksheet/formula boundary (not published as `dowdiness/incr`)

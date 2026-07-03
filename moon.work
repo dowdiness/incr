@@ -1,5 +1,6 @@
 members = [
   "./incr",
+  "./incr_tea",
   "./docs",
   "./examples/typed_spreadsheet",
   "./examples/typed_spreadsheet_demo",

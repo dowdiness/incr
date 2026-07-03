@@ -1,5 +1,5 @@
 import {
-  "examples/incr_tea" @tea,
+  "dowdiness/incr_tea" @tea,
   "examples/incr_tea_7guis/cells",
   "examples/incr_tea_7guis/circle_drawer",
   "examples/incr_tea_7guis/counter",

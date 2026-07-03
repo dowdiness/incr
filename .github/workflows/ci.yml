@@ -196,6 +196,9 @@ jobs:
           - name: example typed_spreadsheet_incr_tea_demo
             path: examples/typed_spreadsheet_incr_tea_demo
             args: '--target js'
+          - name: incr_tea framework
+            path: incr_tea
+            args: '--target js'
           - name: example incr_tea
             path: examples/incr_tea
             args: '--target js'
