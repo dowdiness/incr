@@ -17,11 +17,10 @@ incr/                       ← `dowdiness/incr` library module
   types/                    ← Pure value types
   cells/                    ← Engine: handles, lifecycles, the Runtime coordinator
   cells/internal/           ← shared, pull, push, datalog, kernel (compiler-enforced)
-  pipeline/                 ← Experimental, single 36-LOC file
   tests/                    ← Integration tests against the public API
 docs/                       ← Checked docs workspace member + docs/README.md index
 examples/                   ← Standalone workspace modules for demos and spikes
-scripts/                    ← check-engine-isolation.sh enforces internal-package invariants
+scripts/                    ← check-engine-isolation.sh (internal-package invariants) + check-workspace-boundaries.sh (facade-only example imports, sibling pin freshness)
 ```
 
 Tests inside `incr/cells/` live beside source:

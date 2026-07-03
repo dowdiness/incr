@@ -87,8 +87,6 @@ incr/                           (module `dowdiness/incr`)
 │   │       └── gc.mbt              (gc, gc_sweep, mark_reachable, collect_gc_roots, add/remove_gc_root — gc_sweep/gc take dispose_fn callback)
 │   └── *_test.mbt, *_wbtest.mbt
 │
-├── pipeline/                   (deprecated early pipeline traits, zero dependencies)
-│   └── pipeline_traits.mbt     (Sourceable, Parseable, Checkable, Executable)
 │
 ├── tests/                      (integration tests — exercises the full @incr public API)
 │   ├── moon.pkg                (imports dowdiness/incr for test)
@@ -127,6 +125,7 @@ For deep internals (verification algorithm, type erasure, SoA storage, push prop
 - `incr/cells/moon.pkg` suppresses warning 15 (`unused_mut`) because some `mut` fields on `MemoData`/`PullSignalData` are only written in whitebox test compilation, not source-only compilation
 - The `incr/cells/` package imports `moonbitlang/core/hashset` and `moonbitlang/core/hashmap` as external dependencies
 - `incr/cells/internal/{shared,pull,push,datalog,kernel}/` use MoonBit's `internal` package feature. External consumers cannot import them. `scripts/check-engine-isolation.sh` enforces four invariants (R1 Stage 5, 2026-04-25): no cross-engine sibling imports; `shared` is the leaf; no back-edges from any internal package to `cells/`; kernel is one-way (engines/shared cannot import kernel — only `incr/cells/*.mbt` may). Kernel owns graph-mechanics algorithms + coordinator primitives.
+- Cross-module workspace contracts are enforced by `scripts/check-workspace-boundaries.sh` (#343, CI job "Check architecture boundaries"): non-library workspace members (`docs/`, `examples/*`) import only the `dowdiness/incr` root facade (never `/cells`, `/types`, or deeper), and their `dowdiness/incr@X` pins must equal the version in `incr/moon.mod`.
 
 ## Documentation
 

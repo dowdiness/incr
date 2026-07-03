@@ -128,6 +128,19 @@ jobs:
           done
           exit $status
 
+  boundaries:
+    name: Check architecture boundaries
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Engine isolation invariants (incr/cells/internal)
+        run: bash scripts/check-engine-isolation.sh
+
+      - name: Workspace boundary + pin invariants (examples, docs)
+        run: bash scripts/check-workspace-boundaries.sh
+
   docs-ratios:
     name: Verify perf ratio tables
     runs-on: ubuntu-latest
