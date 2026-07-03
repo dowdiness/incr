@@ -18,7 +18,10 @@ lib_mod="$repo_root/incr/moon.mod"
 work_file="$repo_root/moon.work"
 
 new_version="${1:-}"
-if ! echo "$new_version" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+([-+][A-Za-z0-9.-]+)?$'; then
+# Typo guard, not a full SemVer validator: pre-release and build parts are
+# separate optional groups (so `1.2.3-alpha+001` passes); pedantry like
+# rejecting leading-zero identifiers is deliberately out of scope.
+if ! echo "$new_version" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'; then
   echo "usage: bash scripts/bump-version.sh <semver>  (got: '${new_version}')"
   exit 1
 fi
