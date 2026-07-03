@@ -20,7 +20,7 @@ incr/                       ← `dowdiness/incr` library module
   tests/                    ← Integration tests against the public API
 docs/                       ← Checked docs workspace member + docs/README.md index
 examples/                   ← Standalone workspace modules for demos and spikes
-scripts/                    ← check-engine-isolation.sh (internal-package invariants) + check-workspace-boundaries.sh (facade-only example imports, sibling pin freshness)
+scripts/                    ← check-engine-isolation.sh (internal-package invariants) + check-workspace-boundaries.sh (facade-only example imports, sibling pin freshness; selftest alongside) + bump-version.sh (atomic version+pin bump for releases)
 ```
 
 Tests inside `incr/cells/` live beside source:
