@@ -120,9 +120,9 @@ test "relation: dispose is idempotent" {
 }
 
 ///|
-test "functional relation: dispose marks cell as disposed" {
+test "map relation: dispose marks cell as disposed" {
   let rt = Runtime::Runtime()
-  let frel : FunctionalRelation[Int, String] = FunctionalRelation::FunctionalRelation(
+  let frel : MapRelation[Int, String] = MapRelation::MapRelation(
     rt,
   )
   frel.insert(1, "a") |> ignore
@@ -132,9 +132,9 @@ test "functional relation: dispose marks cell as disposed" {
 }
 
 ///|
-test "functional relation: dispose is idempotent" {
+test "map relation: dispose is idempotent" {
   let rt = Runtime::Runtime()
-  let frel : FunctionalRelation[Int, String] = FunctionalRelation::FunctionalRelation(
+  let frel : MapRelation[Int, String] = MapRelation::MapRelation(
     rt,
   )
   frel.dispose()
@@ -247,7 +247,7 @@ test "panic relation: insert after dispose aborts" {
 ///|
 test "panic functional relation: insert after dispose aborts" {
   let rt = Runtime::Runtime()
-  let frel : FunctionalRelation[Int, String] = FunctionalRelation::FunctionalRelation(
+  let frel : MapRelation[Int, String] = MapRelation::MapRelation(
     rt,
   )
   frel.dispose()

@@ -36,7 +36,6 @@ pub using @internal {
   type DerivedMap,
   type ReachableDerived,
   type Relation,
-  type FunctionalRelation,
   type MapRelation,
   type Reactive,
   type EagerDerived,

@@ -2,7 +2,7 @@
 /// A Datalog functional relation: a key-value map with delta tracking for
 /// fixpoint evaluation.
 ///
-/// Unlike `Relation[T]` (a HashSet), `FunctionalRelation[K, V]` uses
+/// Unlike `Relation[T]` (a HashSet), `MapRelation[K, V]` uses
 /// `@hashmap.HashMap[K, V]` and supports replacing values for existing keys.
 ///
 /// Three layers:
@@ -14,7 +14,7 @@
 /// - `get()` reads current (the materialized post-drain map)
 /// - `iter()` iterates current; records a dependency for pull verification
 /// - `delta_iter()` iterates delta; used by rule bodies
-pub(all) struct FunctionalRelation[K, V] {
+pub(all) struct MapRelation[K, V] {
   priv rt : Runtime
   priv cell_id : CellId
   priv current : Ref[@hashmap.HashMap[K, V]]
@@ -26,23 +26,12 @@ pub(all) struct FunctionalRelation[K, V] {
 }
 
 ///|
-/// Constructor-syntax alias of `FunctionalRelation::new`. Enables
-/// `FunctionalRelation(rt)` / `FunctionalRelation(rt, merge=..., label="...")`
-/// call sites.
-pub fn[K : Hash + Eq, V] FunctionalRelation::FunctionalRelation(
+/// Creates a relation-shaped map input.
+pub fn[K : Hash + Eq, V] MapRelation::MapRelation(
   rt : Runtime,
   merge? : (V, V) -> V,
   label? : String,
-) -> FunctionalRelation[K, V] {
-  FunctionalRelation::new(rt, merge?, label?)
-}
-
-///|
-pub fn[K : Hash + Eq, V] FunctionalRelation::new(
-  rt : Runtime,
-  merge? : (V, V) -> V,
-  label? : String,
-) -> FunctionalRelation[K, V] {
+) -> MapRelation[K, V] {
   let idx = rt.datalog.functional_relations.length()
   let cell_id = rt.alloc_cell_id(FunctionalRelation(idx))
   let current : Ref[@hashmap.HashMap[K, V]] = { val: @hashmap.HashMap([]) }
@@ -96,8 +85,8 @@ pub fn[K : Hash + Eq, V] FunctionalRelation::new(
 }
 
 ///|
-/// Returns the CellId for this functional relation.
-pub fn[K, V] FunctionalRelation::id(self : FunctionalRelation[K, V]) -> CellId {
+/// Returns the CellId for this map relation.
+pub fn[K, V] MapRelation::id(self : MapRelation[K, V]) -> CellId {
   self.cell_id
 }
 
@@ -106,8 +95,8 @@ pub fn[K, V] FunctionalRelation::id(self : FunctionalRelation[K, V]) -> CellId {
 ///
 /// During fixpoint: staged_delta > delta > current
 /// Outside fixpoint: delta > current
-fn[K : Hash + Eq, V] FunctionalRelation::effective_value(
-  self : FunctionalRelation[K, V],
+fn[K : Hash + Eq, V] MapRelation::effective_value(
+  self : MapRelation[K, V],
   key : K,
 ) -> V? {
   if self.rt.core.phase is InFixpoint {
@@ -123,8 +112,8 @@ fn[K : Hash + Eq, V] FunctionalRelation::effective_value(
 }
 
 ///|
-fn[K : Hash + Eq, V : Eq] FunctionalRelation::record_net_change(
-  self : FunctionalRelation[K, V],
+fn[K : Hash + Eq, V : Eq] MapRelation::record_net_change(
+  self : MapRelation[K, V],
   key : K,
   resolved : V,
 ) -> Unit {
@@ -158,13 +147,13 @@ fn[K : Hash + Eq, V : Eq] FunctionalRelation::record_net_change(
 /// effective value, the insert is a no-op.
 ///
 /// Returns `true` if the effective value changed, `false` if it was a no-op.
-pub fn[K : Hash + Eq, V : Eq] FunctionalRelation::insert(
-  self : FunctionalRelation[K, V],
+pub fn[K : Hash + Eq, V : Eq] MapRelation::insert(
+  self : MapRelation[K, V],
   key : K,
   value : V,
 ) -> Bool {
   guard !self.rt.is_cell_disposed(self.cell_id) else {
-    abort("FunctionalRelation::insert called on a disposed functional relation")
+    abort("MapRelation::insert called on a disposed map relation")
   }
   let effective = self.effective_value(key)
   let resolved = match self.merge {
@@ -199,12 +188,12 @@ pub fn[K : Hash + Eq, V : Eq] FunctionalRelation::insert(
 ///
 /// Values in delta are NOT visible via `get` until after `fixpoint()` drains them.
 /// Like `iter()`, this records a dependency for pull verification.
-pub fn[K : Hash + Eq, V] FunctionalRelation::get(
-  self : FunctionalRelation[K, V],
+pub fn[K : Hash + Eq, V] MapRelation::get(
+  self : MapRelation[K, V],
   key : K,
 ) -> V? {
   guard !self.rt.is_cell_disposed(self.cell_id) else {
-    abort("FunctionalRelation::get called on a disposed functional relation")
+    abort("MapRelation::get called on a disposed map relation")
   }
   self.record_read_dependency()
   self.current.val.get(key)
@@ -214,33 +203,29 @@ pub fn[K : Hash + Eq, V] FunctionalRelation::get(
 /// Iterates over the current (materialized) map as (key, value) pairs.
 ///
 /// Records a dependency so pull memos that call `iter()` automatically
-/// re-verify when the functional relation changes after a `fixpoint()`.
-pub fn[K, V] FunctionalRelation::iter(
-  self : FunctionalRelation[K, V],
-) -> Iter[(K, V)] {
+/// re-verify when the map relation changes after a `fixpoint()`.
+pub fn[K, V] MapRelation::iter(self : MapRelation[K, V]) -> Iter[(K, V)] {
   guard !self.rt.is_cell_disposed(self.cell_id) else {
-    abort("FunctionalRelation::iter called on a disposed functional relation")
+    abort("MapRelation::iter called on a disposed map relation")
   }
   self.record_read_dependency()
   self.current.val.iter()
 }
 
 ///|
-/// Records dependency for functional relation reads and rejects cross-runtime
+/// Records dependency for map relation reads and rejects cross-runtime
 /// reads while a memo/reaction computation is active.
-fn[K, V] FunctionalRelation::record_read_dependency(
-  self : FunctionalRelation[K, V],
+fn[K, V] MapRelation::record_read_dependency(
+  self : MapRelation[K, V],
 ) -> Unit {
-  self.rt.check_cross_runtime(self.rt.core.runtime_id, "FunctionalRelation")
+  self.rt.check_cross_runtime(self.rt.core.runtime_id, "MapRelation")
   self.rt.record_dependency(self.cell_id)
 }
 
 ///|
-/// Disposes this functional relation, clearing its maps and marking it as
+/// Disposes this map relation, clearing its maps and marking it as
 /// Disposed.
-pub fn[K, V] FunctionalRelation::dispose(
-  self : FunctionalRelation[K, V],
-) -> Unit {
+pub fn[K, V] MapRelation::dispose(self : MapRelation[K, V]) -> Unit {
   self.rt.dispose_cell(self.cell_id)
   self.current.val.clear()
   self.delta.val.clear()
@@ -250,10 +235,8 @@ pub fn[K, V] FunctionalRelation::dispose(
 }
 
 ///|
-/// Returns true if this functional relation has been disposed.
-pub fn[K, V] FunctionalRelation::is_disposed(
-  self : FunctionalRelation[K, V],
-) -> Bool {
+/// Returns true if this map relation has been disposed.
+pub fn[K, V] MapRelation::is_disposed(self : MapRelation[K, V]) -> Bool {
   self.rt.is_cell_disposed(self.cell_id)
 }
 
@@ -262,73 +245,6 @@ pub fn[K, V] FunctionalRelation::is_disposed(
 ///
 /// Used by rule bodies to read only the new entries produced in the previous
 /// fixpoint iteration.
-pub fn[K, V] FunctionalRelation::delta_iter(
-  self : FunctionalRelation[K, V],
-) -> Iter[(K, V)] {
-  self.delta.val.iter()
-}
-
-///|
-/// Target-name facade for a Datalog functional relation.
-pub(all) struct MapRelation[K, V] {
-  priv inner : FunctionalRelation[K, V]
-}
-
-///|
-/// Creates a relation-shaped map input.
-pub fn[K : Hash + Eq, V] MapRelation::MapRelation(
-  rt : Runtime,
-  merge? : (V, V) -> V,
-  label? : String,
-) -> MapRelation[K, V] {
-  { inner: FunctionalRelation(rt, merge?, label?) }
-}
-
-///|
-/// Returns the CellId for this map relation.
-pub fn[K, V] MapRelation::id(self : MapRelation[K, V]) -> CellId {
-  self.inner.id()
-}
-
-///|
-/// Inserts or updates a key-value pair in the map relation's delta layer.
-pub fn[K : Hash + Eq, V : Eq] MapRelation::insert(
-  self : MapRelation[K, V],
-  key : K,
-  value : V,
-) -> Bool {
-  self.inner.insert(key, value)
-}
-
-///|
-/// Looks up a key in the current materialized map.
-pub fn[K : Hash + Eq, V] MapRelation::get(
-  self : MapRelation[K, V],
-  key : K,
-) -> V? {
-  self.inner.get(key)
-}
-
-///|
-/// Iterates over the current materialized map.
-pub fn[K, V] MapRelation::iter(self : MapRelation[K, V]) -> Iter[(K, V)] {
-  self.inner.iter()
-}
-
-///|
-/// Iterates over the current delta layer.
 pub fn[K, V] MapRelation::delta_iter(self : MapRelation[K, V]) -> Iter[(K, V)] {
-  self.inner.delta_iter()
-}
-
-///|
-/// Disposes this map relation.
-pub fn[K, V] MapRelation::dispose(self : MapRelation[K, V]) -> Unit {
-  self.inner.dispose()
-}
-
-///|
-/// Returns true if this map relation has been disposed.
-pub fn[K, V] MapRelation::is_disposed(self : MapRelation[K, V]) -> Bool {
-  self.inner.is_disposed()
+  self.delta.val.iter()
 }
