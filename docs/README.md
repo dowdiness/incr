@@ -72,6 +72,7 @@ For contributors and advanced users who want to understand or modify `incr`.
 
 - [Roadmap](roadmap.md) — phased future direction
 - [TODO](todo.md) — contributor task list organized by priority
+- [incr_tea backlog](../incr_tea/docs/backlog.md) — task list for the `dowdiness/incr_tea` module (retargeted TEA issues + agenda)
 - [Active plans](plans/) — concrete implementation plans for upcoming work:
   - [2026-05-21 Ideal API rename migration](plans/2026-05-21-ideal-api-rename-migration.md) — staged compatibility plan for the target names
   - [2026-05-23 Phase 3a compatibility-to-facade migration](plans/2026-05-23-ideal-api-rename-phase3-soak-window.md) — docs/codemod plan for the `Memo`-family → `Derived`-family move
@@ -116,6 +117,7 @@ live in each ADR.
 | [2026-06-02](decisions/2026-06-02-typed-spreadsheet-tombstone-lifecycle.md) | Typed Spreadsheet deleted-cell tombstones: stable presence anchors + explicit compaction |
 | [2026-06-09](decisions/2026-06-09-composable-runtime-hooks.md) | Composable runtime hooks: multi-listener registries behind source-compatible singleton APIs |
 | [2026-06-17](decisions/2026-06-17-incr-tea-inactive-root-activation-policy.md) | Incremental TEA inactive-root activation: manual-first hybrid (#280) |
+| [2026-07-03](decisions/2026-07-03-incr-tea-module-identity.md) | `incr_tea` module identity: core-feedback framework, facade-only imports, own backlog |
 
 ---
 
