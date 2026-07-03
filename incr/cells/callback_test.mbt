@@ -64,7 +64,7 @@ test "per-cell callback fires before global on_change" {
 test "input callback sees fresh push-reactive state before memo read" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 1)
-  let r = Reactive::new(rt, () => s.get() * 10)
+  let r = EagerDerived::EagerDerived(rt, () => s.get() * 10)
   let d = Derived::Derived(rt, () => r.get() + 1)
   inspect(d.read_or_abort(), content="11")
   let seen_at_callback : Ref[Int] = { val: -1 }
@@ -149,7 +149,7 @@ test "batch: callback re-entrancy — set inside on_change is handled correctly"
 test "batch: callback sees fresh push-reactive state before memo read" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 1)
-  let r = Reactive::new(rt, () => s.get() * 10)
+  let r = EagerDerived::EagerDerived(rt, () => s.get() * 10)
   let d = Derived::Derived(rt, () => r.get() + 1)
   inspect(d.read_or_abort(), content="11")
   let seen_at_callback : Ref[Int] = { val: -1 }

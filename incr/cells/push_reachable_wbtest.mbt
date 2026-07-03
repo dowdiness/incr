@@ -19,7 +19,7 @@ fn get_count(rt : Runtime, id : CellId) -> Int {
 test "push_reachable_count: input with direct reactive counts 1" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 0)
-  let _r = Reactive::new(rt, () => s.get())
+  let _r = EagerDerived::EagerDerived(rt, () => s.get())
   inspect(get_count(rt, s.id()), content="1")
 }
 
@@ -28,7 +28,7 @@ test "push_reachable_count: input with reactive through hybrid memo" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 0)
   let h = ReachableDerived(rt, () => s.get())
-  let _r = Reactive::new(rt, () => h.read_or_abort())
+  let _r = EagerDerived::EagerDerived(rt, () => h.read_or_abort())
   inspect(get_count(rt, s.id()), content="1")
   inspect(get_count(rt, h.id()), content="1")
 }
@@ -39,7 +39,7 @@ test "push_reachable_count: two-deep memo chain" {
   let s = Input::Input(rt, 0)
   let mA = Derived(rt, () => s.get())
   let mB = Derived(rt, () => mA.get_or_abort())
-  let _r = Reactive::new(rt, () => mB.read_or_abort())
+  let _r = EagerDerived::EagerDerived(rt, () => mB.read_or_abort())
   inspect(get_count(rt, s.id()), content="1")
   inspect(get_count(rt, mA.id()), content="1")
   inspect(get_count(rt, mB.id()), content="1")
@@ -51,7 +51,7 @@ test "push_reachable_count: diamond topology" {
   let s = Input::Input(rt, 0)
   let mA = Derived(rt, () => s.get() + 1)
   let mB = Derived(rt, () => s.get() + 2)
-  let _r = Reactive::new(rt, () => mA.read_or_abort() + mB.read_or_abort())
+  let _r = EagerDerived::EagerDerived(rt, () => mA.read_or_abort() + mB.read_or_abort())
   // Two paths: s->mA->r and s->mB->r
   inspect(get_count(rt, s.id()), content="2")
   inspect(get_count(rt, mA.id()), content="1")
@@ -101,8 +101,8 @@ test "push_reachable_count: relation-to-reactive" {
 test "push_reachable_count: reactive-to-reactive chain" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 0)
-  let r1 = Reactive::new(rt, () => s.get() + 1)
-  let _r2 = Reactive::new(rt, () => r1.get() + 1)
+  let r1 = EagerDerived::EagerDerived(rt, () => s.get() + 1)
+  let _r2 = EagerDerived::EagerDerived(rt, () => r1.get() + 1)
   inspect(get_count(rt, s.id()), content="1")
   inspect(get_count(rt, r1.id()), content="1")
 }
@@ -124,7 +124,7 @@ test "push_reachable_count: source change on reactive recompute" {
   let s2 = Input::Input(rt, 0)
   // reactive starts reading s1
   let flag : Ref[Bool] = Ref(true)
-  let _r = Reactive::new(rt, () => if flag.val { s1.get() } else { s2.get() })
+  let _r = EagerDerived::EagerDerived(rt, () => if flag.val { s1.get() } else { s2.get() })
   inspect(get_count(rt, s1.id()), content="1")
   inspect(get_count(rt, s2.id()), content="0")
   // switch reactive to read s2 by changing flag and triggering recompute
@@ -143,7 +143,7 @@ test "push_reachable_count: memo dep change updates upstream input counts" {
   // memoA conditionally reads s1 or s2
   let mA = Derived(rt, () => if flag.val { s1.get() } else { s2.get() })
   // reactive reads memoA (forces memoA to compute -> deps=[s1])
-  let _r = Reactive::new(rt, () => mA.read_or_abort())
+  let _r = EagerDerived::EagerDerived(rt, () => mA.read_or_abort())
   inspect(get_count(rt, s1.id()), content="1")
   inspect(get_count(rt, s2.id()), content="0")
   // switch memoA to read s2: change flag, trigger recompute via input change
@@ -158,7 +158,7 @@ test "push_reachable_count: hybrid memo dispose decrements upstream" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 0)
   let h = ReachableDerived(rt, () => s.get())
-  let _r = Reactive::new(rt, () => h.read_or_abort())
+  let _r = EagerDerived::EagerDerived(rt, () => h.read_or_abort())
   inspect(get_count(rt, s.id()), content="1")
   inspect(get_count(rt, h.id()), content="1")
   h.dispose()
@@ -200,9 +200,9 @@ test "push_reachable_count: dropping one arm of a memo-internal diamond keeps th
   })
   let candidate = Derived(rt, () => projected.get_or_abort())
   let runs : Ref[Int] = { val: 0 }
-  // Reactive::new computes eagerly, wiring the whole chain. Keep it alive (no
-  // observe/unobserve cycle, which would suspend it).
-  let fold = Reactive::new(rt, () => {
+  // EagerDerived::EagerDerived computes eagerly, wiring the whole chain. Keep
+  // it alive (no observe/unobserve cycle, which would suspend it).
+  let fold = EagerDerived::EagerDerived(rt, () => {
     runs.val = runs.val + 1
     candidate.read_or_abort()
   })
@@ -225,7 +225,7 @@ test "gate: input with count 0 does not trigger reactive on separate input" {
   let s1 = Input::Input(rt, 0)
   let s2 = Input::Input(rt, 0)
   let mut recomputes = 0
-  let _r = Reactive::new(rt, () => {
+  let _r = EagerDerived::EagerDerived(rt, () => {
     recomputes = recomputes + 1
     s2.get()
   })
@@ -247,7 +247,7 @@ test "push_reachable_count: inner pruning — live branch still fires after dead
   let mA = Derived(rt, () => sig.get() + 1)
   let mB = Derived(rt, () => sig.get() + 2)
   let mut r1_val = 0
-  let r1 = Reactive::new(rt, () => {
+  let r1 = EagerDerived::EagerDerived(rt, () => {
     r1_val = mA.read_or_abort()
     r1_val
   })

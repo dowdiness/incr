@@ -76,7 +76,7 @@ test "cell_ops: memo level defaults to 0" {
 test "cell_ops: push reactive level returns stored level" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 1)
-  let r = Reactive::new(rt, () => sig.get())
+  let r = EagerDerived::EagerDerived(rt, () => sig.get())
   let ops = rt.core.cell_ops[r.id().id]
   // Push reactive level = max(source levels) + 1 = 0 + 1 = 1
   inspect(ops.level(), content="1")
@@ -86,7 +86,7 @@ test "cell_ops: push reactive level returns stored level" {
 test "cell_ops: push reactive dep_changed_since returns Some" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 1)
-  let r = Reactive::new(rt, () => sig.get())
+  let r = EagerDerived::EagerDerived(rt, () => sig.get())
   let ops = rt.core.cell_ops[r.id().id]
   // Push reactive uses the default (leaf-cell) dep_changed_since
   debug_inspect(

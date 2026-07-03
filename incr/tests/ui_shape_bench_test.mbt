@@ -24,10 +24,10 @@
 test "ui: flat 100 reactives (root mutation)" (b : @bench.T) {
   let rt = @incr.Runtime::new()
   let sig = @incr.Input::new(rt, 0)
-  let reactives : Array[@incr.Reactive[Int]] = []
+  let reactives : Array[@incr.EagerDerived[Int]] = []
   for i = 0; i < 100; i = i + 1 {
     let idx = i
-    reactives.push(@incr.Reactive::new(rt, fn() { sig.get() + idx }))
+    reactives.push(@incr.EagerDerived::EagerDerived(rt, fn() { sig.get() + idx }))
   }
   let mut v = 0
   b.bench(fn() {
@@ -41,10 +41,10 @@ test "ui: flat 100 reactives (root mutation)" (b : @bench.T) {
 test "ui: flat 1000 reactives (root mutation)" (b : @bench.T) {
   let rt = @incr.Runtime::new()
   let sig = @incr.Input::new(rt, 0)
-  let reactives : Array[@incr.Reactive[Int]] = []
+  let reactives : Array[@incr.EagerDerived[Int]] = []
   for i = 0; i < 1000; i = i + 1 {
     let idx = i
-    reactives.push(@incr.Reactive::new(rt, fn() { sig.get() + idx }))
+    reactives.push(@incr.EagerDerived::EagerDerived(rt, fn() { sig.get() + idx }))
   }
   let mut v = 0
   b.bench(fn() {
@@ -63,11 +63,11 @@ test "ui: layered 1000 reactives via 1 memo (root mutation)" (b : @bench.T) {
   let rt = @incr.Runtime::new()
   let sig = @incr.Input::new(rt, 0)
   let derived = @incr.Derived::Derived(rt, fn() { sig.get() * 2 })
-  let reactives : Array[@incr.Reactive[Int]] = []
+  let reactives : Array[@incr.EagerDerived[Int]] = []
   for i = 0; i < 1000; i = i + 1 {
     let idx = i
     reactives.push(
-      @incr.Reactive::new(rt, fn() { derived.get_or_abort() + idx }),
+      @incr.EagerDerived::EagerDerived(rt, fn() { derived.get_or_abort() + idx }),
     )
   }
   let mut v = 0
@@ -90,16 +90,16 @@ test "ui: flat 1000 reactives, only 10 subscribed (sparse mutation)" (
   let rt = @incr.Runtime::new()
   let hot_sig = @incr.Input::new(rt, 0)
   let cold_sig = @incr.Input::new(rt, 0)
-  let reactives : Array[@incr.Reactive[Int]] = []
+  let reactives : Array[@incr.EagerDerived[Int]] = []
   // 10 reactives subscribed to the hot input
   for i = 0; i < 10; i = i + 1 {
     let idx = i
-    reactives.push(@incr.Reactive::new(rt, fn() { hot_sig.get() + idx }))
+    reactives.push(@incr.EagerDerived::EagerDerived(rt, fn() { hot_sig.get() + idx }))
   }
   // 990 reactives subscribed to an unrelated cold input (other UI state)
   for i = 0; i < 990; i = i + 1 {
     let idx = i
-    reactives.push(@incr.Reactive::new(rt, fn() { cold_sig.get() + idx }))
+    reactives.push(@incr.EagerDerived::EagerDerived(rt, fn() { cold_sig.get() + idx }))
   }
   let mut v = 0
   b.bench(fn() {
@@ -130,10 +130,10 @@ test "ui: tree 1023 memos + 512 leaf reactives (root mutation)" (b : @bench.T) {
     nodes.push(@incr.Derived::Derived(rt, fn() { parent.get_or_abort() + ri }))
   }
   // Attach a leaf Reactive to each of the 512 deepest nodes (indices 511..1022)
-  let leaves : Array[@incr.Reactive[Int]] = []
+  let leaves : Array[@incr.EagerDerived[Int]] = []
   for i = 511; i < 1023; i = i + 1 {
     let node = nodes[i]
-    leaves.push(@incr.Reactive::new(rt, fn() { node.get_or_abort() }))
+    leaves.push(@incr.EagerDerived::EagerDerived(rt, fn() { node.get_or_abort() }))
   }
   let mut v = 0
   b.bench(fn() {

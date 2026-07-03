@@ -227,10 +227,10 @@ test "baseline: memo creation cost (monotonic SoA growth)" (b : @bench.T) {
 test "baseline: push propagation with 100 live reactives" (b : @bench.T) {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 0)
-  let reactives : Array[@incr.Reactive[Int]] = []
+  let reactives : Array[@incr.EagerDerived[Int]] = []
   for i = 0; i < 100; i = i + 1 {
     let idx = i
-    reactives.push(@incr.Reactive::new(rt, fn() { sig.get() + idx }))
+    reactives.push(@incr.EagerDerived::EagerDerived(rt, fn() { sig.get() + idx }))
   }
   let mut v = 0
   b.bench(fn() {
@@ -266,7 +266,7 @@ test "baseline: push propagation with 100 abandoned reactives (handle dropped)" 
   let sig = Input::Input(rt, 0)
   for i = 0; i < 100; i = i + 1 {
     let idx = i
-    ignore(@incr.Reactive::new(rt, fn() { sig.get() + idx }))
+    ignore(@incr.EagerDerived::EagerDerived(rt, fn() { sig.get() + idx }))
   }
   let mut v = 0
   b.bench(fn() {
@@ -531,10 +531,10 @@ test "diagnostic: input set with 100 disposed reactives on separate input" (
 test "linklist-port: fanout 500 reactives, steady-state set" (b : @bench.T) {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 0)
-  let reactives : Array[@incr.Reactive[Int]] = []
+  let reactives : Array[@incr.EagerDerived[Int]] = []
   for i = 0; i < 500; i = i + 1 {
     let idx = i
-    reactives.push(@incr.Reactive::new(rt, fn() { sig.get() + idx }))
+    reactives.push(@incr.EagerDerived::EagerDerived(rt, fn() { sig.get() + idx }))
   }
   let mut v = 0
   b.bench(fn() {
@@ -555,10 +555,10 @@ test "linklist-port: fanout 500 reactives, steady-state set" (b : @bench.T) {
 test "linklist-port: fanout 1000 reactives, steady-state set" (b : @bench.T) {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 0)
-  let reactives : Array[@incr.Reactive[Int]] = []
+  let reactives : Array[@incr.EagerDerived[Int]] = []
   for i = 0; i < 1000; i = i + 1 {
     let idx = i
-    reactives.push(@incr.Reactive::new(rt, fn() { sig.get() + idx }))
+    reactives.push(@incr.EagerDerived::EagerDerived(rt, fn() { sig.get() + idx }))
   }
   let mut v = 0
   b.bench(fn() {
@@ -582,11 +582,11 @@ test "linklist-port: branchy-rebind 100 reactives" (b : @bench.T) {
   let sig_a = Input::Input(rt, 0)
   let sig_b = Input::Input(rt, 1)
   let flag = Input::Input(rt, true)
-  let reactives : Array[@incr.Reactive[Int]] = []
+  let reactives : Array[@incr.EagerDerived[Int]] = []
   for i = 0; i < 100; i = i + 1 {
     let idx = i
     reactives.push(
-      @incr.Reactive::new(rt, fn() {
+      @incr.EagerDerived::EagerDerived(rt, fn() {
         if flag.get() {
           sig_a.get() + idx
         } else {

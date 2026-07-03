@@ -136,12 +136,12 @@ test "MemoCommitPhase: Memo::accumulated from a reactive frame leaves no entry" 
     1
   })
   ignore(m.read_or_abort())
-  // Reactive::new runs the initial compute synchronously inside a
+  // EagerDerived::EagerDerived runs the initial compute synchronously inside a
   // PushReactive tracking frame. The accumulator reads should be silent
   // no-ops for the non-memo tracking frame. If misuse errors occur,
   // return Err from `accumulated` and keep the invariant checks focused
   // on hook cleanup behavior.
-  let _r = Reactive::new(rt, () => {
+  let _r = EagerDerived::EagerDerived(rt, () => {
     try m.accumulated(acc) catch {
       _ => ()
     } noraise {

@@ -37,7 +37,7 @@ test "push efficiency: input set, 100 reachable derived subs, distant reactive (
     ignore(rd.read_or_abort())
   }
   let s2 = Input::Input(rt, 0)
-  let _r = Reactive::new(rt, () => s2.get() + 1)
+  let _r = EagerDerived::EagerDerived(rt, () => s2.get() + 1)
   let mut v = 0
   b.bench(fn() {
     v = v + 1
@@ -58,7 +58,7 @@ test "push efficiency: input set, 1000 reachable derived subs, distant reactive 
     ignore(rd.read_or_abort())
   }
   let s2 = Input::Input(rt, 0)
-  let _r = Reactive::new(rt, () => s2.get() + 1)
+  let _r = EagerDerived::EagerDerived(rt, () => s2.get() + 1)
   let mut v = 0
   b.bench(fn() {
     v = v + 1

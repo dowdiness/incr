@@ -131,7 +131,7 @@ test "panic ReachableDerived::get() outside tracked context" {
 test "panic Reactive::get() outside tracked context" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 10)
-  let r = Reactive::new(rt, () => s.get())
+  let r = EagerDerived::EagerDerived(rt, () => s.get())
   ignore(r.get())
 }
 
