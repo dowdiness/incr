@@ -77,3 +77,23 @@ Memory carried a notional R3/R5/R6/R7 catalog parallel to R2. After cross-checki
 - `incr/cells/runtime.mbt` line count and method profile: confirmed against `main @ be86ed5` on 2026-04-26.
 - Architecture-assessment doc (2026-04-20) read in full; T1b and T3 are the only structural tracks with written specs.
 - No outstanding R2 plan or notes file in `docs/plans/` or `docs/design/specs/`.
+
+## Addendum (2026-07-03): watch-threshold breach adjudicated — decision unchanged
+
+`incr/cells/runtime.mbt` is now 776 LOC, past the "~600 LOC for a
+non-cosmetic reason" trigger above. Most of the growth remains facade
+delegators (cosmetic, per the 2026-06-24 note), but ~140 LOC of
+event-listener/hook plumbing (`runtime.mbt:225–364`, from the
+[composable runtime hooks ADR](2026-06-09-composable-runtime-hooks.md)) is the
+first genuinely non-delegator tenant since R1: observability is a new
+coordinator responsibility category, not argument-shuffling.
+
+Adjudication: still no decomposition. One new concern does not justify service
+objects. Instead, a narrow gated extraction is on watch — move the
+listener/hook plumbing into a same-package concern file (`cells/`, no new
+layer, no new package) **if and only if** a second event-surface family lands
+(push/effect/fixpoint events, currently driver-gated by the
+[memo-event ADR](2026-05-17-memo-event-observation.md)) or another
+non-delegator concern accretes onto `Runtime`. Below that trigger, do nothing.
+Context and measurements:
+[2026-07-03 Workspace Boundary Assessment](../design/specs/2026-07-03-workspace-boundary-assessment.md).
