@@ -1,0 +1,45 @@
+# Performance Snapshots
+
+Dated measurement records. Each file is a point-in-time snapshot: newer
+numbers go in **new** files, and old files are never updated. Findings below
+are the state of the code on the file's date — verify against current
+benchmarks (`moon bench --release`) before acting on them.
+
+Canonical entry points:
+
+- [Benchmarks](benchmarks.md) — microbenchmark results for core operations (input, derived, reachable-derived, batch)
+- The newest dated file below — the most recent measurement context
+
+## Snapshot roster
+
+- [2026-04-21 Pre-R1 Baseline](2026-04-21-pre-r1-baseline.md) — frozen reference for R1 Stage 3 regression gate (≤2% per tracked path).
+- [2026-04-24 R1 Stage 3 bench](2026-04-24-r1-stage3-bench.md) — Stage 3 comparison vs baseline; all tracked rows within or favorable to ±2% gate.
+- [2026-04-24 R1 Stage 4 bench](2026-04-24-r1-stage4-bench.md) — Stage 4 comparison vs baseline for the kernel split.
+- [2026-04-26 `memo_restore_on_abort` validation](2026-04-26-memo-restore-on-abort-bench.md) — open-TODO microbench: O(n²) confirmed but constants too small to be actionable at realistic N.
+- [2026-05-16 Push-engine link-list port microbench](2026-05-16-push-engine-linklist-microbench.md) — alien-signals-style port investigation closed: measured 1.2–1.5× speedup, deprioritized in favor of higher-leverage targets.
+- [2026-05-16 Push-engine cost decomposition](2026-05-16-push-engine-cost-decomposition.md) — strategic ranking of push-engine performance interventions. Chosen direction: per-recompute allocation elimination (tracking-buffer reuse).
+- [2026-05-16 Tracking-buffer lazy-allocation result](2026-05-16-tracking-buffer-lazy-alloc.md) — implements the chosen direction. Pool reuse rejected by probe; lazy-allocation alone delivered −15.9% on 1000-fanout (−46 ns/r).
+- [2026-05-17 T1b commit-path bench snapshot](2026-05-17-t1b-bench-snapshot.md) — pre-T1b → Phase 1 → Phase 2 pre-fix → Phase 2 + lazy-entry fast-path. Fast-path beats pre-T1b by −25% on no-accumulator recompute fanout by eliminating per-recompute HashSet allocations the old `memo_commit_accumulator_phase` carried unconditionally.
+- [2026-05-18 UI-shape benches](2026-05-18-ui-shape-benches.md) — push-engine throughput on UI-shaped workloads (flat / layered / sparse / tree) across wasm-gc + JS. Confirms 60 Hz headroom at 1000 nodes; baseline for any future UI-library work on incr.
+- [2026-05-27 Static/applicative Derived fast-path probe](2026-05-27-static-derived-fast-path-probe.md) — lower-bound, integrated, and UI-shape benches for fixed-dependency derived recomputation; records the package-private static path. Public exposure remains closed by the 2026-06-01 ADR.
+- [2026-06-01 DSL-shaped authoring pipeline benches](2026-06-01-dsl-authoring-benches.md) — coarse staged `Derived` authoring chain vs per-node `DerivedMap` and sparse `ReachableDerived` inspector variants across wasm-gc + JS.
+- [2026-06-01 Graph-editor recompute path benches](2026-06-01-graph-editor-recompute-benches.md) — durable graph/document recomputation vs ephemeral hover, drag preview, and viewport updates; records live-drag and commit-at-end behavior across wasm-gc + JS.
+- [2026-06-05 Typed Spreadsheet trace benches](2026-06-05-typed-spreadsheet-trace-benches.md) — full-sheet `Worksheet::trace` scan vs bounded observed-formula tracing for issue #179 across wasm-gc + JS, with the manual regression workflow for future trace changes.
+- [2026-06-05 Typed Spreadsheet event trace feasibility](2026-06-05-typed-spreadsheet-event-trace-feasibility.md) — issue #199 investigation: derived events can map to formula cells privately, but do not beat the current bounded snapshot path enough to justify the single-listener/API trade-off.
+- [2026-06-10 Incremental TEA vs dirty-cell baseline](2026-06-10-incr-tea-vs-dirty-cell-benches.md) — issue #189: the `incr_tea` renderer's verify+backdating skip vs a modeled dirty-cell rebuild. Unread-field mutations skip in O(1) (9.5–159× faster, growing with view size); read-relevant mutations run at par. Keyed planner buys DOM reuse at an O(n²) matching cost; DOM applier measured separately in the 2026-06-12 browser run.
+- [2026-06-12 Incremental TEA keyed DOM applier](2026-06-12-incr-tea-keyed-dom-applier-playwright.md) — issue #242: Playwright/Chromium wall-time for keyed list prepend, remove-first, and reverse at N=16/64/256 against a non-keyed rebuild baseline. Keyed reuse wins in the browser (1.70–2.15× at N=256) while confirming reverse remains the weakest case under the original O(n²) planner/re-append applier.
+- [2026-06-12 Incremental TEA keyed planner optimization](2026-06-12-incr-tea-keyed-planner-optimization.md) — issue #241: key-map planner path for duplicate-free large keyed lists. At N=256, pure JS planner reverse / prepend / unchanged improve 7.46× / 2.91× / 2.66×; browser reverse improves 395→271 µs with DOM applier behavior unchanged.
+- [2026-06-14 UI-shaped adjacent-framework comparison](2026-06-14-ui-shaped-adjacent-framework-comparison.md) — issue #257: benchmark plan for Rabbita, Luna, and `incr_tea` across counter, keyed-list, grid, panel, and editor-shaped workloads, plus a first pure view-construction slice in JS. Records measurement boundaries and blocks direct-DOM/island follow-ups from using pure value-build numbers as runtime evidence.
+- [2026-06-14 Mounted counter adjacent-framework comparison](2026-06-14-mounted-counter-adjacent-framework-comparison.md) — follow-up browser slice for #257: Playwright/Chromium initial mount, displayed-count update, and unrelated update across `incr_tea`, Rabbita, and Luna in hidden attached hosts.
+- [2026-06-14 Mounted matrix adjacent-framework comparison](2026-06-14-mounted-matrix-adjacent-framework-comparison.md) — batch harness for counter, keyed-list N=16/64/256, and hidden/visible panel mounted cells across `incr_tea`, Rabbita, and Luna.
+- [2026-06-14 Mounted row/leaf locality comparison](2026-06-14-mounted-row-leaf-locality-comparison.md) — same-order keyed-row text, row class, and hot nested text leaf mounted cells at N=16/64/256 across `incr_tea`, Rabbita, and Luna.
+- [2026-06-15 Incremental TEA direct leaf patching prototype](2026-06-15-incr-tea-direct-leaf-patching-prototype.md) — issue #254 prototype: pure direct leaf/attribute ids in `Html`, mount-boundary watched string resolvers, and row/leaf `incr_tea-direct` browser timings.
+- [2026-06-15 Incremental TEA activation-islands measurement](2026-06-15-incr-tea-activation-islands-measurement.md) — issue #255 measurement-first gate: editor/sidebar/inspector-shaped collapsed vs hidden-mounted vs visible update costs before any visibility/idle-driven Watch activation prototype.
+- [2026-06-15 Incremental TEA inactive-root prototype](2026-06-15-incr-tea-inactive-root-prototype.md) — issue #255 prototype result: DOM-preserving inactive workspace roots keep hidden updates at collapsed-update scale and pay the deferred watched-view read/diff on activation catch-up.
+- [2026-06-15 Incremental TEA inactive-root amortized benchmark](2026-06-15-incr-tea-inactive-root-amortized.md) — post-#255 amortized result: 10/100/1000 inactive updates plus one activation catch-up for the editor/sidebar/inspector-shaped workspace root.
+- [2026-06-15 Incremental TEA inactive-root cohort benchmark](2026-06-15-incr-tea-inactive-root-cohorts.md) — multi-root follow-up: one shared workspace Program mounted into 1/4/16 inactive DOM roots, measuring 10/100/1000-update bursts and activation of one root versus all roots.
+- [2026-06-16 Incremental TEA independent inactive-root cohort benchmark](2026-06-16-incr-tea-independent-inactive-root-cohorts.md) — independent-root follow-up: one workspace Program/view Watch per inactive DOM root, broadcasting 10/100/1000-update bursts across 1/4/16 roots and measuring activation of one root versus all roots.
+- [2026-06-16 Incremental TEA shared vs independent inactive-root cohorts](2026-06-16-incr-tea-shared-vs-independent-inactive-root-cohorts.md) — synthesis of PR #277 (shared Program/Watch across inactive roots) and PR #278 (independent Program/Watch per root): 16-root activation-only and total-burst ratios, evidence-backed conclusions only.
+- [2026-06-17 Incremental TEA activation-trigger overhead probe](2026-06-17-incr-tea-activation-trigger-overhead.md) — measurement-only IntersectionObserver dispatch and observer-triggered activation probe that informed the #280 manual-first hybrid policy.
+- [2026-06-17 Incremental TEA manual-first hybrid activation policy](2026-06-17-incr-tea-manual-first-hybrid-activation-policy.md) — validates the example-local `BrowserRootActivationController` prototype: semantic show/hide wraps direct renderer activation/deactivation, prewarm hit makes later show a no-op at timer resolution, and no core scheduler is added.
+- [2026-06-24 Typed Spreadsheet cross-root locality](2026-06-24-typed-spreadsheet-cross-root-locality.md) — PR #294 measurement: per-root dependency map, per-root `view_recomputes` for the 5 interaction scenarios, structural comparison with Rabbita, and pending per-root patch/skip counters (#295).

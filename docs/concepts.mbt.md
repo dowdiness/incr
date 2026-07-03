@@ -23,12 +23,10 @@ semantics are caught by `moon check`.
 - **Derived values** are the interior nodes (cached computations)
 - **Arrows** represent dependencies (automatically tracked)
 
-Naming note: this document uses the target facade names. Legacy compatibility
-names remain available: `Signal`, `Memo`,
-`HybridMemo`, `Reactive`, `MemoMap`, `TrackedCell`, and `Database` are still
-importable — Memo-family handles (`Memo`, `MemoMap`, `HybridMemo`) are in the `cells`
-package; `Database` and other compatibility names are in `@incr`. These will be
-removed in a future milestone.
+Naming note: a few compatibility names remain available: `Reactive`
+(= `EagerDerived`), `TrackedCell` (= `InputField`), `FunctionalRelation`
+(= `MapRelation`), and the `Database` trait. Migrating pre-v0.12.0 code? See
+the [CHANGELOG](../CHANGELOG.md).
 
 ## Inputs
 
@@ -157,12 +155,13 @@ A derived value is stale when `verified_at < current_revision`.
 **Backdating** is the key optimization. When a derived value recomputes to the **same value** as before, its `changed_at` stays at the old revision. This prevents unnecessary cascading through the graph. The checked companion demonstrates the classic `4 → 6` evenness case in [`concepts_examples.mbt.md`](concepts_examples.mbt.md#backdating-batching-and-dynamic-dependencies).
 
 ### Backdating strategies
-Two public `Derived` constructors offer different backdate strategies:
+Three public `Derived` constructors offer different backdate strategies:
 
 - **`Derived::Derived[T : Eq]`** — uses `a == b`. Standard choice for most types.
-- **`Derived::derived_no_backdate[T]`** — never backdates. Use when downstream consumers always need to rerun, or when `T` has no `Eq` instance.
+- **`Derived::with_backdate[T : BackdateEq]`** — uses `a.backdate_equal(b)`. Use for custom backdate logic, e.g. comparing embedded `changed_at` revisions instead of full values.
+- **`Derived::derived_no_backdate[T]`** — never backdates. Use when downstream consumers always need to rerun, or when `T` has no suitable equality.
 
-For custom backdate logic (e.g. comparing `changed_at` revisions instead of values), use the compatibility `Memo::new_memo[T : BackdateEq]` constructor. See the [API reference](api-reference.mbt.md) for details.
+See the [API reference](api-reference.mbt.md) for details.
 
 ## Durability
 
@@ -335,8 +334,6 @@ Producers call `acc.push(v)` inside a `Derived` compute. Consumers read back via
 | `derived.accumulated_peek(acc)` | No | returns `[]` on disposed |
 | `derived.accumulated_result(acc)` | Yes (inside tracked context) | `Err(ReadError)` (alias) |
 
-Legacy compatibility methods (`Memo::accumulated`, etc.) remain available.
-
 ### Push-Set Invalidation
 
 The key property: when a producer recomputes and its push set differs from the previous run, downstream consumers reading via `accumulated` (or the strict `accumulated_or_abort`) invalidate — **even when the producer's return value is structurally equal and would otherwise be backdated**. A `push_revised_at` counter tracks push-set revisions independently of value equality.
@@ -350,7 +347,7 @@ This is why an accumulator is not "just an `Array` you return": a plain return w
 
 ### Scope-Owned Lifecycle
 
-Prefer `Scope::accumulator` over `Accumulator::new(rt~, ...)` when the accumulator's lifetime matches a larger unit of work (a chain rebuild, a compilation pass). Runtime-owned accumulators live until explicitly disposed, so drivers that rebuild on structural change accumulate stale per-memo buffers. Scope ownership ties cleanup to the chain that produced the data. The API-reference companion checks scope-owned accumulator disposal in [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md#accumulator--compatibility-push-side-channel).
+Prefer `Scope::accumulator` over `Accumulator::new(rt~, ...)` when the accumulator's lifetime matches a larger unit of work (a chain rebuild, a compilation pass). Runtime-owned accumulators live until explicitly disposed, so drivers that rebuild on structural change accumulate stale per-cell buffers. Scope ownership ties cleanup to the chain that produced the data. The API-reference companion checks scope-owned accumulator disposal in [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md#accumulator--compatibility-push-side-channel).
 
 The same lifecycle pattern applies to long-lived target readers: use
 `scope.add_watch(derived.watch())` when a `Watch` should be disposed with the
@@ -360,7 +357,7 @@ scope that owns the surrounding graph.
 
 | Situation | Recommendation |
 |-----------|----------------|
-| Data is the memo's value | return it normally |
+| Data is the derived cell's result | return it normally |
 | Data is log-like and orthogonal to the value (diagnostics, traces, warnings) | `Accumulator[T]` |
 | Data flows to a single consumer already in the graph | return it — accumulator is overkill |
 | Data aggregates across many producers into one consumer | `Accumulator[T]` |
@@ -413,7 +410,7 @@ let bad = @incr.Derived(rt_a, () => input_b.get())
 
 The design is intentional:
 - **No accidental stale data**: a silent cross-runtime read would return a value that never invalidates when the foreign input changes
-- **Consistent with fail-fast philosophy**: `Runtime::get_cell` aborts on wrong-runtime cell IDs; `Input::get` and `Derived::get` follow the same rule
+- **Consistent with fail-fast philosophy**: reading a cell through the wrong runtime aborts immediately instead of returning silently stale data
 
 If you need to share data between two independent computation graphs, use a plain variable or a shared `Input` on a common Runtime.
 
@@ -423,7 +420,7 @@ If you need to share data between two independent computation graphs, use a plai
 |---------|---------|
 | Input | Input values you control |
 | Derived | Derived values with automatic caching |
-| ReachableDerived | Pull memo that participates in reachability propagation through eager/rooted dependents |
+| ReachableDerived | Pull derived value that stays reachable through eager/rooted dependents |
 | DerivedMap | Per-key memoized derived values |
 | Accumulator | Side-channel collector with push-set invalidation (diagnostics, logs) |
 | Revision | Global clock for tracking changes |

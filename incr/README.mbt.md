@@ -1,36 +1,61 @@
 # incr
 
-A Salsa- and [Build Systems à la Carte](https://hackage.haskell.org/package/build)-inspired incremental recomputation library for [MoonBit](https://www.moonbitlang.com/).
+An incremental computation library for [MoonBit](https://www.moonbitlang.com/).
 
-`incr` tracks dependencies automatically, memoizes derived values, and skips unnecessary work when inputs change — so you write straight-line code and the runtime figures out what to recompute.
+When one input changes, `incr` recomputes only the values that actually depend
+on it — and skips everything else. You write ordinary straight-line code; the
+runtime figures out what is affected.
 
-Salsa informs the demand-driven incremental recomputation model. Build Systems à la Carte informs the separation between task meaning, store/trace data, scheduler, and rebuilder strategy; see the [build-oriented boundary design](../docs/design/specs/2026-05-26-build-trait-boundaries.md) and [internal evaluation boundaries](../docs/design/specs/2026-05-26-internal-rebuild-boundaries.md).
+The mental picture is a **spreadsheet**: some cells hold values you type in,
+other cells hold formulas. Change one input cell and only the formulas that
+read it (directly or indirectly) update. `incr` gives your MoonBit program the
+same behavior for any computation — editor state, build pipelines, reactive
+app models, language tooling — without you writing any change-tracking code.
 
-**Core primitives:**
+You can try exactly this picture live: the
+[typed spreadsheet demo](https://typed-spreadsheet.pages.dev) is built on
+`incr`. Edit one cell and its trace panels show which formulas recomputed,
+which didn't, and why.
 
-- **`Input[T]`** — input cells you write to directly
-- **`Derived[T]`** — derived computations that memoize and auto-track dependencies
-- **`DerivedMap[K, V]`** — keyed memoization, one derived value per key, created lazily
-- **Backdating + durability** — skip downstream work when values didn't really change or inputs rarely do
+## Quick Start
 
-Advanced features (push-reactive `EagerDerived[T]` / `Effect`, reachable lazy `ReachableDerived[T]`, field-level `InputField[T]`, side-channel `Accumulator[T]`, Datalog `Relation` / `MapRelation` / fixpoint, batching, cycle-safe reads) are covered in [docs/](../docs/README.md).
+Two kinds of cells cover most programs:
 
-Naming note: the target facade names above are the recommended API. Some legacy
-compatibility names remain available: `Reactive`, `TrackedCell`, and
-`Database`. The legacy `Memo`, `MemoMap`, `HybridMemo`, and `Signal` types were
-removed in v0.14.0 — use `Derived`, `DerivedMap`, `ReachableDerived`, and
-`Input` respectively.
-The naming direction is recorded in [ADR 2026-05-21](../docs/decisions/2026-05-21-public-api-ideal-naming.md).
-## Live practical demo
+- **`Input[T]`** — a value you set directly (a spreadsheet cell you type into)
+- **`Derived[T]`** — a value computed from other cells (a formula cell); it
+  caches its result and notices which cells it read, automatically
 
-Want to see the runtime before reading the API? Try the live
-[typed spreadsheet](https://typed-spreadsheet.pages.dev).
+```moonbit nocheck
+let rt = Runtime()
 
-Edit one cell. The sheet routes the edit through MoonBit operations, formula
-cells track the other cells they read, and trace/evidence panels separate
-formulas that recomputed from values that actually changed. It is a small
-example of the same shape behind editor state, build-like pipelines, and
-reactive app models: derived values stay fresh without recalculating everything.
+// Create inputs
+let x = rt.input(10, label="x")
+let y = rt.input(20, label="y")
+
+// Combine inputs and chain further derived stages
+let sum = x.derived2(y, (a, b) => a + b, label="sum")
+let doubled = sum.map(v => v * 2, label="doubled")
+
+// Outside the graph, read with `read_or_abort()` or `read()`.
+// (`.get()` is only legal inside another derived computation —
+// use `Derived(rt, () => ...)` when a stage reads several cells.)
+inspect(sum.read_or_abort(), content="30")
+inspect(doubled.read_or_abort(), content="60")
+
+// Update an input — downstream derived values recompute on the next read
+x.set(5)
+inspect(doubled.read_or_abort(), content="50")
+```
+
+There is no subscription or dependency declaration anywhere in that code:
+`sum` knows it depends on `x` and `y` because it read them.
+
+When a group of cells or long-lived reads shares a lifetime, construct cells
+through a `Scope` (`scope.input(...)`, `scope.derived(...)`) and register
+watches with `scope.add_watch(...)` so one `scope.dispose()` tears the group
+down. See [Getting Started](../docs/getting-started.mbt.md).
+
+> **Note on the example above:** It is `nocheck` because the snippet omits imports and a test wrapper. The same construction is checked in [`docs/target_api_examples.mbt.md`](../docs/target_api_examples.mbt.md) and exercised end-to-end by [`tests/quickstart_test.mbt`](tests/quickstart_test.mbt) — if you edit the example, update those in lockstep.
 
 ## Installation
 
@@ -44,64 +69,51 @@ Add `incr` to the `import` list of your `moon.pkg.json`:
 
 The core library packages use only `moonbitlang/core`; optional repository demos may declare extra dependencies such as Rabbita.
 
-## Quick Start
+## How It Works, in Plain Words
 
-```moonbit nocheck
-let rt = Runtime()
+1. **Writes are cheap.** `x.set(5)` records "something changed" (a counter
+   ticks up) and returns. Nothing recomputes yet.
+2. **Reads check before they work.** When you later read `doubled`, the
+   runtime walks back through what `doubled` read last time and asks: did any
+   of it actually change? Untouched branches are skipped without running any
+   of your code.
+3. **"Same answer" stops the ripple.** If a recomputed value comes out equal
+   to its previous value, everything downstream of it is also skipped. (The
+   docs call this **backdating** — the value's "last changed" timestamp is
+   kept in the past.)
+4. **Dependencies can change between runs.** If a formula reads different
+   cells this time (say, an `if` took the other branch), the recorded
+   dependencies are simply replaced. Nothing is declared up front.
 
-// Create inputs
-let x = Input(rt, 10, label="x")
-let y = Input(rt, 20, label="y")
+Guarantees you can rely on:
 
-// Create derived computations
-let sum = Derived(rt, () => x.get() + y.get(), label="sum")
+- Failed computations and cycle errors never corrupt the cache: the last
+  successful result and its recorded dependencies stay authoritative.
+- Reads that can fail return `Result` (`read()` / `get()`); a dependency
+  cycle or a disposed cell comes back as an `Err` you can handle, not a
+  crash. The `_or_abort` variants abort instead, for when failure is a bug.
+- Caching is in-memory and per-process. Nothing persists across runs.
 
-// `.get()` is only legal inside another derived computation.
-// Outside the graph, use `read_or_abort()` or `read()`.
-inspect(sum.read_or_abort(), content="30")
+## Beyond Input and Derived
 
-// Update an input — downstream derived values recompute on the next read
-x.set(5)
-inspect(sum.read_or_abort(), content="25")
-```
+Most programs only need `Input` and `Derived`. The rest of the toolbox, from
+most to least commonly needed:
 
-When a group of cells or long-lived reads shares a lifetime, construct cells
-through a `Scope` (`scope.input(...)`, `scope.derived(...)`) and register
-watches with `scope.add_watch(...)` so one `scope.dispose()` tears the group
-down. See [Getting Started](../docs/getting-started.mbt.md).
+| Type | What it is for |
+|---|---|
+| `DerivedMap[K, V]` | One cached derived value **per key** (e.g. `type_of(function_id)`), created lazily on first read |
+| `InputField[T]` | One input cell per **field** of a struct, so changing one field doesn't disturb readers of the others |
+| `EagerDerived[T]` / `Effect` | Values/side effects that update **immediately** when inputs change (push style) — for UI-facing state |
+| `ReachableDerived[T]` | A lazy derived value that must stay alive across garbage collection while something downstream watches it |
+| `Accumulator[T]` | A side channel for log-like data (diagnostics, traces) emitted during computation |
+| `Relation` / `MapRelation` | Datalog-style facts and rules, computed to a fixed point |
 
-> **Note on the example above:** It is `nocheck` because the snippet omits imports and a test wrapper. The same construction is checked in [`docs/target_api_examples.mbt.md`](../docs/target_api_examples.mbt.md) and exercised end-to-end by [`tests/quickstart_test.mbt`](tests/quickstart_test.mbt) — if you edit the example, update those in lockstep.
+Also available on any runtime: **batching** (`rt.batch` groups several `set`
+calls into one atomic change, with rollback on error) and **durability**
+(mark rarely-changing inputs like configuration so their whole subgraph can
+skip checks).
 
-## Mental Model
-
-`incr` has three coordinated modes:
-
-- **Pull-first by default**: `Input` + `Derived` verify recorded dependency traces lazily on read.
-- **Push-first when requested**: `EagerDerived` + `Effect` recompute eagerly when upstream inputs change.
-- **Hybrid reachability**: `ReachableDerived` is still lazy like `Derived`, but stays reachable through downstream push subscribers and `Watch` roots.
-
-In the vocabulary of "Build Systems à la Carte", the pull engine is a
-**suspending scheduler** plus a **revision-based verifying trace** rebuilder:
-
-- A `Derived` compute closure is the task.
-- The runtime records the dependencies read by the last successful compute.
-- An `Input::set(...)` bumps a revision; it does not eagerly recompute the pull graph.
-- A later `Derived::read()` / `get()` verifies the recorded trace on demand.
-- If no dependency changed, the compute closure does not run — the **green path**.
-- If a dependency changed, the closure reruns and records a new trace — the **red path**.
-- If the red path produces an equal value, **backdating** preserves `changed_at`, so downstream derived values still skip work.
-
-The push engine uses a different contract: `EagerDerived` computes immediately at construction, then recomputes during `Input::set(...)` / batch commit propagation in topological-level order. Reads return the already-maintained cached value.
-
-Hard guarantees to rely on:
-
-- Dynamic dependencies are supported: conditional reads replace the dependency trace on each successful recompute.
-- Failed computations and cycle errors do not install a new valid trace.
-- Pull mode verifies traces, not dirty flags; push dirty state is not the source of truth for `Derived` correctness.
-- `ReachableDerived` is hybrid only in reachability/GC behavior; recomputation is still the same lazy revision check as `Derived`.
-- Cross-session/content-addressed caching is not automatic. See the [constructive traces feasibility note](../docs/research/constructive-traces-feasibility.md) for why it remains opt-in research.
-
-### Which mode should I use?
+### Which type should I use?
 
 | Need | Use |
 |---|---|
@@ -113,24 +125,62 @@ Hard guarantees to rely on:
 | Lazy derived value that must stay alive through downstream push subscribers or long-lived watches | `ReachableDerived` |
 | Relational/fixpoint computation | `Relation` / `MapRelation` |
 
-When unsure, start with `Derived`. Move to `EagerDerived` only when the consumer really benefits from push-first maintenance.
+When unsure, start with `Derived`. Move to `EagerDerived` only when the
+consumer really benefits from push-first maintenance.
 
 ## Learn More
 
 - **New to `incr`?** Start with [Getting Started](../docs/getting-started.mbt.md), then [Core Concepts](../docs/concepts.mbt.md).
 - **Looking for a specific pattern?** Backdating, durability, keyed queries, batched updates with rollback, cycle-safe reads, and more are covered in the [Cookbook](../docs/cookbook.mbt.md).
 - **Looking up a type or method?** See the [API Reference](../docs/api-reference.mbt.md).
-- **Exploring the practical demo?** Try the live [typed spreadsheet](https://typed-spreadsheet.pages.dev), run the [CLI demo](../examples/typed_spreadsheet_cli_demo/README.md) for the fixed trace, or build the [editable Rabbita Web demo](../examples/typed_spreadsheet_rabbita_demo/README.md) locally to change cells and inspect operation outcomes, trace buckets, and before/after snapshots.
+- **Exploring the practical demo?** Try the live [typed spreadsheet](https://typed-spreadsheet.pages.dev), run the [CLI demo](../examples/typed_spreadsheet_cli_demo/README.md) for the fixed trace, or build the [editable Rabbita Web demo](../examples/typed_spreadsheet_rabbita_demo/README.md) locally.
 - **Working on `incr` itself?** [docs/architecture.md](../docs/architecture.md) (package map) and [docs/design/internals.md](../docs/design/internals.md) (algorithms).
 
 Full documentation index: [docs/README.md](../docs/README.md).
+
+## Background and Theory
+
+This section is for readers who know the incremental-computation literature;
+skip it freely.
+
+`incr` is inspired by [Salsa](https://github.com/salsa-rs/salsa) (the
+demand-driven incremental recomputation model behind rust-analyzer) and
+[Build Systems à la Carte](https://hackage.haskell.org/package/build) (the
+separation between task meaning, store/trace data, scheduler, and rebuilder
+strategy; see the [build-oriented boundary design](../docs/design/specs/2026-05-26-build-trait-boundaries.md)
+and [internal evaluation boundaries](../docs/design/specs/2026-05-26-internal-rebuild-boundaries.md)).
+
+In that vocabulary, the default pull engine is a **suspending scheduler**
+plus a **revision-based verifying-trace** rebuilder:
+
+- A `Derived` compute closure is the task; the runtime records the
+  dependencies read by the last successful compute.
+- `Input::set(...)` bumps a revision; it does not eagerly recompute the pull graph.
+- A later read verifies the recorded trace on demand: no dependency changed →
+  the closure does not run (**green path**); a dependency changed → the
+  closure reruns and records a new trace (**red path**); an equal result on
+  the red path preserves `changed_at` (**backdating**, the paper's early
+  cutoff).
+
+The push engine (`EagerDerived` / `Effect`) uses a different contract:
+compute at construction, then recompute during `Input::set(...)` / batch
+commit propagation in topological-level order. `ReachableDerived` is hybrid
+only in reachability/GC behavior; its recomputation is the same lazy revision
+check as `Derived`. Cross-session/content-addressed caching is not automatic —
+see the [constructive traces feasibility note](../docs/research/constructive-traces-feasibility.md).
+
+Naming note: a few legacy compatibility names remain available (`Reactive`,
+`TrackedCell`, `Database`). Migrating pre-v0.12.0 code that used the removed
+`Memo`-family or `Signal` names? See the [CHANGELOG](../CHANGELOG.md). The
+naming direction is recorded in
+[ADR 2026-05-21](../docs/decisions/2026-05-21-public-api-ideal-naming.md).
 
 ## Development
 
 ```bash
 moon check    # Type-check the workspace
 moon build    # Build the workspace
-moon test     # Run all workspace tests (~878 test blocks)
+moon test     # Run all workspace tests
 moon bench    # Run benchmarks (always pass --release for representative numbers)
 ```
 

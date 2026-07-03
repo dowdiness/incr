@@ -35,11 +35,11 @@ moon.work
 
 | Package | Responsibility | Depends on |
 |---|---|---|
-| Root (`incr.mbt`, `traits.mbt`) | Re-exports the target facade (`Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `EagerDerived`, `Watch`, `MapRelation`, `RuntimeContext`, `Freshness`, `InputFieldOwner`) plus legacy compatibility handles (`TrackedCell`, `Reactive`, `Observer`, `FunctionalRelation`, `Database`, `Readable`, `Trackable`); provides RuntimeContext convenience helpers, compatibility helpers, and batching/lifecycle helpers (`Memo`, `MemoMap`, `HybridMemo` were removed in v0.12.0 — use the target facades) | none |
+| Root (`incr.mbt`, `traits.mbt`) | Re-exports the target facade (`Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `EagerDerived`, `Watch`, `MapRelation`, `RuntimeContext`, `Freshness`, `InputFieldOwner`) plus legacy compatibility handles (`TrackedCell`, `Reactive`, `Observer`, `FunctionalRelation`, `Database`, `Readable`, `Trackable`); provides RuntimeContext convenience helpers, compatibility helpers, and batching/lifecycle helpers | none |
 | `types/` | Pure value types: `Revision`, `Durability`, `CellId`, `CycleError`, ID types, `BackdateEq` / `HasChangedAt` traits | none |
-| `cells/` | The `Runtime` coordinator (~570 LOC of thin delegators), target facades (`Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `EagerDerived`, `Watch`, `MapRelation`), internal legacy compatibility handles (`TrackedCell`, `Reactive`, `Observer`, `FunctionalRelation`), Datalog/effect/accumulator/scope handles, and per-cell-kind lifecycle wiring | `types`, all `cells/internal/*` packages |
+| `cells/` | The `Runtime` coordinator (thin delegators into `internal/kernel`), target facades (`Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `EagerDerived`, `Watch`, `MapRelation`), internal legacy compatibility handles (`TrackedCell`, `Reactive`, `Observer`, `FunctionalRelation`), Datalog/effect/accumulator/scope handles, and per-cell-kind lifecycle wiring | `types`, all `cells/internal/*` packages |
 | `cells/internal/shared/` | Coordinator-only trait abstractions: `CellOps`, `HasCellMeta`, `Committable`, `CellMeta`, `CellRef`, `SlotSnapshot` | (leaf) |
-| `cells/internal/pull/` | Struct-of-arrays storage for pull-mode cells (`PullSignalData`, `MemoData`) | `shared` |
+| `cells/internal/pull/` | Struct-of-arrays storage for pull-mode cells (`PullInputData`, `MemoData`) | `shared` |
 | `cells/internal/push/` | SoA storage for push-mode cells (`PushReactiveData`, `PushEffectData`) | `shared` |
 | `cells/internal/datalog/` | SoA storage for Datalog primitives (`RelationData`, `FunctionalRelationData`, `RuleData`) | `shared` |
 | `cells/internal/kernel/` | Graph-mechanics algorithms used by the coordinator: pull-verify, push-propagate, batch commit, dispose/GC, dispatch, cycle detection, subscriber diff, fixpoint | `shared`, `pull`, `push`, `datalog` |
@@ -48,13 +48,13 @@ moon.work
 
 The five `internal/` sub-packages use MoonBit's `internal` directory visibility, which the compiler enforces. The script `scripts/check-engine-isolation.sh` additionally enforces four hand-curated invariants on top of that (one-way kernel imports, leaf status of `shared`, no engine-to-engine sibling imports, no back-edges into `cells/`).
 
-Naming note: this page is target-first for user-facing APIs. The older names
-remain available as compatibility handles while migration continues. The
-accepted naming target is recorded in
-[ADR 2026-05-21](decisions/2026-05-21-public-api-ideal-naming.md): `Signal -> Input` (completed v0.14.0), `Memo -> Derived`, `HybridMemo -> ReachableDerived`, `Reactive ->
-EagerDerived`, `MemoMap -> DerivedMap`, `TrackedCell -> InputField`, `Observer
--> Watch`, `FunctionalRelation -> MapRelation`, `Readable -> Freshness`,
-`Trackable -> InputFieldOwner`, and `Database -> RuntimeContext`.
+Naming note: this page is target-first for user-facing APIs. The remaining
+compatibility handles map to target names as follows: `Reactive ->
+EagerDerived`, `TrackedCell -> InputField`, `Observer -> Watch`,
+`FunctionalRelation -> MapRelation`, `Readable -> Freshness`, `Trackable ->
+InputFieldOwner`, and `Database -> RuntimeContext`. The naming target is
+recorded in [ADR 2026-05-21](decisions/2026-05-21-public-api-ideal-naming.md);
+for names already removed, the [CHANGELOG](../CHANGELOG.md) has the mapping.
 
 ---
 
@@ -103,7 +103,7 @@ watched value alive across `gc()`.
    trigger immediate level-by-level propagation through downstream push nodes.
 2. `Effect` is a sink — runs side-effecting closures at the appropriate level.
 
-**Hybrid mode (`ReachableDerived` / compatibility `HybridMemo`):**
+**Hybrid mode (`ReachableDerived`):**
 
 `ReachableDerived` is a pull-derived facade whose underlying hybrid memo uses
 the same revision check as `Derived` — there is no separate dirty flag. **Today
@@ -142,7 +142,7 @@ compatibility `FunctionalRelation[K, V]`.
 | `Accumulator[T]` | Side-channel collector pushed to from derived-cell computes; consumers read via `Derived::accumulated*`. See [ADR](decisions/2026-04-20-accumulator-api.md). | `Accumulator::new` or `create_accumulator` |
 | `Scope` | Lifecycle group: cells/accumulators registered to a scope are disposed when the scope is disposed | `Scope::new`, target `scope.input` / `scope.derived` helpers, or compatibility `create_scope` |
 | `Watch[T]` | Persistent attachment that keeps a derived/eager value alive past `gc()` sweeps and returns `Result` reads | `derived.watch()` / `reachable.watch()` / `eager.watch()` |
-| Compatibility handles | Older source-compatible names: `TrackedCell`, `Reactive`, `Observer`, `FunctionalRelation`; `Memo`, `MemoMap`, `HybridMemo` were removed in v0.12.0, `Signal` removed in v0.14.0 | Compatibility constructors (`TrackedCell::new`, …) and helpers |
+| Compatibility handles | Older source-compatible names: `TrackedCell`, `Reactive`, `Observer`, `FunctionalRelation` | Compatibility constructors (`TrackedCell::new`, …) and helpers |
 | `CellId`, `CellInfo`, `CycleError`, `Revision`, `Durability` | Plain value types | constructors in `types/` |
 | Traits `RuntimeContext`, `Freshness`, `InputFieldOwner` | Target extension points (see below) | — |
 | Compatibility traits `Database`, `Readable`, `Trackable` | Older helper/introspection extension points retained during migration | — |
@@ -158,7 +158,7 @@ These are user-visible properties the library upholds. Internal implementation i
 - **Pull mode verifies traces, not dirty flags.** A pull-derived value records the dependencies read by its last successful compute. On the next read, the runtime verifies that recorded trace; it does not rely on an eagerly propagated dirty bit as the source of truth.
 - **Backdating preserves `changed_at`.** When a derived value recomputes to a value equal (by `Eq` or compatibility `BackdateEq`) to its previous result, its `changed_at` is *not* bumped — downstream consumers see no change and skip work.
 - **Durability shortcut.** Derived values whose inputs are all `High` durability skip the full verify walk when no `High` input has changed.
-- **Reads return `Result` for mechanism failures.** Target `Derived::get()` / `read()`, `ReachableDerived::get()` / `read()`, `DerivedMap::get(key)` / `read(key)`, `Watch::read()`, and accumulator verifying reads surface mechanism failures as `Err(ReadError)`, where `ReadError = Cycle | Disposed`: a cycle is `Cycle`, and a read of a directly-disposed cell is `Disposed` (rather than an abort). Strict `get` methods still abort when called without an active tracked context, and a retained compute `raise Failure` is a defect that still aborts. `_or_abort` shortcuts abort on any `ReadError`. Compatibility `Memo::get_result()` still exposes the cycle as `Err(CycleError)` (and aborts on disposed, unchanged). `CycleError` is pure (no `Runtime` reference) and can be formatted standalone. See the [Honest Read-Error Ownership](design/specs/2026-05-28-honest-read-error-ownership.md) spec.
+- **Reads return `Result` for mechanism failures.** Target `Derived::get()` / `read()`, `ReachableDerived::get()` / `read()`, `DerivedMap::get(key)` / `read(key)`, `Watch::read()`, and accumulator verifying reads surface mechanism failures as `Err(ReadError)`, where `ReadError = Cycle | Disposed`: a cycle is `Cycle`, and a read of a directly-disposed cell is `Disposed` (rather than an abort). Strict `get` methods still abort when called without an active tracked context, and a retained compute `raise Failure` is a defect that still aborts. `_or_abort` shortcuts abort on any `ReadError`. `CycleError` is pure (no `Runtime` reference) and can be formatted standalone. See the [Honest Read-Error Ownership](design/specs/2026-05-28-honest-read-error-ownership.md) spec.
 - **Cross-runtime reads are illegal.** Reading a cell from a runtime other than the one owning the surrounding compute aborts.
 - **Batch atomicity.** A `batch` that raises rolls back all writes inside it (state and revision counter included). `abort()` is *not* catchable and leaves the runtime in an undefined state.
 - **Top-frame restriction on `Accumulator::push`.** Pushes are only legal inside a `Derived` or `ReachableDerived` compute; pushing from elsewhere raises `Failure`. See the [Accumulator ADR](decisions/2026-04-20-accumulator-api.md).
@@ -181,7 +181,7 @@ Compatibility traits remain available:
 
 The library does **not** offer:
 
-- A way to define new cell *kinds* from user code. The engine taxonomy (`PullSignal`, `PullMemo`, `PushReactive`, `PushEffect`, `HybridMemo`, `Relation`, `FunctionalRelation`, `Rule`) is closed and lives inside `cells/`; target facades wrap those engine kinds rather than extending the taxonomy.
+- A way to define new cell *kinds* from user code. The engine taxonomy (`PullInput`, `PullMemo`, `PushReactive`, `PushEffect`, `HybridMemo`, `Relation`, `FunctionalRelation`, `Rule`) is closed and lives inside `cells/`; target facades wrap those engine kinds rather than extending the taxonomy.
 - A way to plug in a custom verification algorithm or scheduling policy.
 
 ---
@@ -206,7 +206,7 @@ Items the audit verified against current code; if any of these is wrong, the cod
 - **`gc_tracked(rt, t)` was removed in the breaking cleanup.** For target field owners, use `add_input_fields(scope, owner)`. For compatibility `TrackedCell` owners, use `add_tracked(scope, tracked)`.
 - **Hand-maintained `docs/api-reference.mbt.md`.** It has drifted from `.mbti` at least once (caught in the most recent audit). Treat the `.mbti` files as authoritative when they disagree.
 - **Most prose examples are still illustrative.** The target-API examples in [`target_api_examples.mbt.md`](target_api_examples.mbt.md) are checked by `moon check`, but many longer ` ```moonbit` snippets in prose docs are still unchecked. Continue migrating high-value examples to `.mbt.md` literate tests as APIs stabilize.
-- **No CI in this submodule.** Verification is delegated to the parent `canopy` repo; running `moon check && moon test` locally before pushing is the operative discipline.
+- **CI runs on PRs and main** (`.github/workflows/ci.yml`): `moon check` + `moon test` over the library and the checked docs examples. Run the same commands locally before pushing.
 
 ---
 
