@@ -31,6 +31,10 @@ if [ ! -f "$lib_mod" ] || [ ! -f "$work_file" ]; then
 fi
 
 old_version=$(sed -n 's/^version[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$lib_mod" | head -1)
+if [ -z "$old_version" ]; then
+  echo "MISSING: version field in $lib_mod — aborting before touching any pins"
+  exit 1
+fi
 echo "incr/moon.mod: $old_version -> $new_version"
 sed -i "s/^version[[:space:]]*=[[:space:]]*\"$old_version\"/version = \"$new_version\"/" "$lib_mod"
 
