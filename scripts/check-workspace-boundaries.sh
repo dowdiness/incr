@@ -15,6 +15,14 @@
 #   `dowdiness/incr@X` dependency must pin X to the library's current version
 #   (incr/moon.mod). Workspace resolution masks stale pins locally, so drift
 #   is invisible until someone builds a member outside the workspace.
+#
+#   Accepted trade-off: pins must bump atomically with a library version bump,
+#   so between the bump commit and `moon publish` the pins name a not-yet-
+#   published version. That window is bounded by the release workflow (publish
+#   immediately follows the bump), and this repo's CI builds members in
+#   workspace mode where registry availability is irrelevant. The alternative
+#   (allowing pin < version) readmits exactly the multi-release drift this
+#   check exists to catch (0.9.0 pins against a 0.12.0 library, #343).
 set -euo pipefail
 
 fail=0
@@ -80,7 +88,13 @@ for member in $members; do
     [ -f "$candidate" ] && member_mod="$candidate" && break
   done
   [ -n "$member_mod" ] || continue
-  pins=$({ grep -oE '"dowdiness/incr@[^"]+"' "$member_mod" | sed 's/.*@//; s/"$//'; } || true)
+  # Two pin syntaxes: moon.mod TOML-style `"dowdiness/incr@X"` and legacy
+  # moon.mod.json JSON-style `"dowdiness/incr": "X"`.
+  pins=$({
+    grep -oE '"dowdiness/incr@[^"]+"' "$member_mod" | sed 's/.*@//; s/"$//'
+    grep -oE '"dowdiness/incr"[[:space:]]*:[[:space:]]*"[^"]+"' "$member_mod" \
+      | sed 's/.*:[[:space:]]*"//; s/"$//'
+  } 2>/dev/null || true)
   for pin in $pins; do
     if [ "$pin" != "$lib_version" ]; then
       echo "FAIL: $member_mod pins dowdiness/incr@$pin but incr/moon.mod is $lib_version"
