@@ -61,8 +61,8 @@ test "Memo derives Debug after compute" {
 }
 
 ///|
-test "TrackedCell derives Debug" {
+test "InputField derives Debug" {
   let rt = Runtime::Runtime()
-  let cell = TrackedCell::TrackedCell(rt, 42, label="test")
+  let cell = InputField::InputField(rt, 42, label="test")
   debug_inspect(cell, content="{ input: ... }")
 }

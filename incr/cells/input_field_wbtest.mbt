@@ -1,15 +1,15 @@
 ///|
-test "TrackedCell wraps Input" {
+test "InputField wraps Input" {
   let rt = Runtime::Runtime()
-  let cell = TrackedCell::TrackedCell(rt, 42, label="test_field")
+  let cell = InputField(rt, 42, label="test_field")
   // Access the priv input field directly (whitebox)
   inspect(cell.input.get(), content="42")
 }
 
 ///|
-test "TrackedCell label propagates to CellMeta" {
+test "InputField label propagates to CellMeta" {
   let rt = Runtime::Runtime()
-  let cell = TrackedCell::TrackedCell(rt, 0, label="my_field")
+  let cell = InputField(rt, 0, label="my_field")
   let info = rt.cell_info(cell.id())
   debug_inspect(
     info.unwrap().label,
@@ -20,8 +20,8 @@ test "TrackedCell label propagates to CellMeta" {
 }
 
 ///|
-test "TrackedCell durability propagates" {
+test "InputField durability propagates" {
   let rt = Runtime::Runtime()
-  let cell = TrackedCell::TrackedCell(rt, "config", durability=High)
+  let cell = InputField(rt, "config", durability=High)
   inspect(cell.durability(), content="High")
 }

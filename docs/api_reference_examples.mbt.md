@@ -899,8 +899,8 @@ impl @incr.Database for AppCtx with fn runtime(self) {
 
 ///|
 struct CompatTrackedFields {
-  path : @incr.TrackedCell[String]
-  version : @incr.TrackedCell[Int]
+  path : @incr.InputField[String]
+  version : @incr.InputField[Int]
 }
 
 ///|
@@ -1079,17 +1079,17 @@ test "docs api-ref: compatibility create_accumulator captures memo pushes" {
 }
 
 ///|
-test "docs api-ref: compatibility create_tracked_cell / create_scope / add_tracked" {
+test "docs api-ref: compatibility create_input_field / create_scope / add_tracked" {
   let app : AppCtx = { rt: @incr.Runtime() }
   let scope = @incr.create_scope(app)
   let tracked : CompatTrackedFields = {
-    path: @incr.create_tracked_cell(
+    path: @incr.create_input_field(
       app,
       "src/main.mbt",
       durability=High,
       label="Tracked.path",
     ),
-    version: @incr.create_tracked_cell(app, 1, label="Tracked.version"),
+    version: @incr.create_input_field(app, 1, label="Tracked.version"),
   }
 
   inspect(tracked.path.get(), content="src/main.mbt")

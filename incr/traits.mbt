@@ -197,42 +197,12 @@ pub fn[Db : Database, T : Eq] create_accumulator(
 // --- Tracked Struct Support ---
 
 ///|
-/// Readable implementation for TrackedCell, matching the pattern of
-/// the Input implementation above.
-pub impl[T] Readable for TrackedCell[T] with fn is_up_to_date(self) {
-  TrackedCell::is_up_to_date(self)
-}
-
-///|
 /// Target-name contract for types that own `InputField` fields.
 ///
 /// The returned cell IDs must be stable across calls and belong to the runtime
 /// of any scope they are registered with.
 pub(open) trait InputFieldOwner {
   fn cell_ids(Self) -> Array[CellId]
-}
-
-///|
-/// Creates a new TrackedCell using the database's runtime.
-/// Follows the same pattern as `create_input` and `create_derived`.
-///
-/// # Parameters
-///
-/// - `db`: Any type implementing `Database`
-/// - `value`: The initial value of the TrackedCell
-/// - `durability`: How often this cell is expected to change (default: `Low`)
-/// - `label`: An optional human-readable name for debugging
-///
-/// # Returns
-///
-/// A new TrackedCell associated with the database's runtime
-pub fn[Db : Database, T] create_tracked_cell(
-  db : Db,
-  value : T,
-  durability? : Durability = Low,
-  label? : String,
-) -> TrackedCell[T] {
-  TrackedCell(db.runtime(), value, durability~, label?)
 }
 
 ///|

@@ -1,106 +1,92 @@
 ///|
-/// A named, tracked input cell — a thin wrapper around Input[T].
+/// Target-name field-level input cell — a thin wrapper around Input[T].
 ///
-/// TrackedCell provides the same functionality as Input but is intended for
-/// use cases where you want a more structured, named input cell. All operations
-/// delegate directly to the inner Input.
+/// InputField provides the same functionality as Input but is intended for
+/// use cases where you want a more structured, named input cell (e.g. fields
+/// of a tracked struct). All operations delegate directly to the inner Input.
 ///
 /// # Example
 ///
 /// ```moonbit nocheck
 /// let rt = Runtime()
-/// let cell = TrackedCell(rt, 0, label="counter")
-/// cell.set(5)
-/// inspect(cell.get(), content="5")
+/// let field = InputField(rt, 0, label="counter")
+/// field.set(5)
+/// inspect(field.get(), content="5")
 /// ```
-pub(all) struct TrackedCell[T] {
+pub(all) struct InputField[T] {
   priv input : Input[T]
 } derive(Debug(ignore=[Input]))
 
 ///|
-/// Constructor-syntax alias of `TrackedCell::new`. Enables
-/// `TrackedCell(rt, value)` / `TrackedCell(rt, value, label="...")` call sites.
-pub fn[T] TrackedCell::TrackedCell(
-  rt : Runtime,
-  initial : T,
-  durability? : Durability = Low,
-  label? : String,
-) -> TrackedCell[T] {
-  TrackedCell::new(rt, initial, durability~, label?)
-}
-
-///|
-/// Creates a new TrackedCell with the given initial value.
+/// Creates a field-level input cell with the given initial value.
 ///
 /// # Parameters
 ///
 /// - `rt`: The runtime that will manage this cell
-/// - `initial`: The initial value of the cell
-/// - `durability`: How often this cell is expected to change (default: `Low`)
+/// - `initial`: The initial value of the field
+/// - `durability`: How often this field is expected to change (default: `Low`)
 /// - `label`: An optional human-readable name for debugging and cycle error output
 ///
 /// # Returns
 ///
-/// A new TrackedCell containing the initial value
+/// A new InputField containing the initial value
 ///
 /// # Example
 ///
 /// ```moonbit nocheck
-/// let cell = TrackedCell(rt, 42)
+/// let field = InputField(rt, 42)
 ///
-/// let config = TrackedCell(rt, "prod", durability=High)
+/// let config = InputField(rt, "prod", durability=High)
 ///
-/// let named = TrackedCell(rt, 0, label="counter")
+/// let named = InputField(rt, 0, label="counter")
 /// ```
-pub fn[T] TrackedCell::new(
+pub fn[T] InputField::InputField(
   rt : Runtime,
   initial : T,
   durability? : Durability = Low,
   label? : String,
-) -> TrackedCell[T] {
+) -> InputField[T] {
   { input: Input::new(rt, initial, durability~, label?) }
 }
 
 ///|
-/// Returns the current value of the cell.
+/// Returns the current value of the field.
 ///
 /// If called inside a derived's compute function, this automatically records
-/// a dependency from the derived to this cell. When the cell changes,
+/// a dependency from the derived to this cell. When the field changes,
 /// the derived will know to reverify.
 ///
 /// # Returns
 ///
-/// The current value of the cell
-pub fn[T] TrackedCell::get(self : TrackedCell[T]) -> T {
+/// The current value of the field
+pub fn[T] InputField::get(self : InputField[T]) -> T {
   self.input.get()
 }
 
 ///|
-/// Returns the current value of the cell without recording a dependency.
+/// Returns the current value of the field without recording a dependency.
 ///
 /// Delegates to `Input::peek()` on the inner input. Use from outside
 /// the dependency graph when you don't want to trigger recomputation.
-pub fn[T] TrackedCell::peek(self : TrackedCell[T]) -> T {
+pub fn[T] InputField::peek(self : InputField[T]) -> T {
   self.input.peek()
 }
 
 ///|
-/// Returns the current value of the cell as a Result.
+/// Returns the current value of the field as a Result.
 ///
-/// Since TrackedCells cannot have cycles (they are input cells with no
+/// Since InputFields cannot have cycles (they are direct-set cells with no
 /// dependencies), this method always returns `Ok(value)`.
 ///
 /// # Returns
 ///
-/// `Ok(value)` with the current value of the cell
-pub fn[T] TrackedCell::get_result(
-  self : TrackedCell[T],
-) -> Result[T, CycleError] {
+/// `Ok(value)` with the current value of the field
+pub fn[T] InputField::get_result(self : InputField[T]) -> Result[T, CycleError] {
   self.input.get_result()
 }
 
 ///|
-/// Sets the cell to a new value.
+/// Sets the field to a new value.
 ///
 /// If the new value equals the current value (via `Eq`), this is a no-op:
 /// no revision bump occurs, and downstream deriveds won't reverify.
@@ -111,13 +97,13 @@ pub fn[T] TrackedCell::get_result(
 ///
 /// # Parameters
 ///
-/// - `value`: The new value to set
-pub fn[T : Eq] TrackedCell::set(self : TrackedCell[T], value : T) -> Unit {
-  self.input.set(value)
+/// - `new_value`: The new value to set
+pub fn[T : Eq] InputField::set(self : InputField[T], new_value : T) -> Unit {
+  self.input.set(new_value)
 }
 
 ///|
-/// Sets the cell to a new value, always bumping the revision.
+/// Sets the field to a new value, always bumping the revision.
 ///
 /// Unlike `set`, this does not check for equality. Use this when you want
 /// to force downstream deriveds to reverify even if the value is the same,
@@ -125,28 +111,28 @@ pub fn[T : Eq] TrackedCell::set(self : TrackedCell[T], value : T) -> Unit {
 ///
 /// # Parameters
 ///
-/// - `value`: The new value to set
-pub fn[T] TrackedCell::force_set(self : TrackedCell[T], value : T) -> Unit {
-  self.input.force_set(value)
+/// - `new_value`: The new value to set
+pub fn[T] InputField::force_set(self : InputField[T], new_value : T) -> Unit {
+  self.input.force_set(new_value)
 }
 
 ///|
-/// Returns the unique identifier for this cell.
+/// Returns the unique identifier for this field.
 ///
 /// The CellId can be used with `Runtime::cell_info()` to retrieve
 /// metadata, or to compare cell identities.
 ///
 /// # Returns
 ///
-/// The cell identifier for this cell
-pub fn[T] TrackedCell::id(self : TrackedCell[T]) -> CellId {
+/// The cell identifier for this field
+pub fn[T] InputField::id(self : InputField[T]) -> CellId {
   self.input.id()
 }
 
 ///|
-/// Returns the durability level of this cell.
+/// Returns the durability level of this field.
 ///
-/// Durability indicates how often this cell is expected to change:
+/// Durability indicates how often this field is expected to change:
 /// - `High`: Rarely changes (e.g., configuration)
 /// - `Medium`: Moderately stable
 /// - `Low`: Frequently changes (e.g., user input)
@@ -154,57 +140,43 @@ pub fn[T] TrackedCell::id(self : TrackedCell[T]) -> CellId {
 /// # Returns
 ///
 /// The durability level set at construction time
-pub fn[T] TrackedCell::durability(self : TrackedCell[T]) -> Durability {
+pub fn[T] InputField::durability(self : InputField[T]) -> Durability {
   self.input.durability()
 }
 
 ///|
-/// Registers a callback that fires whenever this cell's value changes.
+/// Registers a callback that fires whenever this field's value changes.
 ///
 /// The callback receives the new value. Only one callback can be registered
 /// at a time; calling this again replaces the previous callback.
 ///
 /// # Parameters
 ///
-/// - `f`: Called with the new value whenever this cell changes
-pub fn[T] TrackedCell::on_change(
-  self : TrackedCell[T],
-  f : (T) -> Unit,
-) -> Unit {
+/// - `f`: Called with the new value whenever this field changes
+pub fn[T] InputField::on_change(self : InputField[T], f : (T) -> Unit) -> Unit {
   self.input.on_change(f)
 }
 
 ///|
-/// Removes the `on_change` callback for this cell.
-pub fn[T] TrackedCell::clear_on_change(self : TrackedCell[T]) -> Unit {
+/// Removes this field's `on_change` callback.
+pub fn[T] InputField::clear_on_change(self : InputField[T]) -> Unit {
   self.input.clear_on_change()
 }
 
 ///|
-/// Returns true. TrackedCells are always up-to-date since they are input
-/// cells with directly-set values.
-pub fn[T] TrackedCell::is_up_to_date(self : TrackedCell[T]) -> Bool {
+/// Returns true. Input fields are directly-set cells and are always fresh.
+pub fn[T] InputField::is_fresh(self : InputField[T]) -> Bool {
   self.input.is_up_to_date()
 }
 
 ///|
-/// Disposes this tracked cell by disposing its inner input.
-pub fn[T] TrackedCell::dispose(self : TrackedCell[T]) -> Unit {
+/// Disposes this field by disposing its inner input.
+pub fn[T] InputField::dispose(self : InputField[T]) -> Unit {
   self.input.dispose()
 }
 
 ///|
-/// Returns true if this tracked cell has been disposed.
-pub fn[T] TrackedCell::is_disposed(self : TrackedCell[T]) -> Bool {
+/// Returns true if this field has been disposed.
+pub fn[T] InputField::is_disposed(self : InputField[T]) -> Bool {
   self.input.is_disposed()
-}
-
-///|
-/// Returns the inner Input for interop with APIs that expect an Input[T].
-///
-/// # Returns
-///
-/// The underlying Input[T] wrapped by this TrackedCell
-pub fn[T] TrackedCell::as_input(self : TrackedCell[T]) -> Input[T] {
-  self.input
 }

@@ -34,7 +34,6 @@ pub using @internal {
   type DerivedAbortedEvent,
   type DerivedEvent,
   type DerivedMap,
-  type TrackedCell,
   type ReachableDerived,
   type Relation,
   type FunctionalRelation,

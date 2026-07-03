@@ -170,9 +170,9 @@ test "rule: dispose_rule is idempotent" {
 }
 
 ///|
-test "tracked cell: dispose delegates to inner input" {
+test "input field: dispose delegates to inner input" {
   let rt = Runtime::Runtime()
-  let cell = TrackedCell::TrackedCell(rt, 42)
+  let cell = InputField::InputField(rt, 42)
   assert_false(cell.is_disposed())
   cell.dispose()
   assert_true(cell.is_disposed())

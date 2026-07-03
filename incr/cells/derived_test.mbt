@@ -160,9 +160,9 @@ test "Input::peek() reads without tracking" {
 }
 
 ///|
-test "TrackedCell::peek() reads without tracking" {
+test "InputField::peek() reads without tracking" {
   let rt = Runtime::Runtime()
-  let tc = TrackedCell::TrackedCell(rt, 99)
+  let tc = InputField::InputField(rt, 99)
   inspect(tc.peek(), content="99")
   tc.set(100)
   inspect(tc.peek(), content="100")

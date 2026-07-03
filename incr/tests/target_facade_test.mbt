@@ -143,7 +143,6 @@ test "facade input_field: get peek set force_set and tracking" {
   field.force_set(3)
   inspect(view.read_or_abort(), content="4")
   inspect(view_runs, content="3")
-  inspect(field.id() == field.as_tracked_cell().id(), content="true")
 }
 
 ///|

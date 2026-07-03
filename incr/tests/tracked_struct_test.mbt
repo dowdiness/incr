@@ -1,7 +1,7 @@
 ///|
-test "TrackedCell dependency tracking" {
+test "InputField dependency tracking" {
   let rt = @incr.Runtime::Runtime()
-  let cell = @incr.TrackedCell::TrackedCell(rt, 10)
+  let cell = @incr.InputField::InputField(rt, 10)
   let doubled = @incr.Derived::Derived(rt, () => cell.get() * 2)
   inspect(read_derived_for_test(doubled), content="20")
   cell.set(15)
@@ -9,9 +9,9 @@ test "TrackedCell dependency tracking" {
 }
 
 ///|
-test "TrackedCell same-value optimization" {
+test "InputField same-value optimization" {
   let rt = @incr.Runtime::Runtime()
-  let cell = @incr.TrackedCell::TrackedCell(rt, 5)
+  let cell = @incr.InputField::InputField(rt, 5)
   let mut compute_count = 0
   let memo = @incr.Derived::Derived(rt, () => {
     compute_count = compute_count + 1
@@ -24,9 +24,9 @@ test "TrackedCell same-value optimization" {
 }
 
 ///|
-test "TrackedCell on_change callback" {
+test "InputField on_change callback" {
   let rt = @incr.Runtime::Runtime()
-  let cell = @incr.TrackedCell::TrackedCell(rt, 0)
+  let cell = @incr.InputField::InputField(rt, 0)
   let mut observed = 0
   cell.on_change(v => observed = v)
   cell.set(42)
@@ -34,9 +34,9 @@ test "TrackedCell on_change callback" {
 }
 
 ///|
-test "TrackedCell get_result returns Ok" {
+test "InputField get_result returns Ok" {
   let rt = @incr.Runtime::Runtime()
-  let cell = @incr.TrackedCell::TrackedCell(rt, 99)
+  let cell = @incr.InputField::InputField(rt, 99)
   match cell.get_result() {
     Ok(v) => inspect(v, content="99")
     Err(_) => abort("unexpected Err")
@@ -44,10 +44,10 @@ test "TrackedCell get_result returns Ok" {
 }
 
 ///|
-test "TrackedCell batch integration" {
+test "InputField batch integration" {
   let rt = @incr.Runtime::Runtime()
-  let a = @incr.TrackedCell::TrackedCell(rt, 1)
-  let b = @incr.TrackedCell::TrackedCell(rt, 2)
+  let a = @incr.InputField::InputField(rt, 1)
+  let b = @incr.InputField::InputField(rt, 2)
   let sum = @incr.Derived::Derived(rt, () => a.get() + b.get())
   inspect(read_derived_for_test(sum), content="3")
   rt.batch(() => {
@@ -58,9 +58,9 @@ test "TrackedCell batch integration" {
 }
 
 ///|
-test "TrackedCell batch revert detection" {
+test "InputField batch revert detection" {
   let rt = @incr.Runtime::Runtime()
-  let cell = @incr.TrackedCell::TrackedCell(rt, 0)
+  let cell = @incr.InputField::InputField(rt, 0)
   let mut compute_count = 0
   let memo = @incr.Derived::Derived(rt, () => {
     compute_count = compute_count + 1
@@ -75,26 +75,14 @@ test "TrackedCell batch revert detection" {
   inspect(compute_count, content="1")
 }
 
-///|
-test "TrackedCell as_input interop" {
-  let rt = @incr.Runtime::Runtime()
-  let cell = @incr.TrackedCell::TrackedCell(rt, 7)
-  let sig = cell.as_input()
-  // A Memo using the raw Input still tracks the same dependency
-  let memo = @incr.Derived::Derived(rt, () => sig.get() + 1)
-  inspect(read_derived_for_test(memo), content="8")
-  cell.set(10)
-  inspect(read_derived_for_test(memo), content="11")
-}
-
 // --- Phase 2: Trackable trait + scoped lifecycle registration ---
 
 ///|
 /// Test fixture: a tracked struct with three fields
 struct TestTracked {
-  name : @incr.TrackedCell[String]
-  value : @incr.TrackedCell[Int]
-  flag : @incr.TrackedCell[Bool]
+  name : @incr.InputField[String]
+  value : @incr.InputField[Int]
+  flag : @incr.InputField[Bool]
 }
 
 ///|
@@ -105,9 +93,9 @@ impl @incr.Trackable for TestTracked with fn cell_ids(self) {
 ///|
 fn TestTracked::new(rt : @incr.Runtime) -> TestTracked {
   {
-    name: @incr.TrackedCell::TrackedCell(rt, "default", label="name"),
-    value: @incr.TrackedCell::TrackedCell(rt, 0, label="value"),
-    flag: @incr.TrackedCell::TrackedCell(rt, false, label="flag"),
+    name: @incr.InputField::InputField(rt, "default", label="name"),
+    value: @incr.InputField::InputField(rt, 0, label="value"),
+    flag: @incr.InputField::InputField(rt, false, label="flag"),
   }
 }
 
@@ -183,15 +171,15 @@ test "Trackable fields register with scope" {
 }
 
 ///|
-test "create_tracked_cell with Database" {
+test "create_input_field with RuntimeContext" {
   // TestDb is defined at the top level of traits_test.mbt (same package)
   let db = TestDb()
-  let cell = @incr.create_tracked_cell(db, 42, label="db_cell")
+  let cell = @incr.create_input_field(db, 42, label="db_cell")
   inspect(cell.get(), content="42")
 }
 
 ///|
-test "TrackedCell introspection via Runtime::cell_info" {
+test "InputField introspection via Runtime::cell_info" {
   let rt = @incr.Runtime::Runtime()
   let t = TestTracked::new(rt)
   let ids = t.cell_ids()
@@ -204,17 +192,25 @@ test "TrackedCell introspection via Runtime::cell_info" {
 }
 
 ///|
-test "TrackedCell Readable trait" {
+test "InputField Readable trait" {
   let rt = @incr.Runtime::Runtime()
-  let cell = @incr.TrackedCell::TrackedCell(rt, 0)
+  let cell = @incr.InputField::InputField(rt, 0)
   // check_up_to_date is defined at the top level of traits_test.mbt (same package)
   inspect(check_up_to_date(cell), content="true")
 }
 
 ///|
-test "TrackedCell force_set always recomputes" {
+test "InputField Freshness trait" {
   let rt = @incr.Runtime::Runtime()
-  let cell = @incr.TrackedCell::TrackedCell(rt, 5)
+  let cell = @incr.InputField::InputField(rt, 0)
+  // check_is_fresh is defined at the top level of traits_test.mbt (same package)
+  inspect(check_is_fresh(cell), content="true")
+}
+
+///|
+test "InputField force_set always recomputes" {
+  let rt = @incr.Runtime::Runtime()
+  let cell = @incr.InputField::InputField(rt, 5)
   let mut compute_count = 0
   let memo = @incr.Derived::Derived(rt, () => {
     compute_count = compute_count + 1
@@ -227,9 +223,9 @@ test "TrackedCell force_set always recomputes" {
 }
 
 ///|
-test "TrackedCell clear_on_change stops callback" {
+test "InputField clear_on_change stops callback" {
   let rt = @incr.Runtime::Runtime()
-  let cell = @incr.TrackedCell::TrackedCell(rt, 0)
+  let cell = @incr.InputField::InputField(rt, 0)
   let mut observed = 0
   cell.on_change(v => observed = v)
   cell.set(1)
@@ -244,8 +240,8 @@ test "TrackedCell clear_on_change stops callback" {
 ///|
 /// Helper struct for add_tracked tests (2-field variant)
 struct TwoFieldTracked {
-  a : @incr.TrackedCell[Int]
-  b : @incr.TrackedCell[Int]
+  a : @incr.InputField[Int]
+  b : @incr.InputField[Int]
 }
 
 ///|
@@ -258,8 +254,8 @@ test "scope: add_tracked registers all cell ids for disposal" {
   let rt = @incr.Runtime::Runtime()
   let scope = @incr.Scope::new(rt)
   let tracked : TwoFieldTracked = {
-    a: @incr.TrackedCell::TrackedCell(rt, 1, label="a"),
-    b: @incr.TrackedCell::TrackedCell(rt, 2, label="b"),
+    a: @incr.InputField::InputField(rt, 1, label="a"),
+    b: @incr.InputField::InputField(rt, 2, label="b"),
   }
   @incr.add_tracked(scope, tracked)
   inspect(tracked.a.get(), content="1")
@@ -275,8 +271,8 @@ test "panic scope: add_tracked on disposed scope aborts" {
   let scope = @incr.Scope::new(rt)
   scope.dispose()
   let tracked : TwoFieldTracked = {
-    a: @incr.TrackedCell::TrackedCell(rt, 1),
-    b: @incr.TrackedCell::TrackedCell(rt, 2),
+    a: @incr.InputField::InputField(rt, 1),
+    b: @incr.InputField::InputField(rt, 2),
   }
   @incr.add_tracked(scope, tracked)
 }
@@ -287,8 +283,8 @@ test "panic scope: add_tracked with foreign runtime cells aborts at registration
   let rt2 = @incr.Runtime::Runtime()
   let scope = @incr.Scope::new(rt1)
   let tracked : TwoFieldTracked = {
-    a: @incr.TrackedCell::TrackedCell(rt2, 1),
-    b: @incr.TrackedCell::TrackedCell(rt2, 2),
+    a: @incr.InputField::InputField(rt2, 1),
+    b: @incr.InputField::InputField(rt2, 2),
   }
   // Aborts at registration time, not at dispose time
   @incr.add_tracked(scope, tracked)

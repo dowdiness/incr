@@ -91,8 +91,8 @@ fn[T] static_source_input_field(
   source : InputField[T],
 ) -> StaticDerivedSource[T] {
   {
-    rt: source.inner.input.rt,
-    id: source.inner.id(),
+    rt: source.input.rt,
+    id: source.input.id(),
     read_declared: _dependent => source.peek(),
   }
 }
