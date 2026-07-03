@@ -52,8 +52,11 @@ Reference points against prior records:
 - `incr/pipeline/` no longer exists in the tree; `docs/todo.md` still carries
   its removal as a pending task. See §P5.
 - Legacy `Signal`/`Memo`/`HybridMemo` are gone as public types; the internal
-  engine rename (#335/#336) is complete. The remaining dual-surface residue is
-  traits and helpers, not handle types. See §P2.
+  engine rename (#335/#336) is complete. Three compatibility handle types
+  remain public (`TrackedCell`, `Reactive`, `FunctionalRelation` —
+  `incr.mbt:37,40,42`) alongside the compatibility traits and helpers. See
+  §CP2. *(Corrected 2026-07-03 after Codex review: an earlier revision claimed
+  the residue was "traits and helpers, not handle types".)*
 
 ## Confirmed change pressures
 
@@ -63,9 +66,10 @@ open issues (#268, #286, #288, #256, #252, #190) are feature work on it. It
 has three in-repo consumers (`incr_tea_7guis`,
 `typed_spreadsheet_incr_tea_demo`, browser benches) and has already exerted
 design pressure on the core (the composable-hooks ADR exists because the TEA
-renderer was the two-consumer case). It has no module identity, no version
-contract, no owner document, and no rule preventing it from importing library
-internals.
+renderer was the two-consumer case). Its `moon.mod` identity is nominal and
+example-scoped (`examples/incr_tea` v0.1.0, unpublished): it has no published
+library identity, no consumer-facing version contract, no owner document, and
+no rule preventing it from importing library internals.
 
 **CP2 — Dual public API surface with an unscheduled sunset.** Compatibility
 traits (`Database`/`RuntimeContext`, `Readable`/`Freshness`,
@@ -92,9 +96,11 @@ In-library invariants are scripted
 
 **CP5 — Test topology contradicts package topology.** Kernel (2,676 LOC) and
 all engine packages carry zero in-package tests; their whitebox tests live as
-`cells/*_wbtest.mbt` via the `cells/kernel_using.mbt` re-export. Kernel
-refactors churn test files in a different package, and the re-export file
-exists solely to make the boundary porous for tests.
+`cells/*_wbtest.mbt`, calling `@kernel` directly. Kernel refactors therefore
+churn test files in a different package. *(Corrected 2026-07-03 after Codex
+review: `cells/kernel_using.mbt` is a package-scoped production convenience
+import for `cells/*.mbt` source — not a test-only re-export, and not deletable
+on test migration alone.)*
 
 ## Non-findings (checked and dismissed)
 
@@ -120,8 +126,8 @@ Core library: **unchanged**. New rules, all mechanically checkable:
 3. Workspace members' registry pins for sibling modules must equal the
    sibling's current version.
 4. (Opportunistic, long-horizon) kernel whitebox tests migrate into the kernel
-   package per-file when kernel files are touched anyway; `kernel_using.mbt`
-   shrinks and is deleted when empty.
+   package per-file when kernel files are touched anyway. (`kernel_using.mbt`
+   stays — it serves production `cells/*.mbt` code, not tests.)
 5. Placement law, written down: code that takes `Runtime` lives in `cells/`;
    algorithms that take state structs live in `kernel/`.
 
