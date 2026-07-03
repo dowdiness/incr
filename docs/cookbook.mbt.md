@@ -439,9 +439,6 @@ The checked companion verifies that `add_input_fields` wires all fields to the
 scope lifecycle in
 [`cookbook_examples.mbt.md`](cookbook_examples.mbt.md#field-level-inputs-and-scoped-watches).
 
-Compatibility `TrackedCell` structs use `Trackable` and `add_tracked(scope,
-tracked)` for lifecycle management.
-
 ### Lifecycle: Register Watches with a Scope
 
 Use `scope.add_watch(derived.watch())` when an outside-graph reader should live

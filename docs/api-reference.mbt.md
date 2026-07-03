@@ -4,17 +4,17 @@
 > contains literate tests that pin the target facade snippets in this document
 > (`Derived`, `DerivedMap`, `ReachableDerived`, `MapRelation`, `Scope` /
 > `RuntimeContext` helpers, and `CycleError`) plus derived-event listener
-> lifecycle, compatibility introspection/callbacks, and the compatibility-only
-> accumulator push path. The README and getting-started target snippets are
-> covered by [`target_api_examples.mbt.md`](target_api_examples.mbt.md).
+> lifecycle, introspection/callbacks, and the accumulator push path. The
+> README and getting-started target snippets are covered by
+> [`target_api_examples.mbt.md`](target_api_examples.mbt.md).
 
-Reference for the most commonly used public APIs in `incr`. This is not exhaustive — the authoritative surface is in `pkg.generated.mbti` and `cells/pkg.generated.mbti`. APIs surfaced here: `Runtime`, `Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `Accumulator`, `DerivedEvent`, `CycleError`, the `RuntimeContext`/`Database`/`Freshness`/`Readable`/`InputFieldOwner`/`Trackable` traits, and the top-level helper functions. Compatibility names still re-exported from `@incr`: `TrackedCell`, `Reactive`, `Observer`, `FunctionalRelation`, `Readable`, `Trackable`, `Database`. Migrating pre-v0.12.0 code that used the removed `Memo`-family or `Signal` names? See the v0.12.0 section of the [CHANGELOG](../CHANGELOG.md) for the name-by-name mapping.
+Reference for the most commonly used public APIs in `incr`. This is not exhaustive — the authoritative surface is in `pkg.generated.mbti` and `cells/pkg.generated.mbti`. APIs surfaced here: `Runtime`, `Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `EagerDerived`, `Effect`, `MapRelation`, `Accumulator`, `DerivedEvent`, `CycleError`, the `RuntimeContext`/`Freshness`/`InputFieldOwner` traits, and the top-level helper functions. As of v0.13.0 the compatibility names (`TrackedCell`, `Reactive`, `FunctionalRelation`, `Database`, `Readable`, `Trackable`) have been removed; `Observer` was not removed. Migrating older code that used these names, or the earlier removed `Memo`-family or `Signal` names? See the v0.12.0/v0.13.0 sections of the [CHANGELOG](../CHANGELOG.md) for the name-by-name mapping.
 
 Read vocabulary: `read` is the permissive outside-graph read, `get` is the strict tracked-context read, and `_or_abort` variants abort instead of returning `Result`.
 
 > **Recommended Pattern:** Use the `RuntimeContext` trait to encapsulate your
 > `Runtime` in an application context type. This makes your API cleaner and
-> hides implementation details. Compatibility helpers still accept `Database`.
+> hides implementation details.
 > See the [Helper Functions](#helper-functions) section and [API Design Guidelines](design/api-design-guidelines.md) for details.
 
 ## Runtime
@@ -339,9 +339,9 @@ backdating. Aborts if any input belongs to a different runtime.
 Combines three inputs into a derived value, without equality-based backdating.
 Accepts output types that do not implement `Eq`.
 
-## InputField[T] / TrackedCell[T]
+## InputField[T]
 
-`InputField[T]` is the target-name field-level input facade. `TrackedCell[T]` remains available as the compatibility handle.
+`InputField[T]` is the field-level input facade.
 
 ### `InputField[T](rt: Runtime, initial: T, durability?: Durability, label?: String) -> InputField[T]`
 
@@ -394,20 +394,6 @@ Disposes the underlying tracked cell. Reads or writes after disposal abort.
 ### `InputField::is_disposed(self) -> Bool`
 
 Returns whether the field has been disposed.
-
-### `InputField::as_tracked_cell(self) -> TrackedCell[T]`
-
-Returns the compatibility `TrackedCell[T]` handle for interop.
-
-### Compatibility `TrackedCell[T]`
-
-`TrackedCell[T]` exposes the same underlying field cell with legacy names:
-
-- `TrackedCell(rt, value, durability?, label?)` constructs a compatibility field handle.
-- `TrackedCell::force_set(value)` matches `InputField::force_set(value)`.
-- `TrackedCell::is_up_to_date()` matches `InputField::is_fresh()`.
-- `TrackedCell::get_result()` always returns `Ok(value)` and exists only for legacy call-site symmetry.
-- `TrackedCell::as_input()` returns the underlying `Input[T]`.
 
 ---
 
@@ -876,7 +862,7 @@ derived values, callbacks live on `Derived` and the `Input` handles.
 
 Registers a callback fired when this input's value changes. Replaces any previously registered callback.
 
-The checked companion covers compatibility input callbacks in
+The checked companion covers input callbacks in
 [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ### `Input::clear_on_change(self) -> Unit`
@@ -953,35 +939,15 @@ The checked companion covers an `InputFieldOwner` implementation and
 Use `add_input_fields(scope, owner)` to register every field with a scope for
 bulk disposal.
 
-### Compatibility `Database`
-
-```mbt nocheck
-///|
-pub(open) trait Database {
-  fn runtime(Self) -> Runtime
-}
-```
-
-Implemented for `Input[T]` and `TrackedCell[T]`.
-
-### Compatibility `Trackable`
-
-```mbt nocheck
-///|
-pub(open) trait Trackable {
-  fn cell_ids(Self) -> Array[CellId]
-}
-```
-
-Implemented by facade types (`Derived`, `Input`, `InputField`,
-`ReachableDerived`, `EagerDerived`, `Effect`, `Reactive`) and compatibility
-`TrackedCell` owners. The single method returns the `CellId` of every cell
-owned by the value, in a stable order.
+`InputFieldOwner` is implemented by facade types (`Derived`, `Input`,
+`InputField`, `ReachableDerived`, `EagerDerived`, `Effect`). The single
+`cell_ids` method returns the `CellId` of every cell owned by the value, in a
+stable order.
 
 Use `scope.adopt(tracked)` to register a facade cell with a scope's lifecycle
 (see [Scope section](#scope-target-constructors-and-watch-lifetimes)).
-The checked companion covers a compatibility `Trackable` owner registered via
-`add_tracked` in
+The checked companion covers an `InputFieldOwner` owner registered via
+`add_input_fields` in
 [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 The old standalone pipeline traits (`Sourceable`, `Parseable`, `Checkable`, `Executable`) were removed in the breaking cleanup. Define application-local build traits with concrete domain types instead.
@@ -990,8 +956,8 @@ The old standalone pipeline traits (`Sourceable`, `Parseable`, `Checkable`, `Exe
 
 ## MapRelation[K, V]
 
-`MapRelation[K, V]` is the target-name facade over `FunctionalRelation[K, V]`.
-It keeps the same Datalog map behavior: `insert` stages key-value changes,
+`MapRelation[K, V]` is the Datalog map-relation facade. It keeps the same
+Datalog map behavior: `insert` stages key-value changes,
 `get` and `iter` read the current materialized map, and `delta_iter` reads the
 current frontier during fixpoint rules. The checked companion covers staged
 inserts, delta reads, and materialized reads after `Runtime::fixpoint` in
@@ -1001,9 +967,8 @@ inserts, delta reads, and materialized reads after `Runtime::fixpoint` in
 
 ## Helper Functions
 
-Target helper functions take `Ctx : RuntimeContext` and construct target facade
-handles from the context runtime. Compatibility helpers that take
-`Db : Database` remain documented below.
+Helper functions take `Ctx : RuntimeContext` and construct facade handles from
+the context runtime.
 
 ### `create_input[Ctx : RuntimeContext, T](ctx: Ctx, value: T, durability?: Durability, label?: String) -> Input[T]`
 
@@ -1058,69 +1023,42 @@ owned cells for disposal:
 
 Use `scope.adopt(tracked) -> T` to register a cell created outside the scope
 (e.g. via `map` or raw constructors) with the scope's lifecycle. The cell
-must implement `Trackable`. Returns the cell for convenient chaining.
+must implement `InputFieldOwner`. Returns the cell for convenient chaining.
 
 Use `scope.add_watch(watch) -> Watch[T]` to tie a long-lived target `Watch` to
 the same scope. Disposing the scope disposes the watch before owned cells are
 disposed.
 
-### Compatibility helpers
+### `create_accumulator[Ctx : RuntimeContext, T : Eq](ctx: Ctx, label? : String) -> Accumulator[T]`
 
-The helpers below take `Db : Database` and return compatibility handles.
-
-### `create_input`
-
-Creates a new `Input` using the context runtime.
-
-The checked companion covers construction, durability, and label
-introspection in
-[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
-
-
-### `create_accumulator[Db : Database, T : Eq](db: Db, label? : String) -> Accumulator[T]`
-
-Creates a runtime-owned accumulator using `db.runtime()`. Prefer `Scope::accumulator` for scope-bound lifetimes.
+Creates a runtime-owned accumulator using `ctx.runtime()`. Prefer `Scope::accumulator` for scope-bound lifetimes.
 
 The checked companion covers accumulator construction and memo push retrieval
 in [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
-### `create_tracked_cell`
+### `create_scope[Ctx : RuntimeContext](ctx: Ctx) -> Scope`
 
-Creates a new `TrackedCell` using the database's runtime.
-
-The checked companion covers `create_tracked_cell`, durability, labels, and
-scope disposal in
-[`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
-
-### `create_scope[Db : Database](db: Db) -> Scope`
-
-Creates a root `Scope` using the database's runtime. Target-style code can also
+Creates a root `Scope` using the context runtime. Target-style code can also
 construct a scope directly with `Scope::new(ctx.runtime())`.
 
-### `add_tracked[T : Trackable](scope: Scope, tracked: T) -> Unit`
-
-Compatibility helper for `TrackedCell` owners. Target-name code should use
-`add_input_fields(scope, owner)`.
-
-The checked companion covers `create_scope` and `add_tracked` disposal in
+The checked companion covers `create_scope` disposal in
 [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
+### `batch[Ctx : RuntimeContext](ctx: Ctx, f: () -> Unit raise?) -> Unit raise?`
 
-### `batch[Db : Database](db: Db, f: () -> Unit raise?) -> Unit raise?`
+Runs a batch using `ctx.runtime()`, including rollback-on-raise semantics.
+This is the `RuntimeContext` helper form of `rt.batch(...)`.
 
-Runs a batch using `db.runtime()`, including rollback-on-raise semantics.
-This is the Database helper form of `rt.batch(...)`.
-
-The checked companion covers the Database helper form of `batch` in
+The checked companion covers the `RuntimeContext` helper form of `batch` in
 [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
-### `batch_result[Db : Database](db: Db, f: () -> Unit raise) -> Result[Unit, Error]`
+### `batch_result[Ctx : RuntimeContext](ctx: Ctx, f: () -> Unit raise) -> Result[Unit, Error]`
 
-Runs a batch using `db.runtime()` and returns raised errors as `Result`.
-This is the Database helper form of `rt.batch_result(...)`.
+Runs a batch using `ctx.runtime()` and returns raised errors as `Result`.
+This is the `RuntimeContext` helper form of `rt.batch_result(...)`.
 See `Runtime::batch_result` above for the `raise?` → `raise` migration note.
 
-The checked companion covers the Database helper form of `batch_result`,
+The checked companion covers the `RuntimeContext` helper form of `batch_result`,
 including rollback on `Err`, in
 [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
@@ -1164,5 +1102,3 @@ The backdate decision — whether a recomputed value counts as "changed" — is 
 | `DerivedMap::has_cached`, `sweep_cache` | `K : Hash + Eq` |
 | `Input::set` | `T : Eq` |
 | `Input::new`, `get`, `get_result`, `force_set` | none |
-| `TrackedCell::set` | `T : Eq` |
-| `TrackedCell::new`, `get`, `get_result`, `force_set` | none |

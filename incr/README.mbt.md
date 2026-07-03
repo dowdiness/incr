@@ -169,10 +169,12 @@ only in reachability/GC behavior; its recomputation is the same lazy revision
 check as `Derived`. Cross-session/content-addressed caching is not automatic —
 see the [constructive traces feasibility note](../docs/research/constructive-traces-feasibility.md).
 
-Naming note: a few legacy compatibility names remain available (`Reactive`,
-`TrackedCell`, `Database`). Migrating pre-v0.12.0 code that used the removed
-`Memo`-family or `Signal` names? See the [CHANGELOG](../CHANGELOG.md). The
-naming direction is recorded in
+Naming note: as of v0.13.0 the compatibility names (`Reactive`, `TrackedCell`,
+`FunctionalRelation`, `Database`, `Readable`, `Trackable`, and the older
+`Memo`-family / `Signal` names) have been removed; use the target names
+(`EagerDerived`, `InputField`, `MapRelation`, `RuntimeContext`, `Freshness`,
+`InputFieldOwner`, `Derived`, `Input`) instead. Migrating older code? See the
+[CHANGELOG](../CHANGELOG.md). The naming direction is recorded in
 [ADR 2026-05-21](../docs/decisions/2026-05-21-public-api-ideal-naming.md).
 
 ## Development

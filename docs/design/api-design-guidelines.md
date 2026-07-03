@@ -409,16 +409,14 @@ consumers.
 
 ### Naming Surface
 
-Target facade names are the API: `Input[T]`, `Derived[T]`, `DerivedMap[K, V]`,
+Facade names are the API: `Input[T]`, `Derived[T]`, `DerivedMap[K, V]`,
 `ReachableDerived[T]`, `EagerDerived[T]`, `InputField[T]`, `MapRelation[K, V]`,
-`Effect`, `Relation[T]`, `Runtime`; traits `RuntimeContext` / `Freshness` /
-`InputFieldOwner`. A small set of compatibility names remains re-exported:
-`Reactive[T]`, `TrackedCell[T]`, `FunctionalRelation[K, V]`, `Observer`;
-traits `Database` / `Readable` / `Trackable`. The removed pre-v0.12.0 names
-are mapped in the [CHANGELOG](../../CHANGELOG.md).
-
-Future breaking work is compatibility cleanup (removing the remaining old
-names), not a semantic flip back to them.
+`Effect`, `Relation[T]`, `Runtime`, `Observer`; traits `RuntimeContext` /
+`Freshness` / `InputFieldOwner`. As of v0.13.0 the compatibility names
+(`Reactive[T]`, `TrackedCell[T]`, `FunctionalRelation[K, V]`, and traits
+`Database` / `Readable` / `Trackable`) have been removed as a direct breaking
+cleanup (no deprecation stage). The full removal mapping, plus the removed
+pre-v0.12.0 names, is in the [CHANGELOG](../../CHANGELOG.md).
 
 ### Additive (Safe to Add)
 

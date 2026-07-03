@@ -1,7 +1,7 @@
 # Phase 0 Ideal API Rename Language-Mechanics Spike
 
 This directory is throwaway probe code for
-`docs/plans/2026-05-21-ideal-api-rename-migration.md` Phase 0. It is not a
+`docs/archive/completed-phases/2026-05-21-ideal-api-rename-migration.md` Phase 0. It is not a
 public API implementation.
 
 Findings from `moon check`:

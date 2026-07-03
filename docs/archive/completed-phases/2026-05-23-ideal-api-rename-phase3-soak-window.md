@@ -2,9 +2,10 @@
 
 **Date:** 2026-05-23
 **Revised:** 2026-05-26
-**Status:** Implemented docs/tooling slice (2026-05-26)
+**Status:** Complete
+**Decision record:** No ADR needed: superseded by issue #345's revised decision (2026-07-03) — the compatibility surface was removed directly as 0.13.0 with no deprecation/soak stage, and the codemod (`scripts/migrate-to-target-facades.py`) was deleted in the same release.
 **Parent plan:** [2026-05-21-ideal-api-rename-migration.md](2026-05-21-ideal-api-rename-migration.md)
-**ADR:** [2026-05-21-public-api-ideal-naming.md](../decisions/2026-05-21-public-api-ideal-naming.md)
+**ADR:** [2026-05-21-public-api-ideal-naming.md](../../decisions/2026-05-21-public-api-ideal-naming.md)
 
 ## Revision note
 

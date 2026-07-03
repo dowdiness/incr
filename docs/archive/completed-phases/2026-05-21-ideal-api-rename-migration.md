@@ -1,9 +1,15 @@
 # Ideal API Rename Migration Plan
 
 **Date:** 2026-05-21
-**Status:** Draft implementation plan
+**Status:** Complete
 **Scope:** Docs-only plan. Do not implement public API changes in this
 planning step.
+
+**Decision record:** This plan's staged-compatibility premise (keep
+compatibility names available through a dedicated migration window) was
+superseded by issue #345's revised decision (2026-07-03): a direct removal of
+the compatibility API surface as a single breaking v0.13.0 release, with no
+separate deprecation stage.
 
 ## Context
 

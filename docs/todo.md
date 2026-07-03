@@ -277,11 +277,11 @@ parser. Boundary ③ (CST → Typed AST) needs to exist before these features ca
 
 ### Tracked Structs
 
-No new library code needed — `TrackedCell`, `Trackable`, and `MemoMap` already provide all
+No new library code needed — `InputField`, `InputFieldOwner`, and `DerivedMap` already provide all
 required infrastructure. The work here is demonstrating the pattern, not building it.
 
-- [ ] Add integration test: `InternId` + `TrackedCell` fields, field-level dependency granularity
-      (change one field, only dependent memos recompute; identity key stable across revisions)
+- [ ] Add integration test: `InternId` + `InputField` fields, field-level dependency granularity
+      (change one field, only dependent derived values recompute; identity key stable across revisions)
 
 ### Accumulators — SHIPPED
 
@@ -461,9 +461,9 @@ migration guard.
 Public target facades have now shipped for the main handle families
 (`Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`,
 `EagerDerived`, `Watch`, `MapRelation`) and for target extension traits
-(`RuntimeContext`, `Freshness`, `InputFieldOwner`). Compatibility names remain
-available; final removal or breaking semantic flips are still deferred to a
-dedicated migration window.
+(`RuntimeContext`, `Freshness`, `InputFieldOwner`). The compatibility names
+have since been removed as a direct breaking cleanup in v0.13.0 (issue #345;
+no deprecation stage) — see the [CHANGELOG](../CHANGELOG.md) for the mapping.
 
 ### Method-name candidates
 

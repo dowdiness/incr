@@ -54,16 +54,15 @@ High-level future direction for the `incr` library, organized by phase. Each pha
 
 - ~~**Target handle names**: Add target facades while keeping compatibility names available~~ ✓ Implemented
   - `Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `EagerDerived`, `Watch`, and `MapRelation`
-  - Compatibility handles (`Signal`, `Memo`, `HybridMemo`, `MemoMap`, `TrackedCell`, `Reactive`, `Observer`, `FunctionalRelation`) remain source-compatible during migration
+  - Compatibility handles (`Signal`, `Memo`, `HybridMemo`, `MemoMap`, `TrackedCell`, `Reactive`, `FunctionalRelation`) were source-compatible during the migration window; removed as a direct breaking cleanup in v0.13.0 (`Observer` was not removed)
 - ~~**Target read semantics**: Make target derived reads explicit about context and failure~~ ✓ Implemented
   - Strict graph reads are guarded and return cycle `Result`s via `get()`; `get_or_abort()` aborts on invalid context or cycle
   - Permissive outside-graph reads return cycle `Result`s via `read()`; `read_or_abort()` aborts on cycle
 - ~~**Target context and lifecycle helpers**~~ ✓ Implemented
   - `RuntimeContext`, `Freshness`, `InputFieldOwner`
   - `create_input`, `create_derived`, `create_reachable_derived`, `create_eager_derived`, `create_derived_map`, and `add_input_fields`
-- **Docs/examples migration**: In progress
-  - README, getting-started, concepts, API reference, cookbook, and architecture docs are target-first where target facades already cover the behavior
-  - Accumulator and low-level introspection recipes still document compatibility handles where target facades do not expose equivalent APIs
+- ~~**Docs/examples migration**~~ ✓ Implemented
+  - README, getting-started, concepts, API reference, cookbook, and architecture docs are target-first; compatibility names are documented only in historical/migration notes (v0.13.0 direct removal, no deprecation stage)
 
 ## Phase 3 — Performance
 

@@ -74,8 +74,6 @@ For contributors and advanced users who want to understand or modify `incr`.
 - [TODO](todo.md) — contributor task list organized by priority
 - [incr_tea backlog](../incr_tea/docs/backlog.md) — task list for the `dowdiness/incr_tea` module (retargeted TEA issues + agenda)
 - [Active plans](plans/) — concrete implementation plans for upcoming work:
-  - [2026-05-21 Ideal API rename migration](plans/2026-05-21-ideal-api-rename-migration.md) — staged compatibility plan for the target names
-  - [2026-05-23 Phase 3a compatibility-to-facade migration](plans/2026-05-23-ideal-api-rename-phase3-soak-window.md) — docs/codemod plan for the `Memo`-family → `Derived`-family move
   - [2026-05-26 Evaluation strategy refactor](plans/2026-05-26-evaluation-strategy-refactor.md) — internal sealed scheduler/rebuilder strategies
   - [2026-05-28 Typed Spreadsheet responsibility boundary](plans/2026-05-28-typed-spreadsheet-boundary.md) — app-vs-library split before spreadsheet-specific sugar
   - [2026-06-08 AcceptedDerived BackdateEq tier](plans/2026-06-08-accepted-derived-backdate-eq-tier.md) — revision-gated acceptance for non-`Eq` candidates; downstream validation pending
@@ -132,7 +130,7 @@ Large historical collection under [`archive/`](archive/) covering completed plan
 | Document | Topic |
 |----------|-------|
 | [archive/plans/](archive/plans/) | Shipped implementation plans (dispose/GC layers, runtime modularization, stage-5 internal split, T1b commit-phase refactor) |
-| [archive/completed-phases/](archive/completed-phases/) | Older completed phases (datalog primitives, cells simplification, accumulator API spec, R1 engine package split with stage notes) |
+| [archive/completed-phases/](archive/completed-phases/) | Older completed phases (datalog primitives, cells simplification, accumulator API spec, R1 engine package split with stage notes, 2026-05-21 ideal API rename migration plan + 2026-05-23 Phase 3a migration-guide/codemod plan — both superseded by the #345 direct removal in 0.13.0) |
 | [archive/incr-unified-design.md](archive/incr-unified-design.md) | Unified reactive runtime design (SoA + multi-mode) |
 | [archive/2026-04-08-dispose-gc-design.md](archive/2026-04-08-dispose-gc-design.md) | Dispose/GC design — all 5 layers complete (PRs #28–#33) |
 | [archive/api-updates.md](archive/api-updates.md) | Summary of past API documentation changes |

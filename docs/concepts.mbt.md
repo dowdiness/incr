@@ -23,10 +23,10 @@ semantics are caught by `moon check`.
 - **Derived values** are the interior nodes (cached computations)
 - **Arrows** represent dependencies (automatically tracked)
 
-Naming note: a few compatibility names remain available: `Reactive`
-(= `EagerDerived`), `TrackedCell` (= `InputField`), `FunctionalRelation`
-(= `MapRelation`), and the `Database` trait. Migrating pre-v0.12.0 code? See
-the [CHANGELOG](../CHANGELOG.md).
+Naming note: as of v0.13.0 the compatibility names `Reactive`, `TrackedCell`,
+`FunctionalRelation`, and the `Database` trait have been removed; use
+`EagerDerived`, `InputField`, `MapRelation`, and `RuntimeContext` instead.
+Migrating older code? See the [CHANGELOG](../CHANGELOG.md).
 
 ## Inputs
 
@@ -427,9 +427,9 @@ If you need to share data between two independent computation graphs, use a plai
 | Backdating | Skip downstream work when values don't actually change |
 | Durability | Skip verification for stable subgraphs |
 | Batch | Atomic multi-input updates |
-| InputField (`TrackedCell` compatibility name) | Field-level input cells for fine-grained dependency isolation |
-| EagerDerived (`Reactive` compatibility name) | Push-reactive derived value |
-| MapRelation (`FunctionalRelation` compatibility name) | Functional Datalog relation keyed by map keys |
+| InputField | Field-level input cells for fine-grained dependency isolation |
+| EagerDerived | Push-reactive derived value |
+| MapRelation | Functional Datalog relation keyed by map keys |
 | Labels | Zero-cost names for readable error messages and debug output |
 | Runtime Isolation | Each Runtime is independent; cross-runtime reads abort |
 

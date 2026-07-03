@@ -395,7 +395,7 @@ library module.
 
 | Package | Owns |
 |---|---|
-| root (`incr.mbt`, `traits.mbt`) | `pub using` re-exports of all public types; `RuntimeContext`/`Database`/`Readable` traits and `create_*` / `batch` helper functions |
+| root (`incr.mbt`, `traits.mbt`) | `pub using` re-exports of all public types; `RuntimeContext`/`Freshness`/`InputFieldOwner` traits and `create_*` / `batch` helper functions |
 | `types/` | Pure value types: `Revision`, `Durability`, `CellId`, `CycleError`, `ReadError`, id types, `InternTable` |
 | `cells/` | Typed handles (`Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `EagerDerived`, `Effect`, `AcceptedDerived`, `Accumulator`, datalog handles), `Runtime` coordinator, `Scope`/`Watch`/`Observer` lifecycle, batch frontend, introspection. Facade constructors live in `cells/target_facade.mbt`; recompute bodies in `cells/derived_impl.mbt` |
 | `cells/internal/shared/` | Cross-engine leaf abstractions: `CellOps`, `Committable`, `CellMeta`, `CellRef`, `SlotSnapshot` |

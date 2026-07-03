@@ -222,7 +222,7 @@ test "panic functional_relation: cross-runtime read aborts" {
 }
 
 ///|
-test "functional_relation: mixed Relation and FunctionalRelation rule" {
+test "map_relation: mixed Relation and MapRelation rule" {
   let rt = Runtime::Runtime()
   let edges : Relation[(Int, Int)] = Relation::Relation(rt)
   let weights : MapRelation[(Int, Int), Int] = MapRelation::MapRelation(rt)
