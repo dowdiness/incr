@@ -57,6 +57,9 @@ Reference points against prior records:
   `incr.mbt:37,40,42`) alongside the compatibility traits and helpers. See
   §CP2. *(Corrected 2026-07-03 after Codex review: an earlier revision claimed
   the residue was "traits and helpers, not handle types".)*
+  *(Status update, 2026-07-03 post-#345: resolved — the remaining handle
+  types, compatibility traits, and helpers were removed directly as v0.13.0,
+  with no deprecation stage.)*
 
 ## Confirmed change pressures
 
@@ -81,6 +84,9 @@ recorded "compatibility handles do not get bridge methods" as a per-PR call).
 The [ideal-naming ADR](../../decisions/2026-05-21-public-api-ideal-naming.md)
 planned a migration window but never scheduled it; the cost of the window
 grows monotonically as the library approaches external adoption.
+*(Status update, 2026-07-03 post-#345: executed — the dual surface was
+removed as v0.13.0 in a single breaking release; the codemod script was
+deleted with it. This pressure is closed.)*
 
 **CP3 — Coordinator concern accretion in `runtime.mbt`.** Not a god object —
 but observability plumbing (listener registries, hook dispatch, broadcast

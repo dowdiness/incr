@@ -1,6 +1,6 @@
 ---
 name: incr
-description: Use when writing or reviewing MoonBit code against the `dowdiness/incr` reactive library (v0.6.x+) — building Inputs/Deriveds/ReachableDeriveds (or the compatibility names Signal/Memo/HybridMemo), attaching long-lived derived cells with `Watch`/`Observer`, adding microbenchmarks, or wrapping a reactive pipeline in a struct. Catches recurring idiom misses (inside-vs-outside read semantics, GC-anchor `Watch`/`Observer`, `Type::Type` constructor naming, defensive copies).
+description: Use when writing or reviewing MoonBit code against the `dowdiness/incr` reactive library (v0.13.x+) — building Inputs/Deriveds/ReachableDeriveds, attaching long-lived derived cells with `Watch`/`Observer`, adding microbenchmarks, or wrapping a reactive pipeline in a struct. Catches recurring idiom misses (inside-vs-outside read semantics, GC-anchor `Watch`/`Observer`, `Type::Type` constructor naming, defensive copies).
 ---
 
 # incr
@@ -16,18 +16,13 @@ source tree.
 
 ## When to Use
 
-Trigger keywords (target facade — preferred for new code):
+Trigger keywords:
 `@incr.Input`, `@incr.Derived`, `@incr.ReachableDerived`,
 `@incr.InputField`, `@incr.EagerDerived`, `@incr.DerivedMap`,
-`@incr.Watch`, `@incr.MapRelation`, `Scope::new`, `scope.input`,
-`scope.derived`, `scope.reachable_derived`, `scope.eager_derived`,
-`.read()`, `.read_or_abort()`, `.get_or_abort()`, `.watch()`.
-
-Trigger keywords (compatibility names — still valid, used by older
-loom/canopy code): `Memo::new`, `Signal::new`, `HybridMemo::new`,
-`@incr.Observer`, `Reactive`, `scope.memo`, `scope.signal`,
-`add_observer`, `.observe()`, `rt.read`, `rt.read_hybrid`,
-`rt.read_reactive`.
+`@incr.Watch`, `@incr.Observer`, `@incr.MapRelation`, `Scope::new`,
+`scope.input`, `scope.derived`, `scope.reachable_derived`,
+`scope.eager_derived`, `.read()`, `.read_or_abort()`,
+`.get_or_abort()`, `.watch()`, `.observe()`, `add_observer`.
 
 Also fires on: `parser.runtime()`, `attach_*`, `bench_test.mbt`,
 `.bench(` — or any time you are defining a new struct that owns reactive cells
@@ -36,62 +31,55 @@ and exposes a `get`/`dispose` surface.
 Sister skill: **loom** (parser-side conventions). If the task involves
 calling `Parser::new` or `new_parser`, read that one too.
 
-## Naming: Target Facade ↔ Compatibility
+## Historical Mapping (names removed in v0.12.0 / v0.13.0)
 
-Per `~/.claude/CLAUDE.md` and `loom/incr/CLAUDE.md`, v0.6.0 introduced
-target facade names as the preferred form for new docs and examples.
-Compatibility names remain supported, but ordinary new code should use
-the target facades. Keep compatibility handles only where the target
-facade intentionally does not expose the behavior yet (accumulators,
-low-level memo introspection recipes, or legacy downstream code).
+`incr` 0.13.0 is a breaking release that removed the entire compatibility
+API surface introduced during the v0.6.x target-facade migration. The
+names below no longer exist — do not use them in new code, and if you
+encounter them in older loom/canopy code, treat it as pre-0.13.0 code
+that needs migrating to the current names.
 
-| Compatibility | Target facade |
-|---------------|---------------|
-| `Signal[T]` | `Input[T]` |
-| `Memo[T]` | `Derived[T]` |
-| `HybridMemo[T]` | `ReachableDerived[T]` |
+| Removed (compat name) | Current API |
+|------------------------|--------------|
+| `Signal[T]` / `Signal::new` | `Input[T]` |
+| `Memo[T]` / `Memo::new` | `Derived[T]` |
+| `HybridMemo[T]` / `HybridMemo::new` | `ReachableDerived[T]` |
 | `MemoMap[K, V]` | `DerivedMap[K, V]` |
-| `TrackedCell[T]` | `InputField[T]` |
-| `Reactive[T]` | `EagerDerived[T]` |
-| `Observer[T]` | `Watch[T]` |
+| `TrackedCell[T]` / `create_tracked_cell` | `InputField[T]` / `create_input_field` |
+| `Reactive[T]` / `Reactive::new` | `EagerDerived[T]` |
 | `FunctionalRelation[T]` | `MapRelation[T]` |
+| `Database` | `RuntimeContext` |
+| `Readable` | `Freshness` |
+| `Trackable` | `InputFieldOwner` |
 | `scope.memo(...)` | `scope.derived(...)` |
 | `scope.signal(...)` | `scope.input(...)` |
+| `Scope::reactive(...)` | `Scope::eager_derived(...)` |
+| `add_tracked(...)` | `add_input_fields(...)` or `scope.adopt(...)` |
+| `InputField::as_tracked_cell` / `TrackedCell::as_input` | removed — use `InputField` directly |
 | `memo.observe()` | `derived.watch()` |
 | `rt.read(memo)` | `derived.read()` / `derived.read_or_abort()` |
 | `rt.read_hybrid(h)` | `reachable.read()` / `reachable.read_or_abort()` |
 | `rt.read_reactive(r)` | `eager.read()` |
+| root re-exports `ReactiveId` / `FunctionalRelationId` | removed |
 
-`Runtime`, `Scope`, `Accumulator`, `Effect`, `DerivedEvent`, `CycleError`
-are the same name in both worlds. New code should pick one column and
-stay there per cell chain — don't mix `Memo` and `Derived` for the same
-graph unless a compatibility-only API forces that boundary.
-
-**Phase 3a decision (2026-05-26, PR #90):** do **not** add target-vocabulary
-bridge methods to compatibility handles (`Memo::read`, `Memo::get_or_abort`,
-`MemoMap::read`, etc.). The compatibility handles are eventual cleanup/removal
-targets; migrating users to new methods on them would create churn. For ordinary
-migration, move the handle type/constructor to `Derived`, `ReachableDerived`, or
-`DerivedMap`. No migration script is currently tracked in this repo; use the
-API tables and `cells/pkg.generated.mbti` when doing manual rewrites.
+`Runtime`, `Scope`, `Accumulator`, `Effect`, `DerivedEvent`, `CycleError`,
+`Observer`/`Watch` are unaffected by this cleanup. See the CHANGELOG for
+the full removal list and any remaining edge cases.
 
 ## Quick Reference
 
-Rows below show the target facade form first; compatibility-name equivalents in
-parentheses.
-
 | Situation | Use | Not |
 |-----------|-----|-----|
-| Read an `Input` from inside any compute closure | `input.get()` | wrapping in `rt.read(...)` — Inputs are non-fallible; `.get()` records the dep at zero observer cost |
-| Read a `Derived` / `ReachableDerived` from inside another compute closure | `derived.get_or_abort()` / `reachable.get_or_abort()` (strict) or `.get()` returning `Result` (graceful) | `rt.read(...)`, `.read_or_abort()`, or `.read()` — outside-read APIs do one-shot observer work or obscure the tracked boundary |
+| Read an `Input` from inside any compute closure | `input.get()` | wrapping in an outside-read API — Inputs are non-fallible; `.get()` records the dep at zero observer cost |
+| Read a `Derived` / `ReachableDerived` from inside another compute closure | `derived.get_or_abort()` / `reachable.get_or_abort()` (strict) or `.get()` returning `Result` (graceful) | `.read_or_abort()` or `.read()` — outside-read APIs do one-shot observer work or obscure the tracked boundary |
 | Read an `EagerDerived` from inside another compute closure | `eager.get()` | `eager.read()` — it is permissive and should be reserved for outside-graph reads unless a boundary wrapper deliberately needs that behavior |
-| Read a `Derived` (or `Memo`) from outside the reactive graph (tests, top-level, non-tracked consumer methods) | `derived.read_or_abort()` or `derived.read() -> Result` (or persistent `watch.read_or_abort()` / `observer.get()`) | calling strict graph reads (`.get()` / `.get_or_abort()`) outside a tracked context aborts, or records a dependency if a compute frame is unexpectedly active |
-| Read a `ReachableDerived` (or `HybridMemo`) from outside the graph | `reachable.read_or_abort()` or `reachable.read()` (or `watch.read_or_abort()`) | mixing `rt.read(h)` — `Runtime::read` is `Memo[T]`-only; for the compat handle, `rt.read_hybrid(h)` works but is the legacy form |
-| Read an `EagerDerived` (or `Reactive`) from outside the graph | `eager.read()` (or `watch.read_or_abort()`); compat: `rt.read_reactive(r)` or `observer.get()` | calling `eager.get()` / `reactive.get()` outside a tracked context aborts |
+| Read a `Derived` from outside the reactive graph (tests, top-level, non-tracked consumer methods) | `derived.read_or_abort()` or `derived.read() -> Result` (or persistent `watch.read_or_abort()` / `observer.get()`) | calling strict graph reads (`.get()` / `.get_or_abort()`) outside a tracked context aborts, or records a dependency if a compute frame is unexpectedly active |
+| Read a `ReachableDerived` from outside the graph | `reachable.read_or_abort()` or `reachable.read()` (or `watch.read_or_abort()`) | — |
+| Read an `EagerDerived` from outside the graph | `eager.read()` (or `watch.read_or_abort()` / `observer.get()`) | calling `eager.get()` outside a tracked context aborts |
 | Read anything after `dispose()` | Don't — disposed cells/observers/watches abort | — |
 | Define a new struct's primary constructor | `fn MyStruct::MyStruct(...) -> MyStruct` | `fn MyStruct::new(...) -> MyStruct` (older idiom; `Type::Type` is project convention per `~/.claude/moonbit-base.md`) |
-| Attach long-lived derived cells to a parser/runtime | `Scope` + persistent `Watch` (preferred) or `Observer` (compat) — see templates below | Bare `Derived(rt, ...)` / `Memo::new` with no GC root — `rt.gc()` will sweep the chain |
-| Use a library-provided constructor | `Input(rt, v, label=...)`, `Derived(rt, f, label=...)`, `ReachableDerived(rt, f, label=...)`, `Runtime()`, `Scope::new(rt)`, `derived.watch()` (or compat: `Memo::new`, `Signal::new`, `memo.observe()`) | Don't rename library APIs — the `Type::Type` convention is for *defining* new structs, not for *calling* upstream library constructors. `Watch` comes from `*.watch()`; `Observer` from `*.observe()`. Neither has `::new`. |
+| Attach long-lived derived cells to a parser/runtime | `Scope` + persistent `Watch` (preferred) or `Observer` — see templates below | Bare `Derived(rt, ...)` with no GC root — `rt.gc()` will sweep the chain |
+| Use a library-provided constructor | `Input(rt, v, label=...)`, `Derived(rt, f, label=...)`, `ReachableDerived(rt, f, label=...)`, `Runtime()`, `Scope::new(rt)`, `derived.watch()` | Don't rename library APIs — the `Type::Type` convention is for *defining* new structs, not for *calling* upstream library constructors. `Watch` comes from `*.watch()`; `Observer` from `*.observe()`. Neither has `::new`. |
 
 ## Inside vs Outside the Graph (the big rule)
 
@@ -100,8 +88,7 @@ closure or not?**
 
 **Inside a compute closure** (`Derived(rt, f, ...)`, `ReachableDerived`,
 `EagerDerived`, `scope.derived`, `scope.reachable_derived`,
-`scope.eager_derived` — and the compat equivalents `Memo::new`,
-`HybridMemo::new`, `Reactive::new`, `scope.memo`):
+`scope.eager_derived`):
 
 - `input.get()` — Inputs are non-fallible; just reads and records the dep.
 - `derived.get_or_abort()` / `reachable.get_or_abort()` — strict read; aborts on cycle.
@@ -118,109 +105,93 @@ consumer methods):
 - `derived.read()` / `reachable.read()` — returns `Result[T, CycleError]`.
 - `eager.read()` — reads the current eager/push value outside the graph.
 - Through a long-lived anchor: `watch.read_or_abort()` / `watch.read()`
-  (or compat: `observer.get()`).
-- Legacy: `rt.read(memo)` / `rt.read_hybrid(h)` / `rt.read_reactive(r)`
-  still work for the compat-named handles.
+  (or `observer.get()`).
 
-The target-facade result-returning read channel — `Derived` /
-`ReachableDerived` `.get()` / `.read()`, `DerivedMap` `.get(key)` /
-`.read(key)`, and `Watch::read()` — currently returns `Result[..., CycleError]`.
-`DerivedMap::read_or(...)` and `DerivedMap::read_or_else(...)` return the value
-`V` directly after applying their fallback. Disposed cells still abort on strict
-reads. Keep generated code matching on `CycleError` until a broader read-error
-API appears in `cells/pkg.generated.mbti`.
+The read channel — `Derived` / `ReachableDerived` `.get()` / `.read()`,
+`DerivedMap` `.get(key)` / `.read(key)`, and `Watch::read()` — currently
+returns `Result[..., CycleError]`. `DerivedMap::read_or(...)` and
+`DerivedMap::read_or_else(...)` return the value `V` directly after
+applying their fallback. Disposed cells still abort on strict reads. Keep
+generated code matching on `CycleError` until a broader read-error API
+appears in `cells/pkg.generated.mbti`.
 
 ### Why mixing breaks
 
-Calling `rt.read(memo)` from inside a compute closure (or
-`derived.read_or_abort()` / `reachable.read_or_abort()` — same shape)
-opens and closes a one-shot observer to do the read, on top of the
-tracking frame that's already live. The 2026-05-18 measurement put the
-inflation at ~25–30% on layered/tree shapes (see
+Calling `derived.read_or_abort()` / `reachable.read_or_abort()` from
+inside a compute closure opens and closes a one-shot observer to do the
+read, on top of the tracking frame that's already live. The 2026-05-18
+measurement put the inflation at ~25–30% on layered/tree shapes (see
 `feedback_api_misuse_pattern.md`). Correctness is fine, so the bug is
 invisible without a microbench.
 
 Calling strict graph reads (`derived.get()`, `derived.get_or_abort()`,
-`reachable.get()`, `reachable.get_or_abort()`, `eager.get()`, or compat
-`memo.get()` / `reactive.get()`) at top level aborts outside a tracked
-context; inside a helper that happens to run during another compute, it
-records a dependency on that active frame. Outside code should use
-read/watch APIs instead.
+`reachable.get()`, `reachable.get_or_abort()`, `eager.get()`) at top
+level aborts outside a tracked context; inside a helper that happens to
+run during another compute, it records a dependency on that active
+frame. Outside code should use read/watch APIs instead.
 
 ### Examples
 
 ```moonbit
-// ✅ Target facade — inside a Derived body
+// ✅ Inside a Derived body
 let total = Derived(
   rt,
   () => subtotal.get_or_abort().to_double() + tax.get_or_abort(),
   label="total",
 )
 
-// ✅ Compatibility — inside a Memo body (still valid)
-let typed_memo = scope.memo(
-  fn() { @typecheck.convert_from_cst(parser.syntax_tree().get_or_abort()) },
-  label="typed_term_bridge",
-)
-
 // ❌ Inside a compute closure — pays the observer lifecycle every recompute
-let typed_memo = scope.memo(
-  fn() { @typecheck.convert_from_cst(rt.read(parser.syntax_tree())) },
+let typed_derived = scope.derived(
+  fn() { @typecheck.convert_from_cst(parser.syntax_tree().read_or_abort()) },
 )
 
-// ✅ Outside the graph — target facade
+// ✅ Outside the graph
 let snapshot = parser.syntax_tree().read_or_abort()
 match total.read() {
   Ok(v) => println("Total: \{v}")
   Err(e) => println(e.format_path())
 }
 
-// ✅ Outside the graph — compat path (still works)
-let snapshot = rt.read(parser.syntax_tree())
-
 // ✅ Outside the graph through a persistent anchor
-let result = attachment.watch.read_or_abort()    // target
-let result = attachment.observer.get()           // compat
+let result = attachment.watch.read_or_abort()    // Watch
+let result = attachment.observer.get()           // Observer
 ```
 
 Canonical references:
 
-- `docs/target_api_examples.mbt.md` — checked literate examples of the
-  target facade form (`Input`, `Derived`, `Scope`, `Watch`,
-  `read_or_abort`, `get_or_abort`).
+- `docs/target_api_examples.mbt.md` — checked literate examples
+  (`Input`, `Derived`, `Scope`, `Watch`, `read_or_abort`, `get_or_abort`).
 - `docs/getting-started.md` — narrative version with the
   inside-vs-outside rule called out.
-- `tests/bench_test.mbt` — bench template using the compat names; still
-  the canonical bench surface.
-- `dowdiness/loom: examples/lambda/src/typed_parser.mbt:59` — compat
-  `scope.memo` + `.get_or_abort()` pattern in real downstream use.
+- `tests/bench_test.mbt` — bench template; canonical bench surface.
+- `dowdiness/loom: examples/lambda/src/typed_parser.mbt:59` —
+  `scope.derived` + `.get_or_abort()` pattern in real downstream use.
 - `dowdiness/loom: examples/lambda/src/callers/callers.mbt:133` — same.
 
 ## The Persistent-Anchor GC Rule
 
 `Runtime::gc()` marks reachability via BFS from `gc_root_counts`, which
-`derived.watch()` / `memo.observe()` increment. One-shot
-`derived.read_or_abort()` (or legacy `rt.read(memo)`) creates and
-disposes the anchor immediately — so it does NOT keep the cell alive
-across a later `gc()`. Interior Deriveds with no anchor get swept;
-subsequent reads abort.
+`derived.watch()` / `derived.observe()` increment. One-shot
+`derived.read_or_abort()` creates and disposes the anchor immediately —
+so it does NOT keep the cell alive across a later `gc()`. Interior
+Deriveds with no anchor get swept; subsequent reads abort.
 
 **Rule:** if you build a downstream chain that should survive
 `Runtime::gc()` (anything stored in a struct field with a public `get`),
-hold a persistent `Watch` (target) or `Observer` (compat) on the
-terminal Derived/Memo. Target `Watch` values are not registered through `Scope`
-in the current API, so store the `Watch` field and dispose it explicitly;
-compat `Observer` values can be registered with `Scope::add_observer`. Prime the
-terminal read before exposing the facade if `Runtime::gc()` can run before the
-first consumer read: an uncomputed watched/observed cell is rooted, but has no
-recorded upstream `gc_dependencies()` yet. If the facade keeps a last-good cache,
+hold a persistent `Watch` or `Observer` on the terminal Derived. `Watch`
+values are not registered through `Scope` in the current API, so store
+the `Watch` field and dispose it explicitly; `Observer` values can be
+registered with `Scope::add_observer`. Prime the terminal read before
+exposing the facade if `Runtime::gc()` can run before the first consumer
+read: an uncomputed watched/observed cell is rooted, but has no recorded
+upstream `gc_dependencies()` yet. If the facade keeps a last-good cache,
 seed it from that priming read.
 
 GC traversal follows `gc_dependencies()` from anchored roots, so the
 parser's interior cells stay reachable as long as one downstream cell is
 watched/observed and has been computed at least once.
 
-### Template — target facade (preferred for new code)
+### Template — `Watch` (preferred for new code)
 
 ```moonbit
 pub(all) struct MyAttachment {
@@ -259,7 +230,7 @@ pub fn MyAttachment::dispose(self : MyAttachment) -> Unit {
 }
 ```
 
-### Template — compatibility names (still canonical in loom/canopy as of 2026-05-24)
+### Template — `Observer`
 
 From `dowdiness/loom: examples/lambda/src/typed_parser.mbt` (and
 mirrored in `dowdiness/loom: examples/lambda/src/callers/callers.mbt`):
@@ -275,11 +246,11 @@ pub fn attach_my_thing(
 ) -> MyAttachment {
   let rt = parser.runtime()
   let scope = @incr.Scope::new(rt)
-  let derived = scope.memo(
+  let derived = scope.derived(
     fn() { do_work(parser.syntax_tree().get_or_abort()) },
     label="derived_bridge",
   )
-  let result = scope.memo(
+  let result = scope.derived(
     fn() { finalize(derived.get_or_abort()) },
     label="derived_result",
   )
@@ -297,8 +268,9 @@ pub fn MyAttachment::dispose(self : MyAttachment) -> Unit {
 }
 ```
 
-Both templates produce the same reachability behavior. Pick a column
-per chain and stay there — don't half-migrate one struct.
+Both templates produce the same reachability behavior. Pick one per
+chain and stay there — don't half-migrate one struct between `Watch`
+and `Observer` mid-flight.
 
 ## Constructor Naming for *New* Structs
 
@@ -313,16 +285,16 @@ call site, match nearby code (`Type::Type(args)` or the short-form
 // ✅ New struct in user code
 pub fn CallersPipeline::CallersPipeline(
   rt : @incr.Runtime,
-  syntax : @incr.Derived[@seam.SyntaxNode],   // or @incr.Memo if matching surrounding compat code
+  syntax : @incr.Derived[@seam.SyntaxNode],
 ) -> CallersPipeline { ... }
 
 let p = CallersPipeline::CallersPipeline(rt, syntax)
 ```
 
-### What v0.6.x facade names look like at the call site
+### What API names look like at the call site
 
-The target facade ships its constructors using exactly this convention,
-so `Input(rt, v)` / `Derived(rt, f)` / `ReachableDerived(rt, f)` /
+The library ships its constructors using exactly this convention, so
+`Input(rt, v)` / `Derived(rt, f)` / `ReachableDerived(rt, f)` /
 `InputField(rt, v)` / `Runtime()` are the canonical call forms — no
 `::new` and no explicit `Type::Type` qualifier needed at the call site.
 
@@ -332,25 +304,16 @@ let x = Input(rt, 10, label="x")
 let total = Derived(rt, () => x.get() * 2, label="total")
 ```
 
-The compatibility names still use `::new` because they are aliases for
-the older shape:
-
-```moonbit
-let rt = Runtime::new()
-let x = Signal::new(rt, 10)
-let m = Memo::new(rt, () => x.get() * 2)
-```
-
-`Scope::new(rt)` is the same in both worlds.
+`Scope::new(rt)` follows the `::new` form because `Scope` predates the
+direct-constructor sugar.
 
 ### Don't rename upstream library constructors
 
-`Memo::new`, `Signal::new`, `HybridMemo::new`, `Runtime::new`,
-`Scope::new`, `Parser::new` are the names those APIs ship with — call
-them as-is. **`Watch` and `Observer` are never constructed**; they
-come from `derived.watch()` / `memo.observe()` / `hybrid.observe()` /
-`reactive.observe()`. The `Type::Type` rule is for new struct
-definitions, not retroactive migration of upstream APIs.
+`Runtime::new`, `Scope::new`, `Parser::new` are the names those APIs
+ship with — call them as-is. **`Watch` and `Observer` are never
+constructed**; they come from `derived.watch()` / `derived.observe()` /
+`reachable.observe()` / `eager.observe()`. The `Type::Type` rule is for
+new struct definitions, not retroactive migration of upstream APIs.
 
 Canonical reference for the convention in use:
 `dowdiness/loom: examples/lambda/src/callers/callers.mbt:127` defines
@@ -359,21 +322,9 @@ Canonical reference for the convention in use:
 ## Bench Patterns
 
 Canonical reference: `tests/bench_test.mbt`. Copy its surface when
-adding new benches. As of 2026-05-24 the bench file uses compatibility
-names — that's fine; either column works. Match whatever the file you're
-editing already uses.
+adding new benches.
 
 ```moonbit
-// Compatibility-name form — matches existing bench_test.mbt
-test "memo: get warm (up-to-date, no recompute)" (b : @bench.T) {
-  let rt = Runtime::new()
-  let sig = Signal::new(rt, 42)
-  let m = Memo::new(rt, () => sig.get() * 2)
-  ignore(rt.read(m))           // ← prime BEFORE measuring
-  b.bench(fn() { b.keep(rt.read(m)) })
-}
-
-// Target-facade form — same shape, new vocabulary
 test "derived: get warm (up-to-date, no recompute)" (b : @bench.T) {
   let rt = Runtime()
   let x = Input(rt, 42)
@@ -386,91 +337,76 @@ test "derived: get warm (up-to-date, no recompute)" (b : @bench.T) {
 Conventions to match verbatim:
 
 - **Prime, then bench.** Call the outside-graph read once
-  (`rt.read(m)` or `d.read_or_abort()`) before `b.bench(...)` to settle
-  dependencies and avoid measuring first-touch overhead.
+  (`d.read_or_abort()`) before `b.bench(...)` to settle dependencies and
+  avoid measuring first-touch overhead.
 - **Use `b.keep(...)` on the result** so the compiler doesn't dead-code
   the read.
 - **`b.bench(fn() { ... })`** is the canonical signature; the closure
   body should be the smallest realistic measurement.
-- **Library-API names ship with the column you pick** — `Signal::new` /
-  `Memo::new` / `Runtime::new` (compat) or `Input(rt, ...)` /
-  `Derived(rt, ...)` / `Runtime()` (target). Don't invent
-  `Input::new` — the target facade uses direct-constructor sugar.
+- **Library-API names use direct-constructor sugar** — `Input(rt, ...)`
+  / `Derived(rt, ...)` / `Runtime()`. Don't invent `Input::new`.
 - **Inside compute closures use `.get()` (Input/EagerDerived) or
   `.get_or_abort()` / `.get()` (Derived/ReachableDerived); outside use
-  `rt.read(...)` (compat), `.read_or_abort()` / `.read()`
-  (Derived/ReachableDerived), or `.read()` (EagerDerived).** The bench
-  file is the template for both rules at once.
+  `.read_or_abort()` / `.read()` (Derived/ReachableDerived), or `.read()`
+  (EagerDerived).** The bench file is the template for both rules at once.
 - **Label derived cells** in attached pipelines (`label="..."`) — labels
   show up in introspection, which is the whole point of having them.
 
 ## When You're About to Write New Reactive Code — Checklist
 
 Before any non-trivial `Derived(rt, ...)` / `ReachableDerived` /
-`EagerDerived` (or compat `Memo::new` / `HybridMemo::new` /
-`Reactive::new`) call, ask:
+`EagerDerived` call, ask:
 
-1. **Which column am I in?** Pick target facade
-   (`Input`/`Derived`/`Watch`) or compatibility
-   (`Signal`/`Memo`/`Observer`) and match the file you're editing.
-   Don't half-migrate one chain.
-2. **Am I inside a tracked closure?** If yes, use `.get()` for
+1. **Am I inside a tracked closure?** If yes, use `.get()` for
    `Input` / `EagerDerived`, or `.get_or_abort()` / `.get()` for
    `Derived` / `ReachableDerived` (the latter returns `Result`). If
    outside (top-level, test setup, a public method that's not a compute
    body), use `.read_or_abort()` / `.read()` for `Derived` /
-   `ReachableDerived`, `.read()` for `EagerDerived`, `rt.read(...)` /
-   `rt.read_hybrid(...)` / `rt.read_reactive(...)` (compat), or a
-   persistent `watch.read_or_abort()` / `observer.get()`.
-3. **Will this cell survive `rt.gc()`?** If it's owned by a struct with
+   `ReachableDerived`, `.read()` for `EagerDerived`, or a persistent
+   `watch.read_or_abort()` / `observer.get()`.
+2. **Will this cell survive `rt.gc()`?** If it's owned by a struct with
    a public `get`/`dispose` surface, it needs a `Scope` + persistent
-   `Watch` (target) or `Observer` (compat) GC anchor. If it's transient
-   (one-shot read, immediately discarded), a bare outside-graph read is
-   fine.
-4. **Am I defining a new struct constructor?** Name it `Type::Type`,
+   `Watch` or `Observer` GC anchor. If it's transient (one-shot read,
+   immediately discarded), a bare outside-graph read is fine.
+3. **Am I defining a new struct constructor?** Name it `Type::Type`,
    not `Type::new`.
-5. **Is this a bench?** Prime once outside `b.bench`. Use library names
-   from whichever column the bench file already uses. Add a `label=`.
+4. **Is this a bench?** Prime once outside `b.bench`. Add a `label=`.
 
 ## Common Mistakes
 
 | Mistake | Symptom | Fix |
 |---------|---------|-----|
-| `rt.read(cell)` or `derived.read_or_abort()` / `reachable.read_or_abort()` inside a compute closure | Bench numbers inflated 25-30% on layered shapes; correctness OK so easy to miss | Replace with `input.get()` / `eager.get()` or `derived.get_or_abort()` / `reachable.get_or_abort()`. Audit the bench file in the same package as the canonical template. |
-| Calling strict graph reads (`.get()` / `.get_or_abort()`) from top-level test or handler | Aborts outside a tracked context, or records a surprising dependency if a compute frame is active | Use `.read_or_abort()` / `.read()` for `Derived` / `ReachableDerived`, `.read()` for `EagerDerived`, or `rt.read(...)` / `rt.read_hybrid(...)` / `rt.read_reactive(...)` for compat handles. |
-| Forgot the GC anchor or priming read on an `attach_*` helper | Tests pass until `rt.gc()` runs before the first read; then `attachment.get()` aborts | Target: store `result.watch()`, prime with `watch.read_or_abort()`, and dispose the watch explicitly. Compat: store `scope.add_observer(result.observe())` and prime with `observer.get()`. |
-| Mixed `Memo`/`Derived` for the same chain | Reviewers/Codex flag the inconsistency; types still align because of aliasing so it compiles | Pick one column per chain. |
+| `derived.read_or_abort()` / `reachable.read_or_abort()` inside a compute closure | Bench numbers inflated 25-30% on layered shapes; correctness OK so easy to miss | Replace with `input.get()` / `eager.get()` or `derived.get_or_abort()` / `reachable.get_or_abort()`. Audit the bench file in the same package as the canonical template. |
+| Calling strict graph reads (`.get()` / `.get_or_abort()`) from top-level test or handler | Aborts outside a tracked context, or records a surprising dependency if a compute frame is active | Use `.read_or_abort()` / `.read()` for `Derived` / `ReachableDerived`, `.read()` for `EagerDerived`. |
+| Forgot the GC anchor or priming read on an `attach_*` helper | Tests pass until `rt.gc()` runs before the first read; then `attachment.get()` aborts | Store `result.watch()` (or `scope.add_observer(result.observe())`), prime with `watch.read_or_abort()` (or `observer.get()`), and dispose the watch explicitly. |
 | Defined `MyType::new(...)` for a new struct | Inconsistent with project convention; Codex/code review will flag | Rename to `MyType::MyType(...)`. |
-| Wrote `Input::new(...)` / `Derived::new(...)` | Target facade ships direct constructors, not `::new` | Use `Input(rt, v, label=...)` / `Derived(rt, f, label=...)` directly. |
-| Forgot to prime in a bench | First-touch cost shows up in the warm baseline | Add `ignore(rt.read(m))` (compat) or `ignore(d.read_or_abort())` (target) before `b.bench(...)`. |
+| Wrote `Input::new(...)` / `Derived::new(...)` | Library ships direct constructors, not `::new` | Use `Input(rt, v, label=...)` / `Derived(rt, f, label=...)` directly. |
+| Forgot to prime in a bench | First-touch cost shows up in the warm baseline | Add `ignore(d.read_or_abort())` before `b.bench(...)`. |
+| Used a name from the historical mapping table (`Signal`, `Memo`, `HybridMemo`, `TrackedCell`, `Reactive`, `FunctionalRelation`, `Database`, `Readable`, `Trackable`, `rt.read`, etc.) | Compile error — removed in v0.12.0/v0.13.0 | Look up the current name in the Historical Mapping table above. |
 
 ## Red Flags — Pause and Verify
 
-- About to type `rt.read(`, `derived.read_or_abort()`, or
-  `reachable.read_or_abort()` inside a closure passed to `Derived` /
-  `ReachableDerived` / `EagerDerived` / `Memo::new` /
-  `HybridMemo::new` / `Reactive::new` / `scope.derived` / `scope.memo` /
-  `scope.reachable_derived` / `scope.eager_derived` /
-  `scope.hybrid_memo` / `scope.reactive` → switch to `.get()` (Input /
-  EagerDerived) or `.get_or_abort()` (Derived / ReachableDerived).
+- About to type `.read_or_abort()` / `reachable.read_or_abort()` inside a
+  closure passed to `Derived` / `ReachableDerived` / `EagerDerived` /
+  `scope.derived` / `scope.reachable_derived` / `scope.eager_derived` →
+  switch to `.get()` (Input / EagerDerived) or `.get_or_abort()` (Derived
+  / ReachableDerived).
 - About to type `eager.read()` inside a tracked closure → prefer
   `eager.get()` so the code documents that it requires a compute frame.
-- About to type `rt.read(h)` on a `HybridMemo` or `rt.read(r)` on a
-  `Reactive` (outside the graph) → use `rt.read_hybrid` /
-  `rt.read_reactive`, or a persistent `observer.get()`. For target
-  names, call `reachable.read_or_abort()` / `eager.read()`.
 - About to define `fn MyType::new(` for a brand-new struct → switch to
   `fn MyType::MyType(`.
-- About to call `Input::new(...)` or `Derived::new(...)` → the target
-  facade ships direct constructors; drop the `::new`.
-- A struct field is `priv derived : @incr.Derived[T]` (or
-  `priv memo : @incr.Memo[T]`) with a public `get` / `dispose` and no
-  `watch : @incr.Watch[T]` / `observer : @incr.Observer[T]` field →
-  missing GC anchor.
-- A bench body that calls `Signal::set` / `input.set` then a read with
-  no prime above it → first iteration measures cold path.
-- Mixing names within one cell chain (`Memo` upstream, `Derived`
-  downstream, or `.observe()` plus `.watch()`) → pick one column.
+- About to call `Input::new(...)` or `Derived::new(...)` → the library
+  ships direct constructors; drop the `::new`.
+- A struct field is `priv derived : @incr.Derived[T]` with a public
+  `get` / `dispose` and no `watch : @incr.Watch[T]` /
+  `observer : @incr.Observer[T]` field → missing GC anchor.
+- A bench body that calls `input.set` then a read with no prime above
+  it → first iteration measures cold path.
+- About to type any name from the Historical Mapping table
+  (`Signal`, `Memo`, `HybridMemo`, `MemoMap`, `TrackedCell`, `Reactive`,
+  `FunctionalRelation`, `Database`, `Readable`, `Trackable`, `rt.read`,
+  `rt.read_hybrid`, `rt.read_reactive`, `scope.memo`, `scope.signal`) →
+  it was removed in v0.12.0/v0.13.0; use the current-API column instead.
 
 ## Canonical Files to Cite (Verify Before Asserting)
 
@@ -479,25 +415,22 @@ paraphrase.
 
 In this repo (`dowdiness/incr`):
 
-- `docs/target_api_examples.mbt.md` — checked literate target facade
-  examples (`Input`, `Derived`, `Scope`, `Watch`, `read_or_abort`,
+- `docs/target_api_examples.mbt.md` — checked literate examples
+  (`Input`, `Derived`, `Scope`, `Watch`, `read_or_abort`,
   `get_or_abort`). Verified by `moon check` — never out of date.
 - `docs/getting-started.md` — narrative walk-through with the
   inside-vs-outside read rule called out.
-- `docs/api-reference.md` — compatibility ↔ target mapping tables for
-  each handle; authoritative shape of `read` / `read_or_abort` /
-  `get` / `get_or_abort` / `watch` / `observe`, plus current guidance to
-  migrate old handles directly to target facades rather than adding bridge
-  methods to compatibility handles.
-- `tests/bench_test.mbt` — bench template (currently in compatibility
-  names; either column is fine — match what's there).
-- `CLAUDE.md` — package map (where each cell type lives), the
-  `cells/internal/*` isolation rule, and the target-facade preference
-  for new docs/examples.
+- `docs/api-reference.md` — authoritative shape of `read` /
+  `read_or_abort` / `get` / `get_or_abort` / `watch` / `observe` for
+  each handle.
+- `tests/bench_test.mbt` — bench template.
+- `CLAUDE.md` — package map (where each cell type lives) and the
+  `cells/internal/*` isolation rule.
+- `CHANGELOG.md` — authoritative record of the v0.12.0/v0.13.0 removals
+  and their replacements.
 
 In sister repo `dowdiness/loom` (where the incr library is consumed by
-real parser pipelines — these are the canonical user-facing examples
-and still use compatibility names as of 2026-05-24):
+real parser pipelines — these are the canonical user-facing examples):
 
 - `examples/lambda/src/typed_parser.mbt` — canonical `Scope` +
   persistent `Observer` + `dispose` lifecycle on a parser attachment.
@@ -529,13 +462,5 @@ written, update the skill — don't trust the path.
   (`docs/decisions/2026-05-17-memo-event-observation.md`) and the
   visualization-tap follow-up. Substantive incr-internal work, not
   workflow guidance.
-- Migrating existing library constructors (`Memo::new` etc.) to
-  `::Type` form. The convention is for new user code.
-- Adding same-receiver target-vocabulary bridge methods to compatibility
-  handles (`Memo::read`, `Memo::get_or_abort`, `MemoMap::read`, etc.).
-  Phase 3a shipped as docs/tooling in PR #90: migrate ordinary consumers
-  directly to `Derived` / `ReachableDerived` / `DerivedMap` instead.
-- Removing compatibility-handle guidance entirely. Compatibility names are
-  still present and remain necessary for accumulator and low-level
-  introspection recipes until a future breaking cleanup explicitly removes
-  or isolates them.
+- Adding same-receiver bridge methods across handle types
+  (`Derived::observe`, etc.) beyond what the current API already ships.
