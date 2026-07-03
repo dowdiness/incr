@@ -66,6 +66,7 @@ For contributors and advanced users who want to understand or modify `incr`.
 - [2026-06-05 `AcceptedDerived`](design/specs/2026-06-05-committed-derived.md) — success-gated authoring primitive retaining the last accepted value
 - [2026-06-05 Typed Spreadsheet bounded trace contract](design/specs/2026-06-05-typed-spreadsheet-bounded-trace-contract.md) — caller-bounded formula traces (#179)
 - [2026-06-25 `Program::stateful` / `stateful_cmd`](design/specs/2026-06-25-program-stateful-design.md) — boilerplate-hiding constructors for mutable-model TEA apps
+- [2026-07-03 Workspace Boundary Assessment](design/specs/2026-07-03-workspace-boundary-assessment.md) — core layering re-verified healthy; pressure moved to the examples/facade seams; staged boundary plan
 
 **Project direction:**
 
