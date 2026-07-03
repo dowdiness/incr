@@ -324,7 +324,10 @@ Boundary 3 (bidirectional type-checker) shipped in loom#81 + incr#34. The infras
 
 ### Incr-owned tasks (when loom commits to the move)
 
-- [ ] Remove `incr/pipeline/` package and update `incr.mbt` re-exports.
+- [x] Remove `incr/pipeline/` package and update `incr.mbt` re-exports.
+      Verified gone 2026-07-03 (#343 audit): the package no longer exists in
+      the tree and `incr.mbt` carries no pipeline re-exports. This entry had
+      gone stale — the removal shipped without being checked off here.
 - [x] Remove the `CalcPipeline` test fixture from `incr/tests/traits_test.mbt`.
 
 ### Delegated outward (not actionable from incr)
