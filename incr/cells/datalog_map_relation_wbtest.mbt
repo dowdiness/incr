@@ -177,7 +177,7 @@ test "functional_relation: revert before fixpoint preserves changed_at and cache
   })
   debug_inspect(m.read_or_abort(), content="1")
   let mut reactive_count = 0
-  let r = Reactive::new(rt, fn() {
+  let r = EagerDerived::EagerDerived(rt, fn() {
     reactive_count += 1
     fr.get("x").unwrap_or(0)
   })

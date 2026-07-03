@@ -72,7 +72,7 @@ test "gc: hybrid memo reachable through observer" {
 test "gc: reactive reachable through observer" {
   let rt = @incr.Runtime()
   let sig = @incr.Input(rt, 1)
-  let r = @incr.Reactive::new(rt, fn() { sig.get() * 4 })
+  let r = @incr.EagerDerived::EagerDerived(rt, fn() { sig.get() * 4 })
   let obs = r.observe()
   inspect(obs.get(), content="4")
   rt.gc()

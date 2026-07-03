@@ -127,7 +127,7 @@ test "hybrid regression: push propagation traverses hybrid to reactive" {
   let s = Input::Input(rt, 1)
   let rd = ReachableDerived(rt, () => s.get() * 2)
   let mut recomputes = 0
-  let r = Reactive::new(rt, () => {
+  let r = EagerDerived::EagerDerived(rt, () => {
     recomputes = recomputes + 1
     rd.get_or_abort() + 1
   })
@@ -173,7 +173,7 @@ test "panic hybrid verify: disposed dependency aborts verification" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 1)
   let unrelated = Input::Input(rt, 0)
-  let r = Reactive::new(rt, () => sig.get() * 2)
+  let r = EagerDerived::EagerDerived(rt, () => sig.get() * 2)
   let rd = ReachableDerived(rt, () => r.get() + 1)
   inspect(rd.read_or_abort(), content="3")
   r.dispose()

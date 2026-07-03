@@ -114,7 +114,7 @@ test "scope: reactive creates cell and registers for disposal" {
   let rt = Runtime::Runtime()
   let scope = Scope::new(rt)
   let sig = scope.input(3)
-  let r : Reactive[Int] = scope.reactive(fn() { sig.get() * 3 })
+  let r : EagerDerived[Int] = scope.eager_derived(fn() { sig.get() * 3 })
   inspect(read_reactive_for_test(r), content="9")
   scope.dispose()
   inspect(r.is_disposed(), content="true")

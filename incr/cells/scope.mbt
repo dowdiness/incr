@@ -225,20 +225,6 @@ pub fn Scope::effect(self : Scope, f : () -> Unit) -> Effect {
 }
 
 ///|
-/// Creates a reactive owned by this scope.
-pub fn[T : Eq] Scope::reactive(
-  self : Scope,
-  compute_fn : () -> T,
-) -> Reactive[T] {
-  guard !self.disposed else {
-    abort("Scope::reactive called on a disposed scope")
-  }
-  let r = Reactive::new(self.runtime, compute_fn)
-  self.cells.push(r.id())
-  r
-}
-
-///|
 /// Creates an eager derived facade owned by this scope.
 pub fn[T : Eq] Scope::eager_derived(
   self : Scope,
@@ -248,7 +234,7 @@ pub fn[T : Eq] Scope::eager_derived(
     abort("Scope::eager_derived called on a disposed scope")
   }
   let derived = EagerDerived(self.runtime, compute_fn)
-  self.cells.push(derived.inner.id())
+  self.cells.push(derived.id())
   derived
 }
 

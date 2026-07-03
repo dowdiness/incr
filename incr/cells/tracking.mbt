@@ -80,7 +80,7 @@ fn Runtime::finish_tracking(
 ///|
 /// Guards a cell read from occurring inside a computation on a different
 /// runtime. Centralizes the cross-runtime check that was previously
-/// duplicated across Input, Derived (outer), HybridMemo, Reactive, Relation,
+/// duplicated across Input, Derived (outer), HybridMemo, EagerDerived, Relation,
 /// and FunctionalRelation read paths.
 fn Runtime::check_cross_runtime(
   _self : Runtime,

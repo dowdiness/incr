@@ -22,7 +22,7 @@ test "observer: reachable derived observe and get" {
 test "observer: reactive observe and get" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 3)
-  let r = Reactive::new(rt, fn() { sig.get() * 3 })
+  let r = EagerDerived::EagerDerived(rt, fn() { sig.get() * 3 })
   let obs = r.observe()
   inspect(obs.get(), content="9")
   obs.dispose()
@@ -79,7 +79,7 @@ test "observer: multiple observers on same cell are ref-counted" {
 test "observer: on_observe fires only on 0-to-1 transition" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 10)
-  let r = Reactive::new(rt, fn() { sig.get() * 2 })
+  let r = EagerDerived::EagerDerived(rt, fn() { sig.get() * 2 })
   // First observer: 0→1 transition
   let obs1 = r.observe()
   inspect(obs1.get(), content="20")
@@ -95,7 +95,7 @@ test "observer: on_observe fires only on 0-to-1 transition" {
 test "observer: reactive suspends on last observer removal when no subscribers" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 10)
-  let r = Reactive::new(rt, fn() { sig.get() * 2 })
+  let r = EagerDerived::EagerDerived(rt, fn() { sig.get() * 2 })
   let obs = r.observe()
   inspect(obs.get(), content="20")
   // Input has reactive in subscriber set
@@ -110,7 +110,7 @@ test "observer: reactive suspends on last observer removal when no subscribers" 
 test "observer: reactive does NOT suspend when it has subscribers" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 10)
-  let r = Reactive::new(rt, fn() { sig.get() * 2 })
+  let r = EagerDerived::EagerDerived(rt, fn() { sig.get() * 2 })
   // Memo reads the reactive — creates a subscriber link
   let d = Derived::Derived(rt, fn() { r.get() + 1 })
   let obs_d = d.observe()
@@ -119,7 +119,7 @@ test "observer: reactive does NOT suspend when it has subscribers" {
   let obs_r = r.observe()
   ignore(obs_r.get())
   obs_r.dispose()
-  // Reactive still has m in its subscriber set — must NOT suspend
+  // EagerDerived still has m in its subscriber set — must NOT suspend
   inspect(rt.dependents(sig.id()).length(), content="1")
   // Push propagation still works through to the memo
   sig.set(20)
@@ -131,7 +131,7 @@ test "observer: reactive does NOT suspend when it has subscribers" {
 test "observer: reactive reactivation catches up on missed changes" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 10)
-  let r = Reactive::new(rt, fn() { sig.get() * 2 })
+  let r = EagerDerived::EagerDerived(rt, fn() { sig.get() * 2 })
   // Observe, verify, unobserve
   let obs1 = r.observe()
   inspect(obs1.get(), content="20")
@@ -148,7 +148,7 @@ test "observer: reactive reactivation catches up on missed changes" {
 test "observer: repeated suspend/activate cycles" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 1)
-  let r = Reactive::new(rt, fn() { sig.get() * 10 })
+  let r = EagerDerived::EagerDerived(rt, fn() { sig.get() * 10 })
   // Cycle 1
   let obs1 = r.observe()
   inspect(obs1.get(), content="10")
@@ -169,7 +169,7 @@ test "observer: repeated suspend/activate cycles" {
 test "observer: multiple observers prevent suspension until last disposed" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 5)
-  let r = Reactive::new(rt, fn() { sig.get() + 1 })
+  let r = EagerDerived::EagerDerived(rt, fn() { sig.get() + 1 })
   let obs1 = r.observe()
   let obs2 = r.observe()
   inspect(obs1.get(), content="6")
@@ -192,11 +192,11 @@ test "observer: multiple observers prevent suspension until last disposed" {
 test "observer: dispose suspended reactive is idempotent" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 1)
-  let r = Reactive::new(rt, fn() { sig.get() })
+  let r = EagerDerived::EagerDerived(rt, fn() { sig.get() })
   let obs = r.observe()
   ignore(obs.get())
   obs.dispose()
-  // Reactive is suspended — subscriber links already removed
+  // EagerDerived is suspended — subscriber links already removed
   // Manual dispose should not double-decrement or abort
   r.dispose()
   assert_true(r.is_disposed())
@@ -209,7 +209,7 @@ test "observer: source disposed during suspension — reactivation uses fresh so
   let sig1 = Input::Input(rt, 10)
   let sig2 = Input::Input(rt, 20)
   let use_sig1 : Ref[Bool] = { val: true }
-  let r = Reactive::new(rt, fn() {
+  let r = EagerDerived::EagerDerived(rt, fn() {
     if use_sig1.val {
       sig1.get()
     } else {
@@ -233,7 +233,7 @@ test "observer: source disposed during suspension — reactivation uses fresh so
 test "observer: reachable derived reading reactive prevents suspension" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 5)
-  let r = Reactive::new(rt, fn() { sig.get() * 3 })
+  let r = EagerDerived::EagerDerived(rt, fn() { sig.get() * 3 })
   let rd = ReachableDerived::ReachableDerived(rt, fn() { r.get() + 1 })
   let obs_rd = rd.observe()
   ignore(obs_rd.get())
@@ -241,7 +241,7 @@ test "observer: reachable derived reading reactive prevents suspension" {
   let obs_r = r.observe()
   ignore(obs_r.get())
   obs_r.dispose()
-  // Reactive has rd in its subscriber set — must NOT suspend
+  // EagerDerived has rd in its subscriber set — must NOT suspend
   sig.set(10)
   inspect(obs_rd.get(), content="31")
   obs_rd.dispose()
@@ -251,7 +251,7 @@ test "observer: reachable derived reading reactive prevents suspension" {
 test "panic observer: on_observe during fixpoint aborts" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 1)
-  let r = Reactive::new(rt, fn() { sig.get() })
+  let r = EagerDerived::EagerDerived(rt, fn() { sig.get() })
   let input : Relation[Int] = Relation::Relation(rt)
   let output : Relation[Int] = Relation::Relation(rt)
   input.insert(1) |> ignore

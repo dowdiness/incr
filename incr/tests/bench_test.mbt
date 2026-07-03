@@ -246,7 +246,7 @@ test "baseline: push propagation with 100 disposed reactives" (b : @bench.T) {
   let sig = Input::Input(rt, 0)
   for i = 0; i < 100; i = i + 1 {
     let idx = i
-    let r = @incr.Reactive::new(rt, fn() { sig.get() + idx })
+    let r = @incr.EagerDerived::EagerDerived(rt, fn() { sig.get() + idx })
     r.dispose()
   }
   let mut v = 0
@@ -282,7 +282,7 @@ test "baseline: reactive create-dispose cycle (existing free list)" (
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 0)
   b.bench(fn() {
-    let r = @incr.Reactive::new(rt, fn() { sig.get() })
+    let r = @incr.EagerDerived::EagerDerived(rt, fn() { sig.get() })
     r.dispose()
   })
 }
@@ -510,7 +510,7 @@ test "diagnostic: input set with 100 disposed reactives on separate input" (
   let sig_b = Input::Input(rt, 0)
   for i = 0; i < 100; i = i + 1 {
     let idx = i
-    let r = @incr.Reactive::new(rt, fn() { sig_b.get() + idx })
+    let r = @incr.EagerDerived::EagerDerived(rt, fn() { sig_b.get() + idx })
     r.dispose()
   }
   let mut v = 0

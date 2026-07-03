@@ -551,44 +551,9 @@ pub fn[T] ReachableDerived::is_disposed(self : ReachableDerived[T]) -> Bool {
 }
 
 ///|
-/// Target-name eager derived cell facade over `Reactive`.
-pub(all) struct EagerDerived[T] {
-  priv inner : Reactive[T]
-}
-
-///|
-/// Creates an eager derived value.
-pub fn[T : Eq] EagerDerived::EagerDerived(
-  rt : Runtime,
-  compute : () -> T,
-) -> EagerDerived[T] {
-  { inner: Reactive::new(rt, compute) }
-}
-
-///|
-/// Strict graph read. Requires an active tracked context.
-pub fn[T] EagerDerived::get(self : EagerDerived[T]) -> T {
-  self.inner.get()
-}
-
-///|
-/// Permissive read. Works outside the graph and records a dependency if tracked.
-pub fn[T] EagerDerived::read(self : EagerDerived[T]) -> T {
-  self.inner.read_permissive()
-}
-
-///|
 /// Creates a long-lived outside-graph reader for this eager derived value.
 pub fn[T] EagerDerived::watch(self : EagerDerived[T]) -> Watch[T] {
-  self.inner.watch_result()
-}
-
-///|
-/// Returns the unique cell identifier for this eager derived value. Stable
-/// across reads — useful for graph-shape probes (gc anchoring, edge
-/// inspection) where a cell needs an identity independent of its value.
-pub fn[T] EagerDerived::id(self : EagerDerived[T]) -> CellId {
-  self.inner.id()
+  self.watch_result()
 }
 
 ///|

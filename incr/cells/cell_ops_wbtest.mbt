@@ -140,7 +140,7 @@ test "gc_role: memo is Interior" {
 test "gc_role: reactive is Interior" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 1)
-  let r = Reactive::new(rt, fn() { sig.get() })
+  let r = EagerDerived::EagerDerived(rt, fn() { sig.get() })
   let ops = rt.core.cell_ops[r.id().id]
   inspect(ops.gc_role(), content="Interior")
   r.dispose()

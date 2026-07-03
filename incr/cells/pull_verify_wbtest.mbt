@@ -39,7 +39,7 @@ test "panic pull_verify: disposed dependency aborts verification" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 1)
   let unrelated = Input::Input(rt, 0)
-  let r = Reactive::new(rt, () => sig.get() * 2)
+  let r = EagerDerived::EagerDerived(rt, () => sig.get() * 2)
   let m = Derived(rt, () => r.get() + 1)
   inspect(m.read_or_abort(), content="3")
   r.dispose()

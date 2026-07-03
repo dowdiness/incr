@@ -84,7 +84,7 @@ test "reachable derived: is_disposed returns correct state" {
 test "reactive: is_disposed returns correct state" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 10)
-  let r = Reactive::new(rt, fn() { sig.get() * 2 })
+  let r = EagerDerived::EagerDerived(rt, fn() { sig.get() * 2 })
   assert_false(r.is_disposed())
   r.dispose()
   assert_true(r.is_disposed())
@@ -286,7 +286,7 @@ test "dispose_cell: idempotent — disposing already-disposed cell is no-op" {
 test "dispose_cell: push reactive and effect" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 1)
-  let reactive : Reactive[Int] = Reactive::new(rt, fn() { sig.get() })
+  let reactive : EagerDerived[Int] = EagerDerived::EagerDerived(rt, fn() { sig.get() })
   let effect_ran : Ref[Int] = { val: 0 }
   let eff = Effect::new(rt, fn() { effect_ran.val = effect_ran.val + sig.get() })
   rt.dispose_cell(reactive.id())

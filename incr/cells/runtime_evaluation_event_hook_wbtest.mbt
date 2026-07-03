@@ -149,7 +149,7 @@ test "runtime_eval: input set emits eager derived, effect, and pass summaries" {
   let rt = Runtime()
   let source = Input(rt, 0)
   let events = collect_runtime_eval_events(rt)
-  let eager = Reactive::new(rt, () => source.get() + 1)
+  let eager = EagerDerived::EagerDerived(rt, () => source.get() + 1)
   let effect_log : Array[Int] = []
   let _effect = Effect::new(rt, () => effect_log.push(source.get()))
   events.clear()
@@ -185,7 +185,7 @@ test "runtime_eval: eager derived unchanged summary reports unchanged" {
   let rt = Runtime()
   let source = Input(rt, 0)
   let events = collect_runtime_eval_events(rt)
-  let eager = Reactive::new(rt, () => {
+  let eager = EagerDerived::EagerDerived(rt, () => {
     ignore(source.get())
     5
   })
@@ -215,8 +215,8 @@ test "runtime_eval: queue skip and pass summary report stale entry" {
   let rt = Runtime()
   let source = Input(rt, 0)
   let events = collect_runtime_eval_events(rt)
-  let r2_ref : Ref[Reactive[Int]?] = { val: None }
-  let r0 = Reactive::new(rt, () => {
+  let r2_ref : Ref[EagerDerived[Int]?] = { val: None }
+  let r0 = EagerDerived::EagerDerived(rt, () => {
     let v = source.get()
     if v > 0 {
       match r2_ref.val {
@@ -226,7 +226,7 @@ test "runtime_eval: queue skip and pass summary report stale entry" {
     }
     v
   })
-  let r2 = Reactive::new(rt, () => {
+  let r2 = EagerDerived::EagerDerived(rt, () => {
     let _ = source.get()
     r0.get() + 1
   })
@@ -261,16 +261,16 @@ test "runtime_eval: queue skip keeps original cell id after slot reuse" {
   let rt = Runtime()
   let source = Input(rt, 0)
   let events = collect_runtime_eval_events(rt)
-  let r2_ref : Ref[Reactive[Int]?] = { val: None }
-  let replacement_ref : Ref[Reactive[Int]?] = { val: None }
+  let r2_ref : Ref[EagerDerived[Int]?] = { val: None }
+  let replacement_ref : Ref[EagerDerived[Int]?] = { val: None }
   let mut replacement_runs = 0
-  let r0 = Reactive::new(rt, () => {
+  let r0 = EagerDerived::EagerDerived(rt, () => {
     let v = source.get()
     if v > 0 {
       match r2_ref.val {
         Some(r) => {
           r.dispose()
-          let replacement = Reactive::new(rt, () => {
+          let replacement = EagerDerived::EagerDerived(rt, () => {
             replacement_runs += 1
             source.get() + 100
           })
@@ -288,7 +288,7 @@ test "runtime_eval: queue skip keeps original cell id after slot reuse" {
     }
     v
   })
-  let r2 = Reactive::new(rt, () => {
+  let r2 = EagerDerived::EagerDerived(rt, () => {
     let _ = source.get()
     r0.get() + 1
   })
@@ -326,7 +326,7 @@ test "runtime_eval: batch commit threads push event sink" {
   let rt = Runtime()
   let source = Input(rt, 0)
   let events = collect_runtime_eval_events(rt)
-  let eager = Reactive::new(rt, () => source.get() + 1)
+  let eager = EagerDerived::EagerDerived(rt, () => source.get() + 1)
   events.clear()
   rt.batch(() => source.set(2))
   inspect(read_reactive_for_test(eager), content="3")

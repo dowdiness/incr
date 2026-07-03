@@ -431,7 +431,7 @@ fn Runtime::alloc_cell_id(self : Runtime, cell_ref : CellRef) -> CellId {
 ///|
 /// Installs a new cell into a reusable-slot SoA array and registers it in
 /// the unified dispatch tables (`cell_ops`, `cell_lifecycle`). Shared by
-/// Input, Derived, Reactive, and Effect constructors.
+/// Input, Derived, EagerDerived, and Effect constructors.
 fn[T : CellOps + CellLifecycle] Runtime::install_cell(
   self : Runtime,
   free_list : Array[Int],

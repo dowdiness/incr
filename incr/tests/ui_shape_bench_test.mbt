@@ -13,7 +13,7 @@
 ///  - sparse:  1000 Reactives total but only 10 subscribed to the mutated
 ///             input — the typical per-frame case (hover/scroll).
 ///  - tree:    balanced binary tree of 1023 Memos (depth 10) with a
-///             Reactive at each of the 512 deepest nodes.
+///             EagerDerived at each of the 512 deepest nodes.
 ///
 /// Each bench measures one "root input mutation" — the worst-case UI event
 /// (router change, theme switch, store-wide update). Subscription patterns
@@ -111,10 +111,10 @@ test "ui: flat 1000 reactives, only 10 subscribed (sparse mutation)" (
 
 ///|
 /// Tree shape: balanced binary tree of 1023 Memos (depth 10) with a
-/// Reactive at each of the 512 deepest nodes. Each non-root Memo depends
+/// EagerDerived at each of the 512 deepest nodes. Each non-root Memo depends
 /// on its parent — analogue of a component tree where each component
 /// reads its own slice of props derived from a parent's projection.
-/// Memos are used for the interior because Reactive cannot be `.get()`-ed
+/// Memos are used for the interior because EagerDerived cannot be `.get()`-ed
 /// from a downstream cell; the leaf Reactives represent "DOM updates."
 test "ui: tree 1023 memos + 512 leaf reactives (root mutation)" (b : @bench.T) {
   let rt = @incr.Runtime::new()
@@ -129,7 +129,7 @@ test "ui: tree 1023 memos + 512 leaf reactives (root mutation)" (b : @bench.T) {
     nodes.push(@incr.Derived::Derived(rt, fn() { parent.get_or_abort() + li }))
     nodes.push(@incr.Derived::Derived(rt, fn() { parent.get_or_abort() + ri }))
   }
-  // Attach a leaf Reactive to each of the 512 deepest nodes (indices 511..1022)
+  // Attach a leaf EagerDerived to each of the 512 deepest nodes (indices 511..1022)
   let leaves : Array[@incr.EagerDerived[Int]] = []
   for i = 511; i < 1023; i = i + 1 {
     let node = nodes[i]

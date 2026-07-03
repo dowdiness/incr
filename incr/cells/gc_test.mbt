@@ -164,7 +164,7 @@ test "panic gc: during push propagation aborts" {
 test "gc: collects suspended reactive" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 1)
-  let r = Reactive::new(rt, fn() { sig.get() * 2 })
+  let r = EagerDerived::EagerDerived(rt, fn() { sig.get() * 2 })
   // Observe then unobserve — reactive is suspended
   let obs = r.observe()
   ignore(obs.get())

@@ -15,7 +15,7 @@ fn[T : Eq] read_reachable_for_test(reachable : @incr.ReachableDerived[T]) -> T {
 }
 
 ///|
-fn[T] read_reactive_for_test(reactive : @incr.Reactive[T]) -> T {
+fn[T] read_reactive_for_test(reactive : @incr.EagerDerived[T]) -> T {
   let observer = reactive.observe()
   let value = observer.get()
   observer.dispose()

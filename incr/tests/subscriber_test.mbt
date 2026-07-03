@@ -77,7 +77,7 @@ test "subscriber: dependents returns empty for disposed id" {
 test "push suspension: full lifecycle via public API" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 10)
-  let r = @incr.Reactive::new(rt, fn() { sig.get() * 2 })
+  let r = @incr.EagerDerived::EagerDerived(rt, fn() { sig.get() * 2 })
   // Observe
   let obs = r.observe()
   inspect(obs.get(), content="20")

@@ -12,7 +12,7 @@ test "runtime: push arrays start empty" {
 test "free list: reactive slot reused after dispose" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 1)
-  let r = Reactive::new(rt, () => s.get())
+  let r = EagerDerived::EagerDerived(rt, () => s.get())
   let _ = read_reactive_for_test(r)
   let r_idx = match rt.core.cell_index[r.id().id] {
     PushReactive(i) => i
@@ -20,7 +20,7 @@ test "free list: reactive slot reused after dispose" {
   }
   r.dispose()
   inspect(rt.push.free_reactives.length(), content="1")
-  let r2 = Reactive::new(rt, () => s.get() + 1)
+  let r2 = EagerDerived::EagerDerived(rt, () => s.get() + 1)
   let _ = read_reactive_for_test(r2)
   let r2_idx = match rt.core.cell_index[r2.id().id] {
     PushReactive(i) => i
@@ -62,7 +62,7 @@ test "runtime: push_node_count tracks live push cells" {
   let rt = Runtime::Runtime()
   inspect(rt.push.node_count, content="0")
   let s = Input::Input(rt, 0)
-  let r = Reactive::new(rt, () => s.get())
+  let r = EagerDerived::EagerDerived(rt, () => s.get())
   inspect(rt.push.node_count, content="1")
   let e = Effect::new(rt, () => {
     let _ = s.get()
@@ -101,12 +101,12 @@ test "cell_ref: PushReactive, PushEffect, Disposed variants exist" {
 
 ///|
 test "push propagation: input → memo → reactive chain (pull-memo bridge)" {
-  // Input → PullMemo → Reactive must propagate eagerly.
+  // Input → PullMemo → EagerDerived must propagate eagerly.
   // enqueue_push_subscribers must traverse through pull memos to reach push nodes.
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 1)
   let d = Derived(rt, () => s.get() * 10)
-  let r = Reactive::new(rt, () => d.get_or_abort() + 1)
+  let r = EagerDerived::EagerDerived(rt, () => d.get_or_abort() + 1)
   debug_inspect(read_reactive_for_test(r), content="11") // s=1, d=10, r=11
   s.set(3)
   debug_inspect(read_reactive_for_test(r), content="31") // s=3, d=30, r=31
@@ -122,9 +122,9 @@ test "push propagation: skip stale queue entry after mid-wave disposal" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 0)
   let mut count = 0
-  let r2_ref : Ref[Reactive[Int]?] = { val: None }
+  let r2_ref : Ref[EagerDerived[Int]?] = { val: None }
   // r0 (level 1): reads s; when s > 0, disposes r2
-  let r0 = Reactive::new(rt, () => {
+  let r0 = EagerDerived::EagerDerived(rt, () => {
     let v = s.get()
     if v > 0 {
       match r2_ref.val {
@@ -135,7 +135,7 @@ test "push propagation: skip stale queue entry after mid-wave disposal" {
     v
   })
   // r2 (level 2): reads s (pre-seeds from input) AND r0 (raises level to 2)
-  let r2 = Reactive::new(rt, () => {
+  let r2 = EagerDerived::EagerDerived(rt, () => {
     count += 1
     let _ = s.get() // subscriber of s → pre-seeded when s changes
     r0.get() + // subscriber of r0 (level 1) → push level = 2
@@ -153,7 +153,7 @@ test "push propagation: skip stale queue entry after mid-wave disposal" {
 test "panic reactive: get after dispose aborts" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 0)
-  let r = Reactive::new(rt, () => s.get())
+  let r = EagerDerived::EagerDerived(rt, () => s.get())
   r.dispose()
   let _ = read_reactive_for_test(r) // disposed reactive → abort
 }
@@ -163,7 +163,7 @@ test "panic reactive: cross-runtime get aborts" {
   let rt_a = Runtime::Runtime()
   let rt_b = Runtime::Runtime()
   let s_b = Input::Input(rt_b, 10)
-  let reactive_b = Reactive::new(rt_b, () => s_b.get())
+  let reactive_b = EagerDerived::EagerDerived(rt_b, () => s_b.get())
   // d_a computes on rt_a but reads reactive_b from rt_b → abort
   let d_a = Derived(rt_a, () => reactive_b.get())
   let _ = d_a.read_or_abort()
@@ -172,10 +172,10 @@ test "panic reactive: cross-runtime get aborts" {
 // ─── Task 3: push_propagate_from ────────────────────────────────────────────
 
 ///|
-test "push propagation: basic reactive chain Input → Reactive" {
+test "push propagation: basic reactive chain Input → EagerDerived" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 1)
-  let r = Reactive::new(rt, () => s.get() * 2)
+  let r = EagerDerived::EagerDerived(rt, () => s.get() * 2)
   let _ = read_reactive_for_test(r) // initial: 2
   s.set(5) // triggers push propagation
   inspect(read_reactive_for_test(r), content="10")
@@ -187,10 +187,10 @@ test "push propagation: glitch prevention in diamond" {
   // d should never see an inconsistent (b,c) pair
   let rt = Runtime::Runtime()
   let a = Input::Input(rt, 1)
-  let b = Reactive::new(rt, () => a.get() + 1)
-  let c = Reactive::new(rt, () => a.get() * 10)
+  let b = EagerDerived::EagerDerived(rt, () => a.get() + 1)
+  let c = EagerDerived::EagerDerived(rt, () => a.get() * 10)
   let mut saw_glitch = false
-  let d = Reactive::new(rt, () => {
+  let d = EagerDerived::EagerDerived(rt, () => {
     let bv = b.get()
     let cv = c.get()
     // Invariant: bv - 1 == cv / 10 (both sides equal current value of a)
@@ -212,8 +212,8 @@ test "push propagation: glitch prevention in diamond" {
 test "level: reactive level is source max + 1" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 1)
-  let r1 = Reactive::new(rt, () => s.get())
-  let r2 = Reactive::new(rt, () => r1.get() + 1)
+  let r1 = EagerDerived::EagerDerived(rt, () => s.get())
+  let r2 = EagerDerived::EagerDerived(rt, () => r1.get() + 1)
   let _ = read_reactive_for_test(r1)
   let _ = read_reactive_for_test(r2)
   let r1_idx = match rt.core.cell_index[r1.id().id] {
@@ -233,12 +233,12 @@ test "early cutoff: unchanged value does not propagate to downstream" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 1)
   // reads s but always returns 5
-  let always5 = Reactive::new(rt, () => {
+  let always5 = EagerDerived::EagerDerived(rt, () => {
     let _ = s.get()
     5
   })
   let mut count = 0
-  let downstream = Reactive::new(rt, () => {
+  let downstream = EagerDerived::EagerDerived(rt, () => {
     count += 1
     always5.get()
   })
@@ -248,13 +248,13 @@ test "early cutoff: unchanged value does not propagate to downstream" {
   inspect(count, content="1")
 }
 
-// ─── Task 5: Reactive::get / Effect ─────────────────────────────────────────
+// ─── Task 5: EagerDerived::get / Effect ─────────────────────────────────────────
 
 ///|
 test "reactive: get() returns cached value" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 10)
-  let r = Reactive::new(rt, () => s.get() * 3)
+  let r = EagerDerived::EagerDerived(rt, () => s.get() * 3)
   inspect(read_reactive_for_test(r), content="30")
   inspect(read_reactive_for_test(r), content="30") // cached
 }
@@ -303,7 +303,7 @@ test "push abort: reactive failure restores phase stack and sources" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 0)
   let other = Input::Input(rt, 100)
-  let r = Reactive::new(rt, () => s.get() + 1)
+  let r = EagerDerived::EagerDerived(rt, () => s.get() + 1)
   let r_idx = match rt.core.cell_index[r.id().id] {
     PushReactive(i) => i
     _ => abort("expected PushReactive")
@@ -356,7 +356,7 @@ test "push abort: effect failure restores phase stack and sources" {
 test "push: batch commit triggers propagation" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 0)
-  let r = Reactive::new(rt, () => s.get() * 2)
+  let r = EagerDerived::EagerDerived(rt, () => s.get() * 2)
   let _ = read_reactive_for_test(r)
   rt.batch(() => {
     s.set(5)
@@ -366,10 +366,10 @@ test "push: batch commit triggers propagation" {
 }
 
 ///|
-test "mixed pull/push: Memo reads Reactive; Reactive reads Input" {
+test "mixed pull/push: Memo reads EagerDerived; EagerDerived reads Input" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 1)
-  let r = Reactive::new(rt, () => s.get() + 1)
+  let r = EagerDerived::EagerDerived(rt, () => s.get() + 1)
   let d = Derived(rt, () => r.get() * 10)
   s.set(4)
   inspect(d.read_or_abort(), content="50") // r = 5, d = 50
@@ -381,7 +381,7 @@ test "mixed pull/push: Memo reads Reactive; Reactive reads Input" {
 test "dispose: sources' subscriber sets updated after reactive dispose" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 1)
-  let r = Reactive::new(rt, () => s.get())
+  let r = EagerDerived::EagerDerived(rt, () => s.get())
   let _ = r.read_permissive()
   let s_idx = match rt.core.cell_index[s.id().id] {
     PullInput(i) => i
@@ -396,7 +396,7 @@ test "dispose: sources' subscriber sets updated after reactive dispose" {
 test "dispose: disposed reactive not reachable via subscriber walk" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 1)
-  let r = Reactive::new(rt, () => s.get() * 2)
+  let r = EagerDerived::EagerDerived(rt, () => s.get() * 2)
   let _ = r.read_permissive()
   r.dispose()
   let subs = rt.get_subscribers(s.id()).collect()
@@ -422,7 +422,7 @@ test "dispose: 100 reactives on one input leave subscribers empty and node_count
   }
   for i = 0; i < 100; i = i + 1 {
     let idx = i
-    let r = Reactive::new(rt, () => s.get() + idx)
+    let r = EagerDerived::EagerDerived(rt, () => s.get() + idx)
     r.dispose()
   }
   inspect(rt.pull.inputs[s_idx].meta.subscribers.length(), content="0")

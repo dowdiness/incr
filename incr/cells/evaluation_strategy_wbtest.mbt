@@ -14,7 +14,7 @@ fn run_evaluation_strategy_scenario(
   rt.install_evaluation_strategies(strategies)
   let source = Input(rt, 1)
   let derived = Derived(rt, () => source.get() * 10)
-  let eager = Reactive::new(rt, () => derived.get_or_abort() + 1)
+  let eager = EagerDerived::EagerDerived(rt, () => derived.get_or_abort() + 1)
   let effect_log : Array[Int] = []
   let _effect = Effect::new(rt, () => effect_log.push(eager.get()))
   let derived_values : Array[Int] = []
@@ -163,7 +163,7 @@ test "evaluation strategy: tracing forwards runtime evaluation events" {
   rt.runtime_evaluation_event_hook.listener = Some(fn(event) {
     events.push(event)
   })
-  let eager = Reactive::new(rt, () => source.get() + 1)
+  let eager = EagerDerived::EagerDerived(rt, () => source.get() + 1)
   source.set(1)
   inspect(read_reactive_for_test(eager), content="2")
   let trace = recorder.summary()

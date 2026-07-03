@@ -43,7 +43,7 @@ fn[T : Eq] ReachableDerived::_create(
   rt.cell_lifecycle.push(lifecycle)
   // ReachableDerived intentionally does NOT increment rt.push.node_count.
   // However, it does participate in push_reachable_count tracking: when a
-  // live Reactive/Effect subscribes through a ReachableDerived, the cell and its
+  // live EagerDerived/Effect subscribes through a ReachableDerived, the cell and its
   // upstream cells each get push_reachable_count incremented. This lets
   // enqueue_push_subscribers prune dead ReachableDerived branches in the BFS
   // without traversing them. When push_reachable_count == 0, staleness is

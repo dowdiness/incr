@@ -68,7 +68,7 @@ test "subscriber: dependents returns empty for leaf memo" {
 test "subscriber: dependents ignores stale reactive id after slot reuse" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 1)
-  let old = Reactive::new(rt, () => s.get())
+  let old = EagerDerived::EagerDerived(rt, () => s.get())
   let old_id = old.id()
   let old_idx = match rt.core.cell_index[old_id.id] {
     PushReactive(i) => i
@@ -76,13 +76,13 @@ test "subscriber: dependents ignores stale reactive id after slot reuse" {
   }
   old.dispose()
   inspect(rt.dependents(old_id).length(), content="0")
-  let reused = Reactive::new(rt, () => s.get() + 1)
+  let reused = EagerDerived::EagerDerived(rt, () => s.get() + 1)
   let reused_idx = match rt.core.cell_index[reused.id().id] {
     PushReactive(i) => i
     _ => abort("expected PushReactive")
   }
   inspect(reused_idx, content=old_idx.to_string())
-  let downstream = Reactive::new(rt, () => reused.get() * 2)
+  let downstream = EagerDerived::EagerDerived(rt, () => reused.get() * 2)
   inspect(rt.dependents(reused.id()).contains(downstream.id()), content="true")
   // Keep stale dispatch metadata non-empty to pin the disposed guard ordering.
   rt.core.cell_ops[old_id.id].subscribers().add(downstream.id())

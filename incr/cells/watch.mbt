@@ -38,7 +38,7 @@ fn Runtime::remove_read_root(self : Runtime, id : CellId) -> Unit {
 /// Returns the current value of the observed cell.
 ///
 /// For Memo and HybridMemo targets, this triggers pull verification
-/// if the cell is stale. For Reactive targets, returns the eagerly
+/// if the cell is stale. For EagerDerived targets, returns the eagerly
 /// computed cached value.
 pub fn[T] Observer::get(self : Observer[T]) -> T {
   guard !self.disposed else { abort("Observer: already disposed") }
@@ -119,11 +119,11 @@ pub fn[T] Watch::is_disposed(self : Watch[T]) -> Bool {
 }
 
 ///|
-/// Creates an observer for a Reactive cell.
-pub fn[T] Reactive::observe(self : Reactive[T]) -> Observer[T] {
+/// Creates an observer for an eager derived cell.
+pub fn[T] EagerDerived::observe(self : EagerDerived[T]) -> Observer[T] {
   let cell_id = self.cell_id.id
   guard !self.rt.is_cell_disposed(cell_id) else {
-    abort("Reactive::observe called on a disposed reactive")
+    abort("EagerDerived::observe called on a disposed eager derived cell")
   }
   let rt = self.rt
   rt.add_read_root(cell_id)
@@ -136,10 +136,10 @@ pub fn[T] Reactive::observe(self : Reactive[T]) -> Observer[T] {
 }
 
 ///|
-fn[T] Reactive::watch_result(self : Reactive[T]) -> Watch[T] {
+fn[T] EagerDerived::watch_result(self : EagerDerived[T]) -> Watch[T] {
   let cell_id = self.cell_id.id
   guard !self.rt.is_cell_disposed(cell_id) else {
-    abort("Reactive::watch called on a disposed reactive")
+    abort("EagerDerived::watch called on a disposed eager derived cell")
   }
   let rt = self.rt
   rt.add_read_root(cell_id)

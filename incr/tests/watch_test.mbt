@@ -40,7 +40,7 @@ test "runtime: read_hybrid one-shot convenience" {
 test "runtime: read_reactive one-shot convenience" {
   let rt = @incr.Runtime()
   let sig = @incr.Input(rt, 3)
-  let r = @incr.Reactive::new(rt, fn() { sig.get() * 5 })
+  let r = @incr.EagerDerived::EagerDerived(rt, fn() { sig.get() * 5 })
   inspect(read_reactive_for_test(r), content="15")
 }
 

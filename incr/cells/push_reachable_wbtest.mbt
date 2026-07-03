@@ -62,7 +62,7 @@ test "push_reachable_count: diamond topology" {
 test "push_reachable_count: reactive dispose returns counts to 0" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 0)
-  let r = Reactive::new(rt, () => s.get())
+  let r = EagerDerived::EagerDerived(rt, () => s.get())
   inspect(get_count(rt, s.id()), content="1")
   r.dispose()
   inspect(get_count(rt, s.id()), content="0")
@@ -74,7 +74,7 @@ test "push_reachable_count: diamond dispose returns to 0" {
   let s = Input::Input(rt, 0)
   let mA = Derived(rt, () => s.get() + 1)
   let mB = Derived(rt, () => s.get() + 2)
-  let r = Reactive::new(rt, () => mA.read_or_abort() + mB.read_or_abort())
+  let r = EagerDerived::EagerDerived(rt, () => mA.read_or_abort() + mB.read_or_abort())
   inspect(get_count(rt, s.id()), content="2")
   r.dispose()
   inspect(get_count(rt, s.id()), content="0")
@@ -87,7 +87,7 @@ test "push_reachable_count: relation-to-reactive" {
   let rt = Runtime::Runtime()
   let rel : Relation[Int] = Relation::Relation(rt)
   let mut count = 0
-  let r = Reactive::new(rt, () => {
+  let r = EagerDerived::EagerDerived(rt, () => {
     count = count + 1
     rel.iter().fold(init=0, fn(acc, x) { acc + x })
   })
@@ -251,7 +251,7 @@ test "push_reachable_count: inner pruning — live branch still fires after dead
     r1_val = mA.read_or_abort()
     r1_val
   })
-  let r2 = Reactive::new(rt, () => mB.read_or_abort())
+  let r2 = EagerDerived::EagerDerived(rt, () => mB.read_or_abort())
   inspect(get_count(rt, sig.id()), content="2")
   inspect(get_count(rt, mB.id()), content="1")
   r2.dispose()

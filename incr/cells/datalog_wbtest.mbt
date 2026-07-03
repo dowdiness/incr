@@ -304,11 +304,11 @@ test "get_changed_at: relation duplicate frontier preserves changed_at" {
 /// Regression: publish_cell_changes must run push_propagate_from before
 /// fire_on_change so that push nodes downstream of a Relation are recomputed
 /// before any on_change callback fires.
-test "fixpoint: push Reactive downstream of Relation recomputes before on_change" {
+test "fixpoint: push EagerDerived downstream of Relation recomputes before on_change" {
   let rt = Runtime::Runtime()
   let rel : Relation[Int] = Relation::Relation(rt)
-  // Reactive reads the relation's current set; depends on rel's CellId.
-  let r = Reactive::new(rt, () => rel.iter().fold(init=0, (acc, x) => acc + x))
+  // EagerDerived reads the relation's current set; depends on rel's CellId.
+  let r = EagerDerived::EagerDerived(rt, () => rel.iter().fold(init=0, (acc, x) => acc + x))
   let _ = read_reactive_for_test(r) // establish dependency
   let mut reactive_val_at_callback = -1
   rt.set_on_change(fn() { reactive_val_at_callback = read_reactive_for_test(r) })

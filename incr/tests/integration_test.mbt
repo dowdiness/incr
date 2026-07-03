@@ -318,7 +318,7 @@ test "dispose: multiple inputs, dispose one, others unaffected" {
 test "scope: add_observer triggers suspension on scope dispose" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 5)
-  let r = @incr.Reactive::new(rt, fn() { sig.get() + 1 })
+  let r = @incr.EagerDerived::EagerDerived(rt, fn() { sig.get() + 1 })
   let scope = @incr.Scope::new(rt)
   let obs = scope.add_observer(r.observe())
   inspect(obs.get(), content="6")
@@ -326,7 +326,7 @@ test "scope: add_observer triggers suspension on scope dispose" {
   inspect(obs.get(), content="11")
   // Scope dispose triggers observer dispose triggers on_unobserve
   scope.dispose()
-  // Reactive is suspended — gc can collect it
+  // EagerDerived is suspended — gc can collect it
   rt.gc()
   assert_true(r.is_disposed())
 }

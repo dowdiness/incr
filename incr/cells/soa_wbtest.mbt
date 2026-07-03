@@ -66,7 +66,7 @@ test "runtime: dispatch tables stay index-aligned across all cell kinds" {
   let hm = ReachableDerived(rt, () => sig.get())
   let _ = hm.read_or_abort()
   rt.check_table_invariant()
-  let r = Reactive::new(rt, () => sig.get())
+  let r = EagerDerived::EagerDerived(rt, () => sig.get())
   rt.check_table_invariant()
   let _ = Effect::new(rt, () => sig.get() |> ignore)
   rt.check_table_invariant()

@@ -130,7 +130,7 @@ test "facade scope: target handles are disposed with scope" {
   inspect(input.is_disposed(), content="true")
   inspect(derived.is_disposed(), content="true")
   inspect(reachable.is_disposed(), content="true")
-  inspect(eager.inner.is_disposed(), content="true")
+  inspect(eager.is_disposed(), content="true")
   inspect(by_key.disposed.val is Some(_), content="true")
   inspect(by_key.entries.length(), content="0")
 }

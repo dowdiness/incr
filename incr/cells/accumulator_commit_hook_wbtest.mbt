@@ -125,7 +125,7 @@ test "MemoCommitPhase: forward dispatch order on abort" {
 
 ///|
 /// Test B — Non-memo-frame preservation.
-/// A push Reactive whose compute reads `Memo::accumulated*` must not
+/// A push EagerDerived whose compute reads `Memo::accumulated*` must not
 /// leave any state keyed by its own cell. The cell_index gate in the
 /// accumulator push paths is what enforces the silent no-op.
 test "MemoCommitPhase: Memo::accumulated from a reactive frame leaves no entry" {

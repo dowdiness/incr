@@ -21,7 +21,7 @@ impl CellLifecycle for PushReactiveData with fn dispose_cell(self, rt, cell_id) 
 /// Suspends the push path when the last observer is removed.
 ///
 /// Only suspends if no other cell reads this reactive (subscribers empty).
-/// A Memo or another Reactive in the subscriber set means this cell's
+/// A Memo or another EagerDerived in the subscriber set means this cell's
 /// changed_at must keep advancing — suspension would cause stale reads.
 ///
 /// Note: `self.sources` is NOT cleared here — it stays populated so that
