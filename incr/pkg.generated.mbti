@@ -11,15 +11,13 @@ pub const DURABILITY_COUNT : Int = 3
 
 pub const MAX_CYCLE_DISPLAY_STEPS : Int = 20
 
-pub fn[T : InputFieldOwner] add_input_fields(@cells.Scope, T) -> Unit
+pub fn[T : @cells.InputFieldOwner] add_input_fields(@cells.Scope, T) -> Unit
 
-pub fn[T : @cells.Trackable] add_tracked(@cells.Scope, T) -> Unit
+pub fn[Ctx : RuntimeContext] batch(Ctx, () -> Unit raise?) -> Unit raise?
 
-pub fn[Db : Database] batch(Db, () -> Unit raise?) -> Unit raise?
+pub fn[Ctx : RuntimeContext] batch_result(Ctx, () -> Unit raise) -> Result[Unit, Error]
 
-pub fn[Db : Database] batch_result(Db, () -> Unit raise) -> Result[Unit, Error]
-
-pub fn[Db : Database, T : Eq] create_accumulator(Db, label? : String) -> @cells.Accumulator[T]
+pub fn[Ctx : RuntimeContext, T : Eq] create_accumulator(Ctx, label? : String) -> @cells.Accumulator[T]
 
 pub fn[Ctx : RuntimeContext, T : Eq] create_derived(Ctx, () -> T raise Failure, label? : String) -> @cells.Derived[T]
 
@@ -33,9 +31,7 @@ pub fn[Ctx : RuntimeContext, T] create_input_field(Ctx, T, durability? : @types.
 
 pub fn[Ctx : RuntimeContext, T : Eq] create_reachable_derived(Ctx, () -> T raise Failure, label? : String) -> @cells.ReachableDerived[T]
 
-pub fn[Db : Database] create_scope(Db) -> @cells.Scope
-
-pub fn[Db : Database, T] create_tracked_cell(Db, T, durability? : @types.Durability, label? : String) -> @cells.TrackedCell[T]
+pub fn[Ctx : RuntimeContext] create_scope(Ctx) -> @cells.Scope
 
 // Errors
 
@@ -76,10 +72,6 @@ pub using @cells {type EagerDerived}
 
 pub using @cells {type Effect}
 
-pub using @cells {type FunctionalRelation}
-
-pub using @types {type FunctionalRelationId}
-
 pub using @types {type GcRole}
 
 pub using @cells {type Input}
@@ -100,10 +92,6 @@ pub using @cells {type Observer}
 
 pub using @cells {type ReachableDerived}
 
-pub using @cells {type Reactive}
-
-pub using @types {type ReactiveId}
-
 pub using @types {type ReadError}
 
 pub using @cells {type Relation}
@@ -120,21 +108,15 @@ pub using @types {type RuntimeId}
 
 pub using @cells {type Scope}
 
-pub using @cells {type TrackedCell}
-
 pub using @cells {type Watch}
 
 pub using @types {trait BackdateEq}
 
 pub using @types {trait HasChangedAt}
 
-pub using @cells {trait Trackable}
+pub using @cells {trait InputFieldOwner}
 
 // Traits
-pub(open) trait Database {
-  fn runtime(Self) -> @cells.Runtime
-}
-
 pub(open) trait Freshness {
   fn is_fresh(Self) -> Bool
 }
@@ -142,17 +124,6 @@ pub impl[T] Freshness for @cells.Derived[T]
 pub impl[T] Freshness for @cells.Input[T]
 pub impl[T] Freshness for @cells.InputField[T]
 pub impl[T] Freshness for @cells.ReachableDerived[T]
-
-pub(open) trait InputFieldOwner {
-  fn cell_ids(Self) -> Array[@types.CellId]
-}
-
-pub(open) trait Readable {
-  fn is_up_to_date(Self) -> Bool
-}
-pub impl[T] Readable for @cells.Input[T]
-pub impl[T] Readable for @cells.InputField[T]
-pub impl[T] Readable for @cells.TrackedCell[T]
 
 pub(open) trait RuntimeContext {
   fn runtime(Self) -> @cells.Runtime

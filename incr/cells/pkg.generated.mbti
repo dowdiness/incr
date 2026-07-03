@@ -97,7 +97,7 @@ pub fn[T] Derived::read_or_abort(Self[T]) -> T
 pub fn[T] Derived::verified_at(Self[T]) -> @types.Revision
 pub fn[T] Derived::watch(Self[T]) -> Watch[T]
 pub fn[T : @types.BackdateEq] Derived::with_backdate(Runtime, () -> T raise Failure, label? : String) -> Self[T]
-pub impl[T] Trackable for Derived[T]
+pub impl[T] InputFieldOwner for Derived[T]
 pub impl[T : @debug.Debug] @debug.Debug for Derived[T]
 
 pub(all) struct DerivedAbortedEvent {
@@ -147,11 +147,14 @@ pub(all) struct EagerDerived[T] {
   // private fields
 }
 pub fn[T : Eq] EagerDerived::EagerDerived(Runtime, () -> T) -> Self[T]
+pub fn[T] EagerDerived::dispose(Self[T]) -> Unit
 pub fn[T] EagerDerived::get(Self[T]) -> T
 pub fn[T] EagerDerived::id(Self[T]) -> @types.CellId
+pub fn[T] EagerDerived::is_disposed(Self[T]) -> Bool
+pub fn[T] EagerDerived::observe(Self[T]) -> Observer[T]
 pub fn[T] EagerDerived::read(Self[T]) -> T
 pub fn[T] EagerDerived::watch(Self[T]) -> Watch[T]
-pub impl[T] Trackable for EagerDerived[T]
+pub impl[T] InputFieldOwner for EagerDerived[T]
 
 pub struct Effect {
   // private fields
@@ -160,20 +163,7 @@ pub fn Effect::dispose(Self) -> Unit
 pub fn Effect::id(Self) -> @types.CellId
 pub fn Effect::is_disposed(Self) -> Bool
 pub fn Effect::new(Runtime, () -> Unit) -> Self
-pub impl Trackable for Effect
-
-pub(all) struct FunctionalRelation[K, V] {
-  // private fields
-}
-pub fn[K : Hash + Eq, V] FunctionalRelation::FunctionalRelation(Runtime, merge? : (V, V) -> V, label? : String) -> Self[K, V]
-pub fn[K, V] FunctionalRelation::delta_iter(Self[K, V]) -> Iter[(K, V)]
-pub fn[K, V] FunctionalRelation::dispose(Self[K, V]) -> Unit
-pub fn[K : Hash + Eq, V] FunctionalRelation::get(Self[K, V], K) -> V?
-pub fn[K, V] FunctionalRelation::id(Self[K, V]) -> @types.CellId
-pub fn[K : Hash + Eq, V : Eq] FunctionalRelation::insert(Self[K, V], K, V) -> Bool
-pub fn[K, V] FunctionalRelation::is_disposed(Self[K, V]) -> Bool
-pub fn[K, V] FunctionalRelation::iter(Self[K, V]) -> Iter[(K, V)]
-pub fn[K : Hash + Eq, V] FunctionalRelation::new(Runtime, merge? : (V, V) -> V, label? : String) -> Self[K, V]
+pub impl InputFieldOwner for Effect
 
 pub(all) struct Input[T] {
   // private fields
@@ -199,13 +189,12 @@ pub fn[T] Input::new(Runtime, T, durability? : @types.Durability, label? : Strin
 pub fn[T] Input::on_change(Self[T], (T) -> Unit) -> Unit
 pub fn[T] Input::peek(Self[T]) -> T
 pub fn[T : Eq] Input::set(Self[T], T) -> Unit
-pub impl[T] Trackable for Input[T]
+pub impl[T] InputFieldOwner for Input[T]
 
 pub(all) struct InputField[T] {
   // private fields
-}
+} derive(@debug.Debug)
 pub fn[T] InputField::InputField(Runtime, T, durability? : @types.Durability, label? : String) -> Self[T]
-pub fn[T] InputField::as_tracked_cell(Self[T]) -> TrackedCell[T]
 pub fn[T] InputField::clear_on_change(Self[T]) -> Unit
 pub fn[T] InputField::dispose(Self[T]) -> Unit
 pub fn[T] InputField::durability(Self[T]) -> @types.Durability
@@ -218,7 +207,7 @@ pub fn[T] InputField::is_fresh(Self[T]) -> Bool
 pub fn[T] InputField::on_change(Self[T], (T) -> Unit) -> Unit
 pub fn[T] InputField::peek(Self[T]) -> T
 pub fn[T : Eq] InputField::set(Self[T], T) -> Unit
-pub impl[T] Trackable for InputField[T]
+pub impl[T] InputFieldOwner for InputField[T]
 
 pub(all) struct MapRelation[K, V] {
   // private fields
@@ -253,18 +242,7 @@ pub fn[T : Eq] ReachableDerived::observe(Self[T]) -> Observer[T]
 pub fn[T : Eq] ReachableDerived::read(Self[T]) -> Result[T, @types.ReadError]
 pub fn[T : Eq] ReachableDerived::read_or_abort(Self[T]) -> T
 pub fn[T : Eq] ReachableDerived::watch(Self[T]) -> Watch[T]
-pub impl[T] Trackable for ReachableDerived[T]
-
-pub struct Reactive[T] {
-  // private fields
-}
-pub fn[T] Reactive::dispose(Self[T]) -> Unit
-pub fn[T] Reactive::get(Self[T]) -> T
-pub fn[T] Reactive::id(Self[T]) -> @types.CellId
-pub fn[T] Reactive::is_disposed(Self[T]) -> Bool
-pub fn[T : Eq] Reactive::new(Runtime, () -> T) -> Self[T]
-pub fn[T] Reactive::observe(Self[T]) -> Observer[T]
-pub impl[T] Trackable for Reactive[T]
+pub impl[T] InputFieldOwner for ReachableDerived[T]
 
 pub(all) struct Relation[T] {
   // private fields
@@ -315,7 +293,7 @@ pub fn[T : Eq] Scope::accumulator(Self, label? : String) -> Accumulator[T]
 pub fn Scope::add_cell_ids(Self, Array[@types.CellId]) -> Unit
 pub fn[T] Scope::add_observer(Self, Observer[T]) -> Observer[T]
 pub fn[T] Scope::add_watch(Self, Watch[T]) -> Watch[T]
-pub fn[T : Trackable] Scope::adopt(Self, T) -> T
+pub fn[T : InputFieldOwner] Scope::adopt(Self, T) -> T
 pub fn Scope::child(Self) -> Self
 pub fn[T : Eq] Scope::derived(Self, () -> T raise Failure, label? : String) -> Derived[T]
 pub fn[K : Hash + Eq, V] Scope::derived_map(Self, (K) -> V raise Failure, label? : String) -> DerivedMap[K, V]
@@ -328,27 +306,7 @@ pub fn[T] Scope::input_field(Self, T, durability? : @types.Durability, label? : 
 pub fn Scope::is_disposed(Self) -> Bool
 pub fn Scope::new(Runtime) -> Self
 pub fn[T : Eq] Scope::reachable_derived(Self, () -> T raise Failure, label? : String) -> ReachableDerived[T]
-pub fn[T : Eq] Scope::reactive(Self, () -> T) -> Reactive[T]
 pub impl @debug.Debug for Scope
-
-pub(all) struct TrackedCell[T] {
-  // private fields
-} derive(@debug.Debug)
-pub fn[T] TrackedCell::TrackedCell(Runtime, T, durability? : @types.Durability, label? : String) -> Self[T]
-pub fn[T] TrackedCell::as_input(Self[T]) -> Input[T]
-pub fn[T] TrackedCell::clear_on_change(Self[T]) -> Unit
-pub fn[T] TrackedCell::dispose(Self[T]) -> Unit
-pub fn[T] TrackedCell::durability(Self[T]) -> @types.Durability
-pub fn[T] TrackedCell::force_set(Self[T], T) -> Unit
-pub fn[T] TrackedCell::get(Self[T]) -> T
-pub fn[T] TrackedCell::get_result(Self[T]) -> Result[T, @types.CycleError]
-pub fn[T] TrackedCell::id(Self[T]) -> @types.CellId
-pub fn[T] TrackedCell::is_disposed(Self[T]) -> Bool
-pub fn[T] TrackedCell::is_up_to_date(Self[T]) -> Bool
-pub fn[T] TrackedCell::new(Runtime, T, durability? : @types.Durability, label? : String) -> Self[T]
-pub fn[T] TrackedCell::on_change(Self[T], (T) -> Unit) -> Unit
-pub fn[T] TrackedCell::peek(Self[T]) -> T
-pub fn[T : Eq] TrackedCell::set(Self[T], T) -> Unit
 
 pub struct Watch[T] {
   // private fields
@@ -374,7 +332,7 @@ pub using @types {type Revision}
 pub using @types {trait BackdateEq}
 
 // Traits
-pub(open) trait Trackable {
+pub(open) trait InputFieldOwner {
   fn cell_ids(Self) -> Array[@types.CellId]
 }
 

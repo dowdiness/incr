@@ -4,6 +4,50 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ## [Unreleased]
 
+## [v0.13.0] - 2026-07-03
+
+Breaking release: the compatibility API surface is removed directly, with no
+deprecation stage (issue #345; minor-as-breaking per the current semver policy
+while the library has no external users). Migrate by renaming — every removed
+name has a target-facade replacement with the same shape.
+
+### Removed (breaking)
+
+- **Compatibility handle types.** `TrackedCell[T]` → use `InputField[T]`
+  (now wraps `Input` directly; same methods, `is_up_to_date` → `is_fresh`).
+  `Reactive[T]` → use `EagerDerived[T]` (now owns the push-cell
+  implementation). `FunctionalRelation[K, V]` → use `MapRelation[K, V]`
+  (now owns the datalog map-relation implementation; construct with
+  `MapRelation(rt, merge?, label?)` instead of `FunctionalRelation::new`).
+- **Compatibility traits.** `Database` → implement `RuntimeContext` (same
+  `runtime(Self) -> Runtime` shape). `Readable` → use `Freshness`
+  (`is_up_to_date()` → `is_fresh()`; inherent `is_up_to_date` methods on
+  handles are unchanged). `Trackable` → renamed to `InputFieldOwner`
+  (same `cell_ids` contract; still defined in `incr/cells` and re-exported;
+  the previous duplicate root-package `InputFieldOwner` definition is gone,
+  so there is exactly one trait).
+- **Helpers.** `create_tracked_cell` → `create_input_field`. `add_tracked`
+  → `add_input_fields` (or `scope.adopt`). `Scope::reactive` →
+  `Scope::eager_derived`. `InputField::as_tracked_cell` and
+  `TrackedCell::as_input` removed with the wrapper chain.
+- **Root re-exports.** `ReactiveId` and `FunctionalRelationId` are no longer
+  re-exported from `@incr` (they served only the removed handles and remain
+  internal to `@incr_types`).
+- **Tooling.** `scripts/migrate-to-target-facades.py` deleted (it targeted
+  the Signal/Memo/HybridMemo names already removed in v0.12.0).
+
+### Changed (breaking)
+
+- `batch`, `batch_result`, `create_accumulator`, and `create_scope` keep
+  their names but rebind from `[Db : Database]` to `[Ctx : RuntimeContext]`.
+
+### Added
+
+- `EagerDerived::dispose`, `EagerDerived::is_disposed`, and
+  `EagerDerived::observe` — public parity with the surface the removed
+  `Reactive` handle had.
+- `InputField` now derives `Debug`.
+
 ## [v0.12.0] - 2026-07-01
 
 ### Added
