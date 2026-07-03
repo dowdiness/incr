@@ -136,9 +136,12 @@ Core library: **unchanged**. New rules, all mechanically checkable:
 - **Stage 0 — contracts before movement:** boundary/pin check script
   (validated with a known-positive control before its pass is trusted), fix
   the `incr_tea` pin, purge dead `todo.md` entries.
-- **Stage 1 — split `incr_tea` framework from demos:** promote its `src/` to
-  its own workspace module; byte-equivalent move, no API redesign in the same
-  PR; demo imports repointed.
+- **Stage 1 — split `incr_tea` framework from demos:** framework, demo, and
+  bench `.mbt` files are currently co-mingled in the package root (`src/`
+  holds only JS/CSS web assets), so Stage 1 starts with a file-level
+  classification pass, then moves the framework files to their own workspace
+  module; byte-equivalent move, no API redesign in the same PR; demo/bench
+  imports repointed.
 - **Stage 2 — TEA identity:** an ADR naming the module's scope, its
   facade-only import contract, and its own backlog; retarget open TEA issues
   to it. Gated on a naming/identity decision (in-workspace module vs eventual
