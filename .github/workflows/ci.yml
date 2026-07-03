@@ -138,6 +138,9 @@ jobs:
       - name: Engine isolation invariants (incr/cells/internal)
         run: bash scripts/check-engine-isolation.sh
 
+      - name: Boundary checker self-test (known-positive controls)
+        run: bash scripts/check-workspace-boundaries-selftest.sh
+
       - name: Workspace boundary + pin invariants (examples, docs)
         run: bash scripts/check-workspace-boundaries.sh
 
