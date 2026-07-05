@@ -88,6 +88,15 @@ bundled into a single release (0.14.0) to pay the downstream re-pin chain
 1. **`Input::get_result` / `InputField::get_result`** →
    `Result[T, ReadError]` (currently `CycleError`), aligning with the
    Honest Read-Error Ownership spec (2026-05-28). Failing tests first.
+   **Pin (2026-07-05):** the failing test must assert that a *disposed*
+   input's `get_result` returns `Err(Disposed(_))` — i.e. the disposed
+   abort is rerouted into the channel. A mechanical type swap does not
+   satisfy this item: the current body is `Ok(self.get())`, so its
+   `CycleError` arm is already dead and `get` still aborts on disposed;
+   swapping only the type ships a renamed dead arm behind a dishonest
+   signature. The `Cycle` variant of the shared `ReadError` remains
+   structurally empty for inputs — acceptable and worth a doc note,
+   same as `EagerDerived::watch` already documents.
 2. **`Accumulator` constructor.** Add positional
    `Accumulator::Accumulator(Runtime, label?)`; remove
    `Accumulator::new(rt~)`. Update `create_accumulator` /
