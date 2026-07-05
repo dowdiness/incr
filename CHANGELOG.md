@@ -2,277 +2,361 @@
 
 All notable changes to `dowdiness/incr` are documented in this file.
 
-## [v0.14.0] - 2026-07-05
-
-Breaking release: public API boundary cleanup (Phases 0–2 of
-`docs/plans/2026-07-05-public-api-boundary-cleanup.md`; PRs #353/#354/#355/#357).
-Every removed or changed name lists its replacement below.
-
-### Removed (breaking)
-
-- **`Accumulator::new(rt~, ...)` removed.** Replaced by positional constructor
-  `Accumulator(rt, label?)`. The `Accumulator::Accumulator(Runtime, label?)`
-  constructor is now the canonical form — same semantics.
-
-
-- **Ghost handle types.** `InputId[T]`, `MemoId[T]`, `RelationId[T]`, and
-  `FunctionalRelationId[K, V]` are deleted from `@incr/types`, and the
-  `InputId` / `RelationId` root re-exports are dropped. They were leftovers
-  of the handle types removed in v0.12/v0.13 — no API produced or consumed
-  them, so there is no migration. `RuleId` (returned by `Runtime::new_rule`)
-  is unchanged; `ReactiveId[T]` stays in `@incr/types` because the
-  `EagerDerived[T]` implementation still uses it internally.
-
-### Changed (breaking)
-
-- **Invariant-bearing types closed.** `Revision`, `InternId`, and
-  `InternTable[T]` are now `pub` instead of `pub(all)`: consumers can no
-  longer construct them via struct literals. Construct through the existing
-  API instead — `Revision::initial()` / `.next()`,
-  `InternTable::new()` / `.intern(value)`. `InternTable`'s fields are
-  additionally `priv`: its mutable internals (`values`, `to_id`) are no
-  longer readable from outside, closing the interior-mutation hole where
-  `table.values.push(...)` could bypass `intern` (verified by a
-  known-positive probe). `Revision.value` / `InternId.index` stay readable
-  (`Int` fields — reads copy). `CycleError::new` remains public because the
-  kernel package must construct it and MoonBit has no sibling-only
-  visibility; it is documented as library-internal.
-
-- **`Input::get_result` / `InputField::get_result` return `Result[T, ReadError]`**
-  instead of `Result[T, CycleError]`. This aligns the read channel with the
-  Honest Read-Error Ownership spec (`ReadError = Cycle(CycleError) | Disposed(CellId)`).
-  A disposed input now returns `Err(ReadError::Disposed(id))` instead of aborting.
-  The `Cycle` variant is structurally unreachable for inputs (they have no
-  dependencies) — documented in the shared `ReadError` type in `@incr/types`.
-  **Migration.** Match on `ReadError::Disposed(id)` instead of relying on the
-  absent abort. Prior code matching `Err(CycleError)` and `fail("unreachable")`
-  is unaffected — `ReadError::Cycle(e)` wraps the same `CycleError`.
-
-- **`DerivedMap` constructors add `V : Eq` bound.** `DerivedMap::DerivedMap`,
-  `Scope::derived_map`, and `create_derived_map` now require `V : Eq` on the
-  value type, closing the constructible-but-unreadable gap (the read methods
-  already needed this bound). `DerivedMap::fallible` adds `E : Eq` alongside
-  `V : Eq` for the same reason — `Result[V, E] : Eq` is required by the
-  read channel.
-
-### Changed
-
-- **`CycleError::path()` returns a fresh copy.** Previously it returned the
-  stored path array; mutating it could desynchronize the path from the
-  labels snapshot that `format_path` indexes by position (out-of-bounds
-  abort). `ReadError::path()` inherits the fix by delegation.
+## [Unreleased]
 
 ### Added
 
-- **`Scope::watch(derived)`.** Folds watch creation, scope registration, and
-  one priming read into a single call. The priming read records the target's
-  upstream `gc_dependencies`, so a `Runtime::gc()` that runs before the first
-  consumer read can no longer sweep the upstream graph (the bare
-  `scope.add_watch(derived.watch())` form GC-roots only the uncomputed
-  terminal — see the contrast test in `incr/tests/scope_test.mbt`).
+- Added composable runtime hook registration so multiple observers can share one `Runtime` (#210). `Runtime::add_on_change_listener` / `Runtime::remove_on_change_listener` and `Runtime::add_derived_event_listener` / `Runtime::remove_derived_event_listener` return and accept public `ListenerId` handles. Additive listeners coexist with each other and with the existing singleton APIs, which remain source-compatible through reserved registry slots.
+- Defined listener ordering and mutation rules for the new APIs. On-change listeners fire in registration order and snapshot before dispatch, so callbacks can add or remove listeners without affecting the current pass. Derived-event listeners run for each event in registration order and keep the existing idle mutation guard.
 
-- **`Expr[T]` formula layer (Track E).** A lazy expression DSL over target
-  facade handles. Expression chains allocate no incremental cells until
-  materialized via `Expr::derived` or `Scope::derived_expr` (one cell per
-  materialization). Supports:
+### Examples
 
-  - **Source lifts:** `Input::expr`, `InputField::expr`, `Derived::expr`,
-    `ReachableDerived::expr`, `EagerDerived::expr`.
-  - **Constants:** `Expr::constant(rt, value, label?)`.
-  - **Combinators:** `map`, `map2`.
-  - **Operators:** `Add`, `Sub`, `Mul`, `Div`, `Mod`, `Neg` (via MoonBit
-    operator traits on `Expr[T]`).
-  - **Materialization:** `Expr::derived(label?) -> Derived[T]`,
-    `Scope::derived_expr(expr, label?) -> Derived[T]`.
+These changes are in `examples/` workspace members, not the published `dowdiness/incr` library.
 
-  Cross-runtime composition aborts at construction time. The `Expr` type is
-  re-exported from `@incr`. See `incr/cells/expr.mbt` and
-  `docs/design/specs/2026-05-25-expr-formula-api.md`.
+- Extended the `examples/incr_tea` browser renderer lifecycle (#209). `BrowserRenderer::detach` removes a root's DOM subtree but keeps its `Program` scope and watch alive, so the root can be re-mounted with state preserved. `BrowserRenderer::destroy` disposes the program when the component instance is gone. `BrowserRenderer::dispose` removes the renderer's two stored `ListenerId`s, destroys every mounted root, treats queued `requestAnimationFrame` callbacks as no-ops, and rejects new mounts.
+- Added keyed child reconciliation and pure event-payload descriptors to `examples/incr_tea` (#211). `keyed_node` / `KeyedElem` preserves per-key DOM identity across insert, remove, and reorder operations, while DOM payload extraction stays at the browser boundary so cacheable `Html` values remain closure-free.
+- Added tracked subscription reconciliation to `examples/incr_tea` (#244). Programs can declare a `Derived[Subscriptions]` map keyed by `SubKey`; the runtime diffs it into side-effect handles, updates same-key timers in place, stops removed timers, and the browser demo includes a timer subscription card.
+- Added Incremental TEA benchmarks comparing watched `incr` view recomputation and keyed diff planning against dirty-cell and naive positional baselines (#243).
+
+## [0.9.0] - 2026-06-09
+
+### Added
+
+- Added `AcceptedDerived[V, E]`, a success-gated derived authoring primitive: a fallible candidate `Result[V, E]` only advances the *accepted* state on a differing `Ok(v)`, while `Err(e)` retains the prior accepted value and still reports the error on the *current* channel. Surfaces `current`/`accepted`/`snapshot` (outside-graph, carrying `ReadError`), `accepted_get`/`accepted_get_or_abort` (inside-graph, gated by accepted-value changes), `accepted_changed_at`, and `watch_accepted`, plus the `AcceptedSnapshot[V, E]` view and `AcceptStatus` enum. Construct via `AcceptedDerived(rt, compute, label?)`, `AcceptedDerived::from_candidate`, or `Scope::accepted_derived`. See [the design spec](docs/design/specs/2026-06-05-committed-derived.md).
+- Added a `BackdateEq` acceptance tier for `AcceptedDerived`: `AcceptedDerived::accepted_memo` and `Scope::accepted_memo` accept candidate value types that are *not* `Eq` but carry a `Revision` (so they implement `BackdateEq`), gating acceptance by revision identity instead of structural equality — mirroring `Memo::new` vs `Memo::new_memo`. `E : Eq` is retained. As part of this, `AcceptedDerived::from_candidate`'s `E` bound was relaxed from `Eq` to unconstrained (it wraps a pre-built candidate and never compares `E`). The no-`Eq` / no-backdate acceptance tier remains deferred.
+
+### Fixed
+
+- Corrected `push_reachable_count` maintenance for diamond dependency topologies. A push-reachable derived (e.g. a watched `AcceptedDerived` fold) could silently stop recomputing after a candidate dropped one arm of a dynamic diamond dependency: the previous deduplicated reachability "mass" model added and removed counts asymmetrically across diamonds, so dropping a shared dependency could leave a cell's reachable count above zero and freeze its eager updates. Push-reachability is now maintained as an incremental count of each cell's direct *live* subscribers, propagated only across `0 ↔ 1` liveness boundaries, making diamond add/remove symmetric. (#233)
+
+### Examples
+
+These changes are in `examples/` workspace members, not the published `dowdiness/incr` library.
+
+- Added `examples/incr_tea`, an experimental `incr`-native TEA skeleton with scope-owned model fields, batched message dispatch, a minimal Rabbita-style `Cmd` scheduler, and watched tracked views.
+- Typed spreadsheet snapshots now expose `last_dynamic_dependencies`, the logical cells read during the last completed cell evaluation.
+- Typed spreadsheet cells now distinguish comparable worksheet facts from opaque formula evaluators: same-value inputs and same-AST formulas are semantic no-ops, closure formulas can opt into no-op detection with a fingerprint, and force paths remain available for deliberate revalidation.
+- Typed spreadsheet formulas and cell snapshots now expose dependency-shape metadata (`Applicative`, `Selective`, `Dynamic`) for explaining static references versus active dynamic dependencies without changing engine APIs.
+- Typed spreadsheet worksheets now expose `Worksheet::formula_ast` with structured `FormulaAstQueryError` results for reading AST-backed formulas without conflating missing, deleted, input, and opaque closure-backed cells.
+
+## [0.8.0] - 2026-06-03
+
+### Added
+
+- `RuntimeId`: a nominal runtime-identity value type (`Eq` / `Hash` / `Show`). Obtain it from `Runtime::id()` to ask "are these two runtimes the same?" without allocating a probe cell, or from `CellId::runtime_id` / `AccumulatorId::runtime_id`. It is a debug / introspection identity, not a stable application key.
+- `Runtime::id() -> RuntimeId` — direct runtime-identity accessor.
+- `Input::id`, `ReachableDerived::id`, `EagerDerived::id` — `id() -> CellId` forwarders, completing single-cell identity exposure across the target facades (it was previously only on `Derived`, `InputField`, `MapRelation`). Keyed `DerivedMap` deliberately remains without `id()`.
+
+### Changed
+
+- **Breaking:** `CellId::runtime_id` and `AccumulatorId::runtime_id` are now `RuntimeId` instead of `Int`. Code that compared these against a raw `Int` must compare against a `RuntimeId` (`cell.id().runtime_id == rt.id()`); `RuntimeId == RuntimeId` comparisons and `to_string()` formatting are unchanged.
+- Renamed the public derived-recompute event API to `Derived*` naming: the enum `MemoEvent` → `DerivedEvent` and its payload structs `MemoEnteringEvent` / `MemoCompletedEvent` / `MemoAbortedEvent` → `DerivedEnteringEvent` / `DerivedCompletedEvent` / `DerivedAbortedEvent`; the runtime methods `Runtime::on_memo_event` / `Runtime::clear_memo_event_listener` → `Runtime::on_derived_event` / `Runtime::clear_derived_event_listener`. The enum variant names (`EnteringCompute` / `Completed` / `Aborted`) are unchanged, so existing `match` arms keep compiling.
+- Moved the typed spreadsheet boundary and tests out of the publishable `dowdiness/incr` module into the standalone `examples/typed_spreadsheet` workspace module.
 
 ### Deprecated
 
-- **`Input::new` / `Runtime::new` / `Relation::new`.** The `Type::Type`
-  constructor forms (`Input(rt, v)`, `Runtime()`, `Relation(rt)`) are
-  canonical. The aliases remain functional in this release; removal is planned
-  for a future breaking release after the `Expr[T]` track (see
-  `docs/plans/2026-07-05-public-api-boundary-cleanup.md`).
+- `MemoEvent`, `MemoEnteringEvent`, `MemoCompletedEvent`, `MemoAbortedEvent`, `Runtime::on_memo_event`, and `Runtime::clear_memo_event_listener` are retained as deprecated aliases of their `Derived*` replacements and are scheduled for removal in a future major release.
 
-- **`Effect::new(rt, f)`.** Replaced by `Effect(rt, f)` (`Effect::Effect`).
-  The old name remains functional. `Effect::Effect(Runtime, f)` is now the
-  canonical constructor form.
+### Fixed
 
-### Note
-
-- **`Scope::new` is deliberately kept.** Unlike the other constructor aliases,
-  `Scope::new` is the pervasive documented form and the rename value does not
-  cover the churn. The `Scope` constructor remains `Scope::new(rt)`.
-- **`_no_backdate` variants are kept until `Expr[T]` lands.** The mapN family
-  (`map_no_backdate`, `derived2_no_backdate`, etc.) is interim algebra sugar
-  pending Track E; revisit when `Expr[T]` materialization ships.
-
-## [v0.13.0] - 2026-07-03
-
-Breaking release: the compatibility API surface is removed directly, with no
-deprecation stage (issue #345; minor-as-breaking per the current semver policy
-while the library has no external users). Migrate by renaming — every removed
-name has a target-facade replacement with the same shape.
-
-### Removed (breaking)
-
-- **`Readable` trait.** Use the read method directly on your facade handle. The
-  trait just re-exported method signatures; it added no capability.
-- **`Trackable` trait.** Same rationale as `Readable`.
-- **`Database` type.** There is no replacement — its `Runtime::derived`
-  convenience wrapper already existed as
-  `Derived(rt, fn() { ... })` / `Scope::derived(fn() { ... })`. The type
-  existed only for the old `Signal`/`Memo` era; remove its root re-export.
-- **`FunctionalRelation` / `MapFunctionalRelation`.** Replaced by
-  `MapRelation` (the datalog-engine-backed map facade). `Runtime::new_rule`
-  and `Relation::insert` / `remove` / `iter` / `contains` are unchanged.
-- **`TrackedCell` / `TrackedCellObserver` aliases.** Replaced by `InputField`
-  and `Observer`. Identical functionality, new names.
-- **`ReactiveHandle` / `PushReactiveHandle` aliases.** Replaced by
-  `EagerDerived` and `Effect`. Identical functionality, new names.
-- **`HybridMemoHandle` alias.** Replaced by `ReachableDerived`. Same API shape,
-  new name.
-- **`Signal` / `Memo`** aliases for `Input` and `Derived`. Final removal after
-  v0.12.0 deprecation; identical single-type replacement.
-
-### Added
-
-- **`Input::read_honest` / `InputField::read_honest` / `Derived::read_honest`**
-  (+ `ReachableDerived` / `Accumulator` / `Relation` / `MapRelation`). Full
-  honest-read channel exposing `ReadError`. The existing `read` method
-  delegates to `read_honest` in each case.
-- **Accumulator serialization hooks.** `Accumulator::commit_hook(scope, f)`,
-  `Accumulator::restore_hook(scope, f)`. See `docs/design/specs/2026-05-28-accumulator-commit-restore-hooks.md`.
-
-### Changed (breaking)
-
-- **`Effect::Effect` and `Scope::effect` now take `fn() -> Unit`** instead of
-  `fn() -> T`. The old signature was a compatibility artifact from the
-  `Reactive` → `EagerDerived` migration: every effect returning `T` immediately
-  discards it. Return `Unit` from your callback. The `create_effect` helper in
-  `traits.mbt` is updated to match.
-- **`Runtime::batch`:** If the commit phase encounters a cycle, batch now
-  completes the cycle-aborted cell's dependents' recomputation. Previously the
-  cycle's path stack trace was returned and remaining dirty cells were left
-  unrepaired. Post-batch `current_revision` now always advances.
-
-### Changed
-
-- **`UserGuide` layout and wording improvements.**
+- Closed a cross-runtime read guard hole on the direct read paths (`DerivedMap` / `MemoMap` reads and internal permissive reads). Reading a cell that belongs to one `Runtime` from inside an active computation on a *different* `Runtime` could previously succeed silently and corrupt the active runtime's tracking state; it now aborts, matching the strict `Derived` / `.get()` read paths. (#174)
 
 ### Documentation
 
-- Migrate reference docs to checked literate examples (`*.mbt.md` under docs/).
-  Removed `docs/internals.md`, `docs/api-reference.md`, and `docs/scope.md`;
-  replaced by `docs/design/internals.md` and `docs/api-reference.mbt.md` /
-  `docs/scope.mbt.md`.
+- Clarified that the typed spreadsheet example is runtime-checked: formula installation validates worksheet boundaries, while operator and declared-result type mismatches surface as `CellResult::TypeError` on read.
 
-## [v0.12.0] - 2026-06-22
+## [0.7.1] - 2026-06-01
 
-Compatibility-breaking release: the `Signal`/`Memo`-family aliases are
-deprecated and produce compiler warnings. See `docs/migration-v0.11-v0.12.md`.
-The aliases are functional but warned; they will be removed in v0.13.
+### Changed
 
-### Changed (breaking)
+- Reorganized the repository as a MoonBit workspace: the `dowdiness/incr` library module now lives under `incr/`, while typed-spreadsheet demos and retained spikes live under `examples/` as standalone workspace modules.
 
-- **`Input::new` → `Input(rt, v)`** (named constructor). The old `new` is
-  deprecated with a warning.
-- **`Derived::new` → `Derived(rt, compute)`.** The old `new` is deprecated
-  with a warning.
-- **`ReachableDerived::new` → `ReachableDerived(rt, compute)`.** The old `new`
-  is deprecated.
-- **`DerivedMap::new` → `DerivedMap(rt, compute)`.** The old `new` is
-  deprecated.
-- **`EagerDerived::new` → `EagerDerived(rt, compute)`.** The old `new` is
-  deprecated.
-- **`Effect::new` → `Effect(rt, f)`.** The old `new` is deprecated.
-- **`Scope::EagerDerived` → `Scope::eager_derived`.** Deprecated.
+### Documentation
+
+- Expanded the root README into a friendlier workspace landing page that explicitly points readers to the detailed library README.
+- Refreshed ADR and plan references for the workspace layout so source paths use the `incr/` module prefix.
+
+## [0.7.0] - 2026-06-01
+
+### Added
+
+- Added `ReadError` (`Cycle` / `Disposed`) and re-exported it from the root package so public read APIs can report disposed-cell failures separately from dependency cycles.
+- Added `Derived::fallible` and `DerivedMap::fallible` for caching domain failures as `Result` values instead of raising graph/runtime failures.
+- Added target-facade lifecycle and introspection helpers for long-lived editors: `Scope::add_watch`, `Derived::changed_at`, `Derived::is_disposed`, and `Runtime::gc_root_count`.
+- Added target-facade accumulator reads on `Derived`: `accumulated`, `accumulated_or_abort`, and `accumulated_peek`.
+- Added `Runtime::record_batch_rollback` for batch-aware extension code that owns mutable state outside ordinary input cells.
+- Added `dowdiness/incr/typed_spreadsheet` with `Worksheet`, typed `CellValue` / `CellType`, formula AST (`Formula`), dependency snapshots, and `Worksheet::trace`.
+- Added `scripts/migrate-to-target-facades.py`, a dry-run-by-default helper for moving consumer code from compatibility handles (`Memo`, `HybridMemo`, `MemoMap`) to target facades (`Derived`, `ReachableDerived`, `DerivedMap`). It applies mechanically safe rewrites with `--apply`, skips files that still need manual choices, and reports context-sensitive read sites for manual migration.
+- Added `dowdiness/incr/examples/typed_spreadsheet_demo`, a thin demo operation runner that applies typed spreadsheet operations and returns outcome, trace, and before/after cell snapshots, including a batched runner for trace-correct atomic demo steps.
+- Added `dowdiness/incr/examples/typed_spreadsheet_cli_demo`, an executable typed spreadsheet scenario that prints a fixed operation sequence with outcomes, trace buckets, and before/after snapshots in text or JSON.
+- Added `dowdiness/incr/examples/typed_spreadsheet_rabbita_demo`, a browser demo that renders the shared typed spreadsheet scenario with Rabbita, including trace buckets, an A1/B1 grid, before/after snapshots, and a schema-versioned ViewModel JSON export.
+
+### Changed
+
+- **Breaking:** Changed `Derived`, `DerivedMap`, `ReachableDerived`, and `Watch` read APIs from `Result[..., CycleError]` to `Result[..., ReadError]`. `DerivedMap::read_or_else` and `Memo::accumulated*` now use `ReadError` as well.
+- Changed the typed spreadsheet Rabbita demo from a fixed trace viewer into a small editable four-cell sheet while keeping the fixed scenario JSON export available for non-DOM consumers.
+
+### Fixed
+
+- Fixed Datalog relation publication so fixpoint runs publish relation cells only when net contents changed.
+- Fixed `Runtime::dependents` to soft-fail on disposed cell IDs instead of indexing disposed metadata.
+- Fixed accumulator read APIs so disposed-cell failures are preserved as `ReadError` rather than collapsed into cycle-only results.
+- Fixed typed spreadsheet rollback, deletion, and formula-dependency paths so aborted batches and recreated cells restore dependency state correctly.
+- Fixed typed spreadsheet worksheet slots so live inputs and formulas remain readable after `Runtime::gc()`.
 
 ### Deprecated
 
-- **`Signal` / `Memo` / `HybridMemoHandle` / `TrackedCell` / `TrackedCellObserver`
-  / `ReactiveHandle` / `PushReactiveHandle`** type aliases. All deprecated in
-  favor of target names listed in v0.13.0's Removed section.
+- Deprecated the standalone `dowdiness/incr/pipeline` traits (`Sourceable`, `Parseable`, `Checkable`, `Executable`). They were an early stringly-typed sketch with no production consumers; application build pipelines should define local `Source`, `Parser`, `ImportResolver`, `Checker`, and `Transformer` traits over concrete domain types.
 
-### Removed (breaking)
-
-- **`FunctionalRelation` & `MapFunctionalRelation`** from the `@incr/types`
-  package (moved to cells/internal). Two re-exports dropped; downstream code
-  that only imported `@incr` is unaffected by the swap.
-- **`Runtime::new_memo_with_durability`** removed. Use `Derived` with a
-  positional durability parameter: `Derived(rt, compute, durability=High)`.
-
-### Added
-
-- **`Runtime::gc()` and `Runtime::gc_sweep()`.** Mark-compact garbage
-  collection for unreachable cells. Uses `@gc_trait.GcRoot` interface for root
-  discovery.
-- **`Derived::on_change`** and `Derived::clear_on_change`. Register a callback
-  that fires when this derived cell's output changes.
-- **`ReachableDerived::observe`.** Returns an `Observer[T]` (same shape as the
-  existing `Derived::observe`).
-- **`Runtime::collect_gc_roots`.** Returns live roots for integration with
-  `@gc_trait`.
-
-## [v0.11.0] - 2026-06-13
-
-### Added
-
-- **`AcceptedDerived[V, E]`** — success-gated derived authoring (Layer 4).
-- **`ReachableDerived` alias** — pre-naming for `HybridMemoHandle`.
-- **`Runtime::derived_event_listener`** — low-level access to cell verification
-  events for debugging/monitoring layers.
-
-### Changed (breaking)
-
-- **`Effect` recompute semantics.** Effect now recomputes on every committed
-  revision where any transitive dependency has changed since the effect's last
-  verified revision. Previously effects only recomputed when a direct source
-  changed, making them unusable for push-pull boundary patterns
-  (e.g. `Derived` → `Effect` where the Derived backdates). This aligns Effect
-  with the documented "reactive" semantics.
-- **`Observer` now guards reads against stale sentinel.** `Observer::get`
-  resets the stale sentinel before reading, matching top-level test reads.
-
-### Fixed
-
-- **Concurrent scope disposal safety.** `Scope::child` now pushes before
-  returning (not after), fixing a racy read during concurrent `dispose()`.
-
-## [v0.10.1] - 2026-06-13
-
-### Fixed
-
-- **CI CI:** Disable publish-provenance for mooncakes to fix release workflow.
-
-## [v0.10.0] - 2026-06-24
-
-### Added
-- Experimental `incr_tea` module: keyed VDOM diff, pure event-payload descriptors, renderer lifecycle, and Eq-safe HTML ergonomics
-- `incr_tea` keyed DOM benchmark
-- `incr_tea` 7GUIs stress test
-- `incr_tea` semantic editor demo
-
-### Changed
-- Runtime on-change and derived-event hooks are now composable via `add_on_change_listener` / `add_derived_event_listener` (backward-compatible — existing `set_on_change` / `on_derived_event` remain available)
 ### Performance
-- Optimize `incr_tea` keyed diff planner
-- Compare adjacent UI view builds
-- Add activation trigger probe
 
-### Removed
-- Remove deprecated `try` question syntax
+- Graduated the measured static `Derived` fast path as a package-private implementation path; no new public static-derived API is exposed in this release.
+- Added DSL-shaped authoring pipeline benchmarks and graph-editor recompute path benchmarks, including durable edit, sparse inspector, viewport, and live-drag measurements for wasm-gc and JS.
+- Cached typed spreadsheet grid snapshots in the Rabbita demo to reduce repeated view-model allocation during UI updates.
 
 ### Documentation
-- Document `incr_tea` architectural direction after Rabbita, Qwik, and Luna comparison
 
-[Unreleased]: https://github.com/dowdiness/incr/compare/v0.14.0...HEAD
-[v0.14.0]: https://github.com/dowdiness/incr/compare/v0.13.0...v0.14.0
-[v0.13.0]: https://github.com/dowdiness/incr/compare/v0.12.0...v0.13.0
-[v0.12.0]: https://github.com/dowdiness/incr/compare/v0.11.0...v0.12.0
-[v0.11.0]: https://github.com/dowdiness/incr/compare/v0.10.1...v0.11.0
-[v0.10.1]: https://github.com/dowdiness/incr/compare/v0.10.0...v0.10.1
-[v0.10.0]: https://github.com/dowdiness/incr/releases/tag/v0.10.0
+- Added a Phase 3a migration guide for moving from `Memo` / `HybridMemo` / `MemoMap` directly to `Derived` / `ReachableDerived` / `DerivedMap`, skipping same-receiver bridge methods on the compatibility handles.
+- Added build-oriented trait-boundary and internal rebuild-boundary proposal specs.
+- Added the honest read-error ownership spec, the ReachableDerived differentiate-or-collapse ADR resolution, the static-derived public-surface ADR, and target-facade authoring pipeline guidance.
+- Removed the `CalcPipeline` fixture from integration tests so deprecated pipeline traits are no longer exercised by the test suite.
+
+## [0.6.0] - 2026-05-24
+
+### Added
+
+- Added target facade handles `Input`, `Derived`, `ReachableDerived`, `EagerDerived`, and `DerivedMap` with constructor syntax and direct read methods. Compatibility handles remain source-compatible in this slice.
+- Added `MapRelation[K, V]` as the target facade over `FunctionalRelation[K, V]`.
+- Added `Watch[T]` for long-lived target-facade outside reads that preserve cycle errors as `Result` values.
+- Added `InputField[T]`, `Freshness`, `InputFieldOwner`, and `add_input_fields(scope, owner)` target surfaces for field-level inputs; `Freshness` is implemented for `Input`, `InputField`, `Derived`, and `ReachableDerived`.
+- Added target-facade constructors on `Scope` and `RuntimeContext` helper constructors for `Input`, `InputField`, `Derived`, `ReachableDerived`, `EagerDerived`, and `DerivedMap`.
+- Added `Derived::id` and `Derived::observe` forwarders on the public facade, lifting the underlying `HybridMemo` accessors so callers can inspect a derived cell's identity and acquire keep-alive `Observer`s without reaching through the wrapped handle.
+
+### Changed
+
+- Internal package-private read helpers on `Memo`, `HybridMemo`, and `Reactive` were renamed from `get_untracked` to `read_permissive` to clarify that they bypass the strict tracked-context guard but may still record a dependency when called with an active tracking frame. Deprecated package-private aliases keep the old names available during migration. No public API change.
+
+### Deprecated
+
+- `Runtime::read`, `Runtime::read_hybrid`, and `Runtime::read_reactive` are now legacy compatibility helpers; target facade `read*` and `watch()` methods are the preferred API.
+
+### Documentation
+
+- Updated the API reference, cookbook, architecture overview, docs index, and checked literate examples for the target-facade migration; added the public API naming ADR, the facade read-semantics design spec, and the rename/Phase 3a soak-window plans. `docs/design/internals.md` now positions `incr` in the Build Systems à la Carte design space.
+
+## [0.5.2] - 2026-05-20
+
+### Added
+
+- **Memo event listener API.** `Runtime::on_memo_event` and `Runtime::clear_memo_event_listener` expose pull-memo recompute events via public `MemoEvent` payloads (`EnteringCompute`, `Completed`, `Aborted`). Listener mutation is rejected while an operation is in flight.
+
+### Fixed
+
+- **Disallow listener mutation during callback dispatch.** The memo listener API now prevents registering, removing, or clearing listeners while memo event callbacks are in progress, avoiding re-entrancy hazards and maintaining event order guarantees.
+
+### Performance
+
+- **Lazy memo commit allocation.** `ActiveQuery` accumulator fields are now allocated lazily, reducing push fanout overhead in hot paths. In current benchmarks this appears as roughly a 16% improvement in active push fanout throughput.
+
+### Documentation
+
+- **Information structure rebuilt against source code as primary truth.** `README.md` rewritten as a truthful entry point using the modern `fn MyApp::MyApp()` constructor and `app.runtime().read(memo)` for outside-graph reads. `AGENTS.md` expanded into a canonical contributor doc (build commands, doc rules, comment rules, pre-PR checklist, v0.9.2 deprecation status).
+- **New `docs/architecture.md`** — principles-only architecture overview covering the package responsibility map, the four execution modes (pull / push / hybrid / Datalog), key types, invariants, and extension points. Linked from `docs/README.md`.
+- **`docs/api-reference.mbt.md` softened** from "complete reference" to "common APIs" (the `.mbti` files are authoritative). Removed a documented method that did not exist (`HybridMemo::get_result`). Added entries for `Signal::peek`, `TrackedCell::peek`, `MemoMap::get_tracked`, `add_tracked`, and `Runtime::read*`. Tightened bound documentation on `MemoMap::new` / `create_memo_map`.
+- **`docs/concepts.mbt.md` / `docs/cookbook.mbt.md`** swept for top-level `memo.get()` patterns — rewritten to use `rt.read(memo)` / `rt.read_hybrid(h)` where the example reads from outside the graph. `CycleDetected(_, _)` pattern updated to the actual 3-field variant `CycleDetected(cell, path, labels)`. The `gc_tracked` example replaced with `add_tracked(scope, t)`.
+- **`HybridMemo` model correction.** The previous docs described it as receiving "dirty flags eagerly via push propagation". Source has always said otherwise: `HybridMemo` uses the same lazy revision-based verification as `Memo`, and "hybrid" refers to *reachability* (it participates in `push_reachable_count` so downstream observers keep upstream cells alive across `gc()`), not invalidation. Fixed in `traits.mbt`, `docs/architecture.md`, `docs/api-reference.mbt.md`, `docs/concepts.mbt.md`, `docs/design/internals.md`, and `docs/roadmap.md`.
+- **Drift-catch test.** `tests/quickstart_test.mbt` instantiates the README's Database pattern end to end; future divergence between the README idiom and the actual compiled API will break this test.
+
+### Changed
+
+- **MoonBit v0.9.2 migration.** Updated stdlib calls: `@hashmap.new()` → `@hashmap.HashMap([])`, `@hashset.new()` → `@hashset.HashSet([])`, `@priority_queue.new()` → `@priority_queue.PriorityQueue([])`, `Ref::new(x)` → `Ref(x)`. Test snapshots using container `Show` impls (Option, Array, Map) migrated from `inspect` → `debug_inspect` since v0.9.2 deprecates `Show` on containers for debug output.
+- **Constructor declarations modernized.** The in-struct `fn new(..)` declaration is deprecated in v0.9.2 in favour of a separated toplevel `fn Type::Type(..)`. Library types — `Runtime`, `Signal`, `Memo`, `HybridMemo`, `MemoMap`, `TrackedCell`, `Relation`, `FunctionalRelation`, plus internal `ActiveQuery` and `BatchFrame` — now declare an explicit `Type::Type` constructor alias that delegates to the existing `Type::new` body. Both forms remain in the public surface: `Type(args)` / `Type::Type(args)` constructor sugar and `Type::new(args)` direct calls.
+- **Tightened type bounds** to match the new stdlib constructor signatures:
+  - `MemoMap::new` / `create_memo_map`: `K : Hash + Eq` (was unconstrained `K`)
+  - `InternTable::new`: `T : Hash + Eq` (was unconstrained `T`)
+
+  These bounds were already required by every key-observing operation (`get`, `contains`, `intern`, `set`). Constructing an empty container and only using non-key-observing methods (e.g. `length`, `clear`, `len`) was technically possible without the bound and is now rejected at type-check time. No working caller relied on this path within the repository. Classified as a minor-bump tightening under the same "no external consumers yet" policy as the `.get()` tracked-context change in 0.5.0.
+
+### Deprecated
+
+- `gc_tracked(rt, tracked)` — was already a no-op; now carries a `#deprecated` attribute pointing to `add_tracked(scope, tracked)` for lifecycle management. Source-compatible.
+
+## [0.5.1] - 2026-04-26
+
+### Changed
+
+- **Internal: kernel package split (R1).** Graph-mechanics algorithms and coordinator primitives moved out of `cells/` into `cells/internal/kernel/{state,dispatch,cycle,subscriber_diff,tracking,verify,push_propagate,fixpoint,propagate,batch,dispose,gc}.mbt`. Public API unchanged. Engine-isolation invariants enforced by `scripts/check-engine-isolation.sh` (no cross-engine sibling imports; `internal/shared` is the leaf; no back-edges from internal packages to `cells/`; kernel is one-way — engines and shared cannot import kernel).
+
+### Performance
+
+- Benchmark baseline methodology updated: `wasm-gc --release` is now the authoritative target, with JS cross-checks for web consumers. Added fixpoint benches and a `Runtime::new()` allocation bench (0.11 µs full-Runtime, anchoring the modal-split investigation deferral). `memo_restore_on_abort` O(n²) characteristic confirmed at large batch counts; not actionable at realistic accumulator counts (1–2 accumulators per memo).
+
+## [0.5.0] - 2026-04-21
+
+### Added
+
+- **Accumulator API** — side-channel collector enabling aggregation patterns without full recomputation; per-memo `push_revised_at` drives incremental invalidation (#42)
+- **`Observer[T]`** — explicit, GC-safe downstream attachment. `.observe()` methods on `Memo`, `HybridMemo`, and `Reactive` return an `Observer[T]` that keeps the subscription chain alive and is required for any persistent downstream attachment once `Runtime::gc()` is in use
+- **`Runtime::gc()`** — mark-and-sweep that reclaims SoA slots of cells no longer reachable from roots
+- **`Runtime::read()`** convenience methods — the recommended entry point for tracked reads from query context
+- **`Scope`** — hierarchical disposal container with scoped cell constructors (`signal`, `memo`, `hybrid_memo`, `reactive`, `effect`), `add_tracked` for `Trackable` structs, `add_observer` for automatic `Observer` cleanup, and `create_scope` for nested child scopes
+- **Manual `dispose()` + `is_disposed()`** for all cell types — `Signal`, `Memo`, `HybridMemo`, `Reactive`, `Effect`, `TrackedCell`, `Relation`, `FunctionalRelation`, `Rule` — with SoA free-list slot reuse
+- **Push suspension** — `PushReactiveData::on_observe` / `on_unobserve` activate and suspend reactive nodes at 0↔1 observer transitions, avoiding wasted work on unobserved subgraphs
+- **`InternTable`** — grow-only interning table providing stable identity for string / symbol keys across revisions (#34)
+- **`Signal::peek()` and `TrackedCell::peek()`** — untracked reads that do not record dependencies
+- **`get_untracked()`** on `Memo`, `HybridMemo`, `Reactive` — reads from outside the dependency graph without aborting
+- **`MemoMap::get_tracked`** — misuse guardrail that aborts when called outside a tracked context (#41)
+- **`MemoMap::clear`** — reset all entries for structural-rebuild sweeps
+- **`MemoMap::sweep`** — remove disposed entries after `gc()`
+- **`HasChangedAt` + `BackdateEq` traits**; `Memo::new_memo` and `new_no_backdate` constructors for custom equality semantics (#25)
+- **`CellLifecycle` trait** — uniform dispose dispatch replacing ad-hoc per-kind dispose methods
+- **`CellOps::gc_role` + `gc_dependencies`** — GC categorization for all cell types (via new `GcRole` enum)
+
+### Changed
+
+- **`.get()` is now restricted to tracked context.** Calling `memo.get()` / `hybrid.get()` / `reactive.get()` outside a tracked computation aborts with a migration hint. Previously the same call returned the value *without recording a dependency* — a silent, latently-unsound no-op on tracking. This is classified as a minor-bump behavior change under a "latently-unsound-is-not-API" policy while the library has no external consumers; future similar changes will bump major once external users exist. Migration recipes:
+  - From outside the graph → `rt.read(&cell)` (tracked read via Runtime) or `cell.observe()` for persistent attachment
+  - When you need the value without tracking → `cell.peek()` (`Signal` / `TrackedCell`) or `cell.get_untracked()` (`Memo` / `HybridMemo` / `Reactive`)
+  - When you need cycle-safe handling → `.get_result()` / `.get_or()` / `.get_or_else()` remain callable from any context
+- `CycleError` is now a pure-value type with no `Runtime` dependency, enabling use outside the `cells` package
+- Internal SoA engine data moved to `cells/internal/{pull, push, datalog, shared}` packages — invisible to external consumers; the `@incr` public API is unchanged
+
+### Fixed
+
+- Preserve `push_revised_at` on aborted new-slot writes, preventing stale revision timestamps after transaction abort
+- `dispose_cell` removes the `gc_root_counts` entry to prevent observer handle leaks after disposal
+- `Scope`: clear arrays after dispose and validate `runtime_id` at registration to prevent use-after-free bugs
+- Cross-runtime and fixpoint guards restored in `get_result_inner()`; `get_result()` remains callable from any context
+- `MemoMap` updated to use `get_untracked()` for reads outside tracked context
+- Disposed-dependency guards tightened across `Memo` / `HybridMemo` `get` paths
+
+### Performance
+
+- **`push_reachable_count`** — O(1) push-propagation gating; replaces a BFS traversal when checking for downstream push subscribers (#24)
+
+## [0.4.1] - 2026-03-22
+
+### Added
+- **FunctionalRelation[K, V]** — key-value Datalog relation with delta tracking for value updates. Unlike `Relation[T]` (set semantics), `FunctionalRelation` maps each key to one value; updates produce deltas. Optional merge function resolves conflicts. (#21)
+
+## [0.4.0] - 2026-03-22
+
+### Added
+- **Datalog primitives** — `Relation[T]`, `Rule`, `Runtime::fixpoint()` for semi-naive evaluation with staged deltas, delta iteration, and convergence detection (#18)
+- **Push-mode cells** — `Reactive[T]` (eager recomputation) and `Effect` (eager side effects) with level-sorted BFS propagation (#14)
+- **HybridMemo[T]** — push-dirty, pull-verify lazy cell combining eager invalidation with lazy verification (#15, #16)
+- CellOps trait object dispatch for extensible cell types
+- Committable trait for batch-aware cells
+- Microbenchmarks for core operations
+
+### Changed
+- **BREAKING:** Package renamed from `dowdiness/incr/internal` to `dowdiness/incr/cells`
+- **SoA storage** — replaced per-cell structs with struct-of-arrays layout (`PullSignalData`, `MemoData`) for cache-friendly access and type-erased dispatch (#11)
+- **Runtime modularization** — split Runtime into `CoreState`, `PullState`, `PushState`, `DatalogState` sub-structs (#19)
+- **MemoData unification** — merged `PullMemoData` and `HybridMemoData` into single `MemoData` struct
+- **Cells simplification** — extracted `validate_cell`, `CellMeta`, batch/tracking/introspection into dedicated files (#20)
+- Iterative `pull_verify` with explicit `VerifyFrame` stack (prevents stack overflow on deep graphs)
+- Consolidated ID wrappers into `types/` package
+
+### Fixed
+- Fire `on_change` for HybridMemo and unify `verified_at` comparison
+- Dirty check in `pull_verify_hybrid` fast-path
+- Abort on disposed-dependency in verify paths
+- Separate hybrid memos from push `node_count` gate
+
+## [0.3.3] - 2026-03-01
+
+### Added
+- `Runtime::dependents()` introspection API for querying subscriber links (#9)
+- Subscriber field in `CellInfo`
+- Graceful batch rollback and non-panicking read APIs (`batch_result`, `get_or`, `get_or_else`) (#10)
+
+### Changed
+- Renamed `IncrDb` trait to `Database`
+- Renamed `internal/` package to `cells/` for `pub using` re-exports
+
+### Fixed
+- Rollback failed nested batches before rethrow
+- Fire global `on_change` exactly once after batch callbacks set more signals
+- Abort on cross-runtime dependency reads instead of returning stale values
+
+## [0.3.2] - 2026-02-24
+
+### Added
+- `MemoMap[K, V]` — keyed memoization with one memo per key
+- Subscriber links maintained during memo recompute
+
+## [0.3.1] - 2026-02-24
+
+### Added
+- `TrackedCell[T]` — field-level input cells for fine-grained dependency isolation
+- `Trackable` trait and `gc_tracked` for struct-level tracking
+- `Readable` trait implemented for `TrackedCell`
+
+### Changed
+- Unified constructors with optional `label~` and `durability~` params
+- Arrow function syntax for all anonymous callbacks
+- Reorganized tests — unit tests to `cells/`, integration tests to `tests/`
+- Modularized into four sub-packages: `types/`, `cells/`, `pipeline/`, root facade
+
+## [0.3.0] - 2026-02-04
+
+### Added
+- Trait-based type-safe API (`Database` trait pattern)
+- `Runtime::on_change` global callback
+- Per-cell `Signal::on_change` and `Memo::on_change` callbacks
+- `Debug` trait for `Signal`, `Memo`, `CellId`
+- `CellInfo` introspection with `Runtime::cell_info()`
+- `CellId` and `Revision` public types
+- `label` field on all cells
+
+### Changed
+- Dependency diff in `force_recompute` to skip unnecessary durability rescans
+
+### Fixed
+- `Memo::is_up_to_date` returns `false` for uncomputed memos
+
+## [0.2.1] - 2026-02-03
+
+### Added
+- `CycleError` type with dependency path tracking
+- `Memo::get_result()` for non-panicking cycle handling
+
+## [0.2.0] - 2026-02-03
+
+### Changed
+- Made internal types private, improved public API surface
+- Applied alien-signals-inspired optimizations
+
+### Fixed
+- Correctness issues in iterative verification and batch commit
+
+## [0.1.0] - 2026-02-02
+
+Initial release.
+
+### Added
+- `Signal[T]` — input cells with same-value optimization
+- `Memo[T]` — derived computations with automatic dependency tracking
+- Pull-based lazy verification with dependency walk
+- Backdating — unchanged recomputed values preserve their old revision
+- Durability levels (Low, Medium, High) for verification skipping
+- Batch updates with atomic multi-signal commits
+- Cycle detection
+
+[Unreleased]: https://github.com/dowdiness/incr/compare/v0.7.1...HEAD
+[0.7.1]: https://github.com/dowdiness/incr/compare/4302e80...v0.7.1
+[0.7.0]: https://github.com/dowdiness/incr/compare/v0.6.0...v0.7.0
+[0.6.0]: https://github.com/dowdiness/incr/compare/v0.5.2...v0.6.0
+[0.5.2]: https://github.com/dowdiness/incr/compare/v0.5.1...v0.5.2
+[0.5.1]: https://github.com/dowdiness/incr/compare/v0.5.0...v0.5.1
+[0.5.0]: https://github.com/dowdiness/incr/compare/v0.4.1...v0.5.0
+[0.4.1]: https://github.com/dowdiness/incr/compare/v0.4.0...v0.4.1
+[0.4.0]: https://github.com/dowdiness/incr/compare/v0.3.3...v0.4.0
+[0.3.3]: https://github.com/dowdiness/incr/compare/v0.3.2...v0.3.3
+[0.3.2]: https://github.com/dowdiness/incr/compare/v0.3.1...v0.3.2
+[0.3.1]: https://github.com/dowdiness/incr/compare/v0.3.0...v0.3.1
+[0.3.0]: https://github.com/dowdiness/incr/compare/v0.2.1...v0.3.0
+[0.2.1]: https://github.com/dowdiness/incr/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/dowdiness/incr/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/dowdiness/incr/releases/tag/v0.1.0
