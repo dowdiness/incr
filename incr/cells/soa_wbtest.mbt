@@ -68,7 +68,7 @@ test "runtime: dispatch tables stay index-aligned across all cell kinds" {
   rt.check_table_invariant()
   let r = EagerDerived::EagerDerived(rt, () => sig.get())
   rt.check_table_invariant()
-  let _ = Effect::new(rt, () => sig.get() |> ignore)
+  let _ = Effect::Effect(rt, () => sig.get() |> ignore)
   rt.check_table_invariant()
   // Disposal updates slots in place (cell_index[i] -> Disposed); lengths
   // are unchanged, so the invariant still holds.

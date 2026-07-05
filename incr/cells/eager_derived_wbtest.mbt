@@ -36,7 +36,7 @@ test "free list: effect slot reused after dispose" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 1)
   let log : Array[Int] = []
-  let e = Effect::new(rt, () => log.push(s.get()))
+  let e = Effect::Effect(rt, () => log.push(s.get()))
   let e_idx = match rt.core.cell_index[e.cell_id.id] {
     PushEffect(i) => i
     _ => abort("expected PushEffect")
@@ -44,7 +44,7 @@ test "free list: effect slot reused after dispose" {
   e.dispose()
   inspect(rt.push.free_effects.length(), content="1")
   let log2 : Array[Int] = []
-  let e2 = Effect::new(rt, () => log2.push(s.get() * 2))
+  let e2 = Effect::Effect(rt, () => log2.push(s.get() * 2))
   let e2_idx = match rt.core.cell_index[e2.cell_id.id] {
     PushEffect(i) => i
     _ => abort("expected PushEffect")
@@ -64,7 +64,7 @@ test "runtime: push_node_count tracks live push cells" {
   let s = Input::Input(rt, 0)
   let r = EagerDerived::EagerDerived(rt, () => s.get())
   inspect(rt.push.node_count, content="1")
-  let e = Effect::new(rt, () => {
+  let e = Effect::Effect(rt, () => {
     let _ = s.get()
     ()
   })
@@ -264,7 +264,7 @@ test "effect: runs on creation, then re-runs on each dependency change" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 0)
   let log : Array[Int] = []
-  let _e = Effect::new(rt, () => log.push(s.get()))
+  let _e = Effect::Effect(rt, () => log.push(s.get()))
   debug_inspect(log, content="[0]")
   s.set(1)
   debug_inspect(log, content="[0, 1]")
@@ -329,7 +329,7 @@ test "push abort: effect failure restores phase stack and sources" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 0)
   let other = Input::Input(rt, 100)
-  let effect = Effect::new(rt, () => ignore(s.get()))
+  let effect = Effect::Effect(rt, () => ignore(s.get()))
   let effect_idx = match rt.core.cell_index[effect.id().id] {
     PushEffect(i) => i
     _ => abort("expected PushEffect")
@@ -434,7 +434,7 @@ test "dispose: effect removed from source subscriber set" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 0)
   let log : Array[Int] = []
-  let e = Effect::new(rt, () => log.push(s.get()))
+  let e = Effect::Effect(rt, () => log.push(s.get()))
   debug_inspect(log, content="[0]")
   e.dispose()
   s.set(1) // effect is gone; log should not grow

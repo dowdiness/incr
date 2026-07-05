@@ -115,7 +115,7 @@ test "push_reachable_count: reactive-to-reactive chain" {
 test "push_reachable_count: effect increments and dispose decrements" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 0)
-  let e = Effect::new(rt, () => ignore(s.get()))
+  let e = Effect::Effect(rt, () => ignore(s.get()))
   inspect(get_count(rt, s.id()), content="1")
   e.dispose()
   inspect(get_count(rt, s.id()), content="0")

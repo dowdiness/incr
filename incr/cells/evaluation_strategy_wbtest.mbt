@@ -16,7 +16,7 @@ fn run_evaluation_strategy_scenario(
   let derived = Derived(rt, () => source.get() * 10)
   let eager = EagerDerived::EagerDerived(rt, () => derived.get_or_abort() + 1)
   let effect_log : Array[Int] = []
-  let _effect = Effect::new(rt, () => effect_log.push(eager.get()))
+  let _effect = Effect::Effect(rt, () => effect_log.push(eager.get()))
   let derived_values : Array[Int] = []
   let eager_derived_values : Array[Int] = []
   derived_values.push(derived.read_or_abort())

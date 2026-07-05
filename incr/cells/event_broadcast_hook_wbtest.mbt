@@ -199,7 +199,7 @@ test "derived_event: listener set can enqueue recursive memo events" {
   let trigger = Input(rt, 0)
   let reentered = Derived(rt, () => trigger.get() + 10)
   let observed : Array[Int] = []
-  let _effect = Effect::new(rt, () => {
+  let _effect = Effect::Effect(rt, () => {
     if trigger.get() > 0 {
       observed.push(reentered.get_or_abort())
     }
@@ -276,7 +276,7 @@ test "derived_event: mutation guard rejects push tracking frame" {
   let rt = Runtime()
   rt.on_derived_event(_evt => ())
   let rejected = Ref(false)
-  let _effect = Effect::new(rt, () => {
+  let _effect = Effect::Effect(rt, () => {
     try rt.clear_derived_event_listener() catch {
       _ => rejected.val = true
     } noraise {
@@ -291,7 +291,7 @@ test "derived_event: mutation guard rejects pending events inside on_change" {
   let rt = Runtime()
   let source = Input(rt, 0)
   let hybrid = ReachableDerived(rt, () => source.get() + 1)
-  let _effect = Effect::new(rt, () => ignore(hybrid.get()))
+  let _effect = Effect::Effect(rt, () => ignore(hybrid.get()))
   rt.on_derived_event(_evt => ())
   let rejected = Ref(false)
   source.on_change(_v => {

@@ -151,7 +151,7 @@ test "gc_role: reactive is Interior" {
 test "gc_role: effect is Root" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 1)
-  let eff = Effect::new(rt, fn() { ignore(sig.get()) })
+  let eff = Effect::Effect(rt, fn() { ignore(sig.get()) })
   let ops = rt.core.cell_ops[eff.id().id]
   inspect(ops.gc_role(), content="Root")
   eff.dispose()
@@ -185,7 +185,7 @@ test "gc_dependencies: memo returns its dependencies" {
 test "gc_dependencies: effect returns its sources" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 1)
-  let eff = Effect::new(rt, fn() { ignore(sig.get()) })
+  let eff = Effect::Effect(rt, fn() { ignore(sig.get()) })
   let ops = rt.core.cell_ops[eff.id().id]
   let deps = ops.gc_dependencies()
   inspect(deps.length(), content="1")

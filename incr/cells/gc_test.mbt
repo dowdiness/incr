@@ -72,7 +72,7 @@ test "gc: keeps effects alive as implicit roots" {
   let sig = Input::Input(rt, 1)
   let d = Derived::Derived(rt, fn() { sig.get() })
   let log : Ref[Int] = { val: 0 }
-  let _eff = Effect::new(rt, fn() { log.val = d.get_or_abort() })
+  let _eff = Effect::Effect(rt, fn() { log.val = d.get_or_abort() })
   rt.gc()
   // Effect is a root — m is reachable through Effect's sources
   assert_false(d.is_disposed())
@@ -153,7 +153,7 @@ test "panic gc: during active computation aborts" {
 test "panic gc: during push propagation aborts" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 1)
-  let _eff = Effect::new(rt, fn() {
+  let _eff = Effect::Effect(rt, fn() {
     ignore(sig.get())
     rt.gc()
   })

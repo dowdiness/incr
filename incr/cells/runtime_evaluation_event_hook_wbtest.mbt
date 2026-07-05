@@ -151,7 +151,7 @@ test "runtime_eval: input set emits eager derived, effect, and pass summaries" {
   let events = collect_runtime_eval_events(rt)
   let eager = EagerDerived::EagerDerived(rt, () => source.get() + 1)
   let effect_log : Array[Int] = []
-  let _effect = Effect::new(rt, () => effect_log.push(source.get()))
+  let _effect = Effect::Effect(rt, () => effect_log.push(source.get()))
   events.clear()
   source.set(1)
   inspect(read_reactive_for_test(eager), content="2")
