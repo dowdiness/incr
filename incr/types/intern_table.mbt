@@ -3,7 +3,7 @@
 ///
 /// Same value always maps to the same `InternId` within a table. IDs are
 /// monotonically increasing and can be used as array indices or `MemoMap` keys.
-pub(all) struct InternId {
+pub struct InternId {
   index : Int
 } derive(Eq, Debug, Compare)
 
@@ -29,7 +29,7 @@ pub impl Hash for InternId with fn hash_combine(self, hasher) {
 /// enabling cheap identity comparison (`id1 == id2`) instead of deep structural
 /// equality. Used by the bidirectional type-checker as `MemoMap` keys for
 /// cross-revision cache stability.
-pub(all) struct InternTable[T] {
+pub struct InternTable[T] {
   to_id : @hashmap.HashMap[T, InternId]
   values : Array[T]
 }

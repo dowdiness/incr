@@ -4,6 +4,27 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ## [Unreleased]
 
+### Removed (breaking)
+
+- **Ghost handle types.** `InputId[T]`, `MemoId[T]`, `RelationId[T]`, and
+  `FunctionalRelationId[K, V]` are deleted from `@incr/types`, and the
+  `InputId` / `RelationId` root re-exports are dropped. They were leftovers
+  of the handle types removed in v0.12/v0.13 — no API produced or consumed
+  them, so there is no migration. `RuleId` (returned by `Runtime::new_rule`)
+  is unchanged; `ReactiveId[T]` stays in `@incr/types` because the
+  `EagerDerived[T]` implementation still uses it internally.
+
+### Changed (breaking)
+
+- **Invariant-bearing types closed to construction.** `Revision`,
+  `InternId`, and `InternTable[T]` are now `pub` instead of `pub(all)`:
+  fields remain readable and all methods keep working, but consumers can no
+  longer construct them via struct literals. Construct through the existing
+  API instead — `Revision::initial()` / `.next()`,
+  `InternTable::new()` / `.intern(value)`. `CycleError::new` remains public
+  because the kernel package must construct it and MoonBit has no
+  sibling-only visibility; it is documented as library-internal.
+
 ### Added
 
 - **`Scope::watch(derived)`.** Folds watch creation, scope registration, and

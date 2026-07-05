@@ -5,8 +5,6 @@ pub using @incr_types {
   type RuntimeId,
   type ListenerId,
   type CellId,
-  type InputId,
-  type RelationId,
   type RuleId,
   type CycleError,
   type ReadError,

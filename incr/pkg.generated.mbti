@@ -78,8 +78,6 @@ pub using @cells {type Input}
 
 pub using @cells {type InputField}
 
-pub using @types {type InputId}
-
 pub using @types {type InternId}
 
 pub using @types {type InternTable}
@@ -95,8 +93,6 @@ pub using @cells {type ReachableDerived}
 pub using @types {type ReadError}
 
 pub using @cells {type Relation}
-
-pub using @types {type RelationId}
 
 pub using @types {type Revision}
 
