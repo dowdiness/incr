@@ -30,8 +30,8 @@ pub impl Hash for InternId with fn hash_combine(self, hasher) {
 /// equality. Used by the bidirectional type-checker as `MemoMap` keys for
 /// cross-revision cache stability.
 pub struct InternTable[T] {
-  to_id : @hashmap.HashMap[T, InternId]
-  values : Array[T]
+  priv to_id : @hashmap.HashMap[T, InternId]
+  priv values : Array[T]
 }
 
 ///|
