@@ -784,7 +784,7 @@ Cycle detection error returned by target `Result` reads such as `Derived::read()
 
 ```mbt nocheck
 ///|
-pub(all) suberror CycleError {
+pub suberror CycleError {
   CycleDetected(CellId, Array[CellId], Array[String?])
 }
 ```
@@ -803,7 +803,8 @@ The checked companion exercises labeled cycles and `CycleError` formatting in
 
 ### `CycleError::path(self) -> Array[CellId]`
 
-Returns the full dependency path that forms the cycle.
+Returns the full dependency path that forms the cycle, as a fresh copy —
+mutating it does not affect the stored error.
 
 The checked companion captures `err.path()` from inside a strict derived read in
 [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
