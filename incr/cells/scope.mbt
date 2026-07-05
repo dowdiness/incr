@@ -187,7 +187,7 @@ pub fn[T : Eq] Scope::reachable_derived(
 
 ///|
 /// Creates a keyed derived facade whose cached entries are cleared on dispose.
-pub fn[K : Hash + Eq, V] Scope::derived_map(
+pub fn[K : Hash + Eq, V : Eq] Scope::derived_map(
   self : Scope,
   compute : (K) -> V raise Failure,
   label? : String,
@@ -210,7 +210,7 @@ pub fn[T : Eq] Scope::accumulator(
   guard !self.disposed else {
     abort("Scope::accumulator called on a disposed scope")
   }
-  let a : Accumulator[T] = Accumulator::new(rt=self.runtime, label?)
+  let a : Accumulator[T] = Accumulator(self.runtime, label?)
   self.dispose_hooks.push(() => a.dispose())
   a
 }
@@ -221,7 +221,7 @@ pub fn Scope::effect(self : Scope, f : () -> Unit) -> Effect {
   guard !self.disposed else {
     abort("Scope::effect called on a disposed scope")
   }
-  let eff = Effect::new(self.runtime, f)
+  let eff = Effect(self.runtime, f)
   self.cells.push(eff.id())
   eff
 }

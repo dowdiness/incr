@@ -47,7 +47,7 @@ test "ensure_computed_untracked: does not record ordinary dep on caller frame" {
 /// relies on this aliasing.
 test "slot_snapshots: cache observes SlotMeta mutation" {
   let rt = Runtime::Runtime()
-  let acc : Accumulator[Int] = Accumulator::new(rt~)
+  let acc : Accumulator[Int] = Accumulator(rt)
   let snaps = rt.slot_snapshots()
   inspect(snaps.length(), content="1")
   inspect(snaps[0].disposed(), content="false")
@@ -68,7 +68,7 @@ test "slot_snapshots: cache observes SlotMeta mutation" {
 /// (with any Revision value), the parens-wrap held.
 test "slot_snapshots: push_revised_at_for via trait dispatch is non-recursive" {
   let rt = Runtime::Runtime()
-  let _acc : Accumulator[Int] = Accumulator::new(rt~)
+  let _acc : Accumulator[Int] = Accumulator(rt)
   let snaps = rt.slot_snapshots()
   let some_cell : @incr_types.CellId = { runtime_id: rt.core.runtime_id, id: 0 }
   // No memo has pushed to this slot, so the slot's push_revised_at map
@@ -82,11 +82,11 @@ test "slot_snapshots: push_revised_at_for via trait dispatch is non-recursive" {
 /// index-aligned and that the invariant check is invoked.
 test "slot_snapshots: invariant holds across multiple registrations" {
   let rt = Runtime::Runtime()
-  let _a : Accumulator[Int] = Accumulator::new(rt~)
+  let _a : Accumulator[Int] = Accumulator(rt)
   rt.check_accumulator_cache_invariant()
-  let _b : Accumulator[String] = Accumulator::new(rt~)
+  let _b : Accumulator[String] = Accumulator(rt)
   rt.check_accumulator_cache_invariant()
-  let _c : Accumulator[Int] = Accumulator::new(rt~)
+  let _c : Accumulator[Int] = Accumulator(rt)
   rt.check_accumulator_cache_invariant()
   inspect(rt.slot_snapshots().length(), content="3")
 }

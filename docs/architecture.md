@@ -140,8 +140,8 @@ functional-relation storage.
 | `DerivedMap[K, V]` | Lazy per-key derived values with target cache helpers | `DerivedMap(rt, compute, label?)` or `scope.derived_map(...)` |
 | `ReachableDerived[T]` | Lazy derived value with strict guarded `get()` and permissive `read()` APIs; push-reachable from downstream `EagerDerived`/`Effect`; no dirty flag — behaviorally identical to `Derived` today (see [ADR 2026-05-30](decisions/2026-05-30-reachable-derived-differentiate-or-collapse.md)) | `ReachableDerived(rt, compute, label?)` or `scope.reachable_derived(...)` |
 | `InputField[T]` | Field-level input cell for structs implementing `InputFieldOwner` | `InputField(rt, value, durability?, label?)` or `scope.input_field(...)` |
-| `EagerDerived[T]`, `Effect` | Push-mode primitives | `EagerDerived(rt, compute)`, `Effect::new` |
-| `Accumulator[T]` | Side-channel collector pushed to from derived-cell computes; consumers read via `Derived::accumulated*`. See [ADR](decisions/2026-04-20-accumulator-api.md). | `Accumulator::new` or `create_accumulator` |
+| `EagerDerived[T]`, `Effect` | Push-mode primitives | `EagerDerived(rt, compute)`, `Effect(rt, f)` |
+| `Accumulator[T]` | Side-channel collector pushed to from derived-cell computes; consumers read via `Derived::accumulated*`. See [ADR](decisions/2026-04-20-accumulator-api.md). | `Accumulator(rt, ...)` or `create_accumulator` |
 | `Scope` | Lifecycle group: cells/accumulators registered to a scope are disposed when the scope is disposed | `Scope::new`, `scope.input` / `scope.derived` helpers, or `create_scope` |
 | `Watch[T]` | Persistent attachment that keeps a derived/eager value alive past `gc()` sweeps and returns `Result` reads | `derived.watch()` / `reachable.watch()` / `eager.watch()` |
 | `Observer` | Alternate persistent-attachment handle alongside `Watch` | — |

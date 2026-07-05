@@ -1,8 +1,8 @@
 ///|
-test "Accumulator::new allocates monotonic slot id" {
+test "Accumulator allocates monotonic slot id" {
   let rt = Runtime::Runtime()
-  let a : Accumulator[Int] = Accumulator::new(rt~, label="a")
-  let b : Accumulator[Int] = Accumulator::new(rt~, label="b")
+  let a : Accumulator[Int] = Accumulator(rt, label="a")
+  let b : Accumulator[Int] = Accumulator(rt, label="b")
   inspect(a.id().id < b.id().id, content="true")
   debug_inspect(
     a.label(),
@@ -16,7 +16,7 @@ test "Accumulator::new allocates monotonic slot id" {
 ///|
 test "Accumulator::dispose is idempotent and flips is_disposed" {
   let rt = Runtime::Runtime()
-  let a : Accumulator[Int] = Accumulator::new(rt~, label="acc")
+  let a : Accumulator[Int] = Accumulator(rt, label="acc")
   inspect(a.is_disposed(), content="false")
   a.dispose()
   inspect(a.is_disposed(), content="true")
@@ -27,10 +27,10 @@ test "Accumulator::dispose is idempotent and flips is_disposed" {
 ///|
 test "Accumulator::dispose does not reuse slot id" {
   let rt = Runtime::Runtime()
-  let a : Accumulator[Int] = Accumulator::new(rt~)
+  let a : Accumulator[Int] = Accumulator(rt)
   let first_id = a.id()
   a.dispose()
-  let b : Accumulator[Int] = Accumulator::new(rt~)
+  let b : Accumulator[Int] = Accumulator(rt)
   inspect(b.id() != first_id, content="true")
   inspect(b.id().id > first_id.id, content="true")
 }
@@ -38,7 +38,7 @@ test "Accumulator::dispose does not reuse slot id" {
 ///|
 test "Accumulator::push outside tracked context raises Failure" {
   let rt = Runtime::Runtime()
-  let a : Accumulator[Int] = Accumulator::new(rt~)
+  let a : Accumulator[Int] = Accumulator(rt)
   let caught = try {
     a.push(42)
     false
@@ -51,7 +51,7 @@ test "Accumulator::push outside tracked context raises Failure" {
 ///|
 test "Accumulator::push inside memo compute stages value" {
   let rt = Runtime::Runtime()
-  let a : Accumulator[Int] = Accumulator::new(rt~, label="diags")
+  let a : Accumulator[Int] = Accumulator(rt, label="diags")
   let derived = Derived(rt, () => {
     a.push(1)
     a.push(2)
@@ -74,7 +74,7 @@ test "Accumulator::push inside memo compute stages value" {
 ///|
 test "Accumulator::push to disposed accumulator raises Failure" {
   let rt = Runtime::Runtime()
-  let a : Accumulator[Int] = Accumulator::new(rt~)
+  let a : Accumulator[Int] = Accumulator(rt)
   a.dispose()
   let derived = Derived(rt, () => {
     a.push(42)
@@ -93,7 +93,7 @@ test "Accumulator::push to disposed accumulator raises Failure" {
 test "accumulator: same push-set across recomputes → push_revised_at unchanged" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 0)
-  let a : Accumulator[Int] = Accumulator::new(rt~)
+  let a : Accumulator[Int] = Accumulator(rt)
   let m = Derived(rt, () => {
     a.push(1)
     a.push(2)
@@ -118,7 +118,7 @@ test "accumulator: same push-set across recomputes → push_revised_at unchanged
 test "accumulator: different push-set across recomputes → push_revised_at bumps" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 0)
-  let a : Accumulator[Int] = Accumulator::new(rt~)
+  let a : Accumulator[Int] = Accumulator(rt)
   let m = Derived(rt, () => {
     a.push(sig.get())
     1
@@ -140,7 +140,7 @@ test "accumulator: different push-set across recomputes → push_revised_at bump
 ///|
 test "accumulated_peek: returns pushed values in order" {
   let rt = Runtime::Runtime()
-  let a : Accumulator[Int] = Accumulator::new(rt~)
+  let a : Accumulator[Int] = Accumulator(rt)
   let m = Derived(rt, () => {
     a.push(10)
     a.push(20)
@@ -157,7 +157,7 @@ test "accumulated_peek: returns pushed values in order" {
 ///|
 test "accumulated_peek: returns [] for disposed accumulator" {
   let rt = Runtime::Runtime()
-  let a : Accumulator[Int] = Accumulator::new(rt~)
+  let a : Accumulator[Int] = Accumulator(rt)
   let m = Derived(rt, () => {
     a.push(1)
     0
@@ -170,7 +170,7 @@ test "accumulated_peek: returns [] for disposed accumulator" {
 ///|
 test "accumulated_peek: returns defensive copy" {
   let rt = Runtime::Runtime()
-  let a : Accumulator[Int] = Accumulator::new(rt~)
+  let a : Accumulator[Int] = Accumulator(rt)
   let m = Derived(rt, () => {
     a.push(1)
     0
@@ -186,7 +186,7 @@ test "accumulated_peek: returns defensive copy" {
 ///|
 test "accumulated: tracked read inside memo stages synthetic dep" {
   let rt = Runtime::Runtime()
-  let a : Accumulator[Int] = Accumulator::new(rt~)
+  let a : Accumulator[Int] = Accumulator(rt)
   let producer = Derived(rt, () => {
     a.push(42)
     1
@@ -203,7 +203,7 @@ test "accumulated: tracked read inside memo stages synthetic dep" {
 ///|
 test "accumulated: raises Failure on disposed accumulator" {
   let rt = Runtime::Runtime()
-  let a : Accumulator[Int] = Accumulator::new(rt~)
+  let a : Accumulator[Int] = Accumulator(rt)
   let producer = Derived(rt, () => 1)
   a.dispose()
   let caught = try {
@@ -218,7 +218,7 @@ test "accumulated: raises Failure on disposed accumulator" {
 ///|
 test "accumulated_result: Ok on success" {
   let rt = Runtime::Runtime()
-  let a : Accumulator[Int] = Accumulator::new(rt~)
+  let a : Accumulator[Int] = Accumulator(rt)
   let p = Derived(rt, () => {
     a.push(5)
     0
@@ -233,7 +233,7 @@ test "accumulated_result: Ok on success" {
 ///|
 test "accumulated: commits pushes when producer value is Err" {
   let rt = Runtime::Runtime()
-  let a : Accumulator[Int] = Accumulator::new(rt~)
+  let a : Accumulator[Int] = Accumulator(rt)
   let p : Derived[Result[Int, String]] = Derived(rt, () => {
     a.push(7)
     Err("domain")
@@ -258,7 +258,7 @@ test "accumulated: commits pushes when producer value is Err" {
 test "durability shortcut: bypassed when memo has accumulator_reads" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 0)
-  let a : Accumulator[Int] = Accumulator::new(rt~)
+  let a : Accumulator[Int] = Accumulator(rt)
   let producer = Derived(rt, () => {
     a.push(s.get())
     1
@@ -280,7 +280,7 @@ test "durability shortcut: bypassed when memo has accumulator_reads" {
 test "synthetic dep check: reader invalidates when producer's push_revised_at bumps" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 1)
-  let a : Accumulator[Int] = Accumulator::new(rt~)
+  let a : Accumulator[Int] = Accumulator(rt)
   let producer = Derived(rt, () => {
     a.push(s.get())
     1
@@ -296,8 +296,8 @@ test "synthetic dep check: reader invalidates when producer's push_revised_at bu
 ///|
 test "memo dispose clears entries from all accumulators" {
   let rt = Runtime::Runtime()
-  let a : Accumulator[Int] = Accumulator::new(rt~)
-  let b : Accumulator[Int] = Accumulator::new(rt~)
+  let a : Accumulator[Int] = Accumulator(rt)
+  let b : Accumulator[Int] = Accumulator(rt)
   let scope = Scope::new(rt)
   let producer : Derived[Int] = Derived(rt, () => {
     a.push(1)
@@ -328,7 +328,7 @@ test "Scope::accumulator disposed with scope" {
 test "edge: ActiveQuery.accumulator_reads discarded on recompute failure" {
   let rt = Runtime::Runtime()
   let should_fail = Input::Input(rt, false)
-  let acc_a : Accumulator[Int] = Accumulator::new(rt~)
+  let acc_a : Accumulator[Int] = Accumulator(rt)
   let producer = Derived(rt, () => {
     acc_a.push(1)
     0
@@ -363,8 +363,8 @@ test "edge: ActiveQuery.accumulator_reads discarded on recompute failure" {
 test "edge: new-run-only slot cleared on ON_ABORT" {
   let rt = Runtime::Runtime()
   let use_b = Input::Input(rt, false)
-  let acc_a : Accumulator[Int] = Accumulator::new(rt~)
-  let acc_b : Accumulator[Int] = Accumulator::new(rt~)
+  let acc_a : Accumulator[Int] = Accumulator(rt)
+  let acc_b : Accumulator[Int] = Accumulator(rt)
   // First run: pushes only to A
   let m = Derived(rt, () => {
     acc_a.push(1)
@@ -395,7 +395,7 @@ test "edge: new-run-only slot cleared on ON_ABORT" {
 test "edge: first-push-to-fresh-memo correctly bumps push_revised_at" {
   let rt = Runtime::Runtime()
   let trigger = Input::Input(rt, false)
-  let acc : Accumulator[Int] = Accumulator::new(rt~)
+  let acc : Accumulator[Int] = Accumulator(rt)
   let m = Derived(rt, () => {
     if trigger.get() {
       acc.push(100)
@@ -415,7 +415,7 @@ test "edge: first-push-to-fresh-memo correctly bumps push_revised_at" {
 test "panic: Memo::accumulated_peek aborts on cross-runtime Accumulator" {
   let rt1 = Runtime::Runtime()
   let rt2 = Runtime::Runtime()
-  let acc1 : Accumulator[Int] = Accumulator::new(rt=rt1)
+  let acc1 : Accumulator[Int] = Accumulator(rt1)
   let m2 = Derived(rt2, () => 1)
   // Would silently index rt2.accumulator_slots with acc1.slot_id (from rt1)
   // without the cross-runtime guard on acc.slot_id.runtime_id.
@@ -465,7 +465,7 @@ test "verify: raise-path from compute does not leak in_progress on ancestors" {
 test "verify: synthetic accumulator dep surfaces target cycle and cleans up" {
   let rt = Runtime::Runtime()
   let tick = Input::Input(rt, 0)
-  let acc : Accumulator[Int] = Accumulator::new(rt~)
+  let acc : Accumulator[Int] = Accumulator(rt)
   let producer = Derived(rt, () => {
     acc.push(tick.get())
     1
@@ -501,7 +501,7 @@ test "verify: synthetic accumulator dep surfaces target cycle and cleans up" {
 test "verify: non-root frame checks accumulator_reads" {
   let rt = Runtime::Runtime()
   let s = Input::Input(rt, 1)
-  let a : Accumulator[Int] = Accumulator::new(rt~)
+  let a : Accumulator[Int] = Accumulator(rt)
   let producer = Derived(rt, () => {
     a.push(s.get())
     1
@@ -519,7 +519,7 @@ test "verify: non-root frame checks accumulator_reads" {
 test "accumulator: ON_ABORT restores prior buffer on raised compute" {
   let rt = Runtime::Runtime()
   let should_fail = Input::Input(rt, false)
-  let a : Accumulator[Int] = Accumulator::new(rt~)
+  let a : Accumulator[Int] = Accumulator(rt)
   let m : Derived[Int] = Derived(rt, () => {
     a.push(1)
     if should_fail.get() {
@@ -555,7 +555,7 @@ test "accumulator: ON_ABORT restores prior buffer on raised compute" {
 test "verify: aborted new-slot push preserves prior push_revised_at" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 1)
-  let acc : Accumulator[Int] = Accumulator::new(rt~)
+  let acc : Accumulator[Int] = Accumulator(rt)
   // Producer behavior:
   //   sig=1  → push [1]
   //   sig=0  → push nothing

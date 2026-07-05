@@ -200,7 +200,7 @@ test "static derived: compute failure clears in-progress and hooks" {
   let rt = Runtime()
   rt.on_derived_event(_evt => ())
   // Seeds accumulator hook state so the active-entry cleanup assertion is meaningful.
-  let _acc : Accumulator[Int] = Accumulator::new(rt~)
+  let _acc : Accumulator[Int] = Accumulator(rt)
   let should_fail : Ref[Bool] = { val: true }
   let derived : Derived[Int] = static_derived(
     rt,
@@ -289,7 +289,7 @@ test "static derived: cycle reporting follows fixed deps" {
 ///|
 test "static derived: accumulator use fails explicitly" {
   let rt = Runtime()
-  let pushed : Accumulator[Int] = Accumulator::new(rt~)
+  let pushed : Accumulator[Int] = Accumulator(rt)
   let push_probe = static_derived(
     rt,
     [],
@@ -310,7 +310,7 @@ test "static derived: accumulator use fails explicitly" {
   inspect(push_failed, content="true")
   inspect(rt.static_recompute_depth, content="0")
 
-  let read_acc : Accumulator[Int] = Accumulator::new(rt~)
+  let read_acc : Accumulator[Int] = Accumulator(rt)
   let producer = Derived(rt, () => {
     read_acc.push(7)
     7

@@ -13,7 +13,7 @@ pub struct Effect {
 ///
 /// `f` is invoked immediately to establish dependencies and run the initial
 /// side effect. It is re-run by push propagation whenever any dependency changes.
-pub fn Effect::new(rt : Runtime, f : () -> Unit) -> Effect {
+pub fn Effect::Effect(rt : Runtime, f : () -> Unit) -> Effect {
   let (cell_id, effect_idx) = rt.install_cell(
     rt.push.free_effects,
     rt.push.effects,
@@ -46,6 +46,13 @@ pub fn Effect::new(rt : Runtime, f : () -> Unit) -> Effect {
     rt.drain_pending_events_if_idle()
   }
   effect
+}
+
+///|
+/// Deprecated alias of the `Effect::Effect` constructor.
+#deprecated("Use the constructor form `Effect(rt, f)` (`Effect::Effect`) instead.")
+pub fn Effect::new(rt : Runtime, f : () -> Unit) -> Effect {
+  Effect(rt, f)
 }
 
 ///|

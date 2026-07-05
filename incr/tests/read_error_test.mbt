@@ -120,7 +120,7 @@ test "DerivedMap::read after scope disposal returns Err(Disposed)" {
 ///|
 test "Memo::accumulated on disposed target returns Err(Disposed)" {
   let rt = @incr.Runtime()
-  let acc : @incr.Accumulator[Int] = @incr.Accumulator::new(rt~)
+  let acc : @incr.Accumulator[Int] = @incr.Accumulator(rt)
   let m = @incr.Derived(rt, () => {
     acc.push(1)
     0
@@ -135,6 +135,34 @@ test "Memo::accumulated on disposed target returns Err(Disposed)" {
   rt.dispose_cell(m.id())
   guard m.accumulated(acc) is Err(e) else {
     fail("expected Err on disposed accumulated target")
+  }
+  guard e.is_disposed() else { fail("expected Err(Disposed), got \{e}") }
+}
+
+///|
+test "Input::get_result on a disposed input returns Err(Disposed) instead of aborting" {
+  let rt = @incr.Runtime()
+  let x = @incr.Input(rt, 42, label="x")
+  guard x.get_result() is Ok(42) else {
+    fail("expected Ok(42) before disposal")
+  }
+  x.dispose()
+  guard x.get_result() is Err(e) else {
+    fail("expected Err on disposed Input::get_result")
+  }
+  guard e.is_disposed() else { fail("expected Err(Disposed), got \{e}") }
+}
+
+///|
+test "InputField::get_result on a disposed input field returns Err(Disposed) instead of aborting" {
+  let rt = @incr.Runtime()
+  let f = @incr.InputField(rt, 99, label="f")
+  guard f.get_result() is Ok(99) else {
+    fail("expected Ok(99) before disposal")
+  }
+  f.dispose()
+  guard f.get_result() is Err(e) else {
+    fail("expected Err on disposed InputField::get_result")
   }
   guard e.is_disposed() else { fail("expected Err(Disposed), got \{e}") }
 }

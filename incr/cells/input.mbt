@@ -127,14 +127,27 @@ pub fn[T] Input::peek(self : Input[T]) -> T {
 ///|
 /// Returns the current value of the input as a Result.
 ///
-/// Since inputs cannot have cycles (they are input cells with no dependencies),
-/// this method always returns `Ok(value)`.
+/// Unlike `get()` which aborts on disposal, this method returns
+/// `Err(Disposed(cell_id))` when the input has been disposed. Cycle errors
+/// cannot occur for inputs (they have no dependencies), so the `Cycle` variant
+/// of `ReadError` is structurally unreachable — but accepting it through the
+/// shared `ReadError` type keeps the channel uniform across all cell types.
 ///
 /// # Returns
 ///
-/// `Ok(value)` with the current value of the input
-pub fn[T] Input::get_result(self : Input[T]) -> Result[T, CycleError] {
-  Ok(self.get())
+/// `Ok(value)` with the current value of the input, or
+/// `Err(ReadError::Disposed(id))` if the input has been disposed
+pub fn[T] Input::get_result(self : Input[T]) -> Result[T, ReadError] {
+  guard !self.rt.is_cell_disposed(self.cell_id) else {
+    return Err(ReadError::disposed(self.cell_id))
+  }
+  self.rt.check_cross_runtime(self.rt.core.runtime_id, "Input")
+  self.rt.record_dependency(self.cell_id)
+  let value = self.value
+  if self.rt.has_pending_events() {
+    self.rt.drain_pending_events_if_idle()
+  }
+  Ok(value)
 }
 
 ///|

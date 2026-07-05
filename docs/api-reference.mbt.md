@@ -524,7 +524,7 @@ static-Derived recompute misuse raise `Failure`; cross-runtime reuse aborts.
 
 `DerivedMap[K, V]` is the keyed derived facade.
 
-### `DerivedMap[K : Hash + Eq, V](rt: Runtime, compute: (K) -> V raise Failure, label? : String) -> DerivedMap[K, V]`
+### `DerivedMap[K : Hash + Eq, V : Eq](rt: Runtime, compute: (K) -> V raise Failure, label? : String) -> DerivedMap[K, V]`
 
 Creates an empty derived map. No per-key derived value is allocated until first read of that key.
 
@@ -532,7 +532,7 @@ The checked companion covers `DerivedMap` construction, lazy keyed reads,
 strict tracked reads, fallback reads, and cache maintenance in
 [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
-### `DerivedMap::fallible[K : Hash + Eq, V, E](rt: Runtime, compute: (K) -> Result[V, E], label? : String) -> DerivedMap[K, Result[V, E]]`
+### `DerivedMap::fallible[K : Hash + Eq, V : Eq, E : Eq](rt: Runtime, compute: (K) -> Result[V, E], label? : String) -> DerivedMap[K, Result[V, E]]`
 
 Keyed counterpart to `Derived::fallible`: each key's recoverable domain failure is expressed in the value as `Result[V, E]` (the `compute` is **noraise**). For non-`Result` diagnostics, keep the custom domain status in the map value by the same [domain errors as values](cookbook.mbt.md#pattern-domain-errors-as-values) pattern. See [Honest Read-Error Ownership](design/specs/2026-05-28-honest-read-error-ownership.md).
 
@@ -998,7 +998,7 @@ Creates a target-name reachable lazy derived value using the context runtime.
 
 Creates a target-name eager derived value using the context runtime.
 
-### `create_derived_map[Ctx : RuntimeContext, K : Hash + Eq, V](ctx: Ctx, f: (K) -> V raise Failure, label?: String) -> DerivedMap[K, V]`
+### `create_derived_map[Ctx : RuntimeContext, K : Hash + Eq, V : Eq](ctx: Ctx, f: (K) -> V raise Failure, label?: String) -> DerivedMap[K, V]`
 
 Creates a target-name keyed derived map using the context runtime.
 

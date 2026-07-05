@@ -23,8 +23,8 @@ pub struct Accumulator[T] {
 ///
 /// Constructs the typed buffer state and the SlotMeta closures that the
 /// runtime uses to drive snapshot/finalize/dispose phases.
-pub fn[T : Eq] Accumulator::new(
-  rt~ : Runtime,
+pub fn[T : Eq] Accumulator::Accumulator(
+  rt : Runtime,
   label? : String,
 ) -> Accumulator[T] {
   let per_memo : @hashmap.HashMap[CellId, Array[T]] = @hashmap.HashMap([])
@@ -151,7 +151,7 @@ priv struct SlotMeta {
 
 ///|
 /// Internal: register a new accumulator slot and return its ID.
-/// Called by Accumulator::new. Monotonic — IDs never reused.
+/// Called by Accumulator::Accumulator. Monotonic — IDs never reused.
 ///
 /// Pushes into `accumulator_slots` and the parallel
 /// `accumulator_snapshots` cache so the two arrays stay index-aligned.

@@ -737,13 +737,10 @@ test "docs api-ref: scope-owned accepted_derived disposes with its scope" {
 
 ```mbt check
 ///|
-test "docs api-ref: Accumulator::new and push capture memo-local values" {
+test "docs api-ref: Accumulator constructor and push capture memo-local values" {
   let rt = @incr.Runtime()
   let width = rt.input(-1, label="width")
-  let diags : @incr.Accumulator[String] = @incr.Accumulator::new(
-    rt~,
-    label="diags",
-  )
+  let diags : @incr.Accumulator[String] = @incr.Accumulator(rt, label="diags")
   let producer = @incr.Derived(
     rt,
     () => {

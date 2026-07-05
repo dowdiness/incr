@@ -347,7 +347,7 @@ This is why an accumulator is not "just an `Array` you return": a plain return w
 
 ### Scope-Owned Lifecycle
 
-Prefer `Scope::accumulator` over `Accumulator::new(rt~, ...)` when the accumulator's lifetime matches a larger unit of work (a chain rebuild, a compilation pass). Runtime-owned accumulators live until explicitly disposed, so drivers that rebuild on structural change accumulate stale per-cell buffers. Scope ownership ties cleanup to the chain that produced the data. The API-reference companion checks scope-owned accumulator disposal in [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md#accumulator--compatibility-push-side-channel).
+Prefer `Scope::accumulator` over `Accumulator(rt, ...)` when the accumulator's lifetime matches a larger unit of work (a chain rebuild, a compilation pass). Runtime-owned accumulators live until explicitly disposed, so drivers that rebuild on structural change accumulate stale per-cell buffers. Scope ownership ties cleanup to the chain that produced the data. The API-reference companion checks scope-owned accumulator disposal in [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md#accumulator--compatibility-push-side-channel).
 
 The same lifecycle pattern applies to long-lived target readers: use
 `scope.add_watch(derived.watch())` when a `Watch` should be disposed with the
