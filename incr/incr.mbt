@@ -25,6 +25,7 @@ pub using @internal {
   type Input,
   type InputField,
   type Derived,
+  type Expr,
   type DerivedEnteringEvent,
   type DerivedCompletedEvent,
   type DerivedAbortedEvent,
