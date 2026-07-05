@@ -18,7 +18,7 @@ Each guide has a checked literate-test companion that pins its behavior with
 `moon test`: [concepts_examples](concepts_examples.mbt.md),
 [cookbook_examples](cookbook_examples.mbt.md),
 [api_reference_examples](api_reference_examples.mbt.md), and
-[target_api_examples](target_api_examples.mbt.md) (README / getting-started
+[target_api_examples](target_api_examples.mbt.md), and [expr_examples](expr_examples.mbt.md) (README / getting-started / Expr formula
 snippets).
 
 ## Architecture

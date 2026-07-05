@@ -78,6 +78,7 @@ pub fn[T] Derived::clear_on_change(Self[T]) -> Unit
 pub fn[T] Derived::dependencies(Self[T]) -> Array[@types.CellId]
 pub fn[T] Derived::derived_no_backdate(Runtime, () -> T raise Failure, label? : String) -> Self[T]
 pub fn[T] Derived::dispose(Self[T]) -> Unit
+pub fn[T] Derived::expr(Self[T]) -> Expr[T]
 pub fn[V : Eq, E : Eq] Derived::fallible(Runtime, () -> Result[V, E], label? : String) -> Self[Result[V, E]]
 pub fn[T] Derived::get(Self[T]) -> Result[T, @types.ReadError]
 pub fn[T] Derived::get_or_abort(Self[T]) -> T
@@ -148,6 +149,7 @@ pub(all) struct EagerDerived[T] {
 }
 pub fn[T : Eq] EagerDerived::EagerDerived(Runtime, () -> T) -> Self[T]
 pub fn[T] EagerDerived::dispose(Self[T]) -> Unit
+pub fn[T] EagerDerived::expr(Self[T]) -> Expr[T]
 pub fn[T] EagerDerived::get(Self[T]) -> T
 pub fn[T] EagerDerived::id(Self[T]) -> @types.CellId
 pub fn[T] EagerDerived::is_disposed(Self[T]) -> Bool
@@ -167,6 +169,20 @@ pub fn Effect::is_disposed(Self) -> Bool
 pub fn Effect::new(Runtime, () -> Unit) -> Self
 pub impl InputFieldOwner for Effect
 
+pub(all) struct Expr[T] {
+  // private fields
+}
+pub fn[T] Expr::constant(Runtime, T, label? : String) -> Self[T]
+pub fn[T : Eq] Expr::derived(Self[T], label? : String) -> Derived[T]
+pub fn[A, B] Expr::map(Self[A], (A) -> B raise Failure) -> Self[B]
+pub fn[A, B, C] Expr::map2(Self[A], Self[B], (A, B) -> C raise Failure) -> Self[C]
+pub impl[T : Add] Add for Expr[T]
+pub impl[T : Div] Div for Expr[T]
+pub impl[T : Mod] Mod for Expr[T]
+pub impl[T : Mul] Mul for Expr[T]
+pub impl[T : Neg] Neg for Expr[T]
+pub impl[T : Sub] Sub for Expr[T]
+
 pub(all) struct Input[T] {
   // private fields
 } derive(@debug.Debug)
@@ -180,6 +196,7 @@ pub fn[T, U, V, W] Input::derived3_no_backdate(Self[T], Self[U], Self[V], (T, U,
 pub fn[T, U] Input::derived_no_backdate(Self[T], (T) -> U, label? : String) -> Derived[U]
 pub fn[T] Input::dispose(Self[T]) -> Unit
 pub fn[T] Input::durability(Self[T]) -> @types.Durability
+pub fn[T] Input::expr(Self[T]) -> Expr[T]
 pub fn[T] Input::force_set(Self[T], T) -> Unit
 pub fn[T] Input::get(Self[T]) -> T
 pub fn[T] Input::get_result(Self[T]) -> Result[T, @types.ReadError]
@@ -201,6 +218,7 @@ pub fn[T] InputField::InputField(Runtime, T, durability? : @types.Durability, la
 pub fn[T] InputField::clear_on_change(Self[T]) -> Unit
 pub fn[T] InputField::dispose(Self[T]) -> Unit
 pub fn[T] InputField::durability(Self[T]) -> @types.Durability
+pub fn[T] InputField::expr(Self[T]) -> Expr[T]
 pub fn[T] InputField::force_set(Self[T], T) -> Unit
 pub fn[T] InputField::get(Self[T]) -> T
 pub fn[T] InputField::get_result(Self[T]) -> Result[T, @types.ReadError]
@@ -236,6 +254,7 @@ pub(all) struct ReachableDerived[T] {
 } derive(@debug.Debug)
 pub fn[T : Eq] ReachableDerived::ReachableDerived(Runtime, () -> T raise Failure, label? : String) -> Self[T]
 pub fn[T] ReachableDerived::dispose(Self[T]) -> Unit
+pub fn[T : Eq] ReachableDerived::expr(Self[T]) -> Expr[T]
 pub fn[T : Eq] ReachableDerived::get(Self[T]) -> Result[T, @types.ReadError]
 pub fn[T : Eq] ReachableDerived::get_or_abort(Self[T]) -> T
 pub fn[T] ReachableDerived::id(Self[T]) -> @types.CellId
@@ -301,6 +320,7 @@ pub fn[T] Scope::add_watch(Self, Watch[T]) -> Watch[T]
 pub fn[T : InputFieldOwner] Scope::adopt(Self, T) -> T
 pub fn Scope::child(Self) -> Self
 pub fn[T : Eq] Scope::derived(Self, () -> T raise Failure, label? : String) -> Derived[T]
+pub fn[T : Eq] Scope::derived_expr(Self, Expr[T], label? : String) -> Derived[T]
 pub fn[K : Hash + Eq, V : Eq] Scope::derived_map(Self, (K) -> V raise Failure, label? : String) -> DerivedMap[K, V]
 pub fn[T] Scope::derived_no_backdate(Self, () -> T raise Failure, label? : String) -> Derived[T]
 pub fn Scope::dispose(Self) -> Unit

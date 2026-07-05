@@ -186,6 +186,30 @@ pub fn[T : Eq] Scope::reachable_derived(
 }
 
 ///|
+/// Materializes an expression as a lazy derived cell owned by this scope.
+/// Aborts if `expr` belongs to a different runtime.
+pub fn[T : Eq] Scope::derived_expr(
+  self : Scope,
+  expr : Expr[T],
+  label? : String,
+) -> Derived[T] {
+  guard !self.disposed else {
+    abort("Scope::derived_expr called on a disposed scope")
+  }
+  guard expr.rt.id() == self.runtime.id() else {
+    abort(
+      "Scope::derived_expr: expression Runtime " +
+      expr.rt.id().to_string() +
+      " does not match scope Runtime " +
+      self.runtime.id().to_string(),
+    )
+  }
+  let derived = expr.derived(label?)
+  self.cells.push(derived.id())
+  derived
+}
+
+///|
 /// Creates a keyed derived facade whose cached entries are cleared on dispose.
 pub fn[K : Hash + Eq, V : Eq] Scope::derived_map(
   self : Scope,

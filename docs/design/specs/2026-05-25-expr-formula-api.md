@@ -1,8 +1,8 @@
 # `Expr[T]` Formula API
 
-**Status:** Proposed
+**Status:** Accepted
 
-**Date:** 2026-05-25
+**Date:** 2026-07-05 (Status updated from Proposed to Accepted upon E2 implementation)
 
 **Parent TODO:** [`docs/todo.md`](../../todo.md#api-improvements)
 

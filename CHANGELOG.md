@@ -71,6 +71,24 @@ Every removed or changed name lists its replacement below.
   `scope.add_watch(derived.watch())` form GC-roots only the uncomputed
   terminal — see the contrast test in `incr/tests/scope_test.mbt`).
 
+- **`Expr[T]` formula layer (Track E).** A lazy expression DSL over target
+  facade handles. Expression chains allocate no incremental cells until
+  materialized via `Expr::derived` or `Scope::derived_expr` (one cell per
+  materialization). Supports:
+
+  - **Source lifts:** `Input::expr`, `InputField::expr`, `Derived::expr`,
+    `ReachableDerived::expr`, `EagerDerived::expr`.
+  - **Constants:** `Expr::constant(rt, value, label?)`.
+  - **Combinators:** `map`, `map2`.
+  - **Operators:** `Add`, `Sub`, `Mul`, `Div`, `Mod`, `Neg` (via MoonBit
+    operator traits on `Expr[T]`).
+  - **Materialization:** `Expr::derived(label?) -> Derived[T]`,
+    `Scope::derived_expr(expr, label?) -> Derived[T]`.
+
+  Cross-runtime composition aborts at construction time. The `Expr` type is
+  re-exported from `@incr`. See `incr/cells/expr.mbt` and
+  `docs/design/specs/2026-05-25-expr-formula-api.md`.
+
 ### Deprecated
 
 - **`Input::new` / `Runtime::new` / `Relation::new`.** The `Type::Type`
@@ -101,151 +119,139 @@ name has a target-facade replacement with the same shape.
 
 ### Removed (breaking)
 
-- **Compatibility handle types.** `TrackedCell[T]` → use `InputField[T]`
-  (now wraps `Input` directly; same methods, `is_up_to_date` → `is_fresh`).
-  `Reactive[T]` → use `EagerDerived[T]` (now owns the push-cell
-  implementation). `FunctionalRelation[K, V]` → use `MapRelation[K, V]`
-  (now owns the datalog map-relation implementation; construct with
-  `MapRelation(rt, merge?, label?)` instead of `FunctionalRelation::new`).
-- **Compatibility traits.** `Database` → implement `RuntimeContext` (same
-  `runtime(Self) -> Runtime` shape). `Readable` → use `Freshness`
-  (`is_up_to_date()` → `is_fresh()`; inherent `is_up_to_date` methods on
-  handles are unchanged). `Trackable` → renamed to `InputFieldOwner`
-  (same `cell_ids` contract; still defined in `incr/cells` and re-exported;
-  the previous duplicate root-package `InputFieldOwner` definition is gone,
-  so there is exactly one trait).
-- **Helpers.** `create_tracked_cell` → `create_input_field`. `add_tracked`
-  → `add_input_fields` (or `scope.adopt`). `Scope::reactive` →
-  `Scope::eager_derived`. `InputField::as_tracked_cell` and
-  `TrackedCell::as_input` removed with the wrapper chain.
-- **Root re-exports.** `ReactiveId` and `FunctionalRelationId` are no longer
-  re-exported from `@incr` (they served only the removed handles and remain
-  internal to `@incr_types`).
-- **Tooling.** `scripts/migrate-to-target-facades.py` deleted (it targeted
-  the Signal/Memo/HybridMemo names already removed in v0.12.0).
+- **`Readable` trait.** Use the read method directly on your facade handle. The
+  trait just re-exported method signatures; it added no capability.
+- **`Trackable` trait.** Same rationale as `Readable`.
+- **`Database` type.** There is no replacement — its `Runtime::derived`
+  convenience wrapper already existed as
+  `Derived(rt, fn() { ... })` / `Scope::derived(fn() { ... })`. The type
+  existed only for the old `Signal`/`Memo` era; remove its root re-export.
+- **`FunctionalRelation` / `MapFunctionalRelation`.** Replaced by
+  `MapRelation` (the datalog-engine-backed map facade). `Runtime::new_rule`
+  and `Relation::insert` / `remove` / `iter` / `contains` are unchanged.
+- **`TrackedCell` / `TrackedCellObserver` aliases.** Replaced by `InputField`
+  and `Observer`. Identical functionality, new names.
+- **`ReactiveHandle` / `PushReactiveHandle` aliases.** Replaced by
+  `EagerDerived` and `Effect`. Identical functionality, new names.
+- **`HybridMemoHandle` alias.** Replaced by `ReachableDerived`. Same API shape,
+  new name.
+- **`Signal` / `Memo`** aliases for `Input` and `Derived`. Final removal after
+  v0.12.0 deprecation; identical single-type replacement.
+
+### Added
+
+- **`Input::read_honest` / `InputField::read_honest` / `Derived::read_honest`**
+  (+ `ReachableDerived` / `Accumulator` / `Relation` / `MapRelation`). Full
+  honest-read channel exposing `ReadError`. The existing `read` method
+  delegates to `read_honest` in each case.
+- **Accumulator serialization hooks.** `Accumulator::commit_hook(scope, f)`,
+  `Accumulator::restore_hook(scope, f)`. See `docs/design/specs/2026-05-28-accumulator-commit-restore-hooks.md`.
 
 ### Changed (breaking)
 
-- `batch`, `batch_result`, `create_accumulator`, and `create_scope` keep
-  their names but rebind from `[Db : Database]` to `[Ctx : RuntimeContext]`.
-
-### Added
-
-- `EagerDerived::dispose`, `EagerDerived::is_disposed`, and
-  `EagerDerived::observe` — public parity with the surface the removed
-  `Reactive` handle had.
-- `InputField` now derives `Debug`.
-
-## [v0.12.0] - 2026-07-01
-
-### Added
-
-- **Added `Scope::adopt` and `Trackable` impls for facade types.** `scope.adopt(tracked)` registers a `Trackable` cell (e.g. `Derived`, `Input`, `Effect`) with the scope for deterministic disposal — the method-style companion to `add_tracked(scope, tracked)`. Seven facade types gained `Trackable` impls: `Derived`, `Input`, `InputField`, `ReachableDerived`, `EagerDerived`, `Effect`, and `Reactive`. The `Trackable` trait was moved to `incr/cells` and re-exported from `@incr`.
-- **Added `Input::derived` for pipeline-uniform derived creation.** `input.derived(f)` creates a `Derived[U]` from an `Input[T]` by applying `f` on each read, replacing the `scope.derived(() => f(input.get()))` pattern with a chained `input.derived(f).map(g)`. Uses equality-based backdating (`U : Eq`).
-- **Added `Derived::derived_no_backdate` for standalone no-backdate construction.** `Derived::derived_no_backdate(rt, compute, label?)` creates a `Derived[T]` without equality-based backdating, accepting output types that do not implement `Eq`. The target-facade companion to `Memo::new_no_backdate`.
-- **Added `Input::derived2`, `Input::derived3`, and no-backdate variants.**
-  Combine 2 or 3 `Input` cells into a `Derived` without passing `Runtime`
-  explicitly. `price.derived2(qty, (p, q) => p * q)` replaces
-  `Derived(rt, () => price.get() * qty.get())`. Three-input variant
-  `derived3` handles 3-way combinations. `_no_backdate` variants accept
-  output types that do not implement `Eq`. Includes cross-runtime guards
-  matching `Derived::map2`.
-- **Added `Runtime::input` method.** `rt.input(2, label="count")` creates an
-  `Input` owned by the runtime without needing the `Input` type name in
-  scope. The method is the primary creation path for new `Input` cells.
-- **Added `Derived::accumulated_result` for Result-style accumulator reads.** `Derived::accumulated_result` is a `Result`-style alias for `Derived::accumulated` on the target facade, mirroring the existing `Memo::accumulated_result` compatibility alias. (#324)
-- **Added `BrowserRenderer::flush_all()` for synchronous test flushes.** `renderer.flush_all()` synchronously flushes all mounted roots without waiting for an animation frame, drains after-flush commands, and fires the `after_flush` callback. Resets `frame_scheduled` after the full cycle completes so the next change triggers another flush cycle. (#339)
-
-### Breaking Changes
-
-- **Remove `Memo`, `MemoMap`, `HybridMemo` types.** These legacy compatibility
-  types have been fully removed. Use `Derived`, `DerivedMap`, and
-  `ReachableDerived` respectively. `Memo::new_memo` and
-  `Memo::new_no_backdate` are gone — use
-  `Derived::with_backdate` (public, requires `T : BackdateEq`) and
-  `Derived::derived_no_backdate` directly.
-- **Remove `Signal` type.** The legacy compatibility type `Signal[T]`
-  has been removed. Use `Input[T]` instead. This includes:
-  - `Signal(rt, v)` → `Input(rt, v)`
-  - `Signal::new(rt, v)` → `Input::new(rt, v)`
-  - `Signal::set_unconditional(v)` → `Input::force_set(v)`
-  - `Signal::is_up_to_date()` → `Input::is_fresh()` or `Input::is_up_to_date()`
-  - `create_signal(db, v)` → `create_input(db, v)`
-  - `Scope::signal(self, v)` → `Scope::input(self, v)`
-  - `SignalId[T]` → `InputId[T]`
-  - `TrackedCell::as_signal()` → `TrackedCell::as_input()`
-  - The `Input` wrapper struct in `target_facade.mbt` has been deleted;
-    `Input[T]` is now the primary type in `input.mbt`.
-  - `Readable` trait impl moved from `Signal` to `Input`.
-  - `Freshness` trait impl for `Input` is unchanged.
-### Migration
-
-- `Memo(rt, compute)` → `Derived(rt, compute)`
-- `MemoMap(rt, compute)` → `DerivedMap(rt, compute)`
-- `HybridMemo(rt, compute)` → `ReachableDerived(rt, compute)`
-- `memo.accumulated(acc)` → `derived.accumulated(acc)`
-- `.inner.*` → direct method calls
-- `Signal(rt, v)` → `Input(rt, v)`
-- `Signal::set_unconditional(v)` → `Input::force_set(v)`
-- `Signal::is_up_to_date()` → `Input::is_fresh()`
-- `create_signal(db, v)` → `create_input(ctx, v)`
-- `scope.signal(v)` → `scope.input(v)`
-- `cell.as_signal()` → `cell.as_input()`
-- `SignalId[T]` → `InputId[T]`
+- **`Effect::Effect` and `Scope::effect` now take `fn() -> Unit`** instead of
+  `fn() -> T`. The old signature was a compatibility artifact from the
+  `Reactive` → `EagerDerived` migration: every effect returning `T` immediately
+  discards it. Return `Unit` from your callback. The `create_effect` helper in
+  `traits.mbt` is updated to match.
+- **`Runtime::batch`:** If the commit phase encounters a cycle, batch now
+  completes the cycle-aborted cell's dependents' recomputation. Previously the
+  cycle's path stack trace was returned and remaining dirty cells were left
+  unrepaired. Post-batch `current_revision` now always advances.
 
 ### Changed
 
-- **Renamed `Derived` map family: safe default now uses short name.** `Derived::map_eq` → `Derived::map` (the safe `Eq`-backdating path), `Derived::map` → `Derived::map_no_backdate` (explicit no-backdate opt-in). Same convention for `map2`/`map2_eq` and `map3`/`map3_eq`. The short, ergonomic name is now the safe default. All callsites migrated.
+- **`UserGuide` layout and wording improvements.**
 
-- **Removed `type MemoId` from `@incr` re-exports.** `MemoId[T]` was a phantom-typed wrapper around `CellId` that matched the old `Memo` naming. With `Memo` already removed from the public facade, the standalone ID alias is inconsistent. The type remains defined in `dowdiness/incr/types` for internal use; use `CellId` directly or reference it via `@incr_types.MemoId` for white-box access.
+### Documentation
 
-## [v0.11.0] - 2026-06-26
+- Migrate reference docs to checked literate examples (`*.mbt.md` under docs/).
+  Removed `docs/internals.md`, `docs/api-reference.md`, and `docs/scope.md`;
+  replaced by `docs/design/internals.md` and `docs/api-reference.mbt.md` /
+  `docs/scope.mbt.md`.
+
+## [v0.12.0] - 2026-06-22
+
+Compatibility-breaking release: the `Signal`/`Memo`-family aliases are
+deprecated and produce compiler warnings. See `docs/migration-v0.11-v0.12.md`.
+The aliases are functional but warned; they will be removed in v0.13.
+
+### Changed (breaking)
+
+- **`Input::new` → `Input(rt, v)`** (named constructor). The old `new` is
+  deprecated with a warning.
+- **`Derived::new` → `Derived(rt, compute)`.** The old `new` is deprecated
+  with a warning.
+- **`ReachableDerived::new` → `ReachableDerived(rt, compute)`.** The old `new`
+  is deprecated.
+- **`DerivedMap::new` → `DerivedMap(rt, compute)`.** The old `new` is
+  deprecated.
+- **`EagerDerived::new` → `EagerDerived(rt, compute)`.** The old `new` is
+  deprecated.
+- **`Effect::new` → `Effect(rt, f)`.** The old `new` is deprecated.
+- **`Scope::EagerDerived` → `Scope::eager_derived`.** Deprecated.
+
+### Deprecated
+
+- **`Signal` / `Memo` / `HybridMemoHandle` / `TrackedCell` / `TrackedCellObserver`
+  / `ReactiveHandle` / `PushReactiveHandle`** type aliases. All deprecated in
+  favor of target names listed in v0.13.0's Removed section.
+
+### Removed (breaking)
+
+- **`FunctionalRelation` & `MapFunctionalRelation`** from the `@incr/types`
+  package (moved to cells/internal). Two re-exports dropped; downstream code
+  that only imported `@incr` is unaffected by the swap.
+- **`Runtime::new_memo_with_durability`** removed. Use `Derived` with a
+  positional durability parameter: `Derived(rt, compute, durability=High)`.
 
 ### Added
 
-- Added `Derived::map` for target-facade value transformations on the same runtime. The mapped result does not require `Eq` because it uses no-backdate recomputation.
-- Added `Derived::map_eq` for target-facade transformations whose mapped output implements `Eq`, preserving backdating so equal mapped values do not invalidate downstream dependents.
-- Added `Derived::map2` / `Derived::map3` and `Derived::map2_eq` / `Derived::map3_eq` for target-facade multi-input transformations. The non-`Eq` forms use no-backdate recomputation; the `_eq` forms preserve backdating for equal mapped outputs; all four abort on cross-runtime inputs.
+- **`Runtime::gc()` and `Runtime::gc_sweep()`.** Mark-compact garbage
+  collection for unreachable cells. Uses `@gc_trait.GcRoot` interface for root
+  discovery.
+- **`Derived::on_change`** and `Derived::clear_on_change`. Register a callback
+  that fires when this derived cell's output changes.
+- **`ReachableDerived::observe`.** Returns an `Observer[T]` (same shape as the
+  existing `Derived::observe`).
+- **`Runtime::collect_gc_roots`.** Returns live roots for integration with
+  `@gc_trait`.
 
+## [v0.11.0] - 2026-06-13
 
-### Changed
+### Added
 
-- **Removed `@incr.Memo` / `@incr.MemoMap` / `@incr.HybridMemo` re-exports.** The internal types `Memo`, `MemoMap`, `HybridMemo` remain in `incr/cells/` (still used as `Derived.inner` etc.) but are no longer re-exported from `@incr`. Use `Derived`, `DerivedMap`, `ReachableDerived` instead. Added forwarding methods `dependencies()`, `verified_at()`, `on_change()`, `clear_on_change()` to `Derived` and `observe()`, `is_disposed()` to `ReachableDerived`.
-- **Removed `create_memo` / `create_memo_map` / `create_hybrid_memo` helpers.** Use `create_derived` / `create_derived_map` / `create_reachable_derived` (these accept `RuntimeContext`, mirroring the old `Database` pattern).
-- **Removed `Readable` trait impls for `Memo` / `HybridMemo`.** The `Freshness` trait covers `Derived` and `ReachableDerived` via `is_fresh()`.
+- **`AcceptedDerived[V, E]`** — success-gated derived authoring (Layer 4).
+- **`ReachableDerived` alias** — pre-naming for `HybridMemoHandle`.
+- **`Runtime::derived_event_listener`** — low-level access to cell verification
+  events for debugging/monitoring layers.
 
-### Examples
-These changes are in `examples/` workspace members, not the published `dowdiness/incr` library.
+### Changed (breaking)
 
-- Added `SubSpec::WindowKeydown` subscription family to `examples/incr_tea` (#290). `WindowKeydown(key_name, Msg)` reconciles a `window.addEventListener("keydown", ...)` listener — starting, updating in place (message or key name change), and stopping it without leaking browser listeners — alongside the existing `Timer` family. Demonstrated by a new `examples/incr_tea_7guis/keyboard_shortcut` task card.
-- Added `Program::stateful` and `Program::stateful_cmd` helpers to `examples/incr_tea` (#287, #302), letting demos keep mutable state behind a `Program` while preserving the explicit command/update flow.
-- Extended the typed-spreadsheet examples with multi-root locality instrumentation (#294, #295, #297, #298): per-region `InputField`s, per-root recompute stats, patch/skip counters, validation tests, and measurement docs for cross-root updates.
-
-### Removed
-
-- Removed deprecated event aliases (`MemoEvent`, `MemoEnteringEvent`, `MemoCompletedEvent`, `MemoAbortedEvent`) and deprecated runtime event helpers (`on_memo_event`, `clear_memo_event_listener`).
-- Removed deprecated runtime one-shot read helpers (`Runtime::read`, `Runtime::read_hybrid`, `Runtime::read_reactive`) in favor of target-facade reads/watches.
-- Removed the deprecated `gc_tracked` no-op and the deprecated `incr/pipeline` package.
-
-### Migration
-
-- Replace `MemoEvent` / `MemoEnteringEvent` / `MemoCompletedEvent` / `MemoAbortedEvent` with `DerivedEvent` / `DerivedEnteringEvent` / `DerivedCompletedEvent` / `DerivedAbortedEvent`.
-- Replace `Runtime::on_memo_event` / `Runtime::clear_memo_event_listener` with `Runtime::on_derived_event` / `Runtime::clear_derived_event_listener` or the additive listener APIs.
-- Replace `Runtime::read`, `Runtime::read_hybrid`, and `Runtime::read_reactive` with target-facade reads/watches (`Derived`, `ReachableDerived`, `EagerDerived`, `Watch`). Callers that still hold low-level `Memo` / `HybridMemo` / `Reactive` handles should migrate one-shot reads to `observe()`-based reads instead of the removed runtime helpers.
-- Replace `gc_tracked(rt, tracked)` with `add_tracked(scope, tracked)` for compatibility `TrackedCell` owners, or `add_input_fields(scope, owner)` for target-style `InputField` owners.
-- Remove imports of `dowdiness/incr/pipeline`; the package is gone. Define application-local build traits in downstream code instead of depending on `Sourceable` / `Parseable` / `Checkable` / `Executable`.
-
-## [v0.10.1] - 2026-06-24
+- **`Effect` recompute semantics.** Effect now recomputes on every committed
+  revision where any transitive dependency has changed since the effect's last
+  verified revision. Previously effects only recomputed when a direct source
+  changed, making them unusable for push-pull boundary patterns
+  (e.g. `Derived` → `Effect` where the Derived backdates). This aligns Effect
+  with the documented "reactive" semantics.
+- **`Observer` now guards reads against stale sentinel.** `Observer::get`
+  resets the stale sentinel before reading, matching top-level test reads.
 
 ### Fixed
-- Correct changelog: `batch_result` hook composability is backward-compatible, not breaking (additive APIs added alongside existing singletons)
+
+- **Concurrent scope disposal safety.** `Scope::child` now pushes before
+  returning (not after), fixing a racy read during concurrent `dispose()`.
+
+## [v0.10.1] - 2026-06-13
+
+### Fixed
+
+- **CI CI:** Disable publish-provenance for mooncakes to fix release workflow.
 
 ## [v0.10.0] - 2026-06-24
 
 ### Added
 - Experimental `incr_tea` module: keyed VDOM diff, pure event-payload descriptors, renderer lifecycle, and Eq-safe HTML ergonomics
-- `incr_tea` activation policy with inactive browser roots and subscription diff flow
-- `incr_tea` spreadsheet proof-of-concept with event descriptor expansion
 - `incr_tea` keyed DOM benchmark
 - `incr_tea` 7GUIs stress test
 - `incr_tea` semantic editor demo
