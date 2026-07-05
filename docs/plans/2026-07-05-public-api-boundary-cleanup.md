@@ -1,6 +1,7 @@
 # Public API Boundary Cleanup + `Expr[T]` Track
 
-**Status:** Active
+**Status:** Active — Phases 0/1/2 shipped (PRs #353/#354/#355/#357 + `606b1e0`);
+remaining work = §Release 0.14.0 and Track E.
 
 **Date:** 2026-07-05
 
