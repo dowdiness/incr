@@ -283,7 +283,12 @@ pub fn[T] Scope::add_watch(self : Scope, watch : Watch[T]) -> Watch[T] {
 /// `scope.add_watch(derived.watch())` without a priming read loses its
 /// upstream to gc; see the contrast test in `incr/tests/scope_test.mbt`.)
 ///
-/// Aborts if the priming read fails (cycle or disposed target).
+/// Aborts if the priming read fails (cycle or disposed target) — note this
+/// is structurally unreachable today: a cycle is always mediated inside the
+/// compute that observes it (the compute must produce a `T`, and a raising
+/// compute aborts in `read_honest_impl`), and a disposed target already
+/// aborts at `derived.watch()` creation. The abort is the honest signature
+/// for "priming cannot fail", not a live error channel.
 pub fn[T] Scope::watch(self : Scope, derived : Derived[T]) -> Watch[T] {
   guard !self.disposed else { abort("Scope::watch called on a disposed scope") }
   let watch = self.add_watch(derived.watch())
