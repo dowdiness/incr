@@ -78,9 +78,12 @@ pub fn CycleError::cell(self : CycleError) -> CellId {
 /// Full dependency path leading to the cycle, untruncated. The path may
 /// include cells outside the cycle itself (e.g., entry points). Use the
 /// repeated cell to identify the cycle boundary.
+///
+/// Returns a fresh copy: mutating it cannot desynchronize the stored path
+/// from the labels snapshot that `format_path` indexes by position.
 pub fn CycleError::path(self : CycleError) -> Array[CellId] {
   match self {
-    CycleDetected(_, path, _) => path
+    CycleDetected(_, path, _) => path.copy()
   }
 }
 

@@ -29,6 +29,13 @@ All notable changes to `dowdiness/incr` are documented in this file.
   kernel package must construct it and MoonBit has no sibling-only
   visibility; it is documented as library-internal.
 
+### Changed
+
+- **`CycleError::path()` returns a fresh copy.** Previously it returned the
+  stored path array; mutating it could desynchronize the path from the
+  labels snapshot that `format_path` indexes by position (out-of-bounds
+  abort). `ReadError::path()` inherits the fix by delegation.
+
 ### Added
 
 - **`Scope::watch(derived)`.** Folds watch creation, scope registration, and

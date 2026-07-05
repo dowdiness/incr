@@ -85,7 +85,8 @@ bundled into a single release (0.14.0) to pay the downstream re-pin chain
 
 ### Phase 1 execution notes (2026-07-05, PRs #354 + follow-up)
 
-- Items 1–4 shipped in PR #354. Two precondition-driven deviations:
+- Items 1–4 shipped across PR #354 plus the interior-mutation follow-up PR
+  (below). Two precondition-driven deviations:
   `ReactiveId` was **kept** (find-references-zero precondition failed —
   `eager_derived.mbt` still constructs it; see Out of scope for the
   follow-up), and no `InternId::index()` accessor was added (a method
