@@ -80,6 +80,7 @@ For contributors and advanced users who want to understand or modify `incr`.
   - [2026-06-09 Composable runtime hooks](plans/2026-06-09-composable-runtime-hooks.md) — multi-listener registries (#210); see the [ADR](decisions/2026-06-09-composable-runtime-hooks.md)
   - [2026-06-24 Typed Spreadsheet cross-root locality](plans/2026-06-24-typed-spreadsheet-cross-root-locality.md) — multi-root spreadsheet with per-root recompute instrumentation
   - [2026-06-25 `Program::stateful` implementation plan](plans/2026-06-25-program-stateful.md) — 3-task SDD plan (#287)
+  - [2026-07-05 Public API boundary cleanup + `Expr[T]` track](plans/2026-07-05-public-api-boundary-cleanup.md) — deprecations + `Scope::watch`, types-package cleanup, error-channel consistency (0.14.0), then the `Expr[T]` formula layer
 
 **Research notes — exploratory, not implemented:**
 
