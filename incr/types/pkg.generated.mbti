@@ -43,10 +43,6 @@ pub(all) enum Durability {
 pub fn Durability::index(Self) -> Int
 pub impl Show for Durability
 
-pub(all) struct FunctionalRelationId[K, V] {
-  id : CellId
-}
-
 pub(all) enum GcRole {
   Source
   Interior
@@ -54,17 +50,13 @@ pub(all) enum GcRole {
 } derive(Eq, @debug.Debug)
 pub impl Show for GcRole
 
-pub(all) struct InputId[T] {
-  id : CellId
-}
-
-pub(all) struct InternId {
+pub struct InternId {
   index : Int
 } derive(Compare, Eq, @debug.Debug)
 pub impl Hash for InternId
 pub impl Show for InternId
 
-pub(all) struct InternTable[T] {
+pub struct InternTable[T] {
   to_id : @hashmap.HashMap[T, InternId]
   values : Array[T]
 }
@@ -79,10 +71,6 @@ pub(all) struct ListenerId {
 } derive(Eq, Hash, @debug.Debug)
 pub fn ListenerId::ListenerId(RuntimeId, Int) -> Self
 pub impl Show for ListenerId
-
-pub(all) struct MemoId[T] {
-  id : CellId
-}
 
 pub(all) struct ReactiveId[T] {
   id : CellId
@@ -101,11 +89,7 @@ pub fn ReadError::is_disposed(Self) -> Bool
 pub fn ReadError::path(Self) -> Array[CellId]
 pub impl Show for ReadError
 
-pub(all) struct RelationId[T] {
-  id : CellId
-}
-
-pub(all) struct Revision {
+pub struct Revision {
   value : Int
 } derive(Compare, Default, Eq, @debug.Debug)
 pub fn Revision::initial() -> Self

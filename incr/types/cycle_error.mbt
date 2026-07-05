@@ -36,6 +36,13 @@ pub suberror CycleError {
 /// cycles (and have access to a runtime for label lookup) can build the
 /// error without depending on variant-constructor visibility.
 ///
+/// **Library-internal.** The only intended caller is the kernel's cycle
+/// detection (`cells/internal/kernel/cycle.mbt`); consumers should never
+/// construct a `CycleError` themselves. It stays `pub` only because MoonBit
+/// has no visibility level that admits a sibling package while excluding
+/// external modules (attempted and recorded during the 2026-07-05 Phase 1
+/// types cleanup).
+///
 /// Invariant: `labels.length() == min(path.length(), MAX_CYCLE_DISPLAY_STEPS)`.
 /// The caller must uphold this — `format_path` assumes `path[i]` has a
 /// matching `labels[i]` for every `i` it renders.
