@@ -78,6 +78,7 @@ pub fn[T] Derived::clear_on_change(Self[T]) -> Unit
 pub fn[T] Derived::dependencies(Self[T]) -> Array[@types.CellId]
 pub fn[T] Derived::derived_no_backdate(Runtime, () -> T raise Failure, label? : String) -> Self[T]
 pub fn[T] Derived::dispose(Self[T]) -> Unit
+#alias(e)
 pub fn[T] Derived::expr(Self[T]) -> Expr[T]
 pub fn[V : Eq, E : Eq] Derived::fallible(Runtime, () -> Result[V, E], label? : String) -> Self[Result[V, E]]
 pub fn[T] Derived::get(Self[T]) -> Result[T, @types.ReadError]
@@ -149,6 +150,7 @@ pub(all) struct EagerDerived[T] {
 }
 pub fn[T : Eq] EagerDerived::EagerDerived(Runtime, () -> T) -> Self[T]
 pub fn[T] EagerDerived::dispose(Self[T]) -> Unit
+#alias(e)
 pub fn[T] EagerDerived::expr(Self[T]) -> Expr[T]
 pub fn[T] EagerDerived::get(Self[T]) -> T
 pub fn[T] EagerDerived::id(Self[T]) -> @types.CellId
@@ -196,6 +198,7 @@ pub fn[T, U, V, W] Input::derived3_no_backdate(Self[T], Self[U], Self[V], (T, U,
 pub fn[T, U] Input::derived_no_backdate(Self[T], (T) -> U, label? : String) -> Derived[U]
 pub fn[T] Input::dispose(Self[T]) -> Unit
 pub fn[T] Input::durability(Self[T]) -> @types.Durability
+#alias(e)
 pub fn[T] Input::expr(Self[T]) -> Expr[T]
 pub fn[T] Input::force_set(Self[T], T) -> Unit
 pub fn[T] Input::get(Self[T]) -> T
@@ -218,6 +221,7 @@ pub fn[T] InputField::InputField(Runtime, T, durability? : @types.Durability, la
 pub fn[T] InputField::clear_on_change(Self[T]) -> Unit
 pub fn[T] InputField::dispose(Self[T]) -> Unit
 pub fn[T] InputField::durability(Self[T]) -> @types.Durability
+#alias(e)
 pub fn[T] InputField::expr(Self[T]) -> Expr[T]
 pub fn[T] InputField::force_set(Self[T], T) -> Unit
 pub fn[T] InputField::get(Self[T]) -> T
@@ -254,6 +258,7 @@ pub(all) struct ReachableDerived[T] {
 } derive(@debug.Debug)
 pub fn[T : Eq] ReachableDerived::ReachableDerived(Runtime, () -> T raise Failure, label? : String) -> Self[T]
 pub fn[T] ReachableDerived::dispose(Self[T]) -> Unit
+#alias(e)
 pub fn[T : Eq] ReachableDerived::expr(Self[T]) -> Expr[T]
 pub fn[T : Eq] ReachableDerived::get(Self[T]) -> Result[T, @types.ReadError]
 pub fn[T : Eq] ReachableDerived::get_or_abort(Self[T]) -> T

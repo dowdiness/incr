@@ -137,3 +137,14 @@ test "panic expr: Scope::derived_expr with wrong runtime aborts" {
   let a = @incr.Input(rt_b, 10)
   let _ = scope.derived_expr(a.expr(), label="wrong")
 }
+
+///|
+test "expr: .e() alias for InputField" {
+  let rt = @incr.Runtime()
+  let price = @incr.InputField(rt, 10, label="price")
+  let quantity = @incr.InputField(rt, 2, label="quantity")
+  let subtotal = (price.e() * quantity.e()).derived(label="subtotal")
+  inspect(subtotal.read_or_abort(), content="20")
+  quantity.set(3)
+  inspect(subtotal.read_or_abort(), content="30")
+}
