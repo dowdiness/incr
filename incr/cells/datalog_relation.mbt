@@ -17,17 +17,9 @@ pub(all) struct Relation[T] {
 }
 
 ///|
-/// Constructor-syntax alias of `Relation::new`. Enables `Relation(rt)` /
+/// Creates a new relation. Enables `Relation(rt)` /
 /// `Relation(rt, label="...")` call sites.
 pub fn[T : Hash + Eq] Relation::Relation(
-  rt : Runtime,
-  label? : String,
-) -> Relation[T] {
-  Relation::new(rt, label?)
-}
-
-///|
-pub fn[T : Hash + Eq] Relation::new(
   rt : Runtime,
   label? : String,
 ) -> Relation[T] {
@@ -71,6 +63,16 @@ pub fn[T : Hash + Eq] Relation::new(
   let lifecycle : &CellLifecycle = rt.datalog.relations[idx]
   rt.cell_lifecycle.push(lifecycle)
   { rt, cell_id, current, delta, staged_delta }
+}
+
+///|
+/// Deprecated alias of the `Relation::Relation` constructor.
+#deprecated("Use the constructor form `Relation(rt)` (`Relation::Relation`) instead.")
+pub fn[T : Hash + Eq] Relation::new(
+  rt : Runtime,
+  label? : String,
+) -> Relation[T] {
+  Relation(rt, label?)
 }
 
 ///|

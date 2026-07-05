@@ -23,19 +23,8 @@ pub(all) struct Input[T] {
 } derive(Debug(ignore=[Runtime, CellId]))
 
 ///|
-/// Constructor-syntax alias of `Input::new`. Enables `Input(rt, value)` /
-/// `Input(rt, value, label="...", durability=High)` call sites.
-pub fn[T] Input::Input(
-  rt : Runtime,
-  initial : T,
-  durability? : Durability = Low,
-  label? : String,
-) -> Input[T] {
-  Input::new(rt, initial, durability~, label?)
-}
-
-///|
-/// Creates a new input with the given initial value.
+/// Creates a new input with the given initial value. Enables `Input(rt, value)`
+/// / `Input(rt, value, label="...", durability=High)` call sites.
 ///
 /// # Parameters
 ///
@@ -57,7 +46,7 @@ pub fn[T] Input::Input(
 ///
 /// let named = Input(rt, 0, label="count")
 /// ```
-pub fn[T] Input::new(
+pub fn[T] Input::Input(
   rt : Runtime,
   initial : T,
   durability? : Durability = Low,
@@ -81,6 +70,18 @@ pub fn[T] Input::new(
     },
   )
   { label, rt, cell_id, value: initial, pending_value: None, durability }
+}
+
+///|
+/// Deprecated alias of the `Input::Input` constructor.
+#deprecated("Use the constructor form `Input(rt, initial)` (`Input::Input`) instead.")
+pub fn[T] Input::new(
+  rt : Runtime,
+  initial : T,
+  durability? : Durability = Low,
+  label? : String,
+) -> Input[T] {
+  Input(rt, initial, durability~, label?)
 }
 
 ///|

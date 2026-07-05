@@ -64,10 +64,10 @@ pub(all) struct Runtime {
 }
 
 ///|
-/// Constructor-syntax alias of `Runtime::new`. Enables `Runtime()` /
-/// `Runtime(on_change=...)` call sites.
-pub fn Runtime::Runtime(on_change? : () -> Unit) -> Runtime {
-  Runtime::new(on_change?)
+/// Deprecated alias of the `Runtime::Runtime` constructor.
+#deprecated("Use the constructor form `Runtime()` (`Runtime::Runtime`) instead.")
+pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
+  Runtime(on_change?)
 }
 
 ///|
@@ -82,13 +82,14 @@ pub fn Runtime::id(self : Runtime) -> @incr_types.RuntimeId {
 }
 
 ///|
-/// Creates a new runtime with an empty dependency graph.
+/// Creates a new runtime with an empty dependency graph. Enables `Runtime()`
+/// / `Runtime(on_change=...)` call sites.
 ///
 /// # Parameters
 ///
 /// - `on_change`: Optional callback invoked whenever any input changes
 ///   (or at the end of a batch if values actually changed).
-pub fn Runtime::new(on_change? : () -> Unit) -> Runtime {
+pub fn Runtime::Runtime(on_change? : () -> Unit) -> Runtime {
   let id = @kernel.alloc_runtime_id()
   let accumulator_hook = AccumulatorCommitHook::new()
   let event_hook = EventBroadcastPhaseHook::new()

@@ -4,6 +4,25 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **`Scope::watch(derived)`.** Folds watch creation, scope registration, and
+  one priming read into a single call. The priming read records the target's
+  upstream `gc_dependencies`, so a `Runtime::gc()` that runs before the first
+  consumer read can no longer sweep the upstream graph (the bare
+  `scope.add_watch(derived.watch())` form GC-roots only the uncomputed
+  terminal — see the contrast test in `incr/tests/scope_test.mbt`).
+
+### Deprecated
+
+- **`Input::new` / `Runtime::new` / `Relation::new`.** The `Type::Type`
+  constructor forms (`Input(rt, v)`, `Runtime()`, `Relation(rt)`) are
+  canonical. The aliases remain functional; removal is planned for the 0.14.0
+  boundary-cleanup release (see
+  `docs/plans/2026-07-05-public-api-boundary-cleanup.md`). `Scope::new`,
+  `Effect::new`, and `Accumulator::new` are NOT deprecated — their
+  constructor-form replacements do not exist yet (Phase 2).
+
 ## [v0.13.0] - 2026-07-03
 
 Breaking release: the compatibility API surface is removed directly, with no

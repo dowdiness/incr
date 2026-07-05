@@ -6,7 +6,7 @@
 
 ///|
 test "Derived::read on a disposed cell returns Err(Disposed) instead of aborting" {
-  let rt = @incr.Runtime::new()
+  let rt = @incr.Runtime()
   let x = @incr.Input(rt, 1, label="x")
   let scope = @incr.Scope::new(rt)
   let d = scope.derived(() => x.get() + 1, label="d")
@@ -19,7 +19,7 @@ test "Derived::read on a disposed cell returns Err(Disposed) instead of aborting
 
 ///|
 test "Derived::get inside a compute surfaces a self-cycle as Err(Cycle(_))" {
-  let rt = @incr.Runtime::new()
+  let rt = @incr.Runtime()
   let saw_cycle : Ref[Bool] = { val: false }
   let self_ref : Ref[@incr.Derived[Int]?] = { val: None }
   let d = @incr.Derived(rt, () => {
@@ -49,7 +49,7 @@ test "Derived::get inside a compute surfaces a self-cycle as Err(Cycle(_))" {
 
 ///|
 test "ReachableDerived::read on a disposed cell returns Err(Disposed)" {
-  let rt = @incr.Runtime::new()
+  let rt = @incr.Runtime()
   let x = @incr.Input(rt, 3, label="x")
   let scope = @incr.Scope::new(rt)
   let r = scope.reachable_derived(() => x.get() * 2, label="r")
@@ -61,7 +61,7 @@ test "ReachableDerived::read on a disposed cell returns Err(Disposed)" {
 
 ///|
 test "Watch::read on a disposed cell returns Err(Disposed)" {
-  let rt = @incr.Runtime::new()
+  let rt = @incr.Runtime()
   let x = @incr.Input(rt, 4, label="x")
   let scope = @incr.Scope::new(rt)
   let d = scope.derived(() => x.get() + 10, label="d")
@@ -76,7 +76,7 @@ test "Watch::read on a disposed cell returns Err(Disposed)" {
 test "Watch on a disposed EagerDerived returns Err(Disposed)" {
   // EagerDerived has no cycle/raise channel, but its Watch is uniformly honest
   // about disposal: a read after disposal returns Err(Disposed), not an abort.
-  let rt = @incr.Runtime::new()
+  let rt = @incr.Runtime()
   let x = @incr.Input(rt, 7, label="x")
   let scope = @incr.Scope::new(rt)
   let e = scope.eager_derived(() => x.get() + 1)
@@ -91,7 +91,7 @@ test "Watch on a disposed EagerDerived returns Err(Disposed)" {
 
 ///|
 test "DerivedMap::read on a gc-disposed per-key memo returns Err(Disposed)" {
-  let rt = @incr.Runtime::new()
+  let rt = @incr.Runtime()
   let src = @incr.Input(rt, 100, label="src")
   let m = @incr.DerivedMap(rt, (k : Int) => src.get() + k, label="m")
   guard m.read(1) is Ok(101) else { fail("expected Ok(101)") }
@@ -106,7 +106,7 @@ test "DerivedMap::read on a gc-disposed per-key memo returns Err(Disposed)" {
 
 ///|
 test "DerivedMap::read after scope disposal returns Err(Disposed)" {
-  let rt = @incr.Runtime::new()
+  let rt = @incr.Runtime()
   let scope = @incr.Scope::new(rt)
   let m = scope.derived_map((k : Int) => k * 2, label="m")
   guard m.read(3) is Ok(6) else { fail("expected Ok(6)") }
@@ -119,7 +119,7 @@ test "DerivedMap::read after scope disposal returns Err(Disposed)" {
 
 ///|
 test "Memo::accumulated on disposed target returns Err(Disposed)" {
-  let rt = @incr.Runtime::new()
+  let rt = @incr.Runtime()
   let acc : @incr.Accumulator[Int] = @incr.Accumulator::new(rt~)
   let m = @incr.Derived(rt, () => {
     acc.push(1)
