@@ -3,7 +3,6 @@ package "dowdiness/incr/types"
 
 import {
   "moonbitlang/core/debug",
-  "moonbitlang/core/hashmap",
 }
 
 // Values
@@ -57,8 +56,7 @@ pub impl Hash for InternId
 pub impl Show for InternId
 
 pub struct InternTable[T] {
-  to_id : @hashmap.HashMap[T, InternId]
-  values : Array[T]
+  // private fields
 }
 pub fn[T] InternTable::get(Self[T], InternId) -> T
 pub fn[T : Hash + Eq] InternTable::intern(Self[T], T) -> InternId

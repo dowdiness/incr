@@ -83,6 +83,32 @@ bundled into a single release (0.14.0) to pay the downstream re-pin chain
    `scripts/check-engine-isolation.sh` and
    `scripts/check-workspace-boundaries.sh` (with selftest).
 
+### Phase 1 execution notes (2026-07-05, PRs #354 + follow-up)
+
+- Items 1–4 shipped in PR #354. Two precondition-driven deviations:
+  `ReactiveId` was **kept** (find-references-zero precondition failed —
+  `eager_derived.mbt` still constructs it; see Out of scope for the
+  follow-up), and no `InternId::index()` accessor was added (a method
+  cannot share a field's name; `pub` already permits cross-package field
+  reads). `CycleError::new` could not be hidden (kernel is the sole
+  intended constructor; MoonBit has no sibling-only visibility) — kept
+  with a library-internal doc comment, alongside the same-shaped
+  `ReadError::cycle`.
+- **Mechanism finding: `pub(all)` → `pub` closes construction only.**
+  Field *reads* remain, and a read of a mutable container field
+  (`Array`, `HashMap`) hands out a mutable reference — a post-merge probe
+  showed external `table.values.push(...)` compiled and corrupted
+  `InternTable::len()`. Fixed by marking the fields `priv` (follow-up PR;
+  MoonBit supports field-level `priv` inside a `pub` struct).
+- **Closure verification rule (applies to Phase 2 and the
+  named-constructor track):** a closure item is specified as *which
+  operations become impossible*, not as a visibility-keyword diff, and is
+  verified with a known-positive probe — write the code that must be
+  rejected (literal construction AND interior mutation through each
+  mutable field) and confirm the compiler rejects it. The `.mbti` diff
+  gate cannot detect the interior-mutation hole. `Int`-valued fields are
+  exempt (reads copy).
+
 ## Phase 2 — error-channel and constructor consistency (breaking, one PR, same release as Phase 1)
 
 1. **`Input::get_result` / `InputField::get_result`** →
@@ -193,6 +219,13 @@ API, no indexing syntax in v1.
   typing limitation; document instead).
 - Datalog surface (`Relation` / `new_rule` / `fixpoint`) pruning — kept
   as one of the four execution modes despite thin usage.
+- `ReactiveId` internalization (Phase 1 finding): it survives in
+  `@incr/types` as `pub(all)` but is purely internal to the
+  `EagerDerived` implementation. Candidate fixes: replace the
+  `eager_derived.mbt` field with a bare `CellId`, or move the type into
+  `cells/internal/`. Trigger: fold into any later types-package PR
+  (e.g. the named-constructor track) rather than paying a standalone
+  re-pin.
 
 ## Rollback
 

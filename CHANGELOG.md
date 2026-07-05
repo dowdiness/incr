@@ -16,14 +16,18 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ### Changed (breaking)
 
-- **Invariant-bearing types closed to construction.** `Revision`,
-  `InternId`, and `InternTable[T]` are now `pub` instead of `pub(all)`:
-  fields remain readable and all methods keep working, but consumers can no
+- **Invariant-bearing types closed.** `Revision`, `InternId`, and
+  `InternTable[T]` are now `pub` instead of `pub(all)`: consumers can no
   longer construct them via struct literals. Construct through the existing
   API instead — `Revision::initial()` / `.next()`,
-  `InternTable::new()` / `.intern(value)`. `CycleError::new` remains public
-  because the kernel package must construct it and MoonBit has no
-  sibling-only visibility; it is documented as library-internal.
+  `InternTable::new()` / `.intern(value)`. `InternTable`'s fields are
+  additionally `priv`: its mutable internals (`values`, `to_id`) are no
+  longer readable from outside, closing the interior-mutation hole where
+  `table.values.push(...)` could bypass `intern` (verified by a
+  known-positive probe). `Revision.value` / `InternId.index` stay readable
+  (`Int` fields — reads copy). `CycleError::new` remains public because the
+  kernel package must construct it and MoonBit has no sibling-only
+  visibility; it is documented as library-internal.
 
 ### Added
 
