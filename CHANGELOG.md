@@ -6,6 +6,11 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ### Removed (breaking)
 
+- **`Accumulator::new(rt~, ...)` removed.** Replaced by positional constructor
+  `Accumulator(rt, label?)`. The `Accumulator::Accumulator(Runtime, label?)`
+  constructor is now the canonical form — same semantics.
+
+
 - **Ghost handle types.** `InputId[T]`, `MemoId[T]`, `RelationId[T]`, and
   `FunctionalRelationId[K, V]` are deleted from `@incr/types`, and the
   `InputId` / `RelationId` root re-exports are dropped. They were leftovers
@@ -29,6 +34,23 @@ All notable changes to `dowdiness/incr` are documented in this file.
   kernel package must construct it and MoonBit has no sibling-only
   visibility; it is documented as library-internal.
 
+- **`Input::get_result` / `InputField::get_result` return `Result[T, ReadError]`**
+  instead of `Result[T, CycleError]`. This aligns the read channel with the
+  Honest Read-Error Ownership spec (`ReadError = Cycle(CycleError) | Disposed(CellId)`).
+  A disposed input now returns `Err(ReadError::Disposed(id))` instead of aborting.
+  The `Cycle` variant is structurally unreachable for inputs (they have no
+  dependencies) — documented in the shared `ReadError` type in `@incr/types`.
+  **Migration.** Match on `ReadError::Disposed(id)` instead of relying on the
+  absent abort. Prior code matching `Err(CycleError)` and `fail("unreachable")`
+  is unaffected — `ReadError::Cycle(e)` wraps the same `CycleError`.
+
+- **`DerivedMap` constructors add `V : Eq` bound.** `DerivedMap::DerivedMap`,
+  `Scope::derived_map`, and `create_derived_map` now require `V : Eq` on the
+  value type, closing the constructible-but-unreadable gap (the read methods
+  already needed this bound). `DerivedMap::fallible` adds `E : Eq` alongside
+  `V : Eq` for the same reason — `Result[V, E] : Eq` is required by the
+  read channel.
+
 ### Changed
 
 - **`CycleError::path()` returns a fresh copy.** Previously it returned the
@@ -51,9 +73,20 @@ All notable changes to `dowdiness/incr` are documented in this file.
   constructor forms (`Input(rt, v)`, `Runtime()`, `Relation(rt)`) are
   canonical. The aliases remain functional; removal is planned for the 0.14.0
   boundary-cleanup release (see
-  `docs/plans/2026-07-05-public-api-boundary-cleanup.md`). `Scope::new`,
-  `Effect::new`, and `Accumulator::new` are NOT deprecated — their
-  constructor-form replacements do not exist yet (Phase 2).
+  `docs/plans/2026-07-05-public-api-boundary-cleanup.md`).
+
+- **`Effect::new(rt, f)`.** Replaced by `Effect(rt, f)` (`Effect::Effect`).
+  The old name remains functional. `Effect::Effect(Runtime, f)` is now the
+  canonical constructor form.
+
+### Note
+
+- **`Scope::new` is deliberately kept.** Unlike the other constructor aliases,
+  `Scope::new` is the pervasive documented form and the rename value does not
+  cover the churn. The `Scope` constructor remains `Scope::new(rt)`.
+- **`_no_backdate` variants are kept until `Expr[T]` lands.** The mapN family
+  (`map_no_backdate`, `derived2_no_backdate`, etc.) is interim algebra sugar
+  pending Track E; revisit when `Expr[T]` materialization ships.
 
 ## [v0.13.0] - 2026-07-03
 

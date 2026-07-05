@@ -47,12 +47,12 @@ pub struct AcceptedSnapshot[V, E] {
 pub struct Accumulator[T] {
   // private fields
 }
+pub fn[T : Eq] Accumulator::Accumulator(Runtime, label? : String) -> Self[T]
 pub fn[T] Accumulator::debug(Self[T]) -> String
 pub fn[T] Accumulator::dispose(Self[T]) -> Unit
 pub fn[T] Accumulator::id(Self[T]) -> @types.AccumulatorId
 pub fn[T] Accumulator::is_disposed(Self[T]) -> Bool
 pub fn[T] Accumulator::label(Self[T]) -> String?
-pub fn[T : Eq] Accumulator::new(rt~ : Runtime, label? : String) -> Self[T]
 pub fn[T] Accumulator::push(Self[T], T) -> Unit raise Failure
 
 pub(all) struct CellInfo {
@@ -130,10 +130,10 @@ pub(all) enum DerivedEvent {
 pub(all) struct DerivedMap[K, V] {
   // private fields
 }
-pub fn[K : Hash + Eq, V] DerivedMap::DerivedMap(Runtime, (K) -> V raise Failure, label? : String) -> Self[K, V]
+pub fn[K : Hash + Eq, V : Eq] DerivedMap::DerivedMap(Runtime, (K) -> V raise Failure, label? : String) -> Self[K, V]
 pub fn[K, V] DerivedMap::cache_len(Self[K, V]) -> Int
 pub fn[K, V] DerivedMap::clear_cache(Self[K, V]) -> Unit
-pub fn[K : Hash + Eq, V, E] DerivedMap::fallible(Runtime, (K) -> Result[V, E], label? : String) -> Self[K, Result[V, E]]
+pub fn[K : Hash + Eq, V : Eq, E : Eq] DerivedMap::fallible(Runtime, (K) -> Result[V, E], label? : String) -> Self[K, Result[V, E]]
 pub fn[K : Hash + Eq, V : Eq] DerivedMap::get(Self[K, V], K) -> Result[V, @types.ReadError]
 pub fn[K : Hash + Eq, V : Eq] DerivedMap::get_or_abort(Self[K, V], K) -> V
 pub fn[K : Hash + Eq, V] DerivedMap::has_cached(Self[K, V], K) -> Bool
@@ -159,9 +159,11 @@ pub impl[T] InputFieldOwner for EagerDerived[T]
 pub struct Effect {
   // private fields
 }
+pub fn Effect::Effect(Runtime, () -> Unit) -> Self
 pub fn Effect::dispose(Self) -> Unit
 pub fn Effect::id(Self) -> @types.CellId
 pub fn Effect::is_disposed(Self) -> Bool
+#deprecated
 pub fn Effect::new(Runtime, () -> Unit) -> Self
 pub impl InputFieldOwner for Effect
 
@@ -180,7 +182,7 @@ pub fn[T] Input::dispose(Self[T]) -> Unit
 pub fn[T] Input::durability(Self[T]) -> @types.Durability
 pub fn[T] Input::force_set(Self[T], T) -> Unit
 pub fn[T] Input::get(Self[T]) -> T
-pub fn[T] Input::get_result(Self[T]) -> Result[T, @types.CycleError]
+pub fn[T] Input::get_result(Self[T]) -> Result[T, @types.ReadError]
 pub fn[T] Input::id(Self[T]) -> @types.CellId
 pub fn[T] Input::is_disposed(Self[T]) -> Bool
 pub fn[T] Input::is_fresh(Self[T]) -> Bool
@@ -201,7 +203,7 @@ pub fn[T] InputField::dispose(Self[T]) -> Unit
 pub fn[T] InputField::durability(Self[T]) -> @types.Durability
 pub fn[T] InputField::force_set(Self[T], T) -> Unit
 pub fn[T] InputField::get(Self[T]) -> T
-pub fn[T] InputField::get_result(Self[T]) -> Result[T, @types.CycleError]
+pub fn[T] InputField::get_result(Self[T]) -> Result[T, @types.ReadError]
 pub fn[T] InputField::id(Self[T]) -> @types.CellId
 pub fn[T] InputField::is_disposed(Self[T]) -> Bool
 pub fn[T] InputField::is_fresh(Self[T]) -> Bool
@@ -299,7 +301,7 @@ pub fn[T] Scope::add_watch(Self, Watch[T]) -> Watch[T]
 pub fn[T : InputFieldOwner] Scope::adopt(Self, T) -> T
 pub fn Scope::child(Self) -> Self
 pub fn[T : Eq] Scope::derived(Self, () -> T raise Failure, label? : String) -> Derived[T]
-pub fn[K : Hash + Eq, V] Scope::derived_map(Self, (K) -> V raise Failure, label? : String) -> DerivedMap[K, V]
+pub fn[K : Hash + Eq, V : Eq] Scope::derived_map(Self, (K) -> V raise Failure, label? : String) -> DerivedMap[K, V]
 pub fn[T] Scope::derived_no_backdate(Self, () -> T raise Failure, label? : String) -> Derived[T]
 pub fn Scope::dispose(Self) -> Unit
 pub fn[T : Eq] Scope::eager_derived(Self, () -> T) -> EagerDerived[T]

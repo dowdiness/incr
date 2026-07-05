@@ -567,7 +567,7 @@ pub(all) struct DerivedMap[K, V] {
 
 ///|
 /// Creates a keyed derived map.
-pub fn[K : Hash + Eq, V] DerivedMap::DerivedMap(
+pub fn[K : Hash + Eq, V : Eq] DerivedMap::DerivedMap(
   rt : Runtime,
   compute : (K) -> V raise Failure,
   label? : String,
@@ -580,7 +580,7 @@ pub fn[K : Hash + Eq, V] DerivedMap::DerivedMap(
 /// is expressed in the value as `Result[V, E]`, never raised. The compute is
 /// `noraise`. See `Derived::fallible` and
 /// docs/design/specs/2026-05-28-honest-read-error-ownership.md.
-pub fn[K : Hash + Eq, V, E] DerivedMap::fallible(
+pub fn[K : Hash + Eq, V : Eq, E : Eq] DerivedMap::fallible(
   rt : Runtime,
   compute : (K) -> Result[V, E],
   label? : String,

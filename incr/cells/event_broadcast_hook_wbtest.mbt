@@ -88,7 +88,7 @@ test "derived_event: hook order follows accumulator then event hook" {
   let sentinel = EventOrderSentinel::new()
   rt.commit_hooks.push(sentinel)
   rt.on_derived_event(_evt => ())
-  let acc : Accumulator[Int] = Accumulator::new(rt~)
+  let acc : Accumulator[Int] = Accumulator(rt)
   let derived = Derived(rt, () => {
     acc.push(1)
     42
@@ -114,7 +114,7 @@ test "derived_event: hook order on abort removes active entries before later hoo
   let sentinel = EventOrderSentinel::new()
   rt.commit_hooks.push(sentinel)
   rt.on_derived_event(_evt => ())
-  let _acc : Accumulator[Int] = Accumulator::new(rt~)
+  let _acc : Accumulator[Int] = Accumulator(rt)
   let derived : Derived[Int] = Derived(rt, () => raise Failure("boom"))
   try derived.force_recompute() catch {
     _ => ()

@@ -75,13 +75,15 @@ pub fn[T] InputField::peek(self : InputField[T]) -> T {
 ///|
 /// Returns the current value of the field as a Result.
 ///
-/// Since InputFields cannot have cycles (they are direct-set cells with no
-/// dependencies), this method always returns `Ok(value)`.
+/// Like `Input::get_result`, this method returns `Err(Disposed(id))` when the
+/// field has been disposed, instead of aborting. Cycle errors cannot occur
+/// for input fields (they have no dependencies).
 ///
 /// # Returns
 ///
-/// `Ok(value)` with the current value of the field
-pub fn[T] InputField::get_result(self : InputField[T]) -> Result[T, CycleError] {
+/// `Ok(value)` with the current value of the field, or
+/// `Err(ReadError::Disposed(id))` if the field has been disposed
+pub fn[T] InputField::get_result(self : InputField[T]) -> Result[T, ReadError] {
   self.input.get_result()
 }
 

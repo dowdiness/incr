@@ -693,10 +693,7 @@ test "docs cookbook: aggregate computation updates affected totals" {
 test "docs cookbook: accumulator peek reads memo-local diagnostics" {
   let rt = @incr.Runtime()
   let width = @incr.Input(rt, -5, label="width")
-  let diags : @incr.Accumulator[String] = @incr.Accumulator::new(
-    rt~,
-    label="diags",
-  )
+  let diags : @incr.Accumulator[String] = @incr.Accumulator(rt, label="diags")
   let checked = @incr.Derived(
     rt,
     () => {
@@ -728,10 +725,7 @@ test "docs cookbook: accumulator peek reads memo-local diagnostics" {
 test "docs cookbook: accumulated invalidates when push set changes" {
   let rt = @incr.Runtime()
   let width = @incr.Input(rt, -5, label="width")
-  let diags : @incr.Accumulator[String] = @incr.Accumulator::new(
-    rt~,
-    label="diags",
-  )
+  let diags : @incr.Accumulator[String] = @incr.Accumulator(rt, label="diags")
   let checked = @incr.Derived(
     rt,
     () => {

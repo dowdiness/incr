@@ -164,7 +164,7 @@ test "Derived::changed_at forwards to inner Memo" {
 ///|
 test "Derived::accumulated forwards through compute closure" {
   let rt = Runtime::Runtime()
-  let acc : Accumulator[Int] = Accumulator::new(rt~, label="diags")
+  let acc : Accumulator[Int] = Accumulator(rt, label="diags")
   let producer = Derived::Derived(rt, () => {
     acc.push(7)
     acc.push(8)
@@ -184,7 +184,7 @@ test "Derived::accumulated forwards through compute closure" {
 ///|
 test "Derived::accumulated_peek forwards (untracked, defensive copy)" {
   let rt = Runtime::Runtime()
-  let acc : Accumulator[Int] = Accumulator::new(rt~)
+  let acc : Accumulator[Int] = Accumulator(rt)
   let producer = Derived::Derived(rt, () => {
     acc.push(1)
     acc.push(2)

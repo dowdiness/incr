@@ -289,12 +289,7 @@ The checked API-reference companion covers the scope-owned disposal guarantee in
 
 The outer pipeline cell consumes diagnostics via `type_derived.accumulated_or_abort(diags)`, so the invalidation chain is: def source changes → per-def derived cell recomputes → push set for that cell changes → pipeline cell invalidates → driver collects updated diagnostics.
 
-**Why child scope, not runtime-owned.** An `Accumulator::new(rt~, ...)`
-lives until explicitly disposed. In a driver that rebuilds on every
-structural change, forgetting to dispose leaks per-cell state for every
-retired derived cell. `parent_scope.child()` couples the accumulator's lifetime to
-the chain it belongs to, so lifecycle correctness is a consequence of the
-scope hierarchy rather than a discipline the driver must maintain.
+**Why child scope, not runtime-owned.** An `Accumulator(rt, ...)` lives until explicitly disposed. In a driver that rebuilds on every structural change, forgetting to dispose leaks per-cell state for every retired derived cell. `parent_scope.child()` couples the accumulator's lifetime to the chain it belongs to, so lifecycle correctness is a consequence of the scope hierarchy rather than a discipline the driver must maintain.
 
 ---
 
