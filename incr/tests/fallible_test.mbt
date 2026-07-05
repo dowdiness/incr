@@ -4,7 +4,7 @@
 
 ///|
 test "Derived::fallible surfaces domain failure as a cached value, never aborts" {
-  let rt = @incr.Runtime::new()
+  let rt = @incr.Runtime()
   let n = @incr.Input(rt, 0, label="n")
   let d : @incr.Derived[Result[Int, String]] = @incr.Derived::fallible(rt, () => {
     let v = n.get()
@@ -30,7 +30,7 @@ test "Derived::fallible surfaces domain failure as a cached value, never aborts"
 
 ///|
 test "DerivedMap::fallible surfaces per-key domain failure as a value" {
-  let rt = @incr.Runtime::new()
+  let rt = @incr.Runtime()
   let m : @incr.DerivedMap[Int, Result[Int, String]] = @incr.DerivedMap::fallible(
     rt,
     k => if k < 0 { Err("neg key") } else { Ok(k * 10) },

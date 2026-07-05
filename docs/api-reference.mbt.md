@@ -21,12 +21,13 @@ Read vocabulary: `read` is the permissive outside-graph read, `get` is the stric
 
 Central coordinator for dependency tracking, revisions, and batching.
 
-### `Runtime::new(on_change? : () -> Unit) -> Runtime`
+### `Runtime::Runtime(on_change? : () -> Unit) -> Runtime`
 
 Creates a new runtime with an empty dependency graph. The optional `on_change` callback is equivalent to calling `Runtime::set_on_change` immediately after construction.
 
 Call `Runtime()` for the default constructor, or `Runtime(on_change=...)` to
-install the committed-change callback during construction.
+install the committed-change callback during construction. (`Runtime::new` is
+a deprecated alias.)
 
 
 ### `Runtime::input[T](self, initial: T, durability?: Durability, label?: String) -> Input[T]`
@@ -1084,6 +1085,16 @@ intentionally want those changes to be invisible.
 ### Backdating strategies
 
 The backdate decision — whether a recomputed value counts as "changed" — is captured at construction, not at read time. Target `Derived` and `ReachableDerived` use structural `Eq`. For custom backdating strategies, see the `BackdateEq` trait and `Derived::with_backdate`.
+
+**Choosing a backdate variant:**
+
+| Your output type | Constructor to use |
+|---|---|
+| implements `Eq` | default (`Derived`, `map`/`map2`/`map3`, `Input::derived`) |
+| no `Eq` (closures, opaque handles) | `derived_no_backdate` / `map_no_backdate` variants |
+| revision-bearing, implements `BackdateEq` | `Derived::with_backdate` |
+| `Result` output with error channel | `Derived::fallible` |
+
 ### Constraint reference
 
 | API | Constraint |
@@ -1101,4 +1112,4 @@ The backdate decision — whether a recomputed value counts as "changed" — is 
 | `DerivedMap::get`, `read`, `read_or`, `read_or_else` | `K : Hash + Eq`, `V : Eq` |
 | `DerivedMap::has_cached`, `sweep_cache` | `K : Hash + Eq` |
 | `Input::set` | `T : Eq` |
-| `Input::new`, `get`, `get_result`, `force_set` | none |
+| `Input::Input`, `get`, `get_result`, `force_set` | none |

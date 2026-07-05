@@ -185,6 +185,7 @@ pub fn[T] Input::id(Self[T]) -> @types.CellId
 pub fn[T] Input::is_disposed(Self[T]) -> Bool
 pub fn[T] Input::is_fresh(Self[T]) -> Bool
 pub fn[T] Input::is_up_to_date(Self[T]) -> Bool
+#deprecated
 pub fn[T] Input::new(Runtime, T, durability? : @types.Durability, label? : String) -> Self[T]
 pub fn[T] Input::on_change(Self[T], (T) -> Unit) -> Unit
 pub fn[T] Input::peek(Self[T]) -> T
@@ -255,6 +256,7 @@ pub fn[T] Relation::id(Self[T]) -> @types.CellId
 pub fn[T : Hash + Eq] Relation::insert(Self[T], T) -> Bool
 pub fn[T] Relation::is_disposed(Self[T]) -> Bool
 pub fn[T] Relation::iter(Self[T]) -> Iter[T]
+#deprecated
 pub fn[T : Hash + Eq] Relation::new(Runtime, label? : String) -> Self[T]
 
 pub(all) struct Runtime {
@@ -276,6 +278,7 @@ pub fn Runtime::gc(Self) -> Unit
 pub fn Runtime::gc_root_count(Self, @types.CellId) -> Int
 pub fn Runtime::id(Self) -> @types.RuntimeId
 pub fn[T] Runtime::input(Self, T, durability? : @types.Durability, label? : String) -> Input[T]
+#deprecated
 pub fn Runtime::new(on_change? : () -> Unit) -> Self
 pub fn Runtime::new_rule(Self, Array[@types.CellId], Array[@types.CellId], () -> Unit, label? : String) -> @types.RuleId
 pub fn Runtime::on_derived_event(Self, (DerivedEvent) -> Unit) -> Unit raise Failure
@@ -306,6 +309,7 @@ pub fn[T] Scope::input_field(Self, T, durability? : @types.Durability, label? : 
 pub fn Scope::is_disposed(Self) -> Bool
 pub fn Scope::new(Runtime) -> Self
 pub fn[T : Eq] Scope::reachable_derived(Self, () -> T raise Failure, label? : String) -> ReachableDerived[T]
+pub fn[T] Scope::watch(Self, Derived[T]) -> Watch[T]
 pub impl @debug.Debug for Scope
 
 pub struct Watch[T] {

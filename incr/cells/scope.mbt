@@ -272,6 +272,31 @@ pub fn[T] Scope::add_watch(self : Scope, watch : Watch[T]) -> Watch[T] {
 }
 
 ///|
+/// Creates a GC-safe watch on a derived value, owned by this scope.
+///
+/// Folds three steps into one call: creates `derived.watch()`, registers it
+/// with this scope for automatic disposal, and performs one priming read.
+/// The priming read computes the target so its upstream `gc_dependencies`
+/// are recorded — on return the watch is a GC root AND the upstream graph
+/// survives a `Runtime::gc()` that runs before the first consumer read.
+/// (An uncomputed watched terminal has empty gc_dependencies, so a bare
+/// `scope.add_watch(derived.watch())` without a priming read loses its
+/// upstream to gc; see the contrast test in `incr/tests/scope_test.mbt`.)
+///
+/// Aborts if the priming read fails (cycle or disposed target) — note this
+/// is structurally unreachable today: a cycle is always mediated inside the
+/// compute that observes it (the compute must produce a `T`, and a raising
+/// compute aborts in `read_honest_impl`), and a disposed target already
+/// aborts at `derived.watch()` creation. The abort is the honest signature
+/// for "priming cannot fail", not a live error channel.
+pub fn[T] Scope::watch(self : Scope, derived : Derived[T]) -> Watch[T] {
+  guard !self.disposed else { abort("Scope::watch called on a disposed scope") }
+  let watch = self.add_watch(derived.watch())
+  ignore(watch.read_or_abort())
+  watch
+}
+
+///|
 /// Registers an array of CellIds with this scope for bulk disposal.
 ///
 /// When the scope is disposed, all registered cells are disposed.

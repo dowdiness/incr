@@ -204,3 +204,55 @@ test "panic scope: derived_no_backdate on disposed scope aborts" {
   scope.dispose()
   let _ = scope.derived_no_backdate(fn() { 1 })
 }
+
+///|
+// Scope::watch folds watch creation + scope registration + one priming read
+// into a single call. The priming read computes the target so its
+// gc_dependencies are recorded — a Runtime::gc() that runs before the first
+// consumer read cannot sweep the upstream graph.
+test "scope: watch primes upstream so gc before first read is safe" {
+  let rt = @incr.Runtime()
+  let scope = @incr.Scope::new(rt)
+  let sig = @incr.Input(rt, 1)
+  let d1 = @incr.Derived(rt, fn() { sig.get() + 1 })
+  let d2 = @incr.Derived(rt, fn() { d1.get_or_abort() * 2 })
+  let w = scope.watch(d2)
+  // gc before any consumer read — upstream must survive
+  rt.gc()
+  inspect(d1.is_disposed(), content="false")
+  inspect(d2.is_disposed(), content="false")
+  inspect(w.read_or_abort(), content="4")
+  sig.set(2)
+  inspect(w.read_or_abort(), content="6")
+  // scope disposal releases the watch
+  scope.dispose()
+  inspect(w.is_disposed(), content="true")
+}
+
+///|
+// Contrast test documenting the failure mode Scope::watch closes: a bare
+// watch without a priming read GC-roots only the terminal cell. The
+// uncomputed terminal has empty gc_dependencies, so gc() sweeps upstream.
+test "scope: bare watch without priming loses upstream to gc" {
+  let rt = @incr.Runtime()
+  let scope = @incr.Scope::new(rt)
+  let sig = @incr.Input(rt, 1)
+  let d1 = @incr.Derived(rt, fn() { sig.get() + 1 })
+  let d2 = @incr.Derived(rt, fn() { d1.get_or_abort() * 2 })
+  let w = scope.add_watch(d2.watch())
+  rt.gc()
+  // terminal survives (GC root), upstream is swept
+  inspect(d2.is_disposed(), content="false")
+  inspect(d1.is_disposed(), content="true")
+  ignore(w)
+  scope.dispose()
+}
+
+///|
+test "panic scope: watch on disposed scope aborts" {
+  let rt = @incr.Runtime()
+  let scope = @incr.Scope::new(rt)
+  let d = @incr.Derived(rt, fn() { 1 })
+  scope.dispose()
+  let _ = scope.watch(d)
+}

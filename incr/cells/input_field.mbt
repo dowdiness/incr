@@ -46,7 +46,7 @@ pub fn[T] InputField::InputField(
   durability? : Durability = Low,
   label? : String,
 ) -> InputField[T] {
-  { input: Input::new(rt, initial, durability~, label?) }
+  { input: Input(rt, initial, durability~, label?) }
 }
 
 ///|

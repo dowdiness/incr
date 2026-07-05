@@ -22,8 +22,8 @@
 /// depend on the mutated input.
 ///
 test "ui: flat 100 reactives (root mutation)" (b : @bench.T) {
-  let rt = @incr.Runtime::new()
-  let sig = @incr.Input::new(rt, 0)
+  let rt = @incr.Runtime()
+  let sig = @incr.Input(rt, 0)
   let reactives : Array[@incr.EagerDerived[Int]] = []
   for i = 0; i < 100; i = i + 1 {
     let idx = i
@@ -41,8 +41,8 @@ test "ui: flat 100 reactives (root mutation)" (b : @bench.T) {
 
 ///|
 test "ui: flat 1000 reactives (root mutation)" (b : @bench.T) {
-  let rt = @incr.Runtime::new()
-  let sig = @incr.Input::new(rt, 0)
+  let rt = @incr.Runtime()
+  let sig = @incr.Input(rt, 0)
   let reactives : Array[@incr.EagerDerived[Int]] = []
   for i = 0; i < 1000; i = i + 1 {
     let idx = i
@@ -64,8 +64,8 @@ test "ui: flat 1000 reactives (root mutation)" (b : @bench.T) {
 /// computed once from the root input). Mirrors a component tree where
 /// children consume a Context-style selector.
 test "ui: layered 1000 reactives via 1 memo (root mutation)" (b : @bench.T) {
-  let rt = @incr.Runtime::new()
-  let sig = @incr.Input::new(rt, 0)
+  let rt = @incr.Runtime()
+  let sig = @incr.Input(rt, 0)
   let derived = @incr.Derived::Derived(rt, fn() { sig.get() * 2 })
   let reactives : Array[@incr.EagerDerived[Int]] = []
   for i = 0; i < 1000; i = i + 1 {
@@ -91,9 +91,9 @@ test "ui: layered 1000 reactives via 1 memo (root mutation)" (b : @bench.T) {
 test "ui: flat 1000 reactives, only 10 subscribed (sparse mutation)" (
   b : @bench.T,
 ) {
-  let rt = @incr.Runtime::new()
-  let hot_sig = @incr.Input::new(rt, 0)
-  let cold_sig = @incr.Input::new(rt, 0)
+  let rt = @incr.Runtime()
+  let hot_sig = @incr.Input(rt, 0)
+  let cold_sig = @incr.Input(rt, 0)
   let reactives : Array[@incr.EagerDerived[Int]] = []
   // 10 reactives subscribed to the hot input
   for i = 0; i < 10; i = i + 1 {
@@ -125,8 +125,8 @@ test "ui: flat 1000 reactives, only 10 subscribed (sparse mutation)" (
 /// Memos are used for the interior because EagerDerived cannot be `.get()`-ed
 /// from a downstream cell; the leaf Reactives represent "DOM updates."
 test "ui: tree 1023 memos + 512 leaf reactives (root mutation)" (b : @bench.T) {
-  let rt = @incr.Runtime::new()
-  let sig = @incr.Input::new(rt, 0)
+  let rt = @incr.Runtime()
+  let sig = @incr.Input(rt, 0)
   // Build balanced binary tree of Memos, 1023 nodes total (depth 10)
   let nodes : Array[@incr.Derived[Int]] = []
   nodes.push(@incr.Derived::Derived(rt, fn() { sig.get() })) // root @ idx 0
