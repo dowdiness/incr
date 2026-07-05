@@ -2,7 +2,11 @@
 
 All notable changes to `dowdiness/incr` are documented in this file.
 
-## [Unreleased]
+## [v0.14.0] - 2026-07-05
+
+Breaking release: public API boundary cleanup (Phases 0–2 of
+`docs/plans/2026-07-05-public-api-boundary-cleanup.md`; PRs #353/#354/#355/#357).
+Every removed or changed name lists its replacement below.
 
 ### Removed (breaking)
 
@@ -71,8 +75,8 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 - **`Input::new` / `Runtime::new` / `Relation::new`.** The `Type::Type`
   constructor forms (`Input(rt, v)`, `Runtime()`, `Relation(rt)`) are
-  canonical. The aliases remain functional; removal is planned for the 0.14.0
-  boundary-cleanup release (see
+  canonical. The aliases remain functional in this release; removal is planned
+  for a future breaking release after the `Expr[T]` track (see
   `docs/plans/2026-07-05-public-api-boundary-cleanup.md`).
 
 - **`Effect::new(rt, f)`.** Replaced by `Effect(rt, f)` (`Effect::Effect`).
@@ -259,7 +263,9 @@ These changes are in `examples/` workspace members, not the published `dowdiness
 ### Documentation
 - Document `incr_tea` architectural direction after Rabbita, Qwik, and Luna comparison
 
-[Unreleased]: https://github.com/dowdiness/incr/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/dowdiness/incr/compare/v0.14.0...HEAD
+[v0.14.0]: https://github.com/dowdiness/incr/compare/v0.13.0...v0.14.0
+[v0.13.0]: https://github.com/dowdiness/incr/compare/v0.12.0...v0.13.0
 [v0.12.0]: https://github.com/dowdiness/incr/compare/v0.11.0...v0.12.0
 [v0.11.0]: https://github.com/dowdiness/incr/compare/v0.10.1...v0.11.0
 [v0.10.1]: https://github.com/dowdiness/incr/compare/v0.10.0...v0.10.1
