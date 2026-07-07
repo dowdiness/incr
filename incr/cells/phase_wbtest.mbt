@@ -1,58 +1,7 @@
 ///|
-test "phase: starts at Idle" {
-  let rt = Runtime::Runtime()
-  inspect(rt.core.phase, content="Idle")
-}
-
-///|
-test "phase: enter and leave PushPropagating" {
-  let rt = Runtime::Runtime()
-  rt.enter_phase(PushPropagating)
-  inspect(rt.core.phase, content="PushPropagating")
-  rt.leave_phase()
-  inspect(rt.core.phase, content="Idle")
-}
-
-///|
-test "phase: enter and leave InFixpoint" {
-  let rt = Runtime::Runtime()
-  rt.enter_phase(InFixpoint)
-  inspect(rt.core.phase, content="InFixpoint")
-  rt.leave_phase()
-  inspect(rt.core.phase, content="Idle")
-}
-
-///|
-test "phase: enter and leave GarbageCollecting" {
-  let rt = Runtime::Runtime()
-  rt.enter_phase(GarbageCollecting)
-  inspect(rt.core.phase, content="GarbageCollecting")
-  rt.leave_phase()
-  inspect(rt.core.phase, content="Idle")
-}
-
-///|
-test "panic phase: enter PushPropagating while InFixpoint" {
-  let rt = Runtime::Runtime()
-  rt.enter_phase(InFixpoint)
-  rt.enter_phase(PushPropagating) |> ignore
-}
-
-///|
-test "panic phase: enter InFixpoint while PushPropagating" {
-  let rt = Runtime::Runtime()
-  rt.enter_phase(PushPropagating)
-  rt.enter_phase(InFixpoint) |> ignore
-}
-
-///|
-test "panic phase: enter GarbageCollecting while InFixpoint" {
-  let rt = Runtime::Runtime()
-  rt.enter_phase(InFixpoint)
-  rt.enter_phase(GarbageCollecting) |> ignore
-}
-
-///|
+// enter_phase/leave_phase transition tests live in the owning kernel package
+// (internal/kernel/phase_wbtest.mbt). This case stays here because it drives
+// the full Runtime::gc() coordinator path, which is a cells/ concern.
 test "phase: gc returns to Idle after completion" {
   let rt = Runtime::Runtime()
   rt.gc()
