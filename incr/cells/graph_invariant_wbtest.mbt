@@ -387,10 +387,19 @@ fn graph_ops_gen() -> @gen.Gen[Array[GraphOp]] {
 }
 
 ///|
+/// After a full op sequence no batch is open, so the runtime must be settled:
+/// `depth == 0` and an empty `pending` queue. This is the only value/state
+/// signal the structural invariants cannot provide, and it lets random
+/// failing-batch ops witness a broken rollback (a stranded pending entry).
+fn runtime_settled(rt : Runtime) -> Bool {
+  rt.core.batch.depth == 0 && rt.core.batch.pending.length() == 0
+}
+
+///|
 fn prop_all_graph_invariants_after_ops(ops : Array[GraphOp]) -> Bool {
   let fixture = build_graph_fixture()
   apply_graph_ops(fixture, ops)
-  all_graph_invariants_hold(fixture.rt)
+  all_graph_invariants_hold(fixture.rt) && runtime_settled(fixture.rt)
 }
 
 ///|
@@ -427,14 +436,24 @@ test "graph invariant: smoke (hand-written ops)" {
 }
 
 ///|
-test "graph invariant: effect on sum chain satisfies push gate" {
+/// Effect -> Derived(memo) -> Input: disposing the sole push subscriber must
+/// zero `push_reachable_count` along the whole upstream chain, exercising the
+/// memo hop in `propagate_liveness`. Exact counts (not just `> 0`) so a broken
+/// decrement is caught at both the memo and the input.
+test "graph invariant: effect via memo chain has exact push counts" {
   let rt = Runtime()
   let input = Input(rt, 1)
   let sum = Derived(rt, () => input.get() + 1)
-  let _effect = Effect(rt, () => ignore(sum.read_or_abort()))
-  ignore(sum.watch())
+  let effect = Effect(rt, () => ignore(sum.read_or_abort()))
+  let sum_watch = sum.watch()
+  inspect(push_reachable_count(rt, sum.id()), content="1")
+  inspect(push_reachable_count(rt, input.id()), content="1")
   inspect(push_reachable_gate_holds(rt), content="true")
-  inspect(push_reachable_count(rt, input.id()) > 0, content="true")
+  effect.dispose()
+  inspect(push_reachable_count(rt, sum.id()), content="0")
+  inspect(push_reachable_count(rt, input.id()), content="0")
+  inspect(push_reachable_gate_holds(rt), content="true")
+  ignore(sum_watch)
 }
 
 ///|
@@ -479,6 +498,21 @@ test "graph invariant: batch rollback preserves graph invariants" {
   // write (a leaked pending entry would commit here).
   fixture.rt.batch(fn() { fixture.input_b.set(fixture.input_b.get() + 1) })
   inspect(fixture.input_a.get(), content=before_a.to_string())
+  inspect(all_graph_invariants_hold(fixture.rt), content="true")
+}
+
+///|
+test "graph invariant: failed batch_result reports err and settles runtime" {
+  let fixture = build_graph_fixture()
+  let before_a = fixture.input_a.get()
+  let res = fixture.rt.batch_result(fn() raise {
+    fixture.input_a.set(before_a + 77)
+    raise BatchTestError::Stop
+  })
+  inspect(res is Err(_), content="true")
+  inspect(fixture.input_a.get(), content=before_a.to_string())
+  inspect(fixture.rt.core.batch.pending.length(), content="0")
+  inspect(fixture.rt.core.batch.depth, content="0")
   inspect(all_graph_invariants_hold(fixture.rt), content="true")
 }
 
