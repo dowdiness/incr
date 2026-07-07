@@ -1,4 +1,7 @@
 ///|
+/// Reachable lazy derived facade. Same revision-based verification as
+/// `Derived`, and additionally participates in push reachability and
+/// `Watch`/GC lifetimes for downstream eager subscribers.
 pub(all) struct ReachableDerived[T] {
   priv label : String?
   priv rt : Runtime
@@ -52,9 +55,15 @@ pub fn[T : Eq] ReachableDerived::read_or_abort(self : ReachableDerived[T]) -> T 
 }
 
 ///|
-/// Creates a long-lived outside-graph reader that returns read errors.
+/// Creates a GC-safe long-lived outside-graph reader that returns read errors.
+///
+/// Performs one priming read so upstream `gc_dependencies` are recorded before
+/// return — a `Runtime::gc()` that runs before the first consumer read cannot
+/// sweep the upstream graph. See `Scope::watch` for the scope-owned variant.
 pub fn[T : Eq] ReachableDerived::watch(self : ReachableDerived[T]) -> Watch[T] {
-  self.watch_result()
+  let watch = self.watch_result()
+  ignore(watch.read_or_abort())
+  watch
 }
 
 ///|

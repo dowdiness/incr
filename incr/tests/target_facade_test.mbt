@@ -531,6 +531,36 @@ test "facade reachable derived: watch reads outside graph" {
 }
 
 ///|
+test "facade reachable derived: watch primes upstream before consumer read" {
+  let rt = @incr.Runtime()
+  let input = @incr.Input(rt, 2)
+  let inner = @incr.ReachableDerived(rt, () => input.get() + 1)
+  let outer = @incr.ReachableDerived(rt, () => inner.read_or_abort() * 2)
+  let watch = outer.watch()
+  rt.gc()
+  inspect(inner.is_disposed(), content="false")
+  inspect(outer.is_disposed(), content="false")
+  inspect(watch.read_or_abort(), content="6")
+  watch.dispose()
+}
+
+///|
+test "facade scope: watch_reachable primes upstream before consumer read" {
+  let rt = @incr.Runtime()
+  let scope = @incr.Scope::new(rt)
+  let input = scope.input(2)
+  let inner = scope.reachable_derived(() => input.get() + 1)
+  let outer = scope.reachable_derived(() => inner.read_or_abort() * 2)
+  let watch = scope.watch_reachable(outer)
+  rt.gc()
+  inspect(inner.is_disposed(), content="false")
+  inspect(outer.is_disposed(), content="false")
+  inspect(watch.read_or_abort(), content="6")
+  scope.dispose()
+  inspect(watch.is_disposed(), content="true")
+}
+
+///|
 test "panic facade reachable derived: get outside tracked context aborts" {
   let rt = @incr.Runtime()
   let reachable = @incr.ReachableDerived(rt, () => 1)

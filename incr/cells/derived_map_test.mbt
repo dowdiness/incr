@@ -153,6 +153,20 @@ test "derived_map: clear disposes every wrapper and empties the map" {
 }
 
 ///|
+test "derived_map: cache helpers are safe after scope disposal" {
+  let rt = Runtime::Runtime()
+  let scope = Scope::new(rt)
+  let by_key = scope.derived_map((key : Int) => key * 2)
+  ignore(by_key.read_or_abort(1))
+  inspect(by_key.cache_len(), content="1")
+  scope.dispose()
+  inspect(by_key.has_cached(1), content="false")
+  inspect(by_key.cache_len(), content="0")
+  inspect(by_key.sweep_cache(), content="0")
+  by_key.clear_cache()
+}
+
+///|
 test "derived_map: clear is idempotent on an empty map" {
   let rt = Runtime::Runtime()
   let by_key : DerivedMap[Int, Int] = DerivedMap::DerivedMap(rt, key => key * 10)

@@ -321,6 +321,23 @@ pub fn[T] Scope::watch(self : Scope, derived : Derived[T]) -> Watch[T] {
 }
 
 ///|
+/// Creates a GC-safe watch on a reachable derived value, owned by this scope.
+///
+/// Folds watch creation, scope registration, and the priming read performed by
+/// `ReachableDerived::watch()` into one call. MoonBit does not allow a second
+/// `Scope::watch` overload; use this for `ReachableDerived` and `Scope::watch`
+/// for `Derived`.
+pub fn[T : Eq] Scope::watch_reachable(
+  self : Scope,
+  derived : ReachableDerived[T],
+) -> Watch[T] {
+  guard !self.disposed else {
+    abort("Scope::watch_reachable called on a disposed scope")
+  }
+  self.add_watch(derived.watch())
+}
+
+///|
 /// Registers an array of CellIds with this scope for bulk disposal.
 ///
 /// When the scope is disposed, all registered cells are disposed.

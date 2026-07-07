@@ -1,4 +1,6 @@
 ///|
+/// Keyed derived map facade. Lazily caches per-key `Derived` entries on first
+/// access; scope-owned maps clear entries on dispose.
 pub(all) struct DerivedMap[K, V] {
   priv rt : Runtime
   priv compute : (K) -> V raise Failure
@@ -148,7 +150,7 @@ pub fn[K : Hash + Eq, V] DerivedMap::has_cached(
 ) -> Bool {
   match self.guard_live() {
     Ok(_) => self.entries.contains(key)
-    Err(e) => abort(e.format_path())
+    Err(_) => false
   }
 }
 
@@ -157,7 +159,7 @@ pub fn[K : Hash + Eq, V] DerivedMap::has_cached(
 pub fn[K, V] DerivedMap::cache_len(self : DerivedMap[K, V]) -> Int {
   match self.guard_live() {
     Ok(_) => self.entries.length()
-    Err(e) => abort(e.format_path())
+    Err(_) => 0
   }
 }
 
@@ -168,7 +170,7 @@ pub fn[K : Hash + Eq, V] DerivedMap::sweep_cache(
 ) -> Int {
   match self.guard_live() {
     Ok(_) => self.sweep_entries()
-    Err(e) => abort(e.format_path())
+    Err(_) => 0
   }
 }
 
@@ -177,6 +179,6 @@ pub fn[K : Hash + Eq, V] DerivedMap::sweep_cache(
 pub fn[K, V] DerivedMap::clear_cache(self : DerivedMap[K, V]) -> Unit {
   match self.guard_live() {
     Ok(_) => self.clear_entries()
-    Err(e) => abort(e.format_path())
+    Err(_) => ()
   }
 }
