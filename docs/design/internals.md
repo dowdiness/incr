@@ -397,7 +397,7 @@ library module.
 |---|---|
 | root (`incr.mbt`, `traits.mbt`) | `pub using` re-exports of all public types; `RuntimeContext`/`Freshness`/`InputFieldOwner` traits and `create_*` / `batch` helper functions |
 | `types/` | Pure value types: `Revision`, `Durability`, `CellId`, `CycleError`, `ReadError`, id types, `InternTable` |
-| `cells/` | Typed handles (`Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `EagerDerived`, `Effect`, `AcceptedDerived`, `Accumulator`, datalog handles), `Runtime` coordinator, `Scope`/`Watch`/`Observer` lifecycle, batch frontend, introspection. Facade constructors live in `cells/target_facade.mbt`; recompute bodies in `cells/derived_impl.mbt` |
+| `cells/` | Typed handles (`Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `EagerDerived`, `Effect`, `AcceptedDerived`, `Accumulator`, datalog handles), `Runtime` coordinator, `Scope`/`Watch`/`Observer` lifecycle, batch frontend, introspection. Target facades: `cells/derived_facade.mbt`, `cells/reachable_derived_facade.mbt`, `cells/derived_map_facade.mbt`, and `cells/input_field_owner_facade.mbt` (`Input`/`InputField`/`EagerDerived` handles remain in their owning source files); recompute bodies in `cells/derived_impl.mbt` |
 | `cells/internal/shared/` | Cross-engine leaf abstractions: `CellOps`, `Committable`, `CellMeta`, `CellRef`, `SlotSnapshot` |
 | `cells/internal/pull/` | Pull-engine SoA entries: `PullInputData`, `MemoData` |
 | `cells/internal/push/` | Push-engine SoA entries: `PushReactiveData`, `PushEffectData` |

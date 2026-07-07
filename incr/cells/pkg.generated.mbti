@@ -337,6 +337,7 @@ pub fn Scope::is_disposed(Self) -> Bool
 pub fn Scope::new(Runtime) -> Self
 pub fn[T : Eq] Scope::reachable_derived(Self, () -> T raise Failure, label? : String) -> ReachableDerived[T]
 pub fn[T] Scope::watch(Self, Derived[T]) -> Watch[T]
+pub fn[T : Eq] Scope::watch_reachable(Self, ReachableDerived[T]) -> Watch[T]
 pub impl @debug.Debug for Scope
 
 pub struct Watch[T] {

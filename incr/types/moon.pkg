@@ -2,6 +2,11 @@ import {
   "moonbitlang/core/debug",
   "moonbitlang/core/hashmap",
 }
+
+import {
+  "moonbitlang/quickcheck" @qc,
+  "moonbitlang/quickcheck/gen",
+} for "test"
 // 5 (unused_type_variable) — phantom [T] on InputId, MemoId, ReactiveId, RelationId is intentional
 // 9 (struct_never_constructed) — ID types are constructed by cells/ package via pub(all)
 
