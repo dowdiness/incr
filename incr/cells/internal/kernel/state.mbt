@@ -225,6 +225,36 @@ pub(all) struct RuntimeCore {
 }
 
 ///|
+/// Builds an empty `RuntimeCore` with a freshly allocated runtime id.
+///
+/// This is the single source of truth for core-state initialization: both the
+/// `Runtime::Runtime` coordinator constructor in `cells/` and kernel whitebox
+/// tests call `RuntimeCore()`, so no call site duplicates the initialization literal and a
+/// new `RuntimeCore` field can never silently drift between them.
+pub fn RuntimeCore::RuntimeCore() -> RuntimeCore {
+  {
+    runtime_id: alloc_runtime_id(),
+    revision: {
+      current_revision: Revision::initial(),
+      durability_last_changed: FixedArray::make(
+        @incr_types.DURABILITY_COUNT,
+        Revision::initial(),
+      ),
+    },
+    next_cell_id: 0,
+    tracking: { stack: [] },
+    batch: { depth: 0, pending: [], frames: [], max_durability: Low },
+    callback_depth: 0,
+    on_change_listeners: ListenerRegistry::new(),
+    next_listener_id: 0,
+    cell_index: [],
+    cell_ops: [],
+    phase: Idle,
+    gc_root_counts: @hashmap.HashMap([]),
+  }
+}
+
+///|
 /// Transitions to a new propagation phase.
 ///
 /// Aborts if the current phase is not `Idle` — phases are mutually

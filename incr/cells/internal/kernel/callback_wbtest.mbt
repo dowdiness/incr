@@ -5,7 +5,7 @@ suberror CallbackTestError {
 
 ///|
 test "run_callback restores callback_depth when callback raises" {
-  let core = new_runtime_core_for_wbtest()
+  let core = RuntimeCore()
   let mut callback_failed = false
   try
     run_callback(core, fn() raise { raise CallbackTestError::CallbackDepthStop })
