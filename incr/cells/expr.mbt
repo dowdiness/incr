@@ -112,26 +112,49 @@ pub fn[T] EagerDerived::expr(self : EagerDerived[T]) -> Expr[T] {
 
 // ── Operator trait implementations ──
 
+///|
+/// Adds two expressions when materialized. The operator chain stays lazy until
+/// `Expr::derived`; no incremental cell is allocated for `+` itself. Aborts if
+/// the operands belong to different runtimes.
 pub impl[T : Add] Add for Expr[T] with fn add(self, other) -> Expr[T] {
   Expr::map2(self, other, (a, b) => a + b)
 }
 
+///|
+/// Subtracts the right expression from the left when materialized. Stays lazy
+/// until `Expr::derived`; no incremental cell is allocated for `-` itself.
+/// Aborts if the operands belong to different runtimes.
 pub impl[T : Sub] Sub for Expr[T] with fn sub(self, other) -> Expr[T] {
   Expr::map2(self, other, (a, b) => a - b)
 }
 
+///|
+/// Multiplies two expressions when materialized. Stays lazy until
+/// `Expr::derived`; no incremental cell is allocated for `*` itself. Aborts if
+/// the operands belong to different runtimes.
 pub impl[T : Mul] Mul for Expr[T] with fn mul(self, other) -> Expr[T] {
   Expr::map2(self, other, (a, b) => a * b)
 }
 
+///|
+/// Divides the left expression by the right when materialized. Stays lazy until
+/// `Expr::derived`; no incremental cell is allocated for `/` itself. Aborts if
+/// the operands belong to different runtimes.
 pub impl[T : Div] Div for Expr[T] with fn div(self, other) -> Expr[T] {
   Expr::map2(self, other, (a, b) => a / b)
 }
 
+///|
+/// Remainder of dividing the left expression by the right when materialized.
+/// Stays lazy until `Expr::derived`; no incremental cell is allocated for `%`
+/// itself. Aborts if the operands belong to different runtimes.
 pub impl[T : Mod] Mod for Expr[T] with fn mod(self, other) -> Expr[T] {
   Expr::map2(self, other, (a, b) => a % b)
 }
 
+///|
+/// Negates the expression when materialized. Composes lazily via `Expr::map`;
+/// no incremental cell is allocated for unary `-` until `Expr::derived`.
 pub impl[T : Neg] Neg for Expr[T] with fn neg(self) -> Expr[T] {
   Expr::map(self, a => -a)
 }

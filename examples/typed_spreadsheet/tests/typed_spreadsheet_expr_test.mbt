@@ -26,11 +26,9 @@ test "typed spreadsheet expr: tax = subtotal * 0.1 with constant" {
   let quantity = @incr.Input(rt, 2, label="quantity")
   let subtotal = (unit_price.expr() * quantity.expr()).derived(label="subtotal")
   // tax = subtotal * 10 / 100
-  let tax = (
-    subtotal.expr() *
-    @incr.Expr::constant(rt, 10) /
-    @incr.Expr::constant(rt, 100)
-  ).derived(label="tax")
+  let tax = (subtotal.expr() *
+  @incr.Expr::constant(rt, 10) /
+  @incr.Expr::constant(rt, 100)).derived(label="tax")
   inspect(subtotal.read_or_abort(), content="200")
   inspect(tax.read_or_abort(), content="20")
   unit_price.set(50)
@@ -44,9 +42,9 @@ test "typed spreadsheet expr: chained formula with intermediate" {
   let base = @incr.Input(rt, 10, label="base")
   let adjustment = @incr.Input(rt, 5, label="adjustment")
   let stepped = (base.expr() + adjustment.expr()).derived(label="stepped")
-  let doubled = (
-    stepped.expr() * @incr.Expr::constant(rt, 2)
-  ).derived(label="doubled")
+  let doubled = (stepped.expr() * @incr.Expr::constant(rt, 2)).derived(
+    label="doubled",
+  )
   inspect(stepped.read_or_abort(), content="15")
   inspect(doubled.read_or_abort(), content="30")
   base.set(20)
@@ -63,9 +61,9 @@ test "typed spreadsheet expr: cell refs via Derived::expr lift" {
   let b2 = @incr.Derived(rt, fn() { a1.get() * a2.get() }, label="B2")
   // C1 reads B1 and B2 via Derived::expr lift
   let c1 = (b1.expr() + b2.expr()).derived(label="C1")
-  inspect(c1.read_or_abort(), content="230")  // (10+20) + (10*20) = 30 + 200
+  inspect(c1.read_or_abort(), content="230") // (10+20) + (10*20) = 30 + 200
   a1.set(5)
-  inspect(c1.read_or_abort(), content="125")  // (5+20) + (5*20) = 25 + 100
+  inspect(c1.read_or_abort(), content="125") // (5+20) + (5*20) = 25 + 100
 }
 
 ///|
@@ -73,13 +71,15 @@ test "typed spreadsheet expr: ReachableDerived as formula cell" {
   let rt = @incr.Runtime()
   let a1 = @incr.Input(rt, 7, label="A1")
   let formula = @incr.ReachableDerived(
-    rt, fn() { a1.get() * 3 }, label="formula",
+    rt,
+    fn() { a1.get() * 3 },
+    label="formula",
   )
   inspect(formula.read_or_abort(), content="21")
-  let chained = (
-    formula.expr() + @incr.Expr::constant(rt, 1)
-  ).derived(label="chained")
+  let chained = (formula.expr() + @incr.Expr::constant(rt, 1)).derived(
+    label="chained",
+  )
   inspect(chained.read_or_abort(), content="22")
   a1.set(10)
-  inspect(chained.read_or_abort(), content="31")  // (10*3) + 1
+  inspect(chained.read_or_abort(), content="31") // (10*3) + 1
 }
