@@ -30,6 +30,8 @@ enum GraphOp {
   SpawnDisposePush
   ObserveSumDrop
   GcSweep
+  BatchSetA(Int, Int)
+  BatchSetBoth(Int, Int)
 } derive(Debug)
 
 ///|
@@ -117,6 +119,16 @@ fn apply_graph_op(fixture : GraphFixture, op : GraphOp) -> Unit {
       observer.dispose()
     }
     GcSweep => fixture.rt.gc()
+    BatchSetA(v1, v2) =>
+      fixture.rt.batch(fn() {
+        fixture.input_a.set(v1)
+        fixture.input_a.set(v2)
+      })
+    BatchSetBoth(va, vb) =>
+      fixture.rt.batch(fn() {
+        fixture.input_a.set(va)
+        fixture.input_b.set(vb)
+      })
   }
 }
 
@@ -193,13 +205,20 @@ fn is_live_push_cell(rt : Runtime, id : CellId) -> Bool {
 }
 
 ///|
+fn is_live_subscriber_for_gate(rt : Runtime, id : CellId) -> Bool {
+  @kernel.is_live_subscriber(rt.core, rt.pull, id)
+}
+
+///|
 /// Returns true when a live push cell is reachable from `from` by following
-/// subscriber (downstream) links.
+/// subscriber links through live subscribers only (`is_live_subscriber`).
 fn has_live_push_downstream(rt : Runtime, from : CellId) -> Bool {
   let visited : @hashset.HashSet[CellId] = @hashset.HashSet([])
   let worklist : Array[CellId] = []
   for sub in cell_subscribers(rt, from) {
-    worklist.push(sub)
+    if is_live_subscriber_for_gate(rt, sub) {
+      worklist.push(sub)
+    }
   }
   let mut wi = 0
   while wi < worklist.length() {
@@ -216,7 +235,9 @@ fn has_live_push_downstream(rt : Runtime, from : CellId) -> Bool {
       return true
     }
     for sub in cell_subscribers(rt, id) {
-      worklist.push(sub)
+      if is_live_subscriber_for_gate(rt, sub) {
+        worklist.push(sub)
+      }
     }
   }
   false
@@ -224,7 +245,8 @@ fn has_live_push_downstream(rt : Runtime, from : CellId) -> Bool {
 
 ///|
 /// Gate invariant: `push_reachable_count > 0` iff a live push cell is reachable
-/// downstream through subscriber links (zero/non-zero only; not exact path weight).
+/// downstream through live subscriber links (zero/non-zero only; not exact path
+/// weight).
 fn push_reachable_gate_holds(rt : Runtime) -> Bool {
   for slot in 0..<rt.core.cell_index.length() {
     match cell_id_for_slot(rt, slot) {
@@ -283,9 +305,13 @@ fn all_graph_invariants_hold(rt : Runtime) -> Bool {
 
 ///|
 fn graph_op_gen() -> @gen.Gen[GraphOp] {
+  let int50 = @gen.int_bound(50)
+  let pair = @gen.tuple(int50, int50)
   @gen.one_of([
-    @gen.int_bound(50).fmap(v => GraphOp::SetA(v)),
-    @gen.int_bound(50).fmap(v => GraphOp::SetB(v)),
+    int50.fmap(v => GraphOp::SetA(v)),
+    int50.fmap(v => GraphOp::SetB(v)),
+    pair.fmap(v => GraphOp::BatchSetA(v.0, v.1)),
+    pair.fmap(v => GraphOp::BatchSetBoth(v.0, v.1)),
     @gen.pure(GraphOp::ReadSum),
     @gen.pure(GraphOp::ReadDoubled),
     @gen.pure(GraphOp::ToggleFlag),
@@ -326,6 +352,8 @@ test "graph invariant: smoke (hand-written ops)" {
     SetB(2),
     ReadSum,
     ReadEager,
+    BatchSetBoth(3, 4),
+    BatchSetA(5, 5),
     ToggleFlag,
     ReadPick,
     SetB(3),
