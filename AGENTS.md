@@ -116,6 +116,15 @@ Integration tests in `incr/tests/*_test.mbt` are the strongest correctness signa
 
 - Use `test "name" { ... }` blocks with descriptive names. Prefer snapshot-style assertions via `inspect(value, content="...")`.
 - Add regression tests for every behavior change in the nearest matching `*_test.mbt`. Use `*_wbtest.mbt` only when private state must be reached.
+- Whitebox test placement:
+  - New kernel/engine whitebox tests belong in the owning `incr/cells/internal/*` package whenever they can test `internal/*` types and functions without importing `cells/`.
+  - Follow the opportunistic migration rule from [issue #346](https://github.com/dowdiness/incr/issues/346): when a real change touches a kernel/engine file, move that file's kernel-specific `*_wbtest.mbt` coverage into the owning internal package in the same PR instead of doing bulk churn.
+  - Use this rubric:
+    - Tier A, pure internal tests: only `internal/*` types/functions, no `Runtime` or handle constructors. Move them.
+    - Tier B, kernel algorithm tests: mostly kernel logic, with a minimal in-package `RuntimeCore` or engine-state fixture. Move them if they still avoid `cells/` imports.
+    - Tier C, coordinator integration tests: handle lifecycle, `Runtime` wrappers, commit hooks, or cross-package orchestration. Keep them in `cells/`.
+  - `kernel_using.mbt` is production import plumbing for `cells/*.mbt`, not test plumbing, and stays regardless of test migration.
+  - `runtime_read_helpers_wbtest.mbt` stays in `cells/` as the shared top-level read harness used by other whitebox tests.
 - Panic-style tests: prefix the test name with `"panic "`; the runner expects `abort()`.
 - No strict coverage gate; preserve or improve coverage in touched areas.
 
