@@ -319,6 +319,7 @@ pub(all) struct RuntimeCore {
   mut phase : PropagationPhase
   gc_root_counts : @hashmap.HashMap[@types.CellId, Int]
 }
+pub fn RuntimeCore::RuntimeCore() -> Self
 
 pub(all) enum RuntimeEvaluationEvent {
   DerivedRebuilt(DerivedRebuildSummary)

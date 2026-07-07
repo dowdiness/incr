@@ -1,12 +1,12 @@
 ///|
 test "phase: starts at Idle" {
-  let core = new_runtime_core_for_wbtest()
+  let core = RuntimeCore()
   inspect(core.phase, content="Idle")
 }
 
 ///|
 test "phase: enter and leave PushPropagating" {
-  let core = new_runtime_core_for_wbtest()
+  let core = RuntimeCore()
   enter_phase(core, PushPropagating)
   inspect(core.phase, content="PushPropagating")
   leave_phase(core)
@@ -15,7 +15,7 @@ test "phase: enter and leave PushPropagating" {
 
 ///|
 test "phase: enter and leave InFixpoint" {
-  let core = new_runtime_core_for_wbtest()
+  let core = RuntimeCore()
   enter_phase(core, InFixpoint)
   inspect(core.phase, content="InFixpoint")
   leave_phase(core)
@@ -24,7 +24,7 @@ test "phase: enter and leave InFixpoint" {
 
 ///|
 test "phase: enter and leave GarbageCollecting" {
-  let core = new_runtime_core_for_wbtest()
+  let core = RuntimeCore()
   enter_phase(core, GarbageCollecting)
   inspect(core.phase, content="GarbageCollecting")
   leave_phase(core)
@@ -33,21 +33,21 @@ test "phase: enter and leave GarbageCollecting" {
 
 ///|
 test "panic phase: enter PushPropagating while InFixpoint" {
-  let core = new_runtime_core_for_wbtest()
+  let core = RuntimeCore()
   enter_phase(core, InFixpoint)
   enter_phase(core, PushPropagating)
 }
 
 ///|
 test "panic phase: enter InFixpoint while PushPropagating" {
-  let core = new_runtime_core_for_wbtest()
+  let core = RuntimeCore()
   enter_phase(core, PushPropagating)
   enter_phase(core, InFixpoint)
 }
 
 ///|
 test "panic phase: enter GarbageCollecting while InFixpoint" {
-  let core = new_runtime_core_for_wbtest()
+  let core = RuntimeCore()
   enter_phase(core, InFixpoint)
   enter_phase(core, GarbageCollecting)
 }

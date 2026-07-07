@@ -90,31 +90,11 @@ pub fn Runtime::id(self : Runtime) -> @incr_types.RuntimeId {
 /// - `on_change`: Optional callback invoked whenever any input changes
 ///   (or at the end of a batch if values actually changed).
 pub fn Runtime::Runtime(on_change? : () -> Unit) -> Runtime {
-  let id = @kernel.alloc_runtime_id()
   let accumulator_hook = AccumulatorCommitHook::new()
   let event_hook = EventBroadcastPhaseHook::new()
   let runtime_event_hook = RuntimeEvaluationEventHook::new()
   let rt : Runtime = {
-    core: {
-      runtime_id: id,
-      revision: {
-        current_revision: Revision::initial(),
-        durability_last_changed: FixedArray::make(
-          @incr_types.DURABILITY_COUNT,
-          Revision::initial(),
-        ),
-      },
-      next_cell_id: 0,
-      tracking: { stack: [] },
-      batch: { depth: 0, pending: [], frames: [], max_durability: Low },
-      callback_depth: 0,
-      on_change_listeners: @kernel.ListenerRegistry::new(),
-      next_listener_id: 0,
-      cell_index: [],
-      cell_ops: [],
-      phase: Idle,
-      gc_root_counts: @hashmap.HashMap([]),
-    },
+    core: @kernel.RuntimeCore(),
     pull: { inputs: [], memos: [], free_inputs: [], free_memos: [] },
     push: {
       reactives: [],
