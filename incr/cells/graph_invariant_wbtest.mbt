@@ -16,6 +16,8 @@
 /// backward along `gc_dependencies` (upstream). Cells not on a watch-rooted
 /// chain are swept. The fixture holds `Watch` handles on every derived cell
 /// that random ops may read (`sum`, `pick`) plus the anchor `eager` chain.
+/// A resident `Effect` on `sum` exercises the push-effect path alongside
+/// `eager`. Batch ops include raise/rollback variants (happy-path batches too).
 
 ///|
 /// Random graph operation for pull/push invariant probing.
@@ -28,10 +30,14 @@ enum GraphOp {
   ReadPick
   ReadEager
   SpawnDisposePush
+  SpawnDisposeEffect
   ObserveSumDrop
   GcSweep
   BatchSetA(Int, Int)
   BatchSetBoth(Int, Int)
+  BatchSetAFail(Int, Int)
+  BatchSetBothFail(Int, Int)
+  BatchResultFail(Int)
 } derive(Debug)
 
 ///|
@@ -44,6 +50,7 @@ struct GraphFixture {
   doubled : Derived[Int]
   pick : Derived[Int]
   eager : EagerDerived[Int]
+  sum_effect : Effect
   sum_watch : Watch[Int]
   eager_watch : Watch[Int]
   pick_watch : Watch[Int]
@@ -65,6 +72,7 @@ fn build_graph_fixture() -> GraphFixture {
     }
   })
   let eager = EagerDerived::EagerDerived(rt, () => doubled.read_or_abort())
+  let sum_effect = Effect(rt, () => ignore(sum.read_or_abort()))
   // Root cells that random ops may read so `GcSweep` does not dispose them.
   let sum_watch = sum.watch()
   let eager_watch = eager.watch()
@@ -78,6 +86,7 @@ fn build_graph_fixture() -> GraphFixture {
     doubled,
     pick,
     eager,
+    sum_effect,
     sum_watch,
     eager_watch,
     pick_watch,
@@ -109,10 +118,19 @@ fn apply_graph_op(fixture : GraphFixture, op : GraphOp) -> Unit {
     ReadPick => read_derived_if_alive(fixture.pick)
     ReadEager => read_eager_if_alive(fixture.eager)
     SpawnDisposePush => {
+      // Root the input so it survives `GcSweep`, then drop its only push
+      // subscriber. Its `push_reachable_count` must return to exactly 0 — the
+      // zero/non-zero gate can only witness a broken decrement this way.
       let ephemeral = Input(fixture.rt, 0)
+      ignore(fixture.rt.add_gc_root(ephemeral.id()))
       let push = EagerDerived::EagerDerived(fixture.rt, () => ephemeral.get())
       push.dispose()
-      ephemeral.dispose()
+    }
+    SpawnDisposeEffect => {
+      let ephemeral = Input(fixture.rt, 0)
+      ignore(fixture.rt.add_gc_root(ephemeral.id()))
+      let effect = Effect(fixture.rt, () => ignore(ephemeral.get()))
+      effect.dispose()
     }
     ObserveSumDrop => {
       let observer = fixture.sum.observe()
@@ -129,6 +147,39 @@ fn apply_graph_op(fixture : GraphFixture, op : GraphOp) -> Unit {
         fixture.input_a.set(va)
         fixture.input_b.set(vb)
       })
+    BatchSetAFail(v1, v2) =>
+      try
+        fixture.rt.batch(fn() raise {
+          fixture.input_a.set(v1)
+          fixture.input_a.set(v2)
+          raise BatchTestError::Stop
+        })
+      catch {
+        BatchTestError::Stop => ()
+        _ => abort("unexpected error escaped failing batch op")
+      } noraise {
+        _ => ()
+      }
+    BatchSetBothFail(va, vb) =>
+      try
+        fixture.rt.batch(fn() raise {
+          fixture.input_a.set(va)
+          fixture.input_b.set(vb)
+          raise BatchTestError::Stop
+        })
+      catch {
+        BatchTestError::Stop => ()
+        _ => abort("unexpected error escaped failing batch op")
+      } noraise {
+        _ => ()
+      }
+    BatchResultFail(v) =>
+      ignore(
+        fixture.rt.batch_result(fn() raise {
+          fixture.input_a.set(v)
+          raise BatchTestError::Stop
+        }),
+      )
   }
 }
 
@@ -312,12 +363,16 @@ fn graph_op_gen() -> @gen.Gen[GraphOp] {
     int50.fmap(v => GraphOp::SetB(v)),
     pair.fmap(v => GraphOp::BatchSetA(v.0, v.1)),
     pair.fmap(v => GraphOp::BatchSetBoth(v.0, v.1)),
+    pair.fmap(v => GraphOp::BatchSetAFail(v.0, v.1)),
+    pair.fmap(v => GraphOp::BatchSetBothFail(v.0, v.1)),
+    int50.fmap(v => GraphOp::BatchResultFail(v)),
     @gen.pure(GraphOp::ReadSum),
     @gen.pure(GraphOp::ReadDoubled),
     @gen.pure(GraphOp::ToggleFlag),
     @gen.pure(GraphOp::ReadPick),
     @gen.pure(GraphOp::ReadEager),
     @gen.pure(GraphOp::SpawnDisposePush),
+    @gen.pure(GraphOp::SpawnDisposeEffect),
     @gen.pure(GraphOp::ObserveSumDrop),
     @gen.pure(GraphOp::GcSweep),
   ])
@@ -332,10 +387,19 @@ fn graph_ops_gen() -> @gen.Gen[Array[GraphOp]] {
 }
 
 ///|
+/// After a full op sequence no batch is open, so the runtime must be settled:
+/// `depth == 0` and an empty `pending` queue. This is the only value/state
+/// signal the structural invariants cannot provide, and it lets random
+/// failing-batch ops witness a broken rollback (a stranded pending entry).
+fn runtime_settled(rt : Runtime) -> Bool {
+  rt.core.batch.depth == 0 && rt.core.batch.pending.length() == 0
+}
+
+///|
 fn prop_all_graph_invariants_after_ops(ops : Array[GraphOp]) -> Bool {
   let fixture = build_graph_fixture()
   apply_graph_ops(fixture, ops)
-  all_graph_invariants_hold(fixture.rt)
+  all_graph_invariants_hold(fixture.rt) && runtime_settled(fixture.rt)
 }
 
 ///|
@@ -354,17 +418,102 @@ test "graph invariant: smoke (hand-written ops)" {
     ReadEager,
     BatchSetBoth(3, 4),
     BatchSetA(5, 5),
+    BatchSetAFail(99, 100),
+    BatchSetBothFail(7, 8),
+    BatchResultFail(42),
     ToggleFlag,
     ReadPick,
     SetB(3),
     ReadDoubled,
     SpawnDisposePush,
+    SpawnDisposeEffect,
     ObserveSumDrop,
     GcSweep,
   ])
   inspect(subscriber_symmetry_holds(fixture.rt), content="true")
   inspect(dispatch_tables_aligned(fixture.rt), content="true")
   inspect(push_reachable_gate_holds(fixture.rt), content="true")
+}
+
+///|
+/// Effect -> Derived(memo) -> Input: disposing the sole push subscriber must
+/// zero `push_reachable_count` along the whole upstream chain, exercising the
+/// memo hop in `propagate_liveness`. Exact counts (not just `> 0`) so a broken
+/// decrement is caught at both the memo and the input.
+test "graph invariant: effect via memo chain has exact push counts" {
+  let rt = Runtime()
+  let input = Input(rt, 1)
+  let sum = Derived(rt, () => input.get() + 1)
+  let effect = Effect(rt, () => ignore(sum.read_or_abort()))
+  let sum_watch = sum.watch()
+  inspect(push_reachable_count(rt, sum.id()), content="1")
+  inspect(push_reachable_count(rt, input.id()), content="1")
+  inspect(push_reachable_gate_holds(rt), content="true")
+  effect.dispose()
+  inspect(push_reachable_count(rt, sum.id()), content="0")
+  inspect(push_reachable_count(rt, input.id()), content="0")
+  inspect(push_reachable_gate_holds(rt), content="true")
+  ignore(sum_watch)
+}
+
+///|
+/// Disposing the sole push subscriber of a still-live cell must drive its
+/// `push_reachable_count` back to exactly 0. Because the gate is zero/non-zero
+/// only, this can only be observed on a cell whose *only* push path is removed
+/// while the cell itself stays alive — the `SpawnDispose*` ops model this by
+/// rooting the upstream input and disposing only the push cell.
+test "graph invariant: dropping sole push subscriber zeroes reachable count" {
+  let rt = Runtime()
+  let input = Input(rt, 1)
+  let effect = Effect(rt, () => ignore(input.get()))
+  inspect(push_reachable_count(rt, input.id()), content="1")
+  effect.dispose()
+  inspect(push_reachable_count(rt, input.id()), content="0")
+  inspect(push_reachable_gate_holds(rt), content="true")
+}
+
+///|
+test "graph invariant: batch rollback preserves graph invariants" {
+  let fixture = build_graph_fixture()
+  let before_a = fixture.input_a.get()
+  let mut stop_fired = false
+  try
+    fixture.rt.batch(fn() raise {
+      fixture.input_a.set(before_a + 99)
+      raise BatchTestError::Stop
+    })
+  catch {
+    BatchTestError::Stop => stop_fired = true
+    _ => abort("unexpected error escaped failing batch")
+  } noraise {
+    _ => ()
+  }
+  inspect(stop_fired, content="true")
+  inspect(fixture.input_a.get(), content=before_a.to_string())
+  // A broken rollback leaves the input's committable stranded in the pending
+  // queue; the structural invariants cannot see this (they are dep/subscriber
+  // shape only), so assert the pending queue drained explicitly.
+  inspect(fixture.rt.core.batch.pending.length(), content="0")
+  // ...and that a later successful batch does not resurrect the rolled-back
+  // write (a leaked pending entry would commit here).
+  fixture.rt.batch(fn() { fixture.input_b.set(fixture.input_b.get() + 1) })
+  inspect(fixture.input_a.get(), content=before_a.to_string())
+  inspect(all_graph_invariants_hold(fixture.rt), content="true")
+}
+
+///|
+test "graph invariant: failed batch_result reports err and settles runtime" {
+  let fixture = build_graph_fixture()
+  let before_a = fixture.input_a.get()
+  let res = fixture.rt.batch_result(fn() raise {
+    fixture.input_a.set(before_a + 77)
+    raise BatchTestError::Stop
+  })
+  inspect(res is Err(_), content="true")
+  inspect(fixture.input_a.get(), content=before_a.to_string())
+  inspect(fixture.rt.core.batch.pending.length(), content="0")
+  inspect(fixture.rt.core.batch.depth, content="0")
+  inspect(all_graph_invariants_hold(fixture.rt), content="true")
 }
 
 ///|
