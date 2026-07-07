@@ -1,4 +1,23 @@
 ///|
+/// Property-based probes for dependency-graph invariants used as a refactoring
+/// safety net. See `docs/design/internals.md` (current-model invariants) and
+/// `docs/design/specs/2026-03-25-push-reachable-count-design.md` (gate).
+///
+/// Complements `current_model_wbtest.mbt` (green path, backdating, failed-read
+/// trace rules) with randomized graph-shape checks: subscriber symmetry,
+/// dispatch-table alignment, and the push-reachable zero/non-zero gate.
+///
+/// `moonbitlang/quickcheck` is pinned in `incr/moon.mod` because MoonBit
+/// requires module-level resolution for external packages, but it is imported
+/// only via `for "test"` / `for "wbtest"` in `moon.pkg` — never from library
+/// sources.
+///
+/// Fixture design: `gc()` marks Interior cells reachable only from gc roots
+/// backward along `gc_dependencies` (upstream). Cells not on a watch-rooted
+/// chain are swept. The fixture holds `Watch` handles on every derived cell
+/// that random ops may read (`sum`, `pick`) plus the anchor `eager` chain.
+
+///|
 /// Random graph operation for pull/push invariant probing.
 enum GraphOp {
   SetA(Int)
@@ -44,6 +63,7 @@ fn build_graph_fixture() -> GraphFixture {
     }
   })
   let eager = EagerDerived::EagerDerived(rt, () => doubled.read_or_abort())
+  // Root cells that random ops may read so `GcSweep` does not dispose them.
   let sum_watch = sum.watch()
   let eager_watch = eager.watch()
   let pick_watch = pick.watch()
@@ -63,18 +83,29 @@ fn build_graph_fixture() -> GraphFixture {
 }
 
 ///|
+fn read_derived_if_alive(derived : Derived[Int]) -> Unit {
+  if !derived.rt.is_cell_disposed(derived.id()) {
+    ignore(derived.read_or_abort())
+  }
+}
+
+///|
+fn read_eager_if_alive(eager : EagerDerived[Int]) -> Unit {
+  if !eager.rt.is_cell_disposed(eager.id()) {
+    ignore(eager.read())
+  }
+}
+
+///|
 fn apply_graph_op(fixture : GraphFixture, op : GraphOp) -> Unit {
   match op {
     SetA(v) => fixture.input_a.set(v)
     SetB(v) => fixture.input_b.set(v)
-    ReadSum => ignore(fixture.sum.read_or_abort())
-    ReadDoubled => ignore(fixture.doubled.read_or_abort())
+    ReadSum => read_derived_if_alive(fixture.sum)
+    ReadDoubled => read_derived_if_alive(fixture.doubled)
     ToggleFlag => fixture.flag.set(!fixture.flag.get())
-    ReadPick => ignore(fixture.pick.read_or_abort())
-    ReadEager =>
-      if !fixture.rt.is_cell_disposed(fixture.eager.id()) {
-        ignore(fixture.eager.read())
-      }
+    ReadPick => read_derived_if_alive(fixture.pick)
+    ReadEager => read_eager_if_alive(fixture.eager)
     SpawnDisposePush => {
       let ephemeral = Input(fixture.rt, 0)
       let push = EagerDerived::EagerDerived(fixture.rt, () => ephemeral.get())
@@ -135,6 +166,83 @@ fn cell_subscribers(rt : Runtime, id : CellId) -> Array[CellId] {
 }
 
 ///|
+/// Cells whose `push_reachable_count` gate is defined (see push-reachable spec).
+fn participates_in_push_reachable_gate(rt : Runtime, id : CellId) -> Bool {
+  if rt.is_cell_disposed(id) {
+    return false
+  }
+  match rt.core.cell_index[id.id] {
+    PullInput(_)
+    | PullMemo(_)
+    | HybridMemo(_)
+    | Relation(_)
+    | FunctionalRelation(_) => true
+    _ => false
+  }
+}
+
+///|
+fn is_live_push_cell(rt : Runtime, id : CellId) -> Bool {
+  if rt.is_cell_disposed(id) {
+    return false
+  }
+  match rt.core.cell_index[id.id] {
+    PushReactive(_) | PushEffect(_) => true
+    _ => false
+  }
+}
+
+///|
+/// Returns true when a live push cell is reachable from `from` by following
+/// subscriber (downstream) links.
+fn has_live_push_downstream(rt : Runtime, from : CellId) -> Bool {
+  let visited : @hashset.HashSet[CellId] = @hashset.HashSet([])
+  let worklist : Array[CellId] = []
+  for sub in cell_subscribers(rt, from) {
+    worklist.push(sub)
+  }
+  let mut wi = 0
+  while wi < worklist.length() {
+    let id = worklist[wi]
+    wi += 1
+    if visited.contains(id) {
+      continue
+    }
+    if rt.is_cell_disposed(id) {
+      continue
+    }
+    visited.add(id)
+    if is_live_push_cell(rt, id) {
+      return true
+    }
+    for sub in cell_subscribers(rt, id) {
+      worklist.push(sub)
+    }
+  }
+  false
+}
+
+///|
+/// Gate invariant: `push_reachable_count > 0` iff a live push cell is reachable
+/// downstream through subscriber links (zero/non-zero only; not exact path weight).
+fn push_reachable_gate_holds(rt : Runtime) -> Bool {
+  for slot in 0..<rt.core.cell_index.length() {
+    match cell_id_for_slot(rt, slot) {
+      None => ()
+      Some(id) =>
+        if participates_in_push_reachable_gate(rt, id) {
+          let counted_live = push_reachable_count(rt, id) > 0
+          let downstream_live = has_live_push_downstream(rt, id)
+          if counted_live != downstream_live {
+            return false
+          }
+        }
+    }
+  }
+  true
+}
+
+///|
 /// Every forward dependency has a matching reverse subscriber link.
 fn subscriber_symmetry_holds(rt : Runtime) -> Bool {
   for slot in 0..<rt.core.cell_index.length() {
@@ -167,22 +275,10 @@ fn subscriber_symmetry_holds(rt : Runtime) -> Bool {
 }
 
 ///|
-/// While the anchor eager cell is live, its upstream pull chain stays
-/// push-reachable (count > 0).
-fn push_reachable_gate_holds(fixture : GraphFixture) -> Bool {
-  if fixture.rt.is_cell_disposed(fixture.eager.id()) {
-    return true
-  }
-  if push_reachable_count(fixture.rt, fixture.input_a.id()) <= 0 {
-    return false
-  }
-  if push_reachable_count(fixture.rt, fixture.sum.id()) <= 0 {
-    return false
-  }
-  if push_reachable_count(fixture.rt, fixture.doubled.id()) <= 0 {
-    return false
-  }
-  true
+fn all_graph_invariants_hold(rt : Runtime) -> Bool {
+  subscriber_symmetry_holds(rt) &&
+  dispatch_tables_aligned(rt) &&
+  push_reachable_gate_holds(rt)
 }
 
 ///|
@@ -210,61 +306,20 @@ fn graph_ops_gen() -> @gen.Gen[Array[GraphOp]] {
 }
 
 ///|
-fn prop_subscriber_symmetry_after_ops(ops : Array[GraphOp]) -> Bool {
-  let fixture = build_graph_fixture()
-  apply_graph_ops(fixture, ops)
-  subscriber_symmetry_holds(fixture.rt)
-}
-
-///|
-fn prop_dispatch_tables_aligned_after_ops(ops : Array[GraphOp]) -> Bool {
-  let fixture = build_graph_fixture()
-  apply_graph_ops(fixture, ops)
-  dispatch_tables_aligned(fixture.rt)
-}
-
-///|
-fn prop_push_reachable_gate_after_ops(ops : Array[GraphOp]) -> Bool {
-  let fixture = build_graph_fixture()
-  apply_graph_ops(fixture, ops)
-  push_reachable_gate_holds(fixture)
-}
-
-///|
 fn prop_all_graph_invariants_after_ops(ops : Array[GraphOp]) -> Bool {
   let fixture = build_graph_fixture()
   apply_graph_ops(fixture, ops)
-  subscriber_symmetry_holds(fixture.rt) &&
-  dispatch_tables_aligned(fixture.rt) &&
-  push_reachable_gate_holds(fixture)
+  all_graph_invariants_hold(fixture.rt)
 }
 
 ///|
-test "graph invariant: subscriber symmetry under random pull/push ops" {
-  let prop = @qc.forall(graph_ops_gen(), prop_subscriber_symmetry_after_ops)
-  @qc.quick_check(prop, max_success=100)
-}
-
-///|
-test "graph invariant: dispatch tables stay aligned under random pull/push ops" {
-  let prop = @qc.forall(graph_ops_gen(), prop_dispatch_tables_aligned_after_ops)
-  @qc.quick_check(prop, max_success=100)
-}
-
-///|
-test "graph invariant: push reachable gate under random pull/push ops" {
-  let prop = @qc.forall(graph_ops_gen(), prop_push_reachable_gate_after_ops)
-  @qc.quick_check(prop, max_success=100)
-}
-
-///|
-test "graph invariant: combined invariants under random pull/push ops" {
+test "graph invariant: combined properties under random pull/push ops" {
   let prop = @qc.forall(graph_ops_gen(), prop_all_graph_invariants_after_ops)
   @qc.quick_check(prop, max_success=100)
 }
 
 ///|
-test "graph invariant: subscriber symmetry smoke (hand-written ops)" {
+test "graph invariant: smoke (hand-written ops)" {
   let fixture = build_graph_fixture()
   apply_graph_ops(fixture, [
     SetA(1),
@@ -281,5 +336,19 @@ test "graph invariant: subscriber symmetry smoke (hand-written ops)" {
   ])
   inspect(subscriber_symmetry_holds(fixture.rt), content="true")
   inspect(dispatch_tables_aligned(fixture.rt), content="true")
-  inspect(push_reachable_gate_holds(fixture), content="true")
+  inspect(push_reachable_gate_holds(fixture.rt), content="true")
+}
+
+///|
+test "graph invariant: pick off eager chain has zero push reachability" {
+  let fixture = build_graph_fixture()
+  ignore(fixture.eager.read())
+  inspect(
+    push_reachable_count(fixture.rt, fixture.pick.id()) == 0,
+    content="true",
+  )
+  inspect(
+    has_live_push_downstream(fixture.rt, fixture.pick.id()),
+    content="false",
+  )
 }
