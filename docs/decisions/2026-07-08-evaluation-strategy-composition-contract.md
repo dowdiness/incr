@@ -81,15 +81,18 @@ contract:
 |---|---|---|
 | Pull compute (`Derived`, memo verification) | **Illegal** — reentrant propagation | Legal (records dependency) |
 | Push compute (`EagerDerived`, `Effect`) | **Illegal** — reentrant propagation | Legal (records dependency) |
-| Datalog rule body (inside `fixpoint()`) | **Illegal** — phase abort | **Illegal** — `Derived::get` aborts during fixpoint; rule bodies read relations directly (`incr/cells/derived_impl.mbt`) |
+| Datalog rule body (inside `fixpoint()`) | **Illegal** — phase abort | **Illegal for derived reads** — `Derived::get` / `ReachableDerived::get` abort during fixpoint (`incr/cells/derived_impl.mbt`); `Input::get` is not currently guarded but equally out of contract — rule bodies read relations via delta/current |
 | Outside the graph (`Observer::get`, main thread, `on_change` callbacks) | Legal — see the recursion note below | Legal (untracked) |
 | Inside `batch` (outside compute) | Legal — deferred, committed at batch end | Legal |
 
 `fixpoint()` itself is additionally illegal both re-entrantly and inside a
 batch (`internal/kernel/fixpoint.mbt` aborts on both). Note the fixpoint row
-breaks the pattern of the two rows above it: inside rule bodies even *pull
-reads* are illegal, so "reads are always safe in computes" does not
-generalize across engines.
+breaks the pattern of the two rows above it: inside rule bodies even
+*derived reads* are illegal (and input reads are out of contract), so
+"reads are always safe in computes" does not generalize across engines.
+Relation *inserts* inside rule bodies are legal and are routed to the
+staged delta (`incr/cells/datalog_relation.mbt`) — that is how rules derive
+facts.
 
 Mechanism: `Input::force_set` calls `propagate_changes` on the non-batch
 path (`incr/cells/input.mbt`). Invoking it while a propagation is in flight
