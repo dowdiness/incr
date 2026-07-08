@@ -117,7 +117,7 @@ live in each ADR.
 | [2026-06-09](decisions/2026-06-09-composable-runtime-hooks.md) | Composable runtime hooks: multi-listener registries behind source-compatible singleton APIs |
 | [2026-06-17](decisions/2026-06-17-incr-tea-inactive-root-activation-policy.md) | Incremental TEA inactive-root activation: manual-first hybrid (#280) |
 | [2026-07-03](decisions/2026-07-03-incr-tea-module-identity.md) | `incr_tea` module identity: core-feedback framework, facade-only imports, own backlog |
-| [2026-07-08](decisions/2026-07-08-evaluation-strategy-composition-contract.md) | Evaluation-strategy composition contract: purity axis, pull/push legality table, runtime-guard enforcement (#368), fold reserved |
+| [2026-07-08](decisions/2026-07-08-evaluation-strategy-composition-contract.md) | Evaluation-strategy composition contract: purity axis, cross-engine legality table, two-chokepoint enforcement (phase guard + #368), fold reserved |
 
 ---
 
