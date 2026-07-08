@@ -243,6 +243,28 @@ pub fn[T] Input::force_set(self : Input[T], new_value : T) -> Unit {
   guard !self.rt.is_cell_disposed(self.cell_id) else {
     abort("Input::force_set called on a disposed input")
   }
+  // Guard against reentrant propagation: force_set calls propagate_changes,
+  // which must not be called while a reactive compute is in progress (tracking
+  // stack non-empty). This catches both pull-mode derived computes and push-mode
+  // eager-derived computes. on_change callbacks run after propagation returns,
+  // so the stack is empty there — this guard correctly allows them.
+  let label_str = match self.label {
+    Some(s) => "\"" + s + "\""
+    None => "<unlabeled>"
+  }
+  guard self.rt.core.tracking.stack.length() == 0 else {
+    // Clear the cross-runtime sentinel before aborting so subsequent
+    // tests don't see a stale active-computation id from this runtime.
+    @kernel.set_current_computing_runtime_id(None)
+    self.rt.core.tracking.stack.clear()
+    abort(
+      "Input::force_set(" +
+      label_str +
+      ") called inside a reactive " +
+      "compute context. Input writes must happen outside the reactive " +
+      "graph \u{2014} use a `mut` local variable instead.",
+    )
+  }
   if self.rt.core.batch.depth > 0 {
     self.set_batch_force(new_value)
   } else {

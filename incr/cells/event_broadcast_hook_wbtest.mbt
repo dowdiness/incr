@@ -395,26 +395,14 @@ test "derived_event: raising API defers drain until next operation" {
 }
 
 ///|
-test "derived_event: revision capture survives mid-compute revision bump" {
+test "panic derived_event: force_set inside compute aborts (regression guard for reentrant propagation)" {
   let rt = Runtime()
   let tick = Input(rt, 0)
-  let started : Array[Int] = []
-  let verified : Array[Int] = []
-  rt.on_derived_event(evt => {
-    match evt {
-      EnteringCompute(e) => started.push(e.started_revision.value)
-      Completed(e) => verified.push(e.verified_at.value)
-      Aborted(_) => ()
-    }
-  })
   let derived = Derived(rt, () => {
     tick.force_set(tick.peek() + 1)
     99
   })
-  inspect(derived.read_or_abort(), content="99")
-  inspect(started.length(), content="1")
-  inspect(verified.length(), content="1")
-  inspect(started[0] < verified[0], content="true")
+  let _ = derived.read_or_abort()
 }
 
 ///|
