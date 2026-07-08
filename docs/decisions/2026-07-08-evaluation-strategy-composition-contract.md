@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-08
 **Status:** Accepted (contract documentation); fold/pairwise primitive **reserved, not commissioned**
-**Amended:** 2026-07-08 v1.1 — post-merge adversarial review (see Amendments)
+**Amended:** 2026-07-08 v1.1 / v1.2 — two post-merge adversarial review rounds (see Amendments)
 **Issues:** [#368](https://github.com/dowdiness/incr/issues/368) (runtime guard),
 [#369](https://github.com/dowdiness/incr/issues/369) (Reader/Writer proposal)
 **Anchors:** [Modal runtime split not warranted](2026-04-26-modal-runtime-split-not-warranted.md),
@@ -81,7 +81,7 @@ contract:
 |---|---|---|
 | Pull compute (`Derived`, memo verification) | **Illegal** — reentrant propagation | Legal (records dependency) |
 | Push compute (`EagerDerived`, `Effect`) | **Illegal** — reentrant propagation | Legal (records dependency) |
-| Datalog rule body (inside `fixpoint()`) | **Illegal** — phase abort | **Illegal for derived reads** — `Derived::get` / `ReachableDerived::get` abort during fixpoint (`incr/cells/derived_impl.mbt`); `Input::get` is not currently guarded but equally out of contract — rule bodies read relations via delta/current |
+| Datalog rule body (inside `fixpoint()`) | **Illegal** — aborted by the phase backstop only when push propagation is reached; see the enforcement-gap note | **Illegal for derived reads** — `Derived::get` / `ReachableDerived::get` abort during fixpoint (`incr/cells/derived_impl.mbt`); `Input::get` is not currently guarded but equally out of contract — rule bodies read relations via delta/current |
 | Outside the graph (`Observer::get`, main thread, `on_change` callbacks) | Legal — see the recursion note below | Legal (untracked) |
 | Inside `batch` (outside compute) | Legal — deferred, committed at batch end | Legal |
 
@@ -99,20 +99,39 @@ path (`incr/cells/input.mbt`). Invoking it while a propagation is in flight
 re-enters the propagation machinery.
 
 **Enforcement is two runtime chokepoints, and both are normative** — they
-are the definition of the boundary, not debugging aids:
+are the definition of the boundary, not debugging aids. They differ in
+timing and coverage:
 
-1. **The phase-transition guard (implemented).** `RuntimeCore.phase`
-   (`Idle` / `PushPropagating` / `InFixpoint` / `GarbageCollecting`) is the
-   mutually-exclusive cross-engine guard; `propagate_changes` enters
-   `PushPropagating` via `enter_phase`, which aborts unless the current
-   phase is `Idle` (`internal/kernel/state.mbt`). This catches writes from
-   push computes, rule bodies, and GC with an explicit "cannot enter X
-   while in Y" message.
-2. **The tracking-stack guard (#368, PR #373).** Pull computes run with the
-   phase still `Idle` — lazy verification enters no phase — so a write from
-   inside a pull compute passes chokepoint 1 and re-enters propagation
-   mid-verification. The tracking-stack guard (abort when the tracking
-   stack is non-empty) closes exactly this remaining gap.
+1. **The tracking-stack guard (#368, PR #373 — in flight, not yet on
+   main).** Aborts at the top of `force_set`, *before* any mutation, when
+   the tracking stack is non-empty. It covers every context that pushes a
+   tracking frame: pull computes and push computes alike. Lazy verification
+   itself enters no phase, so a pull compute reached from outside any
+   propagation runs at phase `Idle` and is invisible to chokepoint 2 —
+   this guard is the only thing that catches it. (The same memo recomputed
+   *inside* push propagation runs at `PushPropagating` and is additionally
+   caught by chokepoint 2.)
+2. **The phase-transition guard (implemented) — a post-mutation backstop.**
+   `RuntimeCore.phase` (`Idle` / `PushPropagating` / `InFixpoint` /
+   `GarbageCollecting`) is the mutually-exclusive cross-engine guard;
+   push propagation enters `PushPropagating` via `enter_phase`, which
+   aborts unless the current phase is `Idle`
+   (`internal/kernel/state.mbt`). It catches contexts that hold no
+   tracking frame — fixpoint rule bodies, GC — with an explicit "cannot
+   enter X while in Y" message. Two qualifications: `propagate_changes`
+   reaches `enter_phase` only when the graph has push nodes (it is gated
+   on `push.node_count > 0`, `internal/kernel/propagate.mbt`), and by
+   then the input value, revision, and `changed_at` have already been
+   mutated — this chokepoint *contains* a violation, it does not prevent
+   it.
+
+**Known enforcement gap (recorded; follow-up issue to be filed).** A write
+from a context holding no tracking frame (a fixpoint rule body, GC) in a
+graph with **no push nodes** passes both chokepoints silently: the value
+and revision mutate mid-fixpoint with no abort. The cheap fix is a
+pre-mutation phase check in `force_set` (abort when `phase` is not
+`Idle`) alongside the tracking-stack guard; until it lands, this is the
+one known hole in the boundary's enforcement.
 
 **Recursion note for `on_change` writes.** Writes from `on_change` are
 legal but termination is the caller's responsibility. On the non-batch path
@@ -196,9 +215,11 @@ first-class primitive is commissioned, its contract is fixed now:
   the precision that a batch commits in *waves*: pending writes commit as
   one wave, and `on_change`-enqueued writes commit as subsequent waves
   within the same `commit_batch` loop (`internal/kernel/batch.mbt`). Each
-  wave is one committed change, so one batch may deliver more than one fold
-  step. Any push-side path that could skip delivery to an eager cell must
-  be pinned by a known-positive test before the primitive ships.
+  wave commits all writes pending at that point together and delivers at
+  most one committed change *per source*; successive waves mean one batch
+  may deliver more than one fold step per source. Any push-side path that
+  could skip delivery to an eager cell must be pinned by a known-positive
+  test before the primitive ships.
 - Fold cells are history-dependent (§1): never backdated, never lazily
   verified, GC-anchored.
 - Commissioning gate (matching this repo's driver-gated convention): a
@@ -248,3 +269,13 @@ This contract stands or falls on two observable claims:
   backdating. Process note: v1.0 was merged without adversarial review —
   the very session that produced it also produced the review debt; recorded
   here so the omission is auditable.
+- **v1.2 (2026-07-08):** second adversarial round (Codex, against the v1.1
+  text) corrected the enforcement model itself: the tracking-stack guard is
+  the pre-mutation primary; the phase guard is a post-mutation *backstop*
+  gated on `push.node_count > 0`, so it contains rather than prevents, and
+  never fires in push-free graphs. That gap (rule-body/GC writes in
+  push-free graphs escape both chokepoints) is now recorded in §2 with the
+  proposed fix (pre-mutation phase check in `force_set`). Also fixed:
+  "pull computes run at Idle" overgeneralization (a memo recomputed inside
+  push propagation runs at `PushPropagating`), the fixpoint-row abort
+  claim, and per-source precision of batch commit waves.
