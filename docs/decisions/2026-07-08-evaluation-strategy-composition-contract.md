@@ -125,12 +125,13 @@ timing and coverage:
    mutated — this chokepoint *contains* a violation, it does not prevent
    it.
 
-**Known enforcement gap (recorded; follow-up issue to be filed).** A write
+**Known enforcement gap (tracked in
+[#375](https://github.com/dowdiness/incr/issues/375)).** A write
 from a context holding no tracking frame (a fixpoint rule body, GC) in a
 graph with **no push nodes** passes both chokepoints silently: the value
 and revision mutate mid-fixpoint with no abort. The cheap fix is a
 pre-mutation phase check in `force_set` (abort when `phase` is not
-`Idle`) alongside the tracking-stack guard; until it lands, this is the
+`Idle`) alongside the tracking-stack guard; until #375 lands, this is the
 one known hole in the boundary's enforcement.
 
 **Recursion note for `on_change` writes.** Writes from `on_change` are
