@@ -102,8 +102,8 @@ re-enters the propagation machinery.
 are the definition of the boundary, not debugging aids. They differ in
 timing and coverage:
 
-1. **The tracking-stack guard (#368, PR #373 — in flight, not yet on
-   main).** Aborts at the top of `force_set`, *before* any mutation, when
+1. **The tracking-stack guard ([#368](https://github.com/dowdiness/incr/issues/368), [PR #373](https://github.com/dowdiness/incr/pull/373) — merged).**
+   Aborts at the top of `force_set`, *before* any mutation, when
    the tracking stack is non-empty. It covers every context that pushes a
    tracking frame: pull computes and push computes alike. Lazy verification
    itself enters no phase, so a pull compute reached from outside any
@@ -125,14 +125,11 @@ timing and coverage:
    mutated — this chokepoint *contains* a violation, it does not prevent
    it.
 
-**Known enforcement gap (tracked in
-[#375](https://github.com/dowdiness/incr/issues/375)).** A write
-from a context holding no tracking frame (a fixpoint rule body, GC) in a
-graph with **no push nodes** passes both chokepoints silently: the value
-and revision mutate mid-fixpoint with no abort. The cheap fix is a
-pre-mutation phase check in `force_set` (abort when `phase` is not
-`Idle`) alongside the tracking-stack guard; until #375 lands, this is the
-one known hole in the boundary's enforcement.
+**Enforcement gap closed ([#375](https://github.com/dowdiness/incr/issues/375),
+[PR #376](https://github.com/dowdiness/incr/pull/376)).** A pre-mutation phase
+check in `force_set` (abort when `phase` is not `Idle`) now catches writes from
+fixpoint rule bodies and GC regardless of push-node count, closing the one
+known hole in the boundary's enforcement.
 
 **Recursion note for `on_change` writes.** Writes from `on_change` are
 legal but termination is the caller's responsibility. On the non-batch path

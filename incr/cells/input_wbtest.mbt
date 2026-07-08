@@ -94,6 +94,31 @@ test "panic input: force_set inside push-reactive compute aborts" {
 }
 
 ///|
+// #375 known-positive: a Datalog rule body holds no tracking frame, and in a
+// push-free graph the push-propagation phase guard is never reached, so
+// before the phase check this set silently mutated the value and advanced
+// the revision mid-fixpoint.
+test "panic input: set inside fixpoint rule body aborts in push-free graph" {
+  let rt = Runtime()
+  let sig = Input(rt, 0, label="sig")
+  let input_rel : Relation[Int] = Relation(rt)
+  let output_rel : Relation[Int] = Relation(rt)
+  let _ = rt.new_rule([input_rel.id()], [output_rel.id()], () => sig.set(1))
+  rt.fixpoint()
+}
+
+///|
+// #375: GC also holds no tracking frame; the phase check must cover it.
+// Driven via enter_phase directly because Runtime::gc() exposes no hook
+// that runs user code mid-collection.
+test "panic input: force_set during GarbageCollecting phase aborts" {
+  let rt = Runtime()
+  let sig = Input(rt, 0, label="sig")
+  @kernel.enter_phase(rt.core, PropagationPhase::GarbageCollecting)
+  sig.force_set(1)
+}
+
+///|
 test "input: force_set in on_change callback is allowed" {
   let rt = Runtime()
   let a = Input(rt, 0, label="a")
