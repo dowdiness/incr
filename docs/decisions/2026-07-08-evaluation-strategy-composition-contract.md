@@ -2,6 +2,7 @@
 
 **Date:** 2026-07-08
 **Status:** Accepted (contract documentation); fold/pairwise primitive **reserved, not commissioned**
+**Amended:** 2026-07-08 v1.1 / v1.2 — two post-merge adversarial review rounds (see Amendments)
 **Issues:** [#368](https://github.com/dowdiness/incr/issues/368) (runtime guard),
 [#369](https://github.com/dowdiness/incr/issues/369) (Reader/Writer proposal)
 **Anchors:** [Modal runtime split not warranted](2026-04-26-modal-runtime-split-not-warranted.md),
@@ -43,6 +44,14 @@ which machinery may legally apply to it:
 | Lifecycle | Ordinary derived cells | Must be GC-anchored (like `Watch`/`Observer`) |
 | Cell kinds | `Derived`, `ReachableDerived`, `DerivedMap`, `EagerDerived` computes | No sanctioned first-class home today (see §5) |
 
+`EagerDerived` reaches transparency by a different mechanism than the pull
+cells: it recomputes eagerly during push propagation with an equality early
+cutoff — `changed_at` advances only when the recompute reports a changed
+value (`internal/kernel/push_propagate.mbt`) — rather than by lazy pull
+verification. The purity requirement is identical: the Eq cutoff makes
+downstream delivery value-dependent, so observing recompute count or order
+is outside the contract for eager cells too.
+
 Consequence: **compute closures must be pure functions of their tracked
 reads.** A compute that observes anything else — its own previous result,
 how many times it ran, whether a recompute was skipped — is outside the
@@ -72,17 +81,68 @@ contract:
 |---|---|---|
 | Pull compute (`Derived`, memo verification) | **Illegal** — reentrant propagation | Legal (records dependency) |
 | Push compute (`EagerDerived`, `Effect`) | **Illegal** — reentrant propagation | Legal (records dependency) |
-| Outside the graph (`Observer::get`, main thread, `on_change` callbacks) | Legal | Legal (untracked) |
+| Datalog rule body (inside `fixpoint()`) | **Illegal** — aborted by the phase backstop only when push propagation is reached; see the enforcement-gap note | **Illegal for derived reads** — `Derived::get` / `ReachableDerived::get` abort during fixpoint (`incr/cells/derived_impl.mbt`); `Input::get` is not currently guarded but equally out of contract — rule bodies read relations via delta/current |
+| Outside the graph (`Observer::get`, main thread, `on_change` callbacks) | Legal — see the recursion note below | Legal (untracked) |
 | Inside `batch` (outside compute) | Legal — deferred, committed at batch end | Legal |
 
-Mechanism: `Input::force_set` calls `propagate_changes` unconditionally on
-the non-batch path (`incr/cells/input.mbt`). Invoking it while a propagation
-is in flight re-enters the propagation machinery. `on_change` callbacks run
-after propagation returns, so writes there are legal.
+`fixpoint()` itself is additionally illegal both re-entrantly and inside a
+batch (`internal/kernel/fixpoint.mbt` aborts on both). Note the fixpoint row
+breaks the pattern of the two rows above it: inside rule bodies even
+*derived reads* are illegal (and input reads are out of contract), so
+"reads are always safe in computes" does not generalize across engines.
+Relation *inserts* inside rule bodies are legal and are routed to the
+staged delta (`incr/cells/datalog_relation.mbt`) — that is how rules derive
+facts.
 
-**Enforcement is the runtime guard proposed in #368** (abort when the
-tracking stack is non-empty), and that guard is *normative*: it is the
-definition of the boundary, not a debugging aid.
+Mechanism: `Input::force_set` calls `propagate_changes` on the non-batch
+path (`incr/cells/input.mbt`). Invoking it while a propagation is in flight
+re-enters the propagation machinery.
+
+**Enforcement is two runtime chokepoints, and both are normative** — they
+are the definition of the boundary, not debugging aids. They differ in
+timing and coverage:
+
+1. **The tracking-stack guard (#368, PR #373 — in flight, not yet on
+   main).** Aborts at the top of `force_set`, *before* any mutation, when
+   the tracking stack is non-empty. It covers every context that pushes a
+   tracking frame: pull computes and push computes alike. Lazy verification
+   itself enters no phase, so a pull compute reached from outside any
+   propagation runs at phase `Idle` and is invisible to chokepoint 2 —
+   this guard is the only thing that catches it. (The same memo recomputed
+   *inside* push propagation runs at `PushPropagating` and is additionally
+   caught by chokepoint 2.)
+2. **The phase-transition guard (implemented) — a post-mutation backstop.**
+   `RuntimeCore.phase` (`Idle` / `PushPropagating` / `InFixpoint` /
+   `GarbageCollecting`) is the mutually-exclusive cross-engine guard;
+   push propagation enters `PushPropagating` via `enter_phase`, which
+   aborts unless the current phase is `Idle`
+   (`internal/kernel/state.mbt`). It catches contexts that hold no
+   tracking frame — fixpoint rule bodies, GC — with an explicit "cannot
+   enter X while in Y" message. Two qualifications: `propagate_changes`
+   reaches `enter_phase` only when the graph has push nodes (it is gated
+   on `push.node_count > 0`, `internal/kernel/propagate.mbt`), and by
+   then the input value, revision, and `changed_at` have already been
+   mutated — this chokepoint *contains* a violation, it does not prevent
+   it.
+
+**Known enforcement gap (tracked in
+[#375](https://github.com/dowdiness/incr/issues/375)).** A write
+from a context holding no tracking frame (a fixpoint rule body, GC) in a
+graph with **no push nodes** passes both chokepoints silently: the value
+and revision mutate mid-fixpoint with no abort. The cheap fix is a
+pre-mutation phase check in `force_set` (abort when `phase` is not
+`Idle`) alongside the tracking-stack guard; until #375 lands, this is the
+one known hole in the boundary's enforcement.
+
+**Recursion note for `on_change` writes.** Writes from `on_change` are
+legal but termination is the caller's responsibility. On the non-batch path
+the callback runs after propagation returns (phase `Idle`), so a write that
+re-triggers its own callback recurses without bound. On the batch path
+callbacks run at a temporarily raised batch depth and their writes enqueue
+a *next commit wave* inside the same `commit_batch` loop
+(`internal/kernel/batch.mbt`) — a callback that always writes livelocks
+that loop. This second-wave behavior is intentional and pinned by
+`incr/cells/callback_test.mbt`.
 
 ### 3. Why enforcement is runtime, not types
 
@@ -152,10 +212,15 @@ first-class primitive is commissioned, its contract is fixed now:
   prev-aware derived (`with_prev`) is also a fold (acc = own output) and
   needs no separate mechanism.
 - Delivery: **every committed change of the source triggers exactly one fold
-  step.** Batch coalescing (one batch = one committed change) is part of the
-  contract, not a violation. Any push-side path that could skip delivery to
-  an eager cell must be pinned by a known-positive test before the primitive
-  ships.
+  step.** Batch coalescing is part of the contract, not a violation — with
+  the precision that a batch commits in *waves*: pending writes commit as
+  one wave, and `on_change`-enqueued writes commit as subsequent waves
+  within the same `commit_batch` loop (`internal/kernel/batch.mbt`). Each
+  wave commits all writes pending at that point together and delivers at
+  most one committed change *per source*; successive waves mean one batch
+  may deliver more than one fold step per source. Any push-side path that
+  could skip delivery to an eager cell must be pinned by a known-positive
+  test before the primitive ships.
 - Fold cells are history-dependent (§1): never backdated, never lazily
   verified, GC-anchored.
 - Commissioning gate (matching this repo's driver-gated convention): a
@@ -175,12 +240,14 @@ This contract stands or falls on two observable claims:
    bugs of the class "engine A's operation invoked from engine B's context
    corrupts propagation" should not appear. A second such class (not
    instance) is evidence the interaction matrix is still being discovered
-   case-by-case — reopen this ADR.
+   case-by-case — reopen this ADR. Measurement point: review this
+   prediction at the next repo audit, no later than 2026-09.
 
 ## Consequences
 
-- #368 proceeds as specified; its abort message should point at the `mut`
-  idiom and (once written) the cookbook recipe for history-dependent state.
+- #368's guard is implemented in PR #373; its abort message points at the
+  `mut` idiom and should link the cookbook recipe for history-dependent
+  state once that recipe is written.
 - #369 is rescoped to an additive `reader()` view, positioned as ergonomics;
   its "compile-time guarantee" and Salsa-equivalence claims are corrected by
   §3.
@@ -189,3 +256,27 @@ This contract stands or falls on two observable claims:
   history-dependent state until/unless §5 is commissioned.
 - Architecture docs may cite this ADR as the definition of the pull/push
   boundary instead of restating it.
+
+## Amendments
+
+- **v1.1 (2026-07-08):** post-merge adversarial review (Codex + manual code
+  audit against `main`) corrected five points: enforcement is **two**
+  chokepoints — the already-implemented phase-transition guard plus #368's
+  tracking-stack guard (PR #373) — not #368 alone; the legality table
+  gained the Datalog/fixpoint row, where even pull reads are illegal; the
+  `on_change` recursion/livelock hazards are now stated instead of a bare
+  "Legal"; §5's batch-coalescing claim is qualified by commit waves; and
+  `EagerDerived`'s equality early-cutoff is distinguished from pull
+  backdating. Process note: v1.0 was merged without adversarial review —
+  the very session that produced it also produced the review debt; recorded
+  here so the omission is auditable.
+- **v1.2 (2026-07-08):** second adversarial round (Codex, against the v1.1
+  text) corrected the enforcement model itself: the tracking-stack guard is
+  the pre-mutation primary; the phase guard is a post-mutation *backstop*
+  gated on `push.node_count > 0`, so it contains rather than prevents, and
+  never fires in push-free graphs. That gap (rule-body/GC writes in
+  push-free graphs escape both chokepoints) is now recorded in §2 with the
+  proposed fix (pre-mutation phase check in `force_set`). Also fixed:
+  "pull computes run at Idle" overgeneralization (a memo recomputed inside
+  push propagation runs at `PushPropagating`), the fixpoint-row abort
+  claim, and per-source precision of batch commit waves.
