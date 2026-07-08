@@ -1,6 +1,6 @@
 ---
 name: incr
-description: Use when writing or reviewing MoonBit code against the `dowdiness/incr` reactive library (v0.13.x+) — building Inputs/Deriveds/ReachableDeriveds, attaching long-lived derived cells with `Watch`/`Observer`, adding microbenchmarks, or wrapping a reactive pipeline in a struct. Catches recurring idiom misses (inside-vs-outside read semantics, GC-anchor `Watch`/`Observer`, `Type::Type` constructor naming, defensive copies).
+description: Use when writing or reviewing MoonBit code against the `dowdiness/incr` reactive library (v0.14.x+) — building Inputs/Deriveds/ReachableDeriveds, attaching long-lived derived cells with `Watch`/`Observer`, adding microbenchmarks, or wrapping a reactive pipeline in a struct. Catches recurring idiom misses (inside-vs-outside read semantics, GC-anchor `Watch`/`Observer`, `Type::Type` constructor naming, defensive copies).
 ---
 
 # incr
@@ -31,13 +31,15 @@ and exposes a `get`/`dispose` surface.
 Sister skill: **loom** (parser-side conventions). If the task involves
 calling `Parser::new` or `new_parser`, read that one too.
 
-## Historical Mapping (names removed in v0.12.0 / v0.13.0)
+## Historical Mapping (names removed in v0.12.0 / v0.13.0 / v0.14.0)
 
 `incr` 0.13.0 is a breaking release that removed the entire compatibility
-API surface introduced during the v0.6.x target-facade migration. The
-names below no longer exist — do not use them in new code, and if you
-encounter them in older loom/canopy code, treat it as pre-0.13.0 code
-that needs migrating to the current names.
+API surface introduced during the v0.6.x target-facade migration; 0.14.0
+followed with a boundary cleanup (ghost handle ids deleted,
+invariant-bearing types closed, `Result`-channel retype). The names below
+no longer exist — do not use them in new code, and if you encounter them
+in older loom/canopy code, treat it as pre-0.14.0 code that needs
+migrating to the current names.
 
 | Removed (compat name) | Current API |
 |------------------------|--------------|
@@ -61,10 +63,23 @@ that needs migrating to the current names.
 | `rt.read_hybrid(h)` | `reachable.read()` / `reachable.read_or_abort()` |
 | `rt.read_reactive(r)` | `eager.read()` |
 | root re-exports `ReactiveId` / `FunctionalRelationId` | removed |
+| `Accumulator::new(rt~, ...)` (removed 0.14.0) | `Accumulator(rt, label?)` — positional constructor |
+| `InputId[T]` / `MemoId[T]` / `RelationId[T]` / `FunctionalRelationId[K, V]` (removed 0.14.0) | deleted ghost types — nothing produced or consumed them; use `CellId` if you need a raw id |
+| `Input::get_result` / `InputField::get_result` returning `Result[T, CycleError]` (retyped 0.14.0) | now `Result[T, ReadError]`; a disposed input returns `Err(ReadError::Disposed(id))` instead of aborting |
 
-`Runtime`, `Scope`, `Accumulator`, `Effect`, `DerivedEvent`, `CycleError`,
-`Observer`/`Watch` are unaffected by this cleanup. See the CHANGELOG for
-the full removal list and any remaining edge cases.
+Deprecated in 0.14.0 but still functional (positional `Type::Type` forms
+are canonical): `Input::new` → `Input(rt, v)`, `Runtime::new` →
+`Runtime()`, `Relation::new` → `Relation(rt)`, `Effect::new` →
+`Effect(rt, f)`. Removal is planned for a post-`Expr[T]` breaking
+release.
+
+Also closed in 0.14.0: `Revision`, `InternId`, and `InternTable[T]` can
+no longer be constructed via struct literals (use `Revision::initial()` /
+`.next()`, `InternTable::new()` / `.intern(value)`); `DerivedMap`
+constructors now require `V : Eq` (`::fallible` also `E : Eq`).
+
+`Scope`, `DerivedEvent`, `CycleError`, `Observer`/`Watch` are unaffected.
+See the CHANGELOG for the full removal list and any remaining edge cases.
 
 ## Quick Reference
 
@@ -178,14 +193,16 @@ Deriveds with no anchor get swept; subsequent reads abort.
 
 **Rule:** if you build a downstream chain that should survive
 `Runtime::gc()` (anything stored in a struct field with a public `get`),
-hold a persistent `Watch` or `Observer` on the terminal Derived. `Watch`
-values are not registered through `Scope` in the current API, so store
-the `Watch` field and dispose it explicitly; `Observer` values can be
-registered with `Scope::add_observer`. Prime the terminal read before
-exposing the facade if `Runtime::gc()` can run before the first consumer
-read: an uncomputed watched/observed cell is rooted, but has no recorded
-upstream `gc_dependencies()` yet. If the facade keeps a last-good cache,
-seed it from that priming read.
+hold a persistent `Watch` or `Observer` on the terminal Derived. The
+recommended anchor form is **`scope.watch(derived)`** (0.14.0): it folds
+watch creation, scope registration, and one priming read into a single
+call, so scope disposal releases the watch and a `Runtime::gc()` that
+runs before the first consumer read cannot sweep the upstream graph. The
+lower-level pieces still exist — `scope.add_watch(derived.watch())`
+registers without priming (an uncomputed watched cell is rooted but has
+no recorded upstream `gc_dependencies()` yet, so prime it yourself), and
+`Observer` values register with `Scope::add_observer`. If the facade
+keeps a last-good cache, seed it from the priming read.
 
 GC traversal follows `gc_dependencies()` from anchored roots, so the
 parser's interior cells stay reachable as long as one downstream cell is
@@ -213,10 +230,9 @@ pub fn MyAttachment::attach(
     () => finalize(stage_one.get_or_abort()),
     label="result",
   )
-  // Store the watch for explicit disposal, then prime it so a pre-read
-  // Runtime::gc() sees the upstream dependencies.
-  let watch = result.watch()
-  ignore(watch.read_or_abort())
+  // scope.watch folds creation + scope registration + a priming read,
+  // so a pre-read Runtime::gc() sees the upstream dependencies.
+  let watch = scope.watch(result)
   { scope, watch }
 }
 
@@ -225,8 +241,7 @@ pub fn MyAttachment::get(self : MyAttachment) -> Result {
 }
 
 pub fn MyAttachment::dispose(self : MyAttachment) -> Unit {
-  self.watch.dispose()
-  self.scope.dispose()
+  self.scope.dispose() // releases the scope-registered watch too
 }
 ```
 
@@ -309,11 +324,13 @@ direct-constructor sugar.
 
 ### Don't rename upstream library constructors
 
-`Runtime::new`, `Scope::new`, `Parser::new` are the names those APIs
-ship with — call them as-is. **`Watch` and `Observer` are never
-constructed**; they come from `derived.watch()` / `derived.observe()` /
-`reachable.observe()` / `eager.observe()`. The `Type::Type` rule is for
-new struct definitions, not retroactive migration of upstream APIs.
+`Scope::new` and `Parser::new` are the names those APIs ship with — call
+them as-is. (`Runtime::new` is deprecated since 0.14.0; use `Runtime()`.)
+**`Watch` and `Observer` are never constructed**; they come from
+`scope.watch(derived)` (preferred) / `derived.watch()` /
+`derived.observe()` / `reachable.observe()` / `eager.observe()`. The
+`Type::Type` rule is for new struct definitions, not retroactive
+migration of upstream APIs.
 
 Canonical reference for the convention in use:
 `dowdiness/loom: examples/lambda/src/callers/callers.mbt:127` defines
