@@ -265,6 +265,23 @@ pub fn[T] Input::force_set(self : Input[T], new_value : T) -> Unit {
       "graph \u{2014} use a `mut` local variable instead.",
     )
   }
+  // Cross-engine contexts (fixpoint rule bodies, GC) hold no tracking frame,
+  // so the stack guard above cannot see them, and the enter_phase guard in
+  // push propagation only fires post-mutation — never at all in a push-free
+  // graph. Any non-Idle phase means a propagation is in flight; abort before
+  // mutating (#375). Legal batch writes always run at Idle (commit_batch
+  // raises batch.depth around callbacks only after propagation returns).
+  guard self.rt.core.phase is Idle else {
+    abort(
+      "Input::force_set(" +
+      label_str +
+      ") called during the " +
+      self.rt.core.phase.to_string() +
+      " phase. Input writes must happen while the runtime is idle \u{2014} " +
+      "move the write outside the propagation (e.g. after fixpoint()/gc() " +
+      "returns).",
+    )
+  }
   if self.rt.core.batch.depth > 0 {
     self.set_batch_force(new_value)
   } else {
