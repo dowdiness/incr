@@ -60,6 +60,14 @@ type Fixture = (
 )
 
 ///|
+/// A test fixture with ReachableDerived cells.
+type FixtureReach = (
+  Array[Input[Int]],
+  Array[ReachableDerived[Int]],
+  (Array[Int]) -> Array[Int],
+)
+
+///|
 /// Read a derived value without GC-rooting side effects.
 ///
 /// Creates a temporary observer, reads the value, then disposes it.
@@ -70,27 +78,57 @@ fn[T] read_derived_for_test(d : Derived[T]) -> T {
   v
 }
 
+///|
+/// Read a reachable derived value without GC-rooting side effects.
+/// See `read_derived_for_test`.
+fn[T : Eq] read_reach_for_test(d : ReachableDerived[T]) -> T {
+  let obs = d.observe()
+  let v = obs.get()
+  obs.dispose()
+  v
+}
+
+///|
+/// Run a value-correctness property test for ReachableDerived.
+/// See `check_value_correctness`.
+fn check_value_correctness_reach(
+  inputs : Array[Input[Int]],
+  deriveds : Array[ReachableDerived[Int]],
+  ref_fn : (Array[Int]) -> Array[Int],
+  num_steps : Int,
+  seed : Int,
+) -> Unit {
+  check_value_correctness_core(
+    inputs,
+    deriveds.length(),
+    ref_fn,
+    num_steps,
+    seed,
+    fn(d : Int) -> Int { read_reach_for_test(deriveds[d]) },
+  )
+}
+
 // ============================================================
 //  Property test driver
 // ============================================================
 
 ///|
-/// Run a value-correctness property test.
+/// Shared core for value-correctness property tests.
 ///
-/// For each of `num_steps` random steps: pick a random input, set it to
-/// a random value, then read **every** derived cell and compare against
-/// the reference model.  The reference model (`ref_fn`) is a pure
-/// function: `input_values → derived_values` — full recompute from
-fn check_value_correctness(
+/// Calls `read_fn(d)` for each derived index `d` to obtain the real
+/// value from the Runtime, then compares against the reference model.
+/// The `deriveds` array is replaced by `num_deriveds` + a read callback
+/// so the same core works for `Derived`, `ReachableDerived`, etc.
+fn check_value_correctness_core(
   inputs : Array[Input[Int]],
-  deriveds : Array[Derived[Int]],
+  num_deriveds : Int,
   ref_fn : (Array[Int]) -> Array[Int],
   num_steps : Int,
   seed : Int,
+  read_fn : (Int) -> Int,
 ) -> Unit {
   let rng = LCG::new(seed)
   let num_inputs = inputs.length()
-  let num_deriveds = deriveds.length()
 
   // Capture initial reference state from the real model
   let ref_vals : Array[Int] = []
@@ -112,7 +150,7 @@ fn check_value_correctness(
     // On mismatch, abort with step, derived index, real/expected values, and seed
     // for reproduction.
     for d in 0..<num_deriveds {
-      let real_val = read_derived_for_test(deriveds[d])
+      let real_val = read_fn(d)
       let expected_val = expected[d]
       if real_val != expected_val {
         abort(
@@ -131,6 +169,30 @@ fn check_value_correctness(
       }
     }
   }
+}
+
+///|
+/// Run a value-correctness property test.
+///
+/// For each of `num_steps` random steps: pick a random input, set it to
+/// a random value, then read **every** derived cell and compare against
+/// the reference model.  The reference model (`ref_fn`) is a pure
+/// function: `input_values → derived_values` — full recompute from
+fn check_value_correctness(
+  inputs : Array[Input[Int]],
+  deriveds : Array[Derived[Int]],
+  ref_fn : (Array[Int]) -> Array[Int],
+  num_steps : Int,
+  seed : Int,
+) -> Unit {
+  check_value_correctness_core(
+    inputs,
+    deriveds.length(),
+    ref_fn,
+    num_steps,
+    seed,
+    fn(d : Int) -> Int { read_derived_for_test(deriveds[d]) },
+  )
 }
 
 // ============================================================
@@ -231,6 +293,26 @@ fn make_conditional_fixture(rt : Runtime) -> Fixture {
   (inputs, deriveds, ref_fn)
 }
 
+// --- ReachableDerived (2-level chain) ---
+//  input -> rd1(*2) -> rd2(+10)
+//  Same semantics as Derived but uses ReachableDerived cells.
+
+///|
+fn make_reach_fixture(rt : Runtime) -> FixtureReach {
+  let input = Input::Input(rt, 0)
+  let rd1 = ReachableDerived(rt, fn() { input.get() * 2 })
+  let rd2 = ReachableDerived(rt, fn() { rd1.get_or_abort() + 10 })
+
+  let inputs = [input]
+  let deriveds = [rd1, rd2]
+  let ref_fn = fn(vals : Array[Int]) -> Array[Int] {
+    let v1 = vals[0] * 2
+    let v2 = v1 + 10
+    [v1, v2]
+  }
+  (inputs, deriveds, ref_fn)
+}
+
 // ============================================================
 //  Value correctness property tests
 // ============================================================
@@ -261,6 +343,13 @@ test "l2 value: conditional dynamic deps random ops" {
   let rt = Runtime()
   let (inputs, deriveds, ref_fn) = make_conditional_fixture(rt)
   check_value_correctness(inputs, deriveds, ref_fn, 500, 45)
+}
+
+///|
+test "l2 value: reachable derived random ops" {
+  let rt = Runtime()
+  let (inputs, deriveds, ref_fn) = make_reach_fixture(rt)
+  check_value_correctness_reach(inputs, deriveds, ref_fn, 500, 46)
 }
 
 // ============================================================
