@@ -22,8 +22,15 @@ import {
   "moonbitlang/quickcheck/gen",
 } for "wbtest"
 // Suppressed warnings:
-// 1 (unused_value) — get_changed_at, cell_id_for, CellOps::cell_id used by wbtests or trait contract
-// 7 (unused_field) — RuleData.input/output_relations stored for future introspection
-// 53 (unused_trait_bound) — DerivedMap::DerivedMap V:Eq bound is needed by read methods, not the ctor body
+// 1 (unused_value) — internal helpers used by wbtests: get_changed_at, get_subscribers,
+//   slot_snapshots, install_evaluation_strategies, enter_phase, leave_phase,
+//   check_table_invariant, pop_tracking_full, diff_and_update_subscribers,
+//   read_hybrid_for_test, get_strict_result (Derived/DerivedMap/ReachableDerived),
+//   push_tracking/pop_tracking (Tracker trait), static_derived* probes.
+//   Also unused_value on ExprDebug::to_string: variant-match guard against
+//   unused_constructor warnings (every variant IS constructed, so removing
+//   to_string triggers 4x unused_constructor, a net regression).
+// 7 (unused_field) — AcceptedDerived.fold (stored for future introspection through
+//   scope lifecycle); wbtest struct fields (TestGraphState, etc.)
 
-warnings = "-1-7-53"
+warnings = "-1-7"

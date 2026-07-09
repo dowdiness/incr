@@ -132,10 +132,10 @@ pub(all) enum DerivedEvent {
 pub(all) struct DerivedMap[K, V] {
   // private fields
 }
-pub fn[K : Hash + Eq, V : Eq] DerivedMap::DerivedMap(Runtime, (K) -> V raise Failure, label? : String) -> Self[K, V]
+pub fn[K : Hash + Eq, V] DerivedMap::DerivedMap(Runtime, (K) -> V raise Failure, label? : String) -> Self[K, V]
 pub fn[K, V] DerivedMap::cache_len(Self[K, V]) -> Int
 pub fn[K, V] DerivedMap::clear_cache(Self[K, V]) -> Unit
-pub fn[K : Hash + Eq, V : Eq, E : Eq] DerivedMap::fallible(Runtime, (K) -> Result[V, E], label? : String) -> Self[K, Result[V, E]]
+pub fn[K : Hash + Eq, V, E] DerivedMap::fallible(Runtime, (K) -> Result[V, E], label? : String) -> Self[K, Result[V, E]]
 pub fn[K : Hash + Eq, V : Eq] DerivedMap::get(Self[K, V], K) -> Result[V, @types.ReadError]
 pub fn[K : Hash + Eq, V : Eq] DerivedMap::get_or_abort(Self[K, V], K) -> V
 pub fn[K : Hash + Eq, V] DerivedMap::has_cached(Self[K, V], K) -> Bool
@@ -326,7 +326,7 @@ pub fn[T : InputFieldOwner] Scope::adopt(Self, T) -> T
 pub fn Scope::child(Self) -> Self
 pub fn[T : Eq] Scope::derived(Self, () -> T raise Failure, label? : String) -> Derived[T]
 pub fn[T : Eq] Scope::derived_expr(Self, Expr[T], label? : String) -> Derived[T]
-pub fn[K : Hash + Eq, V : Eq] Scope::derived_map(Self, (K) -> V raise Failure, label? : String) -> DerivedMap[K, V]
+pub fn[K : Hash + Eq, V] Scope::derived_map(Self, (K) -> V raise Failure, label? : String) -> DerivedMap[K, V]
 pub fn[T] Scope::derived_no_backdate(Self, () -> T raise Failure, label? : String) -> Derived[T]
 pub fn Scope::dispose(Self) -> Unit
 pub fn[T : Eq] Scope::eager_derived(Self, () -> T) -> EagerDerived[T]

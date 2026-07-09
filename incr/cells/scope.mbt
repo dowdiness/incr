@@ -211,7 +211,7 @@ pub fn[T : Eq] Scope::derived_expr(
 
 ///|
 /// Creates a keyed derived facade whose cached entries are cleared on dispose.
-pub fn[K : Hash + Eq, V : Eq] Scope::derived_map(
+pub fn[K : Hash + Eq, V] Scope::derived_map(
   self : Scope,
   compute : (K) -> V raise Failure,
   label? : String,

@@ -110,7 +110,7 @@ pub fn[Ctx : RuntimeContext, T : Eq] create_eager_derived(
 
 ///|
 /// Creates a target-name keyed derived facade using the context runtime.
-pub fn[Ctx : RuntimeContext, K : Hash + Eq, V : Eq] create_derived_map(
+pub fn[Ctx : RuntimeContext, K : Hash + Eq, V] create_derived_map(
   ctx : Ctx,
   f : (K) -> V raise Failure,
   label? : String,

@@ -1,19 +1,4 @@
 ///|
-fn Runtime::push_propagate_from(
-  self : Runtime,
-  changed_sources : Array[CellId],
-) -> Unit {
-  self.evaluation_strategies.push_propagate_from(
-    self.core,
-    self.pull,
-    self.push,
-    self.datalog,
-    changed_sources,
-    self.runtime_evaluation_event_sink(),
-  )
-}
-
-///|
 /// Level lookup used by push lifecycle cell setup.
 fn Runtime::recompute_level(
   self : Runtime,

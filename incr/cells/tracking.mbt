@@ -102,9 +102,3 @@ fn Runtime::top_active_query(self : Runtime) -> ActiveQuery? {
 fn Runtime::pop_tracking_full(self : Runtime) -> ActiveQuery {
   @kernel.pop_tracking_full(self.core)
 }
-
-///|
-/// Collect cell IDs from the current tracking stack for cycle diagnostics.
-fn Runtime::collect_tracking_path(self : Runtime) -> Array[CellId] {
-  @kernel.collect_tracking_path(self.core)
-}

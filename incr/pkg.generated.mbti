@@ -21,7 +21,7 @@ pub fn[Ctx : RuntimeContext, T : Eq] create_accumulator(Ctx, label? : String) ->
 
 pub fn[Ctx : RuntimeContext, T : Eq] create_derived(Ctx, () -> T raise Failure, label? : String) -> @cells.Derived[T]
 
-pub fn[Ctx : RuntimeContext, K : Hash + Eq, V : Eq] create_derived_map(Ctx, (K) -> V raise Failure, label? : String) -> @cells.DerivedMap[K, V]
+pub fn[Ctx : RuntimeContext, K : Hash + Eq, V] create_derived_map(Ctx, (K) -> V raise Failure, label? : String) -> @cells.DerivedMap[K, V]
 
 pub fn[Ctx : RuntimeContext, T : Eq] create_eager_derived(Ctx, () -> T) -> @cells.EagerDerived[T]
 
