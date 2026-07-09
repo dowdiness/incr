@@ -87,7 +87,7 @@ fn check_value_correctness(
   ref_fn : (Array[Int]) -> Array[Int],
   num_steps : Int,
   seed : Int,
-) -> Unit raise InspectError {
+) -> Unit {
   let rng = LCG::new(seed)
   let num_inputs = inputs.length()
   let num_deriveds = deriveds.length()
@@ -108,11 +108,27 @@ fn check_value_correctness(
     // Reference model: pure full-recompute
     let expected = ref_fn(ref_vals)
 
-    // Compare every derived against the reference
+    // Compare every derived against the reference.
+    // On mismatch, abort with step, derived index, real/expected values, and seed
+    // for reproduction.
     for d in 0..<num_deriveds {
       let real_val = read_derived_for_test(deriveds[d])
-      let matches = real_val == expected[d]
-      inspect(matches, content="true")
+      let expected_val = expected[d]
+      if real_val != expected_val {
+        abort(
+          "value mismatch at step " +
+          _step.to_string() +
+          " derived[" +
+          d.to_string() +
+          "]: got " +
+          real_val.to_string() +
+          ", expected " +
+          expected_val.to_string() +
+          " (seed " +
+          seed.to_string() +
+          ")",
+        )
+      }
     }
   }
 }
@@ -223,28 +239,28 @@ fn make_conditional_fixture(rt : Runtime) -> Fixture {
 test "l2 value: chain random ops" {
   let rt = Runtime()
   let (inputs, deriveds, ref_fn) = make_chain_fixture(rt)
-  check_value_correctness(inputs, deriveds, ref_fn, 50, 42)
+  check_value_correctness(inputs, deriveds, ref_fn, 500, 42)
 }
 
 ///|
 test "l2 value: diamond random ops" {
   let rt = Runtime()
   let (inputs, deriveds, ref_fn) = make_diamond_fixture(rt)
-  check_value_correctness(inputs, deriveds, ref_fn, 50, 43)
+  check_value_correctness(inputs, deriveds, ref_fn, 500, 43)
 }
 
 ///|
 test "l2 value: two chains random ops" {
   let rt = Runtime()
   let (inputs, deriveds, ref_fn) = make_two_chains_fixture(rt)
-  check_value_correctness(inputs, deriveds, ref_fn, 50, 44)
+  check_value_correctness(inputs, deriveds, ref_fn, 500, 44)
 }
 
 ///|
 test "l2 value: conditional dynamic deps random ops" {
   let rt = Runtime()
   let (inputs, deriveds, ref_fn) = make_conditional_fixture(rt)
-  check_value_correctness(inputs, deriveds, ref_fn, 50, 45)
+  check_value_correctness(inputs, deriveds, ref_fn, 500, 45)
 }
 
 // ============================================================
@@ -270,12 +286,8 @@ test "l2 green path: unrelated input does not cause recompute" {
     a1.get_or_abort() * 3
   })
 
-  let b1 = Derived(rt, fn() {
-    input_b.get() + 10
-  })
-  let b2 = Derived(rt, fn() {
-    b1.get_or_abort() * 2
-  })
+  let b1 = Derived(rt, fn() { input_b.get() + 10 })
+  let b2 = Derived(rt, fn() { b1.get_or_abort() * 2 })
 
   // Prime both chains
   let _ = read_derived_for_test(a2)
