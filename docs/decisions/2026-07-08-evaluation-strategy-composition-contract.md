@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-08
 **Status:** Accepted (contract documentation); fold/pairwise primitive **reserved, not commissioned**
-**Amended:** 2026-07-08 v1.1 / v1.2 — two post-merge adversarial review rounds (see Amendments)
+**Amended:** 2026-07-08 v1.1 / v1.2, 2026-07-09 v1.3 — two post-merge adversarial review rounds plus §2 narrowing addendum (see Amendments)
 **Issues:** [#368](https://github.com/dowdiness/incr/issues/368) (runtime guard),
 [#369](https://github.com/dowdiness/incr/issues/369) (Reader/Writer proposal)
 **Anchors:** [Modal runtime split not warranted](2026-04-26-modal-runtime-split-not-warranted.md),
@@ -141,6 +141,18 @@ a *next commit wave* inside the same `commit_batch` loop
 that loop. This second-wave behavior is intentional and pinned by
 `incr/cells/callback_test.mbt`.
 
+**Narrowing considered and rejected ([#377](https://github.com/dowdiness/incr/issues/377)).**
+A proposal to allow `force_set` inside a compute when the target input has
+no subscribers (no reentrancy possible) was evaluated and rejected: (a) the
+pattern it would legalize — a compute observing its own recompute count —
+violates §1 purity independent of reentrancy mechanics; (b) it would make
+write legality non-local (a distant `.watch()` on the target input flips
+upstream code from legal to abort); (c) it carries a verification burden
+(proving a subscriber-free mid-compute revision bump cannot misdirect later
+verification) with no offsetting benefit. The blanket guards are
+intentional. Demand for counter/fold-shaped state counts toward the §5
+commissioning gate, not toward guard narrowing.
+
 ### 3. Why enforcement is runtime, not types
 
 Analyzed and settled; recorded so it is not re-litigated:
@@ -277,3 +289,4 @@ This contract stands or falls on two observable claims:
   "pull computes run at Idle" overgeneralization (a memo recomputed inside
   push propagation runs at `PushPropagating`), the fixpoint-row abort
   claim, and per-source precision of batch commit waves.
+- **v1.3 (2026-07-09):** §2: narrowing considered and rejected (#377)
