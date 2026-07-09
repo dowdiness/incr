@@ -15,8 +15,12 @@ All notable changes to `dowdiness/incr` are documented in this file.
   skipped-recompute semantics) per the evaluation-strategy composition contract ADR.
   Includes a checked literate example pinning the difference between skipped recomputes
   and backdating.
-- The `Input::force_set` tracking-stack guard abort message now references this recipe,
-  fulfilling the ADR's consequence that the guard should point at the sanctioned idiom.
+
+### Changed
+
+- The `Input::force_set` tracking-stack guard abort message now points to the
+  `mut`-capture pattern instead of a generic directive, fulfilling the ADR's
+  consequence that the guard should reference the sanctioned idiom.
 
 ### Examples
 

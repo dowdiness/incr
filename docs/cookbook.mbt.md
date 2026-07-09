@@ -741,6 +741,12 @@ change. Backdating still advances the `mut`. Only a fully skipped
 recompute — no invalidated dependencies — leaves the `mut` unchanged.
 This means the `mut` reflects compute frequency, not semantic output
 changes. Keep this in mind when designing stateful derived values.
+
+**When `mut` is insufficient.** The ADR reserves a first-class `fold`
+primitive for cases where exactly one step per committed change is required
+([ADR §5](decisions/2026-07-08-evaluation-strategy-composition-contract.md#5-reserved-fold--pairwise-delivery-contract)).
+`mut` capture is the sanctioned approach today; `fold` is the eventual
+answer if a second concrete consumer need materializes.
 ---
 
 ## Debugging

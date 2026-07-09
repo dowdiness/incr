@@ -262,8 +262,8 @@ pub fn[T] Input::force_set(self : Input[T], new_value : T) -> Unit {
       label_str +
       ") called inside a reactive " +
       "compute context. Input writes must happen outside the reactive " +
-      "graph \u{2014} use a `mut` local variable instead. See the " +
-      "cookbook recipe on `mut`-capture for the sanctioned pattern.",
+      "graph \u{2014} use a `mut` local variable instead \u{2014} the " +
+      "`mut`-capture pattern (see the cookbook) is the sanctioned replacement.",
     )
   }
   // Cross-engine contexts (fixpoint rule bodies, GC) hold no tracking frame,
