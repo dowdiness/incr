@@ -16,6 +16,15 @@ priv enum ExprDebug {
 }
 
 ///|
+fn ExprDebug::to_string(self : ExprDebug) -> String {
+  match self {
+    Source(l) => "Source(" + (match l { Some(s) => "\"" + s + "\""; None => "None" }) + ")"
+    Const(l) => "Const(" + (match l { Some(s) => "\"" + s + "\""; None => "None" }) + ")"
+    Op(name, left, right) => "Op(" + name + ", " + left.to_string() + ", " + right.to_string() + ")"
+    Map(inner) => "Map(" + inner.to_string() + ")"
+  }
+}
+///|
 /// Creates a constant expression tied to an explicit runtime.
 pub fn[T] Expr::constant(rt : Runtime, value : T, label? : String) -> Expr[T] {
   { rt, eval: () => value, debug: ExprDebug::Const(label) }
