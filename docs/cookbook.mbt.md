@@ -711,6 +711,44 @@ for the constructor contract.
 
 ---
 
+## Pattern: History-Dependent State with `mut` Capture
+
+Compute closures must be pure functions of their tracked reads (see the
+[composition contract ADR](decisions/2026-07-08-evaluation-strategy-composition-contract.md#1-cell-taxonomy-the-purity-axis)).
+When you genuinely need state that survives across recomputes — a counter, a
+running total, a previous value for comparison — the sanctioned approach is
+`mut` capture: a `Ref[T]` in the closure environment that the compute mutates.
+
+**Why not `Input::force_set`?** The runtime guard aborts any `Input::force_set`
+call from inside a compute context. This is by design: `force_set` triggers
+reentrant propagation, and even without subscribers the result depends on
+how many times the compute ran, which under lazy pull + verification skipping
++ backdating is a caching/demand decision, not semantics. The same caveat
+applies to `mut` capture — the `mut` also depends on compute frequency —
+but `mut` is a local side effect that cannot corrupt the graph, so it is safe.
+
+The performance profile also differs: `mut` avoids the allocation, revision
+bump, and propagation machinery that `Input::force_set` would trigger even
+in a subscriber-free counter. There is no cell overhead.
+
+The checked companion pins the full semantics — including the critical
+difference between skipped recomputes (compute did not run at all) and
+backdating (compute ran, but the output was equal to the previous value) —
+in [`cookbook_examples.mbt.md`](cookbook_examples.mbt.md#history-dependent-state-with-mut-capture).
+
+**Key caveat:** The `mut` advances on every compute, not on every *visible*
+change. Backdating still advances the `mut`. Only a fully skipped
+recompute — no invalidated dependencies — leaves the `mut` unchanged.
+This means the `mut` reflects compute frequency, not semantic output
+changes. Keep this in mind when designing stateful derived values.
+
+**When `mut` is insufficient.** The ADR reserves a first-class `fold`
+primitive for cases where exactly one step per committed change is required
+([ADR §5](decisions/2026-07-08-evaluation-strategy-composition-contract.md#5-reserved-fold--pairwise-delivery-contract)).
+`mut` capture is the sanctioned approach today; `fold` is the eventual
+answer if a second concrete consumer need materializes.
+---
+
 ## Debugging
 
 For low-level introspection, `Derived` exposes `id()`, `dependencies()`,
