@@ -301,6 +301,68 @@ test "l2 green path: unrelated input does not cause recompute" {
 }
 
 // ============================================================
+//  Incrementality: dynamic dependency tracking
+// ============================================================
+
+///|
+test "l2 dynamic deps: flipping branch drops old dep, tracks new" {
+  // flag(0/1) + input_a + input_b -> picker -> label
+  // When flag flips from true to false, the dependency set of picker
+  // changes: [flag, input_a] -> [flag, input_b]. After the flip,
+  // setting the now-unrelated input_a should NOT cause recompute
+  // of picker or label (transitive green path).
+  let rt = Runtime()
+  let flag = Input::Input(rt, 1)
+  let input_a = Input::Input(rt, 10)
+  let input_b = Input::Input(rt, 20)
+
+  let mut picker_runs = 0
+  let picker = Derived(rt, fn() {
+    picker_runs += 1
+    if flag.get() != 0 {
+      input_a.get()
+    } else {
+      input_b.get()
+    }
+  })
+
+  let mut label_runs = 0
+  let label = Derived(rt, fn() {
+    label_runs += 1
+    picker.get_or_abort() * 10
+  })
+
+  // Prime: flag=1 → reads a=10 → picker=10, label=100
+  inspect(read_derived_for_test(label), content="100")
+  inspect(picker_runs, content="1")
+  inspect(label_runs, content="1")
+
+  // Set unrelated input_b — NOT a dependency, picker should NOT recompute
+  input_b.set(99)
+  inspect(read_derived_for_test(label), content="100")
+  inspect(picker_runs, content="1")
+  inspect(label_runs, content="1")
+
+  // Flip flag — now deps = [flag, input_b]; picker recomputes from b
+  flag.set(0)
+  inspect(read_derived_for_test(label), content="990")
+  inspect(picker_runs, content="2")
+  inspect(label_runs, content="2")
+
+  // Set input_a — now UNTRACKED (was dropped from deps), should NOT recompute
+  input_a.set(42)
+  inspect(read_derived_for_test(label), content="990")
+  inspect(picker_runs, content="2") // green path: picker not recomputed
+  inspect(label_runs, content="2") // green path: label not recomputed
+
+  // Set input_b — IS the current dep, SHOULD recompute
+  input_b.set(21)
+  inspect(read_derived_for_test(label), content="210")
+  inspect(picker_runs, content="3")
+  inspect(label_runs, content="3")
+}
+
+// ============================================================
 //  Backdating regression
 // ============================================================
 
