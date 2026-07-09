@@ -1320,3 +1320,53 @@ test "docs cookbook: long-lived authoring pipeline keeps last good result" {
   inspect(pipeline.terminal_watch.is_disposed(), content="true")
 }
 ```
+
+## History-dependent state with mut capture
+
+```mbt check
+///|
+test "docs cookbook: mut capture semantics under skipped recompute and backdating" {
+  let rt = @incr.Runtime()
+  let input = @incr.Input(rt, 0, label="input")
+  let compute_count : Ref[Int] = { val: 0 }
+
+  // History-dependent state: each recompute increments a local counter.
+  // This is NOT a cell — the side effect is local to the closure environment.
+  let rounded = @incr.Derived(
+    rt,
+    () => {
+      compute_count.val = compute_count.val + 1
+      // Round down to nearest 10 so different inputs can produce the same output
+      input.get() / 10 * 10
+    },
+    label="rounded",
+  )
+
+  // 1. First compute: count = 1
+  inspect(rounded.read_or_abort(), content="0")
+  inspect(compute_count.val, content="1")
+
+  // 2. Same-value set: no revision bump, compute is skipped entirely.
+  //    The mut does NOT advance.
+  input.set(0)
+  inspect(rounded.read_or_abort(), content="0")
+  inspect(compute_count.val, content="1")
+
+  // 3. Real change: compute runs, output differs, count advances.
+  input.set(15)
+  inspect(rounded.read_or_abort(), content="10")
+  inspect(compute_count.val, content="2")
+
+  // 4. Backdating: compute runs (input changed), but output equals previous
+  //    value (both round to 10). Downstream consumers see no change, but the
+  //    mut STILL advances because the compute DID run.
+  input.set(14)
+  inspect(rounded.read_or_abort(), content="10")
+  inspect(compute_count.val, content="3")
+
+  // 5. Differing output: count advances again.
+  input.set(25)
+  inspect(rounded.read_or_abort(), content="20")
+  inspect(compute_count.val, content="4")
+}
+```
