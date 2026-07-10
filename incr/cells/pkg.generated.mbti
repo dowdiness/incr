@@ -189,6 +189,8 @@ pub(all) struct Input[T] {
   // private fields
 } derive(@debug.Debug)
 pub fn[T] Input::Input(Runtime, T, durability? : @types.Durability, label? : String) -> Self[T]
+#alias("_[_:_]")
+pub fn[T] Input::as_view(Self[T], start? : Unit, end? : Unit) -> InputView[T]
 pub fn[T] Input::clear_on_change(Self[T]) -> Unit
 pub fn[T, U : Eq] Input::derived(Self[T], (T) -> U, label? : String) -> Derived[U]
 pub fn[T, U, V : Eq] Input::derived2(Self[T], Self[U], (T, U) -> V, label? : String) -> Derived[V]
@@ -218,6 +220,8 @@ pub(all) struct InputField[T] {
   // private fields
 } derive(@debug.Debug)
 pub fn[T] InputField::InputField(Runtime, T, durability? : @types.Durability, label? : String) -> Self[T]
+#alias("_[_:_]")
+pub fn[T] InputField::as_view(Self[T], start? : Unit, end? : Unit) -> InputView[T]
 pub fn[T] InputField::clear_on_change(Self[T]) -> Unit
 pub fn[T] InputField::dispose(Self[T]) -> Unit
 pub fn[T] InputField::durability(Self[T]) -> @types.Durability
@@ -233,6 +237,12 @@ pub fn[T] InputField::on_change(Self[T], (T) -> Unit) -> Unit
 pub fn[T] InputField::peek(Self[T]) -> T
 pub fn[T : Eq] InputField::set(Self[T], T) -> Unit
 pub impl[T] InputFieldOwner for InputField[T]
+
+pub(all) struct InputView[T] {
+  // private fields
+}
+pub fn[T] InputView::get(Self[T]) -> T
+pub fn[T] InputView::peek(Self[T]) -> T
 
 pub(all) struct MapRelation[K, V] {
   // private fields

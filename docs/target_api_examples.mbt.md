@@ -42,6 +42,18 @@ test "docs target api: direct runtime read and update" {
 }
 
 ///|
+test "docs target api: input views restrict authority at API boundaries" {
+  let rt = @incr.Runtime()
+  let input = @incr.Input(rt, 10, label="input")
+  let view : @incr.InputView[Int] = input[:]
+  let doubled = @incr.Derived(rt, () => view.get() * 2, label="doubled")
+
+  inspect(doubled.read_or_abort(), content="20")
+  input.set(21)
+  inspect(doubled.read_or_abort(), content="42")
+}
+
+///|
 test "docs target api: scope constructors own lifecycle" {
   let rt = @incr.Runtime()
   let scope = @incr.Scope::new(rt)
