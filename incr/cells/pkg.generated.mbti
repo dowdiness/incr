@@ -345,6 +345,7 @@ pub fn[T] Scope::input(Self, T, durability? : @types.Durability, label? : String
 pub fn[T] Scope::input_field(Self, T, durability? : @types.Durability, label? : String) -> InputField[T]
 pub fn Scope::is_disposed(Self) -> Bool
 pub fn Scope::new(Runtime) -> Self
+pub fn Scope::on_dispose(Self, () -> Unit) -> Unit
 pub fn[T : Eq] Scope::reachable_derived(Self, () -> T raise Failure, label? : String) -> ReachableDerived[T]
 pub fn[T] Scope::watch(Self, Derived[T]) -> Watch[T]
 pub fn[T : Eq] Scope::watch_reachable(Self, ReachableDerived[T]) -> Watch[T]

@@ -335,6 +335,27 @@ pub fn[T : Eq] Scope::watch_reachable(
     abort("Scope::watch_reachable called on a disposed scope")
   }
   self.add_watch(derived.watch())
+/// Registers a cleanup callback to run when this scope is disposed.
+///
+/// The callback runs at most once, during the dispose_hooks phase
+/// (step 2 of disposal order — after children, before owned cells).
+/// Registration on an already-disposed scope aborts.
+///
+/// This is the intended hook for releasing resources that were acquired
+/// at mount time, such as removing runtime-level listeners:
+///
+/// ```moonbit nocheck
+/// let scope = Scope::new(rt)
+/// let listener_id = rt.add_on_change_listener(() => sync())
+/// scope.on_dispose(() => {
+///   rt.remove_on_change_listener(listener_id)
+/// })
+/// ```
+pub fn Scope::on_dispose(self : Scope, cleanup : () -> Unit) -> Unit {
+  guard !self.disposed else {
+    abort("Scope::on_dispose called on a disposed scope")
+  }
+  self.dispose_hooks.push(cleanup)
 }
 
 ///|
