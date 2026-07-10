@@ -335,6 +335,9 @@ pub fn[T : Eq] Scope::watch_reachable(
     abort("Scope::watch_reachable called on a disposed scope")
   }
   self.add_watch(derived.watch())
+}
+
+///|
 /// Registers a cleanup callback to run when this scope is disposed.
 ///
 /// The callback runs at most once, during the dispose_hooks phase
