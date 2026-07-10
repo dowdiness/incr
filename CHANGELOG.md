@@ -2,9 +2,7 @@
 
 All notable changes to `dowdiness/incr` are documented in this file.
 
-## [Unreleased]
-
-## [Unreleased]
+## [v0.14.2] - 2026-07-10
 
 ### Added
 
@@ -470,7 +468,8 @@ Initial release.
 - Batch updates with atomic multi-signal commits
 - Cycle detection
 
-[Unreleased]: https://github.com/dowdiness/incr/compare/v0.14.1...HEAD
+[Unreleased]: https://github.com/dowdiness/incr/compare/v0.14.2...HEAD
+[v0.14.2]: https://github.com/dowdiness/incr/compare/v0.14.1...v0.14.2
 [v0.14.1]: https://github.com/dowdiness/incr/compare/v0.14.0...v0.14.1
 [v0.14.0]: https://github.com/dowdiness/incr/compare/v0.13.0...v0.14.0
 [0.7.1]: https://github.com/dowdiness/incr/compare/4302e80...v0.7.1
