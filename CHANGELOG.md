@@ -4,39 +4,23 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ## [Unreleased]
 
+
+## [v0.14.1] - 2026-07-10
+
 ### Added
 
-- Added `InputView[T]`, an opaque read-only view of an `Input[T]` or
-  `InputField[T]`. Obtain it with `input[:]` / `input.as_view()` or
-  `field[:]` / `field.as_view()`. Views expose tracked `get()` and untracked
-  `peek()` reads, but no write, callback, or disposal authority. (#369)
+- **InputView[T].** Opaque read-only view of an `Input[T]` or `InputField[T]`.
+  Obtain it with `input[:]` / `input.as_view()` or `field[:]` / `field.as_view()`.
+  Exposes tracked `get()` and untracked `peek()` reads, but no write, callback,
+  or disposal authority. (#369, #385)
 - Added composable runtime hook registration so multiple observers can share one `Runtime` (#210). `Runtime::add_on_change_listener` / `Runtime::remove_on_change_listener` and `Runtime::add_derived_event_listener` / `Runtime::remove_derived_event_listener` return and accept public `ListenerId` handles. Additive listeners coexist with each other and with the existing singleton APIs, which remain source-compatible through reserved registry slots.
 - Defined listener ordering and mutation rules for the new APIs. On-change listeners fire in registration order and snapshot before dispatch, so callbacks can add or remove listeners without affecting the current pass. Derived-event listeners run for each event in registration order and keep the existing idle mutation guard.
-
-### Docs
-
-- Added cookbook recipe for `mut`-capture escape hatch (history-dependent state with
-  skipped-recompute semantics) per the evaluation-strategy composition contract ADR.
-  Includes a checked literate example pinning the difference between skipped recomputes
-  and backdating.
 
 ### Changed
 
 - The `Input::force_set` tracking-stack guard abort message now points to the
   `mut`-capture pattern instead of a generic directive, fulfilling the ADR's
   consequence that the guard should reference the sanctioned idiom.
-
-### Examples
-
-These changes are in `examples/` workspace members, not the published `dowdiness/incr` library.
-
-- Extended the `examples/incr_tea` browser renderer lifecycle (#209). `BrowserRenderer::detach` removes a root's DOM subtree but keeps its `Program` scope and watch alive, so the root can be re-mounted with state preserved. `BrowserRenderer::destroy` disposes the program when the component instance is gone. `BrowserRenderer::dispose` removes the renderer's two stored `ListenerId`s, destroys every mounted root, treats queued `requestAnimationFrame` callbacks as no-ops, and rejects new mounts.
-- Added keyed child reconciliation and pure event-payload descriptors to `examples/incr_tea` (#211). `keyed_node` / `KeyedElem` preserves per-key DOM identity across insert, remove, and reorder operations, while DOM payload extraction stays at the browser boundary so cacheable `Html` values remain closure-free.
-- Added tracked subscription reconciliation to `examples/incr_tea` (#244). Programs can declare a `Derived[Subscriptions]` map keyed by `SubKey`; the runtime diffs it into side-effect handles, updates same-key timers in place, stops removed timers, and the browser demo includes a timer subscription card.
-- Added Incremental TEA benchmarks comparing watched `incr` view recomputation and keyed diff planning against dirty-cell and naive positional baselines (#243).
-
-
-## [v0.14.1] - 2026-07-10
 
 ### Documentation
 
@@ -47,6 +31,19 @@ These changes are in `examples/` workspace members, not the published `dowdiness
 - `docs/plans/2026-06-25-program-stateful.md`: updated file paths and
   commands from `examples/incr_tea/` to `incr_tea/` following the module
   relocation in v0.14.0.
+- Added cookbook recipe for `mut`-capture escape hatch (history-dependent state with
+  skipped-recompute semantics) per the evaluation-strategy composition contract ADR.
+  Includes a checked literate example pinning the difference between skipped recomputes
+  and backdating.
+
+### Examples
+
+These changes are in `examples/` workspace members, not the published `dowdiness/incr` library.
+
+- Extended the `examples/incr_tea` browser renderer lifecycle (#209). `BrowserRenderer::detach` removes a root's DOM subtree but keeps its `Program` scope and watch alive, so the root can be re-mounted with state preserved. `BrowserRenderer::destroy` disposes the program when the component instance is gone. `BrowserRenderer::dispose` removes the renderer's two stored `ListenerId`s, destroys every mounted root, treats queued `requestAnimationFrame` callbacks as no-ops, and rejects new mounts.
+- Added keyed child reconciliation and pure event-payload descriptors to `examples/incr_tea` (#211). `keyed_node` / `KeyedElem` preserves per-key DOM identity across insert, remove, and reorder operations, while DOM payload extraction stays at the browser boundary so cacheable `Html` values remain closure-free.
+- Added tracked subscription reconciliation to `examples/incr_tea` (#244). Programs can declare a `Derived[Subscriptions]` map keyed by `SubKey`; the runtime diffs it into side-effect handles, updates same-key timers in place, stops removed timers, and the browser demo includes a timer subscription card.
+- Added Incremental TEA benchmarks comparing watched `incr` view recomputation and keyed diff planning against dirty-cell and naive positional baselines (#243).
 
 ## [v0.14.0] - 2026-07-05
 
