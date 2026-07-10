@@ -301,6 +301,17 @@ Sets a new value without equality checking; always treated as a change when comm
 
 Always returns `true`. Inputs are directly-set cells.
 
+### `Input::as_view(self) -> InputView[T]` / `input[:]`
+
+Returns a read-only view of the same input cell. Use an `InputView[T]` when a
+function or component should be able to read an input without receiving update,
+callback-registration, or disposal authority. `InputView::get()` records a
+dependency; `InputView::peek()` does not.
+
+The view narrows authority at an API boundary. It does not prevent code that
+also captures the original `Input` from updating it; the runtime mutation guard
+remains responsible for rejecting writes during reactive computation.
+
 ### `Input::derived[T, U : Eq](self, f: (T) -> U, label?: String) -> Derived[U]`
 
 Creates a new `Derived[U]` from this input by applying `f` to the current
@@ -340,6 +351,22 @@ backdating. Aborts if any input belongs to a different runtime.
 Combines three inputs into a derived value, without equality-based backdating.
 Accepts output types that do not implement `Eq`.
 
+## InputView[T]
+
+`InputView[T]` is an opaque, read-only view of an `Input[T]` or
+`InputField[T]`. Construct it with `input[:]`, `input.as_view()`, `field[:]`,
+or `field.as_view()`.
+
+### `InputView::get(self) -> T`
+
+Returns the current value and records a dependency when called inside a derived
+computation. It follows `Input::get()`'s strict lifecycle behavior.
+
+### `InputView::peek(self) -> T`
+
+Returns the current value without recording a dependency. It follows
+`Input::peek()`'s strict lifecycle behavior.
+
 ## InputField[T]
 
 `InputField[T]` is the field-level input facade.
@@ -359,6 +386,11 @@ Returns the current field value and records a dependency when called inside a de
 ### `InputField::peek(self) -> T`
 
 Returns the current field value without recording a dependency.
+
+### `InputField::as_view(self) -> InputView[T]` / `field[:]`
+
+Returns a read-only view of the field's underlying input cell. The view exposes
+only `get()` and `peek()`.
 
 ### `InputField::set[T : Eq](self, value: T) -> Unit`
 
