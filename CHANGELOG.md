@@ -4,6 +4,15 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ## [Unreleased]
 
+## [Unreleased]
+
+### Added
+
+- **`Scope::on_dispose(cleanup)`.**  Registers a cleanup callback that runs at
+  most once when the scope is disposed, during the dispose_hooks phase (after
+  children, before owned cells). Registration on an already-disposed scope
+  aborts. Use it to release mount-time resources such as runtime-level listener
+  handles. (#387)
 
 ## [v0.14.1] - 2026-07-10
 

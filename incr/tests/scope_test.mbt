@@ -256,3 +256,44 @@ test "panic scope: watch on disposed scope aborts" {
   scope.dispose()
   let _ = scope.watch(d)
 }
+
+///|
+test "scope: on_dispose callback runs on dispose" {
+  let rt = @incr.Runtime()
+  let scope = @incr.Scope::new(rt)
+  let mut ran = false
+  scope.on_dispose(() => ran = true)
+  scope.dispose()
+  inspect(ran, content="true")
+}
+
+///|
+test "scope: on_dispose callback runs at most once despite double dispose" {
+  let rt = @incr.Runtime()
+  let scope = @incr.Scope::new(rt)
+  let mut count = 0
+  scope.on_dispose(() => count = count + 1)
+  scope.dispose()
+  scope.dispose()
+  inspect(count, content="1")
+}
+
+///|
+test "scope: on_dispose child hooks fire before parent hooks" {
+  let rt = @incr.Runtime()
+  let parent = @incr.Scope::new(rt)
+  let child = parent.child()
+  let mut log = ""
+  child.on_dispose(() => log = log + "child,")
+  parent.on_dispose(() => log = log + "parent")
+  parent.dispose()
+  inspect(log, content="child,parent")
+}
+
+///|
+test "panic scope: on_dispose on already disposed scope aborts" {
+  let rt = @incr.Runtime()
+  let scope = @incr.Scope::new(rt)
+  scope.dispose()
+  scope.on_dispose(() => ())
+}
