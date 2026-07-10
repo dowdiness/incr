@@ -6,6 +6,10 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ### Added
 
+- Added `InputView[T]`, an opaque read-only view of an `Input[T]` or
+  `InputField[T]`. Obtain it with `input[:]` / `input.as_view()` or
+  `field[:]` / `field.as_view()`. Views expose tracked `get()` and untracked
+  `peek()` reads, but no write, callback, or disposal authority. (#369)
 - Added composable runtime hook registration so multiple observers can share one `Runtime` (#210). `Runtime::add_on_change_listener` / `Runtime::remove_on_change_listener` and `Runtime::add_derived_event_listener` / `Runtime::remove_derived_event_listener` return and accept public `ListenerId` handles. Additive listeners coexist with each other and with the existing singleton APIs, which remain source-compatible through reserved registry slots.
 - Defined listener ordering and mutation rules for the new APIs. On-change listeners fire in registration order and snapshot before dispatch, so callbacks can add or remove listeners without affecting the current pass. Derived-event listeners run for each event in registration order and keep the existing idle mutation guard.
 
