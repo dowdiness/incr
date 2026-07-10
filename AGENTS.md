@@ -34,7 +34,7 @@ Generated `pkg.generated.mbti` files are **not edited by hand** — `moon info` 
 ```bash
 moon check          # Type-check the workspace; fast; run after every edit
 moon build          # Compile the workspace
-moon test           # Full workspace test suite (~924 test blocks)
+moon test           # Full workspace test suite (~1136 test blocks)
 moon bench --release  # Microbenchmarks — always pass --release
 moon fmt            # Apply standard formatting across workspace members
 moon info           # Regenerate all pkg.generated.mbti files
