@@ -2,28 +2,28 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add `Program::stateful` and `Program::stateful_cmd` helpers to `examples/incr_tea/program.mbt` that hide the version-cell boilerplate, then migrate the Counter 7GUIs app to use them.
+**Goal:** Add `Program::stateful` and `Program::stateful_cmd` helpers to `incr_tea/program.mbt` that hide the version-cell boilerplate, then migrate the Counter 7GUIs app to use them.
 
 **Architecture:** Both helpers create their own `@incr.Scope`, a `Ref[Model]`, and a version `InputField[Int]` internally, then wire the user's pure `update`/`view`/`subscriptions` functions into the closures that `Program::Program` and `Program::with_subscriptions` expect. They return a plain `Program[Msg, View]` — no wrapper struct. `stateful` wraps `update` with `Cmd::none()`; `stateful_cmd` passes through the `(Model, Cmd[Msg])` tuple.
 
-**Tech Stack:** MoonBit, `dowdiness/incr` reactive cells, `examples/incr_tea` TEA shell.
+**Tech Stack:** MoonBit, `dowdiness/incr` reactive cells, `incr_tea` TEA shell.
 
 ## Global Constraints
 
 - All commands run from the workspace root: `/path/to/loom/incr/`
-- `examples/incr_tea` has `preferred_target = "js"` — `moon test examples/incr_tea` uses JS automatically
+- `incr_tea` has `preferred_target = "js"` — `moon test incr_tea` uses JS automatically
 - `examples/incr_tea_7guis/counter` has `supported_targets = "js"` — JS only
 - Do NOT modify `Program::Program` or `Program::with_subscriptions`
-- `stateful`/`stateful_cmd` live in `examples/incr_tea/program.mbt` only — not in `incr/`
+- `stateful`/`stateful_cmd` live in `incr_tea/program.mbt` only — not in `incr/`
 - Use `raise?` (error polymorphism) on `view` and `subscriptions` parameters; fall back to `raise Failure` if the MoonBit compiler rejects the `raise?` form in that position
-- After every file edit, run `moon check examples/incr_tea` before continuing
+- After every file edit, run `moon check incr_tea` before continuing
 
 ---
 
 ## Files
 
-- **Modify:** `examples/incr_tea/program.mbt` — add `Program::stateful` and `Program::stateful_cmd`
-- **Create:** `examples/incr_tea/stateful_test.mbt` — blackbox tests for both helpers
+- **Modify:** `incr_tea/program.mbt` — add `Program::stateful` and `Program::stateful_cmd`
+- **Create:** `incr_tea/stateful_test.mbt` — blackbox tests for both helpers
 - **Modify:** `examples/incr_tea_7guis/counter/counter.mbt` — delete `App` struct and `App::App`, update `mount`
 - **Modify:** `examples/incr_tea_7guis/counter/counter_wbtest.mbt` — rewrite test to use `Program::stateful` directly
 
@@ -32,8 +32,8 @@
 ## Task 1: Implement `Program::stateful` (TDD)
 
 **Files:**
-- Create: `examples/incr_tea/stateful_test.mbt`
-- Modify: `examples/incr_tea/program.mbt`
+- Create: `incr_tea/stateful_test.mbt`
+- Modify: `incr_tea/program.mbt`
 
 **Interfaces:**
 - Produces: `Program::stateful(runtime, initial, update, view, subscriptions?, label?) -> Program[Msg, View]`
@@ -42,7 +42,7 @@
 
 - [ ] **Step 1: Create the test file with failing tests**
 
-Create `examples/incr_tea/stateful_test.mbt`:
+Create `incr_tea/stateful_test.mbt`:
 
 ```moonbit
 ///|
@@ -163,14 +163,14 @@ test "stateful: subscriptions=None still works correctly" {
 - [ ] **Step 2: Verify tests fail to compile (stateful not yet defined)**
 
 ```bash
-moon check examples/incr_tea
+moon check incr_tea
 ```
 
 Expected: error like `Value stateful not found in package` or similar — confirms the tests are wired up correctly.
 
 - [ ] **Step 3: Implement `Program::stateful` in `program.mbt`**
 
-Open `examples/incr_tea/program.mbt` and append at the end of the file:
+Open `incr_tea/program.mbt` and append at the end of the file:
 
 ```moonbit
 ///|
@@ -233,7 +233,7 @@ pub fn[Msg : Eq, Model, View : Eq] Program::stateful(
 - [ ] **Step 4: Check that it compiles**
 
 ```bash
-moon check examples/incr_tea
+moon check incr_tea
 ```
 
 Expected: no errors.
@@ -241,7 +241,7 @@ Expected: no errors.
 - [ ] **Step 5: Run the stateful tests**
 
 ```bash
-moon test examples/incr_tea -f stateful_test.mbt
+moon test incr_tea -f stateful_test.mbt
 ```
 
 Expected: all 6 tests pass.
@@ -249,7 +249,7 @@ Expected: all 6 tests pass.
 - [ ] **Step 6: Run the full incr_tea test suite (regression check)**
 
 ```bash
-moon test examples/incr_tea
+moon test incr_tea
 ```
 
 Expected: all tests pass (same count as before plus 6 new ones).
@@ -257,7 +257,7 @@ Expected: all tests pass (same count as before plus 6 new ones).
 - [ ] **Step 7: Commit**
 
 ```bash
-git add examples/incr_tea/program.mbt examples/incr_tea/stateful_test.mbt
+git add incr_tea/program.mbt incr_tea/stateful_test.mbt
 git commit -m "feat(incr_tea): add Program::stateful helper (#287)"
 ```
 
@@ -266,8 +266,8 @@ git commit -m "feat(incr_tea): add Program::stateful helper (#287)"
 ## Task 2: Implement `Program::stateful_cmd` (TDD)
 
 **Files:**
-- Modify: `examples/incr_tea/stateful_test.mbt`
-- Modify: `examples/incr_tea/program.mbt`
+- Modify: `incr_tea/stateful_test.mbt`
+- Modify: `incr_tea/program.mbt`
 
 **Interfaces:**
 - Consumes: `Program::stateful` (Task 1)
@@ -277,7 +277,7 @@ git commit -m "feat(incr_tea): add Program::stateful helper (#287)"
 
 - [ ] **Step 1: Add failing tests for `stateful_cmd` to `stateful_test.mbt`**
 
-Append to `examples/incr_tea/stateful_test.mbt`:
+Append to `incr_tea/stateful_test.mbt`:
 
 ```moonbit
 ///|
@@ -373,14 +373,14 @@ test "stateful_cmd: gc after mount preserves view" {
 - [ ] **Step 2: Verify tests fail to compile**
 
 ```bash
-moon check examples/incr_tea
+moon check incr_tea
 ```
 
 Expected: error about `stateful_cmd` not found.
 
 - [ ] **Step 3: Implement `Program::stateful_cmd` in `program.mbt`**
 
-Append immediately after `Program::stateful` in `examples/incr_tea/program.mbt`:
+Append immediately after `Program::stateful` in `incr_tea/program.mbt`:
 
 ```moonbit
 ///|
@@ -435,7 +435,7 @@ pub fn[Msg : Eq, Model, View : Eq] Program::stateful_cmd(
 - [ ] **Step 4: Check and test**
 
 ```bash
-moon check examples/incr_tea && moon test examples/incr_tea -f stateful_test.mbt
+moon check incr_tea && moon test incr_tea -f stateful_test.mbt
 ```
 
 Expected: all tests pass (the 6 from Task 1 plus 5 new cmd tests = 11 total).
@@ -443,7 +443,7 @@ Expected: all tests pass (the 6 from Task 1 plus 5 new cmd tests = 11 total).
 - [ ] **Step 5: Full regression check**
 
 ```bash
-moon test examples/incr_tea
+moon test incr_tea
 ```
 
 Expected: all tests pass.
@@ -451,7 +451,7 @@ Expected: all tests pass.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add examples/incr_tea/program.mbt examples/incr_tea/stateful_test.mbt
+git add incr_tea/program.mbt incr_tea/stateful_test.mbt
 git commit -m "feat(incr_tea): add Program::stateful_cmd helper (#287)"
 ```
 
@@ -577,7 +577,7 @@ Expected: no errors.
 - [ ] **Step 4: Run all tests**
 
 ```bash
-moon test examples/incr_tea && moon test examples/incr_tea_7guis
+moon test incr_tea && moon test examples/incr_tea_7guis
 ```
 
 Expected: all tests pass. The counter wbtest (1 test) passes.
@@ -585,14 +585,14 @@ Expected: all tests pass. The counter wbtest (1 test) passes.
 - [ ] **Step 5: Regenerate interfaces**
 
 ```bash
-moon info examples/incr_tea && moon fmt examples/incr_tea
+moon info incr_tea && moon fmt incr_tea
 moon info examples/incr_tea_7guis && moon fmt examples/incr_tea_7guis
 ```
 
 Check that `pkg.generated.mbti` changes are only the expected additions (`Program::stateful`, `Program::stateful_cmd` appear; no unexpected removals from counter's public API — `mount` is unchanged).
 
 ```bash
-git diff examples/incr_tea/pkg.generated.mbti
+git diff incr_tea/pkg.generated.mbti
 git diff examples/incr_tea_7guis/counter/pkg.generated.mbti
 ```
 
@@ -602,8 +602,8 @@ Expected for counter: no changes (only `mount` is public, and it's unchanged).
 - [ ] **Step 6: Commit**
 
 ```bash
-git add examples/incr_tea/program.mbt \
-        examples/incr_tea/pkg.generated.mbti \
+git add incr_tea/program.mbt \
+        incr_tea/pkg.generated.mbti \
         examples/incr_tea_7guis/counter/counter.mbt \
         examples/incr_tea_7guis/counter/counter_wbtest.mbt \
         examples/incr_tea_7guis/counter/pkg.generated.mbti

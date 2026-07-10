@@ -31,6 +31,109 @@ These changes are in `examples/` workspace members, not the published `dowdiness
 - Added tracked subscription reconciliation to `examples/incr_tea` (#244). Programs can declare a `Derived[Subscriptions]` map keyed by `SubKey`; the runtime diffs it into side-effect handles, updates same-key timers in place, stops removed timers, and the browser demo includes a timer subscription card.
 - Added Incremental TEA benchmarks comparing watched `incr` view recomputation and keyed diff planning against dirty-cell and naive positional baselines (#243).
 
+
+## [v0.14.1] - 2026-07-10
+
+### Documentation
+
+- **AGENTS.md:** test count updated from ~924 to ~1136 (994 wasm-gc + 142 js).
+- `docs/plans/2026-05-26-evaluation-strategy-refactor.md`: removed stale
+  reference to deleted `incr/tests/backdate_eq_test.mbt` (already covered by
+  `incr/cells/backdating_test.mbt`).
+- `docs/plans/2026-06-25-program-stateful.md`: updated file paths and
+  commands from `examples/incr_tea/` to `incr_tea/` following the module
+  relocation in v0.14.0.
+
+## [v0.14.0] - 2026-07-05
+
+Breaking release: public API boundary cleanup (Phases 0–2 of
+`docs/plans/2026-07-05-public-api-boundary-cleanup.md`; PRs #353/#354/#355/#357).
+Every removed or changed name lists its replacement below.
+
+### Removed (breaking)
+
+- **`Accumulator::new(rt~, ...)` removed.** Replaced by positional constructor
+  `Accumulator(rt, label?)`. The `Accumulator::Accumulator(Runtime, label?)`
+  constructor is now the canonical form — same semantics.
+
+
+- **Ghost handle types.** `InputId[T]`, `MemoId[T]`, `RelationId[T]`, and
+  `FunctionalRelationId[K, V]` are deleted from `@incr/types`, and the
+  `InputId` / `RelationId` root re-exports are dropped. They were leftovers
+  of the handle types removed in v0.12/v0.13 — no API produced or consumed
+  them, so there is no migration. `RuleId` (returned by `Runtime::new_rule`)
+  is unchanged; `ReactiveId[T]` stays in `@incr/types` because the
+  `EagerDerived[T]` implementation still uses it internally.
+
+### Changed (breaking)
+
+- **Invariant-bearing types closed.** `Revision`, `InternId`, and
+  `InternTable[T]` are now `pub` instead of `pub(all)`: consumers can no
+  longer construct them via struct literals. Construct through the existing
+  API instead — `Revision::initial()` / `.next()`,
+  `InternTable::new()` / `.intern(value)`. `InternTable`'s fields are
+  additionally `priv`: its mutable internals (`values`, `to_id`) are no
+  longer readable from outside, closing the interior-mutation hole where
+  `table.values.push(...)` could bypass `intern` (verified by a
+  known-positive probe). `Revision.value` / `InternId.index` stay readable
+  (`Int` fields — reads copy). `CycleError::new` remains public because the
+  kernel package must construct it and MoonBit has no sibling-only
+  visibility; it is documented as library-internal.
+
+- **`Input::get_result` / `InputField::get_result` return `Result[T, ReadError]`**
+  instead of `Result[T, CycleError]`. This aligns the read channel with the
+  Honest Read-Error Ownership spec (`ReadError = Cycle(CycleError) | Disposed(CellId)`).
+  A disposed input now returns `Err(ReadError::Disposed(id))` instead of aborting.
+  The `Cycle` variant is structurally unreachable for inputs (they have no
+  dependencies) — documented in the shared `ReadError` type in `@incr/types`.
+  **Migration.** Match on `ReadError::Disposed(id)` instead of relying on the
+  absent abort. Prior code matching `Err(CycleError)` and `fail("unreachable")`
+  is unaffected — `ReadError::Cycle(e)` wraps the same `CycleError`.
+
+- **`DerivedMap` constructors add `V : Eq` bound.** `DerivedMap::DerivedMap`,
+  `Scope::derived_map`, and `create_derived_map` now require `V : Eq` on the
+  value type, closing the constructible-but-unreadable gap (the read methods
+  already needed this bound). `DerivedMap::fallible` adds `E : Eq` alongside
+  `V : Eq` for the same reason — `Result[V, E] : Eq` is required by the
+  read channel.
+
+### Changed
+
+- **`CycleError::path()` returns a fresh copy.** Previously it returned the
+  stored path array; mutating it could desynchronize the path from the
+  labels snapshot that `format_path` indexes by position (out-of-bounds
+  abort). `ReadError::path()` inherits the fix by delegation.
+
+### Added
+
+- **`Scope::watch(derived)`.** Folds watch creation, scope registration, and
+  one priming read into a single call. The priming read records the target's
+  upstream `gc_dependencies`, so a `Runtime::gc()` that runs before the first
+  consumer read can no longer sweep the upstream graph (the bare
+  `scope.add_watch(derived.watch())` form GC-roots only the uncomputed
+  terminal — see the contrast test in `incr/tests/scope_test.mbt`).
+
+### Deprecated
+
+- **`Input::new` / `Runtime::new` / `Relation::new`.** The `Type::Type`
+  constructor forms (`Input(rt, v)`, `Runtime()`, `Relation(rt)`) are
+  canonical. The aliases remain functional in this release; removal is planned
+  for a future breaking release after the `Expr[T]` track (see
+  `docs/plans/2026-07-05-public-api-boundary-cleanup.md`).
+
+- **`Effect::new(rt, f)`.** Replaced by `Effect(rt, f)` (`Effect::Effect`).
+  The old name remains functional. `Effect::Effect(Runtime, f)` is now the
+  canonical constructor form.
+
+### Note
+
+- **`Scope::new` is deliberately kept.** Unlike the other constructor aliases,
+  `Scope::new` is the pervasive documented form and the rename value does not
+  cover the churn. The `Scope` constructor remains `Scope::new(rt)`.
+- **`_no_backdate` variants are kept until `Expr[T]` lands.** The mapN family
+  (`map_no_backdate`, `derived2_no_backdate`, etc.) is interim algebra sugar
+  pending Track E; revisit when `Expr[T]` materialization ships.
+
 ## [0.9.0] - 2026-06-09
 
 ### Added
@@ -357,7 +460,9 @@ Initial release.
 - Batch updates with atomic multi-signal commits
 - Cycle detection
 
-[Unreleased]: https://github.com/dowdiness/incr/compare/v0.7.1...HEAD
+[Unreleased]: https://github.com/dowdiness/incr/compare/v0.14.1...HEAD
+[v0.14.1]: https://github.com/dowdiness/incr/compare/v0.14.0...v0.14.1
+[v0.14.0]: https://github.com/dowdiness/incr/compare/v0.13.0...v0.14.0
 [0.7.1]: https://github.com/dowdiness/incr/compare/4302e80...v0.7.1
 [0.7.0]: https://github.com/dowdiness/incr/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/dowdiness/incr/compare/v0.5.2...v0.6.0
