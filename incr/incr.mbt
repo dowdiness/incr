@@ -24,6 +24,7 @@ pub using @internal {
   type CellInfo,
   type Input,
   type InputField,
+  type InputView,
   type Derived,
   type DerivedEnteringEvent,
   type DerivedCompletedEvent,
