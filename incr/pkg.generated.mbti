@@ -80,6 +80,8 @@ pub using @cells {type Input}
 
 pub using @cells {type InputField}
 
+pub using @cells {type InputView}
+
 pub using @types {type InternId}
 
 pub using @types {type InternTable}
