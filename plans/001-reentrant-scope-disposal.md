@@ -235,6 +235,10 @@ owned cells. Add a concise `Fixed` entry under a new `Unreleased` section in
 `CHANGELOG.md` (or the existing Unreleased section if one has appeared) naming
 the recursive-disposal bug and the preserved order. Do not add a released
 version number or issue number.
+Retain the existing `Scope::on_dispose` resource-cleanup example in
+`incr/cells/scope.mbt`; add the new lifecycle wording around it rather than
+deleting practical listener-removal guidance. Refer to the scope as closed,
+not the closure.
 
 **Verify**: `rtk rg -n "re-entrant|children.*hooks.*cells|Unreleased" incr/cells/scope.mbt docs/api-reference.mbt.md CHANGELOG.md` → matches in all three files and accurately describes the implemented contract.
 
@@ -273,6 +277,7 @@ Machine-checkable. ALL must hold:
 - [ ] Children → hooks → owned-cells ordering is asserted by the new test.
 - [ ] Every cleanup hook runs at most once; a later dispose remains a no-op.
 - [ ] Existing public signatures are unchanged.
+- [ ] Existing `Scope::on_dispose` resource-cleanup example remains present.
 - [ ] `rtk moon test incr/tests/scope_test.mbt` exits 0.
 - [ ] `rtk moon fmt`, `rtk moon info`, `rtk moon check`, and `rtk moon test` exit 0 in that order.
 - [ ] `rtk git diff --exit-code -- incr/cells/pkg.generated.mbti` exits 0.

@@ -147,7 +147,7 @@
 
 | Purpose | Command | Expected on success |
 |---|---|---|
-| Targeted renderer tests | `rtk moon test incr_tea -f renderer_wbtest.mbt --target js` | exit 0; all renderer white-box tests pass |
+| Targeted renderer tests | `rtk moon test incr_tea/renderer_wbtest.mbt --target js` | exit 0; all renderer white-box tests pass |
 | Real browser regression | `rtk npm --prefix examples/incr_tea run test:dom` | exit 0; every line is `✓ ...`, including the new controlled equal-view case |
 | Format | `rtk moon fmt` | exit 0; MoonBit sources are formatted |
 | Regenerate interfaces | `rtk moon info` | exit 0; generated interfaces refresh |
@@ -210,7 +210,7 @@ In `examples/incr_tea/scripts/test-keyed-dom.mjs`, use the existing greet text i
 
 Run both tests before implementation and record the expected baseline failure. The new assertions must fail because equal `Html` returns before DOM property reconciliation; existing tests must remain green. Do not weaken the assertions to make baseline pass.
 
-**Verify**: `rtk moon test incr_tea -f renderer_wbtest.mbt --target js` → exits nonzero only at the new controlled equal-view assertions, with the live properties still holding the rejected values.
+**Verify**: `rtk moon test incr_tea/renderer_wbtest.mbt --target js` → exits nonzero only at the new controlled equal-view assertions, with the live properties still holding the rejected values.
 
 **Verify**: `rtk npm --prefix examples/incr_tea run test:dom` → exits nonzero only at the new rejected-mutation test; all earlier keyed identity/focus tests print `✓`.
 
@@ -229,7 +229,7 @@ Keep the decision about desired property state pure; only the existing JS render
 
 Update `incr_tea/README.mbt.md` only where it currently says false is represented solely by absence; document that the public helper still produces normal absent HTML attributes while retaining private controlled intent for DOM repair.
 
-**Verify**: `rtk moon test incr_tea -f renderer_wbtest.mbt --target js` → existing initial-render and changed-tree boolean tests pass; the equal-view test may still fail until Step 3.
+**Verify**: `rtk moon test incr_tea/renderer_wbtest.mbt --target js` → existing initial-render and changed-tree boolean tests pass; the equal-view test may still fail until Step 3.
 
 **Verify**: `rtk moon check` → exit 0 with `Attribute : Eq` and `Html : Eq` intact.
 
@@ -246,7 +246,7 @@ In `incr_tea/renderer_js.mbt`:
 
 Use cached `Rendered` nodes/attributes rather than traversing `Html` alongside DOM. Do not call `diff_rendered`, `patch_attrs`, `dom_replace_*`, keyed planners, or event attachment from the unchanged branch. Do not reset text selection when the live value already equals the desired value; compare before assigning.
 
-**Verify**: `rtk moon test incr_tea -f renderer_wbtest.mbt --target js` → exit 0; the new four-property regression and all existing stats, focus, keyed, lifecycle, and after-flush tests pass.
+**Verify**: `rtk moon test incr_tea/renderer_wbtest.mbt --target js` → exit 0; the new four-property regression and all existing stats, focus, keyed, lifecycle, and after-flush tests pass.
 
 **Verify**: `rtk npm --prefix examples/incr_tea run test:dom` → exit 0; rejected text/checkbox mutations are repaired and every existing identity/focus test remains green.
 
@@ -282,7 +282,7 @@ Run the repository pre-PR sequence in order. Inspect generated interfaces rather
   - the focused input remains the identical DOM node.
 - Model white-box structure after `renderer root: patch attempts only when watched Html changes` and the fake DOM at `incr_tea/renderer_wbtest.mbt:312-460`.
 - Model browser structure after `semantic editor controlled input patches dirty value property` at `examples/incr_tea/scripts/test-keyed-dom.mjs:295-327`.
-- Verification: `rtk moon test incr_tea -f renderer_wbtest.mbt --target js` and `rtk npm --prefix examples/incr_tea run test:dom` → all pass, including the new cases.
+- Verification: `rtk moon test incr_tea/renderer_wbtest.mbt --target js` and `rtk npm --prefix examples/incr_tea run test:dom` → all pass, including the new cases.
 
 ## Done criteria
 

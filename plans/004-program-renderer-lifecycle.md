@@ -121,9 +121,9 @@ A `Program` may be mounted more than once, but ownership is currently counted on
 
 | Purpose | Command | Expected on success |
 |---|---|---|
-| Renderer lifecycle tests | `rtk moon test incr_tea -f renderer_wbtest.mbt --target js` | exit 0; all renderer white-box tests pass |
-| Scheduler tests | `rtk moon test incr_tea -f scheduler_wbtest.mbt --target js` | exit 0; all scheduler tests pass |
-| Lifecycle tests | `rtk moon test incr_tea -f lifecycle_wbtest.mbt --target js` | exit 0; all lifecycle white-box tests pass |
+| Renderer lifecycle tests | `rtk moon test incr_tea/renderer_wbtest.mbt --target js` | exit 0; all renderer white-box tests pass |
+| Scheduler tests | `rtk moon test incr_tea/scheduler_wbtest.mbt --target js` | exit 0; all scheduler tests pass |
+| Lifecycle tests | `rtk moon test incr_tea/lifecycle_wbtest.mbt --target js` | exit 0; all lifecycle white-box tests pass |
 | Format | `rtk moon fmt` | exit 0; MoonBit sources are formatted |
 | Regenerate interfaces | `rtk moon info` | exit 0; generated interfaces refresh |
 | Check | `rtk moon check` | exit 0; no diagnostics |
@@ -183,9 +183,9 @@ In `incr_tea/scheduler_wbtest.mbt`, add a disposal test that places both pending
 
 Run the new tests against current code and record the failures: renderer A incorrectly disposes the program, two scheduler closures remain after one root is destroyed, and disposal leaves queued entries retained. Do not change existing one-renderer expectations.
 
-**Verify**: `rtk moon test incr_tea -f renderer_wbtest.mbt --target js` → exits nonzero only in the new cross-renderer/scheduler-registration assertions; existing lifecycle cases pass.
+**Verify**: `rtk moon test incr_tea/renderer_wbtest.mbt --target js` → exits nonzero only in the new cross-renderer/scheduler-registration assertions; existing lifecycle cases pass.
 
-**Verify**: `rtk moon test incr_tea -f scheduler_wbtest.mbt --target js` → exits nonzero only in the new queue-release assertions.
+**Verify**: `rtk moon test incr_tea/scheduler_wbtest.mbt --target js` → exits nonzero only in the new queue-release assertions.
 
 ### Step 2: Define a program-owned mount transition and removable handle
 
@@ -202,7 +202,7 @@ Recommended contract: releasing the final active mount disposes the program; rel
 
 Do not silently switch to single-renderer ownership. Do not compare closures for identity. Do not key only by `view_id`, because multiple roots legitimately share one program/view id and each needs a distinct removable scheduler registration.
 
-**Verify**: `rtk moon test incr_tea -f scheduler_wbtest.mbt --target js` → private registration transition tests pass; existing command-order and after-flush tests pass.
+**Verify**: `rtk moon test incr_tea/scheduler_wbtest.mbt --target js` → private registration transition tests pass; existing command-order and after-flush tests pass.
 
 **Verify**: `rtk moon check` → exit 0; all registration types/methods remain private.
 
@@ -219,9 +219,9 @@ Replace renderer-local program-disposal decisions with the program-owned release
 
 Several current white-box tests construct `BrowserRoot` directly and push it into renderer arrays, bypassing `mount`. Replace that repeated setup with one private test helper that registers a no-op scheduler through the same root-construction path. Do not allow unregistered production roots as a compatibility escape hatch.
 
-**Verify**: `rtk moon test incr_tea -f renderer_wbtest.mbt --target js` → exit 0; all new two-renderer/detached/order tests and existing #209/#268/shared-program tests pass.
+**Verify**: `rtk moon test incr_tea/renderer_wbtest.mbt --target js` → exit 0; all new two-renderer/detached/order tests and existing #209/#268/shared-program tests pass.
 
-**Verify**: `rtk moon test incr_tea -f lifecycle_wbtest.mbt --target js` → exit 0; scope/watch/cell cleanup and idempotence remain green.
+**Verify**: `rtk moon test incr_tea/lifecycle_wbtest.mbt --target js` → exit 0; scope/watch/cell cleanup and idempotence remain green.
 
 ### Step 4: Clear schedulers and pending work during explicit or final disposal
 
@@ -235,9 +235,9 @@ Strengthen `Program::dispose` in `incr_tea/program.mbt` so disposal, including f
 
 Do not run after-flush callbacks as cleanup; they are application effects that must be abandoned once their owner is disposed. Do not invoke stale scheduler closures during disposal.
 
-**Verify**: `rtk moon test incr_tea -f scheduler_wbtest.mbt --target js` → exit 0; pending callbacks/messages are released and never execute, reentrant drain settles, and existing order/atomicity tests pass.
+**Verify**: `rtk moon test incr_tea/scheduler_wbtest.mbt --target js` → exit 0; pending callbacks/messages are released and never execute, reentrant drain settles, and existing order/atomicity tests pass.
 
-**Verify**: `rtk moon test incr_tea -f renderer_wbtest.mbt --target js` → exit 0; after one root is removed only live renderer schedulers run, final release disposes, and teardown is idempotent.
+**Verify**: `rtk moon test incr_tea/renderer_wbtest.mbt --target js` → exit 0; after one root is removed only live renderer schedulers run, final release disposes, and teardown is idempotent.
 
 ### Step 5: Document the ownership contract and run all gates
 
@@ -280,7 +280,7 @@ Add an Unreleased `CHANGELOG.md` entry for the cross-renderer premature-disposal
   - post-dispose dispatch remains false and disposal remains idempotent.
 - `incr_tea/lifecycle_wbtest.mbt`: retain existing scope/watch/cell GC assertions; add registration/queue retention assertions only if not already directly covered in scheduler tests.
 - Model renderer setup after `#209: destroy keeps a shared Program alive while another root still renders it`, but split roots across two renderer objects.
-- Verification: the three targeted `moon test ... -f ... --target js` commands all pass, followed by package, browser, and full workspace gates.
+- Verification: `rtk moon test incr_tea/renderer_wbtest.mbt --target js`, `rtk moon test incr_tea/scheduler_wbtest.mbt --target js`, and `rtk moon test incr_tea/lifecycle_wbtest.mbt --target js` all pass, followed by package, browser, and full workspace gates.
 
 ## Done criteria
 
@@ -290,7 +290,7 @@ Add an Unreleased `CHANGELOG.md` entry for the cross-renderer premature-disposal
 - [ ] The final global mount release disposes the program, and explicit disposal clears every registration, pending message, and after-flush callback without executing abandoned effects.
 - [ ] Renderer-local stats, `view_ids`, labels, listener teardown, foreign-root rejection, and detached-root behavior remain covered and green.
 - [ ] No public API signature changes and `rtk git diff --exit-code -- incr_tea/pkg.generated.mbti` exits 0.
-- [ ] `rtk moon fmt`, `rtk moon info`, `rtk moon check`, all three targeted test files, `rtk moon test incr_tea --target js`, `rtk npm --prefix examples/incr_tea run test:dom`, and `rtk moon test` exit 0.
+- [ ] `rtk moon fmt`, `rtk moon info`, `rtk moon check`, `rtk moon test incr_tea/renderer_wbtest.mbt --target js`, `rtk moon test incr_tea/scheduler_wbtest.mbt --target js`, `rtk moon test incr_tea/lifecycle_wbtest.mbt --target js`, `rtk moon test incr_tea --target js`, `rtk npm --prefix examples/incr_tea run test:dom`, and `rtk moon test` all exit 0.
 - [ ] `rtk git diff --name-only` lists only in-scope files plus the permitted `plans/README.md` status edit.
 - [ ] `plans/README.md` status row updated.
 

@@ -130,9 +130,11 @@ Record the authoritative URLs and verification method in the new script's
 comments. A checksum calculated from the same mutable `unix.sh` download during
 the CI run is not independent verification and is unacceptable.
 
-**Verify**: document the official immutable artifact identifier and its
-verification source in the PR description; a reviewer must be able to fetch
-both independently and reproduce the integrity check.
+**Verify**: record the official immutable artifact identifier, source URL(s), and
+verification method in the executor handoff and in comments beside the pinned
+constants; a reviewer must be able to fetch the artifact and verification
+source independently and reproduce the integrity check. Do not require a PR
+description, because opening a PR is outside this plan.
 
 ### Step 2: Create one fail-closed repository-owned bootstrap
 
@@ -177,7 +179,8 @@ Do not silently upgrade release families while pinning. Remove
 - `rtk rg -n '^\\s*uses:.*@v' .github/workflows -g '*.yml'` → no matches.
 - `rtk rg -n '^\\s*uses:.*@[0-9a-f]{40}(\\s+#\\s+v[^ ]+)?$' .github/workflows -g '*.yml'` → one match for every remaining `uses:` line.
 - Manually cross-check each pinned SHA against the intended action repository
-  and tag; record the mapping in the PR description.
+  and tag; record the mapping in the executor handoff for the operator and
+  reviewer.
 
 ### Step 4: Preserve deployment and permission boundaries
 
@@ -218,8 +221,10 @@ environment.
   `moon version --all` step.
 - Review the Cloudflare job separately: artifact download and deployment remain
   pinned and the environment gate remains intact.
-- Verification: all checks in step 5 pass and GitHub Actions completes at least
-  one PR run using the pinned actions and verified bootstrap.
+- Verification: all checks in step 5 pass. If the operator later runs a PR,
+  confirm one GitHub Actions run completes with the pinned actions and verified
+  bootstrap; that external run is not a prerequisite for this plan's local
+  handoff.
 
 ## Done criteria
 

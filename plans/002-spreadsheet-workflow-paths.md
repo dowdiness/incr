@@ -8,8 +8,9 @@
 >
 > **Drift check (run first)**:
 > `rtk git diff --stat 31afb08..HEAD -- .github/workflows/spreadsheet-demo-build.yml .github/workflows/spreadsheet-cloudflare-pages.yml examples/typed_spreadsheet_rabbita_demo/moon.mod examples/typed_spreadsheet_incr_tea_demo/moon.mod`
-> If an in-scope workflow changed since this plan was written, compare the
-> current-state excerpts with the live files. On a mismatch, stop and report.
+> If any workflow or manifest file listed by this command changed since this
+> plan was written, compare the current-state excerpts with the live files. On
+> a mismatch, stop and report.
 
 ## Status
 
@@ -68,6 +69,7 @@ Match the existing single-quoted glob style and keep the two workflows aligned.
 | Purpose | Command | Expected on success |
 |---|---|---|
 | Locate filters | `rtk rg -n "incr/typed_spreadsheet|examples/typed_spreadsheet" .github/workflows/spreadsheet-*.yml` | only live `examples/typed_spreadsheet/**` filters remain after the edit |
+| Workflow syntax | `rtk actionlint .github/workflows/*.yml` | exit 0; no workflow syntax or expression errors |
 | Diff hygiene | `rtk git diff --check` | exit 0, no whitespace errors |
 | Boundary self-test | `rtk bash scripts/check-workspace-boundaries-selftest.sh` | all fixture checks print `selftest ok`; exit 0 |
 | Boundary check | `rtk bash scripts/check-workspace-boundaries.sh` | exit 0, no `FAIL` or `MISSING` output |
@@ -81,6 +83,7 @@ Match the existing single-quoted glob style and keep the two workflows aligned.
 
 - `.github/workflows/spreadsheet-demo-build.yml`
 - `.github/workflows/spreadsheet-cloudflare-pages.yml`
+- `plans/README.md` (status row only)
 
 **Out of scope**:
 
@@ -122,11 +125,14 @@ workflow but is not the site deployed by this workflow.
 
 ### Step 3: Run repository boundary and targeted checks
 
+Run `actionlint` before the boundary checks so the edited workflow files are
+validated as GitHub Actions configuration, not only as text.
 Run the boundary self-test before the real checker, then type-check the shared
 module and its two browser consumers.
 
 **Verify**:
 
+- `rtk actionlint .github/workflows/*.yml` → exit 0; no workflow syntax or expression errors.
 - `rtk bash scripts/check-workspace-boundaries-selftest.sh` → exit 0.
 - `rtk bash scripts/check-workspace-boundaries.sh` → exit 0.
 - `rtk moon check examples/typed_spreadsheet` → exit 0.
@@ -149,6 +155,7 @@ is selected by GitHub before merging.
 - [ ] Boundary self-test and boundary check exit 0.
 - [ ] All three targeted `moon check` commands exit 0.
 - [ ] `rtk git diff --check` exits 0.
+- [ ] `rtk actionlint .github/workflows/*.yml` exits 0.
 - [ ] Only the two in-scope workflow files and `plans/README.md` are modified.
 - [ ] The status row for plan 002 is updated in `plans/README.md`.
 
