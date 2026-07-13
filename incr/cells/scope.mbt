@@ -89,7 +89,7 @@ pub fn Scope::is_disposed(self : Scope) -> Bool {
 
 ///|
 /// Disposes this scope: child scopes first, then hooks, then owned cells.
-/// Closure is closed before any disposal effects run, so re-entrant
+/// Scope is closed before any disposal effects run, so re-entrant
 /// `dispose` calls are no-ops once teardown starts.
 /// Idempotent — disposing an already-closed scope is a no-op.
 pub fn Scope::dispose(self : Scope) -> Unit {
@@ -354,6 +354,17 @@ pub fn[T : Eq] Scope::watch_reachable(
 /// (step 2 of disposal order — after children, before owned cells).
 /// It does not run if the scope is already closed, and registration on a
 /// closing/closed scope (including teardown-in-progress) aborts.
+///
+/// This is the intended hook for releasing resources that were acquired
+/// at mount time, such as removing runtime-level listeners:
+///
+/// ```moonbit nocheck
+/// let scope = Scope::new(rt)
+/// let listener_id = rt.add_on_change_listener(() => sync())
+/// scope.on_dispose(() => {
+///   rt.remove_on_change_listener(listener_id)
+/// })
+/// ```
 pub fn Scope::on_dispose(self : Scope, cleanup : () -> Unit) -> Unit {
   guard !self.disposed else {
     abort("Scope::on_dispose called on a disposed scope")
