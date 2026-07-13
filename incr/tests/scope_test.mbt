@@ -291,6 +291,59 @@ test "scope: on_dispose child hooks fire before parent hooks" {
 }
 
 ///|
+test "scope: on_dispose is re-entrant-safe from child and parent hooks" {
+  let rt = @incr.Runtime()
+  let parent = @incr.Scope::new(rt)
+  let child = parent.child()
+  let child_sig = child.input(1)
+  let parent_sig = parent.input(10)
+  let mut child_log = ""
+  let mut child_hooks = 0
+  let mut parent_hooks = 0
+  let mut parent_closed_in_child_hook = false
+  let mut parent_closed_in_parent_hook = false
+  let mut child_sig_alive_during_child_hook = false
+  let mut child_sig_disposed_during_parent_hook = false
+  let mut parent_sig_alive_during_parent_hook = false
+
+  child.on_dispose(() => {
+    child_hooks = child_hooks + 1
+    child_log = child_log + "child,"
+    child_sig_alive_during_child_hook = !child_sig.is_disposed()
+    parent_closed_in_child_hook = parent.is_disposed()
+    parent.dispose()
+  })
+
+  parent.on_dispose(() => {
+    parent_hooks = parent_hooks + 1
+    child_log = child_log + "parent"
+    child_sig_disposed_during_parent_hook = child_sig.is_disposed()
+    parent_sig_alive_during_parent_hook = !parent_sig.is_disposed()
+    parent_closed_in_parent_hook = parent.is_disposed()
+    parent.dispose()
+  })
+
+  parent.dispose()
+
+  inspect(child_log, content="child,parent")
+  inspect(child_hooks, content="1")
+  inspect(parent_hooks, content="1")
+  inspect(child_sig_alive_during_child_hook, content="true")
+  inspect(child_sig_disposed_during_parent_hook, content="true")
+  inspect(parent_sig_alive_during_parent_hook, content="true")
+  inspect(parent_closed_in_child_hook, content="true")
+  inspect(parent_closed_in_parent_hook, content="true")
+  inspect(parent.is_disposed(), content="true")
+  inspect(child_sig.is_disposed(), content="true")
+  inspect(parent_sig.is_disposed(), content="true")
+
+  parent.dispose()
+  inspect(child_log, content="child,parent")
+  inspect(child_hooks, content="1")
+  inspect(parent_hooks, content="1")
+}
+
+///|
 test "panic scope: on_dispose on already disposed scope aborts" {
   let rt = @incr.Runtime()
   let scope = @incr.Scope::new(rt)

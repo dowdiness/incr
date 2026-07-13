@@ -2,6 +2,14 @@
 
 All notable changes to `dowdiness/incr` are documented in this file.
 
+## [Unreleased]
+
+### Fixed
+
+- Closed scopes before invoking disposal effects so `Scope::dispose()` is re-entrant safe.
+  Re-entering `dispose()` from child or parent hooks now returns immediately, while
+  preserving the teardown order as **children -> hooks -> owned cells**.
+
 ## [v0.14.2] - 2026-07-10
 
 ### Added

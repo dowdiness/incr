@@ -1063,6 +1063,13 @@ Use `scope.add_watch(watch) -> Watch[T]` to tie a long-lived target `Watch` to
 the same scope. Disposing the scope disposes the watch before owned cells are
 disposed.
 
+`Scope::dispose()` marks the scope as closed before invoking disposal effects.
+`dispose` re-entry during cleanup is a no-op: the scope is already closed and
+no additional hooks or cells are processed again. Teardown order remains fixed as
+**children -> hooks -> owned cells**, and registration methods that require an
+active scope (`child`, `input`, `derived*`, `on_dispose`, `add_watch`, etc.)
+abort once teardown has started.
+
 ### `create_accumulator[Ctx : RuntimeContext, T : Eq](ctx: Ctx, label? : String) -> Accumulator[T]`
 
 Creates a runtime-owned accumulator using `ctx.runtime()`. Prefer `Scope::accumulator` for scope-bound lifetimes.

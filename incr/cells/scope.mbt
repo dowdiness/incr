@@ -30,6 +30,15 @@ pub struct Scope {
 }
 
 ///|
+fn scope_dispose_request(disposed : Bool) -> (Bool, Bool) {
+  if disposed {
+    (true, false)
+  } else {
+    (true, true)
+  }
+}
+
+///|
 /// Contract for types that expose their runtime-tracked cell ids —
 /// typically structs that own `InputField` fields, but any cell handle
 /// qualifies.
@@ -79,11 +88,14 @@ pub fn Scope::is_disposed(self : Scope) -> Bool {
 }
 
 ///|
-/// Disposes this scope: children first, then hooks, then owned cells.
-///
-/// Idempotent — disposing an already-disposed scope is a no-op.
+/// Disposes this scope: child scopes first, then hooks, then owned cells.
+/// Scope is closed before any disposal effects run, so re-entrant
+/// `dispose` calls are no-ops once teardown starts.
+/// Idempotent — disposing an already-closed scope is a no-op.
 pub fn Scope::dispose(self : Scope) -> Unit {
-  guard !self.disposed else { return }
+  let (next_disposed, should_dispose) = scope_dispose_request(self.disposed)
+  self.disposed = next_disposed
+  guard should_dispose else { return }
   // 1. Dispose children (bottom-up)
   for child in self.children {
     child.dispose()
@@ -100,7 +112,6 @@ pub fn Scope::dispose(self : Scope) -> Unit {
   self.children.clear()
   self.dispose_hooks.clear()
   self.cells.clear()
-  self.disposed = true
 }
 
 ///|
@@ -339,10 +350,10 @@ pub fn[T : Eq] Scope::watch_reachable(
 
 ///|
 /// Registers a cleanup callback to run when this scope is disposed.
-///
 /// The callback runs at most once, during the dispose_hooks phase
 /// (step 2 of disposal order — after children, before owned cells).
-/// Registration on an already-disposed scope aborts.
+/// It does not run if the scope is already closed, and registration on a
+/// closing/closed scope (including teardown-in-progress) aborts.
 ///
 /// This is the intended hook for releasing resources that were acquired
 /// at mount time, such as removing runtime-level listeners:

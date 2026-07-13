@@ -148,6 +148,7 @@ only one terminal transition.
 - `docs/api-reference.mbt.md`
 - `CHANGELOG.md`
 - `plans/README.md` (status row only)
+- `plans/001-reentrant-scope-disposal.md` (done-criteria checkboxes only).
 
 **Out of scope** (do NOT touch, even though they look related):
 
@@ -272,17 +273,17 @@ Run the repository-required order. Inspect the generated interface diff after
 
 Machine-checkable. ALL must hold:
 
-- [ ] `Scope::dispose` closes its lifecycle before invoking any child or hook.
-- [ ] Re-entry from a child hook and a parent hook completes without recursion.
-- [ ] Children → hooks → owned-cells ordering is asserted by the new test.
-- [ ] Every cleanup hook runs at most once; a later dispose remains a no-op.
-- [ ] Existing public signatures are unchanged.
-- [ ] Existing `Scope::on_dispose` resource-cleanup example remains present.
-- [ ] `rtk moon test incr/tests/scope_test.mbt` exits 0.
-- [ ] `rtk moon fmt`, `rtk moon info`, `rtk moon check`, and `rtk moon test` exit 0 in that order.
-- [ ] `rtk git diff --exit-code -- incr/cells/pkg.generated.mbti` exits 0.
-- [ ] `rtk git status --short` lists no files outside the in-scope set.
-- [ ] `plans/README.md` status row is updated unless the dispatcher owns it.
+- [x] `Scope::dispose` closes its lifecycle before invoking any child or hook.
+- [x] Re-entry from a child hook and a parent hook completes without recursion.
+- [x] Children → hooks → owned-cells ordering is asserted by the new test.
+- [x] Every cleanup hook runs at most once; a later dispose remains a no-op.
+- [x] Existing public signatures are unchanged.
+- [x] Existing `Scope::on_dispose` resource-cleanup example remains present.
+- [x] `rtk moon test incr/tests/scope_test.mbt` exits 0.
+- [x] `rtk moon fmt`, `rtk moon info`, `rtk moon check`, and `rtk moon test` exit 0 in that order.
+- [x] `rtk git diff --exit-code -- incr/cells/pkg.generated.mbti` exits 0.
+- [x] `rtk git status --short` lists no files outside the in-scope set.
+- [x] `plans/README.md` status row is updated unless the dispatcher owns it.
 
 ## STOP conditions
 
