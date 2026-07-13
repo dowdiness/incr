@@ -148,6 +148,7 @@ only one terminal transition.
 - `docs/api-reference.mbt.md`
 - `CHANGELOG.md`
 - `plans/README.md` (status row only)
+- `plans/001-reentrant-scope-disposal.md` (done-criteria checkboxes only).
 
 **Out of scope** (do NOT touch, even though they look related):
 
