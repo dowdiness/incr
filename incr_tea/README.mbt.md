@@ -103,9 +103,10 @@ The renderer mounts experimental public `Program[Msg, Html[Msg]]` roots,
 installs a runtime `on_change` hook, and schedules one `requestAnimationFrame`
 flush for a burst of model changes. A flush reads each active root's persistent
 `Watch`; if the cacheable `Html` value is equal to the last rendered value, the
-renderer records a skipped patch and leaves the DOM alone. If the value changed,
-it records a patch attempt and applies a small positional VDOM diff. Inactive
-mounted roots stay in the owned root set and keep their DOM attached, but the
+renderer records a skipped patch and runs only the narrow controlled form-property
+repair for live `value`/`checked`/`disabled`/`selected` drift. If the value
+changed, it records a patch attempt and applies a small positional VDOM diff.
+Inactive mounted roots stay in the owned root set and keep their DOM attached, but the
 scheduled frame records an inactive skip instead of reading the watched view;
 activation records a catch-up flush and reads/diffs once. The chosen trigger
 policy is manual-first hybrid: product/semantic UI actions should use
@@ -243,12 +244,10 @@ Conventions:
   belong at `BrowserRenderer::mount`.
 - Boolean form-control properties (`checked`, `disabled`, `selected`) use
   `Attrs::checked(Bool)`, `Attrs::disabled(Bool)`, and `Attrs::selected(Bool)`.
-  These set the DOM property directly (e.g. `element.checked = true`) in addition
-  to the HTML attribute, so controlled-checkbox, disabled-button, and
-  selected-option state is reliable under framework-level re-rendering. Absence
-  of the builder call means `false` (the diff system removes the attribute and
-  resets the DOM property). For a one-off boolean property, use `prop_bool(name)`
-  directly.
+  Calling the helper with either `true` or `false` makes the property controlled:
+  the renderer writes the DOM property directly and equal-view flushes repair live
+  browser drift. Omitting the helper leaves that property uncontrolled and
+  browser-owned. For a one-off boolean property, use `prop_bool(name)` directly.
 
 ### Semantic editor driver (#251)
 

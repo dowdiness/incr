@@ -78,40 +78,28 @@ pub fn Attrs::to_array(self : Attrs) -> Array[Attribute] {
 }
 
 ///|
-/// Sets the DOM `checked` property on checkbox/radio inputs. Presence sets
-/// `true`; omission sets `false`. Use instead of a string `checked` attribute,
-/// which does not reliably control the live `.checked` DOM property.
+/// Sets the DOM `checked` property on checkbox/radio inputs. Both `true` and
+/// `false` are explicit controlled intents; omit the helper for uncontrolled
+/// browser-owned state.
 #cfg(target="js")
 pub fn Attrs::checked(self : Attrs, value : Bool) -> Attrs {
-  if value {
-    self.append(prop_bool("checked"))
-  } else {
-    self
-  }
+  self.append(prop_bool_value("checked", value))
 }
 
 ///|
-/// Sets the DOM `disabled` property on form controls. Presence sets `true`;
-/// omission sets `false`. Uses the DOM property directly (`element.disabled`)
-/// in addition to the HTML attribute.
+/// Sets the DOM `disabled` property on form controls. Both `true` and `false`
+/// are explicit controlled intents; omit the helper for uncontrolled
+/// browser-owned state.
 #cfg(target="js")
 pub fn Attrs::disabled(self : Attrs, value : Bool) -> Attrs {
-  if value {
-    self.append(prop_bool("disabled"))
-  } else {
-    self
-  }
+  self.append(prop_bool_value("disabled", value))
 }
 
 ///|
-/// Sets the DOM `selected` property on `<option>` elements. Presence sets
-/// `true`; omission sets `false`. Uses the DOM property (`element.selected`)
-/// in addition to the HTML attribute, matching controlled-select behavior.
+/// Sets the DOM `selected` property on `<option>` elements. Both `true` and
+/// `false` are explicit controlled intents; omit the helper for uncontrolled
+/// browser-owned state.
 #cfg(target="js")
 pub fn Attrs::selected(self : Attrs, value : Bool) -> Attrs {
-  if value {
-    self.append(prop_bool("selected"))
-  } else {
-    self
-  }
+  self.append(prop_bool_value("selected", value))
 }

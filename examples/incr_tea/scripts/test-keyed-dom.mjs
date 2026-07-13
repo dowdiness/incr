@@ -253,6 +253,51 @@ try {
     );
   });
 
+  await runTest('controlled greet properties recover on unchanged animation-frame flush', async () => {
+    await gotoDemo(page, baseUrl);
+    const setup = await page.evaluate(() => {
+      const input = document.querySelector('#greet-root .demo-input');
+      const checkbox = document.querySelector('#greet-root .demo-checkbox');
+      if (!(input instanceof HTMLInputElement)) throw new Error('missing greet text input');
+      if (!(checkbox instanceof HTMLInputElement)) throw new Error('missing greet checkbox');
+      input.focus();
+      globalThis.__incrTeaGreetInputBefore = input;
+      globalThis.__incrTeaGreetCheckboxBefore = checkbox;
+      input.value = 'rejected';
+      checkbox.checked = true;
+      return { focused: document.activeElement === input };
+    });
+    assert(setup.focused, 'setup failed to focus greet input');
+
+    const beforeFlushes = await frameFlushes(page);
+    await clickCounterButton(page, 'touch unread field');
+    await page.waitForFunction(previous => {
+      const text = document.querySelector('#render-stats')?.textContent ?? '';
+      const match = text.match(/rAF flushes: (\d+)/);
+      return match ? Number(match[1]) > previous : false;
+    }, beforeFlushes);
+
+    const state = await page.evaluate(() => {
+      const input = document.querySelector('#greet-root .demo-input');
+      const checkbox = document.querySelector('#greet-root .demo-checkbox');
+      return {
+        sameInput: input === globalThis.__incrTeaGreetInputBefore,
+        sameCheckbox: checkbox === globalThis.__incrTeaGreetCheckboxBefore,
+        focused: document.activeElement === input,
+        value: input instanceof HTMLInputElement ? input.value : null,
+        checked: checkbox instanceof HTMLInputElement ? checkbox.checked : null,
+      };
+    });
+    assert(
+      state.sameInput && state.sameCheckbox && state.focused,
+      `unchanged greet flush should preserve nodes and focus; state=${JSON.stringify(state)}`,
+    );
+    assert(
+      state.value === '' && state.checked === false,
+      `unchanged greet flush should restore controlled value/checked; state=${JSON.stringify(state)}`,
+    );
+  });
+
   await runTest('focused keyed input loses focus when its keyed row is removed', async () => {
     await gotoDemo(page, baseUrl);
     await captureKeyedRows(page, listRows, 'before-focus-remove');
