@@ -244,12 +244,10 @@ Conventions:
   belong at `BrowserRenderer::mount`.
 - Boolean form-control properties (`checked`, `disabled`, `selected`) use
   `Attrs::checked(Bool)`, `Attrs::disabled(Bool)`, and `Attrs::selected(Bool)`.
-  These set the DOM property directly (e.g. `element.checked = true`) in addition
-  to the HTML attribute, so controlled-checkbox, disabled-button, and
-  selected-option state is reliable under framework-level re-rendering. Absence
-  of the builder call means `false` (the diff system removes the attribute and
-  resets the DOM property). For a one-off boolean property, use `prop_bool(name)`
-  directly.
+  Calling the helper with either `true` or `false` makes the property controlled:
+  the renderer writes the DOM property directly and equal-view flushes repair live
+  browser drift. Omitting the helper leaves that property uncontrolled and
+  browser-owned. For a one-off boolean property, use `prop_bool(name)` directly.
 
 ### Semantic editor driver (#251)
 
