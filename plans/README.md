@@ -14,8 +14,8 @@ instruction.
 | Plan | Title | Priority | Effort | Depends on | Status |
 |---|---|---:|---:|---|---|
 | [001](001-reentrant-scope-disposal.md) | Make scope disposal re-entrant, ordered, and at-most-once | P1 | S | — | DONE |
-| [002](002-spreadsheet-workflow-paths.md) | Restore spreadsheet workflow coverage for shared-engine changes | P1 | S | — | TODO |
-| [003](003-controlled-dom-reconciliation.md) | Reconcile controlled DOM properties when virtual HTML is unchanged | P1 | M | — | TODO |
+| [002](002-spreadsheet-workflow-paths.md) | Restore spreadsheet workflow coverage for shared-engine changes | P1 | S | — | DONE |
+| [003](003-controlled-dom-reconciliation.md) | Reconcile controlled DOM properties when virtual HTML is unchanged | P1 | M | — | DONE |
 | [004](004-program-renderer-lifecycle.md) | Make shared Program mount ownership and scheduler teardown global | P1 | M | 003 | TODO |
 | [005](005-datalog-relation-rule-lifecycle.md) | Enforce relation and rule lifecycle integrity in Datalog | P1 | M | — | TODO |
 | [006](006-ci-supply-chain-bootstrap.md) | Make CI bootstrap reproducible and pin third-party actions | P1 | M | 002 | TODO |
