@@ -101,19 +101,19 @@ test "renderer root: patch attempts only when watched Html changes" {
   let stats = RenderStats::RenderStats()
   let root = WatchedHtmlRoot::WatchedHtmlRoot(program, stats)
 
-  guard root.read_changed() is Some(_) else {
+  guard root.read_changed() is ViewChanged(_) else {
     fail("initial read should patch")
   }
   inspect(stats.patch_attempts, content="1")
   inspect(stats.skipped_patches, content="0")
 
   inspect(program.dispatch(SetUnrelated(42)), content="true")
-  debug_inspect(root.read_changed(), content="None")
+  inspect(root.read_changed() is ViewUnchanged, content="true")
   inspect(stats.patch_attempts, content="1")
   inspect(stats.skipped_patches, content="1")
 
   inspect(program.dispatch(Increment), content="true")
-  guard root.read_changed() is Some(_) else {
+  guard root.read_changed() is ViewChanged(_) else {
     fail("changed count should patch")
   }
   inspect(stats.patch_attempts, content="2")
@@ -191,17 +191,17 @@ test "#251: semantic editor projection and inspector skip distinct slices" {
   )
   let inspector_recomputes = install_view_recompute_counter(runtime, inspector)
 
-  guard projection_root.read_changed() is Some(_) else {
+  guard projection_root.read_changed() is ViewChanged(_) else {
     fail("projection initial patch")
   }
-  guard inspector_root.read_changed() is Some(_) else {
+  guard inspector_root.read_changed() is ViewChanged(_) else {
     fail("inspector initial patch")
   }
   inspect(stats.patch_attempts, content="2")
 
   inspect(projection.dispatch(EditorBumpDiagnostics), content="true")
-  debug_inspect(projection_root.read_changed(), content="None")
-  guard inspector_root.read_changed() is Some(_) else {
+  inspect(projection_root.read_changed() is ViewUnchanged, content="true")
+  guard inspector_root.read_changed() is ViewChanged(_) else {
     fail("diagnostic edit should patch inspector")
   }
   inspect(stats.patch_attempts, content="3")
@@ -210,10 +210,10 @@ test "#251: semantic editor projection and inspector skip distinct slices" {
   inspect(inspector_recomputes.val, content="1")
 
   inspect(projection.dispatch(EditorTouchViewport), content="true")
-  guard projection_root.read_changed() is Some(_) else {
+  guard projection_root.read_changed() is ViewChanged(_) else {
     fail("viewport edit should patch projection")
   }
-  debug_inspect(inspector_root.read_changed(), content="None")
+  inspect(inspector_root.read_changed() is ViewUnchanged, content="true")
   inspect(stats.patch_attempts, content="4")
   inspect(stats.skipped_patches, content="2")
   inspect(projection_recomputes.val, content="1")
@@ -279,27 +279,27 @@ test "renderer roots: child boundary skips unchanged watched root" {
   let parent_root = WatchedHtmlRoot::WatchedHtmlRoot(parent, stats)
   let child_root = WatchedHtmlRoot::WatchedHtmlRoot(child, stats)
 
-  guard parent_root.read_changed() is Some(_) else {
+  guard parent_root.read_changed() is ViewChanged(_) else {
     fail("parent initial patch")
   }
-  guard child_root.read_changed() is Some(_) else {
+  guard child_root.read_changed() is ViewChanged(_) else {
     fail("child initial patch")
   }
   inspect(stats.patch_attempts, content="2")
 
   inspect(parent.dispatch(ParentOnly), content="true")
-  guard parent_root.read_changed() is Some(_) else {
+  guard parent_root.read_changed() is ViewChanged(_) else {
     fail("parent update should patch")
   }
-  debug_inspect(child_root.read_changed(), content="None")
+  inspect(child_root.read_changed() is ViewUnchanged, content="true")
   inspect(stats.patch_attempts, content="3")
   inspect(stats.skipped_patches, content="1")
 
   inspect(child.dispatch(ChildOnly), content="true")
-  guard child_root.read_changed() is Some(_) else {
+  guard child_root.read_changed() is ViewChanged(_) else {
     fail("child update should patch")
   }
-  debug_inspect(parent_root.read_changed(), content="None")
+  inspect(parent_root.read_changed() is ViewUnchanged, content="true")
   inspect(stats.patch_attempts, content="4")
   inspect(stats.skipped_patches, content="2")
 
@@ -353,8 +353,23 @@ extern "js" fn test_install_focus_dom() -> DomElement =
   #|       this.parentNode = null;
   #|       this.attributes = new Map();
   #|       this.listeners = new Map();
-  #|       this.value = "";
+  #|       this._value = "";
+  #|       this._checked = false;
+  #|       this._disabled = false;
+  #|       this._selected = false;
+  #|       this.__propertyWrites = new Map();
   #|     }
+  #|     __recordPropertyWrite(name) {
+  #|       this.__propertyWrites.set(name, (this.__propertyWrites.get(name) ?? 0) + 1);
+  #|     }
+  #|     get value() { return this._value; }
+  #|     set value(value) { this.__recordPropertyWrite("value"); this._value = String(value); }
+  #|     get checked() { return this._checked; }
+  #|     set checked(value) { this.__recordPropertyWrite("checked"); this._checked = !!value; }
+  #|     get disabled() { return this._disabled; }
+  #|     set disabled(value) { this.__recordPropertyWrite("disabled"); this._disabled = !!value; }
+  #|     get selected() { return this._selected; }
+  #|     set selected(value) { this.__recordPropertyWrite("selected"); this._selected = !!value; }
   #|     appendChild(child) {
   #|       if (child.parentNode) child.parentNode.removeChild(child);
   #|       this.children.push(child);
@@ -449,6 +464,57 @@ extern "js" fn test_focused_id() -> String =
 #cfg(target="js")
 extern "js" fn test_selected_id() -> String =
   #| () => globalThis.__incrTeaSelectedId ?? ""
+
+///|
+#cfg(target="js")
+extern "js" fn test_dom_get_by_id(id : String) -> DomElement =
+  #| (id) => {
+  #|   const el = document.getElementById(String(id));
+  #|   if (!el) throw new Error(`missing test element #${id}`);
+  #|   return el;
+  #| }
+
+///|
+#cfg(target="js")
+extern "js" fn test_dom_same_node(a : DomElement, b : DomElement) -> Bool =
+  #| (a, b) => a === b
+
+///|
+#cfg(target="js")
+extern "js" fn test_dom_set_value(element : DomElement, value : String) -> Unit =
+  #| (element, value) => { element._value = String(value); }
+
+///|
+#cfg(target="js")
+extern "js" fn test_dom_value(element : DomElement) -> String =
+  #| (element) => String(element.value ?? "")
+
+///|
+#cfg(target="js")
+extern "js" fn test_dom_set_bool(
+  element : DomElement,
+  name : String,
+  value : Bool,
+) -> Unit =
+  #| (element, name, value) => { element[`_${name}`] = !!value; }
+
+///|
+#cfg(target="js")
+extern "js" fn test_dom_bool(element : DomElement, name : String) -> Bool =
+  #| (element, name) => !!element[name]
+
+///|
+#cfg(target="js")
+extern "js" fn test_dom_property_writes(
+  element : DomElement,
+  name : String,
+) -> Int =
+  #| (element, name) => element.__propertyWrites?.get(String(name)) ?? 0
+
+///|
+#cfg(target="js")
+extern "js" fn test_dom_focus(element : DomElement) -> Unit =
+  #| (element) => { element.focus(); }
 
 ///|
 #cfg(target="js")
@@ -831,6 +897,238 @@ test "#268: renderer schedules after_flush even when Html is unchanged" {
 
   renderer.dispose()
   test_restore_dom()
+}
+
+///|
+#cfg(target="js")
+test "#003: equal Html flush restores controlled false properties without patching" {
+  let host = test_install_focus_dom()
+  let runtime = @incr.Runtime()
+  let renderer : BrowserRenderer[RendererMsg] = BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  let scope = @incr.Scope::new(runtime)
+  let unrelated = scope.input_field(0, label="renderer.controlled.unrelated")
+  let update : (RendererMsg) -> Cmd[RendererMsg] = msg => {
+    match msg {
+      SetUnrelated(next) => unrelated.set(next)
+      _ => ()
+    }
+    Cmd::none()
+  }
+  let view : () -> Html[RendererMsg] raise Failure = () => {
+    let _ = unrelated
+    div([
+      input(
+        attrs=Attrs::build()
+          .attr("id", "controlled-text")
+          .value("accepted")
+          .to_array(),
+      ),
+      input(
+        attrs=Attrs::build()
+          .attr("id", "controlled-checked-false")
+          .attr("type", "checkbox")
+          .checked(false)
+          .to_array(),
+      ),
+      input(
+        attrs=Attrs::build()
+          .attr("id", "controlled-disabled-false")
+          .disabled(false)
+          .to_array(),
+      ),
+      node("select", [
+        node(
+          "option",
+          attrs=Attrs::build()
+            .attr("id", "controlled-selected-false")
+            .selected(false)
+            .to_array(),
+          [text("choice")],
+        ),
+      ]),
+    ])
+  }
+  let program = Program::Program(
+    runtime,
+    scope,
+    update,
+    view,
+    label="renderer.controlled.false.view",
+  )
+  ignore(renderer.mount(host, program))
+
+  let text_input = test_dom_get_by_id("controlled-text")
+  let checked_input = test_dom_get_by_id("controlled-checked-false")
+  let disabled_input = test_dom_get_by_id("controlled-disabled-false")
+  let selected_option = test_dom_get_by_id("controlled-selected-false")
+  let text_writes = test_dom_property_writes(text_input, "value")
+  let checked_writes = test_dom_property_writes(checked_input, "checked")
+  let disabled_writes = test_dom_property_writes(disabled_input, "disabled")
+  let selected_writes = test_dom_property_writes(selected_option, "selected")
+  let order_text = test_dom_text(host)
+  test_dom_focus(text_input)
+
+  test_dom_set_value(text_input, "rejected")
+  test_dom_set_bool(checked_input, "checked", true)
+  test_dom_set_bool(disabled_input, "disabled", true)
+  test_dom_set_bool(selected_option, "selected", true)
+  let dispatched_first = program.dispatch(SetUnrelated(1))
+  let pending_count = test_pending_raf_count()
+  test_run_next_raf()
+
+  let restored_value = test_dom_value(text_input)
+  let restored_checked = test_dom_bool(checked_input, "checked")
+  let restored_disabled = test_dom_bool(disabled_input, "disabled")
+  let restored_selected = test_dom_bool(selected_option, "selected")
+  let same_text_node = test_dom_same_node(
+    text_input,
+    test_dom_get_by_id("controlled-text"),
+  )
+  let same_checked_node = test_dom_same_node(
+    checked_input,
+    test_dom_get_by_id("controlled-checked-false"),
+  )
+  let focused_id = test_focused_id()
+  let after_order_text = test_dom_text(host)
+  let patch_attempts_after_first = renderer.stats().patch_attempts
+  let skipped_after_first = renderer.stats().skipped_patches
+  let text_writes_after_first = test_dom_property_writes(text_input, "value")
+  let checked_writes_after_first = test_dom_property_writes(
+    checked_input, "checked",
+  )
+  let disabled_writes_after_first = test_dom_property_writes(
+    disabled_input, "disabled",
+  )
+  let selected_writes_after_first = test_dom_property_writes(
+    selected_option, "selected",
+  )
+
+  let dispatched_second = program.dispatch(SetUnrelated(2))
+  test_run_next_raf()
+  let patch_attempts_after_second = renderer.stats().patch_attempts
+  let skipped_after_second = renderer.stats().skipped_patches
+  let text_writes_after_second = test_dom_property_writes(text_input, "value")
+  let checked_writes_after_second = test_dom_property_writes(
+    checked_input, "checked",
+  )
+  let disabled_writes_after_second = test_dom_property_writes(
+    disabled_input, "disabled",
+  )
+  let selected_writes_after_second = test_dom_property_writes(
+    selected_option, "selected",
+  )
+
+  renderer.dispose()
+  test_restore_dom()
+
+  inspect(dispatched_first, content="true")
+  inspect(pending_count, content="1")
+  inspect(restored_value, content="accepted")
+  inspect(restored_checked, content="false")
+  inspect(restored_disabled, content="false")
+  inspect(restored_selected, content="false")
+  inspect(same_text_node, content="true")
+  inspect(same_checked_node, content="true")
+  inspect(focused_id, content="controlled-text")
+  inspect(after_order_text, content=order_text)
+  inspect(patch_attempts_after_first, content="1")
+  inspect(skipped_after_first, content="1")
+  inspect(text_writes_after_first == text_writes + 1, content="true")
+  inspect(checked_writes_after_first == checked_writes + 1, content="true")
+  inspect(disabled_writes_after_first == disabled_writes + 1, content="true")
+  inspect(selected_writes_after_first == selected_writes + 1, content="true")
+  inspect(dispatched_second, content="true")
+  inspect(patch_attempts_after_second, content="1")
+  inspect(skipped_after_second, content="2")
+  inspect(text_writes_after_second == text_writes + 1, content="true")
+  inspect(checked_writes_after_second == checked_writes + 1, content="true")
+  inspect(disabled_writes_after_second == disabled_writes + 1, content="true")
+  inspect(selected_writes_after_second == selected_writes + 1, content="true")
+}
+
+///|
+#cfg(target="js")
+test "#003: equal Html flush restores controlled true booleans" {
+  let host = test_install_focus_dom()
+  let runtime = @incr.Runtime()
+  let renderer : BrowserRenderer[RendererMsg] = BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  let scope = @incr.Scope::new(runtime)
+  let unrelated = scope.input_field(
+    0,
+    label="renderer.controlled.true.unrelated",
+  )
+  let update : (RendererMsg) -> Cmd[RendererMsg] = msg => {
+    match msg {
+      SetUnrelated(next) => unrelated.set(next)
+      _ => ()
+    }
+    Cmd::none()
+  }
+  let view : () -> Html[RendererMsg] raise Failure = () => {
+    let _ = unrelated
+    div([
+      input(
+        attrs=Attrs::build()
+          .attr("id", "controlled-checked-true")
+          .attr("type", "checkbox")
+          .checked(true)
+          .to_array(),
+      ),
+      input(
+        attrs=Attrs::build()
+          .attr("id", "controlled-disabled-true")
+          .disabled(true)
+          .to_array(),
+      ),
+      node("select", [
+        node(
+          "option",
+          attrs=Attrs::build()
+            .attr("id", "controlled-selected-true")
+            .selected(true)
+            .to_array(),
+          [text("choice")],
+        ),
+      ]),
+    ])
+  }
+  let program = Program::Program(
+    runtime,
+    scope,
+    update,
+    view,
+    label="renderer.controlled.true.view",
+  )
+  ignore(renderer.mount(host, program))
+
+  let checked_input = test_dom_get_by_id("controlled-checked-true")
+  let disabled_input = test_dom_get_by_id("controlled-disabled-true")
+  let selected_option = test_dom_get_by_id("controlled-selected-true")
+  test_dom_set_bool(checked_input, "checked", false)
+  test_dom_set_bool(disabled_input, "disabled", false)
+  test_dom_set_bool(selected_option, "selected", false)
+  let dispatched = program.dispatch(SetUnrelated(1))
+  test_run_next_raf()
+
+  let restored_checked = test_dom_bool(checked_input, "checked")
+  let restored_disabled = test_dom_bool(disabled_input, "disabled")
+  let restored_selected = test_dom_bool(selected_option, "selected")
+  let patch_attempts = renderer.stats().patch_attempts
+  let skipped = renderer.stats().skipped_patches
+
+  renderer.dispose()
+  test_restore_dom()
+
+  inspect(dispatched, content="true")
+  inspect(restored_checked, content="true")
+  inspect(restored_disabled, content="true")
+  inspect(restored_selected, content="true")
+  inspect(patch_attempts, content="1")
+  inspect(skipped, content="1")
 }
 
 ///|

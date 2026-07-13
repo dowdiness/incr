@@ -90,6 +90,14 @@ pub fn RenderStats::add(self : RenderStats, other : RenderStats) -> RenderStats 
 
 ///|
 #cfg(target="js")
+priv enum WatchedHtmlRead[Msg] {
+  ViewDisposed
+  ViewChanged(Html[Msg])
+  ViewUnchanged
+}
+
+///|
+#cfg(target="js")
 priv struct WatchedHtmlRoot[Msg] {
   program : Program[Msg, Html[Msg]]
   label : String
@@ -111,22 +119,22 @@ fn[Msg] WatchedHtmlRoot::WatchedHtmlRoot(
 #cfg(target="js")
 fn[Msg : Eq] WatchedHtmlRoot::read_changed(
   self : WatchedHtmlRoot[Msg],
-) -> Html[Msg]? {
-  guard self.program.read_view() is Some(next) else { return None }
+) -> WatchedHtmlRead[Msg] {
+  guard self.program.read_view() is Some(next) else { return ViewDisposed }
   match self.last_view {
     Some(prev) =>
       if prev == next {
         self.stats.skipped_patches = self.stats.skipped_patches + 1
-        None
+        ViewUnchanged
       } else {
         self.stats.patch_attempts = self.stats.patch_attempts + 1
         self.last_view = Some(next)
-        Some(next)
+        ViewChanged(next)
       }
     None => {
       self.stats.patch_attempts = self.stats.patch_attempts + 1
       self.last_view = Some(next)
-      Some(next)
+      ViewChanged(next)
     }
   }
 }

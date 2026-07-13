@@ -139,6 +139,19 @@ extern "js" fn dom_set_bool_property(
 
 ///|
 #cfg(target="js")
+extern "js" fn dom_get_value_property(element : DomElement) -> String =
+  #| (element) => element.value == null ? "" : String(element.value)
+
+///|
+#cfg(target="js")
+extern "js" fn dom_get_bool_property(
+  element : DomElement,
+  name : String,
+) -> Bool =
+  #| (element, name) => !!element[name]
+
+///|
+#cfg(target="js")
 extern "js" fn dom_add_event_listener(
   element : DomElement,
   name : String,
@@ -507,6 +520,84 @@ fn attr_by_name(attrs : Array[Attribute], name : String) -> Attribute? {
 
 ///|
 #cfg(target="js")
+priv enum ControlledProperty {
+  ControlledValue(String)
+  ControlledBool(name~ : String, value~ : Bool)
+}
+
+///|
+#cfg(target="js")
+fn is_controlled_bool_property(name : String) -> Bool {
+  name == "checked" || name == "disabled" || name == "selected"
+}
+
+///|
+#cfg(target="js")
+fn classify_controlled_property(
+  tag : String,
+  attr : Attribute,
+) -> ControlledProperty? {
+  if tag == "input" && attr.name == "value" && attr.bool_value is None {
+    Some(ControlledValue(attr.value))
+  } else {
+    match attr.bool_value {
+      Some(value) =>
+        if is_controlled_bool_property(attr.name) {
+          Some(ControlledBool(name=attr.name, value~))
+        } else {
+          None
+        }
+      None => None
+    }
+  }
+}
+
+///|
+#cfg(target="js")
+fn reconcile_controlled_attr(
+  tag : String,
+  element : DomElement,
+  attr : Attribute,
+) -> Unit {
+  match classify_controlled_property(tag, attr) {
+    Some(ControlledValue(value)) =>
+      if dom_get_value_property(element) != value {
+        dom_set_value_property(element, value)
+      }
+    Some(ControlledBool(name~, value~)) =>
+      if dom_get_bool_property(element, name) != value {
+        dom_set_bool_property(element, name, value)
+      }
+    None => ()
+  }
+}
+
+///|
+#cfg(target="js")
+fn[Msg] reconcile_controlled_rendered(rendered : Rendered[Msg]) -> Unit {
+  match rendered {
+    RenderedText(_, _) | RenderedDirectText(_, _, _) => ()
+    RenderedElem(tag~, attrs~, children~, element~, ..) => {
+      for attr in attrs {
+        reconcile_controlled_attr(tag, element, attr)
+      }
+      for child in children {
+        reconcile_controlled_rendered(child)
+      }
+    }
+    RenderedKeyedElem(tag~, attrs~, children~, element~, ..) => {
+      for attr in attrs {
+        reconcile_controlled_attr(tag, element, attr)
+      }
+      for pair in children {
+        reconcile_controlled_rendered(pair.1)
+      }
+    }
+  }
+}
+
+///|
+#cfg(target="js")
 fn patch_attrs(
   tag : String,
   old_attrs : Array[Attribute],
@@ -518,7 +609,7 @@ fn patch_attrs(
     match attr_by_name(new_attrs, old.name) {
       None => {
         dom_remove_attr(element, old.name)
-        if old.is_bool {
+        if old.bool_value is Some(_) {
           dom_set_bool_property(element, old.name, false)
         }
       }
@@ -558,7 +649,7 @@ fn patch_attr(
     element,
     attr.name,
     direct_resolvers.attr_value(attr),
-    is_bool=attr.is_bool,
+    attr.bool_value,
   )
 }
 
@@ -573,13 +664,18 @@ fn set_attr_value(
   element : DomElement,
   name : String,
   value : String,
-  is_bool? : Bool = false,
+  bool_value : Bool?,
 ) -> Unit {
-  if is_bool {
-    dom_set_bool_property(element, name, true)
-    dom_set_attr(element, name, "")
-  } else {
-    dom_set_attr(element, name, value)
+  match bool_value {
+    Some(true) => {
+      dom_set_bool_property(element, name, true)
+      dom_set_attr(element, name, "")
+    }
+    Some(false) => {
+      dom_set_bool_property(element, name, false)
+      dom_remove_attr(element, name)
+    }
+    None => dom_set_attr(element, name, value)
   }
   if tag == "input" && name == "value" {
     dom_set_value_property(element, value)
@@ -907,11 +1003,11 @@ fn DirectAttrPatch::flush(
     name: self.name,
     value: self.last,
     direct: Some(self.id),
-    is_bool: false,
+    bool_value: None,
   }
   let next = direct_resolvers.attr_value(attr)
   if self.last != next {
-    set_attr_value(self.tag, self.element, self.name, next)
+    set_attr_value(self.tag, self.element, self.name, next, None)
     self.last = next
   }
 }
@@ -1194,22 +1290,31 @@ fn[Msg] BrowserRoot::BrowserRoot(
 ///|
 #cfg(target="js")
 fn[Msg : Eq] BrowserRoot::flush(self : BrowserRoot[Msg]) -> Unit {
-  guard self.watched.read_changed() is Some(next) else { return }
-  let sink : EventSink[Msg] = {
-    dispatch: msg => ignore(self.watched.program.dispatch(msg)),
-    payload_resolvers: self.payload_resolvers,
-    direct_resolvers: DirectPatchResolvers::DirectPatchResolvers(),
-  }
-  self.rendered = Some(
-    match self.rendered {
-      None => {
-        let rendered = render_html(next, sink)
-        dom_replace_children(self.host, rendered.node())
-        rendered
+  match self.watched.read_changed() {
+    ViewDisposed => ()
+    ViewUnchanged =>
+      match self.rendered {
+        Some(rendered) => reconcile_controlled_rendered(rendered)
+        None => ()
       }
-      Some(old) => diff_rendered(old, next, self.host, sink)
-    },
-  )
+    ViewChanged(next) => {
+      let sink : EventSink[Msg] = {
+        dispatch: msg => ignore(self.watched.program.dispatch(msg)),
+        payload_resolvers: self.payload_resolvers,
+        direct_resolvers: DirectPatchResolvers::DirectPatchResolvers(),
+      }
+      self.rendered = Some(
+        match self.rendered {
+          None => {
+            let rendered = render_html(next, sink)
+            dom_replace_children(self.host, rendered.node())
+            rendered
+          }
+          Some(old) => diff_rendered(old, next, self.host, sink)
+        },
+      )
+    }
+  }
 }
 
 ///|

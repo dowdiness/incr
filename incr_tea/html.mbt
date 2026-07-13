@@ -12,7 +12,7 @@ pub struct Attribute {
   priv name : String
   priv value : String
   priv direct : DirectAttrId?
-  priv is_bool : Bool
+  priv bool_value : Bool?
 } derive(Eq, Debug)
 
 ///|
@@ -332,7 +332,7 @@ pub struct Html[Msg] {
 ///|
 #cfg(target="js")
 pub fn attr(name : String, value : String) -> Attribute {
-  { name, value, direct: None, is_bool: false }
+  { name, value, direct: None, bool_value: None }
 }
 
 ///|
@@ -342,17 +342,23 @@ fn direct_attr(
   name : String,
   fallback : String,
 ) -> Attribute {
-  { name, value: fallback, direct: Some(id), is_bool: false }
+  { name, value: fallback, direct: Some(id), bool_value: None }
 }
 
 ///|
-/// Creates a boolean property attribute. Presence in the attribute array means
-/// the property is `true`; absence means `false`. The renderer sets the DOM
-/// property (e.g. `element.disabled = true`) in addition to the HTML attribute,
-/// so boolean form controls behave correctly under framework-level control.
+/// Creates a boolean property attribute whose presence means `true`.
+///
+/// Common controlled helpers use a private explicit constructor so `false`
+/// remains distinguishable from an omitted uncontrolled property.
 #cfg(target="js")
 pub fn prop_bool(name : String) -> Attribute {
-  { name, value: "", direct: None, is_bool: true }
+  { name, value: "", direct: None, bool_value: Some(true) }
+}
+
+///|
+#cfg(target="js")
+fn prop_bool_value(name : String, value : Bool) -> Attribute {
+  { name, value: "", direct: None, bool_value: Some(value) }
 }
 
 ///|
