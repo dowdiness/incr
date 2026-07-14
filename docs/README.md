@@ -81,6 +81,7 @@ For contributors and advanced users who want to understand or modify `incr`.
   - [2026-06-24 Typed Spreadsheet cross-root locality](plans/2026-06-24-typed-spreadsheet-cross-root-locality.md) — multi-root spreadsheet with per-root recompute instrumentation
   - [2026-06-25 `Program::stateful` implementation plan](plans/2026-06-25-program-stateful.md) — 3-task SDD plan (#287)
   - [2026-07-05 Public API boundary cleanup + `Expr[T]` track](plans/2026-07-05-public-api-boundary-cleanup.md) — deprecations + `Scope::watch`, types-package cleanup, error-channel consistency (0.14.0), then the `Expr[T]` formula layer
+  - [2026-07-14 Duplix-informed retention benchmarks](plans/2026-07-14-duplix-retention-benchmarks.md) — measure forgot-to-dispose costs (8-scenario matrix); gated follow-ups: detachable per-key scopes, `KeyedInput` Map-diff facade
 
 **Research notes — exploratory, not implemented:**
 
