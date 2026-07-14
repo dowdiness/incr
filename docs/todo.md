@@ -41,6 +41,18 @@ Correctness issues tracked on GitHub. Unchecked items are open.
 
 - [x] **Disposed-cell-on-same-signal anomaly — retracted 2026-05-17.** The 2026-05-16 cost-decomp doc claimed 100 reactives disposed on one signal cost 27 µs per `Signal::set` vs 45 ns on a separate signal. Reproduction on `fed9428` measured both at ~45 ns — indistinguishable from the cold-runtime baseline. The 27 µs cost attributed to the disposed bench was actually the `100 abandoned reactives` bench (`tests/bench_test.mbt:216`), where the SoA still holds the live reactives because `rt.gc()` is never called and `push.node_count` is 100. Labels swapped in the original analysis; no bug exists. Regression guard: `incr/cells/eager_derived_wbtest.mbt` "dispose: 100 reactives on one signal leave subscribers empty and node_count zero". Cost-decomp doc corrected in the same commit.
 
+- [ ] **Residual per-update cost scaling with cumulative created cells after
+  dispose/gc** ([#399](https://github.com/dowdiness/incr/issues/399)) —
+  retention-baseline controls 7a/7b are not flat (≈1.5 µs at N=1k → 9–10 µs at
+  N=10k with the subscriber count fixed at 1) and 8a cost tracks total retained
+  nodes rather than depth
+  ([2026-07-14 snapshot](performance/2026-07-14-retention-baseline.md)).
+  Attribute to SoA slot volume vs wasm-gc heap/collector effects (native-target
+  re-run + post-dispose slot-count wbtest assertions) before proposing any
+  slot-reclamation engine change. Unlike the retracted 2026-05-17
+  disposed-cell anomaly above, this is measured with known-positive controls,
+  not label confusion.
+
 - [ ] **Push-engine scheduler rewrite** (deferred) — replace `@priority_queue.PriorityQueue[PushEntry]` heap with level-bucketed dirty list (`Array[Array[CellRef]]` indexed by topological level). Removes log N heap ops + one allocation per push entry. Estimated ~30–50 ns/reactive at N=1000. This is the *other half* of what alien-signals does in Vue 3.6. Defer until tracking-buffer reuse lands.
 
 - [ ] **Push-engine link-list port (deprioritized)** — `incr/cells/internal/push/`. The original investigation surfaced 1.2–1.5× speedup on the BFS iter path, smaller than the Vue 3.6 headline because incr is already SoA. Realistic but narrower than the targets above. Revisit if a future workload shifts the cost balance (very-low-cost compute closures making subscriber-set iter dominant). Investigation record: [docs/performance/2026-05-16-push-engine-linklist-microbench.md](performance/2026-05-16-push-engine-linklist-microbench.md).
