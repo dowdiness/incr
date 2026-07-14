@@ -14,43 +14,46 @@ that remain in the runtime after their user-visible handles are dropped. Each
 fixture is fully constructed and primed before the timed body. The timed body
 allocates no reactive cells. Counts are assertions over
 `rt.dependents(root.id()).length()` and therefore remain useful even when
-wall-clock results drift.
+wall-clock results drift. Constructed-node totals count runtime cell slots
+(inputs, derived cells, and eager cells, including slots later disposed by a
+control); their load-bearing formulas are pinned in
+`incr/cells/retention_bench_fixture_wbtest.mbt`.
 
 ## Results
 
 Times are mean nanoseconds per update. For fan-in, the count is per root and
 all 12 roots have the same count.
 
-| Scenario | N | Variant | ns/update | Root dependents | Prediction confirmed? |
-|---|---:|---|---:|---:|:---:|
-| 1 `uncomputed_pull_fanout` | 1,000 | — | 73.14 | 0 | yes |
-| 1 `uncomputed_pull_fanout` | 10,000 | — | 72.22 | 0 | yes |
-| 2 `primed_pull_fanout_no_push` | 1,000 | — | 72.35 | 1,000 | yes |
-| 2 `primed_pull_fanout_no_push` | 10,000 | — | 85.87 | 10,000 | yes |
-| 3 `primed_pull_fanout_distant_push` | 1,000 | — | 95.80 | 1,000 | yes |
-| 3 `primed_pull_fanout_distant_push` | 10,000 | — | 90.86 | 10,000 | yes |
-| 4 `primed_pull_fanout_same_root_live_push` | 1,000 | — | 24,260 | 1,001 | yes |
-| 4 `primed_pull_fanout_same_root_live_push` | 10,000 | — | 757,530 | 10,001 | yes |
-| 5 `dynamic_subgraph_churn_same_root` | 1,000 | — | 20,360 | 1,001 | yes |
-| 5 `dynamic_subgraph_churn_same_root` | 10,000 | — | 638,320 | 10,001 | yes |
-| 6 `abandoned_eager_fanout` | 1,000 | — | 274,870 | 1,000 | yes |
-| 6 `abandoned_eager_fanout` | 10,000 | — | 6,560,000 | 10,000 | yes |
-| 7a `scan_disposed_control` | 1,000 | — | 1,530 | 1 | no |
-| 7a `scan_disposed_control` | 10,000 | — | 8,980 | 1 | no |
-| 7b `scan_gc_control` | 1,000 | — | 1,500 | 1 | no |
-| 7b `scan_gc_control` | 10,000 | — | 10,060 | 1 | no |
-| 7c `eager_disposed_control` | 1,000 | — | 75.59 | 0 | yes |
-| 7c `eager_disposed_control` | 10,000 | — | 75.99 | 0 | yes |
-| 7d `eager_gc_control` | 1,000 | — | 76.10 | 0 | yes |
-| 7d `eager_gc_control` | 10,000 | — | 70.65 | 0 | yes |
-| 8a `chain_depth` | 1,000 | depth 1 | 24,390 | 1,001 | no |
-| 8a `chain_depth` | 10,000 | depth 1 | 1,130,000 | 10,001 | no |
-| 8a `chain_depth` | 1,000 | depth 4 | 33,410 | 1,001 | no |
-| 8a `chain_depth` | 10,000 | depth 4 | 2,400,000 | 10,001 | no |
-| 8b `fan_in` | 1,000 | set one root | 1,150,000 | 1,000/root | yes |
-| 8b `fan_in` | 10,000 | set one root | 19,110,000 | 10,000/root | yes |
-| 8b `fan_in` | 1,000 | batch all 12 roots | 1,320,000 | 1,000/root | yes |
-| 8b `fan_in` | 10,000 | batch all 12 roots | 27,560,000 | 10,000/root | yes |
+| Scenario | N | Variant | ns/update | Root dependents | Constructed nodes | Prediction confirmed? |
+|---|---:|---|---:|---:|---:|:---:|
+| 1 `uncomputed_pull_fanout` | 1,000 | — | 73.14 | 0 | 1,001 | yes |
+| 1 `uncomputed_pull_fanout` | 10,000 | — | 72.22 | 0 | 10,001 | yes |
+| 2 `primed_pull_fanout_no_push` | 1,000 | — | 72.35 | 1,000 | 1,001 | yes |
+| 2 `primed_pull_fanout_no_push` | 10,000 | — | 85.87 | 10,000 | 10,001 | yes |
+| 3 `primed_pull_fanout_distant_push` | 1,000 | — | 95.80 | 1,000 | 1,003 | yes |
+| 3 `primed_pull_fanout_distant_push` | 10,000 | — | 90.86 | 10,000 | 10,003 | yes |
+| 4 `primed_pull_fanout_same_root_live_push` | 1,000 | — | 24,260 | 1,001 | 1,002 | yes |
+| 4 `primed_pull_fanout_same_root_live_push` | 10,000 | — | 757,530 | 10,001 | 10,002 | yes |
+| 5 `dynamic_subgraph_churn_same_root` | 1,000 | — | 20,360 | 1,001 | 1,003 | yes |
+| 5 `dynamic_subgraph_churn_same_root` | 10,000 | — | 638,320 | 10,001 | 10,003 | yes |
+| 6 `abandoned_eager_fanout` | 1,000 | — | 274,870 | 1,000 | 1,001 | yes |
+| 6 `abandoned_eager_fanout` | 10,000 | — | 6,560,000 | 10,000 | 10,001 | yes |
+| 7a `scan_disposed_control` | 1,000 | — | 1,530 | 1 | 1,002 | no |
+| 7a `scan_disposed_control` | 10,000 | — | 8,980 | 1 | 10,002 | no |
+| 7b `scan_gc_control` | 1,000 | — | 1,500 | 1 | 1,002 | no |
+| 7b `scan_gc_control` | 10,000 | — | 10,060 | 1 | 10,002 | no |
+| 7c `eager_disposed_control` | 1,000 | — | 75.59 | 0 | 1,001 | yes |
+| 7c `eager_disposed_control` | 10,000 | — | 75.99 | 0 | 10,001 | yes |
+| 7d `eager_gc_control` | 1,000 | — | 76.10 | 0 | 1,001 | yes |
+| 7d `eager_gc_control` | 10,000 | — | 70.65 | 0 | 10,001 | yes |
+| 8a `chain_depth` | 1,000 | depth 1 | 24,390 | 1,001 | 1,002 | no |
+| 8a `chain_depth` | 10,000 | depth 1 | 1,130,000 | 10,001 | 10,002 | no |
+| 8a `chain_depth` | 1,000 | depth 4 | 33,410 | 1,001 | 4,002 | no |
+| 8a `chain_depth` | 10,000 | depth 4 | 2,400,000 | 10,001 | 40,002 | no |
+| 8b `fan_in` | 1,000 | set one root | 1,150,000 | 1,000/root | 1,012 | yes |
+| 8b `fan_in` | 10,000 | set one root | 19,110,000 | 10,000/root | 10,012 | yes |
+| 8b `fan_in` | 1,000 | batch all 12 roots | 1,320,000 | 1,000/root | 1,012 | yes |
+| 8b `fan_in` | 10,000 | batch all 12 roots | 27,560,000 | 10,000/root | 10,012 | yes |
 
 ## Findings
 
