@@ -120,6 +120,7 @@ live in each ADR.
 | [2026-06-17](decisions/2026-06-17-incr-tea-inactive-root-activation-policy.md) | Incremental TEA inactive-root activation: manual-first hybrid (#280) |
 | [2026-07-03](decisions/2026-07-03-incr-tea-module-identity.md) | `incr_tea` module identity: core-feedback framework, facade-only imports, own backlog |
 | [2026-07-08](decisions/2026-07-08-evaluation-strategy-composition-contract.md) | Evaluation-strategy composition contract: purity axis, cross-engine legality table, two-chokepoint enforcement (phase guard + #368), fold reserved |
+| [2026-07-14](decisions/2026-07-14-retention-followup-tracks-gated.md) | Retention follow-up tracks (per-key Scope ownership, `KeyedInput` facade) stay gated — no consumer; investigate retained-volume cost (#399) first |
 
 ---
 

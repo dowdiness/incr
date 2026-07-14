@@ -5,7 +5,9 @@
 [docs/performance/2026-07-14-retention-baseline.md](../performance/2026-07-14-retention-baseline.md).
 Tracks 2–3 remain gated decisions and are **not started**; no consumer currently
 exhibits the hazard shape (incr_tea reconciles at the vdom layer with
-scope-anchored watches). The 7a/7b/8a prediction contradictions are tracked as
+scope-anchored watches). Decision record:
+[ADR 2026-07-14 Retention follow-up tracks — keep gated](../decisions/2026-07-14-retention-followup-tracks-gated.md).
+The 7a/7b/8a prediction contradictions are tracked as
 [#399](https://github.com/dowdiness/incr/issues/399).
 
 **Date:** 2026-07-14
