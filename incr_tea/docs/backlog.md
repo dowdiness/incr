@@ -29,6 +29,10 @@ research items:
 
 ## Agenda (no issue yet)
 
+- Machine composition evidence driver: test pure parent/child transitions,
+  incarnation-safe late results, and aggregate `Program::stateful_cmd`
+  integration before proposing a `Machine` type or per-key reactive graph.
+  Plan: [2026-07-14 Machine composition evidence driver](../../docs/plans/2026-07-14-machine-composition-evidence-driver.md).
 - Demo/fixture disentanglement: separate the `renderer_wbtest` #251 fixture
   from `browser_editor_demo.mbt`, then move both browser demos to the
   `examples/incr_tea` harness. Trigger and plan shape recorded in the
