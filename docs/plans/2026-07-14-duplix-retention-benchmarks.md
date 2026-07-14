@@ -1,6 +1,12 @@
 # Duplix-Informed Retention Benchmarks (+ Gated Follow-Up Tracks)
 
-**Status:** Proposed
+**Status:** Track 1 executed — PR [#398](https://github.com/dowdiness/incr/pull/398)
+(merged 2026-07-14, squash `b05add3`); results in
+[docs/performance/2026-07-14-retention-baseline.md](../performance/2026-07-14-retention-baseline.md).
+Tracks 2–3 remain gated decisions and are **not started**; no consumer currently
+exhibits the hazard shape (incr_tea reconciles at the vdom layer with
+scope-anchored watches). The 7a/7b/8a prediction contradictions are tracked as
+[#399](https://github.com/dowdiness/incr/issues/399).
 
 **Date:** 2026-07-14
 
@@ -151,10 +157,14 @@ Costs:
   earlier decision; novelty alone is not enough.
 - A third keyed lifecycle abstraction adds permanent semver, documentation,
   examples, and migration cost immediately after the 0.14.x facade cleanup.
-- Lambda name resolution is a candidate, not yet a value gate: three resolver
-  variants currently coexist. Before using it as the driver, name the owning
-  variant, the variants the facade would replace or retire, and the measured
-  success signal. Otherwise the facade risks becoming a fourth path.
+- Lambda name resolution is a candidate, not yet a value gate. (Correction
+  2026-07-14: this plan's "three resolver variants currently coexist" premise
+  was stale at writing time — consolidation onto `@scope` shipped 2026-07-02
+  as canopy #129 / PR #839.) Before using it as the driver, name the concrete
+  contract the consolidated resolver would gain from `KeyedInput` and the
+  measured success signal. Note canopy #567 explores converging binder
+  identity onto loom's `ProjectionIdentityTracker`, a direction that keeps
+  keyed identity outside `incr` entirely.
 
 **Stopping point:** no Track 3 implementation until a consumer, retirement
 protocol, ownership boundary, and success metric are approved in a separate
@@ -244,17 +254,24 @@ needed for the first decision.
 
 ### Acceptance criteria
 
-- [ ] All matrix scenarios implemented at N ∈ {1k, 10k} and passing
+- [x] All matrix scenarios implemented at N ∈ {1k, 10k} and passing
       `moon bench --release` (exit status captured per the wrapped-exit-code
-      rule; no piped status).
-- [ ] Controls 7a/7b measurably cheaper than scenario 4, and 7c/7d cheaper
-      than scenario 6 — the positive controls fire.
-- [ ] Predictions vs measurements table written to the dated performance
+      rule; no piped status). — 28/28, `EXIT=0`, reproduced by an independent
+      reviewer re-run (all scenarios within 2×, max ratio 1.32×).
+- [x] Controls 7a/7b measurably cheaper than scenario 4, and 7c/7d cheaper
+      than scenario 6 — the positive controls fire. — 7a/7b ≈75–84× cheaper
+      than 4 at N=10k; 7c/7d >86,000× cheaper than 6.
+- [x] Predictions vs measurements table written to the dated performance
       snapshot, including subscriber/node counts, with any contradiction
-      called out explicitly.
-- [ ] `moon check` / `moon fmt` / `moon info` clean; no `.mbti` drift beyond
-      the bench file's own package.
-- [ ] `docs/README.md` index updated for the new performance snapshot.
+      called out explicitly. — snapshot table + constructed-node column;
+      wbtest companion `incr/cells/retention_bench_fixture_wbtest.mbt` pins
+      the load-bearing totals; contradictions (7a/7b residual growth, 8a
+      depth effect, superlinear 10k constants) recorded → follow-up
+      [#399](https://github.com/dowdiness/incr/issues/399).
+- [x] `moon check` / `moon fmt` / `moon info` clean; no `.mbti` drift beyond
+      the bench file's own package. — verified twice (implementer +
+      reviewer), `moon check --deny-warn` included.
+- [x] `docs/README.md` index updated for the new performance snapshot.
 
 ## Track 2 — Detachable per-key scope ownership (gated on Track 1)
 
@@ -299,9 +316,11 @@ Approval also requires all of the following:
 - An explicit public-API budget covering semver policy, documentation,
   examples, and the relationship to `DerivedMap`; the default answer after the
   0.14.x facade cleanup is no additional facade without demonstrated value.
-- For the Lambda resolver candidate, selection of one owning implementation
-  among the three currently coexisting variants, plus a retirement plan for
-  the superseded paths. Do not add `KeyedInput` as a fourth resolver path.
+- For the Lambda resolver candidate: the resolver split is already
+  consolidated onto `@scope` (canopy #129 / PR #839, merged 2026-07-02), so
+  this gate reduces to naming the concrete contract and success signal that
+  moving the consolidated resolver onto `KeyedInput` would improve. Do not
+  add `KeyedInput` as a parallel resolver path.
 
 Duplix's `assoc` (per-key stable subgraphs over a changing `Map[K, V]`) cannot
 be transliterated: its diff-and-mutate runs inside derived compute, which

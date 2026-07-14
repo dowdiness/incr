@@ -353,6 +353,16 @@ The same lifecycle pattern applies to long-lived target readers: use
 `scope.add_watch(derived.watch())` when a `Watch` should be disposed with the
 scope that owns the surrounding graph.
 
+Forgetting cleanup has a measured cost model
+([2026-07-14 retention baseline](performance/2026-07-14-retention-baseline.md)):
+stale *pull-only* subscribers are nearly free while their input has no
+reachable push consumer (~72–96 ns/update even with 10,000 stale cells), but a
+single live `EagerDerived`/`Watch` on the same input exposes every retained
+edge to an O(N) scan (~757 µs/update at 10,000), and an abandoned
+`EagerDerived` keeps recomputing on every set (~6.6 ms/update at 10,000).
+`dispose` and `Runtime::gc` restore each shape to its baseline, so scope-owned
+cleanup is what keeps the cheap regime cheap.
+
 ### When to Use
 
 | Situation | Recommendation |
