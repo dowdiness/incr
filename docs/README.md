@@ -37,6 +37,7 @@ snippets).
 
 - [Benchmarks](performance/benchmarks.md) — microbenchmark results for core operations (input, derived, reachable-derived, batch)
 - [Snapshot roster](performance/README.md) — all dated measurement records, one line each
+- [2026-07-14 Retention baseline](performance/2026-07-14-retention-baseline.md) — forgotten pull/eager lifecycle costs, same-root push-gate activation, and disposal/GC controls
 
 Performance docs are dated snapshots: new measurements go in new files, and
 old files are never updated.
