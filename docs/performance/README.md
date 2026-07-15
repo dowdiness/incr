@@ -12,6 +12,7 @@ Canonical entry points:
 
 ## Snapshot roster
 
+- [2026-07-15 Incremental TEA controlled-property reconciliation](2026-07-15-incr-tea-controlled-reconciliation.md) — issue #394: Chromium equal-view traversal/getter and mismatch-repair costs across 0–10,000 nodes and 0–256 controlled properties; no optimization justified.
 - [2026-07-15 Retention cost attribution](2026-07-15-retention-cost-attribution.md) — wasm-gc/native reproduction, post-cleanup slot facts, push-free controls, unresolved fixed-path cost mixture, and slot-reclamation no-go for #399.
 - [2026-07-15 Machine composition invariant and instrumentation follow-up](2026-07-15-machine-composition-follow-up.md) — single-source request sequencing, private mutation observer, observer-disabled timing, and permanent structural CI; final 256-child p95 runs remain below the 16.7 ms gate.
 - [2026-07-14 Machine composition aggregate evidence](2026-07-14-machine-composition-evidence.md) — semantic-editor aggregate `Program::stateful_cmd` structural gates and raw 64/256-child edit-to-flush p50/p95; all three 256-child runs pass the 16.7 ms JS-side budget.
