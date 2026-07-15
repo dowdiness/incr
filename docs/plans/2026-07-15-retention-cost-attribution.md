@@ -78,7 +78,7 @@
 - Read: `incr/cells/input.mbt`
 - Read: `incr/cells/runtime.mbt`
 - Read: `incr/cells/internal/kernel/propagate.mbt`
-- Read: `incr/cells/internal/push/push_propagate.mbt`
+- Read: `incr/cells/internal/kernel/push_propagate.mbt`
 - Conditionally modify: `incr/tests/retention_bench_test.mbt`
 
 **Produces:** A named mechanism or an explicit unresolved mixture, supported by profile/control evidence. No engine fix.
