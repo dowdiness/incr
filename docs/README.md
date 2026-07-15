@@ -38,6 +38,7 @@ snippets).
 - [Benchmarks](performance/benchmarks.md) — microbenchmark results for core operations (input, derived, reachable-derived, batch)
 - [Snapshot roster](performance/README.md) — all dated measurement records, one line each
 - [2026-07-14 Retention baseline](performance/2026-07-14-retention-baseline.md) — forgotten pull/eager lifecycle costs, same-root push-gate activation, and disposal/GC controls
+- [2026-07-15 Retention cost attribution](performance/2026-07-15-retention-cost-attribution.md) — cross-target 7a/7b reproduction, post-cleanup storage facts, push-free controls, and slot-reclamation no-go for #399
 - [2026-07-15 Machine composition follow-up](performance/2026-07-15-machine-composition-follow-up.md) — single-source sequencing and observer-disabled browser timing after PR hardening
 - [2026-07-14 Machine composition aggregate evidence](performance/2026-07-14-machine-composition-evidence.md) — aggregate Program semantic-editor structural gates and 64/256-child synchronous JS timing result
 
@@ -70,6 +71,7 @@ For contributors and advanced users who want to understand or modify `incr`.
 - [2026-06-05 Typed Spreadsheet bounded trace contract](design/specs/2026-06-05-typed-spreadsheet-bounded-trace-contract.md) — caller-bounded formula traces (#179)
 - [2026-06-25 `Program::stateful` / `stateful_cmd`](design/specs/2026-06-25-program-stateful-design.md) — boilerplate-hiding constructors for mutable-model TEA apps
 - [2026-07-03 Workspace Boundary Assessment](design/specs/2026-07-03-workspace-boundary-assessment.md) — core layering re-verified healthy; pressure moved to the examples/facade seams; staged boundary plan
+- [2026-07-15 Retention cost attribution](design/specs/2026-07-15-retention-cost-attribution.md) — native/wasm-gc attribution ladder and slot-reclamation go/no-go criteria for #399
 
 **Project direction:**
 
@@ -86,6 +88,7 @@ For contributors and advanced users who want to understand or modify `incr`.
   - [2026-07-05 Public API boundary cleanup + `Expr[T]` track](plans/2026-07-05-public-api-boundary-cleanup.md) — deprecations + `Scope::watch`, types-package cleanup, error-channel consistency (0.14.0), then the `Expr[T]` formula layer
   - [2026-07-14 Duplix-informed retention benchmarks](plans/2026-07-14-duplix-retention-benchmarks.md) — measure forgot-to-dispose costs (8-scenario matrix); gated follow-ups: detachable per-key scopes, `KeyedInput` Map-diff facade
   - [2026-07-14 Machine composition evidence driver](plans/2026-07-14-machine-composition-evidence-driver.md) — test pure parent/child composition and aggregate `Program::stateful_cmd` first; measure before proposing a `Machine` type or per-key reactive ownership
+  - [2026-07-15 Retention cost attribution](plans/2026-07-15-retention-cost-attribution.md) — cross-target reproduction, post-cleanup storage characterization, and slot-reclamation go/no-go for #399
 
 **Research notes — exploratory, not implemented:**
 

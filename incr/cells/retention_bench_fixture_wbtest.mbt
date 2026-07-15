@@ -48,3 +48,72 @@ test "retention fixture: chain depth changes total nodes, not root fanout" {
   assert_eq(depth4_rt.core.cell_index.length(), n * 4 + 2)
   assert_eq(depth4_rt.core.cell_ops.length(), n * 4 + 2)
 }
+
+///|
+fn build_disposed_pull_control_fixture(
+  n : Int,
+) -> (Runtime, Input[Int], EagerDerived[Int]) {
+  let rt = Runtime()
+  let root = Input(rt, 0, label="root")
+  let stale : Array[Derived[Int]] = []
+  for i in 0..<n {
+    let offset = i
+    let derived = Derived(rt, () => root.get() + offset)
+    ignore(derived.read_or_abort())
+    stale.push(derived)
+  }
+  let live = EagerDerived(rt, () => root.get())
+  for derived in stale {
+    derived.dispose()
+  }
+  (rt, root, live)
+}
+
+///|
+test "retention fixture: disposed pull slots are free while cell ids remain allocated" {
+  let n = 32
+  let (rt, root, live) = build_disposed_pull_control_fixture(n)
+  let remaining = rt.dependents(root.id())
+  assert_eq(remaining.length(), 1)
+  assert_true(remaining.contains(live.id()))
+  assert_eq(rt.core.cell_index.length(), n + 2)
+  assert_eq(rt.core.cell_ops.length(), n + 2)
+  assert_eq(rt.cell_lifecycle.length(), n + 2)
+  assert_eq(rt.pull.memos.length(), n)
+  assert_eq(rt.pull.free_memos.length(), n)
+  assert_eq(rt.push.node_count, 1)
+}
+
+///|
+fn build_gc_pull_control_fixture(
+  n : Int,
+) -> (Runtime, Input[Int], EagerDerived[Int], Watch[Int]) {
+  let rt = Runtime()
+  let root = Input(rt, 0, label="root")
+  for i in 0..<n {
+    let offset = i
+    let derived = Derived(rt, () => root.get() + offset)
+    ignore(derived.read_or_abort())
+  }
+  let live = EagerDerived(rt, () => root.get())
+  let watch = live.watch()
+  ignore(watch.read_or_abort())
+  rt.gc()
+  (rt, root, live, watch)
+}
+
+///|
+test "retention fixture: gc frees pull slots while cell ids remain allocated" {
+  let n = 32
+  let (rt, root, live, watch) = build_gc_pull_control_fixture(n)
+  let remaining = rt.dependents(root.id())
+  assert_eq(remaining.length(), 1)
+  assert_true(remaining.contains(live.id()))
+  assert_eq(rt.core.cell_index.length(), n + 2)
+  assert_eq(rt.core.cell_ops.length(), n + 2)
+  assert_eq(rt.cell_lifecycle.length(), n + 2)
+  assert_eq(rt.pull.memos.length(), n)
+  assert_eq(rt.pull.free_memos.length(), n)
+  assert_eq(rt.push.node_count, 1)
+  watch.dispose()
+}

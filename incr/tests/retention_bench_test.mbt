@@ -172,6 +172,46 @@ fn bench_scan_gc_control(b : @bench.T, n : Int) -> Unit raise {
 }
 
 ///|
+fn bench_disposed_pull_no_push_control(b : @bench.T, n : Int) -> Unit raise {
+  let rt = @incr.Runtime()
+  let root = @incr.Input(rt, 0, label="root")
+  let stale : Array[@incr.Derived[Int]] = []
+  for i in 0..<n {
+    let offset = i
+    let derived = @incr.Derived(rt, () => root.get() + offset)
+    ignore(derived.read_or_abort())
+    stale.push(derived)
+  }
+  for derived in stale {
+    derived.dispose()
+  }
+  assert_eq(rt.dependents(root.id()).length(), 0)
+  let mut value = 0
+  b.bench(() => {
+    value += 1
+    root.set(value)
+  })
+}
+
+///|
+fn bench_gc_pull_no_push_control(b : @bench.T, n : Int) -> Unit raise {
+  let rt = @incr.Runtime()
+  let root = @incr.Input(rt, 0, label="root")
+  for i in 0..<n {
+    let offset = i
+    let derived = @incr.Derived(rt, () => root.get() + offset)
+    ignore(derived.read_or_abort())
+  }
+  rt.gc()
+  assert_eq(rt.dependents(root.id()).length(), 0)
+  let mut value = 0
+  b.bench(() => {
+    value += 1
+    root.set(value)
+  })
+}
+
+///|
 fn bench_eager_disposed_control(b : @bench.T, n : Int) -> Unit raise {
   let rt = @incr.Runtime()
   let root = @incr.Input(rt, 0, label="root")
@@ -385,6 +425,26 @@ test "retention 7d: eager gc control n=1k" (b : @bench.T) {
 ///|
 test "retention 7d: eager gc control n=10k" (b : @bench.T) {
   bench_eager_gc_control(b, 10_000)
+}
+
+///|
+test "retention 7e: disposed pull no push n=1k" (b : @bench.T) {
+  bench_disposed_pull_no_push_control(b, 1_000)
+}
+
+///|
+test "retention 7e: disposed pull no push n=10k" (b : @bench.T) {
+  bench_disposed_pull_no_push_control(b, 10_000)
+}
+
+///|
+test "retention 7f: gc pull no push n=1k" (b : @bench.T) {
+  bench_gc_pull_no_push_control(b, 1_000)
+}
+
+///|
+test "retention 7f: gc pull no push n=10k" (b : @bench.T) {
+  bench_gc_pull_no_push_control(b, 10_000)
 }
 
 ///|
