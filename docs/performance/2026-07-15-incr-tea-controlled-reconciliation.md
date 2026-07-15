@@ -24,11 +24,14 @@ Each harness mounts a hidden, attached host containing a flat tree with 0, 100,
 controlled descriptor, cycling through `value`, `checked`, `disabled`, and
 `selected`. Cells with more controlled properties than nodes are omitted.
 
-The timed window begins after an unrelated model write has scheduled a flush.
-It excludes tree construction, mount, browser-property mutation, and model
-dispatch. Every timed flush is recorded individually. The report's median and
-p95 are computed across all `samples × iterations` flushes, not across sample
-means. Sample means remain in raw JSON for comparison with earlier snapshots.
+The harness dispatches a monotonically changing unrelated input before every
+flush, including warmups, so the update path cannot be skipped by equal-value
+input semantics. The timed window begins after that model write has scheduled a
+flush. It excludes tree construction, mount, browser-property mutation, and
+model dispatch. Every timed flush is recorded individually. The report's median
+and p95 are computed across all `samples × iterations` flushes, not across
+sample means. Sample means remain in raw JSON for comparison with earlier
+snapshots.
 
 Because the measured timer quantum is 5 µs, a cell is marked `measurable` only
 when its operation median is at least 10 timer quanta (50 µs). Cells below that
@@ -45,18 +48,18 @@ intended value, so reconciliation performs no property writes.
 
 | Nodes | Controlled | Median (µs) | p95 (µs) | Min (µs) | Max (µs) | Tail validity |
 |---:|---:|---:|---:|---:|---:|---|
-| 0 | 0 | 0.00 | 10.0 | 0.00 | 445 | below 50.0 µs median floor |
-| 100 | 0 | 5.00 | 10.0 | 0.00 | 95.0 | below 50.0 µs median floor |
-| 100 | 1 | 5.00 | 10.0 | 0.00 | 345 | below 50.0 µs median floor |
-| 100 | 16 | 5.00 | 10.0 | 0.00 | 500 | below 50.0 µs median floor |
-| 1,000 | 0 | 35.0 | 50.0 | 25.0 | 140 | below 50.0 µs median floor |
-| 1,000 | 1 | 35.0 | 55.0 | 25.0 | 240 | below 50.0 µs median floor |
-| 1,000 | 16 | 35.0 | 65.0 | 25.0 | 250 | below 50.0 µs median floor |
-| 1,000 | 256 | 55.0 | 95.0 | 45.0 | 910 | measurable |
-| 10,000 | 0 | 340 | 455 | 290 | 680 | measurable |
-| 10,000 | 1 | 340 | 470 | 300 | 715 | measurable |
-| 10,000 | 16 | 340 | 455 | 300 | 860 | measurable |
-| 10,000 | 256 | 360 | 565 | 335 | 765 | measurable |
+| 0 | 0 | 0.00 | 10.0 | 0.00 | 720 | below 50.0 µs median floor |
+| 100 | 0 | 5.00 | 20.0 | 0.00 | 390 | below 50.0 µs median floor |
+| 100 | 1 | 5.00 | 10.0 | 0.00 | 525 | below 50.0 µs median floor |
+| 100 | 16 | 5.00 | 10.0 | 0.00 | 80.0 | below 50.0 µs median floor |
+| 1,000 | 0 | 30.0 | 55.0 | 20.0 | 110 | below 50.0 µs median floor |
+| 1,000 | 1 | 30.0 | 50.0 | 20.0 | 165 | below 50.0 µs median floor |
+| 1,000 | 16 | 30.0 | 60.0 | 20.0 | 225 | below 50.0 µs median floor |
+| 1,000 | 256 | 55.0 | 90.0 | 40.0 | 745 | measurable |
+| 10,000 | 0 | 305 | 445 | 260 | 625 | measurable |
+| 10,000 | 1 | 320 | 550 | 275 | 830 | measurable |
+| 10,000 | 16 | 300 | 445 | 260 | 1,415 | measurable |
+| 10,000 | 256 | 325 | 485 | 295 | 720 | measurable |
 
 ### Equal view with deliberate property drift
 
@@ -67,27 +70,27 @@ before timing and restored after the first timed flush in every sample. The
 
 | Nodes | Controlled | Median (µs) | p95 (µs) | Min (µs) | Max (µs) | Tail validity |
 |---:|---:|---:|---:|---:|---:|---|
-| 0 | 0 | 0.00 | 5.00 | 0.00 | 50.0 | below 50.0 µs median floor |
-| 100 | 0 | 5.00 | 10.0 | 0.00 | 50.0 | below 50.0 µs median floor |
-| 100 | 1 | 5.00 | 10.0 | 0.00 | 65.0 | below 50.0 µs median floor |
-| 100 | 16 | 10.0 | 25.0 | 5.00 | 115 | below 50.0 µs median floor |
-| 1,000 | 0 | 35.0 | 55.0 | 25.0 | 195 | below 50.0 µs median floor |
-| 1,000 | 1 | 35.0 | 50.0 | 25.0 | 135 | below 50.0 µs median floor |
-| 1,000 | 16 | 40.0 | 70.0 | 30.0 | 175 | below 50.0 µs median floor |
-| 1,000 | 256 | 140 | 225 | 115 | 3,915 | measurable |
-| 10,000 | 0 | 335 | 480 | 290 | 660 | measurable |
-| 10,000 | 1 | 335 | 485 | 305 | 710 | measurable |
-| 10,000 | 16 | 345 | 575 | 295 | 830 | measurable |
-| 10,000 | 256 | 455 | 825 | 390 | 5,600 | measurable |
+| 0 | 0 | 0.00 | 5.00 | 0.00 | 45.0 | below 50.0 µs median floor |
+| 100 | 0 | 5.00 | 5.00 | 0.00 | 45.0 | below 50.0 µs median floor |
+| 100 | 1 | 5.00 | 10.0 | 0.00 | 60.0 | below 50.0 µs median floor |
+| 100 | 16 | 10.0 | 25.0 | 5.00 | 120 | below 50.0 µs median floor |
+| 1,000 | 0 | 30.0 | 40.0 | 20.0 | 135 | below 50.0 µs median floor |
+| 1,000 | 1 | 30.0 | 40.0 | 20.0 | 120 | below 50.0 µs median floor |
+| 1,000 | 16 | 35.0 | 65.0 | 25.0 | 215 | below 50.0 µs median floor |
+| 1,000 | 256 | 135 | 210 | 115 | 3,555 | measurable |
+| 10,000 | 0 | 300 | 415 | 275 | 570 | measurable |
+| 10,000 | 1 | 290 | 440 | 270 | 615 | measurable |
+| 10,000 | 16 | 295 | 400 | 270 | 690 | measurable |
+| 10,000 | 256 | 395 | 560 | 360 | 3,130 | measurable |
 
 ## Finding
 
 The operation-level tail is now directly measured for cells whose median is at
 least 10 timer quanta. At 10,000 nodes, no-drift equal-view flushes are
-340–360 µs median with 455–565 µs p95; 256 mismatch repairs are 455 µs median
-and 825 µs p95. These are below a 16.7 ms frame budget by roughly 20–37×. The
-1,000-node/256-property repair cell is also measurable at 140 µs median and
-225 µs p95. Smaller cells remain reported with an explicit below-resolution
+300–325 µs median with 445–550 µs p95; 256 mismatch repairs are 395 µs median
+and 560 µs p95. These are below a 16.7 ms frame budget by roughly 30–40×. The
+1,000-node/256-property repair cell is also measurable at 135 µs median and
+210 µs p95. Smaller cells remain reported with an explicit below-resolution
 status rather than an unsupported tail claim.
 
 No renderer optimization is justified by this snapshot; the existing

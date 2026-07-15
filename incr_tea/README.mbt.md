@@ -366,6 +366,8 @@ npx playwright install chromium   # one-time browser install if needed
 npm run bench:controlled-reconcile
 ```
 
+The harness dispatches a monotonically changing unrelated input before every
+flush, including warmups, so equal-value input updates cannot skip the path.
 The timed window excludes mount, tree construction, browser-property mutation,
 and model dispatch. The dated results and environment are recorded in
 [`docs/performance/2026-07-15-incr-tea-controlled-reconciliation.md`](../../docs/performance/2026-07-15-incr-tea-controlled-reconciliation.md).

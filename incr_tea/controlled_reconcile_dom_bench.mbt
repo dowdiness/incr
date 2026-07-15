@@ -164,6 +164,7 @@ priv struct ControlledReconcileBenchHarness {
     Html[ControlledReconcileBenchMsg],
   ]
   host : DomElement
+  mut touch_value : Int
 }
 
 ///|
@@ -199,7 +200,7 @@ fn ControlledReconcileBenchHarness::new(
     runtime,
   )
   ignore(renderer.mount(host, program))
-  { renderer, program, host }
+  { renderer, program, host, touch_value: 0 }
 }
 
 ///|
@@ -211,7 +212,8 @@ fn ControlledReconcileBenchHarness::measure_sample(
 ) -> Array[Double] {
   let timings : Array[Double] = []
   for index in 0..<iterations {
-    ignore(self.program.dispatch(Touch(index)))
+    self.touch_value = self.touch_value + 1
+    ignore(self.program.dispatch(Touch(self.touch_value)))
     match mode {
       EqualNoDrift => ()
       MismatchRepair => {
