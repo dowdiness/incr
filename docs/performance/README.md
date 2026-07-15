@@ -12,6 +12,7 @@ Canonical entry points:
 
 ## Snapshot roster
 
+- [2026-07-14 Machine composition aggregate evidence](2026-07-14-machine-composition-evidence.md) — semantic-editor aggregate `Program::stateful_cmd` structural gates and raw 64/256-child edit-to-flush p50/p95; all three 256-child runs pass the 16.7 ms JS-side budget.
 - [2026-07-14 Retention baseline](2026-07-14-retention-baseline.md) — lifecycle-orphaning matrix: latent pull subscribers, same-root push-gate activation, dynamic churn, eager recomputation, and disposal/GC controls.
 - [2026-04-21 Pre-R1 Baseline](2026-04-21-pre-r1-baseline.md) — frozen reference for R1 Stage 3 regression gate (≤2% per tracked path).
 - [2026-04-24 R1 Stage 3 bench](2026-04-24-r1-stage3-bench.md) — Stage 3 comparison vs baseline; all tracked rows within or favorable to ±2% gate.

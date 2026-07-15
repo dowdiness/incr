@@ -119,7 +119,10 @@ extern "js" fn dom_set_value_property(
   element : DomElement,
   value : String,
 ) -> Unit =
-  #| (element, value) => { element.value = value; }
+  #| (element, value) => {
+  #|   globalThis.__incrTeaRecordPropertyMutation?.(element, "value");
+  #|   element.value = value;
+  #| }
 
 ///|
 #cfg(target="js")
@@ -135,7 +138,10 @@ extern "js" fn dom_set_bool_property(
   name : String,
   value : Bool,
 ) -> Unit =
-  #| (element, name, value) => { element[name] = value; }
+  #| (element, name, value) => {
+  #|   globalThis.__incrTeaRecordPropertyMutation?.(element, name);
+  #|   element[name] = value;
+  #| }
 
 ///|
 #cfg(target="js")

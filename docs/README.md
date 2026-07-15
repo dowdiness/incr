@@ -38,6 +38,7 @@ snippets).
 - [Benchmarks](performance/benchmarks.md) — microbenchmark results for core operations (input, derived, reachable-derived, batch)
 - [Snapshot roster](performance/README.md) — all dated measurement records, one line each
 - [2026-07-14 Retention baseline](performance/2026-07-14-retention-baseline.md) — forgotten pull/eager lifecycle costs, same-root push-gate activation, and disposal/GC controls
+- [2026-07-14 Machine composition aggregate evidence](performance/2026-07-14-machine-composition-evidence.md) — aggregate Program semantic-editor structural gates and 64/256-child synchronous JS timing result
 
 Performance docs are dated snapshots: new measurements go in new files, and
 old files are never updated.
@@ -87,6 +88,8 @@ For contributors and advanced users who want to understand or modify `incr`.
 
 **Research notes — exploratory, not implemented:**
 
+- [2026-07-14 Machine composition abstraction decision](research/2026-07-14-machine-composition-abstraction-decision.md) — aggregate pure functions remain sufficient after the semantic-editor evidence driver and natural-form Circle Drawer comparison
+- [2026-07-14 Machine composition implementation report](research/2026-07-14-machine-composition-implementation-report.md) — WP1–WP4 implementation inventory, plan deviations, and verification record
 - [2026-07-14 Bonsai-informed `incr` core direction](research/2026-07-14-bonsai-informed-incr-core-direction.md) — prioritize historical-volume attribution and live-graph lifetime guarantees; keep dynamic ownership, graph snapshots, safe commits, and static lowering behind explicit evidence gates
 - [2026-07-14 Machine semantics start gates](research/2026-07-14-machine-layer-start-gates.md) — treat pure functions and aggregate Program composition as the baseline; gate new abstraction types, per-key graphs, and generative UI on concrete evidence
 - [Next-sessions Runtime Roadmap](research/next-sessions-runtime-roadmap.md) — onboarding + invariants + backlog template for Loom + Canopy integration sessions
