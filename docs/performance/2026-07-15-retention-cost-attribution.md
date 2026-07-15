@@ -32,6 +32,19 @@ The ratio compares N=10,000 with N=1,000.
 | native | 7a disposed pull + one live eager | 1.673 (1.66–1.69) | 9.640 (9.57–9.76) | 5.76× |
 | native | 7b GC pull + one watched eager | 1.727 (1.69–1.76) | 9.707 (9.62–9.77) | 5.62× |
 
+Retained complete-run means:
+
+| Target | Scenario | N | Run 1 | Run 2 | Run 3 |
+|---|---|---:|---:|---:|---:|
+| wasm-gc | 7a | 1,000 | 1.48 | 1.48 | 1.53 |
+| wasm-gc | 7a | 10,000 | 8.31 | 8.33 | 8.34 |
+| wasm-gc | 7b | 1,000 | 1.51 | 1.52 | 1.53 |
+| wasm-gc | 7b | 10,000 | 9.29 | 9.36 | 9.36 |
+| native | 7a | 1,000 | 1.66 | 1.69 | 1.67 |
+| native | 7a | 10,000 | 9.76 | 9.59 | 9.57 |
+| native | 7b | 1,000 | 1.73 | 1.69 | 1.76 |
+| native | 7b | 10,000 | 9.77 | 9.73 | 9.62 |
+
 Native reproduces both the magnitude and the N-dependent shape. MoonBit's
 native/C backend uses reference counting, while wasm-gc uses the host garbage
 collector. The residual is therefore not specific to wasm-gc root scanning.
@@ -48,6 +61,19 @@ Times are again microseconds per update.
 | wasm-gc | 4 | 30.517 (27.93–32.17) | 2,306.667 (1,930–2,520) | 75.59× |
 | native | 1 | 15.570 (14.72–16.19) | 598.697 (497.59–749.08) | 38.45× |
 | native | 4 | 23.757 (22.34–26.00) | 946.470 (908.58–972.21) | 39.84× |
+
+Retained complete-run means:
+
+| Target | Depth | N | Run 1 | Run 2 | Run 3 |
+|---|---:|---:|---:|---:|---:|
+| wasm-gc | 1 | 1,000 | 20.30 | 19.78 | 20.60 |
+| wasm-gc | 1 | 10,000 | 511.22 | 775.77 | 651.99 |
+| wasm-gc | 4 | 1,000 | 32.17 | 27.93 | 31.45 |
+| wasm-gc | 4 | 10,000 | 2,470 | 2,520 | 1,930 |
+| native | 1 | 1,000 | 16.19 | 15.80 | 14.72 |
+| native | 1 | 10,000 | 549.42 | 749.08 | 497.59 |
+| native | 4 | 1,000 | 22.34 | 26.00 | 22.93 |
+| native | 4 | 10,000 | 908.58 | 972.21 | 958.62 |
 
 Unlike 7a/7b, 8a intentionally keeps N direct root subscribers. Its growth is
 consistent with live graph work plus target-dependent retained-memory effects;
@@ -88,6 +114,19 @@ not create the final live eager consumer. The timed body performs only
 | wasm-gc | 7f GC pull, no push | 71.78 (70.85–72.26) | 71.21 (70.78–71.46) | 0.99× |
 | native | 7e disposed pull, no push | 91.27 (90.42–92.20) | 92.67 (90.00–96.80) | 1.02× |
 | native | 7f GC pull, no push | 95.20 (91.08–103.16) | 97.46 (95.98–98.45) | 1.02× |
+
+Retained complete-run means:
+
+| Target | Scenario | N | Run 1 | Run 2 | Run 3 |
+|---|---|---:|---:|---:|---:|
+| wasm-gc | 7e | 1,000 | 71.07 | 72.14 | 72.76 |
+| wasm-gc | 7e | 10,000 | 71.55 | 69.90 | 74.00 |
+| wasm-gc | 7f | 1,000 | 70.85 | 72.23 | 72.26 |
+| wasm-gc | 7f | 10,000 | 70.78 | 71.46 | 71.38 |
+| native | 7e | 1,000 | 91.19 | 92.20 | 90.42 |
+| native | 7e | 10,000 | 90.00 | 96.80 | 91.21 |
+| native | 7f | 1,000 | 91.37 | 91.08 | 103.16 |
+| native | 7f | 10,000 | 97.95 | 98.45 | 95.98 |
 
 Retained free pull slots and cumulative dispatch arrays do not make the base
 input update scale with N. The N-dependent residual appears only when the one
