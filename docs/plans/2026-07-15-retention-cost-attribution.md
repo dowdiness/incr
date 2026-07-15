@@ -8,6 +8,33 @@
 
 **Tech Stack:** MoonBit 0.1.20260703 or the current pinned toolchain, `moon bench --release`, MoonBit white-box tests, wasm-gc and native targets, repository performance snapshot conventions.
 
+## Execution record
+
+The unchecked checklist below is retained as the approved prospective plan,
+not as completion state. The dated
+[performance note](../performance/2026-07-15-retention-cost-attribution.md)
+supersedes it as the execution record:
+
+- Task 1: three complete wasm-gc runs and three complete native runs are
+  retained per scenario, with ratios and ranges, in the performance note.
+- Task 2: commit `138c3e2` adds the disposal/GC storage characterization.
+  Deliberate `free_memos` and `cell_ops` mutations failed before the corrected
+  assertions passed.
+- Task 3: commit `d0cd538` adds 7e/7f controls. Both targets ran the controls
+  three times. Native reproduced the residual, but `perf`, `samply`, and
+  Valgrind were unavailable; source tracing plus controls bounded the result to
+  an unresolved fixed push-path/retained-storage interaction rather than a
+  named scaling mechanism. The wasm-gc-only branch was therefore not
+  applicable, and no engine change was made.
+- Task 4: commits `c32d1b4` and `ce366a9` add the indexed dated record and
+  retain every run mean used by its aggregate tables.
+- Task 5: `moon fmt`, `moon info`, `moon check`, the 4-case fixture test, the
+  243-case integration package, the full 1,223-case wasm-gc/JS suite, and the
+  final 32-case benchmark matrix on both targets all passed. The branch changes
+  no runtime source or public API. Independent review by
+  `opencode-zen/deepseek-v4-flash-free` passed twice with zero findings,
+  including a follow-up check of all per-run table arithmetic.
+
 ## Global Constraints
 
 - Scope is investigation, characterization tests, a dated performance note, and a go/no-go decision only.
