@@ -20,6 +20,7 @@ property hook with a private typed observer seam.
 
 **Results:**
 [performance snapshot](../performance/2026-07-14-machine-composition-evidence.md),
+[invariant and instrumentation follow-up](../performance/2026-07-15-machine-composition-follow-up.md),
 [abstraction decision](../research/2026-07-14-machine-composition-abstraction-decision.md),
 and [implementation report](../research/2026-07-14-machine-composition-implementation-report.md).
 

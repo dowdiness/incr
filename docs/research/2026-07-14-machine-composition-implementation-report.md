@@ -96,7 +96,11 @@ before merge:
   the machine-composition harness;
 - the deterministic Playwright structural workflow became the dedicated
   `incr_tea-machine-composition-dom` CI job. The timing threshold remains manual
-  and non-blocking as planned.
+  and non-blocking as planned;
+- timed runs now disable decision and issued-command observer bookkeeping before
+  warm-up, matching the pre-registered measurement boundary;
+- follow-up measurements moved to their own 2026-07-15 snapshot so the original
+  2026-07-14 performance record remains immutable.
 
 The observer seam remains disabled by default and does not change renderer
 reconciliation or its public API.
@@ -108,16 +112,16 @@ reconciliation or its public API.
 - `rtk moon info` — completed; no `.mbti` diff;
 - `rtk moon check --deny-warn` — passed;
 - `rtk moon check --deny-warn --target js` — passed;
-- `rtk moon test incr_tea/machine_composition_wbtest.mbt` — 10/10 passed;
-- `rtk moon test incr_tea` — 112/112 passed;
-- `rtk moon test` — wasm-gc 1,066/1,066 and JS 154/154 passed;
+- `rtk moon test incr_tea/machine_composition_wbtest.mbt` — 11/11 passed;
+- `rtk moon test incr_tea` — 113/113 passed;
+- `rtk moon test` — wasm-gc 1,066/1,066 and JS 155/155 passed;
 - `rtk npm --prefix examples/incr_tea run test:machine-composition` — passed
   edit, reorder, stale-result, duplicate-result, identity, and mutation-locality
   assertions; the same deterministic command is registered in CI;
 - `rtk npm --prefix examples/incr_tea run bench:machine-composition` — 6,000
-  recorded samples; after the PR hardening all three 256-child p95 runs passed
-  (400, 600, and 300 µs versus the 16,700 µs gate). Earlier runs are retained in
-  the dated performance snapshot.
+  recorded samples; with observer bookkeeping disabled all three 256-child p95
+  runs passed (500, 600, and 300 µs versus the 16,700 µs gate). Earlier runs are
+  retained in their dated performance snapshots.
 
 The benchmark raw output from the recorded run is at
 `/tmp/incr-machine-composition-raw.json` and is reproducible through the command

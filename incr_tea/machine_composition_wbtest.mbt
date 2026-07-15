@@ -389,6 +389,21 @@ test "machine Program: completion decisions flow through dispatch" {
 }
 
 ///|
+test "machine Program: disabled observer performs no bookkeeping" {
+  let runtime = @incr.Runtime()
+  let observer = MachineProgramObserver()
+  observer.set_enabled(false)
+  let program = machine_program(runtime, machine_initial_model(), observer)
+  guard program.dispatch(MachineAdd(1, "one")) &&
+    observer.decisions.is_empty() &&
+    observer.issued.is_empty() &&
+    program.read_view_or_abort().rows.length() == 1 else {
+    fail("disabled observer changed dispatch or retained benchmark bookkeeping")
+  }
+  program.dispose()
+}
+
+///|
 test "machine Program: GC, churn, and disposal keep one bounded graph" {
   let runtime = @incr.Runtime()
   let observer = MachineProgramObserver()

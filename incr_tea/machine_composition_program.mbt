@@ -14,13 +14,22 @@ priv struct MachineView {
 
 ///|
 priv struct MachineProgramObserver {
+  mut enabled : Bool
   decisions : Array[MachineDecision]
   issued : Array[MachineValidateText]
 }
 
 ///|
 fn MachineProgramObserver::MachineProgramObserver() -> MachineProgramObserver {
-  { decisions: [], issued: [] }
+  { enabled: true, decisions: [], issued: [] }
+}
+
+///|
+fn MachineProgramObserver::set_enabled(
+  self : MachineProgramObserver,
+  enabled : Bool,
+) -> Unit {
+  self.enabled = enabled
 }
 
 ///|
@@ -55,6 +64,7 @@ fn machine_program_cmds(
   commands : ReadOnlyArray[MachineValidateText],
   observer : MachineProgramObserver,
 ) -> Cmd[MachineAction] {
+  guard observer.enabled else { return Cmd::none() }
   Cmd::batch(
     [
       for command in commands => {
@@ -85,7 +95,9 @@ fn[View : Eq] machine_program_with_view(
         Some(value) => (value.after_transition)()
         None => ()
       }
-      observer.decisions.push(result.decision)
+      if observer.enabled {
+        observer.decisions.push(result.decision)
+      }
       (result.model, machine_program_cmds(result.commands, observer))
     },
     model => {

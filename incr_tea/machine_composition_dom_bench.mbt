@@ -447,6 +447,7 @@ fn machine_dom_run_benchmark(
   iterations : Int,
 ) -> String {
   let harness = MachineDomHarness(child_count)
+  harness.observer.set_enabled(false)
   for iteration in 0..<warmup {
     ignore(harness.root.program.dispatch(MachineEdit(0, "warm \{iteration}")))
     harness.root.flush()
