@@ -3,6 +3,7 @@
 enum RendererMsg {
   Increment
   SetUnrelated(Int)
+  SetControlledPhase(Int)
   TogglePanel
   MutatePanelDetail
   ParentOnly
@@ -518,6 +519,14 @@ extern "js" fn test_dom_has_attribute(
   name : String,
 ) -> Bool =
   #| (element, name) => element.attributes.has(String(name))
+
+///|
+#cfg(target="js")
+extern "js" fn test_dom_attribute(
+  element : DomElement,
+  name : String,
+) -> String =
+  #| (element, name) => String(element.attributes.get(String(name)) ?? "")
 
 ///|
 #cfg(target="js")
@@ -1901,5 +1910,160 @@ test "root_stats: shared-Program mounts each get their own row" {
   inspect(renderer.stats().skipped_patches, content="0")
   inspect(renderer.stats().inactive_skipped_flushes, content="0")
 
+  test_restore_dom()
+}
+
+///|
+#cfg(target="js")
+test "#396: controlled boolean descriptors preserve lifecycle state" {
+  let host = test_install_focus_dom()
+  let runtime = @incr.Runtime()
+  let renderer : BrowserRenderer[RendererMsg] = BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  let scope = @incr.Scope::new(runtime)
+  let phase = scope.input_field(0, label="renderer.controlled.lifecycle.phase")
+  let update : (RendererMsg) -> Cmd[RendererMsg] = msg => {
+    match msg {
+      SetControlledPhase(next) => phase.set(next)
+      _ => ()
+    }
+    Cmd::none()
+  }
+  let view : () -> Html[RendererMsg] raise Failure = () => {
+    let phase_value = phase.get()
+    let intent : Bool? = match phase_value {
+      1 => Some(false)
+      3 => None
+      _ => Some(true)
+    }
+    let checkbox_attrs = Attrs::build()
+      .attr("id", "lifecycle-checkbox")
+      .attr("data-phase", phase_value.to_string())
+      .attr("type", "checkbox")
+    let checkbox_attrs = match intent {
+      Some(value) => checkbox_attrs.checked(value)
+      None => checkbox_attrs
+    }
+    let disabled_attrs = Attrs::build()
+      .attr("id", "lifecycle-disabled")
+      .attr("data-phase", phase_value.to_string())
+    let disabled_attrs = match intent {
+      Some(value) => disabled_attrs.disabled(value)
+      None => disabled_attrs
+    }
+    let selected_attrs = Attrs::build()
+      .attr("id", "lifecycle-selected")
+      .attr("data-phase", phase_value.to_string())
+    let selected_attrs = match intent {
+      Some(value) => selected_attrs.selected(value)
+      None => selected_attrs
+    }
+    div([
+      input(attrs=checkbox_attrs.to_array()),
+      input(attrs=disabled_attrs.to_array()),
+      node("select", [
+        node("option", attrs=selected_attrs.to_array(), [text("choice")]),
+      ]),
+    ])
+  }
+  let program = Program::Program(
+    runtime,
+    scope,
+    update,
+    view,
+    label="renderer.controlled.lifecycle.view",
+  )
+  ignore(renderer.mount(host, program))
+
+  let checkbox = test_dom_get_by_id("lifecycle-checkbox")
+  let disabled_control = test_dom_get_by_id("lifecycle-disabled")
+  let selected_option = test_dom_get_by_id("lifecycle-selected")
+  test_dom_focus(checkbox)
+
+  let assert_state = (expected : Bool, phase_value : Int) => {
+    guard test_dom_bool(checkbox, "checked") == expected else {
+      fail("checked property state mismatch")
+    }
+    guard test_dom_bool(disabled_control, "disabled") == expected else {
+      fail("disabled property state mismatch")
+    }
+    guard test_dom_bool(selected_option, "selected") == expected else {
+      fail("selected property state mismatch")
+    }
+    guard test_dom_has_attribute(checkbox, "checked") == expected else {
+      fail("checked attribute state mismatch")
+    }
+    guard test_dom_has_attribute(disabled_control, "disabled") == expected else {
+      fail("disabled attribute state mismatch")
+    }
+    guard test_dom_has_attribute(selected_option, "selected") == expected else {
+      fail("selected attribute state mismatch")
+    }
+    let phase_text = phase_value.to_string()
+    guard test_dom_attribute(checkbox, "data-phase") == phase_text else {
+      fail("checkbox string attribute state mismatch")
+    }
+    guard test_dom_attribute(disabled_control, "data-phase") == phase_text else {
+      fail("disabled string attribute state mismatch")
+    }
+    guard test_dom_attribute(selected_option, "data-phase") == phase_text else {
+      fail("selected string attribute state mismatch")
+    }
+    guard test_dom_same_node(checkbox, test_dom_get_by_id("lifecycle-checkbox")) else {
+      fail("checkbox node identity changed")
+    }
+    guard test_dom_same_node(
+      disabled_control,
+      test_dom_get_by_id("lifecycle-disabled"),
+    ) else {
+      fail("disabled node identity changed")
+    }
+    guard test_dom_same_node(
+      selected_option,
+      test_dom_get_by_id("lifecycle-selected"),
+    ) else {
+      fail("selected node identity changed")
+    }
+    guard test_focused_id() == "lifecycle-checkbox" else {
+      fail("focused node changed")
+    }
+  }
+
+  assert_state(true, 0)
+  for phase_value in 1..<5 {
+    let checked_writes_before = test_dom_property_writes(checkbox, "checked")
+    let disabled_writes_before = test_dom_property_writes(
+      disabled_control,
+      "disabled",
+    )
+    let selected_writes_before = test_dom_property_writes(
+      selected_option,
+      "selected",
+    )
+    inspect(program.dispatch(SetControlledPhase(phase_value)), content="true")
+    test_run_next_raf()
+    let expected = phase_value == 2 || phase_value == 4
+    assert_state(expected, phase_value)
+    guard
+      test_dom_property_writes(checkbox, "checked") > checked_writes_before
+    else {
+      fail("checked property setter did not run")
+    }
+    guard
+      test_dom_property_writes(disabled_control, "disabled") >
+        disabled_writes_before
+    else {
+      fail("disabled property setter did not run")
+    }
+    guard
+      test_dom_property_writes(selected_option, "selected") >
+        selected_writes_before
+    else {
+      fail("selected property setter did not run")
+    }
+  }
+
+  renderer.dispose()
   test_restore_dom()
 }
