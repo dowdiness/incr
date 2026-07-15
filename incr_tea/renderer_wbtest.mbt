@@ -1,9 +1,95 @@
 ///|
 #cfg(target="js")
+enum ControlledLifecyclePhase {
+  ControlledTrueInitial
+  ControlledFalse
+  ControlledTrueAfterFalse
+  Omitted
+  OmittedAfterBrowserMutation
+  ControlledTrueAfterOmitted
+} derive(Eq, Debug)
+
+///|
+#cfg(target="js")
+fn ControlledLifecyclePhase::intent(self : ControlledLifecyclePhase) -> Bool? {
+  match self {
+    ControlledTrueInitial
+    | ControlledTrueAfterFalse
+    | ControlledTrueAfterOmitted => Some(true)
+    ControlledFalse => Some(false)
+    Omitted | OmittedAfterBrowserMutation => None
+  }
+}
+
+///|
+#cfg(target="js")
+fn ControlledLifecyclePhase::expected_property(
+  self : ControlledLifecyclePhase,
+) -> Bool {
+  match self {
+    ControlledTrueInitial
+    | ControlledTrueAfterFalse
+    | OmittedAfterBrowserMutation
+    | ControlledTrueAfterOmitted => true
+    ControlledFalse | Omitted => false
+  }
+}
+
+///|
+#cfg(target="js")
+fn ControlledLifecyclePhase::expected_attribute(
+  self : ControlledLifecyclePhase,
+) -> Bool {
+  match self {
+    ControlledTrueInitial
+    | ControlledTrueAfterFalse
+    | ControlledTrueAfterOmitted => true
+    ControlledFalse | Omitted | OmittedAfterBrowserMutation => false
+  }
+}
+
+///|
+#cfg(target="js")
+fn ControlledLifecyclePhase::setter_should_run(
+  self : ControlledLifecyclePhase,
+) -> Bool {
+  match self {
+    OmittedAfterBrowserMutation => false
+    _ => true
+  }
+}
+
+///|
+#cfg(target="js")
+fn ControlledLifecyclePhase::label(self : ControlledLifecyclePhase) -> String {
+  match self {
+    ControlledTrueInitial => "controlled-true-initial"
+    ControlledFalse => "controlled-false"
+    ControlledTrueAfterFalse => "controlled-true-after-false"
+    Omitted => "omitted"
+    OmittedAfterBrowserMutation => "omitted-after-browser-mutation"
+    ControlledTrueAfterOmitted => "controlled-true-after-omitted"
+  }
+}
+
+///|
+#cfg(target="js")
+fn controlled_lifecycle_transitions() -> Array[ControlledLifecyclePhase] {
+  [
+    ControlledFalse,
+    ControlledTrueAfterFalse,
+    Omitted,
+    OmittedAfterBrowserMutation,
+    ControlledTrueAfterOmitted,
+  ]
+}
+
+///|
+#cfg(target="js")
 enum RendererMsg {
   Increment
   SetUnrelated(Int)
-  SetControlledPhase(Int)
+  SetControlledPhase(ControlledLifecyclePhase)
   TogglePanel
   MutatePanelDetail
   ParentOnly
@@ -1922,7 +2008,10 @@ test "#396: controlled boolean descriptors preserve lifecycle state" {
     runtime,
   )
   let scope = @incr.Scope::new(runtime)
-  let phase = scope.input_field(0, label="renderer.controlled.lifecycle.phase")
+  let phase = scope.input_field(
+    ControlledTrueInitial,
+    label="renderer.controlled.lifecycle.phase",
+  )
   let update : (RendererMsg) -> Cmd[RendererMsg] = msg => {
     match msg {
       SetControlledPhase(next) => phase.set(next)
@@ -1932,14 +2021,11 @@ test "#396: controlled boolean descriptors preserve lifecycle state" {
   }
   let view : () -> Html[RendererMsg] raise Failure = () => {
     let phase_value = phase.get()
-    let intent : Bool? = match phase_value {
-      1 => Some(false)
-      3 => None
-      _ => Some(true)
-    }
+    let intent = phase_value.intent()
+    let label = phase_value.label()
     let checkbox_attrs = Attrs::build()
       .attr("id", "lifecycle-checkbox")
-      .attr("data-phase", phase_value.to_string())
+      .attr("data-phase", label)
       .attr("type", "checkbox")
     let checkbox_attrs = match intent {
       Some(value) => checkbox_attrs.checked(value)
@@ -1947,14 +2033,14 @@ test "#396: controlled boolean descriptors preserve lifecycle state" {
     }
     let disabled_attrs = Attrs::build()
       .attr("id", "lifecycle-disabled")
-      .attr("data-phase", phase_value.to_string())
+      .attr("data-phase", label)
     let disabled_attrs = match intent {
       Some(value) => disabled_attrs.disabled(value)
       None => disabled_attrs
     }
     let selected_attrs = Attrs::build()
       .attr("id", "lifecycle-selected")
-      .attr("data-phase", phase_value.to_string())
+      .attr("data-phase", label)
     let selected_attrs = match intent {
       Some(value) => selected_attrs.selected(value)
       None => selected_attrs
@@ -1974,96 +2060,90 @@ test "#396: controlled boolean descriptors preserve lifecycle state" {
     view,
     label="renderer.controlled.lifecycle.view",
   )
-  ignore(renderer.mount(host, program))
+  let cleanup = () => {
+    renderer.dispose()
+    test_restore_dom()
+  }
+  try {
+    ignore(renderer.mount(host, program))
 
-  let checkbox = test_dom_get_by_id("lifecycle-checkbox")
-  let disabled_control = test_dom_get_by_id("lifecycle-disabled")
-  let selected_option = test_dom_get_by_id("lifecycle-selected")
-  test_dom_focus(checkbox)
+    let checkbox = test_dom_get_by_id("lifecycle-checkbox")
+    let disabled_control = test_dom_get_by_id("lifecycle-disabled")
+    let selected_option = test_dom_get_by_id("lifecycle-selected")
+    test_dom_focus(checkbox)
+    let controls : Array[(DomElement, String, String)] = [
+      (checkbox, "checked", "lifecycle-checkbox"),
+      (disabled_control, "disabled", "lifecycle-disabled"),
+      (selected_option, "selected", "lifecycle-selected"),
+    ]
 
-  let assert_state = (expected : Bool, phase_value : Int) => {
-    guard test_dom_bool(checkbox, "checked") == expected else {
-      fail("checked property state mismatch")
+    let assert_state = (phase_value : ControlledLifecyclePhase) => {
+      let expected_property = phase_value.expected_property()
+      let expected_attribute = phase_value.expected_attribute()
+      let label = phase_value.label()
+      for control in controls {
+        let element = control.0
+        let property_name = control.1
+        let id = control.2
+        guard test_dom_bool(element, property_name) == expected_property else {
+          fail("\{label}: \{property_name} property state mismatch")
+        }
+        guard test_dom_has_attribute(element, property_name) ==
+          expected_attribute else {
+          fail("\{label}: \{property_name} attribute state mismatch")
+        }
+        guard test_dom_attribute(element, "data-phase") == label else {
+          fail("\{label}: \{property_name} string attribute state mismatch")
+        }
+        guard test_dom_same_node(element, test_dom_get_by_id(id)) else {
+          fail("\{label}: \{property_name} node identity changed")
+        }
+      }
+      guard test_focused_id() == "lifecycle-checkbox" else {
+        fail("\{label}: focused node changed")
+      }
     }
-    guard test_dom_bool(disabled_control, "disabled") == expected else {
-      fail("disabled property state mismatch")
+
+    assert_state(ControlledTrueInitial)
+    for phase_value in controlled_lifecycle_transitions() {
+      let writes_before = [
+        for control in controls => {
+          test_dom_property_writes(control.0, control.1)
+        }
+      ]
+      inspect(program.dispatch(SetControlledPhase(phase_value)), content="true")
+      test_run_next_raf()
+      assert_state(phase_value)
+      if phase_value.setter_should_run() {
+        for index, control in controls {
+          guard test_dom_property_writes(control.0, control.1) >
+            writes_before[index] else {
+            fail(
+              "\{phase_value.label()}: \{control.1} property setter did not run",
+            )
+          }
+        }
+      } else {
+        for index, control in controls {
+          guard test_dom_property_writes(control.0, control.1) ==
+            writes_before[index] else {
+            fail(
+              "\{phase_value.label()}: \{control.1} uncontrolled property was written",
+            )
+          }
+        }
+      }
+      if phase_value is Omitted {
+        for control in controls {
+          test_dom_set_bool(control.0, control.1, true)
+        }
+      }
     }
-    guard test_dom_bool(selected_option, "selected") == expected else {
-      fail("selected property state mismatch")
-    }
-    guard test_dom_has_attribute(checkbox, "checked") == expected else {
-      fail("checked attribute state mismatch")
-    }
-    guard test_dom_has_attribute(disabled_control, "disabled") == expected else {
-      fail("disabled attribute state mismatch")
-    }
-    guard test_dom_has_attribute(selected_option, "selected") == expected else {
-      fail("selected attribute state mismatch")
-    }
-    let phase_text = phase_value.to_string()
-    guard test_dom_attribute(checkbox, "data-phase") == phase_text else {
-      fail("checkbox string attribute state mismatch")
-    }
-    guard test_dom_attribute(disabled_control, "data-phase") == phase_text else {
-      fail("disabled string attribute state mismatch")
-    }
-    guard test_dom_attribute(selected_option, "data-phase") == phase_text else {
-      fail("selected string attribute state mismatch")
-    }
-    guard test_dom_same_node(checkbox, test_dom_get_by_id("lifecycle-checkbox")) else {
-      fail("checkbox node identity changed")
-    }
-    guard test_dom_same_node(
-      disabled_control,
-      test_dom_get_by_id("lifecycle-disabled"),
-    ) else {
-      fail("disabled node identity changed")
-    }
-    guard test_dom_same_node(
-      selected_option,
-      test_dom_get_by_id("lifecycle-selected"),
-    ) else {
-      fail("selected node identity changed")
-    }
-    guard test_focused_id() == "lifecycle-checkbox" else {
-      fail("focused node changed")
+  } catch {
+    error => {
+      cleanup()
+      raise error
     }
   }
-
-  assert_state(true, 0)
-  for phase_value in 1..<5 {
-    let checked_writes_before = test_dom_property_writes(checkbox, "checked")
-    let disabled_writes_before = test_dom_property_writes(
-      disabled_control,
-      "disabled",
-    )
-    let selected_writes_before = test_dom_property_writes(
-      selected_option,
-      "selected",
-    )
-    inspect(program.dispatch(SetControlledPhase(phase_value)), content="true")
-    test_run_next_raf()
-    let expected = phase_value == 2 || phase_value == 4
-    assert_state(expected, phase_value)
-    guard
-      test_dom_property_writes(checkbox, "checked") > checked_writes_before
-    else {
-      fail("checked property setter did not run")
-    }
-    guard
-      test_dom_property_writes(disabled_control, "disabled") >
-        disabled_writes_before
-    else {
-      fail("disabled property setter did not run")
-    }
-    guard
-      test_dom_property_writes(selected_option, "selected") >
-        selected_writes_before
-    else {
-      fail("selected property setter did not run")
-    }
-  }
-
-  renderer.dispose()
-  test_restore_dom()
+  cleanup()
 }
