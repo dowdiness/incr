@@ -347,6 +347,31 @@ prints Markdown tables plus raw JSON. Tune the sampling budget with
 snapshot is recorded in
 [`docs/performance/2026-06-12-incr-tea-keyed-dom-applier-playwright.md`](../../docs/performance/2026-06-12-incr-tea-keyed-dom-applier-playwright.md).
 
+## Controlled-property reconciliation benchmark (#394)
+
+The equal-view controlled-property benchmark runs the production
+`BrowserRenderer::flush_all` path in Chromium. It varies rendered-tree size
+(0/100/1,000/10,000 nodes) and controlled-property count (0/1/16/256), then
+reports median and p95 latency across individual flushes, separately for equal
+views with no browser drift and equal views that repair deliberate
+`value`/`checked`/`disabled`/`selected` drift. The runner enables
+cross-origin isolation for a 5 µs timer probe and marks cells below 10 timer
+quanta as below-resolution instead of treating their quantized p95 as a tail
+measurement.
+
+```bash
+cd examples/incr_tea
+npm install
+npx playwright install chromium   # one-time browser install if needed
+npm run bench:controlled-reconcile
+```
+
+The harness dispatches a monotonically changing unrelated input before every
+flush, including warmups, so equal-value input updates cannot skip the path.
+The timed window excludes mount, tree construction, browser-property mutation,
+and model dispatch. The dated results and environment are recorded in
+[`docs/performance/2026-07-15-incr-tea-controlled-reconciliation.md`](../../docs/performance/2026-07-15-incr-tea-controlled-reconciliation.md).
+
 ## Adjacent-framework pure comparison benchmark
 
 The first #257 comparison slice builds the same counter and list-shaped view

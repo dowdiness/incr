@@ -32,6 +32,8 @@ pub fn[Msg] input(attrs? : Array[Attribute], events? : Array[EventBinding[Msg]])
 
 pub fn install_activation_trigger_bench_api() -> Unit
 
+pub fn install_controlled_reconcile_bench_api() -> Unit
+
 pub fn install_dom_bench_api() -> Unit
 
 pub fn install_ui_compare_dom_bench_api() -> Unit

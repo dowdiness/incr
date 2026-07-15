@@ -40,6 +40,7 @@ snippets).
 - [2026-07-14 Retention baseline](performance/2026-07-14-retention-baseline.md) — forgotten pull/eager lifecycle costs, same-root push-gate activation, and disposal/GC controls
 - [2026-07-15 Retention cost attribution](performance/2026-07-15-retention-cost-attribution.md) — cross-target 7a/7b reproduction, post-cleanup storage facts, push-free controls, and slot-reclamation no-go for #399
 - [2026-07-15 Machine composition follow-up](performance/2026-07-15-machine-composition-follow-up.md) — single-source sequencing and observer-disabled browser timing after PR hardening
+- [2026-07-15 Incremental TEA controlled-property reconciliation](performance/2026-07-15-incr-tea-controlled-reconciliation.md) — issue #394 Chromium benchmark of equal-view traversal/getter and mismatch-repair cost; no optimization justified.
 - [2026-07-14 Machine composition aggregate evidence](performance/2026-07-14-machine-composition-evidence.md) — aggregate Program semantic-editor structural gates and 64/256-child synchronous JS timing result
 
 Performance docs are dated snapshots: new measurements go in new files, and

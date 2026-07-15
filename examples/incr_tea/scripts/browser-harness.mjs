@@ -39,13 +39,16 @@ function filePathForRequest(pathname, defaultPath) {
   return filePath;
 }
 
-export function createStaticServer(defaultPath) {
+export function createStaticServer(defaultPath, extraHeaders = {}) {
   return createServer(async (request, response) => {
     try {
       const url = new URL(request.url ?? '/', `http://${request.headers.host ?? host}`);
       const filePath = filePathForRequest(url.pathname, defaultPath);
       const bytes = await readFile(filePath);
-      response.writeHead(200, { 'content-type': contentType(filePath) });
+      response.writeHead(200, {
+        'content-type': contentType(filePath),
+        ...extraHeaders,
+      });
       response.end(bytes);
     } catch (error) {
       response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
