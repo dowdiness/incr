@@ -43,6 +43,10 @@ counts, and property/text mutation attribution.
   aggregate Program version field, but attempted zero DOM patches and produced
   zero DOM mutations.
 
+These deterministic assertions now run in the
+`incr_tea-machine-composition-dom` CI job. Only the timing workflow remains a
+manual dated measurement.
+
 ## Timing results
 
 All values are microseconds. The timer has roughly 100 µs granularity in this
@@ -90,6 +94,11 @@ path.
 All three 256-child p95 runs again pass the 16,700 µs gate. This follow-up is a
 regression check, not a statistically significant comparison with the original
 run; both are far below the registered threshold.
+
+The PR-hardening run after replacing the browser-global property callback with
+the private typed observer produced 256-child p95 values of 400, 600, and 300
+µs. All runs again pass the gate; timer granularity and run-to-run noise remain
+larger than any useful claim about the instrumentation change itself.
 
 ## Reproduction
 

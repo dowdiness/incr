@@ -12,9 +12,3 @@ import {
   "moonbitlang/core/bench",
   "moonbitlang/core/quickcheck",
 } for "wbtest"
-
-// The machine-composition fixture is package-private production-shaped support
-// whose constructors and inspection fields are intentionally exercised by
-// white-box tests and the JS-only browser harness.
-
-warnings = "-1-6-7"

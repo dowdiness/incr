@@ -115,14 +115,41 @@ extern "js" fn dom_set_attr(
 
 ///|
 #cfg(target="js")
-extern "js" fn dom_set_value_property(
+let dom_property_mutation_observer : Ref[((DomElement, String) -> Unit)?] = Ref(
+  None,
+)
+
+///|
+#cfg(target="js")
+fn dom_set_property_mutation_observer(
+  observer : ((DomElement, String) -> Unit)?,
+) -> Unit {
+  dom_property_mutation_observer.val = observer
+}
+
+///|
+#cfg(target="js")
+fn dom_record_property_mutation(element : DomElement, name : String) -> Unit {
+  match dom_property_mutation_observer.val {
+    Some(observer) => observer(element, name)
+    None => ()
+  }
+}
+
+///|
+#cfg(target="js")
+extern "js" fn dom_set_value_property_raw(
   element : DomElement,
   value : String,
 ) -> Unit =
-  #| (element, value) => {
-  #|   globalThis.__incrTeaRecordPropertyMutation?.(element, "value");
-  #|   element.value = value;
-  #| }
+  #| (element, value) => { element.value = value; }
+
+///|
+#cfg(target="js")
+fn dom_set_value_property(element : DomElement, value : String) -> Unit {
+  dom_record_property_mutation(element, "value")
+  dom_set_value_property_raw(element, value)
+}
 
 ///|
 #cfg(target="js")
@@ -133,15 +160,23 @@ extern "js" fn dom_remove_attr(element : DomElement, name : String) -> Unit =
 /// Sets a boolean-formatted DOM property (e.g. `element.checked = true`) for
 /// form controls where `setAttribute` alone is unreliable for controlled state.
 #cfg(target="js")
-extern "js" fn dom_set_bool_property(
+extern "js" fn dom_set_bool_property_raw(
   element : DomElement,
   name : String,
   value : Bool,
 ) -> Unit =
-  #| (element, name, value) => {
-  #|   globalThis.__incrTeaRecordPropertyMutation?.(element, name);
-  #|   element[name] = value;
-  #| }
+  #| (element, name, value) => { element[name] = value; }
+
+///|
+#cfg(target="js")
+fn dom_set_bool_property(
+  element : DomElement,
+  name : String,
+  value : Bool,
+) -> Unit {
+  dom_record_property_mutation(element, name)
+  dom_set_bool_property_raw(element, name, value)
+}
 
 ///|
 #cfg(target="js")

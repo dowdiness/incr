@@ -76,14 +76,33 @@ extern "js" fn machine_mutation_probe(
 
 ///|
 #cfg(target="js")
-extern "js" fn machine_mutation_begin(probe : MachineMutationProbe) -> Unit =
+extern "js" fn machine_mutation_reset(probe : MachineMutationProbe) -> Unit =
   #| (probe) => {
   #|   probe.observer.takeRecords();
   #|   probe.propertyEvents = [];
-  #|   globalThis.__incrTeaRecordPropertyMutation = (element, property) => {
-  #|     probe.propertyEvents.push({ element, property });
-  #|   };
   #| }
+
+///|
+#cfg(target="js")
+extern "js" fn machine_mutation_record_property(
+  probe : MachineMutationProbe,
+  element : DomElement,
+  property : String,
+) -> Unit =
+  #| (probe, element, property) => {
+  #|   probe.propertyEvents.push({ element, property });
+  #| }
+
+///|
+#cfg(target="js")
+fn machine_mutation_begin(probe : MachineMutationProbe) -> Unit {
+  machine_mutation_reset(probe)
+  dom_set_property_mutation_observer(
+    Some((element, property) => {
+      machine_mutation_record_property(probe, element, property)
+    }),
+  )
+}
 
 ///|
 #cfg(target="js")
@@ -101,7 +120,6 @@ extern "js" fn machine_mutation_finish(
 ) -> String =
   #| (probe, iteration, childCount, transitionMs, viewMs, patchMs, flushTotalMs, transitionCalls, viewCalls, patchCalls) => {
   #|   const records = probe.observer.takeRecords();
-  #|   delete globalThis.__incrTeaRecordPropertyMutation;
   #|   const targetName = node => {
   #|     const element = node?.nodeType === Node.ELEMENT_NODE ? node : node?.parentElement;
   #|     const row = element?.closest?.(".machine-row[data-semantic-id]");
@@ -235,7 +253,6 @@ fn machine_dom_initial_model(child_count : Int) -> MachineParentModel {
 #cfg(target="js")
 fn machine_validation_label(validation : MachineValidation) -> String {
   match validation {
-    MachineIdle => "idle"
     MachinePending(seq) => "pending \{seq}"
     MachineValid(seq) => "valid \{seq}"
     MachineInvalid(seq, diagnostic) => "invalid \{seq}: \{diagnostic}"
@@ -345,6 +362,7 @@ fn MachineDomHarness::record(
   ignore(self.root.program.dispatch(action))
   self.root.flush()
   let total = dom_bench_now_ms() - started
+  dom_set_property_mutation_observer(None)
   machine_mutation_finish(
     self.probe,
     iteration,

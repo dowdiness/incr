@@ -4,13 +4,13 @@ priv struct MachineViewRow {
   incarnation : Int
   text : String
   validation : MachineValidation
-} derive(Eq, Debug)
+} derive(Eq)
 
 ///|
 priv struct MachineView {
   rows : ReadOnlyArray[MachineViewRow]
   selected_id : Int?
-} derive(Eq, Debug)
+} derive(Eq)
 
 ///|
 priv struct MachineProgramObserver {
@@ -105,6 +105,7 @@ fn[View : Eq] machine_program_with_view(
 }
 
 ///|
+#warnings("-unused_value")
 fn machine_program(
   runtime : @incr.Runtime,
   initial : MachineParentModel,

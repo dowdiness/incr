@@ -6,6 +6,9 @@
 gates; no `Machine` type, per-key reactive variant, or `incr` core API was
 added. A 2026-07-15 follow-up removed duplicated request-sequence state and
 pre-registered developer-UX extraction gates without changing that decision.
+PR hardening then made the deterministic browser gates permanent in CI,
+removed package-wide warning suppression, and replaced the browser-global
+property hook with a private typed observer seam.
 
 **Revised against:** `bd8e2a8` (2026-07-14).
 
@@ -121,7 +124,7 @@ ChildId          stable semantic identity
 Incarnation      changes when a removed ID is reused
 RequestSeq       orders requests within one mounted lifetime
 ValidationToken  ChildId + Incarnation + RequestSeq
-Validation       Idle | Pending(seq) | Valid(seq) | Invalid(seq, diagnostic)
+Validation       Pending(seq) | Valid(seq) | Invalid(seq, diagnostic)
 ChildModel       local editable state + validation (the sole request-sequence source)
 ParentModel      ordered child IDs + child records + next incarnation
 HistorySnapshot  order + selected ID + semantic child data only
@@ -502,7 +505,9 @@ For any implementation of this plan:
 3. `rtk moon check incr_tea` -> exits 0 with no diagnostics.
 4. `rtk moon test incr_tea` -> all package tests pass.
 5. `rtk npm --prefix examples/incr_tea run test:machine-composition` -> all
-   structural DOM and identity assertions pass in Chromium.
+   structural DOM and identity assertions pass in Chromium. The same command
+   runs in the `incr_tea-machine-composition-dom` CI job; timing thresholds do
+   not run in CI.
 6. `rtk npm --prefix examples/incr_tea run bench:machine-composition` -> emits
    the required raw records for 64 and 256 children; record the dated snapshot,
    but do not use a timing failure as a CI failure.

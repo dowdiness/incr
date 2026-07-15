@@ -3,21 +3,21 @@ priv struct MachineValidationToken {
   child_id : Int
   incarnation : Int
   request_seq : Int
-} derive(Eq, Debug)
+} derive(Eq)
 
 ///|
 priv enum MachineValidation {
-  MachineIdle
   MachinePending(Int)
   MachineValid(Int)
   MachineInvalid(Int, String)
-} derive(Eq, Debug)
+} derive(Eq)
 
 ///|
+#warnings("-unused_constructor")
 priv enum MachineValidationOutcome {
   MachineValidationValid
   MachineValidationInvalid(String)
-} derive(Eq, Debug)
+} derive(Eq)
 
 ///|
 priv struct MachineChild {
@@ -25,34 +25,37 @@ priv struct MachineChild {
   incarnation : Int
   text : String
   validation : MachineValidation
-} derive(Eq, Debug)
+} derive(Eq)
 
 ///|
+#warnings("-unused_value")
 priv struct MachineParentModel {
   children : ReadOnlyArray[MachineChild]
   selected_id : Int?
   next_incarnation : Int
-} derive(Eq, Debug)
+} derive(Eq)
 
 ///|
 priv struct MachineSnapshotChild {
   id : Int
   text : String
-} derive(Eq, Debug)
+} derive(Eq)
 
 ///|
 priv struct MachineHistorySnapshot {
   children : ReadOnlyArray[MachineSnapshotChild]
   selected_id : Int?
-} derive(Eq, Debug)
+} derive(Eq)
 
 ///|
+#warnings("-unused_value")
 priv struct MachineValidateText {
   token : MachineValidationToken
   text : String
-} derive(Eq, Debug)
+} derive(Eq)
 
 ///|
+#warnings("-unused_value")
 priv enum MachineDecision {
   MachineApplied
   MachineIgnoredMissingChild
@@ -63,9 +66,10 @@ priv enum MachineDecision {
   MachineIgnoredDuplicate
   MachineRejectedInvalidAction
   MachineRejectedUnexpected
-} derive(Eq, Debug)
+} derive(Eq)
 
 ///|
+#warnings("-unused_constructor")
 priv enum MachineAction {
   MachineEdit(Int, String)
   MachineSelect(Int)
@@ -155,7 +159,6 @@ fn machine_validation_command(child : MachineChild) -> MachineValidateText {
 ///|
 fn machine_validation_request_seq(validation : MachineValidation) -> Int {
   match validation {
-    MachineIdle => 0
     MachinePending(seq) | MachineValid(seq) | MachineInvalid(seq, _) => seq
   }
 }

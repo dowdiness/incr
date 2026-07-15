@@ -83,6 +83,24 @@ The follow-up:
 
 This changed no public interface or runtime ownership model.
 
+## PR hardening follow-up
+
+A strategic PR review identified three maintainability gaps. They were closed
+before merge:
+
+- package-wide warning suppression was removed; unnecessary `Debug` derives
+  and the uninhabited idle-validation variant were deleted, while declarations
+  used only by white-box tests carry narrowly scoped `#warnings` attributes;
+- the controlled-property measurement callback moved from a browser-global
+  name to a package-private typed observer installed and removed explicitly by
+  the machine-composition harness;
+- the deterministic Playwright structural workflow became the dedicated
+  `incr_tea-machine-composition-dom` CI job. The timing threshold remains manual
+  and non-blocking as planned.
+
+The observer seam remains disabled by default and does not change renderer
+reconciliation or its public API.
+
 ## Verification record
 
 - `rtk moon update` — dependency registry and symbols updated successfully;
@@ -95,11 +113,11 @@ This changed no public interface or runtime ownership model.
 - `rtk moon test` — wasm-gc 1,066/1,066 and JS 154/154 passed;
 - `rtk npm --prefix examples/incr_tea run test:machine-composition` — passed
   edit, reorder, stale-result, duplicate-result, identity, and mutation-locality
-  assertions;
+  assertions; the same deterministic command is registered in CI;
 - `rtk npm --prefix examples/incr_tea run bench:machine-composition` — 6,000
-  recorded samples; after the invariant follow-up all three 256-child p95 runs
-  passed (500, 500, and 200 µs versus the 16,700 µs gate). The original run is
-  retained in the dated performance snapshot.
+  recorded samples; after the PR hardening all three 256-child p95 runs passed
+  (400, 600, and 300 µs versus the 16,700 µs gate). Earlier runs are retained in
+  the dated performance snapshot.
 
 The benchmark raw output from the recorded run is at
 `/tmp/incr-machine-composition-raw.json` and is reproducible through the command
