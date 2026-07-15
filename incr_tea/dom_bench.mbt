@@ -20,6 +20,26 @@ extern "js" fn dom_bench_now_ms() -> Double =
 
 ///|
 #cfg(target="js")
+priv struct DomBenchTiming {
+  mut patch_ms : Double
+  mut patch_calls : Int
+}
+
+///|
+#cfg(target="js")
+fn DomBenchTiming::DomBenchTiming() -> DomBenchTiming {
+  { patch_ms: 0.0, patch_calls: 0 }
+}
+
+///|
+#cfg(target="js")
+fn DomBenchTiming::reset(self : DomBenchTiming) -> Unit {
+  self.patch_ms = 0.0
+  self.patch_calls = 0
+}
+
+///|
+#cfg(target="js")
 extern "js" fn dom_bench_create_host() -> DomElement =
   #| () => {
   #|   const host = document.createElement("div");
@@ -71,6 +91,7 @@ priv struct DomBenchRoot[Msg] {
   host : DomElement
   stats : RenderStats
   patch_mode : DomBenchPatchMode
+  timing : DomBenchTiming?
   mut last_view : Html[Msg]?
   mut rendered : Rendered[Msg]?
 }
@@ -81,12 +102,14 @@ fn[Msg] DomBenchRoot::DomBenchRoot(
   program : Program[Msg, Html[Msg]],
   host : DomElement,
   patch_mode : DomBenchPatchMode,
+  timing? : DomBenchTiming,
 ) -> DomBenchRoot[Msg] {
   {
     program,
     host,
     stats: RenderStats::RenderStats(),
     patch_mode,
+    timing,
     last_view: None,
     rendered: None,
   }
@@ -100,6 +123,7 @@ fn[Msg : Eq] DomBenchRoot::flush(self : DomBenchRoot[Msg]) -> Unit {
     Some(prev) if prev == next =>
       self.stats.skipped_patches = self.stats.skipped_patches + 1
     _ => {
+      let patch_started = dom_bench_now_ms()
       self.stats.patch_attempts = self.stats.patch_attempts + 1
       self.last_view = Some(next)
       let sink : EventSink[Msg] = {
@@ -120,6 +144,14 @@ fn[Msg : Eq] DomBenchRoot::flush(self : DomBenchRoot[Msg]) -> Unit {
           }
       }
       self.rendered = Some(rendered)
+      match self.timing {
+        Some(timing) => {
+          timing.patch_ms = timing.patch_ms +
+            (dom_bench_now_ms() - patch_started)
+          timing.patch_calls = timing.patch_calls + 1
+        }
+        None => ()
+      }
     }
   }
 }

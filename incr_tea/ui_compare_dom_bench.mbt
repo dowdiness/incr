@@ -72,4 +72,5 @@ fn ui_compare_incr_run(
 #cfg(target="js")
 pub fn install_ui_compare_dom_bench_api() -> Unit {
   ui_compare_dom_install_incr_api(ui_compare_incr_run)
+  install_machine_composition_dom_api()
 }

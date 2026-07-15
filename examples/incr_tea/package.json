@@ -10,7 +10,9 @@
     "bench:dom": "npm run build:bench && node scripts/bench-keyed-dom.mjs",
     "bench:ui-compare-dom": "npm run build:ui-compare-bench && node scripts/bench-ui-compare-dom.mjs",
     "bench:activation-trigger": "npm run build:bench && node scripts/bench-activation-trigger.mjs",
-    "test:dom": "npm run build:demo && node scripts/test-keyed-dom.mjs"
+    "bench:machine-composition": "npm run build:ui-compare-bench && node scripts/bench-machine-composition.mjs",
+    "test:dom": "npm run build:demo && node scripts/test-keyed-dom.mjs",
+    "test:machine-composition": "npm run build:ui-compare-bench && node scripts/test-machine-composition.mjs"
   },
   "devDependencies": {
     "playwright": "^1.60.0"
