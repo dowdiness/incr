@@ -87,6 +87,7 @@ For contributors and advanced users who want to understand or modify `incr`.
   - [2026-07-05 Public API boundary cleanup + `Expr[T]` track](plans/2026-07-05-public-api-boundary-cleanup.md) — deprecations + `Scope::watch`, types-package cleanup, error-channel consistency (0.14.0), then the `Expr[T]` formula layer
   - [2026-07-14 Duplix-informed retention benchmarks](plans/2026-07-14-duplix-retention-benchmarks.md) — measure forgot-to-dispose costs (8-scenario matrix); gated follow-ups: detachable per-key scopes, `KeyedInput` Map-diff facade
   - [2026-07-14 Machine composition evidence driver](plans/2026-07-14-machine-composition-evidence-driver.md) — test pure parent/child composition and aggregate `Program::stateful_cmd` first; measure before proposing a `Machine` type or per-key reactive ownership
+  - [2026-07-15 Retention cost attribution](plans/2026-07-15-retention-cost-attribution.md) — cross-target reproduction, post-cleanup storage characterization, and slot-reclamation go/no-go for #399
 
 **Research notes — exploratory, not implemented:**
 
