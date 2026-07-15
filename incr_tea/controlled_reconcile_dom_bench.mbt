@@ -208,8 +208,9 @@ fn ControlledReconcileBenchHarness::measure_sample(
   self : ControlledReconcileBenchHarness,
   mode : ControlledReconcileBenchMode,
   iterations : Int,
-) -> Double {
-  let total = for index in 0..<iterations; total = 0.0 {
+) -> Array[Double] {
+  let timings : Array[Double] = []
+  for index in 0..<iterations {
     ignore(self.program.dispatch(Touch(index)))
     match mode {
       EqualNoDrift => ()
@@ -233,11 +234,9 @@ fn ControlledReconcileBenchHarness::measure_sample(
           abort("controlled reconciliation benchmark failed to repair drift")
         }
     }
-    continue total + elapsed
-  } nobreak {
-    total
+    timings.push(elapsed * 1000.0)
   }
-  total / iterations.to_double()
+  timings
 }
 
 ///|
@@ -263,11 +262,13 @@ fn controlled_reconcile_bench_result_json(
   node_count : Int,
   controlled_count : Int,
   iterations : Int,
-  samples : Array[Double],
+  sample_means : Array[Double],
+  operations : Array[Double],
 ) -> String {
-  let sample_json = samples.map(sample => "\{sample * 1000.0}").join(",")
+  let sample_json = sample_means.map(sample => "\{sample}").join(",")
+  let operation_json = operations.map(operation => "\{operation}").join(",")
   let json =
-    $|{"mode":"\{mode.name()}","nodes":\{node_count},"controlled":\{controlled_count},"iterations":\{iterations},"unit":"us","samples":[\{sample_json}]}
+    $|{"mode":"\{mode.name()}","nodes":\{node_count},"controlled":\{controlled_count},"iterations":\{iterations},"unit":"us","sample_means":[\{sample_json}],"operations":[\{operation_json}]}
   json
 }
 
@@ -289,14 +290,21 @@ fn controlled_reconcile_bench_run(
   for _ in 0..<5 {
     ignore(harness.measure_sample(benchmark_mode, 1))
   }
-  let samples = [
-    for _ in 0..<samples_len => {
-      harness.measure_sample(benchmark_mode, iteration_count)
+  let sample_means : Array[Double] = []
+  let operations : Array[Double] = []
+  for _ in 0..<samples_len {
+    let timings = harness.measure_sample(benchmark_mode, iteration_count)
+    let total = for timing in timings; total = 0.0 {
+      operations.push(timing)
+      continue total + timing
+    } nobreak {
+      total
     }
-  ]
+    sample_means.push(total / iteration_count.to_double())
+  }
   harness.dispose()
   controlled_reconcile_bench_result_json(
-    benchmark_mode, nodes, controlled, iteration_count, samples,
+    benchmark_mode, nodes, controlled, iteration_count, sample_means, operations,
   )
 }
 

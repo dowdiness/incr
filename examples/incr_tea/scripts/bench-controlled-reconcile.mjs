@@ -12,7 +12,22 @@ function positiveInt(value, fallback) {
   return Number.isFinite(parsed) && parsed > 0 ? Math.trunc(parsed) : fallback;
 }
 
+async function measureTimerResolutionUs(page) {
+  return page.evaluate(() => {
+    let previous = performance.now();
+    let minimumMs = Infinity;
+    for (let index = 0; index < 20000; index += 1) {
+      const next = performance.now();
+      const delta = next - previous;
+      if (delta > 0) minimumMs = Math.min(minimumMs, delta);
+      previous = next;
+    }
+    return minimumMs * 1000;
+  });
+}
+
 function fmt(value) {
+  if (value === null || value === undefined) return 'n/a';
   if (value >= 100) return value.toFixed(0);
   if (value >= 10) return value.toFixed(1);
   return value.toFixed(2);
@@ -42,28 +57,45 @@ function reportTable(results, mode) {
   const lines = [
     `### ${mode} (µs per equal-view flush)`,
     '',
-    '| nodes | controlled | median | p95 | min | max |',
-    '|---:|---:|---:|---:|---:|---:|',
+    '| nodes | controlled | median | p95 | min | max | tail validity |',
+    '|---:|---:|---:|---:|---:|---:|---|',
   ];
   for (const result of rows) {
-    const summary = stats(result.samples);
     lines.push(
-      `| ${result.nodes} | ${result.controlled} | ${fmt(summary.median_us)} | ${fmt(summary.p95_us)} | ${fmt(summary.min_us)} | ${fmt(summary.max_us)} |`,
+      `| ${result.nodes} | ${result.controlled} | ${fmt(result.median_us)} | ${fmt(result.p95_us)} | ${fmt(result.min_us)} | ${fmt(result.max_us)} | ${result.tail_validity} |`,
     );
   }
   return lines.join('\n');
 }
 
-function printReport({ browserVersion, userAgent, raw }) {
-  const results = raw.map(result => ({ ...result, ...stats(result.samples) }));
+function printReport({ browserVersion, userAgent, timerResolutionUs, raw }) {
+  const tailFloorUs = timerResolutionUs * 10;
+  const results = raw.map(result => {
+    const operationStats = stats(result.operations);
+    const sampleMeanStats = stats(result.sample_means);
+    const { operations, ...rest } = result;
+    const tailMeasurable = operationStats.median_us >= tailFloorUs;
+    return {
+      ...rest,
+      operation_count: operations.length,
+      ...operationStats,
+      tail_validity: tailMeasurable
+        ? 'measurable'
+        : `below ${fmt(tailFloorUs)} µs median floor`,
+      sample_mean_median_us: sampleMeanStats.median_us,
+      sample_mean_p95_us: sampleMeanStats.p95_us,
+    };
+  });
   console.log('# Incremental TEA controlled-property reconciliation benchmark');
   console.log('');
   console.log(`- Browser: ${browserVersion}`);
   console.log(`- User agent: ${userAgent}`);
+  console.log(`- Timer resolution probe: ${fmt(timerResolutionUs)} µs`);
+  console.log(`- Operation-tail validity floor: median ≥ ${fmt(tailFloorUs)} µs (10 timer quanta)`);
   console.log(`- Samples: ${samples} × ${iterations} operations per cell`);
   console.log('- Unit: microseconds per timed `BrowserRenderer::flush_all` equal-view flush');
   console.log('- Timed window excludes tree construction, browser-property drift, and model dispatch.');
-  console.log('- Median and p95 are computed across per-sample means; min/max expose run spread.');
+  console.log('- Median and p95 are computed across individual flushes; sample-mean spread is retained in raw JSON.');
   console.log('');
   for (const mode of modes) console.log(reportTable(results, mode), '\n');
   console.log('<details>');
@@ -75,7 +107,10 @@ function printReport({ browserVersion, userAgent, raw }) {
   console.log('</details>');
 }
 
-const server = createStaticServer('/examples/incr_tea/controlled-reconcile-bench.html');
+const server = createStaticServer('/examples/incr_tea/controlled-reconcile-bench.html', {
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  'Cross-Origin-Embedder-Policy': 'require-corp',
+});
 await listen(server);
 
 let browser;
@@ -96,6 +131,13 @@ try {
     { polling: 50 },
   );
   const userAgent = await page.evaluate(() => navigator.userAgent);
+  const crossOriginIsolated = await page.evaluate(() => globalThis.crossOriginIsolated);
+  assert(crossOriginIsolated, 'Controlled reconciliation benchmark requires cross-origin isolation');
+  const timerResolutionUs = await measureTimerResolutionUs(page);
+  assert(
+    Number.isFinite(timerResolutionUs) && timerResolutionUs < 50,
+    `Timer resolution is too coarse for per-flush tails: ${timerResolutionUs} µs`,
+  );
 
   const raw = [];
   for (const mode of modes) {
@@ -116,7 +158,7 @@ try {
     }
   }
 
-  printReport({ browserVersion: browser.version(), userAgent, raw });
+  printReport({ browserVersion: browser.version(), userAgent, timerResolutionUs, raw });
 } finally {
   if (browser) await browser.close();
   await close(server);

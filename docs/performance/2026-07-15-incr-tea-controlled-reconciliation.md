@@ -12,43 +12,51 @@ path, not the private DOM benchmark root.
 | MoonBit | 0.1.20260703 (`6fbf8c3`) |
 | JS runtime | Node v24.14.1 |
 | Browser | Chromium 148.0.7778.96 via Playwright 1.60.0 |
+| Timer resolution probe | 5 µs with `crossOriginIsolated` enabled |
 | Command | `cd examples/incr_tea && npm run bench:controlled-reconcile` |
 | Sampling | 9 samples × 200 timed operations per cell |
 
-The benchmark page keeps `requestAnimationFrame` from invoking callbacks and
-manually calls `BrowserRenderer::flush_all`. Each harness mounts a hidden,
-attached host containing a flat tree with 0, 100, 1,000, or 10,000 nodes. The
-first 0, 1, 16, or 256 eligible nodes carry one controlled descriptor, cycling
-through `value`, `checked`, `disabled`, and `selected`. Cells with more
-controlled properties than nodes are omitted.
+The benchmark server sends `Cross-Origin-Opener-Policy: same-origin` and
+`Cross-Origin-Embedder-Policy: require-corp`. The runner asserts
+`crossOriginIsolated` and probes `performance.now()` before collecting results.
+Each harness mounts a hidden, attached host containing a flat tree with 0, 100,
+1,000, or 10,000 nodes. The first 0, 1, 16, or 256 eligible nodes carry one
+controlled descriptor, cycling through `value`, `checked`, `disabled`, and
+`selected`. Cells with more controlled properties than nodes are omitted.
 
 The timed window begins after an unrelated model write has scheduled a flush.
 It excludes tree construction, mount, browser-property mutation, and model
-dispatch. Each sample is the mean of its timed operations. The table reports the
-median and p95 across those sample means; min/max show run spread.
+dispatch. Every timed flush is recorded individually. The report's median and
+p95 are computed across all `samples × iterations` flushes, not across sample
+means. Sample means remain in raw JSON for comparison with earlier snapshots.
+
+Because the measured timer quantum is 5 µs, a cell is marked `measurable` only
+when its operation median is at least 10 timer quanta (50 µs). Cells below that
+floor still report their quantized operation values, but their operation-level
+tail is not treated as a reliable acceptance result; use the sample-mean values
+for those cells instead.
 
 ## Results
 
 ### Equal view with no browser drift
 
-This is the getter/traversal control: the cached `Html` is equal and every
-controlled property already has its intended value, so reconciliation performs
-no property writes.
+The cached `Html` is equal and every controlled property already has its
+intended value, so reconciliation performs no property writes.
 
-| Nodes | Controlled | Median (µs) | p95 (µs) | Min (µs) | Max (µs) |
-|---:|---:|---:|---:|---:|---:|
-| 0 | 0 | 1.50 | 12.0 | 0.50 | 12.0 |
-| 100 | 0 | 4.50 | 18.5 | 3.00 | 18.5 |
-| 100 | 1 | 4.50 | 6.50 | 3.50 | 6.50 |
-| 100 | 16 | 5.50 | 8.00 | 3.50 | 8.00 |
-| 1,000 | 0 | 36.0 | 60.5 | 33.0 | 60.5 |
-| 1,000 | 1 | 32.0 | 39.0 | 30.0 | 39.0 |
-| 1,000 | 16 | 35.5 | 37.5 | 33.5 | 37.5 |
-| 1,000 | 256 | 62.0 | 71.5 | 56.5 | 71.5 |
-| 10,000 | 0 | 345 | 404 | 337 | 404 |
-| 10,000 | 1 | 348 | 359 | 338 | 359 |
-| 10,000 | 16 | 354 | 403 | 344 | 403 |
-| 10,000 | 256 | 360 | 364 | 353 | 364 |
+| Nodes | Controlled | Median (µs) | p95 (µs) | Min (µs) | Max (µs) | Tail validity |
+|---:|---:|---:|---:|---:|---:|---|
+| 0 | 0 | 0.00 | 10.0 | 0.00 | 445 | below 50.0 µs median floor |
+| 100 | 0 | 5.00 | 10.0 | 0.00 | 95.0 | below 50.0 µs median floor |
+| 100 | 1 | 5.00 | 10.0 | 0.00 | 345 | below 50.0 µs median floor |
+| 100 | 16 | 5.00 | 10.0 | 0.00 | 500 | below 50.0 µs median floor |
+| 1,000 | 0 | 35.0 | 50.0 | 25.0 | 140 | below 50.0 µs median floor |
+| 1,000 | 1 | 35.0 | 55.0 | 25.0 | 240 | below 50.0 µs median floor |
+| 1,000 | 16 | 35.0 | 65.0 | 25.0 | 250 | below 50.0 µs median floor |
+| 1,000 | 256 | 55.0 | 95.0 | 45.0 | 910 | measurable |
+| 10,000 | 0 | 340 | 455 | 290 | 680 | measurable |
+| 10,000 | 1 | 340 | 470 | 300 | 715 | measurable |
+| 10,000 | 16 | 340 | 455 | 300 | 860 | measurable |
+| 10,000 | 256 | 360 | 565 | 335 | 765 | measurable |
 
 ### Equal view with deliberate property drift
 
@@ -57,31 +65,35 @@ opposite value and asserts that every descriptor present in the cell is drifted
 before timing and restored after the first timed flush in every sample. The
 16- and 256-property cells exercise all four descriptor kinds.
 
-| Nodes | Controlled | Median (µs) | p95 (µs) | Min (µs) | Max (µs) |
-|---:|---:|---:|---:|---:|---:|
-| 0 | 0 | 0.50 | 2.00 | 0.00 | 2.00 |
-| 100 | 0 | 4.00 | 7.50 | 2.00 | 7.50 |
-| 100 | 1 | 5.00 | 6.50 | 3.00 | 6.50 |
-| 100 | 16 | 11.5 | 15.0 | 8.00 | 15.0 |
-| 1,000 | 0 | 32.5 | 38.5 | 28.5 | 38.5 |
-| 1,000 | 1 | 34.5 | 38.0 | 32.0 | 38.0 |
-| 1,000 | 16 | 43.0 | 49.5 | 37.0 | 49.5 |
-| 1,000 | 256 | 146 | 187 | 131 | 187 |
-| 10,000 | 0 | 346 | 370 | 340 | 370 |
-| 10,000 | 1 | 342 | 357 | 332 | 357 |
-| 10,000 | 16 | 362 | 375 | 353 | 375 |
-| 10,000 | 256 | 464 | 487 | 450 | 487 |
+| Nodes | Controlled | Median (µs) | p95 (µs) | Min (µs) | Max (µs) | Tail validity |
+|---:|---:|---:|---:|---:|---:|---|
+| 0 | 0 | 0.00 | 5.00 | 0.00 | 50.0 | below 50.0 µs median floor |
+| 100 | 0 | 5.00 | 10.0 | 0.00 | 50.0 | below 50.0 µs median floor |
+| 100 | 1 | 5.00 | 10.0 | 0.00 | 65.0 | below 50.0 µs median floor |
+| 100 | 16 | 10.0 | 25.0 | 5.00 | 115 | below 50.0 µs median floor |
+| 1,000 | 0 | 35.0 | 55.0 | 25.0 | 195 | below 50.0 µs median floor |
+| 1,000 | 1 | 35.0 | 50.0 | 25.0 | 135 | below 50.0 µs median floor |
+| 1,000 | 16 | 40.0 | 70.0 | 30.0 | 175 | below 50.0 µs median floor |
+| 1,000 | 256 | 140 | 225 | 115 | 3,915 | measurable |
+| 10,000 | 0 | 335 | 480 | 290 | 660 | measurable |
+| 10,000 | 1 | 335 | 485 | 305 | 710 | measurable |
+| 10,000 | 16 | 345 | 575 | 295 | 830 | measurable |
+| 10,000 | 256 | 455 | 825 | 390 | 5,600 | measurable |
 
 ## Finding
 
-The claimed traversal cost is measurable at 10,000 nodes: approximately
-0.35–0.36 ms median with no drift and 0.46 ms median for 256 mismatch repairs
-on this Chromium run. The bounded traversal is below a 16.7 ms frame budget by
-roughly 35× at the largest measured tree, while mismatch repair adds about
-0.10 ms at the densest measured case. No optimization is justified by this
-snapshot; the existing correctness-first reconciliation remains in place.
+The operation-level tail is now directly measured for cells whose median is at
+least 10 timer quanta. At 10,000 nodes, no-drift equal-view flushes are
+340–360 µs median with 455–565 µs p95; 256 mismatch repairs are 455 µs median
+and 825 µs p95. These are below a 16.7 ms frame budget by roughly 20–37×. The
+1,000-node/256-property repair cell is also measurable at 140 µs median and
+225 µs p95. Smaller cells remain reported with an explicit below-resolution
+status rather than an unsupported tail claim.
 
-The benchmark is now reproducible with:
+No renderer optimization is justified by this snapshot; the existing
+correctness-first reconciliation remains in place.
+
+The benchmark is reproducible with:
 
 ```bash
 cd examples/incr_tea
@@ -90,6 +102,7 @@ npx playwright install chromium
 npm run bench:controlled-reconcile
 ```
 
-The raw JSON printed by the command preserves every per-sample mean for later
-comparisons. Browser and machine variance should be checked before using these
-numbers as a regression threshold.
+The raw JSON printed by the command preserves operation count, operation-level
+median/p95/min/max, sample means, and the timer-resolution validity status.
+Browser and machine variance should be checked before using these numbers as a
+regression threshold.

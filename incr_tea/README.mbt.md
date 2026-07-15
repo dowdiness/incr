@@ -352,9 +352,12 @@ snapshot is recorded in
 The equal-view controlled-property benchmark runs the production
 `BrowserRenderer::flush_all` path in Chromium. It varies rendered-tree size
 (0/100/1,000/10,000 nodes) and controlled-property count (0/1/16/256), then
-reports median and p95 latency separately for equal views with no browser drift
-and equal views that repair deliberate `value`/`checked`/`disabled`/`selected`
-drift:
+reports median and p95 latency across individual flushes, separately for equal
+views with no browser drift and equal views that repair deliberate
+`value`/`checked`/`disabled`/`selected` drift. The runner enables
+cross-origin isolation for a 5 µs timer probe and marks cells below 10 timer
+quanta as below-resolution instead of treating their quantized p95 as a tail
+measurement.
 
 ```bash
 cd examples/incr_tea
