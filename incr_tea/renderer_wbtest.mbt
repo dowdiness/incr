@@ -513,6 +513,14 @@ extern "js" fn test_dom_property_writes(
 
 ///|
 #cfg(target="js")
+extern "js" fn test_dom_has_attribute(
+  element : DomElement,
+  name : String,
+) -> Bool =
+  #| (element, name) => element.attributes.has(String(name))
+
+///|
+#cfg(target="js")
 extern "js" fn test_dom_focus(element : DomElement) -> Unit =
   #| (element) => { element.focus(); }
 
@@ -1129,6 +1137,140 @@ test "#003: equal Html flush restores controlled true booleans" {
   inspect(restored_selected, content="true")
   inspect(patch_attempts, content="1")
   inspect(skipped, content="1")
+}
+
+///|
+#cfg(target="js")
+test "#395: omitted boolean helpers preserve browser-owned form state during equal Html flush" {
+  let host = test_install_focus_dom()
+  let runtime = @incr.Runtime()
+  let renderer : BrowserRenderer[RendererMsg] = BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  let scope = @incr.Scope::new(runtime)
+  let unrelated = scope.input_field(
+    0,
+    label="renderer.uncontrolled.boolean.equal_flush.unrelated",
+  )
+  let update : (RendererMsg) -> Cmd[RendererMsg] = msg => {
+    match msg {
+      SetUnrelated(next) => unrelated.set(next)
+      _ => ()
+    }
+    Cmd::none()
+  }
+  let view : () -> Html[RendererMsg] raise Failure = () => {
+    let _ = unrelated
+    div([
+      input(
+        attrs=Attrs::build()
+          .attr("id", "uncontrolled-checkbox")
+          .attr("type", "checkbox")
+          .to_array(),
+      ),
+      input(
+        attrs=Attrs::build()
+          .attr("id", "uncontrolled-radio")
+          .attr("type", "radio")
+          .to_array(),
+      ),
+      input(attrs=Attrs::build().attr("id", "uncontrolled-disabled").to_array()),
+      node("select", [
+        node(
+          "option",
+          attrs=Attrs::build().attr("id", "uncontrolled-option").to_array(),
+          [text("choice")],
+        ),
+      ]),
+    ])
+  }
+  let program = Program::Program(
+    runtime,
+    scope,
+    update,
+    view,
+    label="renderer.uncontrolled.boolean.equal_flush.view",
+  )
+  ignore(renderer.mount(host, program))
+
+  let checkbox = test_dom_get_by_id("uncontrolled-checkbox")
+  let radio = test_dom_get_by_id("uncontrolled-radio")
+  let disabled_control = test_dom_get_by_id("uncontrolled-disabled")
+  let option = test_dom_get_by_id("uncontrolled-option")
+  let checkbox_writes = test_dom_property_writes(checkbox, "checked")
+  let radio_writes = test_dom_property_writes(radio, "checked")
+  let disabled_writes = test_dom_property_writes(disabled_control, "disabled")
+  let option_writes = test_dom_property_writes(option, "selected")
+  test_dom_set_bool(checkbox, "checked", true)
+  test_dom_set_bool(radio, "checked", true)
+  test_dom_set_bool(disabled_control, "disabled", true)
+  test_dom_set_bool(option, "selected", true)
+  test_dom_focus(checkbox)
+  let dispatched = program.dispatch(SetUnrelated(1))
+  let pending_count = test_pending_raf_count()
+
+  test_run_next_raf()
+  let patch_attempts = renderer.stats().patch_attempts
+  let skipped = renderer.stats().skipped_patches
+
+  let preserved_checkbox = test_dom_bool(checkbox, "checked")
+  let preserved_radio = test_dom_bool(radio, "checked")
+  let preserved_disabled = test_dom_bool(disabled_control, "disabled")
+  let preserved_option = test_dom_bool(option, "selected")
+  let no_checkbox_write = test_dom_property_writes(checkbox, "checked") ==
+    checkbox_writes
+  let no_radio_write = test_dom_property_writes(radio, "checked") ==
+    radio_writes
+  let no_disabled_write = test_dom_property_writes(disabled_control, "disabled") ==
+    disabled_writes
+  let no_option_write = test_dom_property_writes(option, "selected") ==
+    option_writes
+  let same_checkbox_node = test_dom_same_node(
+    checkbox,
+    test_dom_get_by_id("uncontrolled-checkbox"),
+  )
+  let same_radio_node = test_dom_same_node(
+    radio,
+    test_dom_get_by_id("uncontrolled-radio"),
+  )
+  let same_disabled_node = test_dom_same_node(
+    disabled_control,
+    test_dom_get_by_id("uncontrolled-disabled"),
+  )
+  let same_option_node = test_dom_same_node(
+    option,
+    test_dom_get_by_id("uncontrolled-option"),
+  )
+  let focused_id = test_focused_id()
+  let no_checkbox_attr = !test_dom_has_attribute(checkbox, "checked")
+  let no_radio_attr = !test_dom_has_attribute(radio, "checked")
+  let no_disabled_attr = !test_dom_has_attribute(disabled_control, "disabled")
+  let no_option_attr = !test_dom_has_attribute(option, "selected")
+
+  renderer.dispose()
+  test_restore_dom()
+
+  inspect(dispatched, content="true")
+  inspect(pending_count, content="1")
+  inspect(patch_attempts, content="1")
+  inspect(skipped, content="1")
+  inspect(preserved_checkbox, content="true")
+  inspect(preserved_radio, content="true")
+  inspect(preserved_disabled, content="true")
+  inspect(preserved_option, content="true")
+  inspect(no_checkbox_write, content="true")
+  inspect(no_radio_write, content="true")
+  inspect(no_disabled_write, content="true")
+  inspect(no_option_write, content="true")
+  inspect(same_checkbox_node, content="true")
+  inspect(same_radio_node, content="true")
+  inspect(same_disabled_node, content="true")
+  inspect(same_option_node, content="true")
+  inspect(focused_id, content="uncontrolled-checkbox")
+  inspect(no_checkbox_attr, content="true")
+  inspect(no_radio_attr, content="true")
+  inspect(no_disabled_attr, content="true")
+  inspect(no_option_attr, content="true")
 }
 
 ///|
