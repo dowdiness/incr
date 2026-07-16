@@ -42,6 +42,7 @@ pub struct ValueEventId {
 } derive(Eq, Debug)
 
 ///|
+/// Construct a value event identifier from a name. This constructor does not error.
 #cfg(target="js")
 pub fn ValueEventId::ValueEventId(name : String) -> ValueEventId {
   { name, }
@@ -55,6 +56,7 @@ pub struct ValuePayload {
 }
 
 ///|
+/// Construct a value payload from a string. This constructor does not error.
 #cfg(target="js")
 pub fn ValuePayload::ValuePayload(value : String) -> ValuePayload {
   { value, }
