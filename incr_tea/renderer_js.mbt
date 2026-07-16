@@ -209,9 +209,9 @@ extern "js" fn dom_add_event_listener(
   #| }
 
 ///|
-/// DOM-payload listener for text inputs: forwards the target's string `value`.
+/// DOM-payload listener for value-bearing event targets: forwards `value`.
 /// The value→message mapping stays at the browser boundary; `Html` only stores
-/// a typed pure id (see `EventSpec::TextInput`).
+/// a typed pure id (see `EventSpec::Value`).
 #cfg(target="js")
 extern "js" fn dom_add_value_listener(
   element : DomElement,
@@ -461,7 +461,7 @@ fn[Msg] Rendered::node(self : Rendered[Msg]) -> DomNode {
 /// them). Executable mapping stays here, outside cacheable `Html` values.
 #cfg(target="js")
 priv struct PayloadResolvers[Msg] {
-  resolve_text : (TextInputId, TextInputPayload) -> Msg?
+  resolve_value : (ValueEventId, ValuePayload) -> Msg?
   resolve_checked : (CheckedInputId, CheckedPayload) -> Msg?
   resolve_key : (KeyEventId, KeyPayload) -> Msg?
   resolve_pointer : (PointerEventId, PointerPayload) -> Msg?
@@ -471,7 +471,7 @@ priv struct PayloadResolvers[Msg] {
 ///|
 #cfg(target="js")
 fn[Msg] PayloadResolvers::PayloadResolvers(
-  resolve_text? : (TextInputId, TextInputPayload) -> Msg? = (_, _) => None,
+  resolve_value? : (ValueEventId, ValuePayload) -> Msg? = (_, _) => None,
   resolve_checked? : (CheckedInputId, CheckedPayload) -> Msg? = (_, _) => None,
   resolve_key? : (KeyEventId, KeyPayload) -> Msg? = (_, _) => None,
   resolve_pointer? : (PointerEventId, PointerPayload) -> Msg? = (_, _) => None,
@@ -481,7 +481,7 @@ fn[Msg] PayloadResolvers::PayloadResolvers(
   ) => None,
 ) -> PayloadResolvers[Msg] {
   {
-    resolve_text,
+    resolve_value,
     resolve_checked,
     resolve_key,
     resolve_pointer,
@@ -745,14 +745,14 @@ fn[Msg] attach_events(
           actions.stop_propagation,
           () => dispatch(message),
         )
-      TextInput(id~) =>
+      Value(id~) =>
         dom_add_value_listener(
           element,
           event.name,
           actions.prevent_default,
           actions.stop_propagation,
           value => {
-            match (payload_resolvers.resolve_text)(id, { value, }) {
+            match (payload_resolvers.resolve_value)(id, { value, }) {
               Some(message) => dispatch(message)
               None => ()
             }
@@ -1313,7 +1313,7 @@ fn[Msg] BrowserRoot::BrowserRoot(
   host : DomElement,
   stats : RenderStats,
   label? : String = "",
-  resolve_text? : (TextInputId, TextInputPayload) -> Msg? = (_, _) => None,
+  resolve_value? : (ValueEventId, ValuePayload) -> Msg? = (_, _) => None,
   resolve_checked? : (CheckedInputId, CheckedPayload) -> Msg? = (_, _) => None,
   resolve_key? : (KeyEventId, KeyPayload) -> Msg? = (_, _) => None,
   resolve_pointer? : (PointerEventId, PointerPayload) -> Msg? = (_, _) => None,
@@ -1323,7 +1323,7 @@ fn[Msg] BrowserRoot::BrowserRoot(
   ) => None,
 ) -> BrowserRoot[Msg] {
   let payload_resolvers = PayloadResolvers::PayloadResolvers(
-    resolve_text~,
+    resolve_value~,
     resolve_checked~,
     resolve_key~,
     resolve_pointer~,
@@ -1542,7 +1542,7 @@ pub fn[Msg : Eq] BrowserRenderer::mount(
   host : DomElement,
   program : Program[Msg, Html[Msg]],
   label? : String = "",
-  on_input? : (TextInputId, TextInputPayload) -> Msg? = (_, _) => None,
+  on_value? : (ValueEventId, ValuePayload) -> Msg? = (_, _) => None,
   on_checked_change? : (CheckedInputId, CheckedPayload) -> Msg? = (_, _) => None,
   on_key? : (KeyEventId, KeyPayload) -> Msg? = (_, _) => None,
   on_pointer? : (PointerEventId, PointerPayload) -> Msg? = (_, _) => None,
@@ -1568,7 +1568,7 @@ pub fn[Msg : Eq] BrowserRenderer::mount(
     host,
     root_stats,
     label~,
-    resolve_text=on_input,
+    resolve_value=on_value,
     resolve_checked=on_checked_change,
     resolve_key=on_key,
     resolve_pointer=on_pointer,

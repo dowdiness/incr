@@ -297,6 +297,98 @@ try {
       `unchanged greet flush should restore controlled value/checked; state=${JSON.stringify(state)}`,
     );
   });
+  await runTest('controlled properties become browser-owned when omitted', async () => {
+    await gotoDemo(page, baseUrl);
+    const selectors = {
+      select: '#greet-root select[data-form-control="select"]',
+      checkbox: '#greet-root input[data-form-control="checked"]',
+      touch: '#greet-root button[data-form-control="touch"]',
+    };
+    const initial = await page.evaluate(({ select, checkbox }) => {
+      const selectNode = document.querySelector(select);
+      const checkboxNode = document.querySelector(checkbox);
+      if (!(selectNode instanceof HTMLSelectElement) || !(checkboxNode instanceof HTMLInputElement)) {
+        throw new Error('missing controlled form controls');
+      }
+      return {
+        select: selectNode.value,
+        checked: checkboxNode.checked,
+        selectHasValue: selectNode.hasAttribute('value'),
+      };
+    }, selectors);
+    assert(
+      initial.select === 'beta' &&
+        initial.checked === false &&
+        initial.selectHasValue,
+      `initial controls were not controlled: ${JSON.stringify(initial)}`,
+    );
+
+    await clickScopedButton(page, '#greet-root', 'Toggle select control', 'greet');
+    await clickScopedButton(page, '#greet-root', 'Toggle checked control', 'greet');
+    await page.waitForFunction(() => {
+      const state = document.querySelector('[data-form-control-state]')?.textContent ?? '';
+      return state.includes('select-controlled=false') && state.includes('checked-controlled=false');
+    });
+
+    const afterToggle = await page.evaluate(({ select, checkbox }) => {
+      const selectNode = document.querySelector(select);
+      const checkboxNode = document.querySelector(checkbox);
+      if (!(selectNode instanceof HTMLSelectElement) || !(checkboxNode instanceof HTMLInputElement)) {
+        throw new Error('missing toggled form controls');
+      }
+      return {
+        selectHasValue: selectNode.hasAttribute('value'),
+      };
+    }, selectors);
+    assert(
+      !afterToggle.selectHasValue,
+      `controlled helpers were not omitted: ${JSON.stringify(afterToggle)}`,
+    );
+
+    const before = await page.evaluate(({ select, checkbox }) => {
+      const selectNode = document.querySelector(select);
+      const checkboxNode = document.querySelector(checkbox);
+      if (!(selectNode instanceof HTMLSelectElement) || !(checkboxNode instanceof HTMLInputElement)) {
+        throw new Error('missing browser-owned form controls');
+      }
+      selectNode.value = 'alpha';
+      checkboxNode.checked = true;
+      globalThis.__incrTeaBrowserOwnedSelect = selectNode;
+      globalThis.__incrTeaBrowserOwnedCheckbox = checkboxNode;
+      return { select: selectNode.value, checked: checkboxNode.checked };
+    }, selectors);
+    assert(
+      before.select === 'alpha' && before.checked === true,
+      `setup failed to create browser-owned drift: ${JSON.stringify(before)}`,
+    );
+
+    const beforeFlushes = await frameFlushes(page);
+    await clickScopedButton(page, '#greet-root', 'Touch unrelated', 'greet');
+    await page.waitForFunction(previous => {
+      const text = document.querySelector('#render-stats')?.textContent ?? '';
+      const match = text.match(/rAF flushes: (\d+)/);
+      return match ? Number(match[1]) > previous : false;
+    }, beforeFlushes);
+
+    const after = await page.evaluate(({ select, checkbox }) => {
+      const selectNode = document.querySelector(select);
+      const checkboxNode = document.querySelector(checkbox);
+      return {
+        sameSelect: selectNode === globalThis.__incrTeaBrowserOwnedSelect,
+        sameCheckbox: checkboxNode === globalThis.__incrTeaBrowserOwnedCheckbox,
+        select: selectNode instanceof HTMLSelectElement ? selectNode.value : null,
+        checked: checkboxNode instanceof HTMLInputElement ? checkboxNode.checked : null,
+      };
+    }, selectors);
+    assert(
+      after.sameSelect && after.sameCheckbox,
+      `omitting controlled helpers replaced browser-owned nodes: ${JSON.stringify(after)}`,
+    );
+    assert(
+      after.select === 'alpha' && after.checked === true,
+      `equal-view flush re-controlled omitted properties: ${JSON.stringify(after)}`,
+    );
+  });
   await runTest('select, date, and range controls recover after equal-view flushes', async () => {
     await gotoDemo(page, baseUrl);
     const selectors = {

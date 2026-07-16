@@ -4,11 +4,7 @@ test "cells resolves tiny references" {
   ignore(app.program.dispatch(SetCell("A1", "42")))
   ignore(app.program.dispatch(SetCell("B1", "=A1")))
   inspect(cell_value(app._state.val, "B1"), content="42")
-  match
-    resolve_text_input(
-      @tea.TextInputId("cell:C4"),
-      @tea.TextInputPayload("=A1"),
-    ) {
+  match resolve_value(@tea.ValueEventId("cell:C4"), @tea.ValuePayload("=A1")) {
     Some(SetCell(id, text)) => {
       inspect(id, content="C4")
       inspect(text, content="=A1")

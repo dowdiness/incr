@@ -129,11 +129,7 @@ test "incr_tea spreadsheet proof applies formula bar edits and dependent formula
 
 ///|
 test "incr_tea spreadsheet proof maps payload descriptors at renderer boundary" {
-  match
-    resolve_text_input(
-      @tea.TextInputId("draft:A1"),
-      @tea.TextInputPayload("15"),
-    ) {
+  match resolve_value(@tea.ValueEventId("draft:A1"), @tea.ValuePayload("15")) {
     Some(UpdateDraft(cell, text)) => {
       inspect(cell, content="A1")
       inspect(text, content="15")

@@ -132,18 +132,18 @@ run after the renderer boundary has patched the DOM.
 An event descriptor is pure data with meaningful `Eq`. `on_click(msg)` stores a
 fixed message; the spreadsheet-oriented fixed-message descriptors add
 `on_submit(msg)`, `on_blur(msg)`, `on_focus(msg)`, and `on_dblclick(msg)`.
-`on_submit` prevents the browser's native form submission by default. Payload
-descriptors store typed pure ids (`TextInputId`, `KeyEventId`, `PointerEventId`)
-plus a DOM event name; the renderer extracts the browser payload at the boundary
-and resolves `(id, payload) -> Msg` through mount-time resolvers (`on_input` for
-text/value-change payloads, `on_key`, and `on_pointer`). Text input and
-value-change descriptors forward `value`; keyboard descriptors forward
-key/code/modifiers/repeat, and pointer descriptors forward pointer id/type,
-viewport coordinates (`client_x`/`client_y`), target-element-local offsets
-(`offset_x`/`offset_y`, from the browser's `offsetX`/`offsetY`), buttons, and
-modifiers. Use `on_change(tag=...)` for committed values from selects and
-range/date controls. No closure or DOM event object is stored in cacheable
-`Html`, so equal descriptors still backdate.
+`on_submit` prevents the browser's native form submission by default.
+Descriptors store typed pure ids (`ValueEventId`, `KeyEventId`,
+`PointerEventId`) plus a DOM event name; the renderer extracts the browser
+payload at the boundary and resolves `(id, payload) -> Msg` through mount-time
+resolvers (`on_value` for text/value-change payloads, `on_key`, and
+`on_pointer`). Text input and value-change descriptors forward `value`;
+keyboard descriptors forward key/code/modifiers/repeat, and pointer descriptors
+forward pointer id/type, viewport coordinates (`client_x`/`client_y`),
+target-element-local offsets (`offset_x`/`offset_y`, from the browser's
+`offsetX`/`offsetY`), buttons, and modifiers. Use `on_change(tag=...)` for
+committed values from selects and range/date controls. No closure or DOM event
+object is stored in cacheable `Html`, so equal descriptors still backdate.
 Checkbox/radio checked-state payloads use `on_checked_change(tag=...)` with
 `CheckedInputId` and `CheckedPayload{checked: Bool}`, following the same pure-id
 pattern. The renderer reads `event.target.checked` at the boundary and resolves
@@ -507,10 +507,10 @@ The reference read for this slice was
   as closures in the view (`on_mousedown=m => emit(StartDraw(m))`). That cannot
   work here: the view value is a tracked `Derived` output that must stay `Eq` and
   closure-free for backdating, and a fresh closure per recompute would never
-  compare equal. Instead the payload→message mapping is split — the `Html` stores
-  typed pure ids (`TextInputId`, `CheckedInputId`, `KeyEventId`, `PointerEventId`)
-  and event names, while resolvers supplied at the JS mount boundary
-  (`mount(..., on_input=..., on_checked_change=..., on_key=..., on_pointer=...,
+  equal. Instead the payload→message mapping is split — the `Html` stores typed
+  pure ids (`ValueEventId`, `CheckedInputId`, `KeyEventId`, `PointerEventId`) and
+  event names, while resolvers supplied at the JS mount boundary
+  (`mount(..., on_value=..., on_checked_change=..., on_key=..., on_pointer=...,
   on_key_event=...)`) turn typed browser payloads into messages and
   payload-dependent keyboard actions, mirroring where the existing `dispatch`
   closure already lives. So
