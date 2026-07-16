@@ -104,7 +104,9 @@ installs a runtime `on_change` hook, and schedules one `requestAnimationFrame`
 flush for a burst of model changes. A flush reads each active root's persistent
 `Watch`; if the cacheable `Html` value is equal to the last rendered value, the
 renderer records a skipped patch and runs only the narrow controlled form-property
-repair for live `value`/`checked`/`disabled`/`selected` drift. If the value
+repair for live `value`/`checked`/`disabled`/`selected` drift. String `value`
+properties are controlled on `<input>` and `<select>` elements; select values
+are reconciled after their option children are mounted or diffed. If the value
 changed, it records a patch attempt and applies a small positional VDOM diff.
 Inactive mounted roots stay in the owned root set and keep their DOM attached, but the
 scheduled frame records an inactive skip instead of reading the watched view;
@@ -133,13 +135,15 @@ fixed message; the spreadsheet-oriented fixed-message descriptors add
 `on_submit` prevents the browser's native form submission by default. Payload
 descriptors store typed pure ids (`TextInputId`, `KeyEventId`, `PointerEventId`)
 plus a DOM event name; the renderer extracts the browser payload at the boundary
-and resolves `(id, payload) -> Msg` through mount-time resolvers (`on_input`,
-`on_key`, `on_pointer`). Text input and value-change descriptors forward
-`value`, keyboard forwards key/code/modifiers/repeat, and pointer forwards
-pointer id/type, viewport coordinates (`client_x`/`client_y`), target-element-local
-offsets (`offset_x`/`offset_y`, from the browser's `offsetX`/`offsetY`), buttons, and
-modifiers. No closure or DOM event object is stored in cacheable `Html`, so
-equal descriptors still backdate.
+and resolves `(id, payload) -> Msg` through mount-time resolvers (`on_input` for
+text/value-change payloads, `on_key`, and `on_pointer`). Text input and
+value-change descriptors forward `value`; keyboard descriptors forward
+key/code/modifiers/repeat, and pointer descriptors forward pointer id/type,
+viewport coordinates (`client_x`/`client_y`), target-element-local offsets
+(`offset_x`/`offset_y`, from the browser's `offsetX`/`offsetY`), buttons, and
+modifiers. Use `on_change(tag=...)` for committed values from selects and
+range/date controls. No closure or DOM event object is stored in cacheable
+`Html`, so equal descriptors still backdate.
 Checkbox/radio checked-state payloads use `on_checked_change(tag=...)` with
 `CheckedInputId` and `CheckedPayload{checked: Bool}`, following the same pure-id
 pattern. The renderer reads `event.target.checked` at the boundary and resolves
@@ -242,6 +246,11 @@ Conventions:
 - Event helpers stay pure descriptors. Do not add closure-valued event handlers
   to `Html`; payload-to-message logic and payload-dependent keyboard actions
   belong at `BrowserRenderer::mount`.
+- String `value` properties are controlled on `<input>` and `<select>` elements
+  when supplied as `attr("value", value)`; the renderer writes the DOM property
+  directly and equal-view flushes repair browser drift. Select values are
+  applied after option children are mounted or diffed, so a newly added selected
+  option is restored in the same render.
 - Boolean form-control properties (`checked`, `disabled`, `selected`) use
   `Attrs::checked(Bool)`, `Attrs::disabled(Bool)`, and `Attrs::selected(Bool)`.
   Calling the helper with either `true` or `false` makes the property controlled:
@@ -499,11 +508,12 @@ The reference read for this slice was
   work here: the view value is a tracked `Derived` output that must stay `Eq` and
   closure-free for backdating, and a fresh closure per recompute would never
   compare equal. Instead the payload→message mapping is split — the `Html` stores
-  typed pure ids (`TextInputId`, `KeyEventId`, `PointerEventId`) and event names,
-  while resolvers supplied at the js mount boundary
-  (`mount(..., on_input=..., on_key=..., on_pointer=..., on_key_event=...)`)
-  turn typed browser payloads into messages and payload-dependent keyboard
-  actions, mirroring where the existing `dispatch` closure already lives. So
+  typed pure ids (`TextInputId`, `CheckedInputId`, `KeyEventId`, `PointerEventId`)
+  and event names, while resolvers supplied at the JS mount boundary
+  (`mount(..., on_input=..., on_checked_change=..., on_key=..., on_pointer=...,
+  on_key_event=...)`) turn typed browser payloads into messages and
+  payload-dependent keyboard actions, mirroring where the existing `dispatch`
+  closure already lives. So
   Rabbita's keyed-child semantics are adopted wholesale, while its closure-valued
   event API is intentionally replaced with pure data plus boundary resolvers.
 - **Qwik-style boundary — similar discipline, not QRL resumability.** Qwik stores
