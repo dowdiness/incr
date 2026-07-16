@@ -13,6 +13,11 @@ enum DemoMsg {
   GreetKeyPayload(String)
   GreetPointerPayload(String)
   GreetCheckedChange(Bool)
+  GreetSelectChange(String)
+  GreetDateChange(String)
+  GreetRangeChange(String)
+  GreetAddOption
+  GreetTouchUnrelated
   EditorSelect(String)
   EditorNodeInput(String, String)
   EditorRenameSelected
@@ -195,6 +200,14 @@ fn greet_program(runtime : @incr.Runtime) -> Program[DemoMsg, Html[DemoMsg]] {
   let scope = @incr.Scope::new(runtime)
   let name = scope.input_field("", label="demo.greet.name")
   let subscribed = scope.input_field(false, label="demo.greet.subscribed")
+  let selected = scope.input_field("beta", label="demo.greet.select")
+  let has_extra_option = scope.input_field(
+    false,
+    label="demo.greet.extra_option",
+  )
+  let date = scope.input_field("2026-01-02", label="demo.greet.date")
+  let range = scope.input_field("50", label="demo.greet.range")
+  let touched = scope.input_field(0, label="demo.greet.touched")
   let last_key = scope.input_field("no key payload yet", label="demo.greet.key")
   let last_pointer = scope.input_field(
     "no pointer payload yet",
@@ -204,8 +217,16 @@ fn greet_program(runtime : @incr.Runtime) -> Program[DemoMsg, Html[DemoMsg]] {
     match msg {
       GreetNameInput(value) => name.set(value)
       GreetCheckedChange(value) => subscribed.set(value)
+      GreetSelectChange(value) => selected.set(value)
+      GreetDateChange(value) => date.set(value)
+      GreetRangeChange(value) => range.set(value)
       GreetKeyPayload(value) => last_key.set(value)
       GreetPointerPayload(value) => last_pointer.set(value)
+      GreetAddOption => {
+        has_extra_option.set(true)
+        selected.set("delta")
+      }
+      GreetTouchUnrelated => touched.set(touched.peek() + 1)
       _ => ()
     }
     Cmd::none()
@@ -220,6 +241,14 @@ fn greet_program(runtime : @incr.Runtime) -> Program[DemoMsg, Html[DemoMsg]] {
     let key_payload = last_key.get()
     let pointer_payload = last_pointer.get()
     let is_subscribed = subscribed.get()
+    let current_selection = selected.get()
+    let current_date = date.get()
+    let current_range = range.get()
+    let extra_options : Array[Html[DemoMsg]] = if has_extra_option.get() {
+      [node("option", attrs=[attr("value", "delta")], [text("Delta")])]
+    } else {
+      []
+    }
     article(attrs=[class_attr("demo-card greet-card")], [
       h2([text("Text input payload")]),
       input(
@@ -251,6 +280,63 @@ fn greet_program(runtime : @incr.Runtime) -> Program[DemoMsg, Html[DemoMsg]] {
       p(attrs=[class_attr("metric-line")], [
         text(if is_subscribed { "Subscribed" } else { "Not subscribed" }),
       ]),
+      node("label", attrs=[class_attr("field")], [
+        span([text("Choice")]),
+        node(
+          "select",
+          attrs=[
+            attr("value", current_selection),
+            attr("data-form-control", "select"),
+          ],
+          events=[on_change(tag="greet.select")],
+          [
+            node("option", attrs=[attr("value", "alpha")], [text("Alpha")]),
+            node(
+              "option",
+              attrs=Attrs::build()
+                .attr("value", "beta")
+                .selected(true)
+                .to_array(),
+              [text("Beta")],
+            ),
+            node("option", attrs=[attr("value", "gamma")], [text("Gamma")]),
+            ..extra_options,
+          ],
+        ),
+      ]),
+      input(
+        attrs=[
+          attr("type", "date"),
+          attr("value", current_date),
+          attr("data-form-control", "date"),
+        ],
+        events=[on_change(tag="greet.date")],
+      ),
+      input(
+        attrs=[
+          attr("type", "range"),
+          attr("min", "0"),
+          attr("max", "100"),
+          attr("value", current_range),
+          attr("data-form-control", "range"),
+        ],
+        events=[on_change(tag="greet.range")],
+      ),
+      button(
+        attrs=[attr("data-form-control", "touch")],
+        events=[on_click(GreetTouchUnrelated)],
+        "Touch unrelated",
+      ),
+      button(
+        attrs=[attr("data-form-control", "add")],
+        events=[on_click(GreetAddOption)],
+        "Add option",
+      ),
+      p(attrs=[attr("data-form-control-state", "true")], [
+        text(
+          "select=\{current_selection} date=\{current_date} range=\{current_range}",
+        ),
+      ]),
       p(attrs=[class_attr("demo-note")], [
         text(
           "The input's value is dispatched as a Msg payload; the Html stores only typed pure ids.",
@@ -274,6 +360,9 @@ fn greet_program(runtime : @incr.Runtime) -> Program[DemoMsg, Html[DemoMsg]] {
 fn greet_on_input(id : TextInputId, payload : TextInputPayload) -> DemoMsg? {
   match id.name {
     "greet.name" => Some(GreetNameInput(payload.value))
+    "greet.select" => Some(GreetSelectChange(payload.value))
+    "greet.date" => Some(GreetDateChange(payload.value))
+    "greet.range" => Some(GreetRangeChange(payload.value))
     _ => None
   }
 }

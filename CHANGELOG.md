@@ -11,7 +11,9 @@ All notable changes to `dowdiness/incr` are documented in this file.
   preserving the teardown order as **children -> hooks -> owned cells**.
 - Restored controlled form properties (`value`, `checked`, `disabled`, and
   `selected`) during equal-view Incremental TEA renderer flushes without
-  counting a virtual-tree patch.
+  counting a virtual-tree patch. `<input>` and `<select>` value properties are
+  reconciled after option children are mounted or diffed, including when a
+  newly added option is selected in the same render.
 
 ### Examples
 
