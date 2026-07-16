@@ -243,7 +243,7 @@ fn state_grid(state : SheetState) -> @tea.Html[Msg] {
         .class("sheet-grid")
         .role("grid")
         .attr("tabindex", "0")
-        .attr("aria-label", "4 by 4 typed spreadsheet proof grid")
+        .attr("aria-label", "50 by 50 typed spreadsheet proof grid")
         .attr("aria-activedescendant", "cell-" + selected_cell)
         .to_array(),
       events=if editing_cell is Some(_) {
@@ -299,6 +299,46 @@ fn state_trace(state : SheetState) -> @tea.Html[Msg] {
         @tea.p(attrs=[@tea.class_attr("snapshot-count")], [
           @tea.text("Evidence snapshots: \{td.snapshot_count}"),
         ]),
+      ])
+  }
+}
+
+///|
+fn view_evidence_cell(cell : EvidenceCellData) -> @tea.Html[Msg] {
+  @tea.div(attrs=[@tea.class_attr("evidence-cell")], [
+    @tea.span(attrs=[@tea.class_attr("evidence-cell-id")], [@tea.text(cell.id)]),
+    @tea.span(attrs=[@tea.class_attr("evidence-cell-classification")], [
+      @tea.text(cell.classification),
+    ]),
+    @tea.span(attrs=[@tea.class_attr("evidence-cell-before")], [
+      @tea.text("before: \{cell.before_result}"),
+    ]),
+    @tea.span(attrs=[@tea.class_attr("evidence-cell-after")], [
+      @tea.text("after: \{cell.after_result}"),
+    ]),
+  ])
+}
+
+///|
+fn state_evidence(state : SheetState) -> @tea.Html[Msg] {
+  match state.evidence.get() {
+    None =>
+      @tea.node(
+        "aside",
+        attrs=[@tea.class_attr("evidence-panel evidence-panel--empty")],
+        [
+          @tea.h3([@tea.text("Evidence")]),
+          @tea.p([@tea.text("No bounded before/after evidence yet.")]),
+        ],
+      )
+    Some(evidence) =>
+      @tea.node("aside", attrs=[@tea.class_attr("evidence-panel")], [
+        @tea.h3([@tea.text("Latest evidence")]),
+        @tea.p(attrs=[@tea.class_attr("trace-edit")], [@tea.text(evidence.edit)]),
+        @tea.div(
+          attrs=[@tea.class_attr("evidence-cells")],
+          evidence.cells.map(view_evidence_cell),
+        ),
       ])
   }
 }

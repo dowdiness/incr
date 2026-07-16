@@ -41,6 +41,7 @@ fn TypedSheetApp::dispose(self : TypedSheetApp) -> Unit {
   self.prog_formula.dispose()
   self.prog_status.dispose()
   self.prog_trace.dispose()
+  self.prog_evidence.dispose()
   self._state.val._scope.dispose()
 }
 
@@ -50,7 +51,7 @@ test "incr_tea spreadsheet proof starts with seeded representative grid" {
   let model = app._state.val.peek_model()
 
   inspect(model.selected_cell, content="B1")
-  inspect(model.cells.length(), content="16")
+  inspect(model.cells.length(), content="2500")
   inspect(model.trace_data is None, content="true")
   inspect(draft_for(model, "A1"), content="10")
   inspect(draft_for(model, "B1"), content="=A1 + 1")
@@ -370,6 +371,13 @@ fn mount_all_roots(
       label="trace",
     ),
   )
+  ignore(
+    renderer.mount(
+      typed_sheet_test_create_host(),
+      app.prog_evidence,
+      label="evidence",
+    ),
+  )
 }
 
 // ── Cross-root locality: 5 validation tests ─────────────────────
@@ -534,4 +542,150 @@ test "cross-root locality: clean apply patches only status and trace" {
   renderer.dispose()
   app.dispose()
   typed_sheet_test_restore_dom()
+}
+
+///|
+test "incr_tea spreadsheet proof covers the practical 50x50 grid" {
+  inspect(grid_column_count(), content="50")
+  inspect(grid_row_count(), content="50")
+  let labels = column_labels()
+  inspect(labels.length(), content="50")
+  inspect(labels[0], content="A")
+  inspect(labels[49], content="AX")
+  let cells = grid_cells()
+  inspect(cells.length(), content="2500")
+  inspect(cells[0], content="A1")
+  inspect(cells[2499], content="AX50")
+}
+
+///|
+test "incr_tea spreadsheet proof clamps selection at 50x50 boundaries" {
+  let app = TypedSheetApp(@incr.Runtime())
+  ignore(app.prog_grid.dispatch(SelectCell("AX50")))
+  ignore(app.prog_grid.dispatch(MoveSelection(1, 0)))
+  inspect(app._state.val.selected_cell.peek(), content="AX50")
+  ignore(app.prog_grid.dispatch(MoveSelection(0, 1)))
+  inspect(app._state.val.selected_cell.peek(), content="AX50")
+  ignore(app.prog_grid.dispatch(SelectCell("A1")))
+  ignore(app.prog_grid.dispatch(MoveSelection(-1, 0)))
+  inspect(app._state.val.selected_cell.peek(), content="A1")
+  ignore(app.prog_grid.dispatch(MoveSelection(0, -1)))
+  inspect(app._state.val.selected_cell.peek(), content="A1")
+  app.dispose()
+}
+
+///|
+test "incr_tea AI context stays schema-versioned and bounded" {
+  let app = TypedSheetApp(@incr.Runtime())
+  let context = app._state.val.ai_context_snapshot(
+    region?=Some(["A1", "B1", "C1"]),
+    max_cells=2,
+  )
+  inspect(context.schema_version, content="1")
+  inspect(context.selected_cell, content="B1")
+  inspect(context.max_cells, content="2")
+  inspect(context.truncated, content="true")
+  inspect(context.region.length(), content="2")
+  inspect(context.region[0], content="B1")
+  inspect(context.cells.length(), content="2")
+  inspect(context.cells[0].committed_text, content="=A1 + 1")
+  inspect(context.cells[0].draft_text, content="=A1 + 1")
+  inspect(context.cells[0].draft_dirty, content="false")
+  inspect(context.latest_trace is None, content="true")
+  inspect(context.latest_evidence is None, content="true")
+  app.dispose()
+}
+
+///|
+test "incr_tea AI context carries latest trace and evidence" {
+  let app = TypedSheetApp(@incr.Runtime())
+  ignore(app.prog_grid.dispatch(SelectCell("A1")))
+  ignore(app.prog_grid.dispatch(UpdateDraft("A1", "15")))
+  ignore(app.prog_grid.dispatch(ApplySelected))
+  let context = app._state.val.ai_context_snapshot()
+  match context.latest_trace {
+    Some(trace) => {
+      inspect(trace.edit, content="A1 ← 15")
+      inspect(trace.changed.contains("B1"), content="true")
+    }
+    None => abort("expected latest trace")
+  }
+  match context.latest_evidence {
+    Some(evidence) => {
+      inspect(evidence.edit, content="A1 ← 15")
+      inspect(evidence.cells.length(), content="2")
+      let edited = evidence.cells[0]
+      inspect(edited.id, content="A1")
+      inspect(edited.classification, content="changed")
+      inspect(edited.before_kind, content="input")
+      inspect(edited.before_result_status, content="ok")
+      inspect(edited.before_result, content="Ok(Int(10))")
+      inspect(edited.after_kind, content="input")
+      inspect(edited.after_result_status, content="ok")
+      inspect(edited.after_result, content="Ok(Int(15))")
+      let dependent = evidence.cells[1]
+      inspect(dependent.id, content="B1")
+      inspect(dependent.classification, content="changed")
+      inspect(dependent.before_kind, content="formula")
+      inspect(dependent.before_result_status, content="ok")
+      inspect(dependent.before_result, content="Ok(Int(11))")
+      inspect(dependent.after_kind, content="formula")
+      inspect(dependent.after_result_status, content="ok")
+      inspect(dependent.after_result, content="Ok(Int(16))")
+    }
+    None => abort("expected latest evidence")
+  }
+  ignore(app.prog_grid.dispatch(ResetSheet))
+  let reset_context = app._state.val.ai_context_snapshot()
+  inspect(reset_context.selected_cell, content="B1")
+  inspect(reset_context.latest_trace is None, content="true")
+  inspect(reset_context.latest_evidence is None, content="true")
+  app.dispose()
+}
+
+///|
+test "incr_tea evidence capture stays bounded for many direct dependents" {
+  let app = TypedSheetApp(@incr.Runtime())
+  for row in 2..<=20 {
+    let cell = "B\{row}"
+    ignore(app.prog_grid.dispatch(SelectCell(cell)))
+    ignore(app.prog_grid.dispatch(UpdateDraft(cell, "=A1")))
+    ignore(app.prog_grid.dispatch(ApplySelected))
+  }
+  let ids = state_capture_cell_ids(app._state, state_cell_id(app._state, "A1"))
+  inspect(ids.length(), content="16")
+  inspect(@demo.cell_id_to_string(ids[0]), content="A1")
+  inspect(@demo.cell_id_to_string(ids[1]), content="B20")
+  inspect(@demo.cell_id_to_string(ids[2]), content="B1")
+  inspect(@demo.cell_id_to_string(ids[15]), content="B14")
+  let selected_id = state_cell_id(app._state, "B20")
+  let mut selected_count = 0
+  for id in ids {
+    if id == selected_id {
+      selected_count += 1
+    }
+  }
+  inspect(selected_count, content="1")
+  app.dispose()
+}
+
+///|
+test "incr_tea evidence distinguishes unchanged formula recomputation" {
+  let app = TypedSheetApp(@incr.Runtime())
+  ignore(app.prog_grid.dispatch(SelectCell("B1")))
+  ignore(app.prog_grid.dispatch(UpdateDraft("B1", "=A1 * 0")))
+  ignore(app.prog_grid.dispatch(ApplySelected))
+  ignore(app.prog_grid.dispatch(SelectCell("A1")))
+  ignore(app.prog_grid.dispatch(UpdateDraft("A1", "15")))
+  ignore(app.prog_grid.dispatch(ApplySelected))
+  let context = app._state.val.ai_context_snapshot()
+  match context.latest_evidence {
+    Some(evidence) => {
+      inspect(evidence.cells.length(), content="2")
+      inspect(evidence.cells[1].id, content="B1")
+      inspect(evidence.cells[1].classification, content="unchanged")
+    }
+    None => abort("expected latest evidence")
+  }
+  app.dispose()
 }

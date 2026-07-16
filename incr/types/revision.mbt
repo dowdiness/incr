@@ -122,7 +122,7 @@ pub(open) trait BackdateEq: HasChangedAt {
 
 ///|
 impl BackdateEq with fn backdate_equal(self, other) -> Bool {
-  self.changed_at() == other.changed_at()
+  HasChangedAt::changed_at(self) == HasChangedAt::changed_at(other)
 }
 
 ///|

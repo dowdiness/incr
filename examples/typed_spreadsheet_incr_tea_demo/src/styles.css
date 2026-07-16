@@ -68,7 +68,8 @@ input {
 
 .formula-bar,
 .status-panel,
-.trace-panel {
+.trace-panel,
+.evidence-panel {
   border: 1px solid #2a2a48;
   background: rgba(30, 30, 54, 0.82);
   box-shadow: 0 22px 80px rgba(0, 0, 0, 0.26);
@@ -179,8 +180,8 @@ button:hover {
 
 .sheet-grid {
   display: grid;
-  grid-template-columns: 54px repeat(4, minmax(130px, 1fr));
-  min-width: 620px;
+  grid-template-columns: 54px repeat(50, minmax(96px, 1fr));
+  min-width: 4854px;
   outline: none;
 }
 
@@ -248,7 +249,8 @@ button:hover {
 }
 
 .status-panel,
-.trace-panel {
+.trace-panel,
+.evidence-panel {
   margin-top: 16px;
   border-radius: 18px;
   padding: 14px 16px;
@@ -285,6 +287,36 @@ button:hover {
 .trace-edit,
 .snapshot-count {
   font-family: Iosevka, ui-monospace, SFMono-Regular, monospace;
+}
+
+.evidence-panel h3 {
+  margin: 0 0 10px;
+}
+
+.evidence-cells {
+  display: grid;
+  gap: 8px;
+}
+
+.evidence-cell {
+  display: grid;
+  grid-template-columns: 72px 100px minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
+  padding: 8px 0;
+  border-top: 1px solid rgba(42, 42, 72, 0.72);
+}
+
+.evidence-cell-id,
+.evidence-cell-classification,
+.evidence-cell-before,
+.evidence-cell-after {
+  font-family: Iosevka, ui-monospace, SFMono-Regular, monospace;
+}
+
+.evidence-cell-classification {
+  color: #c3e88d;
+  text-transform: uppercase;
 }
 
 .sr-only {

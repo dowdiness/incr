@@ -90,9 +90,23 @@ try {
   await page.goto(`${baseUrl}/`, { waitUntil: 'load' });
   await page.waitForSelector('#cell-B1');
   await waitForCellText(page, 'B1', '11');
+  await page.waitForSelector('#cell-AX50');
+  const gridColumns = await page.locator('#sheet-grid').evaluate(element => {
+    return getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).length;
+  });
+  assert(gridColumns === 51, `expected 50 spreadsheet columns plus row headers, got ${gridColumns}`);
+  const initialContext = await page.evaluate(() => ({
+    object: globalThis.typedSpreadsheetAIContext?.(),
+    json: globalThis.typedSpreadsheetAIContextJson?.(),
+  }));
+  assert(initialContext.object?.schema_version === 1, 'initial AI context schema was not published');
+  assert(typeof initialContext.json === 'string', 'initial AI context JSON was not published');
+  assert(initialContext.object.selected_cell === 'B1', 'initial AI context selected cell mismatch');
 
   await runTest('focused grid keeps keyboard navigation across selection moves', async () => {
     await page.locator('#sheet-grid').focus();
+    const anchor = await page.locator('#cell-C1').elementHandle();
+    assert(anchor, 'C1 anchor missing before selection movement');
     await page.keyboard.press('ArrowLeft');
     await page.waitForFunction(() => document.querySelector('#sheet-grid')?.getAttribute('aria-activedescendant') === 'cell-A1');
     await page.keyboard.press('ArrowDown');
@@ -101,6 +115,8 @@ try {
     await page.waitForFunction(() => document.querySelector('#sheet-grid')?.getAttribute('aria-activedescendant') === 'cell-B2');
     const active = await page.evaluate(() => document.activeElement?.id ?? null);
     assert(active === 'sheet-grid', `expected grid to stay focused, got ${active}`);
+    const preserved = await page.locator('#cell-C1').evaluate((node, expected) => node === expected, anchor);
+    assert(preserved, 'selection movement replaced an unrelated cell node');
   });
 
   await runTest('post-render inline focus selects existing draft text', async () => {
@@ -170,6 +186,29 @@ try {
     await page.locator('.primary-action').click();
     await waitForCellText(page, 'A1', '15');
     await waitForCellText(page, 'B1', '16');
+    await page.waitForFunction(() => document.querySelector('.evidence-panel')?.textContent?.includes('A1'));
+    const context = await page.evaluate(() => globalThis.typedSpreadsheetAIContext?.());
+    assert(context?.latest_trace?.edit === 'A1 ← 15', `AI context trace mismatch: ${JSON.stringify(context)}`);
+    assert(context?.latest_evidence?.cells?.some(cell => cell.id === 'B1'), 'AI context evidence omitted dependent B1');
+  });
+
+  await runTest('reset clears trace, evidence, and exported AI context', async () => {
+    await page.getByRole('button', { name: 'Reset proof' }).click();
+    await waitForCellText(page, 'B1', '11');
+    await page.locator('#cell-A1').click();
+    await page.locator('#formula-editor-input').fill('15');
+    await page.locator('.primary-action').click();
+    await waitForCellText(page, 'A1', '15');
+    await page.waitForFunction(() => document.querySelector('.evidence-panel')?.textContent?.includes('A1'));
+    await page.getByRole('button', { name: 'Reset proof' }).click();
+    await waitForCellText(page, 'B1', '11');
+    await page.waitForFunction(() => {
+      return document.querySelector('.evidence-panel')?.textContent?.includes('No bounded before/after evidence yet.');
+    });
+    const context = await page.evaluate(() => globalThis.typedSpreadsheetAIContext?.());
+    assert(context?.selected_cell === 'B1', `reset selected cell mismatch: ${JSON.stringify(context)}`);
+    assert(context?.latest_trace == null, `reset retained latest trace: ${JSON.stringify(context)}`);
+    assert(context?.latest_evidence == null, `reset retained latest evidence: ${JSON.stringify(context)}`);
   });
 
   assert(pageErrors.length === 0, `Page errors: ${pageErrors.map(error => error.message).join('\n')}`);

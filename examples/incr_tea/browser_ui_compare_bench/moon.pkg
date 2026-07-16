@@ -9,6 +9,4 @@ import {
   "mizchi/signals",
 }
 
-options(
-  "is-main": true,
-)
+pkgtype(kind: "executable")

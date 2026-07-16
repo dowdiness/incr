@@ -4,9 +4,9 @@ fn main {
 }
 
 ///|
-/// Mounts the side-by-side `incr_tea` typed spreadsheet proof with 4
-/// independent watched roots (grid, formula bar, status, trace) sharing
-/// model state via per-region InputFields.
+/// Mounts the side-by-side `incr_tea` typed spreadsheet proof with 5
+/// independent watched roots (grid, formula bar, status, trace, evidence)
+/// sharing model state via per-region InputFields.
 pub fn mount_typed_spreadsheet_incr_tea_demo(mount_id : String) -> Unit {
   let runtime = @incr.Runtime()
   let app = TypedSheetApp(runtime)
@@ -46,4 +46,13 @@ pub fn mount_typed_spreadsheet_incr_tea_demo(mount_id : String) -> Unit {
       label="trace",
     ),
   )
+  ignore(
+    renderer.mount(
+      @tea.dom_get_element_by_id(mount_id + "-evidence"),
+      app.prog_evidence,
+      label="evidence",
+    ),
+  )
+  js_publish_ai_context_json(app._state.val.ai_context_json())
+  install_typed_sheet_benchmark_api(app, renderer)
 }

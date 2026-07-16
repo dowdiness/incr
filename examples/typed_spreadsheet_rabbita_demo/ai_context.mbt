@@ -1,88 +1,5 @@
 ///|
 /// Serializable AI/tool context for the editable typed spreadsheet demo.
-pub struct AiContextSnapshot {
-  schema_version : Int
-  selected_cell : String
-  max_cells : Int
-  truncated : Bool
-  region : Array[String]
-  cells : Array[AiContextCell]
-  latest_trace : AiContextTrace?
-  latest_evidence : AiContextEvidence?
-} derive(ToJson, Debug)
-
-///|
-/// Serializable view of one bounded cell in an AI/tool context snapshot.
-pub struct AiContextCell {
-  id : String
-  committed_text : String
-  draft_text : String
-  draft_dirty : Bool
-  present : Bool
-  kind : String
-  result : AiContextResult
-  dependency_shape : String
-  installed_dependencies : Array[String]
-  static_references : Array[String]
-  last_dynamic_dependencies : Array[String]
-  formula : AiContextFormula?
-} derive(ToJson, Debug)
-
-///|
-/// Structured value or error state for one context cell.
-pub struct AiContextResult {
-  status : String
-  value : AiContextValue?
-  error : String?
-  repr : String
-} derive(ToJson, Debug)
-
-///|
-/// Structured typed value for a successful context cell result.
-pub struct AiContextValue {
-  type_name : String
-  value : String
-  repr : String
-} derive(ToJson, Debug)
-
-///|
-/// Formula text and AST-backed shape metadata for a formula cell.
-pub struct AiContextFormula {
-  text : String
-  ast_status : String
-  shape : String?
-  error : String?
-} derive(ToJson, Debug)
-
-///|
-/// Latest bounded recompute/change trace available from the Rabbita model.
-pub struct AiContextTrace {
-  edit : String
-  outcome : String
-  recomputed : Array[String]
-  changed : Array[String]
-  unchanged : Array[String]
-} derive(ToJson, Debug)
-
-///|
-/// Latest bounded before/after evidence summary available from the Rabbita model.
-pub struct AiContextEvidence {
-  edit : String
-  outcome : String
-  cells : Array[AiContextEvidenceCell]
-} derive(ToJson, Debug)
-
-///|
-/// One before/after evidence summary cell.
-pub struct AiContextEvidenceCell {
-  id : String
-  before_kind : String
-  before_result_status : String
-  before_result : String
-  after_kind : String
-  after_result_status : String
-  after_result : String
-} derive(ToJson, Debug)
 
 ///|
 /// Returns a deterministic, bounded AI/tool context for this editor model.
@@ -90,7 +7,7 @@ pub fn Model::ai_context_snapshot(
   self : Model,
   region? : Array[String],
   max_cells? : Int = 64,
-) -> AiContextSnapshot {
+) -> @demo.AiContextSnapshot {
   let limit = normalize_ai_context_limit(max_cells)
   let (bounded_region, truncated) = bounded_ai_context_region(
     self, region, limit,
@@ -189,7 +106,7 @@ fn append_unique_cell_text(cells : Array[String], cell : String) -> Unit {
 }
 
 ///|
-fn Model::ai_context_cell(self : Model, cell : String) -> AiContextCell {
+fn Model::ai_context_cell(self : Model, cell : String) -> @demo.AiContextCell {
   let id = cell_id(self, cell)
   let snapshot = self.sheet.inspect_cell(id)
   let committed_text = committed_for(self, cell)
@@ -219,7 +136,7 @@ fn Model::ai_context_formula(
   self : Model,
   cell : String,
   snapshot : @typed_spreadsheet.CellSnapshot,
-) -> AiContextFormula? {
+) -> @demo.AiContextFormula? {
   match snapshot.kind {
     Some(Formula) => {
       let text = committed_for(self, cell)
@@ -247,7 +164,7 @@ fn Model::ai_context_formula(
 ///|
 fn ai_context_result(
   snapshot : @typed_spreadsheet.CellSnapshot,
-) -> AiContextResult {
+) -> @demo.AiContextResult {
   if !snapshot.present {
     {
       status: "missing",
@@ -276,7 +193,7 @@ fn ai_context_result(
 fn ai_context_error_result(
   status : String,
   result : @typed_spreadsheet.CellResult,
-) -> AiContextResult {
+) -> @demo.AiContextResult {
   {
     status,
     value: None,
@@ -286,7 +203,9 @@ fn ai_context_error_result(
 }
 
 ///|
-fn ai_context_value(value : @typed_spreadsheet.CellValue) -> AiContextValue {
+fn ai_context_value(
+  value : @typed_spreadsheet.CellValue,
+) -> @demo.AiContextValue {
   match value {
     Int(number) => { type_name: "Int", value: "\{number}", repr: repr(value) }
     Bool(flag) => { type_name: "Bool", value: "\{flag}", repr: repr(value) }
@@ -355,7 +274,7 @@ fn formula_ast_error_status(
 }
 
 ///|
-fn Model::latest_ai_context_trace(self : Model) -> AiContextTrace? {
+fn Model::latest_ai_context_trace(self : Model) -> @demo.AiContextTrace? {
   match self.last_step {
     Some(step) =>
       Some({
@@ -370,14 +289,14 @@ fn Model::latest_ai_context_trace(self : Model) -> AiContextTrace? {
 }
 
 ///|
-fn Model::latest_ai_context_evidence(self : Model) -> AiContextEvidence? {
+fn Model::latest_ai_context_evidence(self : Model) -> @demo.AiContextEvidence? {
   match self.last_step {
     Some(step) =>
       Some({
         edit: self.last_edit,
         outcome: @demo.format_outcome(step.outcome),
         cells: step.cell_snapshots.map(change => {
-          ai_context_evidence_cell(change)
+          ai_context_evidence_cell(change, step)
         }),
       })
     None => None
@@ -387,11 +306,13 @@ fn Model::latest_ai_context_evidence(self : Model) -> AiContextEvidence? {
 ///|
 fn ai_context_evidence_cell(
   change : @demo.CellSnapshotChange,
-) -> AiContextEvidenceCell {
+  step : @demo.WorksheetStepResult,
+) -> @demo.AiContextEvidenceCell {
   let before_result = ai_context_result(change.before)
   let after_result = ai_context_result(change.after)
   {
     id: @demo.cell_id_to_string(change.id),
+    classification: @demo.classify_evidence(step, change),
     before_kind: @demo.snapshot_kind(change.before),
     before_result_status: before_result.status,
     before_result: before_result.repr,
