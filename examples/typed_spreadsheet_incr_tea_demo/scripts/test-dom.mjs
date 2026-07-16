@@ -102,6 +102,10 @@ try {
   assert(initialContext.object?.schema_version === 1, 'initial AI context schema was not published');
   assert(typeof initialContext.json === 'string', 'initial AI context JSON was not published');
   assert(initialContext.object.selected_cell === 'B1', 'initial AI context selected cell mismatch');
+  assert(
+    await page.locator('.evidence-panel').getAttribute('aria-live') === 'polite',
+    'empty evidence panel should announce updates politely',
+  );
 
   await runTest('focused grid keeps keyboard navigation across selection moves', async () => {
     await page.locator('#sheet-grid').focus();
@@ -187,6 +191,10 @@ try {
     await waitForCellText(page, 'A1', '15');
     await waitForCellText(page, 'B1', '16');
     await page.waitForFunction(() => document.querySelector('.evidence-panel')?.textContent?.includes('A1'));
+    assert(
+      await page.locator('.evidence-panel').getAttribute('aria-live') === 'polite',
+      'populated evidence panel should announce updates politely',
+    );
     const context = await page.evaluate(() => globalThis.typedSpreadsheetAIContext?.());
     assert(context?.latest_trace?.edit === 'A1 ← 15', `AI context trace mismatch: ${JSON.stringify(context)}`);
     assert(context?.latest_evidence?.cells?.some(cell => cell.id === 'B1'), 'AI context evidence omitted dependent B1');

@@ -689,3 +689,27 @@ test "incr_tea evidence distinguishes unchanged formula recomputation" {
   }
   app.dispose()
 }
+
+///|
+test "incr_tea latest trace preserves operation outcome after selection" {
+  let app = TypedSheetApp(@incr.Runtime())
+  ignore(app.prog_grid.dispatch(SelectCell("A1")))
+  ignore(app.prog_grid.dispatch(UpdateDraft("A1", "15")))
+  ignore(app.prog_grid.dispatch(ApplySelected))
+  let applied = app._state.val.ai_context_snapshot()
+  let expected_outcome = match applied.latest_evidence {
+    Some(evidence) => evidence.outcome
+    None => abort("expected latest evidence after edit")
+  }
+  match applied.latest_trace {
+    Some(trace) => inspect(trace.outcome == expected_outcome, content="true")
+    None => abort("expected latest trace after edit")
+  }
+  ignore(app.prog_grid.dispatch(SelectCell("C1")))
+  let selected = app._state.val.ai_context_snapshot()
+  match selected.latest_trace {
+    Some(trace) => inspect(trace.outcome == expected_outcome, content="true")
+    None => abort("expected latest trace after selection")
+  }
+  app.dispose()
+}

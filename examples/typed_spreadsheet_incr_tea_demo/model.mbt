@@ -8,6 +8,7 @@ struct CellDraft {
 
 ///|
 struct TraceData {
+  outcome : String
   recomputed : Array[String]
   changed : Array[String]
   unchanged : Array[String]
@@ -157,16 +158,18 @@ fn state_capture_cell_ids(
   if selected != target && ids.length() < limit {
     ids.push(selected)
   }
-  for cell in state.val.cells.peek() {
-    if ids.length() < limit {
-      let id = cell_id_from_sheet(state.val.sheet, cell)
-      if id != target && !ids.contains(id) {
-        let snapshot = state.val.sheet.inspect_cell(id)
-        if snapshot.static_references.contains(target) {
-          ids.push(id)
-        }
+  let cells = state.val.cells.peek()
+  let mut index = 0
+  while index < cells.length() && ids.length() < limit {
+    let cell = cells[index]
+    let id = cell_id_from_sheet(state.val.sheet, cell)
+    if id != target && !ids.contains(id) {
+      let snapshot = state.val.sheet.inspect_cell(id)
+      if snapshot.static_references.contains(target) {
+        ids.push(id)
       }
     }
+    index += 1
   }
   ids
 }
@@ -338,6 +341,7 @@ fn apply_text_edit(
       let current_committed = s.committed.peek()
       s.trace.set(
         Some({
+          outcome,
           recomputed: @demo.cell_id_strings(result.trace.recomputed),
           changed: @demo.cell_id_strings(result.trace.changed),
           unchanged: @demo.cell_id_strings(result.trace.unchanged),
@@ -467,6 +471,7 @@ fn delete_selected_cmd(state : Ref[SheetState]) -> @tea.Cmd[Msg] {
       let current_committed = s.committed.peek()
       s.trace.set(
         Some({
+          outcome,
           recomputed: @demo.cell_id_strings(result.trace.recomputed),
           changed: @demo.cell_id_strings(result.trace.changed),
           unchanged: @demo.cell_id_strings(result.trace.unchanged),

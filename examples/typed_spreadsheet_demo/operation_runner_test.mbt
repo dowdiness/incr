@@ -223,6 +223,94 @@ test "typed spreadsheet demo op: Delete returns missing after snapshot" {
 }
 
 ///|
+test "classify evidence marks equivalent formula target changed" {
+  let sheet = new_sheet(8)
+  let a1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+  match
+    sheet.set_formula_ast(
+      a1,
+      @typed_spreadsheet.CellType::t_int(),
+      @typed_spreadsheet.Formula::literal(
+        @typed_spreadsheet.CellValue::from_int(1),
+      ),
+    ) {
+    Ok(_) => ()
+    Err(_) => abort("expected formula install to succeed")
+  }
+  let result = run_op(
+    sheet,
+    SetFormulaAst(
+      a1,
+      @typed_spreadsheet.CellType::t_int(),
+      @typed_spreadsheet.Formula::literal(
+        @typed_spreadsheet.CellValue::from_int(1),
+      ),
+    ),
+  )
+  let change = result.cell_snapshots[0]
+  inspect(result.trace.changed.contains(a1), content="false")
+  inspect(
+    ai_context_result(change.before).repr ==
+    ai_context_result(change.after).repr,
+    content="true",
+  )
+  inspect(
+    classify_evidence(result, result.cell_snapshots[0]),
+    content="changed",
+  )
+}
+
+///|
+test "classify evidence marks blank target deletion changed" {
+  let sheet = new_sheet(9)
+  let a1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+  let result = run_op(sheet, Delete(a1))
+  let change = result.cell_snapshots[0]
+  inspect(result.trace.changed.contains(a1), content="false")
+  inspect(
+    ai_context_result(change.before).repr ==
+    ai_context_result(change.after).repr,
+    content="true",
+  )
+  inspect(
+    classify_evidence(result, result.cell_snapshots[0]),
+    content="changed",
+  )
+}
+
+///|
+test "classify evidence marks same-result kind change changed" {
+  let sheet = new_sheet(10)
+  let a1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+  match
+    sheet.set_formula_ast(
+      a1,
+      @typed_spreadsheet.CellType::t_int(),
+      @typed_spreadsheet.Formula::literal(
+        @typed_spreadsheet.CellValue::from_int(1),
+      ),
+    ) {
+    Ok(_) => ()
+    Err(_) => abort("expected formula install to succeed")
+  }
+  let result = run_op(
+    sheet,
+    SetInput(a1, @typed_spreadsheet.CellValue::from_int(1)),
+  )
+  let change = result.cell_snapshots[0]
+  inspect(result.trace.changed.contains(a1), content="false")
+  inspect(
+    ai_context_result(change.before).repr ==
+    ai_context_result(change.after).repr,
+    content="true",
+  )
+  inspect(
+    classify_evidence(result, result.cell_snapshots[0]),
+    content="changed",
+  )
+}
+
+///|
 fn new_sheet(id : Int) -> @typed_spreadsheet.Worksheet {
   let rt = @incr.Runtime()
   let sheet_id = @typed_spreadsheet.SheetId(id)

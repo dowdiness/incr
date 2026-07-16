@@ -149,7 +149,7 @@ fn SheetState::latest_ai_context_trace(
     Some(trace) =>
       Some({
         edit: self.last_edit.peek(),
-        outcome: self.status.peek(),
+        outcome: trace.outcome,
         recomputed: trace.recomputed,
         changed: trace.changed,
         unchanged: trace.unchanged,

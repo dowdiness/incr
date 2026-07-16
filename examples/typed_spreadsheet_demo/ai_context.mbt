@@ -98,9 +98,18 @@ pub fn classify_evidence(
   }
   let before_result = ai_context_result(change.before)
   let after_result = ai_context_result(change.after)
-  let before_after_changed = before_result.repr != after_result.repr
-  if step.trace.changed.contains(change.id) ||
-    (change.id == target && before_after_changed) {
+  let before_after_changed = before_result.repr != after_result.repr ||
+    change.before.present != change.after.present ||
+    snapshot_kind(change.before) != snapshot_kind(change.after)
+  let target_changed = if change.id == target {
+    match step.operation {
+      SetInput(_, _) => before_after_changed
+      SetFormulaAst(_, _, _) | Delete(_) => true
+    }
+  } else {
+    false
+  }
+  if step.trace.changed.contains(change.id) || target_changed {
     "changed"
   } else if step.trace.unchanged.contains(change.id) {
     "unchanged"

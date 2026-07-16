@@ -6,8 +6,22 @@ import { fileURLToPath } from 'node:url';
 
 const distRoot = resolve(fileURLToPath(new URL('../dist/', import.meta.url)));
 const host = '127.0.0.1';
-const samples = Number(process.env.BENCH_SAMPLES ?? 10);
-const warmups = Number(process.env.BENCH_WARMUPS ?? 2);
+function parseCount(name, defaultValue, minimum) {
+  const raw = process.env[name];
+  const value = raw === undefined ? defaultValue : Number(raw);
+  if (
+    (raw !== undefined && raw.trim() === '') ||
+    !Number.isFinite(value) ||
+    !Number.isInteger(value) ||
+    value < minimum
+  ) {
+    throw new Error(`${name} must be a finite integer >= ${minimum}`);
+  }
+  return value;
+}
+
+const samples = parseCount('BENCH_SAMPLES', 10, 1);
+const warmups = parseCount('BENCH_WARMUPS', 2, 0);
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -82,11 +96,7 @@ async function measure(page, scenario) {
       await waitForCellText('cell-B1', '16');
     } else if (scenario === 'formula-bar-draft') {
       bench.dispatch('draft-a1');
-      await waitFor(() => {
-        const context = globalThis.typedSpreadsheetAIContext?.();
-        return context?.selected_cell === 'A1' &&
-          context.cells?.some(cell => cell.id === 'A1' && cell.draft_text === '15');
-      });
+      await waitFor(() => document.querySelector('#formula-editor-input')?.value === '15');
     } else if (scenario === 'trace-evidence-update') {
       bench.dispatch('edit-b1');
       await waitForCellText('cell-B1', '20');

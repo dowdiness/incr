@@ -312,6 +312,7 @@ button:hover {
 .evidence-cell-before,
 .evidence-cell-after {
   font-family: Iosevka, ui-monospace, SFMono-Regular, monospace;
+  overflow-wrap: anywhere;
 }
 
 .evidence-cell-classification {

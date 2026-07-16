@@ -325,20 +325,32 @@ fn state_evidence(state : SheetState) -> @tea.Html[Msg] {
     None =>
       @tea.node(
         "aside",
-        attrs=[@tea.class_attr("evidence-panel evidence-panel--empty")],
+        attrs=@tea.Attrs::build()
+          .class("evidence-panel evidence-panel--empty")
+          .attr("aria-live", "polite")
+          .to_array(),
         [
           @tea.h3([@tea.text("Evidence")]),
           @tea.p([@tea.text("No bounded before/after evidence yet.")]),
         ],
       )
     Some(evidence) =>
-      @tea.node("aside", attrs=[@tea.class_attr("evidence-panel")], [
-        @tea.h3([@tea.text("Latest evidence")]),
-        @tea.p(attrs=[@tea.class_attr("trace-edit")], [@tea.text(evidence.edit)]),
-        @tea.div(
-          attrs=[@tea.class_attr("evidence-cells")],
-          evidence.cells.map(view_evidence_cell),
-        ),
-      ])
+      @tea.node(
+        "aside",
+        attrs=@tea.Attrs::build()
+          .class("evidence-panel")
+          .attr("aria-live", "polite")
+          .to_array(),
+        [
+          @tea.h3([@tea.text("Latest evidence")]),
+          @tea.p(attrs=[@tea.class_attr("trace-edit")], [
+            @tea.text(evidence.edit),
+          ]),
+          @tea.div(
+            attrs=[@tea.class_attr("evidence-cells")],
+            evidence.cells.map(view_evidence_cell),
+          ),
+        ],
+      )
   }
 }
