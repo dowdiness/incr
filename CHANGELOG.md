@@ -15,6 +15,14 @@ All notable changes to `dowdiness/incr` are documented in this file.
   reconciled after option children are mounted or diffed, including when a
   newly added option is selected in the same render.
 
+
+### Changed
+
+- Unified text-input and committed-value payloads under `ValueEventId` and
+  `ValuePayload`. `BrowserRenderer::mount` now accepts the shared `on_value`
+  resolver for both `on_input` and `on_change` descriptors; the previous
+  `TextInputId`, `TextInputPayload`, and `on_input` resolver API was removed.
+
 ### Examples
 
 - Added the #394 Chromium benchmark for equal-view controlled-property traversal/getter and mismatch-repair costs across 0–10,000 rendered nodes; the measured cost did not justify a renderer optimization.

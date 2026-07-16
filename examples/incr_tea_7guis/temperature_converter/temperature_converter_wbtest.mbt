@@ -8,10 +8,7 @@ test "temperature converter maps input payloads" {
   ignore(app.program.dispatch(SetCelsius("1")))
   inspect(app._state.val.fahrenheit, content="33.8")
   match
-    resolve_text_input(
-      @tea.TextInputId("fahrenheit"),
-      @tea.TextInputPayload("32"),
-    ) {
+    resolve_text_input(@tea.ValueEventId("fahrenheit"), @tea.ValuePayload("32")) {
     Some(SetFahrenheit(value)) => inspect(value, content="32")
     _ => abort("expected fahrenheit message")
   }

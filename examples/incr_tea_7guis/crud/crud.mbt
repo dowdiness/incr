@@ -255,8 +255,8 @@ fn button_attrs() -> Array[@tea.Attribute] {
 
 ///|
 fn resolve_text_input(
-  id : @tea.TextInputId,
-  payload : @tea.TextInputPayload,
+  id : @tea.ValueEventId,
+  payload : @tea.ValuePayload,
 ) -> Msg? {
   match id.name {
     "filter" => Some(SetFilter(payload.value))
@@ -273,5 +273,5 @@ pub fn mount(host : @tea.DomElement) -> Unit {
   let runtime = @incr.Runtime()
   let app = App(runtime)
   let renderer = @tea.BrowserRenderer::BrowserRenderer(runtime)
-  ignore(renderer.mount(host, app.program, on_input=resolve_text_input))
+  ignore(renderer.mount(host, app.program, on_value=resolve_text_input))
 }

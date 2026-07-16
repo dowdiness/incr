@@ -92,8 +92,8 @@ fn key_resolution(message : Msg) -> KeyResolution {
 
 ///|
 fn resolve_text_input(
-  id : @tea.TextInputId,
-  payload : @tea.TextInputPayload,
+  id : @tea.ValueEventId,
+  payload : @tea.ValuePayload,
 ) -> Msg? {
   match id.name.strip_prefix("draft:") {
     Some(cell) => Some(UpdateDraft(cell.to_owned(), payload.value))

@@ -295,7 +295,7 @@ fn editor_inspector_program(
 
 ///|
 #cfg(target="js")
-fn editor_on_input(id : TextInputId, payload : TextInputPayload) -> DemoMsg? {
+fn editor_on_value(id : ValueEventId, payload : ValuePayload) -> DemoMsg? {
   match id.name.strip_prefix("editor.text.") {
     Some(semantic_id) =>
       Some(EditorNodeInput(semantic_id.to_owned(), payload.value))
