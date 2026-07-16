@@ -19,7 +19,7 @@ pub fn mount_typed_spreadsheet_incr_tea_demo(mount_id : String) -> Unit {
       @tea.dom_get_element_by_id(mount_id + "-formula"),
       app.prog_formula,
       label="formula-bar",
-      on_value=resolve_text_input,
+      on_value=resolve_value,
       on_key_event=resolve_key_event,
     ),
   )
@@ -28,7 +28,7 @@ pub fn mount_typed_spreadsheet_incr_tea_demo(mount_id : String) -> Unit {
       @tea.dom_get_element_by_id(mount_id + "-grid"),
       app.prog_grid,
       label="grid",
-      on_value=resolve_text_input,
+      on_value=resolve_value,
       on_key_event=resolve_key_event,
     ),
   )

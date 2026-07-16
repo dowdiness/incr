@@ -230,10 +230,7 @@ extern "js" fn round_client_coordinate(value : Double) -> Int =
   #| (value) => Math.round(Number(value) || 0)
 
 ///|
-fn resolve_text_input(
-  id : @tea.ValueEventId,
-  payload : @tea.ValuePayload,
-) -> Msg? {
+fn resolve_value(id : @tea.ValueEventId, payload : @tea.ValuePayload) -> Msg? {
   match id.name {
     "radius" => Some(SetRadius(payload.value))
     _ => None
@@ -269,7 +266,7 @@ pub fn mount(host : @tea.DomElement) -> Unit {
     renderer.mount(
       host,
       app.program,
-      on_value=resolve_text_input,
+      on_value=resolve_value,
       on_pointer=resolve_pointer,
     ),
   )
