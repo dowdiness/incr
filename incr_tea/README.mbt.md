@@ -117,7 +117,7 @@ policy is manual-first hybrid: product/semantic UI actions should use
 scheduler. Visibility or idle triggers may call `prewarm` only for roots where
 early activation side effects are acceptable, because prewarm uses the same
 catch-up flush and after-flush drain as `show`. See the
-[#280 ADR](../../docs/decisions/2026-06-17-incr-tea-inactive-root-activation-policy.md).
+[#280 ADR](../docs/decisions/2026-06-17-incr-tea-inactive-root-activation-policy.md).
 
 `Html` stores attributes, children, and pure event descriptors. DOM event
 listener closures are created only by the renderer boundary and dispatch
@@ -210,7 +210,7 @@ prototype renders the static row/list shape once, collects the direct DOM leaves
 and later flushes only those collected text/class leaves.
 
 The dated result is recorded in
-[`docs/performance/2026-06-15-incr-tea-direct-leaf-patching-prototype.md`](../../docs/performance/2026-06-15-incr-tea-direct-leaf-patching-prototype.md).
+[`docs/performance/2026-06-15-incr-tea-direct-leaf-patching-prototype.md`](../docs/performance/2026-06-15-incr-tea-direct-leaf-patching-prototype.md).
 At N=256 it brings the row text/class/hot-leaf cells down to roughly 4–5 µs while
 preserving closure-free `Html : Eq` for the cached view data.
 
@@ -354,7 +354,7 @@ The script builds the MoonBit browser-bench entry point, serves `bench.html`, an
 prints Markdown tables plus raw JSON. Tune the sampling budget with
 `INCR_TEA_DOM_BENCH_ITERATIONS` and `INCR_TEA_DOM_BENCH_SAMPLES`. The dated
 snapshot is recorded in
-[`docs/performance/2026-06-12-incr-tea-keyed-dom-applier-playwright.md`](../../docs/performance/2026-06-12-incr-tea-keyed-dom-applier-playwright.md).
+[`docs/performance/2026-06-12-incr-tea-keyed-dom-applier-playwright.md`](../docs/performance/2026-06-12-incr-tea-keyed-dom-applier-playwright.md).
 
 ## Controlled-property reconciliation benchmark (#394)
 
@@ -379,7 +379,7 @@ The harness dispatches a monotonically changing unrelated input before every
 flush, including warmups, so equal-value input updates cannot skip the path.
 The timed window excludes mount, tree construction, browser-property mutation,
 and model dispatch. The dated results and environment are recorded in
-[`docs/performance/2026-07-15-incr-tea-controlled-reconciliation.md`](../../docs/performance/2026-07-15-incr-tea-controlled-reconciliation.md).
+[`docs/performance/2026-07-15-incr-tea-controlled-reconciliation.md`](../docs/performance/2026-07-15-incr-tea-controlled-reconciliation.md).
 
 ## Adjacent-framework pure comparison benchmark
 
@@ -398,7 +398,7 @@ NEW_MOON_MOD=0 moon bench --release -p examples/incr_tea/ui_compare_bench \
 The root package remains wasm-gc benchable; the Rabbita/Luna half of the slice
 lives in the JS-only `ui_compare_bench` subpackage. The dated plan and snapshot
 are recorded in
-[`docs/performance/2026-06-14-ui-shaped-adjacent-framework-comparison.md`](../../docs/performance/2026-06-14-ui-shaped-adjacent-framework-comparison.md).
+[`docs/performance/2026-06-14-ui-shaped-adjacent-framework-comparison.md`](../docs/performance/2026-06-14-ui-shaped-adjacent-framework-comparison.md).
 
 ## Adjacent-framework mounted matrix browser benchmark
 
@@ -418,15 +418,15 @@ npm run bench:ui-compare-dom
 ```
 
 The original counter-only snapshot is recorded in
-[`docs/performance/2026-06-14-mounted-counter-adjacent-framework-comparison.md`](../../docs/performance/2026-06-14-mounted-counter-adjacent-framework-comparison.md).
+[`docs/performance/2026-06-14-mounted-counter-adjacent-framework-comparison.md`](../docs/performance/2026-06-14-mounted-counter-adjacent-framework-comparison.md).
 The mounted matrix snapshot is recorded in
-[`docs/performance/2026-06-14-mounted-matrix-adjacent-framework-comparison.md`](../../docs/performance/2026-06-14-mounted-matrix-adjacent-framework-comparison.md).
+[`docs/performance/2026-06-14-mounted-matrix-adjacent-framework-comparison.md`](../docs/performance/2026-06-14-mounted-matrix-adjacent-framework-comparison.md).
 The row/leaf locality follow-up is recorded in
-[`docs/performance/2026-06-14-mounted-row-leaf-locality-comparison.md`](../../docs/performance/2026-06-14-mounted-row-leaf-locality-comparison.md).
+[`docs/performance/2026-06-14-mounted-row-leaf-locality-comparison.md`](../docs/performance/2026-06-14-mounted-row-leaf-locality-comparison.md).
 The activation-islands measurement gate is recorded in
-[`docs/performance/2026-06-15-incr-tea-activation-islands-measurement.md`](../../docs/performance/2026-06-15-incr-tea-activation-islands-measurement.md).
+[`docs/performance/2026-06-15-incr-tea-activation-islands-measurement.md`](../docs/performance/2026-06-15-incr-tea-activation-islands-measurement.md).
 The inactive-root prototype follow-up is recorded in
-[`docs/performance/2026-06-15-incr-tea-inactive-root-prototype.md`](../../docs/performance/2026-06-15-incr-tea-inactive-root-prototype.md).
+[`docs/performance/2026-06-15-incr-tea-inactive-root-prototype.md`](../docs/performance/2026-06-15-incr-tea-inactive-root-prototype.md).
 
 ## Keyed DOM browser regression tests
 
@@ -488,7 +488,7 @@ backdating rather than Rabbita cell dirty flags. This is not a Rabbita fork: it
 imports no Rabbita runtime or HTML package and intentionally keeps the renderer
 boundary narrow so a measured Rabbita VDOM/HTML subset can be swapped in later.
 The broader Rabbita/Qwik/Luna comparison and roadmap live in
-[`docs/research/incr-tea-ui-direction.md`](../../docs/research/incr-tea-ui-direction.md).
+[`docs/research/incr-tea-ui-direction.md`](../docs/research/incr-tea-ui-direction.md).
 
 #### Keyed children and event payloads (#211, #249, #270)
 
