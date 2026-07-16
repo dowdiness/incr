@@ -8,10 +8,33 @@ struct CellDraft {
 
 ///|
 struct TraceData {
+  outcome : String
+  recomputed : Array[String]
+  changed : Array[String]
+  unchanged : Array[String]
   recomputed_str : String
   changed_str : String
   unchanged_str : String
   snapshot_count : Int
+} derive(Eq)
+
+///|
+struct EvidenceCellData {
+  id : String
+  classification : String
+  before_kind : String
+  before_result_status : String
+  before_result : String
+  after_kind : String
+  after_result_status : String
+  after_result : String
+} derive(Eq)
+
+///|
+struct EvidenceData {
+  edit : String
+  outcome : String
+  cells : Array[EvidenceCellData]
 } derive(Eq)
 
 ///|
@@ -31,6 +54,7 @@ struct SheetState {
   status : @incr.InputField[String]
   error : @incr.InputField[String?]
   trace : @incr.InputField[TraceData?]
+  evidence : @incr.InputField[EvidenceData?]
   last_edit : @incr.InputField[String]
 }
 
@@ -56,6 +80,7 @@ fn SheetState::new(runtime : @incr.Runtime) -> SheetState {
   )
   let error = scope.input_field(None, label="typed-sheet.error")
   let trace = scope.input_field(None, label="typed-sheet.trace")
+  let evidence = scope.input_field(None, label="typed-sheet.evidence")
   let last_edit = scope.input_field("Seed sheet", label="typed-sheet.last-edit")
   let state = {
     _scope: scope,
@@ -68,6 +93,7 @@ fn SheetState::new(runtime : @incr.Runtime) -> SheetState {
     status,
     error,
     trace,
+    evidence,
     last_edit,
   }
   // Seed worksheet with A1=10, B1=formula — then reset meta state to clean
@@ -114,6 +140,38 @@ fn state_visible_cell_ids(
   state : Ref[SheetState],
 ) -> Array[@typed_spreadsheet.CellId] {
   state.val.cells.peek().map(cell => cell_id_from_sheet(state.val.sheet, cell))
+}
+
+///|
+fn evidence_capture_limit() -> Int {
+  16
+}
+
+///|
+fn state_capture_cell_ids(
+  state : Ref[SheetState],
+  target : @typed_spreadsheet.CellId,
+) -> Array[@typed_spreadsheet.CellId] {
+  let limit = evidence_capture_limit()
+  let ids = [target]
+  let selected = state_cell_id(state, state.val.selected_cell.peek())
+  if selected != target && ids.length() < limit {
+    ids.push(selected)
+  }
+  let cells = state.val.cells.peek()
+  let mut index = 0
+  while index < cells.length() && ids.length() < limit {
+    let cell = cells[index]
+    let id = cell_id_from_sheet(state.val.sheet, cell)
+    if id != target && !ids.contains(id) {
+      let snapshot = state.val.sheet.inspect_cell(id)
+      if snapshot.static_references.contains(target) {
+        ids.push(id)
+      }
+    }
+    index += 1
+  }
+  ids
 }
 
 ///|
@@ -273,22 +331,36 @@ fn apply_text_edit(
       let result = @demo.run_batched_op(
         s.sheet,
         operation,
-        capture=[state_cell_id(state, s.selected_cell.peek())],
+        capture=state_capture_cell_ids(state, id),
         trace_cells=state_visible_cell_ids(state),
       )
       let outcome = @demo.format_outcome(result.outcome)
+      let edit = "\{cell} ← \{trimmed}"
       let committed_text = trimmed.to_owned()
       let current_drafts = s.drafts.peek()
       let current_committed = s.committed.peek()
       s.trace.set(
         Some({
+          outcome,
+          recomputed: @demo.cell_id_strings(result.trace.recomputed),
+          changed: @demo.cell_id_strings(result.trace.changed),
+          unchanged: @demo.cell_id_strings(result.trace.unchanged),
           recomputed_str: @demo.format_cell_ids(result.trace.recomputed),
           changed_str: @demo.format_cell_ids(result.trace.changed),
           unchanged_str: @demo.format_cell_ids(result.trace.unchanged),
           snapshot_count: result.cell_snapshots.length(),
         }),
       )
-      s.last_edit.set("\{cell} ← \{trimmed}")
+      s.evidence.set(
+        Some({
+          edit,
+          outcome,
+          cells: result.cell_snapshots.map(change => {
+            evidence_cell_data(change, result)
+          }),
+        }),
+      )
+      s.last_edit.set(edit)
       s.status.set("Applied \{cell} ← \{trimmed}: \{outcome}.")
       s.error.set(None)
       s.selected_cell.set(cell)
@@ -390,21 +462,35 @@ fn delete_selected_cmd(state : Ref[SheetState]) -> @tea.Cmd[Msg] {
       let result = @demo.run_batched_op(
         s.sheet,
         @demo.SheetOp::Delete(id),
-        capture=[id],
+        capture=state_capture_cell_ids(state, id),
         trace_cells=state_visible_cell_ids(state),
       )
       let outcome = @demo.format_outcome(result.outcome)
+      let edit = "delete \{cell}"
       let current_drafts = s.drafts.peek()
       let current_committed = s.committed.peek()
       s.trace.set(
         Some({
+          outcome,
+          recomputed: @demo.cell_id_strings(result.trace.recomputed),
+          changed: @demo.cell_id_strings(result.trace.changed),
+          unchanged: @demo.cell_id_strings(result.trace.unchanged),
           recomputed_str: @demo.format_cell_ids(result.trace.recomputed),
           changed_str: @demo.format_cell_ids(result.trace.changed),
           unchanged_str: @demo.format_cell_ids(result.trace.unchanged),
           snapshot_count: result.cell_snapshots.length(),
         }),
       )
-      s.last_edit.set("delete \{cell}")
+      s.evidence.set(
+        Some({
+          edit,
+          outcome,
+          cells: result.cell_snapshots.map(change => {
+            evidence_cell_data(change, result)
+          }),
+        }),
+      )
+      s.last_edit.set(edit)
       s.status.set("Applied delete \{cell}: \{outcome}.")
       s.error.set(None)
       s.drafts.set(update_draft(current_drafts, cell, ""))
@@ -436,6 +522,7 @@ fn reset_sheet_cmd(
     s.selected_cell.set("B1")
     s.editing_cell.set(None)
     s.trace.set(None)
+    s.evidence.set(None)
     s.last_edit.set("Seed sheet")
     s.status.set(
       "Ready. This incr_tea proof is separate from the live Rabbita demo.",
@@ -455,17 +542,22 @@ fn reset_sheet_cmd(
 
 ///|
 fn grid_column_count() -> Int {
-  4
+  50
 }
 
 ///|
 fn grid_row_count() -> Int {
-  4
+  50
 }
 
 ///|
 fn column_labels() -> Array[String] {
-  ["A", "B", "C", "D"]
+  [
+    "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P",
+    "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", "AA", "AB", "AC", "AD", "AE",
+    "AF", "AG", "AH", "AI", "AJ", "AK", "AL", "AM", "AN", "AO", "AP", "AQ", "AR",
+    "AS", "AT", "AU", "AV", "AW", "AX",
+  ]
 }
 
 ///|

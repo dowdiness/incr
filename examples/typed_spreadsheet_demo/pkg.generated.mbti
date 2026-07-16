@@ -7,9 +7,19 @@ import {
 }
 
 // Values
+pub fn ai_context_result(@typed_spreadsheet.CellSnapshot) -> AiContextResult
+
+pub fn ai_context_value(@typed_spreadsheet.CellValue) -> AiContextValue
+
+pub fn ai_formula_shape(@typed_spreadsheet.Formula) -> String
+
 pub fn cell_id_strings(Array[@typed_spreadsheet.CellId]) -> Array[String]
 
 pub fn cell_id_to_string(@typed_spreadsheet.CellId) -> String
+
+pub fn cell_result_error(@typed_spreadsheet.CellResult) -> String?
+
+pub fn classify_evidence(WorksheetStepResult, CellSnapshotChange) -> String
 
 pub fn fixed_scenario_json() -> String
 
@@ -27,6 +37,8 @@ pub fn format_outcome(OpOutcome) -> String
 
 pub fn format_snapshot(@typed_spreadsheet.CellSnapshot) -> String
 
+pub fn formula_ast_error_status(@typed_spreadsheet.FormulaAstQueryError) -> String
+
 pub fn parse_cell_text_op(@typed_spreadsheet.CellId, String) -> Result[SheetOp, FormulaTextParseError]
 
 pub fn run_batched_op(@typed_spreadsheet.Worksheet, SheetOp, capture? : Array[@typed_spreadsheet.CellId], trace_cells? : Array[@typed_spreadsheet.CellId]) -> WorksheetStepResult
@@ -40,6 +52,77 @@ pub fn snapshot_kind(@typed_spreadsheet.CellSnapshot) -> String
 // Errors
 
 // Types and methods
+pub(all) struct AiContextCell {
+  id : String
+  committed_text : String
+  draft_text : String
+  draft_dirty : Bool
+  present : Bool
+  kind : String
+  result : AiContextResult
+  dependency_shape : String
+  installed_dependencies : Array[String]
+  static_references : Array[String]
+  last_dynamic_dependencies : Array[String]
+  formula : AiContextFormula?
+} derive(ToJson, @debug.Debug)
+
+pub(all) struct AiContextEvidence {
+  edit : String
+  outcome : String
+  cells : Array[AiContextEvidenceCell]
+} derive(ToJson, @debug.Debug)
+
+pub(all) struct AiContextEvidenceCell {
+  id : String
+  classification : String
+  before_kind : String
+  before_result_status : String
+  before_result : String
+  after_kind : String
+  after_result_status : String
+  after_result : String
+} derive(ToJson, @debug.Debug)
+
+pub(all) struct AiContextFormula {
+  text : String
+  ast_status : String
+  shape : String?
+  error : String?
+} derive(ToJson, @debug.Debug)
+
+pub(all) struct AiContextResult {
+  status : String
+  value : AiContextValue?
+  error : String?
+  repr : String
+} derive(ToJson, @debug.Debug)
+
+pub(all) struct AiContextSnapshot {
+  schema_version : Int
+  selected_cell : String
+  max_cells : Int
+  truncated : Bool
+  region : Array[String]
+  cells : Array[AiContextCell]
+  latest_trace : AiContextTrace?
+  latest_evidence : AiContextEvidence?
+} derive(ToJson, @debug.Debug)
+
+pub(all) struct AiContextTrace {
+  edit : String
+  outcome : String
+  recomputed : Array[String]
+  changed : Array[String]
+  unchanged : Array[String]
+} derive(ToJson, @debug.Debug)
+
+pub(all) struct AiContextValue {
+  type_name : String
+  value : String
+  repr : String
+} derive(ToJson, @debug.Debug)
+
 pub struct CellSnapshotChange {
   id : @typed_spreadsheet.CellId
   before : @typed_spreadsheet.CellSnapshot

@@ -96,11 +96,12 @@ try {
   );
 
   assert(
-    scripts.some(script => script.includes('side-by-side proof · incr_tea')),
-    'Built JS bundle is missing the proof header copy',
+    html.includes('side-by-side proof · incr_tea'),
+    'Built HTML is missing the proof header copy',
   );
+  assert(html.includes('id="app-evidence"'), 'Built HTML is missing the evidence mount node');
   assert(
-    scripts.some(script => script.includes('4 by 4 typed spreadsheet proof grid')),
+    scripts.some(script => script.includes('50 by 50 typed spreadsheet proof grid')),
     'Built JS bundle is missing the proof grid view',
   );
   assert(

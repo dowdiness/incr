@@ -9,6 +9,10 @@ pub fn mount_typed_spreadsheet_incr_tea_demo(String) -> Unit
 // Types and methods
 type CellDraft derive(Eq)
 
+type EvidenceCellData derive(Eq)
+
+type EvidenceData derive(Eq)
+
 type KeyResolution
 
 type Model
