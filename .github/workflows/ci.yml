@@ -43,7 +43,7 @@ jobs:
       # loop absorbs transient blips. Pinned for reproducibility (issue #227).
       - name: Install MoonBit
         env:
-          MOONBIT_INSTALL_VERSION: 0.10.3+16975d007
+          MOONBIT_INSTALL_VERSION: 0.10.4+ade96c819
         run: |
           install_moonbit() {
             curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/moonbit-install.sh \
@@ -88,7 +88,7 @@ jobs:
       # loop absorbs transient blips. Pinned for reproducibility (issue #227).
       - name: Install MoonBit
         env:
-          MOONBIT_INSTALL_VERSION: 0.10.3+16975d007
+          MOONBIT_INSTALL_VERSION: 0.10.4+ade96c819
         run: |
           install_moonbit() {
             curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/moonbit-install.sh \
@@ -213,7 +213,7 @@ jobs:
       # the pin rationale (issue #227).
       - name: Install MoonBit
         env:
-          MOONBIT_INSTALL_VERSION: 0.10.3+16975d007
+          MOONBIT_INSTALL_VERSION: 0.10.4+ade96c819
         run: |
           install_moonbit() {
             curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/moonbit-install.sh \
@@ -264,7 +264,7 @@ jobs:
 
       - name: Install MoonBit
         env:
-          MOONBIT_INSTALL_VERSION: 0.10.3+16975d007
+          MOONBIT_INSTALL_VERSION: 0.10.4+ade96c819
         run: |
           install_moonbit() {
             curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/moonbit-install.sh \
@@ -315,7 +315,7 @@ jobs:
       # the pin rationale (issue #227).
       - name: Install MoonBit
         env:
-          MOONBIT_INSTALL_VERSION: 0.10.3+16975d007
+          MOONBIT_INSTALL_VERSION: 0.10.4+ade96c819
         run: |
           install_moonbit() {
             curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/moonbit-install.sh \
