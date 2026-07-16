@@ -578,7 +578,9 @@ fn classify_controlled_property(
   tag : String,
   attr : Attribute,
 ) -> ControlledProperty? {
-  if tag == "input" && attr.name == "value" && attr.bool_value is None {
+  if (tag == "input" || tag == "select") &&
+    attr.name == "value" &&
+    attr.bool_value is None {
     Some(ControlledValue(attr.value))
   } else {
     match attr.bool_value {
@@ -619,19 +621,19 @@ fn[Msg] reconcile_controlled_rendered(rendered : Rendered[Msg]) -> Unit {
   match rendered {
     RenderedText(_, _) | RenderedDirectText(_, _, _) => ()
     RenderedElem(tag~, attrs~, children~, element~, ..) => {
-      for attr in attrs {
-        reconcile_controlled_attr(tag, element, attr)
-      }
       for child in children {
         reconcile_controlled_rendered(child)
       }
-    }
-    RenderedKeyedElem(tag~, attrs~, children~, element~, ..) => {
       for attr in attrs {
         reconcile_controlled_attr(tag, element, attr)
       }
+    }
+    RenderedKeyedElem(tag~, attrs~, children~, element~, ..) => {
       for pair in children {
         reconcile_controlled_rendered(pair.1)
+      }
+      for attr in attrs {
+        reconcile_controlled_attr(tag, element, attr)
       }
     }
   }
@@ -718,7 +720,7 @@ fn set_attr_value(
     }
     None => dom_set_attr(element, name, value)
   }
-  if tag == "input" && name == "value" {
+  if (tag == "input" || tag == "select") && name == "value" {
     dom_set_value_property(element, value)
   }
 }
@@ -865,6 +867,7 @@ fn[Msg] render_html(html : Html[Msg], sink : EventSink[Msg]) -> Rendered[Msg] {
         dom_append_child(element, rendered.node())
         rendered
       })
+      attrs.each(attr => reconcile_controlled_attr(tag, element, attr))
       RenderedElem(tag~, attrs~, events~, children=rendered_children, element~)
     }
     KeyedElem(tag~, attrs~, events~, children~) => {
@@ -877,6 +880,7 @@ fn[Msg] render_html(html : Html[Msg], sink : EventSink[Msg]) -> Rendered[Msg] {
         dom_append_child(element, rendered.node())
         (key, rendered)
       })
+      attrs.each(attr => reconcile_controlled_attr(tag, element, attr))
       RenderedKeyedElem(
         tag~,
         attrs~,
@@ -941,6 +945,9 @@ fn[Msg : Eq] diff_rendered(
         let rendered_children = diff_children(
           old_children, next_children, element, sink,
         )
+        next_attrs.each(attr => {
+          reconcile_controlled_attr(next_tag, element, attr)
+        })
         RenderedElem(
           tag=next_tag,
           attrs=next_attrs,
@@ -977,6 +984,9 @@ fn[Msg : Eq] diff_rendered(
         let rendered_children = diff_keyed_children(
           old_children, next_children, element, sink,
         )
+        next_attrs.each(attr => {
+          reconcile_controlled_attr(next_tag, element, attr)
+        })
         RenderedKeyedElem(
           tag=next_tag,
           attrs=next_attrs,
