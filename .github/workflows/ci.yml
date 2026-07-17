@@ -144,6 +144,12 @@ jobs:
       - name: Workspace boundary + pin invariants (examples, docs)
         run: bash scripts/check-workspace-boundaries.sh
 
+      - name: Documentation boundary checker self-test
+        run: bash scripts/check-documentation-boundaries-selftest.sh
+
+      - name: Documentation retention and link boundaries
+        run: python3 scripts/check-documentation-boundaries.py
+
   docs-ratios:
     name: Verify perf ratio tables
     runs-on: ubuntu-latest

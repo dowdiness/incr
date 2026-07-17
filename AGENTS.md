@@ -60,6 +60,10 @@ Code is the source of truth. When docs and code disagree, the doc is wrong — f
 
 When adding a doc file, update `docs/README.md` in the same commit.
 
+### Documentation Lifecycle
+
+Current reader docs remain. ADRs are durable and superseded rather than deleted. Completed or superseded plans, research, and unneeded snapshots are deleted; Git history is the recovery path. Every new time-bounded document must state **Reader**, **Decision**, **Keep until**, and **Disposition**. Update the docs index and local links when deleting documentation.
+
 ## Comment Rules
 
 Default: no comment. Only add one for the *why* — invariant, workaround, interaction effect, performance constraint. Never restate code in a comment. Public APIs get `///` doc comments with behavior summary and error notes.
@@ -67,6 +71,13 @@ Default: no comment. Only add one for the *why* — invariant, workaround, inter
 ## Pre-PR Checklist (in order)
 
 1. `moon fmt` → 2. `moon info` (inspect the `.mbti` diff) → 3. `moon check` → 4. `moon test` → 5. Update `docs/` and `CHANGELOG.md` if API or behavior changed → 6. Ensure no `.mbti` file was hand-edited
+
+### Documentation disposition
+
+- [ ] Reader, decision, and disposition confirmed
+- [ ] Completed docs removed or compressed into an ADR
+- [ ] Roadmap contains only current work
+- [ ] Local links and the docs index updated
 
 ### Deprecation status (MoonBit v0.10.0+)
 

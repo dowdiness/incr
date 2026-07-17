@@ -23,8 +23,7 @@ to `cells/internal/push/`. Vue 3.6 reported a 3.47× speedup on its
 `mutate-1000-refs` driver after porting alien-signals; the realistic gap for
 incr is expected to be smaller because incr is already SoA (not Set-based).
 
-The discipline (see [`memory/project_push_engine_linklist_port.md`](../../memory)
-and `moonbit-perf-investigation` skill) is: write the microbench first, confirm
+The discipline is: write the microbench first, confirm
 the gap empirically, write the ADR second, write the port last. This document
 covers step 1.
 
