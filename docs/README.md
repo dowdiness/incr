@@ -59,20 +59,7 @@ For contributors and advanced users who want to understand or modify `incr`.
 - [Comparison with alien-signals](design/comparison-with-alien-signals.md) — trade-offs versus alien-signals-style reactive frameworks
 - [Comparison with salsa](design/comparison-with-salsa.md) — shared firewall core, three divergences, and a backdating deep-dive
 
-**Implementation specs** ([design/specs/](design/specs/)) — written-ahead designs for individual subsystems:
-
-- [2026-04-20 Architecture Assessment](design/specs/2026-04-20-architecture-assessment.md) — why no structural redesign is warranted; reopen criteria for T1b/T3
-- [2026-05-21 Ideal API facades and read semantics](design/specs/2026-05-21-ideal-api-facade-read-semantics.md) — target facade shape and strict/permissive read contracts
-- [2026-05-25 `Expr[T]` Formula API](design/specs/2026-05-25-expr-formula-api.md) — proposed lazy formula layer over target facades
-- [2026-05-26 Build-oriented boundary design](design/specs/2026-05-26-build-trait-boundaries.md) — Build-systems-à-la-carte application boundaries on `Input`/`Derived`/`DerivedMap`
-- [2026-05-26 Internal evaluation boundaries](design/specs/2026-05-26-internal-rebuild-boundaries.md) — runtime-evaluation state-machine seams without public scheduler traits
-- [2026-05-28 Static Derived Public-Surface Options](design/specs/2026-05-28-static-derived-public-options.md) — fixed-dependency fast-path API options; resolved keep-private by the 2026-06-01 ADR
-- [2026-05-28 Honest Read-Error Ownership](design/specs/2026-05-28-honest-read-error-ownership.md) — graph failures → read channel, domain failures → value, defects → abort
-- [2026-06-05 `AcceptedDerived`](design/specs/2026-06-05-committed-derived.md) — success-gated authoring primitive retaining the last accepted value
-- [2026-06-05 Typed Spreadsheet bounded trace contract](design/specs/2026-06-05-typed-spreadsheet-bounded-trace-contract.md) — caller-bounded formula traces (#179)
-- [2026-06-25 `Program::stateful` / `stateful_cmd`](design/specs/2026-06-25-program-stateful-design.md) — boilerplate-hiding constructors for mutable-model TEA apps
-- [2026-07-03 Workspace Boundary Assessment](design/specs/2026-07-03-workspace-boundary-assessment.md) — core layering re-verified healthy; pressure moved to the examples/facade seams; staged boundary plan
-- [2026-07-15 Retention cost attribution](design/specs/2026-07-15-retention-cost-attribution.md) — native/wasm-gc attribution ladder and slot-reclamation go/no-go criteria for #399
+**Implementation specs** ([design/specs/](design/specs/)) — written-ahead design records for individual subsystems. These are not the current backlog; the [roadmap](roadmap.md) decides what is current.
 
 **Current roadmap:**
 
@@ -80,20 +67,7 @@ For contributors and advanced users who want to understand or modify `incr`.
 - [incr_tea backlog](../incr_tea/docs/backlog.md) — task list for the `dowdiness/incr_tea` module (retargeted TEA issues + agenda)
 - [Implementation plans](plans/) — time-bounded implementation records; the roadmap determines which work is current.
 
-**Research notes — exploratory, not implemented:**
-
-- [2026-07-14 Machine composition abstraction decision](research/2026-07-14-machine-composition-abstraction-decision.md) — aggregate pure functions remain sufficient after the semantic-editor evidence driver and natural-form Circle Drawer comparison
-- [2026-07-14 Machine composition implementation report](research/2026-07-14-machine-composition-implementation-report.md) — WP1–WP4 implementation inventory, plan deviations, and verification record
-- [2026-07-14 Bonsai-informed `incr` core direction](research/2026-07-14-bonsai-informed-incr-core-direction.md) — prioritize historical-volume attribution and live-graph lifetime guarantees; keep dynamic ownership, graph snapshots, safe commits, and static lowering behind explicit evidence gates
-- [2026-07-14 Machine semantics start gates](research/2026-07-14-machine-layer-start-gates.md) — treat pure functions and aggregate Program composition as the baseline; gate new abstraction types, per-key graphs, and generative UI on concrete evidence
-- [Next-sessions Runtime Roadmap](research/next-sessions-runtime-roadmap.md) — onboarding + invariants + backlog template for Loom + Canopy integration sessions
-- [Incremental TEA direction](research/incr-tea-ui-direction.md) — positions `incr_tea` (now module `dowdiness/incr_tea`) as a semantic incremental rendering substrate, with follow-up issue map
-- [Constructive Traces Feasibility](research/constructive-traces-feasibility.md) — keep revision verifying traces as the default; investigate static/applicative APIs first
-- [Multi-Mode App Ideas](research/multi-mode-app-ideas.md) — app concepts combining pull / push / hybrid / Datalog modes
-- [Semantic Interning](research/semantic-interning.md) — design exploration for revision-aware `InternTable[T]`
-- [Reactive Collections — Research Summary](research/reactive-collections.md) — survey of delta / per-item / nominal approaches
-- [`ReactiveMap[K, V]` — Design Sketch](research/reactive-map-design.md) — per-key memoized map with observable key set
-- [`Relation::subscribe_delta` — Design Sketch](research/relation-delta-observer-design.md) — opt-in delta observation on Datalog relations
+**Research notes** ([research/](research/)) — exploratory, not implemented. Open these only when a current roadmap item, plan, or ADR calls for them.
 
 ## Decisions (ADRs)
 

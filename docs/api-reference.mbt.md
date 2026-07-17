@@ -554,7 +554,7 @@ static-Derived recompute misuse raise `Failure`; cross-runtime reuse aborts.
 
 ## DerivedMap[K, V]
 
-`DerivedMap[K, V]` is the keyed derived facade.
+`DerivedMap[K, V]` is the keyed derived facade. Use it when the same logical query is parameterized by a key — for example, looking up the type of each symbol by ID — rather than a single `Derived` that computes once for all keys. Each key gets an independent memoized computation that verifies lazily.
 
 ### `DerivedMap[K : Hash + Eq, V : Eq](rt: Runtime, compute: (K) -> V raise Failure, label? : String) -> DerivedMap[K, V]`
 
@@ -648,6 +648,8 @@ Returns whether this reachable derived value is verified at the current revision
 
 ## AcceptedDerived[V, E]
 
+Use `AcceptedDerived` when a computation is fallible and callers need both the latest candidate result and the last accepted success — for example, a live preview that should keep showing the last good output while the current input produces an error.
+
 A success-gated derived authoring primitive. A fallible candidate `Result[V, E]` is computed from current inputs; only `Ok(v)` candidates that differ from the last accepted value advance the *accepted* state. On `Err(e)` the previous accepted value is **retained** while the *current* channel still reports the error — keeping diagnostics honest without destroying the last good value that downstream UI, preview, or indexing stages need. A graph `ReadError` (cycle/disposal) does not drive the state machine; it surfaces on the read channel and leaves the retained accepted value untouched. See [the design spec](design/specs/2026-06-05-committed-derived.md).
 
 ### `AcceptedDerived[V : Eq, E : Eq](rt: Runtime, compute: () -> Result[V, E], label? : String) -> AcceptedDerived[V, E]`
@@ -721,6 +723,8 @@ The transition status of a committed revision: `NoAccept` (no prior value, candi
 ---
 
 ## Accumulator[T]
+
+Use `Accumulator` for diagnostics, traces, or warnings emitted *during* a derived computation — data that is orthogonal to the derived cell's return value. It is not for data that *is* the result; return that normally.
 
 Side-channel collector: derived cells push values during their compute, downstream readers pull them back with correct incremental invalidation. Use when a producer's ordinary return value (e.g. a `TypeResult`) is semantically distinct from log-like data it emits along the way (diagnostics, trace events, decorations).
 

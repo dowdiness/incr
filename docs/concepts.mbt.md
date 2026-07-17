@@ -152,7 +152,9 @@ A derived value is stale when `verified_at < current_revision`.
 
 ## Backdating
 
-**Backdating** is the key optimization. When a derived value recomputes to the **same value** as before, its `changed_at` stays at the old revision. This prevents unnecessary cascading through the graph. The checked companion demonstrates the classic `4 → 6` evenness case in [`concepts_examples.mbt.md`](concepts_examples.mbt.md#backdating-batching-and-dynamic-dependencies).
+Consider a derived value whose input changes from `4` to `6` — the input was modified and forces a recompute, but the derived result (say, `is_even`) is still `true`. Without a mechanism to detect this, every downstream dependent would recompute on the assumption that the change matters.
+
+**Backdating** is that mechanism. When a derived value recomputes to the **same value** as before, its `changed_at` stays at the old revision. This prevents unnecessary cascading through the graph. The checked companion demonstrates the classic `4 → 6` evenness case in [`concepts_examples.mbt.md`](concepts_examples.mbt.md#backdating-batching-and-dynamic-dependencies).
 
 ### Backdating strategies
 Three public `Derived` constructors offer different backdate strategies:
@@ -164,6 +166,8 @@ Three public `Derived` constructors offer different backdate strategies:
 See the [API reference](api-reference.mbt.md) for details.
 
 ## Durability
+
+Every input change advances the global revision, so every derived value is technically stale after any edit. A derived value that depends only on stable configuration — schema version, build flags — should not re-verify every time an unrelated volatile input changes.
 
 **Durability** classifies inputs by change frequency:
 
