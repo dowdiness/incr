@@ -4,7 +4,7 @@
 
 **Date:** 2026-05-26
 
-**Related:** [Build-oriented boundary design](2026-05-26-build-trait-boundaries.md), [Evaluation Strategy Refactor Plan](../../plans/2026-05-26-evaluation-strategy-refactor.md)
+**Related:** [Build-oriented boundary design](2026-05-26-build-trait-boundaries.md)
 
 ## Goal
 

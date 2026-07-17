@@ -471,8 +471,7 @@ as follows (design-validated by Codex before implementation):
   backdating; the eager fold carries a `Bool` accept-signal (so it stays on the
   `Eq`-bound `eager_derived`) that is flipped only on `AcceptedChanged` — only
   its change matters to the downstream accepted projection, so a toggle suffices
-  (no counter, hence no overflow). Plan:
-  [docs/plans/2026-06-08-accepted-derived-backdate-eq-tier.md](../../plans/2026-06-08-accepted-derived-backdate-eq-tier.md).
+  (no counter, hence no overflow).
 - **Previous accepted value in `snapshot`:** no (transition effects belong at
   `Effect` / observer boundaries).
 - **Location:** `incr/cells/` as a public target facade (the cross-repo

@@ -5,8 +5,7 @@
 **Status:** Shipped (Phases 1–2 on branch `refactor/t1b-memo-commit-phase`; Phase 3 docs + tests pending).
 
 Documents the measured commit-path performance of the T1b refactor
-([ADR](../decisions/2026-05-17-t1b-memo-commit-phase.md),
-[plan](../plans/2026-05-17-t1b-implementation.md)) end-to-end: pre-T1b
+([ADR](../decisions/2026-05-17-t1b-memo-commit-phase.md)) end-to-end: pre-T1b
 reference → Phase 1 (empty dispatch loops) → Phase 2 (atomic switchover
 to `AccumulatorCommitHook`) → Phase 2 with lazy-entry fast-path.
 
@@ -112,7 +111,6 @@ preserving the "register an accumulator mid-recompute then push" edge case.
 ## Cross-references
 
 - ADR: [`docs/decisions/2026-05-17-t1b-memo-commit-phase.md`](../decisions/2026-05-17-t1b-memo-commit-phase.md)
-- Plan: [`docs/plans/2026-05-17-t1b-implementation.md`](../plans/2026-05-17-t1b-implementation.md)
 - Commits on `refactor/t1b-memo-commit-phase`:
   - 267c763 — Phase 1: trait + empty dispatch + bench
   - d93e879 — Phase 1: comment polish

@@ -5,8 +5,8 @@
 **Status:** Directional research note. This records start and stabilization
 criteria; it does not authorize a new `Machine` type or an `incr` API.
 
-**Next experiment:**
-[Machine composition evidence driver](../plans/2026-07-14-machine-composition-evidence-driver.md).
+**Completed experiment:**
+[Machine composition implementation report](2026-07-14-machine-composition-implementation-report.md).
 
 **Core dependency:**
 [Bonsai-informed `incr` core direction](2026-07-14-bonsai-informed-incr-core-direction.md).

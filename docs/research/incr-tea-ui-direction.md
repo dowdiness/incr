@@ -211,10 +211,9 @@ separate API follow-up.
    selection/focus checks, a viewport/order projection root, and a separate
    inspector/diagnostics root. The next question is pure parent/child
    composition, add/remove/reorder, identity reuse, and stale-command
-   rejection. Start with the aggregate, test-only
-   [Machine composition evidence driver](../plans/2026-07-14-machine-composition-evidence-driver.md);
-   do not introduce a `Machine` type or per-key reactive graph until that
-   driver measures a gap. Keep the existing demo/renderer fixture coupling
+   rejection. The aggregate test-only
+   [Machine composition experiment](2026-07-14-machine-composition-implementation-report.md)
+   completed without introducing a `Machine` type or per-key reactive graph. Keep the existing demo/renderer fixture coupling
    unchanged until the module identity ADR's disentanglement trigger is
    handled.
 8. **Keep direct patching narrow and measured.** The #254 prototype shows that

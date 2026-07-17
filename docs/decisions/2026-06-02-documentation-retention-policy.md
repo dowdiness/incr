@@ -108,9 +108,9 @@ motivated a single decision record covering all of them.
 None. This ADR is documentation-only: no MoonBit code, no public API, no
 `.mbti`, no module import graph changes, no build configuration changes.
 
-## Follow-up
+## Follow-up at acceptance
 
-Deferred work; none of it is performed by this ADR.
+The following work was deferred when this ADR was accepted.
 
 - **Archive triage and cleanup.** Walk `docs/archive/`, classify each file
   as (a) superseded plan/spec/research → delete, (b) obsolete measurement
@@ -126,3 +126,20 @@ Deferred work; none of it is performed by this ADR.
   have READMEs, and that exempt directories (implementation-only source,
   `internal/`, test-only, `scripts/`, generated, `archive/`) do not carry
   unnecessary READMEs.
+
+## Completed follow-up
+
+Archive retirement and completed-plan cleanup performed:
+
+- `docs/archive/` directory deleted per the triage policy above. Superseded
+  plans, specs, research notes, and obsolete measurement snapshots removed.
+  Details are in Git history.
+- Nine completed plans under `docs/plans/` deleted: evaluation strategy
+  refactor, typed spreadsheet boundary, accepted-derived backdate-eq tier,
+  composable runtime hooks, typed spreadsheet cross-root locality,
+  program stateful, public API boundary cleanup, duplix retention benchmarks,
+  and machine composition evidence driver. Links from surviving documents
+  removed.
+- `docs/README.md` "Historical & Archive" section removed.
+- `docs/plans/2026-07-15-retention-cost-attribution.md` retained because
+  roadmap issue #399 links it as the active attribution plan.

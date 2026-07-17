@@ -6,8 +6,6 @@
 
 **Parent decision:** [ADR 2026-05-21: Ideal Public API Naming](../../decisions/2026-05-21-public-api-ideal-naming.md)
 
-**Parent plan:** [Ideal API Rename Migration Plan](../../archive/completed-phases/2026-05-21-ideal-api-rename-migration.md)
-
 ## Goal
 
 Define the target facade shape and read semantics before implementing the

@@ -6,7 +6,7 @@
 
 **Inspired by:** Build systems à la carte (`build` package / paper)
 
-**Related:** [Internal Evaluation Boundaries](2026-05-26-internal-rebuild-boundaries.md), [Evaluation Strategy Refactor Plan](../../plans/2026-05-26-evaluation-strategy-refactor.md)
+**Related:** [Internal Evaluation Boundaries](2026-05-26-internal-rebuild-boundaries.md)
 
 ## Goal
 

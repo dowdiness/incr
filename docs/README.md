@@ -126,12 +126,6 @@ live in each ADR.
 
 ---
 
-## Historical & Archive
-
-Archive retirement is pending under the [documentation retention ADR](decisions/2026-06-02-documentation-retention-policy.md). Until that follow-up lands, existing `docs/archive/` material remains for historical reference only — code and current docs are the source of truth.
-
----
-
 ## External Resources
 
 - [Library README](../incr/README.mbt.md) — project overview and quick start

@@ -1,7 +1,7 @@
 # Machine composition aggregate evidence — 2026-07-14
 
 This snapshot measures the aggregate `Program::stateful_cmd` design from the
-[machine composition evidence driver](../plans/2026-07-14-machine-composition-evidence-driver.md).
+completed machine-composition evidence driver.
 It does not measure layout or paint and does not authorize the conditional
 per-key reactive variant.
 

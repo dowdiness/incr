@@ -1,7 +1,6 @@
 # Typed spreadsheet — cross-root locality validation 2026-06-24
 
 Implementation: PR [#294](https://github.com/dowdiness/incr/pull/294).
-Plan: [`docs/plans/2026-06-24-typed-spreadsheet-cross-root-locality.md`](../plans/2026-06-24-typed-spreadsheet-cross-root-locality.md).
 
 ## Environment
 

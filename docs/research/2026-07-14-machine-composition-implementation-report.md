@@ -3,7 +3,7 @@
 **Date:** 2026-07-14
 
 **Specification:**
-[Machine composition evidence driver](../plans/2026-07-14-machine-composition-evidence-driver.md)
+Completed (original plan archived; see implementation report below)
 
 ## Implemented
 

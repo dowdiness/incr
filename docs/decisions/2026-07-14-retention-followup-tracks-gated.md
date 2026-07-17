@@ -2,7 +2,6 @@
 
 **Date:** 2026-07-14
 **Status:** Accepted — Tracks 2–3 stay gated; reopen only with a named consumer
-**Plan:** [2026-07-14 Duplix-informed retention benchmarks](../plans/2026-07-14-duplix-retention-benchmarks.md) (Track 1 shipped in PR [#398](https://github.com/dowdiness/incr/pull/398))
 **Evidence:** [2026-07-14 retention baseline](../performance/2026-07-14-retention-baseline.md); prior exploration [reactive-map-design.md](../research/reactive-map-design.md) (2026-04-19)
 **Follow-up:** [#399](https://github.com/dowdiness/incr/issues/399) — attribute the residual retained-volume cost
 
@@ -87,8 +86,7 @@ separate engine decision and does not by itself reopen the facade tracks.
 
 ## Consequences
 
-- The plan doc stays in `docs/plans/` with Track 1 marked executed and the
-  gate checklists intact.
+- Track 1 shipped in PR [#398](https://github.com/dowdiness/incr/pull/398); the plan was retired after execution.
 - [concepts.mbt.md](../concepts.mbt.md) documents the measured lifecycle cost
   model so users can avoid the cliff today with scope-owned cleanup.
 - The retention bench suite (`incr/tests/retention_bench_test.mbt`) is the

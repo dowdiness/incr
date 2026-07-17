@@ -2,7 +2,6 @@
 
 **Date:** 2026-04-20
 **Status:** Accepted (2026-04-20)
-**Implementation plan:** [docs/archive/completed-phases/2026-04-19-accumulator-api-design.md](../archive/completed-phases/2026-04-19-accumulator-api-design.md)
 **Driver adoption:** [loom/examples/lambda PR #94](https://github.com/dowdiness/loom/pull/94)
 **Shipped in:** [PR #42](https://github.com/dowdiness/incr/pull/42) (API) + [`1715981`](https://github.com/dowdiness/incr/commit/1715981) (abort-preservation fix)
 **Update 2026-05-31:** the honest read-error migration widened verifying accumulator reads to `ReadError`; see [Honest Read-Error Ownership](../design/specs/2026-05-28-honest-read-error-ownership.md).
@@ -240,9 +239,6 @@ future readers don't re-derive them from the spec:
 
 ## Related
 
-- [docs/archive/completed-phases/2026-04-19-accumulator-api-design.md](../archive/completed-phases/2026-04-19-accumulator-api-design.md)
-  — implementation spec (21 tasks, TDD-driven). Archive after
-  retaining for historical context.
 - [docs/api-reference.mbt.md](../api-reference.mbt.md) §Accumulator — user-facing
   API documentation.
 - [docs/cookbook.mbt.md](../cookbook.mbt.md) — (future) accumulator usage recipes.

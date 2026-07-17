@@ -4,8 +4,6 @@
 
 **Date:** 2026-04-11
 
-**Parent design:** [Dispose/GC Design Spec](../../archive/2026-04-08-dispose-gc-design.md) (sections 4-5)
-
 ## Goal
 
 Add Watch[T] (typed keep-alive handle for reading computed values from outside the graph) and Runtime::gc() (mark-and-sweep collection of unreachable interior cells). This is the core GC mechanism without push suspension — `on_observe`/`on_unobserve` remain no-ops.

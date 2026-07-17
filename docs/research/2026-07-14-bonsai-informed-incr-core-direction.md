@@ -12,7 +12,6 @@ boundaries, and reopen criteria; it does not authorize a new public API.
 
 **Current evidence:**
 [retention baseline](../performance/2026-07-14-retention-baseline.md),
-[retention benchmark plan](../plans/2026-07-14-duplix-retention-benchmarks.md),
 [`Expr[T]` design](../design/specs/2026-05-25-expr-formula-api.md).
 
 **Higher-layer follow-up:**

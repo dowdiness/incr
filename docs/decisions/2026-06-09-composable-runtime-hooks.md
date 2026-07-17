@@ -5,7 +5,6 @@
 **Issue:** [#210](https://github.com/dowdiness/incr/issues/210)
 **Anchors:** [Memo Event Observation](2026-05-17-memo-event-observation.md),
 [T1b `MemoCommitPhase`](2026-05-17-t1b-memo-commit-phase.md)
-**Spec:** [docs/plans/2026-06-09-composable-runtime-hooks.md](../plans/2026-06-09-composable-runtime-hooks.md)
 
 ## Context
 
