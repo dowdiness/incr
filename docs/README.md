@@ -127,6 +127,7 @@ live in each ADR.
 | [2026-06-01](decisions/2026-06-01-workspace-layout.md) | Workspace layout: `moon.work` root, publishable module under `incr/`, checked docs member |
 | [2026-06-02](decisions/2026-06-02-typed-spreadsheet-runtime-checking.md) | Typed Spreadsheet formula checking stays runtime-checked at the example boundary |
 | [2026-06-02](decisions/2026-06-02-typed-spreadsheet-tombstone-lifecycle.md) | Typed Spreadsheet deleted-cell tombstones: stable presence anchors + explicit compaction |
+| [2026-06-02](decisions/2026-06-02-documentation-retention-policy.md) | Documentation retention: retire archive after triage, keep ADRs durable, require READMEs at entry points |
 | [2026-06-09](decisions/2026-06-09-composable-runtime-hooks.md) | Composable runtime hooks: multi-listener registries behind source-compatible singleton APIs |
 | [2026-06-17](decisions/2026-06-17-incr-tea-inactive-root-activation-policy.md) | Incremental TEA inactive-root activation: manual-first hybrid (#280) |
 | [2026-07-03](decisions/2026-07-03-incr-tea-module-identity.md) | `incr_tea` module identity: core-feedback framework, facade-only imports, own backlog |
@@ -138,25 +139,13 @@ live in each ADR.
 
 ## Historical & Archive
 
-> **Do not read files in this section unless you need historical context.** These documents describe past design iterations, completed work, and point-in-time analyses. The code is the source of truth; where archive material and current docs disagree, trust the code and the current docs.
-
-### Completed plans & retired designs
-
-Large historical collection under [`archive/`](archive/) covering completed plans, rejected alternatives, past refactors, and earlier unified design specs. Selected entries:
-
-| Document | Topic |
-|----------|-------|
-| [archive/plans/](archive/plans/) | Shipped implementation plans (dispose/GC layers, runtime modularization, stage-5 internal split, T1b commit-phase refactor) |
-| [archive/completed-phases/](archive/completed-phases/) | Older completed phases (datalog primitives, cells simplification, accumulator API spec, R1 engine package split with stage notes, 2026-05-21 ideal API rename migration plan + 2026-05-23 Phase 3a migration-guide/codemod plan — both superseded by the #345 direct removal in 0.13.0) |
-| [archive/incr-unified-design.md](archive/incr-unified-design.md) | Unified reactive runtime design (SoA + multi-mode) |
-| [archive/2026-04-08-dispose-gc-design.md](archive/2026-04-08-dispose-gc-design.md) | Dispose/GC design — all 5 layers complete (PRs #28–#33) |
-| [archive/api-updates.md](archive/api-updates.md) | Summary of past API documentation changes |
+Archive retirement is pending under the [documentation retention ADR](decisions/2026-06-02-documentation-retention-policy.md). Until that follow-up lands, existing `docs/archive/` material remains for historical reference only — code and current docs are the source of truth.
 
 ---
 
 ## External Resources
 
 - [Library README](../incr/README.mbt.md) — project overview and quick start
-- [CLAUDE.md](../CLAUDE.md) — contributor/AI-agent guidance on commands and architecture
+- [AGENTS.md](../AGENTS.md) — contributor/AI-agent guidance on commands and architecture
 - Source code: [`../incr/`](../incr/) module packages
 - Tests: `*_test.mbt` and `*_wbtest.mbt` files under `../incr/` and example modules
