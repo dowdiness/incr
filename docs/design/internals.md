@@ -61,7 +61,7 @@ Comparison to neighboring systems in the same cell:
 
 - **Salsa** (rust-analyzer): (Suspending, Verifying via revisions). Same family as `incr`. Different cycle treatment — Salsa aborts on cycle by default and offers an opt-in recovery pattern; `incr` returns `Result[T, ReadError]` from the default read.
 - **Shake** (Haskell build tool): (Suspending, Verifying via content hashes). Same scheduler shape as `incr`. Different rebuilder — hashes enable cross-process caching but require explicit hash computation per task; revisions don't.
-- **alien-signals / Vue 3.6 reactivity**: (Suspending, Verifying) but with a push-pull-hybrid bolt-on — the push phase pre-marks subtrees as `Pending` before any read. See [comparison-with-alien-signals.md](./comparison-with-alien-signals.md) for the full bilateral comparison.
+- **alien-signals / Vue 3.6 reactivity**: (Suspending, Verifying) but with a push-pull-hybrid bolt-on — the push phase pre-marks subtrees as `Pending` before any read.
 
 ### Operational Vocabulary for Current `incr`
 

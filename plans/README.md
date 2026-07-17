@@ -71,7 +71,7 @@ implementation is currently commissioned.
 | R17 | Add namespace-aware SVG support after controlled-form correctness | direction | M | Plan 003 lands and an editor/diagram consumer supplies acceptance cases | RECORDED |
 | R18 | Run reactive-collection driver discovery in Canopy before adding any `ReactiveMap`, relation-delta, or cleanup public API to `incr` | direction/spike | M | A downstream workload proves `DerivedMap` insufficient | RECORDED |
 | R19 | Explore WebComponent/custom-element mount boundaries as a spike, not a stability commitment | direction/spike | M–L | The editor driver demonstrates concrete embedding and teardown pressure | RECORDED |
-| R20 | Retire or refresh `docs/research/next-sessions-runtime-roadmap.md`, whose mandatory starting point predates composable listeners and the v0.13/v0.14 boundary cleanup | docs | S–M | Combine with R05 or revalidate across Loom and Canopy | RECORDED |
+| R20 | Retire or refresh `docs/research/next-sessions-runtime-roadmap.md`, whose mandatory starting point predates composable listeners and the v0.13/v0.14 boundary cleanup | docs | S–M | Combine with R05 or revalidate across Loom and Canopy | DONE |
 
 ## Findings considered and rejected
 

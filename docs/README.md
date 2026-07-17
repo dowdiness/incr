@@ -56,7 +56,6 @@ For contributors and advanced users who want to understand or modify `incr`.
 
 - [Internals](design/internals.md) — verification algorithm, backdating, type erasure, SoA storage, push propagation
 - [API Design Guidelines](design/api-design-guidelines.md) — design philosophy and principles behind the public API
-- [Comparison with alien-signals](design/comparison-with-alien-signals.md) — trade-offs versus alien-signals-style reactive frameworks
 - [Comparison with salsa](design/comparison-with-salsa.md) — shared firewall core, three divergences, and a backdating deep-dive
 
 **Implementation specs** ([design/specs/](design/specs/)) — written-ahead design records for individual subsystems. These are not the current backlog; the [roadmap](roadmap.md) decides what is current.

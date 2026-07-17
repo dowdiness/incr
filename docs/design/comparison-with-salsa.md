@@ -1,7 +1,6 @@
 # Analysis: incr vs Salsa (rust-analyzer's incremental query engine)
 
-> Companion to [comparison-with-alien-signals.md](comparison-with-alien-signals.md)
-> (the UI-reactivity axis) and [internals.md](internals.md) (incr's own
+> Companion to [internals.md](internals.md) (incr's own
 > verification/backdating mechanics). This note covers the *compiler/IDE
 > incrementality* axis: where incr sits relative to Salsa, the engine behind
 > rust-analyzer. Salsa facts here describe its stable design model, not a
@@ -131,8 +130,8 @@ responsibility.
 ### Axis 2 — an explicit no-backdate tier
 
 ```moonbit
-Memo::new_memo(rt, f)        // T : BackdateEq → backdating ON
-Memo::new_no_backdate(rt, f) // no bound       → always RecomputedChanged
+Derived::with_backdate(rt, f)        // T : BackdateEq → backdating ON
+Derived::derived_no_backdate(rt, f)  // no bound       → always RecomputedChanged
 ```
 
 A clean per-cell choice between "stop propagation when equal" and "always treat as

@@ -188,7 +188,7 @@ These are inferred from the code's structure and the consistent direction of rec
 - **Multi-runtime sharing.** Cells are bound to one `Runtime`; cross-runtime reads abort by design.
 - **Concurrency / parallel verification.** Single-threaded; no synchronization primitives. The `Runtime` is not `Sync`-safe.
 - **Persistent caching across runs.** State lives in process memory; there is no on-disk format for memo caches.
-- **A general reactive UI framework.** Push primitives exist but the library is not optimized for shallow-wide UI graphs the way alien-signals is. See [`comparison-with-alien-signals.md`](design/comparison-with-alien-signals.md).
+- **A general reactive UI framework.** Push primitives exist but the library is not optimized for shallow-wide UI graphs the way alien-signals is.
 - **Garbage collection at the level of allocator finalization.** `Runtime::gc()` sweeps unreachable cell slots after explicit disposal; it is not a tracing GC.
 
 ---
