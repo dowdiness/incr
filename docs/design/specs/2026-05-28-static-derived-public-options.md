@@ -6,7 +6,6 @@
 
 **Resolved:** 2026-06-01 by [ADR: Static Derived Public Surface — Keep Private](../../decisions/2026-06-01-static-derived-public-surface.md)
 
-**Parent TODO:** [`docs/todo.md`](../../todo.md#investigation-queue)
 
 **Evidence:** [Static/applicative Derived fast-path probe](../../performance/2026-05-27-static-derived-fast-path-probe.md), [Expr formula API proposal](2026-05-25-expr-formula-api.md), [Build-oriented boundary design](2026-05-26-build-trait-boundaries.md)
 

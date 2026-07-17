@@ -49,8 +49,7 @@ Reference points against prior records:
   (`runtime.mbt:225–364`) is event-listener/hook plumbing added by the
   [composable runtime hooks ADR](../../decisions/2026-06-09-composable-runtime-hooks.md)
   — the first genuinely non-delegator tenant since R1. See §P3.
-- `incr/pipeline/` no longer exists in the tree; `docs/todo.md` still carries
-  its removal as a pending task. See §P5.
+- `incr/pipeline/` no longer exists in the tree; the stale `docs/todo.md` entry that carried its removal was subsequently cleaned up when `todo.md` was retired.
 - Legacy `Signal`/`Memo`/`HybridMemo` are gone as public types; the internal
   engine rename (#335/#336) is complete. Three compatibility handle types
   remain public (`TrackedCell`, `Reactive`, `FunctionalRelation` —
@@ -96,7 +95,7 @@ the one growth trend that, unchecked, recreates the pre-R1 problem.
 **CP4 — Drift classes with no mechanical check.** `examples/incr_tea` pins
 `dowdiness/incr@0.9.0` while the library is at 0.12.0 (masked by workspace
 resolution — invisible until someone builds outside the workspace).
-`docs/todo.md` carries at least one dead entry (`incr/pipeline` removal).
+`docs/todo.md` carried a dead entry (`incr/pipeline` removal) at the time of writing; that entry has since been cleaned up along with the retirement of `todo.md`.
 In-library invariants are scripted
 (`scripts/check-engine-isolation.sh`); cross-module contracts are not.
 
@@ -141,7 +140,7 @@ Core library: **unchanged**. New rules, all mechanically checkable:
 
 - **Stage 0 — contracts before movement:** boundary/pin check script
   (validated with a known-positive control before its pass is trusted), fix
-  the `incr_tea` pin, purge dead `todo.md` entries.
+  the `incr_tea` pin.
 - **Stage 1 — split `incr_tea` framework from demos:** framework, demo, and
   bench `.mbt` files are currently co-mingled in the package root (`src/`
   holds only JS/CSS web assets), so Stage 1 starts with a file-level

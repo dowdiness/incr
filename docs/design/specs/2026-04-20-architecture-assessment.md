@@ -26,7 +26,7 @@ The first draft of this assessment cited architectural pressures that, on verifi
 | **P1** | Accumulator landed as cross-cutting surgery in the memo commit path + raw fields on `Runtime`. A second such feature will repeat the pattern. | `cells/derived.mbt` still calls three accumulator helpers by name (not via trait). `cells/runtime.mbt:155–165` has three accumulator fields flat on `Runtime`. `082f2a6` deliberately kept this shape. | Partial cleanup done; no declared extension point. |
 | **P2** | `runtime.mbt` growth | 789 → 877 lines. Composed of `install_cell` (+24), accumulator fields + init (+~50), offset partially by `082f2a6` extraction. Not pathological. | Active, bounded. |
 | **P3** | Cross-runtime identity relies on a single `let current_computing_runtime_id : Ref[Int]` (`runtime.mbt:22`) + forgiving-repair in `Derived::get_result_inner`. | 2026-04-19 audit explicitly records that the "stale-from-abort vs legitimate-cross-runtime" distinction needs a global runtime registry. Currently masked by panic-test hygiene. | Unresolved; benign under single-threaded assumption. |
-| **~~P4~~** | `pipeline/` orphan package | `docs/todo.md:314,324` queues "move to `loom/src/pipeline/` then delete." Two test-file consumers inside `incr/`, zero external. | **Already decided, not a new proposal.** |
+| **~~P4~~** | `pipeline/` orphan package | Two test-file consumers inside `incr/`, zero external. | **Already decided; package was subsequently removed in a later breaking cleanup.** |
 | **P5** | **Process meta-issue: memory and docs trailed code by one refactor cycle.** | `project_architecture_analysis.md` (memory) claimed `MemoData` still lived in `cells/`; `docs/design/internals.md:504` said "one pull-engine SoA type remains in `cells/`." Both were authored before `6c7b5c1` landed. | Fixed in this session; preventive practice flagged below. |
 
 ## 2. Current architecture (verified)
@@ -75,7 +75,7 @@ Replace the two file-scope `Ref[Int]`s with a registry that can answer "is runti
 - **Flat-`cells/` reorg, `derived.mbt` split, `runtime.mbt` topic split.** 2026-04-19 audit explicitly rejected.
 - **`AccumulatorState` sub-struct.** `082f2a6` deliberately kept fields flat two weeks ago. Not re-litigated.
 - **Move `format_path` out of `types/`.** Shipped in `6c7b5c1`.
-- **Retire `pipeline/`.** Already backlog-ed in `docs/todo.md:314,324`.
+- **Retire `pipeline/`.** The package was subsequently removed in a later breaking cleanup.
 
 ## 5. Dependency and boundary rules
 
@@ -131,7 +131,7 @@ This assessment exists because its first draft cited a pressure (`CycleError::fo
 
 1. The relevant prose in `docs/design/internals.md`
 2. Any memory entry that names the structure or its constraints
-3. `docs/todo.md` entries that describe the structure as a blocker or remaining work
+3. Any backlog or task-list entries that describe the structure as a blocker or remaining work
 
 The accumulator refactor (`082f2a6`) partially followed this — the commit message is explicit about the flat-field decision — but did not update `docs/design/internals.md` to retire the "runtime god-object" framing in that file. The pull-split refactor (`6c7b5c1`) updated the "Superseded" section of `internals.md` but left line 504 in the "Engine isolation" paragraph stale. Both contributed to the need for this revision.
 

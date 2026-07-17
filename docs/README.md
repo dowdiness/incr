@@ -74,22 +74,11 @@ For contributors and advanced users who want to understand or modify `incr`.
 - [2026-07-03 Workspace Boundary Assessment](design/specs/2026-07-03-workspace-boundary-assessment.md) — core layering re-verified healthy; pressure moved to the examples/facade seams; staged boundary plan
 - [2026-07-15 Retention cost attribution](design/specs/2026-07-15-retention-cost-attribution.md) — native/wasm-gc attribution ladder and slot-reclamation go/no-go criteria for #399
 
-**Project direction:**
+**Current roadmap:**
 
-- [Roadmap](roadmap.md) — phased future direction
-- [TODO](todo.md) — contributor task list organized by priority
+- [Roadmap](roadmap.md) — canonical current core backlog
 - [incr_tea backlog](../incr_tea/docs/backlog.md) — task list for the `dowdiness/incr_tea` module (retargeted TEA issues + agenda)
-- [Active plans](plans/) — concrete implementation plans for upcoming work:
-  - [2026-05-26 Evaluation strategy refactor](plans/2026-05-26-evaluation-strategy-refactor.md) — internal sealed scheduler/rebuilder strategies
-  - [2026-05-28 Typed Spreadsheet responsibility boundary](plans/2026-05-28-typed-spreadsheet-boundary.md) — app-vs-library split before spreadsheet-specific sugar
-  - [2026-06-08 AcceptedDerived BackdateEq tier](plans/2026-06-08-accepted-derived-backdate-eq-tier.md) — revision-gated acceptance for non-`Eq` candidates; downstream validation pending
-  - [2026-06-09 Composable runtime hooks](plans/2026-06-09-composable-runtime-hooks.md) — multi-listener registries (#210); see the [ADR](decisions/2026-06-09-composable-runtime-hooks.md)
-  - [2026-06-24 Typed Spreadsheet cross-root locality](plans/2026-06-24-typed-spreadsheet-cross-root-locality.md) — multi-root spreadsheet with per-root recompute instrumentation
-  - [2026-06-25 `Program::stateful` implementation plan](plans/2026-06-25-program-stateful.md) — 3-task SDD plan (#287)
-  - [2026-07-05 Public API boundary cleanup + `Expr[T]` track](plans/2026-07-05-public-api-boundary-cleanup.md) — deprecations + `Scope::watch`, types-package cleanup, error-channel consistency (0.14.0), then the `Expr[T]` formula layer
-  - [2026-07-14 Duplix-informed retention benchmarks](plans/2026-07-14-duplix-retention-benchmarks.md) — measure forgot-to-dispose costs (8-scenario matrix); gated follow-ups: detachable per-key scopes, `KeyedInput` Map-diff facade
-  - [2026-07-14 Machine composition evidence driver](plans/2026-07-14-machine-composition-evidence-driver.md) — test pure parent/child composition and aggregate `Program::stateful_cmd` first; measure before proposing a `Machine` type or per-key reactive ownership
-  - [2026-07-15 Retention cost attribution](plans/2026-07-15-retention-cost-attribution.md) — cross-target reproduction, post-cleanup storage characterization, and slot-reclamation go/no-go for #399
+- [Implementation plans](plans/) — time-bounded implementation records; the roadmap determines which work is current.
 
 **Research notes — exploratory, not implemented:**
 

@@ -211,4 +211,4 @@ Items the audit verified against current code; if any of these is wrong, the cod
 - **Design philosophy (progressive disclosure, type-driven constraints, naming):** [`docs/design/api-design-guidelines.md`](design/api-design-guidelines.md)
 - **Significant decisions:** [`docs/decisions/`](decisions/)
 - **Performance baselines:** [`docs/performance/`](performance/)
-- **What's planned vs done:** [`docs/roadmap.md`](roadmap.md) and [`docs/todo.md`](todo.md)
+- **Current core work:** [`docs/roadmap.md`](roadmap.md); design rationale: [`docs/decisions/`](decisions/)

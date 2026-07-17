@@ -437,7 +437,7 @@ quoted-path matching and filters # comments.
 
 **Files modified:**
 - `CLAUDE.md` — replace the package map's `cells/` section with the new `cells/` + `cells/internal/{shared,pull,push,datalog}/` layout. Document that (a) handles, algorithms, tests stay in `cells/`, (b) `MemoData` + `CycleError` stay in `cells/` for reasons described in this spec, (c) engine data types live in `internal/*/` with `pub(all)` visibility.
-- `docs/todo.md` — for the "Runtime Modularization (Phase 4 — Remaining)" section, mark the first item partially done ("pull engine split: signals only; memos deferred pending CycleError redesign") and the second item done.
+- `docs/todo.md` — (historical: this file has been retired; see `roadmap.md` for the current backlog and ADRs/plans/issues for historical tracking.)
 - `docs/design.md` — update the Architecture section to reference the `cells/internal/` layout.
 - `docs/README.md` — link to this spec.
 
@@ -493,9 +493,9 @@ requiring CycleError redesign.
 
 ## Out of scope
 
-- **Moving `MemoData` to `internal/pull/`.** Blocked by `CycleError` living in `cells/`. Requires a follow-up that either (a) redesigns `CycleError::format_path` to not take `Runtime`, or (b) moves `CycleError`'s data payload to `types/` with a non-`Runtime` rendering pathway. Tracked as a new `docs/todo.md` item ("Complete pull-engine split: move MemoData once CycleError is untangled").
+- **Moving `MemoData` to `internal/pull/`.** Blocked by `CycleError` living in `cells/`. Requires a follow-up that either (a) redesigns `CycleError::format_path` to not take `Runtime`, or (b) moves `CycleError`'s data payload to `types/` with a non-`Runtime` rendering pathway. (Historical note: this was completed in commit `6c7b5c1` once `CycleError` was made pure-value; no follow-up remains.)
 - **Moving `CycleError` into any other package.** Same blocker — it's a bundled data + public method on foreign type. Defer with MemoData.
-- **Removing `incr/pipeline/` package.** Tracked in `docs/todo.md:292-294` ("Pipeline Traits — Deferred"). Out of scope.
+- **Removing `incr/pipeline/` package.** (Historical: the package was subsequently removed in a later breaking cleanup.) Out of scope at the time of this spec.
 - **Refactoring `CellLifecycle` to remove the `Runtime` parameter.** Could enable moving the trait into `internal/shared/`. Significant design work; defer until a feature pushes for it.
 - **Splitting handles into per-engine packages.** Would force users to import multiple internal packages. Handles stay in `cells/` as the unified user-facing surface.
 - **Splitting algorithms** (`verify.mbt`, `push_propagate.mbt`, `batch.mbt`, `datalog_fixpoint.mbt`) into engine packages. Algorithms cross engine boundaries via the `CellOps` dispatch. Splitting would require duplicating dispatch glue. Defer.
