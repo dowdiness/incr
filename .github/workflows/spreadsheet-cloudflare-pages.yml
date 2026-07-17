@@ -11,7 +11,7 @@ on:
       - 'incr/moon.mod'
       - 'incr/moon.pkg'
       - 'incr/traits.mbt'
-      - 'incr/typed_spreadsheet/**'
+      - 'examples/typed_spreadsheet/**'
       - 'incr/types/**'
       - 'examples/typed_spreadsheet_demo/**'
       - 'examples/typed_spreadsheet_rabbita_demo/**'

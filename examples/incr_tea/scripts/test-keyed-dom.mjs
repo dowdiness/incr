@@ -253,6 +253,235 @@ try {
     );
   });
 
+  await runTest('controlled greet properties recover on unchanged animation-frame flush', async () => {
+    await gotoDemo(page, baseUrl);
+    const setup = await page.evaluate(() => {
+      const input = document.querySelector('#greet-root .demo-input');
+      const checkbox = document.querySelector('#greet-root .demo-checkbox');
+      if (!(input instanceof HTMLInputElement)) throw new Error('missing greet text input');
+      if (!(checkbox instanceof HTMLInputElement)) throw new Error('missing greet checkbox');
+      input.focus();
+      globalThis.__incrTeaGreetInputBefore = input;
+      globalThis.__incrTeaGreetCheckboxBefore = checkbox;
+      input.value = 'rejected';
+      checkbox.checked = true;
+      return { focused: document.activeElement === input };
+    });
+    assert(setup.focused, 'setup failed to focus greet input');
+
+    const beforeFlushes = await frameFlushes(page);
+    await clickCounterButton(page, 'touch unread field');
+    await page.waitForFunction(previous => {
+      const text = document.querySelector('#render-stats')?.textContent ?? '';
+      const match = text.match(/rAF flushes: (\d+)/);
+      return match ? Number(match[1]) > previous : false;
+    }, beforeFlushes);
+
+    const state = await page.evaluate(() => {
+      const input = document.querySelector('#greet-root .demo-input');
+      const checkbox = document.querySelector('#greet-root .demo-checkbox');
+      return {
+        sameInput: input === globalThis.__incrTeaGreetInputBefore,
+        sameCheckbox: checkbox === globalThis.__incrTeaGreetCheckboxBefore,
+        focused: document.activeElement === input,
+        value: input instanceof HTMLInputElement ? input.value : null,
+        checked: checkbox instanceof HTMLInputElement ? checkbox.checked : null,
+      };
+    });
+    assert(
+      state.sameInput && state.sameCheckbox && state.focused,
+      `unchanged greet flush should preserve nodes and focus; state=${JSON.stringify(state)}`,
+    );
+    assert(
+      state.value === '' && state.checked === false,
+      `unchanged greet flush should restore controlled value/checked; state=${JSON.stringify(state)}`,
+    );
+  });
+  await runTest('controlled properties become browser-owned when omitted', async () => {
+    await gotoDemo(page, baseUrl);
+    const selectors = {
+      select: '#greet-root select[data-form-control="select"]',
+      checkbox: '#greet-root input[data-form-control="checked"]',
+      touch: '#greet-root button[data-form-control="touch"]',
+    };
+    const initial = await page.evaluate(({ select, checkbox }) => {
+      const selectNode = document.querySelector(select);
+      const checkboxNode = document.querySelector(checkbox);
+      if (!(selectNode instanceof HTMLSelectElement) || !(checkboxNode instanceof HTMLInputElement)) {
+        throw new Error('missing controlled form controls');
+      }
+      return {
+        select: selectNode.value,
+        checked: checkboxNode.checked,
+        selectHasValue: selectNode.hasAttribute('value'),
+      };
+    }, selectors);
+    assert(
+      initial.select === 'beta' &&
+        initial.checked === false &&
+        initial.selectHasValue,
+      `initial controls were not controlled: ${JSON.stringify(initial)}`,
+    );
+
+    await clickScopedButton(page, '#greet-root', 'Toggle select control', 'greet');
+    await clickScopedButton(page, '#greet-root', 'Toggle checked control', 'greet');
+    await page.waitForFunction(() => {
+      const state = document.querySelector('[data-form-control-state]')?.textContent ?? '';
+      return state.includes('select-controlled=false') && state.includes('checked-controlled=false');
+    });
+
+    const afterToggle = await page.evaluate(({ select, checkbox }) => {
+      const selectNode = document.querySelector(select);
+      const checkboxNode = document.querySelector(checkbox);
+      if (!(selectNode instanceof HTMLSelectElement) || !(checkboxNode instanceof HTMLInputElement)) {
+        throw new Error('missing toggled form controls');
+      }
+      return {
+        selectHasValue: selectNode.hasAttribute('value'),
+      };
+    }, selectors);
+    assert(
+      !afterToggle.selectHasValue,
+      `controlled helpers were not omitted: ${JSON.stringify(afterToggle)}`,
+    );
+
+    const before = await page.evaluate(({ select, checkbox }) => {
+      const selectNode = document.querySelector(select);
+      const checkboxNode = document.querySelector(checkbox);
+      if (!(selectNode instanceof HTMLSelectElement) || !(checkboxNode instanceof HTMLInputElement)) {
+        throw new Error('missing browser-owned form controls');
+      }
+      selectNode.value = 'alpha';
+      checkboxNode.checked = true;
+      globalThis.__incrTeaBrowserOwnedSelect = selectNode;
+      globalThis.__incrTeaBrowserOwnedCheckbox = checkboxNode;
+      return { select: selectNode.value, checked: checkboxNode.checked };
+    }, selectors);
+    assert(
+      before.select === 'alpha' && before.checked === true,
+      `setup failed to create browser-owned drift: ${JSON.stringify(before)}`,
+    );
+
+    const beforeFlushes = await frameFlushes(page);
+    await clickScopedButton(page, '#greet-root', 'Touch unrelated', 'greet');
+    await page.waitForFunction(previous => {
+      const text = document.querySelector('#render-stats')?.textContent ?? '';
+      const match = text.match(/rAF flushes: (\d+)/);
+      return match ? Number(match[1]) > previous : false;
+    }, beforeFlushes);
+
+    const after = await page.evaluate(({ select, checkbox }) => {
+      const selectNode = document.querySelector(select);
+      const checkboxNode = document.querySelector(checkbox);
+      return {
+        sameSelect: selectNode === globalThis.__incrTeaBrowserOwnedSelect,
+        sameCheckbox: checkboxNode === globalThis.__incrTeaBrowserOwnedCheckbox,
+        select: selectNode instanceof HTMLSelectElement ? selectNode.value : null,
+        checked: checkboxNode instanceof HTMLInputElement ? checkboxNode.checked : null,
+      };
+    }, selectors);
+    assert(
+      after.sameSelect && after.sameCheckbox,
+      `omitting controlled helpers replaced browser-owned nodes: ${JSON.stringify(after)}`,
+    );
+    assert(
+      after.select === 'alpha' && after.checked === true,
+      `equal-view flush re-controlled omitted properties: ${JSON.stringify(after)}`,
+    );
+  });
+  await runTest('select, date, and range controls recover after equal-view flushes', async () => {
+    await gotoDemo(page, baseUrl);
+    const selectors = {
+      select: '#greet-root select[data-form-control="select"]',
+      date: '#greet-root input[data-form-control="date"]',
+      range: '#greet-root input[data-form-control="range"]',
+      touch: '#greet-root button[data-form-control="touch"]',
+      add: '#greet-root button[data-form-control="add"]',
+    };
+    assert(await page.locator(selectors.select).inputValue() === 'beta', 'select initial value mismatch');
+    assert(await page.locator(selectors.date).inputValue() === '2026-01-02', 'date initial value mismatch');
+    assert(await page.locator(selectors.range).inputValue() === '50', 'range initial value mismatch');
+    await page.selectOption(selectors.select, 'gamma');
+    await page.waitForFunction(() => (
+      document.querySelector('[data-form-control-state]')?.textContent?.includes('select=gamma') ?? false
+    ));
+    await page.evaluate(({ date, range }) => {
+      const dateInput = document.querySelector(date);
+      const rangeInput = document.querySelector(range);
+      if (!(dateInput instanceof HTMLInputElement) || !(rangeInput instanceof HTMLInputElement)) {
+        throw new Error('missing date/range controls');
+      }
+      dateInput.value = '2026-02-03';
+      dateInput.dispatchEvent(new Event('change', { bubbles: true }));
+      rangeInput.value = '75';
+      rangeInput.dispatchEvent(new Event('change', { bubbles: true }));
+    }, selectors);
+    await page.waitForFunction(() => {
+      const state = document.querySelector('[data-form-control-state]')?.textContent ?? '';
+      return state.includes('date=2026-02-03') && state.includes('range=75');
+    });
+    await page.locator(selectors.add).click();
+    await page.waitForFunction(() => (
+      document.querySelector('[data-form-control-state]')?.textContent?.includes('select=delta') ?? false
+    ));
+    assert(await page.locator(selectors.select).inputValue() === 'delta', 'new controlled option was not selected');
+
+
+    const before = await page.evaluate(({ select, date, range }) => {
+      const nodes = {
+        select: document.querySelector(select),
+        date: document.querySelector(date),
+        range: document.querySelector(range),
+      };
+      if (
+        !(nodes.select instanceof HTMLSelectElement) ||
+        !(nodes.date instanceof HTMLInputElement) ||
+        !(nodes.range instanceof HTMLInputElement)
+      ) throw new Error('missing controlled form controls');
+      nodes.select.value = 'alpha';
+      nodes.date.value = '2026-01-02';
+      nodes.range.value = '50';
+      globalThis.__incrTeaFormNodesBefore = nodes;
+      return { select: nodes.select.value, date: nodes.date.value, range: nodes.range.value };
+    }, selectors);
+    assert(
+      before.select === 'alpha' && before.date === '2026-01-02' && before.range === '50',
+      `setup failed to create form-control drift: ${JSON.stringify(before)}`,
+    );
+
+    const beforeFlushes = await frameFlushes(page);
+    await page.locator(selectors.touch).click();
+    await page.waitForFunction(previous => {
+      const text = document.querySelector('#render-stats')?.textContent ?? '';
+      const match = text.match(/rAF flushes: (\d+)/);
+      return match ? Number(match[1]) > previous : false;
+    }, beforeFlushes);
+
+    const after = await page.evaluate(({ select, date, range }) => {
+      const nodes = {
+        select: document.querySelector(select),
+        date: document.querySelector(date),
+        range: document.querySelector(range),
+      };
+      return {
+        sameSelect: nodes.select === globalThis.__incrTeaFormNodesBefore.select,
+        sameDate: nodes.date === globalThis.__incrTeaFormNodesBefore.date,
+        sameRange: nodes.range === globalThis.__incrTeaFormNodesBefore.range,
+        select: nodes.select instanceof HTMLSelectElement ? nodes.select.value : null,
+        date: nodes.date instanceof HTMLInputElement ? nodes.date.value : null,
+        range: nodes.range instanceof HTMLInputElement ? nodes.range.value : null,
+      };
+    }, selectors);
+    assert(
+      after.sameSelect && after.sameDate && after.sameRange,
+      `equal-view form flush replaced controlled nodes: ${JSON.stringify(after)}`,
+    );
+    assert(
+      after.select === 'delta' && after.date === '2026-02-03' && after.range === '75',
+      `equal-view form flush did not restore controlled values: ${JSON.stringify(after)}`,
+    );
+  });
+
   await runTest('focused keyed input loses focus when its keyed row is removed', async () => {
     await gotoDemo(page, baseUrl);
     await captureKeyedRows(page, listRows, 'before-focus-remove');

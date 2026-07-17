@@ -2,7 +2,7 @@
 package "examples/typed_spreadsheet_rabbita_demo"
 
 import {
-  "moonbitlang/core/debug",
+  "examples/typed_spreadsheet_demo",
 }
 
 // Values
@@ -10,76 +10,6 @@ import {
 // Errors
 
 // Types and methods
-pub struct AiContextCell {
-  id : String
-  committed_text : String
-  draft_text : String
-  draft_dirty : Bool
-  present : Bool
-  kind : String
-  result : AiContextResult
-  dependency_shape : String
-  installed_dependencies : Array[String]
-  static_references : Array[String]
-  last_dynamic_dependencies : Array[String]
-  formula : AiContextFormula?
-} derive(ToJson, @debug.Debug)
-
-pub struct AiContextEvidence {
-  edit : String
-  outcome : String
-  cells : Array[AiContextEvidenceCell]
-} derive(ToJson, @debug.Debug)
-
-pub struct AiContextEvidenceCell {
-  id : String
-  before_kind : String
-  before_result_status : String
-  before_result : String
-  after_kind : String
-  after_result_status : String
-  after_result : String
-} derive(ToJson, @debug.Debug)
-
-pub struct AiContextFormula {
-  text : String
-  ast_status : String
-  shape : String?
-  error : String?
-} derive(ToJson, @debug.Debug)
-
-pub struct AiContextResult {
-  status : String
-  value : AiContextValue?
-  error : String?
-  repr : String
-} derive(ToJson, @debug.Debug)
-
-pub struct AiContextSnapshot {
-  schema_version : Int
-  selected_cell : String
-  max_cells : Int
-  truncated : Bool
-  region : Array[String]
-  cells : Array[AiContextCell]
-  latest_trace : AiContextTrace?
-  latest_evidence : AiContextEvidence?
-} derive(ToJson, @debug.Debug)
-
-pub struct AiContextTrace {
-  edit : String
-  outcome : String
-  recomputed : Array[String]
-  changed : Array[String]
-  unchanged : Array[String]
-} derive(ToJson, @debug.Debug)
-
-pub struct AiContextValue {
-  type_name : String
-  value : String
-  repr : String
-} derive(ToJson, @debug.Debug)
-
 type Appearance derive(Eq)
 
 type CellDraft
@@ -90,7 +20,7 @@ type GridCellSnapshot
 
 type Model
 pub fn Model::ai_context_json(Self, region? : Array[String], max_cells? : Int) -> String
-pub fn Model::ai_context_snapshot(Self, region? : Array[String], max_cells? : Int) -> AiContextSnapshot
+pub fn Model::ai_context_snapshot(Self, region? : Array[String], max_cells? : Int) -> @typed_spreadsheet_demo.AiContextSnapshot
 
 type Msg
 

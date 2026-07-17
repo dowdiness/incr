@@ -37,6 +37,11 @@ snippets).
 
 - [Benchmarks](performance/benchmarks.md) — microbenchmark results for core operations (input, derived, reachable-derived, batch)
 - [Snapshot roster](performance/README.md) — all dated measurement records, one line each
+- [2026-07-14 Retention baseline](performance/2026-07-14-retention-baseline.md) — forgotten pull/eager lifecycle costs, same-root push-gate activation, and disposal/GC controls
+- [2026-07-15 Retention cost attribution](performance/2026-07-15-retention-cost-attribution.md) — cross-target 7a/7b reproduction, post-cleanup storage facts, push-free controls, and slot-reclamation no-go for #399
+- [2026-07-15 Machine composition follow-up](performance/2026-07-15-machine-composition-follow-up.md) — single-source sequencing and observer-disabled browser timing after PR hardening
+- [2026-07-15 Incremental TEA controlled-property reconciliation](performance/2026-07-15-incr-tea-controlled-reconciliation.md) — issue #394 Chromium benchmark of equal-view traversal/getter and mismatch-repair cost; no optimization justified.
+- [2026-07-14 Machine composition aggregate evidence](performance/2026-07-14-machine-composition-evidence.md) — aggregate Program semantic-editor structural gates and 64/256-child synchronous JS timing result
 
 Performance docs are dated snapshots: new measurements go in new files, and
 old files are never updated.
@@ -67,6 +72,7 @@ For contributors and advanced users who want to understand or modify `incr`.
 - [2026-06-05 Typed Spreadsheet bounded trace contract](design/specs/2026-06-05-typed-spreadsheet-bounded-trace-contract.md) — caller-bounded formula traces (#179)
 - [2026-06-25 `Program::stateful` / `stateful_cmd`](design/specs/2026-06-25-program-stateful-design.md) — boilerplate-hiding constructors for mutable-model TEA apps
 - [2026-07-03 Workspace Boundary Assessment](design/specs/2026-07-03-workspace-boundary-assessment.md) — core layering re-verified healthy; pressure moved to the examples/facade seams; staged boundary plan
+- [2026-07-15 Retention cost attribution](design/specs/2026-07-15-retention-cost-attribution.md) — native/wasm-gc attribution ladder and slot-reclamation go/no-go criteria for #399
 
 **Project direction:**
 
@@ -81,9 +87,16 @@ For contributors and advanced users who want to understand or modify `incr`.
   - [2026-06-24 Typed Spreadsheet cross-root locality](plans/2026-06-24-typed-spreadsheet-cross-root-locality.md) — multi-root spreadsheet with per-root recompute instrumentation
   - [2026-06-25 `Program::stateful` implementation plan](plans/2026-06-25-program-stateful.md) — 3-task SDD plan (#287)
   - [2026-07-05 Public API boundary cleanup + `Expr[T]` track](plans/2026-07-05-public-api-boundary-cleanup.md) — deprecations + `Scope::watch`, types-package cleanup, error-channel consistency (0.14.0), then the `Expr[T]` formula layer
+  - [2026-07-14 Duplix-informed retention benchmarks](plans/2026-07-14-duplix-retention-benchmarks.md) — measure forgot-to-dispose costs (8-scenario matrix); gated follow-ups: detachable per-key scopes, `KeyedInput` Map-diff facade
+  - [2026-07-14 Machine composition evidence driver](plans/2026-07-14-machine-composition-evidence-driver.md) — test pure parent/child composition and aggregate `Program::stateful_cmd` first; measure before proposing a `Machine` type or per-key reactive ownership
+  - [2026-07-15 Retention cost attribution](plans/2026-07-15-retention-cost-attribution.md) — cross-target reproduction, post-cleanup storage characterization, and slot-reclamation go/no-go for #399
 
 **Research notes — exploratory, not implemented:**
 
+- [2026-07-14 Machine composition abstraction decision](research/2026-07-14-machine-composition-abstraction-decision.md) — aggregate pure functions remain sufficient after the semantic-editor evidence driver and natural-form Circle Drawer comparison
+- [2026-07-14 Machine composition implementation report](research/2026-07-14-machine-composition-implementation-report.md) — WP1–WP4 implementation inventory, plan deviations, and verification record
+- [2026-07-14 Bonsai-informed `incr` core direction](research/2026-07-14-bonsai-informed-incr-core-direction.md) — prioritize historical-volume attribution and live-graph lifetime guarantees; keep dynamic ownership, graph snapshots, safe commits, and static lowering behind explicit evidence gates
+- [2026-07-14 Machine semantics start gates](research/2026-07-14-machine-layer-start-gates.md) — treat pure functions and aggregate Program composition as the baseline; gate new abstraction types, per-key graphs, and generative UI on concrete evidence
 - [Next-sessions Runtime Roadmap](research/next-sessions-runtime-roadmap.md) — onboarding + invariants + backlog template for Loom + Canopy integration sessions
 - [Incremental TEA direction](research/incr-tea-ui-direction.md) — positions `incr_tea` (now module `dowdiness/incr_tea`) as a semantic incremental rendering substrate, with follow-up issue map
 - [Constructive Traces Feasibility](research/constructive-traces-feasibility.md) — keep revision verifying traces as the default; investigate static/applicative APIs first
@@ -118,6 +131,8 @@ live in each ADR.
 | [2026-06-17](decisions/2026-06-17-incr-tea-inactive-root-activation-policy.md) | Incremental TEA inactive-root activation: manual-first hybrid (#280) |
 | [2026-07-03](decisions/2026-07-03-incr-tea-module-identity.md) | `incr_tea` module identity: core-feedback framework, facade-only imports, own backlog |
 | [2026-07-08](decisions/2026-07-08-evaluation-strategy-composition-contract.md) | Evaluation-strategy composition contract: purity axis, cross-engine legality table, two-chokepoint enforcement (phase guard + #368), fold reserved |
+| [2026-07-14](decisions/2026-07-14-retention-followup-tracks-gated.md) | Retention follow-up tracks (per-key Scope ownership, `KeyedInput` facade) stay gated — no consumer; investigate retained-volume cost (#399) first |
+| [2026-07-15](decisions/2026-07-15-incr-tea-controlled-form-properties.md) | Incremental TEA controlled form properties: closure-free values, post-order select repair, and explicit boolean control |
 
 ---
 

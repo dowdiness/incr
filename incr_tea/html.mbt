@@ -12,7 +12,7 @@ pub struct Attribute {
   priv name : String
   priv value : String
   priv direct : DirectAttrId?
-  priv is_bool : Bool
+  priv bool_value : Bool?
 } derive(Eq, Debug)
 
 ///|
@@ -35,28 +35,30 @@ fn DirectTextId::DirectTextId(name : String) -> DirectTextId {
 }
 
 ///|
-/// Pure id for text-input payload events.
+/// Pure id for value payload events.
 #cfg(target="js")
-pub struct TextInputId {
+pub struct ValueEventId {
   name : String
 } derive(Eq, Debug)
 
 ///|
+/// Construct a value event identifier from a name. This constructor does not error.
 #cfg(target="js")
-pub fn TextInputId::TextInputId(name : String) -> TextInputId {
+pub fn ValueEventId::ValueEventId(name : String) -> ValueEventId {
   { name, }
 }
 
 ///|
-/// Browser-extracted text input payload.
+/// Browser-extracted value payload.
 #cfg(target="js")
-pub struct TextInputPayload {
+pub struct ValuePayload {
   value : String
 }
 
 ///|
+/// Construct a value payload from a string. This constructor does not error.
 #cfg(target="js")
-pub fn TextInputPayload::TextInputPayload(value : String) -> TextInputPayload {
+pub fn ValuePayload::ValuePayload(value : String) -> ValuePayload {
   { value, }
 }
 
@@ -267,7 +269,7 @@ pub fn PointerPayload::PointerPayload(
 #cfg(target="js")
 priv enum EventSpec[Msg] {
   Const(Msg)
-  TextInput(id~ : TextInputId)
+  Value(id~ : ValueEventId)
   CheckedInput(id~ : CheckedInputId)
   Key(id~ : KeyEventId)
   Pointer(id~ : PointerEventId)
@@ -332,7 +334,7 @@ pub struct Html[Msg] {
 ///|
 #cfg(target="js")
 pub fn attr(name : String, value : String) -> Attribute {
-  { name, value, direct: None, is_bool: false }
+  { name, value, direct: None, bool_value: None }
 }
 
 ///|
@@ -342,17 +344,23 @@ fn direct_attr(
   name : String,
   fallback : String,
 ) -> Attribute {
-  { name, value: fallback, direct: Some(id), is_bool: false }
+  { name, value: fallback, direct: Some(id), bool_value: None }
 }
 
 ///|
-/// Creates a boolean property attribute. Presence in the attribute array means
-/// the property is `true`; absence means `false`. The renderer sets the DOM
-/// property (e.g. `element.disabled = true`) in addition to the HTML attribute,
-/// so boolean form controls behave correctly under framework-level control.
+/// Creates a boolean property attribute whose presence means `true`.
+///
+/// Common controlled helpers use a private explicit constructor so `false`
+/// remains distinguishable from an omitted uncontrolled property.
 #cfg(target="js")
 pub fn prop_bool(name : String) -> Attribute {
-  { name, value: "", direct: None, is_bool: true }
+  { name, value: "", direct: None, bool_value: Some(true) }
+}
+
+///|
+#cfg(target="js")
+fn prop_bool_value(name : String, value : Bool) -> Attribute {
+  { name, value: "", direct: None, bool_value: Some(value) }
 }
 
 ///|
@@ -442,9 +450,9 @@ pub fn[Msg] on_blur(
 }
 
 ///|
-/// Pure text-input descriptor. `tag` is wrapped as a typed `TextInputId`; the
-/// renderer reads the input element's `value` at the browser boundary and
-/// resolves `(id, payload) -> Msg` through the mount-time resolver.
+/// Pure value descriptor. `tag` is wrapped as a typed `ValueEventId`; the
+/// renderer reads the target's `value` at the browser boundary and resolves
+/// `(id, payload) -> Msg` through the mount-time value resolver.
 #cfg(target="js")
 pub fn[Msg] on_input(
   tag~ : String,
@@ -453,7 +461,7 @@ pub fn[Msg] on_input(
 ) -> EventBinding[Msg] {
   event_binding(
     "input",
-    TextInput(id=TextInputId(tag)),
+    Value(id=ValueEventId(tag)),
     prevent_default~,
     stop_propagation~,
   )
@@ -463,7 +471,7 @@ pub fn[Msg] on_input(
 /// Pure value-change descriptor for controls whose committed value changes on
 /// `change` rather than every text edit, such as selects and range sliders.
 /// The renderer reads the target's `value` at the browser boundary and resolves
-/// `(id, payload) -> Msg` through the mount-time text resolver.
+/// `(id, payload) -> Msg` through the mount-time value resolver.
 #cfg(target="js")
 pub fn[Msg] on_change(
   tag~ : String,
@@ -472,7 +480,7 @@ pub fn[Msg] on_change(
 ) -> EventBinding[Msg] {
   event_binding(
     "change",
-    TextInput(id=TextInputId(tag)),
+    Value(id=ValueEventId(tag)),
     prevent_default~,
     stop_propagation~,
   )

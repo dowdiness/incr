@@ -8,9 +8,12 @@
     "build:demo": "cd ../.. && NEW_MOON_MOD=0 moon build --target js --release examples/incr_tea/browser_demo",
     "build:moonbit": "npm run build:bench",
     "bench:dom": "npm run build:bench && node scripts/bench-keyed-dom.mjs",
+    "bench:controlled-reconcile": "npm run build:bench && node scripts/bench-controlled-reconcile.mjs",
     "bench:ui-compare-dom": "npm run build:ui-compare-bench && node scripts/bench-ui-compare-dom.mjs",
     "bench:activation-trigger": "npm run build:bench && node scripts/bench-activation-trigger.mjs",
-    "test:dom": "npm run build:demo && node scripts/test-keyed-dom.mjs"
+    "bench:machine-composition": "npm run build:ui-compare-bench && node scripts/bench-machine-composition.mjs",
+    "test:dom": "npm run build:demo && node scripts/test-keyed-dom.mjs",
+    "test:machine-composition": "npm run build:ui-compare-bench && node scripts/test-machine-composition.mjs"
   },
   "devDependencies": {
     "playwright": "^1.60.0"

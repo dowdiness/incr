@@ -2,6 +2,31 @@
 
 All notable changes to `dowdiness/incr` are documented in this file.
 
+## [Unreleased]
+
+### Fixed
+
+- Closed scopes before invoking disposal effects so `Scope::dispose()` is re-entrant safe.
+  Re-entering `dispose()` from child or parent hooks now returns immediately, while
+  preserving the teardown order as **children -> hooks -> owned cells**.
+- Restored controlled form properties (`value`, `checked`, `disabled`, and
+  `selected`) during equal-view Incremental TEA renderer flushes without
+  counting a virtual-tree patch. `<input>` and `<select>` value properties are
+  reconciled after option children are mounted or diffed, including when a
+  newly added option is selected in the same render.
+
+
+### Changed
+
+- Unified text-input and committed-value payloads under `ValueEventId` and
+  `ValuePayload`. `BrowserRenderer::mount` now accepts the shared `on_value`
+  resolver for both `on_input` and `on_change` descriptors; the previous
+  `TextInputId`, `TextInputPayload`, and `on_input` resolver API was removed.
+
+### Examples
+
+- Added the #394 Chromium benchmark for equal-view controlled-property traversal/getter and mismatch-repair costs across 0–10,000 rendered nodes; the measured cost did not justify a renderer optimization.
+
 ## [v0.14.2] - 2026-07-10
 
 ### Added

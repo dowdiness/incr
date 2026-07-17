@@ -4,6 +4,7 @@ struct TypedSheetApp {
   prog_formula : @tea.Program[Msg, @tea.Html[Msg]]
   prog_status : @tea.Program[Msg, @tea.Html[Msg]]
   prog_trace : @tea.Program[Msg, @tea.Html[Msg]]
+  prog_evidence : @tea.Program[Msg, @tea.Html[Msg]]
   _state : Ref[SheetState]
   _model_marker : Model
 }
@@ -43,11 +44,19 @@ fn TypedSheetApp::TypedSheetApp(runtime : @incr.Runtime) -> TypedSheetApp {
     fn() { state_trace(state.val) },
     label="typed-sheet.trace",
   )
+  let prog_evidence = @tea.Program::Program(
+    runtime,
+    @incr.Scope::new(runtime),
+    update,
+    fn() { state_evidence(state.val) },
+    label="typed-sheet.evidence",
+  )
   {
     prog_grid,
     prog_formula,
     prog_status,
     prog_trace,
+    prog_evidence,
     _state: state,
     _model_marker: { _marker: () },
   }
@@ -59,7 +68,7 @@ fn handle_msg(
   state : Ref[SheetState],
   msg : Msg,
 ) -> @tea.Cmd[Msg] {
-  match msg {
+  let command = match msg {
     SelectCell(cell) => select_cell(state, cell)
     UpdateDraft(cell, text) => update_draft_for_cell(state, cell, text)
     UseExample(text) => use_example(state, text)
@@ -74,6 +83,7 @@ fn handle_msg(
     MoveSelection(delta_col, delta_row) =>
       move_selection(state, delta_col, delta_row)
   }
+  @tea.Cmd::batch([command, publish_ai_context_cmd(state)])
 }
 
 // ── Event configuration (stays shared across all roots) ───────────
@@ -91,10 +101,7 @@ fn key_resolution(message : Msg) -> KeyResolution {
 }
 
 ///|
-fn resolve_text_input(
-  id : @tea.TextInputId,
-  payload : @tea.TextInputPayload,
-) -> Msg? {
+fn resolve_value(id : @tea.ValueEventId, payload : @tea.ValuePayload) -> Msg? {
   match id.name.strip_prefix("draft:") {
     Some(cell) => Some(UpdateDraft(cell.to_owned(), payload.value))
     None => None

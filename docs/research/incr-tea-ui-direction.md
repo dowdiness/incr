@@ -150,6 +150,23 @@ catch-up flush. The first prototype benchmark is recorded in
 [`docs/performance/2026-06-15-incr-tea-inactive-root-prototype.md`](../performance/2026-06-15-incr-tea-inactive-root-prototype.md): inactive updates stay around 4–7 µs across N=64/256/512, while activation catch-up pays the deferred visible-scale flush once. The amortized follow-up is recorded in
 [`docs/performance/2026-06-15-incr-tea-inactive-root-amortized.md`](../performance/2026-06-15-incr-tea-inactive-root-amortized.md): 1000 inactive updates plus activation measured roughly 3.8–4.2 ms across N=64/256/512.
 
+## Controlled form-property gate (#286)
+
+The #286 slice is accepted as a renderer-boundary contract, not a generic DOM
+property system. `Html` remains closure-free and `Eq`-comparable: `value` is
+controlled only for `<input>` and `<select>`, boolean helpers explicitly opt
+into `checked`/`disabled`/`selected`, and `on_change(tag=...)` resolves browser
+values at `BrowserRenderer::mount`. Select repair is post-order so option
+children cannot override the parent-controlled value.
+
+The browser smoke fixture covers non-first initial values, a value change,
+same-render option addition, date/range controls, equal-view drift repair, node
+identity, and the selected-property interaction. This is sufficient evidence
+for the current boundary. Do not widen `attr("value", ...)` to `<textarea>`,
+contenteditable, or custom elements without a concrete consumer and a new
+semantics decision; ergonomic select/option/date/range constructors remain a
+separate API follow-up.
+
 ## Near-term roadmap
 
 1. **Keep the current renderer safe to evolve.** The keyed DOM browser baseline
@@ -189,10 +206,17 @@ catch-up flush. The first prototype benchmark is recorded in
    arrays, and treats `.attr(name, value)` as the escape hatch rather than
    adopting Rabbita's closure-valued event handlers or map-shaped keyed
    children.
-7. **Build an editor-shaped driver.** The first semantic-keyed editor demo uses
-   stable semantic ids, local text edits, selection/focus checks, a viewport/order
-   projection root, and a separate inspector/diagnostics root as the primary
-   proof point for `incr_tea`. Follow-up: [#251].
+7. **Advance the existing editor-shaped evidence.** The semantic-keyed editor
+   demo from #251 already covers stable semantic ids, local text edits,
+   selection/focus checks, a viewport/order projection root, and a separate
+   inspector/diagnostics root. The next question is pure parent/child
+   composition, add/remove/reorder, identity reuse, and stale-command
+   rejection. Start with the aggregate, test-only
+   [Machine composition evidence driver](../plans/2026-07-14-machine-composition-evidence-driver.md);
+   do not introduce a `Machine` type or per-key reactive graph until that
+   driver measures a gap. Keep the existing demo/renderer fixture coupling
+   unchanged until the module identity ADR's disentanglement trigger is
+   handled.
 8. **Keep direct patching narrow and measured.** The #254 prototype shows that
    pure direct leaf/attribute descriptors plus mount-boundary watched string
    resolvers can patch the row/leaf hot path in ~4–5 µs at N=256 without
@@ -262,6 +286,10 @@ catch-up flush. The first prototype benchmark is recorded in
 - [#257] Compare Rabbita, Luna, and `incr_tea` on shared UI-shaped benchmarks.
 - [#268] Make `examples/incr_tea` reusable enough for a side-by-side typed
   spreadsheet demo without sacrificing `Html : Eq`.
+- [#286] Shipped Eq-safe controlled form support: pure value-change
+  descriptors, controlled input/select values, boolean property repair, and
+  browser smoke coverage. Residual ergonomic constructors remain gated on a
+  concrete consumer.
 
 [#241]: https://github.com/dowdiness/incr/issues/241
 [#248]: https://github.com/dowdiness/incr/issues/248
@@ -274,5 +302,6 @@ catch-up flush. The first prototype benchmark is recorded in
 [#256]: https://github.com/dowdiness/incr/issues/256
 [#257]: https://github.com/dowdiness/incr/issues/257
 [#268]: https://github.com/dowdiness/incr/issues/268
+[#286]: https://github.com/dowdiness/incr/issues/286
 [#270]: https://github.com/dowdiness/incr/issues/270
 [#280]: https://github.com/dowdiness/incr/issues/280

@@ -13,6 +13,13 @@ enum DemoMsg {
   GreetKeyPayload(String)
   GreetPointerPayload(String)
   GreetCheckedChange(Bool)
+  GreetSelectChange(String)
+  GreetDateChange(String)
+  GreetRangeChange(String)
+  GreetAddOption
+  GreetToggleSelectControl
+  GreetToggleCheckedControl
+  GreetTouchUnrelated
   EditorSelect(String)
   EditorNodeInput(String, String)
   EditorRenameSelected
@@ -195,6 +202,22 @@ fn greet_program(runtime : @incr.Runtime) -> Program[DemoMsg, Html[DemoMsg]] {
   let scope = @incr.Scope::new(runtime)
   let name = scope.input_field("", label="demo.greet.name")
   let subscribed = scope.input_field(false, label="demo.greet.subscribed")
+  let checked_controlled = scope.input_field(
+    true,
+    label="demo.greet.checked_controlled",
+  )
+  let selected = scope.input_field("beta", label="demo.greet.select")
+  let select_controlled = scope.input_field(
+    true,
+    label="demo.greet.select_controlled",
+  )
+  let has_extra_option = scope.input_field(
+    false,
+    label="demo.greet.extra_option",
+  )
+  let date = scope.input_field("2026-01-02", label="demo.greet.date")
+  let range = scope.input_field("50", label="demo.greet.range")
+  let touched = scope.input_field(0, label="demo.greet.touched")
   let last_key = scope.input_field("no key payload yet", label="demo.greet.key")
   let last_pointer = scope.input_field(
     "no pointer payload yet",
@@ -204,8 +227,20 @@ fn greet_program(runtime : @incr.Runtime) -> Program[DemoMsg, Html[DemoMsg]] {
     match msg {
       GreetNameInput(value) => name.set(value)
       GreetCheckedChange(value) => subscribed.set(value)
+      GreetSelectChange(value) => selected.set(value)
+      GreetDateChange(value) => date.set(value)
+      GreetRangeChange(value) => range.set(value)
       GreetKeyPayload(value) => last_key.set(value)
       GreetPointerPayload(value) => last_pointer.set(value)
+      GreetAddOption => {
+        has_extra_option.set(true)
+        selected.set("delta")
+      }
+      GreetToggleSelectControl =>
+        select_controlled.set(!select_controlled.peek())
+      GreetToggleCheckedControl =>
+        checked_controlled.set(!checked_controlled.peek())
+      GreetTouchUnrelated => touched.set(touched.peek() + 1)
       _ => ()
     }
     Cmd::none()
@@ -220,6 +255,16 @@ fn greet_program(runtime : @incr.Runtime) -> Program[DemoMsg, Html[DemoMsg]] {
     let key_payload = last_key.get()
     let pointer_payload = last_pointer.get()
     let is_subscribed = subscribed.get()
+    let is_checked_controlled = checked_controlled.get()
+    let current_selection = selected.get()
+    let is_select_controlled = select_controlled.get()
+    let current_date = date.get()
+    let current_range = range.get()
+    let extra_options : Array[Html[DemoMsg]] = if has_extra_option.get() {
+      [node("option", attrs=[attr("value", "delta")], [text("Delta")])]
+    } else {
+      []
+    }
     article(attrs=[class_attr("demo-card greet-card")], [
       h2([text("Text input payload")]),
       input(
@@ -239,17 +284,98 @@ fn greet_program(runtime : @incr.Runtime) -> Program[DemoMsg, Html[DemoMsg]] {
       // #286: Controlled checkbox with boolean property and checked-change payload.
       node("label", attrs=[class_attr("field")], [
         input(
-          attrs=Attrs::build()
+          attrs=if is_checked_controlled {
+            Attrs::build()
             .class("demo-checkbox")
             .attr("type", "checkbox")
+            .attr("data-form-control", "checked")
             .checked(is_subscribed)
-            .to_array(),
+            .to_array()
+          } else {
+            [
+              class_attr("demo-checkbox"),
+              attr("type", "checkbox"),
+              attr("data-form-control", "checked"),
+            ]
+          },
           events=[on_checked_change(tag="greet.subscribed")],
         ),
         span([text("Subscribe to newsletter")]),
       ]),
       p(attrs=[class_attr("metric-line")], [
         text(if is_subscribed { "Subscribed" } else { "Not subscribed" }),
+      ]),
+      node("label", attrs=[class_attr("field")], [
+        span([text("Choice")]),
+        node(
+          "select",
+          attrs=if is_select_controlled {
+            [
+              attr("value", current_selection),
+              attr("data-form-control", "select"),
+            ]
+          } else {
+            [attr("data-form-control", "select")]
+          },
+          events=[on_change(tag="greet.select")],
+          [
+            node("option", attrs=[attr("value", "alpha")], [text("Alpha")]),
+            node(
+              "option",
+              attrs=if is_select_controlled {
+                Attrs::build().attr("value", "beta").selected(true).to_array()
+              } else {
+                [attr("value", "beta")]
+              },
+              [text("Beta")],
+            ),
+            node("option", attrs=[attr("value", "gamma")], [text("Gamma")]),
+            ..extra_options,
+          ],
+        ),
+      ]),
+      input(
+        attrs=[
+          attr("type", "date"),
+          attr("value", current_date),
+          attr("data-form-control", "date"),
+        ],
+        events=[on_change(tag="greet.date")],
+      ),
+      input(
+        attrs=[
+          attr("type", "range"),
+          attr("min", "0"),
+          attr("max", "100"),
+          attr("value", current_range),
+          attr("data-form-control", "range"),
+        ],
+        events=[on_change(tag="greet.range")],
+      ),
+      button(
+        attrs=[attr("data-form-control", "touch")],
+        events=[on_click(GreetTouchUnrelated)],
+        "Touch unrelated",
+      ),
+      button(
+        attrs=[attr("data-form-control", "add")],
+        events=[on_click(GreetAddOption)],
+        "Add option",
+      ),
+      button(
+        attrs=[attr("data-form-control", "toggle-select")],
+        events=[on_click(GreetToggleSelectControl)],
+        "Toggle select control",
+      ),
+      button(
+        attrs=[attr("data-form-control", "toggle-checked")],
+        events=[on_click(GreetToggleCheckedControl)],
+        "Toggle checked control",
+      ),
+      p(attrs=[attr("data-form-control-state", "true")], [
+        text(
+          "select=\{current_selection} date=\{current_date} range=\{current_range} select-controlled=\{is_select_controlled} checked-controlled=\{is_checked_controlled}",
+        ),
       ]),
       p(attrs=[class_attr("demo-note")], [
         text(
@@ -268,12 +394,15 @@ fn greet_program(runtime : @incr.Runtime) -> Program[DemoMsg, Html[DemoMsg]] {
 }
 
 ///|
-/// Resolver for the greet card's text input. Lives at the js mount boundary, not
-/// in the cacheable `Html` value: it maps a typed id and payload to a message.
+/// Resolver for the greet card's value input. Lives at the js mount boundary,
+/// not in the cacheable `Html` value: it maps a typed id and payload to a message.
 #cfg(target="js")
-fn greet_on_input(id : TextInputId, payload : TextInputPayload) -> DemoMsg? {
+fn greet_on_value(id : ValueEventId, payload : ValuePayload) -> DemoMsg? {
   match id.name {
     "greet.name" => Some(GreetNameInput(payload.value))
+    "greet.select" => Some(GreetSelectChange(payload.value))
+    "greet.date" => Some(GreetDateChange(payload.value))
+    "greet.range" => Some(GreetRangeChange(payload.value))
     _ => None
   }
 }
@@ -545,7 +674,7 @@ pub fn mount_browser_demo(mount_id : String) -> Unit {
     renderer.mount(
       dom_query_child_by_id(host, "greet-root"),
       greet_program(runtime),
-      on_input=greet_on_input,
+      on_value=greet_on_value,
       on_checked_change=greet_on_checked_change,
       on_key=greet_on_key,
       on_pointer=greet_on_pointer,
@@ -556,7 +685,7 @@ pub fn mount_browser_demo(mount_id : String) -> Unit {
     renderer.mount(
       dom_query_child_by_id(host, "editor-projection-root"),
       editor_projection_program(runtime, editor_model),
-      on_input=editor_on_input,
+      on_value=editor_on_value,
       on_pointer=editor_on_pointer,
     ),
   )

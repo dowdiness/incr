@@ -1,12 +1,12 @@
 ///|
 /// Cross-root locality validation for the typed spreadsheet.
 ///
-/// Mounts all 4 watched regions (grid, formula bar, status, trace) sharing
-/// model state via per-region InputFields, dispatches messages through the
-/// shared update handler, and asserts per-root patch/skip counters via
+/// Mounts all 5 watched regions (grid, formula bar, status, trace, evidence)
+/// sharing model state via per-region InputFields, dispatches messages through
+/// the shared update handler, and asserts per-root patch/skip counters via
 /// `BrowserRenderer::root_stats()`.
 ///
-/// Each test installs a fresh fake DOM, mounts 4 roots on `div` host
+/// Each test installs a fresh fake DOM, mounts 5 roots on `div` host
 /// elements, and verifies per-root deltas for one operation sequence.
 /// Assertions are delta-based (from a saved baseline snapshot), so tests
 /// survive changes to mount flush behavior.
@@ -85,7 +85,7 @@ extern "js" fn install_test_dom() -> Unit =
   #| }
 
 ///|
-/// Creates 4 host `div` elements with fixed ids and registers them in
+/// Creates 5 host `div` elements with fixed ids and registers them in
 /// the fake DOM so `dom_get_element_by_id` can find them.
 /// The fake DOM's `getElementById` reads from an internal `byId` map
 /// populated by `setAttribute("id", ...)` — tree membership is not
@@ -93,7 +93,7 @@ extern "js" fn install_test_dom() -> Unit =
 #cfg(target="js")
 extern "js" fn create_locality_hosts() -> Unit =
   #| () => {
-  #|   const ids = ["locality-formula", "locality-grid", "locality-status", "locality-trace"];
+  #|   const ids = ["locality-formula", "locality-grid", "locality-status", "locality-trace", "locality-evidence"];
   #|   for (const id of ids) {
   #|     const el = globalThis.document.createElement("div");
   #|     el.setAttribute("id", id);
@@ -154,8 +154,8 @@ fn check_delta(
 // ── Shared test setup ─────────────────────────────────────────────────
 
 ///|
-/// Creates a fresh TypedSheetApp + BrowserRenderer with 4 roots mounted on
-/// fake-DOM hosts (ids `locality-formula`, -grid, -status, -trace).
+/// Creates a fresh TypedSheetApp + BrowserRenderer with 5 roots mounted on
+/// fake-DOM hosts (ids `locality-formula`, -grid, -status, -trace, -evidence).
 /// After mount each root has patch=1 (initial flush), skip=0.
 /// Returns (renderer, app, baseline_root_stats).
 #cfg(target="js")
@@ -170,6 +170,7 @@ fn setup_locality_test() -> (
   let host_grid = @tea.dom_get_element_by_id("locality-grid")
   let host_status = @tea.dom_get_element_by_id("locality-status")
   let host_trace = @tea.dom_get_element_by_id("locality-trace")
+  let host_evidence = @tea.dom_get_element_by_id("locality-evidence")
   let runtime = @incr.Runtime()
   let app = TypedSheetApp(runtime)
   let renderer = @tea.BrowserRenderer::BrowserRenderer(runtime)
@@ -177,6 +178,7 @@ fn setup_locality_test() -> (
   ignore(renderer.mount(host_grid, app.prog_grid, label="grid"))
   ignore(renderer.mount(host_status, app.prog_status, label="status"))
   ignore(renderer.mount(host_trace, app.prog_trace, label="trace"))
+  ignore(renderer.mount(host_evidence, app.prog_evidence, label="evidence"))
   let baseline = renderer.root_stats()
   (renderer, app, baseline)
 }
@@ -197,6 +199,7 @@ test "locality: cell value edit — UpdateDraft + ApplySelected" {
   check_delta(after_draft, base, "formula-bar", 1, 0)
   check_delta(after_draft, base, "status", 0, 1)
   check_delta(after_draft, base, "trace", 0, 1)
+  check_delta(after_draft, base, "evidence", 0, 1)
 
   ignore(app.prog_grid.dispatch(ApplySelected))
   renderer.flush_all()
@@ -208,6 +211,7 @@ test "locality: cell value edit — UpdateDraft + ApplySelected" {
   check_delta(after_apply, after_draft, "formula-bar", 0, 1)
   check_delta(after_apply, after_draft, "status", 1, 0)
   check_delta(after_apply, after_draft, "trace", 1, 0)
+  check_delta(after_apply, after_draft, "evidence", 1, 0)
 
   renderer.dispose()
   restore_test_dom()
@@ -229,6 +233,7 @@ test "locality: selection only — SelectCell" {
   check_delta(after, base, "formula-bar", 1, 0)
   check_delta(after, base, "status", 1, 0)
   check_delta(after, base, "trace", 0, 1)
+  check_delta(after, base, "evidence", 0, 1)
 
   renderer.dispose()
   restore_test_dom()
@@ -250,6 +255,7 @@ test "locality: draft only — UpdateDraft without ApplySelected" {
   check_delta(after, base, "formula-bar", 1, 0)
   check_delta(after, base, "status", 0, 1)
   check_delta(after, base, "trace", 0, 1)
+  check_delta(after, base, "evidence", 0, 1)
 
   renderer.dispose()
   restore_test_dom()
@@ -271,6 +277,7 @@ test "locality: inline edit commit — BeginInlineEdit + ApplyInlineEdit" {
   check_delta(after_begin, base, "formula-bar", 1, 0)
   check_delta(after_begin, base, "status", 1, 0)
   check_delta(after_begin, base, "trace", 0, 1)
+  check_delta(after_begin, base, "evidence", 0, 1)
 
   ignore(app.prog_grid.dispatch(ApplyInlineEdit("A1")))
   renderer.flush_all()
@@ -282,6 +289,7 @@ test "locality: inline edit commit — BeginInlineEdit + ApplyInlineEdit" {
   check_delta(after_apply, after_begin, "formula-bar", 0, 1)
   check_delta(after_apply, after_begin, "status", 1, 0)
   check_delta(after_apply, after_begin, "trace", 1, 0)
+  check_delta(after_apply, after_begin, "evidence", 1, 0)
 
   renderer.dispose()
   restore_test_dom()

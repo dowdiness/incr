@@ -43,7 +43,7 @@ jobs:
       # loop absorbs transient blips. Pinned for reproducibility (issue #227).
       - name: Install MoonBit
         env:
-          MOONBIT_INSTALL_VERSION: 0.10.4+2cc641edf
+          MOONBIT_INSTALL_VERSION: 0.10.4+ade96c819
         run: |
           install_moonbit() {
             curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/moonbit-install.sh \
@@ -88,7 +88,7 @@ jobs:
       # loop absorbs transient blips. Pinned for reproducibility (issue #227).
       - name: Install MoonBit
         env:
-          MOONBIT_INSTALL_VERSION: 0.10.4+2cc641edf
+          MOONBIT_INSTALL_VERSION: 0.10.4+ade96c819
         run: |
           install_moonbit() {
             curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/moonbit-install.sh \
@@ -213,7 +213,7 @@ jobs:
       # the pin rationale (issue #227).
       - name: Install MoonBit
         env:
-          MOONBIT_INSTALL_VERSION: 0.10.4+2cc641edf
+          MOONBIT_INSTALL_VERSION: 0.10.4+ade96c819
         run: |
           install_moonbit() {
             curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/moonbit-install.sh \
@@ -250,7 +250,52 @@ jobs:
           done
           exit $status
 
+  #-------------------------------------------------------------------------------
+  # DOM (Playwright) structural test for the incr_tea machine-composition driver
+  #-------------------------------------------------------------------------------
+  # Timing remains a manually recorded benchmark. This job makes the deterministic
+  # semantic-identity, mutation-locality, and stale-result gates permanent.
+  incr_tea-machine-composition-dom:
+    name: DOM test incr_tea machine composition
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
 
+      - name: Install MoonBit
+        env:
+          MOONBIT_INSTALL_VERSION: 0.10.4+ade96c819
+        run: |
+          install_moonbit() {
+            curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/moonbit-install.sh \
+              && bash /tmp/moonbit-install.sh
+          }
+          for attempt in 1 2 3; do
+            if install_moonbit; then break; fi
+            if [ "$attempt" = 3 ]; then
+              echo "MoonBit install failed after 3 attempts"; exit 1
+            fi
+            echo "install attempt $attempt failed; retrying in 10s..."; sleep 10
+          done
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      - name: Verify MoonBit
+        run: moon version --all
+
+      - name: moon update
+        run: moon update
+
+      - name: Install npm dependencies
+        working-directory: examples/incr_tea
+        run: npm ci
+
+      - name: Install Playwright chromium + system deps
+        working-directory: examples/incr_tea
+        run: npx playwright install chromium --with-deps
+
+      - name: Run machine-composition structural DOM test
+        working-directory: examples/incr_tea
+        run: npm run test:machine-composition
 
   #-------------------------------------------------------------------------------
   # DOM (Playwright) test for the incr_tea 7GUIs example
@@ -270,7 +315,7 @@ jobs:
       # the pin rationale (issue #227).
       - name: Install MoonBit
         env:
-          MOONBIT_INSTALL_VERSION: 0.10.4+2cc641edf
+          MOONBIT_INSTALL_VERSION: 0.10.4+ade96c819
         run: |
           install_moonbit() {
             curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/moonbit-install.sh \

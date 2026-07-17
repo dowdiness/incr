@@ -132,6 +132,16 @@ test "event spec: text bindings are equal iff their pure id matches" {
 
 ///|
 #cfg(target="js")
+test "event spec: input and change share value payload identity" {
+  let input_binding : EventBinding[RendererMsg] = on_input(tag="name")
+  let change_binding : EventBinding[RendererMsg] = on_change(tag="name")
+  let other_change : EventBinding[RendererMsg] = on_change(tag="name")
+  inspect(change_binding == other_change, content="true")
+  inspect(input_binding == change_binding, content="false")
+}
+
+///|
+#cfg(target="js")
 test "event spec: keyboard descriptors are pure Eq data" {
   let editor_keys = KeyEventId("editor.keys")
   let other_keys = KeyEventId("other.keys")

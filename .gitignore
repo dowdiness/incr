@@ -11,3 +11,5 @@ scripts/__pycache__/
 docs/papers/*.pdf
 .slopless/
 examples/incr_tea/node_modules/
+.Codex/
+.codex/

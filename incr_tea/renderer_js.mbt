@@ -115,11 +115,41 @@ extern "js" fn dom_set_attr(
 
 ///|
 #cfg(target="js")
-extern "js" fn dom_set_value_property(
+let dom_property_mutation_observer : Ref[((DomElement, String) -> Unit)?] = Ref(
+  None,
+)
+
+///|
+#cfg(target="js")
+fn dom_set_property_mutation_observer(
+  observer : ((DomElement, String) -> Unit)?,
+) -> Unit {
+  dom_property_mutation_observer.val = observer
+}
+
+///|
+#cfg(target="js")
+fn dom_record_property_mutation(element : DomElement, name : String) -> Unit {
+  match dom_property_mutation_observer.val {
+    Some(observer) => observer(element, name)
+    None => ()
+  }
+}
+
+///|
+#cfg(target="js")
+extern "js" fn dom_set_value_property_raw(
   element : DomElement,
   value : String,
 ) -> Unit =
   #| (element, value) => { element.value = value; }
+
+///|
+#cfg(target="js")
+fn dom_set_value_property(element : DomElement, value : String) -> Unit {
+  dom_record_property_mutation(element, "value")
+  dom_set_value_property_raw(element, value)
+}
 
 ///|
 #cfg(target="js")
@@ -130,12 +160,36 @@ extern "js" fn dom_remove_attr(element : DomElement, name : String) -> Unit =
 /// Sets a boolean-formatted DOM property (e.g. `element.checked = true`) for
 /// form controls where `setAttribute` alone is unreliable for controlled state.
 #cfg(target="js")
-extern "js" fn dom_set_bool_property(
+extern "js" fn dom_set_bool_property_raw(
   element : DomElement,
   name : String,
   value : Bool,
 ) -> Unit =
   #| (element, name, value) => { element[name] = value; }
+
+///|
+#cfg(target="js")
+fn dom_set_bool_property(
+  element : DomElement,
+  name : String,
+  value : Bool,
+) -> Unit {
+  dom_record_property_mutation(element, name)
+  dom_set_bool_property_raw(element, name, value)
+}
+
+///|
+#cfg(target="js")
+extern "js" fn dom_get_value_property(element : DomElement) -> String =
+  #| (element) => element.value == null ? "" : String(element.value)
+
+///|
+#cfg(target="js")
+extern "js" fn dom_get_bool_property(
+  element : DomElement,
+  name : String,
+) -> Bool =
+  #| (element, name) => !!element[name]
 
 ///|
 #cfg(target="js")
@@ -155,9 +209,9 @@ extern "js" fn dom_add_event_listener(
   #| }
 
 ///|
-/// DOM-payload listener for text inputs: forwards the target's string `value`.
+/// DOM-payload listener for value-bearing event targets: forwards `value`.
 /// The value→message mapping stays at the browser boundary; `Html` only stores
-/// a typed pure id (see `EventSpec::TextInput`).
+/// a typed pure id (see `EventSpec::Value`).
 #cfg(target="js")
 extern "js" fn dom_add_value_listener(
   element : DomElement,
@@ -407,7 +461,7 @@ fn[Msg] Rendered::node(self : Rendered[Msg]) -> DomNode {
 /// them). Executable mapping stays here, outside cacheable `Html` values.
 #cfg(target="js")
 priv struct PayloadResolvers[Msg] {
-  resolve_text : (TextInputId, TextInputPayload) -> Msg?
+  resolve_value : (ValueEventId, ValuePayload) -> Msg?
   resolve_checked : (CheckedInputId, CheckedPayload) -> Msg?
   resolve_key : (KeyEventId, KeyPayload) -> Msg?
   resolve_pointer : (PointerEventId, PointerPayload) -> Msg?
@@ -417,7 +471,7 @@ priv struct PayloadResolvers[Msg] {
 ///|
 #cfg(target="js")
 fn[Msg] PayloadResolvers::PayloadResolvers(
-  resolve_text? : (TextInputId, TextInputPayload) -> Msg? = (_, _) => None,
+  resolve_value? : (ValueEventId, ValuePayload) -> Msg? = (_, _) => None,
   resolve_checked? : (CheckedInputId, CheckedPayload) -> Msg? = (_, _) => None,
   resolve_key? : (KeyEventId, KeyPayload) -> Msg? = (_, _) => None,
   resolve_pointer? : (PointerEventId, PointerPayload) -> Msg? = (_, _) => None,
@@ -427,7 +481,7 @@ fn[Msg] PayloadResolvers::PayloadResolvers(
   ) => None,
 ) -> PayloadResolvers[Msg] {
   {
-    resolve_text,
+    resolve_value,
     resolve_checked,
     resolve_key,
     resolve_pointer,
@@ -507,6 +561,86 @@ fn attr_by_name(attrs : Array[Attribute], name : String) -> Attribute? {
 
 ///|
 #cfg(target="js")
+priv enum ControlledProperty {
+  ControlledValue(String)
+  ControlledBool(name~ : String, value~ : Bool)
+}
+
+///|
+#cfg(target="js")
+fn is_controlled_bool_property(name : String) -> Bool {
+  name == "checked" || name == "disabled" || name == "selected"
+}
+
+///|
+#cfg(target="js")
+fn classify_controlled_property(
+  tag : String,
+  attr : Attribute,
+) -> ControlledProperty? {
+  if (tag == "input" || tag == "select") &&
+    attr.name == "value" &&
+    attr.bool_value is None {
+    Some(ControlledValue(attr.value))
+  } else {
+    match attr.bool_value {
+      Some(value) =>
+        if is_controlled_bool_property(attr.name) {
+          Some(ControlledBool(name=attr.name, value~))
+        } else {
+          None
+        }
+      None => None
+    }
+  }
+}
+
+///|
+#cfg(target="js")
+fn reconcile_controlled_attr(
+  tag : String,
+  element : DomElement,
+  attr : Attribute,
+) -> Unit {
+  match classify_controlled_property(tag, attr) {
+    Some(ControlledValue(value)) =>
+      if dom_get_value_property(element) != value {
+        dom_set_value_property(element, value)
+      }
+    Some(ControlledBool(name~, value~)) =>
+      if dom_get_bool_property(element, name) != value {
+        dom_set_bool_property(element, name, value)
+      }
+    None => ()
+  }
+}
+
+///|
+#cfg(target="js")
+fn[Msg] reconcile_controlled_rendered(rendered : Rendered[Msg]) -> Unit {
+  match rendered {
+    RenderedText(_, _) | RenderedDirectText(_, _, _) => ()
+    RenderedElem(tag~, attrs~, children~, element~, ..) => {
+      for child in children {
+        reconcile_controlled_rendered(child)
+      }
+      for attr in attrs {
+        reconcile_controlled_attr(tag, element, attr)
+      }
+    }
+    RenderedKeyedElem(tag~, attrs~, children~, element~, ..) => {
+      for pair in children {
+        reconcile_controlled_rendered(pair.1)
+      }
+      for attr in attrs {
+        reconcile_controlled_attr(tag, element, attr)
+      }
+    }
+  }
+}
+
+///|
+#cfg(target="js")
 fn patch_attrs(
   tag : String,
   old_attrs : Array[Attribute],
@@ -518,7 +652,7 @@ fn patch_attrs(
     match attr_by_name(new_attrs, old.name) {
       None => {
         dom_remove_attr(element, old.name)
-        if old.is_bool {
+        if old.bool_value is Some(_) {
           dom_set_bool_property(element, old.name, false)
         }
       }
@@ -558,7 +692,7 @@ fn patch_attr(
     element,
     attr.name,
     direct_resolvers.attr_value(attr),
-    is_bool=attr.is_bool,
+    attr.bool_value,
   )
 }
 
@@ -573,15 +707,20 @@ fn set_attr_value(
   element : DomElement,
   name : String,
   value : String,
-  is_bool? : Bool = false,
+  bool_value : Bool?,
 ) -> Unit {
-  if is_bool {
-    dom_set_bool_property(element, name, true)
-    dom_set_attr(element, name, "")
-  } else {
-    dom_set_attr(element, name, value)
+  match bool_value {
+    Some(true) => {
+      dom_set_bool_property(element, name, true)
+      dom_set_attr(element, name, "")
+    }
+    Some(false) => {
+      dom_set_bool_property(element, name, false)
+      dom_remove_attr(element, name)
+    }
+    None => dom_set_attr(element, name, value)
   }
-  if tag == "input" && name == "value" {
+  if (tag == "input" || tag == "select") && name == "value" {
     dom_set_value_property(element, value)
   }
 }
@@ -606,14 +745,14 @@ fn[Msg] attach_events(
           actions.stop_propagation,
           () => dispatch(message),
         )
-      TextInput(id~) =>
+      Value(id~) =>
         dom_add_value_listener(
           element,
           event.name,
           actions.prevent_default,
           actions.stop_propagation,
           value => {
-            match (payload_resolvers.resolve_text)(id, { value, }) {
+            match (payload_resolvers.resolve_value)(id, { value, }) {
               Some(message) => dispatch(message)
               None => ()
             }
@@ -728,6 +867,7 @@ fn[Msg] render_html(html : Html[Msg], sink : EventSink[Msg]) -> Rendered[Msg] {
         dom_append_child(element, rendered.node())
         rendered
       })
+      attrs.each(attr => reconcile_controlled_attr(tag, element, attr))
       RenderedElem(tag~, attrs~, events~, children=rendered_children, element~)
     }
     KeyedElem(tag~, attrs~, events~, children~) => {
@@ -740,6 +880,7 @@ fn[Msg] render_html(html : Html[Msg], sink : EventSink[Msg]) -> Rendered[Msg] {
         dom_append_child(element, rendered.node())
         (key, rendered)
       })
+      attrs.each(attr => reconcile_controlled_attr(tag, element, attr))
       RenderedKeyedElem(
         tag~,
         attrs~,
@@ -804,6 +945,9 @@ fn[Msg : Eq] diff_rendered(
         let rendered_children = diff_children(
           old_children, next_children, element, sink,
         )
+        next_attrs.each(attr => {
+          reconcile_controlled_attr(next_tag, element, attr)
+        })
         RenderedElem(
           tag=next_tag,
           attrs=next_attrs,
@@ -840,6 +984,9 @@ fn[Msg : Eq] diff_rendered(
         let rendered_children = diff_keyed_children(
           old_children, next_children, element, sink,
         )
+        next_attrs.each(attr => {
+          reconcile_controlled_attr(next_tag, element, attr)
+        })
         RenderedKeyedElem(
           tag=next_tag,
           attrs=next_attrs,
@@ -907,11 +1054,11 @@ fn DirectAttrPatch::flush(
     name: self.name,
     value: self.last,
     direct: Some(self.id),
-    is_bool: false,
+    bool_value: None,
   }
   let next = direct_resolvers.attr_value(attr)
   if self.last != next {
-    set_attr_value(self.tag, self.element, self.name, next)
+    set_attr_value(self.tag, self.element, self.name, next, None)
     self.last = next
   }
 }
@@ -1166,7 +1313,7 @@ fn[Msg] BrowserRoot::BrowserRoot(
   host : DomElement,
   stats : RenderStats,
   label? : String = "",
-  resolve_text? : (TextInputId, TextInputPayload) -> Msg? = (_, _) => None,
+  resolve_value? : (ValueEventId, ValuePayload) -> Msg? = (_, _) => None,
   resolve_checked? : (CheckedInputId, CheckedPayload) -> Msg? = (_, _) => None,
   resolve_key? : (KeyEventId, KeyPayload) -> Msg? = (_, _) => None,
   resolve_pointer? : (PointerEventId, PointerPayload) -> Msg? = (_, _) => None,
@@ -1176,7 +1323,7 @@ fn[Msg] BrowserRoot::BrowserRoot(
   ) => None,
 ) -> BrowserRoot[Msg] {
   let payload_resolvers = PayloadResolvers::PayloadResolvers(
-    resolve_text~,
+    resolve_value~,
     resolve_checked~,
     resolve_key~,
     resolve_pointer~,
@@ -1194,22 +1341,31 @@ fn[Msg] BrowserRoot::BrowserRoot(
 ///|
 #cfg(target="js")
 fn[Msg : Eq] BrowserRoot::flush(self : BrowserRoot[Msg]) -> Unit {
-  guard self.watched.read_changed() is Some(next) else { return }
-  let sink : EventSink[Msg] = {
-    dispatch: msg => ignore(self.watched.program.dispatch(msg)),
-    payload_resolvers: self.payload_resolvers,
-    direct_resolvers: DirectPatchResolvers::DirectPatchResolvers(),
-  }
-  self.rendered = Some(
-    match self.rendered {
-      None => {
-        let rendered = render_html(next, sink)
-        dom_replace_children(self.host, rendered.node())
-        rendered
+  match self.watched.read_changed() {
+    ViewDisposed => ()
+    ViewUnchanged =>
+      match self.rendered {
+        Some(rendered) => reconcile_controlled_rendered(rendered)
+        None => ()
       }
-      Some(old) => diff_rendered(old, next, self.host, sink)
-    },
-  )
+    ViewChanged(next) => {
+      let sink : EventSink[Msg] = {
+        dispatch: msg => ignore(self.watched.program.dispatch(msg)),
+        payload_resolvers: self.payload_resolvers,
+        direct_resolvers: DirectPatchResolvers::DirectPatchResolvers(),
+      }
+      self.rendered = Some(
+        match self.rendered {
+          None => {
+            let rendered = render_html(next, sink)
+            dom_replace_children(self.host, rendered.node())
+            rendered
+          }
+          Some(old) => diff_rendered(old, next, self.host, sink)
+        },
+      )
+    }
+  }
 }
 
 ///|
@@ -1386,7 +1542,7 @@ pub fn[Msg : Eq] BrowserRenderer::mount(
   host : DomElement,
   program : Program[Msg, Html[Msg]],
   label? : String = "",
-  on_input? : (TextInputId, TextInputPayload) -> Msg? = (_, _) => None,
+  on_value? : (ValueEventId, ValuePayload) -> Msg? = (_, _) => None,
   on_checked_change? : (CheckedInputId, CheckedPayload) -> Msg? = (_, _) => None,
   on_key? : (KeyEventId, KeyPayload) -> Msg? = (_, _) => None,
   on_pointer? : (PointerEventId, PointerPayload) -> Msg? = (_, _) => None,
@@ -1412,7 +1568,7 @@ pub fn[Msg : Eq] BrowserRenderer::mount(
     host,
     root_stats,
     label~,
-    resolve_text=on_input,
+    resolve_value=on_value,
     resolve_checked=on_checked_change,
     resolve_key=on_key,
     resolve_pointer=on_pointer,

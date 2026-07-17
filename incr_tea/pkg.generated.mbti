@@ -32,6 +32,8 @@ pub fn[Msg] input(attrs? : Array[Attribute], events? : Array[EventBinding[Msg]])
 
 pub fn install_activation_trigger_bench_api() -> Unit
 
+pub fn install_controlled_reconcile_bench_api() -> Unit
+
 pub fn install_dom_bench_api() -> Unit
 
 pub fn install_ui_compare_dom_bench_api() -> Unit
@@ -113,7 +115,7 @@ pub fn[Msg] BrowserRenderer::destroy(Self[Msg], BrowserRoot[Msg]) -> Unit
 pub fn[Msg] BrowserRenderer::detach(Self[Msg], BrowserRoot[Msg]) -> Unit
 pub fn[Msg] BrowserRenderer::dispose(Self[Msg]) -> Unit
 pub fn[Msg : Eq] BrowserRenderer::flush_all(Self[Msg]) -> Unit
-pub fn[Msg : Eq] BrowserRenderer::mount(Self[Msg], DomElement, Program[Msg, Html[Msg]], label? : String, on_input? : (TextInputId, TextInputPayload) -> Msg?, on_checked_change? : (CheckedInputId, CheckedPayload) -> Msg?, on_key? : (KeyEventId, KeyPayload) -> Msg?, on_pointer? : (PointerEventId, PointerPayload) -> Msg?, on_key_event? : (KeyEventId, KeyPayload) -> KeyEventDispatch[Msg]?) -> BrowserRoot[Msg]
+pub fn[Msg : Eq] BrowserRenderer::mount(Self[Msg], DomElement, Program[Msg, Html[Msg]], label? : String, on_value? : (ValueEventId, ValuePayload) -> Msg?, on_checked_change? : (CheckedInputId, CheckedPayload) -> Msg?, on_key? : (KeyEventId, KeyPayload) -> Msg?, on_pointer? : (PointerEventId, PointerPayload) -> Msg?, on_key_event? : (KeyEventId, KeyPayload) -> KeyEventDispatch[Msg]?) -> BrowserRoot[Msg]
 pub fn[Msg : Eq] BrowserRenderer::reattach(Self[Msg], BrowserRoot[Msg]) -> Unit
 pub fn[Msg] BrowserRenderer::root_stats(Self[Msg]) -> Array[RootStats]
 pub fn[Msg] BrowserRenderer::stats(Self[Msg]) -> RenderStats
@@ -282,15 +284,15 @@ pub(all) enum SubSpec[Msg] {
   AnimationFrame(Msg)
 } derive(Eq, @debug.Debug)
 
-pub struct TextInputId {
+pub struct ValueEventId {
   name : String
 } derive(Eq, @debug.Debug)
-pub fn TextInputId::TextInputId(String) -> Self
+pub fn ValueEventId::ValueEventId(String) -> Self
 
-pub struct TextInputPayload {
+pub struct ValuePayload {
   value : String
 }
-pub fn TextInputPayload::TextInputPayload(String) -> Self
+pub fn ValuePayload::ValuePayload(String) -> Self
 
 // Type aliases
 pub type Subscriptions[Msg] = @hashmap.HashMap[SubKey, SubSpec[Msg]]
