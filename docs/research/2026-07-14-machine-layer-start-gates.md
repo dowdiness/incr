@@ -24,12 +24,13 @@ criteria; it does not authorize a new `Machine` type or an `incr` API.
 |---|---|
 | Existing | Pure `update` functions, `Cmd`, `Program::stateful`, `Program::stateful_cmd`, Scope-owned watched views, semantic-keyed editor and typed-spreadsheet drivers |
 | Active next experiment | Pure parent/child composition, semantic identity, add/remove/reorder, and stale-command rejection on one aggregate Program graph |
-| Parallel core work | Attribute #399 and preserve retention benchmarks |
+| Completed core evidence | #399 attribution complete; slot-reclamation/compaction no-go. Retention benchmarks remain regression evidence. |
 | Conditional experiment | Per-key reactive subgraphs, only if the aggregate driver misses a measured locality or lifetime target |
 | Not commissioned | A public `Machine` type, core keyed facade, detachable child Scopes, generative-UI runtime |
 
 Do not treat the number of sections in this note as a backlog. Only the active
-experiment and #399 are current work.
+experiment is current work; #399 is completed core evidence and is no longer
+parallel/current work.
 
 ## Decision
 
