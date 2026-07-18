@@ -17,7 +17,7 @@
 - **Priority**: P1
 - **Effort**: M
 - **Risk**: MED
-- **Depends on**: plans/002-spreadsheet-workflow-paths.md
+- **Depends on**: none (Plan 002 spreadsheet path-filter correction completed)
 - **Category**: security
 - **Planned at**: commit `31afb08`, 2026-07-13
 
