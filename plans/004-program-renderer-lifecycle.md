@@ -7,8 +7,8 @@
 > in `plans/README.md` — unless a reviewer dispatched you and told you they
 > maintain the index.
 >
-> **Drift check (run first)**: `rtk git diff --stat 31afb08..HEAD -- incr_tea/program.mbt incr_tea/renderer_js.mbt incr_tea/scheduler_wbtest.mbt incr_tea/renderer_wbtest.mbt incr_tea/lifecycle_wbtest.mbt incr_tea/pkg.generated.mbti incr_tea/README.mbt.md CHANGELOG.md`
-> If any in-scope file changed since this plan was written, compare the
+> **Drift check (run first)**: `rtk git diff --stat 6d7e55d..HEAD -- incr_tea/program.mbt incr_tea/renderer_js.mbt incr_tea/scheduler_wbtest.mbt incr_tea/renderer_wbtest.mbt incr_tea/lifecycle_wbtest.mbt incr_tea/pkg.generated.mbti incr_tea/README.mbt.md CHANGELOG.md`
+> If any in-scope file changed since this plan was refreshed, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
 
@@ -19,7 +19,7 @@
 - **Risk**: MED
 - **Depends on**: `plans/003-controlled-dom-reconciliation.md` (execution-order dependency because both modify `incr_tea/renderer_js.mbt`; no semantic dependency)
 - **Category**: bug
-- **Planned at**: commit `31afb08`, 2026-07-13
+- **Planned at**: commit `6d7e55d`, 2026-07-18 (refreshed after plan 003 landed; the lifecycle excerpts below remain semantically unchanged)
 
 ## Why this matters
 
@@ -76,7 +76,7 @@ A `Program` may be mounted more than once, but ownership is currently counted on
   }
   ```
 
-- `incr_tea/renderer_js.mbt` — each mount adds an unremovable closure before creating the root (lines 1384–1425):
+- `incr_tea/renderer_js.mbt` — each mount adds an unremovable closure before creating the root (lines 1540–1583):
 
   ```moonbit
   let view_id = program.view_id()
@@ -86,7 +86,7 @@ A `Program` may be mounted more than once, but ownership is currently counted on
   self.roots.push(root)
   ```
 
-- `incr_tea/renderer_js.mbt` — the last-reference test sees only one renderer's mounted and detached buckets (lines 1546–1558):
+- `incr_tea/renderer_js.mbt` — the last-reference test sees only one renderer's mounted and detached buckets (lines 1702–1715):
 
   ```moonbit
   fn[Msg] BrowserRenderer::references_program(
@@ -98,7 +98,7 @@ A `Program` may be mounted more than once, but ownership is currently counted on
   }
   ```
 
-- `incr_tea/renderer_js.mbt` — `destroy` disposes when no *local* sibling remains (lines 1699–1727):
+- `incr_tea/renderer_js.mbt` — `destroy` disposes when no *local* sibling remains (lines 1853–1884):
 
   ```moonbit
   self.remove_root(root)
@@ -110,8 +110,8 @@ A `Program` may be mounted more than once, but ownership is currently counted on
   }
   ```
 
-- `incr_tea/renderer_js.mbt:1660-1695` defines detached roots as parked-but-alive and still renderer-owned. A detach must retain the global mount registration and scheduler; reattach must reuse that same registration rather than registering again.
-- `incr_tea/renderer_wbtest.mbt:1174-1459` is the lifecycle test cluster. It covers last-root disposal inside one renderer, detached roots, foreign-root rejection, and shared mounts in one renderer, but not one program mounted through two renderer instances.
+- `incr_tea/renderer_js.mbt:1815-1851` defines detached roots as parked-but-alive and still renderer-owned. A detach must retain the global mount registration and scheduler; reattach must reuse that same registration rather than registering again.
+- `incr_tea/renderer_wbtest.mbt:1677-1988` is the lifecycle test cluster. It covers last-root disposal inside one renderer, detached roots, foreign-root rejection, and shared mounts in one renderer, but not one program mounted through two renderer instances.
 - `incr_tea/scheduler_wbtest.mbt:252-329` is the pattern for pending `Cmd::after_flush` callbacks and follow-up messages.
 - `incr_tea/lifecycle_wbtest.mbt:1-65` is the pattern for verifying scope/watch/cell release and idempotent disposal.
 - Repository conventions: private white-box state belongs in `*_wbtest.mbt`; public items require `///`; generated `.mbti` files come only from `moon info`. Recent commits use conventional prefixes (`fix:`, `feat:`, `chore:`).
