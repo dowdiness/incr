@@ -32,12 +32,15 @@ research items:
   form support: closure-free `on_change`, controlled input/select values,
   boolean property repair, post-order select reconciliation, and browser smoke
   coverage. Future ergonomic constructors remain gated in the research note.
+- Machine composition experiment: parent/child transitions, incarnation-safe
+  late results, stale/duplicate completion rejection, history, commands, and
+  aggregate `Program::stateful_cmd` all composed as ordinary pure reducers and
+  domain types. Accepted without a shared `Machine` type or per-key reactive
+  graph — see the
+  [Machine composition ADR](../../docs/decisions/2026-07-14-machine-composition-domain-functions.md).
 
 ## Agenda (no issue yet)
 
-- Machine composition evidence driver: test pure parent/child transitions,
-  incarnation-safe late results, and aggregate `Program::stateful_cmd`
-  integration before proposing a `Machine` type or per-key reactive graph.
 - Demo/fixture disentanglement: separate the `renderer_wbtest` #251 fixture
   from `browser_editor_demo.mbt`, then move both browser demos to the
   `examples/incr_tea` harness. Trigger and plan shape recorded in the

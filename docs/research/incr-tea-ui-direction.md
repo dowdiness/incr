@@ -209,13 +209,14 @@ separate API follow-up.
 7. **Advance the existing editor-shaped evidence.** The semantic-keyed editor
    demo from #251 already covers stable semantic ids, local text edits,
    selection/focus checks, a viewport/order projection root, and a separate
-   inspector/diagnostics root. The next question is pure parent/child
-   composition, add/remove/reorder, identity reuse, and stale-command
-   rejection. The completed
+   inspector/diagnostics root. The completed Machine composition experiment
+   covered pure parent/child composition, add/remove/reorder, identity reuse,
+   incarnation-safe late results, stale/duplicate completion rejection,
+   history, commands, and aggregate `Program::stateful_cmd`. The
    [Machine composition ADR](../decisions/2026-07-14-machine-composition-domain-functions.md)
-   confirmed the experiment without introducing a `Machine` type or per-key reactive graph. Keep the existing demo/renderer fixture coupling
-   unchanged until the module identity ADR's disentanglement trigger is
-   handled.
+   records the result: no `Machine` type or per-key reactive graph. Keep the
+   existing demo/renderer fixture coupling unchanged until the module identity
+   ADR's disentanglement trigger is handled.
 8. **Keep direct patching narrow and measured.** The #254 prototype shows that
    pure direct leaf/attribute descriptors plus mount-boundary watched string
    resolvers can patch the row/leaf hot path in ~4–5 µs at N=256 without
