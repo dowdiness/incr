@@ -7,8 +7,8 @@
 > in `plans/README.md` — unless a reviewer dispatched you and told you they
 > maintain the index.
 >
-> **Drift check (run first)**: `rtk git diff --stat 31afb08..HEAD -- incr/cells/datalog_relation.mbt incr/cells/datalog_map_relation.mbt incr/cells/datalog_rule.mbt incr/cells/datalog_lifecycle.mbt incr/cells/internal/kernel/fixpoint.mbt incr/cells/dispose_test.mbt incr/cells/datalog_wbtest.mbt docs/api-reference.mbt.md CHANGELOG.md plans/README.md`
-> If any in-scope file changed since this plan was written, compare the
+> **Drift check (run first)**: `rtk git diff --stat b42a44f..HEAD -- incr/cells/datalog_relation.mbt incr/cells/datalog_map_relation.mbt incr/cells/datalog_rule.mbt incr/cells/datalog_lifecycle.mbt incr/cells/internal/kernel/fixpoint.mbt incr/cells/dispose_test.mbt incr/cells/datalog_wbtest.mbt docs/api-reference.mbt.md CHANGELOG.md plans/README.md`
+> If any in-scope file changed since this plan was refreshed, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
 
@@ -19,7 +19,7 @@
 - **Risk**: MED
 - **Depends on**: none
 - **Category**: bug
-- **Planned at**: commit `31afb08`, 2026-07-13
+- **Planned at**: commit `b42a44f`, 2026-07-18 (refreshed after plans 001–004 landed; Datalog implementation and test excerpts remain unchanged)
 
 ## Why this matters
 
@@ -47,7 +47,11 @@ publishes already-disposed relation slots.
 - `incr/cells/internal/kernel/fixpoint.mbt` — semi-naive fixpoint loops.
 - `incr/cells/dispose_test.mbt` — black-box disposal contract tests.
 - `incr/cells/datalog_wbtest.mbt` — same-package white-box Datalog tests.
-- `docs/api-reference.mbt.md` and `CHANGELOG.md` — public behavior record.
+- `docs/api-reference.mbt.md` and `CHANGELOG.md` — public behavior record. At
+  refreshed HEAD, the Datalog/`MapRelation` section remains at lines 995–1002
+  without a lifecycle contract, while `CHANGELOG.md` already has an
+  `Unreleased` section. Extend those existing locations rather than creating a
+  second release section.
 
 `Runtime::new_rule` validates declaration IDs, then stores the caller-owned
 arrays directly (`incr/cells/datalog_rule.mbt:2-35`):
@@ -199,6 +203,30 @@ dispatch split documented in `docs/design/internals.md:467-469`: coordinator
 lifecycle logic stays in `incr/cells/`; the kernel remains one-way and must not
 import the top-level `cells` package.
 
+## Reuse check at refreshed HEAD
+
+- Reuse `Runtime::assert_rule_relation_id` for cross-runtime, bounds, and
+  relation-kind validation. It currently rejects `Disposed` through the generic
+  “not a Relation” branch; refine that existing validator with a role-specific
+  disposed diagnostic instead of duplicating its checks.
+- Reuse `Runtime::is_cell_disposed` in coordinator code and
+  `@kernel.is_cell_disposed` in fixpoint code. Keep disposal enforcement in the
+  existing `CellLifecycle` dispatch rather than adding a second typed-only path.
+- Reuse the existing `RuleData.input_relations` and `output_relations`; they are
+  sufficient lifecycle authority once snapshotted. Do not add a reverse map.
+- MoonBit core APIs checked: reuse `Array::copy` for defensive snapshots and
+  `Array::contains` for declaration-role classification. `Array::any` and
+  `Iter::find_first` are candidates for locating the first live declaring rule;
+  prefer them when the result remains clear, otherwise justify one direct
+  registration-order scan that computes the structured role once. Return
+  `Option` because absence is normal; `Result` is not an error boundary here.
+  `Map`/`HashMap` and `Set`/`HashSet` were checked but are intentionally unused
+  because a reverse index is outside scope.
+- The new private declaration-query helper remains necessary because no current
+  project API combines live-rule filtering, first-registration ordering, and
+  input/output/both classification. Its boundary is pure query only: explicit
+  state in, structured `Option` out, with no abort or mutation.
+
 ## Commands you will need
 
 | Purpose | Command | Expected on success |
@@ -268,10 +296,12 @@ runtime core/rule collection and a relation `CellId`, scans rules in registratio
 order, skips disposed rule cells, and returns the first matching result or
 `None`. It must not abort, mutate runtime state, or expose the rule arrays.
 
-At `Runtime::new_rule`, keep all current validation but explicitly reject an
-already-disposed relation after bounds validation with an abort message that
-names `input` or `output`. Store defensive `copy()` values of both validated
-declaration arrays in `RuleData`; never retain the caller's mutable arrays.
+At `Runtime::new_rule`, keep all current validation. The existing validator
+already rejects a `Disposed` slot through its generic “not a Relation” branch;
+refine it after bounds validation so the abort identifies the `input` or
+`output` role and says the cell is disposed before relation-kind matching.
+Store defensive `copy()` values of both validated declaration arrays in
+`RuleData`; never retain the caller's mutable arrays.
 
 Add white-box tests in `incr/cells/datalog_wbtest.mbt` that:
 
@@ -386,10 +416,10 @@ their `delta_iter` methods, and `Runtime::new_rule` so callers know:
 
 Extend the Datalog/MapRelation section of `docs/api-reference.mbt.md` with the
 same contract and a short teardown order example (`rt.dispose_rule(rule_id)`
-before relation disposal). Add a concise `Changed` or `Fixed` entry under a new
-or existing `Unreleased` section in `CHANGELOG.md`. State that disposal now
-rejects live declared rules; do not describe it as cascade disposal and do not
-add a release or issue number.
+before relation disposal). Add a concise `Changed` or `Fixed` entry under the
+existing `Unreleased` section in `CHANGELOG.md`. State that disposal now rejects
+live declared rules; do not describe it as cascade disposal and do not add a
+release or issue number.
 
 **Verify**: `rtk rg -n "dispose_rule|live rule|disposed|delta_iter|Unreleased" incr/cells/datalog_relation.mbt incr/cells/datalog_map_relation.mbt incr/cells/datalog_rule.mbt docs/api-reference.mbt.md CHANGELOG.md` → the implemented lifecycle and migration order are documented consistently.
 
