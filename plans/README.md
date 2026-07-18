@@ -16,7 +16,6 @@ instruction.
 | [001](001-reentrant-scope-disposal.md) | Make scope disposal re-entrant, ordered, and at-most-once | P1 | S | — | DONE |
 | [002](002-spreadsheet-workflow-paths.md) | Restore spreadsheet workflow coverage for shared-engine changes | P1 | S | — | DONE |
 | [003](003-controlled-dom-reconciliation.md) | Reconcile controlled DOM properties when virtual HTML is unchanged | P1 | M | — | DONE |
-| [005](005-datalog-relation-rule-lifecycle.md) | Enforce relation and rule lifecycle integrity in Datalog | P1 | M | — | TODO |
 | [006](006-ci-supply-chain-bootstrap.md) | Make CI bootstrap reproducible and pin third-party actions | P1 | M | 002 | TODO |
 
 Status values for executable plans: `TODO` | `IN PROGRESS` | `DONE` |
@@ -27,14 +26,6 @@ Status values for executable plans: `TODO` | `IN PROGRESS` | `DONE` |
 - Plan 006 follows plan 002 because both modify the spreadsheet workflows.
   Land the path-filter correction first, then harden action and installer
   references against the corrected files.
-- Plans 001 and 005 are independent of the renderer and CI tracks, but execute
-  them sequentially if they share `CHANGELOG.md` or `docs/api-reference.mbt.md`
-  in one worktree.
-- Plan 005 intentionally chooses the conservative lifecycle contract: live
-  rules pin declared relations and callers dispose rules first. Its STOP
-  conditions prevent an executor from inventing a public reverse-query API,
-  cascade policy, or Datalog redesign if that contract cannot be implemented
-  within existing private metadata.
 - Plan 006 must stop if the MoonBit vendor does not provide a stable artifact
   with independently verifiable provenance. A checksum calculated from the
   same mutable download channel is not an acceptable substitute.

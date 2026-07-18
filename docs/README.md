@@ -96,6 +96,7 @@ live in each ADR.
 | [2026-07-08](decisions/2026-07-08-evaluation-strategy-composition-contract.md) | Evaluation-strategy composition contract: purity axis, cross-engine legality table, two-chokepoint enforcement (phase guard + #368), fold reserved |
 | [2026-07-14](decisions/2026-07-14-retention-followup-tracks-gated.md) | Retention follow-up tracks (per-key Scope ownership, `KeyedInput` facade) stay gated — no consumer; investigate retained-volume cost (#399) first |
 | [2026-07-15](decisions/2026-07-15-incr-tea-controlled-form-properties.md) | Incremental TEA controlled form properties: closure-free values, post-order select repair, and explicit boolean control |
+| [2026-07-18](decisions/2026-07-18-datalog-relation-rule-lifecycle.md) | Datalog relation-rule lifecycle: live rules pin declared relations; relation disposal rejects rather than cascading; authority is declaration metadata only |
 
 ---
 
