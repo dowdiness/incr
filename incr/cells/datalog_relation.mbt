@@ -145,6 +145,10 @@ fn[T] Relation::record_read_dependency(self : Relation[T]) -> Unit {
 
 ///|
 /// Disposes this relation, clearing its fact sets and marking it as Disposed.
+///
+/// A live rule pins every declared input and output relation. Disposal aborts
+/// until those rules are disposed. Repeated disposal is a no-op after the
+/// relation is disposed; all current and delta reads abort after disposal.
 pub fn[T] Relation::dispose(self : Relation[T]) -> Unit {
   self.rt.dispose_cell(self.cell_id)
   self.current.val.clear()
@@ -162,7 +166,10 @@ pub fn[T] Relation::is_disposed(self : Relation[T]) -> Bool {
 /// Iterates over the delta set (new facts not yet drained to current).
 ///
 /// Used by rule bodies to read only the new facts produced in the previous
-/// fixpoint iteration.
+/// fixpoint iteration. All relation reads abort after disposal.
 pub fn[T] Relation::delta_iter(self : Relation[T]) -> Iter[T] {
+  guard !self.rt.is_cell_disposed(self.cell_id) else {
+    abort("Relation::delta_iter called on a disposed relation")
+  }
   self.delta.val.iter()
 }

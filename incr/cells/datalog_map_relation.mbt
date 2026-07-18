@@ -223,6 +223,10 @@ fn[K, V] MapRelation::record_read_dependency(self : MapRelation[K, V]) -> Unit {
 ///|
 /// Disposes this map relation, clearing its maps and marking it as
 /// Disposed.
+///
+/// A live rule pins every declared input and output relation. Disposal aborts
+/// until those rules are disposed. Repeated disposal is a no-op after the map
+/// relation is disposed; all current and delta reads abort after disposal.
 pub fn[K, V] MapRelation::dispose(self : MapRelation[K, V]) -> Unit {
   self.rt.dispose_cell(self.cell_id)
   self.current.val.clear()
@@ -242,7 +246,10 @@ pub fn[K, V] MapRelation::is_disposed(self : MapRelation[K, V]) -> Bool {
 /// Iterates over the delta set (new/updated entries not yet drained to current).
 ///
 /// Used by rule bodies to read only the new entries produced in the previous
-/// fixpoint iteration.
+/// fixpoint iteration. All map relation reads abort after disposal.
 pub fn[K, V] MapRelation::delta_iter(self : MapRelation[K, V]) -> Iter[(K, V)] {
+  guard !self.rt.is_cell_disposed(self.cell_id) else {
+    abort("MapRelation::delta_iter called on a disposed map relation")
+  }
   self.delta.val.iter()
 }

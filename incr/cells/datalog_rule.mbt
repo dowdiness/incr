@@ -1,4 +1,47 @@
 ///|
+priv enum RuleDeclarationRole {
+  InputOnly
+  OutputOnly
+  InputAndOutput
+}
+
+///|
+priv struct LiveRuleDeclaration {
+  rule_id : CellId
+  role : RuleDeclarationRole
+}
+
+///|
+fn find_live_rule_declaration(
+  core : RuntimeCore,
+  rules : Array[RuleData],
+  relation_id : CellId,
+) -> LiveRuleDeclaration? {
+  for rule in rules {
+    guard !@kernel.is_cell_disposed(core, rule.meta.cell_id) else { continue }
+    let is_input = rule.input_relations.contains(relation_id)
+    let is_output = rule.output_relations.contains(relation_id)
+    if is_input || is_output {
+      let role = if is_input && is_output {
+        InputAndOutput
+      } else if is_input {
+        InputOnly
+      } else {
+        OutputOnly
+      }
+      return Some({ rule_id: rule.meta.cell_id, role })
+    }
+  }
+  None
+}
+
+///|
+/// Registers a Datalog rule over declared input and output relations.
+///
+/// The declaration arrays are snapshotted. A live rule pins every relation it
+/// declares, so dispose each declaring rule before disposing those relations.
+/// Panics if a declared cell belongs to another runtime, is disposed, or is
+/// not a relation.
 pub fn Runtime::new_rule(
   self : Runtime,
   input_relations : Array[CellId],
@@ -24,8 +67,8 @@ pub fn Runtime::new_rule(
       push_reachable_count: 0,
     },
     apply_delta,
-    input_relations,
-    output_relations,
+    input_relations: input_relations.copy(),
+    output_relations: output_relations.copy(),
   }
   self.datalog.rules.push(data)
   let ops : &CellOps = self.datalog.rules[idx]
@@ -61,6 +104,13 @@ fn Runtime::assert_rule_relation_id(
   }
   match self.core.cell_index[id.id] {
     Relation(_) | FunctionalRelation(_) => ()
+    Disposed =>
+      abort(
+        "new_rule: " +
+        role +
+        " relation cell_id is disposed: " +
+        id.id.to_string(),
+      )
     _ =>
       abort(
         "new_rule: " + role + " cell_id is not a Relation: " + id.id.to_string(),

@@ -6,6 +6,9 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ### Fixed
 
+- Datalog relation disposal now rejects live rules that declare the relation;
+  dispose those rules first, and all current and delta relation reads reject
+  disposed handles.
 - Made `Program` mount ownership global across renderer instances, preventing
   premature shared-program disposal. Destroying a non-final root releases only
   that root's scheduler registration; explicit `Program::dispose()` and the

@@ -57,6 +57,89 @@ test "panic new_rule: output relation from another runtime aborts" {
 }
 
 ///|
+test "new_rule: classifies declaration roles" {
+  let rt = Runtime::Runtime()
+  let input_only : Relation[Int] = Relation::Relation(rt)
+  let output_only : Relation[Int] = Relation::Relation(rt)
+  let both : Relation[Int] = Relation::Relation(rt)
+  let input_only_rule = rt.new_rule([input_only.id()], [], () => ())
+  let output_only_rule = rt.new_rule([], [output_only.id()], () => ())
+  let both_rule = rt.new_rule([both.id()], [both.id()], () => ())
+
+  match find_live_rule_declaration(rt.core, rt.datalog.rules, input_only.id()) {
+    Some(declaration) => {
+      assert_eq(declaration.rule_id, input_only_rule.id)
+      assert_true(declaration.role is InputOnly)
+    }
+    None => abort("expected input declaration")
+  }
+  match
+    find_live_rule_declaration(rt.core, rt.datalog.rules, output_only.id()) {
+    Some(declaration) => {
+      assert_eq(declaration.rule_id, output_only_rule.id)
+      assert_true(declaration.role is OutputOnly)
+    }
+    None => abort("expected output declaration")
+  }
+  match find_live_rule_declaration(rt.core, rt.datalog.rules, both.id()) {
+    Some(declaration) => {
+      assert_eq(declaration.rule_id, both_rule.id)
+      assert_true(declaration.role is InputAndOutput)
+    }
+    None => abort("expected both declaration")
+  }
+}
+
+///|
+test "new_rule: declaration query skips disposed rules in registration order" {
+  let rt = Runtime::Runtime()
+  let relation : Relation[Int] = Relation::Relation(rt)
+  let first = rt.new_rule([relation.id()], [], () => ())
+  let second = rt.new_rule([relation.id()], [], () => ())
+  rt.dispose_rule(first)
+  match find_live_rule_declaration(rt.core, rt.datalog.rules, relation.id()) {
+    Some(declaration) => assert_eq(declaration.rule_id, second.id)
+    None => abort("expected later live declaration")
+  }
+  rt.dispose_rule(second)
+  assert_true(
+    find_live_rule_declaration(rt.core, rt.datalog.rules, relation.id()) is None,
+  )
+}
+
+///|
+test "new_rule: declaration arrays are snapshotted" {
+  let rt = Runtime::Runtime()
+  let input : Relation[Int] = Relation::Relation(rt)
+  let output : Relation[Int] = Relation::Relation(rt)
+  let input_ids = [input.id()]
+  let output_ids = [output.id()]
+  rt.new_rule(input_ids, output_ids, () => ()) |> ignore
+  input_ids.clear()
+  output_ids.clear()
+  assert_eq(rt.datalog.rules[0].input_relations.length(), 1)
+  assert_eq(rt.datalog.rules[0].output_relations.length(), 1)
+  assert_true(rt.datalog.rules[0].input_relations.contains(input.id()))
+  assert_true(rt.datalog.rules[0].output_relations.contains(output.id()))
+}
+
+///|
+test "panic new_rule: disposed input relation aborts" {
+  let rt = Runtime::Runtime()
+  let input : Relation[Int] = Relation::Relation(rt)
+  input.dispose()
+  rt.new_rule([input.id()], [], () => ()) |> ignore
+}
+
+///|
+test "panic new_rule: disposed output relation aborts" {
+  let rt = Runtime::Runtime()
+  let output : MapRelation[Int, String] = MapRelation::MapRelation(rt)
+  output.dispose()
+  rt.new_rule([], [output.id()], () => ()) |> ignore
+}
+
+///|
 test "relation: iter reads from current (post-fixpoint)" {
   let rt = Runtime::Runtime()
   let rel : Relation[Int] = Relation::Relation(rt)
@@ -319,4 +402,28 @@ test "fixpoint: push EagerDerived downstream of Relation recomputes before on_ch
   // The reactive must have been recomputed (via push propagation) before
   // on_change fired, so the callback saw the new value.
   inspect(reactive_val_at_callback, content="7")
+}
+
+///|
+test "fixpoint: disposed relation frontier is skipped" {
+  let rt = Runtime::Runtime()
+  let rel : Relation[Int] = Relation::Relation(rt)
+  rel.dispose()
+  rel.delta.val.add(42)
+  let changed_ids = @kernel.run_fixpoint(rt.core, rt.datalog)
+  assert_false(changed_ids.contains(rel.id()))
+  assert_true(rel.delta.val.contains(42))
+  assert_false(rel.current.val.contains(42))
+}
+
+///|
+test "fixpoint: disposed map relation frontier is skipped" {
+  let rt = Runtime::Runtime()
+  let rel : MapRelation[String, Int] = MapRelation::MapRelation(rt)
+  rel.dispose()
+  rel.delta.val.set("injected", 42)
+  let changed_ids = @kernel.run_fixpoint(rt.core, rt.datalog)
+  assert_false(changed_ids.contains(rel.id()))
+  assert_true(rel.delta.val.get("injected") is Some(42))
+  assert_true(rel.current.val.get("injected") is None)
 }

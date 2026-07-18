@@ -992,13 +992,26 @@ The old standalone pipeline traits (`Sourceable`, `Parseable`, `Checkable`, `Exe
 
 ---
 
-## MapRelation[K, V]
+## Relation[T] and MapRelation[K, V]
 
-`MapRelation[K, V]` is the Datalog map-relation facade. It keeps the same
-Datalog map behavior: `insert` stages key-value changes,
-`get` and `iter` read the current materialized map, and `delta_iter` reads the
-current frontier during fixpoint rules. The checked companion covers staged
-inserts, delta reads, and materialized reads after `Runtime::fixpoint` in
+`Relation[T]` and `MapRelation[K, V]` are Datalog relation facades. Inserts
+stage changes; `contains`/`get` and `iter` read materialized state, while
+`delta_iter` reads the current frontier during fixpoint rules. All current and
+delta reads abort after disposal.
+
+`Runtime::new_rule` snapshots its input and output declaration arrays. A live
+rule pins every relation it declares as an input, output, or both. Relation
+disposal rejects a live declaration rather than cascading into the rule;
+dispose every declaring rule first. For example:
+
+```moonbit nocheck
+rt.dispose_rule(rule_id)
+relation.dispose()
+```
+
+After all declaring rules are disposed, relation disposal is allowed and
+remains idempotent. The checked companion covers staged inserts, delta reads,
+and materialized reads after `Runtime::fixpoint` in
 [`api_reference_examples.mbt.md`](api_reference_examples.mbt.md).
 
 ---
