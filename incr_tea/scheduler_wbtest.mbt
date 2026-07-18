@@ -330,6 +330,134 @@ test "scheduler: Cmd::after_flush can enqueue follow-up messages" {
 }
 
 ///|
+test "program mount registration transition releases exactly one id" {
+  let registrations : Array[ProgramMountRegistration] = [
+    { id: 7, schedule: () => () },
+    { id: 8, schedule: () => () },
+  ]
+  let (after_first, found_first, last_first) = release_program_mount(
+    registrations, 7,
+  )
+  inspect(found_first, content="true")
+  inspect(last_first, content="false")
+  debug_inspect(after_first.map(registration => registration.id), content="[8]")
+
+  let (after_unknown, found_unknown, last_unknown) = release_program_mount(
+    after_first, 99,
+  )
+  inspect(found_unknown, content="false")
+  inspect(last_unknown, content="false")
+  debug_inspect(
+    after_unknown.map(registration => registration.id),
+    content="[8]",
+  )
+
+  let (after_last, found_last, last_last) = release_program_mount(
+    after_first, 8,
+  )
+  inspect(found_last, content="true")
+  inspect(last_last, content="true")
+  inspect(after_last.length(), content="0")
+
+  let (after_duplicate, found_duplicate, last_duplicate) = release_program_mount(
+    after_last, 8,
+  )
+  inspect(found_duplicate, content="false")
+  inspect(last_duplicate, content="false")
+  inspect(after_duplicate.length(), content="0")
+}
+
+///|
+test "scheduler: dispose abandons pending messages and after-flush callbacks" {
+  let runtime = @incr.Runtime()
+  let scope = @incr.Scope::new(runtime)
+  let count = scope.input_field(0, label="scheduler.dispose.pending.count")
+  let title = scope.input_field("Cmd", label="scheduler.dispose.pending.title")
+  let events : Ref[Array[String]] = Ref([])
+  let update : (SchedulerMsg) -> Cmd[SchedulerMsg] = _ => {
+    Cmd::effect(_ => events.val.push("executed"))
+  }
+  let view : () -> SchedulerView raise Failure = () => {
+    count: count.get(),
+    title: title.get(),
+  }
+  let program = Program::Program(
+    runtime,
+    scope,
+    update,
+    view,
+    label="scheduler.dispose.pending.view",
+  )
+  program.messages.push(Start)
+  program.after_flush.push(_ => events.val.push("after-flush"))
+
+  program.dispose()
+  inspect(program.messages.length(), content="0")
+  inspect(program.after_flush.length(), content="0")
+  inspect(events.val.join(","), content="")
+  inspect(program.dispatch(Start), content="false")
+  program.drain_after_flush()
+  inspect(events.val.join(","), content="")
+  program.dispose()
+}
+
+///|
+test "scheduler: reentrant dispose prevents queued follow-up work" {
+  let runtime = @incr.Runtime()
+  let scope = @incr.Scope::new(runtime)
+  let count = scope.input_field(0, label="scheduler.dispose.reentrant.count")
+  let title = scope.input_field(
+    "Cmd",
+    label="scheduler.dispose.reentrant.title",
+  )
+  let events : Ref[Array[String]] = Ref([])
+  let program_ref : Ref[Program[SchedulerMsg, SchedulerView]?] = Ref(None)
+  let subscriptions : () -> Subscriptions[SchedulerMsg] raise Failure = () => {
+    @hashmap.HashMap([])
+  }
+  let update : (SchedulerMsg) -> Cmd[SchedulerMsg] = msg => {
+    match msg {
+      Start =>
+        Cmd::batch([
+          Cmd::message(FollowUp),
+          Cmd::effect(_ => {
+            match program_ref.val {
+              Some(program) => program.dispose()
+              None => ()
+            }
+          }),
+        ])
+      FollowUp => {
+        events.val.push("follow-up")
+        Cmd::none()
+      }
+      _ => Cmd::none()
+    }
+  }
+  let view : () -> SchedulerView raise Failure = () => {
+    count: count.get(),
+    title: title.get(),
+  }
+  let program = Program::with_subscriptions(
+    runtime,
+    scope,
+    update,
+    view,
+    subscriptions,
+    label="scheduler.dispose.reentrant.view",
+  )
+  program_ref.val = Some(program)
+
+  inspect(program.dispatch(Start), content="true")
+  inspect(events.val.join(","), content="")
+  inspect(program.messages.length(), content="0")
+  inspect(program.is_draining, content="false")
+  debug_inspect(program.read_view(), content="None")
+  inspect(program.dispatch(FollowUp), content="false")
+  program.dispose()
+}
+
+///|
 test "scheduler: batched model writes remain atomic from view perspective" {
   let runtime = @incr.Runtime()
   let scope = @incr.Scope::new(runtime)

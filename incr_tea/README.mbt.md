@@ -42,6 +42,14 @@ public boundary. After disposal, `is_disposed()` returns `true`, dispatch
 returns `false`, and view/model getters return `None` instead of exposing
 disposed-cell aborts.
 
+A `Program` may be mounted into multiple roots and multiple renderer instances
+on the same runtime. Every mounted or detached root keeps one program-owned
+mount registration alive: detach preserves ownership, while `destroy()` and
+renderer `dispose()` release that root's registration. The final global release
+disposes the program. Explicit `Program::dispose()` abandons pending messages
+and after-flush callbacks; remaining roots stay inert until their renderer
+tears them down.
+
 The browser renderer keeps DOM detachment and component disposal separate
 (#209). `BrowserRenderer::detach` removes a root's DOM subtree but keeps its
 `Program` scope and watch alive, parking the root so a flush skips it; the
@@ -51,10 +59,10 @@ with its state preserved, and `dispose` reclaims it rather than leaking it.
 root remains mounted and attached, with the same `Program` and view `Watch`, but
 scheduled flushes skip `root.flush()` until `BrowserRenderer::activate` performs
 one catch-up flush. `BrowserRenderer::destroy` is the logical teardown: it tears
-down the DOM and disposes the program scope when no sibling root still
-references it, so destroying one of several mounts of a shared component leaves
-the others working. Only `destroy` (and `dispose`, which destroys every owned
-root, mounted or parked) touches the scope.
+down the DOM and releases that root's mount registration. The final global
+registration disposes the program, so destroying one of several mounts of a
+shared component leaves the others working. Only `destroy` (and `dispose`, which
+destroys every owned root, mounted or parked) touches the scope.
 
 While the component instance is alive, the persistent `Watch` keeps the view
 chain reachable across `Runtime::gc()`. After disposal, the scope and watch are
@@ -79,9 +87,11 @@ phase. `Program` stores these callbacks outside cacheable `Html`, and
 `BrowserRenderer` drains active mounted roots after `root.flush()` has rendered
 or diffed the DOM. If a program has no active mounted root, its callbacks wait
 until activation's catch-up flush; callbacks are still program-scoped when one
-`Program` backs multiple roots. This is the boundary for DOM work that needs
-nodes created by the current patch, such as focusing and selecting an inline
-editor:
+`Program` backs multiple roots. Explicit `Program::dispose()` abandons queued
+messages and after-flush callbacks without executing them; roots that outlive
+that call remain inert until their renderer releases them. This is the boundary
+for DOM work that needs nodes created by the current patch, such as focusing and
+selecting an inline editor:
 
 ```mbt nocheck
 ///|

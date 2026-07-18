@@ -6,6 +6,7 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ### Fixed
 
+- Made `Program` mount ownership global across renderer instances, preventing premature shared-program disposal and releasing per-root scheduler registrations and queued commands on destroy/dispose.
 - Closed scopes before invoking disposal effects so `Scope::dispose()` is re-entrant safe.
   Re-entering `dispose()` from child or parent hooks now returns immediately, while
   preserving the teardown order as **children -> hooks -> owned cells**.

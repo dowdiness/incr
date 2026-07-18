@@ -405,6 +405,17 @@ extern "js" fn test_fake_host() -> DomElement =
 
 ///|
 #cfg(target="js")
+fn[Msg] test_registered_root(
+  renderer : BrowserRenderer[Msg],
+  program : Program[Msg, Html[Msg]],
+  host : DomElement,
+) -> BrowserRoot[Msg] {
+  let mount_handle = program.register_mount(() => ())
+  BrowserRoot::BrowserRoot(program, host, renderer.stats(), mount_handle)
+}
+
+///|
+#cfg(target="js")
 extern "js" fn test_event_element() -> DomElement =
   #| () => {
   #|   const listeners = new Map();
@@ -419,6 +430,11 @@ extern "js" fn test_event_element() -> DomElement =
   #|     },
   #|   };
   #| }
+
+///|
+#cfg(target="js")
+extern "js" fn test_fresh_host() -> DomElement =
+  #| () => document.createElement("host")
 
 ///|
 #cfg(target="js")
@@ -1714,11 +1730,7 @@ test "#209: BrowserRenderer::destroy disposes the root's program and drops it fr
   let program = renderer_counter_program(runtime, "destroy.root")
   // Register a root directly (rendered = None) as mount() would, minus the DOM
   // flush that needs a real browser.
-  let root = BrowserRoot::BrowserRoot(
-    program,
-    test_fake_host(),
-    renderer.stats(),
-  )
+  let root = test_registered_root(renderer, program, test_fake_host())
   renderer.roots.push(root)
   renderer.view_ids.val.push(program.view_id())
 
@@ -1739,11 +1751,7 @@ test "#209: BrowserRenderer::detach drops the root from the flush set but keeps 
     runtime,
   )
   let program = renderer_counter_program(runtime, "detach.root")
-  let root = BrowserRoot::BrowserRoot(
-    program,
-    test_fake_host(),
-    renderer.stats(),
-  )
+  let root = test_registered_root(renderer, program, test_fake_host())
   renderer.roots.push(root)
   renderer.view_ids.val.push(program.view_id())
 
@@ -1766,11 +1774,7 @@ test "#209: destroy reclaims a detached (parked) root's program" {
     runtime,
   )
   let program = renderer_counter_program(runtime, "destroy.parked")
-  let root = BrowserRoot::BrowserRoot(
-    program,
-    test_fake_host(),
-    renderer.stats(),
-  )
+  let root = test_registered_root(renderer, program, test_fake_host())
   renderer.roots.push(root)
   renderer.view_ids.val.push(program.view_id())
 
@@ -1793,11 +1797,7 @@ test "#209: dispose reclaims detached roots, not just mounted ones" {
     runtime,
   )
   let program = renderer_counter_program(runtime, "dispose.parked")
-  let root = BrowserRoot::BrowserRoot(
-    program,
-    test_fake_host(),
-    renderer.stats(),
-  )
+  let root = test_registered_root(renderer, program, test_fake_host())
   renderer.roots.push(root)
   renderer.detach(root)
   inspect(program.is_disposed(), content="false")
@@ -1817,12 +1817,8 @@ test "#209: BrowserRenderer::dispose destroys every mounted root" {
   )
   let a = renderer_counter_program(runtime, "dispose.all.a")
   let b = renderer_counter_program(runtime, "dispose.all.b")
-  renderer.roots.push(
-    BrowserRoot::BrowserRoot(a, test_fake_host(), renderer.stats()),
-  )
-  renderer.roots.push(
-    BrowserRoot::BrowserRoot(b, test_fake_host(), renderer.stats()),
-  )
+  renderer.roots.push(test_registered_root(renderer, a, test_fake_host()))
+  renderer.roots.push(test_registered_root(renderer, b, test_fake_host()))
 
   renderer.dispose()
   inspect(a.is_disposed(), content="true")
@@ -1839,16 +1835,8 @@ test "#209: detach removes only the targeted root, leaving siblings mounted" {
   )
   let prog_a = renderer_counter_program(runtime, "detach.sibling.a")
   let prog_b = renderer_counter_program(runtime, "detach.sibling.b")
-  let root_a = BrowserRoot::BrowserRoot(
-    prog_a,
-    test_fake_host(),
-    renderer.stats(),
-  )
-  let root_b = BrowserRoot::BrowserRoot(
-    prog_b,
-    test_fake_host(),
-    renderer.stats(),
-  )
+  let root_a = test_registered_root(renderer, prog_a, test_fake_host())
+  let root_b = test_registered_root(renderer, prog_b, test_fake_host())
   renderer.roots.push(root_a)
   renderer.roots.push(root_b)
   renderer.view_ids.val.push(prog_a.view_id())
@@ -1878,11 +1866,7 @@ test "#268: destroy ignores roots owned by another renderer" {
     runtime,
   )
   let program = renderer_counter_program(runtime, "destroy.foreign")
-  let root = BrowserRoot::BrowserRoot(
-    program,
-    test_fake_host(),
-    renderer_b.stats(),
-  )
+  let root = test_registered_root(renderer_b, program, test_fake_host())
   renderer_b.roots.push(root)
   renderer_b.view_ids.val.push(program.view_id())
 
@@ -1908,16 +1892,8 @@ test "#209: destroy keeps a shared Program alive while another root still render
   )
   // The same Program backs two mounted roots (e.g. mounted into two hosts).
   let program = renderer_counter_program(runtime, "destroy.shared")
-  let root_a = BrowserRoot::BrowserRoot(
-    program,
-    test_fake_host(),
-    renderer.stats(),
-  )
-  let root_b = BrowserRoot::BrowserRoot(
-    program,
-    test_fake_host(),
-    renderer.stats(),
-  )
+  let root_a = test_registered_root(renderer, program, test_fake_host())
+  let root_b = test_registered_root(renderer, program, test_fake_host())
   renderer.roots.push(root_a)
   renderer.roots.push(root_b)
   renderer.view_ids.val.push(program.view_id())
@@ -1933,6 +1909,138 @@ test "#209: destroy keeps a shared Program alive while another root still render
   inspect(renderer.roots.length(), content="0")
   inspect(program.is_disposed(), content="true")
   inspect(renderer.view_ids.val.length(), content="0")
+}
+
+///|
+#cfg(target="js")
+test "global mounts: destroying renderer A keeps renderer B operational" {
+  let host = test_install_focus_dom()
+  let runtime = @incr.Runtime()
+  let renderer_a : BrowserRenderer[RendererMsg] = BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  let renderer_b : BrowserRenderer[RendererMsg] = BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  let program = renderer_counter_program(runtime, "global.destroy")
+  let root_a = renderer_a.mount(host, program)
+  let root_b = renderer_b.mount(test_fresh_host(), program)
+
+  renderer_a.destroy(root_a)
+  renderer_a.dispose()
+  inspect(program.is_disposed(), content="false")
+  inspect(renderer_b.roots.length(), content="1")
+  inspect(program.dispatch(Increment), content="true")
+  test_run_next_raf()
+  inspect(test_dom_text(root_b.host), content="count=1+")
+
+  renderer_b.destroy(root_b)
+  inspect(program.is_disposed(), content="true")
+  renderer_a.dispose()
+  renderer_b.dispose()
+  test_restore_dom()
+}
+
+///|
+#cfg(target="js")
+test "global mounts: renderer dispose leaves a foreign renderer alive" {
+  let host = test_install_focus_dom()
+  let runtime = @incr.Runtime()
+  let renderer_a : BrowserRenderer[RendererMsg] = BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  let renderer_b : BrowserRenderer[RendererMsg] = BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  let program = renderer_counter_program(runtime, "global.dispose")
+  let root_b = renderer_b.mount(test_fresh_host(), program)
+  renderer_a.mount(host, program) |> ignore
+
+  renderer_a.dispose()
+  inspect(program.is_disposed(), content="false")
+  inspect(program.dispatch(Increment), content="true")
+  renderer_b.flush_all()
+  inspect(test_dom_text(root_b.host), content="count=1+")
+
+  renderer_b.dispose()
+  inspect(program.is_disposed(), content="true")
+  renderer_b.dispose()
+  test_restore_dom()
+}
+
+///|
+#cfg(target="js")
+test "global mounts: detached foreign root retains ownership until destroy" {
+  let host = test_install_focus_dom()
+  let runtime = @incr.Runtime()
+  let renderer_a : BrowserRenderer[RendererMsg] = BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  let renderer_b : BrowserRenderer[RendererMsg] = BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  let program = renderer_counter_program(runtime, "global.detach")
+  let root_a = renderer_a.mount(host, program)
+  let root_b = renderer_b.mount(test_fresh_host(), program)
+
+  renderer_b.detach(root_b)
+  renderer_a.destroy(root_a)
+  inspect(program.is_disposed(), content="false")
+  renderer_b.reattach(root_b)
+  inspect(program.dispatch(Increment), content="true")
+  renderer_b.flush_all()
+  inspect(test_dom_text(root_b.host), content="count=1+")
+
+  renderer_b.destroy(root_b)
+  inspect(program.is_disposed(), content="true")
+  renderer_a.dispose()
+  renderer_b.dispose()
+  test_restore_dom()
+}
+
+///|
+#cfg(target="js")
+test "global mounts: destroying one root leaves one after-flush scheduler" {
+  let host = test_install_focus_dom()
+  let runtime = @incr.Runtime()
+  let scope = @incr.Scope::new(runtime)
+  let events : Ref[Array[String]] = Ref([])
+  let update : (RendererMsg) -> Cmd[RendererMsg] = _ => {
+    Cmd::after_flush(_ => events.val.push("after"))
+  }
+  let view : () -> Html[RendererMsg] raise Failure = () => div([text("stable")])
+  let program = Program::Program(
+    runtime,
+    scope,
+    update,
+    view,
+    label="global.after_flush.view",
+  )
+  let renderer_a : BrowserRenderer[RendererMsg] = BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  let renderer_b : BrowserRenderer[RendererMsg] = BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  let root_a = renderer_a.mount(host, program)
+  let root_b = renderer_b.mount(test_fresh_host(), program)
+
+  renderer_a.destroy(root_a)
+  inspect(program.dispatch(Increment), content="true")
+  inspect(test_pending_raf_count(), content="1")
+  test_run_next_raf()
+  inspect(events.val.join(","), content="after")
+
+  inspect(program.dispatch(Increment), content="true")
+  inspect(test_pending_raf_count(), content="1")
+  renderer_b.destroy(root_b)
+  inspect(program.mount_registrations.length(), content="0")
+  inspect(program.after_flush.length(), content="0")
+  inspect(events.val.join(","), content="after")
+  test_run_next_raf()
+  inspect(events.val.join(","), content="after")
+  inspect(program.is_disposed(), content="true")
+  test_restore_dom()
 }
 
 ///|
