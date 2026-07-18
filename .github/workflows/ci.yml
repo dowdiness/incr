@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
       # Install via the official MoonBit script (pinned) wrapped in a retry.
       # We deliberately do NOT use hustcer/setup-moonbit: it pulls a Nu binary
@@ -78,7 +78,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
       # Install via the official MoonBit script (pinned) wrapped in a retry.
       # We deliberately do NOT use hustcer/setup-moonbit: it pulls a Nu binary
@@ -133,7 +133,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
       - name: Engine isolation invariants (incr/cells/internal)
         run: bash scripts/check-engine-isolation.sh
@@ -155,7 +155,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
       - name: Verify TEA inactive-root cohort ratios
         run: |
@@ -213,7 +213,7 @@ jobs:
             args: '--target js'
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
       # See the library job for why we use the official script (issue #229) and
       # the pin rationale (issue #227).
@@ -266,7 +266,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
       - name: Install MoonBit
         env:
@@ -315,7 +315,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
       # See the library job for why we use the official script (issue #229) and
       # the pin rationale (issue #227).

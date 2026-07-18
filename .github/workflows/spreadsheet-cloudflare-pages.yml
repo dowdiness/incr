@@ -33,10 +33,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
       - name: Install MoonBit
-        uses: hustcer/setup-moonbit@v1.22
+        uses: hustcer/setup-moonbit@9199da0ab63ea0c0bab1dc15f03d76e17ed4f75f # v1.22
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
@@ -47,7 +47,7 @@ jobs:
         run: moon update
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24
           cache: npm
@@ -66,7 +66,7 @@ jobs:
         run: npm run smoke
 
       - name: Upload Pages artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: typed-spreadsheet-pages-dist
           path: examples/typed_spreadsheet_rabbita_demo/dist
@@ -79,10 +79,10 @@ jobs:
     environment: cloudflare-pages
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
       - name: Download Pages artifact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: typed-spreadsheet-pages-dist
           path: examples/typed_spreadsheet_rabbita_demo/dist
@@ -107,7 +107,7 @@ jobs:
           fi
 
       - name: Deploy to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v4
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
