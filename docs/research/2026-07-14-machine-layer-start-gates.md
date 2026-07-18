@@ -6,7 +6,7 @@
 criteria; it does not authorize a new `Machine` type or an `incr` API.
 
 **Completed experiment:**
-[Machine composition implementation report](2026-07-14-machine-composition-implementation-report.md).
+[Machine composition remains domain-level pure functions](../decisions/2026-07-14-machine-composition-domain-functions.md).
 
 **Core dependency:**
 [Bonsai-informed `incr` core direction](2026-07-14-bonsai-informed-incr-core-direction.md).
@@ -23,7 +23,7 @@ criteria; it does not authorize a new `Machine` type or an `incr` API.
 | State | Work |
 |---|---|
 | Existing | Pure `update` functions, `Cmd`, `Program::stateful`, `Program::stateful_cmd`, Scope-owned watched views, semantic-keyed editor and typed-spreadsheet drivers |
-| Completed experiment | Pure parent/child composition, semantic identity, add/remove/reorder, and stale-command rejection on one aggregate Program graph. See [implementation report](2026-07-14-machine-composition-implementation-report.md) and [aggregate evidence](../performance/2026-07-14-machine-composition-evidence.md) |
+| Completed experiment | Pure parent/child composition, semantic identity, add/remove/reorder, and stale-command rejection on one aggregate Program graph. See [Machine composition ADR](../decisions/2026-07-14-machine-composition-domain-functions.md) and [aggregate evidence](../performance/2026-07-14-machine-composition-evidence.md) |
 | Completed core evidence | #399 attribution complete; slot-reclamation/compaction no-go. Retention benchmarks remain regression evidence. |
 | Conditional experiment | Per-key reactive subgraphs, only if the aggregate driver misses a measured locality or lifetime target |
 | Not commissioned | A public `Machine` type, core keyed facade, detachable child Scopes, generative-UI runtime |
@@ -82,7 +82,7 @@ another state container.
 
 ## Stage A: aggregate composition evidence
 
-**Status:** Completed. See [implementation report](2026-07-14-machine-composition-implementation-report.md) and [aggregate performance evidence](../performance/2026-07-14-machine-composition-evidence.md).
+**Status:** Completed. See [Machine composition ADR](../decisions/2026-07-14-machine-composition-domain-functions.md) and [aggregate performance evidence](../performance/2026-07-14-machine-composition-evidence.md).
 
 **Core dependency:** satisfied by the current API.
 
@@ -118,7 +118,7 @@ inside `incr`.
 
 ## Stage B: decide whether an abstraction is missing
 
-**Status:** Completed. No shared Machine abstraction is needed; see [abstraction decision](2026-07-14-machine-composition-abstraction-decision.md).
+**Status:** Completed. No shared Machine abstraction is needed; see [Machine composition ADR](../decisions/2026-07-14-machine-composition-domain-functions.md).
 
 Prefer functions and small domain types. Propose a `Machine` type only if at
 least two application-shaped drivers actually exercise the same pure
