@@ -24,7 +24,7 @@ and [retention follow-up ADR](decisions/2026-07-14-retention-followup-tracks-gat
 Completed work, superseded proposals, driver-gated investigations, and speculative tracks are intentionally absent from this document. They remain recoverable through:
 
 - **ADRs**: [`docs/decisions/`](decisions/) — architectural decisions and their rationale
-- **Plans**: [`docs/plans/`](plans/) — concrete implementation records
+- **Plans**: [`plans/`](../plans/) — concrete implementation records
 - **Issues**: GitHub issue tracker — open and closed issues
 - **Git history**: commit log — all historical work and decisions
 
