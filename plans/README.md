@@ -16,7 +16,6 @@ instruction.
 | [001](001-reentrant-scope-disposal.md) | Make scope disposal re-entrant, ordered, and at-most-once | P1 | S | — | DONE |
 | [002](002-spreadsheet-workflow-paths.md) | Restore spreadsheet workflow coverage for shared-engine changes | P1 | S | — | DONE |
 | [003](003-controlled-dom-reconciliation.md) | Reconcile controlled DOM properties when virtual HTML is unchanged | P1 | M | — | DONE |
-| [004](004-program-renderer-lifecycle.md) | Make shared Program mount ownership and scheduler teardown global | P1 | M | 003 | DONE |
 | [005](005-datalog-relation-rule-lifecycle.md) | Enforce relation and rule lifecycle integrity in Datalog | P1 | M | — | TODO |
 | [006](006-ci-supply-chain-bootstrap.md) | Make CI bootstrap reproducible and pin third-party actions | P1 | M | 002 | TODO |
 
@@ -25,10 +24,6 @@ Status values for executable plans: `TODO` | `IN PROGRESS` | `DONE` |
 
 ## Dependency notes
 
-- Plan 004 follows plan 003 because both modify `incr_tea/renderer_js.mbt`,
-  renderer lifecycle tests, documentation, and the changelog. The dependency is
-  for drift/conflict control; the ownership fix is not semantically dependent
-  on controlled-property reconciliation.
 - Plan 006 follows plan 002 because both modify the spreadsheet workflows.
   Land the path-filter correction first, then harden action and installer
   references against the corrected files.
@@ -52,7 +47,7 @@ implementation is currently commissioned.
 
 | ID | Opportunity | Category | Est. | Revisit trigger / next evidence | Status |
 |---|---|---|---:|---|---|
-| R01 | Delete stopped animation-frame loop tombstones from `globalThis.__incrTeaRafLoops` while preserving stop-during-callback race safety | bug/tests | S | After plan 004; add a JS store-size stress test and a stop-from-callback case | RECORDED |
+| R01 | Delete stopped animation-frame loop tombstones from `globalThis.__incrTeaRafLoops` while preserving stop-during-callback race safety | bug/tests | S | Add a JS store-size stress test and a stop-during-callback case against the shared-Program mount-lifecycle baseline | RECORDED |
 | R02 | Enforce committed `pkg.generated.mbti` freshness in CI with `moon info` plus a clean-diff gate | dx/tests | S | After plan 006 establishes the canonical toolchain bootstrap | RECORDED |
 | R03 | Replace stale `CLAUDE.md` API/package duplication with a short pointer to canonical `AGENTS.md` | docs/dx | S | Next contributor-guide cleanup | RECORDED |
 | R04 | Remove the repository-authored `REQUIRED SUB-SKILL` agent directive from the shipped `docs/plans/2026-06-25-program-stateful.md` plan and prevent shipped plans from being indexed as executable | security/docs | S | Combine with R05; retain historical intent without direct agent commands | DONE |
@@ -67,7 +62,7 @@ implementation is currently commissioned.
 | R13 | Measure stable subscription reconciliation at 0/1/16/256 subscriptions before adding version/change gating | perf investigation | M | Stable-set scans and allocations are material in JS measurements | RECORDED |
 | R14 | Benchmark disconnected Datalog graphs with 1/100/1,000 rules before considering active-rule scheduling | perf investigation | S benchmark / L fix | Whole-runtime scanning dominates a realistic workload | RECORDED |
 | R15 | Measure repeated MoonBit installation/update time across CI jobs before adding caches or consolidating jobs | perf/dx investigation | S | After plan 006; use Actions timing data and preserve failure isolation | RECORDED |
-| R16 | Complete the typed-spreadsheet `incr_tea` integration as the framework acceptance driver | direction | L | Plans 003 and 004 land; controlled forms, focus, identity, lifecycle, and diagnostics are stable | RECORDED |
+| R16 | Complete the typed-spreadsheet `incr_tea` integration as the framework acceptance driver | direction | L | Controlled-form reconciliation, shared-Program lifecycle, focus, identity, and diagnostics are stable | RECORDED |
 | R17 | Add namespace-aware SVG support after controlled-form correctness | direction | M | Plan 003 lands and an editor/diagram consumer supplies acceptance cases | RECORDED |
 | R18 | Run reactive-collection driver discovery in Canopy before adding any `ReactiveMap`, relation-delta, or cleanup public API to `incr` | direction/spike | M | A downstream workload proves `DerivedMap` insufficient | RECORDED |
 | R19 | Explore WebComponent/custom-element mount boundaries as a spike, not a stability commitment | direction/spike | M–L | The editor driver demonstrates concrete embedding and teardown pressure | RECORDED |
