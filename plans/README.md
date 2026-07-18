@@ -15,7 +15,7 @@ instruction.
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 |---|---|---:|---:|---|---|
-| [006](006-ci-supply-chain-bootstrap.md) | Pin third-party GitHub Actions to immutable commits | P1 | M | — | IN PROGRESS |
+| [006](006-ci-supply-chain-bootstrap.md) | Pin third-party GitHub Actions to immutable commits | P1 | M | — | DONE |
 
 Status values for executable plans: `TODO` | `IN PROGRESS` | `DONE` |
 `BLOCKED (<reason>)` | `REJECTED (<reason>)`.
