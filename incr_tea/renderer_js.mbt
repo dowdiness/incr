@@ -1304,6 +1304,7 @@ pub struct BrowserRoot[Msg] {
   priv payload_resolvers : PayloadResolvers[Msg]
   priv mut rendered : Rendered[Msg]?
   priv mut active : Bool
+  priv mut mount_handle : ProgramMountHandle?
 }
 
 ///|
@@ -1312,6 +1313,7 @@ fn[Msg] BrowserRoot::BrowserRoot(
   program : Program[Msg, Html[Msg]],
   host : DomElement,
   stats : RenderStats,
+  mount_handle : ProgramMountHandle,
   label? : String = "",
   resolve_value? : (ValueEventId, ValuePayload) -> Msg? = (_, _) => None,
   resolve_checked? : (CheckedInputId, CheckedPayload) -> Msg? = (_, _) => None,
@@ -1335,6 +1337,7 @@ fn[Msg] BrowserRoot::BrowserRoot(
     payload_resolvers,
     rendered: None,
     active: true,
+    mount_handle: Some(mount_handle),
   }
 }
 
@@ -1407,23 +1410,25 @@ fn[Msg] BrowserRoot::detach(self : BrowserRoot[Msg]) -> Unit {
 }
 
 ///|
-/// Disposes the root's program scope (releasing the view watch and owned cells).
-/// Idempotent. Kept separate from DOM teardown because the same `Program` can
-/// back more than one mounted root, so the caller decides when the last root is
-/// gone. See `BrowserRenderer::destroy`.
+/// Releases this root's program-owned mount registration at most once.
 #cfg(target="js")
-fn[Msg] BrowserRoot::dispose_program(self : BrowserRoot[Msg]) -> Unit {
-  self.watched.program.dispose()
+fn[Msg] BrowserRoot::release_mount(self : BrowserRoot[Msg]) -> Unit {
+  match self.mount_handle {
+    Some(handle) => {
+      self.mount_handle = None
+      self.watched.program.release_mount(handle)
+    }
+    None => ()
+  }
 }
 
 ///|
-/// Tears the root down logically: detaches its DOM, then disposes the program
-/// scope. Used by the whole-renderer `dispose`, where every root is going away,
-/// so disposing each program (idempotent for a shared one) is correct.
+/// Tears the root down logically: detaches its DOM, then releases its one
+/// program-owned mount registration.
 #cfg(target="js")
 fn[Msg] BrowserRoot::destroy(self : BrowserRoot[Msg]) -> Unit {
   self.detach()
-  self.dispose_program()
+  self.release_mount()
 }
 
 ///|
@@ -1557,7 +1562,7 @@ pub fn[Msg : Eq] BrowserRenderer::mount(
     abort("BrowserRenderer::mount called with a Program from another Runtime")
   }
   let view_id = program.view_id()
-  program.add_after_flush_scheduler(() => self.schedule_flush())
+  let mount_handle = program.register_mount(() => self.schedule_flush())
   if !view_id_is_tracked(self.view_ids.val, view_id) {
     self.view_ids.val.push(view_id)
   }
@@ -1567,6 +1572,7 @@ pub fn[Msg : Eq] BrowserRenderer::mount(
     program,
     host,
     root_stats,
+    mount_handle,
     label~,
     resolve_value=on_value,
     resolve_checked=on_checked_change,
@@ -1701,9 +1707,8 @@ fn[Msg] BrowserRenderer::accumulate_stats(
 
 ///|
 /// Whether any root the renderer still owns (mounted or detached) references the
-/// `Program` identified by `view_id`. The single source of truth for "is this the
-/// last root for this Program?", used to decide both program disposal and
-/// instrumentation-id removal.
+/// `Program` identified by `view_id`. This remains renderer-local bookkeeping for
+/// instrumentation-id removal; program disposal is decided by global mount release.
 #cfg(target="js")
 fn[Msg] BrowserRenderer::references_program(
   self : BrowserRenderer[Msg],
@@ -1853,10 +1858,9 @@ pub fn[Msg : Eq] BrowserRenderer::reattach(
 
 ///|
 /// Destroys a single root — mounted or detached: tears down its DOM, removes it
-/// from both buckets, and disposes the Program when no sibling root still
-/// references it, so destroying one of several mounts of a shared component
-/// leaves the others working. The instrumentation id is dropped on the same
-/// last-reference condition.
+/// from both buckets, and releases only that root's program-owned mount
+/// registration. The final registration globally disposes the Program, so
+/// destroying one of several mounts leaves the others working.
 #cfg(target="js")
 pub fn[Msg] BrowserRenderer::destroy(
   self : BrowserRenderer[Msg],
@@ -1878,9 +1882,9 @@ pub fn[Msg] BrowserRenderer::destroy(
   })
   let view_id = root.view_id()
   if !self.references_program(view_id) {
-    root.dispose_program()
     self.view_ids.val = self.view_ids.val.filter(id => id != view_id)
   }
+  root.destroy()
 }
 
 ///|

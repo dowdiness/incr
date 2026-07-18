@@ -1,4 +1,24 @@
 ///|
+priv struct ProgramMountHandle(Int)
+
+///|
+priv struct ProgramMountRegistration {
+  id : Int
+  schedule : () -> Unit
+}
+
+///|
+fn release_program_mount(
+  registrations : Array[ProgramMountRegistration],
+  id : Int,
+) -> (Array[ProgramMountRegistration], Bool, Bool) {
+  let found = registrations.any(registration => registration.id == id)
+  guard found else { return (registrations, false, false) }
+  let next = registrations.filter(registration => registration.id != id)
+  (next, true, next.is_empty())
+}
+
+///|
 /// Experimental TEA program shell backed by `@incr`.
 ///
 /// A program owns a component `Scope`, runs each message through
@@ -11,7 +31,8 @@ pub struct Program[Msg, View] {
   priv update : (Msg) -> Cmd[Msg]
   priv messages : @queue.Queue[Msg]
   priv after_flush : @queue.Queue[((Cmd[Msg]) -> Unit) -> Unit]
-  priv after_flush_schedulers : Array[() -> Unit]
+  priv mut mount_registrations : Array[ProgramMountRegistration]
+  priv mut next_mount_id : Int
   priv mut is_draining : Bool
   priv view_watch : @incr.Watch[View]
   priv subscriptions_watch : @incr.Watch[Subscriptions[Msg]]?
@@ -49,7 +70,8 @@ pub fn[Msg, View : Eq] Program::Program(
     update,
     messages: @queue.Queue([]),
     after_flush: @queue.Queue([]),
-    after_flush_schedulers: [],
+    mount_registrations: [],
+    next_mount_id: 0,
     is_draining: false,
     view_watch,
     subscriptions_watch: None,
@@ -91,7 +113,8 @@ pub fn[Msg : Eq, View : Eq] Program::with_subscriptions(
     update,
     messages: @queue.Queue([]),
     after_flush: @queue.Queue([]),
-    after_flush_schedulers: [],
+    mount_registrations: [],
+    next_mount_id: 0,
     is_draining: false,
     view_watch,
     subscriptions_watch: Some(subscriptions_watch),
@@ -138,6 +161,7 @@ fn[Msg, View] Program::handle_message(
   let cmd : Ref[Cmd[Msg]] = Ref(Cmd::none())
   self.runtime.batch(() => cmd.val = (self.update)(msg))
   self.run_cmd(cmd.val)
+  guard !self.scope.is_disposed() else { return }
   self.reconcile_subscriptions()
 }
 
@@ -163,16 +187,42 @@ fn[Msg, View] Program::run_cmd(
 }
 
 ///|
-fn[Msg, View] Program::add_after_flush_scheduler(
+fn[Msg, View] Program::register_mount(
   self : Program[Msg, View],
   schedule : () -> Unit,
+) -> ProgramMountHandle {
+  guard !self.scope.is_disposed() else {
+    abort("Program::register_mount called after dispose")
+  }
+  let handle = ProgramMountHandle(self.next_mount_id)
+  self.next_mount_id = self.next_mount_id + 1
+  self.mount_registrations.push({ id: handle.0, schedule })
+  handle
+}
+
+///|
+fn[Msg, View] Program::release_mount(
+  self : Program[Msg, View],
+  handle : ProgramMountHandle,
 ) -> Unit {
-  self.after_flush_schedulers.push(schedule)
+  guard !self.scope.is_disposed() else { return }
+  let (next, found, last) = release_program_mount(
+    self.mount_registrations,
+    handle.0,
+  )
+  guard found else { return }
+  self.mount_registrations = next
+  if last {
+    self.dispose()
+  }
 }
 
 ///|
 fn[Msg, View] Program::request_after_flush(self : Program[Msg, View]) -> Unit {
-  for schedule in self.after_flush_schedulers {
+  let schedules = self.mount_registrations.map(registration => {
+    registration.schedule
+  })
+  for schedule in schedules {
     schedule()
   }
 }
@@ -246,6 +296,10 @@ pub fn[Msg, View] Program::is_disposed(self : Program[Msg, View]) -> Bool {
 ///
 /// Disposal is idempotent.
 pub fn[Msg, View] Program::dispose(self : Program[Msg, View]) -> Unit {
+  self.mount_registrations.clear()
+  self.messages.clear()
+  self.after_flush.clear()
+  self.is_draining = false
   match self.sub_manager {
     Some(manager) => manager.dispose()
     None => ()
