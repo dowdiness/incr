@@ -4,16 +4,12 @@ The single canonical current core backlog for the `incr` library.
 
 ---
 
-## Current core item
+## Current core backlog
 
-**Issue #399: Residual per-update cost scaling after dispose/GC.**
-
-After disposal and garbage collection, some update paths still show cost that scales with retained graph volume rather than staying constant. Goal: characterize whether the residual is a storage-layout artifact or a live-graph traversal cost, and decide whether slot reclamation or a scheduler change is warranted.
-
-- Plan: [`plans/2026-07-15-retention-cost-attribution.md`](plans/2026-07-15-retention-cost-attribution.md)
-- Evidence: [`performance/2026-07-15-retention-cost-attribution.md`](performance/2026-07-15-retention-cost-attribution.md)
-
-No slot-reclamation or scheduler change is commissioned without new evidence from this attribution work.
+No core implementation is currently commissioned. The prior #399 attribution
+is retired from the active backlog, with slot reclamation/compaction a no-go;
+see the [dated performance note](performance/2026-07-15-retention-cost-attribution.md)
+and [retention follow-up ADR](decisions/2026-07-14-retention-followup-tracks-gated.md).
 
 ---
 
@@ -28,7 +24,7 @@ No slot-reclamation or scheduler change is commissioned without new evidence fro
 Completed work, superseded proposals, driver-gated investigations, and speculative tracks are intentionally absent from this document. They remain recoverable through:
 
 - **ADRs**: [`docs/decisions/`](decisions/) — architectural decisions and their rationale
-- **Plans**: [`docs/plans/`](plans/) — concrete implementation records
+- **Plans**: [`plans/`](../plans/) — concrete implementation records
 - **Issues**: GitHub issue tracker — open and closed issues
 - **Git history**: commit log — all historical work and decisions
 

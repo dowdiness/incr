@@ -58,15 +58,20 @@ For contributors and advanced users who want to understand or modify `incr`.
 - [API Design Guidelines](design/api-design-guidelines.md) — design philosophy and principles behind the public API
 - [Comparison with salsa](design/comparison-with-salsa.md) — shared firewall core, three divergences, and a backdating deep-dive
 
-**Implementation specs** ([design/specs/](design/specs/)) — written-ahead design records for individual subsystems. These are not the current backlog; the [roadmap](roadmap.md) decides what is current.
+**Implementation specs** ([design/specs/](design/specs/)) — written-ahead design records for individual subsystems. Completed or superseded time-bounded specs are retired under the [documentation retention policy](decisions/2026-06-02-documentation-retention-policy.md) when a durable ADR or performance evidence replaces them; these are not the current backlog; the [roadmap](roadmap.md) decides what is current.
 
 **Current roadmap:**
 
 - [Roadmap](roadmap.md) — canonical current core backlog
 - [incr_tea backlog](../incr_tea/docs/backlog.md) — task list for the `dowdiness/incr_tea` module (retargeted TEA issues + agenda)
-- [Implementation plans](plans/) — time-bounded implementation records; the roadmap determines which work is current.
+- [Implementation plans](../plans/) — active, time-bounded implementation records; completed plans are deleted under the documentation retention policy.
 
 **Research notes** ([research/](research/)) — exploratory, not implemented. Open these only when a current roadmap item, plan, or ADR calls for them.
+
+- [Bonsai-informed core direction](research/2026-07-14-bonsai-informed-incr-core-direction.md) — gated source of truth for Runtime
+  lifetime/ownership/resource-model hypotheses, including the cross-engine
+  lifecycle model, retention attribution resolution (#399), and Datalog
+  lifecycle evidence
 
 ## Decisions (ADRs)
 
@@ -94,7 +99,8 @@ live in each ADR.
 | [2026-06-17](decisions/2026-06-17-incr-tea-inactive-root-activation-policy.md) | Incremental TEA inactive-root activation: manual-first hybrid (#280) |
 | [2026-07-03](decisions/2026-07-03-incr-tea-module-identity.md) | `incr_tea` module identity: core-feedback framework, facade-only imports, own backlog |
 | [2026-07-08](decisions/2026-07-08-evaluation-strategy-composition-contract.md) | Evaluation-strategy composition contract: purity axis, cross-engine legality table, two-chokepoint enforcement (phase guard + #368), fold reserved |
-| [2026-07-14](decisions/2026-07-14-retention-followup-tracks-gated.md) | Retention follow-up tracks (per-key Scope ownership, `KeyedInput` facade) stay gated — no consumer; investigate retained-volume cost (#399) first |
+| [2026-07-14](decisions/2026-07-14-retention-followup-tracks-gated.md) | Retention follow-up tracks (per-key Scope ownership, `KeyedInput` facade) stay gated — no consumer; #399 attribution completed with slot-reclamation/compaction no-go |
+| [2026-07-14](decisions/2026-07-14-machine-composition-domain-functions.md) | Machine composition remains domain-level pure functions; no shared `Machine`/core API without repeated driver evidence |
 | [2026-07-15](decisions/2026-07-15-incr-tea-controlled-form-properties.md) | Incremental TEA controlled form properties: closure-free values, post-order select repair, and explicit boolean control |
 | [2026-07-18](decisions/2026-07-18-datalog-relation-rule-lifecycle.md) | Datalog relation-rule lifecycle: live rules pin declared relations; relation disposal rejects rather than cascading; authority is declaration metadata only |
 

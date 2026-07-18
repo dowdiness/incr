@@ -62,6 +62,16 @@ order without inferring closure captures or introducing ownership machinery.
 - Relation compaction, rule scheduling, retraction, transaction semantics, and
   GC policy remain out of scope.
 
+## Cross-engine lifecycle follow-up
+
+The broader cross-engine Runtime resource lifecycle model is preserved as gated
+research in the [Bonsai-informed core direction note](../research/2026-07-14-bonsai-informed-incr-core-direction.md).
+This ADR proves a local lifecycle contract within Datalog; it is not part of
+any accepted Runtime-wide lifecycle abstraction. The Datalog contract's
+pattern (declaration snapshots, rule-first teardown, pure preflight plus
+lifecycle shell) is recorded there as candidate evidence for a shared
+mechanism, should an evidence gate fire.
+
 ## Verification
 
 The implementation tests cover declaration classification and snapshots,

@@ -141,5 +141,17 @@ Archive retirement and completed-plan cleanup performed:
   and machine composition evidence driver. Links from surviving documents
   removed.
 - `docs/README.md` "Historical & Archive" section removed.
-- `docs/plans/2026-07-15-retention-cost-attribution.md` retained because
-  roadmap issue #399 links it as the active attribution plan.
+- After the #399 attribution completed and the roadmap retired it from the
+  active backlog, the completed plan and its completed design spec were deleted.
+  The dated [retention cost
+  attribution note](../performance/2026-07-15-retention-cost-attribution.md)
+  and [retention follow-up ADR](2026-07-14-retention-followup-tracks-gated.md)
+  preserve the result; Git history recovers both.
+- After the Machine composition experiment completed, the implementation report
+  (`docs/research/2026-07-14-machine-composition-implementation-report.md`) and
+  abstraction-decision research note
+  (`docs/research/2026-07-14-machine-composition-abstraction-decision.md`) were
+  distilled into the accepted [Machine composition ADR](2026-07-14-machine-composition-domain-functions.md)
+  and deleted. The [aggregate evidence](../performance/2026-07-14-machine-composition-evidence.md)
+  and [follow-up snapshot](../performance/2026-07-15-machine-composition-follow-up.md)
+  remain as performance evidence; Git history recovers the research notes.
