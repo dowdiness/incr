@@ -23,18 +23,22 @@ pub fn run_fixpoint(
     abort("fixpoint: cannot run fixpoint() inside a batch")
   }
   for rel in datalog.relations {
+    guard !is_cell_disposed(core, rel.meta.cell_id) else { continue }
     (rel.begin_fixpoint)()
   }
   for fr in datalog.functional_relations {
+    guard !is_cell_disposed(core, fr.meta.cell_id) else { continue }
     (fr.begin_fixpoint)()
   }
   enter_phase(core, InFixpoint)
   for ;; {
     // Materialize the current frontier while keeping it readable via delta_iter.
     for rel in datalog.relations {
+      guard !is_cell_disposed(core, rel.meta.cell_id) else { continue }
       (rel.drain_delta)()
     }
     for fr in datalog.functional_relations {
+      guard !is_cell_disposed(core, fr.meta.cell_id) else { continue }
       (fr.drain_delta)()
     }
     // Apply all rules (skip disposed)
@@ -45,20 +49,24 @@ pub fn run_fixpoint(
     // Check convergence over staged deltas.
     let mut has_new_facts = false
     for rel in datalog.relations {
+      guard !is_cell_disposed(core, rel.meta.cell_id) else { continue }
       if !(rel.is_staged_delta_empty)() {
         has_new_facts = true
       }
     }
     for fr in datalog.functional_relations {
+      guard !is_cell_disposed(core, fr.meta.cell_id) else { continue }
       if !(fr.is_staged_delta_empty)() {
         has_new_facts = true
       }
     }
     // Next iteration frontier = this iteration's newly derived facts.
     for rel in datalog.relations {
+      guard !is_cell_disposed(core, rel.meta.cell_id) else { continue }
       (rel.promote_staged_delta)()
     }
     for fr in datalog.functional_relations {
+      guard !is_cell_disposed(core, fr.meta.cell_id) else { continue }
       (fr.promote_staged_delta)()
     }
     if !has_new_facts {
@@ -69,11 +77,13 @@ pub fn run_fixpoint(
   // Collect net changed cell IDs.
   let changed_ids : Array[CellId] = []
   for rel in datalog.relations {
+    guard !is_cell_disposed(core, rel.meta.cell_id) else { continue }
     if (rel.finish_fixpoint_changed)() {
       changed_ids.push(rel.meta.cell_id)
     }
   }
   for fr in datalog.functional_relations {
+    guard !is_cell_disposed(core, fr.meta.cell_id) else { continue }
     if (fr.finish_fixpoint_changed)() {
       changed_ids.push(fr.meta.cell_id)
     }

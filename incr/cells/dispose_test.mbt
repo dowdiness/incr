@@ -166,6 +166,80 @@ test "rule: dispose_rule is idempotent" {
 }
 
 ///|
+test "panic relation: live input rule rejects typed disposal" {
+  let rt = Runtime::Runtime()
+  let rel : Relation[Int] = Relation::Relation(rt)
+  rt.new_rule([rel.id()], [], () => ()) |> ignore
+  rel.dispose()
+}
+
+///|
+test "panic relation: live output rule rejects typed disposal" {
+  let rt = Runtime::Runtime()
+  let rel : Relation[Int] = Relation::Relation(rt)
+  rt.new_rule([], [rel.id()], () => ()) |> ignore
+  rel.dispose()
+}
+
+///|
+test "panic map relation: live input rule rejects typed disposal" {
+  let rt = Runtime::Runtime()
+  let rel : MapRelation[Int, String] = MapRelation::MapRelation(rt)
+  rt.new_rule([rel.id()], [], () => ()) |> ignore
+  rel.dispose()
+}
+
+///|
+test "panic map relation: live output rule rejects typed disposal" {
+  let rt = Runtime::Runtime()
+  let rel : MapRelation[Int, String] = MapRelation::MapRelation(rt)
+  rt.new_rule([], [rel.id()], () => ()) |> ignore
+  rel.dispose()
+}
+
+///|
+test "panic relation: generic disposal is pinned by a live input rule" {
+  let rt = Runtime::Runtime()
+  let rel : Relation[Int] = Relation::Relation(rt)
+  rt.new_rule([rel.id()], [], () => ()) |> ignore
+  rt.dispose_cell(rel.id())
+}
+
+///|
+test "relation: disposal is legal after all declaring rules are disposed" {
+  let rt = Runtime::Runtime()
+  let input : Relation[Int] = Relation::Relation(rt)
+  let output : Relation[Int] = Relation::Relation(rt)
+  let input_rule = rt.new_rule([input.id()], [], () => ())
+  let output_rule = rt.new_rule([], [output.id()], () => ())
+  rt.dispose_rule(input_rule)
+  rt.dispose_rule(output_rule)
+  input.dispose()
+  output.dispose()
+  input.dispose()
+  output.dispose()
+  assert_true(input.is_disposed())
+  assert_true(output.is_disposed())
+}
+
+///|
+test "map relation: disposal is legal after all declaring rules are disposed" {
+  let rt = Runtime::Runtime()
+  let input : MapRelation[Int, String] = MapRelation::MapRelation(rt)
+  let output : MapRelation[Int, String] = MapRelation::MapRelation(rt)
+  let input_rule = rt.new_rule([input.id()], [], () => ())
+  let output_rule = rt.new_rule([], [output.id()], () => ())
+  rt.dispose_rule(input_rule)
+  rt.dispose_rule(output_rule)
+  rt.dispose_cell(input.id())
+  rt.dispose_cell(output.id())
+  rt.dispose_cell(input.id())
+  rt.dispose_cell(output.id())
+  assert_true(input.is_disposed())
+  assert_true(output.is_disposed())
+}
+
+///|
 test "input field: dispose delegates to inner input" {
   let rt = Runtime::Runtime()
   let cell = InputField::InputField(rt, 42)
@@ -246,6 +320,54 @@ test "panic functional relation: insert after dispose aborts" {
   let frel : MapRelation[Int, String] = MapRelation::MapRelation(rt)
   frel.dispose()
   frel.insert(1, "a") |> ignore // should abort
+}
+
+///|
+test "panic relation: contains after dispose aborts" {
+  let rt = Runtime::Runtime()
+  let rel : Relation[Int] = Relation::Relation(rt)
+  rel.dispose()
+  ignore(rel.contains(1))
+}
+
+///|
+test "panic relation: iter after dispose aborts" {
+  let rt = Runtime::Runtime()
+  let rel : Relation[Int] = Relation::Relation(rt)
+  rel.dispose()
+  ignore(rel.iter())
+}
+
+///|
+test "panic relation: delta_iter after dispose aborts" {
+  let rt = Runtime::Runtime()
+  let rel : Relation[Int] = Relation::Relation(rt)
+  rel.dispose()
+  ignore(rel.delta_iter())
+}
+
+///|
+test "panic map relation: get after dispose aborts" {
+  let rt = Runtime::Runtime()
+  let rel : MapRelation[Int, String] = MapRelation::MapRelation(rt)
+  rel.dispose()
+  ignore(rel.get(1))
+}
+
+///|
+test "panic map relation: iter after dispose aborts" {
+  let rt = Runtime::Runtime()
+  let rel : MapRelation[Int, String] = MapRelation::MapRelation(rt)
+  rel.dispose()
+  ignore(rel.iter())
+}
+
+///|
+test "panic map relation: delta_iter after dispose aborts" {
+  let rt = Runtime::Runtime()
+  let rel : MapRelation[Int, String] = MapRelation::MapRelation(rt)
+  rel.dispose()
+  ignore(rel.delta_iter())
 }
 
 ///|

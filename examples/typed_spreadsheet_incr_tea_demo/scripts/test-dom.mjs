@@ -204,6 +204,10 @@ try {
     await page.getByRole('button', { name: 'Reset proof' }).click();
     await waitForCellText(page, 'B1', '11');
     await page.locator('#cell-A1').click();
+    await page.waitForFunction(() => {
+      const input = document.querySelector('#formula-editor-input');
+      return input instanceof HTMLInputElement && input.getAttribute('aria-label')?.includes('A1');
+    });
     await page.locator('#formula-editor-input').fill('15');
     await page.locator('.primary-action').click();
     await waitForCellText(page, 'A1', '15');
