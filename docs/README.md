@@ -64,9 +64,14 @@ For contributors and advanced users who want to understand or modify `incr`.
 
 - [Roadmap](roadmap.md) — canonical current core backlog
 - [incr_tea backlog](../incr_tea/docs/backlog.md) — task list for the `dowdiness/incr_tea` module (retargeted TEA issues + agenda)
-- [Implementation plans](plans/) — time-bounded implementation records; the roadmap determines which work is current.
+- [Implementation plans](plans/) — active, time-bounded implementation records; completed plans are deleted under the documentation retention policy.
 
 **Research notes** ([research/](research/)) — exploratory, not implemented. Open these only when a current roadmap item, plan, or ADR calls for them.
+
+- [Bonsai-informed core direction](research/2026-07-14-bonsai-informed-incr-core-direction.md) — gated source of truth for Runtime
+  lifetime/ownership/resource-model hypotheses, including the cross-engine
+  lifecycle model, retention attribution resolution (#399), and Datalog
+  lifecycle evidence
 
 ## Decisions (ADRs)
 

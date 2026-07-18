@@ -92,3 +92,23 @@ separate engine decision and does not by itself reopen the facade tracks.
 - The retention bench suite (`incr/tests/retention_bench_test.mbt`) is the
   regression instrument for any future kernel change touching these paths;
   new numbers go in new dated snapshots.
+
+## Completed follow-up
+
+The local #399 attribution is complete:
+
+- Native reproduced the residual at the same magnitude and N-dependent shape
+  as wasm-gc.
+- White-box controls found no cumulative-slot scan or named scaling operation.
+- Pull slots are reusable after cleanup.
+- Slot reclamation/compaction is a no-go.
+
+The [2026-07-15 retention cost attribution](../performance/2026-07-15-retention-cost-attribution.md)
+retains the benchmarks as regression probes. Reopen slot reclamation only when
+all three conditions in that note hold:
+
+1. A production-shaped workload reproduces a material user-visible cost.
+2. A profiler identifies a named operation whose work scales with retained
+   storage.
+3. An isolated reclamation or allocation-reuse prototype reduces that operation
+   without changing `CellId`, dependency, disposal, or GC semantics.

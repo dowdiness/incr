@@ -141,5 +141,8 @@ Archive retirement and completed-plan cleanup performed:
   and machine composition evidence driver. Links from surviving documents
   removed.
 - `docs/README.md` "Historical & Archive" section removed.
-- `docs/plans/2026-07-15-retention-cost-attribution.md` retained because
-  roadmap issue #399 links it as the active attribution plan.
+- After the #399 attribution completed and the roadmap retired it from the
+  active backlog, the completed plan was deleted. The dated [retention cost
+  attribution note](../performance/2026-07-15-retention-cost-attribution.md)
+  and [retention follow-up ADR](2026-07-14-retention-followup-tracks-gated.md)
+  preserve the result; Git history is the recovery path.
