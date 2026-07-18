@@ -83,7 +83,7 @@ needed. See §Runtime resource lifecycle model (hypothesis) below.
 |---|---|
 | Resolved | #399 retention cost attribution — native reproduction, white-box controls, slot-reclamation no-go; benchmarks retained as regression probes |
 | Active | Keep retention benchmarks (7a–7f) as regression evidence |
-| Active higher-layer evidence | Run the aggregate Machine composition driver without changing `incr` |
+| Completed higher-layer evidence | Aggregate Machine composition passed; no shared Machine abstraction justified. See [implementation report](2026-07-14-machine-composition-implementation-report.md), [aggregate evidence](../performance/2026-07-14-machine-composition-evidence.md), [follow-up snapshot](../performance/2026-07-15-machine-composition-follow-up.md), and [abstraction decision](2026-07-14-machine-composition-abstraction-decision.md) |
 | Gated research | Cross-engine Runtime resource lifecycle model (see §hypothesis below) |
 | Conditional | Per-key reactive experiment only after the aggregate driver misses a measured target |
 | Not commissioned | Detachable child Scopes, `DerivedMap` eviction, `GraphSnapshot`, explicit commit API, static `Expr` lowering, scheduler rewrite |

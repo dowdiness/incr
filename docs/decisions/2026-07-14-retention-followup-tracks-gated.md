@@ -3,7 +3,7 @@
 **Date:** 2026-07-14
 **Status:** Accepted — Tracks 2–3 stay gated; reopen only with a named consumer
 **Evidence:** [2026-07-14 retention baseline](../performance/2026-07-14-retention-baseline.md); prior exploration [reactive-map-design.md](../research/reactive-map-design.md) (2026-04-19)
-**Follow-up:** [#399](https://github.com/dowdiness/incr/issues/399) — attribute the residual retained-volume cost
+**Follow-up:** [#399](https://github.com/dowdiness/incr/issues/399) — **completed (no-go).** See [2026-07-15 retention cost attribution](../performance/2026-07-15-retention-cost-attribution.md): native reproduction confirmed, slot-reclamation/compaction no-go.
 
 ## Context
 

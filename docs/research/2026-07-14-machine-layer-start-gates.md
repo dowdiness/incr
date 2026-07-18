@@ -23,7 +23,7 @@ criteria; it does not authorize a new `Machine` type or an `incr` API.
 | State | Work |
 |---|---|
 | Existing | Pure `update` functions, `Cmd`, `Program::stateful`, `Program::stateful_cmd`, Scope-owned watched views, semantic-keyed editor and typed-spreadsheet drivers |
-| Active next experiment | Pure parent/child composition, semantic identity, add/remove/reorder, and stale-command rejection on one aggregate Program graph |
+| Completed experiment | Pure parent/child composition, semantic identity, add/remove/reorder, and stale-command rejection on one aggregate Program graph. See [implementation report](2026-07-14-machine-composition-implementation-report.md) and [aggregate evidence](../performance/2026-07-14-machine-composition-evidence.md) |
 | Completed core evidence | #399 attribution complete; slot-reclamation/compaction no-go. Retention benchmarks remain regression evidence. |
 | Conditional experiment | Per-key reactive subgraphs, only if the aggregate driver misses a measured locality or lifetime target |
 | Not commissioned | A public `Machine` type, core keyed facade, detachable child Scopes, generative-UI runtime |
@@ -82,7 +82,7 @@ another state container.
 
 ## Stage A: aggregate composition evidence
 
-**Status:** proceed now.
+**Status:** Completed. See [implementation report](2026-07-14-machine-composition-implementation-report.md) and [aggregate performance evidence](../performance/2026-07-14-machine-composition-evidence.md).
 
 **Core dependency:** satisfied by the current API.
 
@@ -118,7 +118,7 @@ inside `incr`.
 
 ## Stage B: decide whether an abstraction is missing
 
-**Status:** decision after Stage A.
+**Status:** Completed. No shared Machine abstraction is needed; see [abstraction decision](2026-07-14-machine-composition-abstraction-decision.md).
 
 Prefer functions and small domain types. Propose a `Machine` type only if at
 least two application-shaped drivers actually exercise the same pure
@@ -165,7 +165,8 @@ Only a design that creates and retires cells per key must also address:
 - whether surviving downstream cells can retain retired dependencies;
 - the F7 retirement protocol when that dependency shape exists;
 - live/free slot counts and graph-root counts after cleanup;
-- #399 attribution before claiming safe unbounded historical churn;
+- completed #399 evidence does not establish arbitrary historical churn safety;
+  a production-shaped workload and named scaling mechanism remain required;
 - a written choice among a facade-owned aggregate, tombstones plus sweep, or
   an engine semantic change when individual cell retirement is required.
 
@@ -173,10 +174,11 @@ When public introspection cannot supply total live/free slot counts, gather
 that evidence in a separate `incr/cells` white-box probe rather than adding a
 public diagnostic API for the experiment.
 
-#399 is not an absolute blocker for every bounded keyed product. A bounded
-deployment may stabilize when its measured workload and resource ceiling are
-acceptable. It is a blocker for a general claim that arbitrary historical
-churn is harmless.
+Completed #399 evidence is not an absolute blocker for every bounded keyed
+product. A bounded deployment may stabilize when its measured workload and
+resource ceiling are acceptable. But the completed attribution does not support
+a general claim that arbitrary historical churn is harmless — that would require
+a production-shaped workload and a named scaling mechanism.
 
 ## Stage D: production dynamic component runtime
 

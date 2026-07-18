@@ -142,7 +142,8 @@ Archive retirement and completed-plan cleanup performed:
   removed.
 - `docs/README.md` "Historical & Archive" section removed.
 - After the #399 attribution completed and the roadmap retired it from the
-  active backlog, the completed plan was deleted. The dated [retention cost
+  active backlog, the completed plan and its completed design spec were deleted.
+  The dated [retention cost
   attribution note](../performance/2026-07-15-retention-cost-attribution.md)
   and [retention follow-up ADR](2026-07-14-retention-followup-tracks-gated.md)
-  preserve the result; Git history is the recovery path.
+  preserve the result; Git history recovers both.
