@@ -92,6 +92,25 @@ Private helpers each own one semantic phase:
 Remaining mutation is confined to value builders, the shell's
 mailboxes/lifecycle, and the oracle's BFS queue.
 
+### Post-GO exhaustive evidence
+
+A deterministic bounded matrix adds 5,424 scenarios checked against the
+independent oracle.
+Matrix A covers 3,888 two-node weighted scenarios: every source multiplicity
+in `0..2`, every single-edge diff in `[-2, -1, 1, 2]`, and the resulting
+two-epoch transition. Matrix B covers all 1,536 three-node Boolean graph and
+shell-configuration combinations for exhaustive closure within that finite
+state space.
+
+Both matrices run at N=1/2/4 with canonical, per-update, and reversed epoch-zero
+batching respectively, using the prescribed deterministic scheduler seeds.
+Engine results agree with the independent full-recomputation oracle. Invalid
+retractions additionally preserve source, materialization, worker state, and
+publication state, leave queues empty, advance lifecycle order, and recover
+through an empty epoch 2. Two local full `dataflow` test runs took 0.41 seconds
+each (maximum resident set sizes 42,308 KiB and 42,516 KiB); these are
+observations, not acceptance or scale claims.
+
 ## Measurement
 
 After correctness passed, `moon bench --release dataflow` measured the fixed
