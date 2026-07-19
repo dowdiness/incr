@@ -24,6 +24,7 @@ snippets).
 ## Architecture
 
 - [Architecture](architecture.md) — package responsibility map, four execution modes (pull / push / hybrid / Datalog), key types and invariants, extension points
+- [Retractable dataflow correctness spike](../dataflow/README.mbt.md) — independent unpublished Phase 0 module, bounded GO evidence, validation, and non-goals
 
 ## Examples
 
@@ -60,14 +61,11 @@ For contributors and advanced users who want to understand or modify `incr`.
 
 **Implementation specs** ([design/specs/](design/specs/)) — written-ahead design records for individual subsystems. Completed or superseded time-bounded specs are retired under the [documentation retention policy](decisions/2026-06-02-documentation-retention-policy.md) when a durable ADR or performance evidence replaces them; these are not the current backlog; the [roadmap](roadmap.md) decides what is current.
 
-- [Differential Dataflow Core](design/specs/2026-07-19-differential-dataflow-core.md) — Phase 0 semantics for the independent retractable-dataflow correctness spike; no public API is accepted
-
 **Current roadmap:**
 
 - [Roadmap](roadmap.md) — canonical current core backlog
 - [incr_tea backlog](../incr_tea/docs/backlog.md) — task list for the `dowdiness/incr_tea` module (retargeted TEA issues + agenda)
 - [Implementation plans](../plans/) — active, time-bounded implementation records; completed plans are deleted under the documentation retention policy.
-- [Plan 010: Retractable dataflow spike](../plans/010-retractable-dataflow-spike.md) — user-commissioned correctness spike for signed recursive reachability across isolated virtual workers
 
 **Research notes** ([research/](research/)) — exploratory, not implemented. Open these only when a current roadmap item, plan, or ADR calls for them.
 

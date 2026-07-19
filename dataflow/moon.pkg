@@ -1,0 +1,19 @@
+import {
+  "moonbitlang/core/cmp",
+  "moonbitlang/core/hashmap",
+  "moonbitlang/core/hashset",
+  "moonbitlang/core/immut/vector",
+  "moonbitlang/core/quickcheck/splitmix",
+  "moonbitlang/core/queue",
+}
+
+import {
+  "moonbitlang/core/bench",
+  "moonbitlang/quickcheck" @qc,
+  "moonbitlang/quickcheck/gen",
+} for "wbtest"
+
+// Private Phase 0 surfaces are intentionally reachable only from white-box
+// correctness tests; no public API is accepted during the spike.
+
+warnings = "-1-9"

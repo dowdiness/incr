@@ -1,11 +1,11 @@
 name: CI
 
-# Runs `moon check` + `moon test` for the library and the checked literate
-# `.mbt.md` examples in the docs module, so the public-facade contract and the
-# documentation drift guard are verified automatically (issue #227).
+# Runs `moon check` + `moon test` for the library, the independent dataflow
+# spike, and the checked literate `.mbt.md` examples in the docs module, so the
+# package contracts and documentation drift guard are verified automatically.
 #
 # The existing spreadsheet-demo deploy workflows are intentionally left alone;
-# this workflow only covers library/docs verification.
+# this workflow only covers library/docs/dataflow verification.
 
 on:
   push:
@@ -141,7 +141,7 @@ jobs:
       - name: Boundary checker self-test (known-positive controls)
         run: bash scripts/check-workspace-boundaries-selftest.sh
 
-      - name: Workspace boundary + pin invariants (examples, docs)
+      - name: Workspace boundary + pin invariants (non-library members)
         run: bash scripts/check-workspace-boundaries.sh
 
       - name: Documentation boundary checker self-test
@@ -165,8 +165,8 @@ jobs:
             --synthesis docs/performance/2026-06-16-incr-tea-shared-vs-independent-inactive-root-cohorts.md \
             --verify
 
-  # Example workspace members are gated against the LOCAL incr source (workspace
-  # mode, no MOON_WORK=off), with sibling-member deps resolved through the
+  # Non-library workspace members are checked in workspace mode (no
+  # MOON_WORK=off), with sibling-member deps resolved through the
   # workspace — so an incr/ API break that reaches an example fails here in the
   # same PR, and the demos that depend on `examples/typed_spreadsheet` still
   # resolve.
@@ -187,6 +187,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - name: dataflow correctness spike
+            path: dataflow
+            args: ''
           - name: example typed_spreadsheet
             path: examples/typed_spreadsheet
             args: ''
