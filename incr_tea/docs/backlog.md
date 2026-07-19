@@ -14,10 +14,6 @@ research items:
 
 - [#288](https://github.com/dowdiness/incr/issues/288) — namespace-aware SVG
   support
-- [#268](https://github.com/dowdiness/incr/issues/268) — reusable UI
-  framework for the typed spreadsheet demo (first slice #269, event
-  descriptors #272, and side-by-side proof #273 already shipped; remaining
-  scope tracked on the issue)
 - [#256](https://github.com/dowdiness/incr/issues/256) — explore
   WebComponent/custom-element mount boundaries
 - [#190](https://github.com/dowdiness/incr/issues/190) — design opt-in
@@ -28,6 +24,9 @@ research items:
 
 ## Completed slices
 
+- [#268](https://github.com/dowdiness/incr/issues/268) — reusable UI framework
+  for the typed spreadsheet demo, completed by
+  [PR #408](https://github.com/dowdiness/incr/pull/408).
 - [#286](https://github.com/dowdiness/incr/issues/286) — Eq-safe controlled
   form support: closure-free `on_change`, controlled input/select values,
   boolean property repair, post-order select reconciliation, and browser smoke
