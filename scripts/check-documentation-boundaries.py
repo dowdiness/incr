@@ -98,12 +98,17 @@ def main():
     for source in files:
         text = source.read_text(encoding="utf-8")
         for target in link_targets(text):
-            if is_external(target):
-                continue
-            parsed = urlsplit(target)
-            path = unquote(parsed.path)
             # Markdown source-location links commonly use `file.md:line`.
-            # Validate the file target while leaving the line fragment unchecked.
+            # Strip the line fragment first: a bare `file.md:42` otherwise
+            # parses as URL scheme `file.md` and is misclassified as external.
+            location = re.fullmatch(r"(.+\.(?:mbt\.)?md):\d+", target)
+            candidate = location.group(1) if location else target
+            if is_external(candidate):
+                continue
+            parsed = urlsplit(candidate)
+            path = unquote(parsed.path)
+            # Unquoting can reveal the Markdown extension, so strip the line
+            # fragment again for percent-encoded source-location links.
             location = re.fullmatch(r"(.+\.(?:mbt\.)?md):\d+", path)
             if location:
                 path = location.group(1)
