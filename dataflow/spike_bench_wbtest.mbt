@@ -1,4 +1,13 @@
 ///|
+/// End-to-end closed-epoch benchmarks for the dataflow spike.
+/// Measures the fixed 10-edge cyclic workload (8-node ring plus a
+/// 2-node tail) at `N=1` and `N=4` virtual workers. Each timed
+/// iteration includes engine construction, input staging, close,
+/// scheduling, and materialization — an end-to-end measurement,
+/// not an isolated operator benchmark.
+///
+/// Benchmark workload: construct an engine, stage a fixed 10-edge
+/// cyclic graph, close, and drain. Returns the reachable count.
 fn benchmark_end_to_end_closed_epoch(worker_count : Int) -> Int {
   let engine = Engine(worker_count, scheduler_seed=7)
   let updates = [

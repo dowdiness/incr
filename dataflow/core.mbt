@@ -1,4 +1,9 @@
 ///|
+/// Functional core for the dataflow spike. This file owns deterministic
+/// lifecycle, validation, routing, completion, and worker transformations;
+/// mutable scheduling and publication effects stay in `engine.mbt`.
+///
+/// Rebuild a routed event without copying persistent `Vector` payloads.
 fn copy_routed_event(event : RoutedEvent) -> RoutedEvent {
   match event {
     ApplyEdges(updates) => ApplyEdges(updates)
@@ -10,6 +15,8 @@ fn copy_routed_event(event : RoutedEvent) -> RoutedEvent {
 }
 
 ///|
+/// Copy an envelope wrapper for shell ownership. Its routed event contains
+/// immutable values, so persistent payloads are safely shared.
 fn copy_routed_envelope(envelope : RoutedEnvelope) -> RoutedEnvelope {
   {
     epoch: envelope.epoch,
@@ -20,6 +27,8 @@ fn copy_routed_envelope(envelope : RoutedEnvelope) -> RoutedEnvelope {
 }
 
 ///|
+/// Defensively copy every mutable array in a publication before it crosses a
+/// shell boundary or is retained as the latest snapshot.
 fn copy_publication(publication : Publication) -> Publication {
   {
     epoch: publication.epoch,
@@ -30,6 +39,8 @@ fn copy_publication(publication : Publication) -> Publication {
 }
 
 ///|
+/// Convert the weighted source map to a deterministically sorted snapshot.
+/// Canonical ordering makes results independent of hash iteration order.
 fn canonical_source(
   source : @hashmap.HashMap[Edge, PositiveMultiplicity],
 ) -> Array[WeightedEdge] {
@@ -45,6 +56,8 @@ fn canonical_source(
 }
 
 ///|
+/// Convert a reachability set to canonical sorted order for comparison and
+/// publication.
 fn canonical_reachable(reachable : @hashset.HashSet[Reach]) -> Array[Reach] {
   let result = reachable.to_array()
   result.sort()
@@ -52,6 +65,8 @@ fn canonical_reachable(reachable : @hashset.HashSet[Reach]) -> Array[Reach] {
 }
 
 ///|
+/// Sum all signed updates for each edge, discard zero-net changes, and return
+/// the remaining changes in canonical order. This is the first epoch parser.
 fn consolidate_updates(
   updates : @vector.Vector[SourceUpdate],
 ) -> Array[ConsolidatedUpdate] {
@@ -75,6 +90,12 @@ fn consolidate_updates(
 }
 
 ///|
+/// Parse a closed source epoch into validated next state and exact worker
+/// updates. The function works on a source copy and rejects the whole epoch if
+/// any resulting multiplicity is negative, so invalid input is atomic.
+///
+/// `changed_from` records only zero/positive threshold crossings because
+/// set-valued reachability is unchanged by positive-to-positive weight changes.
 fn prepare_epoch(
   source : @hashmap.HashMap[Edge, PositiveMultiplicity],
   staged : @vector.Vector[SourceUpdate],
@@ -111,12 +132,16 @@ fn prepare_epoch(
 }
 
 ///|
+/// Choose the virtual worker for a key using normalized modulo, including for
+/// negative keys.
 fn owner_for_key(key : Int, worker_count : Int) -> WorkerId {
   let remainder = key % worker_count
   WorkerId(if remainder < 0 { remainder + worker_count } else { remainder })
 }
 
 ///|
+/// Extract a closed epoch from lifecycle state or return the protocol error
+/// appropriate to the current phase.
 fn parse_closed_epoch(phase : EpochPhase) -> Result[ClosedEpoch, ProtocolError] {
   match phase {
     Stopped => Err(EngineStopped)
@@ -128,6 +153,11 @@ fn parse_closed_epoch(phase : EpochPhase) -> Result[ClosedEpoch, ProtocolError] 
 }
 
 ///|
+/// Pure epoch lifecycle reducer.
+///
+/// Computes the next immutable phase and a decision for every external command
+/// and internal milestone. It never records traces or mutates engine state;
+/// the shell applies successful transitions in one place.
 fn reduce_epoch(
   phase : EpochPhase,
   event : EpochEvent,
@@ -276,6 +306,8 @@ fn reduce_epoch(
 }
 
 ///|
+/// Reduce full lifecycle state to the minimal immutable context required by
+/// envelope parsing.
 fn routing_context(phase : EpochPhase, worker_count : Int) -> RoutingContext {
   let gate = match phase {
     Stopped => RoutingStopped
@@ -286,6 +318,11 @@ fn routing_context(phase : EpochPhase, worker_count : Int) -> RoutingContext {
 }
 
 ///|
+/// Parse one untrusted routing request into a `RoutedEnvelope`.
+///
+/// Admission requires the active draining epoch, valid sender/receiver roles,
+/// positive edge multiplicities, and ownership of every routed key. Only the
+/// parsed result may enter transport, mailboxes, traces, or a worker reducer.
 fn parse_envelope(
   context : RoutingContext,
   raw : RawEnvelope,
@@ -362,6 +399,8 @@ fn parse_envelope(
 }
 
 ///|
+/// Parse an envelope batch into a fresh array. On the first error the local
+/// builder is discarded, allowing the shell to enqueue the batch atomically.
 fn parse_envelopes(
   context : RoutingContext,
   raws : ArrayView[RawEnvelope],
@@ -377,6 +416,10 @@ fn parse_envelopes(
 }
 
 ///|
+/// Parse explicit global progress facts into completion evidence.
+///
+/// Completion requires no pending transport or mailbox work and exact ordered
+/// coverage of workers `0..<expected_workers`, each closed at the target epoch.
 fn parse_completion(
   facts : CompletionFacts,
 ) -> Result[CompletionEvidence, ProtocolError] {
@@ -410,6 +453,9 @@ fn parse_completion(
 }
 
 ///|
+/// Build the canonical publication and completed epoch from trusted completion
+/// evidence and explicit source/reachability inputs. Publication effects remain
+/// the shell's responsibility.
 fn complete_epoch(
   evidence : CompletionEvidence,
   source : @hashmap.HashMap[Edge, PositiveMultiplicity],
@@ -427,6 +473,8 @@ fn complete_epoch(
 }
 
 ///|
+/// Construct an empty worker state with the given identity. Edge map
+/// and reachable set are initially empty.
 fn WorkerState::WorkerState(id : WorkerId) -> WorkerState {
   {
     id,
@@ -437,6 +485,9 @@ fn WorkerState::WorkerState(id : WorkerId) -> WorkerState {
 }
 
 ///|
+/// Deep copy of worker state. Both the nested edge map and the
+/// reachable set are copied. The worker reducer uses this to produce
+/// a new state without mutating the input.
 fn WorkerState::copy(self : WorkerState) -> WorkerState {
   let edge_by_from : @hashmap.HashMap[
     Int,
@@ -454,6 +505,11 @@ fn WorkerState::copy(self : WorkerState) -> WorkerState {
 }
 
 ///|
+/// Apply validated edge updates to the worker's keyed edge
+/// arrangement. `Absent` removes the target from the from-group
+/// (cleaning up empty groups); `Present` inserts or updates the
+/// target weight. Mutates in place — callers must invoke on a
+/// freshly copied state.
 fn WorkerState::apply_edges(
   self : WorkerState,
   updates : @vector.Vector[ValidatedEdgeUpdate],
@@ -481,6 +537,10 @@ fn WorkerState::apply_edges(
 }
 
 ///|
+/// Remove all reachability facts whose origin is in the given set.
+/// Called before re-seeding to clear stale facts from the previous
+/// closure. Only the affected origins' facts are removed; unrelated
+/// facts remain.
 fn WorkerState::reset_origins(
   self : WorkerState,
   origins : @vector.Vector[Int],
@@ -490,6 +550,9 @@ fn WorkerState::reset_origins(
 }
 
 ///|
+/// Return the sorted targets reachable from a given via-node through
+/// this worker's edge arrangement. Used by the worker reducer to
+/// produce feedback candidates (keyed join).
 fn WorkerState::joined_targets(self : WorkerState, via : Int) -> Array[Int] {
   match self.edge_by_from.get(via) {
     None => []
@@ -502,6 +565,9 @@ fn WorkerState::joined_targets(self : WorkerState, via : Int) -> Array[Int] {
 }
 
 ///|
+/// Produce feedback drafts by joining a seed or feedback origin with
+/// the worker's keyed arrangement. For each target reachable from
+/// `via`, produces a `FeedbackDraft(Reach{origin, target})`.
 fn candidate_drafts(
   state : WorkerState,
   origin : Int,
@@ -513,6 +579,19 @@ fn candidate_drafts(
 }
 
 ///|
+/// Pure worker reducer (functional core). Takes current state and a
+/// routed event; returns a new state and an array of envelope drafts.
+///
+/// - `ApplyEdges`: updates edges, no drafts.
+/// - `CloseEpoch`: records closure, no drafts.
+/// - `ResetOrigins`: removes affected facts, no drafts.
+/// - `SeedOrigin`: joins origin with arrangement via `origin`, emits
+///   drafts for each discovered target.
+/// - `Feedback`: uses `add_and_check` as a set threshold — emits
+///   drafts only for newly discovered reaches, suppressing duplicates.
+///
+/// Invariant: never mutates the input state. The shell swaps in the
+/// returned state atomically.
 fn worker_reduce(
   state : WorkerState,
   epoch : Epoch,
@@ -544,6 +623,11 @@ fn worker_reduce(
 }
 
 ///|
+/// Compute which origins need recomputation given the set of `from`
+/// nodes whose edges changed presence and the previous reachable set.
+/// An origin is affected if: (a) it is itself a changed-from node,
+/// or (b) any of its existing reach targets appears in changed_from.
+/// Result is sorted and deduplicated.
 fn affected_origins(
   changed_from : @vector.Vector[Int],
   previous : @hashset.HashSet[Reach],
@@ -561,6 +645,9 @@ fn affected_origins(
 }
 
 ///|
+/// Compute the signed diff between previous and next reachability
+/// sets. Removed facts get diff -1; added facts get diff +1. Result
+/// is sorted canonically.
 fn output_delta(
   previous : @hashset.HashSet[Reach],
   next : @hashset.HashSet[Reach],

@@ -1,4 +1,8 @@
 ///|
+/// Independent full-recomputation oracle for the dataflow spike. It maintains
+/// only source weights, the last closure, and epoch order; it deliberately
+/// shares no consolidation, affected-origin, routing, or worker logic with the
+/// incremental engine.
 priv struct Oracle {
   mut source : @hashmap.HashMap[Edge, Int]
   mut reachable : @hashset.HashSet[Reach]
@@ -6,6 +10,7 @@ priv struct Oracle {
 }
 
 ///|
+/// Construct an empty oracle expecting epoch zero.
 fn Oracle::Oracle() -> Oracle {
   {
     source: @hashmap.HashMap([]),
@@ -15,6 +20,8 @@ fn Oracle::Oracle() -> Oracle {
 }
 
 ///|
+/// Independently sum signed updates by edge, discard zero-net changes, and sort
+/// the result. Keeping this separate helps catch engine consolidation bugs.
 fn oracle_consolidate(updates : ArrayView[SourceUpdate]) -> Array[SourceUpdate] {
   let sums : @hashmap.HashMap[Edge, Int] = @hashmap.HashMap([])
   for update in updates {
@@ -27,6 +34,9 @@ fn oracle_consolidate(updates : ArrayView[SourceUpdate]) -> Array[SourceUpdate] 
 }
 
 ///|
+/// Recompute the complete set-valued transitive closure from scratch with BFS
+/// from every source vertex. This intentionally does not reuse the engine's
+/// affected-origin rebuild algorithm.
 fn oracle_recompute(
   source : @hashmap.HashMap[Edge, Int],
 ) -> @hashset.HashSet[Reach] {
@@ -79,6 +89,8 @@ fn oracle_recompute(
 }
 
 ///|
+/// Convert the oracle source map to the same canonical weighted-edge format as
+/// engine publications.
 fn oracle_source(source : @hashmap.HashMap[Edge, Int]) -> Array[WeightedEdge] {
   let result : Array[WeightedEdge] = []
   source.each((edge, weight) => result.push({ edge, weight }))
@@ -87,6 +99,7 @@ fn oracle_source(source : @hashmap.HashMap[Edge, Int]) -> Array[WeightedEdge] {
 }
 
 ///|
+/// Produce a canonical sorted reachability snapshot.
 fn oracle_reachable(reachable : @hashset.HashSet[Reach]) -> Array[Reach] {
   let result = reachable.to_array()
   result.sort()
@@ -94,6 +107,9 @@ fn oracle_reachable(reachable : @hashset.HashSet[Reach]) -> Array[Reach] {
 }
 
 ///|
+/// Compute signed reachability diff between previous and next sets.
+/// Removed facts get diff -1; added facts get diff +1. Result is
+/// sorted canonically.
 fn oracle_delta(
   previous : @hashset.HashSet[Reach],
   next : @hashset.HashSet[Reach],
@@ -114,6 +130,13 @@ fn oracle_delta(
 }
 
 ///|
+/// Main oracle entry point. Validates epoch sequencing (must be
+/// sequential from 0), applies consolidated updates, rejects
+/// negative multiplicities, then recomputes reachability from
+/// scratch. A negative-multiplicity rejection consumes the expected epoch;
+/// an out-of-sequence request does not. Returns a `Publication` matching the
+/// engine's output format for
+/// direct comparison.
 fn Oracle::apply(
   self : Oracle,
   epoch_value : Int,

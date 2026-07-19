@@ -1,9 +1,17 @@
 ///|
+/// Table-driven correctness tests and unit tests for individual
+/// dataflow components. Covers consolidation, validation, lifecycle
+/// transitions, envelope parsing, worker join/feedback, and
+/// canonical output invariants.
+///
+/// Test fixture: construct a `SourceUpdate` with the given edge and
+/// signed diff.
 fn test_update(from : Int, to : Int, diff : Int) -> SourceUpdate {
   { edge: { from, to }, diff }
 }
 
 ///|
+/// Test fixture: construct a `ConsolidatedUpdate`.
 fn test_consolidated_update(
   from : Int,
   to : Int,
@@ -13,6 +21,8 @@ fn test_consolidated_update(
 }
 
 ///|
+/// Test fixture: construct a `ValidatedEdgeUpdate`. `next=0`
+/// produces `Absent`; positive values produce `Present`.
 fn test_validated_update(
   from : Int,
   to : Int,
@@ -29,11 +39,13 @@ fn test_validated_update(
 }
 
 ///|
+/// Test fixture: wrap an `ArrayView` in a persistent `Vector`.
 fn[A] test_vector(values : ArrayView[A]) -> @vector.Vector[A] {
   @vector.Vector(values)
 }
 
 ///|
+/// Test fixture: unwrap a `Result`, failing the test on `Err`.
 fn test_unwrap_publication(
   result : Result[Publication, ProtocolError],
 ) -> Publication raise Failure {
@@ -44,6 +56,9 @@ fn test_unwrap_publication(
 }
 
 ///|
+/// Test orchestrator: open an epoch, stage all batches, close
+/// input, and run the closed-epoch pipeline. Returns the
+/// publication or protocol error.
 fn test_stage_batches(
   engine : Engine,
   epoch : Int,
@@ -66,6 +81,8 @@ fn test_stage_batches(
 }
 
 ///|
+/// Test helper: concatenate batched updates into a single array
+/// for oracle comparison.
 fn test_flatten_batches(
   batches : ArrayView[Array[SourceUpdate]],
 ) -> Array[SourceUpdate] {
@@ -75,6 +92,9 @@ fn test_flatten_batches(
 }
 
 ///|
+/// Test assertion: run the engine through `test_stage_batches` and
+/// the oracle through `Oracle::apply` with the same flattened
+/// updates, then compare. Fails the test on divergence.
 fn test_assert_matches_oracle(
   engine : Engine,
   oracle : Oracle,
@@ -88,6 +108,8 @@ fn test_assert_matches_oracle(
 }
 
 ///|
+/// Test fixture: convert `(origin, target)` pairs into a sorted
+/// `Reach` array.
 fn test_reaches(pairs : Array[(Int, Int)]) -> Array[Reach] {
   let result = pairs.map(pair => {
     let (origin, target) = pair
@@ -681,6 +703,8 @@ test "cycles have finite set output" {
 }
 
 ///|
+/// Test fixture: construct an `Engine` with optional scheduler
+/// seed.
 fn test_engine_with_seed(worker_count : Int, seed : Int?) -> Engine {
   match seed {
     None => Engine(worker_count)

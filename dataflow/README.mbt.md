@@ -44,8 +44,8 @@ Pure reducers own worker transitions and the complete epoch lifecycle. The
 lifecycle reducer returns an immutable next phase plus a decision; the shell
 applies that decision and remains responsible for seeded scheduling, transport,
 mailboxes, trace recording, and publication effects. Persistent Core `Vector`
-values retain staged input across ready, open, closed, draining, and stopped
-transitions without mutating prior phases. Raw envelope input is parsed once into a
+values retain staged input in open and closed phases without mutating prior
+phase values; validated payloads remain immutable through draining. Raw envelope input is parsed once into a
 routed-event variant that fuses the former operator, port, and event combination;
 only parsed routed envelopes enter transport, mailboxes, traces, or a reducer.
 Epoch, sender role, receiver identity, positive multiplicity, and key ownership
