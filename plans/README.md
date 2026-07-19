@@ -13,13 +13,12 @@ instruction.
 
 ## Execution order and status
 
-Plans 007–009 were selected non-interactively as the top delta-audit findings
+Plans 008–009 remain from the delta-audit findings selected non-interactively
 by leverage (the skill's default when no operator is present to choose); the
-operator may reject or reorder them. They are independent — any order works.
+operator may reject or reorder them. They are independent — either order works.
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 |------|-------|----------|--------|------------|--------|
-| 007 | Make the doc-boundary checker validate `file.md:line` links | P1 | S | — | TODO |
 | 008 | Extend controlled `value` reconciliation to `<textarea>` | P2 | S | — | TODO |
 | 009 | Cover mid-fixpoint disposal and rebuild-after-teardown in datalog tests | P2 | S | — | TODO |
 
@@ -28,6 +27,11 @@ Status values: `TODO` | `IN PROGRESS` | `DONE` |
 
 ## Reconciliation notes
 
+- Plan 007 was independently verified and merged in
+  [PR #415](https://github.com/dowdiness/incr/pull/415) as commit `823e63f`.
+  Its completed plan file was deleted; Git history recovers the execution
+  record. No ADR needed: this is a small local checker bug fix guarded by
+  regression tests.
 - Plan 006's 17 immutable GitHub Action references, syntax checks, repository
   checks, and GitHub-hosted CI were verified after PR #414 merged. Its completed
   plan file was deleted; Git history recovers the execution record.
