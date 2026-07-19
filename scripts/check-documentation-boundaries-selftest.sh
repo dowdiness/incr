@@ -49,4 +49,16 @@ printf '[missing](missing.md)\n' > docs/broken.md
 git add -A
 expect_failure 'docs/broken.md:missing.md'
 
+printf '[missing line link](missing.md:12)\n' > docs/broken.md
+git add -A
+expect_failure 'docs/broken.md:missing.md:12'
+printf '[ok](README.md:1)\n' > docs/broken.md
+git add -A
+python3 "$checker"
+printf '[ok](README%2Emd:1)\n' > docs/broken.md
+git add -A
+python3 "$checker"
+rm docs/broken.md
+git add -A
+
 echo 'Documentation boundary checker self-test OK.'
