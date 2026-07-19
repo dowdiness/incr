@@ -1,14 +1,10 @@
 ///|
-/// Property-based correctness tests. Exercises the engine against
-/// the oracle with generated traces covering cycles, duplicates,
-/// mixed signs, and rejections. Verifies outcome equality and
-/// same-seed replay determinism across worker counts and batch
-/// splits.
+/// Generated tests vary logical input, batching, worker count, and delivery
+/// order independently so schedule invariance is not inferred from one happy
+/// path.
 ///
-/// Result of a generated trace run: per-epoch outcomes, the engine
-/// trace, and a validity flag that is false if any epoch diverged
-/// from the oracle or violated structural invariants (quiescence,
-/// worker closure, positive multiplicities, rejection atomicity).
+/// Outcomes and traces are retained together because semantic agreement alone
+/// would not detect non-deterministic same-seed replay.
 struct GeneratedRun {
   outcomes : Array[Result[Publication, ProtocolError]]
   trace : Array[TraceEvent]
@@ -16,8 +12,8 @@ struct GeneratedRun {
 }
 
 ///|
-/// Map an arbitrary integer to a node identity in `[0, 5)`. Uses
-/// Euclidean remainder to handle negative inputs.
+/// A five-node domain deliberately forces collisions and cycles from short
+/// generated inputs; Euclidean remainder keeps arbitrary signed seeds valid.
 fn generated_node(value : Int) -> Int {
   let remainder = value % 5
   if remainder < 0 {
@@ -28,9 +24,8 @@ fn generated_node(value : Int) -> Int {
 }
 
 ///|
-/// Map a node identity to a signed delta: `+1, -1, +2, -2`, or
-/// `+1` (default). Produces a mix of insertions and retractions
-/// for coverage.
+/// The small signed range forces cancellation, duplicate support, and invalid
+/// retractions instead of letting generation collapse to insert-only traces.
 fn generated_diff(value : Int) -> Int {
   match generated_node(value) {
     0 => 1
@@ -42,9 +37,8 @@ fn generated_diff(value : Int) -> Int {
 }
 
 ///|
-/// Generate 5 epochs of source updates from a seed array. Epoch 0
-/// includes forced duplicate edges and a cycle (`0→1, 1→0`) for
-/// coverage; later epochs use signed deltas from `generated_diff`.
+/// A duplicate edge and cycle are forced into the first epoch because random
+/// generation alone could miss the two central set-semantics risks.
 fn generated_trace(values : ArrayView[Int]) -> Array[Array[SourceUpdate]] {
   let epochs : Array[Array[SourceUpdate]] = []
   for epoch in 0..<5 {
@@ -71,9 +65,8 @@ fn generated_trace(values : ArrayView[Int]) -> Array[Array[SourceUpdate]] {
 }
 
 ///|
-/// Split an update array into batches by mode: `0`=single batch,
-/// `1`=one update per batch, `2`=variable-width batches from
-/// choices, `3`=reversed into a single batch.
+/// Batch shape and order vary independently from updates to verify that whole-
+/// epoch consolidation, rather than staging boundaries, defines semantics.
 fn generated_batches(
   updates : Array[SourceUpdate],
   mode : Int,
@@ -100,10 +93,9 @@ fn generated_batches(
 }
 
 ///|
-/// Run a full generated trace: create an engine and oracle, stage
-/// each epoch's batches, compare outcomes, and check structural
-/// invariants (quiescence, worker closure, positive multiplicities,
-/// rejection atomicity).
+/// Every epoch checks both oracle agreement and shell invariants; final-output
+/// comparison alone could miss transient work, invalid weights, or mutation on
+/// rejection.
 fn run_generated_trace(
   worker_count : Int,
   scheduler_seed : Int?,
@@ -147,11 +139,9 @@ fn run_generated_trace(
 }
 
 ///|
-/// Top-level property: run the same updates at `N=1` (single
-/// batch), `N=1` (split batches), `N=2` (reversed, seeded), `N=4`
-/// (seeded), and `N=4` replay. Assert all runs are valid and
-/// produce identical outcomes, and that the same-seed replay
-/// produces identical traces.
+/// Several worker-count, batching, and scheduling combinations probe whether
+/// execution choices leak into semantics; the matrix is representative rather
+/// than exhaustive. Repeating one seeded configuration separately pins replay.
 fn generated_trace_property(values : Array[Int]) -> Bool {
   let scheduler_seed = values.fold(init=17, (seed, value) => {
     (seed * 31 + value) % 100000

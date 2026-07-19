@@ -1,17 +1,16 @@
 ///|
-/// Table-driven correctness tests and unit tests for individual
-/// dataflow components. Covers consolidation, validation, lifecycle
-/// transitions, envelope parsing, worker join/feedback, and
-/// canonical output invariants.
+/// Focused tests isolate protocol boundaries before the generated suite crosses
+/// them; descriptive test names remain the specification of behavior.
 ///
-/// Test fixture: construct a `SourceUpdate` with the given edge and
-/// signed diff.
+/// Helpers preserve signed source intent so fixtures do not accidentally model
+/// absolute multiplicity at the untrusted boundary.
 fn test_update(from : Int, to : Int, diff : Int) -> SourceUpdate {
   { edge: { from, to }, diff }
 }
 
 ///|
-/// Test fixture: construct a `ConsolidatedUpdate`.
+/// Direct construction deliberately bypasses source consolidation when a test
+/// needs to isolate the next refinement boundary.
 fn test_consolidated_update(
   from : Int,
   to : Int,
@@ -21,8 +20,8 @@ fn test_consolidated_update(
 }
 
 ///|
-/// Test fixture: construct a `ValidatedEdgeUpdate`. `next=0`
-/// produces `Absent`; positive values produce `Present`.
+/// Worker tests construct trusted next-state directly; zero maps to absence so
+/// fixtures cannot introduce the invalid `Present(0)` state.
 fn test_validated_update(
   from : Int,
   to : Int,
@@ -39,13 +38,15 @@ fn test_validated_update(
 }
 
 ///|
-/// Test fixture: wrap an `ArrayView` in a persistent `Vector`.
+/// Explicit conversion keeps tests honest about the immutable ownership
+/// boundary instead of relying on mutable array aliases.
 fn[A] test_vector(values : ArrayView[A]) -> @vector.Vector[A] {
   @vector.Vector(values)
 }
 
 ///|
-/// Test fixture: unwrap a `Result`, failing the test on `Err`.
+/// Success-path tests fail immediately on protocol errors; rejection tests
+/// inspect `Result` directly so this helper cannot hide expected failures.
 fn test_unwrap_publication(
   result : Result[Publication, ProtocolError],
 ) -> Publication raise Failure {
@@ -56,9 +57,8 @@ fn test_unwrap_publication(
 }
 
 ///|
-/// Test orchestrator: open an epoch, stage all batches, close
-/// input, and run the closed-epoch pipeline. Returns the
-/// publication or protocol error.
+/// Shared orchestration forces scenario tests through the production lifecycle
+/// order rather than reproducing a shorter, accidentally privileged path.
 fn test_stage_batches(
   engine : Engine,
   epoch : Int,
@@ -81,8 +81,8 @@ fn test_stage_batches(
 }
 
 ///|
-/// Test helper: concatenate batched updates into a single array
-/// for oracle comparison.
+/// The oracle intentionally has no staging API; flattening keeps batching an
+/// engine execution choice rather than part of logical epoch semantics.
 fn test_flatten_batches(
   batches : ArrayView[Array[SourceUpdate]],
 ) -> Array[SourceUpdate] {
@@ -92,9 +92,8 @@ fn test_flatten_batches(
 }
 
 ///|
-/// Test assertion: run the engine through `test_stage_batches` and
-/// the oracle through `Oracle::apply` with the same flattened
-/// updates, then compare. Fails the test on divergence.
+/// Full recomputation is the independent semantic authority; comparing only
+/// hand-written expected closures would duplicate more engine assumptions.
 fn test_assert_matches_oracle(
   engine : Engine,
   oracle : Oracle,
@@ -108,8 +107,8 @@ fn test_assert_matches_oracle(
 }
 
 ///|
-/// Test fixture: convert `(origin, target)` pairs into a sorted
-/// `Reach` array.
+/// Expected facts are sorted because assertion order must not encode a
+/// scheduler or hash-table traversal.
 fn test_reaches(pairs : Array[(Int, Int)]) -> Array[Reach] {
   let result = pairs.map(pair => {
     let (origin, target) = pair
@@ -703,8 +702,8 @@ test "cycles have finite set output" {
 }
 
 ///|
-/// Test fixture: construct an `Engine` with optional scheduler
-/// seed.
+/// Centralized seeded construction keeps worker cardinality and delivery order
+/// as independent test dimensions.
 fn test_engine_with_seed(worker_count : Int, seed : Int?) -> Engine {
   match seed {
     None => Engine(worker_count)

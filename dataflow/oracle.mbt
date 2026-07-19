@@ -1,8 +1,7 @@
 ///|
-/// Independent full-recomputation oracle for the dataflow spike. It maintains
-/// only source weights, the last closure, and epoch order; it deliberately
-/// shares no consolidation, affected-origin, routing, or worker logic with the
-/// incremental engine.
+/// The oracle deliberately duplicates semantics without engine algorithm
+/// helpers. Full recomputation is slower but avoids correlated bugs in routing,
+/// consolidation, affected-origin selection, and worker feedback.
 priv struct Oracle {
   mut source : @hashmap.HashMap[Edge, Int]
   mut reachable : @hashset.HashSet[Reach]
@@ -10,7 +9,8 @@ priv struct Oracle {
 }
 
 ///|
-/// Construct an empty oracle expecting epoch zero.
+/// Starting at epoch zero mirrors protocol state without importing lifecycle
+/// reducer logic that the oracle is meant to check independently.
 fn Oracle::Oracle() -> Oracle {
   {
     source: @hashmap.HashMap([]),
@@ -20,8 +20,8 @@ fn Oracle::Oracle() -> Oracle {
 }
 
 ///|
-/// Independently sum signed updates by edge, discard zero-net changes, and sort
-/// the result. Keeping this separate helps catch engine consolidation bugs.
+/// Consolidation is duplicated intentionally; sharing this tempting helper
+/// would make engine/oracle agreement unable to detect its bugs.
 fn oracle_consolidate(updates : ArrayView[SourceUpdate]) -> Array[SourceUpdate] {
   let sums : @hashmap.HashMap[Edge, Int] = @hashmap.HashMap([])
   for update in updates {
@@ -34,9 +34,8 @@ fn oracle_consolidate(updates : ArrayView[SourceUpdate]) -> Array[SourceUpdate] 
 }
 
 ///|
-/// Recompute the complete set-valued transitive closure from scratch with BFS
-/// from every source vertex. This intentionally does not reuse the engine's
-/// affected-origin rebuild algorithm.
+/// BFS from every source trades performance for a ground truth that does not
+/// depend on affected-origin rebuilding or feedback scheduling.
 fn oracle_recompute(
   source : @hashmap.HashMap[Edge, Int],
 ) -> @hashset.HashSet[Reach] {
@@ -89,8 +88,8 @@ fn oracle_recompute(
 }
 
 ///|
-/// Convert the oracle source map to the same canonical weighted-edge format as
-/// engine publications.
+/// Only the output representation is shared conceptually with the engine;
+/// canonical form is necessary for comparison, not algorithm reuse.
 fn oracle_source(source : @hashmap.HashMap[Edge, Int]) -> Array[WeightedEdge] {
   let result : Array[WeightedEdge] = []
   source.each((edge, weight) => result.push({ edge, weight }))
@@ -99,7 +98,7 @@ fn oracle_source(source : @hashmap.HashMap[Edge, Int]) -> Array[WeightedEdge] {
 }
 
 ///|
-/// Produce a canonical sorted reachability snapshot.
+/// Sorting removes hash order before comparison with scheduled engine output.
 fn oracle_reachable(reachable : @hashset.HashSet[Reach]) -> Array[Reach] {
   let result = reachable.to_array()
   result.sort()
@@ -107,9 +106,8 @@ fn oracle_reachable(reachable : @hashset.HashSet[Reach]) -> Array[Reach] {
 }
 
 ///|
-/// Compute signed reachability diff between previous and next sets.
-/// Removed facts get diff -1; added facts get diff +1. Result is
-/// sorted canonically.
+/// Delta logic is duplicated as part of the oracle contract; sharing the
+/// engine helper would conceal publication-delta defects.
 fn oracle_delta(
   previous : @hashset.HashSet[Reach],
   next : @hashset.HashSet[Reach],
@@ -130,13 +128,10 @@ fn oracle_delta(
 }
 
 ///|
-/// Main oracle entry point. Validates epoch sequencing (must be
-/// sequential from 0), applies consolidated updates, rejects
-/// negative multiplicities, then recomputes reachability from
-/// scratch. A negative-multiplicity rejection consumes the expected epoch;
-/// an out-of-sequence request does not. Returns a `Publication` matching the
-/// engine's output format for
-/// direct comparison.
+/// Rejection consumption matches the engine's protocol deliberately: an
+/// expected but invalid epoch advances protocol order, whereas an out-of-
+/// sequence request does not. Source and closure change only after independent
+/// validation and recomputation.
 fn Oracle::apply(
   self : Oracle,
   epoch_value : Int,

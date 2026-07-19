@@ -1,20 +1,20 @@
 ///|
-/// Private domain vocabulary for the dataflow spike. This file defines source,
-/// reachability, lifecycle, routing, completion, trace, and worker-state values;
-/// behavior lives in `core.mbt` and mutable orchestration in `engine.mbt`.
+/// Domain types stay separate from `core.mbt` and `engine.mbt` so the trust
+/// boundaries are visible without exposing a public API.
 ///
-/// Monotonically increasing integer epoch. Exactly one epoch is active at a
-/// time; the lifecycle reducer advances to `epoch + 1` on commit or reject.
+/// An epoch is distinct from worker and graph integers because protocol order
+/// is strict. A handled epoch is consumed even when source validation rejects.
 priv struct Epoch(Int) derive(Eq, Debug)
 
 ///|
-/// Virtual worker identity. Index into the engine's worker array.
-/// `WorkerId(-1)` is the coordinator (shell); real workers use `0..N-1`.
+/// A distinct worker identity prevents graph keys from being used as routing
+/// addresses. `-1` is reserved for the coordinator; workers are virtual local
+/// states, not parallel threads.
 priv struct WorkerId(Int) derive(Eq, Debug)
 
 ///|
-/// Discriminator for routing rules. Each variant encodes which sender and
-/// receiver identities are valid, enforced by `parse_envelope`.
+/// Route identities make protocol errors structural rather than stringly
+/// typed. They describe admission rules, not independently executable ports.
 priv enum RouteId {
   ApplyEdgeRoute
   CloseEpochRoute
@@ -24,80 +24,78 @@ priv enum RouteId {
 } derive(Eq, Debug)
 
 ///|
-/// Strictly-positive integer edge multiplicity. Invariant: the wrapped
-/// `Int` is always > 0. Constructed only by `prepare_epoch` after
-/// rejecting non-positive weights.
+/// Positive multiplicity is a refinement produced only after whole-epoch
+/// validation, so workers never need to defend against zero or negative state.
 priv struct PositiveMultiplicity(Int) derive(Eq, Debug)
 
 ///|
-/// Directed graph edge. Hashable and comparable for canonical ordering.
+/// Edges support both hash lookup and total ordering because internal maps are
+/// unordered while publications must be schedule-independent.
 priv struct Edge {
   from : Int
   to : Int
 } derive(Eq, Compare, Hash, Debug)
 
 ///|
-/// Set-valued reachability fact: `origin` can reach `target` via one or
-/// more edges. Reachability is maintained as a finite set — cycles produce
-/// a bounded closure, not unbounded path multiplicity.
+/// Reachability is deliberately set-valued, not path-counted. This bounds
+/// cycles and makes only zero/positive edge-presence changes semantically
+/// relevant to closure.
 priv struct Reach {
   origin : Int
   target : Int
 } derive(Eq, Compare, Hash, Debug)
 
 ///|
-/// Signed source-level delta from the caller. `diff` may be negative
-/// (retraction). Consolidation sums per-edge before validation.
+/// Source input remains signed until the entire epoch is consolidated; checking
+/// individual updates would incorrectly reject batches whose net state is valid.
 priv struct SourceUpdate {
   edge : Edge
   diff : Int
 } derive(Eq, Compare, Debug)
 
 ///|
-/// Post-consolidation non-zero per-edge delta. Zero-net edges are dropped.
+/// This type-state marks that duplicate updates have been combined and zero-net
+/// changes removed before source validation.
 priv struct ConsolidatedUpdate {
   edge : Edge
   diff : Int
 } derive(Eq, Compare, Debug)
 
 ///|
-/// Validated state of one edge after applying an epoch's updates.
-/// `Absent` means multiplicity is zero (edge removed); `Present` carries
-/// the new strictly-positive weight.
+/// Exact absent-or-positive state prevents workers from reinterpreting raw
+/// signed deltas or representing an invalid zero-weight edge.
 priv enum EdgeMultiplicity {
   Absent
   Present(PositiveMultiplicity)
 } derive(Eq, Debug)
 
 ///|
-/// Post-validation per-edge update. Carries the exact next multiplicity
-/// (absent or positive) rather than a signed diff. Produced by
-/// `prepare_epoch`; consumed by `WorkerState::apply_edges`.
+/// A validated update couples an edge with exact next state so the worker
+/// boundary cannot accidentally accept a consolidated-but-unvalidated delta.
 priv struct ValidatedEdgeUpdate {
   edge : Edge
   next : EdgeMultiplicity
 } derive(Eq, Debug)
 
 ///|
-/// Signed delta on the reachability set. `diff` is +1 (added) or -1
-/// (removed). Produced by `output_delta` for publication.
+/// Reachability deltas are restricted by the set model to presence changes;
+/// they do not claim path provenance or multiplicity.
 priv struct ReachUpdate {
   reach : Reach
   diff : Int
 } derive(Eq, Compare, Debug)
 
 ///|
-/// Canonical snapshot of one edge with its current positive multiplicity.
-/// Used in `Publication.source` for deterministic comparison.
+/// Publications retain source weights separately from set-valued reachability,
+/// because duplicate source support still matters to later retractions.
 priv struct WeightedEdge {
   edge : Edge
   weight : Int
 } derive(Eq, Compare, Debug)
 
 ///|
-/// All protocol violations detectable during epoch lifecycle, routing,
-/// and completion. Each variant identifies the failing invariant so the
-/// shell can reject atomically without mutating completed state.
+/// Structured failures preserve the violated invariant for tests and replay;
+/// atomicity is checked separately against retained state.
 priv enum ProtocolError {
   NoActiveEpoch
   EpochNotExpected(Int, Int)
@@ -117,9 +115,8 @@ priv enum ProtocolError {
 } derive(Eq, Debug)
 
 ///|
-/// Parsed, typed event variant. Fuses the former operator, port, and
-/// event combination into one enum. Only parsed routed envelopes enter
-/// transport, mailboxes, traces, or a reducer.
+/// Event variants fuse operation and payload so invalid operator/port/event
+/// combinations are unrepresentable after routing admission.
 priv enum RoutedEvent {
   ApplyEdges(@vector.Vector[ValidatedEdgeUpdate])
   CloseEpoch
@@ -129,11 +126,9 @@ priv enum RoutedEvent {
 } derive(Eq, Debug)
 
 ///|
-/// Unvalidated routing request created at a shell boundary. It must pass
-/// `parse_envelope` to
-/// become a `RoutedEnvelope`. Epoch, sender role, receiver identity,
-/// positive multiplicity, and key ownership checks happen at that
-/// parser boundary because they depend on runtime values.
+/// Raw envelopes exist only at the shell boundary because sender, epoch, and
+/// ownership constraints depend on runtime context and cannot be encoded in
+/// the payload type alone.
 priv struct RawEnvelope {
   epoch : Epoch
   sender : WorkerId
@@ -142,9 +137,8 @@ priv struct RawEnvelope {
 }
 
 ///|
-/// Validated envelope produced by the routing parser. Its persistent payloads
-/// are immutable and may be structurally shared; invalid roles, ownership, and
-/// epochs are rejected before this value enters transport or mailboxes.
+/// Only this admitted form may enter queues. Persistent payloads can be shared
+/// safely, avoiding a misleading and unnecessary deep-copy guarantee.
 priv struct RoutedEnvelope {
   epoch : Epoch
   sender : WorkerId
@@ -153,17 +147,15 @@ priv struct RoutedEnvelope {
 } derive(Eq, Debug)
 
 ///|
-/// Pre-routing feedback candidate produced by the worker reducer. The
-/// shell converts drafts into raw envelopes and routes them through the
-/// parser. Currently only `FeedbackDraft` exists.
+/// Workers emit drafts rather than privileged envelopes so recursive feedback
+/// must pass the same ownership and epoch checks as external routing.
 priv enum EnvelopeDraft {
   FeedbackDraft(Reach)
 } derive(Eq, Debug)
 
 ///|
-/// Phase within a single epoch's processing. Tracks the progression
-/// from input staging through validation, application, recomputation,
-/// and publication. Recorded in `TraceEvent::ProgressChanged`.
+/// Progress is intentionally coarser than control flow: traces expose stable
+/// protocol milestones rather than every shell implementation detail.
 priv enum ProgressState {
   InputClosed
   SourceValidated
@@ -174,9 +166,8 @@ priv enum ProgressState {
 } derive(Eq, Debug)
 
 ///|
-/// Canonical output of a completed epoch. Contains the epoch number,
-/// sorted source edges, sorted reachability set, and sorted reachability
-/// delta. Produced by `complete_epoch` and returned by `Engine::run_closed`.
+/// Publication arrays are canonicalized to remove hash iteration and scheduler
+/// order from observable results; this is a snapshot, not retained history.
 priv struct Publication {
   epoch : Epoch
   source : Array[WeightedEdge]
@@ -185,9 +176,8 @@ priv struct Publication {
 } derive(Eq, Debug)
 
 ///|
-/// Diagnostic events for replay and debugging. Recorded by the engine
-/// shell as it processes lifecycle transitions, routes envelopes, and
-/// publishes materializations. Snapshots return defensive copies.
+/// Traces retain protocol decisions and scheduling choices for replay. Snapshot
+/// APIs copy mutable arrays so diagnostics cannot mutate engine state.
 priv enum TraceEvent {
   SchedulerConfigured(Int?)
   EpochOpened(Epoch)
@@ -202,35 +192,31 @@ priv enum TraceEvent {
 } derive(Eq, Debug)
 
 ///|
-/// Active epoch with staged input. The `staged` vector is immutable
-/// (persistent `Vector`); staging appends by creating a new vector,
-/// preserving prior phases.
+/// Staged input uses a persistent `Vector` so lifecycle values remain immutable
+/// without copying the full batch at every stage transition.
 priv struct OpenEpoch {
   epoch : Epoch
   staged : @vector.Vector[SourceUpdate]
 }
 
 ///|
-/// Closed epoch with staged input. Input is sealed; further staging
-/// returns `UpdateAfterClose`. Validation and source application happen
-/// from this phase.
+/// A distinct closed type-state prevents late input from being mistaken for
+/// part of the epoch being validated.
 priv struct ClosedEpoch {
   epoch : Epoch
   staged : @vector.Vector[SourceUpdate]
 }
 
 ///|
-/// Epoch in the draining phase after source validation. Routing is
-/// prepared; envelopes for this epoch are accepted. Completion facts
-/// are gathered in this phase.
+/// Routing is gated on this post-validation type-state so workers cannot observe
+/// a source epoch that might still be rejected.
 priv struct DrainingEpoch {
   epoch : Epoch
 }
 
 ///|
-/// Lifecycle phase of the engine. Transitions are driven by the pure
-/// `reduce_epoch` reducer (functional core). The shell applies the
-/// returned phase immutably.
+/// A sum type replaces parallel lifecycle flags, making contradictory states
+/// such as open-and-draining unrepresentable.
 priv enum EpochPhase {
   Ready(Int)
   Open(OpenEpoch)
@@ -240,9 +226,8 @@ priv enum EpochPhase {
 }
 
 ///|
-/// Input event for the lifecycle reducer. Each variant triggers a
-/// specific phase transition. The reducer returns an immutable next
-/// phase plus an optional decision; the shell applies the decision.
+/// Lifecycle requests are data so transition policy can be tested without
+/// mutating the engine shell.
 priv enum EpochEvent {
   BeginEpoch(Int)
   StageEpoch(Int, @vector.Vector[SourceUpdate])
@@ -254,9 +239,8 @@ priv enum EpochEvent {
 }
 
 ///|
-/// Output decision from the lifecycle reducer. The shell records these
-/// in the trace and executes side effects (scheduling, transport,
-/// publication). Decisions are pure; effects belong to the shell.
+/// Decisions separate pure transition policy from tracing, scheduling, and
+/// publication effects owned by the shell.
 priv enum EpochDecision {
   EpochOpenedDecision(Epoch)
   InputStagedDecision(Epoch, @vector.Vector[SourceUpdate])
@@ -267,17 +251,16 @@ priv enum EpochDecision {
 } derive(Eq, Debug)
 
 ///|
-/// Result of the lifecycle reducer. Contains the immutable next phase
-/// and an optional decision. The shell applies the phase and executes
-/// the decision's side effects.
+/// Phase and decision travel together so the shell cannot apply an effect from
+/// a different transition.
 priv struct EpochTransition {
   phase : EpochPhase
   decision : EpochDecision?
 }
 
 ///|
-/// Routing gate derived from the lifecycle phase. Routing is only
-/// prepared in the `Draining` phase; otherwise envelopes are rejected.
+/// A reduced routing capability avoids giving the envelope parser authority
+/// over the full lifecycle state.
 priv enum RoutingGate {
   RoutingStopped
   RoutingNotPrepared
@@ -285,26 +268,24 @@ priv enum RoutingGate {
 }
 
 ///|
-/// Routing context combining the gate and expected worker count. Used
-/// by `parse_envelope` to validate epoch, worker identities, and key
-/// ownership.
+/// The parser receives only the runtime facts that static event types cannot
+/// express: routing readiness and worker cardinality.
 priv struct RoutingContext {
   gate : RoutingGate
   worker_count : Int
 }
 
 ///|
-/// Per-worker completion fact. Reports whether the worker has closed
-/// the epoch. Gathered by the shell into `CompletionFacts`.
+/// Completion facts carry worker identity and epoch, rather than a boolean
+/// count, so duplicates and wrong participants cannot satisfy completion.
 priv struct WorkerCompletionFact {
   worker : WorkerId
   closed_epoch : Epoch?
 }
 
 ///|
-/// Global completion facts gathered by the shell. Includes pending
-/// transport/mailbox counts, expected worker count, and per-worker
-/// close facts. Parsed by `parse_completion` into evidence.
+/// Effect-derived completion facts remain untrusted until queue emptiness and
+/// exact worker participation are checked together.
 priv struct CompletionFacts {
   phase : EpochPhase
   epoch : Epoch
@@ -315,18 +296,16 @@ priv struct CompletionFacts {
 }
 
 ///|
-/// Proof that all workers closed the epoch and all transport/mailboxes
-/// drained. Constructed by `parse_completion`; consumed by
-/// `complete_epoch` to build the final publication.
+/// Evidence hides raw progress counters after validation, preventing
+/// publication code from relying on unchecked or vacuously true facts.
 priv struct CompletionEvidence {
   epoch : Epoch
 }
 
 ///|
-/// Validated epoch ready for application. Contains the next source
-/// map, validated edge updates, and the set of `from` nodes whose
-/// edges changed presence (zero ↔ positive). Used to select affected
-/// origins for recomputation.
+/// The next source is owned as a validated copy so rejection preserves the last
+/// completed state. `changed_from` tracks only zero/positive crossings because
+/// positive weight changes do not affect set closure.
 priv struct ValidatedEpoch {
   next_source : @hashmap.HashMap[Edge, PositiveMultiplicity]
   edge_updates : @vector.Vector[ValidatedEdgeUpdate]
@@ -334,9 +313,8 @@ priv struct ValidatedEpoch {
 }
 
 ///|
-/// Completed epoch with final reachability and publication. Produced
-/// by `complete_epoch` after parsing completion evidence. The shell
-/// publishes this and updates its materialized state.
+/// Final reachability and its publication are bound together so the shell
+/// cannot install state different from the snapshot it exposes.
 priv struct CompletedEpoch {
   epoch : Epoch
   next_reachable : @hashset.HashSet[Reach]
@@ -344,10 +322,9 @@ priv struct CompletedEpoch {
 }
 
 ///|
-/// Worker-local state. Owns a keyed edge arrangement (`edge_by_from`),
-/// a set of reached `Reach` facts, and an optional closed epoch.
-/// The worker reducer is pure: it returns a new state plus feedback
-/// drafts without mutating the input.
+/// Worker maps and sets are mutable internally for construction cost, but the
+/// reducer copies before mutation. Workers model ownership isolation, not
+/// parallel execution.
 priv struct WorkerState {
   id : WorkerId
   edge_by_from : @hashmap.HashMap[

@@ -1,11 +1,7 @@
 ///|
-/// Imperative shell for the dataflow spike. Owns mutable state
-/// (source graph, materialized reachability, lifecycle phase, worker
-/// states, mailboxes, transport, trace, scheduler) and orchestrates
-/// the epoch lifecycle: stage → close → validate → route → deliver →
-/// drain → publish. All state transitions go through the pure
-/// reducers in `core.mbt`; this struct only applies their results and
-/// performs mutable scheduling, tracing, and publication effects.
+/// Mutable queues, scheduling, trace retention, and publication stay in this
+/// shell so `core.mbt` remains deterministic. Virtual workers model ownership
+/// and delivery order, not parallel execution.
 priv struct Engine {
   worker_count : Int
   workers : Array[WorkerState]
@@ -21,10 +17,9 @@ priv struct Engine {
 }
 
 ///|
-/// Construct the engine with `worker_count` virtual workers. The
-/// count must be > 0. Optional `scheduler_seed` enables deterministic
-/// randomized scheduling; without it, delivery is always FIFO
-/// (index 0). The phase starts at `Ready(0)`.
+/// A positive worker count is required by ownership modulo and exact completion
+/// coverage. Seeded scheduling explores alternate orders reproducibly; no seed
+/// keeps a simple FIFO baseline.
 fn Engine::Engine(worker_count : Int, scheduler_seed? : Int) -> Engine {
   guard worker_count > 0 else { abort("worker_count must be positive") }
   {
@@ -43,9 +38,8 @@ fn Engine::Engine(worker_count : Int, scheduler_seed? : Int) -> Engine {
 }
 
 ///|
-/// Shell-side effect handler: applies the pure reducer's phase
-/// mutation and emits trace events for the decision. This is the
-/// only place where `self.phase` is mutated from a reducer result.
+/// Phase assignment is centralized here so traces and mutable lifecycle state
+/// cannot diverge across separate command handlers.
 fn Engine::apply_epoch_transition(
   self : Engine,
   transition : EpochTransition,
@@ -70,9 +64,8 @@ fn Engine::apply_epoch_transition(
 }
 
 ///|
-/// Run a lifecycle event through the pure reducer and apply the
-/// result. Returns the reducer's error without mutating state on
-/// failure.
+/// Reduction happens before shell mutation, preserving the prior phase and
+/// trace when protocol parsing fails.
 fn Engine::run_epoch_event(
   self : Engine,
   event : EpochEvent,
@@ -87,8 +80,8 @@ fn Engine::run_epoch_event(
 }
 
 ///|
-/// Shell entry point: open a new epoch. Delegates to
-/// `run_epoch_event`.
+/// Epoch opening still passes through the reducer so callers cannot bypass
+/// sequencing merely because this shell method is private.
 fn Engine::begin_epoch(
   self : Engine,
   epoch_value : Int,
@@ -97,9 +90,8 @@ fn Engine::begin_epoch(
 }
 
 ///|
-/// Shell entry point: stage a batch of source updates for the given
-/// epoch. The input array is copied into an immutable persistent
-/// `Vector`; caller mutation cannot affect the staged epoch.
+/// Caller-owned arrays are converted at admission: a persistent `Vector`
+/// prevents later caller mutation while sharing staged state across phases.
 fn Engine::stage_batch(
   self : Engine,
   epoch_value : Int,
@@ -109,8 +101,8 @@ fn Engine::stage_batch(
 }
 
 ///|
-/// Shell entry point: close input for the given epoch. After close,
-/// no further staging is accepted until the epoch completes.
+/// Closing is a reducer event rather than a mutable flag, preventing late input
+/// and contradictory open/closed state.
 fn Engine::close_input(
   self : Engine,
   epoch_value : Int,
@@ -119,8 +111,8 @@ fn Engine::close_input(
 }
 
 ///|
-/// Copy an admitted envelope wrapper into transport and record the enqueue.
-/// Persistent event payloads are immutable, so they are safely shared.
+/// Transport takes a new wrapper but shares persistent payloads; deep copying
+/// immutable vectors would not improve isolation.
 fn Engine::queue_envelope(self : Engine, envelope : RoutedEnvelope) -> Unit {
   let owned = copy_routed_envelope(envelope)
   self.transport.push(owned)
@@ -128,9 +120,8 @@ fn Engine::queue_envelope(self : Engine, envelope : RoutedEnvelope) -> Unit {
 }
 
 ///|
-/// Parse a single raw envelope and enqueue it into transport.
-/// Parsing validates all trust boundaries before the envelope
-/// enters engine state.
+/// Raw envelopes are parsed before queue mutation so malformed routing data is
+/// never observable in transport or traces.
 fn Engine::route_envelope(
   self : Engine,
   raw : RawEnvelope,
@@ -146,8 +137,8 @@ fn Engine::route_envelope(
 }
 
 ///|
-/// Batch version of `route_envelope`. Parses all envelopes first;
-/// if any fails, none are enqueued (atomic batch).
+/// Whole-batch parsing prevents a malformed suffix from leaving an admitted
+/// transport prefix.
 fn Engine::route_envelopes(
   self : Engine,
   raws : ArrayView[RawEnvelope],
@@ -163,8 +154,8 @@ fn Engine::route_envelopes(
 }
 
 ///|
-/// Convert worker-produced envelope drafts into raw envelopes with
-/// computed receivers, then route them through the standard parser.
+/// Worker feedback deliberately re-enters raw routing; granting reducers a
+/// privileged queue path would bypass sender and ownership checks.
 fn Engine::queue_drafts(
   self : Engine,
   epoch : Epoch,
@@ -188,9 +179,8 @@ fn Engine::queue_drafts(
 }
 
 ///|
-/// Select a random index in `[0, length)` using the seeded RNG, or
-/// 0 if no seed is configured. Used for randomized scheduling of
-/// transport routing and mailbox delivery.
+/// Seeded choice exposes order sensitivity while preserving replay. Index zero
+/// without a seed provides a deterministic baseline rather than ambient random.
 fn Engine::pick_index(self : Engine, length : Int) -> Int {
   match self.random {
     None => 0
@@ -199,8 +189,8 @@ fn Engine::pick_index(self : Engine, length : Int) -> Int {
 }
 
 ///|
-/// Move one envelope from transport to its target worker's mailbox. The shell
-/// copies the wrapper for mailbox ownership while sharing immutable payloads.
+/// Transport and mailboxes remain separate despite local workers so tests can
+/// vary network-like routing order independently from worker delivery order.
 fn Engine::route_one(self : Engine) -> Unit {
   let index = self.pick_index(self.transport.length())
   let envelope = self.transport.remove(index)
@@ -210,8 +200,8 @@ fn Engine::route_one(self : Engine) -> Unit {
 }
 
 ///|
-/// Return indices of workers with non-empty mailboxes. Used by
-/// `deliver_one` to select a ready worker.
+/// Scheduling selects only ready mailboxes; treating empty workers as choices
+/// would consume randomness without exercising a delivery interleaving.
 fn Engine::ready_workers(self : Engine) -> Array[Int] {
   let ready : Array[Int] = []
   for i, mailbox in self.mailboxes {
@@ -223,10 +213,8 @@ fn Engine::ready_workers(self : Engine) -> Array[Int] {
 }
 
 ///|
-/// Deliver one envelope to a ready worker: select a worker and
-/// message index (randomized if seeded), snapshot the envelope for
-/// the trace, run the pure worker reducer, swap in the new worker
-/// state, and queue any produced drafts.
+/// Worker state is replaced only after reduction succeeds, so one delivery is
+/// atomic even though the worker's internal copy uses mutable collections.
 fn Engine::deliver_one(self : Engine) -> Result[Unit, ProtocolError] {
   let ready = self.ready_workers()
   if ready.is_empty() {
@@ -248,18 +236,15 @@ fn Engine::deliver_one(self : Engine) -> Result[Unit, ProtocolError] {
 }
 
 ///|
-/// Return true when both transport and all mailboxes are empty.
-/// Quiescence is required before completion evidence can be
-/// gathered.
+/// Both queue layers must be empty: checking only transport or only mailboxes
+/// would permit premature completion.
 fn Engine::is_quiescent(self : Engine) -> Bool {
   self.transport.is_empty() && self.mailboxes.all(mailbox => mailbox.is_empty())
 }
 
 ///|
-/// Route and deliver all pending messages until quiescent.
-/// Alternates between routing one transport message and delivering
-/// one mailbox message. Returns the first delivery error
-/// encountered.
+/// The loop preserves route-before-deliver discipline while varying choices
+/// within each queue; a seed makes any order-dependent failure reproducible.
 fn Engine::drain(self : Engine) -> Result[Unit, ProtocolError] {
   for ;; {
     if self.is_quiescent() {
@@ -277,8 +262,8 @@ fn Engine::drain(self : Engine) -> Result[Unit, ProtocolError] {
 }
 
 ///|
-/// Enqueue `CloseEpoch` messages for all workers. Sender is `-1`
-/// (coordinator).
+/// Every worker receives an explicit coordinator close rather than relying on a
+/// shared flag, enabling completion to verify participant identity and epoch.
 fn Engine::queue_close_events(
   self : Engine,
   epoch : Epoch,
@@ -293,8 +278,8 @@ fn Engine::queue_close_events(
 }
 
 ///|
-/// Group validated edge updates by target worker (via
-/// `owner_for_key`) and enqueue per-worker `ApplyEdges` messages.
+/// Source updates are partitioned by `from` ownership so the keyed join has one
+/// authoritative arrangement for each lookup key.
 fn Engine::queue_edge_updates(
   self : Engine,
   epoch : Epoch,
@@ -323,8 +308,8 @@ fn Engine::queue_edge_updates(
 }
 
 ///|
-/// Enqueue `ResetOrigins` messages for all workers with the
-/// affected origin set.
+/// Reset is broadcast because one origin's discovered facts may be distributed
+/// across several workers even though edge arrangements are key-owned.
 fn Engine::queue_origin_reset(
   self : Engine,
   epoch : Epoch,
@@ -340,8 +325,8 @@ fn Engine::queue_origin_reset(
 }
 
 ///|
-/// Enqueue `SeedOrigin` messages, one per affected origin, routed
-/// to the owning worker.
+/// Seeds begin at the owner of their first lookup key; subsequent expansion
+/// returns through ordinary routed feedback.
 fn Engine::queue_seeds(
   self : Engine,
   epoch : Epoch,
@@ -360,8 +345,8 @@ fn Engine::queue_seeds(
 }
 
 ///|
-/// Union all workers' reachable sets into a single `HashSet`.
-/// Called after drain to gather the post-epoch closure.
+/// Materialization is assembled in the shell because worker-local sets are an
+/// ownership detail, not the published semantics.
 fn Engine::collect_reachable(self : Engine) -> @hashset.HashSet[Reach] {
   let result : @hashset.HashSet[Reach] = @hashset.HashSet([])
   self.workers.each(worker => worker.reachable.each(reach => result.add(reach)))
@@ -369,17 +354,15 @@ fn Engine::collect_reachable(self : Engine) -> @hashset.HashSet[Reach] {
 }
 
 ///|
-/// Return true when every worker has observed close for the given epoch. This
-/// is one completion condition; transport and mailboxes must also be empty.
+/// Worker closure is intentionally only one completion condition; using it as
+/// quiescence would ignore in-flight transport and mailbox work.
 fn Engine::workers_closed(self : Engine, epoch : Epoch) -> Bool {
   self.workers.all(worker => worker.closed_epoch == Some(epoch))
 }
 
 ///|
-/// Orchestrate the close→validate→accept flow: extract the closed
-/// epoch, run `prepare_epoch`, and on success transition to
-/// `Draining`. On validation failure, transition to `Ready(next)`
-/// with a rejection decision and return the original error.
+/// Validation precedes worker admission, and rejection still advances protocol
+/// order while preserving the last completed source snapshot.
 fn Engine::prepare_closed_epoch(
   self : Engine,
 ) -> Result[(Epoch, ValidatedEpoch), ProtocolError] {
@@ -409,9 +392,8 @@ fn Engine::prepare_closed_epoch(
 }
 
 ///|
-/// Apply the validated source batch: enqueue close events, edge
-/// updates, drain, and commit the new source map. Traces
-/// `SourceApplied` progress.
+/// The source copy is installed only after validated worker messages drain;
+/// this avoids exposing source state ahead of worker arrangements.
 fn Engine::apply_source_epoch(
   self : Engine,
   epoch : Epoch,
@@ -435,10 +417,9 @@ fn Engine::apply_source_epoch(
 }
 
 ///|
-/// Clear stale reachability for affected origins, drain, then
-/// re-seed and drain again. This is the bounded retraction
-/// mechanism: only origins whose targets changed are recomputed,
-/// leaving unaffected origins in place.
+/// Reset-before-reseed compensates for absent path provenance. Rebuilding only
+/// conservatively affected origins keeps the spike bounded without claiming a
+/// general differential algorithm.
 fn Engine::recompute_affected_origins(
   self : Engine,
   epoch : Epoch,
@@ -466,9 +447,8 @@ fn Engine::recompute_affected_origins(
 }
 
 ///|
-/// Gather completion state from the shell: transport/mailbox
-/// counts, worker completion facts. This is the effectful
-/// gathering step; the pure `parse_completion` validates it.
+/// Queue and worker observations are gathered as untrusted facts; the shell is
+/// not allowed to declare completion merely because it produced them.
 fn Engine::completion_facts(self : Engine, epoch : Epoch) -> CompletionFacts {
   let mailbox_pending = self.mailboxes.fold(init=0, (pending, mailbox) => {
     pending + mailbox.length()
@@ -489,9 +469,8 @@ fn Engine::completion_facts(self : Engine, epoch : Epoch) -> CompletionFacts {
 }
 
 ///|
-/// Gather completion facts, validate them through
-/// `parse_completion`, then collect the union reachable set and
-/// build the `CompletedEpoch`.
+/// Reachability is collected only after progress facts become evidence, keeping
+/// publication preparation behind the completion gate.
 fn Engine::parse_completed_epoch(
   self : Engine,
   epoch : Epoch,
@@ -506,9 +485,8 @@ fn Engine::parse_completed_epoch(
 }
 
 ///|
-/// Transition to `Ready(next)` via `CommitPublication`, install
-/// the new materialized set, record a defensive publication
-/// snapshot, and increment the publication count.
+/// Only the latest defensive snapshot is retained to bound memory; this spike
+/// does not promise replayable materialization history.
 fn Engine::publish_completed_epoch(
   self : Engine,
   completed : CompletedEpoch,
@@ -529,11 +507,9 @@ fn Engine::publish_completed_epoch(
 }
 
 ///|
-/// Main orchestration pipeline for a closed epoch: validate →
-/// apply source → recompute affected origins → parse completion →
-/// publish. Each step returns early on error. The previous
-/// materialized set is snapshotted before mutation for delta
-/// computation.
+/// The previous materialization is captured before effects so delta computation
+/// compares completed snapshots; every validation failure returns before source
+/// or worker mutation.
 fn Engine::run_closed(self : Engine) -> Result[Publication, ProtocolError] {
   let (epoch, validated) = match self.prepare_closed_epoch() {
     Err(error) => return Err(error)
@@ -556,8 +532,8 @@ fn Engine::run_closed(self : Engine) -> Result[Publication, ProtocolError] {
 }
 
 ///|
-/// Return a defensive trace snapshot. Envelope wrappers are rebuilt while
-/// sharing immutable payloads; mutable publication arrays are copied.
+/// Trace snapshots rebuild wrappers and copy mutable publication arrays, while
+/// intentionally sharing immutable vectors rather than claiming a deep copy.
 fn Engine::trace_snapshot(self : Engine) -> Array[TraceEvent] {
   self.trace.map(event => {
     match event {
@@ -574,36 +550,35 @@ fn Engine::trace_snapshot(self : Engine) -> Array[TraceEvent] {
 }
 
 ///|
-/// Return a canonical sorted snapshot of the current source graph.
+/// Canonicalization prevents internal hash order from becoming observable.
 fn Engine::source_snapshot(self : Engine) -> Array[WeightedEdge] {
   canonical_source(self.source)
 }
 
 ///|
-/// Return a canonical sorted snapshot of the current materialized
-/// reachability.
+/// Canonicalization makes materialization comparison independent of delivery
+/// and hash iteration order.
 fn Engine::reachable_snapshot(self : Engine) -> Array[Reach] {
   canonical_reachable(self.materialized)
 }
 
 ///|
-/// Return a defensive copy of the last publication, or `None` if
-/// no epoch has been published. The engine retains only a
-/// defensive snapshot, not an unbounded materialization history.
+/// Returning a defensive copy protects retained arrays; retaining only one
+/// snapshot is an explicit bound, not an event-history API.
 fn Engine::last_publication_snapshot(self : Engine) -> Publication? {
   self.last_publication.map(copy_publication)
 }
 
 ///|
-/// Return the number of epochs published so far. Monotonically
-/// increasing.
+/// A count is retained instead of publication history because tests need
+/// duplicate-publication detection without unbounded snapshots.
 fn Engine::publication_count(self : Engine) -> Int {
   self.published_count
 }
 
 ///|
-/// Transition to `Stopped` and clear all transport and mailboxes.
-/// Subsequent lifecycle events return `EngineStopped`.
+/// Stop clears pending work so no queued event can outlive the terminal phase;
+/// the reducer then rejects every later lifecycle request.
 fn Engine::shutdown(self : Engine) -> Unit {
   ignore(self.run_epoch_event(StopEngine))
   self.transport.clear()
