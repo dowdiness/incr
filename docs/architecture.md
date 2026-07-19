@@ -10,9 +10,10 @@ For the verification algorithm, type erasure, push propagation, and storage layo
 
 The repository is a MoonBit workspace: the publishable MoonBit module lives
 under `incr/`, the experimental TEA UI framework built on it lives under
-`incr_tea/` (module `dowdiness/incr_tea`), checked documentation examples live
-under `docs/`, and demos/spikes are separate workspace members under
-`examples/`. The main packages in `dowdiness/incr` are mapped below. Users import only the root facade;
+`incr_tea/` (module `dowdiness/incr_tea`), the independent unpublished
+retractable-dataflow correctness spike lives under `dataflow/` (module
+`dowdiness/dataflow`), checked documentation examples live under `docs/`, and
+demos/spikes are separate workspace members under `examples/`. The main packages in `dowdiness/incr` are mapped below. Users import only the root facade;
 everything else is implementation detail, tests, checked documentation, or
 standalone demo code.
 
@@ -30,6 +31,7 @@ moon.work
 │   │       └── kernel/  ← Graph-mechanics algorithms (verify, propagate, gc, …)
 │   └── tests/          ← Integration tests against the public API
 ├── incr_tea/            ← module `dowdiness/incr_tea`: experimental TEA UI framework on `dowdiness/incr`
+├── dataflow/            ← module `dowdiness/dataflow`: independent unpublished correctness spike
 ├── docs/               ← Checked literate documentation examples
 └── examples/           ← Standalone workspace modules for demos and spikes
     └── typed_spreadsheet/ ← Example worksheet/formula boundary (not published as `dowdiness/incr`)
@@ -46,6 +48,7 @@ moon.work
 | `cells/internal/datalog/` | SoA storage for Datalog primitives (`RelationData`, `FunctionalRelationData`, `RuleData`) | `shared` |
 | `cells/internal/kernel/` | Graph-mechanics algorithms used by the coordinator: pull-verify, push-propagate, batch commit, dispose/GC, dispatch, cycle detection, subscriber diff, fixpoint | `shared`, `pull`, `push`, `datalog` |
 | `tests/` | Integration tests exercising only the public API | root |
+| `../dataflow/` | Unpublished Phase 0 retractable-reachability correctness spike; private API and no Incr/EGW dependency | none |
 | `../docs/` | Checked literate examples for documentation. A separate workspace member that imports the root facade only for test blocks. | root |
 
 The five `internal/` sub-packages use MoonBit's `internal` directory visibility, which the compiler enforces. The script `scripts/check-engine-isolation.sh` additionally enforces four hand-curated invariants on top of that (one-way kernel imports, leaf status of `shared`, no engine-to-engine sibling imports, no back-edges into `cells/`).
@@ -201,7 +204,7 @@ Items the audit verified against current code; if any of these is wrong, the cod
 - **`gc_tracked(rt, t)` was removed in the breaking cleanup.** For field owners, use `add_input_fields(scope, owner)`.
 - **Hand-maintained `docs/api-reference.mbt.md`.** It has drifted from `.mbti` at least once (caught in the most recent audit). Treat the `.mbti` files as authoritative when they disagree.
 - **Most prose examples are still illustrative.** The target-API examples in [`target_api_examples.mbt.md`](target_api_examples.mbt.md) are checked by `moon check`, but many longer ` ```moonbit` snippets in prose docs are still unchecked. Continue migrating high-value examples to `.mbt.md` literate tests as APIs stabilize.
-- **CI runs on PRs and main** (`.github/workflows/ci.yml`): `moon check` + `moon test` over the library and the checked docs examples. Run the same commands locally before pushing.
+- **CI runs on PRs and main** (`.github/workflows/ci.yml`): `moon check` + `moon test` over the library, checked docs examples, and every package in the independent `dataflow` member. Run the same commands locally before pushing.
 
 ---
 

@@ -24,6 +24,7 @@ snippets).
 ## Architecture
 
 - [Architecture](architecture.md) — package responsibility map, four execution modes (pull / push / hybrid / Datalog), key types and invariants, extension points
+- [Retractable dataflow correctness spike](../dataflow/README.mbt.md) — independent unpublished Phase 0 module, bounded GO evidence, validation, and non-goals
 
 ## Examples
 
@@ -103,6 +104,7 @@ live in each ADR.
 | [2026-07-14](decisions/2026-07-14-machine-composition-domain-functions.md) | Machine composition remains domain-level pure functions; no shared `Machine`/core API without repeated driver evidence |
 | [2026-07-15](decisions/2026-07-15-incr-tea-controlled-form-properties.md) | Incremental TEA controlled form properties: closure-free values, post-order select repair, and explicit boolean control |
 | [2026-07-18](decisions/2026-07-18-datalog-relation-rule-lifecycle.md) | Datalog relation-rule lifecycle: live rules pin declared relations; relation disposal rejects rather than cascading; authority is declaration metadata only |
+| [2026-07-19](decisions/2026-07-19-independent-differential-dataflow-module.md) | Differential dataflow module boundary: independent in-workspace spike with one-way future adapters; production engine remains gated |
 
 ---
 

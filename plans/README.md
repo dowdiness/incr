@@ -15,7 +15,8 @@ instruction.
 
 Plans 008–009 remain from the delta-audit findings selected non-interactively
 by leverage (the skill's default when no operator is present to choose); the
-operator may reject or reorder them. They are independent — either order works.
+operator may reject or reorder them. Neither imposes an execution order on the
+other.
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 |------|-------|----------|--------|------------|--------|
