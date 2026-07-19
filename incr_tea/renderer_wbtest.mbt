@@ -1020,6 +1020,108 @@ test "#268: renderer schedules after_flush even when Html is unchanged" {
 
 ///|
 #cfg(target="js")
+test "controlled textarea value is asserted on initial render" {
+  let host = test_install_focus_dom()
+  let runtime = @incr.Runtime()
+  let renderer : BrowserRenderer[RendererMsg] = BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  let scope = @incr.Scope::new(runtime)
+  let update : (RendererMsg) -> Cmd[RendererMsg] = _ => Cmd::none()
+  let view : () -> Html[RendererMsg] raise Failure = () => {
+    node(
+      "textarea",
+      attrs=[attr("id", "controlled-textarea"), attr("value", "hello")],
+      [],
+    )
+  }
+  let program = Program::Program(
+    runtime,
+    scope,
+    update,
+    view,
+    label="renderer.controlled.textarea.initial.view",
+  )
+  ignore(renderer.mount(host, program))
+
+  let textarea = test_dom_get_by_id("controlled-textarea")
+  let rendered_value = test_dom_value(textarea)
+  let value_writes = test_dom_property_writes(textarea, "value")
+
+  renderer.dispose()
+  test_restore_dom()
+
+  inspect(rendered_value, content="hello")
+  inspect(value_writes, content="1")
+}
+
+///|
+#cfg(target="js")
+test "equal Html flush restores controlled textarea value" {
+  let host = test_install_focus_dom()
+  let runtime = @incr.Runtime()
+  let renderer : BrowserRenderer[RendererMsg] = BrowserRenderer::BrowserRenderer(
+    runtime,
+  )
+  let scope = @incr.Scope::new(runtime)
+  let unrelated = scope.input_field(
+    0,
+    label="renderer.controlled.textarea.unrelated",
+  )
+  let update : (RendererMsg) -> Cmd[RendererMsg] = msg => {
+    match msg {
+      SetUnrelated(next) => unrelated.set(next)
+      _ => ()
+    }
+    Cmd::none()
+  }
+  let view : () -> Html[RendererMsg] raise Failure = () => {
+    let _ = unrelated
+    node(
+      "textarea",
+      attrs=[attr("id", "controlled-textarea"), attr("value", "accepted")],
+      [],
+    )
+  }
+  let program = Program::Program(
+    runtime,
+    scope,
+    update,
+    view,
+    label="renderer.controlled.textarea.equal.view",
+  )
+  ignore(renderer.mount(host, program))
+
+  let textarea = test_dom_get_by_id("controlled-textarea")
+  let value_writes = test_dom_property_writes(textarea, "value")
+  test_dom_set_value(textarea, "rejected")
+  let dispatched = program.dispatch(SetUnrelated(1))
+  let pending_count = test_pending_raf_count()
+  test_run_next_raf()
+
+  let restored_value = test_dom_value(textarea)
+  let same_node = test_dom_same_node(
+    textarea,
+    test_dom_get_by_id("controlled-textarea"),
+  )
+  let patch_attempts = renderer.stats().patch_attempts
+  let skipped = renderer.stats().skipped_patches
+  let value_writes_after = test_dom_property_writes(textarea, "value")
+
+  renderer.dispose()
+  test_restore_dom()
+
+  inspect(dispatched, content="true")
+  inspect(pending_count, content="1")
+  inspect(restored_value, content="accepted")
+  inspect(same_node, content="true")
+  inspect(patch_attempts, content="1")
+  inspect(skipped, content="1")
+  inspect(value_writes_after == value_writes + 1, content="true")
+}
+
+///|
+#cfg(target="js")
 test "#003: equal Html flush restores controlled false properties without patching" {
   let host = test_install_focus_dom()
   let runtime = @incr.Runtime()
