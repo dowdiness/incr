@@ -65,7 +65,7 @@ For contributors and advanced users who want to understand or modify `incr`.
 
 - [Roadmap](roadmap.md) — canonical current core backlog
 - [incr_tea backlog](../incr_tea/docs/backlog.md) — task list for the `dowdiness/incr_tea` module (retargeted TEA issues + agenda)
-- [Implementation plans](../plans/) — active, time-bounded implementation records; completed plans are deleted under the documentation retention policy.
+- [Implementation plans](../plans/) — active, time-bounded records in the root plan workflow; completed files are deleted with Git history as recovery, separately from the `docs/plans/` archive protocol.
 
 **Research notes** ([research/](research/)) — exploratory, not implemented. Open these only when a current roadmap item, plan, or ADR calls for them.
 
@@ -105,6 +105,7 @@ live in each ADR.
 | [2026-07-15](decisions/2026-07-15-incr-tea-controlled-form-properties.md) | Incremental TEA controlled form properties: closure-free values, post-order select repair, and explicit boolean control |
 | [2026-07-18](decisions/2026-07-18-datalog-relation-rule-lifecycle.md) | Datalog relation-rule lifecycle: live rules pin declared relations; relation disposal rejects rather than cascading; authority is declaration metadata only |
 | [2026-07-19](decisions/2026-07-19-independent-differential-dataflow-module.md) | Differential dataflow module boundary: independent in-workspace spike with one-way future adapters; production engine remains gated |
+| [2026-07-20](decisions/2026-07-20-typed-spreadsheet-egw-register-projection.md) | Accepted typed-spreadsheet EGW boundary: atomic cell registers, shared authoritative projection, and evidence-gated EGW improvement |
 
 ---
 

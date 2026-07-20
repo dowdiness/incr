@@ -38,13 +38,14 @@ The current worksheet interpreter is a temporary imperative shell. A future
 application-specific adapter alone may depend on EGW and incr:
 
 ```text
-SheetCommand
-  -> typed-spreadsheet/EGW adapter
-  -> EGW transaction + commit receipt
-  -> merged EGW document
-  -> pure spreadsheet projection
+local SheetCommand
+  -> typed-spreadsheet/EGW adapter mutation ─┐
+                                            ├─> merged EGW document
+remote SyncMessage
+  -> EGW remote apply ─────────────────────┘
+  -> shared pure spreadsheet projection
   -> Runtime::batch
-  -> InputFields
+  -> Worksheet + InputFields
 ```
 
 EGW remains authoritative for operation IDs, causal history, merge, and
@@ -52,11 +53,13 @@ convergence. Local commands and remote sync must share this merged-state
 projection path. Application command identities, future EGW operation IDs,
 incr revisions, and dataflow epochs are distinct domains.
 
-Command types stay package-local during this pilot. When the adapter is
-commissioned, promote them to an importable application-domain package. No
-generic `egw_incr` package is justified until a second driver repeats the same
-adapter contract. Formula atomic-register versus sequence-text semantics are
-an adapter ADR decision, not a choice made here.
+Command types stay package-local until Plan 013 promotes them—without copying—
+to an importable application-domain package after standalone EGW 0.4.0
+verification passes. No generic `egw_incr` package is justified until a second
+driver repeats the same adapter contract. The accepted adapter ADR selects an
+atomic committed-source register for the first bounded experiment;
+sequence-text formula collaboration would require a superseding product
+decision.
 
 ## Run
 

@@ -6,9 +6,9 @@ extended on 2026-07-19 against commit `f839477` by a delta audit of the code
 merged since `31afb08` (PRs #400–#414 source changes; the prior deep audit
 covered everything older), and reconciled on 2026-07-20 after PR #421 merged.
 The separately commissioned post-GO dataflow exhaustive-state plan was
-completed after `e925853`. Completed plan files are
-deleted under the documentation retention policy; Git history is the recovery
-path.
+completed after `e925853`. Under this root plan workflow, completed plan files
+are deleted and Git history is the recovery path; this is distinct from the
+parent `docs/plans/` archive protocol.
 
 Future plans are implementation handoffs, not permission to push, publish,
 deploy, or open a pull request. Those actions require separate operator
@@ -16,7 +16,19 @@ instruction.
 
 ## Execution order and status
 
-No active implementation plans.
+| Plan | Title | Priority | Effort | Depends on | Status |
+|---|---|---:|---:|---|---|
+| [013](013-typed-spreadsheet-egw-boundary-experiment.md) | Run the typed-spreadsheet EGW boundary experiment | P1 | L | Published EGW 0.4.0 | TODO (Phase 0 standalone verification) |
+
+Status values: `TODO` | `IN PROGRESS` | `DONE` |
+`BLOCKED (<reason>)` | `REJECTED (<reason>)`.
+
+Plan 013 is the first application-specific EGW adapter and an evidence harness
+for [dowdiness/event-graph-walker#72](https://github.com/dowdiness/event-graph-walker/issues/72).
+It remains inside the standalone `incr` repository and adds no generic
+`egw_incr` bridge. Its ADR is Accepted and EGW 0.4.0 publication has been
+reported; Phase 0 must verify standalone resolution without a parent-workspace
+override before implementation scaffolding begins.
 
 ## Reconciliation notes
 
