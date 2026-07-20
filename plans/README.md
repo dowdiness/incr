@@ -15,10 +15,19 @@ instruction.
 
 ## Execution order and status
 
-No active implementation plans remain.
+| Plan | Title | Priority | Effort | Depends on | Status |
+|---|---|---:|---:|---|---|
+| [012](012-typed-effect-decisions.md) | Establish an adapter-ready strong `SheetCommand` boundary | P1 | M | — | DONE |
 
 Status values: `TODO` | `IN PROGRESS` | `DONE` |
 `BLOCKED (<reason>)` | `REJECTED (<reason>)`.
+
+Plan 012 is an application-local FCIS and future-EGW-adapter pilot. It creates
+strong, closure-free `SheetCommand` values while preserving existing `incr_tea`
+APIs. EGW integration remains a separate application-specific adapter; no
+generic `egw_incr` bridge may be extracted before a second application-shaped
+driver repeats the same authoritative-state → projection → Runtime-batch
+contract.
 
 ## Reconciliation notes
 
@@ -92,6 +101,7 @@ valid but its explicit external evidence gate has not fired.
 | R22 | Bound the `ViewUnchanged` controlled-reconcile scan (`renderer_js.mbt` `reconcile_controlled_rendered` recurses all nodes and attrs on every no-op flush) e.g. by recording controlled-subtree presence at render time | perf investigation | M | JS/browser measurement on a large mostly-static tree shows the per-flush traversal is material; `controlled_reconcile_dom_bench.mbt` is the starting harness | RECORDED |
 | R23 | Decide the Scope-vs-datalog bulk-disposal contract: `Scope` disposes owned cells in registration order (`scope.mbt:108-110`), which would dispose relations before their pinning rules if datalog `CellId`s were ever adopted via `add_cell_ids` | architecture | M | Latent — no current constructor scopes datalog cells; decide (reverse-order disposal or explicit rejection of datalog ids) before scoping datalog lifecycles | RECORDED |
 | R24 | AI-context operation intake: the spreadsheet demos publish a read-only `AiContextSnapshot` (globalThis accessors, evidence classification) with no matching `apply(op)` intake; a validated command intake routed through `run_batched_op` would close the agent loop. Trust boundary for agent-authored formula text must be decided first | direction/spike | L (coarse) | Maintainer wants the closed-loop AI spreadsheet driver; `bench_api.mbt`'s dispatch-from-JS harness proves the mechanism | RECORDED |
+| R25 | Separate Runtime memo-hook selection policy from execution with a small pure `HookDispatchPlan`; do not introduce services/packages or alter hook ordering | architecture | S | Reopen only when a second event-surface family (push/effect/fixpoint) lands, another non-delegator coordinator concern appears, or index/order coupling causes a concrete defect | RECORDED |
 
 ## Findings considered and rejected
 
@@ -124,6 +134,13 @@ valid but its explicit external evidence gate has not fired.
   (`machine_composition_dom_bench.mbt` sets the module-global
   `dom_set_property_mutation_observer` and resets it only on the success
   path): benchmark-only, affects no shipped code path. Not worth doing.
+- **Introduce a `ScopeDisposePlan` now**: rejected. `Scope::dispose` already
+  closes before effects, is re-entrant safe, documents and directly implements
+  the short children → hooks → cells order, and has lifecycle coverage. A plan
+  value would currently repackage the same mutable handles and closures without
+  reducing meaningful policy complexity. Reopen only for branching teardown
+  policy, recoverable/async teardown, a concrete ordering bug, or scoped
+  Datalog ownership that invalidates registration-order disposal (R23).
 
 ## Audit coverage and verification note
 
