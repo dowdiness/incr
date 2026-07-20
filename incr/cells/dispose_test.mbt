@@ -307,6 +307,62 @@ test "disposed rule is skipped during fixpoint" {
 }
 
 ///|
+test "panic rule body disposing an unpinned relation mid-fixpoint" {
+  let rt = Runtime::Runtime()
+  let input : Relation[Int] = Relation::Relation(rt)
+  let bystander : Relation[Int] = Relation::Relation(rt)
+  rt.new_rule([input.id()], [], fn() { bystander.dispose() }) |> ignore
+  input.insert(1) |> ignore
+  rt.fixpoint()
+}
+
+///|
+test "panic rule body disposing another live rule mid-fixpoint" {
+  let rt = Runtime::Runtime()
+  let input : Relation[Int] = Relation::Relation(rt)
+  let output : Relation[Int] = Relation::Relation(rt)
+  let b_rule_id = rt.new_rule([input.id()], [output.id()], fn() {
+    for x in input.delta_iter() {
+      output.insert(x * 100) |> ignore
+    }
+  })
+  rt.new_rule([input.id()], [], fn() { rt.dispose_rule(b_rule_id) }) |> ignore
+  input.insert(1) |> ignore
+  rt.fixpoint()
+}
+
+///|
+test "datalog rebuild after full teardown derives fresh facts" {
+  let rt = Runtime::Runtime()
+  let old_input : Relation[Int] = Relation::Relation(rt)
+  let old_output : Relation[Int] = Relation::Relation(rt)
+  let old_rule = rt.new_rule([old_input.id()], [old_output.id()], fn() {
+    for x in old_input.delta_iter() {
+      old_output.insert(x * 10) |> ignore
+    }
+  })
+  old_input.insert(1) |> ignore
+  rt.fixpoint()
+  assert_true(old_output.contains(10))
+  rt.dispose_rule(old_rule)
+  old_input.dispose()
+  old_output.dispose()
+  let new_input : Relation[Int] = Relation::Relation(rt)
+  let new_output : Relation[Int] = Relation::Relation(rt)
+  rt.new_rule([new_input.id()], [new_output.id()], fn() {
+    for x in new_input.delta_iter() {
+      new_output.insert(x * 100) |> ignore
+    }
+  })
+  |> ignore
+  new_input.insert(2) |> ignore
+  rt.fixpoint()
+  assert_true(new_output.contains(200))
+  assert_true(old_input.is_disposed())
+  assert_true(old_output.is_disposed())
+}
+
+///|
 test "panic relation: insert after dispose aborts" {
   let rt = Runtime::Runtime()
   let rel : Relation[Int] = Relation::Relation(rt)

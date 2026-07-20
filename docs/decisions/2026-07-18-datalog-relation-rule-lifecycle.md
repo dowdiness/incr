@@ -41,6 +41,10 @@ order without inferring closure captures or introducing ownership machinery.
    coordinator shell; the kernel boundary remains one-way.
 9. RuleData closure retention and free-list/SoA compaction remain separate,
    unchanged debt and are not addressed by this decision.
+10. A fixpoint evaluates a stable rule/relation program. Rule and relation
+    disposal during `InFixpoint` is rejected before lifecycle dispatch. The
+    disposed-slot guards in the fixpoint loops handle tombstones created before
+    evaluation; they do not authorize structural mutation by rule callbacks.
 
 ## Rationale
 
@@ -61,6 +65,9 @@ order without inferring closure captures or introducing ownership machinery.
 - No public signature or public lifecycle query is added.
 - Relation compaction, rule scheduling, retraction, transaction semantics, and
   GC policy remain out of scope.
+- Teardown and same-runtime rebuild happen between fixpoints. A rule callback
+  that needs teardown must hand that request to an outer lifecycle shell rather
+  than disposing rules or relations during evaluation.
 
 ## Cross-engine lifecycle follow-up
 
@@ -76,5 +83,7 @@ mechanism, should an evidence gate fire.
 
 The implementation tests cover declaration classification and snapshots,
 live-rule disposal rejection, legal teardown and idempotence, strict current
-and frontier reads, and skipping disposed relations during fixpoint. The
-engine-isolation check passes and generated public interfaces remain unchanged.
+and frontier reads, rejection of relation/rule disposal from rule callbacks,
+skipping pre-existing disposed slots during fixpoint, and same-runtime rebuild
+after full teardown. The engine-isolation check passes and generated public
+interfaces remain unchanged.
