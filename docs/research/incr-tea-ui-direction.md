@@ -153,19 +153,22 @@ catch-up flush. The first prototype benchmark is recorded in
 ## Controlled form-property gate (#286)
 
 The #286 slice is accepted as a renderer-boundary contract, not a generic DOM
-property system. `Html` remains closure-free and `Eq`-comparable: `value` is
-controlled only for `<input>` and `<select>`, boolean helpers explicitly opt
-into `checked`/`disabled`/`selected`, and `on_change(tag=...)` resolves browser
-values at `BrowserRenderer::mount`. Select repair is post-order so option
+property system. `Html` remains closure-free and `Eq`-comparable: supplying
+`attr("value", value)` explicitly controls the live value for `<input>`,
+`<select>`, and `<textarea>`, boolean helpers explicitly opt into
+`checked`/`disabled`/`selected`, and `on_change(tag=...)` resolves browser values
+at `BrowserRenderer::mount`. Omitting `attr("value", ...)` leaves the live value
+browser-owned. Select repair is post-order so option
 children cannot override the parent-controlled value.
 
 The browser smoke fixture covers non-first initial values, a value change,
 same-render option addition, date/range controls, equal-view drift repair, node
-identity, and the selected-property interaction. This is sufficient evidence
-for the current boundary. Do not widen `attr("value", ...)` to `<textarea>`,
-contenteditable, or custom elements without a concrete consumer and a new
-semantics decision; ergonomic select/option/date/range constructors remain a
-separate API follow-up.
+identity, and the selected-property interaction. MoonBit regressions cover
+initial textarea value assignment and equal-view drift repair. This is
+sufficient evidence for the current boundary. Do not widen controlled-property
+handling to contenteditable regions or custom elements without a concrete
+consumer and a new semantics decision; ergonomic select/option/date/range
+constructors remain a separate API follow-up.
 
 ## Near-term roadmap
 
@@ -287,8 +290,8 @@ separate API follow-up.
 - [#268] Make `examples/incr_tea` reusable enough for a side-by-side typed
   spreadsheet demo without sacrificing `Html : Eq`.
 - [#286] Shipped Eq-safe controlled form support: pure value-change
-  descriptors, controlled input/select values, boolean property repair, and
-  browser smoke coverage. Residual ergonomic constructors remain gated on a
+  descriptors, controlled input/select/textarea values, boolean property repair,
+  and browser smoke coverage. Residual ergonomic constructors remain gated on a
   concrete consumer.
 
 [#241]: https://github.com/dowdiness/incr/issues/241

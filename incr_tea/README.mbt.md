@@ -114,10 +114,11 @@ installs a runtime `on_change` hook, and schedules one `requestAnimationFrame`
 flush for a burst of model changes. A flush reads each active root's persistent
 `Watch`; if the cacheable `Html` value is equal to the last rendered value, the
 renderer records a skipped patch and runs only the narrow controlled form-property
-repair for live `value`/`checked`/`disabled`/`selected` drift. String `value`
-properties are controlled on `<input>` and `<select>` elements; select values
-are reconciled after their option children are mounted or diffed. If the value
-changed, it records a patch attempt and applies a small positional VDOM diff.
+repair for live `value`/`checked`/`disabled`/`selected` drift. Supplying
+`attr("value", value)` explicitly controls the live value on `<input>`,
+`<select>`, and `<textarea>` elements; select values are reconciled after their
+option children are mounted or diffed. If the virtual value changed, it records
+a patch attempt and applies a small positional VDOM diff.
 Inactive mounted roots stay in the owned root set and keep their DOM attached, but the
 scheduled frame records an inactive skip instead of reading the watched view;
 activation records a catch-up flush and reads/diffs once. The chosen trigger
@@ -256,11 +257,12 @@ Conventions:
 - Event helpers stay pure descriptors. Do not add closure-valued event handlers
   to `Html`; payload-to-message logic and payload-dependent keyboard actions
   belong at `BrowserRenderer::mount`.
-- String `value` properties are controlled on `<input>` and `<select>` elements
-  when supplied as `attr("value", value)`; the renderer writes the DOM property
-  directly and equal-view flushes repair browser drift. Select values are
-  applied after option children are mounted or diffed, so a newly added selected
-  option is restored in the same render.
+- Supplying `attr("value", value)` is an explicit controlled-value intent on
+  `<input>`, `<select>`, and `<textarea>` elements; the renderer writes the DOM
+  property directly and equal-view flushes repair browser drift. Omitting it
+  leaves the live value browser-owned. Select values are applied after option
+  children are mounted or diffed, so a newly added selected option is restored
+  in the same render.
 - Boolean form-control properties (`checked`, `disabled`, `selected`) use
   `Attrs::checked(Bool)`, `Attrs::disabled(Bool)`, and `Attrs::selected(Bool)`.
   Calling the helper with either `true` or `false` makes the property controlled:
