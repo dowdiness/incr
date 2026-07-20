@@ -1,0 +1,42 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "examples/typed_spreadsheet_incr_tea_demo/domain"
+
+import {
+  "examples/typed_spreadsheet",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn validate_sheet_command(SheetCommand, SheetExecutionContext) -> CommandApplicability
+
+// Errors
+
+// Types and methods
+pub(all) enum CommandApplicability {
+  Applicable
+  StaleGeneration
+  LocalPreconditionFailed
+} derive(Eq, @debug.Debug)
+
+pub struct DocumentGeneration(Int) derive(Eq, @debug.Debug)
+pub fn DocumentGeneration::initial() -> Self
+pub fn DocumentGeneration::next(Self) -> Self
+
+pub(all) enum SheetCommand {
+  ApplyFromSelection(@typed_spreadsheet.CellId, String, DocumentGeneration)
+  ApplyFromEditor(@typed_spreadsheet.CellId, String, DocumentGeneration)
+  DeleteFromSelection(@typed_spreadsheet.CellId, DocumentGeneration)
+  ResetDocument(DocumentGeneration)
+} derive(Eq, @debug.Debug)
+
+pub struct SheetExecutionContext {
+  selected_cell : @typed_spreadsheet.CellId
+  editing_cell : @typed_spreadsheet.CellId?
+  generation : DocumentGeneration
+} derive(Eq, @debug.Debug)
+pub fn SheetExecutionContext::SheetExecutionContext(@typed_spreadsheet.CellId, @typed_spreadsheet.CellId?, DocumentGeneration) -> Self
+
+// Type aliases
+
+// Traits
+

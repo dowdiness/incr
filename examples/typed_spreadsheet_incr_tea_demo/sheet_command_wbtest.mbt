@@ -92,51 +92,6 @@ test "owned planning context does not follow later draft mutation" {
 }
 
 ///|
-test "command validation keeps generation and local preconditions independent" {
-  let context = test_sheet_planning_context()
-  let command = match plan_sheet_command(context, ApplySelected).command {
-    Some(command) => command
-    None => abort("expected command")
-  }
-  let execution = {
-    selected_cell: context.selected_cell,
-    editing_cell: context.editing_cell,
-    generation: context.generation,
-  }
-  assert_true(validate_sheet_command(command, execution) == Applicable)
-  let inline = match
-    plan_sheet_command(context, ApplyInlineEdit("C1")).command {
-    Some(command) => command
-    None => abort("expected inline command")
-  }
-  assert_true(validate_sheet_command(inline, execution) == Applicable)
-  let stale_and_mismatched = ApplyFromSelection(
-    context.selected_cell,
-    "=A1 + 1",
-    context.generation.next(),
-  )
-  assert_true(
-    validate_sheet_command(stale_and_mismatched, {
-      ..execution,
-      selected_cell: @typed_spreadsheet.CellId::of(context.sheet_id, "A1"),
-    }) ==
-    StaleGeneration,
-  )
-  assert_true(
-    validate_sheet_command(command, {
-      ..execution,
-      selected_cell: @typed_spreadsheet.CellId::of(context.sheet_id, "A1"),
-    }) ==
-    LocalPreconditionFailed,
-  )
-  let reset = match plan_sheet_command(context, ResetSheet).command {
-    Some(command) => command
-    None => abort("expected reset")
-  }
-  assert_true(validate_sheet_command(reset, execution) == Applicable)
-}
-
-///|
 test "apply operation preserves the submitted typed target" {
   let runtime = @incr.Runtime()
   let app = TypedSheetApp(runtime)

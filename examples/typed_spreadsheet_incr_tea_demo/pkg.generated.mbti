@@ -13,10 +13,6 @@ pub fn mount_typed_spreadsheet_incr_tea_demo(String) -> Unit
 // Types and methods
 type CellDraft derive(Eq, @debug.Debug)
 
-type CommandApplicability derive(Eq, @debug.Debug)
-
-type DocumentGeneration derive(Eq, @debug.Debug)
-
 type EvidenceCellData derive(Eq)
 
 type EvidenceData derive(Eq)
@@ -26,10 +22,6 @@ type KeyResolution
 type Model
 
 type Msg derive(Eq)
-
-type SheetCommand derive(Eq, @debug.Debug)
-
-type SheetExecutionContext derive(Eq, @debug.Debug)
 
 type SheetPlan derive(Eq, @debug.Debug)
 

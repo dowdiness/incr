@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-20
 
-**Status:** TODO (Phase 1 domain package promotion)
+**Status:** IN PROGRESS (Phase 1 complete; Phase 2 pure adapter core is next and unstarted)
 
 **Decision record:** [ADR: Typed spreadsheet EGW register and projection boundary](../docs/decisions/2026-07-20-typed-spreadsheet-egw-register-projection.md)
 
@@ -20,7 +20,7 @@ Plan 012 shipped in [PR #421](https://github.com/dowdiness/incr/pull/421), merge
 
 The typed spreadsheet demonstration (PR #408, closed issue #268) proved that `incr` can serve as the reactive foundation for a collaborative spreadsheet-shaped application. The next boundary question is: how does an application integrate with EGW for multi-user synchronization without violating the separation between `incr` (reactive computation), EGW (CRDT operations and convergence), and application logic (commands, document identity, UI)?
 
-This plan is the first typed-spreadsheet application-specific EGW boundary experiment. The ADR is Accepted, and Phase 0 verified that the standalone `incr` workspace resolves the published EGW 0.4.0 package. Phase 1 domain package promotion is next and remains unstarted.
+This plan is the first typed-spreadsheet application-specific EGW boundary experiment. The ADR is Accepted, and Phase 0 verified that the standalone `incr` workspace resolves the published EGW 0.4.0 package. Phase 1 domain package promotion passed 2026-07-20; Phase 2 (pure adapter core) is next and unstarted.
 
 ## STOP conditions
 
@@ -31,7 +31,7 @@ This plan is the first typed-spreadsheet application-specific EGW boundary exper
 3. The verified EGW container APIs match the assumptions in this plan: `Document::new`, `root_id`, `create_node`, `is_alive`, `set_property`/`get_property`, `sync`/`export_all`/`export_since`/`apply`, `Version`, `SyncReport` count accessors.
 4. The current standalone `incr` workspace does NOT silently implement against 0.3.0 or parent workspace override.
 
-**Current state:** Phase 0 completed 2026-07-20 on branch `advisor/013-egw-boundary-experiment` (HEAD `86a61a8`, parent checkpoint `48aa16e`). Standalone `incr` workspace resolved `dowdiness/event-graph-walker@0.4.0` into `.mooncakes/dowdiness/event-graph-walker` (distinct non-symlink directory, not parent or sibling cache); `moon ide doc @container` confirmed the 0.4.0 version and all assumed APIs match. Baseline JS check (0 errors, 16 pre-existing warning 0020) and tests 27/27 are unchanged before and after the dependency. Package feasibility verified: nested `domain/`, `egw_adapter/core/`, and `egw_adapter/` are valid roots under the existing demo module with no import cycle when the pure command-admission types and validator live in `domain/`. Phase 1 (domain package promotion) is next and unstarted; no scaffolding was created.
+**Current state:** Phase 0 completed 2026-07-20 on branch `advisor/013-egw-boundary-experiment` (HEAD `86a61a8`, parent checkpoint `48aa16e`). Standalone `incr` workspace resolved `dowdiness/event-graph-walker@0.4.0` into `.mooncakes/dowdiness/event-graph-walker` (distinct non-symlink directory, not parent or sibling cache); `moon ide doc @container` confirmed the 0.4.0 version and all assumed APIs match. Baseline JS check (0 errors, 16 pre-existing warning 0020) and tests 27/27 are unchanged before and after the dependency. Package feasibility verified: nested `domain/`, `egw_adapter/core/`, and `egw_adapter/` are valid roots under the existing demo module with no import cycle when the pure command-admission types and validator live in `domain/`. Phase 1 (domain package promotion) passed 2026-07-20. Phase 2 (pure adapter core) is next and unstarted.
 
 **Do not proceed if:** EGW resolves to 0.3.0, or if the container APIs have changed in incompatible ways.
 
@@ -296,6 +296,14 @@ Move `SheetCommand`, `DocumentGeneration`, `CommandApplicability`, `SheetExecuti
 
 **DONE when:** The domain package is importable, a consumer package can construct `SheetExecutionContext` and call `validate_sheet_command`, the future shell can return `Rejected(CommandApplicability)` without importing the executable root, all existing tests pass, and there is no unintended API regression.
 
+**Completion record (2026-07-20): PASS.**
+
+- **Package boundary:** New package `examples/typed_spreadsheet_incr_tea_demo/domain` imports only `examples/typed_spreadsheet` and supports JS. The root package imports domain with package-local `using`; planning, UI, and interpreter helpers remain root-local.
+- **Domain API:** The package is the single source of truth for opaque `DocumentGeneration` (`initial`/`next`, no public constructor), public `SheetCommand`, public `CommandApplicability`, `SheetExecutionContext` with a `Type::Type` constructor, and pure public `validate_sheet_command` preserving stale-generation precedence.
+- **Interfaces and tests:** Root public API remains only `mount_typed_spreadsheet_incr_tea_demo`; moved private type entries left the root `.mbti` as intended. Domain `.mbti` exposes only the intended surface. The validation-specific test moved to a domain black-box test; root tests passed 26/26 and the domain test passed 1/1.
+- **Validation:** `moon fmt`, `moon info`, `.mbti` review, `moon check`, `moon test` (1116 wasm-gc and 180 JS tests), workspace/engine boundary scripts, and diff check passed. Independent `moonbit-reviewer` review passed with no findings.
+- **Scope:** Phase 2 (`egw_adapter`) was not created.
+
 ### Phase 2: EGW adapter core (pure)
 
 Implement `egw_adapter/core/`:
@@ -416,7 +424,7 @@ All criteria are mandatory:
 
 - [x] The register/projection ADR is Accepted before implementation begins.
 - [x] Published EGW 0.4.0 resolves in the standalone `incr` workspace, with no parent override or 0.3.0 fallback.
-- [ ] `SheetCommand`, opaque `DocumentGeneration`, `CommandApplicability`, `SheetExecutionContext`, and `validate_sheet_command` have one source of truth in an importable app-domain package; no copy remains and the future shell does not import the executable root.
+- [x] `SheetCommand`, opaque `DocumentGeneration`, `CommandApplicability`, `SheetExecutionContext`, and `validate_sheet_command` have one source of truth in an importable app-domain package; no copy remains and the future shell does not import the executable root.
 - [ ] Property keys, strict version-1 JSON payloads, `Unset`, `Source`, and `Deleted` semantics match the fixed schema; formula sequence text is not introduced.
 - [ ] Application logical document identity, `DocumentGeneration`, EGW identity/version, `incr` `Revision`, and dataflow `Epoch` remain distinct.
 - [ ] Local accepted commands mutate EGW before projection; invalid local source does not mutate EGW.

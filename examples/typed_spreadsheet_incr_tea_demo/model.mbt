@@ -525,16 +525,13 @@ fn sheet_planning_context(state : Ref[SheetState]) -> SheetPlanningContext {
 fn sheet_execution_context(state : Ref[SheetState]) -> SheetExecutionContext {
   let s = state.val
   let sheet_id = s.sheet.sheet_id()
-  {
-    selected_cell: @typed_spreadsheet.CellId::of(
-      sheet_id,
-      s.selected_cell.peek(),
-    ),
-    editing_cell: s.editing_cell
+  SheetExecutionContext::SheetExecutionContext(
+    @typed_spreadsheet.CellId::of(sheet_id, s.selected_cell.peek()),
+    s.editing_cell
     .peek()
     .map(cell => @typed_spreadsheet.CellId::of(sheet_id, cell)),
-    generation: s.generation,
-  }
+    s.generation,
+  )
 }
 
 ///|

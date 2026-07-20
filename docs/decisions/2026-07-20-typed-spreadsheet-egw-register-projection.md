@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-20
 
-**Status:** Accepted; Plan 013 Phase 0 verified published EGW 0.4.0 in the standalone `incr` workspace (2026-07-20)
+**Status:** Accepted; Plan 013 Phase 0 and Phase 1 complete, Phase 2 not started (2026-07-20)
 
 **Implementation plan:** [Plan 013: Typed Spreadsheet EGW Boundary Experiment](../../plans/013-typed-spreadsheet-egw-boundary-experiment.md)
 

@@ -18,7 +18,7 @@ instruction.
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 |---|---|---:|---:|---|---|
-| [013](013-typed-spreadsheet-egw-boundary-experiment.md) | Run the typed-spreadsheet EGW boundary experiment | P1 | L | Published EGW 0.4.0 | TODO (Phase 1 domain package promotion) |
+| [013](013-typed-spreadsheet-egw-boundary-experiment.md) | Run the typed-spreadsheet EGW boundary experiment | P1 | L | Published EGW 0.4.0 | IN PROGRESS (Phase 1 complete; Phase 2 unstarted) |
 
 Status values: `TODO` | `IN PROGRESS` | `DONE` |
 `BLOCKED (<reason>)` | `REJECTED (<reason>)`.
@@ -27,8 +27,8 @@ Plan 013 is the first application-specific EGW adapter and an evidence harness
 for [dowdiness/event-graph-walker#72](https://github.com/dowdiness/event-graph-walker/issues/72).
 It remains inside the standalone `incr` repository and adds no generic
 `egw_incr` bridge. Its ADR is Accepted and Phase 0 standalone dependency and
-API verification passed 2026-07-20; Phase 1 (domain package promotion) is next
-and unstarted.
+API verification passed 2026-07-20; Phase 1 (domain package promotion) passed
+2026-07-20; Phase 2 (pure adapter core) is next and unstarted.
 
 ## Reconciliation notes
 

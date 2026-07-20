@@ -1,23 +1,11 @@
 ///|
-struct DocumentGeneration(Int) derive(Eq, Debug)
-
-///|
-fn DocumentGeneration::initial() -> DocumentGeneration {
-  DocumentGeneration(0)
+using @domain {
+  type DocumentGeneration,
+  type SheetCommand,
+  type CommandApplicability,
+  type SheetExecutionContext,
+  validate_sheet_command,
 }
-
-///|
-fn DocumentGeneration::next(self : DocumentGeneration) -> DocumentGeneration {
-  DocumentGeneration(self.0 + 1)
-}
-
-///|
-enum SheetCommand {
-  ApplyFromSelection(@typed_spreadsheet.CellId, String, DocumentGeneration)
-  ApplyFromEditor(@typed_spreadsheet.CellId, String, DocumentGeneration)
-  DeleteFromSelection(@typed_spreadsheet.CellId, DocumentGeneration)
-  ResetDocument(DocumentGeneration)
-} derive(Eq, Debug)
 
 ///|
 enum UiEffect {
@@ -37,20 +25,6 @@ struct SheetPlanningContext {
   editing_cell : @typed_spreadsheet.CellId?
   drafts : ReadOnlyArray[CellDraft]
   generation : DocumentGeneration
-} derive(Eq, Debug)
-
-///|
-struct SheetExecutionContext {
-  selected_cell : @typed_spreadsheet.CellId
-  editing_cell : @typed_spreadsheet.CellId?
-  generation : DocumentGeneration
-} derive(Eq, Debug)
-
-///|
-enum CommandApplicability {
-  Applicable
-  StaleGeneration
-  LocalPreconditionFailed
 } derive(Eq, Debug)
 
 ///|
@@ -105,38 +79,6 @@ fn plan_sheet_command(context : SheetPlanningContext, msg : Msg) -> SheetPlan {
         ),
       }
     _ => none
-  }
-}
-
-///|
-fn validate_sheet_command(
-  command : SheetCommand,
-  context : SheetExecutionContext,
-) -> CommandApplicability {
-  match command {
-    ApplyFromSelection(target, _, generation)
-    | DeleteFromSelection(target, generation) =>
-      if generation != context.generation {
-        StaleGeneration
-      } else if target != context.selected_cell {
-        LocalPreconditionFailed
-      } else {
-        Applicable
-      }
-    ApplyFromEditor(target, _, generation) =>
-      if generation != context.generation {
-        StaleGeneration
-      } else if context.editing_cell != Some(target) {
-        LocalPreconditionFailed
-      } else {
-        Applicable
-      }
-    ResetDocument(generation) =>
-      if generation != context.generation {
-        StaleGeneration
-      } else {
-        Applicable
-      }
   }
 }
 

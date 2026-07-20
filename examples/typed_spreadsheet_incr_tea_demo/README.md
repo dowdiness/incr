@@ -53,11 +53,16 @@ convergence. Local commands and remote sync must share this merged-state
 projection path. Application command identities, future EGW operation IDs,
 incr revisions, and dataflow epochs are distinct domains.
 
-Command types stay package-local until Plan 013 Phase 1 promotes them—without
-copying—to an importable application-domain package. Phase 0 standalone EGW
-0.4.0 verification passed 2026-07-20; Phase 1 will promote the types next. No
-generic `egw_incr` package is justified until a second driver repeats the same
-adapter contract. The accepted adapter ADR selects an
+Command types live in the `domain/` package, promoted without copying by Plan 013
+Phase 1 (2026-07-20). The domain package is the single source of truth for
+opaque `DocumentGeneration` (`initial`/`next`, no public constructor), public
+`SheetCommand`, public `CommandApplicability`, `SheetExecutionContext` with
+`Type::Type` constructor, and pure `validate_sheet_command` preserving
+stale-generation precedence. The root package imports domain with
+package-local `using`; planning, UI, and interpreter helpers remain
+root-local. Phase 2 (pure adapter core in `egw_adapter/core/`) is next and
+unstarted. No generic `egw_incr` package is justified until a second driver
+repeats the same adapter contract. The accepted adapter ADR selects an
 atomic committed-source register for the first bounded experiment;
 sequence-text formula collaboration would require a superseding product
 decision.
