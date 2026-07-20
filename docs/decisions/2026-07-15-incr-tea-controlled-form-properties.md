@@ -2,6 +2,7 @@
 
 **Date:** 2026-07-15  
 **Status:** Accepted  
+**Amended:** 2026-07-20 — controlled `value` semantics now include `<textarea>`<br>
 **Issue:** [#286](https://github.com/dowdiness/incr/issues/286)
 
 ## Context
@@ -14,9 +15,11 @@ properties.
 
 ## Decision
 
-1. `attr("value", value)` is a controlled live `value` property on `<input>` and
-   `<select>` elements. The renderer writes the DOM property during mount and
-   value-changing diffs, and repairs drift during equal-view flushes.
+1. `attr("value", value)` is an explicit controlled live `value` intent on
+   `<input>`, `<select>`, and `<textarea>` elements. The renderer writes the DOM
+   property during mount and value-changing diffs, and repairs drift during
+   equal-view flushes. Omitting `attr("value", ...)` leaves the live value
+   browser-owned.
 2. Select value repair is parent-authoritative and post-order. The renderer
    reconciles option children first, then applies the select's controlled value.
    This preserves a selected value when options are mounted, keyed-diffed, or
@@ -40,13 +43,23 @@ properties.
   and does not count as a virtual-tree patch.
 - Select/date/range behavior can be exercised without storing DOM objects or
   closures in tracked views.
-- Future controls such as `<textarea>`, contenteditable regions, or custom
-  elements require a concrete consumer and a separate semantics decision rather
-  than silently widening `attr("value", ...)`.
+- Contenteditable regions, custom elements, and other live DOM properties still
+  require a concrete consumer and a separate semantics decision rather than
+  silently widening controlled-property handling.
+
+## Amendment rationale
+
+The original boundary covered only the controls exercised by #286. The public
+`node("textarea", ...)` constructor and `on_input` descriptor can also express a
+controlled textarea without changing `Html : Eq`; treating an explicit
+`attr("value", value)` as model-owned keeps that control consistent with input
+and select. This remains a narrow tag-and-property contract, not a generic
+mutable DOM-property map.
 
 ## Verification
 
 The browser smoke suite covers non-first initial select values, `on_change`
 selection, a same-render option addition with selection, date/range values,
 DOM-node identity, and equal-view drift repair. The MoonBit suite covers the
-existing checked/disabled/selected reconciliation tests.
+existing checked/disabled/selected reconciliation tests plus initial textarea
+value assignment and equal-view textarea drift repair.

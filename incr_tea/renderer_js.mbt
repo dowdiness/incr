@@ -578,7 +578,7 @@ fn classify_controlled_property(
   tag : String,
   attr : Attribute,
 ) -> ControlledProperty? {
-  if (tag == "input" || tag == "select") &&
+  if (tag == "input" || tag == "select" || tag == "textarea") &&
     attr.name == "value" &&
     attr.bool_value is None {
     Some(ControlledValue(attr.value))
@@ -720,7 +720,7 @@ fn set_attr_value(
     }
     None => dom_set_attr(element, name, value)
   }
-  if (tag == "input" || tag == "select") && name == "value" {
+  if (tag == "input" || tag == "select" || tag == "textarea") && name == "value" {
     dom_set_value_property(element, value)
   }
 }
