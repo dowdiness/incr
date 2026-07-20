@@ -2,7 +2,7 @@
 struct CellDraft {
   cell : String
   text : String
-} derive(Eq)
+} derive(Eq, Debug)
 
 ///|
 
@@ -46,6 +46,7 @@ struct Model {
 struct SheetState {
   _scope : @incr.Scope
   sheet : @typed_spreadsheet.Worksheet
+  generation : DocumentGeneration
   cells : @incr.InputField[Array[String]]
   drafts : @incr.InputField[Array[CellDraft]]
   committed : @incr.InputField[Array[CellDraft]]
@@ -85,6 +86,7 @@ fn SheetState::new(runtime : @incr.Runtime) -> SheetState {
   let state = {
     _scope: scope,
     sheet,
+    generation: DocumentGeneration::initial(),
     cells,
     drafts,
     committed,
@@ -183,7 +185,7 @@ fn state_cell_id(
 }
 
 ///|
-fn draft_text_from(drafts : Array[CellDraft], cell : String) -> String {
+fn draft_text_from(drafts : ArrayView[CellDraft], cell : String) -> String {
   match drafts.search_by(draft => draft.cell == cell) {
     Some(index) => drafts[index].text
     None => ""
@@ -240,7 +242,7 @@ fn begin_inline_edit(state : Ref[SheetState], cell : String) -> @tea.Cmd[Msg] {
   s.editing_cell.set(Some(cell))
   s.status.set("Editing \{cell} inline.")
   s.error.set(None)
-  @tea.Cmd::focus_element_by_id(inline_editor_id(cell), select=true)
+  @tea.Cmd::none()
 }
 
 ///|
@@ -315,16 +317,17 @@ fn cancel_selected(state : Ref[SheetState]) -> @tea.Cmd[Msg] {
   @tea.Cmd::none()
 }
 
-// ── Edit handlers: run as Cmd::effect to observe committed worksheet ─
+// ── Edit operations: execute after the update batch commits ─────────
 
 ///|
 fn apply_text_edit(
   state : Ref[SheetState],
-  cell : String,
+  target : @typed_spreadsheet.CellId,
   text : String,
 ) -> Unit {
+  let cell = @demo.cell_id_to_string(target)
   let trimmed = text.trim()
-  let id = state_cell_id(state, cell)
+  let id = target
   match @demo.parse_cell_text_op(id, trimmed.to_owned()) {
     Ok(operation) => {
       let s = state.val
@@ -423,122 +426,141 @@ fn seed_text_edit(
 }
 
 ///|
-fn apply_selected_cmd(state : Ref[SheetState]) -> @tea.Cmd[Msg] {
-  let cell = state.val.selected_cell.peek()
-  @tea.Cmd::effect(_ => {
-    if state.val.selected_cell.peek() == cell {
-      apply_text_edit(
-        state,
-        cell,
-        draft_text_from(state.val.drafts.peek(), cell),
-      )
-    }
-  })
-}
-
-///|
-fn apply_inline_edit_cmd(
+fn delete_cell_operation(
   state : Ref[SheetState],
-  cell : String,
-) -> @tea.Cmd[Msg] {
-  @tea.Cmd::effect(_ => {
-    if state.val.editing_cell.peek() == Some(cell) {
-      apply_text_edit(
-        state,
-        cell,
-        draft_text_from(state.val.drafts.peek(), cell),
-      )
-    }
-  })
+  target : @typed_spreadsheet.CellId,
+) -> Unit {
+  let s = state.val
+  let cell = @demo.cell_id_to_string(target)
+  let result = @demo.run_batched_op(
+    s.sheet,
+    @demo.SheetOp::Delete(target),
+    capture=state_capture_cell_ids(state, target),
+    trace_cells=state_visible_cell_ids(state),
+  )
+  let outcome = @demo.format_outcome(result.outcome)
+  let edit = "delete \{cell}"
+  let current_drafts = s.drafts.peek()
+  let current_committed = s.committed.peek()
+  s.trace.set(
+    Some({
+      outcome,
+      recomputed: @demo.cell_id_strings(result.trace.recomputed),
+      changed: @demo.cell_id_strings(result.trace.changed),
+      unchanged: @demo.cell_id_strings(result.trace.unchanged),
+      recomputed_str: @demo.format_cell_ids(result.trace.recomputed),
+      changed_str: @demo.format_cell_ids(result.trace.changed),
+      unchanged_str: @demo.format_cell_ids(result.trace.unchanged),
+      snapshot_count: result.cell_snapshots.length(),
+    }),
+  )
+  s.evidence.set(
+    Some({
+      edit,
+      outcome,
+      cells: result.cell_snapshots.map(change => {
+        evidence_cell_data(change, result)
+      }),
+    }),
+  )
+  s.last_edit.set(edit)
+  s.status.set("Applied delete \{cell}: \{outcome}.")
+  s.error.set(None)
+  s.drafts.set(update_draft(current_drafts, cell, ""))
+  s.committed.set(update_draft(current_committed, cell, ""))
+  s.editing_cell.set(None)
 }
 
 ///|
-fn delete_selected_cmd(state : Ref[SheetState]) -> @tea.Cmd[Msg] {
-  let cell = state.val.selected_cell.peek()
-  @tea.Cmd::effect(_ => {
-    if state.val.selected_cell.peek() == cell {
-      let s = state.val
-      let id = state_cell_id(state, cell)
-      let result = @demo.run_batched_op(
-        s.sheet,
-        @demo.SheetOp::Delete(id),
-        capture=state_capture_cell_ids(state, id),
-        trace_cells=state_visible_cell_ids(state),
-      )
-      let outcome = @demo.format_outcome(result.outcome)
-      let edit = "delete \{cell}"
-      let current_drafts = s.drafts.peek()
-      let current_committed = s.committed.peek()
-      s.trace.set(
-        Some({
-          outcome,
-          recomputed: @demo.cell_id_strings(result.trace.recomputed),
-          changed: @demo.cell_id_strings(result.trace.changed),
-          unchanged: @demo.cell_id_strings(result.trace.unchanged),
-          recomputed_str: @demo.format_cell_ids(result.trace.recomputed),
-          changed_str: @demo.format_cell_ids(result.trace.changed),
-          unchanged_str: @demo.format_cell_ids(result.trace.unchanged),
-          snapshot_count: result.cell_snapshots.length(),
-        }),
-      )
-      s.evidence.set(
-        Some({
-          edit,
-          outcome,
-          cells: result.cell_snapshots.map(change => {
-            evidence_cell_data(change, result)
-          }),
-        }),
-      )
-      s.last_edit.set(edit)
-      s.status.set("Applied delete \{cell}: \{outcome}.")
-      s.error.set(None)
-      s.drafts.set(update_draft(current_drafts, cell, ""))
-      s.committed.set(update_draft(current_committed, cell, ""))
-      s.editing_cell.set(None)
-    }
-  })
-}
-
-///|
-fn reset_sheet_cmd(
+fn reset_sheet_operation(
   runtime : @incr.Runtime,
   state : Ref[SheetState],
-) -> @tea.Cmd[Msg] {
-  @tea.Cmd::effect(_ => {
-    let s = state.val
-    s.sheet.dispose()
-    let new_sheet = @typed_spreadsheet.Worksheet(
-      runtime,
-      @typed_spreadsheet.SheetId(1),
-    )
-    let seed_drafts = [
-      { cell: "A1", text: "10" },
-      { cell: "B1", text: "=A1 + 1" },
-    ]
-    s.cells.set(grid_cells())
-    s.drafts.set(seed_drafts)
-    s.committed.set(seed_drafts)
-    s.selected_cell.set("B1")
-    s.editing_cell.set(None)
-    s.trace.set(None)
-    s.evidence.set(None)
-    s.last_edit.set("Seed sheet")
-    s.status.set(
-      "Ready. This incr_tea proof is separate from the live Rabbita demo.",
-    )
-    s.error.set(None)
-    // Write back — SheetState has value semantics; InputField handles in the
-    // copy share the same reactive cells, but `sheet` needs explicit replacement
-    // so the Ref carries the new worksheet.
-    state.val = { ..s, sheet: new_sheet }
-    // Seed initial cell values — reads from state.val which now has the new sheet
-    seed_text_edit(state, "A1", "10")
-    seed_text_edit(state, "B1", "=A1 + 1")
-  })
+) -> Unit {
+  let s = state.val
+  s.sheet.dispose()
+  let new_sheet = @typed_spreadsheet.Worksheet(
+    runtime,
+    @typed_spreadsheet.SheetId(1),
+  )
+  let seed_drafts = [
+    { cell: "A1", text: "10" },
+    { cell: "B1", text: "=A1 + 1" },
+  ]
+  s.cells.set(grid_cells())
+  s.drafts.set(seed_drafts)
+  s.committed.set(seed_drafts)
+  s.selected_cell.set("B1")
+  s.editing_cell.set(None)
+  s.trace.set(None)
+  s.evidence.set(None)
+  s.last_edit.set("Seed sheet")
+  s.status.set(
+    "Ready. This incr_tea proof is separate from the live Rabbita demo.",
+  )
+  s.error.set(None)
+  state.val = { ..s, sheet: new_sheet, generation: s.generation.next() }
+  seed_text_edit(state, "A1", "10")
+  seed_text_edit(state, "B1", "=A1 + 1")
 }
 
-// ── Grid constants ─────────────────────────────────────────────────
+///|
+fn sheet_planning_context(state : Ref[SheetState]) -> SheetPlanningContext {
+  let s = state.val
+  let sheet_id = s.sheet.sheet_id()
+  {
+    sheet_id,
+    selected_cell: @typed_spreadsheet.CellId::of(
+      sheet_id,
+      s.selected_cell.peek(),
+    ),
+    editing_cell: s.editing_cell
+    .peek()
+    .map(cell => @typed_spreadsheet.CellId::of(sheet_id, cell)),
+    drafts: ReadOnlyArray::from_array(s.drafts.peek()),
+    generation: s.generation,
+  }
+}
+
+///|
+fn sheet_execution_context(state : Ref[SheetState]) -> SheetExecutionContext {
+  let s = state.val
+  let sheet_id = s.sheet.sheet_id()
+  {
+    selected_cell: @typed_spreadsheet.CellId::of(
+      sheet_id,
+      s.selected_cell.peek(),
+    ),
+    editing_cell: s.editing_cell
+    .peek()
+    .map(cell => @typed_spreadsheet.CellId::of(sheet_id, cell)),
+    generation: s.generation,
+  }
+}
+
+///|
+fn execute_sheet_command(
+  runtime : @incr.Runtime,
+  state : Ref[SheetState],
+  command : SheetCommand,
+) -> CommandApplicability {
+  let applicability = validate_sheet_command(
+    command,
+    sheet_execution_context(state),
+  )
+  match applicability {
+    Applicable => {
+      match command {
+        ApplyFromSelection(target, submitted_text, _)
+        | ApplyFromEditor(target, submitted_text, _) =>
+          apply_text_edit(state, target, submitted_text)
+        DeleteFromSelection(target, _) => delete_cell_operation(state, target)
+        ResetDocument(_) => reset_sheet_operation(runtime, state)
+      }
+      Applicable
+    }
+    _ => applicability
+  }
+}
 
 ///|
 fn grid_column_count() -> Int {

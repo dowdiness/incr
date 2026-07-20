@@ -24,6 +24,40 @@ needed for the reusable `incr_tea` frame:
 Spreadsheet parsing and operations reuse `examples/typed_spreadsheet_demo`; cell
 calculation stays in `examples/typed_spreadsheet`.
 
+## Architecture: the typed command pilot
+
+`SheetCommand` is a strong, closure-free, self-contained application request.
+Its variants bind each operation to its required local precondition, so an
+apply/delete request cannot be paired with the wrong target or precondition.
+Submitted text is fixed at message handling; variant-specific local UI and
+document-generation preconditions are checked at execution. Outcomes are not
+replay-deterministic without authoritative document state. `UiEffect` and
+AI-context publication are local shell policy, not collaborative commands.
+
+The current worksheet interpreter is a temporary imperative shell. A future
+application-specific adapter alone may depend on EGW and incr:
+
+```text
+SheetCommand
+  -> typed-spreadsheet/EGW adapter
+  -> EGW transaction + commit receipt
+  -> merged EGW document
+  -> pure spreadsheet projection
+  -> Runtime::batch
+  -> InputFields
+```
+
+EGW remains authoritative for operation IDs, causal history, merge, and
+convergence. Local commands and remote sync must share this merged-state
+projection path. Application command identities, future EGW operation IDs,
+incr revisions, and dataflow epochs are distinct domains.
+
+Command types stay package-local during this pilot. When the adapter is
+commissioned, promote them to an importable application-domain package. No
+generic `egw_incr` package is justified until a second driver repeats the same
+adapter contract. Formula atomic-register versus sequence-text semantics are
+an adapter ADR decision, not a choice made here.
+
 ## Run
 
 From this directory:

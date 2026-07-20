@@ -1,13 +1,21 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "examples/typed_spreadsheet_incr_tea_demo"
 
+import {
+  "moonbitlang/core/debug",
+}
+
 // Values
 pub fn mount_typed_spreadsheet_incr_tea_demo(String) -> Unit
 
 // Errors
 
 // Types and methods
-type CellDraft derive(Eq)
+type CellDraft derive(Eq, @debug.Debug)
+
+type CommandApplicability derive(Eq, @debug.Debug)
+
+type DocumentGeneration derive(Eq, @debug.Debug)
 
 type EvidenceCellData derive(Eq)
 
@@ -19,11 +27,21 @@ type Model
 
 type Msg derive(Eq)
 
+type SheetCommand derive(Eq, @debug.Debug)
+
+type SheetExecutionContext derive(Eq, @debug.Debug)
+
+type SheetPlan derive(Eq, @debug.Debug)
+
+type SheetPlanningContext derive(Eq, @debug.Debug)
+
 type SheetState
 
 type TraceData derive(Eq)
 
 type TypedSheetApp
+
+type UiEffect derive(Eq, @debug.Debug)
 
 // Type aliases
 

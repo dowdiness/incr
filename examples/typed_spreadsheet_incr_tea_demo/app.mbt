@@ -68,22 +68,33 @@ fn handle_msg(
   state : Ref[SheetState],
   msg : Msg,
 ) -> @tea.Cmd[Msg] {
-  let command = match msg {
+  let plan = match msg {
+    ApplySelected
+    | ApplyInlineEdit(_)
+    | DeleteSelected
+    | ResetSheet
+    | BeginInlineEdit(_)
+    | BeginSelectedInlineEdit =>
+      plan_sheet_command(sheet_planning_context(state), msg)
+    _ => { command: None, ui_effect: None }
+  }
+  let immediate = match msg {
     SelectCell(cell) => select_cell(state, cell)
     UpdateDraft(cell, text) => update_draft_for_cell(state, cell, text)
     UseExample(text) => use_example(state, text)
-    ApplySelected => apply_selected_cmd(state)
-    DeleteSelected => delete_selected_cmd(state)
-    ResetSheet => reset_sheet_cmd(runtime, state)
+    ApplySelected => @tea.Cmd::none()
+    DeleteSelected => @tea.Cmd::none()
+    ResetSheet => @tea.Cmd::none()
     CancelSelected => cancel_selected(state)
     BeginInlineEdit(cell) => begin_inline_edit(state, cell)
     BeginSelectedInlineEdit =>
       begin_inline_edit(state, state.val.selected_cell.peek())
-    ApplyInlineEdit(cell) => apply_inline_edit_cmd(state, cell)
+    ApplyInlineEdit(_) => @tea.Cmd::none()
     MoveSelection(delta_col, delta_row) =>
       move_selection(state, delta_col, delta_row)
   }
-  @tea.Cmd::batch([command, publish_ai_context_cmd(state)])
+  let interpreted = interpret_sheet_command(runtime, state, plan)
+  @tea.Cmd::batch([immediate, interpreted, publish_ai_context_cmd(state)])
 }
 
 // ── Event configuration (stays shared across all roots) ───────────
