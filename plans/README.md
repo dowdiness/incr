@@ -15,14 +15,12 @@ instruction.
 
 ## Execution order and status
 
-Plans 008–009 remain from the delta-audit findings selected non-interactively
-by leverage (the skill's default when no operator is present to choose); the
-operator may reject or reorder them. Neither imposes an execution order on the
-other.
+Plan 009 remains from the delta-audit findings selected non-interactively by
+leverage (the skill's default when no operator is present to choose); the
+operator may reject or reorder it.
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 |------|-------|----------|--------|------------|--------|
-| 008 | Extend controlled `value` reconciliation to `<textarea>` | P2 | S | — | TODO |
 | 009 | Cover mid-fixpoint disposal and rebuild-after-teardown in datalog tests | P2 | S | — | TODO |
 
 Status values: `TODO` | `IN PROGRESS` | `DONE` |
@@ -30,6 +28,13 @@ Status values: `TODO` | `IN PROGRESS` | `DONE` |
 
 ## Reconciliation notes
 
+- Plan 008 extended controlled `value` reconciliation to `<textarea>` in
+  [PR #418](https://github.com/dowdiness/incr/pull/418), merged as commit
+  `889ac2d`. Its completed plan file was deleted; Git history recovers the
+  execution record. Decision record: the existing
+  [controlled form-property ADR](../docs/decisions/2026-07-15-incr-tea-controlled-form-properties.md)
+  was amended to define `attr("value", value)` as explicit controlled intent on
+  input, select, and textarea elements.
 - Plan 011 completed its deterministic 5,424-case dataflow matrix; the module
   README retains the bounded exhaustive evidence. No ADR needed: the change is
   test-only and preserves the accepted module boundary.
