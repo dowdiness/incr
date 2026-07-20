@@ -1,0 +1,7 @@
+import {
+  "examples/typed_spreadsheet",
+  "examples/typed_spreadsheet_demo" @demo,
+  "moonbitlang/core/json",
+}
+
+supported_targets = "js"

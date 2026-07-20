@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-20
 
-**Status:** IN PROGRESS (Phase 1 complete; Phase 2 pure adapter core is next and unstarted)
+**Status:** IN PROGRESS (Phase 2 complete; Phase 3 mutable adapter shell is next and unstarted)
 
 **Decision record:** [ADR: Typed spreadsheet EGW register and projection boundary](../docs/decisions/2026-07-20-typed-spreadsheet-egw-register-projection.md)
 
@@ -20,7 +20,7 @@ Plan 012 shipped in [PR #421](https://github.com/dowdiness/incr/pull/421), merge
 
 The typed spreadsheet demonstration (PR #408, closed issue #268) proved that `incr` can serve as the reactive foundation for a collaborative spreadsheet-shaped application. The next boundary question is: how does an application integrate with EGW for multi-user synchronization without violating the separation between `incr` (reactive computation), EGW (CRDT operations and convergence), and application logic (commands, document identity, UI)?
 
-This plan is the first typed-spreadsheet application-specific EGW boundary experiment. The ADR is Accepted, and Phase 0 verified that the standalone `incr` workspace resolves the published EGW 0.4.0 package. Phase 1 domain package promotion passed 2026-07-20; Phase 2 (pure adapter core) is next and unstarted.
+This plan is the first typed-spreadsheet application-specific EGW boundary experiment. The ADR is Accepted, and Phase 0 verified that the standalone `incr` workspace resolves the published EGW 0.4.0 package. Phase 1 domain package promotion and Phase 2 pure adapter core passed 2026-07-20; Phase 3 (mutable adapter shell) is next and unstarted.
 
 ## STOP conditions
 
@@ -31,7 +31,7 @@ This plan is the first typed-spreadsheet application-specific EGW boundary exper
 3. The verified EGW container APIs match the assumptions in this plan: `Document::new`, `root_id`, `create_node`, `is_alive`, `set_property`/`get_property`, `sync`/`export_all`/`export_since`/`apply`, `Version`, `SyncReport` count accessors.
 4. The current standalone `incr` workspace does NOT silently implement against 0.3.0 or parent workspace override.
 
-**Current state:** Phase 0 completed 2026-07-20 on branch `advisor/013-egw-boundary-experiment` (HEAD `86a61a8`, parent checkpoint `48aa16e`). Standalone `incr` workspace resolved `dowdiness/event-graph-walker@0.4.0` into `.mooncakes/dowdiness/event-graph-walker` (distinct non-symlink directory, not parent or sibling cache); `moon ide doc @container` confirmed the 0.4.0 version and all assumed APIs match. Baseline JS check (0 errors, 16 pre-existing warning 0020) and tests 27/27 are unchanged before and after the dependency. Package feasibility verified: nested `domain/`, `egw_adapter/core/`, and `egw_adapter/` are valid roots under the existing demo module with no import cycle when the pure command-admission types and validator live in `domain/`. Phase 1 (domain package promotion) passed 2026-07-20. Phase 2 (pure adapter core) is next and unstarted.
+**Current state:** Phase 0 dependency/API verification is committed at `15b9be4`, and Phase 1 domain package promotion is committed at `9176b67`. Phase 2 pure adapter core passed 2026-07-20 with strict register decoding, immutable canonical snapshots/state, deterministic projection decisions, draft reconciliation, and retry tests. Phase 3 mutable adapter shell is next and unstarted; no EGW mutation, synchronization shell, `Runtime::batch`, or Worksheet application exists yet.
 
 **Do not proceed if:** EGW resolves to 0.3.0, or if the container APIs have changed in incompatible ways.
 
@@ -330,6 +330,14 @@ Implement `egw_adapter/core/`:
 
 **DONE when:** all pure core tests pass without a mutable EGW `Document`, `Runtime`, `Worksheet`, `InputField`, callback, or mutable collection in retained results.
 
+**Completion record (2026-07-20): PASS.**
+
+- **Package boundary:** Added only `egw_adapter/core/`. It directly imports typed-spreadsheet values, the pure demo parser/`SheetOp` vocabulary, and core JSON; it does not directly import EGW, `incr`, `incr_tea`, DOM, or the executable root.
+- **Codec:** Added compact version-1 `Source`/`Deleted` JSON encoding, exact-field decoding, deterministic diagnostics, and a bounded top-level member scanner required because core JSON maps overwrite duplicate keys.
+- **Functional core:** Added caller-owned collaborative identity, canonical immutable raw snapshots and projection state, separate last-seen/last-good/diagnostic state, ordered immutable decisions, clean/dirty draft reconciliation, and deterministic retry from unchanged retained state. Ephemeral local maps/arrays only build immutable `ReadOnlyArray` results.
+- **Tests and review:** Eighteen white-box tests cover codec/schema failures, duplicate scanning, canonical deduplication/order, source/formula/deleted/unset transitions, unchanged and malformed repetition, recovery, draft policy, diagnostics order, and retry purity. Final independent `moonbit-reviewer` review passed with no findings.
+- **Validation and scope:** `moon fmt`, `moon info`, interface review, `moon check`, `moon test` (1116 wasm-gc and 198 JS tests), workspace/engine boundary scripts, and diff check passed. Phase 3 shell was not created.
+
 ### Phase 3: EGW adapter shell (mutable boundary)
 
 Implement `egw_adapter/adapter.mbt`:
@@ -429,8 +437,8 @@ All criteria are mandatory:
 - [ ] Application logical document identity, `DocumentGeneration`, EGW identity/version, `incr` `Revision`, and dataflow `Epoch` remain distinct.
 - [ ] Local accepted commands mutate EGW before projection; invalid local source does not mutate EGW.
 - [ ] Remote sync mutates EGW before projection, and local/remote paths invoke the same projection function.
-- [ ] The functional core receives owned snapshots and returns immutable states, decisions, and diagnostics without reading EGW/DOM/Runtime/InputFields.
-- [ ] Last-seen authoritative registers, last-good semantic projection, and current diagnostics are distinct retained states represented by the fixed core result shapes.
+- [x] The functional core receives owned snapshots and returns immutable states, decisions, and diagnostics without reading EGW/DOM/Runtime/InputFields.
+- [x] Last-seen authoritative registers, last-good semantic projection, and current diagnostics are distinct retained states represented by the fixed core result shapes.
 - [ ] EGW mutation read-back, structured application results, batch rollback, retained-state commit-after-success, and projection retry semantics are directly tested.
 - [ ] Malformed or unsupported remote application payloads publish deterministic diagnostics, retain local last-good Worksheet state without a false convergence claim, and reconverge after valid recovery.
 - [ ] One outer `Runtime::batch` applies each projection frame; `run_batched_op` is never nested inside it.

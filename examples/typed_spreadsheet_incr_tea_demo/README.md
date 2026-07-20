@@ -60,9 +60,15 @@ opaque `DocumentGeneration` (`initial`/`next`, no public constructor), public
 `Type::Type` constructor, and pure `validate_sheet_command` preserving
 stale-generation precedence. The root package imports domain with
 package-local `using`; planning, UI, and interpreter helpers remain
-root-local. Phase 2 (pure adapter core in `egw_adapter/core/`) is next and
-unstarted. No generic `egw_incr` package is justified until a second driver
-repeats the same adapter contract. The accepted adapter ADR selects an
+root-local.
+
+Phase 2 added the pure `egw_adapter/core/` package: strict versioned register
+codec, immutable canonical snapshots and projection state, separate
+last-seen/last-good/diagnostic state, ordered projection decisions, and pure
+draft reconciliation. It has no mutable EGW document, Runtime, Worksheet,
+InputField, DOM, or adapter shell. Phase 3 mutable shell is next and unstarted.
+No generic `egw_incr` package is justified until a second driver repeats the
+same adapter contract. The accepted adapter ADR selects an
 atomic committed-source register for the first bounded experiment;
 sequence-text formula collaboration would require a superseding product
 decision.
