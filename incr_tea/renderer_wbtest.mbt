@@ -1076,7 +1076,7 @@ test "equal Html flush restores controlled textarea value" {
     Cmd::none()
   }
   let view : () -> Html[RendererMsg] raise Failure = () => {
-    let _ = unrelated
+    ignore(unrelated.get())
     node(
       "textarea",
       attrs=[attr("id", "controlled-textarea"), attr("value", "accepted")],
