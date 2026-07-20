@@ -15,19 +15,21 @@ instruction.
 
 ## Execution order and status
 
-Plan 009 remains from the delta-audit findings selected non-interactively by
-leverage (the skill's default when no operator is present to choose); the
-operator may reject or reorder it.
-
-| Plan | Title | Priority | Effort | Depends on | Status |
-|------|-------|----------|--------|------------|--------|
-| 009 | Cover mid-fixpoint disposal and rebuild-after-teardown in datalog tests | P2 | S | — | TODO |
+No active implementation plans remain.
 
 Status values: `TODO` | `IN PROGRESS` | `DONE` |
 `BLOCKED (<reason>)` | `REJECTED (<reason>)`.
 
 ## Reconciliation notes
 
+- Plan 009 added lifecycle contract tests for rejecting relation/rule disposal
+  during a fixpoint and for rebuilding a fresh Datalog graph after full teardown
+  in the same runtime. Execution found that the original plan had mistaken
+  disposed-slot guards for support of mid-fixpoint mutation; those guards only
+  skip tombstones created before evaluation. Its completed plan file was
+  deleted; Git history recovers the execution record. Decision record: the
+  existing [Datalog relation-rule lifecycle ADR](../docs/decisions/2026-07-18-datalog-relation-rule-lifecycle.md)
+  was updated to record the stable-program invariant.
 - Plan 008 extended controlled `value` reconciliation to `<textarea>` in
   [PR #418](https://github.com/dowdiness/incr/pull/418), merged as commit
   `889ac2d`. Its completed plan file was deleted; Git history recovers the
