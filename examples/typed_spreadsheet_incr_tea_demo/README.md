@@ -53,10 +53,11 @@ convergence. Local commands and remote sync must share this merged-state
 projection path. Application command identities, future EGW operation IDs,
 incr revisions, and dataflow epochs are distinct domains.
 
-Command types stay package-local until Plan 013 promotes them—without copying—
-to an importable application-domain package after standalone EGW 0.4.0
-verification passes. No generic `egw_incr` package is justified until a second
-driver repeats the same adapter contract. The accepted adapter ADR selects an
+Command types stay package-local until Plan 013 Phase 1 promotes them—without
+copying—to an importable application-domain package. Phase 0 standalone EGW
+0.4.0 verification passed 2026-07-20; Phase 1 will promote the types next. No
+generic `egw_incr` package is justified until a second driver repeats the same
+adapter contract. The accepted adapter ADR selects an
 atomic committed-source register for the first bounded experiment;
 sequence-text formula collaboration would require a superseding product
 decision.

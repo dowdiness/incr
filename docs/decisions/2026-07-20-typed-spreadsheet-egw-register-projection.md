@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-20
 
-**Status:** Accepted; implementation begins with Plan 013 Phase 0 verification that published `dowdiness/event-graph-walker` 0.4.0 resolves in the standalone `incr` workspace
+**Status:** Accepted; Plan 013 Phase 0 verified published EGW 0.4.0 in the standalone `incr` workspace (2026-07-20)
 
 **Implementation plan:** [Plan 013: Typed Spreadsheet EGW Boundary Experiment](../../plans/013-typed-spreadsheet-egw-boundary-experiment.md)
 
