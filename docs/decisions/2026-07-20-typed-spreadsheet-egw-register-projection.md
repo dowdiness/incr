@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-20
 
-**Status:** Accepted; Plan 013 Phases 0–2 complete, Phase 3 not started (2026-07-20)
+**Status:** Accepted; Plan 013 Phases 0–3 complete, Phase 4 not started (2026-07-20)
 
 **Implementation plan:** [Plan 013: Typed Spreadsheet EGW Boundary Experiment](../../plans/013-typed-spreadsheet-egw-boundary-experiment.md)
 

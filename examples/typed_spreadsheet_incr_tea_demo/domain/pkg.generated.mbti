@@ -7,6 +7,14 @@ import {
 }
 
 // Values
+pub fn column_labels() -> Array[String]
+
+pub fn grid_cells() -> Array[String]
+
+pub fn grid_column_count() -> Int
+
+pub fn grid_row_count() -> Int
+
 pub fn validate_sheet_command(SheetCommand, SheetExecutionContext) -> CommandApplicability
 
 // Errors

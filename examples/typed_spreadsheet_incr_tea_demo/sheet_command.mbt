@@ -5,6 +5,10 @@ using @domain {
   type CommandApplicability,
   type SheetExecutionContext,
   validate_sheet_command,
+  grid_cells,
+  grid_column_count,
+  grid_row_count,
+  column_labels,
 }
 
 ///|

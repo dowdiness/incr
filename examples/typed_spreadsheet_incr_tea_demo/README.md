@@ -66,12 +66,24 @@ Phase 2 added the pure `egw_adapter/core/` package: strict versioned register
 codec, immutable canonical snapshots and projection state, separate
 last-seen/last-good/diagnostic state, ordered projection decisions, and pure
 draft reconciliation. It has no mutable EGW document, Runtime, Worksheet,
-InputField, DOM, or adapter shell. Phase 3 mutable shell is next and unstarted.
-No generic `egw_incr` package is justified until a second driver repeats the
-same adapter contract. The accepted adapter ADR selects an
-atomic committed-source register for the first bounded experiment;
-sequence-text formula collaboration would require a superseding product
-decision.
+InputField, DOM, or adapter shell. Phase 3 added the `egw_adapter/` shell
+package boundary: an opaque `EgwAdapter` façade that imports the exact
+published EGW 0.4 container, `incr`, typed-spreadsheet/demo, domain, and
+child core, with no generic bridge or EGW API change. The shell hides mutable
+`Document`/`Worksheet`/state behind bootstrap/attach, local apply, remote
+apply, export/version, immutable projection state, and read_cell/inspect_cell.
+All authority paths perform EGW work first then invoke one shared full-scan
+projection path; one outer `Runtime::batch` applies prepared operations with
+rollback; structured results preserve rejection, `MutationNotLanded`, and
+projection-error semantics. Fifteen package-owned white-box integration tests
+exercise the mutable boundary end-to-end. The browser executable root remains
+the pre-adapter baseline and is not wired to the shell in this phase; the
+adapter is proved by its package-owned integration tests. Phase 4 evidence
+ledger and metrics is next and unstarted. No generic `egw_incr` package is
+justified until a second driver repeats the same adapter contract. The
+accepted adapter ADR selects an atomic committed-source register for the first
+bounded experiment; sequence-text formula collaboration would require a
+superseding product decision.
 
 ## Run
 

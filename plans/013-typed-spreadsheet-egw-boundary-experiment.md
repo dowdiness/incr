@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-20
 
-**Status:** IN PROGRESS (Phase 2 complete; Phase 3 mutable adapter shell is next and unstarted)
+**Status:** IN PROGRESS (Phase 3 complete; Phase 4 evidence ledger/metrics next and unstarted)
 
 **Decision record:** [ADR: Typed spreadsheet EGW register and projection boundary](../docs/decisions/2026-07-20-typed-spreadsheet-egw-register-projection.md)
 
@@ -20,7 +20,7 @@ Plan 012 shipped in [PR #421](https://github.com/dowdiness/incr/pull/421), merge
 
 The typed spreadsheet demonstration (PR #408, closed issue #268) proved that `incr` can serve as the reactive foundation for a collaborative spreadsheet-shaped application. The next boundary question is: how does an application integrate with EGW for multi-user synchronization without violating the separation between `incr` (reactive computation), EGW (CRDT operations and convergence), and application logic (commands, document identity, UI)?
 
-This plan is the first typed-spreadsheet application-specific EGW boundary experiment. The ADR is Accepted, and Phase 0 verified that the standalone `incr` workspace resolves the published EGW 0.4.0 package. Phase 1 domain package promotion and Phase 2 pure adapter core passed 2026-07-20; Phase 3 (mutable adapter shell) is next and unstarted.
+This plan is the first typed-spreadsheet application-specific EGW boundary experiment. The ADR is Accepted, and Phase 0 verified that the standalone `incr` workspace resolves the published EGW 0.4.0 package. Phase 1 domain package promotion, Phase 2 pure adapter core, and Phase 3 mutable adapter shell passed 2026-07-20; Phase 4 (evidence ledger and metrics) is next and unstarted.
 
 ## STOP conditions
 
@@ -31,7 +31,7 @@ This plan is the first typed-spreadsheet application-specific EGW boundary exper
 3. The verified EGW container APIs match the assumptions in this plan: `Document::new`, `root_id`, `create_node`, `is_alive`, `set_property`/`get_property`, `sync`/`export_all`/`export_since`/`apply`, `Version`, `SyncReport` count accessors.
 4. The current standalone `incr` workspace does NOT silently implement against 0.3.0 or parent workspace override.
 
-**Current state:** Phase 0 dependency/API verification is committed at `15b9be4`, and Phase 1 domain package promotion is committed at `9176b67`. Phase 2 pure adapter core passed 2026-07-20 with strict register decoding, immutable canonical snapshots/state, deterministic projection decisions, draft reconciliation, and retry tests. Phase 3 mutable adapter shell is next and unstarted; no EGW mutation, synchronization shell, `Runtime::batch`, or Worksheet application exists yet.
+**Current state:** Phase 0 dependency/API verification is committed at `15b9be4`, Phase 1 domain package promotion is committed at `9176b67`, and Phase 2 pure adapter core is committed at `a41126d`. This Phase 3 checkpoint commits the mutable adapter shell after its 2026-07-20 PASS: pure canonical 50×50 `domain/grid.mbt`, app-specific `egw_adapter/` shell importing published EGW 0.4 container/incr/typed-spreadsheet/domain/child core, opaque `EgwAdapter` façade with bootstrap/attach/local apply/remote apply/export/version/projection state/read_cell/inspect_cell, one shared full-scan projection path after all authority work, strict `cell/<canonical address>` property keys, one outer `Runtime::batch` with rollback, structured results, 15 white-box integration tests, and independent moonbit-reviewer PASS. The executable root remains the pre-adapter browser baseline and is not wired to the shell in this phase. Phase 4 evidence ledger/metrics is next and unstarted.
 
 **Do not proceed if:** EGW resolves to 0.3.0, or if the container APIs have changed in incompatible ways.
 
@@ -385,6 +385,14 @@ Implement `egw_adapter/adapter.mbt`:
 
 **DONE when:** both authority paths call one projection function and all convergence/application-state tests pass.
 
+**Completion record (2026-07-20): PASS.**
+
+- **Package and ownership:** Added pure canonical `domain/grid.mbt` (identical root helpers, no behavior change) and app-specific `egw_adapter/` shell importing exact published EGW 0.4 container, `incr`, typed-spreadsheet/demo, domain, and child core. No generic bridge, root, DOM, tea, transport, dataflow, or EGW API change. Opaque `EgwAdapter` hides mutable `Document`/`Worksheet`/state. Public façade exposes bootstrap/attach, local apply, remote apply, export/version, immutable projection state, and read_cell/inspect_cell. `ProjectionBindings` are explicit draft/UI `InputField` capabilities; no mutable `Document`/`Worksheet` is exposed.
+- **Authority ordering:** All bootstrap/local/remote/reset authority paths perform EGW authority work first, then invoke one shared full-scan projection path. Local order: adapter generation guard + domain validation + sheet ownership + parse + liveness + set/readback + project. Remote: `SyncSession.apply` then the same project path. Reset uses lazy caller authority, seeds/reads-back/projects a fresh `Worksheet`, and swaps/advances/disposes only after success.
+- **Batch and errors:** One outer `Runtime::batch` applies prepared direct `Worksheet` operations and UI binding writes. A private typed wrapper rolls back on failure; retained `ProjectionState` commits only after success. No `run_batched_op` nesting or `Document::transaction`. Structured results preserve `CommandApplicability`, parse rejection, `MutationNotLanded`, typed projection errors, and no-change/applied reports; remote `SyncReport` remains separate.
+- **Tests and review:** 15 adapter white-box integration tests cover bootstrap computed 10/11, stale/foreign/invalid no-mutation, dead/readback mismatch, no-op readback, real later `Worksheet` failure rollback+retry, lazy successful/failed reset and old-context stale rejection, local/remote decision parity, concurrent writes, apply/delete race, duplicate/out-of-order/pending, clean/dirty drafts, malformed+unknown payload with differing last-good states, recovery, and separate EGW/projection/`Worksheet` convergence. An independent `moonbit-reviewer` initially found a generation bypass and a mutable `Worksheet` getter; both were fixed. Final re-review PASS, no findings.
+- **Validation and scope:** `moon fmt` check, `moon info`/interface review, targeted root JS 26/26, domain 1/1, core 18/18, adapter 15/15; full default 1116 wasm-gc +213 JS, explicit workspace target JS total 1329; `moon check` 16 existing warnings/0 errors; boundary scripts/docs check; `npm build`; 8 DOM scenarios. Generated `.mbti` canonical trailing blank is tool output. Parent files/pointers untouched; no push. The executable root remains the pre-adapter baseline and is not wired to the shell in this phase; the adapter is exercised by package-owned integration tests. Phase 4 metrics/evidence is next and unstarted.
+
 ### Phase 4: Evidence ledger and metrics
 
 Add a package-owned MoonBit benchmark file following the existing `@bench.T` pattern and retain the existing browser benchmark harness for interaction-level evidence. Prime projection state before warm measurements and keep measured results alive with the benchmark API.
@@ -433,22 +441,22 @@ All criteria are mandatory:
 - [x] The register/projection ADR is Accepted before implementation begins.
 - [x] Published EGW 0.4.0 resolves in the standalone `incr` workspace, with no parent override or 0.3.0 fallback.
 - [x] `SheetCommand`, opaque `DocumentGeneration`, `CommandApplicability`, `SheetExecutionContext`, and `validate_sheet_command` have one source of truth in an importable app-domain package; no copy remains and the future shell does not import the executable root.
-- [ ] Property keys, strict version-1 JSON payloads, `Unset`, `Source`, and `Deleted` semantics match the fixed schema; formula sequence text is not introduced.
-- [ ] Application logical document identity, `DocumentGeneration`, EGW identity/version, `incr` `Revision`, and dataflow `Epoch` remain distinct.
-- [ ] Local accepted commands mutate EGW before projection; invalid local source does not mutate EGW.
-- [ ] Remote sync mutates EGW before projection, and local/remote paths invoke the same projection function.
+- [x] Property keys, strict version-1 JSON payloads, `Unset`, `Source`, and `Deleted` semantics match the fixed schema; formula sequence text is not introduced.
+- [x] Application logical document identity, `DocumentGeneration`, EGW identity/version, `incr` `Revision`, and dataflow `Epoch` remain distinct.
+- [x] Local accepted commands mutate EGW before projection; invalid local source does not mutate EGW.
+- [x] Remote sync mutates EGW before projection, and local/remote paths invoke the same projection function.
 - [x] The functional core receives owned snapshots and returns immutable states, decisions, and diagnostics without reading EGW/DOM/Runtime/InputFields.
 - [x] Last-seen authoritative registers, last-good semantic projection, and current diagnostics are distinct retained states represented by the fixed core result shapes.
-- [ ] EGW mutation read-back, structured application results, batch rollback, retained-state commit-after-success, and projection retry semantics are directly tested.
-- [ ] Malformed or unsupported remote application payloads publish deterministic diagnostics, retain local last-good Worksheet state without a false convergence claim, and reconverge after valid recovery.
-- [ ] One outer `Runtime::batch` applies each projection frame; `run_batched_op` is never nested inside it.
-- [ ] Clean drafts follow authoritative committed source; dirty drafts, selection, editing, and focus remain local.
-- [ ] Initial bootstrap and reset write seed registers to a fresh EGW document before deriving Worksheet state; reset also creates a fresh application identity and next generation without clearing the old CRDT document.
-- [ ] Required two-peer concurrency, delete race, duplicate/out-of-order/pending sync, draft, malformed payload, reset, and convergence tests pass.
-- [ ] No generic `egw_incr`, EGW source/API change, command ID, dedup store, transport, network, or dataflow coupling is introduced.
+- [x] EGW mutation read-back, structured application results, batch rollback, retained-state commit-after-success, and projection retry semantics are directly tested.
+- [x] Malformed or unsupported remote application payloads publish deterministic diagnostics, retain local last-good Worksheet state without a false convergence claim, and reconverge after valid recovery.
+- [x] One outer `Runtime::batch` applies each projection frame; `run_batched_op` is never nested inside it.
+- [x] Clean drafts follow authoritative committed source; dirty drafts, selection, editing, and focus remain local.
+- [x] Initial bootstrap and reset write seed registers to a fresh EGW document before deriving Worksheet state; reset also creates a fresh application identity and next generation without clearing the old CRDT document.
+- [x] Required two-peer concurrency, delete race, duplicate/out-of-order/pending sync, draft, malformed payload, reset, and convergence tests pass.
+- [x] No generic `egw_incr`, EGW source/API change, command ID, dedup store, transport, network, or dataflow coupling is introduced.
 - [ ] Release-mode 1/10/100/2500 evidence and two independent full-scan/synthetic-hint browser comparisons are recorded and indexed against the pre-registered budget rule.
 - [ ] Every observed EGW pressure point is classified as adapter-local, EGW candidate, or deferred, with second-driver gating explicit.
-- [ ] `moon fmt`, `moon info`, `.mbti` review, standalone checks/tests, boundary scripts, targeted JS tests, and demo build/browser tests pass in order; superproject safety is verified and parent validation applicability is reported honestly.
+- [x] `moon fmt`, `moon info`, `.mbti` review, standalone checks/tests, boundary scripts, targeted JS tests, and demo build/browser tests pass in order; superproject safety is verified and parent validation applicability is reported honestly.
 - [ ] The ADR and README describe the shipped boundary and experiment result; Plan 013 is reconciled according to its disposition.
 
 ## Non-goals
