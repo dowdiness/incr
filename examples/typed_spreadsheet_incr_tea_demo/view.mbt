@@ -178,9 +178,7 @@ fn state_grid(state : SheetState) -> @tea.Html[Msg] {
     children.push(view_row_header("\{row}"))
     for column_index, column in column_labels() {
       let cell = "\{column}\{row}"
-      let snapshot = state.sheet.inspect_cell(
-        cell_id_from_sheet(state.sheet, cell),
-      )
+      let snapshot = state.adapter.inspect_cell(cell)
       let selected = selected_cell == cell
       let editing = editing_cell == Some(cell)
       let dirty = draft_text_from(current_drafts, cell) !=

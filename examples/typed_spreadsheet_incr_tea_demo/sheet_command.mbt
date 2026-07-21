@@ -4,7 +4,6 @@ using @domain {
   type SheetCommand,
   type CommandApplicability,
   type SheetExecutionContext,
-  validate_sheet_command,
   grid_cells,
   grid_column_count,
   grid_row_count,

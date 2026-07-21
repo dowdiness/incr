@@ -25,6 +25,21 @@ pub(all) enum AdapterApplyResult {
   Applied(ProjectionReport)
 }
 
+pub struct AdapterCellSnapshot {
+  // private fields
+}
+pub fn AdapterCellSnapshot::id(Self) -> @typed_spreadsheet.CellId
+pub fn AdapterCellSnapshot::kind(Self) -> @typed_spreadsheet.CellKind?
+pub fn AdapterCellSnapshot::present(Self) -> Bool
+pub fn AdapterCellSnapshot::result(Self) -> @typed_spreadsheet.CellResult
+
+pub struct AdapterCellSnapshotChange {
+  // private fields
+}
+pub fn AdapterCellSnapshotChange::after(Self) -> AdapterCellSnapshot
+pub fn AdapterCellSnapshotChange::before(Self) -> AdapterCellSnapshot
+pub fn AdapterCellSnapshotChange::id(Self) -> @typed_spreadsheet.CellId
+
 pub enum AdapterStartError {
   InvalidSeedAddress(String)
   DeadAuthorityNode
@@ -37,15 +52,25 @@ pub enum AdapterStartResult {
   Failed(AdapterStartError)
 }
 
+pub struct AdapterTrace {
+  // private fields
+}
+pub fn AdapterTrace::changed(Self) -> ReadOnlyArray[@typed_spreadsheet.CellId]
+pub fn AdapterTrace::recomputed(Self) -> ReadOnlyArray[@typed_spreadsheet.CellId]
+pub fn AdapterTrace::unchanged(Self) -> ReadOnlyArray[@typed_spreadsheet.CellId]
+
 pub struct EgwAdapter {
   // private fields
 }
 pub fn EgwAdapter::apply_command(Self, @domain.SheetCommand, @domain.SheetExecutionContext) -> AdapterApplyResult raise @container.DocumentError
+pub fn EgwAdapter::apply_command_observed(Self, @domain.SheetCommand, @domain.SheetExecutionContext, capture? : Array[@typed_spreadsheet.CellId], trace_cells? : Array[@typed_spreadsheet.CellId]) -> ObservedApplyResult raise @container.DocumentError
 pub fn EgwAdapter::apply_sync(Self, @container.SyncMessage) -> RemoteApplyResult raise @container.DocumentError
 pub fn EgwAdapter::attach(@cells.Runtime, @core.CollaborativeSheetId, @typed_spreadsheet.SheetId, @domain.DocumentGeneration, @container.Document, @container.TreeNodeId, Array[Seed], ProjectionBindings, (@domain.DocumentGeneration) -> ResetAuthority raise @container.DocumentError) -> AdapterStartResult
 pub fn EgwAdapter::bootstrap(@cells.Runtime, String, @core.CollaborativeSheetId, @typed_spreadsheet.SheetId, Array[Seed], ProjectionBindings, (@domain.DocumentGeneration) -> ResetAuthority raise @container.DocumentError) -> AdapterStartResult raise @container.DocumentError
+pub fn EgwAdapter::dispose(Self) -> Unit
 pub fn EgwAdapter::export_all(Self) -> @container.SyncMessage raise @container.DocumentError
 pub fn EgwAdapter::export_since(Self, @container.Version) -> @container.SyncMessage raise @container.DocumentError
+pub fn EgwAdapter::formula_ast(Self, String) -> Result[@typed_spreadsheet.Formula, @typed_spreadsheet.FormulaAstQueryError]
 pub fn EgwAdapter::generation(Self) -> @domain.DocumentGeneration
 pub fn EgwAdapter::identity(Self) -> @core.CollaborativeSheetId
 pub fn EgwAdapter::inspect_cell(Self, String) -> @typed_spreadsheet.CellSnapshot
@@ -53,6 +78,14 @@ pub fn EgwAdapter::projection_state(Self) -> @core.ProjectionState
 pub fn EgwAdapter::read_cell(Self, String) -> @typed_spreadsheet.CellResult
 pub fn EgwAdapter::sheet_id(Self) -> @typed_spreadsheet.SheetId
 pub fn EgwAdapter::version(Self) -> @container.Version
+
+pub struct ObservedApplyResult {
+  // private fields
+}
+pub fn ObservedApplyResult::result(Self) -> AdapterApplyResult
+pub fn ObservedApplyResult::snapshots(Self) -> ReadOnlyArray[AdapterCellSnapshotChange]
+pub fn ObservedApplyResult::target(Self) -> @typed_spreadsheet.CellId?
+pub fn ObservedApplyResult::trace(Self) -> AdapterTrace?
 
 pub enum ProjectionApplyError {
   UnexpectedSetInput(@typed_spreadsheet.CellId, @typed_spreadsheet.CellResult)

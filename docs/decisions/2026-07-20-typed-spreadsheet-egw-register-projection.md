@@ -6,6 +6,8 @@
 
 **API-quality evidence:** [Typed spreadsheet EGW API-quality evidence](../research/2026-07-21-typed-spreadsheet-egw-api-quality-evidence.md)
 
+**Current implementation:** The executable browser routes committed single-user commands through the adapter; remote transport and room/join lifecycle remain follow-up work (2026-07-21)
+
 **Implementation plan:** [Plan 013: Typed Spreadsheet EGW Boundary Experiment](../../plans/013-typed-spreadsheet-egw-boundary-experiment.md)
 
 **Reader:** Maintainers designing or reviewing the first collaborative typed-spreadsheet driver and any later EGW API proposal derived from it.

@@ -4,6 +4,9 @@ import {
   "examples/typed_spreadsheet",
   "examples/typed_spreadsheet_demo" @demo,
   "examples/typed_spreadsheet_incr_tea_demo/domain",
+  "examples/typed_spreadsheet_incr_tea_demo/egw_adapter",
+  "examples/typed_spreadsheet_incr_tea_demo/egw_adapter/core",
+  "dowdiness/event-graph-walker/container",
 }
 
 supported_targets = "js"

@@ -1,6 +1,6 @@
 ///|
 struct ModelSnapshot {
-  sheet : @typed_spreadsheet.Worksheet
+  adapter : @egw_adapter.EgwAdapter
   cells : Array[String]
   drafts : Array[CellDraft]
   selected_cell : String
@@ -13,7 +13,7 @@ struct ModelSnapshot {
 ///|
 fn SheetState::peek_model(self : SheetState) -> ModelSnapshot {
   {
-    sheet: self.sheet,
+    adapter: self.adapter,
     cells: self.cells.peek(),
     drafts: self.drafts.peek(),
     selected_cell: self.selected_cell.peek(),
@@ -30,13 +30,16 @@ fn draft_for(model : ModelSnapshot, cell : String) -> String {
 }
 
 ///|
-fn cell_id(model : ModelSnapshot, cell : String) -> @typed_spreadsheet.CellId {
-  cell_id_from_sheet(model.sheet, cell)
+fn inspect_model_cell(
+  model : ModelSnapshot,
+  cell : String,
+) -> @typed_spreadsheet.CellSnapshot {
+  model.adapter.inspect_cell(cell)
 }
 
 ///|
 fn TypedSheetApp::dispose(self : TypedSheetApp) -> Unit {
-  self._state.val.sheet.dispose()
+  self._state.val.adapter.dispose()
   self.prog_grid.dispose()
   self.prog_formula.dispose()
   self.prog_status.dispose()
@@ -56,11 +59,11 @@ test "incr_tea spreadsheet proof starts with seeded representative grid" {
   inspect(draft_for(model, "A1"), content="10")
   inspect(draft_for(model, "B1"), content="=A1 + 1")
   inspect(
-    cell_result_text(model.sheet.inspect_cell(cell_id(model, "A1")).result),
+    cell_result_text(inspect_model_cell(model, "A1").result),
     content="10",
   )
   inspect(
-    cell_result_text(model.sheet.inspect_cell(cell_id(model, "B1")).result),
+    cell_result_text(inspect_model_cell(model, "B1").result),
     content="11",
   )
   inspect(
@@ -84,7 +87,7 @@ test "incr_tea spreadsheet proof applies and cancels through Program dispatch" {
   inspect(applied.selected_cell, content="C1")
   inspect(applied.editing_cell is None, content="true")
   inspect(
-    cell_result_text(applied.sheet.inspect_cell(cell_id(applied, "C1")).result),
+    cell_result_text(inspect_model_cell(applied, "C1").result),
     content="7",
   )
   inspect(applied.last_edit, content="C1 ← 7")
@@ -95,9 +98,7 @@ test "incr_tea spreadsheet proof applies and cancels through Program dispatch" {
   let cancelled = app._state.val.peek_model()
   inspect(draft_for(cancelled, "C1"), content="7")
   inspect(
-    cell_result_text(
-      cancelled.sheet.inspect_cell(cell_id(cancelled, "C1")).result,
-    ),
+    cell_result_text(inspect_model_cell(cancelled, "C1").result),
     content="7",
   )
   app.dispose()
@@ -114,11 +115,11 @@ test "incr_tea spreadsheet proof applies formula bar edits and dependent formula
 
   inspect(model.last_edit, content="A1 ← 15")
   inspect(
-    cell_result_text(model.sheet.inspect_cell(cell_id(model, "A1")).result),
+    cell_result_text(inspect_model_cell(model, "A1").result),
     content="15",
   )
   inspect(
-    cell_result_text(model.sheet.inspect_cell(cell_id(model, "B1")).result),
+    cell_result_text(inspect_model_cell(model, "B1").result),
     content="16",
   )
   match model.trace_data {

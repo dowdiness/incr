@@ -18,7 +18,7 @@ instruction.
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 |---|---|---:|---:|---|---|
-| [013](013-typed-spreadsheet-egw-boundary-experiment.md) | Run the typed-spreadsheet EGW boundary experiment | P1 | L | Published EGW 0.4.0 | BLOCKED (Phase 4 browser baseline misses advisory budgets) |
+| [013](013-typed-spreadsheet-egw-boundary-experiment.md) | Run the typed-spreadsheet EGW boundary experiment | P1 | L | Published EGW 0.4.0 | IN PROGRESS (browser authority prototype; performance branch blocked) |
 
 Status values: `TODO` | `IN PROGRESS` | `DONE` |
 `BLOCKED (<reason>)` | `REJECTED (<reason>)`.
@@ -35,7 +35,10 @@ baseline missed advisory p95 budgets. Browser A/B and any EGW performance
 conclusion remain blocked until a stable baseline passes every budget. A
 separate [API-quality evidence report](../docs/research/2026-07-21-typed-spreadsheet-egw-api-quality-evidence.md)
 records correctness and convenience pressure without advancing a public API
-proposal.
+proposal. A later user-authorized working-tree prototype makes the adapter the
+single-user browser authority while preserving existing interaction, trace, and
+evidence behavior. Transport and remote collaboration remain a separately
+shaped follow-up.
 
 ## Reconciliation notes
 

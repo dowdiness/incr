@@ -14,6 +14,8 @@ needed for the reusable `incr_tea` frame:
 - focusing and selecting the inline editor with `Cmd::focus_element_by_id` after
   the renderer patches the DOM;
 - applying with Enter/form submit and cancelling with Escape;
+- routing committed apply, delete, and reset commands through the app-specific
+  EGW adapter before projecting into the Worksheet;
 - preserving unrelated DOM nodes while selection moves;
 - resolving text payloads and keyboard actions at `BrowserRenderer::mount`,
   while cached `Html` values keep only pure event descriptors;
@@ -75,17 +77,24 @@ apply, export/version, immutable projection state, and read_cell/inspect_cell.
 All authority paths perform EGW work first then invoke one shared full-scan
 projection path; one outer `Runtime::batch` applies prepared operations with
 rollback; structured results preserve rejection, `MutationNotLanded`, and
-projection-error semantics. Fifteen package-owned white-box integration tests
-exercise the mutable boundary end-to-end. The browser executable root remains
-the pre-adapter baseline and is not wired to the shell in this phase; the
-adapter is proved by its package-owned integration tests. Phase 4 adds a
-package-owned JS release benchmark and a private benchmark-only FullScan versus
-ChangedProperties lower bound for 1/10/100/2,500 changed cells. The
-[dated evidence snapshot](../../docs/performance/2026-07-21-typed-spreadsheet-egw-adapter-evidence.md)
-records a reproducible sparse-workload advantage, but the unchanged
-pre-adapter browser baseline missed advisory p95 budgets on the measurement
-host, so production synchronization still uses FullScan and browser A/B cannot
-yet support an EGW performance conclusion. The separate
+projection-error semantics. Nineteen package-owned white-box integration tests
+exercise the mutable and observed boundaries end-to-end.
+
+The browser executable now uses the adapter as its single-user committed
+authority. It bootstraps the seed registers through EGW, routes apply/delete/
+reset commands through `EgwAdapter`, observes trace and before/after evidence
+without replaying Worksheet mutations, and reads projected cells through safe
+adapter methods. Drafts, selection, editing, focus, status, and evidence remain
+application-local. No remote transport, room/join protocol, or presence channel
+exists yet.
+
+Phase 4 added a package-owned JS release benchmark and a private benchmark-only
+FullScan versus ChangedProperties lower bound for 1/10/100/2,500 changed cells.
+The [dated evidence snapshot](../../docs/performance/2026-07-21-typed-spreadsheet-egw-adapter-evidence.md)
+records the pre-wiring baseline and a reproducible sparse-workload advantage.
+That historical baseline missed advisory p95 budgets on its measurement host,
+so it cannot support an EGW performance conclusion; production remote
+projection meanwhile continues to use FullScan. The separate
 [EGW API-quality evidence note](../../docs/research/2026-07-21-typed-spreadsheet-egw-api-quality-evidence.md)
 records correctness and convenience pressure without advancing a public API
 proposal. No generic `egw_incr` package is justified until a second driver

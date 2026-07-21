@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-20
 
-**Status:** BLOCKED (Phase 4 browser A/B awaits a stable pre-adapter baseline that meets every advisory p95 budget)
+**Status:** IN PROGRESS (single-user browser authority prototype works; collaboration transport remains a follow-up; Phase 4 performance A/B is blocked by its pre-adapter baseline)
 
 **Decision record:** [ADR: Typed spreadsheet EGW register and projection boundary](../docs/decisions/2026-07-20-typed-spreadsheet-egw-register-projection.md)
 
@@ -31,7 +31,7 @@ This plan is the first typed-spreadsheet application-specific EGW boundary exper
 3. The verified EGW container APIs match the assumptions in this plan: `Document::new`, `root_id`, `create_node`, `is_alive`, `set_property`/`get_property`, `sync`/`export_all`/`export_since`/`apply`, `Version`, `SyncReport` count accessors.
 4. The current standalone `incr` workspace does NOT silently implement against 0.3.0 or parent workspace override.
 
-**Current state:** Phase 0 dependency/API verification is committed at `15b9be4`, Phase 1 domain package promotion is committed at `9176b67`, Phase 2 pure adapter core is committed at `a41126d`, and Phase 3 mutable adapter shell is committed at `93314b4`. Phase 4 adds a package-owned private FullScan/ChangedProperties benchmark seam and records two independent JS release runs for 1/10/100/2,500 changed cells. Sparse synthetic end-to-end projection is reproducibly faster in isolation, but two unchanged pre-adapter browser runs missed selection, draft, or visible-edit advisory budgets. The host is unsuitable under the pre-registered rule, so no adapter browser A/B or EGW performance conclusion is valid yet. Production remote sync remains FullScan. Phase 5 reader-document reconciliation has begun, but final boundary review and Plan disposition await the Phase 4 browser gate.
+**Current state:** Phase 0 dependency/API verification is committed at `15b9be4`, Phase 1 domain package promotion at `9176b67`, Phase 2 pure adapter core at `a41126d`, Phase 3 mutable adapter shell at `93314b4`, and Phase 4 benchmark/API-quality evidence at `50c948d`. The Phase 4 performance route remains blocked because two unchanged pre-adapter browser runs missed advisory budgets; production remote projection remains FullScan. After the user authorized productization, the current working-tree prototype made the adapter the executable browser's single-user committed authority while preserving trace/evidence, reset, drafts, AI context, and DOM behavior. Remote transport, room/join lifecycle, and presence are not implemented. Phase 5 reconciliation is partial, and a collaboration follow-up plan should be shaped after prototype feedback rather than folded into the original bounded experiment.
 
 **Do not proceed if:** EGW resolves to 0.3.0, or if the container APIs have changed in incompatible ways.
 
@@ -435,9 +435,11 @@ Correctness or mutation-observability pressure follows the separate six-part EGW
 ### Phase 5: Documentation and boundary review
 
 **Checkpoint (2026-07-21): PARTIAL.** The ADR, demo README, Plan index, and
-evidence indexes now distinguish the blocked performance route from bounded
-API-quality evidence. Final boundary review, bounded-result wording, and Plan
-disposition await the Phase 4 browser gate.
+evidence indexes distinguish the blocked performance route from bounded
+API-quality evidence. A later user-authorized prototype now routes executable
+browser commits through `EgwAdapter` while retaining local UI state and observed
+trace/evidence. Final boundary review and Plan disposition remain open; remote
+collaboration belongs in a separately shaped follow-up after prototype feedback.
 
 Document the integration boundary:
 

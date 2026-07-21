@@ -16,6 +16,14 @@ fn test_sheet_planning_context() -> SheetPlanningContext {
 }
 
 ///|
+fn inspect_state_cell(
+  state : Ref[SheetState],
+  cell : String,
+) -> @typed_spreadsheet.CellSnapshot {
+  state.val.adapter.inspect_cell(cell)
+}
+
+///|
 test "sheet planner covers messages and owns submitted payloads" {
   let context = test_sheet_planning_context()
   let selected = context.selected_cell
@@ -99,11 +107,19 @@ test "apply operation preserves the submitted typed target" {
     @typed_spreadsheet.SheetId(99),
     "A1",
   )
-  apply_text_edit(app._state, foreign_target, "42")
-  inspect(
-    cell_result_text(
-      app._state.val.sheet.inspect_cell(state_cell_id(app._state, "A1")).result,
+  ignore(
+    execute_sheet_command(
+      runtime,
+      app._state,
+      ApplyFromSelection(
+        foreign_target,
+        "42",
+        app._state.val.adapter.generation(),
+      ),
     ),
+  )
+  inspect(
+    cell_result_text(inspect_state_cell(app._state, "A1").result),
     content="10",
   )
   app.dispose()
@@ -130,19 +146,17 @@ test "direct execution uses submitted text and rejects stale generation" {
   }
   assert_true(execute_sheet_command(runtime, app._state, command) == Applicable)
   inspect(
-    cell_result_text(
-      app._state.val.sheet.inspect_cell(state_cell_id(app._state, "A1")).result,
-    ),
+    cell_result_text(inspect_state_cell(app._state, "A1").result),
     content="42",
   )
-  let generation = app._state.val.generation
+  let generation = app._state.val.adapter.generation()
   let reset = match
     plan_sheet_command(sheet_planning_context(app._state), ResetSheet).command {
     Some(command) => command
     None => abort("expected reset")
   }
   assert_true(execute_sheet_command(runtime, app._state, reset) == Applicable)
-  assert_true(app._state.val.generation == generation.next())
+  assert_true(app._state.val.adapter.generation() == generation.next())
   inspect(
     app._state.val.status.peek(),
     content="Ready. This incr_tea proof is separate from the live Rabbita demo.",
@@ -154,15 +168,11 @@ test "direct execution uses submitted text and rejects stale generation" {
     execute_sheet_command(runtime, app._state, command) == StaleGeneration,
   )
   inspect(
-    cell_result_text(
-      app._state.val.sheet.inspect_cell(state_cell_id(app._state, "A1")).result,
-    ),
+    cell_result_text(inspect_state_cell(app._state, "A1").result),
     content="10",
   )
   inspect(
-    cell_result_text(
-      app._state.val.sheet.inspect_cell(state_cell_id(app._state, "B1")).result,
-    ),
+    cell_result_text(inspect_state_cell(app._state, "B1").result),
     content="11",
   )
   app.dispose()
@@ -188,15 +198,11 @@ test "direct execution rejects failed selected editing and delete preconditions"
     LocalPreconditionFailed,
   )
   inspect(
-    cell_result_text(
-      app._state.val.sheet.inspect_cell(state_cell_id(app._state, "A1")).result,
-    ),
+    cell_result_text(inspect_state_cell(app._state, "A1").result),
     content="10",
   )
 
-  let c1_before = cell_result_text(
-    app._state.val.sheet.inspect_cell(state_cell_id(app._state, "C1")).result,
-  )
+  let c1_before = cell_result_text(inspect_state_cell(app._state, "C1").result)
   app._state.val.editing_cell.set(Some("C1"))
   app._state.val.drafts.set(
     update_draft(app._state.val.drafts.peek(), "C1", "7"),
@@ -215,10 +221,7 @@ test "direct execution rejects failed selected editing and delete preconditions"
     LocalPreconditionFailed,
   )
   assert_true(
-    cell_result_text(
-      app._state.val.sheet.inspect_cell(state_cell_id(app._state, "C1")).result,
-    ) ==
-    c1_before,
+    cell_result_text(inspect_state_cell(app._state, "C1").result) == c1_before,
   )
 
   app._state.val.selected_cell.set("A1")
@@ -233,11 +236,70 @@ test "direct execution rejects failed selected editing and delete preconditions"
     LocalPreconditionFailed,
   )
   inspect(
-    cell_result_text(
-      app._state.val.sheet.inspect_cell(state_cell_id(app._state, "A1")).result,
-    ),
+    cell_result_text(inspect_state_cell(app._state, "A1").result),
     content="10",
   )
   inspect(app._state.val.last_edit.peek(), content="Seed sheet")
+  app.dispose()
+}
+
+///|
+test "browser command advances EGW authority before projection" {
+  let app = TypedSheetApp(@incr.Runtime())
+  let before = app._state.val.adapter.version()
+  ignore(app.prog_grid.dispatch(SelectCell("A1")))
+  ignore(app.prog_grid.dispatch(UpdateDraft("A1", "15")))
+  ignore(app.prog_grid.dispatch(ApplySelected))
+  let state = app._state.val
+  assert_true(state.adapter.version() != before)
+  inspect(
+    cell_result_text(state.adapter.inspect_cell("A1").result),
+    content="15",
+  )
+  inspect(
+    cell_result_text(state.adapter.inspect_cell("B1").result),
+    content="16",
+  )
+  app.dispose()
+}
+
+///|
+test "adapter-backed execution applies a valid delete" {
+  let app = TypedSheetApp(@incr.Runtime())
+  ignore(app.prog_grid.dispatch(SelectCell("A1")))
+  ignore(app.prog_grid.dispatch(DeleteSelected))
+  let state = app._state.val
+  inspect(state.adapter.inspect_cell("A1").present, content="false")
+  inspect(draft_text_from(state.committed.peek(), "A1"), content="")
+  inspect(draft_text_from(state.drafts.peek(), "A1"), content="")
+  inspect(state.last_edit.peek(), content="delete A1")
+  assert_true(state.trace.peek() is Some(_))
+  assert_true(state.evidence.peek() is Some(_))
+  app.dispose()
+}
+
+///|
+test "adapter-backed reset replaces dirty drafts with seed state" {
+  let app = TypedSheetApp(@incr.Runtime())
+  let before = app._state.val.adapter.generation()
+  ignore(app.prog_grid.dispatch(SelectCell("C1")))
+  ignore(app.prog_grid.dispatch(UpdateDraft("C1", "99")))
+  ignore(app.prog_grid.dispatch(ResetSheet))
+  let state = app._state.val
+  assert_true(state.adapter.generation() == before.next())
+  inspect(draft_text_from(state.drafts.peek(), "A1"), content="10")
+  inspect(draft_text_from(state.drafts.peek(), "B1"), content="=A1 + 1")
+  inspect(draft_text_from(state.drafts.peek(), "C1"), content="")
+  inspect(draft_text_from(state.committed.peek(), "A1"), content="10")
+  inspect(draft_text_from(state.committed.peek(), "B1"), content="=A1 + 1")
+  inspect(draft_text_from(state.committed.peek(), "C1"), content="")
+  inspect(
+    cell_result_text(state.adapter.inspect_cell("A1").result),
+    content="10",
+  )
+  inspect(
+    cell_result_text(state.adapter.inspect_cell("B1").result),
+    content="11",
+  )
   app.dispose()
 }
