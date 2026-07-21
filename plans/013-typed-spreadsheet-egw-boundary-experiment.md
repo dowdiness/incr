@@ -31,7 +31,7 @@ This plan is the first typed-spreadsheet application-specific EGW boundary exper
 3. The verified EGW container APIs match the assumptions in this plan: `Document::new`, `root_id`, `create_node`, `is_alive`, `set_property`/`get_property`, `sync`/`export_all`/`export_since`/`apply`, `Version`, `SyncReport` count accessors.
 4. The current standalone `incr` workspace does NOT silently implement against 0.3.0 or parent workspace override.
 
-**Current state:** Phase 0 dependency/API verification is committed at `15b9be4`, Phase 1 domain package promotion at `9176b67`, Phase 2 pure adapter core at `a41126d`, Phase 3 mutable adapter shell at `93314b4`, and Phase 4 benchmark/API-quality evidence at `50c948d`. The Phase 4 performance route remains blocked because two unchanged pre-adapter browser runs missed advisory budgets; production remote projection remains FullScan. The user-authorized browser authority prototype is committed at `e272d7f`; it makes the adapter the executable browser's single-user committed authority while preserving trace/evidence, reset, drafts, AI context, and DOM behavior. Remote transport, room/join lifecycle, and presence are not implemented. Phase 5 reconciliation is partial; any remote collaboration, transport, or session integration follow-up must align with the parent ADR's five-layer collaboration responsibility boundary and be shaped after prototype feedback rather than folded into the original bounded experiment.
+**Current state:** Phase 0 dependency/API verification is committed at `15b9be4`, Phase 1 domain package promotion at `9176b67`, Phase 2 pure adapter core at `a41126d`, Phase 3 mutable adapter shell at `93314b4`, and Phase 4 benchmark/API-quality evidence at `50c948d`. The Phase 4 performance route remains blocked because two unchanged pre-adapter browser runs missed advisory budgets; production remote projection remains FullScan. The user-authorized browser authority prototype is committed at `e272d7f`; it makes the adapter the executable browser's single-user committed authority while preserving trace/evidence, reset, drafts, AI context, and DOM behavior. A private EGW 0.4 peer-sync spike at local commit `c296d8f` now proves one payload-free text/container decision contract with EGW as the sole causal pending owner; the exact-0.4 adapter still passes 19/19 JS tests. Remote transport, room/join lifecycle, and presence are not implemented. Parent Canopy and Tier 1 `sync_session` do not yet compile against workspace EGW 0.4, so migration remains blocked on explicit 0.3/0.4 compatibility work. Phase 5 reconciliation is partial; any remote collaboration, transport, or session integration follow-up must align with the parent ADR's five-layer collaboration responsibility boundary and be shaped after prototype feedback rather than folded into the original bounded experiment.
 
 **Do not proceed if:** EGW resolves to 0.3.0, or if the container APIs have changed in incompatible ways.
 
@@ -434,12 +434,14 @@ Correctness or mutation-observability pressure follows the separate six-part EGW
 
 ### Phase 5: Documentation and boundary review
 
-**Checkpoint (2026-07-21): PARTIAL.** The ADR, demo README, Plan index, and
+**Checkpoint (2026-07-22): PARTIAL.** The ADR, demo README, Plan index, and
 evidence indexes distinguish the blocked performance route from bounded
-API-quality evidence. A later user-authorized prototype now routes executable
+API-quality evidence. A later user-authorized prototype routes executable
 browser commits through `EgwAdapter` while retaining local UI state and observed
-trace/evidence. Final boundary review and Plan disposition remain open; remote
-collaboration belongs in a separately shaped follow-up after prototype feedback.
+trace/evidence. The private EGW 0.4 spike proves common text/container peer-sync
+semantics, but parent `sync_session` and Loom's text fixture expose the expected
+0.3/0.4 migration blocker. Final Plan disposition remains open; transport and
+room UX still belong in separately reviewed follow-ups.
 
 Document the integration boundary:
 
