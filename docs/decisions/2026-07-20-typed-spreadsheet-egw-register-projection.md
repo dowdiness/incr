@@ -10,6 +10,11 @@
 
 **Implementation plan:** [Plan 013: Typed Spreadsheet EGW Boundary Experiment](../../plans/013-typed-spreadsheet-egw-boundary-experiment.md)
 
+**Collaboration boundary:** [Parent EGW collaboration responsibility boundary](../../../../docs/decisions/2026-07-21-egw-collaboration-responsibility-boundary.md)
+
+This record owns spreadsheet register and projection semantics. The parent ADR
+owns the target placement of peer-sync, collaboration runtime, and providers.
+
 **Reader:** Maintainers designing or reviewing the first collaborative typed-spreadsheet driver and any later EGW API proposal derived from it.
 
 **Decision:** Represent each committed cell source as one application-tagged atomic LWW register in EGW, route local commands and remote sync through one authoritative-state projection path, and treat the adapter as an evidence-producing application boundary rather than a generic `egw_incr` abstraction.
