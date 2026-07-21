@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-20
 
-**Status:** IN PROGRESS (Phase 3 complete; Phase 4 evidence ledger/metrics next and unstarted)
+**Status:** BLOCKED (Phase 4 browser A/B awaits a stable pre-adapter baseline that meets every advisory p95 budget)
 
 **Decision record:** [ADR: Typed spreadsheet EGW register and projection boundary](../docs/decisions/2026-07-20-typed-spreadsheet-egw-register-projection.md)
 
@@ -20,7 +20,7 @@ Plan 012 shipped in [PR #421](https://github.com/dowdiness/incr/pull/421), merge
 
 The typed spreadsheet demonstration (PR #408, closed issue #268) proved that `incr` can serve as the reactive foundation for a collaborative spreadsheet-shaped application. The next boundary question is: how does an application integrate with EGW for multi-user synchronization without violating the separation between `incr` (reactive computation), EGW (CRDT operations and convergence), and application logic (commands, document identity, UI)?
 
-This plan is the first typed-spreadsheet application-specific EGW boundary experiment. The ADR is Accepted, and Phase 0 verified that the standalone `incr` workspace resolves the published EGW 0.4.0 package. Phase 1 domain package promotion, Phase 2 pure adapter core, and Phase 3 mutable adapter shell passed 2026-07-20; Phase 4 (evidence ledger and metrics) is next and unstarted.
+This plan is the first typed-spreadsheet application-specific EGW boundary experiment. The ADR is Accepted, and Phase 0 verified that the standalone `incr` workspace resolves the published EGW 0.4.0 package. Phase 1 domain package promotion, Phase 2 pure adapter core, and Phase 3 mutable adapter shell passed 2026-07-20. Phase 4 began 2026-07-21: release JS microbench evidence is reproducible, but the pre-adapter browser baseline missed advisory budgets and blocks a valid browser A/B conclusion on this host.
 
 ## STOP conditions
 
@@ -31,7 +31,7 @@ This plan is the first typed-spreadsheet application-specific EGW boundary exper
 3. The verified EGW container APIs match the assumptions in this plan: `Document::new`, `root_id`, `create_node`, `is_alive`, `set_property`/`get_property`, `sync`/`export_all`/`export_since`/`apply`, `Version`, `SyncReport` count accessors.
 4. The current standalone `incr` workspace does NOT silently implement against 0.3.0 or parent workspace override.
 
-**Current state:** Phase 0 dependency/API verification is committed at `15b9be4`, Phase 1 domain package promotion is committed at `9176b67`, and Phase 2 pure adapter core is committed at `a41126d`. This Phase 3 checkpoint commits the mutable adapter shell after its 2026-07-20 PASS: pure canonical 50×50 `domain/grid.mbt`, app-specific `egw_adapter/` shell importing published EGW 0.4 container/incr/typed-spreadsheet/domain/child core, opaque `EgwAdapter` façade with bootstrap/attach/local apply/remote apply/export/version/projection state/read_cell/inspect_cell, one shared full-scan projection path after all authority work, strict `cell/<canonical address>` property keys, one outer `Runtime::batch` with rollback, structured results, 15 white-box integration tests, and independent moonbit-reviewer PASS. The executable root remains the pre-adapter browser baseline and is not wired to the shell in this phase. Phase 4 evidence ledger/metrics is next and unstarted.
+**Current state:** Phase 0 dependency/API verification is committed at `15b9be4`, Phase 1 domain package promotion is committed at `9176b67`, Phase 2 pure adapter core is committed at `a41126d`, and Phase 3 mutable adapter shell is committed at `93314b4`. Phase 4 adds a package-owned private FullScan/ChangedProperties benchmark seam and records two independent JS release runs for 1/10/100/2,500 changed cells. Sparse synthetic end-to-end projection is reproducibly faster in isolation, but two unchanged pre-adapter browser runs missed selection, draft, or visible-edit advisory budgets. The host is unsuitable under the pre-registered rule, so no adapter browser A/B or EGW performance conclusion is valid yet. Production remote sync remains FullScan. Phase 5 reader-document reconciliation has begun, but final boundary review and Plan disposition await the Phase 4 browser gate.
 
 **Do not proceed if:** EGW resolves to 0.3.0, or if the container APIs have changed in incompatible ways.
 
@@ -391,7 +391,7 @@ Implement `egw_adapter/adapter.mbt`:
 - **Authority ordering:** All bootstrap/local/remote/reset authority paths perform EGW authority work first, then invoke one shared full-scan projection path. Local order: adapter generation guard + domain validation + sheet ownership + parse + liveness + set/readback + project. Remote: `SyncSession.apply` then the same project path. Reset uses lazy caller authority, seeds/reads-back/projects a fresh `Worksheet`, and swaps/advances/disposes only after success.
 - **Batch and errors:** One outer `Runtime::batch` applies prepared direct `Worksheet` operations and UI binding writes. A private typed wrapper rolls back on failure; retained `ProjectionState` commits only after success. No `run_batched_op` nesting or `Document::transaction`. Structured results preserve `CommandApplicability`, parse rejection, `MutationNotLanded`, typed projection errors, and no-change/applied reports; remote `SyncReport` remains separate.
 - **Tests and review:** 15 adapter white-box integration tests cover bootstrap computed 10/11, stale/foreign/invalid no-mutation, dead/readback mismatch, no-op readback, real later `Worksheet` failure rollback+retry, lazy successful/failed reset and old-context stale rejection, local/remote decision parity, concurrent writes, apply/delete race, duplicate/out-of-order/pending, clean/dirty drafts, malformed+unknown payload with differing last-good states, recovery, and separate EGW/projection/`Worksheet` convergence. An independent `moonbit-reviewer` initially found a generation bypass and a mutable `Worksheet` getter; both were fixed. Final re-review PASS, no findings.
-- **Validation and scope:** `moon fmt` check, `moon info`/interface review, targeted root JS 26/26, domain 1/1, core 18/18, adapter 15/15; full default 1116 wasm-gc +213 JS, explicit workspace target JS total 1329; `moon check` 16 existing warnings/0 errors; boundary scripts/docs check; `npm build`; 8 DOM scenarios. Generated `.mbti` canonical trailing blank is tool output. Parent files/pointers untouched; no push. The executable root remains the pre-adapter baseline and is not wired to the shell in this phase; the adapter is exercised by package-owned integration tests. Phase 4 metrics/evidence is next and unstarted.
+- **Validation and scope:** `moon fmt` check, `moon info`/interface review, targeted root JS 26/26, domain 1/1, core 18/18, adapter 15/15; full default 1116 wasm-gc +213 JS, explicit workspace target JS total 1329; `moon check` 16 existing warnings/0 errors; boundary scripts/docs check; `npm build`; 8 DOM scenarios. Generated `.mbti` canonical trailing blank is tool output. Parent files/pointers untouched; no push. The executable root remains the pre-adapter baseline and is not wired to the shell in this phase; the adapter is exercised by package-owned integration tests. At this Phase 3 checkpoint, Phase 4 metrics/evidence was unstarted; the current Phase 4 status is recorded below.
 
 ### Phase 4: Evidence ledger and metrics
 
@@ -419,9 +419,25 @@ Correctness or mutation-observability pressure follows the separate six-part EGW
 
 **Do not optimize before measurement.** Do not treat an O(N) shape or a faster synthetic path as evidence of material product impact without the measured end-to-end result.
 
+**Measurement checkpoint (2026-07-21): BLOCKED by browser baseline.**
+
+- Added package-owned JS release benchmarks and a private benchmark-only `FullScan`/`ChangedProperties` seam sharing the production address scanner. A normal test pins 2,500 versus N property reads and equal semantic decisions; the partial synthetic candidate state is never retained.
+- Two independent runs cover scan, decode, decode/diff, prepared projection, and end-to-end authority-write/projection cost for 1/10/100/2,500 changed cells. One-cell end-to-end FullScan measured 2.04/1.97 ms versus 0.452/0.422 ms for the synthetic lower bound; at 2,500 cells the advantage disappears.
+- The unchanged pre-adapter browser baseline failed selection in run 1 and formula-bar draft plus visible edit in run 2. Per rule 1, this host is unsuitable and no adapter-enabled browser A/B or EGW performance conclusion is authorized.
+- The dated evidence snapshot classifies sparse property reporting as deferred, the full-prior-state reducer floor and dense projection as adapter/application-local, mutation observability under the separate correctness gate, and browser variance as a measurement-environment blocker.
+- **Separate API-quality checkpoint (2026-07-21): RECORDED.** Browser variance blocks only the performance route. The [API-quality evidence note](../docs/research/2026-07-21-typed-spreadsheet-egw-api-quality-evidence.md) evaluates correctness, misuse resistance, convenience, and generality separately. EGW 0.4 is sufficient for the tested adapter but cumbersome: `set_property` exposes no failure channel, and `SyncReport` exposes counts rather than post-apply impact. Error-transparent property mutation is concrete candidate pressure; a conservative impact report remains a research candidate. Rich semantic receipts are not advanced. Both candidates remain gated by a second container driver, compatibility, convergence, and quantified gain.
+- Production local/remote paths remain FullScan. No EGW API, generic bridge, transport, browser wiring, optimization, or issue comment was added. Phase 5 reader-document reconciliation is partial; final boundary review and Plan disposition remain blocked.
+
+**Unblock when:** the unchanged browser baseline meets every advisory p95 budget on the same stable host/toolchain. Then run adapter-enabled FullScan and benchmark-only ChangedProperties composition twice before applying the remaining decision rules.
+
 **DONE when:** the release-mode baseline and synthetic comparison are reproducible, indexed, and classified without proposing or publishing an EGW API.
 
 ### Phase 5: Documentation and boundary review
+
+**Checkpoint (2026-07-21): PARTIAL.** The ADR, demo README, Plan index, and
+evidence indexes now distinguish the blocked performance route from bounded
+API-quality evidence. Final boundary review, bounded-result wording, and Plan
+disposition await the Phase 4 browser gate.
 
 Document the integration boundary:
 
@@ -455,7 +471,7 @@ All criteria are mandatory:
 - [x] Required two-peer concurrency, delete race, duplicate/out-of-order/pending sync, draft, malformed payload, reset, and convergence tests pass.
 - [x] No generic `egw_incr`, EGW source/API change, command ID, dedup store, transport, network, or dataflow coupling is introduced.
 - [ ] Release-mode 1/10/100/2500 evidence and two independent full-scan/synthetic-hint browser comparisons are recorded and indexed against the pre-registered budget rule.
-- [ ] Every observed EGW pressure point is classified as adapter-local, EGW candidate, or deferred, with second-driver gating explicit.
+- [x] Every observed EGW pressure point is classified as adapter-local, EGW candidate, or deferred, with second-driver gating explicit.
 - [x] `moon fmt`, `moon info`, `.mbti` review, standalone checks/tests, boundary scripts, targeted JS tests, and demo build/browser tests pass in order; superproject safety is verified and parent validation applicability is reported honestly.
 - [ ] The ADR and README describe the shipped boundary and experiment result; Plan 013 is reconciled according to its disposition.
 

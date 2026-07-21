@@ -2,7 +2,9 @@
 
 **Date:** 2026-07-20
 
-**Status:** Accepted; Plan 013 Phases 0–3 complete, Phase 4 not started (2026-07-20)
+**Status:** Accepted; Plan 013 Phase 4 performance measurement is blocked by an unsuitable pre-adapter browser baseline (2026-07-21)
+
+**API-quality evidence:** [Typed spreadsheet EGW API-quality evidence](../research/2026-07-21-typed-spreadsheet-egw-api-quality-evidence.md)
 
 **Implementation plan:** [Plan 013: Typed Spreadsheet EGW Boundary Experiment](../../plans/013-typed-spreadsheet-egw-boundary-experiment.md)
 
@@ -198,6 +200,14 @@ An EGW API candidate requires all of the following:
 4. a second driver, such as Loom, confirms the same need;
 5. the same convergence suite passes with and without the candidate;
 6. the gain is quantified.
+
+**API-quality checkpoint (2026-07-21):** The current API is sufficient for a
+correct adapter when the application supplies liveness policy, mutation
+read-back, and full-scan impact discovery. The linked evidence note separates
+error-transparent property mutation from richer receipts and distinguishes a
+conservative impact report from a claim of visible change. Neither candidate
+passes the six-part gate: no second container driver confirms the contract, and
+compatibility, convergence, and gain evidence remain open.
 
 Issue or API publication requires separate approval.
 

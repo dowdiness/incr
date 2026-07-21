@@ -7,4 +7,8 @@ import {
   "examples/typed_spreadsheet_incr_tea_demo/egw_adapter/core",
 }
 
+import {
+  "moonbitlang/core/bench",
+} for "wbtest"
+
 supported_targets = "js"

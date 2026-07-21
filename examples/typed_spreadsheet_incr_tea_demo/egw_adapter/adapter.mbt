@@ -204,21 +204,22 @@ fn seed_document(
 }
 
 ///|
-fn snapshot(adapter : EgwAdapter) -> @core.RawRegisterSnapshot {
-  let entries = []
-  for address in adapter.addresses {
-    entries.push(
-      @core.RawRegisterEntry::RawRegisterEntry(
-        address,
-        adapter.document.get_property(adapter.node, property_key(address)),
-      ),
+fn snapshot_addresses(
+  adapter : EgwAdapter,
+  addresses : ArrayView[String],
+) -> @core.RawRegisterSnapshot {
+  let entries = addresses.map(address => {
+    @core.RawRegisterEntry::RawRegisterEntry(
+      address,
+      adapter.document.get_property(adapter.node, property_key(address)),
     )
-  }
-  let addresses = []
-  for address in adapter.addresses {
-    addresses.push(address)
-  }
-  @core.RawRegisterSnapshot::RawRegisterSnapshot(addresses, entries)
+  })
+  @core.RawRegisterSnapshot::RawRegisterSnapshot(addresses.to_owned(), entries)
+}
+
+///|
+fn snapshot(adapter : EgwAdapter) -> @core.RawRegisterSnapshot {
+  snapshot_addresses(adapter, adapter.addresses[:])
 }
 
 ///|

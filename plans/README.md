@@ -18,7 +18,7 @@ instruction.
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 |---|---|---:|---:|---|---|
-| [013](013-typed-spreadsheet-egw-boundary-experiment.md) | Run the typed-spreadsheet EGW boundary experiment | P1 | L | Published EGW 0.4.0 | IN PROGRESS (Phase 3 complete; Phase 4 unstarted) |
+| [013](013-typed-spreadsheet-egw-boundary-experiment.md) | Run the typed-spreadsheet EGW boundary experiment | P1 | L | Published EGW 0.4.0 | BLOCKED (Phase 4 browser baseline misses advisory budgets) |
 
 Status values: `TODO` | `IN PROGRESS` | `DONE` |
 `BLOCKED (<reason>)` | `REJECTED (<reason>)`.
@@ -29,7 +29,13 @@ It remains inside the standalone `incr` repository and adds no generic
 `egw_incr` bridge. Its ADR is Accepted and Phase 0 standalone dependency and
 API verification passed 2026-07-20; Phase 1 domain package promotion, Phase
 2 pure adapter core, and Phase 3 mutable adapter shell also passed
-2026-07-20. Phase 4 evidence ledger and metrics is next and unstarted.
+2026-07-20. Phase 4 began 2026-07-21 and records reproducible JS release
+FullScan/synthetic microbench evidence, but the unchanged pre-adapter browser
+baseline missed advisory p95 budgets. Browser A/B and any EGW performance
+conclusion remain blocked until a stable baseline passes every budget. A
+separate [API-quality evidence report](../docs/research/2026-07-21-typed-spreadsheet-egw-api-quality-evidence.md)
+records correctness and convenience pressure without advancing a public API
+proposal.
 
 ## Reconciliation notes
 

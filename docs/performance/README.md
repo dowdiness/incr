@@ -12,6 +12,7 @@ Canonical entry points:
 
 ## Snapshot roster
 
+- [2026-07-21 Typed spreadsheet EGW adapter evidence](2026-07-21-typed-spreadsheet-egw-adapter-evidence.md) — Plan 013 Phase 4 JS release FullScan versus benchmark-only ChangedProperties lower bound for 1/10/100/2,500 changed cells; the pre-adapter browser baseline misses advisory budgets, so EGW reporting remains deferred.
 - [2026-07-15 Incremental TEA controlled-property reconciliation](2026-07-15-incr-tea-controlled-reconciliation.md) — issue #394: Chromium equal-view traversal/getter and mismatch-repair costs across 0–10,000 nodes and 0–256 controlled properties; no optimization justified.
 - [2026-07-15 Retention cost attribution](2026-07-15-retention-cost-attribution.md) — wasm-gc/native reproduction, post-cleanup slot facts, push-free controls, unresolved fixed-path cost mixture, and slot-reclamation no-go for #399.
 - [2026-07-15 Machine composition invariant and instrumentation follow-up](2026-07-15-machine-composition-follow-up.md) — single-source request sequencing, private mutation observer, observer-disabled timing, and permanent structural CI; final 256-child p95 runs remain below the 16.7 ms gate.

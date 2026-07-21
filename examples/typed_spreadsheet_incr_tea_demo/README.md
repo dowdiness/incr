@@ -78,9 +78,18 @@ rollback; structured results preserve rejection, `MutationNotLanded`, and
 projection-error semantics. Fifteen package-owned white-box integration tests
 exercise the mutable boundary end-to-end. The browser executable root remains
 the pre-adapter baseline and is not wired to the shell in this phase; the
-adapter is proved by its package-owned integration tests. Phase 4 evidence
-ledger and metrics is next and unstarted. No generic `egw_incr` package is
-justified until a second driver repeats the same adapter contract. The
+adapter is proved by its package-owned integration tests. Phase 4 adds a
+package-owned JS release benchmark and a private benchmark-only FullScan versus
+ChangedProperties lower bound for 1/10/100/2,500 changed cells. The
+[dated evidence snapshot](../../docs/performance/2026-07-21-typed-spreadsheet-egw-adapter-evidence.md)
+records a reproducible sparse-workload advantage, but the unchanged
+pre-adapter browser baseline missed advisory p95 budgets on the measurement
+host, so production synchronization still uses FullScan and browser A/B cannot
+yet support an EGW performance conclusion. The separate
+[EGW API-quality evidence note](../../docs/research/2026-07-21-typed-spreadsheet-egw-api-quality-evidence.md)
+records correctness and convenience pressure without advancing a public API
+proposal. No generic `egw_incr` package is justified until a second driver
+repeats the same adapter contract. The
 accepted adapter ADR selects an atomic committed-source register for the first
 bounded experiment; sequence-text formula collaboration would require a
 superseding product decision.
