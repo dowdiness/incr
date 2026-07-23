@@ -38,6 +38,7 @@ snippets).
 
 - [Benchmarks](performance/benchmarks.md) — microbenchmark results for core operations (input, derived, reachable-derived, batch)
 - [Snapshot roster](performance/README.md) — all dated measurement records, one line each
+- [2026-07-21 Typed spreadsheet EGW adapter evidence](performance/2026-07-21-typed-spreadsheet-egw-adapter-evidence.md) — Plan 013 Phase 4 FullScan/synthetic sparse-change cost attribution; browser baseline variance blocks an EGW performance conclusion
 - [2026-07-14 Retention baseline](performance/2026-07-14-retention-baseline.md) — forgotten pull/eager lifecycle costs, same-root push-gate activation, and disposal/GC controls
 - [2026-07-15 Retention cost attribution](performance/2026-07-15-retention-cost-attribution.md) — cross-target 7a/7b reproduction, post-cleanup storage facts, push-free controls, and slot-reclamation no-go for #399
 - [2026-07-15 Machine composition follow-up](performance/2026-07-15-machine-composition-follow-up.md) — single-source sequencing and observer-disabled browser timing after PR hardening
@@ -65,7 +66,7 @@ For contributors and advanced users who want to understand or modify `incr`.
 
 - [Roadmap](roadmap.md) — canonical current core backlog
 - [incr_tea backlog](../incr_tea/docs/backlog.md) — task list for the `dowdiness/incr_tea` module (retargeted TEA issues + agenda)
-- [Implementation plans](../plans/) — active, time-bounded implementation records; completed plans are deleted under the documentation retention policy.
+- [Implementation plans](../plans/) — active, time-bounded records in the root plan workflow; completed files are deleted with Git history as recovery, separately from the `docs/plans/` archive protocol.
 
 **Research notes** ([research/](research/)) — exploratory, not implemented. Open these only when a current roadmap item, plan, or ADR calls for them.
 
@@ -105,6 +106,7 @@ live in each ADR.
 | [2026-07-15](decisions/2026-07-15-incr-tea-controlled-form-properties.md) | Incremental TEA controlled form properties: closure-free values, post-order select repair, and explicit boolean control |
 | [2026-07-18](decisions/2026-07-18-datalog-relation-rule-lifecycle.md) | Datalog relation-rule lifecycle: live rules pin declared relations; relation disposal rejects rather than cascading; authority is declaration metadata only |
 | [2026-07-19](decisions/2026-07-19-independent-differential-dataflow-module.md) | Differential dataflow module boundary: independent in-workspace spike with one-way future adapters; production engine remains gated |
+| [2026-07-20](decisions/2026-07-20-typed-spreadsheet-egw-register-projection.md) | Accepted typed-spreadsheet EGW boundary: atomic cell registers, shared authoritative projection, and evidence-gated EGW improvement |
 
 ---
 

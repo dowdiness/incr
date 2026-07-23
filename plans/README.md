@@ -6,9 +6,9 @@ extended on 2026-07-19 against commit `f839477` by a delta audit of the code
 merged since `31afb08` (PRs #400–#414 source changes; the prior deep audit
 covered everything older), and reconciled on 2026-07-20 after PR #421 merged.
 The separately commissioned post-GO dataflow exhaustive-state plan was
-completed after `e925853`. Completed plan files are
-deleted under the documentation retention policy; Git history is the recovery
-path.
+completed after `e925853`. Under this root plan workflow, completed plan files
+are deleted and Git history is the recovery path; this is distinct from the
+parent `docs/plans/` archive protocol.
 
 Future plans are implementation handoffs, not permission to push, publish,
 deploy, or open a pull request. Those actions require separate operator
@@ -16,10 +16,38 @@ instruction.
 
 ## Execution order and status
 
-No active implementation plans.
+| Plan | Title | Priority | Effort | Depends on | Status |
+|---|---|---:|---:|---|---|
+| 013 | Run the typed-spreadsheet EGW boundary experiment | P1 | L | Published EGW 0.4.0 | DONE (closed 2026-07-24; bounded adapter experiment complete) |
+
+Status values: `TODO` | `IN PROGRESS` | `DONE` |
+`BLOCKED (<reason>)` | `REJECTED (<reason>)`.
+
+Plan 013 completed the first application-specific EGW adapter and evidence
+harness for
+[dowdiness/event-graph-walker#72](https://github.com/dowdiness/event-graph-walker/issues/72).
+It remains inside the standalone `incr` repository and adds no generic
+`egw_incr` bridge. The reconciliation note below records the bounded result,
+dependency convergence, decision record, and separately shaped follow-ups.
 
 ## Reconciliation notes
 
+- Plan 013 closed 2026-07-24 as a completed bounded adapter experiment.
+  Correctness and application boundary succeeded: committed browser commands
+  use EGW authority and local/remote projection uses one path. The
+  pre-registered browser-baseline rule stopped adapter browser A/B, so
+  performance outcome is inconclusive and authorizes no EGW performance/API
+  proposal. The original browser-comparison criterion remains intentionally
+  unmet because its prerequisite baseline failed; closure records that terminal
+  outcome and does not claim the missing comparison was completed.
+  Error-transparent property mutation and conservative post-apply impact
+  reporting remain deferred/rejected-for-now until second-driver,
+  compatibility, convergence, and quantified-gain gates pass. The existing
+  [EGW register-projection ADR](../docs/decisions/2026-07-20-typed-spreadsheet-egw-register-projection.md)
+  is the updated decision record; its API-quality checkpoint now contains the
+  durable conclusions. The completed plan file is deleted; Git history recovers
+  the execution record. Transport, payload-opaque runtime/provider, room/join
+  UX, and presence are separate follow-ups.
 - Plan 012 shipped in [PR #421](https://github.com/dowdiness/incr/pull/421),
   merged as commit `d512b63`. Package-local parse-don't-validate `SheetCommand`
   variants own submitted text, typed `CellId`, `DocumentGeneration`, and

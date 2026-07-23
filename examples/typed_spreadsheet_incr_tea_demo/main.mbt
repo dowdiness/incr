@@ -9,7 +9,14 @@ fn main {
 /// sharing model state via per-region InputFields.
 pub fn mount_typed_spreadsheet_incr_tea_demo(mount_id : String) -> Unit {
   let runtime = @incr.Runtime()
-  let app = TypedSheetApp(runtime)
+  let app = TypedSheetApp(runtime) catch {
+    error => {
+      println(
+        "Typed spreadsheet startup failed: \{format_authority_error(error)}",
+      )
+      return
+    }
+  }
   let renderer = @tea.BrowserRenderer::BrowserRenderer(runtime)
   // Mount each region as an independent root. All share the same update
   // handler (handle_msg) and the same InputFields, but each reads only

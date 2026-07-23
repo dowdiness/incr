@@ -53,9 +53,7 @@ fn SheetState::ai_context_json(
 fn SheetState::default_ai_context_region(self : SheetState) -> Array[String] {
   let selected = self.selected_cell.peek()
   let cells = [selected]
-  let snapshot = self.sheet.inspect_cell(
-    cell_id_from_sheet(self.sheet, selected),
-  )
+  let snapshot = self.adapter.inspect_cell(selected)
   for id in snapshot.static_references {
     append_unique_context_cell(cells, @demo.cell_id_to_string(id))
   }
@@ -88,7 +86,7 @@ fn SheetState::ai_context_cell(
   self : SheetState,
   cell : String,
 ) -> @demo.AiContextCell {
-  let snapshot = self.sheet.inspect_cell(cell_id_from_sheet(self.sheet, cell))
+  let snapshot = self.adapter.inspect_cell(cell)
   let committed_text = draft_text_from(self.committed.peek(), cell)
   let draft_text = draft_text_from(self.drafts.peek(), cell)
   {
@@ -120,7 +118,7 @@ fn SheetState::ai_context_formula(
   match snapshot.kind {
     Some(Formula) => {
       let text = draft_text_from(self.committed.peek(), cell)
-      match self.sheet.formula_ast(snapshot.id) {
+      match self.adapter.formula_ast(cell) {
         Ok(formula) =>
           Some({
             text,
@@ -186,25 +184,6 @@ fn evidence_cell_to_ai_context(
     after_kind: cell.after_kind,
     after_result_status: cell.after_result_status,
     after_result: cell.after_result,
-  }
-}
-
-///|
-fn evidence_cell_data(
-  change : @demo.CellSnapshotChange,
-  step : @demo.WorksheetStepResult,
-) -> EvidenceCellData {
-  let before_result = @demo.ai_context_result(change.before)
-  let after_result = @demo.ai_context_result(change.after)
-  {
-    id: @demo.cell_id_to_string(change.id),
-    classification: @demo.classify_evidence(step, change),
-    before_kind: @demo.snapshot_kind(change.before),
-    before_result_status: before_result.status,
-    before_result: before_result.repr,
-    after_kind: @demo.snapshot_kind(change.after),
-    after_result_status: after_result.status,
-    after_result: after_result.repr,
   }
 }
 

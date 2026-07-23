@@ -1,0 +1,110 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "examples/typed_spreadsheet_incr_tea_demo/egw_adapter/core"
+
+import {
+  "examples/typed_spreadsheet",
+  "examples/typed_spreadsheet_demo",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn compute_projection_transition(ProjectionState, RawRegisterSnapshot, @typed_spreadsheet.SheetId, ReadOnlyArray[DraftObservation]) -> ProjectionTransition
+
+pub fn decode_register(String, String?) -> RegisterObservation
+
+pub fn encode_register(CellRegister) -> String
+
+// Errors
+
+// Types and methods
+pub struct CellProjectionState {
+  address : String
+  last_seen_register : RegisterObservation
+  last_good_source : String?
+  diagnostic : ProjectionDiagnostic?
+} derive(Eq, @debug.Debug)
+pub fn CellProjectionState::address(Self) -> String
+pub fn CellProjectionState::diagnostic(Self) -> ProjectionDiagnostic?
+pub fn CellProjectionState::last_good_source(Self) -> String?
+pub fn CellProjectionState::last_seen_register(Self) -> RegisterObservation
+
+pub(all) enum CellRegister {
+  Source(String)
+  Deleted
+} derive(Eq, @debug.Debug)
+
+pub struct CollaborativeSheetId {
+  value : String
+}
+pub fn CollaborativeSheetId::CollaborativeSheetId(String) -> Self
+pub fn CollaborativeSheetId::value(Self) -> String
+
+pub struct DraftObservation {
+  address : String
+  text : String
+}
+pub fn DraftObservation::DraftObservation(String, String) -> Self
+pub fn DraftObservation::address(Self) -> String
+pub fn DraftObservation::text(Self) -> String
+
+pub(all) enum ProjectionDecision {
+  ApplyWorksheet(@typed_spreadsheet_demo.SheetOp)
+  SetCommitted(String, String?)
+  SetDraft(String, String?)
+  SetDiagnostic(String, ProjectionDiagnostic?)
+}
+
+pub(all) enum ProjectionDiagnostic {
+  MalformedJson(String)
+  NonObject(String)
+  DuplicateFields(String)
+  MissingField(String, String)
+  InvalidFieldType(String, String)
+  UnsupportedNumericVersion(String, Double)
+  UnknownTag(String, String)
+  ExtraFields(String, ReadOnlyArray[String])
+  InvalidSource(String, String, @typed_spreadsheet_demo.FormulaTextParseError)
+} derive(Eq, @debug.Debug)
+
+pub struct ProjectionState {
+  cells : ReadOnlyArray[CellProjectionState]
+} derive(Eq, @debug.Debug)
+pub fn ProjectionState::cell(Self, String) -> CellProjectionState?
+pub fn ProjectionState::cells(Self) -> ReadOnlyArray[CellProjectionState]
+pub fn ProjectionState::empty(Array[String]) -> Self
+
+pub struct ProjectionTransition {
+  candidate_state : ProjectionState
+  decisions : ReadOnlyArray[ProjectionDecision]
+  diagnostics : ReadOnlyArray[ProjectionDiagnostic]
+}
+pub fn ProjectionTransition::candidate_state(Self) -> ProjectionState
+pub fn ProjectionTransition::decisions(Self) -> ReadOnlyArray[ProjectionDecision]
+pub fn ProjectionTransition::diagnostics(Self) -> ReadOnlyArray[ProjectionDiagnostic]
+
+pub struct RawRegisterEntry {
+  address : String
+  payload : String?
+}
+pub fn RawRegisterEntry::RawRegisterEntry(String, String?) -> Self
+pub fn RawRegisterEntry::address(Self) -> String
+pub fn RawRegisterEntry::payload(Self) -> String?
+
+pub struct RawRegisterSnapshot {
+  addresses : ReadOnlyArray[String]
+  entries : ReadOnlyArray[RawRegisterEntry]
+}
+pub fn RawRegisterSnapshot::RawRegisterSnapshot(Array[String], Array[RawRegisterEntry]) -> Self
+pub fn RawRegisterSnapshot::addresses(Self) -> ReadOnlyArray[String]
+pub fn RawRegisterSnapshot::entries(Self) -> ReadOnlyArray[RawRegisterEntry]
+
+pub(all) enum RegisterObservation {
+  Unset
+  Decoded(CellRegister)
+  Invalid(ProjectionDiagnostic)
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+

@@ -1,0 +1,5 @@
+import {
+  "examples/typed_spreadsheet",
+}
+
+supported_targets = "js"

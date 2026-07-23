@@ -1,0 +1,131 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "examples/typed_spreadsheet_incr_tea_demo/egw_adapter"
+
+import {
+  "dowdiness/event-graph-walker/container",
+  "dowdiness/incr/cells",
+  "examples/typed_spreadsheet",
+  "examples/typed_spreadsheet_demo",
+  "examples/typed_spreadsheet_incr_tea_demo/domain",
+  "examples/typed_spreadsheet_incr_tea_demo/egw_adapter/core",
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) enum AdapterApplyResult {
+  Rejected(@domain.CommandApplicability)
+  SourceRejected(@typed_spreadsheet_demo.FormulaTextParseError)
+  MutationNotLanded
+  ProjectionFailed(ProjectionApplyError)
+  NoSemanticChange(ProjectionReport)
+  Applied(ProjectionReport)
+}
+
+pub struct AdapterCellSnapshot {
+  // private fields
+}
+pub fn AdapterCellSnapshot::id(Self) -> @typed_spreadsheet.CellId
+pub fn AdapterCellSnapshot::kind(Self) -> @typed_spreadsheet.CellKind?
+pub fn AdapterCellSnapshot::present(Self) -> Bool
+pub fn AdapterCellSnapshot::result(Self) -> @typed_spreadsheet.CellResult
+
+pub struct AdapterCellSnapshotChange {
+  // private fields
+}
+pub fn AdapterCellSnapshotChange::after(Self) -> AdapterCellSnapshot
+pub fn AdapterCellSnapshotChange::before(Self) -> AdapterCellSnapshot
+pub fn AdapterCellSnapshotChange::id(Self) -> @typed_spreadsheet.CellId
+
+pub enum AdapterStartError {
+  InvalidSeedAddress(String)
+  DeadAuthorityNode
+  SeedMutationNotLanded(String)
+  Projection(ProjectionApplyError)
+} derive(Eq, @debug.Debug)
+
+pub enum AdapterStartResult {
+  Ready(EgwAdapter, AdapterApplyResult)
+  Failed(AdapterStartError)
+}
+
+pub struct AdapterTrace {
+  // private fields
+}
+pub fn AdapterTrace::changed(Self) -> ReadOnlyArray[@typed_spreadsheet.CellId]
+pub fn AdapterTrace::recomputed(Self) -> ReadOnlyArray[@typed_spreadsheet.CellId]
+pub fn AdapterTrace::unchanged(Self) -> ReadOnlyArray[@typed_spreadsheet.CellId]
+
+pub struct EgwAdapter {
+  // private fields
+}
+pub fn EgwAdapter::apply_command(Self, @domain.SheetCommand, @domain.SheetExecutionContext) -> AdapterApplyResult raise @container.DocumentError
+pub fn EgwAdapter::apply_command_observed(Self, @domain.SheetCommand, @domain.SheetExecutionContext, capture? : Array[@typed_spreadsheet.CellId], trace_cells? : Array[@typed_spreadsheet.CellId]) -> ObservedApplyResult raise @container.DocumentError
+pub fn EgwAdapter::apply_sync(Self, @container.SyncMessage) -> RemoteApplyResult raise @container.DocumentError
+pub fn EgwAdapter::attach(@cells.Runtime, @core.CollaborativeSheetId, @typed_spreadsheet.SheetId, @domain.DocumentGeneration, @container.Document, @container.TreeNodeId, Array[Seed], ProjectionBindings, (@domain.DocumentGeneration) -> ResetAuthority raise @container.DocumentError) -> AdapterStartResult
+pub fn EgwAdapter::bootstrap(@cells.Runtime, String, @core.CollaborativeSheetId, @typed_spreadsheet.SheetId, Array[Seed], ProjectionBindings, (@domain.DocumentGeneration) -> ResetAuthority raise @container.DocumentError) -> AdapterStartResult raise @container.DocumentError
+pub fn EgwAdapter::dispose(Self) -> Unit
+pub fn EgwAdapter::export_all(Self) -> @container.SyncMessage raise @container.DocumentError
+pub fn EgwAdapter::export_since(Self, @container.Version) -> @container.SyncMessage raise @container.DocumentError
+pub fn EgwAdapter::formula_ast(Self, String) -> Result[@typed_spreadsheet.Formula, @typed_spreadsheet.FormulaAstQueryError]
+pub fn EgwAdapter::generation(Self) -> @domain.DocumentGeneration
+pub fn EgwAdapter::identity(Self) -> @core.CollaborativeSheetId
+pub fn EgwAdapter::inspect_cell(Self, String) -> @typed_spreadsheet.CellSnapshot
+pub fn EgwAdapter::projection_state(Self) -> @core.ProjectionState
+pub fn EgwAdapter::read_cell(Self, String) -> @typed_spreadsheet.CellResult
+pub fn EgwAdapter::sheet_id(Self) -> @typed_spreadsheet.SheetId
+pub fn EgwAdapter::version(Self) -> @container.Version
+
+pub struct ObservedApplyResult {
+  // private fields
+}
+pub fn ObservedApplyResult::result(Self) -> AdapterApplyResult
+pub fn ObservedApplyResult::snapshots(Self) -> ReadOnlyArray[AdapterCellSnapshotChange]
+pub fn ObservedApplyResult::target(Self) -> @typed_spreadsheet.CellId?
+pub fn ObservedApplyResult::trace(Self) -> AdapterTrace?
+
+pub enum ProjectionApplyError {
+  UnexpectedSetInput(@typed_spreadsheet.CellId, @typed_spreadsheet.CellResult)
+  UnexpectedFormula(@typed_spreadsheet.CellId, @typed_spreadsheet.WorksheetError)
+  UnexpectedDelete(@typed_spreadsheet.CellId, @typed_spreadsheet.CellResult)
+} derive(Eq, @debug.Debug)
+
+pub struct ProjectionBindings {
+  // private fields
+}
+pub fn ProjectionBindings::ProjectionBindings(() -> ReadOnlyArray[@core.DraftObservation], (@core.ProjectionDecision) -> Unit) -> Self
+
+pub struct ProjectionReport {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn ProjectionReport::committed_updates(Self) -> Int
+pub fn ProjectionReport::decisions(Self) -> Int
+pub fn ProjectionReport::diagnostics(Self) -> Int
+pub fn ProjectionReport::draft_updates(Self) -> Int
+pub fn ProjectionReport::worksheet_operations(Self) -> Int
+
+pub struct RemoteApplyResult {
+  // private fields
+}
+pub fn RemoteApplyResult::adapter_result(Self) -> AdapterApplyResult
+pub fn RemoteApplyResult::sync_report(Self) -> @container.SyncReport
+
+pub struct ResetAuthority {
+  // private fields
+}
+pub fn ResetAuthority::ResetAuthority(@core.CollaborativeSheetId, @container.Document, @container.TreeNodeId, @typed_spreadsheet.SheetId) -> Self
+
+pub struct Seed {
+  // private fields
+}
+pub fn Seed::Seed(String, @core.CellRegister) -> Self
+pub fn Seed::address(Self) -> String
+pub fn Seed::register(Self) -> @core.CellRegister
+
+// Type aliases
+
+// Traits
+

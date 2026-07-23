@@ -45,8 +45,7 @@ struct Model {
 ///|
 struct SheetState {
   _scope : @incr.Scope
-  sheet : @typed_spreadsheet.Worksheet
-  generation : DocumentGeneration
+  adapter : @egw_adapter.EgwAdapter
   cells : @incr.InputField[Array[String]]
   drafts : @incr.InputField[Array[CellDraft]]
   committed : @incr.InputField[Array[CellDraft]]
@@ -60,19 +59,20 @@ struct SheetState {
 }
 
 ///|
-fn SheetState::new(runtime : @incr.Runtime) -> SheetState {
+fn SheetState::new(
+  runtime : @incr.Runtime,
+) -> SheetState raise @container.DocumentError {
   let scope = @incr.Scope::new(runtime)
-  let sheet = @typed_spreadsheet.Worksheet(
-    runtime,
-    @typed_spreadsheet.SheetId(1),
-  )
   let cells = scope.input_field(grid_cells(), label="typed-sheet.cells")
-  let seed_drafts = [
+  let seed_drafts : Array[CellDraft] = [
     { cell: "A1", text: "10" },
     { cell: "B1", text: "=A1 + 1" },
   ]
-  let drafts = scope.input_field(seed_drafts, label="typed-sheet.drafts")
-  let committed = scope.input_field(seed_drafts, label="typed-sheet.committed")
+  let drafts = scope.input_field(seed_drafts.copy(), label="typed-sheet.drafts")
+  let committed = scope.input_field(
+    seed_drafts.copy(),
+    label="typed-sheet.committed",
+  )
   let selected_cell = scope.input_field("B1", label="typed-sheet.selected-cell")
   let editing_cell = scope.input_field(None, label="typed-sheet.editing-cell")
   let status = scope.input_field(
@@ -83,10 +83,90 @@ fn SheetState::new(runtime : @incr.Runtime) -> SheetState {
   let trace = scope.input_field(None, label="typed-sheet.trace")
   let evidence = scope.input_field(None, label="typed-sheet.evidence")
   let last_edit = scope.input_field("Seed sheet", label="typed-sheet.last-edit")
-  let state = {
+
+  // Allocate a distinct local authority incarnation until transport owns room identity.
+  let mut reset_counter = 0
+  let reset_factory = (_generation : DocumentGeneration) => {
+    reset_counter += 1
+    let replica_id = "typed-sheet-replica-\{reset_counter}"
+    let document = @container.Document::new(replica_id)
+    let node = document.create_node(parent=@container.root_id)
+    @egw_adapter.ResetAuthority::ResetAuthority(
+      @core.CollaborativeSheetId::CollaborativeSheetId(
+        "typed-sheet-document-\{reset_counter}",
+      ),
+      document,
+      node,
+      @typed_spreadsheet.SheetId(reset_counter + 1),
+    )
+  }
+  let bindings = @egw_adapter.ProjectionBindings::ProjectionBindings(
+    () => {
+      ReadOnlyArray::from_array(
+        drafts
+        .peek()
+        .map(draft => {
+          @core.DraftObservation::DraftObservation(draft.cell, draft.text)
+        }),
+      )
+    },
+    decision => {
+      match decision {
+        @core.ProjectionDecision::SetCommitted(address, text) => {
+          let value = match text {
+            Some(text) => text
+            None => ""
+          }
+          committed.set(update_draft(committed.peek(), address, value))
+        }
+        @core.ProjectionDecision::SetDraft(address, text) => {
+          let value = match text {
+            Some(text) => text
+            None => ""
+          }
+          drafts.set(update_draft(drafts.peek(), address, value))
+        }
+        @core.ProjectionDecision::SetDiagnostic(address, diagnostic) =>
+          match diagnostic {
+            Some(value) =>
+              error.set(
+                Some("Projection diagnostic at \{address}: \{repr(value)}"),
+              )
+            None => error.set(None)
+          }
+        @core.ProjectionDecision::ApplyWorksheet(_) => ()
+      }
+    },
+  )
+  let started = @egw_adapter.EgwAdapter::bootstrap(
+    runtime,
+    "typed-sheet-replica-0",
+    @core.CollaborativeSheetId::CollaborativeSheetId("typed-sheet-document-0"),
+    @typed_spreadsheet.SheetId(1),
+    [
+      @egw_adapter.Seed::Seed("A1", @core.CellRegister::Source("10")),
+      @egw_adapter.Seed::Seed("B1", @core.CellRegister::Source("=A1 + 1")),
+    ],
+    bindings,
+    reset_factory,
+  ) catch {
+    error => {
+      scope.dispose()
+      raise error
+    }
+  }
+  let adapter = match started {
+    @egw_adapter.AdapterStartResult::Ready(adapter, _) => adapter
+    @egw_adapter.AdapterStartResult::Failed(error) => {
+      scope.dispose()
+      raise @container.DocumentError::Internal(
+        detail="typed sheet bootstrap failed: \{repr(error)}",
+      )
+    }
+  }
+  {
     _scope: scope,
-    sheet,
-    generation: DocumentGeneration::initial(),
+    adapter,
     cells,
     drafts,
     committed,
@@ -98,18 +178,6 @@ fn SheetState::new(runtime : @incr.Runtime) -> SheetState {
     evidence,
     last_edit,
   }
-  // Seed worksheet with A1=10, B1=formula — then reset meta state to clean
-  let state_ref = Ref(state)
-  seed_text_edit(state_ref, "A1", "10")
-  seed_text_edit(state_ref, "B1", "=A1 + 1")
-  let s = state_ref.val
-  s.trace.set(None)
-  s.last_edit.set("Seed sheet")
-  s.status.set(
-    "Ready. This incr_tea proof is separate from the live Rabbita demo.",
-  )
-  s.error.set(None)
-  state_ref.val
 }
 
 ///|
@@ -131,17 +199,19 @@ enum Msg {
 
 ///|
 fn cell_id_from_sheet(
-  sheet : @typed_spreadsheet.Worksheet,
+  adapter : @egw_adapter.EgwAdapter,
   cell : String,
 ) -> @typed_spreadsheet.CellId {
-  @typed_spreadsheet.CellId::of(sheet.sheet_id(), cell)
+  @typed_spreadsheet.CellId::of(adapter.sheet_id(), cell)
 }
 
 ///|
 fn state_visible_cell_ids(
   state : Ref[SheetState],
 ) -> Array[@typed_spreadsheet.CellId] {
-  state.val.cells.peek().map(cell => cell_id_from_sheet(state.val.sheet, cell))
+  state.val.cells
+  .peek()
+  .map(cell => cell_id_from_sheet(state.val.adapter, cell))
 }
 
 ///|
@@ -164,9 +234,9 @@ fn state_capture_cell_ids(
   let mut index = 0
   while index < cells.length() && ids.length() < limit {
     let cell = cells[index]
-    let id = cell_id_from_sheet(state.val.sheet, cell)
+    let id = cell_id_from_sheet(state.val.adapter, cell)
     if id != target && !ids.contains(id) {
-      let snapshot = state.val.sheet.inspect_cell(id)
+      let snapshot = state.val.adapter.inspect_cell(cell)
       if snapshot.static_references.contains(target) {
         ids.push(id)
       }
@@ -181,7 +251,7 @@ fn state_cell_id(
   state : Ref[SheetState],
   cell : String,
 ) -> @typed_spreadsheet.CellId {
-  cell_id_from_sheet(state.val.sheet, cell)
+  cell_id_from_sheet(state.val.adapter, cell)
 }
 
 ///|
@@ -320,193 +390,9 @@ fn cancel_selected(state : Ref[SheetState]) -> @tea.Cmd[Msg] {
 // ── Edit operations: execute after the update batch commits ─────────
 
 ///|
-fn apply_text_edit(
-  state : Ref[SheetState],
-  target : @typed_spreadsheet.CellId,
-  text : String,
-) -> Unit {
-  let cell = @demo.cell_id_to_string(target)
-  let trimmed = text.trim()
-  let id = target
-  match @demo.parse_cell_text_op(id, trimmed.to_owned()) {
-    Ok(operation) => {
-      let s = state.val
-      let result = @demo.run_batched_op(
-        s.sheet,
-        operation,
-        capture=state_capture_cell_ids(state, id),
-        trace_cells=state_visible_cell_ids(state),
-      )
-      let outcome = @demo.format_outcome(result.outcome)
-      let edit = "\{cell} ← \{trimmed}"
-      let committed_text = trimmed.to_owned()
-      let current_drafts = s.drafts.peek()
-      let current_committed = s.committed.peek()
-      s.trace.set(
-        Some({
-          outcome,
-          recomputed: @demo.cell_id_strings(result.trace.recomputed),
-          changed: @demo.cell_id_strings(result.trace.changed),
-          unchanged: @demo.cell_id_strings(result.trace.unchanged),
-          recomputed_str: @demo.format_cell_ids(result.trace.recomputed),
-          changed_str: @demo.format_cell_ids(result.trace.changed),
-          unchanged_str: @demo.format_cell_ids(result.trace.unchanged),
-          snapshot_count: result.cell_snapshots.length(),
-        }),
-      )
-      s.evidence.set(
-        Some({
-          edit,
-          outcome,
-          cells: result.cell_snapshots.map(change => {
-            evidence_cell_data(change, result)
-          }),
-        }),
-      )
-      s.last_edit.set(edit)
-      s.status.set("Applied \{cell} ← \{trimmed}: \{outcome}.")
-      s.error.set(None)
-      s.selected_cell.set(cell)
-      s.drafts.set(update_draft(current_drafts, cell, committed_text))
-      s.committed.set(update_draft(current_committed, cell, committed_text))
-      s.editing_cell.set(None)
-    }
-    Err(EmptyInput) => {
-      let s = state.val
-      let current_drafts = s.drafts.peek()
-      let committed_text = draft_text_from(s.committed.peek(), cell)
-      s.selected_cell.set(cell)
-      s.drafts.set(update_draft(current_drafts, cell, committed_text))
-      s.status.set("Left \{cell} unchanged.")
-      s.error.set(None)
-      s.editing_cell.set(None)
-    }
-    Err(error) => {
-      let s = state.val
-      s.selected_cell.set(cell)
-      s.error.set(Some(format_parse_error(error)))
-      s.status.set("Edit not applied.")
-      s.editing_cell.set(None)
-    }
-  }
-}
-
-///| Seeds a worksheet cell during construction or reset.
-
-///| Like `apply_text_edit` but does NOT touch meta-fields (last_step, last_edit,
-
-///|
-/// status, selected_cell, editing_cell) — the caller manages those.
-fn seed_text_edit(
-  state : Ref[SheetState],
-  cell : String,
-  text : String,
-) -> Unit {
-  let trimmed = text.trim()
-  let id = state_cell_id(state, cell)
-  match @demo.parse_cell_text_op(id, trimmed.to_owned()) {
-    Ok(operation) => {
-      let s = state.val
-      ignore(
-        @demo.run_batched_op(
-          s.sheet,
-          operation,
-          capture=[id],
-          trace_cells=state_visible_cell_ids(state),
-        ),
-      )
-      let committed_text = trimmed.to_owned()
-      let current_drafts = s.drafts.peek()
-      let current_committed = s.committed.peek()
-      s.drafts.set(update_draft(current_drafts, cell, committed_text))
-      s.committed.set(update_draft(current_committed, cell, committed_text))
-    }
-    _ => ()
-  }
-}
-
-///|
-fn delete_cell_operation(
-  state : Ref[SheetState],
-  target : @typed_spreadsheet.CellId,
-) -> Unit {
-  let s = state.val
-  let cell = @demo.cell_id_to_string(target)
-  let result = @demo.run_batched_op(
-    s.sheet,
-    @demo.SheetOp::Delete(target),
-    capture=state_capture_cell_ids(state, target),
-    trace_cells=state_visible_cell_ids(state),
-  )
-  let outcome = @demo.format_outcome(result.outcome)
-  let edit = "delete \{cell}"
-  let current_drafts = s.drafts.peek()
-  let current_committed = s.committed.peek()
-  s.trace.set(
-    Some({
-      outcome,
-      recomputed: @demo.cell_id_strings(result.trace.recomputed),
-      changed: @demo.cell_id_strings(result.trace.changed),
-      unchanged: @demo.cell_id_strings(result.trace.unchanged),
-      recomputed_str: @demo.format_cell_ids(result.trace.recomputed),
-      changed_str: @demo.format_cell_ids(result.trace.changed),
-      unchanged_str: @demo.format_cell_ids(result.trace.unchanged),
-      snapshot_count: result.cell_snapshots.length(),
-    }),
-  )
-  s.evidence.set(
-    Some({
-      edit,
-      outcome,
-      cells: result.cell_snapshots.map(change => {
-        evidence_cell_data(change, result)
-      }),
-    }),
-  )
-  s.last_edit.set(edit)
-  s.status.set("Applied delete \{cell}: \{outcome}.")
-  s.error.set(None)
-  s.drafts.set(update_draft(current_drafts, cell, ""))
-  s.committed.set(update_draft(current_committed, cell, ""))
-  s.editing_cell.set(None)
-}
-
-///|
-fn reset_sheet_operation(
-  runtime : @incr.Runtime,
-  state : Ref[SheetState],
-) -> Unit {
-  let s = state.val
-  s.sheet.dispose()
-  let new_sheet = @typed_spreadsheet.Worksheet(
-    runtime,
-    @typed_spreadsheet.SheetId(1),
-  )
-  let seed_drafts = [
-    { cell: "A1", text: "10" },
-    { cell: "B1", text: "=A1 + 1" },
-  ]
-  s.cells.set(grid_cells())
-  s.drafts.set(seed_drafts)
-  s.committed.set(seed_drafts)
-  s.selected_cell.set("B1")
-  s.editing_cell.set(None)
-  s.trace.set(None)
-  s.evidence.set(None)
-  s.last_edit.set("Seed sheet")
-  s.status.set(
-    "Ready. This incr_tea proof is separate from the live Rabbita demo.",
-  )
-  s.error.set(None)
-  state.val = { ..s, sheet: new_sheet, generation: s.generation.next() }
-  seed_text_edit(state, "A1", "10")
-  seed_text_edit(state, "B1", "=A1 + 1")
-}
-
-///|
 fn sheet_planning_context(state : Ref[SheetState]) -> SheetPlanningContext {
   let s = state.val
-  let sheet_id = s.sheet.sheet_id()
+  let sheet_id = s.adapter.sheet_id()
   {
     sheet_id,
     selected_cell: @typed_spreadsheet.CellId::of(
@@ -517,80 +403,30 @@ fn sheet_planning_context(state : Ref[SheetState]) -> SheetPlanningContext {
     .peek()
     .map(cell => @typed_spreadsheet.CellId::of(sheet_id, cell)),
     drafts: ReadOnlyArray::from_array(s.drafts.peek()),
-    generation: s.generation,
+    generation: s.adapter.generation(),
   }
 }
 
 ///|
 fn sheet_execution_context(state : Ref[SheetState]) -> SheetExecutionContext {
   let s = state.val
-  let sheet_id = s.sheet.sheet_id()
-  {
-    selected_cell: @typed_spreadsheet.CellId::of(
-      sheet_id,
-      s.selected_cell.peek(),
-    ),
-    editing_cell: s.editing_cell
+  let sheet_id = s.adapter.sheet_id()
+  SheetExecutionContext::SheetExecutionContext(
+    @typed_spreadsheet.CellId::of(sheet_id, s.selected_cell.peek()),
+    s.editing_cell
     .peek()
     .map(cell => @typed_spreadsheet.CellId::of(sheet_id, cell)),
-    generation: s.generation,
-  }
+    s.adapter.generation(),
+  )
 }
 
 ///|
 fn execute_sheet_command(
-  runtime : @incr.Runtime,
+  _runtime : @incr.Runtime,
   state : Ref[SheetState],
   command : SheetCommand,
 ) -> CommandApplicability {
-  let applicability = validate_sheet_command(
-    command,
-    sheet_execution_context(state),
-  )
-  match applicability {
-    Applicable => {
-      match command {
-        ApplyFromSelection(target, submitted_text, _)
-        | ApplyFromEditor(target, submitted_text, _) =>
-          apply_text_edit(state, target, submitted_text)
-        DeleteFromSelection(target, _) => delete_cell_operation(state, target)
-        ResetDocument(_) => reset_sheet_operation(runtime, state)
-      }
-      Applicable
-    }
-    _ => applicability
-  }
-}
-
-///|
-fn grid_column_count() -> Int {
-  50
-}
-
-///|
-fn grid_row_count() -> Int {
-  50
-}
-
-///|
-fn column_labels() -> Array[String] {
-  [
-    "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P",
-    "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", "AA", "AB", "AC", "AD", "AE",
-    "AF", "AG", "AH", "AI", "AJ", "AK", "AL", "AM", "AN", "AO", "AP", "AQ", "AR",
-    "AS", "AT", "AU", "AV", "AW", "AX",
-  ]
-}
-
-///|
-fn grid_cells() -> Array[String] {
-  let cells = []
-  for row in 1..<=grid_row_count() {
-    for column in column_labels() {
-      cells.push("\{column}\{row}")
-    }
-  }
-  cells
+  execute_adapter_command(state, command)
 }
 
 // ── Cell display helpers (pure) ────────────────────────────────────

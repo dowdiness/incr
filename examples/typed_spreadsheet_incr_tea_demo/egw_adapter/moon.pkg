@@ -1,14 +1,14 @@
 import {
+  "dowdiness/event-graph-walker/container",
   "dowdiness/incr",
-  "dowdiness/incr_tea" @tea,
   "examples/typed_spreadsheet",
   "examples/typed_spreadsheet_demo" @demo,
   "examples/typed_spreadsheet_incr_tea_demo/domain",
-  "examples/typed_spreadsheet_incr_tea_demo/egw_adapter",
   "examples/typed_spreadsheet_incr_tea_demo/egw_adapter/core",
-  "dowdiness/event-graph-walker/container",
 }
 
-supported_targets = "js"
+import {
+  "moonbitlang/core/bench",
+} for "wbtest"
 
-pkgtype(kind: "executable")
+supported_targets = "js"

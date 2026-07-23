@@ -10,7 +10,9 @@ struct TypedSheetApp {
 }
 
 ///|
-fn TypedSheetApp::TypedSheetApp(runtime : @incr.Runtime) -> TypedSheetApp {
+fn TypedSheetApp::TypedSheetApp(
+  runtime : @incr.Runtime,
+) -> TypedSheetApp raise @container.DocumentError {
   let state = Ref(SheetState::new(runtime))
   let update : (Msg) -> @tea.Cmd[Msg] = msg => handle_msg(runtime, state, msg)
   // Shared update; each program gets its own scope for the view Derived +
