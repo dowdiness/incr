@@ -172,7 +172,7 @@ fn setup_locality_test() -> (
   let host_trace = @tea.dom_get_element_by_id("locality-trace")
   let host_evidence = @tea.dom_get_element_by_id("locality-evidence")
   let runtime = @incr.Runtime()
-  let app = TypedSheetApp(runtime)
+  let app = try! TypedSheetApp(runtime)
   let renderer = @tea.BrowserRenderer::BrowserRenderer(runtime)
   ignore(renderer.mount(host_formula, app.prog_formula, label="formula-bar"))
   ignore(renderer.mount(host_grid, app.prog_grid, label="grid"))

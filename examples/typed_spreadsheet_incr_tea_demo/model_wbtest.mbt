@@ -50,7 +50,7 @@ fn TypedSheetApp::dispose(self : TypedSheetApp) -> Unit {
 
 ///|
 test "incr_tea spreadsheet proof starts with seeded representative grid" {
-  let app = TypedSheetApp(@incr.Runtime())
+  let app = try! TypedSheetApp(@incr.Runtime())
   let model = app._state.val.peek_model()
 
   inspect(model.selected_cell, content="B1")
@@ -76,7 +76,7 @@ test "incr_tea spreadsheet proof starts with seeded representative grid" {
 
 ///|
 test "incr_tea spreadsheet proof applies and cancels through Program dispatch" {
-  let app = TypedSheetApp(@incr.Runtime())
+  let app = try! TypedSheetApp(@incr.Runtime())
 
   ignore(app.prog_grid.dispatch(BeginInlineEdit("C1")))
   ignore(app.prog_grid.dispatch(UpdateDraft("C1", "7")))
@@ -106,7 +106,7 @@ test "incr_tea spreadsheet proof applies and cancels through Program dispatch" {
 
 ///|
 test "incr_tea spreadsheet proof applies formula bar edits and dependent formulas update" {
-  let app = TypedSheetApp(@incr.Runtime())
+  let app = try! TypedSheetApp(@incr.Runtime())
 
   ignore(app.prog_grid.dispatch(SelectCell("A1")))
   ignore(app.prog_grid.dispatch(UpdateDraft("A1", "15")))
@@ -171,7 +171,7 @@ test "incr_tea spreadsheet proof maps payload descriptors at renderer boundary" 
 
 ///|
 test "incr_tea locality: draft-only does not change status" {
-  let app = TypedSheetApp(@incr.Runtime())
+  let app = try! TypedSheetApp(@incr.Runtime())
   let before = app._state.val.peek_model()
   let initial_status = before.status
 
@@ -388,7 +388,7 @@ fn mount_all_roots(
 test "cross-root locality: selection-only patches grid, formula, status" {
   let _host = typed_sheet_test_setup_dom()
   let runtime = @incr.Runtime()
-  let app = TypedSheetApp(runtime)
+  let app = try! TypedSheetApp(runtime)
   let renderer : @tea.BrowserRenderer[Msg] = @tea.BrowserRenderer::BrowserRenderer(
     runtime,
   )
@@ -418,7 +418,7 @@ test "cross-root locality: selection-only patches grid, formula, status" {
 test "cross-root locality: draft-only patches grid, formula" {
   let _host = typed_sheet_test_setup_dom()
   let runtime = @incr.Runtime()
-  let app = TypedSheetApp(runtime)
+  let app = try! TypedSheetApp(runtime)
   let renderer : @tea.BrowserRenderer[Msg] = @tea.BrowserRenderer::BrowserRenderer(
     runtime,
   )
@@ -448,7 +448,7 @@ test "cross-root locality: draft-only patches grid, formula" {
 test "cross-root locality: apply after draft patches grid, status, trace; formula skips" {
   let _host = typed_sheet_test_setup_dom()
   let runtime = @incr.Runtime()
-  let app = TypedSheetApp(runtime)
+  let app = try! TypedSheetApp(runtime)
   let renderer : @tea.BrowserRenderer[Msg] = @tea.BrowserRenderer::BrowserRenderer(
     runtime,
   )
@@ -484,7 +484,7 @@ test "cross-root locality: apply after draft patches grid, status, trace; formul
 test "cross-root locality: begin-inline-edit patches grid, formula, status" {
   let _host = typed_sheet_test_setup_dom()
   let runtime = @incr.Runtime()
-  let app = TypedSheetApp(runtime)
+  let app = try! TypedSheetApp(runtime)
   let renderer : @tea.BrowserRenderer[Msg] = @tea.BrowserRenderer::BrowserRenderer(
     runtime,
   )
@@ -514,7 +514,7 @@ test "cross-root locality: begin-inline-edit patches grid, formula, status" {
 test "cross-root locality: clean apply patches only status and trace" {
   let _host = typed_sheet_test_setup_dom()
   let runtime = @incr.Runtime()
-  let app = TypedSheetApp(runtime)
+  let app = try! TypedSheetApp(runtime)
   let renderer : @tea.BrowserRenderer[Msg] = @tea.BrowserRenderer::BrowserRenderer(
     runtime,
   )
@@ -561,7 +561,7 @@ test "incr_tea spreadsheet proof covers the practical 50x50 grid" {
 
 ///|
 test "incr_tea spreadsheet proof clamps selection at 50x50 boundaries" {
-  let app = TypedSheetApp(@incr.Runtime())
+  let app = try! TypedSheetApp(@incr.Runtime())
   ignore(app.prog_grid.dispatch(SelectCell("AX50")))
   ignore(app.prog_grid.dispatch(MoveSelection(1, 0)))
   inspect(app._state.val.selected_cell.peek(), content="AX50")
@@ -577,7 +577,7 @@ test "incr_tea spreadsheet proof clamps selection at 50x50 boundaries" {
 
 ///|
 test "incr_tea AI context stays schema-versioned and bounded" {
-  let app = TypedSheetApp(@incr.Runtime())
+  let app = try! TypedSheetApp(@incr.Runtime())
   let context = app._state.val.ai_context_snapshot(
     region?=Some(["A1", "B1", "C1"]),
     max_cells=2,
@@ -599,7 +599,7 @@ test "incr_tea AI context stays schema-versioned and bounded" {
 
 ///|
 test "incr_tea AI context carries latest trace and evidence" {
-  let app = TypedSheetApp(@incr.Runtime())
+  let app = try! TypedSheetApp(@incr.Runtime())
   ignore(app.prog_grid.dispatch(SelectCell("A1")))
   ignore(app.prog_grid.dispatch(UpdateDraft("A1", "15")))
   ignore(app.prog_grid.dispatch(ApplySelected))
@@ -646,7 +646,7 @@ test "incr_tea AI context carries latest trace and evidence" {
 
 ///|
 test "incr_tea evidence capture stays bounded for many direct dependents" {
-  let app = TypedSheetApp(@incr.Runtime())
+  let app = try! TypedSheetApp(@incr.Runtime())
   for row in 2..<=20 {
     let cell = "B\{row}"
     ignore(app.prog_grid.dispatch(SelectCell(cell)))
@@ -672,7 +672,7 @@ test "incr_tea evidence capture stays bounded for many direct dependents" {
 
 ///|
 test "incr_tea evidence distinguishes unchanged formula recomputation" {
-  let app = TypedSheetApp(@incr.Runtime())
+  let app = try! TypedSheetApp(@incr.Runtime())
   ignore(app.prog_grid.dispatch(SelectCell("B1")))
   ignore(app.prog_grid.dispatch(UpdateDraft("B1", "=A1 * 0")))
   ignore(app.prog_grid.dispatch(ApplySelected))
@@ -693,7 +693,7 @@ test "incr_tea evidence distinguishes unchanged formula recomputation" {
 
 ///|
 test "incr_tea latest trace preserves operation outcome after selection" {
-  let app = TypedSheetApp(@incr.Runtime())
+  let app = try! TypedSheetApp(@incr.Runtime())
   ignore(app.prog_grid.dispatch(SelectCell("A1")))
   ignore(app.prog_grid.dispatch(UpdateDraft("A1", "15")))
   ignore(app.prog_grid.dispatch(ApplySelected))

@@ -102,7 +102,7 @@ test "owned planning context does not follow later draft mutation" {
 ///|
 test "apply operation preserves the submitted typed target" {
   let runtime = @incr.Runtime()
-  let app = TypedSheetApp(runtime)
+  let app = try! TypedSheetApp(runtime)
   let foreign_target = @typed_spreadsheet.CellId::of(
     @typed_spreadsheet.SheetId(99),
     "A1",
@@ -128,7 +128,7 @@ test "apply operation preserves the submitted typed target" {
 ///|
 test "direct execution uses submitted text and rejects stale generation" {
   let runtime = @incr.Runtime()
-  let app = TypedSheetApp(runtime)
+  let app = try! TypedSheetApp(runtime)
   app._state.val.selected_cell.set("A1")
   app._state.val.drafts.set(
     update_draft(app._state.val.drafts.peek(), "A1", "42"),
@@ -181,7 +181,7 @@ test "direct execution uses submitted text and rejects stale generation" {
 ///|
 test "direct execution rejects failed selected editing and delete preconditions" {
   let runtime = @incr.Runtime()
-  let app = TypedSheetApp(runtime)
+  let app = try! TypedSheetApp(runtime)
 
   app._state.val.selected_cell.set("A1")
   app._state.val.drafts.set(
@@ -245,7 +245,7 @@ test "direct execution rejects failed selected editing and delete preconditions"
 
 ///|
 test "browser command advances EGW authority before projection" {
-  let app = TypedSheetApp(@incr.Runtime())
+  let app = try! TypedSheetApp(@incr.Runtime())
   let before = app._state.val.adapter.version()
   ignore(app.prog_grid.dispatch(SelectCell("A1")))
   ignore(app.prog_grid.dispatch(UpdateDraft("A1", "15")))
@@ -265,7 +265,7 @@ test "browser command advances EGW authority before projection" {
 
 ///|
 test "adapter-backed execution applies a valid delete" {
-  let app = TypedSheetApp(@incr.Runtime())
+  let app = try! TypedSheetApp(@incr.Runtime())
   ignore(app.prog_grid.dispatch(SelectCell("A1")))
   ignore(app.prog_grid.dispatch(DeleteSelected))
   let state = app._state.val
@@ -280,7 +280,7 @@ test "adapter-backed execution applies a valid delete" {
 
 ///|
 test "adapter-backed reset replaces dirty drafts with seed state" {
-  let app = TypedSheetApp(@incr.Runtime())
+  let app = try! TypedSheetApp(@incr.Runtime())
   let before = app._state.val.adapter.generation()
   ignore(app.prog_grid.dispatch(SelectCell("C1")))
   ignore(app.prog_grid.dispatch(UpdateDraft("C1", "99")))

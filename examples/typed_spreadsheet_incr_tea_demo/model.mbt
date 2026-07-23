@@ -59,7 +59,9 @@ struct SheetState {
 }
 
 ///|
-fn SheetState::new(runtime : @incr.Runtime) -> SheetState {
+fn SheetState::new(
+  runtime : @incr.Runtime,
+) -> SheetState raise @container.DocumentError {
   let scope = @incr.Scope::new(runtime)
   let cells = scope.input_field(grid_cells(), label="typed-sheet.cells")
   let seed_drafts : Array[CellDraft] = [
@@ -136,7 +138,7 @@ fn SheetState::new(runtime : @incr.Runtime) -> SheetState {
       }
     },
   )
-  let started = try! @egw_adapter.EgwAdapter::bootstrap(
+  let started = @egw_adapter.EgwAdapter::bootstrap(
     runtime,
     "typed-sheet-replica-0",
     @core.CollaborativeSheetId::CollaborativeSheetId("typed-sheet-document-0"),
@@ -147,11 +149,20 @@ fn SheetState::new(runtime : @incr.Runtime) -> SheetState {
     ],
     bindings,
     reset_factory,
-  )
+  ) catch {
+    error => {
+      scope.dispose()
+      raise error
+    }
+  }
   let adapter = match started {
     @egw_adapter.AdapterStartResult::Ready(adapter, _) => adapter
-    @egw_adapter.AdapterStartResult::Failed(error) =>
-      abort("typed sheet bootstrap failed: \{repr(error)}")
+    @egw_adapter.AdapterStartResult::Failed(error) => {
+      scope.dispose()
+      raise @container.DocumentError::Internal(
+        detail="typed sheet bootstrap failed: \{repr(error)}",
+      )
+    }
   }
   {
     _scope: scope,
