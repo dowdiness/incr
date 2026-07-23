@@ -10,7 +10,7 @@
 
 **Implementation plan:** [Plan 013 reconciliation note](../../plans/README.md)
 
-**Collaboration boundary:** [Parent EGW collaboration responsibility boundary](../../../../docs/decisions/2026-07-21-egw-collaboration-responsibility-boundary.md)
+**Collaboration boundary:** [Parent EGW collaboration responsibility boundary](https://github.com/dowdiness/canopy/blob/d1d30bc27b76dc9bb5cc08e1d1a1569aa4433265/docs/decisions/2026-07-21-egw-collaboration-responsibility-boundary.md)
 
 This record owns spreadsheet register and projection semantics. The parent ADR
 owns the target placement of peer-sync, collaboration runtime, and providers.
