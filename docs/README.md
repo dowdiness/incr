@@ -70,7 +70,6 @@ For contributors and advanced users who want to understand or modify `incr`.
 
 **Research notes** ([research/](research/)) — exploratory, not implemented. Open these only when a current roadmap item, plan, or ADR calls for them.
 
-- [Typed spreadsheet EGW API quality evidence](research/2026-07-21-typed-spreadsheet-egw-api-quality-evidence.md) — Plan 013 Phase 4 correctness and usability evidence; analyzes mutation read-back pressure and change-reporting candidates
 - [Bonsai-informed core direction](research/2026-07-14-bonsai-informed-incr-core-direction.md) — gated source of truth for Runtime
   lifetime/ownership/resource-model hypotheses, including the cross-engine
   lifecycle model, retention attribution resolution (#399), and Datalog

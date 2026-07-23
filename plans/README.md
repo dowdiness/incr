@@ -18,30 +18,36 @@ instruction.
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 |---|---|---:|---:|---|---|
-| [013](013-typed-spreadsheet-egw-boundary-experiment.md) | Run the typed-spreadsheet EGW boundary experiment | P1 | L | Published EGW 0.4.0 | IN PROGRESS (browser authority prototype; performance branch blocked) |
+| 013 | Run the typed-spreadsheet EGW boundary experiment | P1 | L | Published EGW 0.4.0 | DONE (closed 2026-07-24; bounded adapter experiment complete) |
 
 Status values: `TODO` | `IN PROGRESS` | `DONE` |
 `BLOCKED (<reason>)` | `REJECTED (<reason>)`.
 
-Plan 013 is the first application-specific EGW adapter and an evidence harness
-for [dowdiness/event-graph-walker#72](https://github.com/dowdiness/event-graph-walker/issues/72).
+Plan 013 completed the first application-specific EGW adapter and evidence
+harness for
+[dowdiness/event-graph-walker#72](https://github.com/dowdiness/event-graph-walker/issues/72).
 It remains inside the standalone `incr` repository and adds no generic
-`egw_incr` bridge. Its ADR is Accepted and Phase 0 standalone dependency and
-API verification passed 2026-07-20; Phase 1 domain package promotion, Phase
-2 pure adapter core, and Phase 3 mutable adapter shell also passed
-2026-07-20. Phase 4 began 2026-07-21 and records reproducible JS release
-FullScan/synthetic microbench evidence, but the unchanged pre-adapter browser
-baseline missed advisory p95 budgets. Browser A/B and any EGW performance
-conclusion remain blocked until a stable baseline passes every budget. A
-separate [API-quality evidence report](../docs/research/2026-07-21-typed-spreadsheet-egw-api-quality-evidence.md)
-records correctness and convenience pressure without advancing a public API
-proposal. A later user-authorized working-tree prototype makes the adapter the
-single-user browser authority while preserving existing interaction, trace, and
-evidence behavior. Transport and remote collaboration remain a separately
-shaped follow-up.
+`egw_incr` bridge. The reconciliation note below records the bounded result,
+dependency convergence, decision record, and separately shaped follow-ups.
 
 ## Reconciliation notes
 
+- Plan 013 closed 2026-07-24 as a completed bounded adapter experiment.
+  Correctness and application boundary succeeded: committed browser commands
+  use EGW authority and local/remote projection uses one path. The
+  pre-registered browser-baseline rule stopped adapter browser A/B, so
+  performance outcome is inconclusive and authorizes no EGW performance/API
+  proposal. The original browser-comparison criterion remains intentionally
+  unmet because its prerequisite baseline failed; closure records that terminal
+  outcome and does not claim the missing comparison was completed.
+  Error-transparent property mutation and conservative post-apply impact
+  reporting remain deferred/rejected-for-now until second-driver,
+  compatibility, convergence, and quantified-gain gates pass. The existing
+  [EGW register-projection ADR](../docs/decisions/2026-07-20-typed-spreadsheet-egw-register-projection.md)
+  is the updated decision record; its API-quality checkpoint now contains the
+  durable conclusions. The completed plan file is deleted; Git history recovers
+  the execution record. Transport, payload-opaque runtime/provider, room/join
+  UX, and presence are separate follow-ups.
 - Plan 012 shipped in [PR #421](https://github.com/dowdiness/incr/pull/421),
   merged as commit `d512b63`. Package-local parse-don't-validate `SheetCommand`
   variants own submitted text, typed `CellId`, `DocumentGeneration`, and

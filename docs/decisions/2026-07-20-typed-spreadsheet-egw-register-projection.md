@@ -2,13 +2,13 @@
 
 **Date:** 2026-07-20
 
-**Status:** Accepted; Plan 013 Phase 4 performance measurement is blocked by an unsuitable pre-adapter browser baseline (2026-07-21)
+**Status:** Accepted; Plan 013 closed 2026-07-24 as a completed bounded adapter experiment. Performance outcome is inconclusive (pre-registered browser baseline blocked A/B); correctness and application boundary succeeded.
 
-**API-quality evidence:** [Typed spreadsheet EGW API-quality evidence](../research/2026-07-21-typed-spreadsheet-egw-api-quality-evidence.md)
+**Current implementation:** The executable browser routes committed single-user commands through the adapter using EGW authority; local and remote projection share one path. Remote transport, room/join lifecycle, and presence remain follow-up work.
 
-**Current implementation:** The executable browser routes committed single-user commands through the adapter; remote transport and room/join lifecycle remain follow-up work (2026-07-21)
+**Reconciliation:** The adapter was revalidated against published `dowdiness/event-graph-walker@0.5.0` without an adapter code change beyond the dependency version. It continues to consume EGW `container`; `peer_sync`, payload-opaque runtime/provider work, and room lifecycle remain separate slices.
 
-**Implementation plan:** [Plan 013: Typed Spreadsheet EGW Boundary Experiment](../../plans/013-typed-spreadsheet-egw-boundary-experiment.md)
+**Implementation plan:** [Plan 013 reconciliation note](../../plans/README.md)
 
 **Collaboration boundary:** [Parent EGW collaboration responsibility boundary](../../../../docs/decisions/2026-07-21-egw-collaboration-responsibility-boundary.md)
 
@@ -166,7 +166,8 @@ schema. Application command IDs, retry, and deduplication remain deferred.
 
 ### 8. Start with the current EGW reporting surface
 
-The baseline uses EGW 0.4.0 public container APIs. It does not use
+The initial evidence baseline used EGW 0.4.0 public container APIs; Phase 5
+revalidated the same boundary against published EGW 0.5.0. It does not use
 `Document::transaction` as an atomic commit: that API groups undo history and
 does not roll back document mutations when its action raises.
 
@@ -208,13 +209,29 @@ An EGW API candidate requires all of the following:
 5. the same convergence suite passes with and without the candidate;
 6. the gain is quantified.
 
-**API-quality checkpoint (2026-07-21):** The current API is sufficient for a
-correct adapter when the application supplies liveness policy, mutation
-read-back, and full-scan impact discovery. The linked evidence note separates
-error-transparent property mutation from richer receipts and distinguishes a
-conservative impact report from a claim of visible change. Neither candidate
-passes the six-part gate: no second container driver confirms the contract, and
-compatibility, convergence, and gain evidence remain open.
+**API-quality checkpoint (2026-07-21, durable conclusions):** The current EGW 0.4
+container API is sufficient for a correct adapter when the application supplies
+liveness policy, mutation read-back, and full-scan impact discovery. Two narrow
+candidates were evaluated and deferred:
+
+- *Error-transparent property mutation:* `set_property` returns `Unit` and
+  silently discards internal failure on contained targets. An additive checked
+  setter or compatible future signature that exposes not-recorded/internal
+  failure is a concrete candidate, but no second container driver confirms the
+  same contract. A rich receipt (`Applied | AlreadyEqual | TargetDead`) is not
+  advanced because its variants conflate operation recording, LWW, liveness,
+  and projection semantics.
+- *Conservative post-apply impact reporting:* `SyncReport` exposes operation
+  counts, not changed entities. A conservative touched/impact report (node IDs,
+  `(node, property-key)` pairs, text block IDs) is a research candidate, but
+  its contract must resolve LWW losers, deduplication, pending operations,
+  moves, trash, and ownership before proposal.
+
+Neither candidate passes the six-part gate in §9: no second container driver
+confirms the contract, and compatibility, convergence, and quantified-gain
+evidence remain open. These conclusions are durable; reopening requires a
+second driver, compatibility specification, convergence evidence, and
+quantified gain.
 
 Issue or API publication requires separate approval.
 
@@ -271,9 +288,9 @@ second repeated adapter contract.
 
 ## Consequences
 
-- Plan 013 Phase 0 must verify that published EGW 0.4.0 resolves in the
-  standalone `incr` workspace; parent workspace overrides do not satisfy the
-  gate, and implementation scaffolding stops if verification fails.
+- Plan 013 Phase 0 verified published EGW 0.4.0 in the standalone `incr`
+  workspace, and Phase 5 revalidated the adapter against published EGW 0.5.0;
+  neither result relies on a parent workspace override.
 - The command types move to one importable application-domain package; no copy
   remains in the executable package.
 - The adapter adds strict application-level register decoding, separate

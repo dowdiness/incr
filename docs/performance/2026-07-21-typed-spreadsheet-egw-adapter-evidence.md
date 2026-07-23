@@ -7,9 +7,9 @@ reporting has an application-independent driver.
 EGW performance conclusion is authorized. The pre-adapter browser baseline
 missed advisory budgets on this host, and no second driver confirms the same
 container reporting need. Changed-property reporting therefore remains deferred
-on performance grounds, while the separate
-[API-quality evidence note](../research/2026-07-21-typed-spreadsheet-egw-api-quality-evidence.md)
-evaluates correctness, misuse resistance, convenience, and generality.
+on performance grounds. The accepted
+[EGW register-projection ADR](../decisions/2026-07-20-typed-spreadsheet-egw-register-projection.md)
+records durable correctness and API-quality conclusions separately.
 
 **Keep until:** Keep as an immutable dated performance snapshot; future numbers
 belong in a new dated file.
@@ -32,8 +32,8 @@ address set on every projection. Plan 013 pre-registered a strict gate:
 
 The first condition failed, so the performance route is blocked. That blocker
 does not invalidate bounded correctness, misuse-resistance, convenience, and
-generality evidence, which is recorded in the separate
-[API-quality evidence note](../research/2026-07-21-typed-spreadsheet-egw-api-quality-evidence.md).
+generality evidence, which is recorded in the accepted
+[EGW register-projection ADR](../decisions/2026-07-20-typed-spreadsheet-egw-register-projection.md).
 The microbenchmarks below remain useful cost attribution, but they are not
 product-impact or general API evidence.
 

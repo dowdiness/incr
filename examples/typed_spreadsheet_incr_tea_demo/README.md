@@ -69,9 +69,10 @@ codec, immutable canonical snapshots and projection state, separate
 last-seen/last-good/diagnostic state, ordered projection decisions, and pure
 draft reconciliation. It has no mutable EGW document, Runtime, Worksheet,
 InputField, DOM, or adapter shell. Phase 3 added the `egw_adapter/` shell
-package boundary: an opaque `EgwAdapter` façade that imports the exact
-published EGW 0.4 container, `incr`, typed-spreadsheet/demo, domain, and
-child core, with no generic bridge or EGW API change. The shell hides mutable
+package boundary: an opaque `EgwAdapter` façade that imports the published EGW
+container, `incr`, typed-spreadsheet/demo, domain, and child core, with no
+generic bridge or EGW API change. The initial evidence used EGW 0.4.0; Phase 5
+revalidated the unchanged adapter boundary against published EGW 0.5.0. The shell hides mutable
 `Document`/`Worksheet`/state behind bootstrap/attach, local apply, remote
 apply, export/version, immutable projection state, and read_cell/inspect_cell.
 All authority paths perform EGW work first then invoke one shared full-scan
@@ -94,14 +95,23 @@ The [dated evidence snapshot](../../docs/performance/2026-07-21-typed-spreadshee
 records the pre-wiring baseline and a reproducible sparse-workload advantage.
 That historical baseline missed advisory p95 budgets on its measurement host,
 so it cannot support an EGW performance conclusion; production remote
-projection meanwhile continues to use FullScan. The separate
-[EGW API-quality evidence note](../../docs/research/2026-07-21-typed-spreadsheet-egw-api-quality-evidence.md)
-records correctness and convenience pressure without advancing a public API
-proposal. No generic `egw_incr` package is justified until a second driver
-repeats the same adapter contract. The
+projection meanwhile continues to use FullScan. The accepted
+[EGW register-projection ADR](../../docs/decisions/2026-07-20-typed-spreadsheet-egw-register-projection.md)
+records durable correctness and API-quality conclusions: the current container
+API is sufficient with adapter safeguards, and two narrow candidates
+(error-transparent mutation, conservative impact reporting) are deferred until
+a second driver, compatibility, convergence, and quantified-gain gates pass.
+No generic `egw_incr` package is justified until a second driver repeats the
+same adapter contract. The
 accepted adapter ADR selects an atomic committed-source register for the first
 bounded experiment; sequence-text formula collaboration would require a
 superseding product decision.
+
+Plan 013 closed on 2026-07-24 as a completed bounded experiment. The browser
+baseline stop rule made the performance result inconclusive, so no EGW API or
+optimization proposal follows from it. The adapter still consumes EGW
+`container`, not `peer_sync`; transport, payload-opaque runtime/provider work,
+room/join UX, and presence remain separate collaboration slices.
 
 ## Run
 

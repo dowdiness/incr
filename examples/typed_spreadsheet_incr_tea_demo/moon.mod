@@ -11,5 +11,5 @@ import {
   "dowdiness/incr_tea@0.1.0",
   "examples/typed_spreadsheet@0.1.0",
   "examples/typed_spreadsheet_demo@0.1.0",
-  "dowdiness/event-graph-walker@0.4.0",
+  "dowdiness/event-graph-walker@0.5.0",
 }
