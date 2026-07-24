@@ -35,6 +35,13 @@ async function waitForCellText(page, cell, expected) {
   }, { id: `cell-${cell}`, text: expected });
 }
 
+async function waitForDraftText(page, cell, expected) {
+  await page.waitForFunction(({ id, text }) => {
+    const context = globalThis.typedSpreadsheetAIContext?.();
+    return context?.cells?.find(candidate => candidate.id === id)?.draft_text === text;
+  }, { id: cell, text: expected });
+}
+
 const server = createServer(async (request, response) => {
   try {
     const url = new URL(request.url ?? '/', `http://${request.headers.host ?? host}`);
@@ -99,7 +106,7 @@ try {
 
   await hostPage.locator('#cell-A1').click();
   await hostPage.locator('#formula-editor-input').fill('99');
-  await hostPage.waitForTimeout(50);
+  await waitForDraftText(hostPage, 'A1', '99');
   await waitForCellText(joinPage, 'A1', '10');
   await waitForCellText(joinPage, 'B1', '11');
   assert((await joinPage.locator('#cell-B1').getAttribute('class'))?.includes('selected'), 'host selection leaked to joiner');
@@ -107,6 +114,7 @@ try {
   console.log('✓ draft selection and focus remain local');
 
   await hostPage.locator('#formula-editor-input').fill('15');
+  await waitForDraftText(hostPage, 'A1', '15');
   await hostPage.locator('.primary-action').click();
   await waitForCellText(hostPage, 'B1', '16');
   await waitForCellText(joinPage, 'A1', '15');
@@ -131,6 +139,7 @@ try {
 
   await joinPage.locator('#cell-A1').click();
   await joinPage.locator('#formula-editor-input').fill('20');
+  await waitForDraftText(joinPage, 'A1', '20');
   await joinPage.locator('.primary-action').click();
   await waitForCellText(joinPage, 'B1', '21');
   await waitForCellText(hostPage, 'A1', '20');
