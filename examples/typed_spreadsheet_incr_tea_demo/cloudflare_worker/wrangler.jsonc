@@ -19,7 +19,7 @@
   "migrations": [
     {
       "tag": "v1",
-      "new_classes": ["TypedSpreadsheetRoomDurableObject"]
+      "new_sqlite_classes": ["TypedSpreadsheetRoomDurableObject"]
     }
   ]
 }
