@@ -42,7 +42,7 @@ priv trait RevisionManager {
 ///
 /// Unlike CellOps (read-only metadata), CellLifecycle methods perform
 /// mutations and require Runtime access. Stored as `&CellLifecycle` in
-/// `RuntimeCore.cell_lifecycle`, indexed by `CellId.id`.
+/// `Runtime.cell_lifecycle`, indexed by `CellId.id`.
 ///
 /// # Layer 3 status
 ///
@@ -50,9 +50,17 @@ priv trait RevisionManager {
 /// `on_observe` and `on_unobserve` are no-ops — Layer 4 fills them in
 /// for HybridMemo (push activation/suspension) and PushReactive.
 priv trait CellLifecycle {
+  fn preflight_dispose_cell(Self, Runtime, CellId) -> String? = _
   fn dispose_cell(Self, Runtime, CellId) -> Unit
   fn on_observe(Self, Runtime, CellId) -> Unit = _
   fn on_unobserve(Self, Runtime, CellId) -> Unit = _
+}
+
+///|
+/// Default: disposal preflight accepts the cell. Layer-specific lifecycles
+/// override this when disposal has an external dependency to validate.
+impl CellLifecycle with fn preflight_dispose_cell(_self, _rt, _cell_id) -> String? {
+  None
 }
 
 ///|

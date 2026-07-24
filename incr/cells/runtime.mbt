@@ -720,8 +720,12 @@ pub fn Runtime::dispose_rule(
 pub fn Runtime::dispose_cell(self : Runtime, cell_id : CellId) -> Unit {
   guard @kernel.validate_cell_for_dispose(self.core, cell_id) else { return }
   @kernel.check_dispose_guard(self.core, cell_id)
-  @kernel.drop_gc_root(self.core, cell_id)
+  match self.cell_lifecycle[cell_id.id].preflight_dispose_cell(self, cell_id) {
+    Some(error) => abort(error)
+    None => ()
+  }
   self.cell_lifecycle[cell_id.id].dispose_cell(self, cell_id)
+  @kernel.drop_gc_root(self.core, cell_id)
 }
 
 ///|

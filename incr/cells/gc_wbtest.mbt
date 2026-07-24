@@ -86,6 +86,40 @@ test "dispose_cell: clears gc_root_counts with multiple observers" {
 }
 
 ///|
+test "dispose preflight: pinned relation preserves root and observer state" {
+  let rt = Runtime::Runtime()
+  let rel : Relation[Int] = Relation::Relation(rt)
+  rel.insert(1) |> ignore
+  rt.fixpoint()
+  let observed = Derived(rt, fn() { rel.contains(1) })
+  let observer = observed.observe()
+  inspect(observer.get(), content="true")
+  let previous_root_count = rt.add_gc_root(rel.id())
+  inspect(previous_root_count, content="0")
+  let rule = rt.new_rule([rel.id()], [], () => ())
+
+  // Runtime::dispose_cell keeps its existing aborting rejection contract;
+  // inspect the pure preflight that runs before its GC-root mutation.
+  let rejection = rt.cell_lifecycle[rel.id().id].preflight_dispose_cell(
+    rt,
+    rel.id(),
+  )
+  let rejected = match rejection {
+    Some(_) => true
+    None => false
+  }
+  inspect(rejected, content="true")
+  debug_inspect(rt.core.gc_root_counts.get(rel.id()), content="Some(1)")
+  inspect(rel.contains(1), content="true")
+  inspect(observer.get(), content="true")
+
+  observer.dispose()
+  ignore(rt.remove_gc_root(rel.id()))
+  rt.dispose_rule(rule)
+  rel.dispose()
+}
+
+///|
 test "phase: Idle by default" {
   let rt = Runtime::Runtime()
   inspect(rt.core.phase, content="Idle")
