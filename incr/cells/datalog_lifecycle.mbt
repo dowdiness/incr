@@ -25,17 +25,19 @@ fn RuleDeclarationRole::label(self : RuleDeclarationRole) -> String {
 }
 
 ///|
-fn relation_dispose_error(rt : Runtime, cell_id : CellId) -> String? {
+fn relation_dispose_error(rt : Runtime, cell_id : CellId) -> DisposeError? {
   match find_live_rule_declaration(rt.core, rt.datalog.rules, cell_id) {
     Some(declaration) =>
       Some(
-        "dispose: relation " +
-        cell_id.id.to_string() +
-        " is pinned by live rule " +
-        declaration.rule_id.id.to_string() +
-        " as " +
-        declaration.role.label() +
-        "; dispose the rule first",
+        DisposeError::Rejected(
+          "dispose: relation " +
+          cell_id.id.to_string() +
+          " is pinned by live rule " +
+          declaration.rule_id.id.to_string() +
+          " as " +
+          declaration.role.label() +
+          "; dispose the rule first",
+        ),
       )
     None => None
   }
@@ -46,7 +48,7 @@ impl CellLifecycle for RelationData with fn preflight_dispose_cell(
   _self,
   rt,
   cell_id,
-) -> String? {
+) -> DisposeError? {
   relation_dispose_error(rt, cell_id)
 }
 
@@ -60,7 +62,7 @@ impl CellLifecycle for FunctionalRelationData with fn preflight_dispose_cell(
   _self,
   rt,
   cell_id,
-) -> String? {
+) -> DisposeError? {
   relation_dispose_error(rt, cell_id)
 }
 

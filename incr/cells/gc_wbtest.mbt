@@ -98,15 +98,12 @@ test "dispose preflight: pinned relation preserves root and observer state" {
   inspect(previous_root_count, content="0")
   let rule = rt.new_rule([rel.id()], [], () => ())
 
-  // Runtime::dispose_cell keeps its existing aborting rejection contract;
-  // inspect the pure preflight that runs before its GC-root mutation.
-  let rejection = rt.cell_lifecycle[rel.id().id].preflight_dispose_cell(
-    rt,
-    rel.id(),
-  )
+  // Exercise the same private Result boundary used by Runtime::dispose_cell;
+  // the public wrapper preserves its existing aborting rejection contract.
+  let rejection = rt.try_dispose_cell(rel.id())
   let rejected = match rejection {
-    Some(_) => true
-    None => false
+    Err(_) => true
+    Ok(_) => false
   }
   inspect(rejected, content="true")
   debug_inspect(rt.core.gc_root_counts.get(rel.id()), content="Some(1)")

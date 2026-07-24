@@ -717,15 +717,30 @@ pub fn Runtime::dispose_rule(
 /// gc_root_counts cleanup) live in `@kernel`; the trait dispatch on
 /// `self.cell_lifecycle` stays on Runtime because the CellLifecycle trait
 /// is defined over Runtime (out of R1 scope to retype).
-pub fn Runtime::dispose_cell(self : Runtime, cell_id : CellId) -> Unit {
-  guard @kernel.validate_cell_for_dispose(self.core, cell_id) else { return }
+fn Runtime::try_dispose_cell(
+  self : Runtime,
+  cell_id : CellId,
+) -> Result[Unit, DisposeError] {
+  guard @kernel.validate_cell_for_dispose(self.core, cell_id) else {
+    return Ok(())
+  }
   @kernel.check_dispose_guard(self.core, cell_id)
   match self.cell_lifecycle[cell_id.id].preflight_dispose_cell(self, cell_id) {
-    Some(error) => abort(error)
-    None => ()
+    Some(error) => Err(error)
+    None => {
+      self.cell_lifecycle[cell_id.id].dispose_cell(self, cell_id)
+      @kernel.drop_gc_root(self.core, cell_id)
+      Ok(())
+    }
   }
-  self.cell_lifecycle[cell_id.id].dispose_cell(self, cell_id)
-  @kernel.drop_gc_root(self.core, cell_id)
+}
+
+///|
+pub fn Runtime::dispose_cell(self : Runtime, cell_id : CellId) -> Unit {
+  match self.try_dispose_cell(cell_id) {
+    Ok(_) => ()
+    Err(DisposeError::Rejected(error)) => abort(error)
+  }
 }
 
 ///|
