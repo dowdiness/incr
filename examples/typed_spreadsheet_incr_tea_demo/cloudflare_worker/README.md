@@ -18,6 +18,17 @@ npm install
 npm run dev
 ```
 
+Run the local Worker and Durable Object checks with:
+
+```bash
+npm run test:hibernation
+npm run test:e2e
+```
+
+`test:hibernation` uses the Workers Vitest runtime eviction helper to hibernate
+connected WebSockets, then verifies that messages still relay and the
+attachment-backed rate limit survives the Durable Object restart.
+
 The generated MoonBit module is loaded by `entry.mjs`. Cloudflare's Worker and
 Durable Object exports remain the only JavaScript adapter surface.
 

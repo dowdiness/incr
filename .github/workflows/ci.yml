@@ -471,6 +471,10 @@ jobs:
         working-directory: examples/typed_spreadsheet_incr_tea_demo/cloudflare_worker
         run: npm ci
 
+      - name: Run Durable Object Hibernation test
+        working-directory: examples/typed_spreadsheet_incr_tea_demo/cloudflare_worker
+        run: npm run test:hibernation
+
       - name: Install Playwright chromium + system deps
         working-directory: examples/typed_spreadsheet_incr_tea_demo/cloudflare_worker
         run: npx playwright install chromium --with-deps
