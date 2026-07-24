@@ -364,6 +364,10 @@ fn publish_local_sync_if_changed(
   state : Ref[SheetState],
   before : @container.Version,
 ) -> Unit {
+  let publish = match state.val.publish_sync {
+    Some(publish) => publish
+    None => return
+  }
   let adapter = state.val.adapter
   if adapter.version() == before {
     return
@@ -374,14 +378,11 @@ fn publish_local_sync_if_changed(
     error => Err(error)
   }
   match exported {
-    Ok(message) =>
-      match state.val.publish_sync {
-        Some(publish) => {
-          state.val.status.set("Shared update sent.")
-          publish(message)
-        }
-        None => ()
-      }
+    Ok(message) => {
+      let applied_status = state.val.status.peek()
+      publish(message)
+      state.val.status.set("\{applied_status} Shared update sent.")
+    }
     Err(error) => state.val.error.set(Some(format_authority_error(error)))
   }
 }

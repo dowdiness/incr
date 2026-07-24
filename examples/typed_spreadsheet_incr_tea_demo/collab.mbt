@@ -190,6 +190,10 @@ fn collab_decision(owner : Ref[CollabOwner], decision : CollabDecision) -> Unit 
     CollabDecision::Send(message) => collab_send(owner, message)
     CollabDecision::Mount => collab_mount(owner)
     CollabDecision::Fail(error) => {
+      match owner.val.app {
+        Some(app) => app._state.val.publish_sync = None
+        None => ()
+      }
       collab_show_owner_status(
         owner,
         "Collaboration unavailable; edits are now local only: \{error}",

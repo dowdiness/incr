@@ -90,6 +90,34 @@ test "collaboration rejects reset before planning or adapter mutation" {
 }
 
 ///|
+test "collaboration publish retains edit detail and local fallback stays local" {
+  let app = TypedSheetApp::with_mode(
+    @incr.Runtime(),
+    SheetStartMode::Host("room", ReplicaId("replica")),
+  ) catch {
+    _ => fail("collaboration fixture failed to start")
+  }
+  let published = Ref(0)
+  app.set_publisher(_ => published.val += 1)
+  ignore(app.prog_grid.dispatch(BeginInlineEdit("C1")))
+  ignore(app.prog_grid.dispatch(UpdateDraft("C1", "7")))
+  ignore(app.prog_grid.dispatch(ApplyInlineEdit("C1")))
+  let shared_status = app._state.val.status.peek()
+  assert_eq(published.val, 1)
+  inspect(shared_status.contains("Applied C1 ← 7:"), content="true")
+  inspect(shared_status.contains("Shared update sent."), content="true")
+  app._state.val.publish_sync = None
+  ignore(app.prog_grid.dispatch(BeginInlineEdit("C1")))
+  ignore(app.prog_grid.dispatch(UpdateDraft("C1", "8")))
+  ignore(app.prog_grid.dispatch(ApplyInlineEdit("C1")))
+  let local_status = app._state.val.status.peek()
+  assert_eq(published.val, 1)
+  inspect(local_status.contains("Applied C1 ← 8:"), content="true")
+  inspect(local_status.contains("Shared update sent."), content="false")
+  app.dispose()
+}
+
+///|
 test "incr_tea spreadsheet proof applies and cancels through Program dispatch" {
   let app = try! TypedSheetApp(@incr.Runtime())
 

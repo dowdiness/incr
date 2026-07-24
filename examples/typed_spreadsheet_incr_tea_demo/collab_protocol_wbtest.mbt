@@ -54,6 +54,28 @@ test "tagged JSON protocol roundtrips nested sync" {
     }
     _ => fail("ops did not roundtrip")
   }
+  let bootstrap = protocol_bootstrap(PeerId("joiner"), PeerId("host"))
+  match (bootstrap, message_from_json(message_to_json(bootstrap))) {
+    (
+      CollabMessage::Bootstrap(
+        expected_target,
+        expected_source,
+        expected_identity,
+        _,
+        _,
+        expected_node,
+        expected_sync
+      ),
+      Ok(CollabMessage::Bootstrap(target, source, identity, _, _, node, sync)),
+    ) => {
+      assert_eq(target, expected_target)
+      assert_eq(source, expected_source)
+      assert_eq(identity.value(), expected_identity.value())
+      assert_eq(node, expected_node)
+      assert_eq(sync.to_canonical_bytes(), expected_sync.to_canonical_bytes())
+    }
+    _ => fail("bootstrap did not roundtrip")
+  }
   assert_true(message_from_json("not json") is Err(_))
   assert_true(message_from_json("[\"other/1\",\"join\",\"x\"]") is Err(_))
 }
