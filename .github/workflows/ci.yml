@@ -463,6 +463,10 @@ jobs:
       - name: moon update
         run: moon update
 
+      - name: Install demo dependencies
+        working-directory: examples/typed_spreadsheet_incr_tea_demo
+        run: npm ci
+
       - name: Install Worker dependencies
         working-directory: examples/typed_spreadsheet_incr_tea_demo/cloudflare_worker
         run: npm ci
