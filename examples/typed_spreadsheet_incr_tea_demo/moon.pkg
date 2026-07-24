@@ -7,6 +7,7 @@ import {
   "examples/typed_spreadsheet_incr_tea_demo/egw_adapter",
   "examples/typed_spreadsheet_incr_tea_demo/egw_adapter/core",
   "dowdiness/event-graph-walker/container",
+  "moonbitlang/core/json",
 }
 
 supported_targets = "js"

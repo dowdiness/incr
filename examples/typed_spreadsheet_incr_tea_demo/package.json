@@ -8,6 +8,7 @@
     "build": "npm run build:moonbit && vite build",
     "smoke": "node scripts/smoke-dist.mjs",
     "test:dom": "npm run build && node scripts/test-dom.mjs",
+    "test:collab": "npm run build && node scripts/test-collab.mjs",
     "bench:dom": "npm run build && node scripts/bench-dom.mjs",
     "preview": "vite preview"
   },

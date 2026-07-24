@@ -38,17 +38,6 @@ fn inspect_model_cell(
 }
 
 ///|
-fn TypedSheetApp::dispose(self : TypedSheetApp) -> Unit {
-  self._state.val.adapter.dispose()
-  self.prog_grid.dispose()
-  self.prog_formula.dispose()
-  self.prog_status.dispose()
-  self.prog_trace.dispose()
-  self.prog_evidence.dispose()
-  self._state.val._scope.dispose()
-}
-
-///|
 test "incr_tea spreadsheet proof starts with seeded representative grid" {
   let app = try! TypedSheetApp(@incr.Runtime())
   let model = app._state.val.peek_model()
@@ -66,11 +55,84 @@ test "incr_tea spreadsheet proof starts with seeded representative grid" {
     cell_result_text(inspect_model_cell(model, "B1").result),
     content="11",
   )
+  let empty = inspect_model_cell(model, "C1")
+  inspect(empty.present, content="false")
+  inspect(cell_snapshot_text(empty), content="")
   inspect(
     app.prog_grid.read_view_or_abort() == app.prog_grid.read_view_or_abort(),
     content="true",
   )
 
+  app.dispose()
+}
+
+///|
+test "present formula reference errors remain visible" {
+  let app = try! TypedSheetApp(@incr.Runtime())
+  ignore(app.prog_grid.dispatch(BeginInlineEdit("C1")))
+  ignore(app.prog_grid.dispatch(UpdateDraft("C1", "=Z1")))
+  ignore(app.prog_grid.dispatch(ApplyInlineEdit("C1")))
+  let snapshot = app._state.val.adapter.inspect_cell("C1")
+  inspect(snapshot.present, content="true")
+  inspect(cell_snapshot_text(snapshot).contains("ref error:"), content="true")
+  inspect(
+    grid_cell_class(snapshot, false, false, false).contains("sheet-cell--error"),
+    content="true",
+  )
+  app.dispose()
+}
+
+///|
+test "collaboration rejects reset before planning or adapter mutation" {
+  let app = TypedSheetApp::with_mode(
+    @incr.Runtime(),
+    SheetStartMode::Host("room", ReplicaId("replica")),
+  ) catch {
+    _ => fail("collaboration fixture failed to start")
+  }
+  let before = app._state.val.adapter.version()
+  let before_node = app._state.val.adapter.node()
+  let before_identity = app._state.val.adapter.identity().value()
+  ignore(app.prog_grid.dispatch(ResetSheet))
+  inspect(
+    app._state.val.status.peek(),
+    content="Reset is unavailable while collaborating.",
+  )
+  assert_eq(
+    app._state.val.adapter.generation(),
+    @domain.DocumentGeneration::initial(),
+  )
+  inspect(app._state.val.adapter.version() == before, content="true")
+  assert_eq(app._state.val.adapter.node(), before_node)
+  assert_eq(app._state.val.adapter.identity().value(), before_identity)
+  app.dispose()
+}
+
+///|
+test "collaboration publish retains edit detail and local fallback stays local" {
+  let app = TypedSheetApp::with_mode(
+    @incr.Runtime(),
+    SheetStartMode::Host("room", ReplicaId("replica")),
+  ) catch {
+    _ => fail("collaboration fixture failed to start")
+  }
+  let published = Ref(0)
+  app.set_publisher(_ => published.val += 1)
+  ignore(app.prog_grid.dispatch(BeginInlineEdit("C1")))
+  ignore(app.prog_grid.dispatch(UpdateDraft("C1", "7")))
+  ignore(app.prog_grid.dispatch(ApplyInlineEdit("C1")))
+  let shared_status = app._state.val.status.peek()
+  assert_eq(published.val, 1)
+  inspect(shared_status.contains("Applied C1 ← 7:"), content="true")
+  inspect(shared_status.contains("Shared update sent."), content="true")
+  app._state.val.publish_sync = None
+  ignore(app.prog_grid.dispatch(BeginInlineEdit("C1")))
+  ignore(app.prog_grid.dispatch(UpdateDraft("C1", "8")))
+  ignore(app.prog_grid.dispatch(ApplyInlineEdit("C1")))
+  let local_status = app._state.val.status.peek()
+  assert_eq(published.val, 1)
+  inspect(local_status.contains("Applied C1 ← 8:"), content="true")
+  inspect(local_status.contains("Shared update sent."), content="false")
   app.dispose()
 }
 

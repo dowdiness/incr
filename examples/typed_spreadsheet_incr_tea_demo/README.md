@@ -4,6 +4,17 @@ Side-by-side browser proof for expressing the typed spreadsheet's core edit loop
 with the experimental `examples/incr_tea` renderer. The proof now exercises the
 full 50×50 model while keeping the Rabbita demo as the primary live deployment.
 
+## Collaboration prototype disclaimer
+
+The `/collab?role=host|join&room=ROOM&peer=PEER` routes are demo-private and
+intentionally fixed to two same-origin pages in the same browser profile. The
+browser proof covers host bootstrap, join attach, and bidirectional edits over a
+single temporary `BroadcastChannel` room. It is evidence for this prototype,
+not a product protocol: there is no recovery, reconnect, persistence, presence,
+or multi-page product feature set. After a collaboration failure, the channel
+closes but the spreadsheet remains available as a local-only editor; subsequent
+edits are not synchronized.
+
 ## What it covers
 
 The proof renders the full 50×50 grid and validates the interaction boundary
@@ -86,8 +97,10 @@ authority. It bootstraps the seed registers through EGW, routes apply/delete/
 reset commands through `EgwAdapter`, observes trace and before/after evidence
 without replaying Worksheet mutations, and reads projected cells through safe
 adapter methods. Drafts, selection, editing, focus, status, and evidence remain
-application-local. No remote transport, room/join protocol, or presence channel
-exists yet.
+application-local. The fixed same-origin room/join prototype transports only
+committed EGW sync messages; drafts, selection, focus, and UI evidence remain
+local. Recovery, reconnect, persistence, presence, and product protocol features
+remain intentionally out of scope.
 
 Phase 4 added a package-owned JS release benchmark and a private benchmark-only
 FullScan versus ChangedProperties lower bound for 1/10/100/2,500 changed cells.
@@ -110,8 +123,8 @@ superseding product decision.
 Plan 013 closed on 2026-07-24 as a completed bounded experiment. The browser
 baseline stop rule made the performance result inconclusive, so no EGW API or
 optimization proposal follows from it. The adapter still consumes EGW
-`container`, not `peer_sync`; transport, payload-opaque runtime/provider work,
-room/join UX, and presence remain separate collaboration slices.
+`container`, not `peer_sync`; the room/join transport remains a demo-private
+same-origin proof rather than a recovery or product protocol.
 
 ## Run
 
@@ -128,6 +141,15 @@ Production build, static smoke check, and browser interaction check:
 npm run build
 npm run smoke
 npm run test:dom
+npm run test:collab
+```
+
+For a manual same-profile collaboration check, start `npm run dev`, then open
+the host before the joiner in two tabs:
+
+```text
+http://localhost:5173/collab?role=host&room=proof&peer=A
+http://localhost:5173/collab?role=join&room=proof&peer=B
 ```
 
 Headless Chromium benchmark for the 50×50 edit paths:

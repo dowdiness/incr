@@ -9,9 +9,26 @@ import {
 pub fn mount_typed_spreadsheet_incr_tea_demo(String) -> Unit
 
 // Errors
+type CollabProtocolError
+
+type StartupConfigError
 
 // Types and methods
+type BootstrapData
+
 type CellDraft derive(Eq, @debug.Debug)
+
+type CollabDecision
+
+type CollabEvent
+
+type CollabMessage
+
+type CollabOwner
+
+type CollabPhase derive(Eq, @debug.Debug)
+
+type CollabState
 
 type EvidenceCellData derive(Eq)
 
@@ -23,11 +40,19 @@ type Model
 
 type Msg derive(Eq)
 
+type PeerId derive(Eq, @debug.Debug)
+
+type ReplicaId derive(Eq, @debug.Debug)
+
 type SheetPlan derive(Eq, @debug.Debug)
 
 type SheetPlanningContext derive(Eq, @debug.Debug)
 
+type SheetStartMode
+
 type SheetState
+
+type StartupMode derive(Eq, @debug.Debug)
 
 type TraceData derive(Eq)
 

@@ -48,10 +48,12 @@ fn grid_cell_class(
   dirty : Bool,
   editing : Bool,
 ) -> String {
-  let parts = [
-    "sheet-cell",
-    "sheet-cell--" + cell_result_class(snapshot.result),
-  ]
+  let result_class = if snapshot.present {
+    cell_result_class(snapshot.result)
+  } else {
+    "empty"
+  }
+  let parts = ["sheet-cell", "sheet-cell--" + result_class]
   if selected {
     parts.push("is-selected")
   }
@@ -69,7 +71,7 @@ fn grid_cell_label(
   cell : String,
   snapshot : @typed_spreadsheet.CellSnapshot,
 ) -> String {
-  let value = cell_result_text(snapshot.result)
+  let value = cell_snapshot_text(snapshot)
   let kind = snapshot_kind_text(snapshot)
   if value.is_empty() {
     "Select cell \{cell}: \{kind}, blank"
@@ -149,14 +151,20 @@ fn state_formula_bar(state : SheetState) -> @tea.Html[Msg] {
           events=[@tea.on_click(DeleteSelected)],
           "Delete",
         ),
-        @tea.button(
-          attrs=@tea.Attrs::build()
-            .class("quiet-button")
-            .attr("type", "button")
-            .to_array(),
-          events=[@tea.on_click(ResetSheet)],
-          "Reset proof",
-        ),
+        if state.collab_mode {
+          @tea.span(attrs=[@tea.class_attr("muted-label")], [
+            @tea.text("Reset unavailable in collaboration"),
+          ])
+        } else {
+          @tea.button(
+            attrs=@tea.Attrs::build()
+              .class("quiet-button")
+              .attr("type", "button")
+              .to_array(),
+            events=[@tea.on_click(ResetSheet)],
+            "Reset proof",
+          )
+        },
       ]),
       view_examples(),
     ],
@@ -226,7 +234,7 @@ fn state_grid(state : SheetState) -> @tea.Html[Msg] {
               )
             } else {
               @tea.span(attrs=[@tea.class_attr("cell-value")], [
-                @tea.text(cell_result_text(snapshot.result)),
+                @tea.text(cell_snapshot_text(snapshot)),
               ])
             },
           ],

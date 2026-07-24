@@ -586,6 +586,12 @@ pub fn EgwAdapter::sheet_id(self : EgwAdapter) -> @typed_spreadsheet.SheetId {
 }
 
 ///|
+/// Returns the supplied authority node for a directed bootstrap envelope.
+pub fn EgwAdapter::node(self : EgwAdapter) -> @container.TreeNodeId {
+  self.node
+}
+
+///|
 pub fn EgwAdapter::projection_state(self : EgwAdapter) -> @core.ProjectionState {
   self.state
 }

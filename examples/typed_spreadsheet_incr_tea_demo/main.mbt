@@ -7,17 +7,11 @@ fn main {
 /// Mounts the side-by-side `incr_tea` typed spreadsheet proof with 5
 /// independent watched roots (grid, formula bar, status, trace, evidence)
 /// sharing model state via per-region InputFields.
-pub fn mount_typed_spreadsheet_incr_tea_demo(mount_id : String) -> Unit {
-  let runtime = @incr.Runtime()
-  let app = TypedSheetApp(runtime) catch {
-    error => {
-      println(
-        "Typed spreadsheet startup failed: \{format_authority_error(error)}",
-      )
-      return
-    }
-  }
-  let renderer = @tea.BrowserRenderer::BrowserRenderer(runtime)
+fn mount_typed_sheet_app(
+  mount_id : String,
+  app : TypedSheetApp,
+  renderer : @tea.BrowserRenderer[Msg],
+) -> Unit {
   // Mount each region as an independent root. All share the same update
   // handler (handle_msg) and the same InputFields, but each reads only
   // its own slice, so unchanged roots skip DOM patching.
@@ -62,4 +56,26 @@ pub fn mount_typed_spreadsheet_incr_tea_demo(mount_id : String) -> Unit {
   )
   js_publish_ai_context_json(app._state.val.ai_context_json())
   install_typed_sheet_benchmark_api(app, renderer)
+}
+
+///|
+/// Standalone remains the original fixed seed application.
+pub fn mount_typed_spreadsheet_incr_tea_demo(mount_id : String) -> Unit {
+  match parse_startup(js_collab_startup_input()) {
+    Ok(StartupMode::Standalone) => {
+      let runtime = @incr.Runtime()
+      let app = TypedSheetApp(runtime) catch {
+        error => {
+          println(
+            "Typed spreadsheet startup failed: \{format_authority_error(error)}",
+          )
+          return
+        }
+      }
+      let renderer = @tea.BrowserRenderer::BrowserRenderer(runtime)
+      mount_typed_sheet_app(mount_id, app, renderer)
+    }
+    Ok(mode) => start_collaboration(mode)
+    Err(error) => js_collab_show_status(format_startup_error(error))
+  }
 }

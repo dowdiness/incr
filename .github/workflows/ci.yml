@@ -270,6 +270,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
 
       - name: Install MoonBit
         env:
@@ -319,6 +321,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
 
       # See the library job for why we use the official script (issue #229) and
       # the pin rationale (issue #227).
@@ -364,3 +368,62 @@ jobs:
       - name: Run Playwright DOM test
         working-directory: examples/incr_tea_7guis
         run: node scripts/test-dom.mjs
+
+  #-------------------------------------------------------------------------------
+  # Same-origin two-page typed spreadsheet collaboration proof
+  #-------------------------------------------------------------------------------
+  typed-sheet-collab-dom:
+    name: DOM test typed spreadsheet collaboration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
+
+      - name: Install MoonBit
+        env:
+          MOONBIT_INSTALL_VERSION: 0.10.4+ade96c819
+        run: |
+          install_moonbit() {
+            curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/moonbit-install.sh \
+              && bash /tmp/moonbit-install.sh
+          }
+          for attempt in 1 2 3; do
+            if install_moonbit; then break; fi
+            if [ "$attempt" = 3 ]; then
+              echo "MoonBit install failed after 3 attempts"; exit 1
+            fi
+            echo "install attempt $attempt failed; retrying in 10s..."; sleep 10
+          done
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      - name: Verify MoonBit
+        run: moon version --all
+
+      - name: moon update
+        run: moon update
+
+      - name: Install npm dependencies
+        working-directory: examples/typed_spreadsheet_incr_tea_demo
+        run: npm ci
+
+      - name: Install Playwright chromium + system deps
+        working-directory: examples/typed_spreadsheet_incr_tea_demo
+        run: npx playwright install chromium --with-deps
+
+      - name: Build typed spreadsheet demo
+        working-directory: examples/typed_spreadsheet_incr_tea_demo
+        run: npm run build
+
+      - name: Static smoke check
+        working-directory: examples/typed_spreadsheet_incr_tea_demo
+        run: npm run smoke
+
+      - name: Standalone DOM test
+        working-directory: examples/typed_spreadsheet_incr_tea_demo
+        run: npm run test:dom
+
+      - name: Same-origin collaboration DOM test
+        working-directory: examples/typed_spreadsheet_incr_tea_demo
+        run: npm run test:collab

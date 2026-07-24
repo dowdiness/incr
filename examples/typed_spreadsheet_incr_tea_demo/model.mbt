@@ -56,11 +56,14 @@ struct SheetState {
   trace : @incr.InputField[TraceData?]
   evidence : @incr.InputField[EvidenceData?]
   last_edit : @incr.InputField[String]
+  mut publish_sync : ((@container.SyncMessage) -> Unit)?
+  collab_mode : Bool
 }
 
 ///|
 fn SheetState::new(
   runtime : @incr.Runtime,
+  mode : SheetStartMode,
 ) -> SheetState raise @container.DocumentError {
   let scope = @incr.Scope::new(runtime)
   let cells = scope.input_field(grid_cells(), label="typed-sheet.cells")
@@ -83,6 +86,10 @@ fn SheetState::new(
   let trace = scope.input_field(None, label="typed-sheet.trace")
   let evidence = scope.input_field(None, label="typed-sheet.evidence")
   let last_edit = scope.input_field("Seed sheet", label="typed-sheet.last-edit")
+  let collab_mode = match mode {
+    SheetStartMode::Standalone => false
+    SheetStartMode::Host(_, _) | SheetStartMode::Join(_, _) => true
+  }
 
   // Allocate a distinct local authority incarnation until transport owns room identity.
   let mut reset_counter = 0
@@ -138,18 +145,48 @@ fn SheetState::new(
       }
     },
   )
-  let started = @egw_adapter.EgwAdapter::bootstrap(
-    runtime,
-    "typed-sheet-replica-0",
-    @core.CollaborativeSheetId::CollaborativeSheetId("typed-sheet-document-0"),
-    @typed_spreadsheet.SheetId(1),
-    [
-      @egw_adapter.Seed::Seed("A1", @core.CellRegister::Source("10")),
-      @egw_adapter.Seed::Seed("B1", @core.CellRegister::Source("=A1 + 1")),
-    ],
-    bindings,
-    reset_factory,
-  ) catch {
+  let seeds = [
+    @egw_adapter.Seed::Seed("A1", @core.CellRegister::Source("10")),
+    @egw_adapter.Seed::Seed("B1", @core.CellRegister::Source("=A1 + 1")),
+  ]
+  let started = try {
+    match mode {
+      SheetStartMode::Standalone =>
+        @egw_adapter.EgwAdapter::bootstrap(
+          runtime,
+          "typed-sheet-replica-0",
+          @core.CollaborativeSheetId::CollaborativeSheetId(
+            "typed-sheet-document-0",
+          ),
+          @typed_spreadsheet.SheetId(1),
+          seeds,
+          bindings,
+          reset_factory,
+        )
+      SheetStartMode::Host(room, replica) =>
+        @egw_adapter.EgwAdapter::bootstrap(
+          runtime,
+          replica.0,
+          @core.CollaborativeSheetId::CollaborativeSheetId(room),
+          @typed_spreadsheet.SheetId(1),
+          seeds,
+          bindings,
+          reset_factory,
+        )
+      SheetStartMode::Join(payload, document) =>
+        @egw_adapter.EgwAdapter::attach(
+          runtime,
+          payload.identity,
+          payload.sheet_id,
+          payload.generation,
+          document,
+          payload.node,
+          seeds,
+          bindings,
+          reset_factory,
+        )
+    }
+  } catch {
     error => {
       scope.dispose()
       raise error
@@ -177,6 +214,8 @@ fn SheetState::new(
     trace,
     evidence,
     last_edit,
+    publish_sync: None,
+    collab_mode,
   }
 }
 
@@ -439,6 +478,15 @@ fn cell_result_text(result : @typed_spreadsheet.CellResult) -> String {
     TypeError(message) => "type error: \{message}"
     RefError(message) => "ref error: \{message}"
     CycleError(message) => "cycle: \{message}"
+  }
+}
+
+///|
+fn cell_snapshot_text(snapshot : @typed_spreadsheet.CellSnapshot) -> String {
+  if snapshot.present {
+    cell_result_text(snapshot.result)
+  } else {
+    ""
   }
 }
 

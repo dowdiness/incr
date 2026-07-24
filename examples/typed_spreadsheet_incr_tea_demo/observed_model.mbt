@@ -359,6 +359,35 @@ fn format_authority_error(error : @container.DocumentError) -> String {
 }
 
 ///|
+/// Publishes only a committed EGW version change from a local command.
+fn publish_local_sync_if_changed(
+  state : Ref[SheetState],
+  before : @container.Version,
+) -> Unit {
+  let publish = match state.val.publish_sync {
+    Some(publish) => publish
+    None => return
+  }
+  let adapter = state.val.adapter
+  if adapter.version() == before {
+    return
+  }
+  let exported : Result[@container.SyncMessage, @container.DocumentError] = Ok(
+    adapter.export_all(),
+  ) catch {
+    error => Err(error)
+  }
+  match exported {
+    Ok(message) => {
+      let applied_status = state.val.status.peek()
+      publish(message)
+      state.val.status.set("\{applied_status} Shared update sent.")
+    }
+    Err(error) => state.val.error.set(Some(format_authority_error(error)))
+  }
+}
+
+///|
 fn execute_adapter_command(
   state : Ref[SheetState],
   command : SheetCommand,
@@ -368,6 +397,7 @@ fn execute_adapter_command(
     None => []
   }
   append_formula_references(capture, command)
+  let before_version = state.val.adapter.version()
   let attempted : Result[
     @egw_adapter.ObservedApplyResult,
     @container.DocumentError,
@@ -382,7 +412,11 @@ fn execute_adapter_command(
     error => Err(error)
   }
   match attempted {
-    Ok(observed) => handle_observed_result(state, command, observed)
+    Ok(observed) => {
+      let applicability = handle_observed_result(state, command, observed)
+      publish_local_sync_if_changed(state, before_version)
+      applicability
+    }
     Err(error) => {
       state.val.status.set("Edit not applied.")
       state.val.error.set(Some(format_authority_error(error)))
