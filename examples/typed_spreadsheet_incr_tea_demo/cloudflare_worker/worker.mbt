@@ -1,11 +1,5 @@
 ///|
 /// PRODUCTION SKELETON: Worker and Durable Object route boundary.
-fn room_name(request : Request) -> String? {
-  match request_url(request).split_once("/api/rooms/") {
-    Some((_, suffix)) if !suffix.is_empty() => Some(suffix.to_owned())
-    _ => None
-  }
-}
 
 ///|
 fn worker_fetch(
@@ -13,16 +7,22 @@ fn worker_fetch(
   env : Env,
   _ctx : ExecutionContext,
 ) -> JsPromise[Response] {
-  let url = request_url(request)
-  if url.contains("/health") {
+  let pathname = request_pathname(request)
+  if pathname == "/health" {
     return promise_response(response_text("cloudflare worker skeleton", 200))
   }
-  match room_name(request) {
-    Some(room) => {
+  match
+    room_request_allowed(
+      pathname,
+      request_method(request),
+      request_origin(request),
+      request_url_origin(request),
+    ) {
+    Ok(room) => {
       let stub = namespace_get_by_name(room_namespace(env), room)
       stub_fetch(stub, request)
     }
-    None => promise_response(response_text("not found", 404))
+    Err(error) => promise_response(response_text(error, 400))
   }
 }
 

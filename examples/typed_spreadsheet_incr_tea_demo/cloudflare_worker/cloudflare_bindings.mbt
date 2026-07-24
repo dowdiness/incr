@@ -51,9 +51,24 @@ pub type WebSocket
 pub type JsPromise[X]
 
 ///|
-/// Read the request URL.
-extern "js" fn request_url(request : Request) -> String =
-  #| request => request.url
+/// Read the normalized request pathname.
+extern "js" fn request_pathname(request : Request) -> String =
+  #| request => new URL(request.url).pathname
+
+///|
+/// Read the request method.
+extern "js" fn request_method(request : Request) -> String =
+  #| request => request.method
+
+///|
+/// Read the browser Origin header, or an empty string when absent.
+extern "js" fn request_origin(request : Request) -> String =
+  #| request => request.headers.get("Origin") ?? ""
+
+///|
+/// Read the request URL origin for same-site checks.
+extern "js" fn request_url_origin(request : Request) -> String =
+  #| request => new URL(request.url).origin
 
 ///|
 /// Read the room Durable Object namespace binding.
