@@ -12,6 +12,7 @@ suberror StartupConfigError {
   InvalidPath(String)
   MissingRole
   InvalidRole(String)
+  InvalidTransport(String)
   MissingRoom
   MissingPeer
   EmptyValue(String)
@@ -34,11 +35,18 @@ suberror CollabProtocolError {
 }
 
 ///|
+/// The browser transport selected at the imperative shell boundary.
+enum CollabTransportKind {
+  Broadcast
+  WebSocket
+} derive(Eq, Debug)
+
+///|
 /// The only supported startup modes.
 enum StartupMode {
   Standalone
-  Host(PeerId, String)
-  Join(PeerId, String)
+  Host(PeerId, String, CollabTransportKind)
+  Join(PeerId, String, CollabTransportKind)
 } derive(Eq, Debug)
 
 ///|
@@ -96,6 +104,7 @@ enum CollabEvent {
   HostStartFailed(String)
   AttachSucceeded
   AttachFailed(String)
+  TransportFailed(String)
   RemoteApplySucceeded
   RemoteApplyFailed(String)
   CloseRequested
@@ -155,6 +164,11 @@ fn reduce_collab(
       (state, CollabDecision::NoEffect)
     (_, CollabEvent::CloseRequested) =>
       ({ ..state, phase: CollabPhase::Closed }, CollabDecision::Stop)
+    (CollabPhase::Failed, CollabEvent::TransportFailed(_))
+    | (CollabPhase::Closed, CollabEvent::TransportFailed(_)) =>
+      (state, CollabDecision::NoEffect)
+    (_, CollabEvent::TransportFailed(error)) =>
+      ({ ..state, phase: CollabPhase::Failed }, CollabDecision::Fail(error))
     (CollabPhase::StartingHost, CollabEvent::HostStartSucceeded(bootstrap)) =>
       (
         { ..state, phase: CollabPhase::Hosting, bootstrap: Some(bootstrap) },
@@ -330,6 +344,7 @@ fn parse_startup(raw : String) -> Result[StartupMode, StartupConfigError] {
   let mut role : String? = None
   let mut room : String? = None
   let mut peer : String? = None
+  let mut transport : String? = None
   for pair in query.split("&") {
     if pair.is_empty() {
       continue
@@ -343,6 +358,7 @@ fn parse_startup(raw : String) -> Result[StartupMode, StartupConfigError] {
       "role" => role = Some(value.to_owned())
       "room" => room = Some(value.to_owned())
       "peer" => peer = Some(value.to_owned())
+      "transport" => transport = Some(value.to_owned())
       _ => return Err(StartupConfigError::UnexpectedParameter(key.to_owned()))
     }
   }
@@ -363,9 +379,14 @@ fn parse_startup(raw : String) -> Result[StartupMode, StartupConfigError] {
       }
     None => return Err(StartupConfigError::MissingPeer)
   }
+  let transport = match transport {
+    None | Some("broadcast") => CollabTransportKind::Broadcast
+    Some("websocket") => CollabTransportKind::WebSocket
+    Some(value) => return Err(StartupConfigError::InvalidTransport(value))
+  }
   match role {
-    "host" => Ok(StartupMode::Host(peer, room.trim().to_owned()))
-    "join" => Ok(StartupMode::Join(peer, room.trim().to_owned()))
+    "host" => Ok(StartupMode::Host(peer, room.trim().to_owned(), transport))
+    "join" => Ok(StartupMode::Join(peer, room.trim().to_owned(), transport))
     value => Err(StartupConfigError::InvalidRole(value))
   }
 }
