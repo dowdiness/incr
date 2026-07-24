@@ -5,14 +5,14 @@ test "facade derived: get returns cycle error in tracked context" {
   let cell_id = derived.cell_id
   let meta = rt.get_memo_data(cell_id)
   meta.in_progress = true
-  rt.push_tracking(cell_id)
+  Tracker::push_tracking(rt, cell_id)
 
   let got_cycle = match derived.get() {
     Ok(_) => false
     Err(err) => err.cell() == cell_id
   }
   meta.in_progress = false
-  ignore(rt.pop_tracking())
+  ignore(Tracker::pop_tracking(rt))
   inspect(got_cycle, content="true")
 }
 

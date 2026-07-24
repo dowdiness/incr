@@ -217,7 +217,7 @@ pub fn[K, V] MapRelation::iter(self : MapRelation[K, V]) -> Iter[(K, V)] {
 /// reads while a memo/reaction computation is active.
 fn[K, V] MapRelation::record_read_dependency(self : MapRelation[K, V]) -> Unit {
   self.rt.check_cross_runtime(self.rt.core.runtime_id, "MapRelation")
-  self.rt.record_dependency(self.cell_id)
+  Tracker::record_dependency(self.rt, self.cell_id)
 }
 
 ///|

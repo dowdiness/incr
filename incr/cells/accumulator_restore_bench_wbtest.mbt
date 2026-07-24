@@ -55,7 +55,12 @@ fn bench_restore(b : @bench.T, n : Int) -> Unit {
       reads: None,
     }
     rt.accumulator_commit_hook.active.set(m_id, state)
-    rt.accumulator_commit_hook.after_abort(rt, m_id, abort_error)
+    MemoCommitPhase::after_abort(
+      rt.accumulator_commit_hook,
+      rt,
+      m_id,
+      abort_error,
+    )
     // after_abort removed active[m_id]; next iteration repopulates.
   })
 }

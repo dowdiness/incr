@@ -280,7 +280,7 @@ fn push_failure_cleanup_harness_for_test(
 ) -> Result[Unit, Error] {
   let run = fn() raise Failure {
     rt.enter_phase(PushPropagating)
-    rt.push_tracking(cell_id)
+    Tracker::push_tracking(rt, cell_id)
     run_body() catch {
       e => {
         ignore(@kernel.pop_tracking_full(rt.core))

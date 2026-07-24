@@ -100,7 +100,7 @@ fn[T : Eq] ReachableDerived::read_result_inner(
       let r = self.force_recompute()
       match r {
         Ok(value) => {
-          self.rt.record_dependency(self.cell_id)
+          Tracker::record_dependency(self.rt, self.cell_id)
           Ok(value)
         }
         Err(e) => Err(e)
@@ -109,13 +109,13 @@ fn[T : Eq] ReachableDerived::read_result_inner(
     Some(cached) => {
       let cell = self.rt.get_memo_data(self.cell_id)
       if cell.verified_at >= self.rt.core.revision.current_revision {
-        self.rt.record_dependency(self.cell_id)
+        Tracker::record_dependency(self.rt, self.cell_id)
         Ok(cached)
       } else {
         let vr = self.rt.pull_verify(self.cell_id)
         match vr {
           Ok(_) => {
-            self.rt.record_dependency(self.cell_id)
+            Tracker::record_dependency(self.rt, self.cell_id)
             match self.value {
               Some(v) => Ok(v)
               None =>

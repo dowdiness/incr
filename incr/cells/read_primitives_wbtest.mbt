@@ -41,14 +41,14 @@ test "memo read primitive: read_result returns cycle error" {
   let derived = Derived(rt, () => 1)
   let meta = rt.get_memo_data(derived.id())
   meta.in_progress = true
-  rt.push_tracking(derived.id())
+  Tracker::push_tracking(rt, derived.id())
 
   let got_cycle = match derived.read_result() {
     Ok(_) => false
     Err(err) => err.cell() == derived.id()
   }
   meta.in_progress = false
-  ignore(rt.pop_tracking())
+  ignore(Tracker::pop_tracking(rt))
   inspect(got_cycle, content="true")
 }
 

@@ -99,7 +99,7 @@ fn[T] EagerDerived::read_permissive(self : EagerDerived[T]) -> T {
   guard !self.rt.is_cell_disposed(cell_id) else {
     abort("EagerDerived::read called on a disposed eager derived cell")
   }
-  self.rt.record_dependency(cell_id)
+  Tracker::record_dependency(self.rt, cell_id)
   self.value.val.unwrap()
 }
 
