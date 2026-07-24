@@ -712,16 +712,36 @@ pub fn Runtime::dispose_rule(
 }
 
 ///|
-/// Disposes a cell by CellId, dispatching via CellLifecycle trait.
-/// Pure-state guards (cross-runtime, already-disposed, phase/tracking, and
-/// gc_root_counts cleanup) live in `@kernel`; the trait dispatch on
-/// `self.cell_lifecycle` stays on Runtime because the CellLifecycle trait
-/// is defined over Runtime (out of R1 scope to retype).
-pub fn Runtime::dispose_cell(self : Runtime, cell_id : CellId) -> Unit {
-  guard @kernel.validate_cell_for_dispose(self.core, cell_id) else { return }
+/// Attempts cell disposal through the lifecycle coordinator.
+///
+/// Lifecycle preflight rejections are returned as `Err` so the rejection
+/// boundary can be tested without mutating GC-root bookkeeping. Structural
+/// validation and lifecycle guard violations still abort; the public
+/// `Runtime::dispose_cell` wrapper preserves that aborting contract.
+fn Runtime::try_dispose_cell(
+  self : Runtime,
+  cell_id : CellId,
+) -> Result[Unit, DisposeError] {
+  guard @kernel.validate_cell_for_dispose(self.core, cell_id) else {
+    return Ok(())
+  }
   @kernel.check_dispose_guard(self.core, cell_id)
-  @kernel.drop_gc_root(self.core, cell_id)
-  self.cell_lifecycle[cell_id.id].dispose_cell(self, cell_id)
+  match self.cell_lifecycle[cell_id.id].preflight_dispose_cell(self, cell_id) {
+    Some(error) => Err(error)
+    None => {
+      self.cell_lifecycle[cell_id.id].dispose_cell(self, cell_id)
+      @kernel.drop_gc_root(self.core, cell_id)
+      Ok(())
+    }
+  }
+}
+
+///|
+pub fn Runtime::dispose_cell(self : Runtime, cell_id : CellId) -> Unit {
+  match self.try_dispose_cell(cell_id) {
+    Ok(_) => ()
+    Err(DisposeError::Rejected(error)) => abort(error)
+  }
 }
 
 ///|
