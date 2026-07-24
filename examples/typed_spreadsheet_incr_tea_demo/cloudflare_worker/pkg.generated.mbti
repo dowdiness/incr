@@ -1,0 +1,36 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "examples/typed_spreadsheet_incr_tea_demo/cloudflare_worker"
+
+// Values
+
+// Errors
+
+// Types and methods
+#external
+pub type DurableObjectNamespace
+
+#external
+pub type DurableObjectState
+
+#external
+pub type DurableObjectStub
+
+#external
+pub type Env
+
+#external
+pub type ExecutionContext
+
+#external
+pub type JsPromise[X]
+
+#external
+pub type Request
+
+#external
+pub type Response
+
+// Type aliases
+
+// Traits
+

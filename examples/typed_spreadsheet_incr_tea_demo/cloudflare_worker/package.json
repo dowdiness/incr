@@ -1,0 +1,14 @@
+{
+  "name": "typed-spreadsheet-cloudflare-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:moonbit": "cd ../../.. && NEW_MOON_MOD=0 moon build --target js --release examples/typed_spreadsheet_incr_tea_demo/cloudflare_worker",
+    "build": "npm run build:moonbit",
+    "dev": "npm run build:moonbit && wrangler dev --config wrangler.jsonc --local",
+    "deploy": "npm run build:moonbit && wrangler deploy --config wrangler.jsonc"
+  },
+  "devDependencies": {
+    "wrangler": "4.114.0"
+  }
+}
