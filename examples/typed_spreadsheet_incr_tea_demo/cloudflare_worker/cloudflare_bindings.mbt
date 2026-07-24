@@ -159,7 +159,34 @@ extern "js" fn broadcast_text(
   #| }
 
 ///|
-/// Close a WebSocket with a protocol/size error.
+/// Initialize bounded per-connection rate metadata for Hibernation.
+extern "js" fn initialize_rate_state(socket : WebSocket) -> Unit =
+  #| socket => socket.serializeAttachment({ windowStart: Date.now(), count: 0 })
+
+///|
+/// Consume one message from a bounded per-connection rate window.
+extern "js" fn allow_rate_message(
+  socket : WebSocket,
+  window_ms : Int,
+  max_messages : Int,
+) -> Bool =
+  #| (socket, windowMs, maxMessages) => {
+  #|   const now = Date.now();
+  #|   const previous = socket.deserializeAttachment() ?? { windowStart: now, count: 0 };
+  #|   const state = now - previous.windowStart >= windowMs
+  #|     ? { windowStart: now, count: 0 }
+  #|     : previous;
+  #|   if (state.count >= maxMessages) {
+  #|     socket.serializeAttachment(state);
+  #|     return false;
+  #|   }
+  #|   state.count += 1;
+  #|   socket.serializeAttachment(state);
+  #|   return true;
+  #| }
+
+///|
+/// Close a WebSocket with a protocol/size/rate error.
 extern "js" fn close_websocket(
   socket : WebSocket,
   code : Int,

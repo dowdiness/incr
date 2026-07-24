@@ -40,6 +40,12 @@ const MAX_ROOM_CONNECTIONS : Int = 2
 const MAX_MESSAGE_BYTES : Int = 256 * 1024
 
 ///|
+const RATE_WINDOW_MS : Int = 10_000
+
+///|
+const MAX_MESSAGES_PER_WINDOW : Int = 60
+
+///|
 fn room_fetch(state : DurableObjectState, request : Request) -> Response {
   if !is_websocket_upgrade(request) {
     return response_text("cloudflare room skeleton", 200)
@@ -51,6 +57,7 @@ fn room_fetch(state : DurableObjectState, request : Request) -> Response {
   let client = pair_client(pair)
   let server = pair_server(pair)
   accept_websocket(state, server)
+  initialize_rate_state(server)
   response_websocket(client)
 }
 
@@ -60,6 +67,10 @@ fn room_message(
   sender : WebSocket,
   message : String,
 ) -> Unit {
+  if !allow_rate_message(sender, RATE_WINDOW_MS, MAX_MESSAGES_PER_WINDOW) {
+    close_websocket(sender, 1013, "rate limit exceeded")
+    return
+  }
   if !broadcast_text(state, sender, message, MAX_MESSAGE_BYTES) {
     close_websocket(sender, 1009, "message too large")
   }
