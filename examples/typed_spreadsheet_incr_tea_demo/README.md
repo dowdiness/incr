@@ -4,16 +4,28 @@ Side-by-side browser proof for expressing the typed spreadsheet's core edit loop
 with the experimental `examples/incr_tea` renderer. The proof now exercises the
 full 50×50 model while keeping the Rabbita demo as the primary live deployment.
 
-## Collaboration prototype disclaimer
+## Collaboration scope
 
-The `/collab?role=host|join&room=ROOM&peer=PEER` routes are demo-private and
-intentionally fixed to two same-origin pages in the same browser profile. The
-browser proof covers host bootstrap, join attach, and bidirectional edits over a
-single temporary `BroadcastChannel` room. It is evidence for this prototype,
-not a product protocol: there is no recovery, reconnect, persistence, presence,
-or multi-page product feature set. After a collaboration failure, the channel
-closes but the spreadsheet remains available as a local-only editor; subsequent
-edits are not synchronized.
+The `/collab?role=host|join&room=ROOM&peer=PEER` route supports two transport
+providers selected at the imperative shell boundary:
+
+- `transport=broadcast` (the default) is the local same-origin proof and uses a
+  temporary `BroadcastChannel` room;
+- `transport=websocket` connects to `/api/rooms/ROOM` on the Cloudflare Worker,
+  where a Durable Object performs opaque text relay.
+
+For the hosted provider, `ROOM` must be a high-entropy URL-safe capability of at
+least 22 characters. Share the same capability between the host and joiner:
+
+```text
+https://example.com/collab?role=host&room=CAPABILITY&peer=host&transport=websocket
+https://example.com/collab?role=join&room=CAPABILITY&peer=join&transport=websocket
+```
+
+The first slice is intentionally host-first and limited to two connections. It
+has no persistence, reconnect recovery, presence, accounts, or production SLA.
+After a collaboration failure, the spreadsheet remains available as a clearly
+labelled local-only editor; subsequent edits are not synchronized.
 
 ## What it covers
 
