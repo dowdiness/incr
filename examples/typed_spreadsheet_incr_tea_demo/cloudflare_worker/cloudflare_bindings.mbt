@@ -76,6 +76,14 @@ extern "js" fn room_namespace(env : Env) -> DurableObjectNamespace =
   #| env => env.ROOMS
 
 ///|
+/// Forward non-API requests to Workers Static Assets.
+extern "js" fn assets_fetch(
+  env : Env,
+  request : Request,
+) -> JsPromise[Response] =
+  #| (env, request) => env.ASSETS.fetch(request)
+
+///|
 /// Resolve a Durable Object by its canonical room name.
 extern "js" fn namespace_get_by_name(
   room_namespace : DurableObjectNamespace,

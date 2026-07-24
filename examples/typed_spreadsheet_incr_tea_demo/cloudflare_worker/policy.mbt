@@ -6,6 +6,11 @@ const MIN_ROOM_CAPABILITY_LENGTH : Int = 22
 const MAX_ROOM_CAPABILITY_LENGTH : Int = 128
 
 ///|
+fn is_room_path(pathname : String) -> Bool {
+  pathname == "/api/rooms" || pathname.has_prefix("/api/rooms/")
+}
+
+///|
 fn is_capability_char(value : Char) -> Bool {
   value.is_ascii_alphabetic() ||
   value.is_ascii_digit() ||

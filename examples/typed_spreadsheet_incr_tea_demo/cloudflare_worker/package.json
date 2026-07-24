@@ -3,10 +3,12 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build:demo": "npm --prefix .. run build",
     "build:moonbit": "cd ../../.. && NEW_MOON_MOD=0 moon build --target js --release examples/typed_spreadsheet_incr_tea_demo/cloudflare_worker",
-    "build": "npm run build:moonbit",
-    "dev": "npm run build:moonbit && wrangler dev --config wrangler.jsonc --local",
-    "deploy": "npm run build:moonbit && wrangler deploy --config wrangler.jsonc"
+    "prepare:assets": "rm -rf dist && cp -R ../dist dist",
+    "build": "npm run build:demo && npm run prepare:assets && npm run build:moonbit",
+    "dev": "npm run build && wrangler dev --config wrangler.jsonc --local",
+    "deploy": "npm run build && wrangler deploy --config wrangler.jsonc"
   },
   "devDependencies": {
     "wrangler": "4.114.0"

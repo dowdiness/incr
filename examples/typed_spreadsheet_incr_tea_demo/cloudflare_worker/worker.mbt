@@ -11,6 +11,9 @@ fn worker_fetch(
   if pathname == "/health" {
     return promise_response(response_text("cloudflare worker skeleton", 200))
   }
+  if !is_room_path(pathname) {
+    return assets_fetch(env, request)
+  }
   match
     room_request_allowed(
       pathname,

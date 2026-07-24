@@ -3,6 +3,11 @@
   "name": "typed-spreadsheet-cloudflare-worker",
   "main": "./entry.mjs",
   "compatibility_date": "2026-07-24",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application"
+  },
   "durable_objects": {
     "bindings": [
       {
