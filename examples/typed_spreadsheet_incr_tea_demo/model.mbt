@@ -482,6 +482,15 @@ fn cell_result_text(result : @typed_spreadsheet.CellResult) -> String {
 }
 
 ///|
+fn cell_snapshot_text(snapshot : @typed_spreadsheet.CellSnapshot) -> String {
+  if snapshot.present {
+    cell_result_text(snapshot.result)
+  } else {
+    ""
+  }
+}
+
+///|
 fn cell_value_text(value : @typed_spreadsheet.CellValue) -> String {
   match value {
     Int(value) => "\{value}"

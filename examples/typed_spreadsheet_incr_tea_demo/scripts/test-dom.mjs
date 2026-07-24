@@ -107,6 +107,19 @@ try {
     'empty evidence panel should announce updates politely',
   );
 
+  await runTest('missing cells render as blank rather than reference errors', async () => {
+    await waitForCellText(page, 'C1', '');
+    const emptyCell = page.locator('#cell-C1');
+    assert(
+      await emptyCell.getAttribute('aria-label') === 'Select cell C1: empty, blank',
+      'missing cell should expose blank accessible text',
+    );
+    assert(
+      await emptyCell.evaluate(element => element.classList.contains('sheet-cell--empty')),
+      'missing cell should use the empty visual class',
+    );
+  });
+
   await runTest('focused grid keeps keyboard navigation across selection moves', async () => {
     await page.locator('#sheet-grid').focus();
     const anchor = await page.locator('#cell-C1').elementHandle();
