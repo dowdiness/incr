@@ -140,7 +140,7 @@ pub fn[T] Relation::iter(self : Relation[T]) -> Iter[T] {
 /// a memo/reaction computation is active.
 fn[T] Relation::record_read_dependency(self : Relation[T]) -> Unit {
   self.rt.check_cross_runtime(self.rt.core.runtime_id, "Relation")
-  self.rt.record_dependency(self.cell_id)
+  Tracker::record_dependency(self.rt, self.cell_id)
 }
 
 ///|

@@ -257,7 +257,7 @@ fn[T] Derived::get_result_inner_impl(
       match r {
         Ok(_) => {
           if record_dependency {
-            self.rt.record_dependency(self.cell_id)
+            Tracker::record_dependency(self.rt, self.cell_id)
           }
           Ok(self.value.unwrap())
         }
@@ -268,7 +268,7 @@ fn[T] Derived::get_result_inner_impl(
       let cell = self.rt.get_memo_data(self.cell_id)
       if cell.verified_at >= self.rt.core.revision.current_revision {
         if record_dependency {
-          self.rt.record_dependency(self.cell_id)
+          Tracker::record_dependency(self.rt, self.cell_id)
         }
         Ok(cached)
       } else {
@@ -276,7 +276,7 @@ fn[T] Derived::get_result_inner_impl(
         match vr {
           Ok(_) => {
             if record_dependency {
-              self.rt.record_dependency(self.cell_id)
+              Tracker::record_dependency(self.rt, self.cell_id)
             }
             Ok(self.value.unwrap())
           }

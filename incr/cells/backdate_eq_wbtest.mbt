@@ -25,7 +25,7 @@ test "BackdateEq default: same changed_at → backdate_equal returns true" {
   let b = Stamped::{ value: 2, changed_at: r }
   // Values differ (1 vs 2) but revision is the same — BackdateEq only compares revisions.
   inspect(a.value == b.value, content="false")
-  inspect(a.backdate_equal(b), content="true")
+  inspect(@incr_types.BackdateEq::backdate_equal(a, b), content="true")
 }
 
 ///|
@@ -34,7 +34,7 @@ test "BackdateEq default: different changed_at → backdate_equal returns false"
   let r1 = r0.next()
   let a = Stamped::{ value: 1, changed_at: r0 }
   let b = Stamped::{ value: 1, changed_at: r1 }
-  inspect(a.backdate_equal(b), content="false")
+  inspect(@incr_types.BackdateEq::backdate_equal(a, b), content="false")
 }
 
 ///|
@@ -44,7 +44,7 @@ test "BackdateEq default: same value but different changed_at → backdate_equal
   let r1 = r0.next()
   let a = Stamped::{ value: 42, changed_at: r0 }
   let b = Stamped::{ value: 42, changed_at: r1 }
-  inspect(a.backdate_equal(b), content="false")
+  inspect(@incr_types.BackdateEq::backdate_equal(a, b), content="false")
 }
 
 ///|

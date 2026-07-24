@@ -288,7 +288,11 @@ fn Runtime::dispatch_before_recompute_hooks(
   if !event_enabled &&
     !runtime_event_enabled &&
     self.commit_hooks.length() == self.runtime_evaluation_event_hook_index + 1 {
-    self.accumulator_commit_hook.before_recompute(self, cell_id)
+    MemoCommitPhase::before_recompute(
+      self.accumulator_commit_hook,
+      self,
+      cell_id,
+    )
     return
   }
   for i = 0; i < self.commit_hooks.length(); i = i + 1 {
@@ -310,7 +314,12 @@ fn Runtime::dispatch_after_abort_hooks(
   if !event_enabled &&
     !runtime_event_enabled &&
     self.commit_hooks.length() == self.runtime_evaluation_event_hook_index + 1 {
-    self.accumulator_commit_hook.after_abort(self, cell_id, error)
+    MemoCommitPhase::after_abort(
+      self.accumulator_commit_hook,
+      self,
+      cell_id,
+      error,
+    )
     return
   }
   for i = 0; i < self.commit_hooks.length(); i = i + 1 {
@@ -331,7 +340,7 @@ fn Runtime::dispatch_after_success_hooks(
   if !event_enabled &&
     !runtime_event_enabled &&
     self.commit_hooks.length() == self.runtime_evaluation_event_hook_index + 1 {
-    self.accumulator_commit_hook.after_success(self, cell_id)
+    MemoCommitPhase::after_success(self.accumulator_commit_hook, self, cell_id)
     return
   }
   for i = 0; i < self.commit_hooks.length(); i = i + 1 {
@@ -689,7 +698,7 @@ impl RevisionManager for Runtime with fn bump_revision(self, durability) {
     }
     return
   }
-  self.advance_revision(durability)
+  RevisionManager::advance_revision(self, durability)
 }
 
 ///|

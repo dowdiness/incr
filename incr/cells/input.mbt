@@ -99,7 +99,7 @@ pub fn[T] Input::get(self : Input[T]) -> T {
     abort("Input::get called on a disposed input")
   }
   self.rt.check_cross_runtime(self.rt.core.runtime_id, "Input")
-  self.rt.record_dependency(self.cell_id)
+  Tracker::record_dependency(self.rt, self.cell_id)
   let value = self.value
   if self.rt.has_pending_events() {
     self.rt.drain_pending_events_if_idle()
@@ -142,7 +142,7 @@ pub fn[T] Input::get_result(self : Input[T]) -> Result[T, ReadError] {
     return Err(ReadError::disposed(self.cell_id))
   }
   self.rt.check_cross_runtime(self.rt.core.runtime_id, "Input")
-  self.rt.record_dependency(self.cell_id)
+  Tracker::record_dependency(self.rt, self.cell_id)
   let value = self.value
   if self.rt.has_pending_events() {
     self.rt.drain_pending_events_if_idle()
@@ -333,7 +333,7 @@ fn[T : Eq] Input::set_batch(self : Input[T], new_value : T) -> Unit {
     let sig_committable : &Committable = sig_data
     self.rt.record_batch_input(sig_committable)
   }
-  self.rt.bump_revision(self.durability)
+  RevisionManager::bump_revision(self.rt, self.durability)
 }
 
 ///|
@@ -358,7 +358,7 @@ fn[T] Input::set_batch_force(self : Input[T], new_value : T) -> Unit {
     let sig_committable : &Committable = sig_data
     self.rt.record_batch_input(sig_committable)
   }
-  self.rt.bump_revision(self.durability)
+  RevisionManager::bump_revision(self.rt, self.durability)
 }
 
 ///|

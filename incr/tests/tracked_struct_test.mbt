@@ -103,7 +103,7 @@ fn TestTracked::new(rt : @incr.Runtime) -> TestTracked {
 test "InputFieldOwner cell_ids returns all field IDs" {
   let rt = @incr.Runtime::Runtime()
   let t = TestTracked::new(rt)
-  let ids = t.cell_ids()
+  let ids = @incr.InputFieldOwner::cell_ids(t)
   inspect(ids.length(), content="3")
   // IDs are distinct
   inspect(ids[0] == ids[1], content="false")
@@ -114,8 +114,8 @@ test "InputFieldOwner cell_ids returns all field IDs" {
 test "InputFieldOwner cell_ids ordering is stable" {
   let rt = @incr.Runtime::Runtime()
   let t = TestTracked::new(rt)
-  let ids1 = t.cell_ids()
-  let ids2 = t.cell_ids()
+  let ids1 = @incr.InputFieldOwner::cell_ids(t)
+  let ids2 = @incr.InputFieldOwner::cell_ids(t)
   inspect(ids1[0] == ids2[0], content="true")
   inspect(ids1[1] == ids2[1], content="true")
   inspect(ids1[2] == ids2[2], content="true")
@@ -182,7 +182,7 @@ test "create_input_field with RuntimeContext" {
 test "InputField introspection via Runtime::cell_info" {
   let rt = @incr.Runtime::Runtime()
   let t = TestTracked::new(rt)
-  let ids = t.cell_ids()
+  let ids = @incr.InputFieldOwner::cell_ids(t)
   for i = 0; i < ids.length(); i = i + 1 {
     let info = rt.cell_info(ids[i])
     inspect(info is None, content="false")

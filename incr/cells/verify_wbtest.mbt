@@ -7,7 +7,7 @@ test "verify leak simulation: stale in_progress causes spurious cycle" {
   let derived = Derived(rt, () => sig.get() + 1)
   let meta = rt.get_memo_data(derived.id())
   meta.in_progress = true
-  rt.push_tracking(derived.id())
+  Tracker::push_tracking(rt, derived.id())
 
   match derived.get() {
     Ok(_) => abort("expected cycle error")
@@ -31,10 +31,10 @@ test "verify leak simulation: manual cleanup recovers memo reads" {
   let derived = Derived(rt, () => sig.get() + 1)
   let meta = rt.get_memo_data(derived.id())
   meta.in_progress = true
-  rt.push_tracking(derived.id())
+  Tracker::push_tracking(rt, derived.id())
 
   meta.in_progress = false
-  ignore(rt.pop_tracking())
+  ignore(Tracker::pop_tracking(rt))
 
   inspect(derived.read_or_abort(), content="1")
 }
@@ -46,7 +46,7 @@ test "memo_get_or_returns_fallback_on_cycle_error" {
   let derived = Derived(rt, () => sig.get() + 1)
   let meta = rt.get_memo_data(derived.id())
   meta.in_progress = true
-  rt.push_tracking(derived.id())
+  Tracker::push_tracking(rt, derived.id())
 
   match derived.get() {
     Ok(v) => inspect(v, content="-123")
@@ -55,7 +55,7 @@ test "memo_get_or_returns_fallback_on_cycle_error" {
   }
 
   meta.in_progress = false
-  ignore(rt.pop_tracking())
+  ignore(Tracker::pop_tracking(rt))
 }
 
 ///|
@@ -65,7 +65,7 @@ test "memo_get_or_else_receives_cycle_error" {
   let derived = Derived(rt, () => sig.get() + 1)
   let meta = rt.get_memo_data(derived.id())
   meta.in_progress = true
-  rt.push_tracking(derived.id())
+  Tracker::push_tracking(rt, derived.id())
 
   let captured : Ref[CellId?] = { val: None }
   let v = match derived.get() {
@@ -79,7 +79,7 @@ test "memo_get_or_else_receives_cycle_error" {
   inspect(v, content="-456")
   inspect(captured.val == Some(derived.id()), content="true")
   meta.in_progress = false
-  ignore(rt.pop_tracking())
+  ignore(Tracker::pop_tracking(rt))
 }
 
 ///|
