@@ -289,6 +289,75 @@ fn attach_peer(
 }
 
 ///|
+test "host export JSON roundtrip attaches the supplied node" {
+  let host_fixture = BindingFixture::new(@incr.Runtime())
+  let host_document = @container.Document::new("preflight-host")
+  let unrelated_host_node = host_document.create_node(parent=@container.root_id)
+  let host_node = host_document.create_node(parent=@container.root_id)
+  host_document.set_property(
+    host_node,
+    property_key("A1"),
+    @core.encode_register(@core.CellRegister::Source("10")),
+  )
+  host_document.set_property(
+    host_node,
+    property_key("B1"),
+    @core.encode_register(@core.CellRegister::Source("=A1 + 1")),
+  )
+  let host = match
+    EgwAdapter::attach(
+      host_fixture.runtime,
+      @core.CollaborativeSheetId::CollaborativeSheetId("sheet"),
+      @typed_spreadsheet.SheetId(7),
+      @domain.DocumentGeneration::initial(),
+      host_document,
+      host_node,
+      seeds(),
+      host_fixture.bindings(),
+      reset_authority,
+    ) {
+    AdapterStartResult::Ready(adapter, _) => adapter
+    AdapterStartResult::Failed(_) => fail("host attach failed")
+  }
+  let wire = host.export_all().to_json_string()
+  let message = @container.SyncMessage::from_json_string(wire) catch {
+    error => raise error
+  }
+  let joiner_document = @container.Document::new("preflight-joiner")
+  ignore(joiner_document.sync().apply(message))
+  assert_true(joiner_document.is_alive(host_node))
+  assert_eq(
+    joiner_document.get_property(host_node, "cell/A1"),
+    host.document.get_property(host.node, "cell/A1"),
+  )
+  assert_eq(
+    joiner_document.get_property(host_node, "cell/B1"),
+    host.document.get_property(host.node, "cell/B1"),
+  )
+  assert_true(joiner_document.version() != @container.Version::empty())
+  assert_true(unrelated_host_node != host.node)
+  assert_true(joiner_document.children(@container.root_id)[0] != host_node)
+  let fixture = BindingFixture::new(@incr.Runtime())
+  let attached = match
+    EgwAdapter::attach(
+      fixture.runtime,
+      host.identity(),
+      host.sheet_id(),
+      host.generation(),
+      joiner_document,
+      host_node,
+      seeds(),
+      fixture.bindings(),
+      reset_authority,
+    ) {
+    AdapterStartResult::Ready(adapter, _) => adapter
+    AdapterStartResult::Failed(_) => fail("attach failed")
+  }
+  assert_int(attached.worksheet, id(attached, "A1"), 10)
+  assert_int(attached.worksheet, id(attached, "B1"), 11)
+}
+
+///|
 test "bootstrap writes seeds and projects computed cells" {
   let (adapter, fixture) = fixture_start("bootstrap", 7)
   assert_true(adapter.version() != @container.Version::empty())

@@ -74,6 +74,7 @@ pub fn EgwAdapter::formula_ast(Self, String) -> Result[@typed_spreadsheet.Formul
 pub fn EgwAdapter::generation(Self) -> @domain.DocumentGeneration
 pub fn EgwAdapter::identity(Self) -> @core.CollaborativeSheetId
 pub fn EgwAdapter::inspect_cell(Self, String) -> @typed_spreadsheet.CellSnapshot
+pub fn EgwAdapter::node(Self) -> @container.TreeNodeId
 pub fn EgwAdapter::projection_state(Self) -> @core.ProjectionState
 pub fn EgwAdapter::read_cell(Self, String) -> @typed_spreadsheet.CellResult
 pub fn EgwAdapter::sheet_id(Self) -> @typed_spreadsheet.SheetId

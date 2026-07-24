@@ -38,17 +38,6 @@ fn inspect_model_cell(
 }
 
 ///|
-fn TypedSheetApp::dispose(self : TypedSheetApp) -> Unit {
-  self._state.val.adapter.dispose()
-  self.prog_grid.dispose()
-  self.prog_formula.dispose()
-  self.prog_status.dispose()
-  self.prog_trace.dispose()
-  self.prog_evidence.dispose()
-  self._state.val._scope.dispose()
-}
-
-///|
 test "incr_tea spreadsheet proof starts with seeded representative grid" {
   let app = try! TypedSheetApp(@incr.Runtime())
   let model = app._state.val.peek_model()
@@ -71,6 +60,32 @@ test "incr_tea spreadsheet proof starts with seeded representative grid" {
     content="true",
   )
 
+  app.dispose()
+}
+
+///|
+test "collaboration rejects reset before planning or adapter mutation" {
+  let app = TypedSheetApp::with_mode(
+    @incr.Runtime(),
+    SheetStartMode::Host("room", ReplicaId("replica")),
+  ) catch {
+    _ => fail("collaboration fixture failed to start")
+  }
+  let before = app._state.val.adapter.version()
+  let before_node = app._state.val.adapter.node()
+  let before_identity = app._state.val.adapter.identity().value()
+  ignore(app.prog_grid.dispatch(ResetSheet))
+  inspect(
+    app._state.val.status.peek(),
+    content="Reset is unavailable while collaborating.",
+  )
+  assert_eq(
+    app._state.val.adapter.generation(),
+    @domain.DocumentGeneration::initial(),
+  )
+  inspect(app._state.val.adapter.version() == before, content="true")
+  assert_eq(app._state.val.adapter.node(), before_node)
+  assert_eq(app._state.val.adapter.identity().value(), before_identity)
   app.dispose()
 }
 

@@ -13,7 +13,16 @@ struct TypedSheetApp {
 fn TypedSheetApp::TypedSheetApp(
   runtime : @incr.Runtime,
 ) -> TypedSheetApp raise @container.DocumentError {
-  let state = Ref(SheetState::new(runtime))
+  TypedSheetApp::with_mode(runtime, SheetStartMode::Standalone)
+}
+
+///|
+/// Constructs the app after the collaboration shell has selected authority inputs.
+fn TypedSheetApp::with_mode(
+  runtime : @incr.Runtime,
+  mode : SheetStartMode,
+) -> TypedSheetApp raise @container.DocumentError {
+  let state = Ref(SheetState::new(runtime, mode))
   let update : (Msg) -> @tea.Cmd[Msg] = msg => handle_msg(runtime, state, msg)
   // Shared update; each program gets its own scope for the view Derived +
   // Watch. Disposing any one program only tears down its view tracking, not
@@ -65,11 +74,39 @@ fn TypedSheetApp::TypedSheetApp(
 }
 
 ///|
+/// Installs the one local committed-sync publisher owned by collaboration.
+fn TypedSheetApp::set_publisher(
+  self : TypedSheetApp,
+  publish : (@container.SyncMessage) -> Unit,
+) -> Unit {
+  self._state.val.publish_sync = Some(publish)
+}
+
+///|
+/// Applies remote EGW state through the same adapter projection path.
+fn TypedSheetApp::apply_remote(
+  self : TypedSheetApp,
+  message : @container.SyncMessage,
+) -> @egw_adapter.RemoteApplyResult raise @container.DocumentError {
+  let result = self._state.val.adapter.apply_sync(message)
+  self._state.val.status.set("Remote update applied.")
+  self._state.val.error.set(None)
+  result
+}
+
+///|
 fn handle_msg(
   runtime : @incr.Runtime,
   state : Ref[SheetState],
   msg : Msg,
 ) -> @tea.Cmd[Msg] {
+  if msg is ResetSheet && state.val.collab_mode {
+    state.val.status.set("Reset is unavailable while collaborating.")
+    state.val.error.set(
+      Some("Collaboration keeps one shared document generation."),
+    )
+    return @tea.Cmd::batch([publish_ai_context_cmd(state)])
+  }
   let plan = match msg {
     ApplySelected
     | ApplyInlineEdit(_)
@@ -97,6 +134,18 @@ fn handle_msg(
   }
   let interpreted = interpret_sheet_command(runtime, state, plan)
   @tea.Cmd::batch([immediate, interpreted, publish_ai_context_cmd(state)])
+}
+
+///|
+/// Disposes all renderer programs, adapter state, and the owning scope.
+fn TypedSheetApp::dispose(self : TypedSheetApp) -> Unit {
+  self._state.val.adapter.dispose()
+  self.prog_grid.dispose()
+  self.prog_formula.dispose()
+  self.prog_status.dispose()
+  self.prog_trace.dispose()
+  self.prog_evidence.dispose()
+  self._state.val._scope.dispose()
 }
 
 // ── Event configuration (stays shared across all roots) ───────────

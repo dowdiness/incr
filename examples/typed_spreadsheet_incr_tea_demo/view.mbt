@@ -149,14 +149,20 @@ fn state_formula_bar(state : SheetState) -> @tea.Html[Msg] {
           events=[@tea.on_click(DeleteSelected)],
           "Delete",
         ),
-        @tea.button(
-          attrs=@tea.Attrs::build()
-            .class("quiet-button")
-            .attr("type", "button")
-            .to_array(),
-          events=[@tea.on_click(ResetSheet)],
-          "Reset proof",
-        ),
+        if state.collab_mode {
+          @tea.span(attrs=[@tea.class_attr("muted-label")], [
+            @tea.text("Reset unavailable in collaboration"),
+          ])
+        } else {
+          @tea.button(
+            attrs=@tea.Attrs::build()
+              .class("quiet-button")
+              .attr("type", "button")
+              .to_array(),
+            events=[@tea.on_click(ResetSheet)],
+            "Reset proof",
+          )
+        },
       ]),
       view_examples(),
     ],
