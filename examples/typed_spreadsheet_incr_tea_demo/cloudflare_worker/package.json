@@ -8,9 +8,11 @@
     "prepare:assets": "rm -rf dist && cp -R ../dist dist",
     "build": "npm run build:demo && npm run prepare:assets && npm run build:moonbit",
     "dev": "npm run build && wrangler dev --config wrangler.jsonc --local",
-    "deploy": "npm run build && wrangler deploy --config wrangler.jsonc"
+    "deploy": "npm run build && wrangler deploy --config wrangler.jsonc",
+    "test:e2e": "node scripts/test-collab.mjs"
   },
   "devDependencies": {
+    "playwright": "1.60.0",
     "wrangler": "4.114.0"
   }
 }
