@@ -105,7 +105,7 @@ try {
   }, room);
 
   await hostPage.locator('#cell-A1').click();
-  await hostPage.locator('#formula-editor-input').fill('99');
+  await hostPage.getByLabel('Formula text for A1').fill('99');
   await waitForDraftText(hostPage, 'A1', '99');
   await waitForCellText(joinPage, 'A1', '10');
   await waitForCellText(joinPage, 'B1', '11');
@@ -113,7 +113,7 @@ try {
   assert(await joinPage.evaluate(() => document.activeElement?.id !== 'formula-editor-input'), 'host focus leaked to joiner');
   console.log('✓ draft selection and focus remain local');
 
-  await hostPage.locator('#formula-editor-input').fill('15');
+  await hostPage.getByLabel('Formula text for A1').fill('15');
   await waitForDraftText(hostPage, 'A1', '15');
   await hostPage.locator('.primary-action').click();
   await waitForCellText(hostPage, 'B1', '16');
@@ -138,7 +138,7 @@ try {
   console.log('✓ duplicate Ops is idempotent and does not loop');
 
   await joinPage.locator('#cell-A1').click();
-  await joinPage.locator('#formula-editor-input').fill('20');
+  await joinPage.getByLabel('Formula text for A1').fill('20');
   await waitForDraftText(joinPage, 'A1', '20');
   await joinPage.locator('.primary-action').click();
   await waitForCellText(joinPage, 'B1', '21');
