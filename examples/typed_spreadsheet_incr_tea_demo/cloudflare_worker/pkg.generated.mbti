@@ -30,6 +30,12 @@ pub type Request
 #external
 pub type Response
 
+#external
+pub type WebSocket
+
+#external
+pub type WebSocketPair
+
 // Type aliases
 
 // Traits

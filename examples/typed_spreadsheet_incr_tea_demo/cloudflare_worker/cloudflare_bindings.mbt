@@ -36,6 +36,16 @@ pub type DurableObjectNamespace
 pub type DurableObjectStub
 
 ///|
+/// Cloudflare WebSocket pair.
+#external
+pub type WebSocketPair
+
+///|
+/// Cloudflare WebSocket connection.
+#external
+pub type WebSocket
+
+///|
 /// JavaScript Promise returned by a Cloudflare fetch call.
 #external
 pub type JsPromise[X]
@@ -72,11 +82,79 @@ extern "js" fn response_text(body : String, status : Int) -> Response =
   #| (body, status) => new Response(body, { status })
 
 ///|
+/// Check whether a request asks for a WebSocket upgrade.
+extern "js" fn is_websocket_upgrade(request : Request) -> Bool =
+  #| request => request.headers.get("Upgrade")?.toLowerCase() === "websocket"
+
+///|
+/// Create the server/client pair used by a Durable Object upgrade.
+extern "js" fn new_websocket_pair() -> WebSocketPair =
+  #| () => new WebSocketPair()
+
+///|
+/// Get the client side of a WebSocket pair.
+extern "js" fn pair_client(pair : WebSocketPair) -> WebSocket =
+  #| pair => pair[0]
+
+///|
+/// Get the server side of a WebSocket pair.
+extern "js" fn pair_server(pair : WebSocketPair) -> WebSocket =
+  #| pair => pair[1]
+
+///|
+/// Accept a server WebSocket through the Hibernation API.
+extern "js" fn accept_websocket(
+  state : DurableObjectState,
+  socket : WebSocket,
+) -> Unit =
+  #| (state, socket) => state.acceptWebSocket(socket)
+
+///|
+/// Construct the 101 response for the client side of a WebSocket pair.
+extern "js" fn response_websocket(socket : WebSocket) -> Response =
+  #| socket => new Response(null, { status: 101, webSocket: socket })
+
+///|
+/// Count active room sockets using the Hibernation API.
+extern "js" fn websocket_count(state : DurableObjectState) -> Int =
+  #| state => state.getWebSockets().length
+
+///|
+/// Forward one bounded opaque text frame to every other room socket.
+extern "js" fn broadcast_text(
+  state : DurableObjectState,
+  sender : WebSocket,
+  message : String,
+  max_bytes : Int,
+) -> Bool =
+  #| (state, sender, message, maxBytes) => {
+  #|   if (new TextEncoder().encode(message).byteLength > maxBytes) return false;
+  #|   for (const socket of state.getWebSockets()) {
+  #|     if (socket !== sender) socket.send(message);
+  #|   }
+  #|   return true;
+  #| }
+
+///|
+/// Close a WebSocket with a protocol/size error.
+extern "js" fn close_websocket(
+  socket : WebSocket,
+  code : Int,
+  reason : String,
+) -> Unit =
+  #| (socket, code, reason) => socket.close(code, reason)
+
+///|
 /// Install the MoonBit handlers consumed by the module adapter.
 extern "js" fn install_handlers(
   worker : (Request, Env, ExecutionContext) -> JsPromise[Response],
   room_fetch : (DurableObjectState, Request) -> Response,
+  room_message : (DurableObjectState, WebSocket, String) -> Unit,
 ) -> Unit =
-  #| (worker, roomFetch) => {
-  #|   globalThis.__typedSpreadsheetCloudflareWorker = { worker, roomFetch };
+  #| (worker, roomFetch, roomMessage) => {
+  #|   globalThis.__typedSpreadsheetCloudflareWorker = {
+  #|     worker,
+  #|     roomFetch,
+  #|     roomMessage,
+  #|   };
   #| }

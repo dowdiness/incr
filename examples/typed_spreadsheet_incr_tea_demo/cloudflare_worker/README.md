@@ -2,10 +2,12 @@
 
 Production implementation skeleton for Issue #425.
 
-This phase verifies only the Worker → Durable Object boundary. The Worker
-routes `/health` and `/api/rooms/<room>`; the Durable Object currently returns a
-status response. Spreadsheet protocol, WebSocket relay, room capabilities,
-limits, static assets, and browser transport are implemented in later phases.
+This phase verifies the Worker → Durable Object boundary and a two-connection
+opaque text relay. The Worker routes `/health` and `/api/rooms/<room>`; the
+Durable Object accepts Hibernation WebSockets, excludes the sender, limits the
+room to two connections, and rejects oversized text frames. Spreadsheet
+protocol, room capabilities, rate limits, static assets, and browser transport
+are implemented in later phases.
 
 ## Run locally
 

@@ -31,11 +31,38 @@ extern "js" fn promise_response(response : Response) -> JsPromise[Response] =
   #| response => Promise.resolve(response)
 
 ///|
-fn room_fetch(_state : DurableObjectState, _request : Request) -> Response {
-  response_text("cloudflare room skeleton", 200)
+const MAX_ROOM_CONNECTIONS : Int = 2
+
+///|
+const MAX_MESSAGE_BYTES : Int = 256 * 1024
+
+///|
+fn room_fetch(state : DurableObjectState, request : Request) -> Response {
+  if !is_websocket_upgrade(request) {
+    return response_text("cloudflare room skeleton", 200)
+  }
+  if websocket_count(state) >= MAX_ROOM_CONNECTIONS {
+    return response_text("room is full", 429)
+  }
+  let pair = new_websocket_pair()
+  let client = pair_client(pair)
+  let server = pair_server(pair)
+  accept_websocket(state, server)
+  response_websocket(client)
+}
+
+///|
+fn room_message(
+  state : DurableObjectState,
+  sender : WebSocket,
+  message : String,
+) -> Unit {
+  if !broadcast_text(state, sender, message, MAX_MESSAGE_BYTES) {
+    close_websocket(sender, 1009, "message too large")
+  }
 }
 
 ///|
 fn main {
-  install_handlers(worker_fetch, room_fetch)
+  install_handlers(worker_fetch, room_fetch, room_message)
 }
