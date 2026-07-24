@@ -34,6 +34,106 @@ async function waitForDraftText(page, cell, expected) {
   }, { id: cell, text: expected });
 }
 
+async function openWebSocket(url) {
+  const socket = new WebSocket(url);
+  await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`WebSocket open timeout: ${url}`)), 5000);
+    socket.addEventListener('open', () => {
+      clearTimeout(timer);
+      resolve();
+    }, { once: true });
+    socket.addEventListener('error', () => {
+      clearTimeout(timer);
+      reject(new Error(`WebSocket open failed: ${url}`));
+    }, { once: true });
+  });
+  return socket;
+}
+
+async function waitForClose(socket, expectedCode) {
+  const code = await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('WebSocket close timeout')), 5000);
+    socket.addEventListener('close', event => {
+      clearTimeout(timer);
+      resolve(event.code);
+    }, { once: true });
+  });
+  assert(code === expectedCode, `expected WebSocket close ${expectedCode}, got ${code}`);
+}
+
+async function waitForMessages(socket, expectedCount) {
+  return new Promise((resolve, reject) => {
+    const messages = [];
+    const timer = setTimeout(() => reject(new Error(`expected ${expectedCount} relay messages`)), 5000);
+    socket.addEventListener('message', event => {
+      messages.push(event.data);
+      if (messages.length === expectedCount) {
+        clearTimeout(timer);
+        resolve(messages);
+      }
+    });
+  });
+}
+
+async function wait(milliseconds) {
+  await new Promise(resolve => setTimeout(resolve, milliseconds));
+}
+
+async function testOpaqueProtocolRelay(baseUrl) {
+  const room = `relay-protocol-${Date.now()}`;
+  const url = `${baseUrl}/api/rooms/${room}`;
+  const sender = await openWebSocket(url);
+  const receiver = await openWebSocket(url);
+  const senderMessages = [];
+  sender.addEventListener('message', event => senderMessages.push(event.data));
+
+  const protocolEnvelope = JSON.stringify({
+    schema: 1,
+    kind: 'operation',
+    operation_id: 'duplicate-op-001',
+    payload: { cell: 'A1', value: '15' },
+  });
+  const received = waitForMessages(receiver, 2);
+  sender.send(protocolEnvelope);
+  sender.send(protocolEnvelope);
+  const messages = await received;
+
+  assert(messages[0] === protocolEnvelope && messages[1] === protocolEnvelope, 'relay changed protocol payload');
+  await wait(100);
+  assert(senderMessages.length === 0, 'relay echoed a message back to its sender');
+  sender.close();
+  receiver.close();
+  console.log('✓ opaque protocol frames and duplicate delivery are preserved');
+}
+
+async function testBinaryRelayRejection(baseUrl) {
+  const room = `relay-binary-${Date.now()}`;
+  const sender = await openWebSocket(`${baseUrl}/api/rooms/${room}`);
+  const receiver = await openWebSocket(`${baseUrl}/api/rooms/${room}`);
+  let received = false;
+  receiver.addEventListener('message', () => { received = true; });
+  sender.send(new Uint8Array([0, 1, 2, 3]));
+  await waitForClose(sender, 1003);
+  await wait(100);
+  assert(!received, 'binary frame reached the peer');
+  receiver.close();
+  console.log('✓ binary frames are rejected without relay');
+}
+
+async function testOversizedRelayRejection(baseUrl) {
+  const room = `relay-oversize-${Date.now()}`;
+  const sender = await openWebSocket(`${baseUrl}/api/rooms/${room}`);
+  const receiver = await openWebSocket(`${baseUrl}/api/rooms/${room}`);
+  let received = false;
+  receiver.addEventListener('message', () => { received = true; });
+  sender.send('x'.repeat(256 * 1024 + 1));
+  await waitForClose(sender, 1009);
+  await wait(100);
+  assert(!received, 'oversized frame reached the peer');
+  receiver.close();
+  console.log('✓ oversized frames are rejected without relay');
+}
+
 const worker = spawn(npm, ['run', 'dev', '--', '--port', String(port)], {
   cwd: root.pathname,
   stdio: 'pipe',
@@ -100,6 +200,12 @@ try {
   assert(await hostPage.locator('body').textContent() === bodyAfterDispose, 'disposed host received a later update');
   assert(pageErrors.length === 0, `page errors: ${pageErrors.join('\n')}`);
   console.log('✓ disposal stops later remote updates without browser errors');
+
+  await hostContext.close();
+  await joinContext.close();
+  await testOpaqueProtocolRelay(baseUrl);
+  await testBinaryRelayRejection(baseUrl);
+  await testOversizedRelayRejection(baseUrl);
 } finally {
   if (browser) await browser.close();
   if (worker.pid) {
