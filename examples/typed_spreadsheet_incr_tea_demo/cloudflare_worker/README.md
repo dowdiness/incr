@@ -7,8 +7,9 @@ and a two-connection opaque text relay. The Worker routes `/health`,
 `/api/rooms/<capability>`, `/`, and `/collab`; the Durable Object accepts
 Hibernation WebSockets, excludes the sender, limits the room to two connections,
 and rejects oversized text frames. Per-connection rate metadata is stored in
-WebSocket Hibernation attachments. The Worker also validates canonical URL-safe
-room capabilities and same-site origins. Spreadsheet protocol and browser
+WebSocket Hibernation attachments, and room admission is limited to 30 requests
+per connecting IP per 60 seconds by a Cloudflare Rate Limit binding. The Worker
+also validates canonical URL-safe room capabilities and same-site origins. Spreadsheet protocol and browser
 provider selection remain outside the Worker relay.
 
 ## Run locally
@@ -30,9 +31,10 @@ SMOKE_BASE_URL=https://your-worker.example.workers.dev npm run smoke:production
 connected WebSockets, then verifies that messages still relay and the
 attachment-backed rate limit survives the Durable Object restart.
 
-`smoke:production` is a read-only deployment check: it uses random transient
-room capabilities and verifies health, SPA routes, protocol/duplicate relay,
-binary and oversized-frame rejection, and the deployed rate limit.
+`smoke:production` is a non-persistent deployment check: it uses random
+transient room capabilities and sends bounded test frames to verify health, SPA
+routes, protocol/duplicate relay, binary and oversized-frame rejection, and the
+deployed rate limit.
 
 The generated MoonBit module is loaded by `entry.mjs`. Cloudflare's Worker and
 Durable Object exports remain the only JavaScript adapter surface.
@@ -77,7 +79,8 @@ Browser requests must use the same Origin as the Worker. A missing Origin is
 accepted for non-browser WebSocket clients because the capability is the
 bearer check; Origin is CSRF protection, not authentication. The relay limits
 exposure with two live connections per room, bounded frame size, per-connection
-rate limiting, opaque forwarding, and no document persistence.
+rate limiting, a per-IP room-admission limiter, opaque forwarding, and no
+document persistence.
 
 This threat model is accepted for the Issue #425 no-account, no-persistence
 preview scope. Adding accounts, revocation, sensitive-document confidentiality,

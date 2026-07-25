@@ -13,9 +13,6 @@ pub type DurableObjectNamespace
 pub type DurableObjectState
 
 #external
-pub type DurableObjectStub
-
-#external
 pub type Env
 
 #external

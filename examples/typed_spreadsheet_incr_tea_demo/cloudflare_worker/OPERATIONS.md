@@ -12,8 +12,9 @@ that room. Do not use this service for documents that require identity,
 revocation, or confidentiality from Cloudflare.
 
 The stable deployment URL is stored in the protected GitHub environment variable
-`CLOUDFLARE_WORKER_URL`. Credentials are never copied into this document or
-passed as command-line arguments.
+`CLOUDFLARE_WORKER_URL`. Room admission is also bounded by the Cloudflare Rate
+Limit binding at 30 requests per connecting IP per 60 seconds. Credentials are
+never copied into this document or passed as command-line arguments.
 
 ## Normal release procedure
 

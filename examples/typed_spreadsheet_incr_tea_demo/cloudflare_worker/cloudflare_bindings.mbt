@@ -31,11 +31,6 @@ pub type DurableObjectState
 pub type DurableObjectNamespace
 
 ///|
-/// Durable Object stub.
-#external
-pub type DurableObjectStub
-
-///|
 /// Cloudflare WebSocket pair.
 #external
 pub type WebSocketPair
@@ -84,20 +79,21 @@ extern "js" fn assets_fetch(
   #| (env, request) => env.ASSETS.fetch(request)
 
 ///|
-/// Resolve a Durable Object by its canonical room name.
-extern "js" fn namespace_get_by_name(
+/// Apply the edge room-admission limiter before resolving a room Durable Object.
+extern "js" fn admitted_room_fetch(
+  env : Env,
   room_namespace : DurableObjectNamespace,
-  name : String,
-) -> DurableObjectStub =
-  #| (roomNamespace, name) => roomNamespace.getByName(name)
-
-///|
-/// Forward a request to a Durable Object.
-extern "js" fn stub_fetch(
-  stub : DurableObjectStub,
   request : Request,
+  room : String,
 ) -> JsPromise[Response] =
-  #| (stub, request) => stub.fetch(request)
+  #| async (env, roomNamespace, request, room) => {
+  #|   const key = request.headers.get("CF-Connecting-IP") ?? "unknown";
+  #|   const result = await env.ROOM_ADMISSION_LIMIT.limit({ key });
+  #|   if (!result.success) {
+  #|     return new Response("room admission rate limit exceeded", { status: 429 });
+  #|   }
+  #|   return roomNamespace.getByName(room).fetch(request);
+  #| }
 
 ///|
 /// Construct a plain text response.

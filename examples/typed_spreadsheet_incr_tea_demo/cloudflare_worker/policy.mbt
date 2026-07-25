@@ -60,8 +60,12 @@ fn room_request_allowed(
   http_method : String,
   origin : String,
   request_origin : String,
+  upgrade_requested : Bool,
 ) -> Result[String, String] {
   guard http_method == "GET" else { return Err("room endpoint requires GET") }
+  guard upgrade_requested else {
+    return Err("room endpoint requires websocket upgrade")
+  }
   guard origin_allowed(origin, request_origin) else {
     return Err("origin is not allowed")
   }

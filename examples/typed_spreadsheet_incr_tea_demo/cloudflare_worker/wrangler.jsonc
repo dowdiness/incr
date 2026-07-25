@@ -5,6 +5,16 @@
   "compatibility_date": "2026-07-24",
   "workers_dev": true,
   "preview_urls": false,
+  "ratelimits": [
+    {
+      "name": "ROOM_ADMISSION_LIMIT",
+      "namespace_id": "425",
+      "simple": {
+        "limit": 30,
+        "period": 60
+      }
+    }
+  ],
   "observability": {
     "enabled": true,
     "head_sampling_rate": 1,

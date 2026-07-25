@@ -20,11 +20,9 @@ fn worker_fetch(
       request_method(request),
       request_origin(request),
       request_url_origin(request),
+      is_websocket_upgrade(request),
     ) {
-    Ok(room) => {
-      let stub = namespace_get_by_name(room_namespace(env), room)
-      stub_fetch(stub, request)
-    }
+    Ok(room) => admitted_room_fetch(env, room_namespace(env), request, room)
     Err(error) => promise_response(response_text(error, 400))
   }
 }
@@ -48,7 +46,7 @@ const MAX_MESSAGES_PER_WINDOW : Int = 60
 ///|
 fn room_fetch(state : DurableObjectState, request : Request) -> Response {
   if !is_websocket_upgrade(request) {
-    return response_text("cloudflare room skeleton", 200)
+    return response_text("room endpoint requires websocket upgrade", 426)
   }
   if websocket_count(state) >= MAX_ROOM_CONNECTIONS {
     return response_text("room is full", 429)

@@ -7,6 +7,8 @@ on:
       - '.github/workflows/spreadsheet-cloudflare-worker.yml'
       - 'moon.work'
       - 'incr/**'
+      - 'incr_tea/**'
+      - 'event-graph-walker/**'
       - 'examples/typed_spreadsheet/**'
       - 'examples/typed_spreadsheet_demo/**'
       - 'examples/typed_spreadsheet_incr_tea_demo/**'
