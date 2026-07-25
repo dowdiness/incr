@@ -11,6 +11,12 @@ priv type CollabTransport
 priv type LifecycleHandle
 
 ///|
+/// Opaque initial join retry timer owned by one collaboration shell.
+#cfg(target="js")
+#external
+priv type JoinRetryHandle
+
+///|
 /// Read the startup URL once at the imperative boundary.
 #cfg(target="js")
 extern "js" fn js_collab_startup_input() -> String =
@@ -49,6 +55,7 @@ extern "js" fn js_collab_open(
   #|     let closed = false;
   #|     return {
   #|       send(message) { if (!closed) channel.postMessage(String(message)); },
+  #|       retryIfOpen(message) { if (!closed) channel.postMessage(String(message)); },
   #|       close() {
   #|         if (closed) return;
   #|         closed = true;
@@ -84,6 +91,9 @@ extern "js" fn js_collab_open(
   #|         onFailure("WebSocket transport queue limit exceeded.");
   #|       }
   #|     },
+  #|     retryIfOpen(message) {
+  #|       if (!closed && socket.readyState === WebSocket.OPEN) socket.send(String(message));
+  #|     },
   #|     close() {
   #|       if (closed) return;
   #|       closed = true;
@@ -107,6 +117,24 @@ extern "js" fn js_collab_send(
 #cfg(target="js")
 extern "js" fn js_collab_close(transport : CollabTransport) -> Unit =
   #| transport => transport.close()
+
+///|
+/// Retry an initial join only while its WebSocket is open.
+#cfg(target="js")
+extern "js" fn js_collab_start_join_retry(
+  transport : CollabTransport,
+  message : String,
+) -> JoinRetryHandle =
+  #| (transport, message) => {
+  #|   const timer = globalThis.setInterval(() => transport.retryIfOpen(message), 250);
+  #|   return { stop() { globalThis.clearInterval(timer); } };
+  #| }
+
+///|
+/// Stop an initial join retry timer.
+#cfg(target="js")
+extern "js" fn js_collab_stop_join_retry(handle : JoinRetryHandle) -> Unit =
+  #| handle => handle.stop()
 
 ///|
 /// Install one close callback that can be removed during disposal.
@@ -134,6 +162,7 @@ struct CollabOwner {
   lifecycle : LifecycleHandle
   mut app : TypedSheetApp?
   mut renderer : @tea.BrowserRenderer[Msg]?
+  mut join_retry : JoinRetryHandle?
   mut transport_closed : Bool
   mut disposed : Bool
 }
@@ -221,6 +250,18 @@ fn collab_install_app(owner : Ref[CollabOwner], app : TypedSheetApp) -> Unit {
 }
 
 ///|
+/// Stop the initial join retry once bootstrap or failure resolves it.
+fn collab_stop_join_retry(owner : Ref[CollabOwner]) -> Unit {
+  match owner.val.join_retry {
+    Some(handle) => {
+      js_collab_stop_join_retry(handle)
+      owner.val.join_retry = None
+    }
+    None => ()
+  }
+}
+
+///|
 /// Execute one reducer decision at the imperative shell boundary.
 fn collab_decision(owner : Ref[CollabOwner], decision : CollabDecision) -> Unit {
   if owner.val.disposed {
@@ -231,6 +272,7 @@ fn collab_decision(owner : Ref[CollabOwner], decision : CollabDecision) -> Unit 
     CollabDecision::Send(message) => collab_send(owner, message)
     CollabDecision::Mount => collab_mount(owner)
     CollabDecision::Fail(error) => {
+      collab_stop_join_retry(owner)
       match owner.val.app {
         Some(app) => app._state.val.publish_sync = None
         None => ()
@@ -244,7 +286,10 @@ fn collab_decision(owner : Ref[CollabOwner], decision : CollabDecision) -> Unit 
         owner.val.transport_closed = true
       }
     }
-    CollabDecision::Attach(payload) => collab_attach(owner, payload)
+    CollabDecision::Attach(payload) => {
+      collab_stop_join_retry(owner)
+      collab_attach(owner, payload)
+    }
     CollabDecision::Apply(message) => collab_apply_remote(owner, message)
     CollabDecision::Stop => ()
   }
@@ -370,6 +415,7 @@ fn collab_dispose(owner : Ref[CollabOwner]) -> Unit {
   )
   owner.val.state = closed_state
   owner.val.disposed = true
+  collab_stop_join_retry(owner)
   if !owner.val.transport_closed {
     js_collab_close(owner.val.transport)
     owner.val.transport_closed = true
@@ -420,6 +466,7 @@ fn start_collaboration(mode : StartupMode) -> Unit {
     lifecycle,
     app: None,
     renderer: None,
+    join_retry: None,
     transport_closed: false,
     disposed: false,
   })
@@ -472,9 +519,15 @@ fn start_collaboration(mode : StartupMode) -> Unit {
         }
       }
     }
-    StartupMode::Join(peer, _, _) => {
+    StartupMode::Join(peer, _, transport_kind) => {
       js_collab_show_status("Waiting for host bootstrap…")
       collab_send(owner, CollabMessage::Join(peer))
+      if transport_kind is CollabTransportKind::WebSocket {
+        let retry_message = message_to_json(CollabMessage::Join(peer))
+        owner.val.join_retry = Some(
+          js_collab_start_join_retry(owner.val.transport, retry_message),
+        )
+      }
     }
     StartupMode::Standalone => ()
   }

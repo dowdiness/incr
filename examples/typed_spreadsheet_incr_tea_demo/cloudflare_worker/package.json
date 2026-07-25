@@ -10,6 +10,7 @@
     "dev": "npm run build && wrangler dev --config wrangler.jsonc --local",
     "deploy": "npm run build && wrangler deploy --config wrangler.jsonc",
     "test:e2e": "node scripts/test-collab.mjs",
+    "test:e2e:join-first": "JOIN_FIRST=1 node scripts/test-collab.mjs",
     "test:hibernation": "npm run build && vitest run --config vitest.config.mjs --max-workers=1 --no-isolate",
     "smoke:production": "node scripts/smoke-production.mjs"
   },

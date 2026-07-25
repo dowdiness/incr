@@ -458,3 +458,7 @@ jobs:
       - name: Run independent-context Worker collaboration test
         working-directory: examples/typed_spreadsheet_incr_tea_demo/cloudflare_worker
         run: npm run test:e2e
+
+      - name: Run join-first Worker collaboration test
+        working-directory: examples/typed_spreadsheet_incr_tea_demo/cloudflare_worker
+        run: npm run test:e2e:join-first

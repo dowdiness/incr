@@ -157,11 +157,16 @@ try {
   hostPage.on('pageerror', error => pageErrors.push(`host: ${error.message}`));
   joinPage.on('pageerror', error => pageErrors.push(`join: ${error.message}`));
 
-  await hostPage.goto(hostUrl, { waitUntil: 'load' });
+  if (process.env.JOIN_FIRST === '1') {
+    await joinPage.goto(joinUrl, { waitUntil: 'load' });
+    await wait(500);
+    await hostPage.goto(hostUrl, { waitUntil: 'load' });
+  } else {
+    await hostPage.goto(hostUrl, { waitUntil: 'load' });
+    await joinPage.goto(joinUrl, { waitUntil: 'load' });
+  }
   await hostPage.waitForSelector('#cell-B1');
   await waitForCellText(hostPage, 'B1', '11');
-
-  await joinPage.goto(joinUrl, { waitUntil: 'load' });
   await joinPage.waitForSelector('#cell-B1');
   await waitForCellText(joinPage, 'B1', '11');
   console.log('✓ independent browser contexts host bootstrap and join attach');
