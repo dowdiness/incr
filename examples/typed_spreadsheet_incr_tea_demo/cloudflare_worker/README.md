@@ -58,6 +58,9 @@ Because request URLs can contain room capabilities, treat the Cloudflare
 observability/logs account as security-sensitive and restrict access to it.
 The Worker does not log protocol payloads or capability values itself.
 
+Incident response, rollback, and capability-disclosure procedures are fixed in
+[OPERATIONS.md](OPERATIONS.md).
+
 The capability contract is:
 
 - use a cryptographically random, URL-safe value with at least 22 characters

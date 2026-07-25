@@ -25,7 +25,9 @@ https://example.com/collab?role=join&room=CAPABILITY&peer=join&transport=websock
 The first slice is intentionally host-first and limited to two connections. It
 has no persistence, reconnect recovery, presence, accounts, or production SLA.
 After a collaboration failure, the spreadsheet remains available as a clearly
-labelled local-only editor; subsequent edits are not synchronized.
+labelled local-only editor; subsequent edits are not synchronized. Production
+incident, rollback, and capability-disclosure procedures live in the
+[Worker operations runbook](cloudflare_worker/OPERATIONS.md).
 
 ## What it covers
 
