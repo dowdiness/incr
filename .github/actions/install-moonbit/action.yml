@@ -1,0 +1,63 @@
+name: Install MoonBit
+description: Install the pinned MoonBit toolchain with verified artifacts and retries
+inputs:
+  version:
+    description: MoonBit version to install
+    required: false
+    default: 0.10.4+ade96c819
+  binary-sha256:
+    description: SHA-256 of the Linux x86_64 MoonBit binary archive
+    required: false
+    default: 5cce093c6795211fcade5e5ff697d88ec4ff416d2785197f004188aca724a753
+  core-sha256:
+    description: SHA-256 of the MoonBit core archive
+    required: false
+    default: e2bf3cc765412055242384fb72a618b62ad4889eae11956251ff921839d022d2
+runs:
+  using: composite
+  steps:
+    - name: Download and verify MoonBit artifacts
+      shell: bash
+      env:
+        MOONBIT_INSTALL_VERSION: ${{ inputs.version }}
+        MOONBIT_BINARY_SHA256: ${{ inputs.binary-sha256 }}
+        MOONBIT_CORE_SHA256: ${{ inputs.core-sha256 }}
+      run: |
+        set -euo pipefail
+        moon_home="${MOON_HOME:-$HOME/.moon}"
+        version_path="${MOONBIT_INSTALL_VERSION//+/%2B}"
+        binary_uri="https://cli.moonbitlang.com/binaries/${version_path}/moonbit-linux-x86_64.tar.gz"
+        core_uri="https://cli.moonbitlang.com/cores/core-${version_path}.tar.gz"
+        binary_tarball="${RUNNER_TEMP}/moonbit.tar.gz"
+        core_tarball="${RUNNER_TEMP}/moonbit-core.tar.gz"
+
+        install_moonbit() {
+          curl --fail --location --retry 3 --output "$binary_tarball" "$binary_uri"
+          printf '%s  %s\n' "$MOONBIT_BINARY_SHA256" "$binary_tarball" | sha256sum --check --status
+
+          mkdir -p "$moon_home/bin" "$moon_home/lib"
+          rm -rf "${moon_home:?}/lib" "${moon_home:?}/include"
+          mkdir -p "$moon_home/bin" "$moon_home/lib"
+          tar -xzf "$binary_tarball" --directory="$moon_home"
+          ln -sfn moon "$moon_home/bin/moonx"
+          find "$moon_home/bin" -type f -exec chmod +x {} +
+
+          curl --fail --location --retry 3 --output "$core_tarball" "$core_uri"
+          printf '%s  %s\n' "$MOONBIT_CORE_SHA256" "$core_tarball" | sha256sum --check --status
+          rm -rf "${moon_home:?}/lib/core"
+          tar -xzf "$core_tarball" --directory="$moon_home/lib"
+
+          PATH="$moon_home/bin:$PATH" "$moon_home/bin/moon" -C "$moon_home/lib/core" bundle --warn-list -a --all
+          PATH="$moon_home/bin:$PATH" "$moon_home/bin/moon" -C "$moon_home/lib/core" bundle --warn-list -a --target wasm-gc --quiet
+        }
+
+        for attempt in 1 2 3; do
+          if install_moonbit; then break; fi
+          if [ "$attempt" = 3 ]; then
+            echo "MoonBit install failed after 3 attempts" >&2
+            exit 1
+          fi
+          echo "MoonBit install attempt $attempt failed; retrying in 10s..." >&2
+          sleep 10
+        done
+        echo "$moon_home/bin" >> "$GITHUB_PATH"
