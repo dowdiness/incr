@@ -32,23 +32,23 @@ runs:
         core_tarball="${RUNNER_TEMP}/moonbit-core.tar.gz"
 
         install_moonbit() {
-          curl --fail --location --retry 3 --output "$binary_tarball" "$binary_uri"
-          printf '%s  %s\n' "$MOONBIT_BINARY_SHA256" "$binary_tarball" | sha256sum --check --status
+          curl --fail --location --retry 3 --output "$binary_tarball" "$binary_uri" || return 1
+          printf '%s  %s\n' "$MOONBIT_BINARY_SHA256" "$binary_tarball" | sha256sum --check --status || return 1
 
-          mkdir -p "$moon_home/bin" "$moon_home/lib"
-          rm -rf "${moon_home:?}/lib" "${moon_home:?}/include"
-          mkdir -p "$moon_home/bin" "$moon_home/lib"
-          tar -xzf "$binary_tarball" --directory="$moon_home"
-          ln -sfn moon "$moon_home/bin/moonx"
-          find "$moon_home/bin" -type f -exec chmod +x {} +
+          mkdir -p "$moon_home/bin" "$moon_home/lib" || return 1
+          rm -rf "${moon_home:?}/lib" "${moon_home:?}/include" || return 1
+          mkdir -p "$moon_home/bin" "$moon_home/lib" || return 1
+          tar -xzf "$binary_tarball" --directory="$moon_home" || return 1
+          ln -sfn moon "$moon_home/bin/moonx" || return 1
+          find "$moon_home/bin" -type f -exec chmod +x {} + || return 1
 
-          curl --fail --location --retry 3 --output "$core_tarball" "$core_uri"
-          printf '%s  %s\n' "$MOONBIT_CORE_SHA256" "$core_tarball" | sha256sum --check --status
-          rm -rf "${moon_home:?}/lib/core"
-          tar -xzf "$core_tarball" --directory="$moon_home/lib"
+          curl --fail --location --retry 3 --output "$core_tarball" "$core_uri" || return 1
+          printf '%s  %s\n' "$MOONBIT_CORE_SHA256" "$core_tarball" | sha256sum --check --status || return 1
+          rm -rf "${moon_home:?}/lib/core" || return 1
+          tar -xzf "$core_tarball" --directory="$moon_home/lib" || return 1
 
-          PATH="$moon_home/bin:$PATH" "$moon_home/bin/moon" -C "$moon_home/lib/core" bundle --warn-list -a --all
-          PATH="$moon_home/bin:$PATH" "$moon_home/bin/moon" -C "$moon_home/lib/core" bundle --warn-list -a --target wasm-gc --quiet
+          PATH="$moon_home/bin:$PATH" "$moon_home/bin/moon" -C "$moon_home/lib/core" bundle --warn-list -a --all || return 1
+          PATH="$moon_home/bin:$PATH" "$moon_home/bin/moon" -C "$moon_home/lib/core" bundle --warn-list -a --target wasm-gc --quiet || return 1
         }
 
         for attempt in 1 2 3; do
