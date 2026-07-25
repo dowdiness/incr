@@ -42,3 +42,35 @@ For deployment, configure the `cloudflare-worker` GitHub environment with
 `CLOUDFLARE_WORKER_URL` containing the deployed Worker URL. The workflow deploys
 the Worker and its static assets with Wrangler, then runs the production smoke
 test against that URL.
+
+## Capability threat model
+
+The room capability is a bearer credential, not a user identity. Possession of
+the capability grants access to one transient two-peer relay: a holder can read
+and submit opaque protocol frames, but cannot access another room without its
+capability. The Worker and Durable Object can see plaintext frames; this design
+does not provide end-to-end encryption, membership, revocation, accounts, or
+audit identity.
+
+The capability contract is:
+
+- use a cryptographically random, URL-safe value with at least 22 characters
+  (the smoke tests use a random UUID-derived value);
+- treat the capability as secret even though the Worker only validates its
+  format and length—format validation cannot prove entropy;
+- share it only over a trusted channel and never use predictable examples such
+  as `demo` in a deployed room;
+- assume it can appear in browser history, the room URL, and edge access logs;
+  do not use this transport for documents whose confidentiality requires
+  revocation or a user access list.
+
+Browser requests must use the same Origin as the Worker. A missing Origin is
+accepted for non-browser WebSocket clients because the capability is the
+bearer check; Origin is CSRF protection, not authentication. The relay limits
+exposure with two live connections per room, bounded frame size, per-connection
+rate limiting, opaque forwarding, and no document persistence.
+
+This threat model is accepted for the Issue #425 no-account, no-persistence
+preview scope. Adding accounts, revocation, sensitive-document confidentiality,
+or durable sharing requires a new capability exchange and authorization design;
+it must not be treated as a small validation change.
