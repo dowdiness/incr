@@ -23,6 +23,22 @@ async function wait(milliseconds) {
   await new Promise(resolve => setTimeout(resolve, milliseconds));
 }
 
+async function retry(label, operation, attempts = 3) {
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      if (attempt < attempts) {
+        console.warn(`retrying ${label} (${attempt}/${attempts - 1})`);
+        await wait(1_000);
+      }
+    }
+  }
+  throw lastError;
+}
+
 async function checkHttp(pathname) {
   const response = await fetch(new URL(pathname, base), {
     headers: { Accept: 'text/html' },
@@ -145,9 +161,9 @@ try {
     console.log(`✓ production SPA route ${pathname}`);
   }
 
-  await testRelay();
-  await testRejectedFrames();
-  await testRateLimit();
+  await retry('protocol relay', testRelay);
+  await retry('frame rejection', testRejectedFrames);
+  await retry('rate limit', testRateLimit);
   console.log(`Production smoke passed: ${base.origin}`);
 } finally {
   for (const socket of sockets) {

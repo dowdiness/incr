@@ -52,6 +52,12 @@ capability. The Worker and Durable Object can see plaintext frames; this design
 does not provide end-to-end encryption, membership, revocation, accounts, or
 audit identity.
 
+The production configuration explicitly keeps the stable `workers.dev` URL,
+disables versioned Preview URLs, and enables full Worker observability logs.
+Because request URLs can contain room capabilities, treat the Cloudflare
+observability/logs account as security-sensitive and restrict access to it.
+The Worker does not log protocol payloads or capability values itself.
+
 The capability contract is:
 
 - use a cryptographically random, URL-safe value with at least 22 characters
