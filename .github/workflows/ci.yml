@@ -382,21 +382,9 @@ jobs:
           persist-credentials: false
 
       - name: Install MoonBit
-        env:
-          MOONBIT_INSTALL_VERSION: 0.10.4+ade96c819
-        run: |
-          install_moonbit() {
-            curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/moonbit-install.sh \
-              && bash /tmp/moonbit-install.sh
-          }
-          for attempt in 1 2 3; do
-            if install_moonbit; then break; fi
-            if [ "$attempt" = 3 ]; then
-              echo "MoonBit install failed after 3 attempts"; exit 1
-            fi
-            echo "install attempt $attempt failed; retrying in 10s..."; sleep 10
-          done
-          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+        uses: ./.github/actions/install-moonbit
+        with:
+          version: 0.10.4+ade96c819
 
       - name: Verify MoonBit
         run: moon version --all
@@ -427,3 +415,50 @@ jobs:
       - name: Same-origin collaboration DOM test
         working-directory: examples/typed_spreadsheet_incr_tea_demo
         run: npm run test:collab
+
+  #-------------------------------------------------------------------------------
+  # Cloudflare Worker + Durable Object collaboration proof
+  #-------------------------------------------------------------------------------
+  typed-sheet-cloudflare-collab:
+    name: Cloudflare typed spreadsheet collaboration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
+
+      - name: Install MoonBit
+        uses: ./.github/actions/install-moonbit
+        with:
+          version: 0.10.4+ade96c819
+
+      - name: Verify MoonBit
+        run: moon version --all
+
+      - name: moon update
+        run: moon update
+
+      - name: Install demo dependencies
+        working-directory: examples/typed_spreadsheet_incr_tea_demo
+        run: npm ci
+
+      - name: Install Worker dependencies
+        working-directory: examples/typed_spreadsheet_incr_tea_demo/cloudflare_worker
+        run: npm ci
+
+      - name: Run Durable Object Hibernation test
+        working-directory: examples/typed_spreadsheet_incr_tea_demo/cloudflare_worker
+        run: npm run test:hibernation
+
+      - name: Install Playwright chromium + system deps
+        working-directory: examples/typed_spreadsheet_incr_tea_demo/cloudflare_worker
+        run: npx playwright install chromium --with-deps
+
+      - name: Run independent-context Worker collaboration test
+        working-directory: examples/typed_spreadsheet_incr_tea_demo/cloudflare_worker
+        run: npm run test:e2e
+
+      - name: Run join-first Worker collaboration test
+        working-directory: examples/typed_spreadsheet_incr_tea_demo/cloudflare_worker
+        run: npm run test:e2e:join-first

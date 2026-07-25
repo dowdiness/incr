@@ -1,14 +1,20 @@
 ///|
-/// Opaque BroadcastChannel owned by one collaboration shell.
+/// Opaque transport owned by one collaboration shell.
 #cfg(target="js")
 #external
-priv type CollabChannel
+priv type CollabTransport
 
 ///|
 /// Opaque page-lifecycle listener owned by one collaboration shell.
 #cfg(target="js")
 #external
 priv type LifecycleHandle
+
+///|
+/// Opaque initial join retry timer owned by one collaboration shell.
+#cfg(target="js")
+#external
+priv type JoinRetryHandle
 
 ///|
 /// Read the startup URL once at the imperative boundary.
@@ -32,24 +38,67 @@ extern "js" fn js_collab_show_status(text : String) -> Unit =
   #| }
 
 ///|
-/// Open a fixed same-origin room and retain only the returned channel object.
+/// Open either the local BroadcastChannel provider or the hosted WebSocket.
 #cfg(target="js")
 extern "js" fn js_collab_open(
   room : String,
+  use_websocket : Bool,
   on_message : (String) -> Unit,
-) -> CollabChannel =
-  #| (room, onMessage) => {
-  #|   const channel = new BroadcastChannel(`typed-sheet-collab/${String(room)}`);
-  #|   const listener = event => onMessage(String(event.data));
-  #|   channel.addEventListener("message", listener);
+  on_failure : (String) -> Unit,
+  on_close : () -> Unit,
+) -> CollabTransport =
+  #| (room, useWebSocket, onMessage, onFailure, onClose) => {
+  #|   if (!useWebSocket) {
+  #|     const channel = new BroadcastChannel(`typed-sheet-collab/${String(room)}`);
+  #|     const listener = event => onMessage(String(event.data));
+  #|     channel.addEventListener("message", listener);
+  #|     let closed = false;
+  #|     return {
+  #|       send(message) { if (!closed) channel.postMessage(String(message)); },
+  #|       retryIfOpen(message) { if (!closed) channel.postMessage(String(message)); },
+  #|       close() {
+  #|         if (closed) return;
+  #|         closed = true;
+  #|         channel.removeEventListener("message", listener);
+  #|         channel.close();
+  #|       },
+  #|     };
+  #|   }
+  #|   const protocol = globalThis.location.protocol === "https:" ? "wss:" : "ws:";
+  #|   const socket = new WebSocket(
+  #|     `${protocol}//${globalThis.location.host}/api/rooms/${encodeURIComponent(String(room))}`,
+  #|   );
+  #|   const pending = [];
   #|   let closed = false;
+  #|   const flush = () => {
+  #|     while (socket.readyState === WebSocket.OPEN && pending.length > 0) {
+  #|       socket.send(pending.shift());
+  #|     }
+  #|   };
+  #|   socket.addEventListener("open", flush);
+  #|   socket.addEventListener("message", event => onMessage(String(event.data)));
+  #|   socket.addEventListener("error", () => onFailure("WebSocket transport failed."));
+  #|   socket.addEventListener("close", () => onClose());
   #|   return {
-  #|     send(message) { if (!closed) channel.postMessage(String(message)); },
+  #|     send(message) {
+  #|       if (closed) return;
+  #|       if (socket.readyState === WebSocket.OPEN) socket.send(String(message));
+  #|       else if (pending.length < 128) pending.push(String(message));
+  #|       else {
+  #|         closed = true;
+  #|         pending.length = 0;
+  #|         socket.close();
+  #|         onFailure("WebSocket transport queue limit exceeded.");
+  #|       }
+  #|     },
+  #|     retryIfOpen(message) {
+  #|       if (!closed && socket.readyState === WebSocket.OPEN) socket.send(String(message));
+  #|     },
   #|     close() {
   #|       if (closed) return;
   #|       closed = true;
-  #|       channel.removeEventListener("message", listener);
-  #|       channel.close();
+  #|       pending.length = 0;
+  #|       socket.close();
   #|     },
   #|   };
   #| }
@@ -58,16 +107,44 @@ extern "js" fn js_collab_open(
 /// Send one already-encoded protocol envelope.
 #cfg(target="js")
 extern "js" fn js_collab_send(
-  channel : CollabChannel,
+  transport : CollabTransport,
   message : String,
 ) -> Unit =
-  #| (channel, message) => channel.send(message)
+  #| (transport, message) => transport.send(message)
 
 ///|
-/// Stop channel delivery before releasing application state.
+/// Stop transport delivery before releasing application state.
 #cfg(target="js")
-extern "js" fn js_collab_close(channel : CollabChannel) -> Unit =
-  #| channel => channel.close()
+extern "js" fn js_collab_close(transport : CollabTransport) -> Unit =
+  #| transport => transport.close()
+
+///|
+/// Retry an initial join only while its WebSocket is open.
+#cfg(target="js")
+extern "js" fn js_collab_start_join_retry(
+  transport : CollabTransport,
+  message : String,
+  on_failure : (String) -> Unit,
+) -> JoinRetryHandle =
+  #| (transport, message, onFailure) => {
+  #|   let attempts = 0;
+  #|   const timer = globalThis.setInterval(() => {
+  #|     attempts += 1;
+  #|     if (attempts > 20) {
+  #|       globalThis.clearInterval(timer);
+  #|       onFailure("Host bootstrap timed out.");
+  #|       return;
+  #|     }
+  #|     transport.retryIfOpen(message);
+  #|   }, 250);
+  #|   return { stop() { globalThis.clearInterval(timer); } };
+  #| }
+
+///|
+/// Stop an initial join retry timer.
+#cfg(target="js")
+extern "js" fn js_collab_stop_join_retry(handle : JoinRetryHandle) -> Unit =
+  #| handle => handle.stop()
 
 ///|
 /// Install one close callback that can be removed during disposal.
@@ -91,11 +168,12 @@ extern "js" fn js_collab_remove_lifecycle(handle : LifecycleHandle) -> Unit =
 /// Production owner for one page's app, renderer, callbacks, and lifecycle.
 struct CollabOwner {
   mut state : CollabState
-  channel : CollabChannel
+  transport : CollabTransport
   lifecycle : LifecycleHandle
   mut app : TypedSheetApp?
   mut renderer : @tea.BrowserRenderer[Msg]?
-  mut channel_closed : Bool
+  mut join_retry : JoinRetryHandle?
+  mut transport_closed : Bool
   mut disposed : Bool
 }
 
@@ -106,6 +184,8 @@ fn format_startup_error(error : StartupConfigError) -> String {
     InvalidPath(path) => "Invalid collaboration path: \{path}."
     MissingRole => "Collaboration requires role=host or role=join."
     InvalidRole(role) => "Unsupported collaboration role: \{role}."
+    InvalidTransport(transport) =>
+      "Unsupported collaboration transport: \{transport}."
     MissingRoom => "Collaboration requires a non-empty room."
     MissingPeer => "Collaboration requires a non-empty peer id."
     EmptyValue(name) => "Collaboration value is empty: \{name}."
@@ -151,7 +231,7 @@ fn collab_send(owner : Ref[CollabOwner], message : CollabMessage) -> Unit {
   if owner.val.disposed {
     return
   }
-  js_collab_send(owner.val.channel, message_to_json(message))
+  js_collab_send(owner.val.transport, message_to_json(message))
 }
 
 ///|
@@ -180,6 +260,18 @@ fn collab_install_app(owner : Ref[CollabOwner], app : TypedSheetApp) -> Unit {
 }
 
 ///|
+/// Stop the initial join retry once bootstrap or failure resolves it.
+fn collab_stop_join_retry(owner : Ref[CollabOwner]) -> Unit {
+  match owner.val.join_retry {
+    Some(handle) => {
+      js_collab_stop_join_retry(handle)
+      owner.val.join_retry = None
+    }
+    None => ()
+  }
+}
+
+///|
 /// Execute one reducer decision at the imperative shell boundary.
 fn collab_decision(owner : Ref[CollabOwner], decision : CollabDecision) -> Unit {
   if owner.val.disposed {
@@ -190,6 +282,7 @@ fn collab_decision(owner : Ref[CollabOwner], decision : CollabDecision) -> Unit 
     CollabDecision::Send(message) => collab_send(owner, message)
     CollabDecision::Mount => collab_mount(owner)
     CollabDecision::Fail(error) => {
+      collab_stop_join_retry(owner)
       match owner.val.app {
         Some(app) => app._state.val.publish_sync = None
         None => ()
@@ -198,12 +291,15 @@ fn collab_decision(owner : Ref[CollabOwner], decision : CollabDecision) -> Unit 
         owner,
         "Collaboration unavailable; edits are now local only: \{error}",
       )
-      if !owner.val.channel_closed {
-        js_collab_close(owner.val.channel)
-        owner.val.channel_closed = true
+      if !owner.val.transport_closed {
+        js_collab_close(owner.val.transport)
+        owner.val.transport_closed = true
       }
     }
-    CollabDecision::Attach(payload) => collab_attach(owner, payload)
+    CollabDecision::Attach(payload) => {
+      collab_stop_join_retry(owner)
+      collab_attach(owner, payload)
+    }
     CollabDecision::Apply(message) => collab_apply_remote(owner, message)
     CollabDecision::Stop => ()
   }
@@ -329,9 +425,10 @@ fn collab_dispose(owner : Ref[CollabOwner]) -> Unit {
   )
   owner.val.state = closed_state
   owner.val.disposed = true
-  if !owner.val.channel_closed {
-    js_collab_close(owner.val.channel)
-    owner.val.channel_closed = true
+  collab_stop_join_retry(owner)
+  if !owner.val.transport_closed {
+    js_collab_close(owner.val.transport)
+    owner.val.transport_closed = true
   }
   js_collab_remove_lifecycle(owner.val.lifecycle)
   match owner.val.renderer {
@@ -352,30 +449,41 @@ fn collab_dispose(owner : Ref[CollabOwner]) -> Unit {
 ///|
 /// Start the fixed same-origin two-page collaboration prototype.
 fn start_collaboration(mode : StartupMode) -> Unit {
-  let (local_peer, room) = match mode {
-    StartupMode::Host(peer, room) | StartupMode::Join(peer, room) =>
-      (peer, room)
+  let (local_peer, room, transport_kind) = match mode {
+    StartupMode::Host(peer, room, transport)
+    | StartupMode::Join(peer, room, transport) => (peer, room, transport)
     StartupMode::Standalone => return
   }
   let receiver : Ref[(String) -> Unit] = Ref(_ => ())
+  let failure_handler : Ref[(String) -> Unit] = Ref(_ => ())
   let close_handler : Ref[() -> Unit] = Ref(() => ())
-  let channel = js_collab_open(room, raw => (receiver.val)(raw))
+  let transport = js_collab_open(
+    room,
+    transport_kind is CollabTransportKind::WebSocket,
+    raw => (receiver.val)(raw),
+    error => (failure_handler.val)(error),
+    () => (failure_handler.val)("WebSocket transport closed."),
+  )
   let lifecycle = js_collab_install_lifecycle(() => (close_handler.val)())
   let initial_state = match mode {
-    StartupMode::Host(_, _) => CollabState::starting_host(local_peer)
-    StartupMode::Join(_, _) => CollabState::join(local_peer)
+    StartupMode::Host(_, _, _) => CollabState::starting_host(local_peer)
+    StartupMode::Join(_, _, _) => CollabState::join(local_peer)
     StartupMode::Standalone => return
   }
   let owner = Ref(CollabOwner::{
     state: initial_state,
-    channel,
+    transport,
     lifecycle,
     app: None,
     renderer: None,
-    channel_closed: false,
+    join_retry: None,
+    transport_closed: false,
     disposed: false,
   })
   receiver.val = raw => collab_receive(owner, raw)
+  failure_handler.val = error => {
+    collab_reduce(owner, CollabEvent::TransportFailed(error))
+  }
   close_handler.val = () => collab_dispose(owner)
   let replica = match parse_replica_id(js_collab_replica_uuid()) {
     Ok(replica) => replica
@@ -386,7 +494,7 @@ fn start_collaboration(mode : StartupMode) -> Unit {
     }
   }
   match mode {
-    StartupMode::Host(_, room) => {
+    StartupMode::Host(_, room, _) => {
       let runtime = @incr.Runtime()
       let app = Ok(
         TypedSheetApp::with_mode(runtime, SheetStartMode::Host(room, replica)),
@@ -421,9 +529,19 @@ fn start_collaboration(mode : StartupMode) -> Unit {
         }
       }
     }
-    StartupMode::Join(peer, _) => {
+    StartupMode::Join(peer, _, transport_kind) => {
       js_collab_show_status("Waiting for host bootstrap…")
       collab_send(owner, CollabMessage::Join(peer))
+      if transport_kind is CollabTransportKind::WebSocket {
+        let retry_message = message_to_json(CollabMessage::Join(peer))
+        owner.val.join_retry = Some(
+          js_collab_start_join_retry(
+            owner.val.transport,
+            retry_message,
+            error => (failure_handler.val)(error),
+          ),
+        )
+      }
     }
     StartupMode::Standalone => ()
   }

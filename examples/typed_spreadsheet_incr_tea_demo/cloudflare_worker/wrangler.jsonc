@@ -1,0 +1,47 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "typed-spreadsheet-cloudflare-worker",
+  "main": "./entry.mjs",
+  "compatibility_date": "2026-07-24",
+  "workers_dev": true,
+  "preview_urls": false,
+  "ratelimits": [
+    {
+      "name": "ROOM_ADMISSION_LIMIT",
+      "namespace_id": "425",
+      "simple": {
+        "limit": 30,
+        "period": 60
+      }
+    }
+  ],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "invocation_logs": true,
+      "persist": true
+    }
+  },
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application"
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "ROOMS",
+        "class_name": "TypedSpreadsheetRoomDurableObject"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["TypedSpreadsheetRoomDurableObject"]
+    }
+  ]
+}

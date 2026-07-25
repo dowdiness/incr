@@ -1,0 +1,23 @@
+{
+  "name": "typed-spreadsheet-cloudflare-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:demo": "npm --prefix .. run build",
+    "build:moonbit": "cd ../../.. && NEW_MOON_MOD=0 moon build --target js --release examples/typed_spreadsheet_incr_tea_demo/cloudflare_worker",
+    "prepare:assets": "rm -rf dist && cp -R ../dist dist",
+    "build": "npm run build:demo && npm run prepare:assets && npm run build:moonbit",
+    "dev": "npm run build && wrangler dev --config wrangler.jsonc --local",
+    "deploy": "npm run build && wrangler deploy --config wrangler.jsonc",
+    "test:e2e": "node scripts/test-collab.mjs",
+    "test:e2e:join-first": "JOIN_FIRST=1 node scripts/test-collab.mjs",
+    "test:hibernation": "npm run build && vitest run --config vitest.config.mjs --max-workers=1 --no-isolate",
+    "smoke:production": "node scripts/smoke-production.mjs"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "0.18.8",
+    "playwright": "1.60.0",
+    "vitest": "4.1.10",
+    "wrangler": "4.114.0"
+  }
+}
