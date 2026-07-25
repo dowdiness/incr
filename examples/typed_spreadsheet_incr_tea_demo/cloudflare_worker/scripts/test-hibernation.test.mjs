@@ -1,11 +1,12 @@
-import { evictDurableObject, SELF, env } from 'cloudflare:test';
+import { evictDurableObject } from 'cloudflare:test';
+import { env, exports } from 'cloudflare:workers';
 import { afterEach, describe, expect, it } from 'vitest';
 
 const origin = 'http://example.com';
 const sockets = [];
 
 async function openRoomSocket(room) {
-  const response = await SELF.fetch(
+  const response = await exports.default.fetch(
     new Request(`${origin}/api/rooms/${room}`, {
       headers: {
         Origin: origin,

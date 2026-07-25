@@ -8,6 +8,7 @@ on:
       - 'moon.work'
       - 'incr/**'
       - 'incr_tea/**'
+      - 'examples/incr_tea/**'
       - 'event-graph-walker/**'
       - 'examples/typed_spreadsheet/**'
       - 'examples/typed_spreadsheet_demo/**'
@@ -38,10 +39,36 @@ jobs:
       - name: Install MoonBit
         env:
           MOONBIT_INSTALL_VERSION: 0.10.4+ade96c819
+          MOONBIT_BINARY_SHA256: 5cce093c6795211fcade5e5ff697d88ec4ff416d2785197f004188aca724a753
+          MOONBIT_CORE_SHA256: e2bf3cc765412055242384fb72a618b62ad4889eae11956251ff921839d022d2
         run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/moonbit-install.sh
-          bash /tmp/moonbit-install.sh
-          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+          set -euo pipefail
+          moon_home="${MOON_HOME:-$HOME/.moon}"
+          version_path="${MOONBIT_INSTALL_VERSION//+/%2B}"
+          binary_uri="https://cli.moonbitlang.com/binaries/${version_path}/moonbit-linux-x86_64.tar.gz"
+          core_uri="https://cli.moonbitlang.com/cores/core-${version_path}.tar.gz"
+          binary_tarball="${RUNNER_TEMP}/moonbit.tar.gz"
+          core_tarball="${RUNNER_TEMP}/moonbit-core.tar.gz"
+
+          # The SHA-256 is published alongside the immutable MoonBit binary URL.
+          curl --fail --location --retry 3 --output "$binary_tarball" "$binary_uri"
+          printf '%s  %s\\n' "$MOONBIT_BINARY_SHA256" "$binary_tarball" | sha256sum --check --status
+
+          mkdir -p "$moon_home/bin" "$moon_home/lib"
+          rm -rf "${moon_home:?}/lib" "${moon_home:?}/include"
+          mkdir -p "$moon_home/bin" "$moon_home/lib"
+          tar -xzf "$binary_tarball" --directory="$moon_home"
+          ln -sfn moon "$moon_home/bin/moonx"
+          find "$moon_home/bin" -type f -exec chmod +x {} +
+
+          curl --fail --location --retry 3 --output "$core_tarball" "$core_uri"
+          printf '%s  %s\\n' "$MOONBIT_CORE_SHA256" "$core_tarball" | sha256sum --check --status
+          rm -rf "${moon_home:?}/lib/core"
+          tar -xzf "$core_tarball" --directory="$moon_home/lib"
+
+          PATH="$moon_home/bin:$PATH" "$moon_home/bin/moon" -C "$moon_home/lib/core" bundle --warn-list -a --all
+          PATH="$moon_home/bin:$PATH" "$moon_home/bin/moon" -C "$moon_home/lib/core" bundle --warn-list -a --target wasm-gc --quiet
+          echo "$moon_home/bin" >> "$GITHUB_PATH"
 
       - name: Verify MoonBit
         run: moon version --all
@@ -74,6 +101,7 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN_VALUE: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID_VALUE: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_WORKER_URL_VALUE: ${{ vars.CLOUDFLARE_WORKER_URL }}
         run: |
           test -n "$CLOUDFLARE_API_TOKEN_VALUE" || {
             echo "::error::Set CLOUDFLARE_API_TOKEN in the cloudflare-worker environment."; exit 1;
@@ -81,7 +109,7 @@ jobs:
           test -n "$CLOUDFLARE_ACCOUNT_ID_VALUE" || {
             echo "::error::Set CLOUDFLARE_ACCOUNT_ID in the cloudflare-worker environment."; exit 1;
           }
-          test -n "${{ vars.CLOUDFLARE_WORKER_URL }}" || {
+          test -n "$CLOUDFLARE_WORKER_URL_VALUE" || {
             echo "::error::Set CLOUDFLARE_WORKER_URL in the cloudflare-worker environment."; exit 1;
           }
 

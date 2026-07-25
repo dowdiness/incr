@@ -75,12 +75,20 @@ The capability contract is:
   do not use this transport for documents whose confidentiality requires
   revocation or a user access list.
 
-Browser requests must use the same Origin as the Worker. A missing Origin is
-accepted for non-browser WebSocket clients because the capability is the
-bearer check; Origin is CSRF protection, not authentication. The relay limits
-exposure with two live connections per room, bounded frame size, per-connection
-rate limiting, a per-IP room-admission limiter, opaque forwarding, and no
-document persistence.
+Browser admission is same-site rather than strict same-Origin matching. The
+following are accepted:
+
+- an empty Origin, for non-browser WebSocket clients whose capability is the
+  bearer check;
+- an Origin exactly equal to the request URL origin;
+- `http://localhost:8787` paired with `http://127.0.0.1:8787`, or the reverse,
+  for local development.
+
+An Origin such as `https://attacker.example` or a loopback origin with a
+mismatched port such as `http://127.0.0.1:1` is rejected. Origin is CSRF
+protection, not authentication. The relay limits exposure with two live
+connections per room, bounded frame size, per-connection rate limiting, a
+per-IP room-admission limiter, opaque forwarding, and no document persistence.
 
 This threat model is accepted for the Issue #425 no-account, no-persistence
 preview scope. Adding accounts, revocation, sensitive-document confidentiality,

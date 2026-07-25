@@ -136,7 +136,7 @@ async function testOversizedRelayRejection(baseUrl) {
 
 const worker = spawn(npm, ['run', 'dev', '--', '--port', String(port)], {
   cwd: root.pathname,
-  stdio: 'pipe',
+  stdio: 'ignore',
   detached: true,
 });
 const baseUrl = `http://${host}:${port}`;

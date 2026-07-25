@@ -33,8 +33,12 @@ never copied into this document or passed as command-line arguments.
 3. For a manual smoke test against an already deployed version:
 
    ```bash
-   SMOKE_BASE_URL="$CLOUDFLARE_WORKER_URL" npm run smoke:production
+   SMOKE_BASE_URL="https://<account-subdomain>.workers.dev" npm run smoke:production
    ```
+
+   Replace the placeholder with the deployed Worker URL supplied by the
+   operator; do not depend on the GitHub-only environment variable in a local
+   shell.
 
 4. Record the Wrangler version ID and smoke result in the release/incident
    record. The smoke test uses random transient room capabilities and does not

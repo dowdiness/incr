@@ -77,6 +77,12 @@ extern "js" fn js_collab_open(
   #|       if (closed) return;
   #|       if (socket.readyState === WebSocket.OPEN) socket.send(String(message));
   #|       else if (pending.length < 128) pending.push(String(message));
+  #|       else {
+  #|         closed = true;
+  #|         pending.length = 0;
+  #|         socket.close();
+  #|         onFailure("WebSocket transport queue limit exceeded.");
+  #|       }
   #|     },
   #|     close() {
   #|       if (closed) return;

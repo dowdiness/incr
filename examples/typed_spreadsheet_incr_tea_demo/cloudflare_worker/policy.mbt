@@ -37,14 +37,22 @@ fn parse_room_capability(pathname : String) -> Result[String, String] {
 
 ///|
 fn loopback_origins_equivalent(left : String, right : String) -> Bool {
-  (
-    left.has_prefix("http://localhost:") &&
-    right.has_prefix("http://127.0.0.1:")
-  ) ||
-  (
-    left.has_prefix("http://127.0.0.1:") &&
-    right.has_prefix("http://localhost:")
-  )
+  match
+    (
+      left.to_string_view().strip_prefix("http://localhost:"),
+      right.to_string_view().strip_prefix("http://127.0.0.1:"),
+    ) {
+    (Some(left_port), Some(right_port)) => left_port.equal(right_port)
+    _ =>
+      match
+        (
+          left.to_string_view().strip_prefix("http://127.0.0.1:"),
+          right.to_string_view().strip_prefix("http://localhost:"),
+        ) {
+        (Some(left_port), Some(right_port)) => left_port.equal(right_port)
+        _ => false
+      }
+  }
 }
 
 ///|

@@ -44,4 +44,10 @@ test "room request policy checks method and same-site origin" {
     )
     is Ok(_),
   )
+  assert_true(
+    room_request_allowed(
+      path, "GET", "http://127.0.0.1:1", "http://localhost:8787", true,
+    )
+    is Err(_),
+  )
 }
