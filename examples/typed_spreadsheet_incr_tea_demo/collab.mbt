@@ -124,9 +124,19 @@ extern "js" fn js_collab_close(transport : CollabTransport) -> Unit =
 extern "js" fn js_collab_start_join_retry(
   transport : CollabTransport,
   message : String,
+  on_failure : (String) -> Unit,
 ) -> JoinRetryHandle =
-  #| (transport, message) => {
-  #|   const timer = globalThis.setInterval(() => transport.retryIfOpen(message), 250);
+  #| (transport, message, onFailure) => {
+  #|   let attempts = 0;
+  #|   const timer = globalThis.setInterval(() => {
+  #|     attempts += 1;
+  #|     if (attempts > 20) {
+  #|       globalThis.clearInterval(timer);
+  #|       onFailure("Host bootstrap timed out.");
+  #|       return;
+  #|     }
+  #|     transport.retryIfOpen(message);
+  #|   }, 250);
   #|   return { stop() { globalThis.clearInterval(timer); } };
   #| }
 
@@ -525,7 +535,11 @@ fn start_collaboration(mode : StartupMode) -> Unit {
       if transport_kind is CollabTransportKind::WebSocket {
         let retry_message = message_to_json(CollabMessage::Join(peer))
         owner.val.join_retry = Some(
-          js_collab_start_join_retry(owner.val.transport, retry_message),
+          js_collab_start_join_retry(
+            owner.val.transport,
+            retry_message,
+            error => (failure_handler.val)(error),
+          ),
         )
       }
     }
