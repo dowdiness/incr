@@ -19,25 +19,6 @@ struct TraceData {
 } derive(Eq)
 
 ///|
-struct EvidenceCellData {
-  id : String
-  classification : String
-  before_kind : String
-  before_result_status : String
-  before_result : String
-  after_kind : String
-  after_result_status : String
-  after_result : String
-} derive(Eq)
-
-///|
-struct EvidenceData {
-  edit : String
-  outcome : String
-  cells : Array[EvidenceCellData]
-} derive(Eq)
-
-///|
 struct Model {
   _marker : Unit
 }
@@ -54,7 +35,7 @@ struct SheetState {
   status : @incr.InputField[String]
   error : @incr.InputField[String?]
   trace : @incr.InputField[TraceData?]
-  evidence : @incr.InputField[EvidenceData?]
+  evidence : @incr.InputField[@demo.AiContextEvidence?]
   last_edit : @incr.InputField[String]
   mut publish_sync : ((@container.SyncMessage) -> Unit)?
   collab_mode : Bool

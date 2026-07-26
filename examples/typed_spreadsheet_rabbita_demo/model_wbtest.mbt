@@ -393,6 +393,95 @@ test "typed spreadsheet AI context bounds requested regions" {
 }
 
 ///|
+test "AI context parity scenario covers edits, errors, formulas, deletes, and bounds" {
+  let selected_a1 = update(SelectCell("A1"), init_model())
+  let edited = update(
+    ApplySelected,
+    update(UpdateDraft("A1", "15"), selected_a1),
+  )
+  let successful = edited.ai_context_snapshot(region=["A1"])
+  inspect(successful.cells[0].result.status, content="ok")
+  match successful.cells[0].result.value {
+    Some(value) => {
+      inspect(value.type_name, content="Int")
+      inspect(value.value, content="15")
+    }
+    None => abort("expected successful Int value")
+  }
+  match successful.latest_trace {
+    Some(trace) => inspect(trace.outcome, content="Ok(Int(15))")
+    None => abort("expected successful trace")
+  }
+  match successful.latest_evidence {
+    Some(evidence) => inspect(evidence.outcome, content="Ok(Int(15))")
+    None => abort("expected successful evidence")
+  }
+
+  let rejected = update(
+    ApplySelected,
+    update(UpdateDraft("A1", "oops"), edited),
+  )
+  let after_parse_error = rejected.ai_context_snapshot(region=["A1"])
+  inspect(after_parse_error.cells[0].result.status, content="ok")
+  inspect(after_parse_error.cells[0].committed_text, content="15")
+  inspect(after_parse_error.cells[0].draft_text, content="oops")
+  inspect(after_parse_error.cells[0].draft_dirty, content="true")
+  match after_parse_error.latest_trace {
+    Some(trace) => inspect(trace.edit, content="A1 ← 15")
+    None => abort("expected retained successful trace")
+  }
+
+  let selected_b1 = update(SelectCell("B1"), rejected)
+
+  let equivalent_formula = update(
+    ApplySelected,
+    update(UpdateDraft("B1", "=A1 + 1"), selected_b1),
+  )
+  let equivalent_context = equivalent_formula.ai_context_snapshot(region=["B1"])
+  match equivalent_context.cells[0].formula {
+    Some(formula) =>
+      match formula.shape {
+        Some(shape) => inspect(shape, content="Add(Ref(A1), Literal(Int(1)))")
+        None => abort("expected formula shape")
+      }
+    None => abort("expected formula metadata")
+  }
+  match equivalent_context.latest_evidence {
+    Some(evidence) =>
+      inspect(evidence.cells[0].classification, content="changed")
+    None => abort("expected equivalent-formula evidence")
+  }
+
+  let deleted = update(
+    DeleteSelected,
+    update(SelectCell("A1"), equivalent_formula),
+  )
+  let deleted_context = update(SelectCell("B1"), deleted).ai_context_snapshot(
+    region=["A1", "B1", "C1"],
+    max_cells=1,
+  )
+  inspect(deleted_context.truncated, content="true")
+  debug_inspect(deleted_context.region, content="[\"B1\"]")
+  inspect(deleted_context.cells[0].result.status, content="type_error")
+  match deleted_context.latest_trace {
+    Some(trace) => {
+      inspect(trace.recomputed.length() <= 1, content="true")
+      inspect(trace.changed.length() <= 1, content="true")
+      inspect(trace.unchanged.length() <= 1, content="true")
+    }
+    None => abort("expected bounded delete trace")
+  }
+  match deleted_context.latest_evidence {
+    Some(evidence) => {
+      inspect(evidence.cells.length(), content="1")
+      inspect(evidence.cells[0].id, content="A1")
+      inspect(evidence.cells[0].after_result_status, content="missing")
+    }
+    None => abort("expected delete evidence")
+  }
+}
+
+///|
 fn noop_emit(_msg : Msg) -> @rabbita.Cmd {
   @rabbita.none
 }

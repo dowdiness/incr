@@ -310,7 +310,7 @@ fn state_trace(state : SheetState) -> @tea.Html[Msg] {
 }
 
 ///|
-fn view_evidence_cell(cell : EvidenceCellData) -> @tea.Html[Msg] {
+fn view_evidence_cell(cell : @demo.AiContextEvidenceCell) -> @tea.Html[Msg] {
   @tea.div(attrs=[@tea.class_attr("evidence-cell")], [
     @tea.span(attrs=[@tea.class_attr("evidence-cell-id")], [@tea.text(cell.id)]),
     @tea.span(attrs=[@tea.class_attr("evidence-cell-classification")], [

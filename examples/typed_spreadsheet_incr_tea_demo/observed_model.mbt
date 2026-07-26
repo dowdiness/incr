@@ -70,101 +70,23 @@ fn trace_data_from(
 }
 
 ///|
-fn adapter_snapshot_kind(snapshot : @egw_adapter.AdapterCellSnapshot) -> String {
-  if !snapshot.present() {
-    "missing"
-  } else {
-    match snapshot.kind() {
-      Some(@typed_spreadsheet.CellKind::Input) => "input"
-      Some(@typed_spreadsheet.CellKind::Formula) => "formula"
-      None => "unknown"
-    }
-  }
+fn adapter_ai_context_observation(
+  snapshot : @egw_adapter.AdapterCellSnapshot,
+) -> @demo.AiContextCellObservation {
+  @demo.AiContextCellObservation(
+    snapshot.id(),
+    snapshot.present(),
+    snapshot.kind(),
+    snapshot.result(),
+  )
 }
 
 ///|
-fn adapter_result_status(snapshot : @egw_adapter.AdapterCellSnapshot) -> String {
-  if !snapshot.present() {
-    "missing"
-  } else {
-    match snapshot.result() {
-      @typed_spreadsheet.CellResult::Ok(_) => "ok"
-      @typed_spreadsheet.CellResult::ParseError(_) => "parse_error"
-      @typed_spreadsheet.CellResult::TypeError(_) => "type_error"
-      @typed_spreadsheet.CellResult::RefError(_) => "ref_error"
-      @typed_spreadsheet.CellResult::CycleError(_) => "cycle_error"
-    }
-  }
-}
-
-///|
-fn adapter_result_changed(
-  before : @egw_adapter.AdapterCellSnapshot,
-  after : @egw_adapter.AdapterCellSnapshot,
-) -> Bool {
-  @demo.format_cell_result(before.result()) !=
-  @demo.format_cell_result(after.result()) ||
-  before.present() != after.present() ||
-  adapter_snapshot_kind(before) != adapter_snapshot_kind(after)
-}
-
-///|
-fn classify_adapter_evidence(
-  operation : @demo.SheetOp,
-  trace : @egw_adapter.AdapterTrace,
-  change : @egw_adapter.AdapterCellSnapshotChange,
-) -> String {
-  let target = match operation {
-    @demo.SheetOp::SetInput(id, _)
-    | @demo.SheetOp::SetFormulaAst(id, _, _)
-    | @demo.SheetOp::Delete(id) => id
-  }
-  let target_changed = if change.id() == target {
-    match operation {
-      @demo.SheetOp::SetInput(_, _) =>
-        adapter_result_changed(change.before(), change.after())
-      @demo.SheetOp::SetFormulaAst(_, _, _) | @demo.SheetOp::Delete(_) => true
-    }
-  } else {
-    false
-  }
-  if trace.changed().contains(change.id()) || target_changed {
-    "changed"
-  } else if trace.unchanged().contains(change.id()) {
-    "unchanged"
-  } else if trace.recomputed().contains(change.id()) {
-    "recomputed"
-  } else {
-    "unobserved"
-  }
-}
-
-///|
-fn evidence_cell_data(
-  operation : @demo.SheetOp,
-  trace : @egw_adapter.AdapterTrace,
-  change : @egw_adapter.AdapterCellSnapshotChange,
-) -> EvidenceCellData {
-  let before = change.before()
-  let after = change.after()
-  {
-    id: @demo.cell_id_to_string(change.id()),
-    classification: classify_adapter_evidence(operation, trace, change),
-    before_kind: adapter_snapshot_kind(before),
-    before_result_status: adapter_result_status(before),
-    before_result: @demo.format_cell_result(before.result()),
-    after_kind: adapter_snapshot_kind(after),
-    after_result_status: adapter_result_status(after),
-    after_result: @demo.format_cell_result(after.result()),
-  }
-}
-
-///|
-fn remote_evidence_cell_data(
+fn remote_ai_context_evidence_cell(
   targets : ReadOnlyArray[@typed_spreadsheet.CellId],
   trace : @egw_adapter.AdapterTrace,
   change : @egw_adapter.AdapterCellSnapshotChange,
-) -> EvidenceCellData {
+) -> @demo.AiContextEvidenceCell {
   let classification = if targets.contains(change.id()) {
     "changed"
   } else if trace.changed().contains(change.id()) {
@@ -176,18 +98,11 @@ fn remote_evidence_cell_data(
   } else {
     "unobserved"
   }
-  let before = change.before()
-  let after = change.after()
-  {
-    id: @demo.cell_id_to_string(change.id()),
+  @demo.ai_context_evidence_cell_from_observations(
     classification,
-    before_kind: adapter_snapshot_kind(before),
-    before_result_status: adapter_result_status(before),
-    before_result: @demo.format_cell_result(before.result()),
-    after_kind: adapter_snapshot_kind(after),
-    after_result_status: adapter_result_status(after),
-    after_result: @demo.format_cell_result(after.result()),
-  }
+    adapter_ai_context_observation(change.before()),
+    adapter_ai_context_observation(change.after()),
+  )
 }
 
 ///|
@@ -212,7 +127,7 @@ fn record_remote_observed_sync(
   let trace = observed.trace()
   let evidence_cells = []
   for change in observed.snapshots() {
-    evidence_cells.push(remote_evidence_cell_data(targets, trace, change))
+    evidence_cells.push(remote_ai_context_evidence_cell(targets, trace, change))
   }
   let s = state.val
   s.trace.set(Some(trace_data(trace, outcome, observed.snapshots().length())))
@@ -312,7 +227,16 @@ fn record_observed_edit(
   s.trace.set(Some(trace_data_from(observed, outcome)))
   let evidence_cells = []
   for change in observed.snapshots() {
-    evidence_cells.push(evidence_cell_data(operation, trace, change))
+    evidence_cells.push(
+      @demo.ai_context_evidence_cell(
+        operation,
+        trace.recomputed(),
+        trace.changed(),
+        trace.unchanged(),
+        adapter_ai_context_observation(change.before()),
+        adapter_ai_context_observation(change.after()),
+      ),
+    )
   }
   s.evidence.set(Some({ edit, outcome, cells: evidence_cells }))
   s.last_edit.set(edit)

@@ -7,19 +7,19 @@ import {
 }
 
 // Values
-pub fn ai_context_result(@typed_spreadsheet.CellSnapshot) -> AiContextResult
+pub fn ai_context_cell(String, String, String, @typed_spreadsheet.CellSnapshot, Result[@typed_spreadsheet.Formula, @typed_spreadsheet.FormulaAstQueryError]?) -> AiContextCell
 
-pub fn ai_context_value(@typed_spreadsheet.CellValue) -> AiContextValue
+pub fn ai_context_evidence_cell(SheetOp, ReadOnlyArray[@typed_spreadsheet.CellId], ReadOnlyArray[@typed_spreadsheet.CellId], ReadOnlyArray[@typed_spreadsheet.CellId], AiContextCellObservation, AiContextCellObservation) -> AiContextEvidenceCell
 
-pub fn ai_formula_shape(@typed_spreadsheet.Formula) -> String
+pub fn ai_context_evidence_cell_from_observations(String, AiContextCellObservation, AiContextCellObservation) -> AiContextEvidenceCell
+
+pub fn ai_context_history(String, String, Array[String], Array[String], Array[String], Array[AiContextEvidenceCell], Int) -> (AiContextTrace, AiContextEvidence)
+
+pub fn bounded_ai_context_region(String, Array[String], Int) -> (Int, Array[String], Bool)
 
 pub fn cell_id_strings(Array[@typed_spreadsheet.CellId]) -> Array[String]
 
 pub fn cell_id_to_string(@typed_spreadsheet.CellId) -> String
-
-pub fn cell_result_error(@typed_spreadsheet.CellResult) -> String?
-
-pub fn classify_evidence(WorksheetStepResult, CellSnapshotChange) -> String
 
 pub fn fixed_scenario_json() -> String
 
@@ -37,8 +37,6 @@ pub fn format_outcome(OpOutcome) -> String
 
 pub fn format_snapshot(@typed_spreadsheet.CellSnapshot) -> String
 
-pub fn formula_ast_error_status(@typed_spreadsheet.FormulaAstQueryError) -> String
-
 pub fn parse_cell_text_op(@typed_spreadsheet.CellId, String) -> Result[SheetOp, FormulaTextParseError]
 
 pub fn run_batched_op(@typed_spreadsheet.Worksheet, SheetOp, capture? : Array[@typed_spreadsheet.CellId], trace_cells? : Array[@typed_spreadsheet.CellId]) -> WorksheetStepResult
@@ -48,6 +46,8 @@ pub fn run_fixed_scenario() -> Array[WorksheetStepResult]
 pub fn run_op(@typed_spreadsheet.Worksheet, SheetOp, capture? : Array[@typed_spreadsheet.CellId], trace_cells? : Array[@typed_spreadsheet.CellId]) -> WorksheetStepResult
 
 pub fn snapshot_kind(@typed_spreadsheet.CellSnapshot) -> String
+
+pub fn worksheet_step_ai_context_history(String, WorksheetStepResult, Int) -> (AiContextTrace, AiContextEvidence)
 
 // Errors
 
@@ -67,11 +67,19 @@ pub(all) struct AiContextCell {
   formula : AiContextFormula?
 } derive(ToJson, @debug.Debug)
 
+pub struct AiContextCellObservation {
+  id : @typed_spreadsheet.CellId
+  present : Bool
+  kind : @typed_spreadsheet.CellKind?
+  result : @typed_spreadsheet.CellResult
+}
+pub fn AiContextCellObservation::AiContextCellObservation(@typed_spreadsheet.CellId, Bool, @typed_spreadsheet.CellKind?, @typed_spreadsheet.CellResult) -> Self
+
 pub(all) struct AiContextEvidence {
   edit : String
   outcome : String
   cells : Array[AiContextEvidenceCell]
-} derive(ToJson, @debug.Debug)
+} derive(Eq, ToJson, @debug.Debug)
 
 pub(all) struct AiContextEvidenceCell {
   id : String
@@ -82,7 +90,7 @@ pub(all) struct AiContextEvidenceCell {
   after_kind : String
   after_result_status : String
   after_result : String
-} derive(ToJson, @debug.Debug)
+} derive(Eq, ToJson, @debug.Debug)
 
 pub(all) struct AiContextFormula {
   text : String
