@@ -28,26 +28,33 @@ fn adapter_cell_ids_text(
 }
 
 ///|
+fn trace_data(
+  trace : @egw_adapter.AdapterTrace,
+  outcome : String,
+  snapshot_count : Int,
+) -> TraceData {
+  let recomputed = adapter_cell_id_strings(trace.recomputed())
+  let changed = adapter_cell_id_strings(trace.changed())
+  let unchanged = adapter_cell_id_strings(trace.unchanged())
+  {
+    outcome,
+    recomputed,
+    changed,
+    unchanged,
+    recomputed_str: adapter_cell_ids_text(trace.recomputed()),
+    changed_str: adapter_cell_ids_text(trace.changed()),
+    unchanged_str: adapter_cell_ids_text(trace.unchanged()),
+    snapshot_count,
+  }
+}
+
+///|
 fn trace_data_from(
   observed : @egw_adapter.ObservedApplyResult,
   outcome : String,
 ) -> TraceData {
   match observed.trace() {
-    Some(trace) => {
-      let recomputed = adapter_cell_id_strings(trace.recomputed())
-      let changed = adapter_cell_id_strings(trace.changed())
-      let unchanged = adapter_cell_id_strings(trace.unchanged())
-      {
-        outcome,
-        recomputed,
-        changed,
-        unchanged,
-        recomputed_str: adapter_cell_ids_text(trace.recomputed()),
-        changed_str: adapter_cell_ids_text(trace.changed()),
-        unchanged_str: adapter_cell_ids_text(trace.unchanged()),
-        snapshot_count: observed.snapshots().length(),
-      }
-    }
+    Some(trace) => trace_data(trace, outcome, observed.snapshots().length())
     None =>
       {
         outcome,
@@ -149,6 +156,73 @@ fn evidence_cell_data(
     after_kind: adapter_snapshot_kind(after),
     after_result_status: adapter_result_status(after),
     after_result: @demo.format_cell_result(after.result()),
+  }
+}
+
+///|
+fn remote_evidence_cell_data(
+  targets : ReadOnlyArray[@typed_spreadsheet.CellId],
+  trace : @egw_adapter.AdapterTrace,
+  change : @egw_adapter.AdapterCellSnapshotChange,
+) -> EvidenceCellData {
+  let classification = if targets.contains(change.id()) {
+    "changed"
+  } else if trace.changed().contains(change.id()) {
+    "changed"
+  } else if trace.unchanged().contains(change.id()) {
+    "unchanged"
+  } else if trace.recomputed().contains(change.id()) {
+    "recomputed"
+  } else {
+    "unobserved"
+  }
+  let before = change.before()
+  let after = change.after()
+  {
+    id: @demo.cell_id_to_string(change.id()),
+    classification,
+    before_kind: adapter_snapshot_kind(before),
+    before_result_status: adapter_result_status(before),
+    before_result: @demo.format_cell_result(before.result()),
+    after_kind: adapter_snapshot_kind(after),
+    after_result_status: adapter_result_status(after),
+    after_result: @demo.format_cell_result(after.result()),
+  }
+}
+
+///|
+fn record_remote_observed_sync(
+  state : Ref[SheetState],
+  observed : @egw_adapter.ObservedRemoteApplyResult,
+) -> Unit {
+  let targets = observed.targets()
+  let target_text = adapter_cell_ids_text(targets)
+  let edit = if targets.is_empty() {
+    "Remote update"
+  } else {
+    "Remote update: \{target_text}"
+  }
+  let outcome = "remote update applied"
+  let has_diagnostics = match observed.result().adapter_result() {
+    @egw_adapter.AdapterApplyResult::Applied(report)
+    | @egw_adapter.AdapterApplyResult::NoSemanticChange(report) =>
+      report.diagnostics() > 0
+    _ => false
+  }
+  let trace = observed.trace()
+  let evidence_cells = []
+  for change in observed.snapshots() {
+    evidence_cells.push(remote_evidence_cell_data(targets, trace, change))
+  }
+  let s = state.val
+  s.trace.set(Some(trace_data(trace, outcome, observed.snapshots().length())))
+  s.evidence.set(Some({ edit, outcome, cells: evidence_cells }))
+  s.last_edit.set(edit)
+  if has_diagnostics {
+    s.status.set("Remote update applied with a projection diagnostic.")
+  } else {
+    s.status.set("Remote update applied.")
+    s.error.set(None)
   }
 }
 

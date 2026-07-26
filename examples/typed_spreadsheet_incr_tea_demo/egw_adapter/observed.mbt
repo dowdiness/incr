@@ -1,4 +1,7 @@
 ///|
+const MAX_REMOTE_EVIDENCE_SNAPSHOTS : Int = 16
+
+///|
 /// An immutable worksheet snapshot captured by the adapter boundary.
 pub struct AdapterCellSnapshot {
   priv id : @typed_spreadsheet.CellId
@@ -150,6 +153,43 @@ pub fn ObservedApplyResult::snapshots(
 }
 
 ///|
+/// A bounded trace and before/after evidence captured around remote projection.
+pub struct ObservedRemoteApplyResult {
+  priv result : RemoteApplyResult
+  priv targets : ReadOnlyArray[@typed_spreadsheet.CellId]
+  priv trace : AdapterTrace
+  priv snapshots : ReadOnlyArray[AdapterCellSnapshotChange]
+}
+
+///|
+pub fn ObservedRemoteApplyResult::result(
+  self : ObservedRemoteApplyResult,
+) -> RemoteApplyResult {
+  self.result
+}
+
+///|
+pub fn ObservedRemoteApplyResult::targets(
+  self : ObservedRemoteApplyResult,
+) -> ReadOnlyArray[@typed_spreadsheet.CellId] {
+  self.targets
+}
+
+///|
+pub fn ObservedRemoteApplyResult::trace(
+  self : ObservedRemoteApplyResult,
+) -> AdapterTrace {
+  self.trace
+}
+
+///|
+pub fn ObservedRemoteApplyResult::snapshots(
+  self : ObservedRemoteApplyResult,
+) -> ReadOnlyArray[AdapterCellSnapshotChange] {
+  self.snapshots
+}
+
+///|
 fn snapshot_cells(
   adapter : EgwAdapter,
   ids : ReadOnlyArray[@typed_spreadsheet.CellId],
@@ -167,6 +207,64 @@ fn append_unique_id(
   if !ids.contains(id) {
     ids.push(id)
   }
+}
+
+///|
+fn sheet_operation_target(
+  operation : @demo.SheetOp,
+) -> @typed_spreadsheet.CellId {
+  match operation {
+    @demo.SheetOp::SetInput(id, _)
+    | @demo.SheetOp::SetFormulaAst(id, _, _)
+    | @demo.SheetOp::Delete(id) => id
+  }
+}
+
+///|
+fn projection_targets(
+  decisions : ReadOnlyArray[@core.ProjectionDecision],
+  limit : Int,
+) -> ReadOnlyArray[@typed_spreadsheet.CellId] {
+  let targets = []
+  for decision in decisions {
+    if targets.length() >= limit {
+      break
+    }
+    match decision {
+      @core.ProjectionDecision::ApplyWorksheet(operation) =>
+        append_unique_id(targets, sheet_operation_target(operation))
+      @core.ProjectionDecision::SetCommitted(_, _)
+      | @core.ProjectionDecision::SetDraft(_, _)
+      | @core.ProjectionDecision::SetDiagnostic(_, _) => ()
+    }
+  }
+  ReadOnlyArray::from_array(targets)
+}
+
+///|
+fn remote_capture_ids(
+  adapter : EgwAdapter,
+  targets : ReadOnlyArray[@typed_spreadsheet.CellId],
+  trace_cells : ArrayView[@typed_spreadsheet.CellId],
+  limit : Int,
+) -> ReadOnlyArray[@typed_spreadsheet.CellId] {
+  let capture = []
+  for target in targets {
+    if capture.length() >= limit {
+      break
+    }
+    append_unique_id(capture, target)
+  }
+  for id in trace_cells {
+    if capture.length() >= limit {
+      break
+    }
+    let snapshot = adapter.worksheet.inspect_cell(id)
+    if snapshot.static_references.any(reference => targets.contains(reference)) {
+      append_unique_id(capture, id)
+    }
+  }
+  ReadOnlyArray::from_array(capture)
 }
 
 ///|
@@ -243,6 +341,41 @@ pub fn EgwAdapter::apply_command_observed(
         snapshots,
       }
     }
+  }
+}
+
+///|
+/// Applies remote sync while capturing bounded projection trace and evidence.
+pub fn EgwAdapter::apply_sync_observed(
+  self : EgwAdapter,
+  message : @container.SyncMessage,
+  capture_limit? : Int = 16,
+  trace_cells? : Array[@typed_spreadsheet.CellId] = [],
+) -> ObservedRemoteApplyResult raise @container.DocumentError {
+  let capture_limit = capture_limit.clamp(
+    min=0,
+    max=MAX_REMOTE_EVIDENCE_SNAPSHOTS,
+  )
+  let sync_report = self.document.sync().apply(message)
+  let transition = prepare_projection_transition(self, (self.bindings.drafts)())
+  let targets = projection_targets(transition.decisions(), capture_limit)
+  let capture = remote_capture_ids(self, targets, trace_cells[:], capture_limit)
+  let before = snapshot_cells(self, capture)
+  let (adapter_result, worksheet_trace) = self.worksheet.trace_observed_formulas(
+    trace_cells,
+    () => apply_projection_transition(self, transition),
+  )
+  let after = snapshot_cells(self, capture)
+  let snapshots = capture.mapi((index, id) => AdapterCellSnapshotChange::{
+    id,
+    before: before[index],
+    after: after[index],
+  })
+  {
+    result: RemoteApplyResult::{ sync_report, adapter_result },
+    targets,
+    trace: AdapterTrace::from_worksheet(worksheet_trace),
+    snapshots,
   }
 }
 

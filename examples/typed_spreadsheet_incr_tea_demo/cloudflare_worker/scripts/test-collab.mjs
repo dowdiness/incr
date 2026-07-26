@@ -226,13 +226,22 @@ try {
   await waitForCellText(joinPage, 'B1', '16');
   console.log('✓ host to join dependent update');
 
+  const hostTraceBeforeRemote = await hostPage.locator('#app-trace').textContent();
+  const hostEvidenceBeforeRemote = await hostPage.locator('#app-evidence').textContent();
   await joinPage.locator('#cell-A1').click();
   await joinPage.getByLabel('Formula text for A1').fill('20');
   await joinPage.locator('.primary-action').click();
   await waitForCellText(joinPage, 'B1', '21');
   await waitForCellText(hostPage, 'A1', '20');
   await waitForCellText(hostPage, 'B1', '21');
-  console.log('✓ join to host dependent update');
+  const hostTraceAfterRemote = await hostPage.locator('#app-trace').textContent();
+  const hostEvidenceAfterRemote = await hostPage.locator('#app-evidence').textContent();
+  assert(hostTraceAfterRemote !== hostTraceBeforeRemote, 'host trace did not update after remote commit');
+  assert(hostEvidenceAfterRemote !== hostEvidenceBeforeRemote, 'host evidence did not update after remote commit');
+  assert(hostTraceAfterRemote?.includes('Remote update'), 'host trace did not identify the remote update');
+  assert(hostEvidenceAfterRemote?.includes('A1'), 'host evidence omitted the remote target');
+  assert(hostEvidenceAfterRemote?.includes('B1'), 'host evidence omitted the recomputed dependent');
+  console.log('✓ join to host dependent update refreshes host trace and evidence');
 
   await hostPage.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide')));
   const bodyAfterDispose = await hostPage.locator('body').textContent();

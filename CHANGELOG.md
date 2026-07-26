@@ -6,6 +6,8 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ### Fixed
 
+- Remote typed-spreadsheet collaboration commits now refresh each receiver's
+  bounded Trace and Evidence views after projection.
 - Datalog relation disposal now rejects live rules that declare the relation;
   dispose those rules first, and all current and delta relation reads reject
   disposed handles.
