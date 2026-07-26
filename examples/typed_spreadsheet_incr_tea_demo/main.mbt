@@ -75,6 +75,7 @@ pub fn mount_typed_spreadsheet_incr_tea_demo(mount_id : String) -> Unit {
       let renderer = @tea.BrowserRenderer::BrowserRenderer(runtime)
       mount_typed_sheet_app(mount_id, app, renderer)
     }
+    Ok(StartupMode::RoomChooser) => show_room_chooser()
     Ok(mode) => start_collaboration(mode)
     Err(error) => js_collab_show_status(format_startup_error(error))
   }

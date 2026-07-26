@@ -217,8 +217,8 @@ test "typed spreadsheet demo op: Delete returns missing after snapshot" {
   inspect(change.before.present, content="true")
   inspect(change.after.present, content="false")
   match change.after.result {
-    RefError(_) => inspect(true, content="true")
-    _ => abort("expected deleted cell after snapshot to be RefError")
+    Ok(Blank) => inspect(true, content="true")
+    _ => abort("expected deleted cell after snapshot to be Blank")
   }
 }
 

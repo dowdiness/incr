@@ -75,6 +75,15 @@ This means installation can succeed for a formula that later evaluates to
 `Int` whose compute closure returns `Text`. Treat `declared` as an evaluation
 contract, not an install-time proof.
 
+Same-sheet missing and deleted cells read as `Ok(Blank)`. A direct reference
+preserves Blank when its declared type accepts it. Integer scalar operators and
+`If` conditions remain strict, so an active Blank operand produces `TypeError`;
+`Eq` uses value equality and therefore considers two Blank values equal. Foreign
+worksheet references remain `RefError`. This is deliberately not Excel's
+context-dependent empty-cell coercion: future aggregate operators may ignore
+Blank as an explicit identity, but scalar operators do not silently turn it into
+a number.
+
 See [ADR 2026-06-02](../../docs/decisions/2026-06-02-typed-spreadsheet-runtime-checking.md)
 for the decision record.
 
@@ -120,9 +129,9 @@ is equal.
 ## Deleted-cell tombstones and compaction
 
 `Worksheet::delete` marks an address absent by setting a stable per-address
-presence anchor to `false`. The worksheet keeps that lightweight anchor even
-after compaction so formulas that reference a missing address are invalidated
-when the address is recreated.
+presence anchor to `false`. Reads of that address return `Ok(Blank)`. The
+worksheet keeps the lightweight anchor even after compaction so formulas that
+reference the missing address are invalidated when the address is recreated.
 
 By default, delete also leaves the heavier cell slot in place. That tombstone
 lets recreating the same address reuse the existing definition/value slot and
@@ -248,6 +257,7 @@ operation outcome, trace buckets, and before/after snapshots for each step. That
 same demo package also exposes a tiny text parser for demo cell edits:
 
 - `10` installs `SetInput(target, Int(10))`
+- `=A1` installs a value-preserving direct reference formula
 - `=A1 + 1` installs an integer addition formula
 - `=A1 * 2` installs an integer multiplication formula
 - `=if(A1 > 10, 1, 0)` installs an integer conditional formula

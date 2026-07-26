@@ -44,7 +44,8 @@ input {
 }
 
 .loading-shell,
-.proof-shell {
+.proof-shell,
+.room-shell {
   min-height: 100vh;
 }
 
@@ -367,6 +368,183 @@ button:focus-visible {
   border: 0;
 }
 
+.room-shell {
+  width: min(920px, calc(100vw - var(--space-2xl)));
+  margin: 0 auto;
+  padding: clamp(var(--space-3xl), 8vh, 96px) 0 var(--space-3xl);
+}
+
+.room-header {
+  max-width: 680px;
+  margin-bottom: var(--space-3xl);
+}
+
+.room-header h1 {
+  margin: var(--space-sm) 0 var(--space-md);
+  color: var(--ink);
+  font-size: clamp(2.5rem, 7vw, 4.75rem);
+  line-height: 0.98;
+  letter-spacing: -0.06em;
+}
+
+.room-intro,
+.room-action-copy {
+  max-width: 58ch;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.room-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.room-action {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: var(--space-2xl);
+}
+
+.room-action--create {
+  background: var(--surface-subtle);
+}
+
+.room-action--join {
+  border-left: 1px solid var(--line);
+}
+
+.room-action h2 {
+  margin: 0 0 var(--space-sm);
+  font-size: 1.5rem;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+}
+
+.room-action-copy {
+  min-height: 3.2em;
+  margin-bottom: var(--space-xl);
+}
+
+.room-main-action {
+  min-width: 148px;
+}
+
+.room-created,
+.room-join-form,
+.room-field {
+  display: grid;
+  width: 100%;
+}
+
+.room-created {
+  gap: var(--space-md);
+  margin-top: var(--space-xl);
+  padding-top: var(--space-xl);
+  border-top: 1px solid var(--line);
+}
+
+.room-created[hidden] {
+  display: none;
+}
+
+.room-join-form {
+  gap: var(--space-md);
+}
+
+.room-field {
+  gap: var(--space-sm);
+}
+
+.room-label {
+  color: var(--ink);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.room-input {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-md);
+  background: var(--surface);
+  color: var(--ink);
+  outline: none;
+}
+
+.room-input[readonly] {
+  font-family: Iosevka, ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.88rem;
+}
+
+.room-input::placeholder {
+  color: var(--muted);
+}
+
+.room-input:focus-visible {
+  border-color: var(--accent);
+  outline: 3px solid color-mix(in oklch, var(--accent) 28%, transparent);
+  outline-offset: 2px;
+}
+
+.room-input[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+
+.room-created-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.secondary-action {
+  background: var(--surface);
+}
+
+#room-copy-button[data-copied='true'] {
+  border-color: var(--success);
+  background: color-mix(in oklch, var(--success) 10%, var(--surface));
+  color: var(--ink);
+}
+
+.room-copy-status,
+.room-error {
+  min-height: 1.4em;
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.room-copy-status {
+  color: var(--muted);
+}
+
+.room-error {
+  color: var(--danger);
+}
+
+.room-capability-note {
+  max-width: 68ch;
+  margin-top: var(--space-xl);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: var(--space-md) var(--space-lg);
+  background: var(--surface);
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.room-capability-note strong {
+  color: var(--ink);
+}
+
 @media (max-width: 760px) {
   .proof-shell {
     width: min(100vw - 20px, 1180px);
@@ -379,6 +557,41 @@ button:focus-visible {
 
   .formula-actions {
     justify-content: flex-start;
+  }
+
+  .room-shell {
+    width: min(100vw - 20px, 920px);
+    padding: var(--space-2xl) 0;
+  }
+
+  .room-header {
+    margin-bottom: var(--space-2xl);
+  }
+
+  .room-header h1 {
+    font-size: clamp(2.4rem, 13vw, 3.6rem);
+  }
+
+  .room-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .room-action {
+    padding: var(--space-xl);
+  }
+
+  .room-action--join {
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+
+  .room-action-copy {
+    min-height: auto;
+  }
+
+  .room-main-action,
+  .room-created-actions button {
+    width: 100%;
   }
 }
 

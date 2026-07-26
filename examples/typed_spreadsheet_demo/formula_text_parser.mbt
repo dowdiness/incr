@@ -17,7 +17,7 @@ pub(all) enum FormulaTextParseError {
 /// Supported text is deliberately small:
 ///
 /// - `10` installs an integer input.
-/// - `=A1` installs an integer cell-reference formula.
+/// - `=A1` installs a value-preserving cell-reference formula.
 /// - `=A1 + 1` installs an integer addition formula.
 /// - `=A1 * 2` installs an integer multiplication formula.
 /// - `=if(A1 > 10, 1, 0)` installs an integer conditional formula.
@@ -59,14 +59,14 @@ fn parse_formula_op(
     Err(FormulaTextParseError::UnsupportedFormula(formula_text.to_owned()))
   } else {
     match parse_formula_expr(target, formula_text) {
-      Ok(formula) =>
-        Ok(
-          SheetOp::SetFormulaAst(
-            target,
-            @typed_spreadsheet.CellType::t_int(),
-            formula,
-          ),
-        )
+      Ok(formula) => {
+        let declared = if formula is @typed_spreadsheet.Formula::Ref(_) {
+          @typed_spreadsheet.CellType::t_any()
+        } else {
+          @typed_spreadsheet.CellType::t_int()
+        }
+        Ok(SheetOp::SetFormulaAst(target, declared, formula))
+      }
       Err(error) => Err(error)
     }
   }

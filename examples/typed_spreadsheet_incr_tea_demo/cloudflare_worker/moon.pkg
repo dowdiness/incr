@@ -1,3 +1,7 @@
+import {
+  "examples/typed_spreadsheet_incr_tea_demo/collab_core",
+}
+
 supported_targets = "js"
 
 pkgtype(kind: "executable")

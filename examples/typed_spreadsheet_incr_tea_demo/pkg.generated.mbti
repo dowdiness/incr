@@ -46,6 +46,14 @@ type PeerId derive(Eq, @debug.Debug)
 
 type ReplicaId derive(Eq, @debug.Debug)
 
+type RoomSelectionDecision
+
+type RoomSelectionEvent
+
+type RoomSelectionRejection derive(Eq, @debug.Debug)
+
+type RoomSelectionState
+
 type SheetPlan derive(Eq, @debug.Debug)
 
 type SheetPlanningContext derive(Eq, @debug.Debug)

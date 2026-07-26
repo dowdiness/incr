@@ -1,16 +1,18 @@
 # ADR: Typed Spreadsheet Deleted-Cell Tombstone Lifecycle
 
 **Date:** 2026-06-02
-**Status:** Accepted
+**Status:** Accepted; amended 2026-07-26 with Blank reference semantics
 **Driver:** GitHub issue [#130](https://github.com/dowdiness/incr/issues/130)
 
 ## Decision
 
 `examples/typed_spreadsheet` keeps a stable lightweight presence anchor for every
 address that formulas have observed or that the worksheet has created. Deleting a
-cell sets that anchor to `false`, so dependent formulas read `CellResult::RefError`
-and formulas that reference the missing address are invalidated when the address
-is later recreated.
+cell sets that anchor to `false`, so reads return
+`CellResult::Ok(CellValue::Blank)` and formulas that reference the missing
+address are invalidated when the address is later recreated. Scalar formulas
+that require a non-Blank operand report `TypeError`; direct references whose
+declared type accepts Blank preserve the Blank value.
 
 Deleted cells retain their heavyweight definition/value slot by default. Long-lived
 sparse sessions may call `Worksheet::compact_deleted_cells()` after a successful
@@ -43,7 +45,8 @@ committed deleted cells.
   worksheet is disposed.
 - `Worksheet::compact_deleted_cells()` returns the number of heavyweight slots it
   pruned.
-- Dependent formulas continue to read `RefError` after delete and resolve after
-  recreation, including after compaction.
+- Deleted cells read as `Ok(Blank)` after delete and after compaction.
+- Dependent formulas observe that Blank and resolve after recreation; strict
+  scalar formulas report `TypeError` while the dependency is Blank.
 - Compaction is example-local policy for `examples/typed_spreadsheet`; future core
   lifecycle APIs require a separate driver.

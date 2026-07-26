@@ -263,16 +263,23 @@ fn apply_decision(
 }
 
 ///|
-fn project_authority_with_drafts(
+fn prepare_projection_transition(
   adapter : EgwAdapter,
   drafts : ReadOnlyArray[@core.DraftObservation],
-) -> AdapterApplyResult {
-  let transition = @core.compute_projection_transition(
+) -> @core.ProjectionTransition {
+  @core.compute_projection_transition(
     adapter.state,
     snapshot(adapter),
     adapter.sheet_id,
     drafts,
   )
+}
+
+///|
+fn apply_projection_transition(
+  adapter : EgwAdapter,
+  transition : @core.ProjectionTransition,
+) -> AdapterApplyResult {
   let decisions = transition.decisions()
   let report = ProjectionReport::{
     decisions: decisions.length(),
@@ -308,6 +315,17 @@ fn project_authority_with_drafts(
     }
     Err(error) => AdapterApplyResult::ProjectionFailed(error)
   }
+}
+
+///|
+fn project_authority_with_drafts(
+  adapter : EgwAdapter,
+  drafts : ReadOnlyArray[@core.DraftObservation],
+) -> AdapterApplyResult {
+  apply_projection_transition(
+    adapter,
+    prepare_projection_transition(adapter, drafts),
+  )
 }
 
 ///|

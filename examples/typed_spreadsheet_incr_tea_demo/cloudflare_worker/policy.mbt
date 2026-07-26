@@ -1,35 +1,21 @@
 ///|
 /// PRODUCTION CORE: deterministic admission policy for room requests.
-const MIN_ROOM_CAPABILITY_LENGTH : Int = 22
-
-///|
-const MAX_ROOM_CAPABILITY_LENGTH : Int = 128
-
-///|
 fn is_room_path(pathname : String) -> Bool {
   pathname == "/api/rooms" || pathname.has_prefix("/api/rooms/")
-}
-
-///|
-fn is_capability_char(value : Char) -> Bool {
-  value.is_ascii_alphabetic() ||
-  value.is_ascii_digit() ||
-  value == '-' ||
-  value == '_'
 }
 
 ///|
 fn parse_room_capability(pathname : String) -> Result[String, String] {
   match pathname.split_once("/api/rooms/") {
     Some((prefix, suffix)) if prefix.is_empty() && !suffix.is_empty() =>
-      if suffix.length() < MIN_ROOM_CAPABILITY_LENGTH {
-        Err("room capability is too short")
-      } else if suffix.length() > MAX_ROOM_CAPABILITY_LENGTH {
-        Err("room capability is too long")
-      } else if !suffix.all(is_capability_char) {
-        Err("room capability contains unsupported characters")
-      } else {
-        Ok(suffix.to_owned())
+      match @collab_core.validate_room_capability(suffix.to_owned()) {
+        Ok(capability) => Ok(capability)
+        Err(@collab_core.RoomCapabilityError::TooShort) =>
+          Err("room capability is too short")
+        Err(@collab_core.RoomCapabilityError::TooLong) =>
+          Err("room capability is too long")
+        Err(@collab_core.RoomCapabilityError::UnsupportedCharacter) =>
+          Err("room capability contains unsupported characters")
       }
     _ => Err("room capability is missing")
   }

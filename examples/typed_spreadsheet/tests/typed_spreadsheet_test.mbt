@@ -608,7 +608,7 @@ test "typed spreadsheet: trace includes newly created formulas" {
 }
 
 ///|
-test "typed spreadsheet: inspect missing snapshot" {
+test "typed spreadsheet: same-sheet missing cell reads as Blank" {
   let rt = @incr.Runtime()
   let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(4))
   let missing = @typed_spreadsheet.CellId(sheet.sheet_id(), "Z9")
@@ -621,13 +621,17 @@ test "typed spreadsheet: inspect missing snapshot" {
   }
 
   match snapshot.result {
-    @typed_spreadsheet.CellResult::RefError(_) => inspect(true, content="true")
-    _ => abort("expected missing snapshot to report RefError")
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Blank) => ()
+    _ => abort("expected missing snapshot to report Blank")
+  }
+  match sheet.read(missing) {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Blank) => ()
+    _ => abort("expected missing cell to read as Blank")
   }
 }
 
 ///|
-test "typed spreadsheet: inspect deleted snapshot" {
+test "typed spreadsheet: same-sheet deleted cell reads as Blank" {
   let rt = @incr.Runtime()
   let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(5))
   let cell = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
@@ -645,8 +649,12 @@ test "typed spreadsheet: inspect deleted snapshot" {
   let after = sheet.inspect_cell(cell)
   inspect(after.present, content="false")
   match after.result {
-    @typed_spreadsheet.CellResult::RefError(_) => inspect(true, content="true")
-    _ => abort("expected deleted snapshot to report RefError")
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Blank) => ()
+    _ => abort("expected deleted snapshot to report Blank")
+  }
+  match sheet.read(cell) {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Blank) => ()
+    _ => abort("expected deleted cell to read as Blank")
   }
 }
 
@@ -875,7 +883,7 @@ test "typed spreadsheet: inspect AST dynamic deps include missing reference" {
   )
   inspect(
     match missing_snapshot.result {
-      @typed_spreadsheet.CellResult::RefError(_) => true
+      @typed_spreadsheet.CellResult::TypeError(_) => true
       _ => false
     },
     content="true",
@@ -1005,7 +1013,7 @@ test "typed spreadsheet: set_formula declared result mismatch is runtime checked
 }
 
 ///|
-test "typed spreadsheet: set_formula undefined reference is RefError" {
+test "typed spreadsheet: set_formula receives Blank for undefined reference" {
   let rt = @incr.Runtime()
   let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(11))
   let a1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
@@ -1037,7 +1045,7 @@ test "typed spreadsheet: set_formula undefined reference is RefError" {
 
   inspect(
     match sheet.read(b1) {
-      @typed_spreadsheet.CellResult::RefError(_) => true
+      @typed_spreadsheet.CellResult::TypeError(_) => true
       _ => false
     },
     content="true",
@@ -1292,7 +1300,7 @@ test "typed spreadsheet: dependency error on overwrite/delete propagates downstr
 
   inspect(
     match sheet.read(a1) {
-      @typed_spreadsheet.CellResult::RefError(_) => true
+      @typed_spreadsheet.CellResult::TypeError(_) => true
       _ => false
     },
     content="true",
@@ -1334,8 +1342,8 @@ test "typed spreadsheet: delete invalidates cached dependent formula" {
   }
 
   match sheet.read(a1) {
-    @typed_spreadsheet.CellResult::RefError(_) => ()
-    _ => abort("expected dependent formula to become RefError after delete")
+    @typed_spreadsheet.CellResult::TypeError(_) => ()
+    _ => abort("expected dependent formula to reject Blank after delete")
   }
 }
 
@@ -1378,7 +1386,7 @@ test "typed spreadsheet: compacted deleted dependency resolves when recreated" {
   inspect(sheet.compact_deleted_cells(), content="1")
   inspect(
     match sheet.read(formula) {
-      @typed_spreadsheet.CellResult::RefError(_) => true
+      @typed_spreadsheet.CellResult::TypeError(_) => true
       _ => false
     },
     content="true",
@@ -1414,7 +1422,7 @@ test "typed spreadsheet: declared type mismatch is rejected" {
 }
 
 ///|
-test "typed spreadsheet: delete disposes the wrapped cell" {
+test "typed spreadsheet: delete makes the wrapped cell Blank" {
   let rt = @incr.Runtime()
   let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(3))
   let cell = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
@@ -1424,7 +1432,10 @@ test "typed spreadsheet: delete disposes the wrapped cell" {
     content="true",
   )
   inspect(sheet.delete(cell).is_ok(), content="true")
-  inspect(sheet.read(cell).is_ok(), content="false")
+  match sheet.read(cell) {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Blank) => ()
+    _ => abort("expected deleted cell to read as Blank")
+  }
 }
 
 ///|
@@ -1453,7 +1464,8 @@ test "typed spreadsheet: rejected overwrite keeps deleted cell absent" {
 
   inspect(
     match sheet.read(cell) {
-      @typed_spreadsheet.CellResult::RefError(_) => true
+      @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Blank) =>
+        true
       _ => false
     },
     content="true",

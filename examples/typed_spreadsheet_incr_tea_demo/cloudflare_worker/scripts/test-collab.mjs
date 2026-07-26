@@ -144,10 +144,6 @@ let browser;
 
 try {
   await waitForHealth(baseUrl);
-  const room = `typed-sheet-${Date.now()}`;
-  const hostUrl = `${baseUrl}/collab?role=host&room=${room}&peer=host&transport=websocket`;
-  const joinUrl = `${baseUrl}/collab?role=join&room=${room}&peer=join&transport=websocket`;
-
   browser = await chromium.launch({ headless: process.env.HEADLESS !== '0' });
   const hostContext = await browser.newContext();
   const joinContext = await browser.newContext();
@@ -157,13 +153,56 @@ try {
   hostPage.on('pageerror', error => pageErrors.push(`host: ${error.message}`));
   joinPage.on('pageerror', error => pageErrors.push(`join: ${error.message}`));
 
+  await hostPage.goto(`${baseUrl}/collab`, { waitUntil: 'load' });
+  await hostPage.getByRole('button', { name: 'Create room' }).click();
+  const inviteUrl = await hostPage.locator('#room-invite-output').inputValue();
+  const invite = new URL(inviteUrl);
+  const room = invite.searchParams.get('room');
+  const invitePeer = invite.searchParams.get('peer');
+  assert(invite.origin === baseUrl, 'room chooser produced a foreign-origin invitation');
+  assert(invite.pathname === '/collab', 'room chooser produced the wrong invitation path');
+  assert(invite.searchParams.get('role') === 'join', 'room chooser invitation is not join-only');
+  assert(invite.searchParams.get('transport') === 'websocket', 'room chooser invitation is not WebSocket-only');
+  assert(room?.length === 32, 'room chooser did not produce the 192-bit capability shape');
+  assert(/^[A-Za-z0-9_-]+$/u.test(room), 'room chooser capability is not URL-safe');
+  assert(invitePeer, 'room chooser invitation is missing a peer id');
+  await hostPage.getByRole('button', { name: 'Copy invite link' }).click();
+  await hostPage.getByRole('button', { name: 'Copied' }).waitFor();
+  console.log('✓ room chooser creates a URL-safe invitation and confirms copy');
+
+  const openHost = async () => {
+    await Promise.all([
+      hostPage.waitForURL(url => url.searchParams.get('role') === 'host'),
+      hostPage.getByRole('button', { name: 'Open room' }).click(),
+    ]);
+    const host = new URL(hostPage.url());
+    assert(host.searchParams.get('room') === room, 'host opened a different room');
+    assert(host.searchParams.get('transport') === 'websocket', 'host did not open WebSocket transport');
+    assert(host.searchParams.get('peer') !== invitePeer, 'host and join invitation reused a peer id');
+  };
+  const joinFromChooser = async () => {
+    await joinPage.goto(`${baseUrl}/collab`, { waitUntil: 'load' });
+    await joinPage.locator('#room-join-input').fill(
+      'https://attacker.example/collab?role=join&room=abcdefghijklmnopqrstuv&peer=join&transport=websocket',
+    );
+    await joinPage.getByRole('button', { name: 'Join room' }).click();
+    assert(new URL(joinPage.url()).search === '', 'invalid invitation navigated away from the chooser');
+    assert(await joinPage.locator('#room-join-error').textContent(), 'invalid invitation did not expose an error');
+    assert(await joinPage.locator('#cell-B1').count() === 0, 'invalid invitation bootstrapped a document');
+    await joinPage.locator('#room-join-input').fill(inviteUrl);
+    await Promise.all([
+      joinPage.waitForURL(url => url.searchParams.get('role') === 'join'),
+      joinPage.locator('#room-join-input').press('Enter'),
+    ]);
+  };
+
   if (process.env.JOIN_FIRST === '1') {
-    await joinPage.goto(joinUrl, { waitUntil: 'load' });
+    await joinFromChooser();
     await wait(500);
-    await hostPage.goto(hostUrl, { waitUntil: 'load' });
+    await openHost();
   } else {
-    await hostPage.goto(hostUrl, { waitUntil: 'load' });
-    await joinPage.goto(joinUrl, { waitUntil: 'load' });
+    await openHost();
+    await joinFromChooser();
   }
   await hostPage.waitForSelector('#cell-B1');
   await waitForCellText(hostPage, 'B1', '11');
@@ -180,20 +219,48 @@ try {
   assert(await joinPage.evaluate(() => document.activeElement?.id !== 'formula-editor-input'), 'focus leaked to joiner');
   console.log('✓ drafts, selection, and focus remain local');
 
-  await hostPage.getByLabel('Formula text for A1').fill('15');
-  await hostPage.locator('.primary-action').click();
+  await hostPage.getByRole('button', { name: '15', exact: true }).click();
+  await waitForCellText(hostPage, 'A1', '15');
   await waitForCellText(hostPage, 'B1', '16');
   await waitForCellText(joinPage, 'A1', '15');
   await waitForCellText(joinPage, 'B1', '16');
-  console.log('✓ host to join dependent update');
+  console.log('✓ example click applies immediately and publishes the dependent update');
 
+  await hostPage.locator('#cell-C1').click();
+  await hostPage.getByLabel('Formula text for C1').fill('=Z9');
+  await hostPage.locator('.primary-action').click();
+  for (const page of [hostPage, joinPage]) {
+    await page.waitForFunction(() => {
+      const cell = document.getElementById('cell-C1');
+      return cell?.getAttribute('aria-label') === 'Select cell C1: formula, blank' &&
+        cell?.classList.contains('sheet-cell--ok');
+    });
+  }
+  console.log('✓ direct missing reference preserves Blank on both peers');
+
+  await joinPage.locator('#cell-Z9').click();
+  await joinPage.getByLabel('Formula text for Z9').fill('30');
+  await joinPage.locator('.primary-action').click();
+  await waitForCellText(joinPage, 'C1', '30');
+  await waitForCellText(hostPage, 'C1', '30');
+  console.log('✓ direct Blank reference reactivates after remote source creation');
+
+  const hostTraceBeforeRemote = await hostPage.locator('#app-trace').textContent();
+  const hostEvidenceBeforeRemote = await hostPage.locator('#app-evidence').textContent();
   await joinPage.locator('#cell-A1').click();
   await joinPage.getByLabel('Formula text for A1').fill('20');
   await joinPage.locator('.primary-action').click();
   await waitForCellText(joinPage, 'B1', '21');
   await waitForCellText(hostPage, 'A1', '20');
   await waitForCellText(hostPage, 'B1', '21');
-  console.log('✓ join to host dependent update');
+  const hostTraceAfterRemote = await hostPage.locator('#app-trace').textContent();
+  const hostEvidenceAfterRemote = await hostPage.locator('#app-evidence').textContent();
+  assert(hostTraceAfterRemote !== hostTraceBeforeRemote, 'host trace did not update after remote commit');
+  assert(hostEvidenceAfterRemote !== hostEvidenceBeforeRemote, 'host evidence did not update after remote commit');
+  assert(hostTraceAfterRemote?.includes('Remote update'), 'host trace did not identify the remote update');
+  assert(hostEvidenceAfterRemote?.includes('A1'), 'host evidence omitted the remote target');
+  assert(hostEvidenceAfterRemote?.includes('B1'), 'host evidence omitted the recomputed dependent');
+  console.log('✓ join to host dependent update refreshes host trace and evidence');
 
   await hostPage.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide')));
   const bodyAfterDispose = await hostPage.locator('body').textContent();

@@ -88,9 +88,21 @@ fn TypedSheetApp::apply_remote(
   self : TypedSheetApp,
   message : @container.SyncMessage,
 ) -> @egw_adapter.RemoteApplyResult raise @container.DocumentError {
-  let result = self._state.val.adapter.apply_sync(message)
-  self._state.val.status.set("Remote update applied.")
-  self._state.val.error.set(None)
+  let observed = self._state.val.adapter.apply_sync_observed(
+    message,
+    capture_limit=evidence_capture_limit(),
+    trace_cells=state_visible_cell_ids(self._state),
+  )
+  let result = observed.result()
+  match result.adapter_result() {
+    @egw_adapter.AdapterApplyResult::Applied(_) =>
+      record_remote_observed_sync(self._state, observed)
+    @egw_adapter.AdapterApplyResult::NoSemanticChange(_) => {
+      self._state.val.status.set("Remote update had no semantic changes.")
+      self._state.val.error.set(None)
+    }
+    _ => ()
+  }
   result
 }
 
@@ -108,7 +120,8 @@ fn handle_msg(
     return @tea.Cmd::batch([publish_ai_context_cmd(state)])
   }
   let plan = match msg {
-    ApplySelected
+    UseExample(_)
+    | ApplySelected
     | ApplyInlineEdit(_)
     | DeleteSelected
     | ResetSheet

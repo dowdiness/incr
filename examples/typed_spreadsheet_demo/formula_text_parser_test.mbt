@@ -17,11 +17,11 @@ test "typed spreadsheet demo parser: cell reference formula text becomes Formula
   let source = cell("A1")
 
   match parse_cell_text_op(target, "=A1") {
-    Ok(SetFormulaAst(id, TInt, Ref(ref_id))) => {
+    Ok(SetFormulaAst(id, TAny, Ref(ref_id))) => {
       inspect(id == target, content="true")
       inspect(ref_id == source, content="true")
     }
-    _ => abort("expected SetFormulaAst TInt Ref(A1)")
+    _ => abort("expected SetFormulaAst TAny Ref(A1)")
   }
 }
 
@@ -42,7 +42,7 @@ test "typed spreadsheet demo parser: malformed bare reference is rejected, not p
   }
   // A well-formed multi-letter address is still accepted as a reference.
   match parse_cell_text_op(cell("A1"), "=ZZ9") {
-    Ok(SetFormulaAst(_, TInt, Ref(_))) => inspect(true, content="true")
+    Ok(SetFormulaAst(_, TAny, Ref(_))) => inspect(true, content="true")
     _ => abort("expected =ZZ9 to parse as a cell reference")
   }
 }

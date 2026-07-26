@@ -100,11 +100,11 @@ test "typed spreadsheet Rabbita grid snapshot cache refreshes deletes and change
   )
   inspect(
     grid_status_label(grid_snapshot_for(deleted, "B1")),
-    content="ref error",
+    content="type error",
   )
   inspect(
     grid_cell_display_value(grid_snapshot_for(deleted, "B1")),
-    content="ref error",
+    content="type error",
   )
 }
 
@@ -339,11 +339,7 @@ test "typed spreadsheet AI context exports missing cells without aborting" {
   inspect(cell.present, content="false")
   inspect(cell.kind, content="missing")
   inspect(cell.result.status, content="missing")
-  match cell.result.error {
-    Some(message) =>
-      inspect(message, content="no cell at the requested address")
-    None => abort("expected missing-cell error")
-  }
+  inspect(cell.result.error is None, content="true")
   inspect(cell.formula is None, content="true")
 }
 
@@ -358,11 +354,11 @@ test "typed spreadsheet AI context exports formula errors and latest evidence" {
   let cell = context.cells[0]
   inspect(cell.id, content="B1")
   inspect(cell.kind, content="formula")
-  inspect(cell.result.status, content="ref_error")
+  inspect(cell.result.status, content="type_error")
   match cell.result.error {
     Some(message) =>
-      inspect(message, content="no cell at the requested address")
-    None => abort("expected ref error")
+      inspect(message, content="Add requires Int on the left side")
+    None => abort("expected Blank operand type error")
   }
   match context.latest_trace {
     Some(trace) => {

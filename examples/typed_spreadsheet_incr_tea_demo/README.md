@@ -6,8 +6,16 @@ full 50×50 model while keeping the Rabbita demo as the primary live deployment.
 
 ## Collaboration scope
 
-The `/collab?role=host|join&room=ROOM&peer=PEER` route supports two transport
-providers selected at the imperative shell boundary:
+Opening `/collab` without a query shows a room chooser. **Create room** generates
+one 192-bit URL-safe capability plus independent host and join peer IDs in the
+browser, then presents the bearer invitation before the host opens the room.
+**Join room** accepts only a same-origin invitation whose normalized path and
+query pass the existing startup parser as a WebSocket join. No room-creation API
+or room persistence is involved.
+
+The direct `/collab?role=host|join&room=ROOM&peer=PEER` contract remains available
+for tests and local development. It supports two transport providers selected at
+the imperative shell boundary:
 
 - `transport=broadcast` (the default) is the local same-origin proof and uses a
   temporary `BroadcastChannel` room;
@@ -103,8 +111,8 @@ apply, export/version, immutable projection state, and read_cell/inspect_cell.
 All authority paths perform EGW work first then invoke one shared full-scan
 projection path; one outer `Runtime::batch` applies prepared operations with
 rollback; structured results preserve rejection, `MutationNotLanded`, and
-projection-error semantics. Nineteen package-owned white-box integration tests
-exercise the mutable and observed boundaries end-to-end.
+projection-error semantics. Package-owned white-box integration tests exercise
+the mutable and observed boundaries end-to-end.
 
 The browser executable now uses the adapter as its single-user committed
 authority. It bootstraps the seed registers through EGW, routes apply/delete/
@@ -112,9 +120,10 @@ reset commands through `EgwAdapter`, observes trace and before/after evidence
 without replaying Worksheet mutations, and reads projected cells through safe
 adapter methods. Drafts, selection, editing, focus, status, and evidence remain
 application-local. The fixed same-origin room/join prototype transports only
-committed EGW sync messages; drafts, selection, focus, and UI evidence remain
-local. Recovery, reconnect, persistence, presence, and product protocol features
-remain intentionally out of scope.
+committed EGW sync messages; each receiver records its own bounded projection
+trace and before/after evidence, while drafts, selection, focus, and the evidence
+itself remain local. Recovery, reconnect, persistence, presence, and product
+protocol features remain intentionally out of scope.
 
 Phase 4 added a package-owned JS release benchmark and a private benchmark-only
 FullScan versus ChangedProperties lower bound for 1/10/100/2,500 changed cells.
@@ -155,6 +164,7 @@ Production build, static smoke check, and browser interaction check:
 npm run build
 npm run smoke
 npm run test:dom
+npm run test:room
 npm run test:collab
 ```
 

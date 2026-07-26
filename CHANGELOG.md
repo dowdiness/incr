@@ -6,6 +6,10 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ### Fixed
 
+- Typed-spreadsheet example chips now commit the selected value immediately
+  instead of waiting for a later Enter or Apply action.
+- Remote typed-spreadsheet collaboration commits now refresh each receiver's
+  bounded Trace and Evidence views after projection.
 - Datalog relation disposal now rejects live rules that declare the relation;
   dispose those rules first, and all current and delta relation reads reject
   disposed handles.
@@ -28,6 +32,9 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ### Changed
 
+- Typed-spreadsheet same-sheet missing and deleted references now read as
+  `Ok(Blank)`. Direct references preserve Blank, scalar operators remain strict,
+  and foreign references remain `RefError`.
 - Unified text-input and committed-value payloads under `ValueEventId` and
   `ValuePayload`. `BrowserRenderer::mount` now accepts the shared `on_value`
   resolver for both `on_input` and `on_change` descriptors; the previous
@@ -39,6 +46,9 @@ All notable changes to `dowdiness/incr` are documented in this file.
   spreadsheet example, including host bootstrap, supplied-node join attach,
   bidirectional committed-cell synchronization, fail-closed transport with
   local-only editing fallback, and Playwright CI coverage.
+- Added the typed spreadsheet `/collab` room chooser for browser-generated
+  WebSocket capabilities, copy-confirmed bearer invitations, and fail-closed
+  same-origin joining without a room-creation API or persistence.
 - Added the #394 Chromium benchmark for equal-view controlled-property traversal/getter and mismatch-repair costs across 0–10,000 rendered nodes; the measured cost did not justify a renderer optimization.
 
 ## [v0.14.2] - 2026-07-10
