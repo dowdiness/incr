@@ -247,17 +247,11 @@ test "classify evidence marks equivalent formula target changed" {
       ),
     ),
   )
-  let change = result.cell_snapshots[0]
+  let (_, evidence) = worksheet_step_ai_context_history("edit A1", result, 64)
+  let change = evidence.cells[0]
   inspect(result.trace.changed.contains(a1), content="false")
-  inspect(
-    ai_context_result(change.before).repr ==
-    ai_context_result(change.after).repr,
-    content="true",
-  )
-  inspect(
-    classify_evidence(result, result.cell_snapshots[0]),
-    content="changed",
-  )
+  inspect(change.before_result == change.after_result, content="true")
+  inspect(change.classification, content="changed")
 }
 
 ///|
@@ -265,17 +259,11 @@ test "classify evidence marks blank target deletion changed" {
   let sheet = new_sheet(9)
   let a1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
   let result = run_op(sheet, Delete(a1))
-  let change = result.cell_snapshots[0]
+  let (_, evidence) = worksheet_step_ai_context_history("delete A1", result, 64)
+  let change = evidence.cells[0]
   inspect(result.trace.changed.contains(a1), content="false")
-  inspect(
-    ai_context_result(change.before).repr ==
-    ai_context_result(change.after).repr,
-    content="true",
-  )
-  inspect(
-    classify_evidence(result, result.cell_snapshots[0]),
-    content="changed",
-  )
+  inspect(change.before_result == change.after_result, content="true")
+  inspect(change.classification, content="changed")
 }
 
 ///|
@@ -297,17 +285,11 @@ test "classify evidence marks same-result kind change changed" {
     sheet,
     SetInput(a1, @typed_spreadsheet.CellValue::from_int(1)),
   )
-  let change = result.cell_snapshots[0]
+  let (_, evidence) = worksheet_step_ai_context_history("edit A1", result, 64)
+  let change = evidence.cells[0]
   inspect(result.trace.changed.contains(a1), content="false")
-  inspect(
-    ai_context_result(change.before).repr ==
-    ai_context_result(change.after).repr,
-    content="true",
-  )
-  inspect(
-    classify_evidence(result, result.cell_snapshots[0]),
-    content="changed",
-  )
+  inspect(change.before_result == change.after_result, content="true")
+  inspect(change.classification, content="changed")
 }
 
 ///|
@@ -336,13 +318,13 @@ test "shared AI context result conversion covers parse and type errors" {
       @typed_spreadsheet.CellResult::parse_error("invalid formula")
     }),
   )
-  let type_error = ai_context_result(sheet.inspect_cell(b1))
+  let type_error = ai_context_cell("B1", "", "", sheet.inspect_cell(b1), None).result
   inspect(type_error.status, content="type_error")
   match type_error.error {
     Some(message) => inspect(message, content="formula dependency mismatch")
     None => abort("expected type error detail")
   }
-  let parse_error = ai_context_result(sheet.inspect_cell(c1))
+  let parse_error = ai_context_cell("C1", "", "", sheet.inspect_cell(c1), None).result
   inspect(parse_error.status, content="parse_error")
   match parse_error.error {
     Some(message) => inspect(message, content="invalid formula")

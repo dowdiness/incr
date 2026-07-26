@@ -17,6 +17,7 @@ pub fn Model::ai_context_snapshot(
     source,
     max_cells,
   )
+  let (latest_trace, latest_evidence) = self.latest_ai_context_history(limit)
   {
     schema_version: 1,
     selected_cell: self.selected_cell,
@@ -24,8 +25,8 @@ pub fn Model::ai_context_snapshot(
     truncated,
     region: bounded_region,
     cells: bounded_region.map(cell => self.ai_context_cell(cell)),
-    latest_trace: self.latest_ai_context_trace(limit),
-    latest_evidence: self.latest_ai_context_evidence(limit),
+    latest_trace,
+    latest_evidence,
   }
 }
 
@@ -66,48 +67,28 @@ fn Model::ai_context_cell(self : Model, cell : String) -> @demo.AiContextCell {
   let snapshot = self.sheet.inspect_cell(id)
   let committed_text = committed_for(self, cell)
   let draft_text = draft_for(self, cell)
-  let formula = match snapshot.kind {
-    Some(Formula) =>
-      Some(
-        @demo.ai_context_formula(
-          committed_text,
-          self.sheet.formula_ast(snapshot.id),
-        ),
-      )
+  let formula_ast = match snapshot.kind {
+    Some(Formula) => Some(self.sheet.formula_ast(snapshot.id))
     _ => None
   }
-  @demo.ai_context_cell(cell, committed_text, draft_text, snapshot, formula)
+  @demo.ai_context_cell(cell, committed_text, draft_text, snapshot, formula_ast)
 }
 
 ///|
-fn Model::latest_ai_context_trace(
+fn Model::latest_ai_context_history(
   self : Model,
   max_items : Int,
-) -> @demo.AiContextTrace? {
+) -> (@demo.AiContextTrace?, @demo.AiContextEvidence?) {
   match self.last_step {
-    Some(step) =>
-      Some(
-        @demo.worksheet_step_ai_context_trace(self.last_edit, step, max_items),
+    Some(step) => {
+      let (trace, evidence) = @demo.worksheet_step_ai_context_history(
+        self.last_edit,
+        step,
+        max_items,
       )
-    None => None
-  }
-}
-
-///|
-fn Model::latest_ai_context_evidence(
-  self : Model,
-  max_items : Int,
-) -> @demo.AiContextEvidence? {
-  match self.last_step {
-    Some(step) =>
-      Some(
-        @demo.worksheet_step_ai_context_evidence(
-          self.last_edit,
-          step,
-          max_items,
-        ),
-      )
-    None => None
+      (Some(trace), Some(evidence))
+    }
+    None => (None, None)
   }
 }
 

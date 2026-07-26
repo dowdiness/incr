@@ -107,7 +107,7 @@ pub fn AiContextCellObservation::AiContextCellObservation(
 
 ///|
 /// Converts a full worksheet snapshot to the shared evidence input.
-pub fn ai_context_cell_observation(
+fn ai_context_cell_observation(
   snapshot : @typed_spreadsheet.CellSnapshot,
 ) -> AiContextCellObservation {
   AiContextCellObservation(
@@ -115,22 +115,6 @@ pub fn ai_context_cell_observation(
     snapshot.present,
     snapshot.kind,
     snapshot.result,
-  )
-}
-
-///|
-/// Classifies one before/after cell snapshot using the operation trace.
-pub fn classify_evidence(
-  step : WorksheetStepResult,
-  change : CellSnapshotChange,
-) -> String {
-  classify_ai_context_evidence(
-    step.operation,
-    ReadOnlyArray::from_array(step.trace.recomputed),
-    ReadOnlyArray::from_array(step.trace.changed),
-    ReadOnlyArray::from_array(step.trace.unchanged),
-    ai_context_cell_observation(change.before),
-    ai_context_cell_observation(change.after),
   )
 }
 
@@ -214,35 +198,21 @@ pub fn ai_context_evidence_cell_from_observations(
 }
 
 ///|
-/// Converts a worksheet step to the shared trace schema.
-pub fn worksheet_step_ai_context_trace(
+/// Converts one worksheet step to paired, bounded trace and evidence schemas.
+pub fn worksheet_step_ai_context_history(
   edit : String,
   step : WorksheetStepResult,
   max_items : Int,
-) -> AiContextTrace {
-  ai_context_trace(
+) -> (AiContextTrace, AiContextEvidence) {
+  let recomputed = ReadOnlyArray::from_array(step.trace.recomputed)
+  let changed = ReadOnlyArray::from_array(step.trace.changed)
+  let unchanged = ReadOnlyArray::from_array(step.trace.unchanged)
+  ai_context_history(
     edit,
     format_outcome(step.outcome),
     cell_id_strings(step.trace.recomputed),
     cell_id_strings(step.trace.changed),
     cell_id_strings(step.trace.unchanged),
-    max_items,
-  )
-}
-
-///|
-/// Converts a worksheet step to the shared evidence schema.
-pub fn worksheet_step_ai_context_evidence(
-  edit : String,
-  step : WorksheetStepResult,
-  max_items : Int,
-) -> AiContextEvidence {
-  let recomputed = ReadOnlyArray::from_array(step.trace.recomputed)
-  let changed = ReadOnlyArray::from_array(step.trace.changed)
-  let unchanged = ReadOnlyArray::from_array(step.trace.unchanged)
-  ai_context_evidence(
-    edit,
-    format_outcome(step.outcome),
     step.cell_snapshots.map(change => {
       ai_context_evidence_cell(
         step.operation,
@@ -259,7 +229,7 @@ pub fn worksheet_step_ai_context_evidence(
 
 ///|
 /// Converts a worksheet snapshot to the bounded AI result representation.
-pub fn ai_context_result(
+fn ai_context_result(
   snapshot : @typed_spreadsheet.CellSnapshot,
 ) -> AiContextResult {
   ai_context_result_from(snapshot.present, snapshot.result)
@@ -309,7 +279,7 @@ fn ai_context_error_result(
 
 ///|
 /// Converts a typed worksheet value to the AI context value representation.
-pub fn ai_context_value(value : @typed_spreadsheet.CellValue) -> AiContextValue {
+fn ai_context_value(value : @typed_spreadsheet.CellValue) -> AiContextValue {
   match value {
     Int(number) => { type_name: "Int", value: "\{number}", repr: repr(value) }
     Bool(flag) => { type_name: "Bool", value: "\{flag}", repr: repr(value) }
@@ -320,7 +290,7 @@ pub fn ai_context_value(value : @typed_spreadsheet.CellValue) -> AiContextValue 
 
 ///|
 /// Returns the underlying error text from a worksheet result.
-pub fn cell_result_error(result : @typed_spreadsheet.CellResult) -> String? {
+fn cell_result_error(result : @typed_spreadsheet.CellResult) -> String? {
   match result {
     Ok(_) => None
     ParseError(message)
@@ -332,7 +302,7 @@ pub fn cell_result_error(result : @typed_spreadsheet.CellResult) -> String? {
 
 ///|
 /// Converts a formula AST to a compact, deterministic shape string.
-pub fn ai_formula_shape(formula : @typed_spreadsheet.Formula) -> String {
+fn ai_formula_shape(formula : @typed_spreadsheet.Formula) -> String {
   match formula {
     Literal(value) => "Literal(\{repr(value)})"
     Ref(id) => "Ref(\{cell_id_to_string(id)})"
@@ -360,7 +330,7 @@ fn ai_binary_formula_shape(
 
 ///|
 /// Converts a formula AST query error to a stable status string.
-pub fn formula_ast_error_status(
+fn formula_ast_error_status(
   error : @typed_spreadsheet.FormulaAstQueryError,
 ) -> String {
   match error {
@@ -374,7 +344,7 @@ pub fn formula_ast_error_status(
 
 ///|
 /// Converts formula text and an AST query outcome to shared formula metadata.
-pub fn ai_context_formula(
+fn ai_context_formula(
   text : String,
   ast : Result[
     @typed_spreadsheet.Formula,
@@ -401,13 +371,21 @@ pub fn ai_context_formula(
 
 ///|
 /// Converts assembled worksheet cell state to the shared cell schema.
+/// `formula_ast` is present only when `snapshot` describes a formula cell.
 pub fn ai_context_cell(
   id : String,
   committed_text : String,
   draft_text : String,
   snapshot : @typed_spreadsheet.CellSnapshot,
-  formula : AiContextFormula?,
+  formula_ast : Result[
+    @typed_spreadsheet.Formula,
+    @typed_spreadsheet.FormulaAstQueryError,
+  ]?,
 ) -> AiContextCell {
+  let formula = match formula_ast {
+    Some(ast) => Some(ai_context_formula(committed_text, ast))
+    None => None
+  }
   {
     id,
     committed_text,
@@ -427,8 +405,24 @@ pub fn ai_context_cell(
 }
 
 ///|
-/// Converts renderer trace fields to the shared trace schema.
-pub fn ai_context_trace(
+/// Converts renderer history fields to paired, bounded trace and evidence.
+pub fn ai_context_history(
+  edit : String,
+  outcome : String,
+  recomputed : Array[String],
+  changed : Array[String],
+  unchanged : Array[String],
+  evidence_cells : Array[AiContextEvidenceCell],
+  max_items : Int,
+) -> (AiContextTrace, AiContextEvidence) {
+  (
+    ai_context_trace(edit, outcome, recomputed, changed, unchanged, max_items),
+    ai_context_evidence(edit, outcome, evidence_cells, max_items),
+  )
+}
+
+///|
+fn ai_context_trace(
   edit : String,
   outcome : String,
   recomputed : Array[String],
@@ -446,8 +440,7 @@ pub fn ai_context_trace(
 }
 
 ///|
-/// Converts renderer evidence fields to a bounded shared evidence schema.
-pub fn ai_context_evidence(
+fn ai_context_evidence(
   edit : String,
   outcome : String,
   cells : Array[AiContextEvidenceCell],

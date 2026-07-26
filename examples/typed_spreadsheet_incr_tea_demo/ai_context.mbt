@@ -13,6 +13,7 @@ fn SheetState::ai_context_snapshot(
   let (limit, bounded, truncated) = @demo.bounded_ai_context_region(
     selected_cell, source, max_cells,
   )
+  let (latest_trace, latest_evidence) = self.latest_ai_context_history(limit)
   {
     schema_version: 1,
     selected_cell,
@@ -20,8 +21,8 @@ fn SheetState::ai_context_snapshot(
     truncated,
     region: bounded,
     cells: bounded.map(cell => self.ai_context_cell(cell)),
-    latest_trace: self.latest_ai_context_trace(limit),
-    latest_evidence: self.latest_ai_context_evidence(limit),
+    latest_trace,
+    latest_evidence,
   }
 }
 
@@ -55,53 +56,37 @@ fn SheetState::ai_context_cell(
   let snapshot = self.adapter.inspect_cell(cell)
   let committed_text = draft_text_from(self.committed.peek(), cell)
   let draft_text = draft_text_from(self.drafts.peek(), cell)
-  let formula = match snapshot.kind {
-    Some(Formula) =>
-      Some(
-        @demo.ai_context_formula(committed_text, self.adapter.formula_ast(cell)),
-      )
+  let formula_ast = match snapshot.kind {
+    Some(Formula) => Some(self.adapter.formula_ast(cell))
     _ => None
   }
-  @demo.ai_context_cell(cell, committed_text, draft_text, snapshot, formula)
+  @demo.ai_context_cell(cell, committed_text, draft_text, snapshot, formula_ast)
 }
 
 ///|
-fn SheetState::latest_ai_context_trace(
+fn SheetState::latest_ai_context_history(
   self : SheetState,
   max_items : Int,
-) -> @demo.AiContextTrace? {
-  match self.trace.peek() {
-    Some(trace) =>
-      Some(
-        @demo.ai_context_trace(
-          self.last_edit.peek(),
-          trace.outcome,
-          trace.recomputed,
-          trace.changed,
-          trace.unchanged,
-          max_items,
-        ),
+) -> (@demo.AiContextTrace?, @demo.AiContextEvidence?) {
+  match (self.trace.peek(), self.evidence.peek()) {
+    (Some(trace), Some(evidence)) => {
+      let edit = self.last_edit.peek()
+      if trace.outcome != evidence.outcome || edit != evidence.edit {
+        abort("AI context trace and evidence history diverged")
+      }
+      let (bounded_trace, bounded_evidence) = @demo.ai_context_history(
+        edit,
+        trace.outcome,
+        trace.recomputed,
+        trace.changed,
+        trace.unchanged,
+        evidence.cells,
+        max_items,
       )
-    None => None
-  }
-}
-
-///|
-fn SheetState::latest_ai_context_evidence(
-  self : SheetState,
-  max_items : Int,
-) -> @demo.AiContextEvidence? {
-  match self.evidence.peek() {
-    Some(evidence) =>
-      Some(
-        @demo.ai_context_evidence(
-          evidence.edit,
-          evidence.outcome,
-          evidence.cells,
-          max_items,
-        ),
-      )
-    None => None
+      (Some(bounded_trace), Some(bounded_evidence))
+    }
+    (None, None) => (None, None)
+    _ => abort("AI context trace and evidence presence diverged")
   }
 }
 
