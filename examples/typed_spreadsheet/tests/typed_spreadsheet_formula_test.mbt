@@ -592,7 +592,53 @@ test "typed spreadsheet: same AST reinstall is worksheet no-op" {
 }
 
 ///|
-test "typed spreadsheet: formula AST undefined reference is RefError" {
+test "typed spreadsheet: direct formula reference preserves Blank" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(102))
+  let missing = @typed_spreadsheet.CellId(sheet.sheet_id(), "Z9")
+  let target = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
+  let _ = sheet.set_formula_ast(
+    target,
+    @typed_spreadsheet.CellType::t_any(),
+    @typed_spreadsheet.Formula::cell_ref(missing),
+  )
+
+  match sheet.read(target) {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Blank) => ()
+    _ => abort("expected direct missing reference to preserve Blank")
+  }
+  inspect(
+    sheet.set_input(missing, @typed_spreadsheet.CellValue::from_int(7)).is_ok(),
+    content="true",
+  )
+  match sheet.read(target) {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(value)) =>
+      inspect(value, content="7")
+    _ => abort("expected direct reference to follow created value")
+  }
+  inspect(sheet.delete(missing).is_ok(), content="true")
+  match sheet.read(target) {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Blank) => ()
+    _ => abort("expected direct deleted reference to preserve Blank")
+  }
+  inspect(sheet.compact_deleted_cells(), content="1")
+  match sheet.read(target) {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Blank) => ()
+    _ => abort("expected compacted direct reference to preserve Blank")
+  }
+  inspect(
+    sheet.set_input(missing, @typed_spreadsheet.CellValue::from_int(8)).is_ok(),
+    content="true",
+  )
+  match sheet.read(target) {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Int(value)) =>
+      inspect(value, content="8")
+    _ => abort("expected compacted direct reference to follow recreation")
+  }
+}
+
+///|
+test "typed spreadsheet: formula AST scalar operation rejects missing Blank" {
   let rt = @incr.Runtime()
   let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(102))
   let a1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
@@ -618,11 +664,82 @@ test "typed spreadsheet: formula AST undefined reference is RefError" {
 
   inspect(
     match sheet.read(b1) {
-      @typed_spreadsheet.CellResult::RefError(_) => true
+      @typed_spreadsheet.CellResult::TypeError(_) => true
       _ => false
     },
     content="true",
   )
+}
+
+///|
+test "typed spreadsheet: formula AST Blank is strict in scalar operators" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(115))
+  let target = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+  let blank = @typed_spreadsheet.Formula::literal(
+    @typed_spreadsheet.CellValue::blank(),
+  )
+  let integer = @typed_spreadsheet.Formula::literal(
+    @typed_spreadsheet.CellValue::from_int(2),
+  )
+  let formulas = [
+    @typed_spreadsheet.Formula::add(blank, integer),
+    @typed_spreadsheet.Formula::mul(blank, integer),
+    @typed_spreadsheet.Formula::gt(blank, integer),
+  ]
+  for formula in formulas {
+    let _ = sheet.set_formula_ast(
+      target,
+      @typed_spreadsheet.CellType::t_any(),
+      formula,
+    )
+    inspect(
+      sheet.read(target) is @typed_spreadsheet.CellResult::TypeError(_),
+      content="true",
+    )
+  }
+  let _ = sheet.set_formula_ast(
+    target,
+    @typed_spreadsheet.CellType::t_any(),
+    @typed_spreadsheet.Formula::if_(blank, integer, integer),
+  )
+  inspect(
+    sheet.read(target) is @typed_spreadsheet.CellResult::TypeError(_),
+    content="true",
+  )
+}
+
+///|
+test "typed spreadsheet: formula AST Blank equality uses value equality" {
+  let rt = @incr.Runtime()
+  let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(116))
+  let target = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+  let blank = @typed_spreadsheet.Formula::literal(
+    @typed_spreadsheet.CellValue::blank(),
+  )
+  let integer = @typed_spreadsheet.Formula::literal(
+    @typed_spreadsheet.CellValue::from_int(0),
+  )
+  let _ = sheet.set_formula_ast(
+    target,
+    @typed_spreadsheet.CellType::t_bool(),
+    @typed_spreadsheet.Formula::eq(blank, blank),
+  )
+  match sheet.read(target) {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Bool(value)) =>
+      inspect(value, content="true")
+    _ => abort("expected Blank to equal Blank")
+  }
+  let _ = sheet.set_formula_ast(
+    target,
+    @typed_spreadsheet.CellType::t_bool(),
+    @typed_spreadsheet.Formula::eq(blank, integer),
+  )
+  match sheet.read(target) {
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Bool(value)) =>
+      inspect(value, content="false")
+    _ => abort("expected Blank not to equal Int")
+  }
 }
 
 ///|
@@ -1080,7 +1197,7 @@ test "typed spreadsheet: formula AST resolves after missing dependency is create
 
   inspect(
     match sheet.read(b1) {
-      @typed_spreadsheet.CellResult::RefError(_) => true
+      @typed_spreadsheet.CellResult::TypeError(_) => true
       _ => false
     },
     content="true",

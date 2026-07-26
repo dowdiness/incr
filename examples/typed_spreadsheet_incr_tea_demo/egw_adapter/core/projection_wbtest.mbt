@@ -84,7 +84,7 @@ test "projection canonical order and initial decisions" {
     ProjectionDecision::ApplyWorksheet(
       @demo.SheetOp::SetFormulaAst(
         @typed_spreadsheet.CellId::of(sheet, "B1"),
-        @typed_spreadsheet.CellType::t_int(),
+        @typed_spreadsheet.CellType::t_any(),
         @typed_spreadsheet.Formula::cell_ref(
           @typed_spreadsheet.CellId::of(sheet, "A1"),
         ),

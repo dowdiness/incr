@@ -46,21 +46,24 @@ test "typed spreadsheet spike: batch rollback removes newly created cells" {
 
   inspect(
     match sheet.read(@typed_spreadsheet.CellId(sheet.sheet_id(), "D1")) {
-      @typed_spreadsheet.CellResult::RefError(_) => true
+      @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Blank) =>
+        true
       _ => false
     },
     content="true",
   )
   inspect(
     match sheet.read(formula) {
-      @typed_spreadsheet.CellResult::RefError(_) => true
+      @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Blank) =>
+        true
       _ => false
     },
     content="true",
   )
   inspect(
     match sheet.read(formula_ast) {
-      @typed_spreadsheet.CellResult::RefError(_) => true
+      @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Blank) =>
+        true
       _ => false
     },
     content="true",
@@ -346,9 +349,8 @@ test "typed spreadsheet spike: batch rollback create+delete stays absent" {
   inspect(result is Err(Abort), content="true")
   inspect(global_calls, content="0")
   match sheet.read(source) {
-    @typed_spreadsheet.CellResult::RefError(message) =>
-      inspect(message, content="no cell at the requested address")
-    _ => abort("expected deleted create+delete rollback to leave no cell")
+    @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Blank) => ()
+    _ => abort("expected deleted create+delete rollback to leave Blank")
   }
 }
 

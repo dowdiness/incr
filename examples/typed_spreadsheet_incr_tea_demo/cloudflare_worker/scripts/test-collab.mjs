@@ -226,6 +226,25 @@ try {
   await waitForCellText(joinPage, 'B1', '16');
   console.log('✓ example click applies immediately and publishes the dependent update');
 
+  await hostPage.locator('#cell-C1').click();
+  await hostPage.getByLabel('Formula text for C1').fill('=Z9');
+  await hostPage.locator('.primary-action').click();
+  for (const page of [hostPage, joinPage]) {
+    await page.waitForFunction(() => {
+      const cell = document.getElementById('cell-C1');
+      return cell?.getAttribute('aria-label') === 'Select cell C1: formula, blank' &&
+        cell?.classList.contains('sheet-cell--ok');
+    });
+  }
+  console.log('✓ direct missing reference preserves Blank on both peers');
+
+  await joinPage.locator('#cell-Z9').click();
+  await joinPage.getByLabel('Formula text for Z9').fill('30');
+  await joinPage.locator('.primary-action').click();
+  await waitForCellText(joinPage, 'C1', '30');
+  await waitForCellText(hostPage, 'C1', '30');
+  console.log('✓ direct Blank reference reactivates after remote source creation');
+
   const hostTraceBeforeRemote = await hostPage.locator('#app-trace').textContent();
   const hostEvidenceBeforeRemote = await hostPage.locator('#app-evidence').textContent();
   await joinPage.locator('#cell-A1').click();

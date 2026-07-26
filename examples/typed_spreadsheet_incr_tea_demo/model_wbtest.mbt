@@ -67,16 +67,17 @@ test "incr_tea spreadsheet proof starts with seeded representative grid" {
 }
 
 ///|
-test "present formula reference errors remain visible" {
+test "present direct formula reference preserves missing Blank" {
   let app = try! TypedSheetApp(@incr.Runtime())
   ignore(app.prog_grid.dispatch(BeginInlineEdit("C1")))
   ignore(app.prog_grid.dispatch(UpdateDraft("C1", "=Z1")))
   ignore(app.prog_grid.dispatch(ApplyInlineEdit("C1")))
   let snapshot = app._state.val.adapter.inspect_cell("C1")
   inspect(snapshot.present, content="true")
-  inspect(cell_snapshot_text(snapshot).contains("ref error:"), content="true")
+  inspect(snapshot.result is Ok(Blank), content="true")
+  inspect(cell_snapshot_text(snapshot), content="")
   inspect(
-    grid_cell_class(snapshot, false, false, false).contains("sheet-cell--error"),
+    grid_cell_class(snapshot, false, false, false).contains("sheet-cell--ok"),
     content="true",
   )
   app.dispose()

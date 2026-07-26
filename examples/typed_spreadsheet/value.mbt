@@ -4,6 +4,7 @@ pub enum CellValue {
   Int(Int)
   Bool(Bool)
   Text(String)
+  /// A first-class blank value, also returned for absent same-sheet cells.
   Blank
 } derive(Eq, Debug)
 

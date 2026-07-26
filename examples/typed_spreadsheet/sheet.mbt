@@ -146,22 +146,28 @@ pub fn Worksheet::dispose(self : Worksheet) -> Unit {
 
 ///|
 /// Reads the current cell result without aborting.
+///
+/// Same-sheet missing and deleted cells read as `Ok(Blank)`. A foreign cell id
+/// returns `RefError`.
 pub fn Worksheet::read(self : Worksheet, id : CellId) -> CellResult {
   self.read_slot(id)
 }
 
 ///|
 /// Returns a stable inspection snapshot for a single cell.
+///
+/// Same-sheet missing and deleted snapshots have `present=false` and an
+/// `Ok(Blank)` result. Foreign snapshots retain `RefError`.
 pub fn Worksheet::inspect_cell(self : Worksheet, id : CellId) -> CellSnapshot {
   if !self.owns_cell_id(id) {
-    return missing_cell_snapshot(id, "foreign cell id")
+    return missing_cell_snapshot(id, CellResult::RefError("foreign cell id"))
   }
 
   match self.cell_presence.get(id) {
     Some(presence) if !presence.get() =>
-      return missing_cell_snapshot(id, "no cell at the requested address")
+      return missing_cell_snapshot(id, CellResult::ok(CellValue::blank()))
     Some(_) => ()
-    None => return missing_cell_snapshot(id, "no cell at the requested address")
+    None => return missing_cell_snapshot(id, CellResult::ok(CellValue::blank()))
   }
 
   match self.cells.get(id) {
@@ -183,7 +189,7 @@ pub fn Worksheet::inspect_cell(self : Worksheet, id : CellId) -> CellSnapshot {
         last_dynamic_dependencies,
       }
     }
-    None => missing_cell_snapshot(id, "no cell at the requested address")
+    None => missing_cell_snapshot(id, CellResult::ok(CellValue::blank()))
   }
 }
 
@@ -498,11 +504,11 @@ fn Worksheet::with_live_slot(
   }
 
   if !self.cell_presence_for(id).get() {
-    return CellResult::RefError("no cell at the requested address")
+    return CellResult::ok(CellValue::blank())
   }
   match self.cells.get(id) {
     Some(slot) => consume_slot(slot)
-    None => CellResult::RefError("no cell at the requested address")
+    None => CellResult::ok(CellValue::blank())
   }
 }
 
@@ -697,7 +703,7 @@ fn Worksheet::new_slot(
       if presence.get() {
         definition.get().evaluate(self, evaluator)
       } else {
-        CellResult::RefError("no cell at the requested address")
+        CellResult::ok(CellValue::blank())
       }
     },
     label?,
@@ -780,12 +786,12 @@ fn Worksheet::cell_presence_for(
 }
 
 ///|
-fn missing_cell_snapshot(id : CellId, message : String) -> CellSnapshot {
+fn missing_cell_snapshot(id : CellId, result : CellResult) -> CellSnapshot {
   {
     id,
     present: false,
     kind: None,
-    result: CellResult::RefError(message),
+    result,
     dependency_shape: None,
     installed_dependencies: [],
     static_references: [],

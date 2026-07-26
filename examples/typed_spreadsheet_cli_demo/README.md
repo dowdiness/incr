@@ -22,7 +22,7 @@ trace:
   unchanged: []
 snapshots:
   B1:
-    before: missing RefError("no cell at the requested address")
+    before: missing Ok(Blank)
     after:  formula Ok(Int(11)) shape=applicative deps=[] refs=[A1] dyn=[A1]
 
 #4 SetInput A1 = Int(15)
@@ -51,7 +51,7 @@ trace:
         "cell": "B1",
         "present": false,
         "kind": "missing",
-        "result": "RefError(\"no cell at the requested address\")",
+        "result": "Ok(Blank)",
         "dependency_shape": "none",
         "installed_dependencies": [],
         "static_references": [],

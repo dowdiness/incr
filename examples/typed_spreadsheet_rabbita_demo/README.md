@@ -106,7 +106,7 @@ Users can select a cell, double-click to edit it directly in the grid, apply the
 edit, or delete the cell. Supported text intentionally stays tiny:
 
 - `10` installs an integer input.
-- `=A1` installs an integer cell-reference formula.
+- `=A1` installs a value-preserving cell-reference formula.
 - `=A1 + 1` installs an integer addition formula.
 - `=A1 * 2` installs an integer multiplication formula.
 - `=if(A1 > 10, 1, 0)` installs an integer conditional formula.

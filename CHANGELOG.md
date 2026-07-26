@@ -32,6 +32,9 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ### Changed
 
+- Typed-spreadsheet same-sheet missing and deleted references now read as
+  `Ok(Blank)`. Direct references preserve Blank, scalar operators remain strict,
+  and foreign references remain `RefError`.
 - Unified text-input and committed-value payloads under `ValueEventId` and
   `ValuePayload`. `BrowserRenderer::mount` now accepts the shared `on_value`
   resolver for both `on_input` and `on_change` descriptors; the previous
