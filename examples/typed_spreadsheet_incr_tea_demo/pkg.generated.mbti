@@ -32,10 +32,6 @@ type CollabState
 
 type CollabTransportKind derive(Eq, @debug.Debug)
 
-type EvidenceCellData derive(Eq)
-
-type EvidenceData derive(Eq)
-
 type KeyResolution
 
 type Model

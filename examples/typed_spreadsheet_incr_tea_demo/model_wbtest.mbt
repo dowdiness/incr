@@ -768,6 +768,89 @@ test "incr_tea evidence distinguishes unchanged formula recomputation" {
 }
 
 ///|
+test "AI context parity scenario covers edits, errors, formulas, deletes, and bounds" {
+  let app = try! TypedSheetApp(@incr.Runtime())
+  ignore(app.prog_grid.dispatch(SelectCell("A1")))
+  ignore(app.prog_grid.dispatch(UpdateDraft("A1", "15")))
+  ignore(app.prog_grid.dispatch(ApplySelected))
+  let successful = app._state.val.ai_context_snapshot(region=["A1"])
+  inspect(successful.cells[0].result.status, content="ok")
+  match successful.cells[0].result.value {
+    Some(value) => {
+      inspect(value.type_name, content="Int")
+      inspect(value.value, content="15")
+    }
+    None => abort("expected successful Int value")
+  }
+  match successful.latest_trace {
+    Some(trace) => inspect(trace.outcome, content="Ok(Int(15))")
+    None => abort("expected successful trace")
+  }
+  match successful.latest_evidence {
+    Some(evidence) => inspect(evidence.outcome, content="Ok(Int(15))")
+    None => abort("expected successful evidence")
+  }
+
+  ignore(app.prog_grid.dispatch(UpdateDraft("A1", "oops")))
+  ignore(app.prog_grid.dispatch(ApplySelected))
+  let after_parse_error = app._state.val.ai_context_snapshot(region=["A1"])
+  inspect(after_parse_error.cells[0].result.status, content="ok")
+  inspect(after_parse_error.cells[0].committed_text, content="15")
+  inspect(after_parse_error.cells[0].draft_text, content="oops")
+  inspect(after_parse_error.cells[0].draft_dirty, content="true")
+  match after_parse_error.latest_trace {
+    Some(trace) => inspect(trace.edit, content="A1 ← 15")
+    None => abort("expected retained successful trace")
+  }
+
+  ignore(app.prog_grid.dispatch(SelectCell("B1")))
+  ignore(app.prog_grid.dispatch(UpdateDraft("B1", "=A1 + 1")))
+  ignore(app.prog_grid.dispatch(ApplySelected))
+  let equivalent_context = app._state.val.ai_context_snapshot(region=["B1"])
+  match equivalent_context.cells[0].formula {
+    Some(formula) =>
+      match formula.shape {
+        Some(shape) => inspect(shape, content="Add(Ref(A1), Literal(Int(1)))")
+        None => abort("expected formula shape")
+      }
+    None => abort("expected formula metadata")
+  }
+  match equivalent_context.latest_evidence {
+    Some(evidence) =>
+      inspect(evidence.cells[0].classification, content="changed")
+    None => abort("expected equivalent-formula evidence")
+  }
+
+  ignore(app.prog_grid.dispatch(SelectCell("A1")))
+  ignore(app.prog_grid.dispatch(DeleteSelected))
+  ignore(app.prog_grid.dispatch(SelectCell("B1")))
+  let deleted_context = app._state.val.ai_context_snapshot(
+    region=["A1", "B1", "C1"],
+    max_cells=1,
+  )
+  inspect(deleted_context.truncated, content="true")
+  debug_inspect(deleted_context.region, content="[\"B1\"]")
+  inspect(deleted_context.cells[0].result.status, content="type_error")
+  match deleted_context.latest_trace {
+    Some(trace) => {
+      inspect(trace.recomputed.length() <= 1, content="true")
+      inspect(trace.changed.length() <= 1, content="true")
+      inspect(trace.unchanged.length() <= 1, content="true")
+    }
+    None => abort("expected bounded delete trace")
+  }
+  match deleted_context.latest_evidence {
+    Some(evidence) => {
+      inspect(evidence.cells.length(), content="1")
+      inspect(evidence.cells[0].id, content="A1")
+      inspect(evidence.cells[0].after_result_status, content="missing")
+    }
+    None => abort("expected delete evidence")
+  }
+  app.dispose()
+}
+
+///|
 test "incr_tea latest trace preserves operation outcome after selection" {
   let app = try! TypedSheetApp(@incr.Runtime())
   ignore(app.prog_grid.dispatch(SelectCell("A1")))

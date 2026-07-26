@@ -311,6 +311,46 @@ test "classify evidence marks same-result kind change changed" {
 }
 
 ///|
+test "shared AI context result conversion covers parse and type errors" {
+  let sheet = new_sheet(11)
+  let a1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
+  let b1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
+  let c1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "C1")
+  ignore(sheet.set_input(a1, @typed_spreadsheet.CellValue::from_text("x")))
+  ignore(
+    sheet.set_formula(b1, @typed_spreadsheet.CellType::t_int(), [a1], deps => {
+      match deps[0] {
+        @typed_spreadsheet.CellValue::Int(value) =>
+          @typed_spreadsheet.CellResult::ok(
+            @typed_spreadsheet.CellValue::from_int(value),
+          )
+        _ =>
+          @typed_spreadsheet.CellResult::type_error(
+            "formula dependency mismatch",
+          )
+      }
+    }),
+  )
+  ignore(
+    sheet.set_formula(c1, @typed_spreadsheet.CellType::t_int(), [], _ => {
+      @typed_spreadsheet.CellResult::parse_error("invalid formula")
+    }),
+  )
+  let type_error = ai_context_result(sheet.inspect_cell(b1))
+  inspect(type_error.status, content="type_error")
+  match type_error.error {
+    Some(message) => inspect(message, content="formula dependency mismatch")
+    None => abort("expected type error detail")
+  }
+  let parse_error = ai_context_result(sheet.inspect_cell(c1))
+  inspect(parse_error.status, content="parse_error")
+  match parse_error.error {
+    Some(message) => inspect(message, content="invalid formula")
+    None => abort("expected parse error detail")
+  }
+}
+
+///|
 fn new_sheet(id : Int) -> @typed_spreadsheet.Worksheet {
   let rt = @incr.Runtime()
   let sheet_id = @typed_spreadsheet.SheetId(id)
