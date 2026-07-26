@@ -6,8 +6,10 @@ This phase verifies the Worker → Durable Object boundary, static SPA assets,
 and a two-connection opaque text relay. The Worker routes `/health`,
 `/api/rooms/<capability>`, `/`, and `/collab`; the Durable Object accepts
 Hibernation WebSockets, excludes the sender, limits the room to two connections,
-and rejects oversized text frames. Per-connection rate metadata is stored in
-WebSocket Hibernation attachments, and room admission is limited to 30 requests
+and rejects oversized text frames. The static `/collab` route creates and joins
+rooms entirely in the browser; it does not call a room-creation endpoint.
+Per-connection rate metadata is stored in WebSocket Hibernation attachments,
+and room admission is limited to 30 requests
 per connecting IP per 60 seconds by a Cloudflare Rate Limit binding. The Worker
 also validates canonical URL-safe room capabilities and same-site origins. Spreadsheet protocol and browser
 provider selection remain outside the Worker relay.

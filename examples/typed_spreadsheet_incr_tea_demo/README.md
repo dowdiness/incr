@@ -6,8 +6,16 @@ full 50×50 model while keeping the Rabbita demo as the primary live deployment.
 
 ## Collaboration scope
 
-The `/collab?role=host|join&room=ROOM&peer=PEER` route supports two transport
-providers selected at the imperative shell boundary:
+Opening `/collab` without a query shows a room chooser. **Create room** generates
+one 192-bit URL-safe capability plus independent host and join peer IDs in the
+browser, then presents the bearer invitation before the host opens the room.
+**Join room** accepts only a same-origin invitation whose normalized path and
+query pass the existing startup parser as a WebSocket join. No room-creation API
+or room persistence is involved.
+
+The direct `/collab?role=host|join&room=ROOM&peer=PEER` contract remains available
+for tests and local development. It supports two transport providers selected at
+the imperative shell boundary:
 
 - `transport=broadcast` (the default) is the local same-origin proof and uses a
   temporary `BroadcastChannel` room;
@@ -155,6 +163,7 @@ Production build, static smoke check, and browser interaction check:
 npm run build
 npm run smoke
 npm run test:dom
+npm run test:room
 npm run test:collab
 ```
 

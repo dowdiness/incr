@@ -27,12 +27,27 @@ fn protocol_bootstrap(
 ///|
 test "startup parsing rejects malformed collab config without fallback" {
   assert_true(parse_startup("/") is Ok(StartupMode::Standalone))
+  assert_true(parse_startup("/collab") is Ok(StartupMode::RoomChooser))
   assert_true(parse_startup("/collab?role=host&room=room&peer=A") is Ok(_))
   assert_true(parse_startup("/collab?role=join&room=room&peer=B") is Ok(_))
+  assert_true(
+    parse_startup(
+      "/collab?role=join&room=abcdefghijklmnopqrstuv&peer=B&transport=websocket",
+    )
+    is Ok(_),
+  )
+  assert_true(
+    parse_startup("/collab?role=join&room=short&peer=B&transport=websocket")
+    is Err(StartupConfigError::InvalidRoomCapability),
+  )
   assert_true(parse_startup("/collab?role=host&room=&peer=A") is Err(_))
   assert_true(parse_startup("/collab?role=host&room=room&peer=") is Err(_))
   assert_true(parse_startup("/collab?role=invalid&room=room&peer=A") is Err(_))
   assert_true(parse_startup("/collab?role=join&room=room") is Err(_))
+  assert_true(
+    parse_startup("/collab?role=join&room=room&peer=A&peer=B")
+    is Err(StartupConfigError::DuplicateParameter(_)),
+  )
 }
 
 ///|

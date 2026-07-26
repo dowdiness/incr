@@ -39,6 +39,9 @@ All notable changes to `dowdiness/incr` are documented in this file.
   spreadsheet example, including host bootstrap, supplied-node join attach,
   bidirectional committed-cell synchronization, fail-closed transport with
   local-only editing fallback, and Playwright CI coverage.
+- Added the typed spreadsheet `/collab` room chooser for browser-generated
+  WebSocket capabilities, copy-confirmed bearer invitations, and fail-closed
+  same-origin joining without a room-creation API or persistence.
 - Added the #394 Chromium benchmark for equal-view controlled-property traversal/getter and mismatch-repair costs across 0–10,000 rendered nodes; the measured cost did not justify a renderer optimization.
 
 ## [v0.14.2] - 2026-07-10

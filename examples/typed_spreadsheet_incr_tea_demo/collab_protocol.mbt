@@ -14,8 +14,10 @@ suberror StartupConfigError {
   InvalidRole(String)
   InvalidTransport(String)
   MissingRoom
+  InvalidRoomCapability
   MissingPeer
   EmptyValue(String)
+  DuplicateParameter(String)
   UnexpectedParameter(String)
 }
 
@@ -45,6 +47,7 @@ enum CollabTransportKind {
 /// The only supported startup modes.
 enum StartupMode {
   Standalone
+  RoomChooser
   Host(PeerId, String, CollabTransportKind)
   Join(PeerId, String, CollabTransportKind)
 } derive(Eq, Debug)
@@ -334,6 +337,9 @@ fn parse_startup(raw : String) -> Result[StartupMode, StartupConfigError] {
   if raw == "/" || raw.is_empty() {
     return Ok(StartupMode::Standalone)
   }
+  if raw == "/collab" {
+    return Ok(StartupMode::RoomChooser)
+  }
   let (path, query) = match raw.split_once("?") {
     Some(parts) => parts
     None => (raw, "")
@@ -355,10 +361,27 @@ fn parse_startup(raw : String) -> Result[StartupMode, StartupConfigError] {
         return Err(StartupConfigError::UnexpectedParameter(pair.to_owned()))
     }
     match key {
-      "role" => role = Some(value.to_owned())
-      "room" => room = Some(value.to_owned())
-      "peer" => peer = Some(value.to_owned())
-      "transport" => transport = Some(value.to_owned())
+      "role" =>
+        match role {
+          Some(_) => return Err(StartupConfigError::DuplicateParameter("role"))
+          None => role = Some(value.to_owned())
+        }
+      "room" =>
+        match room {
+          Some(_) => return Err(StartupConfigError::DuplicateParameter("room"))
+          None => room = Some(value.to_owned())
+        }
+      "peer" =>
+        match peer {
+          Some(_) => return Err(StartupConfigError::DuplicateParameter("peer"))
+          None => peer = Some(value.to_owned())
+        }
+      "transport" =>
+        match transport {
+          Some(_) =>
+            return Err(StartupConfigError::DuplicateParameter("transport"))
+          None => transport = Some(value.to_owned())
+        }
       _ => return Err(StartupConfigError::UnexpectedParameter(key.to_owned()))
     }
   }
@@ -384,9 +407,16 @@ fn parse_startup(raw : String) -> Result[StartupMode, StartupConfigError] {
     Some("websocket") => CollabTransportKind::WebSocket
     Some(value) => return Err(StartupConfigError::InvalidTransport(value))
   }
+  let room = room.trim().to_owned()
+  if transport is CollabTransportKind::WebSocket {
+    match @collab_core.validate_room_capability(room) {
+      Err(_) => return Err(StartupConfigError::InvalidRoomCapability)
+      Ok(_) => ()
+    }
+  }
   match role {
-    "host" => Ok(StartupMode::Host(peer, room.trim().to_owned(), transport))
-    "join" => Ok(StartupMode::Join(peer, room.trim().to_owned(), transport))
+    "host" => Ok(StartupMode::Host(peer, room, transport))
+    "join" => Ok(StartupMode::Join(peer, room, transport))
     value => Err(StartupConfigError::InvalidRole(value))
   }
 }

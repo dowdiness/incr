@@ -23,6 +23,67 @@ extern "js" fn js_collab_startup_input() -> String =
   #| () => `${globalThis.location.pathname}${globalThis.location.search}`
 
 ///|
+/// Generate one browser-owned room capability without server coordination.
+#cfg(target="js")
+extern "js" fn js_collab_room_capability() -> String =
+  #| () => globalThis.typedSpreadsheetCollabRoomShell.generateCapability()
+
+///|
+/// Generate a transport peer id independently from the document replica id.
+#cfg(target="js")
+extern "js" fn js_collab_peer_uuid() -> String =
+  #| () => globalThis.typedSpreadsheetCollabRoomShell.generatePeerId()
+
+///|
+/// Normalize a same-origin invitation before the pure startup parser sees it.
+#cfg(target="js")
+extern "js" fn js_collab_normalize_invite_url(raw : String) -> String =
+  #| raw => globalThis.typedSpreadsheetCollabRoomShell.normalizeInviteUrl(raw)
+
+///|
+/// Build one canonical same-origin WebSocket collaboration URL.
+#cfg(target="js")
+extern "js" fn js_collab_build_websocket_url(
+  role : String,
+  room : String,
+  peer : String,
+) -> String =
+  #| (role, room, peer) => globalThis.typedSpreadsheetCollabRoomShell.buildWebSocketCollabUrl(role, room, peer)
+
+///|
+/// Mount the room chooser shell with keyboard-equivalent form callbacks.
+#cfg(target="js")
+extern "js" fn js_collab_mount_room_chooser(
+  on_create : () -> Unit,
+  on_join : (String) -> Unit,
+) -> Unit =
+  #| (onCreate, onJoin) => globalThis.typedSpreadsheetCollabRoomShell.mountRoomChooser(onCreate, onJoin)
+
+///|
+/// Reveal a generated invitation and its host navigation target.
+#cfg(target="js")
+extern "js" fn js_collab_present_created_room(
+  host_url : String,
+  invite_url : String,
+) -> Unit =
+  #| (hostUrl, inviteUrl) => globalThis.typedSpreadsheetCollabRoomShell.presentCreatedRoom(hostUrl, inviteUrl)
+
+///|
+/// Surface a chooser error at the action that caused it.
+#cfg(target="js")
+extern "js" fn js_collab_show_room_error(
+  message : String,
+  join_target : Bool,
+) -> Unit =
+  #| (message, joinTarget) => globalThis.typedSpreadsheetCollabRoomShell.showRoomChooserError(message, joinTarget)
+
+///|
+/// Navigate only to a URL reconstructed from validated startup data.
+#cfg(target="js")
+extern "js" fn js_collab_navigate(url : String) -> Unit =
+  #| url => globalThis.typedSpreadsheetCollabRoomShell.navigate(url)
+
+///|
 /// Generate an EGW replica id independently from transport routing.
 #cfg(target="js")
 extern "js" fn js_collab_replica_uuid() -> String =
@@ -187,8 +248,10 @@ fn format_startup_error(error : StartupConfigError) -> String {
     InvalidTransport(transport) =>
       "Unsupported collaboration transport: \{transport}."
     MissingRoom => "Collaboration requires a non-empty room."
+    InvalidRoomCapability => "Collaboration requires a valid room capability."
     MissingPeer => "Collaboration requires a non-empty peer id."
     EmptyValue(name) => "Collaboration value is empty: \{name}."
+    DuplicateParameter(name) => "Duplicate collaboration parameter: \{name}."
     UnexpectedParameter(name) => "Unexpected collaboration parameter: \{name}."
   }
 }
@@ -208,6 +271,96 @@ fn format_protocol_error(error : CollabProtocolError) -> String {
     InvalidSync(_) => "Collaboration bootstrap has invalid sync data."
     WrongSchema => "Unsupported collaboration message schema."
   }
+}
+
+///|
+/// Format a typed chooser rejection only at the user-visible shell boundary.
+fn format_room_selection_rejection(
+  rejection : RoomSelectionRejection,
+) -> String {
+  match rejection {
+    RoomSelectionRejection::SecureRoomCreationFailed =>
+      "A secure room could not be created. Please try again."
+    RoomSelectionRejection::InvalidWebSocketInvitation =>
+      "Enter a valid WebSocket invitation link from this site."
+  }
+}
+
+///|
+/// Build a URL only from a validated WebSocket startup mode.
+fn room_mode_url(mode : StartupMode) -> String {
+  match mode {
+    StartupMode::Host(peer, room, CollabTransportKind::WebSocket) =>
+      js_collab_build_websocket_url("host", room, peer.0)
+    StartupMode::Join(peer, room, CollabTransportKind::WebSocket) =>
+      js_collab_build_websocket_url("join", room, peer.0)
+    _ => ""
+  }
+}
+
+///|
+/// Execute one pure chooser decision at the browser boundary.
+fn apply_room_selection_event(
+  owner : Ref[RoomSelectionState],
+  event : RoomSelectionEvent,
+  join_target : Bool,
+) -> Unit {
+  let (state, decision) = reduce_room_selection(owner.val, event)
+  owner.val = state
+  match decision {
+    RoomSelectionDecision::PresentCreated(host, invite) => {
+      let host_url = room_mode_url(host)
+      let invite_url = room_mode_url(invite)
+      if host_url.is_empty() || invite_url.is_empty() {
+        js_collab_show_room_error(
+          "A secure room could not be created. Please try again.", false,
+        )
+      } else {
+        js_collab_present_created_room(host_url, invite_url)
+      }
+    }
+    RoomSelectionDecision::Navigate(mode) => {
+      let url = room_mode_url(mode)
+      if url.is_empty() {
+        js_collab_show_room_error(
+          "Enter a valid WebSocket invitation link from this site.", true,
+        )
+      } else {
+        js_collab_navigate(url)
+      }
+    }
+    RoomSelectionDecision::Reject(rejection) =>
+      js_collab_show_room_error(
+        format_room_selection_rejection(rejection),
+        join_target,
+      )
+  }
+}
+
+///|
+/// Mount the room selection shell before any document or transport exists.
+fn show_room_chooser() -> Unit {
+  let owner = Ref(RoomSelectionState::Choosing)
+  js_collab_mount_room_chooser(
+    () => {
+      apply_room_selection_event(
+        owner,
+        RoomSelectionEvent::CreateGenerated(
+          js_collab_room_capability(),
+          js_collab_peer_uuid(),
+          js_collab_peer_uuid(),
+        ),
+        false,
+      )
+    },
+    raw => {
+      apply_room_selection_event(
+        owner,
+        RoomSelectionEvent::JoinSubmitted(js_collab_normalize_invite_url(raw)),
+        true,
+      )
+    },
+  )
 }
 
 ///|
@@ -452,7 +605,7 @@ fn start_collaboration(mode : StartupMode) -> Unit {
   let (local_peer, room, transport_kind) = match mode {
     StartupMode::Host(peer, room, transport)
     | StartupMode::Join(peer, room, transport) => (peer, room, transport)
-    StartupMode::Standalone => return
+    StartupMode::Standalone | StartupMode::RoomChooser => return
   }
   let receiver : Ref[(String) -> Unit] = Ref(_ => ())
   let failure_handler : Ref[(String) -> Unit] = Ref(_ => ())
@@ -468,7 +621,7 @@ fn start_collaboration(mode : StartupMode) -> Unit {
   let initial_state = match mode {
     StartupMode::Host(_, _, _) => CollabState::starting_host(local_peer)
     StartupMode::Join(_, _, _) => CollabState::join(local_peer)
-    StartupMode::Standalone => return
+    StartupMode::Standalone | StartupMode::RoomChooser => return
   }
   let owner = Ref(CollabOwner::{
     state: initial_state,
@@ -535,14 +688,12 @@ fn start_collaboration(mode : StartupMode) -> Unit {
       if transport_kind is CollabTransportKind::WebSocket {
         let retry_message = message_to_json(CollabMessage::Join(peer))
         owner.val.join_retry = Some(
-          js_collab_start_join_retry(
-            owner.val.transport,
-            retry_message,
-            error => (failure_handler.val)(error),
-          ),
+          js_collab_start_join_retry(owner.val.transport, retry_message, error => {
+            (failure_handler.val)(error)
+          }),
         )
       }
     }
-    StartupMode::Standalone => ()
+    StartupMode::Standalone | StartupMode::RoomChooser => ()
   }
 }

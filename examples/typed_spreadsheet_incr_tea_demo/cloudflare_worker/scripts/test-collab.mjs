@@ -144,10 +144,6 @@ let browser;
 
 try {
   await waitForHealth(baseUrl);
-  const room = `typed-sheet-${Date.now()}`;
-  const hostUrl = `${baseUrl}/collab?role=host&room=${room}&peer=host&transport=websocket`;
-  const joinUrl = `${baseUrl}/collab?role=join&room=${room}&peer=join&transport=websocket`;
-
   browser = await chromium.launch({ headless: process.env.HEADLESS !== '0' });
   const hostContext = await browser.newContext();
   const joinContext = await browser.newContext();
@@ -157,13 +153,56 @@ try {
   hostPage.on('pageerror', error => pageErrors.push(`host: ${error.message}`));
   joinPage.on('pageerror', error => pageErrors.push(`join: ${error.message}`));
 
+  await hostPage.goto(`${baseUrl}/collab`, { waitUntil: 'load' });
+  await hostPage.getByRole('button', { name: 'Create room' }).click();
+  const inviteUrl = await hostPage.locator('#room-invite-output').inputValue();
+  const invite = new URL(inviteUrl);
+  const room = invite.searchParams.get('room');
+  const invitePeer = invite.searchParams.get('peer');
+  assert(invite.origin === baseUrl, 'room chooser produced a foreign-origin invitation');
+  assert(invite.pathname === '/collab', 'room chooser produced the wrong invitation path');
+  assert(invite.searchParams.get('role') === 'join', 'room chooser invitation is not join-only');
+  assert(invite.searchParams.get('transport') === 'websocket', 'room chooser invitation is not WebSocket-only');
+  assert(room?.length === 32, 'room chooser did not produce the 192-bit capability shape');
+  assert(/^[A-Za-z0-9_-]+$/u.test(room), 'room chooser capability is not URL-safe');
+  assert(invitePeer, 'room chooser invitation is missing a peer id');
+  await hostPage.getByRole('button', { name: 'Copy invite link' }).click();
+  await hostPage.getByRole('button', { name: 'Copied' }).waitFor();
+  console.log('✓ room chooser creates a URL-safe invitation and confirms copy');
+
+  const openHost = async () => {
+    await Promise.all([
+      hostPage.waitForURL(url => url.searchParams.get('role') === 'host'),
+      hostPage.getByRole('button', { name: 'Open room' }).click(),
+    ]);
+    const host = new URL(hostPage.url());
+    assert(host.searchParams.get('room') === room, 'host opened a different room');
+    assert(host.searchParams.get('transport') === 'websocket', 'host did not open WebSocket transport');
+    assert(host.searchParams.get('peer') !== invitePeer, 'host and join invitation reused a peer id');
+  };
+  const joinFromChooser = async () => {
+    await joinPage.goto(`${baseUrl}/collab`, { waitUntil: 'load' });
+    await joinPage.locator('#room-join-input').fill(
+      'https://attacker.example/collab?role=join&room=abcdefghijklmnopqrstuv&peer=join&transport=websocket',
+    );
+    await joinPage.getByRole('button', { name: 'Join room' }).click();
+    assert(new URL(joinPage.url()).search === '', 'invalid invitation navigated away from the chooser');
+    assert(await joinPage.locator('#room-join-error').textContent(), 'invalid invitation did not expose an error');
+    assert(await joinPage.locator('#cell-B1').count() === 0, 'invalid invitation bootstrapped a document');
+    await joinPage.locator('#room-join-input').fill(inviteUrl);
+    await Promise.all([
+      joinPage.waitForURL(url => url.searchParams.get('role') === 'join'),
+      joinPage.locator('#room-join-input').press('Enter'),
+    ]);
+  };
+
   if (process.env.JOIN_FIRST === '1') {
-    await joinPage.goto(joinUrl, { waitUntil: 'load' });
+    await joinFromChooser();
     await wait(500);
-    await hostPage.goto(hostUrl, { waitUntil: 'load' });
+    await openHost();
   } else {
-    await hostPage.goto(hostUrl, { waitUntil: 'load' });
-    await joinPage.goto(joinUrl, { waitUntil: 'load' });
+    await openHost();
+    await joinFromChooser();
   }
   await hostPage.waitForSelector('#cell-B1');
   await waitForCellText(hostPage, 'B1', '11');
