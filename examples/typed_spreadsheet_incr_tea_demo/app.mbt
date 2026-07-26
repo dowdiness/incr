@@ -120,7 +120,8 @@ fn handle_msg(
     return @tea.Cmd::batch([publish_ai_context_cmd(state)])
   }
   let plan = match msg {
-    ApplySelected
+    UseExample(_)
+    | ApplySelected
     | ApplyInlineEdit(_)
     | DeleteSelected
     | ResetSheet

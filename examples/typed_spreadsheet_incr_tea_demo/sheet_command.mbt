@@ -34,6 +34,13 @@ struct SheetPlanningContext {
 fn plan_sheet_command(context : SheetPlanningContext, msg : Msg) -> SheetPlan {
   let none = { command: None, ui_effect: None }
   match msg {
+    UseExample(text) =>
+      {
+        command: Some(
+          ApplyFromSelection(context.selected_cell, text, context.generation),
+        ),
+        ui_effect: None,
+      }
     ApplySelected => {
       let target = context.selected_cell
       {

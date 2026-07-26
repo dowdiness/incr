@@ -27,6 +27,14 @@ fn inspect_state_cell(
 test "sheet planner covers messages and owns submitted payloads" {
   let context = test_sheet_planning_context()
   let selected = context.selected_cell
+  match plan_sheet_command(context, UseExample("15")).command {
+    Some(ApplyFromSelection(target, text, generation)) => {
+      assert_true(target == selected)
+      assert_true(text == "15")
+      assert_true(generation == context.generation)
+    }
+    _ => abort("expected example apply")
+  }
   match plan_sheet_command(context, ApplySelected).command {
     Some(ApplyFromSelection(target, text, generation)) => {
       assert_true(target == selected)
@@ -72,7 +80,6 @@ test "sheet planner covers messages and owns submitted payloads" {
     msg in [
       SelectCell("A1"),
       UpdateDraft("A1", "x"),
-      UseExample("x"),
       CancelSelected,
       MoveSelection(1, 0),
     ] {

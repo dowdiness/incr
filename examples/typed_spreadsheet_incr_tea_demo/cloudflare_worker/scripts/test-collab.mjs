@@ -219,12 +219,12 @@ try {
   assert(await joinPage.evaluate(() => document.activeElement?.id !== 'formula-editor-input'), 'focus leaked to joiner');
   console.log('✓ drafts, selection, and focus remain local');
 
-  await hostPage.getByLabel('Formula text for A1').fill('15');
-  await hostPage.locator('.primary-action').click();
+  await hostPage.getByRole('button', { name: '15', exact: true }).click();
+  await waitForCellText(hostPage, 'A1', '15');
   await waitForCellText(hostPage, 'B1', '16');
   await waitForCellText(joinPage, 'A1', '15');
   await waitForCellText(joinPage, 'B1', '16');
-  console.log('✓ host to join dependent update');
+  console.log('✓ example click applies immediately and publishes the dependent update');
 
   const hostTraceBeforeRemote = await hostPage.locator('#app-trace').textContent();
   const hostEvidenceBeforeRemote = await hostPage.locator('#app-evidence').textContent();

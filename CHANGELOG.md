@@ -6,6 +6,8 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ### Fixed
 
+- Typed-spreadsheet example chips now commit the selected value immediately
+  instead of waiting for a later Enter or Apply action.
 - Remote typed-spreadsheet collaboration commits now refresh each receiver's
   bounded Trace and Evidence views after projection.
 - Datalog relation disposal now rejects live rules that declare the relation;

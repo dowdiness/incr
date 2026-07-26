@@ -242,16 +242,29 @@ test "incr_tea locality: draft-only does not change status" {
   let after_draft = app._state.val.peek_model()
   inspect(after_draft.status, content=initial_status)
 
-  // UseExample is also draft-only — status must stay unchanged
-  ignore(app.prog_grid.dispatch(UseExample("42")))
-  let after_example = app._state.val.peek_model()
-  inspect(after_example.status, content=initial_status)
-
   // SelectCell still patches status (selection is not draft-only)
   ignore(app.prog_grid.dispatch(SelectCell("A1")))
   let after_select = app._state.val.peek_model()
   inspect(after_select.status, content="Selected A1.")
 
+  app.dispose()
+}
+
+///|
+test "example click applies the selected cell immediately" {
+  let app = try! TypedSheetApp(@incr.Runtime())
+  ignore(app.prog_grid.dispatch(SelectCell("A1")))
+  ignore(app.prog_grid.dispatch(UseExample("15")))
+  let model = app._state.val.peek_model()
+  inspect(draft_for(model, "A1"), content="15")
+  inspect(
+    cell_result_text(inspect_model_cell(model, "A1").result),
+    content="15",
+  )
+  inspect(
+    cell_result_text(inspect_model_cell(model, "B1").result),
+    content="16",
+  )
   app.dispose()
 }
 
