@@ -15,25 +15,25 @@ Edit one cell. Watch only the necessary work happen.
 
 The sheet is a concrete, touchable example of `incr` as a dependency-tracked
 computation engine: cell values are backed by MoonBit incremental computations,
-formulas track the cells they read, and the trace/evidence panels show which
-observed formulas recomputed, changed, or rechecked without changing value. The
-browser layer edits and renders the sheet; spreadsheet calculation stays in
-MoonBit.
+formulas track the cells they read, and the on-demand explanation inspector
+shows the selected value's active inputs before offering bounded trace/evidence
+details. The browser layer edits and renders the sheet; spreadsheet calculation
+and explanation queries stay in MoonBit.
 
 ## Responsibility map
 
 | Package | Responsibility |
 | --- | --- |
 | `examples/typed_spreadsheet` | Worksheet state, cell evaluation, formula dependencies, trace snapshots. |
-| `examples/typed_spreadsheet_demo` | Demo operation vocabulary, tiny formula text parser, fixed scenario, and serializable fixed ViewModel. |
+| `examples/typed_spreadsheet_demo` | Demo operation vocabulary, formula parser, bounded AI context, and deterministic explanation queries. |
 | `examples/typed_spreadsheet_cli_demo` | Text/JSON CLI rendering for the shared fixed scenario. |
-| `examples/typed_spreadsheet_rabbita_demo` | Rabbita model/update/view and browser packaging for the editable prototype. No spreadsheet calculation is reimplemented here. |
+| `examples/typed_spreadsheet_rabbita_demo` | Rabbita model/update/view and browser packaging for the editable app. No spreadsheet calculation or explanation policy is reimplemented here. |
 
 ## Interface direction
 
 The editor follows an Ephe-inspired "one quiet sheet" layout: the spreadsheet grid
-owns the full viewport, while editing, trace, evidence, reset, and appearance
-controls live behind a small toggle rail. Paper mode is the default; night mode
+owns the full viewport, while editing, selected-cell explanation, reset, and
+appearance controls live behind a small toggle rail. Paper mode is the default; night mode
 keeps the same grey-first palette for low-light demos. Formulas, values, and cell
 labels stay in a tabular monospace.
 
@@ -111,10 +111,13 @@ edit, or delete the cell. Supported text intentionally stays tiny:
 - `=A1 * 2` installs an integer multiplication formula.
 - `=if(A1 > 10, 1, 0)` installs an integer conditional formula.
 
-After each applied edit, the toggle rail can reveal trace buckets (`recomputed`,
-`changed`, `unchanged`) and before/after snapshots for the selected cell. The
-grid scrolls in both directions and keeps row/column headers sticky while
-navigating the 2,500 cells.
+The `explain <cell>` toggle opens a selected-cell inspector that follows grid
+selection. It shows the current result, formula, and inputs used for that result.
+Static references not used by the current conditional branch appear only when
+present. After an edit captures selected-cell evidence, one disclosure reveals
+bounded `recomputed`, `changed`, and `unchanged` trace buckets plus before/after
+results. The grid scrolls in both directions and keeps row/column headers sticky
+while navigating the 2,500 cells.
 
 Trace, evidence, and AI/tool context are intentionally bounded:
 
@@ -127,13 +130,14 @@ Trace, evidence, and AI/tool context are intentionally bounded:
 - Evidence snapshots are narrower than trace. They show before/after details for
   the edit target, selected cell, and formula references for formula installs
   instead of full-grid before/after data.
-- AI/tool consumers should use the schema-versioned MoonBit context export
-  instead of scraping DOM text. The debug export is published on
-  `globalThis.typedSpreadsheetAIContextJson()` and
-  `globalThis.typedSpreadsheetAIContext()` after init and each update. It includes
-  the selected cell, a capped region, committed/draft text, `inspect_cell` value
-  and dependency metadata, `formula_ast`-backed formula shape when available, and
-  the latest trace/evidence summary.
+- MoonBit adapters should call `@demo.explain_cell` and
+  `@demo.explain_last_change` instead of reconstructing causes from renderer
+  state. Answers include their bounded scope and expose collections as
+  `ReadOnlyArray` values.
+- AI/tool consumers that need the underlying context should use the
+  schema-versioned MoonBit context export instead of scraping DOM text. The debug
+  export is published on `globalThis.typedSpreadsheetAIContextJson()` and
+  `globalThis.typedSpreadsheetAIContext()` after init and each update.
 
 Out of scope for this prototype: ranges, multiple sheets, persistence,
 collaboration, and a general Excel-compatible parser.

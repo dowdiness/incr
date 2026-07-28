@@ -223,14 +223,17 @@ test "typed spreadsheet Rabbita editor escape reverts draft text" {
 }
 
 ///|
-test "typed spreadsheet Rabbita editor appearance and inspector toggles are values" {
+test "typed spreadsheet Rabbita editor toggles the selected-cell explanation" {
   let model = init_model()
   let night = update(SetAppearance(Night), model)
-  let trace = update(SetOverlay(TraceOverlay), night)
-  let closed = update(SetOverlay(TraceOverlay), trace)
+  let explanation = update(SetOverlay(ExplanationOverlay), night)
+  let closed = update(SetOverlay(ExplanationOverlay), explanation)
 
   inspect(appearance_label(night.appearance), content="night")
-  inspect(overlay_status(trace.overlay), content="Trace inspector open.")
+  inspect(
+    overlay_status(explanation.overlay),
+    content="Explanation inspector open.",
+  )
   inspect(overlay_status(closed.overlay), content="Panels hidden.")
 }
 
@@ -268,6 +271,51 @@ test "typed spreadsheet Rabbita editor supports direct cell editing mode" {
   )
   inspect(applied.editing_cell is None, content="true")
   inspect(stale_blur.last_edit, content="C1 ← 7")
+}
+
+///|
+test "typed spreadsheet explanation follows the selected cell" {
+  let formula = match init_model().explanation {
+    Some(answer) => answer
+    None => abort("expected selected formula explanation")
+  }
+  inspect(formula.subject, content="B1")
+  inspect(formula.active_inputs[0].id, content="A1")
+
+  let selected_input = update(SelectCell("A1"), init_model())
+  let input = match selected_input.explanation {
+    Some(answer) => answer
+    None => abort("expected selected input explanation")
+  }
+  inspect(input.subject, content="A1")
+  inspect(input.active_inputs.length(), content="0")
+}
+
+///|
+test "typed spreadsheet explanation cache refreshes after an applied edit" {
+  let edited = update(
+    ApplySelected,
+    update(UpdateDraft("B1", "=A1 + 2"), init_model()),
+  )
+  match edited.explanation {
+    Some(answer) =>
+      match answer.result.value {
+        Some(value) => inspect(value.value, content="12")
+        None => abort("expected explained value")
+      }
+    None => abort("expected refreshed explanation")
+  }
+  match edited.last_change_explanation {
+    Some(change) =>
+      match change.evidence {
+        Some(evidence) => {
+          inspect(evidence.before_result, content="Int(11)")
+          inspect(evidence.after_result, content="Int(12)")
+        }
+        None => abort("expected selected-cell evidence")
+      }
+    None => abort("expected refreshed last-change explanation")
+  }
 }
 
 ///|
@@ -479,6 +527,26 @@ test "AI context parity scenario covers edits, errors, formulas, deletes, and bo
     }
     None => abort("expected delete evidence")
   }
+}
+
+///|
+fn trace_cells(model : Model) -> (Array[String], Array[String], Array[String]) {
+  match model.last_step {
+    Some(step) =>
+      (
+        @demo.cell_id_strings(step.trace.recomputed),
+        @demo.cell_id_strings(step.trace.changed),
+        @demo.cell_id_strings(step.trace.unchanged),
+      )
+    None => ([], [], [])
+  }
+}
+
+///|
+fn friendly_snapshot_result(
+  snapshot : @typed_spreadsheet.CellSnapshot,
+) -> String {
+  result_label(snapshot.present, snapshot.result)
 }
 
 ///|

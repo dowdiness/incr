@@ -42,6 +42,7 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ### Examples
 
+- Added deterministic, bounded typed-spreadsheet explanation queries for current-cell semantics and latest-edit evidence. The Rabbita demo now exposes them through one default-closed `explain <cell>` inspector with trace/evidence details behind disclosure.
 - Added a demo-private, same-origin two-page collaboration proof for the typed
   spreadsheet example, including host bootstrap, supplied-node join attach,
   bidirectional committed-cell synchronization, fail-closed transport with

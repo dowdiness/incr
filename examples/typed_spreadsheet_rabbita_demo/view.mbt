@@ -112,16 +112,9 @@ fn view_panel_rail_right(
       view_overlay_button(
         emit,
         model,
-        TraceOverlay,
-        "trace",
-        trace_badge(model),
-      ),
-      view_overlay_button(
-        emit,
-        model,
-        SnapshotOverlay,
-        "evidence",
-        evidence_badge(model),
+        ExplanationOverlay,
+        "explain",
+        model.selected_cell,
       ),
     ],
   )
@@ -464,8 +457,7 @@ fn view_overlay(emit : @rabbita.Emit[Msg], model : Model) -> @rabbita.Html {
   match model.overlay {
     OverlayClosed => @html.nothing
     EditorOverlay => view_editor_overlay(emit, model)
-    TraceOverlay => view_trace_overlay(emit, model)
-    SnapshotOverlay => view_snapshot_overlay(emit, model)
+    ExplanationOverlay => view_explanation_overlay(emit, model)
   }
 }
 
@@ -504,66 +496,228 @@ fn view_editor_overlay(
 }
 
 ///|
-fn view_trace_overlay(
+fn view_explanation_overlay(
   emit : @rabbita.Emit[Msg],
   model : Model,
 ) -> @rabbita.Html {
-  let (recomputed, changed, unchanged) = trace_cells(model)
-  @html.aside(
-    class="inspector-panel inspector-panel--trace",
-    attrs=@html.Attrs::build()
-      .role("complementary")
-      .aria_label("Trace inspector"),
-    [
-      view_inspector_header(emit, "Trace", "observed formulas only"),
-      @html.p(
-        class="inspector-note",
-        "Trace covers formulas the demo is already showing, observing, or caching, not every formula in the 50×50 sheet. Other formulas stay lazy until the UI reads or observes them.",
+  match model.explanation {
+    Some(answer) =>
+      @html.aside(
+        class="inspector-panel inspector-panel--explanation",
+        attrs=@html.Attrs::build()
+          .role("complementary")
+          .aria_label("Explanation for \{answer.subject}"),
+        [
+          view_explanation_header(emit, answer),
+          view_explanation_inputs(emit, answer),
+          view_inactive_explanation_inputs(emit, answer),
+          view_explanation_history(emit, model),
+        ],
+      )
+    None =>
+      @html.aside(
+        class="inspector-panel inspector-panel--explanation",
+        attrs=@html.Attrs::build()
+          .role("complementary")
+          .aria_label("Explanation unavailable"),
+        [
+          view_inspector_header(
+            emit,
+            model.selected_cell,
+            "not in the observed region",
+          ),
+        ],
+      )
+  }
+}
+
+///|
+fn view_explanation_header(
+  emit : @rabbita.Emit[Msg],
+  answer : @demo.ExplainCellAnswer,
+) -> @rabbita.Html {
+  let formula = match answer.formula {
+    Some(value) => @html.code(class="explanation-formula", value.text)
+    None => @html.nothing
+  }
+  @html.header(class="explanation-header", [
+    @html.h2(class="explanation-cell", answer.subject),
+    @html.strong(
+      class=explanation_result_class(answer.result),
+      explanation_result_text(answer.result),
+    ),
+    @html.button(
+      type_="button",
+      class="quiet-button close-button",
+      on_click=emit(SetOverlay(OverlayClosed)),
+      attrs=@html.Attrs::build().aria_label("Close inspector"),
+      "Close",
+    ),
+    formula,
+  ])
+}
+
+///|
+fn view_explanation_inputs(
+  emit : @rabbita.Emit[Msg],
+  answer : @demo.ExplainCellAnswer,
+) -> @rabbita.Html {
+  let inputs = answer.active_inputs
+  if inputs.is_empty() {
+    if answer.kind == "input" {
+      @html.p(class="explanation-direct-value", "Entered value")
+    } else {
+      @html.nothing
+    }
+  } else {
+    @html.section(class="explanation-inputs", [
+      @html.h3("Inputs"),
+      @html.div(
+        class="explanation-input-list",
+        inputs
+        .map(input => view_explanation_input(emit, input))
+        .view()
+        .to_owned(),
       ),
-      @html.div(class="trace-buckets", [
-        view_trace_bucket(
-          emit, "recomputed", "An observed formula rechecked dependencies or evaluated after the edit.",
-          recomputed,
-        ),
-        view_trace_bucket(
-          emit, "changed", "An observed formula produced a new value.", changed,
-        ),
-        view_trace_bucket(
-          emit, "unchanged", "An observed formula rechecked dependencies or evaluated, then returned the same value.",
-          unchanged,
-        ),
-      ]),
-    ],
+    ])
+  }
+}
+
+///|
+fn view_explanation_input(
+  emit : @rabbita.Emit[Msg],
+  input : @demo.ExplanationInput,
+) -> @rabbita.Html {
+  let value = match input.result {
+    Some(result) => explanation_result_text(result)
+    None => "Not observed"
+  }
+  @html.button(
+    type_="button",
+    class="explanation-input",
+    on_click=emit(SelectCell(input.id)),
+    attrs=@html.Attrs::build().aria_label("Select input \{input.id}"),
+    [@html.span(class="explanation-input-cell", input.id), @html.strong(value)],
   )
 }
 
 ///|
-fn view_snapshot_overlay(
+fn view_inactive_explanation_inputs(
+  emit : @rabbita.Emit[Msg],
+  answer : @demo.ExplainCellAnswer,
+) -> @rabbita.Html {
+  let inputs = answer.inactive_inputs
+  guard !inputs.is_empty() else { return @html.nothing }
+  let count = inputs.length()
+  let suffix = if count == 1 { "" } else { "s" }
+  @html.details(class="explanation-disclosure", [
+    @html.summary("\{count} formula input\{suffix} not used this time"),
+    @html.div(
+      class="cell-chip-row",
+      inputs
+      .map(input => {
+        @html.button(
+          type_="button",
+          class="cell-chip",
+          on_click=emit(SelectCell(input.id)),
+          attrs=@html.Attrs::build().aria_label(
+            "Select inactive formula input \{input.id}",
+          ),
+          input.id,
+        )
+      })
+      .view()
+      .to_owned(),
+    ),
+  ])
+}
+
+///|
+fn view_explanation_history(
   emit : @rabbita.Emit[Msg],
   model : Model,
 ) -> @rabbita.Html {
-  let content = match focused_snapshot(model) {
-    Some(change) => view_snapshot_change(change)
-    None =>
-      @html.div(
-        class="snapshot-empty",
-        "Apply an edit to capture before/after evidence.",
-      )
+  guard model.last_change_explanation is Some(change) else {
+    return @html.nothing
   }
-  @html.aside(
-    class="inspector-panel inspector-panel--snapshot",
-    attrs=@html.Attrs::build()
-      .role("complementary")
-      .aria_label("Snapshot inspector"),
-    [
-      view_inspector_header(emit, "Evidence", "before and after the last edit"),
-      @html.p(
-        class="inspector-note",
-        "Evidence is narrower than trace: snapshots cover cells involved in the edit, plus direct formula references for formula installs, not every observed formula.",
+  guard change.evidence is Some(evidence) else { return @html.nothing }
+  let trace = change.trace
+  @html.section(class="explanation-history", [
+    @html.div(class="explanation-history-event", [
+      @html.div([@html.span("Last edit"), @html.strong(change.edit)]),
+      @html.span(
+        class=active_class(
+          "explanation-change-state",
+          evidence.classification == "changed",
+        ),
+        evidence.classification,
       ),
-      content,
-    ],
-  )
+    ]),
+    @html.details(class="explanation-disclosure", [
+      @html.summary([
+        @html.span("Trace and evidence"),
+        @html.span(
+          "\{trace.recomputed.length()} checked · \{trace.changed.length()} changed",
+        ),
+      ]),
+      @html.div(class="explanation-trace", [
+        view_explanation_trace_row(
+          emit,
+          "Recomputed",
+          trace.recomputed.view().to_owned(),
+        ),
+        view_explanation_trace_row(
+          emit,
+          "Changed",
+          trace.changed.view().to_owned(),
+        ),
+        view_explanation_trace_row(
+          emit,
+          "Same result",
+          trace.unchanged.view().to_owned(),
+        ),
+      ]),
+      @html.div(class="explanation-before-after", [
+        @html.div([@html.span("Before"), @html.strong(evidence.before_result)]),
+        @html.span("→"),
+        @html.div([@html.span("After"), @html.strong(evidence.after_result)]),
+      ]),
+    ]),
+  ])
+}
+
+///|
+fn view_explanation_trace_row(
+  emit : @rabbita.Emit[Msg],
+  label : String,
+  cells : Array[String],
+) -> @rabbita.Html {
+  @html.div([
+    @html.strong(label),
+    @html.div(class="cell-chip-row", cell_chips(emit, cells, label)),
+  ])
+}
+
+///|
+fn explanation_result_text(result : @demo.AiContextResult) -> String {
+  match result.value {
+    Some(value) =>
+      if value.type_name == "Blank" {
+        value.repr
+      } else {
+        value.value
+      }
+    None => result.error.unwrap_or(result.repr)
+  }
+}
+
+///|
+fn explanation_result_class(result : @demo.AiContextResult) -> String {
+  if result.status == "ok" {
+    "explanation-result"
+  } else {
+    "explanation-result explanation-result--error"
+  }
 }
 
 ///|
@@ -581,23 +735,6 @@ fn view_inspector_header(
       attrs=@html.Attrs::build().aria_label("Close inspector"),
       "Close",
     ),
-  ])
-}
-
-///|
-fn view_trace_bucket(
-  emit : @rabbita.Emit[Msg],
-  label : String,
-  help : String,
-  cells : Array[String],
-) -> @rabbita.Html {
-  @html.div(class="trace-bucket", [
-    @html.div(class="trace-bucket-top", [
-      @html.span(class="trace-bucket-label", label),
-      @html.span(class="trace-count", "\{cells.length()}"),
-    ]),
-    @html.p(class="trace-bucket-help", help),
-    @html.div(class="cell-chip-row", cell_chips(emit, cells, label)),
   ])
 }
 
@@ -621,106 +758,6 @@ fn cell_chips(
           cell,
         )
       })
-  }
-}
-
-///|
-fn focused_snapshot(model : Model) -> @demo.CellSnapshotChange? {
-  guard model.last_step is Some(step) else { return None }
-  match
-    step.cell_snapshots.search_by(change => {
-      @demo.cell_id_to_string(change.id) == model.selected_cell
-    }) {
-    Some(index) => step.cell_snapshots.get(index)
-    None =>
-      match step.cell_snapshots {
-        [first, ..] => Some(first)
-        [] => None
-      }
-  }
-}
-
-///|
-fn view_snapshot_change(change : @demo.CellSnapshotChange) -> @rabbita.Html {
-  @html.article(class="snapshot-evidence", [
-    @html.div(class="snapshot-evidence-header", [
-      @html.span(class="snapshot-cell", @demo.cell_id_to_string(change.id)),
-      @html.span(class="snapshot-state", "last edit"),
-    ]),
-    @html.div(class="snapshot-sides", [
-      view_snapshot_side("before", change.before),
-      view_snapshot_side("after", change.after),
-    ]),
-  ])
-}
-
-///|
-fn view_snapshot_side(
-  label : String,
-  snapshot : @typed_spreadsheet.CellSnapshot,
-) -> @rabbita.Html {
-  @html.div(class="snapshot-side", [
-    @html.div(class="snapshot-side-label", label),
-    @html.div(class="snapshot-result-status", snapshot_status_label(snapshot)),
-    @html.div(
-      class=snapshot_result_class(snapshot),
-      friendly_snapshot_result(snapshot),
-    ),
-    @html.div(class="snapshot-facts", [
-      view_fact("exists", if snapshot.present { "yes" } else { "no" }),
-      view_fact("kind", friendly_kind(snapshot)),
-      view_fact(
-        "shape",
-        @demo.format_dependency_shape(snapshot.dependency_shape),
-      ),
-      view_fact(
-        "deps",
-        join_or_dash(@demo.cell_id_strings(snapshot.installed_dependencies)),
-      ),
-      view_fact(
-        "refs",
-        join_or_dash(@demo.cell_id_strings(snapshot.static_references)),
-      ),
-      view_fact(
-        "dyn",
-        join_or_dash(@demo.cell_id_strings(snapshot.last_dynamic_dependencies)),
-      ),
-    ]),
-  ])
-}
-
-///|
-fn view_fact(label : String, value : String) -> @rabbita.Html {
-  @html.div(class="fact-row", [
-    @html.span(class="fact-label", label),
-    @html.span(class="fact-value", value),
-  ])
-}
-
-///|
-fn trace_badge(model : Model) -> String {
-  let (recomputed, changed, unchanged) = trace_cells(model)
-  "\{recomputed.length() + changed.length() + unchanged.length()}"
-}
-
-///|
-fn evidence_badge(model : Model) -> String {
-  match model.last_step {
-    Some(step) => "\{step.cell_snapshots.length()}"
-    None => "0"
-  }
-}
-
-///|
-fn trace_cells(model : Model) -> (Array[String], Array[String], Array[String]) {
-  match model.last_step {
-    Some(step) =>
-      (
-        @demo.cell_id_strings(step.trace.recomputed),
-        @demo.cell_id_strings(step.trace.changed),
-        @demo.cell_id_strings(step.trace.unchanged),
-      )
-    None => ([], [], [])
   }
 }
 
@@ -792,13 +829,6 @@ fn cell_status_from(
 }
 
 ///|
-fn snapshot_cell_status(
-  snapshot : @typed_spreadsheet.CellSnapshot,
-) -> CellStatus {
-  cell_status_from(snapshot.present, snapshot.result)
-}
-
-///|
 fn grid_cell_status(snapshot : GridCellSnapshot) -> CellStatus {
   cell_status_from(snapshot.present, snapshot.result)
 }
@@ -825,11 +855,6 @@ fn status_label(status : CellStatus) -> String {
 }
 
 ///|
-fn snapshot_status_label(snapshot : @typed_spreadsheet.CellSnapshot) -> String {
-  status_label(snapshot_cell_status(snapshot))
-}
-
-///|
 fn grid_status_label(snapshot : GridCellSnapshot) -> String {
   status_label(grid_cell_status(snapshot))
 }
@@ -848,11 +873,6 @@ fn kind_label(present : Bool, kind : @typed_spreadsheet.CellKind?) -> String {
 }
 
 ///|
-fn friendly_kind(snapshot : @typed_spreadsheet.CellSnapshot) -> String {
-  kind_label(snapshot.present, snapshot.kind)
-}
-
-///|
 fn friendly_grid_kind(snapshot : GridCellSnapshot) -> String {
   kind_label(snapshot.present, snapshot.kind)
 }
@@ -867,13 +887,6 @@ fn result_label(
   } else {
     result_repr(result)
   }
-}
-
-///|
-fn friendly_snapshot_result(
-  snapshot : @typed_spreadsheet.CellSnapshot,
-) -> String {
-  result_label(snapshot.present, snapshot.result)
 }
 
 ///|
@@ -925,23 +938,5 @@ fn cell_value_text(value : @typed_spreadsheet.CellValue) -> String {
     Bool(value) => if value { "true" } else { "false" }
     Text(value) => value
     Blank => ""
-  }
-}
-
-///|
-fn snapshot_result_class(snapshot : @typed_spreadsheet.CellSnapshot) -> String {
-  match snapshot_cell_status(snapshot) {
-    Missing => "snapshot-result snapshot-result--missing"
-    Ready => "snapshot-result snapshot-result--ok"
-    ParseErr | TypeErr | RefErr | CycleErr =>
-      "snapshot-result snapshot-result--error"
-  }
-}
-
-///|
-fn join_or_dash(values : Array[String]) -> String {
-  match values {
-    [] => "—"
-    _ => values.join(", ")
   }
 }

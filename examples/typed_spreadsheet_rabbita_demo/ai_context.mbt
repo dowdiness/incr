@@ -42,7 +42,7 @@ pub fn Model::ai_context_json(
 
 ///|
 fn Model::publish_ai_context_cmd(self : Model) -> @rabbita.Cmd {
-  let json = self.ai_context_json()
+  let json = self.cached_ai_context_json()
   @rabbita_cmd.custom_cmd(
     fn(_) { js_publish_ai_context_json(json) },
     kind=@rabbita_cmd.after_render,
@@ -51,7 +51,15 @@ fn Model::publish_ai_context_cmd(self : Model) -> @rabbita.Cmd {
 
 ///|
 fn Model::publish_ai_context(self : Model) -> Unit {
-  js_publish_ai_context_json(self.ai_context_json())
+  js_publish_ai_context_json(self.cached_ai_context_json())
+}
+
+///|
+fn Model::cached_ai_context_json(self : Model) -> String {
+  match self.ai_context {
+    Some(snapshot) => snapshot.to_json().stringify(indent=2)
+    None => self.ai_context_json()
+  }
 }
 
 ///|
@@ -89,6 +97,24 @@ fn Model::latest_ai_context_history(
       (Some(trace), Some(evidence))
     }
     None => (None, None)
+  }
+}
+
+///|
+fn Model::refresh_explanation(self : Model) -> Model {
+  let snapshot = self.ai_context_snapshot()
+  let explanation = match @demo.explain_cell(snapshot, self.selected_cell) {
+    Ok(answer) => Some(answer)
+    Err(_) => None
+  }
+  {
+    ..self,
+    ai_context: Some(snapshot),
+    explanation,
+    last_change_explanation: @demo.explain_last_change(
+      snapshot,
+      self.selected_cell,
+    ),
   }
 }
 
