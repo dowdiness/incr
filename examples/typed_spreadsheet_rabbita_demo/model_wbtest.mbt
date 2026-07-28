@@ -275,42 +275,43 @@ test "typed spreadsheet Rabbita editor supports direct cell editing mode" {
 
 ///|
 test "typed spreadsheet explanation follows the selected cell" {
-  let formula = match init_model().explanation {
-    Some(answer) => answer
-    None => abort("expected selected formula explanation")
-  }
+  let formula = current_explanation(init_model())
   inspect(formula.subject, content="B1")
   inspect(formula.active_inputs[0].id, content="A1")
 
   let selected_input = update(SelectCell("A1"), init_model())
-  let input = match selected_input.explanation {
-    Some(answer) => answer
-    None => abort("expected selected input explanation")
-  }
+  let input = current_explanation(selected_input)
   inspect(input.subject, content="A1")
   inspect(input.active_inputs.length(), content="0")
 }
 
 ///|
-test "typed spreadsheet explanation cache refreshes after an applied edit" {
+test "typed spreadsheet explanation frame refreshes after an applied edit" {
   let edited = update(
     ApplySelected,
     update(UpdateDraft("B1", "=A1 + 2"), init_model()),
   )
-  match edited.explanation {
+  let frame = explanation_frame(edited)
+  match frame.current {
     Some(answer) =>
-      match answer.result.value {
-        Some(value) => inspect(value.value, content="12")
-        None => abort("expected explained value")
+      match answer.result {
+        Value(value) => inspect(value.value, content="12")
+        _ => abort("expected explained value")
       }
     None => abort("expected refreshed explanation")
   }
-  match edited.last_change_explanation {
+  match frame.last_change {
     Some(change) =>
       match change.evidence {
         Some(evidence) => {
-          inspect(evidence.before_result, content="Int(11)")
-          inspect(evidence.after_result, content="Int(12)")
+          match evidence.before_result {
+            Value(value) => inspect(value.value, content="11")
+            _ => abort("expected typed before value")
+          }
+          match evidence.after_result {
+            Value(value) => inspect(value.value, content="12")
+            _ => abort("expected typed after value")
+          }
         }
         None => abort("expected selected-cell evidence")
       }
@@ -323,7 +324,7 @@ test "typed spreadsheet AI context exports input cell state" {
   let model = update(SelectCell("A1"), init_model())
   let context = model.ai_context_snapshot(region=["A1"])
 
-  inspect(context.schema_version, content="1")
+  inspect(context.schema_version, content="2")
   inspect(context.selected_cell, content="A1")
   inspect(context.truncated, content="false")
   debug_inspect(context.region, content="[\"A1\"]")
@@ -421,6 +422,7 @@ test "typed spreadsheet AI context exports formula errors and latest evidence" {
       inspect(evidence.cells.length(), content="1")
       inspect(evidence.cells[0].id, content="A1")
       inspect(evidence.cells[0].after_result_status, content="missing")
+      inspect(evidence.cells[0].after.status, content="missing")
     }
     None => abort("expected latest evidence")
   }
@@ -524,8 +526,25 @@ test "AI context parity scenario covers edits, errors, formulas, deletes, and bo
       inspect(evidence.cells.length(), content="1")
       inspect(evidence.cells[0].id, content="A1")
       inspect(evidence.cells[0].after_result_status, content="missing")
+      inspect(evidence.cells[0].after.status, content="missing")
     }
     None => abort("expected delete evidence")
+  }
+}
+
+///|
+fn explanation_frame(model : Model) -> ExplanationFrame {
+  match model.explanation_frame {
+    Some(frame) => frame
+    None => abort("expected explanation frame")
+  }
+}
+
+///|
+fn current_explanation(model : Model) -> @demo.ExplainCellAnswer {
+  match explanation_frame(model).current {
+    Some(answer) => answer
+    None => abort("expected current explanation")
   }
 }
 

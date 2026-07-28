@@ -658,7 +658,7 @@ test "incr_tea AI context stays schema-versioned and bounded" {
     region?=Some(["A1", "B1", "C1"]),
     max_cells=2,
   )
-  inspect(context.schema_version, content="1")
+  inspect(context.schema_version, content="2")
   inspect(context.selected_cell, content="B1")
   inspect(context.max_cells, content="2")
   inspect(context.truncated, content="true")

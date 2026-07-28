@@ -88,9 +88,11 @@ pub(all) struct AiContextEvidence {
 pub(all) struct AiContextEvidenceCell {
   id : String
   classification : String
+  before : AiContextResult
   before_kind : String
   before_result_status : String
   before_result : String
+  after : AiContextResult
   after_kind : String
   after_result_status : String
   after_result : String
@@ -108,7 +110,7 @@ pub(all) struct AiContextResult {
   value : AiContextValue?
   error : String?
   repr : String
-} derive(ToJson, @debug.Debug)
+} derive(Eq, ToJson, @debug.Debug)
 
 pub(all) struct AiContextSnapshot {
   schema_version : Int
@@ -133,7 +135,7 @@ pub(all) struct AiContextValue {
   type_name : String
   value : String
   repr : String
-} derive(ToJson, @debug.Debug)
+} derive(Eq, ToJson, @debug.Debug)
 
 pub struct CellSnapshotChange {
   id : @typed_spreadsheet.CellId
@@ -164,29 +166,60 @@ pub struct ExplainCellAnswer {
   subject : String
   scope : ExplanationScope
   present : Bool
-  kind : String
-  result : AiContextResult
+  kind : ExplanationCellKind
+  result : ExplanationResult
   formula : AiContextFormula?
   active_inputs : ReadOnlyArray[ExplanationInput]
   inactive_inputs : ReadOnlyArray[ExplanationInput]
 } derive(ToJson, @debug.Debug)
 
+pub(all) enum ExplanationCellKind {
+  ExplanationInputCell
+  ExplanationFormulaCell
+  ExplanationMissingCell
+  ExplanationUnknownCell(String)
+} derive(Eq, ToJson, @debug.Debug)
+
+pub(all) enum ExplanationChange {
+  Changed
+  Unchanged
+  Recomputed
+  Unobserved
+  UnknownChange(String)
+} derive(Eq, ToJson, @debug.Debug)
+
+pub(all) enum ExplanationErrorKind {
+  ParseFailure
+  TypeFailure
+  ReferenceFailure
+  CycleFailure
+} derive(Eq, ToJson, @debug.Debug)
+
 pub struct ExplanationEvidence {
-  classification : String
-  before_status : String
-  before_result : String
-  after_status : String
-  after_result : String
+  classification : ExplanationChange
+  before_result : ExplanationResult
+  after_result : ExplanationResult
 } derive(Eq, ToJson, @debug.Debug)
 
 pub struct ExplanationInput {
   id : String
-  observed : Bool
-  result : AiContextResult?
-} derive(ToJson, @debug.Debug)
+  state : ExplanationInputState
+} derive(Eq, ToJson, @debug.Debug)
+
+pub(all) enum ExplanationInputState {
+  Observed(ExplanationResult)
+  OutsideObservedRegion
+} derive(Eq, ToJson, @debug.Debug)
 
 pub(all) enum ExplanationQueryError {
   CellOutsideObservedRegion(String)
+} derive(Eq, ToJson, @debug.Debug)
+
+pub(all) enum ExplanationResult {
+  Value(AiContextValue)
+  Missing
+  Error(ExplanationErrorKind, String)
+  UnknownResult(String, String)
 } derive(Eq, ToJson, @debug.Debug)
 
 pub struct ExplanationScope {

@@ -776,6 +776,10 @@ code,
   white-space: nowrap;
 }
 
+.explanation-result--missing {
+  color: var(--muted);
+}
+
 .explanation-result--error {
   color: var(--danger);
   font-size: 0.76rem;

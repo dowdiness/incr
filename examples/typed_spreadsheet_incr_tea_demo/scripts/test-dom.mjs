@@ -99,7 +99,7 @@ try {
     object: globalThis.typedSpreadsheetAIContext?.(),
     json: globalThis.typedSpreadsheetAIContextJson?.(),
   }));
-  assert(initialContext.object?.schema_version === 1, 'initial AI context schema was not published');
+  assert(initialContext.object?.schema_version === 2, 'AI context schema v2 was not published');
   assert(typeof initialContext.json === 'string', 'initial AI context JSON was not published');
   assert(initialContext.object.selected_cell === 'B1', 'initial AI context selected cell mismatch');
   assert(

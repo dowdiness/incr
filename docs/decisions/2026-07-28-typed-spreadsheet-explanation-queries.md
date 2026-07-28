@@ -34,7 +34,7 @@ The module is deep at this seam: callers supply one bounded snapshot and receive
 
 `LastChangeAnswer` owns optional selected-cell before/after evidence and secondary `ExplanationTrace` diagnostics. It is distinct from the current-value answer because recomputation activity is not itself a semantic cause of the value.
 
-The answer schema starts at version 1. Returned collections use `ReadOnlyArray`; region and trace arrays are copied at the query seam so callers cannot mutate retained answer state through a source snapshot.
+The answer schema starts at version 1. Returned collections use `ReadOnlyArray`; region and trace arrays are copied at the query seam so callers cannot mutate retained answer state through a source snapshot. Query answers convert serialization-oriented strings into `ExplanationCellKind`, `ExplanationResult`, `ExplanationInputState`, and `ExplanationChange` variants. Unknown variants retain forward-compatible source labels without permitting contradictory states such as `observed = false` with a present result.
 
 ### Make bounded scope explicit
 
@@ -46,7 +46,7 @@ Complete-sheet dependents and errors are not part of this interface. They requir
 
 Rabbita starts with the explanation closed. One `explain <selected cell>` toggle replaces the separate Trace and Evidence toggles. The open inspector follows selection and shows only the current result, formula, and active inputs by default. Inactive references appear only when present. Selected-cell latest-edit evidence appears only when captured, with trace and before/after details behind one disclosure.
 
-The Rabbita package remains a thin adapter: selection and overlay state stay in its reducer; explanation decisions stay in the shared pure module.
+The Rabbita package remains a thin adapter: selection and overlay state stay in its reducer; explanation decisions stay in the shared pure module. Its model retains one private `ExplanationFrame` containing the coherent context snapshot, current-cell answer, and latest-change answer. The reducer refreshes that frame atomically after relevant messages, while the view only renders the frame and never reads `Worksheet`.
 
 ## Rejected alternatives
 
@@ -61,6 +61,6 @@ The Rabbita package remains a thin adapter: selection and overlay state stay in 
 
 - Rabbita and future adapters can share one deterministic explanation interface while choosing different presentations.
 - AI/tool consumers can serialize the query-specific answers instead of scraping UI text or reconstructing dependencies.
-- Existing `AiContextSnapshot` remains the adapter-neutral input and retains its bounded contract.
+- `AiContextSnapshot` remains the adapter-neutral input and retains its bounded contract. Schema version 2 adds structured before/after results alongside the compatibility display fields in evidence cells.
 - Trace and evidence remain available but are no longer the primary navigation model in Rabbita.
 - A future complete-sheet query must introduce and validate an index, then either add a separately scoped answer type or supersede the bounded part of this ADR.

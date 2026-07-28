@@ -5,6 +5,50 @@ pub(all) enum ExplanationQueryError {
 } derive(ToJson, Debug, Eq)
 
 ///|
+/// Stable spreadsheet kinds exposed by explanation answers.
+pub(all) enum ExplanationCellKind {
+  ExplanationInputCell
+  ExplanationFormulaCell
+  ExplanationMissingCell
+  ExplanationUnknownCell(String)
+} derive(ToJson, Debug, Eq)
+
+///|
+/// Stable error categories exposed by explanation results.
+pub(all) enum ExplanationErrorKind {
+  ParseFailure
+  TypeFailure
+  ReferenceFailure
+  CycleFailure
+} derive(ToJson, Debug, Eq)
+
+///|
+/// A typed current or historical cell result.
+pub(all) enum ExplanationResult {
+  Value(AiContextValue)
+  Missing
+  Error(ExplanationErrorKind, String)
+  UnknownResult(String, String)
+} derive(ToJson, Debug, Eq)
+
+///|
+/// Whether one formula input was resolved in the bounded context.
+pub(all) enum ExplanationInputState {
+  Observed(ExplanationResult)
+  OutsideObservedRegion
+} derive(ToJson, Debug, Eq)
+
+///|
+/// Stable latest-edit classifications exposed by explanation evidence.
+pub(all) enum ExplanationChange {
+  Changed
+  Unchanged
+  Recomputed
+  Unobserved
+  UnknownChange(String)
+} derive(ToJson, Debug, Eq)
+
+///|
 /// The bounded region in which an explanation answer is complete.
 pub struct ExplanationScope {
   max_cells : Int
@@ -16,9 +60,8 @@ pub struct ExplanationScope {
 /// One formula input resolved within or outside the observed region.
 pub struct ExplanationInput {
   id : String
-  observed : Bool
-  result : AiContextResult?
-} derive(ToJson, Debug)
+  state : ExplanationInputState
+} derive(ToJson, Debug, Eq)
 
 ///|
 /// Bounded engine activity retained as secondary diagnostic evidence.
@@ -31,11 +74,9 @@ pub struct ExplanationTrace {
 ///|
 /// Selected-cell evidence normalized for human and tool consumers.
 pub struct ExplanationEvidence {
-  classification : String
-  before_status : String
-  before_result : String
-  after_status : String
-  after_result : String
+  classification : ExplanationChange
+  before_result : ExplanationResult
+  after_result : ExplanationResult
 } derive(ToJson, Debug, Eq)
 
 ///|
@@ -57,8 +98,8 @@ pub struct ExplainCellAnswer {
   subject : String
   scope : ExplanationScope
   present : Bool
-  kind : String
-  result : AiContextResult
+  kind : ExplanationCellKind
+  result : ExplanationResult
   formula : AiContextFormula?
   active_inputs : ReadOnlyArray[ExplanationInput]
   inactive_inputs : ReadOnlyArray[ExplanationInput]
@@ -85,8 +126,8 @@ pub fn explain_cell(
     subject,
     scope: explanation_scope(snapshot),
     present: focus.present,
-    kind: focus.kind,
-    result: focus.result,
+    kind: explanation_cell_kind(focus.kind),
+    result: explanation_result(focus.result),
     formula: focus.formula,
     active_inputs: ReadOnlyArray::from_array(active_inputs),
     inactive_inputs: ReadOnlyArray::from_array(inactive_inputs),
@@ -125,21 +166,58 @@ pub fn explain_last_change(
 }
 
 ///|
-fn explanation_evidence(cell : AiContextEvidenceCell) -> ExplanationEvidence {
-  {
-    classification: cell.classification,
-    before_status: cell.before_result_status,
-    before_result: explanation_result_display(cell.before_result),
-    after_status: cell.after_result_status,
-    after_result: explanation_result_display(cell.after_result),
+fn explanation_cell_kind(kind : String) -> ExplanationCellKind {
+  match kind {
+    "input" => ExplanationInputCell
+    "formula" => ExplanationFormulaCell
+    "missing" => ExplanationMissingCell
+    other => ExplanationUnknownCell(other)
   }
 }
 
 ///|
-fn explanation_result_display(result : String) -> String {
-  guard result.strip_prefix("Ok(") is Some(inner) else { return result }
-  guard inner.strip_suffix(")") is Some(value) else { return result }
-  "\{value}"
+fn explanation_result(result : AiContextResult) -> ExplanationResult {
+  match result.status {
+    "ok" =>
+      match result.value {
+        Some(value) => Value(value)
+        None => UnknownResult(result.status, result.repr)
+      }
+    "missing" => Missing
+    "parse_error" => explanation_error(ParseFailure, result)
+    "type_error" => explanation_error(TypeFailure, result)
+    "ref_error" => explanation_error(ReferenceFailure, result)
+    "cycle_error" => explanation_error(CycleFailure, result)
+    status => UnknownResult(status, result.repr)
+  }
+}
+
+///|
+fn explanation_error(
+  kind : ExplanationErrorKind,
+  result : AiContextResult,
+) -> ExplanationResult {
+  Error(kind, result.error.unwrap_or(result.repr))
+}
+
+///|
+fn explanation_change(classification : String) -> ExplanationChange {
+  match classification {
+    "changed" => Changed
+    "unchanged" => Unchanged
+    "recomputed" => Recomputed
+    "unobserved" => Unobserved
+    other => UnknownChange(other)
+  }
+}
+
+///|
+fn explanation_evidence(cell : AiContextEvidenceCell) -> ExplanationEvidence {
+  {
+    classification: explanation_change(cell.classification),
+    before_result: explanation_result(cell.before),
+    after_result: explanation_result(cell.after),
+  }
 }
 
 ///|
@@ -162,7 +240,8 @@ fn explanation_input(
   id : String,
 ) -> ExplanationInput {
   match cells.search_by(cell => cell.id == id) {
-    Some(index) => { id, observed: true, result: Some(cells[index].result) }
-    None => { id, observed: false, result: None }
+    Some(index) =>
+      { id, state: Observed(explanation_result(cells[index].result)) }
+    None => { id, state: OutsideObservedRegion }
   }
 }

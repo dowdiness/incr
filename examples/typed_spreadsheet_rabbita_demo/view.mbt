@@ -500,7 +500,11 @@ fn view_explanation_overlay(
   emit : @rabbita.Emit[Msg],
   model : Model,
 ) -> @rabbita.Html {
-  match model.explanation {
+  let current = match model.explanation_frame {
+    Some(frame) => frame.current
+    None => None
+  }
+  match current {
     Some(answer) =>
       @html.aside(
         class="inspector-panel inspector-panel--explanation",
@@ -564,7 +568,7 @@ fn view_explanation_inputs(
 ) -> @rabbita.Html {
   let inputs = answer.active_inputs
   if inputs.is_empty() {
-    if answer.kind == "input" {
+    if answer.kind is ExplanationInputCell {
       @html.p(class="explanation-direct-value", "Entered value")
     } else {
       @html.nothing
@@ -588,9 +592,9 @@ fn view_explanation_input(
   emit : @rabbita.Emit[Msg],
   input : @demo.ExplanationInput,
 ) -> @rabbita.Html {
-  let value = match input.result {
-    Some(result) => explanation_result_text(result)
-    None => "Not observed"
+  let value = match input.state {
+    Observed(result) => explanation_result_text(result)
+    OutsideObservedRegion => "Not observed"
   }
   @html.button(
     type_="button",
@@ -637,9 +641,8 @@ fn view_explanation_history(
   emit : @rabbita.Emit[Msg],
   model : Model,
 ) -> @rabbita.Html {
-  guard model.last_change_explanation is Some(change) else {
-    return @html.nothing
-  }
+  guard model.explanation_frame is Some(frame) else { return @html.nothing }
+  guard frame.last_change is Some(change) else { return @html.nothing }
   guard change.evidence is Some(evidence) else { return @html.nothing }
   let trace = change.trace
   @html.section(class="explanation-history", [
@@ -648,9 +651,9 @@ fn view_explanation_history(
       @html.span(
         class=active_class(
           "explanation-change-state",
-          evidence.classification == "changed",
+          evidence.classification is Changed,
         ),
-        evidence.classification,
+        explanation_change_label(evidence.classification),
       ),
     ]),
     @html.details(class="explanation-disclosure", [
@@ -678,9 +681,15 @@ fn view_explanation_history(
         ),
       ]),
       @html.div(class="explanation-before-after", [
-        @html.div([@html.span("Before"), @html.strong(evidence.before_result)]),
+        @html.div([
+          @html.span("Before"),
+          @html.strong(explanation_result_text(evidence.before_result)),
+        ]),
         @html.span("→"),
-        @html.div([@html.span("After"), @html.strong(evidence.after_result)]),
+        @html.div([
+          @html.span("After"),
+          @html.strong(explanation_result_text(evidence.after_result)),
+        ]),
       ]),
     ]),
   ])
@@ -699,24 +708,38 @@ fn view_explanation_trace_row(
 }
 
 ///|
-fn explanation_result_text(result : @demo.AiContextResult) -> String {
-  match result.value {
-    Some(value) =>
+fn explanation_result_text(result : @demo.ExplanationResult) -> String {
+  match result {
+    Value(value) =>
       if value.type_name == "Blank" {
         value.repr
       } else {
         value.value
       }
-    None => result.error.unwrap_or(result.repr)
+    Missing => "Empty cell"
+    Error(_, message) => message
+    UnknownResult(_, display) => display
   }
 }
 
 ///|
-fn explanation_result_class(result : @demo.AiContextResult) -> String {
-  if result.status == "ok" {
-    "explanation-result"
-  } else {
-    "explanation-result explanation-result--error"
+fn explanation_result_class(result : @demo.ExplanationResult) -> String {
+  match result {
+    Value(_) => "explanation-result"
+    Missing => "explanation-result explanation-result--missing"
+    Error(_, _) | UnknownResult(_, _) =>
+      "explanation-result explanation-result--error"
+  }
+}
+
+///|
+fn explanation_change_label(change : @demo.ExplanationChange) -> String {
+  match change {
+    Changed => "changed"
+    Unchanged => "unchanged"
+    Recomputed => "recomputed"
+    Unobserved => "unobserved"
+    UnknownChange(label) => label
   }
 }
 

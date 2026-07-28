@@ -18,6 +18,13 @@ enum OverlayPanel {
 } derive(Eq)
 
 ///|
+struct ExplanationFrame {
+  context : @demo.AiContextSnapshot
+  current : @demo.ExplainCellAnswer?
+  last_change : @demo.LastChangeAnswer?
+}
+
+///|
 struct Model {
   sheet : @typed_spreadsheet.Worksheet
   cells : Array[String]
@@ -28,9 +35,7 @@ struct Model {
   editing_cell : String?
   last_step : @demo.WorksheetStepResult?
   last_edit : String
-  ai_context : @demo.AiContextSnapshot?
-  explanation : @demo.ExplainCellAnswer?
-  last_change_explanation : @demo.LastChangeAnswer?
+  explanation_frame : ExplanationFrame?
   status : String
   error : String?
   appearance : Appearance
@@ -77,9 +82,7 @@ fn init_model() -> Model {
     editing_cell: None,
     last_step: None,
     last_edit: "Seed sheet",
-    ai_context: None,
-    explanation: None,
-    last_change_explanation: None,
+    explanation_frame: None,
     status: "Ready. Edit the formula bar or move across the sheet with arrow keys.",
     error: None,
     appearance: Paper,

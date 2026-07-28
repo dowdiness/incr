@@ -6,7 +6,10 @@ test "explain cell returns the formula and active observed inputs" {
   }
 
   inspect(answer.subject, content="B1")
-  inspect(answer.result.repr, content="Int(11)")
+  match answer.result {
+    Value(value) => inspect(value.value, content="11")
+    _ => abort("expected a typed value result")
+  }
   match answer.formula {
     Some(formula) => inspect(formula.text, content="=A1 + 1")
     None => abort("expected formula metadata")
@@ -14,10 +17,9 @@ test "explain cell returns the formula and active observed inputs" {
   let active = answer.active_inputs
   inspect(active.length(), content="1")
   inspect(active[0].id, content="A1")
-  inspect(active[0].observed, content="true")
-  match active[0].result {
-    Some(result) => inspect(result.repr, content="Int(10)")
-    None => abort("expected observed input result")
+  match active[0].state {
+    Observed(Value(value)) => inspect(value.value, content="10")
+    _ => abort("expected an observed typed value")
   }
   inspect(answer.inactive_inputs.length(), content="0")
 }
@@ -41,9 +43,21 @@ test "explain last change keeps engine trace secondary to selected evidence" {
         {
           id: "B1",
           classification: "changed",
+          before: {
+            status: "ok",
+            value: Some({ type_name: "Int", value: "11", repr: "Int(11)" }),
+            error: None,
+            repr: "Ok(Int(11))",
+          },
           before_kind: "formula",
           before_result_status: "ok",
           before_result: "Ok(Int(11))",
+          after: {
+            status: "ok",
+            value: Some({ type_name: "Int", value: "12", repr: "Int(12)" }),
+            error: None,
+            repr: "Ok(Int(12))",
+          },
           after_kind: "formula",
           after_result_status: "ok",
           after_result: "Ok(Int(12))",
@@ -60,9 +74,15 @@ test "explain last change keeps engine trace secondary to selected evidence" {
   inspect(answer.edit, content="B1 ← =A1 + 2")
   match answer.evidence {
     Some(evidence) => {
-      inspect(evidence.classification, content="changed")
-      inspect(evidence.before_result, content="Int(11)")
-      inspect(evidence.after_result, content="Int(12)")
+      inspect(evidence.classification is Changed, content="true")
+      match evidence.before_result {
+        Value(value) => inspect(value.value, content="11")
+        _ => abort("expected typed before value")
+      }
+      match evidence.after_result {
+        Value(value) => inspect(value.value, content="12")
+        _ => abort("expected typed after value")
+      }
     }
     None => abort("expected selected-cell evidence")
   }
@@ -85,7 +105,7 @@ test "explain cell separates active and inactive conditional references" {
     cells: [
       focus,
       base.cells[1],
-      explanation_test_cell("C1", "20", "input", "Int(20)", [], [], None),
+      explanation_test_cell("C1", "20", "input", "Int(20)", "20", [], [], None),
     ],
   }
   let first = explain_cell(context, "B1").unwrap()
@@ -105,9 +125,33 @@ test "explain cell separates active and inactive conditional references" {
 test "explain cell covers inputs, errors, and references outside the region" {
   let base = explanation_test_context()
   let input = explain_cell(base, "A1").unwrap()
-  inspect(input.kind, content="input")
+  inspect(input.kind is ExplanationInputCell, content="true")
   inspect(input.active_inputs.length(), content="0")
   inspect(input.formula is None, content="true")
+
+  let missing_context = {
+    ..base,
+    cells: [
+      {
+        ..base.cells[0],
+        present: false,
+        kind: "missing",
+        result: {
+          status: "missing",
+          value: None,
+          error: None,
+          repr: "Ok(Blank)",
+        },
+        formula: None,
+        static_references: [],
+        last_dynamic_dependencies: [],
+      },
+      base.cells[1],
+    ],
+  }
+  let missing = explain_cell(missing_context, "B1").unwrap()
+  inspect(missing.kind is ExplanationMissingCell, content="true")
+  inspect(missing.result is Missing, content="true")
 
   let error_context = {
     ..base,
@@ -127,10 +171,79 @@ test "explain cell covers inputs, errors, and references outside the region" {
     ],
   }
   let error = explain_cell(error_context, "B1").unwrap()
-  inspect(error.result.status, content="type_error")
+  match error.result {
+    Error(TypeFailure, message) =>
+      inspect(message, content="Add requires Int on the left side")
+    _ => abort("expected a typed error result")
+  }
   inspect(error.active_inputs[0].id, content="Z9")
-  inspect(error.active_inputs[0].observed, content="false")
-  inspect(error.active_inputs[0].result is None, content="true")
+  inspect(error.active_inputs[0].state is OutsideObservedRegion, content="true")
+}
+
+///|
+test "explanation queries preserve unknown source labels" {
+  let base = explanation_test_context()
+  let pending_result : AiContextResult = {
+    status: "pending",
+    value: None,
+    error: None,
+    repr: "Pending(Int(11))",
+  }
+  let context = {
+    ..base,
+    cells: [
+      { ..base.cells[0], kind: "future_formula", result: pending_result },
+      ..base.cells[1:],
+    ],
+    latest_trace: Some({
+      edit: "B1 future edit",
+      outcome: "Pending",
+      recomputed: ["B1"],
+      changed: [],
+      unchanged: [],
+    }),
+    latest_evidence: Some({
+      edit: "B1 future edit",
+      outcome: "Pending",
+      cells: [
+        {
+          id: "B1",
+          classification: "coalesced",
+          before: base.cells[0].result,
+          before_kind: "formula",
+          before_result_status: "ok",
+          before_result: "Int(11)",
+          after: pending_result,
+          after_kind: "future_formula",
+          after_result_status: "pending",
+          after_result: "Pending(Int(11))",
+        },
+      ],
+    }),
+  }
+  let current = explain_cell(context, "B1").unwrap()
+  match current.kind {
+    ExplanationUnknownCell(label) => inspect(label, content="future_formula")
+    _ => abort("expected unknown cell kind")
+  }
+  match current.result {
+    UnknownResult(status, display) => {
+      inspect(status, content="pending")
+      inspect(display, content="Pending(Int(11))")
+    }
+    _ => abort("expected unknown result status")
+  }
+  let current_json = current.to_json().stringify()
+  inspect(current_json.contains("future_formula"), content="true")
+  inspect(current_json.contains("pending"), content="true")
+
+  let change = explain_last_change(context, "B1").unwrap()
+  match change.evidence {
+    Some({ classification: UnknownChange(label), .. }) =>
+      inspect(label, content="coalesced")
+    _ => abort("expected unknown change classification")
+  }
+  inspect(change.to_json().stringify().contains("coalesced"), content="true")
 }
 
 ///|
@@ -158,9 +271,21 @@ test "explanation queries report bounded absence without inventing facts" {
         {
           id: "Z9",
           classification: "changed",
+          before: {
+            status: "missing",
+            value: None,
+            error: None,
+            repr: "Ok(Blank)",
+          },
           before_kind: "missing",
           before_result_status: "missing",
           before_result: "Ok(Blank)",
+          after: {
+            status: "ok",
+            value: Some({ type_name: "Int", value: "1", repr: "Int(1)" }),
+            error: None,
+            repr: "Ok(Int(1))",
+          },
           after_kind: "input",
           after_result_status: "ok",
           after_result: "Ok(Int(1))",
@@ -188,7 +313,7 @@ test "explain cell is deterministic and owns its bounded scope" {
 ///|
 fn explanation_test_context() -> AiContextSnapshot {
   {
-    schema_version: 1,
+    schema_version: 2,
     selected_cell: "B1",
     max_cells: 8,
     truncated: false,
@@ -199,6 +324,7 @@ fn explanation_test_context() -> AiContextSnapshot {
         "=A1 + 1",
         "formula",
         "Int(11)",
+        "11",
         ["A1"],
         ["A1"],
         Some({
@@ -208,7 +334,7 @@ fn explanation_test_context() -> AiContextSnapshot {
           error: None,
         }),
       ),
-      explanation_test_cell("A1", "10", "input", "Int(10)", [], [], None),
+      explanation_test_cell("A1", "10", "input", "Int(10)", "10", [], [], None),
     ],
     latest_trace: None,
     latest_evidence: None,
@@ -221,6 +347,7 @@ fn explanation_test_cell(
   committed_text : String,
   kind : String,
   repr : String,
+  value : String,
   static_references : Array[String],
   last_dynamic_dependencies : Array[String],
   formula : AiContextFormula?,
@@ -232,7 +359,12 @@ fn explanation_test_cell(
     draft_dirty: false,
     present: true,
     kind,
-    result: { status: "ok", value: None, error: None, repr },
+    result: {
+      status: "ok",
+      value: Some({ type_name: "Int", value, repr }),
+      error: None,
+      repr,
+    },
     dependency_shape: "applicative",
     installed_dependencies: [],
     static_references,

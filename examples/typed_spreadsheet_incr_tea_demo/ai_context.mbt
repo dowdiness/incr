@@ -15,7 +15,7 @@ fn SheetState::ai_context_snapshot(
   )
   let (latest_trace, latest_evidence) = self.latest_ai_context_history(limit)
   {
-    schema_version: 1,
+    schema_version: 2,
     selected_cell,
     max_cells: limit,
     truncated,

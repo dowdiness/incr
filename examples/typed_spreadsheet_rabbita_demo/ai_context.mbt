@@ -19,7 +19,7 @@ pub fn Model::ai_context_snapshot(
   )
   let (latest_trace, latest_evidence) = self.latest_ai_context_history(limit)
   {
-    schema_version: 1,
+    schema_version: 2,
     selected_cell: self.selected_cell,
     max_cells: limit,
     truncated,
@@ -56,8 +56,8 @@ fn Model::publish_ai_context(self : Model) -> Unit {
 
 ///|
 fn Model::cached_ai_context_json(self : Model) -> String {
-  match self.ai_context {
-    Some(snapshot) => snapshot.to_json().stringify(indent=2)
+  match self.explanation_frame {
+    Some(frame) => frame.context.to_json().stringify(indent=2)
     None => self.ai_context_json()
   }
 }
@@ -103,18 +103,17 @@ fn Model::latest_ai_context_history(
 ///|
 fn Model::refresh_explanation(self : Model) -> Model {
   let snapshot = self.ai_context_snapshot()
-  let explanation = match @demo.explain_cell(snapshot, self.selected_cell) {
+  let current = match @demo.explain_cell(snapshot, self.selected_cell) {
     Ok(answer) => Some(answer)
     Err(_) => None
   }
   {
     ..self,
-    ai_context: Some(snapshot),
-    explanation,
-    last_change_explanation: @demo.explain_last_change(
-      snapshot,
-      self.selected_cell,
-    ),
+    explanation_frame: Some({
+      context: snapshot,
+      current,
+      last_change: @demo.explain_last_change(snapshot, self.selected_cell),
+    }),
   }
 }
 

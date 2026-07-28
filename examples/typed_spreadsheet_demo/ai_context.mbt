@@ -35,7 +35,7 @@ pub(all) struct AiContextResult {
   value : AiContextValue?
   error : String?
   repr : String
-} derive(ToJson, Debug)
+} derive(ToJson, Debug, Eq)
 
 ///|
 /// Structured typed value for a successful context cell result.
@@ -43,7 +43,7 @@ pub(all) struct AiContextValue {
   type_name : String
   value : String
   repr : String
-} derive(ToJson, Debug)
+} derive(ToJson, Debug, Eq)
 
 ///|
 /// Formula text and AST-backed shape metadata for a formula cell.
@@ -77,9 +77,11 @@ pub(all) struct AiContextEvidence {
 pub(all) struct AiContextEvidenceCell {
   id : String
   classification : String
+  before : AiContextResult
   before_kind : String
   before_result_status : String
   before_result : String
+  after : AiContextResult
   after_kind : String
   after_result_status : String
   after_result : String
@@ -188,9 +190,11 @@ pub fn ai_context_evidence_cell_from_observations(
   {
     id: cell_id_to_string(after.id),
     classification,
+    before: before_result,
     before_kind: ai_context_kind(before.present, before.kind),
     before_result_status: before_result.status,
     before_result: before_result.repr,
+    after: after_result,
     after_kind: ai_context_kind(after.present, after.kind),
     after_result_status: after_result.status,
     after_result: after_result.repr,
