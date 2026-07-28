@@ -14,9 +14,15 @@ enum Appearance {
 enum OverlayPanel {
   OverlayClosed
   EditorOverlay
-  TraceOverlay
-  SnapshotOverlay
+  ExplanationOverlay
 } derive(Eq)
+
+///|
+struct ExplanationFrame {
+  context : @demo.AiContextSnapshot
+  current : @demo.ExplainCellAnswer
+  last_change : @demo.LastChangeAnswer?
+}
 
 ///|
 struct Model {
@@ -29,6 +35,7 @@ struct Model {
   editing_cell : String?
   last_step : @demo.WorksheetStepResult?
   last_edit : String
+  explanation_frame : ExplanationFrame?
   status : String
   error : String?
   appearance : Appearance
@@ -75,6 +82,7 @@ fn init_model() -> Model {
     editing_cell: None,
     last_step: None,
     last_edit: "Seed sheet",
+    explanation_frame: None,
     status: "Ready. Edit the formula bar or move across the sheet with arrow keys.",
     error: None,
     appearance: Paper,
@@ -86,7 +94,7 @@ fn init_model() -> Model {
     "B1",
     "=A1 + 1",
   )
-  {
+  let initialized = {
     ..seeded,
     selected_cell: "B1",
     editing_cell: None,
@@ -97,11 +105,12 @@ fn init_model() -> Model {
     overlay: OverlayClosed,
     intro_visible: true,
   }
+  initialized.refresh_explanation()
 }
 
 ///|
 fn update(msg : Msg, model : Model) -> Model {
-  match msg {
+  let next = match msg {
     SelectCell(cell) => { ..select_cell(model, cell), editing_cell: None }
     UpdateDraft(cell, text) =>
       {
@@ -138,6 +147,10 @@ fn update(msg : Msg, model : Model) -> Model {
     SetAppearance(appearance) => set_appearance(model, appearance)
     SetOverlay(overlay) => set_overlay(model, overlay)
     CloseIntro => close_intro(model)
+  }
+  match msg {
+    ResetSheet | SetAppearance(_) | SetOverlay(_) | CloseIntro => next
+    _ => next.refresh_explanation()
   }
 }
 
@@ -236,8 +249,7 @@ fn overlay_status(overlay : OverlayPanel) -> String {
   match overlay {
     OverlayClosed => "Panels hidden."
     EditorOverlay => "Edit panel open."
-    TraceOverlay => "Trace inspector open."
-    SnapshotOverlay => "Snapshot inspector open."
+    ExplanationOverlay => "Explanation inspector open."
   }
 }
 

@@ -223,14 +223,17 @@ test "typed spreadsheet Rabbita editor escape reverts draft text" {
 }
 
 ///|
-test "typed spreadsheet Rabbita editor appearance and inspector toggles are values" {
+test "typed spreadsheet Rabbita editor toggles the selected-cell explanation" {
   let model = init_model()
   let night = update(SetAppearance(Night), model)
-  let trace = update(SetOverlay(TraceOverlay), night)
-  let closed = update(SetOverlay(TraceOverlay), trace)
+  let explanation = update(SetOverlay(ExplanationOverlay), night)
+  let closed = update(SetOverlay(ExplanationOverlay), explanation)
 
   inspect(appearance_label(night.appearance), content="night")
-  inspect(overlay_status(trace.overlay), content="Trace inspector open.")
+  inspect(
+    overlay_status(explanation.overlay),
+    content="Explanation inspector open.",
+  )
   inspect(overlay_status(closed.overlay), content="Panels hidden.")
 }
 
@@ -271,11 +274,64 @@ test "typed spreadsheet Rabbita editor supports direct cell editing mode" {
 }
 
 ///|
+test "typed spreadsheet explanation follows the selected cell" {
+  let formula = current_explanation(init_model())
+  inspect(formula.subject, content="B1")
+  inspect(formula.active_inputs[0].id, content="A1")
+
+  let selected_input = update(SelectCell("A1"), init_model())
+  let input = current_explanation(selected_input)
+  inspect(input.subject, content="A1")
+  inspect(input.active_inputs.length(), content="0")
+}
+
+///|
+test "typed spreadsheet explanation includes a selected empty edge cell" {
+  let selected = update(SelectCell("AX50"), init_model())
+  let frame = explanation_frame(selected)
+  let answer = frame.current
+  inspect(frame.context.region[0], content="AX50")
+  inspect(answer.subject, content="AX50")
+  inspect(answer.kind is ExplanationMissingCell, content="true")
+  inspect(answer.result is Missing, content="true")
+}
+
+///|
+test "typed spreadsheet explanation frame refreshes after an applied edit" {
+  let edited = update(
+    ApplySelected,
+    update(UpdateDraft("B1", "=A1 + 2"), init_model()),
+  )
+  let frame = explanation_frame(edited)
+  match frame.current.result {
+    Value(value) => inspect(value.value, content="12")
+    _ => abort("expected explained value")
+  }
+  match frame.last_change {
+    Some(change) =>
+      match change.evidence {
+        Some(evidence) => {
+          match evidence.before_result {
+            Value(value) => inspect(value.value, content="11")
+            _ => abort("expected typed before value")
+          }
+          match evidence.after_result {
+            Value(value) => inspect(value.value, content="12")
+            _ => abort("expected typed after value")
+          }
+        }
+        None => abort("expected selected-cell evidence")
+      }
+    None => abort("expected refreshed last-change explanation")
+  }
+}
+
+///|
 test "typed spreadsheet AI context exports input cell state" {
   let model = update(SelectCell("A1"), init_model())
   let context = model.ai_context_snapshot(region=["A1"])
 
-  inspect(context.schema_version, content="1")
+  inspect(context.schema_version, content="3")
   inspect(context.selected_cell, content="A1")
   inspect(context.truncated, content="false")
   debug_inspect(context.region, content="[\"A1\"]")
@@ -372,7 +428,7 @@ test "typed spreadsheet AI context exports formula errors and latest evidence" {
       inspect(evidence.edit, content="delete A1")
       inspect(evidence.cells.length(), content="1")
       inspect(evidence.cells[0].id, content="A1")
-      inspect(evidence.cells[0].after_result_status, content="missing")
+      inspect(evidence.cells[0].after.status, content="missing")
     }
     None => abort("expected latest evidence")
   }
@@ -475,10 +531,43 @@ test "AI context parity scenario covers edits, errors, formulas, deletes, and bo
     Some(evidence) => {
       inspect(evidence.cells.length(), content="1")
       inspect(evidence.cells[0].id, content="A1")
-      inspect(evidence.cells[0].after_result_status, content="missing")
+      inspect(evidence.cells[0].after.status, content="missing")
     }
     None => abort("expected delete evidence")
   }
+}
+
+///|
+fn explanation_frame(model : Model) -> ExplanationFrame {
+  match model.explanation_frame {
+    Some(frame) => frame
+    None => abort("expected explanation frame")
+  }
+}
+
+///|
+fn current_explanation(model : Model) -> @demo.ExplainCellAnswer {
+  explanation_frame(model).current
+}
+
+///|
+fn trace_cells(model : Model) -> (Array[String], Array[String], Array[String]) {
+  match model.last_step {
+    Some(step) =>
+      (
+        @demo.cell_id_strings(step.trace.recomputed),
+        @demo.cell_id_strings(step.trace.changed),
+        @demo.cell_id_strings(step.trace.unchanged),
+      )
+    None => ([], [], [])
+  }
+}
+
+///|
+fn friendly_snapshot_result(
+  snapshot : @typed_spreadsheet.CellSnapshot,
+) -> String {
+  result_label(snapshot.present, snapshot.result)
 }
 
 ///|

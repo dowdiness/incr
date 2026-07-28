@@ -21,6 +21,10 @@ pub fn cell_id_strings(Array[@typed_spreadsheet.CellId]) -> Array[String]
 
 pub fn cell_id_to_string(@typed_spreadsheet.CellId) -> String
 
+pub fn explain_cell(AiContextSnapshot, String) -> Result[ExplainCellAnswer, ExplanationQueryError]
+
+pub fn explain_last_change(AiContextSnapshot, String) -> LastChangeAnswer?
+
 pub fn fixed_scenario_json() -> String
 
 pub fn fixed_scenario_view_model() -> FixedScenarioViewModel
@@ -84,12 +88,10 @@ pub(all) struct AiContextEvidence {
 pub(all) struct AiContextEvidenceCell {
   id : String
   classification : String
+  before : AiContextResult
   before_kind : String
-  before_result_status : String
-  before_result : String
+  after : AiContextResult
   after_kind : String
-  after_result_status : String
-  after_result : String
 } derive(Eq, ToJson, @debug.Debug)
 
 pub(all) struct AiContextFormula {
@@ -104,7 +106,7 @@ pub(all) struct AiContextResult {
   value : AiContextValue?
   error : String?
   repr : String
-} derive(ToJson, @debug.Debug)
+} derive(Eq, ToJson, @debug.Debug)
 
 pub(all) struct AiContextSnapshot {
   schema_version : Int
@@ -129,7 +131,7 @@ pub(all) struct AiContextValue {
   type_name : String
   value : String
   repr : String
-} derive(ToJson, @debug.Debug)
+} derive(Eq, ToJson, @debug.Debug)
 
 pub struct CellSnapshotChange {
   id : @typed_spreadsheet.CellId
@@ -155,6 +157,79 @@ pub struct CellSnapshotViewModel {
   last_dynamic_dependencies : Array[String]
 } derive(ToJson, @debug.Debug)
 
+pub struct ExplainCellAnswer {
+  schema_version : Int
+  subject : String
+  scope : ExplanationScope
+  present : Bool
+  kind : ExplanationCellKind
+  result : ExplanationResult
+  formula : AiContextFormula?
+  active_inputs : ReadOnlyArray[ExplanationInput]
+  inactive_inputs : ReadOnlyArray[ExplanationInput]
+} derive(ToJson, @debug.Debug)
+
+pub(all) enum ExplanationCellKind {
+  ExplanationInputCell
+  ExplanationFormulaCell
+  ExplanationMissingCell
+  ExplanationUnknownCell(String)
+} derive(Eq, ToJson, @debug.Debug)
+
+pub(all) enum ExplanationChange {
+  Changed
+  Unchanged
+  Recomputed
+  Unobserved
+  UnknownChange(String)
+} derive(Eq, ToJson, @debug.Debug)
+
+pub(all) enum ExplanationErrorKind {
+  ParseFailure
+  TypeFailure
+  ReferenceFailure
+  CycleFailure
+} derive(Eq, ToJson, @debug.Debug)
+
+pub struct ExplanationEvidence {
+  classification : ExplanationChange
+  before_result : ExplanationResult
+  after_result : ExplanationResult
+} derive(Eq, ToJson, @debug.Debug)
+
+pub struct ExplanationInput {
+  id : String
+  state : ExplanationInputState
+} derive(Eq, ToJson, @debug.Debug)
+
+pub(all) enum ExplanationInputState {
+  Observed(ExplanationResult)
+  OutsideObservedRegion
+} derive(Eq, ToJson, @debug.Debug)
+
+pub(all) enum ExplanationQueryError {
+  CellOutsideObservedRegion(String)
+} derive(Eq, ToJson, @debug.Debug)
+
+pub(all) enum ExplanationResult {
+  Value(AiContextValue)
+  Missing
+  Error(ExplanationErrorKind, String)
+  UnknownResult(String, String)
+} derive(Eq, ToJson, @debug.Debug)
+
+pub struct ExplanationScope {
+  max_cells : Int
+  truncated : Bool
+  region : ReadOnlyArray[String]
+} derive(ToJson, @debug.Debug)
+
+pub struct ExplanationTrace {
+  recomputed : ReadOnlyArray[String]
+  changed : ReadOnlyArray[String]
+  unchanged : ReadOnlyArray[String]
+} derive(ToJson, @debug.Debug)
+
 pub struct FixedScenarioViewModel {
   schema_version : Int
   title : String
@@ -170,6 +245,16 @@ pub(all) enum FormulaTextParseError {
   InvalidCellReference(String)
   UnsupportedFormula(String)
 } derive(Eq, @debug.Debug)
+
+pub struct LastChangeAnswer {
+  schema_version : Int
+  subject : String
+  scope : ExplanationScope
+  edit : String
+  outcome : String
+  evidence : ExplanationEvidence?
+  trace : ExplanationTrace
+} derive(ToJson, @debug.Debug)
 
 pub(all) enum OpOutcome {
   SetInput(@typed_spreadsheet.CellResult)

@@ -28,7 +28,7 @@ snippets).
 
 ## Examples
 
-- [Live Typed Spreadsheet](https://typed-spreadsheet.pages.dev) — editable browser demo; trace panels show recomputed, changed, and unchanged formula cells
+- [Live Typed Spreadsheet](https://typed-spreadsheet.pages.dev) — editable browser demo with an on-demand selected-cell explanation inspector and secondary trace/evidence details
 - [Typed Spreadsheet package](../examples/typed_spreadsheet/README.mbt.md) — runtime-checked example worksheet boundary, formula evaluation, recompute traces
 - [Typed Spreadsheet Rabbita demo](../examples/typed_spreadsheet_rabbita_demo/README.md) — local browser-demo build and deployment notes
 - [incr_tea 7GUIs stress test](../examples/incr_tea_7guis/README.md) — browser stress-test package covering the seven 7GUIs tasks with the experimental `incr_tea` renderer
@@ -107,6 +107,7 @@ live in each ADR.
 | [2026-07-18](decisions/2026-07-18-datalog-relation-rule-lifecycle.md) | Datalog relation-rule lifecycle: live rules pin declared relations; relation disposal rejects rather than cascading; authority is declaration metadata only |
 | [2026-07-19](decisions/2026-07-19-independent-differential-dataflow-module.md) | Differential dataflow module boundary: independent in-workspace spike with one-way future adapters; production engine remains gated |
 | [2026-07-20](decisions/2026-07-20-typed-spreadsheet-egw-register-projection.md) | Accepted typed-spreadsheet EGW boundary: atomic cell registers, shared authoritative projection, and evidence-gated EGW improvement |
+| [2026-07-28](decisions/2026-07-28-typed-spreadsheet-explanation-queries.md) | Deterministic spreadsheet explanations stay bounded, query-specific, application-owned, and on demand |
 
 ---
 

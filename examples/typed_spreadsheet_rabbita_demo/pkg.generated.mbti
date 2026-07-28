@@ -16,6 +16,8 @@ type CellDraft
 
 type CellStatus
 
+type ExplanationFrame
+
 type GridCellSnapshot
 
 type Model

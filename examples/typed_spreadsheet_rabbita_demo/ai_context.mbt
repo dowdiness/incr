@@ -19,7 +19,7 @@ pub fn Model::ai_context_snapshot(
   )
   let (latest_trace, latest_evidence) = self.latest_ai_context_history(limit)
   {
-    schema_version: 1,
+    schema_version: 3,
     selected_cell: self.selected_cell,
     max_cells: limit,
     truncated,
@@ -42,7 +42,7 @@ pub fn Model::ai_context_json(
 
 ///|
 fn Model::publish_ai_context_cmd(self : Model) -> @rabbita.Cmd {
-  let json = self.ai_context_json()
+  let json = self.cached_ai_context_json()
   @rabbita_cmd.custom_cmd(
     fn(_) { js_publish_ai_context_json(json) },
     kind=@rabbita_cmd.after_render,
@@ -51,7 +51,15 @@ fn Model::publish_ai_context_cmd(self : Model) -> @rabbita.Cmd {
 
 ///|
 fn Model::publish_ai_context(self : Model) -> Unit {
-  js_publish_ai_context_json(self.ai_context_json())
+  js_publish_ai_context_json(self.cached_ai_context_json())
+}
+
+///|
+fn Model::cached_ai_context_json(self : Model) -> String {
+  match self.explanation_frame {
+    Some(frame) => frame.context.to_json().stringify(indent=2)
+    None => self.ai_context_json()
+  }
 }
 
 ///|
@@ -89,6 +97,23 @@ fn Model::latest_ai_context_history(
       (Some(trace), Some(evidence))
     }
     None => (None, None)
+  }
+}
+
+///|
+fn Model::refresh_explanation(self : Model) -> Model {
+  let snapshot = self.ai_context_snapshot()
+  let current = match @demo.explain_cell(snapshot, self.selected_cell) {
+    Ok(answer) => answer
+    Err(_) => abort("selected cell missing from its explanation context")
+  }
+  {
+    ..self,
+    explanation_frame: Some({
+      context: snapshot,
+      current,
+      last_change: @demo.explain_last_change(snapshot, self.selected_cell),
+    }),
   }
 }
 
