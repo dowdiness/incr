@@ -34,13 +34,17 @@ The module is deep at this seam: callers supply one bounded snapshot and receive
 
 `LastChangeAnswer` owns optional selected-cell before/after evidence and secondary `ExplanationTrace` diagnostics. It is distinct from the current-value answer because recomputation activity is not itself a semantic cause of the value.
 
+`ObservedErrorsAnswer` owns structured parse, type, reference, and cycle errors found among `snapshot.cells` in deterministic snapshot order, scoped by `ExplanationScope`. It does not claim completeness beyond the observed region.
+
+`ObservedDependentsAnswer` owns dependents found among `snapshot.cells`, preserving `static_reference` and `active_dependency` separately. The subject may lie outside the observed region; the answer reports only what the bounded snapshot contains and never claims sheet-wide completeness.
+
 The answer schema starts at version 1. Returned collections use `ReadOnlyArray`; region and trace arrays are copied at the query seam so callers cannot mutate retained answer state through a source snapshot. Query answers convert serialization-oriented strings into `ExplanationCellKind`, `ExplanationResult`, `ExplanationInputState`, and `ExplanationChange` variants. Unknown variants retain forward-compatible source labels without permitting contradictory states such as `observed = false` with a present result.
 
 ### Make bounded scope explicit
 
 Every answer carries `ExplanationScope`: the ordered observed region, configured limit, and truncation flag. Active references outside that region remain in the answer as unobserved inputs without an invented result.
 
-Complete-sheet dependents and errors are not part of this interface. They require a separate worksheet index before they can claim completeness without scanning the sheet.
+Complete-sheet dependents and errors are not part of this interface. `observed_errors` and `observed_dependents` answer from the bounded snapshot only; they require a separate worksheet index before they can claim completeness without scanning the sheet.
 
 ### Keep the UI on demand
 
