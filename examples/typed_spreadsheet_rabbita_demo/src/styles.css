@@ -834,6 +834,12 @@ code,
   color: var(--accent);
 }
 
+.explanation-input:focus-visible,
+.explanation-disclosure summary:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+
 .explanation-input strong {
   font-size: 0.78rem;
 }
@@ -845,17 +851,17 @@ code,
 }
 
 .explanation-disclosure summary {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--space-sm);
-  align-items: center;
+  display: list-item;
   min-height: 44px;
+  padding-block: 13px;
   color: var(--ink-soft);
   cursor: pointer;
   font-weight: 650;
 }
 
 .explanation-disclosure summary span:last-child {
+  float: right;
+  margin-left: var(--space-sm);
   color: var(--muted);
   font-size: 0.66rem;
   font-weight: 500;

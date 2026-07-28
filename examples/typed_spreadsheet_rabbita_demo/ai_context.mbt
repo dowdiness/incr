@@ -104,8 +104,8 @@ fn Model::latest_ai_context_history(
 fn Model::refresh_explanation(self : Model) -> Model {
   let snapshot = self.ai_context_snapshot()
   let current = match @demo.explain_cell(snapshot, self.selected_cell) {
-    Ok(answer) => Some(answer)
-    Err(_) => None
+    Ok(answer) => answer
+    Err(_) => abort("selected cell missing from its explanation context")
   }
   {
     ..self,

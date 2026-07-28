@@ -286,19 +286,26 @@ test "typed spreadsheet explanation follows the selected cell" {
 }
 
 ///|
+test "typed spreadsheet explanation includes a selected empty edge cell" {
+  let selected = update(SelectCell("AX50"), init_model())
+  let frame = explanation_frame(selected)
+  let answer = frame.current
+  inspect(frame.context.region[0], content="AX50")
+  inspect(answer.subject, content="AX50")
+  inspect(answer.kind is ExplanationMissingCell, content="true")
+  inspect(answer.result is Missing, content="true")
+}
+
+///|
 test "typed spreadsheet explanation frame refreshes after an applied edit" {
   let edited = update(
     ApplySelected,
     update(UpdateDraft("B1", "=A1 + 2"), init_model()),
   )
   let frame = explanation_frame(edited)
-  match frame.current {
-    Some(answer) =>
-      match answer.result {
-        Value(value) => inspect(value.value, content="12")
-        _ => abort("expected explained value")
-      }
-    None => abort("expected refreshed explanation")
+  match frame.current.result {
+    Value(value) => inspect(value.value, content="12")
+    _ => abort("expected explained value")
   }
   match frame.last_change {
     Some(change) =>
@@ -540,10 +547,7 @@ fn explanation_frame(model : Model) -> ExplanationFrame {
 
 ///|
 fn current_explanation(model : Model) -> @demo.ExplainCellAnswer {
-  match explanation_frame(model).current {
-    Some(answer) => answer
-    None => abort("expected current explanation")
-  }
+  explanation_frame(model).current
 }
 
 ///|

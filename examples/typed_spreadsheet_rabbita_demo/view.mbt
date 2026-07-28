@@ -500,39 +500,20 @@ fn view_explanation_overlay(
   emit : @rabbita.Emit[Msg],
   model : Model,
 ) -> @rabbita.Html {
-  let current = match model.explanation_frame {
-    Some(frame) => frame.current
-    None => None
-  }
-  match current {
-    Some(answer) =>
-      @html.aside(
-        class="inspector-panel inspector-panel--explanation",
-        attrs=@html.Attrs::build()
-          .role("complementary")
-          .aria_label("Explanation for \{answer.subject}"),
-        [
-          view_explanation_header(emit, answer),
-          view_explanation_inputs(emit, answer),
-          view_inactive_explanation_inputs(emit, answer),
-          view_explanation_history(emit, model),
-        ],
-      )
-    None =>
-      @html.aside(
-        class="inspector-panel inspector-panel--explanation",
-        attrs=@html.Attrs::build()
-          .role("complementary")
-          .aria_label("Explanation unavailable"),
-        [
-          view_inspector_header(
-            emit,
-            model.selected_cell,
-            "not in the observed region",
-          ),
-        ],
-      )
-  }
+  guard model.explanation_frame is Some(frame) else { return @html.nothing }
+  let answer = frame.current
+  @html.aside(
+    class="inspector-panel inspector-panel--explanation",
+    attrs=@html.Attrs::build()
+      .role("complementary")
+      .aria_label("Explanation for \{answer.subject}"),
+    [
+      view_explanation_header(emit, answer),
+      view_explanation_inputs(emit, answer),
+      view_inactive_explanation_inputs(emit, answer),
+      view_explanation_history(emit, model),
+    ],
+  )
 }
 
 ///|

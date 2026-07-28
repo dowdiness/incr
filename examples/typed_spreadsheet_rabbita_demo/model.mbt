@@ -20,7 +20,7 @@ enum OverlayPanel {
 ///|
 struct ExplanationFrame {
   context : @demo.AiContextSnapshot
-  current : @demo.ExplainCellAnswer?
+  current : @demo.ExplainCellAnswer
   last_change : @demo.LastChangeAnswer?
 }
 
