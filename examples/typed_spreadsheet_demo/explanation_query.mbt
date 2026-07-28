@@ -64,6 +64,22 @@ pub struct ExplanationInput {
 } derive(ToJson, Debug, Eq)
 
 ///|
+/// One structured cell error found within the bounded observed region.
+pub struct ExplanationObservedError {
+  id : String
+  kind : ExplanationErrorKind
+  message : String
+} derive(ToJson, Debug, Eq)
+
+///|
+/// How one observed cell depends on the queried subject.
+pub struct ExplanationDependent {
+  id : String
+  static_reference : Bool
+  active_dependency : Bool
+} derive(ToJson, Debug, Eq)
+
+///|
 /// Bounded engine activity retained as secondary diagnostic evidence.
 pub struct ExplanationTrace {
   recomputed : ReadOnlyArray[String]
@@ -89,6 +105,23 @@ pub struct LastChangeAnswer {
   outcome : String
   evidence : ExplanationEvidence?
   trace : ExplanationTrace
+} derive(ToJson, Debug)
+
+///|
+/// Structured errors from one bounded observed region.
+pub struct ObservedErrorsAnswer {
+  schema_version : Int
+  scope : ExplanationScope
+  errors : ReadOnlyArray[ExplanationObservedError]
+} derive(ToJson, Debug)
+
+///|
+/// Observed-region cells that depend on one subject.
+pub struct ObservedDependentsAnswer {
+  schema_version : Int
+  subject : String
+  scope : ExplanationScope
+  dependents : ReadOnlyArray[ExplanationDependent]
 } derive(ToJson, Debug)
 
 ///|
@@ -132,6 +165,46 @@ pub fn explain_cell(
     active_inputs: ReadOnlyArray::from_array(active_inputs),
     inactive_inputs: ReadOnlyArray::from_array(inactive_inputs),
   })
+}
+
+///|
+/// Returns structured cell errors found within the snapshot's bounded region.
+pub fn observed_errors(snapshot : AiContextSnapshot) -> ObservedErrorsAnswer {
+  let errors = snapshot.cells.filter_map(cell => {
+    match explanation_result(cell.result) {
+      Error(kind, message) => Some({ id: cell.id, kind, message })
+      _ => None
+    }
+  })
+  {
+    schema_version: 1,
+    scope: explanation_scope(snapshot),
+    errors: ReadOnlyArray::from_array(errors),
+  }
+}
+
+///|
+/// Finds dependents among observed cells without claiming sheet-wide scope.
+/// The subject itself does not need to be inside the observed region.
+pub fn observed_dependents(
+  snapshot : AiContextSnapshot,
+  subject : String,
+) -> ObservedDependentsAnswer {
+  let dependents = snapshot.cells.filter_map(cell => {
+    let static_reference = cell.static_references.contains(subject)
+    let active_dependency = cell.last_dynamic_dependencies.contains(subject)
+    if static_reference || active_dependency {
+      Some({ id: cell.id, static_reference, active_dependency })
+    } else {
+      None
+    }
+  })
+  {
+    schema_version: 1,
+    subject,
+    scope: explanation_scope(snapshot),
+    dependents: ReadOnlyArray::from_array(dependents),
+  }
 }
 
 ///|

@@ -41,6 +41,10 @@ pub fn format_outcome(OpOutcome) -> String
 
 pub fn format_snapshot(@typed_spreadsheet.CellSnapshot) -> String
 
+pub fn observed_dependents(AiContextSnapshot, String) -> ObservedDependentsAnswer
+
+pub fn observed_errors(AiContextSnapshot) -> ObservedErrorsAnswer
+
 pub fn parse_cell_text_op(@typed_spreadsheet.CellId, String) -> Result[SheetOp, FormulaTextParseError]
 
 pub fn run_batched_op(@typed_spreadsheet.Worksheet, SheetOp, capture? : Array[@typed_spreadsheet.CellId], trace_cells? : Array[@typed_spreadsheet.CellId]) -> WorksheetStepResult
@@ -184,6 +188,12 @@ pub(all) enum ExplanationChange {
   UnknownChange(String)
 } derive(Eq, ToJson, @debug.Debug)
 
+pub struct ExplanationDependent {
+  id : String
+  static_reference : Bool
+  active_dependency : Bool
+} derive(Eq, ToJson, @debug.Debug)
+
 pub(all) enum ExplanationErrorKind {
   ParseFailure
   TypeFailure
@@ -205,6 +215,12 @@ pub struct ExplanationInput {
 pub(all) enum ExplanationInputState {
   Observed(ExplanationResult)
   OutsideObservedRegion
+} derive(Eq, ToJson, @debug.Debug)
+
+pub struct ExplanationObservedError {
+  id : String
+  kind : ExplanationErrorKind
+  message : String
 } derive(Eq, ToJson, @debug.Debug)
 
 pub(all) enum ExplanationQueryError {
@@ -254,6 +270,19 @@ pub struct LastChangeAnswer {
   outcome : String
   evidence : ExplanationEvidence?
   trace : ExplanationTrace
+} derive(ToJson, @debug.Debug)
+
+pub struct ObservedDependentsAnswer {
+  schema_version : Int
+  subject : String
+  scope : ExplanationScope
+  dependents : ReadOnlyArray[ExplanationDependent]
+} derive(ToJson, @debug.Debug)
+
+pub struct ObservedErrorsAnswer {
+  schema_version : Int
+  scope : ExplanationScope
+  errors : ReadOnlyArray[ExplanationObservedError]
 } derive(ToJson, @debug.Debug)
 
 pub(all) enum OpOutcome {

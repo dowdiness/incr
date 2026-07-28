@@ -177,6 +177,149 @@ test "explain cell covers inputs, errors, and references outside the region" {
 }
 
 ///|
+test "observed errors returns structured bounded errors in snapshot order" {
+  let base = explanation_test_context()
+  let context = {
+    ..base,
+    region: ["P1", "T1", "R1", "C1", "A1"],
+    cells: [
+      {
+        ..base.cells[0],
+        id: "P1",
+        result: {
+          status: "parse_error",
+          value: None,
+          error: Some("expected formula expression"),
+          repr: "ParseError(expected formula expression)",
+        },
+      },
+      {
+        ..base.cells[0],
+        id: "T1",
+        result: {
+          status: "type_error",
+          value: None,
+          error: Some("Add requires Int"),
+          repr: "TypeError(Add requires Int)",
+        },
+      },
+      {
+        ..base.cells[0],
+        id: "R1",
+        result: {
+          status: "ref_error",
+          value: None,
+          error: Some("foreign cell reference"),
+          repr: "RefError(foreign cell reference)",
+        },
+      },
+      {
+        ..base.cells[0],
+        id: "C1",
+        result: {
+          status: "cycle_error",
+          value: None,
+          error: Some("cycle detected"),
+          repr: "CycleError(cycle detected)",
+        },
+      },
+      base.cells[1],
+    ],
+  }
+
+  let answer = observed_errors(context)
+  inspect(answer.schema_version, content="1")
+  inspect(answer.errors.length(), content="4")
+  inspect(answer.errors[0].id, content="P1")
+  inspect(answer.errors[0].kind is ParseFailure, content="true")
+  inspect(answer.errors[0].message, content="expected formula expression")
+  inspect(answer.errors[1].kind is TypeFailure, content="true")
+  inspect(answer.errors[2].kind is ReferenceFailure, content="true")
+  inspect(answer.errors[3].kind is CycleFailure, content="true")
+  inspect(answer.scope.region.length(), content="5")
+
+  context.region[0] = "mutated-by-caller"
+  inspect(answer.scope.region[0], content="P1")
+}
+
+///|
+test "observed dependents distinguishes static and active relationships" {
+  let base = explanation_test_context()
+  let active_static = {
+    ..base.cells[0],
+    id: "B1",
+    static_references: ["A1"],
+    last_dynamic_dependencies: ["A1"],
+  }
+  let inactive_static = {
+    ..base.cells[0],
+    id: "C1",
+    static_references: ["A1"],
+    last_dynamic_dependencies: [],
+  }
+  let dynamic_only = {
+    ..base.cells[0],
+    id: "D1",
+    static_references: [],
+    last_dynamic_dependencies: ["A1"],
+  }
+  let unrelated = {
+    ..base.cells[0],
+    id: "E1",
+    static_references: ["Z9"],
+    last_dynamic_dependencies: ["Z9"],
+  }
+  let context = {
+    ..base,
+    region: ["B1", "C1", "D1", "E1", "A1"],
+    cells: [
+      active_static,
+      inactive_static,
+      dynamic_only,
+      unrelated,
+      base.cells[1],
+    ],
+  }
+
+  let answer = observed_dependents(context, "A1")
+  inspect(answer.schema_version, content="1")
+  inspect(answer.subject, content="A1")
+  inspect(answer.dependents.length(), content="3")
+  inspect(answer.dependents[0].id, content="B1")
+  inspect(answer.dependents[0].static_reference, content="true")
+  inspect(answer.dependents[0].active_dependency, content="true")
+  inspect(answer.dependents[1].id, content="C1")
+  inspect(answer.dependents[1].static_reference, content="true")
+  inspect(answer.dependents[1].active_dependency, content="false")
+  inspect(answer.dependents[2].id, content="D1")
+  inspect(answer.dependents[2].static_reference, content="false")
+  inspect(answer.dependents[2].active_dependency, content="true")
+}
+
+///|
+test "observed dependents can describe an out-of-region subject without claiming completeness" {
+  let base = explanation_test_context()
+  let context = {
+    ..base,
+    cells: [
+      {
+        ..base.cells[0],
+        static_references: ["Z9"],
+        last_dynamic_dependencies: ["Z9"],
+      },
+      base.cells[1],
+    ],
+  }
+
+  let answer = observed_dependents(context, "Z9")
+  inspect(answer.subject, content="Z9")
+  inspect(answer.dependents.length(), content="1")
+  inspect(answer.dependents[0].id, content="B1")
+  inspect(answer.scope.region.contains("Z9"), content="false")
+  inspect(answer.scope.truncated, content="false")
+}
+
+///|
 test "explanation queries preserve unknown source labels" {
   let base = explanation_test_context()
   let pending_result : AiContextResult = {

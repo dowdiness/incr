@@ -42,7 +42,14 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ### Examples
 
-- Added deterministic, bounded typed-spreadsheet explanation queries for current-cell semantics and latest-edit evidence. Typed result/kind/change variants replace stringly query states, context schema v3 carries only structured before/after evidence, and the Rabbita demo retains one coherent `ExplanationFrame` behind a default-closed `explain <cell>` inspector.
+- Added deterministic, bounded typed-spreadsheet explanation queries for
+  current-cell semantics, latest-edit evidence, and region-scoped error and
+  dependent discovery. Typed result/kind/change variants replace stringly query
+  states, context schema v3 carries only structured before/after evidence,
+  `observed_errors` returns parse/type/reference/cycle errors in snapshot order,
+  and `observed_dependents` separates static references from active dependencies
+  within the scope, while the Rabbita demo retains one coherent
+  `ExplanationFrame` behind a default-closed `explain <cell>` inspector.
 - Added a demo-private, same-origin two-page collaboration proof for the typed
   spreadsheet example, including host bootstrap, supplied-node join attach,
   bidirectional committed-cell synchronization, fail-closed transport with
