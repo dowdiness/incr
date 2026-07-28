@@ -7,9 +7,11 @@
     "dev": "npm run build:moonbit && vite",
     "build": "npm run build:moonbit && vite build",
     "smoke": "node scripts/smoke-dist.mjs",
+    "test:dom": "npm run build && node scripts/test-dom.mjs",
     "preview": "vite preview"
   },
   "devDependencies": {
+    "playwright": "1.60.0",
     "vite": "^8.0.14"
   }
 }

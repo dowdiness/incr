@@ -59,6 +59,8 @@ jobs:
 
       - name: Install demo dependencies
         working-directory: examples/typed_spreadsheet_rabbita_demo
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
         run: npm ci
 
       - name: Build demo
@@ -78,6 +80,10 @@ jobs:
       - name: Install Playwright Chromium
         working-directory: examples/typed_spreadsheet_incr_tea_demo
         run: npx playwright install --with-deps chromium
+
+      - name: Browser-test Rabbita explanation inspector
+        working-directory: examples/typed_spreadsheet_rabbita_demo
+        run: npm run test:dom
 
       - name: Browser-test incr_tea proof
         working-directory: examples/typed_spreadsheet_incr_tea_demo
