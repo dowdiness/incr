@@ -61,6 +61,6 @@ The Rabbita package remains a thin adapter: selection and overlay state stay in 
 
 - Rabbita and future adapters can share one deterministic explanation interface while choosing different presentations.
 - AI/tool consumers can serialize the query-specific answers instead of scraping UI text or reconstructing dependencies.
-- `AiContextSnapshot` remains the adapter-neutral input and retains its bounded contract. Schema version 2 adds structured before/after results alongside the compatibility display fields in evidence cells.
+- `AiContextSnapshot` remains the adapter-neutral input and retains its bounded contract. Schema version 3 makes structured before/after results authoritative and removes the duplicate display/status fields from evidence cells. Adapters render `AiContextResult.repr` when they need the compatibility display text.
 - Trace and evidence remain available but are no longer the primary navigation model in Rabbita.
 - A future complete-sheet query must introduce and validate an index, then either add a separately scoped answer type or supersede the bounded part of this ADR.

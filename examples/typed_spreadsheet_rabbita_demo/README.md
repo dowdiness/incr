@@ -136,7 +136,7 @@ Trace, evidence, and AI/tool context are intentionally bounded:
   `ReadOnlyArray` values.
 - AI/tool consumers that need the underlying context should use the
   schema-versioned MoonBit context export instead of scraping DOM text. Schema
-  version 2 adds structured before/after results to evidence cells. The debug
+  version 3 uses structured before/after results as the only evidence value representation. The debug
   export is published on `globalThis.typedSpreadsheetAIContextJson()` and
   `globalThis.typedSpreadsheetAIContext()` after init and each update.
 

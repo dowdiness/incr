@@ -317,10 +317,10 @@ fn view_evidence_cell(cell : @demo.AiContextEvidenceCell) -> @tea.Html[Msg] {
       @tea.text(cell.classification),
     ]),
     @tea.span(attrs=[@tea.class_attr("evidence-cell-before")], [
-      @tea.text("before: \{cell.before_result}"),
+      @tea.text("before: \{cell.before.repr}"),
     ]),
     @tea.span(attrs=[@tea.class_attr("evidence-cell-after")], [
-      @tea.text("after: \{cell.after_result}"),
+      @tea.text("after: \{cell.after.repr}"),
     ]),
   ])
 }

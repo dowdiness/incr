@@ -658,7 +658,7 @@ test "incr_tea AI context stays schema-versioned and bounded" {
     region?=Some(["A1", "B1", "C1"]),
     max_cells=2,
   )
-  inspect(context.schema_version, content="2")
+  inspect(context.schema_version, content="3")
   inspect(context.selected_cell, content="B1")
   inspect(context.max_cells, content="2")
   inspect(context.truncated, content="true")
@@ -695,20 +695,20 @@ test "incr_tea AI context carries latest trace and evidence" {
       inspect(edited.id, content="A1")
       inspect(edited.classification, content="changed")
       inspect(edited.before_kind, content="input")
-      inspect(edited.before_result_status, content="ok")
-      inspect(edited.before_result, content="Ok(Int(10))")
+      inspect(edited.before.status, content="ok")
+      inspect(edited.before.repr, content="Ok(Int(10))")
       inspect(edited.after_kind, content="input")
-      inspect(edited.after_result_status, content="ok")
-      inspect(edited.after_result, content="Ok(Int(15))")
+      inspect(edited.after.status, content="ok")
+      inspect(edited.after.repr, content="Ok(Int(15))")
       let dependent = evidence.cells[1]
       inspect(dependent.id, content="B1")
       inspect(dependent.classification, content="changed")
       inspect(dependent.before_kind, content="formula")
-      inspect(dependent.before_result_status, content="ok")
-      inspect(dependent.before_result, content="Ok(Int(11))")
+      inspect(dependent.before.status, content="ok")
+      inspect(dependent.before.repr, content="Ok(Int(11))")
       inspect(dependent.after_kind, content="formula")
-      inspect(dependent.after_result_status, content="ok")
-      inspect(dependent.after_result, content="Ok(Int(16))")
+      inspect(dependent.after.status, content="ok")
+      inspect(dependent.after.repr, content="Ok(Int(16))")
     }
     None => abort("expected latest evidence")
   }
@@ -843,7 +843,7 @@ test "AI context parity scenario covers edits, errors, formulas, deletes, and bo
     Some(evidence) => {
       inspect(evidence.cells.length(), content="1")
       inspect(evidence.cells[0].id, content="A1")
-      inspect(evidence.cells[0].after_result_status, content="missing")
+      inspect(evidence.cells[0].after.status, content="missing")
     }
     None => abort("expected delete evidence")
   }

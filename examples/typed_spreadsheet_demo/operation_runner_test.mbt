@@ -250,8 +250,13 @@ test "classify evidence marks equivalent formula target changed" {
   let (_, evidence) = worksheet_step_ai_context_history("edit A1", result, 64)
   let change = evidence.cells[0]
   inspect(result.trace.changed.contains(a1), content="false")
-  inspect(change.before_result == change.after_result, content="true")
+  inspect(change.before == change.after, content="true")
   inspect(change.classification, content="changed")
+  let json = evidence.to_json().stringify()
+  inspect(json.contains("\"before\""), content="true")
+  inspect(json.contains("\"after\""), content="true")
+  inspect(json.contains("before_result"), content="false")
+  inspect(json.contains("after_result"), content="false")
 }
 
 ///|
@@ -262,7 +267,7 @@ test "classify evidence marks blank target deletion changed" {
   let (_, evidence) = worksheet_step_ai_context_history("delete A1", result, 64)
   let change = evidence.cells[0]
   inspect(result.trace.changed.contains(a1), content="false")
-  inspect(change.before_result == change.after_result, content="true")
+  inspect(change.before == change.after, content="true")
   inspect(change.classification, content="changed")
 }
 
@@ -288,7 +293,7 @@ test "classify evidence marks same-result kind change changed" {
   let (_, evidence) = worksheet_step_ai_context_history("edit A1", result, 64)
   let change = evidence.cells[0]
   inspect(result.trace.changed.contains(a1), content="false")
-  inspect(change.before_result == change.after_result, content="true")
+  inspect(change.before == change.after, content="true")
   inspect(change.classification, content="changed")
 }
 

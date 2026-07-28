@@ -50,8 +50,6 @@ test "explain last change keeps engine trace secondary to selected evidence" {
             repr: "Ok(Int(11))",
           },
           before_kind: "formula",
-          before_result_status: "ok",
-          before_result: "Ok(Int(11))",
           after: {
             status: "ok",
             value: Some({ type_name: "Int", value: "12", repr: "Int(12)" }),
@@ -59,8 +57,6 @@ test "explain last change keeps engine trace secondary to selected evidence" {
             repr: "Ok(Int(12))",
           },
           after_kind: "formula",
-          after_result_status: "ok",
-          after_result: "Ok(Int(12))",
         },
       ],
     }),
@@ -211,12 +207,8 @@ test "explanation queries preserve unknown source labels" {
           classification: "coalesced",
           before: base.cells[0].result,
           before_kind: "formula",
-          before_result_status: "ok",
-          before_result: "Int(11)",
           after: pending_result,
           after_kind: "future_formula",
-          after_result_status: "pending",
-          after_result: "Pending(Int(11))",
         },
       ],
     }),
@@ -278,8 +270,6 @@ test "explanation queries report bounded absence without inventing facts" {
             repr: "Ok(Blank)",
           },
           before_kind: "missing",
-          before_result_status: "missing",
-          before_result: "Ok(Blank)",
           after: {
             status: "ok",
             value: Some({ type_name: "Int", value: "1", repr: "Int(1)" }),
@@ -287,8 +277,6 @@ test "explanation queries report bounded absence without inventing facts" {
             repr: "Ok(Int(1))",
           },
           after_kind: "input",
-          after_result_status: "ok",
-          after_result: "Ok(Int(1))",
         },
       ],
     }),
@@ -313,7 +301,7 @@ test "explain cell is deterministic and owns its bounded scope" {
 ///|
 fn explanation_test_context() -> AiContextSnapshot {
   {
-    schema_version: 2,
+    schema_version: 3,
     selected_cell: "B1",
     max_cells: 8,
     truncated: false,

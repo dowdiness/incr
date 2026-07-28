@@ -79,12 +79,8 @@ pub(all) struct AiContextEvidenceCell {
   classification : String
   before : AiContextResult
   before_kind : String
-  before_result_status : String
-  before_result : String
   after : AiContextResult
   after_kind : String
-  after_result_status : String
-  after_result : String
 } derive(ToJson, Debug, Eq)
 
 ///|
@@ -192,12 +188,8 @@ pub fn ai_context_evidence_cell_from_observations(
     classification,
     before: before_result,
     before_kind: ai_context_kind(before.present, before.kind),
-    before_result_status: before_result.status,
-    before_result: before_result.repr,
     after: after_result,
     after_kind: ai_context_kind(after.present, after.kind),
-    after_result_status: after_result.status,
-    after_result: after_result.repr,
   }
 }
 

@@ -324,7 +324,7 @@ test "typed spreadsheet AI context exports input cell state" {
   let model = update(SelectCell("A1"), init_model())
   let context = model.ai_context_snapshot(region=["A1"])
 
-  inspect(context.schema_version, content="2")
+  inspect(context.schema_version, content="3")
   inspect(context.selected_cell, content="A1")
   inspect(context.truncated, content="false")
   debug_inspect(context.region, content="[\"A1\"]")
@@ -421,7 +421,6 @@ test "typed spreadsheet AI context exports formula errors and latest evidence" {
       inspect(evidence.edit, content="delete A1")
       inspect(evidence.cells.length(), content="1")
       inspect(evidence.cells[0].id, content="A1")
-      inspect(evidence.cells[0].after_result_status, content="missing")
       inspect(evidence.cells[0].after.status, content="missing")
     }
     None => abort("expected latest evidence")
@@ -525,7 +524,6 @@ test "AI context parity scenario covers edits, errors, formulas, deletes, and bo
     Some(evidence) => {
       inspect(evidence.cells.length(), content="1")
       inspect(evidence.cells[0].id, content="A1")
-      inspect(evidence.cells[0].after_result_status, content="missing")
       inspect(evidence.cells[0].after.status, content="missing")
     }
     None => abort("expected delete evidence")

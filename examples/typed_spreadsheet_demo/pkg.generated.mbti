@@ -90,12 +90,8 @@ pub(all) struct AiContextEvidenceCell {
   classification : String
   before : AiContextResult
   before_kind : String
-  before_result_status : String
-  before_result : String
   after : AiContextResult
   after_kind : String
-  after_result_status : String
-  after_result : String
 } derive(Eq, ToJson, @debug.Debug)
 
 pub(all) struct AiContextFormula {
