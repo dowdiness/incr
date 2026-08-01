@@ -4,76 +4,35 @@ fn main {
 }
 
 ///|
-/// Mounts the side-by-side `incr_tea` typed spreadsheet proof with 5
-/// independent watched roots (grid, formula bar, status, trace, evidence)
-/// sharing model state via per-region InputFields.
-fn mount_typed_sheet_app(
-  mount_id : String,
-  app : TypedSheetApp,
-  renderer : @tea.BrowserRenderer[Msg],
-) -> Unit {
-  // Mount each region as an independent root. All share the same update
-  // handler (handle_msg) and the same InputFields, but each reads only
-  // its own slice, so unchanged roots skip DOM patching.
-  ignore(
-    renderer.mount(
-      @tea.dom_get_element_by_id(mount_id + "-formula"),
-      app.prog_formula,
-      label="formula-bar",
-      on_value=resolve_value,
-      on_key_event=resolve_key_event,
-    ),
-  )
-  ignore(
-    renderer.mount(
-      @tea.dom_get_element_by_id(mount_id + "-grid"),
-      app.prog_grid,
-      label="grid",
-      on_value=resolve_value,
-      on_key_event=resolve_key_event,
-    ),
-  )
-  ignore(
-    renderer.mount(
-      @tea.dom_get_element_by_id(mount_id + "-status"),
-      app.prog_status,
-      label="status",
-    ),
-  )
-  ignore(
-    renderer.mount(
-      @tea.dom_get_element_by_id(mount_id + "-trace"),
-      app.prog_trace,
-      label="trace",
-    ),
-  )
-  ignore(
-    renderer.mount(
-      @tea.dom_get_element_by_id(mount_id + "-evidence"),
-      app.prog_evidence,
-      label="evidence",
-    ),
-  )
-  js_publish_ai_context_json(app._state.val.ai_context_json())
-  install_typed_sheet_benchmark_api(app, renderer)
-}
-
-///|
 /// Standalone remains the original fixed seed application.
 pub fn mount_typed_spreadsheet_incr_tea_demo(mount_id : String) -> Unit {
   match parse_startup(js_collab_startup_input()) {
     Ok(StartupMode::Standalone) => {
-      let runtime = @incr.Runtime()
-      let app = TypedSheetApp(runtime) catch {
-        error => {
-          println(
-            "Typed spreadsheet startup failed: \{format_authority_error(error)}",
-          )
+      let app = match
+        TypedSheetApplication::start(
+          @incr.Runtime(),
+          SheetStartMode::Standalone,
+          None,
+          AiContextPublisher::production(),
+        ) {
+        Ok(app) => app
+        Err(AuthorityStartFailed(error)) => {
+          println("Typed spreadsheet startup failed: \{error}")
           return
         }
       }
-      let renderer = @tea.BrowserRenderer::BrowserRenderer(runtime)
-      mount_typed_sheet_app(mount_id, app, renderer)
+      let hosts = match resolve_typed_sheet_hosts(mount_id) {
+        Ok(hosts) => hosts
+        Err(MissingRegion(id)) => {
+          println("Typed spreadsheet region is missing: \{id}")
+          app.dispose()
+          return
+        }
+      }
+      match app.mount(hosts) {
+        Ok(_) => install_typed_sheet_benchmark_api(app)
+        Err(_) => app.dispose()
+      }
     }
     Ok(StartupMode::RoomChooser) => show_room_chooser()
     Ok(mode) => start_collaboration(mode)

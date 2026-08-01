@@ -154,8 +154,9 @@ try {
   await page.addInitScript(() => {
     window.requestAnimationFrame = () => 0;
     window.cancelAnimationFrame = () => {};
+    globalThis.__typedSpreadsheetBenchMode = true;
   });
-  await page.goto(`${baseUrl}/?bench`, { waitUntil: 'load' });
+  await page.goto(`${baseUrl}/`, { waitUntil: 'load' });
   await page.waitForSelector('#cell-AX50');
   await waitForCellText(page, 'B1', '11');
 
