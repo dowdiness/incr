@@ -91,7 +91,7 @@ test "incr_tea spreadsheet proof exposes pure editor state through observation" 
 
 ///|
 test "collaboration rejects reset before shared mutation" {
-  let recording = new_recording_session_transport()
+  let recording = RecordingSessionTransport::RecordingSessionTransport()
   let app = match
     TypedSheetApplication::start(
       @incr.Runtime(),
@@ -119,7 +119,7 @@ test "collaboration rejects reset before shared mutation" {
 
 ///|
 test "collaboration publish retains edit detail and local fallback stays local" {
-  let recording = new_recording_session_transport()
+  let recording = RecordingSessionTransport::RecordingSessionTransport()
   let app = match
     TypedSheetApplication::start(
       @incr.Runtime(),
@@ -341,36 +341,9 @@ fn ModelContextFixture::dispatch(self : ModelContextFixture, msg : Msg) -> Unit 
   // This fixture is intentionally source-owned. ApplicationObservation exposes
   // the default AI context only; custom region/max_cells contracts must exercise
   // SheetState::ai_context_snapshot without reaching through the application.
-  let plan = match msg {
-    UseExample(_)
-    | ApplySelected
-    | ApplyInlineEdit(_)
-    | DeleteSelected
-    | ResetSheet
-    | BeginInlineEdit(_)
-    | BeginSelectedInlineEdit =>
-      plan_sheet_command(sheet_planning_context(self.state), msg)
-    _ => { command: None, ui_effect: None }
-  }
-  let immediate = match msg {
-    SelectCell(cell) => select_cell(self.state, cell)
-    UpdateDraft(cell, text) => update_draft_for_cell(self.state, cell, text)
-    UseExample(text) => use_example(self.state, text)
-    ApplySelected | DeleteSelected | ResetSheet | ApplyInlineEdit(_) =>
-      @tea.Cmd::none()
-    CancelSelected => cancel_selected(self.state)
-    BeginInlineEdit(cell) => begin_inline_edit(self.state, cell)
-    BeginSelectedInlineEdit =>
-      begin_inline_edit(self.state, self.state.val.selected_cell.peek())
-    MoveSelection(delta_col, delta_row) =>
-      move_selection(self.state, delta_col, delta_row)
-  }
+  let (plan, immediate) = prepare_sheet_dispatch(self.state, msg)
   ignore(immediate)
-  match plan.command {
-    Some(command) =>
-      ignore(execute_sheet_command(self.runtime, self.state, command))
-    None => ()
-  }
+  execute_sheet_plan(self.runtime, self.state, plan)
 }
 
 ///|

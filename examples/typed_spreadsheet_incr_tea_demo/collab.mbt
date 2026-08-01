@@ -232,10 +232,11 @@ struct CollabOwner {
   transport : CollabTransport
   lifecycle : LifecycleHandle
   mut app : TypedSheetApplication?
-  remote_apply : Ref[
-    ((@container.SyncMessage) -> Result[Unit, ApplicationRemoteError])?,
-  ]
-  application_failure : Ref[((String) -> Unit)?]
+  mut remote_apply : ((@container.SyncMessage) -> Result[
+    Unit,
+    ApplicationRemoteError,
+  ])?
+  mut application_failure : ((String) -> Unit)?
   mut session_transport : SessionTransport?
   mut join_retry : JoinRetryHandle?
   mut transport_closed : Bool
@@ -409,7 +410,6 @@ fn collab_mount(owner : Ref[CollabOwner]) -> Unit {
 }
 
 ///|
-/// Install local publication after app creation, never for remote apply.
 fn collab_install_app(
   owner : Ref[CollabOwner],
   app : TypedSheetApplication,
@@ -434,14 +434,13 @@ fn collab_session_transport(
   owner : Ref[CollabOwner],
   receiver : Ref[(String) -> Unit],
   failure_handler : Ref[(String) -> Unit],
-  close_handler : Ref[() -> Unit],
 ) -> SessionTransport {
   let stopped = Ref(false)
   SessionTransport::SessionTransport(
     (remote_apply, application_failure) => {
       if !stopped.val {
-        owner.val.remote_apply.val = Some(remote_apply)
-        owner.val.application_failure.val = Some(application_failure)
+        owner.val.remote_apply = Some(remote_apply)
+        owner.val.application_failure = Some(application_failure)
       }
     },
     sync => {
@@ -454,11 +453,10 @@ fn collab_session_transport(
         return
       }
       stopped.val = true
-      owner.val.remote_apply.val = None
-      owner.val.application_failure.val = None
+      owner.val.remote_apply = None
+      owner.val.application_failure = None
       receiver.val = _ => ()
       failure_handler.val = _ => ()
-      close_handler.val = () => ()
       collab_stop_join_retry(owner)
       if !owner.val.transport_closed {
         js_collab_close(owner.val.transport)
@@ -479,7 +477,7 @@ fn collab_decision(owner : Ref[CollabOwner], decision : CollabDecision) -> Unit 
     CollabDecision::Send(message) => collab_send(owner, message)
     CollabDecision::Mount => collab_mount(owner)
     CollabDecision::Fail(error) => {
-      match owner.val.application_failure.val {
+      match owner.val.application_failure {
         Some(application_failure) => application_failure(error)
         None =>
           js_collab_show_status(
@@ -576,7 +574,8 @@ fn format_application_remote_error(error : ApplicationRemoteError) -> String {
       "Remote mutation did not land; collaboration stopped."
     ApplicationRemoteError::SynchronizationFailed(_) =>
       "Remote synchronization failed; collaboration stopped."
-    ApplicationRemoteError::Disposed => "Remote update arrived before attach."
+    ApplicationRemoteError::Disposed =>
+      "Remote update arrived before attachment or after application disposal."
   }
 }
 
@@ -608,7 +607,7 @@ fn collab_apply_remote(
   owner : Ref[CollabOwner],
   message : @container.SyncMessage,
 ) -> Unit {
-  let event = match owner.val.remote_apply.val {
+  let event = match owner.val.remote_apply {
     Some(remote_apply) => collab_invoke_remote_apply(remote_apply, message)
     None => collab_remote_apply_event(Err(ApplicationRemoteError::Disposed))
   }
@@ -681,15 +680,15 @@ fn start_collaboration(mode : StartupMode) -> Unit {
     transport,
     lifecycle,
     app: None,
-    remote_apply: Ref(None),
-    application_failure: Ref(None),
+    remote_apply: None,
+    application_failure: None,
     session_transport: None,
     join_retry: None,
     transport_closed: false,
     disposed: false,
   })
   let session_transport = collab_session_transport(
-    owner, receiver, failure_handler, close_handler,
+    owner, receiver, failure_handler,
   )
   owner.val.session_transport = Some(session_transport)
   receiver.val = raw => collab_receive(owner, raw)

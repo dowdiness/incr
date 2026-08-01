@@ -31,7 +31,15 @@ pub fn mount_typed_spreadsheet_incr_tea_demo(mount_id : String) -> Unit {
       }
       match app.mount(hosts) {
         Ok(_) => install_typed_sheet_benchmark_api(app)
-        Err(_) => app.dispose()
+        Err(error) => {
+          let reason = match error {
+            NotMounted => "not mounted"
+            AlreadyMounted => "already mounted"
+            Disposed => "disposed"
+          }
+          println("Typed spreadsheet mount failed: \{reason}.")
+          app.dispose()
+        }
       }
     }
     Ok(StartupMode::RoomChooser) => show_room_chooser()

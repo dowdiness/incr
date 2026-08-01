@@ -123,13 +123,13 @@ fn row_by_label(
 ) -> RegionRenderStats {
   let ix = stats.search_by(row => row.label == label)
   guard ix is Some(i) else {
-    abort("root \"\{label}\" not found in root_stats")
+    abort("region \"\{label}\" not found in region_stats")
   }
   stats[i]
 }
 
 ///|
-/// Asserts per-root patch/skip delta from a baseline snapshot.
+/// Asserts per-region patch/skip delta from a baseline snapshot.
 /// Checks the DIFFERENCE between `stats` and `baseline`, not the
 /// cumulative values — so tests survive changes to mount flush behavior.
 #cfg(target="js")
@@ -146,8 +146,21 @@ fn check_delta(
   let actual_skip = row.skipped_patches - base_row.skipped_patches
   guard actual_patch == patch_delta && actual_skip == skip_delta else {
     abort(
-      "root \"\{label}\": expected delta patch=\{patch_delta}, skip=\{skip_delta}; got delta patch=\{actual_patch}, skip=\{actual_skip}",
+      "region \"\{label}\": expected delta patch=\{patch_delta}, skip=\{skip_delta}; got delta patch=\{actual_patch}, skip=\{actual_skip}",
     )
+  }
+}
+
+///|
+#cfg(target="js")
+fn dispatch_or_abort(app : TypedSheetApplication, msg : Msg) -> Unit {
+  match app.dispatch(msg) {
+    Ok(_) => ()
+    Err(NotMounted) =>
+      abort("locality dispatch failed: application not mounted")
+    Err(AlreadyMounted) =>
+      abort("locality dispatch failed: application already mounted")
+    Err(Disposed) => abort("locality dispatch failed: application disposed")
   }
 }
 
@@ -197,7 +210,7 @@ fn setup_locality_test() -> (
 test "locality: cell value edit — UpdateDraft + ApplySelected" {
   let (app, base) = setup_locality_test()
 
-  ignore(app.dispatch(UpdateDraft("A1", "42")))
+  dispatch_or_abort(app, UpdateDraft("A1", "42"))
   let after_draft = match app.flush_presentation() {
     Ok(observation) => observation.region_stats
     Err(_) => abort("mounted presentation flush was rejected")
@@ -210,7 +223,7 @@ test "locality: cell value edit — UpdateDraft + ApplySelected" {
   check_delta(after_draft, base, "trace", 0, 1)
   check_delta(after_draft, base, "evidence", 0, 1)
 
-  ignore(app.dispatch(ApplySelected))
+  dispatch_or_abort(app, ApplySelected)
   let after_apply = match app.flush_presentation() {
     Ok(observation) => observation.region_stats
     Err(_) => abort("mounted presentation flush was rejected")
@@ -235,7 +248,7 @@ test "locality: cell value edit — UpdateDraft + ApplySelected" {
 test "locality: selection only — SelectCell" {
   let (app, base) = setup_locality_test()
 
-  ignore(app.dispatch(SelectCell("A2")))
+  dispatch_or_abort(app, SelectCell("A2"))
   let after = match app.flush_presentation() {
     Ok(observation) => observation.region_stats
     Err(_) => abort("mounted presentation flush was rejected")
@@ -259,7 +272,7 @@ test "locality: selection only — SelectCell" {
 test "locality: draft only — UpdateDraft without ApplySelected" {
   let (app, base) = setup_locality_test()
 
-  ignore(app.dispatch(UpdateDraft("A1", "99")))
+  dispatch_or_abort(app, UpdateDraft("A1", "99"))
   let after = match app.flush_presentation() {
     Ok(observation) => observation.region_stats
     Err(_) => abort("mounted presentation flush was rejected")
@@ -283,7 +296,7 @@ test "locality: draft only — UpdateDraft without ApplySelected" {
 test "locality: inline edit commit — BeginInlineEdit + ApplyInlineEdit" {
   let (app, base) = setup_locality_test()
 
-  ignore(app.dispatch(BeginInlineEdit("A1")))
+  dispatch_or_abort(app, BeginInlineEdit("A1"))
   let after_begin = match app.flush_presentation() {
     Ok(observation) => observation.region_stats
     Err(_) => abort("mounted presentation flush was rejected")
@@ -296,7 +309,7 @@ test "locality: inline edit commit — BeginInlineEdit + ApplyInlineEdit" {
   check_delta(after_begin, base, "trace", 0, 1)
   check_delta(after_begin, base, "evidence", 0, 1)
 
-  ignore(app.dispatch(ApplyInlineEdit("A1")))
+  dispatch_or_abort(app, ApplyInlineEdit("A1"))
   let after_apply = match app.flush_presentation() {
     Ok(observation) => observation.region_stats
     Err(_) => abort("mounted presentation flush was rejected")
@@ -320,13 +333,13 @@ test "locality: inline edit commit — BeginInlineEdit + ApplyInlineEdit" {
 #cfg(target="js")
 test "locality: clean apply patches only status trace and evidence" {
   let (app, _) = setup_locality_test()
-  ignore(app.dispatch(SelectCell("A1")))
+  dispatch_or_abort(app, SelectCell("A1"))
   let selected = match app.flush_presentation() {
     Ok(observation) => observation.region_stats
     Err(_) => abort("mounted presentation flush was rejected")
   }
 
-  ignore(app.dispatch(ApplySelected))
+  dispatch_or_abort(app, ApplySelected)
   let after = match app.flush_presentation() {
     Ok(observation) => observation.region_stats
     Err(_) => abort("mounted presentation flush was rejected")

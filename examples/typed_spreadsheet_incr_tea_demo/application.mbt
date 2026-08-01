@@ -326,6 +326,24 @@ struct TypedSheetApplication {
 }
 
 ///|
+fn TypedSheetApplication::dispose_owned_resources(
+  state : Ref[SheetState],
+  prog_grid : @tea.Program[Msg, @tea.Html[Msg]],
+  prog_formula : @tea.Program[Msg, @tea.Html[Msg]],
+  prog_status : @tea.Program[Msg, @tea.Html[Msg]],
+  prog_trace : @tea.Program[Msg, @tea.Html[Msg]],
+  prog_evidence : @tea.Program[Msg, @tea.Html[Msg]],
+) -> Unit {
+  state.val.adapter.dispose()
+  prog_grid.dispose()
+  prog_formula.dispose()
+  prog_status.dispose()
+  prog_trace.dispose()
+  prog_evidence.dispose()
+  state.val._scope.dispose()
+}
+
+///|
 fn TypedSheetApplication::start(
   runtime : @incr.Runtime,
   mode : SheetStartMode,
@@ -406,13 +424,9 @@ fn TypedSheetApplication::start(
             Ok(bootstrap) =>
               ApplicationCollaborationResult::BootstrapReady(bootstrap)
             Err(error) => {
-              state.val.adapter.dispose()
-              prog_grid.dispose()
-              prog_formula.dispose()
-              prog_status.dispose()
-              prog_trace.dispose()
-              prog_evidence.dispose()
-              state.val._scope.dispose()
+              TypedSheetApplication::dispose_owned_resources(
+                state, prog_grid, prog_formula, prog_status, prog_trace, prog_evidence,
+              )
               return Err(AuthorityStartFailed(format_authority_error(error)))
             }
           }
@@ -520,12 +534,28 @@ fn TypedSheetApplication::apply_remote(
   match result {
     Ok(_) =>
       match self.lifecycle {
-        Mounted =>
+        Mounted => {
           match self.renderer {
             Some(renderer) => renderer.flush_all()
             None => abort("mounted TypedSheetApplication has no renderer")
           }
-        Unmounted | Disposed => ()
+          publish_cached_ai_context(
+            self.state,
+            self.ai_context_cache,
+            self.ai_context_dirty,
+            self.ai_context_capture_count,
+            self.publisher,
+          )
+        }
+        Unmounted =>
+          publish_cached_ai_context(
+            self.state,
+            self.ai_context_cache,
+            self.ai_context_dirty,
+            self.ai_context_capture_count,
+            self.publisher,
+          )
+        Disposed => ()
       }
     Err(_) => ()
   }
@@ -719,12 +749,13 @@ fn TypedSheetApplication::dispose(self : TypedSheetApplication) -> Unit {
     None => ()
   }
   self.renderer = None
-  self.state.val.adapter.dispose()
-  self.prog_grid.dispose()
-  self.prog_formula.dispose()
-  self.prog_status.dispose()
-  self.prog_trace.dispose()
-  self.prog_evidence.dispose()
-  self.state.val._scope.dispose()
+  TypedSheetApplication::dispose_owned_resources(
+    self.state,
+    self.prog_grid,
+    self.prog_formula,
+    self.prog_status,
+    self.prog_trace,
+    self.prog_evidence,
+  )
   self.lifecycle = Disposed
 }

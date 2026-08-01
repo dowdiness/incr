@@ -5,6 +5,7 @@ struct RecordingSessionTransport {
   ]
   failure : Ref[((String) -> Unit)?]
   published : Ref[Array[@container.SyncMessage]]
+  publish_attempts : Ref[Int]
   stopped : Ref[Bool]
   bind_count : Ref[Int]
   delivery_count : Ref[Int]
@@ -13,11 +14,12 @@ struct RecordingSessionTransport {
 }
 
 ///|
-fn new_recording_session_transport() -> RecordingSessionTransport {
+fn RecordingSessionTransport::RecordingSessionTransport() -> RecordingSessionTransport {
   {
     remote: Ref(None),
     failure: Ref(None),
     published: Ref([]),
+    publish_attempts: Ref(0),
     stopped: Ref(false),
     bind_count: Ref(0),
     delivery_count: Ref(0),
@@ -49,6 +51,7 @@ fn RecordingSessionTransport::port(
       self.failure.val = Some(failure)
     },
     message => {
+      self.publish_attempts.val += 1
       if !self.stopped.val {
         self.published.val.push(message)
         match self.fail_on_publish.val {
@@ -95,7 +98,7 @@ fn RecordingSessionTransport::fail(
 
 ///|
 test "session transport publishes committed local edits and stops once" {
-  let recording = new_recording_session_transport()
+  let recording = RecordingSessionTransport::RecordingSessionTransport()
   let app = match
     TypedSheetApplication::start(
       @incr.Runtime(),
@@ -114,8 +117,11 @@ test "session transport publishes committed local edits and stops once" {
   ignore(app.dispatch(UpdateDraft("C1", "7")))
   ignore(app.dispatch(ApplyInlineEdit("C1")))
   inspect(recording.published.val.length(), content="1")
-  ignore(app.dispatch(ResetSheet))
-  inspect(recording.published.val.length(), content="1")
+  let rejected_reset = match app.dispatch(ResetSheet) {
+    Ok(outcome) => outcome
+    Err(_) => fail("collaborative reset dispatch was rejected")
+  }
+  inspect(rejected_reset.authority_changed, content="false")
 
   let published = recording.published.val[0]
   app.dispose()
@@ -130,7 +136,7 @@ test "session transport publishes committed local edits and stops once" {
 
 ///|
 test "synchronous publish failure leaves application local only" {
-  let recording = new_recording_session_transport()
+  let recording = RecordingSessionTransport::RecordingSessionTransport()
   recording.fail_on_publish.val = Some("queue limit exceeded")
   let app = match
     TypedSheetApplication::start(
@@ -163,7 +169,7 @@ test "synchronous publish failure leaves application local only" {
 
 ///|
 test "session transport applies remote sync without republishing" {
-  let host_transport = new_recording_session_transport()
+  let host_transport = RecordingSessionTransport::RecordingSessionTransport()
   let host = match
     TypedSheetApplication::start(
       @incr.Runtime(),
@@ -182,13 +188,16 @@ test "session transport applies remote sync without republishing" {
   }
   let join_document = @container.Document::new("transport-join")
   ignore(join_document.sync().apply(bootstrap.sync))
-  let join_transport = new_recording_session_transport()
+  let join_transport = RecordingSessionTransport::RecordingSessionTransport()
+  let remote_contexts : Ref[Array[@demo.AiContextSnapshot]] = Ref([])
   let join = match
     TypedSheetApplication::start(
       @incr.Runtime(),
       SheetStartMode::Join(bootstrap, join_document),
       Some(join_transport.port()),
-      AiContextPublisher::AiContextPublisher(_ => ()),
+      AiContextPublisher::AiContextPublisher(snapshot => {
+        remote_contexts.val.push(snapshot)
+      }),
     ) {
     Ok(app) => app
     Err(_) => fail("join application failed to start")
@@ -202,15 +211,18 @@ test "session transport applies remote sync without republishing" {
   }
   inspect(join_transport.deliver_remote(sync) is Some(Ok(_)), content="true")
   inspect(join_transport.published.val.length(), content="0")
+  inspect(remote_contexts.val.length(), content="1")
   inspect(join.observe().snapshot.status, content="Remote update applied.")
   inspect(join_transport.deliver_remote(sync) is Some(Ok(_)), content="true")
   inspect(join_transport.published.val.length(), content="0")
+  inspect(remote_contexts.val.length(), content="2")
   inspect(
     join.observe().snapshot.status,
     content="Remote update had no semantic changes.",
   )
 
   inspect(join_transport.fail("transport failed"), content="true")
+  let attempts_after_failure = join_transport.publish_attempts.val
   match join.observe().collaboration {
     ApplicationCollaborationResult::LocalOnly(error) =>
       inspect(error, content="transport failed")
@@ -219,6 +231,7 @@ test "session transport applies remote sync without republishing" {
   ignore(join.dispatch(BeginInlineEdit("C1")))
   ignore(join.dispatch(UpdateDraft("C1", "8")))
   ignore(join.dispatch(ApplyInlineEdit("C1")))
+  assert_eq(join_transport.publish_attempts.val, attempts_after_failure)
   inspect(join_transport.published.val.length(), content="0")
 
   join.dispose()
@@ -319,10 +332,9 @@ test "unmounted dispose preserves the final semantic observation" {
   assert_true(after.lifecycle is Disposed)
   inspect(after.snapshot.ai_context.selected_cell, content="C1")
   inspect(after.snapshot.status, content="Selected C1.")
-  inspect(
-    after.snapshot.ai_context.to_json().stringify() ==
+  assert_eq(
+    after.snapshot.ai_context.to_json().stringify(),
     before.snapshot.ai_context.to_json().stringify(),
-    content="true",
   )
 }
 
@@ -366,10 +378,9 @@ test "application dispose is idempotent" {
   let second = app.observe()
 
   assert_true(second.lifecycle is Disposed)
-  inspect(
-    second.snapshot.ai_context.to_json().stringify() ==
+  assert_eq(
+    second.snapshot.ai_context.to_json().stringify(),
     first.snapshot.ai_context.to_json().stringify(),
-    content="true",
   )
 }
 
@@ -497,7 +508,10 @@ test "AI context publishes initially and after mounted flush" {
     Ok(hosts) => hosts
     Err(_) => fail("complete host cohort was rejected")
   }
-  ignore(app.mount(hosts))
+  match app.mount(hosts) {
+    Ok(_) => ()
+    Err(_) => fail("complete host cohort was rejected")
+  }
   guard published.val is [initial] else {
     fail("initial mount did not publish exactly once")
   }
@@ -516,7 +530,7 @@ test "AI context publishes initially and after mounted flush" {
 
 ///|
 #cfg(target="js")
-test "unmounted dispatch publishes through queued flush then initial mount" {
+test "unmounted dispatch stays unpublished until mount publishes twice" {
   install_test_dom()
   create_locality_hosts()
   let published : Ref[Array[@demo.AiContextSnapshot]] = Ref([])
@@ -541,7 +555,10 @@ test "unmounted dispatch publishes through queued flush then initial mount" {
     Ok(hosts) => hosts
     Err(_) => fail("complete host cohort was rejected")
   }
-  ignore(app.mount(hosts))
+  match app.mount(hosts) {
+    Ok(_) => ()
+    Err(_) => fail("complete host cohort was rejected")
+  }
 
   inspect(published.val.length(), content="2")
   inspect(app.ai_context_capture_count.val, content="1")

@@ -1,17 +1,8 @@
 ///|
-fn handle_msg(
-  runtime : @incr.Runtime,
+fn prepare_sheet_dispatch(
   state : Ref[SheetState],
   msg : Msg,
-  publish_ai_context : () -> Unit,
-) -> @tea.Cmd[Msg] {
-  if msg is ResetSheet && state.val.collab_mode {
-    state.val.status.set("Reset is unavailable while collaborating.")
-    state.val.error.set(
-      Some("Collaboration keeps one shared document generation."),
-    )
-    return @tea.Cmd::batch([publish_ai_context_cmd(publish_ai_context)])
-  }
+) -> (SheetPlan, @tea.Cmd[Msg]) {
   let plan = match msg {
     UseExample(_)
     | ApplySelected
@@ -38,6 +29,24 @@ fn handle_msg(
     MoveSelection(delta_col, delta_row) =>
       move_selection(state, delta_col, delta_row)
   }
+  (plan, immediate)
+}
+
+///|
+fn handle_msg(
+  runtime : @incr.Runtime,
+  state : Ref[SheetState],
+  msg : Msg,
+  publish_ai_context : () -> Unit,
+) -> @tea.Cmd[Msg] {
+  if msg is ResetSheet && state.val.collab_mode {
+    state.val.status.set("Reset is unavailable while collaborating.")
+    state.val.error.set(
+      Some("Collaboration keeps one shared document generation."),
+    )
+    return @tea.Cmd::batch([publish_ai_context_cmd(publish_ai_context)])
+  }
+  let (plan, immediate) = prepare_sheet_dispatch(state, msg)
   let interpreted = interpret_sheet_command(runtime, state, plan)
   @tea.Cmd::batch([
     immediate,

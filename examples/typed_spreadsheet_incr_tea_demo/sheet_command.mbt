@@ -93,16 +93,25 @@ fn plan_sheet_command(context : SheetPlanningContext, msg : Msg) -> SheetPlan {
 }
 
 ///|
+fn execute_sheet_plan(
+  runtime : @incr.Runtime,
+  state : Ref[SheetState],
+  plan : SheetPlan,
+) -> Unit {
+  match plan.command {
+    Some(command) => ignore(execute_sheet_command(runtime, state, command))
+    None => ()
+  }
+}
+
+///|
 fn interpret_sheet_command(
   runtime : @incr.Runtime,
   state : Ref[SheetState],
   plan : SheetPlan,
 ) -> @tea.Cmd[Msg] {
   let command = match plan.command {
-    Some(command) =>
-      @tea.Cmd::effect(_ => {
-        ignore(execute_sheet_command(runtime, state, command))
-      })
+    Some(_) => @tea.Cmd::effect(_ => execute_sheet_plan(runtime, state, plan))
     None => @tea.Cmd::none()
   }
   let ui = match plan.ui_effect {
