@@ -536,6 +536,7 @@ test "unmounted dispatch publishes through queued flush then initial mount" {
   ignore(app.dispatch(SelectCell("C1")))
   inspect(published.val.length(), content="0")
   inspect(app.observe().snapshot.ai_context.selected_cell, content="C1")
+  inspect(app.ai_context_capture_count.val, content="1")
   let hosts = match resolve_typed_sheet_hosts("locality") {
     Ok(hosts) => hosts
     Err(_) => fail("complete host cohort was rejected")
@@ -543,6 +544,7 @@ test "unmounted dispatch publishes through queued flush then initial mount" {
   ignore(app.mount(hosts))
 
   inspect(published.val.length(), content="2")
+  inspect(app.ai_context_capture_count.val, content="1")
   inspect(
     published.val.all(snapshot => snapshot.selected_cell == "C1"),
     content="true",

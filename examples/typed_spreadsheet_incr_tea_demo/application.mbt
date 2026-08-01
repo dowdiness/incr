@@ -276,6 +276,37 @@ fn clone_application_observation(
 }
 
 ///|
+fn acquire_ai_context_snapshot(
+  state : Ref[SheetState],
+  cache : Ref[@demo.AiContextSnapshot?],
+  dirty : Ref[Bool],
+  capture_count : Ref[Int],
+) -> @demo.AiContextSnapshot {
+  match cache.val {
+    Some(snapshot) if !dirty.val => snapshot
+    _ => {
+      let snapshot = state.val.ai_context_snapshot()
+      capture_count.val += 1
+      cache.val = Some(snapshot)
+      dirty.val = false
+      snapshot
+    }
+  }
+}
+
+///|
+fn publish_cached_ai_context(
+  state : Ref[SheetState],
+  cache : Ref[@demo.AiContextSnapshot?],
+  dirty : Ref[Bool],
+  capture_count : Ref[Int],
+  publisher : AiContextPublisher,
+) -> Unit {
+  let snapshot = acquire_ai_context_snapshot(state, cache, dirty, capture_count)
+  (publisher.publish)(clone_ai_context_snapshot(snapshot))
+}
+
+///|
 struct TypedSheetApplication {
   prog_grid : @tea.Program[Msg, @tea.Html[Msg]]
   prog_formula : @tea.Program[Msg, @tea.Html[Msg]]
@@ -286,6 +317,7 @@ struct TypedSheetApplication {
   publisher : AiContextPublisher
   ai_context_cache : Ref[@demo.AiContextSnapshot?]
   ai_context_dirty : Ref[Bool]
+  ai_context_capture_count : Ref[Int]
   transport : SessionTransport?
   collaboration : Ref[ApplicationCollaborationResult]
   mut lifecycle : ApplicationLifecycle
@@ -302,11 +334,7 @@ fn TypedSheetApplication::start(
 ) -> Result[TypedSheetApplication, ApplicationStartError] {
   let ai_context_cache : Ref[@demo.AiContextSnapshot?] = Ref(None)
   let ai_context_dirty = Ref(true)
-  let cached_publisher = AiContextPublisher(snapshot => {
-    ai_context_cache.val = Some(clone_ai_context_snapshot(snapshot))
-    ai_context_dirty.val = false
-    (publisher.publish)(snapshot)
-  })
+  let ai_context_capture_count = Ref(0)
   let state = Ok(Ref(SheetState::new(runtime, mode))) catch {
     error => Err(AuthorityStartFailed(format_authority_error(error)))
   }
@@ -315,7 +343,12 @@ fn TypedSheetApplication::start(
     Err(error) => return Err(error)
   }
   let update : (Msg) -> @tea.Cmd[Msg] = msg => {
-    handle_msg(runtime, state, msg, cached_publisher)
+    ai_context_dirty.val = true
+    handle_msg(runtime, state, msg, fn() {
+      publish_cached_ai_context(
+        state, ai_context_cache, ai_context_dirty, ai_context_capture_count, publisher,
+      )
+    })
   }
   // Shared update; each program gets its own scope for the view Derived +
   // Watch. Disposing any one program only tears down its view tracking, not
@@ -395,9 +428,10 @@ fn TypedSheetApplication::start(
     prog_trace,
     prog_evidence,
     state,
-    publisher: cached_publisher,
+    publisher,
     ai_context_cache,
     ai_context_dirty,
+    ai_context_capture_count,
     transport,
     collaboration: Ref(collaboration),
     lifecycle: Unmounted,
@@ -425,7 +459,6 @@ fn TypedSheetApplication::dispatch(
     Disposed => Err(Disposed)
     Unmounted | Mounted => {
       let before = self.state.val.adapter.version()
-      self.ai_context_dirty.val = true
       guard self.prog_grid.dispatch(msg) else {
         abort("TypedSheetApplication program disposed before its owner")
       }
@@ -574,7 +607,13 @@ fn TypedSheetApplication::mount(
         is ApplicationCollaborationResult::BootstrapReady(_) {
         self.collaboration.val = ApplicationCollaborationResult::Active
       }
-      publish_ai_context_now(self.state, self.publisher)
+      publish_cached_ai_context(
+        self.state,
+        self.ai_context_cache,
+        self.ai_context_dirty,
+        self.ai_context_capture_count,
+        self.publisher,
+      )
       Ok(())
     }
   }
@@ -605,15 +644,12 @@ fn TypedSheetApplication::snapshot(
   self : TypedSheetApplication,
 ) -> ApplicationSnapshot {
   let state = self.state.val
-  let ai_context = match self.ai_context_cache.val {
-    Some(snapshot) if !self.ai_context_dirty.val => snapshot
-    _ => {
-      let snapshot = state.ai_context_snapshot()
-      self.ai_context_cache.val = Some(snapshot)
-      self.ai_context_dirty.val = false
-      snapshot
-    }
-  }
+  let ai_context = acquire_ai_context_snapshot(
+    self.state,
+    self.ai_context_cache,
+    self.ai_context_dirty,
+    self.ai_context_capture_count,
+  )
   {
     ai_context: clone_ai_context_snapshot(ai_context),
     status: state.status.peek(),

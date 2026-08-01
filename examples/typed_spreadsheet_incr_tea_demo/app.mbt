@@ -3,14 +3,14 @@ fn handle_msg(
   runtime : @incr.Runtime,
   state : Ref[SheetState],
   msg : Msg,
-  publisher : AiContextPublisher,
+  publish_ai_context : () -> Unit,
 ) -> @tea.Cmd[Msg] {
   if msg is ResetSheet && state.val.collab_mode {
     state.val.status.set("Reset is unavailable while collaborating.")
     state.val.error.set(
       Some("Collaboration keeps one shared document generation."),
     )
-    return @tea.Cmd::batch([publish_ai_context_cmd(state, publisher)])
+    return @tea.Cmd::batch([publish_ai_context_cmd(publish_ai_context)])
   }
   let plan = match msg {
     UseExample(_)
@@ -42,7 +42,7 @@ fn handle_msg(
   @tea.Cmd::batch([
     immediate,
     interpreted,
-    publish_ai_context_cmd(state, publisher),
+    publish_ai_context_cmd(publish_ai_context),
   ])
 }
 

@@ -81,19 +81,8 @@ fn SheetState::latest_ai_context_history(
 }
 
 ///|
-fn publish_ai_context_now(
-  state : Ref[SheetState],
-  publisher : AiContextPublisher,
-) -> Unit {
-  (publisher.publish)(state.val.ai_context_snapshot())
-}
-
-///|
-fn publish_ai_context_cmd(
-  state : Ref[SheetState],
-  publisher : AiContextPublisher,
-) -> @tea.Cmd[Msg] {
-  @tea.Cmd::after_flush(_ => publish_ai_context_now(state, publisher))
+fn publish_ai_context_cmd(publish : () -> Unit) -> @tea.Cmd[Msg] {
+  @tea.Cmd::after_flush(_ => publish())
 }
 
 ///|
