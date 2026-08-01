@@ -138,6 +138,10 @@ struct RegionRenderStats {
 struct ApplicationSnapshot {
   ai_context : @demo.AiContextSnapshot
   status : String
+  drafts : ReadOnlyArray[CellDraft]
+  editing_cell : String?
+  error : String?
+  last_edit : String
 }
 
 ///|
@@ -251,6 +255,15 @@ fn clone_application_observation(
     snapshot: {
       ai_context: clone_ai_context_snapshot(observation.snapshot.ai_context),
       status: observation.snapshot.status,
+      drafts: ReadOnlyArray::from_array(
+        observation.snapshot.drafts.map(draft => CellDraft::{
+          cell: draft.cell,
+          text: draft.text,
+        }),
+      ),
+      editing_cell: observation.snapshot.editing_cell,
+      error: observation.snapshot.error,
+      last_edit: observation.snapshot.last_edit,
     },
     region_stats: observation.region_stats.map(row => RegionRenderStats::{
       label: row.label,
@@ -264,7 +277,12 @@ fn clone_application_observation(
 
 ///|
 struct TypedSheetApplication {
-  app : TypedSheetApp
+  prog_grid : @tea.Program[Msg, @tea.Html[Msg]]
+  prog_formula : @tea.Program[Msg, @tea.Html[Msg]]
+  prog_status : @tea.Program[Msg, @tea.Html[Msg]]
+  prog_trace : @tea.Program[Msg, @tea.Html[Msg]]
+  prog_evidence : @tea.Program[Msg, @tea.Html[Msg]]
+  state : Ref[SheetState]
   publisher : AiContextPublisher
   ai_context_cache : Ref[@demo.AiContextSnapshot?]
   ai_context_dirty : Ref[Bool]
@@ -289,20 +307,65 @@ fn TypedSheetApplication::start(
     ai_context_dirty.val = false
     (publisher.publish)(snapshot)
   })
-  let app = TypedSheetApp::with_mode(runtime, mode, publisher=cached_publisher) catch {
-    error => return Err(AuthorityStartFailed(format_authority_error(error)))
+  let state = Ok(Ref(SheetState::new(runtime, mode))) catch {
+    error => Err(AuthorityStartFailed(format_authority_error(error)))
   }
+  let state = match state {
+    Ok(state) => state
+    Err(error) => return Err(error)
+  }
+  let update : (Msg) -> @tea.Cmd[Msg] = msg => {
+    handle_msg(runtime, state, msg, cached_publisher)
+  }
+  // Shared update; each program gets its own scope for the view Derived +
+  // Watch. Disposing any one program only tears down its view tracking, not
+  // the shared InputFields owned by `state.val._scope`.
+  let prog_grid = @tea.Program::Program(
+    runtime,
+    @incr.Scope::new(runtime),
+    update,
+    fn() { state_grid(state.val) },
+    label="typed-sheet.grid",
+  )
+  let prog_formula = @tea.Program::Program(
+    runtime,
+    @incr.Scope::new(runtime),
+    update,
+    fn() { state_formula_bar(state.val) },
+    label="typed-sheet.formula-bar",
+  )
+  let prog_status = @tea.Program::Program(
+    runtime,
+    @incr.Scope::new(runtime),
+    update,
+    fn() { state_status(state.val) },
+    label="typed-sheet.status",
+  )
+  let prog_trace = @tea.Program::Program(
+    runtime,
+    @incr.Scope::new(runtime),
+    update,
+    fn() { state_trace(state.val) },
+    label="typed-sheet.trace",
+  )
+  let prog_evidence = @tea.Program::Program(
+    runtime,
+    @incr.Scope::new(runtime),
+    update,
+    fn() { state_evidence(state.val) },
+    label="typed-sheet.evidence",
+  )
   let collaboration = match transport {
     None => ApplicationCollaborationResult::Disabled
     Some(_) =>
       match mode {
         SheetStartMode::Host(_, _) => {
           let bootstrap = Ok(BootstrapData::{
-            identity: app._state.val.adapter.identity(),
-            sheet_id: app._state.val.adapter.sheet_id(),
-            generation: app._state.val.adapter.generation(),
-            node: app._state.val.adapter.node(),
-            sync: app._state.val.adapter.export_all(),
+            identity: state.val.adapter.identity(),
+            sheet_id: state.val.adapter.sheet_id(),
+            generation: state.val.adapter.generation(),
+            node: state.val.adapter.node(),
+            sync: state.val.adapter.export_all(),
           }) catch {
             error => Err(error)
           }
@@ -310,7 +373,13 @@ fn TypedSheetApplication::start(
             Ok(bootstrap) =>
               ApplicationCollaborationResult::BootstrapReady(bootstrap)
             Err(error) => {
-              app.dispose()
+              state.val.adapter.dispose()
+              prog_grid.dispose()
+              prog_formula.dispose()
+              prog_status.dispose()
+              prog_trace.dispose()
+              prog_evidence.dispose()
+              state.val._scope.dispose()
               return Err(AuthorityStartFailed(format_authority_error(error)))
             }
           }
@@ -320,7 +389,12 @@ fn TypedSheetApplication::start(
       }
   }
   let application = {
-    app,
+    prog_grid,
+    prog_formula,
+    prog_status,
+    prog_trace,
+    prog_evidence,
+    state,
     publisher: cached_publisher,
     ai_context_cache,
     ai_context_dirty,
@@ -332,7 +406,7 @@ fn TypedSheetApplication::start(
   }
   match transport {
     Some(transport) => {
-      app.set_publisher(sync => (transport.publish)(sync))
+      state.val.publish_sync = Some(sync => (transport.publish)(sync))
       (transport.bind)(sync => application.apply_remote(sync), error => {
         application.record_transport_failure(error)
       })
@@ -350,12 +424,12 @@ fn TypedSheetApplication::dispatch(
   match self.lifecycle {
     Disposed => Err(Disposed)
     Unmounted | Mounted => {
-      let before = self.app._state.val.adapter.version()
+      let before = self.state.val.adapter.version()
       self.ai_context_dirty.val = true
-      guard self.app.prog_grid.dispatch(msg) else {
+      guard self.prog_grid.dispatch(msg) else {
         abort("TypedSheetApplication program disposed before its owner")
       }
-      Ok({ authority_changed: self.app._state.val.adapter.version() != before })
+      Ok({ authority_changed: self.state.val.adapter.version() != before })
     }
   }
 }
@@ -369,7 +443,28 @@ fn TypedSheetApplication::apply_remote(
     return Err(ApplicationRemoteError::Disposed)
   }
   self.ai_context_dirty.val = true
-  let applied = Ok(self.app.apply_remote(message)) catch { error => Err(error) }
+  let applied = Ok(
+    {
+      let observed = self.state.val.adapter.apply_sync_observed(
+        message,
+        capture_limit=evidence_capture_limit(),
+        trace_cells=state_visible_cell_ids(self.state),
+      )
+      let result = observed.result()
+      match result.adapter_result() {
+        @egw_adapter.AdapterApplyResult::Applied(_) =>
+          record_remote_observed_sync(self.state, observed)
+        @egw_adapter.AdapterApplyResult::NoSemanticChange(_) => {
+          self.state.val.status.set("Remote update had no semantic changes.")
+          self.state.val.error.set(None)
+        }
+        _ => ()
+      }
+      result
+    },
+  ) catch {
+    error => Err(error)
+  }
   let result = match applied {
     Err(error) =>
       Err(
@@ -412,7 +507,7 @@ fn TypedSheetApplication::record_collaboration_status(
   if self.lifecycle is ApplicationLifecycle::Disposed {
     return
   }
-  self.app._state.val.status.set(status)
+  self.state.val.status.set(status)
   match self.lifecycle {
     Mounted =>
       match self.renderer {
@@ -431,7 +526,7 @@ fn TypedSheetApplication::record_transport_failure(
   if self.lifecycle is ApplicationLifecycle::Disposed {
     return
   }
-  self.app.clear_publisher()
+  self.state.val.publish_sync = None
   self.collaboration.val = ApplicationCollaborationResult::LocalOnly(error)
   self.record_collaboration_status(
     "Collaboration unavailable; edits are now local only: \{error}",
@@ -448,12 +543,12 @@ fn TypedSheetApplication::mount(
     Mounted => Err(AlreadyMounted)
     Unmounted => {
       let renderer = @tea.BrowserRenderer::BrowserRenderer(
-        self.app.prog_grid.runtime(),
+        self.prog_grid.runtime(),
       )
       ignore(
         renderer.mount(
           hosts.formula,
-          self.app.prog_formula,
+          self.prog_formula,
           label="formula-bar",
           on_value=resolve_value,
           on_key_event=resolve_key_event,
@@ -462,16 +557,16 @@ fn TypedSheetApplication::mount(
       ignore(
         renderer.mount(
           hosts.grid,
-          self.app.prog_grid,
+          self.prog_grid,
           label="grid",
           on_value=resolve_value,
           on_key_event=resolve_key_event,
         ),
       )
-      ignore(renderer.mount(hosts.status, self.app.prog_status, label="status"))
-      ignore(renderer.mount(hosts.trace, self.app.prog_trace, label="trace"))
+      ignore(renderer.mount(hosts.status, self.prog_status, label="status"))
+      ignore(renderer.mount(hosts.trace, self.prog_trace, label="trace"))
       ignore(
-        renderer.mount(hosts.evidence, self.app.prog_evidence, label="evidence"),
+        renderer.mount(hosts.evidence, self.prog_evidence, label="evidence"),
       )
       self.renderer = Some(renderer)
       self.lifecycle = Mounted
@@ -479,7 +574,7 @@ fn TypedSheetApplication::mount(
         is ApplicationCollaborationResult::BootstrapReady(_) {
         self.collaboration.val = ApplicationCollaborationResult::Active
       }
-      publish_ai_context_now(self.app._state, self.publisher)
+      publish_ai_context_now(self.state, self.publisher)
       Ok(())
     }
   }
@@ -509,7 +604,7 @@ fn TypedSheetApplication::region_stats(
 fn TypedSheetApplication::snapshot(
   self : TypedSheetApplication,
 ) -> ApplicationSnapshot {
-  let state = self.app._state.val
+  let state = self.state.val
   let ai_context = match self.ai_context_cache.val {
     Some(snapshot) if !self.ai_context_dirty.val => snapshot
     _ => {
@@ -522,6 +617,14 @@ fn TypedSheetApplication::snapshot(
   {
     ai_context: clone_ai_context_snapshot(ai_context),
     status: state.status.peek(),
+    drafts: ReadOnlyArray::from_array(
+      state.drafts
+      .peek()
+      .map(draft => CellDraft::{ cell: draft.cell, text: draft.text }),
+    ),
+    editing_cell: state.editing_cell.peek(),
+    error: state.error.peek(),
+    last_edit: state.last_edit.peek(),
   }
 }
 
@@ -564,7 +667,7 @@ fn TypedSheetApplication::dispose(self : TypedSheetApplication) -> Unit {
   if self.lifecycle is Disposed {
     return
   }
-  self.app.clear_publisher()
+  self.state.val.publish_sync = None
   match self.transport {
     Some(transport) => (transport.stop)()
     None => ()
@@ -580,6 +683,12 @@ fn TypedSheetApplication::dispose(self : TypedSheetApplication) -> Unit {
     None => ()
   }
   self.renderer = None
-  self.app.dispose()
+  self.state.val.adapter.dispose()
+  self.prog_grid.dispose()
+  self.prog_formula.dispose()
+  self.prog_status.dispose()
+  self.prog_trace.dispose()
+  self.prog_evidence.dispose()
+  self.state.val._scope.dispose()
   self.lifecycle = Disposed
 }

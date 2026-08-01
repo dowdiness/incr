@@ -19,11 +19,6 @@ struct TraceData {
 } derive(Eq)
 
 ///|
-struct Model {
-  _marker : Unit
-}
-
-///|
 struct SheetState {
   _scope : @incr.Scope
   adapter : @egw_adapter.EgwAdapter

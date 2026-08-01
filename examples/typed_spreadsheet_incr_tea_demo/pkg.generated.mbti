@@ -54,8 +54,6 @@ type HostResolutionError
 
 type KeyResolution
 
-type Model
-
 type Msg derive(Eq)
 
 type PeerId derive(Eq, @debug.Debug)
@@ -85,8 +83,6 @@ type SheetState
 type StartupMode derive(Eq, @debug.Debug)
 
 type TraceData derive(Eq)
-
-type TypedSheetApp
 
 type TypedSheetApplication
 

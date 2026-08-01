@@ -27,16 +27,6 @@ fn SheetState::ai_context_snapshot(
 }
 
 ///|
-/// Serializes the current bounded AI/tool context as stable JSON.
-fn SheetState::ai_context_json(
-  self : SheetState,
-  region? : Array[String],
-  max_cells? : Int = 64,
-) -> String {
-  self.ai_context_snapshot(region?, max_cells~).to_json().stringify(indent=2)
-}
-
-///|
 fn SheetState::default_ai_context_region(self : SheetState) -> Array[String] {
   let selected = self.selected_cell.peek()
   let snapshot = self.adapter.inspect_cell(selected)

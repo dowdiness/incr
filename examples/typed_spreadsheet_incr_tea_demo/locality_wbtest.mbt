@@ -313,3 +313,30 @@ test "locality: inline edit commit — BeginInlineEdit + ApplyInlineEdit" {
   app.dispose()
   restore_test_dom()
 }
+
+// ── Scenario 5: Clean apply ───────────────────────────────────────────
+
+///|
+#cfg(target="js")
+test "locality: clean apply patches only status trace and evidence" {
+  let (app, _) = setup_locality_test()
+  ignore(app.dispatch(SelectCell("A1")))
+  let selected = match app.flush_presentation() {
+    Ok(observation) => observation.region_stats
+    Err(_) => abort("mounted presentation flush was rejected")
+  }
+
+  ignore(app.dispatch(ApplySelected))
+  let after = match app.flush_presentation() {
+    Ok(observation) => observation.region_stats
+    Err(_) => abort("mounted presentation flush was rejected")
+  }
+  check_delta(after, selected, "grid", 0, 1)
+  check_delta(after, selected, "formula-bar", 0, 1)
+  check_delta(after, selected, "status", 1, 0)
+  check_delta(after, selected, "trace", 1, 0)
+  check_delta(after, selected, "evidence", 1, 0)
+
+  app.dispose()
+  restore_test_dom()
+}

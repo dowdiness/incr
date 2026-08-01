@@ -256,6 +256,27 @@ test "unmounted application dispatches and observes semantic state" {
 }
 
 ///|
+test "application observations retain owned draft snapshots" {
+  let app = match
+    TypedSheetApplication::start(
+      @incr.Runtime(),
+      SheetStartMode::Standalone,
+      None,
+      AiContextPublisher::AiContextPublisher(_ => ()),
+    ) {
+    Ok(app) => app
+    Err(_) => fail("standalone application failed to start")
+  }
+  let before = app.observe()
+  ignore(app.dispatch(UpdateDraft("A1", "99")))
+  let after = app.observe()
+
+  inspect(before.snapshot.drafts[0].text, content="10")
+  inspect(after.snapshot.drafts[0].text, content="99")
+  app.dispose()
+}
+
+///|
 test "committed edit reports an authority change" {
   let app = match
     TypedSheetApplication::start(
