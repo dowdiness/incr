@@ -166,7 +166,11 @@ fn setup_locality_test() -> (
   install_test_dom()
   create_locality_hosts()
   let app = match
-    TypedSheetApplication::start(@incr.Runtime(), SheetStartMode::Standalone) {
+    TypedSheetApplication::start(
+      @incr.Runtime(),
+      SheetStartMode::Standalone,
+      AiContextPublisher::AiContextPublisher(_ => ()),
+    ) {
     Ok(app) => app
     Err(_) => abort("standalone application failed to start")
   }

@@ -23,6 +23,25 @@ struct DispatchOutcome {
 }
 
 ///|
+struct AiContextPublisher {
+  publish : (@demo.AiContextSnapshot) -> Unit
+}
+
+///|
+fn AiContextPublisher::AiContextPublisher(
+  publish : (@demo.AiContextSnapshot) -> Unit,
+) -> AiContextPublisher {
+  { publish, }
+}
+
+///|
+fn AiContextPublisher::production() -> AiContextPublisher {
+  AiContextPublisher(snapshot => {
+    js_publish_ai_context_json(snapshot.to_json().stringify(indent=2))
+  })
+}
+
+///|
 struct TypedSheetHosts {
   grid : @tea.DomElement
   formula : @tea.DomElement
@@ -206,6 +225,9 @@ fn clone_application_observation(
 ///|
 struct TypedSheetApplication {
   app : TypedSheetApp
+  publisher : AiContextPublisher
+  ai_context_cache : Ref[@demo.AiContextSnapshot?]
+  ai_context_dirty : Ref[Bool]
   mut lifecycle : ApplicationLifecycle
   mut renderer : @tea.BrowserRenderer[Msg]?
   mut final_observation : ApplicationObservation?
@@ -215,11 +237,27 @@ struct TypedSheetApplication {
 fn TypedSheetApplication::start(
   runtime : @incr.Runtime,
   mode : SheetStartMode,
+  publisher : AiContextPublisher,
 ) -> Result[TypedSheetApplication, ApplicationStartError] {
-  let app = TypedSheetApp::with_mode(runtime, mode) catch {
+  let ai_context_cache : Ref[@demo.AiContextSnapshot?] = Ref(None)
+  let ai_context_dirty = Ref(true)
+  let cached_publisher = AiContextPublisher(snapshot => {
+    ai_context_cache.val = Some(clone_ai_context_snapshot(snapshot))
+    ai_context_dirty.val = false
+    (publisher.publish)(snapshot)
+  })
+  let app = TypedSheetApp::with_mode(runtime, mode, publisher=cached_publisher) catch {
     error => return Err(AuthorityStartFailed(format_authority_error(error)))
   }
-  Ok({ app, lifecycle: Unmounted, renderer: None, final_observation: None })
+  Ok({
+    app,
+    publisher: cached_publisher,
+    ai_context_cache,
+    ai_context_dirty,
+    lifecycle: Unmounted,
+    renderer: None,
+    final_observation: None,
+  })
 }
 
 ///|
@@ -231,6 +269,7 @@ fn TypedSheetApplication::dispatch(
     Disposed => Err(Disposed)
     Unmounted | Mounted => {
       let before = self.app._state.val.adapter.version()
+      self.ai_context_dirty.val = true
       guard self.app.prog_grid.dispatch(msg) else {
         abort("TypedSheetApplication program disposed before its owner")
       }
@@ -276,6 +315,7 @@ fn TypedSheetApplication::mount(
       )
       self.renderer = Some(renderer)
       self.lifecycle = Mounted
+      publish_ai_context_now(self.app._state, self.publisher)
       Ok(())
     }
   }
@@ -306,7 +346,19 @@ fn TypedSheetApplication::snapshot(
   self : TypedSheetApplication,
 ) -> ApplicationSnapshot {
   let state = self.app._state.val
-  { ai_context: state.ai_context_snapshot(), status: state.status.peek() }
+  let ai_context = match self.ai_context_cache.val {
+    Some(snapshot) if !self.ai_context_dirty.val => snapshot
+    _ => {
+      let snapshot = state.ai_context_snapshot()
+      self.ai_context_cache.val = Some(snapshot)
+      self.ai_context_dirty.val = false
+      snapshot
+    }
+  }
+  {
+    ai_context: clone_ai_context_snapshot(ai_context),
+    status: state.status.peek(),
+  }
 }
 
 ///|

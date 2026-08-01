@@ -21,9 +21,12 @@ fn TypedSheetApp::TypedSheetApp(
 fn TypedSheetApp::with_mode(
   runtime : @incr.Runtime,
   mode : SheetStartMode,
+  publisher? : AiContextPublisher = AiContextPublisher::production(),
 ) -> TypedSheetApp raise @container.DocumentError {
   let state = Ref(SheetState::new(runtime, mode))
-  let update : (Msg) -> @tea.Cmd[Msg] = msg => handle_msg(runtime, state, msg)
+  let update : (Msg) -> @tea.Cmd[Msg] = msg => {
+    handle_msg(runtime, state, msg, publisher)
+  }
   // Shared update; each program gets its own scope for the view Derived +
   // Watch. Disposing any one program only tears down its view tracking, not
   // the shared InputFields owned by `state.val._scope`.
@@ -111,13 +114,14 @@ fn handle_msg(
   runtime : @incr.Runtime,
   state : Ref[SheetState],
   msg : Msg,
+  publisher : AiContextPublisher,
 ) -> @tea.Cmd[Msg] {
   if msg is ResetSheet && state.val.collab_mode {
     state.val.status.set("Reset is unavailable while collaborating.")
     state.val.error.set(
       Some("Collaboration keeps one shared document generation."),
     )
-    return @tea.Cmd::batch([publish_ai_context_cmd(state)])
+    return @tea.Cmd::batch([publish_ai_context_cmd(state, publisher)])
   }
   let plan = match msg {
     UseExample(_)
@@ -146,7 +150,11 @@ fn handle_msg(
       move_selection(state, delta_col, delta_row)
   }
   let interpreted = interpret_sheet_command(runtime, state, plan)
-  @tea.Cmd::batch([immediate, interpreted, publish_ai_context_cmd(state)])
+  @tea.Cmd::batch([
+    immediate,
+    interpreted,
+    publish_ai_context_cmd(state, publisher),
+  ])
 }
 
 ///|

@@ -1,7 +1,11 @@
 ///|
 test "unmounted application dispatches and observes semantic state" {
   let app = match
-    TypedSheetApplication::start(@incr.Runtime(), SheetStartMode::Standalone) {
+    TypedSheetApplication::start(
+      @incr.Runtime(),
+      SheetStartMode::Standalone,
+      AiContextPublisher::AiContextPublisher(_ => ()),
+    ) {
     Ok(app) => app
     Err(_) => fail("standalone application failed to start")
   }
@@ -24,7 +28,11 @@ test "unmounted application dispatches and observes semantic state" {
 ///|
 test "committed edit reports an authority change" {
   let app = match
-    TypedSheetApplication::start(@incr.Runtime(), SheetStartMode::Standalone) {
+    TypedSheetApplication::start(
+      @incr.Runtime(),
+      SheetStartMode::Standalone,
+      AiContextPublisher::AiContextPublisher(_ => ()),
+    ) {
     Ok(app) => app
     Err(_) => fail("standalone application failed to start")
   }
@@ -42,7 +50,11 @@ test "committed edit reports an authority change" {
 ///|
 test "unmounted dispose preserves the final semantic observation" {
   let app = match
-    TypedSheetApplication::start(@incr.Runtime(), SheetStartMode::Standalone) {
+    TypedSheetApplication::start(
+      @incr.Runtime(),
+      SheetStartMode::Standalone,
+      AiContextPublisher::AiContextPublisher(_ => ()),
+    ) {
     Ok(app) => app
     Err(_) => fail("standalone application failed to start")
   }
@@ -64,7 +76,11 @@ test "unmounted dispose preserves the final semantic observation" {
 ///|
 test "disposed application rejects dispatch through a typed result" {
   let app = match
-    TypedSheetApplication::start(@incr.Runtime(), SheetStartMode::Standalone) {
+    TypedSheetApplication::start(
+      @incr.Runtime(),
+      SheetStartMode::Standalone,
+      AiContextPublisher::AiContextPublisher(_ => ()),
+    ) {
     Ok(app) => app
     Err(_) => fail("standalone application failed to start")
   }
@@ -80,7 +96,11 @@ test "disposed application rejects dispatch through a typed result" {
 ///|
 test "application dispose is idempotent" {
   let app = match
-    TypedSheetApplication::start(@incr.Runtime(), SheetStartMode::Standalone) {
+    TypedSheetApplication::start(
+      @incr.Runtime(),
+      SheetStartMode::Standalone,
+      AiContextPublisher::AiContextPublisher(_ => ()),
+    ) {
     Ok(app) => app
     Err(_) => fail("standalone application failed to start")
   }
@@ -101,7 +121,11 @@ test "application dispose is idempotent" {
 ///|
 test "disposed observations do not alias retained arrays" {
   let app = match
-    TypedSheetApplication::start(@incr.Runtime(), SheetStartMode::Standalone) {
+    TypedSheetApplication::start(
+      @incr.Runtime(),
+      SheetStartMode::Standalone,
+      AiContextPublisher::AiContextPublisher(_ => ()),
+    ) {
     Ok(app) => app
     Err(_) => fail("standalone application failed to start")
   }
@@ -173,7 +197,11 @@ test "disposed observations do not alias retained arrays" {
 test "missing host resolution fails before application mutation" {
   install_test_dom()
   let app = match
-    TypedSheetApplication::start(@incr.Runtime(), SheetStartMode::Standalone) {
+    TypedSheetApplication::start(
+      @incr.Runtime(),
+      SheetStartMode::Standalone,
+      AiContextPublisher::AiContextPublisher(_ => ()),
+    ) {
     Ok(app) => app
     Err(_) => fail("standalone application failed to start")
   }
@@ -191,11 +219,90 @@ test "missing host resolution fails before application mutation" {
 
 ///|
 #cfg(target="js")
+test "AI context publishes initially and after mounted flush" {
+  install_test_dom()
+  create_locality_hosts()
+  let published : Ref[Array[@demo.AiContextSnapshot]] = Ref([])
+  let publisher = AiContextPublisher::AiContextPublisher(snapshot => {
+    published.val.push(snapshot)
+  })
+  let app = match
+    TypedSheetApplication::start(
+      @incr.Runtime(),
+      SheetStartMode::Standalone,
+      publisher,
+    ) {
+    Ok(app) => app
+    Err(_) => fail("standalone application failed to start")
+  }
+  let hosts = match resolve_typed_sheet_hosts("locality") {
+    Ok(hosts) => hosts
+    Err(_) => fail("complete host cohort was rejected")
+  }
+  ignore(app.mount(hosts))
+  guard published.val is [initial] else {
+    fail("initial mount did not publish exactly once")
+  }
+  inspect(initial.selected_cell, content="B1")
+
+  ignore(app.dispatch(SelectCell("C1")))
+  inspect(published.val.length(), content="1")
+  ignore(app.flush_presentation())
+  guard published.val is [_, after_flush] else {
+    fail("mounted dispatch did not publish exactly once after flush")
+  }
+  inspect(after_flush.selected_cell, content="C1")
+  app.dispose()
+  restore_test_dom()
+}
+
+///|
+#cfg(target="js")
+test "unmounted dispatch publishes through queued flush then initial mount" {
+  install_test_dom()
+  create_locality_hosts()
+  let published : Ref[Array[@demo.AiContextSnapshot]] = Ref([])
+  let publisher = AiContextPublisher::AiContextPublisher(snapshot => {
+    published.val.push(snapshot)
+  })
+  let app = match
+    TypedSheetApplication::start(
+      @incr.Runtime(),
+      SheetStartMode::Standalone,
+      publisher,
+    ) {
+    Ok(app) => app
+    Err(_) => fail("standalone application failed to start")
+  }
+  ignore(app.dispatch(SelectCell("C1")))
+  inspect(published.val.length(), content="0")
+  inspect(app.observe().snapshot.ai_context.selected_cell, content="C1")
+  let hosts = match resolve_typed_sheet_hosts("locality") {
+    Ok(hosts) => hosts
+    Err(_) => fail("complete host cohort was rejected")
+  }
+  ignore(app.mount(hosts))
+
+  inspect(published.val.length(), content="2")
+  inspect(
+    published.val.all(snapshot => snapshot.selected_cell == "C1"),
+    content="true",
+  )
+  app.dispose()
+  restore_test_dom()
+}
+
+///|
+#cfg(target="js")
 test "application mounts one complete five-region host cohort" {
   install_test_dom()
   create_locality_hosts()
   let app = match
-    TypedSheetApplication::start(@incr.Runtime(), SheetStartMode::Standalone) {
+    TypedSheetApplication::start(
+      @incr.Runtime(),
+      SheetStartMode::Standalone,
+      AiContextPublisher::AiContextPublisher(_ => ()),
+    ) {
     Ok(app) => app
     Err(_) => fail("standalone application failed to start")
   }
@@ -248,6 +355,7 @@ test "authority startup failure is returned as an application error" {
     TypedSheetApplication::start(
       @incr.Runtime(),
       SheetStartMode::Host("room", ReplicaId("")),
+      AiContextPublisher::AiContextPublisher(_ => ()),
     ) {
     Err(AuthorityStartFailed(detail)) =>
       inspect(detail, content="Authority replica ID is empty.")

@@ -104,7 +104,7 @@ struct ApplicationObservation {
 }
 
 struct AiContextPublisher {
-  publish : (String) -> Unit
+  publish : (@demo.AiContextSnapshot) -> Unit
 }
 
 struct SessionTransport {
@@ -145,6 +145,8 @@ fn TypedSheetApplication::dispose(self : TypedSheetApplication) -> Unit
 ```
 
 `DispatchOutcome.authority_changed` reports only the before/after authoritative-version fact already used to decide local publication. It is not a new applicability taxonomy: parse/type/reference/cycle and local-precondition results remain in the semantic snapshot/status. The transport `bind` operation is registration-only and infallible; it must not invoke either callback synchronously. Its remote handler returns `Ok(())` for both applied and semantic-no-change outcomes and a typed `ApplicationRemoteError` for the reducer to classify as `RemoteApplyFailed`. The second callback is invoked only after the reducer has entered its failed/local-only path. Transport opening/URL/protocol failures remain in the collaboration shell and reducer.
+
+`AiContextPublisher` carries the existing typed schema-v3 snapshot; only its production adapter serializes with the existing two-space JSON formatting and calls the JS sink. This keeps cache capture inside the application wrapper instead of introducing a second injectable callback.
 
 `ApplicationSnapshot` is a closed field set for this refactor. Its `ai_context` reuses the current bounded schema-v3 semantic projection. Because `@demo.AiContextSnapshot` contains nested mutable `Array` values, the owner keeps a private canonical owned snapshot and returns a fresh deep defensive clone of the complete AI context/trace/evidence tree on every `observe()` or `flush_presentation()` result; callers never receive an array aliased with retained state. `drafts` is copied before conversion to `ReadOnlyArray`. The snapshot contains no adapter, runtime, program, renderer, callback, transport phase, raw protocol message, or raw authority version. `ApplicationObservation` may grow only after revisiting this plan boundary, not as a convenience during migration. Before teardown the owner captures its final private canonical observation; disposed observation deep-clones that canonical value and never reads dead handles.
 
@@ -303,7 +305,7 @@ Prefer private structs of closures over new traits unless `moon ide` reveals an 
 
 10. **RED 4:** introduce a recording `AiContextPublisher` adapter test for initial mount and one mounted dispatch. Characterize unmounted dispatch followed by first mount before changing current `Cmd::after_flush` wiring; the accepted assertion must preserve production timing and avoid a new publication path.
 
-11. **GREEN 4:** inject a private publisher capability into the owner/program update closure. Keep `SheetState::ai_context_snapshot/json` and `Cmd::after_flush`; replace only the direct JS effect with the port. Resolve all five hosts, mount, publish the initial snapshot, then install the benchmark adapter in the same order as today. Production uses `js_publish_ai_context_json`; tests capture JSON.
+11. **GREEN 4:** inject a private publisher capability into the owner/program update closure. Keep `SheetState::ai_context_snapshot/json` and `Cmd::after_flush`; replace only the direct JS effect with the port. Resolve all five hosts, mount, publish the initial snapshot, then install the benchmark adapter in the same order as today. Production serializes through `js_publish_ai_context_json`; tests capture typed snapshots.
 
 ### Phase 4 — transport port and collaboration ownership
 
