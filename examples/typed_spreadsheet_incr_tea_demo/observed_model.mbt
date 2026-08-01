@@ -378,8 +378,8 @@ fn publish_local_sync_if_changed(
   match exported {
     Ok(message) => {
       let applied_status = state.val.status.peek()
-      publish(message)
       state.val.status.set("\{applied_status} Shared update sent.")
+      publish(message)
     }
     Err(error) => state.val.error.set(Some(format_authority_error(error)))
   }

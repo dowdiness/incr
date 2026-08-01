@@ -18,6 +18,14 @@ enum ApplicationLifecycleError {
 }
 
 ///|
+enum ApplicationRemoteError {
+  ProjectionFailed
+  MutationNotLanded
+  SynchronizationFailed(String)
+  Disposed
+} derive(Eq, Debug)
+
+///|
 struct DispatchOutcome {
   authority_changed : Bool
 }
@@ -39,6 +47,28 @@ fn AiContextPublisher::production() -> AiContextPublisher {
   AiContextPublisher(snapshot => {
     js_publish_ai_context_json(snapshot.to_json().stringify(indent=2))
   })
+}
+
+///|
+struct SessionTransport {
+  bind : (
+    (@container.SyncMessage) -> Result[Unit, ApplicationRemoteError],
+    (String) -> Unit,
+  ) -> Unit
+  publish : (@container.SyncMessage) -> Unit
+  stop : () -> Unit
+}
+
+///|
+fn SessionTransport::SessionTransport(
+  bind : (
+    (@container.SyncMessage) -> Result[Unit, ApplicationRemoteError],
+    (String) -> Unit,
+  ) -> Unit,
+  publish : (@container.SyncMessage) -> Unit,
+  stop : () -> Unit,
+) -> SessionTransport {
+  { bind, publish, stop }
 }
 
 ///|
@@ -111,10 +141,19 @@ struct ApplicationSnapshot {
 }
 
 ///|
+enum ApplicationCollaborationResult {
+  Disabled
+  BootstrapReady(BootstrapData)
+  Active
+  LocalOnly(String)
+}
+
+///|
 struct ApplicationObservation {
   lifecycle : ApplicationLifecycle
   snapshot : ApplicationSnapshot
   region_stats : ReadOnlyArray[RegionRenderStats]
+  collaboration : ApplicationCollaborationResult
 }
 
 ///|
@@ -219,6 +258,7 @@ fn clone_application_observation(
       patch_attempts: row.patch_attempts,
       skipped_patches: row.skipped_patches,
     }),
+    collaboration: observation.collaboration,
   }
 }
 
@@ -228,6 +268,8 @@ struct TypedSheetApplication {
   publisher : AiContextPublisher
   ai_context_cache : Ref[@demo.AiContextSnapshot?]
   ai_context_dirty : Ref[Bool]
+  transport : SessionTransport?
+  collaboration : Ref[ApplicationCollaborationResult]
   mut lifecycle : ApplicationLifecycle
   mut renderer : @tea.BrowserRenderer[Msg]?
   mut final_observation : ApplicationObservation?
@@ -237,6 +279,7 @@ struct TypedSheetApplication {
 fn TypedSheetApplication::start(
   runtime : @incr.Runtime,
   mode : SheetStartMode,
+  transport : SessionTransport?,
   publisher : AiContextPublisher,
 ) -> Result[TypedSheetApplication, ApplicationStartError] {
   let ai_context_cache : Ref[@demo.AiContextSnapshot?] = Ref(None)
@@ -249,15 +292,54 @@ fn TypedSheetApplication::start(
   let app = TypedSheetApp::with_mode(runtime, mode, publisher=cached_publisher) catch {
     error => return Err(AuthorityStartFailed(format_authority_error(error)))
   }
-  Ok({
+  let collaboration = match transport {
+    None => ApplicationCollaborationResult::Disabled
+    Some(_) =>
+      match mode {
+        SheetStartMode::Host(_, _) => {
+          let bootstrap = Ok(BootstrapData::{
+            identity: app._state.val.adapter.identity(),
+            sheet_id: app._state.val.adapter.sheet_id(),
+            generation: app._state.val.adapter.generation(),
+            node: app._state.val.adapter.node(),
+            sync: app._state.val.adapter.export_all(),
+          }) catch {
+            error => Err(error)
+          }
+          match bootstrap {
+            Ok(bootstrap) =>
+              ApplicationCollaborationResult::BootstrapReady(bootstrap)
+            Err(error) => {
+              app.dispose()
+              return Err(AuthorityStartFailed(format_authority_error(error)))
+            }
+          }
+        }
+        SheetStartMode::Join(_, _) | SheetStartMode::Standalone =>
+          ApplicationCollaborationResult::Active
+      }
+  }
+  let application = {
     app,
     publisher: cached_publisher,
     ai_context_cache,
     ai_context_dirty,
+    transport,
+    collaboration: Ref(collaboration),
     lifecycle: Unmounted,
     renderer: None,
     final_observation: None,
-  })
+  }
+  match transport {
+    Some(transport) => {
+      app.set_publisher(sync => (transport.publish)(sync))
+      (transport.bind)(sync => application.apply_remote(sync), error => {
+        application.record_transport_failure(error)
+      })
+    }
+    None => ()
+  }
+  Ok(application)
 }
 
 ///|
@@ -276,6 +358,84 @@ fn TypedSheetApplication::dispatch(
       Ok({ authority_changed: self.app._state.val.adapter.version() != before })
     }
   }
+}
+
+///|
+fn TypedSheetApplication::apply_remote(
+  self : TypedSheetApplication,
+  message : @container.SyncMessage,
+) -> Result[Unit, ApplicationRemoteError] {
+  if self.lifecycle is ApplicationLifecycle::Disposed {
+    return Err(ApplicationRemoteError::Disposed)
+  }
+  self.ai_context_dirty.val = true
+  let applied = Ok(self.app.apply_remote(message)) catch { error => Err(error) }
+  let result = match applied {
+    Err(error) =>
+      Err(
+        ApplicationRemoteError::SynchronizationFailed(
+          format_authority_error(error),
+        ),
+      )
+    Ok(result) =>
+      match result.adapter_result() {
+        @egw_adapter.AdapterApplyResult::Applied(_)
+        | @egw_adapter.AdapterApplyResult::NoSemanticChange(_) => Ok(())
+        @egw_adapter.AdapterApplyResult::MutationNotLanded =>
+          Err(ApplicationRemoteError::MutationNotLanded)
+        @egw_adapter.AdapterApplyResult::ProjectionFailed(_)
+        | @egw_adapter.AdapterApplyResult::Rejected(_)
+        | @egw_adapter.AdapterApplyResult::SourceRejected(_) =>
+          Err(ApplicationRemoteError::ProjectionFailed)
+      }
+  }
+  match result {
+    Ok(_) =>
+      match self.lifecycle {
+        Mounted =>
+          match self.renderer {
+            Some(renderer) => renderer.flush_all()
+            None => abort("mounted TypedSheetApplication has no renderer")
+          }
+        Unmounted | Disposed => ()
+      }
+    Err(_) => ()
+  }
+  result
+}
+
+///|
+fn TypedSheetApplication::record_collaboration_status(
+  self : TypedSheetApplication,
+  status : String,
+) -> Unit {
+  if self.lifecycle is ApplicationLifecycle::Disposed {
+    return
+  }
+  self.app._state.val.status.set(status)
+  match self.lifecycle {
+    Mounted =>
+      match self.renderer {
+        Some(renderer) => renderer.flush_all()
+        None => abort("mounted TypedSheetApplication has no renderer")
+      }
+    Unmounted | Disposed => ()
+  }
+}
+
+///|
+fn TypedSheetApplication::record_transport_failure(
+  self : TypedSheetApplication,
+  error : String,
+) -> Unit {
+  if self.lifecycle is ApplicationLifecycle::Disposed {
+    return
+  }
+  self.app.clear_publisher()
+  self.collaboration.val = ApplicationCollaborationResult::LocalOnly(error)
+  self.record_collaboration_status(
+    "Collaboration unavailable; edits are now local only: \{error}",
+  )
 }
 
 ///|
@@ -315,6 +475,10 @@ fn TypedSheetApplication::mount(
       )
       self.renderer = Some(renderer)
       self.lifecycle = Mounted
+      if self.collaboration.val
+        is ApplicationCollaborationResult::BootstrapReady(_) {
+        self.collaboration.val = ApplicationCollaborationResult::Active
+      }
       publish_ai_context_now(self.app._state, self.publisher)
       Ok(())
     }
@@ -372,6 +536,7 @@ fn TypedSheetApplication::observe(
         lifecycle: self.lifecycle,
         snapshot: self.snapshot(),
         region_stats: self.region_stats(),
+        collaboration: self.collaboration.val,
       }
   }
 }
@@ -399,10 +564,16 @@ fn TypedSheetApplication::dispose(self : TypedSheetApplication) -> Unit {
   if self.lifecycle is Disposed {
     return
   }
+  self.app.clear_publisher()
+  match self.transport {
+    Some(transport) => (transport.stop)()
+    None => ()
+  }
   self.final_observation = Some({
     lifecycle: Disposed,
     snapshot: self.snapshot(),
     region_stats: self.region_stats(),
+    collaboration: self.collaboration.val,
   })
   match self.renderer {
     Some(renderer) => renderer.dispose()

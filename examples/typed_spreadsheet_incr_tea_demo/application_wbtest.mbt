@@ -1,9 +1,239 @@
 ///|
+struct RecordingSessionTransport {
+  remote : Ref[
+    ((@container.SyncMessage) -> Result[Unit, ApplicationRemoteError])?,
+  ]
+  failure : Ref[((String) -> Unit)?]
+  published : Ref[Array[@container.SyncMessage]]
+  stopped : Ref[Bool]
+  bind_count : Ref[Int]
+  delivery_count : Ref[Int]
+  stop_count : Ref[Int]
+  fail_on_publish : Ref[String?]
+}
+
+///|
+fn new_recording_session_transport() -> RecordingSessionTransport {
+  {
+    remote: Ref(None),
+    failure: Ref(None),
+    published: Ref([]),
+    stopped: Ref(false),
+    bind_count: Ref(0),
+    delivery_count: Ref(0),
+    stop_count: Ref(0),
+    fail_on_publish: Ref(None),
+  }
+}
+
+///|
+fn RecordingSessionTransport::stop_delivery(
+  self : RecordingSessionTransport,
+) -> Unit {
+  if !self.stopped.val {
+    self.remote.val = None
+    self.failure.val = None
+    self.stopped.val = true
+    self.stop_count.val += 1
+  }
+}
+
+///|
+fn RecordingSessionTransport::port(
+  self : RecordingSessionTransport,
+) -> SessionTransport {
+  SessionTransport::SessionTransport(
+    (remote, failure) => {
+      self.bind_count.val += 1
+      self.remote.val = Some(remote)
+      self.failure.val = Some(failure)
+    },
+    message => {
+      if !self.stopped.val {
+        self.published.val.push(message)
+        match self.fail_on_publish.val {
+          Some(error) => {
+            self.fail_on_publish.val = None
+            ignore(self.fail(error))
+          }
+          None => ()
+        }
+      }
+    },
+    () => self.stop_delivery(),
+  )
+}
+
+///|
+fn RecordingSessionTransport::deliver_remote(
+  self : RecordingSessionTransport,
+  message : @container.SyncMessage,
+) -> Result[Unit, ApplicationRemoteError]? {
+  match self.remote.val {
+    Some(remote) => {
+      self.delivery_count.val += 1
+      Some(remote(message))
+    }
+    None => None
+  }
+}
+
+///|
+fn RecordingSessionTransport::fail(
+  self : RecordingSessionTransport,
+  error : String,
+) -> Bool {
+  match self.failure.val {
+    Some(failure) => {
+      failure(error)
+      self.stop_delivery()
+      true
+    }
+    None => false
+  }
+}
+
+///|
+test "session transport publishes committed local edits and stops once" {
+  let recording = new_recording_session_transport()
+  let app = match
+    TypedSheetApplication::start(
+      @incr.Runtime(),
+      SheetStartMode::Host("room", ReplicaId("transport-test")),
+      Some(recording.port()),
+      AiContextPublisher::AiContextPublisher(_ => ()),
+    ) {
+    Ok(app) => app
+    Err(_) => fail("collaborative application failed to start")
+  }
+
+  inspect(recording.bind_count.val, content="1")
+  inspect(recording.delivery_count.val, content="0")
+  inspect(recording.published.val.length(), content="0")
+  ignore(app.dispatch(BeginInlineEdit("C1")))
+  ignore(app.dispatch(UpdateDraft("C1", "7")))
+  ignore(app.dispatch(ApplyInlineEdit("C1")))
+  inspect(recording.published.val.length(), content="1")
+  ignore(app.dispatch(ResetSheet))
+  inspect(recording.published.val.length(), content="1")
+
+  let published = recording.published.val[0]
+  app.dispose()
+  app.dispose()
+  inspect(recording.stop_count.val, content="1")
+  inspect(recording.deliver_remote(published) is None, content="true")
+  inspect(
+    app.apply_remote(published) is Err(ApplicationRemoteError::Disposed),
+    content="true",
+  )
+}
+
+///|
+test "synchronous publish failure leaves application local only" {
+  let recording = new_recording_session_transport()
+  recording.fail_on_publish.val = Some("queue limit exceeded")
+  let app = match
+    TypedSheetApplication::start(
+      @incr.Runtime(),
+      SheetStartMode::Host("room", ReplicaId("transport-failure")),
+      Some(recording.port()),
+      AiContextPublisher::AiContextPublisher(_ => ()),
+    ) {
+    Ok(app) => app
+    Err(_) => fail("collaborative application failed to start")
+  }
+
+  ignore(app.dispatch(BeginInlineEdit("C1")))
+  ignore(app.dispatch(UpdateDraft("C1", "7")))
+  ignore(app.dispatch(ApplyInlineEdit("C1")))
+  match app.observe().collaboration {
+    ApplicationCollaborationResult::LocalOnly(error) =>
+      inspect(error, content="queue limit exceeded")
+    _ => fail("synchronous publish failure did not select local-only mode")
+  }
+  inspect(
+    app.observe().snapshot.status,
+    content="Collaboration unavailable; edits are now local only: queue limit exceeded",
+  )
+  inspect(recording.published.val.length(), content="1")
+  inspect(recording.stop_count.val, content="1")
+  app.dispose()
+  inspect(recording.stop_count.val, content="1")
+}
+
+///|
+test "session transport applies remote sync without republishing" {
+  let host_transport = new_recording_session_transport()
+  let host = match
+    TypedSheetApplication::start(
+      @incr.Runtime(),
+      SheetStartMode::Host("room", ReplicaId("transport-host")),
+      Some(host_transport.port()),
+      AiContextPublisher::AiContextPublisher(_ => ()),
+    ) {
+    Ok(app) => app
+    Err(_) => fail("host application failed to start")
+  }
+  inspect(host_transport.bind_count.val, content="1")
+  inspect(host_transport.delivery_count.val, content="0")
+  let bootstrap = match host.observe().collaboration {
+    ApplicationCollaborationResult::BootstrapReady(bootstrap) => bootstrap
+    _ => fail("host bootstrap was not exposed through observation")
+  }
+  let join_document = @container.Document::new("transport-join")
+  ignore(join_document.sync().apply(bootstrap.sync))
+  let join_transport = new_recording_session_transport()
+  let join = match
+    TypedSheetApplication::start(
+      @incr.Runtime(),
+      SheetStartMode::Join(bootstrap, join_document),
+      Some(join_transport.port()),
+      AiContextPublisher::AiContextPublisher(_ => ()),
+    ) {
+    Ok(app) => app
+    Err(_) => fail("join application failed to start")
+  }
+
+  ignore(host.dispatch(BeginInlineEdit("C1")))
+  ignore(host.dispatch(UpdateDraft("C1", "7")))
+  ignore(host.dispatch(ApplyInlineEdit("C1")))
+  guard host_transport.published.val is [sync] else {
+    fail("host edit did not publish exactly once")
+  }
+  inspect(join_transport.deliver_remote(sync) is Some(Ok(_)), content="true")
+  inspect(join_transport.published.val.length(), content="0")
+  inspect(join.observe().snapshot.status, content="Remote update applied.")
+  inspect(join_transport.deliver_remote(sync) is Some(Ok(_)), content="true")
+  inspect(join_transport.published.val.length(), content="0")
+  inspect(
+    join.observe().snapshot.status,
+    content="Remote update had no semantic changes.",
+  )
+
+  inspect(join_transport.fail("transport failed"), content="true")
+  match join.observe().collaboration {
+    ApplicationCollaborationResult::LocalOnly(error) =>
+      inspect(error, content="transport failed")
+    _ => fail("transport failure did not record local-only collaboration")
+  }
+  ignore(join.dispatch(BeginInlineEdit("C1")))
+  ignore(join.dispatch(UpdateDraft("C1", "8")))
+  ignore(join.dispatch(ApplyInlineEdit("C1")))
+  inspect(join_transport.published.val.length(), content="0")
+
+  join.dispose()
+  host.dispose()
+  inspect(join_transport.stop_count.val, content="1")
+  inspect(host_transport.stop_count.val, content="1")
+}
+
+///|
 test "unmounted application dispatches and observes semantic state" {
   let app = match
     TypedSheetApplication::start(
       @incr.Runtime(),
       SheetStartMode::Standalone,
+      None,
       AiContextPublisher::AiContextPublisher(_ => ()),
     ) {
     Ok(app) => app
@@ -31,6 +261,7 @@ test "committed edit reports an authority change" {
     TypedSheetApplication::start(
       @incr.Runtime(),
       SheetStartMode::Standalone,
+      None,
       AiContextPublisher::AiContextPublisher(_ => ()),
     ) {
     Ok(app) => app
@@ -53,6 +284,7 @@ test "unmounted dispose preserves the final semantic observation" {
     TypedSheetApplication::start(
       @incr.Runtime(),
       SheetStartMode::Standalone,
+      None,
       AiContextPublisher::AiContextPublisher(_ => ()),
     ) {
     Ok(app) => app
@@ -79,6 +311,7 @@ test "disposed application rejects dispatch through a typed result" {
     TypedSheetApplication::start(
       @incr.Runtime(),
       SheetStartMode::Standalone,
+      None,
       AiContextPublisher::AiContextPublisher(_ => ()),
     ) {
     Ok(app) => app
@@ -99,6 +332,7 @@ test "application dispose is idempotent" {
     TypedSheetApplication::start(
       @incr.Runtime(),
       SheetStartMode::Standalone,
+      None,
       AiContextPublisher::AiContextPublisher(_ => ()),
     ) {
     Ok(app) => app
@@ -124,6 +358,7 @@ test "disposed observations do not alias retained arrays" {
     TypedSheetApplication::start(
       @incr.Runtime(),
       SheetStartMode::Standalone,
+      None,
       AiContextPublisher::AiContextPublisher(_ => ()),
     ) {
     Ok(app) => app
@@ -200,6 +435,7 @@ test "missing host resolution fails before application mutation" {
     TypedSheetApplication::start(
       @incr.Runtime(),
       SheetStartMode::Standalone,
+      None,
       AiContextPublisher::AiContextPublisher(_ => ()),
     ) {
     Ok(app) => app
@@ -230,6 +466,7 @@ test "AI context publishes initially and after mounted flush" {
     TypedSheetApplication::start(
       @incr.Runtime(),
       SheetStartMode::Standalone,
+      None,
       publisher,
     ) {
     Ok(app) => app
@@ -269,6 +506,7 @@ test "unmounted dispatch publishes through queued flush then initial mount" {
     TypedSheetApplication::start(
       @incr.Runtime(),
       SheetStartMode::Standalone,
+      None,
       publisher,
     ) {
     Ok(app) => app
@@ -301,6 +539,7 @@ test "application mounts one complete five-region host cohort" {
     TypedSheetApplication::start(
       @incr.Runtime(),
       SheetStartMode::Standalone,
+      None,
       AiContextPublisher::AiContextPublisher(_ => ()),
     ) {
     Ok(app) => app
@@ -355,6 +594,7 @@ test "authority startup failure is returned as an application error" {
     TypedSheetApplication::start(
       @incr.Runtime(),
       SheetStartMode::Host("room", ReplicaId("")),
+      None,
       AiContextPublisher::AiContextPublisher(_ => ()),
     ) {
     Err(AuthorityStartFailed(detail)) =>

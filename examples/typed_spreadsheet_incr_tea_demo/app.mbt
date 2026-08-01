@@ -86,6 +86,11 @@ fn TypedSheetApp::set_publisher(
 }
 
 ///|
+fn TypedSheetApp::clear_publisher(self : TypedSheetApp) -> Unit {
+  self._state.val.publish_sync = None
+}
+
+///|
 /// Applies remote EGW state through the same adapter projection path.
 fn TypedSheetApp::apply_remote(
   self : TypedSheetApp,

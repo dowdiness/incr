@@ -169,6 +169,7 @@ fn setup_locality_test() -> (
     TypedSheetApplication::start(
       @incr.Runtime(),
       SheetStartMode::Standalone,
+      None,
       AiContextPublisher::AiContextPublisher(_ => ()),
     ) {
     Ok(app) => app

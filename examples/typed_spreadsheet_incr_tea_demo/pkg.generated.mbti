@@ -16,11 +16,15 @@ type StartupConfigError
 // Types and methods
 type AiContextPublisher
 
+type ApplicationCollaborationResult
+
 type ApplicationLifecycle
 
 type ApplicationLifecycleError
 
 type ApplicationObservation
+
+type ApplicationRemoteError derive(Eq, @debug.Debug)
 
 type ApplicationSnapshot
 
@@ -67,6 +71,8 @@ type RoomSelectionEvent
 type RoomSelectionRejection derive(Eq, @debug.Debug)
 
 type RoomSelectionState
+
+type SessionTransport
 
 type SheetPlan derive(Eq, @debug.Debug)
 
