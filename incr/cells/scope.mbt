@@ -100,7 +100,7 @@ pub fn Scope::dispose(self : Scope) -> Unit {
   for child in self.children {
     child.dispose()
   }
-  // 2. Execute dispose hooks (Layer 4: observer cleanup)
+  // 2. Execute dispose hooks (read-root and callback cleanup)
   for hook in self.dispose_hooks {
     hook()
   }

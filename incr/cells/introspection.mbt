@@ -152,7 +152,7 @@ pub fn Runtime::dependents(self : Runtime, id : CellId) -> Array[CellId] {
 /// soft-fail idiom).
 ///
 /// Phase 1 coordinator use: registration-time mode-1 check that each
-/// protected cell is observer-rooted before the editor is published.
+/// protected cell is watch-rooted before the editor is published.
 pub fn Runtime::gc_root_count(self : Runtime, id : CellId) -> Int {
   match self.core.gc_root_counts.get(id) {
     Some(n) => n

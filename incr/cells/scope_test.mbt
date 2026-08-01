@@ -184,8 +184,15 @@ test "scope: watch disposed before owned cells" {
   let sig = scope.input(10)
   let m = scope.derived(fn() { sig.get() * 2 })
   let watch = scope.add_watch(m.watch())
-  ignore(watch.read_or_abort())
+  let watch_disposed_during_hook : Ref[Bool] = { val: false }
+  let cell_disposed_during_hook : Ref[Bool] = { val: true }
+  scope.on_dispose(fn() {
+    watch_disposed_during_hook.val = watch.is_disposed()
+    cell_disposed_during_hook.val = m.is_disposed()
+  })
   scope.dispose()
+  inspect(watch_disposed_during_hook.val, content="true")
+  inspect(cell_disposed_during_hook.val, content="false")
   inspect(watch.is_disposed(), content="true")
   assert_true(m.is_disposed())
 }

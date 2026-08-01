@@ -109,7 +109,7 @@ closure or not?**
 
 - `input.get()` — Inputs are non-fallible; just reads and records the dep.
 - `derived.get_or_abort()` / `reachable.get_or_abort()` — strict read; aborts on cycle.
-- `derived.get()` / `reachable.get()` — graceful read; returns `Result[T, CycleError]`.
+- `derived.get()` / `reachable.get()` — graceful read; returns `Result[T, ReadError]`.
 - `eager.get()` — strict tracked read of an eager/push value. `EagerDerived` has no `Result` or `_or_abort` read channel.
 
 These record the dep on the surrounding tracking frame without creating a
@@ -118,18 +118,17 @@ persistent read root.
 **Outside the graph** (top-level, tests, event handlers, non-tracked
 consumer methods):
 
-- `derived.read_or_abort()` / `reachable.read_or_abort()` — strict; aborts on cycle.
-- `derived.read()` / `reachable.read()` — returns `Result[T, CycleError]`.
+- `derived.read_or_abort()` / `reachable.read_or_abort()` — strict; aborts on any read error.
+- `derived.read()` / `reachable.read()` — returns `Result[T, ReadError]`.
 - `eager.read()` — reads the current eager/push value outside the graph.
 - Through a long-lived anchor: `watch.read_or_abort()` / `watch.read()`.
 
-The read channel — `Derived` / `ReachableDerived` `.get()` / `.read()`,
-`DerivedMap` `.get(key)` / `.read(key)`, and `Watch::read()` — currently
-returns `Result[..., CycleError]`. `DerivedMap::read_or(...)` and
-`DerivedMap::read_or_else(...)` return the value `V` directly after
-applying their fallback. Disposed cells still abort on strict reads. Keep
-generated code matching on `CycleError` until a broader read-error API
-appears in `cells/pkg.generated.mbti`.
+The honest read channel — `Derived` / `ReachableDerived` `.get()` / `.read()`,
+`DerivedMap` `.get(key)` / `.read(key)`, and `Watch::read()` — returns
+`Result[..., ReadError]`, including `Cycle` and `Disposed`. The corresponding
+`_or_abort` projections abort on any `ReadError`. `DerivedMap::read_or(...)`
+and `DerivedMap::read_or_else(...)` return the value `V` directly after
+applying their fallback.
 
 ### Why mixing breaks
 
@@ -390,7 +389,7 @@ In this repo (`dowdiness/incr`):
   `get_or_abort`). Verified by `moon check` — never out of date.
 - `docs/getting-started.md` — narrative walk-through with the
   inside-vs-outside read rule called out.
-- `docs/api-reference.md` — authoritative shape of `read` /
+- `docs/api-reference.mbt.md` — authoritative shape of `read` /
   `read_or_abort` / `get` / `get_or_abort` / `watch` for
   each handle.
 - `tests/bench_test.mbt` — bench template.

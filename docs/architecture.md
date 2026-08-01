@@ -39,7 +39,7 @@ moon.work
 
 | Package | Responsibility | Depends on |
 |---|---|---|
-| Root (`incr.mbt`, `traits.mbt`) | Re-exports the public facade (`Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `EagerDerived`, `Watch`, `MapRelation`, `RuntimeContext`, `Freshness`, `InputFieldOwner`); provides `RuntimeContext` convenience helpers and batching/lifecycle helpers | none |
+| Root (`incr.mbt`, `traits.mbt`) | Re-exports the public facade (`Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `EagerDerived`, `Watch`, `Scope`, `MapRelation`, `RuntimeContext`, `Freshness`, `InputFieldOwner`); provides `RuntimeContext` convenience helpers and batching/lifecycle helpers | none |
 | `types/` | Pure value types: `Revision`, `Durability`, `CellId`, `CycleError`, ID types, `BackdateEq` / `HasChangedAt` traits | none |
 | `cells/` | The `Runtime` coordinator (thin delegators into `internal/kernel`), the public facades (`Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `EagerDerived`, `Watch`, `MapRelation`), Datalog/effect/accumulator/scope handles, and per-cell-kind lifecycle wiring | `types`, all `cells/internal/*` packages |
 | `cells/internal/shared/` | Coordinator-only trait abstractions: `CellOps`, `HasCellMeta`, `Committable`, `CellMeta`, `CellRef`, `SlotSnapshot` | (leaf) |
