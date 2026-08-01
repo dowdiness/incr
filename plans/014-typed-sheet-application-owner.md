@@ -116,7 +116,7 @@ struct SessionTransport {
   stop : () -> Unit
 }
 
-fn TypedSheetApplication::TypedSheetApplication(
+fn TypedSheetApplication::start(
   runtime : @incr.Runtime,
   mode : SheetStartMode,
   transport : SessionTransport?,
@@ -277,7 +277,7 @@ Prefer private structs of closures over new traits unless `moon ide` reveals an 
 
 - Baseline: plan commit `2033c86`, `origin/main` `7a336e9`, branch `refactor/typed-sheet-application-owner`; the implementation HEAD contains the base. This standalone repository has no submodules, so there are no nested-origin or pointer identities to validate.
 - Target identity: JS-only `examples/typed_spreadsheet_incr_tea_demo@0.1.0`, with workspace dependencies `incr@0.14.2`, `incr_tea@0.1.0`, typed-spreadsheet packages at `0.1.0`, and event-graph-walker `0.5.0`. The public interface baseline hash is `c89b4064f04a16380be7d86a9eb678d958070548c276e0a9c15aba139064bc9f`; its sole public function is still `mount_typed_spreadsheet_incr_tea_demo(String) -> Unit`.
-- API result: reuse `Program::dispatch/dispose`, `BrowserRenderer::mount/flush_all/root_stats/dispose`, `EgwAdapter::version/apply_*_observed`, `Cmd::after_flush`, `Result`, `Option`, `Array::copy`, and `ReadOnlyArray::from_array`. `Version` implements `Eq`. `Map`, `Set`, byte/buffer types, and stateful `Program` constructors do not fit this fixed-record/ordered-snapshot change.
+- API result: reuse `Program::dispatch/dispose`, `BrowserRenderer::mount/flush_all/root_stats/dispose`, `EgwAdapter::version/apply_*_observed`, `Cmd::after_flush`, `Result`, `Option`, `Array::copy`, and `ReadOnlyArray::from_array`. `Version` implements `Eq`. `Map`, `Set`, byte/buffer types, and stateful `Program` constructors do not fit this fixed-record/ordered-snapshot change. Compiler RED/GREEN then confirmed that MoonBit reserves `Type::Type` for functions returning `Type` itself, so the fallible `Result` factory is named `TypedSheetApplication::start`; this is the Phase 0 language-conflict correction allowed by the locked contract.
 - DOM result: `dom_get_element_by_id` throws in JS but has no MoonBit `raise` channel, and no checked element-presence helper exists. Add a private demo-package JS presence preflight in the DOM adapter, then call the existing lookup only after all five ids pass. No `incr_tea` API change is authorized.
 - Green baseline: all six package roots under the demo passed JS check/test: 43 + 3 + 3 + 1 + 22 + 18 tests, 90 total. Raw outlines, references, API docs, `.mbti`, test output, dependency evidence, and benchmark output are saved under `/tmp/plan014-phase0-2033c86/` for implementation-time comparison.
 - Benchmark finding: the checked-in harness opens `/?bench`, but `parse_startup` accepts standalone only at `/`, so the unmodified baseline times out before mounting. A repository-external baseline harness navigated to `/` and injected benchmark mode without changing scenarios, samples, warmups, dispatch, or flush. Its p95 values were selection 16.5 ms, formula draft 14.0 ms, visible edit 45.3 ms, formula dependency 40.4 ms, trace/evidence 51.1 ms, and offscreen edit 46.6 ms. Selection narrowly exceeded its non-enforced 16 ms budget; this authorizes no optimization.

@@ -14,6 +14,16 @@ type CollabProtocolError
 type StartupConfigError
 
 // Types and methods
+type ApplicationLifecycle
+
+type ApplicationLifecycleError
+
+type ApplicationObservation
+
+type ApplicationSnapshot
+
+type ApplicationStartError
+
 type BootstrapData
 
 type CellDraft derive(Eq, @debug.Debug)
@@ -31,6 +41,8 @@ type CollabPhase derive(Eq, @debug.Debug)
 type CollabState
 
 type CollabTransportKind derive(Eq, @debug.Debug)
+
+type DispatchOutcome
 
 type KeyResolution
 
@@ -63,6 +75,8 @@ type StartupMode derive(Eq, @debug.Debug)
 type TraceData derive(Eq)
 
 type TypedSheetApp
+
+type TypedSheetApplication
 
 type UiEffect derive(Eq, @debug.Debug)
 
