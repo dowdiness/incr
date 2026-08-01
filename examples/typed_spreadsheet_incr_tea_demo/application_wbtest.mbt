@@ -72,6 +72,7 @@ test "disposed application rejects dispatch through a typed result" {
 
   match app.dispatch(SelectCell("C1")) {
     Err(Disposed) => ()
+    Err(_) => fail("disposed dispatch returned the wrong lifecycle error")
     Ok(_) => fail("disposed dispatch was accepted")
   }
 }
@@ -165,6 +166,80 @@ test "disposed observations do not alias retained arrays" {
       inspect(evidence.cells.length(), content="\{evidence_count}")
     None => fail("expected retained committed-edit evidence")
   }
+}
+
+///|
+#cfg(target="js")
+test "missing host resolution fails before application mutation" {
+  install_test_dom()
+  let app = match
+    TypedSheetApplication::start(@incr.Runtime(), SheetStartMode::Standalone) {
+    Ok(app) => app
+    Err(_) => fail("standalone application failed to start")
+  }
+
+  match resolve_typed_sheet_hosts("missing") {
+    Err(MissingRegion(id)) => inspect(id, content="missing-grid")
+    Ok(_) => fail("incomplete host cohort was accepted")
+  }
+  let observation = app.observe()
+  assert_true(observation.lifecycle is Unmounted)
+  inspect(observation.region_stats.length(), content="0")
+  app.dispose()
+  restore_test_dom()
+}
+
+///|
+#cfg(target="js")
+test "application mounts one complete five-region host cohort" {
+  install_test_dom()
+  create_locality_hosts()
+  let app = match
+    TypedSheetApplication::start(@incr.Runtime(), SheetStartMode::Standalone) {
+    Ok(app) => app
+    Err(_) => fail("standalone application failed to start")
+  }
+  match app.flush_presentation() {
+    Err(NotMounted) => ()
+    _ => fail("unmounted presentation flush was not rejected")
+  }
+  let hosts = TypedSheetHosts::{
+    grid: @tea.dom_get_element_by_id("locality-grid"),
+    formula: @tea.dom_get_element_by_id("locality-formula"),
+    status: @tea.dom_get_element_by_id("locality-status"),
+    trace: @tea.dom_get_element_by_id("locality-trace"),
+    evidence: @tea.dom_get_element_by_id("locality-evidence"),
+  }
+  match app.mount(hosts) {
+    Ok(_) => ()
+    Err(_) => fail("complete host cohort was rejected")
+  }
+  let mounted = match app.flush_presentation() {
+    Ok(observation) => observation
+    Err(_) => fail("mounted presentation flush was rejected")
+  }
+  assert_true(mounted.lifecycle is Mounted)
+  inspect(mounted.region_stats.length(), content="5")
+  inspect(
+    mounted.region_stats.map(row => row.label).join(","),
+    content="formula-bar,grid,status,trace,evidence",
+  )
+  inspect(
+    mounted.region_stats.all(row => {
+      row.patch_attempts == 1 && row.skipped_patches == 1
+    }),
+    content="true",
+  )
+  match app.mount(hosts) {
+    Err(AlreadyMounted) => ()
+    _ => fail("second mount was not rejected")
+  }
+  app.dispose()
+  match app.flush_presentation() {
+    Err(Disposed) => ()
+    _ => fail("disposed presentation flush was not rejected")
+  }
+  restore_test_dom()
 }
 
 ///|

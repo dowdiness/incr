@@ -44,6 +44,8 @@ type CollabTransportKind derive(Eq, @debug.Debug)
 
 type DispatchOutcome
 
+type HostResolutionError
+
 type KeyResolution
 
 type Model
@@ -51,6 +53,8 @@ type Model
 type Msg derive(Eq)
 
 type PeerId derive(Eq, @debug.Debug)
+
+type RegionRenderStats
 
 type ReplicaId derive(Eq, @debug.Debug)
 
@@ -77,6 +81,8 @@ type TraceData derive(Eq)
 type TypedSheetApp
 
 type TypedSheetApplication
+
+type TypedSheetHosts
 
 type UiEffect derive(Eq, @debug.Debug)
 

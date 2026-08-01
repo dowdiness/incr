@@ -1,6 +1,7 @@
 ///|
 enum ApplicationLifecycle {
   Unmounted
+  Mounted
   Disposed
 }
 
@@ -11,12 +12,77 @@ enum ApplicationStartError {
 
 ///|
 enum ApplicationLifecycleError {
+  NotMounted
+  AlreadyMounted
   Disposed
 }
 
 ///|
 struct DispatchOutcome {
   authority_changed : Bool
+}
+
+///|
+struct TypedSheetHosts {
+  grid : @tea.DomElement
+  formula : @tea.DomElement
+  status : @tea.DomElement
+  trace : @tea.DomElement
+  evidence : @tea.DomElement
+}
+
+///|
+enum HostResolutionError {
+  MissingRegion(String)
+}
+
+///|
+#cfg(target="js")
+extern "js" fn js_dom_element_exists(id : String) -> Bool =
+  #| id => globalThis.document.getElementById(id) !== null
+
+///|
+#cfg(target="js")
+fn resolve_typed_sheet_hosts(
+  mount_id : String,
+) -> Result[TypedSheetHosts, HostResolutionError] {
+  let grid_id = mount_id + "-grid"
+  let formula_id = mount_id + "-formula"
+  let status_id = mount_id + "-status"
+  let trace_id = mount_id + "-trace"
+  let evidence_id = mount_id + "-evidence"
+  let missing = if !js_dom_element_exists(grid_id) {
+    Some(grid_id)
+  } else if !js_dom_element_exists(formula_id) {
+    Some(formula_id)
+  } else if !js_dom_element_exists(status_id) {
+    Some(status_id)
+  } else if !js_dom_element_exists(trace_id) {
+    Some(trace_id)
+  } else if !js_dom_element_exists(evidence_id) {
+    Some(evidence_id)
+  } else {
+    None
+  }
+  match missing {
+    Some(id) => Err(MissingRegion(id))
+    None =>
+      Ok(TypedSheetHosts::{
+        grid: @tea.dom_get_element_by_id(grid_id),
+        formula: @tea.dom_get_element_by_id(formula_id),
+        status: @tea.dom_get_element_by_id(status_id),
+        trace: @tea.dom_get_element_by_id(trace_id),
+        evidence: @tea.dom_get_element_by_id(evidence_id),
+      })
+  }
+}
+
+///|
+struct RegionRenderStats {
+  label : String
+  view_recomputes : Int
+  patch_attempts : Int
+  skipped_patches : Int
 }
 
 ///|
@@ -29,6 +95,7 @@ struct ApplicationSnapshot {
 struct ApplicationObservation {
   lifecycle : ApplicationLifecycle
   snapshot : ApplicationSnapshot
+  region_stats : ReadOnlyArray[RegionRenderStats]
 }
 
 ///|
@@ -127,6 +194,12 @@ fn clone_application_observation(
       ai_context: clone_ai_context_snapshot(observation.snapshot.ai_context),
       status: observation.snapshot.status,
     },
+    region_stats: observation.region_stats.map(row => RegionRenderStats::{
+      label: row.label,
+      view_recomputes: row.view_recomputes,
+      patch_attempts: row.patch_attempts,
+      skipped_patches: row.skipped_patches,
+    }),
   }
 }
 
@@ -134,6 +207,7 @@ fn clone_application_observation(
 struct TypedSheetApplication {
   app : TypedSheetApp
   mut lifecycle : ApplicationLifecycle
+  mut renderer : @tea.BrowserRenderer[Msg]?
   mut final_observation : ApplicationObservation?
 }
 
@@ -145,7 +219,7 @@ fn TypedSheetApplication::start(
   let app = TypedSheetApp::with_mode(runtime, mode) catch {
     error => return Err(AuthorityStartFailed(format_authority_error(error)))
   }
-  Ok({ app, lifecycle: Unmounted, final_observation: None })
+  Ok({ app, lifecycle: Unmounted, renderer: None, final_observation: None })
 }
 
 ///|
@@ -155,13 +229,75 @@ fn TypedSheetApplication::dispatch(
 ) -> Result[DispatchOutcome, ApplicationLifecycleError] {
   match self.lifecycle {
     Disposed => Err(Disposed)
-    Unmounted => {
+    Unmounted | Mounted => {
       let before = self.app._state.val.adapter.version()
       guard self.app.prog_grid.dispatch(msg) else {
         abort("TypedSheetApplication program disposed before its owner")
       }
       Ok({ authority_changed: self.app._state.val.adapter.version() != before })
     }
+  }
+}
+
+///|
+fn TypedSheetApplication::mount(
+  self : TypedSheetApplication,
+  hosts : TypedSheetHosts,
+) -> Result[Unit, ApplicationLifecycleError] {
+  match self.lifecycle {
+    Disposed => Err(Disposed)
+    Mounted => Err(AlreadyMounted)
+    Unmounted => {
+      let renderer = @tea.BrowserRenderer::BrowserRenderer(
+        self.app.prog_grid.runtime(),
+      )
+      ignore(
+        renderer.mount(
+          hosts.formula,
+          self.app.prog_formula,
+          label="formula-bar",
+          on_value=resolve_value,
+          on_key_event=resolve_key_event,
+        ),
+      )
+      ignore(
+        renderer.mount(
+          hosts.grid,
+          self.app.prog_grid,
+          label="grid",
+          on_value=resolve_value,
+          on_key_event=resolve_key_event,
+        ),
+      )
+      ignore(renderer.mount(hosts.status, self.app.prog_status, label="status"))
+      ignore(renderer.mount(hosts.trace, self.app.prog_trace, label="trace"))
+      ignore(
+        renderer.mount(hosts.evidence, self.app.prog_evidence, label="evidence"),
+      )
+      self.renderer = Some(renderer)
+      self.lifecycle = Mounted
+      Ok(())
+    }
+  }
+}
+
+///|
+fn TypedSheetApplication::region_stats(
+  self : TypedSheetApplication,
+) -> ReadOnlyArray[RegionRenderStats] {
+  match self.renderer {
+    Some(renderer) =>
+      ReadOnlyArray::from_array(
+        renderer
+        .root_stats()
+        .map(row => RegionRenderStats::{
+          label: row.label,
+          view_recomputes: row.view_recomputes,
+          patch_attempts: row.patch_attempts,
+          skipped_patches: row.skipped_patches,
+        }),
+      )
+    None => []
   }
 }
 
@@ -179,7 +315,30 @@ fn TypedSheetApplication::observe(
 ) -> ApplicationObservation {
   match self.final_observation {
     Some(observation) => clone_application_observation(observation)
-    None => { lifecycle: self.lifecycle, snapshot: self.snapshot() }
+    None =>
+      {
+        lifecycle: self.lifecycle,
+        snapshot: self.snapshot(),
+        region_stats: self.region_stats(),
+      }
+  }
+}
+
+///|
+fn TypedSheetApplication::flush_presentation(
+  self : TypedSheetApplication,
+) -> Result[ApplicationObservation, ApplicationLifecycleError] {
+  match self.lifecycle {
+    Unmounted => Err(NotMounted)
+    Disposed => Err(Disposed)
+    Mounted =>
+      match self.renderer {
+        Some(renderer) => {
+          renderer.flush_all()
+          Ok(self.observe())
+        }
+        None => abort("mounted TypedSheetApplication has no renderer")
+      }
   }
 }
 
@@ -191,7 +350,13 @@ fn TypedSheetApplication::dispose(self : TypedSheetApplication) -> Unit {
   self.final_observation = Some({
     lifecycle: Disposed,
     snapshot: self.snapshot(),
+    region_stats: self.region_stats(),
   })
+  match self.renderer {
+    Some(renderer) => renderer.dispose()
+    None => ()
+  }
+  self.renderer = None
   self.app.dispose()
   self.lifecycle = Disposed
 }
