@@ -18,7 +18,7 @@ instruction.
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 |---|---|---:|---:|---|---|
-| [014](014-typed-sheet-application-owner.md) | Deepen the typed-sheet application owner | P1 | L | Accepted EGW projection boundary; completed Plan 013 adapter | IN PROGRESS |
+| 014 | Deepen the typed-sheet application owner | P1 | L | Accepted EGW projection boundary; completed Plan 013 adapter | DONE (closed 2026-08-02; private owner deepening complete) |
 | 013 | Run the typed-spreadsheet EGW boundary experiment | P1 | L | Published EGW 0.4.0 | DONE (closed 2026-07-24; bounded adapter experiment complete) |
 
 Status values: `TODO` | `IN PROGRESS` | `DONE` |
@@ -33,6 +33,25 @@ dependency convergence, decision record, and separately shaped follow-ups.
 
 ## Reconciliation notes
 
+- Plan 014 closed 2026-08-02 after implementation commits `ef89254` through
+  `c005130` deepened the private typed-spreadsheet shell into one
+  `TypedSheetApplication`. The owner now hides state, five Programs, renderer,
+  EGW adapter, AI publication, collaboration callbacks, and teardown while the
+  sole public callable remains `mount_typed_spreadsheet_incr_tea_demo`.
+  Validation covered all six demo package roots (99 targeted JS tests), the
+  workspace (1,131 wasm-gc and 256 JS tests), release/browser build and smoke,
+  9 standalone DOM scenarios, 7 same-origin collaboration scenarios, 4 Worker
+  hibernation tests, and both 11-scenario Worker collaboration modes. Locked
+  interface and post-fix MoonBit reviews passed against `origin/main`
+  `7a336e9`. `npx playwright install chromium --with-deps` could not repeat the
+  system-package installation because passwordless `sudo` was unavailable;
+  the already-installed Chromium and system dependencies ran every browser
+  gate successfully. The completed plan file is deleted; Git history recovers
+  the execution record. Publication, PR creation, and any parent Canopy
+  submodule-pointer update remain separate authorized tasks.
+  **No ADR needed:** this private, behavior-preserving application-local
+  deepening implements the existing EGW, `incr_tea`, collaboration, and AI
+  context decisions without changing their contracts.
 - Plan 013 closed 2026-07-24 as a completed bounded adapter experiment.
   Correctness and application boundary succeeded: committed browser commands
   use EGW authority and local/remote projection uses one path. The
