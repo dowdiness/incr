@@ -67,6 +67,7 @@ For contributors and advanced users who want to understand or modify `incr`.
 - [Roadmap](roadmap.md) — canonical current core backlog
 - [incr_tea backlog](../incr_tea/docs/backlog.md) — task list for the `dowdiness/incr_tea` module (retargeted TEA issues + agenda)
 - [Implementation plans](../plans/) — active, time-bounded records in the root plan workflow; completed files are deleted with Git history as recovery, separately from the `docs/plans/` archive protocol.
+  - [Plan 014: Deepen the typed-sheet application owner](../plans/014-typed-sheet-application-owner.md) — behavior-preserving ownership refactor for the fixed five-region spreadsheet application.
 
 **Research notes** ([research/](research/)) — exploratory, not implemented. Open these only when a current roadmap item, plan, or ADR calls for them.
 
