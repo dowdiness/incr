@@ -181,6 +181,38 @@ test "host lifecycle refreshes bootstrap and failures close" {
 }
 
 ///|
+test "remote callback result maps to one reducer completion event" {
+  let calls = Ref(0)
+  let message = protocol_sync()
+  let succeeded = collab_invoke_remote_apply(
+    _ => {
+      calls.val += 1
+      Ok(())
+    },
+    message,
+  )
+  inspect(calls.val, content="1")
+  inspect(succeeded is CollabEvent::RemoteApplySucceeded, content="true")
+
+  let failed = collab_invoke_remote_apply(
+    _ => {
+      calls.val += 1
+      Err(ApplicationRemoteError::MutationNotLanded)
+    },
+    message,
+  )
+  inspect(calls.val, content="2")
+  match failed {
+    CollabEvent::RemoteApplyFailed(error) =>
+      inspect(
+        error,
+        content="Remote mutation did not land; collaboration stopped.",
+      )
+    _ => fail("remote failure did not map to one reducer failure event")
+  }
+}
+
+///|
 test "remote apply failure transitions attached state to failed" {
   let host = PeerId("host")
   let joiner = PeerId("joiner")

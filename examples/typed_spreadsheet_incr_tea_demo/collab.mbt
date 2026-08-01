@@ -231,8 +231,13 @@ struct CollabOwner {
   mut state : CollabState
   transport : CollabTransport
   lifecycle : LifecycleHandle
-  mut app : TypedSheetApp?
-  mut renderer : @tea.BrowserRenderer[Msg]?
+  mut app : TypedSheetApplication?
+  mut remote_apply : ((@container.SyncMessage) -> Result[
+    Unit,
+    ApplicationRemoteError,
+  ])?
+  mut application_failure : ((String) -> Unit)?
+  mut session_transport : SessionTransport?
   mut join_retry : JoinRetryHandle?
   mut transport_closed : Bool
   mut disposed : Bool
@@ -367,13 +372,7 @@ fn show_room_chooser() -> Unit {
 /// Update a mounted status through its reactive root, never by DOM mutation.
 fn collab_show_owner_status(owner : Ref[CollabOwner], text : String) -> Unit {
   match owner.val.app {
-    Some(app) => {
-      app._state.val.status.set(text)
-      match owner.val.renderer {
-        Some(renderer) => renderer.flush_all()
-        None => ()
-      }
-    }
+    Some(app) => app.record_collaboration_status(text)
     None => js_collab_show_status(text)
   }
 }
@@ -390,26 +389,32 @@ fn collab_send(owner : Ref[CollabOwner], message : CollabMessage) -> Unit {
 ///|
 /// Mount an app only after the reducer reaches a mounted phase.
 fn collab_mount(owner : Ref[CollabOwner]) -> Unit {
-  match (owner.val.app, owner.val.renderer) {
-    (Some(app), Some(renderer)) => {
-      mount_typed_sheet_app("app", app, renderer)
-      renderer.flush_all()
+  let app = match owner.val.app {
+    Some(app) => app
+    None => {
+      js_collab_show_status("Collaboration is not ready to mount.")
+      return
     }
-    _ => js_collab_show_status("Collaboration is not ready to mount.")
+  }
+  let hosts = match resolve_typed_sheet_hosts("app") {
+    Ok(hosts) => hosts
+    Err(MissingRegion(id)) => {
+      js_collab_show_status("Collaboration region is missing: \{id}.")
+      return
+    }
+  }
+  match app.mount(hosts) {
+    Ok(_) => ignore(app.flush_presentation())
+    Err(_) => js_collab_show_status("Collaboration is not ready to mount.")
   }
 }
 
 ///|
-/// Install local publication after app creation, never for remote apply.
-fn collab_install_app(owner : Ref[CollabOwner], app : TypedSheetApp) -> Unit {
+fn collab_install_app(
+  owner : Ref[CollabOwner],
+  app : TypedSheetApplication,
+) -> Unit {
   owner.val.app = Some(app)
-  match owner.val.app {
-    Some(app) =>
-      app.set_publisher(sync => {
-        collab_reduce(owner, CollabEvent::LocalCommitted(sync))
-      })
-    None => ()
-  }
 }
 
 ///|
@@ -425,6 +430,43 @@ fn collab_stop_join_retry(owner : Ref[CollabOwner]) -> Unit {
 }
 
 ///|
+fn collab_session_transport(
+  owner : Ref[CollabOwner],
+  receiver : Ref[(String) -> Unit],
+  failure_handler : Ref[(String) -> Unit],
+) -> SessionTransport {
+  let stopped = Ref(false)
+  SessionTransport::SessionTransport(
+    (remote_apply, application_failure) => {
+      if !stopped.val {
+        owner.val.remote_apply = Some(remote_apply)
+        owner.val.application_failure = Some(application_failure)
+      }
+    },
+    sync => {
+      if !stopped.val && !owner.val.disposed {
+        collab_reduce(owner, CollabEvent::LocalCommitted(sync))
+      }
+    },
+    () => {
+      if stopped.val {
+        return
+      }
+      stopped.val = true
+      owner.val.remote_apply = None
+      owner.val.application_failure = None
+      receiver.val = _ => ()
+      failure_handler.val = _ => ()
+      collab_stop_join_retry(owner)
+      if !owner.val.transport_closed {
+        js_collab_close(owner.val.transport)
+        owner.val.transport_closed = true
+      }
+    },
+  )
+}
+
+///|
 /// Execute one reducer decision at the imperative shell boundary.
 fn collab_decision(owner : Ref[CollabOwner], decision : CollabDecision) -> Unit {
   if owner.val.disposed {
@@ -435,18 +477,16 @@ fn collab_decision(owner : Ref[CollabOwner], decision : CollabDecision) -> Unit 
     CollabDecision::Send(message) => collab_send(owner, message)
     CollabDecision::Mount => collab_mount(owner)
     CollabDecision::Fail(error) => {
-      collab_stop_join_retry(owner)
-      match owner.val.app {
-        Some(app) => app._state.val.publish_sync = None
-        None => ()
+      match owner.val.application_failure {
+        Some(application_failure) => application_failure(error)
+        None =>
+          js_collab_show_status(
+            "Collaboration unavailable; edits are now local only: \{error}",
+          )
       }
-      collab_show_owner_status(
-        owner,
-        "Collaboration unavailable; edits are now local only: \{error}",
-      )
-      if !owner.val.transport_closed {
-        js_collab_close(owner.val.transport)
-        owner.val.transport_closed = true
+      match owner.val.session_transport {
+        Some(transport) => (transport.stop)()
+        None => ()
       }
     }
     CollabDecision::Attach(payload) => {
@@ -492,20 +532,31 @@ fn collab_attach(owner : Ref[CollabOwner], payload : BootstrapData) -> Unit {
   match document {
     Err(error) => collab_reduce(owner, CollabEvent::AttachFailed(error))
     Ok(document) => {
-      let runtime = @incr.Runtime()
-      let app = Ok(
-        TypedSheetApp::with_mode(
-          runtime,
-          SheetStartMode::Join(payload, document),
-        ),
-      ) catch {
-        _ => Err("The joiner could not attach the synchronized document.")
+      let transport = match owner.val.session_transport {
+        Some(transport) => transport
+        None => {
+          collab_reduce(
+            owner,
+            CollabEvent::AttachFailed("The session transport is unavailable."),
+          )
+          return
+        }
       }
+      let app = TypedSheetApplication::start(
+        @incr.Runtime(),
+        SheetStartMode::Join(payload, document),
+        Some(transport),
+        AiContextPublisher::production(),
+      )
       match app {
-        Err(error) => collab_reduce(owner, CollabEvent::AttachFailed(error))
+        Err(_) =>
+          collab_reduce(
+            owner,
+            CollabEvent::AttachFailed(
+              "The joiner could not attach the synchronized document.",
+            ),
+          )
         Ok(app) => {
-          let renderer = @tea.BrowserRenderer::BrowserRenderer(runtime)
-          owner.val.renderer = Some(renderer)
           collab_install_app(owner, app)
           collab_reduce(owner, CollabEvent::AttachSucceeded)
         }
@@ -515,43 +566,52 @@ fn collab_attach(owner : Ref[CollabOwner], payload : BootstrapData) -> Unit {
 }
 
 ///|
-/// Apply a remote message and fail closed if projection cannot complete.
+fn format_application_remote_error(error : ApplicationRemoteError) -> String {
+  match error {
+    ApplicationRemoteError::ProjectionFailed =>
+      "Remote projection failed; collaboration stopped."
+    ApplicationRemoteError::MutationNotLanded =>
+      "Remote mutation did not land; collaboration stopped."
+    ApplicationRemoteError::SynchronizationFailed(_) =>
+      "Remote synchronization failed; collaboration stopped."
+    ApplicationRemoteError::Disposed =>
+      "Remote update arrived before attachment or after application disposal."
+  }
+}
+
+///|
+fn collab_remote_apply_event(
+  result : Result[Unit, ApplicationRemoteError],
+) -> CollabEvent {
+  match result {
+    Ok(_) => CollabEvent::RemoteApplySucceeded
+    Err(error) =>
+      CollabEvent::RemoteApplyFailed(format_application_remote_error(error))
+  }
+}
+
+///|
+fn collab_invoke_remote_apply(
+  remote_apply : (@container.SyncMessage) -> Result[
+    Unit,
+    ApplicationRemoteError,
+  ],
+  message : @container.SyncMessage,
+) -> CollabEvent {
+  collab_remote_apply_event(remote_apply(message))
+}
+
+///|
+/// Apply a remote message through the application callback exactly once.
 fn collab_apply_remote(
   owner : Ref[CollabOwner],
   message : @container.SyncMessage,
 ) -> Unit {
-  match owner.val.app {
-    Some(app) => {
-      let applied : Result[Unit, String] = try {
-        let result = app.apply_remote(message)
-        match result.adapter_result() {
-          @egw_adapter.AdapterApplyResult::ProjectionFailed(_) =>
-            Err("Remote projection failed; collaboration stopped.")
-          @egw_adapter.AdapterApplyResult::MutationNotLanded =>
-            Err("Remote mutation did not land; collaboration stopped.")
-          _ => Ok(())
-        }
-      } catch {
-        _ => Err("Remote synchronization failed; collaboration stopped.")
-      }
-      match applied {
-        Ok(_) => {
-          collab_reduce(owner, CollabEvent::RemoteApplySucceeded)
-          match owner.val.renderer {
-            Some(renderer) => renderer.flush_all()
-            None => ()
-          }
-        }
-        Err(error) =>
-          collab_reduce(owner, CollabEvent::RemoteApplyFailed(error))
-      }
-    }
-    None =>
-      collab_reduce(
-        owner,
-        CollabEvent::RemoteApplyFailed("Remote update arrived before attach."),
-      )
+  let event = match owner.val.remote_apply {
+    Some(remote_apply) => collab_invoke_remote_apply(remote_apply, message)
+    None => collab_remote_apply_event(Err(ApplicationRemoteError::Disposed))
   }
+  collab_reduce(owner, event)
 }
 
 ///|
@@ -578,25 +638,17 @@ fn collab_dispose(owner : Ref[CollabOwner]) -> Unit {
   )
   owner.val.state = closed_state
   owner.val.disposed = true
-  collab_stop_join_retry(owner)
-  if !owner.val.transport_closed {
-    js_collab_close(owner.val.transport)
-    owner.val.transport_closed = true
-  }
-  js_collab_remove_lifecycle(owner.val.lifecycle)
-  match owner.val.renderer {
-    Some(renderer) => {
-      renderer.flush_all()
-      renderer.dispose()
-    }
+  match owner.val.session_transport {
+    Some(transport) => (transport.stop)()
     None => ()
   }
+  js_collab_remove_lifecycle(owner.val.lifecycle)
   match owner.val.app {
     Some(app) => app.dispose()
     None => ()
   }
-  owner.val.renderer = None
   owner.val.app = None
+  owner.val.session_transport = None
 }
 
 ///|
@@ -628,11 +680,17 @@ fn start_collaboration(mode : StartupMode) -> Unit {
     transport,
     lifecycle,
     app: None,
-    renderer: None,
+    remote_apply: None,
+    application_failure: None,
+    session_transport: None,
     join_retry: None,
     transport_closed: false,
     disposed: false,
   })
+  let session_transport = collab_session_transport(
+    owner, receiver, failure_handler,
+  )
+  owner.val.session_transport = Some(session_transport)
   receiver.val = raw => collab_receive(owner, raw)
   failure_handler.val = error => {
     collab_reduce(owner, CollabEvent::TransportFailed(error))
@@ -648,37 +706,33 @@ fn start_collaboration(mode : StartupMode) -> Unit {
   }
   match mode {
     StartupMode::Host(_, room, _) => {
-      let runtime = @incr.Runtime()
-      let app = Ok(
-        TypedSheetApp::with_mode(runtime, SheetStartMode::Host(room, replica)),
-      ) catch {
-        _ => Err("Host bootstrap failed.")
-      }
+      let app = TypedSheetApplication::start(
+        @incr.Runtime(),
+        SheetStartMode::Host(room, replica),
+        Some(session_transport),
+        AiContextPublisher::production(),
+      )
       match app {
-        Err(error) => collab_reduce(owner, CollabEvent::HostStartFailed(error))
+        Err(_) =>
+          collab_reduce(
+            owner,
+            CollabEvent::HostStartFailed("Host bootstrap failed."),
+          )
         Ok(app) => {
-          let sync = Ok(app._state.val.adapter.export_all()) catch {
-            _ => Err("Host export failed.")
-          }
-          match sync {
-            Err(error) => {
+          let bootstrap = match app.observe().collaboration {
+            ApplicationCollaborationResult::BootstrapReady(bootstrap) =>
+              bootstrap
+            _ => {
               app.dispose()
-              collab_reduce(owner, CollabEvent::HostStartFailed(error))
-            }
-            Ok(sync) => {
-              let renderer = @tea.BrowserRenderer::BrowserRenderer(runtime)
-              let bootstrap = BootstrapData::{
-                identity: @core.CollaborativeSheetId::CollaborativeSheetId(room),
-                sheet_id: @typed_spreadsheet.SheetId(1),
-                generation: app._state.val.adapter.generation(),
-                node: app._state.val.adapter.node(),
-                sync,
-              }
-              owner.val.renderer = Some(renderer)
-              collab_install_app(owner, app)
-              collab_reduce(owner, CollabEvent::HostStartSucceeded(bootstrap))
+              collab_reduce(
+                owner,
+                CollabEvent::HostStartFailed("Host export failed."),
+              )
+              return
             }
           }
+          collab_install_app(owner, app)
+          collab_reduce(owner, CollabEvent::HostStartSucceeded(bootstrap))
         }
       }
     }

@@ -1,192 +1,198 @@
 ///|
-struct ModelSnapshot {
-  adapter : @egw_adapter.EgwAdapter
-  cells : Array[String]
-  drafts : Array[CellDraft]
-  selected_cell : String
-  editing_cell : String?
-  trace_data : TraceData?
-  last_edit : String
-  status : String
-}
-
-///|
-fn SheetState::peek_model(self : SheetState) -> ModelSnapshot {
-  {
-    adapter: self.adapter,
-    cells: self.cells.peek(),
-    drafts: self.drafts.peek(),
-    selected_cell: self.selected_cell.peek(),
-    editing_cell: self.editing_cell.peek(),
-    trace_data: self.trace.peek(),
-    last_edit: self.last_edit.peek(),
-    status: self.status.peek(),
+fn new_model_application() -> TypedSheetApplication {
+  match
+    TypedSheetApplication::start(
+      @incr.Runtime(),
+      SheetStartMode::Standalone,
+      None,
+      AiContextPublisher::AiContextPublisher(_ => ()),
+    ) {
+    Ok(app) => app
+    Err(_) => abort("standalone application failed to start")
   }
 }
 
 ///|
-fn draft_for(model : ModelSnapshot, cell : String) -> String {
-  draft_text_from(model.drafts, cell)
+fn observed_cell(
+  snapshot : @demo.AiContextSnapshot,
+  cell : String,
+) -> @demo.AiContextCell {
+  match snapshot.cells.search_by(row => row.id == cell) {
+    Some(index) => snapshot.cells[index]
+    None => abort("missing observed cell: \{cell}")
+  }
 }
 
 ///|
-fn inspect_model_cell(
-  model : ModelSnapshot,
-  cell : String,
-) -> @typed_spreadsheet.CellSnapshot {
-  model.adapter.inspect_cell(cell)
+fn observed_draft(snapshot : ApplicationSnapshot, cell : String) -> String {
+  match snapshot.drafts.search_by(draft => draft.cell == cell) {
+    Some(index) => snapshot.drafts[index].text
+    None => ""
+  }
 }
 
 ///|
 test "incr_tea spreadsheet proof starts with seeded representative grid" {
-  let app = try! TypedSheetApp(@incr.Runtime())
-  let model = app._state.val.peek_model()
+  let app = new_model_application()
+  let observation = app.observe()
+  let snapshot = observation.snapshot
+  let context = snapshot.ai_context
 
-  inspect(model.selected_cell, content="B1")
-  inspect(model.cells.length(), content="2500")
-  inspect(model.trace_data is None, content="true")
-  inspect(draft_for(model, "A1"), content="10")
-  inspect(draft_for(model, "B1"), content="=A1 + 1")
+  inspect(context.selected_cell, content="B1")
+  inspect(grid_cells().length(), content="2500")
+  inspect(context.latest_trace is None, content="true")
+  inspect(observed_draft(snapshot, "A1"), content="10")
+  inspect(observed_draft(snapshot, "B1"), content="=A1 + 1")
+  ignore(app.dispatch(SelectCell("A1")))
   inspect(
-    cell_result_text(inspect_model_cell(model, "A1").result),
-    content="10",
+    app.observe().snapshot.ai_context.cells[0].result.repr,
+    content="Ok(Int(10))",
   )
+  ignore(app.dispatch(SelectCell("B1")))
   inspect(
-    cell_result_text(inspect_model_cell(model, "B1").result),
-    content="11",
+    app.observe().snapshot.ai_context.cells[0].result.repr,
+    content="Ok(Int(11))",
   )
-  let empty = inspect_model_cell(model, "C1")
-  inspect(empty.present, content="false")
-  inspect(cell_snapshot_text(empty), content="")
-  inspect(
-    app.prog_grid.read_view_or_abort() == app.prog_grid.read_view_or_abort(),
-    content="true",
-  )
+  ignore(app.dispatch(SelectCell("C1")))
+  let missing = observed_cell(app.observe().snapshot.ai_context, "C1")
+  inspect(missing.present, content="false")
+  inspect(missing.result.status, content="missing")
 
   app.dispose()
 }
 
 ///|
 test "present direct formula reference preserves missing Blank" {
-  let app = try! TypedSheetApp(@incr.Runtime())
-  ignore(app.prog_grid.dispatch(BeginInlineEdit("C1")))
-  ignore(app.prog_grid.dispatch(UpdateDraft("C1", "=Z1")))
-  ignore(app.prog_grid.dispatch(ApplyInlineEdit("C1")))
-  let snapshot = app._state.val.adapter.inspect_cell("C1")
-  inspect(snapshot.present, content="true")
-  inspect(snapshot.result is Ok(Blank), content="true")
-  inspect(cell_snapshot_text(snapshot), content="")
-  inspect(
-    grid_cell_class(snapshot, false, false, false).contains("sheet-cell--ok"),
-    content="true",
-  )
+  let app = new_model_application()
+  ignore(app.dispatch(BeginInlineEdit("C1")))
+  ignore(app.dispatch(UpdateDraft("C1", "=Z1")))
+  ignore(app.dispatch(ApplyInlineEdit("C1")))
+  let context = app.observe().snapshot.ai_context
+  let cell = observed_cell(context, "C1")
+  inspect(cell.present, content="true")
+  inspect(cell.result.status, content="ok")
+  inspect(cell.result.repr, content="Ok(Blank)")
   app.dispose()
 }
 
 ///|
-test "collaboration rejects reset before planning or adapter mutation" {
-  let app = TypedSheetApp::with_mode(
-    @incr.Runtime(),
-    SheetStartMode::Host("room", ReplicaId("replica")),
-  ) catch {
-    _ => fail("collaboration fixture failed to start")
+test "incr_tea spreadsheet proof exposes pure editor state through observation" {
+  let app = new_model_application()
+  ignore(app.dispatch(BeginInlineEdit("C1")))
+  ignore(app.dispatch(UpdateDraft("C1", "7")))
+  let snapshot = app.observe().snapshot
+
+  debug_inspect(snapshot.editing_cell, content="Some(\"C1\")")
+  debug_inspect(snapshot.error, content="None")
+  inspect(snapshot.last_edit, content="Seed sheet")
+  inspect(observed_draft(snapshot, "C1"), content="7")
+  app.dispose()
+}
+
+///|
+test "collaboration rejects reset before shared mutation" {
+  let recording = RecordingSessionTransport::RecordingSessionTransport()
+  let app = match
+    TypedSheetApplication::start(
+      @incr.Runtime(),
+      SheetStartMode::Host("room", ReplicaId("reset-model-test")),
+      Some(recording.port()),
+      AiContextPublisher::AiContextPublisher(_ => ()),
+    ) {
+    Ok(app) => app
+    Err(_) => abort("collaborative application failed to start")
   }
-  let before = app._state.val.adapter.version()
-  let before_node = app._state.val.adapter.node()
-  let before_identity = app._state.val.adapter.identity().value()
-  ignore(app.prog_grid.dispatch(ResetSheet))
-  inspect(
-    app._state.val.status.peek(),
-    content="Reset is unavailable while collaborating.",
+  let outcome = match app.dispatch(ResetSheet) {
+    Ok(outcome) => outcome
+    Err(_) => abort("collaboration reset dispatch was rejected")
+  }
+  inspect(outcome.authority_changed, content="false")
+  let snapshot = app.observe().snapshot
+  inspect(snapshot.status, content="Reset is unavailable while collaborating.")
+  debug_inspect(
+    snapshot.error,
+    content="Some(\"Collaboration keeps one shared document generation.\")",
   )
-  assert_eq(
-    app._state.val.adapter.generation(),
-    @domain.DocumentGeneration::initial(),
-  )
-  inspect(app._state.val.adapter.version() == before, content="true")
-  assert_eq(app._state.val.adapter.node(), before_node)
-  assert_eq(app._state.val.adapter.identity().value(), before_identity)
+  inspect(recording.published.val.length(), content="0")
   app.dispose()
 }
 
 ///|
 test "collaboration publish retains edit detail and local fallback stays local" {
-  let app = TypedSheetApp::with_mode(
-    @incr.Runtime(),
-    SheetStartMode::Host("room", ReplicaId("replica")),
-  ) catch {
-    _ => fail("collaboration fixture failed to start")
+  let recording = RecordingSessionTransport::RecordingSessionTransport()
+  let app = match
+    TypedSheetApplication::start(
+      @incr.Runtime(),
+      SheetStartMode::Host("room", ReplicaId("model-test")),
+      Some(recording.port()),
+      AiContextPublisher::AiContextPublisher(_ => ()),
+    ) {
+    Ok(app) => app
+    Err(_) => abort("collaborative application failed to start")
   }
-  let published = Ref(0)
-  app.set_publisher(_ => published.val += 1)
-  ignore(app.prog_grid.dispatch(BeginInlineEdit("C1")))
-  ignore(app.prog_grid.dispatch(UpdateDraft("C1", "7")))
-  ignore(app.prog_grid.dispatch(ApplyInlineEdit("C1")))
-  let shared_status = app._state.val.status.peek()
-  assert_eq(published.val, 1)
+  ignore(app.dispatch(BeginInlineEdit("C1")))
+  ignore(app.dispatch(UpdateDraft("C1", "7")))
+  ignore(app.dispatch(ApplyInlineEdit("C1")))
+  let shared_status = app.observe().snapshot.status
+  inspect(recording.published.val.length(), content="1")
   inspect(shared_status.contains("Applied C1 ← 7:"), content="true")
   inspect(shared_status.contains("Shared update sent."), content="true")
-  app._state.val.publish_sync = None
-  ignore(app.prog_grid.dispatch(BeginInlineEdit("C1")))
-  ignore(app.prog_grid.dispatch(UpdateDraft("C1", "8")))
-  ignore(app.prog_grid.dispatch(ApplyInlineEdit("C1")))
-  let local_status = app._state.val.status.peek()
-  assert_eq(published.val, 1)
+
+  inspect(recording.fail("transport failed"), content="true")
+  ignore(app.dispatch(BeginInlineEdit("C1")))
+  ignore(app.dispatch(UpdateDraft("C1", "8")))
+  ignore(app.dispatch(ApplyInlineEdit("C1")))
+  let local_status = app.observe().snapshot.status
+  inspect(recording.published.val.length(), content="1")
   inspect(local_status.contains("Applied C1 ← 8:"), content="true")
   inspect(local_status.contains("Shared update sent."), content="false")
   app.dispose()
 }
 
 ///|
-test "incr_tea spreadsheet proof applies and cancels through Program dispatch" {
-  let app = try! TypedSheetApp(@incr.Runtime())
+test "incr_tea spreadsheet proof applies and cancels through application dispatch" {
+  let app = new_model_application()
 
-  ignore(app.prog_grid.dispatch(BeginInlineEdit("C1")))
-  ignore(app.prog_grid.dispatch(UpdateDraft("C1", "7")))
-  ignore(app.prog_grid.dispatch(MoveSelection(1, 0)))
-  ignore(app.prog_grid.dispatch(ApplyInlineEdit("C1")))
-  let applied = app._state.val.peek_model()
+  ignore(app.dispatch(BeginInlineEdit("C1")))
+  ignore(app.dispatch(UpdateDraft("C1", "7")))
+  ignore(app.dispatch(MoveSelection(1, 0)))
+  ignore(app.dispatch(ApplyInlineEdit("C1")))
+  let applied = app.observe().snapshot
 
-  inspect(applied.selected_cell, content="C1")
+  inspect(applied.ai_context.selected_cell, content="C1")
   inspect(applied.editing_cell is None, content="true")
   inspect(
-    cell_result_text(inspect_model_cell(applied, "C1").result),
-    content="7",
+    observed_cell(applied.ai_context, "C1").result.repr,
+    content="Ok(Int(7))",
   )
   inspect(applied.last_edit, content="C1 ← 7")
 
-  ignore(app.prog_grid.dispatch(BeginInlineEdit("C1")))
-  ignore(app.prog_grid.dispatch(UpdateDraft("C1", "8")))
-  ignore(app.prog_grid.dispatch(CancelSelected))
-  let cancelled = app._state.val.peek_model()
-  inspect(draft_for(cancelled, "C1"), content="7")
+  ignore(app.dispatch(BeginInlineEdit("C1")))
+  ignore(app.dispatch(UpdateDraft("C1", "8")))
+  ignore(app.dispatch(CancelSelected))
+  let cancelled = app.observe().snapshot
+  inspect(observed_draft(cancelled, "C1"), content="7")
   inspect(
-    cell_result_text(inspect_model_cell(cancelled, "C1").result),
-    content="7",
+    observed_cell(cancelled.ai_context, "C1").result.repr,
+    content="Ok(Int(7))",
   )
   app.dispose()
 }
 
 ///|
 test "incr_tea spreadsheet proof applies formula bar edits and dependent formulas update" {
-  let app = try! TypedSheetApp(@incr.Runtime())
+  let app = new_model_application()
+  ignore(app.dispatch(SelectCell("A1")))
+  ignore(app.dispatch(UpdateDraft("A1", "15")))
+  ignore(app.dispatch(ApplySelected))
+  let observation = app.observe().snapshot
+  let context = observation.ai_context
 
-  ignore(app.prog_grid.dispatch(SelectCell("A1")))
-  ignore(app.prog_grid.dispatch(UpdateDraft("A1", "15")))
-  ignore(app.prog_grid.dispatch(ApplySelected))
-  let model = app._state.val.peek_model()
-
-  inspect(model.last_edit, content="A1 ← 15")
-  inspect(
-    cell_result_text(inspect_model_cell(model, "A1").result),
-    content="15",
-  )
-  inspect(
-    cell_result_text(inspect_model_cell(model, "B1").result),
-    content="16",
-  )
-  match model.trace_data {
-    Some(td) => inspect(td.changed_str, content="[B1]")
+  inspect(observation.last_edit, content="A1 ← 15")
+  inspect(observed_cell(context, "A1").result.repr, content="Ok(Int(15))")
+  inspect(observed_cell(context, "B1").result.repr, content="Ok(Int(16))")
+  match context.latest_trace {
+    Some(trace) => inspect(trace.changed.contains("B1"), content="true")
     None => abort("expected applied edit")
   }
   app.dispose()
@@ -234,391 +240,55 @@ test "incr_tea spreadsheet proof maps payload descriptors at renderer boundary" 
 
 ///|
 test "incr_tea locality: draft-only does not change status" {
-  let app = try! TypedSheetApp(@incr.Runtime())
-  let before = app._state.val.peek_model()
-  let initial_status = before.status
+  let app = new_model_application()
+  let initial_status = app.observe().snapshot.status
 
-  // UpdateDraft writes only selected_cell + drafts — status must stay unchanged
-  ignore(app.prog_grid.dispatch(UpdateDraft("C1", "99")))
-  let after_draft = app._state.val.peek_model()
+  ignore(app.dispatch(UpdateDraft("C1", "99")))
+  let after_draft = app.observe().snapshot
   inspect(after_draft.status, content=initial_status)
 
-  // SelectCell still patches status (selection is not draft-only)
-  ignore(app.prog_grid.dispatch(SelectCell("A1")))
-  let after_select = app._state.val.peek_model()
+  ignore(app.dispatch(SelectCell("A1")))
+  let after_select = app.observe().snapshot
   inspect(after_select.status, content="Selected A1.")
-
   app.dispose()
 }
 
 ///|
 test "example click applies the selected cell immediately" {
-  let app = try! TypedSheetApp(@incr.Runtime())
-  ignore(app.prog_grid.dispatch(SelectCell("A1")))
-  ignore(app.prog_grid.dispatch(UseExample("15")))
-  let model = app._state.val.peek_model()
-  inspect(draft_for(model, "A1"), content="15")
+  let app = new_model_application()
+  ignore(app.dispatch(SelectCell("A1")))
+  ignore(app.dispatch(UseExample("15")))
+  let snapshot = app.observe().snapshot
+  inspect(observed_draft(snapshot, "A1"), content="15")
   inspect(
-    cell_result_text(inspect_model_cell(model, "A1").result),
-    content="15",
+    observed_cell(snapshot.ai_context, "A1").result.repr,
+    content="Ok(Int(15))",
   )
   inspect(
-    cell_result_text(inspect_model_cell(model, "B1").result),
-    content="16",
+    observed_cell(snapshot.ai_context, "B1").result.repr,
+    content="Ok(Int(16))",
   )
   app.dispose()
 }
 
-// ── Cross-root locality: DOM/RAF shims ──────────────────────────
-// These set up a fake `document`/`window` for mount/flush without a
-// real browser. They manipulate the same `globalThis.__incrTea*` state
-// as the incr_tea wbtest helpers.
-
 ///|
-#cfg(target="js")
-extern "js" fn typed_sheet_test_setup_dom() -> @tea.DomElement =
-  #| () => {
-  #|   const byId = new Map();
-  #|   globalThis.__incrTeaPreviousDocument = globalThis.document;
-  #|   globalThis.__incrTeaPreviousWindow = globalThis.window;
-  #|   globalThis.__incrTeaFocusedId = "";
-  #|   globalThis.__incrTeaSelectedId = "";
-  #|   globalThis.__incrTeaRafs = [];
-  #|   class TextNode {
-  #|     constructor(value) { this.nodeValue = String(value); this.parentNode = null; }
-  #|   }
-  #|   class Element {
-  #|     constructor(tag) {
-  #|       this.tagName = String(tag).toUpperCase();
-  #|       this.children = [];
-  #|       this.parentNode = null;
-  #|       this.attributes = new Map();
-  #|       this.listeners = new Map();
-  #|       this.value = "";
-  #|     }
-  #|     appendChild(child) {
-  #|       if (child.parentNode) child.parentNode.removeChild(child);
-  #|       this.children.push(child);
-  #|       child.parentNode = this;
-  #|     }
-  #|     replaceChildren(child) {
-  #|       for (const old of this.children) old.parentNode = null;
-  #|       this.children = [];
-  #|       if (child) this.appendChild(child);
-  #|     }
-  #|     replaceChild(next, old) {
-  #|       const index = this.children.indexOf(old);
-  #|       if (index < 0) throw new Error("old child missing");
-  #|       if (next.parentNode) next.parentNode.removeChild(next);
-  #|       old.parentNode = null;
-  #|       this.children[index] = next;
-  #|       next.parentNode = this;
-  #|     }
-  #|     removeChild(child) {
-  #|       const index = this.children.indexOf(child);
-  #|       if (index >= 0) this.children.splice(index, 1);
-  #|       child.parentNode = null;
-  #|     }
-  #|     setAttribute(name, value) {
-  #|       const stringValue = String(value);
-  #|       this.attributes.set(name, stringValue);
-  #|       if (name === "id") byId.set(stringValue, this);
-  #|     }
-  #|     removeAttribute(name) {
-  #|       if (name === "id") byId.delete(this.attributes.get(name));
-  #|       this.attributes.delete(name);
-  #|     }
-  #|     addEventListener(name, listener) { this.listeners.set(name, listener); }
-  #|     querySelector(selector) {
-  #|       return selector.startsWith("#") ? (byId.get(selector.slice(1)) ?? null) : null;
-  #|     }
-  #|     focus() { globalThis.__incrTeaFocusedId = this.attributes.get("id") ?? ""; }
-  #|     select() { globalThis.__incrTeaSelectedId = this.attributes.get("id") ?? ""; }
-  #|   }
-  #|   globalThis.document = {
-  #|     createElement(tag) { return new Element(tag); },
-  #|     createTextNode(value) { return new TextNode(value); },
-  #|     getElementById(id) { return byId.get(String(id)) ?? null; },
-  #|   };
-  #|   globalThis.window = {
-  #|     requestAnimationFrame(callback) {
-  #|       globalThis.__incrTeaRafs.push(callback);
-  #|       return globalThis.__incrTeaRafs.length;
-  #|     },
-  #|   };
-  #|   return new Element("host");
-  #| }
-
-///|
-#cfg(target="js")
-extern "js" fn typed_sheet_test_run_raf() -> Unit =
-  #| () => {
-  #|   const callback = globalThis.__incrTeaRafs.shift();
-  #|   if (!callback) throw new Error("missing queued rAF");
-  #|   callback();
-  #| }
-
-///|
-#cfg(target="js")
-extern "js" fn typed_sheet_test_create_host() -> @tea.DomElement =
-  #| () => document.createElement("div")
-
-///|
-#cfg(target="js")
-extern "js" fn typed_sheet_test_restore_dom() -> Unit =
-  #| () => {
-  #|   if (globalThis.__incrTeaPreviousDocument === undefined) {
-  #|     delete globalThis.document;
-  #|   } else {
-  #|     globalThis.document = globalThis.__incrTeaPreviousDocument;
-  #|   }
-  #|   if (globalThis.__incrTeaPreviousWindow === undefined) {
-  #|     delete globalThis.window;
-  #|   } else {
-  #|     globalThis.window = globalThis.__incrTeaPreviousWindow;
-  #|   }
-  #|   delete globalThis.__incrTeaPreviousDocument;
-  #|   delete globalThis.__incrTeaPreviousWindow;
-  #|   delete globalThis.__incrTeaRafs;
-  #| }
-
-// ── Cross-root locality: helpers ─────────────────────────────────
-
-///|
-#cfg(target="js")
-fn find_by_label(
-  stats : Array[@tea.RootStats],
-  label : String,
-) -> @tea.RootStats {
-  match stats.search_by(s => s.label == label) {
-    Some(i) => stats[i]
-    None => abort("missing root: \{label}")
+test "delete clears local projections and records semantic evidence" {
+  let app = new_model_application()
+  ignore(app.dispatch(SelectCell("A1")))
+  let outcome = match app.dispatch(DeleteSelected) {
+    Ok(outcome) => outcome
+    Err(_) => abort("delete dispatch was rejected")
   }
-}
-
-///|
-#cfg(target="js")
-fn delta_patch_attempts(
-  after : Array[@tea.RootStats],
-  before : Array[@tea.RootStats],
-  label : String,
-) -> Int {
-  find_by_label(after, label).patch_attempts -
-  find_by_label(before, label).patch_attempts
-}
-
-///|
-#cfg(target="js")
-fn delta_skipped_patches(
-  after : Array[@tea.RootStats],
-  before : Array[@tea.RootStats],
-  label : String,
-) -> Int {
-  find_by_label(after, label).skipped_patches -
-  find_by_label(before, label).skipped_patches
-}
-
-///|
-#cfg(target="js")
-fn mount_all_roots(
-  renderer : @tea.BrowserRenderer[Msg],
-  app : TypedSheetApp,
-) -> Unit {
-  ignore(
-    renderer.mount(typed_sheet_test_create_host(), app.prog_grid, label="grid"),
-  )
-  ignore(
-    renderer.mount(
-      typed_sheet_test_create_host(),
-      app.prog_formula,
-      label="formula-bar",
-    ),
-  )
-  ignore(
-    renderer.mount(
-      typed_sheet_test_create_host(),
-      app.prog_status,
-      label="status",
-    ),
-  )
-  ignore(
-    renderer.mount(
-      typed_sheet_test_create_host(),
-      app.prog_trace,
-      label="trace",
-    ),
-  )
-  ignore(
-    renderer.mount(
-      typed_sheet_test_create_host(),
-      app.prog_evidence,
-      label="evidence",
-    ),
-  )
-}
-
-// ── Cross-root locality: 5 validation tests ─────────────────────
-
-///|
-#cfg(target="js")
-test "cross-root locality: selection-only patches grid, formula, status" {
-  let _host = typed_sheet_test_setup_dom()
-  let runtime = @incr.Runtime()
-  let app = try! TypedSheetApp(runtime)
-  let renderer : @tea.BrowserRenderer[Msg] = @tea.BrowserRenderer::BrowserRenderer(
-    runtime,
-  )
-  mount_all_roots(renderer, app)
-  let before = renderer.root_stats()
-
-  ignore(app.prog_grid.dispatch(SelectCell("A2")))
-  typed_sheet_test_run_raf()
-
-  let after = renderer.root_stats()
-  inspect(delta_patch_attempts(after, before, "grid"), content="1")
-  inspect(delta_skipped_patches(after, before, "grid"), content="0")
-  inspect(delta_patch_attempts(after, before, "formula-bar"), content="1")
-  inspect(delta_skipped_patches(after, before, "formula-bar"), content="0")
-  inspect(delta_patch_attempts(after, before, "status"), content="1")
-  inspect(delta_skipped_patches(after, before, "status"), content="0")
-  inspect(delta_patch_attempts(after, before, "trace"), content="0")
-  inspect(delta_skipped_patches(after, before, "trace"), content="1")
-
-  renderer.dispose()
+  let snapshot = app.observe().snapshot
+  inspect(outcome.authority_changed, content="true")
+  inspect(observed_draft(snapshot, "A1"), content="")
+  let deleted = observed_cell(snapshot.ai_context, "A1")
+  inspect(deleted.present, content="false")
+  inspect(deleted.committed_text, content="")
+  inspect(snapshot.last_edit, content="delete A1")
+  inspect(snapshot.ai_context.latest_trace is Some(_), content="true")
+  inspect(snapshot.ai_context.latest_evidence is Some(_), content="true")
   app.dispose()
-  typed_sheet_test_restore_dom()
-}
-
-///|
-#cfg(target="js")
-test "cross-root locality: draft-only patches grid, formula" {
-  let _host = typed_sheet_test_setup_dom()
-  let runtime = @incr.Runtime()
-  let app = try! TypedSheetApp(runtime)
-  let renderer : @tea.BrowserRenderer[Msg] = @tea.BrowserRenderer::BrowserRenderer(
-    runtime,
-  )
-  mount_all_roots(renderer, app)
-  let before = renderer.root_stats()
-
-  ignore(app.prog_grid.dispatch(UpdateDraft("C1", "99")))
-  typed_sheet_test_run_raf()
-
-  let after = renderer.root_stats()
-  inspect(delta_patch_attempts(after, before, "grid"), content="1")
-  inspect(delta_skipped_patches(after, before, "grid"), content="0")
-  inspect(delta_patch_attempts(after, before, "formula-bar"), content="1")
-  inspect(delta_skipped_patches(after, before, "formula-bar"), content="0")
-  inspect(delta_patch_attempts(after, before, "status"), content="0")
-  inspect(delta_skipped_patches(after, before, "status"), content="1")
-  inspect(delta_patch_attempts(after, before, "trace"), content="0")
-  inspect(delta_skipped_patches(after, before, "trace"), content="1")
-
-  renderer.dispose()
-  app.dispose()
-  typed_sheet_test_restore_dom()
-}
-
-///|
-#cfg(target="js")
-test "cross-root locality: apply after draft patches grid, status, trace; formula skips" {
-  let _host = typed_sheet_test_setup_dom()
-  let runtime = @incr.Runtime()
-  let app = try! TypedSheetApp(runtime)
-  let renderer : @tea.BrowserRenderer[Msg] = @tea.BrowserRenderer::BrowserRenderer(
-    runtime,
-  )
-  mount_all_roots(renderer, app)
-
-  // Prime: set draft and flush so last_view captures draft state
-  ignore(app.prog_grid.dispatch(UpdateDraft("A1", "42")))
-  typed_sheet_test_run_raf()
-
-  let before = renderer.root_stats()
-
-  // Act: apply the draft — committed changes but formula-bar inputs stay
-  ignore(app.prog_grid.dispatch(ApplySelected))
-  typed_sheet_test_run_raf()
-
-  let after = renderer.root_stats()
-  inspect(delta_patch_attempts(after, before, "grid"), content="1")
-  inspect(delta_skipped_patches(after, before, "grid"), content="0")
-  inspect(delta_patch_attempts(after, before, "formula-bar"), content="0")
-  inspect(delta_skipped_patches(after, before, "formula-bar"), content="1")
-  inspect(delta_patch_attempts(after, before, "status"), content="1")
-  inspect(delta_skipped_patches(after, before, "status"), content="0")
-  inspect(delta_patch_attempts(after, before, "trace"), content="1")
-  inspect(delta_skipped_patches(after, before, "trace"), content="0")
-
-  renderer.dispose()
-  app.dispose()
-  typed_sheet_test_restore_dom()
-}
-
-///|
-#cfg(target="js")
-test "cross-root locality: begin-inline-edit patches grid, formula, status" {
-  let _host = typed_sheet_test_setup_dom()
-  let runtime = @incr.Runtime()
-  let app = try! TypedSheetApp(runtime)
-  let renderer : @tea.BrowserRenderer[Msg] = @tea.BrowserRenderer::BrowserRenderer(
-    runtime,
-  )
-  mount_all_roots(renderer, app)
-  let before = renderer.root_stats()
-
-  ignore(app.prog_grid.dispatch(BeginInlineEdit("D1")))
-  typed_sheet_test_run_raf()
-
-  let after = renderer.root_stats()
-  inspect(delta_patch_attempts(after, before, "grid"), content="1")
-  inspect(delta_skipped_patches(after, before, "grid"), content="0")
-  inspect(delta_patch_attempts(after, before, "formula-bar"), content="1")
-  inspect(delta_skipped_patches(after, before, "formula-bar"), content="0")
-  inspect(delta_patch_attempts(after, before, "status"), content="1")
-  inspect(delta_skipped_patches(after, before, "status"), content="0")
-  inspect(delta_patch_attempts(after, before, "trace"), content="0")
-  inspect(delta_skipped_patches(after, before, "trace"), content="1")
-
-  renderer.dispose()
-  app.dispose()
-  typed_sheet_test_restore_dom()
-}
-
-///|
-#cfg(target="js")
-test "cross-root locality: clean apply patches only status and trace" {
-  let _host = typed_sheet_test_setup_dom()
-  let runtime = @incr.Runtime()
-  let app = try! TypedSheetApp(runtime)
-  let renderer : @tea.BrowserRenderer[Msg] = @tea.BrowserRenderer::BrowserRenderer(
-    runtime,
-  )
-  mount_all_roots(renderer, app)
-
-  // Prime: select A1 so ApplySelected targets it
-  ignore(app.prog_grid.dispatch(SelectCell("A1")))
-  typed_sheet_test_run_raf()
-
-  let before = renderer.root_stats()
-
-  // Act: apply the same value — nothing in grid/formula-bar read-sets changes
-  ignore(app.prog_grid.dispatch(ApplySelected))
-  typed_sheet_test_run_raf()
-
-  let after = renderer.root_stats()
-  inspect(delta_patch_attempts(after, before, "grid"), content="0")
-  inspect(delta_skipped_patches(after, before, "grid"), content="1")
-  inspect(delta_patch_attempts(after, before, "formula-bar"), content="0")
-  inspect(delta_skipped_patches(after, before, "formula-bar"), content="1")
-  inspect(delta_patch_attempts(after, before, "status"), content="1")
-  inspect(delta_skipped_patches(after, before, "status"), content="0")
-  inspect(delta_patch_attempts(after, before, "trace"), content="1")
-  inspect(delta_skipped_patches(after, before, "trace"), content="0")
-
-  renderer.dispose()
-  app.dispose()
-  typed_sheet_test_restore_dom()
 }
 
 ///|
@@ -637,27 +307,64 @@ test "incr_tea spreadsheet proof covers the practical 50x50 grid" {
 
 ///|
 test "incr_tea spreadsheet proof clamps selection at 50x50 boundaries" {
-  let app = try! TypedSheetApp(@incr.Runtime())
-  ignore(app.prog_grid.dispatch(SelectCell("AX50")))
-  ignore(app.prog_grid.dispatch(MoveSelection(1, 0)))
-  inspect(app._state.val.selected_cell.peek(), content="AX50")
-  ignore(app.prog_grid.dispatch(MoveSelection(0, 1)))
-  inspect(app._state.val.selected_cell.peek(), content="AX50")
-  ignore(app.prog_grid.dispatch(SelectCell("A1")))
-  ignore(app.prog_grid.dispatch(MoveSelection(-1, 0)))
-  inspect(app._state.val.selected_cell.peek(), content="A1")
-  ignore(app.prog_grid.dispatch(MoveSelection(0, -1)))
-  inspect(app._state.val.selected_cell.peek(), content="A1")
+  let app = new_model_application()
+  ignore(app.dispatch(SelectCell("AX50")))
+  ignore(app.dispatch(MoveSelection(1, 0)))
+  inspect(app.observe().snapshot.ai_context.selected_cell, content="AX50")
+  ignore(app.dispatch(MoveSelection(0, 1)))
+  inspect(app.observe().snapshot.ai_context.selected_cell, content="AX50")
+  ignore(app.dispatch(SelectCell("A1")))
+  ignore(app.dispatch(MoveSelection(-1, 0)))
+  inspect(app.observe().snapshot.ai_context.selected_cell, content="A1")
+  ignore(app.dispatch(MoveSelection(0, -1)))
+  inspect(app.observe().snapshot.ai_context.selected_cell, content="A1")
   app.dispose()
 }
 
 ///|
+struct ModelContextFixture {
+  runtime : @incr.Runtime
+  state : Ref[SheetState]
+}
+
+///|
+fn new_model_context_fixture() -> ModelContextFixture {
+  let runtime = @incr.Runtime()
+  {
+    runtime,
+    state: Ref(try! SheetState::new(runtime, SheetStartMode::Standalone)),
+  }
+}
+
+///|
+fn ModelContextFixture::dispatch(self : ModelContextFixture, msg : Msg) -> Unit {
+  // This fixture is intentionally source-owned. ApplicationObservation exposes
+  // the default AI context only; custom region/max_cells contracts must exercise
+  // SheetState::ai_context_snapshot without reaching through the application.
+  let (plan, immediate) = prepare_sheet_dispatch(self.state, msg)
+  ignore(immediate)
+  execute_sheet_plan(self.runtime, self.state, plan)
+}
+
+///|
+fn ModelContextFixture::snapshot(
+  self : ModelContextFixture,
+  region? : Array[String],
+  max_cells? : Int = 64,
+) -> @demo.AiContextSnapshot {
+  self.state.val.ai_context_snapshot(region?, max_cells~)
+}
+
+///|
+fn ModelContextFixture::dispose(self : ModelContextFixture) -> Unit {
+  self.state.val.adapter.dispose()
+  self.state.val._scope.dispose()
+}
+
+///|
 test "incr_tea AI context stays schema-versioned and bounded" {
-  let app = try! TypedSheetApp(@incr.Runtime())
-  let context = app._state.val.ai_context_snapshot(
-    region?=Some(["A1", "B1", "C1"]),
-    max_cells=2,
-  )
+  let fixture = new_model_context_fixture()
+  let context = fixture.snapshot(region?=Some(["A1", "B1", "C1"]), max_cells=2)
   inspect(context.schema_version, content="3")
   inspect(context.selected_cell, content="B1")
   inspect(context.max_cells, content="2")
@@ -670,16 +377,16 @@ test "incr_tea AI context stays schema-versioned and bounded" {
   inspect(context.cells[0].draft_dirty, content="false")
   inspect(context.latest_trace is None, content="true")
   inspect(context.latest_evidence is None, content="true")
-  app.dispose()
+  fixture.dispose()
 }
 
 ///|
 test "incr_tea AI context carries latest trace and evidence" {
-  let app = try! TypedSheetApp(@incr.Runtime())
-  ignore(app.prog_grid.dispatch(SelectCell("A1")))
-  ignore(app.prog_grid.dispatch(UpdateDraft("A1", "15")))
-  ignore(app.prog_grid.dispatch(ApplySelected))
-  let context = app._state.val.ai_context_snapshot()
+  let app = new_model_application()
+  ignore(app.dispatch(SelectCell("A1")))
+  ignore(app.dispatch(UpdateDraft("A1", "15")))
+  ignore(app.dispatch(ApplySelected))
+  let context = app.observe().snapshot.ai_context
   match context.latest_trace {
     Some(trace) => {
       inspect(trace.edit, content="A1 ← 15")
@@ -712,50 +419,72 @@ test "incr_tea AI context carries latest trace and evidence" {
     }
     None => abort("expected latest evidence")
   }
-  ignore(app.prog_grid.dispatch(ResetSheet))
-  let reset_context = app._state.val.ai_context_snapshot()
-  inspect(reset_context.selected_cell, content="B1")
-  inspect(reset_context.latest_trace is None, content="true")
-  inspect(reset_context.latest_evidence is None, content="true")
+  let outcome = match app.dispatch(ResetSheet) {
+    Ok(outcome) => outcome
+    Err(_) => abort("reset dispatch was rejected")
+  }
+  let reset = app.observe().snapshot
+  inspect(outcome.authority_changed, content="true")
+  inspect(reset.ai_context.selected_cell, content="B1")
+  inspect(observed_draft(reset, "A1"), content="10")
+  inspect(observed_draft(reset, "B1"), content="=A1 + 1")
+  inspect(observed_draft(reset, "C1"), content="")
+  inspect(
+    observed_cell(reset.ai_context, "A1").result.repr,
+    content="Ok(Int(10))",
+  )
+  inspect(
+    observed_cell(reset.ai_context, "B1").result.repr,
+    content="Ok(Int(11))",
+  )
+  inspect(
+    reset.status,
+    content="Ready. This incr_tea proof is separate from the live Rabbita demo.",
+  )
+  inspect(reset.last_edit, content="Seed sheet")
+  inspect(reset.ai_context.latest_trace is None, content="true")
+  inspect(reset.ai_context.latest_evidence is None, content="true")
   app.dispose()
 }
 
 ///|
 test "incr_tea evidence capture stays bounded for many direct dependents" {
-  let app = try! TypedSheetApp(@incr.Runtime())
+  let app = new_model_application()
   for row in 2..<=20 {
     let cell = "B\{row}"
-    ignore(app.prog_grid.dispatch(SelectCell(cell)))
-    ignore(app.prog_grid.dispatch(UpdateDraft(cell, "=A1")))
-    ignore(app.prog_grid.dispatch(ApplySelected))
+    ignore(app.dispatch(SelectCell(cell)))
+    ignore(app.dispatch(UpdateDraft(cell, "=A1")))
+    ignore(app.dispatch(ApplySelected))
   }
-  let ids = state_capture_cell_ids(app._state, state_cell_id(app._state, "A1"))
-  inspect(ids.length(), content="16")
-  inspect(@demo.cell_id_to_string(ids[0]), content="A1")
-  inspect(@demo.cell_id_to_string(ids[1]), content="B20")
-  inspect(@demo.cell_id_to_string(ids[2]), content="B1")
-  inspect(@demo.cell_id_to_string(ids[15]), content="B14")
-  let selected_id = state_cell_id(app._state, "B20")
-  let mut selected_count = 0
-  for id in ids {
-    if id == selected_id {
-      selected_count += 1
+  // Make A1 the captured edit target so the public observation exposes the
+  // same direct-dependent evidence path without reaching through SheetState.
+  ignore(app.dispatch(SelectCell("A1")))
+  ignore(app.dispatch(UpdateDraft("A1", "11")))
+  ignore(app.dispatch(ApplySelected))
+  let context = app.observe().snapshot.ai_context
+  match context.latest_evidence {
+    Some(evidence) => {
+      inspect(evidence.cells.length(), content="16")
+      inspect(evidence.cells[0].id, content="A1")
+      inspect(evidence.cells[1].id, content="B1")
+      inspect(evidence.cells[2].id, content="B2")
+      inspect(evidence.cells[15].id, content="B15")
     }
+    None => abort("expected bounded evidence")
   }
-  inspect(selected_count, content="1")
   app.dispose()
 }
 
 ///|
 test "incr_tea evidence distinguishes unchanged formula recomputation" {
-  let app = try! TypedSheetApp(@incr.Runtime())
-  ignore(app.prog_grid.dispatch(SelectCell("B1")))
-  ignore(app.prog_grid.dispatch(UpdateDraft("B1", "=A1 * 0")))
-  ignore(app.prog_grid.dispatch(ApplySelected))
-  ignore(app.prog_grid.dispatch(SelectCell("A1")))
-  ignore(app.prog_grid.dispatch(UpdateDraft("A1", "15")))
-  ignore(app.prog_grid.dispatch(ApplySelected))
-  let context = app._state.val.ai_context_snapshot()
+  let app = new_model_application()
+  ignore(app.dispatch(SelectCell("B1")))
+  ignore(app.dispatch(UpdateDraft("B1", "=A1 * 0")))
+  ignore(app.dispatch(ApplySelected))
+  ignore(app.dispatch(SelectCell("A1")))
+  ignore(app.dispatch(UpdateDraft("A1", "15")))
+  ignore(app.dispatch(ApplySelected))
+  let context = app.observe().snapshot.ai_context
   match context.latest_evidence {
     Some(evidence) => {
       inspect(evidence.cells.length(), content="2")
@@ -769,11 +498,11 @@ test "incr_tea evidence distinguishes unchanged formula recomputation" {
 
 ///|
 test "AI context parity scenario covers edits, errors, formulas, deletes, and bounds" {
-  let app = try! TypedSheetApp(@incr.Runtime())
-  ignore(app.prog_grid.dispatch(SelectCell("A1")))
-  ignore(app.prog_grid.dispatch(UpdateDraft("A1", "15")))
-  ignore(app.prog_grid.dispatch(ApplySelected))
-  let successful = app._state.val.ai_context_snapshot(region=["A1"])
+  let fixture = new_model_context_fixture()
+  fixture.dispatch(SelectCell("A1"))
+  fixture.dispatch(UpdateDraft("A1", "15"))
+  fixture.dispatch(ApplySelected)
+  let successful = fixture.snapshot(region=["A1"])
   inspect(successful.cells[0].result.status, content="ok")
   match successful.cells[0].result.value {
     Some(value) => {
@@ -791,9 +520,9 @@ test "AI context parity scenario covers edits, errors, formulas, deletes, and bo
     None => abort("expected successful evidence")
   }
 
-  ignore(app.prog_grid.dispatch(UpdateDraft("A1", "oops")))
-  ignore(app.prog_grid.dispatch(ApplySelected))
-  let after_parse_error = app._state.val.ai_context_snapshot(region=["A1"])
+  fixture.dispatch(UpdateDraft("A1", "oops"))
+  fixture.dispatch(ApplySelected)
+  let after_parse_error = fixture.snapshot(region=["A1"])
   inspect(after_parse_error.cells[0].result.status, content="ok")
   inspect(after_parse_error.cells[0].committed_text, content="15")
   inspect(after_parse_error.cells[0].draft_text, content="oops")
@@ -803,10 +532,10 @@ test "AI context parity scenario covers edits, errors, formulas, deletes, and bo
     None => abort("expected retained successful trace")
   }
 
-  ignore(app.prog_grid.dispatch(SelectCell("B1")))
-  ignore(app.prog_grid.dispatch(UpdateDraft("B1", "=A1 + 1")))
-  ignore(app.prog_grid.dispatch(ApplySelected))
-  let equivalent_context = app._state.val.ai_context_snapshot(region=["B1"])
+  fixture.dispatch(SelectCell("B1"))
+  fixture.dispatch(UpdateDraft("B1", "=A1 + 1"))
+  fixture.dispatch(ApplySelected)
+  let equivalent_context = fixture.snapshot(region=["B1"])
   match equivalent_context.cells[0].formula {
     Some(formula) =>
       match formula.shape {
@@ -821,13 +550,10 @@ test "AI context parity scenario covers edits, errors, formulas, deletes, and bo
     None => abort("expected equivalent-formula evidence")
   }
 
-  ignore(app.prog_grid.dispatch(SelectCell("A1")))
-  ignore(app.prog_grid.dispatch(DeleteSelected))
-  ignore(app.prog_grid.dispatch(SelectCell("B1")))
-  let deleted_context = app._state.val.ai_context_snapshot(
-    region=["A1", "B1", "C1"],
-    max_cells=1,
-  )
+  fixture.dispatch(SelectCell("A1"))
+  fixture.dispatch(DeleteSelected)
+  fixture.dispatch(SelectCell("B1"))
+  let deleted_context = fixture.snapshot(region=["A1", "B1", "C1"], max_cells=1)
   inspect(deleted_context.truncated, content="true")
   debug_inspect(deleted_context.region, content="[\"B1\"]")
   inspect(deleted_context.cells[0].result.status, content="type_error")
@@ -847,16 +573,16 @@ test "AI context parity scenario covers edits, errors, formulas, deletes, and bo
     }
     None => abort("expected delete evidence")
   }
-  app.dispose()
+  fixture.dispose()
 }
 
 ///|
 test "incr_tea latest trace preserves operation outcome after selection" {
-  let app = try! TypedSheetApp(@incr.Runtime())
-  ignore(app.prog_grid.dispatch(SelectCell("A1")))
-  ignore(app.prog_grid.dispatch(UpdateDraft("A1", "15")))
-  ignore(app.prog_grid.dispatch(ApplySelected))
-  let applied = app._state.val.ai_context_snapshot()
+  let app = new_model_application()
+  ignore(app.dispatch(SelectCell("A1")))
+  ignore(app.dispatch(UpdateDraft("A1", "15")))
+  ignore(app.dispatch(ApplySelected))
+  let applied = app.observe().snapshot.ai_context
   let expected_outcome = match applied.latest_evidence {
     Some(evidence) => evidence.outcome
     None => abort("expected latest evidence after edit")
@@ -865,8 +591,8 @@ test "incr_tea latest trace preserves operation outcome after selection" {
     Some(trace) => inspect(trace.outcome == expected_outcome, content="true")
     None => abort("expected latest trace after edit")
   }
-  ignore(app.prog_grid.dispatch(SelectCell("C1")))
-  let selected = app._state.val.ai_context_snapshot()
+  ignore(app.dispatch(SelectCell("C1")))
+  let selected = app.observe().snapshot.ai_context
   match selected.latest_trace {
     Some(trace) => inspect(trace.outcome == expected_outcome, content="true")
     None => abort("expected latest trace after selection")

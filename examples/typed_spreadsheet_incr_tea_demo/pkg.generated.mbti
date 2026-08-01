@@ -14,6 +14,22 @@ type CollabProtocolError
 type StartupConfigError
 
 // Types and methods
+type AiContextPublisher
+
+type ApplicationCollaborationResult
+
+type ApplicationLifecycle
+
+type ApplicationLifecycleError
+
+type ApplicationObservation
+
+type ApplicationRemoteError derive(Eq, @debug.Debug)
+
+type ApplicationSnapshot
+
+type ApplicationStartError
+
 type BootstrapData
 
 type CellDraft derive(Eq, @debug.Debug)
@@ -32,13 +48,17 @@ type CollabState
 
 type CollabTransportKind derive(Eq, @debug.Debug)
 
-type KeyResolution
+type DispatchOutcome
 
-type Model
+type HostResolutionError
+
+type KeyResolution
 
 type Msg derive(Eq)
 
 type PeerId derive(Eq, @debug.Debug)
+
+type RegionRenderStats
 
 type ReplicaId derive(Eq, @debug.Debug)
 
@@ -49,6 +69,8 @@ type RoomSelectionEvent
 type RoomSelectionRejection derive(Eq, @debug.Debug)
 
 type RoomSelectionState
+
+type SessionTransport
 
 type SheetPlan derive(Eq, @debug.Debug)
 
@@ -62,7 +84,9 @@ type StartupMode derive(Eq, @debug.Debug)
 
 type TraceData derive(Eq)
 
-type TypedSheetApp
+type TypedSheetApplication
+
+type TypedSheetHosts
 
 type UiEffect derive(Eq, @debug.Debug)
 

@@ -50,8 +50,9 @@ needed for the reusable `incr_tea` frame:
 - routing committed apply, delete, and reset commands through the app-specific
   EGW adapter before projecting into the Worksheet;
 - preserving unrelated DOM nodes while selection moves;
-- resolving text payloads and keyboard actions at `BrowserRenderer::mount`,
-  while cached `Html` values keep only pure event descriptors;
+- resolving text payloads and keyboard actions at the private application-owned
+  renderer boundary, while cached `Html` values keep only pure event
+  descriptors;
 - rendering bounded trace/evidence panels as independent watched roots;
 - publishing schema-versioned, bounded AI/tool context JSON after mount and
   after every update.
@@ -114,11 +115,14 @@ rollback; structured results preserve rejection, `MutationNotLanded`, and
 projection-error semantics. Package-owned white-box integration tests exercise
 the mutable and observed boundaries end-to-end.
 
-The browser executable now uses the adapter as its single-user committed
-authority. It bootstraps the seed registers through EGW, routes apply/delete/
-reset commands through `EgwAdapter`, observes trace and before/after evidence
-without replaying Worksheet mutations, and reads projected cells through safe
-adapter methods. Drafts, selection, editing, focus, status, and evidence remain
+The browser executable now uses one private `TypedSheetApplication` as the
+owner of dispatch, the fixed five-root renderer cohort, semantic observations,
+AI publication, collaboration callbacks, and teardown. The five-root locality
+and collaboration wire protocol are unchanged. The application uses the adapter
+as its committed authority: it bootstraps seed registers through EGW, routes
+apply/delete/reset commands through `EgwAdapter`, observes trace and
+before/after evidence without replaying Worksheet mutations, and reads projected
+cells through safe adapter methods. Drafts, selection, editing, focus, status, and evidence remain
 application-local. The fixed same-origin room/join prototype transports only
 committed EGW sync messages; each receiver records its own bounded projection
 trace and before/after evidence, while drafts, selection, focus, and the evidence
@@ -182,10 +186,10 @@ Headless Chromium benchmark for the 50×50 edit paths:
 BENCH_SAMPLES=20 BENCH_WARMUPS=3 npm run bench:dom
 ```
 
-The benchmark dispatches pure messages through the mounted `BrowserRenderer`,
-flushes all watched roots, and measures the in-page dispatch-to-DOM predicate
-latency for selection, draft-only, visible edit, dependency, trace/evidence,
-and offscreen edit scenarios. Budgets are advisory until a stable CI baseline
+The benchmark dispatches pure messages through `TypedSheetApplication`, flushes
+its fixed watched-root cohort through `flush_presentation`, and measures the
+in-page dispatch-to-DOM predicate latency for selection, draft-only, visible
+edit, dependency, trace/evidence, and offscreen edit scenarios. Budgets are advisory until a stable CI baseline
 is established.
 
 MoonBit-only validation from the repository root:

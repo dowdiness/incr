@@ -1,124 +1,8 @@
 ///|
-struct TypedSheetApp {
-  prog_grid : @tea.Program[Msg, @tea.Html[Msg]]
-  prog_formula : @tea.Program[Msg, @tea.Html[Msg]]
-  prog_status : @tea.Program[Msg, @tea.Html[Msg]]
-  prog_trace : @tea.Program[Msg, @tea.Html[Msg]]
-  prog_evidence : @tea.Program[Msg, @tea.Html[Msg]]
-  _state : Ref[SheetState]
-  _model_marker : Model
-}
-
-///|
-fn TypedSheetApp::TypedSheetApp(
-  runtime : @incr.Runtime,
-) -> TypedSheetApp raise @container.DocumentError {
-  TypedSheetApp::with_mode(runtime, SheetStartMode::Standalone)
-}
-
-///|
-/// Constructs the app after the collaboration shell has selected authority inputs.
-fn TypedSheetApp::with_mode(
-  runtime : @incr.Runtime,
-  mode : SheetStartMode,
-) -> TypedSheetApp raise @container.DocumentError {
-  let state = Ref(SheetState::new(runtime, mode))
-  let update : (Msg) -> @tea.Cmd[Msg] = msg => handle_msg(runtime, state, msg)
-  // Shared update; each program gets its own scope for the view Derived +
-  // Watch. Disposing any one program only tears down its view tracking, not
-  // the shared InputFields owned by `state.val._scope`.
-  let prog_grid = @tea.Program::Program(
-    runtime,
-    @incr.Scope::new(runtime),
-    update,
-    fn() { state_grid(state.val) },
-    label="typed-sheet.grid",
-  )
-  let prog_formula = @tea.Program::Program(
-    runtime,
-    @incr.Scope::new(runtime),
-    update,
-    fn() { state_formula_bar(state.val) },
-    label="typed-sheet.formula-bar",
-  )
-  let prog_status = @tea.Program::Program(
-    runtime,
-    @incr.Scope::new(runtime),
-    update,
-    fn() { state_status(state.val) },
-    label="typed-sheet.status",
-  )
-  let prog_trace = @tea.Program::Program(
-    runtime,
-    @incr.Scope::new(runtime),
-    update,
-    fn() { state_trace(state.val) },
-    label="typed-sheet.trace",
-  )
-  let prog_evidence = @tea.Program::Program(
-    runtime,
-    @incr.Scope::new(runtime),
-    update,
-    fn() { state_evidence(state.val) },
-    label="typed-sheet.evidence",
-  )
-  {
-    prog_grid,
-    prog_formula,
-    prog_status,
-    prog_trace,
-    prog_evidence,
-    _state: state,
-    _model_marker: { _marker: () },
-  }
-}
-
-///|
-/// Installs the one local committed-sync publisher owned by collaboration.
-fn TypedSheetApp::set_publisher(
-  self : TypedSheetApp,
-  publish : (@container.SyncMessage) -> Unit,
-) -> Unit {
-  self._state.val.publish_sync = Some(publish)
-}
-
-///|
-/// Applies remote EGW state through the same adapter projection path.
-fn TypedSheetApp::apply_remote(
-  self : TypedSheetApp,
-  message : @container.SyncMessage,
-) -> @egw_adapter.RemoteApplyResult raise @container.DocumentError {
-  let observed = self._state.val.adapter.apply_sync_observed(
-    message,
-    capture_limit=evidence_capture_limit(),
-    trace_cells=state_visible_cell_ids(self._state),
-  )
-  let result = observed.result()
-  match result.adapter_result() {
-    @egw_adapter.AdapterApplyResult::Applied(_) =>
-      record_remote_observed_sync(self._state, observed)
-    @egw_adapter.AdapterApplyResult::NoSemanticChange(_) => {
-      self._state.val.status.set("Remote update had no semantic changes.")
-      self._state.val.error.set(None)
-    }
-    _ => ()
-  }
-  result
-}
-
-///|
-fn handle_msg(
-  runtime : @incr.Runtime,
+fn prepare_sheet_dispatch(
   state : Ref[SheetState],
   msg : Msg,
-) -> @tea.Cmd[Msg] {
-  if msg is ResetSheet && state.val.collab_mode {
-    state.val.status.set("Reset is unavailable while collaborating.")
-    state.val.error.set(
-      Some("Collaboration keeps one shared document generation."),
-    )
-    return @tea.Cmd::batch([publish_ai_context_cmd(state)])
-  }
+) -> (SheetPlan, @tea.Cmd[Msg]) {
   let plan = match msg {
     UseExample(_)
     | ApplySelected
@@ -145,20 +29,30 @@ fn handle_msg(
     MoveSelection(delta_col, delta_row) =>
       move_selection(state, delta_col, delta_row)
   }
-  let interpreted = interpret_sheet_command(runtime, state, plan)
-  @tea.Cmd::batch([immediate, interpreted, publish_ai_context_cmd(state)])
+  (plan, immediate)
 }
 
 ///|
-/// Disposes all renderer programs, adapter state, and the owning scope.
-fn TypedSheetApp::dispose(self : TypedSheetApp) -> Unit {
-  self._state.val.adapter.dispose()
-  self.prog_grid.dispose()
-  self.prog_formula.dispose()
-  self.prog_status.dispose()
-  self.prog_trace.dispose()
-  self.prog_evidence.dispose()
-  self._state.val._scope.dispose()
+fn handle_msg(
+  runtime : @incr.Runtime,
+  state : Ref[SheetState],
+  msg : Msg,
+  publish_ai_context : () -> Unit,
+) -> @tea.Cmd[Msg] {
+  if msg is ResetSheet && state.val.collab_mode {
+    state.val.status.set("Reset is unavailable while collaborating.")
+    state.val.error.set(
+      Some("Collaboration keeps one shared document generation."),
+    )
+    return @tea.Cmd::batch([publish_ai_context_cmd(publish_ai_context)])
+  }
+  let (plan, immediate) = prepare_sheet_dispatch(state, msg)
+  let interpreted = interpret_sheet_command(runtime, state, plan)
+  @tea.Cmd::batch([
+    immediate,
+    interpreted,
+    publish_ai_context_cmd(publish_ai_context),
+  ])
 }
 
 // ── Event configuration (stays shared across all roots) ───────────

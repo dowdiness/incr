@@ -3,8 +3,8 @@
 ///
 /// Mounts all 5 watched regions (grid, formula bar, status, trace, evidence)
 /// sharing model state via per-region InputFields, dispatches messages through
-/// the shared update handler, and asserts per-root patch/skip counters via
-/// `BrowserRenderer::root_stats()`.
+/// `TypedSheetApplication`, and asserts its observed per-region patch/skip
+/// counters.
 ///
 /// Each test installs a fresh fake DOM, mounts 5 roots on `div` host
 /// elements, and verifies per-root deltas for one operation sequence.
@@ -115,27 +115,27 @@ extern "js" fn restore_test_dom() -> Unit =
 // ── Test helpers ──────────────────────────────────────────────────────
 
 ///|
-/// Finds a root_stats entry by label. Aborts if not found.
+/// Finds an observed region-stat entry by label. Aborts if not found.
 #cfg(target="js")
 fn row_by_label(
-  stats : Array[@tea.RootStats],
+  stats : ReadOnlyArray[RegionRenderStats],
   label : String,
-) -> @tea.RootStats {
+) -> RegionRenderStats {
   let ix = stats.search_by(row => row.label == label)
   guard ix is Some(i) else {
-    abort("root \"\{label}\" not found in root_stats")
+    abort("region \"\{label}\" not found in region_stats")
   }
   stats[i]
 }
 
 ///|
-/// Asserts per-root patch/skip delta from a baseline snapshot.
+/// Asserts per-region patch/skip delta from a baseline snapshot.
 /// Checks the DIFFERENCE between `stats` and `baseline`, not the
 /// cumulative values — so tests survive changes to mount flush behavior.
 #cfg(target="js")
 fn check_delta(
-  stats : Array[@tea.RootStats],
-  baseline : Array[@tea.RootStats],
+  stats : ReadOnlyArray[RegionRenderStats],
+  baseline : ReadOnlyArray[RegionRenderStats],
   label : String,
   patch_delta : Int,
   skip_delta : Int,
@@ -146,41 +146,61 @@ fn check_delta(
   let actual_skip = row.skipped_patches - base_row.skipped_patches
   guard actual_patch == patch_delta && actual_skip == skip_delta else {
     abort(
-      "root \"\{label}\": expected delta patch=\{patch_delta}, skip=\{skip_delta}; got delta patch=\{actual_patch}, skip=\{actual_skip}",
+      "region \"\{label}\": expected delta patch=\{patch_delta}, skip=\{skip_delta}; got delta patch=\{actual_patch}, skip=\{actual_skip}",
     )
+  }
+}
+
+///|
+#cfg(target="js")
+fn dispatch_or_abort(app : TypedSheetApplication, msg : Msg) -> Unit {
+  match app.dispatch(msg) {
+    Ok(_) => ()
+    Err(NotMounted) =>
+      abort("locality dispatch failed: application not mounted")
+    Err(AlreadyMounted) =>
+      abort("locality dispatch failed: application already mounted")
+    Err(Disposed) => abort("locality dispatch failed: application disposed")
   }
 }
 
 // ── Shared test setup ─────────────────────────────────────────────────
 
 ///|
-/// Creates a fresh TypedSheetApp + BrowserRenderer with 5 roots mounted on
-/// fake-DOM hosts (ids `locality-formula`, -grid, -status, -trace, -evidence).
+/// Creates a fresh TypedSheetApplication with 5 roots mounted on fake-DOM
+/// hosts (ids `locality-formula`, -grid, -status, -trace, -evidence).
 /// After mount each root has patch=1 (initial flush), skip=0.
-/// Returns (renderer, app, baseline_root_stats).
+/// Returns (app, baseline_region_stats).
 #cfg(target="js")
 fn setup_locality_test() -> (
-  @tea.BrowserRenderer[Msg],
-  TypedSheetApp,
-  Array[@tea.RootStats],
+  TypedSheetApplication,
+  ReadOnlyArray[RegionRenderStats],
 ) {
   install_test_dom()
   create_locality_hosts()
-  let host_formula = @tea.dom_get_element_by_id("locality-formula")
-  let host_grid = @tea.dom_get_element_by_id("locality-grid")
-  let host_status = @tea.dom_get_element_by_id("locality-status")
-  let host_trace = @tea.dom_get_element_by_id("locality-trace")
-  let host_evidence = @tea.dom_get_element_by_id("locality-evidence")
-  let runtime = @incr.Runtime()
-  let app = try! TypedSheetApp(runtime)
-  let renderer = @tea.BrowserRenderer::BrowserRenderer(runtime)
-  ignore(renderer.mount(host_formula, app.prog_formula, label="formula-bar"))
-  ignore(renderer.mount(host_grid, app.prog_grid, label="grid"))
-  ignore(renderer.mount(host_status, app.prog_status, label="status"))
-  ignore(renderer.mount(host_trace, app.prog_trace, label="trace"))
-  ignore(renderer.mount(host_evidence, app.prog_evidence, label="evidence"))
-  let baseline = renderer.root_stats()
-  (renderer, app, baseline)
+  let app = match
+    TypedSheetApplication::start(
+      @incr.Runtime(),
+      SheetStartMode::Standalone,
+      None,
+      AiContextPublisher::AiContextPublisher(_ => ()),
+    ) {
+    Ok(app) => app
+    Err(_) => abort("standalone application failed to start")
+  }
+  let hosts = TypedSheetHosts::{
+    grid: @tea.dom_get_element_by_id("locality-grid"),
+    formula: @tea.dom_get_element_by_id("locality-formula"),
+    status: @tea.dom_get_element_by_id("locality-status"),
+    trace: @tea.dom_get_element_by_id("locality-trace"),
+    evidence: @tea.dom_get_element_by_id("locality-evidence"),
+  }
+  match app.mount(hosts) {
+    Ok(_) => ()
+    Err(_) => abort("complete host cohort was rejected")
+  }
+  let baseline = app.observe().region_stats
+  (app, baseline)
 }
 
 // ── Scenario 1: Cell value edit ───────────────────────────────────────
@@ -188,11 +208,13 @@ fn setup_locality_test() -> (
 ///|
 #cfg(target="js")
 test "locality: cell value edit — UpdateDraft + ApplySelected" {
-  let (renderer, app, base) = setup_locality_test()
+  let (app, base) = setup_locality_test()
 
-  ignore(app.prog_grid.dispatch(UpdateDraft("A1", "42")))
-  renderer.flush_all()
-  let after_draft = renderer.root_stats()
+  dispatch_or_abort(app, UpdateDraft("A1", "42"))
+  let after_draft = match app.flush_presentation() {
+    Ok(observation) => observation.region_stats
+    Err(_) => abort("mounted presentation flush was rejected")
+  }
 
   // UpdateDraft: grid/formula-bar patch (1), status/trace skip (1)
   check_delta(after_draft, base, "grid", 1, 0)
@@ -201,9 +223,11 @@ test "locality: cell value edit — UpdateDraft + ApplySelected" {
   check_delta(after_draft, base, "trace", 0, 1)
   check_delta(after_draft, base, "evidence", 0, 1)
 
-  ignore(app.prog_grid.dispatch(ApplySelected))
-  renderer.flush_all()
-  let after_apply = renderer.root_stats()
+  dispatch_or_abort(app, ApplySelected)
+  let after_apply = match app.flush_presentation() {
+    Ok(observation) => observation.region_stats
+    Err(_) => abort("mounted presentation flush was rejected")
+  }
 
   // ApplySelected relative to after_draft: grid patches (1), formula-bar
   // skips (1), status patches (1), trace patches (1)
@@ -213,7 +237,7 @@ test "locality: cell value edit — UpdateDraft + ApplySelected" {
   check_delta(after_apply, after_draft, "trace", 1, 0)
   check_delta(after_apply, after_draft, "evidence", 1, 0)
 
-  renderer.dispose()
+  app.dispose()
   restore_test_dom()
 }
 
@@ -222,11 +246,13 @@ test "locality: cell value edit — UpdateDraft + ApplySelected" {
 ///|
 #cfg(target="js")
 test "locality: selection only — SelectCell" {
-  let (renderer, app, base) = setup_locality_test()
+  let (app, base) = setup_locality_test()
 
-  ignore(app.prog_grid.dispatch(SelectCell("A2")))
-  renderer.flush_all()
-  let after = renderer.root_stats()
+  dispatch_or_abort(app, SelectCell("A2"))
+  let after = match app.flush_presentation() {
+    Ok(observation) => observation.region_stats
+    Err(_) => abort("mounted presentation flush was rejected")
+  }
 
   // SelectCell: grid/formula-bar/status patch (1), trace skip (1)
   check_delta(after, base, "grid", 1, 0)
@@ -235,7 +261,7 @@ test "locality: selection only — SelectCell" {
   check_delta(after, base, "trace", 0, 1)
   check_delta(after, base, "evidence", 0, 1)
 
-  renderer.dispose()
+  app.dispose()
   restore_test_dom()
 }
 
@@ -244,11 +270,13 @@ test "locality: selection only — SelectCell" {
 ///|
 #cfg(target="js")
 test "locality: draft only — UpdateDraft without ApplySelected" {
-  let (renderer, app, base) = setup_locality_test()
+  let (app, base) = setup_locality_test()
 
-  ignore(app.prog_grid.dispatch(UpdateDraft("A1", "99")))
-  renderer.flush_all()
-  let after = renderer.root_stats()
+  dispatch_or_abort(app, UpdateDraft("A1", "99"))
+  let after = match app.flush_presentation() {
+    Ok(observation) => observation.region_stats
+    Err(_) => abort("mounted presentation flush was rejected")
+  }
 
   // UpdateDraft: grid/formula-bar patch (1), status/trace skip (1)
   check_delta(after, base, "grid", 1, 0)
@@ -257,7 +285,7 @@ test "locality: draft only — UpdateDraft without ApplySelected" {
   check_delta(after, base, "trace", 0, 1)
   check_delta(after, base, "evidence", 0, 1)
 
-  renderer.dispose()
+  app.dispose()
   restore_test_dom()
 }
 
@@ -266,11 +294,13 @@ test "locality: draft only — UpdateDraft without ApplySelected" {
 ///|
 #cfg(target="js")
 test "locality: inline edit commit — BeginInlineEdit + ApplyInlineEdit" {
-  let (renderer, app, base) = setup_locality_test()
+  let (app, base) = setup_locality_test()
 
-  ignore(app.prog_grid.dispatch(BeginInlineEdit("A1")))
-  renderer.flush_all()
-  let after_begin = renderer.root_stats()
+  dispatch_or_abort(app, BeginInlineEdit("A1"))
+  let after_begin = match app.flush_presentation() {
+    Ok(observation) => observation.region_stats
+    Err(_) => abort("mounted presentation flush was rejected")
+  }
 
   // BeginInlineEdit: grid/formula-bar/status patch (1), trace skip (1)
   check_delta(after_begin, base, "grid", 1, 0)
@@ -279,9 +309,11 @@ test "locality: inline edit commit — BeginInlineEdit + ApplyInlineEdit" {
   check_delta(after_begin, base, "trace", 0, 1)
   check_delta(after_begin, base, "evidence", 0, 1)
 
-  ignore(app.prog_grid.dispatch(ApplyInlineEdit("A1")))
-  renderer.flush_all()
-  let after_apply = renderer.root_stats()
+  dispatch_or_abort(app, ApplyInlineEdit("A1"))
+  let after_apply = match app.flush_presentation() {
+    Ok(observation) => observation.region_stats
+    Err(_) => abort("mounted presentation flush was rejected")
+  }
 
   // ApplyInlineEdit relative to after_begin: grid patches (1), formula-bar
   // skips (1), status patches (1), trace patches (1)
@@ -291,6 +323,33 @@ test "locality: inline edit commit — BeginInlineEdit + ApplyInlineEdit" {
   check_delta(after_apply, after_begin, "trace", 1, 0)
   check_delta(after_apply, after_begin, "evidence", 1, 0)
 
-  renderer.dispose()
+  app.dispose()
+  restore_test_dom()
+}
+
+// ── Scenario 5: Clean apply ───────────────────────────────────────────
+
+///|
+#cfg(target="js")
+test "locality: clean apply patches only status trace and evidence" {
+  let (app, _) = setup_locality_test()
+  dispatch_or_abort(app, SelectCell("A1"))
+  let selected = match app.flush_presentation() {
+    Ok(observation) => observation.region_stats
+    Err(_) => abort("mounted presentation flush was rejected")
+  }
+
+  dispatch_or_abort(app, ApplySelected)
+  let after = match app.flush_presentation() {
+    Ok(observation) => observation.region_stats
+    Err(_) => abort("mounted presentation flush was rejected")
+  }
+  check_delta(after, selected, "grid", 0, 1)
+  check_delta(after, selected, "formula-bar", 0, 1)
+  check_delta(after, selected, "status", 1, 0)
+  check_delta(after, selected, "trace", 1, 0)
+  check_delta(after, selected, "evidence", 1, 0)
+
+  app.dispose()
   restore_test_dom()
 }
