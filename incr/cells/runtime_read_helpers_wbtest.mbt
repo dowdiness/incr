@@ -18,17 +18,17 @@ fn reset_stale_sentinel_for_top_level_test_read() -> Unit {
 ///|
 fn[T : Eq] read_hybrid_for_test(memo : ReachableDerived[T]) -> T {
   reset_stale_sentinel_for_top_level_test_read()
-  let observer = memo.observe()
-  let value = observer.get()
-  observer.dispose()
+  let watch = memo.watch()
+  let value = watch.read_or_abort()
+  watch.dispose()
   value
 }
 
 ///|
 fn[T] read_reactive_for_test(reactive : EagerDerived[T]) -> T {
   reset_stale_sentinel_for_top_level_test_read()
-  let observer = reactive.observe()
-  let value = observer.get()
-  observer.dispose()
+  let watch = reactive.watch()
+  let value = watch.read_or_abort()
+  watch.dispose()
   value
 }

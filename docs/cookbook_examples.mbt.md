@@ -705,16 +705,16 @@ test "docs cookbook: accumulator peek reads memo-local diagnostics" {
     },
     label="checked_width",
   )
-  let checked_reader = checked.observe()
+  let checked_reader = checked.watch()
 
-  inspect(checked_reader.get(), content="5")
+  inspect(checked_reader.read_or_abort(), content="5")
   debug_inspect(
     checked.accumulated_peek(diags),
     content="[\"negative width: -5\"]",
   )
 
   width.set(10)
-  inspect(checked_reader.get(), content="10")
+  inspect(checked_reader.read_or_abort(), content="10")
   debug_inspect(checked.accumulated_peek(diags), content="[]")
 
   checked_reader.dispose()
@@ -748,13 +748,13 @@ test "docs cookbook: accumulated invalidates when push set changes" {
     },
     label="width_report",
   )
-  let report_reader = report.observe()
+  let report_reader = report.watch()
 
-  inspect(report_reader.get(), content="size=5, diags=1")
+  inspect(report_reader.read_or_abort(), content="size=5, diags=1")
   inspect(report_runs.val, content="1")
 
   width.set(5)
-  inspect(report_reader.get(), content="size=5, diags=0")
+  inspect(report_reader.read_or_abort(), content="size=5, diags=0")
   inspect(report_runs.val, content="2")
 
   report_reader.dispose()
@@ -858,13 +858,13 @@ test "docs cookbook: introspection identifies changed dependencies and dependent
   let x = @incr.Input(rt, 10, label="x")
   let y = @incr.Input(rt, 20, label="y")
   let sum = x.derived2(y, (a, b) => a + b, label="sum")
-  let reader = sum.observe()
+  let reader = sum.watch()
 
-  inspect(reader.get(), content="30")
+  inspect(reader.read_or_abort(), content="30")
   let baseline = sum.verified_at()
 
   x.set(15)
-  inspect(reader.get(), content="35")
+  inspect(reader.read_or_abort(), content="35")
 
   let changed_deps : Array[String] = []
   for dep_id in sum.dependencies() {
@@ -889,13 +889,13 @@ test "docs cookbook: memo changed_at shows backdating" {
   let rt = @incr.Runtime()
   let config = @incr.Input(rt, "abcd", label="config")
   let length = @incr.Derived(rt, () => config.get().length(), label="length")
-  let reader = length.observe()
+  let reader = length.watch()
 
-  inspect(reader.get(), content="4")
+  inspect(reader.read_or_abort(), content="4")
   let old_changed = length.changed_at()
 
   config.set("wxyz")
-  inspect(reader.get(), content="4")
+  inspect(reader.read_or_abort(), content="4")
   inspect(length.changed_at() == old_changed, content="true")
   reader.dispose()
 }
@@ -1202,9 +1202,14 @@ fn CookbookAuthoringPipeline::CookbookAuthoringPipeline(
   )
   let terminal_watch = scope.add_watch(terminal_cell.watch())
   let last_good : Ref[String?] = { val: None }
-  // Prime before exposing: an uncomputed watched cell has no recorded deps for gc().
-  match terminal_watch.read_or_abort().lowered {
-    Ok(graph) => last_good.val = Some(graph)
+  // Watch acquisition already primed the graph; read the initial value to seed
+  // the last-good cache while preserving graph errors as values.
+  match terminal_watch.read() {
+    Ok(terminal) =>
+      match terminal.lowered {
+        Ok(graph) => last_good.val = Some(graph)
+        Err(_) => ()
+      }
     Err(_) => ()
   }
   { scope, source, terminal_cell, terminal_watch, last_good }
@@ -1239,8 +1244,6 @@ fn CookbookAuthoringPipeline::open_inspector(
     label="authoring.inspector",
   )
   let watch = panel_scope.add_watch(inspector.watch())
-  // Prime before exposing so a pre-read gc keeps panel dependencies alive.
-  ignore(watch.read_or_abort())
   { scope: panel_scope, watch }
 }
 

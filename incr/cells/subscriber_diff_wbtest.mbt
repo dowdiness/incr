@@ -4,7 +4,7 @@ test "diff_subscribers: add new deps" {
   let s1 = Input::Input(rt, 1)
   let s2 = Input::Input(rt, 2)
   let m = Derived(rt, fn() { s1.get() })
-  let obs = m.observe()
+  let watch = m.watch()
   // m currently depends on s1 only. Simulate a dep change to [s1, s2].
   let old_deps = [s1.id()]
   let new_deps = [s1.id(), s2.id()]
@@ -12,7 +12,7 @@ test "diff_subscribers: add new deps" {
   // s2 should now have m as a subscriber
   let s2_subs = rt.dependents(s2.id())
   inspect(s2_subs.contains(m.id()), content="true")
-  obs.dispose()
+  watch.dispose()
 }
 
 ///|
@@ -21,7 +21,7 @@ test "diff_subscribers: remove old deps" {
   let s1 = Input::Input(rt, 1)
   let s2 = Input::Input(rt, 2)
   let m = Derived(rt, fn() { s1.get() + s2.get() })
-  let obs = m.observe()
+  let watch = m.watch()
   // m depends on [s1, s2]. Simulate dep change to [s1] only.
   let old_deps = [s1.id(), s2.id()]
   let new_deps = [s1.id()]
@@ -29,7 +29,7 @@ test "diff_subscribers: remove old deps" {
   // s2 should no longer have m as subscriber
   let s2_subs = rt.dependents(s2.id())
   inspect(s2_subs.contains(m.id()), content="false")
-  obs.dispose()
+  watch.dispose()
 }
 
 ///|
@@ -37,13 +37,12 @@ test "diff_subscribers: no change is no-op" {
   let rt = Runtime::Runtime()
   let s1 = Input::Input(rt, 1)
   let m = Derived(rt, fn() { s1.get() })
-  let obs = m.observe()
-  // Force computation to establish subscriber links
-  m.read_or_abort() |> ignore
+  let watch = m.watch()
+  // Force computation to establish subscriber links (watch primes it too)
   let deps = [s1.id()]
   // Diff identical lists — should be a no-op
   rt.diff_and_update_subscribers(m.id(), deps, deps) |> ignore
   let s1_subs = rt.dependents(s1.id())
   inspect(s1_subs.contains(m.id()), content="true")
-  obs.dispose()
+  watch.dispose()
 }

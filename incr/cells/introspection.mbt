@@ -147,7 +147,7 @@ pub fn Runtime::dependents(self : Runtime, id : CellId) -> Array[CellId] {
 
 ///|
 /// Number of GC roots currently anchoring `id` — i.e. how many `Watch`
-/// or `Observer` handles or `gc_root = Root` cells reference it. Returns
+/// handles or `gc_root = Root` cells reference it. Returns
 /// `0` for unknown or disposed cells (matches the `Runtime::dependents`
 /// soft-fail idiom).
 ///

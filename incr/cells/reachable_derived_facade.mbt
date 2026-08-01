@@ -59,10 +59,11 @@ pub fn[T : Eq] ReachableDerived::read_or_abort(self : ReachableDerived[T]) -> T 
 ///
 /// Performs one priming read so upstream `gc_dependencies` are recorded before
 /// return — a `Runtime::gc()` that runs before the first consumer read cannot
-/// sweep the upstream graph. See `Scope::watch` for the scope-owned variant.
+/// sweep the upstream graph. A priming read error remains observable through
+/// `Watch::read()`. See `Scope::watch` for the scope-owned variant.
 pub fn[T : Eq] ReachableDerived::watch(self : ReachableDerived[T]) -> Watch[T] {
   let watch = self.watch_result()
-  ignore(watch.read_or_abort())
+  ignore(watch.read())
   watch
 }
 
@@ -81,29 +82,6 @@ pub fn[T] ReachableDerived::id(self : ReachableDerived[T]) -> CellId {
 }
 
 ///|
-/// Acquires an `Observer` that roots this reachable derived cell against
-/// gc. The caller must `dispose()` the returned observer when done.
-pub fn[T : Eq] ReachableDerived::observe(
-  self : ReachableDerived[T],
-) -> Observer[T] {
-  guard !self.rt.is_cell_disposed(self.cell_id) else {
-    abort(
-      "ReachableDerived::observe called on a disposed reachable derived cell",
-    )
-  }
-  let rt = self.rt
-  rt.add_read_root(self.cell_id)
-  {
-    runtime: rt,
-    target_id: self.cell_id,
-    getter: fn() { self.read_permissive() },
-    disposed: false,
-  }
-}
-
-///|
-
-///|
 /// Disposes this reachable derived value, freeing associated resources. After
 /// disposal, reads abort with `Disposed`.
 pub fn[T] ReachableDerived::dispose(self : ReachableDerived[T]) -> Unit {
@@ -119,6 +97,9 @@ pub fn[T] ReachableDerived::is_disposed(self : ReachableDerived[T]) -> Bool {
 
 ///|
 /// Creates a long-lived outside-graph reader for this eager derived value.
+/// Performs one priming read before returning.
 pub fn[T] EagerDerived::watch(self : EagerDerived[T]) -> Watch[T] {
-  self.watch_result()
+  let watch = self.watch_result()
+  ignore(watch.read())
+  watch
 }

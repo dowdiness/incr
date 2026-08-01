@@ -78,21 +78,21 @@ test "push suspension: full lifecycle via public API" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 10)
   let r = @incr.EagerDerived::EagerDerived(rt, fn() { sig.get() * 2 })
-  // Observe
-  let obs = r.observe()
-  inspect(obs.get(), content="20")
-  // Change while observed
+  // Watch
+  let watch = r.watch()
+  inspect(watch.read_or_abort(), content="20")
+  // Change while watched
   sig.set(30)
-  inspect(obs.get(), content="60")
-  // Unobserve — suspends
-  obs.dispose()
+  inspect(watch.read_or_abort(), content="60")
+  // Unwatch — suspends
+  watch.dispose()
   // Change while suspended
   sig.set(100)
-  // Re-observe — catches up
-  let obs2 = r.observe()
-  inspect(obs2.get(), content="200")
-  // Change while re-observed
+  // Re-watch — catches up
+  let watch2 = r.watch()
+  inspect(watch2.read_or_abort(), content="200")
+  // Change while re-watched
   sig.set(1)
-  inspect(obs2.get(), content="2")
-  obs2.dispose()
+  inspect(watch2.read_or_abort(), content="2")
+  watch2.dispose()
 }

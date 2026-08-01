@@ -270,14 +270,14 @@ test "docs concepts: accumulators expose memo-local side-channel data" {
     },
     label="checked_width",
   )
-  let observer = checked.observe()
+  let watch = checked.watch()
 
-  inspect(observer.get(), content="5")
+  inspect(watch.read_or_abort(), content="5")
   debug_inspect(
     checked.accumulated_peek(diags),
     content="[\"negative width: -5\"]",
   )
-  observer.dispose()
+  watch.dispose()
   diags.dispose()
 }
 

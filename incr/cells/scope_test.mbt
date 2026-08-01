@@ -153,49 +153,49 @@ test "panic scope: memo on disposed scope aborts" {
 }
 
 ///|
-test "scope: add_observer disposes observer on scope dispose" {
+test "scope: add_watch disposes watch on scope dispose" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 10)
   let d = Derived::Derived(rt, fn() { sig.get() * 2 })
   let scope = Scope::new(rt)
-  let obs = scope.add_observer(d.observe())
-  inspect(obs.get(), content="20")
-  inspect(obs.is_disposed(), content="false")
+  let watch = scope.add_watch(d.watch())
+  inspect(watch.read_or_abort(), content="20")
+  inspect(watch.is_disposed(), content="false")
   scope.dispose()
-  inspect(obs.is_disposed(), content="true")
+  inspect(watch.is_disposed(), content="true")
 }
 
 ///|
-test "scope: manual observer dispose before scope dispose is safe" {
+test "scope: manual watch dispose before scope dispose is safe" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 1)
   let d = Derived::Derived(rt, fn() { sig.get() })
   let scope = Scope::new(rt)
-  let obs = scope.add_observer(d.observe())
-  obs.dispose()
-  inspect(obs.is_disposed(), content="true")
+  let watch = scope.add_watch(d.watch())
+  watch.dispose()
+  inspect(watch.is_disposed(), content="true")
   scope.dispose()
 }
 
 ///|
-test "scope: observer disposed before owned cells" {
+test "scope: watch disposed before owned cells" {
   let rt = Runtime::Runtime()
   let scope = Scope::new(rt)
   let sig = scope.input(10)
   let m = scope.derived(fn() { sig.get() * 2 })
-  let obs = scope.add_observer(m.observe())
-  ignore(obs.get())
+  let watch = scope.add_watch(m.watch())
+  ignore(watch.read_or_abort())
   scope.dispose()
-  inspect(obs.is_disposed(), content="true")
+  inspect(watch.is_disposed(), content="true")
   assert_true(m.is_disposed())
 }
 
 ///|
-test "panic scope: add_observer on disposed scope aborts" {
+test "panic scope: add_watch on disposed scope aborts" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 1)
   let d = Derived::Derived(rt, fn() { sig.get() })
   let scope = Scope::new(rt)
   scope.dispose()
-  ignore(scope.add_observer(d.observe()))
+  ignore(scope.add_watch(d.watch()))
 }

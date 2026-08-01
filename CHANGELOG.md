@@ -32,6 +32,7 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ### Changed
 
+- **Breaking: `Observer[T]` removed; `Watch[T]` is the only public persistent outside-graph read root.** `Observer`, `Derived::observe`, `ReachableDerived::observe`, `EagerDerived::observe`, `Scope::add_observer`, and `.observe()` are gone. `Derived::watch()`, `ReachableDerived::watch()`, and `EagerDerived::watch()` now perform one priming read via `Watch::read` before returning, so upstream `gc_dependencies` are recorded and a pre-read `Runtime::gc()` cannot sweep the upstream graph. Priming errors are not escalated; they remain observable through `Watch::read()`. `Watch::read_or_abort()` is the direct aborting projection. `Scope::add_watch` registers an already-primed `Watch` for automatic disposal without a second read; `Scope::watch` and `Scope::watch_reachable` fold creation and registration into one call. The internal `on_observe` / `on_unobserve` lifecycle hook names are unchanged.
 - Typed-spreadsheet same-sheet missing and deleted references now read as
   `Ok(Blank)`. Direct references preserve Blank, scalar operators remain strict,
   and foreign references remain `RefError`.

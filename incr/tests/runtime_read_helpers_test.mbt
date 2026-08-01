@@ -1,23 +1,23 @@
 ///|
 fn[T] read_derived_for_test(derived : @incr.Derived[T]) -> T {
-  let observer = derived.observe()
-  let value = observer.get()
-  observer.dispose()
+  let watch = derived.watch()
+  let value = watch.read_or_abort()
+  watch.dispose()
   value
 }
 
 ///|
 fn[T : Eq] read_reachable_for_test(reachable : @incr.ReachableDerived[T]) -> T {
-  let observer = reachable.observe()
-  let value = observer.get()
-  observer.dispose()
+  let watch = reachable.watch()
+  let value = watch.read_or_abort()
+  watch.dispose()
   value
 }
 
 ///|
 fn[T] read_reactive_for_test(reactive : @incr.EagerDerived[T]) -> T {
-  let observer = reactive.observe()
-  let value = observer.get()
-  observer.dispose()
+  let watch = reactive.watch()
+  let value = watch.read_or_abort()
+  watch.dispose()
   value
 }

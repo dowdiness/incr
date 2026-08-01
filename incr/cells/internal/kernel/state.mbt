@@ -219,7 +219,7 @@ pub(all) struct RuntimeCore {
   cell_ops : Array[&CellOps]
   mut phase : PropagationPhase
   /// Reference counts for observed cells. Key = observed CellId,
-  /// value = number of live Observer handles. on_unobserve fires only
+  /// value = number of live Watch handles. on_unobserve fires only
   /// when count reaches 0.
   gc_root_counts : @hashmap.HashMap[CellId, Int]
 }

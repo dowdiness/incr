@@ -38,7 +38,6 @@ pub using @internal {
   type EagerDerived,
   type Effect,
   type Scope,
-  type Observer,
   type Watch,
   type Accumulator,
   type AcceptedDerived,

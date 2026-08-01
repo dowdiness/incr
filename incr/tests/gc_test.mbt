@@ -1,13 +1,13 @@
 ///|
-test "gc: observe → input.set → observer.get sees update" {
+test "gc: watch → input.set → watch.read_or_abort sees update" {
   let rt = @incr.Runtime()
   let sig = @incr.Input(rt, 10)
   let m = @incr.Derived(rt, fn() { sig.get() * 2 })
-  let obs = m.observe()
-  inspect(obs.get(), content="20")
+  let watch = m.watch()
+  inspect(watch.read_or_abort(), content="20")
   sig.set(15)
-  inspect(obs.get(), content="30")
-  obs.dispose()
+  inspect(watch.read_or_abort(), content="30")
+  watch.dispose()
 }
 
 ///|
@@ -16,14 +16,14 @@ test "gc: scope dispose + gc sweeps orphaned interior cells" {
   let sig = @incr.Input(rt, 1)
   let scope = @incr.Scope::new(rt)
   let m = scope.derived(fn() { sig.get() + 1 })
-  let obs = m.observe()
-  ignore(obs.get())
+  let watch = m.watch()
+  ignore(watch.read_or_abort())
 
-  // Create another memo not observed
+  // Create another memo not watched
   let m_orphan = @incr.Derived(rt, fn() { sig.get() + 2 })
   ignore(read_derived_for_test(m_orphan))
 
-  obs.dispose()
+  watch.dispose()
   scope.dispose()
   rt.gc()
   assert_true(m.is_disposed()) // disposed by scope
@@ -43,41 +43,41 @@ test "gc: Runtime::read does not leak gc roots" {
 }
 
 ///|
-test "gc: manual dispose of observed cell then gc" {
+test "gc: manual dispose of watched cell then gc" {
   let rt = @incr.Runtime()
   let sig = @incr.Input(rt, 1)
   let m = @incr.Derived(rt, fn() { sig.get() })
-  let obs = m.observe()
-  ignore(obs.get())
+  let watch = m.watch()
+  ignore(watch.read_or_abort())
   rt.dispose_cell(m.id())
-  obs.dispose() // safe — skips on_unobserve for dead cell
+  watch.dispose() // safe — skips on_unobserve for dead cell
   rt.gc() // safe — m already disposed
 }
 
 ///|
-test "gc: hybrid memo reachable through observer" {
+test "gc: hybrid memo reachable through watch" {
   let rt = @incr.Runtime()
   let sig = @incr.Input(rt, 1)
   let h = @incr.ReachableDerived(rt, fn() { sig.get() + 10 })
-  let obs = h.observe()
-  inspect(obs.get(), content="11")
+  let watch = h.watch()
+  inspect(watch.read_or_abort(), content="11")
   rt.gc()
   assert_false(h.is_disposed())
-  obs.dispose()
+  watch.dispose()
   rt.gc()
   assert_true(h.is_disposed())
 }
 
 ///|
-test "gc: reactive reachable through observer" {
+test "gc: reactive reachable through watch" {
   let rt = @incr.Runtime()
   let sig = @incr.Input(rt, 1)
   let r = @incr.EagerDerived::EagerDerived(rt, fn() { sig.get() * 4 })
-  let obs = r.observe()
-  inspect(obs.get(), content="4")
+  let watch = r.watch()
+  inspect(watch.read_or_abort(), content="4")
   rt.gc()
   assert_false(r.is_disposed())
-  obs.dispose()
+  watch.dispose()
   rt.gc()
   assert_true(r.is_disposed())
 }

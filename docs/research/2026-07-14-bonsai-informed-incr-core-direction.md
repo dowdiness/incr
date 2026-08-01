@@ -101,7 +101,7 @@ The Bonsai comparison does not justify replacing the current evaluation model.
 - equality backdating and custom `BackdateEq` policies;
 - pull, push, reachable-lazy, and Datalog execution modes in one Runtime;
 - atomic raised-error batch rollback and revert detection;
-- explicit `Scope`, `Watch`, `Observer`, `dispose`, and `Runtime::gc`
+- explicit `Scope`, `Watch`, `dispose`, and `Runtime::gc`
   lifetimes;
 - push suspension on the last read-root transition;
 - runtime identity checks, cycle diagnostics, and cell-level introspection;
@@ -372,7 +372,7 @@ For each resource class, the same questions recur:
    there is no retirement. `MapRelation` can replace a key's value but cannot
    retract a key. For future editable facts, what is the retraction protocol?
 
-### Distinguishing Owner, Pin, Observer Root, and Dependency
+### Distinguishing Owner, Pin, Watch Root, and Dependency
 
 A cross-engine model must distinguish several lifetime relationships. Current
 data structures already implement some of these separately:
@@ -386,12 +386,12 @@ data structures already implement some of these separately:
   prevents disposal by rejecting it before mutation; it does not cascade disposal.
   Today: Datalog rules pin declared relations (a live rule aborts relation disposal
   via `find_live_rule_declaration`).
-- **Observer Root** — an external keep-alive reference that controls GC reachability.
-  Today: `Watch`/`Observer` increment `gc_root_counts`; `on_unobserve` fires when the
+- **Watch Root** — an external keep-alive reference that controls GC reachability.
+  Today: `Watch` increments `gc_root_counts`; `on_unobserve` fires when the
   final counted root is removed (count reaches zero in `gc_root_counts`), triggering
   push suspension for push cells. `Effect` cells carry an implicit `GcRole::Root` that
   is discovered separately during GC root collection by scanning cell slots — it is
-  **not** an entry in `gc_root_counts` and does not trigger `on_unobserve`. Observer
+  **not** an entry in `gc_root_counts` and does not trigger `on_unobserve`. Watch
   roots do **not** prevent explicit target disposal — when the target cell is explicitly
   disposed, the GC root entry is cleaned up via `drop_gc_root`. A pin rejects teardown;
   a root controls GC reachability.
@@ -465,7 +465,7 @@ would provide common guard infrastructure, not common policy.
 
 Candidate aggregate owners that may perform intentional ordered teardown:
 
-- **`Scope::dispose`** — children bottom-up, then dispose hooks (Watch/Observer
+- **`Scope::dispose`** — children bottom-up, then dispose hooks (Watch
   cleanup), then owned cells. This is already implemented.
 - **`Runtime` end-of-life** — not currently modeled. Runtime allocates and
   contains cell storage but currently has no aggregate disposal API. A future

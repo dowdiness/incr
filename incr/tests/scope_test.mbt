@@ -214,37 +214,46 @@ test "scope: watch primes upstream so gc before first read is safe" {
   let rt = @incr.Runtime()
   let scope = @incr.Scope::new(rt)
   let sig = @incr.Input(rt, 1)
+  let runs : Ref[Int] = { val: 0 }
   let d1 = @incr.Derived(rt, fn() { sig.get() + 1 })
-  let d2 = @incr.Derived(rt, fn() { d1.get_or_abort() * 2 })
+  let d2 = @incr.Derived(rt, fn() {
+    runs.val = runs.val + 1
+    d1.get_or_abort() * 2
+  })
   let w = scope.watch(d2)
+  inspect(runs.val, content="1")
   // gc before any consumer read — upstream must survive
   rt.gc()
   inspect(d1.is_disposed(), content="false")
   inspect(d2.is_disposed(), content="false")
   inspect(w.read_or_abort(), content="4")
+  inspect(runs.val, content="1")
   sig.set(2)
   inspect(w.read_or_abort(), content="6")
+  inspect(runs.val, content="2")
   // scope disposal releases the watch
   scope.dispose()
   inspect(w.is_disposed(), content="true")
 }
 
 ///|
-// Contrast test documenting the failure mode Scope::watch closes: a bare
-// watch without a priming read GC-roots only the terminal cell. The
-// uncomputed terminal has empty gc_dependencies, so gc() sweeps upstream.
-test "scope: bare watch without priming loses upstream to gc" {
+test "scope: bare watch primes upstream before gc" {
   let rt = @incr.Runtime()
   let scope = @incr.Scope::new(rt)
   let sig = @incr.Input(rt, 1)
+  let runs : Ref[Int] = { val: 0 }
   let d1 = @incr.Derived(rt, fn() { sig.get() + 1 })
-  let d2 = @incr.Derived(rt, fn() { d1.get_or_abort() * 2 })
+  let d2 = @incr.Derived(rt, fn() {
+    runs.val = runs.val + 1
+    d1.get_or_abort() * 2
+  })
   let w = scope.add_watch(d2.watch())
+  inspect(runs.val, content="1")
   rt.gc()
-  // terminal survives (GC root), upstream is swept
   inspect(d2.is_disposed(), content="false")
-  inspect(d1.is_disposed(), content="true")
-  ignore(w)
+  inspect(d1.is_disposed(), content="false")
+  inspect(w.read_or_abort(), content="4")
+  inspect(runs.val, content="1")
   scope.dispose()
 }
 

@@ -197,10 +197,9 @@ fn[V, E] AcceptedDerived::assemble(
     accepted_eq,
   )
   scope.add_cell_ids([accepted_cell.cell_id])
-  // gc anchor: root `accepted_cell` and prime it so its upstream
-  // dependencies (fold -> candidate) are recorded before any `Runtime::gc()`.
+  // gc anchor: `watch()` primes `accepted_cell`, recording its upstream
+  // dependencies (fold -> candidate) before any `Runtime::gc()`.
   let anchor = scope.add_watch(accepted_cell.watch())
-  ignore(anchor.read())
   { candidate, accepted_cell, fold, accepted_slot, last_status, scope, anchor }
 }
 

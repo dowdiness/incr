@@ -102,15 +102,15 @@ test "docs api-ref: derived event listener records and can be cleared" {
   rt.on_derived_event(_evt => events.val = events.val + 1)
 
   let doubled = input.derived(x => x * 2, label="doubled")
-  let observer = doubled.observe()
-  inspect(observer.get(), content="2")
+  let watch = doubled.watch()
+  inspect(watch.read_or_abort(), content="2")
   inspect(events.val, content="2")
 
   rt.clear_derived_event_listener()
   input.set(2)
-  inspect(observer.get(), content="4")
+  inspect(watch.read_or_abort(), content="4")
   inspect(events.val, content="2")
-  observer.dispose()
+  watch.dispose()
 }
 ```
 
@@ -593,8 +593,8 @@ test "docs api-ref: accepted_derived retains last accepted value across errors" 
     parsed.accepted_get_or_abort()
   })
   let watch = consumer.watch()
-  ignore(watch.read_or_abort()) // prime
   let base = runs[0]
+  inspect(base, content="1")
 
   // Err → the current channel reports the error, but the accepted value is
   // RETAINED and the accepted-only consumer does NOT re-run.
@@ -751,7 +751,7 @@ test "docs api-ref: Accumulator constructor and push capture memo-local values" 
     },
     label="width_check",
   )
-  let observer = producer.observe()
+  let watch = producer.watch()
 
   debug_inspect(
     diags.label(),
@@ -759,15 +759,15 @@ test "docs api-ref: Accumulator constructor and push capture memo-local values" 
       #|Some("diags")
     ),
   )
-  inspect(observer.get(), content="-1")
+  inspect(watch.read_or_abort(), content="-1")
   let first = producer.accumulated_peek(diags)
   inspect(first.length(), content="1")
   inspect(first[0], content="negative width")
 
   width.set(4)
-  inspect(observer.get(), content="4")
+  inspect(watch.read_or_abort(), content="4")
   debug_inspect(producer.accumulated_peek(diags), content="[]")
-  observer.dispose()
+  watch.dispose()
   diags.dispose()
 }
 
@@ -820,10 +820,10 @@ test "docs api-ref: compatibility introspection exposes ids dependencies and dep
   let rt = @incr.Runtime()
   let input = rt.input(10, durability=High, label="input")
   let doubled = @incr.Derived(rt, () => input.get() * 2, label="doubled")
-  let observer = doubled.observe()
+  let watch = doubled.watch()
 
   inspect(input.durability(), content="High")
-  inspect(observer.get(), content="20")
+  inspect(watch.read_or_abort(), content="20")
   inspect(doubled.dependencies().contains(input.id()), content="true")
   inspect(rt.dependents(input.id()).contains(doubled.id()), content="true")
   match rt.cell_info(doubled.id()) {
@@ -842,10 +842,10 @@ test "docs api-ref: compatibility introspection exposes ids dependencies and dep
   let changed = doubled.changed_at()
   let verified = doubled.verified_at()
   input.set(11)
-  inspect(observer.get(), content="22")
+  inspect(watch.read_or_abort(), content="22")
   inspect(doubled.changed_at() > changed, content="true")
   inspect(doubled.verified_at() > verified, content="true")
-  observer.dispose()
+  watch.dispose()
 }
 
 ///|
@@ -853,26 +853,26 @@ test "docs api-ref: compatibility per-cell callbacks can be registered and clear
   let rt = @incr.Runtime()
   let input = rt.input(1, label="input")
   let doubled = @incr.Derived(rt, () => input.get() * 2, label="doubled")
-  let observer = doubled.observe()
+  let watch = doubled.watch()
   let input_log : Ref[String] = { val: "" }
   let memo_log : Ref[String] = { val: "" }
 
   input.on_change(value => input_log.val = value.to_string())
   doubled.on_change(value => memo_log.val = value.to_string())
 
-  inspect(observer.get(), content="2")
+  inspect(watch.read_or_abort(), content="2")
   input.set(3)
   inspect(input_log.val, content="3")
-  inspect(observer.get(), content="6")
+  inspect(watch.read_or_abort(), content="6")
   inspect(memo_log.val, content="6")
 
   input.clear_on_change()
   doubled.clear_on_change()
   input.set(4)
-  inspect(observer.get(), content="8")
+  inspect(watch.read_or_abort(), content="8")
   inspect(input_log.val, content="3")
   inspect(memo_log.val, content="6")
-  observer.dispose()
+  watch.dispose()
 }
 ```
 
@@ -1030,13 +1030,13 @@ test "docs api-ref: compatibility helpers create_signal / hybrid_memo / memo_map
     None => abort("expected signal cell_info")
   }
 
-  let observer = hybrid.observe()
-  inspect(observer.get(), content="20")
+  let watch = hybrid.watch()
+  inspect(watch.read_or_abort(), content="20")
   inspect(by_key.read_or_abort(5), content="15")
   signal.set(11)
-  inspect(observer.get(), content="22")
+  inspect(watch.read_or_abort(), content="22")
   inspect(by_key.read_or_abort(5), content="16")
-  observer.dispose()
+  watch.dispose()
 }
 
 ///|
@@ -1057,17 +1057,17 @@ test "docs api-ref: compatibility create_accumulator captures memo pushes" {
     },
     label="width_check",
   )
-  let observer = producer.observe()
+  let watch = producer.watch()
 
-  inspect(observer.get(), content="-1")
+  inspect(watch.read_or_abort(), content="-1")
   let first = producer.accumulated_peek(diags)
   inspect(first.length(), content="1")
   inspect(first[0], content="negative width")
 
   width.set(4)
-  inspect(observer.get(), content="4")
+  inspect(watch.read_or_abort(), content="4")
   inspect(producer.accumulated_peek(diags).length(), content="0")
-  observer.dispose()
+  watch.dispose()
 }
 
 ///|

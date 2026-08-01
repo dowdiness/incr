@@ -1,6 +1,6 @@
 ---
 name: incr
-description: Use when writing or reviewing MoonBit code against the `dowdiness/incr` reactive library (v0.14.x+) — building Inputs/Deriveds/ReachableDeriveds, attaching long-lived derived cells with `Watch`/`Observer`, adding microbenchmarks, or wrapping a reactive pipeline in a struct. Catches recurring idiom misses (inside-vs-outside read semantics, GC-anchor `Watch`/`Observer`, `Type::Type` constructor naming, defensive copies).
+description: Use when writing or reviewing MoonBit code against the `dowdiness/incr` reactive library (v0.14.x+) — building Inputs/Deriveds/ReachableDeriveds, attaching long-lived derived cells with `Watch`, adding microbenchmarks, or wrapping a reactive pipeline in a struct. Catches recurring idiom misses (inside-vs-outside read semantics, GC-anchor `Watch`, `Type::Type` constructor naming, defensive copies).
 ---
 
 # incr
@@ -19,10 +19,10 @@ source tree.
 Trigger keywords:
 `@incr.Input`, `@incr.Derived`, `@incr.ReachableDerived`,
 `@incr.InputField`, `@incr.EagerDerived`, `@incr.DerivedMap`,
-`@incr.Watch`, `@incr.Observer`, `@incr.MapRelation`, `Scope::new`,
+`@incr.Watch`, `@incr.MapRelation`, `Scope::new`,
 `scope.input`, `scope.derived`, `scope.reachable_derived`,
 `scope.eager_derived`, `.read()`, `.read_or_abort()`,
-`.get_or_abort()`, `.watch()`, `.observe()`, `add_observer`.
+`.get_or_abort()`, `.watch()`.
 
 Also fires on: `parser.runtime()`, `attach_*`, `bench_test.mbt`,
 `.bench(` — or any time you are defining a new struct that owns reactive cells
@@ -59,6 +59,7 @@ migrating to the current names.
 | `add_tracked(...)` | `add_input_fields(...)` or `scope.adopt(...)` |
 | `InputField::as_tracked_cell` / `TrackedCell::as_input` | removed — use `InputField` directly |
 | `memo.observe()` | `derived.watch()` |
+| `Observer[T]` / `.observe()` / `Scope::add_observer` | `Watch[T]` / `.watch()` / `Scope::add_watch` |
 | `rt.read(memo)` | `derived.read()` / `derived.read_or_abort()` |
 | `rt.read_hybrid(h)` | `reachable.read()` / `reachable.read_or_abort()` |
 | `rt.read_reactive(r)` | `eager.read()` |
@@ -78,23 +79,24 @@ no longer be constructed via struct literals (use `Revision::initial()` /
 `.next()`, `InternTable::new()` / `.intern(value)`); `DerivedMap`
 constructors now require `V : Eq` (`::fallible` also `E : Eq`).
 
-`Scope`, `DerivedEvent`, `CycleError`, `Observer`/`Watch` are unaffected.
-See the CHANGELOG for the full removal list and any remaining edge cases.
+On current main, `Observer` has been removed and `Watch` acquisition performs
+one priming read before returning. See the CHANGELOG for the full removal list
+and remaining edge cases.
 
 ## Quick Reference
 
 | Situation | Use | Not |
 |-----------|-----|-----|
-| Read an `Input` from inside any compute closure | `input.get()` | wrapping in an outside-read API — Inputs are non-fallible; `.get()` records the dep at zero observer cost |
-| Read a `Derived` / `ReachableDerived` from inside another compute closure | `derived.get_or_abort()` / `reachable.get_or_abort()` (strict) or `.get()` returning `Result` (graceful) | `.read_or_abort()` or `.read()` — outside-read APIs do one-shot observer work or obscure the tracked boundary |
+| Read an `Input` from inside any compute closure | `input.get()` | wrapping in an outside-read API — Inputs are non-fallible; `.get()` records the dep at zero persistent-root cost |
+| Read a `Derived` / `ReachableDerived` from inside another compute closure | `derived.get_or_abort()` / `reachable.get_or_abort()` (strict) or `.get()` returning `Result` (graceful) | `.read_or_abort()` or `.read()` — permissive reads add work and obscure the tracked boundary |
 | Read an `EagerDerived` from inside another compute closure | `eager.get()` | `eager.read()` — it is permissive and should be reserved for outside-graph reads unless a boundary wrapper deliberately needs that behavior |
-| Read a `Derived` from outside the reactive graph (tests, top-level, non-tracked consumer methods) | `derived.read_or_abort()` or `derived.read() -> Result` (or persistent `watch.read_or_abort()` / `observer.get()`) | calling strict graph reads (`.get()` / `.get_or_abort()`) outside a tracked context aborts, or records a dependency if a compute frame is unexpectedly active |
+| Read a `Derived` from outside the reactive graph (tests, top-level, non-tracked consumer methods) | `derived.read_or_abort()` or `derived.read() -> Result` (or persistent `watch.read_or_abort()`) | calling strict graph reads (`.get()` / `.get_or_abort()`) outside a tracked context aborts, or records a dependency if a compute frame is unexpectedly active |
 | Read a `ReachableDerived` from outside the graph | `reachable.read_or_abort()` or `reachable.read()` (or `watch.read_or_abort()`) | — |
-| Read an `EagerDerived` from outside the graph | `eager.read()` (or `watch.read_or_abort()` / `observer.get()`) | calling `eager.get()` outside a tracked context aborts |
-| Read anything after `dispose()` | Don't — disposed cells/observers/watches abort | — |
+| Read an `EagerDerived` from outside the graph | `eager.read()` (or `watch.read_or_abort()`) | calling `eager.get()` outside a tracked context aborts |
+| Read anything after `dispose()` | Don't — disposed cells/watches abort | — |
 | Define a new struct's primary constructor | `fn MyStruct::MyStruct(...) -> MyStruct` | `fn MyStruct::new(...) -> MyStruct` (older idiom; `Type::Type` is project convention per `~/.claude/moonbit-base.md`) |
-| Attach long-lived derived cells to a parser/runtime | `Scope` + persistent `Watch` (preferred) or `Observer` — see templates below | Bare `Derived(rt, ...)` with no GC root — `rt.gc()` will sweep the chain |
-| Use a library-provided constructor | `Input(rt, v, label=...)`, `Derived(rt, f, label=...)`, `ReachableDerived(rt, f, label=...)`, `Runtime()`, `Scope::new(rt)`, `derived.watch()` | Don't rename library APIs — the `Type::Type` convention is for *defining* new structs, not for *calling* upstream library constructors. `Watch` comes from `*.watch()`; `Observer` from `*.observe()`. Neither has `::new`. |
+| Attach long-lived derived cells to a parser/runtime | `Scope` + persistent `Watch` — see template below | Bare `Derived(rt, ...)` with no GC root — `rt.gc()` will sweep the chain |
+| Use a library-provided constructor | `Input(rt, v, label=...)`, `Derived(rt, f, label=...)`, `ReachableDerived(rt, f, label=...)`, `Runtime()`, `Scope::new(rt)`, `derived.watch()` | Don't rename library APIs — the `Type::Type` convention is for *defining* new structs, not for *calling* upstream library constructors. `Watch` comes from `*.watch()`. It has no `::new`. |
 
 ## Inside vs Outside the Graph (the big rule)
 
@@ -110,8 +112,8 @@ closure or not?**
 - `derived.get()` / `reachable.get()` — graceful read; returns `Result[T, CycleError]`.
 - `eager.get()` — strict tracked read of an eager/push value. `EagerDerived` has no `Result` or `_or_abort` read channel.
 
-These record the dep on the surrounding tracking frame at zero observer
-cost.
+These record the dep on the surrounding tracking frame without creating a
+persistent read root.
 
 **Outside the graph** (top-level, tests, event handlers, non-tracked
 consumer methods):
@@ -119,8 +121,7 @@ consumer methods):
 - `derived.read_or_abort()` / `reachable.read_or_abort()` — strict; aborts on cycle.
 - `derived.read()` / `reachable.read()` — returns `Result[T, CycleError]`.
 - `eager.read()` — reads the current eager/push value outside the graph.
-- Through a long-lived anchor: `watch.read_or_abort()` / `watch.read()`
-  (or `observer.get()`).
+- Through a long-lived anchor: `watch.read_or_abort()` / `watch.read()`.
 
 The read channel — `Derived` / `ReachableDerived` `.get()` / `.read()`,
 `DerivedMap` `.get(key)` / `.read(key)`, and `Watch::read()` — currently
@@ -133,8 +134,8 @@ appears in `cells/pkg.generated.mbti`.
 ### Why mixing breaks
 
 Calling `derived.read_or_abort()` / `reachable.read_or_abort()` from
-inside a compute closure opens and closes a one-shot observer to do the
-read, on top of the tracking frame that's already live. The 2026-05-18
+inside a compute closure takes the permissive outside-read path on top of the
+tracking frame that's already live. The 2026-05-18
 measurement put the inflation at ~25–30% on layered/tree shapes (see
 `feedback_api_misuse_pattern.md`). Correctness is fine, so the bug is
 invisible without a microbench.
@@ -155,7 +156,7 @@ let total = Derived(
   label="total",
 )
 
-// ❌ Inside a compute closure — pays the observer lifecycle every recompute
+// ❌ Inside a compute closure — pays the permissive-read path every recompute
 let typed_derived = scope.derived(
   fn() { @typecheck.convert_from_cst(parser.syntax_tree().read_or_abort()) },
 )
@@ -169,7 +170,6 @@ match total.read() {
 
 // ✅ Outside the graph through a persistent anchor
 let result = attachment.watch.read_or_abort()    // Watch
-let result = attachment.observer.get()           // Observer
 ```
 
 Canonical references:
@@ -186,27 +186,24 @@ Canonical references:
 ## The Persistent-Anchor GC Rule
 
 `Runtime::gc()` marks reachability via BFS from `gc_root_counts`, which
-`derived.watch()` / `derived.observe()` increment. One-shot
-`derived.read_or_abort()` creates and disposes the anchor immediately —
-so it does NOT keep the cell alive across a later `gc()`. Interior
+`derived.watch()` increments. A one-shot `derived.read_or_abort()` does not
+retain a read root, so it does NOT keep the cell alive across a later `gc()`. Interior
 Deriveds with no anchor get swept; subsequent reads abort.
 
 **Rule:** if you build a downstream chain that should survive
 `Runtime::gc()` (anything stored in a struct field with a public `get`),
-hold a persistent `Watch` or `Observer` on the terminal Derived. The
+hold a persistent `Watch` on the terminal Derived. The
 recommended anchor form is **`scope.watch(derived)`** (0.14.0): it folds
 watch creation, scope registration, and one priming read into a single
 call, so scope disposal releases the watch and a `Runtime::gc()` that
 runs before the first consumer read cannot sweep the upstream graph. The
-lower-level pieces still exist — `scope.add_watch(derived.watch())`
-registers without priming (an uncomputed watched cell is rooted but has
-no recorded upstream `gc_dependencies()` yet, so prime it yourself), and
-`Observer` values register with `Scope::add_observer`. If the facade
+lower-level piece still exists — `scope.add_watch(derived.watch())`
+registers an already-primed Watch without a second read. If the facade
 keeps a last-good cache, seed it from the priming read.
 
 GC traversal follows `gc_dependencies()` from anchored roots, so the
 parser's interior cells stay reachable as long as one downstream cell is
-watched/observed and has been computed at least once.
+watched and has been computed at least once.
 
 ### Template — `Watch` (preferred for new code)
 
@@ -244,48 +241,6 @@ pub fn MyAttachment::dispose(self : MyAttachment) -> Unit {
   self.scope.dispose() // releases the scope-registered watch too
 }
 ```
-
-### Template — `Observer`
-
-From `dowdiness/loom: examples/lambda/src/typed_parser.mbt` (and
-mirrored in `dowdiness/loom: examples/lambda/src/callers/callers.mbt`):
-
-```moonbit
-pub(all) struct MyAttachment {
-  scope : @incr.Scope
-  observer : @incr.Observer[Result]
-}
-
-pub fn attach_my_thing(
-  parser : @loom.Parser[@ast.Term],
-) -> MyAttachment {
-  let rt = parser.runtime()
-  let scope = @incr.Scope::new(rt)
-  let derived = scope.derived(
-    fn() { do_work(parser.syntax_tree().get_or_abort()) },
-    label="derived_bridge",
-  )
-  let result = scope.derived(
-    fn() { finalize(derived.get_or_abort()) },
-    label="derived_result",
-  )
-  let observer = scope.add_observer(result.observe())
-  ignore(observer.get())
-  { scope, observer }
-}
-
-pub fn MyAttachment::get(self : MyAttachment) -> Result {
-  self.observer.get()
-}
-
-pub fn MyAttachment::dispose(self : MyAttachment) -> Unit {
-  self.scope.dispose()
-}
-```
-
-Both templates produce the same reachability behavior. Pick one per
-chain and stay there — don't half-migrate one struct between `Watch`
-and `Observer` mid-flight.
 
 ## Constructor Naming for *New* Structs
 
@@ -326,10 +281,9 @@ direct-constructor sugar.
 
 `Scope::new` and `Parser::new` are the names those APIs ship with — call
 them as-is. (`Runtime::new` is deprecated since 0.14.0; use `Runtime()`.)
-**`Watch` and `Observer` are never constructed**; they come from
-`scope.watch(derived)` (preferred) / `derived.watch()` /
-`derived.observe()` / `reachable.observe()` / `eager.observe()`. The
-`Type::Type` rule is for new struct definitions, not retroactive
+**`Watch` is never constructed**; it comes from
+`scope.watch(derived)` (preferred) / `derived.watch()`.
+The `Type::Type` rule is for new struct definitions, not retroactive
 migration of upstream APIs.
 
 Canonical reference for the convention in use:
@@ -380,10 +334,10 @@ Before any non-trivial `Derived(rt, ...)` / `ReachableDerived` /
    outside (top-level, test setup, a public method that's not a compute
    body), use `.read_or_abort()` / `.read()` for `Derived` /
    `ReachableDerived`, `.read()` for `EagerDerived`, or a persistent
-   `watch.read_or_abort()` / `observer.get()`.
+   `watch.read_or_abort()`.
 2. **Will this cell survive `rt.gc()`?** If it's owned by a struct with
    a public `get`/`dispose` surface, it needs a `Scope` + persistent
-   `Watch` or `Observer` GC anchor. If it's transient (one-shot read,
+   `Watch` GC anchor. If it's transient (one-shot read,
    immediately discarded), a bare outside-graph read is fine.
 3. **Am I defining a new struct constructor?** Name it `Type::Type`,
    not `Type::new`.
@@ -395,7 +349,7 @@ Before any non-trivial `Derived(rt, ...)` / `ReachableDerived` /
 |---------|---------|-----|
 | `derived.read_or_abort()` / `reachable.read_or_abort()` inside a compute closure | Bench numbers inflated 25-30% on layered shapes; correctness OK so easy to miss | Replace with `input.get()` / `eager.get()` or `derived.get_or_abort()` / `reachable.get_or_abort()`. Audit the bench file in the same package as the canonical template. |
 | Calling strict graph reads (`.get()` / `.get_or_abort()`) from top-level test or handler | Aborts outside a tracked context, or records a surprising dependency if a compute frame is active | Use `.read_or_abort()` / `.read()` for `Derived` / `ReachableDerived`, `.read()` for `EagerDerived`. |
-| Forgot the GC anchor or priming read on an `attach_*` helper | Tests pass until `rt.gc()` runs before the first read; then `attachment.get()` aborts | Store `result.watch()` (or `scope.add_observer(result.observe())`), prime with `watch.read_or_abort()` (or `observer.get()`), and dispose the watch explicitly. |
+| Forgot the GC anchor on an `attach_*` helper | Tests pass until `rt.gc()` collects the unrooted chain | Store `result.watch()` or use `scope.watch(derived)`; acquisition primes automatically, and the watch must be disposed. |
 | Defined `MyType::new(...)` for a new struct | Inconsistent with project convention; Codex/code review will flag | Rename to `MyType::MyType(...)`. |
 | Wrote `Input::new(...)` / `Derived::new(...)` | Library ships direct constructors, not `::new` | Use `Input(rt, v, label=...)` / `Derived(rt, f, label=...)` directly. |
 | Forgot to prime in a bench | First-touch cost shows up in the warm baseline | Add `ignore(d.read_or_abort())` before `b.bench(...)`. |
@@ -415,8 +369,7 @@ Before any non-trivial `Derived(rt, ...)` / `ReachableDerived` /
 - About to call `Input::new(...)` or `Derived::new(...)` → the library
   ships direct constructors; drop the `::new`.
 - A struct field is `priv derived : @incr.Derived[T]` with a public
-  `get` / `dispose` and no `watch : @incr.Watch[T]` /
-  `observer : @incr.Observer[T]` field → missing GC anchor.
+  `get` / `dispose` and no `watch : @incr.Watch[T]` field → missing GC anchor.
 - A bench body that calls `input.set` then a read with no prime above
   it → first iteration measures cold path.
 - About to type any name from the Historical Mapping table
@@ -438,7 +391,7 @@ In this repo (`dowdiness/incr`):
 - `docs/getting-started.md` — narrative walk-through with the
   inside-vs-outside read rule called out.
 - `docs/api-reference.md` — authoritative shape of `read` /
-  `read_or_abort` / `get` / `get_or_abort` / `watch` / `observe` for
+  `read_or_abort` / `get` / `get_or_abort` / `watch` for
   each handle.
 - `tests/bench_test.mbt` — bench template.
 - `CLAUDE.md` — package map (where each cell type lives) and the
@@ -450,7 +403,7 @@ In sister repo `dowdiness/loom` (where the incr library is consumed by
 real parser pipelines — these are the canonical user-facing examples):
 
 - `examples/lambda/src/typed_parser.mbt` — canonical `Scope` +
-  persistent `Observer` + `dispose` lifecycle on a parser attachment.
+  persistent `Watch` + `dispose` lifecycle on a parser attachment.
 - `examples/lambda/src/callers/callers.mbt` — second example of the
   same pattern, plus defensive `.copy()` on cached buckets and the
   `Type::Type` constructor convention.
@@ -468,7 +421,7 @@ written, update the skill — don't trust the path.
 
 - `feedback_api_misuse_pattern.md` — the four-miss session that
   motivated this skill.
-- `feedback_persistent_observer_for_gc.md` — long-form rationale for
+- `feedback_persistent_watch_for_gc.md` — long-form rationale for
   the GC-anchor pattern.
 - `project_callers_prototype.md` — Tier 0 example using every pattern
   in this skill correctly post-Codex review.
@@ -480,4 +433,4 @@ written, update the skill — don't trust the path.
   visualization-tap follow-up. Substantive incr-internal work, not
   workflow guidance.
 - Adding same-receiver bridge methods across handle types
-  (`Derived::observe`, etc.) beyond what the current API already ships.
+  beyond what the current API already ships.

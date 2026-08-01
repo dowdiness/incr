@@ -1,20 +1,4 @@
 ///|
-/// A typed keep-alive handle for reading computed values from outside the
-/// dependency graph.
-///
-/// Observer is NOT a cell -- it has no SoA slot, no CellRef variant, and
-/// no subscriber set. It is a lightweight ref-counted handle that:
-/// 1. Increments gc_root_counts for the target cell (keeps it alive during gc)
-/// 2. Provides a typed getter for reading the cell's value
-/// 3. Decrements gc_root_counts on dispose (allows gc to collect)
-pub struct Observer[T] {
-  priv runtime : Runtime
-  priv target_id : CellId
-  priv getter : () -> T
-  priv mut disposed : Bool
-} derive(Debug(ignore=[Runtime, Fn, CellId]))
-
-///|
 fn Runtime::add_read_root(self : Runtime, id : CellId) -> Unit {
   let prev = self.add_gc_root(id)
   if prev == 0 {
@@ -35,45 +19,10 @@ fn Runtime::remove_read_root(self : Runtime, id : CellId) -> Unit {
 }
 
 ///|
-/// Returns the current value of the observed cell.
+/// A typed persistent read root for values read outside the graph.
 ///
-/// For Memo and HybridMemo targets, this triggers pull verification
-/// if the cell is stale. For EagerDerived targets, returns the eagerly
-/// computed cached value.
-pub fn[T] Observer::get(self : Observer[T]) -> T {
-  guard !self.disposed else { abort("Observer: already disposed") }
-  let value = (self.getter)()
-  if self.runtime.has_pending_events() {
-    self.runtime.drain_pending_events_if_idle()
-  }
-  value
-}
-
-///|
-/// Releases this observer's keep-alive hold on the target cell.
-///
-/// Decrements gc_root_counts. When the last observer for a cell is
-/// disposed (count reaches 0), calls on_unobserve via CellLifecycle
-/// (no-op in Layer 4a; Layer 4b adds push suspension).
-///
-/// Idempotent: disposing an already-disposed observer is a no-op.
-pub fn[T] Observer::dispose(self : Observer[T]) -> Unit {
-  guard !self.disposed else { return }
-  self.disposed = true
-  self.runtime.remove_read_root(self.target_id)
-}
-
-///|
-/// Returns true if this observer has been disposed.
-pub fn[T] Observer::is_disposed(self : Observer[T]) -> Bool {
-  self.disposed
-}
-
-///|
-/// A typed keep-alive handle that reads `Result` values from outside the graph.
-///
-/// `Watch` has the same GC-rooting semantics as `Observer`, but preserves
-/// read errors as values for target-facade read APIs.
+/// A `Watch` keeps its target reachable across `Runtime::gc()` and preserves
+/// read errors as values.
 pub struct Watch[T] {
   priv runtime : Runtime
   priv target_id : CellId
@@ -116,23 +65,6 @@ pub fn[T] Watch::dispose(self : Watch[T]) -> Unit {
 /// Returns true if this watch has been disposed.
 pub fn[T] Watch::is_disposed(self : Watch[T]) -> Bool {
   self.disposed
-}
-
-///|
-/// Creates an observer for an eager derived cell.
-pub fn[T] EagerDerived::observe(self : EagerDerived[T]) -> Observer[T] {
-  let cell_id = self.cell_id.id
-  guard !self.rt.is_cell_disposed(cell_id) else {
-    abort("EagerDerived::observe called on a disposed eager derived cell")
-  }
-  let rt = self.rt
-  rt.add_read_root(cell_id)
-  {
-    runtime: rt,
-    target_id: cell_id,
-    getter: fn() { self.read_permissive() },
-    disposed: false,
-  }
 }
 
 ///|

@@ -31,7 +31,7 @@ enum GraphOp {
   ReadEager
   SpawnDisposePush
   SpawnDisposeEffect
-  ObserveSumDrop
+  WatchSumDrop
   GcSweep
   BatchSetA(Int, Int)
   BatchSetBoth(Int, Int)
@@ -132,9 +132,9 @@ fn apply_graph_op(fixture : GraphFixture, op : GraphOp) -> Unit {
       let effect = Effect(fixture.rt, () => ignore(ephemeral.get()))
       effect.dispose()
     }
-    ObserveSumDrop => {
-      let observer = fixture.sum.observe()
-      observer.dispose()
+    WatchSumDrop => {
+      let watch = fixture.sum.watch()
+      watch.dispose()
     }
     GcSweep => fixture.rt.gc()
     BatchSetA(v1, v2) =>
@@ -373,7 +373,7 @@ fn graph_op_gen() -> @gen.Gen[GraphOp] {
     @gen.pure(GraphOp::ReadEager),
     @gen.pure(GraphOp::SpawnDisposePush),
     @gen.pure(GraphOp::SpawnDisposeEffect),
-    @gen.pure(GraphOp::ObserveSumDrop),
+    @gen.pure(GraphOp::WatchSumDrop),
     @gen.pure(GraphOp::GcSweep),
   ])
 }
@@ -427,7 +427,7 @@ test "graph invariant: smoke (hand-written ops)" {
     ReadDoubled,
     SpawnDisposePush,
     SpawnDisposeEffect,
-    ObserveSumDrop,
+    WatchSumDrop,
     GcSweep,
   ])
   inspect(subscriber_symmetry_holds(fixture.rt), content="true")

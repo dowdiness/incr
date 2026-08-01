@@ -240,8 +240,14 @@ pub fn[T] Derived::read_or_abort(self : Derived[T]) -> T {
 
 ///|
 /// Creates a long-lived outside-graph reader that returns read errors.
+///
+/// Performs one priming read before returning so the target's upstream
+/// dependencies are recorded for `Runtime::gc()`. A priming read error is not
+/// escalated; it remains observable through `Watch::read()`.
 pub fn[T] Derived::watch(self : Derived[T]) -> Watch[T] {
-  self.watch_result()
+  let watch = self.watch_result()
+  ignore(watch.read())
+  watch
 }
 
 ///|
@@ -285,24 +291,6 @@ pub fn[T] Derived::on_change(self : Derived[T], f : (T) -> Unit) -> Unit {
 /// Removes the `on_change` callback for this derived value.
 pub fn[T] Derived::clear_on_change(self : Derived[T]) -> Unit {
   self.rt.get_memo_data(self.cell_id).on_change = None
-}
-
-///|
-/// Acquires an `Observer` that roots this derived cell against gc. The
-/// caller must `dispose()` the returned observer when done; otherwise
-/// the cell (and its dependency cone) stays pinned indefinitely.
-pub fn[T] Derived::observe(self : Derived[T]) -> Observer[T] {
-  guard !self.rt.is_cell_disposed(self.cell_id) else {
-    abort("Derived::observe called on a disposed derived cell")
-  }
-  let rt = self.rt
-  rt.add_read_root(self.cell_id)
-  {
-    runtime: rt,
-    target_id: self.cell_id,
-    getter: fn() { self.read_permissive() },
-    disposed: false,
-  }
 }
 
 ///|
