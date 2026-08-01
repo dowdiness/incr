@@ -18,7 +18,7 @@ instruction.
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 |---|---|---:|---:|---|---|
-| [014](014-typed-sheet-application-owner.md) | Deepen the typed-sheet application owner | P1 | L | Accepted EGW projection boundary; completed Plan 013 adapter | TODO |
+| [014](014-typed-sheet-application-owner.md) | Deepen the typed-sheet application owner | P1 | L | Accepted EGW projection boundary; completed Plan 013 adapter | IN PROGRESS |
 | 013 | Run the typed-spreadsheet EGW boundary experiment | P1 | L | Published EGW 0.4.0 | DONE (closed 2026-07-24; bounded adapter experiment complete) |
 
 Status values: `TODO` | `IN PROGRESS` | `DONE` |
