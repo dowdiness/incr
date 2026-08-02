@@ -39,6 +39,11 @@ Use graph-role names for public cell types:
 | `Trackable` | `InputFieldOwner` | Structured value that owns input fields. |
 | `Database` | `RuntimeContext` | User context that exposes an `incr` runtime. |
 
+**Completion note (2026-08-02):** `Observer[T]` has been removed. `Watch[T]`
+is now the only public persistent outside-graph read-root type.
+`Derived::watch()`, `ReachableDerived::watch()`, and `EagerDerived::watch()`
+perform one priming read before returning.
+
 Keep these names:
 
 ```moonbit

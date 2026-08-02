@@ -360,29 +360,29 @@ test "layer2: nested scope (3 levels) create and dispose" (b : @bench.T) {
 }
 
 ///|
-// ─── Layer 4a: Observer + gc() ──────────────────────────────────────────────
+// ─── Layer 4a: Watch + gc() ─────────────────────────────────────────────────
 
 ///|
-test "observer: get warm (memo)" (b : @bench.T) {
+test "watch: read_or_abort warm (memo)" (b : @bench.T) {
   let rt = @incr.Runtime::Runtime()
   let sig = @incr.Input::Input(rt, 42)
   let m = @incr.Derived::Derived(rt, fn() { sig.get() * 2 })
-  let obs = m.observe()
-  ignore(obs.get()) // prime
-  b.bench(fn() { b.keep(obs.get()) })
-  obs.dispose()
+  let watch = m.watch()
+  ignore(watch.read_or_abort()) // prime
+  b.bench(fn() { b.keep(watch.read_or_abort()) })
+  watch.dispose()
 }
 
 ///|
-test "observer: observe + dispose cycle" (b : @bench.T) {
+test "watch: watch + dispose cycle" (b : @bench.T) {
   let rt = @incr.Runtime::Runtime()
   let sig = @incr.Input::Input(rt, 42)
   let m = @incr.Derived::Derived(rt, fn() { sig.get() * 2 })
   ignore(read_derived_for_test(m)) // prime
   b.bench(fn() {
-    let obs = m.observe()
-    b.keep(obs.get())
-    obs.dispose()
+    let watch = m.watch()
+    b.keep(watch.read_or_abort())
+    watch.dispose()
   })
 }
 
@@ -390,16 +390,16 @@ test "observer: observe + dispose cycle" (b : @bench.T) {
 test "gc: sweep 1k all-live" (b : @bench.T) {
   let rt = @incr.Runtime::Runtime()
   let sig = @incr.Input::Input(rt, 1)
-  let observers : Array[@incr.Observer[Int]] = []
+  let watches : Array[@incr.Watch[Int]] = []
   for i = 0; i < 1000; i = i + 1 {
     let m = @incr.Derived::Derived(rt, fn() { sig.get() + i })
-    let obs = m.observe()
-    ignore(obs.get())
-    observers.push(obs)
+    let watch = m.watch()
+    ignore(watch.read_or_abort())
+    watches.push(watch)
   }
   b.bench(fn() { rt.gc() })
-  for obs in observers {
-    obs.dispose()
+  for watch in watches {
+    watch.dispose()
   }
 }
 
@@ -420,20 +420,20 @@ test "gc: sweep 1k all-dead" (b : @bench.T) {
 test "gc: sweep 1k 50pct dead" (b : @bench.T) {
   let rt = @incr.Runtime::Runtime()
   let sig = @incr.Input::Input(rt, 1)
-  let observers : Array[@incr.Observer[Int]] = []
+  let watches : Array[@incr.Watch[Int]] = []
   for i = 0; i < 1000; i = i + 1 {
     let m = @incr.Derived::Derived(rt, fn() { sig.get() + i })
-    let obs = m.observe()
-    ignore(obs.get())
+    let watch = m.watch()
+    ignore(watch.read_or_abort())
     if i % 2 == 0 {
-      obs.dispose()
+      watch.dispose()
     } else {
-      observers.push(obs)
+      watches.push(watch)
     }
   }
   b.bench(fn() { rt.gc() })
-  for obs in observers {
-    obs.dispose()
+  for watch in watches {
+    watch.dispose()
   }
 }
 

@@ -563,10 +563,11 @@ event handlers, facade methods, tests, and drivers — use outside-read methods
 (`Derived` / `ReachableDerived`: `.read()` / `.read_or_abort()`;
 `EagerDerived`: `.read()`) or read through a persistent `Watch`. A public
 `snapshot()` method should read a terminal `Watch`, not call `.get_or_abort()`.
-Prime each terminal `Watch` once before exposing the facade if `Runtime::gc()`
-can run before the first consumer read: a watch roots its terminal cell
-immediately, but upstream dependencies are recorded only after the terminal
-computes. If the facade stores last-good state, seed it from that priming read.
+Watch acquisition (`derived.watch()`, `scope.watch()`, `scope.watch_reachable()`)
+performs one priming read before returning, so upstream `gc_dependencies` are
+recorded and a `Runtime::gc()` before the first consumer read cannot sweep the
+upstream graph. If the facade stores last-good state, seed it from the priming
+read result.
 
 Keep recoverable parse, projection, and semantic failures in the cached value,
 following the same ownership split as
@@ -578,8 +579,11 @@ value. Do not mutate that state from inside a `Derived` closure — recomputatio
 order should not become domain state.
 
 Use `ReachableDerived` for sparse panels by mounting the panel in a child scope
-only while it is visible, then storing and priming a `Watch` for that panel's
-terminal read. Do not keep an un-watched or unprimed `ReachableDerived` as a
+only while it is visible, then storing a `Watch` for that panel's
+terminal read. Watch acquisition (`scope.watch_reachable()` or `scope.watch()`)
+performs one priming read automatically, so upstream dependencies are recorded
+and a `Runtime::gc()` before the first consumer read cannot sweep the upstream
+graph. Do not keep an unwatched `ReachableDerived` as a
 public read surface across `Runtime::gc()`. Introduce `DerivedMap` only after a
 measurement shows that per-key caching is worth the extra shape; otherwise, a
 linear chain of named `Derived` stages is easier to inspect and dispose.
@@ -591,7 +595,7 @@ mutation, audio callbacks, and other heavy or realtime work should stay outside
 those closures.
 
 The checked companion demonstrates this target-facade recipe, including a
-primed terminal `Watch`, a primed child-scope `ReachableDerived` panel, explicit
+terminal `Watch` (acquisition primes automatically), a child-scope `ReachableDerived` panel, explicit
 disposal, and last-good diagnostics in
 [`cookbook_examples.mbt.md`](cookbook_examples.mbt.md#long-lived-authoring-pipelines).
 

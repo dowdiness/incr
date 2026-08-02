@@ -70,11 +70,11 @@ type FixtureReach = (
 ///|
 /// Read a derived value without GC-rooting side effects.
 ///
-/// Creates a temporary observer, reads the value, then disposes it.
+/// Creates a temporary watch, reads the value, then disposes it.
 fn[T] read_derived_for_test(d : Derived[T]) -> T {
-  let obs = d.observe()
-  let v = obs.get()
-  obs.dispose()
+  let watch = d.watch()
+  let v = watch.read_or_abort()
+  watch.dispose()
   v
 }
 
@@ -82,9 +82,9 @@ fn[T] read_derived_for_test(d : Derived[T]) -> T {
 /// Read a reachable derived value without GC-rooting side effects.
 /// See `read_derived_for_test`.
 fn[T : Eq] read_reach_for_test(d : ReachableDerived[T]) -> T {
-  let obs = d.observe()
-  let v = obs.get()
-  obs.dispose()
+  let watch = d.watch()
+  let v = watch.read_or_abort()
+  watch.dispose()
   v
 }
 

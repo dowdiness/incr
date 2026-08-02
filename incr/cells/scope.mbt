@@ -8,7 +8,7 @@
 /// # Disposal Order
 ///
 /// 1. Children (bottom-up, recursively)
-/// 2. Dispose hooks (empty in Layer 2; populated by Scope::observe in Layer 4)
+/// 2. Dispose hooks (watches and `Scope::on_dispose` cleanups)
 /// 3. Owned cells
 ///
 /// # Example
@@ -100,7 +100,7 @@ pub fn Scope::dispose(self : Scope) -> Unit {
   for child in self.children {
     child.dispose()
   }
-  // 2. Execute dispose hooks (Layer 4: observer cleanup)
+  // 2. Execute dispose hooks (read-root and callback cleanup)
   for hook in self.dispose_hooks {
     hook()
   }
@@ -276,22 +276,6 @@ pub fn[T : Eq] Scope::eager_derived(
 }
 
 ///|
-/// Registers an observer with this scope for automatic disposal.
-///
-/// When the scope is disposed, the observer is disposed in the dispose_hooks
-/// phase (step 2 of disposal order — after children, before owned cells).
-/// This ensures observers are cleaned up before their potential targets.
-///
-/// Returns the observer for immediate use.
-pub fn[T] Scope::add_observer(self : Scope, obs : Observer[T]) -> Observer[T] {
-  guard !self.disposed else {
-    abort("Scope::add_observer called on a disposed scope")
-  }
-  self.dispose_hooks.push(fn() { obs.dispose() })
-  obs
-}
-
-///|
 /// Registers a watch with this scope for automatic disposal.
 ///
 /// When the scope is disposed, the watch is disposed in the dispose_hooks
@@ -309,33 +293,20 @@ pub fn[T] Scope::add_watch(self : Scope, watch : Watch[T]) -> Watch[T] {
 ///|
 /// Creates a GC-safe watch on a derived value, owned by this scope.
 ///
-/// Folds three steps into one call: creates `derived.watch()`, registers it
-/// with this scope for automatic disposal, and performs one priming read.
-/// The priming read computes the target so its upstream `gc_dependencies`
-/// are recorded — on return the watch is a GC root AND the upstream graph
-/// survives a `Runtime::gc()` that runs before the first consumer read.
-/// (An uncomputed watched terminal has empty gc_dependencies, so a bare
-/// `scope.add_watch(derived.watch())` without a priming read loses its
-/// upstream to gc; see the contrast test in `incr/tests/scope_test.mbt`.)
-///
-/// Aborts if the priming read fails (cycle or disposed target) — note this
-/// is structurally unreachable today: a cycle is always mediated inside the
-/// compute that observes it (the compute must produce a `T`, and a raising
-/// compute aborts in `read_honest_impl`), and a disposed target already
-/// aborts at `derived.watch()` creation. The abort is the honest signature
-/// for "priming cannot fail", not a live error channel.
+/// Folds watch creation and scope registration into one call. `Derived::watch`
+/// performs the priming read that records upstream `gc_dependencies`, so the
+/// graph survives `Runtime::gc()` before the first consumer read. A priming
+/// read error remains observable through `Watch::read()`.
 pub fn[T] Scope::watch(self : Scope, derived : Derived[T]) -> Watch[T] {
   guard !self.disposed else { abort("Scope::watch called on a disposed scope") }
-  let watch = self.add_watch(derived.watch())
-  ignore(watch.read_or_abort())
-  watch
+  self.add_watch(derived.watch())
 }
 
 ///|
 /// Creates a GC-safe watch on a reachable derived value, owned by this scope.
 ///
-/// Folds watch creation, scope registration, and the priming read performed by
-/// `ReachableDerived::watch()` into one call. MoonBit does not allow a second
+/// Folds watch creation and scope registration into one call. The priming read
+/// is performed by `ReachableDerived::watch()`. MoonBit does not allow a second
 /// `Scope::watch` overload; use this for `ReachableDerived` and `Scope::watch`
 /// for `Derived`.
 pub fn[T : Eq] Scope::watch_reachable(

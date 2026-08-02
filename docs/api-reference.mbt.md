@@ -8,7 +8,7 @@
 > README and getting-started target snippets are covered by
 > [`target_api_examples.mbt.md`](target_api_examples.mbt.md).
 
-Reference for the most commonly used public APIs in `incr`. This is not exhaustive — the authoritative surface is in `pkg.generated.mbti` and `cells/pkg.generated.mbti`. APIs surfaced here: `Runtime`, `Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `EagerDerived`, `Effect`, `MapRelation`, `Accumulator`, `DerivedEvent`, `CycleError`, the `RuntimeContext`/`Freshness`/`InputFieldOwner` traits, and the top-level helper functions. As of v0.13.0 the compatibility names (`TrackedCell`, `Reactive`, `FunctionalRelation`, `Database`, `Readable`, `Trackable`) have been removed; `Observer` was not removed. Migrating older code that used these names, or the earlier removed `Memo`-family or `Signal` names? See the v0.12.0/v0.13.0 sections of the [CHANGELOG](../CHANGELOG.md) for the name-by-name mapping.
+Reference for the most commonly used public APIs in `incr`. This is not exhaustive — the authoritative surface is in `pkg.generated.mbti` and `cells/pkg.generated.mbti`. APIs surfaced here: `Runtime`, `Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `EagerDerived`, `Effect`, `MapRelation`, `Accumulator`, `DerivedEvent`, `CycleError`, the `RuntimeContext`/`Freshness`/`InputFieldOwner` traits, and the top-level helper functions. As of v0.13.0 the compatibility names (`TrackedCell`, `Reactive`, `FunctionalRelation`, `Database`, `Readable`, `Trackable`) have been removed. Migrating older code that used these names, or the earlier removed `Memo`-family or `Signal` names? See the v0.12.0/v0.13.0 sections of the [CHANGELOG](../CHANGELOG.md) for the name-by-name mapping.
 
 Read vocabulary: `read` is the permissive outside-graph read, `get` is the strict tracked-context read, and `_or_abort` variants abort instead of returning `Result`.
 
@@ -527,7 +527,7 @@ Permissive read that aborts on any `ReadError`.
 
 ### `Derived::watch(self) -> Watch[T]`
 
-Creates a long-lived outside-graph reader. The `Watch` is a GC root until disposed, and `watch.read()` returns `Result[T, ReadError]`.
+Creates a long-lived outside-graph reader. Performs one priming read via `Watch::read` before returning so the target's upstream dependencies are recorded for `Runtime::gc()`. The `Watch` is a GC root until disposed, and `watch.read()` returns `Result[T, ReadError]`. A priming read error is not escalated; it remains observable through `Watch::read()`. Use `Watch::read_or_abort()` for the direct aborting projection.
 
 ### `Derived::is_fresh(self) -> Bool`
 
@@ -639,7 +639,7 @@ Permissive read that aborts on any `ReadError`.
 
 ### `ReachableDerived::watch[T : Eq](self) -> Watch[T]`
 
-Creates a long-lived outside-graph reader. The `Watch` is a GC root until disposed.
+Creates a long-lived outside-graph reader. Performs one priming read so upstream `gc_dependencies` are recorded before return — a `Runtime::gc()` that runs before the first consumer read cannot sweep the upstream graph. The `Watch` is a GC root until disposed. A priming read error is not escalated; it remains observable through `Watch::read()`.
 
 ### `ReachableDerived::is_fresh(self) -> Bool`
 
@@ -1076,9 +1076,12 @@ Use `scope.adopt(tracked) -> T` to register a cell created outside the scope
 (e.g. via `map` or raw constructors) with the scope's lifecycle. The cell
 must implement `InputFieldOwner`. Returns the cell for convenient chaining.
 
-Use `scope.add_watch(watch) -> Watch[T]` to tie a long-lived target `Watch` to
-the same scope. Disposing the scope disposes the watch before owned cells are
-disposed.
+Use `scope.add_watch(watch) -> Watch[T]` to register a `Watch` with the
+scope for automatic disposal. Public watch acquisition already performs the
+priming read, so `Scope::add_watch` does not read again. Disposing the scope
+disposes the watch before owned cells. Use `scope.watch(derived)` or
+`scope.watch_reachable(reachable)` to fold acquisition and registration into
+one call.
 
 `Scope::dispose()` marks the scope as closed before invoking disposal effects.
 `dispose` re-entry during cleanup is a no-op: the scope is already closed and

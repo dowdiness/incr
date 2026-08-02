@@ -14,7 +14,7 @@ rust-analyzer is built from two layers that incr fuses into one:
 |---|---|---|
 | Lossless syntax tree (position-independent data) | **rowan** green tree + positioned red `SyntaxNode` | loom `CstNode` (green) + `SyntaxNode` (red) |
 | Incremental semantic computation | **Salsa** (memoized queries) | **incr** (`Input` / `Derived` / `DerivedMap`) |
-| UI reactivity (drive the editor on change) | the **LSP client** (separate process) | **incr** again (push: `ReachableDerived` + `Watch`/`Observer`) |
+| UI reactivity (drive the editor on change) | the **LSP client** (separate process) | **incr** again (push: `ReachableDerived` + `Watch`) |
 
 The red-green split is the same in both: a position-independent green tree
 (relative widths, structurally interned, reused across edits) plus an ephemeral
@@ -51,7 +51,7 @@ its runtime — `PullState`, `PushState`, `DatalogState`:
 - **Pull** — the Salsa-equivalent lazy memo (`Derived`).
 - **Push** — *eager reactive propagation* (`add_subscriber`, `propagate_changes`,
   `fire_on_change`). Salsa has nothing like this; consumers must pull.
-  `ReachableDerived` + `Watch`/`Observer` ride this layer.
+  `ReachableDerived` + `Watch` ride this layer.
 - **Datalog** — a *relational, insert-only* fact layer. Salsa is purely functional
   memoization. incr's Datalog state is **insert-only across revisions (no
   retract)**, which is why some loom features (e.g. `callers`/`visible_from`) are
@@ -62,7 +62,7 @@ its runtime — `PullState`, `PushState`, `DatalogState`:
 Salsa bounds memory with **LRU eviction** — drop a memoized value, recompute on
 demand if pulled again (correctness-neutral). incr uses **mark-sweep GC with
 explicit roots** (`add_gc_root`, `gc_sweep`): a long-lived `Derived` that nothing
-roots is *collected*, so it must be anchored by a `Watch`/`Observer` — and the
+roots is *collected*, so it must be anchored by a `Watch` — and the
 anchor must be *primed* (its `gc_dependencies` are empty until the closure runs
 once). "Recompute if evicted" is wrong when the cell *is* live UI state.
 

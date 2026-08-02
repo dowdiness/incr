@@ -33,13 +33,13 @@ test "facade derived: read returns cycle error" {
 }
 
 ///|
-test "facade derived: watch read returns cycle error" {
+test "facade derived: watch preserves priming cycle error" {
   let rt = Runtime::Runtime()
   let derived = Derived::Derived(rt, () => 1)
   let cell_id = derived.cell_id
   let meta = rt.get_memo_data(cell_id)
-  let watch = derived.watch()
   meta.in_progress = true
+  let watch = derived.watch()
 
   let got_cycle = match watch.read() {
     Ok(_) => false
@@ -47,6 +47,25 @@ test "facade derived: watch read returns cycle error" {
   }
   meta.in_progress = false
   watch.dispose()
+  inspect(got_cycle, content="true")
+}
+
+///|
+test "facade scope: watch preserves priming cycle error" {
+  let rt = Runtime::Runtime()
+  let scope = Scope::new(rt)
+  let derived = scope.derived(() => 1)
+  let cell_id = derived.cell_id
+  let meta = rt.get_memo_data(cell_id)
+  meta.in_progress = true
+  let watch = scope.watch(derived)
+
+  let got_cycle = match watch.read() {
+    Ok(_) => false
+    Err(err) => err.cell() == cell_id
+  }
+  meta.in_progress = false
+  scope.dispose()
   inspect(got_cycle, content="true")
 }
 

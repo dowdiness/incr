@@ -315,16 +315,16 @@ test "dispose: multiple inputs, dispose one, others unaffected" {
 }
 
 ///|
-test "scope: add_observer triggers suspension on scope dispose" {
+test "scope: add_watch triggers suspension on scope dispose" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 5)
   let r = @incr.EagerDerived::EagerDerived(rt, fn() { sig.get() + 1 })
   let scope = @incr.Scope::new(rt)
-  let obs = scope.add_observer(r.observe())
-  inspect(obs.get(), content="6")
+  let watch = scope.add_watch(r.watch())
+  inspect(watch.read_or_abort(), content="6")
   sig.set(10)
-  inspect(obs.get(), content="11")
-  // Scope dispose triggers observer dispose triggers on_unobserve
+  inspect(watch.read_or_abort(), content="11")
+  // Scope dispose triggers watch dispose triggers on_unobserve
   scope.dispose()
   // EagerDerived is suspended — gc can collect it
   rt.gc()

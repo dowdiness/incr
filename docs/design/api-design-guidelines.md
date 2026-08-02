@@ -411,7 +411,7 @@ consumers.
 
 Facade names are the API: `Input[T]`, `Derived[T]`, `DerivedMap[K, V]`,
 `ReachableDerived[T]`, `EagerDerived[T]`, `InputField[T]`, `MapRelation[K, V]`,
-`Effect`, `Relation[T]`, `Runtime`, `Observer`; traits `RuntimeContext` /
+`Effect`, `Relation[T]`, `Runtime`, `Watch`; traits `RuntimeContext` /
 `Freshness` / `InputFieldOwner`. As of v0.13.0 the compatibility names
 (`Reactive[T]`, `TrackedCell[T]`, `FunctionalRelation[K, V]`, and traits
 `Database` / `Readable` / `Trackable`) have been removed as a direct breaking

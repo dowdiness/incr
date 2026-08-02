@@ -39,9 +39,9 @@ moon.work
 
 | Package | Responsibility | Depends on |
 |---|---|---|
-| Root (`incr.mbt`, `traits.mbt`) | Re-exports the public facade (`Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `EagerDerived`, `Watch`, `MapRelation`, `RuntimeContext`, `Freshness`, `InputFieldOwner`; also `Observer`, retained alongside `Watch`); provides `RuntimeContext` convenience helpers and batching/lifecycle helpers | none |
+| Root (`incr.mbt`, `traits.mbt`) | Re-exports the public facade (`Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `EagerDerived`, `Watch`, `Scope`, `MapRelation`, `RuntimeContext`, `Freshness`, `InputFieldOwner`); provides `RuntimeContext` convenience helpers and batching/lifecycle helpers | none |
 | `types/` | Pure value types: `Revision`, `Durability`, `CellId`, `CycleError`, ID types, `BackdateEq` / `HasChangedAt` traits | none |
-| `cells/` | The `Runtime` coordinator (thin delegators into `internal/kernel`), the public facades (`Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `EagerDerived`, `Watch`, `MapRelation`, `Observer`), Datalog/effect/accumulator/scope handles, and per-cell-kind lifecycle wiring | `types`, all `cells/internal/*` packages |
+| `cells/` | The `Runtime` coordinator (thin delegators into `internal/kernel`), the public facades (`Input`, `Derived`, `ReachableDerived`, `DerivedMap`, `InputField`, `EagerDerived`, `Watch`, `MapRelation`), Datalog/effect/accumulator/scope handles, and per-cell-kind lifecycle wiring | `types`, all `cells/internal/*` packages |
 | `cells/internal/shared/` | Coordinator-only trait abstractions: `CellOps`, `HasCellMeta`, `Committable`, `CellMeta`, `CellRef`, `SlotSnapshot` | (leaf) |
 | `cells/internal/pull/` | Struct-of-arrays storage for pull-mode cells (`PullInputData`, `MemoData`) | `shared` |
 | `cells/internal/push/` | SoA storage for push-mode cells (`PushReactiveData`, `PushEffectData`) | `shared` |
@@ -56,8 +56,7 @@ The five `internal/` sub-packages use MoonBit's `internal` directory visibility,
 Naming note: as of v0.13.0, the former compatibility names have been removed
 (historical mapping): `Reactive -> EagerDerived`, `TrackedCell -> InputField`,
 `FunctionalRelation -> MapRelation`, `Readable -> Freshness`, `Trackable ->
-InputFieldOwner`, and `Database -> RuntimeContext`. (`Observer` was not
-removed; it remains available alongside `Watch`.) The naming target is
+InputFieldOwner`, and `Database -> RuntimeContext`. The naming target is
 recorded in [ADR 2026-05-21](decisions/2026-05-21-public-api-ideal-naming.md);
 the [CHANGELOG](../CHANGELOG.md) has the full removal mapping.
 
@@ -146,8 +145,7 @@ functional-relation storage.
 | `EagerDerived[T]`, `Effect` | Push-mode primitives | `EagerDerived(rt, compute)`, `Effect(rt, f)` |
 | `Accumulator[T]` | Side-channel collector pushed to from derived-cell computes; consumers read via `Derived::accumulated*`. See [ADR](decisions/2026-04-20-accumulator-api.md). | `Accumulator(rt, ...)` or `create_accumulator` |
 | `Scope` | Lifecycle group: cells/accumulators registered to a scope are disposed when the scope is disposed | `Scope::new`, `scope.input` / `scope.derived` helpers, or `create_scope` |
-| `Watch[T]` | Persistent attachment that keeps a derived/eager value alive past `gc()` sweeps and returns `Result` reads | `derived.watch()` / `reachable.watch()` / `eager.watch()` |
-| `Observer` | Alternate persistent-attachment handle alongside `Watch` | — |
+| `Watch[T]` | Persistent attachment that keeps a derived/eager value alive past `gc()` sweeps and returns `Result` reads; acquisition primes automatically | `derived.watch()` / `reachable.watch()` / `eager.watch()` / `scope.watch(derived)` / `scope.watch_reachable(reachable)` |
 | `CellId`, `CellInfo`, `CycleError`, `Revision`, `Durability` | Plain value types | constructors in `types/` |
 | Traits `RuntimeContext`, `Freshness`, `InputFieldOwner` | Extension points (see below) | — |
 

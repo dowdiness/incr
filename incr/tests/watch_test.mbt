@@ -1,23 +1,23 @@
 ///|
-test "observer: observe through public API" {
+test "watch: watch through public API" {
   let rt = @incr.Runtime()
   let sig = @incr.Input(rt, 10)
   let m = @incr.Derived(rt, fn() { sig.get() * 2 })
-  let obs = m.observe()
-  inspect(obs.get(), content="20")
-  obs.dispose()
+  let watch = m.watch()
+  inspect(watch.read_or_abort(), content="20")
+  watch.dispose()
 }
 
 ///|
-test "observer: input.set updates observer.get" {
+test "watch: input.set updates watch.read_or_abort" {
   let rt = @incr.Runtime()
   let sig = @incr.Input(rt, 5)
   let m = @incr.Derived(rt, fn() { sig.get() + 1 })
-  let obs = m.observe()
-  inspect(obs.get(), content="6")
+  let watch = m.watch()
+  inspect(watch.read_or_abort(), content="6")
   sig.set(10)
-  inspect(obs.get(), content="11")
-  obs.dispose()
+  inspect(watch.read_or_abort(), content="11")
+  watch.dispose()
 }
 
 ///|

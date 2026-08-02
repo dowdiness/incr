@@ -34,7 +34,7 @@ test "ensure_computed_untracked: does not record ordinary dep on caller frame" {
     let _ = rt.ensure_computed_untracked(inner.id())
     42
   })
-  let _ = outer.observe().get()
+  let _ = outer.watch().read_or_abort()
   let outer_data = rt.get_memo_data(outer.id())
   inspect(outer_data.dependencies.contains(inner.id()), content="false")
 }

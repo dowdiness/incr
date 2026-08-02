@@ -56,44 +56,44 @@ test "cell_id_at: reconstructs CellId from index" {
 }
 
 ///|
-test "dispose_cell: removes gc_root_counts entry for observed cell" {
+test "dispose_cell: removes gc_root_counts entry for watched cell" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 1)
   let m = Derived(rt, fn() { sig.get() })
-  let obs = m.observe()
+  let watch = m.watch()
   // gc_root_counts has entry
   inspect(rt.core.gc_root_counts.get(m.id()) is None, content="false")
   // manually dispose the memo
   m.dispose()
   // gc_root_counts entry should be cleaned up
   debug_inspect(rt.core.gc_root_counts.get(m.id()), content="None")
-  // observer dispose should not abort (skips on_unobserve for dead cell)
-  obs.dispose()
+  // watch dispose should not abort (skips on_unobserve for dead cell)
+  watch.dispose()
 }
 
 ///|
-test "dispose_cell: clears gc_root_counts with multiple observers" {
+test "dispose_cell: clears gc_root_counts with multiple watches" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 1)
   let m = Derived(rt, fn() { sig.get() })
-  let obs1 = m.observe()
-  let obs2 = m.observe()
+  let watch1 = m.watch()
+  let watch2 = m.watch()
   debug_inspect(rt.core.gc_root_counts.get(m.id()), content="Some(2)")
   m.dispose()
   debug_inspect(rt.core.gc_root_counts.get(m.id()), content="None")
-  obs1.dispose()
-  obs2.dispose()
+  watch1.dispose()
+  watch2.dispose()
 }
 
 ///|
-test "dispose preflight: pinned relation preserves root and observer state" {
+test "dispose preflight: pinned relation preserves root and watch state" {
   let rt = Runtime::Runtime()
   let rel : Relation[Int] = Relation::Relation(rt)
   rel.insert(1) |> ignore
   rt.fixpoint()
-  let observed = Derived(rt, fn() { rel.contains(1) })
-  let observer = observed.observe()
-  inspect(observer.get(), content="true")
+  let watched = Derived(rt, fn() { rel.contains(1) })
+  let watch = watched.watch()
+  inspect(watch.read_or_abort(), content="true")
   let previous_root_count = rt.add_gc_root(rel.id())
   inspect(previous_root_count, content="0")
   let rule = rt.new_rule([rel.id()], [], () => ())
@@ -108,9 +108,9 @@ test "dispose preflight: pinned relation preserves root and observer state" {
   inspect(rejected, content="true")
   debug_inspect(rt.core.gc_root_counts.get(rel.id()), content="Some(1)")
   inspect(rel.contains(1), content="true")
-  inspect(observer.get(), content="true")
+  inspect(watch.read_or_abort(), content="true")
 
-  observer.dispose()
+  watch.dispose()
   ignore(rt.remove_gc_root(rel.id()))
   rt.dispose_rule(rule)
   rel.dispose()
@@ -132,12 +132,12 @@ test "phase: Idle by default" {
 // =============================================================================
 
 ///|
-test "collect_gc_roots: live observer puts memo in roots via gc_root_counts" {
+test "collect_gc_roots: live watch puts memo in roots via gc_root_counts" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 1)
   let m = Derived(rt, fn() { sig.get() })
-  let obs = m.observe()
-  ignore(obs.get())
+  let watch = m.watch()
+  ignore(watch.read_or_abort())
   let roots = @kernel.collect_gc_roots(rt.core)
   let contains_memo = for id in roots {
     if id == m.id() {
@@ -147,17 +147,17 @@ test "collect_gc_roots: live observer puts memo in roots via gc_root_counts" {
     false
   }
   inspect(contains_memo, content="true")
-  obs.dispose()
+  watch.dispose()
 }
 
 ///|
-test "collect_gc_roots: disposed observer is absent from roots" {
+test "collect_gc_roots: disposed watch is absent from roots" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 1)
   let m = Derived(rt, fn() { sig.get() })
-  let obs = m.observe()
-  ignore(obs.get())
-  obs.dispose()
+  let watch = m.watch()
+  ignore(watch.read_or_abort())
+  watch.dispose()
   let roots = @kernel.collect_gc_roots(rt.core)
   let contains_memo = for id in roots {
     if id == m.id() {
@@ -220,12 +220,12 @@ test "gc_sweep: unobserved interior cell is passed to dispose_fn" {
 }
 
 ///|
-test "gc_sweep: observed interior cell is not passed to dispose_fn" {
+test "gc_sweep: watched interior cell is not passed to dispose_fn" {
   let rt = Runtime::Runtime()
   let sig = Input::Input(rt, 1)
   let m = Derived(rt, fn() { sig.get() })
-  let obs = m.observe()
-  ignore(obs.get())
+  let watch = m.watch()
+  ignore(watch.read_or_abort())
   let swept : Array[_] = []
   @kernel.gc_sweep(rt.core, fn(id) { swept.push(id) })
   let m_swept = for id in swept {
@@ -236,5 +236,5 @@ test "gc_sweep: observed interior cell is not passed to dispose_fn" {
     false
   }
   inspect(m_swept, content="false")
-  obs.dispose()
+  watch.dispose()
 }

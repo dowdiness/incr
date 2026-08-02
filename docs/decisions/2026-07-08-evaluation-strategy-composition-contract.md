@@ -41,7 +41,7 @@ which machinery may legally apply to it:
 | Semantics | Value is a function of current dependency values only. Caching is **transparent**: backdating, verification skipping, GC eviction + recompute, and demand schedule must all be unobservable | Value depends on the sequence of committed changes. Recompute events are semantics |
 | Evaluation | Lazy pull is safe | Eager push **required** — a missed event changes the answer |
 | Backdating | Legal | Illegal |
-| Lifecycle | Ordinary derived cells | Must be GC-anchored (like `Watch`/`Observer`) |
+| Lifecycle | Ordinary derived cells | Must be GC-anchored (like `Watch`) |
 | Cell kinds | `Derived`, `ReachableDerived`, `DerivedMap`, `EagerDerived` computes | No sanctioned first-class home today (see §5) |
 
 `EagerDerived` reaches transparency by a different mechanism than the pull
@@ -82,7 +82,7 @@ contract:
 | Pull compute (`Derived`, memo verification) | **Illegal** — reentrant propagation | Legal (records dependency) |
 | Push compute (`EagerDerived`, `Effect`) | **Illegal** — reentrant propagation | Legal (records dependency) |
 | Datalog rule body (inside `fixpoint()`) | **Illegal** — aborted by the phase backstop only when push propagation is reached; see the enforcement-gap note | **Illegal for derived reads** — `Derived::get` / `ReachableDerived::get` abort during fixpoint (`incr/cells/derived_impl.mbt`); `Input::get` is not currently guarded but equally out of contract — rule bodies read relations via delta/current |
-| Outside the graph (`Observer::get`, main thread, `on_change` callbacks) | Legal — see the recursion note below | Legal (untracked) |
+| Outside the graph (`Watch::read`, main thread, `on_change` callbacks) | Legal — see the recursion note below | Legal (untracked) |
 | Inside `batch` (outside compute) | Legal — deferred, committed at batch end | Legal |
 
 `fixpoint()` itself is additionally illegal both re-entrantly and inside a

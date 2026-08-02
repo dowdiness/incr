@@ -90,8 +90,6 @@ pub using @types {type ListenerId}
 
 pub using @cells {type MapRelation}
 
-pub using @cells {type Observer}
-
 pub using @cells {type ReachableDerived}
 
 pub using @types {type ReadError}

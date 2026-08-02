@@ -167,8 +167,8 @@ test "functional_relation: revert before fixpoint preserves changed_at and cache
     reactive_count += 1
     fr.get("x").unwrap_or(0)
   })
-  let observer = r.observe()
-  debug_inspect(observer.get(), content="1")
+  let watch = r.watch()
+  debug_inspect(watch.read_or_abort(), content="1")
   let reactive_count_before = reactive_count
   fr.insert("x", 2) |> ignore
   fr.insert("x", 1) |> ignore
@@ -176,10 +176,10 @@ test "functional_relation: revert before fixpoint preserves changed_at and cache
   debug_inspect(fr.get("x"), content="Some(1)")
   inspect(rt.get_changed_at(fr.id()) == changed_at_before, content="true")
   debug_inspect(m.read_or_abort(), content="1")
-  debug_inspect(observer.get(), content="1")
+  debug_inspect(watch.read_or_abort(), content="1")
   inspect(memo_count, content="1")
   inspect(reactive_count, content=reactive_count_before.to_string())
-  observer.dispose()
+  watch.dispose()
 }
 
 ///|
