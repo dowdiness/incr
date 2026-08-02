@@ -1,0 +1,6 @@
+import {
+  "examples/spikes/issue_435_cell_snapshot/shape",
+  "moonbitlang/core/debug",
+}
+
+pkgtype(kind: "executable")
