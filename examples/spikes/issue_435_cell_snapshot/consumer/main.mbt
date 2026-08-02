@@ -2,26 +2,24 @@
 fn detail_name(details : @shape.CellSnapshotDetails) -> String {
   match details {
     Input(..) => "Input"
-    PullDerived(..) => "PullDerived"
+    Derived(..) => "Derived"
     ReachableDerived(..) => "ReachableDerived"
     EagerDerived(..) => "EagerDerived"
     Effect(..) => "Effect"
     Relation(..) => "Relation"
     MapRelation(..) => "MapRelation"
-    Rule(..) => "Rule"
+    Rule => "Rule"
   }
 }
 
 ///|
 fn dependency_count(details : @shape.CellSnapshotDetails) -> Int {
   match details {
-    PullDerived(dependencies~, ..)
+    Derived(dependencies~, ..)
     | ReachableDerived(dependencies~, ..)
     | EagerDerived(dependencies~, ..)
     | Effect(dependencies~, ..) => dependencies.length()
-    Rule(input_relations~, output_relations~) =>
-      input_relations.length() + output_relations.length()
-    Input(..) | Relation(..) | MapRelation(..) => 0
+    Input(..) | Relation(..) | MapRelation(..) | Rule => 0
   }
 }
 
@@ -29,10 +27,12 @@ fn dependency_count(details : @shape.CellSnapshotDetails) -> Int {
 fn print_snapshot(snapshot : @shape.CellSnapshot) -> Unit {
   let name = detail_name(snapshot.details)
   let dependency_total = dependency_count(snapshot.details)
-  let common_text = @debug.to_string(snapshot.common)
+  let id_text = @debug.to_string(snapshot.id)
+  let label_text = @debug.to_string(snapshot.label)
   let details_text = @debug.to_string(snapshot.details)
   println("\n\{name}")
-  println("  common: \{common_text}")
+  println("  id: \{id_text}")
+  println("  label: \{label_text}")
   println("  details: \{details_text}")
   println("  relevant edge count: \{dependency_total}")
 }
@@ -44,34 +44,45 @@ fn main {
     "Question: can one discriminated shape stay truthful for every live CellRef kind while preserving CellInfo literals?",
   )
 
-  let input_id = @shape.CellId(1)
-  let pull_id = @shape.CellId(2)
-  let reachable_id = @shape.CellId(3)
-  let rule_id = @shape.CellId(8)
-  let r2 = @shape.Revision(2)
-  let r3 = @shape.Revision(3)
-  let snapshots = @shape.sample_snapshots()
-
-  for snapshot in snapshots {
+  for snapshot in @shape.sample_snapshots() {
     print_snapshot(snapshot)
   }
 
-  let legacy : @shape.CellInfo = @shape.CellInfo::{
-    label: Some("legacy downstream literal"),
-    id: pull_id,
-    changed_at: r2,
-    verified_at: r3,
-    durability: Low,
-    dependencies: [input_id],
-    subscribers: [reachable_id],
+  let rt = @incr.Runtime()
+  let input = @incr.Input(rt, 1, label="actual source")
+  let derived = @incr.Derived(rt, () => input.get() + 1, label="actual derived")
+  ignore(derived.read_or_abort())
+  let actual = match rt.cell_info(derived.id()) {
+    Some(info) => info
+    None => abort("prototype expected live CellInfo")
   }
-  let legacy_text = @debug.to_string(legacy)
+  let legacy : @incr.CellInfo = @incr.CellInfo::{
+    label: actual.label,
+    id: actual.id,
+    changed_at: actual.changed_at,
+    verified_at: actual.verified_at,
+    durability: actual.durability,
+    dependencies: actual.dependencies.copy(),
+    subscribers: actual.subscribers.copy(),
+  }
+  let legacy_dependency_count = legacy.dependencies.length()
   println("\nCompatibility probe")
-  println("  external CellInfo literal still compiles: \{legacy_text}")
+  println("  actual external @incr.CellInfo literal compiles: true")
+  println("  legacy dependency count: \{legacy_dependency_count}")
 
-  let mutable_source = [input_id]
+  let other_rt = @incr.Runtime()
+  let foreign_is_none = other_rt.cell_info(derived.id()) is None
+  println("  current cross-Runtime query returns None: \{foreign_is_none}")
+
+  let mutable_source = actual.dependencies.copy()
   let owned_snapshot = ReadOnlyArray::from_array(mutable_source)
-  mutable_source[0] = rule_id
-  let copy_is_independent = owned_snapshot[0] == input_id
+  let other_input = @incr.Input(rt, 9)
+  mutable_source[0] = other_input.id()
+  let copy_is_independent = owned_snapshot[0] == input.id()
   println("  ReadOnlyArray::from_array owns a copy: \{copy_is_independent}")
+
+  let derived_id = derived.id()
+  derived.dispose()
+  let disposed_is_none = rt.cell_info(derived_id) is None
+  println("  current disposed query returns None: \{disposed_is_none}")
 }

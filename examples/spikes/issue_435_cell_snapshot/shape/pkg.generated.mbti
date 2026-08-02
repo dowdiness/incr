@@ -2,6 +2,7 @@
 package "examples/spikes/issue_435_cell_snapshot/shape"
 
 import {
+  "dowdiness/incr/types",
   "moonbitlang/core/debug",
 }
 
@@ -11,54 +12,22 @@ pub fn sample_snapshots() -> Array[CellSnapshot]
 // Errors
 
 // Types and methods
-pub(all) struct CellId {
-  value : Int
-} derive(Eq, @debug.Debug)
-pub fn CellId::CellId(Int) -> Self
-
-pub(all) struct CellInfo {
-  label : String?
-  id : CellId
-  changed_at : Revision
-  verified_at : Revision
-  durability : Durability
-  dependencies : Array[CellId]
-  subscribers : Array[CellId]
-} derive(@debug.Debug)
-
 pub struct CellSnapshot {
-  common : CellSnapshotCommon
+  id : @types.CellId
+  label : String?
   details : CellSnapshotDetails
 } derive(@debug.Debug)
 
-pub struct CellSnapshotCommon {
-  id : CellId
-  label : String?
-  subscribers : ReadOnlyArray[CellId]
-  gc_root_count : Int
-} derive(@debug.Debug)
-
 pub(all) enum CellSnapshotDetails {
-  Input(changed_at~ : Revision, durability~ : Durability)
-  PullDerived(changed_at~ : Revision, verified_at~ : Revision, durability~ : Durability, dependencies~ : ReadOnlyArray[CellId])
-  ReachableDerived(changed_at~ : Revision, verified_at~ : Revision, durability~ : Durability, dependencies~ : ReadOnlyArray[CellId])
-  EagerDerived(changed_at~ : Revision, level~ : Int, dependencies~ : ReadOnlyArray[CellId])
-  Effect(level~ : Int, dependencies~ : ReadOnlyArray[CellId])
-  Relation(changed_at~ : Revision)
-  MapRelation(changed_at~ : Revision)
-  Rule(input_relations~ : ReadOnlyArray[CellId], output_relations~ : ReadOnlyArray[CellId])
+  Input(changed_at~ : @types.Revision, durability~ : @types.Durability)
+  Derived(changed_at~ : @types.Revision, verified_at~ : @types.Revision, durability~ : @types.Durability, dependencies~ : ReadOnlyArray[@types.CellId])
+  ReachableDerived(changed_at~ : @types.Revision, verified_at~ : @types.Revision, durability~ : @types.Durability, dependencies~ : ReadOnlyArray[@types.CellId])
+  EagerDerived(changed_at~ : @types.Revision, level~ : Int, dependencies~ : ReadOnlyArray[@types.CellId])
+  Effect(level~ : Int, dependencies~ : ReadOnlyArray[@types.CellId])
+  Relation(changed_at~ : @types.Revision)
+  MapRelation(changed_at~ : @types.Revision)
+  Rule
 } derive(@debug.Debug)
-
-pub(all) enum Durability {
-  Low
-  Medium
-  High
-} derive(Eq, @debug.Debug)
-
-pub(all) struct Revision {
-  value : Int
-} derive(Eq, @debug.Debug)
-pub fn Revision::Revision(Int) -> Self
 
 // Type aliases
 
