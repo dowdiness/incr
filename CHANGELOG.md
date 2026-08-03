@@ -4,6 +4,12 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ## [Unreleased]
 
+## [v0.15.0] - 2026-08-03
+
+Breaking release: `Watch[T]` replaces the removed `Observer[T]` API, and
+Incremental TEA uses the shared `ValueEventId` / `ValuePayload` event boundary.
+Migration details are listed under Changed below.
+
 ### Added
 
 - Added explicit `Scope::collect()` maintenance for long-lived attachments. It

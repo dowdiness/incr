@@ -1,6 +1,6 @@
 name = "dowdiness/incr"
 
-version = "0.14.2"
+version = "0.15.0"
 
 readme = "README.mbt.md"
 
