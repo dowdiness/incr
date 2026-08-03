@@ -1,6 +1,7 @@
 ///|
 /// Keyed derived map facade. Lazily caches per-key `Derived` entries on first
-/// access; scope-owned maps clear entries on dispose.
+/// access; scope-owned maps clear entries on dispose and participate in
+/// `Scope::collect()` maintenance.
 pub(all) struct DerivedMap[K, V] {
   priv rt : Runtime
   priv compute : (K) -> V raise Failure
@@ -69,7 +70,8 @@ fn[K, V] DerivedMap::dispose_from_scope(self : DerivedMap[K, V]) -> Unit {
 }
 
 ///|
-/// Strict graph read for `key`. Requires an active tracked context.
+/// Strict graph read for `key`. Requires an active tracked context. A private
+/// per-key entry disposed by runtime GC is recreated before reading.
 pub fn[K : Hash + Eq, V : Eq] DerivedMap::get(
   self : DerivedMap[K, V],
   key : K,
@@ -93,7 +95,9 @@ pub fn[K : Hash + Eq, V : Eq] DerivedMap::get_or_abort(
 }
 
 ///|
-/// Permissive read for `key`. Records a dependency if tracked.
+/// Permissive read for `key`. Records a dependency if tracked. A private
+/// per-key entry disposed by runtime GC is recreated before reading; disposal
+/// of the map itself still returns `ReadError::Disposed`.
 pub fn[K : Hash + Eq, V : Eq] DerivedMap::read(
   self : DerivedMap[K, V],
   key : K,
@@ -164,7 +168,9 @@ pub fn[K, V] DerivedMap::cache_len(self : DerivedMap[K, V]) -> Int {
 }
 
 ///|
-/// Removes cached entries whose underlying cells have been disposed.
+/// Removes cached entries whose underlying cells have been disposed. Scope-
+/// owned maps are maintained by `Scope::collect()`; use this operation for raw
+/// maps and diagnostics.
 pub fn[K : Hash + Eq, V] DerivedMap::sweep_cache(
   self : DerivedMap[K, V],
 ) -> Int {

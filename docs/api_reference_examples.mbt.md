@@ -465,6 +465,29 @@ test "docs api-ref: derived_map sweep_cache prunes gc-disposed entries" {
   inspect(by_key.sweep_cache(), content="3")
   inspect(by_key.cache_len(), content="0")
 }
+
+///|
+test "docs api-ref: scope collect maintains owned derived maps" {
+  let rt = @incr.Runtime()
+  let scope = @incr.Scope::new(rt)
+  let source = scope.input(10, label="source")
+  let by_key = scope.derived_map(
+    (key : Int) => source.get() + key,
+    label="by_key",
+  )
+  let terminal = scope.derived(() => by_key.get_or_abort(1), label="terminal")
+  let watch = scope.watch(terminal)
+  inspect(by_key.read_or_abort(2), content="12")
+
+  let result = watch.read()
+  scope.collect()
+
+  guard result is Ok(11) else { fail("expected terminal value") }
+  inspect(by_key.cache_len(), content="1")
+  inspect(by_key.has_cached(1), content="true")
+  inspect(by_key.has_cached(2), content="false")
+  scope.dispose()
+}
 ```
 
 ## `ReachableDerived` — lazy reads that participate in reachability

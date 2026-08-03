@@ -4,6 +4,15 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Added explicit `Scope::collect()` maintenance for long-lived attachments. It
+  runs runtime-wide graph GC once and then retires GC-disposed entries from
+  `DerivedMap`s owned by the scope and its live descendants, without adding
+  cache scans to ordinary reads, writes, or recomputations. Collection also
+  releases disposed child-scope records so repeated maintenance does not retain
+  or rescan historical child churn.
+
 ### Fixed
 
 - Typed-spreadsheet example chips now commit the selected value immediately
@@ -21,6 +30,9 @@ All notable changes to `dowdiness/incr` are documented in this file.
 - Closed scopes before invoking disposal effects so `Scope::dispose()` is re-entrant safe.
   Re-entering `dispose()` from child or parent hooks now returns immediately, while
   preserving the teardown order as **children -> hooks -> owned cells**.
+- Live `DerivedMap`s now recreate private per-key wrappers that runtime GC
+  disposed instead of surfacing `ReadError::Disposed`; disposal of the map
+  itself continues to report `Disposed`.
 - Restored controlled form properties (`value`, `checked`, `disabled`, and
   `selected`) during equal-view Incremental TEA renderer flushes without
   counting a virtual-tree patch. Supplying `attr("value", value)` controls the

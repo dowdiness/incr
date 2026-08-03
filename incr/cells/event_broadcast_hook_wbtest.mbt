@@ -83,6 +83,15 @@ fn push_event_kind(events : Array[String], evt : DerivedEvent) -> Unit {
 }
 
 ///|
+test "panic scope: collect during derived event drain aborts" {
+  let rt = Runtime()
+  let scope = Scope::new(rt)
+  rt.on_derived_event(_evt => scope.collect())
+  let derived = Derived(rt, () => 1)
+  ignore(derived.read_or_abort())
+}
+
+///|
 test "derived_event: hook order follows accumulator then event hook" {
   let rt = Runtime()
   let sentinel = EventOrderSentinel::new()

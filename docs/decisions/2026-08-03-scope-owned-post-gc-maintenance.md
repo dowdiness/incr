@@ -139,14 +139,18 @@ CHANGELOG entry. No compatibility alias or additional read method is needed.
 accessor. Let:
 
 - `C` be the runtime cell slots inspected by runtime GC;
-- `S` be the live scopes inspected while traversing the receiver's subtree;
+- `S` be the scope records inspected while traversing the receiver's subtree,
+  including child records disposed since its previous collection;
 - `M` be the live `DerivedMap`s owned by the receiver's scope subtree;
 - `E` be the cached entries across those maps.
 
 One collection is `O(C + S + M + E)` time in the worst case: one runtime-wide
-mark/sweep followed by traversal of the receiver's live scope subtree and one
-visit to each owned map and cached entry. Scope traversal pays `O(S)` even when
-descendants own no maps; parent collection includes maps owned by live
+mark/sweep followed by traversal of the receiver's scope records and one visit
+to each owned map and cached entry. Before descending, collection releases
+disposed child records; consequently a record disposed between two collections
+is inspected at most once more, and repeated collection reflects the live
+subtree rather than historical child churn. Scope traversal pays `O(S)` even
+when descendants own no maps; parent collection includes maps owned by live
 descendants. Runtime marking also requires `O(C)` worst-case temporary
 reachability/worklist storage. The scope-local hook registry adds `O(M)`
 retained closures, all owned by the same scope that already retains each map
@@ -164,7 +168,8 @@ interactive read or edit without workload evidence.
 - `Scope::derived_map` privately registers a retirement closure in the owning
   scope in addition to its existing disposal closure.
 - Parent collection includes maps owned by live descendants. Scope disposal
-  clears both closure collections and never registers anything with Runtime.
+  clears both closure collections, collection releases disposed child records,
+  and neither operation registers anything with Runtime.
 - `DerivedMap::get_or_create_entry` replaces a disposed cached entry before
   delegating to the normal read path.
 - Runtime must not gain a map registry, maintenance participant trait, weak

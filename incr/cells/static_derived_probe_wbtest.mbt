@@ -196,6 +196,18 @@ test "panic static derived: gc is rejected during static recompute" {
 }
 
 ///|
+test "panic static derived: scope collect is rejected during recompute" {
+  let rt = Runtime()
+  let scope = Scope::new(rt)
+  let input = Input(rt, 1)
+  let derived = static_derived_map1(input, x => {
+    scope.collect()
+    x + 1
+  })
+  ignore(derived.read_or_abort())
+}
+
+///|
 test "static derived: compute failure clears in-progress and hooks" {
   let rt = Runtime()
   rt.on_derived_event(_evt => ())
