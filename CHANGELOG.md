@@ -21,10 +21,6 @@ Migration details are listed under Changed below.
 
 ### Fixed
 
-- Typed-spreadsheet example chips now commit the selected value immediately
-  instead of waiting for a later Enter or Apply action.
-- Remote typed-spreadsheet collaboration commits now refresh each receiver's
-  bounded Trace and Evidence views after projection.
 - Datalog relation disposal now rejects live rules that declare the relation;
   dispose those rules first, and all current and delta relation reads reject
   disposed handles.
@@ -47,36 +43,13 @@ Migration details are listed under Changed below.
   newly added option is selected in the same render. Initial-property and
   equal-view drift regression coverage includes `<textarea>`.
 
-
 ### Changed
 
 - **Breaking: `Observer[T]` removed; `Watch[T]` is the only public persistent outside-graph read root.** `Observer`, `Derived::observe`, `ReachableDerived::observe`, `EagerDerived::observe`, `Scope::add_observer`, and `.observe()` are gone. `Derived::watch()`, `ReachableDerived::watch()`, and `EagerDerived::watch()` now perform one priming read via `Watch::read` before returning, so upstream `gc_dependencies` are recorded and a pre-read `Runtime::gc()` cannot sweep the upstream graph. Priming errors are not escalated; they remain observable through `Watch::read()`. `Watch::read_or_abort()` is the direct aborting projection. `Scope::add_watch` registers an already-primed `Watch` for automatic disposal without a second read; `Scope::watch` and `Scope::watch_reachable` fold creation and registration into one call. The internal `on_observe` / `on_unobserve` lifecycle hook names are unchanged.
-- Typed-spreadsheet same-sheet missing and deleted references now read as
-  `Ok(Blank)`. Direct references preserve Blank, scalar operators remain strict,
-  and foreign references remain `RefError`.
 - Unified text-input and committed-value payloads under `ValueEventId` and
   `ValuePayload`. `BrowserRenderer::mount` now accepts the shared `on_value`
   resolver for both `on_input` and `on_change` descriptors; the previous
   `TextInputId`, `TextInputPayload`, and `on_input` resolver API was removed.
-
-### Examples
-
-- Added deterministic, bounded typed-spreadsheet explanation queries for
-  current-cell semantics, latest-edit evidence, and region-scoped error and
-  dependent discovery. Typed result/kind/change variants replace stringly query
-  states, context schema v3 carries only structured before/after evidence,
-  `observed_errors` returns parse/type/reference/cycle errors in snapshot order,
-  and `observed_dependents` separates static references from active dependencies
-  within the scope, while the Rabbita demo retains one coherent
-  `ExplanationFrame` behind a default-closed `explain <cell>` inspector.
-- Added a demo-private, same-origin two-page collaboration proof for the typed
-  spreadsheet example, including host bootstrap, supplied-node join attach,
-  bidirectional committed-cell synchronization, fail-closed transport with
-  local-only editing fallback, and Playwright CI coverage.
-- Added the typed spreadsheet `/collab` room chooser for browser-generated
-  WebSocket capabilities, copy-confirmed bearer invitations, and fail-closed
-  same-origin joining without a room-creation API or persistence.
-- Added the #394 Chromium benchmark for equal-view controlled-property traversal/getter and mismatch-repair costs across 0–10,000 rendered nodes; the measured cost did not justify a renderer optimization.
 
 ## [v0.14.2] - 2026-07-10
 
