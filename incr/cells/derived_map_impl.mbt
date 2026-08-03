@@ -19,7 +19,7 @@ fn[K : Hash + Eq, V : Eq] DerivedMap::get_or_create_entry(
 
 ///|
 /// Package-private strict honest read. Requires an active tracked context;
-/// reports mechanism failures (cycle / disposed per-key entry) as `ReadError`.
+/// reports cycles as `ReadError` after recreating GC-disposed private entries.
 fn[K : Hash + Eq, V : Eq] DerivedMap::get_strict_honest(
   self : DerivedMap[K, V],
   key : K,
