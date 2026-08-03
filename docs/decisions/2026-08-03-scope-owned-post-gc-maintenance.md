@@ -139,15 +139,18 @@ CHANGELOG entry. No compatibility alias or additional read method is needed.
 accessor. Let:
 
 - `C` be the runtime cell slots inspected by runtime GC;
+- `S` be the live scopes inspected while traversing the receiver's subtree;
 - `M` be the live `DerivedMap`s owned by the receiver's scope subtree;
 - `E` be the cached entries across those maps.
 
-One collection is `O(C + M + E)` time in the worst case: one runtime-wide
-mark/sweep followed by one visit to each owned map and cached entry. Runtime
-marking also requires `O(C)` worst-case temporary reachability/worklist
-storage. The scope-local hook registry adds `O(M)` retained closures, all
-owned by the same scope that already retains each map for disposal; it creates
-no Runtime-to-map ownership edge.
+One collection is `O(C + S + M + E)` time in the worst case: one runtime-wide
+mark/sweep followed by traversal of the receiver's live scope subtree and one
+visit to each owned map and cached entry. Scope traversal pays `O(S)` even when
+descendants own no maps; parent collection includes maps owned by live
+descendants. Runtime marking also requires `O(C)` worst-case temporary
+reachability/worklist storage. The scope-local hook registry adds `O(M)`
+retained closures, all owned by the same scope that already retains each map
+for disposal; it creates no Runtime-to-map ownership edge.
 
 Ordinary input writes, recomputations, terminal watch reads, and reads of a
 live cached key perform zero maintenance-hook or cache-wide scans. A stale-key
