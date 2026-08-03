@@ -569,6 +569,14 @@ recorded and a `Runtime::gc()` before the first consumer read cannot sweep the
 upstream graph. If the facade stores last-good state, seed it from the priming
 read result.
 
+When a long-lived pipeline owns keyed caches, keep maintenance behind the same
+facade. After reading the terminal `Watch` at an application-selected idle
+point, call `scope.collect()` once; it performs runtime-wide graph collection
+and retires stale entries only from maps in that scope subtree. Do not expose
+`Runtime::gc()` plus per-map `sweep_cache()` sequencing to consumers, and do
+not put collection on every interactive read without retention and latency
+evidence.
+
 Keep recoverable parse, projection, and semantic failures in the cached value,
 following the same ownership split as
 [domain errors as values](#pattern-domain-errors-as-values). For the last-good

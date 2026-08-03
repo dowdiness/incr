@@ -26,6 +26,7 @@ pub struct Scope {
   priv cells : Array[CellId]
   priv children : Array[Scope]
   priv dispose_hooks : Array[() -> Unit]
+  priv maintenance_hooks : Array[() -> Unit]
   priv mut disposed : Bool
 }
 
@@ -60,6 +61,9 @@ pub impl Debug for Scope with fn to_repr(self) {
     "dispose_hooks": Repr::literal(
       "<" + self.dispose_hooks.length().to_string() + " hooks>",
     ),
+    "maintenance_hooks": Repr::literal(
+      "<" + self.maintenance_hooks.length().to_string() + " hooks>",
+    ),
     "disposed": to_repr(self.disposed),
   })
 }
@@ -67,7 +71,14 @@ pub impl Debug for Scope with fn to_repr(self) {
 ///|
 /// Creates a new root scope.
 pub fn Scope::new(rt : Runtime) -> Scope {
-  { runtime: rt, cells: [], children: [], dispose_hooks: [], disposed: false }
+  {
+    runtime: rt,
+    cells: [],
+    children: [],
+    dispose_hooks: [],
+    maintenance_hooks: [],
+    disposed: false,
+  }
 }
 
 ///|
@@ -111,7 +122,35 @@ pub fn Scope::dispose(self : Scope) -> Unit {
   // Release references so a long-lived scope handle doesn't retain the subtree.
   self.children.clear()
   self.dispose_hooks.clear()
+  self.maintenance_hooks.clear()
   self.cells.clear()
+}
+
+///|
+fn Scope::retire_disposed_map_entries(self : Scope) -> Unit {
+  for child in self.children {
+    if !child.disposed {
+      child.retire_disposed_map_entries()
+    }
+  }
+  for hook in self.maintenance_hooks {
+    hook()
+  }
+}
+
+///|
+/// Runs runtime-wide graph garbage collection, then retires GC-disposed
+/// `DerivedMap` entries owned by this scope and its live descendants.
+///
+/// Call after reading the attachment's terminal `Watch` at a caller-selected
+/// idle point. Aborts if this scope is disposed or collection is not legal for
+/// the runtime's current phase. Repeated calls are idempotent.
+pub fn Scope::collect(self : Scope) -> Unit {
+  guard !self.disposed else {
+    abort("Scope::collect called on a disposed scope")
+  }
+  self.runtime.gc()
+  self.retire_disposed_map_entries()
 }
 
 ///|
@@ -221,7 +260,8 @@ pub fn[T : Eq] Scope::derived_expr(
 }
 
 ///|
-/// Creates a keyed derived facade whose cached entries are cleared on dispose.
+/// Creates a keyed derived facade whose cached entries are retired by
+/// `Scope::collect()` and cleared on scope disposal.
 pub fn[K : Hash + Eq, V] Scope::derived_map(
   self : Scope,
   compute : (K) -> V raise Failure,
@@ -232,6 +272,7 @@ pub fn[K : Hash + Eq, V] Scope::derived_map(
   }
   let map = DerivedMap(self.runtime, compute, label?)
   self.dispose_hooks.push(fn() { map.dispose_from_scope() })
+  self.maintenance_hooks.push(fn() { ignore(map.sweep_cache()) })
   map
 }
 

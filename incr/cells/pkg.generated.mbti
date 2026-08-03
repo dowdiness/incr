@@ -323,6 +323,7 @@ pub fn Scope::add_cell_ids(Self, Array[@types.CellId]) -> Unit
 pub fn[T] Scope::add_watch(Self, Watch[T]) -> Watch[T]
 pub fn[T : InputFieldOwner] Scope::adopt(Self, T) -> T
 pub fn Scope::child(Self) -> Self
+pub fn Scope::collect(Self) -> Unit
 pub fn[T : Eq] Scope::derived(Self, () -> T raise Failure, label? : String) -> Derived[T]
 pub fn[T : Eq] Scope::derived_expr(Self, Expr[T], label? : String) -> Derived[T]
 pub fn[K : Hash + Eq, V] Scope::derived_map(Self, (K) -> V raise Failure, label? : String) -> DerivedMap[K, V]

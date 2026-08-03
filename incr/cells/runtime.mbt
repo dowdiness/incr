@@ -759,15 +759,31 @@ fn Runtime::remove_gc_root(self : Runtime, id : CellId) -> Int {
 }
 
 ///|
+fn Runtime::guard_collection_safe(self : Runtime) -> Unit {
+  guard self.static_recompute_depth == 0 else {
+    abort("gc: cannot run during static Derived recompute")
+  }
+  guard self.core.callback_depth == 0 else {
+    abort("gc: cannot run during callback")
+  }
+  guard !self.event_broadcast_hook.draining &&
+    !self.runtime_evaluation_event_hook.draining else {
+    abort("gc: cannot run during event drain")
+  }
+  guard !self.has_pending_events() else {
+    abort("gc: cannot run while events are buffered")
+  }
+}
+
+///|
 /// Runs mark-and-sweep garbage collection on the dependency graph.
 ///
 /// Dispose dispatch is injected as a closure closing over
 /// `self.dispose_cell`, so per-kind CellLifecycle dispatch remains
-/// reachable from the kernel sweep loop.
+/// reachable from the kernel sweep loop. Collection aborts unless the runtime
+/// is between operations, including callback and event-drain boundaries.
 pub fn Runtime::gc(self : Runtime) -> Unit {
-  guard self.static_recompute_depth == 0 else {
-    abort("gc: cannot run during static Derived recompute")
-  }
+  self.guard_collection_safe()
   @kernel.gc(self.core, fn(id) { self.dispose_cell(id) })
   if self.has_pending_events() {
     self.drain_pending_events_if_idle()

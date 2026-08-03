@@ -570,7 +570,11 @@ Keyed counterpart to `Derived::fallible`: each key's recoverable domain failure 
 
 ### `DerivedMap::read[K : Hash + Eq, V : Eq](self, key: K) -> Result[V, ReadError]`
 
-Permissive read for `key`. It works outside the graph and records a per-key dependency when called inside a tracked compute. Returns `Err(Disposed(_))` if the per-key memo was gc-disposed while the map still caches the entry, or if the owning scope disposed the map.
+Permissive read for `key`. It works outside the graph and records a per-key
+dependency when called inside a tracked compute. If runtime GC disposed the
+map's private per-key wrapper, the live map recreates that wrapper and performs
+the ordinary read. Disposal of the map itself, such as through
+`Scope::dispose()`, still returns `Err(Disposed(_))`.
 
 ### `DerivedMap::read_or_abort[K : Hash + Eq, V : Eq](self, key: K) -> V`
 
@@ -578,7 +582,10 @@ Permissive read that aborts on any `ReadError`.
 
 ### `DerivedMap::get[K : Hash + Eq, V : Eq](self, key: K) -> Result[V, ReadError]`
 
-Strict graph read for `key`. It records the per-key dependency inside a tracked compute, aborts outside a tracked context, and returns `Err(ReadError)` for mechanism failures (cycle / disposed per-key memo).
+Strict graph read for `key`. It records the per-key dependency inside a tracked
+compute, aborts outside a tracked context, recreates a GC-disposed private
+per-key wrapper, and returns `Err(ReadError)` for a cycle or disposal of the map
+itself.
 
 ### `DerivedMap::get_or_abort[K : Hash + Eq, V : Eq](self, key: K) -> V`
 
@@ -602,7 +609,9 @@ Returns the number of cached entries.
 
 ### `DerivedMap::sweep_cache[K : Hash + Eq, V](self) -> Int`
 
-Removes cached entries whose underlying cells have been disposed.
+Removes cached entries whose underlying cells have been disposed. Scope-owned
+maps are maintained by `Scope::collect()`; this operation remains available for
+raw maps and diagnostics.
 
 ### `DerivedMap::clear_cache(self) -> Unit`
 
@@ -1082,6 +1091,26 @@ priming read, so `Scope::add_watch` does not read again. Disposing the scope
 disposes the watch before owned cells. Use `scope.watch(derived)` or
 `scope.watch_reachable(reachable)` to fold acquisition and registration into
 one call.
+
+Use `scope.collect() -> Unit` after reading a long-lived attachment's terminal
+`Watch` at a caller-selected idle point. It runs runtime-wide graph GC once,
+then retires disposed entries from `DerivedMap`s owned by the scope and its live
+descendants. It does not read or prime the terminal watch. Collection aborts
+during recomputation, a batch, a callback or event drain, or any non-idle
+runtime phase, and it aborts after scope disposal. Repeated calls are
+idempotent.
+
+```moonbit nocheck
+let result = terminal.read()
+scope.collect()
+result
+```
+
+Collection is an explicit maintenance operation with worst-case
+`O(C + S + M + E)` time for runtime cells `C`, traversed scopes `S`, owned maps
+`M`, and their cached entries `E`. Ordinary reads, writes, and recomputations do
+not scan the maintenance hooks or map caches. Choose cadence from retention and
+latency evidence rather than calling it after every interactive read.
 
 `Scope::dispose()` marks the scope as closed before invoking disposal effects.
 `dispose` re-entry during cleanup is a no-op: the scope is already closed and

@@ -258,12 +258,110 @@ test "scope: bare watch primes upstream before gc" {
 }
 
 ///|
+test "scope: collect retires stale maps in its live subtree" {
+  let rt = @incr.Runtime()
+  let parent = @incr.Scope::new(rt)
+  let child = parent.child()
+  let source = parent.input(10)
+  let parent_map = parent.derived_map((key : Int) => source.get() + key)
+  let child_map = child.derived_map((key : Int) => source.get() + key)
+
+  inspect(parent_map.read_or_abort(1), content="11")
+  inspect(parent_map.read_or_abort(2), content="12")
+  inspect(child_map.read_or_abort(2), content="12")
+  let terminal = child.derived(() => child_map.get_or_abort(1))
+  let watch = child.watch(terminal)
+  inspect(watch.read_or_abort(), content="11")
+  inspect(parent_map.cache_len(), content="2")
+  inspect(child_map.cache_len(), content="2")
+
+  parent.collect()
+
+  inspect(parent_map.cache_len(), content="0")
+  inspect(child_map.cache_len(), content="1")
+  inspect(child_map.has_cached(1), content="true")
+  inspect(child_map.has_cached(2), content="false")
+  inspect(watch.read_or_abort(), content="11")
+
+  parent.collect()
+  inspect(child_map.cache_len(), content="1")
+  inspect(watch.read_or_abort(), content="11")
+  parent.dispose()
+}
+
+///|
+test "scope: collection is isolated across scopes sharing one runtime" {
+  let rt = @incr.Runtime()
+  let scope_a = @incr.Scope::new(rt)
+  let scope_b = @incr.Scope::new(rt)
+  let source = @incr.Input(rt, 10)
+  let map_a = scope_a.derived_map((key : Int) => source.get() + key)
+  let mut computes_b = 0
+  let map_b = scope_b.derived_map((key : Int) => {
+    computes_b = computes_b + 1
+    source.get() + key
+  })
+
+  inspect(map_a.read_or_abort(1), content="11")
+  inspect(map_b.read_or_abort(2), content="12")
+  let terminal_b = scope_b.derived(() => map_b.get_or_abort(1))
+  let watch_b = scope_b.watch(terminal_b)
+  inspect(watch_b.read_or_abort(), content="11")
+  inspect(computes_b, content="2")
+
+  scope_a.collect()
+
+  inspect(map_a.cache_len(), content="0")
+  inspect(map_b.cache_len(), content="2")
+  inspect(watch_b.read_or_abort(), content="11")
+  inspect(map_b.read_or_abort(2), content="12")
+  inspect(computes_b, content="3")
+  scope_a.dispose()
+  scope_b.dispose()
+}
+
+///|
 test "panic scope: watch on disposed scope aborts" {
   let rt = @incr.Runtime()
   let scope = @incr.Scope::new(rt)
   let d = @incr.Derived(rt, fn() { 1 })
   scope.dispose()
   let _ = scope.watch(d)
+}
+
+///|
+test "panic scope: collect during on_change callback aborts" {
+  let rt = @incr.Runtime()
+  let scope = @incr.Scope::new(rt)
+  rt.set_on_change(() => scope.collect())
+  let input = @incr.Input(rt, 0)
+  input.set(1)
+}
+
+///|
+test "panic scope: collect on disposed scope aborts" {
+  let rt = @incr.Runtime()
+  let scope = @incr.Scope::new(rt)
+  scope.dispose()
+  scope.collect()
+}
+
+///|
+test "panic scope: collect during batch aborts" {
+  let rt = @incr.Runtime()
+  let scope = @incr.Scope::new(rt)
+  rt.batch(() => scope.collect())
+}
+
+///|
+test "panic scope: collect during tracked recompute aborts" {
+  let rt = @incr.Runtime()
+  let scope = @incr.Scope::new(rt)
+  let derived = @incr.Derived(rt, () => {
+    scope.collect()
+    1
+  })
+  ignore(derived.read_or_abort())
 }
 
 ///|

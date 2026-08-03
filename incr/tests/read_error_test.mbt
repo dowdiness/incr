@@ -90,18 +90,25 @@ test "Watch on a disposed EagerDerived returns Err(Disposed)" {
 }
 
 ///|
-test "DerivedMap::read on a gc-disposed per-key memo returns Err(Disposed)" {
+test "DerivedMap::read recreates a gc-disposed private entry" {
   let rt = @incr.Runtime()
   let src = @incr.Input(rt, 100, label="src")
-  let m = @incr.DerivedMap(rt, (k : Int) => src.get() + k, label="m")
+  let mut computes = 0
+  let m = @incr.DerivedMap(
+    rt,
+    (k : Int) => {
+      computes = computes + 1
+      src.get() + k
+    },
+    label="m",
+  )
   guard m.read(1) is Ok(101) else { fail("expected Ok(101)") }
+  inspect(computes, content="1")
   // The per-key memo has no persistent anchor, so gc disposes it while the
-  // map still caches the (now disposed) entry.
+  // live map still caches the private wrapper.
   rt.gc()
-  guard m.read(1) is Err(e) else {
-    fail("expected Err on gc-disposed key read")
-  }
-  guard e.is_disposed() else { fail("expected Err(Disposed), got \{e}") }
+  guard m.read(1) is Ok(101) else { fail("expected recreated Ok(101)") }
+  inspect(computes, content="2")
 }
 
 ///|

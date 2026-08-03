@@ -5,8 +5,8 @@ fn[K : Hash + Eq, V : Eq] DerivedMap::get_or_create_entry(
   key : K,
 ) -> Derived[V] {
   match self.entries.get(key) {
-    Some(entry) => entry
-    None => {
+    Some(entry) if !entry.is_disposed() => entry
+    _ => {
       let entry = match self.label {
         Some(label) => Derived(self.rt, () => (self.compute)(key), label~)
         None => Derived(self.rt, () => (self.compute)(key))
@@ -34,17 +34,14 @@ fn[K : Hash + Eq, V : Eq] DerivedMap::get_strict_honest(
 
 ///|
 /// Package-private honest permissive read — the single source of truth for the
-/// read channel. A read of a per-key entry that gc disposed (while the map still
-/// caches the entry) returns `Err(Disposed(_))`; a cycle returns
-/// `Err(Cycle(_))`; a compute `raise Failure` is a defect and still aborts.
+/// read channel. A per-key entry that gc disposed is recreated before reading;
+/// a cycle returns `Err(Cycle(_))`; a compute `raise Failure` is a defect and
+/// still aborts.
 fn[K : Hash + Eq, V : Eq] DerivedMap::read_honest(
   self : DerivedMap[K, V],
   key : K,
 ) -> Result[V, ReadError] {
   let entry = self.get_or_create_entry(key)
-  guard !entry.is_disposed() else {
-    return Err(ReadError::disposed(entry.id()))
-  }
   let result = entry.get_result_inner() catch {
     e => {
       self.rt.drain_pending_events_direct()
@@ -77,8 +74,9 @@ fn[K : Hash + Eq, V : Eq] DerivedMap::get_strict_result(
 
 ///|
 /// Package-private permissive Result read. Records a dependency when tracked.
-/// Compatibility projection of `read_honest` onto `CycleError`: a disposed
-/// per-key entry aborts (legacy contract), a cycle is `Err(CycleError)`.
+/// Compatibility projection of `read_honest` onto `CycleError`: a cycle is
+/// `Err(CycleError)` and any lifecycle error aborts. GC-disposed private
+/// per-key entries are recreated by `read_honest` before this projection.
 fn[K : Hash + Eq, V : Eq] DerivedMap::read_result(
   self : DerivedMap[K, V],
   key : K,
