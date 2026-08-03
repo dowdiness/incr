@@ -128,10 +128,12 @@ pub fn Scope::dispose(self : Scope) -> Unit {
 
 ///|
 fn Scope::retire_disposed_map_entries(self : Scope) -> Unit {
+  // A long-lived parent may outlive many short-lived child scopes. Release
+  // those closed ownership records before traversing the live subtree so
+  // future collections do not pay for historical children.
+  self.children.retain(child => !child.disposed)
   for child in self.children {
-    if !child.disposed {
-      child.retire_disposed_map_entries()
-    }
+    child.retire_disposed_map_entries()
   }
   for hook in self.maintenance_hooks {
     hook()
@@ -144,7 +146,8 @@ fn Scope::retire_disposed_map_entries(self : Scope) -> Unit {
 ///
 /// Call after reading the attachment's terminal `Watch` at a caller-selected
 /// idle point. Aborts if this scope is disposed or collection is not legal for
-/// the runtime's current phase. Repeated calls are idempotent.
+/// the runtime's current phase. Disposed child ownership records are released
+/// before traversing the live subtree. Repeated calls are idempotent.
 pub fn Scope::collect(self : Scope) -> Unit {
   guard !self.disposed else {
     abort("Scope::collect called on a disposed scope")

@@ -9,7 +9,9 @@ All notable changes to `dowdiness/incr` are documented in this file.
 - Added explicit `Scope::collect()` maintenance for long-lived attachments. It
   runs runtime-wide graph GC once and then retires GC-disposed entries from
   `DerivedMap`s owned by the scope and its live descendants, without adding
-  cache scans to ordinary reads, writes, or recomputations.
+  cache scans to ordinary reads, writes, or recomputations. Collection also
+  releases disposed child-scope records so repeated maintenance does not retain
+  or rescan historical child churn.
 
 ### Fixed
 

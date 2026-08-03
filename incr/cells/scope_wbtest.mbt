@@ -62,3 +62,20 @@ test "scope: disposal clears map maintenance ownership" {
   scope.dispose()
   inspect(scope.maintenance_hooks.length(), content="0")
 }
+
+///|
+test "scope: collect releases disposed child ownership" {
+  let rt = Runtime()
+  let root = Scope::new(rt)
+  let disposed_child = root.child()
+  let live_child = root.child()
+  disposed_child.dispose()
+  inspect(root.children.length(), content="2")
+
+  root.collect()
+
+  inspect(root.children.length(), content="1")
+  inspect(root.children[0].is_disposed(), content="false")
+  live_child.dispose()
+  root.dispose()
+}

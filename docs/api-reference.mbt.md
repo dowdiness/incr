@@ -1107,10 +1107,12 @@ result
 ```
 
 Collection is an explicit maintenance operation with worst-case
-`O(C + S + M + E)` time for runtime cells `C`, traversed scopes `S`, owned maps
-`M`, and their cached entries `E`. Ordinary reads, writes, and recomputations do
-not scan the maintenance hooks or map caches. Choose cadence from retention and
-latency evidence rather than calling it after every interactive read.
+`O(C + S + M + E)` time for runtime cells `C`, inspected scope records `S`,
+owned maps `M`, and their cached entries `E`. Disposed child records are
+released when inspected, so repeated collection does not retain or rescan
+historical child churn. Ordinary reads, writes, and recomputations do not scan
+the maintenance hooks or map caches. Choose cadence from retention and latency
+evidence rather than calling it after every interactive read.
 
 `Scope::dispose()` marks the scope as closed before invoking disposal effects.
 `dispose` re-entry during cleanup is a no-op: the scope is already closed and
