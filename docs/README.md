@@ -108,6 +108,7 @@ live in each ADR.
 | [2026-07-19](decisions/2026-07-19-independent-differential-dataflow-module.md) | Differential dataflow module boundary: independent in-workspace spike with one-way future adapters; production engine remains gated |
 | [2026-07-20](decisions/2026-07-20-typed-spreadsheet-egw-register-projection.md) | Accepted typed-spreadsheet EGW boundary: atomic cell registers, shared authoritative projection, and evidence-gated EGW improvement |
 | [2026-07-28](decisions/2026-07-28-typed-spreadsheet-explanation-queries.md) | Deterministic spreadsheet explanations stay bounded, query-specific, application-owned, and on demand |
+| [2026-08-03](decisions/2026-08-03-scope-owned-post-gc-maintenance.md) | Post-GC maintenance: caller-selected timing, runtime-wide graph GC, scope-owned map retirement, and DerivedMap self-healing |
 
 ---
 
