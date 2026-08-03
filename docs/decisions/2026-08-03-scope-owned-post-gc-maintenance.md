@@ -117,6 +117,45 @@ A `DerivedMap(rt, ...)` constructed without a scope is not bulk-maintained by
 maps and diagnostics, but is no longer part of the canonical attachment
 interface.
 
+## Compatibility and versioning
+
+Self-healing is a deliberate public behavior correction. Today, reading a
+live `DerivedMap` after GC disposed one of its private per-key wrappers returns
+`Err(ReadError::Disposed(_))`. After this decision is implemented, the same
+read recreates the private wrapper and proceeds through the ordinary value or
+cycle result channel. `ReadError::Disposed` remains unchanged when the
+`DerivedMap` itself has been disposed, such as by `Scope::dispose()`.
+
+This does not weaken honest error reporting: collection of an implementation
+detail is recoverable by the live map that owns it, while disposal of the map
+is an externally meaningful lifecycle state. The implementation PR must call
+out this behavioral change, replace the old disposed-wrapper regression test,
+update the API reference and checked documentation examples, and add a
+CHANGELOG entry. No compatibility alias or additional read method is needed.
+
+## Cost contract and cadence
+
+`Scope::collect()` is an explicit maintenance operation, not a cheap snapshot
+accessor. Let:
+
+- `C` be the runtime cell slots inspected by runtime GC;
+- `M` be the live `DerivedMap`s owned by the receiver's scope subtree;
+- `E` be the cached entries across those maps.
+
+One collection is `O(C + M + E)` time in the worst case: one runtime-wide
+mark/sweep followed by one visit to each owned map and cached entry. Runtime
+marking also requires `O(C)` worst-case temporary reachability/worklist
+storage. The scope-local hook registry adds `O(M)` retained closures, all
+owned by the same scope that already retains each map for disposal; it creates
+no Runtime-to-map ownership edge.
+
+Ordinary input writes, recomputations, terminal watch reads, and reads of a
+live cached key perform zero maintenance-hook or cache-wide scans. A stale-key
+self-heal performs an expected `O(1)` map lookup/replacement plus the normal
+allocation and recomputation for that key. Callers choose a collection cadence
+from their retention and latency budget; they must not put `collect()` on every
+interactive read or edit without workload evidence.
+
 ## Implementation constraints
 
 - `Scope::derived_map` privately registers a retirement closure in the owning
@@ -152,8 +191,11 @@ Implementation is not complete until tests demonstrate:
 Benchmarks on wasm-gc and JavaScript must separately bound the explicit
 collection cost for live entries, stale entries, multiple maps, and shared
 scopes. A steady-state edit/read control must show that merely owning the
-maintenance hooks adds no per-edit map scan. Deterministic work assertions are
-primary; wall-time gates require stable A/A calibration before entering CI.
+maintenance hooks adds no per-edit map scan. Deterministic counters must prove
+one map visit per owned map, no visit to maps in an independent scope, and no
+hook execution on ordinary reads, writes, or a failed GC. Wall-time gates
+require stable A/A calibration and a documented material threshold before
+entering CI.
 
 ## Rejected alternatives
 
