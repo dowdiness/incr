@@ -54,6 +54,8 @@ old files are never updated.
 
 For contributors and advanced users who want to understand or modify `incr`.
 
+- [Triage label mapping](agents/triage-labels.md) — maps canonical issue states to GitHub labels
+
 **How it works:**
 
 - [Internals](design/internals.md) — verification algorithm, backdating, type erasure, SoA storage, push propagation
@@ -67,6 +69,7 @@ For contributors and advanced users who want to understand or modify `incr`.
 - [Roadmap](roadmap.md) — canonical current core backlog
 - [incr_tea backlog](../incr_tea/docs/backlog.md) — task list for the `dowdiness/incr_tea` module (retargeted TEA issues + agenda)
 - [Implementation plans](../plans/) — active, time-bounded records in the root plan workflow; completed files are deleted with Git history as recovery, separately from the `docs/plans/` archive protocol.
+- [Out-of-scope: ReachableDerived eager-when-reachable](../.out-of-scope/reachable-derived-eager-when-reachable.md) — durable wontfix record; gated on a bounded-viewport consumer driver
 
 **Research notes** ([research/](research/)) — exploratory, not implemented. Open these only when a current roadmap item, plan, or ADR calls for them.
 
