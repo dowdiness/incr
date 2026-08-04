@@ -11,9 +11,9 @@ permanently impossible; it is gated until a concrete driver exists.
 The request was to differentiate `ReachableDerived` into a genuine
 eager-when-reachable memo: while downstream push roots exist, the cell would
 recompute during push propagation (not lazily on read) and emit per-edit
-recomputed / changed / verified-clean events. Today `ReachableDerived` is
-behaviorally identical to `Derived`; eagerness comes from the push-node anchor,
-not the memo type.
+recomputed / changed / verified-clean events. For eager evaluation,
+`ReachableDerived` currently behaves like `Derived`: it remains lazy until
+read through a downstream push node.
 
 ## Durable reason
 
