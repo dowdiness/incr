@@ -1,0 +1,4 @@
+import {
+  "dowdiness/incr" @incr,
+  "examples/spikes/v12_5_view_alternatives/provider" @probe,
+}

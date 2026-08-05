@@ -1,0 +1,42 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "examples/spikes/v12_5_view_alternatives/consumer"
+
+import {
+  "dowdiness/incr/types",
+  "examples/spikes/v12_5_view_alternatives/provider",
+}
+
+// Values
+pub fn[T] bind_honest(() -> Result[T, @types.ReadError], (T) -> Unit) -> Result[Unit, @types.ReadError]
+
+pub fn[T] bind_plain(() -> T, (T) -> Unit) -> Unit
+
+pub fn probe_opaque_input() -> Int
+
+pub fn probe_opaque_metadata() -> Bool
+
+pub fn probe_recoverable_cycle() -> Int
+
+pub fn probe_transparent_input() -> Int
+
+pub fn probe_two_layer_input() -> Int
+
+pub fn probe_ui_binding() -> Int
+
+// Errors
+
+// Types and methods
+pub(all) struct ProductLocalView[T] {
+  // private fields
+}
+pub fn[T] ProductLocalView::ProductLocalView(@provider.OpaqueView[T]) -> Self[T]
+pub fn[T] ProductLocalView::get(Self[T]) -> Result[T, @types.ReadError]
+pub fn[T] ProductLocalView::get_or_abort(Self[T]) -> T
+pub fn[T] ProductLocalView::id(Self[T]) -> @types.CellId
+pub fn[T] ProductLocalView::label(Self[T]) -> String?
+pub fn[T] ProductLocalView::runtime_id(Self[T]) -> @types.RuntimeId
+
+// Type aliases
+
+// Traits
+

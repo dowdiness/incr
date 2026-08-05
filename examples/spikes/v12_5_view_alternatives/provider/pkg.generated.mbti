@@ -1,0 +1,48 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "examples/spikes/v12_5_view_alternatives/provider"
+
+import {
+  "dowdiness/incr/cells",
+  "dowdiness/incr/types",
+}
+
+// Values
+pub fn[T] opaque_derived(@cells.Derived[T], label? : String) -> OpaqueView[T]
+
+pub fn[T] opaque_input(@cells.Runtime, T, label? : String) -> (OpaqueView[T], OpaqueWriter[T])
+
+pub fn[T] transparent_derived(@cells.Derived[T]) -> (() -> T, () -> Result[T, @types.ReadError])
+
+pub fn[T] transparent_input(@cells.Runtime, T, label? : String) -> (() -> T, (T) -> Unit, ((T) -> T) -> Unit)
+
+// Errors
+
+// Types and methods
+pub(all) struct OpaqueView[T] {
+  // private fields
+}
+pub fn[T] OpaqueView::diagnostic(Self[T]) -> String?
+pub fn[T] OpaqueView::get(Self[T]) -> Result[T, @types.ReadError]
+pub fn[T] OpaqueView::get_or_abort(Self[T]) -> T
+pub fn[T] OpaqueView::id(Self[T]) -> @types.CellId
+pub fn[T] OpaqueView::label(Self[T]) -> String?
+pub fn[T] OpaqueView::runtime_id(Self[T]) -> @types.RuntimeId
+pub fn[A, B] OpaqueView::same_runtime(Self[A], Self[B]) -> Bool
+
+pub(all) struct OpaqueWriter[T] {
+  // private fields
+}
+pub fn[T] OpaqueWriter::force_set(Self[T], T) -> Unit
+pub fn[T] OpaqueWriter::update(Self[T], (T) -> T) -> Unit
+
+// Type aliases
+pub type ForceSetter[T] = (T) -> Unit
+
+pub type HonestGetter[T] = () -> Result[T, @types.ReadError]
+
+pub type PlainGetter[T] = () -> T
+
+pub type Updater[T] = ((T) -> T) -> Unit
+
+// Traits
+
