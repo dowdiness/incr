@@ -1,0 +1,5 @@
+/// Negative compile probe. Enable as private_field_probe.mbt temporarily.
+fn private_state_is_hidden() -> Unit {
+  let store = @skeleton.Store()
+  ignore(store.core)
+}

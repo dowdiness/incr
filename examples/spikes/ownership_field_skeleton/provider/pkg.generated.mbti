@@ -1,0 +1,55 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "examples/spikes/ownership_field_skeleton/provider"
+
+// Values
+pub fn run_layout_probe() -> LayoutProbeReport
+
+// Errors
+
+// Types and methods
+pub(all) struct LayoutProbeReport {
+  dependency_anchors : Int
+  input_value_after_write : Int
+  active_mounts_before_close : Int
+  deferred_before_flush : Int
+  listeners_before_close : Int
+  mounts_after_stop : Int
+  listeners_after_token_removal : Int
+  deferred_after_flush : Int
+  active_records_after_close : Int
+  keyed_entries_after_retirement : Int
+  surviving_getter_value : Int
+}
+
+pub(all) struct ListenerToken {
+  // private fields
+}
+pub fn ListenerToken::remove(Self) -> Unit
+
+pub(all) struct Stop {
+  // private fields
+}
+pub fn Stop::stop(Self) -> Unit
+
+pub(all) struct Store {
+  // private fields
+}
+pub fn Store::Store() -> Self
+pub fn Store::close(Self) -> Unit
+pub fn[T : Eq] Store::derived(Self, () -> T) -> () -> T
+pub fn Store::enqueue_deferred(Self, () -> Unit) -> Unit
+pub fn Store::flush(Self) -> Unit
+pub fn[T] Store::input(Self, T) -> (() -> T, Write[T])
+pub fn Store::listen(Self, () -> Unit) -> ListenerToken
+pub fn Store::mount(Self, () -> Unit) -> Stop
+
+pub(all) struct Write[T] {
+  // private fields
+}
+pub fn[T : Eq] Write::set(Self[T], T) -> Unit
+
+// Type aliases
+pub type View[T] = () -> T
+
+// Traits
+

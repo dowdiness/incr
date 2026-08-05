@@ -1,0 +1,7 @@
+import {
+  "examples/spikes/ownership_field_skeleton/provider" @skeleton,
+}
+
+pkgtype(kind: "executable")
+
+supported_targets = "native"

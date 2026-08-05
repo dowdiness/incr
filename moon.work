@@ -7,6 +7,7 @@ members = [
   "./examples/typed_spreadsheet_demo",
   "./examples/spikes/ideal_api_rename_phase0",
   "./examples/spikes/ownership_graph_lifecycle",
+  "./examples/spikes/ownership_field_skeleton",
   "./examples/typed_spreadsheet_cli_demo",
   "./examples/typed_spreadsheet_rabbita_demo",
   "./examples/typed_spreadsheet_incr_tea_demo",

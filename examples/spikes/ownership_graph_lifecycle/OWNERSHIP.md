@@ -296,17 +296,19 @@ structurally viable for library-controlled edges under the eleven constraints
 above. The most important qualification is that callable Views cannot provide
 a global no-cycle guarantee over arbitrary compute captures and cached values.
 
+The separate
+[`ownership_field_skeleton`](../ownership_field_skeleton/README.md) probe now
+compiles the private target fields and constructs late-bound compute,
+cached-value, and two-View ownership cycles. It confirms that the scoped
+guarantee is required and adds a private `DependencyAnchor` closure as the
+candidate heterogeneous strong-reference erasure node.
+
 This does not close V12.4. Remaining work:
 
-1. compile-probe private target skeletons for Store façade/Core, ViewState,
-   CachedValue, DependencyCollection, InputState, Write, mount, Stop, queue,
-   listener token, and keyed entries;
-2. construct explicit late-bound capture and cached-value cycle probes to pin
-   the scoped-guarantee wording;
-3. exercise multiple View, Effect, listener, deferred-command, and keyed-entry
+1. exercise multiple View, Effect, listener, deferred-command, and keyed-entry
    instances rather than one node per kind;
-4. run native-RC stress only after the production-shaped field skeleton exists;
-5. feed the final ownership guarantee and breaker definition back into the
+2. run native-RC stress against the production-shaped fields;
+3. feed the final ownership guarantee and breaker definition back into the
    canonical retention brief.
 
 No replacement-kernel implementation is authorized by this result.
