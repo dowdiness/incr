@@ -332,7 +332,10 @@ begins.
   and cancellation during dispatch.
 - **F7 keyed retirement.** When a key falls out of the membership set but
   a downstream getter survives, neither forcible retirement nor silent
-  retention is acceptable. No keyed policy is selected.
+  retention is acceptable. No keyed policy is selected. Resolving the
+  retirement protocol alone does not commission keyed work: reopening also
+  requires a named consumer that creates per-key dynamic reactive subgraphs
+  under a live push path and a measured success signal for that consumer.
 - **Multi-Store composition.** Whether product modules should prohibit
   composition, bridge values, coordinate batches, or share one Store. The
   typed `CrossStore` mismatch failure does not decide this.
