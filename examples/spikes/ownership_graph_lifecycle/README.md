@@ -12,7 +12,8 @@ longer callable?
 This prototype models reference-count elimination and strongly connected
 components. It is a counterexample finder for the field-level ownership
 argument; it does not prove native-RC reclamation or authorize a replacement
-kernel.
+kernel. See [OWNERSHIP.md](OWNERSHIP.md) for the production-shaped field audit,
+scoped ownership guarantee, and remaining evidence.
 
 ## Run
 
@@ -53,8 +54,8 @@ Reset with `z`; quit with `q`.
   an SCC after membership removal. This does not resolve F7 retirement
   semantics.
 
-V12.4 remains open until the field-level ownership table and native-RC evidence
-confirm that the production-shaped fields match this model.
+V12.4 remains open until a production-shaped compile probe and native-RC
+evidence confirm the field argument in [OWNERSHIP.md](OWNERSHIP.md).
 
 ## Deliberate limits
 
