@@ -77,6 +77,7 @@ For contributors and advanced users who want to understand or modify `incr`.
   lifetime/ownership/resource-model hypotheses, including the cross-engine
   lifecycle model, retention attribution resolution (#399), and Datalog
   lifecycle evidence
+- [Retention redesign](research/2026-08-05-retention-redesign.md) — sole current design brief for the gated callable-read / explicit-write redesign: selected interface and semantics, ownership, scheduling, rooted diagnostics, advanced-capability parity, open decisions, and evidence gates; not commissioned
 
 ## Decisions (ADRs)
 
