@@ -47,7 +47,10 @@ track addresses, and it affects disciplined users too.
 
 1. **Do not start Track 2 or Track 3 now.** No first-party consumer exhibits
    the hazard shape the facade would fix, and the F7 retirement blocker is
-   unchanged. The plan's gate sections remain the authoritative checklists.
+   unchanged. The retired plan's gates are now consolidated in the
+   [retention redesign brief](../research/2026-08-05-retention-redesign.md),
+   especially its advanced-parity, open-decisions, and evidence-gates
+   sections.
 2. **The next retention work is [#399](https://github.com/dowdiness/incr/issues/399):**
    attribute the residual retained-volume cost (native-target re-run +
    post-dispose slot-count assertions) before proposing any slot-reclamation
