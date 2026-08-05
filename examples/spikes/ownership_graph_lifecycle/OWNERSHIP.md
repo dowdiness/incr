@@ -28,8 +28,8 @@ opaque ownership sources that can introduce cycles the library cannot inspect.
 Active resources also require their teardown capability to remain externally
 reachable throughout the intended active lifetime.
 
-V12.4 remains open for a production-shaped compile probe and native-RC
-evidence.
+The production-shaped compile and native-RC probes now support this verdict.
+V12.4 remains open only for the separate canonical-brief update.
 
 ---
 
@@ -303,12 +303,14 @@ cached-value, and two-View ownership cycles. It confirms that the scoped
 guarantee is required and adds a private `DependencyAnchor` closure as the
 candidate heterogeneous strong-reference erasure node.
 
-This does not close V12.4. Remaining work:
+The separate
+[`ownership_native_rc`](../ownership_native_rc/README.md) probe exercises
+multi-instance passive chains and diamonds, active breakers, deferred teardown,
+keyed surviving getters, and opaque cycles through actual native finalizer
+counters. Its observations match this argument.
 
-1. exercise multiple View, Effect, listener, deferred-command, and keyed-entry
-   instances rather than one node per kind;
-2. run native-RC stress against the production-shaped fields;
-3. feed the final ownership guarantee and breaker definition back into the
-   canonical retention brief.
+The field and native verdict is therefore **Pass with constraints**. The
+remaining V12.4 action is to feed the scoped ownership guarantee, breaker
+definition, and F7 qualification back into the canonical retention brief.
 
 No replacement-kernel implementation is authorized by this result.

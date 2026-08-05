@@ -168,6 +168,113 @@ pub fn[T : Eq] Store::derived(self : Store, compute : () -> T) -> View[T] {
 }
 
 ///|
+pub fn Store::probe_passive_fan_in(
+  self : Store,
+  retainers : Array[() -> Unit],
+) -> View[Int] {
+  let dependencies = retainers.map(retain => {
+    let input : InputState[Int] = { store: self.core, value: 1 }
+    DependencyAnchor::{
+      keep_alive: () => {
+        retain()
+        input.store.closed
+      },
+    }
+  })
+  let value = dependencies.length()
+  self.derived_with_dependencies(() => value, dependencies)
+}
+
+///|
+pub fn Store::probe_passive_chain(
+  self : Store,
+  retainers : Array[() -> Unit],
+) -> View[Int] {
+  let last : ViewState[Int]? = retainers.fold(init=None, (previous, retain) => {
+    let dependencies = match previous {
+      None => []
+      Some(upstream) => [DependencyAnchor::from_view(upstream)]
+    }
+    Some(ViewState::{
+      store: self.core,
+      compute: () => {
+        retain()
+        1
+      },
+      equal: (left, right) => left == right,
+      cache: Empty,
+      dependencies: { entries: dependencies },
+    })
+  })
+  match last {
+    Some(state) => () => state.read()
+    None => self.derived(() => 0)
+  }
+}
+
+///|
+pub fn Store::probe_passive_diamond(
+  self : Store,
+  seed_retain : () -> Unit,
+  left_retain : () -> Unit,
+  right_retain : () -> Unit,
+  root_retain : () -> Unit,
+) -> View[Int] {
+  let seed : InputState[() -> Unit] = { store: self.core, value: seed_retain }
+  let seed_anchor : DependencyAnchor = {
+    keep_alive: () => {
+      (seed.value)()
+      seed.store.closed
+    },
+  }
+  let left : ViewState[Int] = {
+    store: self.core,
+    compute: () => {
+      left_retain()
+      2
+    },
+    equal: (a, b) => a == b,
+    cache: Empty,
+    dependencies: { entries: [seed_anchor] },
+  }
+  let right : ViewState[Int] = {
+    store: self.core,
+    compute: () => {
+      right_retain()
+      3
+    },
+    equal: (a, b) => a == b,
+    cache: Empty,
+    dependencies: { entries: [seed_anchor] },
+  }
+  let root : ViewState[Int] = {
+    store: self.core,
+    compute: () => {
+      root_retain()
+      5
+    },
+    equal: (a, b) => a == b,
+    cache: Empty,
+    dependencies: {
+      entries: [
+        DependencyAnchor::from_view(left),
+        DependencyAnchor::from_view(right),
+      ],
+    },
+  }
+  () => root.read()
+}
+
+///|
+pub fn[T] retire_keyed_for_probe(view : View[T]) -> View[T] {
+  let entry : KeyedEntry[T] = { view, }
+  let owner : KeyedOwner[String, T] = { entries: [("probe", entry)] }
+  let surviving : View[T] = () => (entry.view)()
+  owner.entries.clear()
+  surviving
+}
+
+///|
 pub fn[T] Store::input(self : Store, initial : T) -> (View[T], Write[T]) {
   let state : InputState[T] = { store: self.core, value: initial }
   let view : View[T] = () => {

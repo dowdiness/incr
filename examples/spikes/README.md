@@ -5,6 +5,7 @@ Small checked probes that live with examples because they are useful to keep bui
 - [`ideal_api_rename_phase0/`](ideal_api_rename_phase0/) — MoonBit language-mechanics probe for the public API rename migration plan.
 - [`ownership_graph_lifecycle/`](ownership_graph_lifecycle/) — interactive RC/SCC lifecycle-model probe for retention redesign issue #451.
 - [`ownership_field_skeleton/`](ownership_field_skeleton/) — production-shaped MoonBit field and opaque-cycle compile probe for issue #451.
+- [`ownership_native_rc/`](ownership_native_rc/) — multi-instance native finalizer evidence for the issue #451 ownership verdict.
 
 Run a spike from the repository root:
 
@@ -12,4 +13,5 @@ Run a spike from the repository root:
 moon check examples/spikes/ideal_api_rename_phase0
 moon run examples/spikes/ownership_graph_lifecycle --target native
 moon run examples/spikes/ownership_field_skeleton/consumer --target native
+moon run examples/spikes/ownership_native_rc --target native
 ```

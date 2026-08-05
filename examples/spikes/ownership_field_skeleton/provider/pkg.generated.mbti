@@ -2,6 +2,8 @@
 package "examples/spikes/ownership_field_skeleton/provider"
 
 // Values
+pub fn[T] retire_keyed_for_probe(() -> T) -> () -> T
+
 pub fn run_layout_probe() -> LayoutProbeReport
 
 // Errors
@@ -42,6 +44,9 @@ pub fn Store::flush(Self) -> Unit
 pub fn[T] Store::input(Self, T) -> (() -> T, Write[T])
 pub fn Store::listen(Self, () -> Unit) -> ListenerToken
 pub fn Store::mount(Self, () -> Unit) -> Stop
+pub fn Store::probe_passive_chain(Self, Array[() -> Unit]) -> () -> Int
+pub fn Store::probe_passive_diamond(Self, () -> Unit, () -> Unit, () -> Unit, () -> Unit) -> () -> Int
+pub fn Store::probe_passive_fan_in(Self, Array[() -> Unit]) -> () -> Int
 
 pub(all) struct Write[T] {
   // private fields

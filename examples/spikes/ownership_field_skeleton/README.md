@@ -121,4 +121,4 @@ A global no-cycle guarantee is incompatible with the selected callable View and 
 - Keyed retirement remains gated by F7 surviving-dependency semantics.
 - No replacement-kernel work is authorized.
 
-The next V12.4 evidence is a multi-instance native-RC probe based on these exact fields.
+The separate [`ownership_native_rc`](../ownership_native_rc/README.md) probe now exercises these fields with multi-instance native finalizer counters. The remaining V12.4 action is the durable canonical-brief update.

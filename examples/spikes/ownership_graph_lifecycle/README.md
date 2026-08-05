@@ -54,15 +54,17 @@ Reset with `z`; quit with `q`.
   an SCC after membership removal. This does not resolve F7 retirement
   semantics.
 
-V12.4 remains open until a production-shaped compile probe and native-RC
-evidence confirm the field argument in [OWNERSHIP.md](OWNERSHIP.md).
+The production-shaped compile and native-RC probes now confirm the constrained
+field verdict in [OWNERSHIP.md](OWNERSHIP.md). V12.4 remains open only for the
+separate canonical-brief update.
 
 ## Deliberate limits
 
 - The graph is a field-faithful model, not the replacement kernel.
 - Reference counting is modeled as repeated zero-incoming-count elimination.
-- Native allocation, compiler lowering, destructor timing, and process memory
-  are outside this prototype; those require the separate native-RC evidence
-  phase in #451.
+- Native allocation, compiler lowering, finalizer timing, and process memory
+  remain outside this logic model; the separate
+  [`ownership_native_rc`](../ownership_native_rc/README.md) probe supplies
+  proxy finalizer evidence.
 - F7 retirement semantics remain open. This prototype only exposes ownership
   consequences.
