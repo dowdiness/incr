@@ -74,6 +74,9 @@ For contributors and advanced users who want to understand or modify `incr`.
   lifetime/ownership/resource-model hypotheses, including the cross-engine
   lifecycle model, retention attribution resolution (#399), and Datalog
   lifecycle evidence
+- [Retention API redesign proposal](research/2026-08-05-retention-api-redesign-proposal.md) — gated proposal for a getter/setter public API with a passive-pull retention architecture (interface exploration only; not commissioned)
+- [Retention redesign first-principles decisions](research/2026-08-05-retention-redesign-first-principles-decisions.md) — decision record reviewing the proposal above: value-identity placement, raise-less `View`, breaker principle, wake-up theorem, membership-as-data keyed caches; binds the redesign track only; amended 2026-08-05 by an independent sol-model review (D2/D6.1 reopened, D3.1/D5/D8 amended)
+- [Retention redesign session handoff](research/2026-08-05-retention-redesign-session-handoff.md) — session state behind the two notes above: user decisions, blocking findings, worktree cautions, next-session prompt; superseded as current state by the decision record
 
 ## Decisions (ADRs)
 
