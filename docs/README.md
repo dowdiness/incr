@@ -77,8 +77,8 @@ For contributors and advanced users who want to understand or modify `incr`.
   lifetime/ownership/resource-model hypotheses, including the cross-engine
   lifecycle model, retention attribution resolution (#399), and Datalog
   lifecycle evidence
-- [Retention API redesign proposal](research/2026-08-05-retention-api-redesign-proposal.md) — gated proposal for a getter/setter public API with a passive-pull retention architecture (interface exploration only; not commissioned)
-- [Retention redesign first-principles decisions](research/2026-08-05-retention-redesign-first-principles-decisions.md) — decision record reviewing the proposal above: value-identity placement, opaque kernel View plus product-local callable adapters, breaker principle, wake-up theorem, membership-as-data keyed caches; binds the redesign track only; amended by independent sol review, with V12.5 resolved (D2 closed, D6.1 still reopened)
+- [Retention API redesign proposal](research/2026-08-05-retention-api-redesign-proposal.md) — gated callable-read / explicit-write interface proposal with passive-pull retention; uses `Store::derived`, callable `View[T]`, rooted diagnostics, timeline-sealing `close`, and the proposed Cycle/CrossStore/Closed error taxonomy; not commissioned
+- [Retention redesign first-principles decisions](research/2026-08-05-retention-redesign-first-principles-decisions.md) — current decision record for the proposal: ergonomics-first callable View, `derived[T : Eq]`, View-owned passive state, Store-owned active records, rooted diagnostics, breakers, wake-up theorem, and verification obligations; supersedes the former public two-layer verdict, while D1 remains provisional and D6.1 reopened
 - [Retention redesign session handoff](research/2026-08-05-retention-redesign-session-handoff.md) — session state behind the two notes above: user decisions, blocking findings, worktree cautions, next-session prompt; superseded as current state by the decision record
 
 ## Decisions (ADRs)

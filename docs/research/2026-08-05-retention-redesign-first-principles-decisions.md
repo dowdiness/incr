@@ -25,15 +25,35 @@ obligation (V).
 **Amended:** 2026-08-05 — independent review by `openai-codex/gpt-5.6-sol`
 (fresh session, read-only, no prior context). Several decisions below are
 reopened or amended by that review; each carries an explicit status marker.
-The full review text is ephemeral (`/tmp/sol-independent-review-retention.md`);
-its substantive findings are inlined where they changed a decision.
+The full review text is ephemeral; its substantive findings are inlined where
+they changed a decision.
 
-**V12.5 resolved:** 2026-08-05 — compile evidence is preserved on the
+**Amended (ergonomic reinterpretation):** 2026-08-05 — an independent
+DeepSeek V4 Pro review was audited in a fresh session. Its initial REJECT
+verdict was only partially reliable: it treated the earlier decision as
+binding, overstated caller-visible metadata as a kernel requirement, and
+included incorrect counterexamples and attributed API shapes. The corrected
+objective verdict was **REVISE**. This amendment
+supersedes the V12.5 two-layer selection as the public-interface verdict:
+the compile-probe facts remain as evidence, but they no longer imply the
+public View must be opaque. Ergonomics/API usability is now the top
+public-interface priority. Substantive concerns from that review
+(equivalence-law framing, diagnostics scope, mutable-alias risk) are
+inlined where they changed a decision; ephemeral session paths are not
+cited.
+
+**V12.5 reinterpreted:** 2026-08-05 — compile evidence is preserved on the
 throwaway branch
 [`spike/v12-5-view-alternatives`](https://github.com/dowdiness/incr/tree/spike/v12-5-view-alternatives/examples/spikes/v12_5_view_alternatives),
-commit [`a48bdc9`](https://github.com/dowdiness/incr/commit/a48bdc9). The probe
-selects the two-layer alternative and keeps Cycle recoverable at the opaque
-kernel boundary; see D2 and V12.5.
+commit [`a48bdc9`](https://github.com/dowdiness/incr/commit/a48bdc9).
+The probe confirmed three compiler facts (opaque values are not callable;
+structural closures expose no metadata methods; a setter closure alone
+cannot recover its cell). The original session read these facts as
+selecting the two-layer alternative. The ergonomic reinterpretation reads
+them differently: they describe *kernel* constraints, not public-interface
+constraints. The public `View[T]` is a callable closure that captures
+private kernel state; the compile-probe facts do not contradict this.
+See D2.
 
 **Provenance:** English translation (2026-08-05) of
 `/tmp/incr-retention-first-principles-decisions-2026-08-05.md` (original
@@ -51,8 +71,9 @@ is unchanged apart from language.
 - Date: 2026-08-05 (JST)
 - Positioning: a record that derives and settles, from first principles, the
   open questions raised by the critical review of the
-  [proposal](2026-08-05-retention-api-redesign-proposal.md). The proposal
-  itself is not modified.
+  [proposal](2026-08-05-retention-api-redesign-proposal.md). The proposal's
+  translated provenance is preserved, and its active text is now synchronized
+  with later amendments in this record.
 - Related artifacts:
   - Proposal: [2026-08-05-retention-api-redesign-proposal.md](2026-08-05-retention-api-redesign-proposal.md)
   - Handoff: [2026-08-05-retention-redesign-session-handoff.md](2026-08-05-retention-redesign-session-handoff.md)
@@ -164,8 +185,8 @@ to live while they may be read, so (B) satisfies the requirement; Effects,
 subscriptions, and keyed families have continuing activity and need records
 per (A). No other placement satisfies both requirements at once.
 
-**Consequence**: the proposal's two-layer split is promoted from "assertion"
-to "derivation". Every later decision derives from D1.
+**Consequence**: the passive-computation / active-record split is promoted
+from "assertion" to "derivation". Every later decision derives from D1.
 
 **Objections recorded (sol review)**:
 
@@ -191,66 +212,79 @@ to "derivation". Every later decision derives from D1.
 
 ## 2. The error channel
 
-### D2. The kernel-facing View is opaque and returns `Result[T, ReadError]`; product modules may adapt it to local callable closures. Cycle remains recoverable, and domain failures remain values.
+### D2. The public `View[T]` is a callable closure `() -> T raise ReadError`; it captures private kernel/ViewState. Users do not handle a public opaque View or two public layers. Compile-probe facts (opaque values are not callable; structural closures expose no metadata methods) remain as kernel evidence but no longer imply the public View must be opaque.
 
-**Status: resolved by V12.5** — compile evidence is on
-`spike/v12-5-view-alternatives` at `a48bdc9`; an independent
-`moonbit-reviewer` passed the scoped verdict.
+**Status: resolved by ergonomic reinterpretation** — the V12.5 compile
+probe is preserved as evidence of kernel constraints, not as a
+public-interface verdict. The DeepSeek V4 Pro review (see header) corrected
+the earlier misread.
 
 **P2.1** Error ownership is chosen by the caller that can act on the error:
 
 domain failures are cached inside `T` as `Result[V, E]`; graph mechanism
-errors such as Cycle remain in the kernel read result; a product-local
-aborting convenience is explicit and opt-in.
+errors (Cycle, CrossStore, Closed) remain in the kernel read channel via
+`raise ReadError`; Cycle is caught and recovered at UI/FFI/effect quarantine
+seams.
 
-**V12.5 evidence**:
+**Kernel compile-probe facts (preserved from V12.5):**
 
-- A transparent `() -> T` is callable, but the compiler confirms it has no
-  `id()`/provenance/label seam and cannot be distinguished from an arbitrary
-  thunk.
-- An opaque handle retains `CellId`, `RuntimeId`, labels, diagnostics, and
-  `get() -> Result[T, ReadError]`, but the compiler confirms it is not
-  callable (error 4014: wanted function type).
-- The two-layer alternative retains the opaque handle and creates local
-  closures for product composition. It therefore supports both an honest
-  `() -> Result[T, ReadError]` and an explicitly aborting `() -> T` without
-  weakening the kernel contract.
+- An opaque struct value is not callable (error 4014: wanted function type).
+- A structural closure `() -> T` has no `id()`/provenance/label seam and
+  cannot be distinguished from an arbitrary thunk.
 - A setter closure alone cannot recover its cell or current value (error
   4015); write/update capabilities must be created alongside the input or
   attached to an opaque input token.
-- The existing recoverable self-cycle behavior compiles and passes through
-  the opaque handle and product-local honest getter.
+- The existing recoverable self-cycle behavior compiles under the callable
+  closure shape.
+
+**Reinterpretation**: these facts describe *kernel* constraints (the
+internal engine cannot hand a user a raw closure and expect provenance to
+be recoverable from it). They do not constrain the *public* interface, which
+is a closure that captures private kernel/ViewState. Users never handle
+the opaque kernel state directly; they hold only the closure.
 
 **Decision**:
 
-1. The public kernel contract is a nominal/opaque View with
-   `get() -> Result[T, ReadError]`, stable identity, Runtime provenance,
-   labels, and diagnostic access. It is not callable.
-2. Cycle remains recoverable. `ReadError::Cycle` stays in the kernel read
-   result. The redesign does not replace it with unconditional abort.
-3. Domain failures remain value-level `Result[V, E]`, separate from
+1. The public `View[T]` is a callable closure `() -> T raise ReadError`.
+   Ergonomics/API usability is the top public-interface priority.
+2. Creation name is `Store::derived`, not `view` or `computed`. Conceptual
+   signature: `Store::derived[T : Eq](compute : () -> T raise ReadError,
+   label? : String) -> View[T]`.
+3. `T : Eq` is selected for base `derived`; no no-backdate/non-Eq public
+   escape hatch in the initial candidate until a concrete requirement
+   appears. Preserve the note that current `BackdateEq` parity remains a
+   migration obligation if kernel replacement is commissioned.
+4. Cycle remains recoverable through `raise ReadError` and is caught at
+   UI/FFI/effect quarantine seams.
+5. Domain failures remain value-level `Result[V, E]`, separate from
    `ReadError`.
-4. Product modules and UI adapters may create local callable closures:
-   honest `() -> Result[T, ReadError]` by default at quarantine boundaries,
-   or an explicit `() -> T` aborting convenience where that policy is
-   intentional.
-5. Product code retains the opaque handle whenever it needs diagnostics,
-   teardown, update, or cross-Store checks. Cross-Store policy remains a
-   separate V12.8 decision; the handle preserves enough provenance to
-   diagnose or reject composition before invoking the current aborting
-   kernel path.
-6. Input creation returns write/update capabilities together. V12.5 proves
-   the representation; atomic and re-entrant update semantics remain open.
+6. Reject a public previous/cached callback parameter. The kernel may retain
+   the old value internally for cache/Eq/backdating, but the caller sees a
+   zero-arg compute. Rationale for rejection: (a) observation-dependence — a
+   semantic transition through a cached value advances according to lazy
+   materialization, mounting, and batch coalescing rather than input history;
+   (b) an unenforceable cold/warm equivalence and dependency-completeness law;
+   (c) mutable alias risk when `T` contains owning mutable collections; and
+   (d) the common `_ =>` tax for callers that do not reuse an old value.
+   Incremental reuse belongs in a domain-specific interface once its actual
+   inputs (for example edits, revisions, or identity maps) are known.
+7. The proposed error taxonomy (conceptual): `ReadError` has `Cycle` plus
+   genuine suberrors `CrossStore(StoreMismatch { active : RuntimeId, view :
+   RuntimeId, cell : CellId? })` and `Closed(NotMaterializedAtClose)`.
+   MoonBit `suberror` syntax is **not yet compile-probed**: this is stated
+   as a verification obligation, not finalized source syntax. Cross-Store
+   mismatch is detected before dependency/value/revision mutation;
+   top-level reads without another active Store are allowed. Broader
+   cross-Store composition remains V12.8.
 
 **Consequences**:
 
-- Reject `View[T] = () -> T` as the sole public kernel interface.
-- The proposal's `document()` syntax becomes a product-local adapter, not
-  the kernel type.
-- No `raise` effect is required for graph reads; recoverability is represented
-  as an ordinary `Result` return value.
-- D1 remains provisional: V12.5 selects an interface seam, not the ownership
-  or retention implementation behind the opaque handle.
+- The proposal's `document()` syntax is the kernel contract, not a
+  product-local adapter.
+- `raise ReadError` is the error channel for graph reads.
+- D1's closure-owns-state placement is confirmed as the public shape.
+- The former two-layer verdict (V12.5 as originally interpreted) is
+  superseded by this ergonomic-first reinterpretation.
 
 ---
 
@@ -312,7 +346,7 @@ is wrong.
 
 **Consequence**: the proposal's principle 7 is grounded by this principle.
 
-### D4.2 Every reference cycle the design creates must have exactly one "breaker". The breaker must be an explicit handle held by the user.
+### D4.2 Every reference cycle the design creates must have at least one designated breaker with defined precedence.
 
 **P4.2** Under RC without finalizers, a cycle reachable from a root lives
 forever.
@@ -328,24 +362,31 @@ forever.
 **Reflection into the proposal**: the problem that the new design silently
 removes the retreat route equivalent to `Scope::dispose` is solved by D4.3.
 
-### D4.3 Introduce `store.close()`. It stops all Effects and freezes the revision. Afterwards setters abort and getters keep returning the final values.
+### D4.3 `store.close()` seals the timeline and tears down active resources; it is not a destructor for externally held passive values.
 
-**Derivation**: reads keep working after close because the passive layer is
-pull-only and verification holds as long as the frozen revision exists (a
-consequence of D1). This achieves teardown without breaking the proposal's
-invariant 1 (a live getter does not become Disposed). A closed Store has the
-clear semantics of a "read-only snapshot".
+**Status: resolved at the interface level; lifecycle interleavings remain in
+V12.6.** It disables writes, freezes the close revision, stops Effects and
+clears mount records, and performs no new compute afterward. Only Views fresh
+and materialized at the close revision return their frozen cache. Stale or
+never-computed Views raise `Closed(NotMaterializedAtClose)`. This is logical
+invalidation; immediate memory release of externally held closures is not
+promised.
 
-**Refinements recorded (sol review)**:
+**Derivation**: `close()` freezes inputs and revision; the passive layer
+is pull-only and verification holds for already-materialized values at the
+frozen revision. Values that were never computed, or whose dependencies
+were not materialized at close time, cannot satisfy a subsequent read and
+raise `Closed`. This is logical invalidation of the timeline, not a
+memory-management primitive: externally-held closures remain live as
+ordinary values until RC reclaims them.
+
+**Refinements recorded**:
 
 - "Exactly one breaker" (D4.2) conflicts with both `Stop` and `store.close()`
-  being able to break the same Store/effect cycle. The rule should read "at
-  least one designated breaker, with a defined precedence".
+  being able to break the same Store/effect cycle. The rule reads "at least
+  one designated breaker, with a defined precedence".
 - `Stop` must specify which fields are cleared; removing only the table
   entry can leave callback/Stop self-capture cycles alive.
-- "Getters return final values after close" needs precision: an uncomputed
-  getter may still compute lazily after close. `close()` freezes inputs and
-  revision; it does not materialize a complete snapshot.
 - Effect cleanup is underspecified: `() -> Unit` cannot express cleanup that
   runs before re-run or on stop (contrast Jotai's mount cleanup). The Effect
   contract is obligated in V12.6.
@@ -357,6 +398,33 @@ resource is never partial.
 
 **Reflection into the proposal**: pin invariant 8 as a CI test (create/destroy
 stress).
+
+### D4.5 Ownership model: strong-edge topology and breaker placement
+
+**Ownership answer:**
+
+- **View closure owns**: passive ViewState, its compute closure, upstream
+  passive dependencies, and a StoreCore reference.
+- **StoreCore must not strongly own passive ViewState.** This is the
+  critical asymmetry that prevents retention cycles through the Store.
+- **StoreCore owns**: active Effect records and mount records.
+- **Passive graph topology**: only derived-to-dependency strong edges.
+  No reverse edges; no Store→passive edges.
+- **Active SCCs**: every nontrivial strong SCC in the active graph must
+  contain an active resource (Effect/mount record) and a designated breaker
+  (Stop or store.close). No passive-only SCC may exist.
+
+**Derivation**: under RC without finalizers, any cycle reachable from a root
+lives forever. The passive graph must be acyclic by construction (no reverse
+edges, no Store→passive edges). Active cycles are permitted only when they
+contain explicit breakers that the user can invoke. This topology is intended to make dropping all View closures release the
+passive graph and to let active resources stop without leaking the Store.
+V12.4 must prove that compute captures, cached values, and keyed entries do not
+introduce an unmodeled passive cycle.
+
+**Verification obligation**: V12.4 requires a written field-level strong-edge
+ownership table proving this topology holds. Property tests supplement but
+do not replace the structural proof.
 
 ---
 
@@ -389,7 +457,7 @@ path for any change that can alter the output of the next run.
 **Counterexample that forced the correction (sol review)**:
 
 ```moonbit
-let v = store.computed(() => x())
+let v = store.derived(() => x())
 ignore(v())                          // v is now cached
 let stop = store.effect(() => render(v()))
 ```
@@ -487,7 +555,7 @@ bounded retention is decided declaratively by data instead of by an LRU
 heuristic. In Canopy the block set is data anyway.
 
 ```moonbit
-let blocks = store.computed(() => block_ids_of(document()))
+let blocks = store.derived(() => block_ids_of(document()))
 let previews = store.family(blocks, key => render_block(key))
 ```
 
@@ -546,31 +614,32 @@ The redesign must also preserve custom backdating (`BackdateEq`,
 
 ## 8. Observability
 
-### D8.1 Debug information is not maintained continuously; it is generated on demand by traversing from live anchors (the mount table + handles passed by the user). Labels are stored in state as optional creation-time arguments.
+### D8.1 No all-Views registry. `store.graph_snapshot()` is a no-execution snapshot rooted at mounted Effects and transitive materialized dependencies. An explicit diagnostic operation such as `store.trace_graph(() => { ...roots... })` may materialize caller-supplied heterogeneous roots in an ephemeral tracking frame. Unmounted/unpassed, unreachable, and arbitrary thunks are absent by design. Event/recompute ordering observability is separate and needs its own decision.
 
 **P8.1** Under RC without weak references, a "registry of all views" makes
 the registry itself a root and reintroduces the retention problem that was
 just solved.
 
-**Derivation**: `store.dump()` = a reachability traversal from the mount set.
-Traversal starts at "live anchors", consistent with the breaker concept of
-D4.2.
+**Derivation**: diagnostic reachability starts at "live anchors" (mounted
+Effects and explicit roots), consistent with the breaker concept of D4.2.
+`store.graph_snapshot()` traverses from mounted Effects through their
+cached dependency metadata — no execution, no side effects. An ephemeral
+`store.trace_graph(() => { ...roots... })` frame allows callers to
+materialize heterogeneous roots for one-shot diagnostic use; the frame is
+discarded after the snapshot.
 
-**Reflection into the proposal**: add a `label?` optional argument and a
-dump-family observation API to the §16 API. Replace the functionality
-corresponding to the current `Derived::id` / `dependencies` / `gc_root_count`
-/ introspection in a form that does not break retention.
+**Scope correction (DeepSeek V4 Pro review, inlined)**: unmounted passive
+views are invisible to `graph_snapshot()` by design — this is a consequence
+of the retention architecture, not a bug. The snapshot does not reproduce
+`Runtime::dependents` (reverse passive edges are abolished by D1). Event
+observability (derived-event listeners exposing ordering, timing, aborts,
+backdating — consumed by `examples/incr_tea/renderer_js.mbt`) is a
+separate concern and needs its own decision, not a conflation with
+diagnostic graph traversal.
 
-**Scope correction (sol review)**: D8 covers snapshots of the mounted graph
-only. A Store cannot extract hidden state from an arbitrary user-held
-`() -> T`, so unmounted passive getters are invisible to `store.dump()`;
-invoking user getters to discover them is unsafe because purity is not
-enforced. Without passive reverse edges, traversal cannot reproduce
-`Runtime::dependents`. And snapshot traversal does not replace the current
-event-observability contract (derived-event listeners expose ordering,
-timing, aborts, and backdating, and are consumed by
-`examples/incr_tea/renderer_js.mbt`). Event observability needs its own
-decision.
+**Reflection into the proposal**: replace the dump-family observation API
+with `graph_snapshot()` + optional `trace_graph()` in the §16 API. Add
+`label?` as an optional creation-time argument.
 
 ---
 
@@ -579,9 +648,9 @@ decision.
 | Item | Derivation | Decision |
 |---|---|---|
 | `input` Eq bound | Input **creation** has no Eq bound, but `Input::set` requires `T : Eq` (equal-write suppression) and `force_set` is the always-write path | **Amended**: creation stays unbounded; the returned setter must declare which write semantic it carries — equality-suppressing `set` (needs Eq) or `force_set`. A bare `(T) -> Unit` hides this choice |
-| `view` Eq | Cutoff is a meaningful optimization, but not every T has Eq | Eq by default + an escape hatch equivalent to the current `derived_no_backdate` from day one |
-| cross-store | Opaque handles preserve RuntimeId provenance; current kernel misuse aborts dynamically | **Open (V12.8)**: decide prohibition/bridges/coordinated batches/shared Store. V12.5 proves the handle can diagnose or reject before invoking the current aborting path |
-| naming | In a projectional-editor codebase `view` is an overloaded word. The proposal itself criticizes the overloading of `Node` | `computed` as the first candidate (`derived` collides with the old facade name and causes migration confusion) |
+| `derived` Eq | Cutoff is a meaningful optimization. Current `BackdateEq` / `Derived::with_backdate` is part of the equality-cutoff surface | **`T : Eq` selected for base `derived`; no no-backdate/non-Eq public escape hatch in the initial candidate** until a concrete requirement appears. Current `BackdateEq` parity remains a migration obligation if kernel replacement is commissioned |
+| cross-store | RuntimeId provenance is available; current kernel misuse aborts dynamically | **Open (V12.8)**: broader cross-Store composition remains deferred. Proposed error taxonomy adds `CrossStore(StoreMismatch { active, view, cell? })` detected before dependency/value/revision mutation; top-level reads without another active Store are allowed |
+| naming | In a projectional-editor codebase `view` is an overloaded word. The proposal itself criticizes the overloading of `Node`. `computed` was a candidate but aligns poorly with the existing facade | **`Store::derived`** as the creation name. Conceptual signature: `Store::derived[T : Eq](compute : () -> T raise ReadError, label? : String) -> View[T]` |
 | setter read-modify-write | `(T) -> Unit` structurally permits races with stale reads. In CRDT-style remote updates the update shape is essential | **Representation resolved by V12.5; semantics open**: `store.update(setter, f)` is infeasible because the Store cannot recover cell identity/current value from a closure. Return `update : ((T) -> T) -> Unit` alongside input creation or attach it to an opaque input token; atomic and re-entrant semantics remain for production design |
 
 ---
@@ -590,20 +659,22 @@ decision.
 
 ```
 D1 value identity (passive=computation / active=record)
- ├─ D2 opaque kernel View + product-local callable adapters
+ ├─ D2 public View[T] is callable closure `() -> T raise ReadError`
+ │      captures private kernel/ViewState; ergonomics-first
  ├─ D3 time model → batch rollback / setter-during-compute aborts
- ├─ D4 breaker principle → Stop / store.close()
+ ├─ D4 breaker principle → Stop / store.close() (timeline seal + teardown)
  ├─ D5 wake-up theorem → mount table = set of inputs read last time
  ├─ D6 keyed = membership is data / Accumulator is an advanced API
  ├─ D7 keep durability, defer the journal
- └─ D8 observability by traversal
+ └─ D8 diagnostics by anchored snapshot (graph_snapshot / trace_graph)
 ```
 
 The order of implementation judgments follows this order too. If
 counterevidence overturns D1, everything downstream is re-examined. As of
-the 2026-08-05 amendment, D2 is resolved by V12.5, D6.1 remains reopened,
-and D3.1/D5/D8 are amended, so only the downstream edges through unresolved
-or provisional items remain conditional.
+the ergonomic-reinterpretation amendment, D2 is resolved as the callable
+closure, D4.3/D8 are refined, D6.1 remains reopened, and D3.1/D5 are
+amended; only downstream edges through unresolved or provisional items
+remain conditional.
 
 ---
 
@@ -616,13 +687,11 @@ Only what does not constrain the kernel is legitimately deferred:
 - **Persistence / rehydration**: essentially incompatible with the
   closure-handle model, but also a feature that does not exist today. Ignore
   until a requirement appears.
-- **Multi-Store bridging**: with cross-store aborting, crossing stores can
-  only mean "mirror an input into the other Store" by manual
-  synchronization. **Escalated by the sol review**: product modules that
-  each hide a Store cannot compose transparently under
-  abort-on-cross-store; the composition model (prohibition / bridges /
-  coordinated batches / shared Store) must be decided before such modules
-  are written. See V12.8.
+- **Multi-Store bridging**: a live View read inside another Store raises the
+  proposed `CrossStore(StoreMismatch)` before graph mutation. That typed
+  failure does not decide whether product modules should prohibit composition,
+  bridge values, coordinate batches, or share one Store. The composition model
+  must be selected before modules encapsulate independent Stores. See V12.8.
 - **Accumulator / datalog detailed design** (D6.2): only the "can be added
   later" shape is decided now.
 
@@ -651,17 +720,28 @@ exists, they are not "accepted".
   registries, introspection, and event ordering — not just scalar
   `Derived`/`ReachableDerived` value correctness.
 - **V12.4**: complete ownership graph + RC argument (sol review question 1).
-  Enumerate compute captures, cached values, dependency arrays, StoreCore,
-  mount records, Stop, close, deferred-write queues, and keyed entries;
-  prove or test acyclicity of the owned passive graph. D1 stays provisional
-  until this exists.
-- **V12.5 — RESOLVED 2026-08-05**: interface-alternative compile probes.
-  Evidence: throwaway branch `spike/v12-5-view-alternatives`, commit
-  `a48bdc9`; positive probes passed `moon check`, wasm-gc release tests
-  (1151/1151), and JS tests (256/256); three negative compiler probes pinned
-  opaque-call, closure-metadata, and setter-only-update limitations. Verdict:
-  two-layer interface; opaque kernel View with recoverable
-  `Result[T, ReadError]`, plus product-local callable adapters. See D2.
+  **Cannot be discharged by property tests alone.** Require: (1) written
+  field-level strong-edge ownership table/RC argument enumerating compute
+  captures, cached values, dependency arrays, StoreCore, mount records,
+  Stop, close, deferred-write queues, and keyed entries; (2) compiler/package
+  direction showing no StoreCore→passive ViewState edge; (3) deterministic
+  lifecycle tests; (4) generated command-sequence property tests with SCC
+  invariant (every nontrivial strong SCC contains active resource and
+  designated breaker; no passive-only SCC); (5) mount-balance/idempotence
+  tests; (6) native RC memory stress. Property tests supplement the proof,
+  they do not replace it. D1 stays provisional until this exists.
+- **V12.5 — REINTERPRETED 2026-08-05**: interface-alternative compile
+  probes. Evidence: throwaway branch `spike/v12-5-view-alternatives`,
+  commit `a48bdc9`; positive probes passed `moon check`, wasm-gc release
+  tests (1151/1151), and JS tests (256/256); three negative compiler probes
+  pinned opaque-call, closure-metadata, and setter-only-update limitations.
+  **Original verdict (two-layer interface with opaque kernel View) is
+  superseded by the ergonomic-first reinterpretation.** The compile-probe
+  facts remain as evidence of kernel constraints (opaque values are not
+  callable; structural closures expose no metadata methods), but they no
+  longer imply the public View must be opaque. The public `View[T]` is a
+  callable closure `() -> T raise ReadError` that captures private
+  kernel/ViewState. See D2.
 - **V12.6**: full Effect contract scenario tests (sol review question 5):
   initial-run failure, cleanup before re-run and on stop, deferred-write
   queue ordering and self-trigger limits, nested batches, cancellation
@@ -675,6 +755,16 @@ exists, they are not "accepted".
   commits and source excerpts — before using either as architectural
   justification (the current citations are moving URLs without pinned
   revisions).
+- **V12.10**: compile-probe the proposed `ReadError` hierarchy: current
+  MoonBit `suberror` syntax, exhaustive catches at a shared `ReadError`
+  quarantine seam, specific `CrossStore` catches, `View[T]` raise
+  propagation through nested `derived` calls, and detection before any
+  dependency/value/revision mutation.
+- **V12.11**: validate diagnostics scope with scenarios for a mounted cached
+  View, an unmounted explicitly traced View, a heterogeneous root callback,
+  an arbitrary thunk, a stale View, and a closed Store. Pin which operations
+  may materialize values and verify that neither diagnostic path creates a
+  persistent passive root.
 
 ---
 
@@ -683,13 +773,12 @@ exists, they are not "accepted".
 The changes this decision record requires in the
 [proposal](2026-08-05-retention-api-redesign-proposal.md):
 
-1. §16 API: replace `View[T] = () -> T raise ReadError` with an opaque
-   kernel View whose `get()` returns `Result[T, ReadError]`; document
-   product-local callable adapters separately (D2/V12.5). Do not claim the
-   opaque type itself supports `view()`. Keep input creation unconstrained,
-   make the write semantic explicit, preserve a no-backdate escape hatch,
-   consider `computed` naming, add `label?` and `store.close()`, and state
-   staged-write rollback for `batch`.
+1. §16 API: use `Store::derived` as the creation name (not `view` or
+   `computed`). `T : Eq` is selected for base `derived`; no no-backdate/non-Eq
+   public escape hatch in the initial candidate until a concrete requirement
+   appears. Add `label?` and `store.close()`, and state staged-write rollback
+   for `batch`. Keep input creation unconstrained; make the write semantic
+   explicit.
 2. §9: state that the "pull verification algorithm" is a restatement of the
    current kernel, and write down the real diff (moving state ownership /
    abolishing passive reverse edges / abolishing GC). Keep durability in
@@ -699,13 +788,20 @@ The changes this decision record requires in the
 4. §11: rewrite keyed caches with D6.1's membership approach.
 5. §12: note that the "getter runs GC" example is not the current behavior.
 6. §14: delete the duplicated row (Effect ×2).
-7. §15: rewrite per D2/V12.5. Domain failures are value-level `Result`s;
-   kernel reads return `Result[T, ReadError]` so Cycle remains recoverable;
-   product-local aborting closures are explicit conveniences, not the kernel
-   contract.
+7. §15: the public `View[T]` is a callable closure `() -> T raise ReadError`;
+   the compile-probe facts (opaque values not callable, structural closures
+   expose no metadata) describe kernel constraints, not public-interface
+   constraints. The proposed error taxonomy adds `CrossStore(StoreMismatch)`
+   and `Closed(NotMaterializedAtClose)` to `ReadError` conceptually;
+   MoonBit `suberror` syntax is a verification obligation, not finalized
+   source syntax. Domain failures remain value-level `Result`s; Cycle
+   remains recoverable through `raise ReadError`, caught at UI/FFI/effect
+   quarantine seams.
 8. §17: add invariants — setter-during-compute aborts / setter-in-Effect
    deferral, upgrading getter purity to a correctness condition, the
-   post-close read guarantee, the CI obligation for mount-record balance.
+   post-close read guarantee (fresh/materialized views return frozen cache;
+   stale or never-computed views raise `Closed`), the CI obligation for
+   mount-record balance.
 9. §18: insert the V12.3 oracle phase before Phase 2 of the phase plan. Note
    that Phase 1's stopgap implementation (getters owning internal Watches)
    temporarily makes every getter a GC root + push subscriber.
@@ -715,8 +811,8 @@ The changes this decision record requires in the
     raise?`) for rollback to be reachable (D3.1 amendment).
 12. Add an ownership contract for mutable returned values: a getter
     returning an owning `Array`/`Map` lets callers mutate cached state with
-    no setter, no revision bump, and no wake-up. Require immutable views,
-    defensive copies, or a documented ownership rule.
+    no setter, no revision bump, and without wake-up. Require immutable
+    views, defensive copies, or a documented ownership rule.
 13. §16 API: the setter returned by `input` must declare its write semantic
     (equality-suppressing vs force), per the §9 amendment.
 14. Keyed caches: reference the open F7 problem and require its resolution
@@ -728,6 +824,11 @@ The changes this decision record requires in the
     `CellId` cells and new closure-owned states; note that a simple wrapper
     over old Watches makes every getter a GC root and changes push/retention
     costs.
+17. Reject a public previous/cached callback parameter. The kernel may retain
+    old values internally for cache/Eq/backdating, but the caller sees a
+    zero-arg compute. Rationale: observation-dependence, unenforceable
+    equivalence/dependency law, mutable-alias risk, and the common `_ =>`
+    tax.
 
 ---
 
@@ -735,33 +836,37 @@ The changes this decision record requires in the
 
 | Handoff finding | Treatment in this record |
 |---|---|
-| #1 transparent aliases cannot enforce View invariants | Resolved by V12.5: use an opaque kernel View for invariants/provenance and product-local closures for callable DX. Transparent `() -> T` is rejected as the sole public kernel interface. |
+| #1 transparent aliases cannot enforce View invariants | The compile-probe facts remain (opaque values are not callable; structural closures expose no metadata methods), but they describe kernel constraints, not public-interface constraints. The public `View[T]` is a callable closure that captures private kernel/ViewState; users do not handle a public opaque View or two public layers (D2, ergonomic reinterpretation). |
 | #2 closures do not release inactive branches | Confirmed. The example in proposal §11 only shows "no longer a dependency", not "released by RC". True branch release requires a factory/switch combinator. Consistent with D6.1's membership approach. |
-| #3 error ownership unresolved | Resolved by D2/V12.5: domain failures are cached value-level `Result`s; kernel reads return `Result[T, ReadError]`; Cycle remains recoverable; product-local aborting adapters are opt-in. |
+| #3 error ownership unresolved | Resolved by D2: domain failures are cached value-level `Result`s; the public `View[T]` is `() -> T raise ReadError`; Cycle remains recoverable through `raise ReadError`, caught at UI/FFI/effect quarantine seams. Proposed error taxonomy adds `CrossStore(StoreMismatch)` and `Closed(NotMaterializedAtClose)` conceptually; MoonBit `suberror` syntax is a verification obligation. |
 | #4 Effect semantics undecided | Partially resolved. Initial synchronous run / at most one re-run after a batch / deferred setters / idempotent stop are decided in D3.2/D5. Error quarantine stays adapter-owned. Details are pinned by the V5.1 scenario tests. |
 | #5 pull-only performance unmeasured | Obligated as V12.1. D7 keeps durability from day one. |
 | #6 Phase 2 is a kernel replacement | V12.3 obligates the parity matrix + oracle before the phase. |
-| #7 secondary open items | `view_by` → Eq + escape hatch, plus preserving `BackdateEq` (§9, D7 caveat). read-modify-write representation resolved by V12.5 (capability created alongside the cell); atomic/re-entrant semantics remain open. batch → rollback narrowed to staged writes, signature must allow raise (D3.1). at-most-once → keep "successful recomputation". cross-store policy remains V12.8. |
+| #7 secondary open items | `derived` Eq: `T : Eq` selected for base `derived`; no no-backdate/non-Eq public escape hatch in the initial candidate; current `BackdateEq` parity remains a migration obligation (§9, D7 caveat). read-modify-write representation resolved by V12.5 (capability created alongside the cell); atomic/re-entrant semantics remain open. batch → rollback narrowed to staged writes, signature must allow raise (D3.1). at-most-once → keep "successful recomputation". cross-store policy remains V12.8; proposed error taxonomy adds `CrossStore(StoreMismatch)` detected before dependency/value/revision mutation. |
 
 ---
 
 ## 15. Next steps
 
-Reordered after V12.5 resolution — remaining blockers come first:
+Research remains gated; no implementation or kernel replacement is
+commissioned. Remaining obligations, in priority order:
 
 1. V12.4 ownership graph + RC argument (unblocks D1's provisional status).
 2. Resolve the F7 keyed-retirement problem (unblocks D6.1).
 3. V12.6 Effect contract (unblocks D4.3's close/stop semantics and D5
    scheduling).
-4. Reflect the amended decision list, including the V12.5 verdict, into the
-   proposal (the §13 diff list) in a separate session.
-5. Concretize the V5.1 scenario tests, including the pre-cached nested-view
+4. Concretize the V5.1 scenario tests, including the pre-cached nested-view
    counterexample.
+5. Run V12.10 error-hierarchy and V12.11 diagnostics compile/scenario probes.
 6. Decide V12.8 multi-Store composition before product modules encapsulate
    independent Stores.
 7. If implementation proceeds, use a prototype worktree separated from the
    #1145 worktree, per the handoff's constraints. The kernel replacement
    comes after V12.3 with its extended scope.
+
+**No ADR needed:** this is an amendment to gated research, not a plan
+completion or architectural commission. The durable ADR path opens only if
+the research track is commissioned or rejected.
 
 ---
 
