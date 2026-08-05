@@ -1,0 +1,11 @@
+import {
+  "moonbitlang/async",
+  "moonbitlang/async/stdio",
+  "moonbitlang/core/hashmap",
+  "moonbitlang/core/hashset",
+  "moonbitlang/core/queue",
+}
+
+pkgtype(kind: "executable")
+
+supported_targets = "native"
