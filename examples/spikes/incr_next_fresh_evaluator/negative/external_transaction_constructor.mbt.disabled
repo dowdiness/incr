@@ -1,0 +1,3 @@
+test "external Transaction constructor" {
+  let _ = @provider.Transaction()
+}

@@ -1,0 +1,5 @@
+import {
+  "examples/spikes/incr_next_fresh_evaluator/provider",
+}
+
+pkgtype(kind: "executable")

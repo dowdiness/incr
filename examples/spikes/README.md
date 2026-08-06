@@ -3,6 +3,7 @@
 Small checked probes that live with examples because they are useful to keep buildable, but are not part of the public library API.
 
 - [`ideal_api_rename_phase0/`](ideal_api_rename_phase0/) — MoonBit language-mechanics probe for the public API rename migration plan.
+- [`incr_next_fresh_evaluator/`](incr_next_fresh_evaluator/) — evidence-only memo-free evaluator and atomic transaction oracle for Incr Next.
 
 Run from the repository root:
 

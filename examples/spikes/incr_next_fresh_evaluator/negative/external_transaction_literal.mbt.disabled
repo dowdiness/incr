@@ -1,0 +1,3 @@
+test "external Transaction literal" {
+  let _ : @provider.Transaction = @provider.Transaction::{}
+}

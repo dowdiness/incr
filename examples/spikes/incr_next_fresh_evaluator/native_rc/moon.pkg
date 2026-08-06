@@ -1,0 +1,11 @@
+import {
+  "examples/spikes/incr_next_fresh_evaluator/provider",
+}
+
+pkgtype(kind: "executable")
+
+supported_targets = "native"
+
+options(
+  "native-stub": [ "rc_probe.c" ],
+)

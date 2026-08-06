@@ -1,0 +1,3 @@
+test "external EvalCtx literal" {
+  let _ : @provider.EvalCtx = @provider.EvalCtx::{}
+}

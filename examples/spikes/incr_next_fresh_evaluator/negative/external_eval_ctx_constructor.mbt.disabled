@@ -1,0 +1,3 @@
+test "external EvalCtx constructor" {
+  let _ = @provider.EvalCtx(@provider.Store())
+}

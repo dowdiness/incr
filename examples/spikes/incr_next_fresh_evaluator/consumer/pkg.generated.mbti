@@ -1,0 +1,16 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "examples/spikes/incr_next_fresh_evaluator/consumer"
+
+// Values
+
+// Errors
+
+// Types and methods
+type MutableInvocationKey
+
+type MutablePayload
+
+// Type aliases
+
+// Traits
+
