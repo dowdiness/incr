@@ -1,0 +1,48 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "examples/spikes/v12_3_accumulator_surface/provider"
+
+import {
+  "dowdiness/incr/types",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct Accumulator[A] {
+  // private fields
+}
+pub fn[A, T : Eq] Accumulator::derived(Self[A], Store, () -> T raise Failure, label? : String) -> (() -> T raise Failure, Contribution[A]) raise Failure
+pub fn[A, T] Accumulator::derived_no_backdate(Self[A], Store, () -> T raise Failure, label? : String) -> (() -> T raise Failure, Contribution[A]) raise Failure
+pub fn[A, T : @types.BackdateEq] Accumulator::derived_with_backdate(Self[A], Store, () -> T raise Failure, label? : String) -> (() -> T raise Failure, Contribution[A]) raise Failure
+pub fn[A] Accumulator::dispose(Self[A]) -> Unit
+pub fn[A] Accumulator::is_disposed(Self[A]) -> Bool
+pub fn[A] Accumulator::push(Self[A], A) -> Unit raise Failure
+
+pub struct Contribution[A] {
+  // private fields
+}
+pub fn[A] Contribution::peek(Self[A]) -> Array[A]
+pub fn[A] Contribution::view(Self[A]) -> () -> Array[A] raise Failure
+
+pub struct Store {
+  // private fields
+}
+pub fn Store::Store() -> Self
+pub fn[A : Eq] Store::accumulator(Self, label? : String) -> Accumulator[A]
+pub fn Store::close(Self) -> Unit
+pub fn[T : Eq] Store::derived(Self, () -> T raise Failure, label? : String) -> () -> T raise Failure
+pub fn[T] Store::input(Self, T, label? : String) -> (() -> T raise Failure, Write[T])
+
+pub struct Write[T] {
+  // private fields
+}
+pub fn[T] Write::force_set(Self[T], T) -> Unit
+pub fn[T : Eq] Write::set(Self[T], T) -> Unit
+
+// Type aliases
+pub type View[T] = () -> T raise Failure
+
+// Traits
+

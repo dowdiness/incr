@@ -1,0 +1,16 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "examples/spikes/v12_3_accumulator_surface/consumer"
+
+// Values
+
+// Errors
+
+// Types and methods
+type RawValue
+
+type Stamped
+
+// Type aliases
+
+// Traits
+

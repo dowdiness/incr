@@ -1,0 +1,6 @@
+import {
+  "examples/spikes/v12_3_accumulator_surface/provider",
+  "dowdiness/incr",
+}
+
+pkgtype(kind: "executable")
