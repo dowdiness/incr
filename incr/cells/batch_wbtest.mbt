@@ -101,6 +101,52 @@ test "batch: same-value set is still no-op in batch" {
 }
 
 ///|
+test "batch: force_set commits a changed value once" {
+  let rt = Runtime::Runtime()
+  let sig = Input::Input(rt, 0)
+  let callback_values : Array[Int] = []
+  sig.on_change(value => callback_values.push(value))
+  rt.batch(() => sig.force_set(1))
+  inspect(sig.get(), content="1")
+  inspect(rt.core.revision.current_revision.value, content="1")
+  debug_inspect(callback_values, content="[1]")
+}
+
+///|
+test "batch: force_set commits an equal value once" {
+  let rt = Runtime::Runtime()
+  let sig = Input::Input(rt, 42)
+  let callback_values : Array[Int] = []
+  sig.on_change(value => callback_values.push(value))
+  rt.batch(() => sig.force_set(42))
+  inspect(sig.get(), content="42")
+  inspect(rt.core.revision.current_revision.value, content="1")
+  debug_inspect(callback_values, content="[42]")
+}
+
+///|
+test "batch: force_set rolls back without revision or callback" {
+  let rt = Runtime::Runtime()
+  let sig = Input::Input(rt, 0)
+  let callback_values : Array[Int] = []
+  sig.on_change(value => callback_values.push(value))
+  let result = rt.batch_result(fn() raise {
+    sig.force_set(1)
+    raise Stop
+  })
+  inspect(result is Err(_), content="true")
+  inspect(sig.get(), content="0")
+  inspect(rt.core.revision.current_revision.value, content="0")
+  inspect(rt.core.batch.pending.length(), content="0")
+  debug_inspect(callback_values, content="[]")
+  rt.batch(() => sig.force_set(2))
+  inspect(sig.get(), content="2")
+  inspect(rt.core.revision.current_revision.value, content="1")
+  inspect(rt.core.batch.pending.length(), content="0")
+  debug_inspect(callback_values, content="[2]")
+}
+
+///|
 test "batch: revert detection - set then revert is no-op" {
   // Two-phase values enable detecting when a input is set and then
   // reverted to its original value within the same batch.
