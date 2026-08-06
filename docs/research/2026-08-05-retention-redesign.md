@@ -25,8 +25,8 @@ correspondence tables that accompanied the original proposal and handoff.
 |----------|-------|
 | **Selected** | Callable `View[T]`, `Store::derived[T : Eq]`, View-owned passive state, Store-owned active records, rooted diagnostics, breakers (Stop / close), wake-up theorem, batch staged-write rollback, ownership derivation (Pass with constraints) |
 | **Provisional** | `Write[T]` shape, Effect cleanup contract, `GraphSnapshot` fields, `suberror` syntax |
-| **Open** | F7 keyed retirement, multi-Store composition, event observability, BackdateEq migration surface, advanced mapping parity, close interleavings |
-| **Evidence required** | V12.3 parity oracle, V12.6 Effect contract, V12.10 error hierarchy, V12.11 diagnostics, F7 resolution, release benchmarks |
+| **Open** | V12.3 target-mapping blockers, F7 keyed retirement, multi-Store composition, event observability, BackdateEq migration surface, advanced mapping parity, close interleavings |
+| **Evidence required** | V12.3 blocker resolution, V12.6 Effect contract, V12.10 error hierarchy, V12.11 diagnostics, F7 resolution, release benchmarks |
 
 ---
 
@@ -337,7 +337,7 @@ design is deferred.
 | AcceptedDerived | Map acceptance semantics to target kernel |
 | EagerDerived | Map eager evaluation to target kernel |
 | Effect | Preserve push scheduling, deferred writes, cleanup, and stop semantics in the active layer |
-| Watch / Observer / Scope lifecycle | Replace passive rooting with View ownership while preserving active attachment and hierarchical teardown use cases |
+| Watch / Scope lifecycle | Replace passive rooting with View ownership while preserving active attachment and hierarchical teardown use cases. `Observer` is already absent from the current root interface |
 | Expr | Preserve the declarative expression facade or provide a migration |
 | InputView | Preserve read-only input projection without restoring read-mode complexity |
 | Freshness / RuntimeContext | Preserve extension traits or document replacements |
@@ -384,13 +384,26 @@ begins.
 
 | Gate | Scope | Status |
 |------|-------|--------|
-| V12.3 | Semantic parity matrix: every current facade and hook (`AcceptedDerived`, `Expr`, `InputView`, `Freshness`, `RuntimeContext`, Accumulator, DerivedMap, push cells, Datalog, custom backdating, listener registries, introspection, event ordering) | Not started |
+| V12.3 | Semantic parity matrix: every current facade and hook (`AcceptedDerived`, `Expr`, `InputView`, `Freshness`, `RuntimeContext`, Accumulator, DerivedMap, push cells, Datalog, custom backdating, listener registries, introspection, event ordering) | Blocked: inventory and oracle mapping complete; target mappings remain unresolved |
 | V12.4 | Field-level strong-edge ownership table + RC argument. Compute captures, cached values, dependency arrays, StoreCore, mount records, Stop, close, deferred-write queues, keyed entries. Property tests supplement, not replace | Pass with constraints |
 | V12.6 | Effect contract: initial-run failure, cleanup before re-run and on stop, deferred-write ordering, nested batches, cancellation, stop/close idempotence | Not started |
 | V12.10 | `ReadError` hierarchy compile probe: `suberror` syntax, exhaustive catches, `CrossStore` catches, `View[T]` raise propagation, detection before mutation | Not started |
 | V12.11 | Diagnostics scenarios: mounted cached View, unmounted traced View, heterogeneous root callback, arbitrary thunk, stale View, closed Store | Not started |
 | F7 | Keyed retirement resolution | Open |
 | V12.1/V12.7 | Release benchmarks on both native (RC) and wasm-gc targets: chain, diamond, many roots, hot + unrelated inputs, 2500-block Markdown, getter churn | Not started |
+
+The V12.3 checkpoint is recorded in
+[issue #453](https://github.com/dowdiness/incr/issues/453). It accounts for
+403 generated declarations exactly once across 27 semantic capability groups,
+links current executable oracles, records the behavioral boundary matrix, and
+classifies each capability as Preserve, Map, Defer, or Reject. Independent
+MoonBit/API and gate-closure reviews passed for the inventory and
+classification. V12.3 itself has **not passed**: current blockers cover
+multi-Store composition, Write shape, BackdateEq/no-backdate surface, eager
+ownership, Accumulator/AcceptedDerived/Datalog target mappings, event
+observability, extension traits, and two current-oracle addenda (re-entrant
+`fixpoint()` and `force_set` inside a batch). No kernel implementation is
+authorized while these blockers remain.
 
 Ownership evidence exists on the spike-only branch
 [`spike/v12-4-ownership-rc`](https://github.com/dowdiness/incr/tree/spike/v12-4-ownership-rc):
@@ -435,7 +448,9 @@ implementation.
 
 ## Next step
 
-V12.3 (semantic parity oracle) is the first priority. No kernel
+Resolve the V12.3 blockers recorded in
+[issue #453](https://github.com/dowdiness/incr/issues/453), beginning with the
+public Write, custom-backdating, eager, and advanced-handle mappings. No kernel
 implementation begins before V12.3 and the remaining gates — V12.6 Effect
 contract, V12.10 error hierarchy, V12.11 diagnostics, F7 keyed retirement,
 and release benchmarks — pass.
