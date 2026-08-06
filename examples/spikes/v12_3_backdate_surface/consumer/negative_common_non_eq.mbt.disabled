@@ -1,0 +1,8 @@
+/// PROTOTYPE NEGATIVE: common derived must retain its Eq bound.
+priv struct CommonNonEq {
+  callback : () -> Unit
+}
+
+fn negative_common_non_eq(store : @surface.Store) -> Unit {
+  let _ = store.derived(() => CommonNonEq::{ callback: () => () })
+}

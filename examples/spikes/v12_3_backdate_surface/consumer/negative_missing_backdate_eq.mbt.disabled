@@ -1,0 +1,10 @@
+/// PROTOTYPE NEGATIVE: advanced backdating requires type-owned BackdateEq.
+priv struct MissingBackdateEq {
+  callback : () -> Unit
+}
+
+fn negative_missing_backdate_eq(store : @surface.Store) -> Unit {
+  let _ = store.derived_with_backdate(
+    () => MissingBackdateEq::{ callback: () => () },
+  )
+}

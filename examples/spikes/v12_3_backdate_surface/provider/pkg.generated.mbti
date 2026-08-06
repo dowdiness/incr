@@ -1,0 +1,28 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "examples/spikes/v12_3_backdate_surface/provider"
+
+import {
+  "dowdiness/incr/types",
+}
+
+// Values
+
+// Errors
+pub suberror ProbeReadError {
+  Unused
+}
+
+// Types and methods
+pub struct Store {
+  // private fields
+}
+pub fn Store::Store() -> Self
+pub fn[T : Eq] Store::derived(Self, () -> T raise ProbeReadError, label? : String) -> () -> T raise ProbeReadError
+pub fn[T] Store::derived_no_backdate(Self, () -> T raise ProbeReadError, label? : String) -> () -> T raise ProbeReadError
+pub fn[T : @types.BackdateEq] Store::derived_with_backdate(Self, () -> T raise ProbeReadError, label? : String) -> () -> T raise ProbeReadError
+
+// Type aliases
+pub type View[T] = () -> T raise ProbeReadError
+
+// Traits
+
