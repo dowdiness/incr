@@ -1,0 +1,13 @@
+fn takes_string_key(
+  view : @provider.ExplicitView[String, Int],
+) -> Unit {
+  ignore(view)
+}
+
+test "B key type erasure" {
+  let store = @provider.Store()
+  let region = store.region()
+  let query = region.query((key : Int) => key)
+  let view = query.at_explicit(1)
+  takes_string_key(view)
+}

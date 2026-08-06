@@ -3,6 +3,7 @@
 Small checked probes that live with examples because they are useful to keep buildable, but are not part of the public library API.
 
 - [`ideal_api_rename_phase0/`](ideal_api_rename_phase0/) — MoonBit language-mechanics probe for the public API rename migration plan.
+- [`incr_next_keyed_view_recipe/`](incr_next_keyed_view_recipe/) — evidence-only issue #460 spike for a rematerializable keyed View recipe.
 
 Run from the repository root:
 

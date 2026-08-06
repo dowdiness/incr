@@ -1,0 +1,7 @@
+test "private View mutation" {
+  let store = @provider.Store()
+  let region = store.region()
+  let query = region.query((key : Int) => key)
+  let view = query.at(1)
+  view.metadata = ()
+}

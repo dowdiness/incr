@@ -1,0 +1,3 @@
+test "external View literal" {
+  let _ : @provider.View[Int] = @provider.View::{}
+}

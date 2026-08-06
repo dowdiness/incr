@@ -1,0 +1,128 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "examples/spikes/incr_next_keyed_view_recipe/provider"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) struct EvalCtx {
+  // private fields
+}
+pub fn EvalCtx::EvalCtx(Store) -> Self
+pub fn[V] EvalCtx::read(Self, View[V]) -> Result[V, ReadError]
+pub fn[K : Hash + Eq, V] EvalCtx::read_explicit(Self, ExplicitView[K, V]) -> Result[V, ReadError]
+
+pub(all) struct ExplicitView[K, V] {
+  // private fields
+}
+pub fn[K, V] ExplicitView::generation(Self[K, V]) -> RegionGeneration
+pub fn[K, V] ExplicitView::handle_id(Self[K, V]) -> ViewHandleId
+pub fn[K, V] ExplicitView::query_id(Self[K, V]) -> QueryId
+
+pub(all) struct MemoId {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn MemoId::query_id(Self) -> QueryId
+pub fn MemoId::sequence(Self) -> Int
+
+pub(all) struct MutableKey {
+  // private fields
+}
+pub fn MutableKey::MutableKey(Int) -> Self
+pub fn MutableKey::set(Self, Int) -> Unit
+pub fn MutableKey::value(Self) -> Int
+pub impl Eq for MutableKey
+pub impl Hash for MutableKey
+
+pub(all) struct Query[K, V] {
+  // private fields
+}
+pub fn[K : Hash + Eq, V] Query::at(Self[K, V], K) -> View[V]
+pub fn[K, V] Query::at_explicit(Self[K, V], K) -> ExplicitView[K, V]
+pub fn[K, V] Query::debug(Self[K, V]) -> QueryDebug
+pub fn[K : Hash + Eq, V] Query::evict(Self[K, V], K) -> Unit
+pub fn[K : Hash + Eq, V] Query::memo_id(Self[K, V], K) -> MemoId?
+
+pub(all) struct QueryDebug {
+  query_id : QueryId
+  creation_generation : RegionGeneration
+  memo_count : Int
+  lookup_count : Int
+  materialization_count : Int
+  eviction_count : Int
+  next_memo_sequence : Int
+  closed : Bool
+}
+
+pub(all) struct QueryId {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn QueryId::sequence(Self) -> Int
+pub fn QueryId::store_id(Self) -> StoreId
+
+pub(all) enum ReadError {
+  CrossStore(view_store~ : StoreId, reader_store~ : StoreId)
+  ClosedRegion(generation~ : RegionGeneration)
+} derive(Eq, @debug.Debug)
+
+pub(all) struct Region {
+  // private fields
+}
+pub fn Region::close(Self) -> Unit
+pub fn[K : Hash + Eq, V] Region::query(Self, (K) -> V) -> Query[K, V]
+
+pub(all) struct RegionGeneration {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn RegionGeneration::epoch(Self) -> Int
+pub fn RegionGeneration::region_id(Self) -> RegionId
+
+pub(all) struct RegionId {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn RegionId::sequence(Self) -> Int
+pub fn RegionId::store_id(Self) -> StoreId
+
+pub(all) struct Store {
+  // private fields
+}
+pub fn Store::Store() -> Self
+pub fn Store::debug(Self) -> StoreDebug
+pub fn[V] Store::read(Self, View[V]) -> Result[V, ReadError]
+pub fn[K : Hash + Eq, V] Store::read_explicit(Self, ExplicitView[K, V]) -> Result[V, ReadError]
+pub fn Store::region(Self) -> Region
+
+pub(all) struct StoreDebug {
+  metadata_checks : Int
+  cross_store_rejections : Int
+  closed_region_rejections : Int
+  recipe_invocations : Int
+}
+
+pub(all) struct StoreId {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn StoreId::value(Self) -> Int
+
+pub(all) struct View[V] {
+  // private fields
+}
+pub fn[V] View::generation(Self[V]) -> RegionGeneration
+pub fn[V] View::handle_id(Self[V]) -> ViewHandleId
+pub fn[V] View::query_id(Self[V]) -> QueryId
+
+pub(all) struct ViewHandleId {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn ViewHandleId::sequence(Self) -> Int
+pub fn ViewHandleId::store_id(Self) -> StoreId
+
+// Type aliases
+
+// Traits
+

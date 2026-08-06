@@ -1,0 +1,11 @@
+import {
+  "examples/spikes/incr_next_keyed_view_recipe/provider",
+}
+
+pkgtype(kind: "executable")
+
+supported_targets = "native"
+
+options(
+  "native-stub": [ "rc_probe.c" ],
+)

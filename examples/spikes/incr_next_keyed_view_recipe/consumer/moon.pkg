@@ -1,0 +1,5 @@
+import {
+  "examples/spikes/incr_next_keyed_view_recipe/provider",
+}
+
+pkgtype(kind: "executable")
