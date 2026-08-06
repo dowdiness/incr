@@ -1,0 +1,4 @@
+/// PROTOTYPE NEGATIVE: consumer cannot construct Stop state.
+fn negative_private_construct() -> @surface.Stop {
+  { mount: 1 }
+}

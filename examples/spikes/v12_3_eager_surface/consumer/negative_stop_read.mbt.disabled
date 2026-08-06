@@ -1,0 +1,4 @@
+/// PROTOTYPE NEGATIVE: Stop is not callable like a View.
+fn negative_stop_read(stop : @surface.Stop) -> Unit {
+  stop()
+}

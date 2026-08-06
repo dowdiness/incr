@@ -1,0 +1,4 @@
+/// PROTOTYPE NEGATIVE: passive View has no active teardown authority.
+fn negative_view_stop(view : @surface.View[Int]) -> Unit {
+  view.stop()
+}

@@ -1,0 +1,5 @@
+import {
+  "examples/spikes/v12_3_eager_surface/provider" @surface,
+}
+
+pkgtype(kind: "executable")

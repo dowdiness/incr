@@ -1,0 +1,4 @@
+/// PROTOTYPE NEGATIVE: consumer cannot mutate Stop state.
+fn negative_private_mutate(stop : @surface.Stop) -> Unit {
+  stop.mount = 1
+}

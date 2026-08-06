@@ -1,0 +1,37 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "examples/spikes/v12_3_eager_surface/provider"
+
+// Values
+
+// Errors
+pub suberror ProbeReadError {
+  Unused
+}
+
+// Types and methods
+pub struct Stop {
+  // private fields
+}
+pub fn Stop::is_stopped(Self) -> Bool
+pub fn Stop::stop(Self) -> Unit
+
+pub struct Store {
+  // private fields
+}
+pub fn Store::Store() -> Self
+pub fn Store::batch(Self, () -> Unit raise?) -> Unit raise?
+pub fn Store::close(Self) -> Unit
+pub fn[T] Store::eager(Self, () -> T raise ProbeReadError, label? : String) -> Stop raise ProbeReadError
+pub fn[T] Store::input(Self, T) -> (() -> T raise ProbeReadError, Write[T])
+
+pub struct Write[T] {
+  // private fields
+}
+pub fn[T] Write::force_set(Self[T], T) -> Unit
+pub fn[T : Eq] Write::set(Self[T], T) -> Unit
+
+// Type aliases
+pub type View[T] = () -> T raise ProbeReadError
+
+// Traits
+
