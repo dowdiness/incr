@@ -23,10 +23,10 @@ correspondence tables that accompanied the original proposal and handoff.
 
 | Category | Items |
 |----------|-------|
-| **Selected** | Callable `View[T]`, `Store::derived[T : Eq]`, View-owned passive state, Store-owned active records, rooted diagnostics, breakers (Stop / close), wake-up theorem, batch staged-write rollback |
-| **Provisional** | `Write[T]` shape, Effect cleanup contract, `GraphSnapshot` fields, `suberror` syntax, ownership derivation (pending RC proof) |
+| **Selected** | Callable `View[T]`, `Store::derived[T : Eq]`, View-owned passive state, Store-owned active records, rooted diagnostics, breakers (Stop / close), wake-up theorem, batch staged-write rollback, ownership derivation (Pass with constraints) |
+| **Provisional** | `Write[T]` shape, Effect cleanup contract, `GraphSnapshot` fields, `suberror` syntax |
 | **Open** | F7 keyed retirement, multi-Store composition, event observability, BackdateEq migration surface, advanced mapping parity, close interleavings |
-| **Evidence required** | V12.3 parity oracle, V12.4 ownership proof, V12.6 Effect contract, V12.10 error hierarchy, V12.11 diagnostics, F7 resolution, release benchmarks |
+| **Evidence required** | V12.3 parity oracle, V12.6 Effect contract, V12.10 error hierarchy, V12.11 diagnostics, F7 resolution, release benchmarks |
 
 ---
 
@@ -191,16 +191,44 @@ StoreCore    ──X───────> passive ViewState  (no strong edge)
 StoreCore    ──strong──> active Effect records
 StoreCore    ──strong──> mount records
 
-Passive graph: derived → dependency only (no reverse edges)
-Active SCCs:   every nontrivial SCC contains an active resource
-               and a designated breaker (Stop or store.close)
+Library passive graph: derived → dependency only (no reverse edges)
+Library active SCCs:   each nontrivial SCC is paired with an externally
+                       reachable breaker that cuts every feedback path
+Opaque caller edges:   compute captures and cached values may form SCCs
 ```
 
 The critical asymmetry is that StoreCore does not strongly own passive
-ViewState. This prevents retention cycles through the Store. The design
-intends dropping all View closures to release the passive graph under RC;
-V12.4 must prove that compute captures, cached values, and keyed entries do
-not introduce another passive cycle.
+ViewState. Once no external root or active record reaches a
+library-controlled passive subgraph, native RC evidence shows that subgraph
+is reclaimable. This claim does not cover a back-edge introduced by a user
+compute closure or cached value.
+
+**Verdict: Pass with constraints for library-controlled edges.** The library
+promises that its own fields introduce no passive cycle. This is a scoped
+guarantee: cycles introduced by user compute captures or cached `T` values
+remain caller-owned retention sources.
+
+A **breaker** is an externally reachable capability whose transition cuts
+every relevant feedback path. Active SCCs require reachable breakers:
+`Stop` per mounted Effect, listener-token removal, deferred-write queue drain
+or rollback, adapter teardown, or `store.close()` for all Store-owned active
+edges. Returning a breaker at creation time is insufficient if every
+teardown capability can be dropped without invocation.
+
+Required invariants:
+
+1. StoreCore has no passive ViewState, InputState, keyed entry, or all-Views
+   registry.
+2. Committed dependencies point upstream only; passive nodes store no reverse
+   subscriber edge.
+3. Dependency replacement is transactional. An escaping read failure commits
+   no replacement; a caught failure may commit successful reads but never the
+   failed edge.
+4. Each active owner edge has an idempotent teardown reachable for its intended
+   lifetime.
+5. `store.close()` removes every Store-owned active owner edge.
+6. Diagnostic traversal never creates a persistent all-Views owner.
+7. Keyed retirement remains gated by F7 surviving-dependency semantics.
 
 Passive edges are strictly derived-to-dependency. No reverse subscriber
 edges exist on passive nodes in the target. The current kernel gives every
@@ -208,15 +236,17 @@ cell a reverse edge `subscribers : HashSet[CellId]`
 (`incr/cells/internal/shared/cell_meta.mbt`); removing these from passive
 nodes is a kernel change.
 
-Active reference cycles are permitted only when they contain an explicit
-breaker. `Stop` breaks the Effect cycle
-(`Stop → Store → mount table → Effect → getter → state → StoreCore`).
-`store.close()` breaks the whole-Store cycle. Every nontrivial strong SCC
-must contain an active resource and a designated breaker; no passive-only
-SCC may exist.
+Library-controlled active reference cycles are permitted only when an
+externally reachable breaker cuts every feedback path. `Stop` removes the
+Effect mount edge (`StoreCore → mount → Effect → getter → state → StoreCore`),
+and `store.close()` removes all Store-owned active edges. Library-controlled
+fields introduce no passive-only SCC; opaque caller edges remain outside that
+promise.
 
-Property tests supplement but do not replace the structural proof. V12.4
-requires a written field-level strong-edge ownership table.
+Property and deterministic scenario evidence supplement but do not replace
+the structural proof. The field-level strong-edge ownership table,
+production-shaped compile probe,
+and native-RC probe are recorded in the V12.4 section below.
 
 ---
 
@@ -332,10 +362,10 @@ begins.
   and cancellation during dispatch.
 - **F7 keyed retirement.** When a key falls out of the membership set but
   a downstream getter survives, neither forcible retirement nor silent
-  retention is acceptable. No keyed policy is selected. Resolving the
-  retirement protocol alone does not commission keyed work: reopening also
-  requires a named consumer that creates per-key dynamic reactive subgraphs
-  under a live push path and a measured success signal for that consumer.
+  retention is acceptable. No keyed policy is selected. Reopening requires the
+  retirement protocol, a named consumer that creates per-key dynamic reactive
+  subgraphs under a live push path, and a measured success signal for that
+  consumer.
 - **Multi-Store composition.** Whether product modules should prohibit
   composition, bridge values, coordinate batches, or share one Store. The
   typed `CrossStore` mismatch failure does not decide this.
@@ -355,12 +385,29 @@ begins.
 | Gate | Scope | Status |
 |------|-------|--------|
 | V12.3 | Semantic parity matrix: every current facade and hook (`AcceptedDerived`, `Expr`, `InputView`, `Freshness`, `RuntimeContext`, Accumulator, DerivedMap, push cells, Datalog, custom backdating, listener registries, introspection, event ordering) | Not started |
-| V12.4 | Field-level strong-edge ownership table + RC argument. Compute captures, cached values, dependency arrays, StoreCore, mount records, Stop, close, deferred-write queues, keyed entries. Property tests supplement, not replace | Not started |
+| V12.4 | Field-level strong-edge ownership table + RC argument. Compute captures, cached values, dependency arrays, StoreCore, mount records, Stop, close, deferred-write queues, keyed entries. Property tests supplement, not replace | Pass with constraints |
 | V12.6 | Effect contract: initial-run failure, cleanup before re-run and on stop, deferred-write ordering, nested batches, cancellation, stop/close idempotence | Not started |
 | V12.10 | `ReadError` hierarchy compile probe: `suberror` syntax, exhaustive catches, `CrossStore` catches, `View[T]` raise propagation, detection before mutation | Not started |
 | V12.11 | Diagnostics scenarios: mounted cached View, unmounted traced View, heterogeneous root callback, arbitrary thunk, stale View, closed Store | Not started |
 | F7 | Keyed retirement resolution | Open |
 | V12.1/V12.7 | Release benchmarks on both native (RC) and wasm-gc targets: chain, diamond, many roots, hot + unrelated inputs, 2500-block Markdown, getter churn | Not started |
+
+Ownership evidence exists on the spike-only branch
+[`spike/v12-4-ownership-rc`](https://github.com/dowdiness/incr/tree/spike/v12-4-ownership-rc):
+field argument commit
+[`31aa2b7`](https://github.com/dowdiness/incr/commit/31aa2b7), compile-skeleton
+commit [`52dc63c`](https://github.com/dowdiness/incr/commit/52dc63c), and native
+RC commit [`de059ea`](https://github.com/dowdiness/incr/commit/de059ea). The
+field-skeleton probe compiles private target fields and constructs all three
+opaque cycle classes. The native-RC probe confirms multi-instance
+reclamation for passive chains (32), passive diamonds (32/128 marked),
+mounted Effect then Stop (32), Effect then close (32), listener token
+removal (32), deferred write flush (32), pending deferred then close (32),
+and keyed membership retired with surviving getter (32). All three opaque
+cycles — late-bound compute capture, cached owning collection, two-View
+capture — retain all instances as expected, confirming the scoped guarantee
+excludes caller-created cycles. These facts inform the ownership verdict;
+they do not authorize kernel implementation.
 
 Compile evidence exists: branch `spike/v12-5-view-alternatives`, commit
 `a48bdc9`, confirmed three kernel constraints (opaque values are not
@@ -388,9 +435,10 @@ implementation.
 
 ## Next step
 
-V12.4 (ownership proof) is the first priority; it resolves the ownership
-model's provisional status. No kernel implementation begins before V12.3 (parity oracle) and its
-affected evidence gates pass.
+V12.3 (semantic parity oracle) is the first priority. No kernel
+implementation begins before V12.3 and the remaining gates — V12.6 Effect
+contract, V12.10 error hierarchy, V12.11 diagnostics, F7 keyed retirement,
+and release benchmarks — pass.
 
 ---
 
