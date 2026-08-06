@@ -1,0 +1,28 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "examples/spikes/v12_3_write_capability/provider"
+
+// Values
+
+// Errors
+pub suberror ProbeReadError {
+  Unused
+}
+
+// Types and methods
+pub struct Store {
+  // private fields
+}
+pub fn Store::Store() -> Self
+pub fn[T] Store::input(Self, T) -> (() -> T raise ProbeReadError, Write[T])
+
+pub struct Write[T] {
+  // private fields
+}
+pub fn[T] Write::force_set(Self[T], T) -> Unit
+pub fn[T : Eq] Write::set(Self[T], T) -> Unit
+
+// Type aliases
+pub type View[T] = () -> T raise ProbeReadError
+
+// Traits
+

@@ -1,0 +1,4 @@
+/// PROTOTYPE NEGATIVE: callable View must expose no write authority.
+fn negative_view_write(view : @capability.View[Int]) -> Unit {
+  view.set(1)
+}

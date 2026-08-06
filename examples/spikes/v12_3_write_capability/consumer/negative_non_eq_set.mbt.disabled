@@ -1,0 +1,8 @@
+/// PROTOTYPE NEGATIVE: Write::set must retain its Eq bound.
+priv struct NonEqSetProbe {
+  callback : () -> Unit
+}
+
+fn negative_non_eq_set(write : @capability.Write[NonEqSetProbe]) -> Unit {
+  write.set({ callback: () => () })
+}

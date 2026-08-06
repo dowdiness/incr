@@ -1,0 +1,4 @@
+/// PROTOTYPE NEGATIVE: consumer must not construct provider-private Write state.
+fn negative_private_construct() -> @capability.Write[Int] {
+  { input: 1 }
+}

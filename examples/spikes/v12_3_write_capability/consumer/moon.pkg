@@ -1,0 +1,5 @@
+import {
+  "examples/spikes/v12_3_write_capability/provider" @capability,
+}
+
+pkgtype(kind: "executable")

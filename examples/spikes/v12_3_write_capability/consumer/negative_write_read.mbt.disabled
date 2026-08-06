@@ -1,0 +1,4 @@
+/// PROTOTYPE NEGATIVE: nominal Write must not be callable like View.
+fn negative_write_read(write : @capability.Write[Int]) -> Int {
+  write()
+}

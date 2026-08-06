@@ -1,0 +1,4 @@
+/// PROTOTYPE NEGATIVE: consumer must not mutate provider-private Write state.
+fn negative_private_mutate(write : @capability.Write[Int]) -> Unit {
+  write.input = 1
+}

@@ -1,0 +1,2 @@
+/// PROTOTYPE CONSTRAINT: current value-level ReadError is not a raise effect.
+pub type InvalidCurrentReadErrorView[T] = () -> T raise @incr.ReadError
