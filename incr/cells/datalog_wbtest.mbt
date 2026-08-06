@@ -337,6 +337,15 @@ test "fixpoint: relation created during rule execution converges in same call" {
 }
 
 ///|
+test "panic fixpoint: re-entrant call inside rule body aborts" {
+  let rt = Runtime::Runtime()
+  let rel : Relation[Int] = Relation::Relation(rt)
+  rt.new_rule([rel.id()], [], () => rt.fixpoint()) |> ignore
+  rel.insert(1) |> ignore
+  rt.fixpoint()
+}
+
+///|
 test "panic fixpoint: aborts inside a batch" {
   let rt = Runtime::Runtime()
   let rel : Relation[Int] = Relation::Relation(rt)
