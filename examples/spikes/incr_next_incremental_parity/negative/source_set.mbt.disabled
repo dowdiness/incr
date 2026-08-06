@@ -1,0 +1,7 @@
+fn mutate(source : @provider.Source[Int]) -> Unit {
+  source.set(1)
+}
+
+test "Source set" {
+  ignore(mutate)
+}

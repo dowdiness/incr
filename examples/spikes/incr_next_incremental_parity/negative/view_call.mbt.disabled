@@ -1,0 +1,7 @@
+fn consume(view : @provider.View[Int]) -> Result[Int, @provider.ReadError] {
+  view()
+}
+
+test "View call" {
+  ignore(consume)
+}

@@ -1,0 +1,7 @@
+fn expose(ctx : @provider.EvalCtx) -> @provider.EvalId {
+  ctx.eval_id()
+}
+
+test "EvalCtx has no public eval_id accessor" {
+  ignore(expose)
+}

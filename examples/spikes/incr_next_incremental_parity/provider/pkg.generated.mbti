@@ -1,0 +1,206 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "examples/spikes/incr_next_incremental_parity/provider"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) struct ChangeEpoch {
+  // private fields
+} derive(Eq, Hash, @debug.Debug)
+pub fn ChangeEpoch::value(Self) -> Int
+
+pub(all) struct EvalCtx {
+  // private fields
+}
+pub fn[V] EvalCtx::read(Self, View[V]) -> Result[V, ReadError]
+pub fn EvalCtx::revision(Self) -> Revision
+
+pub(all) struct EvalId {
+  // private fields
+} derive(Eq, Hash, @debug.Debug)
+
+pub(all) struct MemoDebug {
+  memo_id : MemoId
+  trace_length : Int
+  verified_at : ChangeEpoch
+  changed_at : ChangeEpoch
+}
+
+pub(all) struct MemoId {
+  // private fields
+} derive(Eq, Hash, @debug.Debug)
+pub fn MemoId::query_id(Self) -> QueryId
+pub fn MemoId::sequence(Self) -> Int
+
+pub(all) struct Query[K, V] {
+  // private fields
+}
+pub fn[K : Hash + Eq, V] Query::at(Self[K, V], K) -> View[V]
+pub fn[K, V] Query::debug(Self[K, V]) -> QueryDebug
+pub fn[K, V] Query::id(Self[K, V]) -> QueryId
+pub fn[K : Hash + Eq, V] Query::memo_debug(Self[K, V], K) -> MemoDebug?
+
+pub(all) struct QueryDebug {
+  query_id : QueryId
+  generation : RegionGeneration
+  compute_available : Bool
+  compute_count : Int
+  memo_count : Int
+  cache_hits : Int
+  green_verifications : Int
+  failed_recomputes : Int
+}
+
+pub(all) struct QueryId {
+  // private fields
+} derive(Eq, Hash, @debug.Debug)
+pub fn QueryId::sequence(Self) -> Int
+pub fn QueryId::store_id(Self) -> StoreId
+
+pub(all) enum ReadError {
+  CrossStore(view_store~ : StoreId, reader_store~ : StoreId)
+  ClosedRegion(generation~ : RegionGeneration)
+  ExpiredEvalContext(eval_id~ : EvalId)
+  ReentrantRootRead(active_store~ : StoreId, requested_store~ : StoreId)
+  ReadDuringTransaction(active_store~ : StoreId, requested_store~ : StoreId)
+} derive(Eq, @debug.Debug)
+
+pub(all) struct Region {
+  // private fields
+}
+pub fn Region::close(Self) -> Result[Unit, RegionError]
+pub fn Region::generation(Self) -> RegionGeneration
+pub fn Region::id(Self) -> RegionId
+pub fn[K : Hash + Eq, V] Region::query(Self, (EvalCtx, K) -> Result[V, ReadError]) -> Result[Query[K, V], RegionError]
+pub fn[T] Region::source(Self, T) -> Result[Source[T], RegionError]
+
+pub(all) enum RegionError {
+  ClosedRegion(generation~ : RegionGeneration)
+  MutationDuringEvaluation(active_store~ : StoreId)
+  MutationDuringTransaction(active_store~ : StoreId)
+} derive(Eq, @debug.Debug)
+
+pub(all) struct RegionGeneration {
+  // private fields
+} derive(Eq, Hash, @debug.Debug)
+pub fn RegionGeneration::epoch(Self) -> Int
+pub fn RegionGeneration::region_id(Self) -> RegionId
+
+pub(all) struct RegionId {
+  // private fields
+} derive(Eq, Hash, @debug.Debug)
+pub fn RegionId::sequence(Self) -> Int
+pub fn RegionId::store_id(Self) -> StoreId
+
+pub(all) struct Revision {
+  // private fields
+} derive(Eq, Hash, @debug.Debug)
+pub fn Revision::value(Self) -> Int
+
+pub(all) struct Source[T] {
+  // private fields
+}
+pub fn[T] Source::debug(Self[T]) -> SourceDebug
+pub fn[T] Source::id(Self[T]) -> SourceId
+pub fn[T] Source::view(Self[T]) -> View[T]
+
+pub(all) struct SourceDebug {
+  source_id : SourceId
+  generation : RegionGeneration
+  committed : Bool
+  read_count : Int
+  verification_count : Int
+  changed_at : ChangeEpoch
+}
+
+pub(all) struct SourceId {
+  // private fields
+} derive(Eq, Hash, @debug.Debug)
+pub fn SourceId::sequence(Self) -> Int
+pub fn SourceId::store_id(Self) -> StoreId
+
+pub(all) struct Store {
+  // private fields
+}
+pub fn Store::Store() -> Self
+pub fn Store::change_epoch(Self) -> ChangeEpoch
+pub fn Store::debug(Self) -> StoreDebug
+pub fn Store::id(Self) -> StoreId
+pub fn[V] Store::read(Self, View[V]) -> Result[V, ReadError]
+pub fn Store::region(Self) -> Result[Region, RegionError]
+pub fn Store::revision(Self) -> Revision
+pub fn Store::revision_changed_at(Self) -> ChangeEpoch
+pub fn Store::transaction(Self, (Transaction) -> Result[Unit, TransactionError]) -> Result[TransactionOutcome, TransactionError]
+
+pub(all) struct StoreDebug {
+  root_read_attempts : Int
+  root_read_rejections : Int
+  transaction_attempts : Int
+  transaction_commits : Int
+  transaction_rollbacks : Int
+}
+
+pub(all) struct StoreId {
+  // private fields
+} derive(Eq, Hash, @debug.Debug)
+pub fn StoreId::value(Self) -> Int
+
+pub(all) struct Transaction {
+  // private fields
+}
+pub fn Transaction::id(Self) -> TransactionId
+pub fn Transaction::is_poisoned(Self) -> Bool
+pub fn[T] Transaction::set(Self, Source[T], T) -> Result[Unit, TransactionError]
+pub fn Transaction::staged_count(Self) -> Int
+
+pub(all) enum TransactionError {
+  CrossStore(source_store~ : StoreId, transaction_store~ : StoreId)
+  ClosedRegion(generation~ : RegionGeneration)
+  ExpiredTransaction(transaction_id~ : TransactionId)
+  TransactionDuringEvaluation(active_store~ : StoreId, requested_store~ : StoreId)
+  NestedTransaction(active_store~ : StoreId, requested_store~ : StoreId)
+  CallbackRejected
+} derive(Eq, @debug.Debug)
+
+pub(all) struct TransactionId {
+  // private fields
+} derive(Eq, Hash, @debug.Debug)
+pub fn TransactionId::sequence(Self) -> Int
+pub fn TransactionId::store_id(Self) -> StoreId
+
+pub(all) struct TransactionOutcome {
+  revision : Revision
+  change_epoch : ChangeEpoch
+  staged_count : Int
+  applied_count : Int
+  advanced : Bool
+}
+
+pub(all) struct View[V] {
+  // private fields
+}
+pub fn[V] View::generation(Self[V]) -> RegionGeneration
+pub fn[V] View::handle_id(Self[V]) -> ViewHandleId
+pub fn[V] View::origin(Self[V]) -> ViewOrigin
+
+pub(all) struct ViewHandleId {
+  // private fields
+} derive(Eq, Hash, @debug.Debug)
+pub fn ViewHandleId::sequence(Self) -> Int
+pub fn ViewHandleId::store_id(Self) -> StoreId
+
+pub(all) enum ViewOrigin {
+  Source(SourceId)
+  Query(QueryId)
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+

@@ -4,6 +4,7 @@ Small checked probes that live with examples because they are useful to keep bui
 
 - [`ideal_api_rename_phase0/`](ideal_api_rename_phase0/) — MoonBit language-mechanics probe for the public API rename migration plan.
 - [`incr_next_fresh_evaluator/`](incr_next_fresh_evaluator/) — evidence-only memo-free evaluator and atomic transaction oracle for Incr Next.
+- [`incr_next_incremental_parity/`](incr_next_incremental_parity/) — issue #462 keyed incremental evaluator compared with the unchanged #461 oracle.
 
 Run from the repository root:
 

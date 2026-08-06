@@ -1,0 +1,9 @@
+import {
+  "examples/spikes/incr_next_incremental_parity/provider" @provider,
+}
+
+pkgtype(kind: "executable")
+supported_targets = "native"
+options(
+  "native-stub": [ "rc_probe.c" ],
+)
