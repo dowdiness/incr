@@ -1,0 +1,20 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "examples/spikes/incr_next_cycle_detection/consumer"
+
+// Values
+
+// Errors
+
+// Types and methods
+type EdgeResult
+
+type MutablePayload
+
+type MutableResult
+
+type ScriptResult
+
+// Type aliases
+
+// Traits
+

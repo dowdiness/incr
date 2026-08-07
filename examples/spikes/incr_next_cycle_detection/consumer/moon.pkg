@@ -1,0 +1,6 @@
+import {
+  "examples/spikes/incr_next_cycle_detection/fresh_provider" @fresh,
+  "examples/spikes/incr_next_cycle_detection/incremental_provider" @incremental,
+}
+
+pkgtype(kind: "executable")
