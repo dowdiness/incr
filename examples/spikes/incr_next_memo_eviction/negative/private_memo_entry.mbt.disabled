@@ -1,0 +1,3 @@
+fn probe() -> Unit {
+  let _ : @provider.MemoEntry[Int] = abort("unreachable")
+}

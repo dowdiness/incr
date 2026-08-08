@@ -1,0 +1,3 @@
+fn probe(view : @provider.View[Int]) -> Unit {
+  let _ = view.evict_memo(())
+}

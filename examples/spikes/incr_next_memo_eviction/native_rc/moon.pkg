@@ -1,0 +1,10 @@
+import {
+  "examples/spikes/incr_next_memo_eviction/fresh_provider" @fresh,
+  "examples/spikes/incr_next_memo_eviction/incremental_provider" @incremental,
+}
+
+pkgtype(kind: "executable")
+
+options(
+  "native-stub": [ "rc_probe.c" ],
+)
