@@ -1,0 +1,28 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "examples/spikes/incr_next_cutoff_backdating/consumer"
+
+// Values
+
+// Errors
+
+// Types and methods
+type EdgeResult
+
+type MutablePayload
+
+type MutableResult
+
+type NearValue
+
+type PatternLike
+
+type ScriptResult
+
+type SemanticDoc
+
+type UnsoundEqValue
+
+// Type aliases
+
+// Traits
+

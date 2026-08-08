@@ -9,6 +9,7 @@ members = [
   "./examples/spikes/incr_next_fresh_evaluator",
   "./examples/spikes/incr_next_incremental_parity",
   "./examples/spikes/incr_next_cycle_detection",
+  "./examples/spikes/incr_next_cutoff_backdating",
   "./examples/typed_spreadsheet_cli_demo",
   "./examples/typed_spreadsheet_rabbita_demo",
   "./examples/typed_spreadsheet_incr_tea_demo",

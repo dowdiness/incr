@@ -1,0 +1,3 @@
+fn probe(region : @provider.Region) -> Unit {
+  let _ = region.query_by((_ctx, _key : Unit) => Ok(1), (old, next) => old == next)
+}
