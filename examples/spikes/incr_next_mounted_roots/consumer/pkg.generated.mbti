@@ -1,0 +1,32 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "examples/spikes/incr_next_mounted_roots/consumer"
+
+// Values
+
+// Errors
+
+// Types and methods
+type EdgeResult
+
+type HostileEvictionKey
+
+type MutablePayload
+
+type MutableResult
+
+type NearValue
+
+type PatternLike
+
+type RootValue
+
+type ScriptResult
+
+type SemanticDoc
+
+type UnsoundEqValue
+
+// Type aliases
+
+// Traits
+

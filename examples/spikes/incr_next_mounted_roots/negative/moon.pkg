@@ -1,0 +1,3 @@
+import {
+  "examples/spikes/incr_next_mounted_roots/incremental_provider" @provider,
+}

@@ -1,0 +1,3 @@
+fn probe(mount : @provider.Mount[Int]) -> Unit {
+  mount.disposed = false
+}

@@ -1,0 +1,3 @@
+fn probe(view : @provider.View[Int]) -> Unit {
+  ignore(view.mount())
+}

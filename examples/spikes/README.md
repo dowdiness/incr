@@ -8,6 +8,7 @@ Small checked probes that live with examples because they are useful to keep bui
 - [`incr_next_cycle_detection/`](incr_next_cycle_detection/) — issue #463 invocation-level semantic cycle detection over independent fresh and incremental providers.
 - [`incr_next_cutoff_backdating/`](incr_next_cutoff_backdating/) — typed Query-owned cutoff and changed-at backdating evidence over the unchanged cycle boundary.
 - [`incr_next_memo_eviction/`](incr_next_memo_eviction/) — explicit typed memo eviction and conservative recipe rematerialization evidence.
+- [`incr_next_mounted_roots/`](incr_next_mounted_roots/) — active typed mounted-root scheduling, footprint liveness, and disposal evidence.
 
 Run from the repository root:
 

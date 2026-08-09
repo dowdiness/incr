@@ -1,0 +1,10 @@
+import {
+  "examples/spikes/incr_next_mounted_roots/fresh_provider" @fresh,
+  "examples/spikes/incr_next_mounted_roots/incremental_provider" @incremental,
+}
+
+pkgtype(kind: "executable")
+
+options(
+  "native-stub": [ "rc_probe.c" ],
+)

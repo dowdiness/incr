@@ -1,0 +1,14 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "examples/spikes/incr_next_mounted_roots/native_rc"
+
+// Values
+
+// Errors
+
+// Types and methods
+type MountedRootEvidence
+
+// Type aliases
+
+// Traits
+

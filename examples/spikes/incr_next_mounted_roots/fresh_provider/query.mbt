@@ -1,0 +1,272 @@
+///|
+/// Semantic equivalence supplied by the result type. Implementations must only
+/// return true when every admissible downstream observation is unchanged.
+pub(open) trait CutoffEq {
+  fn cutoff_equal(Self, Self) -> Bool
+}
+
+///|
+/// Query-owned policy. Fresh evaluation retains but never evaluates it.
+priv enum CutoffPolicy[V] {
+  AlwaysChanged
+  Compare((V, V) -> Bool)
+}
+
+///|
+/// Fresh Query definition. It owns no memo, trace, cache, or value.
+priv struct QueryCore[K, V] {
+  store : StoreCore
+  generation : RegionGeneration
+  epoch : RegionEpoch
+  query_id : QueryId
+  compute : Ref[((EvalCtx, K) -> Result[V, ReadError])?]
+  cutoff : Ref[CutoffPolicy[V]?]
+  active : Map[K, ActiveInvocation]
+  compute_count : Ref[Int]
+  cutoff_calls : Ref[Int]
+  eviction_attempts : Ref[Int]
+  evictions : Ref[Int]
+  eviction_noops : Ref[Int]
+  eviction_rejections : Ref[Int]
+}
+
+///|
+/// Typed keyed Query definition.
+pub(all) struct Query[K, V] {
+  priv core : QueryCore[K, V]
+}
+
+///|
+/// Creates one fresh Query definition with a fixed policy.
+fn[K : Hash + Eq, V] make_query_with_cutoff(
+  store : StoreCore,
+  epoch : RegionEpoch,
+  generation : RegionGeneration,
+  compute : (EvalCtx, K) -> Result[V, ReadError],
+  cutoff : CutoffPolicy[V],
+) -> Query[K, V] {
+  {
+    core: {
+      store,
+      generation,
+      epoch,
+      query_id: QueryId::{ owner: store.id, sequence: store.allocate() },
+      compute: Ref(Some(compute)),
+      cutoff: Ref(Some(cutoff)),
+      active: Map([]),
+      compute_count: Ref(0),
+      cutoff_calls: Ref(0),
+      eviction_attempts: Ref(0),
+      evictions: Ref(0),
+      eviction_noops: Ref(0),
+      eviction_rejections: Ref(0),
+    },
+  }
+}
+
+///|
+/// Preserves the #463 constructor as the AlwaysChanged baseline.
+fn[K : Hash + Eq, V] make_query(
+  store : StoreCore,
+  epoch : RegionEpoch,
+  generation : RegionGeneration,
+  compute : (EvalCtx, K) -> Result[V, ReadError],
+) -> Query[K, V] {
+  make_query_with_cutoff(store, epoch, generation, compute, AlwaysChanged)
+}
+
+///|
+/// Registers one Query after Region validation.
+fn[K : Hash + Eq, V] Region::register_query(
+  self : Region,
+  compute : (EvalCtx, K) -> Result[V, ReadError],
+  cutoff : CutoffPolicy[V],
+) -> Result[Query[K, V], RegionError] {
+  match self.core.check_open() {
+    Some(error) => Err(error)
+    None => {
+      let query = make_query_with_cutoff(
+        self.core.store,
+        self.core.epoch,
+        self.core.epoch.snapshot(),
+        compute,
+        cutoff,
+      )
+      self.core.close_actions.push(() => query.core.close())
+      Ok(query)
+    }
+  }
+}
+
+///|
+/// Creates a Query whose every successful recompute is semantically changed.
+pub fn[K : Hash + Eq, V] Region::query_always_changed(
+  self : Region,
+  compute : (EvalCtx, K) -> Result[V, ReadError],
+) -> Result[Query[K, V], RegionError] {
+  self.register_query(compute, AlwaysChanged)
+}
+
+///|
+/// Creates a Query whose Eq implementation supplies semantic equivalence.
+pub fn[K : Hash + Eq, V : Eq] Region::query_eq(
+  self : Region,
+  compute : (EvalCtx, K) -> Result[V, ReadError],
+) -> Result[Query[K, V], RegionError] {
+  self.register_query(compute, Compare((old, next) => old == next))
+}
+
+///|
+/// Creates a Query whose result type owns its semantic equivalence relation.
+pub fn[K : Hash + Eq, V : CutoffEq] Region::query_type_owned(
+  self : Region,
+  compute : (EvalCtx, K) -> Result[V, ReadError],
+) -> Result[Query[K, V], RegionError] {
+  self.register_query(compute, Compare((old, next) => old.cutoff_equal(next)))
+}
+
+///|
+/// Evaluates a Query from scratch through one active EvalCtx.
+fn[K : Hash + Eq, V] EvalCtx::eval_query(
+  self : EvalCtx,
+  core : QueryCore[K, V],
+  key : K,
+) -> Result[V, ReadError] {
+  self.record_token(WakeToken::RegionLifetime(core.generation))
+  match self.validate_definition(core.store.id, core.epoch, core.generation) {
+    Some(error) => Err(error)
+    None => core.evaluate_active(self, key)
+  }
+}
+
+///|
+/// Fresh evaluation always enters the typed active map and key-free stack.
+fn[K : Hash + Eq, V] QueryCore::evaluate_active(
+  self : QueryCore[K, V],
+  ctx : EvalCtx,
+  key : K,
+) -> Result[V, ReadError] {
+  match self.active.get(key) {
+    Some(active) =>
+      if active.eval_id == ctx.session.eval_id {
+        Err(ReadError::Cycle(ctx.cycle_witness(active, self.query_id)))
+      } else {
+        // A prior structured exit must remove this; clear defensively before
+        // entering a new single-threaded root session.
+        self.active.remove(key)
+        self.evaluate_active(ctx, key)
+      }
+    None => {
+      let active = ctx.enter_active(self.query_id)
+      self.active.set(key, active)
+      let result = match self.compute.val {
+        None => Err(ReadError::ClosedRegion(generation=self.generation))
+        Some(compute) => {
+          self.compute_count.val = self.compute_count.val + 1
+          compute(ctx, key)
+        }
+      }
+      self.active.remove(key)
+      ctx.leave_active(active)
+      result
+    }
+  }
+}
+
+///|
+/// Packages typed QueryCore plus K in an opaque EvalCtx recipe.
+pub fn[K : Hash + Eq, V] Query::at(self : Query[K, V], key : K) -> View[V] {
+  make_view(
+    self.core.store,
+    self.core.epoch,
+    self.core.generation,
+    ViewOrigin::Query(self.core.query_id),
+    ctx => ctx.eval_query(self.core, key),
+  )
+}
+
+///|
+/// Returns a typed eviction phase failure without changing either Store clock.
+fn eviction_phase_error(requested_store : StoreId) -> EvictionError? {
+  match execution_mode.val {
+    Idle => None
+    Evaluating(active_store, _) =>
+      Some(
+        EvictionError::EvictionDuringEvaluation(active_store~, requested_store~),
+      )
+    Transacting(active_store, _) =>
+      Some(
+        EvictionError::EvictionDuringTransaction(
+          active_store~,
+          requested_store~,
+        ),
+      )
+  }
+}
+
+///|
+/// Fresh has no memo to remove; the operation is a validated semantic no-op.
+pub fn[K : Hash + Eq, V] Query::evict_memo(
+  self : Query[K, V],
+  key : K,
+) -> Result[Bool, EvictionError] {
+  self.core.eviction_attempts.val = self.core.eviction_attempts.val + 1
+  if !self.core.epoch.accepts(self.core.generation) {
+    self.core.eviction_rejections.val = self.core.eviction_rejections.val + 1
+    Err(EvictionError::ClosedRegion(generation=self.core.generation))
+  } else {
+    match eviction_phase_error(self.core.store.id) {
+      Some(error) => {
+        self.core.eviction_rejections.val = self.core.eviction_rejections.val +
+          1
+        Err(error)
+      }
+      None => {
+        // Mirror Incremental's typed lookup obligations only after validation.
+        ignore(Hash::hash(key))
+        ignore(Eq::equal(key, key))
+        self.core.eviction_noops.val = self.core.eviction_noops.val + 1
+        Ok(false)
+      }
+    }
+  }
+}
+
+///|
+/// Releases compute and policy captures during Region close.
+fn[K, V] QueryCore::close(self : QueryCore[K, V]) -> Unit {
+  self.compute.val = None
+  self.cutoff.val = None
+  self.active.clear()
+}
+
+///|
+/// Returns this Query's stable identity.
+pub fn[K, V] Query::id(self : Query[K, V]) -> QueryId {
+  self.core.query_id
+}
+
+///|
+/// Returns an immutable Query state snapshot.
+pub fn[K, V] Query::debug(self : Query[K, V]) -> QueryDebug {
+  {
+    query_id: self.core.query_id,
+    generation: self.core.generation,
+    compute_available: self.core.compute.val is Some(_),
+    cutoff_available: match self.core.cutoff.val {
+      Some(AlwaysChanged) => true
+      Some(Compare(compare)) => {
+        ignore(compare)
+        true
+      }
+      None => false
+    },
+    compute_count: self.core.compute_count.val,
+    cutoff_calls: self.core.cutoff_calls.val,
+    eviction_attempts: self.core.eviction_attempts.val,
+    evictions: self.core.evictions.val,
+    eviction_noops: self.core.eviction_noops.val,
+    eviction_rejections: self.core.eviction_rejections.val,
+    active_count: self.core.active.length(),
+  }
+}
