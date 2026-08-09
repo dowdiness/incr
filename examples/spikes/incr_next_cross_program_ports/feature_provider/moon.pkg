@@ -1,0 +1,4 @@
+import {
+  "examples/spikes/incr_next_cross_program_ports/program" @program,
+  "examples/spikes/incr_next_memo_eviction/incremental_provider" @kernel,
+}

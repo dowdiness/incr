@@ -10,6 +10,7 @@ Small checked probes that live with examples because they are useful to keep bui
 - [`incr_next_memo_eviction/`](incr_next_memo_eviction/) — explicit typed memo eviction and conservative recipe rematerialization evidence.
 - [`incr_next_mounted_roots/`](incr_next_mounted_roots/) — active typed mounted-root scheduling, footprint liveness, and disposal evidence.
 - [`incr_next_read_ports/`](incr_next_read_ports/) — typed Formula-local read-port declarations, manifests, authorization, and invocation observations over opaque kernel Views.
+- [`incr_next_cross_program_ports/`](incr_next_cross_program_ports/) — typed provider exports, consumer imports, and explicit cross-program origin edges over opaque kernel Views.
 
 Run from the repository root:
 

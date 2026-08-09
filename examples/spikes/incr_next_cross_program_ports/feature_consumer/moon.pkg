@@ -1,0 +1,6 @@
+import {
+  "examples/spikes/incr_next_cross_program_ports/feature_provider" @feature_provider,
+  "examples/spikes/incr_next_cross_program_ports/program" @program,
+}
+
+pkgtype(kind: "executable")

@@ -1,0 +1,4 @@
+///|
+fn negative_raw_port_view(port : @program.ReadPort[Int]) {
+  ignore(port.view())
+}

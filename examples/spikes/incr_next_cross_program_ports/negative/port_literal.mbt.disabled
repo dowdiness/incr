@@ -1,0 +1,4 @@
+///|
+fn negative_port_literal() -> @program.ReadPort[Int] {
+  @program.ReadPort::{ }
+}

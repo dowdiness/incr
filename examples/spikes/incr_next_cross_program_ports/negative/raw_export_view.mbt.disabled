@@ -1,0 +1,4 @@
+///|
+fn negative_raw_export_view(export : @program.ReadExport[Int]) {
+  ignore(export.view())
+}

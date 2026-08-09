@@ -1,0 +1,33 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "examples/spikes/incr_next_cross_program_ports/feature_provider"
+
+import {
+  "examples/spikes/incr_next_cross_program_ports/program",
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct FeatureProvider {
+  // private fields
+}
+pub fn FeatureProvider::close(Self) -> Bool
+pub fn FeatureProvider::consumer_program(Self) -> @program.Program
+pub fn FeatureProvider::create() -> Result[Self, FeatureProviderError]
+pub fn FeatureProvider::export_value(Self) -> Result[@program.ReadExport[Int], @program.ExportError]
+pub fn FeatureProvider::local_consumer_program(Self) -> @program.Program
+pub fn FeatureProvider::local_port(Self, @program.Program) -> Result[@program.ReadPort[Int], @program.PortError]
+pub fn FeatureProvider::read_attempts(Self) -> Int
+pub fn FeatureProvider::set(Self, Int) -> Bool
+
+pub(all) enum FeatureProviderError {
+  Unavailable
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+

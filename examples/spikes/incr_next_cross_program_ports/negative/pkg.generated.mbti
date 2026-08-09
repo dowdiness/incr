@@ -1,0 +1,19 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "examples/spikes/incr_next_cross_program_ports/negative"
+
+import {
+  "examples/spikes/incr_next_cross_program_ports/feature_provider",
+  "examples/spikes/incr_next_cross_program_ports/program",
+}
+
+// Values
+pub fn boundary_anchor(@program.Program?, @feature_provider.FeatureProvider?) -> Int
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

@@ -1,0 +1,4 @@
+///|
+fn negative_export_literal() -> @program.ReadExport[Int] {
+  @program.ReadExport::{ }
+}
