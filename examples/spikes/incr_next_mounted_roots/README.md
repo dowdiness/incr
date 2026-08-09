@@ -11,9 +11,9 @@ Can a long-lived typed root observe the same current outcome as Fresh after ever
 semantic turn while Incremental selectively reruns only roots whose private
 transitive wake footprint is touched?
 
-The answer is **provisional until final validation**. This is finite executable
-evidence, not a proof of an admissible graph or a production-kernel proposal.
-Run:
+The evidence result is **Pass with constraints**. This is finite executable
+evidence, not a proof of all admissible graphs or authorization of a production
+API. Run:
 
 ```bash
 bash examples/spikes/incr_next_mounted_roots/run.sh
@@ -41,6 +41,12 @@ only `MountId -> () -> Unit`: an active runner registry owned by the Store.
 Incremental additionally owns a private token-to-MountId index for selection.
 The forbidden design is an erased Query/memo/key registry or subscriber edge;
 no such structure authorizes or identifies a mount.
+
+This spike establishes **selective evaluation**, not sublinear dispatch.
+`wake_selected_mounts` snapshots and scans all active runners, then checks index
+membership before invoking a runner. A production scheduler may instead union
+the indexed MountId sets for touched tokens and snapshot only those runners;
+that dispatch optimization is outside this evidence question.
 
 `Mount` exposes only `id`, `current`, `debug`, and idempotent `dispose`.
 Creation validates cross-store ownership, Region lifetime, and global phase
@@ -102,20 +108,25 @@ selective Fresh scheduler.
 ## Evidence coverage
 
 The consumer's parity workloads compare normalized Fresh/Incremental mount
-outcomes after each relevant turn and check initial evaluation; unrelated and
-multi-source commits; RevisionClock invalidation; empty/rollback/rejected turns; per-Region close
-selectivity and duplicate close; dynamic branch replacement; prior-success
-failure/Cycle retry and recovery; direct and child cutoff backdating; root and
-child eviction/rematerialization; disposal; and mount creation rejection during
-evaluation and transaction. A recipe-triggered disposal probe also verifies
-snapshot runner iteration and prevents post-evaluation state resurrection.
-Incremental counters assert selectivity; Fresh
-counters deliberately show all-root reruns. Native RC evidence separately
-checks runner/index removal, View-key/current ownership, the separate
-Region-owned Query recipe lifetime, successful and failed footprint state
-transitions, quiet eviction, Region close wake, and idempotent disposal. Native external-object finalizers measure ownership paths.
-WakeToken arrays contain only values, so private debug counts and interface
-guards provide the corresponding array/index release evidence.
+outcomes after each relevant turn. They cover initial evaluation; unrelated and
+multi-source commits; RevisionClock invalidation; empty/rollback/rejected turns;
+per-Region close selectivity; dynamic branches; failure/Cycle recovery; cutoff;
+eviction/rematerialization; disposal; and mount-creation rejection.
+
+A recipe-triggered disposal probe verifies snapshot runner iteration and
+prevents post-evaluation state resurrection. It is a defensive scheduler probe,
+not an admissible Formula operation: Query determinism and capability purity
+prohibit Mount lifecycle mutation during evaluation. A production lifecycle
+may reject such mutation by phase or defer it as a post-turn command; that
+choice belongs with later effect/resource semantics.
+
+Incremental counters assert selectivity; Fresh counters deliberately show
+all-root reruns. Native RC evidence checks runner/index removal,
+View-key/current ownership, the separate Region-owned Query recipe lifetime,
+footprint state transitions, quiet eviction, Region close wake, and idempotent
+disposal. Native external-object finalizers measure ownership paths. WakeToken
+arrays contain only values, so private debug counts and interface guards provide
+the corresponding array/index release evidence.
 
 ## Existing API First
 

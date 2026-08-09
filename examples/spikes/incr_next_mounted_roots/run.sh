@@ -135,7 +135,9 @@ grep -Fq '`Fresh` is the oracle' "$SPIKE/README.md"
 grep -Fq 'functional core' "$SPIKE/README.md"
 grep -Fq 'WakeToken' "$SPIKE/README.md"
 grep -Fq 'Existing API First' "$SPIKE/README.md"
-grep -Fq 'provisional until final validation' "$SPIKE/README.md"
+grep -Fq 'The evidence result is **Pass with constraints**.' "$SPIKE/README.md"
+grep -Fq 'not an admissible Formula operation' "$SPIKE/README.md"
+grep -Fq 'selective evaluation' "$SPIKE/README.md"
 if rg -n 'MemoEntry|CutoffPolicy|WakeToken|MountCore|TrackingFrame|attempted_footprint|mount_index|runner_registry|eviction_phase_error|ExecutionMode|TrustedCutoff|query_by' \
   "$SPIKE/fresh_provider/pkg.generated.mbti" \
   "$SPIKE/incremental_provider/pkg.generated.mbti"; then
