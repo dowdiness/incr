@@ -1,0 +1,4 @@
+///|
+fn negative_provider_literal() -> @feature_provider.FeatureProvider {
+  @feature_provider.FeatureProvider::{ }
+}

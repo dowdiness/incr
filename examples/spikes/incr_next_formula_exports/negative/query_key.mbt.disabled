@@ -1,0 +1,6 @@
+///|
+fn negative_query_key(
+  _query : @program.Query[Int, Int],
+) -> Int {
+  1
+}

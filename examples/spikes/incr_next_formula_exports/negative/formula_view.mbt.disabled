@@ -1,0 +1,3 @@
+fn probe(formula : @program.Formula[Int]) -> Unit {
+  ignore(formula.view())
+}

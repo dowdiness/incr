@@ -14,6 +14,7 @@ members = [
   "./examples/spikes/incr_next_mounted_roots",
   "./examples/spikes/incr_next_read_ports",
   "./examples/spikes/incr_next_cross_program_ports",
+  "./examples/spikes/incr_next_formula_exports",
   "./examples/typed_spreadsheet_cli_demo",
   "./examples/typed_spreadsheet_rabbita_demo",
   "./examples/typed_spreadsheet_incr_tea_demo",

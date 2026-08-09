@@ -1,0 +1,38 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "examples/spikes/incr_next_formula_exports/derived_provider"
+
+import {
+  "examples/spikes/incr_next_formula_exports/feature_provider",
+  "examples/spikes/incr_next_formula_exports/program",
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct DerivedProvider {
+  // private fields
+}
+pub fn DerivedProvider::close(Self) -> Bool
+pub fn DerivedProvider::consumer_program(Self) -> @program.Program
+pub fn DerivedProvider::create(@feature_provider.FeatureProvider) -> Result[Self, DerivedProviderError]
+pub fn DerivedProvider::export_formula(Self) -> @program.ReadExport[Result[Int, @program.ProgramError]]
+pub fn DerivedProvider::formula(Self) -> @program.Formula[Int]
+pub fn DerivedProvider::program(Self) -> @program.Program
+pub fn DerivedProvider::source_export_id(Self) -> @program.ExportId
+pub fn DerivedProvider::unauthorized_export(Self) -> @program.ReadExport[Result[Int, @program.ProgramError]]
+
+pub(all) enum DerivedProviderError {
+  UpstreamExport(error~ : @program.ExportError)
+  Import(error~ : @program.ImportError)
+  Declaration(error~ : @program.BuilderError)
+  Build(error~ : @program.BuilderError)
+  FormulaExport(error~ : @program.ExportError)
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+

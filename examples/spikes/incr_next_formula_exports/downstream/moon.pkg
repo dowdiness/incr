@@ -1,0 +1,7 @@
+import {
+  "examples/spikes/incr_next_formula_exports/derived_provider" @derived_provider,
+  "examples/spikes/incr_next_formula_exports/feature_provider" @feature_provider,
+  "examples/spikes/incr_next_formula_exports/program" @program,
+}
+
+pkgtype(kind: "executable")
