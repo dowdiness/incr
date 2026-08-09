@@ -258,6 +258,40 @@ fn failed_build_consumes_builder() -> Bool {
 }
 
 ///|
+fn escaped_eval_ctx_expires() -> Bool {
+  let store = @kernel.Store()
+  let region = region_or_abort(store)
+  let program = @program.Program(region)
+  let source = source_or_abort(region, 12)
+  let port = port_or_abort(program, source.view())
+  let builder = program.builder()
+  let declared = declared_or_abort(builder, port)
+  let escaped : Ref[@program.ProgramEvalCtx?] = Ref(None)
+  let formula = formula_or_abort(builder, ctx => {
+    escaped.val = Some(ctx)
+    ctx.read(declared)
+  })
+  let first = store.read(formula.view())
+  let reads_before = source.debug().read_count
+  let observations_before = formula.debug().observations
+  let expired = match escaped.val {
+    Some(ctx) => ctx.read(declared)
+    None => abort("escaped context")
+  }
+  let rejected = expired
+    is Err(@program.ProgramError::ExpiredProgramEvaluation(_)) &&
+    source.debug().read_count == reads_before &&
+    formula.debug().observations == observations_before
+  ignore(store.transaction(tx => tx.set(source, 13)))
+  let recovered = store.read(formula.view()) == Ok(Ok(13)) &&
+    formula.debug().observations.length() == 1 &&
+    source.debug().read_count == reads_before + 1
+  escaped.val = None
+  ignore(region.close())
+  first == Ok(Ok(12)) && rejected && recovered
+}
+
+///|
 fn structural_transparency() -> Bool {
   let store = @kernel.Store()
   let closed_region = region_or_abort(store)
@@ -303,6 +337,7 @@ fn all_workloads() -> Bool {
     foreign_declared_read() &&
     cross_program_and_lifecycle() &&
     failed_build_consumes_builder() &&
+    escaped_eval_ctx_expires() &&
     structural_transparency()
 }
 

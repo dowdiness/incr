@@ -23,13 +23,17 @@ manifest, and defensive debug snapshots.
 
 Formula callbacks receive only `ProgramEvalCtx` and captured `DeclaredRead`
 values. `ProgramEvalCtx::read` checks Formula/builder identity and authorization
-before recording `{port_id, ordinal}` and invoking the kernel View. Unauthorized
-application failures are returned inside the Formula value as
+before recording `{port_id, ordinal}` and invoking the kernel View. Each
+`ProgramEvalCtx` has a private invocation-local active flag; an escaped context
+returns `ExpiredProgramEvaluation` without recording or invoking its View.
+Unauthorized application failures are returned inside the Formula value as
 `Result[V, ProgramError]`; kernel `ClosedRegion` and `Cycle` remain the outer
 `@kernel.ReadError` channel. The caller contract is that Formula evaluation is
 pure: do not create Ports, builders, declarations, or other Program lifecycle
 objects from inside a callback. Region/query definition methods still validate
-the kernel's global phase and return their typed definition errors.
+the kernel's global phase and return their typed definition errors. The kernel
+Query closure captures copied ProgramId/auth/manifest inputs rather than the
+BuilderCore object.
 
 The result View intentionally remains a normal opaque kernel View so Formulas
 compose with existing pull reads. Its public kernel-native handle/origin/lifetime
@@ -52,12 +56,22 @@ manifest's Array preserves declaration order. `String`/`StringView`,
 do not fit typed capability identity or this evidence formatting. No new
 collection abstraction or erased registry is introduced.
 
+## Observation meaning
+
+`ObservedInvocation` is an authorized facade-level Port read attempt, including
+an attempt whose kernel read returns `ClosedRegion` or `Cycle`. It is distinct
+from the kernel's installed last-successful dependency trace and does not claim
+transitive Query attribution. If a callback continues after more than one
+structural failure, the first kernel error wins; the wrapper returns it through
+the outer channel.
+
 ## Evidence workloads
 
 The consumer checks initial typed reads, same-View distinct Port identity,
 dynamic branch observations with stable manifests, duplicate declarations with
 repeated invocation ordinals, foreign declarations without a Source read,
-cross-Program rejection, consuming failed/successful builds, structural error
-transparency, and application-level Unauthorized results. The harness checks
+cross-Program rejection, consuming failed/successful builds, escaped-context
+invalidation, structural error transparency, and application-level Unauthorized
+results. The harness checks
 opaque/private boundaries, generated-interface Query-key absence, native/wasm
 output equality, and unchanged #461-#466 evidence trees/executables.

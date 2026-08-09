@@ -2,6 +2,7 @@
 /// Application-level failure reported inside a successful Formula value.
 pub(all) enum ProgramError {
   UnauthorizedRead(port_id~ : PortId)
+  ExpiredProgramEvaluation(formula_id~ : FormulaId)
 } derive(Eq, Debug)
 
 ///|

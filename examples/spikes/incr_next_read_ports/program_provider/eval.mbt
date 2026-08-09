@@ -14,6 +14,7 @@ pub struct ProgramEvalCtx {
   priv auth : Map[PortId, Unit]
   priv observations : Ref[Array[ObservedInvocation]]
   priv structural : Ref[@kernel.ReadError?]
+  priv active : Ref[Bool]
 }
 
 ///|
@@ -23,7 +24,9 @@ pub fn[T] ProgramEvalCtx::read(
   declared : DeclaredRead[T],
 ) -> Result[T, ProgramError] {
   let port_id = declared.port.core.port_id
-  if declared.formula_id != self.formula_id ||
+  if !self.active.val {
+    Err(ExpiredProgramEvaluation(formula_id=self.formula_id))
+  } else if declared.formula_id != self.formula_id ||
     declared.port.core.program != self.program ||
     !self.auth.contains(port_id) {
     Err(UnauthorizedRead(port_id~))
@@ -33,7 +36,9 @@ pub fn[T] ProgramEvalCtx::read(
     match self.raw.read(declared.port.core.view) {
       Ok(value) => Ok(value)
       Err(error) => {
-        self.structural.val = Some(error)
+        if self.structural.val is None {
+          self.structural.val = Some(error)
+        }
         Err(UnauthorizedRead(port_id~))
       }
     }

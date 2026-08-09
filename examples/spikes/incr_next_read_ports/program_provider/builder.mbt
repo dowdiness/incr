@@ -53,21 +53,25 @@ pub fn[V] FormulaBuilder::build(
       // Build is consuming even when kernel definition registration is rejected.
       self.core.state.val = Built
       let observations : Ref[Array[ObservedInvocation]] = Ref([])
+      let program_id = self.core.program
       let auth = self.core.auth.copy()
       let formula_id = self.core.formula_id
       let manifest = Manifest::{ ports: self.core.manifest.copy() }
       let query_result = self.core.region.query_always_changed(
         (raw_ctx, _ : Unit) => {
           observations.val = []
+          let active = Ref(true)
           let ctx = ProgramEvalCtx::{
             raw: raw_ctx,
-            program: self.core.program,
+            program: program_id,
             formula_id,
             auth,
             observations,
             structural: Ref(None),
+            active,
           }
           let value = compute(ctx)
+          active.val = false
           match ctx.structural.val {
             Some(error) => Err(error)
             None => Ok(value)

@@ -71,6 +71,7 @@ pub fn[T] Program::port(Self, @incremental_provider.View[T]) -> Result[ReadPort[
 
 pub(all) enum ProgramError {
   UnauthorizedRead(port_id~ : PortId)
+  ExpiredProgramEvaluation(formula_id~ : FormulaId)
 } derive(Eq, @debug.Debug)
 
 pub struct ProgramEvalCtx {
