@@ -1,0 +1,3 @@
+fn probe(ctx : @program.ProgramEvalCtx) -> Unit {
+  ctx.auth = abort("unreachable")
+}

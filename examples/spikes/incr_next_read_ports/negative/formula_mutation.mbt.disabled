@@ -1,0 +1,3 @@
+fn probe(formula : @program.Formula[Int]) -> Unit {
+  formula.core = abort("unreachable")
+}

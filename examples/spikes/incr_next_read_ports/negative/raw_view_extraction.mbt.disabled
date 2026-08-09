@@ -1,0 +1,3 @@
+fn probe(port : @program.ReadPort[Int]) -> @kernel.View[Int] {
+  port.core.view
+}

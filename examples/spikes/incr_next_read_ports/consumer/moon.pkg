@@ -1,0 +1,6 @@
+import {
+  "examples/spikes/incr_next_read_ports/program_provider" @program,
+  "examples/spikes/incr_next_memo_eviction/incremental_provider" @kernel,
+}
+
+pkgtype(kind: "executable")

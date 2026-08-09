@@ -1,0 +1,3 @@
+fn probe(read : @program.DeclaredRead[Int]) -> Unit {
+  read.formula_id = abort("unreachable")
+}

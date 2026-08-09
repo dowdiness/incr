@@ -1,0 +1,3 @@
+fn probe() -> Unit {
+  let _ : @program.DeclaredRead[Int] = @program.DeclaredRead::{ port: abort("unreachable"), formula_id: abort("unreachable") }
+}

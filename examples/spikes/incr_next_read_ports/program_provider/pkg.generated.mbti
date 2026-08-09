@@ -1,0 +1,88 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "examples/spikes/incr_next_read_ports/program_provider"
+
+import {
+  "examples/spikes/incr_next_memo_eviction/incremental_provider",
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) enum BuilderError {
+  ForeignPort(port_id~ : PortId)
+  PortRegionMismatch
+  BuilderExpired
+  Region(error~ : @incremental_provider.RegionError)
+} derive(Eq, @debug.Debug)
+
+pub struct DeclaredRead[T] {
+  // private fields
+}
+
+pub struct Formula[V] {
+  // private fields
+}
+pub fn[V] Formula::debug(Self[V]) -> FormulaDebug
+pub fn[V] Formula::manifest(Self[V]) -> Manifest
+pub fn[V] Formula::view(Self[V]) -> @incremental_provider.View[Result[V, ProgramError]]
+
+pub struct FormulaBuilder {
+  // private fields
+}
+pub fn[V] FormulaBuilder::build(Self, (ProgramEvalCtx) -> Result[V, ProgramError]) -> Result[Formula[V], BuilderError]
+pub fn[T] FormulaBuilder::declare_port(Self, ReadPort[T]) -> Result[DeclaredRead[T], BuilderError]
+
+pub(all) struct FormulaDebug {
+  formula_id : FormulaId
+  manifest : Array[PortId]
+  observations : Array[ObservedInvocation]
+} derive(Eq, @debug.Debug)
+
+pub(all) struct FormulaId {
+  // private fields
+} derive(Eq, Hash, @debug.Debug)
+pub fn FormulaId::sequence(Self) -> Int
+
+pub struct Manifest {
+  // private fields
+}
+pub fn Manifest::contains(Self, PortId) -> Bool
+pub fn Manifest::port_ids(Self) -> Array[PortId]
+
+pub(all) struct ObservedInvocation {
+  port_id : PortId
+  ordinal : Int
+} derive(Eq, @debug.Debug)
+
+pub(all) struct PortId {
+  // private fields
+} derive(Eq, Hash, @debug.Debug)
+pub fn PortId::sequence(Self) -> Int
+
+pub struct Program {
+  // private fields
+}
+pub fn Program::Program(@incremental_provider.Region) -> Self
+pub fn Program::builder(Self) -> FormulaBuilder
+pub fn[T] Program::port(Self, @incremental_provider.View[T]) -> Result[ReadPort[T], BuilderError]
+
+pub(all) enum ProgramError {
+  UnauthorizedRead(port_id~ : PortId)
+} derive(Eq, @debug.Debug)
+
+pub struct ProgramEvalCtx {
+  // private fields
+}
+pub fn[T] ProgramEvalCtx::read(Self, DeclaredRead[T]) -> Result[T, ProgramError]
+
+pub struct ReadPort[T] {
+  // private fields
+}
+
+// Type aliases
+
+// Traits
+

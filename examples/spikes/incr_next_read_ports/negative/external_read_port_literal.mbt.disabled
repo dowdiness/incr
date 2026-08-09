@@ -1,0 +1,3 @@
+fn probe() -> Unit {
+  let _ : @program.ReadPort[Int] = @program.ReadPort::{ core: abort("unreachable") }
+}

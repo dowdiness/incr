@@ -1,0 +1,3 @@
+fn probe(port : @program.ReadPort[Int]) -> Unit {
+  port.core = abort("unreachable")
+}

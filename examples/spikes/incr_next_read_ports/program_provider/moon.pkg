@@ -1,0 +1,3 @@
+import {
+  "examples/spikes/incr_next_memo_eviction/incremental_provider" @kernel,
+}
