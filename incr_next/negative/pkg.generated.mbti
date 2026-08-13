@@ -1,8 +1,7 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "dowdiness/incr_next_testkit/differential"
+package "dowdiness/incr_next/negative"
 
 // Values
-pub fn canonical_matches() -> Bool
 
 // Errors
 

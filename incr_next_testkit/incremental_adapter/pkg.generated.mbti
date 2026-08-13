@@ -1,7 +1,12 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "dowdiness/incr_next_testkit/incremental_adapter"
 
+import {
+  "dowdiness/incr_next_testkit/model",
+}
+
 // Values
+pub fn evaluate(@model.Script) -> Array[@model.Observation]
 
 // Errors
 

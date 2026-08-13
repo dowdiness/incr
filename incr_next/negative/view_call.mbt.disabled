@@ -1,0 +1,3 @@
+fn invalid_view_call[V](view : @kernel.View[V]) -> Result[V, @kernel.ReadError] {
+  view()
+}

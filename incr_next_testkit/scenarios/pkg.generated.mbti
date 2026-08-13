@@ -1,7 +1,12 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "dowdiness/incr_next_testkit/scenarios"
 
+import {
+  "dowdiness/incr_next_testkit/model",
+}
+
 // Values
+pub fn canonical() -> @model.Script
 
 // Errors
 

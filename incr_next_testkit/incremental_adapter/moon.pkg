@@ -1,3 +1,4 @@
 import {
   "dowdiness/incr_next",
+  "dowdiness/incr_next_testkit/model",
 }

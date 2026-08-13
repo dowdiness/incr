@@ -1,13 +1,32 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "dowdiness/incr_next_testkit/model"
 
+import {
+  "moonbitlang/core/debug",
+}
+
 // Values
 
 // Errors
 
 // Types and methods
+pub(all) enum Observation {
+  Value(Int)
+  Missing(Int)
+} derive(Eq, @debug.Debug)
+
+pub(all) enum Operation {
+  Set(Int, Int)
+  Read(Int)
+} derive(Eq, @debug.Debug)
+
+pub struct Script {
+  operations : Array[Operation]
+} derive(@debug.Debug)
+pub fn Script::Script(Array[Operation]) -> Self
 
 // Type aliases
+pub type SourceId = Int
 
 // Traits
 

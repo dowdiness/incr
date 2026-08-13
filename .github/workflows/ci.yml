@@ -147,8 +147,79 @@ jobs:
       - name: Documentation boundary checker self-test
         run: bash scripts/check-documentation-boundaries-selftest.sh
 
+      - name: Incr Next boundary self-test
+        run: bash scripts/check-incr-next-boundaries-selftest.sh
+
+      - name: Incr Next boundary and negative probes
+        run: |
+          bash scripts/check-incr-next-boundaries.sh
+          bash scripts/check-incr-next-negative-probes.sh
+
       - name: Documentation retention and link boundaries
         run: python3 scripts/check-documentation-boundaries.py
+
+  incr-next:
+    name: Incr Next ${{ matrix.root }} / ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        root:
+          - incr_next
+          - incr_next_testkit/model
+          - incr_next_testkit/fresh
+          - incr_next_testkit/incremental_adapter
+          - incr_next_testkit/scenarios
+          - incr_next_testkit/differential
+        target:
+          - default
+          - native
+          - js
+          - wasm-gc
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - name: Install MoonBit
+        env:
+          MOONBIT_INSTALL_VERSION: 0.10.4+ade96c819
+        run: |
+          install_moonbit() {
+            curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/moonbit-install.sh \
+              && bash /tmp/moonbit-install.sh
+          }
+          for attempt in 1 2 3; do
+            if install_moonbit; then break; fi
+            if [ "$attempt" = 3 ]; then
+              echo "MoonBit install failed after 3 attempts"; exit 1
+            fi
+            echo "install attempt $attempt failed; retrying in 10s..."; sleep 10
+          done
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      - name: Verify MoonBit
+        run: moon version --all
+
+      - name: Check + test exact K1.1 root/target cell
+        run: |
+          if [ "${{ matrix.target }}" = default ]; then
+            moon check "${{ matrix.root }}"
+            moon test "${{ matrix.root }}"
+          else
+            moon check --target "${{ matrix.target }}" "${{ matrix.root }}"
+            moon test --target "${{ matrix.target }}" "${{ matrix.root }}"
+          fi
+
+  Incr-Next-Required:
+    name: Incr Next Required
+    if: ${{ always() }}
+    needs: [incr-next, boundaries]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require Incr Next matrix and boundaries
+        run: |
+          test "${{ needs['incr-next'].result }}" = success
+          test "${{ needs.boundaries.result }}" = success
 
   docs-ratios:
     name: Verify perf ratio tables

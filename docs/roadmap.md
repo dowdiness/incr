@@ -27,8 +27,8 @@ module-global alpha phase gate, and the Region lifetime skeleton. K1.2–K1.6
 remain uncommissioned; typed memo/trace, cycles, cutoff, proof loss, and later
 conformance work require separate maintainer decisions.
 
-When the sibling module exists, its active queue moves to
-`incr_next/docs/roadmap.md`; this root roadmap will retain only a pointer.
+The sibling module now owns the active K1.1 queue in
+[`incr_next/docs/roadmap.md`](../incr_next/docs/roadmap.md); this root roadmap retains the product pointer.
 
 ## Module-owned queues
 
