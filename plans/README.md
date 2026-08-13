@@ -18,6 +18,7 @@ instruction.
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 |---|---|---:|---:|---|---|
+| 015 | Incr Next kernel alpha | P1 | L | Explicit K1 implementation commission | BLOCKED (not commissioned) |
 | 014 | Deepen the typed-sheet application owner | P1 | L | Accepted EGW projection boundary; completed Plan 013 adapter | DONE (closed 2026-08-02; private owner deepening complete) |
 | 013 | Run the typed-spreadsheet EGW boundary experiment | P1 | L | Published EGW 0.4.0 | DONE (closed 2026-07-24; bounded adapter experiment complete) |
 
