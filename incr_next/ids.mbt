@@ -18,9 +18,9 @@ pub fn Revision::value(self : Revision) -> Int {
 
 ///|
 /// Identity of one Region.
-pub struct RegionId {
-  priv owner : StoreId
-  priv sequence : Int
+priv struct RegionId {
+  owner : StoreId
+  sequence : Int
 } derive(Eq, Hash, Debug)
 
 ///|

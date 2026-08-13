@@ -24,6 +24,14 @@ Checked with `moon ide doc` before implementation: `Map`/`Set` for typed staging
 
 K1.1 is not marked DONE. The remaining gate is final independent review after the blocker fixes and the complete 24-cell target matrix, native RC, boundaries, negative probes, and interface-clean checks.
 
+## Differential work evidence
+
+Fresh and incremental adapters execute the same ordered scripts. Persistent
+K1.1 Query graphs are constructed once and read repeatedly: a two-root chain
+performs four Query computes, while a two-root diamond performs ten, including
+two evaluations of the shared Query on each root read. Domain failure is read as
+a nested value; a cross-Store nested read remains a structural error.
+
 ## Expected divergence
 
-The kernel never defensively copies mutable keys, Source payloads, or Query results. Testkit documentation retains these as caller-contract counterexamples rather than pretending Fresh and incremental values can repair alias mutation.
+The kernel never defensively copies mutable keys, Source payloads, or Query results. Executable tests retain these as caller-contract counterexamples rather than pretending Fresh and incremental values can repair alias mutation.

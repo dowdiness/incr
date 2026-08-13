@@ -46,10 +46,6 @@ pub struct RegionGeneration {
   // private fields
 } derive(Eq, Hash, @debug.Debug)
 
-pub struct RegionId {
-  // private fields
-} derive(Eq, Hash, @debug.Debug)
-
 pub struct Revision {
   // private fields
 } derive(Eq, Hash, @debug.Debug)

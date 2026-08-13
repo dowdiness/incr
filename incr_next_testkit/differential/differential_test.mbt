@@ -24,3 +24,19 @@ test "no-memo diamond duplicates the shared Query on each path" {
   assert_eq(@fresh.evaluate(@scenarios.diamond()), expected)
   assert_eq(@incremental_adapter.evaluate(@scenarios.diamond()), expected)
 }
+
+///|
+test "definitions preserve operation order in both evaluators" {
+  let script = @model.Script::Script([
+    @model.Operation::Read(0),
+    @model.Operation::Define(0, 9),
+    @model.Operation::Read(0),
+  ])
+  let expected = [
+    @model.Observation::Value(0),
+    @model.Observation::Value(9),
+    @model.Observation::Counter(0),
+  ]
+  assert_eq(@fresh.evaluate(script), expected)
+  assert_eq(@incremental_adapter.evaluate(script), expected)
+}
