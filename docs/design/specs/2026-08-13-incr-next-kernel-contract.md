@@ -158,24 +158,34 @@ The detailed write and lifetime contract is in
 
 ## Clocks and snapshot
 
-The clocks are deliberately separate:
+Each Store owns two clocks; neither clock is Region-scoped or module-global:
 
 ```text
-Revision       public committed-state clock
-ChangeEpoch    private verification/lifecycle clock
+StoreCore
+  Revision       public committed-state clock for that Store
+  ChangeEpoch    private verification/lifecycle clock for that Store
 ```
 
-- Successful nonempty transaction: advance `Revision` once and
-  `ChangeEpoch` once, including equal-value publication.
+The separate module-global execution gate coordinates callback phases across
+all Stores but owns no clock. Operations on Store A never advance Store B's
+clocks.
+
+- Successful nonempty transaction on a Store: advance that Store's `Revision`
+  once and `ChangeEpoch` once, including equal-value publication and one
+  atomic transaction spanning multiple Regions of the Store.
 - Empty, rolled-back, poisoned, or rejected transaction: advance neither.
-- First successful Region close: advance `ChangeEpoch` once and leave
-  `Revision` unchanged.
+- First successful close of any Region in a Store: advance that Store's
+  `ChangeEpoch` once and leave its `Revision` unchanged.
 - Duplicate or rejected close: advance neither.
 
-One root read captures one committed `Revision`. Nested reads cannot observe a
-transaction's intermediate staging or a different committed snapshot.
-`QueryContext::revision()` makes the public clock a tracked semantic input;
-Region close alone does not invalidate that dependency, while a commit does.
+One root read captures its Store's committed `Revision`; every same-Store
+cross-Region nested read observes that snapshot. A commit publishing to any
+Region in the Store is visible only to a later root read and advances the one
+Store Revision. Nested reads cannot observe transaction staging or another
+committed snapshot. `QueryContext::revision()` records a dependency on that
+Store's Revision clock, so any successful nonempty same-Store transaction can
+make it red. Region close alone leaves the Revision dependency green while its
+closed Source/Query dependency follows the separate lifetime rules.
 
 ## Alpha execution gate
 
@@ -316,7 +326,8 @@ K1 is not accepted until all of the following pass:
 - native, JS, and wasm-gc checks/tests;
 - native reference-count/finalizer ownership evidence;
 - compile-negative capability and package-import probes;
-- `moon info` generated-interface review with no unintended `.mbti` drift;
+- validation order is `moon fmt`, `moon info`, immediate generated `.mbti`
+  inspection, then affected `moon check` and `moon test`;
 - current `dowdiness/incr` unchanged and no dependency from Incr Next to it.
 
 Work-count assertions are gates; K1 has no wall-clock threshold.

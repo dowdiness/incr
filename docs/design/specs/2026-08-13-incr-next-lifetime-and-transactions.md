@@ -43,8 +43,10 @@ K1 consolidates these contracts without importing evidence providers.
 ### One publication path
 
 `Source[T]` exposes no direct setter. A Store-owned transaction is the only
-publication path. Exact MoonBit callback and error-wrapper syntax is fixed by
-compile probes, but it must preserve this control flow:
+publication path. One transaction may stage Sources from any number of open
+Regions owned by that same Store. It cannot stage a Source from another Store
+or a closed/stale Region. Exact MoonBit callback and error-wrapper syntax is
+fixed by compile probes, but it must preserve this control flow:
 
 ```text
 Idle
@@ -71,10 +73,12 @@ write releases its payload. Staging never changes the committed Source.
 
 ### Sticky poison
 
-Every `set` validates Store provenance, Region generation, Transaction
-liveness, and execution phase before staging. A failed set poisons the
-transaction even if the callback ignores its returned error. Once poisoned, a
-transaction cannot commit.
+Every `set` validates Store provenance, Region generation/open state,
+Transaction liveness, and execution phase before allocating or replacing its
+staged closure. Same-Store writes across open Regions are legal. A cross-Store,
+closed-Region, stale-generation, or otherwise invalid write stages nothing and
+poisons the transaction even if the callback ignores its returned error. Once
+poisoned, a transaction cannot commit.
 
 A callback-returned failure, sticky poison, or catchable raised failure causes
 rollback. Rollback clears staged closures and payloads, expires the capability,
@@ -87,11 +91,14 @@ Uncatchable abort and arbitrary FFI failure remain outside K1 guarantees.
 A successful empty callback is a semantic no-op and advances neither clock.
 A successful nonempty callback:
 
-1. applies exactly one final prevalidated write per Source;
-2. makes all writes visible atomically while root reads remain phase-blocked;
-3. advances public `Revision` exactly once;
-4. advances private `ChangeEpoch` exactly once;
-5. expires the Transaction and restores `Idle`.
+1. revalidates that every target Region is still the prevalidated open
+   generation (the module-global phase prevents legal concurrent close);
+2. applies exactly one final prevalidated write per Source across all affected
+   same-Store Regions;
+3. makes all writes visible atomically while root reads remain phase-blocked;
+4. advances the owning Store's public `Revision` exactly once;
+5. advances that Store's private `ChangeEpoch` exactly once;
+6. expires the Transaction and restores `Idle`.
 
 Publication is unconditional. An equal-value write still makes the transaction
 nonempty and advances both clocks; `Source[T]` has no `Eq` bound. No observer can
@@ -210,8 +217,9 @@ K1 tests cover at least:
 ## Deterministic core and imperative shell
 
 The functional core decides transaction validation, poison transitions,
-last-write-wins staging plans, clock deltas, verification response to closed
-dependencies, and close commands from explicit state. Decisions are testable
+last-write-wins staging plans, multi-Region publication commands, clock deltas,
+verification response to closed dependencies, and close commands from explicit
+state. Decisions are testable
 without performing release actions.
 
 The imperative shell owns phase entry/exit, callback invocation, closure/payload

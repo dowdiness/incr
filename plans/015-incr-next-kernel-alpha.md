@@ -88,9 +88,9 @@ Run from a validated package/module root:
 ```text
 moon fmt
 moon info
+git diff -- '*.mbti'
 moon check <affected package/module>
 moon test <affected package/module>
-git diff -- '*.mbti'
 git diff --check
 ```
 
@@ -107,7 +107,7 @@ Write this matrix into the first test package before production code:
 | Provenance | same Store, different Store, same Region, different Region |
 | Phase | Idle, Evaluating, Transacting, catchable exit |
 | Lifetime | open, first close, duplicate close, surviving View |
-| Publication | empty, one write, equal write, multiple Sources, repeated Source, callback error, ignored invalid set |
+| Publication | empty, one write, equal write, multiple Sources, repeated Source, multi-Region same Store, cross-Store/closed-Region poison, callback error, ignored invalid set |
 | Query | Source, Unit key, equal keys, dynamic branch, chain, diamond |
 | Failure | initial error, error over memo, recovery, dead error branch |
 | Cycle | direct, mutual, same Query/different key, finite recursion, recovery |
@@ -194,16 +194,21 @@ cross-Region read succeeds.
 ### K1.1e: Atomic transaction
 
 - Implement transaction-local typed staging closures with last-write-wins.
-- Make invalid `set` sticky-poison the transaction even if its error is ignored.
+- Permit one transaction to stage Sources across multiple open Regions of its
+  owning Store; validate Store and Region generation before staging.
+- Make cross-Store, closed/stale-Region, or otherwise invalid `set`
+  sticky-poison the transaction even if its error is ignored.
 - Roll back callback errors and poison without clock or Source changes.
-- Commit a successful nonempty transaction atomically, advancing `Revision` and
-  `ChangeEpoch` exactly once, including equal publication.
+- Commit every affected same-Store Region atomically, advancing the owning
+  Store's `Revision` and `ChangeEpoch` exactly once, including equal
+  publication.
 - Make empty success zero-delta and expire captured Transaction capability.
 - Reject root operations and Region mutation during transaction, including via
   another Store.
 
-**First failure:** two Sources never expose an intermediate commit and an ignored
-invalid set rolls the whole callback back.
+**First failure:** two Sources in different open Regions of one Store never
+expose an intermediate commit, while an ignored closed-Region or cross-Store
+write rolls the entire callback back.
 
 ### K1.1f: Region close skeleton
 
@@ -413,8 +418,10 @@ exact candidate commit.
 [ ] one opaque non-callable View recipe surface
 [ ] QueryContext has tracked read/revision only
 [ ] Transaction is the only Source publication path
-[ ] one root observes one committed snapshot
-[ ] public Revision and private ChangeEpoch follow the clock table
+[ ] same-Store multi-Region transaction publishes atomically
+[ ] closed-Region/cross-Store set poisons before staging and rolls back all writes
+[ ] one root observes one committed Store snapshot across Regions
+[ ] Store-owned Revision and ChangeEpoch follow the clock table
 [ ] repeated same-epoch read performs no recompute
 [ ] unrelated publication green-verifies a demanded root
 [ ] dynamic trace replacement drops old dependencies
