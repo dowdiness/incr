@@ -21,8 +21,12 @@ K0 product-contract documentation is commissioned separately from current
 - [K0 Lifetime and Transaction Contract](design/specs/2026-08-13-incr-next-lifetime-and-transactions.md)
 - [Plan 015 — Incr Next K1 Kernel Alpha](../plans/015-incr-next-kernel-alpha.md)
 
-K1 implementation is **not yet commissioned**. Plan 015 remains blocked until
-a maintainer explicitly authorizes implementation.
+K1.1 is commissioned: module/package seams, independent Fresh boundary,
+opaque capabilities, no-memo evaluation, transaction-only publication, the
+module-global alpha phase gate, and the Region lifetime skeleton. K1.2–K1.6
+remain uncommissioned; typed memo/trace, cycles, cutoff, proof loss, and later
+conformance work require separate maintainer decisions.
+
 When the sibling module exists, its active queue moves to
 `incr_next/docs/roadmap.md`; this root roadmap will retain only a pointer.
 

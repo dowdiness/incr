@@ -9,13 +9,41 @@ import the evidence providers.
 
 **Keep until:** K1 is accepted, rejected, or replaced by a new plan.
 
-**Disposition:** Active handoff, blocked on explicit K1 implementation
-commission. This plan does not authorize a branch push, publication, PR, Issue
-action, or parent-submodule update.
+**Disposition:** Active handoff. K1.1 implementation is commissioned;
+K1.2–K1.6 require separate maintainer decisions. This plan does not authorize
+publication, an implementation PR, Issue action, or parent-submodule update.
 
-**Status:** BLOCKED (explicit K1 implementation commission)
+**Status:** TODO (K1.1 commissioned only)
 
 ---
+
+## Commission scope
+
+Commissioned now:
+
+```text
+K1.1 module and package seams
+K1.1 independent model/Fresh boundary
+K1.1 opaque capability and identity skeleton
+K1.1 Source and no-memo Query evaluation
+K1.1 atomic transaction and module-global alpha phase gate
+K1.1 Region lifetime skeleton
+K1.1 target, negative-interface, and ownership gates
+```
+
+Not commissioned:
+
+```text
+K1.2 typed memo and forward verification
+K1.3 invocation-level cycles
+K1.4 typed cutoff and backdating
+K1.5 private proof loss and ownership completion
+K1.6 later product-quality expansion beyond the K1.1 gates
+Mount, Program, Canopy integration, ADR, or publication
+```
+
+Later sections remain implementation-ready handoffs, not authorization to begin
+them. Stop after K1.1 acceptance and request a separate K1.2 decision.
 
 ## Goal
 
