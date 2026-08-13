@@ -21,7 +21,7 @@ pub struct QueryContext {
 pub fn[V] QueryContext::read(Self, View[V]) -> Result[V, ReadError]
 pub fn QueryContext::revision(Self) -> Revision
 
-pub enum ReadError {
+pub(all) enum ReadError {
   CrossStore(view_store~ : StoreId, reader_store~ : StoreId)
   ClosedRegion(generation~ : RegionGeneration)
   ExpiredQueryContext
@@ -38,7 +38,7 @@ pub fn Region::id(Self) -> RegionId
 pub fn[K, V] Region::query(Self, (QueryContext, K) -> Result[V, ReadError]) -> Result[Query[K, V], RegionError]
 pub fn[T] Region::source(Self, T) -> Result[Source[T], RegionError]
 
-pub enum RegionError {
+pub(all) enum RegionError {
   ClosedRegion(generation~ : RegionGeneration)
   MutationDuringEvaluation(active_store~ : StoreId)
   MutationDuringTransaction(active_store~ : StoreId)
@@ -64,7 +64,14 @@ pub fn Revision::value(Self) -> Int
 pub struct Source[T] {
   // private fields
 }
+pub fn[T] Source::id(Self[T]) -> SourceId
 pub fn[T] Source::view(Self[T]) -> View[T]
+
+pub struct SourceId {
+  // private fields
+} derive(Eq, Hash, @debug.Debug)
+pub fn SourceId::sequence(Self) -> Int
+pub fn SourceId::store_id(Self) -> StoreId
 
 pub struct Store {
   // private fields
@@ -74,13 +81,21 @@ pub fn Store::id(Self) -> StoreId
 pub fn[V] Store::read(Self, View[V]) -> Result[V, ReadError]
 pub fn Store::region(Self) -> Result[Region, RegionError]
 pub fn Store::revision(Self) -> Revision
+pub fn Store::transaction(Self, (Transaction) -> Result[Unit, TransactionError]) -> Result[TransactionOutcome, TransactionError]
 
 pub struct StoreId {
   // private fields
 } derive(Eq, Hash, @debug.Debug)
 pub fn StoreId::value(Self) -> Int
 
-pub enum TransactionError {
+pub struct Transaction {
+  // private fields
+}
+pub fn Transaction::is_poisoned(Self) -> Bool
+pub fn[T] Transaction::set(Self, Source[T], T) -> Result[Unit, TransactionError]
+pub fn Transaction::staged_count(Self) -> Int
+
+pub(all) enum TransactionError {
   CrossStore(source_store~ : StoreId, transaction_store~ : StoreId)
   ClosedRegion(generation~ : RegionGeneration)
   ExpiredTransaction
@@ -88,6 +103,13 @@ pub enum TransactionError {
   NestedTransaction(active_store~ : StoreId)
   CallbackRejected
 } derive(Eq, @debug.Debug)
+
+pub(all) struct TransactionOutcome {
+  revision : Revision
+  staged_count : Int
+  applied_count : Int
+  advanced : Bool
+}
 
 pub struct View[V] {
   // private fields

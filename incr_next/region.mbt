@@ -25,6 +25,7 @@ pub struct Region {
   priv owner : StoreId
   priv epoch : RegionEpoch
   priv change_epoch : Ref[Int]
+  priv next_sequence : Ref[Int]
   priv close_actions : Array[() -> Unit]
 }
 
@@ -46,6 +47,7 @@ pub fn Store::region(self : Store) -> Result[Region, RegionError] {
           closed: Ref(false),
         },
         change_epoch: self.change_epoch,
+        next_sequence: self.next_sequence,
         close_actions: [],
       })
     }

@@ -2,6 +2,7 @@
 /// Committed Source state. Its payload is released by Region.close.
 priv struct SourceCore[T] {
   owner : StoreId
+  source_id : SourceId
   generation : RegionGeneration
   epoch : RegionEpoch
   value : Ref[T?]
@@ -17,12 +18,14 @@ pub struct Source[T] {
 ///|
 fn[T] make_source(
   owner : StoreId,
+  source_id : SourceId,
   epoch : RegionEpoch,
   generation : RegionGeneration,
   value : T,
 ) -> Source[T] {
   let core : SourceCore[T] = {
     owner,
+    source_id,
     generation,
     epoch,
     value: Ref(Some(value)),
@@ -70,8 +73,11 @@ pub fn[T] Region::source(
   match self.check_open() {
     Some(error) => Err(error)
     None => {
+      let sequence = self.next_sequence.val
+      self.next_sequence.val = sequence + 1
       let source = make_source(
         self.owner,
+        { owner: self.owner, sequence },
         self.epoch,
         self.epoch.snapshot(),
         initial,
@@ -86,4 +92,10 @@ pub fn[T] Region::source(
 /// Returns this Source's stable canonical View.
 pub fn[T] Source::view(self : Source[T]) -> View[T] {
   self.canonical_view
+}
+
+///|
+/// Returns this Source's stable identity.
+pub fn[T] Source::id(self : Source[T]) -> SourceId {
+  self.core.source_id
 }

@@ -25,6 +25,23 @@ pub struct RegionGeneration {
 } derive(Eq, Hash, Debug)
 
 ///|
+/// Identity of one Source definition.
+pub struct SourceId {
+  priv owner : StoreId
+  priv sequence : Int
+} derive(Eq, Hash, Debug)
+
+///|
+pub fn SourceId::store_id(self : SourceId) -> StoreId {
+  self.owner
+}
+
+///|
+pub fn SourceId::sequence(self : SourceId) -> Int {
+  self.sequence
+}
+
+///|
 pub fn StoreId::value(self : StoreId) -> Int {
   self.value
 }

@@ -1,6 +1,6 @@
 ///|
 /// Structural failures reported by Store and QueryContext reads.
-pub enum ReadError {
+pub(all) enum ReadError {
   CrossStore(view_store~ : StoreId, reader_store~ : StoreId)
   ClosedRegion(generation~ : RegionGeneration)
   ExpiredQueryContext
@@ -10,7 +10,7 @@ pub enum ReadError {
 
 ///|
 /// Structural failures while creating or closing a Region.
-pub enum RegionError {
+pub(all) enum RegionError {
   ClosedRegion(generation~ : RegionGeneration)
   MutationDuringEvaluation(active_store~ : StoreId)
   MutationDuringTransaction(active_store~ : StoreId)
@@ -18,7 +18,7 @@ pub enum RegionError {
 
 ///|
 /// Structural failures while staging a transaction.
-pub enum TransactionError {
+pub(all) enum TransactionError {
   CrossStore(source_store~ : StoreId, transaction_store~ : StoreId)
   ClosedRegion(generation~ : RegionGeneration)
   ExpiredTransaction
