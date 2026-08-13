@@ -52,6 +52,24 @@ test "ignored invalid set poisons and rolls back all writes" {
 }
 
 ///|
+test "sticky poison takes precedence over a callback error" {
+  let store = Store::Store()
+  let region = store.region().unwrap()
+  let source = region.source(5).unwrap()
+  let other = Store::Store()
+  let other_region = other.region().unwrap()
+  let foreign = other_region.source(8).unwrap()
+  let result = store.transaction(tx => {
+    ignore(tx.set(source, 9))
+    ignore(tx.set(foreign, 10))
+    Err(TransactionError::CallbackRejected)
+  })
+  assert_true(result is Err(TransactionError::CrossStore(..)))
+  assert_eq(store.read(source.view()), Ok(5))
+  assert_eq(store.revision().value(), 0)
+}
+
+///|
 test "callback failure and transaction capability expiry restore Idle" {
   let store = Store::Store()
   let region = store.region().unwrap()

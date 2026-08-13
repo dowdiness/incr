@@ -28,7 +28,8 @@ K1.1 is not marked DONE. The exact local candidate passes:
 - 1,179 wasm-gc and 256 JS workspace tests;
 - native RC/finalizer ownership evidence;
 - direct, transitive, and external Fresh boundary self-tests;
-- negative capability probes and workspace/documentation boundaries;
+- typed negative capability probes with expected diagnostic matching, plus
+  workspace/documentation boundaries;
 - generated-interface inspection with private `RegionId` and no public debug,
   eviction, memo, or trace surface;
 - zero current-`incr/` diff;
@@ -41,8 +42,11 @@ Hosted CI and maintainer acceptance remain.
 Fresh and incremental adapters execute the same ordered scripts. Persistent
 K1.1 Query graphs are constructed once and read repeatedly: a two-root chain
 performs four Query computes, while a two-root diamond performs ten, including
-two evaluations of the shared Query on each root read. Domain failure is read as
-a nested value; a cross-Store nested read remains a structural error.
+two evaluations of the shared Query on each root read. A dynamic branch may be
+defined after its first root read with matching Fresh/kernel observations.
+Domain failure is read as a nested value; a cross-Store nested read remains a
+structural error. Sticky transaction poison takes precedence over a concurrent
+callback error so a structural validation failure cannot be hidden.
 
 ## Expected divergence
 

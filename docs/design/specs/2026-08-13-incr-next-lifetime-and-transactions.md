@@ -81,8 +81,10 @@ poisons the transaction even if the callback ignores its returned error. Once
 poisoned, a transaction cannot commit.
 
 A callback-returned failure, sticky poison, or catchable raised failure causes
-rollback. Rollback clears staged closures and payloads, expires the capability,
-restores `Idle`, and changes no committed Source or clock.
+rollback. If sticky poison and a callback-returned failure both exist, the
+first poison is returned; a later callback error cannot hide the structural
+validation failure. Rollback clears staged closures and payloads, expires the
+capability, restores `Idle`, and changes no committed Source or clock.
 
 Uncatchable abort and arbitrary FFI failure remain outside K1 guarantees.
 

@@ -40,3 +40,19 @@ test "definitions preserve operation order in both evaluators" {
   assert_eq(@fresh.evaluate(script), expected)
   assert_eq(@incremental_adapter.evaluate(script), expected)
 }
+
+///|
+test "dynamic branch may be defined after its first root read" {
+  let script = @model.Script::scenario(@model.Scenario::DynamicBranch, [
+    @model.Operation::Read(0),
+    @model.Operation::Define(1, 9),
+    @model.Operation::Read(0),
+  ])
+  let expected = [
+    @model.Observation::Value(0),
+    @model.Observation::Value(9),
+    @model.Observation::Counter(2),
+  ]
+  assert_eq(@fresh.evaluate(script), expected)
+  assert_eq(@incremental_adapter.evaluate(script), expected)
+}

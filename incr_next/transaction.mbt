@@ -84,12 +84,13 @@ pub fn Store::transaction(
       let transaction : Transaction = { session, }
       execution_phase.val = Transacting(self.id)
       let callback_result = callback(transaction)
-      let result : Result[Revision, TransactionError] = match callback_result {
-        Err(error) => Err(error)
-        Ok(_) =>
-          match session.poisoned.val {
-            Some(error) => Err(error)
-            None => {
+      let result : Result[Revision, TransactionError] = match
+        session.poisoned.val {
+        Some(error) => Err(error)
+        None =>
+          match callback_result {
+            Err(error) => Err(error)
+            Ok(_) => {
               let staged = session.writes.length() > 0
               session.writes.each((_, write) => (write.apply)())
               if staged {
