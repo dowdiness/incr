@@ -6,7 +6,7 @@
 
 **Keep until:** K1.1 is accepted or superseded.
 
-**Disposition:** Active alpha validation record; acceptance is pending final review and the complete validation matrix. Fold durable decisions into a future ADR only after K1 acceptance.
+**Disposition:** Active alpha validation record. Local acceptance and independent reviews pass; hosted CI and maintainer acceptance remain. Fold durable decisions into a future ADR only after K1 acceptance.
 
 ## First failures retained
 
@@ -22,7 +22,19 @@ Checked with `moon ide doc` before implementation: `Map`/`Set` for typed staging
 
 ## Acceptance status
 
-K1.1 is not marked DONE. The remaining gate is final independent review after the blocker fixes and the complete 24-cell target matrix, native RC, boundaries, negative probes, and interface-clean checks.
+K1.1 is not marked DONE. The exact local candidate passes:
+
+- all 24 root/target check-and-test cells;
+- 1,179 wasm-gc and 256 JS workspace tests;
+- native RC/finalizer ownership evidence;
+- direct, transitive, and external Fresh boundary self-tests;
+- negative capability probes and workspace/documentation boundaries;
+- generated-interface inspection with private `RegionId` and no public debug,
+  eviction, memo, or trace surface;
+- zero current-`incr/` diff;
+- independent MoonBit and product/test review.
+
+Hosted CI and maintainer acceptance remain.
 
 ## Differential work evidence
 
