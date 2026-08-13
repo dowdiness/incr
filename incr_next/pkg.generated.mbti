@@ -10,9 +10,16 @@ import {
 // Errors
 
 // Types and methods
+pub struct Query[K, V] {
+  // private fields
+}
+pub fn[K, V] Query::at(Self[K, V], K) -> View[V]
+
 pub struct QueryContext {
   // private fields
 }
+pub fn[V] QueryContext::read(Self, View[V]) -> Result[V, ReadError]
+pub fn QueryContext::revision(Self) -> Revision
 
 pub enum ReadError {
   CrossStore(view_store~ : StoreId, reader_store~ : StoreId)
@@ -28,6 +35,8 @@ pub struct Region {
 pub fn Region::close(Self) -> Result[Unit, RegionError]
 pub fn Region::generation(Self) -> RegionGeneration
 pub fn Region::id(Self) -> RegionId
+pub fn[K, V] Region::query(Self, (QueryContext, K) -> Result[V, ReadError]) -> Result[Query[K, V], RegionError]
+pub fn[T] Region::source(Self, T) -> Result[Source[T], RegionError]
 
 pub enum RegionError {
   ClosedRegion(generation~ : RegionGeneration)
@@ -52,11 +61,17 @@ pub struct Revision {
 } derive(Eq, Hash, @debug.Debug)
 pub fn Revision::value(Self) -> Int
 
+pub struct Source[T] {
+  // private fields
+}
+pub fn[T] Source::view(Self[T]) -> View[T]
+
 pub struct Store {
   // private fields
 }
 pub fn Store::Store() -> Self
 pub fn Store::id(Self) -> StoreId
+pub fn[V] Store::read(Self, View[V]) -> Result[V, ReadError]
 pub fn Store::region(Self) -> Result[Region, RegionError]
 pub fn Store::revision(Self) -> Revision
 

@@ -31,6 +31,31 @@ pub fn Store::revision(self : Store) -> Revision {
 }
 
 ///|
+/// Reads a View as one root snapshot.
+pub fn[V] Store::read(self : Store, view : View[V]) -> Result[V, ReadError] {
+  if view.owner != self.id {
+    Err(ReadError::CrossStore(view_store=view.owner, reader_store=self.id))
+  } else {
+    match phase_root_error(self.id) {
+      Some(error) => Err(error)
+      None => {
+        let session : EvalSession = {
+          owner: self.id,
+          revision: self.revision(),
+          active: Ref(true),
+        }
+        let context : QueryContext = { session, }
+        execution_phase.val = Evaluating(self.id)
+        let result = (view.recipe)(context)
+        context.session.active.val = false
+        execution_phase.val = Idle
+        result
+      }
+    }
+  }
+}
+
+///|
 fn Store::allocate(self : Store) -> Int {
   let sequence = self.next_sequence.val
   self.next_sequence.val = sequence + 1

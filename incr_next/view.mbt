@@ -1,8 +1,4 @@
 ///|
-/// A QueryContext exists only during one Query invocation.
-pub struct QueryContext {
-  priv active : Ref[Bool]
-}
 
 ///|
 /// An opaque, non-callable recipe View. It exposes no public read operation.
