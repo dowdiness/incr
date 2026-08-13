@@ -1,5 +1,12 @@
 # Incr Next testkit
 
-This module owns the independent K1.1 operation model, Fresh oracle, incremental adapter, and differential scenarios. `fresh` deliberately has no dependency on `dowdiness/incr_next`.
+This module owns the independent operation model, Fresh oracle, incremental
+adapter, graph scenarios, and differential checks. `fresh` deliberately has no
+dependency on `dowdiness/incr_next`.
 
-K1.1 keeps mutable-key, mutable-source-payload, and mutable-result counterexamples as expected divergences: the kernel follows the snapshot-value caller contract and does not defensively copy.
+`Script` snapshots its operation array at construction. The K1.1 snapshot-value
+contract does not defensively copy values captured as mutable Query keys, Source
+payloads, or Query results. Executable counterexamples document the exact
+outcomes: mutating a key changes a later read, mutating a Source payload changes
+its later view, and mutating a returned Query result changes the next uncached
+result. Callers must provide immutable values or make explicit copies.

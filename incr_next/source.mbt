@@ -93,9 +93,3 @@ pub fn[T] Region::source(
 pub fn[T] Source::view(self : Source[T]) -> View[T] {
   self.canonical_view
 }
-
-///|
-/// Returns this Source's stable identity.
-pub fn[T] Source::id(self : Source[T]) -> SourceId {
-  self.core.source_id
-}

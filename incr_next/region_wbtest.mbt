@@ -9,7 +9,7 @@ test "Region close changes only ChangeEpoch and invalidates surviving Views" {
   let source_view = source.view()
   let query_view = query.at(())
   assert_eq(store.read(query_view), Ok(11))
-  let revision_before = store.revision().value()
+  let revision_before = store.revision().value
   let close_epoch_before = store.change_epoch.val
   assert_true(region.close() is Ok(_))
   assert_eq(store.revision().value(), revision_before)
@@ -40,7 +40,7 @@ test "cross Region Source failure is visible to a surviving query View" {
   let owner = store.region().unwrap()
   let dependent = store.region().unwrap()
   let source = owner.source(12).unwrap()
-  let source_generation = owner.generation()
+  let source_generation = owner.epoch.snapshot()
   let view = source.view()
   let query = dependent.query((ctx, _unit : Unit) => ctx.read(view)).unwrap()
   let query_view = query.at(())
@@ -52,4 +52,46 @@ test "cross Region Source failure is visible to a surviving query View" {
     Err(ReadError::ClosedRegion(generation=source_generation)),
   )
   assert_true(dependent.source(13) is Ok(_))
+}
+
+///|
+test "wrong-phase close is rejected without a ChangeEpoch delta" {
+  let store = Store::Store()
+  let owner = store.region().unwrap()
+  let other = store.region().unwrap()
+  let before = store.change_epoch.val
+  let result = owner
+    .query((ctx, _unit : Unit) => {
+      ignore(ctx)
+      ignore(other.close())
+      Ok(1)
+    })
+    .unwrap()
+  assert_eq(store.read(result.at(())), Ok(1))
+  assert_eq(store.change_epoch.val, before)
+  assert_true(other.close() is Ok(_))
+  assert_eq(store.change_epoch.val, before + 1)
+}
+
+///|
+test "a closed branch can be replaced by a live same-store branch" {
+  let store = Store::Store()
+  let owner = store.region().unwrap()
+  let dependent = store.region().unwrap()
+  let dead = owner.source(10).unwrap()
+  let flag = dependent.source(0).unwrap()
+  let live = dependent.source(20).unwrap()
+  let query = dependent
+    .query((ctx, _unit : Unit) => {
+      match ctx.read(flag.view()) {
+        Ok(value) if value == 0 => ctx.read(dead.view())
+        Ok(_) => ctx.read(live.view())
+        Err(error) => Err(error)
+      }
+    })
+    .unwrap()
+  assert_eq(store.read(query.at(())), Ok(10))
+  ignore(owner.close())
+  ignore(store.transaction(tx => tx.set(flag, 1)))
+  assert_eq(store.read(query.at(())), Ok(20))
 }

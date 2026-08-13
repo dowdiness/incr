@@ -19,15 +19,6 @@ pub struct Transaction {
 }
 
 ///|
-/// The result of one committed transaction.
-pub(all) struct TransactionOutcome {
-  revision : Revision
-  staged_count : Int
-  applied_count : Int
-  advanced : Bool
-}
-
-///|
 fn Transaction::poison(
   self : Transaction,
   error : TransactionError,
@@ -45,48 +36,42 @@ pub fn[T] Transaction::set(
   source : Source[T],
   value : T,
 ) -> Result[Unit, TransactionError] {
-  match (self.session.active.val, execution_phase.val) {
+  match (self.session.active.val, self.session.poisoned.val) {
     (false, _) => Err(TransactionError::ExpiredTransaction)
-    (true, Transacting(owner)) if owner == self.session.owner =>
-      if source.core.owner != self.session.owner {
-        self.poison(
-          TransactionError::CrossStore(
-            source_store=source.core.owner,
-            transaction_store=self.session.owner,
-          ),
-        )
-      } else if !source.core.epoch.accepts(source.core.generation) {
-        self.poison(
-          TransactionError::ClosedRegion(generation=source.core.generation),
-        )
-      } else {
-        self.session.writes.set(source.core.source_id, {
-          apply: () => source.core.value.val = Some(value),
-        })
-        Ok(())
+    (true, Some(error)) => Err(error)
+    (true, None) =>
+      match execution_phase.val {
+        Transacting(owner) if owner == self.session.owner =>
+          if source.core.owner != self.session.owner {
+            self.poison(
+              TransactionError::CrossStore(
+                source_store=source.core.owner,
+                transaction_store=self.session.owner,
+              ),
+            )
+          } else if !source.core.epoch.accepts(source.core.generation) {
+            self.poison(
+              TransactionError::ClosedRegion(generation=source.core.generation),
+            )
+          } else {
+            self.session.writes.set(source.core.source_id, {
+              apply: () => source.core.value.val = Some(value),
+            })
+            Ok(())
+          }
+        _ => Err(TransactionError::ExpiredTransaction)
       }
-    _ => Err(TransactionError::ExpiredTransaction)
   }
 }
 
 ///|
-/// Returns whether an ignored failed set has poisoned this transaction.
-pub fn Transaction::is_poisoned(self : Transaction) -> Bool {
-  self.session.poisoned.val is Some(_)
-}
-
-///|
-/// Returns the number of final staged Sources.
-pub fn Transaction::staged_count(self : Transaction) -> Int {
-  self.session.writes.length()
-}
-
-///|
 /// Publishes all final staged writes atomically or rolls them back.
+///
+/// A successful transaction returns the Store's resulting committed Revision.
 pub fn Store::transaction(
   self : Store,
   callback : (Transaction) -> Result[Unit, TransactionError],
-) -> Result[TransactionOutcome, TransactionError] {
+) -> Result[Revision, TransactionError] {
   match phase_transaction_error() {
     Some(error) => Err(error)
     None => {
@@ -99,26 +84,19 @@ pub fn Store::transaction(
       let transaction : Transaction = { session, }
       execution_phase.val = Transacting(self.id)
       let callback_result = callback(transaction)
-      let result : Result[TransactionOutcome, TransactionError] = match
-        callback_result {
+      let result : Result[Revision, TransactionError] = match callback_result {
         Err(error) => Err(error)
         Ok(_) =>
           match session.poisoned.val {
             Some(error) => Err(error)
             None => {
-              let staged_count = session.writes.length()
+              let staged = session.writes.length() > 0
               session.writes.each((_, write) => (write.apply)())
-              let advanced = staged_count > 0
-              if advanced {
+              if staged {
                 self.revision_clock.val = self.revision_clock.val + 1
                 self.change_epoch.val = self.change_epoch.val + 1
               }
-              Ok({
-                revision: self.revision(),
-                staged_count,
-                applied_count: staged_count,
-                advanced,
-              })
+              Ok(self.revision())
             }
           }
       }

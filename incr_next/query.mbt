@@ -34,7 +34,12 @@ fn[K, V] QueryContext::eval_query(
       } else {
         match core.compute.val {
           None => Err(ReadError::ClosedRegion(generation=core.generation))
-          Some(compute) => compute(self, key)
+          Some(compute) => {
+            let invocation = self.child()
+            let result = compute(invocation, key)
+            invocation.expire()
+            result
+          }
         }
       }
   }

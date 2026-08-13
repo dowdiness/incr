@@ -13,7 +13,7 @@ import the evidence providers.
 K1.2–K1.6 require separate maintainer decisions. This plan does not authorize
 publication, an implementation PR, Issue action, or parent-submodule update.
 
-**Status:** IN PROGRESS (K1.1 six-slice implementation complete; final matrix and acceptance validation pending)
+**Status:** IN PROGRESS (K1.1 blocker fixes are under review; acceptance remains pending final review and validation matrix)
 
 ---
 

@@ -8,7 +8,7 @@ fail=0
 extract_imports() {
   local file="$1"
   { sed 's|//.*$||; s|#.*$||' "$file" \
-      | grep -oE '"[^"]+"' | tr -d '"' | grep -vFx 'test'; } || true
+      | grep -oE '"[^"]+"' | tr -d '"' | grep -vFx 'test' | grep -vE '^-?[0-9]+$'; } || true
 }
 
 if [ ! -f "$root/moon.work" ]; then
@@ -43,8 +43,9 @@ if ! echo "$adapter_imports" | grep -Fxq 'dowdiness/incr_next'; then
   fail=1
 fi
 
-# Traverse only package manifests reachable from Fresh. This catches a
-# transitive fresh -> model -> incr_next edge, not just a direct import.
+# Traverse every local testkit package. The Fresh-reachable subgraph is
+# stricter: it may only use local testkit packages and may never reach the
+# kernel through a direct, local-transitive, or external-module edge.
 queue=("$root/incr_next_testkit/fresh")
 visited=""
 while [ "${#queue[@]}" -gt 0 ]; do
@@ -53,7 +54,11 @@ while [ "${#queue[@]}" -gt 0 ]; do
   case " $visited " in *" $pkg_dir "*) continue ;; esac
   visited="$visited $pkg_dir"
   pkg="$pkg_dir/moon.pkg"
-  [ -f "$pkg" ] || continue
+  if [ ! -f "$pkg" ]; then
+    echo "FAIL: Fresh-reachable import has no local package: $pkg_dir" >&2
+    fail=1
+    continue
+  fi
   while IFS= read -r import; do
     case "$import" in
       dowdiness/incr_next|dowdiness/incr_next/*)
@@ -62,11 +67,36 @@ while [ "${#queue[@]}" -gt 0 ]; do
         ;;
       dowdiness/incr_next_testkit/*)
         sub="${import#dowdiness/incr_next_testkit/}"
-        queue+=("$root/incr_next_testkit/$sub")
+        local_pkg="$root/incr_next_testkit/$sub/moon.pkg"
+        if [ ! -f "$local_pkg" ]; then
+          echo "FAIL: Fresh-reachable package escapes local testkit DAG: $pkg -> $import" >&2
+          fail=1
+        else
+          queue+=("$root/incr_next_testkit/$sub")
+        fi
+        ;;
+      "") ;;
+      *)
+        echo "FAIL: Fresh-reachable package imports external/indirect dependency: $pkg -> $import" >&2
+        fail=1
         ;;
     esac
   done < <(extract_imports "$pkg")
 done
+
+while IFS= read -r pkg; do
+  while IFS= read -r import; do
+    case "$import" in
+      dowdiness/incr_next_testkit/*)
+        sub="${import#dowdiness/incr_next_testkit/}"
+        if [ ! -f "$root/incr_next_testkit/$sub/moon.pkg" ]; then
+          echo "FAIL: local testkit package indirection has no local target: $pkg -> $import" >&2
+          fail=1
+        fi
+        ;;
+    esac
+  done < <(extract_imports "$pkg")
+done < <(find "$root/incr_next_testkit" -name moon.pkg -type f -print)
 
 if grep -R -n -E 'examples/spikes/incr_next_(keyed_view_recipe|fresh_evaluator)|spike/incr-next' \
   "$root/incr_next" "$root/incr_next_testkit" >/dev/null 2>&1; then

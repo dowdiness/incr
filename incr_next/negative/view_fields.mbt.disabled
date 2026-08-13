@@ -1,0 +1,3 @@
+fn invalid_view_fields() -> @kernel.View[Int] {
+  @kernel.View::{ owner: @kernel.StoreId::{}, generation: @kernel.RegionGeneration::{}, recipe: _ => Ok(0) }
+}

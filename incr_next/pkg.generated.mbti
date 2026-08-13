@@ -19,7 +19,7 @@ pub struct QueryContext {
   // private fields
 }
 pub fn[V] QueryContext::read(Self, View[V]) -> Result[V, ReadError]
-pub fn QueryContext::revision(Self) -> Revision
+pub fn QueryContext::revision(Self) -> Result[Revision, ReadError]
 
 pub(all) enum ReadError {
   CrossStore(view_store~ : StoreId, reader_store~ : StoreId)
@@ -33,8 +33,6 @@ pub struct Region {
   // private fields
 }
 pub fn Region::close(Self) -> Result[Unit, RegionError]
-pub fn Region::generation(Self) -> RegionGeneration
-pub fn Region::id(Self) -> RegionId
 pub fn[K, V] Region::query(Self, (QueryContext, K) -> Result[V, ReadError]) -> Result[Query[K, V], RegionError]
 pub fn[T] Region::source(Self, T) -> Result[Source[T], RegionError]
 
@@ -47,14 +45,10 @@ pub(all) enum RegionError {
 pub struct RegionGeneration {
   // private fields
 } derive(Eq, Hash, @debug.Debug)
-pub fn RegionGeneration::epoch(Self) -> Int
-pub fn RegionGeneration::region_id(Self) -> RegionId
 
 pub struct RegionId {
   // private fields
 } derive(Eq, Hash, @debug.Debug)
-pub fn RegionId::sequence(Self) -> Int
-pub fn RegionId::store_id(Self) -> StoreId
 
 pub struct Revision {
   // private fields
@@ -64,36 +58,25 @@ pub fn Revision::value(Self) -> Int
 pub struct Source[T] {
   // private fields
 }
-pub fn[T] Source::id(Self[T]) -> SourceId
 pub fn[T] Source::view(Self[T]) -> View[T]
-
-pub struct SourceId {
-  // private fields
-} derive(Eq, Hash, @debug.Debug)
-pub fn SourceId::sequence(Self) -> Int
-pub fn SourceId::store_id(Self) -> StoreId
 
 pub struct Store {
   // private fields
 }
 pub fn Store::Store() -> Self
-pub fn Store::id(Self) -> StoreId
 pub fn[V] Store::read(Self, View[V]) -> Result[V, ReadError]
 pub fn Store::region(Self) -> Result[Region, RegionError]
 pub fn Store::revision(Self) -> Revision
-pub fn Store::transaction(Self, (Transaction) -> Result[Unit, TransactionError]) -> Result[TransactionOutcome, TransactionError]
+pub fn Store::transaction(Self, (Transaction) -> Result[Unit, TransactionError]) -> Result[Revision, TransactionError]
 
 pub struct StoreId {
   // private fields
 } derive(Eq, Hash, @debug.Debug)
-pub fn StoreId::value(Self) -> Int
 
 pub struct Transaction {
   // private fields
 }
-pub fn Transaction::is_poisoned(Self) -> Bool
 pub fn[T] Transaction::set(Self, Source[T], T) -> Result[Unit, TransactionError]
-pub fn Transaction::staged_count(Self) -> Int
 
 pub(all) enum TransactionError {
   CrossStore(source_store~ : StoreId, transaction_store~ : StoreId)
@@ -103,13 +86,6 @@ pub(all) enum TransactionError {
   NestedTransaction(active_store~ : StoreId)
   CallbackRejected
 } derive(Eq, @debug.Debug)
-
-pub(all) struct TransactionOutcome {
-  revision : Revision
-  staged_count : Int
-  applied_count : Int
-  advanced : Bool
-}
 
 pub struct View[V] {
   // private fields

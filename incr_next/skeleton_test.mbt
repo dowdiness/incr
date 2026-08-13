@@ -1,8 +1,8 @@
 ///|
-test "store and region identity skeleton" {
+test "store and region start with a zero committed revision" {
   let store = Store::Store()
   let region = store.region().unwrap()
-  assert_true(region.id().store_id() == store.id())
-  assert_eq(region.generation().epoch(), 0)
+  let source = region.source(1).unwrap()
   assert_eq(store.revision().value(), 0)
+  assert_eq(store.read(source.view()), Ok(1))
 }

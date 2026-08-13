@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include "moonbit.h"
 
-#define RC_KIND_COUNT 12
+#define RC_KIND_COUNT 16
 typedef struct { int32_t kind; } RcToken;
 static int32_t live_counts[RC_KIND_COUNT];
 static int32_t finalized_counts[RC_KIND_COUNT];

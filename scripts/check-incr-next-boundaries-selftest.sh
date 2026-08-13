@@ -29,4 +29,9 @@ if INCR_NEXT_BOUNDARY_ROOT="$tmp" bash "$checker" >/dev/null 2>&1; then
   echo "FAIL: direct Fresh negative control was not rejected" >&2
   exit 1
 fi
+printf 'import { "external/workspace-indirection" }\n' > "$tmp/incr_next_testkit/fresh/moon.pkg"
+if INCR_NEXT_BOUNDARY_ROOT="$tmp" bash "$checker" >/dev/null 2>&1; then
+  echo "FAIL: external Fresh negative control was not rejected" >&2
+  exit 1
+fi
 echo "Incr Next boundary self-test: PASS"

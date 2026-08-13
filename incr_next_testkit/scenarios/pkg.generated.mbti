@@ -6,7 +6,25 @@ import {
 }
 
 // Values
+pub fn all() -> Array[@model.Script]
+
 pub fn canonical() -> @model.Script
+
+pub fn chain() -> @model.Script
+
+pub fn diamond() -> @model.Script
+
+pub fn domain_failure() -> @model.Script
+
+pub fn dynamic_branch() -> @model.Script
+
+pub fn keyed_query() -> @model.Script
+
+pub fn root_snapshot() -> @model.Script
+
+pub fn structural_error() -> @model.Script
+
+pub fn unit_query() -> @model.Script
 
 // Errors
 

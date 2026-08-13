@@ -1,0 +1,3 @@
+fn invalid_transaction_fields() -> @kernel.Transaction {
+  @kernel.Transaction::{ session: _ }
+}

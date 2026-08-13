@@ -10,11 +10,27 @@ priv struct EvalSession {
 /// A tracked read capability valid only during one Query invocation.
 pub struct QueryContext {
   priv session : EvalSession
+  priv invocation : Ref[Bool]
+}
+
+///|
+fn QueryContext::root(session : EvalSession) -> QueryContext {
+  { session, invocation: Ref(true) }
+}
+
+///|
+fn QueryContext::child(self : QueryContext) -> QueryContext {
+  { session: self.session, invocation: Ref(true) }
+}
+
+///|
+fn QueryContext::expire(self : QueryContext) -> Unit {
+  self.invocation.val = false
 }
 
 ///|
 fn QueryContext::expired(self : QueryContext) -> ReadError? {
-  if !self.session.active.val {
+  if !self.session.active.val || !self.invocation.val {
     Some(ReadError::ExpiredQueryContext)
   } else {
     None
@@ -45,6 +61,13 @@ pub fn[V] QueryContext::read(
 
 ///|
 /// Returns the committed Revision captured by the root read.
-pub fn QueryContext::revision(self : QueryContext) -> Revision {
-  self.session.revision
+///
+/// An expired invocation context returns `ExpiredQueryContext`.
+pub fn QueryContext::revision(
+  self : QueryContext,
+) -> Result[Revision, ReadError] {
+  match self.expired() {
+    Some(error) => Err(error)
+    None => Ok(self.session.revision)
+  }
 }

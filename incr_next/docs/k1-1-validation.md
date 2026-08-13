@@ -6,7 +6,7 @@
 
 **Keep until:** K1.1 is accepted or superseded.
 
-**Disposition:** Active alpha validation record; fold durable decisions into a future ADR only after K1 acceptance.
+**Disposition:** Active alpha validation record; acceptance is pending final review and the complete validation matrix. Fold durable decisions into a future ADR only after K1 acceptance.
 
 ## First failures retained
 
@@ -19,6 +19,10 @@
 ## Existing API First
 
 Checked with `moon ide doc` before implementation: `Map`/`Set` for typed staging and ownership-free local collections; `Option`/`Result` for capability and structural channels; `Array`/`ArrayView` for close actions and test scripts; `String`/`StringView` and `Bytes`/`BytesView` for the snapshot-value boundary; `Buffer`/`StringBuilder` for diagnostics if needed; `Hash`/`Eq` for private Source identity maps; and `Ref` for Store clocks, phase, lifetime, and capability state. `cmp`/`math` were inspected and rejected because K1.1 has no ordering or numeric policy beyond integer clocks. No current-Incr API or runtime is reused: the new kernel owns its StoreCore, private ChangeEpoch, phase gate, and capabilities.
+
+## Acceptance status
+
+K1.1 is not marked DONE. The remaining gate is final independent review after the blocker fixes and the complete 24-cell target matrix, native RC, boundaries, negative probes, and interface-clean checks.
 
 ## Expected divergence
 

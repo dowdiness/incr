@@ -13,17 +13,43 @@ import {
 pub(all) enum Observation {
   Value(Int)
   Missing(Int)
+  Error(ScenarioError)
+  Counter(Int)
 } derive(Eq, @debug.Debug)
 
 pub(all) enum Operation {
+  Define(Int, Int)
   Set(Int, Int)
   Read(Int)
+  ReadKey(Int, Int)
+  DomainFailure(Int)
+  StructuralFailure(Int)
+} derive(Eq, @debug.Debug)
+
+pub(all) enum Scenario {
+  Source
+  UnitQuery
+  KeyedQuery
+  Chain
+  Diamond
+  DynamicBranch
+  RootSnapshot
+  DomainFailure
+  StructuralError
+} derive(Eq, @debug.Debug)
+
+pub(all) enum ScenarioError {
+  DomainFailure(Int)
+  StructuralFailure(Int)
 } derive(Eq, @debug.Debug)
 
 pub struct Script {
-  operations : Array[Operation]
+  // private fields
 } derive(@debug.Debug)
 pub fn Script::Script(Array[Operation]) -> Self
+pub fn Script::operations(Self) -> Array[Operation]
+pub fn Script::scenario(Scenario, Array[Operation]) -> Self
+pub fn Script::scenario_tag(Self) -> Scenario
 
 // Type aliases
 pub type SourceId = Int

@@ -87,6 +87,45 @@ fn probe_last_write_wins() -> Bool {
 }
 
 ///|
+fn probe_query_capture_close() -> Bool {
+  let store = @incr_next.Store::Store()
+  let region = store.region().unwrap()
+  let captured = payload(12, 41)
+  let query = region
+    .query((_ctx, _unit : Unit) => {
+      ignore(captured.token)
+      Ok(captured.value)
+    })
+    .unwrap()
+  ignore(query)
+  ignore(region.close())
+  live(12) == 0 && finalized(12) == 1
+}
+
+///|
+fn probe_external_alias_control() -> Bool {
+  let store = @incr_next.Store::Store()
+  let region = store.region().unwrap()
+  let external_payload = Ref(Some(payload(13, 42)))
+  let query = region
+    .query((_ctx, _unit : Unit) => {
+      match external_payload.val {
+        Some(value) => {
+          ignore(value.token)
+          Ok(value.value)
+        }
+        None => Ok(0)
+      }
+    })
+    .unwrap()
+  ignore(query)
+  ignore(region.close())
+  let retained = live(13) == 1 && finalized(13) == 0
+  external_payload.val = None
+  retained && live(13) == 0 && finalized(13) == 1
+}
+
+///|
 fn probe_commit_replacement() -> Bool {
   let store = @incr_next.Store::Store()
   let region = store.region().unwrap()
@@ -107,11 +146,15 @@ fn main {
   let poison_rollback = probe_poison_rollback()
   let last_write_wins = probe_last_write_wins()
   let commit_replacement = probe_commit_replacement()
+  let query_capture_close = probe_query_capture_close()
+  let external_alias = probe_external_alias_control()
   let passed = close &&
     callback_rollback &&
     poison_rollback &&
     last_write_wins &&
-    commit_replacement
+    commit_replacement &&
+    query_capture_close &&
+    external_alias
   let verdict = if passed { "PASS" } else { "FAIL" }
   println("native RC/finalizer evidence: \{verdict}")
   if !passed {

@@ -1,0 +1,3 @@
+fn invalid_query_context_revision() -> @kernel.QueryContext {
+  @kernel.QueryContext::{ revision: _ }
+}

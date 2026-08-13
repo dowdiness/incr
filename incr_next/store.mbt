@@ -19,13 +19,7 @@ pub fn Store::Store() -> Store {
 }
 
 ///|
-/// Returns this Store's stable identity.
-pub fn Store::id(self : Store) -> StoreId {
-  self.id
-}
-
-///|
-/// Returns this Store's committed Revision.
+/// Returns this Store's committed Revision snapshot.
 pub fn Store::revision(self : Store) -> Revision {
   { value: self.revision_clock.val }
 }
@@ -44,10 +38,11 @@ pub fn[V] Store::read(self : Store, view : View[V]) -> Result[V, ReadError] {
           revision: self.revision(),
           active: Ref(true),
         }
-        let context : QueryContext = { session, }
+        let context = QueryContext::root(session)
         execution_phase.val = Evaluating(self.id)
         let result = (view.recipe)(context)
         context.session.active.val = false
+        context.expire()
         execution_phase.val = Idle
         result
       }

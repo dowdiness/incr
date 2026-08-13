@@ -1,0 +1,3 @@
+fn invalid_transaction_debug(tx : @kernel.Transaction) -> Bool {
+  tx.is_poisoned() || tx.staged_count() > 0
+}

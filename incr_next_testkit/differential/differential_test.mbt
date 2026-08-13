@@ -1,4 +1,4 @@
 ///|
-test "fresh and incremental adapters compare normalized outcomes" {
-  assert_true(@differential.canonical_matches())
+test "all K1.1 graph and error scenarios match Fresh" {
+  assert_true(@differential.all_match())
 }

@@ -1,9 +1,16 @@
 ///|
+priv enum RegionState {
+  Open
+  Closing
+  Closed
+}
+
+///|
 priv struct RegionEpoch {
   owner : StoreId
   region : RegionId
   generation : Ref[Int]
-  closed : Ref[Bool]
+  state : Ref[RegionState]
 }
 
 ///|
@@ -16,7 +23,7 @@ fn RegionEpoch::accepts(
   self : RegionEpoch,
   generation : RegionGeneration,
 ) -> Bool {
-  !self.closed.val && self.snapshot() == generation
+  self.state.val is Open && self.snapshot() == generation
 }
 
 ///|
@@ -44,7 +51,7 @@ pub fn Store::region(self : Store) -> Result[Region, RegionError] {
           owner: self.id,
           region: id,
           generation: Ref(0),
-          closed: Ref(false),
+          state: Ref(Open),
         },
         change_epoch: self.change_epoch,
         next_sequence: self.next_sequence,
@@ -59,24 +66,12 @@ fn Region::check_open(self : Region) -> RegionError? {
   match phase_region_error() {
     Some(error) => Some(error)
     None =>
-      if self.epoch.closed.val {
-        Some(RegionError::ClosedRegion(generation=self.epoch.snapshot()))
-      } else {
-        None
+      match self.epoch.state.val {
+        Open => None
+        Closing | Closed =>
+          Some(RegionError::ClosedRegion(generation=self.epoch.snapshot()))
       }
   }
-}
-
-///|
-/// Returns the Region identity.
-pub fn Region::id(self : Region) -> RegionId {
-  self.epoch.region
-}
-
-///|
-/// Returns the current Region generation.
-pub fn Region::generation(self : Region) -> RegionGeneration {
-  self.epoch.snapshot()
 }
 
 ///|
@@ -85,10 +80,11 @@ pub fn Region::close(self : Region) -> Result[Unit, RegionError] {
   match self.check_open() {
     Some(error) => Err(error)
     None => {
+      self.epoch.state.val = Closing
       self.close_actions.each(action => action())
       self.close_actions.clear()
-      self.epoch.closed.val = true
       self.epoch.generation.val = self.epoch.generation.val + 1
+      self.epoch.state.val = Closed
       self.change_epoch.val = self.change_epoch.val + 1
       Ok(())
     }
