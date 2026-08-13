@@ -208,6 +208,10 @@ jobs:
       - name: Verify MoonBit
         run: moon version --all
 
+      - name: Fetch registry dependencies
+        working-directory: incr
+        run: moon update
+
       - name: Check + test exact K1.1 root/target cell
         run: |
           if [ "${{ matrix.target }}" = default ]; then
@@ -231,6 +235,9 @@ jobs:
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/moonbit-install.sh
           bash /tmp/moonbit-install.sh
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+      - name: Fetch registry dependencies
+        working-directory: incr
+        run: moon update
       - name: Run native RC harness
         run: moon run --target native incr_next/native_rc
 
@@ -247,6 +254,9 @@ jobs:
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/moonbit-install.sh
           bash /tmp/moonbit-install.sh
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+      - name: Fetch registry dependencies
+        working-directory: incr
+        run: moon update
       - name: Check formatting and generated interfaces
         run: |
           (cd incr_next && moon fmt && moon info)
