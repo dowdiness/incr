@@ -29,6 +29,9 @@ expected_diagnostic() {
     view_call.mbt.disabled)
       printf '%s' 'wanted   : function type'
       ;;
+    view_constructor.mbt.disabled)
+      printf '%s' 'does not declare a custom constructor'
+      ;;
     view_fields.mbt.disabled)
       printf '%s' 'View[Int] has no field recipe'
       ;;

@@ -6,7 +6,7 @@
 
 **Keep until:** K1.1 is accepted or superseded.
 
-**Disposition:** Active alpha validation record. Local acceptance and independent reviews pass; hosted CI and maintainer acceptance remain. Fold durable decisions into a future ADR only after K1 acceptance.
+**Disposition:** Active alpha validation record. Local acceptance, hosted CI, and independent reviews pass; maintainer acceptance remains. Fold durable decisions into a future ADR only after K1 acceptance.
 
 ## First failures retained
 
@@ -35,7 +35,7 @@ K1.1 is not marked DONE. The exact local candidate passes:
 - zero current-`incr/` diff;
 - independent MoonBit and product/test review.
 
-Hosted CI and maintainer acceptance remain.
+Hosted CI passes on the current candidate. Maintainer acceptance remains.
 
 ## Differential work evidence
 
