@@ -30,37 +30,47 @@ fn scenario_value(
 pub fn evaluate(script : @model.Script) -> Array[@model.Observation] {
   let values : Map[Int, Int] = { 0: 0 }
   let observations : Array[@model.Observation] = []
-  let reads = Ref(0)
+  let computes = Ref(0)
   for operation in script.operations() {
     match operation {
       @model.Operation::Define(id, value) => values[id] = value
       @model.Operation::Set(id, value) => values[id] = value
       @model.Operation::Read(id) => {
-        reads.val = reads.val + 1
+        computes.val = computes.val +
+          (match script.scenario_tag() {
+            @model.Scenario::Source => 0
+            @model.Scenario::Chain => 2
+            @model.Scenario::Diamond => 5
+            _ => 1
+          })
         match scenario_value(values, script.scenario_tag(), id, 0) {
           Some(value) => observations.push(@model.Observation::Value(value))
           None => observations.push(@model.Observation::Missing(id))
         }
       }
       @model.Operation::ReadKey(id, key) => {
-        reads.val = reads.val + 1
+        computes.val = computes.val + 1
         match scenario_value(values, script.scenario_tag(), id, key) {
           Some(value) => observations.push(@model.Observation::Value(value))
           None => observations.push(@model.Observation::Missing(id))
         }
       }
-      @model.Operation::DomainFailure(code) =>
+      @model.Operation::DomainFailure(code) => {
+        computes.val = computes.val + 1
         observations.push(
           @model.Observation::Error(@model.ScenarioError::DomainFailure(code)),
         )
-      @model.Operation::StructuralFailure(code) =>
+      }
+      @model.Operation::StructuralFailure(code) => {
+        computes.val = computes.val + 1
         observations.push(
           @model.Observation::Error(
             @model.ScenarioError::StructuralFailure(code),
           ),
         )
+      }
     }
   }
-  observations.push(@model.Observation::Counter(reads.val))
+  observations.push(@model.Observation::Counter(computes.val))
   observations
 }

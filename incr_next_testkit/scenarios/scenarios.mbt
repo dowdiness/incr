@@ -18,22 +18,34 @@ pub fn canonical() -> @model.Script {
 
 ///|
 pub fn unit_query() -> @model.Script {
-  script(@model.Scenario::UnitQuery, [@model.Operation::Read(0)])
+  script(@model.Scenario::UnitQuery, [
+    @model.Operation::Read(0),
+    @model.Operation::Read(0),
+  ])
 }
 
 ///|
 pub fn keyed_query() -> @model.Script {
-  script(@model.Scenario::KeyedQuery, [@model.Operation::ReadKey(0, 3)])
+  script(@model.Scenario::KeyedQuery, [
+    @model.Operation::ReadKey(0, 3),
+    @model.Operation::ReadKey(0, 3),
+  ])
 }
 
 ///|
 pub fn chain() -> @model.Script {
-  script(@model.Scenario::Chain, [@model.Operation::Read(0)])
+  script(@model.Scenario::Chain, [
+    @model.Operation::Read(0),
+    @model.Operation::Read(0),
+  ])
 }
 
 ///|
 pub fn diamond() -> @model.Script {
-  script(@model.Scenario::Diamond, [@model.Operation::Read(0)])
+  script(@model.Scenario::Diamond, [
+    @model.Operation::Read(0),
+    @model.Operation::Read(0),
+  ])
 }
 
 ///|

@@ -86,6 +86,32 @@ test "nested Query gets an invocation lease without expiring its outer callback"
 }
 
 ///|
+test "domain failure is a Query value, not a structural read error" {
+  let store = Store::Store()
+  let region = store.region().unwrap()
+  let query = region
+    .query((_ctx, _unit : Unit) => {
+      let value : Result[Int, String] = Err("domain")
+      Ok(value)
+    })
+    .unwrap()
+  assert_eq(store.read(query.at(())), Ok(Err("domain")))
+}
+
+///|
+test "nested structural errors remain in the outer read channel" {
+  let store = Store::Store()
+  let region = store.region().unwrap()
+  let other = Store::Store()
+  let other_region = other.region().unwrap()
+  let foreign = other_region.source(9).unwrap()
+  let query = region
+    .query((ctx, _unit : Unit) => ctx.read(foreign.view()))
+    .unwrap()
+  assert_true(store.read(query.at(())) is Err(ReadError::CrossStore(..)))
+}
+
+///|
 test "each root captures one committed revision snapshot" {
   let store = Store::Store()
   let region = store.region().unwrap()

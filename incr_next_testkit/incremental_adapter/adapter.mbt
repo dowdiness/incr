@@ -6,6 +6,7 @@ fn read_query(
   scenario : @model.Scenario,
   source_id : Int,
   key : Int,
+  computes : Ref[Int],
 ) -> Result[Int, @incr_next.ReadError] {
   let source = match scenario {
     @model.Scenario::Source | @model.Scenario::KeyedQuery => sources[source_id]
@@ -14,7 +15,10 @@ fn read_query(
   match scenario {
     @model.Scenario::Source => store.read(source.view())
     @model.Scenario::UnitQuery => {
-      let query = region.query((ctx, _unit : Unit) => ctx.read(source.view()))
+      let query = region.query((ctx, _unit : Unit) => {
+        computes.val = computes.val + 1
+        ctx.read(source.view())
+      })
       match query {
         Ok(query) => store.read(query.at(()))
         Err(_) => Err(@incr_next.ReadError::ExpiredQueryContext)
@@ -22,6 +26,7 @@ fn read_query(
     }
     @model.Scenario::KeyedQuery => {
       let query = region.query((ctx, key : Int) => {
+        computes.val = computes.val + 1
         match ctx.read(source.view()) {
           Ok(value) => Ok(value + key)
           Err(error) => Err(error)
@@ -33,11 +38,15 @@ fn read_query(
       }
     }
     @model.Scenario::Chain => {
-      let first = region.query((ctx, _unit : Unit) => ctx.read(source.view()))
+      let first = region.query((ctx, _unit : Unit) => {
+        computes.val = computes.val + 1
+        ctx.read(source.view())
+      })
       match first {
         Err(_) => Err(@incr_next.ReadError::ExpiredQueryContext)
         Ok(first) => {
           let second = region.query((ctx, _unit : Unit) => {
+            computes.val = computes.val + 1
             match ctx.read(first.at(())) {
               Ok(value) => Ok(value + 1)
               Err(error) => Err(error)
@@ -51,14 +60,19 @@ fn read_query(
       }
     }
     @model.Scenario::Diamond => {
-      let shared = region.query((ctx, _unit : Unit) => ctx.read(source.view()))
+      let shared = region.query((ctx, _unit : Unit) => {
+        computes.val = computes.val + 1
+        ctx.read(source.view())
+      })
       let left = region.query((ctx, _unit : Unit) => {
+        computes.val = computes.val + 1
         match ctx.read(shared.unwrap().at(())) {
           Ok(value) => Ok(value + 1)
           Err(error) => Err(error)
         }
       })
       let right = region.query((ctx, _unit : Unit) => {
+        computes.val = computes.val + 1
         match ctx.read(shared.unwrap().at(())) {
           Ok(value) => Ok(value + 2)
           Err(error) => Err(error)
@@ -67,6 +81,7 @@ fn read_query(
       match (left, right) {
         (Ok(left), Ok(right)) => {
           let root = region.query((ctx, _unit : Unit) => {
+            computes.val = computes.val + 1
             match (ctx.read(left.at(())), ctx.read(right.at(()))) {
               (Ok(a), Ok(b)) => Ok(a + b)
               (Err(error), _) => Err(error)
@@ -84,6 +99,7 @@ fn read_query(
     @model.Scenario::DynamicBranch => {
       let branch = sources[1]
       let query = region.query((ctx, _unit : Unit) => {
+        computes.val = computes.val + 1
         match ctx.read(branch.view()) {
           Ok(flag) => if flag == 0 { ctx.read(source.view()) } else { Ok(flag) }
           Err(error) => Err(error)
@@ -96,6 +112,7 @@ fn read_query(
     }
     @model.Scenario::RootSnapshot => {
       let query = region.query((ctx, _unit : Unit) => {
+        computes.val = computes.val + 1
         match ctx.revision() {
           Ok(_) => ctx.read(source.view())
           Err(error) => Err(error)
@@ -142,7 +159,7 @@ pub fn evaluate(script : @model.Script) -> Array[@model.Observation] {
     sources[id] = region.source(value).unwrap()
   }
   let observations : Array[@model.Observation] = []
-  let reads = Ref(0)
+  let computes = Ref(0)
   for operation in operations {
     match operation {
       @model.Operation::Define(_, _) => ()
@@ -151,43 +168,84 @@ pub fn evaluate(script : @model.Script) -> Array[@model.Observation] {
           Some(source) => ignore(store.transaction(tx => tx.set(source, value)))
           None => ()
         }
-      @model.Operation::Read(id) => {
-        reads.val = reads.val + 1
+      @model.Operation::Read(id) =>
         match sources.get(id) {
           None => observations.push(@model.Observation::Missing(id))
           Some(_) =>
             match
-              read_query(store, region, sources, script.scenario_tag(), id, 0) {
+              read_query(
+                store,
+                region,
+                sources,
+                script.scenario_tag(),
+                id,
+                0,
+                computes,
+              ) {
               Ok(value) => observations.push(@model.Observation::Value(value))
               Err(_) => observations.push(@model.Observation::Missing(id))
             }
         }
-      }
-      @model.Operation::ReadKey(id, key) => {
-        reads.val = reads.val + 1
+      @model.Operation::ReadKey(id, key) =>
         match sources.get(id) {
           None => observations.push(@model.Observation::Missing(id))
           Some(_) =>
             match
-              read_query(store, region, sources, script.scenario_tag(), id, key) {
+              read_query(
+                store,
+                region,
+                sources,
+                script.scenario_tag(),
+                id,
+                key,
+                computes,
+              ) {
               Ok(value) => observations.push(@model.Observation::Value(value))
               Err(_) => observations.push(@model.Observation::Missing(id))
             }
         }
+      @model.Operation::DomainFailure(code) => {
+        let query = region
+          .query((_ctx, _unit : Unit) => {
+            computes.val = computes.val + 1
+            let domain_value : Result[Int, Int] = Err(code)
+            Ok(domain_value)
+          })
+          .unwrap()
+        match store.read(query.at(())) {
+          Ok(Err(domain_code)) =>
+            observations.push(
+              @model.Observation::Error(
+                @model.ScenarioError::DomainFailure(domain_code),
+              ),
+            )
+          _ => observations.push(@model.Observation::Missing(code))
+        }
       }
-      @model.Operation::DomainFailure(code) =>
-        observations.push(
-          @model.Observation::Error(@model.ScenarioError::DomainFailure(code)),
-        )
-      @model.Operation::StructuralFailure(code) =>
-        observations.push(
-          @model.Observation::Error(
-            @model.ScenarioError::StructuralFailure(code),
-          ),
-        )
+      @model.Operation::StructuralFailure(code) => {
+        let other = @incr_next.Store::Store()
+        let other_region = other.region().unwrap()
+        let foreign = other_region.source(code).unwrap()
+        let query = region
+          .query((ctx, _unit : Unit) => {
+            computes.val = computes.val + 1
+            ctx.read(foreign.view())
+          })
+          .unwrap()
+        match store.read(query.at(())) {
+          Err(@incr_next.ReadError::CrossStore(..)) =>
+            observations.push(
+              @model.Observation::Error(
+                @model.ScenarioError::StructuralFailure(code),
+              ),
+            )
+          _ => observations.push(@model.Observation::Missing(code))
+        }
+        ignore(other_region.close())
+      }
     }
   }
-  observations.push(@model.Observation::Counter(reads.val))
+  observations.push(@model.Observation::Counter(computes.val))
   ignore(region.close())
   observations
 }

@@ -265,6 +265,8 @@ jobs:
         run: |
           test "${{ needs['incr-next'].result }}" = success
           test "${{ needs.boundaries.result }}" = success
+          test "${{ needs['incr-next-rc'].result }}" = success
+          test "${{ needs['incr-next-interface'].result }}" = success
 
   docs-ratios:
     name: Verify perf ratio tables
