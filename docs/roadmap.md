@@ -21,14 +21,17 @@ K0 product-contract documentation is commissioned separately from current
 - [K0 Lifetime and Transaction Contract](design/specs/2026-08-13-incr-next-lifetime-and-transactions.md)
 - [Plan 015 — Incr Next K1 Kernel Alpha](../plans/015-incr-next-kernel-alpha.md)
 
-K1.1 is commissioned: module/package seams, independent Fresh boundary,
-opaque capabilities, no-memo evaluation, transaction-only publication, the
-module-global alpha phase gate, and the Region lifetime skeleton. K1.2–K1.6
-remain uncommissioned; typed memo/trace, cycles, cutoff, proof loss, and later
-conformance work require separate maintainer decisions.
+K1.1 is accepted at implementation head
+`0ad8f5ae60082dfc6410aac781baa61f52c67d79`: module/package seams,
+independent Fresh boundary, opaque capabilities, no-memo evaluation,
+transaction-only publication, the module-global alpha phase gate, and the
+Region lifetime skeleton. K1.2–K1.6 remain blocked and uncommissioned; typed
+memo/trace, cycles, cutoff, proof loss, and later conformance work require
+separate maintainer decisions.
 
-The sibling module now owns the active K1.1 queue in
-[`incr_next/docs/roadmap.md`](../incr_next/docs/roadmap.md); this root roadmap retains the product pointer.
+The sibling module owns the accepted K1.1 record and later blocked queue in
+[`incr_next/docs/roadmap.md`](../incr_next/docs/roadmap.md); this root roadmap
+retains the product pointer.
 
 ## Module-owned queues
 

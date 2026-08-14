@@ -9,17 +9,17 @@ import the evidence providers.
 
 **Keep until:** K1 is accepted, rejected, or replaced by a new plan.
 
-**Disposition:** Active handoff. K1.1 implementation is commissioned;
+**Disposition:** Active handoff. K1.1 semantic implementation is accepted;
 K1.2–K1.6 require separate maintainer decisions. This plan does not authorize
-publication, an implementation PR, Issue action, or parent-submodule update.
+publication, K1.2 implementation, Issue action, or parent-submodule update.
 
-**Status:** IN PROGRESS (K1.1 local acceptance, hosted CI, and independent review pass; maintainer acceptance pending)
+**Status:** IN PROGRESS (K1.1 ACCEPTED; K1.2–K1.6 BLOCKED / UNCOMMISSIONED)
 
 ---
 
 ## Commission scope
 
-Commissioned now:
+Commissioned and accepted:
 
 ```text
 K1.1 module and package seams

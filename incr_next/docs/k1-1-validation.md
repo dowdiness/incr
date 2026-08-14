@@ -4,9 +4,9 @@
 
 **Decision:** Reimplement one independent K1.1 kernel and an independent Fresh testkit; do not import the evidence providers or current `dowdiness/incr`.
 
-**Keep until:** K1.1 is accepted or superseded.
+**Keep until:** K1.1 is superseded or incorporated into a later accepted K1 slice.
 
-**Disposition:** Active alpha validation record. Local acceptance, hosted CI, and independent reviews pass; maintainer acceptance remains. Fold durable decisions into a future ADR only after K1 acceptance.
+**Disposition:** Accepted K1.1 alpha validation record. Local acceptance, hosted CI, independent reviews, and maintainer acceptance pass. K1.2–K1.6 remain blocked and uncommissioned. Fold durable decisions into a future ADR only after a separately authorized K1 adoption decision.
 
 ## First failures retained
 
@@ -22,7 +22,11 @@ Checked with `moon ide doc` before implementation: `Map`/`Set` for typed staging
 
 ## Acceptance status
 
-K1.1 is not marked DONE. The exact local candidate passes:
+K1.1 semantic implementation is **ACCEPTED** at implementation head
+`0ad8f5ae60082dfc6410aac781baa61f52c67d79`. Plan 015 remains in progress,
+and this status-only finalization does not commission K1.2–K1.6.
+
+The accepted implementation passes:
 
 - all 24 root/target check-and-test cells;
 - 1,179 wasm-gc and 256 JS workspace tests;
@@ -35,7 +39,9 @@ K1.1 is not marked DONE. The exact local candidate passes:
 - zero current-`incr/` diff;
 - independent MoonBit and product/test review.
 
-Hosted CI passes on the current candidate. Maintainer acceptance remains.
+Hosted CI, public diff review, and maintainer acceptance pass. Merge is
+authorized only after the status-only finalization head passes its required
+checks.
 
 ## Differential work evidence
 
