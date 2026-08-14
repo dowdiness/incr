@@ -1,0 +1,3 @@
+fn invalid_view_fields(view : @kernel.View[Int]) -> Unit {
+  ignore(view.recipe)
+}

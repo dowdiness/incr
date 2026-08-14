@@ -1,0 +1,11 @@
+import {
+  "dowdiness/incr_next",
+}
+
+pkgtype(kind: "executable")
+
+supported_targets = "native"
+
+options(
+  "native-stub": [ "rc_probe.c" ],
+)

@@ -1,0 +1,3 @@
+fn invalid_transaction_fields(tx : @kernel.Transaction) -> Unit {
+  ignore(tx.session)
+}

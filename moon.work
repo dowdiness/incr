@@ -11,4 +11,6 @@ members = [
   "./examples/typed_spreadsheet_incr_tea_demo",
   "./examples/incr_tea",
   "./examples/incr_tea_7guis",
+  "./incr_next",
+  "./incr_next_testkit",
 ]

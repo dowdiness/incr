@@ -1,0 +1,3 @@
+fn invalid_query_context_fields(ctx : @kernel.QueryContext) -> Unit {
+  ignore(ctx.session)
+}

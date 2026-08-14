@@ -1,0 +1,22 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/incr_next_testkit/differential"
+
+import {
+  "dowdiness/incr_next_testkit/model",
+}
+
+// Values
+pub fn all_match() -> Bool
+
+pub fn canonical_matches() -> Bool
+
+pub fn matches(@model.Script) -> Bool
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

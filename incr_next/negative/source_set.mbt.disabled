@@ -1,0 +1,3 @@
+fn invalid_source_set[T](source : @kernel.Source[T], value : T) -> Unit {
+  source.set(value)
+}

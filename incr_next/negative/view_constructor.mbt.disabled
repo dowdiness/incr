@@ -1,0 +1,3 @@
+fn invalid_view_constructor() -> @kernel.View[Int] {
+  @kernel.View::View()
+}
