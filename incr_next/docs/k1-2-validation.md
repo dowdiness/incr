@@ -9,15 +9,17 @@ The testkit model is corrected to a two-phase Script: `initial_sources` fixes
 Source membership and values before graph setup, while `operations` only replay
 Reads, existing Source Sets, or invocations of prepared error Views.
 
-**Keep until:** K1.2 is accepted, rejected, or superseded by a later kernel
-slice.
+**Keep until:** K1 alpha is superseded or a durable ADR is separately
+authorized.
 
 **Disposition:** Accepted K1.2 validation record. The candidate is based on
 `0c5ae4e50622f55b288aa536722e3ac77a71e030`; the accepted implementation head
-is `12ec2404b676ef7864e353aeb3681c0fef6f20e3`. Local gates, hosted CI,
-CodeRabbit, independent reviews, and maintainer acceptance pass. PR #474 is
-authorized for squash merge. K1.3–K1.6 remain blocked and uncommissioned. No
-ADR or package publication is authorized.
+is `12ec2404b676ef7864e353aeb3681c0fef6f20e3`; it merged as squash commit
+`db2ac77ac0362a7c5ff8d20887868cbdbb635aa8`. Local gates, hosted CI,
+CodeRabbit, independent reviews, and maintainer acceptance pass. K1.3
+invocation-level cycle detection is commissioned (implementation not yet
+accepted). K1.4–K1.6 remain blocked and uncommissioned. No ADR or package
+publication is authorized.
 
 ## Generated-interface probe
 

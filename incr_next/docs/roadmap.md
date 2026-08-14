@@ -29,13 +29,27 @@ memo identity while replacing value/trace and stamps.
 
 The [K1.2 validation record](k1-2-validation.md) captures the passing local
 and hosted gates, CodeRabbit, independent reviews, and maintainer acceptance.
-PR #474 is authorized for squash merge. K1.3 and later work remains blocked
-and uncommissioned.
+K1.2 is **MERGED** as squash commit
+`db2ac77ac0362a7c5ff8d20887868cbdbb635aa8`.
+
+K1.3 invocation-level cycle detection is **COMMISSIONED** (implementation not
+yet accepted). The commission covers typed active tracking per QueryCore, a
+key-free session active stack, active checks before memo lookup, copied
+key-free normalized Cycle witnesses, and independent Fresh and incremental
+cycle semantics.
+
+An old-trace Cycle requests recomputation; only a current-recompute Cycle
+becomes the root ReadError. The scope also requires cleanup on every structured
+exit and memo recovery after cycle introduction/removal. It does not include
+cutoff/backdating, eviction or automatic retention, iterative evaluation or
+stack-overflow protection, recovery values, error caching, parallelism,
+Mount/Program, Canopy, ADR, or publication. Plan 015 defines the commissioned
+failure matrix and gates.
 
 K1.2 accepts only acyclic invocation graphs and must preserve the K1.1 public
 capability surface, Fresh import independence, backend matrix, and zero current
 `incr/` diff.
 
-Blocked and uncommissioned until separate maintainer decisions: invocation
-cycles, cutoff/backdating, proof loss/eviction, Mount/Program, Canopy
-integration, ADR, and publication.
+Blocked and uncommissioned until separate maintainer decisions:
+cutoff/backdating, proof loss/eviction, Mount/Program, Canopy integration, ADR,
+and publication.
