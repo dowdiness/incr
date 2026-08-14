@@ -72,6 +72,7 @@ K1.3–K1.6 blocked and uncommissioned):
 - [Lifetime and Transaction Contract](design/specs/2026-08-13-incr-next-lifetime-and-transactions.md) — transaction-only publication, Region close, cross-Region traces, failure atomicity, and ownership release
 - [Incr Next module roadmap](../incr_next/docs/roadmap.md) — accepted K1.1 surface, commissioned K1.2 scope, and blocked later stages
 - [Incr Next K1.1 validation](../incr_next/docs/k1-1-validation.md) — accepted first failures and Existing API First record
+- [Incr Next K1.2 key-bound compile probe](../incr_next/docs/2026-08-14-k1-2-key-bound-compile-probe.md) — selected `Region::query` Hash/Eq boundary and caller contract
 
 **Current roadmap:**
 
