@@ -67,7 +67,7 @@ fn from_scratch_read_work(scenario : @model.Scenario) -> Int {
 /// This package deliberately has no dependency on `dowdiness/incr_next`.
 /// Every read evaluates its graph anew; the final Counter is evidence of that
 /// baseline, not part of the semantic oracle.
-pub fn evaluate(script : @model.Script) -> Array[@model.Observation] {
+fn evaluate_acyclic(script : @model.Script) -> Array[@model.Observation] {
   let values : Map[Int, Int] = Map(
     script.initial_sources().map(init => (init.id, init.value)),
   )
@@ -90,6 +90,8 @@ pub fn evaluate(script : @model.Script) -> Array[@model.Observation] {
           read_observation(values, script.scenario_tag(), id, key),
         )
       }
+      @model.Operation::ReadQuery(_, _) =>
+        abort("acyclic Fresh evaluator received ReadQuery")
       @model.Operation::DomainFailure(code) => {
         computes.val = computes.val + 1
         observations.push(

@@ -196,6 +196,20 @@ fn make_reader(
     }
     @model.Scenario::DomainFailure | @model.Scenario::StructuralError =>
       (source_id, _key) => store.read(source_views[source_id])
+    @model.Scenario::DirectCycle
+    | @model.Scenario::MutualCycle
+    | @model.Scenario::SameQueryKeyCycle
+    | @model.Scenario::FiniteRecursion
+    | @model.Scenario::UnequalKeyCrossQuery
+    | @model.Scenario::DeadCycleBranch
+    | @model.Scenario::CycleRecovery
+    | @model.Scenario::OldTraceCycle
+    | @model.Scenario::SequentialDuplicateRead =>
+      (_source_id, _key) => {
+        abort(
+          "K1.3 cycle scenarios are not implemented by the incremental adapter",
+        )
+      }
   }
   let domain_views : Map[Int, @incr_next.View[Result[Int, Int]]] = Map([])
   if scenario == @model.Scenario::DomainFailure {
@@ -307,6 +321,8 @@ pub fn evaluate(script : @model.Script) -> Array[@model.Observation] {
         publish_existing(store, sources, id, value)
       @model.Operation::Read(id) => read(id, 0)
       @model.Operation::ReadKey(id, key) => read(id, key)
+      @model.Operation::ReadQuery(_, _) =>
+        abort("K1.3 ReadQuery is not implemented by the incremental adapter")
       @model.Operation::DomainFailure(code) =>
         match store.read(setup.domain_views[code]) {
           Ok(Err(domain_code)) =>

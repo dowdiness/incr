@@ -1,4 +1,24 @@
 ///|
+test "validate_script enforces cycle operation shapes" {
+  assert_eq(
+    validate_script(Scenario::Source, [], [Operation::ReadQuery(0, 0)]),
+    Some("ReadQuery is only valid for cycle scenarios"),
+  )
+  assert_eq(
+    validate_script(Scenario::DirectCycle, [], [Operation::Read(0)]),
+    Some("cycle scenarios accept ReadQuery operations, not plain Read"),
+  )
+  assert_eq(
+    validate_script(Scenario::DirectCycle, [], [Operation::ReadKey(0, 0)]),
+    Some("cycle scenarios accept ReadQuery operations, not ReadKey"),
+  )
+  assert_eq(
+    validate_script(Scenario::CycleRecovery, [], [Operation::ReadQuery(0, 0)]),
+    Some("scenario requires initial source id: 0"),
+  )
+}
+
+///|
 test "validate_script reports duplicate initial IDs" {
   assert_eq(
     validate_script(

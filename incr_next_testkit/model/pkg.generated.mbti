@@ -10,6 +10,12 @@ import {
 // Errors
 
 // Types and methods
+pub struct CycleWitness {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn CycleWitness::CycleWitness(Array[Int]) -> Self
+pub fn CycleWitness::path(Self) -> Array[Int]
+
 pub(all) enum Observation {
   Value(Int)
   Missing(Int)
@@ -21,6 +27,7 @@ pub(all) enum Operation {
   Set(Int, Int)
   Read(Int)
   ReadKey(Int, Int)
+  ReadQuery(Int, Int)
   DomainFailure(Int)
   StructuralFailure(Int)
 } derive(Eq, @debug.Debug)
@@ -38,11 +45,21 @@ pub(all) enum Scenario {
   FailureRecovery
   DomainFailure
   StructuralError
+  DirectCycle
+  MutualCycle
+  SameQueryKeyCycle
+  FiniteRecursion
+  UnequalKeyCrossQuery
+  DeadCycleBranch
+  CycleRecovery
+  OldTraceCycle
+  SequentialDuplicateRead
 } derive(Eq, @debug.Debug)
 
 pub(all) enum ScenarioError {
   DomainFailure(Int)
   StructuralFailure(Int)
+  Cycle(CycleWitness)
 } derive(Eq, @debug.Debug)
 
 pub struct Script {
@@ -60,6 +77,8 @@ pub(all) struct SourceInit {
 } derive(Eq, @debug.Debug)
 
 // Type aliases
+pub type QueryId = Int
+
 pub type SourceId = Int
 
 // Traits
