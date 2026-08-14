@@ -135,7 +135,7 @@ test "successful memos own direct Source Query and Revision traces" {
 }
 
 ///|
-test "failed recompute releases its temporary trace" {
+test "initial failure releases its temporary trace" {
   let store = Store::Store()
   let region = store.region().unwrap()
   let source = region.source(1).unwrap()
