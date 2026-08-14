@@ -27,15 +27,18 @@ independent Fresh boundary, opaque capabilities, no-memo evaluation,
 transaction-only publication, the module-global alpha phase gate, and the
 Region lifetime skeleton.
 
-K1.2 is commissioned; implementation is still **NOT ACCEPTED**. K1.2a/b/c
-now cover typed per-Query memo ownership, last-successful forward verification
-and dynamic traces, target-local failure atomicity and recovery, plus their
-ownership, boundary, backend, and work-count gates. K1.3–K1.6 remain blocked
-and uncommissioned. Cycle detection, cutoff/backdating, proof loss/eviction,
+K1.2 implementation is complete and its local gate passes, but it remains
+**NOT ACCEPTED**. K1.2a/b/c cover typed per-Query memo ownership,
+last-successful forward verification and dynamic traces, target-local failure
+atomicity and recovery, plus their ownership, boundary, backend, and work-count
+gates. Hosted CI, implementation PR creation or push, maintainer acceptance,
+and merge remain pending separate authorization. K1.3–K1.6 remain blocked and
+uncommissioned. Cycle detection, cutoff/backdating, proof loss/eviction,
 Mount/Program, Canopy integration, ADR, and publication require separate
 maintainer decisions.
 
-The sibling module owns the accepted K1.1 record and commissioned K1.2 queue in
+The sibling module owns the accepted K1.1 record and locally complete but
+unaccepted K1.2 queue in
 [`incr_next/docs/roadmap.md`](../incr_next/docs/roadmap.md); this root roadmap
 retains the product pointer.
 
