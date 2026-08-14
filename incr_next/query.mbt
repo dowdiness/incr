@@ -15,10 +15,11 @@ priv struct MemoEntry[V] {
   memo_id : MemoId
   verified_at : ChangeEpoch
   changed_at : ChangeEpoch
+  trace : TrackingFrame
 }
 
 ///|
-/// Query-local typed memo storage. K1.2a deliberately has no dependency trace.
+/// Query-local typed memo storage with last-successful forward traces.
 priv struct QueryCore[K, V] {
   owner : StoreId
   generation : RegionGeneration
@@ -69,9 +70,10 @@ fn[K : Hash + Eq, V] QueryContext::eval_query(
                 core.compute_count.val = core.compute_count.val + 1
                 let invocation = self.child()
                 let result = compute(invocation, key)
-                invocation.expire()
                 match result {
                   Ok(value) => {
+                    let trace = invocation.take_frame()
+                    invocation.expire()
                     let memo_id = match core.memo.get(key) {
                       Some(entry) => entry.memo_id
                       None => {
@@ -85,10 +87,14 @@ fn[K : Hash + Eq, V] QueryContext::eval_query(
                       memo_id,
                       verified_at: epoch,
                       changed_at: epoch,
+                      trace,
                     })
                     Ok(value)
                   }
-                  Err(error) => Err(error)
+                  Err(error) => {
+                    invocation.expire()
+                    Err(error)
+                  }
                 }
               }
             }
@@ -123,6 +129,8 @@ pub fn[K : Hash + Eq, V] Region::query(
         make_view: key => {
           owner: core.owner,
           generation: core.generation,
+          dependency_kind: Query,
+          verifier: query_dependency(core, key).verifier,
           recipe: ctx => ctx.eval_query(core, key),
         },
       }

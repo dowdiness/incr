@@ -4,6 +4,7 @@ pub struct Store {
   priv id : StoreId
   priv revision_clock : Ref[Int]
   priv change_epoch : Ref[Int]
+  priv revision_changed_at : Ref[ChangeEpoch]
   priv next_sequence : Ref[Int]
 }
 
@@ -14,6 +15,7 @@ pub fn Store::Store() -> Store {
     id: fresh_store_id(),
     revision_clock: Ref(0),
     change_epoch: Ref(0),
+    revision_changed_at: Ref(0),
     next_sequence: Ref(1),
   }
 }
@@ -37,6 +39,7 @@ pub fn[V] Store::read(self : Store, view : View[V]) -> Result[V, ReadError] {
           owner: self.id,
           revision: self.revision(),
           change_epoch: self.change_epoch.val,
+          revision_changed_at: self.revision_changed_at,
           active: Ref(true),
         }
         let context = QueryContext::root(session)
