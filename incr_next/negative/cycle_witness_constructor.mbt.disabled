@@ -1,0 +1,3 @@
+fn invalid_cycle_witness_constructor() -> @kernel.CycleWitness {
+  @kernel.CycleWitness::CycleWitness([0, 1])
+}

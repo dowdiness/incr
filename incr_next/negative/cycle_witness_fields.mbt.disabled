@@ -1,0 +1,4 @@
+///|
+fn probe_cycle_witness_fields(witness : @kernel.CycleWitness) -> Unit {
+  ignore(witness.path)
+}

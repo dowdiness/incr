@@ -11,6 +11,12 @@ expected_diagnostic() {
     query_context_constructor.mbt.disabled)
       printf '%s' 'does not declare a custom constructor'
       ;;
+    cycle_witness_constructor.mbt.disabled)
+      printf '%s' 'does not declare a custom constructor'
+      ;;
+    cycle_witness_fields.mbt.disabled)
+      printf '%s' 'CycleWitness has no field path'
+      ;;
     query_context_fields.mbt.disabled)
       printf '%s' 'QueryContext has no field session'
       ;;
