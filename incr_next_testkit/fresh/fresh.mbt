@@ -26,9 +26,22 @@ fn scenario_value(
 }
 
 ///|
-/// Memo-free evaluator for the shared K1.1 operation and graph model.
+fn from_scratch_read_work(scenario : @model.Scenario) -> Int {
+  match scenario {
+    @model.Scenario::Source => 0
+    @model.Scenario::Chain => 2
+    // The shared child is evaluated independently by each branch.
+    @model.Scenario::Diamond => 5
+    _ => 1
+  }
+}
+
+///|
+/// From-scratch evaluator for the shared operation and graph model.
 ///
 /// This package deliberately has no dependency on `dowdiness/incr_next`.
+/// Every read evaluates its graph anew; the final Counter is evidence of that
+/// baseline, not part of the semantic oracle.
 pub fn evaluate(script : @model.Script) -> Array[@model.Observation] {
   let values : Map[Int, Int] = match script.scenario_tag() {
     @model.Scenario::DynamicBranch
@@ -38,51 +51,21 @@ pub fn evaluate(script : @model.Script) -> Array[@model.Observation] {
   }
   let observations : Array[@model.Observation] = []
   let computes = Ref(0)
-  let change_epoch = Ref(0)
-  let computed_epoch : Ref[Int?] = Ref(None)
-  let keyed_computed : Map[(Int, Int), Bool] = Map([])
   for operation in script.operations() {
     match operation {
-      @model.Operation::Define(id, value) | @model.Operation::Set(id, value) => {
-        let existing = values.contains(id)
+      @model.Operation::Define(id, value) | @model.Operation::Set(id, value) =>
         values[id] = value
-        if existing {
-          change_epoch.val = change_epoch.val + 1
-          if script.scenario_tag() is @model.Scenario::UnrelatedPublication &&
-            id != 0 {
-            computed_epoch.val = Some(change_epoch.val)
-          } else {
-            computed_epoch.val = None
-          }
-          keyed_computed.clear()
-        }
-      }
       @model.Operation::Read(id) => {
-        let should_compute = match script.scenario_tag() {
-          @model.Scenario::Source => false
-          _ => computed_epoch.val != Some(change_epoch.val)
-        }
-        if should_compute {
-          computes.val = computes.val +
-            (match script.scenario_tag() {
-              @model.Scenario::Chain => 2
-              @model.Scenario::Diamond => 4
-              _ => 1
-            })
-          computed_epoch.val = Some(change_epoch.val)
-        }
+        computes.val = computes.val +
+          from_scratch_read_work(script.scenario_tag())
         match scenario_value(values, script.scenario_tag(), id, 0) {
           Some(value) => observations.push(@model.Observation::Value(value))
           None => observations.push(@model.Observation::Missing(id))
         }
       }
       @model.Operation::ReadKey(id, key) => {
-        let work = (id, key)
-        if script.scenario_tag() is @model.Scenario::KeyedQuery &&
-          !keyed_computed.contains(work) {
-          computes.val = computes.val + 1
-          keyed_computed[work] = true
-        }
+        computes.val = computes.val +
+          from_scratch_read_work(script.scenario_tag())
         match scenario_value(values, script.scenario_tag(), id, key) {
           Some(value) => observations.push(@model.Observation::Value(value))
           None => observations.push(@model.Observation::Missing(id))

@@ -1,7 +1,23 @@
 ///|
-/// Compares normalized Fresh and incremental observations.
+fn semantic_observations(
+  observations : Array[@model.Observation],
+) -> Array[@model.Observation] {
+  observations.filter(observation => {
+    match observation {
+      @model.Observation::Counter(_) => false
+      _ => true
+    }
+  })
+}
+
+///|
+/// Compares Fresh and incremental semantic observations.
+///
+/// Counters are intentionally excluded: Fresh is a from-scratch semantic
+/// oracle, while the incremental adapter's counters measure kernel work.
 pub fn matches(script : @model.Script) -> Bool {
-  @fresh.evaluate(script) == @incremental_adapter.evaluate(script)
+  semantic_observations(@fresh.evaluate(script)) ==
+  semantic_observations(@incremental_adapter.evaluate(script))
 }
 
 ///|

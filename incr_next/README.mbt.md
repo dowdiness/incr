@@ -12,4 +12,5 @@ stable while a key is retained. Structural kernel failures remain in the outer
 `Result`, while domain failures are values inside `V` (for example
 `V = Result[Value, DomainError]`).
 
-K1.2c and later work remains deferred.
+K1.2c remains commissioned and pending for its dedicated failure-atomicity
+slice. K1.3 and later work remains deferred.
