@@ -32,6 +32,25 @@ fn scenario_value(
 }
 
 ///|
+fn read_observation(
+  values : Map[Int, Int],
+  scenario : @model.Scenario,
+  source_id : Int,
+  key : Int,
+) -> @model.Observation {
+  match values.get(source_id) {
+    None => @model.Observation::Missing(source_id)
+    Some(base) if scenario == @model.Scenario::FailureRecovery && base == 1 =>
+      @model.Observation::Error(@model.ScenarioError::StructuralFailure(1))
+    Some(_) =>
+      match scenario_value(values, scenario, source_id, key) {
+        Some(value) => @model.Observation::Value(value)
+        None => @model.Observation::Missing(source_id)
+      }
+  }
+}
+
+///|
 fn from_scratch_read_work(scenario : @model.Scenario) -> Int {
   match scenario {
     @model.Scenario::Source => 0
@@ -64,18 +83,16 @@ pub fn evaluate(script : @model.Script) -> Array[@model.Observation] {
       @model.Operation::Read(id) => {
         computes.val = computes.val +
           from_scratch_read_work(script.scenario_tag())
-        match scenario_value(values, script.scenario_tag(), id, 0) {
-          Some(value) => observations.push(@model.Observation::Value(value))
-          None => observations.push(@model.Observation::Missing(id))
-        }
+        observations.push(
+          read_observation(values, script.scenario_tag(), id, 0),
+        )
       }
       @model.Operation::ReadKey(id, key) => {
         computes.val = computes.val +
           from_scratch_read_work(script.scenario_tag())
-        match scenario_value(values, script.scenario_tag(), id, key) {
-          Some(value) => observations.push(@model.Observation::Value(value))
-          None => observations.push(@model.Observation::Missing(id))
-        }
+        observations.push(
+          read_observation(values, script.scenario_tag(), id, key),
+        )
       }
       @model.Operation::DomainFailure(code) => {
         computes.val = computes.val + 1

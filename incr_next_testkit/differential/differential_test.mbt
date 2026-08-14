@@ -88,7 +88,7 @@ test "Fresh and incremental work counters are separate evidence" {
     @scenarios.failure_recovery(),
     [
       @model.Observation::Value(0),
-      @model.Observation::Missing(0),
+      @model.Observation::Error(@model.ScenarioError::StructuralFailure(1)),
       @model.Observation::Value(2),
     ],
     3,

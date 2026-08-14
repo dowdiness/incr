@@ -1,4 +1,17 @@
 ///|
+fn normalize_read_error(
+  scenario : @model.Scenario,
+  source_id : Int,
+  error : @incr_next.ReadError,
+) -> @model.Observation {
+  match (scenario, error) {
+    (@model.Scenario::FailureRecovery, @incr_next.ReadError::ClosedRegion(..)) =>
+      @model.Observation::Error(@model.ScenarioError::StructuralFailure(1))
+    _ => @model.Observation::Missing(source_id)
+  }
+}
+
+///|
 fn make_reader(
   store : @incr_next.Store,
   region : @incr_next.Region,
@@ -214,7 +227,10 @@ pub fn evaluate(script : @model.Script) -> Array[@model.Observation] {
       }
       match run(source_id, key) {
         Ok(value) => observations.push(@model.Observation::Value(value))
-        Err(_) => observations.push(@model.Observation::Missing(source_id))
+        Err(error) =>
+          observations.push(
+            normalize_read_error(script.scenario_tag(), source_id, error),
+          )
       }
     }
   }
