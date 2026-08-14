@@ -17,9 +17,10 @@ authorized.
 is `12ec2404b676ef7864e353aeb3681c0fef6f20e3`; it merged as squash commit
 `db2ac77ac0362a7c5ff8d20887868cbdbb635aa8`. Local gates, hosted CI,
 CodeRabbit, independent reviews, and maintainer acceptance pass. K1.3
-invocation-level cycle detection is commissioned (implementation not yet
-accepted). K1.4–K1.6 remain blocked and uncommissioned. No ADR or package
-publication is authorized.
+invocation-level cycle detection is implementation complete with a local gate
+pass at implementation head `62c72f0b4908163bc364322c317d413f0700263a` but
+is not yet accepted. K1.4–K1.6 remain blocked and uncommissioned. No ADR or
+package publication is authorized.
 
 ## Generated-interface probe
 

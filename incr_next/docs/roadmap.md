@@ -32,11 +32,13 @@ and hosted gates, CodeRabbit, independent reviews, and maintainer acceptance.
 K1.2 is **MERGED** as squash commit
 `db2ac77ac0362a7c5ff8d20887868cbdbb635aa8`.
 
-K1.3 invocation-level cycle detection is **COMMISSIONED** (implementation not
-yet accepted). The commission covers typed active tracking per QueryCore, a
-key-free session active stack, active checks before memo lookup, copied
-key-free normalized Cycle witnesses, and independent Fresh and incremental
-cycle semantics.
+K1.3 invocation-level cycle detection is **IMPLEMENTATION COMPLETE** with a
+**LOCAL GATE PASS** at implementation head
+`62c72f0b4908163bc364322c317d413f0700263a` (commission base
+`621180cf460661aa95eb89da58553681688fa502`); it is **NOT YET ACCEPTED**.
+The commission covers typed active tracking per QueryCore, a key-free session
+active stack, active checks before memo lookup, copied key-free normalized
+Cycle witnesses, and independent Fresh and incremental cycle semantics.
 
 An old-trace Cycle requests recomputation; only a current-recompute Cycle
 becomes the root ReadError. The scope also requires cleanup on every structured

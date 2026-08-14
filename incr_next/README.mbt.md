@@ -18,5 +18,7 @@ before recovery. Native RC probes and an independent Fresh failure-recovery
 scenario provide ownership and work evidence. K1.2 is **ACCEPTED** at
 implementation head `12ec2404b676ef7864e353aeb3681c0fef6f20e3` and **MERGED** as
 squash commit `db2ac77ac0362a7c5ff8d20887868cbdbb635aa8`. K1.3 invocation-level
-cycle detection is **COMMISSIONED** (implementation not yet accepted).
+cycle detection is **IMPLEMENTATION COMPLETE** with a **LOCAL GATE PASS** at
+implementation head `62c72f0b4908163bc364322c317d413f0700263a` (commission base
+`621180cf460661aa95eb89da58553681688fa502`); it is **NOT YET ACCEPTED**.
 K1.4–K1.6 remain blocked and uncommissioned.
