@@ -27,11 +27,11 @@ independent Fresh boundary, opaque capabilities, no-memo evaluation,
 transaction-only publication, the module-global alpha phase gate, and the
 Region lifetime skeleton.
 
-K1.2 is commissioned; implementation is not yet accepted. Its scope is typed
-per-Query memo ownership, last-successful forward verification and dynamic
-traces, target-local failure atomicity and recovery, plus their ownership,
-boundary, backend, and work-count gates. K1.3–K1.6 remain blocked and
-uncommissioned. Cycle detection, cutoff/backdating, proof loss/eviction,
+K1.2 is commissioned; implementation is still **NOT ACCEPTED**. K1.2a/b/c
+now cover typed per-Query memo ownership, last-successful forward verification
+and dynamic traces, target-local failure atomicity and recovery, plus their
+ownership, boundary, backend, and work-count gates. K1.3–K1.6 remain blocked
+and uncommissioned. Cycle detection, cutoff/backdating, proof loss/eviction,
 Mount/Program, Canopy integration, ADR, and publication require separate
 maintainer decisions.
 

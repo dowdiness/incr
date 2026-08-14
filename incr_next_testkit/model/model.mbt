@@ -14,6 +14,7 @@ pub(all) enum Scenario {
   SelectedPublication
   DynamicBranch
   RootSnapshot
+  FailureRecovery
   DomainFailure
   StructuralError
 } derive(Eq, Debug)

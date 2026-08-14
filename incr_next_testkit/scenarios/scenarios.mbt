@@ -86,6 +86,17 @@ pub fn root_snapshot() -> @model.Script {
 }
 
 ///|
+pub fn failure_recovery() -> @model.Script {
+  script(@model.Scenario::FailureRecovery, [
+    @model.Operation::Read(0),
+    @model.Operation::Set(0, 1),
+    @model.Operation::Read(0),
+    @model.Operation::Set(0, 2),
+    @model.Operation::Read(0),
+  ])
+}
+
+///|
 pub fn domain_failure() -> @model.Script {
   script(@model.Scenario::DomainFailure, [@model.Operation::DomainFailure(17)])
 }
@@ -109,6 +120,7 @@ pub fn all() -> Array[@model.Script] {
     selected_publication(),
     dynamic_branch(),
     root_snapshot(),
+    failure_recovery(),
     domain_failure(),
     structural_error(),
   ]

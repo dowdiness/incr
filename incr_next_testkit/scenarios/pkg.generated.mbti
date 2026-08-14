@@ -18,6 +18,8 @@ pub fn domain_failure() -> @model.Script
 
 pub fn dynamic_branch() -> @model.Script
 
+pub fn failure_recovery() -> @model.Script
+
 pub fn keyed_query() -> @model.Script
 
 pub fn root_snapshot() -> @model.Script

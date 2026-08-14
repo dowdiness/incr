@@ -14,6 +14,12 @@ fn scenario_value(
     @model.Scenario::Diamond => Some(base * 2 + 3)
     @model.Scenario::UnrelatedPublication
     | @model.Scenario::SelectedPublication => Some(base)
+    @model.Scenario::FailureRecovery =>
+      if base == 1 {
+        None
+      } else {
+        Some(base)
+      }
     @model.Scenario::DynamicBranch =>
       match values.get(1) {
         Some(flag) => if flag != 0 { Some(flag) } else { Some(base) }

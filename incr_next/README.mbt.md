@@ -12,5 +12,8 @@ stable while a key is retained. Structural kernel failures remain in the outer
 `Result`, while domain failures are values inside `V` (for example
 `V = Result[Value, DomainError]`).
 
-K1.2c remains commissioned and pending for its dedicated failure-atomicity
-slice. K1.3 and later work remains deferred.
+K1.2c is implemented: failed structural recomputes keep the current error
+on the structural channel, preserve the last successful target authority, and
+release temporary traces before recovery. Native RC probes and an independent
+Fresh failure-recovery scenario provide ownership and work evidence. K1.2
+implementation is still **NOT ACCEPTED**. K1.3 and later work remains blocked.

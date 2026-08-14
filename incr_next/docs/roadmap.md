@@ -19,11 +19,16 @@ only:
 - same-epoch hits, with stale epochs still recomputing unconditionally;
 - close-time release and work-count evidence.
 
-K1.2b now implements forward trace verification and green reuse, including
+K1.2b implements forward trace verification and green reuse, including
 unrelated publications, selected recomputation, dynamic trace replacement,
 Revision-clock verification, and same-Store cross-Region branch-away. K1.2c
-(target-local failure atomicity, no stale fallback, recovery) remains pending
-for its dedicated slice.
+now implements target-local structural failure atomicity: initial failures do
+not install memos, failed recomputes return the current error without stale
+fallback, successful upstream work remains installed, and recovery preserves
+memo identity while replacing value/trace and stamps.
+
+The K1.2 implementation is still **NOT ACCEPTED** pending the complete K1.2
+gate. K1.3 and later work remains blocked and uncommissioned.
 
 K1.2 accepts only acyclic invocation graphs and must preserve the K1.1 public
 capability surface, Fresh import independence, backend matrix, and zero current

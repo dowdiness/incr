@@ -156,6 +156,171 @@ test "initial failure releases its temporary trace" {
 }
 
 ///|
+test "initial structural failure installs no memo, then recovery installs first ID" {
+  let store = Store::Store()
+  let foreign_store = Store::Store()
+  let region = store.region().unwrap()
+  let foreign_region = foreign_store.region().unwrap()
+  let source = region.source(1).unwrap()
+  let foreign = foreign_region.source(9).unwrap()
+  let fail_now = Ref(true)
+  let captured = Ref(None)
+  let query = region
+    .query((ctx, _unit : Unit) => {
+      captured.val = Some(ctx)
+      match ctx.read(source.view()) {
+        Ok(value) =>
+          if fail_now.val {
+            match ctx.read(foreign.view()) {
+              Ok(_) => Ok(value)
+              Err(error) => Err(error)
+            }
+          } else {
+            Ok(value)
+          }
+        Err(error) => Err(error)
+      }
+    })
+    .unwrap()
+  let view = query.at(())
+  assert_true(store.read(view) is Err(CrossStore(..)))
+  assert_true(captured.val.unwrap().frame.val is None)
+  assert_true(query.core.memo.is_empty())
+  // The callback is changed only after the failed frame has been released.
+  fail_now.val = false
+  assert_eq(store.read(view), Ok(1))
+  assert_eq(query.core.memo.get(()).unwrap().memo_id.value, 0)
+  ignore(foreign_region.close())
+  ignore(region.close())
+}
+
+///|
+test "failed recompute returns current error and preserves successful authority" {
+  let store = Store::Store()
+  let foreign_store = Store::Store()
+  let region = store.region().unwrap()
+  let foreign_region = foreign_store.region().unwrap()
+  let source = region.source(0).unwrap()
+  let foreign = foreign_region.source(9).unwrap()
+  let captured = Ref(None)
+  let query = region
+    .query((ctx, _unit : Unit) => {
+      captured.val = Some(ctx)
+      match ctx.read(source.view()) {
+        Ok(value) if value == 1 => ctx.read(foreign.view())
+        Ok(value) => Ok(value)
+        Err(error) => Err(error)
+      }
+    })
+    .unwrap()
+  let view = query.at(())
+  assert_eq(store.read(view), Ok(0))
+  let before = query.core.memo.get(()).unwrap()
+  let before_kinds = before.trace.map(dep => dep.kind)
+  let before_id = before.memo_id
+  let before_value = before.value
+  let before_verified_at = before.verified_at
+  let before_changed_at = before.changed_at
+  ignore(store.transaction(tx => tx.set(source, 1)))
+  assert_true(store.read(view) is Err(CrossStore(..)))
+  assert_true(captured.val.unwrap().frame.val is None)
+  let after = query.core.memo.get(()).unwrap()
+  assert_eq(after.memo_id, before_id)
+  assert_eq(after.value, before_value)
+  assert_eq(after.trace.length(), before.trace.length())
+  assert_eq(after.trace.map(dep => dep.kind), before_kinds)
+  assert_eq(after.verified_at, before_verified_at)
+  assert_eq(after.changed_at, before_changed_at)
+  ignore(foreign_region.close())
+  ignore(region.close())
+}
+
+///|
+test "failed recompute recovers with the same memo identity" {
+  let store = Store::Store()
+  let foreign_store = Store::Store()
+  let region = store.region().unwrap()
+  let foreign_region = foreign_store.region().unwrap()
+  let source = region.source(0).unwrap()
+  let foreign = foreign_region.source(9).unwrap()
+  let captured = Ref(None)
+  let query = region
+    .query((ctx, _unit : Unit) => {
+      captured.val = Some(ctx)
+      match ctx.read(source.view()) {
+        Ok(value) if value == 1 => ctx.read(foreign.view())
+        Ok(value) => Ok(value)
+        Err(error) => Err(error)
+      }
+    })
+    .unwrap()
+  let view = query.at(())
+  assert_eq(store.read(view), Ok(0))
+  let memo_id = query.core.memo.get(()).unwrap().memo_id
+  ignore(store.transaction(tx => tx.set(source, 1)))
+  assert_true(store.read(view) is Err(CrossStore(..)))
+  assert_true(captured.val.unwrap().frame.val is None)
+  ignore(store.transaction(tx => tx.set(source, 2)))
+  let current_epoch = store.change_epoch.val
+  assert_eq(store.read(view), Ok(2))
+  let after = query.core.memo.get(()).unwrap()
+  assert_eq(after.memo_id, memo_id)
+  assert_eq(after.value, 2)
+  assert_eq(after.trace.length(), 1)
+  assert_eq(after.trace.map(dep => dep.kind), [Source])
+  assert_eq(after.verified_at, current_epoch)
+  assert_eq(after.changed_at, current_epoch)
+  ignore(foreign_region.close())
+  ignore(region.close())
+}
+
+///|
+test "successful child recompute remains installed when parent fails" {
+  let store = Store::Store()
+  let foreign_store = Store::Store()
+  let region = store.region().unwrap()
+  let foreign_region = foreign_store.region().unwrap()
+  let source = region.source(0).unwrap()
+  let foreign = foreign_region.source(9).unwrap()
+  let child = region
+    .query((ctx, _unit : Unit) => ctx.read(source.view()))
+    .unwrap()
+  let captured = Ref(None)
+  let parent = region
+    .query((ctx, _unit : Unit) => {
+      captured.val = Some(ctx)
+      match ctx.read(child.at(())) {
+        Ok(value) if value == 1 => ctx.read(foreign.view())
+        Ok(value) => Ok(value + 10)
+        Err(error) => Err(error)
+      }
+    })
+    .unwrap()
+  let view = parent.at(())
+  assert_eq(store.read(view), Ok(10))
+  let before = parent.core.memo.get(()).unwrap()
+  let before_id = before.memo_id
+  let before_value = before.value
+  let before_verified_at = before.verified_at
+  let before_changed_at = before.changed_at
+  ignore(store.transaction(tx => tx.set(source, 1)))
+  assert_true(store.read(view) is Err(CrossStore(..)))
+  assert_true(captured.val.unwrap().frame.val is None)
+  let child_after = child.core.memo.get(()).unwrap()
+  assert_eq(child_after.value, 1)
+  assert_eq(child.core.compute_count.val, 2)
+  let parent_after = parent.core.memo.get(()).unwrap()
+  assert_eq(parent_after.memo_id, before_id)
+  assert_eq(parent_after.value, before_value)
+  assert_eq(parent_after.trace.length(), 1)
+  assert_eq(parent_after.trace.map(dep => dep.kind), [Query])
+  assert_eq(parent_after.verified_at, before_verified_at)
+  assert_eq(parent_after.changed_at, before_changed_at)
+  ignore(foreign_region.close())
+  ignore(region.close())
+}
+
+///|
 test "unrelated publication green-verifies without recompute" {
   let store = Store::Store()
   let region = store.region().unwrap()

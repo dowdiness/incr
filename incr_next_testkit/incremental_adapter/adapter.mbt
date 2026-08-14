@@ -126,6 +126,24 @@ fn make_reader(
       let view = query.at(())
       (_source_id, _key) => store.read(view)
     }
+    @model.Scenario::FailureRecovery => {
+      let source = sources[0]
+      let broken_region = store.region().unwrap()
+      let broken_source = broken_region.source(99).unwrap()
+      ignore(broken_region.close())
+      let query = region
+        .query((ctx, _unit : Unit) => {
+          computes.val = computes.val + 1
+          match ctx.read(source.view()) {
+            Ok(value) if value == 1 => ctx.read(broken_source.view())
+            Ok(value) => Ok(value)
+            Err(error) => Err(error)
+          }
+        })
+        .unwrap()
+      let view = query.at(())
+      (_source_id, _key) => store.read(view)
+    }
     @model.Scenario::RootSnapshot => {
       let source = sources[0]
       let query = region

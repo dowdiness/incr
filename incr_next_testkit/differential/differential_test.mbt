@@ -85,6 +85,16 @@ test "Fresh and incremental work counters are separate evidence" {
     2,
   )
   assert_semantics_and_work(
+    @scenarios.failure_recovery(),
+    [
+      @model.Observation::Value(0),
+      @model.Observation::Missing(0),
+      @model.Observation::Value(2),
+    ],
+    3,
+    3,
+  )
+  assert_semantics_and_work(
     @scenarios.domain_failure(),
     [@model.Observation::Error(@model.ScenarioError::DomainFailure(17))],
     1,
