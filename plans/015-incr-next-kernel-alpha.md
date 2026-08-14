@@ -9,11 +9,14 @@ import the evidence providers.
 
 **Keep until:** K1 is accepted, rejected, or replaced by a new plan.
 
-**Disposition:** Active handoff. K1.1 semantic implementation is accepted;
-K1.2–K1.6 require separate maintainer decisions. This plan does not authorize
-publication, K1.2 implementation, Issue action, or parent-submodule update.
+**Disposition:** Active handoff. K1.1 semantic implementation is accepted and
+merged. K1.2 typed memo, last-successful forward verification, and failure
+atomicity are commissioned; implementation is not yet accepted. K1.3–K1.6
+require separate maintainer decisions. This plan does not authorize
+publication, Issue action, parent-submodule update, or any work beyond K1.2.
 
-**Status:** IN PROGRESS (K1.1 ACCEPTED; K1.2–K1.6 BLOCKED / UNCOMMISSIONED)
+**Status:** IN PROGRESS (K1.1 ACCEPTED / MERGED; K1.2 COMMISSIONED;
+K1.3–K1.6 BLOCKED / UNCOMMISSIONED)
 
 ---
 
@@ -31,19 +34,27 @@ K1.1 Region lifetime skeleton
 K1.1 target, negative-interface, and ownership gates
 ```
 
-Not commissioned:
+Commissioned; implementation not yet accepted:
 
 ```text
-K1.2 typed memo and forward verification
+K1.2 typed per-Query memo ownership
+K1.2 last-successful forward verification and dynamic traces
+K1.2 target-local failure atomicity and recovery
+K1.2 ownership, backend, boundary, and work-count gates
+```
+
+Blocked and uncommissioned:
+
+```text
 K1.3 invocation-level cycles
 K1.4 typed cutoff and backdating
 K1.5 private proof loss and ownership completion
-K1.6 later product-quality expansion beyond the K1.1 gates
+K1.6 later product-quality expansion beyond the K1.2 gates
 Mount, Program, Canopy integration, ADR, or publication
 ```
 
 Later sections remain implementation-ready handoffs, not authorization to begin
-them. Stop after K1.1 acceptance and request a separate K1.2 decision.
+them. Stop after K1.2 acceptance and request a separate K1.3 decision.
 
 ## Goal
 
@@ -259,26 +270,59 @@ close counters show one epoch delta and zero Revision delta.
 
 ## K1.2 — Typed memo and last-successful forward verification
 
+K1.2 answers one question: can the accepted K1.1 kernel add Query-local typed
+memos and last-successful forward traces so same-epoch reads hit cache,
+unrelated publications green-verify, selected dependency changes recompute,
+and failed recomputes preserve the prior successful authority without returning
+stale fallback, while Fresh outcomes remain equal?
+
+K1.2 admits only acyclic invocation graphs. It does not add active invocation
+maps, cycle witnesses, recursive Query support, cutoff/backdating, proof loss,
+eviction, or a public debug surface.
+
+### Compile probe: public key bounds
+
+Before the first production definition, compare generated `.mbti` variants for
+placing the required `K : Hash + Eq` bound on `Region::query`, `Query::at`, or
+the `Query[K,V]` definition. Select the smallest natural public contract and
+record:
+
+- the generated trait bound and impact on existing K1.1 consumers;
+- Eq-equal key sharing semantics;
+- the caller contract that key Hash/Eq behavior remains stable while a View can
+  be read;
+- why neither key erasure nor linear search is used to hide the bound.
+
 ### K1.2a: Typed per-Query memo ownership
 
 - Give each `QueryCore[K,V]` a private typed `Map[K,MemoEntry[V]]` and local
   memo identity allocator.
-- Keep root reads dependency-free and nested reads trace-producing.
+- Store value, memo identity, `verified_at`, `changed_at`, and direct
+  last-successful forward trace in each entry.
+- Keep root reads parent-trace-free and nested reads trace-producing.
 - Make repeated same-`ChangeEpoch` reads cache hits without recomputation.
+- Keep different QueryCore instances disjoint even for Eq-equal keys.
+- Clear memo values and traces through the Region-owned close path; a surviving
+  View owns a recipe, never a memo incarnation.
 
 **First failure:** equal-key Views share one memo while different QueryCore
-instances do not.
+instances do not, and a same-epoch reread has zero compute delta.
 
 ### K1.2b: Verification and dynamic traces
 
-- Record Source, Query, and Revision-clock dependencies in last-successful
-  forward traces.
+- Record Source, Query invocation, and Revision-clock dependencies in
+  last-successful forward traces.
+- Stamp each committed Source publication with the current private
+  `ChangeEpoch`; track `QueryContext::revision()` only when called.
 - Verify old dependencies without recording them into the parent's new trace.
+- Treat an unavailable old dependency as `RecomputeRequired`, not as the root's
+  current structural error, so a current branch may avoid a closed Region.
 - Green verification updates `verified_at` only.
 - Red verification recomputes with a temporary trace and atomically installs
-  the successful value/trace/stamps.
-- Test chain, diamond sharing, unrelated publication, dynamic branch
-  replacement, and Revision-clock behavior.
+  the successful value, trace, and stamps.
+- Test chain, diamond sharing, unrelated and selected publication, dynamic
+  branch replacement, Revision-clock-only Query, and same-Store cross-Region
+  branch-away.
 
 **First failure:** an unrelated publication green-verifies the root while a
 selected-branch publication recomputes it.
@@ -287,19 +331,43 @@ selected-branch publication recomputes it.
 
 - First structural failure installs no memo.
 - Failure over a successful memo returns the current error with no stale
-  fallback and preserves target memo identity/value/trace/stamps.
-- Release the failed temporary trace while retaining valid upstream successes.
-- Recovery retries and successfully replaces the trace.
+  fallback and preserves target memo identity, value, trace, and stamps.
+- Release the failed temporary trace while retaining valid upstream successes;
+  do not roll back upstream memos that completed successfully.
+- Recovery retries and atomically replaces the target's successful authority.
 
-**First failure:** current failure over a memo leaves its debug snapshot
+**First failure:** current failure over a memo leaves its white-box snapshot
 unchanged and returns the error rather than the old value.
 
 ### K1.2 gate
 
-- Differential parity covers all K1.1 scripts plus cache, green/red, dynamic
-  trace, failure, and recovery.
-- Same-epoch compute counts, direct trace lengths, memo counts, and phase cleanup
-  are asserted internally.
+Correctness:
+
+- all K1.1 differential scripts still match Fresh;
+- equal-key sharing and QueryCore isolation hold;
+- same-epoch hits, unrelated green verification, selected red recomputation,
+  dynamic trace replacement, Revision-clock tracking, failure preservation,
+  no stale fallback, recovery, and cross-Region branch-away pass.
+
+Ownership and boundaries:
+
+- successful replacement releases the old value and trace; failed temporary
+  traces and close-time memo payloads are released;
+- surviving Views retain no memo incarnation, and downstream tombstone/key
+  evidence retains no Region-owned heavy payload;
+- no reverse subscriber edge, erased global memo registry, public debug API,
+  cycle/cutoff/eviction surface, current-`incr/` diff, Fresh import-DAG drift,
+  generated-interface leak, or backend omission is accepted.
+
+Work counts:
+
+- repeated reads do not increase compute count;
+- unrelated publication increases green verification but not root compute;
+- selected publication increases root compute;
+- a shared diamond dependency verifies or computes once per epoch;
+- direct trace lengths and memo counts are asserted white-box.
+
+K1.2 acceptance is determined by work-count assertions; wall-clock thresholds remain outside this gate.
 
 ## K1.3 — Invocation-level cycles
 

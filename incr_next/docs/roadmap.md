@@ -9,6 +9,20 @@ The accepted scope is Store, Region, Source, Query, opaque View, QueryContext,
 Transaction, Revision, structural errors, and the independent testkit. Plan 015
 remains **IN PROGRESS**.
 
-Blocked and uncommissioned until separate maintainer decisions: typed memo and
-forward verification, invocation cycles, cutoff/backdating, proof
-loss/eviction, Mount/Program, Canopy integration, ADR, and publication.
+K1.2 is **COMMISSIONED**; implementation is not yet accepted. It adds only:
+
+- Query-local typed memo ownership after a generated-interface compile probe
+  selects the public `K : Hash + Eq` bound;
+- last-successful Source, Query invocation, and Revision-clock forward traces;
+- same-epoch hits, green verification, selected red recomputation, and dynamic
+  trace replacement;
+- target-local failure atomicity, no stale fallback, recovery, close-time
+  release, and work-count evidence.
+
+K1.2 accepts only acyclic invocation graphs and must preserve the K1.1 public
+capability surface, Fresh import independence, backend matrix, and zero current
+`incr/` diff.
+
+Blocked and uncommissioned until separate maintainer decisions: invocation
+cycles, cutoff/backdating, proof loss/eviction, Mount/Program, Canopy
+integration, ADR, and publication.

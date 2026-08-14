@@ -6,7 +6,7 @@
 
 **Keep until:** K1.1 is superseded or incorporated into a later accepted K1 slice.
 
-**Disposition:** Accepted K1.1 alpha validation record. Local acceptance, hosted CI, independent reviews, and maintainer acceptance pass. K1.2–K1.6 remain blocked and uncommissioned. Fold durable decisions into a future ADR only after a separately authorized K1 adoption decision.
+**Disposition:** Accepted K1.1 alpha validation record. Local acceptance, hosted CI, independent reviews, and maintainer acceptance pass. K1.2 was commissioned later by Plan 015; its implementation is not yet accepted. K1.3–K1.6 remain blocked and uncommissioned. Fold durable decisions into a future ADR only after a separately authorized K1 adoption decision.
 
 ## First failures retained
 
@@ -23,8 +23,8 @@ Checked with `moon ide doc` before implementation: `Map`/`Set` for typed staging
 ## Acceptance status
 
 K1.1 semantic implementation is **ACCEPTED** at implementation head
-`0ad8f5ae60082dfc6410aac781baa61f52c67d79`. Plan 015 remains in progress,
-and this status-only finalization does not commission K1.2–K1.6.
+`0ad8f5ae60082dfc6410aac781baa61f52c67d79`. Plan 015 remains in progress.
+A later decision commissions K1.2 only; K1.3–K1.6 remain uncommissioned.
 
 The accepted implementation passes:
 
