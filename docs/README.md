@@ -65,12 +65,12 @@ For contributors and advanced users who want to understand or modify `incr`.
 **Implementation specs** ([design/specs/](design/specs/)) — written-ahead design records for individual subsystems. Completed or superseded time-bounded specs are retired under the [documentation retention policy](decisions/2026-06-02-documentation-retention-policy.md) when a durable ADR or performance evidence replaces them; these are not the current backlog; the [roadmap](roadmap.md) decides what is current.
 
 Active Incr Next K0 specs and K1 implementation track (sibling module
-`dowdiness/incr_next`; K1.1 and K1.2 accepted, and K1.3–K1.6 blocked and
-uncommissioned):
+`dowdiness/incr_next`; K1.1 and K1.2 accepted and merged, K1.3 commissioned,
+and K1.4–K1.6 blocked and uncommissioned):
 
 - [Product and Kernel Contract](design/specs/2026-08-13-incr-next-kernel-contract.md) — product/module seam, public capabilities, Fresh parity, clocks, verification, cycles, cutoff, proof loss, snapshot contract, and K1 acceptance
 - [Lifetime and Transaction Contract](design/specs/2026-08-13-incr-next-lifetime-and-transactions.md) — transaction-only publication, Region close, cross-Region traces, failure atomicity, and ownership release
-- [Incr Next module roadmap](../incr_next/docs/roadmap.md) — accepted K1.1 and K1.2 surfaces, and blocked later stages
+- [Incr Next module roadmap](../incr_next/docs/roadmap.md) — accepted K1.1/K1.2 surfaces, commissioned K1.3, and blocked later stages
 - [Incr Next K1.1 validation](../incr_next/docs/k1-1-validation.md) — accepted first failures and Existing API First record
 - [Incr Next K1.2 key-bound compile probe](../incr_next/docs/2026-08-14-k1-2-key-bound-compile-probe.md) — selected `Region::query` Hash/Eq boundary and caller contract
 - [Incr Next K1.2 validation](../incr_next/docs/k1-2-validation.md) — accepted semantics, ownership, interface, backend, and work-count evidence

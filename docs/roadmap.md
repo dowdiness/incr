@@ -28,16 +28,28 @@ transaction-only publication, the module-global alpha phase gate, and the
 Region lifetime skeleton.
 
 K1.2 is **ACCEPTED** at implementation head
-`12ec2404b676ef7864e353aeb3681c0fef6f20e3`. K1.2a/b/c cover typed
+`12ec2404b676ef7864e353aeb3681c0fef6f20e3` and **MERGED** as squash commit
+`db2ac77ac0362a7c5ff8d20887868cbdbb635aa8`. K1.2a/b/c cover typed
 per-Query memo ownership, last-successful forward verification and dynamic
 traces, target-local failure atomicity and recovery, plus their ownership,
 boundary, backend, and work-count gates. Local validation, hosted CI,
-CodeRabbit, independent reviews, and maintainer acceptance pass. PR #474 is
-authorized for squash merge. K1.3–K1.6 remain blocked and uncommissioned.
-Cycle detection, cutoff/backdating, proof loss/eviction, Mount/Program, Canopy
-integration, ADR, and publication require separate maintainer decisions.
+CodeRabbit, independent reviews, and maintainer acceptance pass.
 
-The sibling module owns the accepted K1.1 and K1.2 records in
+K1.3 invocation-level cycle detection is **COMMISSIONED** (implementation not
+yet accepted). The commission covers typed active tracking per QueryCore, a
+key-free session active stack, active checks before memo lookup, copied
+key-free normalized Cycle witnesses, and independent Fresh and incremental
+cycle semantics.
+
+An old-trace Cycle requests recomputation; only a current-recompute Cycle
+becomes the root ReadError. The scope also requires cleanup on every structured
+exit and memo recovery after cycle introduction/removal. It does not include
+cutoff/backdating, eviction or automatic retention, iterative evaluation or
+stack-overflow protection, recovery values, error caching, parallelism,
+Mount/Program, Canopy, ADR, or publication. K1.4–K1.6 remain blocked and
+uncommissioned.
+
+The sibling module owns the accepted K1.1 and K1.2 records and K1.3 commission in
 [`incr_next/docs/roadmap.md`](../incr_next/docs/roadmap.md); this root roadmap
 retains the product pointer.
 

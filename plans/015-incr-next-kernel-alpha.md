@@ -12,13 +12,14 @@ import the evidence providers.
 **Disposition:** Active handoff. K1.1 semantic implementation is accepted and
 merged. K1.2 typed memo, last-successful forward verification, and failure
 atomicity are accepted at implementation head
-`12ec2404b676ef7864e353aeb3681c0fef6f20e3`; PR #474 is authorized for squash
-merge. K1.3–K1.6 require separate maintainer decisions. This plan does not
-authorize publication, Issue action, parent-submodule update, or any work
-beyond K1.2.
+`12ec2404b676ef7864e353aeb3681c0fef6f20e3`; merged at squash commit
+`db2ac77ac0362a7c5ff8d20887868cbdbb635aa8`. K1.3 invocation-level cycle
+detection is **COMMISSIONED** (implementation not yet accepted). K1.4–K1.6
+remain blocked and uncommissioned. This plan does not authorize publication,
+Issue action, parent-submodule update, or any work beyond K1.3.
 
-**Status:** IN PROGRESS (K1.1 ACCEPTED / MERGED; K1.2 ACCEPTED / PR #474;
-K1.3–K1.6 BLOCKED / UNCOMMISSIONED)
+**Status:** IN PROGRESS (K1.1 ACCEPTED / MERGED; K1.2 ACCEPTED / MERGED;
+K1.3 COMMISSIONED; K1.4–K1.6 BLOCKED / UNCOMMISSIONED)
 
 ---
 
@@ -45,18 +46,24 @@ K1.2 target-local failure atomicity and recovery
 K1.2 ownership, backend, boundary, and work-count gates
 ```
 
+Commissioned, implementation not yet accepted:
+
+```text
+K1.3 invocation-level active tracking and structured cycle detection
+```
+
 Blocked and uncommissioned:
 
 ```text
-K1.3 invocation-level cycles
 K1.4 typed cutoff and backdating
 K1.5 private proof loss and ownership completion
-K1.6 later product-quality expansion beyond the K1.2 gates
+K1.6 later product-quality conformance expansion
 Mount, Program, Canopy integration, ADR, or publication
 ```
 
-Later sections remain implementation-ready handoffs, not authorization to begin
-them. Stop after K1.2 acceptance and request a separate K1.3 decision.
+Only K1.3 is commissioned by this update. The K1.4–K1.6 sections remain
+implementation-ready handoffs, not authorization to begin them. Stop after
+K1.3 acceptance and request a separate K1.4 decision.
 
 ## Goal
 
@@ -373,23 +380,172 @@ K1.2 acceptance is determined by work-count assertions; wall-clock thresholds re
 
 ## K1.3 — Invocation-level cycles
 
-- Add typed active invocation maps owned by QueryCore and a key-free session
-  stack.
-- Define identity as QueryCore plus `K::Eq`; check active invocation before memo
-  lookup.
-- Preserve finite recursion over distinct keys.
-- Return copied key-free cycle witnesses.
-- Treat a cycle reached only while verifying an old trace as insufficient reuse
-  evidence; recompute the current branch.
-- Preserve target-local failure atomicity and clean active state on every exit.
+K1.3 answers one question: can the accepted K1.2 kernel add only
+invocation-level active tracking, allow finite recursion across unequal keys,
+detect re-entry to the same QueryCore with an Eq-equal key as a deterministic
+Cycle, and preserve K1.2 memo, trace, and failure atomicity?
 
-**First failure:** `q(3)->q(2)->q(1)->q(0)` succeeds while
-`q(0)->q(1)->q(0)` returns a deterministic witness.
+Finite keyed recursion such as `q(3) -> q(2) -> q(1) -> q(0)` is legal. This is
+semantic support for finite recursion over unequal keys, not an iterative
+evaluation machine, unbounded-depth guarantee, or stack-overflow protection.
 
-### K1.3 gate
+### Commissioned scope
 
-Differential tests cover direct, mutual, same-Query keyed, dead-branch,
-old-trace-only, repeated failure, and recovery cases on every supported backend.
+- One typed active invocation map per QueryCore.
+- One key-free active stack per EvalSession.
+- Invocation identity defined by QueryCore identity plus equality under
+  `K::Eq`.
+- Active re-entry checked before same-epoch memo lookup, old-trace
+  verification, or current recomputation.
+- Copied key-free cycle witnesses.
+- Independent Fresh and incremental cycle detection with shared logical Query
+  names, keys, and normalized observations only.
+- A Cycle found only while verifying an old trace becomes
+  `RecomputeRequired`, allowing the current branch to avoid the old cycle.
+- A Cycle reached by current recomputation becomes the root `ReadError`.
+- Active/tracking cleanup on every structured exit.
+- Failure-atomic memo preservation and recovery after cycle introduction and
+  removal.
+
+### Explicit non-goals
+
+- Cutoff or backdating.
+- Eviction or automatic retention.
+- Iterative evaluation or stack-overflow protection.
+- A cycle recovery value or cached cycle error.
+- Parallel evaluation.
+- Mount, Program, Canopy integration, ADR, or publication.
+
+### Active-check order
+
+Every Query invocation follows this order:
+
+```text
+validate Store / Region / QueryContext
+    -> active invocation check
+    -> same-epoch memo hit
+    -> old-trace verification or current recomputation
+```
+
+The active check precedes cache lookup so an old memo cannot conceal re-entry
+to an invocation that is already on the current evaluation path. An ordinary
+same-epoch hit that is not already active returns without adding an active-map
+entry. The map and stack track only the slow path that proceeds into stale
+verification or computation.
+
+### Witness contract
+
+The testkit-normalized witness has this semantic shape:
+
+```text
+CycleWitness {
+  path : Array[QueryId]
+}
+```
+
+Detection is key-sensitive; the copied witness is key-free:
+
+```text
+direct self      [A, A]
+mutual cycle     [A, B, A]
+same Query keys  [Q, Q, Q]
+```
+
+A witness retains copied logical Query identifiers only. It never retains or
+formats a generic key, QueryCore, closure, memo, trace, or Region-owned payload.
+The normalized semantics are fixed by this commission. Before the first kernel
+interface edit, generated `.mbti` review must select the smallest structural
+`ReadError`/witness spelling that preserves those semantics without exposing
+active tracking or key representation.
+
+### Implementation order
+
+```text
+K1.3a  testkit model adds cycle graph recipes and normalized witnesses
+       Fresh adds its own active invocation tracking
+       Fresh and incremental share no active-tracking implementation
+
+K1.3b  QueryCore adds its typed active map
+       EvalSession adds its key-free active stack
+       active re-entry is checked before cache lookup
+
+K1.3c  old-verification Cycle and current Cycle are separated
+       failure atomicity and same-MemoId recovery are retained
+       all structured exits receive cleanup and native RC evidence
+```
+
+### First failure matrix
+
+| Case | Expected result |
+|---|---|
+| Direct self-cycle `A -> A` | `Cycle[A, A]` |
+| Mutual cycle `A -> B -> A` | `Cycle[A, B, A]` |
+| Same Query key cycle `q(0) -> q(1) -> q(0)` | `Cycle[Q, Q, Q]` |
+| Finite recursion `q(3) -> q(2) -> q(1) -> q(0)` | Success |
+| Unequal-key cross-Query `A(0) -> B(0) -> A(1)` | Success |
+| Dead cycle branch | Success; no Cycle |
+| Sequential duplicate read | Success; no Cycle |
+| Initial Cycle | No memo installed |
+| Cycle introduced over a successful memo | Current Cycle; old memo unchanged; no stale fallback |
+| Repeated Cycle | Detected on every read; error not cached |
+| Cycle removed | Recovery with the same MemoId |
+| Cycle reached only through an old trace | `RecomputeRequired`, then current branch succeeds |
+| Cycle reached by current recomputation | Current Cycle determines the root error |
+| Close or another structural error | Active map and session stack empty after exit |
+
+The matrix is added to the independent testkit before kernel production code.
+Fresh and incremental implement active tracking independently and compare only
+logical outcomes and normalized witnesses.
+
+### K1.3 acceptance gate
+
+Correctness:
+
+- Existing K1.1 and K1.2 differential scripts still match Fresh.
+- Fresh and incremental normalized Cycle witnesses match.
+- Direct, mutual, and same-Query keyed cycles are detected.
+- Finite keyed recursion, unequal-key cross-Query recursion, dead branches, and
+  sequential duplicate reads succeed.
+- A cache hit cannot hide active re-entry.
+- An old-verification Cycle requests current recomputation and does not decide
+  the root error; only a Cycle reached by current recomputation does.
+- Cycle removal recovers successfully.
+
+Failure atomicity:
+
+- An initial Cycle installs no memo.
+- A Cycle over an existing target preserves its value, trace, MemoId,
+  `verified_at`, and `changed_at` exactly.
+- A cycle read returns the current error without stale fallback.
+- Cycle errors are never memoized; repeated reads detect them again.
+- Recovery keeps the target MemoId and atomically replaces value, trace, and
+  current stamps.
+
+Cleanup and ownership:
+
+- Active keys are removed after success, Cycle, and every other structured
+  error.
+- The session stack is empty after every root exit.
+- Temporary traces and frames are released after Cycle.
+- CycleWitness retains no QueryCore, key, closure, memo, trace, or Region-owned
+  payload.
+- Region close releases active, memo, and trace payloads; native RC evidence
+  distinguishes a surviving View's retained key from an active-map leak.
+
+Boundaries and backends:
+
+- No reverse subscriber edge or global erased-key registry is added.
+- Current `incr/` implementation and interface diff remains zero.
+- No public cutoff, backdating, eviction, retention, debug, Mount, or Program
+  surface appears.
+- Fresh and every transitive dependency remain independent of
+  `dowdiness/incr_next`.
+- Default, native, JavaScript, and wasm-gc matrices pass.
+- Generated `.mbti` review confirms only the commissioned structural
+  Cycle/witness delta and no active-tracking representation.
+
+**First failure:** finite `q(3) -> q(2) -> q(1) -> q(0)` recursion succeeds
+while `q(0) -> q(1) -> q(0)` returns a deterministic copied key-free witness.
 
 ## K1.4 — Typed cutoff and backdating
 

@@ -7,10 +7,13 @@
 capturing the required dictionary in the private Query recipe created at the
 Region boundary.
 
-**Keep until:** K1.2 is accepted, rejected, or superseded.
+**Keep until:** K1 alpha is superseded or a durable ADR is separately
+authorized.
 
-**Disposition:** Active K1.2 implementation evidence. This probe authorizes no
-surface beyond commissioned K1.2.
+**Disposition:** Accepted K1.2 implementation evidence. K1.2 is accepted at
+implementation head `12ec2404b676ef7864e353aeb3681c0fef6f20e3` and merged as
+squash commit `db2ac77ac0362a7c5ff8d20887868cbdbb635aa8`. This probe authorizes
+no K1.3 interface or surface.
 
 ## Reproduction identity
 
