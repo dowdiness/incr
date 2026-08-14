@@ -3,6 +3,7 @@
 priv struct EvalSession {
   owner : StoreId
   revision : Revision
+  change_epoch : ChangeEpoch
   active : Ref[Bool]
 }
 

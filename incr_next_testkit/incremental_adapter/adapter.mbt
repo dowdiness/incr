@@ -55,7 +55,7 @@ fn make_reader(
     @model.Scenario::Diamond => {
       let source = sources[0]
       let shared = region
-        .query((ctx, _unit : Unit) => {
+        .query((ctx, _branch : Int) => {
           computes.val = computes.val + 1
           ctx.read(source.view())
         })
@@ -63,7 +63,7 @@ fn make_reader(
       let left = region
         .query((ctx, _unit : Unit) => {
           computes.val = computes.val + 1
-          match ctx.read(shared.at(())) {
+          match ctx.read(shared.at(1)) {
             Ok(value) => Ok(value + 1)
             Err(error) => Err(error)
           }
@@ -72,7 +72,7 @@ fn make_reader(
       let right = region
         .query((ctx, _unit : Unit) => {
           computes.val = computes.val + 1
-          match ctx.read(shared.at(())) {
+          match ctx.read(shared.at(2)) {
             Ok(value) => Ok(value + 2)
             Err(error) => Err(error)
           }

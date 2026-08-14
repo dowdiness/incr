@@ -31,25 +31,43 @@ pub fn evaluate(script : @model.Script) -> Array[@model.Observation] {
   let values : Map[Int, Int] = { 0: 0 }
   let observations : Array[@model.Observation] = []
   let computes = Ref(0)
+  let change_epoch = Ref(0)
+  let computed_epoch : Ref[Int?] = Ref(None)
+  let keyed_computed : Map[Int, Bool] = Map([])
   for operation in script.operations() {
     match operation {
       @model.Operation::Define(id, value) => values[id] = value
-      @model.Operation::Set(id, value) => values[id] = value
+      @model.Operation::Set(id, value) => {
+        values[id] = value
+        change_epoch.val = change_epoch.val + 1
+        computed_epoch.val = None
+        keyed_computed.clear()
+      }
       @model.Operation::Read(id) => {
-        computes.val = computes.val +
-          (match script.scenario_tag() {
-            @model.Scenario::Source => 0
-            @model.Scenario::Chain => 2
-            @model.Scenario::Diamond => 5
-            _ => 1
-          })
+        let should_compute = match script.scenario_tag() {
+          @model.Scenario::Source => false
+          _ => computed_epoch.val != Some(change_epoch.val)
+        }
+        if should_compute {
+          computes.val = computes.val +
+            (match script.scenario_tag() {
+              @model.Scenario::Chain => 2
+              @model.Scenario::Diamond => 5
+              _ => 1
+            })
+          computed_epoch.val = Some(change_epoch.val)
+        }
         match scenario_value(values, script.scenario_tag(), id, 0) {
           Some(value) => observations.push(@model.Observation::Value(value))
           None => observations.push(@model.Observation::Missing(id))
         }
       }
       @model.Operation::ReadKey(id, key) => {
-        computes.val = computes.val + 1
+        if script.scenario_tag() is @model.Scenario::KeyedQuery &&
+          !keyed_computed.contains(key) {
+          computes.val = computes.val + 1
+          keyed_computed[key] = true
+        }
         match scenario_value(values, script.scenario_tag(), id, key) {
           Some(value) => observations.push(@model.Observation::Value(value))
           None => observations.push(@model.Observation::Missing(id))

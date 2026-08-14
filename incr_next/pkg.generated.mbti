@@ -33,7 +33,7 @@ pub struct Region {
   // private fields
 }
 pub fn Region::close(Self) -> Result[Unit, RegionError]
-pub fn[K, V] Region::query(Self, (QueryContext, K) -> Result[V, ReadError]) -> Result[Query[K, V], RegionError]
+pub fn[K : Hash + Eq, V] Region::query(Self, (QueryContext, K) -> Result[V, ReadError]) -> Result[Query[K, V], RegionError]
 pub fn[T] Region::source(Self, T) -> Result[Source[T], RegionError]
 
 pub(all) enum RegionError {

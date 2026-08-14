@@ -1,5 +1,15 @@
 ///|
-test "canonical source view and no memo query" {
+struct EqKey {
+  value : Int
+} derive(Eq, Hash)
+
+///|
+fn EqKey::EqKey(value : Int) -> EqKey {
+  { value, }
+}
+
+///|
+test "canonical source view and memoized query" {
   let store = Store::Store()
   let region = store.region().unwrap()
   let source = region.source(2).unwrap()
@@ -17,7 +27,7 @@ test "canonical source view and no memo query" {
   let view = doubled.at(())
   assert_eq(store.read(view), Ok(4))
   assert_eq(store.read(view), Ok(4))
-  assert_eq(runs.val, 2)
+  assert_eq(runs.val, 1)
   assert_eq(store.revision().value(), 0)
 }
 
@@ -109,6 +119,84 @@ test "nested structural errors remain in the outer read channel" {
     .query((ctx, _unit : Unit) => ctx.read(foreign.view()))
     .unwrap()
   assert_true(store.read(query.at(())) is Err(ReadError::CrossStore(..)))
+}
+
+///|
+test "same ChangeEpoch reuses a Query memo" {
+  let store = Store::Store()
+  let region = store.region().unwrap()
+  let computes = Ref(0)
+  let query = region
+    .query((_ctx, key : Int) => {
+      computes.val = computes.val + 1
+      Ok(key + 10)
+    })
+    .unwrap()
+  assert_eq(store.read(query.at(1)), Ok(11))
+  assert_eq(store.read(query.at(1)), Ok(11))
+  assert_eq(computes.val, 1)
+}
+
+///|
+test "Eq-equal Query keys share one memo" {
+  let store = Store::Store()
+  let region = store.region().unwrap()
+  let computes = Ref(0)
+  let query = region
+    .query((_ctx, key : EqKey) => {
+      computes.val = computes.val + 1
+      Ok(key.value)
+    })
+    .unwrap()
+  assert_eq(store.read(query.at(EqKey(7))), Ok(7))
+  assert_eq(store.read(query.at(EqKey(7))), Ok(7))
+  assert_eq(computes.val, 1)
+}
+
+///|
+test "different QueryCores isolate equal keys" {
+  let store = Store::Store()
+  let region = store.region().unwrap()
+  let left_computes = Ref(0)
+  let right_computes = Ref(0)
+  let left = region
+    .query((_ctx, key : Int) => {
+      left_computes.val = left_computes.val + 1
+      Ok(key + 1)
+    })
+    .unwrap()
+  let right = region
+    .query((_ctx, key : Int) => {
+      right_computes.val = right_computes.val + 1
+      Ok(key + 2)
+    })
+    .unwrap()
+  assert_eq(store.read(left.at(3)), Ok(4))
+  assert_eq(store.read(right.at(3)), Ok(5))
+  assert_eq(store.read(left.at(3)), Ok(4))
+  assert_eq(store.read(right.at(3)), Ok(5))
+  assert_eq(left_computes.val, 1)
+  assert_eq(right_computes.val, 1)
+}
+
+///|
+test "a new ChangeEpoch recomputes a Query memo" {
+  let store = Store::Store()
+  let region = store.region().unwrap()
+  let source = region.source(2).unwrap()
+  let computes = Ref(0)
+  let query = region
+    .query((ctx, _unit : Unit) => {
+      computes.val = computes.val + 1
+      ctx.read(source.view())
+    })
+    .unwrap()
+  assert_eq(store.read(query.at(())), Ok(2))
+  assert_eq(store.read(query.at(())), Ok(2))
+  assert_eq(computes.val, 1)
+  ignore(store.transaction(tx => tx.set(source, 3)))
+  assert_eq(store.read(query.at(())), Ok(3))
+  assert_eq(computes.val, 2)
 }
 
 ///|

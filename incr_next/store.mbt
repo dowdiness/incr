@@ -36,6 +36,7 @@ pub fn[V] Store::read(self : Store, view : View[V]) -> Result[V, ReadError] {
         let session : EvalSession = {
           owner: self.id,
           revision: self.revision(),
+          change_epoch: self.change_epoch.val,
           active: Ref(true),
         }
         let context = QueryContext::root(session)
