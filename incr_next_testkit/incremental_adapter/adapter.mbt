@@ -52,6 +52,18 @@ fn make_reader(
       let view = second.at(())
       (_source_id, _key) => store.read(view)
     }
+    @model.Scenario::UnrelatedPublication
+    | @model.Scenario::SelectedPublication => {
+      let source = sources[0]
+      let query = region
+        .query((ctx, _unit : Unit) => {
+          computes.val = computes.val + 1
+          ctx.read(source.view())
+        })
+        .unwrap()
+      let view = query.at(())
+      (_source_id, _key) => store.read(view)
+    }
     @model.Scenario::Diamond => {
       let source = sources[0]
       let shared = region
@@ -153,7 +165,9 @@ pub fn evaluate(script : @model.Script) -> Array[@model.Observation] {
   let store = @incr_next.Store::Store()
   let region = store.region().unwrap()
   let sources : Map[Int, @incr_next.Source[Int]] = match script.scenario_tag() {
-    @model.Scenario::DynamicBranch =>
+    @model.Scenario::DynamicBranch
+    | @model.Scenario::UnrelatedPublication
+    | @model.Scenario::SelectedPublication =>
       { 0: region.source(0).unwrap(), 1: region.source(0).unwrap() }
     _ => { 0: region.source(0).unwrap() }
   }

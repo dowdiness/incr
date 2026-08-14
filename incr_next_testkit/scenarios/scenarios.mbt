@@ -49,6 +49,24 @@ pub fn diamond() -> @model.Script {
 }
 
 ///|
+pub fn unrelated_publication() -> @model.Script {
+  script(@model.Scenario::UnrelatedPublication, [
+    @model.Operation::Read(0),
+    @model.Operation::Set(1, 7),
+    @model.Operation::Read(0),
+  ])
+}
+
+///|
+pub fn selected_publication() -> @model.Script {
+  script(@model.Scenario::SelectedPublication, [
+    @model.Operation::Read(0),
+    @model.Operation::Set(0, 7),
+    @model.Operation::Read(0),
+  ])
+}
+
+///|
 pub fn dynamic_branch() -> @model.Script {
   script(@model.Scenario::DynamicBranch, [
     @model.Operation::Read(0),
@@ -87,6 +105,8 @@ pub fn all() -> Array[@model.Script] {
     keyed_query(),
     chain(),
     diamond(),
+    unrelated_publication(),
+    selected_publication(),
     dynamic_branch(),
     root_snapshot(),
     domain_failure(),

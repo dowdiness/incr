@@ -10,6 +10,8 @@ pub(all) enum Scenario {
   KeyedQuery
   Chain
   Diamond
+  UnrelatedPublication
+  SelectedPublication
   DynamicBranch
   RootSnapshot
   DomainFailure

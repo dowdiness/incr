@@ -22,6 +22,34 @@ test "keyed work identity includes SourceId and key" {
 }
 
 ///|
+test "unrelated publication green-verifies without extra compute" {
+  let expected = [
+    @model.Observation::Value(0),
+    @model.Observation::Value(0),
+    @model.Observation::Counter(1),
+  ]
+  assert_eq(@fresh.evaluate(@scenarios.unrelated_publication()), expected)
+  assert_eq(
+    @incremental_adapter.evaluate(@scenarios.unrelated_publication()),
+    expected,
+  )
+}
+
+///|
+test "selected publication red-recomputes with matching work" {
+  let expected = [
+    @model.Observation::Value(0),
+    @model.Observation::Value(7),
+    @model.Observation::Counter(2),
+  ]
+  assert_eq(@fresh.evaluate(@scenarios.selected_publication()), expected)
+  assert_eq(
+    @incremental_adapter.evaluate(@scenarios.selected_publication()),
+    expected,
+  )
+}
+
+///|
 test "same-epoch chain shares Query memo work" {
   let expected = [
     @model.Observation::Value(1),

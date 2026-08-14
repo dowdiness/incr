@@ -19,9 +19,11 @@ only:
 - same-epoch hits, with stale epochs still recomputing unconditionally;
 - close-time release and work-count evidence.
 
-K1.2b (forward trace verification and green reuse) remains pending for the
-next slice. K1.2c (target-local failure atomicity, no stale fallback, recovery)
-remains pending for its dedicated slice.
+K1.2b now implements forward trace verification and green reuse, including
+unrelated publications, selected recomputation, dynamic trace replacement,
+Revision-clock verification, and same-Store cross-Region branch-away. K1.2c
+(target-local failure atomicity, no stale fallback, recovery) remains pending
+for its dedicated slice.
 
 K1.2 accepts only acyclic invocation graphs and must preserve the K1.1 public
 capability surface, Fresh import independence, backend matrix, and zero current

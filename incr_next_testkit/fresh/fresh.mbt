@@ -12,6 +12,8 @@ fn scenario_value(
   match scenario {
     @model.Scenario::Chain => Some(base + 1)
     @model.Scenario::Diamond => Some(base * 2 + 3)
+    @model.Scenario::UnrelatedPublication
+    | @model.Scenario::SelectedPublication => Some(base)
     @model.Scenario::DynamicBranch =>
       match values.get(1) {
         Some(flag) => if flag != 0 { Some(flag) } else { Some(base) }
@@ -29,7 +31,9 @@ fn scenario_value(
 /// This package deliberately has no dependency on `dowdiness/incr_next`.
 pub fn evaluate(script : @model.Script) -> Array[@model.Observation] {
   let values : Map[Int, Int] = match script.scenario_tag() {
-    @model.Scenario::DynamicBranch => { 0: 0, 1: 0 }
+    @model.Scenario::DynamicBranch
+    | @model.Scenario::UnrelatedPublication
+    | @model.Scenario::SelectedPublication => { 0: 0, 1: 0 }
     _ => { 0: 0 }
   }
   let observations : Array[@model.Observation] = []
@@ -44,7 +48,12 @@ pub fn evaluate(script : @model.Script) -> Array[@model.Observation] {
         values[id] = value
         if existing {
           change_epoch.val = change_epoch.val + 1
-          computed_epoch.val = None
+          if script.scenario_tag() is @model.Scenario::UnrelatedPublication &&
+            id != 0 {
+            computed_epoch.val = Some(change_epoch.val)
+          } else {
+            computed_epoch.val = None
+          }
           keyed_computed.clear()
         }
       }
