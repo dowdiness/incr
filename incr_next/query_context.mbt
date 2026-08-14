@@ -5,6 +5,7 @@ priv struct EvalSession {
   revision : Revision
   change_epoch : ChangeEpoch
   revision_changed_at : Ref[ChangeEpoch]
+  active_stack : Array[QueryId]
   active : Ref[Bool]
 }
 

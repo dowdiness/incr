@@ -40,6 +40,7 @@ pub fn[V] Store::read(self : Store, view : View[V]) -> Result[V, ReadError] {
           revision: self.revision(),
           change_epoch: self.change_epoch.val,
           revision_changed_at: self.revision_changed_at,
+          active_stack: [],
           active: Ref(true),
         }
         let context = QueryContext::root(session)

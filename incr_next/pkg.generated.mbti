@@ -10,6 +10,11 @@ import {
 // Errors
 
 // Types and methods
+pub struct CycleWitness {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn CycleWitness::path(Self) -> Array[Int]
+
 pub struct Query[K, V] {
   // private fields
 }
@@ -24,6 +29,7 @@ pub fn QueryContext::revision(Self) -> Result[Revision, ReadError]
 pub(all) enum ReadError {
   CrossStore(view_store~ : StoreId, reader_store~ : StoreId)
   ClosedRegion(generation~ : RegionGeneration)
+  Cycle(CycleWitness)
   ExpiredQueryContext
   ReentrantRootRead(active_store~ : StoreId, requested_store~ : StoreId)
   ReadDuringTransaction(active_store~ : StoreId, requested_store~ : StoreId)
