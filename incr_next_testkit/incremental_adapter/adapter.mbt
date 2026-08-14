@@ -55,7 +55,7 @@ fn make_reader(
     @model.Scenario::Diamond => {
       let source = sources[0]
       let shared = region
-        .query((ctx, _branch : Int) => {
+        .query((ctx, _key : (Int, Int)) => {
           computes.val = computes.val + 1
           ctx.read(source.view())
         })
@@ -63,7 +63,7 @@ fn make_reader(
       let left = region
         .query((ctx, _unit : Unit) => {
           computes.val = computes.val + 1
-          match ctx.read(shared.at(1)) {
+          match ctx.read(shared.at((0, 0))) {
             Ok(value) => Ok(value + 1)
             Err(error) => Err(error)
           }
@@ -72,7 +72,7 @@ fn make_reader(
       let right = region
         .query((ctx, _unit : Unit) => {
           computes.val = computes.val + 1
-          match ctx.read(shared.at(2)) {
+          match ctx.read(shared.at((0, 0))) {
             Ok(value) => Ok(value + 2)
             Err(error) => Err(error)
           }
@@ -152,8 +152,10 @@ fn publish_or_define(
 pub fn evaluate(script : @model.Script) -> Array[@model.Observation] {
   let store = @incr_next.Store::Store()
   let region = store.region().unwrap()
-  let sources : Map[Int, @incr_next.Source[Int]] = {
-    0: region.source(0).unwrap(),
+  let sources : Map[Int, @incr_next.Source[Int]] = match script.scenario_tag() {
+    @model.Scenario::DynamicBranch =>
+      { 0: region.source(0).unwrap(), 1: region.source(0).unwrap() }
+    _ => { 0: region.source(0).unwrap() }
   }
   let observations : Array[@model.Observation] = []
   let computes = Ref(0)

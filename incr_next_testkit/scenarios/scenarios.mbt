@@ -51,10 +51,8 @@ pub fn diamond() -> @model.Script {
 ///|
 pub fn dynamic_branch() -> @model.Script {
   script(@model.Scenario::DynamicBranch, [
-    @model.Operation::Define(1, 0),
-    @model.Operation::Define(0, 7),
     @model.Operation::Read(0),
-    @model.Operation::Set(1, 9),
+    @model.Operation::Define(1, 9),
     @model.Operation::Read(0),
   ])
 }

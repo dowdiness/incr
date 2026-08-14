@@ -23,7 +23,6 @@ priv struct QueryCore[K, V] {
   owner : StoreId
   generation : RegionGeneration
   epoch : RegionEpoch
-  change_epoch : Ref[ChangeEpoch]
   compute : Ref[((QueryContext, K) -> Result[V, ReadError])?]
   memo : Map[K, MemoEntry[V]]
   next_memo_id : Ref[Int]
@@ -111,7 +110,6 @@ pub fn[K : Hash + Eq, V] Region::query(
         owner: self.owner,
         generation: self.epoch.snapshot(),
         epoch: self.epoch,
-        change_epoch: self.change_epoch,
         compute: Ref(Some(compute)),
         memo: Map([]),
         next_memo_id: Ref(0),
