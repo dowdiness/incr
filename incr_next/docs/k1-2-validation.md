@@ -5,6 +5,9 @@
 **Decision:** Add typed per-Query memos, last-successful forward verification,
 and target-local failure atomicity to the accepted K1.1 kernel while preserving
 Fresh independence, ownership boundaries, and the small public interface.
+The testkit model is corrected to a two-phase Script: `initial_sources` fixes
+Source membership and values before graph setup, while `operations` only replay
+Reads, existing Source Sets, or invocations of prepared error Views.
 
 **Keep until:** K1.2 is accepted, rejected, or superseded by a later kernel
 slice.
@@ -47,9 +50,10 @@ verification, one verification or compute per selected diamond child and epoch,
 unrelated and selected publication, Revision-clock dependencies, dynamic trace
 replacement, and same-Store cross-Region branch-away after an old Region closes.
 The DynamicBranch test predeclares both Source handles and captures them before
-Query construction. It publishes branch `0 -> 9`, then publishes the old base;
-the final `9` result and Fresh/kernel work counts `3/2` show that the replaced
-trace no longer treats the base as authoritative.
+Query construction. Its Script starts with `0=0, 1=0`, then publishes branch
+`1 -> 9` and the old base `0 -> 7`; the final `9` result and Fresh/kernel work
+counts `3/2` show that the replaced trace no longer treats the base as
+authoritative. The keyed differential similarly starts with `0=0, 1=10`.
 
 K1.2c keeps last-successful authority local to the target invocation. An initial
 structural failure installs no memo. A failed stale recomputation returns the
@@ -66,13 +70,23 @@ failure/recovery workload records the middle read as
 `StructuralFailure(1)`, distinct from `Missing(0)`, in both Fresh and the kernel
 adapter.
 
+The private Script validator now checks required setup IDs and operation shape
+before either evaluator constructs a graph. Fixed-root reads of present
+non-root IDs are rejected, while reads of absent IDs remain valid `Missing`
+cases. Keyed reads and the domain/structural error capabilities are restricted
+to their matching scenarios. Both evaluators construct every logical Source and
+all Query/error fixtures from setup data before replay; replay only performs
+Reads, existing Source Sets, or invokes prepared error Views. The
+structural fixture uses prebuilt keyed Query/Views, so it does not add a hidden
+logical Source.
+
 ## Local gate evidence
 
 The candidate passes:
 
 - six package roots across default, native, JavaScript, and wasm-gc targets:
   24 of 24 check-and-test cells;
-- workspace tests: 1,204 wasm-gc and 256 JavaScript;
+- workspace tests: 1,211 wasm-gc and 256 JavaScript;
 - native RC/finalizer probes for successful replacement of old memo values and
   traces, failed temporary-trace release with old authority retained, and
   Region-close release while a View survives;
@@ -100,7 +114,9 @@ identity.
 
 Key erasure, a linear-search table, and a generic defensive copy were checked
 and rejected because they would weaken the selected typed ownership and caller
-contracts. No new public helper or type was introduced. Remaining mutation is
+contracts. The kernel adds no public helper or type. The independent testkit
+adds transparent `SourceInit` setup values and defensive Script snapshot
+accessors to expose its two-phase input language. Remaining kernel mutation is
 confined to private memo tables, counters, temporary tracking frames, clock
-publication, and Region-close actions; these form the imperative shell around
-the deterministic verification decision.
+publication, and Region-close actions. Testkit mutation is local to setup
+validation, Fresh state, and transactional replay.

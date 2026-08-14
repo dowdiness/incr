@@ -44,9 +44,13 @@ test "Fresh and incremental work counters are separate evidence" {
   )
   assert_semantics_and_work(
     @scenarios.keyed_query(),
-    [@model.Observation::Value(3), @model.Observation::Value(3)],
+    [
+      @model.Observation::Value(3),
+      @model.Observation::Value(13),
+      @model.Observation::Value(13),
+    ],
+    3,
     2,
-    1,
   )
   assert_semantics_and_work(
     @scenarios.chain(),
@@ -114,11 +118,10 @@ test "Fresh and incremental work counters are separate evidence" {
 
 ///|
 test "keyed work identity includes SourceId and key" {
-  let script = @model.Script::scenario(@model.Scenario::KeyedQuery, [
-    @model.Operation::Define(1, 10),
-    @model.Operation::ReadKey(0, 3),
-    @model.Operation::ReadKey(1, 3),
-    @model.Operation::ReadKey(1, 3),
+  let script = @scenarios.keyed_query()
+  assert_eq(script.initial_sources(), [
+    @model.SourceInit::{ id: 0, value: 0 },
+    @model.SourceInit::{ id: 1, value: 10 },
   ])
   assert_semantics_and_work(
     script,
@@ -130,6 +133,41 @@ test "keyed work identity includes SourceId and key" {
     3,
     2,
   )
+}
+
+///|
+test "Read of an undefined Source remains a normalized Missing observation" {
+  let source_script = @model.Script::Script(
+    [@model.SourceInit::{ id: 0, value: 0 }],
+    [@model.Operation::Read(1)],
+  )
+  assert_semantics_and_work(
+    source_script,
+    [@model.Observation::Missing(1)],
+    0,
+    0,
+  )
+  let query_script = @model.Script::scenario(
+    @model.Scenario::UnitQuery,
+    [@model.SourceInit::{ id: 0, value: 0 }],
+    [@model.Operation::Read(99)],
+  )
+  assert_semantics_and_work(
+    query_script,
+    [@model.Observation::Missing(99)],
+    1,
+    0,
+  )
+}
+
+///|
+test "KeyedQuery accepts noncanonical initial Source IDs" {
+  let script = @model.Script::scenario(
+    @model.Scenario::KeyedQuery,
+    [@model.SourceInit::{ id: 7, value: 10 }],
+    [@model.Operation::ReadKey(7, 3)],
+  )
+  assert_semantics_and_work(script, [@model.Observation::Value(13)], 1, 1)
 }
 
 ///|
@@ -173,23 +211,12 @@ test "diamond semantic values match without simulating memo work in Fresh" {
 }
 
 ///|
-test "UnitQuery Define publishes an existing Source" {
-  let script = @model.Script::scenario(@model.Scenario::UnitQuery, [
-    @model.Operation::Read(0),
-    @model.Operation::Define(0, 7),
-    @model.Operation::Read(0),
-  ])
-  assert_semantics_and_work(
-    script,
-    [@model.Observation::Value(0), @model.Observation::Value(7)],
-    2,
-    2,
-  )
-}
-
-///|
 test "DynamicBranch updates a tracked branch and drops the old base" {
   let script = @scenarios.dynamic_branch()
+  assert_eq(script.initial_sources(), [
+    @model.SourceInit::{ id: 0, value: 0 },
+    @model.SourceInit::{ id: 1, value: 0 },
+  ])
   assert_eq(script.operations(), [
     @model.Operation::Read(0),
     @model.Operation::Set(1, 9),

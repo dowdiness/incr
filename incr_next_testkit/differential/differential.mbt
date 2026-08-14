@@ -21,11 +21,13 @@ pub fn matches(script : @model.Script) -> Bool {
 }
 
 ///|
+/// Reports whether the canonical Source scenario matches Fresh.
 pub fn canonical_matches() -> Bool {
   matches(@scenarios.canonical())
 }
 
 ///|
+/// Reports whether every canonical scenario matches Fresh semantically.
 pub fn all_match() -> Bool {
   @scenarios.all().all(script => matches(script))
 }

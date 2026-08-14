@@ -68,18 +68,14 @@ fn from_scratch_read_work(scenario : @model.Scenario) -> Int {
 /// Every read evaluates its graph anew; the final Counter is evidence of that
 /// baseline, not part of the semantic oracle.
 pub fn evaluate(script : @model.Script) -> Array[@model.Observation] {
-  let values : Map[Int, Int] = match script.scenario_tag() {
-    @model.Scenario::DynamicBranch
-    | @model.Scenario::UnrelatedPublication
-    | @model.Scenario::SelectedPublication => { 0: 0, 1: 0 }
-    _ => { 0: 0 }
-  }
+  let values : Map[Int, Int] = Map(
+    script.initial_sources().map(init => (init.id, init.value)),
+  )
   let observations : Array[@model.Observation] = []
   let computes = Ref(0)
   for operation in script.operations() {
     match operation {
-      @model.Operation::Define(id, value) | @model.Operation::Set(id, value) =>
-        values[id] = value
+      @model.Operation::Set(id, value) => values[id] = value
       @model.Operation::Read(id) => {
         computes.val = computes.val +
           from_scratch_read_work(script.scenario_tag())
