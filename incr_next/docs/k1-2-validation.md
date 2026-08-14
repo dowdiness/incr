@@ -1,4 +1,4 @@
-# K1.2 local validation record
+# K1.2 validation record
 
 **Reader:** K1.2 maintainers and reviewers.
 
@@ -12,12 +12,12 @@ Reads, existing Source Sets, or invocations of prepared error Views.
 **Keep until:** K1.2 is accepted, rejected, or superseded by a later kernel
 slice.
 
-**Disposition:** Local gate pass; implementation not accepted; unpublished.
-The candidate is based on `0c5ae4e50622f55b288aa536722e3ac77a71e030`.
-The kernel implementation ends at `ece8cfe`; later commits contain testkit and
-documentation corrections only. PR #474 is open. Hosted CI, maintainer
-acceptance, and merge remain pending separate authorization. K1.3–K1.6 remain
-blocked and uncommissioned.
+**Disposition:** Accepted K1.2 validation record. The candidate is based on
+`0c5ae4e50622f55b288aa536722e3ac77a71e030`; the accepted implementation head
+is `12ec2404b676ef7864e353aeb3681c0fef6f20e3`. Local gates, hosted CI,
+CodeRabbit, independent reviews, and maintainer acceptance pass. PR #474 is
+authorized for squash merge. K1.3–K1.6 remain blocked and uncommissioned. No
+ADR or package publication is authorized.
 
 ## Generated-interface probe
 
@@ -82,7 +82,7 @@ a failed publication cannot become a false-positive differential result. The
 structural fixture uses prebuilt keyed Query/Views, so it does not add a hidden
 logical Source.
 
-## Local gate evidence
+## Acceptance gate evidence
 
 The candidate passes:
 
@@ -99,10 +99,9 @@ The candidate passes:
 - zero current-`incr/` implementation or interface diff;
 - zero K1.3+ cycle, cutoff/backdating, eviction, Mount, Program, or public
   debug/explain surface;
-- independent MoonBit and adversarial reviews.
-
-These are local results. They do not constitute hosted CI or maintainer
-acceptance.
+- independent MoonBit and adversarial reviews;
+- hosted CI, the `Incr Next Required` aggregate, CodeRabbit, and maintainer
+  acceptance.
 
 ## Reuse check
 

@@ -11,13 +11,14 @@ import the evidence providers.
 
 **Disposition:** Active handoff. K1.1 semantic implementation is accepted and
 merged. K1.2 typed memo, last-successful forward verification, and failure
-atomicity are implemented and pass the local gate, but remain unaccepted and
-unpublished. K1.3–K1.6 require separate maintainer decisions. This plan does
-not authorize publication, Issue action, parent-submodule update, or any work
+atomicity are accepted at implementation head
+`12ec2404b676ef7864e353aeb3681c0fef6f20e3`; PR #474 is authorized for squash
+merge. K1.3–K1.6 require separate maintainer decisions. This plan does not
+authorize publication, Issue action, parent-submodule update, or any work
 beyond K1.2.
 
-**Status:** IN PROGRESS (K1.1 ACCEPTED / MERGED; K1.2 IMPLEMENTATION COMPLETE /
-LOCAL GATE PASS / NOT ACCEPTED; K1.3–K1.6 BLOCKED / UNCOMMISSIONED)
+**Status:** IN PROGRESS (K1.1 ACCEPTED / MERGED; K1.2 ACCEPTED / PR #474;
+K1.3–K1.6 BLOCKED / UNCOMMISSIONED)
 
 ---
 
@@ -35,7 +36,7 @@ K1.1 Region lifetime skeleton
 K1.1 target, negative-interface, and ownership gates
 ```
 
-Commissioned and implemented; local gate passes; implementation not accepted:
+Commissioned, implemented, and accepted:
 
 ```text
 K1.2 typed per-Query memo ownership

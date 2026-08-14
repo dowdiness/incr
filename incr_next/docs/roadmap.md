@@ -9,8 +9,8 @@ The accepted scope is Store, Region, Source, Query, opaque View, QueryContext,
 Transaction, Revision, structural errors, and the independent testkit. Plan 015
 remains **IN PROGRESS**.
 
-K1.2 implementation is complete and its local gate passes, but it is
-**NOT ACCEPTED**. K1.2a implements:
+K1.2 is **ACCEPTED** at implementation head
+`12ec2404b676ef7864e353aeb3681c0fef6f20e3`. K1.2a implements:
 
 - Query-local typed memo ownership after a generated-interface compile probe
   selects the public `K : Hash + Eq` bound;
@@ -27,10 +27,10 @@ not install memos, failed recomputes return the current error without stale
 fallback, successful upstream work remains installed, and recovery preserves
 memo identity while replacing value/trace and stamps.
 
-The [K1.2 local validation record](k1-2-validation.md) captures the passing
-local gate. Hosted CI, implementation PR creation or push, maintainer
-acceptance, and merge remain pending separate authorization. K1.3 and later
-work remains blocked and uncommissioned.
+The [K1.2 validation record](k1-2-validation.md) captures the passing local
+and hosted gates, CodeRabbit, independent reviews, and maintainer acceptance.
+PR #474 is authorized for squash merge. K1.3 and later work remains blocked
+and uncommissioned.
 
 K1.2 accepts only acyclic invocation graphs and must preserve the K1.1 public
 capability surface, Fresh import independence, backend matrix, and zero current
