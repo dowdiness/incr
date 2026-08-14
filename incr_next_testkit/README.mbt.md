@@ -13,8 +13,8 @@ independently as kernel work evidence.
 
 That separation is intentional. The current Fresh/incremental work baselines
 are keyed identity `3/2`, chain `4/2`, diamond `10/4`, unrelated publication
-`2/1`, and selected or dynamic publication `2/2`. Value/error comparison
-remains strict, and Fresh always evaluates from scratch.
+`2/1`, selected publication `2/2`, and dynamic publication `3/2`. Value/error
+comparison remains strict, and Fresh always evaluates from scratch.
 
 `Script` snapshots its operation array at construction. Query keys must keep
 stable `Hash`/`Eq` behavior while a View or memo can retain them; mutating a key

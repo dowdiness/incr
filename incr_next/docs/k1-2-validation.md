@@ -11,8 +11,8 @@ slice.
 
 **Disposition:** Local gate pass; implementation not accepted; unpublished.
 The candidate is based on `0c5ae4e50622f55b288aa536722e3ac77a71e030`.
-The tested code candidate ends at `ece8cfe`; `c7319d7` is a documentation-only
-descendant. Hosted CI, implementation PR creation or push, maintainer
+The kernel implementation ends at `ece8cfe`; later commits contain testkit and
+documentation corrections only. PR #474 is open. Hosted CI, maintainer
 acceptance, and merge remain pending separate authorization. K1.3–K1.6 remain
 blocked and uncommissioned.
 
@@ -46,6 +46,10 @@ with a fresh trace and current epoch stamps. Tests cover recursive child
 verification, one verification or compute per selected diamond child and epoch,
 unrelated and selected publication, Revision-clock dependencies, dynamic trace
 replacement, and same-Store cross-Region branch-away after an old Region closes.
+The DynamicBranch test predeclares both Source handles and captures them before
+Query construction. It publishes branch `0 -> 9`, then publishes the old base;
+the final `9` result and Fresh/kernel work counts `3/2` show that the replaced
+trace no longer treats the base as authoritative.
 
 K1.2c keeps last-successful authority local to the target invocation. An initial
 structural failure installs no memo. A failed stale recomputation returns the

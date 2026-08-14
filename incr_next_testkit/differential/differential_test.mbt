@@ -74,8 +74,12 @@ test "Fresh and incremental work counters are separate evidence" {
   )
   assert_semantics_and_work(
     @scenarios.dynamic_branch(),
-    [@model.Observation::Value(0), @model.Observation::Value(9)],
-    2,
+    [
+      @model.Observation::Value(0),
+      @model.Observation::Value(9),
+      @model.Observation::Value(9),
+    ],
+    3,
     2,
   )
   assert_semantics_and_work(
@@ -184,11 +188,23 @@ test "UnitQuery Define publishes an existing Source" {
 }
 
 ///|
-test "DynamicBranch late Define publishes a pre-existing default Source" {
+test "DynamicBranch updates a tracked branch and drops the old base" {
+  let script = @scenarios.dynamic_branch()
+  assert_eq(script.operations(), [
+    @model.Operation::Read(0),
+    @model.Operation::Set(1, 9),
+    @model.Operation::Read(0),
+    @model.Operation::Set(0, 7),
+    @model.Operation::Read(0),
+  ])
   assert_semantics_and_work(
-    @scenarios.dynamic_branch(),
-    [@model.Observation::Value(0), @model.Observation::Value(9)],
-    2,
+    script,
+    [
+      @model.Observation::Value(0),
+      @model.Observation::Value(9),
+      @model.Observation::Value(9),
+    ],
+    3,
     2,
   )
 }

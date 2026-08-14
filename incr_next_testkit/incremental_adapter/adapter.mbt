@@ -118,21 +118,18 @@ fn make_reader(
     }
     @model.Scenario::DynamicBranch => {
       let source = sources[0]
+      let branch = sources[1]
       let query = region
         .query((ctx, _unit : Unit) => {
           computes.val = computes.val + 1
-          match sources.get(1) {
-            None => ctx.read(source.view())
-            Some(branch) =>
-              match ctx.read(branch.view()) {
-                Ok(flag) =>
-                  if flag == 0 {
-                    ctx.read(source.view())
-                  } else {
-                    Ok(flag)
-                  }
-                Err(error) => Err(error)
+          match ctx.read(branch.view()) {
+            Ok(flag) =>
+              if flag == 0 {
+                ctx.read(source.view())
+              } else {
+                Ok(flag)
               }
+            Err(error) => Err(error)
           }
         })
         .unwrap()

@@ -70,7 +70,9 @@ pub fn selected_publication() -> @model.Script {
 pub fn dynamic_branch() -> @model.Script {
   script(@model.Scenario::DynamicBranch, [
     @model.Operation::Read(0),
-    @model.Operation::Define(1, 9),
+    @model.Operation::Set(1, 9),
+    @model.Operation::Read(0),
+    @model.Operation::Set(0, 7),
     @model.Operation::Read(0),
   ])
 }
