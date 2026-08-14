@@ -259,7 +259,10 @@ fn publish_existing(
     Some(source) => source
     None => abort("Set target is not an initial source: \{source_id}")
   }
-  ignore(store.transaction(tx => tx.set(source, value)))
+  match store.transaction(tx => tx.set(source, value)) {
+    Ok(_) => ()
+    Err(_) => abort("valid testkit Set failed unexpectedly")
+  }
 }
 
 ///|

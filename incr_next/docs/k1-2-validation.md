@@ -76,7 +76,9 @@ non-root IDs are rejected, while reads of absent IDs remain valid `Missing`
 cases. Keyed reads and the domain/structural error capabilities are restricted
 to their matching scenarios. Both evaluators construct every logical Source and
 all Query/error fixtures from setup data before replay; replay only performs
-Reads, existing Source Sets, or invokes prepared error Views. The
+Reads, existing Source Sets, or invokes prepared error Views. A valid Set must
+commit successfully; the adapter aborts on any unexpected transaction error so
+a failed publication cannot become a false-positive differential result. The
 structural fixture uses prebuilt keyed Query/Views, so it does not add a hidden
 logical Source.
 
