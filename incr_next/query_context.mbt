@@ -3,6 +3,8 @@
 priv struct EvalSession {
   owner : StoreId
   revision : Revision
+  change_epoch : ChangeEpoch
+  revision_changed_at : Ref[ChangeEpoch]
   active : Ref[Bool]
 }
 
@@ -11,21 +13,34 @@ priv struct EvalSession {
 pub struct QueryContext {
   priv session : EvalSession
   priv invocation : Ref[Bool]
+  priv frame : Ref[TrackingFrame?]
 }
 
 ///|
 fn QueryContext::root(session : EvalSession) -> QueryContext {
-  { session, invocation: Ref(true) }
+  { session, invocation: Ref(true), frame: Ref(None) }
 }
 
 ///|
 fn QueryContext::child(self : QueryContext) -> QueryContext {
-  { session: self.session, invocation: Ref(true) }
+  { session: self.session, invocation: Ref(true), frame: Ref(Some([])) }
 }
 
 ///|
 fn QueryContext::expire(self : QueryContext) -> Unit {
   self.invocation.val = false
+  self.frame.val = None
+}
+
+///|
+fn QueryContext::take_frame(self : QueryContext) -> TrackingFrame {
+  match self.frame.val {
+    Some(frame) => {
+      self.frame.val = None
+      frame
+    }
+    None => []
+  }
 }
 
 ///|
@@ -54,7 +69,20 @@ pub fn[V] QueryContext::read(
           ),
         )
       } else {
-        (view.recipe)(self)
+        match (view.recipe)(self) {
+          Ok(value) => {
+            match self.frame.val {
+              Some(frame) =>
+                frame.push({
+                  kind: view.dependency_kind,
+                  verifier: view.verifier,
+                })
+              None => ()
+            }
+            Ok(value)
+          }
+          Err(error) => Err(error)
+        }
       }
   }
 }
@@ -68,6 +96,13 @@ pub fn QueryContext::revision(
 ) -> Result[Revision, ReadError] {
   match self.expired() {
     Some(error) => Err(error)
-    None => Ok(self.session.revision)
+    None => {
+      match self.frame.val {
+        Some(frame) =>
+          frame.push(revision_dependency(self.session.revision_changed_at))
+        None => ()
+      }
+      Ok(self.session.revision)
+    }
   }
 }

@@ -1,14 +1,6 @@
-///|
-test "expected divergence: mutable Query key is not copied" {
-  let store = Store::Store()
-  let region = store.region().unwrap()
-  let key = [1]
-  let query = region.query((_ctx, key : Array[Int]) => Ok(key[0])).unwrap()
-  let view = query.at(key)
-  assert_eq(store.read(view), Ok(1))
-  key[0] = 2
-  assert_eq(store.read(view), Ok(2))
-}
+// Query keys must keep stable Hash/Eq behavior while their Views can be read.
+// The K1.2 memo retains each key; mutable-key behavior is therefore a caller
+// contract, not an executable post-mutation expectation.
 
 ///|
 test "expected divergence: Source payload aliases are caller-owned" {

@@ -1,7 +1,7 @@
 ///|
 /// A transaction-local erased application command.
 priv struct StagedWrite {
-  apply : () -> Unit
+  apply : (ChangeEpoch) -> Unit
 }
 
 ///|
@@ -55,7 +55,10 @@ pub fn[T] Transaction::set(
             )
           } else {
             self.session.writes.set(source.core.source_id, {
-              apply: () => source.core.value.val = Some(value),
+              apply: next_epoch => {
+                source.core.value.val = Some(value)
+                source.core.changed_at.val = next_epoch
+              },
             })
             Ok(())
           }
@@ -92,10 +95,12 @@ pub fn Store::transaction(
             Err(error) => Err(error)
             Ok(_) => {
               let staged = session.writes.length() > 0
-              session.writes.each((_, write) => (write.apply)())
               if staged {
+                let next_epoch = self.change_epoch.val + 1
+                session.writes.each((_, write) => (write.apply)(next_epoch))
                 self.revision_clock.val = self.revision_clock.val + 1
-                self.change_epoch.val = self.change_epoch.val + 1
+                self.change_epoch.val = next_epoch
+                self.revision_changed_at.val = next_epoch
               }
               Ok(self.revision())
             }

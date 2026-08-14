@@ -10,17 +10,26 @@ pub(all) enum Scenario {
   KeyedQuery
   Chain
   Diamond
+  UnrelatedPublication
+  SelectedPublication
   DynamicBranch
   RootSnapshot
+  FailureRecovery
   DomainFailure
   StructuralError
 } derive(Eq, Debug)
 
 ///|
-/// A logical K1.1 operation. IDs are explicit so scenarios can use more than
-/// one Source without relying on evaluator-local allocation order.
+/// A logical source and its value at graph construction time.
+pub(all) struct SourceInit {
+  id : SourceId
+  value : Int
+} derive(Eq, Debug)
+
+///|
+/// A runtime operation over a graph whose Source membership is already fixed.
+/// IDs are explicit so scenarios do not rely on evaluator-local allocation.
 pub(all) enum Operation {
-  Define(SourceId, Int)
   Set(SourceId, Int)
   Read(SourceId)
   ReadKey(SourceId, Int)
@@ -29,31 +38,155 @@ pub(all) enum Operation {
 } derive(Eq, Debug)
 
 ///|
-/// A snapshot-safe operation script shared by Fresh and incremental adapters.
+fn required_initial_ids(scenario : Scenario) -> Array[SourceId] {
+  match scenario {
+    UnitQuery
+    | Chain
+    | Diamond
+    | UnrelatedPublication
+    | SelectedPublication
+    | RootSnapshot
+    | FailureRecovery => [0]
+    DynamicBranch => [0, 1]
+    Source | KeyedQuery | DomainFailure | StructuralError => []
+  }
+}
+
+///|
+fn fixed_root_scenario(scenario : Scenario) -> Bool {
+  match scenario {
+    UnitQuery
+    | Chain
+    | Diamond
+    | UnrelatedPublication
+    | SelectedPublication
+    | DynamicBranch
+    | RootSnapshot
+    | FailureRecovery => true
+    Source | KeyedQuery | DomainFailure | StructuralError => false
+  }
+}
+
+///|
+fn operation_error(
+  scenario : Scenario,
+  ids : Set[SourceId],
+  operation : Operation,
+) -> String? {
+  match operation {
+    Set(id, _) if !ids.contains(id) =>
+      Some("Set target is not an initial source: \{id}")
+    Read(_) if scenario == KeyedQuery =>
+      Some("KeyedQuery accepts ReadKey operations, not plain Read")
+    Read(id) if fixed_root_scenario(scenario) && ids.contains(id) && id != 0 =>
+      Some("fixed-root scenario cannot Read present non-root source: \{id}")
+    ReadKey(_, _) if scenario != KeyedQuery =>
+      Some("ReadKey is only valid for KeyedQuery")
+    DomainFailure(_) if scenario != DomainFailure =>
+      Some("DomainFailure operation requires the DomainFailure scenario")
+    StructuralFailure(_) if scenario != StructuralError =>
+      Some("StructuralFailure operation requires the StructuralError scenario")
+    _ => None
+  }
+}
+
+///|
+/// Validates the private script contract at both setup and replay boundaries.
+/// Reads of absent IDs remain valid so evaluators can report `Missing`.
+fn validate_script(
+  scenario : Scenario,
+  initial_sources : Array[SourceInit],
+  operations : Array[Operation],
+) -> String? {
+  let ids : Set[SourceId] = Set([])
+  let mut error : String? = None
+  initial_sources.each(init => {
+    match error {
+      Some(_) => ()
+      None =>
+        if !ids.add_and_check(init.id) {
+          error = Some("duplicate initial source id: \{init.id}")
+        }
+    }
+  })
+  required_initial_ids(scenario).each(id => {
+    match error {
+      Some(_) => ()
+      None =>
+        if !ids.contains(id) {
+          error = Some("scenario requires initial source id: \{id}")
+        }
+    }
+  })
+  operations.each(operation => {
+    match error {
+      Some(_) => ()
+      None =>
+        match operation_error(scenario, ids, operation) {
+          Some(message) => error = Some(message)
+          None => ()
+        }
+    }
+  })
+  error
+}
+
+///|
+/// A two-phase script shared by Fresh and incremental adapters.
 pub struct Script {
   priv scenario : Scenario
+  priv initial_sources : Array[SourceInit]
   priv operations : Array[Operation]
 } derive(Debug)
 
 ///|
-/// Creates a Source-oriented script. The input array is copied at the seam.
-pub fn Script::Script(operations : Array[Operation]) -> Script {
-  { scenario: Source, operations: operations.copy() }
-}
-
-///|
-/// Creates a script for one named graph scenario.
-pub fn Script::scenario(
-  scenario : Scenario,
+/// Creates a Source-oriented script after validating immutable membership.
+/// Aborts on duplicate IDs, undefined Set targets, or incompatible operations.
+pub fn Script::Script(
+  initial_sources : Array[SourceInit],
   operations : Array[Operation],
 ) -> Script {
-  { scenario, operations: operations.copy() }
+  match validate_script(Source, initial_sources, operations) {
+    Some(error) => abort(error)
+    None =>
+      {
+        scenario: Source,
+        initial_sources: initial_sources.copy(),
+        operations: operations.copy(),
+      }
+  }
 }
 
 ///|
-/// Returns the scenario tag without exposing the mutable operation array.
+/// Creates a named graph script after validating immutable membership.
+/// Aborts on missing setup IDs, duplicate IDs, undefined Set targets, or an
+/// operation incompatible with the selected graph scenario.
+pub fn Script::scenario(
+  scenario : Scenario,
+  initial_sources : Array[SourceInit],
+  operations : Array[Operation],
+) -> Script {
+  match validate_script(scenario, initial_sources, operations) {
+    Some(error) => abort(error)
+    None =>
+      {
+        scenario,
+        initial_sources: initial_sources.copy(),
+        operations: operations.copy(),
+      }
+  }
+}
+
+///|
+/// Returns the scenario tag without exposing mutable script state.
 pub fn Script::scenario_tag(self : Script) -> Scenario {
   self.scenario
+}
+
+///|
+/// Returns an owned initial-source snapshot for testkit evaluators.
+pub fn Script::initial_sources(self : Script) -> Array[SourceInit] {
+  self.initial_sources.copy()
 }
 
 ///|

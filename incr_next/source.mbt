@@ -6,6 +6,7 @@ priv struct SourceCore[T] {
   generation : RegionGeneration
   epoch : RegionEpoch
   value : Ref[T?]
+  changed_at : Ref[ChangeEpoch]
 }
 
 ///|
@@ -22,6 +23,7 @@ fn[T] make_source(
   epoch : RegionEpoch,
   generation : RegionGeneration,
   value : T,
+  changed_at : ChangeEpoch,
 ) -> Source[T] {
   let core : SourceCore[T] = {
     owner,
@@ -29,10 +31,14 @@ fn[T] make_source(
     generation,
     epoch,
     value: Ref(Some(value)),
+    changed_at: Ref(changed_at),
   }
+  let source_dep = source_dependency(core)
   let view : View[T] = {
     owner,
     generation,
+    dependency_kind: source_dep.kind,
+    verifier: source_dep.verifier,
     recipe: ctx => ctx.eval_source(core),
   }
   { core, canonical_view: view }
@@ -81,6 +87,7 @@ pub fn[T] Region::source(
         self.epoch,
         self.epoch.snapshot(),
         initial,
+        self.change_epoch.val,
       )
       self.close_actions.push(() => source.core.value.val = None)
       Ok(source)

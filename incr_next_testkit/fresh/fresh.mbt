@@ -12,6 +12,14 @@ fn scenario_value(
   match scenario {
     @model.Scenario::Chain => Some(base + 1)
     @model.Scenario::Diamond => Some(base * 2 + 3)
+    @model.Scenario::UnrelatedPublication
+    | @model.Scenario::SelectedPublication => Some(base)
+    @model.Scenario::FailureRecovery =>
+      if base == 1 {
+        None
+      } else {
+        Some(base)
+      }
     @model.Scenario::DynamicBranch =>
       match values.get(1) {
         Some(flag) => if flag != 0 { Some(flag) } else { Some(base) }
@@ -24,36 +32,63 @@ fn scenario_value(
 }
 
 ///|
-/// Memo-free evaluator for the shared K1.1 operation and graph model.
+fn read_observation(
+  values : Map[Int, Int],
+  scenario : @model.Scenario,
+  source_id : Int,
+  key : Int,
+) -> @model.Observation {
+  match values.get(source_id) {
+    None => @model.Observation::Missing(source_id)
+    Some(base) if scenario == @model.Scenario::FailureRecovery && base == 1 =>
+      @model.Observation::Error(@model.ScenarioError::StructuralFailure(1))
+    Some(_) =>
+      match scenario_value(values, scenario, source_id, key) {
+        Some(value) => @model.Observation::Value(value)
+        None => @model.Observation::Missing(source_id)
+      }
+  }
+}
+
+///|
+fn from_scratch_read_work(scenario : @model.Scenario) -> Int {
+  match scenario {
+    @model.Scenario::Source => 0
+    @model.Scenario::Chain => 2
+    // The shared child is evaluated independently by each branch.
+    @model.Scenario::Diamond => 5
+    _ => 1
+  }
+}
+
+///|
+/// From-scratch evaluator for the shared operation and graph model.
 ///
 /// This package deliberately has no dependency on `dowdiness/incr_next`.
+/// Every read evaluates its graph anew; the final Counter is evidence of that
+/// baseline, not part of the semantic oracle.
 pub fn evaluate(script : @model.Script) -> Array[@model.Observation] {
-  let values : Map[Int, Int] = { 0: 0 }
+  let values : Map[Int, Int] = Map(
+    script.initial_sources().map(init => (init.id, init.value)),
+  )
   let observations : Array[@model.Observation] = []
   let computes = Ref(0)
   for operation in script.operations() {
     match operation {
-      @model.Operation::Define(id, value) => values[id] = value
       @model.Operation::Set(id, value) => values[id] = value
       @model.Operation::Read(id) => {
         computes.val = computes.val +
-          (match script.scenario_tag() {
-            @model.Scenario::Source => 0
-            @model.Scenario::Chain => 2
-            @model.Scenario::Diamond => 5
-            _ => 1
-          })
-        match scenario_value(values, script.scenario_tag(), id, 0) {
-          Some(value) => observations.push(@model.Observation::Value(value))
-          None => observations.push(@model.Observation::Missing(id))
-        }
+          from_scratch_read_work(script.scenario_tag())
+        observations.push(
+          read_observation(values, script.scenario_tag(), id, 0),
+        )
       }
       @model.Operation::ReadKey(id, key) => {
-        computes.val = computes.val + 1
-        match scenario_value(values, script.scenario_tag(), id, key) {
-          Some(value) => observations.push(@model.Observation::Value(value))
-          None => observations.push(@model.Observation::Missing(id))
-        }
+        computes.val = computes.val +
+          from_scratch_read_work(script.scenario_tag())
+        observations.push(
+          read_observation(values, script.scenario_tag(), id, key),
+        )
       }
       @model.Operation::DomainFailure(code) => {
         computes.val = computes.val + 1
