@@ -245,8 +245,7 @@ pub fn sequential_duplicate_read() -> @model.Script {
 }
 
 ///|
-/// Returns the independent K1.3 cycle matrix. These scripts are intentionally
-/// excluded from `all` until the incremental adapter implements cycles.
+/// Returns the K1.3 cycle matrix used by both evaluators.
 pub fn cycle_matrix() -> Array[@model.Script] {
   [
     direct_cycle(),
@@ -264,7 +263,7 @@ pub fn cycle_matrix() -> Array[@model.Script] {
 ///|
 /// Returns every canonical graph and error scenario in test order.
 pub fn all() -> Array[@model.Script] {
-  [
+  let scripts = [
     canonical(),
     unit_query(),
     keyed_query(),
@@ -278,4 +277,6 @@ pub fn all() -> Array[@model.Script] {
     domain_failure(),
     structural_error(),
   ]
+  scripts.append(cycle_matrix())
+  scripts
 }

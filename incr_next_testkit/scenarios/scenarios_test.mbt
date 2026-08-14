@@ -1,7 +1,7 @@
 ///|
-test "cycle_matrix is separate from canonical all scenarios" {
+test "cycle_matrix follows the canonical scenarios in all" {
   assert_eq(@scenarios.cycle_matrix().length(), 9)
-  assert_eq(@scenarios.all().length(), 12)
+  assert_eq(@scenarios.all().length(), 21)
 }
 
 ///|

@@ -24,8 +24,91 @@ fn assert_semantics_and_work(
 }
 
 ///|
-test "all K1.1 graph and error scenarios match Fresh semantically" {
+test "all graph, error, and cycle scenarios match Fresh semantically" {
   assert_true(@differential.all_match())
+}
+
+///|
+test "K1.3 cycle scenarios match Fresh values and exact work" {
+  assert_semantics_and_work(
+    @scenarios.direct_cycle(),
+    [
+      @model.Observation::Error(
+        @model.ScenarioError::Cycle(@model.CycleWitness::CycleWitness([0, 0])),
+      ),
+    ],
+    1,
+    1,
+  )
+  assert_semantics_and_work(
+    @scenarios.mutual_cycle(),
+    [
+      @model.Observation::Error(
+        @model.ScenarioError::Cycle(
+          @model.CycleWitness::CycleWitness([0, 1, 0]),
+        ),
+      ),
+    ],
+    2,
+    2,
+  )
+  assert_semantics_and_work(
+    @scenarios.same_query_key_cycle(),
+    [
+      @model.Observation::Error(
+        @model.ScenarioError::Cycle(
+          @model.CycleWitness::CycleWitness([0, 0, 0]),
+        ),
+      ),
+    ],
+    2,
+    2,
+  )
+  assert_semantics_and_work(
+    @scenarios.finite_recursion(),
+    [@model.Observation::Value(0)],
+    4,
+    4,
+  )
+  assert_semantics_and_work(
+    @scenarios.unequal_key_cross_query(),
+    [@model.Observation::Value(1)],
+    3,
+    3,
+  )
+  assert_semantics_and_work(
+    @scenarios.dead_cycle_branch(),
+    [@model.Observation::Value(0)],
+    1,
+    1,
+  )
+  assert_semantics_and_work(
+    @scenarios.sequential_duplicate_read(),
+    [@model.Observation::Value(0)],
+    3,
+    2,
+  )
+  assert_semantics_and_work(
+    @scenarios.cycle_recovery(),
+    [
+      @model.Observation::Value(0),
+      @model.Observation::Error(
+        @model.ScenarioError::Cycle(@model.CycleWitness::CycleWitness([0, 0])),
+      ),
+      @model.Observation::Error(
+        @model.ScenarioError::Cycle(@model.CycleWitness::CycleWitness([0, 0])),
+      ),
+      @model.Observation::Value(2),
+    ],
+    4,
+    4,
+  )
+  assert_semantics_and_work(
+    @scenarios.old_trace_cycle(),
+    [@model.Observation::Value(0), @model.Observation::Value(1)],
+    4,
+    4,
+  )
 }
 
 ///|
