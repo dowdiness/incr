@@ -12,8 +12,10 @@ authorized.
 
 **Disposition:** Accepted K1.2 implementation evidence. K1.2 is accepted at
 implementation head `12ec2404b676ef7864e353aeb3681c0fef6f20e3` and merged as
-squash commit `db2ac77ac0362a7c5ff8d20887868cbdbb635aa8`. This probe authorizes
-no K1.3 interface or surface.
+squash commit `db2ac77ac0362a7c5ff8d20887868cbdbb635aa8`. K1.3 is accepted and
+merged as squash commit `5657cfc99734c9ac9e7093dd71819d6a0c48df87`. K1.4
+is commissioned, but this K1.2 probe authorizes no cutoff interface or spelling;
+the separate K1.4 compile probe must select that generated-interface delta.
 
 ## Reproduction identity
 

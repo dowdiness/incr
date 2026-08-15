@@ -18,10 +18,11 @@ before recovery. Native RC probes and an independent Fresh failure-recovery
 scenario provide ownership and work evidence. K1.2 is **ACCEPTED** at
 implementation head `12ec2404b676ef7864e353aeb3681c0fef6f20e3` and **MERGED** as
 squash commit `db2ac77ac0362a7c5ff8d20887868cbdbb635aa8`. K1.3 invocation-level
-cycle detection is **IMPLEMENTATION COMPLETE** and **MAINTAINER ACCEPTED** at
-implementation head `e187b562f87ec4ecd50940a5e8fc2bc5d478380c` (commission base
-`621180cf460661aa95eb89da58553681688fa502`); hosted CI 46/46 PASS including
-Incr Next Required, PR #476 public diff review APPROVE, CodeRabbit was
-skipped/manual-review-required (NOT positive evidence), maintainer acceptance
-PASS; merge is pending the status-only finalization head passing all required
-gates. K1.4–K1.6 remain blocked and uncommissioned.
+cycle detection is **ACCEPTED** at implementation head
+`e187b562f87ec4ecd50940a5e8fc2bc5d478380c`, finalized at status-only head
+`a8115757662a6412e053aad9b7dc451f39a825c6`, and **MERGED** as squash commit
+`5657cfc99734c9ac9e7093dd71819d6a0c48df87`. K1.4 typed cutoff and backdating
+is **COMMISSIONED** (implementation not yet accepted). Its exact public
+AlwaysChanged, `Eq`, and type-owned constructor surface remains subject to the
+commissioned generated-interface compile probe. K1.5–K1.6 remain blocked and
+uncommissioned.

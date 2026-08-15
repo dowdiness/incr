@@ -35,25 +35,23 @@ traces, target-local failure atomicity and recovery, plus their ownership,
 boundary, backend, and work-count gates. Local validation, hosted CI,
 CodeRabbit, independent reviews, and maintainer acceptance pass.
 
-K1.3 invocation-level cycle detection is **IMPLEMENTATION COMPLETE** and
-**MAINTAINER ACCEPTED** at implementation head
-`e187b562f87ec4ecd50940a5e8fc2bc5d478380c` (commission base
-`621180cf460661aa95eb89da58553681688fa502`); merge is pending the status-only
-finalization head passing all required gates. The commission covers typed
-active tracking per QueryCore, a key-free session active stack, active checks
-before memo lookup, copied key-free normalized Cycle witnesses, and independent
-Fresh and incremental cycle semantics.
+K1.3 invocation-level cycle detection is **ACCEPTED** at implementation head
+`e187b562f87ec4ecd50940a5e8fc2bc5d478380c`, finalized at status-only head
+`a8115757662a6412e053aad9b7dc451f39a825c6`, and **MERGED** as squash commit
+`5657cfc99734c9ac9e7093dd71819d6a0c48df87`. It adds typed invocation identity,
+active-before-cache ordering, copied key-free Cycle witnesses, old/current
+Cycle separation, atomic recovery, and structured cleanup.
 
-An old-trace Cycle requests recomputation; only a current-recompute Cycle
-becomes the root ReadError. The scope also requires cleanup on every structured
-exit and memo recovery after cycle introduction/removal. It does not include
-cutoff/backdating, eviction or automatic retention, iterative evaluation or
-stack-overflow protection, recovery values, error caching, parallelism,
-Mount/Program, Canopy, ADR, or publication. K1.4–K1.6 remain blocked and
-uncommissioned.
+K1.4 typed cutoff and backdating is **COMMISSIONED** (implementation not yet
+accepted). It is limited to fixed-per-Query typed AlwaysChanged, `Eq`, and
+type-owned policy choices whose exact surface must be selected by a
+generated-interface compile probe.
+Successful recomputation always installs the newest value and trace; only a
+propagation-equivalent result retains old `changed_at` so downstream
+verification may skip work. K1.5–K1.6 remain blocked and uncommissioned, as do
+eviction, Mount/Program, Canopy, ADR, and publication.
 
-The sibling module owns the accepted K1.1 and K1.2 records and K1.3
-implementation-complete maintainer-accepted record in
+The sibling module owns the accepted K1.1–K1.3 records and K1.4 commission in
 [`incr_next/docs/roadmap.md`](../incr_next/docs/roadmap.md); this root roadmap
 retains the product pointer.
 
