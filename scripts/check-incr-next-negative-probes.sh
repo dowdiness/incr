@@ -41,6 +41,12 @@ expected_diagnostic() {
     view_fields.mbt.disabled)
       printf '%s' 'View[Int] has no field recipe'
       ;;
+    arbitrary_cutoff_predicate.mbt.disabled)
+      printf '%s' 'Region has no method query_with_policy'
+      ;;
+    public_cutoff_policy.mbt.disabled)
+      printf '%s' 'Region has no method query_with_policy'
+      ;;
     *)
       echo "FAIL: no expected diagnostic for $1" >&2
       return 1

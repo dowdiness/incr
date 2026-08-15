@@ -113,6 +113,115 @@ fn probe_last_write_wins() -> Bool {
 }
 
 ///|
+priv struct OwnedCutoff {
+  token : RcToken
+  value : Int
+}
+
+///|
+impl @incr_next.CutoffEq for OwnedCutoff with fn cutoff_equal(self, other) {
+  ignore(self.token)
+  ignore(other.token)
+  self.value == other.value
+}
+
+///|
+fn probe_cutoff_releases_old_memo_value() -> Bool {
+  let store = @incr_next.Store::Store()
+  let region = store.region().unwrap()
+  let trigger = region.source(0).unwrap()
+  let compute : (@incr_next.QueryContext, Unit) -> Result[
+    OwnedCutoff,
+    @incr_next.ReadError,
+  ] = (ctx, _unit) => {
+    ctx
+    .read(trigger.view())
+    .map(value => {
+      if value == 0 {
+        OwnedCutoff::{ token: token_new(14), value: 7 }
+      } else {
+        OwnedCutoff::{ token: token_new(15), value: 7 }
+      }
+    })
+  }
+  let query = region.query_type_owned(compute).unwrap()
+  let view = query.at(())
+  let first = store.read(view)
+  let first_held = first is Ok(value) && value.value == 7 && live(14) == 1
+  ignore(store.transaction(tx => tx.set(trigger, 1)))
+  let second = store.read(view)
+  let replaced = second is Ok(value) &&
+    value.value == 7 &&
+    live(14) == 0 &&
+    finalized(14) == 1 &&
+    live(15) == 1
+  ignore(region.close())
+  first_held && replaced && live(15) == 0 && finalized(15) == 1
+}
+
+///|
+fn probe_cutoff_dynamic_trace_replacement() -> Bool {
+  let store = @incr_next.Store::Store()
+  let child_region = store.region().unwrap()
+  let parent_region = store.region().unwrap()
+  let selector = parent_region.source(0).unwrap()
+  let child = child_region.query((_ctx, key : TraceKey) => Ok(key.id)).unwrap()
+  let parent = parent_region
+    .query_type_owned((ctx, _unit : Unit) => {
+      match ctx.read(selector.view()) {
+        Ok(flag) => {
+          let key = trace_key(if flag == 0 { 24 } else { 25 }, flag)
+          match ctx.read(child.at(key)) {
+            Ok(_) =>
+              Ok(OwnedCutoff::{
+                token: token_new(if flag == 0 { 29 } else { 31 }),
+                value: 7,
+              })
+            Err(error) => Err(error)
+          }
+        }
+        Err(error) => Err(error)
+      }
+    })
+    .unwrap()
+  let view = parent.at(())
+  let initial = match store.read(view) {
+    Ok(value) => value.value == 7
+    Err(_) => false
+  }
+  let initial_owners = live(24) == 1 &&
+    live(25) == 0 &&
+    live(29) == 1 &&
+    live(31) == 0
+  ignore(store.transaction(tx => tx.set(selector, 1)))
+  let replaced = match store.read(view) {
+    Ok(value) => value.value == 7
+    Err(_) => false
+  }
+  let newest = live(24) == 1 &&
+    live(25) == 1 &&
+    live(29) == 0 &&
+    finalized(29) == 1 &&
+    live(31) == 1
+  ignore(child_region.close())
+  let after_child_close = live(24) == 0 &&
+    finalized(24) == 1 &&
+    live(25) == 1 &&
+    live(31) == 1
+  ignore(parent_region.close())
+  let after_parent_close = live(25) == 0 &&
+    finalized(25) == 1 &&
+    live(31) == 0 &&
+    finalized(31) == 1
+  initial &&
+  initial_owners &&
+  replaced &&
+  newest &&
+  after_child_close &&
+  after_parent_close
+}
+
+///|
 fn probe_query_capture_close() -> Bool {
   let store = @incr_next.Store::Store()
   let region = store.region().unwrap()
@@ -356,6 +465,7 @@ fn main {
   let memo_close = probe_close_releases_memo_payloads_but_view_keeps_key()
   let cycle_witness = probe_cycle_witness_does_not_retain_key()
   let query_capture_close = probe_query_capture_close()
+  let cutoff_capture = probe_cutoff_releases_old_memo_value()
   let external_alias = probe_external_alias_control()
   let passed = close &&
     callback_rollback &&
@@ -367,6 +477,8 @@ fn main {
     memo_close &&
     cycle_witness &&
     query_capture_close &&
+    cutoff_capture &&
+    probe_cutoff_dynamic_trace_replacement() &&
     external_alias
   let verdict = if passed { "PASS" } else { "FAIL" }
   println("native RC/finalizer evidence: \{verdict}")

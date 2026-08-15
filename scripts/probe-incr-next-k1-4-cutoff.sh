@@ -42,7 +42,6 @@ resolved_base=$(git -C "$repo" rev-parse "$base^{commit}")
 test "$resolved_base" = "$base"
 echo "probe base: $resolved_base"
 
-git -C "$repo" diff --quiet -- incr_next/pkg.generated.mbti
 base_interface="$tmp/base.mbti"
 git -C "$repo" show "$base:incr_next/pkg.generated.mbti" >"$base_interface"
 diff -u "$base_interface" "$repo/incr_next/pkg.generated.mbti" \
