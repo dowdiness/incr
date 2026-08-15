@@ -12,13 +12,17 @@ implementation.
 **Keep until:** K1 alpha is superseded or a durable ADR is separately
 authorized.
 
-**Disposition:** Implementation complete, local gate pass, **NOT ACCEPTED**.
-The candidate is based on commission merge
-`621180cf460661aa95eb89da58553681688fa502`; the implementation head is
-`62c72f0b4908163bc364322c317d413f0700263a`. Local gates pass; hosted CI,
-push/PR, maintainer acceptance, and merge are pending separate authorization.
-K1.4–K1.6 remain blocked and uncommissioned. No ADR or package publication is
-authorized.
+**Disposition:** Implementation complete and **MAINTAINER ACCEPTED**; merge
+pending. The candidate is based on commission merge
+`621180cf460661aa95eb89da58553681688fa502`; the accepted implementation head is
+`e187b562f87ec4ecd50940a5e8fc2bc5d478380c`. PR #476 hosted acceptance passes
+46 of 46 checks, including `Incr Next Required`; public diff review is APPROVE;
+and maintainer acceptance is PASS. CodeRabbit skipped content review because
+manual review is required and is not positive evidence.
+
+Status-only finalization is authorized; merge is authorized only after that
+current HEAD passes the final gate. K1.4–K1.6 remain blocked and uncommissioned.
+No ADR or package publication is authorized.
 
 ## Generated-interface compile probe
 
@@ -164,8 +168,14 @@ The candidate passes:
 - zero K1.4+ cutoff/backdating, eviction, Mount, Program, or public
   debug/explain surface;
 - independent MoonBit and adversarial reviews with no findings;
-- hosted CI pending separate authorization; push/PR pending separate
-  authorization; maintainer acceptance pending separate authorization.
+- PR #476 public diff review APPROVE and maintainer acceptance PASS;
+- current implementation HEAD hosted acceptance: 46 of 46 checks PASS,
+  including `Incr Next Required`, with zero pending or failed checks;
+- CodeRabbit skipped content review because manual review is required, so it is
+  not counted as positive evidence.
 
-Local validation passes. Hosted CI, public diff review, maintainer acceptance,
-and merge are not yet authorized.
+Local and hosted validation pass. Status-only finalization is authorized. Merge
+remains pending the status-only current-head required checks, a passing
+`Incr Next Required` aggregate, zero pending or failed checks, CLEAN/MERGEABLE
+state with no base conflict, zero current-`incr/` diff, zero K1.4+ surface, and
+a documentation/status-only finalization diff.

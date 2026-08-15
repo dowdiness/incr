@@ -14,14 +14,15 @@ merged. K1.2 typed memo, last-successful forward verification, and failure
 atomicity are accepted at implementation head
 `12ec2404b676ef7864e353aeb3681c0fef6f20e3`; merged at squash commit
 `db2ac77ac0362a7c5ff8d20887868cbdbb635aa8`. K1.3 invocation-level cycle
-detection is implementation complete with a local gate pass at implementation
-head `62c72f0b4908163bc364322c317d413f0700263a` but is not yet accepted.
-K1.4–K1.6 remain blocked and uncommissioned. This plan does not authorize
-publication, Issue action, parent-submodule update, hosted CI, push/PR,
-maintainer acceptance, merge, or any work beyond K1.3.
+detection is implementation complete and maintainer accepted at implementation
+head `e187b562f87ec4ecd50940a5e8fc2bc5d478380c`; merge is pending the
+status-only finalization head passing all required gates. K1.4–K1.6 remain
+blocked and uncommissioned. This plan does not authorize publication, Issue
+action, parent-submodule update, hosted CI beyond what already ran, push/PR
+beyond PR #476, or any work beyond K1.3.
 
 **Status:** IN PROGRESS (K1.1 ACCEPTED / MERGED; K1.2 ACCEPTED / MERGED;
-K1.3 IMPLEMENTATION COMPLETE / LOCAL GATE PASS / NOT YET ACCEPTED;
+K1.3 IMPLEMENTATION COMPLETE / MAINTAINER ACCEPTED / MERGE PENDING;
 K1.4–K1.6 BLOCKED / UNCOMMISSIONED)
 
 ---
@@ -49,7 +50,7 @@ K1.2 target-local failure atomicity and recovery
 K1.2 ownership, backend, boundary, and work-count gates
 ```
 
-Commissioned and implementation complete, local gate pass, not yet accepted:
+Commissioned, implementation complete, maintainer accepted, merge pending:
 
 ```text
 K1.3 invocation-level active tracking and structured cycle detection
@@ -64,9 +65,11 @@ K1.6 later product-quality conformance expansion
 Mount, Program, Canopy integration, ADR, or publication
 ```
 
-K1.3 implementation is complete with a local gate pass but not yet accepted.
-The K1.4–K1.6 sections remain implementation-ready handoffs, not authorization
-to begin them. Stop after K1.3 acceptance and request a separate K1.4 decision.
+K1.3 implementation is complete and maintainer accepted at implementation head
+`e187b562f87ec4ecd50940a5e8fc2bc5d478380c`. Merge is pending the status-only
+finalization head passing all required gates. The K1.4–K1.6 sections remain
+implementation-ready handoffs, not authorization to begin them. Stop after K1.3
+acceptance and request a separate K1.4 decision.
 
 ## Goal
 
