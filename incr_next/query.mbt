@@ -1,4 +1,10 @@
 ///|
+/// A type-owned propagation-equivalence relation for Query cutoff.
+pub(open) trait CutoffEq {
+  fn cutoff_equal(Self, Self) -> Bool
+}
+
+///|
 /// The epoch at which a Store mutation or Region close occurred.
 type ChangeEpoch = Int
 
@@ -19,6 +25,22 @@ priv struct MemoEntry[V] {
 }
 
 ///|
+/// Requires a type-specific propagation-equivalence decision without leaking
+/// the policy representation through the public Query surface.
+priv enum Cutoff[V] {
+  AlwaysChanged
+  Compare((V, V) -> Bool)
+}
+
+///|
+fn[V] Cutoff::equivalent(self : Cutoff[V], old : V, next : V) -> Bool {
+  match self {
+    AlwaysChanged => false
+    Compare(equal) => equal(old, next)
+  }
+}
+
+///|
 /// Query-local typed memo storage with last-successful forward traces.
 priv struct QueryCore[K, V] {
   owner : StoreId
@@ -26,6 +48,7 @@ priv struct QueryCore[K, V] {
   generation : RegionGeneration
   epoch : RegionEpoch
   compute : Ref[((QueryContext, K) -> Result[V, ReadError])?]
+  cutoff : Ref[Cutoff[V]]
   active : Map[K, Int]
   memo : Map[K, MemoEntry[V]]
   next_memo_id : Ref[Int]
@@ -34,6 +57,7 @@ priv struct QueryCore[K, V] {
   verification_count : Ref[Int]
   green_count : Ref[Int]
   red_count : Ref[Int]
+  cutoff_count : Ref[Int]
   dependency_check_count : Ref[Int]
   unavailable_count : Ref[Int]
 }
@@ -83,19 +107,31 @@ fn[K : Hash + Eq, V] QueryContext::compute_query(
         Ok(value) => {
           let trace = invocation.take_frame()
           invocation.expire()
-          let memo_id = match core.memo.get(key) {
+          let previous = core.memo.get(key)
+          let memo_id = match previous {
             Some(entry) => entry.memo_id
             None => {
-              let value = core.next_memo_id.val
-              core.next_memo_id.val = value + 1
-              MemoId::{ value, }
+              let next_id = core.next_memo_id.val
+              core.next_memo_id.val = next_id + 1
+              MemoId::{ value: next_id }
             }
+          }
+          let changed_at = match previous {
+            Some(entry) => {
+              core.cutoff_count.val = core.cutoff_count.val + 1
+              if core.cutoff.val.equivalent(entry.value, value) {
+                entry.changed_at
+              } else {
+                epoch
+              }
+            }
+            None => epoch
           }
           core.memo.set(key, {
             value,
             memo_id,
             verified_at: epoch,
-            changed_at: epoch,
+            changed_at,
             trace,
           })
           Ok(value)
@@ -197,10 +233,10 @@ fn[K : Hash + Eq, V] QueryContext::eval_query(
 }
 
 ///|
-/// Creates a typed Query with a private Map-backed memo table.
-pub fn[K : Hash + Eq, V] Region::query(
+fn[K : Hash + Eq, V] Region::query_with_cutoff(
   self : Region,
   compute : (QueryContext, K) -> Result[V, ReadError],
+  cutoff : Cutoff[V],
 ) -> Result[Query[K, V], RegionError] {
   match self.check_open() {
     Some(error) => Err(error)
@@ -214,6 +250,7 @@ pub fn[K : Hash + Eq, V] Region::query(
         generation: self.epoch.snapshot(),
         epoch: self.epoch,
         compute: Ref(Some(compute)),
+        cutoff: Ref(cutoff),
         active: Map([]),
         memo: Map([]),
         next_memo_id: Ref(0),
@@ -222,13 +259,12 @@ pub fn[K : Hash + Eq, V] Region::query(
         verification_count: Ref(0),
         green_count: Ref(0),
         red_count: Ref(0),
+        cutoff_count: Ref(0),
         dependency_check_count: Ref(0),
         unavailable_count: Ref(0),
       }
       let query : Query[K, V] = {
         core,
-        // Construct this closure at the bounded Region boundary. Query::at
-        // only invokes the already-specialized recipe and stays unbounded.
         make_view: key => {
           owner: core.owner,
           generation: core.generation,
@@ -241,10 +277,52 @@ pub fn[K : Hash + Eq, V] Region::query(
         query.core.active.clear()
         query.core.memo.clear()
         query.core.compute.val = None
+        query.core.cutoff.val = AlwaysChanged
       })
       Ok(query)
     }
   }
+}
+
+///|
+/// Creates a typed Query whose successful recomputations always propagate as
+/// changed. This is also the behavior of the original `query` constructor.
+pub fn[K : Hash + Eq, V] Region::query(
+  self : Region,
+  compute : (QueryContext, K) -> Result[V, ReadError],
+) -> Result[Query[K, V], RegionError] {
+  self.query_with_cutoff(compute, AlwaysChanged)
+}
+
+///|
+/// Creates a Query with explicit AlwaysChanged propagation semantics.
+pub fn[K : Hash + Eq, V] Region::query_always_changed(
+  self : Region,
+  compute : (QueryContext, K) -> Result[V, ReadError],
+) -> Result[Query[K, V], RegionError] {
+  self.query_with_cutoff(compute, AlwaysChanged)
+}
+
+///|
+/// Creates a Query using structural `Eq` as its propagation-equivalence
+/// relation.
+pub fn[K : Hash + Eq, V : Eq] Region::query_eq(
+  self : Region,
+  compute : (QueryContext, K) -> Result[V, ReadError],
+) -> Result[Query[K, V], RegionError] {
+  self.query_with_cutoff(compute, Compare((old, next) => old == next))
+}
+
+///|
+/// Creates a Query using a type-owned propagation-equivalence relation.
+pub fn[K : Hash + Eq, V : CutoffEq] Region::query_type_owned(
+  self : Region,
+  compute : (QueryContext, K) -> Result[V, ReadError],
+) -> Result[Query[K, V], RegionError] {
+  self.query_with_cutoff(
+    compute,
+    Compare((old, next) => old.cutoff_equal(next)),
+  )
 }
 
 ///|

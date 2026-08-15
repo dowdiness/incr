@@ -6,9 +6,13 @@ import {
 }
 
 // Values
+pub fn all_cutoff_match() -> Bool
+
 pub fn all_match() -> Bool
 
 pub fn canonical_matches() -> Bool
+
+pub fn cutoff_matches(@model.CutoffScript) -> Bool
 
 pub fn matches(@model.Script) -> Bool
 
