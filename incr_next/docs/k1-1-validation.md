@@ -11,11 +11,11 @@ authorized.
 hosted CI, independent reviews, and maintainer acceptance pass. K1.2 is
 accepted at implementation head `12ec2404b676ef7864e353aeb3681c0fef6f20e3`
 and merged as squash commit `db2ac77ac0362a7c5ff8d20887868cbdbb635aa8`. K1.3
-implementation is complete and maintainer accepted at implementation head
-`e187b562f87ec4ecd50940a5e8fc2bc5d478380c`; merge is pending its status-only
-current-head gate. K1.4–K1.6 remain blocked and uncommissioned. Fold durable
-decisions into a future ADR only after a separately authorized K1 adoption
-decision.
+is accepted at implementation head `e187b562f87ec4ecd50940a5e8fc2bc5d478380c`
+and merged as squash commit `5657cfc99734c9ac9e7093dd71819d6a0c48df87`.
+K1.4 is commissioned but not accepted; K1.5–K1.6 remain blocked and
+uncommissioned. Fold durable decisions into a future ADR only after a separately
+authorized K1 adoption decision.
 
 ## First failures retained
 
@@ -33,10 +33,11 @@ Checked with `moon ide doc` before implementation: `Map`/`Set` for typed staging
 
 K1.1 semantic implementation is **ACCEPTED** at implementation head
 `0ad8f5ae60082dfc6410aac781baa61f52c67d79`. Plan 015 remains in progress.
-K1.2 is accepted and merged. K1.3 implementation is complete and maintainer
-accepted at implementation head `e187b562f87ec4ecd50940a5e8fc2bc5d478380c`;
-merge is pending its status-only current-head gate. K1.4–K1.6 remain blocked and
-uncommissioned.
+K1.2 is accepted and merged. K1.3 is accepted and merged at implementation
+head `e187b562f87ec4ecd50940a5e8fc2bc5d478380c`, status-only head
+`a8115757662a6412e053aad9b7dc451f39a825c6`, and squash commit
+`5657cfc99734c9ac9e7093dd71819d6a0c48df87`. K1.4 is commissioned but not
+accepted; K1.5–K1.6 remain blocked and uncommissioned.
 
 The accepted implementation passes:
 
@@ -52,9 +53,8 @@ The accepted implementation passes:
 - independent MoonBit and product/test review.
 
 For K1.3, hosted CI, public diff review, and maintainer acceptance pass.
-CodeRabbit skipped content review and is not positive evidence. Merge is
-authorized only after the status-only finalization head passes its required
-checks.
+CodeRabbit skipped content review and is not positive evidence. Its status-only
+head passed the required checks and the accepted tree merged in PR #476.
 
 ## Differential work evidence
 

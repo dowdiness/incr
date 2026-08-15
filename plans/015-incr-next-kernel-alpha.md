@@ -14,16 +14,18 @@ merged. K1.2 typed memo, last-successful forward verification, and failure
 atomicity are accepted at implementation head
 `12ec2404b676ef7864e353aeb3681c0fef6f20e3`; merged at squash commit
 `db2ac77ac0362a7c5ff8d20887868cbdbb635aa8`. K1.3 invocation-level cycle
-detection is implementation complete and maintainer accepted at implementation
-head `e187b562f87ec4ecd50940a5e8fc2bc5d478380c`; merge is pending the
-status-only finalization head passing all required gates. K1.4–K1.6 remain
-blocked and uncommissioned. This plan does not authorize publication, Issue
-action, parent-submodule update, hosted CI beyond what already ran, push/PR
-beyond PR #476, or any work beyond K1.3.
+detection is accepted and merged at implementation head
+`e187b562f87ec4ecd50940a5e8fc2bc5d478380c`, status-only head
+`a8115757662a6412e053aad9b7dc451f39a825c6`, squash
+`5657cfc99734c9ac9e7093dd71819d6a0c48df87`. K1.4 typed cutoff and backdating
+is commissioned; implementation is not yet accepted. K1.5–K1.6 remain blocked
+and uncommissioned. This plan does not authorize publication, Issue action,
+parent-submodule update, a K1.4 implementation push/PR, or any work beyond K1.4
+implementation after the commission PR merges and a separate direct
+instruction.
 
 **Status:** IN PROGRESS (K1.1 ACCEPTED / MERGED; K1.2 ACCEPTED / MERGED;
-K1.3 IMPLEMENTATION COMPLETE / MAINTAINER ACCEPTED / MERGE PENDING;
-K1.4–K1.6 BLOCKED / UNCOMMISSIONED)
+K1.3 ACCEPTED / MERGED; K1.4 COMMISSIONED; K1.5–K1.6 BLOCKED / UNCOMMISSIONED)
 
 ---
 
@@ -50,26 +52,33 @@ K1.2 target-local failure atomicity and recovery
 K1.2 ownership, backend, boundary, and work-count gates
 ```
 
-Commissioned, implementation complete, maintainer accepted, merge pending:
+Commissioned, implementation complete, accepted, and merged:
 
 ```text
 K1.3 invocation-level active tracking and structured cycle detection
 ```
 
-Blocked and uncommissioned:
+Commissioned, implementation not yet accepted:
 
 ```text
 K1.4 typed cutoff and backdating
+```
+
+Blocked and uncommissioned:
+
+```text
 K1.5 private proof loss and ownership completion
 K1.6 later product-quality conformance expansion
 Mount, Program, Canopy integration, ADR, or publication
 ```
 
-K1.3 implementation is complete and maintainer accepted at implementation head
-`e187b562f87ec4ecd50940a5e8fc2bc5d478380c`. Merge is pending the status-only
-finalization head passing all required gates. The K1.4–K1.6 sections remain
-implementation-ready handoffs, not authorization to begin them. Stop after K1.3
-acceptance and request a separate K1.4 decision.
+K1.3 implementation is accepted and merged at implementation head
+`e187b562f87ec4ecd50940a5e8fc2bc5d478380c`, status-only head
+`a8115757662a6412e053aad9b7dc451f39a825c6`, squash
+`5657cfc99734c9ac9e7093dd71819d6a0c48df87`. K1.4 is commissioned; the
+K1.4–K1.6 sections remain implementation-ready handoffs, not authorization to
+begin K1.5 or K1.6. K1.4 implementation starts only after the commission PR
+merges and a separate direct instruction.
 
 ## Goal
 
@@ -555,24 +564,217 @@ while `q(0) -> q(1) -> q(0)` returns a deterministic copied key-free witness.
 
 ## K1.4 — Typed cutoff and backdating
 
-- Compile-probe explicit AlwaysChanged, `Eq`, and type-owned propagation-policy
-  constructors before accepting names into `.mbti`.
-- Keep cutoff policy fixed per Query and private; expose no arbitrary predicate.
-- Invoke cutoff exactly once after successful recompute over an existing memo.
-- Always install the newest value and newest trace.
-- Preserve old `changed_at` only when propagation-equivalent; otherwise stamp
-  current `ChangeEpoch`.
-- Do not invoke cutoff for first success, cache hit, green verification, Cycle,
-  or another failed recompute.
-- Include excluded unsound observer and non-transitive relation counterexamples.
+K1.4 answers one question: can a fixed-per-Query typed cutoff policy run only
+after successful recomputation over an existing memo, always retain the newest
+value and newest trace, and preserve old `changed_at` only when the two results
+are propagation-equivalent, while preserving Fresh parity, K1.3 cycle and
+failure atomicity, dynamic trace replacement, and at least one downstream
+compute skip?
 
-**First failure:** an equivalent dynamic-branch recompute changes its trace and
-newest direct value while skipping one downstream compute.
+### Propagation-equivalence contract
 
-### K1.4 gate
+Cutoff supplies only one-sided propagation evidence:
 
-Differential outcomes remain exact for admissible scenarios. Counters prove the
-invocation discipline and at least one downstream cutoff skip.
+```text
+cutoff(old, next) = Equivalent
+  implies every admissible downstream observer may reuse its old observation
+```
+
+A false negative causes extra work. A false positive can expose a stale
+downstream result and break Fresh parity. Structural `Eq` is not automatically
+safe: when an `Eq` implementation ignores a field that an affected downstream
+Query reads, that observer is inadmissible for this cutoff relation.
+
+Direct and downstream reads have different obligations:
+
+```text
+direct Query read
+  returns the newest successfully computed value
+
+downstream verification
+  may skip recomputation when preserved changed_at proves propagation equivalence
+```
+
+An Equivalent decision never retains the old value. Every successful
+recomputation installs the newest value and newest trace. If a dynamic branch
+changes dependencies while producing an equivalent result, the new trace
+replaces the old trace before the memo becomes authoritative.
+
+### Generated-interface compile probe
+
+Before the first K1.4 kernel interface or implementation edit, a reproducible
+consumer compile probe must compare explicit AlwaysChanged, `Eq`, and
+type-owned policy constructors. The probe must determine:
+
+- the smallest constructor shape that fixes one policy when a Query is created;
+- the exact placement of `V : Eq` for the `Eq` constructor;
+- the smallest type-owned trait or equivalent type-level contract;
+- whether the existing `Region::query` remains the AlwaysChanged-compatible
+  entry point;
+- the exact generated `.mbti` delta and negative consumer boundary.
+
+Names and public spelling are not accepted by this commission. The probe must
+review generated interfaces before production code adopts them. The selected
+policy storage and captured comparison capability remain private after Query
+creation; no constructor accepts an arbitrary predicate. A caller-provided
+type-owned implementation remains subject to the propagation-equivalence
+contract and is not intrinsically proven safe.
+
+### Commissioned scope
+
+- One policy selected once and fixed for each Query.
+- Explicit AlwaysChanged, `Eq`, and type-owned policy choices, subject to the
+  compile probe above.
+- A private Query-owned policy representation.
+- Exactly one cutoff invocation after a successful current recomputation over
+  an existing memo.
+- Newest value and newest completed forward trace installed on every successful
+  recomputation.
+- Old `changed_at` retained only for Equivalent; current `ChangeEpoch` used for
+  Changed.
+- `MemoId` retained across every successful recomputation over an existing
+  memo.
+- Independent Fresh and incremental outcomes for admissible scenarios.
+- Exact private work-count evidence for invocation discipline and downstream
+  skips.
+- K1.2 failure atomicity and K1.3 Cycle atomicity retained.
+- Expected-divergence counterexamples for an unsound `Eq` observer and a
+  non-transitive propagation relation.
+
+### Recompute commit point
+
+Cutoff runs only after current recomputation has produced both a value and a
+complete temporary trace:
+
+```text
+current recomputation succeeds
+  no existing memo:
+    cutoff calls = 0
+    allocate MemoId
+    install newest value and trace
+    verified_at = current ChangeEpoch
+    changed_at = current ChangeEpoch
+
+  existing memo:
+    invoke fixed policy exactly once with old and newest values
+    install newest value and trace
+    preserve MemoId
+    verified_at = current ChangeEpoch
+
+    Equivalent:
+      changed_at = old changed_at
+
+    Changed:
+      changed_at = current ChangeEpoch
+```
+
+For the target invocation, first success, same-epoch cache hit, green
+verification, initial failure, failed recomputation, and Cycle call cutoff zero
+times. Failure and Cycle return the current structural error and preserve that
+target's old value, trace, `MemoId`, `verified_at`, and `changed_at` exactly.
+Successful work completed below the failing target remains authoritative: an
+existing-memo descendant that recomputes successfully invokes its own fixed
+cutoff exactly once even when an ancestor later fails or reports Cycle.
+Recovery applies cutoff only after the target's next successful recomputation
+over its retained memo.
+
+### Implementation order
+
+```text
+K1.4a  compile-probe the three typed public choices and generated interface
+       add Fresh/model/scenario first failures and excluded counterexamples
+       retain Fresh's transitive independence from incr_next
+
+K1.4b  add the private fixed-per-Query policy and commit-point decision
+       add exact invocation, stamp, MemoId, value, trace, and work counters
+       prove at least one equivalent downstream skip
+
+K1.4c  prove newest direct value and dynamic trace replacement
+       retain failure/Cycle atomicity and same-MemoId recovery
+       add native RC ownership, negative interface, boundary, and backend gates
+```
+
+### First failure matrix
+
+| Case | Expected result |
+|---|---|
+| Explicit AlwaysChanged, equal output | One cutoff call; newest value/trace installed; current `changed_at`; downstream recomputes |
+| `Eq`, Equivalent | One call; newest value/trace and current `verified_at`; same `MemoId` and old `changed_at`; downstream skips |
+| `Eq`, Changed | One call; newest value/trace; same `MemoId`; current `verified_at` and `changed_at`; downstream recomputes |
+| Type-owned non-`Eq`, Equivalent | One call; newest direct value; old `changed_at`; downstream semantic observer skips |
+| Type-owned non-`Eq`, Changed | One call; newest value/trace and current stamps; downstream recomputes |
+| Equivalent dynamic branch | One call; new branch trace replaces old trace; old `changed_at`; downstream skips |
+| Consecutive Equivalent updates | One call per successful existing-memo recompute; direct reads observe every newest value; `changed_at` remains stable |
+| First success | Zero cutoff calls; new `MemoId`; current stamps |
+| Same-epoch cache hit | Zero cutoff calls and zero recompute |
+| Green verification | Zero cutoff calls and zero recompute |
+| Initial failure or Cycle at the target | Target cutoff calls = 0; no target memo installed |
+| Failure or Cycle over a target memo | Target cutoff calls = 0; prior target memo unchanged; no stale fallback |
+| Successful existing-memo descendant before ancestor failure/Cycle | Descendant cutoff calls = 1; successful descendant memo remains installed; failing ancestor calls = 0 |
+| Recovery over a retained target memo with Equivalent result | Target cutoff calls = 1; same `MemoId`; newest value/trace; old `changed_at` |
+| Unsound `Eq` observer | Expected Fresh/incremental divergence; excluded from admissible parity |
+| Non-transitive relation | Expected Fresh/incremental divergence; excluded from admissible parity |
+
+The admissible matrix enters the independent testkit before kernel production
+code. Fresh remains memo-free and does not import or share the kernel policy,
+memo, trace, or cutoff implementation.
+
+### K1.4 acceptance gate
+
+Correctness and work:
+
+- Existing K1.1–K1.3 differential scenarios remain exact.
+- New admissible AlwaysChanged, `Eq`, type-owned, dynamic-branch, recovery, and
+  direct-value scenarios match Fresh.
+- Cutoff invocation counts are exact for every matrix row.
+- Equivalent and Changed stamp decisions match the commit-point contract.
+- Every successful recomputation installs the newest value and trace.
+- At least one downstream compute is skipped after an Equivalent result.
+- No wall-clock threshold is used; work counts are the performance gate.
+- Unsound observer and non-transitive relation cases remain explicit expected
+  divergences rather than admitted parity scenarios.
+
+Failure and Cycle atomicity:
+
+- Initial failure and Cycle install no target memo and invoke the target cutoff
+  zero times.
+- Failure and Cycle over an existing target preserve its value, trace,
+  `MemoId`, `verified_at`, and `changed_at` exactly.
+- A successfully recomputed existing-memo descendant invokes its cutoff once
+  and remains installed even if an ancestor later fails or reports Cycle; the
+  failing ancestor invokes cutoff zero times.
+- The current target error is returned without stale fallback or cached error.
+- Recovery retains `MemoId` and applies cutoff only after successful target
+  recomputation.
+
+Ownership and boundaries:
+
+- Successful replacement releases the old value and old trace.
+- Equivalent dynamic-branch replacement retains no dependency from the old
+  trace.
+- Region close releases the newest memo, trace, and private policy capture while
+  surviving Query/View recipes retain no policy capability; native evidence
+  distinguishes external aliases from kernel-owned retention.
+- No arbitrary predicate, private policy representation, memo, trace, work
+  counter, or public debug surface appears in generated `.mbti`.
+- Current `incr/` implementation and interface diff remains zero.
+- Fresh and every transitive dependency remain independent of
+  `dowdiness/incr_next`.
+- Six package roots pass default, native, JavaScript, and wasm-gc: 24 cells.
+- No K1.5+ proof loss, eviction, retention, Mount, Program, ADR, publication,
+  or Canopy surface appears.
+
+### Explicit non-goals
+
+- Arbitrary public predicate cutoff or `TrustedCutoff` escape hatch.
+- Eviction, proof loss, automatic retention, fingerprint, or durability.
+- Mount, Program, Port, Formula, or Canopy integration.
+- ADR or package publication.
+- Representation optimization or wall-clock threshold.
+
+**First failure:** an Equivalent dynamic-branch recomputation installs its
+newest direct value and trace, preserves old `changed_at`, and skips at least
+one downstream compute.
 
 ## K1.5 — Private proof loss and complete ownership closure
 

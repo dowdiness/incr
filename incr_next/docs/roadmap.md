@@ -32,30 +32,23 @@ and hosted gates, CodeRabbit, independent reviews, and maintainer acceptance.
 K1.2 is **MERGED** as squash commit
 `db2ac77ac0362a7c5ff8d20887868cbdbb635aa8`.
 
-K1.3 invocation-level cycle detection is **IMPLEMENTATION COMPLETE** and
-**MAINTAINER ACCEPTED** at implementation head
-`e187b562f87ec4ecd50940a5e8fc2bc5d478380c` (commission base
-`621180cf460661aa95eb89da58553681688fa502`); hosted CI 46/46 PASS including
-Incr Next Required, PR #476 public diff review APPROVE, CodeRabbit was
-skipped/manual-review-required (NOT positive evidence), maintainer acceptance
-PASS; merge is pending the status-only finalization head passing all required
-gates. The commission covers typed active tracking per QueryCore, a key-free
-session active stack, active checks before memo lookup, copied key-free
-normalized Cycle witnesses, and independent Fresh and incremental cycle
-semantics.
+K1.3 invocation-level cycle detection is **ACCEPTED** at implementation head
+`e187b562f87ec4ecd50940a5e8fc2bc5d478380c`, finalized at status-only head
+`a8115757662a6412e053aad9b7dc451f39a825c6`, and **MERGED** as squash commit
+`5657cfc99734c9ac9e7093dd71819d6a0c48df87`. Hosted CI, independent public diff
+review, maintainer acceptance, and squash-tree equivalence pass. CodeRabbit
+skipped content review and is not positive evidence.
 
-An old-trace Cycle requests recomputation; only a current-recompute Cycle
-becomes the root ReadError. The scope also requires cleanup on every structured
-exit and memo recovery after cycle introduction/removal. It does not include
-cutoff/backdating, eviction or automatic retention, iterative evaluation or
-stack-overflow protection, recovery values, error caching, parallelism,
-Mount/Program, Canopy, ADR, or publication. Plan 015 defines the commissioned
-failure matrix and gates.
+K1.4 typed cutoff and backdating is **COMMISSIONED** (implementation not yet
+accepted). It asks whether a Query-fixed typed policy can retain old
+`changed_at` for a propagation-equivalent successful recompute while always
+installing the newest value and dynamic trace, preserving Cycle/failure
+atomicity, matching Fresh, and skipping downstream work. A generated-interface
+compile probe must select the exact explicit AlwaysChanged, `Eq`, and type-owned
+constructor surface before implementation begins.
 
-K1.2 accepts only acyclic invocation graphs and must preserve the K1.1 public
-capability surface, Fresh import independence, backend matrix, and zero current
-`incr/` diff.
-
-Blocked and uncommissioned until separate maintainer decisions:
-cutoff/backdating, proof loss/eviction, Mount/Program, Canopy integration, ADR,
-and publication.
+K1.4 exposes no arbitrary predicate or `TrustedCutoff`; direct reads always see
+the newest value, while only admissible downstream verification may reuse old
+observations. K1.5–K1.6 remain blocked and uncommissioned. Proof loss/eviction,
+automatic retention, Mount/Program, Canopy integration, ADR, and publication
+require separate maintainer decisions.

@@ -12,17 +12,19 @@ implementation.
 **Keep until:** K1 alpha is superseded or a durable ADR is separately
 authorized.
 
-**Disposition:** Implementation complete and **MAINTAINER ACCEPTED**; merge
-pending. The candidate is based on commission merge
-`621180cf460661aa95eb89da58553681688fa502`; the accepted implementation head is
-`e187b562f87ec4ecd50940a5e8fc2bc5d478380c`. PR #476 hosted acceptance passes
-46 of 46 checks, including `Incr Next Required`; public diff review is APPROVE;
-and maintainer acceptance is PASS. CodeRabbit skipped content review because
-manual review is required and is not positive evidence.
+**Disposition:** **ACCEPTED AND MERGED.** The candidate is based on commission
+merge `621180cf460661aa95eb89da58553681688fa502`; the accepted implementation
+head is `e187b562f87ec4ecd50940a5e8fc2bc5d478380c`, the status-only head is
+`a8115757662a6412e053aad9b7dc451f39a825c6`, and PR #476 merged the equivalent
+squash tree as `5657cfc99734c9ac9e7093dd71819d6a0c48df87`. Both implementation and
+status-only heads passed 46 of 46 hosted checks, including
+`Incr Next Required`; public diff review was APPROVE and maintainer acceptance
+was PASS. CodeRabbit skipped content review because manual review was required
+and is not positive evidence.
 
-Status-only finalization is authorized; merge is authorized only after that
-current HEAD passes the final gate. K1.4–K1.6 remain blocked and uncommissioned.
-No ADR or package publication is authorized.
+K1.4 typed cutoff and backdating is commissioned, but its implementation is not
+accepted. K1.5–K1.6 remain blocked and uncommissioned. No ADR or package
+publication is authorized.
 
 ## Generated-interface compile probe
 
@@ -174,8 +176,9 @@ The candidate passes:
 - CodeRabbit skipped content review because manual review is required, so it is
   not counted as positive evidence.
 
-Local and hosted validation pass. Status-only finalization is authorized. Merge
-remains pending the status-only current-head required checks, a passing
-`Incr Next Required` aggregate, zero pending or failed checks, CLEAN/MERGEABLE
-state with no base conflict, zero current-`incr/` diff, zero K1.4+ surface, and
-a documentation/status-only finalization diff.
+Local and hosted validation pass. The status-only head passed all required
+checks with `Incr Next Required`, zero pending or failed checks,
+CLEAN/MERGEABLE state, zero current-`incr/` diff, zero K1.4+ surface, and a
+documentation/status-only finalization diff. The squash-tree equivalence check
+passed before PR #476 merged. K1.4 implementation remains blocked until its
+commission PR merges and a separate direct instruction is given.
