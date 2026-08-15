@@ -159,9 +159,111 @@ pub fn structural_error() -> @model.Script {
 }
 
 ///|
+/// A direct self-cycle, `A(0) -> A(0)`.
+pub fn direct_cycle() -> @model.Script {
+  script(@model.Scenario::DirectCycle, [], [@model.Operation::ReadQuery(0, 0)])
+}
+
+///|
+/// A mutual cycle, `A(0) -> B(0) -> A(0)`.
+pub fn mutual_cycle() -> @model.Script {
+  script(@model.Scenario::MutualCycle, [], [@model.Operation::ReadQuery(0, 0)])
+}
+
+///|
+/// A same-Query key cycle, `Q(0) -> Q(1) -> Q(0)`.
+pub fn same_query_key_cycle() -> @model.Script {
+  script(@model.Scenario::SameQueryKeyCycle, [], [
+    @model.Operation::ReadQuery(0, 0),
+  ])
+}
+
+///|
+/// Finite keyed recursion, `Q(3) -> ... -> Q(0)`.
+pub fn finite_recursion() -> @model.Script {
+  script(@model.Scenario::FiniteRecursion, [], [
+    @model.Operation::ReadQuery(0, 3),
+  ])
+}
+
+///|
+/// Unequal-key cross-Query recursion, `A(0) -> B(0) -> A(1)`.
+pub fn unequal_key_cross_query() -> @model.Script {
+  script(@model.Scenario::UnequalKeyCrossQuery, [], [
+    @model.Operation::ReadQuery(0, 0),
+  ])
+}
+
+///|
+/// A source-controlled branch whose cycle is dead when source `0` is zero.
+pub fn dead_cycle_branch() -> @model.Script {
+  script(
+    @model.Scenario::DeadCycleBranch,
+    [@model.SourceInit::{ id: 0, value: 0 }],
+    [@model.Operation::ReadQuery(0, 0)],
+  )
+}
+
+///|
+/// Introduces a cycle, repeats it, then recovers after a later publication.
+pub fn cycle_recovery() -> @model.Script {
+  script(
+    @model.Scenario::CycleRecovery,
+    [@model.SourceInit::{ id: 0, value: 0 }],
+    [
+      @model.Operation::ReadQuery(0, 0),
+      @model.Operation::Set(0, 1),
+      @model.Operation::ReadQuery(0, 0),
+      @model.Operation::ReadQuery(0, 0),
+      @model.Operation::Set(0, 2),
+      @model.Operation::ReadQuery(0, 0),
+    ],
+  )
+}
+
+///|
+/// Establishes `B -> A` before switching to `A -> B` whose current B branch
+/// avoids A.
+pub fn old_trace_cycle() -> @model.Script {
+  script(
+    @model.Scenario::OldTraceCycle,
+    [@model.SourceInit::{ id: 0, value: 0 }],
+    [
+      @model.Operation::ReadQuery(1, 0),
+      @model.Operation::Set(0, 1),
+      @model.Operation::ReadQuery(0, 0),
+    ],
+  )
+}
+
+///|
+/// A sequential duplicate child read, `A -> B` followed by `A -> B`.
+pub fn sequential_duplicate_read() -> @model.Script {
+  script(@model.Scenario::SequentialDuplicateRead, [], [
+    @model.Operation::ReadQuery(0, 0),
+  ])
+}
+
+///|
+/// Returns the K1.3 cycle matrix used by both evaluators.
+pub fn cycle_matrix() -> Array[@model.Script] {
+  [
+    direct_cycle(),
+    mutual_cycle(),
+    same_query_key_cycle(),
+    finite_recursion(),
+    unequal_key_cross_query(),
+    dead_cycle_branch(),
+    cycle_recovery(),
+    old_trace_cycle(),
+    sequential_duplicate_read(),
+  ]
+}
+
+///|
 /// Returns every canonical graph and error scenario in test order.
 pub fn all() -> Array[@model.Script] {
-  [
+  let scripts = [
     canonical(),
     unit_query(),
     keyed_query(),
@@ -175,4 +277,6 @@ pub fn all() -> Array[@model.Script] {
     domain_failure(),
     structural_error(),
   ]
+  scripts.append(cycle_matrix())
+  scripts
 }

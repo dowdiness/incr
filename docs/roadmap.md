@@ -35,11 +35,14 @@ traces, target-local failure atomicity and recovery, plus their ownership,
 boundary, backend, and work-count gates. Local validation, hosted CI,
 CodeRabbit, independent reviews, and maintainer acceptance pass.
 
-K1.3 invocation-level cycle detection is **COMMISSIONED** (implementation not
-yet accepted). The commission covers typed active tracking per QueryCore, a
-key-free session active stack, active checks before memo lookup, copied
-key-free normalized Cycle witnesses, and independent Fresh and incremental
-cycle semantics.
+K1.3 invocation-level cycle detection is **IMPLEMENTATION COMPLETE** and
+**MAINTAINER ACCEPTED** at implementation head
+`e187b562f87ec4ecd50940a5e8fc2bc5d478380c` (commission base
+`621180cf460661aa95eb89da58553681688fa502`); merge is pending the status-only
+finalization head passing all required gates. The commission covers typed
+active tracking per QueryCore, a key-free session active stack, active checks
+before memo lookup, copied key-free normalized Cycle witnesses, and independent
+Fresh and incremental cycle semantics.
 
 An old-trace Cycle requests recomputation; only a current-recompute Cycle
 becomes the root ReadError. The scope also requires cleanup on every structured
@@ -49,7 +52,8 @@ stack-overflow protection, recovery values, error caching, parallelism,
 Mount/Program, Canopy, ADR, or publication. K1.4–K1.6 remain blocked and
 uncommissioned.
 
-The sibling module owns the accepted K1.1 and K1.2 records and K1.3 commission in
+The sibling module owns the accepted K1.1 and K1.2 records and K1.3
+implementation-complete maintainer-accepted record in
 [`incr_next/docs/roadmap.md`](../incr_next/docs/roadmap.md); this root roadmap
 retains the product pointer.
 

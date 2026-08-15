@@ -312,6 +312,39 @@ fn probe_close_releases_memo_payloads_but_view_keeps_key() -> Bool {
 }
 
 ///|
+fn probe_cycle_witness_does_not_retain_key() -> Bool {
+  let store = @incr_next.Store::Store()
+  let region = store.region().unwrap()
+  let self_view : Ref[@incr_next.View[Int]?] = Ref(None)
+  let query = region
+    .query((ctx, _key : TraceKey) => ctx.read(self_view.val.unwrap()))
+    .unwrap()
+  let view = Ref(Some(query.at(trace_key(30, 0))))
+  self_view.val = view.val
+  let result = store.read(view.val.unwrap())
+  let held_error = Ref(Some(result))
+  let witness_held = match held_error.val {
+    Some(Err(@incr_next.ReadError::Cycle(witness))) =>
+      witness.path().length() == 2
+    _ => false
+  }
+  let retained_by_view = live(30) == 1 && finalized(30) == 0
+  self_view.val = None
+  view.val = None
+  let released_before_close = live(30) == 0 && finalized(30) == 1
+  let witness_still_held = match held_error.val {
+    Some(Err(@incr_next.ReadError::Cycle(witness))) =>
+      witness.path().length() == 2
+    _ => false
+  }
+  ignore(region.close())
+  witness_held &&
+  retained_by_view &&
+  released_before_close &&
+  witness_still_held
+}
+
+///|
 fn main {
   let close = probe_close()
   let callback_rollback = probe_callback_rollback()
@@ -321,6 +354,7 @@ fn main {
   let successful_recompute = probe_successful_recompute_releases_old_memo_value_and_trace()
   let failed_recompute = probe_failed_recompute_releases_temporary_trace()
   let memo_close = probe_close_releases_memo_payloads_but_view_keeps_key()
+  let cycle_witness = probe_cycle_witness_does_not_retain_key()
   let query_capture_close = probe_query_capture_close()
   let external_alias = probe_external_alias_control()
   let passed = close &&
@@ -331,6 +365,7 @@ fn main {
     successful_recompute &&
     failed_recompute &&
     memo_close &&
+    cycle_witness &&
     query_capture_close &&
     external_alias
   let verdict = if passed { "PASS" } else { "FAIL" }

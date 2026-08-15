@@ -10,10 +10,12 @@ authorized.
 **Disposition:** Accepted K1.1 alpha validation record. Local acceptance,
 hosted CI, independent reviews, and maintainer acceptance pass. K1.2 is
 accepted at implementation head `12ec2404b676ef7864e353aeb3681c0fef6f20e3`
-and merged as squash commit `db2ac77ac0362a7c5ff8d20887868cbdbb635aa8`.
-K1.3 is commissioned (implementation not yet accepted); K1.4–K1.6 remain
-blocked and uncommissioned. Fold durable decisions into a future ADR only
-after a separately authorized K1 adoption decision.
+and merged as squash commit `db2ac77ac0362a7c5ff8d20887868cbdbb635aa8`. K1.3
+implementation is complete and maintainer accepted at implementation head
+`e187b562f87ec4ecd50940a5e8fc2bc5d478380c`; merge is pending its status-only
+current-head gate. K1.4–K1.6 remain blocked and uncommissioned. Fold durable
+decisions into a future ADR only after a separately authorized K1 adoption
+decision.
 
 ## First failures retained
 
@@ -31,8 +33,10 @@ Checked with `moon ide doc` before implementation: `Map`/`Set` for typed staging
 
 K1.1 semantic implementation is **ACCEPTED** at implementation head
 `0ad8f5ae60082dfc6410aac781baa61f52c67d79`. Plan 015 remains in progress.
-K1.2 is accepted and merged. K1.3 is commissioned but not implemented or
-accepted; K1.4–K1.6 remain blocked and uncommissioned.
+K1.2 is accepted and merged. K1.3 implementation is complete and maintainer
+accepted at implementation head `e187b562f87ec4ecd50940a5e8fc2bc5d478380c`;
+merge is pending its status-only current-head gate. K1.4–K1.6 remain blocked and
+uncommissioned.
 
 The accepted implementation passes:
 
@@ -47,7 +51,8 @@ The accepted implementation passes:
 - zero current-`incr/` diff;
 - independent MoonBit and product/test review.
 
-Hosted CI, public diff review, and maintainer acceptance pass. Merge is
+For K1.3, hosted CI, public diff review, and maintainer acceptance pass.
+CodeRabbit skipped content review and is not positive evidence. Merge is
 authorized only after the status-only finalization head passes its required
 checks.
 

@@ -22,9 +22,11 @@ priv struct MemoEntry[V] {
 /// Query-local typed memo storage with last-successful forward traces.
 priv struct QueryCore[K, V] {
   owner : StoreId
+  id : QueryId
   generation : RegionGeneration
   epoch : RegionEpoch
   compute : Ref[((QueryContext, K) -> Result[V, ReadError])?]
+  active : Map[K, Int]
   memo : Map[K, MemoEntry[V]]
   next_memo_id : Ref[Int]
   compute_count : Ref[Int]
@@ -108,6 +110,52 @@ fn[K : Hash + Eq, V] QueryContext::compute_query(
 }
 
 ///|
+fn cycle_witness(
+  stack : Array[QueryId],
+  start : Int,
+  query_id : QueryId,
+) -> CycleWitness {
+  let path = stack[start:].map(id => id.value)
+  path.push(query_id.value)
+  CycleWitness::{ path, }
+}
+
+///|
+fn[K : Hash + Eq, V] QueryContext::eval_query_slow(
+  self : QueryContext,
+  core : QueryCore[K, V],
+  key : K,
+  epoch : ChangeEpoch,
+) -> Result[V, ReadError] {
+  let start = self.session.active_stack.length()
+  core.active.set(key, start)
+  self.session.active_stack.push(core.id)
+  let result = match core.memo.get(key) {
+    Some(entry) => {
+      core.verification_count.val = core.verification_count.val + 1
+      if core.verify(key, entry, self) {
+        core.green_count.val = core.green_count.val + 1
+        core.memo.set(key, {
+          value: entry.value,
+          memo_id: entry.memo_id,
+          verified_at: epoch,
+          changed_at: entry.changed_at,
+          trace: entry.trace,
+        })
+        Ok(entry.value)
+      } else {
+        core.red_count.val = core.red_count.val + 1
+        self.compute_query(core, key, epoch)
+      }
+    }
+    None => self.compute_query(core, key, epoch)
+  }
+  ignore(self.session.active_stack.pop())
+  core.active.remove(key)
+  result
+}
+
+///|
 fn[K : Hash + Eq, V] QueryContext::eval_query(
   self : QueryContext,
   core : QueryCore[K, V],
@@ -126,30 +174,23 @@ fn[K : Hash + Eq, V] QueryContext::eval_query(
       } else if !core.epoch.accepts(core.generation) {
         Err(ReadError::ClosedRegion(generation=core.generation))
       } else {
-        let epoch = self.session.change_epoch
-        match core.memo.get(key) {
-          Some(entry) if entry.verified_at == epoch => {
-            core.cache_hit_count.val = core.cache_hit_count.val + 1
-            Ok(entry.value)
-          }
-          Some(entry) => {
-            core.verification_count.val = core.verification_count.val + 1
-            if core.verify(key, entry, self) {
-              core.green_count.val = core.green_count.val + 1
-              core.memo.set(key, {
-                value: entry.value,
-                memo_id: entry.memo_id,
-                verified_at: epoch,
-                changed_at: entry.changed_at,
-                trace: entry.trace,
-              })
-              Ok(entry.value)
-            } else {
-              core.red_count.val = core.red_count.val + 1
-              self.compute_query(core, key, epoch)
+        match core.active.get(key) {
+          Some(start) =>
+            Err(
+              ReadError::Cycle(
+                cycle_witness(self.session.active_stack, start, core.id),
+              ),
+            )
+          None => {
+            let epoch = self.session.change_epoch
+            match core.memo.get(key) {
+              Some(entry) if entry.verified_at == epoch => {
+                core.cache_hit_count.val = core.cache_hit_count.val + 1
+                Ok(entry.value)
+              }
+              _ => self.eval_query_slow(core, key, epoch)
             }
           }
-          None => self.compute_query(core, key, epoch)
         }
       }
   }
@@ -164,11 +205,16 @@ pub fn[K : Hash + Eq, V] Region::query(
   match self.check_open() {
     Some(error) => Err(error)
     None => {
+      let sequence = self.next_sequence.val
+      self.next_sequence.val = sequence + 1
+      let id : QueryId = { value: sequence }
       let core : QueryCore[K, V] = {
         owner: self.owner,
+        id,
         generation: self.epoch.snapshot(),
         epoch: self.epoch,
         compute: Ref(Some(compute)),
+        active: Map([]),
         memo: Map([]),
         next_memo_id: Ref(0),
         compute_count: Ref(0),
@@ -192,6 +238,7 @@ pub fn[K : Hash + Eq, V] Region::query(
         },
       }
       self.close_actions.push(() => {
+        query.core.active.clear()
         query.core.memo.clear()
         query.core.compute.val = None
       })

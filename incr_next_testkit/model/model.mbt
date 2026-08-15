@@ -3,6 +3,10 @@
 pub type SourceId = Int
 
 ///|
+/// Logical Query identifier shared by Fresh and incremental adapters.
+pub type QueryId = Int
+
+///|
 /// Graph shape exercised by a differential script.
 pub(all) enum Scenario {
   Source
@@ -17,6 +21,15 @@ pub(all) enum Scenario {
   FailureRecovery
   DomainFailure
   StructuralError
+  DirectCycle
+  MutualCycle
+  SameQueryKeyCycle
+  FiniteRecursion
+  UnequalKeyCrossQuery
+  DeadCycleBranch
+  CycleRecovery
+  OldTraceCycle
+  SequentialDuplicateRead
 } derive(Eq, Debug)
 
 ///|
@@ -33,6 +46,7 @@ pub(all) enum Operation {
   Set(SourceId, Int)
   Read(SourceId)
   ReadKey(SourceId, Int)
+  ReadQuery(QueryId, Int)
   DomainFailure(Int)
   StructuralFailure(Int)
 } derive(Eq, Debug)
@@ -48,7 +62,17 @@ fn required_initial_ids(scenario : Scenario) -> Array[SourceId] {
     | RootSnapshot
     | FailureRecovery => [0]
     DynamicBranch => [0, 1]
-    Source | KeyedQuery | DomainFailure | StructuralError => []
+    Source
+    | KeyedQuery
+    | DomainFailure
+    | StructuralError
+    | DirectCycle
+    | MutualCycle
+    | SameQueryKeyCycle
+    | FiniteRecursion
+    | UnequalKeyCrossQuery
+    | SequentialDuplicateRead => []
+    DeadCycleBranch | CycleRecovery | OldTraceCycle => [0]
   }
 }
 
@@ -63,7 +87,19 @@ fn fixed_root_scenario(scenario : Scenario) -> Bool {
     | DynamicBranch
     | RootSnapshot
     | FailureRecovery => true
-    Source | KeyedQuery | DomainFailure | StructuralError => false
+    Source
+    | KeyedQuery
+    | DomainFailure
+    | StructuralError
+    | DirectCycle
+    | MutualCycle
+    | SameQueryKeyCycle
+    | FiniteRecursion
+    | UnequalKeyCrossQuery
+    | DeadCycleBranch
+    | CycleRecovery
+    | OldTraceCycle
+    | SequentialDuplicateRead => false
   }
 }
 
@@ -80,13 +116,35 @@ fn operation_error(
       Some("KeyedQuery accepts ReadKey operations, not plain Read")
     Read(id) if fixed_root_scenario(scenario) && ids.contains(id) && id != 0 =>
       Some("fixed-root scenario cannot Read present non-root source: \{id}")
+    ReadKey(_, _) if is_cycle_scenario(scenario) =>
+      Some("cycle scenarios accept ReadQuery operations, not ReadKey")
     ReadKey(_, _) if scenario != KeyedQuery =>
       Some("ReadKey is only valid for KeyedQuery")
+    ReadQuery(_, _) if !is_cycle_scenario(scenario) =>
+      Some("ReadQuery is only valid for cycle scenarios")
+    Read(_) if is_cycle_scenario(scenario) =>
+      Some("cycle scenarios accept ReadQuery operations, not plain Read")
     DomainFailure(_) if scenario != DomainFailure =>
       Some("DomainFailure operation requires the DomainFailure scenario")
     StructuralFailure(_) if scenario != StructuralError =>
       Some("StructuralFailure operation requires the StructuralError scenario")
     _ => None
+  }
+}
+
+///|
+fn is_cycle_scenario(scenario : Scenario) -> Bool {
+  match scenario {
+    DirectCycle
+    | MutualCycle
+    | SameQueryKeyCycle
+    | FiniteRecursion
+    | UnequalKeyCrossQuery
+    | DeadCycleBranch
+    | CycleRecovery
+    | OldTraceCycle
+    | SequentialDuplicateRead => true
+    _ => false
   }
 }
 
@@ -209,4 +267,23 @@ pub(all) enum Observation {
 pub(all) enum ScenarioError {
   DomainFailure(Int)
   StructuralFailure(Int)
+  Cycle(CycleWitness)
 } derive(Eq, Debug)
+
+///|
+/// An opaque, normalized, key-free witness for a detected Query cycle.
+pub struct CycleWitness {
+  priv path : Array[QueryId]
+} derive(Eq, Debug)
+
+///|
+/// Copies a logical Query path into an opaque cycle witness.
+pub fn CycleWitness::CycleWitness(path : Array[QueryId]) -> CycleWitness {
+  { path: path.copy() }
+}
+
+///|
+/// Returns a defensive copy of the logical Query path.
+pub fn CycleWitness::path(self : CycleWitness) -> Array[QueryId] {
+  self.path.copy()
+}

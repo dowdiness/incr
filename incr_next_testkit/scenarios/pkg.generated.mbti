@@ -12,7 +12,15 @@ pub fn canonical() -> @model.Script
 
 pub fn chain() -> @model.Script
 
+pub fn cycle_matrix() -> Array[@model.Script]
+
+pub fn cycle_recovery() -> @model.Script
+
+pub fn dead_cycle_branch() -> @model.Script
+
 pub fn diamond() -> @model.Script
+
+pub fn direct_cycle() -> @model.Script
 
 pub fn domain_failure() -> @model.Script
 
@@ -20,13 +28,25 @@ pub fn dynamic_branch() -> @model.Script
 
 pub fn failure_recovery() -> @model.Script
 
+pub fn finite_recursion() -> @model.Script
+
 pub fn keyed_query() -> @model.Script
+
+pub fn mutual_cycle() -> @model.Script
+
+pub fn old_trace_cycle() -> @model.Script
 
 pub fn root_snapshot() -> @model.Script
 
+pub fn same_query_key_cycle() -> @model.Script
+
 pub fn selected_publication() -> @model.Script
 
+pub fn sequential_duplicate_read() -> @model.Script
+
 pub fn structural_error() -> @model.Script
+
+pub fn unequal_key_cross_query() -> @model.Script
 
 pub fn unit_query() -> @model.Script
 

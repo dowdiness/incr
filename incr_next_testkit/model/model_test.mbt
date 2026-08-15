@@ -1,4 +1,24 @@
 ///|
+test "CycleWitness and ReadQuery compile probe" {
+  let witness = @model.CycleWitness::CycleWitness([0, 1])
+  assert_eq(witness.path(), [0, 1])
+  let operation = @model.Operation::ReadQuery(0, 1)
+  ignore(operation)
+}
+
+///|
+test "CycleWitness constructor and accessor are defensive" {
+  let input = [0, 1]
+  let witness = @model.CycleWitness::CycleWitness(input)
+  input[0] = 9
+  assert_eq(witness.path(), [0, 1])
+  let path = witness.path()
+  path[1] = 9
+  assert_eq(witness.path(), [0, 1])
+  assert_eq(witness, @model.CycleWitness::CycleWitness([0, 1]))
+}
+
+///|
 test "Script snapshots both caller-owned arrays" {
   let initial_sources = [@model.SourceInit::{ id: 0, value: 1 }]
   let operations = [@model.Operation::Read(0)]
