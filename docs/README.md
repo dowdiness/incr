@@ -75,6 +75,7 @@ accepted, and K1.5–K1.6 blocked and uncommissioned):
 - [Incr Next K1.2 key-bound compile probe](../incr_next/docs/2026-08-14-k1-2-key-bound-compile-probe.md) — selected `Region::query` Hash/Eq boundary and caller contract
 - [Incr Next K1.2 validation](../incr_next/docs/k1-2-validation.md) — accepted semantics, ownership, interface, backend, and work-count evidence
 - [Incr Next K1.3 validation](../incr_next/docs/k1-3-validation.md) — accepted and merged active tracking, witness contract, atomicity, cleanup, hosted CI, and public diff review evidence
+- [Incr Next K1.4 cutoff compile probe](../incr_next/docs/2026-08-15-k1-4-cutoff-compile-probe.md) — selected typed cutoff constructors and standalone type-owned trait boundary
 
 **Current roadmap:**
 
