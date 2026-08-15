@@ -22,7 +22,9 @@ cycle detection is **ACCEPTED** at implementation head
 `e187b562f87ec4ecd50940a5e8fc2bc5d478380c`, finalized at status-only head
 `a8115757662a6412e053aad9b7dc451f39a825c6`, and **MERGED** as squash commit
 `5657cfc99734c9ac9e7093dd71819d6a0c48df87`. K1.4 typed cutoff and backdating
-is **COMMISSIONED** (implementation not yet accepted). Its exact public
-AlwaysChanged, `Eq`, and type-owned constructor surface remains subject to the
-commissioned generated-interface compile probe. K1.5–K1.6 remain blocked and
-uncommissioned.
+is **IMPLEMENTATION COMPLETE** with a **LOCAL GATE PASS** at semantic head
+`16e6a1fc1a4cb48ac1ba11463096595398115472` and ownership/boundary head
+`f84d9589d4b979b711036263255f6a3f2e684525`; it is **NOT ACCEPTED**. The
+selected public surface preserves `Region::query` and adds explicit
+AlwaysChanged, `Eq`, and type-owned constructors with private policy storage.
+K1.5–K1.6 remain blocked and uncommissioned.

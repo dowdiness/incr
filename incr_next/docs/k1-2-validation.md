@@ -22,9 +22,11 @@ invocation-level cycle detection is accepted at implementation head
 `a8115757662a6412e053aad9b7dc451f39a825c6`, and merged as squash commit
 `5657cfc99734c9ac9e7093dd71819d6a0c48df87`. K1.3 CodeRabbit skipped content
 review and is not positive evidence; hosted CI, independent public diff review,
-and maintainer acceptance pass. K1.4 is commissioned but not accepted.
-K1.5–K1.6 remain blocked and uncommissioned. No ADR or package publication is
-authorized.
+and maintainer acceptance pass. K1.4 implementation is complete locally at
+semantic head `16e6a1fc1a4cb48ac1ba11463096595398115472` and
+ownership/boundary head `f84d9589d4b979b711036263255f6a3f2e684525`, with a
+local gate pass, but is not accepted. K1.5–K1.6 remain blocked and
+uncommissioned. No ADR or package publication is authorized.
 
 ## Generated-interface probe
 

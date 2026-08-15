@@ -42,16 +42,17 @@ K1.3 invocation-level cycle detection is **ACCEPTED** at implementation head
 active-before-cache ordering, copied key-free Cycle witnesses, old/current
 Cycle separation, atomic recovery, and structured cleanup.
 
-K1.4 typed cutoff and backdating is **COMMISSIONED** (implementation not yet
-accepted). It is limited to fixed-per-Query typed AlwaysChanged, `Eq`, and
-type-owned policy choices whose exact surface must be selected by a
-generated-interface compile probe.
-Successful recomputation always installs the newest value and trace; only a
-propagation-equivalent result retains old `changed_at` so downstream
-verification may skip work. K1.5–K1.6 remain blocked and uncommissioned, as do
-eviction, Mount/Program, Canopy, ADR, and publication.
+K1.4 typed cutoff and backdating is **IMPLEMENTATION COMPLETE** with a **LOCAL
+GATE PASS** at semantic head `16e6a1fc1a4cb48ac1ba11463096595398115472` and
+ownership/boundary head `f84d9589d4b979b711036263255f6a3f2e684525`; it is
+**NOT ACCEPTED**. The selected surface provides fixed-per-Query typed
+AlwaysChanged, `Eq`, and type-owned choices without a public predicate or policy
+representation. Successful recomputation always installs the newest value and
+trace; only a propagation-equivalent result retains old `changed_at` so
+downstream verification may skip work. K1.5–K1.6 remain blocked and
+uncommissioned, as do eviction, Mount/Program, Canopy, ADR, and publication.
 
-The sibling module owns the accepted K1.1–K1.3 records and K1.4 commission in
+The sibling module owns the accepted K1.1–K1.3 records and K1.4 local validation in
 [`incr_next/docs/roadmap.md`](../incr_next/docs/roadmap.md); this root roadmap
 retains the product pointer.
 

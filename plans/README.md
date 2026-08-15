@@ -18,7 +18,7 @@ instruction.
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 |---|---|---:|---:|---|---|
-| 015 | Incr Next kernel alpha | P1 | L | K0 merged in PR #470 | IN PROGRESS (K1.1–K1.3 ACCEPTED / MERGED; K1.4 COMMISSIONED — implementation not accepted; K1.5–K1.6 BLOCKED / UNCOMMISSIONED) |
+| 015 | Incr Next kernel alpha | P1 | L | K0 merged in PR #470 | IN PROGRESS (K1.1–K1.3 ACCEPTED / MERGED; K1.4 IMPLEMENTATION COMPLETE / LOCAL GATE PASS / NOT ACCEPTED; K1.5–K1.6 BLOCKED / UNCOMMISSIONED) |
 | 014 | Deepen the typed-sheet application owner | P1 | L | Accepted EGW projection boundary; completed Plan 013 adapter | DONE (closed 2026-08-02; private owner deepening complete) |
 | 013 | Run the typed-spreadsheet EGW boundary experiment | P1 | L | Published EGW 0.4.0 | DONE (closed 2026-07-24; bounded adapter experiment complete) |
 

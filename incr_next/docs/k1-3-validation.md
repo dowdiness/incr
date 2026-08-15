@@ -22,7 +22,9 @@ status-only heads passed 46 of 46 hosted checks, including
 was PASS. CodeRabbit skipped content review because manual review was required
 and is not positive evidence.
 
-K1.4 typed cutoff and backdating is commissioned, but its implementation is not
+K1.4 typed cutoff and backdating is implementation-complete locally at semantic
+head `16e6a1fc1a4cb48ac1ba11463096595398115472` and ownership/boundary head
+`f84d9589d4b979b711036263255f6a3f2e684525`, with a local gate pass, but is not
 accepted. K1.5–K1.6 remain blocked and uncommissioned. No ADR or package
 publication is authorized.
 
@@ -180,5 +182,6 @@ Local and hosted validation pass. The status-only head passed all required
 checks with `Incr Next Required`, zero pending or failed checks,
 CLEAN/MERGEABLE state, zero current-`incr/` diff, zero K1.4+ surface, and a
 documentation/status-only finalization diff. The squash-tree equivalence check
-passed before PR #476 merged. K1.4 implementation remains blocked until its
-commission PR merges and a separate direct instruction is given.
+passed before PR #476 merged. K1.4 commission PR #477 is merged; its local
+implementation and validation gates pass, but acceptance, push, PR, and merge
+remain unauthorized.

@@ -39,16 +39,18 @@ K1.3 invocation-level cycle detection is **ACCEPTED** at implementation head
 review, maintainer acceptance, and squash-tree equivalence pass. CodeRabbit
 skipped content review and is not positive evidence.
 
-K1.4 typed cutoff and backdating is **COMMISSIONED** (implementation not yet
-accepted). It asks whether a Query-fixed typed policy can retain old
-`changed_at` for a propagation-equivalent successful recompute while always
-installing the newest value and dynamic trace, preserving Cycle/failure
-atomicity, matching Fresh, and skipping downstream work. A generated-interface
-compile probe must select the exact explicit AlwaysChanged, `Eq`, and type-owned
-constructor surface before implementation begins.
+K1.4 typed cutoff and backdating is **IMPLEMENTATION COMPLETE** with a **LOCAL
+GATE PASS** at semantic head `16e6a1fc1a4cb48ac1ba11463096595398115472` and
+ownership/boundary head `f84d9589d4b979b711036263255f6a3f2e684525`; it is
+**NOT ACCEPTED**. The generated-interface probe selected explicit
+AlwaysChanged, `Eq`, and type-owned constructors while preserving the existing
+`Region::query` baseline. Successful recomputation installs the newest value
+and dynamic trace; propagation-equivalent results retain old `changed_at`,
+preserving Cycle/failure atomicity while allowing downstream work to skip.
 
 K1.4 exposes no arbitrary predicate or `TrustedCutoff`; direct reads always see
 the newest value, while only admissible downstream verification may reuse old
-observations. K1.5–K1.6 remain blocked and uncommissioned. Proof loss/eviction,
-automatic retention, Mount/Program, Canopy integration, ADR, and publication
-require separate maintainer decisions.
+observations. The 24-cell, workspace, ownership, interface, negative, and
+boundary gates pass locally. K1.5–K1.6 remain blocked and uncommissioned. Proof
+loss/eviction, automatic retention, Mount/Program, Canopy integration, ADR, and
+publication require separate maintainer decisions.

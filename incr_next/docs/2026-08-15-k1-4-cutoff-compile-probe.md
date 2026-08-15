@@ -50,9 +50,12 @@ arbitrary predicate parameter, or `TrustedCutoff` contract.
 record.
 
 **Disposition:** **Selected interface for K1.4 implementation; not an accepted
-implementation.** This compile-probe evidence fixes the interface for the
-authorized local K1.4 implementation. It authorizes no provider copy, ADR,
-publication, implementation push, or implementation PR.
+implementation.** This compile-probe evidence fixes the interface used by the
+local semantic implementation at `16e6a1fc1a4cb48ac1ba11463096595398115472`
+and ownership/boundary evidence at
+`f84d9589d4b979b711036263255f6a3f2e684525`. The local gate passes, but this
+record does not accept K1.4 or authorize a provider copy, ADR, publication,
+implementation push, or implementation PR.
 
 ## Scope and Existing API First
 
