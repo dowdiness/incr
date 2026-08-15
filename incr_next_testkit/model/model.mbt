@@ -7,6 +7,44 @@ pub type SourceId = Int
 pub type QueryId = Int
 
 ///|
+/// Fixed cutoff choices used by the independent K1.4 workloads.
+pub(all) enum CutoffKind {
+  AlwaysChangedEquivalent
+  EqEquivalent
+  EqChanged
+  TypeOwnedEquivalent
+  TypeOwnedChanged
+  DynamicEquivalent
+  ConsecutiveEquivalent
+} derive(Eq, Debug)
+
+///|
+/// A compact cutoff workload: each step publishes the trigger Source before
+/// the evaluator reads the fixed Query key.
+pub struct CutoffScript {
+  priv kind : CutoffKind
+  priv steps : Array[Int]
+} derive(Debug)
+
+///|
+pub fn CutoffScript::CutoffScript(
+  kind : CutoffKind,
+  steps : Array[Int],
+) -> CutoffScript {
+  { kind, steps: steps.copy() }
+}
+
+///|
+pub fn CutoffScript::kind(self : CutoffScript) -> CutoffKind {
+  self.kind
+}
+
+///|
+pub fn CutoffScript::steps(self : CutoffScript) -> Array[Int] {
+  self.steps.copy()
+}
+
+///|
 /// Graph shape exercised by a differential script.
 pub(all) enum Scenario {
   Source
@@ -257,6 +295,7 @@ pub fn Script::operations(self : Script) -> Array[Operation] {
 /// A normalized observation used by differential tests.
 pub(all) enum Observation {
   Value(Int)
+  Marker(Int)
   Missing(SourceId)
   Error(ScenarioError)
   Counter(Int)

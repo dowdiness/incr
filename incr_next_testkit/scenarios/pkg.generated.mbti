@@ -8,9 +8,15 @@ import {
 // Values
 pub fn all() -> Array[@model.Script]
 
+pub fn always_changed_equivalent() -> @model.CutoffScript
+
 pub fn canonical() -> @model.Script
 
 pub fn chain() -> @model.Script
+
+pub fn consecutive_equivalent() -> @model.CutoffScript
+
+pub fn cutoff_all() -> Array[@model.CutoffScript]
 
 pub fn cycle_matrix() -> Array[@model.Script]
 
@@ -25,6 +31,12 @@ pub fn direct_cycle() -> @model.Script
 pub fn domain_failure() -> @model.Script
 
 pub fn dynamic_branch() -> @model.Script
+
+pub fn dynamic_equivalent() -> @model.CutoffScript
+
+pub fn eq_changed() -> @model.CutoffScript
+
+pub fn eq_equivalent() -> @model.CutoffScript
 
 pub fn failure_recovery() -> @model.Script
 
@@ -45,6 +57,10 @@ pub fn selected_publication() -> @model.Script
 pub fn sequential_duplicate_read() -> @model.Script
 
 pub fn structural_error() -> @model.Script
+
+pub fn type_owned_changed() -> @model.CutoffScript
+
+pub fn type_owned_equivalent() -> @model.CutoffScript
 
 pub fn unequal_key_cross_query() -> @model.Script
 

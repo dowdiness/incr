@@ -8,6 +8,8 @@ import {
 // Values
 pub fn evaluate(@model.Script) -> Array[@model.Observation]
 
+pub fn evaluate_cutoff(@model.CutoffScript) -> Array[@model.Observation]
+
 // Errors
 
 // Types and methods
