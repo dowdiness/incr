@@ -341,6 +341,41 @@ fn first_difference(
 }
 
 ///|
+fn first_failing_operation_index(
+  operation_count : Int,
+  prefix_fails : (Int) -> Bool,
+) -> Int {
+  if prefix_fails(0) {
+    return -1
+  }
+  for prefix_length in 1..<(operation_count + 1) {
+    if prefix_fails(prefix_length) {
+      return prefix_length - 1
+    }
+  }
+  -1
+}
+
+///|
+fn semantic_mismatch(script : @model.Script) -> Bool {
+  normalized(@fresh.evaluate(script)) !=
+  normalized(@incremental_adapter.evaluate(script))
+}
+
+///|
+fn first_differing_operation(script : @model.Script) -> Int {
+  let operations = script.operations()
+  first_failing_operation_index(operations.length(), prefix_length => {
+    let prefix = @model.Script::scenario(
+      script.scenario_tag(),
+      script.initial_sources(),
+      operations[:prefix_length].to_owned(),
+    )
+    semantic_mismatch(prefix)
+  })
+}
+
+///|
 fn generated_recipes() -> Array[Recipe] {
   let draws : Array[Int] = @qcgen.Gen::spawn().samples(
     size=CASE_COUNT,
@@ -506,6 +541,101 @@ fn minimize_failure(recipe : Recipe, predicate : (Recipe) -> Bool) -> Recipe {
 }
 
 ///|
+priv struct GeneratedCutoff {
+  kind : @model.CutoffKind
+  steps : Array[Int]
+}
+
+///|
+priv enum CutoffShrinkPhase {
+  Suffix
+  Values
+} derive(Eq, Debug)
+
+///|
+priv struct CutoffShrinkCandidate {
+  phase : CutoffShrinkPhase
+  generated : GeneratedCutoff
+}
+
+///|
+fn cutoff_script(generated : GeneratedCutoff) -> @model.CutoffScript {
+  @model.CutoffScript::CutoffScript(generated.kind, generated.steps)
+}
+
+///|
+fn cutoff_shrink_candidates(
+  generated : GeneratedCutoff,
+) -> Array[CutoffShrinkCandidate] {
+  let candidates = []
+  if generated.steps.length() > 0 {
+    candidates.push(CutoffShrinkCandidate::{
+      phase: CutoffShrinkPhase::Suffix,
+      generated: GeneratedCutoff::{
+        kind: generated.kind,
+        steps: generated.steps[:generated.steps.length() - 1].to_owned(),
+      },
+    })
+  }
+  for index, step in generated.steps {
+    if step != 0 {
+      let steps = generated.steps.copy()
+      steps[index] = 0
+      candidates.push(CutoffShrinkCandidate::{
+        phase: CutoffShrinkPhase::Values,
+        generated: GeneratedCutoff::{ kind: generated.kind, steps },
+      })
+    }
+  }
+  candidates
+}
+
+///|
+fn minimize_cutoff_failure(
+  generated : GeneratedCutoff,
+  predicate : (GeneratedCutoff) -> Bool,
+) -> GeneratedCutoff {
+  let mut current = generated
+  let mut changed = true
+  while changed {
+    changed = false
+    for candidate in cutoff_shrink_candidates(current) {
+      if predicate(candidate.generated) {
+        current = candidate.generated
+        changed = true
+        break
+      }
+    }
+  }
+  current
+}
+
+///|
+fn cutoff_mismatch(generated : GeneratedCutoff) -> Bool {
+  let script = cutoff_script(generated)
+  normalized(@fresh.evaluate_cutoff(script)) !=
+  normalized(@incremental_adapter.evaluate_cutoff(script))
+}
+
+///|
+fn first_differing_cutoff_step(generated : GeneratedCutoff) -> Int {
+  first_failing_operation_index(generated.steps.length(), prefix_length => {
+    cutoff_mismatch(GeneratedCutoff::{
+      kind: generated.kind,
+      steps: generated.steps[:prefix_length].to_owned(),
+    })
+  })
+}
+
+///|
+fn cutoff_phase_rank(phase : CutoffShrinkPhase) -> Int {
+  match phase {
+    CutoffShrinkPhase::Suffix => 0
+    CutoffShrinkPhase::Values => 1
+  }
+}
+
+///|
 test "generated differential recipes cover every public scenario" {
   let recipes = generated_recipes()
   for family in 0..<SCENARIO_COUNT {
@@ -542,7 +672,7 @@ test "generated differential observations match at a fixed seed" {
       let fresh_min = normalized(@fresh.evaluate(script))
       let incremental_min = normalized(@incremental_adapter.evaluate(script))
       abort(
-        "seed=0x6A1601 case=\{i} recipe=\{@debug.to_string(minimized)} sources=\{@debug.to_string(script.initial_sources())} operations=\{@debug.to_string(script.operations())} Fresh=\{@debug.to_string(fresh_min)} Incremental=\{@debug.to_string(incremental_min)} first_observation=\{first_difference(fresh_min, incremental_min)}",
+        "seed=0x6A1601 case=\{i} recipe=\{@debug.to_string(minimized)} sources=\{@debug.to_string(script.initial_sources())} operations=\{@debug.to_string(script.operations())} Fresh=\{@debug.to_string(fresh_min)} Incremental=\{@debug.to_string(incremental_min)} first_operation=\{first_differing_operation(script)} first_observation=\{first_difference(fresh_min, incremental_min)}",
       )
     }
   }
@@ -552,14 +682,25 @@ test "generated differential observations match at a fixed seed" {
 test "cutoff generator covers every kind with bounded varied steps" {
   let kinds = @scenarios.cutoff_all()
   for i, base in kinds {
-    let steps = Array::makei(5, j => (i + j) % 3 - 1)
-    let script = @model.CutoffScript::CutoffScript(base.kind(), steps)
+    let generated = GeneratedCutoff::{
+      kind: base.kind(),
+      steps: Array::makei(5, j => (i + j) % 3 - 1),
+    }
+    let script = cutoff_script(generated)
     let fresh = normalized(@fresh.evaluate_cutoff(script))
     let incremental = normalized(@incremental_adapter.evaluate_cutoff(script))
     let difference = first_difference(fresh, incremental)
     if difference >= 0 {
+      let minimized = minimize_cutoff_failure(generated, candidate => {
+        cutoff_mismatch(candidate)
+      })
+      let minimized_script = cutoff_script(minimized)
+      let minimized_fresh = normalized(@fresh.evaluate_cutoff(minimized_script))
+      let minimized_incremental = normalized(
+        @incremental_adapter.evaluate_cutoff(minimized_script),
+      )
       abort(
-        "seed=0x6A1601 kind=\{@debug.to_string(base.kind())} steps=\{@debug.to_string(steps)} Fresh=\{@debug.to_string(fresh)} Incremental=\{@debug.to_string(incremental)} first_observation=\{difference}",
+        "seed=0x6A1601 kind=\{@debug.to_string(minimized.kind)} steps=\{@debug.to_string(minimized.steps)} Fresh=\{@debug.to_string(minimized_fresh)} Incremental=\{@debug.to_string(minimized_incremental)} first_step=\{first_differing_cutoff_step(minimized)} first_observation=\{first_difference(minimized_fresh, minimized_incremental)}",
       )
     }
   }
@@ -626,4 +767,39 @@ test "injected failure predicate executes deterministic minimization" {
   })
   assert_eq(minimized.cycle_depth, 0)
   ignore(recipe_script(minimized))
+}
+
+///|
+test "failure localization reports the operation whose prefix first differs" {
+  assert_eq(first_failing_operation_index(3, prefix => prefix >= 3), 2)
+  assert_eq(first_failing_operation_index(3, prefix => prefix >= 1), 0)
+  assert_eq(first_failing_operation_index(3, _prefix => false), -1)
+}
+
+///|
+test "cutoff shrinker minimizes suffixes before values" {
+  let generated = GeneratedCutoff::{
+    kind: @model.CutoffKind::EqEquivalent,
+    steps: [-1, 0, 2],
+  }
+  let candidates = cutoff_shrink_candidates(generated)
+  assert_eq(candidates[0].phase, CutoffShrinkPhase::Suffix)
+  assert_eq(candidates[0].generated.steps, [-1, 0])
+  for index in 1..<candidates.length() {
+    assert_true(
+      cutoff_phase_rank(candidates[index - 1].phase) <=
+      cutoff_phase_rank(candidates[index].phase),
+    )
+  }
+  for candidate in candidates {
+    ignore(cutoff_script(candidate.generated))
+  }
+  let suffix_min = minimize_cutoff_failure(generated, candidate => {
+    candidate.steps.length() >= 2 && candidate.steps[0] == -1
+  })
+  assert_eq(suffix_min.steps, [-1, 0])
+  let value_min = minimize_cutoff_failure(generated, candidate => {
+    candidate.steps.length() == 3
+  })
+  assert_eq(value_min.steps, [0, 0, 0])
 }
