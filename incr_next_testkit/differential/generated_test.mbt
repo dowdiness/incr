@@ -363,7 +363,10 @@ fn semantic_mismatch(script : @model.Script) -> Bool {
 }
 
 ///|
-fn first_differing_operation(script : @model.Script) -> Int {
+fn first_differing_operation_by(
+  script : @model.Script,
+  prefix_fails : (@model.Script) -> Bool,
+) -> Int {
   let operations = script.operations()
   first_failing_operation_index(operations.length(), prefix_length => {
     let prefix = @model.Script::scenario(
@@ -371,8 +374,13 @@ fn first_differing_operation(script : @model.Script) -> Int {
       script.initial_sources(),
       operations[:prefix_length].to_owned(),
     )
-    semantic_mismatch(prefix)
+    prefix_fails(prefix)
   })
+}
+
+///|
+fn first_differing_operation(script : @model.Script) -> Int {
+  first_differing_operation_by(script, prefix => semantic_mismatch(prefix))
 }
 
 ///|
@@ -770,10 +778,56 @@ test "injected failure predicate executes deterministic minimization" {
 }
 
 ///|
-test "failure localization reports the operation whose prefix first differs" {
-  assert_eq(first_failing_operation_index(3, prefix => prefix >= 3), 2)
-  assert_eq(first_failing_operation_index(3, prefix => prefix >= 1), 0)
-  assert_eq(first_failing_operation_index(3, _prefix => false), -1)
+test "failure localization replays admissible scenario prefixes" {
+  let scripts = [
+    @model.Script::scenario(
+      @model.Scenario::Source,
+      [@model.SourceInit::{ id: 0, value: 1 }],
+      [
+        @model.Operation::Read(0),
+        @model.Operation::Set(0, 2),
+        @model.Operation::Read(0),
+      ],
+    ),
+    @model.Script::scenario(
+      @model.Scenario::KeyedQuery,
+      [
+        @model.SourceInit::{ id: 0, value: 1 },
+        @model.SourceInit::{ id: 1, value: 2 },
+      ],
+      [
+        @model.Operation::ReadKey(0, 3),
+        @model.Operation::Set(1, 4),
+        @model.Operation::ReadKey(1, 3),
+      ],
+    ),
+    @model.Script::scenario(@model.Scenario::DomainFailure, [], [
+      @model.Operation::DomainFailure(17),
+    ]),
+    @model.Script::scenario(@model.Scenario::StructuralError, [], [
+      @model.Operation::StructuralFailure(23),
+    ]),
+  ]
+  for script in scripts {
+    let expected_scenario = script.scenario_tag()
+    let expected_sources = script.initial_sources()
+    let operation_count = script.operations().length()
+    let first_operation = first_differing_operation_by(script, prefix => {
+      if prefix.scenario_tag() != expected_scenario ||
+        prefix.initial_sources() != expected_sources {
+        abort("operation-prefix replay changed immutable graph setup")
+      }
+      let fresh = normalized(@fresh.evaluate(prefix))
+      let incremental = normalized(@incremental_adapter.evaluate(prefix))
+      if fresh != incremental {
+        abort("injected localization fixture has a baseline mismatch")
+      }
+      prefix.operations().length() == operation_count
+    })
+    assert_eq(first_operation, operation_count - 1)
+  }
+  assert_eq(normalized(@fresh.evaluate(scripts[0])).length(), 2)
+  assert_eq(first_differing_operation_by(scripts[0], _prefix => false), -1)
 }
 
 ///|
