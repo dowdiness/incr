@@ -154,6 +154,10 @@ jobs:
           done
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
 
+      - name: Fetch registry dependencies
+        working-directory: incr
+        run: moon update
+
       - name: Engine isolation invariants (incr/cells/internal)
         run: bash scripts/check-engine-isolation.sh
 
