@@ -36,12 +36,12 @@ hosted checks, including `Incr Next Required`, with no pending or failed checks;
 maintainer acceptance and squash-tree equivalence passed.
 
 K1.6 product-quality conformance is implementation-complete with local gates
-passing at candidate HEAD `b94e2957cf88ac60639914a6ed3761046efa65a9`.
-Operation localization and cutoff shrinking pass after fixes `170a996` and
-`d013186`; the latter exercises actual Fresh/Incremental scenario-prefix replay.
-Exact-tree gates and base revalidation pass, and independent MoonBit and
-CI/documentation reviews returned **APPROVE**. A non-Draft implementation PR is
-authorized from the status-only green head. This plan does not authorize merge,
+passing at candidate HEAD `b7d2c32ebdc65472db2ed0fd36f36a678c86822f`.
+Public/private operation localization, cutoff/lifetime shrinking, observable
+stable-identity mutable-key divergence, and scenario-aware unrelated-operation
+shrinking pass after review fixes. Exact-tree gates and base revalidation pass,
+and independent reviews returned **APPROVE**. PR #482 remains open for hosted
+acceptance. This plan does not authorize merge,
 publication, Issue action, parent-submodule update, ADR, Canopy integration, or
 K2 work.
 
@@ -123,7 +123,7 @@ implementation head `064a80ac884f7c5588f123cc62dd784adeb26b48`, review-fix head
 `6de46abf19acb69cc5d5274b89a0ee780e48fb8d`, and squash merge commit
 `4e66654d021435179116c0cffd56c0216b1bc664`. K1.6 is commissioned solely as the
 final product-quality conformance gate. Its implementation-complete K1.6a–d
-candidate is recorded at `b94e2957cf88ac60639914a6ed3761046efa65a9`; local
+candidate is recorded at `b7d2c32ebdc65472db2ed0fd36f36a678c86822f`; local
 gates and independent review pass, but it is not accepted.
 
 ## Goal

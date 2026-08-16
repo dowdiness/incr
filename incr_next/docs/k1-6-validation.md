@@ -17,24 +17,31 @@ plan documentation protocol.
 ## Status
 
 K1.6 is **IMPLEMENTATION COMPLETE / LOCAL GATE PASS / NOT ACCEPTED** at
-candidate HEAD `b94e2957cf88ac60639914a6ed3761046efa65a9`, based on commission
-merge `e66f3bfeb08343135ad0e180c1c7a3cfbfa92d75`. The published
-`feat/incr-next-k1-6` branch points to that exact candidate.
+implementation candidate `b7d2c32ebdc65472db2ed0fd36f36a678c86822f`, based on
+commission merge `e66f3bfeb08343135ad0e180c1c7a3cfbfa92d75`. This record follows
+the implementation candidate with documentation-only status changes.
 
 Public branch review found that reports localized observations rather than
 operations and that generated cutoff failures did not shrink. Commit `170a996`
 addressed both implementation gaps; review then required the localization test
 to exercise reconstructed scenario prefixes. Commit `d013186` added that
-coverage before candidate HEAD `b94e295`.
+coverage. PR #482 review then required the private suites to report the same
+operation/observation precision, the mutable-key divergence to be observable
+without violating Hash/Eq stability, and unrelated-operation shrinking to be
+scenario-aware. Commit `b7d2c32` closes those evidence gaps.
 
 | Acceptance item | Result |
 |---|---|
-| Operation localization | PASS |
-| Cutoff shrinking | PASS |
+| Public operation localization | PASS |
+| Public cutoff shrinking | PASS |
+| Private operation localization | PASS |
+| Lifetime suffix shrinking | PASS |
+| Stable-identity mutable-key divergence | PASS |
+| Scenario-aware unrelated-operation shrinking | PASS |
 | Exact-tree gates | PASS |
 | Independent review | APPROVE |
 | Base revalidation | PASS; `origin/main` remained `e66f3bf` |
-| Implementation PR | Authorized; not yet created at this record |
+| Implementation PR | #482 open; hosted rerun pending after evidence fix |
 
 K1.6 is not accepted. Hosted CI, maintainer acceptance, and merge remain
 pending. ADR, publication, K2, Canopy integration, and the product-adoption
@@ -90,6 +97,9 @@ Generated cutoff shrinking has two applicable phases. The suffix phase shortens
 the input array by one; the value phase reduces individual entries to zero. The
 fixed-point search retains only candidates that still reproduce the mismatch
 and reports the first differing cutoff input position and observation.
+Unrelated-operation candidates exist only for `UnrelatedPublication`; selector
+and selected-Source writes in DynamicBranch and KeyedQuery remain for the
+subsequent Writes phase.
 
 Private fixed-seed evidence adds 64 proof-loss cases, 48 atomicity/Region-close
 cases, and 32 structural-failure/recovery cases. Fresh projects proof loss to a
@@ -97,12 +107,18 @@ semantic no-op and projects one atomic multi-write to adjacent Fresh writes
 without an intervening read. Only the temporary kernel white-box interpreter
 calls the package-private proof-loss operation. Region close and rejected
 atomic publication use a pure expected-transition oracle because neither is a
-public testkit operation. Their shrinkers retain valid graph membership and the
-mandatory proof-loss/rematerialization pair.
+public testkit operation.
+
+Private reports replay operation prefixes and include the first differing
+operation and observation. Lifetime shrinking removes
+trailing operations before reducing values; structural recovery reduces values
+but retains its mandatory recovery/read witness. Proof shrinking retains valid
+graph membership and the mandatory proof-loss/rematerialization pair.
 
 Expected divergences remain outside Fresh parity:
 
-- mutable Query keys;
+- mutable Query-key meaning, demonstrated with immutable Hash/Eq identity and a
+  mutable semantic field;
 - mutable Source aliases;
 - mutable memo-result aliases;
 - observers forbidden by a propagation-equivalence contract;
@@ -133,23 +149,23 @@ interfaces. Work gates use exact counts, never elapsed time.
 | `fresh` tests | 4 per target PASS |
 | `incremental_adapter` | check PASS; zero direct test entries as before |
 | `scenarios` tests | 3 per target PASS |
-| `differential` tests | 20 per target PASS after evidence fix |
-| Private evidence fixtures | 9 tests × four targets PASS |
+| `differential` tests | 21 per target PASS after evidence fix |
+| Private evidence fixtures | 10 tests × four targets PASS |
 | Native RC/finalizer harness | PASS |
 | Negative capability probes | PASS |
 | Kernel/testkit boundaries and self-test | PASS |
 | Workspace boundaries and self-test | PASS |
 | Workspace `moon check` | PASS |
-| Workspace default tests | 1,273 wasm-gc + 256 JS PASS at `b94e295` |
-| Explicit workspace JS tests | 1,529 PASS at `b94e295` |
+| Workspace default tests | 1,274 wasm-gc + 256 JS PASS at `b7d2c32` |
+| Explicit workspace JS tests | 1,530 PASS at `b7d2c32` |
 | Documentation boundary checker | 154 Markdown files PASS after review fix |
 
 The matrix has no conditional target skip. The adapter has no package-local test
 entry, but all four check/test commands run, and the differential package drives
 it for every generated and commissioned public script.
 
-Exact interface and documentation checks passed at candidate HEAD `b94e295`,
-including the table totals above. The candidate retains zero current-`incr/`
+Exact interface checks passed at implementation candidate `b7d2c32`, including
+the table totals above; documentation checks pass on this status record. The candidate retains zero current-`incr/`
 delta, zero production `incr_next` manifest/source delta, and zero generated
 `.mbti` delta. Pre-existing workspace warnings are unchanged.
 
@@ -168,11 +184,17 @@ exercised synthetic prefix lengths.
 
 Commit `d013186` drives the actual prefix reconstruction seam through Fresh and
 Incremental replay for Source, KeyedQuery, DomainFailure, and StructuralError
-scripts while preserving scenario and initial-Source setup. At candidate HEAD
-`b94e295`, the exact-tree gates and post-review base revalidation passed against
-unchanged base `e66f3bfeb08343135ad0e180c1c7a3cfbfa92d75`. Independent
-MoonBit and CI/documentation reviews both returned **APPROVE**. A non-Draft
-implementation PR is authorized from the status-only green head.
+scripts while preserving scenario and initial-Source setup. PR #482 review then
+found three private/divergence/shrink-phase evidence gaps. Commit `b7d2c32`
+adds private operation-prefix reports and lifetime suffix shrinking, demonstrates
+mutable-key divergence with stable identity, and limits unrelated-operation
+shrinking to its owning scenario. Injected tests distinguish operation from
+observation indices and retain the mandatory structural-recovery witness.
+
+The exact-tree gates pass against unchanged base
+`e66f3bfeb08343135ad0e180c1c7a3cfbfa92d75`. Independent MoonBit and
+adversarial evidence reviews returned **APPROVE** after their findings were
+resolved. PR #482 remains open for hosted acceptance.
 
 ## Existing API First
 

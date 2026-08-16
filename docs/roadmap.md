@@ -70,16 +70,16 @@ conservative downstream recomputation.
 
 K1.6 product-quality conformance is **IMPLEMENTATION COMPLETE / LOCAL GATE PASS
 / NOT ACCEPTED** at candidate HEAD
-`b94e2957cf88ac60639914a6ed3761046efa65a9`. Generated and shrinkable Fresh
+`b7d2c32ebdc65472db2ed0fd36f36a678c86822f`. Generated and shrinkable Fresh
 differential evidence, temporary private proof-loss/work fixtures, and the full
 backend/boundary/ownership/workspace matrix pass without a production kernel or
 public-interface delta.
 
-Operation localization and cutoff shrinking pass after fixes `170a996` and
-`d013186`. Exact-tree gates and base revalidation pass, and independent MoonBit
-and CI/documentation reviews returned **APPROVE**. A non-Draft implementation PR
-is authorized from the status-only green head; hosted CI, maintainer acceptance,
-and merge remain pending. Public debug/explain, public or automatic eviction
+Public and private operation localization, cutoff and lifetime shrinking,
+stable-identity mutable-key divergence, and scenario-aware unrelated-operation
+shrinking pass after review fixes through `b7d2c32`. Exact-tree gates and base
+revalidation pass, and independent reviews returned **APPROVE**. PR #482 remains
+open; hosted CI, maintainer acceptance, and merge remain pending. Public debug/explain, public or automatic eviction
 policy, Mount, Program/Port/Formula, Canopy, ADR, publication, and representation
 optimization remain blocked.
 

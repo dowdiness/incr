@@ -79,18 +79,17 @@ gates.
 
 K1.6 product-quality conformance is **IMPLEMENTATION COMPLETE / LOCAL GATE PASS
 / NOT ACCEPTED** at candidate HEAD
-`b94e2957cf88ac60639914a6ed3761046efa65a9`. K1.6a–d add generated and
+`b7d2c32ebdc65472db2ed0fd36f36a678c86822f`. K1.6a–d add generated and
 shrinkable Fresh differential evidence, temporary package-private proof-loss and
 work fixtures, and the complete backend, boundary, ownership, and workspace
 matrix without changing production kernel source or public interfaces. The
 [K1.6 local validation record](k1-6-validation.md) captures that evidence.
 
-Fixes `170a996` and `d013186` close operation-localization and cutoff-shrinking
-gaps and exercise Fresh/Incremental replay for setup-dependent prefixes.
-Exact-tree gates and base revalidation pass, and independent MoonBit and
-CI/documentation reviews returned **APPROVE**. A non-Draft implementation PR is
-authorized from the status-only green head. Hosted CI, maintainer acceptance,
-merge, and the separate product decision remain pending or unauthorized.
+Review fixes through `b7d2c32` close public/private operation-localization,
+cutoff/lifetime shrinking, mutable-key divergence, and unrelated-phase gaps.
+Exact-tree gates and base revalidation pass, and independent reviews returned
+**APPROVE**. PR #482 remains open; hosted CI, maintainer acceptance, merge, and
+the separate product decision remain pending or unauthorized.
 
 The commissioned scope permits no public eviction, retention, counter, debug,
 or explain surface. Mount, Program/Port/Formula, Canopy integration, ADR,
