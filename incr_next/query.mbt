@@ -330,3 +330,21 @@ pub fn[K : Hash + Eq, V : CutoffEq] Region::query_type_owned(
 pub fn[K, V] Query::at(self : Query[K, V], key : K) -> View[V] {
   (self.make_view)(key)
 }
+
+///|
+/// Removes one key's last-successful memo evidence without changing clocks.
+fn[K : Hash + Eq, V] Query::drop_memo_evidence(
+  self : Query[K, V],
+  key : K,
+) -> Result[Unit, RegionError] {
+  match phase_region_error() {
+    Some(error) => Err(error)
+    None =>
+      if !self.core.epoch.accepts(self.core.generation) {
+        Err(ClosedRegion(generation=self.core.generation))
+      } else {
+        ignore(self.core.memo.remove(key))
+        Ok(())
+      }
+  }
+}
