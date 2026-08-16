@@ -13,21 +13,23 @@ surface preserves existing `Region::query` and adds explicit
 `query_always_changed`, `query_eq` with `V : Eq`, and `query_type_owned` with
 standalone `pub(open) CutoffEq`.
 
-**Keep until:** K1.4 is merged, rejected, or superseded by a durable design
-record.
+**Keep until:** K1 alpha is superseded or a durable published API record is
+separately authorized.
 
-**Disposition:** K1.4 implementation is **COMPLETE** and **MAINTAINER ACCEPTED**.
-Hosted acceptance PASS 46/46; public diff review APPROVE; maintainer acceptance
-PASS; **MERGE PENDING** — final merge authorized only after status-only
-current-head required checks are green.
+**Disposition:** **ACCEPTED AND MERGED.** The accepted implementation/validation
+head is `0036bdd199a685823b6769bf1acdac3f9b6b9014`, the status-only head is
+`c88e724383ca5f3e817f30226a9fa23cf3ad7358`, and PR #478 squash-merged the
+equivalent tree as `9d53d51d6ec6e282b8aa247442ee126acfe64a2d`.
+Both heads passed 46 of 46 hosted checks, public diff review was APPROVE,
+maintainer acceptance was PASS, and squash-tree equivalence passed.
 
 CodeRabbit skipped content review because manual review was required and is not
-positive evidence; independent public review supplies review evidence.
-K1.5–K1.6 remain **BLOCKED** and
+positive evidence; independent public review supplies review evidence. K1.5 is
+**COMMISSIONED** with implementation not accepted; K1.6 remains **BLOCKED** and
 **UNCOMMISSIONED**. ADR, publication, and Canopy integration remain
-unauthorized. This status-only finalization records acceptance and leaves Plan
-015 active. **No ADR needed:** K1.4 is not yet merged or adopted for
-publication.
+unauthorized. Plan 015 remains active. **No ADR needed:** K1.4 is one accepted
+increment under the existing K0 contracts; adoption and publication remain
+separate decisions.
 
 ## Scope and invariants
 
@@ -96,7 +98,8 @@ is public. Negative probes reject arbitrary/public policy forms, and boundary
 checks reject kernel/testkit and Fresh-reachable dependency leaks.
 
 The full 24-cell matrix, workspace tests, ownership, interface, negative, and
-boundary gates pass. Current `incr/` diff and K1.5+ surface remain zero.
-Implementation push, PR, hosted acceptance, public diff review, and maintainer
-acceptance are complete. Merge remains pending the status-only current-head
-gate. ADR, publication, and Canopy integration remain unauthorized.
+boundary gates pass. Current `incr/` diff and K1.5+ surface remain zero at the
+accepted implementation head. Implementation push, PR, hosted acceptance,
+public diff review, maintainer acceptance, status-only finalization, and squash
+merge are complete. K1.5 is separately commissioned but not implemented or
+accepted. ADR, publication, and Canopy integration remain unauthorized.

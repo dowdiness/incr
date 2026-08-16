@@ -13,19 +13,18 @@ authorized.
 **Disposition:** Accepted K1.2 implementation evidence. K1.2 is accepted at
 implementation head `12ec2404b676ef7864e353aeb3681c0fef6f20e3` and merged as
 squash commit `db2ac77ac0362a7c5ff8d20887868cbdbb635aa8`. K1.3 is accepted and
-merged as squash commit `5657cfc99734c9ac9e7093dd71819d6a0c48df87`. K1.4
-is commissioned, but this K1.2 probe authorizes no cutoff interface or spelling.
-The separate K1.4 compile probe selected that generated-interface delta, and
-K1.4 implementation is complete and maintainer accepted at implementation/validation head
-`0036bdd199a685823b6769bf1acdac3f9b6b9014` (component heads
-`fad637a57e668924156a50c7af8b4f2e8c58fa59`,
-`9318408740b6865c14735da0be922a872e2c21bb`,
-`16e6a1fc1a4cb48ac1ba11463096595398115472`,
-`f84d9589d4b979b711036263255f6a3f2e684525`); hosted acceptance PASS 46/46,
-public diff review APPROVE, maintainer acceptance PASS; MERGE PENDING — final
-merge authorized only after status-only current-head required checks are green.
-CodeRabbit skipped content review and is not positive evidence; independent
-public review supplies review evidence.
+merged as squash commit `5657cfc99734c9ac9e7093dd71819d6a0c48df87`. This
+K1.2 probe authorizes no cutoff interface or spelling. The separate K1.4
+compile probe selected that generated-interface delta. K1.4 is accepted at
+implementation/validation head `0036bdd199a685823b6769bf1acdac3f9b6b9014`,
+finalized at status-only head `c88e724383ca5f3e817f30226a9fa23cf3ad7358`,
+and merged as squash commit `9d53d51d6ec6e282b8aa247442ee126acfe64a2d`.
+
+Hosted acceptance passed 46/46, public diff review was APPROVE, maintainer
+acceptance was PASS, and squash-tree equivalence passed. CodeRabbit skipped
+content review and is not positive evidence; independent public review supplies
+review evidence. K1.5 is commissioned with implementation not accepted; this
+probe authorizes no proof-loss or eviction interface.
 
 ## Reproduction identity
 

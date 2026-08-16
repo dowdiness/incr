@@ -22,17 +22,19 @@ cycle detection is **ACCEPTED** at implementation head
 `e187b562f87ec4ecd50940a5e8fc2bc5d478380c`, finalized at status-only head
 `a8115757662a6412e053aad9b7dc451f39a825c6`, and **MERGED** as squash commit
 `5657cfc99734c9ac9e7093dd71819d6a0c48df87`. K1.4 typed cutoff and backdating
-is **IMPLEMENTATION COMPLETE** and **MAINTAINER ACCEPTED** at
-implementation/validation head
-`0036bdd199a685823b6769bf1acdac3f9b6b9014` (component heads
-`fad637a57e668924156a50c7af8b4f2e8c58fa59`,
-`9318408740b6865c14735da0be922a872e2c21bb`,
-`16e6a1fc1a4cb48ac1ba11463096595398115472`,
-`f84d9589d4b979b711036263255f6a3f2e684525`); hosted acceptance PASS
-46/46, public diff review APPROVE, maintainer acceptance PASS;
-**MERGE PENDING** — final merge authorized only after status-only current-head
-required checks are green. CodeRabbit skipped content review and is not
-positive evidence; independent public review supplies review evidence. The
-selected public surface preserves `Region::query` and adds explicit
-AlwaysChanged, `Eq`, and type-owned constructors with private policy storage.
-K1.5–K1.6 remain blocked and uncommissioned.
+is **ACCEPTED AND MERGED** at implementation/validation head
+`0036bdd199a685823b6769bf1acdac3f9b6b9014`, status-only head
+`c88e724383ca5f3e817f30226a9fa23cf3ad7358`, and squash merge commit
+`9d53d51d6ec6e282b8aa247442ee126acfe64a2d`. Hosted acceptance passed 46/46,
+public diff review was APPROVE, maintainer acceptance was PASS, and squash-tree
+equivalence passed. CodeRabbit skipped content review and is not positive
+evidence; independent public review supplies review evidence. The selected
+public surface preserves `Region::query` and adds explicit AlwaysChanged,
+`Eq`, and type-owned constructors with private policy storage.
+
+K1.5 private proof loss and ownership closure is **COMMISSIONED**;
+implementation is not accepted. Its package-private per-key eviction asks
+whether the kernel can forget one memo and all reuse evidence without changing
+semantic state, then conservatively rematerialize from a surviving View or
+downstream recipe. It does not commission a public eviction API or retention
+policy. K1.6 remains blocked and uncommissioned.
