@@ -43,8 +43,17 @@ evidence without changing semantic state, then conservatively rematerializes
 from a surviving View or downstream recipe. It adds no public eviction API or
 retention policy.
 
-K1.6 product-quality conformance is **COMMISSIONED**, but its implementation is
-not accepted. Its commissioned scope requires generated and shrinkable
-differential evidence, private work-count assertions, complete backend/
-interface/ownership/documentation gates, and independent review without
-widening public API or kernel semantics.
+K1.6 product-quality conformance is **IMPLEMENTATION COMPLETE / LOCAL GATE PASS
+/ NOT ACCEPTED** at candidate HEAD
+`b7d2c32ebdc65472db2ed0fd36f36a678c86822f`. Generated and shrinkable Fresh
+differential tests, temporary package-private proof-loss and work fixtures, and
+the full backend/boundary/ownership/workspace matrix pass without widening
+production kernel source or public interfaces. See the
+[K1.6 local validation record](docs/k1-6-validation.md).
+
+Review fixes through `b7d2c32` provide public and private operation-prefix
+localization, cutoff and lifetime shrinking, an observable stable-identity
+mutable-key divergence, and scenario-aware unrelated-operation shrinking.
+Exact-tree gates and base revalidation pass, and independent reviews returned
+**APPROVE**. PR #482 remains open; hosted CI, maintainer acceptance, merge, and
+the later product decision remain pending or unauthorized.

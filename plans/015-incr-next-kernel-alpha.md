@@ -35,12 +35,18 @@ closure is accepted and merged at implementation head
 hosted checks, including `Incr Next Required`, with no pending or failed checks;
 maintainer acceptance and squash-tree equivalence passed.
 
-K1.6 product-quality conformance is commissioned, but its implementation is not
-accepted. This plan does not authorize publication, Issue action,
-parent-submodule update, ADR, Canopy integration, or K2 work.
+K1.6 product-quality conformance is implementation-complete with local gates
+passing at candidate HEAD `b7d2c32ebdc65472db2ed0fd36f36a678c86822f`.
+Public/private operation localization, cutoff/lifetime shrinking, observable
+stable-identity mutable-key divergence, and scenario-aware unrelated-operation
+shrinking pass after review fixes. Exact-tree gates and base revalidation pass,
+and independent reviews returned **APPROVE**. PR #482 remains open for hosted
+acceptance. This plan does not authorize merge,
+publication, Issue action, parent-submodule update, ADR, Canopy integration, or
+K2 work.
 
-**Status:** IN PROGRESS (K1.1–K1.5 ACCEPTED / MERGED; K1.6 COMMISSIONED —
-IMPLEMENTATION NOT ACCEPTED)
+**Status:** IN PROGRESS (K1.1–K1.5 ACCEPTED / MERGED; K1.6 IMPLEMENTATION
+COMPLETE / LOCAL GATE PASS / NOT ACCEPTED)
 
 ---
 
@@ -85,10 +91,10 @@ Commissioned, implementation complete, accepted, and merged:
 K1.5 private proof loss and ownership completion
 ```
 
-Commissioned, implementation not accepted:
+Commissioned, implementation complete with local gates passing, not accepted:
 
 ```text
-K1.6 product-quality conformance gate
+K1.6a–d product-quality conformance evidence
 ```
 
 Blocked and uncommissioned:
@@ -116,7 +122,9 @@ implementation head `064a80ac884f7c5588f123cc62dd784adeb26b48`, review-fix head
 `378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`, status-only head
 `6de46abf19acb69cc5d5274b89a0ee780e48fb8d`, and squash merge commit
 `4e66654d021435179116c0cffd56c0216b1bc664`. K1.6 is commissioned solely as the
-final product-quality conformance gate; its implementation is not accepted.
+final product-quality conformance gate. Its implementation-complete K1.6a–d
+candidate is recorded at `b7d2c32ebdc65472db2ed0fd36f36a678c86822f`; local
+gates and independent review pass, but it is not accepted.
 
 ## Goal
 
@@ -1020,6 +1028,13 @@ adapter shape. A kernel-package white-box adapter interpreting the shared
 logical script is the leading candidate, but this plan does not prescribe an
 unverified import mechanism or authorize a public seam.
 
+The local probe found that MoonBit package-private access and external test
+imports cannot coexist without a module-level dependency. Because that would
+create a permanent kernel/testkit cycle, the local candidate stores disabled
+kernel white-box fixtures and enables them only in a temporary workspace owned
+by `check-incr-next-k1-6-private-evidence.sh`. The production kernel manifests
+remain unchanged, and the boundary checker rejects any permanent equivalent.
+
 ### K1.6a: Property and differential testing
 
 Generate bounded scripts with deterministic seeds for Source updates, atomic
@@ -1126,11 +1141,11 @@ candidate.
 ### K1.6 implementation order
 
 ```text
-K1.6a-0  property-language and private proof-loss boundary probe
-K1.6a    deterministic generator, replay report, validity-preserving shrinker
-K1.6b    private work-count assertions
-K1.6c    backend, interface, ownership, CI, and documentation matrix
-K1.6d    independent exact-HEAD review and base revalidation
+K1.6a-0  LOCAL PASS — temporary private-fixture boundary selected
+K1.6a    LOCAL PASS — deterministic generator, replay report, shrinkers
+K1.6b    LOCAL PASS — private work-count assertions
+K1.6c    LOCAL PASS — backend, ownership, boundary, workspace matrix
+K1.6d    LOCAL PASS — exact gates, base revalidation, independent review APPROVE
 ```
 
 K1.6 acceptance does not authorize publication. After acceptance, a separate

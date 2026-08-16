@@ -77,11 +77,21 @@ and recovery, phase/lifetime rejection, Region-close ownership completion, and
 native RC/finalizer evidence pass local, hosted, public-diff, and maintainer
 gates.
 
-K1.6 product-quality conformance is **COMMISSIONED**, but its implementation is
-not accepted. It must add generated and shrinkable Fresh differential evidence,
-private work-count assertions, the complete backend/interface/ownership/docs
-matrix, and independent exact-HEAD review without widening public API or kernel
-semantics. The commissioned scope permits no public eviction, retention,
-counter, debug, or explain surface. Mount, Program/Port/Formula, Canopy
-integration, ADR, publication, and
-representation optimization remain blocked. Plan 015 remains **IN PROGRESS**.
+K1.6 product-quality conformance is **IMPLEMENTATION COMPLETE / LOCAL GATE PASS
+/ NOT ACCEPTED** at candidate HEAD
+`b7d2c32ebdc65472db2ed0fd36f36a678c86822f`. K1.6a–d add generated and
+shrinkable Fresh differential evidence, temporary package-private proof-loss and
+work fixtures, and the complete backend, boundary, ownership, and workspace
+matrix without changing production kernel source or public interfaces. The
+[K1.6 local validation record](k1-6-validation.md) captures that evidence.
+
+Review fixes through `b7d2c32` close public/private operation-localization,
+cutoff/lifetime shrinking, mutable-key divergence, and unrelated-phase gaps.
+Exact-tree gates and base revalidation pass, and independent reviews returned
+**APPROVE**. PR #482 remains open; hosted CI, maintainer acceptance, merge, and
+the separate product decision remain pending or unauthorized.
+
+The commissioned scope permits no public eviction, retention, counter, debug,
+or explain surface. Mount, Program/Port/Formula, Canopy integration, ADR,
+publication, and representation optimization remain blocked. Plan 015 remains
+**IN PROGRESS**.

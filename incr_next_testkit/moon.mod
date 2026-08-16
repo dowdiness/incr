@@ -12,4 +12,5 @@ description = "Independent Fresh and differential testkit for Incr Next"
 
 import {
   "dowdiness/incr_next@0.1.0-alpha.1",
+  "moonbitlang/quickcheck@0.14.0",
 }

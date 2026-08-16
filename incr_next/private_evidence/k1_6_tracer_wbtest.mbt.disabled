@@ -1,0 +1,607 @@
+///|
+const K1_6_SEED : UInt64 = 0x6A1601
+
+///|
+const K1_6_CASES : Int = 64
+
+///|
+priv struct ProofRecipe {
+  base : Int
+  selector : Int
+  unrelated : Int
+  replacement_base : Int
+  replacement_selector : Int
+  replacement_unrelated : Int
+  has_unrelated : Bool
+  keep_suffix : Bool
+  atomic_writes : Int
+  graph_simplified : Bool
+} derive(Debug)
+
+///|
+priv enum ProofOperation {
+  SetBase(Int)
+  SetSelector(Int)
+  SetBoth(Int, Int)
+  SetUnrelated(Int)
+  Read
+  DropProof
+} derive(Eq, Debug)
+
+///|
+priv struct GraphRecipe {
+  scenario : @model.Scenario
+  initial : Array[@model.SourceInit]
+  operations : Array[ProofOperation]
+} derive(Debug)
+
+///|
+fn bounded_value(draw : Int, offset : Int) -> Int {
+  let value = (draw + offset * 17) % 23
+  if value < 0 {
+    value + 23
+  } else {
+    value
+  }
+}
+
+///|
+fn recipe_from_draw(draw : Int) -> ProofRecipe {
+  ProofRecipe::{
+    base: bounded_value(draw, 0),
+    selector: if bounded_value(draw, 1) % 3 == 0 {
+      0
+    } else {
+      bounded_value(draw, 1)
+    },
+    unrelated: bounded_value(draw, 2),
+    replacement_base: bounded_value(draw, 3),
+    replacement_selector: if bounded_value(draw, 4) % 3 == 0 {
+      0
+    } else {
+      bounded_value(draw, 4)
+    },
+    replacement_unrelated: bounded_value(draw, 5),
+    has_unrelated: bounded_value(draw, 6) % 2 == 0,
+    keep_suffix: true,
+    atomic_writes: 2,
+    graph_simplified: false,
+  }
+}
+
+///|
+fn graph_recipe(recipe : ProofRecipe) -> GraphRecipe {
+  if recipe.graph_simplified {
+    let operations = [
+      ProofOperation::Read,
+      ProofOperation::SetBase(recipe.replacement_base),
+      ProofOperation::Read,
+      ProofOperation::DropProof,
+      ProofOperation::Read,
+    ]
+    if recipe.keep_suffix {
+      operations.push(ProofOperation::SetBase(recipe.base))
+      operations.push(ProofOperation::Read)
+    }
+    return GraphRecipe::{
+      scenario: @model.Scenario::UnitQuery,
+      initial: [@model.SourceInit::{ id: 0, value: recipe.base }],
+      operations,
+    }
+  }
+  let initial = [
+    @model.SourceInit::{ id: 0, value: recipe.base },
+    @model.SourceInit::{ id: 1, value: recipe.selector },
+  ]
+  if recipe.has_unrelated {
+    initial.push(@model.SourceInit::{ id: 2, value: recipe.unrelated })
+  }
+  let operations = [
+    ProofOperation::Read,
+    ProofOperation::SetBase(recipe.replacement_base),
+    ProofOperation::Read,
+    ProofOperation::SetSelector(recipe.replacement_selector),
+    ProofOperation::Read,
+  ]
+  if recipe.atomic_writes > 0 {
+    operations.push(ProofOperation::SetBoth(recipe.base, recipe.selector))
+    operations.push(ProofOperation::Read)
+  }
+  if recipe.has_unrelated {
+    operations.push(ProofOperation::SetUnrelated(recipe.replacement_unrelated))
+    operations.push(ProofOperation::Read)
+  }
+  // This pair is never removed: every generated case proves rematerialization.
+  operations.push(ProofOperation::DropProof)
+  operations.push(ProofOperation::Read)
+  if recipe.keep_suffix {
+    if recipe.atomic_writes > 1 {
+      operations.push(
+        ProofOperation::SetBoth(
+          recipe.replacement_base,
+          recipe.replacement_selector,
+        ),
+      )
+    } else {
+      operations.push(ProofOperation::SetBase(recipe.replacement_base))
+    }
+    operations.push(ProofOperation::Read)
+  }
+  GraphRecipe::{ scenario: @model.Scenario::DynamicBranch, initial, operations }
+}
+
+///|
+fn project_script(graph : GraphRecipe) -> @model.Script {
+  let operations = []
+  for operation in graph.operations {
+    match operation {
+      ProofOperation::SetBase(value) =>
+        operations.push(@model.Operation::Set(0, value))
+      ProofOperation::SetSelector(value) =>
+        operations.push(@model.Operation::Set(1, value))
+      ProofOperation::SetBoth(base, selector) => {
+        operations.push(@model.Operation::Set(0, base))
+        operations.push(@model.Operation::Set(1, selector))
+      }
+      ProofOperation::SetUnrelated(value) =>
+        operations.push(@model.Operation::Set(2, value))
+      ProofOperation::Read => operations.push(@model.Operation::Read(0))
+      ProofOperation::DropProof => ()
+    }
+  }
+  @model.Script::scenario(graph.scenario, graph.initial, operations)
+}
+
+///|
+fn fresh_values(script : @model.Script) -> Array[Int] {
+  @fresh.evaluate(script).filter_map(observation => {
+    match observation {
+      @model.Observation::Value(value) => Some(value)
+      @model.Observation::Counter(_) => None
+      _ => abort("generated proof recipe produced a non-value Fresh result")
+    }
+  })
+}
+
+///|
+fn publish_one(store : Store, source : Source[Int], value : Int) -> Unit {
+  match store.transaction(tx => tx.set(source, value)) {
+    Ok(_) => ()
+    Err(_) => abort("valid generated publication failed unexpectedly")
+  }
+}
+
+///|
+fn publish_both(
+  store : Store,
+  base : Source[Int],
+  selector : Source[Int],
+  base_value : Int,
+  selector_value : Int,
+) -> Unit {
+  match
+    store.transaction(tx => {
+      match tx.set(base, base_value) {
+        Err(error) => Err(error)
+        Ok(_) => tx.set(selector, selector_value)
+      }
+    }) {
+    Ok(_) => ()
+    Err(_) => abort("valid generated atomic publication failed unexpectedly")
+  }
+}
+
+///|
+fn kernel_values(graph : GraphRecipe) -> Array[Int] {
+  let store = Store::Store()
+  let region = store.region().unwrap()
+  let base = region.source(graph.initial[0].value).unwrap()
+  let selector = if graph.scenario == @model.Scenario::DynamicBranch {
+    Some(region.source(graph.initial[1].value).unwrap())
+  } else {
+    None
+  }
+  let unrelated = if graph.initial.length() == 3 {
+    Some(region.source(graph.initial[2].value).unwrap())
+  } else {
+    None
+  }
+  let query = match selector {
+    None =>
+      region.query_eq((ctx, _key : Unit) => ctx.read(base.view())).unwrap()
+    Some(selector) =>
+      region
+      .query_eq((ctx, _key : Unit) => {
+        match ctx.read(selector.view()) {
+          Ok(flag) => if flag != 0 { Ok(flag) } else { ctx.read(base.view()) }
+          Err(error) => Err(error)
+        }
+      })
+      .unwrap()
+  }
+  let view = query.at(())
+  let values = []
+  for operation in graph.operations {
+    match operation {
+      ProofOperation::SetBase(value) => publish_one(store, base, value)
+      ProofOperation::SetSelector(value) =>
+        match selector {
+          Some(source) => publish_one(store, source, value)
+          None => abort("selector publication in simplified graph")
+        }
+      ProofOperation::SetBoth(base_value, selector_value) =>
+        match selector {
+          Some(source) =>
+            publish_both(store, base, source, base_value, selector_value)
+          None => abort("atomic selector publication in simplified graph")
+        }
+      ProofOperation::SetUnrelated(value) =>
+        match unrelated {
+          Some(source) => publish_one(store, source, value)
+          None => abort("unrelated publication without Source 2")
+        }
+      ProofOperation::Read =>
+        match store.read(view) {
+          Ok(value) => values.push(value)
+          Err(_) => abort("generated proof recipe read failed unexpectedly")
+        }
+      ProofOperation::DropProof => {
+        let old = query.core.memo.get(()).unwrap()
+        let old_id = old.memo_id
+        let before_compute = query.core.compute_count.val
+        let before_cutoff = query.core.cutoff_count.val
+        match query.drop_memo_evidence(()) {
+          Ok(_) => ()
+          Err(_) => abort("valid generated proof loss failed unexpectedly")
+        }
+        if query.core.memo.get(()) is Some(_) {
+          abort("proof loss retained a memo entry")
+        }
+        match store.read(view) {
+          Ok(_) => ()
+          Err(_) => abort("proof-loss rematerialization failed unexpectedly")
+        }
+        let next = query.core.memo.get(()).unwrap()
+        if next.memo_id == old_id {
+          abort("proof loss reused the old MemoId")
+        }
+        if next.verified_at != store.change_epoch.val ||
+          next.changed_at != store.change_epoch.val {
+          abort("rematerialized memo stamps are not current")
+        }
+        if query.core.compute_count.val != before_compute + 1 {
+          abort("rematerialization did not compute exactly once")
+        }
+        if query.core.cutoff_count.val != before_cutoff {
+          abort("rematerialization invoked cutoff")
+        }
+      }
+    }
+  }
+  ignore(region.close())
+  values
+}
+
+///|
+fn first_value_difference(left : Array[Int], right : Array[Int]) -> Int {
+  let limit = left.length().min(right.length())
+  for index in 0..<limit {
+    if left[index] != right[index] {
+      return index
+    }
+  }
+  if left.length() == right.length() {
+    -1
+  } else {
+    limit
+  }
+}
+
+///|
+fn first_failing_private_operation_index(
+  operation_count : Int,
+  prefix_fails : (Int) -> Bool,
+) -> Int {
+  if prefix_fails(0) {
+    return -1
+  }
+  for prefix_length in 1..<(operation_count + 1) {
+    if prefix_fails(prefix_length) {
+      return prefix_length - 1
+    }
+  }
+  -1
+}
+
+///|
+fn first_proof_operation_by(
+  graph : GraphRecipe,
+  prefix_fails : (GraphRecipe) -> Bool,
+) -> Int {
+  first_failing_private_operation_index(graph.operations.length(), prefix_length => {
+    prefix_fails(GraphRecipe::{
+      scenario: graph.scenario,
+      initial: graph.initial,
+      operations: graph.operations[:prefix_length].to_owned(),
+    })
+  })
+}
+
+///|
+fn first_proof_operation(graph : GraphRecipe) -> Int {
+  first_proof_operation_by(graph, prefix => {
+    fresh_values(project_script(prefix)) != kernel_values(prefix)
+  })
+}
+
+///|
+priv enum ProofShrinkPhase {
+  Suffix
+  UnrelatedOperations
+  AtomicWrites
+  Graph
+  Values
+} derive(Eq, Debug)
+
+///|
+priv struct ProofShrinkCandidate {
+  phase : ProofShrinkPhase
+  recipe : ProofRecipe
+}
+
+///|
+fn same_graph(left : GraphRecipe, right : GraphRecipe) -> Bool {
+  left.scenario == right.scenario &&
+  left.initial == right.initial &&
+  left.operations == right.operations
+}
+
+///|
+fn add_proof_candidate(
+  output : Array[ProofShrinkCandidate],
+  phase : ProofShrinkPhase,
+  original : GraphRecipe,
+  recipe : ProofRecipe,
+) -> Unit {
+  let graph = graph_recipe(recipe)
+  if !same_graph(original, graph) &&
+    !output.any(candidate => same_graph(graph_recipe(candidate.recipe), graph)) {
+    output.push(ProofShrinkCandidate::{ phase, recipe })
+  }
+}
+
+///|
+fn proof_shrink_candidates(recipe : ProofRecipe) -> Array[ProofShrinkCandidate] {
+  let output = []
+  let original = graph_recipe(recipe)
+  if recipe.keep_suffix {
+    add_proof_candidate(output, ProofShrinkPhase::Suffix, original, ProofRecipe::{
+      ..recipe,
+      keep_suffix: false,
+    })
+  }
+  if recipe.has_unrelated {
+    add_proof_candidate(
+      output,
+      ProofShrinkPhase::UnrelatedOperations,
+      original,
+      ProofRecipe::{ ..recipe, has_unrelated: false },
+    )
+  }
+  if recipe.atomic_writes > 0 {
+    add_proof_candidate(output, ProofShrinkPhase::AtomicWrites, original, ProofRecipe::{
+      ..recipe,
+      atomic_writes: recipe.atomic_writes - 1,
+    })
+  }
+  if !recipe.graph_simplified {
+    add_proof_candidate(output, ProofShrinkPhase::Graph, original, ProofRecipe::{
+      ..recipe,
+      graph_simplified: true,
+    })
+  }
+  if recipe.base != 0 ||
+    recipe.selector != 0 ||
+    recipe.unrelated != 0 ||
+    recipe.replacement_base != 0 ||
+    recipe.replacement_selector != 0 ||
+    recipe.replacement_unrelated != 0 {
+    add_proof_candidate(output, ProofShrinkPhase::Values, original, ProofRecipe::{
+      ..recipe,
+      base: 0,
+      selector: 0,
+      unrelated: 0,
+      replacement_base: 0,
+      replacement_selector: 0,
+      replacement_unrelated: 0,
+    })
+  }
+  output
+}
+
+///|
+fn proof_mismatch(recipe : ProofRecipe) -> Bool {
+  let graph = graph_recipe(recipe)
+  fresh_values(project_script(graph)) != kernel_values(graph)
+}
+
+///|
+fn minimize_proof_failure(
+  recipe : ProofRecipe,
+  predicate : (ProofRecipe) -> Bool,
+) -> ProofRecipe {
+  let mut current = recipe
+  let mut changed = true
+  while changed {
+    changed = false
+    for candidate in proof_shrink_candidates(current) {
+      if predicate(candidate.recipe) {
+        current = candidate.recipe
+        changed = true
+        break
+      }
+    }
+  }
+  current
+}
+
+///|
+fn proof_phase_rank(phase : ProofShrinkPhase) -> Int {
+  match phase {
+    ProofShrinkPhase::Suffix => 0
+    ProofShrinkPhase::UnrelatedOperations => 1
+    ProofShrinkPhase::AtomicWrites => 2
+    ProofShrinkPhase::Graph => 3
+    ProofShrinkPhase::Values => 4
+  }
+}
+
+///|
+test "K1.6a generated private proof-loss tracer" {
+  let draws : Array[Int] = @qcgen.Gen::spawn().samples(
+    size=K1_6_CASES,
+    seed=K1_6_SEED,
+  )
+  assert_eq(draws.length(), K1_6_CASES)
+  let seen_unrelated = Ref(false)
+  let seen_zero_selector = Ref(false)
+  draws.eachi((case_index, draw) => {
+    let recipe = recipe_from_draw(draw)
+    seen_unrelated.val = seen_unrelated.val || recipe.has_unrelated
+    seen_zero_selector.val = seen_zero_selector.val || recipe.selector == 0
+    let graph = graph_recipe(recipe)
+    let fresh = fresh_values(project_script(graph))
+    let incremental = kernel_values(graph)
+    if fresh != incremental {
+      let minimized = minimize_proof_failure(recipe, candidate => {
+        proof_mismatch(candidate)
+      })
+      let minimized_graph = graph_recipe(minimized)
+      let minimized_script = project_script(minimized_graph)
+      let minimized_fresh = fresh_values(minimized_script)
+      let minimized_incremental = kernel_values(minimized_graph)
+      abort(
+        "seed=0x6A1601 case=\{case_index} recipe=\{@debug.to_string(minimized)} GraphRecipe=\{@debug.to_string(minimized_graph)} OperationScript=\{@debug.to_string(minimized_graph.operations)} projected=\{@debug.to_string(minimized_script)} Fresh=\{@debug.to_string(minimized_fresh)} Incremental=\{@debug.to_string(minimized_incremental)} first_operation=\{first_proof_operation(minimized_graph)} first_observation=\{first_value_difference(minimized_fresh, minimized_incremental)}",
+      )
+    }
+  })
+  assert_true(seen_unrelated.val)
+  assert_true(seen_zero_selector.val)
+}
+
+///|
+test "K1.6a private proof localization replays operation prefixes" {
+  let recipes = [
+    ProofRecipe::{
+      ..recipe_from_draw(19),
+      has_unrelated: true,
+      keep_suffix: true,
+      atomic_writes: 2,
+    },
+    ProofRecipe::{ ..recipe_from_draw(7), graph_simplified: true },
+  ]
+  for recipe in recipes {
+    let graph = graph_recipe(recipe)
+    let operation_count = graph.operations.length()
+    let first_operation = first_proof_operation_by(graph, prefix => {
+      if prefix.scenario != graph.scenario || prefix.initial != graph.initial {
+        abort("proof prefix replay changed immutable graph setup")
+      }
+      let fresh = fresh_values(project_script(prefix))
+      let incremental = kernel_values(prefix)
+      if fresh != incremental {
+        abort("injected proof-localization fixture has a baseline mismatch")
+      }
+      prefix.operations.length() == operation_count
+    })
+    assert_eq(first_operation, operation_count - 1)
+  }
+  let graph = graph_recipe(recipes[0])
+  let trigger_prefix_length = 6
+  assert_true(
+    graph.operations[trigger_prefix_length - 1] is ProofOperation::SetBoth(_, _),
+  )
+  let injected_operation = first_proof_operation_by(graph, prefix => {
+    let fresh = fresh_values(project_script(prefix))
+    let incremental = kernel_values(prefix)
+    if fresh != incremental {
+      abort("write-localization fixture has a baseline mismatch")
+    }
+    if prefix.operations.length() < trigger_prefix_length {
+      false
+    } else {
+      incremental.push(999)
+      fresh != incremental
+    }
+  })
+  let trigger_graph = GraphRecipe::{
+    scenario: graph.scenario,
+    initial: graph.initial,
+    operations: graph.operations[:trigger_prefix_length].to_owned(),
+  }
+  let injected_fresh = fresh_values(project_script(trigger_graph))
+  let injected_incremental = kernel_values(trigger_graph)
+  injected_incremental.push(999)
+  let injected_observation = first_value_difference(
+    injected_fresh, injected_incremental,
+  )
+  assert_eq(injected_operation, trigger_prefix_length - 1)
+  assert_eq(injected_observation, 3)
+  assert_true(injected_operation != injected_observation)
+  assert_eq(first_proof_operation_by(graph, _ => false), -1)
+}
+
+///|
+test "K1.6a proof-loss shrinker is ordered and keeps rematerialization" {
+  let recipe = ProofRecipe::{
+    ..recipe_from_draw(19),
+    has_unrelated: true,
+    keep_suffix: true,
+    atomic_writes: 2,
+  }
+  let candidates = proof_shrink_candidates(recipe)
+  for index in 1..<candidates.length() {
+    assert_true(
+      proof_phase_rank(candidates[index - 1].phase) <=
+      proof_phase_rank(candidates[index].phase),
+    )
+  }
+  let expected = [
+    ProofShrinkPhase::Suffix,
+    ProofShrinkPhase::UnrelatedOperations,
+    ProofShrinkPhase::AtomicWrites,
+    ProofShrinkPhase::Graph,
+    ProofShrinkPhase::Values,
+  ]
+  for phase in expected {
+    assert_true(candidates.any(candidate => candidate.phase == phase))
+  }
+  for candidate in candidates {
+    let operations = graph_recipe(candidate.recipe).operations
+    let drop_index = operations.search(ProofOperation::DropProof).unwrap()
+    assert_true(drop_index + 1 < operations.length())
+    assert_true(operations[drop_index + 1] is ProofOperation::Read)
+  }
+}
+
+///|
+test "K1.6a injected failure executes private fixed-point minimization" {
+  let recipe = ProofRecipe::{
+    ..recipe_from_draw(19),
+    has_unrelated: true,
+    keep_suffix: true,
+    atomic_writes: 2,
+  }
+  let minimized = minimize_proof_failure(recipe, _candidate => true)
+  assert_false(minimized.keep_suffix)
+  assert_false(minimized.has_unrelated)
+  assert_false(
+    graph_recipe(minimized).operations.any(operation => {
+      operation is ProofOperation::SetBoth(_, _)
+    }),
+  )
+  assert_true(minimized.graph_simplified)
+  assert_eq(minimized.base, 0)
+  assert_eq(minimized.replacement_base, 0)
+  ignore(project_script(graph_recipe(minimized)))
+}
