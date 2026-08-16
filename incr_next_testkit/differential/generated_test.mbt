@@ -220,12 +220,15 @@ fn raw_recipe_script(recipe : Recipe) -> @model.Script {
 ///|
 fn keep_operation(
   operation : @model.Operation,
+  scenario : @model.Scenario,
   recipe : Recipe,
   writes : Ref[Int],
 ) -> Bool {
   match operation {
-    @model.Operation::Set(id, _) if id == 1 && recipe.unrelated_retention == 0 =>
-      false
+    @model.Operation::Set(id, _) if scenario ==
+      @model.Scenario::UnrelatedPublication &&
+      id == 1 &&
+      recipe.unrelated_retention == 0 => false
     @model.Operation::Set(_, _) =>
       if writes.val < recipe.write_retention {
         writes.val += 1
@@ -240,12 +243,13 @@ fn keep_operation(
 ///|
 fn select_operations(
   operations : Array[@model.Operation],
+  scenario : @model.Scenario,
   recipe : Recipe,
 ) -> Array[@model.Operation] {
   let retained = []
   let writes = Ref(0)
   for operation in operations {
-    if keep_operation(operation, recipe, writes) {
+    if keep_operation(operation, scenario, recipe, writes) {
       retained.push(operation)
     }
   }
@@ -303,6 +307,7 @@ fn recipe_script(recipe : Recipe) -> @model.Script {
   }
   let operations = select_operations(
     raw.operations().map(operation => rewrite_operation(operation, recipe)),
+    raw.scenario_tag(),
     recipe,
   )
   @model.Script::scenario(raw.scenario_tag(), sources, operations)
@@ -455,8 +460,8 @@ fn change_unrelated(r : Recipe) -> Recipe {
 }
 
 ///|
-fn change_writes(r : Recipe) -> Recipe {
-  Recipe::{ ..r, write_retention: r.write_retention - 1 }
+fn change_writes(r : Recipe, retained_writes : Int) -> Recipe {
+  Recipe::{ ..r, write_retention: retained_writes - 1 }
 }
 
 ///|
@@ -505,7 +510,8 @@ fn shrink_candidates(recipe : Recipe) -> Array[ShrinkCandidate] {
       change_suffix(recipe, operation_count),
     )
   }
-  if recipe.unrelated_retention > 0 {
+  if recipe.unrelated_retention > 0 &&
+    original.scenario_tag() == @model.Scenario::UnrelatedPublication {
     add_candidate(
       out,
       ShrinkPhase::UnrelatedOperations,
@@ -513,8 +519,17 @@ fn shrink_candidates(recipe : Recipe) -> Array[ShrinkCandidate] {
       change_unrelated(recipe),
     )
   }
-  if recipe.write_retention > 0 {
-    add_candidate(out, ShrinkPhase::Writes, original, change_writes(recipe))
+  let retained_writes = original
+    .operations()
+    .filter(operation => operation is @model.Operation::Set(_, _))
+    .length()
+  if retained_writes > 0 {
+    add_candidate(
+      out,
+      ShrinkPhase::Writes,
+      original,
+      change_writes(recipe, retained_writes),
+    )
   }
   if !recipe.graph_simplified {
     add_candidate(out, ShrinkPhase::Graph, original, change_graph(recipe))
@@ -729,6 +744,7 @@ test "validity-preserving shrink stream is ordered and admissible" {
     before_operations[:before_operations.length() - 1].to_owned(),
   )
   let recipes = [
+    Recipe::{ ..generated[5], value_salt: 3 },
     Recipe::{ ..generated[7], value_salt: 3 },
     Recipe::{ ..generated[2], key: 3 },
     Recipe::{ ..generated[15], cycle_depth: 3 },
@@ -761,10 +777,72 @@ test "validity-preserving shrink stream is ordered and admissible" {
       msg="missing shrink phase: \{@debug.to_string(phase)}",
     )
   }
-  let cycle_candidates = shrink_candidates(recipes[2])
+  let cycle_candidates = shrink_candidates(recipes[3])
   assert_eq(
     cycle_candidates[cycle_candidates.length() - 1].phase,
     ShrinkPhase::CyclePath,
+  )
+}
+
+///|
+test "unrelated-operation shrinking is scenario-aware" {
+  let generated = generated_recipes()
+  let unrelated = Recipe::{
+    ..generated[5],
+    operation_limit: 8,
+    unrelated_retention: 1,
+    write_retention: 2,
+  }
+  let dynamic = Recipe::{
+    ..generated[7],
+    operation_limit: 8,
+    unrelated_retention: 1,
+    write_retention: 2,
+  }
+  let keyed = Recipe::{
+    ..generated[2],
+    operation_limit: 8,
+    unrelated_retention: 1,
+    write_retention: 2,
+  }
+  let unrelated_after = recipe_script(change_unrelated(unrelated))
+  assert_false(
+    unrelated_after
+    .operations()
+    .any(operation => operation is @model.Operation::Set(1, _)),
+  )
+  assert_eq(
+    recipe_script(change_unrelated(dynamic)).operations(),
+    recipe_script(dynamic).operations(),
+  )
+  assert_eq(
+    recipe_script(change_unrelated(keyed)).operations(),
+    recipe_script(keyed).operations(),
+  )
+  assert_true(
+    shrink_candidates(unrelated).any(candidate => {
+      candidate.phase == ShrinkPhase::UnrelatedOperations
+    }),
+  )
+  assert_false(
+    shrink_candidates(dynamic).any(candidate => {
+      candidate.phase == ShrinkPhase::UnrelatedOperations
+    }),
+  )
+  assert_false(
+    shrink_candidates(keyed).any(candidate => {
+      candidate.phase == ShrinkPhase::UnrelatedOperations
+    }),
+  )
+  assert_true(
+    shrink_candidates(dynamic).any(candidate => {
+      candidate.phase == ShrinkPhase::Writes
+    }),
+  )
+  assert_true(
+    shrink_candidates(keyed).any(candidate => {
+      candidate.phase == ShrinkPhase::Writes
+    }),
   )
 }
 
@@ -828,6 +906,36 @@ test "failure localization replays admissible scenario prefixes" {
   }
   assert_eq(normalized(@fresh.evaluate(scripts[0])).length(), 2)
   assert_eq(first_differing_operation_by(scripts[0], _prefix => false), -1)
+
+  let writes_only = @model.Script::scenario(
+    @model.Scenario::Source,
+    [@model.SourceInit::{ id: 0, value: 0 }],
+    [@model.Operation::Set(0, 1), @model.Operation::Set(0, 2)],
+  )
+  let injected_operation = first_differing_operation_by(writes_only, prefix => {
+    let fresh = normalized(@fresh.evaluate(prefix))
+    let incremental = normalized(@incremental_adapter.evaluate(prefix))
+    if fresh != incremental {
+      abort("write-localization fixture has a baseline mismatch")
+    }
+    if prefix.operations().length() < 2 {
+      false
+    } else {
+      incremental.push(@model.Observation::Value(999))
+      fresh != incremental
+    }
+  })
+  let injected_fresh = normalized(@fresh.evaluate(writes_only))
+  let injected_incremental = normalized(
+    @incremental_adapter.evaluate(writes_only),
+  )
+  injected_incremental.push(@model.Observation::Value(999))
+  let injected_observation = first_difference(
+    injected_fresh, injected_incremental,
+  )
+  assert_eq(injected_operation, 1)
+  assert_eq(injected_observation, 0)
+  assert_true(injected_operation != injected_observation)
 }
 
 ///|

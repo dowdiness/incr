@@ -298,6 +298,43 @@ fn first_value_difference(left : Array[Int], right : Array[Int]) -> Int {
 }
 
 ///|
+fn first_failing_private_operation_index(
+  operation_count : Int,
+  prefix_fails : (Int) -> Bool,
+) -> Int {
+  if prefix_fails(0) {
+    return -1
+  }
+  for prefix_length in 1..<(operation_count + 1) {
+    if prefix_fails(prefix_length) {
+      return prefix_length - 1
+    }
+  }
+  -1
+}
+
+///|
+fn first_proof_operation_by(
+  graph : GraphRecipe,
+  prefix_fails : (GraphRecipe) -> Bool,
+) -> Int {
+  first_failing_private_operation_index(graph.operations.length(), prefix_length => {
+    prefix_fails(GraphRecipe::{
+      scenario: graph.scenario,
+      initial: graph.initial,
+      operations: graph.operations[:prefix_length].to_owned(),
+    })
+  })
+}
+
+///|
+fn first_proof_operation(graph : GraphRecipe) -> Int {
+  first_proof_operation_by(graph, prefix => {
+    fresh_values(project_script(prefix)) != kernel_values(prefix)
+  })
+}
+
+///|
 priv enum ProofShrinkPhase {
   Suffix
   UnrelatedOperations
@@ -444,12 +481,74 @@ test "K1.6a generated private proof-loss tracer" {
       let minimized_fresh = fresh_values(minimized_script)
       let minimized_incremental = kernel_values(minimized_graph)
       abort(
-        "seed=0x6A1601 case=\{case_index} recipe=\{@debug.to_string(minimized)} GraphRecipe=\{@debug.to_string(minimized_graph.initial)} OperationScript=\{@debug.to_string(minimized_graph.operations)} projected=\{@debug.to_string(minimized_script)} Fresh=\{@debug.to_string(minimized_fresh)} Incremental=\{@debug.to_string(minimized_incremental)} first_difference=\{first_value_difference(minimized_fresh, minimized_incremental)}",
+        "seed=0x6A1601 case=\{case_index} recipe=\{@debug.to_string(minimized)} GraphRecipe=\{@debug.to_string(minimized_graph)} OperationScript=\{@debug.to_string(minimized_graph.operations)} projected=\{@debug.to_string(minimized_script)} Fresh=\{@debug.to_string(minimized_fresh)} Incremental=\{@debug.to_string(minimized_incremental)} first_operation=\{first_proof_operation(minimized_graph)} first_observation=\{first_value_difference(minimized_fresh, minimized_incremental)}",
       )
     }
   })
   assert_true(seen_unrelated.val)
   assert_true(seen_zero_selector.val)
+}
+
+///|
+test "K1.6a private proof localization replays operation prefixes" {
+  let recipes = [
+    ProofRecipe::{
+      ..recipe_from_draw(19),
+      has_unrelated: true,
+      keep_suffix: true,
+      atomic_writes: 2,
+    },
+    ProofRecipe::{ ..recipe_from_draw(7), graph_simplified: true },
+  ]
+  for recipe in recipes {
+    let graph = graph_recipe(recipe)
+    let operation_count = graph.operations.length()
+    let first_operation = first_proof_operation_by(graph, prefix => {
+      if prefix.scenario != graph.scenario || prefix.initial != graph.initial {
+        abort("proof prefix replay changed immutable graph setup")
+      }
+      let fresh = fresh_values(project_script(prefix))
+      let incremental = kernel_values(prefix)
+      if fresh != incremental {
+        abort("injected proof-localization fixture has a baseline mismatch")
+      }
+      prefix.operations.length() == operation_count
+    })
+    assert_eq(first_operation, operation_count - 1)
+  }
+  let graph = graph_recipe(recipes[0])
+  let trigger_prefix_length = 6
+  assert_true(
+    graph.operations[trigger_prefix_length - 1] is ProofOperation::SetBoth(_, _),
+  )
+  let injected_operation = first_proof_operation_by(graph, prefix => {
+    let fresh = fresh_values(project_script(prefix))
+    let incremental = kernel_values(prefix)
+    if fresh != incremental {
+      abort("write-localization fixture has a baseline mismatch")
+    }
+    if prefix.operations.length() < trigger_prefix_length {
+      false
+    } else {
+      incremental.push(999)
+      fresh != incremental
+    }
+  })
+  let trigger_graph = GraphRecipe::{
+    scenario: graph.scenario,
+    initial: graph.initial,
+    operations: graph.operations[:trigger_prefix_length].to_owned(),
+  }
+  let injected_fresh = fresh_values(project_script(trigger_graph))
+  let injected_incremental = kernel_values(trigger_graph)
+  injected_incremental.push(999)
+  let injected_observation = first_value_difference(
+    injected_fresh, injected_incremental,
+  )
+  assert_eq(injected_operation, trigger_prefix_length - 1)
+  assert_eq(injected_observation, 3)
+  assert_true(injected_operation != injected_observation)
+  assert_eq(first_proof_operation_by(graph, _ => false), -1)
 }
 
 ///|
