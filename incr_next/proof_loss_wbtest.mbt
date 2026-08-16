@@ -155,7 +155,10 @@ test "proof loss rebuilds only the current dynamic child trace" {
   assert_eq(parent.core.compute_count.val, parent_compute_before_loss + 1)
   assert_eq(parent.core.red_count.val, parent_red_before_loss + 1)
   let parent_after_current = parent.core.compute_count.val
-  ignore(store.transaction(tx => tx.set(old_source, 11)))
+  match store.transaction(tx => tx.set(old_source, 11)) {
+    Ok(_) => ()
+    Err(_) => abort("valid proof-loss publication failed unexpectedly")
+  }
   assert_eq(store.read(parent_view), Ok(21))
   assert_eq(child.core.compute_count.val, child_compute_before_loss + 1)
   assert_eq(parent.core.compute_count.val, parent_after_current)
