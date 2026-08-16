@@ -18,15 +18,21 @@ plan documentation protocol.
 
 K1.6 has a **LOCAL CANDIDATE** at implementation commit
 `a36b6d721db78160f8aadde1c5880694c0df2bb6`, suffix-shrinker fix
-`dbad5bd0ca66aee3b027ba0bd64da22722b1f164`, and generated-failure evidence fix
-`170a99643fda94411888f7ec4cfaacdc7ff38232`, based on commission merge
-`e66f3bfeb08343135ad0e180c1c7a3cfbfa92d75`. Public branch review found that
-reports localized observations rather than operations and that generated cutoff
-failures did not shrink. Commit `170a996` addresses both findings locally;
-exact-tree revalidation and independent review remain pending. The published
-branch still points to the earlier reviewed status tree until this fix is
-separately authorized for push. K1.6 is not accepted. Implementation PR,
-hosted CI, maintainer acceptance, merge, ADR, and publication remain pending or
+`dbad5bd0ca66aee3b027ba0bd64da22722b1f164`, generated-failure evidence fix
+`170a99643fda94411888f7ec4cfaacdc7ff38232`, and prefix-replay test fix
+`d0131867b4324d8b6784ebf526cf2437fa5c7af3`, based on commission merge
+`e66f3bfeb08343135ad0e180c1c7a3cfbfa92d75`.
+
+Public branch review found that reports localized observations rather than
+operations and that generated cutoff failures did not shrink. Commit `170a996`
+addressed both implementation gaps; exact-tree review then required the
+localization test to exercise reconstructed scenario prefixes. Commit `d013186`
+adds that coverage locally.
+
+Exact-tree revalidation and independent review remain pending. The published
+branch still points to the earlier reviewed status tree until these fixes are
+separately authorized for push. K1.6 is not accepted. Implementation PR, hosted
+CI, maintainer acceptance, merge, ADR, and publication remain pending or
 unauthorized.
 
 No generated counterexample exposed a K0 contract defect. The candidate changes
@@ -129,34 +135,40 @@ interfaces. Work gates use exact counts, never elapsed time.
 | Kernel/testkit boundaries and self-test | PASS |
 | Workspace boundaries and self-test | PASS |
 | Workspace `moon check` | PASS |
-| Workspace default tests | 1,271 wasm-gc + 256 JS PASS |
-| Explicit workspace JS tests | 1,527 PASS |
+| Workspace default tests | 1,273 wasm-gc + 256 JS PASS at `2046d1f` |
+| Explicit workspace JS tests | 1,529 PASS at `2046d1f` |
 | Documentation boundary checker | 154 Markdown files PASS after review fix |
 
 The matrix has no conditional target skip. The adapter has no package-local test
 entry, but all four check/test commands run, and the differential package drives
 it for every generated and commissioned public script.
 
-Final interface and documentation checks passed at prior review-fix head
-`dbad5bd`. Commit `170a996` changes only the differential black-box test and
-requires exact-tree reruns. The candidate retains zero current-`incr/` delta,
-zero production `incr_next` manifest/source delta, and zero generated `.mbti`
-delta. Pre-existing workspace warnings are unchanged.
+Exact interface and documentation checks passed at evidence-status head
+`2046d1f`, including the table totals above. Commit `d013186` changes only the
+differential black-box test and requires another exact-tree rerun. The candidate
+retains zero current-`incr/` delta, zero production `incr_next` manifest/source
+delta, and zero generated `.mbti` delta. Pre-existing workspace warnings are
+unchanged.
 
 ## K1.6d local review
 
 Initial independent review found that suffix shrinking could remove a middle
 operation. Commit `dbad5bd` switched to true retained-array truncation and added
 an exact before/after assertion; its exact tree passed all gates and received
-**APPROVE**. A later review of the published branch found two remaining evidence
-blockers: failure reports named the first observation rather than the first
-operation, and cutoff failures had no shrinker. Commit `170a996` adds prefix
-replay localization, keeps both operation and observation indices, and adds
-fixed-point cutoff suffix/value shrinking with injected-failure coverage.
+**APPROVE**. A later review of the published branch found two remaining evidence blockers:
+failure reports named the first observation rather than the first operation,
+and cutoff failures had no shrinker. Commit `170a996` adds prefix replay
+localization, keeps both operation and observation indices, and adds fixed-point
+cutoff suffix/value shrinking with injected-failure coverage. Exact-tree gates
+passed at `2046d1f`, but review found that the operation-localization test only
+exercised synthetic prefix lengths.
 
-The fetched base was `e66f3bfeb08343135ad0e180c1c7a3cfbfa92d75` before this
-fix. Exact-tree gates, base revalidation, and independent review must pass again
-before an implementation PR may be requested.
+Commit `d013186` now drives the actual prefix reconstruction seam through Fresh
+and Incremental replay for Source, KeyedQuery, DomainFailure, and
+StructuralError scripts while preserving scenario and initial-Source setup. The
+fetched base remained `e66f3bfeb08343135ad0e180c1c7a3cfbfa92d75`. Exact-tree
+gates, base revalidation, and independent review must pass once more before an
+implementation PR may be requested.
 
 ## Existing API First
 

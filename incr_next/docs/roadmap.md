@@ -88,9 +88,12 @@ captures that evidence.
 Public-branch review later found that reports localized observations rather
 than operations and that cutoff failures did not shrink.
 Local evidence fix `170a996` addresses both without changing production kernel
-source or interfaces. Exact-tree gates and independent review must pass again.
-Implementation PR, hosted CI, maintainer acceptance, merge, and the separate
-product decision remain pending or unauthorized.
+source or interfaces. Exact-tree gates passed, then review required real prefix
+replay coverage rather than synthetic length-only assertions. Follow-up
+`d013186` exercises Fresh and Incremental replay for setup-dependent scenarios.
+Exact-tree gates and independent review must pass once more. Implementation PR,
+hosted CI, maintainer acceptance, merge, and the separate product decision
+remain pending or unauthorized.
 
 The commissioned scope permits no public eviction, retention, counter, debug,
 or explain surface. Mount, Program/Port/Formula, Canopy integration, ADR,
