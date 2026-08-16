@@ -72,10 +72,11 @@ K1.6 product-quality conformance has an **UNACCEPTED LOCAL CANDIDATE** at
 implementation commit `a36b6d721db78160f8aadde1c5880694c0df2bb6`. Generated
 and shrinkable Fresh differential evidence, temporary private proof-loss/work
 fixtures, and the local backend/boundary/ownership/workspace matrix pass without
-a production kernel or public-interface delta. Implementation review is APPROVE
-at shrinker fix `dbad5bd`; the base is unchanged and all local gates pass.
-Final status-tree review, hosted CI, maintainer acceptance, and merge remain
-pending. Public debug/explain, public or automatic eviction policy, Mount,
+a production kernel or public-interface delta. A later public-branch review
+found operation-localization and cutoff-shrinking evidence blockers. Local fix
+`170a996` addresses both without changing the kernel or public interface;
+exact-tree gates and review must pass again. Implementation PR, hosted CI,
+maintainer acceptance, and merge remain pending. Public debug/explain, public or automatic eviction policy, Mount,
 Program/Port/Formula, Canopy, ADR, publication, and representation optimization
 remain blocked.
 

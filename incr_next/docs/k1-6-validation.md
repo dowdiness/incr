@@ -17,13 +17,16 @@ plan documentation protocol.
 ## Status
 
 K1.6 has a **LOCAL CANDIDATE** at implementation commit
-`a36b6d721db78160f8aadde1c5880694c0df2bb6` and shrinker review-fix commit
-`dbad5bd0ca66aee3b027ba0bd64da22722b1f164`, based on commission merge
-`e66f3bfeb08343135ad0e180c1c7a3cfbfa92d75`. The implementation exact-HEAD
-review is APPROVE, the fetched base is unchanged and contained, and all local
-gates pass after the fix. This status-only documentation update still requires
-an exact-tree review. The branch is not pushed and K1.6 is not accepted. Hosted
-CI, maintainer acceptance, merge, ADR, and publication remain pending or
+`a36b6d721db78160f8aadde1c5880694c0df2bb6`, suffix-shrinker fix
+`dbad5bd0ca66aee3b027ba0bd64da22722b1f164`, and generated-failure evidence fix
+`170a99643fda94411888f7ec4cfaacdc7ff38232`, based on commission merge
+`e66f3bfeb08343135ad0e180c1c7a3cfbfa92d75`. Public branch review found that
+reports localized observations rather than operations and that generated cutoff
+failures did not shrink. Commit `170a996` addresses both findings locally;
+exact-tree revalidation and independent review remain pending. The published
+branch still points to the earlier reviewed status tree until this fix is
+separately authorized for push. K1.6 is not accepted. Implementation PR,
+hosted CI, maintainer acceptance, merge, ADR, and publication remain pending or
 unauthorized.
 
 No generated counterexample exposed a K0 contract defect. The candidate changes
@@ -57,9 +60,10 @@ test-only, module-level, and Fresh-transitive violations.
 
 The public differential package runs 84 fixed-seed cases spanning all 21
 existing `Scenario` families and all seven `CutoffKind` choices. It compares
-normalized Fresh and Incremental observations, excluding work counters. A
-failure reports the seed, case, recipe, initial Sources, operations, both
-outcomes, and the first differing observation.
+normalized Fresh and Incremental observations, excluding work counters. A failure reports the seed, case, recipe, initial Sources, operations, both
+outcomes, the first differing operation, and the first differing observation.
+The operation location comes from replaying valid operation prefixes, rather
+than assuming an observation index equals an operation index.
 
 Its real shrinker replays admissible candidates in this order:
 
@@ -70,6 +74,11 @@ Its real shrinker replays admissible candidates in this order:
 5. keys;
 6. values;
 7. cycle path.
+
+Generated cutoff shrinking has two applicable phases. The suffix phase shortens
+the input array by one; the value phase reduces individual entries to zero. The
+fixed-point search retains only candidates that still reproduce the mismatch
+and reports the first differing cutoff input position and observation.
 
 Private fixed-seed evidence adds 64 proof-loss cases, 48 atomicity/Region-close
 cases, and 32 structural-failure/recovery cases. Fresh projects proof loss to a
@@ -113,7 +122,7 @@ interfaces. Work gates use exact counts, never elapsed time.
 | `fresh` tests | 4 per target PASS |
 | `incremental_adapter` | check PASS; zero direct test entries as before |
 | `scenarios` tests | 3 per target PASS |
-| `differential` tests | 18 per target PASS |
+| `differential` tests | 20 per target PASS after evidence fix |
 | Private evidence fixtures | 9 tests × four targets PASS |
 | Native RC/finalizer harness | PASS |
 | Negative capability probes | PASS |
@@ -128,22 +137,26 @@ The matrix has no conditional target skip. The adapter has no package-local test
 entry, but all four check/test commands run, and the differential package drives
 it for every generated and commissioned public script.
 
-Final interface and documentation checks pass at review-fix head `dbad5bd`.
-The candidate has zero current-`incr/` delta, zero production `incr_next`
-manifest/source delta, and zero generated `.mbti` delta. Pre-existing workspace
-warnings are unchanged.
+Final interface and documentation checks passed at prior review-fix head
+`dbad5bd`. Commit `170a996` changes only the differential black-box test and
+requires exact-tree reruns. The candidate retains zero current-`incr/` delta,
+zero production `incr_next` manifest/source delta, and zero generated `.mbti`
+delta. Pre-existing workspace warnings are unchanged.
 
 ## K1.6d local review
 
-Independent review found one blocker: the first shrink phase retained a prefix
-and tail, so reducing it could remove a middle operation. Commit `dbad5bd` now
-uses one operation limit, truncates only the retained suffix, and asserts the
-exact before/after operation arrays. The exact review-fix tree passed 24/24
-matrix cells and every supplemental gate, then received **APPROVE** with no
-code warning. `origin/main` remained
-`e66f3bfeb08343135ad0e180c1c7a3cfbfa92d75` and is an ancestor of the candidate.
-A final read-only review of the status-only documentation tree remains before
-local handoff.
+Initial independent review found that suffix shrinking could remove a middle
+operation. Commit `dbad5bd` switched to true retained-array truncation and added
+an exact before/after assertion; its exact tree passed all gates and received
+**APPROVE**. A later review of the published branch found two remaining evidence
+blockers: failure reports named the first observation rather than the first
+operation, and cutoff failures had no shrinker. Commit `170a996` adds prefix
+replay localization, keeps both operation and observation indices, and adds
+fixed-point cutoff suffix/value shrinking with injected-failure coverage.
+
+The fetched base was `e66f3bfeb08343135ad0e180c1c7a3cfbfa92d75` before this
+fix. Exact-tree gates, base revalidation, and independent review must pass again
+before an implementation PR may be requested.
 
 ## Existing API First
 

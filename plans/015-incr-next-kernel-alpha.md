@@ -36,12 +36,13 @@ hosted checks, including `Incr Next Required`, with no pending or failed checks;
 maintainer acceptance and squash-tree equivalence passed.
 
 K1.6 product-quality conformance has an unaccepted local implementation
-candidate at implementation commit `a36b6d721db78160f8aadde1c5880694c0df2bb6`
-and shrinker fix `dbad5bd0ca66aee3b027ba0bd64da22722b1f164`. K1.6a–c local
-gates and the K1.6d implementation review/base revalidation pass. Final review
-of the status-only tree remains pending. This plan does not authorize
-publication, Issue action, parent-submodule update, ADR, Canopy integration, or
-K2 work.
+candidate at implementation commit `a36b6d721db78160f8aadde1c5880694c0df2bb6`,
+suffix-shrinker fix `dbad5bd0ca66aee3b027ba0bd64da22722b1f164`, and local
+evidence fix `170a99643fda94411888f7ec4cfaacdc7ff38232`. Public-branch
+review found operation-localization and cutoff-shrinking gaps; `170a996`
+addresses both. Exact-tree gates and independent review must pass again. This
+plan does not authorize publication, Issue action, parent-submodule update,
+ADR, Canopy integration, or K2 work.
 
 **Status:** IN PROGRESS (K1.1–K1.5 ACCEPTED / MERGED; K1.6 LOCAL CANDIDATE —
 NOT ACCEPTED)
@@ -93,7 +94,7 @@ Commissioned, local candidate not accepted:
 
 ```text
 K1.6a–c product-quality conformance evidence
-K1.6d implementation review/base revalidation pass; status-tree review pending
+K1.6d evidence review-fix implemented; exact gates and rereview pending
 ```
 
 Blocked and uncommissioned:
@@ -1143,7 +1144,7 @@ K1.6a-0  LOCAL PASS — temporary private-fixture boundary selected
 K1.6a    LOCAL PASS — deterministic generator, replay report, shrinkers
 K1.6b    LOCAL PASS — private work-count assertions
 K1.6c    LOCAL PASS — backend, ownership, boundary, workspace matrix
-K1.6d    IMPLEMENTATION PASS — final status-tree review pending
+K1.6d    PENDING — evidence fix requires exact gates and rereview
 ```
 
 K1.6 acceptance does not authorize publication. After acceptance, a separate
