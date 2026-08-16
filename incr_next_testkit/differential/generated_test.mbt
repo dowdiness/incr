@@ -12,8 +12,7 @@ const CASE_COUNT : Int = 84
 ///|
 priv struct Recipe {
   family : Int
-  operation_prefix_length : Int
-  operation_suffix_length : Int
+  operation_limit : Int
   unrelated_retention : Int
   write_retention : Int
   graph_simplified : Bool
@@ -250,20 +249,8 @@ fn select_operations(
       retained.push(operation)
     }
   }
-  let result = []
-  let prefix = recipe.operation_prefix_length.max(0).min(retained.length())
-  let suffix = recipe.operation_suffix_length
-    .max(0)
-    .min(retained.length() - prefix)
-  for i in 0..<prefix {
-    result.push(retained[i])
-  }
-  for i in (retained.length() - suffix)..<retained.length() {
-    if i >= prefix {
-      result.push(retained[i])
-    }
-  }
-  result
+  retained.truncate(recipe.operation_limit.max(0).min(retained.length()))
+  retained
 }
 
 ///|
@@ -361,8 +348,7 @@ fn generated_recipes() -> Array[Recipe] {
   )
   draws.mapi((i, draw) => Recipe::{
     family: i % SCENARIO_COUNT,
-    operation_prefix_length: 2,
-    operation_suffix_length: 2,
+    operation_limit: 8,
     unrelated_retention: 1,
     write_retention: 2,
     graph_simplified: false,
@@ -416,8 +402,8 @@ fn add_candidate(
 }
 
 ///|
-fn change_suffix(r : Recipe) -> Recipe {
-  Recipe::{ ..r, operation_suffix_length: r.operation_suffix_length - 1 }
+fn change_suffix(r : Recipe, operation_count : Int) -> Recipe {
+  Recipe::{ ..r, operation_limit: operation_count - 1 }
 }
 
 ///|
@@ -467,8 +453,14 @@ fn phase_rank(phase : ShrinkPhase) -> Int {
 fn shrink_candidates(recipe : Recipe) -> Array[ShrinkCandidate] {
   let out = []
   let original = recipe_script(recipe)
-  if recipe.operation_suffix_length > 0 {
-    add_candidate(out, ShrinkPhase::Suffix, original, change_suffix(recipe))
+  let operation_count = original.operations().length()
+  if operation_count > 0 {
+    add_candidate(
+      out,
+      ShrinkPhase::Suffix,
+      original,
+      change_suffix(recipe, operation_count),
+    )
   }
   if recipe.unrelated_retention > 0 {
     add_candidate(
@@ -576,6 +568,17 @@ test "cutoff generator covers every kind with bounded varied steps" {
 ///|
 test "validity-preserving shrink stream is ordered and admissible" {
   let generated = generated_recipes()
+  let suffix_before = recipe_script(generated[7])
+  let suffix_candidate = shrink_candidates(generated[7])[0]
+  let suffix_after = recipe_script(suffix_candidate.recipe)
+  let before_operations = suffix_before.operations()
+  assert_eq(suffix_candidate.phase, ShrinkPhase::Suffix)
+  assert_eq(suffix_after.scenario_tag(), suffix_before.scenario_tag())
+  assert_eq(suffix_after.initial_sources(), suffix_before.initial_sources())
+  assert_eq(
+    suffix_after.operations(),
+    before_operations[:before_operations.length() - 1].to_owned(),
+  )
   let recipes = [
     Recipe::{ ..generated[7], value_salt: 3 },
     Recipe::{ ..generated[2], key: 3 },
