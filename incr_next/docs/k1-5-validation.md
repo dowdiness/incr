@@ -6,23 +6,27 @@
 its rematerialization, failure, Cycle, phase, lifetime, and ownership evidence.
 The implementation head is
 `064a80ac884f7c5588f123cc62dd784adeb26b48`; the review-fix and validated head
-is `378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`.
+is `378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`; the status-only head is
+`6de46abf19acb69cc5d5274b89a0ee780e48fb8d`; and the squash merge commit is
+`4e66654d021435179116c0cffd56c0216b1bc664`.
 
 **Keep until:** K1 alpha is superseded or a durable published API record is
 separately authorized.
 
-**Disposition:** **IMPLEMENTATION COMPLETE / MAINTAINER ACCEPTED / MERGE
-PENDING.** PR #480 passed 46 of 46 hosted checks at the validated head,
-including `Incr Next Required`, all 24 Incr Next root/target cells, interface
-clean, architecture boundaries, and native RC ownership. Public diff review
-was APPROVE and maintainer acceptance was PASS. CodeRabbit skipped content
-review because manual review was required and is not positive evidence.
+**Disposition:** **ACCEPTED AND MERGED.** PR #480 passed 46 of 46 hosted
+checks at the review-fix and status-only heads, including `Incr Next Required`,
+all 24 Incr Next root/target cells, interface clean, architecture boundaries,
+and native RC ownership, with no pending or failed checks. Public diff review
+was APPROVE, maintainer acceptance was PASS, and squash-tree equivalence
+passed. CodeRabbit skipped content review because manual review was required
+and is not positive evidence.
 
-Plan 015 remains active. K1.6 remains **BLOCKED** and **UNCOMMISSIONED**. Public
-proof loss or eviction, retention policy, Mount/Program, Canopy integration,
-ADR, and publication remain unauthorized. **No ADR needed:** K1.5 is one
-private accepted increment under active Plan 015; adoption and publication
-remain separate decisions.
+Plan 015 remains active. K1.6 is **COMMISSIONED**, but its implementation is not
+accepted. Public proof loss or eviction, automatic retention policy, public
+debug/explain, Mount/Program/Port/Formula, Canopy integration, ADR,
+representation optimization, and publication remain unauthorized. **No ADR
+needed:** K1.5 is one private accepted increment under active Plan 015;
+adoption and publication remain separate decisions.
 
 ## Accepted semantics
 
@@ -97,5 +101,6 @@ Incr Next Required                              PASS
 
 The validated implementation changes only five `incr_next/` kernel/test files.
 Current `incr/`, `incr_next_testkit/`, generated `.mbti`, public API, CI, and
-K1.6 surface deltas are zero. PR #480 merge remains pending the final
-status-only HEAD gate.
+K1.6 implementation deltas are zero. The status-only finalization changes only
+documentation, and PR #480 squash-merged an equivalent tree as
+`4e66654d021435179116c0cffd56c0216b1bc664`.

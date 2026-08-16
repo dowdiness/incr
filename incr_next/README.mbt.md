@@ -32,10 +32,19 @@ evidence; independent public review supplies review evidence. The selected
 public surface preserves `Region::query` and adds explicit AlwaysChanged,
 `Eq`, and type-owned constructors with private policy storage.
 
-K1.5 private proof loss and ownership closure is **IMPLEMENTATION COMPLETE**
-and **MAINTAINER ACCEPTED** at validated head
-`378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`; PR #480 merge is pending. Its
-package-private per-key operation forgets one memo and all reuse evidence
-without changing semantic state, then conservatively rematerializes from a
-surviving View or downstream recipe. It adds no public eviction API or
-retention policy. K1.6 remains blocked and uncommissioned.
+K1.5 private proof loss and ownership closure is **ACCEPTED AND MERGED** at
+implementation head `064a80ac884f7c5588f123cc62dd784adeb26b48`, review-fix head
+`378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`, status-only head
+`6de46abf19acb69cc5d5274b89a0ee780e48fb8d`, and squash merge commit
+`4e66654d021435179116c0cffd56c0216b1bc664`. Hosted acceptance passed 46/46 at
+the status-only head, maintainer acceptance passed, and squash-tree equivalence
+passed. Its package-private per-key operation forgets one memo and all reuse
+evidence without changing semantic state, then conservatively rematerializes
+from a surviving View or downstream recipe. It adds no public eviction API or
+retention policy.
+
+K1.6 product-quality conformance is **COMMISSIONED**, but its implementation is
+not accepted. Its commissioned scope requires generated and shrinkable
+differential evidence, private work-count assertions, complete backend/
+interface/ownership/documentation gates, and independent review without
+widening public API or kernel semantics.

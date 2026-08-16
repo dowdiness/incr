@@ -19,10 +19,13 @@ K1.4 is accepted at implementation/validation head
 `9d53d51d6ec6e282b8aa247442ee126acfe64a2d`. Hosted acceptance passed 46/46,
 public diff review was APPROVE, maintainer acceptance was PASS, and squash-tree
 equivalence passed. CodeRabbit skipped content review and is not positive
-evidence; independent public review supplies review evidence. K1.5 is
-implementation complete and maintainer accepted at validated review-fix head
-`378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`; PR #480 merge is pending. K1.6
-remains blocked and uncommissioned.
+evidence; independent public review supplies review evidence. K1.5 is accepted
+and merged at implementation head `064a80ac884f7c5588f123cc62dd784adeb26b48`,
+review-fix head `378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`, status-only
+head `6de46abf19acb69cc5d5274b89a0ee780e48fb8d`, and squash merge commit
+`4e66654d021435179116c0cffd56c0216b1bc664`; hosted and maintainer acceptance
+and squash-tree equivalence passed. K1.6 conformance is commissioned, but its
+implementation is not accepted.
 
 ## First failures retained
 
@@ -47,9 +50,12 @@ head `e187b562f87ec4ecd50940a5e8fc2bc5d478380c`, status-only head
 implementation/validation head `0036bdd199a685823b6769bf1acdac3f9b6b9014`,
 finalized at status-only head `c88e724383ca5f3e817f30226a9fa23cf3ad7358`,
 and merged as squash commit `9d53d51d6ec6e282b8aa247442ee126acfe64a2d`.
-K1.5 is implementation complete and maintainer accepted at validated
-review-fix head `378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`; PR #480 merge is pending.
-K1.6 remains blocked and uncommissioned.
+K1.5 is accepted and merged at implementation head
+`064a80ac884f7c5588f123cc62dd784adeb26b48`, review-fix head
+`378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`, status-only head
+`6de46abf19acb69cc5d5274b89a0ee780e48fb8d`, and squash merge commit
+`4e66654d021435179116c0cffd56c0216b1bc664`. K1.6 conformance is commissioned,
+but its implementation is not accepted.
 
 The accepted implementation passes:
 

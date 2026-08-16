@@ -25,12 +25,16 @@ maintainer acceptance was PASS, and squash-tree equivalence passed.
 
 CodeRabbit skipped content review because manual review was required and is not
 positive evidence; independent public review supplies review evidence. K1.5 is
-**IMPLEMENTATION COMPLETE** and **MAINTAINER ACCEPTED** at validated review-fix
-head `378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`; PR #480 merge is pending.
-K1.6 remains **BLOCKED** and **UNCOMMISSIONED**. ADR, publication, and Canopy
-integration remain unauthorized. Plan 015 remains active. **No ADR needed:** K1.4 is one accepted
-increment under the existing K0 contracts; adoption and publication remain
-separate decisions.
+**ACCEPTED AND MERGED** at implementation head
+`064a80ac884f7c5588f123cc62dd784adeb26b48`, review-fix head
+`378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`, status-only head
+`6de46abf19acb69cc5d5274b89a0ee780e48fb8d`, and squash merge commit
+`4e66654d021435179116c0cffd56c0216b1bc664`; hosted and maintainer acceptance
+and squash-tree equivalence passed. K1.6 conformance is **COMMISSIONED**, but
+its implementation is not accepted. ADR, publication, and Canopy integration
+remain unauthorized. Plan 015 remains active. **No ADR needed:** K1.4 is one
+accepted increment under the existing K0 contracts; adoption and publication
+remain separate decisions.
 
 ## Scope and invariants
 
@@ -102,7 +106,10 @@ The full 24-cell matrix, workspace tests, ownership, interface, negative, and
 boundary gates pass. Current `incr/` diff and K1.5+ surface remain zero at the
 accepted implementation head. Implementation push, PR, hosted acceptance,
 public diff review, maintainer acceptance, status-only finalization, and squash
-merge are complete. The separate K1.5 implementation is complete and
-maintainer accepted at validated review-fix head
-`378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`; PR #480 merge is pending. ADR,
-publication, and Canopy integration remain unauthorized.
+merge are complete. K1.5 is accepted and merged at implementation head
+`064a80ac884f7c5588f123cc62dd784adeb26b48`, review-fix head
+`378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`, status-only head
+`6de46abf19acb69cc5d5274b89a0ee780e48fb8d`, and squash merge commit
+`4e66654d021435179116c0cffd56c0216b1bc664`. K1.6 conformance is commissioned,
+but its implementation is not accepted. ADR, publication, and Canopy
+integration remain unauthorized.

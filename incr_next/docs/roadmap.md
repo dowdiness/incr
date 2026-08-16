@@ -58,21 +58,30 @@ the newest value, while only admissible downstream verification may reuse old
 observations. The 24-cell, workspace, ownership, interface, negative, and
 boundary gates pass.
 
-K1.5 private proof loss and ownership closure is **IMPLEMENTATION COMPLETE**
-and **MAINTAINER ACCEPTED** at implementation head
-`064a80ac884f7c5588f123cc62dd784adeb26b48` and validated review-fix head
-`378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`; PR #480 merge is pending. The
-package-private per-key operation forgets the memo value, trace, stamps,
+K1.5 private proof loss and ownership closure is **ACCEPTED AND MERGED** at
+implementation head `064a80ac884f7c5588f123cc62dd784adeb26b48`, review-fix head
+`378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`, status-only head
+`6de46abf19acb69cc5d5274b89a0ee780e48fb8d`, and squash merge commit
+`4e66654d021435179116c0cffd56c0216b1bc664`. The status-only head passed 46/46
+hosted checks, including `Incr Next Required`, with no pending or failed checks;
+maintainer acceptance and squash-tree equivalence passed.
+
+The package-private operation for one key forgets the memo value, trace, stamps,
 `MemoId`, and cutoff-comparison evidence without changing `Revision`,
 `ChangeEpoch`, Query/View definitions, policy, Region generation, or Source
 state. A later read rematerializes from a surviving View or downstream
-`QueryCore` plus typed-key recipe as initial success: new `MemoId`, current
+`QueryCore` plus typed recipe as initial success: new `MemoId`, current
 `verified_at` and `changed_at`, zero cutoff calls, and conservative downstream
-recomputation. Per-key and dynamic-trace isolation, failure/Cycle non-install
+recomputation. Per-entry and dynamic-trace isolation, failure/Cycle non-install
 and recovery, phase/lifetime rejection, Region-close ownership completion, and
 native RC/finalizer evidence pass local, hosted, public-diff, and maintainer
 gates.
 
-K1.5 adds no public eviction API, automatic retention policy, public testkit
-proof-loss operation, Mount/Program, Canopy integration, ADR, publication, or
-representation optimization. K1.6 remains blocked and uncommissioned.
+K1.6 product-quality conformance is **COMMISSIONED**, but its implementation is
+not accepted. It must add generated and shrinkable Fresh differential evidence,
+private work-count assertions, the complete backend/interface/ownership/docs
+matrix, and independent exact-HEAD review without widening public API or kernel
+semantics. The commissioned scope permits no public eviction, retention,
+counter, debug, or explain surface. Mount, Program/Port/Formula, Canopy
+integration, ADR, publication, and
+representation optimization remain blocked. Plan 015 remains **IN PROGRESS**.

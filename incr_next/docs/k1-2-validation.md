@@ -28,10 +28,13 @@ and maintainer acceptance pass. K1.4 is accepted at implementation/validation he
 `9d53d51d6ec6e282b8aa247442ee126acfe64a2d`. Hosted acceptance passed 46/46,
 public diff review was APPROVE, maintainer acceptance was PASS, and squash-tree
 equivalence passed. CodeRabbit skipped content review and is not positive
-evidence; independent public review supplies review evidence. K1.5 is implementation complete and maintainer accepted at
-validated review-fix head `378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`;
-PR #480 merge is pending. K1.6 remains blocked and uncommissioned. No ADR or
-package publication is authorized.
+evidence; independent public review supplies review evidence. K1.5 is accepted
+and merged at implementation head `064a80ac884f7c5588f123cc62dd784adeb26b48`,
+review-fix head `378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`, status-only
+head `6de46abf19acb69cc5d5274b89a0ee780e48fb8d`, and squash merge commit
+`4e66654d021435179116c0cffd56c0216b1bc664`; hosted and maintainer acceptance
+and squash-tree equivalence passed. K1.6 conformance is commissioned, but its
+implementation is not accepted. No ADR or package publication is authorized.
 
 ## Generated-interface probe
 
