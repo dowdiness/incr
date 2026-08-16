@@ -68,21 +68,20 @@ state, then rematerializes from a surviving View or downstream `QueryCore` plus
 typed-key recipe with a new `MemoId`, current stamps, zero cutoff calls, and
 conservative downstream recomputation.
 
-K1.6 product-quality conformance has an **UNACCEPTED LOCAL CANDIDATE** at
-implementation commit `a36b6d721db78160f8aadde1c5880694c0df2bb6`. Generated
-and shrinkable Fresh differential evidence, temporary private proof-loss/work
-fixtures, and the local backend/boundary/ownership/workspace matrix pass without
-a production kernel or public-interface delta.
+K1.6 product-quality conformance is **IMPLEMENTATION COMPLETE / LOCAL GATE PASS
+/ NOT ACCEPTED** at candidate HEAD
+`b94e2957cf88ac60639914a6ed3761046efa65a9`. Generated and shrinkable Fresh
+differential evidence, temporary private proof-loss/work fixtures, and the full
+backend/boundary/ownership/workspace matrix pass without a production kernel or
+public-interface delta.
 
-A later public-branch review found operation-localization and cutoff-shrinking
-evidence blockers. Local fix
-`170a996` addresses both without changing the kernel or public interface.
-Exact-tree gates passed, then review required the localization test to exercise
-actual reconstructed scenario prefixes; `d013186` adds that coverage. Exact
-gates and review must pass once more. Implementation PR, hosted CI, maintainer
-acceptance, and merge remain pending. Public debug/explain, public or automatic
-eviction policy, Mount, Program/Port/Formula, Canopy, ADR, publication, and
-representation optimization remain blocked.
+Operation localization and cutoff shrinking pass after fixes `170a996` and
+`d013186`. Exact-tree gates and base revalidation pass, and independent MoonBit
+and CI/documentation reviews returned **APPROVE**. A non-Draft implementation PR
+is authorized from the status-only green head; hosted CI, maintainer acceptance,
+and merge remain pending. Public debug/explain, public or automatic eviction
+policy, Mount, Program/Port/Formula, Canopy, ADR, publication, and representation
+optimization remain blocked.
 
 The sibling module owns the accepted and merged K1.1–K1.5 records and the K1.6
 candidate in [`incr_next/docs/roadmap.md`](../incr_next/docs/roadmap.md); this

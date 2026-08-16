@@ -77,23 +77,20 @@ and recovery, phase/lifetime rejection, Region-close ownership completion, and
 native RC/finalizer evidence pass local, hosted, public-diff, and maintainer
 gates.
 
-K1.6 product-quality conformance has an **UNACCEPTED LOCAL CANDIDATE** at
-implementation commit `a36b6d721db78160f8aadde1c5880694c0df2bb6`. K1.6a–c
-locally add generated and shrinkable Fresh differential evidence, temporary
-package-private proof-loss/work fixtures, and the complete backend, boundary,
-ownership, and workspace matrix without changing production kernel source or
-public interfaces. The [K1.6 local validation record](k1-6-validation.md)
-captures that evidence.
+K1.6 product-quality conformance is **IMPLEMENTATION COMPLETE / LOCAL GATE PASS
+/ NOT ACCEPTED** at candidate HEAD
+`b94e2957cf88ac60639914a6ed3761046efa65a9`. K1.6a–d add generated and
+shrinkable Fresh differential evidence, temporary package-private proof-loss and
+work fixtures, and the complete backend, boundary, ownership, and workspace
+matrix without changing production kernel source or public interfaces. The
+[K1.6 local validation record](k1-6-validation.md) captures that evidence.
 
-Public-branch review later found that reports localized observations rather
-than operations and that cutoff failures did not shrink.
-Local evidence fix `170a996` addresses both without changing production kernel
-source or interfaces. Exact-tree gates passed, then review required real prefix
-replay coverage rather than synthetic length-only assertions. Follow-up
-`d013186` exercises Fresh and Incremental replay for setup-dependent scenarios.
-Exact-tree gates and independent review must pass once more. Implementation PR,
-hosted CI, maintainer acceptance, merge, and the separate product decision
-remain pending or unauthorized.
+Fixes `170a996` and `d013186` close operation-localization and cutoff-shrinking
+gaps and exercise Fresh/Incremental replay for setup-dependent prefixes.
+Exact-tree gates and base revalidation pass, and independent MoonBit and
+CI/documentation reviews returned **APPROVE**. A non-Draft implementation PR is
+authorized from the status-only green head. Hosted CI, maintainer acceptance,
+merge, and the separate product decision remain pending or unauthorized.
 
 The commissioned scope permits no public eviction, retention, counter, debug,
 or explain surface. Mount, Program/Port/Formula, Canopy integration, ADR,

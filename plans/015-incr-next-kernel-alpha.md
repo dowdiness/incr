@@ -35,19 +35,18 @@ closure is accepted and merged at implementation head
 hosted checks, including `Incr Next Required`, with no pending or failed checks;
 maintainer acceptance and squash-tree equivalence passed.
 
-K1.6 product-quality conformance has an unaccepted local implementation
-candidate at implementation commit `a36b6d721db78160f8aadde1c5880694c0df2bb6`,
-suffix-shrinker fix `dbad5bd0ca66aee3b027ba0bd64da22722b1f164`, and local
-evidence fix `170a99643fda94411888f7ec4cfaacdc7ff38232`, and prefix-replay
-test fix `d0131867b4324d8b6784ebf526cf2437fa5c7af3`. Public-branch review
-found operation-localization and cutoff-shrinking gaps; `170a996` addresses
-both, while `d013186` replaces synthetic localization assertions with actual
-Fresh/Incremental scenario-prefix replay. Exact-tree gates and independent
-review must pass once more. This plan does not authorize publication, Issue
-action, parent-submodule update, ADR, Canopy integration, or K2 work.
+K1.6 product-quality conformance is implementation-complete with local gates
+passing at candidate HEAD `b94e2957cf88ac60639914a6ed3761046efa65a9`.
+Operation localization and cutoff shrinking pass after fixes `170a996` and
+`d013186`; the latter exercises actual Fresh/Incremental scenario-prefix replay.
+Exact-tree gates and base revalidation pass, and independent MoonBit and
+CI/documentation reviews returned **APPROVE**. A non-Draft implementation PR is
+authorized from the status-only green head. This plan does not authorize merge,
+publication, Issue action, parent-submodule update, ADR, Canopy integration, or
+K2 work.
 
-**Status:** IN PROGRESS (K1.1–K1.5 ACCEPTED / MERGED; K1.6 LOCAL CANDIDATE —
-NOT ACCEPTED)
+**Status:** IN PROGRESS (K1.1–K1.5 ACCEPTED / MERGED; K1.6 IMPLEMENTATION
+COMPLETE / LOCAL GATE PASS / NOT ACCEPTED)
 
 ---
 
@@ -92,11 +91,10 @@ Commissioned, implementation complete, accepted, and merged:
 K1.5 private proof loss and ownership completion
 ```
 
-Commissioned, local candidate not accepted:
+Commissioned, implementation complete with local gates passing, not accepted:
 
 ```text
-K1.6a–c product-quality conformance evidence
-K1.6d prefix-replay test fix implemented; exact gates and rereview pending
+K1.6a–d product-quality conformance evidence
 ```
 
 Blocked and uncommissioned:
@@ -124,8 +122,9 @@ implementation head `064a80ac884f7c5588f123cc62dd784adeb26b48`, review-fix head
 `378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`, status-only head
 `6de46abf19acb69cc5d5274b89a0ee780e48fb8d`, and squash merge commit
 `4e66654d021435179116c0cffd56c0216b1bc664`. K1.6 is commissioned solely as the
-final product-quality conformance gate. Its local K1.6a–c candidate is recorded
-at `a36b6d721db78160f8aadde1c5880694c0df2bb6`; it is not accepted.
+final product-quality conformance gate. Its implementation-complete K1.6a–d
+candidate is recorded at `b94e2957cf88ac60639914a6ed3761046efa65a9`; local
+gates and independent review pass, but it is not accepted.
 
 ## Goal
 
@@ -1146,7 +1145,7 @@ K1.6a-0  LOCAL PASS — temporary private-fixture boundary selected
 K1.6a    LOCAL PASS — deterministic generator, replay report, shrinkers
 K1.6b    LOCAL PASS — private work-count assertions
 K1.6c    LOCAL PASS — backend, ownership, boundary, workspace matrix
-K1.6d    PENDING — prefix-replay test fix requires exact gates and rereview
+K1.6d    LOCAL PASS — exact gates, base revalidation, independent review APPROVE
 ```
 
 K1.6 acceptance does not authorize publication. After acceptance, a separate

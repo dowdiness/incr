@@ -16,24 +16,29 @@ plan documentation protocol.
 
 ## Status
 
-K1.6 has a **LOCAL CANDIDATE** at implementation commit
-`a36b6d721db78160f8aadde1c5880694c0df2bb6`, suffix-shrinker fix
-`dbad5bd0ca66aee3b027ba0bd64da22722b1f164`, generated-failure evidence fix
-`170a99643fda94411888f7ec4cfaacdc7ff38232`, and prefix-replay test fix
-`d0131867b4324d8b6784ebf526cf2437fa5c7af3`, based on commission merge
-`e66f3bfeb08343135ad0e180c1c7a3cfbfa92d75`.
+K1.6 is **IMPLEMENTATION COMPLETE / LOCAL GATE PASS / NOT ACCEPTED** at
+candidate HEAD `b94e2957cf88ac60639914a6ed3761046efa65a9`, based on commission
+merge `e66f3bfeb08343135ad0e180c1c7a3cfbfa92d75`. The published
+`feat/incr-next-k1-6` branch points to that exact candidate.
 
 Public branch review found that reports localized observations rather than
 operations and that generated cutoff failures did not shrink. Commit `170a996`
-addressed both implementation gaps; exact-tree review then required the
-localization test to exercise reconstructed scenario prefixes. Commit `d013186`
-adds that coverage locally.
+addressed both implementation gaps; review then required the localization test
+to exercise reconstructed scenario prefixes. Commit `d013186` added that
+coverage before candidate HEAD `b94e295`.
 
-Exact-tree revalidation and independent review remain pending. The published
-branch still points to the earlier reviewed status tree until these fixes are
-separately authorized for push. K1.6 is not accepted. Implementation PR, hosted
-CI, maintainer acceptance, merge, ADR, and publication remain pending or
-unauthorized.
+| Acceptance item | Result |
+|---|---|
+| Operation localization | PASS |
+| Cutoff shrinking | PASS |
+| Exact-tree gates | PASS |
+| Independent review | APPROVE |
+| Base revalidation | PASS; `origin/main` remained `e66f3bf` |
+| Implementation PR | Authorized; not yet created at this record |
+
+K1.6 is not accepted. Hosted CI, maintainer acceptance, and merge remain
+pending. ADR, publication, K2, Canopy integration, and the product-adoption
+decision remain unauthorized.
 
 No generated counterexample exposed a K0 contract defect. The candidate changes
 only tests, evidence fixtures, testkit dependencies, boundary/CI gates, and
@@ -135,20 +140,18 @@ interfaces. Work gates use exact counts, never elapsed time.
 | Kernel/testkit boundaries and self-test | PASS |
 | Workspace boundaries and self-test | PASS |
 | Workspace `moon check` | PASS |
-| Workspace default tests | 1,273 wasm-gc + 256 JS PASS at `2046d1f` |
-| Explicit workspace JS tests | 1,529 PASS at `2046d1f` |
+| Workspace default tests | 1,273 wasm-gc + 256 JS PASS at `b94e295` |
+| Explicit workspace JS tests | 1,529 PASS at `b94e295` |
 | Documentation boundary checker | 154 Markdown files PASS after review fix |
 
 The matrix has no conditional target skip. The adapter has no package-local test
 entry, but all four check/test commands run, and the differential package drives
 it for every generated and commissioned public script.
 
-Exact interface and documentation checks passed at evidence-status head
-`2046d1f`, including the table totals above. Commit `d013186` changes only the
-differential black-box test and requires another exact-tree rerun. The candidate
-retains zero current-`incr/` delta, zero production `incr_next` manifest/source
-delta, and zero generated `.mbti` delta. Pre-existing workspace warnings are
-unchanged.
+Exact interface and documentation checks passed at candidate HEAD `b94e295`,
+including the table totals above. The candidate retains zero current-`incr/`
+delta, zero production `incr_next` manifest/source delta, and zero generated
+`.mbti` delta. Pre-existing workspace warnings are unchanged.
 
 ## K1.6d local review
 
@@ -163,12 +166,13 @@ cutoff suffix/value shrinking with injected-failure coverage. Exact-tree gates
 passed at `2046d1f`, but review found that the operation-localization test only
 exercised synthetic prefix lengths.
 
-Commit `d013186` now drives the actual prefix reconstruction seam through Fresh
-and Incremental replay for Source, KeyedQuery, DomainFailure, and
-StructuralError scripts while preserving scenario and initial-Source setup. The
-fetched base remained `e66f3bfeb08343135ad0e180c1c7a3cfbfa92d75`. Exact-tree
-gates, base revalidation, and independent review must pass once more before an
-implementation PR may be requested.
+Commit `d013186` drives the actual prefix reconstruction seam through Fresh and
+Incremental replay for Source, KeyedQuery, DomainFailure, and StructuralError
+scripts while preserving scenario and initial-Source setup. At candidate HEAD
+`b94e295`, the exact-tree gates and post-review base revalidation passed against
+unchanged base `e66f3bfeb08343135ad0e180c1c7a3cfbfa92d75`. Independent
+MoonBit and CI/documentation reviews both returned **APPROVE**. A non-Draft
+implementation PR is authorized from the status-only green head.
 
 ## Existing API First
 

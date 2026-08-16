@@ -43,17 +43,17 @@ evidence without changing semantic state, then conservatively rematerializes
 from a surviving View or downstream recipe. It adds no public eviction API or
 retention policy.
 
-K1.6 product-quality conformance has an **UNACCEPTED LOCAL CANDIDATE** at
-implementation commit `a36b6d721db78160f8aadde1c5880694c0df2bb6`. Generated
-and shrinkable Fresh differential tests, temporary package-private proof-loss
-and work fixtures, and the local backend/boundary/ownership/workspace matrix
-pass without widening production kernel source or public interfaces. See the
+K1.6 product-quality conformance is **IMPLEMENTATION COMPLETE / LOCAL GATE PASS
+/ NOT ACCEPTED** at candidate HEAD
+`b94e2957cf88ac60639914a6ed3761046efa65a9`. Generated and shrinkable Fresh
+differential tests, temporary package-private proof-loss and work fixtures, and
+the full backend/boundary/ownership/workspace matrix pass without widening
+production kernel source or public interfaces. See the
 [K1.6 local validation record](docs/k1-6-validation.md).
 
-Local evidence fix `170a996` adds operation-prefix failure localization and
-cutoff suffix/value
-shrinking after public-branch review found both gaps. Follow-up `d013186` drives
-the real prefix reconstruction seam through Fresh and Incremental scenario
-replay. Exact-tree gates and independent review must pass once more.
-Implementation PR, hosted CI, maintainer acceptance, merge, and the later
-product decision remain pending or unauthorized.
+Fixes `170a996` and `d013186` provide operation-prefix failure localization,
+cutoff suffix/value shrinking, and actual Fresh/Incremental scenario-prefix
+replay. Exact-tree gates and base revalidation pass, and both independent
+reviews returned **APPROVE**. A non-Draft implementation PR is authorized from
+the status-only green head. Hosted CI, maintainer acceptance, merge, and the
+later product decision remain pending or unauthorized.
