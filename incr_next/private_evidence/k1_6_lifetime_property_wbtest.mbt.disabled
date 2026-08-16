@@ -1,0 +1,231 @@
+///|
+const K1_6_LIFETIME_SEED : UInt64 = 0x6A1602
+
+///|
+priv struct LifetimeRecipe {
+  left : Int
+  right : Int
+  next_left : Int
+  next_right : Int
+  recovery : Int
+} derive(Debug)
+
+///|
+priv enum LifetimeObservation {
+  Value(Int)
+  CrossStore
+  ClosedRegion
+} derive(Eq, Debug)
+
+///|
+fn lifetime_recipe(draw : Int) -> LifetimeRecipe {
+  LifetimeRecipe::{
+    left: bounded_value(draw, 0),
+    right: bounded_value(draw, 1),
+    next_left: bounded_value(draw, 2),
+    next_right: bounded_value(draw, 3),
+    recovery: bounded_value(draw, 4) + 2,
+  }
+}
+
+///|
+fn lifetime_oracle(recipe : LifetimeRecipe) -> Array[LifetimeObservation] {
+  [
+    LifetimeObservation::Value(recipe.left + recipe.right),
+    LifetimeObservation::Value(recipe.next_left + recipe.next_right),
+    LifetimeObservation::CrossStore,
+    LifetimeObservation::Value(recipe.next_left + recipe.next_right),
+    LifetimeObservation::ClosedRegion,
+  ]
+}
+
+///|
+fn run_lifetime(recipe : LifetimeRecipe) -> Array[LifetimeObservation] {
+  let store = Store::Store()
+  let region = store.region().unwrap()
+  let left = region.source(recipe.left).unwrap()
+  let right = region.source(recipe.right).unwrap()
+  let sum = region
+    .query((ctx, _unit : Unit) => {
+      match ctx.read(left.view()) {
+        Err(error) => Err(error)
+        Ok(left_value) =>
+          ctx.read(right.view()).map(right_value => left_value + right_value)
+      }
+    })
+    .unwrap()
+  let view = sum.at(())
+  let observations = []
+  match store.read(view) {
+    Ok(value) => observations.push(LifetimeObservation::Value(value))
+    Err(_) => abort("initial generated lifetime read failed unexpectedly")
+  }
+  publish_both(store, left, right, recipe.next_left, recipe.next_right)
+  match store.read(view) {
+    Ok(value) => observations.push(LifetimeObservation::Value(value))
+    Err(_) => abort("generated atomic read failed unexpectedly")
+  }
+
+  let foreign_store = Store::Store()
+  let foreign_region = foreign_store.region().unwrap()
+  let foreign = foreign_region.source(99).unwrap()
+  let revision_before = store.revision()
+  let rejected = store.transaction(tx => {
+    ignore(tx.set(left, recipe.recovery))
+    ignore(tx.set(foreign, recipe.recovery + 1))
+    Ok(())
+  })
+  match rejected {
+    Err(TransactionError::CrossStore(..)) =>
+      observations.push(LifetimeObservation::CrossStore)
+    _ => abort("generated cross-Store transaction did not fail structurally")
+  }
+  if store.revision() != revision_before {
+    abort("rejected generated transaction advanced Revision")
+  }
+  match store.read(view) {
+    Ok(value) => observations.push(LifetimeObservation::Value(value))
+    Err(_) => abort("rolled-back generated value became unreadable")
+  }
+  match region.close() {
+    Ok(_) => ()
+    Err(_) => abort("generated live Region close failed unexpectedly")
+  }
+  match store.read(view) {
+    Err(ReadError::ClosedRegion(..)) =>
+      observations.push(LifetimeObservation::ClosedRegion)
+    _ => abort("generated closed Region remained readable")
+  }
+  ignore(foreign_region.close())
+  observations
+}
+
+///|
+fn structural_recovery(recipe : LifetimeRecipe) -> Array[LifetimeObservation] {
+  let store = Store::Store()
+  let region = store.region().unwrap()
+  let trigger = region.source(0).unwrap()
+  let foreign_store = Store::Store()
+  let foreign_region = foreign_store.region().unwrap()
+  let foreign = foreign_region.source(1).unwrap()
+  let query = region
+    .query((ctx, _unit : Unit) => {
+      match ctx.read(trigger.view()) {
+        Err(error) => Err(error)
+        Ok(1) => ctx.read(foreign.view())
+        Ok(value) => Ok(value)
+      }
+    })
+    .unwrap()
+  let view = query.at(())
+  let observations = []
+  match store.read(view) {
+    Ok(value) => observations.push(LifetimeObservation::Value(value))
+    Err(_) => abort("generated recovery baseline failed unexpectedly")
+  }
+  publish_one(store, trigger, 1)
+  match store.read(view) {
+    Err(ReadError::CrossStore(..)) =>
+      observations.push(LifetimeObservation::CrossStore)
+    _ => abort("generated structural failure was not CrossStore")
+  }
+  publish_one(store, trigger, recipe.recovery)
+  match store.read(view) {
+    Ok(value) => observations.push(LifetimeObservation::Value(value))
+    Err(_) => abort("generated structural recovery failed unexpectedly")
+  }
+  ignore(region.close())
+  ignore(foreign_region.close())
+  observations
+}
+
+///|
+fn lifetime_mismatch(recipe : LifetimeRecipe) -> Bool {
+  lifetime_oracle(recipe) != run_lifetime(recipe)
+}
+
+///|
+fn minimize_lifetime_failure(recipe : LifetimeRecipe) -> LifetimeRecipe {
+  let zero = LifetimeRecipe::{
+    left: 0,
+    right: 0,
+    next_left: 0,
+    next_right: 0,
+    recovery: 2,
+  }
+  if lifetime_mismatch(zero) {
+    zero
+  } else {
+    recipe
+  }
+}
+
+///|
+test "K1.6a generated atomicity and Region lifetime match the pure oracle" {
+  let draws : Array[Int] = @qcgen.Gen::spawn().samples(
+    size=48,
+    seed=K1_6_LIFETIME_SEED,
+  )
+  assert_eq(draws.length(), 48)
+  draws.eachi((case_index, draw) => {
+    let recipe = lifetime_recipe(draw)
+    let expected = lifetime_oracle(recipe)
+    let actual = run_lifetime(recipe)
+    if expected != actual {
+      let minimized = minimize_lifetime_failure(recipe)
+      let minimized_expected = lifetime_oracle(minimized)
+      let minimized_actual = run_lifetime(minimized)
+      abort(
+        "seed=0x6A1602 case=\{case_index} recipe=\{@debug.to_string(minimized)} OperationScript=[Read,SetBoth,Read,CrossStoreAtomic,Read,Close,Read] FreshCore=\{@debug.to_string(minimized_expected)} Incremental=\{@debug.to_string(minimized_actual)} first_difference=\{first_lifetime_difference(minimized_expected, minimized_actual)}",
+      )
+    }
+  })
+}
+
+///|
+fn first_lifetime_difference(
+  left : Array[LifetimeObservation],
+  right : Array[LifetimeObservation],
+) -> Int {
+  let limit = left.length().min(right.length())
+  for index in 0..<limit {
+    if left[index] != right[index] {
+      return index
+    }
+  }
+  if left.length() == right.length() {
+    -1
+  } else {
+    limit
+  }
+}
+
+///|
+test "K1.6a generated structural failures recover without stale fallback" {
+  let draws : Array[Int] = @qcgen.Gen::spawn().samples(
+    size=32,
+    seed=K1_6_LIFETIME_SEED + 1,
+  )
+  draws.eachi((case_index, draw) => {
+    let recipe = lifetime_recipe(draw)
+    let expected = [
+      LifetimeObservation::Value(0),
+      LifetimeObservation::CrossStore,
+      LifetimeObservation::Value(recipe.recovery),
+    ]
+    let actual = structural_recovery(recipe)
+    if expected != actual {
+      abort(
+        "seed=0x6A1603 case=\{case_index} recipe=\{@debug.to_string(recipe)} OperationScript=[Read,SetFailure,Read,SetRecovery,Read] FreshCore=\{@debug.to_string(expected)} Incremental=\{@debug.to_string(actual)} first_difference=\{first_lifetime_difference(expected, actual)}",
+      )
+    }
+  })
+}
+
+///|
+test "K1.6a lifetime failure shrinker keeps valid graph membership" {
+  let recipe = lifetime_recipe(17)
+  let minimized = minimize_lifetime_failure(recipe)
+  assert_true(minimized.recovery >= 2)
+  assert_eq(lifetime_oracle(minimized), run_lifetime(minimized))
+}

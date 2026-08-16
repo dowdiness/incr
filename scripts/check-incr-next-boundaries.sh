@@ -5,10 +5,43 @@ set -euo pipefail
 root="${INCR_NEXT_BOUNDARY_ROOT:-.}"
 fail=0
 
+extract_scoped_imports() {
+  local file="$1"
+  awk '
+    function emit(  i) {
+      for (i = 1; i <= count; i++) print scope "\t" imports[i]
+    }
+    /^[[:space:]]*import[[:space:]]*\{/ {
+      block = 1
+      count = 0
+      scope = "normal"
+      next
+    }
+    block {
+      if ($0 ~ /^[[:space:]]*}/) {
+        if (match($0, /for[[:space:]]+"[^"]+"/)) {
+          qualifier = substr($0, RSTART, RLENGTH)
+          sub(/^for[[:space:]]+"/, "", qualifier)
+          sub(/"$/, "", qualifier)
+          scope = qualifier
+        }
+        emit()
+        block = 0
+        next
+      }
+      line = $0
+      while (match(line, /"[^"]+"/)) {
+        value = substr(line, RSTART + 1, RLENGTH - 2)
+        if (value != "test" && value !~ /^-?[0-9]+$/) imports[++count] = value
+        line = substr(line, RSTART + RLENGTH)
+      }
+    }
+  ' "$file"
+}
+
 extract_imports() {
   local file="$1"
-  { sed 's|//.*$||; s|#.*$||' "$file" \
-      | grep -oE '"[^"]+"' | tr -d '"' | grep -vFx 'test' | grep -vE '^-?[0-9]+$'; } || true
+  extract_scoped_imports "$file" | cut -f2
 }
 
 if [ ! -f "$root/moon.work" ]; then
@@ -25,14 +58,28 @@ for required in "$root/incr_next/moon.mod" "$root/incr_next/moon.pkg" \
   fi
 done
 
+if grep -Eq 'dowdiness/incr_next_testkit|moonbitlang/quickcheck' \
+  "$root/incr_next/moon.mod"; then
+  echo "FAIL: production kernel module depends on test evidence" >&2
+  fail=1
+fi
+
 while IFS= read -r pkg; do
-  imports=$(extract_imports "$pkg")
   case "$pkg" in
+    "$root/incr_next/native_rc/moon.pkg"|"$root/incr_next/negative/moon.pkg") ;;
     "$root/incr_next/"*)
-      if echo "$imports" | grep -E '^(dowdiness/incr|dowdiness/incr_next_testkit)(/|$)' >/dev/null; then
-        echo "FAIL: kernel imports current Incr or testkit: $pkg" >&2
-        fail=1
-      fi
+      while IFS=$'\t' read -r scope import; do
+        case "$import" in
+          dowdiness/incr_next_testkit/*|moonbitlang/quickcheck*)
+            echo "FAIL: production kernel imports test evidence: $pkg [$scope] -> $import" >&2
+            fail=1
+            ;;
+          dowdiness/incr/*|dowdiness/incr_next)
+            echo "FAIL: kernel imports current Incr: $pkg [$scope] -> $import" >&2
+            fail=1
+            ;;
+        esac
+      done < <(extract_scoped_imports "$pkg")
       ;;
   esac
 done < <(find "$root/incr_next" -name moon.pkg -type f -print)

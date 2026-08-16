@@ -3,6 +3,42 @@
 // contract, not an executable post-mutation expectation.
 
 ///|
+priv struct MutableKey {
+  value : Ref[Int]
+}
+
+///|
+impl Eq for MutableKey with fn equal(self, other) {
+  self.value.val == other.value.val
+}
+
+///|
+impl Hash for MutableKey with fn hash(self) {
+  self.value.val.hash()
+}
+
+///|
+impl Hash for MutableKey with fn hash_combine(self, hasher) {
+  self.value.val.hash_combine(hasher)
+}
+
+///|
+test "expected divergence: mutable Query keys are excluded after mutation" {
+  let store = Store::Store()
+  let region = store.region().unwrap()
+  let key = MutableKey::{ value: Ref(1) }
+  let query = region
+    .query((_ctx, key : MutableKey) => Ok(key.value.val))
+    .unwrap()
+  let view = query.at(key)
+  assert_eq(store.read(view), Ok(1))
+  key.value.val = 2
+  // No post-mutation read is asserted: stable Hash/Eq is the caller contract.
+  assert_eq(key.value.val, 2)
+  ignore(region.close())
+}
+
+///|
 test "expected divergence: Source payload aliases are caller-owned" {
   let store = Store::Store()
   let region = store.region().unwrap()
