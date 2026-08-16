@@ -116,7 +116,10 @@ pub fn evaluate_cutoff(
   }
   let observations : Array[@model.Observation] = []
   for step in script.steps() {
-    ignore(store.transaction(tx => tx.set(trigger, step)))
+    match store.transaction(tx => tx.set(trigger, step)) {
+      Ok(_) => ()
+      Err(_) => abort("valid cutoff publication failed unexpectedly")
+    }
     match query(()) {
       Ok(value) => {
         observations.push(@model.Observation::Value(value.value))
