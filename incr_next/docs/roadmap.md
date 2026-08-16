@@ -83,9 +83,11 @@ locally add generated and shrinkable Fresh differential evidence, temporary
 package-private proof-loss/work fixtures, and the complete backend, boundary,
 ownership, and workspace matrix without changing production kernel source or
 public interfaces. The [K1.6 local validation record](k1-6-validation.md)
-captures that evidence. Exact-HEAD independent review, post-review base
-revalidation, hosted CI, maintainer acceptance, merge, and the separate product
-decision remain pending or unauthorized.
+captures that evidence. The implementation exact-HEAD review is APPROVE after shrinker fix `dbad5bd`,
+the fetched base is unchanged and contained, and all local gates pass after the
+fix. Final review of the status-only documentation tree, hosted CI, maintainer
+acceptance, merge, and the separate product decision remain pending or
+unauthorized.
 
 The commissioned scope permits no public eviction, retention, counter, debug,
 or explain surface. Mount, Program/Port/Formula, Canopy integration, ADR,

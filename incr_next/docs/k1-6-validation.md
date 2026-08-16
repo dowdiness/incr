@@ -16,10 +16,13 @@ plan documentation protocol.
 
 ## Status
 
-K1.6a–K1.6c have a **LOCAL CANDIDATE** at implementation commit
-`a36b6d721db78160f8aadde1c5880694c0df2bb6`, based on commission merge
-`e66f3bfeb08343135ad0e180c1c7a3cfbfa92d75`. The branch is not pushed and K1.6
-is not accepted. K1.6d exact-HEAD review, post-review base revalidation, hosted
+K1.6 has a **LOCAL CANDIDATE** at implementation commit
+`a36b6d721db78160f8aadde1c5880694c0df2bb6` and shrinker review-fix commit
+`dbad5bd0ca66aee3b027ba0bd64da22722b1f164`, based on commission merge
+`e66f3bfeb08343135ad0e180c1c7a3cfbfa92d75`. The implementation exact-HEAD
+review is APPROVE, the fetched base is unchanged and contained, and all local
+gates pass after the fix. This status-only documentation update still requires
+an exact-tree review. The branch is not pushed and K1.6 is not accepted. Hosted
 CI, maintainer acceptance, merge, ADR, and publication remain pending or
 unauthorized.
 
@@ -43,10 +46,10 @@ MoonBit compile probes established three facts:
 The selected boundary follows the existing compile-negative probe pattern.
 Private K1.6 MoonBit fixtures remain disabled under
 `incr_next/private_evidence/`. The
-`check-incr-next-k1-6-private-evidence.sh` gate copies the two modules into a
-temporary workspace, enables only the fixture white-box tests there, injects
-the Fresh and QuickCheck dependencies there, runs every backend, and deletes
-the workspace. Permanent `incr_next/moon.mod` and `incr_next/moon.pkg` have no
+`check-incr-next-k1-6-private-evidence.sh` gate copies `incr_next` and
+`incr_next_testkit` into a temporary workspace, enables all three private
+white-box fixtures there, injects the Fresh and QuickCheck dependencies there,
+runs every backend, and deletes the workspace. Permanent `incr_next/moon.mod` and `incr_next/moon.pkg` have no
 testkit or QuickCheck dependency. The boundary checker rejects direct,
 test-only, module-level, and Fresh-transitive violations.
 
@@ -119,16 +122,28 @@ interfaces. Work gates use exact counts, never elapsed time.
 | Workspace `moon check` | PASS |
 | Workspace default tests | 1,271 wasm-gc + 256 JS PASS |
 | Explicit workspace JS tests | 1,527 PASS |
-| Documentation boundary checker | PASS before this record; rerun required |
+| Documentation boundary checker | 154 Markdown files PASS after review fix |
 
 The matrix has no conditional target skip. The adapter has no package-local test
 entry, but all four check/test commands run, and the differential package drives
 it for every generated and commissioned public script.
 
-Final interface and documentation checks remain part of the exact-HEAD gate.
-The implementation commit has zero current-`incr/` delta, zero production
-`incr_next` manifest/source delta, and zero generated `.mbti` delta. Pre-existing
-workspace warnings are unchanged.
+Final interface and documentation checks pass at review-fix head `dbad5bd`.
+The candidate has zero current-`incr/` delta, zero production `incr_next`
+manifest/source delta, and zero generated `.mbti` delta. Pre-existing workspace
+warnings are unchanged.
+
+## K1.6d local review
+
+Independent review found one blocker: the first shrink phase retained a prefix
+and tail, so reducing it could remove a middle operation. Commit `dbad5bd` now
+uses one operation limit, truncates only the retained suffix, and asserts the
+exact before/after operation arrays. The exact review-fix tree passed 24/24
+matrix cells and every supplemental gate, then received **APPROVE** with no
+code warning. `origin/main` remained
+`e66f3bfeb08343135ad0e180c1c7a3cfbfa92d75` and is an ancestor of the candidate.
+A final read-only review of the status-only documentation tree remains before
+local handoff.
 
 ## Existing API First
 

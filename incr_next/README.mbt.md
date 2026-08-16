@@ -48,6 +48,8 @@ implementation commit `a36b6d721db78160f8aadde1c5880694c0df2bb6`. Generated
 and shrinkable Fresh differential tests, temporary package-private proof-loss
 and work fixtures, and the local backend/boundary/ownership/workspace matrix
 pass without widening production kernel source or public interfaces. See the
-[K1.6 local validation record](docs/k1-6-validation.md). Exact-HEAD review,
-hosted CI, maintainer acceptance, merge, and the later product decision remain
-pending or unauthorized.
+[K1.6 local validation record](docs/k1-6-validation.md). The implementation
+review is APPROVE at shrinker fix `dbad5bd`, and all local gates pass on the
+unchanged fetched base. Final status-tree review, hosted CI, maintainer
+acceptance, merge, and the later product decision remain pending or
+unauthorized.
