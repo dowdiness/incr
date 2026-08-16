@@ -22,14 +22,15 @@ status-only heads passed 46 of 46 hosted checks, including
 was PASS. CodeRabbit skipped content review because manual review was required
 and is not positive evidence.
 
-K1.4 typed cutoff and backdating is implementation-complete and maintainer
-accepted at implementation/validation head
-`0036bdd199a685823b6769bf1acdac3f9b6b9014`. Hosted acceptance PASS 46/46,
-public diff review APPROVE, and maintainer acceptance PASS. MERGE PENDING: final
-merge is authorized only after status-only current-head required checks are
-green. CodeRabbit skipped content review and is not positive evidence;
-independent public review supplies review evidence. K1.5–K1.6 remain blocked
-and uncommissioned. No ADR or package publication is authorized.
+K1.4 typed cutoff and backdating is accepted at implementation/validation head
+`0036bdd199a685823b6769bf1acdac3f9b6b9014`, finalized at status-only head
+`c88e724383ca5f3e817f30226a9fa23cf3ad7358`, and merged as squash commit
+`9d53d51d6ec6e282b8aa247442ee126acfe64a2d`. Hosted acceptance passed 46/46,
+public diff review was APPROVE, maintainer acceptance was PASS, and squash-tree
+equivalence passed. CodeRabbit skipped content review and is not positive
+evidence; independent public review supplies review evidence. K1.5 is
+commissioned with implementation not accepted; K1.6 remains blocked and
+uncommissioned. No ADR or package publication is authorized.
 
 ## Generated-interface compile probe
 
@@ -185,6 +186,7 @@ Local and hosted validation pass. The status-only head passed all required
 checks with `Incr Next Required`, zero pending or failed checks,
 CLEAN/MERGEABLE state, zero current-`incr/` diff, zero K1.4+ surface, and a
 documentation/status-only finalization diff. The squash-tree equivalence check
-passed before PR #476 merged. K1.4 commission PR #477 is merged. K1.4
-implementation PR #478 is pushed, publicly reviewed, hosted-green, and
-maintainer accepted; merge remains pending the status-only current-head gate.
+passed before PR #476 merged. K1.4 commission PR #477 and implementation PR
+#478 are merged. PR #478 was publicly reviewed, hosted-green, maintainer
+accepted, status-only finalized, and squash-tree equivalent. K1.5 is
+commissioned but not implemented or accepted.

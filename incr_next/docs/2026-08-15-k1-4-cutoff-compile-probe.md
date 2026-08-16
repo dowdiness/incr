@@ -52,10 +52,13 @@ folded into a durable published API record.
 **Disposition:** **Retain as generated-interface provenance while Plan 015 is
 active and Incr Next remains unpublished.** This evidence fixes the interface
 used by the accepted K1.4 implementation at validation head
-`0036bdd199a685823b6769bf1acdac3f9b6b9014`. K1.4 is implementation complete,
-maintainer accepted, and merge pending; final merge is authorized only after
-status-only current-head required checks are green. This record does not
-authorize ADR, publication, or Canopy integration.
+`0036bdd199a685823b6769bf1acdac3f9b6b9014`, finalized at status-only head
+`c88e724383ca5f3e817f30226a9fa23cf3ad7358`, and merged as squash commit
+`9d53d51d6ec6e282b8aa247442ee126acfe64a2d`. Hosted acceptance passed 46/46,
+public diff review was APPROVE, maintainer acceptance was PASS, and squash-tree
+equivalence passed. K1.5 is commissioned with implementation not accepted; it
+adds no public proof-loss or eviction surface. This record does not authorize
+ADR, publication, or Canopy integration.
 
 ## Scope and Existing API First
 

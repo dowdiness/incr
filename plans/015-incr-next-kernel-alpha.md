@@ -18,21 +18,23 @@ detection is accepted and merged at implementation head
 `e187b562f87ec4ecd50940a5e8fc2bc5d478380c`, status-only head
 `a8115757662a6412e053aad9b7dc451f39a825c6`, squash
 `5657cfc99734c9ac9e7093dd71819d6a0c48df87`. K1.4 typed cutoff and backdating
-is commissioned and implementation-complete at implementation/validation head
-`0036bdd199a685823b6769bf1acdac3f9b6b9014` (component heads
-`fad637a57e668924156a50c7af8b4f2e8c58fa59`,
-`9318408740b6865c14735da0be922a872e2c21bb`,
-`16e6a1fc1a4cb48ac1ba11463096595398115472`,
-`f84d9589d4b979b711036263255f6a3f2e684525`); hosted acceptance PASS 46/46,
-public diff review APPROVE, maintainer acceptance PASS; MERGE PENDING — final
-merge authorized only after status-only current-head required checks are green.
-CodeRabbit skipped content review and is not positive evidence; independent
-public review supplies review evidence. K1.5–K1.6 remain blocked and
-uncommissioned. This plan does not authorize publication, Issue action,
-parent-submodule update, ADR, Canopy integration, or any work beyond K1.4.
+is accepted at implementation/validation head
+`0036bdd199a685823b6769bf1acdac3f9b6b9014`, finalized at status-only head
+`c88e724383ca5f3e817f30226a9fa23cf3ad7358`, and merged by PR #478 as squash
+commit `9d53d51d6ec6e282b8aa247442ee126acfe64a2d`. Hosted acceptance passed 46/46,
+public diff review was APPROVE, maintainer acceptance was PASS, and squash-tree
+equivalence passed.
 
-**Status:** IN PROGRESS (K1.1–K1.3 ACCEPTED / MERGED; K1.4 IMPLEMENTATION
-COMPLETE / MAINTAINER ACCEPTED / MERGE PENDING; K1.5–K1.6 BLOCKED / UNCOMMISSIONED)
+CodeRabbit skipped content review and is not positive evidence; independent
+public review supplies review evidence. K1.5 private
+proof loss and ownership closure is commissioned; implementation is not
+accepted. K1.6 remains blocked and uncommissioned. This plan does not authorize
+publication, Issue action, parent-submodule update, ADR, Canopy integration, or
+K1.6 work. K1.5 implementation, push, and implementation PR require this
+commission PR to merge and a separate direct instruction.
+
+**Status:** IN PROGRESS (K1.1–K1.4 ACCEPTED / MERGED; K1.5 COMMISSIONED —
+implementation not accepted; K1.6 BLOCKED / UNCOMMISSIONED)
 
 ---
 
@@ -65,16 +67,21 @@ Commissioned, implementation complete, accepted, and merged:
 K1.3 invocation-level active tracking and structured cycle detection
 ```
 
-Commissioned, implementation complete, maintainer accepted, and merge pending:
+Commissioned, implementation complete, accepted, and merged:
 
 ```text
 K1.4 typed cutoff and backdating
 ```
 
-Blocked and uncommissioned:
+Commissioned, implementation not accepted:
 
 ```text
 K1.5 private proof loss and ownership completion
+```
+
+Blocked and uncommissioned:
+
+```text
 K1.6 later product-quality conformance expansion
 Mount, Program, Canopy integration, ADR, or publication
 ```
@@ -82,18 +89,16 @@ Mount, Program, Canopy integration, ADR, or publication
 K1.3 implementation is accepted and merged at implementation head
 `e187b562f87ec4ecd50940a5e8fc2bc5d478380c`, status-only head
 `a8115757662a6412e053aad9b7dc451f39a825c6`, squash
-`5657cfc99734c9ac9e7093dd71819d6a0c48df87`. K1.4 implementation is complete
-and maintainer accepted at implementation/validation head
-`0036bdd199a685823b6769bf1acdac3f9b6b9014` (component heads
-`fad637a57e668924156a50c7af8b4f2e8c58fa59`,
-`9318408740b6865c14735da0be922a872e2c21bb`,
-`16e6a1fc1a4cb48ac1ba11463096595398115472`,
-`f84d9589d4b979b711036263255f6a3f2e684525`); hosted acceptance PASS 46/46,
-public diff review APPROVE, maintainer acceptance PASS; MERGE PENDING — final
-merge authorized only after status-only current-head required checks are green.
-CodeRabbit skipped content review and is not positive evidence; independent
-public review supplies review evidence. K1.4 remains unpublished. The K1.5–K1.6
-sections remain handoffs, not authorization to begin them.
+`5657cfc99734c9ac9e7093dd71819d6a0c48df87`. K1.4 is accepted at
+implementation/validation head `0036bdd199a685823b6769bf1acdac3f9b6b9014`,
+finalized at status-only head `c88e724383ca5f3e817f30226a9fa23cf3ad7358`,
+and merged as squash commit `9d53d51d6ec6e282b8aa247442ee126acfe64a2d`.
+Hosted acceptance passed 46/46, public diff review was APPROVE, maintainer
+acceptance was PASS, and squash-tree equivalence passed. CodeRabbit skipped
+content review and is not positive evidence; independent public review supplies
+review evidence. K1.4 remains unpublished. The K1.5 section is the commissioned
+handoff, but implementation begins only after this commission PR merges and a
+separate direct instruction. K1.6 remains an uncommissioned handoff.
 
 ## Goal
 
@@ -793,25 +798,156 @@ one downstream compute.
 
 ## K1.5 — Private proof loss and complete ownership closure
 
-- Add package-private typed per-key eviction only for white-box tests.
-- Reject eviction outside `Idle` or after close before caller `Hash`/`Eq`.
-- Eviction changes neither clock nor Query/View definition.
-- Rematerialization allocates a new memo identity, calls cutoff zero times, and
-  conservatively stamps current `ChangeEpoch`.
-- Verify downstream recipes rematerialize missing dependencies and conservatively
-  recompute parents after proof loss.
-- Complete Region close release for memo tables, traces, cutoff captures, and
-  active state.
-- Add native reference-count/finalizer evidence listed in the lifetime contract.
+K1.5 answers one question: can one typed per-Query memo be erased through a
+package-private operation while preserving the Query definition, opaque View
+recipe, and downstream forward dependency, without advancing `Revision` or
+`ChangeEpoch`, then safely rematerialize a new memo on a later read while
+preserving cutoff, Cycle, failure atomicity, Region lifetime, and complete
+release of kernel-owned retention edges?
 
-**First failure:** a surviving View rematerializes a new memo after private
-eviction without a clock delta, while an external alias is distinguished from a
-kernel-owned retained edge.
+This increment completes the production-kernel claim that a View is a
+re-evaluable Query recipe, not a handle to one memo incarnation. It proves only
+that forgetting a memo remains correct. It does not choose when a future
+retention policy should forget one.
 
-### K1.5 gate
+### K1.5 semantics
 
-Proof-loss, per-key isolation, dynamic trace, failure, cycle, phase rejection,
-close, and ownership scenarios pass. No public eviction appears in `.mbti`.
+Successful private eviction is a semantic no-op. It does not change:
+
+```text
+Revision
+ChangeEpoch
+Query definition
+View recipe
+cutoff policy
+Region generation
+Source state
+```
+
+It discards all reuse evidence owned by that memo:
+
+```text
+memo value
+last-successful forward trace
+verified_at
+changed_at
+MemoId
+old-value cutoff comparison evidence
+```
+
+A later successful read treats rematerialization as initial success. If the old
+memo had identity `M1`, the new memo receives a distinct identity `M2`. It is
+installed with `verified_at` and `changed_at` at the current `ChangeEpoch`, and
+cutoff is called zero times because no old value remains. Even if the semantic
+value is unchanged, downstream verification must conservatively observe the
+new `changed_at` and may recompute.
+
+Eviction does not directly wake or invalidate an existing parent memo. A
+same-epoch parent read may return its cache because semantic state did not
+change. After a later transaction advances `ChangeEpoch`, parent verification
+uses its retained child recipe to rematerialize the missing child; the child's
+current `changed_at` then forces conservative parent recomputation.
+
+A downstream trace retains `QueryCore` plus its typed key. It must not retain a
+`MemoEntry` reference or depend on an old `MemoId`. Dynamic-branch
+rematerialization rebuilds only the current successful trace and never revives
+an abandoned branch.
+
+### K1.5 commissioned scope
+
+```text
+package-private per-key typed memo eviction
+proof-loss semantics
+rematerialization from a surviving View recipe
+rematerialization from a downstream dependency recipe
+per-key and equal-key isolation
+current dynamic-trace reconstruction
+failure and Cycle non-install plus recovery
+phase and lifetime rejection
+Region-close ownership completion
+native reference-count/finalizer evidence
+```
+
+The private operation remains inside the kernel package and is exercised
+directly by package white-box tests. Native RC/finalizer evidence must not
+require exposing it in `.mbti`. Eviction is allowed only while the Store is
+`Idle` and the Region generation is open. Evaluation, transaction, and
+closed-Region paths reject before invoking caller `Hash` or `Eq`; rejection is
+zero-delta. Evicting an absent key or evicting the same key twice is a
+successful no-op.
+
+Explicit non-goals:
+
+```text
+public Query::evict_memo or any public eviction surface
+automatic LRU, capacity budget, pinning, or weak references
+memo tombstones or retained changed_at certificates
+semantic fingerprints or background GC
+Mount, Program, Port, Formula, or Canopy integration
+ADR or package publication
+representation optimization
+```
+
+K1.5 does not add proof loss to the public testkit operation model. Fresh treats
+eviction as a semantic no-op; K1.6 owns adapter-private scripted proof-loss
+integration, property generation, and differential shrinking. K1.5 evidence is
+kernel white-box tests plus the native ownership harness.
+
+### Recommended implementation slices
+
+```text
+K1.5a  private per-key eviction and surviving-View rematerialization
+K1.5b  retained downstream recipe and conservative parent recomputation
+K1.5c  failure, Cycle, phase/lifetime rejection, and ownership closure
+```
+
+**First failure:** read one View to create memo identity `M1`, privately evict
+that key without a `Revision` or `ChangeEpoch` delta, then read the same View to
+obtain the same value from a new memo identity `M2`, with `M1 != M2`.
+
+### K1.5 acceptance gate
+
+Correctness:
+
+- A surviving View and an equal-key View rematerialize and share the new memo.
+- Old and new `MemoId` values differ; eviction changes neither clock.
+- Rematerialization calls cutoff zero times and stamps `changed_at` at the
+  current `ChangeEpoch`.
+- Per-key isolation holds; dynamic traces rebuild only the current branch.
+- A retained downstream recipe rematerializes the child and conservatively
+  recomputes its parent after a later epoch.
+- Failure or Cycle after proof loss returns the current error, installs no memo,
+  provides no stale fallback, cleans active/temporary trace state, and recovers
+  with a new `MemoId` after the cause is removed.
+
+Phase and lifetime:
+
+- Evaluation, transaction, and closed-Region eviction are rejected with zero
+  state delta before caller `Hash` or `Eq`.
+- Absent and duplicate eviction are defined successful no-ops.
+
+Ownership:
+
+- Eviction cuts the table-owned value edge, releases the forward trace and keys
+  retained only by that trace, and never retains old and new memo incarnations
+  together.
+- External aliases may retain values; surviving Views may retain keys;
+  downstream traces may retain `QueryCore` plus typed keys.
+- Eviction preserves the Query-owned cutoff policy. Region close releases all
+  memo, policy, trace, active-state, and remaining payload edges.
+
+Public and backend boundaries:
+
+- Generated `.mbti` contains no eviction, proof-loss, memo, trace, counter, or
+  debug surface; no reverse subscriber edge or erased global memo registry is
+  added.
+- Current `incr/` diff and K1.6 surface remain zero.
+- Native, JS, and wasm-gc gates pass; Fresh and every transitive dependency
+  remain independent of `dowdiness/incr_next`.
+
+K1.5 implementation, push, and implementation PR are not authorized by this
+document alone. They require this commission PR to merge and a separate direct
+instruction.
 
 ## K1.6 — Product-quality conformance gate
 

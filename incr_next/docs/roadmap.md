@@ -39,26 +39,38 @@ K1.3 invocation-level cycle detection is **ACCEPTED** at implementation head
 review, maintainer acceptance, and squash-tree equivalence pass. CodeRabbit
 skipped content review and is not positive evidence.
 
-K1.4 typed cutoff and backdating is **IMPLEMENTATION COMPLETE** and **MAINTAINER
-ACCEPTED** at implementation/validation head
-`0036bdd199a685823b6769bf1acdac3f9b6b9014` (component heads
-`fad637a57e668924156a50c7af8b4f2e8c58fa59`,
-`9318408740b6865c14735da0be922a872e2c21bb`,
-`16e6a1fc1a4cb48ac1ba11463096595398115472`,
-`f84d9589d4b979b711036263255f6a3f2e684525`); hosted acceptance PASS
-46/46, public diff review APPROVE, maintainer acceptance PASS; **MERGE
-PENDING** — final merge authorized only after status-only current-head required
-checks are green. CodeRabbit skipped content review and is not positive
+K1.4 typed cutoff and backdating is **ACCEPTED AND MERGED** at
+implementation/validation head
+`0036bdd199a685823b6769bf1acdac3f9b6b9014`, status-only head
+`c88e724383ca5f3e817f30226a9fa23cf3ad7358`, and squash merge commit
+`9d53d51d6ec6e282b8aa247442ee126acfe64a2d`. Hosted acceptance passed 46/46,
+public diff review was APPROVE, maintainer acceptance was PASS, and squash-tree
+equivalence passed. CodeRabbit skipped content review and is not positive
 evidence; independent public review supplies review evidence. The
-generated-interface probe selected explicit
-AlwaysChanged, `Eq`, and type-owned constructors while preserving the existing
-`Region::query` baseline. Successful recomputation installs the newest value
-and dynamic trace; propagation-equivalent results retain old `changed_at`,
-preserving Cycle/failure atomicity while allowing downstream work to skip.
+generated-interface probe selected explicit AlwaysChanged, `Eq`, and type-owned
+constructors while preserving the existing `Region::query` baseline.
+Successful recomputation installs the newest value and dynamic trace;
+propagation-equivalent results retain old `changed_at`, preserving
+Cycle/failure atomicity while allowing downstream work to skip.
 
 K1.4 exposes no arbitrary predicate or `TrustedCutoff`; direct reads always see
 the newest value, while only admissible downstream verification may reuse old
 observations. The 24-cell, workspace, ownership, interface, negative, and
-boundary gates pass. K1.5–K1.6 remain blocked and uncommissioned. Proof
-loss/eviction, automatic retention, Mount/Program, Canopy integration, ADR, and
-publication remain unauthorized and require separate maintainer decisions.
+boundary gates pass.
+
+K1.5 private proof loss and ownership closure is **COMMISSIONED**;
+implementation is not accepted. The commissioned private per-key operation
+forgets the memo value, trace, stamps, `MemoId`, and cutoff-comparison evidence
+without changing `Revision`, `ChangeEpoch`, Query/View definitions, policy,
+Region generation, or Source state. A later read must rematerialize from a
+surviving View or downstream `QueryCore` plus typed-key recipe as initial
+success: new `MemoId`, current `verified_at` and `changed_at`, zero cutoff calls,
+and conservative downstream recomputation. The scope includes per-key and
+dynamic-trace isolation, failure/Cycle non-install and recovery, phase/lifetime
+rejection, Region-close ownership completion, and native RC/finalizer evidence.
+
+K1.5 does not commission a public eviction API, automatic retention policy,
+public testkit proof-loss operation, Mount/Program, Canopy integration, ADR,
+publication, or representation optimization. K1.6 remains blocked and
+uncommissioned. K1.5 implementation begins only after this commission is
+merged and separately authorized.
