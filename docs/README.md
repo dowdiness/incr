@@ -66,7 +66,7 @@ For contributors and advanced users who want to understand or modify `incr`.
 
 Active Incr Next K0 specs and K1 implementation track (sibling module
 `dowdiness/incr_next`; K1.1–K1.3 accepted and merged, K1.4 implementation
-complete with a local gate pass but not accepted, and K1.5–K1.6 blocked and
+complete and maintainer accepted with merge pending, and K1.5–K1.6 blocked and
 uncommissioned):
 
 - [Product and Kernel Contract](design/specs/2026-08-13-incr-next-kernel-contract.md) — product/module seam, public capabilities, Fresh parity, clocks, verification, cycles, cutoff, proof loss, snapshot contract, and K1 acceptance
@@ -77,7 +77,7 @@ uncommissioned):
 - [Incr Next K1.2 validation](../incr_next/docs/k1-2-validation.md) — accepted semantics, ownership, interface, backend, and work-count evidence
 - [Incr Next K1.3 validation](../incr_next/docs/k1-3-validation.md) — accepted and merged active tracking, witness contract, atomicity, cleanup, hosted CI, and public diff review evidence
 - [Incr Next K1.4 cutoff compile probe](../incr_next/docs/2026-08-15-k1-4-cutoff-compile-probe.md) — selected typed cutoff constructors and standalone type-owned trait boundary
-- [Incr Next K1.4 local validation](../incr_next/docs/k1-4-validation.md) — local implementation evidence; not accepted or merged
+- [Incr Next K1.4 validation](../incr_next/docs/k1-4-validation.md) — implementation complete, maintainer accepted, merge pending; final merge after status-only current-head required checks are green
 
 **Current roadmap:**
 

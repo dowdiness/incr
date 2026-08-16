@@ -39,10 +39,18 @@ K1.3 invocation-level cycle detection is **ACCEPTED** at implementation head
 review, maintainer acceptance, and squash-tree equivalence pass. CodeRabbit
 skipped content review and is not positive evidence.
 
-K1.4 typed cutoff and backdating is **IMPLEMENTATION COMPLETE** with a **LOCAL
-GATE PASS** at semantic head `16e6a1fc1a4cb48ac1ba11463096595398115472` and
-ownership/boundary head `f84d9589d4b979b711036263255f6a3f2e684525`; it is
-**NOT ACCEPTED**. The generated-interface probe selected explicit
+K1.4 typed cutoff and backdating is **IMPLEMENTATION COMPLETE** and **MAINTAINER
+ACCEPTED** at implementation/validation head
+`0036bdd199a685823b6769bf1acdac3f9b6b9014` (component heads
+`fad637a57e668924156a50c7af8b4f2e8c58fa59`,
+`9318408740b6865c14735da0be922a872e2c21bb`,
+`16e6a1fc1a4cb48ac1ba11463096595398115472`,
+`f84d9589d4b979b711036263255f6a3f2e684525`); hosted acceptance PASS
+46/46, public diff review APPROVE, maintainer acceptance PASS; **MERGE
+PENDING** — final merge authorized only after status-only current-head required
+checks are green. CodeRabbit skipped content review and is not positive
+evidence; independent public review supplies review evidence. The
+generated-interface probe selected explicit
 AlwaysChanged, `Eq`, and type-owned constructors while preserving the existing
 `Region::query` baseline. Successful recomputation installs the newest value
 and dynamic trace; propagation-equivalent results retain old `changed_at`,
@@ -51,6 +59,6 @@ preserving Cycle/failure atomicity while allowing downstream work to skip.
 K1.4 exposes no arbitrary predicate or `TrustedCutoff`; direct reads always see
 the newest value, while only admissible downstream verification may reuse old
 observations. The 24-cell, workspace, ownership, interface, negative, and
-boundary gates pass locally. K1.5–K1.6 remain blocked and uncommissioned. Proof
+boundary gates pass. K1.5–K1.6 remain blocked and uncommissioned. Proof
 loss/eviction, automatic retention, Mount/Program, Canopy integration, ADR, and
-publication require separate maintainer decisions.
+publication remain unauthorized and require separate maintainer decisions.

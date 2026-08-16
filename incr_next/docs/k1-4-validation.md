@@ -1,22 +1,33 @@
-# K1.4 local validation record
+# K1.4 validation record
 
 **Reader:** K1.4 implementers and reviewers.
 
 **Decision:** Implement the commissioned K1.4 typed cutoff and backdating
-contract locally after compile-probe head
-`fad637a57e668924156a50c7af8b4f2e8c58fa59`. K1.4a Fresh/model evidence is
-`9318408740b6865c14735da0be922a872e2c21bb`; the semantic implementation is
-`16e6a1fc1a4cb48ac1ba11463096595398115472`; ownership and boundary evidence is
-`f84d9589d4b979b711036263255f6a3f2e684525`. The selected surface preserves
-existing `Region::query` and adds explicit `query_always_changed`, `query_eq`
-with `V : Eq`, and `query_type_owned` with standalone `pub(open) CutoffEq`.
+contract. The accepted implementation/validation head is
+`0036bdd199a685823b6769bf1acdac3f9b6b9014` (component heads:
+compile-probe `fad637a57e668924156a50c7af8b4f2e8c58fa59`,
+Fresh/model evidence `9318408740b6865c14735da0be922a872e2c21bb`,
+semantic implementation `16e6a1fc1a4cb48ac1ba11463096595398115472`,
+ownership/boundary evidence `f84d9589d4b979b711036263255f6a3f2e684525`). The selected
+surface preserves existing `Region::query` and adds explicit
+`query_always_changed`, `query_eq` with `V : Eq`, and `query_type_owned` with
+standalone `pub(open) CutoffEq`.
 
-**Keep until:** K1.4 is accepted, rejected, or superseded by a durable design
+**Keep until:** K1.4 is merged, rejected, or superseded by a durable design
 record.
 
-**Disposition:** K1.4 implementation is complete in local commits and remains
-**NOT ACCEPTED, NOT MERGED, NOT PUSHED, AND NOT PROPOSED**. K1.5+ remains zero
-and the current `incr/` diff remains zero.
+**Disposition:** K1.4 implementation is **COMPLETE** and **MAINTAINER ACCEPTED**.
+Hosted acceptance PASS 46/46; public diff review APPROVE; maintainer acceptance
+PASS; **MERGE PENDING** — final merge authorized only after status-only
+current-head required checks are green.
+
+CodeRabbit skipped content review because manual review was required and is not
+positive evidence; independent public review supplies review evidence.
+K1.5–K1.6 remain **BLOCKED** and
+**UNCOMMISSIONED**. ADR, publication, and Canopy integration remain
+unauthorized. This status-only finalization records acceptance and leaves Plan
+015 active. **No ADR needed:** K1.4 is not yet merged or adopted for
+publication.
 
 ## Scope and invariants
 
@@ -78,7 +89,7 @@ self-Cycle recovery, equivalent descendant-before-ancestor-Cycle ordering, and
 both expected-divergence cases. The differential list contains only admissible
 Fresh-parity scenarios; the divergence cases are intentionally absent.
 
-The probe's exact interface-delta guard runs against the uncommitted production
+The probe's exact interface-delta guard runs against the committed production
 candidate. Its allowed delta is exactly the three selected constructors and
 standalone `CutoffEq`; no policy, predicate, counter, memo, trace, or debug item
 is public. Negative probes reject arbitrary/public policy forms, and boundary
@@ -86,5 +97,6 @@ checks reject kernel/testkit and Fresh-reachable dependency leaks.
 
 The full 24-cell matrix, workspace tests, ownership, interface, negative, and
 boundary gates pass. Current `incr/` diff and K1.5+ surface remain zero.
-Implementation push, PR, acceptance, merge, ADR, publication, and Canopy
-integration remain unauthorized.
+Implementation push, PR, hosted acceptance, public diff review, and maintainer
+acceptance are complete. Merge remains pending the status-only current-head
+gate. ADR, publication, and Canopy integration remain unauthorized.

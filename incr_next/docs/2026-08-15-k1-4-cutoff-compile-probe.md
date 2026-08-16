@@ -46,16 +46,16 @@ pub fn[K : Hash + Eq, V : CutoffEq] Region::query_type_owned(
 `Region::query` and `query_always_changed`. There is no public policy enum,
 arbitrary predicate parameter, or `TrustedCutoff` contract.
 
-**Keep until:** K1.4 is accepted, rejected, or superseded by a durable design
-record.
+**Keep until:** The selected K1.4 public interface is removed, superseded, or
+folded into a durable published API record.
 
-**Disposition:** **Selected interface for K1.4 implementation; not an accepted
-implementation.** This compile-probe evidence fixes the interface used by the
-local semantic implementation at `16e6a1fc1a4cb48ac1ba11463096595398115472`
-and ownership/boundary evidence at
-`f84d9589d4b979b711036263255f6a3f2e684525`. The local gate passes, but this
-record does not accept K1.4 or authorize a provider copy, ADR, publication,
-implementation push, or implementation PR.
+**Disposition:** **Retain as generated-interface provenance while Plan 015 is
+active and Incr Next remains unpublished.** This evidence fixes the interface
+used by the accepted K1.4 implementation at validation head
+`0036bdd199a685823b6769bf1acdac3f9b6b9014`. K1.4 is implementation complete,
+maintainer accepted, and merge pending; final merge is authorized only after
+status-only current-head required checks are green. This record does not
+authorize ADR, publication, or Canopy integration.
 
 ## Scope and Existing API First
 
@@ -191,10 +191,10 @@ Core SHA-256:   e2bf3cc765412055242384fb72a618b62ad4889eae11956251ff921839d022d2
 
 ## Uncertainty
 
-This is a compile and generated-interface probe, not a semantic K1.4
-implementation. It does not validate cutoff timing, backdating, trace
-replacement, failure/cycle atomicity, Fresh parity, or runtime ownership.
-Those remain implementation and acceptance gates for the authorized local
-K1.4 work. The spelling is established for the recorded MoonBit toolchain; a
-future toolchain may render equivalent syntax differently and must be rechecked
-before implementation.
+This is a compile and generated-interface probe, not semantic evidence by
+itself. It does not validate cutoff timing, backdating, trace replacement,
+failure/cycle atomicity, Fresh parity, or runtime ownership. Those separate
+implementation and acceptance gates pass at
+`0036bdd199a685823b6769bf1acdac3f9b6b9014`. The spelling is established for
+the recorded MoonBit toolchain; a future toolchain may render equivalent syntax
+differently and must be rechecked before implementation.
