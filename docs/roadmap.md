@@ -56,22 +56,29 @@ recomputation always installs the newest value and trace; only a
 propagation-equivalent result retains old `changed_at` so downstream
 verification may skip work.
 
-K1.5 private proof loss and ownership closure is **IMPLEMENTATION COMPLETE**
-and **MAINTAINER ACCEPTED** at implementation head
-`064a80ac884f7c5588f123cc62dd784adeb26b48` and validated review-fix head
-`378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`; PR #480 merge is pending. Its
-package-private per-key operation discards all memo reuse evidence without
-changing semantic state, then rematerializes from a surviving View or
-downstream `QueryCore` plus typed-key recipe with a new `MemoId`, current
-stamps, zero cutoff calls, and conservative downstream recomputation. Hosted
-acceptance and maintainer review pass. K1.6 remains blocked and uncommissioned.
-Public or automatic eviction policy, Mount/Program, Canopy, ADR, and publication
-remain unauthorized.
+K1.5 private proof loss and ownership closure is **ACCEPTED AND MERGED** at
+implementation head `064a80ac884f7c5588f123cc62dd784adeb26b48`, review-fix head
+`378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`, status-only head
+`6de46abf19acb69cc5d5274b89a0ee780e48fb8d`, and squash merge commit
+`4e66654d021435179116c0cffd56c0216b1bc664`. The status-only head passed 46/46
+hosted checks, including `Incr Next Required`, with no pending or failed checks;
+maintainer acceptance and squash-tree equivalence passed. Its package-private
+per-key operation discards all memo reuse evidence without changing semantic
+state, then rematerializes from a surviving View or downstream `QueryCore` plus
+typed-key recipe with a new `MemoId`, current stamps, zero cutoff calls, and
+conservative downstream recomputation.
 
-The sibling module owns the accepted K1.1–K1.4 records and the accepted,
-merge-pending K1.5 record in
-[`incr_next/docs/roadmap.md`](../incr_next/docs/roadmap.md); this root roadmap
-retains the product pointer.
+K1.6 product-quality conformance is **COMMISSIONED**, but its implementation is
+not accepted. Acceptance requires generated and shrinkable Fresh differential
+evidence, private work-count assertions, the complete backend/interface/
+ownership/documentation matrix, and independent exact-HEAD review. It must not
+widen public API or kernel semantics. Public debug/explain, public or automatic
+eviction policy, Mount, Program/Port/Formula, Canopy, ADR, publication, and
+representation optimization remain blocked.
+
+The sibling module owns the accepted and merged K1.1–K1.5 records and the K1.6
+commission in [`incr_next/docs/roadmap.md`](../incr_next/docs/roadmap.md); this
+root roadmap retains the product pointer.
 
 ## Module-owned queues
 

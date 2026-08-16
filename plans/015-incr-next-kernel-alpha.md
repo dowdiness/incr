@@ -27,15 +27,20 @@ equivalence passed.
 
 CodeRabbit skipped content review and is not positive evidence; independent
 public review supplies review evidence. K1.5 private proof loss and ownership
-closure is implementation complete and maintainer accepted at implementation
-head `064a80ac884f7c5588f123cc62dd784adeb26b48` and validated review-fix head
-`378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`; hosted acceptance passed 46/46
-and PR #480 merge is pending. K1.6 remains blocked and uncommissioned. This
-plan does not authorize publication, Issue action, parent-submodule update,
-ADR, Canopy integration, or K1.6 work.
+closure is accepted and merged at implementation head
+`064a80ac884f7c5588f123cc62dd784adeb26b48`, review-fix head
+`378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`, status-only head
+`6de46abf19acb69cc5d5274b89a0ee780e48fb8d`, and squash merge commit
+`4e66654d021435179116c0cffd56c0216b1bc664`. The status-only head passed 46/46
+hosted checks, including `Incr Next Required`, with no pending or failed checks;
+maintainer acceptance and squash-tree equivalence passed.
 
-**Status:** IN PROGRESS (K1.1–K1.4 ACCEPTED / MERGED; K1.5 IMPLEMENTATION
-COMPLETE / MAINTAINER ACCEPTED / MERGE PENDING; K1.6 BLOCKED / UNCOMMISSIONED)
+K1.6 product-quality conformance is commissioned, but its implementation is not
+accepted. This plan does not authorize publication, Issue action,
+parent-submodule update, ADR, Canopy integration, or K2 work.
+
+**Status:** IN PROGRESS (K1.1–K1.5 ACCEPTED / MERGED; K1.6 COMMISSIONED —
+IMPLEMENTATION NOT ACCEPTED)
 
 ---
 
@@ -74,17 +79,26 @@ Commissioned, implementation complete, accepted, and merged:
 K1.4 typed cutoff and backdating
 ```
 
-Commissioned, implementation complete, maintainer accepted, and merge pending:
+Commissioned, implementation complete, accepted, and merged:
 
 ```text
 K1.5 private proof loss and ownership completion
 ```
 
+Commissioned, implementation not accepted:
+
+```text
+K1.6 product-quality conformance gate
+```
+
 Blocked and uncommissioned:
 
 ```text
-K1.6 later product-quality conformance expansion
-Mount, Program, Canopy integration, ADR, or publication
+public debug or explain
+public eviction or automatic LRU/capacity/pinning policy
+weak references, tombstones, retained certificates, or background GC
+Mount or Program/Port/Formula
+Canopy integration, ADR, package publication, or representation optimization
 ```
 
 K1.3 implementation is accepted and merged at implementation head
@@ -97,10 +111,12 @@ and merged as squash commit `9d53d51d6ec6e282b8aa247442ee126acfe64a2d`.
 Hosted acceptance passed 46/46, public diff review was APPROVE, maintainer
 acceptance was PASS, and squash-tree equivalence passed. CodeRabbit skipped
 content review and is not positive evidence; independent public review supplies
-review evidence. K1.4 remains unpublished. K1.5 is implementation complete and
-maintainer accepted at validated head
-`378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`; PR #480 merge is pending. K1.6
-remains an uncommissioned handoff.
+review evidence. K1.4 remains unpublished. K1.5 is accepted and merged at
+implementation head `064a80ac884f7c5588f123cc62dd784adeb26b48`, review-fix head
+`378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`, status-only head
+`6de46abf19acb69cc5d5274b89a0ee780e48fb8d`, and squash merge commit
+`4e66654d021435179116c0cffd56c0216b1bc664`. K1.6 is commissioned solely as the
+final product-quality conformance gate; its implementation is not accepted.
 
 ## Goal
 
@@ -947,36 +963,106 @@ Public and backend boundaries:
 - Native, JS, and wasm-gc gates pass; Fresh and every transitive dependency
   remain independent of `dowdiness/incr_next`.
 
-K1.5 is implementation complete and maintainer accepted at implementation head
-`064a80ac884f7c5588f123cc62dd784adeb26b48` and validated review-fix head
-`378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`; PR #480 merge is pending. This
-acceptance does not authorize K1.6, public eviction or retention policy,
-Mount/Program, Canopy integration, ADR, or publication.
+K1.5 is accepted and merged at implementation head
+`064a80ac884f7c5588f123cc62dd784adeb26b48`, review-fix head
+`378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`, status-only head
+`6de46abf19acb69cc5d5274b89a0ee780e48fb8d`, and squash merge commit
+`4e66654d021435179116c0cffd56c0216b1bc664`. Hosted acceptance passed 46/46 at
+the status-only head, including `Incr Next Required`, with no pending or failed
+checks. Maintainer acceptance and squash-tree equivalence passed.
 
 ## K1.6 — Product-quality conformance gate
 
+K1.6 asks one question: can the accepted K1.1–K1.5 kernel produce sufficient
+evidence for a pre-1.0 product-quality alpha through generated, shrinkable
+differential testing against independent Fresh, private work-count assertions,
+complete backend/interface/ownership/documentation gates, and independent
+review, without widening the public API or kernel semantics?
+
+K1.6 is restricted to evidence, not capability. The public `.mbti` delta should
+remain zero.
+Only a generated counterexample that proves a semantic defect against the K0
+contracts may justify a kernel correction. That correction must be isolated and
+separately reviewed as a K0 contract defect fix rather than embedded in K1.6
+test infrastructure.
+
+### K1.6a-0: Property-model and private proof-loss boundary probe
+
+Fix the generated test language before adding random generation. Keep graph
+construction and replay separate:
+
+```text
+GraphRecipe
+  Sources, Regions, Queries, keys, cutoff policies, initial topology
+
+OperationScript
+  transactional Set, atomic multi-write, Read, Region close
+  expected structural failure toggle, cycle introduction/removal
+  private proof loss
+```
+
+After construction, Source, Query, and View registry membership is immutable.
+Runtime meaning may change only through tracked Source publication, Region
+close, or private proof loss. Query callbacks may read only tracked inputs and
+immutable keys. Failure and cycle toggles must select preconstructed tracked
+branches; they must not redefine a callback or graph member during replay.
+
+Resolve the proof-loss adapter boundary before implementing a generator. The
+solution must preserve all four constraints:
+
+- no public eviction or proof-loss API;
+- Fresh interprets proof loss as a semantic no-op;
+- only the incremental side executes the package-private proof-loss operation;
+- production `incr_next` never imports the testkit.
+
+Verify MoonBit test-import and white-box package boundaries before selecting the
+adapter shape. A kernel-package white-box adapter interpreting the shared
+logical script is the leading candidate, but this plan does not prescribe an
+unverified import mechanism or authorize a public seam.
+
 ### K1.6a: Property and differential testing
 
-Generate and shrink operation scripts covering Source updates, atomic
-multi-write, dynamic branches, chains/diamonds, equal keys, cycle introduction
-and removal, Region close, structural failure/recovery, cutoff, and private
-proof loss. Compare only normalized logical outcomes with Fresh.
+Generate bounded scripts with deterministic seeds for Source updates, atomic
+multi-write, dynamic branches, chains and diamonds, equal keys, cycle
+introduction and removal, Region close, expected structural failure and
+recovery, cutoff, and private proof loss. Compare only normalized logical Fresh
+and Incremental outcomes. Every valid publication must fail fast if the kernel
+transaction unexpectedly fails.
 
-Retain expected-divergence tests for mutable keys, Source aliases, memo-result
-aliases, forbidden cutoff observers, and non-transitive propagation relations.
+A failure report must be replayable and contain the seed, `GraphRecipe`,
+`OperationScript`, Fresh outcomes, Incremental outcomes, and first differing
+operation index. Shrink a failing case in this order:
+
+1. remove the operation suffix;
+2. remove unrelated operations;
+3. remove writes within a transaction;
+4. remove Sources or Queries;
+5. reduce keys;
+6. reduce values;
+7. shorten the cycle path.
+
+Every shrink step must preserve an admissible recipe, existing Set targets,
+valid Query references, meaningful Region-close order, and construction/replay
+separation. Mutable keys, mutable Source aliases, mutable memo-result aliases,
+forbidden cutoff observers, and non-transitive propagation relations remain in
+an expected-divergence suite, not the Fresh parity suite.
 
 ### K1.6b: Internal observability
 
-Retain content-free internal counters sufficient to assert compute, same-epoch
-hit, green verification, red recompute, failure, cutoff/backdate, memo/trace,
-eviction, and rematerialization work counts. Do not expose them through
-QueryContext or public `.mbti`; public explain/debug remains K2.
+Retain content-free private counters sufficient to assert compute, same-epoch
+hit, green verification, red recompute, failure, Cycle, cutoff/backdate,
+memo/trace, proof loss, and rematerialization work. These counters prove that
+work which should be skipped is actually skipped; they set no wall-clock
+performance threshold.
+
+QueryContext cannot read the counters, Query results cannot depend on them, and
+no counter, debug type, or observation capability may enter public `.mbti`.
+Public explain/debug remains K2.
 
 ### K1.6c: Backend, CI, documentation, and interface matrix
 
-Before implementation chooses package names, verify this preliminary list
-against every created `moon.pkg`, then commit the exact root × target matrix.
-No target may be silently omitted:
+Reconfirm the existing exact six-root by four-target matrix. No target may be
+conditionally skipped:
 
 | Root | Default | Native | JS | wasm-gc |
 |---|---|---|---|---|
@@ -994,14 +1080,13 @@ moon check [--target native|js|wasm-gc] <root>
 moon test  [--target native|js|wasm-gc] <root>
 ```
 
-The default cell omits `--target`. If a created package cannot support one of
-these targets, K1 stops for an explicit contract amendment that names the root,
-toolchain limitation, replacement evidence, and maintainer approval; CI must
-not skip it conditionally. Run `moon fmt && moon info` from both `incr_next/`
-and `incr_next_testkit/` module roots, then inspect every generated `.mbti` diff
-for constructor visibility, accidental fields, widened trait bounds, and public
-debug/eviction leakage.
-Also run:
+The default cell omits `--target`. A target limitation stops K1 for an explicit
+contract amendment naming the root, limitation, replacement evidence, and
+maintainer approval. CI must not hide it with a conditional skip.
+
+Run `moon fmt && moon info` from both module roots and inspect every generated
+`.mbti` diff for constructor visibility, accidental fields, widened trait
+bounds, and public debug or eviction leakage. Also run:
 
 ```text
 native reference-count/finalizer harness
@@ -1012,20 +1097,51 @@ python3 scripts/check-documentation-boundaries.py
 workspace-root moon check and moon test as a final fan-out
 ```
 
-Update `.github/workflows/ci.yml` with an `incr-next` matrix whose rows are the
-24 root/target combinations above. Every row runs its exact check and test
-commands. Add `Incr Next Required` with `needs: [incr-next, boundaries]`; it
-passes only when the full matrix and boundary job succeed. Make this named job
-the Incr Next branch-protection requirement. Validate the reader-facing README,
-module roadmap/docs index, checked examples, and root index migration. Confirm
-current `incr/` interfaces and behavior are unchanged.
+The existing `Incr Next Required` aggregate must pass only after the 24 matrix
+cells and boundary job pass. Confirm current `incr/` implementation, behavior,
+dependencies, and generated interfaces have zero delta; Fresh and every
+transitive dependency remain independent of `dowdiness/incr_next`; public
+`.mbti` contains no debug, counter, proof-loss, or eviction surface; generated
+constructor visibility is unchanged; checked README examples pass; and module
+roadmaps and documentation indexes agree.
 
 ### K1.6d: Independent review
 
-Run independent MoonBit reviews for semantic parity, public interface depth,
-package boundaries, lifetime/RC evidence, documentation drift, and CI readiness.
-Resolve all blockers, fetch `origin/main` again, and repeat affected gates on the
-exact candidate commit.
+Review the exact candidate HEAD independently across these concerns:
+
+```text
+Fresh parity and property model
+kernel semantics
+public interface depth
+ownership and native RC
+package boundaries
+CI completeness
+documentation and status
+```
+
+Resolve all blockers. Fetch `origin/main` again after review; if the base moved,
+synchronize and repeat every affected gate and review on the new exact
+candidate.
+
+### K1.6 implementation order
+
+```text
+K1.6a-0  property-language and private proof-loss boundary probe
+K1.6a    deterministic generator, replay report, validity-preserving shrinker
+K1.6b    private work-count assertions
+K1.6c    backend, interface, ownership, CI, and documentation matrix
+K1.6d    independent exact-HEAD review and base revalidation
+```
+
+K1.6 acceptance does not authorize publication. After acceptance, a separate
+maintainer decision chooses one outcome:
+
+```text
+A  adopt Incr Next as a pre-1.0 sibling product
+   then authorize an ADR, close Plan 015, and plan K2
+B  continue as an internal alpha without ADR or publication
+C  reconsider the contract or implementation
+```
 
 ## Final acceptance matrix
 
