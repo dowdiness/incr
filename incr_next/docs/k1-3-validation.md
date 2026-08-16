@@ -28,9 +28,10 @@ K1.4 typed cutoff and backdating is accepted at implementation/validation head
 `9d53d51d6ec6e282b8aa247442ee126acfe64a2d`. Hosted acceptance passed 46/46,
 public diff review was APPROVE, maintainer acceptance was PASS, and squash-tree
 equivalence passed. CodeRabbit skipped content review and is not positive
-evidence; independent public review supplies review evidence. K1.5 is
-commissioned with implementation not accepted; K1.6 remains blocked and
-uncommissioned. No ADR or package publication is authorized.
+evidence; independent public review supplies review evidence. K1.5 is implementation complete and maintainer accepted at
+validated review-fix head `378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`;
+PR #480 merge is pending. K1.6 remains blocked and uncommissioned. No ADR or
+package publication is authorized.
 
 ## Generated-interface compile probe
 
@@ -189,4 +190,5 @@ documentation/status-only finalization diff. The squash-tree equivalence check
 passed before PR #476 merged. K1.4 commission PR #477 and implementation PR
 #478 are merged. PR #478 was publicly reviewed, hosted-green, maintainer
 accepted, status-only finalized, and squash-tree equivalent. K1.5 is
-commissioned but not implemented or accepted.
+implementation complete and maintainer accepted at validated review-fix head
+`378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`; PR #480 merge is pending.

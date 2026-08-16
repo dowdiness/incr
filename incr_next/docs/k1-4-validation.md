@@ -25,9 +25,10 @@ maintainer acceptance was PASS, and squash-tree equivalence passed.
 
 CodeRabbit skipped content review because manual review was required and is not
 positive evidence; independent public review supplies review evidence. K1.5 is
-**COMMISSIONED** with implementation not accepted; K1.6 remains **BLOCKED** and
-**UNCOMMISSIONED**. ADR, publication, and Canopy integration remain
-unauthorized. Plan 015 remains active. **No ADR needed:** K1.4 is one accepted
+**IMPLEMENTATION COMPLETE** and **MAINTAINER ACCEPTED** at validated review-fix
+head `378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`; PR #480 merge is pending.
+K1.6 remains **BLOCKED** and **UNCOMMISSIONED**. ADR, publication, and Canopy
+integration remain unauthorized. Plan 015 remains active. **No ADR needed:** K1.4 is one accepted
 increment under the existing K0 contracts; adoption and publication remain
 separate decisions.
 
@@ -101,5 +102,7 @@ The full 24-cell matrix, workspace tests, ownership, interface, negative, and
 boundary gates pass. Current `incr/` diff and K1.5+ surface remain zero at the
 accepted implementation head. Implementation push, PR, hosted acceptance,
 public diff review, maintainer acceptance, status-only finalization, and squash
-merge are complete. K1.5 is separately commissioned but not implemented or
-accepted. ADR, publication, and Canopy integration remain unauthorized.
+merge are complete. The separate K1.5 implementation is complete and
+maintainer accepted at validated review-fix head
+`378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`; PR #480 merge is pending. ADR,
+publication, and Canopy integration remain unauthorized.

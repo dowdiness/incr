@@ -32,9 +32,10 @@ evidence; independent public review supplies review evidence. The selected
 public surface preserves `Region::query` and adds explicit AlwaysChanged,
 `Eq`, and type-owned constructors with private policy storage.
 
-K1.5 private proof loss and ownership closure is **COMMISSIONED**;
-implementation is not accepted. Its package-private per-key eviction asks
-whether the kernel can forget one memo and all reuse evidence without changing
-semantic state, then conservatively rematerialize from a surviving View or
-downstream recipe. It does not commission a public eviction API or retention
-policy. K1.6 remains blocked and uncommissioned.
+K1.5 private proof loss and ownership closure is **IMPLEMENTATION COMPLETE**
+and **MAINTAINER ACCEPTED** at validated head
+`378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`; PR #480 merge is pending. Its
+package-private per-key operation forgets one memo and all reuse evidence
+without changing semantic state, then conservatively rematerializes from a
+surviving View or downstream recipe. It adds no public eviction API or
+retention policy. K1.6 remains blocked and uncommissioned.

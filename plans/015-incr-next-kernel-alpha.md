@@ -26,15 +26,16 @@ public diff review was APPROVE, maintainer acceptance was PASS, and squash-tree
 equivalence passed.
 
 CodeRabbit skipped content review and is not positive evidence; independent
-public review supplies review evidence. K1.5 private
-proof loss and ownership closure is commissioned; implementation is not
-accepted. K1.6 remains blocked and uncommissioned. This plan does not authorize
-publication, Issue action, parent-submodule update, ADR, Canopy integration, or
-K1.6 work. K1.5 implementation, push, and implementation PR require this
-commission PR to merge and a separate direct instruction.
+public review supplies review evidence. K1.5 private proof loss and ownership
+closure is implementation complete and maintainer accepted at implementation
+head `064a80ac884f7c5588f123cc62dd784adeb26b48` and validated review-fix head
+`378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`; hosted acceptance passed 46/46
+and PR #480 merge is pending. K1.6 remains blocked and uncommissioned. This
+plan does not authorize publication, Issue action, parent-submodule update,
+ADR, Canopy integration, or K1.6 work.
 
-**Status:** IN PROGRESS (K1.1–K1.4 ACCEPTED / MERGED; K1.5 COMMISSIONED —
-implementation not accepted; K1.6 BLOCKED / UNCOMMISSIONED)
+**Status:** IN PROGRESS (K1.1–K1.4 ACCEPTED / MERGED; K1.5 IMPLEMENTATION
+COMPLETE / MAINTAINER ACCEPTED / MERGE PENDING; K1.6 BLOCKED / UNCOMMISSIONED)
 
 ---
 
@@ -73,7 +74,7 @@ Commissioned, implementation complete, accepted, and merged:
 K1.4 typed cutoff and backdating
 ```
 
-Commissioned, implementation not accepted:
+Commissioned, implementation complete, maintainer accepted, and merge pending:
 
 ```text
 K1.5 private proof loss and ownership completion
@@ -96,9 +97,10 @@ and merged as squash commit `9d53d51d6ec6e282b8aa247442ee126acfe64a2d`.
 Hosted acceptance passed 46/46, public diff review was APPROVE, maintainer
 acceptance was PASS, and squash-tree equivalence passed. CodeRabbit skipped
 content review and is not positive evidence; independent public review supplies
-review evidence. K1.4 remains unpublished. The K1.5 section is the commissioned
-handoff, but implementation begins only after this commission PR merges and a
-separate direct instruction. K1.6 remains an uncommissioned handoff.
+review evidence. K1.4 remains unpublished. K1.5 is implementation complete and
+maintainer accepted at validated head
+`378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`; PR #480 merge is pending. K1.6
+remains an uncommissioned handoff.
 
 ## Goal
 
@@ -853,7 +855,7 @@ A downstream trace retains `QueryCore` plus its typed key. It must not retain a
 rematerialization rebuilds only the current successful trace and never revives
 an abandoned branch.
 
-### K1.5 commissioned scope
+### K1.5 accepted scope
 
 ```text
 package-private per-key typed memo eviction
@@ -893,7 +895,7 @@ eviction as a semantic no-op; K1.6 owns adapter-private scripted proof-loss
 integration, property generation, and differential shrinking. K1.5 evidence is
 kernel white-box tests plus the native ownership harness.
 
-### Recommended implementation slices
+### Implemented slices
 
 ```text
 K1.5a  private per-key eviction and surviving-View rematerialization
@@ -945,9 +947,11 @@ Public and backend boundaries:
 - Native, JS, and wasm-gc gates pass; Fresh and every transitive dependency
   remain independent of `dowdiness/incr_next`.
 
-K1.5 implementation, push, and implementation PR are not authorized by this
-document alone. They require this commission PR to merge and a separate direct
-instruction.
+K1.5 is implementation complete and maintainer accepted at implementation head
+`064a80ac884f7c5588f123cc62dd784adeb26b48` and validated review-fix head
+`378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`; PR #480 merge is pending. This
+acceptance does not authorize K1.6, public eviction or retention policy,
+Mount/Program, Canopy integration, ADR, or publication.
 
 ## K1.6 — Product-quality conformance gate
 

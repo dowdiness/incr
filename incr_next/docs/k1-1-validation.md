@@ -20,8 +20,9 @@ K1.4 is accepted at implementation/validation head
 public diff review was APPROVE, maintainer acceptance was PASS, and squash-tree
 equivalence passed. CodeRabbit skipped content review and is not positive
 evidence; independent public review supplies review evidence. K1.5 is
-commissioned with implementation not accepted; K1.6 remains blocked and
-uncommissioned.
+implementation complete and maintainer accepted at validated review-fix head
+`378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`; PR #480 merge is pending. K1.6
+remains blocked and uncommissioned.
 
 ## First failures retained
 
@@ -46,8 +47,9 @@ head `e187b562f87ec4ecd50940a5e8fc2bc5d478380c`, status-only head
 implementation/validation head `0036bdd199a685823b6769bf1acdac3f9b6b9014`,
 finalized at status-only head `c88e724383ca5f3e817f30226a9fa23cf3ad7358`,
 and merged as squash commit `9d53d51d6ec6e282b8aa247442ee126acfe64a2d`.
-K1.5 is commissioned with implementation not accepted; K1.6 remains blocked
-and uncommissioned.
+K1.5 is implementation complete and maintainer accepted at validated
+review-fix head `378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`; PR #480 merge is pending.
+K1.6 remains blocked and uncommissioned.
 
 The accepted implementation passes:
 

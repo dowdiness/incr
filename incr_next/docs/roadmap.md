@@ -58,19 +58,21 @@ the newest value, while only admissible downstream verification may reuse old
 observations. The 24-cell, workspace, ownership, interface, negative, and
 boundary gates pass.
 
-K1.5 private proof loss and ownership closure is **COMMISSIONED**;
-implementation is not accepted. The commissioned private per-key operation
-forgets the memo value, trace, stamps, `MemoId`, and cutoff-comparison evidence
-without changing `Revision`, `ChangeEpoch`, Query/View definitions, policy,
-Region generation, or Source state. A later read must rematerialize from a
-surviving View or downstream `QueryCore` plus typed-key recipe as initial
-success: new `MemoId`, current `verified_at` and `changed_at`, zero cutoff calls,
-and conservative downstream recomputation. The scope includes per-key and
-dynamic-trace isolation, failure/Cycle non-install and recovery, phase/lifetime
-rejection, Region-close ownership completion, and native RC/finalizer evidence.
+K1.5 private proof loss and ownership closure is **IMPLEMENTATION COMPLETE**
+and **MAINTAINER ACCEPTED** at implementation head
+`064a80ac884f7c5588f123cc62dd784adeb26b48` and validated review-fix head
+`378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`; PR #480 merge is pending. The
+package-private per-key operation forgets the memo value, trace, stamps,
+`MemoId`, and cutoff-comparison evidence without changing `Revision`,
+`ChangeEpoch`, Query/View definitions, policy, Region generation, or Source
+state. A later read rematerializes from a surviving View or downstream
+`QueryCore` plus typed-key recipe as initial success: new `MemoId`, current
+`verified_at` and `changed_at`, zero cutoff calls, and conservative downstream
+recomputation. Per-key and dynamic-trace isolation, failure/Cycle non-install
+and recovery, phase/lifetime rejection, Region-close ownership completion, and
+native RC/finalizer evidence pass local, hosted, public-diff, and maintainer
+gates.
 
-K1.5 does not commission a public eviction API, automatic retention policy,
-public testkit proof-loss operation, Mount/Program, Canopy integration, ADR,
-publication, or representation optimization. K1.6 remains blocked and
-uncommissioned. K1.5 implementation begins only after this commission is
-merged and separately authorized.
+K1.5 adds no public eviction API, automatic retention policy, public testkit
+proof-loss operation, Mount/Program, Canopy integration, ADR, publication, or
+representation optimization. K1.6 remains blocked and uncommissioned.
