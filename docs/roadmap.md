@@ -68,16 +68,18 @@ state, then rematerializes from a surviving View or downstream `QueryCore` plus
 typed-key recipe with a new `MemoId`, current stamps, zero cutoff calls, and
 conservative downstream recomputation.
 
-K1.6 product-quality conformance is **COMMISSIONED**, but its implementation is
-not accepted. Acceptance requires generated and shrinkable Fresh differential
-evidence, private work-count assertions, the complete backend/interface/
-ownership/documentation matrix, and independent exact-HEAD review. It must not
-widen public API or kernel semantics. Public debug/explain, public or automatic
-eviction policy, Mount, Program/Port/Formula, Canopy, ADR, publication, and
-representation optimization remain blocked.
+K1.6 product-quality conformance has an **UNACCEPTED LOCAL CANDIDATE** at
+implementation commit `a36b6d721db78160f8aadde1c5880694c0df2bb6`. Generated
+and shrinkable Fresh differential evidence, temporary private proof-loss/work
+fixtures, and the local backend/boundary/ownership/workspace matrix pass without
+a production kernel or public-interface delta. Exact-HEAD review, base
+revalidation, hosted CI, maintainer acceptance, and merge remain pending. Public
+debug/explain, public or automatic eviction policy, Mount,
+Program/Port/Formula, Canopy, ADR, publication, and representation optimization
+remain blocked.
 
 The sibling module owns the accepted and merged K1.1–K1.5 records and the K1.6
-commission in [`incr_next/docs/roadmap.md`](../incr_next/docs/roadmap.md); this
+candidate in [`incr_next/docs/roadmap.md`](../incr_next/docs/roadmap.md); this
 root roadmap retains the product pointer.
 
 ## Module-owned queues
