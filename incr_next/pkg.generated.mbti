@@ -40,6 +40,9 @@ pub struct Region {
 }
 pub fn Region::close(Self) -> Result[Unit, RegionError]
 pub fn[K : Hash + Eq, V] Region::query(Self, (QueryContext, K) -> Result[V, ReadError]) -> Result[Query[K, V], RegionError]
+pub fn[K : Hash + Eq, V] Region::query_always_changed(Self, (QueryContext, K) -> Result[V, ReadError]) -> Result[Query[K, V], RegionError]
+pub fn[K : Hash + Eq, V : Eq] Region::query_eq(Self, (QueryContext, K) -> Result[V, ReadError]) -> Result[Query[K, V], RegionError]
+pub fn[K : Hash + Eq, V : CutoffEq] Region::query_type_owned(Self, (QueryContext, K) -> Result[V, ReadError]) -> Result[Query[K, V], RegionError]
 pub fn[T] Region::source(Self, T) -> Result[Source[T], RegionError]
 
 pub(all) enum RegionError {
@@ -96,4 +99,7 @@ pub struct View[V] {
 // Type aliases
 
 // Traits
+pub(open) trait CutoffEq {
+  fn cutoff_equal(Self, Self) -> Bool
+}
 

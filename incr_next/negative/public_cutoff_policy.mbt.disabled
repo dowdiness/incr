@@ -1,0 +1,12 @@
+pub(all) enum InvalidCutoffPolicy[V] {
+  AlwaysChanged
+  Compare((V, V) -> Bool)
+}
+
+pub fn invalid_public_policy[K : Hash + Eq, V](
+  region : @kernel.Region,
+  compute : (@kernel.QueryContext, K) -> Result[V, @kernel.ReadError],
+  policy : InvalidCutoffPolicy[V],
+) -> Result[@kernel.Query[K, V], @kernel.RegionError] {
+  region.query_with_policy(compute, policy)
+}

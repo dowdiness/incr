@@ -13,9 +13,14 @@ accepted at implementation head `12ec2404b676ef7864e353aeb3681c0fef6f20e3`
 and merged as squash commit `db2ac77ac0362a7c5ff8d20887868cbdbb635aa8`. K1.3
 is accepted at implementation head `e187b562f87ec4ecd50940a5e8fc2bc5d478380c`
 and merged as squash commit `5657cfc99734c9ac9e7093dd71819d6a0c48df87`.
-K1.4 is commissioned but not accepted; K1.5–K1.6 remain blocked and
-uncommissioned. Fold durable decisions into a future ADR only after a separately
-authorized K1 adoption decision.
+K1.4 implementation is complete and maintainer accepted at
+implementation/validation head
+`0036bdd199a685823b6769bf1acdac3f9b6b9014`. Hosted acceptance PASS 46/46,
+public diff review APPROVE, and maintainer acceptance PASS. MERGE PENDING: final
+merge is authorized only after status-only current-head required checks are
+green. CodeRabbit skipped content review and is not positive evidence;
+independent public review supplies review evidence. K1.5–K1.6 remain blocked
+and uncommissioned.
 
 ## First failures retained
 
@@ -36,8 +41,9 @@ K1.1 semantic implementation is **ACCEPTED** at implementation head
 K1.2 is accepted and merged. K1.3 is accepted and merged at implementation
 head `e187b562f87ec4ecd50940a5e8fc2bc5d478380c`, status-only head
 `a8115757662a6412e053aad9b7dc451f39a825c6`, and squash commit
-`5657cfc99734c9ac9e7093dd71819d6a0c48df87`. K1.4 is commissioned but not
-accepted; K1.5–K1.6 remain blocked and uncommissioned.
+`5657cfc99734c9ac9e7093dd71819d6a0c48df87`. K1.4 implementation is complete
+and maintainer accepted; merge remains pending the status-only current-head
+gate. K1.5–K1.6 remain blocked and uncommissioned.
 
 The accepted implementation passes:
 

@@ -10,6 +10,23 @@ import {
 // Errors
 
 // Types and methods
+pub(all) enum CutoffKind {
+  AlwaysChangedEquivalent
+  EqEquivalent
+  EqChanged
+  TypeOwnedEquivalent
+  TypeOwnedChanged
+  DynamicEquivalent
+  ConsecutiveEquivalent
+} derive(Eq, @debug.Debug)
+
+pub struct CutoffScript {
+  // private fields
+} derive(@debug.Debug)
+pub fn CutoffScript::CutoffScript(CutoffKind, Array[Int]) -> Self
+pub fn CutoffScript::kind(Self) -> CutoffKind
+pub fn CutoffScript::steps(Self) -> Array[Int]
+
 pub struct CycleWitness {
   // private fields
 } derive(Eq, @debug.Debug)
@@ -18,6 +35,7 @@ pub fn CycleWitness::path(Self) -> Array[Int]
 
 pub(all) enum Observation {
   Value(Int)
+  Marker(Int)
   Missing(Int)
   Error(ScenarioError)
   Counter(Int)

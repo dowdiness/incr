@@ -31,3 +31,16 @@ pub fn canonical_matches() -> Bool {
 pub fn all_match() -> Bool {
   @scenarios.all().all(script => matches(script))
 }
+
+///|
+/// Compares admissible K1.4 cutoff semantics with the memo-free oracle.
+pub fn cutoff_matches(script : @model.CutoffScript) -> Bool {
+  semantic_observations(@fresh.evaluate_cutoff(script)) ==
+  semantic_observations(@incremental_adapter.evaluate_cutoff(script))
+}
+
+///|
+/// Reports whether every admissible cutoff scenario preserves Fresh parity.
+pub fn all_cutoff_match() -> Bool {
+  @scenarios.cutoff_all().all(script => cutoff_matches(script))
+}

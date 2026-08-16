@@ -1,0 +1,7 @@
+fn invalid_arbitrary_cutoff[K : Hash + Eq, V](
+  region : @kernel.Region,
+  compute : (@kernel.QueryContext, K) -> Result[V, @kernel.ReadError],
+  predicate : (V, V) -> Bool,
+) -> Result[@kernel.Query[K, V], @kernel.RegionError] {
+  region.query_with_policy(compute, predicate)
+}

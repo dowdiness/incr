@@ -18,14 +18,21 @@ detection is accepted and merged at implementation head
 `e187b562f87ec4ecd50940a5e8fc2bc5d478380c`, status-only head
 `a8115757662a6412e053aad9b7dc451f39a825c6`, squash
 `5657cfc99734c9ac9e7093dd71819d6a0c48df87`. K1.4 typed cutoff and backdating
-is commissioned; implementation is not yet accepted. K1.5–K1.6 remain blocked
-and uncommissioned. This plan does not authorize publication, Issue action,
-parent-submodule update, a K1.4 implementation push/PR, or any work beyond K1.4
-implementation after the commission PR merges and a separate direct
-instruction.
+is commissioned and implementation-complete at implementation/validation head
+`0036bdd199a685823b6769bf1acdac3f9b6b9014` (component heads
+`fad637a57e668924156a50c7af8b4f2e8c58fa59`,
+`9318408740b6865c14735da0be922a872e2c21bb`,
+`16e6a1fc1a4cb48ac1ba11463096595398115472`,
+`f84d9589d4b979b711036263255f6a3f2e684525`); hosted acceptance PASS 46/46,
+public diff review APPROVE, maintainer acceptance PASS; MERGE PENDING — final
+merge authorized only after status-only current-head required checks are green.
+CodeRabbit skipped content review and is not positive evidence; independent
+public review supplies review evidence. K1.5–K1.6 remain blocked and
+uncommissioned. This plan does not authorize publication, Issue action,
+parent-submodule update, ADR, Canopy integration, or any work beyond K1.4.
 
-**Status:** IN PROGRESS (K1.1 ACCEPTED / MERGED; K1.2 ACCEPTED / MERGED;
-K1.3 ACCEPTED / MERGED; K1.4 COMMISSIONED; K1.5–K1.6 BLOCKED / UNCOMMISSIONED)
+**Status:** IN PROGRESS (K1.1–K1.3 ACCEPTED / MERGED; K1.4 IMPLEMENTATION
+COMPLETE / MAINTAINER ACCEPTED / MERGE PENDING; K1.5–K1.6 BLOCKED / UNCOMMISSIONED)
 
 ---
 
@@ -58,7 +65,7 @@ Commissioned, implementation complete, accepted, and merged:
 K1.3 invocation-level active tracking and structured cycle detection
 ```
 
-Commissioned, implementation not yet accepted:
+Commissioned, implementation complete, maintainer accepted, and merge pending:
 
 ```text
 K1.4 typed cutoff and backdating
@@ -75,10 +82,18 @@ Mount, Program, Canopy integration, ADR, or publication
 K1.3 implementation is accepted and merged at implementation head
 `e187b562f87ec4ecd50940a5e8fc2bc5d478380c`, status-only head
 `a8115757662a6412e053aad9b7dc451f39a825c6`, squash
-`5657cfc99734c9ac9e7093dd71819d6a0c48df87`. K1.4 is commissioned; the
-K1.4–K1.6 sections remain implementation-ready handoffs, not authorization to
-begin K1.5 or K1.6. K1.4 implementation starts only after the commission PR
-merges and a separate direct instruction.
+`5657cfc99734c9ac9e7093dd71819d6a0c48df87`. K1.4 implementation is complete
+and maintainer accepted at implementation/validation head
+`0036bdd199a685823b6769bf1acdac3f9b6b9014` (component heads
+`fad637a57e668924156a50c7af8b4f2e8c58fa59`,
+`9318408740b6865c14735da0be922a872e2c21bb`,
+`16e6a1fc1a4cb48ac1ba11463096595398115472`,
+`f84d9589d4b979b711036263255f6a3f2e684525`); hosted acceptance PASS 46/46,
+public diff review APPROVE, maintainer acceptance PASS; MERGE PENDING — final
+merge authorized only after status-only current-head required checks are green.
+CodeRabbit skipped content review and is not positive evidence; independent
+public review supplies review evidence. K1.4 remains unpublished. The K1.5–K1.6
+sections remain handoffs, not authorization to begin them.
 
 ## Goal
 
