@@ -23,8 +23,10 @@ and merged as squash commit `9d53d51d6ec6e282b8aa247442ee126acfe64a2d`.
 Hosted acceptance passed 46/46, public diff review was APPROVE, maintainer
 acceptance was PASS, and squash-tree equivalence passed. CodeRabbit skipped
 content review and is not positive evidence; independent public review supplies
-review evidence. K1.5 is commissioned with implementation not accepted; this
-probe authorizes no proof-loss or eviction interface.
+review evidence. K1.5 is implementation complete and maintainer accepted at
+validated review-fix head `378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`;
+PR #480 merge is pending. This probe authorizes no proof-loss or eviction
+interface.
 
 ## Reproduction identity
 

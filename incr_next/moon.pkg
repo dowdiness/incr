@@ -1,1 +1,6 @@
 warnings = "-1-7"
+
+options(
+  "native-stub": [ "native_rc/rc_probe.c" ],
+  targets: { "proof_loss_native_wbtest.mbt": [ "native" ] },
+)

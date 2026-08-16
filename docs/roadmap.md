@@ -56,18 +56,22 @@ recomputation always installs the newest value and trace; only a
 propagation-equivalent result retains old `changed_at` so downstream
 verification may skip work.
 
-K1.5 private proof loss and ownership closure is **COMMISSIONED**;
-implementation is not accepted. It asks whether package-private per-key memo
-eviction can discard all reuse evidence without changing semantic state, then
-rematerialize from a surviving View or downstream `QueryCore` plus typed-key
-recipe with a new `MemoId`, current stamps, zero cutoff calls, and conservative
-downstream recomputation. K1.6 remains blocked and uncommissioned. Public or
-automatic eviction policy, Mount/Program, Canopy, ADR, and publication remain
-unauthorized.
+K1.5 private proof loss and ownership closure is **IMPLEMENTATION COMPLETE**
+and **MAINTAINER ACCEPTED** at implementation head
+`064a80ac884f7c5588f123cc62dd784adeb26b48` and validated review-fix head
+`378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`; PR #480 merge is pending. Its
+package-private per-key operation discards all memo reuse evidence without
+changing semantic state, then rematerializes from a surviving View or
+downstream `QueryCore` plus typed-key recipe with a new `MemoId`, current
+stamps, zero cutoff calls, and conservative downstream recomputation. Hosted
+acceptance and maintainer review pass. K1.6 remains blocked and uncommissioned.
+Public or automatic eviction policy, Mount/Program, Canopy, ADR, and publication
+remain unauthorized.
 
-The sibling module owns the accepted K1.1–K1.4 records and commissioned K1.5
-handoff in [`incr_next/docs/roadmap.md`](../incr_next/docs/roadmap.md); this
-root roadmap retains the product pointer.
+The sibling module owns the accepted K1.1–K1.4 records and the accepted,
+merge-pending K1.5 record in
+[`incr_next/docs/roadmap.md`](../incr_next/docs/roadmap.md); this root roadmap
+retains the product pointer.
 
 ## Module-owned queues
 
