@@ -49,8 +49,8 @@ arbitrary predicate parameter, or `TrustedCutoff` contract.
 **Keep until:** The selected K1.4 public interface is removed, superseded, or
 folded into a durable published API record.
 
-**Disposition:** **Retain as generated-interface provenance while Plan 015 is
-active and Incr Next remains unpublished.** This evidence fixes the interface
+**Disposition:** **Retain as generated-interface provenance for the adopted,
+unpublished Incr Next product.** This evidence fixes the interface
 used by the accepted K1.4 implementation at validation head
 `0036bdd199a685823b6769bf1acdac3f9b6b9014`, finalized at status-only head
 `c88e724383ca5f3e817f30226a9fa23cf3ad7358`, and merged as squash commit
@@ -61,8 +61,8 @@ equivalence passed. K1.5 is accepted and merged at implementation head
 `378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`, status-only head
 `6de46abf19acb69cc5d5274b89a0ee780e48fb8d`, and squash merge commit
 `4e66654d021435179116c0cffd56c0216b1bc664`; it adds no public proof-loss or
-eviction surface. K1.6 conformance is commissioned but not implemented. This
-record does not authorize ADR, publication, or Canopy integration.
+eviction surface. K1.6 conformance is accepted and merged, completing K1. This
+record does not authorize publication or Canopy production integration.
 
 ## Scope and Existing API First
 

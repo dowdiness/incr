@@ -4,8 +4,8 @@
 
 **Decision:** Reimplement one independent K1.1 kernel and an independent Fresh testkit; do not import the evidence providers or current `dowdiness/incr`.
 
-**Keep until:** K1 alpha is superseded or a durable ADR is separately
-authorized.
+**Keep until:** The accepted K1 baseline is superseded by an explicit K0
+contract change.
 
 **Disposition:** Accepted K1.1 alpha validation record. Local acceptance,
 hosted CI, independent reviews, and maintainer acceptance pass. K1.2 is
@@ -24,8 +24,8 @@ and merged at implementation head `064a80ac884f7c5588f123cc62dd784adeb26b48`,
 review-fix head `378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`, status-only
 head `6de46abf19acb69cc5d5274b89a0ee780e48fb8d`, and squash merge commit
 `4e66654d021435179116c0cffd56c0216b1bc664`; hosted and maintainer acceptance
-and squash-tree equivalence passed. K1.6 conformance is commissioned, but its
-implementation is not accepted.
+and squash-tree equivalence passed. K1.6 is accepted and merged, completing K1
+under the sibling-product ADR.
 
 ## First failures retained
 
@@ -42,7 +42,8 @@ Checked with `moon ide doc` before implementation: `Map`/`Set` for typed staging
 ## Acceptance status
 
 K1.1 semantic implementation is **ACCEPTED** at implementation head
-`0ad8f5ae60082dfc6410aac781baa61f52c67d79`. Plan 015 remains in progress.
+`0ad8f5ae60082dfc6410aac781baa61f52c67d79`. At K1.1 acceptance, Plan 015
+remained in progress; it completed after K1.6.
 K1.2 is accepted and merged. K1.3 is accepted and merged at implementation
 head `e187b562f87ec4ecd50940a5e8fc2bc5d478380c`, status-only head
 `a8115757662a6412e053aad9b7dc451f39a825c6`, and squash commit
@@ -54,8 +55,8 @@ K1.5 is accepted and merged at implementation head
 `064a80ac884f7c5588f123cc62dd784adeb26b48`, review-fix head
 `378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`, status-only head
 `6de46abf19acb69cc5d5274b89a0ee780e48fb8d`, and squash merge commit
-`4e66654d021435179116c0cffd56c0216b1bc664`. K1.6 conformance is commissioned,
-but its implementation is not accepted.
+`4e66654d021435179116c0cffd56c0216b1bc664`. K1.6 is accepted and merged,
+completing K1.
 
 The accepted implementation passes:
 

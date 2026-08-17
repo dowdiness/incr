@@ -1,25 +1,23 @@
-# K1.6 local validation
+# K1.6 accepted validation
 
-**Reader:** Maintainers reviewing the local K1.6 product-quality conformance
-candidate.
+**Reader:** Maintainers and contributors relying on the accepted K1
+product-quality conformance baseline.
 
-**Decision:** Decide whether the evidence-only candidate is ready for exact-HEAD
-independent review and later maintainer acceptance. This record does not accept
-K1.6 or authorize publication.
+**Decision:** Accept K1.6 product-quality conformance as the final K1 slice.
+This record does not authorize publication or production integration.
 
-**Keep until:** K1.6 is accepted, rejected, or replaced and Plan 015 reaches its
-separate product decision.
+**Keep until:** The K1 baseline is superseded by an explicit K0 contract change.
 
-**Disposition:** Keep while Plan 015 is active. On a later accepted product
-decision, update this record with hosted and merge evidence before applying the
-plan documentation protocol.
+**Disposition:** Durable accepted evidence for the completed Plan 015 product
+decision; the completed plan file is deleted under the root plan workflow.
 
 ## Status
 
-K1.6 is **IMPLEMENTATION COMPLETE / LOCAL GATE PASS / NOT ACCEPTED** at
-implementation candidate `b7d2c32ebdc65472db2ed0fd36f36a678c86822f`, based on
-commission merge `e66f3bfeb08343135ad0e180c1c7a3cfbfa92d75`. This record follows
-the implementation candidate with documentation-only status changes.
+K1.6 is **ACCEPTED AND MERGED**, completing K1. Implementation evidence is
+`b7d2c32ebdc65472db2ed0fd36f36a678c86822f`; status record
+`6f51d63e4e406554e74cbbbb3e6c3f481d559547`; final PR/CI head
+`15892973a556dc8a1c960bd3544f8e3c3922596a`; and squash merge
+`58469934c5644686992688bc7a9f1685326a081d`.
 
 Public branch review found that reports localized observations rather than
 operations and that generated cutoff failures did not shrink. Commit `170a996`
@@ -41,11 +39,14 @@ scenario-aware. Commit `b7d2c32` closes those evidence gaps.
 | Exact-tree gates | PASS |
 | Independent review | APPROVE |
 | Base revalidation | PASS; `origin/main` remained `e66f3bf` |
-| Implementation PR | #482 open; hosted rerun pending after evidence fix |
+| Implementation PR | #482; hosted acceptance 46/46 including Incr Next Required |
 
-K1.6 is not accepted. Hosted CI, maintainer acceptance, and merge remain
-pending. ADR, publication, K2, Canopy integration, and the product-adoption
-decision remain unauthorized.
+K1.6 is accepted. Independent reviews returned **APPROVE**, squash-tree
+equality passed, and current `incr`, production kernel/manifests, and generated
+`.mbti` deltas are zero. CodeRabbit skipped content review and is not positive
+evidence. Publication, K2 implementation, Canopy production
+integration, Mount, Program/Port/Formula, public debug/explain, public or
+automatic eviction/LRU, and parallel evaluation remain gated or excluded.
 
 No generated counterexample exposed a K0 contract defect. The candidate changes
 only tests, evidence fixtures, testkit dependencies, boundary/CI gates, and
@@ -194,7 +195,8 @@ observation indices and retain the mandatory structural-recovery witness.
 The exact-tree gates pass against unchanged base
 `e66f3bfeb08343135ad0e180c1c7a3cfbfa92d75`. Independent MoonBit and
 adversarial evidence reviews returned **APPROVE** after their findings were
-resolved. PR #482 remains open for hosted acceptance.
+resolved. PR #482 supplied the accepted hosted evidence; the final CI head was
+`15892973a556dc8a1c960bd3544f8e3c3922596a`.
 
 ## Existing API First
 

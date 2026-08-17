@@ -9,8 +9,8 @@ The testkit model is corrected to a two-phase Script: `initial_sources` fixes
 Source membership and values before graph setup, while `operations` only replay
 Reads, existing Source Sets, or invocations of prepared error Views.
 
-**Keep until:** K1 alpha is superseded or a durable ADR is separately
-authorized.
+**Keep until:** The accepted K1 baseline is superseded by an explicit K0
+contract change.
 
 **Disposition:** Accepted K1.2 validation record. The candidate is based on
 `0c5ae4e50622f55b288aa536722e3ac77a71e030`; the accepted implementation head
@@ -33,8 +33,8 @@ and merged at implementation head `064a80ac884f7c5588f123cc62dd784adeb26b48`,
 review-fix head `378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`, status-only
 head `6de46abf19acb69cc5d5274b89a0ee780e48fb8d`, and squash merge commit
 `4e66654d021435179116c0cffd56c0216b1bc664`; hosted and maintainer acceptance
-and squash-tree equivalence passed. K1.6 conformance is commissioned, but its
-implementation is not accepted. No ADR or package publication is authorized.
+and squash-tree equivalence passed. K1.6 is accepted and merged, completing K1
+under the sibling-product ADR. Package publication remains unauthorized.
 
 ## Generated-interface probe
 

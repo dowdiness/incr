@@ -9,8 +9,8 @@ model adds cycle graph recipes and normalized witnesses; Fresh adds its own
 independent active invocation tracking; kernel and Fresh share no active-tracking
 implementation.
 
-**Keep until:** K1 alpha is superseded or a durable ADR is separately
-authorized.
+**Keep until:** The accepted K1 baseline is superseded by an explicit K0
+contract change.
 
 **Disposition:** **ACCEPTED AND MERGED.** The candidate is based on commission
 merge `621180cf460661aa95eb89da58553681688fa502`; the accepted implementation
@@ -33,8 +33,8 @@ and merged at implementation head `064a80ac884f7c5588f123cc62dd784adeb26b48`,
 review-fix head `378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`, status-only
 head `6de46abf19acb69cc5d5274b89a0ee780e48fb8d`, and squash merge commit
 `4e66654d021435179116c0cffd56c0216b1bc664`; hosted and maintainer acceptance
-and squash-tree equivalence passed. K1.6 conformance is commissioned, but its
-implementation is not accepted. No ADR or package publication is authorized.
+and squash-tree equivalence passed. K1.6 is accepted and merged, completing K1
+under the sibling-product ADR. Package publication remains unauthorized.
 
 ## Generated-interface compile probe
 
@@ -196,5 +196,5 @@ accepted, status-only finalized, and squash-tree equivalent. K1.5 is accepted
 and merged at implementation head `064a80ac884f7c5588f123cc62dd784adeb26b48`,
 review-fix head `378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`, status-only
 head `6de46abf19acb69cc5d5274b89a0ee780e48fb8d`, and squash merge commit
-`4e66654d021435179116c0cffd56c0216b1bc664`. K1.6 conformance is commissioned,
-but its implementation is not accepted.
+`4e66654d021435179116c0cffd56c0216b1bc664`. K1.6 is accepted and merged,
+completing K1.

@@ -13,8 +13,8 @@ surface preserves existing `Region::query` and adds explicit
 `query_always_changed`, `query_eq` with `V : Eq`, and `query_type_owned` with
 standalone `pub(open) CutoffEq`.
 
-**Keep until:** K1 alpha is superseded or a durable published API record is
-separately authorized.
+**Keep until:** The accepted K1 baseline is superseded by an explicit K0
+contract change.
 
 **Disposition:** **ACCEPTED AND MERGED.** The accepted implementation/validation
 head is `0036bdd199a685823b6769bf1acdac3f9b6b9014`, the status-only head is
@@ -30,11 +30,10 @@ positive evidence; independent public review supplies review evidence. K1.5 is
 `378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`, status-only head
 `6de46abf19acb69cc5d5274b89a0ee780e48fb8d`, and squash merge commit
 `4e66654d021435179116c0cffd56c0216b1bc664`; hosted and maintainer acceptance
-and squash-tree equivalence passed. K1.6 conformance is **COMMISSIONED**, but
-its implementation is not accepted. ADR, publication, and Canopy integration
-remain unauthorized. Plan 015 remains active. **No ADR needed:** K1.4 is one
-accepted increment under the existing K0 contracts; adoption and publication
-remain separate decisions.
+and squash-tree equivalence passed. K1.6 is accepted and merged, completing K1
+under the sibling-product ADR. At K1.4 acceptance, Plan 015 remained active.
+**No ADR needed:** K1.4 was one accepted increment under the existing K0
+contracts; product adoption has its own ADR, and publication remains separate.
 
 ## Scope and invariants
 
@@ -110,6 +109,6 @@ merge are complete. K1.5 is accepted and merged at implementation head
 `064a80ac884f7c5588f123cc62dd784adeb26b48`, review-fix head
 `378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`, status-only head
 `6de46abf19acb69cc5d5274b89a0ee780e48fb8d`, and squash merge commit
-`4e66654d021435179116c0cffd56c0216b1bc664`. K1.6 conformance is commissioned,
-but its implementation is not accepted. ADR, publication, and Canopy
-integration remain unauthorized.
+`4e66654d021435179116c0cffd56c0216b1bc664`. K1.6 is accepted and merged,
+completing K1. Package publication and Canopy production integration remain
+unauthorized.

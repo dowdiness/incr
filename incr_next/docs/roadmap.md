@@ -1,5 +1,11 @@
 # Incr Next roadmap
 
+`dowdiness/incr_next` is an adopted, unpublished pre-1.0 sibling product;
+current `dowdiness/incr` remains current and is not replaced. Plan 015 is
+complete and K1 is complete. See the [accepted sibling-product ADR](../../docs/decisions/2026-08-17-incr-next-pre-1-0-sibling-product.md)
+and the [durable Plan 015 blob at commit 5846993](https://github.com/dowdiness/incr/blob/58469934c5644686992688bc7a9f1685326a081d/plans/015-incr-next-kernel-alpha.md).
+K2 usability/distribution is next but not yet commissioned.
+
 K1.1 is **ACCEPTED** at implementation head
 `0ad8f5ae60082dfc6410aac781baa61f52c67d79`. Its local matrix, hosted CI,
 boundary probes, native ownership evidence, generated-interface review,
@@ -7,7 +13,7 @@ independent reviews, and maintainer acceptance pass.
 
 The accepted scope is Store, Region, Source, Query, opaque View, QueryContext,
 Transaction, Revision, structural errors, and the independent testkit. Plan 015
-remains **IN PROGRESS**.
+is complete.
 
 K1.2 is **ACCEPTED** at implementation head
 `12ec2404b676ef7864e353aeb3681c0fef6f20e3`. K1.2a implements:
@@ -28,7 +34,8 @@ fallback, successful upstream work remains installed, and recovery preserves
 memo identity while replacing value/trace and stamps.
 
 The [K1.2 validation record](k1-2-validation.md) captures the passing local
-and hosted gates, CodeRabbit, independent reviews, and maintainer acceptance.
+and hosted gates, independent reviews, and maintainer acceptance; CodeRabbit
+skipped content review and is not positive evidence.
 K1.2 is **MERGED** as squash commit
 `db2ac77ac0362a7c5ff8d20887868cbdbb635aa8`.
 
@@ -77,21 +84,16 @@ and recovery, phase/lifetime rejection, Region-close ownership completion, and
 native RC/finalizer evidence pass local, hosted, public-diff, and maintainer
 gates.
 
-K1.6 product-quality conformance is **IMPLEMENTATION COMPLETE / LOCAL GATE PASS
-/ NOT ACCEPTED** at candidate HEAD
-`b7d2c32ebdc65472db2ed0fd36f36a678c86822f`. K1.6a–d add generated and
-shrinkable Fresh differential evidence, temporary package-private proof-loss and
-work fixtures, and the complete backend, boundary, ownership, and workspace
-matrix without changing production kernel source or public interfaces. The
-[K1.6 local validation record](k1-6-validation.md) captures that evidence.
+K1.6 product-quality conformance is **ACCEPTED AND MERGED**, completing K1, with
+implementation `b7d2c32ebdc65472db2ed0fd36f36a678c86822f`, status record
+`6f51d63e4e406554e74cbbbb3e6c3f481d559547`, final PR/CI head
+`15892973a556dc8a1c960bd3544f8e3c3922596a`, and squash merge
+`58469934c5644686992688bc7a9f1685326a081d`. Hosted acceptance passed 46/46,
+including Incr Next Required; independent reviews APPROVE and squash-tree
+equality PASS. The [K1.6 validation record](k1-6-validation.md) captures the
+accepted generated differential, private proof-loss/work, backend, boundary,
+ownership, and interface evidence.
 
-Review fixes through `b7d2c32` close public/private operation-localization,
-cutoff/lifetime shrinking, mutable-key divergence, and unrelated-phase gaps.
-Exact-tree gates and base revalidation pass, and independent reviews returned
-**APPROVE**. PR #482 remains open; hosted CI, maintainer acceptance, merge, and
-the separate product decision remain pending or unauthorized.
-
-The commissioned scope permits no public eviction, retention, counter, debug,
-or explain surface. Mount, Program/Port/Formula, Canopy integration, ADR,
-publication, and representation optimization remain blocked. Plan 015 remains
-**IN PROGRESS**.
+The sibling scope excludes publication, Canopy production integration, Mount,
+Program/Port/Formula, public debug/explain, public or automatic eviction/LRU,
+and parallel evaluation. K2 is next but not yet commissioned.

@@ -1,18 +1,16 @@
 # Incr Next K0 lifetime and transaction contract
 
-**Reader:** Maintainers and K1 implementers responsible for publication
-atomicity, capability expiry, Region closure, and ownership release.
+**Reader:** Maintainers and implementers changing publication atomicity,
+capability expiry, Region closure, or ownership release.
 
 **Decision:** Put the Region lifetime skeleton and transaction-only publication
 in K1.1. Preserve the #461–#465 phase, clock, close, failure, and ownership
 semantics while keeping retention policy private.
 
-**Keep until:** K1 is accepted, rejected, or superseded. If accepted, replace
-this time-bounded spec with current architecture/user documentation and an ADR
-for durable product decisions.
+**Keep until:** This K0 contract is superseded by an explicit contract change.
 
-**Disposition:** Keep through K1. K0 documentation is commissioned. K1
-implementation still requires explicit commissioning.
+**Disposition:** Retain as the normative K0 lifetime and transaction contract
+under the accepted Incr Next sibling-product ADR. K1 is complete.
 
 ---
 
@@ -25,7 +23,8 @@ dependencies, and payload release.
 
 ## Facts from evidence
 
-The following branch-only results are evidence, not merged production behavior:
+The following research results remain provenance and are not production
+dependencies. The accepted K1 implementation is merged:
 
 | Issue | Commit | Relevant evidence |
 |---|---|---|
@@ -36,7 +35,7 @@ The following branch-only results are evidence, not merged production behavior:
 | #464 | `c640f65124b2a0eb362f3f08a1b6220e6647b6b7` | Equivalent recompute replaces value/trace ownership |
 | #465 | `5e79f111d92ee49645687f2a548b6e12f2063b14` | Explicit memo proof loss and rematerialization |
 
-K1 consolidates these contracts without importing evidence providers.
+K1 consolidated these contracts without importing evidence providers.
 
 ## Selected transaction contract
 
