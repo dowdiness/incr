@@ -7,10 +7,11 @@
 capturing the required dictionary in the private Query recipe created at the
 Region boundary.
 
-**Keep until:** K1 alpha is superseded or a durable ADR is separately
-authorized.
+**Keep until:** The selected K1.2 key-bound interface is removed, superseded,
+or folded into a durable published API record.
 
-**Disposition:** Accepted K1.2 implementation evidence. K1.2 is accepted at
+**Disposition:** Retain as generated-interface provenance for the adopted,
+unpublished Incr Next product. K1.2 is accepted at
 implementation head `12ec2404b676ef7864e353aeb3681c0fef6f20e3` and merged as
 squash commit `db2ac77ac0362a7c5ff8d20887868cbdbb635aa8`. K1.3 is accepted and
 merged as squash commit `5657cfc99734c9ac9e7093dd71819d6a0c48df87`. This
@@ -28,9 +29,9 @@ review evidence. K1.5 is accepted and merged at implementation head
 `378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`, status-only head
 `6de46abf19acb69cc5d5274b89a0ee780e48fb8d`, and squash merge commit
 `4e66654d021435179116c0cffd56c0216b1bc664`; hosted and maintainer acceptance
-and squash-tree equivalence passed. K1.6 conformance is commissioned but not
-implemented. This probe authorizes no proof-loss, eviction, counter, or debug
-interface.
+and squash-tree equivalence passed. K1.6 is accepted and merged, completing K1.
+This record does not authorize publication or Canopy production integration.
+This probe authorizes no proof-loss, eviction, counter, or debug interface.
 
 ## Reproduction identity
 

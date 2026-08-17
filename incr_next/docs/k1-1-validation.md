@@ -80,8 +80,9 @@ head passed the required checks and the accepted tree merged in PR #476.
 Fresh and incremental adapters execute the same ordered scripts. Persistent
 K1.1 Query graphs are constructed once and read repeatedly: a two-root chain
 performs four Query computes, while a two-root diamond performs ten, including
-two evaluations of the shared Query on each root read. A dynamic branch may be
-defined after its first root read with matching Fresh/kernel observations.
+two evaluations of the shared Query on each root read. After its first root
+read, a dynamic branch switches between predeclared tracked Sources with
+matching Fresh/kernel observations.
 Domain failure is read as a nested value; a cross-Store nested read remains a
 structural error. Sticky transaction poison takes precedence over a concurrent
 callback error so a structural validation failure cannot be hidden.
