@@ -1,7 +1,7 @@
 # Incr Next
 
-`dowdiness/incr_next` is the pre-1.0 typed query kernel. It is independent of
-`dowdiness/incr`.
+`dowdiness/incr_next` is the adopted, unpublished pre-1.0 typed query kernel.
+It is independent of `dowdiness/incr`.
 
 K1.1 supplies the Store/Region/Source/Query/View lifetime and transaction
 kernel. K1.2a adds query-local typed memo ownership and each successful memo's
@@ -43,17 +43,16 @@ evidence without changing semantic state, then conservatively rematerializes
 from a surviving View or downstream recipe. It adds no public eviction API or
 retention policy.
 
-K1.6 product-quality conformance is **IMPLEMENTATION COMPLETE / LOCAL GATE PASS
-/ NOT ACCEPTED** at candidate HEAD
-`b7d2c32ebdc65472db2ed0fd36f36a678c86822f`. Generated and shrinkable Fresh
-differential tests, temporary package-private proof-loss and work fixtures, and
-the full backend/boundary/ownership/workspace matrix pass without widening
-production kernel source or public interfaces. See the
-[K1.6 local validation record](docs/k1-6-validation.md).
+K1.6 product-quality conformance is **ACCEPTED AND MERGED**, completing K1.
+Implementation evidence is `b7d2c32ebdc65472db2ed0fd36f36a678c86822f`, status
+record `6f51d63e4e406554e74cbbbb3e6c3f481d559547`, and final PR/CI head
+`15892973a556dc8a1c960bd3544f8e3c3922596a`. Hosted acceptance passed 46/46,
+including Incr Next Required; independent reviews returned **APPROVE**;
+squash-tree equality passed at merge `58469934c5644686992688bc7a9f1685326a081d`.
+See the [accepted K1.6 validation record](docs/k1-6-validation.md).
 
-Review fixes through `b7d2c32` provide public and private operation-prefix
-localization, cutoff and lifetime shrinking, an observable stable-identity
-mutable-key divergence, and scenario-aware unrelated-operation shrinking.
-Exact-tree gates and base revalidation pass, and independent reviews returned
-**APPROVE**. PR #482 remains open; hosted CI, maintainer acceptance, merge, and
-the later product decision remain pending or unauthorized.
+`incr_next` is an unpublished pre-1.0 sibling; current `incr` remains current
+and is not replaced. K2 usability/distribution is next but not commissioned.
+Publication, Canopy production integration, Mount, Program/Port/Formula, public
+debug/explain, public or automatic eviction/LRU, and parallel evaluation remain
+excluded.

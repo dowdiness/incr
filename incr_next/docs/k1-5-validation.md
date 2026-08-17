@@ -10,8 +10,8 @@ is `378df40f7b84e1b6a3ebdb7f32299e2d628f1d54`; the status-only head is
 `6de46abf19acb69cc5d5274b89a0ee780e48fb8d`; and the squash merge commit is
 `4e66654d021435179116c0cffd56c0216b1bc664`.
 
-**Keep until:** K1 alpha is superseded or a durable published API record is
-separately authorized.
+**Keep until:** The accepted K1 baseline is superseded by an explicit K0
+contract change.
 
 **Disposition:** **ACCEPTED AND MERGED.** PR #480 passed 46 of 46 hosted
 checks at the review-fix and status-only heads, including `Incr Next Required`,
@@ -21,12 +21,12 @@ was APPROVE, maintainer acceptance was PASS, and squash-tree equivalence
 passed. CodeRabbit skipped content review because manual review was required
 and is not positive evidence.
 
-Plan 015 remains active. K1.6 is **COMMISSIONED**, but its implementation is not
+At K1.5 acceptance, Plan 015 remained active and K1.6 was commissioned but not
 accepted. Public proof loss or eviction, automatic retention policy, public
-debug/explain, Mount/Program/Port/Formula, Canopy integration, ADR,
-representation optimization, and publication remain unauthorized. **No ADR
-needed:** K1.5 is one private accepted increment under active Plan 015;
-adoption and publication remain separate decisions.
+debug/explain, Mount/Program/Port/Formula, Canopy integration, representation
+optimization, and publication remained unauthorized. **No ADR needed:** K1.5
+was one private accepted increment under active Plan 015; the later product
+adoption decision has its own ADR.
 
 ## Accepted semantics
 

@@ -1,18 +1,16 @@
 # Incr Next K0 product and kernel contract
 
-**Reader:** Maintainers deciding whether to commission the Incr Next K1 alpha,
-and implementers who need its semantic acceptance contract.
+**Reader:** Maintainers and implementers changing the adopted Incr Next
+semantic baseline.
 
 **Decision:** Define Incr Next as a pre-1.0 sibling product with a small,
 recipe-oriented pull kernel. Select the K1 semantic contract and module seams;
 do not change the current `dowdiness/incr` module.
 
-**Keep until:** K1 is accepted, rejected, or superseded. If accepted, retain
-durable product decisions in an ADR and replace this time-bounded spec with
-current architecture and user documentation.
+**Keep until:** This K0 contract is superseded by an explicit contract change.
 
-**Disposition:** Keep through K1. K0 documentation is commissioned. K1
-implementation still requires explicit commissioning.
+**Disposition:** Retain as the normative K0 contract under the accepted Incr
+Next sibling-product ADR. K1 is complete.
 
 ---
 
@@ -42,7 +40,7 @@ tracking, `ChangeEpoch`, cutoff storage, and trace representation remain private
 
 ## Repository and module seam
 
-Add two workspace sibling modules only after K1 is commissioned:
+K1 established two workspace sibling modules:
 
 ```text
 incr_next/             module dowdiness/incr_next
@@ -79,9 +77,10 @@ operation scripts and compare normalized outcomes.
 - MoonBit packages provide the private compilation seam needed for one kernel
   package and an independently audited Fresh package.
 
-### Branch-only evidence
+### Research evidence
 
-These commits are checked research evidence, not production implementation:
+These commits remain checked provenance and are not production dependencies.
+The accepted K1 implementation is merged:
 
 | Issue | Commit | Evidence established |
 |---|---|---|
@@ -92,7 +91,7 @@ These commits are checked research evidence, not production implementation:
 | #464 | `c640f65124b2a0eb362f3f08a1b6220e6647b6b7` | Typed cutoff and backdating |
 | #465 | `5e79f111d92ee49645687f2a548b6e12f2063b14` | Explicit proof loss and rematerialization |
 
-K1 consolidates these semantics into one implementation. It does not import,
+K1 consolidated these semantics into one implementation. It does not import,
 materialize, or layer the evidence providers.
 
 ## Selected K1 interface
@@ -348,5 +347,5 @@ observability interface is a separate K2 design.
 K1 may reuse ideas and pure value operations, but it must not depend on current
 `dowdiness/incr` handles or runtime. Before every new definition, inspect the
 project and actual MoonBit core APIs fitting the data shape. The required
-candidate set and validation commands live in
-[Plan 015](../../../plans/015-incr-next-kernel-alpha.md).
+candidate set and validation commands are preserved in
+[completed Plan 015](https://github.com/dowdiness/incr/blob/58469934c5644686992688bc7a9f1685326a081d/plans/015-incr-next-kernel-alpha.md).

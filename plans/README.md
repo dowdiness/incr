@@ -18,7 +18,6 @@ instruction.
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 |---|---|---:|---:|---|---|
-| 015 | Incr Next kernel alpha | P1 | L | K0 merged in PR #470 | IN PROGRESS (K1.1–K1.5 ACCEPTED / MERGED; K1.6 LOCAL CANDIDATE — not accepted) |
 | 014 | Deepen the typed-sheet application owner | P1 | L | Accepted EGW projection boundary; completed Plan 013 adapter | DONE (closed 2026-08-02; private owner deepening complete) |
 | 013 | Run the typed-spreadsheet EGW boundary experiment | P1 | L | Published EGW 0.4.0 | DONE (closed 2026-07-24; bounded adapter experiment complete) |
 
@@ -33,6 +32,15 @@ It remains inside the standalone `incr` repository and adds no generic
 dependency convergence, decision record, and separately shaped follow-ups.
 
 ## Reconciliation notes
+
+- Plan 015 is complete. K1.1–K1.6 are accepted/merged, establishing the
+  semantic kernel, independent Fresh oracle, ownership closure, and generated
+  shrinkable conformance for the unpublished `dowdiness/incr_next` sibling.
+  The accepted product decision is [ADR 2026-08-17](../docs/decisions/2026-08-17-incr-next-pre-1-0-sibling-product.md),
+  and the implementation record remains at the [Plan 015 GitHub blob at
+  commit 5846993](https://github.com/dowdiness/incr/blob/58469934c5644686992688bc7a9f1685326a081d/plans/015-incr-next-kernel-alpha.md).
+  Publication, K2 implementation, Mount, Program/Port/Formula, and Canopy
+  production integration remain gated; K2 is next but not yet commissioned.
 
 - Plan 014 closed 2026-08-02 after implementation commits `ef89254` through
   `c005130` deepened the private typed-spreadsheet shell into one
