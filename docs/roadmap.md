@@ -23,8 +23,9 @@ are normative. Plan 015 is complete; its durable implementation record is the
 [GitHub blob at commit 5846993](https://github.com/dowdiness/incr/blob/58469934c5644686992688bc7a9f1685326a081d/plans/015-incr-next-kernel-alpha.md).
 
 K1 is complete: K1.1–K1.6 are accepted and merged, with accepted evidence
-indexed by [`incr_next/docs/README.md`](../incr_next/docs/README.md). K2
-usability/distribution is next but not yet commissioned.
+indexed by [`incr_next/docs/README.md`](../incr_next/docs/README.md). Plan 016
+commissions K2 usability/distribution evidence; implementation is not
+accepted.
 
 Publication, Canopy production integration, Mount, Program/Port/Formula, public
 debug/explain, public or automatic eviction/LRU, and parallel evaluation remain

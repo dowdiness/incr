@@ -11,9 +11,9 @@ are normative. Plan 015 is complete; its durable implementation record is the
 K1 is complete: K1.1–K1.6 are accepted and merged. Detailed per-slice evidence
 is delegated to the [validation index](README.md).
 
-Next is a separate K2 commission covering external consumer/usability,
-executable docs, and a distribution dry-run. It is not commissioned or
-implemented.
+[Plan 016](../../plans/016-incr-next-usability-and-distribution.md) commissions
+K2 covering external consumer/usability, executable docs, and a distribution
+dry-run. It is commissioned; implementation is not accepted.
 
 Publication, Canopy production integration, Mount, Program/Port/Formula, public
 debug/explain, public or automatic eviction/LRU, and parallel evaluation remain

@@ -50,8 +50,10 @@ consumption, documentation sufficiency, or distribution readiness.
 - K1 semantics are the baseline for future Incr Next kernel changes.
 - Pre-1.0 breaking changes remain possible, but a semantic change requires an
   explicit K0 contract change record.
-- The next step is a separate K2 commission for external-consumer, executable
-  documentation, and distribution evidence, not additional kernel semantics.
-- Publication, K2 implementation, Canopy production integration, Mount,
-  Program/Port/Formula, public debug/explain, public or automatic eviction/LRU,
-  and parallel evaluation remain separately gated.
+- [Plan 016](../../plans/016-incr-next-usability-and-distribution.md) is the
+  separate K2 commission for external-consumer, executable-documentation, and
+  distribution evidence, not additional kernel semantics. Its commission
+  accepts no implementation evidence.
+- Publication, Canopy production integration, Mount, Program/Port/Formula,
+  public debug/explain, public or automatic eviction/LRU, and parallel
+  evaluation remain separately gated.

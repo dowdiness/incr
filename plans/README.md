@@ -18,8 +18,12 @@ instruction.
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 |---|---|---:|---:|---|---|
+| [016](016-incr-next-usability-and-distribution.md) | Incr Next usability and distribution evidence | P0 | M | Accepted sibling-product ADR and completed K1 | IN PROGRESS (COMMISSIONED; IMPLEMENTATION NOT ACCEPTED) |
 | 014 | Deepen the typed-sheet application owner | P1 | L | Accepted EGW projection boundary; completed Plan 013 adapter | DONE (closed 2026-08-02; private owner deepening complete) |
 | 013 | Run the typed-spreadsheet EGW boundary experiment | P1 | L | Published EGW 0.4.0 | DONE (closed 2026-07-24; bounded adapter experiment complete) |
+
+Plan 016 is effort M because it is evidence, documentation, and packaging
+work only; it commissions no kernel work.
 
 Status values: `TODO` | `IN PROGRESS` | `DONE` |
 `BLOCKED (<reason>)` | `REJECTED (<reason>)`.
@@ -39,8 +43,9 @@ dependency convergence, decision record, and separately shaped follow-ups.
   The accepted product decision is [ADR 2026-08-17](../docs/decisions/2026-08-17-incr-next-pre-1-0-sibling-product.md),
   and the implementation record remains at the [Plan 015 GitHub blob at
   commit 5846993](https://github.com/dowdiness/incr/blob/58469934c5644686992688bc7a9f1685326a081d/plans/015-incr-next-kernel-alpha.md).
-  Publication, K2 implementation, Mount, Program/Port/Formula, and Canopy
-  production integration remain gated; K2 is next but not yet commissioned.
+  Publication, Mount, Program/Port/Formula, and Canopy production integration
+  remain gated; Plan 016 commissions K2 usability/distribution evidence, but
+  implementation is not accepted.
 
 - Plan 014 closed 2026-08-02 after implementation commits `ef89254` through
   `c005130` deepened the private typed-spreadsheet shell into one
