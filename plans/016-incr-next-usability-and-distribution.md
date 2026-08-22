@@ -70,13 +70,14 @@ The ledger records evidence; it never authorizes API changes.
 
 | Operation | Current form | Friction | Classification | Evidence | API change needed |
 |---|---|---|---|---|---|
-| Store/Region | Construct Store and open Region |  |  |  |  |
-| Source | Define Source and expose its View |  |  |  |  |
-| Nested read + `ReadError` | `QueryContext::read` returns structural errors |  |  |  |  |
-| Transaction | Stage multiple writes and commit atomically |  |  |  |  |
-| Query key | Unit-keyed query and public View read |  |  |  |  |
-| Close | Close Region; read surviving View |  |  |  |  |
-| Cutoff selection | Observe the public typed cutoff form without expanding scope |  |  |  |  |
+| Store/Region | `@incr_next.Store::Store()` then `store.region()` | Expected setup failures remain explicit `Result` values; this fixed probe unwraps only setup invariants. | Example design or knowledge | `incr_next_consumer_probe/main.mbt`; default/native/JS/wasm-gc check, test, and run | No; not authorized |
+| Source | `region.source(value)` and `source.view()` | The public constructor and stable View are direct once Region ownership is understood. | Example design or knowledge | Consumer import scan contains only `@incr_next`; behavior matrix passes | No; not authorized |
+| Nested read + `ReadError` | Branch with `match ctx.read(flag.view())`; transform with `Result::map` | A dynamic branch needs an explicit match to preserve `Err(error)` unchanged; a value-only transform can reuse `Result::map`. | Example design or knowledge | Selected and doubled callbacks in `main.mbt`; all four targets pass | No; not authorized |
+| Transaction | One `store.transaction` callback with three checked `tx.set` calls | Every staged write result must be propagated, and the successful returned `Revision` must be consumed explicitly with `ignore`. | MoonBit syntax | Initial compile rejected an implicitly ignored `Revision`; corrected consumer passes all targets | No; not authorized |
+| Query key | `(ctx, _unit : Unit)` and `query.at(())` | Unit is concise, but the callback annotation and separate `at(())` capture are useful inference cues. | MoonBit syntax | Both Query callbacks and surviving Views compile on all four targets | No; not authorized |
+| Close | `region.close()` then `store.read(surviving_view)` | Matching `Err(@incr_next.ReadError::ClosedRegion(..))` is direct; both surviving Query Views report closure. | Example design or knowledge | Runtime guards and one passing test on each target | No; not authorized |
+| Cutoff selection | Baseline `query`; inspect `query_eq` and `query_type_owned` without using them | `moon ide doc` and generated `.mbti` expose the three typed choices; this graph needs no cutoff. | Example design or knowledge | `incr_next/pkg.generated.mbti` and standalone `moon ide doc` inspection | No; not authorized |
+| Toolchain scope | Target the consumer package and use the repository-pinned MoonBit for canonical interface evidence | Local MoonBit 0.10.8 exposes unrelated root-workspace dependency/deprecation failures and removes one generator-owned trailing blank line from the empty interface emitted by pinned 0.10.4. | MoonBit syntax | Both toolchains pass the four-target consumer matrix; pinned 0.10.4 `fmt`/`info` leaves the candidate tree clean | No; not authorized |
 
 ## 4. K2.2 executable documentation
 

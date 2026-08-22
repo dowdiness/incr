@@ -12,5 +12,6 @@ members = [
   "./examples/incr_tea",
   "./examples/incr_tea_7guis",
   "./incr_next",
+  "./incr_next_consumer_probe",
   "./incr_next_testkit",
 ]
