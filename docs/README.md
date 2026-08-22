@@ -64,13 +64,13 @@ For contributors and advanced users who want to understand or modify `incr`.
 
 **Implementation specs** ([design/specs/](design/specs/)) — written-ahead design records for individual subsystems. Completed or superseded time-bounded specs are retired under the [documentation retention policy](decisions/2026-06-02-documentation-retention-policy.md) when a durable ADR or performance evidence replaces them; these are not the current backlog; the [roadmap](roadmap.md) decides what is current.
 
-Accepted Incr Next K0 specs and completed K1 product track (the unpublished,
-independent pre-1.0 sibling module `dowdiness/incr_next`; current `incr` remains
-current and is not replaced):
+Accepted Incr Next K0 specs, completed K1 product track, and commissioned K2
+evidence (the unpublished, independent pre-1.0 sibling module
+`dowdiness/incr_next`; current `incr` remains current and is not replaced):
 
 - [Product and Kernel Contract](design/specs/2026-08-13-incr-next-kernel-contract.md) — product/module seam, public capabilities, Fresh parity, clocks, verification, cycles, cutoff, proof loss, snapshot contract, and K1 acceptance
 - [Lifetime and Transaction Contract](design/specs/2026-08-13-incr-next-lifetime-and-transactions.md) — transaction-only publication, Region close, cross-Region traces, failure atomicity, and ownership release
-- [Incr Next module roadmap](../incr_next/docs/roadmap.md) — accepted and merged K1.1–K1.6; K1 complete and K2 not yet commissioned
+- [Incr Next module roadmap](../incr_next/docs/roadmap.md) — K1.1–K1.6 accepted and merged; Plan 016 commissions K2, implementation not accepted
 - [Incr Next K1.1 validation](../incr_next/docs/k1-1-validation.md) — accepted first failures and Existing API First record
 - [Incr Next K1.2 key-bound compile probe](../incr_next/docs/2026-08-14-k1-2-key-bound-compile-probe.md) — selected `Region::query` Hash/Eq boundary and caller contract
 - [Incr Next K1.2 validation](../incr_next/docs/k1-2-validation.md) — accepted semantics, ownership, interface, backend, and work-count evidence
@@ -84,7 +84,7 @@ current and is not replaced):
 
 - [Roadmap](roadmap.md) — canonical current core backlog
 - [incr_tea backlog](../incr_tea/docs/backlog.md) — task list for the `dowdiness/incr_tea` module (retargeted TEA issues + agenda)
-- [Implementation plans](../plans/) — active, time-bounded records in the root plan workflow; completed files are deleted with Git history as recovery, separately from the `docs/plans/` archive protocol.
+- [Implementation plans](../plans/) — active, time-bounded records in the root plan workflow; [Plan 016](../plans/016-incr-next-usability-and-distribution.md) commissions Incr Next K2 evidence; completed files are deleted with Git history as recovery, separately from the `docs/plans/` archive protocol.
 - [Out-of-scope: ReachableDerived eager-when-reachable](../.out-of-scope/reachable-derived-eager-when-reachable.md) — durable wontfix record; gated on a bounded-viewport consumer driver
 
 **Research notes** ([research/](research/)) — exploratory, not implemented. Open these only when a current roadmap item, plan, or ADR calls for them.
@@ -103,7 +103,7 @@ live in each ADR.
 
 | Date | Decision |
 |------|----------|
-| [2026-08-17](decisions/2026-08-17-incr-next-pre-1-0-sibling-product.md) | Incr Next adopted as an unpublished pre-1.0 sibling product; K1 is complete while publication and production integration remain gated |
+| [2026-08-17](decisions/2026-08-17-incr-next-pre-1-0-sibling-product.md) | Incr Next adopted as an unpublished pre-1.0 sibling product; K1 is complete, Plan 016 commissions K2 evidence, and publication/production integration remain gated |
 | [2026-04-20](decisions/2026-04-20-accumulator-api.md) | Accumulator API: side-channel collector with push-set incremental invalidation |
 | [2026-04-26](decisions/2026-04-26-r2-runtime-decomposition-deferred.md) | R2 runtime-services decomposition: deferred indefinitely (no driver) |
 | [2026-04-26](decisions/2026-04-26-modal-runtime-split-not-warranted.md) | Per-mode Runtime split: investigation closed, not warranted |

@@ -52,7 +52,8 @@ squash-tree equality passed at merge `58469934c5644686992688bc7a9f1685326a081d`.
 See the [accepted K1.6 validation record](docs/k1-6-validation.md).
 
 `incr_next` is an unpublished pre-1.0 sibling; current `incr` remains current
-and is not replaced. K2 usability/distribution is next but not commissioned.
+and is not replaced. [Plan 016](../plans/016-incr-next-usability-and-distribution.md)
+commissions K2 usability/distribution evidence; implementation is not accepted.
 Publication, Canopy production integration, Mount, Program/Port/Formula, public
 debug/explain, public or automatic eviction/LRU, and parallel evaluation remain
 excluded.
