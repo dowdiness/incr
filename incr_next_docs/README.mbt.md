@@ -19,7 +19,9 @@ native, JavaScript, and wasm-gc. CI discovers all `.mbt.md` files in this module
 text and executable examples have one source. The separate
 [`expected_divergence`](expected_divergence/README.mbt.md) package demonstrates
 caller-contract violations; those results are not kernel promises or Fresh
-conformance evidence.
+conformance evidence. The public-only boundary rejects `.mbt.md` front matter,
+so file-local `moonbit.import` or `moonbit.deps` cannot bypass the canonical
+module and package manifests.
 
 ## Dependency
 
@@ -244,13 +246,17 @@ newest value and trace.
 
 - `Region::query` is the concise baseline used by the Quickstart.
 - `Region::query_always_changed` makes the always-changed policy explicit.
-- `Region::query_eq` uses structural `Eq` and requires `V : Eq`.
+- `Region::query_eq` uses `V`'s `Eq` implementation and requires `V : Eq`.
+  That implementation is caller-owned and must be sound as a propagation
+  equivalence for every downstream observer.
 - `Region::query_type_owned` uses `V : CutoffEq`; the value type owns a sound
   propagation-equivalence relation.
 
 Use `query_eq` only when equality means every downstream observer may reuse its
-prior observation. The `Ref` counters below are test instrumentation; they do
-not contribute to either Query value.
+prior observation. The `Ref` counters below are test-only observation hooks;
+they do not contribute to either Query value. Application Query callbacks must
+remain snapshot-determined. Callback invocation counts and side effects are not
+public API behavior.
 
 ```mbt check
 ///|

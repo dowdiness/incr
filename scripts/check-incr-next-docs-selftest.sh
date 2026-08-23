@@ -87,6 +87,32 @@ import {
   "dowdiness/incr_next",
 } for "test"
 EOF
+cat > "$docs/README.mbt.md" <<'EOF'
+---
+moonbit:
+  import:
+    - path: dowdiness/incr_next_testkit/model
+      alias: model
+---
+# Successful docs
+EOF
+expect_failure 'front matter is forbidden'
+echo "selftest ok: front matter moonbit.import fails"
+printf '# Successful docs\n' > "$docs/README.mbt.md"
+
+cat > "$docs/expected_divergence/README.mbt.md" <<'EOF'
+
+---
+moonbit:
+  deps:
+    dowdiness/incr_next_testkit: 0.1.0-alpha.1
+---
+# Expected divergence
+EOF
+expect_failure 'front matter is forbidden'
+echo "selftest ok: front matter moonbit.deps fails"
+printf '# Expected divergence\n' > "$docs/expected_divergence/README.mbt.md"
+
 mkdir -p "$docs/legacy"
 printf '{}\n' > "$docs/legacy/moon.pkg.json"
 expect_failure 'uses unsupported moon.pkg.json'

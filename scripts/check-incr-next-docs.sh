@@ -68,6 +68,22 @@ if [ "${#checked_docs[@]}" -lt 2 ]; then
   exit 1
 fi
 
+for file in "${checked_docs[@]}"; do
+  first_nonempty=$(
+    awk 'NF {
+      line = $0
+      sub(/^[[:space:]]*/, "", line)
+      sub(/[[:space:]]*$/, "", line)
+      print line
+      exit
+    }' "$file"
+  )
+  if [ "$first_nonempty" = '---' ]; then
+    echo "FAIL: $file front matter is forbidden in public-only Incr Next docs" >&2
+    exit 1
+  fi
+done
+
 args=()
 if [ "$target" != default ]; then
   args=(--target "$target")

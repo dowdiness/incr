@@ -3,6 +3,15 @@
 `dowdiness/incr_next` is the adopted, unpublished pre-1.0 typed query kernel.
 It is independent of `dowdiness/incr`.
 
+## Start here
+
+- [Executable guide](../incr_next_docs/README.mbt.md) — checked Quickstart,
+  snapshots, tracked reads, lifetime, errors, cutoff, and caller obligations
+- [Caller-contract counterexamples](../incr_next_docs/expected_divergence/README.mbt.md)
+  — isolated expected divergence, not kernel promises or Fresh conformance
+- [Product and kernel contract](../docs/design/specs/2026-08-13-incr-next-kernel-contract.md)
+- [Lifetime and transaction contract](../docs/design/specs/2026-08-13-incr-next-lifetime-and-transactions.md)
+
 K1.1 supplies the Store/Region/Source/Query/View lifetime and transaction
 kernel. K1.2a adds query-local typed memo ownership and each successful memo's
 direct forward trace. K1.2b verifies those traces to reuse unrelated
