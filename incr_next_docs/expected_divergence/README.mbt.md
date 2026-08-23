@@ -112,29 +112,50 @@ test "incr next expected divergence: returned memo Array aliases cache" {
 ## Structural `ReadError` converted to `Ok`
 
 The callback type permits matching a structural error, but the caller contract
-requires transparent propagation. This callback hides a cross-Store error as a
-valid value, so the root cannot distinguish infrastructure failure from domain
-data.
+requires transparent propagation. The graph below starts with a valid value,
+then enters a temporary cycle. The transparent View reports the cycle and
+recovers after its Source is repaired. The callback that converts the cycle to
+`Ok(77)` instead records a successful memo without the failed dependency, so it
+can remain stale after the transparent View recovers. This illustrates one
+possible failure mode. Its exact shape is outside the kernel contract.
 
 ```mbt check
 ///|
-test "incr next expected divergence: structural error becomes apparent data" {
+test "incr next expected divergence: hidden structural error severs recovery" {
   let store = @incr_next.Store::Store()
   let region = store.region().unwrap()
-  let foreign_store = @incr_next.Store::Store()
-  let foreign_region = foreign_store.region().unwrap()
-  let foreign = foreign_region.source(31).unwrap()
+  let cycle_enabled = region.source(false).unwrap()
+  let recursive : Ref[@incr_next.View[Int]?] = Ref(None)
+  let unstable = region
+    .query((ctx, _unit : Unit) => {
+      match ctx.read(cycle_enabled.view()) {
+        Ok(false) => Ok(10)
+        Ok(true) => ctx.read(recursive.val.unwrap())
+        Err(error) => Err(error)
+      }
+    })
+    .unwrap()
+  let unstable_view = unstable.at(())
+  recursive.val = Some(unstable_view)
   let hides_error = region
     .query((ctx, _unit : Unit) => {
-      match ctx.read(foreign.view()) {
+      match ctx.read(unstable_view) {
         Ok(value) => Ok(value)
         Err(_) => Ok(77)
       }
     })
     .unwrap()
+  let hidden_view = hides_error.at(())
 
-  assert_eq(store.read(hides_error.at(())), Ok(77))
-  foreign_region.close().unwrap()
+  assert_eq(store.read(hidden_view), Ok(10))
+  ignore(store.transaction(tx => tx.set(cycle_enabled, true)).unwrap())
+  assert_true(
+    store.read(unstable_view) is Err(@incr_next.ReadError::Cycle(_)),
+  )
+  assert_eq(store.read(hidden_view), Ok(77))
+  ignore(store.transaction(tx => tx.set(cycle_enabled, false)).unwrap())
+  assert_eq(store.read(unstable_view), Ok(10))
+  assert_eq(store.read(hidden_view), Ok(77))
   region.close().unwrap()
 }
 ```
