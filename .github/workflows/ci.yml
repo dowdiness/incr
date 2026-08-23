@@ -1,8 +1,9 @@
 name: CI
 
 # Runs `moon check` + `moon test` for the library, the independent dataflow
-# spike, and the checked literate `.mbt.md` examples in the docs module, so the
-# package contracts and documentation drift guard are verified automatically.
+# spike, and the checked literate `.mbt.md` examples in the current-Incr and
+# Incr Next docs modules, so package contracts and documentation drift guards
+# are verified automatically.
 #
 # The existing spreadsheet-demo deploy workflows are intentionally left alone;
 # this workflow only covers library/docs/dataflow verification.
@@ -242,6 +243,46 @@ jobs:
             moon test --target "${{ matrix.target }}" "${{ matrix.root }}"
           fi
 
+  incr-next-docs:
+    name: Incr Next docs / ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - default
+          - native
+          - js
+          - wasm-gc
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
+      - name: Install MoonBit
+        env:
+          MOONBIT_INSTALL_VERSION: 0.10.4+ade96c819
+        run: |
+          install_moonbit() {
+            curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/moonbit-install.sh \
+              && bash /tmp/moonbit-install.sh
+          }
+          for attempt in 1 2 3; do
+            if install_moonbit; then break; fi
+            if [ "$attempt" = 3 ]; then
+              echo "MoonBit install failed after 3 attempts"; exit 1
+            fi
+            echo "install attempt $attempt failed; retrying in 10s..."; sleep 10
+          done
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+      - name: Verify MoonBit
+        run: moon version --all
+      - name: Fetch registry dependencies
+        working-directory: incr
+        run: moon update
+      - name: Check public-only executable docs
+        run: ./scripts/check-incr-next-docs.sh "${{ matrix.target }}"
+
   incr-next-rc:
     name: Incr Next native RC ownership
     runs-on: ubuntu-latest
@@ -305,17 +346,20 @@ jobs:
           test -z "$(git status --short -- incr_next)"
           (cd incr_next_testkit && moon fmt && moon info)
           test -z "$(git status --short -- incr_next_testkit)"
+          (cd incr_next_docs && moon fmt && moon info)
+          test -z "$(git status --short -- incr_next_docs)"
           git diff --check
 
   Incr-Next-Required:
     name: Incr Next Required
     if: ${{ always() }}
-    needs: [incr-next, boundaries, incr-next-rc, incr-next-interface]
+    needs: [incr-next, incr-next-docs, boundaries, incr-next-rc, incr-next-interface]
     runs-on: ubuntu-latest
     steps:
       - name: Require Incr Next matrix and boundaries
         run: |
           test "${{ needs['incr-next'].result }}" = success
+          test "${{ needs['incr-next-docs'].result }}" = success
           test "${{ needs.boundaries.result }}" = success
           test "${{ needs['incr-next-rc'].result }}" = success
           test "${{ needs['incr-next-interface'].result }}" = success

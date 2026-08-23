@@ -70,8 +70,10 @@ evidence (the unpublished, independent pre-1.0 sibling module
 
 - [Product and Kernel Contract](design/specs/2026-08-13-incr-next-kernel-contract.md) — product/module seam, public capabilities, Fresh parity, clocks, verification, cycles, cutoff, proof loss, snapshot contract, and K1 acceptance
 - [Lifetime and Transaction Contract](design/specs/2026-08-13-incr-next-lifetime-and-transactions.md) — transaction-only publication, Region close, cross-Region traces, failure atomicity, and ownership release
-- [Incr Next module roadmap](../incr_next/docs/roadmap.md) — K1.1–K1.6 accepted and merged; Plan 016 commissions K2, implementation not accepted
-- [Incr Next K2.1 consumer probe](../incr_next_consumer_probe/README.md) — standalone public-only consumer evidence; K2.1 acceptance and K2.2 remain pending
+- [Incr Next module roadmap](../incr_next/docs/roadmap.md) — K1 complete; K2.1 accepted and merged; K2.2 executable documentation active but not accepted
+- [Incr Next K2.1 consumer probe](../incr_next_consumer_probe/README.md) — accepted standalone public-only consumer evidence and K2.2 predecessor
+- [Incr Next executable guide](../incr_next_docs/README.mbt.md) — checked public-only Quickstart, snapshots, tracked reads, lifetime, errors, cutoff, and caller obligations; K2.2 evidence candidate
+- [Incr Next expected divergence](../incr_next_docs/expected_divergence/README.mbt.md) — separately checked caller-contract violations; not kernel promises or Fresh conformance
 - [Incr Next K1.1 validation](../incr_next/docs/k1-1-validation.md) — accepted first failures and Existing API First record
 - [Incr Next K1.2 key-bound compile probe](../incr_next/docs/2026-08-14-k1-2-key-bound-compile-probe.md) — selected `Region::query` Hash/Eq boundary and caller contract
 - [Incr Next K1.2 validation](../incr_next/docs/k1-2-validation.md) — accepted semantics, ownership, interface, backend, and work-count evidence
