@@ -11,6 +11,11 @@ docs="$fixture/incr_next_docs"
 mkdir -p "$docs/expected_divergence" "$fixture/fakebin"
 cat > "$docs/moon.mod" <<'EOF'
 name = "dowdiness/incr_next_docs"
+
+version = "0.1.0"
+
+readme = "README.mbt.md"
+
 import {
   "dowdiness/incr_next@0.1.0-alpha.1",
 }
@@ -56,8 +61,17 @@ import {
   "dowdiness/incr_next_testkit/model",
 } for "test"
 EOF
-expect_failure 'must import only the dowdiness/incr_next public package'
+expect_failure 'must match the canonical public-only package manifest'
 echo "selftest ok: forbidden TOML import fails"
+
+cat > "$docs/expected_divergence/moon.pkg" <<'EOF'
+import {
+  "dowdiness/incr_next",
+} for "test"
+import { "dowdiness/incr_next_testkit/model" } for "test"
+EOF
+expect_failure 'must match the canonical public-only package manifest'
+echo "selftest ok: inline second import block fails"
 
 cat > "$docs/expected_divergence/moon.pkg" <<'EOF'
 import {
