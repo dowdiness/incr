@@ -26,6 +26,12 @@ for required in \
   fi
 done
 
+json_manifest=$(find "$docs" -name moon.pkg.json -type f -print -quit)
+if [ -n "$json_manifest" ]; then
+  echo "FAIL: $json_manifest uses unsupported moon.pkg.json; Incr Next docs require auditable moon.pkg manifests" >&2
+  exit 1
+fi
+
 module_imports=$(
   awk '
     /^[[:space:]]*import[[:space:]]*\{/ { block = 1; next }

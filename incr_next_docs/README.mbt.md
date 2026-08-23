@@ -14,8 +14,8 @@ delete it with the disposition rationale.
 **Status:** K2.2 evidence candidate; not yet accepted. Incr Next remains an
 unpublished pre-1.0 sibling of current Incr.
 
-Every MoonBit block in this guide is compiled and tested on default, native,
-JavaScript, and wasm-gc. CI discovers all `.mbt.md` files in this module, so the
+Every `mbt check` block in this guide is compiled and tested on default,
+native, JavaScript, and wasm-gc. CI discovers all `.mbt.md` files in this module, so the
 text and executable examples have one source. The separate
 [`expected_divergence`](expected_divergence/README.mbt.md) package demonstrates
 caller-contract violations; those results are not kernel promises or Fresh
@@ -136,9 +136,10 @@ the transaction admissible.
 
 ## Tracked reads and dynamic dependencies
 
-Only `QueryContext::read` records dependencies. The successful trace is the set
-of Views actually read by that invocation, so changing a branch replaces the
-old trace.
+`QueryContext::read` records View dependencies, while
+`QueryContext::revision` records a dependency on the Store Revision clock. The
+successful View trace contains the Views actually read by that invocation, so
+changing a branch replaces the old trace.
 
 ```mbt check
 ///|
