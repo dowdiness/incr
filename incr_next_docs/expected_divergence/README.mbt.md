@@ -149,9 +149,7 @@ test "incr next expected divergence: hidden structural error severs recovery" {
 
   assert_eq(store.read(hidden_view), Ok(10))
   ignore(store.transaction(tx => tx.set(cycle_enabled, true)).unwrap())
-  assert_true(
-    store.read(unstable_view) is Err(@incr_next.ReadError::Cycle(_)),
-  )
+  assert_true(store.read(unstable_view) is Err(@incr_next.ReadError::Cycle(_)))
   assert_eq(store.read(hidden_view), Ok(77))
   ignore(store.transaction(tx => tx.set(cycle_enabled, false)).unwrap())
   assert_eq(store.read(unstable_view), Ok(10))
