@@ -32,7 +32,9 @@ if [ -n "$json_manifest" ]; then
   exit 1
 fi
 
-expected_module=$(cat <<'EOF'
+canonical=$(mktemp -d)
+trap 'rm -rf "$canonical"' EXIT
+cat > "$canonical/moon.mod" <<'EOF'
 name = "dowdiness/incr_next_docs"
 
 version = "0.1.0"
@@ -43,20 +45,18 @@ import {
   "dowdiness/incr_next@0.1.0-alpha.1",
 }
 EOF
-)
-if [ "$(cat "$docs/moon.mod")" != "$expected_module" ]; then
+if ! cmp -s "$docs/moon.mod" "$canonical/moon.mod"; then
   echo "FAIL: $docs/moon.mod must match the canonical public-only manifest" >&2
   exit 1
 fi
 
-expected_package=$(cat <<'EOF'
+cat > "$canonical/moon.pkg" <<'EOF'
 import {
   "dowdiness/incr_next",
 } for "test"
 EOF
-)
 while IFS= read -r pkg; do
-  if [ "$(cat "$pkg")" != "$expected_package" ]; then
+  if ! cmp -s "$pkg" "$canonical/moon.pkg"; then
     echo "FAIL: $pkg must match the canonical public-only package manifest" >&2
     exit 1
   fi

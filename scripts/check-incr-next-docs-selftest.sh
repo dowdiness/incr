@@ -78,6 +78,15 @@ import {
   "dowdiness/incr_next",
 } for "test"
 EOF
+printf '\n' >> "$docs/expected_divergence/moon.pkg"
+expect_failure 'must match the canonical public-only package manifest'
+echo "selftest ok: trailing blank line fails byte-exact comparison"
+
+cat > "$docs/expected_divergence/moon.pkg" <<'EOF'
+import {
+  "dowdiness/incr_next",
+} for "test"
+EOF
 mkdir -p "$docs/legacy"
 printf '{}\n' > "$docs/legacy/moon.pkg.json"
 expect_failure 'uses unsupported moon.pkg.json'
