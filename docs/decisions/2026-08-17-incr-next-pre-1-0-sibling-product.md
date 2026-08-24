@@ -2,6 +2,7 @@
 
 **Date:** 2026-08-17
 **Status:** Accepted
+**K2 disposition:** Option A accepted 2026-08-24 — separately commission alpha publication after standardizing the candidate packager on MoonBit 0.10.9 or newer; this record does not authorize publication
 **Implementation plan:** [Plan 015 at its final merged tree](https://github.com/dowdiness/incr/blob/58469934c5644686992688bc7a9f1685326a081d/plans/015-incr-next-kernel-alpha.md) (deleted on completion under the root plan workflow)
 
 ## Context
@@ -27,7 +28,14 @@ interfaces had zero delta in K1.6.
   compatible replacement.
 - Adopt the K0 Product and Kernel Contract, K0 Lifetime and Transaction
   Contract, and K1 kernel semantics as the Incr Next baseline.
-- Do not authorize package publication or Canopy production integration.
+- Recommend a separately commissioned alpha publication after the candidate
+  packager is standardized on MoonBit 0.10.9 or newer. Automation must use an
+  exact verified toolchain pin rather than a floating version range.
+- Retain MoonBit 0.10.4 as a compatibility consumer while that support remains
+  useful; do not use it as the candidate packager for the selected 17-file
+  policy.
+- Do not authorize publication, registry mutation, version release, or Canopy
+  production integration in this decision. Each remains separately gated.
 - Do not include Mount, Program/Port/Formula, public debug/explain, public or
   automatic eviction/LRU, or parallel evaluation in this adoption decision.
 
@@ -42,18 +50,37 @@ coverage, native ownership and RC checks, package boundaries, and generated
 interface checks.
 
 This evidence resolves whether the kernel semantics and ownership model are
-coherent. It does not yet resolve external usability, ordinary module
-consumption, documentation sufficiency, or distribution readiness.
+coherent. K2 then supplied the missing product evidence:
+
+- K2.1 proved that an independent public-only consumer can express dynamic
+  dependencies, atomic transactions, Region closure, and surviving View errors.
+- K2.2 supplied checked public-only documentation and isolated caller-contract
+  counterexamples on default, native, JavaScript, and wasm-gc.
+- K2.3 produced a reproducible 17-file unpublished candidate and consumed it
+  outside the source checkout with current and CI-pinned toolchains, with no
+  source fallback or registry mutation.
+
+K2 found no public-interface or semantic defect requiring evidence reacquisition.
+It did expose one distribution constraint: MoonBit 0.10.4 remains a passing
+consumer but cannot enforce the selected `.moonignore` package policy. MoonBit
+0.10.9 packages the accepted candidate correctly.
 
 ## Consequences
 
 - K1 semantics are the baseline for future Incr Next kernel changes.
 - Pre-1.0 breaking changes remain possible, but a semantic change requires an
   explicit K0 contract change record.
-- [Plan 016](../../plans/016-incr-next-usability-and-distribution.md) is the
-  separate K2 commission for external-consumer, executable-documentation, and
-  distribution evidence, not additional kernel semantics. Its commission
-  accepts no implementation evidence.
-- Publication, Canopy production integration, Mount, Program/Port/Formula,
-  public debug/explain, public or automatic eviction/LRU, and parallel
-  evaluation remain separately gated.
+- Plan 016 completed K2.1–K2.4 without changing K0 semantics or current `incr`.
+  Its final record is retained through Git history under the root plan workflow.
+- The accepted consumer fixture, executable guide, caller-contract warnings,
+  package policy, and distribution checker remain active product safeguards.
+  Time-bound raw K2.3 command output may be removed after the accepted hashes
+  and toolchain constraint are preserved here and in the package policy.
+- The next implementation commission may standardize active repository
+  packaging on an exact MoonBit 0.10.9-or-newer pin. Historical K1/K2 evidence
+  pins remain unchanged.
+- Alpha publication requires a new explicit commission after that migration.
+  Publication, registry mutation, version release, and Canopy production
+  integration remain unauthorized until then.
+- Mount, Program/Port/Formula, public debug/explain, public or automatic
+  eviction/LRU, and parallel evaluation remain separately gated.

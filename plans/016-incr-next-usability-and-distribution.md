@@ -6,9 +6,9 @@
 
 **Keep until:** K2 is accepted, rejected, or replaced and its disposition is recorded.
 
-**Disposition:** Active handoff, commissioned; K2.1–K2.3 accepted and K2.4 active.
+**Disposition:** Completed 2026-08-24; K2.1–K2.3 accepted, and K2.4 selected Option A: separately commission alpha publication after standardizing the candidate packager on MoonBit 0.10.9 or newer.
 
-**Status:** `IN PROGRESS (K2.1–K2.3 ACCEPTED; K2.4 DISPOSITION PENDING)`
+**Status:** `DONE (K2 ACCEPTED; ALPHA PUBLICATION SEPARATELY GATED)`
 
 **Decision record:** This commission updates the existing [2026-08-17 sibling-product ADR](../docs/decisions/2026-08-17-incr-next-pre-1-0-sibling-product.md) to record that its separate K2 gate has fired. It creates no new ADR; closure/disposition updates or adds an ADR as appropriate.
 
@@ -175,19 +175,32 @@ K2.3 is **ACCEPTED AND MERGED** as `3007f5ff2e2cf8c459ab04916f27a34fb62cf0e3` fr
 
 ## 6. K2.4 disposition
 
-Choose exactly one:
+**Selected: A — separately commission alpha publication.**
 
-- **A:** separately commission alpha publication;
-- **B:** remain unpublished while supporting repository external consumers;
-- **C:** fix usability/API issues and reacquire evidence.
+K2.1 proved public-only expressiveness, K2.2 supplied executable product
+documentation and caller-contract warnings, and K2.3 proved reproducible
+candidate preparation and four-target consumption outside the source checkout.
+No accepted evidence requires an API correction or K0 semantic change, so
+Option C is rejected. Option B remains technically viable but is not selected:
+the accepted maintainer direction is to standardize the packager and proceed to
+a separately gated alpha publication commission.
 
-K2 authorizes none of these outcomes by itself. At closure, update the accepted sibling-product ADR or add a superseding/follow-up ADR as appropriate, record the accepted evidence and choice, delete Plan 016 under the root plan workflow, and update all indexes and roadmaps.
+The alpha commission has one prerequisite: active candidate packaging must use
+an exact MoonBit 0.10.9-or-newer pin. MoonBit 0.10.4 remains a passing
+compatibility consumer but is not an accepted packager for the selected
+17-file policy because it does not honor `.moonignore`.
+
+This disposition recommends the next commission; it does not publish a package,
+mutate a registry, release a version, integrate Canopy, or authorize those
+actions. Historical evidence pins remain unchanged.
 
 ## Decision record
 
-- Updated ADR: [Adopt Incr Next as a pre-1.0 sibling product](../docs/decisions/2026-08-17-incr-next-pre-1-0-sibling-product.md) now records Plan 016 as the separate K2 commission.
-- No new ADR needed for commission: Plan 016 executes the ADR's already accepted next evidence gate without changing product or semantic contracts.
-- K2 closure requires the disposition record described above.
+- Updated ADR: [Adopt Incr Next as a pre-1.0 sibling product](../docs/decisions/2026-08-17-incr-next-pre-1-0-sibling-product.md) records accepted K2 evidence, Option A, the packager prerequisite, and the remaining publication gate.
+- No new ADR is needed: the accepted sibling-product decision remains in force
+  and gains its commissioned K2 disposition without changing K0 semantics.
+- Plan 016 is deleted after this final record is committed; Git history remains
+  the recovery path under the root plan workflow.
 
 ## 7. Order and stop conditions
 
@@ -195,11 +208,11 @@ After this commission merges, execute strictly **K2.1 → K2.2 → K2.3 → K2.4
 
 ## 8. Final checklist
 
-- [ ] Public-only consumer; no current `incr`, testkit, private API, or evidence provider
-- [ ] Dynamic branch values, atomic transaction, close, and surviving View error
-- [ ] Default/native/JS/wasm-gc evidence
-- [ ] Executable quickstart, caller-violation demos, and selected drift mechanism
-- [ ] Fresh dependency resolution and candidate package/.mbti audit
-- [ ] Zero unintended K1/API delta; no publication
-- [ ] Friction classifications and independent public-interface review
-- [ ] Raw backend outputs, exact HEAD, and exact accepted base recorded
+- [x] Public-only consumer; no current `incr`, testkit, private API, or evidence provider
+- [x] Dynamic branch values, atomic transaction, close, and surviving View error
+- [x] Default/native/JS/wasm-gc evidence
+- [x] Executable quickstart, caller-violation demos, and selected drift mechanism
+- [x] Fresh dependency resolution and candidate package/.mbti audit
+- [x] Zero unintended K1/API delta; no publication
+- [x] Friction classifications and independent public-interface review
+- [x] Raw backend outputs, exact HEAD, and exact accepted base recorded
