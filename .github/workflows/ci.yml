@@ -312,11 +312,17 @@ jobs:
         run: |
           /tmp/moonbit-k2-3-packager/bin/moon version --all
           moon version --all
-      - name: Check isolated candidate and fresh consumer
+      - name: Check current-toolchain candidate consumer
+        env:
+          MOON_BIN: /tmp/moonbit-k2-3-packager/bin/moon
+          INCR_NEXT_K23_OUTPUT_DIR: /tmp/incr-next-k2-3-current
+        run: ./scripts/check-incr-next-k2-3-distribution.sh
+      - name: Check CI-pinned candidate consumer and package policy
         env:
           MOON_BIN: /tmp/moonbit-k2-3-packager/bin/moon
           INCR_NEXT_K23_CONSUMER_MOON_BIN: /home/runner/.moon/bin/moon
           INCR_NEXT_K23_POLICY_PROBE_MOON_BIN: /home/runner/.moon/bin/moon
+          INCR_NEXT_K23_OUTPUT_DIR: /tmp/incr-next-k2-3-pinned
         run: ./scripts/check-incr-next-k2-3-distribution.sh
       - name: Check distribution boundary negative controls
         env:
