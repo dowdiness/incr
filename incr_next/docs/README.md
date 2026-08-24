@@ -1,9 +1,10 @@
 # Incr Next module documentation
 
-- [Roadmap](roadmap.md) — adopted sibling product; K1 complete; K2.1 accepted and K2.2 active but not accepted
+- [Roadmap](roadmap.md) — adopted sibling product; K1 and K2.1–K2.2 accepted; K2.3 active
 - [K2.1 consumer probe](../../incr_next_consumer_probe/README.md) — accepted public-only external-consumer evidence
-- [K2.2 executable guide](../../incr_next_docs/README.mbt.md) — checked public-only product documentation candidate
-- [K2.2 expected divergence](../../incr_next_docs/expected_divergence/README.mbt.md) — isolated caller-contract violations, not kernel promises or Fresh evidence
+- [K2.2 executable guide](../../incr_next_docs/README.mbt.md) — accepted checked public-only product documentation
+- [K2.2 expected divergence](../../incr_next_docs/expected_divergence/README.mbt.md) — accepted isolated caller-contract violations, not kernel promises or Fresh evidence
+- [K2.3 distribution candidate validation](k2-3-validation.md) — local archive policy, reproducibility, fresh-workspace, source-fallback, and four-target evidence candidate
 - [K1.1 validation](k1-1-validation.md) — first failures, API reuse record, and acceptance evidence
 - [K1.2 key-bound compile probe](2026-08-14-k1-2-key-bound-compile-probe.md) — selected `Region::query` Hash/Eq boundary and caller contract
 - [K1.2 validation](k1-2-validation.md) — accepted semantics, ownership, interface, backend, and work-count evidence

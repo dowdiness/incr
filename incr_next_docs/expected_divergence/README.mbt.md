@@ -11,7 +11,8 @@ successful guide and independent Fresh conformance.
 **Disposition:** At K2 closure, retain these examples as warnings or delete
 them with the disposition rationale.
 
-**Status:** K2.2 evidence candidate; not yet accepted.
+**Status:** K2.2 accepted and squash-merged as `9360816f`; K2.3 distribution
+evidence is active.
 
 These tests intentionally violate public caller obligations. Their observed
 results are deterministic demonstrations of aliasing, missing tracking, or an

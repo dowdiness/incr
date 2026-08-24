@@ -1,0 +1,58 @@
+source_head=7440108990c32f5c0b85c7acfadb9dc490296c39
+source_tree=269cb31a07b665923669e36bcd18bc8fdaa71373
+packager_moon_bin=moon
+consumer_moon_bin=moon
+publish_invocations=0
+registry_mutations=0
+
+[packager moon version]
+moon 0.1.20260819 (fc2a4ee 2026-08-19) ~/.moon/bin/moon
+moonc v0.10.9+6e6c44045 (2026-08-19) ~/.moon/bin/moonc
+moonrun 0.1.20260819 (fc2a4ee 2026-08-19) ~/.moon/bin/moonrun
+
+Feature flags enabled: rr_moon_mod,rr_moon_pkg
+
+[consumer moon version]
+moon 0.1.20260819 (fc2a4ee 2026-08-19) ~/.moon/bin/moon
+moonc v0.10.9+6e6c44045 (2026-08-19) ~/.moon/bin/moonc
+moonrun 0.1.20260819 (fc2a4ee 2026-08-19) ~/.moon/bin/moonrun
+
+Feature flags enabled: rr_moon_mod,rr_moon_pkg
+
+[moon package --help]
+Package the current module
+
+Usage: moon package [OPTIONS]
+
+Options:
+  -h, --help  Print help
+
+Manifest Options:
+      --frozen  Do not sync dependencies, assuming local dependencies are up-to-date
+      --list
+
+Common Options:
+      --target-dir <TARGET_DIR>  The target directory. Defaults to `<project-root>/_build`
+  -q, --quiet                    Suppress output
+  -v, --verbose                  Increase verbosity
+      --trace                    Trace the execution of the program
+      --dry-run                  Do not actually run the command
+
+[moon publish --help]
+Publish the current module
+
+Usage: moon publish [OPTIONS]
+
+Options:
+  -h, --help  Print help
+
+Manifest Options:
+      --frozen  Do not sync dependencies, assuming local dependencies are up-to-date
+
+Common Options:
+      --target-dir <TARGET_DIR>  The target directory. Defaults to `<project-root>/_build`
+  -q, --quiet                    Suppress output
+  -v, --verbose                  Increase verbosity
+      --trace                    Trace the execution of the program
+      --dry-run                  Do not actually run the command
+publish_dry_run=supported-not-executed
