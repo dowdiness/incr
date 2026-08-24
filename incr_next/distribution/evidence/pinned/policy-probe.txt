@@ -5,7 +5,7 @@ moonrun 0.1.20260713 (75c7e1f 2026-07-13) ~/.cache/moonbit-k2-3-pinned/bin/moonr
 Feature flags enabled: rr_moon_mod,rr_moon_pkg
 moonignore_policy=not-honored
 --- /tmp/incr-next-k2-3/incr_next/distribution/package-files.txt	2026-08-24 18:40:58.073630791 +0900
-+++ /tmp/incr-next-k2-3/incr_next/distribution/evidence/policy-probe-package-files.txt	2026-08-24 19:41:35.411550841 +0900
++++ /tmp/incr-next-k2-3/incr_next/distribution/evidence/pinned/policy-probe-package-files.txt	2026-08-24 19:53:03.472858548 +0900
 @@ -1,17 +1,97 @@
  LICENSE
  README.mbt.md

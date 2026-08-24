@@ -21,7 +21,9 @@ review is pending. Publication and registry mutation remain unauthorized.
 The status transition is commit `eb370e6d98aef161f553baa0bbc4e76f7926d5fe`.
 The packaging policy is commit `1324b2833da3a6c58f57f274880d0428b00f0cda`.
 The exact runner used for the recorded evidence is
-`9f10ac5c2d8378ca7f9156889ea957b9cff497cf`.
+`9f10ac5c2d8378ca7f9156889ea957b9cff497cf`. Dual-toolchain CI and both
+durable matrices use evidence source commit
+`7440108990c32f5c0b85c7acfadb9dc490296c39`.
 
 | Role | Toolchain |
 |---|---|
@@ -91,14 +93,19 @@ b69b64bd48416d6601632b52069f672bf14db50f514a6f1e277839ef9668a063
 ```
 
 The ZIP itself is temporary and is not committed. Durable evidence is stored
-under [`distribution/evidence/`](../distribution/evidence/):
+under [`distribution/evidence/current/`](../distribution/evidence/current/) and
+[`distribution/evidence/pinned/`](../distribution/evidence/pinned/). Each
+matrix retains:
 
-- `archive-sha256.txt` and `package-content-sha256.txt`;
-- `package-files.txt`;
-- `tooling.txt`, `tooling.raw.txt.gz`, and `policy-probe.txt`;
+- `archive-sha256.txt`, `package-content-sha256.txt`, and `package-files.txt`;
+- `tooling.txt` and exact `tooling.raw.txt.gz`;
 - `dependency-tree.txt`;
 - exact target stdout/stderr in `raw-commands.log.gz`;
 - `summary.txt`.
+
+The pinned directory additionally retains `policy-probe.txt` and its 97-path
+archive manifest. Both matrix directories record the same candidate ZIP and
+extracted-content hashes.
 
 ## Fresh non-repository workspace
 
