@@ -30,7 +30,7 @@ require_command() {
   command -v "$1" >/dev/null 2>&1 || fail "required command not found: $1"
 }
 
-for command in cmp diff find grep sha256sum sort unzip; do
+for command in cmp diff find grep gzip sed sha256sum sort unzip; do
   require_command "$command"
 done
 [ -x "$(command -v "$moon_bin" 2>/dev/null || true)" ] || fail "MoonBit packager executable not found: $moon_bin"
@@ -303,6 +303,13 @@ grep -Fq 'dowdiness/incr_next' "$output/candidate-absent.stderr" || fail "candid
   echo "registry_mutations=0"
   echo "result=PASS"
 } > "$output/summary.txt"
+
+# Preserve exact command/tooling output as deterministic gzip while keeping a
+# whitespace-clean human-readable tooling summary for repository review.
+cp "$output/tooling.txt" "$output/tooling.raw.txt"
+gzip -n "$output/tooling.raw.txt"
+sed -i 's/[[:space:]]\+$//' "$output/tooling.txt"
+gzip -n "$output/raw-commands.log"
 
 echo "K2.3 distribution candidate: PASS"
 echo "archive_sha256=$(cat "$output/archive-sha256.txt")"
