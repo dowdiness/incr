@@ -22,14 +22,15 @@ plus [K0 Lifetime and Transaction Contract](design/specs/2026-08-13-incr-next-li
 are normative. Plan 015 is complete; its durable implementation record is the
 [GitHub blob at commit 5846993](https://github.com/dowdiness/incr/blob/58469934c5644686992688bc7a9f1685326a081d/plans/015-incr-next-kernel-alpha.md).
 
-K1 is complete: K1.1–K1.6 are accepted and merged, with accepted evidence
-indexed by [`incr_next/docs/README.md`](../incr_next/docs/README.md). Plan 016
-commissions K2 usability/distribution evidence. K2.1–K2.2 are accepted and
-merged; K2.3 distribution evidence is active, while K2.4 remains blocked.
+K1 and K2 are complete and accepted, with evidence indexed by
+[`incr_next/docs/README.md`](../incr_next/docs/README.md). K2 selected a
+separate alpha publication commission after one prerequisite: standardize
+active candidate packaging on an exact MoonBit 0.10.9-or-newer pin while
+preserving historical evidence pins and optional 0.10.4 consumer compatibility.
 
-Publication, Canopy production integration, Mount, Program/Port/Formula, public
-debug/explain, public or automatic eviction/LRU, and parallel evaluation remain
-gated and excluded.
+Actual publication, registry mutation, version release, Canopy production
+integration, Mount, Program/Port/Formula, public debug/explain, public or
+automatic eviction/LRU, and parallel evaluation remain gated and excluded.
 
 ## Module-owned queues
 

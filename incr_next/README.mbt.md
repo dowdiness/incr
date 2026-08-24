@@ -61,11 +61,11 @@ squash-tree equality passed at merge `58469934c5644686992688bc7a9f1685326a081d`.
 See the [accepted K1.6 validation record](https://github.com/dowdiness/incr/blob/main/incr_next/docs/k1-6-validation.md).
 
 `incr_next` is an unpublished pre-1.0 sibling; current `incr` remains current
-and is not replaced. [Plan 016](https://github.com/dowdiness/incr/blob/main/plans/016-incr-next-usability-and-distribution.md)
-commissions K2 usability/distribution evidence. K2.1 public-consumer evidence
-is accepted and merged as `93eb59b6`; K2.2 executable documentation is
-accepted and merged as `9360816f`; K2.3 distribution evidence is active, while
-K2.4 remains blocked.
-Publication, Canopy production integration, Mount, Program/Port/Formula, public
-debug/explain, public or automatic eviction/LRU, and parallel evaluation remain
-excluded.
+and is not replaced. [Plan 016 at final disposition](https://github.com/dowdiness/incr/blob/e30cf501db5a88d7a3764e8703c1f01b2077e046/plans/016-incr-next-usability-and-distribution.md)
+records accepted K2 evidence. The
+[updated sibling-product ADR](https://github.com/dowdiness/incr/blob/main/docs/decisions/2026-08-17-incr-next-pre-1-0-sibling-product.md)
+recommends a separate alpha publication commission after candidate packaging is
+standardized on MoonBit 0.10.9 or newer. Actual publication, registry mutation,
+version release, Canopy production integration, Mount, Program/Port/Formula,
+public debug/explain, public or automatic eviction/LRU, and parallel evaluation
+remain excluded.

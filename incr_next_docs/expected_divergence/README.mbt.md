@@ -6,13 +6,12 @@ to the Incr Next caller contract.
 **Decision:** Keep caller-contract violations executable and isolated from the
 successful guide and independent Fresh conformance.
 
-**Keep until:** The K2 disposition is accepted.
+**Keep until:** Superseded by accepted caller-contract documentation.
 
-**Disposition:** At K2 closure, retain these examples as warnings or delete
-them with the disposition rationale.
+**Disposition:** Retained at K2 closure as executable caller-contract warnings.
 
 **Status:** K2.2 accepted and squash-merged as `9360816f`; K2.3 distribution
-evidence is active.
+evidence accepted and squash-merged as `3007f5ff`; K2 is complete.
 
 These tests intentionally violate public caller obligations. Their observed
 results are deterministic demonstrations of aliasing, missing tracking, or an
