@@ -28,7 +28,7 @@ interfaces had zero delta in K1.6.
   compatible replacement.
 - Adopt the K0 Product and Kernel Contract, K0 Lifetime and Transaction
   Contract, and K1 kernel semantics as the Incr Next baseline.
-- Recommend a separately commissioned alpha publication after the candidate
+- Recommend a separate alpha publication commission after the candidate
   packager is standardized on MoonBit 0.10.9 or newer. Automation must use an
   exact verified toolchain pin rather than a floating version range.
 - Retain MoonBit 0.10.4 as a compatibility consumer while that support remains
@@ -70,12 +70,14 @@ consumer but cannot enforce the selected `.moonignore` package policy. MoonBit
 - K1 semantics are the baseline for future Incr Next kernel changes.
 - Pre-1.0 breaking changes remain possible, but a semantic change requires an
   explicit K0 contract change record.
-- Plan 016 completed K2.1–K2.4 without changing K0 semantics or current `incr`.
-  Its final record is retained through Git history under the root plan workflow.
+- [Plan 016 at its final disposition](https://github.com/dowdiness/incr/blob/e30cf501db5a88d7a3764e8703c1f01b2077e046/plans/016-incr-next-usability-and-distribution.md)
+  completed K2.1–K2.4 without changing K0 semantics or current `incr`. The plan
+  file is deleted under the root workflow; the immutable blob is its record.
 - The accepted consumer fixture, executable guide, caller-contract warnings,
   package policy, and distribution checker remain active product safeguards.
-  Time-bound raw K2.3 command output may be removed after the accepted hashes
-  and toolchain constraint are preserved here and in the package policy.
+  Time-bound raw K2.3 command output is removed after the accepted hashes are
+  preserved in the [K2.3 validation record](../../incr_next/docs/k2-3-validation.md)
+  and the toolchain constraint is preserved here and in the package policy.
 - The next implementation commission may standardize active repository
   packaging on an exact MoonBit 0.10.9-or-newer pin. Historical K1/K2 evidence
   pins remain unchanged.

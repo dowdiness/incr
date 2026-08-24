@@ -6,14 +6,15 @@ public interface.
 **Decision:** Teach the smallest correct public model with checked literate
 examples, while keeping caller-contract violations in a separate package.
 
-**Keep until:** The K2 disposition is accepted.
+**Keep until:** Superseded by accepted Incr Next product documentation.
 
-**Disposition:** At K2 closure, retain this guide as product documentation or
-delete it with the disposition rationale.
+**Disposition:** Retained at K2 closure as executable product documentation.
 
 **Status:** K2.2 accepted and squash-merged as `9360816f`; K2.3 distribution
-evidence accepted and squash-merged as `3007f5ff`; K2.4 disposition is active.
-Incr Next remains an unpublished pre-1.0 sibling of current Incr.
+evidence accepted and squash-merged as `3007f5ff`; K2 is complete. A separate
+alpha publication commission is recommended after packager standardization.
+Incr Next remains unpublished until that later commission explicitly authorizes
+it.
 
 Every `mbt check` block in this guide is compiled and tested on default,
 native, JavaScript, and wasm-gc. CI discovers all `.mbt.md` files in this module, so the

@@ -1,17 +1,17 @@
 # K2.3 distribution candidate validation
 
-**Reader:** Maintainers and reviewers deciding whether Plan 016 K2.3 evidence is
-sufficient to advance to K2.4.
+**Reader:** Maintainers auditing accepted Incr Next distribution evidence or
+changing its package policy.
 
-**Decision:** Treat the isolated 17-file ZIP as an unpublished distribution
-candidate and verify it through the accepted public consumer outside the source
+**Decision:** Accept the isolated 17-file ZIP as an unpublished distribution
+candidate after verification through the public consumer outside the source
 repository.
 
-**Keep until:** The K2 product disposition is accepted.
+**Keep until:** Superseded by accepted distribution evidence.
 
-**Disposition:** At K2 closure, retain the accepted distribution policy with
-the product package and remove time-bound raw evidence, or delete this record
-with the disposition rationale.
+**Disposition:** Retained at K2 closure as the accepted validation summary.
+Time-bound raw evidence was removed; the immutable K2.3 merge tree remains the
+historical audit source.
 
 **Status:** **ACCEPTED AND MERGED** as
 `3007f5ff2e2cf8c459ab04916f27a34fb62cf0e3` from reviewed candidate
@@ -95,20 +95,11 @@ extracted manifest SHA-256
 b69b64bd48416d6601632b52069f672bf14db50f514a6f1e277839ef9668a063
 ```
 
-The ZIP itself is temporary and is not committed. Durable evidence is stored
-under [`distribution/evidence/current/`](../distribution/evidence/current/) and
-[`distribution/evidence/pinned/`](../distribution/evidence/pinned/). Each
-matrix retains:
-
-- `archive-sha256.txt`, `package-content-sha256.txt`, and `package-files.txt`;
-- `tooling.txt` and exact `tooling.raw.txt.gz`;
-- `dependency-tree.txt`;
-- exact target stdout/stderr in `raw-commands.log.gz`;
-- `summary.txt`.
-
-The pinned directory additionally retains `policy-probe.txt` and its 97-path
-archive manifest. Both matrix directories record the same candidate ZIP and
-extracted-content hashes.
+The ZIP itself was temporary and was not committed. K2 closure removed the
+time-bound raw command snapshots after preserving the accepted hashes above,
+the checked package policy, the toolchain constraint, and this result. The
+[immutable K2.3 merge tree](https://github.com/dowdiness/incr/tree/3007f5ff2e2cf8c459ab04916f27a34fb62cf0e3/incr_next/distribution/evidence)
+retains the original current and pinned matrices for historical audit.
 
 ## Fresh non-repository workspace
 
@@ -196,6 +187,7 @@ INCR_NEXT_K23_OUTPUT_DIR=/tmp/k2-3-evidence \
 ./scripts/check-incr-next-k2-3-distribution-selftest.sh
 ```
 
-The local gate establishes package preparability only. It does not authorize
-publication, registry mutation, a version release, K0/kernel/API changes,
-Canopy production integration, or K2.4 disposition.
+The accepted gate establishes package preparability only. K2.4 separately
+recommended an alpha publication commission after packager standardization; it
+did not authorize publication, registry mutation, a version release,
+K0/kernel/API changes, or Canopy production integration.

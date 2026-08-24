@@ -70,7 +70,7 @@ evidence (the unpublished, independent pre-1.0 sibling module
 
 - [Product and Kernel Contract](design/specs/2026-08-13-incr-next-kernel-contract.md) — product/module seam, public capabilities, Fresh parity, clocks, verification, cycles, cutoff, proof loss, snapshot contract, and K1 acceptance
 - [Lifetime and Transaction Contract](design/specs/2026-08-13-incr-next-lifetime-and-transactions.md) — transaction-only publication, Region close, cross-Region traces, failure atomicity, and ownership release
-- [Incr Next module roadmap](../incr_next/docs/roadmap.md) — K1 and K2.1–K2.3 accepted and merged; K2.4 disposition active
+- [Incr Next module roadmap](../incr_next/docs/roadmap.md) — K1 and K2 accepted; packager standardization precedes a recommended separate alpha publication commission
 - [Incr Next K2.1 consumer probe](../incr_next_consumer_probe/README.md) — accepted standalone public-only consumer evidence and K2.3 fixture
 - [Incr Next executable guide](../incr_next_docs/README.mbt.md) — accepted checked public-only Quickstart, snapshots, tracked reads, lifetime, errors, cutoff, and caller obligations
 - [Incr Next expected divergence](../incr_next_docs/expected_divergence/README.mbt.md) — accepted separately checked caller-contract violations; not kernel promises or Fresh conformance
@@ -88,7 +88,7 @@ evidence (the unpublished, independent pre-1.0 sibling module
 
 - [Roadmap](roadmap.md) — canonical current core backlog
 - [incr_tea backlog](../incr_tea/docs/backlog.md) — task list for the `dowdiness/incr_tea` module (retargeted TEA issues + agenda)
-- [Implementation plans](../plans/) — active, time-bounded records in the root plan workflow; [Plan 016](../plans/016-incr-next-usability-and-distribution.md) commissions Incr Next K2 evidence; completed files are deleted with Git history as recovery, separately from the `docs/plans/` archive protocol.
+- [Implementation plans](../plans/) — active, time-bounded records in the root plan workflow; completed files are deleted with Git history as recovery, separately from the `docs/plans/` archive protocol. [Plan 016 at final disposition](https://github.com/dowdiness/incr/blob/e30cf501db5a88d7a3764e8703c1f01b2077e046/plans/016-incr-next-usability-and-distribution.md) is the immutable K2 execution record.
 - [Out-of-scope: ReachableDerived eager-when-reachable](../.out-of-scope/reachable-derived-eager-when-reachable.md) — durable wontfix record; gated on a bounded-viewport consumer driver
 
 **Research notes** ([research/](research/)) — exploratory, not implemented. Open these only when a current roadmap item, plan, or ADR calls for them.
@@ -107,7 +107,7 @@ live in each ADR.
 
 | Date | Decision |
 |------|----------|
-| [2026-08-17](decisions/2026-08-17-incr-next-pre-1-0-sibling-product.md) | Incr Next adopted as an unpublished pre-1.0 sibling product; K1 is complete, Plan 016 commissions K2 evidence, and publication/production integration remain gated |
+| [2026-08-17](decisions/2026-08-17-incr-next-pre-1-0-sibling-product.md) | Incr Next adopted as a pre-1.0 sibling product; K1 and K2 are accepted, a separate alpha publication commission is recommended after packager standardization, and publication/production integration remain gated |
 | [2026-04-20](decisions/2026-04-20-accumulator-api.md) | Accumulator API: side-channel collector with push-set incremental invalidation |
 | [2026-04-26](decisions/2026-04-26-r2-runtime-decomposition-deferred.md) | R2 runtime-services decomposition: deferred indefinitely (no driver) |
 | [2026-04-26](decisions/2026-04-26-modal-runtime-split-not-warranted.md) | Per-mode Runtime split: investigation closed, not warranted |

@@ -18,12 +18,8 @@ instruction.
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 |---|---|---:|---:|---|---|
-| [016](016-incr-next-usability-and-distribution.md) | Incr Next usability and distribution evidence | P0 | M | Accepted sibling-product ADR and completed K1 | IN PROGRESS (K2.1–K2.3 accepted; K2.4 disposition pending) |
 | 014 | Deepen the typed-sheet application owner | P1 | L | Accepted EGW projection boundary; completed Plan 013 adapter | DONE (closed 2026-08-02; private owner deepening complete) |
 | 013 | Run the typed-spreadsheet EGW boundary experiment | P1 | L | Published EGW 0.4.0 | DONE (closed 2026-07-24; bounded adapter experiment complete) |
-
-Plan 016 is effort M because it is evidence, documentation, and packaging
-work only; it commissions no kernel work.
 
 Status values: `TODO` | `IN PROGRESS` | `DONE` |
 `BLOCKED (<reason>)` | `REJECTED (<reason>)`.
@@ -43,11 +39,16 @@ dependency convergence, decision record, and separately shaped follow-ups.
   The accepted product decision is [ADR 2026-08-17](../docs/decisions/2026-08-17-incr-next-pre-1-0-sibling-product.md),
   and the implementation record remains at the [Plan 015 GitHub blob at
   commit 5846993](https://github.com/dowdiness/incr/blob/58469934c5644686992688bc7a9f1685326a081d/plans/015-incr-next-kernel-alpha.md).
-  K2.1 public-consumer evidence is accepted and merged as `93eb59b6`; K2.2
-  executable documentation is accepted and merged as `9360816f`; K2.3
-  distribution evidence is accepted and merged as `3007f5ff`; K2.4 product
-  disposition is active. Publication, Mount, Program/Port/Formula, and Canopy
-  production integration remain gated.
+
+- Plan 016 closed after K2.1–K2.3 merged as `93eb59b6`, `9360816f`, and
+  `3007f5ff`; K2.4 recommended a separate alpha publication commission after
+  standardizing the packager on MoonBit 0.10.9 or newer. The
+  [updated sibling-product ADR](../docs/decisions/2026-08-17-incr-next-pre-1-0-sibling-product.md)
+  records the product decision. The immutable [Plan 016 final disposition](https://github.com/dowdiness/incr/blob/e30cf501db5a88d7a3764e8703c1f01b2077e046/plans/016-incr-next-usability-and-distribution.md)
+  records K2 execution. The completed plan file and time-bound raw
+  distribution snapshots are deleted. Publication, registry mutation, version
+  release, Mount, Program/Port/Formula, and Canopy production integration
+  remain gated.
 
 - Plan 014 closed 2026-08-02 after implementation commits `ef89254` through
   `c005130` deepened the private typed-spreadsheet shell into one

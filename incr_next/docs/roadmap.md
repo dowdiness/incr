@@ -11,13 +11,13 @@ are normative. Plan 015 is complete; its durable implementation record is the
 K1 is complete: K1.1–K1.6 are accepted and merged. Detailed per-slice evidence
 is delegated to the [validation index](README.md).
 
-[Plan 016](../../plans/016-incr-next-usability-and-distribution.md) commissions
-K2 covering external consumer/usability, executable docs, and a distribution
-dry-run. K2.1 public-consumer evidence is accepted and merged as `93eb59b6`;
-K2.2 executable documentation is accepted and merged as `9360816f`. K2.3
-distribution evidence is accepted and merged as `3007f5ff`. K2.4 product
-disposition is active with evidence pending.
+K2 is complete: public-consumer evidence merged as `93eb59b6`, executable
+documentation as `9360816f`, and distribution evidence as `3007f5ff`. The
+accepted disposition recommends a separate alpha publication commission after active
+candidate packaging is standardized on an exact MoonBit 0.10.9-or-newer pin.
+The [updated sibling-product ADR](../../docs/decisions/2026-08-17-incr-next-pre-1-0-sibling-product.md)
+is the durable decision record.
 
-Publication, Canopy production integration, Mount, Program/Port/Formula, public
-debug/explain, public or automatic eviction/LRU, and parallel evaluation remain
-gated and excluded.
+Actual publication, registry mutation, version release, Canopy production
+integration, Mount, Program/Port/Formula, public debug/explain, public or
+automatic eviction/LRU, and parallel evaluation remain gated and excluded.

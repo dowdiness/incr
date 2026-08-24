@@ -1,6 +1,6 @@
 # Incr Next module documentation
 
-- [Roadmap](roadmap.md) — adopted sibling product; K1 and K2.1–K2.3 accepted; K2.4 active
+- [Roadmap](roadmap.md) — adopted sibling product; K1 and K2 accepted; packager standardization precedes a recommended separate alpha publication commission
 - [K2.1 consumer probe](../../incr_next_consumer_probe/README.md) — accepted public-only external-consumer evidence
 - [K2.2 executable guide](../../incr_next_docs/README.mbt.md) — accepted checked public-only product documentation
 - [K2.2 expected divergence](../../incr_next_docs/expected_divergence/README.mbt.md) — accepted isolated caller-contract violations, not kernel promises or Fresh evidence

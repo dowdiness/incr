@@ -1,14 +1,14 @@
 # Incr Next distribution candidate policy
 
-**Reader:** Maintainers and reviewers of Plan 016 K2.3 distribution evidence.
+**Reader:** Maintainers of Incr Next candidate packaging.
 
 **Decision:** Build an unpublished candidate from an isolated staging copy of
 `incr_next`, constrained by `.moonignore` and the checked file manifest.
 
-**Keep until:** The K2 product disposition is accepted.
+**Keep until:** Superseded by an accepted package policy.
 
-**Disposition:** At K2 closure, retain this policy with the product package or
-delete it with the disposition rationale.
+**Disposition:** Retained at K2 closure as the active package policy and as a
+prerequisite for the recommended separate alpha publication commission.
 
 ## Included content
 
@@ -41,6 +41,8 @@ records whether `--dry-run` is supported. A supported option remains
 unexecuted because this local gate has no network-isolated credential-free
 registry sandbox. Publication and registry mutation remain unauthorized.
 
-The generated ZIP is temporary and is never committed. Durable evidence keeps
-its SHA-256, extracted content hashes, dependency tree, commands, and validation
-result without storing the archive itself.
+The generated ZIP is temporary and is never committed. K2 closure removed raw
+command snapshots after preserving the accepted conclusions in the
+[sibling-product ADR](../../docs/decisions/2026-08-17-incr-next-pre-1-0-sibling-product.md)
+and the hashes in the [K2.3 validation record](../docs/k2-3-validation.md). The immutable K2.3
+merge tree remains available for historical audit.
