@@ -171,7 +171,7 @@ The repository workspace is not a valid packaging root: `moon package` walks int
 | Native C stub | Excluding all of `native_rc` makes native test/run fail because root `moon.pkg` references its C stub. | Example design or knowledge | Include only `native_rc/rc_probe.c`; exclude the executable harness and package. | No; not authorized |
 | Publish dry-run | Both observed CLIs advertise `--dry-run`, but no credential-free network sandbox is available. | MoonBit syntax | Record supported-but-not-executed; invoke no publish command. | No; not authorized |
 
-K2.3 has a **LOCAL EVIDENCE CANDIDATE** at evidence source commit `7440108990c32f5c0b85c7acfadb9dc490296c39`: deterministic 17-file archive, current and CI-pinned four-target consumer passes, candidate-absent frozen failure, zero source fallback, and zero registry mutation. Independent packaging/public-boundary review remains pending; K2.3 is not yet accepted.
+K2.3 has **LOCAL ACCEPTANCE PASS** at reviewed candidate `48cdfccb6398450b4f588522b241bd7da25b409c`: deterministic 17-file archive, separately retained current and CI-pinned four-target consumer passes, candidate-absent frozen failure, zero source fallback, zero registry mutation, and independent MoonBit review `APPROVE` with no findings. Maintainer acceptance and Hosted CI remain pending; K2.3 is not yet accepted and K2.4 remains blocked.
 
 ## 6. K2.4 disposition
 

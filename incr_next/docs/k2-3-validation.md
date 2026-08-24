@@ -13,8 +13,11 @@ repository.
 the product package and remove time-bound raw evidence, or delete this record
 with the disposition rationale.
 
-**Status:** Local evidence candidate. Independent packaging/public-boundary
-review is pending. Publication and registry mutation remain unauthorized.
+**Status:** **LOCAL ACCEPTANCE PASS** at reviewed candidate
+`48cdfccb6398450b4f588522b241bd7da25b409c`. Independent MoonBit review returned
+`APPROVE` with no findings after the dual-matrix fix. Maintainer acceptance and
+Hosted CI remain pending. Publication and registry mutation remain
+unauthorized.
 
 ## Source and tools
 
@@ -169,6 +172,18 @@ publish invocations                  0
 registry mutations                   0
 product/K0/public .mbti delta         absent
 ```
+
+## Independent review
+
+The first review correctly rejected a claim/evidence mismatch: current 0.10.9
+consumption had passed only in temporary output, while durable evidence and CI
+retained the pinned 0.10.4 matrix. Commit
+`48cdfccb6398450b4f588522b241bd7da25b409c` added distinct current and pinned CI
+steps and durable matrices. Re-review of that exact commit returned `APPROVE`
+with no critical findings or warnings.
+
+The remaining toolchain risk is explicit: 0.10.4 must not become the candidate
+packager while it ignores the selected `.moonignore`.
 
 ## Reproduction
 
