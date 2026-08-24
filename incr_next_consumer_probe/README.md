@@ -11,12 +11,13 @@ or product API changes.
 **Disposition:** At K2 closure, retain this module as a public-consumer
 regression fixture or delete it with the disposition rationale.
 
-**Status:** K2.1 accepted and squash-merged as `93eb59b6`; K2.2 is active.
+**Status:** K2.1 accepted and squash-merged as `93eb59b6`; K2.2 accepted and
+squash-merged as `9360816f`; K2.3 is active.
 
 This module is evidence for
 [Plan 016 §3](../plans/016-incr-next-usability-and-distribution.md#3-k21-consumer-probe),
-not the executable product documentation commissioned for K2.2. The accepted
-probe is the predecessor evidence for the now-active K2.2 gate.
+not the executable product documentation accepted for K2.2. The accepted probe
+is the reusable public-consumer fixture for the now-active K2.3 gate.
 
 Its only non-core dependency is the versioned public
 `dowdiness/incr_next` module. The executable and its test run the same fixed

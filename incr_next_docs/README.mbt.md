@@ -11,8 +11,9 @@ examples, while keeping caller-contract violations in a separate package.
 **Disposition:** At K2 closure, retain this guide as product documentation or
 delete it with the disposition rationale.
 
-**Status:** K2.2 evidence candidate; not yet accepted. Incr Next remains an
-unpublished pre-1.0 sibling of current Incr.
+**Status:** K2.2 accepted and squash-merged as `9360816f`; K2.3 distribution
+evidence is active. Incr Next remains an unpublished pre-1.0 sibling of current
+Incr.
 
 Every `mbt check` block in this guide is compiled and tested on default,
 native, JavaScript, and wasm-gc. CI discovers all `.mbt.md` files in this module, so the

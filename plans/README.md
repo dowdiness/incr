@@ -18,7 +18,7 @@ instruction.
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 |---|---|---:|---:|---|---|
-| [016](016-incr-next-usability-and-distribution.md) | Incr Next usability and distribution evidence | P0 | M | Accepted sibling-product ADR and completed K1 | IN PROGRESS (K2.1 accepted; K2.2 evidence not accepted) |
+| [016](016-incr-next-usability-and-distribution.md) | Incr Next usability and distribution evidence | P0 | M | Accepted sibling-product ADR and completed K1 | IN PROGRESS (K2.1–K2.2 accepted; K2.3 evidence pending) |
 | 014 | Deepen the typed-sheet application owner | P1 | L | Accepted EGW projection boundary; completed Plan 013 adapter | DONE (closed 2026-08-02; private owner deepening complete) |
 | 013 | Run the typed-spreadsheet EGW boundary experiment | P1 | L | Published EGW 0.4.0 | DONE (closed 2026-07-24; bounded adapter experiment complete) |
 
@@ -44,8 +44,9 @@ dependency convergence, decision record, and separately shaped follow-ups.
   and the implementation record remains at the [Plan 015 GitHub blob at
   commit 5846993](https://github.com/dowdiness/incr/blob/58469934c5644686992688bc7a9f1685326a081d/plans/015-incr-next-kernel-alpha.md).
   K2.1 public-consumer evidence is accepted and merged as `93eb59b6`; K2.2
-  executable documentation is active but not accepted. Publication, Mount,
-  Program/Port/Formula, and Canopy production integration remain gated.
+  executable documentation is accepted and merged as `9360816f`; K2.3
+  distribution evidence is active. Publication, Mount, Program/Port/Formula,
+  and Canopy production integration remain gated.
 
 - Plan 014 closed 2026-08-02 after implementation commits `ef89254` through
   `c005130` deepened the private typed-spreadsheet shell into one

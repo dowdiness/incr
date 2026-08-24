@@ -6,9 +6,9 @@
 
 **Keep until:** K2 is accepted, rejected, or replaced and its disposition is recorded.
 
-**Disposition:** Active handoff, commissioned; no implementation accepted.
+**Disposition:** Active handoff, commissioned; K2.1–K2.2 accepted and K2.3 active.
 
-**Status:** `IN PROGRESS (K2.1 ACCEPTED; K2.2 EVIDENCE NOT ACCEPTED)`
+**Status:** `IN PROGRESS (K2.1–K2.2 ACCEPTED; K2.3 EVIDENCE PENDING)`
 
 **Decision record:** This commission updates the existing [2026-08-17 sibling-product ADR](../docs/decisions/2026-08-17-incr-next-pre-1-0-sibling-product.md) to record that its separate K2 gate has fired. It creates no new ADR; closure/disposition updates or adds an ADR as appropriate.
 
@@ -127,6 +127,8 @@ Use a separate `dowdiness/incr_next_docs` workspace module whose only non-core d
 | Mutable semantic key | A custom external `Hash` implementation requires both `hash` and `hash_combine`; qualified `Hash::hash_combine` avoids deprecated call syntax. | MoonBit syntax | Expected-divergence package check/test passes without warnings | No; not authorized |
 | Caller violations | Mixing misuse examples into the Quickstart would make stale values look like supported outcomes. | Example design or knowledge | Separate `expected_divergence` package with 6 labeled tests and independent results | No; not authorized |
 | API discovery | Current `moon ide doc` does not resolve the local `@incr_next` sibling alias from this workspace, while `moon check` resolves it; the generated public `.mbti` remains the reliable local index. | MoonBit syntax | `incr_next/pkg.generated.mbti` plus successful public-only compilation | No; not authorized |
+
+K2.2 is **ACCEPTED AND MERGED**. Implementation evidence is PR #490 head `e56ca084b47204102c3399c760707c783fb9747f`; squash merge `9360816f659c37caeeeb0b8b03c9ed616b8700c1` has the same tree. The accepted boundary is public-only checked documentation, six isolated caller-contract divergences, fail-closed dependency controls, four-target Hosted CI, independent review, and no product/K0/API delta.
 
 ## 5. K2.3 distribution dry-run
 
