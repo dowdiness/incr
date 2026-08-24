@@ -74,6 +74,7 @@ evidence (the unpublished, independent pre-1.0 sibling module
 - [Incr Next K2.1 consumer probe](../incr_next_consumer_probe/README.md) — accepted standalone public-only consumer evidence and K2.3 fixture
 - [Incr Next executable guide](../incr_next_docs/README.mbt.md) — accepted checked public-only Quickstart, snapshots, tracked reads, lifetime, errors, cutoff, and caller obligations
 - [Incr Next expected divergence](../incr_next_docs/expected_divergence/README.mbt.md) — accepted separately checked caller-contract violations; not kernel promises or Fresh conformance
+- [Incr Next K2.3 distribution validation](../incr_next/docs/k2-3-validation.md) — local candidate policy, deterministic archive, fresh-workspace consumption, and source-fallback evidence
 - [Incr Next K1.1 validation](../incr_next/docs/k1-1-validation.md) — accepted first failures and Existing API First record
 - [Incr Next K1.2 key-bound compile probe](../incr_next/docs/2026-08-14-k1-2-key-bound-compile-probe.md) — selected `Region::query` Hash/Eq boundary and caller contract
 - [Incr Next K1.2 validation](../incr_next/docs/k1-2-validation.md) — accepted semantics, ownership, interface, backend, and work-count evidence

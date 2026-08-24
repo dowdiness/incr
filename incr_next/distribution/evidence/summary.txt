@@ -1,0 +1,11 @@
+archive_sha256=543d715e965507fa5efcd7d790150a15f35746237cc8a261c6270147dcf78f9a
+archive_files=17
+content_manifest_sha256=b69b64bd48416d6601632b52069f672bf14db50f514a6f1e277839ef9668a063
+packager_moon_bin=moon
+consumer_moon_bin=/home/antisatori/.cache/moonbit-k2-3-pinned/bin/moon
+targets=default,native,js,wasm-gc
+candidate_absent=expected-failure
+source_fallback=not-observed
+symlinks=0
+registry_mutations=0
+result=PASS

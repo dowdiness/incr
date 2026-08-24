@@ -1,0 +1,106 @@
+moon 0.1.20260713 (75c7e1f 2026-07-13) ~/.cache/moonbit-k2-3-pinned/bin/moon
+moonc v0.10.4+ade96c819 (2026-07-13) ~/.cache/moonbit-k2-3-pinned/bin/moonc
+moonrun 0.1.20260713 (75c7e1f 2026-07-13) ~/.cache/moonbit-k2-3-pinned/bin/moonrun
+
+Feature flags enabled: rr_moon_mod,rr_moon_pkg
+moonignore_policy=not-honored
+--- /tmp/incr-next-k2-3/incr_next/distribution/package-files.txt	2026-08-24 18:40:58.073630791 +0900
++++ /tmp/incr-next-k2-3/incr_next/distribution/evidence/policy-probe-package-files.txt	2026-08-24 19:41:35.411550841 +0900
+@@ -1,17 +1,97 @@
+ LICENSE
+ README.mbt.md
++_build/
++_build/packages.json
++_build/publish/
++_build/publish/dowdiness-incr_next-0.1.0-alpha.1.zip
++_build/wasm-gc/
++_build/wasm-gc/debug/
++_build/wasm-gc/debug/check/
++_build/wasm-gc/debug/check/all_pkgs.json
++_build/wasm-gc/debug/check/check.moon_db
++_build/wasm-gc/debug/check/incr_next.ast
++_build/wasm-gc/debug/check/incr_next.blackbox_test.ast
++_build/wasm-gc/debug/check/incr_next.blackbox_test.mi
++_build/wasm-gc/debug/check/incr_next.blackbox_test.typechecked
++_build/wasm-gc/debug/check/incr_next.mi
++_build/wasm-gc/debug/check/incr_next.typechecked
++_build/wasm-gc/debug/check/incr_next.whitebox_test.ast
++_build/wasm-gc/debug/check/incr_next.whitebox_test.mi
++_build/wasm-gc/debug/check/incr_next.whitebox_test.typechecked
++_build/wasm-gc/debug/check/negative/
++_build/wasm-gc/debug/check/negative/negative.ast
++_build/wasm-gc/debug/check/negative/negative.blackbox_test.ast
++_build/wasm-gc/debug/check/negative/negative.blackbox_test.mi
++_build/wasm-gc/debug/check/negative/negative.blackbox_test.typechecked
++_build/wasm-gc/debug/check/negative/negative.mi
++_build/wasm-gc/debug/check/negative/negative.typechecked
++alias_divergence_test.mbt
++cutoff_counts_wbtest.mbt
++cutoff_divergence_wbtest.mbt
++cutoff_failure_wbtest.mbt
++cutoff_stamps_wbtest.mbt
++cutoff_wbtest.mbt
++cycle_test.mbt
++cycle_wbtest.mbt
++distribution/
++distribution/README.md
++distribution/package-files.txt
++docs/
++docs/2026-08-14-k1-2-key-bound-compile-probe.md
++docs/2026-08-15-k1-4-cutoff-compile-probe.md
++docs/README.md
++docs/k1-1-validation.md
++docs/k1-2-validation.md
++docs/k1-3-validation.md
++docs/k1-4-validation.md
++docs/k1-5-validation.md
++docs/k1-6-validation.md
++docs/k2-3-validation.md
++docs/roadmap.md
+ errors.mbt
+ ids.mbt
+ moon.mod
+ moon.pkg
++native_rc/
++native_rc/main.mbt
++native_rc/moon.pkg
+ native_rc/rc_probe.c
++negative/
++negative/arbitrary_cutoff_predicate.mbt.disabled
++negative/cycle_witness_constructor.mbt.disabled
++negative/cycle_witness_fields.mbt.disabled
++negative/moon.pkg
++negative/pkg.generated.mbti
++negative/public_cutoff_policy.mbt.disabled
++negative/query_context_constructor.mbt.disabled
++negative/query_context_fields.mbt.disabled
++negative/query_context_revision_fake.mbt.disabled
++negative/source_set.mbt.disabled
++negative/transaction_debug_methods.mbt.disabled
++negative/transaction_fields.mbt.disabled
++negative/view_call.mbt.disabled
++negative/view_constructor.mbt.disabled
++negative/view_fields.mbt.disabled
+ phase.mbt
++phase_test.mbt
+ pkg.generated.mbti
++private_evidence/
++private_evidence/k1_6_lifetime_property_wbtest.mbt.disabled
++private_evidence/k1_6_tracer_wbtest.mbt.disabled
++private_evidence/k1_6_work_counts_wbtest.mbt.disabled
++proof_loss_failure_wbtest.mbt
++proof_loss_native_wbtest.mbt
++proof_loss_wbtest.mbt
+ query.mbt
+ query_context.mbt
++query_test.mbt
++query_wbtest.mbt
+ region.mbt
++region_wbtest.mbt
++skeleton_test.mbt
+ source.mbt
+ store.mbt
+ trace.mbt
+ transaction.mbt
++transaction_test.mbt
+ view.mbt

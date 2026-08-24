@@ -1,0 +1,2 @@
+dowdiness/incr_next_consumer_probe@0.1.0 (local /tmp/k23-dist.22Xngz/fresh/consumer) [workspace member]:
+└─ dowdiness/incr_next -> dowdiness/incr_next@0.1.0-alpha.1 (local /tmp/k23-dist.22Xngz/fresh/candidate) [workspace member]
