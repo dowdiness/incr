@@ -1,0 +1,12 @@
+# Keep the candidate artifact limited to public product content.
+*_test.mbt
+*_wbtest.mbt
+docs/
+distribution/
+negative/
+private_evidence/
+
+# The root package manifest requires this C stub for native linking. Exclude
+# the native RC executable harness while retaining only its referenced stub.
+native_rc/*
+!native_rc/rc_probe.c

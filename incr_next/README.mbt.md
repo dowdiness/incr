@@ -5,12 +5,12 @@ It is independent of `dowdiness/incr`.
 
 ## Start here
 
-- [Executable guide](../incr_next_docs/README.mbt.md) — checked Quickstart,
+- [Executable guide](https://github.com/dowdiness/incr/blob/main/incr_next_docs/README.mbt.md) — checked Quickstart,
   snapshots, tracked reads, lifetime, errors, cutoff, and caller obligations
-- [Caller-contract counterexamples](../incr_next_docs/expected_divergence/README.mbt.md)
+- [Caller-contract counterexamples](https://github.com/dowdiness/incr/blob/main/incr_next_docs/expected_divergence/README.mbt.md)
   — isolated expected divergence, not kernel promises or Fresh conformance
-- [Product and kernel contract](../docs/design/specs/2026-08-13-incr-next-kernel-contract.md)
-- [Lifetime and transaction contract](../docs/design/specs/2026-08-13-incr-next-lifetime-and-transactions.md)
+- [Product and kernel contract](https://github.com/dowdiness/incr/blob/main/docs/design/specs/2026-08-13-incr-next-kernel-contract.md)
+- [Lifetime and transaction contract](https://github.com/dowdiness/incr/blob/main/docs/design/specs/2026-08-13-incr-next-lifetime-and-transactions.md)
 
 K1.1 supplies the Store/Region/Source/Query/View lifetime and transaction
 kernel. K1.2a adds query-local typed memo ownership and each successful memo's
@@ -58,10 +58,10 @@ record `6f51d63e4e406554e74cbbbb3e6c3f481d559547`, and final PR/CI head
 `15892973a556dc8a1c960bd3544f8e3c3922596a`. Hosted acceptance passed 46/46,
 including Incr Next Required; independent reviews returned **APPROVE**;
 squash-tree equality passed at merge `58469934c5644686992688bc7a9f1685326a081d`.
-See the [accepted K1.6 validation record](docs/k1-6-validation.md).
+See the [accepted K1.6 validation record](https://github.com/dowdiness/incr/blob/main/incr_next/docs/k1-6-validation.md).
 
 `incr_next` is an unpublished pre-1.0 sibling; current `incr` remains current
-and is not replaced. [Plan 016](../plans/016-incr-next-usability-and-distribution.md)
+and is not replaced. [Plan 016](https://github.com/dowdiness/incr/blob/main/plans/016-incr-next-usability-and-distribution.md)
 commissions K2 usability/distribution evidence. K2.1 public-consumer evidence
 is accepted and merged as `93eb59b6`; K2.2 executable documentation is
 accepted and merged as `9360816f`; K2.3 distribution evidence is active, while

@@ -136,6 +136,41 @@ Do not publish. Audit `incr_next/moon.mod` metadata, package file/content policy
 
 Characterize `moon package --list`, supported archive commands, and `moon publish --dry-run`; an unimplemented package dry-run or a server/CLI status mismatch is tooling evidence, not a pass. Never run a command that can mutate the registry. The fresh workspace must not discover or inherit the repository's `moon.work`. Detect undeclared workspace dependencies, testkit leaks, relative docs/examples, and source fallback. Record tool versions, commands, archive hash, file list, dependency graph, and raw outputs durably. Passing means preparable, not publishable now.
 
+### Selected candidate mechanism
+
+Create two isolated staging copies of `incr_next`, inject the repository-root `LICENSE` as the single-source license bytes, and run the current MoonBit `moon package --list --frozen` in each copy. `.moonignore` excludes tests, K1 validation history, negative/private evidence, K2 distribution evidence, and the native RC executable harness. The root `moon.pkg` requires `native_rc/rc_probe.c` for native linking, so that one C stub remains included. Compare both ZIP hashes and extracted content manifests, but never commit the ZIP.
+
+The repository workspace is not a valid packaging root: `moon package` walks into unrelated workspace checks. The CI-pinned MoonBit 0.10.4 package command also does not honor the selected `.moonignore`; it is retained as a consumer compatibility tool and a package-policy probe, not as the candidate packager. These are tooling constraints, not kernel defects.
+
+### Behavioral boundary matrix
+
+| Boundary | Positive evidence | Negative control |
+|---|---|---|
+| Archive contents | Exact sorted 17-file manifest and extracted SHA-256 manifest | Unexpected file, testkit/private path, missing LICENSE, or symlink fails |
+| Reproducibility | Two isolated builds have equal ZIP and content hashes | Any hash or content-manifest difference fails |
+| Resolution | Fresh `moon.work` resolves the unpacked candidate as a local member | Removing the candidate makes frozen resolution fail |
+| Consumer behavior | Accepted K2.1 check/test/run output on default/native/JS/wasm-gc | Any target or fixed output mismatch fails |
+| Source isolation | Dependency tree and build inputs contain no source-checkout path | Repository path or candidate-external relative README link fails |
+| Publication | `moon publish --help` is captured; registry mutations remain zero | No `moon publish` invocation is allowed |
+
+### K2.3 reuse check
+
+- **Project APIs reused:** the accepted `incr_next_consumer_probe` exercises `Store`, `Region`, `Source`, `Query`, `View`, `QueryContext`, `Transaction`, and transparent `ReadError` through the generated public interface. No MoonBit helper or product type is added.
+- **MoonBit core APIs checked:** existing `Result::map`, pattern matching, immutable scalar values, and the accepted Transaction flow remain sufficient. `Map`, `Set`, `Array`/`ArrayView`, `String`/`StringView`, `Bytes`/`BytesView`, `Buffer`/`StringBuilder`, `Option`, `Iter`, and `cmp`/`math` add no value to the fixed consumer or shell-owned archive data.
+- **Shell APIs reused:** `moon package --list --frozen`, `moon tree`, `sha256sum`, `unzip`, `cmp`, `sort`, and `find` own packaging and I/O. The deterministic expected file/output values remain the functional core; temporary staging, process execution, and cleanup remain the imperative shell.
+- **New definitions:** no MoonBit definition is introduced. Shell helpers are limited to command capture, candidate construction, and fail-closed diagnostics.
+
+### K2.3 friction ledger
+
+| Operation | Friction | Classification | Response | API change needed |
+|---|---|---|---|---|
+| Package from workspace member | `moon package` checks unrelated workspace members instead of an isolated product module. | MoonBit syntax | Package an isolated byte-preserving staging copy. | No; not authorized |
+| CI-pinned package policy | MoonBit 0.10.4 includes files ignored by `.moonignore`, while current 0.10.9 honors it. | MoonBit syntax | Use current 0.10.9 as the pinned packager; retain 0.10.4 for consumer compatibility and policy evidence. | No; not authorized |
+| License completeness | The module metadata names Apache-2.0, but the module directory has no license body. | Documentation gap | Inject the repository-root `LICENSE` during isolated staging and verify byte equality. | No; not authorized |
+| README links | Parent-relative links escape a standalone module archive. | Documentation gap | Use canonical absolute repository links in the public README. | No; not authorized |
+| Native C stub | Excluding all of `native_rc` makes native test/run fail because root `moon.pkg` references its C stub. | Example design or knowledge | Include only `native_rc/rc_probe.c`; exclude the executable harness and package. | No; not authorized |
+| Publish dry-run | Both observed CLIs advertise `--dry-run`, but no credential-free network sandbox is available. | MoonBit syntax | Record supported-but-not-executed; invoke no publish command. | No; not authorized |
+
 ## 6. K2.4 disposition
 
 Choose exactly one:
