@@ -286,6 +286,43 @@ jobs:
       - name: Check public-only executable docs
         run: ./scripts/check-incr-next-docs.sh "${{ matrix.target }}"
 
+  incr-next-distribution:
+    name: Incr Next distribution candidate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
+      - name: Install candidate packager MoonBit
+        env:
+          MOONBIT_INSTALL_VERSION: 0.10.9+6e6c44045
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/moonbit-install.sh
+          bash /tmp/moonbit-install.sh
+          cp -a "$HOME/.moon" /tmp/moonbit-k2-3-packager
+      - name: Install CI-pinned consumer MoonBit
+        env:
+          MOONBIT_INSTALL_VERSION: 0.10.4+ade96c819
+        run: |
+          rm -rf "$HOME/.moon"
+          bash /tmp/moonbit-install.sh
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+      - name: Verify K2.3 toolchains
+        run: |
+          /tmp/moonbit-k2-3-packager/bin/moon version --all
+          moon version --all
+      - name: Check isolated candidate and fresh consumer
+        env:
+          MOON_BIN: /tmp/moonbit-k2-3-packager/bin/moon
+          INCR_NEXT_K23_CONSUMER_MOON_BIN: /home/runner/.moon/bin/moon
+          INCR_NEXT_K23_POLICY_PROBE_MOON_BIN: /home/runner/.moon/bin/moon
+        run: ./scripts/check-incr-next-k2-3-distribution.sh
+      - name: Check distribution boundary negative controls
+        env:
+          MOON_BIN: /tmp/moonbit-k2-3-packager/bin/moon
+        run: ./scripts/check-incr-next-k2-3-distribution-selftest.sh
+
   incr-next-rc:
     name: Incr Next native RC ownership
     runs-on: ubuntu-latest
@@ -356,13 +393,14 @@ jobs:
   Incr-Next-Required:
     name: Incr Next Required
     if: ${{ always() }}
-    needs: [incr-next, incr-next-docs, boundaries, incr-next-rc, incr-next-interface]
+    needs: [incr-next, incr-next-docs, incr-next-distribution, boundaries, incr-next-rc, incr-next-interface]
     runs-on: ubuntu-latest
     steps:
       - name: Require Incr Next matrix and boundaries
         run: |
           test "${{ needs['incr-next'].result }}" = success
           test "${{ needs['incr-next-docs'].result }}" = success
+          test "${{ needs['incr-next-distribution'].result }}" = success
           test "${{ needs.boundaries.result }}" = success
           test "${{ needs['incr-next-rc'].result }}" = success
           test "${{ needs['incr-next-interface'].result }}" = success
