@@ -3,6 +3,15 @@
 `dowdiness/incr_next` is the adopted, unpublished pre-1.0 typed query kernel.
 It is independent of `dowdiness/incr`.
 
+## Start here
+
+- [Executable guide](../incr_next_docs/README.mbt.md) — checked Quickstart,
+  snapshots, tracked reads, lifetime, errors, cutoff, and caller obligations
+- [Caller-contract counterexamples](../incr_next_docs/expected_divergence/README.mbt.md)
+  — isolated expected divergence, not kernel promises or Fresh conformance
+- [Product and kernel contract](../docs/design/specs/2026-08-13-incr-next-kernel-contract.md)
+- [Lifetime and transaction contract](../docs/design/specs/2026-08-13-incr-next-lifetime-and-transactions.md)
+
 K1.1 supplies the Store/Region/Source/Query/View lifetime and transaction
 kernel. K1.2a adds query-local typed memo ownership and each successful memo's
 direct forward trace. K1.2b verifies those traces to reuse unrelated
@@ -53,7 +62,9 @@ See the [accepted K1.6 validation record](docs/k1-6-validation.md).
 
 `incr_next` is an unpublished pre-1.0 sibling; current `incr` remains current
 and is not replaced. [Plan 016](../plans/016-incr-next-usability-and-distribution.md)
-commissions K2 usability/distribution evidence; implementation is not accepted.
+commissions K2 usability/distribution evidence. K2.1 public-consumer evidence
+is accepted and merged as `93eb59b6`; K2.2 executable documentation is active
+but not accepted, and K2.3 remains blocked.
 Publication, Canopy production integration, Mount, Program/Port/Formula, public
 debug/explain, public or automatic eviction/LRU, and parallel evaluation remain
 excluded.
