@@ -201,7 +201,10 @@ if [ -n "$policy_probe_moon_bin" ]; then
   policy_stage="$tmp/policy-probe-stage"
   mkdir -p "$policy_stage"
   cp -a "$module"/. "$policy_stage"/
-  rm -rf "$policy_stage/_build" "$policy_stage/.mooncakes"
+  rm -rf \
+    "$policy_stage/_build" \
+    "$policy_stage/.mooncakes" \
+    "$policy_stage/distribution/evidence"
   cp -p "$repo_root/LICENSE" "$policy_stage/LICENSE"
   run_capture policy-probe-package "$policy_stage" "$policy_probe_moon_bin" package --list --frozen || fail "policy-probe moon package command failed"
   mapfile -t policy_archives < <(find "$policy_stage/_build/publish" -maxdepth 1 -name '*.zip' -type f -print)
