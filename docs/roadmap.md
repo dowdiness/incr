@@ -24,8 +24,8 @@ are normative. Plan 015 is complete; its durable implementation record is the
 
 K1 is complete: K1.1–K1.6 are accepted and merged, with accepted evidence
 indexed by [`incr_next/docs/README.md`](../incr_next/docs/README.md). Plan 016
-commissions K2 usability/distribution evidence. K2.1–K2.2 are accepted and
-merged; K2.3 distribution evidence is active, while K2.4 remains blocked.
+commissions K2 usability/distribution evidence. K2.1–K2.3 are accepted and
+merged; K2.4 product disposition is active with evidence pending.
 
 Publication, Canopy production integration, Mount, Program/Port/Formula, public
 debug/explain, public or automatic eviction/LRU, and parallel evaluation remain

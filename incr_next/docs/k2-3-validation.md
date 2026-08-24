@@ -13,10 +13,10 @@ repository.
 the product package and remove time-bound raw evidence, or delete this record
 with the disposition rationale.
 
-**Status:** **LOCAL ACCEPTANCE PASS** at reviewed candidate
-`48cdfccb6398450b4f588522b241bd7da25b409c`. Independent MoonBit review returned
-`APPROVE` with no findings after the dual-matrix fix. Maintainer acceptance and
-Hosted CI remain pending. Publication and registry mutation remain
+**Status:** **ACCEPTED AND MERGED** as
+`3007f5ff2e2cf8c459ab04916f27a34fb62cf0e3` from reviewed candidate
+`51850082c3668311532b858bcd903ed4a7134d52`; tree equivalence, Hosted CI, and
+independent MoonBit review passed. Publication and registry mutation remain
 unauthorized.
 
 ## Source and tools

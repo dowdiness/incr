@@ -64,8 +64,8 @@ See the [accepted K1.6 validation record](https://github.com/dowdiness/incr/blob
 and is not replaced. [Plan 016](https://github.com/dowdiness/incr/blob/main/plans/016-incr-next-usability-and-distribution.md)
 commissions K2 usability/distribution evidence. K2.1 public-consumer evidence
 is accepted and merged as `93eb59b6`; K2.2 executable documentation is
-accepted and merged as `9360816f`; K2.3 distribution evidence is active, while
-K2.4 remains blocked.
+accepted and merged as `9360816f`; K2.3 distribution evidence is accepted and
+merged as `3007f5ff`; K2.4 product disposition is active.
 Publication, Canopy production integration, Mount, Program/Port/Formula, public
 debug/explain, public or automatic eviction/LRU, and parallel evaluation remain
 excluded.

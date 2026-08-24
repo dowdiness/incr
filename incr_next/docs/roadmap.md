@@ -15,7 +15,8 @@ is delegated to the [validation index](README.md).
 K2 covering external consumer/usability, executable docs, and a distribution
 dry-run. K2.1 public-consumer evidence is accepted and merged as `93eb59b6`;
 K2.2 executable documentation is accepted and merged as `9360816f`. K2.3
-distribution evidence is active, while K2.4 remains blocked.
+distribution evidence is accepted and merged as `3007f5ff`. K2.4 product
+disposition is active with evidence pending.
 
 Publication, Canopy production integration, Mount, Program/Port/Formula, public
 debug/explain, public or automatic eviction/LRU, and parallel evaluation remain

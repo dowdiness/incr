@@ -6,9 +6,9 @@
 
 **Keep until:** K2 is accepted, rejected, or replaced and its disposition is recorded.
 
-**Disposition:** Active handoff, commissioned; K2.1–K2.2 accepted and K2.3 active.
+**Disposition:** Active handoff, commissioned; K2.1–K2.3 accepted and K2.4 active.
 
-**Status:** `IN PROGRESS (K2.1–K2.2 ACCEPTED; K2.3 EVIDENCE PENDING)`
+**Status:** `IN PROGRESS (K2.1–K2.3 ACCEPTED; K2.4 DISPOSITION PENDING)`
 
 **Decision record:** This commission updates the existing [2026-08-17 sibling-product ADR](../docs/decisions/2026-08-17-incr-next-pre-1-0-sibling-product.md) to record that its separate K2 gate has fired. It creates no new ADR; closure/disposition updates or adds an ADR as appropriate.
 
@@ -171,7 +171,7 @@ The repository workspace is not a valid packaging root: `moon package` walks int
 | Native C stub | Excluding all of `native_rc` makes native test/run fail because root `moon.pkg` references its C stub. | Example design or knowledge | Include only `native_rc/rc_probe.c`; exclude the executable harness and package. | No; not authorized |
 | Publish dry-run | Both observed CLIs advertise `--dry-run`, but no credential-free network sandbox is available. | MoonBit syntax | Record supported-but-not-executed; invoke no publish command. | No; not authorized |
 
-K2.3 has **LOCAL ACCEPTANCE PASS** at reviewed candidate `48cdfccb6398450b4f588522b241bd7da25b409c`: deterministic 17-file archive, separately retained current and CI-pinned four-target consumer passes, candidate-absent frozen failure, zero source fallback, zero registry mutation, and independent MoonBit review `APPROVE` with no findings. Maintainer acceptance and Hosted CI remain pending; K2.3 is not yet accepted and K2.4 remains blocked.
+K2.3 is **ACCEPTED AND MERGED** as `3007f5ff2e2cf8c459ab04916f27a34fb62cf0e3` from reviewed candidate `51850082c3668311532b858bcd903ed4a7134d52`: deterministic 17-file archive, separately retained current and CI-pinned four-target consumer passes, candidate-absent frozen failure, zero source fallback, zero registry mutation, Hosted CI pass, tree equivalence pass, and independent MoonBit review `APPROVE`. K2.4 disposition is active; publication remains unauthorized.
 
 ## 6. K2.4 disposition
 

@@ -12,8 +12,8 @@ examples, while keeping caller-contract violations in a separate package.
 delete it with the disposition rationale.
 
 **Status:** K2.2 accepted and squash-merged as `9360816f`; K2.3 distribution
-evidence is active. Incr Next remains an unpublished pre-1.0 sibling of current
-Incr.
+evidence accepted and squash-merged as `3007f5ff`; K2.4 disposition is active.
+Incr Next remains an unpublished pre-1.0 sibling of current Incr.
 
 Every `mbt check` block in this guide is compiled and tested on default,
 native, JavaScript, and wasm-gc. CI discovers all `.mbt.md` files in this module, so the
@@ -26,9 +26,9 @@ module and package manifests.
 
 ## Dependency
 
-Incr Next is not published. During K2 this versioned dependency resolves only
-inside the repository workspace; K2.3 will separately test a candidate artifact
-outside the source tree. Do not infer registry availability from this guide.
+Incr Next is not published. K2.3 separately proved consumption of an unpacked
+candidate artifact outside the source tree; this workspace guide still does not
+imply registry availability.
 
 ```moonbit nocheck
 // moon.mod

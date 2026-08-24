@@ -12,7 +12,7 @@ successful guide and independent Fresh conformance.
 them with the disposition rationale.
 
 **Status:** K2.2 accepted and squash-merged as `9360816f`; K2.3 distribution
-evidence is active.
+evidence accepted and squash-merged as `3007f5ff`; K2.4 disposition is active.
 
 These tests intentionally violate public caller obligations. Their observed
 results are deterministic demonstrations of aliasing, missing tracking, or an
