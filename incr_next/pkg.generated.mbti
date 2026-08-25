@@ -102,4 +102,3 @@ pub struct View[V] {
 pub(open) trait CutoffEq {
   fn cutoff_equal(Self, Self) -> Bool
 }
-

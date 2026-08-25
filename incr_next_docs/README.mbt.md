@@ -12,7 +12,8 @@ examples, while keeping caller-contract violations in a separate package.
 
 **Status:** K2.2 accepted and squash-merged as `9360816f`; K2.3 distribution
 evidence accepted and squash-merged as `3007f5ff`; K2 is complete. A separate
-alpha publication commission is recommended after packager standardization.
+alpha publication commission is recommended. Active repository automation now
+uses exact MoonBit 0.10.9+6e6c44045, satisfying the K2 packager prerequisite.
 Incr Next remains unpublished until that later commission explicitly authorizes
 it.
 
@@ -32,6 +33,7 @@ candidate artifact outside the source tree; this workspace guide still does not
 imply registry availability.
 
 ```moonbit nocheck
+///|
 // moon.mod
 import {
   "dowdiness/incr_next@0.1.0-alpha.1",
@@ -39,6 +41,7 @@ import {
 ```
 
 ```moonbit nocheck
+///|
 // moon.pkg
 import {
   "dowdiness/incr_next",
