@@ -12,6 +12,7 @@ caught by `moon check`.
 Add `incr` to your `moon.pkg`:
 
 ```moonbit nocheck
+///|
 import {
   "dowdiness/incr",
 }

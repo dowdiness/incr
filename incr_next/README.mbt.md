@@ -64,8 +64,9 @@ See the [accepted K1.6 validation record](https://github.com/dowdiness/incr/blob
 and is not replaced. [Plan 016 at final disposition](https://github.com/dowdiness/incr/blob/e30cf501db5a88d7a3764e8703c1f01b2077e046/plans/016-incr-next-usability-and-distribution.md)
 records accepted K2 evidence. The
 [updated sibling-product ADR](https://github.com/dowdiness/incr/blob/main/docs/decisions/2026-08-17-incr-next-pre-1-0-sibling-product.md)
-recommends a separate alpha publication commission after candidate packaging is
-standardized on MoonBit 0.10.9 or newer. Actual publication, registry mutation,
-version release, Canopy production integration, Mount, Program/Port/Formula,
+recommends a separate alpha publication commission. Active repository automation
+now uses exact MoonBit 0.10.9+6e6c44045, satisfying the K2 packager prerequisite.
+Actual publication, registry mutation, version release, Canopy production
+integration, Mount, Program/Port/Formula,
 public debug/explain, public or automatic eviction/LRU, and parallel evaluation
 remain excluded.

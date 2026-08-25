@@ -38,8 +38,6 @@ jobs:
 
       - name: Install MoonBit
         uses: ./.github/actions/install-moonbit
-        with:
-          version: 0.10.4+ade96c819
 
       - name: Verify MoonBit
         run: moon version --all

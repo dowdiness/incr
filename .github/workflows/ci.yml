@@ -36,28 +36,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
-      # Install via the official MoonBit script (pinned) wrapped in a retry.
-      # We deliberately do NOT use hustcer/setup-moonbit: it pulls a Nu binary
-      # from a GitHub-releases CDN that intermittently 504s, reddening a random
-      # leg ~once per run (issue #229). The official script fetches only the
-      # pinned toolchain + core from cli.moonbitlang.com (no Nu), and the retry
-      # loop absorbs transient blips. Pinned for reproducibility (issue #227).
+      # The repository-local action installs exact, checksum-verified MoonBit
+      # artifacts with retries (issues #227 and #229).
       - name: Install MoonBit
-        env:
-          MOONBIT_INSTALL_VERSION: 0.10.4+ade96c819
-        run: |
-          install_moonbit() {
-            curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/moonbit-install.sh \
-              && bash /tmp/moonbit-install.sh
-          }
-          for attempt in 1 2 3; do
-            if install_moonbit; then break; fi
-            if [ "$attempt" = 3 ]; then
-              echo "MoonBit install failed after 3 attempts"; exit 1
-            fi
-            echo "install attempt $attempt failed; retrying in 10s..."; sleep 10
-          done
-          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+        uses: ./.github/actions/install-moonbit
 
       - name: Verify MoonBit
         run: moon version --all
@@ -81,28 +63,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
-      # Install via the official MoonBit script (pinned) wrapped in a retry.
-      # We deliberately do NOT use hustcer/setup-moonbit: it pulls a Nu binary
-      # from a GitHub-releases CDN that intermittently 504s, reddening a random
-      # leg ~once per run (issue #229). The official script fetches only the
-      # pinned toolchain + core from cli.moonbitlang.com (no Nu), and the retry
-      # loop absorbs transient blips. Pinned for reproducibility (issue #227).
+      # The repository-local action installs exact, checksum-verified MoonBit
+      # artifacts with retries (issues #227 and #229).
       - name: Install MoonBit
-        env:
-          MOONBIT_INSTALL_VERSION: 0.10.4+ade96c819
-        run: |
-          install_moonbit() {
-            curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/moonbit-install.sh \
-              && bash /tmp/moonbit-install.sh
-          }
-          for attempt in 1 2 3; do
-            if install_moonbit; then break; fi
-            if [ "$attempt" = 3 ]; then
-              echo "MoonBit install failed after 3 attempts"; exit 1
-            fi
-            echo "install attempt $attempt failed; retrying in 10s..."; sleep 10
-          done
-          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+        uses: ./.github/actions/install-moonbit
 
       - name: Verify MoonBit
         run: moon version --all
@@ -139,21 +103,7 @@ jobs:
           persist-credentials: false
 
       - name: Install MoonBit for compile-negative probes
-        env:
-          MOONBIT_INSTALL_VERSION: 0.10.4+ade96c819
-        run: |
-          install_moonbit() {
-            curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/moonbit-install.sh \
-              && bash /tmp/moonbit-install.sh
-          }
-          for attempt in 1 2 3; do
-            if install_moonbit; then break; fi
-            if [ "$attempt" = 3 ]; then
-              echo "MoonBit install failed after 3 attempts"; exit 1
-            fi
-            echo "install attempt $attempt failed; retrying in 10s..."; sleep 10
-          done
-          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+        uses: ./.github/actions/install-moonbit
 
       - name: Fetch registry dependencies
         working-directory: incr
@@ -213,21 +163,7 @@ jobs:
           persist-credentials: false
 
       - name: Install MoonBit
-        env:
-          MOONBIT_INSTALL_VERSION: 0.10.4+ade96c819
-        run: |
-          install_moonbit() {
-            curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/moonbit-install.sh \
-              && bash /tmp/moonbit-install.sh
-          }
-          for attempt in 1 2 3; do
-            if install_moonbit; then break; fi
-            if [ "$attempt" = 3 ]; then
-              echo "MoonBit install failed after 3 attempts"; exit 1
-            fi
-            echo "install attempt $attempt failed; retrying in 10s..."; sleep 10
-          done
-          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+        uses: ./.github/actions/install-moonbit
 
       - name: Verify MoonBit
         run: moon version --all
@@ -263,21 +199,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install MoonBit
-        env:
-          MOONBIT_INSTALL_VERSION: 0.10.4+ade96c819
-        run: |
-          install_moonbit() {
-            curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/moonbit-install.sh \
-              && bash /tmp/moonbit-install.sh
-          }
-          for attempt in 1 2 3; do
-            if install_moonbit; then break; fi
-            if [ "$attempt" = 3 ]; then
-              echo "MoonBit install failed after 3 attempts"; exit 1
-            fi
-            echo "install attempt $attempt failed; retrying in 10s..."; sleep 10
-          done
-          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+        uses: ./.github/actions/install-moonbit
       - name: Verify MoonBit
         run: moon version --all
       - name: Fetch registry dependencies
@@ -295,19 +217,17 @@ jobs:
         with:
           persist-credentials: false
       - name: Install candidate packager MoonBit
+        uses: ./.github/actions/install-moonbit
+      - name: Preserve candidate packager MoonBit
+        run: cp -a "$HOME/.moon" /tmp/moonbit-k2-3-packager
+      - name: Install MoonBit 0.10.4 compatibility consumer
+        uses: ./.github/actions/install-moonbit
         env:
-          MOONBIT_INSTALL_VERSION: 0.10.9+6e6c44045
-        run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/moonbit-install.sh
-          bash /tmp/moonbit-install.sh
-          cp -a "$HOME/.moon" /tmp/moonbit-k2-3-packager
-      - name: Install CI-pinned consumer MoonBit
-        env:
-          MOONBIT_INSTALL_VERSION: 0.10.4+ade96c819
-        run: |
-          rm -rf "$HOME/.moon"
-          bash /tmp/moonbit-install.sh
-          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+          MOON_HOME: /tmp/moonbit-k2-3-compat
+        with:
+          version: 0.10.4+ade96c819
+          binary-sha256: 5cce093c6795211fcade5e5ff697d88ec4ff416d2785197f004188aca724a753
+          core-sha256: e2bf3cc765412055242384fb72a618b62ad4889eae11956251ff921839d022d2
       - name: Verify K2.3 toolchains
         run: |
           /tmp/moonbit-k2-3-packager/bin/moon version --all
@@ -317,11 +237,11 @@ jobs:
           MOON_BIN: /tmp/moonbit-k2-3-packager/bin/moon
           INCR_NEXT_K23_OUTPUT_DIR: /tmp/incr-next-k2-3-current
         run: ./scripts/check-incr-next-k2-3-distribution.sh
-      - name: Check CI-pinned candidate consumer and package policy
+      - name: Check 0.10.4 compatibility consumer and package policy
         env:
           MOON_BIN: /tmp/moonbit-k2-3-packager/bin/moon
-          INCR_NEXT_K23_CONSUMER_MOON_BIN: /home/runner/.moon/bin/moon
-          INCR_NEXT_K23_POLICY_PROBE_MOON_BIN: /home/runner/.moon/bin/moon
+          INCR_NEXT_K23_CONSUMER_MOON_BIN: /tmp/moonbit-k2-3-compat/bin/moon
+          INCR_NEXT_K23_POLICY_PROBE_MOON_BIN: /tmp/moonbit-k2-3-compat/bin/moon
           INCR_NEXT_K23_OUTPUT_DIR: /tmp/incr-next-k2-3-pinned
         run: ./scripts/check-incr-next-k2-3-distribution.sh
       - name: Check distribution boundary negative controls
@@ -338,21 +258,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install MoonBit
-        env:
-          MOONBIT_INSTALL_VERSION: 0.10.4+ade96c819
-        run: |
-          install_moonbit() {
-            curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/moonbit-install.sh \
-              && bash /tmp/moonbit-install.sh
-          }
-          for attempt in 1 2 3; do
-            if install_moonbit; then break; fi
-            if [ "$attempt" = 3 ]; then
-              echo "MoonBit install failed after 3 attempts"; exit 1
-            fi
-            echo "install attempt $attempt failed; retrying in 10s..."; sleep 10
-          done
-          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+        uses: ./.github/actions/install-moonbit
       - name: Fetch registry dependencies
         working-directory: incr
         run: moon update
@@ -368,32 +274,15 @@ jobs:
         with:
           persist-credentials: false
       - name: Install MoonBit
-        env:
-          MOONBIT_INSTALL_VERSION: 0.10.4+ade96c819
-        run: |
-          install_moonbit() {
-            curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/moonbit-install.sh \
-              && bash /tmp/moonbit-install.sh
-          }
-          for attempt in 1 2 3; do
-            if install_moonbit; then break; fi
-            if [ "$attempt" = 3 ]; then
-              echo "MoonBit install failed after 3 attempts"; exit 1
-            fi
-            echo "install attempt $attempt failed; retrying in 10s..."; sleep 10
-          done
-          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+        uses: ./.github/actions/install-moonbit
       - name: Fetch registry dependencies
         working-directory: incr
         run: moon update
       - name: Check formatting and generated interfaces
         run: |
-          (cd incr_next && moon fmt && moon info)
-          test -z "$(git status --short -- incr_next)"
-          (cd incr_next_testkit && moon fmt && moon info)
-          test -z "$(git status --short -- incr_next_testkit)"
-          (cd incr_next_docs && moon fmt && moon info)
-          test -z "$(git status --short -- incr_next_docs)"
+          moon fmt incr_next incr_next_testkit incr_next_docs
+          moon info incr_next incr_next_testkit incr_next_docs
+          test -z "$(git status --short -- incr_next incr_next_testkit incr_next_docs)"
           git diff --check
 
   Incr-Next-Required:
@@ -479,24 +368,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
-      # See the library job for why we use the official script (issue #229) and
-      # the pin rationale (issue #227).
+      # See the library job for the verified pin and retry rationale.
       - name: Install MoonBit
-        env:
-          MOONBIT_INSTALL_VERSION: 0.10.4+ade96c819
-        run: |
-          install_moonbit() {
-            curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/moonbit-install.sh \
-              && bash /tmp/moonbit-install.sh
-          }
-          for attempt in 1 2 3; do
-            if install_moonbit; then break; fi
-            if [ "$attempt" = 3 ]; then
-              echo "MoonBit install failed after 3 attempts"; exit 1
-            fi
-            echo "install attempt $attempt failed; retrying in 10s..."; sleep 10
-          done
-          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+        uses: ./.github/actions/install-moonbit
 
       - name: Verify MoonBit
         run: moon version --all
@@ -535,21 +409,7 @@ jobs:
           persist-credentials: false
 
       - name: Install MoonBit
-        env:
-          MOONBIT_INSTALL_VERSION: 0.10.4+ade96c819
-        run: |
-          install_moonbit() {
-            curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/moonbit-install.sh \
-              && bash /tmp/moonbit-install.sh
-          }
-          for attempt in 1 2 3; do
-            if install_moonbit; then break; fi
-            if [ "$attempt" = 3 ]; then
-              echo "MoonBit install failed after 3 attempts"; exit 1
-            fi
-            echo "install attempt $attempt failed; retrying in 10s..."; sleep 10
-          done
-          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+        uses: ./.github/actions/install-moonbit
 
       - name: Verify MoonBit
         run: moon version --all
@@ -585,24 +445,9 @@ jobs:
         with:
           persist-credentials: false
 
-      # See the library job for why we use the official script (issue #229) and
-      # the pin rationale (issue #227).
+      # See the library job for the verified pin and retry rationale.
       - name: Install MoonBit
-        env:
-          MOONBIT_INSTALL_VERSION: 0.10.4+ade96c819
-        run: |
-          install_moonbit() {
-            curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/moonbit-install.sh \
-              && bash /tmp/moonbit-install.sh
-          }
-          for attempt in 1 2 3; do
-            if install_moonbit; then break; fi
-            if [ "$attempt" = 3 ]; then
-              echo "MoonBit install failed after 3 attempts"; exit 1
-            fi
-            echo "install attempt $attempt failed; retrying in 10s..."; sleep 10
-          done
-          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+        uses: ./.github/actions/install-moonbit
 
       - name: Verify MoonBit
         run: moon version --all
@@ -644,8 +489,6 @@ jobs:
 
       - name: Install MoonBit
         uses: ./.github/actions/install-moonbit
-        with:
-          version: 0.10.4+ade96c819
 
       - name: Verify MoonBit
         run: moon version --all
@@ -691,8 +534,6 @@ jobs:
 
       - name: Install MoonBit
         uses: ./.github/actions/install-moonbit
-        with:
-          version: 0.10.4+ade96c819
 
       - name: Verify MoonBit
         run: moon version --all

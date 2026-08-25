@@ -70,7 +70,7 @@ evidence (the unpublished, independent pre-1.0 sibling module
 
 - [Product and Kernel Contract](design/specs/2026-08-13-incr-next-kernel-contract.md) — product/module seam, public capabilities, Fresh parity, clocks, verification, cycles, cutoff, proof loss, snapshot contract, and K1 acceptance
 - [Lifetime and Transaction Contract](design/specs/2026-08-13-incr-next-lifetime-and-transactions.md) — transaction-only publication, Region close, cross-Region traces, failure atomicity, and ownership release
-- [Incr Next module roadmap](../incr_next/docs/roadmap.md) — K1 and K2 accepted; packager standardization precedes a recommended separate alpha publication commission
+- [Incr Next module roadmap](../incr_next/docs/roadmap.md) — K1 and K2 accepted; K2 packager prerequisite satisfied by MoonBit 0.10.9 standardization; a recommended separate alpha publication commission remains
 - [Incr Next K2.1 consumer probe](../incr_next_consumer_probe/README.md) — accepted standalone public-only consumer evidence and K2.3 fixture
 - [Incr Next executable guide](../incr_next_docs/README.mbt.md) — accepted checked public-only Quickstart, snapshots, tracked reads, lifetime, errors, cutoff, and caller obligations
 - [Incr Next expected divergence](../incr_next_docs/expected_divergence/README.mbt.md) — accepted separately checked caller-contract violations; not kernel promises or Fresh conformance
@@ -107,7 +107,7 @@ live in each ADR.
 
 | Date | Decision |
 |------|----------|
-| [2026-08-17](decisions/2026-08-17-incr-next-pre-1-0-sibling-product.md) | Incr Next adopted as a pre-1.0 sibling product; K1 and K2 are accepted, a separate alpha publication commission is recommended after packager standardization, and publication/production integration remain gated |
+| [2026-08-17](decisions/2026-08-17-incr-next-pre-1-0-sibling-product.md) | Incr Next adopted as a pre-1.0 sibling product; K1 and K2 are accepted, K2 packager prerequisite satisfied by MoonBit 0.10.9 standardization, a recommended separate alpha publication commission remains, and publication/production integration remain gated |
 | [2026-04-20](decisions/2026-04-20-accumulator-api.md) | Accumulator API: side-channel collector with push-set incremental invalidation |
 | [2026-04-26](decisions/2026-04-26-r2-runtime-decomposition-deferred.md) | R2 runtime-services decomposition: deferred indefinitely (no driver) |
 | [2026-04-26](decisions/2026-04-26-modal-runtime-split-not-warranted.md) | Per-mode Runtime split: investigation closed, not warranted |

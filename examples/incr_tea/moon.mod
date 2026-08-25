@@ -11,4 +11,5 @@ import {
   "mizchi/luna@0.23.0",
   "mizchi/js@0.10.16",
   "mizchi/signals@0.6.4",
+  "moonbitlang/async@0.21.0",
 }

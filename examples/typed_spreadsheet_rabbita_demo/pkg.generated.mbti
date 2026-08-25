@@ -31,4 +31,3 @@ type OverlayPanel derive(Eq)
 // Type aliases
 
 // Traits
-

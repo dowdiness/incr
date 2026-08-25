@@ -27,6 +27,12 @@ K1 and K2 are complete and accepted, with evidence indexed by
 separate alpha publication commission after one prerequisite: standardize
 active candidate packaging on an exact MoonBit 0.10.9-or-newer pin while
 preserving historical evidence pins and optional 0.10.4 consumer compatibility.
+Active repository automation now uses exact MoonBit 0.10.9+6e6c44045 through
+its checksum-verified local installer, satisfying that prerequisite.
+Repository-wide validation exposed the `examples/incr_tea` transitive
+`moonbitlang/async@0.19.0` as compiler-incompatible; the example module now
+resolves `async@0.21.0` directly while retaining its existing Luna, JS, and
+Rabbita pins.
 
 Actual publication, registry mutation, version release, Canopy production
 integration, Mount, Program/Port/Formula, public debug/explain, public or

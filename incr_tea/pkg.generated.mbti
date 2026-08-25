@@ -298,4 +298,3 @@ pub fn ValuePayload::ValuePayload(String) -> Self
 pub type Subscriptions[Msg] = @hashmap.HashMap[SubKey, SubSpec[Msg]]
 
 // Traits
-

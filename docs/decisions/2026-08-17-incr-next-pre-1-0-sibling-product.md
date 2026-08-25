@@ -78,11 +78,13 @@ consumer but cannot enforce the selected `.moonignore` package policy. MoonBit
   Time-bound raw K2.3 command output is removed after the accepted hashes are
   preserved in the [K2.3 validation record](../../incr_next/docs/k2-3-validation.md)
   and the toolchain constraint is preserved here and in the package policy.
-- The next implementation commission may standardize active repository
-  packaging on an exact MoonBit 0.10.9-or-newer pin. Historical K1/K2 evidence
-  pins remain unchanged.
-- Alpha publication requires a new explicit commission after that migration.
-  Publication, registry mutation, version release, and Canopy production
-  integration remain unauthorized until then.
+- Active repository automation uses exact MoonBit 0.10.9+6e6c44045 through
+  the checksum-verified repository-local installer, satisfying the K2 packager
+  prerequisite. Historical K1/K2 evidence pins remain unchanged; K2.3 retains
+  MoonBit 0.10.4 only as
+  compatibility-consumer/package-policy evidence.
+- Alpha publication requires a new explicit commission. Publication, registry
+  mutation, version release, and Canopy production integration remain
+  unauthorized and require a separate explicit commission.
 - Mount, Program/Port/Formula, public debug/explain, public or automatic
   eviction/LRU, and parallel evaluation remain separately gated.

@@ -93,4 +93,3 @@ type UiEffect derive(Eq, @debug.Debug)
 // Type aliases
 
 // Traits
-

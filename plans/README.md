@@ -128,9 +128,10 @@ dependency convergence, decision record, and separately shaped follow-ups.
   performance investigation is commissioned.
 - R16 is complete: PR #408 shipped the typed-spreadsheet `incr_tea` proof and
   issue #268 is closed.
-- R21 remains blocked. The repository pins MoonBit `0.10.4+ade96c819`; its
-  official GitHub release still contains only `moonbit-wasm.tar.gz`, not the
-  native CLI-plus-core artifacts and independent provenance required by R21.
+- R21 remains blocked. Active automation pins MoonBit `0.10.9+6e6c44045` and
+  verifies the versioned native CLI and core archives against repository-recorded
+  SHA-256 values, but MoonBit still provides no independent vendor-published
+  digest, signature, or attestation required by R21.
 
 ## Recorded for later revisit
 
@@ -161,7 +162,7 @@ valid but its explicit external evidence gate has not fired.
 | R18 | Run reactive-collection driver discovery in Canopy before adding any `ReactiveMap`, relation-delta, or cleanup public API to `incr` | direction/spike | M | A downstream workload proves `DerivedMap` insufficient | RECORDED |
 | R19 | Explore WebComponent/custom-element mount boundaries as a spike, not a stability commitment | direction/spike | M–L | The editor driver demonstrates concrete embedding and teardown pressure | RECORDED |
 | R20 | Retire or refresh `docs/research/next-sessions-runtime-roadmap.md`, whose mandatory starting point predates composable listeners and the v0.13/v0.14 boundary cleanup | docs | S–M | Combine with R05 or revalidate across Loom and Canopy | DONE |
-| R21 | Replace the mutable MoonBit installer/setup path with an independently verified native CLI-plus-core bootstrap | security/ci | M | Official MoonBit publishes durable versioned native CLI and core artifacts plus immutable vendor-published digests, signatures, or attestations for the repository's pinned version; do not substitute mutable `latest` checksums, runtime-computed digests, or the WASM compiler release | BLOCKED (vendor provenance) |
+| R21 | Replace the mutable MoonBit installer/setup path with an independently verified native CLI-plus-core bootstrap | security/ci | M | Official MoonBit publishes immutable vendor digests, signatures, or attestations for the repository's pinned native CLI and core artifacts; repository-recorded or runtime-computed checksums are not independent provenance | BLOCKED (vendor provenance) |
 | R22 | Bound the `ViewUnchanged` controlled-reconcile scan (`renderer_js.mbt` `reconcile_controlled_rendered` recurses all nodes and attrs on every no-op flush) e.g. by recording controlled-subtree presence at render time | perf investigation | M | JS/browser measurement on a large mostly-static tree shows the per-flush traversal is material; `controlled_reconcile_dom_bench.mbt` is the starting harness | RECORDED |
 | R23 | Decide the Scope-vs-datalog bulk-disposal contract: `Scope` disposes owned cells in registration order (`scope.mbt:108-110`), which would dispose relations before their pinning rules if datalog `CellId`s were ever adopted via `add_cell_ids` | architecture | M | Latent — no current constructor scopes datalog cells; decide (reverse-order disposal or explicit rejection of datalog ids) before scoping datalog lifecycles | RECORDED |
 | R24 | AI-context operation intake: the spreadsheet demos publish a read-only `AiContextSnapshot` (globalThis accessors, evidence classification) with no matching `apply(op)` intake; a validated command intake routed through `run_batched_op` would close the agent loop. Trust boundary for agent-authored formula text must be decided first | direction/spike | L (coarse) | Maintainer wants the closed-loop AI spreadsheet driver; `bench_api.mbt`'s dispatch-from-JS harness proves the mechanism | RECORDED |
