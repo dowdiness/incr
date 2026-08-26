@@ -10,23 +10,17 @@ fn fresh_work(observations : Array[@model.Observation]) -> Int {
 test "Fresh cycle matrix has exact witnesses, values, and work" {
   let direct = @fresh.evaluate(@scenarios.direct_cycle())
   assert_eq(direct, [
-    @model.Observation::Error(
-      @model.ScenarioError::Cycle(@model.CycleWitness::CycleWitness([0, 0])),
-    ),
+    @model.Observation::Error(@model.ScenarioError::Cycle),
     @model.Observation::Counter(1),
   ])
   assert_eq(fresh_work(@fresh.evaluate(@scenarios.direct_cycle())), 1)
 
   assert_eq(@fresh.evaluate(@scenarios.mutual_cycle()), [
-    @model.Observation::Error(
-      @model.ScenarioError::Cycle(@model.CycleWitness::CycleWitness([0, 1, 0])),
-    ),
+    @model.Observation::Error(@model.ScenarioError::Cycle),
     @model.Observation::Counter(2),
   ])
   assert_eq(@fresh.evaluate(@scenarios.same_query_key_cycle()), [
-    @model.Observation::Error(
-      @model.ScenarioError::Cycle(@model.CycleWitness::CycleWitness([0, 0, 0])),
-    ),
+    @model.Observation::Error(@model.ScenarioError::Cycle),
     @model.Observation::Counter(2),
   ])
   assert_eq(@fresh.evaluate(@scenarios.finite_recursion()), [
@@ -51,12 +45,8 @@ test "Fresh cycle matrix has exact witnesses, values, and work" {
 test "Fresh cycle errors are not cached and recovery uses current state" {
   assert_eq(@fresh.evaluate(@scenarios.cycle_recovery()), [
     @model.Observation::Value(0),
-    @model.Observation::Error(
-      @model.ScenarioError::Cycle(@model.CycleWitness::CycleWitness([0, 0])),
-    ),
-    @model.Observation::Error(
-      @model.ScenarioError::Cycle(@model.CycleWitness::CycleWitness([0, 0])),
-    ),
+    @model.Observation::Error(@model.ScenarioError::Cycle),
+    @model.Observation::Error(@model.ScenarioError::Cycle),
     @model.Observation::Value(2),
     @model.Observation::Counter(4),
   ])

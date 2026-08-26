@@ -1,0 +1,3 @@
+fn invalid_diagnostic_field(diagnostic : @kernel.Diagnostic) -> String {
+  diagnostic.message_text
+}

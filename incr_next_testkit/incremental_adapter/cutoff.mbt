@@ -26,112 +26,98 @@ fn cutoff_observation_value(kind : @model.CutoffKind, step : Int) -> Int {
 /// Runs the same cutoff workload against the independent kernel adapter.
 pub fn evaluate_cutoff(
   script : @model.CutoffScript,
-) -> Array[@model.Observation] {
+) -> Array[@model.Observation] raise {
   let store = @incr_next.Store::Store()
-  let region = store.region().unwrap()
-  let trigger = region.source(0).unwrap()
-  let query : (Unit) -> Result[CutoffValue, @incr_next.ReadError] = match
+  let region = store.region()
+  let trigger = region.source(0)
+  let query : (Unit) -> CutoffValue raise @incr_next.ReadError = match
     script.kind() {
     @model.CutoffKind::AlwaysChangedEquivalent => {
-      let query = region
-        .query_always_changed((ctx, _unit : Unit) => {
-          match ctx.read(trigger.view()) {
-            Ok(step) => Ok(CutoffValue::{ value: 0, marker: step })
-            Err(error) => Err(error)
-          }
-        })
-        .unwrap()
-      unit => store.read(query.at(unit))
+      let query = region.query((ctx, _unit : Unit) => {
+        let step = ctx.get(trigger.view())
+        CutoffValue::{ value: 0, marker: step }
+      })
+      unit => store.get(query.view(unit))
     }
     @model.CutoffKind::EqEquivalent => {
-      let query = region
-        .query_eq((ctx, _unit : Unit) => {
-          match ctx.read(trigger.view()) {
-            Ok(step) => Ok(CutoffValue::{ value: 0, marker: step })
-            Err(error) => Err(error)
-          }
-        })
-        .unwrap()
-      unit => store.read(query.at(unit))
+      let query = region.query(
+        (ctx, _unit : Unit) => {
+          let step = ctx.get(trigger.view())
+          CutoffValue::{ value: 0, marker: step }
+        },
+        cutoff=@incr_next.Cutoff::equal(),
+      )
+      unit => store.get(query.view(unit))
     }
     @model.CutoffKind::ConsecutiveEquivalent => {
-      let query = region
-        .query_type_owned((ctx, _unit : Unit) => {
-          match ctx.read(trigger.view()) {
-            Ok(step) => Ok(CutoffValue::{ value: 0, marker: step })
-            Err(error) => Err(error)
-          }
-        })
-        .unwrap()
-      unit => store.read(query.at(unit))
+      let query = region.query(
+        (ctx, _unit : Unit) => {
+          let step = ctx.get(trigger.view())
+          CutoffValue::{ value: 0, marker: step }
+        },
+        cutoff=@incr_next.Cutoff::type_owned(),
+      )
+      unit => store.get(query.view(unit))
     }
     @model.CutoffKind::EqChanged => {
-      let query = region
-        .query_eq((ctx, _unit : Unit) => {
-          match ctx.read(trigger.view()) {
-            Ok(step) => Ok(CutoffValue::{ value: step, marker: step })
-            Err(error) => Err(error)
-          }
-        })
-        .unwrap()
-      unit => store.read(query.at(unit))
+      let query = region.query(
+        (ctx, _unit : Unit) => {
+          let step = ctx.get(trigger.view())
+          CutoffValue::{ value: step, marker: step }
+        },
+        cutoff=@incr_next.Cutoff::equal(),
+      )
+      unit => store.get(query.view(unit))
     }
     @model.CutoffKind::TypeOwnedEquivalent
     | @model.CutoffKind::TypeOwnedChanged => {
       let kind = script.kind()
-      let query = region
-        .query_type_owned((ctx, _unit : Unit) => {
-          match ctx.read(trigger.view()) {
-            Ok(step) =>
-              Ok(CutoffValue::{
-                value: cutoff_observation_value(kind, step),
-                marker: step,
-              })
-            Err(error) => Err(error)
+      let query = region.query(
+        (ctx, _unit : Unit) => {
+          let step = ctx.get(trigger.view())
+          CutoffValue::{
+            value: cutoff_observation_value(kind, step),
+            marker: step,
           }
-        })
-        .unwrap()
-      unit => store.read(query.at(unit))
+        },
+        cutoff=@incr_next.Cutoff::type_owned(),
+      )
+      unit => store.get(query.view(unit))
     }
     @model.CutoffKind::DynamicEquivalent => {
-      let old_branch = region.source(0).unwrap()
-      let new_branch = region.source(0).unwrap()
-      let query = region
-        .query_eq((ctx, _unit : Unit) => {
-          match ctx.read(trigger.view()) {
-            Ok(flag) => {
-              let value = if flag == 0 {
-                ctx.read(old_branch.view())
-              } else {
-                ctx.read(new_branch.view())
-              }
-              value.map(value => CutoffValue::{ value, marker: flag })
-            }
-            Err(error) => Err(error)
+      let old_branch = region.source(0)
+      let new_branch = region.source(0)
+      let query = region.query(
+        (ctx, _unit : Unit) => {
+          let flag = ctx.get(trigger.view())
+          let value = if flag == 0 {
+            ctx.get(old_branch.view())
+          } else {
+            ctx.get(new_branch.view())
           }
-        })
-        .unwrap()
-      unit => store.read(query.at(unit))
+          CutoffValue::{ value, marker: flag }
+        },
+        cutoff=@incr_next.Cutoff::equal(),
+      )
+      unit => store.get(query.view(unit))
     }
   }
   let observations : Array[@model.Observation] = []
   for step in script.steps() {
-    match store.transaction(tx => tx.set(trigger, step)) {
-      Ok(_) => ()
-      Err(_) => abort("valid cutoff publication failed unexpectedly")
+    let _ : Result[Unit, Unit] = store.transaction(tx => {
+      tx.set(trigger, step)
+      Ok(())
+    })
+    let value = query(()) catch {
+      _ => abort("valid cutoff read failed unexpectedly")
     }
-    match query(()) {
-      Ok(value) => {
-        observations.push(@model.Observation::Value(value.value))
-        match script.kind() {
-          @model.CutoffKind::TypeOwnedEquivalent
-          | @model.CutoffKind::TypeOwnedChanged
-          | @model.CutoffKind::ConsecutiveEquivalent =>
-            observations.push(@model.Observation::Marker(value.marker))
-          _ => ()
-        }
-      }
-      Err(_) => observations.push(@model.Observation::Missing(0))
+    observations.push(@model.Observation::Value(value.value))
+    match script.kind() {
+      @model.CutoffKind::TypeOwnedEquivalent
+      | @model.CutoffKind::TypeOwnedChanged
+      | @model.CutoffKind::ConsecutiveEquivalent =>
+        observations.push(@model.Observation::Marker(value.marker))
+      _ => ()
     }
   }
   ignore(region.close())

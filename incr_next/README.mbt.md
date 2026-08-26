@@ -17,9 +17,9 @@ kernel. K1.2a adds query-local typed memo ownership and each successful memo's
 direct forward trace. K1.2b verifies those traces to reuse unrelated
 publications and recompute selected or dynamically changed branches. Query keys
 use the public `K : Hash + Eq` bound; callers must keep key hashing and equality
-stable while a key is retained. Structural kernel failures remain in the outer
-`Result`, while domain failures are values inside `V` (for example
-`V = Result[Value, DomainError]`).
+stable while a key is retained. Structural kernel failures propagate through
+concrete typed `raise`, while Domain Outcomes remain values inside `V` (for
+example `V = Result[Value, DomainError]`).
 
 K1.2c keeps failed structural recomputes on the current error channel,
 preserves the last successful target authority, and releases temporary traces
@@ -37,9 +37,9 @@ is **ACCEPTED AND MERGED** at implementation/validation head
 `9d53d51d6ec6e282b8aa247442ee126acfe64a2d`. Hosted acceptance passed 46/46,
 public diff review was APPROVE, maintainer acceptance was PASS, and squash-tree
 equivalence passed. CodeRabbit skipped content review and is not positive
-evidence; independent public review supplies review evidence. The selected
-public surface preserves `Region::query` and adds explicit AlwaysChanged,
-`Eq`, and type-owned constructors with private policy storage.
+evidence; independent public review supplies review evidence. The later
+post-K2 interface keeps one `Region::query` constructor with an optional opaque
+`Cutoff`, and adds `Region::derived` for keyless computations.
 
 K1.5 private proof loss and ownership closure is **ACCEPTED AND MERGED** at
 implementation head `064a80ac884f7c5588f123cc62dd784adeb26b48`, review-fix head

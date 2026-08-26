@@ -3,7 +3,6 @@
 priv enum DependencyKind {
   Source
   Query
-  Revision
 } derive(Eq, Debug)
 
 ///|
@@ -58,9 +57,4 @@ fn[K : Hash + Eq, V] query_dependency(
       Err(_) => RecomputeRequired
     }
   })
-}
-
-///|
-fn revision_dependency(changed_at : Ref[ChangeEpoch]) -> Dependency {
-  dependency(Revision, _ctx => Available(changed_at=changed_at.val))
 }

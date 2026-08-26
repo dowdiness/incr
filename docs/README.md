@@ -5,6 +5,11 @@ index: one line per document, details in the documents themselves.
 
 ---
 
+## Domain Language
+
+- [Context map](../CONTEXT-MAP.md) — repository domain contexts and their relationships
+- [Incr Next language](../incr_next/CONTEXT.md) — canonical terms for derived values, keyed queries, structural failures, and domain outcomes
+
 ## Start Here
 
 New to `incr`? Read these in order:
@@ -107,6 +112,11 @@ live in each ADR.
 
 | Date | Decision |
 |------|----------|
+| [2026-08-25](decisions/2026-08-25-incr-next-private-clocks.md) | Incr Next keeps Revision and freshness clocks private; Transaction returns caller-owned success data rather than kernel metadata |
+| [2026-08-25](decisions/2026-08-25-incr-next-contextual-revision-access.md) | Superseded: briefly retained contextual Revision access before public-consumer review established that clocks should remain private |
+| [2026-08-25](decisions/2026-08-25-incr-next-idempotent-region-close.md) | Incr Next Region close is idempotent while illegal-phase close and post-close reads remain typed structural failures |
+| [2026-08-25](decisions/2026-08-25-incr-next-derived-values-and-keyed-queries.md) | Incr Next distinguishes single Derived Values, represented directly by Views, from caller-keyed Query families |
+| [2026-08-25](decisions/2026-08-25-incr-next-typed-structural-failures.md) | Incr Next propagates kernel structural failures with typed `raise` while keeping expected domain outcomes as values |
 | [2026-08-17](decisions/2026-08-17-incr-next-pre-1-0-sibling-product.md) | Incr Next adopted as a pre-1.0 sibling product; K1 and K2 are accepted, K2 packager prerequisite satisfied by MoonBit 0.10.9 standardization, a recommended separate alpha publication commission remains, and publication/production integration remain gated |
 | [2026-04-20](decisions/2026-04-20-accumulator-api.md) | Accumulator API: side-channel collector with push-set incremental invalidation |
 | [2026-04-26](decisions/2026-04-26-r2-runtime-decomposition-deferred.md) | R2 runtime-services decomposition: deferred indefinitely (no driver) |

@@ -48,8 +48,6 @@ pub fn mutual_cycle() -> @model.Script
 
 pub fn old_trace_cycle() -> @model.Script
 
-pub fn root_snapshot() -> @model.Script
-
 pub fn same_query_key_cycle() -> @model.Script
 
 pub fn selected_publication() -> @model.Script
@@ -75,4 +73,3 @@ pub fn unrelated_publication() -> @model.Script
 // Type aliases
 
 // Traits
-

@@ -26,41 +26,40 @@ impl Hash for MutableSemanticKey with fn hash_combine(self, hasher) {
 ///|
 test "expected divergence: mutable Query-key meaning can outlive a memo" {
   let store = Store::Store()
-  let region = store.region().unwrap()
+  let region = store.region()
   let key = MutableSemanticKey::{ id: 7, semantic: Ref(1) }
-  let query = region
-    .query((_ctx, key : MutableSemanticKey) => Ok(key.semantic.val))
-    .unwrap()
-  let view = query.at(key)
-  assert_eq(store.read(view), Ok(1))
+  let query = region.query((_ctx, key : MutableSemanticKey) => key.semantic.val)
+
+  let view = query.view(key)
+  assert_eq(Ok(store.get(view)) catch { error => Err(error) }, Ok(1))
   key.semantic.val = 2
-  assert_eq(store.read(view), Ok(1))
+  assert_eq(Ok(store.get(view)) catch { error => Err(error) }, Ok(1))
   assert_eq(key.semantic.val, 2)
-  ignore(region.close())
+  region.close()
 }
 
 ///|
 test "expected divergence: Source payload aliases are caller-owned" {
   let store = Store::Store()
-  let region = store.region().unwrap()
+  let region = store.region()
   let payload = [1]
-  let source = region.source(payload).unwrap()
+  let source = region.source(payload)
   let view = source.view()
-  assert_eq(store.read(view).unwrap()[0], 1)
+  assert_eq((Ok(store.get(view)) catch { error => Err(error) }).unwrap()[0], 1)
   payload[0] = 2
-  assert_eq(store.read(view).unwrap()[0], 2)
-  ignore(region.close())
+  assert_eq((Ok(store.get(view)) catch { error => Err(error) }).unwrap()[0], 2)
+  region.close()
 }
 
 ///|
 test "expected divergence: Query results are not defensively copied" {
   let store = Store::Store()
-  let region = store.region().unwrap()
+  let region = store.region()
   let result = Ref([1])
-  let query = region.query((_ctx, _unit : Unit) => Ok(result.val)).unwrap()
-  let view = query.at(())
-  let returned = store.read(view).unwrap()
+  let query = region.query((_ctx, _unit : Unit) => result.val)
+  let view = query.view(())
+  let returned = (Ok(store.get(view)) catch { error => Err(error) }).unwrap()
   returned[0] = 3
-  assert_eq(store.read(view).unwrap()[0], 3)
-  ignore(region.close())
+  assert_eq((Ok(store.get(view)) catch { error => Err(error) }).unwrap()[0], 3)
+  region.close()
 }

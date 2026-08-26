@@ -8,57 +8,61 @@ import {
 // Values
 
 // Errors
+pub suberror ReadError {
+  CrossStore(Diagnostic)
+  ClosedRegion(Diagnostic)
+  Cycle(Diagnostic)
+  ExpiredQueryContext(Diagnostic)
+  ReentrantRootGet(Diagnostic)
+  GetDuringTransaction(Diagnostic)
+} derive(Eq, @debug.Debug)
+
+pub suberror RegionError {
+  ClosedRegion(Diagnostic)
+  MutationDuringEvaluation(Diagnostic)
+  MutationDuringTransaction(Diagnostic)
+} derive(Eq, @debug.Debug)
+
+pub suberror TransactionError {
+  CrossStore(Diagnostic)
+  ClosedRegion(Diagnostic)
+  ExpiredTransaction(Diagnostic)
+  TransactionDuringEvaluation(Diagnostic)
+  NestedTransaction(Diagnostic)
+} derive(Eq, @debug.Debug)
 
 // Types and methods
-pub struct CycleWitness {
+pub struct Cutoff[V] {
+  // private fields
+}
+pub fn[V : Eq] Cutoff::equal() -> Self[V]
+pub fn[V : CutoffEq] Cutoff::type_owned() -> Self[V]
+
+pub struct Diagnostic {
   // private fields
 } derive(Eq, @debug.Debug)
-pub fn CycleWitness::path(Self) -> Array[Int]
+pub fn Diagnostic::help(Self) -> String?
+pub fn Diagnostic::message(Self) -> String
 
 pub struct Query[K, V] {
   // private fields
 }
-pub fn[K, V] Query::at(Self[K, V], K) -> View[V]
+pub fn[K, V] Query::view(Self[K, V], K) -> View[V]
 
 pub struct QueryContext {
   // private fields
 }
-pub fn[V] QueryContext::read(Self, View[V]) -> Result[V, ReadError]
-pub fn QueryContext::revision(Self) -> Result[Revision, ReadError]
-
-pub(all) enum ReadError {
-  CrossStore(view_store~ : StoreId, reader_store~ : StoreId)
-  ClosedRegion(generation~ : RegionGeneration)
-  Cycle(CycleWitness)
-  ExpiredQueryContext
-  ReentrantRootRead(active_store~ : StoreId, requested_store~ : StoreId)
-  ReadDuringTransaction(active_store~ : StoreId, requested_store~ : StoreId)
-} derive(Eq, @debug.Debug)
+pub fn[V] QueryContext::get(Self, View[V]) -> V raise ReadError
 
 pub struct Region {
   // private fields
 }
-pub fn Region::close(Self) -> Result[Unit, RegionError]
-pub fn[K : Hash + Eq, V] Region::query(Self, (QueryContext, K) -> Result[V, ReadError]) -> Result[Query[K, V], RegionError]
-pub fn[K : Hash + Eq, V] Region::query_always_changed(Self, (QueryContext, K) -> Result[V, ReadError]) -> Result[Query[K, V], RegionError]
-pub fn[K : Hash + Eq, V : Eq] Region::query_eq(Self, (QueryContext, K) -> Result[V, ReadError]) -> Result[Query[K, V], RegionError]
-pub fn[K : Hash + Eq, V : CutoffEq] Region::query_type_owned(Self, (QueryContext, K) -> Result[V, ReadError]) -> Result[Query[K, V], RegionError]
-pub fn[T] Region::source(Self, T) -> Result[Source[T], RegionError]
-
-pub(all) enum RegionError {
-  ClosedRegion(generation~ : RegionGeneration)
-  MutationDuringEvaluation(active_store~ : StoreId)
-  MutationDuringTransaction(active_store~ : StoreId)
-} derive(Eq, @debug.Debug)
-
-pub struct RegionGeneration {
-  // private fields
-} derive(Eq, Hash, @debug.Debug)
-
-pub struct Revision {
-  // private fields
-} derive(Eq, Hash, @debug.Debug)
-pub fn Revision::value(Self) -> Int
+pub fn Region::close(Self) -> Unit raise RegionError
+#callsite(autofill(loc))
+pub fn[V] Region::derived(Self, (QueryContext) -> V raise ReadError, cutoff? : Cutoff[V], loc~ : SourceLoc) -> View[V] raise RegionError
+#callsite(autofill(loc))
+pub fn[K : Hash + Eq, V] Region::query(Self, (QueryContext, K) -> V raise ReadError, cutoff? : Cutoff[V], loc~ : SourceLoc) -> Query[K, V] raise RegionError
+pub fn[T] Region::source(Self, T) -> Source[T] raise RegionError
 
 pub struct Source[T] {
   // private fields
@@ -69,28 +73,14 @@ pub struct Store {
   // private fields
 }
 pub fn Store::Store() -> Self
-pub fn[V] Store::read(Self, View[V]) -> Result[V, ReadError]
-pub fn Store::region(Self) -> Result[Region, RegionError]
-pub fn Store::revision(Self) -> Revision
-pub fn Store::transaction(Self, (Transaction) -> Result[Unit, TransactionError]) -> Result[Revision, TransactionError]
-
-pub struct StoreId {
-  // private fields
-} derive(Eq, Hash, @debug.Debug)
+pub fn[V] Store::get(Self, View[V]) -> V raise ReadError
+pub fn Store::region(Self) -> Region raise RegionError
+pub fn[T, E] Store::transaction(Self, (Transaction) -> Result[T, E] raise TransactionError) -> Result[T, E] raise TransactionError
 
 pub struct Transaction {
   // private fields
 }
-pub fn[T] Transaction::set(Self, Source[T], T) -> Result[Unit, TransactionError]
-
-pub(all) enum TransactionError {
-  CrossStore(source_store~ : StoreId, transaction_store~ : StoreId)
-  ClosedRegion(generation~ : RegionGeneration)
-  ExpiredTransaction
-  TransactionDuringEvaluation(active_store~ : StoreId)
-  NestedTransaction(active_store~ : StoreId)
-  CallbackRejected
-} derive(Eq, @debug.Debug)
+pub fn[T] Transaction::set(Self, Source[T], T) -> Unit raise TransactionError
 
 pub struct View[V] {
   // private fields

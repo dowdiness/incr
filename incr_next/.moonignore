@@ -5,6 +5,7 @@ docs/
 distribution/
 negative/
 private_evidence/
+CONTEXT.md
 
 # The root package manifest requires this C stub for native linking. Exclude
 # the native RC executable harness while retaining only its referenced stub.

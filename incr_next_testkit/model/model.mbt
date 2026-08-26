@@ -55,7 +55,6 @@ pub(all) enum Scenario {
   UnrelatedPublication
   SelectedPublication
   DynamicBranch
-  RootSnapshot
   FailureRecovery
   DomainFailure
   StructuralError
@@ -97,7 +96,6 @@ fn required_initial_ids(scenario : Scenario) -> Array[SourceId] {
     | Diamond
     | UnrelatedPublication
     | SelectedPublication
-    | RootSnapshot
     | FailureRecovery => [0]
     DynamicBranch => [0, 1]
     Source
@@ -123,7 +121,6 @@ fn fixed_root_scenario(scenario : Scenario) -> Bool {
     | UnrelatedPublication
     | SelectedPublication
     | DynamicBranch
-    | RootSnapshot
     | FailureRecovery => true
     Source
     | KeyedQuery
@@ -306,23 +303,5 @@ pub(all) enum Observation {
 pub(all) enum ScenarioError {
   DomainFailure(Int)
   StructuralFailure(Int)
-  Cycle(CycleWitness)
+  Cycle
 } derive(Eq, Debug)
-
-///|
-/// An opaque, normalized, key-free witness for a detected Query cycle.
-pub struct CycleWitness {
-  priv path : Array[QueryId]
-} derive(Eq, Debug)
-
-///|
-/// Copies a logical Query path into an opaque cycle witness.
-pub fn CycleWitness::CycleWitness(path : Array[QueryId]) -> CycleWitness {
-  { path: path.copy() }
-}
-
-///|
-/// Returns a defensive copy of the logical Query path.
-pub fn CycleWitness::path(self : CycleWitness) -> Array[QueryId] {
-  self.path.copy()
-}

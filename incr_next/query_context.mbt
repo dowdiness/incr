@@ -1,11 +1,15 @@
 ///|
+priv struct ActiveQuery {
+  id : QueryId
+  definition_site : String
+}
+
+///|
 /// The private state captured by one root evaluation.
 priv struct EvalSession {
   owner : StoreId
-  revision : Revision
   change_epoch : ChangeEpoch
-  revision_changed_at : Ref[ChangeEpoch]
-  active_stack : Array[QueryId]
+  active_stack : Array[ActiveQuery]
   active : Ref[Bool]
 }
 
@@ -47,15 +51,24 @@ fn QueryContext::take_frame(self : QueryContext) -> TrackingFrame {
 ///|
 fn QueryContext::expired(self : QueryContext) -> ReadError? {
   if !self.session.active.val || !self.invocation.val {
-    Some(ReadError::ExpiredQueryContext)
+    Some(read_expired_context())
   } else {
     None
   }
 }
 
 ///|
-/// Reads a nested Source or Query View and propagates structural errors.
-pub fn[V] QueryContext::read(
+/// Gets a nested View, records its dependency, and raises structural failure.
+pub fn[V] QueryContext::get(
+  self : QueryContext,
+  view : View[V],
+) -> V raise ReadError {
+  self.get_result(view).unwrap_or_error()
+}
+
+///|
+/// Gets a nested View as a Result for the kernel's memoization shell.
+fn[V] QueryContext::get_result(
   self : QueryContext,
   view : View[V],
 ) -> Result[V, ReadError] {
@@ -63,12 +76,7 @@ pub fn[V] QueryContext::read(
     Some(error) => Err(error)
     None =>
       if view.owner != self.session.owner {
-        Err(
-          ReadError::CrossStore(
-            view_store=view.owner,
-            reader_store=self.session.owner,
-          ),
-        )
+        Err(read_cross_store())
       } else {
         match (view.recipe)(self) {
           Ok(value) => {
@@ -85,25 +93,5 @@ pub fn[V] QueryContext::read(
           Err(error) => Err(error)
         }
       }
-  }
-}
-
-///|
-/// Returns the committed Revision captured by the root read.
-///
-/// An expired invocation context returns `ExpiredQueryContext`.
-pub fn QueryContext::revision(
-  self : QueryContext,
-) -> Result[Revision, ReadError] {
-  match self.expired() {
-    Some(error) => Err(error)
-    None => {
-      match self.frame.val {
-        Some(frame) =>
-          frame.push(revision_dependency(self.session.revision_changed_at))
-        None => ()
-      }
-      Ok(self.session.revision)
-    }
   }
 }

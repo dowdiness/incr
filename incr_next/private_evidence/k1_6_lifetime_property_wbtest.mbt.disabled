@@ -112,60 +112,61 @@ fn lifetime_oracle(case : LifetimeCase) -> Array[LifetimeObservation] {
 }
 
 ///|
-fn run_lifetime(case : LifetimeCase) -> Array[LifetimeObservation] {
+fn run_lifetime(case : LifetimeCase) -> Array[LifetimeObservation] raise {
   let recipe = case.recipe
   let store = Store::Store()
-  let region = store.region().unwrap()
-  let left = region.source(recipe.left).unwrap()
-  let right = region.source(recipe.right).unwrap()
-  let sum = region
-    .query((ctx, _unit : Unit) => {
-      match ctx.read(left.view()) {
-        Err(error) => Err(error)
-        Ok(left_value) =>
-          ctx.read(right.view()).map(right_value => left_value + right_value)
-      }
-    })
-    .unwrap()
-  let view = sum.at(())
+  let region = store.region()
+  let left = region.source(recipe.left)
+  let right = region.source(recipe.right)
+  let sum = region.query((ctx, _unit : Unit) => {
+    let left_value = ctx.get(left.view())
+    let right_value = ctx.get(right.view())
+    left_value + right_value
+  })
+  let view = sum.view(())
   let foreign_store = Store::Store()
-  let foreign_region = foreign_store.region().unwrap()
-  let foreign = foreign_region.source(99).unwrap()
+  let foreign_region = foreign_store.region()
+  let foreign = foreign_region.source(99)
   let closed = Ref(false)
   let observations = []
   for operation in case.operations {
     match operation {
-      LifetimeOperation::Read =>
-        match store.read(view) {
+      LifetimeOperation::Read => {
+        let result = Ok(store.get(view)) catch { error => Err(error) }
+        match result {
           Ok(value) => observations.push(LifetimeObservation::Value(value))
-          Err(ReadError::ClosedRegion(..)) =>
+          Err(ReadError::ClosedRegion(_)) =>
             observations.push(LifetimeObservation::ClosedRegion)
           Err(_) => abort("generated lifetime read failed unexpectedly")
         }
+      }
       LifetimeOperation::SetBoth =>
         publish_both(store, left, right, recipe.next_left, recipe.next_right)
       LifetimeOperation::CrossStoreAtomic => {
-        let revision_before = store.revision()
-        let rejected = store.transaction(tx => {
-          ignore(tx.set(left, recipe.recovery))
-          ignore(tx.set(foreign, recipe.recovery + 1))
-          Ok(())
-        })
+        let change_epoch_before = store.change_epoch.val
+        let rejected : Result[Result[Unit, Unit], TransactionError] = Ok(
+          store.transaction(tx => {
+            tx.set(left, recipe.recovery)
+            tx.set(foreign, recipe.recovery + 1)
+            Ok(())
+          }),
+        ) catch {
+          error => Err(error)
+        }
         match rejected {
-          Err(TransactionError::CrossStore(..)) =>
+          Err(TransactionError::CrossStore(_)) =>
             observations.push(LifetimeObservation::CrossStore)
           _ =>
             abort("generated cross-Store transaction did not fail structurally")
         }
-        if store.revision() != revision_before {
-          abort("rejected generated transaction advanced Revision")
+        if store.change_epoch.val != change_epoch_before {
+          abort("rejected generated transaction advanced ChangeEpoch")
         }
       }
-      LifetimeOperation::Close =>
-        match region.close() {
-          Ok(_) => closed.val = true
-          Err(_) => abort("generated live Region close failed unexpectedly")
-        }
+      LifetimeOperation::Close => {
+        region.close()
+        closed.val = true
+      }
     }
   }
   if !closed.val {
@@ -195,34 +196,35 @@ fn recovery_oracle(case : RecoveryCase) -> Array[LifetimeObservation] {
 }
 
 ///|
-fn structural_recovery(case : RecoveryCase) -> Array[LifetimeObservation] {
+fn structural_recovery(case : RecoveryCase) -> Array[LifetimeObservation] raise {
   let recipe = case.recipe
   let store = Store::Store()
-  let region = store.region().unwrap()
-  let trigger = region.source(0).unwrap()
+  let region = store.region()
+  let trigger = region.source(0)
   let foreign_store = Store::Store()
-  let foreign_region = foreign_store.region().unwrap()
-  let foreign = foreign_region.source(1).unwrap()
-  let query = region
-    .query((ctx, _unit : Unit) => {
-      match ctx.read(trigger.view()) {
-        Err(error) => Err(error)
-        Ok(1) => ctx.read(foreign.view())
-        Ok(value) => Ok(value)
-      }
-    })
-    .unwrap()
-  let view = query.at(())
+  let foreign_region = foreign_store.region()
+  let foreign = foreign_region.source(1)
+  let query = region.query((ctx, _unit : Unit) => {
+    let trigger_value = ctx.get(trigger.view())
+    if trigger_value == 1 {
+      ctx.get(foreign.view())
+    } else {
+      trigger_value
+    }
+  })
+  let view = query.view(())
   let observations = []
   for operation in case.operations {
     match operation {
-      RecoveryOperation::Read =>
-        match store.read(view) {
+      RecoveryOperation::Read => {
+        let result = Ok(store.get(view)) catch { error => Err(error) }
+        match result {
           Ok(value) => observations.push(LifetimeObservation::Value(value))
-          Err(ReadError::CrossStore(..)) =>
+          Err(ReadError::CrossStore(_)) =>
             observations.push(LifetimeObservation::CrossStore)
           Err(_) => abort("generated structural read failed unexpectedly")
         }
+      }
       RecoveryOperation::SetFailure => publish_one(store, trigger, 1)
       RecoveryOperation::SetRecovery =>
         publish_one(store, trigger, recipe.recovery)
@@ -252,21 +254,23 @@ fn first_lifetime_difference(
 }
 
 ///|
-fn lifetime_mismatch(case : LifetimeCase) -> Bool {
+fn lifetime_mismatch(case : LifetimeCase) -> Bool raise {
   lifetime_oracle(case) != run_lifetime(case)
 }
 
 ///|
-fn recovery_mismatch(case : RecoveryCase) -> Bool {
+fn recovery_mismatch(case : RecoveryCase) -> Bool raise {
   recovery_oracle(case) != structural_recovery(case)
 }
 
 ///|
 fn first_lifetime_operation_by(
   case : LifetimeCase,
-  prefix_fails : (LifetimeCase) -> Bool,
-) -> Int {
-  first_failing_private_operation_index(case.operations.length(), prefix_length => {
+  prefix_fails : (LifetimeCase) -> Bool raise,
+) -> Int raise {
+  first_failing_private_operation_index(case.operations.length(), fn(
+    prefix_length,
+  ) raise {
     prefix_fails(LifetimeCase::{
       recipe: case.recipe,
       operations: case.operations[:prefix_length].to_owned(),
@@ -275,16 +279,20 @@ fn first_lifetime_operation_by(
 }
 
 ///|
-fn first_lifetime_operation(case : LifetimeCase) -> Int {
-  first_lifetime_operation_by(case, prefix => lifetime_mismatch(prefix))
+fn first_lifetime_operation(case : LifetimeCase) -> Int raise {
+  first_lifetime_operation_by(case, fn(prefix) raise {
+    lifetime_mismatch(prefix)
+  })
 }
 
 ///|
 fn first_recovery_operation_by(
   case : RecoveryCase,
-  prefix_fails : (RecoveryCase) -> Bool,
-) -> Int {
-  first_failing_private_operation_index(case.operations.length(), prefix_length => {
+  prefix_fails : (RecoveryCase) -> Bool raise,
+) -> Int raise {
+  first_failing_private_operation_index(case.operations.length(), fn(
+    prefix_length,
+  ) raise {
     prefix_fails(RecoveryCase::{
       recipe: case.recipe,
       operations: case.operations[:prefix_length].to_owned(),
@@ -293,8 +301,10 @@ fn first_recovery_operation_by(
 }
 
 ///|
-fn first_recovery_operation(case : RecoveryCase) -> Int {
-  first_recovery_operation_by(case, prefix => recovery_mismatch(prefix))
+fn first_recovery_operation(case : RecoveryCase) -> Int raise {
+  first_recovery_operation_by(case, fn(prefix) raise {
+    recovery_mismatch(prefix)
+  })
 }
 
 ///|
@@ -347,8 +357,8 @@ fn lifetime_shrink_candidates(
 ///|
 fn minimize_lifetime_failure(
   case : LifetimeCase,
-  predicate : (LifetimeCase) -> Bool,
-) -> LifetimeCase {
+  predicate : (LifetimeCase) -> Bool raise,
+) -> LifetimeCase raise {
   let mut current = case
   let mut changed = true
   while changed {
@@ -388,8 +398,8 @@ fn recovery_shrink_candidates(
 ///|
 fn minimize_recovery_failure(
   case : RecoveryCase,
-  predicate : (RecoveryCase) -> Bool,
-) -> RecoveryCase {
+  predicate : (RecoveryCase) -> Bool raise,
+) -> RecoveryCase raise {
   let mut current = case
   let mut changed = true
   while changed {
@@ -417,7 +427,7 @@ test "K1.6a generated atomicity and Region lifetime match the pure oracle" {
     let expected = lifetime_oracle(generated)
     let actual = run_lifetime(generated)
     if expected != actual {
-      let minimized = minimize_lifetime_failure(generated, candidate => {
+      let minimized = minimize_lifetime_failure(generated, fn(candidate) raise {
         lifetime_mismatch(candidate)
       })
       let minimized_expected = lifetime_oracle(minimized)
@@ -440,7 +450,7 @@ test "K1.6a generated structural failures recover without stale fallback" {
     let expected = recovery_oracle(generated)
     let actual = structural_recovery(generated)
     if expected != actual {
-      let minimized = minimize_recovery_failure(generated, candidate => {
+      let minimized = minimize_recovery_failure(generated, fn(candidate) raise {
         recovery_mismatch(candidate)
       })
       let minimized_expected = recovery_oracle(minimized)

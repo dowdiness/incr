@@ -45,19 +45,16 @@ struct RcValue {
 ///|
 test "proof loss releases memo value and installed trace-only key" {
   let store = Store::Store()
-  let region = store.region().unwrap()
-  let child = region.query((_ctx, key : RcKey) => Ok(key.value)).unwrap()
-  let parent = region
-    .query((ctx, _unit : Unit) => {
-      match ctx.read(child.at(RcKey(30, 7))) {
-        Ok(value) => Ok(RcValue::{ token: rc_token_new(31), value })
-        Err(error) => Err(error)
-      }
-    })
-    .unwrap()
-  let view = parent.at(())
+  let region = store.region()
+  let child = region.query((_ctx, key : RcKey) => key.value)
+  let parent = region.query((ctx, _unit : Unit) => {
+    let value = ctx.get(child.view(RcKey(30, 7)))
+    RcValue::{ token: rc_token_new(31), value }
+  })
+
+  let view = parent.view(())
   let held : Ref[RcValue?] = Ref(None)
-  match store.read(view) {
+  match (Ok(store.get(view)) catch { error => Err(error) }) {
     Ok(value) => held.val = Some(value)
     Err(_) => abort("native proof-loss probe read failed")
   }
@@ -73,22 +70,21 @@ test "proof loss releases memo value and installed trace-only key" {
   held.val = None
   assert_eq(rc_live(31), 0)
   assert_eq(rc_finalized(31), 1)
-  ignore(region.close())
+  region.close()
 }
 
 ///|
 test "proof loss rematerializes native memo, trace, capture, and view ownership" {
   let store = Store::Store()
-  let region = store.region().unwrap()
+  let region = store.region()
   let capture = rc_token_new(7)
-  let query = region
-    .query((_ctx, key : RcKey) => {
-      ignore(capture)
-      Ok(RcValue::{ token: rc_token_new(6), value: key.value })
-    })
-    .unwrap()
-  let first_view = Ref(Some(query.at(RcKey(5, 41))))
-  ignore(store.read(first_view.val.unwrap()))
+  let query = region.query((_ctx, key : RcKey) => {
+    ignore(capture)
+    RcValue::{ token: rc_token_new(6), value: key.value }
+  })
+
+  let first_view = Ref(Some(query.view(RcKey(5, 41))))
+  ignore(Ok(store.get(first_view.val.unwrap())) catch { error => Err(error) })
   first_view.val = None
   assert_eq(rc_live(5), 1)
   assert_eq(rc_live(6), 1)
@@ -98,15 +94,15 @@ test "proof loss rematerializes native memo, trace, capture, and view ownership"
   assert_true(rc_finalized(5) > 0)
   assert_eq(rc_live(6), 0)
   assert_eq(rc_finalized(6), 1)
-  let view = Ref(Some(query.at(RcKey(5, 41))))
-  match store.read(view.val.unwrap()) {
+  let view = Ref(Some(query.view(RcKey(5, 41))))
+  match (Ok(store.get(view.val.unwrap())) catch { error => Err(error) }) {
     Ok(value) => assert_eq(value.value, 41)
     Err(_) => abort("native rematerialization probe read failed")
   }
   assert_eq(rc_live(5), 1)
   assert_eq(rc_live(6), 1)
   assert_eq(rc_live(7), 1)
-  ignore(region.close())
+  region.close()
   assert_eq(rc_live(5), 1)
   assert_eq(rc_live(6), 0)
   assert_eq(rc_live(7), 0)

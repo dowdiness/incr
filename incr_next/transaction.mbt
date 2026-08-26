@@ -22,11 +22,11 @@ pub struct Transaction {
 fn Transaction::poison(
   self : Transaction,
   error : TransactionError,
-) -> Result[Unit, TransactionError] {
+) -> Unit raise TransactionError {
   if self.session.poisoned.val is None {
     self.session.poisoned.val = Some(error)
   }
-  Err(error)
+  raise error
 }
 
 ///|
@@ -35,24 +35,17 @@ pub fn[T] Transaction::set(
   self : Transaction,
   source : Source[T],
   value : T,
-) -> Result[Unit, TransactionError] {
+) -> Unit raise TransactionError {
   match (self.session.active.val, self.session.poisoned.val) {
-    (false, _) => Err(TransactionError::ExpiredTransaction)
-    (true, Some(error)) => Err(error)
+    (false, _) => raise transaction_expired()
+    (true, Some(error)) => raise error
     (true, None) =>
       match execution_phase.val {
         Transacting(owner) if owner == self.session.owner =>
           if source.core.owner != self.session.owner {
-            self.poison(
-              TransactionError::CrossStore(
-                source_store=source.core.owner,
-                transaction_store=self.session.owner,
-              ),
-            )
+            self.poison(transaction_cross_store())
           } else if !source.core.epoch.accepts(source.core.generation) {
-            self.poison(
-              TransactionError::ClosedRegion(generation=source.core.generation),
-            )
+            self.poison(transaction_closed_region())
           } else {
             self.session.writes.set(source.core.source_id, {
               apply: next_epoch => {
@@ -60,23 +53,20 @@ pub fn[T] Transaction::set(
                 source.core.changed_at.val = next_epoch
               },
             })
-            Ok(())
           }
-        _ => Err(TransactionError::ExpiredTransaction)
+        _ => raise transaction_expired()
       }
   }
 }
 
 ///|
-/// Publishes all final staged writes atomically or rolls them back.
-///
-/// A successful transaction returns the Store's resulting committed Revision.
-pub fn Store::transaction(
+/// Commits `Ok` callback data atomically or rolls back caller-owned `Err` data.
+pub fn[T, E] Store::transaction(
   self : Store,
-  callback : (Transaction) -> Result[Unit, TransactionError],
-) -> Result[Revision, TransactionError] {
+  callback : (Transaction) -> Result[T, E] raise TransactionError,
+) -> Result[T, E] raise TransactionError {
   match phase_transaction_error() {
-    Some(error) => Err(error)
+    Some(error) => raise error
     None => {
       let session : TransactionSession = {
         owner: self.id,
@@ -86,30 +76,33 @@ pub fn Store::transaction(
       }
       let transaction : Transaction = { session, }
       execution_phase.val = Transacting(self.id)
-      let callback_result = callback(transaction)
-      let result : Result[Revision, TransactionError] = match
+      let callback_result : Result[Result[T, E], TransactionError] = Ok(
+        callback(transaction),
+      ) catch {
+        error => Err(error)
+      }
+      let result : Result[Result[T, E], TransactionError] = match
         session.poisoned.val {
         Some(error) => Err(error)
         None =>
           match callback_result {
             Err(error) => Err(error)
-            Ok(_) => {
+            Ok(Err(error)) => Ok(Err(error))
+            Ok(Ok(value)) => {
               let staged = session.writes.length() > 0
               if staged {
                 let next_epoch = self.change_epoch.val + 1
                 session.writes.each((_, write) => (write.apply)(next_epoch))
-                self.revision_clock.val = self.revision_clock.val + 1
                 self.change_epoch.val = next_epoch
-                self.revision_changed_at.val = next_epoch
               }
-              Ok(self.revision())
+              Ok(Ok(value))
             }
           }
       }
       session.writes.clear()
       session.active.val = false
       execution_phase.val = Idle
-      result
+      result.unwrap_or_error()
     }
   }
 }

@@ -1,0 +1,5 @@
+fn invalid_read_error_constructor(
+  diagnostic : @kernel.Diagnostic,
+) -> @kernel.ReadError {
+  @kernel.ReadError::CrossStore(diagnostic)
+}

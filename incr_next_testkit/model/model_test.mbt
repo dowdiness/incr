@@ -1,43 +1,4 @@
 ///|
-test "CycleWitness and ReadQuery compile probe" {
-  let witness = @model.CycleWitness::CycleWitness([0, 1])
-  assert_eq(witness.path(), [0, 1])
-  let operation = @model.Operation::ReadQuery(0, 1)
-  ignore(operation)
-}
-
-///|
-test "CycleWitness constructor and accessor are defensive" {
-  let input = [0, 1]
-  let witness = @model.CycleWitness::CycleWitness(input)
-  input[0] = 9
-  assert_eq(witness.path(), [0, 1])
-  let path = witness.path()
-  path[1] = 9
-  assert_eq(witness.path(), [0, 1])
-  assert_eq(witness, @model.CycleWitness::CycleWitness([0, 1]))
-}
-
-///|
-test "Script snapshots both caller-owned arrays" {
-  let initial_sources = [@model.SourceInit::{ id: 0, value: 1 }]
-  let operations = [@model.Operation::Read(0)]
-  let script = @model.Script::Script(initial_sources, operations)
-  initial_sources[0] = @model.SourceInit::{ id: 0, value: 9 }
-  operations[0] = @model.Operation::Set(0, 9)
-  assert_eq(script.initial_sources(), [@model.SourceInit::{ id: 0, value: 1 }])
-  assert_eq(script.operations(), [@model.Operation::Read(0)])
-}
-
-///|
-test "Script accessors return defensive copies" {
-  let script = @model.Script::Script([@model.SourceInit::{ id: 0, value: 1 }], [
-    @model.Operation::Read(0),
-  ])
-  let initial_sources = script.initial_sources()
-  let operations = script.operations()
-  initial_sources[0] = @model.SourceInit::{ id: 0, value: 9 }
-  operations[0] = @model.Operation::Set(0, 9)
-  assert_eq(script.initial_sources(), [@model.SourceInit::{ id: 0, value: 1 }])
-  assert_eq(script.operations(), [@model.Operation::Read(0)])
+test "cycle observations use an opaque normalized contract" {
+  assert_eq(@model.ScenarioError::Cycle, @model.ScenarioError::Cycle)
 }

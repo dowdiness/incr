@@ -27,7 +27,7 @@ fn RegionEpoch::accepts(
 }
 
 ///|
-/// A lifetime owner for Sources and Queries.
+/// A lifetime owner for Sources, Derived Values, and Queries.
 pub struct Region {
   priv owner : StoreId
   priv epoch : RegionEpoch
@@ -38,14 +38,14 @@ pub struct Region {
 
 ///|
 /// Creates a Region in the supplied Store when the alpha gate is idle.
-pub fn Store::region(self : Store) -> Result[Region, RegionError] {
+pub fn Store::region(self : Store) -> Region raise RegionError {
   match phase_region_error() {
-    Some(error) => Err(error)
+    Some(error) => raise error
     None => {
       let sequence = self.next_sequence.val
       self.next_sequence.val = sequence + 1
       let id : RegionId = { owner: self.id, sequence }
-      Ok({
+      {
         owner: self.id,
         epoch: {
           owner: self.id,
@@ -56,7 +56,7 @@ pub fn Store::region(self : Store) -> Result[Region, RegionError] {
         change_epoch: self.change_epoch,
         next_sequence: self.next_sequence,
         close_actions: [],
-      })
+      }
     }
   }
 }
@@ -68,25 +68,27 @@ fn Region::check_open(self : Region) -> RegionError? {
     None =>
       match self.epoch.state.val {
         Open => None
-        Closing | Closed =>
-          Some(RegionError::ClosedRegion(generation=self.epoch.snapshot()))
+        Closing | Closed => Some(region_closed())
       }
   }
 }
 
 ///|
 /// Closes this Region and releases its registered payloads.
-pub fn Region::close(self : Region) -> Result[Unit, RegionError] {
-  match self.check_open() {
-    Some(error) => Err(error)
-    None => {
-      self.epoch.state.val = Closing
-      self.close_actions.each(action => action())
-      self.close_actions.clear()
-      self.epoch.generation.val = self.epoch.generation.val + 1
-      self.epoch.state.val = Closed
-      self.change_epoch.val = self.change_epoch.val + 1
-      Ok(())
-    }
+pub fn Region::close(self : Region) -> Unit raise RegionError {
+  match phase_region_error() {
+    Some(error) => raise error
+    None =>
+      match self.epoch.state.val {
+        Closing | Closed => ()
+        Open => {
+          self.epoch.state.val = Closing
+          self.close_actions.each(action => action())
+          self.close_actions.clear()
+          self.epoch.generation.val = self.epoch.generation.val + 1
+          self.epoch.state.val = Closed
+          self.change_epoch.val = self.change_epoch.val + 1
+        }
+      }
   }
 }

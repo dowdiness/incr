@@ -15,18 +15,6 @@ priv struct FreshQueryState {
 }
 
 ///|
-/// Projects the active key-sensitive stack into a copied logical witness.
-fn cycle_witness(
-  stack : Array[@model.QueryId],
-  start : Int,
-  query_id : @model.QueryId,
-) -> @model.CycleWitness {
-  let path = stack[start:].map(id => id)
-  path.push(query_id)
-  @model.CycleWitness(path)
-}
-
-///|
 /// Evaluates one Fresh Query recursively with invocation-level cycle tracking.
 fn fresh_query(
   state : FreshQueryState,
@@ -36,10 +24,7 @@ fn fresh_query(
 ) -> Result[Int, @model.ScenarioError] {
   let invocation = FreshInvocation::{ query_id, key }
   match state.active.get(invocation) {
-    Some(start) =>
-      Err(
-        @model.ScenarioError::Cycle(cycle_witness(state.stack, start, query_id)),
-      )
+    Some(_start) => Err(@model.ScenarioError::Cycle)
     None => {
       state.active.set(invocation, state.stack.length())
       state.stack.push(query_id)

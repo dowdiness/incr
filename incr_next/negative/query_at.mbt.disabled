@@ -1,0 +1,6 @@
+fn invalid_query_at[K, V](
+  query : @kernel.Query[K, V],
+  key : K,
+) -> @kernel.View[V] {
+  query.at(key)
+}

@@ -165,7 +165,15 @@ fn fresh_values(script : @model.Script) -> Array[Int] {
 
 ///|
 fn publish_one(store : Store, source : Source[Int], value : Int) -> Unit {
-  match store.transaction(tx => tx.set(source, value)) {
+  let result : Result[Result[Unit, Unit], TransactionError] = Ok(
+    store.transaction(tx => {
+      tx.set(source, value)
+      Ok(())
+    }),
+  ) catch {
+    error => Err(error)
+  }
+  match result {
     Ok(_) => ()
     Err(_) => abort("valid generated publication failed unexpectedly")
   }
@@ -179,47 +187,56 @@ fn publish_both(
   base_value : Int,
   selector_value : Int,
 ) -> Unit {
-  match
+  let result : Result[Result[Unit, Unit], TransactionError] = Ok(
     store.transaction(tx => {
-      match tx.set(base, base_value) {
-        Err(error) => Err(error)
-        Ok(_) => tx.set(selector, selector_value)
-      }
-    }) {
+      tx.set(base, base_value)
+      tx.set(selector, selector_value)
+      Ok(())
+    }),
+  ) catch {
+    error => Err(error)
+  }
+  match result {
     Ok(_) => ()
     Err(_) => abort("valid generated atomic publication failed unexpectedly")
   }
 }
 
 ///|
-fn kernel_values(graph : GraphRecipe) -> Array[Int] {
+fn kernel_values(graph : GraphRecipe) -> Array[Int] raise {
   let store = Store::Store()
-  let region = store.region().unwrap()
-  let base = region.source(graph.initial[0].value).unwrap()
+  let region = store.region()
+  let base = region.source(graph.initial[0].value)
   let selector = if graph.scenario == @model.Scenario::DynamicBranch {
-    Some(region.source(graph.initial[1].value).unwrap())
+    Some(region.source(graph.initial[1].value))
   } else {
     None
   }
   let unrelated = if graph.initial.length() == 3 {
-    Some(region.source(graph.initial[2].value).unwrap())
+    Some(region.source(graph.initial[2].value))
   } else {
     None
   }
   let query = match selector {
     None =>
-      region.query_eq((ctx, _key : Unit) => ctx.read(base.view())).unwrap()
+      region.query(
+        (ctx, _key : Unit) => ctx.get(base.view()),
+        cutoff=Cutoff::equal(),
+      )
     Some(selector) =>
-      region
-      .query_eq((ctx, _key : Unit) => {
-        match ctx.read(selector.view()) {
-          Ok(flag) => if flag != 0 { Ok(flag) } else { ctx.read(base.view()) }
-          Err(error) => Err(error)
-        }
-      })
-      .unwrap()
+      region.query(
+        (ctx, _key : Unit) => {
+          let flag = ctx.get(selector.view())
+          if flag != 0 {
+            flag
+          } else {
+            ctx.get(base.view())
+          }
+        },
+        cutoff=Cutoff::equal(),
+      )
   }
-  let view = query.at(())
+  let view = query.view(())
   let values = []
   for operation in graph.operations {
     match operation {
@@ -240,11 +257,7 @@ fn kernel_values(graph : GraphRecipe) -> Array[Int] {
           Some(source) => publish_one(store, source, value)
           None => abort("unrelated publication without Source 2")
         }
-      ProofOperation::Read =>
-        match store.read(view) {
-          Ok(value) => values.push(value)
-          Err(_) => abort("generated proof recipe read failed unexpectedly")
-        }
+      ProofOperation::Read => values.push(store.get(view))
       ProofOperation::DropProof => {
         let old = query.core.memo.get(()).unwrap()
         let old_id = old.memo_id
@@ -257,7 +270,10 @@ fn kernel_values(graph : GraphRecipe) -> Array[Int] {
         if query.core.memo.get(()) is Some(_) {
           abort("proof loss retained a memo entry")
         }
-        match store.read(view) {
+        let rematerialized_result = Ok(store.get(view)) catch {
+          error => Err(error)
+        }
+        match rematerialized_result {
           Ok(_) => ()
           Err(_) => abort("proof-loss rematerialization failed unexpectedly")
         }
@@ -278,7 +294,7 @@ fn kernel_values(graph : GraphRecipe) -> Array[Int] {
       }
     }
   }
-  ignore(region.close())
+  region.close()
   values
 }
 
@@ -300,8 +316,8 @@ fn first_value_difference(left : Array[Int], right : Array[Int]) -> Int {
 ///|
 fn first_failing_private_operation_index(
   operation_count : Int,
-  prefix_fails : (Int) -> Bool,
-) -> Int {
+  prefix_fails : (Int) -> Bool raise,
+) -> Int raise {
   if prefix_fails(0) {
     return -1
   }
@@ -316,9 +332,11 @@ fn first_failing_private_operation_index(
 ///|
 fn first_proof_operation_by(
   graph : GraphRecipe,
-  prefix_fails : (GraphRecipe) -> Bool,
-) -> Int {
-  first_failing_private_operation_index(graph.operations.length(), prefix_length => {
+  prefix_fails : (GraphRecipe) -> Bool raise,
+) -> Int raise {
+  first_failing_private_operation_index(graph.operations.length(), fn(
+    prefix_length,
+  ) raise {
     prefix_fails(GraphRecipe::{
       scenario: graph.scenario,
       initial: graph.initial,
@@ -328,8 +346,8 @@ fn first_proof_operation_by(
 }
 
 ///|
-fn first_proof_operation(graph : GraphRecipe) -> Int {
-  first_proof_operation_by(graph, prefix => {
+fn first_proof_operation(graph : GraphRecipe) -> Int raise {
+  first_proof_operation_by(graph, fn(prefix) raise {
     fresh_values(project_script(prefix)) != kernel_values(prefix)
   })
 }
@@ -420,7 +438,7 @@ fn proof_shrink_candidates(recipe : ProofRecipe) -> Array[ProofShrinkCandidate] 
 }
 
 ///|
-fn proof_mismatch(recipe : ProofRecipe) -> Bool {
+fn proof_mismatch(recipe : ProofRecipe) -> Bool raise {
   let graph = graph_recipe(recipe)
   fresh_values(project_script(graph)) != kernel_values(graph)
 }
@@ -428,8 +446,8 @@ fn proof_mismatch(recipe : ProofRecipe) -> Bool {
 ///|
 fn minimize_proof_failure(
   recipe : ProofRecipe,
-  predicate : (ProofRecipe) -> Bool,
-) -> ProofRecipe {
+  predicate : (ProofRecipe) -> Bool raise,
+) -> ProofRecipe raise {
   let mut current = recipe
   let mut changed = true
   while changed {
@@ -473,7 +491,7 @@ test "K1.6a generated private proof-loss tracer" {
     let fresh = fresh_values(project_script(graph))
     let incremental = kernel_values(graph)
     if fresh != incremental {
-      let minimized = minimize_proof_failure(recipe, candidate => {
+      let minimized = minimize_proof_failure(recipe, fn(candidate) raise {
         proof_mismatch(candidate)
       })
       let minimized_graph = graph_recipe(minimized)
@@ -503,7 +521,7 @@ test "K1.6a private proof localization replays operation prefixes" {
   for recipe in recipes {
     let graph = graph_recipe(recipe)
     let operation_count = graph.operations.length()
-    let first_operation = first_proof_operation_by(graph, prefix => {
+    let first_operation = first_proof_operation_by(graph, fn(prefix) raise {
       if prefix.scenario != graph.scenario || prefix.initial != graph.initial {
         abort("proof prefix replay changed immutable graph setup")
       }
@@ -521,7 +539,7 @@ test "K1.6a private proof localization replays operation prefixes" {
   assert_true(
     graph.operations[trigger_prefix_length - 1] is ProofOperation::SetBoth(_, _),
   )
-  let injected_operation = first_proof_operation_by(graph, prefix => {
+  let injected_operation = first_proof_operation_by(graph, fn(prefix) raise {
     let fresh = fresh_values(project_script(prefix))
     let incremental = kernel_values(prefix)
     if fresh != incremental {

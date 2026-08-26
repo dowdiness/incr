@@ -1,156 +1,145 @@
 ///|
-fn cycle_path(error : Result[Int, ReadError]) -> Array[Int] {
+fn cycle_diagnostic(error : Result[Int, ReadError]) -> Diagnostic {
   match error {
-    Err(ReadError::Cycle(witness)) => witness.path()
+    Err(ReadError::Cycle(diagnostic)) => diagnostic
     _ => abort("expected Cycle")
   }
 }
 
 ///|
-test "direct self-cycle returns a copied witness" {
+test "direct self-cycle returns an actionable diagnostic" {
   let store = Store::Store()
-  let region = store.region().unwrap()
+  let region = store.region()
   let query_ref : Ref[Query[Unit, Int]?] = Ref(None)
-  let query = region
-    .query((ctx, _unit : Unit) => ctx.read(query_ref.val.unwrap().at(())))
-    .unwrap()
+  let query = region.query((ctx, _unit : Unit) => {
+    ctx.get(query_ref.val.unwrap().view(()))
+  })
+
   query_ref.val = Some(query)
-  let error = store.read(query.at(()))
-  match error {
-    Err(ReadError::Cycle(witness)) => {
-      let path = witness.path()
-      path[0] = -1
-      assert_eq(witness.path()[0], witness.path()[1])
-    }
-    _ => abort("expected Cycle")
-  }
-  let path = cycle_path(error)
-  assert_eq(path.length(), 2)
-  assert_eq(path[0], path[1])
+  let diagnostic = cycle_diagnostic(
+    Ok(store.get(query.view(()))) catch {
+      error => Err(error)
+    },
+  )
+  assert_true(diagnostic.message().contains("cycle_test.mbt"))
+  assert_true(diagnostic.help() is Some(_))
 }
 
 ///|
 test "mutual cycle returns the invocation path" {
   let store = Store::Store()
-  let region = store.region().unwrap()
+  let region = store.region()
   let a_ref : Ref[Query[Unit, Int]?] = Ref(None)
   let b_ref : Ref[Query[Unit, Int]?] = Ref(None)
-  let a = region
-    .query((ctx, _unit : Unit) => ctx.read(b_ref.val.unwrap().at(())))
-    .unwrap()
-  let b = region
-    .query((ctx, _unit : Unit) => ctx.read(a_ref.val.unwrap().at(())))
-    .unwrap()
+  let a = region.query((ctx, _unit : Unit) => {
+    ctx.get(b_ref.val.unwrap().view(()))
+  })
+
+  let b = region.query((ctx, _unit : Unit) => {
+    ctx.get(a_ref.val.unwrap().view(()))
+  })
+
   a_ref.val = Some(a)
   b_ref.val = Some(b)
-  let path = cycle_path(store.read(a.at(())))
-  assert_eq(path.length(), 3)
-  assert_true(path[0] != path[1])
-  assert_eq(path[0], path[2])
+  let diagnostic = cycle_diagnostic(
+    Ok(store.get(a.view(()))) catch {
+      error => Err(error)
+    },
+  )
+  assert_true(diagnostic.message().length() > 0)
 }
 
 ///|
 test "same Query key cycle uses Query equality" {
   let store = Store::Store()
-  let region = store.region().unwrap()
+  let region = store.region()
   let query_ref : Ref[Query[Int, Int]?] = Ref(None)
-  let query = region
-    .query((ctx, key : Int) => {
-      let next = if key == 0 { 1 } else { 0 }
-      ctx.read(query_ref.val.unwrap().at(next))
-    })
-    .unwrap()
+  let query = region.query((ctx, key : Int) => {
+    let next = if key == 0 { 1 } else { 0 }
+    ctx.get(query_ref.val.unwrap().view(next))
+  })
+
   query_ref.val = Some(query)
-  let path = cycle_path(store.read(query.at(0)))
-  assert_eq(path.length(), 3)
-  assert_eq(path[0], path[1])
-  assert_eq(path[1], path[2])
+  let diagnostic = cycle_diagnostic(
+    Ok(store.get(query.view(0))) catch {
+      error => Err(error)
+    },
+  )
+  assert_true(diagnostic.message().length() > 0)
 }
 
 ///|
 test "finite keyed recursion succeeds" {
   let store = Store::Store()
-  let region = store.region().unwrap()
+  let region = store.region()
   let query_ref : Ref[Query[Int, Int]?] = Ref(None)
-  let query = region
-    .query((ctx, key : Int) => {
-      if key == 0 {
-        Ok(0)
-      } else {
-        ctx.read(query_ref.val.unwrap().at(key - 1))
-      }
-    })
-    .unwrap()
+  let query = region.query((ctx, key : Int) => {
+    if key == 0 {
+      0
+    } else {
+      ctx.get(query_ref.val.unwrap().view(key - 1))
+    }
+  })
+
   query_ref.val = Some(query)
-  assert_eq(store.read(query.at(3)), Ok(0))
+  assert_eq(Ok(store.get(query.view(3))) catch { error => Err(error) }, Ok(0))
 }
 
 ///|
 test "unequal-key cross Query recursion succeeds" {
   let store = Store::Store()
-  let region = store.region().unwrap()
+  let region = store.region()
   let a_ref : Ref[Query[Int, Int]?] = Ref(None)
   let b_ref : Ref[Query[Int, Int]?] = Ref(None)
-  let a = region
-    .query((ctx, key : Int) => {
-      if key == 0 {
-        ctx.read(b_ref.val.unwrap().at(0))
-      } else {
-        Ok(key)
-      }
-    })
-    .unwrap()
-  let b = region
-    .query((ctx, key : Int) => {
-      if key == 0 {
-        ctx.read(a_ref.val.unwrap().at(1))
-      } else {
-        Ok(key)
-      }
-    })
-    .unwrap()
+  let a = region.query((ctx, key : Int) => {
+    if key == 0 {
+      ctx.get(b_ref.val.unwrap().view(0))
+    } else {
+      key
+    }
+  })
+
+  let b = region.query((ctx, key : Int) => {
+    if key == 0 {
+      ctx.get(a_ref.val.unwrap().view(1))
+    } else {
+      key
+    }
+  })
+
   a_ref.val = Some(a)
   b_ref.val = Some(b)
-  assert_eq(store.read(a.at(0)), Ok(1))
+  assert_eq(Ok(store.get(a.view(0))) catch { error => Err(error) }, Ok(1))
 }
 
 ///|
 test "dead cycle branch succeeds without entering the cycle" {
   let store = Store::Store()
-  let region = store.region().unwrap()
-  let source = region.source(0).unwrap()
+  let region = store.region()
+  let source = region.source(0)
   let query_ref : Ref[Query[Unit, Int]?] = Ref(None)
-  let query = region
-    .query((ctx, _unit : Unit) => {
-      match ctx.read(source.view()) {
-        Ok(value) =>
-          if value == 0 {
-            Ok(value)
-          } else {
-            ctx.read(query_ref.val.unwrap().at(()))
-          }
-        Err(error) => Err(error)
-      }
-    })
-    .unwrap()
+  let query = region.query((ctx, _unit : Unit) => {
+    let value = ctx.get(source.view())
+    if value == 0 {
+      value
+    } else {
+      ctx.get(query_ref.val.unwrap().view(()))
+    }
+  })
+
   query_ref.val = Some(query)
-  assert_eq(store.read(query.at(())), Ok(0))
+  assert_eq(Ok(store.get(query.view(()))) catch { error => Err(error) }, Ok(0))
 }
 
 ///|
 test "sequential duplicate read does not form a cycle" {
   let store = Store::Store()
-  let region = store.region().unwrap()
-  let child = region.query((_ctx, _unit : Unit) => Ok(0)).unwrap()
-  let child_view = child.at(())
-  let parent = region
-    .query((ctx, _unit : Unit) => {
-      match (ctx.read(child_view), ctx.read(child_view)) {
-        (Ok(left), Ok(right)) => Ok(left + right)
-        (Err(error), _) => Err(error)
-        (_, Err(error)) => Err(error)
-      }
-    })
-    .unwrap()
-  assert_eq(store.read(parent.at(())), Ok(0))
+  let region = store.region()
+  let child = region.query((_ctx, _unit : Unit) => 0)
+  let child_view = child.view(())
+  let parent = region.query((ctx, _unit : Unit) => {
+    ctx.get(child_view) + ctx.get(child_view)
+  })
+
+  assert_eq(Ok(store.get(parent.view(()))) catch { error => Err(error) }, Ok(0))
 }

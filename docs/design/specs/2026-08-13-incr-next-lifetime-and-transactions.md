@@ -57,7 +57,7 @@ Idle
   -> Idle
 ```
 
-The callback cannot perform root reads, open another transaction, or mutate a
+The callback cannot perform root gets, open another transaction, or mutate a
 Region. The module-global alpha gate rejects the same operations through a
 different Store as well.
 
@@ -75,41 +75,41 @@ write releases its payload. Staging never changes the committed Source.
 Every `set` validates Store provenance, Region generation/open state,
 Transaction liveness, and execution phase before allocating or replacing its
 staged closure. Same-Store writes across open Regions are legal. A cross-Store,
-closed-Region, stale-generation, or otherwise invalid write stages nothing and
-poisons the transaction even if the callback ignores its returned error. Once
-poisoned, a transaction cannot commit.
+closed-Region, stale-generation, or otherwise invalid write stages nothing,
+poisons the transaction, and raises `TransactionError`. Once poisoned, a
+Transaction cannot commit even if the callback catches that failure.
 
-A callback-returned failure, sticky poison, or catchable raised failure causes
-rollback. If sticky poison and a callback-returned failure both exist, the
-first poison is returned; a later callback error cannot hide the structural
-validation failure. Rollback clears staged closures and payloads, expires the
+A caller-owned `Err(E)`, sticky poison, or typed structural raise causes
+rollback. If sticky poison and a caller-owned Domain Outcome both exist, the
+first poison is raised; later domain data cannot hide structural validation
+failure. Rollback clears staged closures and payloads, expires the
 capability, restores `Idle`, and changes no committed Source or clock.
 
 Uncatchable abort and arbitrary FFI failure remain outside K1 guarantees.
 
 ### Commit
 
-A successful empty callback is a semantic no-op and advances neither clock.
-A successful nonempty callback:
+A successful empty callback is a semantic no-op. A successful nonempty
+callback:
 
 1. revalidates that every target Region is still the prevalidated open
    generation (the module-global phase prevents legal concurrent close);
 2. applies exactly one final prevalidated write per Source across all affected
    same-Store Regions;
-3. makes all writes visible atomically while root reads remain phase-blocked;
-4. advances the owning Store's public `Revision` exactly once;
-5. advances that Store's private `ChangeEpoch` exactly once;
-6. expires the Transaction and restores `Idle`.
+3. makes all writes visible atomically while root gets remain phase-blocked;
+4. advances private publication state once;
+5. expires the Transaction, restores `Idle`, and returns the caller-owned
+   `Ok(T)` value.
 
-Publication is unconditional. An equal-value write still makes the transaction
-nonempty and advances both clocks; `Source[T]` has no `Eq` bound. No observer can
-see application order because evaluation is forbidden until commit completes.
+Publication is unconditional. An equal-value write is still a publication;
+`Source[T]` has no `Eq` bound. No observer can see application order because
+evaluation is forbidden until commit completes.
 
 ### Capability expiry and zero-delta rejection
 
-A captured Transaction used after callback exit returns an expired-capability
-error. Rejected or duplicate operations do not invoke caller-defined `Hash` or
-`Eq`, mutate staging, advance clocks, or disturb the global phase.
+A captured Transaction used after callback exit raises an expired-capability
+error. Rejected operations do not invoke caller-defined `Hash` or `Eq`, mutate
+staging, advance private clocks, or disturb the global phase.
 
 ## Selected Region contract
 
@@ -141,11 +141,10 @@ zero-delta. The first successful close:
 4. clears typed memo tables, values, and Region-owned forward traces;
 5. clears active/temporary state that must already be empty in `Idle`;
 6. seals the generation as closed;
-7. advances `ChangeEpoch` exactly once, without advancing `Revision`.
+7. advances private lifetime state exactly once.
 
-Duplicate close reports already closed and advances neither clock. Exact public
-return shape, such as `Result[CloseOutcome, RegionError]`, is selected by a
-compile probe; boolean return is not assumed by this contract.
+Duplicate close is an idempotent no-op. `Region::close() -> Unit raise
+RegionError`; only illegal execution phase raises.
 
 K1 does not require a public Store-close operation. Application owners may
 close their Regions explicitly. Store-wide lifecycle, if later needed, must be
@@ -158,7 +157,7 @@ A View does not keep its Region open. After close, a surviving Source or Query
 View retains only the lightweight tombstone metadata and, for a Query View, its
 captured key needed to reject or identify the invocation. It does not retain
 the closed Region's Source payload, compute closure, memo value, or owned trace.
-A later root or nested read returns `ClosedRegion`.
+A later root or nested get raises `ReadError::ClosedRegion`.
 
 View lifetime is independent of memo incarnation: eviction and rematerialization
 do not change the View recipe.
