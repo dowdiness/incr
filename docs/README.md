@@ -8,7 +8,7 @@ index: one line per document, details in the documents themselves.
 ## Domain Language
 
 - [Context map](../CONTEXT-MAP.md) — repository domain contexts and their relationships
-- [Incr Next language](../incr_next/CONTEXT.md) — canonical terms for derived values, keyed queries, structural failures, and domain outcomes
+- [Incr Query language](../incr_query/CONTEXT.md) — canonical terms for derived values, keyed queries, structural failures, and domain outcomes
 
 ## Start Here
 
@@ -69,25 +69,25 @@ For contributors and advanced users who want to understand or modify `incr`.
 
 **Implementation specs** ([design/specs/](design/specs/)) — written-ahead design records for individual subsystems. Completed or superseded time-bounded specs are retired under the [documentation retention policy](decisions/2026-06-02-documentation-retention-policy.md) when a durable ADR or performance evidence replaces them; these are not the current backlog; the [roadmap](roadmap.md) decides what is current.
 
-Accepted Incr Next K0 specs, completed K1 product track, and commissioned K2
+Accepted Incr Query K0 specs, completed K1 product track, and commissioned K2
 evidence (the unpublished, independent pre-1.0 sibling module
-`dowdiness/incr_next`; current `incr` remains current and is not replaced):
+`dowdiness/incr_query`; current `incr` remains current and is not replaced):
 
-- [Product and Kernel Contract](design/specs/2026-08-13-incr-next-kernel-contract.md) — product/module seam, public capabilities, Fresh parity, clocks, verification, cycles, cutoff, proof loss, snapshot contract, and K1 acceptance
-- [Lifetime and Transaction Contract](design/specs/2026-08-13-incr-next-lifetime-and-transactions.md) — transaction-only publication, Region close, cross-Region traces, failure atomicity, and ownership release
-- [Incr Next module roadmap](../incr_next/docs/roadmap.md) — K1 and K2 accepted; K2 packager prerequisite satisfied by MoonBit 0.10.9 standardization; a recommended separate alpha publication commission remains
-- [Incr Next K2.1 consumer probe](../incr_next_consumer_probe/README.md) — accepted standalone public-only consumer evidence and K2.3 fixture
-- [Incr Next executable guide](../incr_next_docs/README.mbt.md) — accepted checked public-only Quickstart, snapshots, tracked reads, lifetime, errors, cutoff, and caller obligations
-- [Incr Next expected divergence](../incr_next_docs/expected_divergence/README.mbt.md) — accepted separately checked caller-contract violations; not kernel promises or Fresh conformance
-- [Incr Next K2.3 distribution validation](../incr_next/docs/k2-3-validation.md) — accepted candidate policy, deterministic archive, fresh-workspace consumption, and source-fallback evidence
-- [Incr Next K1.1 validation](../incr_next/docs/k1-1-validation.md) — accepted first failures and Existing API First record
-- [Incr Next K1.2 key-bound compile probe](../incr_next/docs/2026-08-14-k1-2-key-bound-compile-probe.md) — selected `Region::query` Hash/Eq boundary and caller contract
-- [Incr Next K1.2 validation](../incr_next/docs/k1-2-validation.md) — accepted semantics, ownership, interface, backend, and work-count evidence
-- [Incr Next K1.3 validation](../incr_next/docs/k1-3-validation.md) — accepted and merged active tracking, witness contract, atomicity, cleanup, hosted CI, and public diff review evidence
-- [Incr Next K1.4 cutoff compile probe](../incr_next/docs/2026-08-15-k1-4-cutoff-compile-probe.md) — historical candidate evidence for the superseded type-owned cutoff boundary
-- [Incr Next K1.4 validation](../incr_next/docs/k1-4-validation.md) — historical accepted implementation, hosted acceptance, and squash-merge evidence
-- [Incr Next K1.5 validation](../incr_next/docs/k1-5-validation.md) — accepted and merged private proof loss, rematerialization, cleanup, ownership, hosted acceptance, and squash-tree evidence
-- [Incr Next K1.6 validation](../incr_next/docs/k1-6-validation.md) — accepted generated differential, private proof-loss/work, backend, boundary, and interface evidence
+- [Product and Kernel Contract](design/specs/2026-08-13-incr-query-kernel-contract.md) — product/module seam, public capabilities, Fresh parity, clocks, verification, cycles, cutoff, proof loss, snapshot contract, and K1 acceptance
+- [Lifetime and Transaction Contract](design/specs/2026-08-13-incr-query-lifetime-and-transactions.md) — transaction-only publication, Region close, cross-Region traces, failure atomicity, and ownership release
+- [Incr Query module roadmap](../incr_query/docs/roadmap.md) — K1 and K2 accepted; K2 packager prerequisite satisfied by MoonBit 0.10.9 standardization; a recommended separate alpha publication commission remains
+- [Incr Query K2.1 consumer probe](../incr_query_consumer_probe/README.md) — accepted standalone public-only consumer evidence and K2.3 fixture
+- [Incr Query executable guide](../incr_query_docs/README.mbt.md) — accepted checked public-only Quickstart, snapshots, tracked reads, lifetime, errors, cutoff, and caller obligations
+- [Incr Query expected divergence](../incr_query_docs/expected_divergence/README.mbt.md) — accepted separately checked caller-contract violations; not kernel promises or Fresh conformance
+- [Incr Query K2.3 distribution validation](../incr_query/docs/k2-3-validation.md) — accepted candidate policy, deterministic archive, fresh-workspace consumption, and source-fallback evidence
+- [Incr Query K1.1 validation](../incr_query/docs/k1-1-validation.md) — accepted first failures and Existing API First record
+- [Incr Query K1.2 key-bound compile probe](../incr_query/docs/2026-08-14-k1-2-key-bound-compile-probe.md) — selected `Region::query` Hash/Eq boundary and caller contract
+- [Incr Query K1.2 validation](../incr_query/docs/k1-2-validation.md) — accepted semantics, ownership, interface, backend, and work-count evidence
+- [Incr Query K1.3 validation](../incr_query/docs/k1-3-validation.md) — accepted and merged active tracking, witness contract, atomicity, cleanup, hosted CI, and public diff review evidence
+- [Incr Query K1.4 cutoff compile probe](../incr_query/docs/2026-08-15-k1-4-cutoff-compile-probe.md) — historical candidate evidence for the superseded type-owned cutoff boundary
+- [Incr Query K1.4 validation](../incr_query/docs/k1-4-validation.md) — historical accepted implementation, hosted acceptance, and squash-merge evidence
+- [Incr Query K1.5 validation](../incr_query/docs/k1-5-validation.md) — accepted and merged private proof loss, rematerialization, cleanup, ownership, hosted acceptance, and squash-tree evidence
+- [Incr Query K1.6 validation](../incr_query/docs/k1-6-validation.md) — accepted generated differential, private proof-loss/work, backend, boundary, and interface evidence
 
 **Current roadmap:**
 
@@ -112,12 +112,12 @@ live in each ADR.
 
 | Date | Decision |
 |------|----------|
-| [2026-08-25](decisions/2026-08-25-incr-next-private-clocks.md) | Incr Next keeps Revision and freshness clocks private; Transaction returns caller-owned success data rather than kernel metadata |
-| [2026-08-25](decisions/2026-08-25-incr-next-contextual-revision-access.md) | Superseded: briefly retained contextual Revision access before public-consumer review established that clocks should remain private |
-| [2026-08-25](decisions/2026-08-25-incr-next-idempotent-region-close.md) | Incr Next Region close is idempotent while illegal-phase close and post-close reads remain typed structural failures |
-| [2026-08-25](decisions/2026-08-25-incr-next-derived-values-and-keyed-queries.md) | Incr Next distinguishes single Derived Values, represented directly by Views, from caller-keyed Query families |
-| [2026-08-25](decisions/2026-08-25-incr-next-typed-structural-failures.md) | Incr Next propagates kernel structural failures with typed `raise` while keeping expected domain outcomes as values |
-| [2026-08-17](decisions/2026-08-17-incr-next-pre-1-0-sibling-product.md) | Incr Next adopted as a pre-1.0 sibling product; K1 and K2 are accepted, K2 packager prerequisite satisfied by MoonBit 0.10.9 standardization, a recommended separate alpha publication commission remains, and publication/production integration remain gated |
+| [2026-08-25](decisions/2026-08-25-incr-query-private-clocks.md) | Incr Query keeps Revision and freshness clocks private; Transaction returns caller-owned success data rather than kernel metadata |
+| [2026-08-25](decisions/2026-08-25-incr-query-contextual-revision-access.md) | Superseded: briefly retained contextual Revision access before public-consumer review established that clocks should remain private |
+| [2026-08-25](decisions/2026-08-25-incr-query-idempotent-region-close.md) | Incr Query Region close is idempotent while illegal-phase close and post-close reads remain typed structural failures |
+| [2026-08-25](decisions/2026-08-25-incr-query-derived-values-and-keyed-queries.md) | Incr Query distinguishes single Derived Values, represented directly by Views, from caller-keyed Query families |
+| [2026-08-25](decisions/2026-08-25-incr-query-typed-structural-failures.md) | Incr Query propagates kernel structural failures with typed `raise` while keeping expected domain outcomes as values |
+| [2026-08-17](decisions/2026-08-17-incr-query-pre-1-0-sibling-product.md) | Incr Query adopted as a pre-1.0 sibling product; K1 and K2 are accepted, K2 packager prerequisite satisfied by MoonBit 0.10.9 standardization, a recommended separate alpha publication commission remains, and publication/production integration remain gated |
 | [2026-04-20](decisions/2026-04-20-accumulator-api.md) | Accumulator API: side-channel collector with push-set incremental invalidation |
 | [2026-04-26](decisions/2026-04-26-r2-runtime-decomposition-deferred.md) | R2 runtime-services decomposition: deferred indefinitely (no driver) |
 | [2026-04-26](decisions/2026-04-26-modal-runtime-split-not-warranted.md) | Per-mode Runtime split: investigation closed, not warranted |

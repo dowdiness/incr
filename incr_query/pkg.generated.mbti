@@ -1,0 +1,90 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/incr_query"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+pub suberror ReadError {
+  CrossStore(Diagnostic)
+  ClosedRegion(Diagnostic)
+  Cycle(Diagnostic)
+  ExpiredQueryContext(Diagnostic)
+  ReentrantRootGet(Diagnostic)
+  GetDuringTransaction(Diagnostic)
+} derive(@debug.Debug)
+
+pub suberror RegionError {
+  ClosedRegion(Diagnostic)
+  MutationDuringEvaluation(Diagnostic)
+  MutationDuringTransaction(Diagnostic)
+} derive(@debug.Debug)
+
+pub suberror TransactionError {
+  CrossStore(Diagnostic)
+  ClosedRegion(Diagnostic)
+  ExpiredTransaction(Diagnostic)
+  TransactionDuringEvaluation(Diagnostic)
+  NestedTransaction(Diagnostic)
+} derive(@debug.Debug)
+
+// Types and methods
+pub struct Cutoff[V] {
+  // private fields
+}
+pub fn[V : Eq] Cutoff::equal() -> Self[V]
+
+pub struct Diagnostic {
+  // private fields
+} derive(@debug.Debug)
+pub fn Diagnostic::help(Self) -> String?
+pub fn Diagnostic::message(Self) -> String
+
+pub struct Query[K, V] {
+  // private fields
+}
+pub fn[K, V] Query::view(Self[K, V], K) -> View[V]
+
+pub struct QueryContext {
+  // private fields
+}
+pub fn[V] QueryContext::get(Self, View[V]) -> V raise ReadError
+
+pub struct Region {
+  // private fields
+}
+pub fn Region::close(Self) -> Unit raise RegionError
+#callsite(autofill(loc))
+pub fn[V] Region::derived(Self, (QueryContext) -> V raise ReadError, cutoff? : Cutoff[V], loc~ : SourceLoc) -> View[V] raise RegionError
+#callsite(autofill(loc))
+pub fn[K : Hash + Eq, V] Region::query(Self, (QueryContext, K) -> V raise ReadError, cutoff? : Cutoff[V], loc~ : SourceLoc) -> Query[K, V] raise RegionError
+pub fn[T] Region::source(Self, T) -> Source[T] raise RegionError
+
+pub struct Source[T] {
+  // private fields
+}
+pub fn[T] Source::view(Self[T]) -> View[T]
+
+pub struct Store {
+  // private fields
+}
+pub fn Store::Store() -> Self
+pub fn[V] Store::get(Self, View[V]) -> V raise ReadError
+pub fn Store::region(Self) -> Region raise RegionError
+pub fn[T, E] Store::transaction(Self, (Transaction) -> Result[T, E] raise TransactionError) -> Result[T, E] raise TransactionError
+
+pub struct Transaction {
+  // private fields
+}
+pub fn[T] Transaction::set(Self, Source[T], T) -> Unit raise TransactionError
+
+pub struct View[V] {
+  // private fields
+}
+
+// Type aliases
+
+// Traits

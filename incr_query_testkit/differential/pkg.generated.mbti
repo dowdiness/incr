@@ -1,0 +1,25 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/incr_query_testkit/differential"
+
+import {
+  "dowdiness/incr_query_testkit/model",
+}
+
+// Values
+pub fn all_cutoff_match() -> Bool raise
+
+pub fn all_match() -> Bool raise
+
+pub fn canonical_matches() -> Bool raise
+
+pub fn cutoff_matches(@model.CutoffScript) -> Bool raise
+
+pub fn matches(@model.Script) -> Bool raise
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

@@ -11,8 +11,8 @@ members = [
   "./examples/typed_spreadsheet_incr_tea_demo",
   "./examples/incr_tea",
   "./examples/incr_tea_7guis",
-  "./incr_next",
-  "./incr_next_consumer_probe",
-  "./incr_next_docs",
-  "./incr_next_testkit",
+  "./incr_query",
+  "./incr_query_consumer_probe",
+  "./incr_query_docs",
+  "./incr_query_testkit",
 ]

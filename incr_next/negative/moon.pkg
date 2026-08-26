@@ -1,5 +1,0 @@
-import {
-  "dowdiness/incr_next" @kernel,
-}
-
-warnings = "-29"
