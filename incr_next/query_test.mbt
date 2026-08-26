@@ -86,8 +86,8 @@ test "canonical source view and memoized query" {
   })
 
   let view = doubled.view(())
-  assert_eq(Ok(store.get(view)) catch { error => Err(error) }, Ok(4))
-  assert_eq(Ok(store.get(view)) catch { error => Err(error) }, Ok(4))
+  assert_eq(store.get(view), 4)
+  assert_eq(store.get(view), 4)
   assert_eq(runs.val, 1)
 }
 
@@ -99,11 +99,24 @@ test "same store cross region reads and cross store rejection" {
   let source = left.source(7)
   let query = right.query((ctx, _unit : Unit) => ctx.get(source.view()))
 
-  assert_eq(Ok(store.get(query.view(()))) catch { error => Err(error) }, Ok(7))
+  assert_eq(store.get(query.view(())), 7)
 
   let other = Store::Store()
-  let error = Ok(other.get(source.view())) catch { error => Err(error) }
-  assert_true(error is Err(ReadError::CrossStore(_)))
+  let root_error = Ok(other.get(source.view())) catch { error => Err(error) }
+  match root_error {
+    Err(ReadError::CrossStore(diagnostic)) =>
+      assert_true(diagnostic.message().contains("Store::get"))
+    _ => abort("expected Store::get CrossStore")
+  }
+
+  let foreign = other.region().source(9)
+  let invalid = right.derived(ctx => ctx.get(foreign.view()))
+  let nested_error = Ok(store.get(invalid)) catch { error => Err(error) }
+  match nested_error {
+    Err(ReadError::CrossStore(diagnostic)) =>
+      assert_true(diagnostic.message().contains("QueryContext::get"))
+    _ => abort("expected QueryContext::get CrossStore")
+  }
 }
 
 ///|
@@ -116,7 +129,7 @@ test "query context expires after root callback" {
     1
   })
 
-  assert_eq(Ok(store.get(query.view(()))) catch { error => Err(error) }, Ok(1))
+  assert_eq(store.get(query.view(())), 1)
   let expired : Result[Int, ReadError] = Ok(
     captured.val.unwrap().get(query.view(())),
   ) catch {
@@ -149,7 +162,7 @@ test "nested Query gets an invocation lease without expiring its outer callback"
     }
   })
 
-  assert_eq(Ok(store.get(outer.view(()))) catch { error => Err(error) }, Ok(4))
+  assert_eq(store.get(outer.view(())), 4)
 }
 
 ///|
@@ -161,12 +174,7 @@ test "domain failure is a Query value, not a structural read error" {
     value
   })
 
-  assert_eq(
-    Ok(store.get(query.view(()))) catch {
-      error => Err(error)
-    },
-    Ok(Err("domain")),
-  )
+  assert_eq(store.get(query.view(())), Err("domain"))
 }
 
 ///|
@@ -194,8 +202,8 @@ test "same ChangeEpoch reuses a Query memo" {
     key + 10
   })
 
-  assert_eq(Ok(store.get(query.view(1))) catch { error => Err(error) }, Ok(11))
-  assert_eq(Ok(store.get(query.view(1))) catch { error => Err(error) }, Ok(11))
+  assert_eq(store.get(query.view(1)), 11)
+  assert_eq(store.get(query.view(1)), 11)
   assert_eq(computes.val, 1)
 }
 
@@ -209,18 +217,8 @@ test "Eq-equal Query keys share one memo" {
     key.value
   })
 
-  assert_eq(
-    Ok(store.get(query.view(EqKey(7)))) catch {
-      error => Err(error)
-    },
-    Ok(7),
-  )
-  assert_eq(
-    Ok(store.get(query.view(EqKey(7)))) catch {
-      error => Err(error)
-    },
-    Ok(7),
-  )
+  assert_eq(store.get(query.view(EqKey(7))), 7)
+  assert_eq(store.get(query.view(EqKey(7))), 7)
   assert_eq(computes.val, 1)
 }
 
@@ -240,10 +238,10 @@ test "different QueryCores isolate equal keys" {
     key + 2
   })
 
-  assert_eq(Ok(store.get(left.view(3))) catch { error => Err(error) }, Ok(4))
-  assert_eq(Ok(store.get(right.view(3))) catch { error => Err(error) }, Ok(5))
-  assert_eq(Ok(store.get(left.view(3))) catch { error => Err(error) }, Ok(4))
-  assert_eq(Ok(store.get(right.view(3))) catch { error => Err(error) }, Ok(5))
+  assert_eq(store.get(left.view(3)), 4)
+  assert_eq(store.get(right.view(3)), 5)
+  assert_eq(store.get(left.view(3)), 4)
+  assert_eq(store.get(right.view(3)), 5)
   assert_eq(left_computes.val, 1)
   assert_eq(right_computes.val, 1)
 }
@@ -259,8 +257,8 @@ test "a new ChangeEpoch recomputes a Query memo" {
     ctx.get(source.view())
   })
 
-  assert_eq(Ok(store.get(query.view(()))) catch { error => Err(error) }, Ok(2))
-  assert_eq(Ok(store.get(query.view(()))) catch { error => Err(error) }, Ok(2))
+  assert_eq(store.get(query.view(())), 2)
+  assert_eq(store.get(query.view(())), 2)
   assert_eq(computes.val, 1)
   ignore(
     (
@@ -269,6 +267,6 @@ test "a new ChangeEpoch recomputes a Query memo" {
         Ok(())
       }) : Result[Unit, Unit]),
   )
-  assert_eq(Ok(store.get(query.view(()))) catch { error => Err(error) }, Ok(3))
+  assert_eq(store.get(query.view(())), 3)
   assert_eq(computes.val, 2)
 }

@@ -19,9 +19,9 @@ test "proof loss failure recovery gets a new memo identity" {
   })
 
   let view = query.view(())
-  assert_eq(Ok(store.get(view)) catch { error => Err(error) }, Ok(0))
+  assert_eq(store.get(view), 0)
   let first = query.core.memo.get(()).unwrap().memo_id
-  assert_eq(query.drop_memo_evidence(()), Ok(()))
+  assert_true(query.drop_memo_evidence(()) is Ok(_))
   fail.val = true
   assert_true(
     (Ok(store.get(view)) catch { error => Err(error) }) is Err(CrossStore(_)),
@@ -31,7 +31,7 @@ test "proof loss failure recovery gets a new memo identity" {
   assert_true(captured.val.unwrap().frame.val is None)
   assert_true(captured.val.unwrap().session.active_stack.is_empty())
   fail.val = false
-  assert_eq(Ok(store.get(view)) catch { error => Err(error) }, Ok(0))
+  assert_eq(store.get(view), 0)
   assert_true(query.core.memo.get(()).unwrap().memo_id != first)
   foreign_region.close()
   region.close()

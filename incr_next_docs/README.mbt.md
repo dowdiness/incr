@@ -206,6 +206,29 @@ test "incr next docs: structural failure and Domain Outcome stay separate" {
 }
 ```
 
+A Query invocation remembers the first Structural Failure observed through its
+`QueryContext`. Catching that error inside the callback cannot convert it into
+a successful memo.
+
+```mbt check
+///|
+test "incr next docs: caught structural failure still fails closed" {
+  let store = @incr_next.Store::Store()
+  let region = store.region()
+  let foreign = @incr_next.Store::Store().region().source(9)
+  let cannot_hide = region.derived(ctx => {
+    ctx.get(foreign.view()) catch {
+      _error => 77
+    }
+  })
+  let failure : Result[Int, @incr_next.ReadError] = Ok(store.get(cannot_hide)) catch {
+    error => Err(error)
+  }
+  assert_true(failure is Err(@incr_next.ReadError::CrossStore(_)))
+  region.close()
+}
+```
+
 Application quarantine seams may display the opaque Diagnostic without parsing
 internal IDs or graph paths.
 
@@ -232,9 +255,10 @@ test "incr next docs: diagnostics are actionable" {
 ## Choosing cutoff
 
 Cutoff is optional. Omission conservatively propagates every successful
-recomputation. `Cutoff::equal()` requires `V : Eq`;
-`Cutoff::type_owned()` requires `V : CutoffEq`. No arbitrary predicate is
-public.
+recomputation. `Cutoff::equal()` requires `V : Eq`; no arbitrary or type-owned
+predicate is public. A manual `Eq` implementation used for cutoff must make
+equality strong enough that every downstream observer can safely reuse its
+prior observation. Ignoring an observable field can produce a stale result.
 
 ```mbt check
 ///|
@@ -297,5 +321,5 @@ test "incr next docs: explicit copies protect mutable Array boundaries" {
 | Capturing and later using QueryContext or Transaction | Expired capability failure | Use capabilities synchronously inside callbacks |
 | Returning Structural Failure as domain data | Kernel validity is confused with expected outcomes | Let typed structural failure propagate; keep domain alternatives in `V` |
 | Mutating captured keys or committed values in place | Cached snapshots may appear stale | Use immutable snapshots, copies, or tracked semantic versions |
-| Using arbitrary cutoff predicates | Propagation may become unsound | Use omission, `Cutoff::equal`, or type-owned `CutoffEq` |
+| Using partial or observer-dependent equality for cutoff | Propagation may return a stale normal value | Use omission or an `Eq` relation that preserves every downstream observation |
 | Treating a retained View as lifetime ownership | Gets fail after Region close | Keep the owning Region alive for the required lifetime |

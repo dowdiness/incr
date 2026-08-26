@@ -22,7 +22,7 @@ pub fn[V] Store::get(self : Store, view : View[V]) -> V raise ReadError {
 /// Reads a View as one root snapshot.
 fn[V] Store::get_result(self : Store, view : View[V]) -> Result[V, ReadError] {
   if view.owner != self.id {
-    Err(read_cross_store())
+    Err(read_store_cross_store())
   } else {
     match phase_root_error(self.id) {
       Some(error) => Err(error)

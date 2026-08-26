@@ -21,9 +21,14 @@ Revision is snapshot identity, not a debug counter or ambient timestamp. Transac
 
 Immediate interface review found no public-consumer use of Revision and rejected both untracked and tracked ambient clock access as lower-level than the commissioned domain interface. The superseding decision keeps Revision entirely private.
 
-## Consequences
+## Historical consequences
 
-- External cache or synchronization code receives a Revision from commit or from a Derived Value that explicitly includes tracked Revision.
-- Callers cannot poll the Store clock independently of a snapshot operation.
-- `QueryContext::revision()` remains a broad Store-wide dependency and should be used only when publication identity affects the value.
-- Existing public docs and tests that inspect initial Revision through `Store::revision()` must migrate to a tracked snapshot or transaction result.
+> The consequences below describe the superseded proposal and are not part of
+> the current public interface. The accepted
+> [private-clocks decision](2026-08-25-incr-next-private-clocks.md) keeps
+> Revision entirely private.
+
+- External cache or synchronization code would have received a Revision from commit or from a Derived Value that explicitly included tracked Revision.
+- Callers would not have polled the Store clock independently of a snapshot operation.
+- `QueryContext::revision()` would have remained a broad Store-wide dependency usable only when publication identity affected the value.
+- Existing public docs and tests that inspected initial Revision through `Store::revision()` would have migrated to a tracked snapshot or transaction result.

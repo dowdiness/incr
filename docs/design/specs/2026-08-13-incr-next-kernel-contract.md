@@ -145,9 +145,11 @@ The callback types are:
 Typed `raise` carries structural kernel failure. Domain failure belongs inside
 `V`, commonly by choosing `V = Result[Value, DomainError]`.
 
-A Query author can syntactically catch `ReadError`; the admissible caller
-contract requires Structural Failure to remain transparent. A callback must
-not convert a failed tracked get into an apparently successful fallback.
+A Query author can syntactically catch `ReadError`, but the invocation records
+the first Structural Failure observed by `QueryContext::get`. Before installing
+a memo or trace, the kernel re-raises that failure and discards any callback
+fallback value. Catching a failed tracked get therefore cannot convert it into
+an apparently successful memo.
 
 ### Source and Transaction
 
@@ -244,11 +246,11 @@ exits remove active keys and frames.
 
 ### Typed cutoff and backdating
 
-Cutoff is selected once by the Query. K1 supports only explicit policies proven
-by #464: always changed, structural `Eq`, and a type-owned propagation relation.
-Exact public constructor and trait names are confirmed by compile probes before
-the first public `.mbti` is accepted; arbitrary per-Query predicates are not
-public K1 surface.
+Cutoff is selected once by the Query. The current public interface supports
+conservative AlwaysChanged propagation by omission and `Cutoff::equal()` for
+`V : Eq`. Arbitrary and type-owned predicates are not public surface. A manual
+`Eq` implementation used for cutoff must make equality imply that every
+admissible downstream observer can reuse its prior observation.
 
 The relation is one-sided evidence:
 

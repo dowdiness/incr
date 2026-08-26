@@ -1,5 +1,9 @@
 # K1.6 accepted validation
 
+> **Historical interface note:** This record preserves the final K1 acceptance
+> evidence. The active post-K2 interface removes type-owned cutoff and enforces
+> fail-closed Query invocation poisoning when callbacks catch `ReadError`.
+
 **Reader:** Maintainers and contributors relying on the accepted K1
 product-quality conformance baseline.
 

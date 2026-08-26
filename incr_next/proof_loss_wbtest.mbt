@@ -6,13 +6,13 @@ test "proof loss rematerializes a surviving View with a new identity" {
   let query = region.query((ctx, _key : Int) => ctx.get(source.view()))
 
   let view = query.view(1)
-  assert_eq(Ok(store.get(view)) catch { error => Err(error) }, Ok(7))
+  assert_eq(store.get(view), 7)
   let old = query.core.memo.get(1).unwrap()
   let epoch = store.change_epoch.val
-  assert_eq(query.drop_memo_evidence(1), Ok(()))
+  assert_true(query.drop_memo_evidence(1) is Ok(_))
   assert_true(query.core.memo.get(1) is None)
   assert_eq(store.change_epoch.val, epoch)
-  assert_eq(Ok(store.get(view)) catch { error => Err(error) }, Ok(7))
+  assert_eq(store.get(view), 7)
   let next = query.core.memo.get(1).unwrap()
   assert_true(next.memo_id != old.memo_id)
   assert_eq(next.verified_at, epoch)
@@ -52,17 +52,17 @@ test "proof loss is equal-key shared, isolated, and absent-safe" {
   let query = region.query((_ctx, key : EqualKey) => key.value)
   let first = query.view(EqualKey(3))
   let second = query.view(EqualKey(3))
-  assert_eq(Ok(store.get(first)) catch { error => Err(error) }, Ok(3))
+  assert_eq(store.get(first), 3)
   let id = query.core.memo.get(EqualKey(3)).unwrap().memo_id
-  assert_eq(query.drop_memo_evidence(EqualKey(99)), Ok(()))
-  assert_eq(query.drop_memo_evidence(EqualKey(3)), Ok(()))
-  assert_eq(query.drop_memo_evidence(EqualKey(3)), Ok(()))
+  assert_true(query.drop_memo_evidence(EqualKey(99)) is Ok(_))
+  assert_true(query.drop_memo_evidence(EqualKey(3)) is Ok(_))
+  assert_true(query.drop_memo_evidence(EqualKey(3)) is Ok(_))
   assert_true(query.core.memo.is_empty())
-  assert_eq(Ok(store.get(second)) catch { error => Err(error) }, Ok(3))
+  assert_eq(store.get(second), 3)
   let new_id = query.core.memo.get(EqualKey(3)).unwrap().memo_id
   assert_true(new_id != id)
-  assert_eq(query.drop_memo_evidence(EqualKey(3)), Ok(()))
-  assert_eq(query.drop_memo_evidence(EqualKey(4)), Ok(()))
+  assert_true(query.drop_memo_evidence(EqualKey(3)) is Ok(_))
+  assert_true(query.drop_memo_evidence(EqualKey(4)) is Ok(_))
 }
 
 ///|
@@ -70,13 +70,13 @@ test "proof loss preserves unequal-key memo isolation" {
   let store = Store::Store()
   let region = store.region()
   let query = region.query((_ctx, key : Int) => key * 2)
-  assert_eq(Ok(store.get(query.view(1))) catch { error => Err(error) }, Ok(2))
-  assert_eq(Ok(store.get(query.view(2))) catch { error => Err(error) }, Ok(4))
+  assert_eq(store.get(query.view(1)), 2)
+  assert_eq(store.get(query.view(2)), 4)
   let other = query.core.memo.get(2).unwrap().memo_id
-  assert_eq(query.drop_memo_evidence(1), Ok(()))
+  assert_true(query.drop_memo_evidence(1) is Ok(_))
   assert_true(query.core.memo.get(1) is None)
   assert_eq(query.core.memo.get(2).unwrap().memo_id, other)
-  assert_eq(Ok(store.get(query.view(2))) catch { error => Err(error) }, Ok(4))
+  assert_eq(store.get(query.view(2)), 4)
 }
 
 ///|
@@ -90,9 +90,9 @@ test "proof loss rematerialization is initial success before later cutoff" {
   )
 
   let view = query.view(())
-  assert_eq(Ok(store.get(view)) catch { error => Err(error) }, Ok(2))
-  assert_eq(query.drop_memo_evidence(()), Ok(()))
-  assert_eq(Ok(store.get(view)) catch { error => Err(error) }, Ok(2))
+  assert_eq(store.get(view), 2)
+  assert_true(query.drop_memo_evidence(()) is Ok(_))
+  assert_eq(store.get(view), 2)
   assert_eq(query.core.cutoff_count.val, 0)
   ignore(
     (
@@ -101,7 +101,7 @@ test "proof loss rematerialization is initial success before later cutoff" {
         Ok(())
       }) : Result[Unit, Unit]),
   )
-  assert_eq(Ok(store.get(view)) catch { error => Err(error) }, Ok(2))
+  assert_eq(store.get(view), 2)
   assert_eq(query.core.cutoff_count.val, 1)
 }
 
@@ -123,7 +123,7 @@ test "proof loss rebuilds only the current dynamic child trace" {
   let parent = region.query((ctx, _unit : Unit) => ctx.get(child.view(())))
 
   let parent_view = parent.view(())
-  assert_eq(Ok(store.get(parent_view)) catch { error => Err(error) }, Ok(10))
+  assert_eq(store.get(parent_view), 10)
   let old_epoch = store.change_epoch.val
   assert_eq(child.core.memo.get(()).unwrap().trace.map(dep => dep.kind), [
     Source,
@@ -136,7 +136,7 @@ test "proof loss rebuilds only the current dynamic child trace" {
         Ok(())
       }) : Result[Unit, Unit]),
   )
-  assert_eq(Ok(store.get(parent_view)) catch { error => Err(error) }, Ok(20))
+  assert_eq(store.get(parent_view), 20)
   let new_epoch = store.change_epoch.val
   let current_child = child.core.memo.get(()).unwrap()
   assert_eq(current_child.value, 20)
@@ -146,7 +146,7 @@ test "proof loss rebuilds only the current dynamic child trace" {
   let child_compute_before_loss = child.core.compute_count.val
   let parent_compute_before_loss = parent.core.compute_count.val
   let parent_red_before_loss = parent.core.red_count.val
-  assert_eq(child.drop_memo_evidence(()), Ok(()))
+  assert_true(child.drop_memo_evidence(()) is Ok(_))
   assert_true(child.core.memo.is_empty())
   ignore(
     (
@@ -156,7 +156,7 @@ test "proof loss rebuilds only the current dynamic child trace" {
       }) : Result[Unit, Unit]),
   )
   let current_publish_epoch = store.change_epoch.val
-  assert_eq(Ok(store.get(parent_view)) catch { error => Err(error) }, Ok(21))
+  assert_eq(store.get(parent_view), 21)
   let rebuilt = child.core.memo.get(()).unwrap()
   assert_eq(rebuilt.value, 21)
   assert_eq(rebuilt.verified_at, current_publish_epoch)
@@ -175,7 +175,7 @@ test "proof loss rebuilds only the current dynamic child trace" {
     Ok(_) => ()
     Err(_) => abort("valid proof-loss publication failed unexpectedly")
   }
-  assert_eq(Ok(store.get(parent_view)) catch { error => Err(error) }, Ok(21))
+  assert_eq(store.get(parent_view), 21)
   assert_eq(child.core.compute_count.val, child_compute_before_loss + 1)
   assert_eq(parent.core.compute_count.val, parent_after_current)
   ignore(
@@ -185,7 +185,7 @@ test "proof loss rebuilds only the current dynamic child trace" {
         Ok(())
       }) : Result[Unit, Unit]),
   )
-  assert_eq(Ok(store.get(parent_view)) catch { error => Err(error) }, Ok(22))
+  assert_eq(store.get(parent_view), 22)
   assert_eq(child.core.compute_count.val, child_compute_before_loss + 2)
   assert_true(store.change_epoch.val > old_epoch)
 }
@@ -200,9 +200,9 @@ test "proof loss does not invalidate same-epoch parent but later epoch recompute
   let parent = region.query((ctx, _key : Unit) => ctx.get(child.view(())))
 
   let view = parent.view(())
-  assert_eq(Ok(store.get(view)) catch { error => Err(error) }, Ok(1))
-  assert_eq(child.drop_memo_evidence(()), Ok(()))
-  assert_eq(Ok(store.get(view)) catch { error => Err(error) }, Ok(1))
+  assert_eq(store.get(view), 1)
+  assert_true(child.drop_memo_evidence(()) is Ok(_))
+  assert_eq(store.get(view), 1)
   assert_true(child.core.memo.is_empty())
   ignore(
     (
@@ -211,7 +211,7 @@ test "proof loss does not invalidate same-epoch parent but later epoch recompute
         Ok(())
       }) : Result[Unit, Unit]),
   )
-  assert_eq(Ok(store.get(view)) catch { error => Err(error) }, Ok(1))
+  assert_eq(store.get(view), 1)
   assert_eq(child.core.memo.length(), 1)
   assert_eq(parent.core.compute_count.val, 2)
 }
@@ -237,8 +237,8 @@ test "proof loss failure and cycle do not install stale fallback" {
   })
 
   let view = query.view(())
-  assert_eq(Ok(store.get(view)) catch { error => Err(error) }, Ok(0))
-  assert_eq(query.drop_memo_evidence(()), Ok(()))
+  assert_eq(store.get(view), 0)
+  assert_true(query.drop_memo_evidence(()) is Ok(_))
   fail.val = true
   assert_true(
     (Ok(store.get(view)) catch { error => Err(error) }) is Err(CrossStore(_)),
@@ -248,7 +248,7 @@ test "proof loss failure and cycle do not install stale fallback" {
   assert_true(captured.val.unwrap().frame.val is None)
   assert_true(captured.val.unwrap().session.active_stack.is_empty())
   fail.val = false
-  assert_eq(Ok(store.get(view)) catch { error => Err(error) }, Ok(0))
+  assert_eq(store.get(view), 0)
   assert_eq(query.core.memo.get(()).unwrap().memo_id.value, 1)
   foreign_region.close()
   region.close()
@@ -272,8 +272,8 @@ test "proof loss current cycle cleans active state and recovers" {
 
   let view = query.view(())
   recurse.val = Some(view)
-  assert_eq(Ok(store.get(view)) catch { error => Err(error) }, Ok(4))
-  assert_eq(query.drop_memo_evidence(()), Ok(()))
+  assert_eq(store.get(view), 4)
+  assert_true(query.drop_memo_evidence(()) is Ok(_))
   enabled.val = true
   assert_true(
     (Ok(store.get(view)) catch { error => Err(error) }) is Err(Cycle(_)),
@@ -283,7 +283,7 @@ test "proof loss current cycle cleans active state and recovers" {
   assert_true(captured.val.unwrap().frame.val is None)
   assert_true(captured.val.unwrap().session.active_stack.is_empty())
   enabled.val = false
-  assert_eq(Ok(store.get(view)) catch { error => Err(error) }, Ok(4))
+  assert_eq(store.get(view), 4)
   assert_eq(query.core.memo.get(()).unwrap().memo_id.value, 1)
 }
 
@@ -295,7 +295,7 @@ test "proof loss rejects evaluation transaction and closed region" {
   let target = region.query((_ctx, key : ProbeKey) => key.value)
 
   let target_view = target.view(key)
-  assert_eq(Ok(store.get(target_view)) catch { error => Err(error) }, Ok(3))
+  assert_eq(store.get(target_view), 3)
   let before = target.core.memo.get(key).unwrap()
   let before_value = before.value
   let before_id = before.memo_id
@@ -310,12 +310,7 @@ test "proof loss rejects evaluation transaction and closed region" {
     seen.val = Some(target.drop_memo_evidence(key))
   })
 
-  assert_eq(
-    Ok(store.get(blocker.view(()))) catch {
-      error => Err(error)
-    },
-    Ok(()),
-  )
+  assert_eq(store.get(blocker.view(())), ())
   assert_true(seen.val.unwrap() is Err(MutationDuringEvaluation(_)))
   assert_eq(key.hashes.val, 0)
   assert_eq(key.equals.val, 0)

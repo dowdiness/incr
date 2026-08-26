@@ -11,8 +11,14 @@ expected_diagnostic() {
     query_context_constructor.mbt.disabled)
       printf '%s' 'does not declare a custom constructor'
       ;;
+    cutoff_eq_trait.mbt.disabled)
+      printf '%s' 'Trait CutoffEq not found in package `kernel`'
+      ;;
     cutoff_fields.mbt.disabled)
       printf '%s' 'Cutoff[Int] has no field mode'
+      ;;
+    cutoff_type_owned.mbt.disabled)
+      printf '%s' 'Cutoff has no method type_owned'
       ;;
     diagnostic_fields.mbt.disabled)
       printf '%s' 'Diagnostic has no field message_text'

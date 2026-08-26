@@ -7,7 +7,7 @@ test "Region close changes only ChangeEpoch and invalidates surviving Views" {
 
   let source_view = source.view()
   let query_view = query.view(())
-  assert_eq(Ok(store.get(query_view)) catch { error => Err(error) }, Ok(11))
+  assert_eq(store.get(query_view), 11)
   let close_epoch_before = store.change_epoch.val
   region.close()
   assert_eq(store.change_epoch.val, close_epoch_before + 1)
@@ -36,12 +36,7 @@ test "sibling Regions remain independent after one closes" {
     (Ok(store.get(first_view)) catch { error => Err(error) })
     is Err(ReadError::ClosedRegion(_)),
   )
-  assert_eq(
-    Ok(store.get(second_source.view())) catch {
-      error => Err(error)
-    },
-    Ok(2),
-  )
+  assert_eq(store.get(second_source.view()), 2)
   ignore(second.source(3))
 }
 
@@ -54,7 +49,7 @@ test "cross Region Source failure is visible to a surviving query View" {
   let view = source.view()
   let query = dependent.query((ctx, _unit : Unit) => ctx.get(view))
   let query_view = query.view(())
-  assert_eq(Ok(store.get(query_view)) catch { error => Err(error) }, Ok(12))
+  assert_eq(store.get(query_view), 12)
   owner.close()
   assert_true(
     (Ok(store.get(query_view)) catch { error => Err(error) })
@@ -75,7 +70,7 @@ test "wrong-phase close is rejected without a ChangeEpoch delta" {
     1
   })
 
-  assert_eq(Ok(store.get(result.view(()))) catch { error => Err(error) }, Ok(1))
+  assert_eq(store.get(result.view(())), 1)
   assert_eq(store.change_epoch.val, before)
   other.close()
   assert_eq(store.change_epoch.val, before + 1)
@@ -97,7 +92,7 @@ test "a closed branch can be replaced by a live same-store branch" {
     }
   })
 
-  assert_eq(Ok(store.get(query.view(()))) catch { error => Err(error) }, Ok(10))
+  assert_eq(store.get(query.view(())), 10)
   owner.close()
   ignore(
     (
@@ -106,5 +101,5 @@ test "a closed branch can be replaced by a live same-store branch" {
         Ok(())
       }) : Result[Unit, Unit]),
   )
-  assert_eq(Ok(store.get(query.view(()))) catch { error => Err(error) }, Ok(20))
+  assert_eq(store.get(query.view(())), 20)
 }

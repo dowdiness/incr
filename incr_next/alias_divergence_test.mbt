@@ -31,9 +31,9 @@ test "expected divergence: mutable Query-key meaning can outlive a memo" {
   let query = region.query((_ctx, key : MutableSemanticKey) => key.semantic.val)
 
   let view = query.view(key)
-  assert_eq(Ok(store.get(view)) catch { error => Err(error) }, Ok(1))
+  assert_eq(store.get(view), 1)
   key.semantic.val = 2
-  assert_eq(Ok(store.get(view)) catch { error => Err(error) }, Ok(1))
+  assert_eq(store.get(view), 1)
   assert_eq(key.semantic.val, 2)
   region.close()
 }

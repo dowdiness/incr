@@ -1,9 +1,9 @@
 ///|
-/// Human-facing context for one structural failure.
+/// Human-facing context with no equality or stable formatting contract.
 pub struct Diagnostic {
   priv message_text : String
   priv help_text : String?
-} derive(Eq, Debug)
+} derive(Debug)
 
 ///|
 /// Returns the actionable failure description.
@@ -31,7 +31,7 @@ pub suberror ReadError {
   ExpiredQueryContext(Diagnostic)
   ReentrantRootGet(Diagnostic)
   GetDuringTransaction(Diagnostic)
-} derive(Eq, Debug)
+} derive(Debug)
 
 ///|
 /// Structural failures while creating or closing a Region.
@@ -39,7 +39,7 @@ pub suberror RegionError {
   ClosedRegion(Diagnostic)
   MutationDuringEvaluation(Diagnostic)
   MutationDuringTransaction(Diagnostic)
-} derive(Eq, Debug)
+} derive(Debug)
 
 ///|
 /// Structural failures while staging or publishing a Transaction.
@@ -49,14 +49,24 @@ pub suberror TransactionError {
   ExpiredTransaction(Diagnostic)
   TransactionDuringEvaluation(Diagnostic)
   NestedTransaction(Diagnostic)
-} derive(Eq, Debug)
+} derive(Debug)
 
 ///|
-fn read_cross_store() -> ReadError {
+fn read_store_cross_store() -> ReadError {
   CrossStore(
     diagnostic(
       "Store::get received a View created by a different Store.",
       help="Use the Store that owns the View; Views cannot cross Store boundaries.",
+    ),
+  )
+}
+
+///|
+fn read_query_context_cross_store() -> ReadError {
+  CrossStore(
+    diagnostic(
+      "QueryContext::get received a View created by a different Store.",
+      help="Define the Derived Value or Query and all of its dependencies in the same Store; Views cannot cross Store boundaries.",
     ),
   )
 }

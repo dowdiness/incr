@@ -15,13 +15,13 @@ pub suberror ReadError {
   ExpiredQueryContext(Diagnostic)
   ReentrantRootGet(Diagnostic)
   GetDuringTransaction(Diagnostic)
-} derive(Eq, @debug.Debug)
+} derive(@debug.Debug)
 
 pub suberror RegionError {
   ClosedRegion(Diagnostic)
   MutationDuringEvaluation(Diagnostic)
   MutationDuringTransaction(Diagnostic)
-} derive(Eq, @debug.Debug)
+} derive(@debug.Debug)
 
 pub suberror TransactionError {
   CrossStore(Diagnostic)
@@ -29,18 +29,17 @@ pub suberror TransactionError {
   ExpiredTransaction(Diagnostic)
   TransactionDuringEvaluation(Diagnostic)
   NestedTransaction(Diagnostic)
-} derive(Eq, @debug.Debug)
+} derive(@debug.Debug)
 
 // Types and methods
 pub struct Cutoff[V] {
   // private fields
 }
 pub fn[V : Eq] Cutoff::equal() -> Self[V]
-pub fn[V : CutoffEq] Cutoff::type_owned() -> Self[V]
 
 pub struct Diagnostic {
   // private fields
-} derive(Eq, @debug.Debug)
+} derive(@debug.Debug)
 pub fn Diagnostic::help(Self) -> String?
 pub fn Diagnostic::message(Self) -> String
 
@@ -89,6 +88,3 @@ pub struct View[V] {
 // Type aliases
 
 // Traits
-pub(open) trait CutoffEq {
-  fn cutoff_equal(Self, Self) -> Bool
-}

@@ -82,7 +82,7 @@ test "finite keyed recursion succeeds" {
   })
 
   query_ref.val = Some(query)
-  assert_eq(Ok(store.get(query.view(3))) catch { error => Err(error) }, Ok(0))
+  assert_eq(store.get(query.view(3)), 0)
 }
 
 ///|
@@ -109,7 +109,7 @@ test "unequal-key cross Query recursion succeeds" {
 
   a_ref.val = Some(a)
   b_ref.val = Some(b)
-  assert_eq(Ok(store.get(a.view(0))) catch { error => Err(error) }, Ok(1))
+  assert_eq(store.get(a.view(0)), 1)
 }
 
 ///|
@@ -128,7 +128,7 @@ test "dead cycle branch succeeds without entering the cycle" {
   })
 
   query_ref.val = Some(query)
-  assert_eq(Ok(store.get(query.view(()))) catch { error => Err(error) }, Ok(0))
+  assert_eq(store.get(query.view(())), 0)
 }
 
 ///|
@@ -141,5 +141,5 @@ test "sequential duplicate read does not form a cycle" {
     ctx.get(child_view) + ctx.get(child_view)
   })
 
-  assert_eq(Ok(store.get(parent.view(()))) catch { error => Err(error) }, Ok(0))
+  assert_eq(store.get(parent.view(())), 0)
 }

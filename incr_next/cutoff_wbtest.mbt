@@ -1,16 +1,5 @@
 ///|
-struct OwnedValue {
-  value : Int
-  marker : Int
-}
-
-///|
-impl CutoffEq for OwnedValue with fn cutoff_equal(self, other) {
-  self.value == other.value
-}
-
-///|
-test "typed constructors preserve newest values and fixed cutoff work" {
+test "default and Eq cutoff preserve memo identity and stamps" {
   let store = Store::Store()
   let region = store.region()
   let trigger = region.source(0)
@@ -21,7 +10,7 @@ test "typed constructors preserve newest values and fixed cutoff work" {
     7
   })
 
-  assert_eq(Ok(store.get(always.view(()))) catch { error => Err(error) }, Ok(7))
+  assert_eq(store.get(always.view(())), 7)
   let always_id = always.core.memo.get(()).unwrap().memo_id
   ignore(
     (
@@ -30,7 +19,7 @@ test "typed constructors preserve newest values and fixed cutoff work" {
         Ok(())
       }) : Result[Unit, Unit]),
   )
-  assert_eq(Ok(store.get(always.view(()))) catch { error => Err(error) }, Ok(7))
+  assert_eq(store.get(always.view(())), 7)
   assert_eq(always_runs.val, 2)
   assert_eq(always.core.cutoff_count.val, 1)
   assert_eq(always.core.memo.get(()).unwrap().memo_id, always_id)
@@ -70,40 +59,7 @@ test "typed constructors preserve newest values and fixed cutoff work" {
   assert_eq(eq_after.changed_at, eq_before.changed_at)
   assert_eq(eq_after.verified_at, store.change_epoch.val)
 
-  let owned_runs = Ref(0)
-  let owned = region.query(
-    (ctx, _unit : Unit) => {
-      owned_runs.val = owned_runs.val + 1
-      ignore(ctx.get(trigger.view()))
-      OwnedValue::{ value: 3, marker: store.change_epoch.val }
-    },
-    cutoff=Cutoff::type_owned(),
-  )
-
-  let initial_owned = (Ok(store.get(owned.view(()))) catch {
-    error => Err(error)
-  }).unwrap()
-  assert_eq(initial_owned.value, 3)
-  assert_eq(initial_owned.marker, 2)
-  let owned_before = owned.core.memo.get(()).unwrap()
-  ignore(
-    (
-      store.transaction(tx => {
-        tx.set(trigger, 3)
-        Ok(())
-      }) : Result[Unit, Unit]),
-  )
-  let newest = (Ok(store.get(owned.view(()))) catch { error => Err(error) }).unwrap()
-  assert_eq(newest.marker, 3)
-  let owned_after = owned.core.memo.get(()).unwrap()
-  assert_eq(owned.core.cutoff_count.val, 1)
-  assert_eq(owned_after.value.marker, 3)
-  assert_eq(owned_after.memo_id, owned_before.memo_id)
-  assert_eq(owned_after.changed_at, owned_before.changed_at)
-  assert_eq(owned_after.verified_at, store.change_epoch.val)
-  assert_eq(owned_runs.val, 2)
   region.close()
-  assert_true(owned.core.cutoff.val.mode is AlwaysChanged)
 }
 
 ///|
@@ -130,12 +86,7 @@ test "equivalent cutoff keeps newest trace and skips a downstream query" {
     ctx.get(root.view(())) + 1
   })
 
-  assert_eq(
-    Ok(store.get(downstream.view(()))) catch {
-      error => Err(error)
-    },
-    Ok(5),
-  )
+  assert_eq(store.get(downstream.view(())), 5)
   assert_eq(root.core.compute_count.val, 1)
   assert_eq(downstream.core.compute_count.val, 1)
   let old_changed_at = root.core.memo.get(()).unwrap().changed_at
@@ -146,12 +97,7 @@ test "equivalent cutoff keeps newest trace and skips a downstream query" {
         Ok(())
       }) : Result[Unit, Unit]),
   )
-  assert_eq(
-    Ok(store.get(downstream.view(()))) catch {
-      error => Err(error)
-    },
-    Ok(5),
-  )
+  assert_eq(store.get(downstream.view(())), 5)
   assert_eq(root.core.compute_count.val, 2)
   assert_eq(root.core.cutoff_count.val, 1)
   assert_eq(root.core.memo.get(()).unwrap().changed_at, old_changed_at)
@@ -163,12 +109,7 @@ test "equivalent cutoff keeps newest trace and skips a downstream query" {
         Ok(())
       }) : Result[Unit, Unit]),
   )
-  assert_eq(
-    Ok(store.get(downstream.view(()))) catch {
-      error => Err(error)
-    },
-    Ok(5),
-  )
+  assert_eq(store.get(downstream.view(())), 5)
   assert_eq(root.core.compute_count.val, 2)
   assert_eq(root.core.verification_count.val, 2)
   assert_eq(root.core.green_count.val, 1)
@@ -181,59 +122,9 @@ test "equivalent cutoff keeps newest trace and skips a downstream query" {
         Ok(())
       }) : Result[Unit, Unit]),
   )
-  assert_eq(
-    Ok(store.get(downstream.view(()))) catch {
-      error => Err(error)
-    },
-    Ok(13),
-  )
+  assert_eq(store.get(downstream.view(())), 13)
   assert_eq(root.core.compute_count.val, 3)
   assert_eq(root.core.cutoff_count.val, 2)
   assert_eq(downstream.core.compute_count.val, 2)
   assert_eq(downstream_runs.val, 2)
-}
-
-///|
-test "consecutive equivalent reads expose newest markers with stable change stamp" {
-  let store = Store::Store()
-  let region = store.region()
-  let trigger = region.source(0)
-  let computes = Ref(0)
-  let query = region.query(
-    (ctx, _unit : Unit) => {
-      computes.val = computes.val + 1
-      let marker = ctx.get(trigger.view())
-      OwnedValue::{ value: 9, marker }
-    },
-    cutoff=Cutoff::type_owned(),
-  )
-
-  let first = (Ok(store.get(query.view(()))) catch { error => Err(error) }).unwrap()
-  let changed_at = query.core.memo.get(()).unwrap().changed_at
-  ignore(
-    (
-      store.transaction(tx => {
-        tx.set(trigger, 1)
-        Ok(())
-      }) : Result[Unit, Unit]),
-  )
-  let second = (Ok(store.get(query.view(()))) catch { error => Err(error) }).unwrap()
-  ignore(
-    (
-      store.transaction(tx => {
-        tx.set(trigger, 2)
-        Ok(())
-      }) : Result[Unit, Unit]),
-  )
-  let third = (Ok(store.get(query.view(()))) catch { error => Err(error) }).unwrap()
-  let memo = query.core.memo.get(()).unwrap()
-  assert_eq(first.marker, 0)
-  assert_eq(second.marker, 1)
-  assert_eq(third.marker, 2)
-  assert_eq(computes.val, 3)
-  assert_eq(query.core.cutoff_count.val, 2)
-  assert_eq(memo.value.marker, 2)
-  assert_eq(memo.changed_at, changed_at)
-  assert_eq(memo.verified_at, store.change_epoch.val)
-  region.close()
 }

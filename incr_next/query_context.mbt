@@ -19,22 +19,29 @@ pub struct QueryContext {
   priv session : EvalSession
   priv invocation : Ref[Bool]
   priv frame : Ref[TrackingFrame?]
+  priv first_failure : Ref[ReadError?]
 }
 
 ///|
 fn QueryContext::root(session : EvalSession) -> QueryContext {
-  { session, invocation: Ref(true), frame: Ref(None) }
+  { session, invocation: Ref(true), frame: Ref(None), first_failure: Ref(None) }
 }
 
 ///|
 fn QueryContext::child(self : QueryContext) -> QueryContext {
-  { session: self.session, invocation: Ref(true), frame: Ref(Some([])) }
+  {
+    session: self.session,
+    invocation: Ref(true),
+    frame: Ref(Some([])),
+    first_failure: Ref(None),
+  }
 }
 
 ///|
 fn QueryContext::expire(self : QueryContext) -> Unit {
   self.invocation.val = false
   self.frame.val = None
+  self.first_failure.val = None
 }
 
 ///|
@@ -58,12 +65,34 @@ fn QueryContext::expired(self : QueryContext) -> ReadError? {
 }
 
 ///|
+fn[T] QueryContext::poison(
+  self : QueryContext,
+  error : ReadError,
+) -> T raise ReadError {
+  if self.first_failure.val is None {
+    self.first_failure.val = Some(error)
+  }
+  raise error
+}
+
+///|
 /// Gets a nested View, records its dependency, and raises structural failure.
 pub fn[V] QueryContext::get(
   self : QueryContext,
   view : View[V],
 ) -> V raise ReadError {
-  self.get_result(view).unwrap_or_error()
+  match self.expired() {
+    Some(error) => raise error
+    None =>
+      match self.first_failure.val {
+        Some(error) => raise error
+        None =>
+          match self.get_result(view) {
+            Ok(value) => value
+            Err(error) => self.poison(error)
+          }
+      }
+  }
 }
 
 ///|
@@ -76,7 +105,7 @@ fn[V] QueryContext::get_result(
     Some(error) => Err(error)
     None =>
       if view.owner != self.session.owner {
-        Err(read_cross_store())
+        Err(read_query_context_cross_store())
       } else {
         match (view.recipe)(self) {
           Ok(value) => {

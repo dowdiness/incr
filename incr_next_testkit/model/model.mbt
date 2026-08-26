@@ -12,10 +12,7 @@ pub(all) enum CutoffKind {
   AlwaysChangedEquivalent
   EqEquivalent
   EqChanged
-  TypeOwnedEquivalent
-  TypeOwnedChanged
   DynamicEquivalent
-  ConsecutiveEquivalent
 } derive(Eq, Debug)
 
 ///|

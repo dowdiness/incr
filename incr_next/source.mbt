@@ -53,7 +53,7 @@ fn[T] QueryContext::eval_source(
     Some(error) => Err(error)
     None =>
       if core.owner != self.session.owner {
-        Err(read_cross_store())
+        Err(read_query_context_cross_store())
       } else if !core.epoch.accepts(core.generation) {
         Err(read_closed_region())
       } else {

@@ -1,10 +1,4 @@
 ///|
-/// A type-owned propagation-equivalence relation for Query cutoff.
-pub(open) trait CutoffEq {
-  fn cutoff_equal(Self, Self) -> Bool
-}
-
-///|
 /// The epoch at which a Store mutation or Region close occurred.
 type ChangeEpoch = Int
 
@@ -45,12 +39,6 @@ fn[V] Cutoff::always_changed() -> Cutoff[V] {
 /// Uses structural equality as propagation equivalence.
 pub fn[V : Eq] Cutoff::equal() -> Cutoff[V] {
   { mode: Compare((old, next) => old == next) }
-}
-
-///|
-/// Uses the value type's propagation-equivalence relation.
-pub fn[V : CutoffEq] Cutoff::type_owned() -> Cutoff[V] {
-  { mode: Compare((old, next) => old.cutoff_equal(next)) }
 }
 
 ///|
@@ -124,7 +112,11 @@ fn[K : Hash + Eq, V] QueryContext::compute_query(
     Some(compute) => {
       core.compute_count.val = core.compute_count.val + 1
       let invocation = self.child()
-      let result = compute(invocation, key)
+      let callback_result = compute(invocation, key)
+      let result = match invocation.first_failure.val {
+        Some(error) => Err(error)
+        None => callback_result
+      }
       match result {
         Ok(value) => {
           let trace = invocation.take_frame()
@@ -226,7 +218,7 @@ fn[K : Hash + Eq, V] QueryContext::eval_query(
     Some(error) => Err(error)
     None =>
       if core.owner != self.session.owner {
-        Err(read_cross_store())
+        Err(read_query_context_cross_store())
       } else if !core.epoch.accepts(core.generation) {
         Err(read_closed_region())
       } else {
@@ -311,7 +303,7 @@ fn[K : Hash + Eq, V] Region::query_with_cutoff(
 }
 
 ///|
-/// Creates one tracked Derived Value with conservative propagation.
+/// Creates one tracked Derived Value with conservative propagation by default.
 #callsite(autofill(loc))
 pub fn[V] Region::derived(
   self : Region,

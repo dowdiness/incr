@@ -20,7 +20,7 @@ test "target failures and cycles do not invoke cutoff" {
   )
 
   let view = query.view(())
-  assert_eq(Ok(store.get(view)) catch { error => Err(error) }, Ok(0))
+  assert_eq(store.get(view), 0)
   assert_eq(query.core.cutoff_count.val, 0)
   ignore(
     (
@@ -44,7 +44,7 @@ test "target failures and cycles do not invoke cutoff" {
         Ok(())
       }) : Result[Unit, Unit]),
   )
-  assert_eq(Ok(store.get(view)) catch { error => Err(error) }, Ok(2))
+  assert_eq(store.get(view), 2)
   assert_eq(query.core.cutoff_count.val, 1)
   foreign_region.close()
   region.close()
@@ -71,7 +71,7 @@ test "an existing-memo self Cycle has zero cutoff and equivalent recovery backda
 
   let view = query.view(())
   self_view.val = Some(view)
-  assert_eq(Ok(store.get(view)) catch { error => Err(error) }, Ok(7))
+  assert_eq(store.get(view), 7)
   let before = query.core.memo.get(()).unwrap()
   cycle.val = true
   ignore(
@@ -99,7 +99,7 @@ test "an existing-memo self Cycle has zero cutoff and equivalent recovery backda
       }) : Result[Unit, Unit]),
   )
   let current = store.change_epoch.val
-  assert_eq(Ok(store.get(view)) catch { error => Err(error) }, Ok(7))
+  assert_eq(store.get(view), 7)
   let recovered = query.core.memo.get(()).unwrap()
   assert_eq(query.core.cutoff_count.val, 1)
   assert_eq(recovered.memo_id, before.memo_id)
@@ -139,7 +139,7 @@ test "a successful equivalent child commits cutoff before a failing parent" {
   })
 
   let view = parent.view(())
-  assert_eq(Ok(store.get(view)) catch { error => Err(error) }, Ok(1))
+  assert_eq(store.get(view), 1)
   let child_id = child.core.memo.get(()).unwrap().memo_id
   ignore(
     (
@@ -166,7 +166,7 @@ test "a successful equivalent child commits cutoff before a failing parent" {
         Ok(())
       }) : Result[Unit, Unit]),
   )
-  assert_eq(Ok(store.get(view)) catch { error => Err(error) }, Ok(1))
+  assert_eq(store.get(view), 1)
   assert_eq(child.core.cutoff_count.val, 2)
   assert_eq(parent.core.cutoff_count.val, 1)
   foreign_region.close()
@@ -201,7 +201,7 @@ test "an equivalent descendant commits before an ancestor Cycle" {
 
   let view = parent.view(())
   self_view.val = Some(view)
-  assert_eq(Ok(store.get(view)) catch { error => Err(error) }, Ok(1))
+  assert_eq(store.get(view), 1)
   let child_before = child.core.memo.get(()).unwrap()
   let parent_before = parent.core.memo.get(()).unwrap()
   cycle.val = true

@@ -17,20 +17,20 @@ A Query is a key-indexed family of derived values. A caller binds a key with `Qu
 
 The kernel may implement a Derived Value with an internal unit-keyed recipe, but `Unit`, an unused key parameter, and `view(())` do not appear in its public caller contract.
 
-Derived Value and Query construction each accept one optional opaque `Cutoff[V]` policy. Omission selects conservative AlwaysChanged propagation. Public constructors create only `Eq`-backed or type-owned policies under the required trait bounds; no arbitrary comparison predicate is public.
+Derived Value and Query construction each accept one optional opaque `Cutoff[V]` policy. Omission selects conservative AlwaysChanged propagation. The only public policy constructor is `Cutoff::equal()`, which requires `V : Eq`; no arbitrary or type-owned comparison predicate is public.
 
 ## Rationale
 
 The distinction makes the common single-value case direct without weakening the keyed model. Returning `View[V]` gives callers all currently commissioned authority while Region retains ownership of the compute closure, memo, trace, cutoff policy, and lifetime. A dedicated handle would expose no additional responsibility and would reserve interface surface for uncommissioned public eviction, debug, or policy mutation.
 
-An opaque policy value keeps the common path to one construction operation while allowing advanced callers to opt into sound cutoff. A public enum cannot require `V : Eq` or `V : CutoffEq` only for the corresponding variant; constructor bounds on an opaque type preserve those constraints without imposing them on AlwaysChanged callers.
+An opaque policy value keeps the common path to one construction operation while allowing advanced callers to opt into equality cutoff. The constructor bound preserves `V : Eq` without imposing it on AlwaysChanged callers. A manual `Eq` implementation used for cutoff remains responsible for ensuring that equality preserves every downstream observation; the kernel does not accept a separate unchecked relation.
 
 ## Consequences
 
 - The primary introductory operation is `Region::derived`; it constructs a Derived Value and returns `View[V]`.
 - `Query[K, V]` is taught only for caller-keyed families.
 - Unit-key Query spelling is removed from successful public examples and consumer fixtures where the computation has no domain key.
-- Derived Value and Query construction each have one common method rather than separate AlwaysChanged, Eq, and type-owned method families.
-- Cutoff remains an optional advanced capability represented by an opaque generic policy, not a public enum or arbitrary predicate.
+- Derived Value and Query construction each have one common method rather than separate AlwaysChanged and Eq method families.
+- Cutoff remains an optional advanced capability represented by an opaque generic policy, not a public enum, type-owned policy, or arbitrary predicate.
 - Adding a public Derived Value handle later requires a concrete new responsibility and separate evidence.
 - Existing contracts, documentation, generated interfaces, and consumer evidence must be revised and reaccepted before alpha publication.

@@ -17,7 +17,7 @@ test "a shared diamond has one inner kernel computation" {
     ctx.get(left.view(())) + ctx.get(right.view(()))
   })
 
-  assert_eq(Ok(store.get(root.view(()))) catch { error => Err(error) }, Ok(3))
+  assert_eq(store.get(root.view(())), 3)
   assert_eq(root.core.compute_count.val, 1)
   assert_eq(left.core.compute_count.val, 1)
   assert_eq(right.core.compute_count.val, 1)
@@ -33,7 +33,7 @@ test "a shared diamond has one inner kernel computation" {
     Query,
     Query,
   ])
-  assert_eq(Ok(store.get(root.view(()))) catch { error => Err(error) }, Ok(3))
+  assert_eq(store.get(root.view(())), 3)
   assert_eq(root.core.compute_count.val, 1)
   assert_eq(shared.core.compute_count.val, 1)
   assert_eq(shared.core.cache_hit_count.val, 1)
@@ -46,14 +46,14 @@ test "memo hits, identity, and epoch stamps are white-box observable" {
   let source = region.source(2)
   let query = region.query((ctx, _key : Int) => ctx.get(source.view()))
 
-  assert_eq(Ok(store.get(query.view(7))) catch { error => Err(error) }, Ok(2))
+  assert_eq(store.get(query.view(7)), 2)
   assert_eq(query.core.memo.length(), 1)
   assert_eq(query.core.compute_count.val, 1)
   assert_eq(query.core.cache_hit_count.val, 0)
   let before = query.core.memo.get(7).unwrap()
   assert_eq(before.verified_at, store.change_epoch.val)
   assert_eq(before.changed_at, store.change_epoch.val)
-  assert_eq(Ok(store.get(query.view(7))) catch { error => Err(error) }, Ok(2))
+  assert_eq(store.get(query.view(7)), 2)
   assert_eq(query.core.compute_count.val, 1)
   assert_eq(query.core.cache_hit_count.val, 1)
   let memo_id = query.core.memo.get(7).unwrap().memo_id
@@ -65,7 +65,7 @@ test "memo hits, identity, and epoch stamps are white-box observable" {
       }) : Result[Unit, Unit]),
   )
   let current_epoch = store.change_epoch.val
-  assert_eq(Ok(store.get(query.view(7))) catch { error => Err(error) }, Ok(3))
+  assert_eq(store.get(query.view(7)), 3)
   let after = query.core.memo.get(7).unwrap()
   assert_eq(query.core.compute_count.val, 2)
   assert_eq(query.core.cache_hit_count.val, 1)
@@ -89,24 +89,9 @@ test "successful memos own direct Source and Query traces" {
     ctx.get(child_query.view(()))
   })
 
-  assert_eq(
-    Ok(store.get(source_query.view(()))) catch {
-      error => Err(error)
-    },
-    Ok(1),
-  )
-  assert_eq(
-    Ok(store.get(child_query.view(()))) catch {
-      error => Err(error)
-    },
-    Ok(1),
-  )
-  assert_eq(
-    Ok(store.get(root_query.view(()))) catch {
-      error => Err(error)
-    },
-    Ok(1),
-  )
+  assert_eq(store.get(source_query.view(())), 1)
+  assert_eq(store.get(child_query.view(())), 1)
+  assert_eq(store.get(root_query.view(())), 1)
   assert_eq(
     source_query.core.memo.get(()).unwrap().trace.map(dep => dep.kind),
     [Source],
@@ -141,6 +126,65 @@ test "initial failure releases its temporary trace" {
 }
 
 ///|
+test "caught structural failure cannot install a fallback memo" {
+  let store = Store::Store()
+  let region = store.region()
+  let cycle_enabled = region.source(false)
+  let recursive : Ref[View[Int]?] = Ref(None)
+  let unstable = region.derived(ctx => {
+    if ctx.get(cycle_enabled.view()) {
+      ctx.get(recursive.val.unwrap())
+    } else {
+      10
+    }
+  })
+  recursive.val = Some(unstable)
+  let captured = Ref(None)
+  let outer = region.query((ctx, _unit : Unit) => {
+    captured.val = Some(ctx)
+    ctx.get(unstable) catch {
+      _error => 77
+    }
+  })
+  let outer_view = outer.view(())
+
+  assert_eq(store.get(outer_view), 10)
+  let before = outer.core.memo.get(()).unwrap()
+  ignore(
+    (
+      store.transaction(tx => {
+        tx.set(cycle_enabled, true)
+        Ok(())
+      }) : Result[Unit, Unit]),
+  )
+  let failed : Result[Int, ReadError] = Ok(store.get(outer_view)) catch {
+    error => Err(error)
+  }
+  assert_true(failed is Err(ReadError::Cycle(_)))
+  let after_failure = outer.core.memo.get(()).unwrap()
+  assert_eq(after_failure.memo_id, before.memo_id)
+  assert_eq(after_failure.value, 10)
+  assert_eq(after_failure.verified_at, before.verified_at)
+  assert_eq(after_failure.changed_at, before.changed_at)
+  let expired : Result[Bool, ReadError] = Ok(
+    captured.val.unwrap().get(cycle_enabled.view()),
+  ) catch {
+    error => Err(error)
+  }
+  assert_true(expired is Err(ReadError::ExpiredQueryContext(_)))
+
+  ignore(
+    (
+      store.transaction(tx => {
+        tx.set(cycle_enabled, false)
+        Ok(())
+      }) : Result[Unit, Unit]),
+  )
+  assert_eq(store.get(outer_view), 10)
+  region.close()
+}
+
+///|
 test "initial structural failure installs no memo, then recovery installs first ID" {
   let store = Store::Store()
   let foreign_store = Store::Store()
@@ -167,7 +211,7 @@ test "initial structural failure installs no memo, then recovery installs first 
   assert_true(query.core.memo.is_empty())
   // The callback is changed only after the failed frame has been released.
   fail_now.val = false
-  assert_eq(Ok(store.get(view)) catch { error => Err(error) }, Ok(1))
+  assert_eq(store.get(view), 1)
   assert_eq(query.core.memo.get(()).unwrap().memo_id.value, 0)
   foreign_region.close()
   region.close()
@@ -193,7 +237,7 @@ test "failed recompute returns current error and preserves successful authority"
   })
 
   let view = query.view(())
-  assert_eq(Ok(store.get(view)) catch { error => Err(error) }, Ok(0))
+  assert_eq(store.get(view), 0)
   let before = query.core.memo.get(()).unwrap()
   let before_kinds = before.trace.map(dep => dep.kind)
   let before_id = before.memo_id
@@ -242,7 +286,7 @@ test "failed recompute recovers with the same memo identity" {
   })
 
   let view = query.view(())
-  assert_eq(Ok(store.get(view)) catch { error => Err(error) }, Ok(0))
+  assert_eq(store.get(view), 0)
   let memo_id = query.core.memo.get(()).unwrap().memo_id
   ignore(
     (
@@ -263,7 +307,7 @@ test "failed recompute recovers with the same memo identity" {
       }) : Result[Unit, Unit]),
   )
   let current_epoch = store.change_epoch.val
-  assert_eq(Ok(store.get(view)) catch { error => Err(error) }, Ok(2))
+  assert_eq(store.get(view), 2)
   let after = query.core.memo.get(()).unwrap()
   assert_eq(after.memo_id, memo_id)
   assert_eq(after.value, 2)
@@ -297,7 +341,7 @@ test "successful child recompute remains installed when parent fails" {
   })
 
   let view = parent.view(())
-  assert_eq(Ok(store.get(view)) catch { error => Err(error) }, Ok(10))
+  assert_eq(store.get(view), 10)
   let before = parent.core.memo.get(()).unwrap()
   let before_id = before.memo_id
   let before_value = before.value
@@ -336,7 +380,7 @@ test "unrelated publication green-verifies without recompute" {
   let unrelated = region.source(9)
   let query = region.query((ctx, _unit : Unit) => ctx.get(selected.view()))
 
-  assert_eq(Ok(store.get(query.view(()))) catch { error => Err(error) }, Ok(2))
+  assert_eq(store.get(query.view(())), 2)
   let before = query.core.memo.get(()).unwrap()
   ignore(
     (
@@ -346,7 +390,7 @@ test "unrelated publication green-verifies without recompute" {
       }) : Result[Unit, Unit]),
   )
   let current = store.change_epoch.val
-  assert_eq(Ok(store.get(query.view(()))) catch { error => Err(error) }, Ok(2))
+  assert_eq(store.get(query.view(())), 2)
   let after = query.core.memo.get(()).unwrap()
   assert_eq(query.core.compute_count.val, 1)
   assert_eq(query.core.verification_count.val, 1)
@@ -368,7 +412,7 @@ test "selected publication red-recomputes and replaces the value" {
   let source = region.source(2)
   let query = region.query((ctx, _unit : Unit) => ctx.get(source.view()))
 
-  assert_eq(Ok(store.get(query.view(()))) catch { error => Err(error) }, Ok(2))
+  assert_eq(store.get(query.view(())), 2)
   let before = query.core.memo.get(()).unwrap()
   ignore(
     (
@@ -378,7 +422,7 @@ test "selected publication red-recomputes and replaces the value" {
       }) : Result[Unit, Unit]),
   )
   let current = store.change_epoch.val
-  assert_eq(Ok(store.get(query.view(()))) catch { error => Err(error) }, Ok(7))
+  assert_eq(store.get(query.view(())), 7)
   let after = query.core.memo.get(()).unwrap()
   assert_eq(query.core.compute_count.val, 2)
   assert_eq(query.core.verification_count.val, 1)
@@ -409,7 +453,7 @@ test "a selected diamond child verifies or computes once per epoch" {
     ctx.get(left.view(())) + ctx.get(right.view(()))
   })
 
-  assert_eq(Ok(store.get(root.view(()))) catch { error => Err(error) }, Ok(3))
+  assert_eq(store.get(root.view(())), 3)
   ignore(
     (
       store.transaction(tx => {
@@ -417,7 +461,7 @@ test "a selected diamond child verifies or computes once per epoch" {
         Ok(())
       }) : Result[Unit, Unit]),
   )
-  assert_eq(Ok(store.get(root.view(()))) catch { error => Err(error) }, Ok(11))
+  assert_eq(store.get(root.view(())), 11)
   assert_eq(shared.core.compute_count.val, 2)
   assert_eq(shared.core.verification_count.val, 1)
   assert_eq(shared.core.green_count.val, 0)
@@ -434,7 +478,7 @@ test "a selected diamond child verifies or computes once per epoch" {
         Ok(())
       }) : Result[Unit, Unit]),
   )
-  assert_eq(Ok(store.get(root.view(()))) catch { error => Err(error) }, Ok(11))
+  assert_eq(store.get(root.view(())), 11)
   assert_eq(shared.core.verification_count.val, 2)
   assert_eq(shared.core.green_count.val, 1)
   assert_eq(shared.core.red_count.val, 1)
@@ -453,7 +497,7 @@ test "child verification does not append an old trace to its parent" {
 
   let parent = region.query((ctx, _unit : Unit) => ctx.get(child.view(())))
 
-  assert_eq(Ok(store.get(parent.view(()))) catch { error => Err(error) }, Ok(1))
+  assert_eq(store.get(parent.view(())), 1)
   ignore(
     (
       store.transaction(tx => {
@@ -461,7 +505,7 @@ test "child verification does not append an old trace to its parent" {
         Ok(())
       }) : Result[Unit, Unit]),
   )
-  assert_eq(Ok(store.get(parent.view(()))) catch { error => Err(error) }, Ok(1))
+  assert_eq(store.get(parent.view(())), 1)
   assert_eq(child.core.memo.get(()).unwrap().trace.length(), 1)
   assert_eq(parent.core.memo.get(()).unwrap().trace.length(), 1)
   assert_eq(child.core.verification_count.val, 1)
@@ -483,7 +527,7 @@ test "dynamic trace replacement drops the old branch" {
     }
   })
 
-  assert_eq(Ok(store.get(query.view(()))) catch { error => Err(error) }, Ok(4))
+  assert_eq(store.get(query.view(())), 4)
   assert_eq(query.core.memo.get(()).unwrap().trace.length(), 2)
   ignore(
     (
@@ -492,7 +536,7 @@ test "dynamic trace replacement drops the old branch" {
         Ok(())
       }) : Result[Unit, Unit]),
   )
-  assert_eq(Ok(store.get(query.view(()))) catch { error => Err(error) }, Ok(9))
+  assert_eq(store.get(query.view(())), 9)
   assert_eq(query.core.memo.get(()).unwrap().trace.length(), 1)
   ignore(
     (
@@ -501,7 +545,7 @@ test "dynamic trace replacement drops the old branch" {
         Ok(())
       }) : Result[Unit, Unit]),
   )
-  assert_eq(Ok(store.get(query.view(()))) catch { error => Err(error) }, Ok(9))
+  assert_eq(store.get(query.view(())), 9)
   assert_eq(query.core.compute_count.val, 2)
   assert_eq(query.core.verification_count.val, 2)
   assert_eq(query.core.green_count.val, 1)
@@ -525,7 +569,7 @@ test "all dependencies are checked when a closed cross Region branch is avoided"
     }
   })
 
-  assert_eq(Ok(store.get(query.view(()))) catch { error => Err(error) }, Ok(4))
+  assert_eq(store.get(query.view(())), 4)
   old.close()
   ignore(
     (
@@ -534,7 +578,7 @@ test "all dependencies are checked when a closed cross Region branch is avoided"
         Ok(())
       }) : Result[Unit, Unit]),
   )
-  assert_eq(Ok(store.get(query.view(()))) catch { error => Err(error) }, Ok(9))
+  assert_eq(store.get(query.view(())), 9)
   assert_eq(query.core.compute_count.val, 2)
   assert_eq(query.core.verification_count.val, 1)
   assert_eq(query.core.red_count.val, 1)
@@ -550,7 +594,7 @@ test "Region close clears Query memo state" {
   let source = region.source(4)
   let query = region.query((ctx, _key : Int) => ctx.get(source.view()))
 
-  assert_eq(Ok(store.get(query.view(4))) catch { error => Err(error) }, Ok(4))
+  assert_eq(store.get(query.view(4)), 4)
   assert_eq(query.core.memo.length(), 1)
   assert_eq(query.core.memo.get(4).unwrap().trace.length(), 1)
   assert_true(query.core.compute.val is Some(_))

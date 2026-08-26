@@ -25,7 +25,7 @@ test "active check precedes a same-epoch memo hit" {
   let store = Store::Store()
   let region = store.region()
   let target = region.query((_ctx, key : Int) => key)
-  assert_eq(Ok(store.get(target.view(7))) catch { error => Err(error) }, Ok(7))
+  assert_eq(store.get(target.view(7)), 7)
   let before = target.core.memo.get(7).unwrap()
   let before_cache_hits = target.core.cache_hit_count.val
   let captured = Ref(None)
@@ -80,7 +80,7 @@ test "a Cycle preserves successful memo authority and recovers without caching" 
 
   query_ref.val = Some(query)
   let view = query.view(())
-  assert_eq(Ok(store.get(view)) catch { error => Err(error) }, Ok(0))
+  assert_eq(store.get(view), 0)
   let before = query.core.memo.get(()).unwrap()
   let before_value = before.value
   let before_id = before.memo_id
@@ -130,7 +130,7 @@ test "a Cycle preserves successful memo authority and recovers without caching" 
       }) : Result[Unit, Unit]),
   )
   let recovery_epoch = store.change_epoch.val
-  assert_eq(Ok(store.get(view)) catch { error => Err(error) }, Ok(2))
+  assert_eq(store.get(view), 2)
   let recovered = query.core.memo.get(()).unwrap()
   assert_eq(recovered.memo_id, before_id)
   assert_eq(recovered.value, 2)
@@ -166,7 +166,7 @@ test "a Cycle during old-trace verification requests recomputation" {
 
   a_ref.val = Some(a)
   b_ref.val = Some(b)
-  assert_eq(Ok(store.get(b.view(()))) catch { error => Err(error) }, Ok(0))
+  assert_eq(store.get(b.view(())), 0)
   ignore(
     (
       store.transaction(tx => {
@@ -174,7 +174,7 @@ test "a Cycle during old-trace verification requests recomputation" {
         Ok(())
       }) : Result[Unit, Unit]),
   )
-  assert_eq(Ok(store.get(a.view(()))) catch { error => Err(error) }, Ok(1))
+  assert_eq(store.get(a.view(())), 1)
   assert_true(b.core.unavailable_count.val > 0)
   assert_true(a.core.unavailable_count.val == 0)
   assert_true(a.core.active.is_empty())
@@ -259,7 +259,7 @@ test "active entries and the root stack are empty after finite success" {
   })
 
   query_ref.val = Some(query)
-  assert_eq(Ok(store.get(query.view(3))) catch { error => Err(error) }, Ok(0))
+  assert_eq(store.get(query.view(3)), 0)
   assert_true(query.core.active.is_empty())
   assert_true(captured.val.unwrap().session.active_stack.is_empty())
 }

@@ -10,9 +10,9 @@ test "first hit and green verification never call cutoff" {
   )
 
   let view = query.view(())
-  assert_eq(Ok(store.get(view)) catch { error => Err(error) }, Ok(1))
+  assert_eq(store.get(view), 1)
   assert_eq(query.core.cutoff_count.val, 0)
-  assert_eq(Ok(store.get(view)) catch { error => Err(error) }, Ok(1))
+  assert_eq(store.get(view), 1)
   assert_eq(query.core.cutoff_count.val, 0)
   ignore(
     (
@@ -21,7 +21,7 @@ test "first hit and green verification never call cutoff" {
         Ok(())
       }) : Result[Unit, Unit]),
   )
-  assert_eq(Ok(store.get(view)) catch { error => Err(error) }, Ok(1))
+  assert_eq(store.get(view), 1)
   assert_eq(query.core.cutoff_count.val, 0)
   assert_eq(query.core.green_count.val, 1)
   region.close()

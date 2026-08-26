@@ -30,7 +30,7 @@ test "evaluation phase rejects root reads and Region mutation globally" {
     1
   })
 
-  assert_eq(Ok(store.get(query.view(()))) catch { error => Err(error) }, Ok(1))
+  assert_eq(store.get(query.view(())), 1)
   assert_true(root_error.val.unwrap() is Err(ReadError::ReentrantRootGet(_)))
   assert_true(
     region_error.val.unwrap() is Err(RegionError::MutationDuringEvaluation(_)),
@@ -59,7 +59,7 @@ test "Query structural failure restores Idle for root Region and transaction" {
     (Ok(store.get(query.view(()))) catch { error => Err(error) })
     is Err(ReadError::CrossStore(_)),
   )
-  assert_eq(Ok(other.get(foreign.view())) catch { error => Err(error) }, Ok(2))
+  assert_eq(other.get(foreign.view()), 2)
   ignore(other.region())
   assert_eq((other.transaction(_tx => Ok(())) : Result[Unit, Unit]), Ok(()))
   ignore(source)
@@ -72,8 +72,6 @@ test "phase is restored after catchable root rejection" {
   let source = region.source(3)
   let query = region.query((ctx, _unit : Unit) => ctx.get(source.view()))
 
-  let first = Ok(store.get(query.view(()))) catch { error => Err(error) }
-  let second = Ok(store.get(source.view())) catch { error => Err(error) }
-  assert_eq(first, Ok(3))
-  assert_eq(second, Ok(3))
+  assert_eq(store.get(query.view(())), 3)
+  assert_eq(store.get(source.view()), 3)
 }

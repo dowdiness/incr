@@ -129,7 +129,7 @@ test "K1.6b proof loss and rematerialization are visible only privately" {
   let old_child_id = child.core.memo.get(()).unwrap().memo_id
   let old_parent_compute = parent.core.compute_count.val
   let old_cutoff = child.core.cutoff_count.val
-  assert_eq(child.drop_memo_evidence(()), Ok(()))
+  assert_true(child.drop_memo_evidence(()) is Ok(_))
   assert_eq(child.core.memo.length(), 0)
 
   publish_one(store, unrelated, 1)

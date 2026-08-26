@@ -1,5 +1,10 @@
 # K1.4 validation record
 
+> **Historical interface note:** This record preserves the K1.4 acceptance
+> evidence at the commits named below. The active post-K2 interface removes the
+> type-owned cutoff trait and constructor and retains only optional
+> `Cutoff::equal()`.
+
 **Reader:** K1.4 implementers and reviewers.
 
 **Decision:** Implement the commissioned K1.4 typed cutoff and backdating

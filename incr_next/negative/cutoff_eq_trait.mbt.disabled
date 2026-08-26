@@ -1,0 +1,7 @@
+priv struct LocalValue {
+  value : Int
+}
+
+impl @kernel.CutoffEq for LocalValue with fn cutoff_equal(self, other) {
+  self.value == other.value
+}

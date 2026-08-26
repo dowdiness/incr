@@ -87,91 +87,6 @@ test "incr next expected divergence: returned memo Array aliases cache" {
 }
 ```
 
-## Structural failure converted to a successful fallback
-
-Query callbacks must propagate Structural Failure transparently. Catching one
-and returning a successful fallback can install a memo without the failed edge.
-
-```mbt check
-///|
-test "incr next expected divergence: hidden structural failure severs recovery" {
-  let store = @incr_next.Store::Store()
-  let region = store.region()
-  let cycle_enabled = region.source(false)
-  let recursive : Ref[@incr_next.View[Int]?] = Ref(None)
-  let unstable = region.derived(ctx => {
-    if ctx.get(cycle_enabled.view()) {
-      ctx.get(recursive.val.unwrap())
-    } else {
-      10
-    }
-  })
-  recursive.val = Some(unstable)
-  let hides_failure = region.derived(ctx => {
-    ctx.get(unstable) catch { _error => 77 }
-  })
-
-  assert_eq(store.get(hides_failure), 10)
-  ignore((store.transaction(tx => {
-    tx.set(cycle_enabled, true)
-    Ok(())
-  }) : Result[Unit, Unit]))
-  let cycle : Result[Int, @incr_next.ReadError] = Ok(store.get(unstable)) catch {
-    error => Err(error)
-  }
-  assert_true(cycle is Err(@incr_next.ReadError::Cycle(_)))
-  assert_eq(store.get(hides_failure), 77)
-  ignore((store.transaction(tx => {
-    tx.set(cycle_enabled, false)
-    Ok(())
-  }) : Result[Unit, Unit]))
-  assert_eq(store.get(unstable), 10)
-  assert_eq(store.get(hides_failure), 77)
-  region.close()
-}
-```
-
-## Unsound type-owned cutoff
-
-```mbt check
-///|
-priv struct LocalStep {
-  value : Int
-}
-
-///|
-impl @incr_next.CutoffEq for LocalStep with fn cutoff_equal(self, other) {
-  let distance = self.value - other.value
-  distance >= -1 && distance <= 1
-}
-
-///|
-test "incr next expected divergence: non-transitive cutoff stales downstream" {
-  let store = @incr_next.Store::Store()
-  let region = store.region()
-  let input = region.source(10)
-  let target = region.derived(
-    ctx => LocalStep::{ value: ctx.get(input.view()) },
-    cutoff=@incr_next.Cutoff::type_owned(),
-  )
-  let downstream = region.derived(ctx => ctx.get(target).value)
-
-  assert_eq(store.get(downstream), 10)
-  ignore((store.transaction(tx => {
-    tx.set(input, 11)
-    Ok(())
-  }) : Result[Unit, Unit]))
-  assert_eq(store.get(downstream), 10)
-  ignore((store.transaction(tx => {
-    tx.set(input, 12)
-    Ok(())
-  }) : Result[Unit, Unit]))
-  assert_eq(store.get(downstream), 10)
-  assert_eq(store.get(target).value, 12)
-  region.close()
-}
-```
-
 ## Untracked mutable state
 
 ```mbt check
@@ -195,4 +110,4 @@ test "incr next expected divergence: untracked Ref remains stale" {
 ```
 
 The admissible replacements are immutable values, explicit copies, tracked
-Sources, and sound `Eq` or `CutoffEq` relations.
+Sources, and `Eq` implementations whose equality preserves every downstream observation.
