@@ -6,15 +6,15 @@ import {
 }
 
 // Values
-pub fn all_cutoff_match() -> Bool
+pub fn all_cutoff_match() -> Bool raise
 
-pub fn all_match() -> Bool
+pub fn all_match() -> Bool raise
 
-pub fn canonical_matches() -> Bool
+pub fn canonical_matches() -> Bool raise
 
-pub fn cutoff_matches(@model.CutoffScript) -> Bool
+pub fn cutoff_matches(@model.CutoffScript) -> Bool raise
 
-pub fn matches(@model.Script) -> Bool
+pub fn matches(@model.Script) -> Bool raise
 
 // Errors
 
@@ -23,4 +23,3 @@ pub fn matches(@model.Script) -> Bool
 // Type aliases
 
 // Traits
-

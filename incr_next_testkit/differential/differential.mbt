@@ -15,32 +15,32 @@ fn semantic_observations(
 ///
 /// Counters are intentionally excluded: Fresh is a from-scratch semantic
 /// oracle, while the incremental adapter's counters measure kernel work.
-pub fn matches(script : @model.Script) -> Bool {
+pub fn matches(script : @model.Script) -> Bool raise {
   semantic_observations(@fresh.evaluate(script)) ==
   semantic_observations(@incremental_adapter.evaluate(script))
 }
 
 ///|
 /// Reports whether the canonical Source scenario matches Fresh.
-pub fn canonical_matches() -> Bool {
+pub fn canonical_matches() -> Bool raise {
   matches(@scenarios.canonical())
 }
 
 ///|
 /// Reports whether every canonical scenario matches Fresh semantically.
-pub fn all_match() -> Bool {
+pub fn all_match() -> Bool raise {
   @scenarios.all().all(script => matches(script))
 }
 
 ///|
 /// Compares admissible K1.4 cutoff semantics with the memo-free oracle.
-pub fn cutoff_matches(script : @model.CutoffScript) -> Bool {
+pub fn cutoff_matches(script : @model.CutoffScript) -> Bool raise {
   semantic_observations(@fresh.evaluate_cutoff(script)) ==
   semantic_observations(@incremental_adapter.evaluate_cutoff(script))
 }
 
 ///|
 /// Reports whether every admissible cutoff scenario preserves Fresh parity.
-pub fn all_cutoff_match() -> Bool {
+pub fn all_cutoff_match() -> Bool raise {
   @scenarios.cutoff_all().all(script => cutoff_matches(script))
 }

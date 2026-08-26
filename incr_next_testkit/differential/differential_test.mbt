@@ -32,35 +32,19 @@ test "all graph, error, and cycle scenarios match Fresh semantically" {
 test "K1.3 cycle scenarios match Fresh values and exact work" {
   assert_semantics_and_work(
     @scenarios.direct_cycle(),
-    [
-      @model.Observation::Error(
-        @model.ScenarioError::Cycle(@model.CycleWitness::CycleWitness([0, 0])),
-      ),
-    ],
+    [@model.Observation::Error(@model.ScenarioError::Cycle)],
     1,
     1,
   )
   assert_semantics_and_work(
     @scenarios.mutual_cycle(),
-    [
-      @model.Observation::Error(
-        @model.ScenarioError::Cycle(
-          @model.CycleWitness::CycleWitness([0, 1, 0]),
-        ),
-      ),
-    ],
+    [@model.Observation::Error(@model.ScenarioError::Cycle)],
     2,
     2,
   )
   assert_semantics_and_work(
     @scenarios.same_query_key_cycle(),
-    [
-      @model.Observation::Error(
-        @model.ScenarioError::Cycle(
-          @model.CycleWitness::CycleWitness([0, 0, 0]),
-        ),
-      ),
-    ],
+    [@model.Observation::Error(@model.ScenarioError::Cycle)],
     2,
     2,
   )
@@ -92,12 +76,8 @@ test "K1.3 cycle scenarios match Fresh values and exact work" {
     @scenarios.cycle_recovery(),
     [
       @model.Observation::Value(0),
-      @model.Observation::Error(
-        @model.ScenarioError::Cycle(@model.CycleWitness::CycleWitness([0, 0])),
-      ),
-      @model.Observation::Error(
-        @model.ScenarioError::Cycle(@model.CycleWitness::CycleWitness([0, 0])),
-      ),
+      @model.Observation::Error(@model.ScenarioError::Cycle),
+      @model.Observation::Error(@model.ScenarioError::Cycle),
       @model.Observation::Value(2),
     ],
     4,
@@ -167,12 +147,6 @@ test "Fresh and incremental work counters are separate evidence" {
       @model.Observation::Value(9),
     ],
     3,
-    2,
-  )
-  assert_semantics_and_work(
-    @scenarios.root_snapshot(),
-    [@model.Observation::Value(2), @model.Observation::Value(5)],
-    2,
     2,
   )
   assert_semantics_and_work(

@@ -6,9 +6,9 @@ import {
 }
 
 // Values
-pub fn evaluate(@model.Script) -> Array[@model.Observation]
+pub fn evaluate(@model.Script) -> Array[@model.Observation] raise
 
-pub fn evaluate_cutoff(@model.CutoffScript) -> Array[@model.Observation]
+pub fn evaluate_cutoff(@model.CutoffScript) -> Array[@model.Observation] raise
 
 // Errors
 
@@ -17,4 +17,3 @@ pub fn evaluate_cutoff(@model.CutoffScript) -> Array[@model.Observation]
 // Type aliases
 
 // Traits
-

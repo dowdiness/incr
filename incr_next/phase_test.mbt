@@ -1,73 +1,77 @@
 ///|
 test "evaluation phase rejects root reads and Region mutation globally" {
   let store = Store::Store()
-  let region = store.region().unwrap()
+  let region = store.region()
   let other = Store::Store()
-  let other_region = other.region().unwrap()
-  let other_source = other_region.source(9).unwrap()
+  let other_region = other.region()
+  let other_source = other_region.source(9)
   let root_error = Ref(None)
   let region_error = Ref(None)
   let transaction_error = Ref(None)
   let close_error = Ref(None)
-  let query = region
-    .query((ctx, _unit : Unit) => {
-      root_error.val = Some(other.read(other_source.view()))
-      region_error.val = Some(other.region())
-      transaction_error.val = Some(other.transaction(_tx => Ok(())))
-      close_error.val = Some(other_region.close())
-      match ctx.revision() {
-        Ok(_) => Ok(1)
-        Err(error) => Err(error)
-      }
-    })
-    .unwrap()
-  assert_eq(store.read(query.at(())), Ok(1))
-  assert_true(root_error.val.unwrap() is Err(ReadError::ReentrantRootRead(..)))
+  let query = region.query((ctx, _unit : Unit) => {
+    root_error.val = Some(
+      Ok(other.get(other_source.view())) catch {
+        error => Err(error)
+      },
+    )
+    region_error.val = Some(Ok(other.region()) catch { error => Err(error) })
+    transaction_error.val = Some(
+      Ok((other.transaction(_tx => Ok(())) : Result[Unit, Unit])) catch {
+        error => Err(error)
+      },
+    )
+    close_error.val = Some(
+      Ok(other_region.close()) catch {
+        error => Err(error)
+      },
+    )
+    ignore(ctx)
+    1
+  })
+
+  assert_eq(store.get(query.view(())), 1)
+  assert_true(root_error.val.unwrap() is Err(ReadError::ReentrantRootGet(_)))
   assert_true(
-    region_error.val.unwrap() is Err(RegionError::MutationDuringEvaluation(..)),
+    region_error.val.unwrap() is Err(RegionError::MutationDuringEvaluation(_)),
   )
   assert_true(
     transaction_error.val.unwrap()
-    is Err(TransactionError::TransactionDuringEvaluation(..)),
+    is Err(TransactionError::TransactionDuringEvaluation(_)),
   )
   assert_true(
-    close_error.val.unwrap() is Err(RegionError::MutationDuringEvaluation(..)),
+    close_error.val.unwrap() is Err(RegionError::MutationDuringEvaluation(_)),
   )
-  assert_true(other_region.close() is Ok(_))
+  other_region.close()
 }
 
 ///|
-test "Query callback Err restores Idle for root Region and transaction" {
+test "Query structural failure restores Idle for root Region and transaction" {
   let store = Store::Store()
-  let region = store.region().unwrap()
-  let source = region.source(1).unwrap()
+  let region = store.region()
+  let source = region.source(1)
   let other = Store::Store()
-  let other_region = other.region().unwrap()
-  let query : Query[Unit, Unit] = region
-    .query((_ctx, _unit : Unit) => Err(ReadError::ExpiredQueryContext))
-    .unwrap()
-  assert_true(store.read(query.at(())) is Err(ReadError::ExpiredQueryContext))
-  assert_eq(other.read(other_region.source(2).unwrap().view()), Ok(2))
-  assert_true(other.region() is Ok(_))
-  assert_true(other.transaction(_tx => Ok(())) is Ok(_))
+  let other_region = other.region()
+  let foreign = other_region.source(2)
+  let query = region.query((ctx, _unit : Unit) => ctx.get(foreign.view()))
+
+  assert_true(
+    (Ok(store.get(query.view(()))) catch { error => Err(error) })
+    is Err(ReadError::CrossStore(_)),
+  )
+  assert_eq(other.get(foreign.view()), 2)
+  ignore(other.region())
+  assert_eq((other.transaction(_tx => Ok(())) : Result[Unit, Unit]), Ok(()))
   ignore(source)
 }
 
 ///|
 test "phase is restored after catchable root rejection" {
   let store = Store::Store()
-  let region = store.region().unwrap()
-  let source = region.source(3).unwrap()
-  let query = region
-    .query((ctx, _unit : Unit) => {
-      match ctx.read(source.view()) {
-        Ok(value) => Ok(value)
-        Err(error) => Err(error)
-      }
-    })
-    .unwrap()
-  let first = store.read(query.at(()))
-  let second = store.read(source.view())
-  assert_eq(first, Ok(3))
-  assert_eq(second, Ok(3))
+  let region = store.region()
+  let source = region.source(3)
+  let query = region.query((ctx, _unit : Unit) => ctx.get(source.view()))
+
+  assert_eq(store.get(query.view(())), 3)
+  assert_eq(store.get(source.view()), 3)
 }

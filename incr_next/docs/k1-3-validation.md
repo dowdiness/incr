@@ -22,6 +22,12 @@ status-only heads passed 46 of 46 hosted checks, including
 was PASS. CodeRabbit skipped content review because manual review was required
 and is not positive evidence.
 
+> **Historical interface note:** This record describes the public
+> `CycleWitness` surface accepted at the pinned K1.3 commits above. The active
+> post-K2 interface supersedes that surface with opaque `Diagnostic` payloads;
+> this file remains unchanged evidence of the earlier acceptance decision, not
+> current API guidance.
+
 K1.4 typed cutoff and backdating is accepted at implementation/validation head
 `0036bdd199a685823b6769bf1acdac3f9b6b9014`, finalized at status-only head
 `c88e724383ca5f3e817f30226a9fa23cf3ad7358`, and merged as squash commit

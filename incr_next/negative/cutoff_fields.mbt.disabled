@@ -1,0 +1,3 @@
+fn invalid_cutoff_field(cutoff : @kernel.Cutoff[Int]) -> Unit {
+  ignore(cutoff.mode)
+}

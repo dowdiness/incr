@@ -27,11 +27,13 @@ The interface is intentionally smaller than current Incr:
 Store
 Region
 Source[T]
+Derived Value (represented by View[V])
 Query[K, V]
 View[V]
 QueryContext
 Transaction
-Revision
+Cutoff[V]
+Diagnostic
 structural error types
 ```
 
@@ -103,12 +105,16 @@ operator. A Query View privately captures its typed `QueryCore[K,V]` and key;
 a Source exposes one canonical View. A View identifies a recipe, not a memo
 incarnation, and therefore survives memo eviction.
 
-Reads enter through exactly two capabilities:
+Gets enter through exactly two capabilities:
 
 ```text
-Store::read(view)          root read
-QueryContext::read(view)   tracked nested read
+Store::get(view)          root get
+QueryContext::get(view)   tracked nested get
 ```
+
+`Region::derived` creates one keyless Derived Value and returns its View
+directly. `Region::query` creates a caller-keyed family; `Query::view(key)`
+selects one member.
 
 ### `QueryContext`
 
@@ -118,11 +124,9 @@ evidence name. Kernel internals may use `EvalSession`, `EvalFrame`,
 
 A `QueryContext`:
 
-- exists only during one Query invocation;
-- observes the committed snapshot captured by its root read;
-- records dynamic dependencies through `read`;
-- exposes `revision`, which returns public `Revision` and records a tracked
-  Revision-clock dependency;
+- exists only during one Derived Value or Query invocation;
+- observes the committed snapshot captured by its root get;
+- records dynamic dependencies through `get`;
 - expires when the callback exits.
 
 It exposes no write, root-read, Region mutation, debug counter, trace, `EvalId`,
@@ -131,20 +135,21 @@ or current-Query identity. Use after callback exit returns
 
 ### Query compute and failure channels
 
-The conceptual callback type is:
+The callback types are:
 
 ```text
-(QueryContext, K) -> Result[V, ReadError]
+(QueryContext) -> V raise ReadError
+(QueryContext, K) -> V raise ReadError
 ```
 
-The outer `Result` carries structural kernel failures. Domain failure belongs
-inside `V`, commonly by choosing `V = Result[Value, DomainError]`.
+Typed `raise` carries structural kernel failure. Domain failure belongs inside
+`V`, commonly by choosing `V = Result[Value, DomainError]`.
 
-A Query author can syntactically catch `ReadError`; the admissible caller
-contract requires nested structural errors to remain transparent. A callback
-must not convert a failed tracked read into an apparently successful value.
-Expected callback outcomes use `Result`; uncatchable aborts and arbitrary FFI
-failures are outside K1 guarantees.
+A Query author can syntactically catch `ReadError`, but the invocation records
+the first Structural Failure observed by `QueryContext::get`. Before installing
+a memo or trace, the kernel re-raises that failure and discards any callback
+fallback value. Catching a failed tracked get therefore cannot convert it into
+an apparently successful memo.
 
 ### Source and Transaction
 
@@ -155,36 +160,22 @@ transaction publishes, including an equal-value write.
 The detailed write and lifetime contract is in
 [Incr Next K0 Lifetime and Transactions](2026-08-13-incr-next-lifetime-and-transactions.md).
 
-## Clocks and snapshot
+## Private clocks and snapshots
 
-Each Store owns two clocks; neither clock is Region-scoped or module-global:
+Each Store owns private publication, verification, and changed-at state. These
+are kernel mechanisms rather than public values or synchronization cursors.
 
-```text
-StoreCore
-  Revision       public committed-state clock for that Store
-  ChangeEpoch    private verification/lifecycle clock for that Store
-```
+- A successful nonempty Transaction advances private publication state once,
+  including equal-value publication and a Transaction spanning multiple
+  Regions of one Store.
+- Empty or rejected Transactions publish no state.
+- The first successful Region close advances private lifetime state once.
+- Duplicate close is an idempotent no-op.
 
-The separate module-global execution gate coordinates callback phases across
-all Stores but owns no clock. Operations on Store A never advance Store B's
-clocks.
-
-- Successful nonempty transaction on a Store: advance that Store's `Revision`
-  once and `ChangeEpoch` once, including equal-value publication and one
-  atomic transaction spanning multiple Regions of the Store.
-- Empty, rolled-back, poisoned, or rejected transaction: advance neither.
-- First successful close of any Region in a Store: advance that Store's
-  `ChangeEpoch` once and leave its `Revision` unchanged.
-- Duplicate or rejected close: advance neither.
-
-One root read captures its Store's committed `Revision`; every same-Store
-cross-Region nested read observes that snapshot. A commit publishing to any
-Region in the Store is visible only to a later root read and advances the one
-Store Revision. Nested reads cannot observe transaction staging or another
-committed snapshot. `QueryContext::revision()` records a dependency on that
-Store's Revision clock, so any successful nonempty same-Store transaction can
-make it red. Region close alone leaves the Revision dependency green while its
-closed Source/Query dependency follows the separate lifetime rules.
+One root get evaluates one committed snapshot. Same-Store nested gets cannot
+observe Transaction staging or another snapshot. Computations that require a
+refresh token or synchronization cursor model it explicitly as domain data,
+normally through a Source.
 
 ## Alpha execution gate
 
@@ -194,7 +185,7 @@ K1 uses a module-global, single-threaded execution state:
 Idle | Evaluating | Transacting
 ```
 
-While evaluating or transacting, root reads, transactions, and Region mutation
+While evaluating or transacting, root gets, transactions, and Region mutation
 are rejected even when attempted through another Store. All catchable exits
 restore `Idle`. Rejected operations do not invoke user `Hash`/`Eq` or mutate
 phase, clocks, traces, memos, or Source state.
@@ -229,7 +220,7 @@ verified_at
 changed_at decision
 ```
 
-A failed recompute returns the current structural error without a stale
+A failed recompute raises the current structural error without a stale
 fallback and preserves the target's previous successful memo identity, value,
 trace, `verified_at`, and `changed_at`. An initial failure installs no memo.
 Successful upstream work completed during the attempt remains valid.
@@ -255,11 +246,11 @@ exits remove active keys and frames.
 
 ### Typed cutoff and backdating
 
-Cutoff is selected once by the Query. K1 supports only explicit policies proven
-by #464: always changed, structural `Eq`, and a type-owned propagation relation.
-Exact public constructor and trait names are confirmed by compile probes before
-the first public `.mbti` is accepted; arbitrary per-Query predicates are not
-public K1 surface.
+Cutoff is selected once by the Query. The current public interface supports
+conservative AlwaysChanged propagation by omission and `Cutoff::equal()` for
+`V : Eq`. Arbitrary and type-owned predicates are not public surface. A manual
+`Eq` implementation used for cutoff must make equality imply that every
+admissible downstream observer can reuse its prior observation.
 
 The relation is one-sided evidence:
 

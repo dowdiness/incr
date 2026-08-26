@@ -23,21 +23,17 @@ fn fresh_store_id() -> StoreId {
 fn phase_region_error() -> RegionError? {
   match execution_phase.val {
     Idle => None
-    Evaluating(active_store) =>
-      Some(RegionError::MutationDuringEvaluation(active_store~))
-    Transacting(active_store) =>
-      Some(RegionError::MutationDuringTransaction(active_store~))
+    Evaluating(_) => Some(region_mutation_during_evaluation())
+    Transacting(_) => Some(region_mutation_during_transaction())
   }
 }
 
 ///|
-fn phase_root_error(requested_store : StoreId) -> ReadError? {
+fn phase_root_error(_requested_store : StoreId) -> ReadError? {
   match execution_phase.val {
     Idle => None
-    Evaluating(active_store) =>
-      Some(ReadError::ReentrantRootRead(active_store~, requested_store~))
-    Transacting(active_store) =>
-      Some(ReadError::ReadDuringTransaction(active_store~, requested_store~))
+    Evaluating(_) => Some(read_reentrant_root_get())
+    Transacting(_) => Some(read_get_during_transaction())
   }
 }
 
@@ -45,9 +41,7 @@ fn phase_root_error(requested_store : StoreId) -> ReadError? {
 fn phase_transaction_error() -> TransactionError? {
   match execution_phase.val {
     Idle => None
-    Evaluating(active_store) =>
-      Some(TransactionError::TransactionDuringEvaluation(active_store~))
-    Transacting(active_store) =>
-      Some(TransactionError::NestedTransaction(active_store~))
+    Evaluating(_) => Some(transaction_during_evaluation())
+    Transacting(_) => Some(nested_transaction())
   }
 }

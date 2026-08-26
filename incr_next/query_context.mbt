@@ -1,11 +1,15 @@
 ///|
+priv struct ActiveQuery {
+  id : QueryId
+  definition_site : String
+}
+
+///|
 /// The private state captured by one root evaluation.
 priv struct EvalSession {
   owner : StoreId
-  revision : Revision
   change_epoch : ChangeEpoch
-  revision_changed_at : Ref[ChangeEpoch]
-  active_stack : Array[QueryId]
+  active_stack : Array[ActiveQuery]
   active : Ref[Bool]
 }
 
@@ -15,22 +19,29 @@ pub struct QueryContext {
   priv session : EvalSession
   priv invocation : Ref[Bool]
   priv frame : Ref[TrackingFrame?]
+  priv first_failure : Ref[ReadError?]
 }
 
 ///|
 fn QueryContext::root(session : EvalSession) -> QueryContext {
-  { session, invocation: Ref(true), frame: Ref(None) }
+  { session, invocation: Ref(true), frame: Ref(None), first_failure: Ref(None) }
 }
 
 ///|
 fn QueryContext::child(self : QueryContext) -> QueryContext {
-  { session: self.session, invocation: Ref(true), frame: Ref(Some([])) }
+  {
+    session: self.session,
+    invocation: Ref(true),
+    frame: Ref(Some([])),
+    first_failure: Ref(None),
+  }
 }
 
 ///|
 fn QueryContext::expire(self : QueryContext) -> Unit {
   self.invocation.val = false
   self.frame.val = None
+  self.first_failure.val = None
 }
 
 ///|
@@ -47,15 +58,46 @@ fn QueryContext::take_frame(self : QueryContext) -> TrackingFrame {
 ///|
 fn QueryContext::expired(self : QueryContext) -> ReadError? {
   if !self.session.active.val || !self.invocation.val {
-    Some(ReadError::ExpiredQueryContext)
+    Some(read_expired_context())
   } else {
     None
   }
 }
 
 ///|
-/// Reads a nested Source or Query View and propagates structural errors.
-pub fn[V] QueryContext::read(
+fn[T] QueryContext::poison(
+  self : QueryContext,
+  error : ReadError,
+) -> T raise ReadError {
+  if self.first_failure.val is None {
+    self.first_failure.val = Some(error)
+  }
+  raise error
+}
+
+///|
+/// Gets a nested View, records its dependency, and raises structural failure.
+pub fn[V] QueryContext::get(
+  self : QueryContext,
+  view : View[V],
+) -> V raise ReadError {
+  match self.expired() {
+    Some(error) => raise error
+    None =>
+      match self.first_failure.val {
+        Some(error) => raise error
+        None =>
+          match self.get_result(view) {
+            Ok(value) => value
+            Err(error) => self.poison(error)
+          }
+      }
+  }
+}
+
+///|
+/// Gets a nested View as a Result for the kernel's memoization shell.
+fn[V] QueryContext::get_result(
   self : QueryContext,
   view : View[V],
 ) -> Result[V, ReadError] {
@@ -63,12 +105,7 @@ pub fn[V] QueryContext::read(
     Some(error) => Err(error)
     None =>
       if view.owner != self.session.owner {
-        Err(
-          ReadError::CrossStore(
-            view_store=view.owner,
-            reader_store=self.session.owner,
-          ),
-        )
+        Err(read_query_context_cross_store())
       } else {
         match (view.recipe)(self) {
           Ok(value) => {
@@ -85,25 +122,5 @@ pub fn[V] QueryContext::read(
           Err(error) => Err(error)
         }
       }
-  }
-}
-
-///|
-/// Returns the committed Revision captured by the root read.
-///
-/// An expired invocation context returns `ExpiredQueryContext`.
-pub fn QueryContext::revision(
-  self : QueryContext,
-) -> Result[Revision, ReadError] {
-  match self.expired() {
-    Some(error) => Err(error)
-    None => {
-      match self.frame.val {
-        Some(frame) =>
-          frame.push(revision_dependency(self.session.revision_changed_at))
-        None => ()
-      }
-      Ok(self.session.revision)
-    }
   }
 }

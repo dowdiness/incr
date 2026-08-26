@@ -1,0 +1,3 @@
+fn invalid_type_owned_cutoff() -> @kernel.Cutoff[Int] {
+  @kernel.Cutoff::type_owned()
+}

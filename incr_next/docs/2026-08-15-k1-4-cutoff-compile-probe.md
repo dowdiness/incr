@@ -1,5 +1,10 @@
 # K1.4 typed cutoff compile probe
 
+> **Historical interface note:** This probe records the exact K1.4 candidate
+> surface under its pinned compiler. The active post-K2 interface exposes only
+> optional `Cutoff::equal()`; it does not expose the type-owned trait or
+> constructor selected here.
+
 **Reader:** K1.4 implementers and reviewers.
 
 **Decision:** Select separate typed `Region` constructors. Preserve the

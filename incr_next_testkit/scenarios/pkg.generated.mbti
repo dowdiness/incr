@@ -14,8 +14,6 @@ pub fn canonical() -> @model.Script
 
 pub fn chain() -> @model.Script
 
-pub fn consecutive_equivalent() -> @model.CutoffScript
-
 pub fn cutoff_all() -> Array[@model.CutoffScript]
 
 pub fn cycle_matrix() -> Array[@model.Script]
@@ -48,8 +46,6 @@ pub fn mutual_cycle() -> @model.Script
 
 pub fn old_trace_cycle() -> @model.Script
 
-pub fn root_snapshot() -> @model.Script
-
 pub fn same_query_key_cycle() -> @model.Script
 
 pub fn selected_publication() -> @model.Script
@@ -57,10 +53,6 @@ pub fn selected_publication() -> @model.Script
 pub fn sequential_duplicate_read() -> @model.Script
 
 pub fn structural_error() -> @model.Script
-
-pub fn type_owned_changed() -> @model.CutoffScript
-
-pub fn type_owned_equivalent() -> @model.CutoffScript
 
 pub fn unequal_key_cross_query() -> @model.Script
 
@@ -75,4 +67,3 @@ pub fn unrelated_publication() -> @model.Script
 // Type aliases
 
 // Traits
-

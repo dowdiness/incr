@@ -1,0 +1,3 @@
+fn invalid_store_revision(store : @kernel.Store) -> Unit {
+  ignore(store.revision())
+}

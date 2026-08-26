@@ -53,18 +53,13 @@ fn[T] QueryContext::eval_source(
     Some(error) => Err(error)
     None =>
       if core.owner != self.session.owner {
-        Err(
-          ReadError::CrossStore(
-            view_store=core.owner,
-            reader_store=self.session.owner,
-          ),
-        )
+        Err(read_query_context_cross_store())
       } else if !core.epoch.accepts(core.generation) {
-        Err(ReadError::ClosedRegion(generation=core.generation))
+        Err(read_closed_region())
       } else {
         match core.value.val {
           Some(value) => Ok(value)
-          None => Err(ReadError::ClosedRegion(generation=core.generation))
+          None => Err(read_closed_region())
         }
       }
   }
@@ -75,9 +70,9 @@ fn[T] QueryContext::eval_source(
 pub fn[T] Region::source(
   self : Region,
   initial : T,
-) -> Result[Source[T], RegionError] {
+) -> Source[T] raise RegionError {
   match self.check_open() {
-    Some(error) => Err(error)
+    Some(error) => raise error
     None => {
       let sequence = self.next_sequence.val
       self.next_sequence.val = sequence + 1
@@ -90,7 +85,7 @@ pub fn[T] Region::source(
         self.change_epoch.val,
       )
       self.close_actions.push(() => source.core.value.val = None)
-      Ok(source)
+      source
     }
   }
 }

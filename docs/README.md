@@ -5,6 +5,11 @@ index: one line per document, details in the documents themselves.
 
 ---
 
+## Domain Language
+
+- [Context map](../CONTEXT-MAP.md) — repository domain contexts and their relationships
+- [Incr Next language](../incr_next/CONTEXT.md) — canonical terms for derived values, keyed queries, structural failures, and domain outcomes
+
 ## Start Here
 
 New to `incr`? Read these in order:
@@ -79,8 +84,8 @@ evidence (the unpublished, independent pre-1.0 sibling module
 - [Incr Next K1.2 key-bound compile probe](../incr_next/docs/2026-08-14-k1-2-key-bound-compile-probe.md) — selected `Region::query` Hash/Eq boundary and caller contract
 - [Incr Next K1.2 validation](../incr_next/docs/k1-2-validation.md) — accepted semantics, ownership, interface, backend, and work-count evidence
 - [Incr Next K1.3 validation](../incr_next/docs/k1-3-validation.md) — accepted and merged active tracking, witness contract, atomicity, cleanup, hosted CI, and public diff review evidence
-- [Incr Next K1.4 cutoff compile probe](../incr_next/docs/2026-08-15-k1-4-cutoff-compile-probe.md) — selected typed cutoff constructors and standalone type-owned trait boundary
-- [Incr Next K1.4 validation](../incr_next/docs/k1-4-validation.md) — accepted implementation, status-only finalization, hosted acceptance, and squash-merge evidence
+- [Incr Next K1.4 cutoff compile probe](../incr_next/docs/2026-08-15-k1-4-cutoff-compile-probe.md) — historical candidate evidence for the superseded type-owned cutoff boundary
+- [Incr Next K1.4 validation](../incr_next/docs/k1-4-validation.md) — historical accepted implementation, hosted acceptance, and squash-merge evidence
 - [Incr Next K1.5 validation](../incr_next/docs/k1-5-validation.md) — accepted and merged private proof loss, rematerialization, cleanup, ownership, hosted acceptance, and squash-tree evidence
 - [Incr Next K1.6 validation](../incr_next/docs/k1-6-validation.md) — accepted generated differential, private proof-loss/work, backend, boundary, and interface evidence
 
@@ -107,6 +112,11 @@ live in each ADR.
 
 | Date | Decision |
 |------|----------|
+| [2026-08-25](decisions/2026-08-25-incr-next-private-clocks.md) | Incr Next keeps Revision and freshness clocks private; Transaction returns caller-owned success data rather than kernel metadata |
+| [2026-08-25](decisions/2026-08-25-incr-next-contextual-revision-access.md) | Superseded: briefly retained contextual Revision access before public-consumer review established that clocks should remain private |
+| [2026-08-25](decisions/2026-08-25-incr-next-idempotent-region-close.md) | Incr Next Region close is idempotent while illegal-phase close and post-close reads remain typed structural failures |
+| [2026-08-25](decisions/2026-08-25-incr-next-derived-values-and-keyed-queries.md) | Incr Next distinguishes single Derived Values, represented directly by Views, from caller-keyed Query families |
+| [2026-08-25](decisions/2026-08-25-incr-next-typed-structural-failures.md) | Incr Next propagates kernel structural failures with typed `raise` while keeping expected domain outcomes as values |
 | [2026-08-17](decisions/2026-08-17-incr-next-pre-1-0-sibling-product.md) | Incr Next adopted as a pre-1.0 sibling product; K1 and K2 are accepted, K2 packager prerequisite satisfied by MoonBit 0.10.9 standardization, a recommended separate alpha publication commission remains, and publication/production integration remain gated |
 | [2026-04-20](decisions/2026-04-20-accumulator-api.md) | Accumulator API: side-channel collector with push-set incremental invalidation |
 | [2026-04-26](decisions/2026-04-26-r2-runtime-decomposition-deferred.md) | R2 runtime-services decomposition: deferred indefinitely (no driver) |

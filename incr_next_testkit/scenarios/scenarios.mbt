@@ -112,21 +112,6 @@ pub fn dynamic_branch() -> @model.Script {
 }
 
 ///|
-/// Reads the root after two transactional revisions.
-pub fn root_snapshot() -> @model.Script {
-  script(
-    @model.Scenario::RootSnapshot,
-    [@model.SourceInit::{ id: 0, value: 0 }],
-    [
-      @model.Operation::Set(0, 2),
-      @model.Operation::Read(0),
-      @model.Operation::Set(0, 5),
-      @model.Operation::Read(0),
-    ],
-  )
-}
-
-///|
 /// Exercises a closed structural dependency between successful reads.
 pub fn failure_recovery() -> @model.Script {
   script(
@@ -272,7 +257,6 @@ pub fn all() -> Array[@model.Script] {
     unrelated_publication(),
     selected_publication(),
     dynamic_branch(),
-    root_snapshot(),
     failure_recovery(),
     domain_failure(),
     structural_error(),

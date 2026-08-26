@@ -127,17 +127,6 @@ fn raw_recipe_script(recipe : Recipe) -> @model.Script {
           @model.Operation::Read(0),
         ],
       )
-    8 =>
-      @model.Script::scenario(
-        @model.Scenario::RootSnapshot,
-        [@model.SourceInit::{ id: 0, value: a }],
-        [
-          @model.Operation::Set(0, a + 1),
-          @model.Operation::Read(0),
-          @model.Operation::Set(0, b),
-          @model.Operation::Read(0),
-        ],
-      )
     9 =>
       @model.Script::scenario(
         @model.Scenario::FailureRecovery,
@@ -348,8 +337,8 @@ fn first_difference(
 ///|
 fn first_failing_operation_index(
   operation_count : Int,
-  prefix_fails : (Int) -> Bool,
-) -> Int {
+  prefix_fails : (Int) -> Bool raise,
+) -> Int raise {
   if prefix_fails(0) {
     return -1
   }
@@ -362,7 +351,7 @@ fn first_failing_operation_index(
 }
 
 ///|
-fn semantic_mismatch(script : @model.Script) -> Bool {
+fn semantic_mismatch(script : @model.Script) -> Bool raise {
   normalized(@fresh.evaluate(script)) !=
   normalized(@incremental_adapter.evaluate(script))
 }
@@ -370,8 +359,8 @@ fn semantic_mismatch(script : @model.Script) -> Bool {
 ///|
 fn first_differing_operation_by(
   script : @model.Script,
-  prefix_fails : (@model.Script) -> Bool,
-) -> Int {
+  prefix_fails : (@model.Script) -> Bool raise,
+) -> Int raise {
   let operations = script.operations()
   first_failing_operation_index(operations.length(), prefix_length => {
     let prefix = @model.Script::scenario(
@@ -384,7 +373,7 @@ fn first_differing_operation_by(
 }
 
 ///|
-fn first_differing_operation(script : @model.Script) -> Int {
+fn first_differing_operation(script : @model.Script) -> Int raise {
   first_differing_operation_by(script, prefix => semantic_mismatch(prefix))
 }
 
@@ -547,7 +536,10 @@ fn shrink_candidates(recipe : Recipe) -> Array[ShrinkCandidate] {
 }
 
 ///|
-fn minimize_failure(recipe : Recipe, predicate : (Recipe) -> Bool) -> Recipe {
+fn minimize_failure(
+  recipe : Recipe,
+  predicate : (Recipe) -> Bool raise,
+) -> Recipe raise {
   let mut current = recipe
   let mut changed = true
   while changed {
@@ -616,8 +608,8 @@ fn cutoff_shrink_candidates(
 ///|
 fn minimize_cutoff_failure(
   generated : GeneratedCutoff,
-  predicate : (GeneratedCutoff) -> Bool,
-) -> GeneratedCutoff {
+  predicate : (GeneratedCutoff) -> Bool raise,
+) -> GeneratedCutoff raise {
   let mut current = generated
   let mut changed = true
   while changed {
@@ -634,14 +626,14 @@ fn minimize_cutoff_failure(
 }
 
 ///|
-fn cutoff_mismatch(generated : GeneratedCutoff) -> Bool {
+fn cutoff_mismatch(generated : GeneratedCutoff) -> Bool raise {
   let script = cutoff_script(generated)
   normalized(@fresh.evaluate_cutoff(script)) !=
   normalized(@incremental_adapter.evaluate_cutoff(script))
 }
 
 ///|
-fn first_differing_cutoff_step(generated : GeneratedCutoff) -> Int {
+fn first_differing_cutoff_step(generated : GeneratedCutoff) -> Int raise {
   first_failing_operation_index(generated.steps.length(), prefix_length => {
     cutoff_mismatch(GeneratedCutoff::{
       kind: generated.kind,

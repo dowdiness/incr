@@ -17,4 +17,3 @@ pub fn evaluate_cutoff(@model.CutoffScript) -> Array[@model.Observation]
 // Type aliases
 
 // Traits
-

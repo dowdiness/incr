@@ -1,7 +1,7 @@
 ///|
 test "cycle_matrix follows the canonical scenarios in all" {
   assert_eq(@scenarios.cycle_matrix().length(), 9)
-  assert_eq(@scenarios.all().length(), 21)
+  assert_eq(@scenarios.all().length(), 20)
 }
 
 ///|

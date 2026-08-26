@@ -1,19 +1,18 @@
 ///|
 test "K1.6b private counters distinguish cache, green, red, and cutoff work" {
   let store = Store::Store()
-  let region = store.region().unwrap()
-  let selected = region.source(0).unwrap()
-  let unrelated = region.source(0).unwrap()
-  let target = region
-    .query_eq((ctx, _unit : Unit) => ctx.read(selected.view()))
-    .unwrap()
-  let downstream = region
-    .query((ctx, _unit : Unit) => ctx.read(target.at(())))
-    .unwrap()
-  let target_view = target.at(())
-  let downstream_view = downstream.at(())
+  let region = store.region()
+  let selected = region.source(0)
+  let unrelated = region.source(0)
+  let target = region.query(
+    (ctx, _unit : Unit) => ctx.get(selected.view()),
+    cutoff=Cutoff::equal(),
+  )
+  let downstream = region.query((ctx, _unit : Unit) => ctx.get(target.view(())))
+  let target_view = target.view(())
+  let downstream_view = downstream.view(())
 
-  assert_eq(store.read(downstream_view), Ok(0))
+  assert_eq(store.get(downstream_view), 0)
   let target_id = target.core.memo.get(()).unwrap().memo_id
   let downstream_id = downstream.core.memo.get(()).unwrap().memo_id
   assert_eq(target.core.compute_count.val, 1)
@@ -21,12 +20,12 @@ test "K1.6b private counters distinguish cache, green, red, and cutoff work" {
   assert_eq(target.core.memo.get(()).unwrap().trace.length(), 1)
   assert_eq(downstream.core.memo.get(()).unwrap().trace.length(), 1)
 
-  assert_eq(store.read(target_view), Ok(0))
+  assert_eq(store.get(target_view), 0)
   assert_eq(target.core.cache_hit_count.val, 1)
   assert_eq(target.core.compute_count.val, 1)
 
   publish_one(store, unrelated, 9)
-  assert_eq(store.read(downstream_view), Ok(0))
+  assert_eq(store.get(downstream_view), 0)
   assert_eq(target.core.verification_count.val, 1)
   assert_eq(target.core.green_count.val, 1)
   assert_eq(target.core.red_count.val, 0)
@@ -35,7 +34,7 @@ test "K1.6b private counters distinguish cache, green, red, and cutoff work" {
   assert_eq(downstream.core.compute_count.val, 1)
 
   publish_one(store, selected, 1)
-  assert_eq(store.read(downstream_view), Ok(1))
+  assert_eq(store.get(downstream_view), 1)
   assert_eq(target.core.red_count.val, 1)
   assert_eq(target.core.compute_count.val, 2)
   assert_eq(target.core.cutoff_count.val, 1)
@@ -44,7 +43,7 @@ test "K1.6b private counters distinguish cache, green, red, and cutoff work" {
   let changed_at = target.core.memo.get(()).unwrap().changed_at
 
   publish_one(store, selected, 1)
-  assert_eq(store.read(downstream_view), Ok(1))
+  assert_eq(store.get(downstream_view), 1)
   let newest = target.core.memo.get(()).unwrap()
   assert_eq(target.core.red_count.val, 2)
   assert_eq(target.core.compute_count.val, 3)
@@ -61,52 +60,52 @@ test "K1.6b private counters distinguish cache, green, red, and cutoff work" {
 ///|
 test "K1.6b failures and cycles count work without installing failed memos" {
   let store = Store::Store()
-  let region = store.region().unwrap()
-  let trigger = region.source(0).unwrap()
+  let region = store.region()
+  let trigger = region.source(0)
   let foreign_store = Store::Store()
-  let foreign_region = foreign_store.region().unwrap()
-  let foreign = foreign_region.source(7).unwrap()
-  let failing = region
-    .query((ctx, _unit : Unit) => {
-      match ctx.read(trigger.view()) {
-        Err(error) => Err(error)
-        Ok(1) => ctx.read(foreign.view())
-        Ok(value) => Ok(value)
-      }
-    })
-    .unwrap()
-  let failing_view = failing.at(())
-  assert_eq(store.read(failing_view), Ok(0))
+  let foreign_region = foreign_store.region()
+  let foreign = foreign_region.source(7)
+  let failing = region.query((ctx, _unit : Unit) => {
+    let trigger_value = ctx.get(trigger.view())
+    if trigger_value == 1 {
+      ctx.get(foreign.view())
+    } else {
+      trigger_value
+    }
+  })
+  let failing_view = failing.view(())
+  assert_eq(store.get(failing_view), 0)
   let memo_id = failing.core.memo.get(()).unwrap().memo_id
   publish_one(store, trigger, 1)
-  assert_true(store.read(failing_view) is Err(CrossStore(..)))
+  let failing_result = Ok(store.get(failing_view)) catch { error => Err(error) }
+  assert_true(failing_result is Err(CrossStore(_)))
   assert_eq(failing.core.compute_count.val, 2)
   assert_eq(failing.core.memo.get(()).unwrap().memo_id, memo_id)
   assert_eq(failing.core.active.length(), 0)
   publish_one(store, trigger, 2)
-  assert_eq(store.read(failing_view), Ok(2))
+  assert_eq(store.get(failing_view), 2)
   assert_eq(failing.core.compute_count.val, 3)
   assert_eq(failing.core.memo.get(()).unwrap().memo_id, memo_id)
 
-  let cycle_trigger = region.source(1).unwrap()
+  let cycle_trigger = region.source(1)
   let self_view : Ref[View[Int]?] = Ref(None)
-  let cyclic = region
-    .query((ctx, _unit : Unit) => {
-      match ctx.read(cycle_trigger.view()) {
-        Err(error) => Err(error)
-        Ok(0) => Ok(0)
-        Ok(_) => ctx.read(self_view.val.unwrap())
-      }
-    })
-    .unwrap()
-  let cyclic_view = cyclic.at(())
+  let cyclic = region.query((ctx, _unit : Unit) => {
+    let trigger_value = ctx.get(cycle_trigger.view())
+    if trigger_value == 0 {
+      0
+    } else {
+      ctx.get(self_view.val.unwrap())
+    }
+  })
+  let cyclic_view = cyclic.view(())
   self_view.val = Some(cyclic_view)
-  assert_true(store.read(cyclic_view) is Err(ReadError::Cycle(_)))
+  let cyclic_result = Ok(store.get(cyclic_view)) catch { error => Err(error) }
+  assert_true(cyclic_result is Err(ReadError::Cycle(_)))
   assert_eq(cyclic.core.compute_count.val, 1)
   assert_eq(cyclic.core.memo.length(), 0)
   assert_eq(cyclic.core.active.length(), 0)
   publish_one(store, cycle_trigger, 0)
-  assert_eq(store.read(cyclic_view), Ok(0))
+  assert_eq(store.get(cyclic_view), 0)
   assert_eq(cyclic.core.compute_count.val, 2)
   assert_eq(cyclic.core.memo.length(), 1)
   assert_eq(cyclic.core.active.length(), 0)
@@ -117,25 +116,24 @@ test "K1.6b failures and cycles count work without installing failed memos" {
 ///|
 test "K1.6b proof loss and rematerialization are visible only privately" {
   let store = Store::Store()
-  let region = store.region().unwrap()
-  let selected = region.source(4).unwrap()
-  let unrelated = region.source(0).unwrap()
-  let child = region
-    .query_eq((ctx, _unit : Unit) => ctx.read(selected.view()))
-    .unwrap()
-  let parent = region
-    .query((ctx, _unit : Unit) => ctx.read(child.at(())))
-    .unwrap()
-  let parent_view = parent.at(())
-  assert_eq(store.read(parent_view), Ok(4))
+  let region = store.region()
+  let selected = region.source(4)
+  let unrelated = region.source(0)
+  let child = region.query(
+    (ctx, _unit : Unit) => ctx.get(selected.view()),
+    cutoff=Cutoff::equal(),
+  )
+  let parent = region.query((ctx, _unit : Unit) => ctx.get(child.view(())))
+  let parent_view = parent.view(())
+  assert_eq(store.get(parent_view), 4)
   let old_child_id = child.core.memo.get(()).unwrap().memo_id
   let old_parent_compute = parent.core.compute_count.val
   let old_cutoff = child.core.cutoff_count.val
-  assert_eq(child.drop_memo_evidence(()), Ok(()))
+  assert_true(child.drop_memo_evidence(()) is Ok(_))
   assert_eq(child.core.memo.length(), 0)
 
   publish_one(store, unrelated, 1)
-  assert_eq(store.read(parent_view), Ok(4))
+  assert_eq(store.get(parent_view), 4)
   let rematerialized = child.core.memo.get(()).unwrap()
   assert_true(rematerialized.memo_id != old_child_id)
   assert_eq(rematerialized.trace.length(), 1)

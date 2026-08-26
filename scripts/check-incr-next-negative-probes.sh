@@ -11,20 +11,38 @@ expected_diagnostic() {
     query_context_constructor.mbt.disabled)
       printf '%s' 'does not declare a custom constructor'
       ;;
-    cycle_witness_constructor.mbt.disabled)
-      printf '%s' 'does not declare a custom constructor'
+    cutoff_eq_trait.mbt.disabled)
+      printf '%s' 'Trait CutoffEq not found in package `kernel`'
       ;;
-    cycle_witness_fields.mbt.disabled)
-      printf '%s' 'CycleWitness has no field path'
+    cutoff_fields.mbt.disabled)
+      printf '%s' 'Cutoff[Int] has no field mode'
+      ;;
+    cutoff_type_owned.mbt.disabled)
+      printf '%s' 'Cutoff has no method type_owned'
+      ;;
+    diagnostic_fields.mbt.disabled)
+      printf '%s' 'Diagnostic has no field message_text'
+      ;;
+    read_error_constructor.mbt.disabled)
+      printf '%s' 'Cannot create values of the read-only type: CrossStore'
       ;;
     query_context_fields.mbt.disabled)
       printf '%s' 'QueryContext has no field session'
       ;;
+    query_context_revision.mbt.disabled)
+      printf '%s' 'QueryContext has no method revision'
+      ;;
     query_context_revision_fake.mbt.disabled)
-      printf '%s' 'Cannot create values of the read-only type: @dowdiness/incr_next.Revision'
+      printf '%s' 'The type @kernel.Revision is undefined'
       ;;
     source_set.mbt.disabled)
       printf '%s' 'Source[T] has no method set'
+      ;;
+    store_revision.mbt.disabled)
+      printf '%s' 'Store has no method revision'
+      ;;
+    query_at.mbt.disabled)
+      printf '%s' 'Query[K, V] has no method at'
       ;;
     transaction_debug_methods.mbt.disabled)
       printf '%s' 'Transaction has no method is_poisoned'
