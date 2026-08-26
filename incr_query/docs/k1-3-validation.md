@@ -45,7 +45,7 @@ under the sibling-product ADR. Package publication remains unauthorized.
 ## Generated-interface compile probe
 
 The reproducible
-[`probe-incr-next-k1-3-cycle-witness.sh`](../../scripts/probe-incr-next-k1-3-cycle-witness.sh)
+[`probe-incr-query-k1-3-cycle-witness.sh`](../../scripts/probe-incr-query-k1-3-cycle-witness.sh)
 script compares three generated-interface spellings for the commissioned cycle
 witness against base `621180cf460661aa95eb89da58553681688fa502`:
 
