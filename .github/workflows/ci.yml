@@ -49,12 +49,14 @@ jobs:
         run: moon update
 
       - name: moon check
-        working-directory: incr
-        run: moon check
+        run: moon check incr --deny-warn
 
       - name: moon test
         working-directory: incr
-        run: moon test
+        run: |
+          moon test -p dowdiness/incr/cells --deny-warn
+          moon test -p dowdiness/incr/tests --deny-warn
+          moon test -p dowdiness/incr/types --deny-warn
 
   docs:
     name: Check + Test docs examples

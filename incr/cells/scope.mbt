@@ -56,15 +56,15 @@ pub(open) trait InputFieldOwner {
 /// (the `ignore` parameter only filters top-level field types, not nested types).
 pub impl Debug for Scope with fn to_repr(self) {
   Repr::record({
-    "cells": to_repr(self.cells),
-    "children": to_repr(self.children),
+    "cells": Debug::to_repr(self.cells),
+    "children": Debug::to_repr(self.children),
     "dispose_hooks": Repr::literal(
       "<" + self.dispose_hooks.length().to_string() + " hooks>",
     ),
     "maintenance_hooks": Repr::literal(
       "<" + self.maintenance_hooks.length().to_string() + " hooks>",
     ),
-    "disposed": to_repr(self.disposed),
+    "disposed": Debug::to_repr(self.disposed),
   })
 }
 
