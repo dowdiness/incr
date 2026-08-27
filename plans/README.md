@@ -35,15 +35,15 @@ dependency convergence, decision record, and separately shaped follow-ups.
 
 - Plan 015 is complete. K1.1–K1.6 are accepted/merged, establishing the
   semantic kernel, independent Fresh oracle, ownership closure, and generated
-  shrinkable conformance for the unpublished `dowdiness/incr_next` sibling.
-  The accepted product decision is [ADR 2026-08-17](../docs/decisions/2026-08-17-incr-next-pre-1-0-sibling-product.md),
+  shrinkable conformance for the unpublished `dowdiness/incr_query` sibling.
+  The accepted product decision is [ADR 2026-08-17](../docs/decisions/2026-08-17-incr-query-pre-1-0-sibling-product.md),
   and the implementation record remains at the [Plan 015 GitHub blob at
   commit 5846993](https://github.com/dowdiness/incr/blob/58469934c5644686992688bc7a9f1685326a081d/plans/015-incr-next-kernel-alpha.md).
 
 - Plan 016 closed after K2.1–K2.3 merged as `93eb59b6`, `9360816f`, and
   `3007f5ff`; K2.4 recommended a separate alpha publication commission after
   standardizing the packager on MoonBit 0.10.9 or newer. The
-  [updated sibling-product ADR](../docs/decisions/2026-08-17-incr-next-pre-1-0-sibling-product.md)
+  [updated sibling-product ADR](../docs/decisions/2026-08-17-incr-query-pre-1-0-sibling-product.md)
   records the product decision. The immutable [Plan 016 final disposition](https://github.com/dowdiness/incr/blob/e30cf501db5a88d7a3764e8703c1f01b2077e046/plans/016-incr-next-usability-and-distribution.md)
   records K2 execution. The completed plan file and time-bound raw
   distribution snapshots are deleted. Publication, registry mutation, version

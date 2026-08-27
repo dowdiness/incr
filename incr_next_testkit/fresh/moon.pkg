@@ -1,7 +1,0 @@
-import {
-  "dowdiness/incr_next_testkit/model",
-}
-
-import {
-  "dowdiness/incr_next_testkit/scenarios",
-} for "test"

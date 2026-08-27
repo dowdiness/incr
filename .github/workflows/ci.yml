@@ -2,7 +2,7 @@ name: CI
 
 # Runs `moon check` + `moon test` for the library, the independent dataflow
 # spike, and the checked literate `.mbt.md` examples in the current-Incr and
-# Incr Next docs modules, so package contracts and documentation drift guards
+# Incr Query docs modules, so package contracts and documentation drift guards
 # are verified automatically.
 #
 # The existing spreadsheet-demo deploy workflows are intentionally left alone;
@@ -121,36 +121,36 @@ jobs:
       - name: Documentation boundary checker self-test
         run: bash scripts/check-documentation-boundaries-selftest.sh
 
-      - name: Incr Next boundary self-test
-        run: bash scripts/check-incr-next-boundaries-selftest.sh
+      - name: Incr Query boundary self-test
+        run: bash scripts/check-incr-query-boundaries-selftest.sh
 
-      - name: Incr Next docs boundary self-test
-        run: bash scripts/check-incr-next-docs-selftest.sh
+      - name: Incr Query docs boundary self-test
+        run: bash scripts/check-incr-query-docs-selftest.sh
 
-      - name: Incr Next boundary and negative probes
+      - name: Incr Query boundary and negative probes
         run: |
-          bash scripts/check-incr-next-boundaries.sh
-          bash scripts/check-incr-next-negative-probes.sh
+          bash scripts/check-incr-query-boundaries.sh
+          bash scripts/check-incr-query-negative-probes.sh
 
-      - name: Incr Next K1.6 private evidence
-        run: bash scripts/check-incr-next-k1-6-private-evidence.sh
+      - name: Incr Query K1.6 private evidence
+        run: bash scripts/check-incr-query-k1-6-private-evidence.sh
 
       - name: Documentation retention and link boundaries
         run: python3 scripts/check-documentation-boundaries.py
 
-  incr-next:
-    name: Incr Next ${{ matrix.root }} / ${{ matrix.target }}
+  incr-query:
+    name: Incr Query ${{ matrix.root }} / ${{ matrix.target }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         root:
-          - incr_next
-          - incr_next_testkit/model
-          - incr_next_testkit/fresh
-          - incr_next_testkit/incremental_adapter
-          - incr_next_testkit/scenarios
-          - incr_next_testkit/differential
+          - incr_query
+          - incr_query_testkit/model
+          - incr_query_testkit/fresh
+          - incr_query_testkit/incremental_adapter
+          - incr_query_testkit/scenarios
+          - incr_query_testkit/differential
         target:
           - default
           - native
@@ -182,8 +182,8 @@ jobs:
             moon test --target "${{ matrix.target }}" "${{ matrix.root }}"
           fi
 
-  incr-next-docs:
-    name: Incr Next docs / ${{ matrix.target }}
+  incr-query-docs:
+    name: Incr Query docs / ${{ matrix.target }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -206,10 +206,10 @@ jobs:
         working-directory: incr
         run: moon update
       - name: Check public-only executable docs
-        run: ./scripts/check-incr-next-docs.sh "${{ matrix.target }}"
+        run: ./scripts/check-incr-query-docs.sh "${{ matrix.target }}"
 
-  incr-next-distribution:
-    name: Incr Next distribution candidate
+  incr-query-distribution:
+    name: Incr Query distribution candidate
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -235,22 +235,22 @@ jobs:
       - name: Check current-toolchain candidate consumer
         env:
           MOON_BIN: /tmp/moonbit-k2-3-packager/bin/moon
-          INCR_NEXT_K23_OUTPUT_DIR: /tmp/incr-next-k2-3-current
-        run: ./scripts/check-incr-next-k2-3-distribution.sh
+          INCR_QUERY_K23_OUTPUT_DIR: /tmp/incr-query-k2-3-current
+        run: ./scripts/check-incr-query-k2-3-distribution.sh
       - name: Check 0.10.4 compatibility consumer and package policy
         env:
           MOON_BIN: /tmp/moonbit-k2-3-packager/bin/moon
-          INCR_NEXT_K23_CONSUMER_MOON_BIN: /tmp/moonbit-k2-3-compat/bin/moon
-          INCR_NEXT_K23_POLICY_PROBE_MOON_BIN: /tmp/moonbit-k2-3-compat/bin/moon
-          INCR_NEXT_K23_OUTPUT_DIR: /tmp/incr-next-k2-3-pinned
-        run: ./scripts/check-incr-next-k2-3-distribution.sh
+          INCR_QUERY_K23_CONSUMER_MOON_BIN: /tmp/moonbit-k2-3-compat/bin/moon
+          INCR_QUERY_K23_POLICY_PROBE_MOON_BIN: /tmp/moonbit-k2-3-compat/bin/moon
+          INCR_QUERY_K23_OUTPUT_DIR: /tmp/incr-query-k2-3-pinned
+        run: ./scripts/check-incr-query-k2-3-distribution.sh
       - name: Check distribution boundary negative controls
         env:
           MOON_BIN: /tmp/moonbit-k2-3-packager/bin/moon
-        run: ./scripts/check-incr-next-k2-3-distribution-selftest.sh
+        run: ./scripts/check-incr-query-k2-3-distribution-selftest.sh
 
-  incr-next-rc:
-    name: Incr Next native RC ownership
+  incr-query-rc:
+    name: Incr Query native RC ownership
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -263,10 +263,10 @@ jobs:
         working-directory: incr
         run: moon update
       - name: Run native RC harness
-        run: moon run --target native incr_next/native_rc
+        run: moon run --target native incr_query/native_rc
 
-  incr-next-interface:
-    name: Incr Next fmt/info/interface clean
+  incr-query-interface:
+    name: Incr Query fmt/info/interface clean
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -280,25 +280,25 @@ jobs:
         run: moon update
       - name: Check formatting and generated interfaces
         run: |
-          moon fmt incr_next incr_next_testkit incr_next_docs
-          moon info incr_next incr_next_testkit incr_next_docs
-          test -z "$(git status --short -- incr_next incr_next_testkit incr_next_docs)"
+          moon fmt incr_query incr_query_testkit incr_query_docs
+          moon info incr_query incr_query_testkit incr_query_docs
+          test -z "$(git status --short -- incr_query incr_query_testkit incr_query_docs)"
           git diff --check
 
-  Incr-Next-Required:
-    name: Incr Next Required
+  incr-query-required:
+    name: Incr Query Required
     if: ${{ always() }}
-    needs: [incr-next, incr-next-docs, incr-next-distribution, boundaries, incr-next-rc, incr-next-interface]
+    needs: [incr-query, incr-query-docs, incr-query-distribution, boundaries, incr-query-rc, incr-query-interface]
     runs-on: ubuntu-latest
     steps:
-      - name: Require Incr Next matrix and boundaries
+      - name: Require Incr Query matrix and boundaries
         run: |
-          test "${{ needs['incr-next'].result }}" = success
-          test "${{ needs['incr-next-docs'].result }}" = success
-          test "${{ needs['incr-next-distribution'].result }}" = success
+          test "${{ needs['incr-query'].result }}" = success
+          test "${{ needs['incr-query-docs'].result }}" = success
+          test "${{ needs['incr-query-distribution'].result }}" = success
           test "${{ needs.boundaries.result }}" = success
-          test "${{ needs['incr-next-rc'].result }}" = success
-          test "${{ needs['incr-next-interface'].result }}" = success
+          test "${{ needs['incr-query-rc'].result }}" = success
+          test "${{ needs['incr-query-interface'].result }}" = success
 
   docs-ratios:
     name: Verify perf ratio tables
