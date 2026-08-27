@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-root="${INCR_QUERY_ROOT:-incr_query}"
+root="${INCR_QUERY_ROOT:-incr_query/kernel}"
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 cp -R "$root" "$tmp/kernel"

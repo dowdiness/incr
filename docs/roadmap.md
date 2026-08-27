@@ -23,7 +23,7 @@ are normative. Plan 015 is complete; its durable implementation record is the
 [GitHub blob at commit 5846993](https://github.com/dowdiness/incr/blob/58469934c5644686992688bc7a9f1685326a081d/plans/015-incr-next-kernel-alpha.md).
 
 K1 and K2 are complete and accepted, with evidence indexed by
-[`incr_query/docs/README.md`](../incr_query/docs/README.md). K2 selected a
+[`incr_query/kernel/evidence/README.md`](../incr_query/kernel/evidence/README.md). K2 selected a
 separate alpha publication commission after one prerequisite: standardize
 active candidate packaging on an exact MoonBit 0.10.9-or-newer pin while
 preserving historical evidence pins and optional 0.10.4 consumer compatibility.

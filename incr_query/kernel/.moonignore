@@ -1,7 +1,7 @@
 # Keep the candidate artifact limited to public product content.
 *_test.mbt
 *_wbtest.mbt
-docs/
+evidence/
 distribution/
 negative/
 private_evidence/

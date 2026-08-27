@@ -122,18 +122,21 @@ jobs:
         run: bash scripts/check-documentation-boundaries-selftest.sh
 
       - name: Incr Query boundary self-test
-        run: bash scripts/check-incr-query-boundaries-selftest.sh
+        run: bash incr_query/tools/check-incr-query-boundaries-selftest.sh
+
+      - name: Incr Query physical layout
+        run: bash incr_query/tools/check-layout.sh
 
       - name: Incr Query docs boundary self-test
-        run: bash scripts/check-incr-query-docs-selftest.sh
+        run: bash incr_query/tools/check-incr-query-docs-selftest.sh
 
       - name: Incr Query boundary and negative probes
         run: |
-          bash scripts/check-incr-query-boundaries.sh
-          bash scripts/check-incr-query-negative-probes.sh
+          bash incr_query/tools/check-incr-query-boundaries.sh
+          bash incr_query/tools/check-incr-query-negative-probes.sh
 
       - name: Incr Query K1.6 private evidence
-        run: bash scripts/check-incr-query-k1-6-private-evidence.sh
+        run: bash incr_query/tools/check-incr-query-k1-6-private-evidence.sh
 
       - name: Documentation retention and link boundaries
         run: python3 scripts/check-documentation-boundaries.py
@@ -145,12 +148,12 @@ jobs:
       fail-fast: false
       matrix:
         root:
-          - incr_query
-          - incr_query_testkit/model
-          - incr_query_testkit/fresh
-          - incr_query_testkit/incremental_adapter
-          - incr_query_testkit/scenarios
-          - incr_query_testkit/differential
+          - incr_query/kernel
+          - incr_query/testkit/model
+          - incr_query/testkit/fresh
+          - incr_query/testkit/incremental_adapter
+          - incr_query/testkit/scenarios
+          - incr_query/testkit/differential
         target:
           - default
           - native
@@ -206,7 +209,7 @@ jobs:
         working-directory: incr
         run: moon update
       - name: Check public-only executable docs
-        run: ./scripts/check-incr-query-docs.sh "${{ matrix.target }}"
+        run: ./incr_query/tools/check-incr-query-docs.sh "${{ matrix.target }}"
 
   incr-query-distribution:
     name: Incr Query distribution candidate
@@ -236,18 +239,18 @@ jobs:
         env:
           MOON_BIN: /tmp/moonbit-k2-3-packager/bin/moon
           INCR_QUERY_K23_OUTPUT_DIR: /tmp/incr-query-k2-3-current
-        run: ./scripts/check-incr-query-k2-3-distribution.sh
+        run: ./incr_query/tools/check-incr-query-k2-3-distribution.sh
       - name: Check 0.10.4 compatibility consumer and package policy
         env:
           MOON_BIN: /tmp/moonbit-k2-3-packager/bin/moon
           INCR_QUERY_K23_CONSUMER_MOON_BIN: /tmp/moonbit-k2-3-compat/bin/moon
           INCR_QUERY_K23_POLICY_PROBE_MOON_BIN: /tmp/moonbit-k2-3-compat/bin/moon
           INCR_QUERY_K23_OUTPUT_DIR: /tmp/incr-query-k2-3-pinned
-        run: ./scripts/check-incr-query-k2-3-distribution.sh
+        run: ./incr_query/tools/check-incr-query-k2-3-distribution.sh
       - name: Check distribution boundary negative controls
         env:
           MOON_BIN: /tmp/moonbit-k2-3-packager/bin/moon
-        run: ./scripts/check-incr-query-k2-3-distribution-selftest.sh
+        run: ./incr_query/tools/check-incr-query-k2-3-distribution-selftest.sh
 
   incr-query-rc:
     name: Incr Query native RC ownership
@@ -263,7 +266,7 @@ jobs:
         working-directory: incr
         run: moon update
       - name: Run native RC harness
-        run: moon run --target native incr_query/native_rc
+        run: moon run --target native incr_query/kernel/native_rc
 
   incr-query-interface:
     name: Incr Query fmt/info/interface clean
@@ -280,9 +283,9 @@ jobs:
         run: moon update
       - name: Check formatting and generated interfaces
         run: |
-          moon fmt incr_query incr_query_testkit incr_query_docs
-          moon info incr_query incr_query_testkit incr_query_docs
-          test -z "$(git status --short -- incr_query incr_query_testkit incr_query_docs)"
+          moon fmt incr_query/kernel incr_query/testkit incr_query/docs
+          moon info incr_query/kernel incr_query/testkit incr_query/docs
+          test -z "$(git status --short -- incr_query/kernel incr_query/testkit incr_query/docs)"
           git diff --check
 
   incr-query-required:

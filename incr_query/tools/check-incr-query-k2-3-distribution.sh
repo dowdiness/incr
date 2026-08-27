@@ -2,13 +2,13 @@
 # Build and consume an unpublished Incr Query candidate without source fallback.
 set -euo pipefail
 
-repo_root="${INCR_QUERY_K23_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
+repo_root="${INCR_QUERY_K23_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
 moon_bin="${MOON_BIN:-moon}"
 consumer_moon_bin="${INCR_QUERY_K23_CONSUMER_MOON_BIN:-$moon_bin}"
 policy_probe_moon_bin="${INCR_QUERY_K23_POLICY_PROBE_MOON_BIN:-}"
 source_only="${INCR_QUERY_K23_SOURCE_ONLY:-0}"
-module="$repo_root/incr_query"
-consumer="$repo_root/incr_query_consumer_probe"
+module="$repo_root/incr_query/kernel"
+consumer="$repo_root/incr_query/consumer_probe"
 expected_files="$module/distribution/package-files.txt"
 tmp=$(mktemp -d "${TMPDIR:-/tmp}/k23-dist.XXXXXX")
 if [ -n "${INCR_QUERY_K23_OUTPUT_DIR:-}" ]; then
@@ -63,7 +63,7 @@ fi
 for pattern in \
   '*_test.mbt' \
   '*_wbtest.mbt' \
-  'docs/' \
+  'evidence/' \
   'distribution/' \
   'negative/' \
   'private_evidence/' \

@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Negative controls for scripts/check-incr-query-docs.sh manifest enforcement.
+# Negative controls for check-incr-query-docs.sh manifest enforcement.
 set -euo pipefail
 
-repo_root=$(cd "$(dirname "$0")/.." && pwd)
-checker="$repo_root/scripts/check-incr-query-docs.sh"
+repo_root=$(cd "$(dirname "$0")/../.." && pwd)
+checker="$repo_root/incr_query/tools/check-incr-query-docs.sh"
 fixture=$(mktemp -d)
 trap 'rm -rf "$fixture"' EXIT
 
-docs="$fixture/incr_query_docs"
+docs="$fixture/incr_query/docs"
 mkdir -p "$docs/expected_divergence" "$fixture/fakebin"
 cat > "$docs/moon.mod" <<'EOF'
 name = "dowdiness/incr_query_docs"

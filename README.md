@@ -29,6 +29,7 @@ default.
 | You want to... | Go to |
 |---|---|
 | Use the published `dowdiness/incr` package | [`incr/`](incr/) + [`incr/README.mbt.md`](incr/README.mbt.md) |
+| Explore the unpublished Incr Query product family | [`incr_query/`](incr_query/) |
 | Learn the model step by step | [`docs/getting-started.mbt.md`](docs/getting-started.mbt.md), then [`docs/concepts.mbt.md`](docs/concepts.mbt.md) |
 | Look up a type, method, or pattern | [`docs/api-reference.mbt.md`](docs/api-reference.mbt.md), [`docs/cookbook.mbt.md`](docs/cookbook.mbt.md) |
 | Browse all docs (architecture, decisions, performance) | [`docs/README.md`](docs/README.md) |

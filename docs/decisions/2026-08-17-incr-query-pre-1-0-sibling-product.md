@@ -76,7 +76,7 @@ consumer but cannot enforce the selected `.moonignore` package policy. MoonBit
 - The accepted consumer fixture, executable guide, caller-contract warnings,
   package policy, and distribution checker remain active product safeguards.
   Time-bound raw K2.3 command output is removed after the accepted hashes are
-  preserved in the [K2.3 validation record](../../incr_query/docs/k2-3-validation.md)
+  preserved in the [K2.3 validation record](../../incr_query/kernel/evidence/k2-3-validation.md)
   and the toolchain constraint is preserved here and in the package policy.
 - Active repository automation uses exact MoonBit 0.10.9+6e6c44045 through
   the checksum-verified repository-local installer, satisfying the K2 packager

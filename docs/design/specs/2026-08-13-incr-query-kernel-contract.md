@@ -45,8 +45,8 @@ tracking, `ChangeEpoch`, cutoff storage, and trace representation remain private
 K1 established two workspace sibling modules:
 
 ```text
-incr_query/             module dowdiness/incr_query
-incr_query_testkit/     module dowdiness/incr_query_testkit
+incr_query/kernel/      module dowdiness/incr_query
+incr_query/testkit/     module dowdiness/incr_query_testkit
 ```
 
 The kernel begins as one package with multiple files so opaque typed recipes,

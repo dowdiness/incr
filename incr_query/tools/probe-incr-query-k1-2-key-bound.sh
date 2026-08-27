@@ -2,7 +2,7 @@
 # Reproduce the K1.2 public Hash/Eq-bound interface comparison.
 set -euo pipefail
 
-repo=$(cd "$(dirname "$0")/.." && pwd)
+repo=$(cd "$(dirname "$0")/../.." && pwd)
 base="0c5ae4e50622f55b288aa536722e3ac77a71e030"
 toolchain="0.10.4+ade96c819"
 binary_sha256="5cce093c6795211fcade5e5ff697d88ec4ff416d2785197f004188aca724a753"

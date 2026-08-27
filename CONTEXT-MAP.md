@@ -2,7 +2,7 @@
 
 ## Contexts
 
-- [Incr Query](./incr_query/CONTEXT.md) — an independent typed incremental query kernel
+- [Incr Query](./incr_query/kernel/CONTEXT.md) — an independent typed incremental query kernel
 
 ## Relationships
 
