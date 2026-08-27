@@ -13,13 +13,13 @@ pub(all) struct Derived[T] {
 ///|
 pub impl[T : Debug] Debug for Derived[T] with fn to_repr(self) -> Repr {
   Repr::record({
-    "label": Repr(self.label),
+    "label": Debug::to_repr(self.label),
     "rt": Repr::literal("..."),
     "cell_id": Repr::literal("..."),
     "compute": Repr::literal("<function: ...>"),
-    "is_static": Repr(self.is_static),
+    "is_static": Debug::to_repr(self.is_static),
     "backdate_eq": Repr::literal("<function: ...>"),
-    "value": Repr(self.value),
+    "value": Debug::to_repr(self.value),
   })
 }
 

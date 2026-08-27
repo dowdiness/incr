@@ -8,7 +8,7 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ### Fixed
 
-- Updated `Hash::hash_combine` and `Repr` calls for MoonBit 0.10.8 compatibility.
+- Updated `Hash::hash_combine` and explicit `Debug::to_repr` calls for MoonBit 0.10.8 compatibility.
 
 ## [v0.15.0] - 2026-08-03
 
