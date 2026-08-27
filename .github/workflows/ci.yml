@@ -43,7 +43,7 @@ jobs:
       # loop absorbs transient blips. Pinned for reproducibility (issue #227).
       - name: Install MoonBit
         env:
-          MOONBIT_INSTALL_VERSION: 0.10.4+ade96c819
+          MOONBIT_INSTALL_VERSION: 0.10.8+8606a5800
         run: |
           install_moonbit() {
             curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/moonbit-install.sh \
@@ -66,12 +66,14 @@ jobs:
         run: moon update
 
       - name: moon check
-        working-directory: incr
-        run: moon check
+        run: moon check incr --deny-warn
 
       - name: moon test
         working-directory: incr
-        run: moon test
+        run: |
+          moon test -p dowdiness/incr/cells --deny-warn
+          moon test -p dowdiness/incr/tests --deny-warn
+          moon test -p dowdiness/incr/types --deny-warn
 
   docs:
     name: Check + Test docs examples
