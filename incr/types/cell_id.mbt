@@ -24,5 +24,5 @@ pub impl Hash for CellId with fn hash(self) {
 
 ///|
 pub impl Hash for CellId with fn hash_combine(self, hasher) {
-  self.hash().hash_combine(hasher)
+  Hash::hash_combine(self.hash(), hasher)
 }

@@ -126,4 +126,3 @@ pub impl[T] Freshness for @cells.ReachableDerived[T]
 pub(open) trait RuntimeContext {
   fn runtime(Self) -> @cells.Runtime
 }
-

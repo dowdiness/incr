@@ -4,6 +4,12 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ## [Unreleased]
 
+## [v0.15.1] - 2026-08-27
+
+### Fixed
+
+- Updated `Hash::hash_combine` and `Repr` calls for MoonBit 0.10.8 compatibility.
+
 ## [v0.15.0] - 2026-08-03
 
 Breaking release: `Watch[T]` replaces the removed `Observer[T]` API, and
