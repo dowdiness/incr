@@ -43,6 +43,6 @@ registry sandbox. Publication and registry mutation remain unauthorized.
 
 The generated ZIP is temporary and is never committed. K2 closure removed raw
 command snapshots after preserving the accepted conclusions in the
-[sibling-product ADR](../../docs/decisions/2026-08-17-incr-query-pre-1-0-sibling-product.md)
-and the hashes in the [K2.3 validation record](../docs/k2-3-validation.md). The immutable K2.3
+[sibling-product ADR](../../../docs/decisions/2026-08-17-incr-query-pre-1-0-sibling-product.md)
+and the hashes in the [K2.3 validation record](../evidence/k2-3-validation.md). The immutable K2.3
 merge tree remains available for historical audit.

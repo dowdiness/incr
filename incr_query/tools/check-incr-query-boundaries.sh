@@ -48,10 +48,10 @@ if [ ! -f "$root/moon.work" ]; then
   echo "MISSING: $root/moon.work" >&2
   exit 1
 fi
-for required in "$root/incr_query/moon.mod" "$root/incr_query/moon.pkg" \
-  "$root/incr_query_testkit/moon.mod" "$root/incr_query_testkit/model/moon.pkg" \
-  "$root/incr_query_testkit/fresh/moon.pkg" \
-  "$root/incr_query_testkit/incremental_adapter/moon.pkg"; do
+for required in "$root/incr_query/kernel/moon.mod" "$root/incr_query/kernel/moon.pkg" \
+  "$root/incr_query/testkit/moon.mod" "$root/incr_query/testkit/model/moon.pkg" \
+  "$root/incr_query/testkit/fresh/moon.pkg" \
+  "$root/incr_query/testkit/incremental_adapter/moon.pkg"; do
   if [ ! -f "$required" ]; then
     echo "MISSING: $required" >&2
     fail=1
@@ -59,15 +59,15 @@ for required in "$root/incr_query/moon.mod" "$root/incr_query/moon.pkg" \
 done
 
 if grep -Eq 'dowdiness/incr_query_testkit|moonbitlang/quickcheck' \
-  "$root/incr_query/moon.mod"; then
+  "$root/incr_query/kernel/moon.mod"; then
   echo "FAIL: production kernel module depends on test evidence" >&2
   fail=1
 fi
 
 while IFS= read -r pkg; do
   case "$pkg" in
-    "$root/incr_query/native_rc/moon.pkg"|"$root/incr_query/negative/moon.pkg") ;;
-    "$root/incr_query/"*)
+    "$root/incr_query/kernel/native_rc/moon.pkg"|"$root/incr_query/kernel/negative/moon.pkg") ;;
+    "$root/incr_query/kernel/"*)
       while IFS=$'\t' read -r scope import; do
         case "$import" in
           dowdiness/incr_query_testkit/*|moonbitlang/quickcheck*)
@@ -82,9 +82,9 @@ while IFS= read -r pkg; do
       done < <(extract_scoped_imports "$pkg")
       ;;
   esac
-done < <(find "$root/incr_query" -name moon.pkg -type f -print)
+done < <(find "$root/incr_query/kernel" -name moon.pkg -type f -print)
 
-adapter_imports=$(extract_imports "$root/incr_query_testkit/incremental_adapter/moon.pkg")
+adapter_imports=$(extract_imports "$root/incr_query/testkit/incremental_adapter/moon.pkg")
 if ! echo "$adapter_imports" | grep -Fxq 'dowdiness/incr_query'; then
   echo "FAIL: incremental_adapter does not import dowdiness/incr_query" >&2
   fail=1
@@ -93,7 +93,7 @@ fi
 # Traverse every local testkit package. The Fresh-reachable subgraph is
 # stricter: it may only use local testkit packages and may never reach the
 # kernel through a direct, local-transitive, or external-module edge.
-queue=("$root/incr_query_testkit/fresh")
+queue=("$root/incr_query/testkit/fresh")
 visited=""
 while [ "${#queue[@]}" -gt 0 ]; do
   pkg_dir="${queue[0]}"
@@ -114,12 +114,12 @@ while [ "${#queue[@]}" -gt 0 ]; do
         ;;
       dowdiness/incr_query_testkit/*)
         sub="${import#dowdiness/incr_query_testkit/}"
-        local_pkg="$root/incr_query_testkit/$sub/moon.pkg"
+        local_pkg="$root/incr_query/testkit/$sub/moon.pkg"
         if [ ! -f "$local_pkg" ]; then
           echo "FAIL: Fresh-reachable package escapes local testkit DAG: $pkg -> $import" >&2
           fail=1
         else
-          queue+=("$root/incr_query_testkit/$sub")
+          queue+=("$root/incr_query/testkit/$sub")
         fi
         ;;
       "") ;;
@@ -136,17 +136,17 @@ while IFS= read -r pkg; do
     case "$import" in
       dowdiness/incr_query_testkit/*)
         sub="${import#dowdiness/incr_query_testkit/}"
-        if [ ! -f "$root/incr_query_testkit/$sub/moon.pkg" ]; then
+        if [ ! -f "$root/incr_query/testkit/$sub/moon.pkg" ]; then
           echo "FAIL: local testkit package indirection has no local target: $pkg -> $import" >&2
           fail=1
         fi
         ;;
     esac
   done < <(extract_imports "$pkg")
-done < <(find "$root/incr_query_testkit" -name moon.pkg -type f -print)
+done < <(find "$root/incr_query/testkit" -name moon.pkg -type f -print)
 
 if grep -R -n -E 'examples/spikes/incr_query_(keyed_view_recipe|fresh_evaluator)|spike/incr-next' \
-  "$root/incr_query" "$root/incr_query_testkit" >/dev/null 2>&1; then
+  "$root/incr_query/kernel" "$root/incr_query/testkit" >/dev/null 2>&1; then
   echo "FAIL: production/testkit path contains an evidence-provider import or materialization" >&2
   fail=1
 fi

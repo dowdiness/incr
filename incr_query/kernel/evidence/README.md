@@ -1,9 +1,9 @@
 # Incr Query module documentation
 
 - [Roadmap](roadmap.md) — adopted sibling product; K1 and K2 accepted; packager standardization precedes a recommended separate alpha publication commission
-- [K2.1 consumer probe](../../incr_query_consumer_probe/README.md) — accepted public-only external-consumer evidence
-- [K2.2 executable guide](../../incr_query_docs/README.mbt.md) — accepted checked public-only product documentation
-- [K2.2 expected divergence](../../incr_query_docs/expected_divergence/README.mbt.md) — accepted isolated caller-contract violations, not kernel promises or Fresh evidence
+- [K2.1 consumer probe](../../consumer_probe/README.md) — accepted public-only external-consumer evidence
+- [K2.2 executable guide](../../docs/README.mbt.md) — accepted checked public-only product documentation
+- [K2.2 expected divergence](../../docs/expected_divergence/README.mbt.md) — accepted isolated caller-contract violations, not kernel promises or Fresh evidence
 - [K2.3 distribution candidate validation](k2-3-validation.md) — accepted archive policy, reproducibility, fresh-workspace, source-fallback, and four-target evidence
 - [K1.1 validation](k1-1-validation.md) — first failures, API reuse record, and acceptance evidence
 - [K1.2 key-bound compile probe](2026-08-14-k1-2-key-bound-compile-probe.md) — selected `Region::query` Hash/Eq boundary and caller contract

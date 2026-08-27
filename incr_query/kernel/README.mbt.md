@@ -5,9 +5,9 @@ It is independent of `dowdiness/incr`.
 
 ## Start here
 
-- [Executable guide](https://github.com/dowdiness/incr/blob/main/incr_query_docs/README.mbt.md) — checked Quickstart,
+- [Executable guide](https://github.com/dowdiness/incr/blob/main/incr_query/docs/README.mbt.md) — checked Quickstart,
   snapshots, tracked reads, lifetime, errors, cutoff, and caller obligations
-- [Caller-contract counterexamples](https://github.com/dowdiness/incr/blob/main/incr_query_docs/expected_divergence/README.mbt.md)
+- [Caller-contract counterexamples](https://github.com/dowdiness/incr/blob/main/incr_query/docs/expected_divergence/README.mbt.md)
   — isolated expected divergence, not kernel promises or Fresh conformance
 - [Product and kernel contract](https://github.com/dowdiness/incr/blob/main/docs/design/specs/2026-08-13-incr-query-kernel-contract.md)
 - [Lifetime and transaction contract](https://github.com/dowdiness/incr/blob/main/docs/design/specs/2026-08-13-incr-query-lifetime-and-transactions.md)
@@ -58,7 +58,7 @@ record `6f51d63e4e406554e74cbbbb3e6c3f481d559547`, and final PR/CI head
 `15892973a556dc8a1c960bd3544f8e3c3922596a`. Hosted acceptance passed 46/46,
 including Incr Query Required; independent reviews returned **APPROVE**;
 squash-tree equality passed at merge `58469934c5644686992688bc7a9f1685326a081d`.
-See the [accepted K1.6 validation record](https://github.com/dowdiness/incr/blob/main/incr_query/docs/k1-6-validation.md).
+See the [accepted K1.6 validation record](https://github.com/dowdiness/incr/blob/main/incr_query/kernel/evidence/k1-6-validation.md).
 
 `incr_query` is an unpublished pre-1.0 sibling; current `incr` remains current
 and is not replaced. [Plan 016 at final disposition](https://github.com/dowdiness/incr/blob/e30cf501db5a88d7a3764e8703c1f01b2077e046/plans/016-incr-next-usability-and-distribution.md)

@@ -4,7 +4,7 @@ set -euo pipefail
 
 root="${INCR_QUERY_DOCS_ROOT:-.}"
 target="${1:-default}"
-docs="$root/incr_query_docs"
+docs="$root/incr_query/docs"
 
 case "$target" in
   default|native|js|wasm-gc) ;;

@@ -2,7 +2,7 @@
 # Reproduce the K1.4 typed cutoff constructor and trait-bound interface probe.
 set -euo pipefail
 
-repo=$(cd "$(dirname "$0")/.." && pwd)
+repo=$(cd "$(dirname "$0")/../.." && pwd)
 base="f875e5326df3659674cd8574f947322ec960caaf"
 toolchain="0.10.4+ade96c819"
 binary_sha256="5cce093c6795211fcade5e5ff697d88ec4ff416d2785197f004188aca724a753"
@@ -44,7 +44,7 @@ echo "probe base: $resolved_base"
 
 base_interface="$tmp/base.mbti"
 git -C "$repo" show "$base:incr_next/pkg.generated.mbti" >"$base_interface"
-diff -u "$base_interface" "$repo/incr_query/pkg.generated.mbti" \
+diff -u "$base_interface" "$repo/incr_query/kernel/pkg.generated.mbti" \
   >"$tmp/current-delta" || true
 echo '=== exact current-candidate delta ==='
 if [ -s "$tmp/current-delta" ]; then

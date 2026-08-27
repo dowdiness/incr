@@ -8,7 +8,7 @@ index: one line per document, details in the documents themselves.
 ## Domain Language
 
 - [Context map](../CONTEXT-MAP.md) — repository domain contexts and their relationships
-- [Incr Query language](../incr_query/CONTEXT.md) — canonical terms for derived values, keyed queries, structural failures, and domain outcomes
+- [Incr Query language](../incr_query/kernel/CONTEXT.md) — canonical terms for derived values, keyed queries, structural failures, and domain outcomes
 
 ## Start Here
 
@@ -75,19 +75,19 @@ evidence (the unpublished, independent pre-1.0 sibling module
 
 - [Product and Kernel Contract](design/specs/2026-08-13-incr-query-kernel-contract.md) — product/module seam, public capabilities, Fresh parity, clocks, verification, cycles, cutoff, proof loss, snapshot contract, and K1 acceptance
 - [Lifetime and Transaction Contract](design/specs/2026-08-13-incr-query-lifetime-and-transactions.md) — transaction-only publication, Region close, cross-Region traces, failure atomicity, and ownership release
-- [Incr Query module roadmap](../incr_query/docs/roadmap.md) — K1 and K2 accepted; K2 packager prerequisite satisfied by MoonBit 0.10.9 standardization; a recommended separate alpha publication commission remains
-- [Incr Query K2.1 consumer probe](../incr_query_consumer_probe/README.md) — accepted standalone public-only consumer evidence and K2.3 fixture
-- [Incr Query executable guide](../incr_query_docs/README.mbt.md) — accepted checked public-only Quickstart, snapshots, tracked reads, lifetime, errors, cutoff, and caller obligations
-- [Incr Query expected divergence](../incr_query_docs/expected_divergence/README.mbt.md) — accepted separately checked caller-contract violations; not kernel promises or Fresh conformance
-- [Incr Query K2.3 distribution validation](../incr_query/docs/k2-3-validation.md) — accepted candidate policy, deterministic archive, fresh-workspace consumption, and source-fallback evidence
-- [Incr Query K1.1 validation](../incr_query/docs/k1-1-validation.md) — accepted first failures and Existing API First record
-- [Incr Query K1.2 key-bound compile probe](../incr_query/docs/2026-08-14-k1-2-key-bound-compile-probe.md) — selected `Region::query` Hash/Eq boundary and caller contract
-- [Incr Query K1.2 validation](../incr_query/docs/k1-2-validation.md) — accepted semantics, ownership, interface, backend, and work-count evidence
-- [Incr Query K1.3 validation](../incr_query/docs/k1-3-validation.md) — accepted and merged active tracking, witness contract, atomicity, cleanup, hosted CI, and public diff review evidence
-- [Incr Query K1.4 cutoff compile probe](../incr_query/docs/2026-08-15-k1-4-cutoff-compile-probe.md) — historical candidate evidence for the superseded type-owned cutoff boundary
-- [Incr Query K1.4 validation](../incr_query/docs/k1-4-validation.md) — historical accepted implementation, hosted acceptance, and squash-merge evidence
-- [Incr Query K1.5 validation](../incr_query/docs/k1-5-validation.md) — accepted and merged private proof loss, rematerialization, cleanup, ownership, hosted acceptance, and squash-tree evidence
-- [Incr Query K1.6 validation](../incr_query/docs/k1-6-validation.md) — accepted generated differential, private proof-loss/work, backend, boundary, and interface evidence
+- [Incr Query module roadmap](../incr_query/kernel/evidence/roadmap.md) — K1 and K2 accepted; K2 packager prerequisite satisfied by MoonBit 0.10.9 standardization; a recommended separate alpha publication commission remains
+- [Incr Query K2.1 consumer probe](../incr_query/consumer_probe/README.md) — accepted standalone public-only consumer evidence and K2.3 fixture
+- [Incr Query executable guide](../incr_query/docs/README.mbt.md) — accepted checked public-only Quickstart, snapshots, tracked reads, lifetime, errors, cutoff, and caller obligations
+- [Incr Query expected divergence](../incr_query/docs/expected_divergence/README.mbt.md) — accepted separately checked caller-contract violations; not kernel promises or Fresh conformance
+- [Incr Query K2.3 distribution validation](../incr_query/kernel/evidence/k2-3-validation.md) — accepted candidate policy, deterministic archive, fresh-workspace consumption, and source-fallback evidence
+- [Incr Query K1.1 validation](../incr_query/kernel/evidence/k1-1-validation.md) — accepted first failures and Existing API First record
+- [Incr Query K1.2 key-bound compile probe](../incr_query/kernel/evidence/2026-08-14-k1-2-key-bound-compile-probe.md) — selected `Region::query` Hash/Eq boundary and caller contract
+- [Incr Query K1.2 validation](../incr_query/kernel/evidence/k1-2-validation.md) — accepted semantics, ownership, interface, backend, and work-count evidence
+- [Incr Query K1.3 validation](../incr_query/kernel/evidence/k1-3-validation.md) — accepted and merged active tracking, witness contract, atomicity, cleanup, hosted CI, and public diff review evidence
+- [Incr Query K1.4 cutoff compile probe](../incr_query/kernel/evidence/2026-08-15-k1-4-cutoff-compile-probe.md) — historical candidate evidence for the superseded type-owned cutoff boundary
+- [Incr Query K1.4 validation](../incr_query/kernel/evidence/k1-4-validation.md) — historical accepted implementation, hosted acceptance, and squash-merge evidence
+- [Incr Query K1.5 validation](../incr_query/kernel/evidence/k1-5-validation.md) — accepted and merged private proof loss, rematerialization, cleanup, ownership, hosted acceptance, and squash-tree evidence
+- [Incr Query K1.6 validation](../incr_query/kernel/evidence/k1-6-validation.md) — accepted generated differential, private proof-loss/work, backend, boundary, and interface evidence
 
 **Current roadmap:**
 

@@ -2,7 +2,7 @@
 # Reproduce the K1.3 public Cycle witness interface comparison.
 set -euo pipefail
 
-repo=$(cd "$(dirname "$0")/.." && pwd)
+repo=$(cd "$(dirname "$0")/../.." && pwd)
 base="621180cf460661aa95eb89da58553681688fa502"
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
@@ -107,7 +107,7 @@ grep -Fq 'pub struct QueryId' "$typed"
 grep -Fq 'pub fn CycleWitness::path(Self) -> Array[QueryId]' "$typed"
 
 base_interface="$tmp/base.mbti"
-candidate_interface="$repo/incr_query/pkg.generated.mbti"
+candidate_interface="$repo/incr_query/kernel/pkg.generated.mbti"
 git -C "$repo" show "$base:incr_next/pkg.generated.mbti" >"$base_interface"
 diff -u "$base_interface" "$candidate_interface" >"$tmp/interface.diff" || true
 echo '=== exact candidate public delta ==='
