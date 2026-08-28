@@ -9,8 +9,10 @@ test "restoration does not replay Action invocations" {
   let original_runtime = graph.runtime.nodes.get(display.node.node).unwrap()
   assert_eq(original_runtime.action_invocation_count(), 1)
 
+  let document = graph.document()
+  graph.close()
   let restored_result = Nodeflow::restore(
-    graph.document(),
+    document,
     ObservationDemand::empty().request_action(action),
   ).unwrap()
   let restored = restored_result.nodeflow()
@@ -22,7 +24,6 @@ test "restoration does not replay Action invocations" {
   )
   ignore(restored.invoke(action))
   assert_eq(restored_runtime.action_invocation_count(), 1)
-  graph.close()
   restored.close()
 }
 

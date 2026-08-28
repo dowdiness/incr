@@ -9,6 +9,9 @@ pub struct Nodeflow {
 let next_graph_ordinal : Ref[Int] = Ref(1)
 
 ///|
+let live_graph_identities : Set[Int] = Set([])
+
+///|
 fn next_graph_id() -> Int {
   let result = next_graph_ordinal.val
   next_graph_ordinal.val = result + 1
@@ -23,10 +26,26 @@ fn reserve_graph_id(id : Int) -> Unit {
 }
 
 ///|
+fn graph_identity_is_live(id : Int) -> Bool {
+  live_graph_identities.contains(id)
+}
+
+///|
+fn claim_graph_identity(id : Int) -> Unit {
+  live_graph_identities.add(id)
+}
+
+///|
+fn release_graph_identity(id : Int) -> Unit {
+  live_graph_identities.remove(id)
+}
+
+///|
 /// Creates an empty graph with a fresh process-local Graph identity.
 pub fn Nodeflow::empty() -> Nodeflow {
   let store = @incr_query.Store::Store()
   let graph = next_graph_id()
+  claim_graph_identity(graph)
   {
     state: { graph, next_node: 0, nodes: Map([]) },
     runtime: {
@@ -595,4 +614,5 @@ pub fn Nodeflow::close(self : Nodeflow) -> Unit raise GraphCloseError {
   self.runtime.nodes.clear()
   self.runtime.outputs.clear()
   self.runtime.lifecycle.val = RuntimeLifecycle::Closed
+  release_graph_identity(self.state.graph)
 }

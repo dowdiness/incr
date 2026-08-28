@@ -124,6 +124,9 @@ pub fn Nodeflow::restore(
     Ok(_) => ()
   }
   let wire = document.wire
+  if graph_identity_is_live(wire.graph) {
+    return Err(GraphIdentityInUse)
+  }
   let store = @incr_query.Store::Store()
   let nodes : Map[Int, RuntimeNode] = Map([])
   let outputs : Map[PortReference, RuntimeOutput] = Map([])
@@ -215,7 +218,6 @@ pub fn Nodeflow::restore(
     next_node: wire.next_node,
     nodes: semantic_nodes,
   }
-  reserve_graph_id(wire.graph)
   let snapshot = match restored.snapshot_core(demand) {
     Ok(value) => value
     Err(error) => {
@@ -223,5 +225,7 @@ pub fn Nodeflow::restore(
       raise restoration_publication_error(map_publication_read_failure(error))
     }
   }
+  reserve_graph_id(wire.graph)
+  claim_graph_identity(wire.graph)
   Ok(GraphRestoration::{ graph: restored, snapshot })
 }

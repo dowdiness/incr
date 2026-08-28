@@ -34,6 +34,7 @@ test "surface projection tracks rebind removal and restoration" {
     graph.snapshot(@nodeflow.ObservationDemand::empty()).connections().length(),
     0,
   )
+  graph.close()
   let restored = @nodeflow.Nodeflow::restore(
     document,
     @nodeflow.ObservationDemand::empty(),
@@ -42,7 +43,6 @@ test "surface projection tracks rebind removal and restoration" {
   assert_eq(restored_snapshot.nodes().length(), 3)
   assert_eq(restored_snapshot.connections().length(), 1)
   assert_eq(restored_snapshot.connections()[0].input(), add.inputs()[0])
-  graph.close()
   restored.nodeflow().close()
 }
 
