@@ -16,7 +16,7 @@ What does the public Nodeflow operation boundary cost at 100, 1,000, and 10,000 
 
 ## Benchmark seam
 
-[`performance_bench_wbtest.mbt`](../../examples/spikes/incr_query_nodeflow_kernel/nodeflow/performance_bench_wbtest.mbt) uses white-box access only to construct O(n) fixtures. Every timed operation uses the public aggregate boundary.
+[`performance_bench_wbtest.mbt`](../../examples/spikes/incr_query_nodeflow_kernel/nodeflow/performance_bench_wbtest.mbt) uses white-box access only to construct one document directly instead of issuing a sequence of public `AddNode` operations. Document restoration and its current provider-validation scans happen before timing; this snapshot makes no fixture-setup or restoration-complexity claim. Every timed operation uses the public aggregate boundary.
 
 | Scenario | Timed public operation | State varied per iteration |
 |---|---|---|
@@ -64,6 +64,7 @@ The 1,000-node chain succeeds on every target. This separates two concerns: widt
 - **No broad-snapshot optimization is justified yet.** The JS deployment target stays below 9 ms for all measured 10,000-node deliberate operations. This is not evidence for running full snapshots on pointer-move frames.
 - **Structural projection dominates wide operations.** Rebinding adds little over an empty-demand snapshot at the same size because `apply` must return a complete Surface Snapshot.
 - **Dependency depth is the blocker.** The failure occurs below Nodeflow's projection layer in recursive Incr Query evaluation. Caching, a Nodeflow scheduler, or a second semantic graph would not address it.
+- **Restoration performance is unmeasured.** Fixture restoration is excluded from every row, and current semantic validation may scan document nodes per binding. Optimize it only after a dedicated restoration benchmark confirms it matters.
 - **Production claim is bounded.** The optional layer is adoptable for the measured envelope, but arbitrary-depth publication is not production-ready until a separate kernel investigation proves iterative evaluation or the product chooses an explicit typed limit.
 
 ## Reproduce
