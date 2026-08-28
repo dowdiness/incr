@@ -6,7 +6,7 @@
 
 **Keep until:** Issue #496's finite evidence prototype reaches a documented verdict.
 
-**Disposition:** active spike; this slice is evidence, not a production API commitment.
+**Disposition:** completed buildable evidence; retain while the optional-layer decision remains active, and delete if a later production design supersedes it.
 
 ## Scope matrix
 
@@ -45,9 +45,13 @@ bash examples/spikes/incr_query_nodeflow_kernel/run.sh
 
 The harness checks formatting and generated-interface freshness, then checks and tests the provider and public consumer on default, native, JavaScript, and wasm-gc targets. It runs imported-package negative probes, verifies the consumer does not import Incr Query, verifies the generated Nodeflow interface contains no kernel representation, confirms the Incr Query interface hash is unchanged, and runs repository layout and documentation boundary checks.
 
-## Current result
+## Result: Adoptable optional layer
 
-The implemented boundary matrix passes on all four targets. The prototype demonstrates an operation-based optional layer without a public typed-capability registry, whole-document interactive replacement, automatic Action execution, or Incr Query kernel changes. Final Adoptable/Promising/Reject disposition remains pending the repository-wide validation and final independent review.
+The implemented boundary matrix passes on default, native, JavaScript, and wasm-gc. Repository-wide validation passes with 1,318 wasm tests and 256 JavaScript tests; the remaining warnings predate this spike. The prototype demonstrates an operation-based optional layer without a public typed-capability registry, whole-document interactive replacement, automatic Action execution, or Incr Query kernel changes.
+
+Independent MoonBit and correctness reviews found no unresolved critical or warning findings after fixes. The packaged four-role parallel review remained formally incomplete because the idioms and API-boundary model providers returned 402 before reading files; a final MoonBit reviewer covered those risks and found the concurrent-restoration identity issue, which was fixed and re-reviewed to PASS.
+
+This verdict authorizes only a separately commissioned optional Nodeflow layer. It does not authorize publication, a production extension model, or any Incr Query kernel change.
 
 ## Constraints
 
