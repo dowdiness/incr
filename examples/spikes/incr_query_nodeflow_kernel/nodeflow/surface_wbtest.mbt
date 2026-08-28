@@ -56,3 +56,36 @@ test "OptionalOffset computes only when required and connected optional inputs a
   assert_eq(runtime.formula_compute_count(), 1)
   graph.close()
 }
+
+///|
+test "one atomic binding edit refreshes the demanded root once" {
+  let graph = Nodeflow::empty()
+  let one = wb_added_node(graph, NodeDescriptor::Number(value=1))
+  let two = wb_added_node(graph, NodeDescriptor::Number(value=2))
+  let add = wb_added_node(graph, NodeDescriptor::Add)
+  let unrelated = wb_added_node(graph, NodeDescriptor::Add)
+  let add_runtime = graph.runtime.nodes.get(add.node.node).unwrap()
+  let unrelated_runtime = graph.runtime.nodes.get(unrelated.node.node).unwrap()
+  let result = graph
+    .apply(
+      GraphEdit::BindingChangeSet(changes=[
+        { target: add.inputs[0], binding: Bound(one.outputs[0]) },
+        { target: add.inputs[1], binding: Bound(two.outputs[0]) },
+      ]),
+      ObservationDemand::empty().request(add.outputs[0]),
+    )
+    .unwrap()
+  let snapshot = match result {
+    GraphEditResult::Changed(snapshot) => snapshot
+    Added(_) => abort("expected changed graph")
+  }
+  assert_eq(
+    snapshot.observation(add.outputs[0]),
+    OutputObservation::Current(
+      OutputData::Number(NumberFormulaOutcome::Success(3)),
+    ),
+  )
+  assert_eq(add_runtime.formula_compute_count(), 1)
+  assert_eq(unrelated_runtime.formula_compute_count(), 0)
+  graph.close()
+}
