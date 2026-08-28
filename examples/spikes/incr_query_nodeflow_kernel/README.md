@@ -19,7 +19,8 @@
 | Missing/unavailable/current demand projection | Implemented |
 | Typed Formula Failure and ordered evaluation issues | Implemented |
 | Display Action availability and explicit invocation | Implemented |
-| Removal, persistence | Deferred |
+| Atomic Node removal and Region lifetime publication | Implemented |
+| Persistence | Deferred |
 | General cycles beyond the existing kernel catch shape | Deferred |
 | Negative probes and `run.sh` | Deferred |
 

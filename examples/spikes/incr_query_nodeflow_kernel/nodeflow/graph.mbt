@@ -16,6 +16,16 @@ priv struct GraphState {
 priv struct GraphTransition {
   state : GraphState
   added : (NodeReference, Array[PortReference], Array[PortReference])?
+  removed : (Array[Int], Array[PortReference])?
+}
+
+///|
+fn node_input_count(descriptor : NodeDescriptor) -> Int {
+  match descriptor {
+    Number(_) | Boolean(_) => 0
+    Add | Multiply | SafeDivide => 2
+    Display => 1
+  }
 }
 
 ///|
@@ -44,11 +54,7 @@ fn GraphState::apply(
     GraphEdit::AddNode(descriptor~) => {
       let id = self.next_node
       let node = { graph: self.graph, node: id }
-      let input_count = match descriptor {
-        Number(_) | Boolean(_) => 0
-        Add | Multiply | SafeDivide => 2
-        Display => 1
-      }
+      let input_count = node_input_count(descriptor)
       let output_count = 1
       let inputs : Array[PortReference] = []
       for i = 0; i < input_count; i = i + 1 {
@@ -63,6 +69,7 @@ fn GraphState::apply(
       Ok({
         state: { graph: self.graph, next_node: id + 1, nodes },
         added: Some((node, inputs, outputs)),
+        removed: None,
       })
     }
     GraphEdit::SetNumberParameter(node~, value~) =>
@@ -79,7 +86,7 @@ fn GraphState::apply(
                   ..current,
                   descriptor: NodeDescriptor::Number(value~),
                 }
-                Ok({ state: { ..self, nodes, }, added: None })
+                Ok({ state: { ..self, nodes, }, added: None, removed: None })
               }
               _ => Err(InvalidEdit)
             }
@@ -136,7 +143,71 @@ fn GraphState::apply(
         bindings[change.target] = change.binding
         nodes[change.target.node] = { ..node, bindings, }
       }
-      Ok({ state: { ..self, nodes, }, added: None })
+      Ok({ state: { ..self, nodes, }, added: None, removed: None })
+    }
+    GraphEdit::RemoveNodes(nodes~) => {
+      let selected : Set[Int] = Set([])
+      for target in nodes {
+        if target.graph != self.graph {
+          return Err(MissingNode)
+        }
+        if selected.contains(target.node) {
+          return Err(DuplicateNodeTarget)
+        }
+        selected.add(target.node)
+        if self.nodes.get(target.node) is None {
+          return Err(MissingNode)
+        }
+      }
+      let removed : Array[Int] = []
+      for node_id, _ in self.nodes {
+        if selected.contains(node_id) {
+          removed.push(node_id)
+        }
+      }
+      removed.sort_by((left, right) => left.compare(right))
+      let unbound : Array[PortReference] = []
+      for node_id, node in self.nodes {
+        if !selected.contains(node_id) {
+          let input_count = node_input_count(node.descriptor)
+          for port in 0..<input_count {
+            let target : PortReference = {
+              graph: self.graph,
+              node: node_id,
+              port,
+            }
+            match node.bindings.get(target) {
+              Some(BindingTarget::Bound(provider)) if selected.contains(
+                  provider.node,
+                ) => unbound.push(target)
+              _ => ()
+            }
+          }
+        }
+      }
+      unbound.sort_by((left, right) => {
+        let node_order = left.node.compare(right.node)
+        if node_order == 0 {
+          left.port.compare(right.port)
+        } else {
+          node_order
+        }
+      })
+      let nodes = self.nodes.copy()
+      for node_id in removed {
+        nodes.remove(node_id)
+      }
+      for target in unbound {
+        let node = nodes.get(target.node).unwrap()
+        let bindings = node.bindings.copy()
+        bindings[target] = BindingTarget::Unbound
+        nodes[target.node] = { ..node, bindings, }
+      }
+      Ok({
+        state: { ..self, nodes, },
+        added: None,
+        removed: Some((removed, unbound)),
+      })
     }
   }
 }

@@ -61,11 +61,18 @@ priv enum RuntimeNode {
 }
 
 ///|
+priv enum RuntimeLifecycle {
+  Open
+  Quarantined
+  Closed
+} derive(Eq)
+
+///|
 priv struct NodeflowRuntime {
   store : @incr_query.Store
   nodes : Map[Int, RuntimeNode]
   outputs : Map[PortReference, RuntimeOutput]
-  closed : Ref[Bool]
+  lifecycle : Ref[RuntimeLifecycle]
 }
 
 ///|

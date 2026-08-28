@@ -99,6 +99,7 @@ pub(all) enum GraphEdit {
   AddNode(descriptor~ : NodeDescriptor)
   SetNumberParameter(node~ : NodeReference, value~ : Int)
   BindingChangeSet(changes~ : Array[BindingChange])
+  RemoveNodes(nodes~ : Array[NodeReference])
 }
 
 ///|
@@ -110,6 +111,7 @@ pub(all) enum GraphEditRejection {
   WrongDirection
   WrongType
   DuplicateBindingTarget
+  DuplicateNodeTarget
 } derive(Eq, Debug)
 
 ///|

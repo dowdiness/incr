@@ -22,7 +22,12 @@ pub fn Nodeflow::empty() -> Nodeflow {
   let graph = next_graph_id()
   {
     state: { graph, next_node: 0, nodes: Map([]) },
-    runtime: { store, nodes: Map([]), outputs: Map([]), closed: Ref(false) },
+    runtime: {
+      store,
+      nodes: Map([]),
+      outputs: Map([]),
+      lifecycle: Ref(RuntimeLifecycle::Open),
+    },
   }
 }
 
@@ -243,7 +248,7 @@ pub fn Nodeflow::invoke(
   self : Nodeflow,
   action : ActionReference,
 ) -> ActionInvocationOutcome raise ActionInvocationError {
-  if self.runtime.closed.val {
+  if self.runtime.lifecycle.val != RuntimeLifecycle::Open {
     raise ActionInvocationError::ClosedNodeflow
   }
   if action.graph != self.state.graph ||
@@ -279,13 +284,45 @@ pub fn Nodeflow::snapshot(
   self : Nodeflow,
   demand : ObservationDemand,
 ) -> SurfaceSnapshot raise SurfaceReadError {
-  if self.runtime.closed.val {
+  if self.runtime.lifecycle.val != RuntimeLifecycle::Open {
     raise SurfaceReadError::ClosedNodeflow
   }
   match self.snapshot_core(demand) {
     Ok(snapshot) => snapshot
     Err(error) => raise map_read_failure(error)
   }
+}
+
+///|
+fn Nodeflow::stage_removal(
+  self : Nodeflow,
+  unbound : Array[PortReference],
+) -> Unit raise GraphPublicationError {
+  let result : Result[Unit, Unit] = self.runtime.store.transaction(tx => {
+    for target in unbound {
+      let runtime = self.runtime.nodes.get(target.node).unwrap()
+      match runtime {
+        RuntimeNode::Add(_, left, right, _, _)
+        | RuntimeNode::Multiply(_, left, right, _, _)
+        | RuntimeNode::SafeDivide(_, left, right, _, _) =>
+          tx.set(
+            if target.port == 0 {
+              left
+            } else {
+              right
+            },
+            NumberBinding::Unbound,
+          )
+        RuntimeNode::Display(_, input, _, _, _) =>
+          tx.set(input, NumberBinding::Unbound)
+        _ => ()
+      }
+    }
+    Ok(())
+  }) catch {
+    error => raise map_transaction_error(error)
+  }
+  ignore(result)
 }
 
 ///|
@@ -341,6 +378,7 @@ fn Nodeflow::stage_edit(
       ignore(result)
     }
     GraphEdit::AddNode(..) => ()
+    GraphEdit::RemoveNodes(..) => ()
   }
 }
 
@@ -351,7 +389,7 @@ pub fn Nodeflow::apply(
   edit : GraphEdit,
   demand : ObservationDemand,
 ) -> Result[GraphEditResult, GraphEditRejection] raise GraphPublicationError {
-  if self.runtime.closed.val {
+  if self.runtime.lifecycle.val != RuntimeLifecycle::Open {
     raise GraphPublicationError::ClosedNodeflow
   }
   match self.state.apply(edit) {
@@ -391,15 +429,53 @@ pub fn Nodeflow::apply(
             }),
           )
         }
-        None => {
-          self.stage_edit(edit)
-          self.state = transition.state
-          let snapshot = match self.snapshot_core(demand) {
-            Ok(value) => value
-            Err(error) => raise map_publication_read_failure(error)
+        None =>
+          match transition.removed {
+            None => {
+              self.stage_edit(edit)
+              self.state = transition.state
+              let snapshot = match self.snapshot_core(demand) {
+                Ok(value) => value
+                Err(error) => raise map_publication_read_failure(error)
+              }
+              Ok(GraphEditResult::Changed(snapshot))
+            }
+            Some((removed, unbound)) => {
+              self.stage_removal(unbound)
+              for node_id in removed {
+                let runtime = self.runtime.nodes.get(node_id).unwrap()
+                runtime.close_runtime() catch {
+                  error => {
+                    self.runtime.lifecycle.val = RuntimeLifecycle::Quarantined
+                    raise match error {
+                      GraphCloseError::RegionClosed =>
+                        GraphPublicationError::RegionClosed
+                      GraphCloseError::RegionMutationDuringEvaluation =>
+                        GraphPublicationError::RegionMutationDuringEvaluation
+                      GraphCloseError::RegionMutationDuringTransaction =>
+                        GraphPublicationError::RegionMutationDuringTransaction
+                    }
+                  }
+                }
+              }
+              for node_id in removed {
+                self.runtime.nodes.remove(node_id)
+              }
+              let output_entries = self.runtime.outputs.to_array()
+              for _, entry in output_entries {
+                let (port, _) = entry
+                if removed.contains(port.node) {
+                  self.runtime.outputs.remove(port)
+                }
+              }
+              self.state = transition.state
+              let snapshot = match self.snapshot_core(demand) {
+                Ok(value) => value
+                Err(error) => raise map_publication_read_failure(error)
+              }
+              Ok(GraphEditResult::Changed(snapshot))
+            }
           }
-          Ok(GraphEditResult::Changed(snapshot))
-        }
       }
   }
 }
@@ -407,14 +483,19 @@ pub fn Nodeflow::apply(
 ///|
 /// Idempotently closes every Node Region.
 pub fn Nodeflow::close(self : Nodeflow) -> Unit raise GraphCloseError {
-  if self.runtime.closed.val {
+  if self.runtime.lifecycle.val == RuntimeLifecycle::Closed {
     return
   }
-  let nodes = self.runtime.nodes.to_array()
+  let nodes = self.state.nodes.to_array()
+  nodes.sort_by((left, right) => left.0.compare(right.0))
   for _, entry in nodes {
-    entry.1.close_runtime()
+    let (node_id, _) = entry
+    errdefer {
+      self.runtime.lifecycle.val = RuntimeLifecycle::Quarantined
+    }
+    self.runtime.nodes.get(node_id).unwrap().close_runtime()
   }
   self.runtime.nodes.clear()
   self.runtime.outputs.clear()
-  self.runtime.closed.val = true
+  self.runtime.lifecycle.val = RuntimeLifecycle::Closed
 }
