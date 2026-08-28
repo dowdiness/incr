@@ -58,7 +58,10 @@ test "Graph Document round-trip restores identities outputs and Actions" {
   ignore(
     graph
     .apply(
-      @nodeflow.GraphEdit::SetNumberParameter(node=ten.node(), value=99),
+      @nodeflow.GraphEdit::SetParameter(
+        parameter=ten.parameters()[0],
+        value=@nodeflow.ParameterValue::Number(99),
+      ),
       @nodeflow.ObservationDemand::empty(),
     )
     .unwrap(),

@@ -120,6 +120,11 @@ fn descriptor_json(descriptor : NodeDescriptor) -> Json {
     Multiply => Json::object({ "kind": Json::string("multiply") })
     SafeDivide => Json::object({ "kind": Json::string("safe_divide") })
     Display => Json::object({ "kind": Json::string("display") })
+    NodeDescriptor::OptionalOffset(value~) =>
+      Json::object({
+        "kind": Json::string("optional_offset"),
+        "value": Json::number(value.to_double()),
+      })
   }
 }
 
@@ -218,6 +223,14 @@ fn parse_descriptor(value : Json) -> NodeDescriptor? {
             "multiply" => Some(NodeDescriptor::Multiply)
             "safe_divide" => Some(NodeDescriptor::SafeDivide)
             "display" => Some(NodeDescriptor::Display)
+            "optional_offset" =>
+              match field(object, "value") {
+                Some(value) =>
+                  json_int(value).map(v => {
+                    NodeDescriptor::OptionalOffset(value=v)
+                  })
+                _ => None
+              }
             _ => None
           }
         _ => None

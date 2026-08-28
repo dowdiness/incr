@@ -85,7 +85,10 @@ test "fresh invocation uses the latest committed value" {
   ignore(
     graph
     .apply(
-      @nodeflow.GraphEdit::SetNumberParameter(node=number.node(), value=9),
+      @nodeflow.GraphEdit::SetParameter(
+        parameter=number.parameters()[0],
+        value=@nodeflow.ParameterValue::Number(9),
+      ),
       @nodeflow.ObservationDemand::empty(),
     )
     .unwrap(),

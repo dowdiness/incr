@@ -14,7 +14,10 @@ test "input publication and availability never invoke an Action" {
   ignore(
     graph
     .apply(
-      GraphEdit::SetNumberParameter(node=number.node, value=9),
+      GraphEdit::SetParameter(
+        parameter=number.parameters[0],
+        value=ParameterValue::Number(9),
+      ),
       ObservationDemand::empty(),
     )
     .unwrap(),

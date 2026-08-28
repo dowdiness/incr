@@ -85,6 +85,11 @@ pub struct ActionReference {
   // private fields
 } derive(Eq, Hash, @debug.Debug)
 
+pub struct ActionView {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn ActionView::action(Self) -> ActionReference
+
 pub struct AddedNode {
   // private fields
 }
@@ -92,6 +97,7 @@ pub fn AddedNode::actions(Self) -> ReadOnlyArray[ActionReference]
 pub fn AddedNode::inputs(Self) -> ReadOnlyArray[PortReference]
 pub fn AddedNode::node(Self) -> NodeReference
 pub fn AddedNode::outputs(Self) -> ReadOnlyArray[PortReference]
+pub fn AddedNode::parameters(Self) -> ReadOnlyArray[ParameterReference]
 pub fn AddedNode::snapshot(Self) -> SurfaceSnapshot
 
 pub(all) enum ApplicationDecision {
@@ -112,6 +118,12 @@ pub(all) enum BindingTarget {
 pub(all) enum Command {
   RecordNumber(Int)
 } derive(Eq, @debug.Debug)
+
+pub struct ConnectionView {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn ConnectionView::input(Self) -> PortReference
+pub fn ConnectionView::output(Self) -> PortReference
 
 pub(all) enum EvaluationIssue {
   InputWaiting(PortReference)
@@ -136,7 +148,7 @@ pub enum GraphDocumentDecodeError {
 
 pub(all) enum GraphEdit {
   AddNode(descriptor~ : NodeDescriptor)
-  SetNumberParameter(node~ : NodeReference, value~ : Int)
+  SetParameter(parameter~ : ParameterReference, value~ : ParameterValue)
   BindingChangeSet(changes~ : Array[BindingChange])
   RemoveNodes(nodes~ : Array[NodeReference])
 }
@@ -144,6 +156,8 @@ pub(all) enum GraphEdit {
 pub(all) enum GraphEditRejection {
   InvalidEdit
   MissingNode
+  MissingParameter
+  WrongParameterType
   MissingPort
   WrongDirection
   WrongType
@@ -182,11 +196,28 @@ pub(all) enum NodeDescriptor {
   Multiply
   SafeDivide
   Display
+  OptionalOffset(value~ : Int)
 }
+
+pub(all) enum NodeKind {
+  Number
+  Boolean
+  Add
+  Multiply
+  SafeDivide
+  Display
+  OptionalOffset
+} derive(Eq, @debug.Debug)
 
 pub struct NodeReference {
   // private fields
 } derive(Eq, Hash, @debug.Debug)
+
+pub struct NodeView {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn NodeView::kind(Self) -> NodeKind
+pub fn NodeView::node(Self) -> NodeReference
 
 pub struct Nodeflow {
   // private fields
@@ -222,17 +253,55 @@ pub(all) enum OutputObservation {
   Current(OutputData)
 } derive(Eq, @debug.Debug)
 
+pub struct ParameterReference {
+  // private fields
+} derive(Eq, Hash, @debug.Debug)
+
+pub(all) enum ParameterValue {
+  Number(Int)
+  Boolean(Bool)
+} derive(Eq, @debug.Debug)
+
+pub struct ParameterView {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn ParameterView::parameter(Self) -> ParameterReference
+pub fn ParameterView::value(Self) -> ParameterValue
+
+pub(all) enum PortDirection {
+  Input
+  Output
+} derive(Eq, @debug.Debug)
+
 pub struct PortReference {
   // private fields
 } derive(Eq, Hash, @debug.Debug)
+
+pub(all) enum PortValueType {
+  Number
+  Boolean
+} derive(Eq, @debug.Debug)
+
+pub struct PortView {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn PortView::direction(Self) -> PortDirection
+pub fn PortView::port(Self) -> PortReference
+pub fn PortView::required(Self) -> Bool
+pub fn PortView::value_type(Self) -> PortValueType
 
 pub struct SurfaceSnapshot {
   // private fields
 }
 pub fn SurfaceSnapshot::action_observation(Self, ActionReference) -> ActionObservation
 pub fn SurfaceSnapshot::action_observations(Self) -> ReadOnlyArray[(ActionReference, ActionObservation)]
+pub fn SurfaceSnapshot::actions(Self) -> ReadOnlyArray[ActionView]
+pub fn SurfaceSnapshot::connections(Self) -> ReadOnlyArray[ConnectionView]
+pub fn SurfaceSnapshot::nodes(Self) -> ReadOnlyArray[NodeView]
 pub fn SurfaceSnapshot::observation(Self, PortReference) -> OutputObservation
 pub fn SurfaceSnapshot::observations(Self) -> ReadOnlyArray[(PortReference, OutputObservation)]
+pub fn SurfaceSnapshot::parameters(Self) -> ReadOnlyArray[ParameterView]
+pub fn SurfaceSnapshot::ports(Self) -> ReadOnlyArray[PortView]
 
 // Type aliases
 

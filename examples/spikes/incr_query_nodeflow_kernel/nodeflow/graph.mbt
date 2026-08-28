@@ -20,29 +20,195 @@ priv struct GraphTransition {
 }
 
 ///|
+priv struct PortSchema {
+  direction : PortDirection
+  value_type : PortValueType
+  required : Bool
+}
+
+///|
+priv struct NodeSchema {
+  kind : NodeKind
+  ports : Array[PortSchema]
+  parameters : Array[PortValueType]
+  actions : Int
+}
+
+///|
+fn descriptor_schema(descriptor : NodeDescriptor) -> NodeSchema {
+  match descriptor {
+    Number(_) =>
+      {
+        kind: NodeKind::Number,
+        ports: [
+          {
+            direction: PortDirection::Output,
+            value_type: PortValueType::Number,
+            required: false,
+          },
+        ],
+        parameters: [PortValueType::Number],
+        actions: 0,
+      }
+    Boolean(_) =>
+      {
+        kind: NodeKind::Boolean,
+        ports: [
+          {
+            direction: PortDirection::Output,
+            value_type: PortValueType::Boolean,
+            required: false,
+          },
+        ],
+        parameters: [PortValueType::Boolean],
+        actions: 0,
+      }
+    Add => math_schema(NodeKind::Add)
+    Multiply => math_schema(NodeKind::Multiply)
+    SafeDivide => math_schema(NodeKind::SafeDivide)
+    Display =>
+      {
+        kind: NodeKind::Display,
+        ports: [
+          {
+            direction: PortDirection::Input,
+            value_type: PortValueType::Number,
+            required: true,
+          },
+          {
+            direction: PortDirection::Output,
+            value_type: PortValueType::Number,
+            required: false,
+          },
+        ],
+        parameters: [],
+        actions: 1,
+      }
+    OptionalOffset(_) =>
+      {
+        kind: NodeKind::OptionalOffset,
+        ports: [
+          {
+            direction: PortDirection::Input,
+            value_type: PortValueType::Number,
+            required: true,
+          },
+          {
+            direction: PortDirection::Input,
+            value_type: PortValueType::Number,
+            required: false,
+          },
+          {
+            direction: PortDirection::Output,
+            value_type: PortValueType::Number,
+            required: false,
+          },
+        ],
+        parameters: [PortValueType::Number],
+        actions: 0,
+      }
+  }
+}
+
+///|
+fn math_schema(kind : NodeKind) -> NodeSchema {
+  {
+    kind,
+    ports: [
+      {
+        direction: PortDirection::Input,
+        value_type: PortValueType::Number,
+        required: true,
+      },
+      {
+        direction: PortDirection::Input,
+        value_type: PortValueType::Number,
+        required: true,
+      },
+      {
+        direction: PortDirection::Output,
+        value_type: PortValueType::Number,
+        required: false,
+      },
+    ],
+    parameters: [],
+    actions: 0,
+  }
+}
+
+///|
 fn node_input_count(descriptor : NodeDescriptor) -> Int {
-  match descriptor {
-    Number(_) | Boolean(_) => 0
-    Add | Multiply | SafeDivide => 2
-    Display => 1
+  let schema = descriptor_schema(descriptor)
+  let mut count = 0
+  for port in schema.ports {
+    if port.direction is PortDirection::Input {
+      count = count + 1
+    }
+  }
+  count
+}
+
+///|
+fn descriptor_port_schema(
+  descriptor : NodeDescriptor,
+  ordinal : Int,
+) -> PortSchema? {
+  let ports = descriptor_schema(descriptor).ports
+  if ordinal < 0 || ordinal >= ports.length() {
+    None
+  } else {
+    Some(ports[ordinal])
   }
 }
 
 ///|
-fn port_kind(descriptor : NodeDescriptor, ordinal : Int) -> (Bool, Bool) {
+fn descriptor_parameter_values(
+  descriptor : NodeDescriptor,
+) -> Array[ParameterValue] {
   match descriptor {
-    Number(_) | Boolean(_) => (false, ordinal == 0)
-    Add | Multiply | SafeDivide => (ordinal < 2, ordinal == 2)
-    Display => (ordinal == 0, ordinal == 1)
+    NodeDescriptor::Number(value~) => [ParameterValue::Number(value)]
+    NodeDescriptor::Boolean(value~) => [ParameterValue::Boolean(value)]
+    NodeDescriptor::OptionalOffset(value~) => [ParameterValue::Number(value)]
+    _ => []
   }
 }
 
 ///|
-fn descriptor_type(descriptor : NodeDescriptor) -> Bool {
-  match descriptor {
-    Boolean(_) => true
-    _ => false
+fn descriptor_with_parameter(
+  descriptor : NodeDescriptor,
+  ordinal : Int,
+  value : ParameterValue,
+) -> NodeDescriptor? {
+  if ordinal != 0 {
+    return None
   }
+  match (descriptor, value) {
+    (NodeDescriptor::Number(_), ParameterValue::Number(value)) =>
+      Some(NodeDescriptor::Number(value~))
+    (NodeDescriptor::Boolean(_), ParameterValue::Boolean(value)) =>
+      Some(NodeDescriptor::Boolean(value~))
+    (NodeDescriptor::OptionalOffset(_), ParameterValue::Number(value)) =>
+      Some(NodeDescriptor::OptionalOffset(value~))
+    _ => None
+  }
+}
+
+///|
+fn descriptor_port_references(
+  graph : Int,
+  node : Int,
+  descriptor : NodeDescriptor,
+) -> (Array[PortReference], Array[PortReference]) {
+  let inputs : Array[PortReference] = []
+  let outputs : Array[PortReference] = []
+  for ordinal, port in descriptor_schema(descriptor).ports {
+    let reference : PortReference = { graph, node, port: ordinal }
+    match port.direction {
+      PortDirection::Input => inputs.push(reference)
+      PortDirection::Output => outputs.push(reference)
+    }
+  }
+  (inputs, outputs)
 }
 
 ///|
@@ -54,16 +220,11 @@ fn GraphState::apply(
     GraphEdit::AddNode(descriptor~) => {
       let id = self.next_node
       let node = { graph: self.graph, node: id }
-      let input_count = node_input_count(descriptor)
-      let output_count = 1
-      let inputs : Array[PortReference] = []
-      for i = 0; i < input_count; i = i + 1 {
-        inputs.push({ graph: self.graph, node: id, port: i })
-      }
-      let outputs : Array[PortReference] = []
-      for i = 0; i < output_count; i = i + 1 {
-        outputs.push({ graph: self.graph, node: id, port: input_count + i })
-      }
+      let (inputs, outputs) = descriptor_port_references(
+        self.graph,
+        id,
+        descriptor,
+      )
       let nodes = self.nodes.copy()
       nodes[id] = { descriptor, bindings: Map([]) }
       Ok({
@@ -72,24 +233,33 @@ fn GraphState::apply(
         removed: None,
       })
     }
-    GraphEdit::SetNumberParameter(node~, value~) =>
-      if node.graph != self.graph {
-        Err(MissingNode)
+    GraphEdit::SetParameter(parameter~, value~) =>
+      if parameter.graph != self.graph {
+        Err(MissingParameter)
       } else {
-        match self.nodes.get(node.node) {
-          None => Err(MissingNode)
-          Some(current) =>
-            match current.descriptor {
-              NodeDescriptor::Number(_) => {
-                let nodes = self.nodes.copy()
-                nodes[node.node] = {
-                  ..current,
-                  descriptor: NodeDescriptor::Number(value~),
+        match self.nodes.get(parameter.node) {
+          None => Err(MissingParameter)
+          Some(current) => {
+            let schema = descriptor_schema(current.descriptor)
+            if parameter.parameter < 0 ||
+              parameter.parameter >= schema.parameters.length() {
+              Err(MissingParameter)
+            } else {
+              match
+                descriptor_with_parameter(
+                  current.descriptor,
+                  parameter.parameter,
+                  value,
+                ) {
+                None => Err(WrongParameterType)
+                Some(descriptor) => {
+                  let nodes = self.nodes.copy()
+                  nodes[parameter.node] = { ..current, descriptor, }
+                  Ok({ state: { ..self, nodes, }, added: None, removed: None })
                 }
-                Ok({ state: { ..self, nodes, }, added: None, removed: None })
               }
-              _ => Err(InvalidEdit)
             }
+          }
         }
       }
     GraphEdit::BindingChangeSet(changes~) => {
@@ -105,8 +275,12 @@ fn GraphState::apply(
         match self.nodes.get(change.target.node) {
           None => return Err(MissingPort)
           Some(node) => {
-            let (is_input, _) = port_kind(node.descriptor, change.target.port)
-            if !is_input {
+            let target_schema = match
+              descriptor_port_schema(node.descriptor, change.target.port) {
+              None => return Err(MissingPort)
+              Some(schema) => schema
+            }
+            if !(target_schema.direction is PortDirection::Input) {
               return Err(WrongDirection)
             }
             match change.binding {
@@ -118,15 +292,18 @@ fn GraphState::apply(
                 match self.nodes.get(provider.node) {
                   None => return Err(MissingPort)
                   Some(provider_node) => {
-                    let (_, is_output) = port_kind(
-                      provider_node.descriptor,
-                      provider.port,
-                    )
-                    if !is_output {
+                    let provider_schema = match
+                      descriptor_port_schema(
+                        provider_node.descriptor,
+                        provider.port,
+                      ) {
+                      None => return Err(MissingPort)
+                      Some(schema) => schema
+                    }
+                    if !(provider_schema.direction is PortDirection::Output) {
                       return Err(WrongDirection)
                     }
-                    if descriptor_type(node.descriptor) !=
-                      descriptor_type(provider_node.descriptor) {
+                    if target_schema.value_type != provider_schema.value_type {
                       return Err(WrongType)
                     }
                   }
@@ -169,18 +346,19 @@ fn GraphState::apply(
       let unbound : Array[PortReference] = []
       for node_id, node in self.nodes {
         if !selected.contains(node_id) {
-          let input_count = node_input_count(node.descriptor)
-          for port in 0..<input_count {
-            let target : PortReference = {
-              graph: self.graph,
-              node: node_id,
-              port,
-            }
-            match node.bindings.get(target) {
-              Some(BindingTarget::Bound(provider)) if selected.contains(
-                  provider.node,
-                ) => unbound.push(target)
-              _ => ()
+          for port, schema in descriptor_schema(node.descriptor).ports {
+            if schema.direction is PortDirection::Input {
+              let target : PortReference = {
+                graph: self.graph,
+                node: node_id,
+                port,
+              }
+              match node.bindings.get(target) {
+                Some(BindingTarget::Bound(provider)) if selected.contains(
+                    provider.node,
+                  ) => unbound.push(target)
+                _ => ()
+              }
             }
           }
         }

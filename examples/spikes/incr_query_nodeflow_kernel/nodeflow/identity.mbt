@@ -7,6 +7,150 @@ pub(all) enum NodeDescriptor {
   Multiply
   SafeDivide
   Display
+  OptionalOffset(value~ : Int)
+}
+
+///|
+/// The closed semantic kind exposed by the graph surface.
+pub(all) enum NodeKind {
+  Number
+  Boolean
+  Add
+  Multiply
+  SafeDivide
+  Display
+  OptionalOffset
+} derive(Eq, Debug)
+
+///|
+/// The direction of a graph port.
+pub(all) enum PortDirection {
+  Input
+  Output
+} derive(Eq, Debug)
+
+///|
+/// The closed port value type.
+pub(all) enum PortValueType {
+  Number
+  Boolean
+} derive(Eq, Debug)
+
+///|
+/// A graph-scoped opaque parameter identity.
+pub struct ParameterReference {
+  priv graph : Int
+  priv node : Int
+  priv parameter : Int
+} derive(Eq, Hash, Debug)
+
+///|
+/// A typed authored parameter value.
+pub(all) enum ParameterValue {
+  Number(Int)
+  Boolean(Bool)
+} derive(Eq, Debug)
+
+///|
+/// An immutable structural node projection.
+pub struct NodeView {
+  priv node : NodeReference
+  priv kind : NodeKind
+} derive(Eq, Debug)
+
+///|
+/// Returns this projection's Semantic Node Reference.
+pub fn NodeView::node(self : NodeView) -> NodeReference {
+  self.node
+}
+
+///|
+/// Returns the closed presentation-safe Node kind.
+pub fn NodeView::kind(self : NodeView) -> NodeKind {
+  self.kind
+}
+
+///|
+/// An immutable structural port projection.
+pub struct PortView {
+  priv port : PortReference
+  priv direction : PortDirection
+  priv value_type : PortValueType
+  priv required : Bool
+} derive(Eq, Debug)
+
+///|
+/// Returns this projection's Semantic Port Reference.
+pub fn PortView::port(self : PortView) -> PortReference {
+  self.port
+}
+
+///|
+/// Returns whether the Port is an Input or Output.
+pub fn PortView::direction(self : PortView) -> PortDirection {
+  self.direction
+}
+
+///|
+/// Returns the closed semantic value type carried by the Port.
+pub fn PortView::value_type(self : PortView) -> PortValueType {
+  self.value_type
+}
+
+///|
+/// Reports whether an unbound Input causes Input Waiting.
+pub fn PortView::required(self : PortView) -> Bool {
+  self.required
+}
+
+///|
+/// An immutable structural parameter projection.
+pub struct ParameterView {
+  priv parameter : ParameterReference
+  priv value : ParameterValue
+} derive(Eq, Debug)
+
+///|
+/// Returns this projection's Semantic Parameter Reference.
+pub fn ParameterView::parameter(self : ParameterView) -> ParameterReference {
+  self.parameter
+}
+
+///|
+/// Returns the current typed authored Parameter Value.
+pub fn ParameterView::value(self : ParameterView) -> ParameterValue {
+  self.value
+}
+
+///|
+/// An immutable structural action projection.
+pub struct ActionView {
+  priv action : ActionReference
+} derive(Eq, Debug)
+
+///|
+/// Returns this projection's Semantic Action Reference.
+pub fn ActionView::action(self : ActionView) -> ActionReference {
+  self.action
+}
+
+///|
+/// An immutable connection projection.
+pub struct ConnectionView {
+  priv input : PortReference
+  priv output : PortReference
+} derive(Eq, Debug)
+
+///|
+/// Returns the Input endpoint owned by this Connection.
+pub fn ConnectionView::input(self : ConnectionView) -> PortReference {
+  self.input
+}
+
+///|
+/// Returns the Output provider bound to the Input endpoint.
+pub fn ConnectionView::output(self : ConnectionView) -> PortReference {
+  self.output
 }
 
 ///|
@@ -15,6 +159,14 @@ pub struct NodeReference {
   priv graph : Int
   priv node : Int
 } derive(Eq, Hash, Debug)
+
+///|
+fn parameter_reference(
+  node : NodeReference,
+  parameter : Int,
+) -> ParameterReference {
+  { graph: node.graph, node: node.node, parameter }
+}
 
 ///|
 /// A graph-scoped opaque Port identity.
@@ -53,6 +205,7 @@ pub struct AddedNode {
   priv inputs : ReadOnlyArray[PortReference]
   priv outputs : ReadOnlyArray[PortReference]
   priv actions : ReadOnlyArray[ActionReference]
+  priv parameters : ReadOnlyArray[ParameterReference]
   priv snapshot : SurfaceSnapshot
 }
 
@@ -81,6 +234,14 @@ pub fn AddedNode::actions(self : AddedNode) -> ReadOnlyArray[ActionReference] {
 }
 
 ///|
+/// Returns the Node's ordered Parameter References.
+pub fn AddedNode::parameters(
+  self : AddedNode,
+) -> ReadOnlyArray[ParameterReference] {
+  self.parameters
+}
+
+///|
 /// Returns the snapshot produced by publication.
 pub fn AddedNode::snapshot(self : AddedNode) -> SurfaceSnapshot {
   self.snapshot
@@ -97,7 +258,7 @@ pub(all) enum GraphEditResult {
 /// An atomic authoring request.
 pub(all) enum GraphEdit {
   AddNode(descriptor~ : NodeDescriptor)
-  SetNumberParameter(node~ : NodeReference, value~ : Int)
+  SetParameter(parameter~ : ParameterReference, value~ : ParameterValue)
   BindingChangeSet(changes~ : Array[BindingChange])
   RemoveNodes(nodes~ : Array[NodeReference])
 }
@@ -107,6 +268,8 @@ pub(all) enum GraphEdit {
 pub(all) enum GraphEditRejection {
   InvalidEdit
   MissingNode
+  MissingParameter
+  WrongParameterType
   MissingPort
   WrongDirection
   WrongType
@@ -241,8 +404,53 @@ pub fn ObservationDemand::request_action(
 ///|
 /// An immutable UI-neutral surface projection.
 pub struct SurfaceSnapshot {
+  priv nodes : ReadOnlyArray[NodeView]
+  priv ports : ReadOnlyArray[PortView]
+  priv parameters : ReadOnlyArray[ParameterView]
+  priv actions : ReadOnlyArray[ActionView]
+  priv connections : ReadOnlyArray[ConnectionView]
   priv observations : ReadOnlyArray[(PortReference, OutputObservation)]
   priv action_observations : ReadOnlyArray[(ActionReference, ActionObservation)]
+}
+
+///|
+/// Returns all current Nodes in Semantic Identity order.
+pub fn SurfaceSnapshot::nodes(
+  self : SurfaceSnapshot,
+) -> ReadOnlyArray[NodeView] {
+  self.nodes
+}
+
+///|
+/// Returns all current Ports in Node and declared Port order.
+pub fn SurfaceSnapshot::ports(
+  self : SurfaceSnapshot,
+) -> ReadOnlyArray[PortView] {
+  self.ports
+}
+
+///|
+/// Returns all current Parameters in Node and declaration order.
+pub fn SurfaceSnapshot::parameters(
+  self : SurfaceSnapshot,
+) -> ReadOnlyArray[ParameterView] {
+  self.parameters
+}
+
+///|
+/// Returns all current Actions in Node and declaration order.
+pub fn SurfaceSnapshot::actions(
+  self : SurfaceSnapshot,
+) -> ReadOnlyArray[ActionView] {
+  self.actions
+}
+
+///|
+/// Returns all bound Inputs in deterministic semantic order.
+pub fn SurfaceSnapshot::connections(
+  self : SurfaceSnapshot,
+) -> ReadOnlyArray[ConnectionView] {
+  self.connections
 }
 
 ///|

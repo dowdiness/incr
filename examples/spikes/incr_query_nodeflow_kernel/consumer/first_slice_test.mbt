@@ -403,7 +403,10 @@ test "rebind selects the new provider and old provider edits stay unrelated" {
   ignore(
     graph
     .apply(
-      @nodeflow.GraphEdit::SetNumberParameter(node=twenty.node(), value=100),
+      @nodeflow.GraphEdit::SetParameter(
+        parameter=twenty.parameters()[0],
+        value=@nodeflow.ParameterValue::Number(100),
+      ),
       @nodeflow.ObservationDemand::empty(),
     )
     .unwrap(),
@@ -417,7 +420,10 @@ test "rebind selects the new provider and old provider edits stay unrelated" {
   ignore(
     graph
     .apply(
-      @nodeflow.GraphEdit::SetNumberParameter(node=two.node(), value=3),
+      @nodeflow.GraphEdit::SetParameter(
+        parameter=two.parameters()[0],
+        value=@nodeflow.ParameterValue::Number(3),
+      ),
       @nodeflow.ObservationDemand::empty(),
     )
     .unwrap(),

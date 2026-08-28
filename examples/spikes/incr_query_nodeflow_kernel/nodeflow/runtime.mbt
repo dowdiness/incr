@@ -29,7 +29,7 @@ priv enum RuntimeNode {
     @incr_query.Source[Int],
     @incr_query.View[NumberEvaluation]
   )
-  Boolean(@incr_query.Region, @incr_query.View[Bool])
+  Boolean(@incr_query.Region, @incr_query.Source[Bool], @incr_query.View[Bool])
   Add(
     @incr_query.Region,
     @incr_query.Source[NumberBinding],
@@ -57,6 +57,14 @@ priv enum RuntimeNode {
     @incr_query.View[NumberEvaluation],
     @incr_query.View[DisplayActionPreparation],
     Ref[Int]
+  )
+  OptionalOffset(
+    @incr_query.Region,
+    @incr_query.Source[Int],
+    @incr_query.Source[NumberBinding],
+    @incr_query.Source[NumberBinding],
+    Ref[Int],
+    @incr_query.View[NumberEvaluation]
   )
 }
 
@@ -144,12 +152,14 @@ fn make_runtime_node(
       let output = region.derived(ctx => ctx.get(parameter.view())) catch {
         error => fail_runtime_setup(region, error)
       }
-      RuntimeNode::Boolean(region, output)
+      RuntimeNode::Boolean(region, parameter, output)
     }
     NodeDescriptor::Add => make_math_runtime(region, node, 0)
     NodeDescriptor::Multiply => make_math_runtime(region, node, 1)
     NodeDescriptor::SafeDivide => make_math_runtime(region, node, 2)
     NodeDescriptor::Display => make_display_runtime(region, node)
+    NodeDescriptor::OptionalOffset(value~) =>
+      make_optional_offset_runtime(region, node, value)
   }
 }
 
@@ -321,11 +331,13 @@ fn make_math_runtime(
 fn runtime_output(node : RuntimeNode) -> RuntimeOutput {
   match node {
     RuntimeNode::Number(_, _, view) => RuntimeOutput::Number(view)
-    RuntimeNode::Boolean(_, view) => RuntimeOutput::Boolean(view)
+    RuntimeNode::Boolean(_, _, view) => RuntimeOutput::Boolean(view)
     RuntimeNode::Add(_, _, _, _, view)
     | RuntimeNode::Multiply(_, _, _, _, view)
     | RuntimeNode::SafeDivide(_, _, _, _, view)
-    | RuntimeNode::Display(_, _, view, _, _) => RuntimeOutput::Number(view)
+    | RuntimeNode::Display(_, _, view, _, _)
+    | RuntimeNode::OptionalOffset(_, _, _, _, _, view) =>
+      RuntimeOutput::Number(view)
   }
 }
 
@@ -340,7 +352,8 @@ fn RuntimeNode::runtime_binding(
     RuntimeNode::Add(_, _, _, _, _)
     | RuntimeNode::Multiply(_, _, _, _, _)
     | RuntimeNode::SafeDivide(_, _, _, _, _)
-    | RuntimeNode::Display(_, _, _, _, _) =>
+    | RuntimeNode::Display(_, _, _, _, _)
+    | RuntimeNode::OptionalOffset(_, _, _, _, _, _) =>
       match target {
         BindingTarget::Unbound => Some((port, NumberBinding::Unbound))
         BindingTarget::Bound(provider) =>
@@ -370,9 +383,14 @@ fn RuntimeNode::formula_compute_count(self : RuntimeNode) -> Int {
     RuntimeNode::Add(_, _, _, count, _)
     | RuntimeNode::Multiply(_, _, _, count, _)
     | RuntimeNode::SafeDivide(_, _, _, count, _) => count.val
+    RuntimeNode::OptionalOffset(_, _, required, optional, count, _) => {
+      ignore(required)
+      ignore(optional)
+      count.val
+    }
     RuntimeNode::Display(_, _, _, _, _)
     | RuntimeNode::Number(_, _, _)
-    | RuntimeNode::Boolean(_, _) => 0
+    | RuntimeNode::Boolean(_, _, _) => 0
   }
 }
 
@@ -389,11 +407,12 @@ fn RuntimeNode::action_invocation_count(self : RuntimeNode) -> Int {
 fn RuntimeNode::close_runtime(self : RuntimeNode) -> Unit raise GraphCloseError {
   let region = match self {
     RuntimeNode::Number(region, _, _)
-    | RuntimeNode::Boolean(region, _)
+    | RuntimeNode::Boolean(region, _, _)
     | RuntimeNode::Add(region, _, _, _, _)
     | RuntimeNode::Multiply(region, _, _, _, _)
     | RuntimeNode::SafeDivide(region, _, _, _, _)
-    | RuntimeNode::Display(region, _, _, _, _) => region
+    | RuntimeNode::Display(region, _, _, _, _)
+    | RuntimeNode::OptionalOffset(region, _, _, _, _, _) => region
   }
   region.close() catch {
     @incr_query.RegionError::ClosedRegion(_) =>

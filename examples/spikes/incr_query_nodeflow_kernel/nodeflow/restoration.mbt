@@ -73,6 +73,7 @@ fn validate_document(
       if target < 0 || target >= inputs {
         return Err(InvalidDescriptor)
       }
+      let target_schema = descriptor_port_schema(node.descriptor, target).unwrap()
       if targets.contains(target) {
         return Err(DuplicateBindingTarget)
       }
@@ -92,22 +93,15 @@ fn validate_document(
           match provider_node {
             None => return Err(MissingEndpoint)
             Some(provider_node) => {
-              let provider_port_count = node_input_count(
-                  provider_node.descriptor,
-                ) +
-                1
-              if provider.port < 0 || provider.port >= provider_port_count {
-                return Err(MissingEndpoint)
+              let provider_schema = match
+                descriptor_port_schema(provider_node.descriptor, provider.port) {
+                None => return Err(MissingEndpoint)
+                Some(schema) => schema
               }
-              let (_, output) = port_kind(
-                provider_node.descriptor,
-                provider.port,
-              )
-              if !output {
+              if !(provider_schema.direction is PortDirection::Output) {
                 return Err(WrongDirection)
               }
-              if descriptor_type(node.descriptor) !=
-                descriptor_type(provider_node.descriptor) {
+              if target_schema.value_type != provider_schema.value_type {
                 return Err(WrongType)
               }
             }
@@ -145,8 +139,14 @@ pub fn Nodeflow::restore(
     }
     let output = runtime_output(runtime)
     nodes[node.id] = runtime
-    let output_port = node_input_count(node.descriptor)
-    outputs[{ graph: wire.graph, node: node.id, port: output_port }] = output
+    let (_, output_references) = descriptor_port_references(
+      wire.graph,
+      node.id,
+      node.descriptor,
+    )
+    for output_reference in output_references {
+      outputs[output_reference] = output
+    }
   }
   let runtime = {
     store,
@@ -175,6 +175,8 @@ pub fn Nodeflow::restore(
           | RuntimeNode::SafeDivide(_, left, right, _, _) =>
             tx.set(if target == 0 { left } else { right }, value)
           RuntimeNode::Display(_, input, _, _, _) => tx.set(input, value)
+          RuntimeNode::OptionalOffset(_, _, required, optional, _, _) =>
+            tx.set(if target == 0 { required } else { optional }, value)
           _ => ()
         }
       }

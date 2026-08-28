@@ -68,7 +68,10 @@ test "rebind retires the old provider from the Formula dependency trace" {
   ignore(
     graph
     .apply(
-      GraphEdit::SetNumberParameter(node=twenty.node, value=100),
+      GraphEdit::SetParameter(
+        parameter=twenty.parameters[0],
+        value=ParameterValue::Number(100),
+      ),
       ObservationDemand::empty(),
     )
     .unwrap(),
@@ -84,7 +87,10 @@ test "rebind retires the old provider from the Formula dependency trace" {
   ignore(
     graph
     .apply(
-      GraphEdit::SetNumberParameter(node=two.node, value=3),
+      GraphEdit::SetParameter(
+        parameter=two.parameters[0],
+        value=ParameterValue::Number(3),
+      ),
       ObservationDemand::empty(),
     )
     .unwrap(),

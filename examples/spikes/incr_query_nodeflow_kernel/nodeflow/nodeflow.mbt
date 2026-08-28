@@ -206,6 +206,52 @@ fn Nodeflow::snapshot_core(
   self : Nodeflow,
   demand : ObservationDemand,
 ) -> Result[SurfaceSnapshot, ReadFailure] {
+  let node_views : Array[NodeView] = []
+  let port_views : Array[PortView] = []
+  let parameter_views : Array[ParameterView] = []
+  let action_views : Array[ActionView] = []
+  let connections : Array[ConnectionView] = []
+  let node_entries = self.state.nodes.to_array()
+  node_entries.sort_by((a, b) => a.0.compare(b.0))
+  for node_entry in node_entries {
+    let node_id = node_entry.0
+    let node_state = node_entry.1
+    let reference : NodeReference = { graph: self.state.graph, node: node_id }
+    let schema = descriptor_schema(node_state.descriptor)
+    node_views.push({ node: reference, kind: schema.kind })
+    for ordinal, port in schema.ports {
+      let port_ref : PortReference = {
+        graph: self.state.graph,
+        node: node_id,
+        port: ordinal,
+      }
+      port_views.push({
+        port: port_ref,
+        direction: port.direction,
+        value_type: port.value_type,
+        required: port.required,
+      })
+      if port.direction is PortDirection::Input {
+        match node_state.bindings.get(port_ref) {
+          Some(BindingTarget::Bound(output)) =>
+            connections.push({ input: port_ref, output })
+          _ => ()
+        }
+      }
+    }
+    let parameter_value = descriptor_parameter_values(node_state.descriptor)
+    for parameter, value in parameter_value {
+      parameter_views.push({
+        parameter: parameter_reference(reference, parameter),
+        value,
+      })
+    }
+    for action in 0..<schema.actions {
+      action_views.push({
+        action: { graph: self.state.graph, node: node_id, action },
+      })
+    }
+  }
   let seen : Set[PortReference] = Set([])
   let observations : Array[(PortReference, OutputObservation)] = []
   let action_observations : Array[(ActionReference, ActionObservation)] = []
@@ -241,6 +287,11 @@ fn Nodeflow::snapshot_core(
     }
   }
   Ok({
+    nodes: ReadOnlyArray::from_array(node_views),
+    ports: ReadOnlyArray::from_array(port_views),
+    parameters: ReadOnlyArray::from_array(parameter_views),
+    actions: ReadOnlyArray::from_array(action_views),
+    connections: ReadOnlyArray::from_array(connections),
     observations: ReadOnlyArray::from_array(observations),
     action_observations: ReadOnlyArray::from_array(action_observations),
   })
@@ -287,6 +338,10 @@ pub fn Nodeflow::invoke(
 }
 
 ///|
+/// Returns one immutable structural and explicitly demanded value snapshot.
+///
+/// Empty demand still projects Semantic Graph structure without evaluating an
+/// Output or Action. Closed or quarantined aggregates raise ClosedNodeflow.
 pub fn Nodeflow::snapshot(
   self : Nodeflow,
   demand : ObservationDemand,
@@ -322,6 +377,15 @@ fn Nodeflow::stage_removal(
           )
         RuntimeNode::Display(_, input, _, _, _) =>
           tx.set(input, NumberBinding::Unbound)
+        RuntimeNode::OptionalOffset(_, _, required, optional, _, _) =>
+          tx.set(
+            if target.port == 0 {
+              required
+            } else {
+              optional
+            },
+            NumberBinding::Unbound,
+          )
         _ => ()
       }
     }
@@ -338,19 +402,32 @@ fn Nodeflow::stage_edit(
   edit : GraphEdit,
 ) -> Unit raise GraphPublicationError {
   match edit {
-    GraphEdit::SetNumberParameter(node~, value~) =>
-      match self.runtime.nodes.get(node.node) {
-        Some(RuntimeNode::Number(_, parameter, _)) => {
-          let result : Result[Unit, Unit] = self.runtime.store.transaction(tx => {
-            tx.set(parameter, value)
-            Ok(())
-          }) catch {
-            error => raise map_transaction_error(error)
-          }
-          ignore(result)
+    GraphEdit::SetParameter(parameter~, value~) => {
+      let result : Result[Unit, Unit] = self.runtime.store.transaction(tx => {
+        match self.runtime.nodes.get(parameter.node) {
+          Some(RuntimeNode::Number(_, source, _)) =>
+            match value {
+              ParameterValue::Number(v) => tx.set(source, v)
+              _ => ()
+            }
+          Some(RuntimeNode::Boolean(_, source, _)) =>
+            match value {
+              ParameterValue::Boolean(v) => tx.set(source, v)
+              _ => ()
+            }
+          Some(RuntimeNode::OptionalOffset(_, source, _, _, _, _)) =>
+            match value {
+              ParameterValue::Number(v) => tx.set(source, v)
+              _ => ()
+            }
+          _ => ()
         }
-        _ => ()
+        Ok(())
+      }) catch {
+        error => raise map_transaction_error(error)
       }
+      ignore(result)
+    }
     GraphEdit::BindingChangeSet(changes~) => {
       let result : Result[Unit, Unit] = self.runtime.store.transaction(tx => {
         for change in changes {
@@ -375,6 +452,15 @@ fn Nodeflow::stage_edit(
                 binding,
               )
             RuntimeNode::Display(_, input, _, _, _) => tx.set(input, binding)
+            RuntimeNode::OptionalOffset(_, _, required, optional, _, _) =>
+              tx.set(
+                if change.target.port == 0 {
+                  required
+                } else {
+                  optional
+                },
+                binding,
+              )
             _ => ()
           }
         }
@@ -419,19 +505,23 @@ pub fn Nodeflow::apply(
             Ok(value) => value
             Err(error) => raise map_publication_read_failure(error)
           }
+          let descriptor = transition.state.nodes.get(node.node).unwrap().descriptor
+          let parameters = descriptor_parameter_values(descriptor).mapi((
+            ordinal,
+            _,
+          ) => parameter_reference(node, ordinal))
+          let actions = Array::makei(descriptor_schema(descriptor).actions, action => {
+            graph: node.graph,
+            node: node.node,
+            action,
+          })
           Ok(
             GraphEditResult::Added({
               node,
               inputs: ReadOnlyArray::from_array(inputs),
               outputs: ReadOnlyArray::from_array(outputs),
-              actions: ReadOnlyArray::from_array(
-                match
-                  transition.state.nodes.get(node.node).unwrap().descriptor {
-                  NodeDescriptor::Display =>
-                    [{ graph: node.graph, node: node.node, action: 0 }]
-                  _ => []
-                },
-              ),
+              parameters: ReadOnlyArray::from_array(parameters),
+              actions: ReadOnlyArray::from_array(actions),
               snapshot,
             }),
           )

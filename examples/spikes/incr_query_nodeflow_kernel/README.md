@@ -13,7 +13,7 @@
 | Capability | Status |
 |---|---|
 | Opaque graph/node/port identities | Implemented |
-| Closed descriptors: Number, Boolean, Add, Multiply, SafeDivide, Display | Implemented |
+| Closed descriptors: Number, Boolean, Add, Multiply, SafeDivide, Display, OptionalOffset | Implemented |
 | Pure validation and ordinary edit rejection | Implemented |
 | Atomic binding change sets and typed parameters | Implemented |
 | Missing/unavailable/current demand projection | Implemented |
@@ -21,8 +21,8 @@
 | Display Action availability and explicit invocation | Implemented |
 | GraphDocument JSON codec and atomic restoration | Implemented |
 | Atomic Node removal and Region lifetime publication | Implemented |
-| Persistence | Deferred |
+| External persistence storage engine | Deferred |
 | General cycles beyond the existing kernel catch shape | Deferred |
 | Negative probes and `run.sh` | Deferred |
 
-Each Node owns one private Incr Query Region. Number and Boolean parameters are typed Sources; Add, Multiply, and SafeDivide own typed binding Sources and derived outputs. Publication creates runtime definitions before installing graph state, and stages binding writes in one transaction. Surface output and Action demand is deduplicated in first-occurrence order; unavailable outputs and Action inputs carry immutable ordered issues, while formula failures remain current values. Display exposes a pass-through Number output and an explicit RecordNumber Action; availability never invokes it.
+Each Node owns one private Incr Query Region. Number, Boolean, and OptionalOffset parameters are typed Sources; Add, Multiply, SafeDivide, and OptionalOffset own typed binding Sources and derived outputs. OptionalOffset distinguishes an absent optional Input from a connected unavailable provider. Publication creates runtime definitions before installing graph state, and stages binding writes in one transaction. Every Surface Snapshot projects deterministic Node, Port, Parameter, Action, and Connection views independently of Output demand. Surface output and Action demand is deduplicated in first-occurrence order; unavailable outputs and Action inputs carry immutable ordered issues, while formula failures remain current values. Display exposes a pass-through Number output and an explicit RecordNumber Action; availability never invokes it.
