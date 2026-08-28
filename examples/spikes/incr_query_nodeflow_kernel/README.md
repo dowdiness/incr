@@ -53,6 +53,10 @@ Independent MoonBit and correctness reviews found no unresolved critical or warn
 
 This verdict authorizes only a separately commissioned optional Nodeflow layer. It does not authorize publication, a production extension model, or any Incr Query kernel change.
 
+## Performance evidence
+
+The [2026-08-29 boundary snapshot](../../../docs/performance/2026-08-29-incr-query-nodeflow-boundaries.md) measures public snapshot, rebind, and demanded-edit operations across wasm-gc, JavaScript, and native. JavaScript remains below 9 ms at 10,000 total nodes for the measured broad/shallow workloads, so no snapshot optimization is justified. A 10,000-node linear Formula chain overflows the JavaScript and wasm-gc stacks in recursive Incr Query evaluation; unconstrained dependency depth therefore remains a production blocker outside this optional layer.
+
 ## Constraints
 
 - The application package owns a closed descriptor set and pure Formula implementations. This package boundary is evidence for product-specific models, not a production plugin framework.
@@ -60,4 +64,5 @@ This verdict authorizes only a separately commissioned optional Nodeflow layer. 
 - Commands are immutable returned values only. No interpreter, feedback scheduler, retry, cancellation, idempotency, or external I/O is implemented.
 - Graph Document JSON is an evidence schema, not a published compatibility commitment or persistence storage engine.
 - Output demand controls observation, not cache eviction.
+- The measured envelope covers 10,000 broad nodes and active dependency depth 1,000. A 10,000-deep chain is unsupported on the web backends until a separate Incr Query evaluation investigation or an explicit typed product limit resolves it.
 - Canopy Canvas, Layout Profile, Presentation State, collaboration, undo/redo, CRDTs, and distributed execution remain outside this spike.

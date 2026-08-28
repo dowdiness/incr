@@ -3,3 +3,7 @@ import {
   "dowdiness/incr_query",
   "moonbitlang/core/json",
 }
+
+import {
+  "moonbitlang/core/bench",
+} for "wbtest"
