@@ -49,7 +49,9 @@ test "rebind retires the old provider from the Formula dependency trace" {
   wb_bind(graph, add.inputs[1], twenty.outputs[0])
   assert_eq(
     wb_observe_number(graph, add.outputs[0]),
-    OutputObservation::Current(OutputData::Number(30)),
+    OutputObservation::Current(
+      OutputData::Number(NumberFormulaOutcome::Success(30)),
+    ),
   )
   let runtime = graph.runtime.nodes.get(add.node.node).unwrap()
   assert_eq(runtime.formula_compute_count(), 1)
@@ -57,7 +59,9 @@ test "rebind retires the old provider from the Formula dependency trace" {
   wb_bind(graph, add.inputs[1], two.outputs[0])
   assert_eq(
     wb_observe_number(graph, add.outputs[0]),
-    OutputObservation::Current(OutputData::Number(12)),
+    OutputObservation::Current(
+      OutputData::Number(NumberFormulaOutcome::Success(12)),
+    ),
   )
   assert_eq(runtime.formula_compute_count(), 2)
 
@@ -71,7 +75,9 @@ test "rebind retires the old provider from the Formula dependency trace" {
   )
   assert_eq(
     wb_observe_number(graph, add.outputs[0]),
-    OutputObservation::Current(OutputData::Number(12)),
+    OutputObservation::Current(
+      OutputData::Number(NumberFormulaOutcome::Success(12)),
+    ),
   )
   assert_eq(runtime.formula_compute_count(), 2)
 
@@ -85,7 +91,9 @@ test "rebind retires the old provider from the Formula dependency trace" {
   )
   assert_eq(
     wb_observe_number(graph, add.outputs[0]),
-    OutputObservation::Current(OutputData::Number(13)),
+    OutputObservation::Current(
+      OutputData::Number(NumberFormulaOutcome::Success(13)),
+    ),
   )
   assert_eq(runtime.formula_compute_count(), 3)
   graph.close()

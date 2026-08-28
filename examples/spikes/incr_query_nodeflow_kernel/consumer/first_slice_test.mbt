@@ -87,7 +87,9 @@ test "number add and multiply" {
   )
   assert_eq(
     snapshot.observation(multiply_node.outputs()[0]),
-    @nodeflow.OutputObservation::Current(@nodeflow.OutputData::Number(60)),
+    @nodeflow.OutputObservation::Current(
+      @nodeflow.OutputData::Number(@nodeflow.NumberFormulaOutcome::Success(60)),
+    ),
   )
   graph.close()
 }
@@ -138,7 +140,7 @@ fn number_at(
 test "unbound required inputs keep math output unavailable" {
   let graph = @nodeflow.Nodeflow::empty()
   let add = added_node(graph, @nodeflow.NodeDescriptor::Add)
-  assert_eq(number_at(graph, add.outputs()[0]), Unavailable)
+  assert_true(number_at(graph, add.outputs()[0]) is Unavailable(_))
   graph.close()
 }
 
@@ -161,7 +163,9 @@ test "type mismatch is rejected before replacing a valid binding" {
   )
   assert_eq(
     number_at(graph, add.outputs()[0]),
-    Current(@nodeflow.OutputData::Number(20)),
+    Current(
+      @nodeflow.OutputData::Number(@nodeflow.NumberFormulaOutcome::Success(20)),
+    ),
   )
   let rejected = graph
     .apply(
@@ -174,7 +178,9 @@ test "type mismatch is rejected before replacing a valid binding" {
   assert_eq(rejected, @nodeflow.GraphEditRejection::WrongType)
   assert_eq(
     number_at(graph, add.outputs()[0]),
-    Current(@nodeflow.OutputData::Number(20)),
+    Current(
+      @nodeflow.OutputData::Number(@nodeflow.NumberFormulaOutcome::Success(20)),
+    ),
   )
   graph.close()
 }
@@ -208,7 +214,9 @@ test "duplicate binding targets reject the whole change set" {
   assert_eq(rejected, DuplicateBindingTarget)
   assert_eq(
     number_at(graph, add.outputs()[0]),
-    Current(@nodeflow.OutputData::Number(20)),
+    Current(
+      @nodeflow.OutputData::Number(@nodeflow.NumberFormulaOutcome::Success(20)),
+    ),
   )
   graph.close()
 }
@@ -233,7 +241,9 @@ test "rebind selects the new provider and old provider edits stay unrelated" {
   )
   assert_eq(
     number_at(graph, add.outputs()[0]),
-    Current(@nodeflow.OutputData::Number(30)),
+    Current(
+      @nodeflow.OutputData::Number(@nodeflow.NumberFormulaOutcome::Success(30)),
+    ),
   )
   ignore(
     graph
@@ -247,7 +257,9 @@ test "rebind selects the new provider and old provider edits stay unrelated" {
   )
   assert_eq(
     number_at(graph, add.outputs()[0]),
-    Current(@nodeflow.OutputData::Number(12)),
+    Current(
+      @nodeflow.OutputData::Number(@nodeflow.NumberFormulaOutcome::Success(12)),
+    ),
   )
   ignore(
     graph
@@ -259,7 +271,9 @@ test "rebind selects the new provider and old provider edits stay unrelated" {
   )
   assert_eq(
     number_at(graph, add.outputs()[0]),
-    Current(@nodeflow.OutputData::Number(12)),
+    Current(
+      @nodeflow.OutputData::Number(@nodeflow.NumberFormulaOutcome::Success(12)),
+    ),
   )
   ignore(
     graph
@@ -271,7 +285,9 @@ test "rebind selects the new provider and old provider edits stay unrelated" {
   )
   assert_eq(
     number_at(graph, add.outputs()[0]),
-    Current(@nodeflow.OutputData::Number(13)),
+    Current(
+      @nodeflow.OutputData::Number(@nodeflow.NumberFormulaOutcome::Success(13)),
+    ),
   )
   graph.close()
 }

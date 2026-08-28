@@ -37,9 +37,9 @@ priv enum ReadFailure {
 
 ///|
 priv enum ReadResult {
-  Number(Int)
+  Number(NumberFormulaOutcome)
   Boolean(Bool)
-  Unavailable
+  Unavailable(ReadOnlyArray[EvaluationIssue])
 }
 
 ///|
@@ -54,7 +54,12 @@ fn Nodeflow::read_output(
           return Err(ReadFailure::CrossStore)
         @incr_query.ReadError::ClosedRegion(_) =>
           return Err(ReadFailure::ClosedRegion)
-        @incr_query.ReadError::Cycle(_) => return Ok(ReadResult::Unavailable)
+        @incr_query.ReadError::Cycle(_) =>
+          return Ok(
+            ReadResult::Unavailable(
+              ReadOnlyArray::from_array([EvaluationIssue::CyclicEvaluation]),
+            ),
+          )
         @incr_query.ReadError::ExpiredQueryContext(_) =>
           return Err(ReadFailure::ExpiredContext)
         @incr_query.ReadError::ReentrantRootGet(_) =>
@@ -63,7 +68,8 @@ fn Nodeflow::read_output(
           return Err(ReadFailure::DuringTransaction)
       }
       match evaluation {
-        NumberEvaluation::Unavailable => Ok(ReadResult::Unavailable)
+        NumberEvaluation::Unavailable(issues) =>
+          Ok(ReadResult::Unavailable(issues))
         NumberEvaluation::Current(value) => Ok(ReadResult::Number(value))
       }
     }
@@ -71,7 +77,12 @@ fn Nodeflow::read_output(
       Ok(ReadResult::Boolean(self.runtime.store.get(view))) catch {
         @incr_query.ReadError::CrossStore(_) => Err(ReadFailure::CrossStore)
         @incr_query.ReadError::ClosedRegion(_) => Err(ReadFailure::ClosedRegion)
-        @incr_query.ReadError::Cycle(_) => Ok(ReadResult::Unavailable)
+        @incr_query.ReadError::Cycle(_) =>
+          Ok(
+            ReadResult::Unavailable(
+              ReadOnlyArray::from_array([EvaluationIssue::CyclicEvaluation]),
+            ),
+          )
         @incr_query.ReadError::ExpiredQueryContext(_) =>
           Err(ReadFailure::ExpiredContext)
         @incr_query.ReadError::ReentrantRootGet(_) =>
@@ -123,8 +134,8 @@ fn Nodeflow::snapshot_core(
               observations.push((port, Current(OutputData::Number(value))))
             Ok(ReadResult::Boolean(value)) =>
               observations.push((port, Current(OutputData::Boolean(value))))
-            Ok(ReadResult::Unavailable) =>
-              observations.push((port, Unavailable))
+            Ok(ReadResult::Unavailable(issues)) =>
+              observations.push((port, Unavailable(issues)))
           }
       }
     }
@@ -179,7 +190,8 @@ fn Nodeflow::stage_edit(
             .unwrap()
           match runtime {
             RuntimeNode::Add(_, left, right, _, _)
-            | RuntimeNode::Multiply(_, left, right, _, _) =>
+            | RuntimeNode::Multiply(_, left, right, _, _)
+            | RuntimeNode::SafeDivide(_, left, right, _, _) =>
               tx.set(
                 if change.target.port == 0 {
                   left
@@ -218,6 +230,7 @@ pub fn Nodeflow::apply(
         Some((node, inputs, outputs)) => {
           let runtime_node = make_runtime_node(
             self.runtime.store,
+            node,
             transition.state.nodes.get(node.node).unwrap().descriptor,
           )
           let output = runtime_output(runtime_node)

@@ -5,6 +5,7 @@ pub(all) enum NodeDescriptor {
   Boolean(value~ : Bool)
   Add
   Multiply
+  SafeDivide
 }
 
 ///|
@@ -97,8 +98,29 @@ pub(all) enum GraphEditRejection {
 
 ///|
 /// Closed semantic output data.
+pub(all) enum FormulaFailure {
+  DivisionByZero
+} derive(Eq, Debug)
+
+///|
+/// The current result of a Number formula.
+pub(all) enum NumberFormulaOutcome {
+  Success(Int)
+  Failure(FormulaFailure)
+} derive(Eq, Debug)
+
+///|
+/// Why a Node currently has no available output.
+pub(all) enum EvaluationIssue {
+  InputWaiting(PortReference)
+  BlockedEvaluation(PortReference)
+  CyclicEvaluation
+} derive(Eq, Debug)
+
+///|
+/// Closed semantic output data.
 pub(all) enum OutputData {
-  Number(Int)
+  Number(NumberFormulaOutcome)
   Boolean(Bool)
 } derive(Eq, Debug)
 
@@ -106,7 +128,7 @@ pub(all) enum OutputData {
 /// The current result for one demanded Output.
 pub(all) enum OutputObservation {
   Missing
-  Unavailable
+  Unavailable(ReadOnlyArray[EvaluationIssue])
   Current(OutputData)
 } derive(Eq, Debug)
 

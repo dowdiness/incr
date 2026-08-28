@@ -1,7 +1,7 @@
 ///|
 priv enum NumberEvaluation {
-  Unavailable
-  Current(Int)
+  Unavailable(ReadOnlyArray[EvaluationIssue])
+  Current(NumberFormulaOutcome)
 }
 
 ///|
@@ -32,6 +32,13 @@ priv enum RuntimeNode {
     @incr_query.View[NumberEvaluation]
   )
   Multiply(
+    @incr_query.Region,
+    @incr_query.Source[NumberBinding],
+    @incr_query.Source[NumberBinding],
+    Ref[Int],
+    @incr_query.View[NumberEvaluation]
+  )
+  SafeDivide(
     @incr_query.Region,
     @incr_query.Source[NumberBinding],
     @incr_query.Source[NumberBinding],
@@ -92,6 +99,7 @@ fn[T] fail_runtime_setup(
 ///|
 fn make_runtime_node(
   store : @incr_query.Store,
+  node : NodeReference,
   descriptor : NodeDescriptor,
 ) -> RuntimeNode raise GraphPublicationError {
   let region = store.region() catch { error => raise map_region_error(error) }
@@ -101,7 +109,9 @@ fn make_runtime_node(
         error => fail_runtime_setup(region, error)
       }
       let output = region.derived(ctx => {
-        NumberEvaluation::Current(ctx.get(parameter.view()))
+        NumberEvaluation::Current(
+          NumberFormulaOutcome::Success(ctx.get(parameter.view())),
+        )
       }) catch {
         error => fail_runtime_setup(region, error)
       }
@@ -116,15 +126,17 @@ fn make_runtime_node(
       }
       RuntimeNode::Boolean(region, output)
     }
-    NodeDescriptor::Add => make_math_runtime(region, false)
-    NodeDescriptor::Multiply => make_math_runtime(region, true)
+    NodeDescriptor::Add => make_math_runtime(region, node, 0)
+    NodeDescriptor::Multiply => make_math_runtime(region, node, 1)
+    NodeDescriptor::SafeDivide => make_math_runtime(region, node, 2)
   }
 }
 
 ///|
 fn make_math_runtime(
   region : @incr_query.Region,
-  multiply : Bool,
+  node : NodeReference,
+  operation : Int,
 ) -> RuntimeNode raise GraphPublicationError {
   let left = region.source(NumberBinding::Unbound) catch {
     error => fail_runtime_setup(region, error)
@@ -134,38 +146,92 @@ fn make_math_runtime(
   }
   let compute_count = Ref(0)
   let output = region.derived(ctx => {
-    match ctx.get(left.view()) {
-      NumberBinding::Unbound => NumberEvaluation::Unavailable
-      NumberBinding::Bound(left_view) =>
-        match ctx.get(left_view) {
-          NumberEvaluation::Unavailable => NumberEvaluation::Unavailable
-          NumberEvaluation::Current(a) =>
-            match ctx.get(right.view()) {
-              NumberBinding::Unbound => NumberEvaluation::Unavailable
-              NumberBinding::Bound(right_view) =>
-                match ctx.get(right_view) {
-                  NumberEvaluation::Unavailable => NumberEvaluation::Unavailable
-                  NumberEvaluation::Current(b) => {
-                    compute_count.val = compute_count.val + 1
-                    NumberEvaluation::Current(
-                      if multiply {
-                        a * b
-                      } else {
-                        a + b
-                      },
-                    )
-                  }
-                }
+    let left_evaluation = match ctx.get(left.view()) {
+      NumberBinding::Unbound => None
+      NumberBinding::Bound(view) => Some(ctx.get(view))
+    }
+    let right_evaluation = match ctx.get(right.view()) {
+      NumberBinding::Unbound => None
+      NumberBinding::Bound(view) => Some(ctx.get(view))
+    }
+    let issues : Array[EvaluationIssue] = []
+    match left_evaluation {
+      None =>
+        issues.push(
+          EvaluationIssue::InputWaiting({
+            graph: node.graph,
+            node: node.node,
+            port: 0,
+          }),
+        )
+      Some(NumberEvaluation::Unavailable(_)) =>
+        issues.push(
+          EvaluationIssue::BlockedEvaluation({
+            graph: node.graph,
+            node: node.node,
+            port: 0,
+          }),
+        )
+      Some(NumberEvaluation::Current(_)) => ()
+    }
+    match right_evaluation {
+      None =>
+        issues.push(
+          EvaluationIssue::InputWaiting({
+            graph: node.graph,
+            node: node.node,
+            port: 1,
+          }),
+        )
+      Some(NumberEvaluation::Unavailable(_)) =>
+        issues.push(
+          EvaluationIssue::BlockedEvaluation({
+            graph: node.graph,
+            node: node.node,
+            port: 1,
+          }),
+        )
+      Some(NumberEvaluation::Current(_)) => ()
+    }
+    if issues.length() > 0 {
+      NumberEvaluation::Unavailable(ReadOnlyArray::from_array(issues))
+    } else {
+      match (left_evaluation, right_evaluation) {
+        (
+          Some(NumberEvaluation::Current(left)),
+          Some(NumberEvaluation::Current(right)),
+        ) =>
+          match (left, right) {
+            (NumberFormulaOutcome::Failure(error), _) =>
+              NumberEvaluation::Current(NumberFormulaOutcome::Failure(error))
+            (_, NumberFormulaOutcome::Failure(error)) =>
+              NumberEvaluation::Current(NumberFormulaOutcome::Failure(error))
+            (NumberFormulaOutcome::Success(a), NumberFormulaOutcome::Success(b)) => {
+              compute_count.val = compute_count.val + 1
+              let result = if operation == 0 {
+                NumberFormulaOutcome::Success(a + b)
+              } else if operation == 1 {
+                NumberFormulaOutcome::Success(a * b)
+              } else if b == 0 {
+                NumberFormulaOutcome::Failure(FormulaFailure::DivisionByZero)
+              } else {
+                NumberFormulaOutcome::Success(a / b)
+              }
+              NumberEvaluation::Current(result)
             }
-        }
+          }
+        _ => abort("inputs unexpectedly unavailable")
+      }
     }
   }) catch {
     error => fail_runtime_setup(region, error)
   }
-  if multiply {
+  if operation == 0 {
+    RuntimeNode::Add(region, left, right, compute_count, output)
+  } else if operation == 1 {
     RuntimeNode::Multiply(region, left, right, compute_count, output)
   } else {
-    RuntimeNode::Add(region, left, right, compute_count, output)
+    RuntimeNode::SafeDivide(region, left, right, compute_count, output)
   }
 }
 
@@ -175,7 +241,8 @@ fn runtime_output(node : RuntimeNode) -> RuntimeOutput {
     RuntimeNode::Number(_, _, view) => RuntimeOutput::Number(view)
     RuntimeNode::Boolean(_, view) => RuntimeOutput::Boolean(view)
     RuntimeNode::Add(_, _, _, _, view)
-    | RuntimeNode::Multiply(_, _, _, _, view) => RuntimeOutput::Number(view)
+    | RuntimeNode::Multiply(_, _, _, _, view)
+    | RuntimeNode::SafeDivide(_, _, _, _, view) => RuntimeOutput::Number(view)
   }
 }
 
@@ -187,7 +254,9 @@ fn RuntimeNode::runtime_binding(
   outputs : Map[PortReference, RuntimeOutput],
 ) -> (Int, NumberBinding)? {
   match self {
-    RuntimeNode::Add(_, _, _, _, _) | RuntimeNode::Multiply(_, _, _, _, _) =>
+    RuntimeNode::Add(_, _, _, _, _)
+    | RuntimeNode::Multiply(_, _, _, _, _)
+    | RuntimeNode::SafeDivide(_, _, _, _, _) =>
       match target {
         BindingTarget::Unbound => Some((port, NumberBinding::Unbound))
         BindingTarget::Bound(provider) =>
@@ -207,6 +276,12 @@ fn RuntimeNode::formula_compute_count(self : RuntimeNode) -> Int {
   match self {
     RuntimeNode::Add(_, _, _, count, _)
     | RuntimeNode::Multiply(_, _, _, count, _) => count.val
+    RuntimeNode::SafeDivide(_, left, right, count, view) => {
+      ignore(left)
+      ignore(right)
+      ignore(view)
+      count.val
+    }
     RuntimeNode::Number(_, _, _) | RuntimeNode::Boolean(_, _) => 0
   }
 }
@@ -217,7 +292,8 @@ fn RuntimeNode::close_runtime(self : RuntimeNode) -> Unit raise GraphCloseError 
     RuntimeNode::Number(region, _, _)
     | RuntimeNode::Boolean(region, _)
     | RuntimeNode::Add(region, _, _, _, _)
-    | RuntimeNode::Multiply(region, _, _, _, _) => region
+    | RuntimeNode::Multiply(region, _, _, _, _)
+    | RuntimeNode::SafeDivide(region, _, _, _, _) => region
   }
   region.close() catch {
     @incr_query.RegionError::ClosedRegion(_) =>

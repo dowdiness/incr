@@ -54,6 +54,16 @@ pub(all) enum BindingTarget {
   Unbound
 }
 
+pub(all) enum EvaluationIssue {
+  InputWaiting(PortReference)
+  BlockedEvaluation(PortReference)
+  CyclicEvaluation
+} derive(Eq, @debug.Debug)
+
+pub(all) enum FormulaFailure {
+  DivisionByZero
+} derive(Eq, @debug.Debug)
+
 pub(all) enum GraphEdit {
   AddNode(descriptor~ : NodeDescriptor)
   SetNumberParameter(node~ : NodeReference, value~ : Int)
@@ -79,6 +89,7 @@ pub(all) enum NodeDescriptor {
   Boolean(value~ : Bool)
   Add
   Multiply
+  SafeDivide
 }
 
 pub struct NodeReference {
@@ -93,6 +104,11 @@ pub fn Nodeflow::close(Self) -> Unit raise GraphCloseError
 pub fn Nodeflow::empty() -> Self
 pub fn Nodeflow::snapshot(Self, ObservationDemand) -> SurfaceSnapshot raise SurfaceReadError
 
+pub(all) enum NumberFormulaOutcome {
+  Success(Int)
+  Failure(FormulaFailure)
+} derive(Eq, @debug.Debug)
+
 pub struct ObservationDemand {
   // private fields
 }
@@ -100,13 +116,13 @@ pub fn ObservationDemand::empty() -> Self
 pub fn ObservationDemand::request(Self, PortReference) -> Self
 
 pub(all) enum OutputData {
-  Number(Int)
+  Number(NumberFormulaOutcome)
   Boolean(Bool)
 } derive(Eq, @debug.Debug)
 
 pub(all) enum OutputObservation {
   Missing
-  Unavailable
+  Unavailable(ReadOnlyArray[EvaluationIssue])
   Current(OutputData)
 } derive(Eq, @debug.Debug)
 
