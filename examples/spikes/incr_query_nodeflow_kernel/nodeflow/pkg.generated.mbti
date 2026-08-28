@@ -1,0 +1,94 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/incr_query_nodeflow_kernel/nodeflow"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+pub suberror GraphCloseError {
+  RegionClosed
+  RegionMutationDuringEvaluation
+  RegionMutationDuringTransaction
+} derive(@debug.Debug)
+
+pub suberror GraphPublicationError {
+  ClosedNodeflow
+  RegionClosed
+  RegionMutationDuringEvaluation
+  RegionMutationDuringTransaction
+  ReadCrossStore
+  ReadClosedRegion
+  ReadExpiredContext
+  ReadReentrantRoot
+  ReadDuringTransaction
+} derive(@debug.Debug)
+
+pub suberror SurfaceReadError {
+  ClosedNodeflow
+  CrossStore
+  ClosedRegion
+  ExpiredContext
+  ReentrantRoot
+  DuringTransaction
+} derive(@debug.Debug)
+
+// Types and methods
+pub(all) enum GraphEdit {
+  AddNumberNode(value~ : Int)
+}
+
+pub(all) enum GraphEditRejection {
+  InvalidEdit
+} derive(Eq, @debug.Debug)
+
+pub struct GraphEditSuccess {
+  // private fields
+}
+pub fn GraphEditSuccess::node(Self) -> NodeReference
+pub fn GraphEditSuccess::output(Self) -> PortReference
+pub fn GraphEditSuccess::snapshot(Self) -> SurfaceSnapshot
+
+pub struct NodeReference {
+  // private fields
+} derive(Eq, Hash, @debug.Debug)
+
+pub struct Nodeflow {
+  // private fields
+}
+pub fn Nodeflow::apply(Self, GraphEdit, ObservationDemand) -> Result[GraphEditSuccess, GraphEditRejection] raise GraphPublicationError
+pub fn Nodeflow::close(Self) -> Unit raise GraphCloseError
+pub fn Nodeflow::empty() -> Self
+pub fn Nodeflow::snapshot(Self, ObservationDemand) -> SurfaceSnapshot raise SurfaceReadError
+
+pub struct ObservationDemand {
+  // private fields
+}
+pub fn ObservationDemand::empty() -> Self
+pub fn ObservationDemand::request(Self, PortReference) -> Self
+
+pub(all) enum OutputData {
+  Number(Int)
+} derive(Eq, @debug.Debug)
+
+pub(all) enum OutputObservation {
+  Missing
+  Unavailable
+  Current(OutputData)
+} derive(Eq, @debug.Debug)
+
+pub struct PortReference {
+  // private fields
+} derive(Eq, Hash, @debug.Debug)
+
+pub struct SurfaceSnapshot {
+  // private fields
+}
+pub fn SurfaceSnapshot::observation(Self, PortReference) -> OutputObservation
+pub fn SurfaceSnapshot::observations(Self) -> ReadOnlyArray[(PortReference, OutputObservation)]
+
+// Type aliases
+
+// Traits
