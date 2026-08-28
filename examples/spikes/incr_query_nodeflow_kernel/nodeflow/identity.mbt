@@ -6,6 +6,7 @@ pub(all) enum NodeDescriptor {
   Add
   Multiply
   SafeDivide
+  Display
 }
 
 ///|
@@ -21,6 +22,14 @@ pub struct PortReference {
   priv graph : Int
   priv node : Int
   priv port : Int
+} derive(Eq, Hash, Debug)
+
+///|
+/// A graph- and Node-scoped Action identity.
+pub struct ActionReference {
+  priv graph : Int
+  priv node : Int
+  priv action : Int
 } derive(Eq, Hash, Debug)
 
 ///|
@@ -43,6 +52,7 @@ pub struct AddedNode {
   priv node : NodeReference
   priv inputs : ReadOnlyArray[PortReference]
   priv outputs : ReadOnlyArray[PortReference]
+  priv actions : ReadOnlyArray[ActionReference]
   priv snapshot : SurfaceSnapshot
 }
 
@@ -62,6 +72,12 @@ pub fn AddedNode::inputs(self : AddedNode) -> ReadOnlyArray[PortReference] {
 /// Returns the Node's ordered Output Ports.
 pub fn AddedNode::outputs(self : AddedNode) -> ReadOnlyArray[PortReference] {
   self.outputs
+}
+
+///|
+/// Returns the Node's ordered Actions.
+pub fn AddedNode::actions(self : AddedNode) -> ReadOnlyArray[ActionReference] {
+  self.actions
 }
 
 ///|
@@ -94,6 +110,54 @@ pub(all) enum GraphEditRejection {
   WrongDirection
   WrongType
   DuplicateBindingTarget
+} derive(Eq, Debug)
+
+///|
+/// A reason an Action cannot prepare its inputs.
+pub(all) enum ActionInputIssue {
+  Unbound(PortReference)
+  ValueUnavailable(PortReference)
+} derive(Eq, Debug)
+
+///|
+/// The consumer-safe availability of an Action.
+pub(all) enum ActionAvailability {
+  Available
+  Unavailable(ReadOnlyArray[ActionInputIssue])
+} derive(Eq, Debug)
+
+///|
+/// The observation of one requested Action.
+pub(all) enum ActionObservation {
+  Missing
+  Present(ActionAvailability)
+} derive(Eq, Debug)
+
+///|
+/// A minimal immutable command produced by the Display Action.
+pub(all) enum Command {
+  RecordNumber(Int)
+} derive(Eq, Debug)
+
+///|
+/// The closed Display application decision.
+pub(all) enum ApplicationDecision {
+  Success(Command)
+  ApplicationRefusal(FormulaFailure)
+} derive(Eq, Debug)
+
+///|
+/// The expected refusal of an Action invocation.
+pub(all) enum ActionInvocationRejection {
+  MissingAction
+} derive(Eq, Debug)
+
+///|
+/// The result of explicitly invoking an Action.
+pub(all) enum ActionInvocationOutcome {
+  Rejected(ActionInvocationRejection)
+  Unavailable(ReadOnlyArray[ActionInputIssue])
+  Decided(ApplicationDecision)
 } derive(Eq, Debug)
 
 ///|
@@ -134,14 +198,20 @@ pub(all) enum OutputObservation {
 
 ///|
 /// An owned ordered output demand.
+priv enum DemandRequest {
+  OutputDemand(PortReference)
+  ActionDemand(ActionReference)
+}
+
+///|
 pub struct ObservationDemand {
-  priv ports : Array[PortReference]
+  priv requests : Array[DemandRequest]
 }
 
 ///|
 /// Creates an empty demand.
 pub fn ObservationDemand::empty() -> ObservationDemand {
-  { ports: [] }
+  { requests: [] }
 }
 
 ///|
@@ -150,15 +220,27 @@ pub fn ObservationDemand::request(
   self : ObservationDemand,
   port : PortReference,
 ) -> ObservationDemand {
-  let ports = self.ports.copy()
-  ports.push(port)
-  { ports, }
+  let requests = self.requests.copy()
+  requests.push(DemandRequest::OutputDemand(port))
+  { requests, }
+}
+
+///|
+/// Requests an Action observation; snapshots retain first occurrence.
+pub fn ObservationDemand::request_action(
+  self : ObservationDemand,
+  action : ActionReference,
+) -> ObservationDemand {
+  let requests = self.requests.copy()
+  requests.push(DemandRequest::ActionDemand(action))
+  { requests, }
 }
 
 ///|
 /// An immutable UI-neutral surface projection.
 pub struct SurfaceSnapshot {
   priv observations : ReadOnlyArray[(PortReference, OutputObservation)]
+  priv action_observations : ReadOnlyArray[(ActionReference, ActionObservation)]
 }
 
 ///|
@@ -170,6 +252,14 @@ pub fn SurfaceSnapshot::observations(
 }
 
 ///|
+/// Returns Action observations in first-request order.
+pub fn SurfaceSnapshot::action_observations(
+  self : SurfaceSnapshot,
+) -> ReadOnlyArray[(ActionReference, ActionObservation)] {
+  self.action_observations
+}
+
+///|
 /// Looks up one observation, returning Missing for an unrequested Port.
 pub fn SurfaceSnapshot::observation(
   self : SurfaceSnapshot,
@@ -177,6 +267,20 @@ pub fn SurfaceSnapshot::observation(
 ) -> OutputObservation {
   for entry in self.observations {
     if entry.0 == port {
+      return entry.1
+    }
+  }
+  Missing
+}
+
+///|
+/// Returns an Action observation, or Missing when it was not requested.
+pub fn SurfaceSnapshot::action_observation(
+  self : SurfaceSnapshot,
+  action : ActionReference,
+) -> ActionObservation {
+  for entry in self.action_observations {
+    if entry.0 == action {
       return entry.1
     }
   }
@@ -195,6 +299,17 @@ pub suberror GraphPublicationError {
   ReadExpiredContext
   ReadReentrantRoot
   ReadDuringTransaction
+} derive(Debug)
+
+///|
+/// Structural failures while producing an Action decision.
+pub suberror ActionInvocationError {
+  ClosedNodeflow
+  CrossStore
+  ClosedRegion
+  ExpiredContext
+  ReentrantRoot
+  DuringTransaction
 } derive(Debug)
 
 ///|

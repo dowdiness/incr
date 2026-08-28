@@ -11,6 +11,12 @@ priv enum NumberBinding {
 }
 
 ///|
+priv enum DisplayActionPreparation {
+  Unavailable(ReadOnlyArray[ActionInputIssue])
+  Prepared(NumberFormulaOutcome)
+}
+
+///|
 priv enum RuntimeOutput {
   Number(@incr_query.View[NumberEvaluation])
   Boolean(@incr_query.View[Bool])
@@ -44,6 +50,13 @@ priv enum RuntimeNode {
     @incr_query.Source[NumberBinding],
     Ref[Int],
     @incr_query.View[NumberEvaluation]
+  )
+  Display(
+    @incr_query.Region,
+    @incr_query.Source[NumberBinding],
+    @incr_query.View[NumberEvaluation],
+    @incr_query.View[DisplayActionPreparation],
+    Ref[Int]
   )
 }
 
@@ -129,7 +142,69 @@ fn make_runtime_node(
     NodeDescriptor::Add => make_math_runtime(region, node, 0)
     NodeDescriptor::Multiply => make_math_runtime(region, node, 1)
     NodeDescriptor::SafeDivide => make_math_runtime(region, node, 2)
+    NodeDescriptor::Display => make_display_runtime(region, node)
   }
+}
+
+///|
+fn make_display_runtime(
+  region : @incr_query.Region,
+  node : NodeReference,
+) -> RuntimeNode raise GraphPublicationError {
+  let input = region.source(NumberBinding::Unbound) catch {
+    error => fail_runtime_setup(region, error)
+  }
+  let compute_count = Ref(0)
+  let input_reference : PortReference = {
+    graph: node.graph,
+    node: node.node,
+    port: 0,
+  }
+  let output = region.derived(ctx => {
+    match ctx.get(input.view()) {
+      NumberBinding::Unbound =>
+        NumberEvaluation::Unavailable(
+          ReadOnlyArray::from_array([
+            EvaluationIssue::InputWaiting(input_reference),
+          ]),
+        )
+      NumberBinding::Bound(view) =>
+        match ctx.get(view) {
+          NumberEvaluation::Unavailable(_) =>
+            NumberEvaluation::Unavailable(
+              ReadOnlyArray::from_array([
+                EvaluationIssue::BlockedEvaluation(input_reference),
+              ]),
+            )
+          NumberEvaluation::Current(outcome) =>
+            NumberEvaluation::Current(outcome)
+        }
+    }
+  }) catch {
+    error => fail_runtime_setup(region, error)
+  }
+  let action_preparation = region.derived(ctx => {
+    match ctx.get(input.view()) {
+      NumberBinding::Unbound =>
+        DisplayActionPreparation::Unavailable(
+          ReadOnlyArray::from_array([ActionInputIssue::Unbound(input_reference)]),
+        )
+      NumberBinding::Bound(view) =>
+        match ctx.get(view) {
+          NumberEvaluation::Unavailable(_) =>
+            DisplayActionPreparation::Unavailable(
+              ReadOnlyArray::from_array([
+                ActionInputIssue::ValueUnavailable(input_reference),
+              ]),
+            )
+          NumberEvaluation::Current(outcome) =>
+            DisplayActionPreparation::Prepared(outcome)
+        }
+    }
+  }) catch {
+    error => fail_runtime_setup(region, error)
+  }
+  RuntimeNode::Display(region, input, output, action_preparation, compute_count)
 }
 
 ///|
@@ -242,7 +317,8 @@ fn runtime_output(node : RuntimeNode) -> RuntimeOutput {
     RuntimeNode::Boolean(_, view) => RuntimeOutput::Boolean(view)
     RuntimeNode::Add(_, _, _, _, view)
     | RuntimeNode::Multiply(_, _, _, _, view)
-    | RuntimeNode::SafeDivide(_, _, _, _, view) => RuntimeOutput::Number(view)
+    | RuntimeNode::SafeDivide(_, _, _, _, view)
+    | RuntimeNode::Display(_, _, view, _, _) => RuntimeOutput::Number(view)
   }
 }
 
@@ -256,7 +332,8 @@ fn RuntimeNode::runtime_binding(
   match self {
     RuntimeNode::Add(_, _, _, _, _)
     | RuntimeNode::Multiply(_, _, _, _, _)
-    | RuntimeNode::SafeDivide(_, _, _, _, _) =>
+    | RuntimeNode::SafeDivide(_, _, _, _, _)
+    | RuntimeNode::Display(_, _, _, _, _) =>
       match target {
         BindingTarget::Unbound => Some((port, NumberBinding::Unbound))
         BindingTarget::Bound(provider) =>
@@ -272,17 +349,32 @@ fn RuntimeNode::runtime_binding(
 
 ///|
 #warnings("-unused_value")
+fn RuntimeNode::record_invocation(self : RuntimeNode) -> Unit {
+  match self {
+    RuntimeNode::Display(_, _, _, _, count) => count.val = count.val + 1
+    _ => ()
+  }
+}
+
+///|
+#warnings("-unused_value")
 fn RuntimeNode::formula_compute_count(self : RuntimeNode) -> Int {
   match self {
     RuntimeNode::Add(_, _, _, count, _)
-    | RuntimeNode::Multiply(_, _, _, count, _) => count.val
-    RuntimeNode::SafeDivide(_, left, right, count, view) => {
-      ignore(left)
-      ignore(right)
-      ignore(view)
-      count.val
-    }
-    RuntimeNode::Number(_, _, _) | RuntimeNode::Boolean(_, _) => 0
+    | RuntimeNode::Multiply(_, _, _, count, _)
+    | RuntimeNode::SafeDivide(_, _, _, count, _) => count.val
+    RuntimeNode::Display(_, _, _, _, _)
+    | RuntimeNode::Number(_, _, _)
+    | RuntimeNode::Boolean(_, _) => 0
+  }
+}
+
+///|
+#warnings("-unused_value")
+fn RuntimeNode::action_invocation_count(self : RuntimeNode) -> Int {
+  match self {
+    RuntimeNode::Display(_, _, _, _, count) => count.val
+    _ => 0
   }
 }
 
@@ -293,7 +385,8 @@ fn RuntimeNode::close_runtime(self : RuntimeNode) -> Unit raise GraphCloseError 
     | RuntimeNode::Boolean(region, _)
     | RuntimeNode::Add(region, _, _, _, _)
     | RuntimeNode::Multiply(region, _, _, _, _)
-    | RuntimeNode::SafeDivide(region, _, _, _, _) => region
+    | RuntimeNode::SafeDivide(region, _, _, _, _)
+    | RuntimeNode::Display(region, _, _, _, _) => region
   }
   region.close() catch {
     @incr_query.RegionError::ClosedRegion(_) =>

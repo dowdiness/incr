@@ -8,6 +8,15 @@ import {
 // Values
 
 // Errors
+pub suberror ActionInvocationError {
+  ClosedNodeflow
+  CrossStore
+  ClosedRegion
+  ExpiredContext
+  ReentrantRoot
+  DuringTransaction
+} derive(@debug.Debug)
+
 pub suberror GraphCloseError {
   RegionClosed
   RegionMutationDuringEvaluation
@@ -36,13 +45,48 @@ pub suberror SurfaceReadError {
 } derive(@debug.Debug)
 
 // Types and methods
+pub(all) enum ActionAvailability {
+  Available
+  Unavailable(ReadOnlyArray[ActionInputIssue])
+} derive(Eq, @debug.Debug)
+
+pub(all) enum ActionInputIssue {
+  Unbound(PortReference)
+  ValueUnavailable(PortReference)
+} derive(Eq, @debug.Debug)
+
+pub(all) enum ActionInvocationOutcome {
+  Rejected(ActionInvocationRejection)
+  Unavailable(ReadOnlyArray[ActionInputIssue])
+  Decided(ApplicationDecision)
+} derive(Eq, @debug.Debug)
+
+pub(all) enum ActionInvocationRejection {
+  MissingAction
+} derive(Eq, @debug.Debug)
+
+pub(all) enum ActionObservation {
+  Missing
+  Present(ActionAvailability)
+} derive(Eq, @debug.Debug)
+
+pub struct ActionReference {
+  // private fields
+} derive(Eq, Hash, @debug.Debug)
+
 pub struct AddedNode {
   // private fields
 }
+pub fn AddedNode::actions(Self) -> ReadOnlyArray[ActionReference]
 pub fn AddedNode::inputs(Self) -> ReadOnlyArray[PortReference]
 pub fn AddedNode::node(Self) -> NodeReference
 pub fn AddedNode::outputs(Self) -> ReadOnlyArray[PortReference]
 pub fn AddedNode::snapshot(Self) -> SurfaceSnapshot
+
+pub(all) enum ApplicationDecision {
+  Success(Command)
+  ApplicationRefusal(FormulaFailure)
+} derive(Eq, @debug.Debug)
 
 pub(all) struct BindingChange {
   target : PortReference
@@ -53,6 +97,10 @@ pub(all) enum BindingTarget {
   Bound(PortReference)
   Unbound
 }
+
+pub(all) enum Command {
+  RecordNumber(Int)
+} derive(Eq, @debug.Debug)
 
 pub(all) enum EvaluationIssue {
   InputWaiting(PortReference)
@@ -90,6 +138,7 @@ pub(all) enum NodeDescriptor {
   Add
   Multiply
   SafeDivide
+  Display
 }
 
 pub struct NodeReference {
@@ -102,6 +151,7 @@ pub struct Nodeflow {
 pub fn Nodeflow::apply(Self, GraphEdit, ObservationDemand) -> Result[GraphEditResult, GraphEditRejection] raise GraphPublicationError
 pub fn Nodeflow::close(Self) -> Unit raise GraphCloseError
 pub fn Nodeflow::empty() -> Self
+pub fn Nodeflow::invoke(Self, ActionReference) -> ActionInvocationOutcome raise ActionInvocationError
 pub fn Nodeflow::snapshot(Self, ObservationDemand) -> SurfaceSnapshot raise SurfaceReadError
 
 pub(all) enum NumberFormulaOutcome {
@@ -114,6 +164,7 @@ pub struct ObservationDemand {
 }
 pub fn ObservationDemand::empty() -> Self
 pub fn ObservationDemand::request(Self, PortReference) -> Self
+pub fn ObservationDemand::request_action(Self, ActionReference) -> Self
 
 pub(all) enum OutputData {
   Number(NumberFormulaOutcome)
@@ -133,6 +184,8 @@ pub struct PortReference {
 pub struct SurfaceSnapshot {
   // private fields
 }
+pub fn SurfaceSnapshot::action_observation(Self, ActionReference) -> ActionObservation
+pub fn SurfaceSnapshot::action_observations(Self) -> ReadOnlyArray[(ActionReference, ActionObservation)]
 pub fn SurfaceSnapshot::observation(Self, PortReference) -> OutputObservation
 pub fn SurfaceSnapshot::observations(Self) -> ReadOnlyArray[(PortReference, OutputObservation)]
 

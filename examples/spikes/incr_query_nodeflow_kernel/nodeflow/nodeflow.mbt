@@ -94,6 +94,69 @@ fn Nodeflow::read_output(
 }
 
 ///|
+priv enum ActionResolution {
+  Missing
+  Resolved(DisplayActionPreparation)
+}
+
+///|
+fn Nodeflow::resolve_action(
+  self : Nodeflow,
+  action : ActionReference,
+) -> Result[ActionResolution, ReadFailure] {
+  if action.graph != self.state.graph || action.action != 0 {
+    return Ok(ActionResolution::Missing)
+  }
+  match self.state.nodes.get(action.node) {
+    Some({ descriptor: NodeDescriptor::Display, .. }) =>
+      match self.runtime.nodes.get(action.node) {
+        Some(RuntimeNode::Display(_, _, _, preparation, _)) => {
+          let resolved = self.runtime.store.get(preparation) catch {
+            @incr_query.ReadError::CrossStore(_) =>
+              return Err(ReadFailure::CrossStore)
+            @incr_query.ReadError::ClosedRegion(_) =>
+              return Err(ReadFailure::ClosedRegion)
+            @incr_query.ReadError::Cycle(_) =>
+              return Ok(
+                ActionResolution::Resolved(
+                  DisplayActionPreparation::Unavailable(
+                    ReadOnlyArray::from_array([
+                      ActionInputIssue::ValueUnavailable({
+                        graph: action.graph,
+                        node: action.node,
+                        port: 0,
+                      }),
+                    ]),
+                  ),
+                ),
+              )
+            @incr_query.ReadError::ExpiredQueryContext(_) =>
+              return Err(ReadFailure::ExpiredContext)
+            @incr_query.ReadError::ReentrantRootGet(_) =>
+              return Err(ReadFailure::ReentrantRoot)
+            @incr_query.ReadError::GetDuringTransaction(_) =>
+              return Err(ReadFailure::DuringTransaction)
+          }
+          Ok(ActionResolution::Resolved(resolved))
+        }
+        _ => Ok(ActionResolution::Missing)
+      }
+    _ => Ok(ActionResolution::Missing)
+  }
+}
+
+///|
+fn action_observation(resolution : ActionResolution) -> ActionObservation {
+  match resolution {
+    ActionResolution::Missing => ActionObservation::Missing
+    Resolved(DisplayActionPreparation::Prepared(_)) =>
+      ActionObservation::Present(ActionAvailability::Available)
+    Resolved(DisplayActionPreparation::Unavailable(issues)) =>
+      ActionObservation::Present(ActionAvailability::Unavailable(issues))
+  }
+}
+
+///|
 fn map_read_failure(error : ReadFailure) -> SurfaceReadError {
   match error {
     CrossStore => SurfaceReadError::CrossStore
@@ -101,6 +164,17 @@ fn map_read_failure(error : ReadFailure) -> SurfaceReadError {
     ExpiredContext => SurfaceReadError::ExpiredContext
     ReentrantRoot => SurfaceReadError::ReentrantRoot
     DuringTransaction => SurfaceReadError::DuringTransaction
+  }
+}
+
+///|
+fn map_invocation_read_failure(error : ReadFailure) -> ActionInvocationError {
+  match error {
+    CrossStore => ActionInvocationError::CrossStore
+    ClosedRegion => ActionInvocationError::ClosedRegion
+    ExpiredContext => ActionInvocationError::ExpiredContext
+    ReentrantRoot => ActionInvocationError::ReentrantRoot
+    DuringTransaction => ActionInvocationError::DuringTransaction
   }
 }
 
@@ -122,29 +196,85 @@ fn Nodeflow::snapshot_core(
 ) -> Result[SurfaceSnapshot, ReadFailure] {
   let seen : Set[PortReference] = Set([])
   let observations : Array[(PortReference, OutputObservation)] = []
-  for port in demand.ports {
-    if !seen.contains(port) {
-      seen.add(port)
-      match self.runtime.outputs.get(port) {
-        None => observations.push((port, Missing))
-        Some(output) =>
-          match self.read_output(output) {
-            Err(error) => return Err(error)
-            Ok(ReadResult::Number(value)) =>
-              observations.push((port, Current(OutputData::Number(value))))
-            Ok(ReadResult::Boolean(value)) =>
-              observations.push((port, Current(OutputData::Boolean(value))))
-            Ok(ReadResult::Unavailable(issues)) =>
-              observations.push((port, Unavailable(issues)))
+  let action_observations : Array[(ActionReference, ActionObservation)] = []
+  let seen_actions : Set[ActionReference] = Set([])
+  for request in demand.requests {
+    match request {
+      DemandRequest::OutputDemand(port) =>
+        if !seen.contains(port) {
+          seen.add(port)
+          match self.runtime.outputs.get(port) {
+            None => observations.push((port, Missing))
+            Some(output) =>
+              match self.read_output(output) {
+                Err(error) => return Err(error)
+                Ok(ReadResult::Number(value)) =>
+                  observations.push((port, Current(OutputData::Number(value))))
+                Ok(ReadResult::Boolean(value)) =>
+                  observations.push((port, Current(OutputData::Boolean(value))))
+                Ok(ReadResult::Unavailable(issues)) =>
+                  observations.push((port, Unavailable(issues)))
+              }
           }
-      }
+        }
+      DemandRequest::ActionDemand(action) =>
+        if !seen_actions.contains(action) {
+          seen_actions.add(action)
+          match self.resolve_action(action) {
+            Err(error) => return Err(error)
+            Ok(resolution) =>
+              action_observations.push((action, action_observation(resolution)))
+          }
+        }
     }
   }
-  Ok({ observations: ReadOnlyArray::from_array(observations) })
+  Ok({
+    observations: ReadOnlyArray::from_array(observations),
+    action_observations: ReadOnlyArray::from_array(action_observations),
+  })
 }
 
 ///|
 /// Observes requested Outputs once from the committed graph.
+
+///|
+/// Invokes an existing Action against freshly committed inputs.
+pub fn Nodeflow::invoke(
+  self : Nodeflow,
+  action : ActionReference,
+) -> ActionInvocationOutcome raise ActionInvocationError {
+  if self.runtime.closed.val {
+    raise ActionInvocationError::ClosedNodeflow
+  }
+  if action.graph != self.state.graph ||
+    action.action != 0 ||
+    self.state.nodes.get(action.node) is None {
+    return ActionInvocationOutcome::Rejected(
+      ActionInvocationRejection::MissingAction,
+    )
+  }
+  match self.resolve_action(action) {
+    Err(error) => raise map_invocation_read_failure(error)
+    Ok(ActionResolution::Missing) =>
+      ActionInvocationOutcome::Rejected(
+        ActionInvocationRejection::MissingAction,
+      )
+    Ok(Resolved(DisplayActionPreparation::Unavailable(issues))) =>
+      ActionInvocationOutcome::Unavailable(issues)
+    Ok(Resolved(DisplayActionPreparation::Prepared(outcome))) => {
+      self.runtime.nodes.get(action.node).unwrap().record_invocation()
+      let decision = match outcome {
+        NumberFormulaOutcome::Success(value) =>
+          ApplicationDecision::Success(Command::RecordNumber(value))
+        NumberFormulaOutcome::Failure(error) =>
+          ApplicationDecision::ApplicationRefusal(error)
+      }
+      ActionInvocationOutcome::Decided(decision)
+    }
+  }
+}
+
+///|
 pub fn Nodeflow::snapshot(
   self : Nodeflow,
   demand : ObservationDemand,
@@ -200,6 +330,7 @@ fn Nodeflow::stage_edit(
                 },
                 binding,
               )
+            RuntimeNode::Display(_, input, _, _, _) => tx.set(input, binding)
             _ => ()
           }
         }
@@ -248,6 +379,14 @@ pub fn Nodeflow::apply(
               node,
               inputs: ReadOnlyArray::from_array(inputs),
               outputs: ReadOnlyArray::from_array(outputs),
+              actions: ReadOnlyArray::from_array(
+                match
+                  transition.state.nodes.get(node.node).unwrap().descriptor {
+                  NodeDescriptor::Display =>
+                    [{ graph: node.graph, node: node.node, action: 0 }]
+                  _ => []
+                },
+              ),
               snapshot,
             }),
           )

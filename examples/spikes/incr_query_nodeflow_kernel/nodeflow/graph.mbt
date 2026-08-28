@@ -23,6 +23,7 @@ fn port_kind(descriptor : NodeDescriptor, ordinal : Int) -> (Bool, Bool) {
   match descriptor {
     Number(_) | Boolean(_) => (false, ordinal == 0)
     Add | Multiply | SafeDivide => (ordinal < 2, ordinal == 2)
+    Display => (ordinal == 0, ordinal == 1)
   }
 }
 
@@ -46,6 +47,7 @@ fn GraphState::apply(
       let input_count = match descriptor {
         Number(_) | Boolean(_) => 0
         Add | Multiply | SafeDivide => 2
+        Display => 1
       }
       let output_count = 1
       let inputs : Array[PortReference] = []
