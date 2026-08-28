@@ -1,0 +1,4 @@
+///|
+fn leak_action(action : @nodeflow.ActionReference) -> Int {
+  action.action
+}

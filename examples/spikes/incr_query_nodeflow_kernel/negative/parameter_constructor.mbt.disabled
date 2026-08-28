@@ -1,0 +1,4 @@
+///|
+fn forge_parameter() -> @nodeflow.ParameterReference {
+  { graph: 0, node: 0, parameter: 0 }
+}

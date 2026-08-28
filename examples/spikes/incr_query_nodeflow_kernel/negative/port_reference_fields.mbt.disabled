@@ -1,0 +1,4 @@
+///|
+fn leak_port(port : @nodeflow.PortReference) -> Int {
+  port.port
+}

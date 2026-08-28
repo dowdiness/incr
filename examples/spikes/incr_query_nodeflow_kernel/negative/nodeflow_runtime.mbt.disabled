@@ -1,0 +1,4 @@
+///|
+fn leak_runtime(graph : @nodeflow.Nodeflow) -> Unit {
+  ignore(graph.runtime)
+}
