@@ -15,7 +15,7 @@ priv struct DocumentWire {
 ///|
 priv struct DocumentNode {
   id : Int
-  descriptor : NodeDescriptor
+  descriptor : @application.NodeDescriptor
   bindings : Array[(Int, BindingTarget)]
 }
 
@@ -104,27 +104,9 @@ fn read_port(value : Json) -> (Int, Int)? {
 }
 
 ///|
-fn descriptor_json(descriptor : NodeDescriptor) -> Json {
-  match descriptor {
-    NodeDescriptor::Number(value~) =>
-      Json::object({
-        "kind": Json::string("number"),
-        "value": Json::number(value.to_double()),
-      })
-    NodeDescriptor::Boolean(value~) =>
-      Json::object({
-        "kind": Json::string("boolean"),
-        "value": @json.to_json(value),
-      })
-    Add => Json::object({ "kind": Json::string("add") })
-    Multiply => Json::object({ "kind": Json::string("multiply") })
-    SafeDivide => Json::object({ "kind": Json::string("safe_divide") })
-    Display => Json::object({ "kind": Json::string("display") })
-    NodeDescriptor::OptionalOffset(value~) =>
-      Json::object({
-        "kind": Json::string("optional_offset"),
-        "value": Json::number(value.to_double()),
-      })
+fn descriptor_json(descriptor : @application.NodeDescriptor) -> Json {
+  @json.parse(@application.encode_descriptor_json(descriptor)) catch {
+    _ => abort("application descriptor encoding produced invalid JSON")
   }
 }
 
@@ -201,41 +183,10 @@ pub fn GraphDocument::encode_json(self : GraphDocument) -> String {
 }
 
 ///|
-fn parse_descriptor(value : Json) -> NodeDescriptor? {
-  match value {
-    Json::Object(object) =>
-      match field(object, "kind") {
-        Some(Json::String(kind)) =>
-          match kind {
-            "number" =>
-              match field(object, "value") {
-                Some(value) =>
-                  json_int(value).map(v => NodeDescriptor::Number(value=v))
-                _ => None
-              }
-            "boolean" =>
-              match field(object, "value") {
-                Some(Json::True) => Some(NodeDescriptor::Boolean(value=true))
-                Some(Json::False) => Some(NodeDescriptor::Boolean(value=false))
-                _ => None
-              }
-            "add" => Some(NodeDescriptor::Add)
-            "multiply" => Some(NodeDescriptor::Multiply)
-            "safe_divide" => Some(NodeDescriptor::SafeDivide)
-            "display" => Some(NodeDescriptor::Display)
-            "optional_offset" =>
-              match field(object, "value") {
-                Some(value) =>
-                  json_int(value).map(v => {
-                    NodeDescriptor::OptionalOffset(value=v)
-                  })
-                _ => None
-              }
-            _ => None
-          }
-        _ => None
-      }
-    _ => None
+fn parse_descriptor(value : Json) -> @application.NodeDescriptor? {
+  match @application.decode_descriptor_json(value.stringify()) {
+    Ok(descriptor) => Some(descriptor)
+    Err(_) => None
   }
 }
 

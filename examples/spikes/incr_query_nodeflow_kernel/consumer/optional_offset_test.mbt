@@ -3,11 +3,11 @@ test "optional offset distinguishes waiting, unbound, blocked, and current" {
   let graph = @nodeflow.Nodeflow::empty()
   let required = surface_added_node(
     graph,
-    @nodeflow.NodeDescriptor::Number(value=10),
+    @application.NodeDescriptor::Number(value=10),
   )
   let offset = surface_added_node(
     graph,
-    @nodeflow.NodeDescriptor::OptionalOffset(value=2),
+    @application.NodeDescriptor::OptionalOffset(value=2),
   )
   let output = offset.outputs()[0]
   assert_eq(
@@ -20,7 +20,7 @@ test "optional offset distinguishes waiting, unbound, blocked, and current" {
       ]),
     ),
   )
-  let unavailable = surface_added_node(graph, @nodeflow.NodeDescriptor::Add)
+  let unavailable = surface_added_node(graph, @application.NodeDescriptor::Add)
   surface_bind(graph, offset.inputs()[1], unavailable.outputs()[0])
   assert_eq(
     graph
@@ -40,12 +40,14 @@ test "optional offset distinguishes waiting, unbound, blocked, and current" {
     .snapshot(@nodeflow.ObservationDemand::empty().request(output))
     .observation(output),
     @nodeflow.OutputObservation::Current(
-      @nodeflow.OutputData::Number(@nodeflow.NumberFormulaOutcome::Success(12)),
+      @application.OutputData::Number(
+        @application.NumberFormulaOutcome::Success(12),
+      ),
     ),
   )
   let current_optional = surface_added_node(
     graph,
-    @nodeflow.NodeDescriptor::Number(value=3),
+    @application.NodeDescriptor::Number(value=3),
   )
   surface_bind(graph, offset.inputs()[1], current_optional.outputs()[0])
   assert_eq(
@@ -53,7 +55,9 @@ test "optional offset distinguishes waiting, unbound, blocked, and current" {
     .snapshot(@nodeflow.ObservationDemand::empty().request(output))
     .observation(output),
     @nodeflow.OutputObservation::Current(
-      @nodeflow.OutputData::Number(@nodeflow.NumberFormulaOutcome::Success(15)),
+      @application.OutputData::Number(
+        @application.NumberFormulaOutcome::Success(15),
+      ),
     ),
   )
   ignore(
@@ -61,7 +65,7 @@ test "optional offset distinguishes waiting, unbound, blocked, and current" {
     .apply(
       @nodeflow.GraphEdit::SetParameter(
         parameter=offset.parameters()[0],
-        value=@nodeflow.ParameterValue::Number(5),
+        value=@application.ParameterValue::Number(5),
       ),
       @nodeflow.ObservationDemand::empty(),
     )
@@ -72,7 +76,9 @@ test "optional offset distinguishes waiting, unbound, blocked, and current" {
     .snapshot(@nodeflow.ObservationDemand::empty().request(output))
     .observation(output),
     @nodeflow.OutputObservation::Current(
-      @nodeflow.OutputData::Number(@nodeflow.NumberFormulaOutcome::Success(18)),
+      @application.OutputData::Number(
+        @application.NumberFormulaOutcome::Success(18),
+      ),
     ),
   )
   surface_bind(graph, offset.inputs()[1], unavailable.outputs()[0])
@@ -86,10 +92,13 @@ test "optional offset distinguishes waiting, unbound, blocked, and current" {
       ]),
     ),
   )
-  let failed = surface_added_node(graph, @nodeflow.NodeDescriptor::SafeDivide)
+  let failed = surface_added_node(
+    graph,
+    @application.NodeDescriptor::SafeDivide,
+  )
   let zero = surface_added_node(
     graph,
-    @nodeflow.NodeDescriptor::Number(value=0),
+    @application.NodeDescriptor::Number(value=0),
   )
   surface_bind(graph, failed.inputs()[0], required.outputs()[0])
   surface_bind(graph, failed.inputs()[1], zero.outputs()[0])
@@ -99,9 +108,9 @@ test "optional offset distinguishes waiting, unbound, blocked, and current" {
     .snapshot(@nodeflow.ObservationDemand::empty().request(output))
     .observation(output),
     @nodeflow.OutputObservation::Current(
-      @nodeflow.OutputData::Number(
-        @nodeflow.NumberFormulaOutcome::Failure(
-          @nodeflow.FormulaFailure::DivisionByZero,
+      @application.OutputData::Number(
+        @application.NumberFormulaOutcome::Failure(
+          @application.FormulaFailure::DivisionByZero,
         ),
       ),
     ),

@@ -4,7 +4,9 @@ test "display action" {
   let display = match
     graph
     .apply(
-      @nodeflow.GraphEdit::AddNode(descriptor=@nodeflow.NodeDescriptor::Display),
+      @nodeflow.GraphEdit::AddNode(
+        descriptor=@application.NodeDescriptor::Display,
+      ),
       @nodeflow.ObservationDemand::empty(),
     )
     .unwrap() {
@@ -29,7 +31,7 @@ test "display action" {
     graph
     .apply(
       @nodeflow.GraphEdit::AddNode(
-        descriptor=@nodeflow.NodeDescriptor::Number(value=7),
+        descriptor=@application.NodeDescriptor::Number(value=7),
       ),
       @nodeflow.ObservationDemand::empty(),
     )
@@ -61,7 +63,9 @@ test "display action" {
   assert_eq(
     graph.invoke(action),
     @nodeflow.ActionInvocationOutcome::Decided(
-      @nodeflow.ApplicationDecision::Success(@nodeflow.Command::RecordNumber(7)),
+      @application.ApplicationDecision::Success(
+        @application.Command::RecordNumber(7),
+      ),
     ),
   )
   graph.close()
@@ -70,8 +74,8 @@ test "display action" {
 ///|
 test "fresh invocation uses the latest committed value" {
   let graph = @nodeflow.Nodeflow::empty()
-  let number = added_node(graph, @nodeflow.NodeDescriptor::Number(value=7))
-  let display = added_node(graph, @nodeflow.NodeDescriptor::Display)
+  let number = added_node(graph, @application.NodeDescriptor::Number(value=7))
+  let display = added_node(graph, @application.NodeDescriptor::Display)
   bind(graph, display.inputs()[0], number.outputs()[0])
   let action = display.actions()[0]
   assert_eq(
@@ -87,7 +91,7 @@ test "fresh invocation uses the latest committed value" {
     .apply(
       @nodeflow.GraphEdit::SetParameter(
         parameter=number.parameters()[0],
-        value=@nodeflow.ParameterValue::Number(9),
+        value=@application.ParameterValue::Number(9),
       ),
       @nodeflow.ObservationDemand::empty(),
     )
@@ -96,7 +100,9 @@ test "fresh invocation uses the latest committed value" {
   assert_eq(
     graph.invoke(action),
     @nodeflow.ActionInvocationOutcome::Decided(
-      @nodeflow.ApplicationDecision::Success(@nodeflow.Command::RecordNumber(9)),
+      @application.ApplicationDecision::Success(
+        @application.Command::RecordNumber(9),
+      ),
     ),
   )
   graph.close()
@@ -105,12 +111,12 @@ test "fresh invocation uses the latest committed value" {
 ///|
 test "failed Formula Outcome remains available to application refusal" {
   let graph = @nodeflow.Nodeflow::empty()
-  let ten = added_node(graph, @nodeflow.NodeDescriptor::Number(value=10))
-  let zero = added_node(graph, @nodeflow.NodeDescriptor::Number(value=0))
-  let divide = added_node(graph, @nodeflow.NodeDescriptor::SafeDivide)
+  let ten = added_node(graph, @application.NodeDescriptor::Number(value=10))
+  let zero = added_node(graph, @application.NodeDescriptor::Number(value=0))
+  let divide = added_node(graph, @application.NodeDescriptor::SafeDivide)
   bind(graph, divide.inputs()[0], ten.outputs()[0])
   bind(graph, divide.inputs()[1], zero.outputs()[0])
-  let display = added_node(graph, @nodeflow.NodeDescriptor::Display)
+  let display = added_node(graph, @application.NodeDescriptor::Display)
   bind(graph, display.inputs()[0], divide.outputs()[0])
   let action = display.actions()[0]
   assert_eq(
@@ -124,8 +130,8 @@ test "failed Formula Outcome remains available to application refusal" {
   assert_eq(
     graph.invoke(action),
     @nodeflow.ActionInvocationOutcome::Decided(
-      @nodeflow.ApplicationDecision::ApplicationRefusal(
-        @nodeflow.FormulaFailure::DivisionByZero,
+      @application.ApplicationDecision::ApplicationRefusal(
+        @application.FormulaFailure::DivisionByZero,
       ),
     ),
   )
@@ -135,7 +141,7 @@ test "failed Formula Outcome remains available to application refusal" {
 ///|
 test "foreign Action Reference is missing and rejected" {
   let owner = @nodeflow.Nodeflow::empty()
-  let display = added_node(owner, @nodeflow.NodeDescriptor::Display)
+  let display = added_node(owner, @application.NodeDescriptor::Display)
   let action = display.actions()[0]
   let other = @nodeflow.Nodeflow::empty()
   assert_eq(
@@ -157,8 +163,8 @@ test "foreign Action Reference is missing and rejected" {
 ///|
 test "Action demand keeps first occurrence order and deduplicates" {
   let graph = @nodeflow.Nodeflow::empty()
-  let first = added_node(graph, @nodeflow.NodeDescriptor::Display)
-  let second = added_node(graph, @nodeflow.NodeDescriptor::Display)
+  let first = added_node(graph, @application.NodeDescriptor::Display)
+  let second = added_node(graph, @application.NodeDescriptor::Display)
   let first_action = first.actions()[0]
   let second_action = second.actions()[0]
   let snapshot = graph.snapshot(
@@ -176,11 +182,11 @@ test "Action demand keeps first occurrence order and deduplicates" {
 ///|
 test "cyclic Action input is value unavailable" {
   let graph = @nodeflow.Nodeflow::empty()
-  let ten = added_node(graph, @nodeflow.NodeDescriptor::Number(value=10))
-  let cyclic = added_node(graph, @nodeflow.NodeDescriptor::Add)
+  let ten = added_node(graph, @application.NodeDescriptor::Number(value=10))
+  let cyclic = added_node(graph, @application.NodeDescriptor::Add)
   bind(graph, cyclic.inputs()[0], cyclic.outputs()[0])
   bind(graph, cyclic.inputs()[1], ten.outputs()[0])
-  let display = added_node(graph, @nodeflow.NodeDescriptor::Display)
+  let display = added_node(graph, @application.NodeDescriptor::Display)
   bind(graph, display.inputs()[0], cyclic.outputs()[0])
   let action = display.actions()[0]
   let expected = ReadOnlyArray::from_array([

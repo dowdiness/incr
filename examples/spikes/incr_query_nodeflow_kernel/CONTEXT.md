@@ -20,8 +20,12 @@ _Avoid_: Store ID, document path, Canvas handle, runtime capability, process-glo
 A Semantic Identity unique within one Graph Identity. A Graph Surface carries it directly as a generic caller-owned key and cannot mint, replace, or persistently remap it.
 _Avoid_: Global node ID, Canvas node ID, runtime cell ID
 
+**Application Model**:
+The pure package that owns the closed Node Descriptor, Port Value Type, Parameter Value, Formula Outcome, Command, Action decision, descriptor metadata, and descriptor codec for one Nodeflow product. It imports neither Nodeflow nor Incr Query; the Nodeflow aggregate is its imperative lowering adapter.
+_Avoid_: Generic plugin framework, runtime callback registry, kernel extension API
+
 **Node Descriptor**:
-An immutable application-owned declaration of one Node kind's Port, Parameter, Action, and Formula shape. A Graph Document stores stable descriptor data while an explicit application catalog supplies executable construction; the initial prototype lowers a closed application sum inside the Nodeflow package, accepts no arbitrary Formula closure, and establishes no production plugin model.
+An immutable application-owned declaration of one Node kind's Port, Parameter, Action, and Formula shape. A Graph Document stores stable descriptor data while the pure Application Model supplies metadata and semantic evaluation; the Nodeflow package lowers that closed sum into private runtime capabilities, accepts no arbitrary Formula closure, and establishes no production plugin model.
 _Avoid_: Canvas NodeKind, serialized Formula closure, public user callback, process-global plugin registry, universal property bag
 
 **Port Identity**:

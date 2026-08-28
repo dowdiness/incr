@@ -1,8 +1,11 @@
 ///|
 test "input publication and availability never invoke an Action" {
   let graph = Nodeflow::empty()
-  let number = wb_added_node(graph, NodeDescriptor::Number(value=7))
-  let display = wb_added_node(graph, NodeDescriptor::Display)
+  let number = wb_added_node(
+    graph,
+    @application.NodeDescriptor::Number(value=7),
+  )
+  let display = wb_added_node(graph, @application.NodeDescriptor::Display)
   wb_bind(graph, display.inputs[0], number.outputs[0])
   let action = display.actions[0]
   let runtime = graph.runtime.nodes.get(display.node.node).unwrap()
@@ -16,7 +19,7 @@ test "input publication and availability never invoke an Action" {
     .apply(
       GraphEdit::SetParameter(
         parameter=number.parameters[0],
-        value=ParameterValue::Number(9),
+        value=@application.ParameterValue::Number(9),
       ),
       ObservationDemand::empty(),
     )
@@ -28,7 +31,9 @@ test "input publication and availability never invoke an Action" {
   assert_eq(
     graph.invoke(action),
     ActionInvocationOutcome::Decided(
-      ApplicationDecision::Success(Command::RecordNumber(9)),
+      @application.ApplicationDecision::Success(
+        @application.Command::RecordNumber(9),
+      ),
     ),
   )
   assert_eq(runtime.action_invocation_count(), 1)

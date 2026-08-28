@@ -1,4 +1,5 @@
 import {
+  "dowdiness/incr_query_nodeflow_kernel/application",
   "dowdiness/incr_query",
   "moonbitlang/core/json",
 }

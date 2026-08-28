@@ -1,0 +1,102 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/incr_query_nodeflow_kernel/application"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn decode_descriptor_json(StringView) -> Result[NodeDescriptor, DescriptorDecodeError]
+
+pub fn display_decision(NumberFormulaOutcome) -> ApplicationDecision
+
+pub fn encode_descriptor_json(NodeDescriptor) -> String
+
+pub fn evaluate_add(NumberFormulaOutcome, NumberFormulaOutcome) -> NumberFormulaOutcome
+
+pub fn evaluate_multiply(NumberFormulaOutcome, NumberFormulaOutcome) -> NumberFormulaOutcome
+
+pub fn evaluate_optional_offset(NumberFormulaOutcome, NumberFormulaOutcome?, Int) -> NumberFormulaOutcome
+
+pub fn evaluate_safe_divide(NumberFormulaOutcome, NumberFormulaOutcome) -> NumberFormulaOutcome
+
+// Errors
+
+// Types and methods
+pub(all) enum ApplicationDecision {
+  Success(Command)
+  ApplicationRefusal(FormulaFailure)
+} derive(Eq, @debug.Debug)
+
+pub(all) enum Command {
+  RecordNumber(Int)
+} derive(Eq, @debug.Debug)
+
+pub(all) enum DescriptorDecodeError {
+  MalformedJson
+  WrongShape
+} derive(Eq, @debug.Debug)
+
+pub(all) enum FormulaFailure {
+  DivisionByZero
+} derive(Eq, @debug.Debug)
+
+pub(all) enum NodeDescriptor {
+  Number(value~ : Int)
+  Boolean(value~ : Bool)
+  Add
+  Multiply
+  SafeDivide
+  Display
+  OptionalOffset(value~ : Int)
+} derive(Eq, @debug.Debug)
+pub fn NodeDescriptor::kind(Self) -> NodeKind
+pub fn NodeDescriptor::parameter_values(Self) -> ReadOnlyArray[ParameterValue]
+pub fn NodeDescriptor::specification(Self) -> NodeSpecification
+pub fn NodeDescriptor::with_parameter(Self, Int, ParameterValue) -> Self?
+
+pub(all) enum NodeKind {
+  Number
+  Boolean
+  Add
+  Multiply
+  SafeDivide
+  Display
+  OptionalOffset
+} derive(Eq, @debug.Debug)
+
+pub(all) struct NodeSpecification {
+  inputs : ReadOnlyArray[PortSpecification]
+  outputs : ReadOnlyArray[PortSpecification]
+  parameters : ReadOnlyArray[ParameterValue]
+  action_count : Int
+} derive(Eq, @debug.Debug)
+
+pub(all) enum NumberFormulaOutcome {
+  Success(Int)
+  Failure(FormulaFailure)
+} derive(Eq, @debug.Debug)
+
+pub(all) enum OutputData {
+  Number(NumberFormulaOutcome)
+  Boolean(Bool)
+} derive(Eq, @debug.Debug)
+
+pub(all) enum ParameterValue {
+  Number(Int)
+  Boolean(Bool)
+} derive(Eq, @debug.Debug)
+
+pub(all) struct PortSpecification {
+  value_type : PortValueType
+  required : Bool
+} derive(Eq, @debug.Debug)
+
+pub(all) enum PortValueType {
+  Number
+  Boolean
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits

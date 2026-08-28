@@ -1,8 +1,11 @@
 ///|
 test "restoration does not replay Action invocations" {
   let graph = Nodeflow::empty()
-  let number = wb_added_node(graph, NodeDescriptor::Number(value=7))
-  let display = wb_added_node(graph, NodeDescriptor::Display)
+  let number = wb_added_node(
+    graph,
+    @application.NodeDescriptor::Number(value=7),
+  )
+  let display = wb_added_node(graph, @application.NodeDescriptor::Display)
   wb_bind(graph, display.inputs[0], number.outputs[0])
   let action = display.actions[0]
   ignore(graph.invoke(action))

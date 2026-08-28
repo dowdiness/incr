@@ -1,23 +1,23 @@
 ///|
 test "Graph Document round-trip restores identities outputs and Actions" {
   let graph = @nodeflow.Nodeflow::empty()
-  let ten = added_node(graph, @nodeflow.NodeDescriptor::Number(value=10))
-  let twenty = added_node(graph, @nodeflow.NodeDescriptor::Number(value=20))
-  let two = added_node(graph, @nodeflow.NodeDescriptor::Number(value=2))
-  let add = added_node(graph, @nodeflow.NodeDescriptor::Add)
+  let ten = added_node(graph, @application.NodeDescriptor::Number(value=10))
+  let twenty = added_node(graph, @application.NodeDescriptor::Number(value=20))
+  let two = added_node(graph, @application.NodeDescriptor::Number(value=2))
+  let add = added_node(graph, @application.NodeDescriptor::Add)
   bind(graph, add.inputs()[0], ten.outputs()[0])
   bind(graph, add.inputs()[1], twenty.outputs()[0])
-  let multiply = added_node(graph, @nodeflow.NodeDescriptor::Multiply)
+  let multiply = added_node(graph, @application.NodeDescriptor::Multiply)
   bind(graph, multiply.inputs()[0], add.outputs()[0])
   bind(graph, multiply.inputs()[1], two.outputs()[0])
-  let display = added_node(graph, @nodeflow.NodeDescriptor::Display)
+  let display = added_node(graph, @application.NodeDescriptor::Display)
   bind(graph, display.inputs()[0], multiply.outputs()[0])
   let action = display.actions()[0]
   assert_eq(
     graph.invoke(action),
     @nodeflow.ActionInvocationOutcome::Decided(
-      @nodeflow.ApplicationDecision::Success(
-        @nodeflow.Command::RecordNumber(60),
+      @application.ApplicationDecision::Success(
+        @application.Command::RecordNumber(60),
       ),
     ),
   )
@@ -36,7 +36,7 @@ test "Graph Document round-trip restores identities outputs and Actions" {
     .apply(
       @nodeflow.GraphEdit::SetParameter(
         parameter=ten.parameters()[0],
-        value=@nodeflow.ParameterValue::Number(99),
+        value=@application.ParameterValue::Number(99),
       ),
       @nodeflow.ObservationDemand::empty(),
     )
@@ -46,15 +46,17 @@ test "Graph Document round-trip restores identities outputs and Actions" {
   assert_eq(
     graph.invoke(action),
     @nodeflow.ActionInvocationOutcome::Decided(
-      @nodeflow.ApplicationDecision::Success(
-        @nodeflow.Command::RecordNumber(238),
+      @application.ApplicationDecision::Success(
+        @application.Command::RecordNumber(238),
       ),
     ),
   )
   assert_eq(
     restoration.snapshot().observation(multiply.outputs()[0]),
     @nodeflow.OutputObservation::Current(
-      @nodeflow.OutputData::Number(@nodeflow.NumberFormulaOutcome::Success(60)),
+      @application.OutputData::Number(
+        @application.NumberFormulaOutcome::Success(60),
+      ),
     ),
   )
   assert_eq(
@@ -66,12 +68,12 @@ test "Graph Document round-trip restores identities outputs and Actions" {
   assert_eq(
     restored.invoke(action),
     @nodeflow.ActionInvocationOutcome::Decided(
-      @nodeflow.ApplicationDecision::Success(
-        @nodeflow.Command::RecordNumber(60),
+      @application.ApplicationDecision::Success(
+        @application.Command::RecordNumber(60),
       ),
     ),
   )
-  let fresh = added_node(restored, @nodeflow.NodeDescriptor::Number(value=9))
+  let fresh = added_node(restored, @application.NodeDescriptor::Number(value=9))
   assert_true(fresh.node() != ten.node())
   assert_true(fresh.node() != display.node())
   graph.close()

@@ -1,7 +1,7 @@
 ///|
 fn wb_added_node(
   graph : Nodeflow,
-  descriptor : NodeDescriptor,
+  descriptor : @application.NodeDescriptor,
 ) -> AddedNode raise GraphPublicationError {
   match
     graph
@@ -41,16 +41,21 @@ fn wb_observe_number(
 ///|
 test "rebind retires the old provider from the Formula dependency trace" {
   let graph = Nodeflow::empty()
-  let ten = wb_added_node(graph, NodeDescriptor::Number(value=10))
-  let twenty = wb_added_node(graph, NodeDescriptor::Number(value=20))
-  let two = wb_added_node(graph, NodeDescriptor::Number(value=2))
-  let add = wb_added_node(graph, NodeDescriptor::Add)
+  let ten = wb_added_node(graph, @application.NodeDescriptor::Number(value=10))
+  let twenty = wb_added_node(
+    graph,
+    @application.NodeDescriptor::Number(value=20),
+  )
+  let two = wb_added_node(graph, @application.NodeDescriptor::Number(value=2))
+  let add = wb_added_node(graph, @application.NodeDescriptor::Add)
   wb_bind(graph, add.inputs[0], ten.outputs[0])
   wb_bind(graph, add.inputs[1], twenty.outputs[0])
   assert_eq(
     wb_observe_number(graph, add.outputs[0]),
     OutputObservation::Current(
-      OutputData::Number(NumberFormulaOutcome::Success(30)),
+      @application.OutputData::Number(
+        @application.NumberFormulaOutcome::Success(30),
+      ),
     ),
   )
   let runtime = graph.runtime.nodes.get(add.node.node).unwrap()
@@ -60,7 +65,9 @@ test "rebind retires the old provider from the Formula dependency trace" {
   assert_eq(
     wb_observe_number(graph, add.outputs[0]),
     OutputObservation::Current(
-      OutputData::Number(NumberFormulaOutcome::Success(12)),
+      @application.OutputData::Number(
+        @application.NumberFormulaOutcome::Success(12),
+      ),
     ),
   )
   assert_eq(runtime.formula_compute_count(), 2)
@@ -70,7 +77,7 @@ test "rebind retires the old provider from the Formula dependency trace" {
     .apply(
       GraphEdit::SetParameter(
         parameter=twenty.parameters[0],
-        value=ParameterValue::Number(100),
+        value=@application.ParameterValue::Number(100),
       ),
       ObservationDemand::empty(),
     )
@@ -79,7 +86,9 @@ test "rebind retires the old provider from the Formula dependency trace" {
   assert_eq(
     wb_observe_number(graph, add.outputs[0]),
     OutputObservation::Current(
-      OutputData::Number(NumberFormulaOutcome::Success(12)),
+      @application.OutputData::Number(
+        @application.NumberFormulaOutcome::Success(12),
+      ),
     ),
   )
   assert_eq(runtime.formula_compute_count(), 2)
@@ -89,7 +98,7 @@ test "rebind retires the old provider from the Formula dependency trace" {
     .apply(
       GraphEdit::SetParameter(
         parameter=two.parameters[0],
-        value=ParameterValue::Number(3),
+        value=@application.ParameterValue::Number(3),
       ),
       ObservationDemand::empty(),
     )
@@ -98,7 +107,9 @@ test "rebind retires the old provider from the Formula dependency trace" {
   assert_eq(
     wb_observe_number(graph, add.outputs[0]),
     OutputObservation::Current(
-      OutputData::Number(NumberFormulaOutcome::Success(13)),
+      @application.OutputData::Number(
+        @application.NumberFormulaOutcome::Success(13),
+      ),
     ),
   )
   assert_eq(runtime.formula_compute_count(), 3)
@@ -108,8 +119,11 @@ test "rebind retires the old provider from the Formula dependency trace" {
 ///|
 test "removed runtime is closed and survivor binding is unbound" {
   let graph = Nodeflow::empty()
-  let provider = wb_added_node(graph, NodeDescriptor::Number(value=8))
-  let add = wb_added_node(graph, NodeDescriptor::Add)
+  let provider = wb_added_node(
+    graph,
+    @application.NodeDescriptor::Number(value=8),
+  )
+  let add = wb_added_node(graph, @application.NodeDescriptor::Add)
   wb_bind(graph, add.inputs[0], provider.outputs[0])
   let provider_view = match
     graph.runtime.nodes.get(provider.node.node).unwrap() {
@@ -146,8 +160,14 @@ test "removed runtime is closed and survivor binding is unbound" {
 ///|
 test "rejected stale removal does not close another runtime" {
   let graph = Nodeflow::empty()
-  let removed = wb_added_node(graph, NodeDescriptor::Number(value=1))
-  let survivor = wb_added_node(graph, NodeDescriptor::Number(value=2))
+  let removed = wb_added_node(
+    graph,
+    @application.NodeDescriptor::Number(value=1),
+  )
+  let survivor = wb_added_node(
+    graph,
+    @application.NodeDescriptor::Number(value=2),
+  )
   let survivor_view = match
     graph.runtime.nodes.get(survivor.node.node).unwrap() {
     RuntimeNode::Number(_, _, view) => view
@@ -170,7 +190,8 @@ test "rejected stale removal does not close another runtime" {
     _ => fail("expected stale removal rejection")
   }
   match graph.runtime.store.get(survivor_view) {
-    NumberEvaluation::Current(NumberFormulaOutcome::Success(2)) => ()
+    NumberEvaluation::Current(@application.NumberFormulaOutcome::Success(2)) =>
+      ()
     _ => fail("survivor runtime changed")
   }
   graph.close()
@@ -179,7 +200,7 @@ test "rejected stale removal does not close another runtime" {
 ///|
 test "quarantine rejects work but still permits deterministic close" {
   let graph = Nodeflow::empty()
-  ignore(wb_added_node(graph, NodeDescriptor::Number(value=1)))
+  ignore(wb_added_node(graph, @application.NodeDescriptor::Number(value=1)))
   graph.runtime.lifecycle.val = RuntimeLifecycle::Quarantined
 
   let snapshot_closed = Ok(graph.snapshot(ObservationDemand::empty())) catch {
@@ -194,7 +215,9 @@ test "quarantine rejects work but still permits deterministic close" {
 
   let apply_closed = Ok(
     graph.apply(
-      GraphEdit::AddNode(descriptor=NodeDescriptor::Number(value=2)),
+      GraphEdit::AddNode(
+        descriptor=@application.NodeDescriptor::Number(value=2),
+      ),
       ObservationDemand::empty(),
     ),
   ) catch {

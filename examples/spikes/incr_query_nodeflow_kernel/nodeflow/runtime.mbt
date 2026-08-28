@@ -1,7 +1,7 @@
 ///|
 priv enum NumberEvaluation {
   Unavailable(ReadOnlyArray[EvaluationIssue])
-  Current(NumberFormulaOutcome)
+  Current(@application.NumberFormulaOutcome)
 }
 
 ///|
@@ -13,7 +13,7 @@ priv enum NumberBinding {
 ///|
 priv enum DisplayActionPreparation {
   Unavailable(ReadOnlyArray[ActionInputIssue])
-  Prepared(NumberFormulaOutcome)
+  Prepared(@application.NumberFormulaOutcome)
 }
 
 ///|
@@ -128,24 +128,24 @@ fn[T] fail_runtime_setup(
 fn make_runtime_node(
   store : @incr_query.Store,
   node : NodeReference,
-  descriptor : NodeDescriptor,
+  descriptor : @application.NodeDescriptor,
 ) -> RuntimeNode raise GraphPublicationError {
   let region = store.region() catch { error => raise map_region_error(error) }
   match descriptor {
-    NodeDescriptor::Number(value~) => {
+    @application.NodeDescriptor::Number(value~) => {
       let parameter = region.source(value) catch {
         error => fail_runtime_setup(region, error)
       }
       let output = region.derived(ctx => {
         NumberEvaluation::Current(
-          NumberFormulaOutcome::Success(ctx.get(parameter.view())),
+          @application.NumberFormulaOutcome::Success(ctx.get(parameter.view())),
         )
       }) catch {
         error => fail_runtime_setup(region, error)
       }
       RuntimeNode::Number(region, parameter, output)
     }
-    NodeDescriptor::Boolean(value~) => {
+    @application.NodeDescriptor::Boolean(value~) => {
       let parameter = region.source(value) catch {
         error => fail_runtime_setup(region, error)
       }
@@ -154,11 +154,12 @@ fn make_runtime_node(
       }
       RuntimeNode::Boolean(region, parameter, output)
     }
-    NodeDescriptor::Add => make_math_runtime(region, node, 0)
-    NodeDescriptor::Multiply => make_math_runtime(region, node, 1)
-    NodeDescriptor::SafeDivide => make_math_runtime(region, node, 2)
-    NodeDescriptor::Display => make_display_runtime(region, node)
-    NodeDescriptor::OptionalOffset(value~) =>
+    @application.NodeDescriptor::Add => make_math_runtime(region, node, 0)
+    @application.NodeDescriptor::Multiply => make_math_runtime(region, node, 1)
+    @application.NodeDescriptor::SafeDivide =>
+      make_math_runtime(region, node, 2)
+    @application.NodeDescriptor::Display => make_display_runtime(region, node)
+    @application.NodeDescriptor::OptionalOffset(value~) =>
       make_optional_offset_runtime(region, node, value)
   }
 }
@@ -292,26 +293,17 @@ fn make_math_runtime(
         (
           Some(NumberEvaluation::Current(left)),
           Some(NumberEvaluation::Current(right)),
-        ) =>
-          match (left, right) {
-            (NumberFormulaOutcome::Failure(error), _) =>
-              NumberEvaluation::Current(NumberFormulaOutcome::Failure(error))
-            (_, NumberFormulaOutcome::Failure(error)) =>
-              NumberEvaluation::Current(NumberFormulaOutcome::Failure(error))
-            (NumberFormulaOutcome::Success(a), NumberFormulaOutcome::Success(b)) => {
-              compute_count.val = compute_count.val + 1
-              let result = if operation == 0 {
-                NumberFormulaOutcome::Success(a + b)
-              } else if operation == 1 {
-                NumberFormulaOutcome::Success(a * b)
-              } else if b == 0 {
-                NumberFormulaOutcome::Failure(FormulaFailure::DivisionByZero)
-              } else {
-                NumberFormulaOutcome::Success(a / b)
-              }
-              NumberEvaluation::Current(result)
-            }
+        ) => {
+          compute_count.val = compute_count.val + 1
+          let result = if operation == 0 {
+            @application.evaluate_add(left, right)
+          } else if operation == 1 {
+            @application.evaluate_multiply(left, right)
+          } else {
+            @application.evaluate_safe_divide(left, right)
           }
+          NumberEvaluation::Current(result)
+        }
         _ => abort("inputs unexpectedly unavailable")
       }
     }

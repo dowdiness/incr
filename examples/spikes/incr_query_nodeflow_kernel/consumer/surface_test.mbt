@@ -3,13 +3,13 @@ test "surface projection tracks rebind removal and restoration" {
   let graph = @nodeflow.Nodeflow::empty()
   let provider = surface_added_node(
     graph,
-    @nodeflow.NodeDescriptor::Number(value=3),
+    @application.NodeDescriptor::Number(value=3),
   )
   let other = surface_added_node(
     graph,
-    @nodeflow.NodeDescriptor::Number(value=4),
+    @application.NodeDescriptor::Number(value=4),
   )
-  let add = surface_added_node(graph, @nodeflow.NodeDescriptor::Add)
+  let add = surface_added_node(graph, @application.NodeDescriptor::Add)
   surface_bind(graph, add.inputs()[0], provider.outputs()[0])
   let before = graph.snapshot(@nodeflow.ObservationDemand::empty())
   assert_eq(before.nodes().length(), 3)
@@ -51,20 +51,23 @@ test "surface projection exposes semantic structure" {
   let graph = @nodeflow.Nodeflow::empty()
   let number = surface_added_node(
     graph,
-    @nodeflow.NodeDescriptor::Number(value=7),
+    @application.NodeDescriptor::Number(value=7),
   )
-  let display = surface_added_node(graph, @nodeflow.NodeDescriptor::Display)
+  let display = surface_added_node(graph, @application.NodeDescriptor::Display)
   surface_bind(graph, display.inputs()[0], number.outputs()[0])
   let snapshot = graph.snapshot(@nodeflow.ObservationDemand::empty())
   assert_eq(snapshot.nodes().length(), 2)
   assert_eq(snapshot.nodes()[0].node(), number.node())
-  assert_eq(snapshot.nodes()[0].kind(), @nodeflow.NodeKind::Number)
+  assert_eq(snapshot.nodes()[0].kind(), @application.NodeKind::Number)
   assert_eq(snapshot.nodes()[1].node(), display.node())
-  assert_eq(snapshot.nodes()[1].kind(), @nodeflow.NodeKind::Display)
+  assert_eq(snapshot.nodes()[1].kind(), @application.NodeKind::Display)
   assert_eq(snapshot.ports().length(), 3)
   assert_eq(snapshot.ports()[0].port(), number.outputs()[0])
   assert_eq(snapshot.ports()[0].direction(), @nodeflow.PortDirection::Output)
-  assert_eq(snapshot.ports()[0].value_type(), @nodeflow.PortValueType::Number)
+  assert_eq(
+    snapshot.ports()[0].value_type(),
+    @application.PortValueType::Number,
+  )
   assert_eq(snapshot.ports()[0].required(), false)
   assert_eq(snapshot.ports()[1].port(), display.inputs()[0])
   assert_eq(snapshot.ports()[1].direction(), @nodeflow.PortDirection::Input)
@@ -72,7 +75,7 @@ test "surface projection exposes semantic structure" {
   assert_eq(snapshot.parameters()[0].parameter(), number.parameters()[0])
   assert_eq(
     snapshot.parameters()[0].value(),
-    @nodeflow.ParameterValue::Number(7),
+    @application.ParameterValue::Number(7),
   )
   assert_eq(snapshot.actions()[0].action(), display.actions()[0])
   assert_eq(snapshot.connections().length(), 1)
@@ -86,18 +89,18 @@ test "number and boolean parameter references are typed" {
   let graph = @nodeflow.Nodeflow::empty()
   let number = surface_added_node(
     graph,
-    @nodeflow.NodeDescriptor::Number(value=7),
+    @application.NodeDescriptor::Number(value=7),
   )
   let boolean = surface_added_node(
     graph,
-    @nodeflow.NodeDescriptor::Boolean(value=true),
+    @application.NodeDescriptor::Boolean(value=true),
   )
   ignore(
     graph
     .apply(
       @nodeflow.GraphEdit::SetParameter(
         parameter=number.parameters()[0],
-        value=@nodeflow.ParameterValue::Number(8),
+        value=@application.ParameterValue::Number(8),
       ),
       @nodeflow.ObservationDemand::empty(),
     )
@@ -108,7 +111,7 @@ test "number and boolean parameter references are typed" {
     .apply(
       @nodeflow.GraphEdit::SetParameter(
         parameter=boolean.parameters()[0],
-        value=@nodeflow.ParameterValue::Boolean(false),
+        value=@application.ParameterValue::Boolean(false),
       ),
       @nodeflow.ObservationDemand::empty(),
     )
@@ -116,16 +119,18 @@ test "number and boolean parameter references are typed" {
   )
   assert_eq(
     graph.snapshot(@nodeflow.ObservationDemand::empty()).parameters()[0].value(),
-    @nodeflow.ParameterValue::Number(8),
+    @application.ParameterValue::Number(8),
   )
   assert_eq(
     graph.snapshot(@nodeflow.ObservationDemand::empty()).parameters()[1].value(),
-    @nodeflow.ParameterValue::Boolean(false),
+    @application.ParameterValue::Boolean(false),
   )
   assert_eq(
     number_at(graph, number.outputs()[0]),
     @nodeflow.OutputObservation::Current(
-      @nodeflow.OutputData::Number(@nodeflow.NumberFormulaOutcome::Success(8)),
+      @application.OutputData::Number(
+        @application.NumberFormulaOutcome::Success(8),
+      ),
     ),
   )
   assert_eq(
@@ -134,7 +139,9 @@ test "number and boolean parameter references are typed" {
       @nodeflow.ObservationDemand::empty().request(boolean.outputs()[0]),
     )
     .observation(boolean.outputs()[0]),
-    @nodeflow.OutputObservation::Current(@nodeflow.OutputData::Boolean(false)),
+    @nodeflow.OutputObservation::Current(
+      @application.OutputData::Boolean(false),
+    ),
   )
   let before_rejection = graph.document().encode_json()
   assert_true(
@@ -142,7 +149,7 @@ test "number and boolean parameter references are typed" {
     .apply(
       @nodeflow.GraphEdit::SetParameter(
         parameter=number.parameters()[0],
-        value=@nodeflow.ParameterValue::Boolean(true),
+        value=@application.ParameterValue::Boolean(true),
       ),
       @nodeflow.ObservationDemand::empty(),
     )
@@ -153,7 +160,9 @@ test "number and boolean parameter references are typed" {
   assert_eq(
     number_at(graph, number.outputs()[0]),
     @nodeflow.OutputObservation::Current(
-      @nodeflow.OutputData::Number(@nodeflow.NumberFormulaOutcome::Success(8)),
+      @application.OutputData::Number(
+        @application.NumberFormulaOutcome::Success(8),
+      ),
     ),
   )
   let stale_parameter = number.parameters()[0]
@@ -171,7 +180,7 @@ test "number and boolean parameter references are typed" {
     .apply(
       @nodeflow.GraphEdit::SetParameter(
         parameter=stale_parameter,
-        value=@nodeflow.ParameterValue::Number(1),
+        value=@application.ParameterValue::Number(1),
       ),
       @nodeflow.ObservationDemand::empty(),
     )
@@ -185,7 +194,7 @@ test "number and boolean parameter references are typed" {
 ///|
 fn surface_added_node(
   graph : @nodeflow.Nodeflow,
-  descriptor : @nodeflow.NodeDescriptor,
+  descriptor : @application.NodeDescriptor,
 ) -> @nodeflow.AddedNode raise @nodeflow.GraphPublicationError {
   match
     graph

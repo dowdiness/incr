@@ -1,10 +1,10 @@
 ///|
 test "structural snapshot is demand independent" {
   let graph = Nodeflow::empty()
-  let left = wb_added_node(graph, NodeDescriptor::Number(value=1))
-  let right = wb_added_node(graph, NodeDescriptor::Number(value=2))
-  let add = wb_added_node(graph, NodeDescriptor::Add)
-  let display = wb_added_node(graph, NodeDescriptor::Display)
+  let left = wb_added_node(graph, @application.NodeDescriptor::Number(value=1))
+  let right = wb_added_node(graph, @application.NodeDescriptor::Number(value=2))
+  let add = wb_added_node(graph, @application.NodeDescriptor::Add)
+  let display = wb_added_node(graph, @application.NodeDescriptor::Display)
   wb_bind(graph, display.inputs[0], add.outputs[0])
   let display_runtime = graph.runtime.nodes.get(display.node.node).unwrap()
   assert_eq(display_runtime.action_invocation_count(), 0)
@@ -24,9 +24,18 @@ test "structural snapshot is demand independent" {
 ///|
 test "OptionalOffset computes only when required and connected optional inputs are current" {
   let graph = Nodeflow::empty()
-  let required = wb_added_node(graph, NodeDescriptor::Number(value=1))
-  let optional = wb_added_node(graph, NodeDescriptor::Number(value=2))
-  let offset = wb_added_node(graph, NodeDescriptor::OptionalOffset(value=3))
+  let required = wb_added_node(
+    graph,
+    @application.NodeDescriptor::Number(value=1),
+  )
+  let optional = wb_added_node(
+    graph,
+    @application.NodeDescriptor::Number(value=2),
+  )
+  let offset = wb_added_node(
+    graph,
+    @application.NodeDescriptor::OptionalOffset(value=3),
+  )
   wb_bind(graph, offset.inputs[0], required.outputs[0])
   wb_bind(graph, offset.inputs[1], optional.outputs[0])
   let runtime = graph.runtime.nodes.get(offset.node.node).unwrap()
@@ -36,12 +45,14 @@ test "OptionalOffset computes only when required and connected optional inputs a
   assert_eq(
     wb_observe_number(graph, offset.outputs[0]),
     OutputObservation::Current(
-      OutputData::Number(NumberFormulaOutcome::Success(6)),
+      @application.OutputData::Number(
+        @application.NumberFormulaOutcome::Success(6),
+      ),
     ),
   )
   assert_eq(runtime.formula_compute_count(), 1)
 
-  let unavailable = wb_added_node(graph, NodeDescriptor::Add)
+  let unavailable = wb_added_node(graph, @application.NodeDescriptor::Add)
   wb_bind(graph, offset.inputs[1], unavailable.outputs[0])
   match wb_observe_number(graph, offset.outputs[0]) {
     OutputObservation::Unavailable(issues) =>
@@ -60,10 +71,10 @@ test "OptionalOffset computes only when required and connected optional inputs a
 ///|
 test "one atomic binding edit refreshes the demanded root once" {
   let graph = Nodeflow::empty()
-  let one = wb_added_node(graph, NodeDescriptor::Number(value=1))
-  let two = wb_added_node(graph, NodeDescriptor::Number(value=2))
-  let add = wb_added_node(graph, NodeDescriptor::Add)
-  let unrelated = wb_added_node(graph, NodeDescriptor::Add)
+  let one = wb_added_node(graph, @application.NodeDescriptor::Number(value=1))
+  let two = wb_added_node(graph, @application.NodeDescriptor::Number(value=2))
+  let add = wb_added_node(graph, @application.NodeDescriptor::Add)
+  let unrelated = wb_added_node(graph, @application.NodeDescriptor::Add)
   let add_runtime = graph.runtime.nodes.get(add.node.node).unwrap()
   let unrelated_runtime = graph.runtime.nodes.get(unrelated.node.node).unwrap()
   let result = graph
@@ -82,7 +93,9 @@ test "one atomic binding edit refreshes the demanded root once" {
   assert_eq(
     snapshot.observation(add.outputs[0]),
     OutputObservation::Current(
-      OutputData::Number(NumberFormulaOutcome::Success(3)),
+      @application.OutputData::Number(
+        @application.NumberFormulaOutcome::Success(3),
+      ),
     ),
   )
   assert_eq(add_runtime.formula_compute_count(), 1)

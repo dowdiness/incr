@@ -25,7 +25,7 @@
 | General cycles beyond the existing kernel catch shape | Deferred |
 | Negative capability probes and four-target `run.sh` | Implemented |
 
-Each Node owns one private Incr Query Region. Number, Boolean, and OptionalOffset parameters are typed Sources; Add, Multiply, SafeDivide, and OptionalOffset own typed binding Sources and derived outputs. OptionalOffset distinguishes an absent optional Input from a connected unavailable provider. Publication creates runtime definitions before installing graph state, and stages binding writes in one transaction. Every Surface Snapshot projects deterministic Node, Port, Parameter, Action, and Connection views independently of Output demand. Surface output and Action demand is deduplicated in first-occurrence order; unavailable outputs and Action inputs carry immutable ordered issues, while formula failures remain current values. Display exposes a pass-through Number output and an explicit RecordNumber Action; availability never invokes it.
+The pure `application` package owns the closed descriptors, metadata, Formula outcomes, calculations, Commands, decisions, and descriptor codec; it imports neither Nodeflow nor Incr Query. The opaque `nodeflow` package lowers that application model into runtime capabilities. Each Node owns one private Incr Query Region. Number, Boolean, and OptionalOffset parameters are typed Sources; Add, Multiply, SafeDivide, and OptionalOffset own typed binding Sources and derived outputs. OptionalOffset distinguishes an absent optional Input from a connected unavailable provider. Publication creates runtime definitions before installing graph state, and stages binding writes in one transaction. Every Surface Snapshot projects deterministic Node, Port, Parameter, Action, and Connection views independently of Output demand. Surface output and Action demand is deduplicated in first-occurrence order; unavailable outputs and Action inputs carry immutable ordered issues, while formula failures remain current values. Display exposes a pass-through Number output and an explicit RecordNumber Action; availability never invokes it.
 
 ## Question
 
@@ -33,7 +33,7 @@ Can one opaque, UI-framework-neutral Nodeflow aggregate provide typed dynamic gr
 
 ## Public evidence seam
 
-The black-box consumer imports Nodeflow but not Incr Query. It exercises `apply`, `snapshot`, `invoke`, `document`, `restore`, and `close`. Graph Transition, Store, Region, Source, View, QueryContext, runtime capability sums, Action preparation, and Graph Document wire records remain private. White-box tests are limited to Formula invocation counts, Action invocation counts, dependency retirement, Region closure, quarantine cleanup, and restoration non-replay.
+The black-box consumer imports the application model and Nodeflow but not Incr Query. It exercises `apply`, `snapshot`, `invoke`, `document`, `restore`, and `close`. Graph Transition, Store, Region, Source, View, QueryContext, runtime capability sums, Action preparation, and Graph Document wire records remain private. White-box tests are limited to Formula invocation counts, Action invocation counts, dependency retirement, Region closure, quarantine cleanup, and restoration non-replay.
 
 ## Validation
 
@@ -55,7 +55,7 @@ This verdict authorizes only a separately commissioned optional Nodeflow layer. 
 
 ## Constraints
 
-- The descriptor set and Formula implementations are closed evidence, not a production plugin model.
+- The application package owns a closed descriptor set and pure Formula implementations. This package boundary is evidence for product-specific models, not a production plugin framework.
 - Graph Identity issuance is process-local evidence. Identity-preserving restoration may create concurrent execution domains in the same semantic lineage; references are semantic keys resolved by the explicit Nodeflow receiver, not authority-bearing capabilities. Distributed issuance and merge policy are not established.
 - Commands are immutable returned values only. No interpreter, feedback scheduler, retry, cancellation, idempotency, or external I/O is implemented.
 - Graph Document JSON is an evidence schema, not a published compatibility commitment or persistence storage engine.

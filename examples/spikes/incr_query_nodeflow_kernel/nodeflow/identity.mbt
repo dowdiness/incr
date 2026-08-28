@@ -1,39 +1,8 @@
 ///|
-/// The closed set of executable Node declarations.
-pub(all) enum NodeDescriptor {
-  Number(value~ : Int)
-  Boolean(value~ : Bool)
-  Add
-  Multiply
-  SafeDivide
-  Display
-  OptionalOffset(value~ : Int)
-}
-
-///|
-/// The closed semantic kind exposed by the graph surface.
-pub(all) enum NodeKind {
-  Number
-  Boolean
-  Add
-  Multiply
-  SafeDivide
-  Display
-  OptionalOffset
-} derive(Eq, Debug)
-
-///|
 /// The direction of a graph port.
 pub(all) enum PortDirection {
   Input
   Output
-} derive(Eq, Debug)
-
-///|
-/// The closed port value type.
-pub(all) enum PortValueType {
-  Number
-  Boolean
 } derive(Eq, Debug)
 
 ///|
@@ -45,17 +14,10 @@ pub struct ParameterReference {
 } derive(Eq, Hash, Debug)
 
 ///|
-/// A typed authored parameter value.
-pub(all) enum ParameterValue {
-  Number(Int)
-  Boolean(Bool)
-} derive(Eq, Debug)
-
-///|
 /// An immutable structural node projection.
 pub struct NodeView {
   priv node : NodeReference
-  priv kind : NodeKind
+  priv kind : @application.NodeKind
 } derive(Eq, Debug)
 
 ///|
@@ -66,7 +28,7 @@ pub fn NodeView::node(self : NodeView) -> NodeReference {
 
 ///|
 /// Returns the closed presentation-safe Node kind.
-pub fn NodeView::kind(self : NodeView) -> NodeKind {
+pub fn NodeView::kind(self : NodeView) -> @application.NodeKind {
   self.kind
 }
 
@@ -75,7 +37,7 @@ pub fn NodeView::kind(self : NodeView) -> NodeKind {
 pub struct PortView {
   priv port : PortReference
   priv direction : PortDirection
-  priv value_type : PortValueType
+  priv value_type : @application.PortValueType
   priv required : Bool
 } derive(Eq, Debug)
 
@@ -93,7 +55,7 @@ pub fn PortView::direction(self : PortView) -> PortDirection {
 
 ///|
 /// Returns the closed semantic value type carried by the Port.
-pub fn PortView::value_type(self : PortView) -> PortValueType {
+pub fn PortView::value_type(self : PortView) -> @application.PortValueType {
   self.value_type
 }
 
@@ -107,7 +69,7 @@ pub fn PortView::required(self : PortView) -> Bool {
 /// An immutable structural parameter projection.
 pub struct ParameterView {
   priv parameter : ParameterReference
-  priv value : ParameterValue
+  priv value : @application.ParameterValue
 } derive(Eq, Debug)
 
 ///|
@@ -118,7 +80,9 @@ pub fn ParameterView::parameter(self : ParameterView) -> ParameterReference {
 
 ///|
 /// Returns the current typed authored Parameter Value.
-pub fn ParameterView::value(self : ParameterView) -> ParameterValue {
+pub fn ParameterView::value(
+  self : ParameterView,
+) -> @application.ParameterValue {
   self.value
 }
 
@@ -257,8 +221,11 @@ pub(all) enum GraphEditResult {
 ///|
 /// An atomic authoring request.
 pub(all) enum GraphEdit {
-  AddNode(descriptor~ : NodeDescriptor)
-  SetParameter(parameter~ : ParameterReference, value~ : ParameterValue)
+  AddNode(descriptor~ : @application.NodeDescriptor)
+  SetParameter(
+    parameter~ : ParameterReference,
+    value~ : @application.ParameterValue
+  )
   BindingChangeSet(changes~ : Array[BindingChange])
   RemoveNodes(nodes~ : Array[NodeReference])
 }
@@ -299,19 +266,6 @@ pub(all) enum ActionObservation {
 } derive(Eq, Debug)
 
 ///|
-/// A minimal immutable command produced by the Display Action.
-pub(all) enum Command {
-  RecordNumber(Int)
-} derive(Eq, Debug)
-
-///|
-/// The closed Display application decision.
-pub(all) enum ApplicationDecision {
-  Success(Command)
-  ApplicationRefusal(FormulaFailure)
-} derive(Eq, Debug)
-
-///|
 /// The expected refusal of an Action invocation.
 pub(all) enum ActionInvocationRejection {
   MissingAction
@@ -322,20 +276,7 @@ pub(all) enum ActionInvocationRejection {
 pub(all) enum ActionInvocationOutcome {
   Rejected(ActionInvocationRejection)
   Unavailable(ReadOnlyArray[ActionInputIssue])
-  Decided(ApplicationDecision)
-} derive(Eq, Debug)
-
-///|
-/// Closed semantic output data.
-pub(all) enum FormulaFailure {
-  DivisionByZero
-} derive(Eq, Debug)
-
-///|
-/// The current result of a Number formula.
-pub(all) enum NumberFormulaOutcome {
-  Success(Int)
-  Failure(FormulaFailure)
+  Decided(@application.ApplicationDecision)
 } derive(Eq, Debug)
 
 ///|
@@ -347,18 +288,11 @@ pub(all) enum EvaluationIssue {
 } derive(Eq, Debug)
 
 ///|
-/// Closed semantic output data.
-pub(all) enum OutputData {
-  Number(NumberFormulaOutcome)
-  Boolean(Bool)
-} derive(Eq, Debug)
-
-///|
 /// The current result for one demanded Output.
 pub(all) enum OutputObservation {
   Missing
   Unavailable(ReadOnlyArray[EvaluationIssue])
-  Current(OutputData)
+  Current(@application.OutputData)
 } derive(Eq, Debug)
 
 ///|

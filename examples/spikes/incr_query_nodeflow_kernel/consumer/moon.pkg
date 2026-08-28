@@ -1,3 +1,4 @@
 import {
   "dowdiness/incr_query_nodeflow_kernel/nodeflow",
+  "dowdiness/incr_query_nodeflow_kernel/application",
 } for "test"

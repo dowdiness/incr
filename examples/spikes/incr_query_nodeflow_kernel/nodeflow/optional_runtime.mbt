@@ -2,7 +2,7 @@
 priv enum OptionalInputEvaluation {
   Absent
   Unavailable
-  Current(NumberFormulaOutcome)
+  Current(@application.NumberFormulaOutcome)
 }
 
 ///|
@@ -64,25 +64,20 @@ fn make_optional_offset_runtime(
         Some(NumberEvaluation::Current(outcome)) => outcome
         _ => abort("required input unexpectedly unavailable")
       }
-      let optional_outcome = match optional_evaluation {
-        OptionalInputEvaluation::Absent => NumberFormulaOutcome::Success(0)
-        OptionalInputEvaluation::Current(outcome) => outcome
+      let optional_outcome : @application.NumberFormulaOutcome? = match
+        optional_evaluation {
+        OptionalInputEvaluation::Absent => None
+        OptionalInputEvaluation::Current(outcome) => Some(outcome)
         Unavailable => abort("optional input unexpectedly unavailable")
       }
-      match (required_outcome, optional_outcome) {
-        (NumberFormulaOutcome::Failure(error), _) =>
-          NumberEvaluation::Current(NumberFormulaOutcome::Failure(error))
-        (_, NumberFormulaOutcome::Failure(error)) =>
-          NumberEvaluation::Current(NumberFormulaOutcome::Failure(error))
-        (NumberFormulaOutcome::Success(value), Success(offset)) => {
-          count.val = count.val + 1
-          NumberEvaluation::Current(
-            NumberFormulaOutcome::Success(
-              value + offset + ctx.get(parameter.view()),
-            ),
-          )
-        }
-      }
+      count.val = count.val + 1
+      NumberEvaluation::Current(
+        @application.evaluate_optional_offset(
+          required_outcome,
+          optional_outcome,
+          ctx.get(parameter.view()),
+        ),
+      )
     }
   }) catch {
     error => fail_runtime_setup(region, error)

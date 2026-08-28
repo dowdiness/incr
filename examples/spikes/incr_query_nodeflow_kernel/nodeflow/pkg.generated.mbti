@@ -2,6 +2,7 @@
 package "dowdiness/incr_query_nodeflow_kernel/nodeflow"
 
 import {
+  "dowdiness/incr_query_nodeflow_kernel/application",
   "moonbitlang/core/debug",
 }
 
@@ -69,7 +70,7 @@ pub(all) enum ActionInputIssue {
 pub(all) enum ActionInvocationOutcome {
   Rejected(ActionInvocationRejection)
   Unavailable(ReadOnlyArray[ActionInputIssue])
-  Decided(ApplicationDecision)
+  Decided(@application.ApplicationDecision)
 } derive(Eq, @debug.Debug)
 
 pub(all) enum ActionInvocationRejection {
@@ -100,11 +101,6 @@ pub fn AddedNode::outputs(Self) -> ReadOnlyArray[PortReference]
 pub fn AddedNode::parameters(Self) -> ReadOnlyArray[ParameterReference]
 pub fn AddedNode::snapshot(Self) -> SurfaceSnapshot
 
-pub(all) enum ApplicationDecision {
-  Success(Command)
-  ApplicationRefusal(FormulaFailure)
-} derive(Eq, @debug.Debug)
-
 pub(all) struct BindingChange {
   target : PortReference
   binding : BindingTarget
@@ -114,10 +110,6 @@ pub(all) enum BindingTarget {
   Bound(PortReference)
   Unbound
 }
-
-pub(all) enum Command {
-  RecordNumber(Int)
-} derive(Eq, @debug.Debug)
 
 pub struct ConnectionView {
   // private fields
@@ -129,10 +121,6 @@ pub(all) enum EvaluationIssue {
   InputWaiting(PortReference)
   BlockedEvaluation(PortReference)
   CyclicEvaluation
-} derive(Eq, @debug.Debug)
-
-pub(all) enum FormulaFailure {
-  DivisionByZero
 } derive(Eq, @debug.Debug)
 
 pub struct GraphDocument {
@@ -147,8 +135,8 @@ pub enum GraphDocumentDecodeError {
 } derive(Eq, @debug.Debug)
 
 pub(all) enum GraphEdit {
-  AddNode(descriptor~ : NodeDescriptor)
-  SetParameter(parameter~ : ParameterReference, value~ : ParameterValue)
+  AddNode(descriptor~ : @application.NodeDescriptor)
+  SetParameter(parameter~ : ParameterReference, value~ : @application.ParameterValue)
   BindingChangeSet(changes~ : Array[BindingChange])
   RemoveNodes(nodes~ : Array[NodeReference])
 }
@@ -189,26 +177,6 @@ pub enum GraphRestorationRejection {
   WrongType
 } derive(Eq, @debug.Debug)
 
-pub(all) enum NodeDescriptor {
-  Number(value~ : Int)
-  Boolean(value~ : Bool)
-  Add
-  Multiply
-  SafeDivide
-  Display
-  OptionalOffset(value~ : Int)
-}
-
-pub(all) enum NodeKind {
-  Number
-  Boolean
-  Add
-  Multiply
-  SafeDivide
-  Display
-  OptionalOffset
-} derive(Eq, @debug.Debug)
-
 pub struct NodeReference {
   // private fields
 } derive(Eq, Hash, @debug.Debug)
@@ -216,7 +184,7 @@ pub struct NodeReference {
 pub struct NodeView {
   // private fields
 } derive(Eq, @debug.Debug)
-pub fn NodeView::kind(Self) -> NodeKind
+pub fn NodeView::kind(Self) -> @application.NodeKind
 pub fn NodeView::node(Self) -> NodeReference
 
 pub struct Nodeflow {
@@ -230,11 +198,6 @@ pub fn Nodeflow::invoke(Self, ActionReference) -> ActionInvocationOutcome raise 
 pub fn Nodeflow::restore(GraphDocument, ObservationDemand) -> Result[GraphRestoration, GraphRestorationRejection] raise GraphRestorationError
 pub fn Nodeflow::snapshot(Self, ObservationDemand) -> SurfaceSnapshot raise SurfaceReadError
 
-pub(all) enum NumberFormulaOutcome {
-  Success(Int)
-  Failure(FormulaFailure)
-} derive(Eq, @debug.Debug)
-
 pub struct ObservationDemand {
   // private fields
 }
@@ -242,31 +205,21 @@ pub fn ObservationDemand::empty() -> Self
 pub fn ObservationDemand::request(Self, PortReference) -> Self
 pub fn ObservationDemand::request_action(Self, ActionReference) -> Self
 
-pub(all) enum OutputData {
-  Number(NumberFormulaOutcome)
-  Boolean(Bool)
-} derive(Eq, @debug.Debug)
-
 pub(all) enum OutputObservation {
   Missing
   Unavailable(ReadOnlyArray[EvaluationIssue])
-  Current(OutputData)
+  Current(@application.OutputData)
 } derive(Eq, @debug.Debug)
 
 pub struct ParameterReference {
   // private fields
 } derive(Eq, Hash, @debug.Debug)
 
-pub(all) enum ParameterValue {
-  Number(Int)
-  Boolean(Bool)
-} derive(Eq, @debug.Debug)
-
 pub struct ParameterView {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn ParameterView::parameter(Self) -> ParameterReference
-pub fn ParameterView::value(Self) -> ParameterValue
+pub fn ParameterView::value(Self) -> @application.ParameterValue
 
 pub(all) enum PortDirection {
   Input
@@ -277,18 +230,13 @@ pub struct PortReference {
   // private fields
 } derive(Eq, Hash, @debug.Debug)
 
-pub(all) enum PortValueType {
-  Number
-  Boolean
-} derive(Eq, @debug.Debug)
-
 pub struct PortView {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn PortView::direction(Self) -> PortDirection
 pub fn PortView::port(Self) -> PortReference
 pub fn PortView::required(Self) -> Bool
-pub fn PortView::value_type(Self) -> PortValueType
+pub fn PortView::value_type(Self) -> @application.PortValueType
 
 pub struct SurfaceSnapshot {
   // private fields

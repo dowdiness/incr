@@ -1,7 +1,7 @@
 ///|
 test "unbound inputs report ordered waiting issues" {
   let graph = @nodeflow.Nodeflow::empty()
-  let add = added_node(graph, @nodeflow.NodeDescriptor::Add)
+  let add = added_node(graph, @application.NodeDescriptor::Add)
   let observation = number_at(graph, add.outputs()[0])
   let issues = unavailable_issues(observation)
   assert_eq(
@@ -17,8 +17,8 @@ test "unbound inputs report ordered waiting issues" {
 ///|
 test "waiting and blocked issues retain declared input order" {
   let graph = @nodeflow.Nodeflow::empty()
-  let unavailable = added_node(graph, @nodeflow.NodeDescriptor::Add)
-  let consumer = added_node(graph, @nodeflow.NodeDescriptor::Add)
+  let unavailable = added_node(graph, @application.NodeDescriptor::Add)
+  let consumer = added_node(graph, @application.NodeDescriptor::Add)
   ignore(
     graph
     .apply(
@@ -47,30 +47,30 @@ test "waiting and blocked issues retain declared input order" {
 ///|
 test "safe divide failure is current and propagates" {
   let graph = @nodeflow.Nodeflow::empty()
-  let ten = added_node(graph, @nodeflow.NodeDescriptor::Number(value=10))
-  let zero = added_node(graph, @nodeflow.NodeDescriptor::Number(value=0))
-  let divide = added_node(graph, @nodeflow.NodeDescriptor::SafeDivide)
+  let ten = added_node(graph, @application.NodeDescriptor::Number(value=10))
+  let zero = added_node(graph, @application.NodeDescriptor::Number(value=0))
+  let divide = added_node(graph, @application.NodeDescriptor::SafeDivide)
   bind(graph, divide.inputs()[0], ten.outputs()[0])
   bind(graph, divide.inputs()[1], zero.outputs()[0])
   assert_eq(
     number_at(graph, divide.outputs()[0]),
     @nodeflow.OutputObservation::Current(
-      @nodeflow.OutputData::Number(
-        @nodeflow.NumberFormulaOutcome::Failure(
-          @nodeflow.FormulaFailure::DivisionByZero,
+      @application.OutputData::Number(
+        @application.NumberFormulaOutcome::Failure(
+          @application.FormulaFailure::DivisionByZero,
         ),
       ),
     ),
   )
-  let add = added_node(graph, @nodeflow.NodeDescriptor::Add)
+  let add = added_node(graph, @application.NodeDescriptor::Add)
   bind(graph, add.inputs()[0], divide.outputs()[0])
   bind(graph, add.inputs()[1], ten.outputs()[0])
   assert_eq(
     number_at(graph, add.outputs()[0]),
     @nodeflow.OutputObservation::Current(
-      @nodeflow.OutputData::Number(
-        @nodeflow.NumberFormulaOutcome::Failure(
-          @nodeflow.FormulaFailure::DivisionByZero,
+      @application.OutputData::Number(
+        @application.NumberFormulaOutcome::Failure(
+          @application.FormulaFailure::DivisionByZero,
         ),
       ),
     ),
@@ -81,7 +81,7 @@ test "safe divide failure is current and propagates" {
 ///|
 test "self cycle becomes cyclic then unbound and recovers" {
   let graph = @nodeflow.Nodeflow::empty()
-  let add = added_node(graph, @nodeflow.NodeDescriptor::Add)
+  let add = added_node(graph, @application.NodeDescriptor::Add)
   bind(graph, add.inputs()[0], add.outputs()[0])
   let cyclic = number_at(graph, add.outputs()[0])
   let issues = unavailable_issues(cyclic)
@@ -99,14 +99,16 @@ test "self cycle becomes cyclic then unbound and recovers" {
       @nodeflow.EvaluationIssue::InputWaiting(add.inputs()[1]),
     ]),
   )
-  let ten = added_node(graph, @nodeflow.NodeDescriptor::Number(value=10))
-  let twenty = added_node(graph, @nodeflow.NodeDescriptor::Number(value=20))
+  let ten = added_node(graph, @application.NodeDescriptor::Number(value=10))
+  let twenty = added_node(graph, @application.NodeDescriptor::Number(value=20))
   bind(graph, add.inputs()[0], ten.outputs()[0])
   bind(graph, add.inputs()[1], twenty.outputs()[0])
   assert_eq(
     number_at(graph, add.outputs()[0]),
     @nodeflow.OutputObservation::Current(
-      @nodeflow.OutputData::Number(@nodeflow.NumberFormulaOutcome::Success(30)),
+      @application.OutputData::Number(
+        @application.NumberFormulaOutcome::Success(30),
+      ),
     ),
   )
   graph.close()

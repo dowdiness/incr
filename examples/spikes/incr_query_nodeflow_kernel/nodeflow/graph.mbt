@@ -1,7 +1,7 @@
 ///|
 /// Pure semantic node record.
 priv struct NodeState {
-  descriptor : NodeDescriptor
+  descriptor : @application.NodeDescriptor
   bindings : Map[PortReference, BindingTarget]
 }
 
@@ -22,122 +22,55 @@ priv struct GraphTransition {
 ///|
 priv struct PortSchema {
   direction : PortDirection
-  value_type : PortValueType
+  value_type : @application.PortValueType
   required : Bool
 }
 
 ///|
 priv struct NodeSchema {
-  kind : NodeKind
+  kind : @application.NodeKind
   ports : Array[PortSchema]
-  parameters : Array[PortValueType]
+  parameters : Array[@application.PortValueType]
   actions : Int
 }
 
 ///|
-fn descriptor_schema(descriptor : NodeDescriptor) -> NodeSchema {
-  match descriptor {
-    Number(_) =>
-      {
-        kind: NodeKind::Number,
-        ports: [
-          {
-            direction: PortDirection::Output,
-            value_type: PortValueType::Number,
-            required: false,
-          },
-        ],
-        parameters: [PortValueType::Number],
-        actions: 0,
-      }
-    Boolean(_) =>
-      {
-        kind: NodeKind::Boolean,
-        ports: [
-          {
-            direction: PortDirection::Output,
-            value_type: PortValueType::Boolean,
-            required: false,
-          },
-        ],
-        parameters: [PortValueType::Boolean],
-        actions: 0,
-      }
-    Add => math_schema(NodeKind::Add)
-    Multiply => math_schema(NodeKind::Multiply)
-    SafeDivide => math_schema(NodeKind::SafeDivide)
-    Display =>
-      {
-        kind: NodeKind::Display,
-        ports: [
-          {
-            direction: PortDirection::Input,
-            value_type: PortValueType::Number,
-            required: true,
-          },
-          {
-            direction: PortDirection::Output,
-            value_type: PortValueType::Number,
-            required: false,
-          },
-        ],
-        parameters: [],
-        actions: 1,
-      }
-    OptionalOffset(_) =>
-      {
-        kind: NodeKind::OptionalOffset,
-        ports: [
-          {
-            direction: PortDirection::Input,
-            value_type: PortValueType::Number,
-            required: true,
-          },
-          {
-            direction: PortDirection::Input,
-            value_type: PortValueType::Number,
-            required: false,
-          },
-          {
-            direction: PortDirection::Output,
-            value_type: PortValueType::Number,
-            required: false,
-          },
-        ],
-        parameters: [PortValueType::Number],
-        actions: 0,
-      }
+fn descriptor_schema(descriptor : @application.NodeDescriptor) -> NodeSchema {
+  let specification = descriptor.specification()
+  let ports : Array[PortSchema] = []
+  for port in specification.inputs {
+    ports.push({
+      direction: PortDirection::Input,
+      value_type: port.value_type,
+      required: port.required,
+    })
   }
-}
-
-///|
-fn math_schema(kind : NodeKind) -> NodeSchema {
+  for port in specification.outputs {
+    ports.push({
+      direction: PortDirection::Output,
+      value_type: port.value_type,
+      required: port.required,
+    })
+  }
+  let parameters : Array[@application.PortValueType] = []
+  for parameter in specification.parameters {
+    match parameter {
+      @application.ParameterValue::Number(_) =>
+        parameters.push(@application.PortValueType::Number)
+      @application.ParameterValue::Boolean(_) =>
+        parameters.push(@application.PortValueType::Boolean)
+    }
+  }
   {
-    kind,
-    ports: [
-      {
-        direction: PortDirection::Input,
-        value_type: PortValueType::Number,
-        required: true,
-      },
-      {
-        direction: PortDirection::Input,
-        value_type: PortValueType::Number,
-        required: true,
-      },
-      {
-        direction: PortDirection::Output,
-        value_type: PortValueType::Number,
-        required: false,
-      },
-    ],
-    parameters: [],
-    actions: 0,
+    kind: descriptor.kind(),
+    ports,
+    parameters,
+    actions: specification.action_count,
   }
 }
 
 ///|
-fn node_input_count(descriptor : NodeDescriptor) -> Int {
+fn node_input_count(descriptor : @application.NodeDescriptor) -> Int {
   let schema = descriptor_schema(descriptor)
   let mut count = 0
   for port in schema.ports {
@@ -150,7 +83,7 @@ fn node_input_count(descriptor : NodeDescriptor) -> Int {
 
 ///|
 fn descriptor_port_schema(
-  descriptor : NodeDescriptor,
+  descriptor : @application.NodeDescriptor,
   ordinal : Int,
 ) -> PortSchema? {
   let ports = descriptor_schema(descriptor).ports
@@ -162,42 +95,10 @@ fn descriptor_port_schema(
 }
 
 ///|
-fn descriptor_parameter_values(
-  descriptor : NodeDescriptor,
-) -> Array[ParameterValue] {
-  match descriptor {
-    NodeDescriptor::Number(value~) => [ParameterValue::Number(value)]
-    NodeDescriptor::Boolean(value~) => [ParameterValue::Boolean(value)]
-    NodeDescriptor::OptionalOffset(value~) => [ParameterValue::Number(value)]
-    _ => []
-  }
-}
-
-///|
-fn descriptor_with_parameter(
-  descriptor : NodeDescriptor,
-  ordinal : Int,
-  value : ParameterValue,
-) -> NodeDescriptor? {
-  if ordinal != 0 {
-    return None
-  }
-  match (descriptor, value) {
-    (NodeDescriptor::Number(_), ParameterValue::Number(value)) =>
-      Some(NodeDescriptor::Number(value~))
-    (NodeDescriptor::Boolean(_), ParameterValue::Boolean(value)) =>
-      Some(NodeDescriptor::Boolean(value~))
-    (NodeDescriptor::OptionalOffset(_), ParameterValue::Number(value)) =>
-      Some(NodeDescriptor::OptionalOffset(value~))
-    _ => None
-  }
-}
-
-///|
 fn descriptor_port_references(
   graph : Int,
   node : Int,
-  descriptor : NodeDescriptor,
+  descriptor : @application.NodeDescriptor,
 ) -> (Array[PortReference], Array[PortReference]) {
   let inputs : Array[PortReference] = []
   let outputs : Array[PortReference] = []
@@ -246,11 +147,7 @@ fn GraphState::apply(
               Err(MissingParameter)
             } else {
               match
-                descriptor_with_parameter(
-                  current.descriptor,
-                  parameter.parameter,
-                  value,
-                ) {
+                current.descriptor.with_parameter(parameter.parameter, value) {
                 None => Err(WrongParameterType)
                 Some(descriptor) => {
                   let nodes = self.nodes.copy()

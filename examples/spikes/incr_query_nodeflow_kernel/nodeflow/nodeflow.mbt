@@ -49,7 +49,7 @@ priv enum ReadFailure {
 
 ///|
 priv enum ReadResult {
-  Number(NumberFormulaOutcome)
+  Number(@application.NumberFormulaOutcome)
   Boolean(Bool)
   Unavailable(ReadOnlyArray[EvaluationIssue])
 }
@@ -120,7 +120,7 @@ fn Nodeflow::resolve_action(
     return Ok(ActionResolution::Missing)
   }
   match self.state.nodes.get(action.node) {
-    Some({ descriptor: NodeDescriptor::Display, .. }) =>
+    Some({ descriptor: @application.NodeDescriptor::Display, .. }) =>
       match self.runtime.nodes.get(action.node) {
         Some(RuntimeNode::Display(_, _, _, preparation, _)) => {
           let resolved = self.runtime.store.get(preparation) catch {
@@ -239,7 +239,7 @@ fn Nodeflow::snapshot_core(
         }
       }
     }
-    let parameter_value = descriptor_parameter_values(node_state.descriptor)
+    let parameter_value = node_state.descriptor.parameter_values()
     for parameter, value in parameter_value {
       parameter_views.push({
         parameter: parameter_reference(reference, parameter),
@@ -267,9 +267,13 @@ fn Nodeflow::snapshot_core(
               match self.read_output(output) {
                 Err(error) => return Err(error)
                 Ok(ReadResult::Number(value)) =>
-                  observations.push((port, Current(OutputData::Number(value))))
+                  observations.push(
+                    (port, Current(@application.OutputData::Number(value))),
+                  )
                 Ok(ReadResult::Boolean(value)) =>
-                  observations.push((port, Current(OutputData::Boolean(value))))
+                  observations.push(
+                    (port, Current(@application.OutputData::Boolean(value))),
+                  )
                 Ok(ReadResult::Unavailable(issues)) =>
                   observations.push((port, Unavailable(issues)))
               }
@@ -326,13 +330,7 @@ pub fn Nodeflow::invoke(
       ActionInvocationOutcome::Unavailable(issues)
     Ok(Resolved(DisplayActionPreparation::Prepared(outcome))) => {
       self.runtime.nodes.get(action.node).unwrap().record_invocation()
-      let decision = match outcome {
-        NumberFormulaOutcome::Success(value) =>
-          ApplicationDecision::Success(Command::RecordNumber(value))
-        NumberFormulaOutcome::Failure(error) =>
-          ApplicationDecision::ApplicationRefusal(error)
-      }
-      ActionInvocationOutcome::Decided(decision)
+      ActionInvocationOutcome::Decided(@application.display_decision(outcome))
     }
   }
 }
@@ -407,17 +405,17 @@ fn Nodeflow::stage_edit(
         match self.runtime.nodes.get(parameter.node) {
           Some(RuntimeNode::Number(_, source, _)) =>
             match value {
-              ParameterValue::Number(v) => tx.set(source, v)
+              @application.ParameterValue::Number(v) => tx.set(source, v)
               _ => ()
             }
           Some(RuntimeNode::Boolean(_, source, _)) =>
             match value {
-              ParameterValue::Boolean(v) => tx.set(source, v)
+              @application.ParameterValue::Boolean(v) => tx.set(source, v)
               _ => ()
             }
           Some(RuntimeNode::OptionalOffset(_, source, _, _, _, _)) =>
             match value {
-              ParameterValue::Number(v) => tx.set(source, v)
+              @application.ParameterValue::Number(v) => tx.set(source, v)
               _ => ()
             }
           _ => ()
@@ -506,10 +504,9 @@ pub fn Nodeflow::apply(
             Err(error) => raise map_publication_read_failure(error)
           }
           let descriptor = transition.state.nodes.get(node.node).unwrap().descriptor
-          let parameters = descriptor_parameter_values(descriptor).mapi((
-            ordinal,
-            _,
-          ) => parameter_reference(node, ordinal))
+          let parameters = descriptor
+            .parameter_values()
+            .mapi((ordinal, _) => parameter_reference(node, ordinal))
           let actions = Array::makei(descriptor_schema(descriptor).actions, action => {
             graph: node.graph,
             node: node.node,
