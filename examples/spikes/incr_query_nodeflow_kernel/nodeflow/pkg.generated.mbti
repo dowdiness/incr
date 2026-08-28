@@ -35,6 +35,17 @@ pub suberror GraphPublicationError {
   ReadDuringTransaction
 } derive(@debug.Debug)
 
+pub suberror GraphRestorationError {
+  RegionClosed
+  RegionMutationDuringEvaluation
+  RegionMutationDuringTransaction
+  ReadCrossStore
+  ReadClosedRegion
+  ReadExpiredContext
+  ReadReentrantRoot
+  ReadDuringTransaction
+} derive(@debug.Debug)
+
 pub suberror SurfaceReadError {
   ClosedNodeflow
   CrossStore
@@ -112,6 +123,17 @@ pub(all) enum FormulaFailure {
   DivisionByZero
 } derive(Eq, @debug.Debug)
 
+pub struct GraphDocument {
+  // private fields
+}
+pub fn GraphDocument::decode_json(StringView) -> Result[Self, GraphDocumentDecodeError]
+pub fn GraphDocument::encode_json(Self) -> String
+
+pub enum GraphDocumentDecodeError {
+  MalformedJson
+  WrongShape
+} derive(Eq, @debug.Debug)
+
 pub(all) enum GraphEdit {
   AddNode(descriptor~ : NodeDescriptor)
   SetNumberParameter(node~ : NodeReference, value~ : Int)
@@ -134,6 +156,25 @@ pub(all) enum GraphEditResult {
   Changed(SurfaceSnapshot)
 }
 
+pub struct GraphRestoration {
+  // private fields
+}
+pub fn GraphRestoration::nodeflow(Self) -> Nodeflow
+pub fn GraphRestoration::snapshot(Self) -> SurfaceSnapshot
+
+pub enum GraphRestorationRejection {
+  UnsupportedVersion
+  InvalidGraphIdentity
+  InvalidFrontier
+  DuplicateNode
+  NodeBeyondFrontier
+  InvalidDescriptor
+  DuplicateBindingTarget
+  MissingEndpoint
+  WrongDirection
+  WrongType
+} derive(Eq, @debug.Debug)
+
 pub(all) enum NodeDescriptor {
   Number(value~ : Int)
   Boolean(value~ : Bool)
@@ -152,8 +193,10 @@ pub struct Nodeflow {
 }
 pub fn Nodeflow::apply(Self, GraphEdit, ObservationDemand) -> Result[GraphEditResult, GraphEditRejection] raise GraphPublicationError
 pub fn Nodeflow::close(Self) -> Unit raise GraphCloseError
+pub fn Nodeflow::document(Self) -> GraphDocument
 pub fn Nodeflow::empty() -> Self
 pub fn Nodeflow::invoke(Self, ActionReference) -> ActionInvocationOutcome raise ActionInvocationError
+pub fn Nodeflow::restore(GraphDocument, ObservationDemand) -> Result[GraphRestoration, GraphRestorationRejection] raise GraphRestorationError
 pub fn Nodeflow::snapshot(Self, ObservationDemand) -> SurfaceSnapshot raise SurfaceReadError
 
 pub(all) enum NumberFormulaOutcome {

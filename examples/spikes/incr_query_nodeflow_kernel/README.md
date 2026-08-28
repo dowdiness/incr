@@ -19,6 +19,7 @@
 | Missing/unavailable/current demand projection | Implemented |
 | Typed Formula Failure and ordered evaluation issues | Implemented |
 | Display Action availability and explicit invocation | Implemented |
+| GraphDocument JSON codec and atomic restoration | Implemented |
 | Atomic Node removal and Region lifetime publication | Implemented |
 | Persistence | Deferred |
 | General cycles beyond the existing kernel catch shape | Deferred |

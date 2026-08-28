@@ -16,6 +16,13 @@ fn next_graph_id() -> Int {
 }
 
 ///|
+fn reserve_graph_id(id : Int) -> Unit {
+  if next_graph_ordinal.val <= id {
+    next_graph_ordinal.val = id + 1
+  }
+}
+
+///|
 /// Creates an empty graph with a fresh process-local Graph identity.
 pub fn Nodeflow::empty() -> Nodeflow {
   let store = @incr_query.Store::Store()

@@ -1,3 +1,4 @@
 import {
   "dowdiness/incr_query",
+  "moonbitlang/core/json",
 }
