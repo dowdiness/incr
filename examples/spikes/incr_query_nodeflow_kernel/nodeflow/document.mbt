@@ -30,7 +30,6 @@ pub enum GraphDocumentDecodeError {
 /// Expected semantic rejection while restoring a document.
 pub enum GraphRestorationRejection {
   UnsupportedVersion
-  GraphIdentityInUse
   InvalidGraphIdentity
   InvalidFrontier
   DuplicateNode

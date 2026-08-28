@@ -56,7 +56,7 @@ This verdict authorizes only a separately commissioned optional Nodeflow layer. 
 ## Constraints
 
 - The descriptor set and Formula implementations are closed evidence, not a production plugin model.
-- Graph Identity issuance and live-owner exclusion are process-local evidence. Identity-preserving restoration requires the prior aggregate to close; distributed issuance and graph clone policy are not established.
+- Graph Identity issuance is process-local evidence. Identity-preserving restoration may create concurrent execution domains in the same semantic lineage; references are semantic keys resolved by the explicit Nodeflow receiver, not authority-bearing capabilities. Distributed issuance and merge policy are not established.
 - Commands are immutable returned values only. No interpreter, feedback scheduler, retry, cancellation, idempotency, or external I/O is implemented.
 - Graph Document JSON is an evidence schema, not a published compatibility commitment or persistence storage engine.
 - Output demand controls observation, not cache eviction.

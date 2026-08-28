@@ -178,7 +178,6 @@ pub fn GraphRestoration::snapshot(Self) -> SurfaceSnapshot
 
 pub enum GraphRestorationRejection {
   UnsupportedVersion
-  GraphIdentityInUse
   InvalidGraphIdentity
   InvalidFrontier
   DuplicateNode

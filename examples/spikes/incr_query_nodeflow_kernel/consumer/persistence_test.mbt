@@ -29,10 +29,8 @@ test "Graph Document round-trip restores identities outputs and Actions" {
   let demand = @nodeflow.ObservationDemand::empty()
     .request(multiply.outputs()[0])
     .request_action(action)
-  assert_true(
-    @nodeflow.Nodeflow::restore(decoded, demand).unwrap_err()
-    is @nodeflow.GraphRestorationRejection::GraphIdentityInUse,
-  )
+  let restoration = @nodeflow.Nodeflow::restore(decoded, demand).unwrap()
+  let restored = restoration.nodeflow()
   ignore(
     graph
     .apply(
@@ -45,9 +43,14 @@ test "Graph Document round-trip restores identities outputs and Actions" {
     .unwrap(),
   )
   assert_eq(document.encode_json(), encoded)
-  graph.close()
-  let restoration = @nodeflow.Nodeflow::restore(decoded, demand).unwrap()
-  let restored = restoration.nodeflow()
+  assert_eq(
+    graph.invoke(action),
+    @nodeflow.ActionInvocationOutcome::Decided(
+      @nodeflow.ApplicationDecision::Success(
+        @nodeflow.Command::RecordNumber(238),
+      ),
+    ),
+  )
   assert_eq(
     restoration.snapshot().observation(multiply.outputs()[0]),
     @nodeflow.OutputObservation::Current(
@@ -71,6 +74,7 @@ test "Graph Document round-trip restores identities outputs and Actions" {
   let fresh = added_node(restored, @nodeflow.NodeDescriptor::Number(value=9))
   assert_true(fresh.node() != ten.node())
   assert_true(fresh.node() != display.node())
+  graph.close()
   restored.close()
 }
 
@@ -118,7 +122,6 @@ fn restoration_rejection_name(
 ) -> String {
   match rejection {
     @nodeflow.GraphRestorationRejection::UnsupportedVersion => "version"
-    GraphIdentityInUse => "identity-in-use"
     InvalidGraphIdentity => "graph"
     InvalidFrontier => "frontier"
     DuplicateNode => "duplicate-node"

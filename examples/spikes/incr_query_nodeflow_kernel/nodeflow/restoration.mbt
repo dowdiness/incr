@@ -124,9 +124,6 @@ pub fn Nodeflow::restore(
     Ok(_) => ()
   }
   let wire = document.wire
-  if graph_identity_is_live(wire.graph) {
-    return Err(GraphIdentityInUse)
-  }
   let store = @incr_query.Store::Store()
   let nodes : Map[Int, RuntimeNode] = Map([])
   let outputs : Map[PortReference, RuntimeOutput] = Map([])
@@ -226,6 +223,5 @@ pub fn Nodeflow::restore(
     }
   }
   reserve_graph_id(wire.graph)
-  claim_graph_identity(wire.graph)
   Ok(GraphRestoration::{ graph: restored, snapshot })
 }

@@ -13,8 +13,8 @@ A stable, opaque Nodeflow-owned identity. Graph, Node, and Node-owned Port, Para
 _Avoid_: Canvas ID, mapped UI ID, cell ID, View ID, memo ID
 
 **Graph Identity**:
-The identity of one Semantic Graph and its execution domain. It is independent of Incr Query Store and Region identities, and at most one live Nodeflow aggregate may claim it within an execution process; restoration that preserves it requires the prior owner to close first.
-_Avoid_: Store ID, document path, Canvas handle, concurrent restored owner
+The persisted identity of one Semantic Graph lineage. It is independent of Incr Query Store and Region identities and is a caller-owned semantic key, not runtime authority: the selected Nodeflow receiver determines the execution domain. Multiple restored aggregates may intentionally represent the same lineage without sharing runtime state.
+_Avoid_: Store ID, document path, Canvas handle, runtime capability, process-global ownership claim
 
 **Node Identity**:
 A Semantic Identity unique within one Graph Identity. A Graph Surface carries it directly as a generic caller-owned key and cannot mint, replace, or persistently remap it.
@@ -169,8 +169,8 @@ The application-owned persistent representation of one Semantic Graph, containin
 _Avoid_: Interactive whole-document replacement, runtime snapshot, output cache, in-flight command log, Canvas document
 
 **Graph Restoration**:
-The atomic validation and reconstruction of a Graph Document into a fresh execution domain while preserving its Semantic Identities and allocation frontier. It rejects a Graph Identity still claimed by a live aggregate; after the prior owner closes, restoration exposes no partial graph, replays no Command, restores no cached output, and recomputes demanded values from persisted semantic inputs.
-_Avoid_: Concurrent restored owner, Store deserialization, partial load, runtime identity reuse, restore-time effect replay
+The atomic validation and reconstruction of a Graph Document into a fresh execution domain while preserving its Semantic Identities and allocation frontier. Restoration may coexist with another aggregate of the same semantic lineage because operations resolve against their explicit Nodeflow receiver; it exposes no partial graph, replays no Command, restores no cached output, and recomputes demanded values from persisted semantic inputs.
+_Avoid_: Implicit runtime authority, Store deserialization, partial load, runtime identity reuse, restore-time effect replay
 
 **Output Demand**:
 An ephemeral application request to include a selected Output Port in a consumer observation. It controls observation rather than Semantic Graph meaning, never enters a Graph Document, and neither promises cache eviction when removed nor makes an unavailable output current.
