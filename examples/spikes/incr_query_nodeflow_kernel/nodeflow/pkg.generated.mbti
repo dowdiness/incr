@@ -36,20 +36,50 @@ pub suberror SurfaceReadError {
 } derive(@debug.Debug)
 
 // Types and methods
+pub struct AddedNode {
+  // private fields
+}
+pub fn AddedNode::inputs(Self) -> ReadOnlyArray[PortReference]
+pub fn AddedNode::node(Self) -> NodeReference
+pub fn AddedNode::outputs(Self) -> ReadOnlyArray[PortReference]
+pub fn AddedNode::snapshot(Self) -> SurfaceSnapshot
+
+pub(all) struct BindingChange {
+  target : PortReference
+  binding : BindingTarget
+}
+
+pub(all) enum BindingTarget {
+  Bound(PortReference)
+  Unbound
+}
+
 pub(all) enum GraphEdit {
-  AddNumberNode(value~ : Int)
+  AddNode(descriptor~ : NodeDescriptor)
+  SetNumberParameter(node~ : NodeReference, value~ : Int)
+  BindingChangeSet(changes~ : Array[BindingChange])
 }
 
 pub(all) enum GraphEditRejection {
   InvalidEdit
+  MissingNode
+  MissingPort
+  WrongDirection
+  WrongType
+  DuplicateBindingTarget
 } derive(Eq, @debug.Debug)
 
-pub struct GraphEditSuccess {
-  // private fields
+pub(all) enum GraphEditResult {
+  Added(AddedNode)
+  Changed(SurfaceSnapshot)
 }
-pub fn GraphEditSuccess::node(Self) -> NodeReference
-pub fn GraphEditSuccess::output(Self) -> PortReference
-pub fn GraphEditSuccess::snapshot(Self) -> SurfaceSnapshot
+
+pub(all) enum NodeDescriptor {
+  Number(value~ : Int)
+  Boolean(value~ : Bool)
+  Add
+  Multiply
+}
 
 pub struct NodeReference {
   // private fields
@@ -58,7 +88,7 @@ pub struct NodeReference {
 pub struct Nodeflow {
   // private fields
 }
-pub fn Nodeflow::apply(Self, GraphEdit, ObservationDemand) -> Result[GraphEditSuccess, GraphEditRejection] raise GraphPublicationError
+pub fn Nodeflow::apply(Self, GraphEdit, ObservationDemand) -> Result[GraphEditResult, GraphEditRejection] raise GraphPublicationError
 pub fn Nodeflow::close(Self) -> Unit raise GraphCloseError
 pub fn Nodeflow::empty() -> Self
 pub fn Nodeflow::snapshot(Self, ObservationDemand) -> SurfaceSnapshot raise SurfaceReadError
@@ -71,6 +101,7 @@ pub fn ObservationDemand::request(Self, PortReference) -> Self
 
 pub(all) enum OutputData {
   Number(Int)
+  Boolean(Bool)
 } derive(Eq, @debug.Debug)
 
 pub(all) enum OutputObservation {
