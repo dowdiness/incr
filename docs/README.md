@@ -97,8 +97,9 @@ evidence (the unpublished, independent pre-1.0 sibling module
 - [Implementation plans](../plans/) — active, time-bounded records in the root plan workflow; completed files are deleted with Git history as recovery, separately from the `docs/plans/` archive protocol. [Plan 016 at final disposition](https://github.com/dowdiness/incr/blob/e30cf501db5a88d7a3764e8703c1f01b2077e046/plans/016-incr-next-usability-and-distribution.md) is the immutable K2 execution record.
 - [Out-of-scope: ReachableDerived eager-when-reachable](../.out-of-scope/reachable-derived-eager-when-reachable.md) — durable wontfix record; gated on a bounded-viewport consumer driver
 
-**Research notes** ([research/](research/)) — exploratory, not implemented. Open these only when a current roadmap item, plan, or ADR calls for them.
+**Research notes and evidence records** ([research/](research/)) — investigations whose implementation status and disposition are stated in each note. Open these only when a current roadmap item, plan, ADR, or retained decision gate calls for them.
 
+- [Nodeflow production-readiness stop gate](research/2026-08-29-nodeflow-next-step-after-restoration.md) — records bounded cross-host evidence, selects no additional generic machinery, and defines the product-driver gates that reopen implementation
 - [Nodeflow production-readiness options](research/2026-08-29-nodeflow-production-readiness-options.md) — corrected cold-depth and restoration evidence, Design It Twice comparison, Store-configured active-Query-limit recommendation, and gated Skyframe-style restartable Query option
 - [Bonsai-informed core direction](research/2026-07-14-bonsai-informed-incr-core-direction.md) — gated source of truth for Runtime
   lifetime/ownership/resource-model hypotheses, including the cross-engine
