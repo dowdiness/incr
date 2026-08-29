@@ -1,0 +1,4 @@
+///|
+fn leak_document(document : @nodeflow.GraphDocument) -> Int {
+  document.wire.version
+}

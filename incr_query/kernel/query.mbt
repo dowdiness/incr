@@ -166,35 +166,41 @@ fn[K : Hash + Eq, V] QueryContext::eval_query_slow(
   key : K,
   epoch : ChangeEpoch,
 ) -> Result[V, ReadError] {
-  let start = self.session.active_stack.length()
-  core.active.set(key, start)
-  self.session.active_stack.push({
-    id: core.id,
-    definition_site: core.definition_site,
-  })
-  let result = match core.memo.get(key) {
-    Some(entry) => {
-      core.verification_count.val = core.verification_count.val + 1
-      if core.verify(key, entry, self) {
-        core.green_count.val = core.green_count.val + 1
-        core.memo.set(key, {
-          value: entry.value,
-          memo_id: entry.memo_id,
-          verified_at: epoch,
-          changed_at: entry.changed_at,
-          trace: entry.trace,
-        })
-        Ok(entry.value)
-      } else {
-        core.red_count.val = core.red_count.val + 1
-        self.compute_query(core, key, epoch)
+  match self.session.max_active_queries {
+    Some(limit) if self.session.active_stack.length().reinterpret_as_uint() >=
+      limit => Err(read_evaluation_limit_exceeded(limit))
+    _ => {
+      let start = self.session.active_stack.length()
+      core.active.set(key, start)
+      self.session.active_stack.push({
+        id: core.id,
+        definition_site: core.definition_site,
+      })
+      let result = match core.memo.get(key) {
+        Some(entry) => {
+          core.verification_count.val = core.verification_count.val + 1
+          if core.verify(key, entry, self) {
+            core.green_count.val = core.green_count.val + 1
+            core.memo.set(key, {
+              value: entry.value,
+              memo_id: entry.memo_id,
+              verified_at: epoch,
+              changed_at: entry.changed_at,
+              trace: entry.trace,
+            })
+            Ok(entry.value)
+          } else {
+            core.red_count.val = core.red_count.val + 1
+            self.compute_query(core, key, epoch)
+          }
+        }
+        None => self.compute_query(core, key, epoch)
       }
+      ignore(self.session.active_stack.pop())
+      core.active.remove(key)
+      result
     }
-    None => self.compute_query(core, key, epoch)
   }
-  ignore(self.session.active_stack.pop())
-  core.active.remove(key)
-  result
 }
 
 ///|

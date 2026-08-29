@@ -1,0 +1,4 @@
+///|
+fn leak_prepared(availability : @nodeflow.ActionAvailability) -> Int {
+  availability.prepared
+}

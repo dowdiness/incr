@@ -43,6 +43,7 @@ snippets).
 
 - [Benchmarks](performance/benchmarks.md) — microbenchmark results for core operations (input, derived, reachable-derived, batch)
 - [Snapshot roster](performance/README.md) — all dated measurement records, one line each
+- [2026-08-29 Incr Query Nodeflow boundary benchmarks](performance/2026-08-29-incr-query-nodeflow-boundaries.md) — cross-target 100–10,000-node snapshot/edit evidence and the 10,000-deep web-backend stack limit
 - [2026-07-21 Typed spreadsheet EGW adapter evidence](performance/2026-07-21-typed-spreadsheet-egw-adapter-evidence.md) — Plan 013 Phase 4 FullScan/synthetic sparse-change cost attribution; browser baseline variance blocks an EGW performance conclusion
 - [2026-07-14 Retention baseline](performance/2026-07-14-retention-baseline.md) — forgotten pull/eager lifecycle costs, same-root push-gate activation, and disposal/GC controls
 - [2026-07-15 Retention cost attribution](performance/2026-07-15-retention-cost-attribution.md) — cross-target 7a/7b reproduction, post-cleanup storage facts, push-free controls, and slot-reclamation no-go for #399
@@ -98,6 +99,7 @@ evidence (the unpublished, independent pre-1.0 sibling module
 
 **Research notes** ([research/](research/)) — exploratory, not implemented. Open these only when a current roadmap item, plan, or ADR calls for them.
 
+- [Nodeflow production-readiness options](research/2026-08-29-nodeflow-production-readiness-options.md) — corrected cold-depth and restoration evidence, Design It Twice comparison, Store-configured active-Query-limit recommendation, and gated Skyframe-style restartable Query option
 - [Bonsai-informed core direction](research/2026-07-14-bonsai-informed-incr-core-direction.md) — gated source of truth for Runtime
   lifetime/ownership/resource-model hypotheses, including the cross-engine
   lifecycle model, retention attribution resolution (#399), and Datalog

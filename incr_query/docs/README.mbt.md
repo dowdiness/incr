@@ -71,6 +71,31 @@ test "Incr Query docs: quickstart" {
 }
 ```
 
+## Optional active Query limit
+
+A Store may fix a maximum number of simultaneously active Query frames for all
+of its root reads. The option protects a measured host stack without declaring
+a semantic graph-depth limit. Zero permits Source roots but prevents entering a
+Query frame; omitting the option preserves unbounded evaluation.
+
+```mbt check
+///|
+test "Incr Query docs: Store active Query limit" {
+  let store = @incr_query.Store::Store(max_active_queries=1U)
+  let region = store.region()
+  let source = region.source(1)
+  let inner = region.derived(ctx => ctx.get(source.view()) + 1)
+  let outer = region.derived(ctx => ctx.get(inner) + 1)
+
+  let limited : Result[Int, @incr_query.ReadError] = Ok(store.get(outer)) catch {
+    error => Err(error)
+  }
+  assert_true(limited is Err(@incr_query.ReadError::EvaluationLimitExceeded(_)))
+  assert_eq(store.get(source.view()), 1)
+  assert_eq(store.get(inner), 2)
+}
+```
+
 ## Mental model
 
 | Handle | Responsibility |

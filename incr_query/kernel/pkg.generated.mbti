@@ -12,6 +12,7 @@ pub suberror ReadError {
   CrossStore(Diagnostic)
   ClosedRegion(Diagnostic)
   Cycle(Diagnostic)
+  EvaluationLimitExceeded(Diagnostic)
   ExpiredQueryContext(Diagnostic)
   ReentrantRootGet(Diagnostic)
   GetDuringTransaction(Diagnostic)
@@ -71,7 +72,7 @@ pub fn[T] Source::view(Self[T]) -> View[T]
 pub struct Store {
   // private fields
 }
-pub fn Store::Store() -> Self
+pub fn Store::Store(max_active_queries? : UInt) -> Self
 pub fn[V] Store::get(Self, View[V]) -> V raise ReadError
 pub fn Store::region(Self) -> Region raise RegionError
 pub fn[T, E] Store::transaction(Self, (Transaction) -> Result[T, E] raise TransactionError) -> Result[T, E] raise TransactionError

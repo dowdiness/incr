@@ -15,4 +15,5 @@ members = [
   "./incr_query/consumer_probe",
   "./incr_query/docs",
   "./incr_query/testkit",
+  "./examples/spikes/incr_query_nodeflow_kernel",
 ]

@@ -1,0 +1,6 @@
+///|
+fn forge_parameter_from_node(
+  node : @nodeflow.NodeReference,
+) -> @nodeflow.ParameterReference {
+  node.parameter(0)
+}

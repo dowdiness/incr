@@ -12,6 +12,7 @@ Canonical entry points:
 
 ## Snapshot roster
 
+- [2026-08-29 Incr Query Nodeflow boundary benchmarks](2026-08-29-incr-query-nodeflow-boundaries.md) — public snapshot/rebind/demanded-edit costs at 100–10,000 nodes across wasm-gc, JS, and native; broad 10,000-node JS operations remain below 9 ms, while a 10,000-deep chain exposes a web-backend stack limit.
 - [2026-07-21 Typed spreadsheet EGW adapter evidence](2026-07-21-typed-spreadsheet-egw-adapter-evidence.md) — Plan 013 Phase 4 JS release FullScan versus benchmark-only ChangedProperties lower bound for 1/10/100/2,500 changed cells; the pre-adapter browser baseline misses advisory budgets, so EGW reporting remains deferred.
 - [2026-07-15 Incremental TEA controlled-property reconciliation](2026-07-15-incr-tea-controlled-reconciliation.md) — issue #394: Chromium equal-view traversal/getter and mismatch-repair costs across 0–10,000 nodes and 0–256 controlled properties; no optimization justified.
 - [2026-07-15 Retention cost attribution](2026-07-15-retention-cost-attribution.md) — wasm-gc/native reproduction, post-cleanup slot facts, push-free controls, unresolved fixed-path cost mixture, and slot-reclamation no-go for #399.

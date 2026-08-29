@@ -1,0 +1,4 @@
+///|
+fn leak_node(node : @nodeflow.NodeReference) -> Int {
+  node.node
+}
