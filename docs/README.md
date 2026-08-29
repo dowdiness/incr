@@ -99,7 +99,7 @@ evidence (the unpublished, independent pre-1.0 sibling module
 
 **Research notes** ([research/](research/)) — exploratory, not implemented. Open these only when a current roadmap item, plan, or ADR calls for them.
 
-- [Nodeflow production-readiness options](research/2026-08-29-nodeflow-production-readiness-options.md) — corrected cold-depth and restoration evidence, Design It Twice comparison, bounded-read recommendation, and gated Skyframe-style restartable Query option
+- [Nodeflow production-readiness options](research/2026-08-29-nodeflow-production-readiness-options.md) — corrected cold-depth and restoration evidence, Design It Twice comparison, Store-configured active-Query-limit recommendation, and gated Skyframe-style restartable Query option
 - [Bonsai-informed core direction](research/2026-07-14-bonsai-informed-incr-core-direction.md) — gated source of truth for Runtime
   lifetime/ownership/resource-model hypotheses, including the cross-engine
   lifecycle model, retention attribution resolution (#399), and Datalog

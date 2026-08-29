@@ -55,7 +55,7 @@ This verdict authorizes only a separately commissioned optional Nodeflow layer. 
 
 ## Performance evidence
 
-The [2026-08-29 boundary snapshot](../../../docs/performance/2026-08-29-incr-query-nodeflow-boundaries.md) measures public snapshot, rebind, and demanded-edit operations across wasm-gc, JavaScript, and native. JavaScript remains below 9 ms at 10,000 total nodes for the measured broad/shallow workloads, so no snapshot optimization is justified. The subsequent [production-readiness investigation](../../../docs/research/2026-08-29-nodeflow-production-readiness-options.md) corrects the depth envelope: a cold direct release test passes depth 500 and fails 600 on JavaScript, passes 600 and fails 700 on wasm-gc, and passes at least 10,000 on native. It recommends a kernel-enforced, Nodeflow-selected bounded root read before production publication.
+The [2026-08-29 boundary snapshot](../../../docs/performance/2026-08-29-incr-query-nodeflow-boundaries.md) measures public snapshot, rebind, and demanded-edit operations across wasm-gc, JavaScript, and native. JavaScript remains below 9 ms at 10,000 total nodes for the measured broad/shallow workloads, so no snapshot optimization is justified. The subsequent [production-readiness investigation](../../../docs/research/2026-08-29-nodeflow-production-readiness-options.md) corrects the depth envelope: a cold direct release test passes depth 500 and fails 600 on JavaScript, passes 600 and fails 700 on wasm-gc, and passes at least 10,000 on native. Nodeflow now creates both fresh and restored Stores with a private 256-active-Query limit enforced by the kernel, projecting limit exhaustion as typed Output or Action unavailability rather than allowing a backend stack overflow.
 
 ## Constraints
 
@@ -64,5 +64,5 @@ The [2026-08-29 boundary snapshot](../../../docs/performance/2026-08-29-incr-que
 - Commands are immutable returned values only. No interpreter, feedback scheduler, retry, cancellation, idempotency, or external I/O is implemented.
 - Graph Document JSON is an evidence schema, not a published compatibility commitment or persistence storage engine.
 - Output demand controls observation, not cache eviction.
-- The measured envelope covers 10,000 broad nodes, but the production-safe dependency-depth envelope is not yet encoded. Cold web-target evaluation fails below the warmed 1,000-depth benchmark row; publication remains gated on a typed bounded-root policy or a later restartable evaluation design.
+- The measured envelope covers 10,000 broad nodes. Nodeflow fixes a 256-active-Query runtime nesting limit for every Store; this is a stack-safety policy rather than a semantic dependency-depth rejection. A later restartable evaluation design is required only if a product must evaluate deeper cold chains in one root read.
 - Canopy Canvas, Layout Profile, Presentation State, collaboration, undo/redo, CRDTs, and distributed execution remain outside this spike.

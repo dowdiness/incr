@@ -151,6 +151,9 @@ fn bench_chain_edit(
 ) -> Unit raise {
   let fixture = chain_fixture(total_size, active_depth)
   let demand = ObservationDemand::empty().request(fixture.output)
+  guard fixture.graph.snapshot(demand).observation(fixture.output) is Current(_) else {
+    abort("successful chain benchmark exceeded the Store evaluation limit")
+  }
   let mut value = 0
   b.bench(() => {
     value = value + 1
@@ -204,8 +207,8 @@ test "Nodeflow chain source edit and demanded tail N=100" (b : @bench.T) {
 }
 
 ///|
-test "Nodeflow chain source edit and demanded tail N=1000" (b : @bench.T) {
-  bench_chain_edit(b, 1000, 1000)
+test "Nodeflow source edit total N=1000 active depth=250" (b : @bench.T) {
+  bench_chain_edit(b, 1000, 250)
 }
 
 ///|

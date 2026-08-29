@@ -28,6 +28,7 @@ pub suberror ReadError {
   CrossStore(Diagnostic)
   ClosedRegion(Diagnostic)
   Cycle(Diagnostic)
+  EvaluationLimitExceeded(Diagnostic)
   ExpiredQueryContext(Diagnostic)
   ReentrantRootGet(Diagnostic)
   GetDuringTransaction(Diagnostic)
@@ -87,6 +88,16 @@ fn read_cycle(definition_path : String) -> ReadError {
     diagnostic(
       "Evaluation cannot complete because these definitions depend on each other:\n\{definition_path}",
       help="Break one dependency edge or model the shared external input as a Source.",
+    ),
+  )
+}
+
+///|
+fn read_evaluation_limit_exceeded(limit : UInt) -> ReadError {
+  EvaluationLimitExceeded(
+    diagnostic(
+      "Evaluation reached this Store's active Query limit of \{limit}.",
+      help="Demand a shallower root, precompute an intermediate root, or create a Store with a larger measured limit.",
     ),
   )
 }

@@ -41,6 +41,12 @@ for target in default native js wasm-gc; do
   NEW_MOON_MOD=0 moon test "${args[@]}" "$consumer"
 done
 
+for target in js wasm-gc; do
+  echo "==> Nodeflow $target release evaluation-limit regression"
+  NEW_MOON_MOD=0 moon test --release --target "$target" \
+    "$consumer/evaluation_limit_test.mbt"
+done
+
 bash "$module/check-negative-probes.sh"
 
 if grep -Eq '@incr_query|dowdiness/incr_query"|RuntimeNode|GraphState|DocumentWire|NumberEvaluation|DisplayActionPreparation' "$interface"; then

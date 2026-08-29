@@ -249,6 +249,7 @@ pub(all) enum GraphEditRejection {
 pub(all) enum ActionInputIssue {
   Unbound(PortReference)
   ValueUnavailable(PortReference)
+  EvaluationLimitExceeded
 } derive(Eq, Debug)
 
 ///|
@@ -285,6 +286,7 @@ pub(all) enum EvaluationIssue {
   InputWaiting(PortReference)
   BlockedEvaluation(PortReference)
   CyclicEvaluation
+  EvaluationLimitExceeded
 } derive(Eq, Debug)
 
 ///|

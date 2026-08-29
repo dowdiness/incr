@@ -100,6 +100,10 @@ _Avoid_: Public publication plan, incremental public mutation, post-commit rejec
 The category of operation-specific typed raised errors reporting that Nodeflow could not safely publish, observe, restore, or invoke an otherwise valid decision because an execution, transaction, provenance, or lifetime seam failed. Nodeflow defines no umbrella kernel-error enum, never converts these failures into expected domain rejection, and leaves an unknown raised error or `Failure` as an internal defect for quarantine.
 _Avoid_: Global NodeflowStructuralError, Graph edit rejection, invalid user action, catch-all fallback
 
+**Store Evaluation Limit**:
+The optional maximum number of simultaneously active Query frames configured for one Incr Query Store and inherited by every root read in that execution domain. Nodeflow fixes this runtime nesting limit at 256 for both fresh and restored Stores; it is a host-stack safety policy, not static Semantic Graph validation or a maximum persisted dependency depth. Reaching it leaves the graph valid and appears as expected Output or Action unavailability.
+_Avoid_: Per-read policy, node-count limit, static longest-path rejection, backend stack overflow, Structural Failure quarantine
+
 **Node Removal Publication**:
 The synchronous shell protocol for an accepted Node-removal decision. Nodeflow first publishes all disconnections and survivor unbindings in one Incr Query Transaction; after that Transaction restores the Store to idle, it idempotently closes every removed Node Region without yielding control, then installs and exposes the next Semantic Graph. A rejected edit starts neither the Transaction nor Region cleanup; under the valid publication phase close succeeds, while any raised RegionError signals a violated shell protocol and enters Structural Failure quarantine rather than becoming a Graph Edit Rejection.
 _Avoid_: Asynchronous cleanup, public Removing state, cleanup journal, expected close rejection, post-commit rejection
@@ -109,7 +113,7 @@ The evaluation condition of a Node with at least one unbound required Input Port
 _Avoid_: Evaluation error, implicit zero, automatic Node deletion, making every Formula handle missing required inputs
 
 **Unavailable Output**:
-An Output Port with no current semantic value because its Node cannot presently evaluate. When a Node enters Input Waiting, its previous output becomes unavailable immediately and is never supplied to downstream Formulas as if it were current. A Graph Surface may retain that previous value only as explicitly stale presentation, not as Semantic Graph state or a computable value.
+An Output Port with no current semantic value because its Node cannot presently evaluate or the demanded root reached its Store Evaluation Limit. When a Node enters Input Waiting, its previous output becomes unavailable immediately and is never supplied to downstream Formulas as if it were current. A Graph Surface may retain that previous value only as explicitly stale presentation, not as Semantic Graph state or a computable value.
 _Avoid_: Last value wins, implicit cache value, current output, silent stale propagation
 
 **Blocked Evaluation**:
@@ -153,7 +157,7 @@ The ordinary Surface Snapshot result for one requested Action Reference: Missing
 _Avoid_: Cached invocation permission, automatic Action, missing-Action exception
 
 **Action Input Issue**:
-A reason that Action input preparation is currently Unavailable: either a required Input Port is unbound or its connected Output Port has no current value. A compatible failed Formula Outcome is a current value and is not an Action Input Issue.
+A reason that Action input preparation is currently Unavailable: a required Input Port is unbound, its connected Output Port has no current value, or the demanded preparation reached the Store Evaluation Limit. A compatible failed Formula Outcome is a current value and is not an Action Input Issue.
 _Avoid_: Formula failure, Structural Failure, upstream waiting, implicit stale value
 
 **Action Invocation Rejection**:
@@ -185,7 +189,7 @@ The ordinary Surface Snapshot result for one demanded Port Reference: Missing wh
 _Avoid_: Raw View read, ClosedRegion as stale-demand control flow, last-good semantic value, Formula failure as unavailable
 
 **Reactive Turn**:
-The private synchronous shell interval started by every Surface Snapshot request, optionally immediately after a successful apply or restore publication, in which each demanded output root is observed at most once against one committed state before another external input or callback may interleave. Transaction staging never refreshes a root; a Cycle may be quarantined for its demanded root, while any other Structural Failure aborts the turn rather than becoming application data.
+The private synchronous shell interval started by every Surface Snapshot request, optionally immediately after a successful apply or restore publication, in which each demanded output root is observed at most once against one committed state before another external input or callback may interleave. Transaction staging never refreshes a root; a Cycle or Store Evaluation Limit may make only its demanded root unavailable, while a Structural Failure aborts the turn rather than becoming application data.
 _Avoid_: Public scheduler interface, per-write refresh, re-entrant projection callback, asynchronous graph evaluation, ambient Revision, catch-all structural recovery
 
 **Surface Snapshot**:

@@ -10,7 +10,7 @@
 
 **Disposition:** permanent dated measurement snapshot; benchmark source remains a regression and attribution probe.
 
-**Cold-depth correction:** the timing rows below describe the warmed `@bench.T` process, not a production-safe dependency-depth envelope. A direct cold release test passes depth 500 and fails 600 on JavaScript, passes 600 and fails 700 on wasm-gc, and passes at least 10,000 on native. The [production-readiness investigation](../research/2026-08-29-nodeflow-production-readiness-options.md) supersedes this snapshot's earlier depth interpretation; its direct file-path command is the acceptance probe.
+**Cold-depth correction:** the timing rows below describe the warmed `@bench.T` process before Nodeflow configured its Store evaluation limit, not a production-safe dependency-depth envelope. A direct cold release test passes depth 500 and fails 600 on JavaScript, passes 600 and fails 700 on wasm-gc, and passes at least 10,000 on native. The [production-readiness investigation](../research/2026-08-29-nodeflow-production-readiness-options.md) supersedes this snapshot's earlier depth interpretation; its direct file-path command is the acceptance probe. After adopting the 256-active-Query Store policy, the maintained successful N=1,000 benchmark uses active depth 250 and verifies a Current preflight before timing; its first release JS measurement is 861.58 µs ± 11.92 µs.
 
 ## Question
 

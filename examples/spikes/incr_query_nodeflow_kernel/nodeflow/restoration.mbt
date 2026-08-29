@@ -124,7 +124,9 @@ pub fn Nodeflow::restore(
     Ok(_) => ()
   }
   let wire = document.wire
-  let store = @incr_query.Store::Store()
+  let store = @incr_query.Store::Store(
+    max_active_queries=NODEFLOW_MAX_ACTIVE_QUERIES,
+  )
   let nodes : Map[Int, RuntimeNode] = Map([])
   let outputs : Map[PortReference, RuntimeOutput] = Map([])
   let ordered = wire.nodes.copy()

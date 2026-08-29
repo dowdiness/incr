@@ -19,7 +19,11 @@ publications and recompute selected or dynamically changed branches. Query keys
 use the public `K : Hash + Eq` bound; callers must keep key hashing and equality
 stable while a key is retained. Structural kernel failures propagate through
 concrete typed `raise`, while Domain Outcomes remain values inside `V` (for
-example `V = Result[Value, DomainError]`).
+example `V = Result[Value, DomainError]`). `Store::Store` also accepts an
+optional `max_active_queries : UInt` policy. A configured Store applies that
+limit to every root evaluation and raises `ReadError::EvaluationLimitExceeded`
+before entering an additional Query frame; omitting it preserves unbounded
+behavior, and zero still permits Source roots.
 
 K1.2c keeps failed structural recomputes on the current error channel,
 preserves the last successful target authority, and releases temporary traces

@@ -4,7 +4,7 @@
 
 **Reader:** maintainers deciding how to harden the Incr Query Nodeflow layer without adding speculative machinery.
 
-**Decision:** recommend a bounded root-read mechanism enforced by Incr Query and selected privately by Nodeflow, plus indexed restoration validation, exhaustive runtime state matching, and an explicit version-1 persistence contract. Do not add a Nodeflow scheduler, static graph-depth validator, async evaluator, or general Formula framework. Keep a Skyframe-style restartable Query as the strongest long-term experiment only if a real product must exceed the bounded depth.
+**Decision:** recommend an optional Store-configured active Query limit enforced by Incr Query and selected privately by Nodeflow, plus indexed restoration validation, exhaustive runtime state matching, and an explicit version-1 persistence contract. Do not add a Nodeflow scheduler, static graph-depth validator, async evaluator, or general Formula framework. Keep a Skyframe-style restartable Query as the strongest long-term experiment only if a real product must exceed the bounded depth.
 
 **Keep until:** these recommendations are either implemented and compressed into durable ADRs, rejected by new evidence, or superseded by a newer production-readiness investigation.
 
@@ -12,7 +12,7 @@
 
 ## Executive finding
 
-A better near-term design exists than either “accept the host stack” or “build an iterative Nodeflow evaluator.” The kernel already knows the actual dynamic Query nesting through `EvalSession.active_stack`. A new bounded root read can stop before entering an unsafe nested Query, return a typed kernel error, and let Nodeflow project that product limit as an expected unavailable observation. This is smaller and more accurate than static graph-depth analysis and does not duplicate Incr Query.
+A better near-term design exists than either “accept the host stack” or “build an iterative Nodeflow evaluator.” The kernel already knows the actual dynamic Query nesting through `EvalSession.active_stack`. An optional limit fixed when the Store is created can stop before entering an unsafe nested Query, return a typed kernel error, and let Nodeflow project that product limit as an expected unavailable observation. Store lifetime configuration prevents individual reads from omitting or varying the policy. This is smaller and more accurate than static graph-depth analysis and does not duplicate Incr Query.
 
 A second better idea exists for the long term. Bazel Skyframe avoids suspending arbitrary direct-style callbacks: a function asks for a dependency, returns incomplete when it is unavailable, and is invoked again after the dependency completes. An opt-in restartable Incr Query constructor could use the same model with pure, replayable callbacks. It is more implementable in MoonBit than a hidden trampoline or heterogeneous continuation stack, but it is not justified until a consumer needs dependency depth beyond the bounded production envelope.
 
@@ -78,17 +78,16 @@ The current kernel correctly records dynamic dependencies only after successful 
 
 ## Design It Twice comparison
 
-### A. Kernel-owned bounded root read — recommended now
+### A. Store-configured active Query limit — recommended now
 
-**Interface sketch**
+**Interface**
 
 ```text
-Store::get_with_query_limit(view, max_active_queries)
-  -> V
-  raise ReadError including EvaluationLimitExceeded
+Store::Store(max_active_queries? : UInt)
+Store::get(view) -> V raise ReadError including EvaluationLimitExceeded
 ```
 
-`Store::get` remains unchanged for compatibility. The bounded operation installs `max_active_queries` in the private root `EvalSession`. `eval_query_slow` checks the current `active_stack.length()` before `core.active.set` and `active_stack.push`. Cycle lookup still occurs first, so a real Cycle keeps its current witness and precedence.
+Omitting the option preserves the existing unbounded Store behavior. A configured Store installs `max_active_queries` in every private root `EvalSession`; individual reads cannot omit or vary it. `eval_query_slow` checks the current `active_stack.length()` before `core.active.set` and `active_stack.push`. Cycle lookup still occurs first, so a real Cycle keeps its current witness and precedence. Zero is valid: Source roots remain readable while every Query root reaches the configured limit.
 
 Nodeflow privately selects a conservative initial limit of 256 for its fixed, small-frame Formula closures. It catches only `EvaluationLimitExceeded` and maps it to explicit product outcomes:
 
@@ -112,7 +111,7 @@ Other `ReadError` variants retain operation-specific typed `raise`. A budget bre
 
 - bounds Query nesting, not arbitrary recursion inside user callbacks;
 - the value 256 is a Nodeflow policy and must be validated in browser release builds;
-- the kernel receives one narrow new root-read operation and one typed error variant.
+- the kernel receives one optional Store constructor parameter and one typed error variant.
 
 ### B. Static Nodeflow graph-depth validation — reject
 
@@ -212,8 +211,8 @@ This is hard to reverse and should become an ADR only when publication is commis
 ### P0 — deterministic safety
 
 1. Add cold release depth probes for JS and wasm-gc using direct file-path execution.
-2. Add kernel bounded root read and guard cleanup tests at `limit-1`, `limit`, and `limit+1`.
-3. Set Nodeflow’s private limit to 256 and map only budget exhaustion to expected output/action unavailability.
+2. Add the optional Store limit and guard cleanup tests at `limit-1`, `limit`, and `limit+1`.
+3. Create both fresh and restored Nodeflow Stores with the private limit 256 and map only limit exhaustion to expected output/action unavailability.
 4. Quarantine only on non-budget structural failures after publication.
 
 ### P1 — remove measured and explicit debt
@@ -245,4 +244,4 @@ Checked but rejected:
 
 ## Verdict
 
-The immediate recommendation is **bounded direct evaluation**, not an iterative rewrite. It raises production readiness with a small deep interface and converts a backend crash into deterministic product behavior. The genuinely better unbounded design is **restartable Query**, inspired by Skyframe, but it should remain a gated prototype until depth above 256 has a real driver.
+The immediate recommendation is **Store-configured bounded direct evaluation**, not an iterative rewrite. It raises production readiness with a small deep interface, applies one policy consistently to every Store read, and converts a backend crash into deterministic product behavior. The genuinely better unbounded design is **restartable Query**, inspired by Skyframe, but it should remain a gated prototype until depth above 256 has a real driver.

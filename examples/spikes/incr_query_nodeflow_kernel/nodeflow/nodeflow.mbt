@@ -9,6 +9,9 @@ pub struct Nodeflow {
 let next_graph_ordinal : Ref[Int] = Ref(1)
 
 ///|
+const NODEFLOW_MAX_ACTIVE_QUERIES : UInt = 256U
+
+///|
 fn next_graph_id() -> Int {
   let result = next_graph_ordinal.val
   next_graph_ordinal.val = result + 1
@@ -25,7 +28,9 @@ fn reserve_graph_id(id : Int) -> Unit {
 ///|
 /// Creates an empty graph with a fresh process-local Graph identity.
 pub fn Nodeflow::empty() -> Nodeflow {
-  let store = @incr_query.Store::Store()
+  let store = @incr_query.Store::Store(
+    max_active_queries=NODEFLOW_MAX_ACTIVE_QUERIES,
+  )
   let graph = next_graph_id()
   {
     state: { graph, next_node: 0, nodes: Map([]) },
@@ -72,6 +77,14 @@ fn Nodeflow::read_output(
               ReadOnlyArray::from_array([EvaluationIssue::CyclicEvaluation]),
             ),
           )
+        @incr_query.ReadError::EvaluationLimitExceeded(_) =>
+          return Ok(
+            ReadResult::Unavailable(
+              ReadOnlyArray::from_array([
+                EvaluationIssue::EvaluationLimitExceeded,
+              ]),
+            ),
+          )
         @incr_query.ReadError::ExpiredQueryContext(_) =>
           return Err(ReadFailure::ExpiredContext)
         @incr_query.ReadError::ReentrantRootGet(_) =>
@@ -93,6 +106,14 @@ fn Nodeflow::read_output(
           Ok(
             ReadResult::Unavailable(
               ReadOnlyArray::from_array([EvaluationIssue::CyclicEvaluation]),
+            ),
+          )
+        @incr_query.ReadError::EvaluationLimitExceeded(_) =>
+          Ok(
+            ReadResult::Unavailable(
+              ReadOnlyArray::from_array([
+                EvaluationIssue::EvaluationLimitExceeded,
+              ]),
             ),
           )
         @incr_query.ReadError::ExpiredQueryContext(_) =>
@@ -138,6 +159,16 @@ fn Nodeflow::resolve_action(
                         node: action.node,
                         port: 0,
                       }),
+                    ]),
+                  ),
+                ),
+              )
+            @incr_query.ReadError::EvaluationLimitExceeded(_) =>
+              return Ok(
+                ActionResolution::Resolved(
+                  DisplayActionPreparation::Unavailable(
+                    ReadOnlyArray::from_array([
+                      ActionInputIssue::EvaluationLimitExceeded,
                     ]),
                   ),
                 ),

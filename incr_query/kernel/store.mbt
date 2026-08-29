@@ -4,12 +4,18 @@ pub struct Store {
   priv id : StoreId
   priv change_epoch : Ref[Int]
   priv next_sequence : Ref[Int]
+  priv max_active_queries : UInt?
 }
 
 ///|
-/// Creates an empty Store.
-pub fn Store::Store() -> Store {
-  { id: fresh_store_id(), change_epoch: Ref(0), next_sequence: Ref(1) }
+/// Creates an empty Store with an optional active Query nesting limit.
+pub fn Store::Store(max_active_queries? : UInt) -> Store {
+  {
+    id: fresh_store_id(),
+    change_epoch: Ref(0),
+    next_sequence: Ref(1),
+    max_active_queries,
+  }
 }
 
 ///|
@@ -31,6 +37,7 @@ fn[V] Store::get_result(self : Store, view : View[V]) -> Result[V, ReadError] {
           owner: self.id,
           change_epoch: self.change_epoch.val,
           active_stack: [],
+          max_active_queries: self.max_active_queries,
           active: Ref(true),
         }
         let context = QueryContext::root(session)

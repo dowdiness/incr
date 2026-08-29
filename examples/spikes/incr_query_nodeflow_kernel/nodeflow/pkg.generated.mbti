@@ -65,6 +65,7 @@ pub(all) enum ActionAvailability {
 pub(all) enum ActionInputIssue {
   Unbound(PortReference)
   ValueUnavailable(PortReference)
+  EvaluationLimitExceeded
 } derive(Eq, @debug.Debug)
 
 pub(all) enum ActionInvocationOutcome {
@@ -121,6 +122,7 @@ pub(all) enum EvaluationIssue {
   InputWaiting(PortReference)
   BlockedEvaluation(PortReference)
   CyclicEvaluation
+  EvaluationLimitExceeded
 } derive(Eq, @debug.Debug)
 
 pub struct GraphDocument {
