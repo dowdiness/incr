@@ -385,6 +385,20 @@ pub fn Nodeflow::snapshot(
 }
 
 ///|
+fn Nodeflow::snapshot_after_publication(
+  self : Nodeflow,
+  demand : ObservationDemand,
+) -> SurfaceSnapshot raise GraphPublicationError {
+  match self.snapshot_core(demand) {
+    Ok(value) => value
+    Err(error) => {
+      self.runtime.lifecycle.val = RuntimeLifecycle::Quarantined
+      raise map_publication_read_failure(error)
+    }
+  }
+}
+
+///|
 fn Nodeflow::stage_removal(
   self : Nodeflow,
   unbound : Array[PortReference],
@@ -530,10 +544,7 @@ pub fn Nodeflow::apply(
             self.runtime.outputs[port] = output
           }
           self.state = transition.state
-          let snapshot = match self.snapshot_core(demand) {
-            Ok(value) => value
-            Err(error) => raise map_publication_read_failure(error)
-          }
+          let snapshot = self.snapshot_after_publication(demand)
           let descriptor = transition.state.nodes.get(node.node).unwrap().descriptor
           let parameters = descriptor
             .parameter_values()
@@ -559,10 +570,7 @@ pub fn Nodeflow::apply(
             None => {
               self.stage_edit(edit)
               self.state = transition.state
-              let snapshot = match self.snapshot_core(demand) {
-                Ok(value) => value
-                Err(error) => raise map_publication_read_failure(error)
-              }
+              let snapshot = self.snapshot_after_publication(demand)
               Ok(GraphEditResult::Changed(snapshot))
             }
             Some((removed, unbound)) => {
@@ -594,10 +602,7 @@ pub fn Nodeflow::apply(
                 }
               }
               self.state = transition.state
-              let snapshot = match self.snapshot_core(demand) {
-                Ok(value) => value
-                Err(error) => raise map_publication_read_failure(error)
-              }
+              let snapshot = self.snapshot_after_publication(demand)
               Ok(GraphEditResult::Changed(snapshot))
             }
           }

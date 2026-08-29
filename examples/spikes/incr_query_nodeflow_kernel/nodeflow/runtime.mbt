@@ -247,64 +247,62 @@ fn make_math_runtime(
       NumberBinding::Unbound => None
       NumberBinding::Bound(view) => Some(ctx.get(view))
     }
-    let issues : Array[EvaluationIssue] = []
-    match left_evaluation {
-      None =>
-        issues.push(
-          EvaluationIssue::InputWaiting({
-            graph: node.graph,
-            node: node.node,
-            port: 0,
-          }),
-        )
-      Some(NumberEvaluation::Unavailable(_)) =>
-        issues.push(
-          EvaluationIssue::BlockedEvaluation({
-            graph: node.graph,
-            node: node.node,
-            port: 0,
-          }),
-        )
-      Some(NumberEvaluation::Current(_)) => ()
-    }
-    match right_evaluation {
-      None =>
-        issues.push(
-          EvaluationIssue::InputWaiting({
-            graph: node.graph,
-            node: node.node,
-            port: 1,
-          }),
-        )
-      Some(NumberEvaluation::Unavailable(_)) =>
-        issues.push(
-          EvaluationIssue::BlockedEvaluation({
-            graph: node.graph,
-            node: node.node,
-            port: 1,
-          }),
-        )
-      Some(NumberEvaluation::Current(_)) => ()
-    }
-    if issues.length() > 0 {
-      NumberEvaluation::Unavailable(ReadOnlyArray::from_array(issues))
-    } else {
-      match (left_evaluation, right_evaluation) {
-        (
-          Some(NumberEvaluation::Current(left)),
-          Some(NumberEvaluation::Current(right)),
-        ) => {
-          compute_count.val = compute_count.val + 1
-          let result = if operation == 0 {
-            @application.evaluate_add(left, right)
-          } else if operation == 1 {
-            @application.evaluate_multiply(left, right)
-          } else {
-            @application.evaluate_safe_divide(left, right)
-          }
-          NumberEvaluation::Current(result)
+    match (left_evaluation, right_evaluation) {
+      (
+        Some(NumberEvaluation::Current(left)),
+        Some(NumberEvaluation::Current(right)),
+      ) => {
+        compute_count.val = compute_count.val + 1
+        let result = if operation == 0 {
+          @application.evaluate_add(left, right)
+        } else if operation == 1 {
+          @application.evaluate_multiply(left, right)
+        } else {
+          @application.evaluate_safe_divide(left, right)
         }
-        _ => abort("inputs unexpectedly unavailable")
+        NumberEvaluation::Current(result)
+      }
+      (left_evaluation, right_evaluation) => {
+        let issues : Array[EvaluationIssue] = []
+        match left_evaluation {
+          None =>
+            issues.push(
+              EvaluationIssue::InputWaiting({
+                graph: node.graph,
+                node: node.node,
+                port: 0,
+              }),
+            )
+          Some(NumberEvaluation::Unavailable(_)) =>
+            issues.push(
+              EvaluationIssue::BlockedEvaluation({
+                graph: node.graph,
+                node: node.node,
+                port: 0,
+              }),
+            )
+          Some(NumberEvaluation::Current(_)) => ()
+        }
+        match right_evaluation {
+          None =>
+            issues.push(
+              EvaluationIssue::InputWaiting({
+                graph: node.graph,
+                node: node.node,
+                port: 1,
+              }),
+            )
+          Some(NumberEvaluation::Unavailable(_)) =>
+            issues.push(
+              EvaluationIssue::BlockedEvaluation({
+                graph: node.graph,
+                node: node.node,
+                port: 1,
+              }),
+            )
+          Some(NumberEvaluation::Current(_)) => ()
+        }
+        NumberEvaluation::Unavailable(ReadOnlyArray::from_array(issues))
       }
     }
   }) catch {
