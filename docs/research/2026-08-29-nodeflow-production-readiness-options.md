@@ -56,7 +56,9 @@ A release JS microbenchmark times `validate_document` with a prebuilt document, 
 | Independent nodes | 292.54 µs | 3.50 ms |
 | Linear bound chain | 2.99 ms | 188.97 ms |
 
-The cause is concrete: restoration scans `wire.nodes` for each bound provider. The existing first pass already checks identity uniqueness; extending it to build `Map[Int, DocumentNode]` makes provider resolution expected O(1) and removes the measured quadratic shape. This optimization is now evidence-backed.
+The cause is concrete: restoration scanned `wire.nodes` for each bound provider. A later cross-target comparison superseded the initial `Map[Int, DocumentNode]` recommendation with a private lazy schema index. The existing identity pass now builds one live-Node-sized Map whose entries retain the descriptor and derive `NodeSchema` only when binding validation needs it. Provider resolution is expected O(1), repeated schema construction is removed, and independent Nodes pay no eager schema cost.
+
+The committed 10,000-Node fixtures reduce JavaScript validation from 110.71 ms to 6.11 ms for a one-binding linear document and from 209.80 ms to 6.73 ms for dense bindings. Equivalent wasm-gc and native results, full restore-and-close measurements, and variance cautions are recorded in the [Nodeflow boundary benchmarks](../performance/2026-08-29-incr-query-nodeflow-boundaries.md).
 
 Source: [`restoration.mbt`](../../examples/spikes/incr_query_nodeflow_kernel/nodeflow/restoration.mbt), `validate_document`.
 
