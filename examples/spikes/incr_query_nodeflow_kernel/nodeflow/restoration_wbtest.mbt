@@ -163,3 +163,64 @@ test "restoration accepts sparse non-monotonic provider identities" {
   }
   assert_eq(validate_document(document), Ok(()))
 }
+
+///|
+test "restoration preserves semantic rejection order across document nodes" {
+  let graph = 44
+  let wrong_type = wb_restoration_node(900, @application.NodeDescriptor::Add, [
+    (0, wb_bound(graph, 2, 0)),
+  ])
+  let missing_endpoint = wb_restoration_node(
+    3,
+    @application.NodeDescriptor::Add,
+    [(0, wb_bound(graph, 901, 0))],
+  )
+  let number = wb_restoration_node(
+    1,
+    @application.NodeDescriptor::Number(value=1),
+    [],
+  )
+  let boolean = wb_restoration_node(
+    2,
+    @application.NodeDescriptor::Boolean(value=true),
+    [],
+  )
+  let validate = nodes => {
+    validate_document({ wire: { version: 1, graph, next_node: 901, nodes } })
+  }
+  assert_eq(
+    validate([wrong_type, missing_endpoint, number, boolean]),
+    Err(GraphRestorationRejection::WrongType),
+  )
+  assert_eq(
+    validate([missing_endpoint, wrong_type, number, boolean]),
+    Err(GraphRestorationRejection::MissingEndpoint),
+  )
+}
+
+///|
+test "late-invalid restoration fixture has a valid prefix" {
+  let graph = 45
+  let source = wb_restoration_node(
+    0,
+    @application.NodeDescriptor::Number(value=1),
+    [],
+  )
+  let first = wb_restoration_node(1, @application.NodeDescriptor::Add, [
+    (0, wb_bound(graph, 0, 0)),
+  ])
+  let second = wb_restoration_node(2, @application.NodeDescriptor::Add, [
+    (0, wb_bound(graph, 1, 2)),
+  ])
+  let invalid_tail = wb_restoration_node(3, @application.NodeDescriptor::Add, [
+    (0, wb_bound(graph, 4, 2)),
+  ])
+  let document = nodes => GraphDocument::{
+    wire: { version: 1, graph, next_node: 4, nodes },
+  }
+  assert_eq(validate_document(document([source, first, second])), Ok(()))
+  assert_eq(
+    validate_document(document([source, first, second, invalid_tail])),
+    Err(GraphRestorationRejection::MissingEndpoint),
+  )
+}

@@ -84,8 +84,31 @@ fn restoration_document_fixture(
 }
 
 ///|
-fn bench_restoration_validation(b : @bench.T, document : GraphDocument) -> Unit {
+fn bench_restoration_validation(
+  b : @bench.T,
+  document : GraphDocument,
+  expected_rejection : GraphRestorationRejection?,
+) -> Unit {
+  match (expected_rejection, validate_document(document)) {
+    (None, Ok(_)) => ()
+    (Some(expected), Err(actual)) if expected == actual => ()
+    _ => abort("restoration benchmark fixture violated its expected outcome")
+  }
   b.bench(() => b.keep(validate_document(document)))
+}
+
+///|
+fn preflight_late_invalid_fixture(document : GraphDocument) -> Unit {
+  let prefix_nodes = document.wire.nodes.copy()
+  guard prefix_nodes.pop() is Some(_) else {
+    abort("late-invalid restoration benchmark has no invalid tail")
+  }
+  let prefix : GraphDocument = {
+    wire: { ..document.wire, nodes: prefix_nodes },
+  }
+  guard validate_document(prefix) is Ok(_) else {
+    abort("late-invalid restoration benchmark has an invalid prefix")
+  }
 }
 
 ///|
@@ -315,30 +338,46 @@ test "Nodeflow validates independent restoration N=10000" (b : @bench.T) {
   bench_restoration_validation(
     b,
     restoration_document_fixture(10000, Independent),
+    None,
   )
 }
 
 ///|
 test "Nodeflow validates linear restoration N=10000" (b : @bench.T) {
-  bench_restoration_validation(b, restoration_document_fixture(10000, Linear))
+  bench_restoration_validation(
+    b,
+    restoration_document_fixture(10000, Linear),
+    None,
+  )
 }
 
 ///|
 test "Nodeflow validates late-invalid restoration N=10000" (b : @bench.T) {
+  let document = restoration_document_fixture(10000, LateInvalid)
+  preflight_late_invalid_fixture(document)
   bench_restoration_validation(
     b,
-    restoration_document_fixture(10000, LateInvalid),
+    document,
+    Some(GraphRestorationRejection::MissingEndpoint),
   )
 }
 
 ///|
 test "Nodeflow validates high-fan-out restoration N=10000" (b : @bench.T) {
-  bench_restoration_validation(b, restoration_document_fixture(10000, FanOut))
+  bench_restoration_validation(
+    b,
+    restoration_document_fixture(10000, FanOut),
+    None,
+  )
 }
 
 ///|
 test "Nodeflow validates dense restoration N=10000" (b : @bench.T) {
-  bench_restoration_validation(b, restoration_document_fixture(10000, Dense))
+  bench_restoration_validation(
+    b,
+    restoration_document_fixture(10000, Dense),
+    None,
+  )
 }
 
 ///|
