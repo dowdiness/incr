@@ -10,6 +10,8 @@
 
 **Disposition:** permanent dated measurement snapshot; benchmark source remains a regression and attribution probe.
 
+**Cold-depth correction:** the timing rows below describe the warmed `@bench.T` process, not a production-safe dependency-depth envelope. A direct cold release test passes depth 500 and fails 600 on JavaScript, passes 600 and fails 700 on wasm-gc, and passes at least 10,000 on native. The [production-readiness investigation](../research/2026-08-29-nodeflow-production-readiness-options.md) supersedes this snapshot's earlier depth interpretation; its direct file-path command is the acceptance probe.
+
 ## Question
 
 What does the public Nodeflow operation boundary cost at 100, 1,000, and 10,000 nodes, and does dependency depth expose a different limit from graph width?
