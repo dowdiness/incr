@@ -45,3 +45,121 @@ test "semantic restoration rejection allocates no graph identity" {
   before.close()
   after.close()
 }
+
+///|
+fn wb_restoration_node(
+  id : Int,
+  descriptor : @application.NodeDescriptor,
+  bindings : Array[(Int, BindingTarget)],
+) -> DocumentNode {
+  { id, descriptor, bindings }
+}
+
+///|
+fn wb_bound(graph : Int, node : Int, port : Int) -> BindingTarget {
+  BindingTarget::Bound({ graph, node, port })
+}
+
+///|
+test "restoration validates identity before binding details" {
+  let graph = 41
+  let duplicate_with_invalid_binding : GraphDocument = {
+    wire: {
+      version: 1,
+      graph,
+      next_node: 2,
+      nodes: [
+        wb_restoration_node(0, @application.NodeDescriptor::Add, [
+          (9, wb_bound(graph, 99, 99)),
+        ]),
+        wb_restoration_node(0, @application.NodeDescriptor::Number(value=1), []),
+      ],
+    },
+  }
+  assert_eq(
+    validate_document(duplicate_with_invalid_binding),
+    Err(GraphRestorationRejection::DuplicateNode),
+  )
+  let beyond_frontier_with_duplicate : GraphDocument = {
+    wire: {
+      version: 1,
+      graph,
+      next_node: 1,
+      nodes: [
+        wb_restoration_node(1, @application.NodeDescriptor::Number(value=1), []),
+        wb_restoration_node(1, @application.NodeDescriptor::Number(value=2), []),
+      ],
+    },
+  }
+  assert_eq(
+    validate_document(beyond_frontier_with_duplicate),
+    Err(GraphRestorationRejection::NodeBeyondFrontier),
+  )
+}
+
+///|
+test "restoration preserves binding rejection order" {
+  let graph = 42
+  let number = wb_restoration_node(
+    1,
+    @application.NodeDescriptor::Number(value=1),
+    [],
+  )
+  let boolean = wb_restoration_node(
+    2,
+    @application.NodeDescriptor::Boolean(value=true),
+    [],
+  )
+  let input_node = wb_restoration_node(3, @application.NodeDescriptor::Add, [])
+  let check = (bindings, expected) => {
+    let document : GraphDocument = {
+      wire: {
+        version: 1,
+        graph,
+        next_node: 4,
+        nodes: [{ ..input_node, bindings, }, number, boolean],
+      },
+    }
+    assert_eq(validate_document(document), Err(expected))
+  }
+  check(
+    [(9, wb_bound(graph, 1, 0)), (9, BindingTarget::Unbound)],
+    GraphRestorationRejection::InvalidDescriptor,
+  )
+  check(
+    [(0, wb_bound(graph, 1, 0)), (0, BindingTarget::Unbound)],
+    GraphRestorationRejection::DuplicateBindingTarget,
+  )
+  check(
+    [(0, wb_bound(graph, 99, 0)), (1, wb_bound(graph, 2, 0))],
+    GraphRestorationRejection::MissingEndpoint,
+  )
+  check(
+    [(0, wb_bound(graph, 3, 0)), (1, wb_bound(graph, 2, 0))],
+    GraphRestorationRejection::WrongDirection,
+  )
+  check(
+    [(0, wb_bound(graph, 2, 0)), (1, wb_bound(graph, 99, 0))],
+    GraphRestorationRejection::WrongType,
+  )
+}
+
+///|
+test "restoration accepts sparse non-monotonic provider identities" {
+  let graph = 43
+  let low = wb_restoration_node(7, @application.NodeDescriptor::Add, [
+    (0, wb_bound(graph, 1000000, 0)),
+  ])
+  let high = wb_restoration_node(
+    1000000,
+    @application.NodeDescriptor::Number(value=1),
+    [],
+  )
+  let middle = wb_restoration_node(999999, @application.NodeDescriptor::Add, [
+    (0, wb_bound(graph, 7, 2)),
+  ])
+  let document : GraphDocument = {
+    wire: { version: 1, graph, next_node: 1000001, nodes: [low, high, middle] },
+  }
+  assert_eq(validate_document(document), Ok(()))
+}
