@@ -70,18 +70,6 @@ fn descriptor_schema(descriptor : @application.NodeDescriptor) -> NodeSchema {
 }
 
 ///|
-fn node_input_count(descriptor : @application.NodeDescriptor) -> Int {
-  let schema = descriptor_schema(descriptor)
-  let mut count = 0
-  for port in schema.ports {
-    if port.direction is PortDirection::Input {
-      count = count + 1
-    }
-  }
-  count
-}
-
-///|
 fn descriptor_port_schema(
   descriptor : @application.NodeDescriptor,
   ordinal : Int,

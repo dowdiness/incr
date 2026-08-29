@@ -9,7 +9,19 @@ fn bench_restore(document : GraphDocument) -> Nodeflow raise {
 }
 
 ///|
-fn restoration_document_fixture(size : Int, shape : String) -> GraphDocument {
+priv enum RestorationBenchmarkShape {
+  Independent
+  Linear
+  LateInvalid
+  FanOut
+  Dense
+}
+
+///|
+fn restoration_document_fixture(
+  size : Int,
+  shape : RestorationBenchmarkShape,
+) -> GraphDocument {
   let graph = 784
   let nodes : Array[DocumentNode] = [
     {
@@ -20,14 +32,14 @@ fn restoration_document_fixture(size : Int, shape : String) -> GraphDocument {
   ]
   for id in 1..<size {
     let bindings : Array[(Int, BindingTarget)] = match shape {
-      "independent" => []
-      "linear" | "late-invalid" =>
+      Independent => []
+      Linear | LateInvalid =>
         [
           (
             0,
             BindingTarget::Bound({
               graph,
-              node: if shape == "late-invalid" && id == size - 1 {
+              node: if shape is LateInvalid && id == size - 1 {
                 size
               } else {
                 id - 1
@@ -40,8 +52,8 @@ fn restoration_document_fixture(size : Int, shape : String) -> GraphDocument {
             }),
           ),
         ]
-      "fan-out" => [(0, BindingTarget::Bound({ graph, node: 0, port: 0 }))]
-      "dense" =>
+      FanOut => [(0, BindingTarget::Bound({ graph, node: 0, port: 0 }))]
+      Dense =>
         [
           (
             0,
@@ -57,11 +69,10 @@ fn restoration_document_fixture(size : Int, shape : String) -> GraphDocument {
           ),
           (1, BindingTarget::Bound({ graph, node: 0, port: 0 })),
         ]
-      _ => abort("unknown restoration benchmark shape")
     }
     nodes.push({
       id,
-      descriptor: if shape == "independent" {
+      descriptor: if shape is Independent {
         @application.NodeDescriptor::Number(value=id)
       } else {
         @application.NodeDescriptor::Add
@@ -303,42 +314,39 @@ test "Nodeflow source edit total N=10000 active depth=100" (b : @bench.T) {
 test "Nodeflow validates independent restoration N=10000" (b : @bench.T) {
   bench_restoration_validation(
     b,
-    restoration_document_fixture(10000, "independent"),
+    restoration_document_fixture(10000, Independent),
   )
 }
 
 ///|
 test "Nodeflow validates linear restoration N=10000" (b : @bench.T) {
-  bench_restoration_validation(b, restoration_document_fixture(10000, "linear"))
+  bench_restoration_validation(b, restoration_document_fixture(10000, Linear))
 }
 
 ///|
 test "Nodeflow validates late-invalid restoration N=10000" (b : @bench.T) {
   bench_restoration_validation(
     b,
-    restoration_document_fixture(10000, "late-invalid"),
+    restoration_document_fixture(10000, LateInvalid),
   )
 }
 
 ///|
 test "Nodeflow validates high-fan-out restoration N=10000" (b : @bench.T) {
-  bench_restoration_validation(
-    b,
-    restoration_document_fixture(10000, "fan-out"),
-  )
+  bench_restoration_validation(b, restoration_document_fixture(10000, FanOut))
 }
 
 ///|
 test "Nodeflow validates dense restoration N=10000" (b : @bench.T) {
-  bench_restoration_validation(b, restoration_document_fixture(10000, "dense"))
+  bench_restoration_validation(b, restoration_document_fixture(10000, Dense))
 }
 
 ///|
 test "Nodeflow fully restores independent document N=10000" (b : @bench.T) {
-  bench_full_restoration(b, restoration_document_fixture(10000, "independent"))
+  bench_full_restoration(b, restoration_document_fixture(10000, Independent))
 }
 
 ///|
 test "Nodeflow fully restores dense document N=10000" (b : @bench.T) {
-  bench_full_restoration(b, restoration_document_fixture(10000, "dense"))
+  bench_full_restoration(b, restoration_document_fixture(10000, Dense))
 }

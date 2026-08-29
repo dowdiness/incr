@@ -4,7 +4,7 @@
 
 **Reader:** maintainers deciding whether the Issue #496 Nodeflow evidence can become an optional production layer.
 
-**Decision:** retain the operation-based boundary and do not optimize broad snapshots yet. At 10,000 nodes, deliberate edits and snapshots remain below 9 ms on the JS deployment target. Do not claim support for unconstrained dependency depth: a 10,000-node linear Formula chain overflows the JS and wasm-gc stacks and requires a separate Incr Query evaluation investigation or an explicit, typed product limit.
+**Decision:** retain the operation-based boundary and do not optimize broad snapshots yet. At 10,000 nodes, deliberate edits and snapshots remain below 9 ms on the JS deployment target. Use the measured private lazy schema index for restoration validation: it removes per-binding Node scans without changing public or rejection semantics. Do not claim support for unconstrained dependency depth: a 10,000-node linear Formula chain overflows the JS and wasm-gc stacks and requires a separate Incr Query evaluation investigation or an explicit, typed product limit.
 
 **Keep until:** a newer Nodeflow benchmark supersedes these measurements or the spike is deleted.
 
@@ -18,7 +18,7 @@ What does the public Nodeflow operation boundary cost at 100, 1,000, and 10,000 
 
 ## Benchmark seam
 
-[`performance_bench_wbtest.mbt`](../../examples/spikes/incr_query_nodeflow_kernel/nodeflow/performance_bench_wbtest.mbt) uses white-box access only to construct one document directly instead of issuing a sequence of public `AddNode` operations. Document restoration and its current provider-validation scans happen before timing; this snapshot makes no fixture-setup or restoration-complexity claim. Every timed operation uses the public aggregate boundary.
+[`performance_bench_wbtest.mbt`](../../examples/spikes/incr_query_nodeflow_kernel/nodeflow/performance_bench_wbtest.mbt) uses white-box access to construct opaque documents directly instead of issuing a sequence of public `AddNode` operations. Fixture construction is always outside timing. The original edit and snapshot rows restore their fixtures before timing and use the public aggregate boundary. The restoration rows separately time private semantic validation or the complete public restore-and-close boundary.
 
 | Scenario | Timed public operation | State varied per iteration |
 |---|---|---|
@@ -49,6 +49,31 @@ The first two scenarios contain independent Number nodes plus the minimum rebind
 | Source edit + demanded tail | 1,000 / 1,000 | 3.84 ms | 1.65 ms | 1.81 ms |
 | Source edit + demanded tail | 10,000 / 100 | 14.35 ms | 8.47 ms | 6.25 ms |
 
+## Restoration results
+
+The dedicated 10,000-Node fixtures distinguish independent Nodes, a one-binding linear chain, a late-invalid chain, one-provider high fan-out, and two-bindings-per-Node dense data. The before and after measurements use the same committed fixture and release targets. They are benchmark snapshots rather than absolute CI timing gates.
+
+### Semantic validation
+
+| Shape | wasm-gc before → indexed | JavaScript before → indexed | native before → indexed |
+|---|---:|---:|---:|
+| Independent | 2.04 ms → 420.34 µs | 3.64 ms → 534.74 µs | 3.79 ms → 555.41 µs |
+| Linear | 73.09 ms → 8.55 ms | 110.71 ms → 6.11 ms | 119.68 ms → 5.02 ms |
+| Late invalid | 72.56 ms → 8.98 ms | 108.04 ms → 6.39 ms | 121.00 ms → 4.85 ms |
+| High fan-out | 72.37 ms → 8.53 ms | 105.30 ms → 5.78 ms | 89.61 ms → 4.60 ms |
+| Dense bindings | 143.02 ms → 9.97 ms | 209.80 ms → 6.73 ms | 249.32 ms → 5.13 ms |
+
+The indexed validator builds one live-Node-sized identity Map during the existing uniqueness pass. Each private entry derives and memoizes its schema only when a binding target or provider needs it. Validation still visits Nodes and bindings in document order, so rejection precedence is unchanged. Memory follows live Nodes rather than the persisted identity frontier.
+
+### Full restore and close
+
+| Shape | wasm-gc before → indexed | JavaScript before → indexed | native before → indexed |
+|---|---:|---:|---:|
+| Independent | 60.11 ms → 68.19 ms | 96.26 ms → 62.51 ms | 40.10 ms → 35.28 ms |
+| Dense bindings | 221.99 ms → 131.77 ms | 364.44 ms → 85.85 ms | 482.05 ms → 60.06 ms |
+
+Independent full-restoration samples include substantial allocation and GC variance; the wasm-gc difference is not evidence of a reliable regression. Dense-document improvements are larger than the observed run variance on every target.
+
 ## Deep-chain probe
 
 The initial matrix also ran a 10,000-node linear active chain.
@@ -66,7 +91,7 @@ The 1,000-node chain succeeds on every target. This separates two concerns: widt
 - **No broad-snapshot optimization is justified yet.** The JS deployment target stays below 9 ms for all measured 10,000-node deliberate operations. This is not evidence for running full snapshots on pointer-move frames.
 - **Structural projection dominates wide operations.** Rebinding adds little over an empty-demand snapshot at the same size because `apply` must return a complete Surface Snapshot.
 - **Dependency depth is the blocker.** The failure occurs below Nodeflow's projection layer in recursive Incr Query evaluation. Caching, a Nodeflow scheduler, or a second semantic graph would not address it.
-- **Restoration performance is unmeasured.** Fixture restoration is excluded from every row, and current semantic validation may scan document nodes per binding. Optimize it only after a dedicated restoration benchmark confirms it matters.
+- **Restoration validation is indexed.** The dedicated fixture reproduced binding-dependent quadratic scans before the change. A private lazy schema index reduces every measured validation shape while preserving original-order rejection checks and sparse identity support.
 - **Production claim is bounded.** The optional layer is adoptable for the measured envelope, but arbitrary-depth publication is not production-ready until a separate kernel investigation proves iterative evaluation or the product chooses an explicit typed limit.
 
 ## Reproduce

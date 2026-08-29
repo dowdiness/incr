@@ -41,6 +41,26 @@ fn close_restoration_nodes(
 }
 
 ///|
+priv struct RestorationNodeIndexEntry {
+  descriptor : @application.NodeDescriptor
+  mut schema : NodeSchema?
+}
+
+///|
+fn RestorationNodeIndexEntry::get_schema(
+  self : RestorationNodeIndexEntry,
+) -> NodeSchema {
+  match self.schema {
+    Some(schema) => schema
+    None => {
+      let schema = descriptor_schema(self.descriptor)
+      self.schema = Some(schema)
+      schema
+    }
+  }
+}
+
+///|
 fn validate_document(
   document : GraphDocument,
 ) -> Result[Unit, GraphRestorationRejection] {
@@ -54,56 +74,53 @@ fn validate_document(
   if wire.next_node < 0 {
     return Err(InvalidFrontier)
   }
-  let ids : Set[Int] = Set([])
+  let nodes : Map[Int, RestorationNodeIndexEntry] = Map(
+    [],
+    capacity=wire.nodes.length(),
+  )
   for node in wire.nodes {
     if node.id < 0 || node.id >= wire.next_node {
       return Err(NodeBeyondFrontier)
     }
-    if ids.contains(node.id) {
+    if nodes.contains(node.id) {
       return Err(DuplicateNode)
     }
-    ids.add(node.id)
+    nodes[node.id] = { descriptor: node.descriptor, schema: None }
   }
   for node in wire.nodes {
-    let inputs = node_input_count(node.descriptor)
-    let targets : Set[Int] = Set([])
-    for entry in node.bindings {
-      let target = entry.0
-      let binding = entry.1
-      if target < 0 || target >= inputs {
-        return Err(InvalidDescriptor)
-      }
-      let target_schema = descriptor_port_schema(node.descriptor, target).unwrap()
-      if targets.contains(target) {
-        return Err(DuplicateBindingTarget)
-      }
-      targets.add(target)
-      match binding {
-        BindingTarget::Unbound => ()
-        BindingTarget::Bound(provider) => {
-          if provider.graph != wire.graph {
-            return Err(MissingEndpoint)
-          }
-          let mut provider_node : DocumentNode? = None
-          for candidate in wire.nodes {
-            if candidate.id == provider.node {
-              provider_node = Some(candidate)
+    if !node.bindings.is_empty() {
+      let schema = nodes.get(node.id).unwrap().get_schema()
+      let targets : Set[Int] = Set([])
+      for entry in node.bindings {
+        let target = entry.0
+        let binding = entry.1
+        let target_schema = match schema.ports.get(target) {
+          Some(schema) if schema.direction is PortDirection::Input => schema
+          _ => return Err(InvalidDescriptor)
+        }
+        if targets.contains(target) {
+          return Err(DuplicateBindingTarget)
+        }
+        targets.add(target)
+        match binding {
+          BindingTarget::Unbound => ()
+          BindingTarget::Bound(provider) => {
+            if provider.graph != wire.graph {
+              return Err(MissingEndpoint)
             }
-          }
-          match provider_node {
-            None => return Err(MissingEndpoint)
-            Some(provider_node) => {
-              let provider_schema = match
-                descriptor_port_schema(provider_node.descriptor, provider.port) {
-                None => return Err(MissingEndpoint)
-                Some(schema) => schema
-              }
-              if !(provider_schema.direction is PortDirection::Output) {
-                return Err(WrongDirection)
-              }
-              if target_schema.value_type != provider_schema.value_type {
-                return Err(WrongType)
-              }
+            let provider_schema = match nodes.get(provider.node) {
+              None => return Err(MissingEndpoint)
+              Some(provider_node) =>
+                match provider_node.get_schema().ports.get(provider.port) {
+                  None => return Err(MissingEndpoint)
+                  Some(schema) => schema
+                }
+            }
+            if !(provider_schema.direction is PortDirection::Output) {
+              return Err(WrongDirection)
+            }
+            if target_schema.value_type != provider_schema.value_type {
+              return Err(WrongType)
             }
           }
         }
