@@ -9,6 +9,89 @@ fn bench_restore(document : GraphDocument) -> Nodeflow raise {
 }
 
 ///|
+fn restoration_document_fixture(size : Int, shape : String) -> GraphDocument {
+  let graph = 784
+  let nodes : Array[DocumentNode] = [
+    {
+      id: 0,
+      descriptor: @application.NodeDescriptor::Number(value=1),
+      bindings: [],
+    },
+  ]
+  for id in 1..<size {
+    let bindings : Array[(Int, BindingTarget)] = match shape {
+      "independent" => []
+      "linear" | "late-invalid" =>
+        [
+          (
+            0,
+            BindingTarget::Bound({
+              graph,
+              node: if shape == "late-invalid" && id == size - 1 {
+                size
+              } else {
+                id - 1
+              },
+              port: if id == 1 {
+                0
+              } else {
+                2
+              },
+            }),
+          ),
+        ]
+      "fan-out" => [(0, BindingTarget::Bound({ graph, node: 0, port: 0 }))]
+      "dense" =>
+        [
+          (
+            0,
+            BindingTarget::Bound({
+              graph,
+              node: id - 1,
+              port: if id == 1 {
+                0
+              } else {
+                2
+              },
+            }),
+          ),
+          (1, BindingTarget::Bound({ graph, node: 0, port: 0 })),
+        ]
+      _ => abort("unknown restoration benchmark shape")
+    }
+    nodes.push({
+      id,
+      descriptor: if shape == "independent" {
+        @application.NodeDescriptor::Number(value=id)
+      } else {
+        @application.NodeDescriptor::Add
+      },
+      bindings,
+    })
+  }
+  { wire: { version: 1, graph, next_node: size, nodes } }
+}
+
+///|
+fn bench_restoration_validation(b : @bench.T, document : GraphDocument) -> Unit {
+  b.bench(() => b.keep(validate_document(document)))
+}
+
+///|
+fn bench_full_restoration(b : @bench.T, document : GraphDocument) -> Unit {
+  b.bench(() => {
+    let result = Nodeflow::restore(document, ObservationDemand::empty()) catch {
+      _ => abort("valid restoration benchmark failed structurally")
+    }
+    let restored = result.unwrap()
+    b.keep(restored.snapshot())
+    restored.nodeflow().close() catch {
+      _ => abort("restoration benchmark failed to close")
+    }
+  })
+}
+
+///|
 fn independent_number_fixture(size : Int) -> Nodeflow raise {
   let graph = next_graph_id()
   let nodes = Array::makei(size, id => {
@@ -214,4 +297,48 @@ test "Nodeflow source edit total N=1000 active depth=250" (b : @bench.T) {
 ///|
 test "Nodeflow source edit total N=10000 active depth=100" (b : @bench.T) {
   bench_chain_edit(b, 10000, 100)
+}
+
+///|
+test "Nodeflow validates independent restoration N=10000" (b : @bench.T) {
+  bench_restoration_validation(
+    b,
+    restoration_document_fixture(10000, "independent"),
+  )
+}
+
+///|
+test "Nodeflow validates linear restoration N=10000" (b : @bench.T) {
+  bench_restoration_validation(b, restoration_document_fixture(10000, "linear"))
+}
+
+///|
+test "Nodeflow validates late-invalid restoration N=10000" (b : @bench.T) {
+  bench_restoration_validation(
+    b,
+    restoration_document_fixture(10000, "late-invalid"),
+  )
+}
+
+///|
+test "Nodeflow validates high-fan-out restoration N=10000" (b : @bench.T) {
+  bench_restoration_validation(
+    b,
+    restoration_document_fixture(10000, "fan-out"),
+  )
+}
+
+///|
+test "Nodeflow validates dense restoration N=10000" (b : @bench.T) {
+  bench_restoration_validation(b, restoration_document_fixture(10000, "dense"))
+}
+
+///|
+test "Nodeflow fully restores independent document N=10000" (b : @bench.T) {
+  bench_full_restoration(b, restoration_document_fixture(10000, "independent"))
+}
+
+///|
+test "Nodeflow fully restores dense document N=10000" (b : @bench.T) {
+  bench_full_restoration(b, restoration_document_fixture(10000, "dense"))
 }
