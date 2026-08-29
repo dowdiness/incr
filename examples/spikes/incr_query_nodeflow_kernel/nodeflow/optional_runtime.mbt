@@ -47,37 +47,46 @@ fn make_optional_offset_runtime(
             OptionalInputEvaluation::Current(value)
         }
     }
-    let issues : Array[EvaluationIssue] = []
-    match required_evaluation {
-      None => issues.push(EvaluationIssue::InputWaiting(required_ref))
-      Some(NumberEvaluation::Unavailable(_)) =>
-        issues.push(EvaluationIssue::BlockedEvaluation(required_ref))
-      Some(NumberEvaluation::Current(_)) => ()
-    }
-    if optional_evaluation is OptionalInputEvaluation::Unavailable {
-      issues.push(EvaluationIssue::BlockedEvaluation(optional_ref))
-    }
-    if !issues.is_empty() {
-      NumberEvaluation::Unavailable(ReadOnlyArray::from_array(issues))
-    } else {
-      let required_outcome = match required_evaluation {
-        Some(NumberEvaluation::Current(outcome)) => outcome
-        _ => abort("required input unexpectedly unavailable")
+    match (required_evaluation, optional_evaluation) {
+      (
+        Some(NumberEvaluation::Current(required_outcome)),
+        OptionalInputEvaluation::Absent,
+      ) => {
+        count.val = count.val + 1
+        NumberEvaluation::Current(
+          @application.evaluate_optional_offset(
+            required_outcome,
+            None,
+            ctx.get(parameter.view()),
+          ),
+        )
       }
-      let optional_outcome : @application.NumberFormulaOutcome? = match
-        optional_evaluation {
-        OptionalInputEvaluation::Absent => None
-        OptionalInputEvaluation::Current(outcome) => Some(outcome)
-        Unavailable => abort("optional input unexpectedly unavailable")
+      (
+        Some(NumberEvaluation::Current(required_outcome)),
+        OptionalInputEvaluation::Current(optional_outcome),
+      ) => {
+        count.val = count.val + 1
+        NumberEvaluation::Current(
+          @application.evaluate_optional_offset(
+            required_outcome,
+            Some(optional_outcome),
+            ctx.get(parameter.view()),
+          ),
+        )
       }
-      count.val = count.val + 1
-      NumberEvaluation::Current(
-        @application.evaluate_optional_offset(
-          required_outcome,
-          optional_outcome,
-          ctx.get(parameter.view()),
-        ),
-      )
+      (required_evaluation, optional_evaluation) => {
+        let issues : Array[EvaluationIssue] = []
+        match required_evaluation {
+          None => issues.push(EvaluationIssue::InputWaiting(required_ref))
+          Some(NumberEvaluation::Unavailable(_)) =>
+            issues.push(EvaluationIssue::BlockedEvaluation(required_ref))
+          Some(NumberEvaluation::Current(_)) => ()
+        }
+        if optional_evaluation is OptionalInputEvaluation::Unavailable {
+          issues.push(EvaluationIssue::BlockedEvaluation(optional_ref))
+        }
+        NumberEvaluation::Unavailable(ReadOnlyArray::from_array(issues))
+      }
     }
   }) catch {
     error => fail_runtime_setup(region, error)
