@@ -2,11 +2,11 @@
 
 **Reader:** maintainers evaluating a typed editable semantic graph over Incr Query.
 
-**Decision:** keep Nodeflow opaque and closed while proving typed graph edits and atomic publication.
+**Decision:** keep Nodeflow opaque and closed as adoptable optional-layer evidence; reopen implementation only through an explicit product-driver gate.
 
-**Keep until:** Issue #496's finite evidence prototype reaches a documented verdict.
+**Keep until:** Nodeflow receives a production consumer or publication commission, or the evidence layer is deleted.
 
-**Disposition:** completed buildable evidence; retain while the optional-layer decision remains active, and delete if a later production design supersedes it.
+**Disposition:** completed buildable evidence; retain under the [production-readiness stop gate](../../../docs/research/2026-08-29-nodeflow-next-step-after-restoration.md), and delete if a later production design supersedes it.
 
 ## Scope matrix
 
