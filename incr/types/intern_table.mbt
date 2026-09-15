@@ -19,7 +19,7 @@ pub impl Hash for InternId with fn hash(self) {
 
 ///|
 pub impl Hash for InternId with fn hash_combine(self, hasher) {
-  self.index.hash_combine(hasher)
+  Hash::hash_combine(self.index, hasher)
 }
 
 ///|

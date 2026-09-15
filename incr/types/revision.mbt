@@ -22,7 +22,7 @@ pub struct Revision {
 ///
 /// The initial revision
 pub fn Revision::initial() -> Revision {
-  Revision::default()
+  Default::default()
 }
 
 ///|
