@@ -41,12 +41,16 @@ fn[T] Runtime::memo_force_recompute(
   self.dispatch_before_recompute_hooks(cell_id)
   let old_deps = cell.dependencies
   @kernel.push_tracking(self.core, cell_id)
-  let new_value = compute_fn() catch {
-    e => {
-      self.dispatch_after_abort_hooks(cell_id, e)
+  let new_value = {
+    errdefer {
       let _ = @kernel.pop_tracking_full(self.core)
       cell.in_progress = false
-      raise e
+    }
+    compute_fn() catch {
+      Failure::Failure(_) as e => {
+        self.dispatch_after_abort_hooks(cell_id, e)
+        raise e
+      }
     }
   }
   let query = @kernel.pop_tracking_full(self.core)
@@ -99,12 +103,14 @@ fn[T] Runtime::static_memo_force_recompute(
   cell.in_progress = true
   self.dispatch_before_recompute_hooks(cell_id)
   self.enter_static_recompute()
-  let new_value = compute_fn() catch {
-    e => {
-      self.leave_static_recompute()
-      self.dispatch_after_abort_hooks(cell_id, e)
-      cell.in_progress = false
-      raise e
+  let new_value = {
+    errdefer { cell.in_progress = false }
+    compute_fn() catch {
+      Failure::Failure(_) as e => {
+        self.leave_static_recompute()
+        self.dispatch_after_abort_hooks(cell_id, e)
+        raise e
+      }
     }
   }
   self.leave_static_recompute()
