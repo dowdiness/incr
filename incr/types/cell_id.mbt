@@ -19,10 +19,10 @@ pub impl Show for CellId with fn output(self, logger) {
 
 ///|
 pub impl Hash for CellId with fn hash(self) {
-  self.runtime_id.hash() * 31 + self.id.hash()
+  Hash::hash(self.runtime_id) * 31 + self.id.hash()
 }
 
 ///|
 pub impl Hash for CellId with fn hash_combine(self, hasher) {
-  Hash::hash_combine(self.hash(), hasher)
+  Hash::hash_combine(Hash::hash(self), hasher)
 }

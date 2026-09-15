@@ -93,11 +93,9 @@ fn run_pull_recompute(
   if !changed {
     return Ok(())
   }
-  let compute_result = (derived.compute)() catch {
-    e => {
-      abort_pull_rebuild(pull, stack)
-      raise e
-    }
+  let compute_result = {
+    errdefer abort_pull_rebuild(pull, stack)
+    (derived.compute)()
   }
   match compute_result {
     Ok(_) => Ok(())
@@ -290,13 +288,9 @@ pub fn pull_verify(
           // pull_verify calls on target memos must observe this frame
           // as in-progress so that a cycle through an accumulator
           // producer is detected.
-          let acc_result = synthetic_accumulator_changed(
-            core, pull, slot_snapshots, memo,
-          ) catch {
-            e => {
-              abort_pull_rebuild(pull, stack)
-              raise e
-            }
+          let acc_result = {
+            errdefer abort_pull_rebuild(pull, stack)
+            synthetic_accumulator_changed(core, pull, slot_snapshots, memo)
           }
           let acc_changed = match acc_result {
             Ok(b) => b
