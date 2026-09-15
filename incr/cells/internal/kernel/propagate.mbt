@@ -21,13 +21,8 @@ pub fn advance_revision(core : RuntimeCore, durability : Durability) -> Unit {
 /// Runs a user callback while marking listener drains as deferred.
 pub fn run_callback(core : RuntimeCore, f : () -> Unit raise?) -> Unit raise? {
   core.callback_depth = core.callback_depth + 1
-  f() catch {
-    e => {
-      core.callback_depth = core.callback_depth - 1
-      raise e
-    }
-  }
-  core.callback_depth = core.callback_depth - 1
+  defer { core.callback_depth = core.callback_depth - 1 }
+  f()
 }
 
 ///|

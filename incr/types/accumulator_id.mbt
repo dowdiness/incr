@@ -18,10 +18,10 @@ pub impl Show for AccumulatorId with fn output(self, logger) {
 
 ///|
 pub impl Hash for AccumulatorId with fn hash(self) {
-  self.runtime_id.hash() * 31 + self.id.hash()
+  Hash::hash(self.runtime_id) * 31 + self.id.hash()
 }
 
 ///|
 pub impl Hash for AccumulatorId with fn hash_combine(self, hasher) {
-  self.hash().hash_combine(hasher)
+  Hash::hash_combine(Hash::hash(self), hasher)
 }

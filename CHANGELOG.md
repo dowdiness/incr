@@ -4,6 +4,12 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- Keep the core library warning-clean on MoonBit 0.10.12 by scoping test-only
+  imports, qualifying trait calls, and using scoped cleanup for callback and
+  batch failures. Recompute failure hooks retain their ordering and error value.
+
 ## [v0.15.0] - 2026-08-03
 
 Breaking release: `Watch[T]` replaces the removed `Observer[T]` API, and

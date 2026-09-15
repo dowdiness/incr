@@ -44,15 +44,15 @@
 pub fn Runtime::batch(self : Runtime, f : () -> Unit raise?) -> Unit raise? {
   self.core.batch.depth = self.core.batch.depth + 1
   self.core.batch.frames.push(BatchFrame::new())
-  f() catch {
-    e => {
+  {
+    errdefer {
       self.core.batch.depth = self.core.batch.depth - 1
       if self.core.batch.depth < 0 {
         abort("batch_depth underflow: batch() nesting is unbalanced")
       }
       self.rollback_current_batch_frame()
-      raise e
     }
+    f()
   }
   self.core.batch.depth = self.core.batch.depth - 1
   // Defense-in-depth: batch_depth is priv, but guard future modifications to mutation sites
