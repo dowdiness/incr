@@ -438,11 +438,11 @@ fn make_reader(
           _ => ()
         }
       }
-      Some(StructuralSetup::{ other_region, views: local_views })
+      Some(StructuralSetup::{ other_region, views: local_views, })
     }
     _ => None
   }
-  { read, query_read, domain_views, structural }
+  { read, query_read, domain_views, structural, }
 }
 
 ///|

@@ -18,7 +18,7 @@ priv struct Payload {
 
 ///|
 fn payload(kind : Int, value : Int) -> Payload {
-  { token: token_new(kind), value }
+  { token: token_new(kind), value, }
 }
 
 ///|
@@ -44,7 +44,7 @@ impl Hash for TraceKey with fn hash_combine(self, hasher) {
 
 ///|
 fn trace_key(kind : Int, id : Int) -> TraceKey {
-  { _token: token_new(kind), id }
+  { _token: token_new(kind), id, }
 }
 
 ///|

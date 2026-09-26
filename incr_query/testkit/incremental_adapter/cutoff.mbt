@@ -21,7 +21,7 @@ pub fn evaluate_cutoff(
     @model.CutoffKind::AlwaysChangedEquivalent => {
       let query = region.query((ctx, _unit : Unit) => {
         ignore(ctx.get(trigger.view()))
-        CutoffValue::{ value: 0 }
+        CutoffValue::{ value: 0, }
       })
       unit => store.get(query.view(unit))
     }
@@ -29,7 +29,7 @@ pub fn evaluate_cutoff(
       let query = region.query(
         (ctx, _unit : Unit) => {
           ignore(ctx.get(trigger.view()))
-          CutoffValue::{ value: 0 }
+          CutoffValue::{ value: 0, }
         },
         cutoff=@incr_query.Cutoff::equal(),
       )
@@ -39,7 +39,7 @@ pub fn evaluate_cutoff(
       let query = region.query(
         (ctx, _unit : Unit) => {
           let step = ctx.get(trigger.view())
-          CutoffValue::{ value: step }
+          CutoffValue::{ value: step, }
         },
         cutoff=@incr_query.Cutoff::equal(),
       )

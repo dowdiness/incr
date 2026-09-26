@@ -28,7 +28,7 @@ pub fn CutoffScript::CutoffScript(
   kind : CutoffKind,
   steps : Array[Int],
 ) -> CutoffScript {
-  { kind, steps: steps.copy() }
+  { kind, steps: steps.copy(), }
 }
 
 ///|

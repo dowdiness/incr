@@ -85,16 +85,16 @@ fn graph_recipe(recipe : ProofRecipe) -> GraphRecipe {
     }
     return GraphRecipe::{
       scenario: @model.Scenario::UnitQuery,
-      initial: [@model.SourceInit::{ id: 0, value: recipe.base }],
+      initial: [@model.SourceInit::{ id: 0, value: recipe.base, }],
       operations,
     }
   }
   let initial = [
-    @model.SourceInit::{ id: 0, value: recipe.base },
-    @model.SourceInit::{ id: 1, value: recipe.selector },
+    @model.SourceInit::{ id: 0, value: recipe.base, },
+    @model.SourceInit::{ id: 1, value: recipe.selector, },
   ]
   if recipe.has_unrelated {
-    initial.push(@model.SourceInit::{ id: 2, value: recipe.unrelated })
+    initial.push(@model.SourceInit::{ id: 2, value: recipe.unrelated, })
   }
   let operations = [
     ProofOperation::Read,
@@ -127,7 +127,11 @@ fn graph_recipe(recipe : ProofRecipe) -> GraphRecipe {
     }
     operations.push(ProofOperation::Read)
   }
-  GraphRecipe::{ scenario: @model.Scenario::DynamicBranch, initial, operations }
+  GraphRecipe::{
+    scenario: @model.Scenario::DynamicBranch,
+    initial,
+    operations,
+  }
 }
 
 ///|
@@ -384,7 +388,7 @@ fn add_proof_candidate(
   let graph = graph_recipe(recipe)
   if !same_graph(original, graph) &&
     !output.any(candidate => same_graph(graph_recipe(candidate.recipe), graph)) {
-    output.push(ProofShrinkCandidate::{ phase, recipe })
+    output.push(ProofShrinkCandidate::{ phase, recipe, })
   }
 }
 
@@ -403,7 +407,7 @@ fn proof_shrink_candidates(recipe : ProofRecipe) -> Array[ProofShrinkCandidate] 
       output,
       ProofShrinkPhase::UnrelatedOperations,
       original,
-      ProofRecipe::{ ..recipe, has_unrelated: false },
+      ProofRecipe::{ ..recipe, has_unrelated: false, },
     )
   }
   if recipe.atomic_writes > 0 {
@@ -516,7 +520,7 @@ test "K1.6a private proof localization replays operation prefixes" {
       keep_suffix: true,
       atomic_writes: 2,
     },
-    ProofRecipe::{ ..recipe_from_draw(7), graph_simplified: true },
+    ProofRecipe::{ ..recipe_from_draw(7), graph_simplified: true, },
   ]
   for recipe in recipes {
     let graph = graph_recipe(recipe)

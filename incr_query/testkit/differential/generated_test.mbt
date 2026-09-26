@@ -39,7 +39,7 @@ fn raw_recipe_script(recipe : Recipe) -> @model.Script {
     0 =>
       @model.Script::scenario(
         @model.Scenario::Source,
-        [@model.SourceInit::{ id: 0, value: a }],
+        [@model.SourceInit::{ id: 0, value: a, }],
         [
           @model.Operation::Read(0),
           @model.Operation::Set(0, b),
@@ -49,7 +49,7 @@ fn raw_recipe_script(recipe : Recipe) -> @model.Script {
     1 =>
       @model.Script::scenario(
         @model.Scenario::UnitQuery,
-        [@model.SourceInit::{ id: 0, value: a }],
+        [@model.SourceInit::{ id: 0, value: a, }],
         [
           @model.Operation::Read(0),
           @model.Operation::Set(0, b),
@@ -60,8 +60,8 @@ fn raw_recipe_script(recipe : Recipe) -> @model.Script {
       @model.Script::scenario(
         @model.Scenario::KeyedQuery,
         [
-          @model.SourceInit::{ id: 0, value: a },
-          @model.SourceInit::{ id: 1, value: b },
+          @model.SourceInit::{ id: 0, value: a, },
+          @model.SourceInit::{ id: 1, value: b, },
         ],
         [
           @model.Operation::ReadKey(0, a),
@@ -72,7 +72,7 @@ fn raw_recipe_script(recipe : Recipe) -> @model.Script {
     3 =>
       @model.Script::scenario(
         @model.Scenario::Chain,
-        [@model.SourceInit::{ id: 0, value: a }],
+        [@model.SourceInit::{ id: 0, value: a, }],
         [
           @model.Operation::Read(0),
           @model.Operation::Set(0, b),
@@ -82,7 +82,7 @@ fn raw_recipe_script(recipe : Recipe) -> @model.Script {
     4 =>
       @model.Script::scenario(
         @model.Scenario::Diamond,
-        [@model.SourceInit::{ id: 0, value: a }],
+        [@model.SourceInit::{ id: 0, value: a, }],
         [
           @model.Operation::Read(0),
           @model.Operation::Set(0, b),
@@ -93,8 +93,8 @@ fn raw_recipe_script(recipe : Recipe) -> @model.Script {
       @model.Script::scenario(
         @model.Scenario::UnrelatedPublication,
         [
-          @model.SourceInit::{ id: 0, value: a },
-          @model.SourceInit::{ id: 1, value: b },
+          @model.SourceInit::{ id: 0, value: a, },
+          @model.SourceInit::{ id: 1, value: b, },
         ],
         [
           @model.Operation::Read(0),
@@ -105,7 +105,7 @@ fn raw_recipe_script(recipe : Recipe) -> @model.Script {
     6 =>
       @model.Script::scenario(
         @model.Scenario::SelectedPublication,
-        [@model.SourceInit::{ id: 0, value: a }],
+        [@model.SourceInit::{ id: 0, value: a, }],
         [
           @model.Operation::Read(0),
           @model.Operation::Set(0, b),
@@ -116,8 +116,8 @@ fn raw_recipe_script(recipe : Recipe) -> @model.Script {
       @model.Script::scenario(
         @model.Scenario::DynamicBranch,
         [
-          @model.SourceInit::{ id: 0, value: a },
-          @model.SourceInit::{ id: 1, value: 0 },
+          @model.SourceInit::{ id: 0, value: a, },
+          @model.SourceInit::{ id: 1, value: 0, },
         ],
         [
           @model.Operation::Read(0),
@@ -130,7 +130,7 @@ fn raw_recipe_script(recipe : Recipe) -> @model.Script {
     9 =>
       @model.Script::scenario(
         @model.Scenario::FailureRecovery,
-        [@model.SourceInit::{ id: 0, value: 0 }],
+        [@model.SourceInit::{ id: 0, value: 0, }],
         [
           @model.Operation::Read(0),
           @model.Operation::Set(0, 1),
@@ -170,7 +170,7 @@ fn raw_recipe_script(recipe : Recipe) -> @model.Script {
     17 =>
       @model.Script::scenario(
         @model.Scenario::DeadCycleBranch,
-        [@model.SourceInit::{ id: 0, value: 0 }],
+        [@model.SourceInit::{ id: 0, value: 0, }],
         [
           @model.Operation::ReadQuery(0, 0),
           @model.Operation::Set(0, 1),
@@ -180,7 +180,7 @@ fn raw_recipe_script(recipe : Recipe) -> @model.Script {
     18 =>
       @model.Script::scenario(
         @model.Scenario::CycleRecovery,
-        [@model.SourceInit::{ id: 0, value: 0 }],
+        [@model.SourceInit::{ id: 0, value: 0, }],
         [
           @model.Operation::ReadQuery(0, 0),
           @model.Operation::Set(0, 1),
@@ -192,7 +192,7 @@ fn raw_recipe_script(recipe : Recipe) -> @model.Script {
     19 =>
       @model.Script::scenario(
         @model.Scenario::OldTraceCycle,
-        [@model.SourceInit::{ id: 0, value: 0 }],
+        [@model.SourceInit::{ id: 0, value: 0, }],
         [
           @model.Operation::ReadQuery(1, 0),
           @model.Operation::Set(0, 1),
@@ -271,7 +271,7 @@ fn rewrite_operation(
 fn recipe_script(recipe : Recipe) -> @model.Script {
   if recipe.graph_simplified {
     return @model.Script::Script(
-      [@model.SourceInit::{ id: 0, value: value(recipe.value_salt, 0) }],
+      [@model.SourceInit::{ id: 0, value: value(recipe.value_salt, 0), }],
       [@model.Operation::Read(0)],
     )
   }
@@ -414,7 +414,7 @@ priv struct ShrinkCandidate {
 
 ///|
 fn candidate(phase : ShrinkPhase, recipe : Recipe) -> ShrinkCandidate {
-  ShrinkCandidate::{ phase, recipe }
+  ShrinkCandidate::{ phase, recipe, }
 }
 
 ///|
@@ -440,37 +440,37 @@ fn add_candidate(
 
 ///|
 fn change_suffix(r : Recipe, operation_count : Int) -> Recipe {
-  Recipe::{ ..r, operation_limit: operation_count - 1 }
+  Recipe::{ ..r, operation_limit: operation_count - 1, }
 }
 
 ///|
 fn change_unrelated(r : Recipe) -> Recipe {
-  Recipe::{ ..r, unrelated_retention: 0 }
+  Recipe::{ ..r, unrelated_retention: 0, }
 }
 
 ///|
 fn change_writes(r : Recipe, retained_writes : Int) -> Recipe {
-  Recipe::{ ..r, write_retention: retained_writes - 1 }
+  Recipe::{ ..r, write_retention: retained_writes - 1, }
 }
 
 ///|
 fn change_graph(r : Recipe) -> Recipe {
-  Recipe::{ ..r, graph_simplified: true }
+  Recipe::{ ..r, graph_simplified: true, }
 }
 
 ///|
 fn change_key(r : Recipe) -> Recipe {
-  Recipe::{ ..r, key: 0 }
+  Recipe::{ ..r, key: 0, }
 }
 
 ///|
 fn change_values(r : Recipe) -> Recipe {
-  Recipe::{ ..r, value_salt: 0 }
+  Recipe::{ ..r, value_salt: 0, }
 }
 
 ///|
 fn change_cycle(r : Recipe) -> Recipe {
-  Recipe::{ ..r, cycle_depth: 0 }
+  Recipe::{ ..r, cycle_depth: 0, }
 }
 
 ///|
@@ -598,7 +598,7 @@ fn cutoff_shrink_candidates(
       steps[index] = 0
       candidates.push(CutoffShrinkCandidate::{
         phase: CutoffShrinkPhase::Values,
-        generated: GeneratedCutoff::{ kind: generated.kind, steps },
+        generated: GeneratedCutoff::{ kind: generated.kind, steps, },
       })
     }
   }
@@ -736,10 +736,10 @@ test "validity-preserving shrink stream is ordered and admissible" {
     before_operations[:before_operations.length() - 1].to_owned(),
   )
   let recipes = [
-    Recipe::{ ..generated[5], value_salt: 3 },
-    Recipe::{ ..generated[7], value_salt: 3 },
-    Recipe::{ ..generated[2], key: 3 },
-    Recipe::{ ..generated[15], cycle_depth: 3 },
+    Recipe::{ ..generated[5], value_salt: 3, },
+    Recipe::{ ..generated[7], value_salt: 3, },
+    Recipe::{ ..generated[2], key: 3, },
+    Recipe::{ ..generated[15], cycle_depth: 3, },
   ]
   let all_candidates = []
   for recipe in recipes {
@@ -852,7 +852,7 @@ test "failure localization replays admissible scenario prefixes" {
   let scripts = [
     @model.Script::scenario(
       @model.Scenario::Source,
-      [@model.SourceInit::{ id: 0, value: 1 }],
+      [@model.SourceInit::{ id: 0, value: 1, }],
       [
         @model.Operation::Read(0),
         @model.Operation::Set(0, 2),
@@ -862,8 +862,8 @@ test "failure localization replays admissible scenario prefixes" {
     @model.Script::scenario(
       @model.Scenario::KeyedQuery,
       [
-        @model.SourceInit::{ id: 0, value: 1 },
-        @model.SourceInit::{ id: 1, value: 2 },
+        @model.SourceInit::{ id: 0, value: 1, },
+        @model.SourceInit::{ id: 1, value: 2, },
       ],
       [
         @model.Operation::ReadKey(0, 3),
@@ -901,7 +901,7 @@ test "failure localization replays admissible scenario prefixes" {
 
   let writes_only = @model.Script::scenario(
     @model.Scenario::Source,
-    [@model.SourceInit::{ id: 0, value: 0 }],
+    [@model.SourceInit::{ id: 0, value: 0, }],
     [@model.Operation::Set(0, 1), @model.Operation::Set(0, 2)],
   )
   let injected_operation = first_differing_operation_by(writes_only, prefix => {
