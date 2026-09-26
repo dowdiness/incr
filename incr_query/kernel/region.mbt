@@ -15,7 +15,7 @@ priv struct RegionEpoch {
 
 ///|
 fn RegionEpoch::snapshot(self : RegionEpoch) -> RegionGeneration {
-  { region: self.region, epoch: self.generation.val }
+  { region: self.region, epoch: self.generation.val, }
 }
 
 ///|
@@ -44,7 +44,7 @@ pub fn Store::region(self : Store) -> Region raise RegionError {
     None => {
       let sequence = self.next_sequence.val
       self.next_sequence.val = sequence + 1
-      let id : RegionId = { owner: self.id, sequence }
+      let id : RegionId = { owner: self.id, sequence, }
       {
         owner: self.id,
         epoch: {

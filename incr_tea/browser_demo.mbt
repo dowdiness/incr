@@ -40,6 +40,8 @@ enum DemoMsg {
   TimerTickFast
   TimerTickSlow
 } derive(Eq, Debug)
+pub extend DemoMsg with Eq::{not_equal, equal}
+pub extend DemoMsg with Debug::{to_repr}
 
 ///|
 #cfg(target="js")

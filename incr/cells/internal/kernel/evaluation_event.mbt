@@ -3,6 +3,8 @@ pub(all) enum DerivedRebuildDisposition {
   RecomputedChanged
   RecomputedBackdated
 } derive(Eq, Debug)
+pub extend DerivedRebuildDisposition with Eq::{not_equal, equal}
+pub extend DerivedRebuildDisposition with Debug::{to_repr}
 
 ///|
 pub(all) struct DerivedRebuildSummary {
@@ -15,6 +17,7 @@ pub(all) struct DerivedRebuildSummary {
   verified_at : Revision
   had_synthetic_accumulator_reads : Bool
 } derive(Debug)
+pub extend DerivedRebuildSummary with Debug::{to_repr}
 
 ///|
 pub(all) struct DerivedRebuildAbortSummary {
@@ -24,12 +27,15 @@ pub(all) struct DerivedRebuildAbortSummary {
   verified_at_before : Revision
   error : String
 } derive(Debug)
+pub extend DerivedRebuildAbortSummary with Debug::{to_repr}
 
 ///|
 pub(all) enum EagerDerivedEvaluationDisposition {
   RecomputedChanged
   RecomputedUnchanged
 } derive(Eq, Debug)
+pub extend EagerDerivedEvaluationDisposition with Eq::{not_equal, equal}
+pub extend EagerDerivedEvaluationDisposition with Debug::{to_repr}
 
 ///|
 pub(all) struct EagerDerivedEvaluationSummary {
@@ -42,6 +48,7 @@ pub(all) struct EagerDerivedEvaluationSummary {
   changed_at_before : Revision
   changed_at_after : Revision
 } derive(Debug)
+pub extend EagerDerivedEvaluationSummary with Debug::{to_repr}
 
 ///|
 pub(all) struct EffectExecutionSummary {
@@ -51,6 +58,7 @@ pub(all) struct EffectExecutionSummary {
   dependency_count_before : Int
   dependency_count_after : Int
 } derive(Debug)
+pub extend EffectExecutionSummary with Debug::{to_repr}
 
 ///|
 pub(all) enum PushQueueSkipReason {
@@ -58,6 +66,8 @@ pub(all) enum PushQueueSkipReason {
   DisposedOrKindMismatch
   NotDirty
 } derive(Eq, Debug)
+pub extend PushQueueSkipReason with Eq::{not_equal, equal}
+pub extend PushQueueSkipReason with Debug::{to_repr}
 
 ///|
 pub(all) struct PushQueueSkipSummary {
@@ -66,6 +76,7 @@ pub(all) struct PushQueueSkipSummary {
   current_level : Int
   reason : PushQueueSkipReason
 } derive(Debug)
+pub extend PushQueueSkipSummary with Debug::{to_repr}
 
 ///|
 pub(all) struct PushPropagationSummary {
@@ -74,6 +85,7 @@ pub(all) struct PushPropagationSummary {
   effect_execution_count : Int
   skipped_queue_entry_count : Int
 } derive(Debug)
+pub extend PushPropagationSummary with Debug::{to_repr}
 
 ///|
 pub(all) enum RuntimeEvaluationEvent {
@@ -84,3 +96,4 @@ pub(all) enum RuntimeEvaluationEvent {
   PushQueueSkipped(PushQueueSkipSummary)
   PushPropagationCompleted(PushPropagationSummary)
 } derive(Debug)
+pub extend RuntimeEvaluationEvent with Debug::{to_repr}

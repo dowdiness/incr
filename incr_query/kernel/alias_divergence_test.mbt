@@ -27,7 +27,7 @@ impl Hash for MutableSemanticKey with fn hash_combine(self, hasher) {
 test "expected divergence: mutable Query-key meaning can outlive a memo" {
   let store = Store::Store()
   let region = store.region()
-  let key = MutableSemanticKey::{ id: 7, semantic: Ref(1) }
+  let key = MutableSemanticKey::{ id: 7, semantic: Ref(1), }
   let query = region.query((_ctx, key : MutableSemanticKey) => key.semantic.val)
 
   let view = query.view(key)

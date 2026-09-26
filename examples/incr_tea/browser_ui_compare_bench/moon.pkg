@@ -5,7 +5,7 @@ import {
   "moonbit-community/rabbita/html" @rabbita_html,
   "mizchi/luna",
   "mizchi/luna/dom" @luna_dom,
-  "mizchi/js/browser/dom" @js_dom,
+  "mizchi/js_browser/dom" @js_dom,
   "mizchi/signals",
 }
 

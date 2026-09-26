@@ -8,6 +8,8 @@ enum ControlledLifecyclePhase {
   OmittedAfterBrowserMutation
   ControlledTrueAfterOmitted
 } derive(Eq, Debug)
+pub extend ControlledLifecyclePhase with Eq::{not_equal, equal}
+pub extend ControlledLifecyclePhase with Debug::{to_repr}
 
 ///|
 #cfg(target="js")
@@ -99,6 +101,8 @@ enum RendererMsg {
   SpreadsheetEvent(String)
   KeyActionCaptured(String)
 } derive(Eq, Debug)
+pub extend RendererMsg with Eq::{not_equal, equal}
+pub extend RendererMsg with Debug::{to_repr}
 
 ///|
 #cfg(target="js")
@@ -2274,7 +2278,7 @@ test "#396: controlled boolean descriptors preserve lifecycle state" {
     renderer.dispose()
     test_restore_dom()
   }
-  try {
+  errdefer cleanup()
     ignore(renderer.mount(host, program))
 
     let checkbox = test_dom_get_by_id("lifecycle-checkbox")
@@ -2349,11 +2353,5 @@ test "#396: controlled boolean descriptors preserve lifecycle state" {
         }
       }
     }
-  } catch {
-    error => {
-      cleanup()
-      raise error
-    }
-  }
   cleanup()
 }

@@ -348,7 +348,7 @@ fn lifetime_shrink_candidates(
   if zero != case.recipe {
     candidates.push(LifetimeShrinkCandidate::{
       phase: LifetimeShrinkPhase::Values,
-      case: LifetimeCase::{ recipe: zero, operations: case.operations.copy() },
+      case: LifetimeCase::{ recipe: zero, operations: case.operations.copy(), },
     })
   }
   candidates
@@ -389,7 +389,7 @@ fn recovery_shrink_candidates(
   if zero != case.recipe {
     candidates.push(RecoveryShrinkCandidate::{
       phase: LifetimeShrinkPhase::Values,
-      case: RecoveryCase::{ recipe: zero, operations: case.operations.copy() },
+      case: RecoveryCase::{ recipe: zero, operations: case.operations.copy(), },
     })
   }
   candidates

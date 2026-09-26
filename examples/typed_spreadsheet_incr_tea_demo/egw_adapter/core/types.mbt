@@ -25,6 +25,8 @@ pub(all) enum CellRegister {
   Source(String)
   Deleted
 } derive(Eq, Debug)
+pub extend CellRegister with Eq::{not_equal, equal}
+pub extend CellRegister with Debug::{to_repr}
 
 ///|
 /// A diagnostic produced while decoding or parsing a register.
@@ -39,6 +41,8 @@ pub(all) enum ProjectionDiagnostic {
   ExtraFields(String, ReadOnlyArray[String])
   InvalidSource(String, String, @demo.FormulaTextParseError)
 } derive(Eq, Debug)
+pub extend ProjectionDiagnostic with Eq::{not_equal, equal}
+pub extend ProjectionDiagnostic with Debug::{to_repr}
 
 ///|
 /// The complete observation of one register payload.
@@ -47,6 +51,8 @@ pub(all) enum RegisterObservation {
   Decoded(CellRegister)
   Invalid(ProjectionDiagnostic)
 } derive(Eq, Debug)
+pub extend RegisterObservation with Eq::{not_equal, equal}
+pub extend RegisterObservation with Debug::{to_repr}
 
 ///|
 /// An address/payload pair supplied by a transport adapter.
@@ -174,6 +180,8 @@ pub struct CellProjectionState {
   last_good_source : String?
   diagnostic : ProjectionDiagnostic?
 } derive(Eq, Debug)
+pub extend CellProjectionState with Eq::{not_equal, equal}
+pub extend CellProjectionState with Debug::{to_repr}
 
 ///|
 /// Returns the address.
@@ -210,6 +218,8 @@ pub fn CellProjectionState::diagnostic(
 pub struct ProjectionState {
   cells : ReadOnlyArray[CellProjectionState]
 } derive(Eq, Debug)
+pub extend ProjectionState with Eq::{not_equal, equal}
+pub extend ProjectionState with Debug::{to_repr}
 
 ///|
 /// Creates an empty canonical state.

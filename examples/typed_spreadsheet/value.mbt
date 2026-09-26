@@ -7,6 +7,8 @@ pub enum CellValue {
   /// A first-class blank value, also returned for absent same-sheet cells.
   Blank
 } derive(Eq, Debug)
+pub extend CellValue with Eq::{not_equal, equal}
+pub extend CellValue with Debug::{to_repr}
 
 ///|
 /// Creates an integer spreadsheet value.
@@ -41,6 +43,8 @@ pub enum CellType {
   TBlank
   TAny
 } derive(Eq, Debug)
+pub extend CellType with Eq::{not_equal, equal}
+pub extend CellType with Debug::{to_repr}
 
 ///|
 /// Constructs the `TInt` cell type.
@@ -81,12 +85,16 @@ pub enum CellResult {
   RefError(String)
   CycleError(String)
 } derive(Eq, Debug)
+pub extend CellResult with Eq::{not_equal, equal}
+pub extend CellResult with Debug::{to_repr}
 
 ///|
 /// Errors returned by worksheet operations during installation.
 pub enum WorksheetError {
   RefError(String)
 } derive(Eq, Debug)
+pub extend WorksheetError with Eq::{not_equal, equal}
+pub extend WorksheetError with Debug::{to_repr}
 
 ///|
 /// Constructs a successful cell result.

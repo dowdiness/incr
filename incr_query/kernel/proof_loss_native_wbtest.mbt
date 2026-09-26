@@ -18,7 +18,7 @@ struct RcKey {
 
 ///|
 fn RcKey::RcKey(kind : Int, value : Int) -> RcKey {
-  { token: rc_token_new(kind), value }
+  { token: rc_token_new(kind), value, }
 }
 
 ///|
@@ -49,7 +49,7 @@ test "proof loss releases memo value and installed trace-only key" {
   let child = region.query((_ctx, key : RcKey) => key.value)
   let parent = region.query((ctx, _unit : Unit) => {
     let value = ctx.get(child.view(RcKey(30, 7)))
-    RcValue::{ token: rc_token_new(31), value }
+    RcValue::{ token: rc_token_new(31), value, }
   })
 
   let view = parent.view(())
@@ -80,7 +80,7 @@ test "proof loss rematerializes native memo, trace, capture, and view ownership"
   let capture = rc_token_new(7)
   let query = region.query((_ctx, key : RcKey) => {
     ignore(capture)
-    RcValue::{ token: rc_token_new(6), value: key.value }
+    RcValue::{ token: rc_token_new(6), value: key.value, }
   })
 
   let first_view = Ref(Some(query.view(RcKey(5, 41))))

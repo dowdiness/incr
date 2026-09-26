@@ -74,6 +74,8 @@ pub(all) struct AiContextCell {
   last_dynamic_dependencies : Array[String]
   formula : AiContextFormula?
 } derive(ToJson, @debug.Debug)
+pub fn AiContextCell::to_json(Self) -> Json
+pub fn AiContextCell::to_repr(Self) -> @debug.Repr
 
 pub struct AiContextCellObservation {
   id : @typed_spreadsheet.CellId
@@ -88,6 +90,10 @@ pub(all) struct AiContextEvidence {
   outcome : String
   cells : Array[AiContextEvidenceCell]
 } derive(Eq, ToJson, @debug.Debug)
+pub fn AiContextEvidence::equal(Self, Self) -> Bool
+pub fn AiContextEvidence::not_equal(Self, Self) -> Bool
+pub fn AiContextEvidence::to_json(Self) -> Json
+pub fn AiContextEvidence::to_repr(Self) -> @debug.Repr
 
 pub(all) struct AiContextEvidenceCell {
   id : String
@@ -97,6 +103,10 @@ pub(all) struct AiContextEvidenceCell {
   after : AiContextResult
   after_kind : String
 } derive(Eq, ToJson, @debug.Debug)
+pub fn AiContextEvidenceCell::equal(Self, Self) -> Bool
+pub fn AiContextEvidenceCell::not_equal(Self, Self) -> Bool
+pub fn AiContextEvidenceCell::to_json(Self) -> Json
+pub fn AiContextEvidenceCell::to_repr(Self) -> @debug.Repr
 
 pub(all) struct AiContextFormula {
   text : String
@@ -104,6 +114,8 @@ pub(all) struct AiContextFormula {
   shape : String?
   error : String?
 } derive(ToJson, @debug.Debug)
+pub fn AiContextFormula::to_json(Self) -> Json
+pub fn AiContextFormula::to_repr(Self) -> @debug.Repr
 
 pub(all) struct AiContextResult {
   status : String
@@ -111,6 +123,10 @@ pub(all) struct AiContextResult {
   error : String?
   repr : String
 } derive(Eq, ToJson, @debug.Debug)
+pub fn AiContextResult::equal(Self, Self) -> Bool
+pub fn AiContextResult::not_equal(Self, Self) -> Bool
+pub fn AiContextResult::to_json(Self) -> Json
+pub fn AiContextResult::to_repr(Self) -> @debug.Repr
 
 pub(all) struct AiContextSnapshot {
   schema_version : Int
@@ -122,6 +138,8 @@ pub(all) struct AiContextSnapshot {
   latest_trace : AiContextTrace?
   latest_evidence : AiContextEvidence?
 } derive(ToJson, @debug.Debug)
+pub fn AiContextSnapshot::to_json(Self) -> Json
+pub fn AiContextSnapshot::to_repr(Self) -> @debug.Repr
 
 pub(all) struct AiContextTrace {
   edit : String
@@ -130,12 +148,18 @@ pub(all) struct AiContextTrace {
   changed : Array[String]
   unchanged : Array[String]
 } derive(ToJson, @debug.Debug)
+pub fn AiContextTrace::to_json(Self) -> Json
+pub fn AiContextTrace::to_repr(Self) -> @debug.Repr
 
 pub(all) struct AiContextValue {
   type_name : String
   value : String
   repr : String
 } derive(Eq, ToJson, @debug.Debug)
+pub fn AiContextValue::equal(Self, Self) -> Bool
+pub fn AiContextValue::not_equal(Self, Self) -> Bool
+pub fn AiContextValue::to_json(Self) -> Json
+pub fn AiContextValue::to_repr(Self) -> @debug.Repr
 
 pub struct CellSnapshotChange {
   id : @typed_spreadsheet.CellId
@@ -148,6 +172,8 @@ pub struct CellSnapshotChangeViewModel {
   before : CellSnapshotViewModel
   after : CellSnapshotViewModel
 } derive(ToJson, @debug.Debug)
+pub fn CellSnapshotChangeViewModel::to_json(Self) -> Json
+pub fn CellSnapshotChangeViewModel::to_repr(Self) -> @debug.Repr
 
 pub struct CellSnapshotViewModel {
   cell : String
@@ -160,6 +186,8 @@ pub struct CellSnapshotViewModel {
   static_references : Array[String]
   last_dynamic_dependencies : Array[String]
 } derive(ToJson, @debug.Debug)
+pub fn CellSnapshotViewModel::to_json(Self) -> Json
+pub fn CellSnapshotViewModel::to_repr(Self) -> @debug.Repr
 
 pub struct ExplainCellAnswer {
   schema_version : Int
@@ -172,6 +200,8 @@ pub struct ExplainCellAnswer {
   active_inputs : ReadOnlyArray[ExplanationInput]
   inactive_inputs : ReadOnlyArray[ExplanationInput]
 } derive(ToJson, @debug.Debug)
+pub fn ExplainCellAnswer::to_json(Self) -> Json
+pub fn ExplainCellAnswer::to_repr(Self) -> @debug.Repr
 
 pub(all) enum ExplanationCellKind {
   ExplanationInputCell
@@ -179,6 +209,10 @@ pub(all) enum ExplanationCellKind {
   ExplanationMissingCell
   ExplanationUnknownCell(String)
 } derive(Eq, ToJson, @debug.Debug)
+pub fn ExplanationCellKind::equal(Self, Self) -> Bool
+pub fn ExplanationCellKind::not_equal(Self, Self) -> Bool
+pub fn ExplanationCellKind::to_json(Self) -> Json
+pub fn ExplanationCellKind::to_repr(Self) -> @debug.Repr
 
 pub(all) enum ExplanationChange {
   Changed
@@ -187,12 +221,20 @@ pub(all) enum ExplanationChange {
   Unobserved
   UnknownChange(String)
 } derive(Eq, ToJson, @debug.Debug)
+pub fn ExplanationChange::equal(Self, Self) -> Bool
+pub fn ExplanationChange::not_equal(Self, Self) -> Bool
+pub fn ExplanationChange::to_json(Self) -> Json
+pub fn ExplanationChange::to_repr(Self) -> @debug.Repr
 
 pub struct ExplanationDependent {
   id : String
   static_reference : Bool
   active_dependency : Bool
 } derive(Eq, ToJson, @debug.Debug)
+pub fn ExplanationDependent::equal(Self, Self) -> Bool
+pub fn ExplanationDependent::not_equal(Self, Self) -> Bool
+pub fn ExplanationDependent::to_json(Self) -> Json
+pub fn ExplanationDependent::to_repr(Self) -> @debug.Repr
 
 pub(all) enum ExplanationErrorKind {
   ParseFailure
@@ -200,32 +242,56 @@ pub(all) enum ExplanationErrorKind {
   ReferenceFailure
   CycleFailure
 } derive(Eq, ToJson, @debug.Debug)
+pub fn ExplanationErrorKind::equal(Self, Self) -> Bool
+pub fn ExplanationErrorKind::not_equal(Self, Self) -> Bool
+pub fn ExplanationErrorKind::to_json(Self) -> Json
+pub fn ExplanationErrorKind::to_repr(Self) -> @debug.Repr
 
 pub struct ExplanationEvidence {
   classification : ExplanationChange
   before_result : ExplanationResult
   after_result : ExplanationResult
 } derive(Eq, ToJson, @debug.Debug)
+pub fn ExplanationEvidence::equal(Self, Self) -> Bool
+pub fn ExplanationEvidence::not_equal(Self, Self) -> Bool
+pub fn ExplanationEvidence::to_json(Self) -> Json
+pub fn ExplanationEvidence::to_repr(Self) -> @debug.Repr
 
 pub struct ExplanationInput {
   id : String
   state : ExplanationInputState
 } derive(Eq, ToJson, @debug.Debug)
+pub fn ExplanationInput::equal(Self, Self) -> Bool
+pub fn ExplanationInput::not_equal(Self, Self) -> Bool
+pub fn ExplanationInput::to_json(Self) -> Json
+pub fn ExplanationInput::to_repr(Self) -> @debug.Repr
 
 pub(all) enum ExplanationInputState {
   Observed(ExplanationResult)
   OutsideObservedRegion
 } derive(Eq, ToJson, @debug.Debug)
+pub fn ExplanationInputState::equal(Self, Self) -> Bool
+pub fn ExplanationInputState::not_equal(Self, Self) -> Bool
+pub fn ExplanationInputState::to_json(Self) -> Json
+pub fn ExplanationInputState::to_repr(Self) -> @debug.Repr
 
 pub struct ExplanationObservedError {
   id : String
   kind : ExplanationErrorKind
   message : String
 } derive(Eq, ToJson, @debug.Debug)
+pub fn ExplanationObservedError::equal(Self, Self) -> Bool
+pub fn ExplanationObservedError::not_equal(Self, Self) -> Bool
+pub fn ExplanationObservedError::to_json(Self) -> Json
+pub fn ExplanationObservedError::to_repr(Self) -> @debug.Repr
 
 pub(all) enum ExplanationQueryError {
   CellOutsideObservedRegion(String)
 } derive(Eq, ToJson, @debug.Debug)
+pub fn ExplanationQueryError::equal(Self, Self) -> Bool
+pub fn ExplanationQueryError::not_equal(Self, Self) -> Bool
+pub fn ExplanationQueryError::to_json(Self) -> Json
+pub fn ExplanationQueryError::to_repr(Self) -> @debug.Repr
 
 pub(all) enum ExplanationResult {
   Value(AiContextValue)
@@ -233,18 +299,26 @@ pub(all) enum ExplanationResult {
   Error(ExplanationErrorKind, String)
   UnknownResult(String, String)
 } derive(Eq, ToJson, @debug.Debug)
+pub fn ExplanationResult::equal(Self, Self) -> Bool
+pub fn ExplanationResult::not_equal(Self, Self) -> Bool
+pub fn ExplanationResult::to_json(Self) -> Json
+pub fn ExplanationResult::to_repr(Self) -> @debug.Repr
 
 pub struct ExplanationScope {
   max_cells : Int
   truncated : Bool
   region : ReadOnlyArray[String]
 } derive(ToJson, @debug.Debug)
+pub fn ExplanationScope::to_json(Self) -> Json
+pub fn ExplanationScope::to_repr(Self) -> @debug.Repr
 
 pub struct ExplanationTrace {
   recomputed : ReadOnlyArray[String]
   changed : ReadOnlyArray[String]
   unchanged : ReadOnlyArray[String]
 } derive(ToJson, @debug.Debug)
+pub fn ExplanationTrace::to_json(Self) -> Json
+pub fn ExplanationTrace::to_repr(Self) -> @debug.Repr
 
 pub struct FixedScenarioViewModel {
   schema_version : Int
@@ -254,6 +328,8 @@ pub struct FixedScenarioViewModel {
   steps : Array[WorksheetStepViewModel]
   extensions : Map[String, String]
 } derive(ToJson, @debug.Debug)
+pub fn FixedScenarioViewModel::to_json(Self) -> Json
+pub fn FixedScenarioViewModel::to_repr(Self) -> @debug.Repr
 
 pub(all) enum FormulaTextParseError {
   EmptyInput
@@ -261,6 +337,9 @@ pub(all) enum FormulaTextParseError {
   InvalidCellReference(String)
   UnsupportedFormula(String)
 } derive(Eq, @debug.Debug)
+pub fn FormulaTextParseError::equal(Self, Self) -> Bool
+pub fn FormulaTextParseError::not_equal(Self, Self) -> Bool
+pub fn FormulaTextParseError::to_repr(Self) -> @debug.Repr
 
 pub struct LastChangeAnswer {
   schema_version : Int
@@ -271,6 +350,8 @@ pub struct LastChangeAnswer {
   evidence : ExplanationEvidence?
   trace : ExplanationTrace
 } derive(ToJson, @debug.Debug)
+pub fn LastChangeAnswer::to_json(Self) -> Json
+pub fn LastChangeAnswer::to_repr(Self) -> @debug.Repr
 
 pub struct ObservedDependentsAnswer {
   schema_version : Int
@@ -278,12 +359,16 @@ pub struct ObservedDependentsAnswer {
   scope : ExplanationScope
   dependents : ReadOnlyArray[ExplanationDependent]
 } derive(ToJson, @debug.Debug)
+pub fn ObservedDependentsAnswer::to_json(Self) -> Json
+pub fn ObservedDependentsAnswer::to_repr(Self) -> @debug.Repr
 
 pub struct ObservedErrorsAnswer {
   schema_version : Int
   scope : ExplanationScope
   errors : ReadOnlyArray[ExplanationObservedError]
 } derive(ToJson, @debug.Debug)
+pub fn ObservedErrorsAnswer::to_json(Self) -> Json
+pub fn ObservedErrorsAnswer::to_repr(Self) -> @debug.Repr
 
 pub(all) enum OpOutcome {
   SetInput(@typed_spreadsheet.CellResult)
@@ -302,6 +387,8 @@ pub struct TraceViewModel {
   changed : Array[String]
   unchanged : Array[String]
 } derive(ToJson, @debug.Debug)
+pub fn TraceViewModel::to_json(Self) -> Json
+pub fn TraceViewModel::to_repr(Self) -> @debug.Repr
 
 pub struct WorksheetStepResult {
   operation : SheetOp
@@ -318,6 +405,8 @@ pub struct WorksheetStepViewModel {
   snapshots : Array[CellSnapshotChangeViewModel]
   extensions : Map[String, String]
 } derive(ToJson, @debug.Debug)
+pub fn WorksheetStepViewModel::to_json(Self) -> Json
+pub fn WorksheetStepViewModel::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

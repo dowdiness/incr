@@ -10,7 +10,7 @@ fn script(
 ///|
 /// Canonical Source read/update/read workload.
 pub fn canonical() -> @model.Script {
-  script(@model.Scenario::Source, [@model.SourceInit::{ id: 0, value: 0 }], [
+  script(@model.Scenario::Source, [@model.SourceInit::{ id: 0, value: 0, }], [
     @model.Operation::Read(0),
     @model.Operation::Set(0, 4),
     @model.Operation::Read(0),
@@ -20,10 +20,11 @@ pub fn canonical() -> @model.Script {
 ///|
 /// A unit-keyed Query that reads the required root Source.
 pub fn unit_query() -> @model.Script {
-  script(@model.Scenario::UnitQuery, [@model.SourceInit::{ id: 0, value: 0 }], [
-    @model.Operation::Read(0),
-    @model.Operation::Read(0),
-  ])
+  script(
+    @model.Scenario::UnitQuery,
+    [@model.SourceInit::{ id: 0, value: 0, }],
+    [@model.Operation::Read(0), @model.Operation::Read(0)],
+  )
 }
 
 ///|
@@ -32,8 +33,8 @@ pub fn keyed_query() -> @model.Script {
   script(
     @model.Scenario::KeyedQuery,
     [
-      @model.SourceInit::{ id: 0, value: 0 },
-      @model.SourceInit::{ id: 1, value: 10 },
+      @model.SourceInit::{ id: 0, value: 0, },
+      @model.SourceInit::{ id: 1, value: 10, },
     ],
     [
       @model.Operation::ReadKey(0, 3),
@@ -46,7 +47,7 @@ pub fn keyed_query() -> @model.Script {
 ///|
 /// A two-level Query chain rooted at Source `0`.
 pub fn chain() -> @model.Script {
-  script(@model.Scenario::Chain, [@model.SourceInit::{ id: 0, value: 0 }], [
+  script(@model.Scenario::Chain, [@model.SourceInit::{ id: 0, value: 0, }], [
     @model.Operation::Read(0),
     @model.Operation::Read(0),
   ])
@@ -55,7 +56,7 @@ pub fn chain() -> @model.Script {
 ///|
 /// A shared-child diamond rooted at Source `0`.
 pub fn diamond() -> @model.Script {
-  script(@model.Scenario::Diamond, [@model.SourceInit::{ id: 0, value: 0 }], [
+  script(@model.Scenario::Diamond, [@model.SourceInit::{ id: 0, value: 0, }], [
     @model.Operation::Read(0),
     @model.Operation::Read(0),
   ])
@@ -67,8 +68,8 @@ pub fn unrelated_publication() -> @model.Script {
   script(
     @model.Scenario::UnrelatedPublication,
     [
-      @model.SourceInit::{ id: 0, value: 0 },
-      @model.SourceInit::{ id: 1, value: 0 },
+      @model.SourceInit::{ id: 0, value: 0, },
+      @model.SourceInit::{ id: 1, value: 0, },
     ],
     [
       @model.Operation::Read(0),
@@ -83,7 +84,7 @@ pub fn unrelated_publication() -> @model.Script {
 pub fn selected_publication() -> @model.Script {
   script(
     @model.Scenario::SelectedPublication,
-    [@model.SourceInit::{ id: 0, value: 0 }],
+    [@model.SourceInit::{ id: 0, value: 0, }],
     [
       @model.Operation::Read(0),
       @model.Operation::Set(0, 7),
@@ -98,8 +99,8 @@ pub fn dynamic_branch() -> @model.Script {
   script(
     @model.Scenario::DynamicBranch,
     [
-      @model.SourceInit::{ id: 0, value: 0 },
-      @model.SourceInit::{ id: 1, value: 0 },
+      @model.SourceInit::{ id: 0, value: 0, },
+      @model.SourceInit::{ id: 1, value: 0, },
     ],
     [
       @model.Operation::Read(0),
@@ -116,7 +117,7 @@ pub fn dynamic_branch() -> @model.Script {
 pub fn failure_recovery() -> @model.Script {
   script(
     @model.Scenario::FailureRecovery,
-    [@model.SourceInit::{ id: 0, value: 0 }],
+    [@model.SourceInit::{ id: 0, value: 0, }],
     [
       @model.Operation::Read(0),
       @model.Operation::Set(0, 1),
@@ -184,7 +185,7 @@ pub fn unequal_key_cross_query() -> @model.Script {
 pub fn dead_cycle_branch() -> @model.Script {
   script(
     @model.Scenario::DeadCycleBranch,
-    [@model.SourceInit::{ id: 0, value: 0 }],
+    [@model.SourceInit::{ id: 0, value: 0, }],
     [@model.Operation::ReadQuery(0, 0)],
   )
 }
@@ -194,7 +195,7 @@ pub fn dead_cycle_branch() -> @model.Script {
 pub fn cycle_recovery() -> @model.Script {
   script(
     @model.Scenario::CycleRecovery,
-    [@model.SourceInit::{ id: 0, value: 0 }],
+    [@model.SourceInit::{ id: 0, value: 0, }],
     [
       @model.Operation::ReadQuery(0, 0),
       @model.Operation::Set(0, 1),
@@ -212,7 +213,7 @@ pub fn cycle_recovery() -> @model.Script {
 pub fn old_trace_cycle() -> @model.Script {
   script(
     @model.Scenario::OldTraceCycle,
-    [@model.SourceInit::{ id: 0, value: 0 }],
+    [@model.SourceInit::{ id: 0, value: 0, }],
     [
       @model.Operation::ReadQuery(1, 0),
       @model.Operation::Set(0, 1),

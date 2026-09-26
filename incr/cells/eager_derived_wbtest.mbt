@@ -281,15 +281,11 @@ fn push_failure_cleanup_harness_for_test(
   let run = fn() raise Failure {
     rt.enter_phase(PushPropagating)
     Tracker::push_tracking(rt, cell_id)
-    run_body() catch {
-      e => {
-        ignore(@kernel.pop_tracking_full(rt.core))
-        rt.leave_phase()
-        raise e
-      }
+    defer {
+      ignore(@kernel.pop_tracking_full(rt.core))
+      rt.leave_phase()
     }
-    ignore(@kernel.pop_tracking_full(rt.core))
-    rt.leave_phase()
+    run_body()
   }
   try run() catch {
     e => Err(e)

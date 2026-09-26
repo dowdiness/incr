@@ -86,6 +86,9 @@ pub fn[Msg] ul(attrs? : Array[Attribute], events? : Array[EventBinding[Msg]], Ar
 pub struct Attribute {
   // private fields
 } derive(Eq, @debug.Debug)
+pub fn Attribute::equal(Self, Self) -> Bool
+pub fn Attribute::not_equal(Self, Self) -> Bool
+pub fn Attribute::to_repr(Self) -> @debug.Repr
 
 pub struct Attrs {
   // private fields
@@ -136,6 +139,9 @@ pub struct CheckedInputId {
   name : String
 } derive(Eq, @debug.Debug)
 pub fn CheckedInputId::CheckedInputId(String) -> Self
+pub fn CheckedInputId::equal(Self, Self) -> Bool
+pub fn CheckedInputId::not_equal(Self, Self) -> Bool
+pub fn CheckedInputId::to_repr(Self) -> @debug.Repr
 
 pub struct CheckedPayload {
   checked : Bool
@@ -177,13 +183,22 @@ pub(all) enum CounterMsg {
   SetUnrelated(Int)
   SetBoth(next_count~ : Int, next_title~ : String)
 } derive(Eq, @debug.Debug)
+pub fn CounterMsg::equal(Self, Self) -> Bool
+pub fn CounterMsg::not_equal(Self, Self) -> Bool
+pub fn CounterMsg::to_repr(Self) -> @debug.Repr
 
 pub(all) struct CounterView {
   title : String
   count : Int
 } derive(Eq, @debug.Debug)
+pub fn CounterView::equal(Self, Self) -> Bool
+pub fn CounterView::not_equal(Self, Self) -> Bool
+pub fn CounterView::to_repr(Self) -> @debug.Repr
 
 type DemoMsg derive(Eq, @debug.Debug)
+pub fn DemoMsg::equal(Self, Self) -> Bool
+pub fn DemoMsg::not_equal(Self, Self) -> Bool
+pub fn DemoMsg::to_repr(Self) -> @debug.Repr
 
 #external
 pub type DomElement
@@ -191,10 +206,16 @@ pub type DomElement
 pub struct EventBinding[Msg] {
   // private fields
 } derive(Eq, @debug.Debug)
+pub fn[Msg : Eq] EventBinding::equal(Self[Msg], Self[Msg]) -> Bool
+pub fn[Msg : Eq] EventBinding::not_equal(Self[Msg], Self[Msg]) -> Bool
+pub fn[Msg : @debug.Debug] EventBinding::to_repr(Self[Msg]) -> @debug.Repr
 
 pub struct Html[Msg] {
   // private fields
 } derive(Eq, @debug.Debug)
+pub fn[Msg : Eq] Html::equal(Self[Msg], Self[Msg]) -> Bool
+pub fn[Msg : Eq] Html::not_equal(Self[Msg], Self[Msg]) -> Bool
+pub fn[Msg : @debug.Debug] Html::to_repr(Self[Msg]) -> @debug.Repr
 
 pub struct KeyEventDispatch[Msg] {
   // private fields
@@ -206,6 +227,9 @@ pub struct KeyEventId {
   name : String
 } derive(Eq, @debug.Debug)
 pub fn KeyEventId::KeyEventId(String) -> Self
+pub fn KeyEventId::equal(Self, Self) -> Bool
+pub fn KeyEventId::not_equal(Self, Self) -> Bool
+pub fn KeyEventId::to_repr(Self) -> @debug.Repr
 
 pub struct KeyPayload {
   key : String
@@ -222,6 +246,9 @@ pub struct PointerEventId {
   name : String
 } derive(Eq, @debug.Debug)
 pub fn PointerEventId::PointerEventId(String) -> Self
+pub fn PointerEventId::equal(Self, Self) -> Bool
+pub fn PointerEventId::not_equal(Self, Self) -> Bool
+pub fn PointerEventId::to_repr(Self) -> @debug.Repr
 
 pub struct PointerPayload {
   pointer_id : Int
@@ -277,17 +304,28 @@ pub struct SubKey {
   identity : String
 } derive(Eq, Hash, @debug.Debug)
 pub fn SubKey::SubKey(String, String) -> Self
+pub fn SubKey::equal(Self, Self) -> Bool
+pub fn SubKey::hash(Self) -> Int
+pub fn SubKey::hash_combine(Self, Hasher) -> Unit
+pub fn SubKey::not_equal(Self, Self) -> Bool
+pub fn SubKey::to_repr(Self) -> @debug.Repr
 
 pub(all) enum SubSpec[Msg] {
   Timer(Int, Msg)
   WindowKeydown(String, Msg)
   AnimationFrame(Msg)
 } derive(Eq, @debug.Debug)
+pub fn[Msg : Eq] SubSpec::equal(Self[Msg], Self[Msg]) -> Bool
+pub fn[Msg : Eq] SubSpec::not_equal(Self[Msg], Self[Msg]) -> Bool
+pub fn[Msg : @debug.Debug] SubSpec::to_repr(Self[Msg]) -> @debug.Repr
 
 pub struct ValueEventId {
   name : String
 } derive(Eq, @debug.Debug)
 pub fn ValueEventId::ValueEventId(String) -> Self
+pub fn ValueEventId::equal(Self, Self) -> Bool
+pub fn ValueEventId::not_equal(Self, Self) -> Bool
+pub fn ValueEventId::to_repr(Self) -> @debug.Repr
 
 pub struct ValuePayload {
   value : String

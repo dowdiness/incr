@@ -32,13 +32,13 @@ pub struct Cutoff[V] {
 
 ///|
 fn[V] Cutoff::always_changed() -> Cutoff[V] {
-  { mode: AlwaysChanged }
+  { mode: AlwaysChanged, }
 }
 
 ///|
 /// Uses structural equality as propagation equivalence.
 pub fn[V : Eq] Cutoff::equal() -> Cutoff[V] {
-  { mode: Compare((old, next) => old == next) }
+  { mode: Compare((old, next) => old == next), }
 }
 
 ///|
@@ -127,7 +127,7 @@ fn[K : Hash + Eq, V] QueryContext::compute_query(
             None => {
               let next_id = core.next_memo_id.val
               core.next_memo_id.val = next_id + 1
-              MemoId::{ value: next_id }
+              MemoId::{ value: next_id, }
             }
           }
           let changed_at = match previous {
@@ -266,7 +266,7 @@ fn[K : Hash + Eq, V] Region::query_with_cutoff(
     None => {
       let sequence = self.next_sequence.val
       self.next_sequence.val = sequence + 1
-      let id : QueryId = { value: sequence }
+      let id : QueryId = { value: sequence, }
       let core : QueryCore[K, V] = {
         owner: self.owner,
         id,

@@ -4,6 +4,7 @@ package "dowdiness/incr/cells/internal/datalog"
 import {
   "dowdiness/incr/cells/internal/shared",
   "dowdiness/incr/types",
+  "moonbitlang/core/hashset",
 }
 
 // Values
@@ -20,6 +21,18 @@ pub(all) struct FunctionalRelationData {
   begin_fixpoint : () -> Unit
   finish_fixpoint_changed : () -> Bool
 }
+pub fn FunctionalRelationData::cell_id(Self) -> @types.CellId
+pub fn FunctionalRelationData::changed_at(Self) -> @types.Revision
+pub fn FunctionalRelationData::dep_changed_since(Self, @types.Revision) -> Bool?
+pub fn FunctionalRelationData::durability(Self) -> @types.Durability
+pub fn FunctionalRelationData::gc_dependencies(Self) -> Array[@types.CellId]
+pub fn FunctionalRelationData::gc_role(Self) -> @types.GcRole
+pub fn FunctionalRelationData::label(Self) -> String?
+pub fn FunctionalRelationData::level(Self) -> Int
+pub fn FunctionalRelationData::meta(Self) -> @shared.CellMeta
+pub fn FunctionalRelationData::push_reachable_count(Self) -> Int
+pub fn FunctionalRelationData::set_changed_at(Self, @types.Revision) -> Unit
+pub fn FunctionalRelationData::subscribers(Self) -> @hashset.HashSet[@types.CellId]
 pub impl @shared.CellOps for FunctionalRelationData
 pub impl @shared.HasCellMeta for FunctionalRelationData
 
@@ -32,6 +45,18 @@ pub(all) struct RelationData {
   begin_fixpoint : () -> Unit
   finish_fixpoint_changed : () -> Bool
 }
+pub fn RelationData::cell_id(Self) -> @types.CellId
+pub fn RelationData::changed_at(Self) -> @types.Revision
+pub fn RelationData::dep_changed_since(Self, @types.Revision) -> Bool?
+pub fn RelationData::durability(Self) -> @types.Durability
+pub fn RelationData::gc_dependencies(Self) -> Array[@types.CellId]
+pub fn RelationData::gc_role(Self) -> @types.GcRole
+pub fn RelationData::label(Self) -> String?
+pub fn RelationData::level(Self) -> Int
+pub fn RelationData::meta(Self) -> @shared.CellMeta
+pub fn RelationData::push_reachable_count(Self) -> Int
+pub fn RelationData::set_changed_at(Self, @types.Revision) -> Unit
+pub fn RelationData::subscribers(Self) -> @hashset.HashSet[@types.CellId]
 pub impl @shared.CellOps for RelationData
 pub impl @shared.HasCellMeta for RelationData
 
@@ -41,10 +66,21 @@ pub(all) struct RuleData {
   input_relations : Array[@types.CellId]
   output_relations : Array[@types.CellId]
 }
+pub fn RuleData::cell_id(Self) -> @types.CellId
+pub fn RuleData::changed_at(Self) -> @types.Revision
+pub fn RuleData::dep_changed_since(Self, @types.Revision) -> Bool?
+pub fn RuleData::durability(Self) -> @types.Durability
+pub fn RuleData::gc_dependencies(Self) -> Array[@types.CellId]
+pub fn RuleData::gc_role(Self) -> @types.GcRole
+pub fn RuleData::label(Self) -> String?
+pub fn RuleData::level(Self) -> Int
+pub fn RuleData::meta(Self) -> @shared.CellMeta
+pub fn RuleData::push_reachable_count(Self) -> Int
+pub fn RuleData::set_changed_at(Self, @types.Revision) -> Unit
+pub fn RuleData::subscribers(Self) -> @hashset.HashSet[@types.CellId]
 pub impl @shared.CellOps for RuleData
 pub impl @shared.HasCellMeta for RuleData
 
 // Type aliases
 
 // Traits
-

@@ -17,7 +17,7 @@ test "custom Eq can leave a downstream generation stale" {
   let target = region.query(
     (ctx, _unit : Unit) => {
       let generation = ctx.get(trigger.view())
-      GenerationValue::{ semantic: 7, generation }
+      GenerationValue::{ semantic: 7, generation, }
     },
     cutoff=Cutoff::equal(),
   )

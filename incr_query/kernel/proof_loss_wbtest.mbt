@@ -291,7 +291,7 @@ test "proof loss current cycle cleans active state and recovers" {
 test "proof loss rejects evaluation transaction and closed region" {
   let store = Store::Store()
   let region = store.region()
-  let key = ProbeKey::{ value: 3, hashes: Ref(0), equals: Ref(0) }
+  let key = ProbeKey::{ value: 3, hashes: Ref(0), equals: Ref(0), }
   let target = region.query((_ctx, key : ProbeKey) => key.value)
 
   let target_view = target.view(key)

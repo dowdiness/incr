@@ -4,15 +4,15 @@ inputs:
   version:
     description: MoonBit version to install
     required: false
-    default: 0.10.9+6e6c44045
+    default: 0.10.14+7d59c7ec9
   binary-sha256:
     description: SHA-256 of the Linux x86_64 MoonBit binary archive
     required: false
-    default: 0e81deb35eca29e892415cf954ea42b48a43bcf277ad36a3ae1e97d2d1dfe732
+    default: 9226694de9ff978db1ecf820b7710c4224e84ec7a76b19a222d96f0cd4e31b6a
   core-sha256:
     description: SHA-256 of the MoonBit core archive
     required: false
-    default: d92b84ea0bc11ec9a9fe57d313416a6694a5826f4307e8e65d5075079ee913ca
+    default: 6f18b8fdea18f85e628a75e4a1bd3977c5a5c9c6a836fd8824192b0e6bd91b14
 runs:
   using: composite
   steps:

@@ -125,7 +125,8 @@ fn SheetState::new(
     @egw_adapter.Seed::Seed("A1", @core.CellRegister::Source("10")),
     @egw_adapter.Seed::Seed("B1", @core.CellRegister::Source("=A1 + 1")),
   ]
-  let started = try {
+  errdefer scope.dispose()
+  let started =
     match mode {
       SheetStartMode::Standalone =>
         @egw_adapter.EgwAdapter::bootstrap(
@@ -162,12 +163,6 @@ fn SheetState::new(
           reset_factory,
         )
     }
-  } catch {
-    error => {
-      scope.dispose()
-      raise error
-    }
-  }
   let adapter = match started {
     @egw_adapter.AdapterStartResult::Ready(adapter, _) => adapter
     @egw_adapter.AdapterStartResult::Failed(error) => {

@@ -128,7 +128,7 @@ dependency convergence, decision record, and separately shaped follow-ups.
   performance investigation is commissioned.
 - R16 is complete: PR #408 shipped the typed-spreadsheet `incr_tea` proof and
   issue #268 is closed.
-- R21 remains blocked. Active automation pins MoonBit `0.10.9+6e6c44045` and
+- R21 remains blocked. Active automation pins MoonBit `0.10.14+7d59c7ec9` and
   verifies the versioned native CLI and core archives against repository-recorded
   SHA-256 values, but MoonBit still provides no independent vendor-published
   digest, signature, or attestation required by R21.

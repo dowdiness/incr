@@ -41,7 +41,7 @@ fn[T] make_source(
     verifier: source_dep.verifier,
     recipe: ctx => ctx.eval_source(core),
   }
-  { core, canonical_view: view }
+  { core, canonical_view: view, }
 }
 
 ///|
@@ -78,7 +78,7 @@ pub fn[T] Region::source(
       self.next_sequence.val = sequence + 1
       let source = make_source(
         self.owner,
-        { owner: self.owner, sequence },
+        { owner: self.owner, sequence, },
         self.epoch,
         self.epoch.snapshot(),
         initial,

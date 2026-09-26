@@ -8,6 +8,8 @@ pub enum ProjectionApplyError {
   )
   UnexpectedDelete(@typed_spreadsheet.CellId, @typed_spreadsheet.CellResult)
 } derive(Eq, Debug)
+pub extend ProjectionApplyError with Eq::{not_equal, equal}
+pub extend ProjectionApplyError with Debug::{to_repr}
 
 ///|
 priv suberror ProjectionBatchFailure {
@@ -34,6 +36,8 @@ pub struct ProjectionReport {
   priv draft_updates : Int
   priv diagnostics : Int
 } derive(Eq, Debug)
+pub extend ProjectionReport with Eq::{not_equal, equal}
+pub extend ProjectionReport with Debug::{to_repr}
 
 ///|
 pub fn ProjectionReport::decisions(self : ProjectionReport) -> Int {
@@ -127,6 +131,8 @@ pub enum AdapterStartError {
   SeedMutationNotLanded(String)
   Projection(ProjectionApplyError)
 } derive(Eq, Debug)
+pub extend AdapterStartError with Eq::{not_equal, equal}
+pub extend AdapterStartError with Debug::{to_repr}
 
 ///|
 /// Starting an authority always distinguishes a ready adapter from failure.

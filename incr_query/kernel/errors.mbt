@@ -19,7 +19,7 @@ pub fn Diagnostic::help(self : Diagnostic) -> String? {
 
 ///|
 fn diagnostic(message : String, help? : String) -> Diagnostic {
-  { message_text: message, help_text: help }
+  { message_text: message, help_text: help, }
 }
 
 ///|

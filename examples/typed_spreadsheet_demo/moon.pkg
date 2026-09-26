@@ -1,6 +1,11 @@
 import {
   "dowdiness/incr",
   "examples/typed_spreadsheet",
-  "moonbitlang/core/json",
   "moonbitlang/core/string",
 }
+
+import {
+  "moonbitlang/core/json",
+} for "test"
+
+warnings = "-test_unqualified_package"

@@ -10,6 +10,8 @@ pub(all) struct FreshOnly {
   ok : Bool
 }
 pub fn FreshOnly::FreshOnly(Bool) -> Self
+pub fn FreshOnly::current(Self) -> Bool
+pub fn FreshOnly::readable(Self) -> Bool
 pub impl CompatReadable for FreshOnly
 pub impl CurrentFreshness for FreshOnly
 
@@ -17,6 +19,7 @@ pub(all) struct LegacyOnly {
   ok : Bool
 }
 pub fn LegacyOnly::LegacyOnly(Bool) -> Self
+pub fn LegacyOnly::readable(Self) -> Bool
 pub impl CompatReadable for LegacyOnly
 
 #alias(RenamedCell)
@@ -53,4 +56,3 @@ pub(open) trait CompatReadable {
 pub(open) trait CurrentFreshness {
   fn current(Self) -> Bool
 }
-

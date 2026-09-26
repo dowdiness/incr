@@ -12,8 +12,9 @@ pub fn mount(@incr_tea.DomElement) -> Unit
 
 // Types and methods
 type Msg derive(Eq)
+pub fn Msg::equal(Self, Self) -> Bool
+pub fn Msg::not_equal(Self, Self) -> Bool
 
 // Type aliases
 
 // Traits
-

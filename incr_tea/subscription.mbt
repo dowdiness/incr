@@ -13,6 +13,9 @@ pub struct SubKey {
   namespace_id : String
   identity : String
 } derive(Eq, Hash, Debug)
+pub extend SubKey with Eq::{not_equal, equal}
+pub extend SubKey with Hash::{hash, hash_combine}
+pub extend SubKey with Debug::{to_repr}
 
 ///|
 pub fn SubKey::SubKey(namespace_id : String, identity : String) -> SubKey {
@@ -28,6 +31,8 @@ pub(all) enum SubSpec[Msg] {
   WindowKeydown(String, Msg)
   AnimationFrame(Msg)
 } derive(Eq, Debug)
+pub extend SubSpec with Eq::{not_equal, equal}
+pub extend SubSpec with Debug::{to_repr}
 
 ///|
 /// A keyed collection of requested subscriptions.

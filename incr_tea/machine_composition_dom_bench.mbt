@@ -196,7 +196,7 @@ extern "js" fn machine_dom_same_node(
 
 ///|
 #cfg(target="js")
-extern "js" fn machine_dom_records_json(records : Array[String]) -> String =
+extern "js" fn machine_dom_records_json(records : FixedArray[String]) -> String =
   #| (records) => JSON.stringify(records.map(JSON.parse))
 
 ///|
@@ -462,7 +462,7 @@ fn machine_dom_run_benchmark(
     }
   ]
   harness.dispose()
-  machine_dom_records_json(records)
+  machine_dom_records_json(FixedArray::from_array(records))
 }
 
 ///|

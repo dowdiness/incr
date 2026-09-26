@@ -5,6 +5,7 @@ import {
   "dowdiness/incr/cells/internal/shared",
   "dowdiness/incr/types",
   "moonbitlang/core/hashmap",
+  "moonbitlang/core/hashset",
 }
 
 // Values
@@ -23,6 +24,18 @@ pub(all) struct MemoData {
   mut has_been_computed : Bool
   mut accumulator_reads : @hashmap.HashMap[(@types.AccumulatorId, @types.CellId), @types.Revision]
 }
+pub fn MemoData::cell_id(Self) -> @types.CellId
+pub fn MemoData::changed_at(Self) -> @types.Revision
+pub fn MemoData::dep_changed_since(Self, @types.Revision) -> Bool?
+pub fn MemoData::durability(Self) -> @types.Durability
+pub fn MemoData::gc_dependencies(Self) -> Array[@types.CellId]
+pub fn MemoData::gc_role(Self) -> @types.GcRole
+pub fn MemoData::label(Self) -> String?
+pub fn MemoData::level(Self) -> Int
+pub fn MemoData::meta(Self) -> @shared.CellMeta
+pub fn MemoData::push_reachable_count(Self) -> Int
+pub fn MemoData::set_changed_at(Self, @types.Revision) -> Unit
+pub fn MemoData::subscribers(Self) -> @hashset.HashSet[@types.CellId]
 pub impl @shared.CellOps for MemoData
 pub impl @shared.HasCellMeta for MemoData
 
@@ -31,6 +44,19 @@ pub(all) struct PullInputData {
   mut on_change : (() -> Unit)?
   mut commit_pending : (() -> Bool)?
 }
+pub fn PullInputData::cell_id(Self) -> @types.CellId
+pub fn PullInputData::changed_at(Self) -> @types.Revision
+pub fn PullInputData::dep_changed_since(Self, @types.Revision) -> Bool?
+pub fn PullInputData::do_commit(Self) -> Bool
+pub fn PullInputData::durability(Self) -> @types.Durability
+pub fn PullInputData::gc_dependencies(Self) -> Array[@types.CellId]
+pub fn PullInputData::gc_role(Self) -> @types.GcRole
+pub fn PullInputData::label(Self) -> String?
+pub fn PullInputData::level(Self) -> Int
+pub fn PullInputData::meta(Self) -> @shared.CellMeta
+pub fn PullInputData::push_reachable_count(Self) -> Int
+pub fn PullInputData::set_changed_at(Self, @types.Revision) -> Unit
+pub fn PullInputData::subscribers(Self) -> @hashset.HashSet[@types.CellId]
 pub impl @shared.CellOps for PullInputData
 pub impl @shared.Committable for PullInputData
 pub impl @shared.HasCellMeta for PullInputData
@@ -38,4 +64,3 @@ pub impl @shared.HasCellMeta for PullInputData
 // Type aliases
 
 // Traits
-

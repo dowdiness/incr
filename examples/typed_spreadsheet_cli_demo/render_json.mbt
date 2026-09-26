@@ -4,6 +4,7 @@ priv struct ScenarioJson {
   trace_semantics : String
   steps : Array[StepJson]
 } derive(ToJson)
+extend ScenarioJson with ToJson::{to_json}
 
 ///|
 priv struct StepJson {

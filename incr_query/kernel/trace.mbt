@@ -28,7 +28,7 @@ fn dependency(
   kind : DependencyKind,
   verifier : (QueryContext) -> Verification,
 ) -> Dependency {
-  { kind, verifier }
+  { kind, verifier, }
 }
 
 ///|

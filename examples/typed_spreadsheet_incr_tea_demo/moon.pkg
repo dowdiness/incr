@@ -14,3 +14,6 @@ import {
 supported_targets = "js"
 
 pkgtype(kind: "executable")
+
+// 6/7 are used only by wbtests for observed collaboration states and outcomes.
+warnings = "-6-7"

@@ -22,7 +22,7 @@ fn fresh_query(
   query_id : @model.QueryId,
   key : Int,
 ) -> Result[Int, @model.ScenarioError] {
-  let invocation = FreshInvocation::{ query_id, key }
+  let invocation = FreshInvocation::{ query_id, key, }
   match state.active.get(invocation) {
     Some(_start) => Err(@model.ScenarioError::Cycle)
     None => {

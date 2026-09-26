@@ -7,6 +7,6 @@ preferred_target = "js"
 supported_targets = "js"
 
 import {
-  "dowdiness/incr@0.15.0",
+  "dowdiness/incr@0.15.1",
   "dowdiness/incr_tea@0.1.0",
 }

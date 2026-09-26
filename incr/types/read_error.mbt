@@ -22,6 +22,7 @@ pub enum ReadError {
   Cycle(CycleError)
   Disposed(CellId)
 }
+pub extend ReadError with Show::{output, to_string}
 
 ///|
 /// Constructs a cycle read error. Exposed so the cells package (which detects

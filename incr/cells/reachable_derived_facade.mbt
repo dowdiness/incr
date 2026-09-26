@@ -9,6 +9,7 @@ pub(all) struct ReachableDerived[T] {
   priv compute : () -> T raise Failure
   priv mut value : T?
 } derive(Debug(ignore=[Runtime, Fn, CellId]))
+pub extend ReachableDerived with Debug::{to_repr}
 
 ///|
 /// Creates a reachable lazy derived value.

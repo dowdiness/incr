@@ -40,6 +40,12 @@ fn ExprDebug::to_string(self : ExprDebug) -> String {
     Map(inner) => "Map(" + inner.to_string() + ")"
   }
 }
+pub extend Expr with Add::{add}
+pub extend Expr with Sub::{sub}
+pub extend Expr with Mul::{mul}
+pub extend Expr with Div::{div}
+pub extend Expr with Mod::{mod}
+pub extend Expr with Neg::{neg}
 
 ///|
 /// Creates a constant expression tied to an explicit runtime.

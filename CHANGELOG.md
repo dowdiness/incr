@@ -4,6 +4,28 @@ All notable changes to `dowdiness/incr` are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- Keep the core library warning-clean on MoonBit 0.10.12 by scoping test-only
+  imports, qualifying trait calls, and using scoped cleanup for callback and
+  batch failures. Recompute failure hooks retain their ordering and error value.
+- Pin repository CI to MoonBit 0.10.14+7d59c7ec9 so the Luna/async 0.21.3
+  dependency graph and current collection APIs are checked with a compatible
+  compiler.
+- Replace the unavailable MoonBit 0.10.4 CI artifact with the available,
+  checksum-verified 0.10.8 compatibility consumer. The original 0.10.4
+  result remains preserved as historical K2 evidence.
+- Check and test the core library on both the standard CI compiler and MoonBit
+  0.10.8, preserving the existing required-check name as a matrix gate.
+- Restore the full `ReadError` API documentation by keeping its explicit `Show`
+  method promotion separate from the enum's doc comment.
+
+## [v0.15.1] - 2026-08-27
+
+### Fixed
+
+- Updated `Hash::hash_combine` and explicit `Debug::to_repr` calls for MoonBit 0.10.8 compatibility.
+
 ## [v0.15.0] - 2026-08-03
 
 Breaking release: `Watch[T]` replaces the removed `Observer[T]` API, and

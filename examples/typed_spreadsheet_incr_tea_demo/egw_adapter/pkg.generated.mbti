@@ -46,6 +46,9 @@ pub enum AdapterStartError {
   SeedMutationNotLanded(String)
   Projection(ProjectionApplyError)
 } derive(Eq, @debug.Debug)
+pub fn AdapterStartError::equal(Self, Self) -> Bool
+pub fn AdapterStartError::not_equal(Self, Self) -> Bool
+pub fn AdapterStartError::to_repr(Self) -> @debug.Repr
 
 pub enum AdapterStartResult {
   Ready(EgwAdapter, AdapterApplyResult)
@@ -102,6 +105,9 @@ pub enum ProjectionApplyError {
   UnexpectedFormula(@typed_spreadsheet.CellId, @typed_spreadsheet.WorksheetError)
   UnexpectedDelete(@typed_spreadsheet.CellId, @typed_spreadsheet.CellResult)
 } derive(Eq, @debug.Debug)
+pub fn ProjectionApplyError::equal(Self, Self) -> Bool
+pub fn ProjectionApplyError::not_equal(Self, Self) -> Bool
+pub fn ProjectionApplyError::to_repr(Self) -> @debug.Repr
 
 pub struct ProjectionBindings {
   // private fields
@@ -115,6 +121,9 @@ pub fn ProjectionReport::committed_updates(Self) -> Int
 pub fn ProjectionReport::decisions(Self) -> Int
 pub fn ProjectionReport::diagnostics(Self) -> Int
 pub fn ProjectionReport::draft_updates(Self) -> Int
+pub fn ProjectionReport::equal(Self, Self) -> Bool
+pub fn ProjectionReport::not_equal(Self, Self) -> Bool
+pub fn ProjectionReport::to_repr(Self) -> @debug.Repr
 pub fn ProjectionReport::worksheet_operations(Self) -> Int
 
 pub struct RemoteApplyResult {
@@ -138,4 +147,3 @@ pub fn Seed::register(Self) -> @core.CellRegister
 // Type aliases
 
 // Traits
-

@@ -2,7 +2,10 @@ import {
   "examples/typed_spreadsheet",
   "examples/typed_spreadsheet_demo" @demo,
   "moonbitlang/core/argparse",
-  "moonbitlang/core/json",
 }
+
+import {
+  "moonbitlang/core/json",
+} for "wbtest"
 
 pkgtype(kind: "executable")

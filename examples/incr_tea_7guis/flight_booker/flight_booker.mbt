@@ -13,6 +13,7 @@ enum Msg {
   SetReturnDate(String)
   BookFlight
 } derive(Eq)
+pub extend Msg with Eq::{not_equal, equal}
 
 ///|
 priv struct App {

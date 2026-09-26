@@ -2,5 +2,8 @@ import {
   "dowdiness/incr/types" @incr_types,
   "dowdiness/incr/cells/internal/shared",
   "moonbitlang/core/hashmap",
-  "moonbitlang/core/hashset",
 }
+
+import {
+  "moonbitlang/core/hashset",
+} for "wbtest"

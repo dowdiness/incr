@@ -2,6 +2,7 @@
 priv struct TextScenario {
   steps : Array[@demo.WorksheetStepResult]
 }
+extend TextScenario with Show::{to_string}
 
 ///|
 impl Show for TextScenario with fn output(self, logger) {

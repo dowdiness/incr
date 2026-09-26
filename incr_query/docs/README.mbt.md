@@ -10,7 +10,7 @@ examples, while keeping caller-contract violations in a separate package.
 
 **Disposition:** Retained at K2 closure as executable product documentation.
 
-**Status:** K2 is complete and the exact MoonBit 0.10.9 packager prerequisite is
+**Status:** K2 is complete and the exact MoonBit 0.10.14 packager prerequisite is
 satisfied. Incr Query remains unpublished until a separate commission explicitly
 authorizes publication. This guide uses the post-K2 typed-raise interface.
 

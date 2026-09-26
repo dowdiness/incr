@@ -177,8 +177,8 @@ test "Fresh and incremental work counters are separate evidence" {
 test "keyed work identity includes SourceId and key" {
   let script = @scenarios.keyed_query()
   assert_eq(script.initial_sources(), [
-    @model.SourceInit::{ id: 0, value: 0 },
-    @model.SourceInit::{ id: 1, value: 10 },
+    @model.SourceInit::{ id: 0, value: 0, },
+    @model.SourceInit::{ id: 1, value: 10, },
   ])
   assert_semantics_and_work(
     script,
@@ -195,7 +195,7 @@ test "keyed work identity includes SourceId and key" {
 ///|
 test "Read of an undefined Source remains a normalized Missing observation" {
   let source_script = @model.Script::Script(
-    [@model.SourceInit::{ id: 0, value: 0 }],
+    [@model.SourceInit::{ id: 0, value: 0, }],
     [@model.Operation::Read(1)],
   )
   assert_semantics_and_work(
@@ -206,7 +206,7 @@ test "Read of an undefined Source remains a normalized Missing observation" {
   )
   let query_script = @model.Script::scenario(
     @model.Scenario::UnitQuery,
-    [@model.SourceInit::{ id: 0, value: 0 }],
+    [@model.SourceInit::{ id: 0, value: 0, }],
     [@model.Operation::Read(99)],
   )
   assert_semantics_and_work(
@@ -221,7 +221,7 @@ test "Read of an undefined Source remains a normalized Missing observation" {
 test "KeyedQuery accepts noncanonical initial Source IDs" {
   let script = @model.Script::scenario(
     @model.Scenario::KeyedQuery,
-    [@model.SourceInit::{ id: 7, value: 10 }],
+    [@model.SourceInit::{ id: 7, value: 10, }],
     [@model.Operation::ReadKey(7, 3)],
   )
   assert_semantics_and_work(script, [@model.Observation::Value(13)], 1, 1)
@@ -271,8 +271,8 @@ test "diamond semantic values match without simulating memo work in Fresh" {
 test "DynamicBranch updates a tracked branch and drops the old base" {
   let script = @scenarios.dynamic_branch()
   assert_eq(script.initial_sources(), [
-    @model.SourceInit::{ id: 0, value: 0 },
-    @model.SourceInit::{ id: 1, value: 0 },
+    @model.SourceInit::{ id: 0, value: 0, },
+    @model.SourceInit::{ id: 1, value: 0, },
   ])
   assert_eq(script.operations(), [
     @model.Operation::Read(0),

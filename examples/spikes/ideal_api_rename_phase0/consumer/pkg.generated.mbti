@@ -19,6 +19,8 @@ pub(all) struct DownstreamFresh {
   ok : Bool
 }
 pub fn DownstreamFresh::DownstreamFresh(Bool) -> Self
+pub fn DownstreamFresh::current(Self) -> Bool
+pub fn DownstreamFresh::readable(Self) -> Bool
 pub impl @provider.CompatReadable for DownstreamFresh
 pub impl @provider.CurrentFreshness for DownstreamFresh
 
@@ -26,9 +28,9 @@ pub(all) struct DownstreamLegacy {
   ok : Bool
 }
 pub fn DownstreamLegacy::DownstreamLegacy(Bool) -> Self
+pub fn DownstreamLegacy::readable(Self) -> Bool
 pub impl @provider.CompatReadable for DownstreamLegacy
 
 // Type aliases
 
 // Traits
-

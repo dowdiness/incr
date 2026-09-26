@@ -10,6 +10,8 @@ pub(all) struct AiContextSnapshot {
   latest_trace : AiContextTrace?
   latest_evidence : AiContextEvidence?
 } derive(ToJson, Debug)
+pub extend AiContextSnapshot with ToJson::{to_json}
+pub extend AiContextSnapshot with Debug::{to_repr}
 
 ///|
 /// Serializable view of one bounded cell in an AI/tool context snapshot.
@@ -27,6 +29,8 @@ pub(all) struct AiContextCell {
   last_dynamic_dependencies : Array[String]
   formula : AiContextFormula?
 } derive(ToJson, Debug)
+pub extend AiContextCell with ToJson::{to_json}
+pub extend AiContextCell with Debug::{to_repr}
 
 ///|
 /// Structured value or error state for one context cell.
@@ -36,6 +40,9 @@ pub(all) struct AiContextResult {
   error : String?
   repr : String
 } derive(ToJson, Debug, Eq)
+pub extend AiContextResult with ToJson::{to_json}
+pub extend AiContextResult with Debug::{to_repr}
+pub extend AiContextResult with Eq::{not_equal, equal}
 
 ///|
 /// Structured typed value for a successful context cell result.
@@ -44,6 +51,9 @@ pub(all) struct AiContextValue {
   value : String
   repr : String
 } derive(ToJson, Debug, Eq)
+pub extend AiContextValue with ToJson::{to_json}
+pub extend AiContextValue with Debug::{to_repr}
+pub extend AiContextValue with Eq::{not_equal, equal}
 
 ///|
 /// Formula text and AST-backed shape metadata for a formula cell.
@@ -53,6 +63,8 @@ pub(all) struct AiContextFormula {
   shape : String?
   error : String?
 } derive(ToJson, Debug)
+pub extend AiContextFormula with ToJson::{to_json}
+pub extend AiContextFormula with Debug::{to_repr}
 
 ///|
 /// Latest bounded recompute/change trace available from a spreadsheet model.
@@ -63,6 +75,8 @@ pub(all) struct AiContextTrace {
   changed : Array[String]
   unchanged : Array[String]
 } derive(ToJson, Debug)
+pub extend AiContextTrace with ToJson::{to_json}
+pub extend AiContextTrace with Debug::{to_repr}
 
 ///|
 /// Latest bounded before/after evidence summary available from a spreadsheet model.
@@ -71,6 +85,9 @@ pub(all) struct AiContextEvidence {
   outcome : String
   cells : Array[AiContextEvidenceCell]
 } derive(ToJson, Debug, Eq)
+pub extend AiContextEvidence with ToJson::{to_json}
+pub extend AiContextEvidence with Debug::{to_repr}
+pub extend AiContextEvidence with Eq::{not_equal, equal}
 
 ///|
 /// One before/after evidence summary cell.
@@ -82,6 +99,9 @@ pub(all) struct AiContextEvidenceCell {
   after : AiContextResult
   after_kind : String
 } derive(ToJson, Debug, Eq)
+pub extend AiContextEvidenceCell with ToJson::{to_json}
+pub extend AiContextEvidenceCell with Debug::{to_repr}
+pub extend AiContextEvidenceCell with Eq::{not_equal, equal}
 
 ///|
 /// Minimal worksheet state needed for shared AI evidence conversion.

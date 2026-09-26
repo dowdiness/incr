@@ -9,6 +9,7 @@ pub fn DownstreamFresh::DownstreamFresh(ok : Bool) -> DownstreamFresh {
 }
 
 ///|
+pub extend DownstreamFresh with @probe.CurrentFreshness::{current}
 pub impl @probe.CurrentFreshness for DownstreamFresh with fn current(self) {
   self.ok
 }
@@ -24,11 +25,13 @@ pub fn DownstreamLegacy::DownstreamLegacy(ok : Bool) -> DownstreamLegacy {
 }
 
 ///|
+pub extend DownstreamLegacy with @probe.CompatReadable::{readable}
 pub impl @probe.CompatReadable for DownstreamLegacy with fn readable(self) {
   self.ok
 }
 
 ///|
+pub extend DownstreamFresh with @probe.CompatReadable::{readable}
 pub impl @probe.CompatReadable for DownstreamFresh with fn readable(self) {
   self.current()
 }

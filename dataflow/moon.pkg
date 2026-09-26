@@ -1,5 +1,4 @@
 import {
-  "moonbitlang/core/cmp",
   "moonbitlang/core/hashmap",
   "moonbitlang/core/hashset",
   "moonbitlang/core/immut/vector",
@@ -11,6 +10,7 @@ import {
   "moonbitlang/core/bench",
   "moonbitlang/quickcheck" @qc,
   "moonbitlang/quickcheck/gen",
+  "moonbitlang/core/cmp",
 } for "wbtest"
 
 // Private Phase 0 surfaces are intentionally reachable only from white-box
