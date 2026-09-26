@@ -25,7 +25,12 @@ pub struct QueryContext {
 
 ///|
 fn QueryContext::root(session : EvalSession) -> QueryContext {
-  { session, invocation: Ref(true), frame: Ref(None), first_failure: Ref(None) }
+  {
+    session,
+    invocation: Ref(true),
+    frame: Ref(None),
+    first_failure: Ref(None),
+  }
 }
 
 ///|

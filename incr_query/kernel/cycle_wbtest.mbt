@@ -305,7 +305,7 @@ impl Hash for ProbeKey with fn hash_combine(self, hasher) {
 test "closed metadata rejects before caller key Hash or Eq" {
   let store = Store::Store()
   let region = store.region()
-  let key = ProbeKey::{ value: 3, hashes: Ref(0), equals: Ref(0) }
+  let key = ProbeKey::{ value: 3, hashes: Ref(0), equals: Ref(0), }
   let query = region.query((_ctx, key : ProbeKey) => key.value)
   let view = query.view(key)
   region.close()

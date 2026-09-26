@@ -26,8 +26,9 @@ K1 and K2 are complete and accepted, with evidence indexed by
 [`incr_query/kernel/evidence/README.md`](../incr_query/kernel/evidence/README.md). K2 selected a
 separate alpha publication commission after one prerequisite: standardize
 active candidate packaging on an exact MoonBit 0.10.9-or-newer pin while
-preserving historical evidence pins and optional 0.10.4 consumer compatibility.
-Active repository automation now uses exact MoonBit 0.10.9+6e6c44045 through
+preserving historical evidence pins and an available 0.10.8 consumer
+compatibility check.
+Active repository automation now uses exact MoonBit 0.10.14+7d59c7ec9 through
 its checksum-verified local installer, satisfying that prerequisite.
 Repository-wide validation exposed the `examples/incr_tea` transitive
 `moonbitlang/async@0.19.0` as compiler-incompatible; the example module now
