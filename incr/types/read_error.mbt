@@ -16,13 +16,13 @@
 ///
 /// Cross-runtime misuse and strict-context misuse are programmer defects and
 /// abort rather than surfacing here.
-pub extend ReadError with Show::{output, to_string}
 ///
 /// See docs/design/specs/2026-05-28-honest-read-error-ownership.md.
 pub enum ReadError {
   Cycle(CycleError)
   Disposed(CellId)
 }
+pub extend ReadError with Show::{output, to_string}
 
 ///|
 /// Constructs a cycle read error. Exposed so the cells package (which detects

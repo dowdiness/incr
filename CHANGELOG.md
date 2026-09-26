@@ -15,6 +15,10 @@ All notable changes to `dowdiness/incr` are documented in this file.
 - Replace the unavailable MoonBit 0.10.4 CI artifact with the available,
   checksum-verified 0.10.8 compatibility consumer. The original 0.10.4
   result remains preserved as historical K2 evidence.
+- Check and test the core library on both the standard CI compiler and MoonBit
+  0.10.8, preserving the existing required-check name as a matrix gate.
+- Restore the full `ReadError` API documentation by keeping its explicit `Show`
+  method promotion separate from the enum's doc comment.
 
 ## [v0.15.1] - 2026-08-27
 

@@ -30,16 +30,29 @@ env:
 
 jobs:
   library:
-    name: Check + Test library
+    name: Library / MoonBit ${{ matrix.toolchain }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain: [standard, '0.10.8']
     steps:
       - name: Checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
       # The repository-local action installs exact, checksum-verified MoonBit
       # artifacts with retries (issues #227 and #229).
-      - name: Install MoonBit
+      - name: Install standard MoonBit
+        if: matrix.toolchain == 'standard'
         uses: ./.github/actions/install-moonbit
+
+      - name: Install MoonBit 0.10.8 compatibility toolchain
+        if: matrix.toolchain == '0.10.8'
+        uses: ./.github/actions/install-moonbit
+        with:
+          version: 0.10.8+8606a5800
+          binary-sha256: ac66bf5c04c00bb8e1512d2bfc2cc9801d24a60429302bab48320a5d68ca20a2
+          core-sha256: 858a4d2d505bfd2db43176a76f3f02457d5cf080e35231bfb9c78e33e9c6719d
 
       - name: Verify MoonBit
         run: moon version --all
@@ -57,6 +70,18 @@ jobs:
           moon test -p dowdiness/incr/cells --deny-warn
           moon test -p dowdiness/incr/tests --deny-warn
           moon test -p dowdiness/incr/types --deny-warn
+
+  # Preserve the existing required-check name while gating both toolchains.
+  library-required:
+    name: Check + Test library
+    if: ${{ always() }}
+    needs: [library]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require core library toolchain matrix
+        env:
+          LIBRARY_RESULT: ${{ needs.library.result }}
+        run: test "$LIBRARY_RESULT" = success
 
   docs:
     name: Check + Test docs examples
