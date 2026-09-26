@@ -16,6 +16,7 @@ pub enum Formula {
   /// Conditional formula execution.
   If(Formula, Formula, Formula)
 } derive(Eq)
+pub extend Formula with Eq::{not_equal, equal}
 
 ///|
 /// Dependency-shape classification for typed spreadsheet formulas.
@@ -27,6 +28,8 @@ pub(all) enum FormulaDependencyShape {
   /// Dependencies may be chosen by values read during evaluation.
   Dynamic
 } derive(Eq, Debug)
+pub extend FormulaDependencyShape with Eq::{not_equal, equal}
+pub extend FormulaDependencyShape with Debug::{to_repr}
 
 ///|
 /// Creates a literal formula node.

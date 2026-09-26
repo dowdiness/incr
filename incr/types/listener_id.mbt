@@ -21,6 +21,10 @@ pub(all) struct ListenerId {
   runtime_id : RuntimeId
   id : Int
 } derive(Eq, Hash, Debug)
+pub extend ListenerId with Eq::{not_equal, equal}
+pub extend ListenerId with Debug::{to_repr}
+pub extend ListenerId with Show::{output, to_string}
+pub extend ListenerId with Hash::{hash, hash_combine}
 
 ///|
 /// Pairs a `RuntimeId` with a raw listener-allocation number as a `ListenerId`.

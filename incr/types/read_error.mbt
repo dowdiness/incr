@@ -16,6 +16,7 @@
 ///
 /// Cross-runtime misuse and strict-context misuse are programmer defects and
 /// abort rather than surfacing here.
+pub extend ReadError with Show::{output, to_string}
 ///
 /// See docs/design/specs/2026-05-28-honest-read-error-ownership.md.
 pub enum ReadError {

@@ -24,6 +24,13 @@ pub(all) struct AccumulatorId {
   runtime_id : RuntimeId
   id : Int
 } derive(Eq, @debug.Debug)
+pub fn AccumulatorId::equal(Self, Self) -> Bool
+pub fn AccumulatorId::hash(Self) -> Int
+pub fn AccumulatorId::hash_combine(Self, Hasher) -> Unit
+pub fn AccumulatorId::not_equal(Self, Self) -> Bool
+pub fn AccumulatorId::output(Self, &Logger) -> Unit
+pub fn AccumulatorId::to_repr(Self) -> @debug.Repr
+pub fn AccumulatorId::to_string(Self) -> String
 pub impl Hash for AccumulatorId
 pub impl Show for AccumulatorId
 
@@ -31,6 +38,13 @@ pub(all) struct CellId {
   runtime_id : RuntimeId
   id : Int
 } derive(Eq, @debug.Debug)
+pub fn CellId::equal(Self, Self) -> Bool
+pub fn CellId::hash(Self) -> Int
+pub fn CellId::hash_combine(Self, Hasher) -> Unit
+pub fn CellId::not_equal(Self, Self) -> Bool
+pub fn CellId::output(Self, &Logger) -> Unit
+pub fn CellId::to_repr(Self) -> @debug.Repr
+pub fn CellId::to_string(Self) -> String
 pub impl Hash for CellId
 pub impl Show for CellId
 
@@ -39,7 +53,17 @@ pub(all) enum Durability {
   Medium
   High
 } derive(Compare, Eq, @debug.Debug)
+pub fn Durability::compare(Self, Self) -> Int
+pub fn Durability::equal(Self, Self) -> Bool
 pub fn Durability::index(Self) -> Int
+pub fn Durability::not_equal(Self, Self) -> Bool
+pub fn Durability::op_ge(Self, Self) -> Bool
+pub fn Durability::op_gt(Self, Self) -> Bool
+pub fn Durability::op_le(Self, Self) -> Bool
+pub fn Durability::op_lt(Self, Self) -> Bool
+pub fn Durability::output(Self, &Logger) -> Unit
+pub fn Durability::to_repr(Self) -> @debug.Repr
+pub fn Durability::to_string(Self) -> String
 pub impl Show for Durability
 
 pub(all) enum GcRole {
@@ -47,11 +71,28 @@ pub(all) enum GcRole {
   Interior
   Root
 } derive(Eq, @debug.Debug)
+pub fn GcRole::equal(Self, Self) -> Bool
+pub fn GcRole::not_equal(Self, Self) -> Bool
+pub fn GcRole::output(Self, &Logger) -> Unit
+pub fn GcRole::to_repr(Self) -> @debug.Repr
+pub fn GcRole::to_string(Self) -> String
 pub impl Show for GcRole
 
 pub struct InternId {
   index : Int
 } derive(Compare, Eq, @debug.Debug)
+pub fn InternId::compare(Self, Self) -> Int
+pub fn InternId::equal(Self, Self) -> Bool
+pub fn InternId::hash(Self) -> Int
+pub fn InternId::hash_combine(Self, Hasher) -> Unit
+pub fn InternId::not_equal(Self, Self) -> Bool
+pub fn InternId::op_ge(Self, Self) -> Bool
+pub fn InternId::op_gt(Self, Self) -> Bool
+pub fn InternId::op_le(Self, Self) -> Bool
+pub fn InternId::op_lt(Self, Self) -> Bool
+pub fn InternId::output(Self, &Logger) -> Unit
+pub fn InternId::to_repr(Self) -> @debug.Repr
+pub fn InternId::to_string(Self) -> String
 pub impl Hash for InternId
 pub impl Show for InternId
 
@@ -68,6 +109,13 @@ pub(all) struct ListenerId {
   id : Int
 } derive(Eq, Hash, @debug.Debug)
 pub fn ListenerId::ListenerId(RuntimeId, Int) -> Self
+pub fn ListenerId::equal(Self, Self) -> Bool
+pub fn ListenerId::hash(Self) -> Int
+pub fn ListenerId::hash_combine(Self, Hasher) -> Unit
+pub fn ListenerId::not_equal(Self, Self) -> Bool
+pub fn ListenerId::output(Self, &Logger) -> Unit
+pub fn ListenerId::to_repr(Self) -> @debug.Repr
+pub fn ListenerId::to_string(Self) -> String
 pub impl Show for ListenerId
 
 pub(all) struct ReactiveId[T] {
@@ -84,14 +132,25 @@ pub fn ReadError::disposed(CellId) -> Self
 pub fn ReadError::format_path(Self) -> String
 pub fn ReadError::is_cycle(Self) -> Bool
 pub fn ReadError::is_disposed(Self) -> Bool
+pub fn ReadError::output(Self, &Logger) -> Unit
 pub fn ReadError::path(Self) -> Array[CellId]
+pub fn ReadError::to_string(Self) -> String
 pub impl Show for ReadError
 
 pub struct Revision {
   value : Int
 } derive(Compare, Default, Eq, @debug.Debug)
+pub fn Revision::compare(Self, Self) -> Int
+pub fn Revision::default() -> Self
+pub fn Revision::equal(Self, Self) -> Bool
 pub fn Revision::initial() -> Self
 pub fn Revision::next(Self) -> Self
+pub fn Revision::not_equal(Self, Self) -> Bool
+pub fn Revision::op_ge(Self, Self) -> Bool
+pub fn Revision::op_gt(Self, Self) -> Bool
+pub fn Revision::op_le(Self, Self) -> Bool
+pub fn Revision::op_lt(Self, Self) -> Bool
+pub fn Revision::to_repr(Self) -> @debug.Repr
 
 pub(all) struct RuleId {
   id : CellId
@@ -101,6 +160,13 @@ pub(all) struct RuntimeId {
   id : Int
 } derive(Eq, Hash, @debug.Debug)
 pub fn RuntimeId::RuntimeId(Int) -> Self
+pub fn RuntimeId::equal(Self, Self) -> Bool
+pub fn RuntimeId::hash(Self) -> Int
+pub fn RuntimeId::hash_combine(Self, Hasher) -> Unit
+pub fn RuntimeId::not_equal(Self, Self) -> Bool
+pub fn RuntimeId::output(Self, &Logger) -> Unit
+pub fn RuntimeId::to_repr(Self) -> @debug.Repr
+pub fn RuntimeId::to_string(Self) -> String
 pub impl Show for RuntimeId
 
 // Type aliases
@@ -113,4 +179,3 @@ pub(open) trait BackdateEq : HasChangedAt {
 pub(open) trait HasChangedAt {
   fn changed_at(Self) -> Revision
 }
-

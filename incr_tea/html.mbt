@@ -14,6 +14,8 @@ pub struct Attribute {
   priv direct : DirectAttrId?
   priv bool_value : Bool?
 } derive(Eq, Debug)
+pub extend Attribute with Eq::{not_equal, equal}
+pub extend Attribute with Debug::{to_repr}
 
 ///|
 #cfg(target="js")
@@ -40,6 +42,8 @@ fn DirectTextId::DirectTextId(name : String) -> DirectTextId {
 pub struct ValueEventId {
   name : String
 } derive(Eq, Debug)
+pub extend ValueEventId with Eq::{not_equal, equal}
+pub extend ValueEventId with Debug::{to_repr}
 
 ///|
 /// Construct a value event identifier from a name. This constructor does not error.
@@ -68,6 +72,8 @@ pub fn ValuePayload::ValuePayload(value : String) -> ValuePayload {
 pub struct CheckedInputId {
   name : String
 } derive(Eq, Debug)
+pub extend CheckedInputId with Eq::{not_equal, equal}
+pub extend CheckedInputId with Debug::{to_repr}
 
 ///|
 #cfg(target="js")
@@ -94,6 +100,8 @@ pub fn CheckedPayload::CheckedPayload(checked : Bool) -> CheckedPayload {
 pub struct KeyEventId {
   name : String
 } derive(Eq, Debug)
+pub extend KeyEventId with Eq::{not_equal, equal}
+pub extend KeyEventId with Debug::{to_repr}
 
 ///|
 #cfg(target="js")
@@ -202,6 +210,8 @@ fn[Msg] KeyEventDispatch::action_mask(self : KeyEventDispatch[Msg]) -> Int {
 pub struct PointerEventId {
   name : String
 } derive(Eq, Debug)
+pub extend PointerEventId with Eq::{not_equal, equal}
+pub extend PointerEventId with Debug::{to_repr}
 
 ///|
 #cfg(target="js")
@@ -286,6 +296,8 @@ pub struct EventBinding[Msg] {
   priv spec : EventSpec[Msg]
   priv actions : EventActions
 } derive(Eq, Debug)
+pub extend EventBinding with Eq::{not_equal, equal}
+pub extend EventBinding with Debug::{to_repr}
 
 ///|
 #cfg(target="js")
@@ -330,6 +342,8 @@ priv enum HtmlRepr[Msg] {
 pub struct Html[Msg] {
   priv repr : HtmlRepr[Msg]
 } derive(Eq, Debug)
+pub extend Html with Eq::{not_equal, equal}
+pub extend Html with Debug::{to_repr}
 
 ///|
 #cfg(target="js")

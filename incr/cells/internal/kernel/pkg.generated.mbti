@@ -166,11 +166,15 @@ pub(all) struct DerivedRebuildAbortSummary {
   verified_at_before : @types.Revision
   error : String
 } derive(@debug.Debug)
+pub fn DerivedRebuildAbortSummary::to_repr(Self) -> @debug.Repr
 
 pub(all) enum DerivedRebuildDisposition {
   RecomputedChanged
   RecomputedBackdated
 } derive(Eq, @debug.Debug)
+pub fn DerivedRebuildDisposition::equal(Self, Self) -> Bool
+pub fn DerivedRebuildDisposition::not_equal(Self, Self) -> Bool
+pub fn DerivedRebuildDisposition::to_repr(Self) -> @debug.Repr
 
 pub(all) struct DerivedRebuildSummary {
   cell_id : @types.CellId
@@ -182,11 +186,15 @@ pub(all) struct DerivedRebuildSummary {
   verified_at : @types.Revision
   had_synthetic_accumulator_reads : Bool
 } derive(@debug.Debug)
+pub fn DerivedRebuildSummary::to_repr(Self) -> @debug.Repr
 
 pub(all) enum EagerDerivedEvaluationDisposition {
   RecomputedChanged
   RecomputedUnchanged
 } derive(Eq, @debug.Debug)
+pub fn EagerDerivedEvaluationDisposition::equal(Self, Self) -> Bool
+pub fn EagerDerivedEvaluationDisposition::not_equal(Self, Self) -> Bool
+pub fn EagerDerivedEvaluationDisposition::to_repr(Self) -> @debug.Repr
 
 pub(all) struct EagerDerivedEvaluationSummary {
   cell_id : @types.CellId
@@ -198,6 +206,7 @@ pub(all) struct EagerDerivedEvaluationSummary {
   changed_at_before : @types.Revision
   changed_at_after : @types.Revision
 } derive(@debug.Debug)
+pub fn EagerDerivedEvaluationSummary::to_repr(Self) -> @debug.Repr
 
 pub(all) struct EffectExecutionSummary {
   cell_id : @types.CellId
@@ -206,6 +215,7 @@ pub(all) struct EffectExecutionSummary {
   dependency_count_before : Int
   dependency_count_after : Int
 } derive(@debug.Debug)
+pub fn EffectExecutionSummary::to_repr(Self) -> @debug.Repr
 
 pub struct EvaluationStrategies {
   // private fields
@@ -239,6 +249,7 @@ pub(all) struct EvaluationTraceSummary {
   changed_source_count : Int
   fixpoint_run_count : Int
 } derive(@debug.Debug)
+pub fn EvaluationTraceSummary::to_repr(Self) -> @debug.Repr
 
 pub(all) struct ListenerEntry[F] {
   id : @types.ListenerId
@@ -263,6 +274,11 @@ pub(all) enum PropagationPhase {
   InFixpoint
   GarbageCollecting
 } derive(Eq, @debug.Debug)
+pub fn PropagationPhase::equal(Self, Self) -> Bool
+pub fn PropagationPhase::not_equal(Self, Self) -> Bool
+pub fn PropagationPhase::output(Self, &Logger) -> Unit
+pub fn PropagationPhase::to_repr(Self) -> @debug.Repr
+pub fn PropagationPhase::to_string(Self) -> String
 pub impl Show for PropagationPhase
 
 pub(all) struct PullState {
@@ -278,12 +294,16 @@ pub(all) struct PushPropagationSummary {
   effect_execution_count : Int
   skipped_queue_entry_count : Int
 } derive(@debug.Debug)
+pub fn PushPropagationSummary::to_repr(Self) -> @debug.Repr
 
 pub(all) enum PushQueueSkipReason {
   StaleLevel
   DisposedOrKindMismatch
   NotDirty
 } derive(Eq, @debug.Debug)
+pub fn PushQueueSkipReason::equal(Self, Self) -> Bool
+pub fn PushQueueSkipReason::not_equal(Self, Self) -> Bool
+pub fn PushQueueSkipReason::to_repr(Self) -> @debug.Repr
 
 pub(all) struct PushQueueSkipSummary {
   cell_id : @types.CellId
@@ -291,6 +311,7 @@ pub(all) struct PushQueueSkipSummary {
   current_level : Int
   reason : PushQueueSkipReason
 } derive(@debug.Debug)
+pub fn PushQueueSkipSummary::to_repr(Self) -> @debug.Repr
 
 pub(all) struct PushState {
   reactives : Array[@push.PushReactiveData]
@@ -329,6 +350,7 @@ pub(all) enum RuntimeEvaluationEvent {
   PushQueueSkipped(PushQueueSkipSummary)
   PushPropagationCompleted(PushPropagationSummary)
 } derive(@debug.Debug)
+pub fn RuntimeEvaluationEvent::to_repr(Self) -> @debug.Repr
 
 pub(all) struct TrackingState {
   stack : Array[ActiveQuery]
@@ -337,4 +359,3 @@ pub(all) struct TrackingState {
 // Type aliases
 
 // Traits
-

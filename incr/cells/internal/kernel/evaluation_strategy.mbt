@@ -22,6 +22,7 @@ pub(all) struct EvaluationTraceSummary {
   changed_source_count : Int
   fixpoint_run_count : Int
 } derive(Debug)
+pub extend EvaluationTraceSummary with Debug::{to_repr}
 
 ///|
 /// Internal recorder used by tracing strategy bundles.

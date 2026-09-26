@@ -7,12 +7,16 @@ enum SchedulerMsg {
   Third
   Atomic
 } derive(Eq, Debug)
+pub extend SchedulerMsg with Eq::{not_equal, equal}
+pub extend SchedulerMsg with Debug::{to_repr}
 
 ///|
 struct SchedulerView {
   count : Int
   title : String
 } derive(Eq, Debug)
+pub extend SchedulerView with Eq::{not_equal, equal}
+pub extend SchedulerView with Debug::{to_repr}
 
 ///|
 test "panic program: constructor rejects a scope from another Runtime" {

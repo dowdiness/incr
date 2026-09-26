@@ -16,6 +16,7 @@
 pub(all) struct InputField[T] {
   priv input : Input[T]
 } derive(Debug(ignore=[Input]))
+pub extend InputField with Debug::{to_repr}
 
 ///|
 /// Creates a field-level input cell with the given initial value.

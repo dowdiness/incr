@@ -11,6 +11,11 @@ pub(all) struct RuleData {
 pub impl HasCellMeta for RuleData with fn meta(self) {
   self.meta
 }
+pub extend RuleData with HasCellMeta::{meta}
+pub extend RuleData with CellOps::{
+  cell_id, changed_at, set_changed_at, subscribers, label, durability, level,
+  dep_changed_since, push_reachable_count, gc_role, gc_dependencies,
+}
 
 ///|
 /// CellOps dispatch for rule cells — defaults via HasCellMeta plus a

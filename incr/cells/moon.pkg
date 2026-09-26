@@ -5,7 +5,6 @@ import {
   "dowdiness/incr/cells/internal/push",
   "dowdiness/incr/cells/internal/shared",
   "dowdiness/incr/types" @incr_types,
-  "moonbitlang/core/debug",
   "moonbitlang/core/bench",
   "moonbitlang/core/hashmap",
   "moonbitlang/core/hashset",
@@ -16,6 +15,7 @@ import {
 } for "test"
 
 import {
+  "moonbitlang/core/debug",
   "moonbitlang/core/bench",
   "moonbitlang/quickcheck" @qc,
   "moonbitlang/quickcheck/gen",
@@ -32,4 +32,5 @@ import {
 // 7 (unused_field) — AcceptedDerived.fold (stored for future introspection through
 //   scope lifecycle); wbtest struct fields (TestGraphState, etc.)
 
-warnings = "-1-7"
+warnings = "-1-7-test_unqualified_package"
+// 25 (test_unqualified_package) — same-package tests use direct names intentionally.

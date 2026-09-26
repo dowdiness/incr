@@ -22,6 +22,7 @@ pub impl[T : Debug] Debug for Derived[T] with fn to_repr(self) -> Repr {
     "value": Debug::to_repr(self.value),
   })
 }
+pub extend Derived with Debug::{to_repr}
 
 ///|
 /// Creates a lazy derived value.

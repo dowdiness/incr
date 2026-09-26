@@ -11,6 +11,10 @@ pub(all) struct CellId {
   runtime_id : RuntimeId
   id : Int
 } derive(Eq, Debug)
+pub extend CellId with Eq::{not_equal, equal}
+pub extend CellId with Debug::{to_repr}
+pub extend CellId with Show::{output, to_string}
+pub extend CellId with Hash::{hash, hash_combine}
 
 ///|
 pub impl Show for CellId with fn output(self, logger) {

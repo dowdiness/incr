@@ -8,6 +8,8 @@ import {
   "moonbitlang/core/bench",
 } for "test"
 
+warnings = "-test_unqualified_package"
+
 import {
   "moonbitlang/core/bench",
   "moonbitlang/core/quickcheck",

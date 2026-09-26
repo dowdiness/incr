@@ -10,6 +10,8 @@ pub(all) enum CounterMsg {
   SetUnrelated(Int)
   SetBoth(next_count~ : Int, next_title~ : String)
 } derive(Eq, Debug)
+pub extend CounterMsg with Eq::{not_equal, equal}
+pub extend CounterMsg with Debug::{to_repr}
 
 ///|
 /// Pure view data produced by the counter's tracked view computation.
@@ -17,6 +19,8 @@ pub(all) struct CounterView {
   title : String
   count : Int
 } derive(Eq, Debug)
+pub extend CounterView with Eq::{not_equal, equal}
+pub extend CounterView with Debug::{to_repr}
 
 ///|
 /// Minimal counter component demonstrating field-level incremental views.

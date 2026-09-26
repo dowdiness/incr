@@ -10,6 +10,8 @@ pub(all) enum FormulaTextParseError {
   /// The formula shape is outside the demo grammar.
   UnsupportedFormula(String)
 } derive(Eq, Debug)
+pub extend FormulaTextParseError with Eq::{not_equal, equal}
+pub extend FormulaTextParseError with Debug::{to_repr}
 
 ///|
 /// Parses one demo cell edit into a worksheet operation.

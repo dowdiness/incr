@@ -47,6 +47,7 @@ pub fn Effect::Effect(rt : Runtime, f : () -> Unit) -> Effect {
   }
   effect
 }
+pub extend Effect with InputFieldOwner::{cell_ids}
 
 ///|
 /// Deprecated alias of the `Effect::Effect` constructor.

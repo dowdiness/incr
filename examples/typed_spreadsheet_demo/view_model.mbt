@@ -8,6 +8,8 @@ pub struct FixedScenarioViewModel {
   steps : Array[WorksheetStepViewModel]
   extensions : Map[String, String]
 } derive(ToJson, Debug)
+pub extend FixedScenarioViewModel with ToJson::{to_json}
+pub extend FixedScenarioViewModel with Debug::{to_repr}
 
 ///|
 /// Serializable representation of one demo step.
@@ -19,6 +21,8 @@ pub struct WorksheetStepViewModel {
   snapshots : Array[CellSnapshotChangeViewModel]
   extensions : Map[String, String]
 } derive(ToJson, Debug)
+pub extend WorksheetStepViewModel with ToJson::{to_json}
+pub extend WorksheetStepViewModel with Debug::{to_repr}
 
 ///|
 /// Serializable trace buckets for formula cells affected by a step.
@@ -27,6 +31,8 @@ pub struct TraceViewModel {
   changed : Array[String]
   unchanged : Array[String]
 } derive(ToJson, Debug)
+pub extend TraceViewModel with ToJson::{to_json}
+pub extend TraceViewModel with Debug::{to_repr}
 
 ///|
 /// Serializable before/after snapshot for one visible cell.
@@ -35,6 +41,8 @@ pub struct CellSnapshotChangeViewModel {
   before : CellSnapshotViewModel
   after : CellSnapshotViewModel
 } derive(ToJson, Debug)
+pub extend CellSnapshotChangeViewModel with ToJson::{to_json}
+pub extend CellSnapshotChangeViewModel with Debug::{to_repr}
 
 ///|
 /// Serializable snapshot of one cell at one side of a step.
@@ -49,6 +57,8 @@ pub struct CellSnapshotViewModel {
   static_references : Array[String]
   last_dynamic_dependencies : Array[String]
 } derive(ToJson, Debug)
+pub extend CellSnapshotViewModel with ToJson::{to_json}
+pub extend CellSnapshotViewModel with Debug::{to_repr}
 
 ///|
 /// Builds the browser-facing view model for the fixed five-step scenario.

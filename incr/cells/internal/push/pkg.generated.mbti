@@ -4,6 +4,7 @@ package "dowdiness/incr/cells/internal/push"
 import {
   "dowdiness/incr/cells/internal/shared",
   "dowdiness/incr/types",
+  "moonbitlang/core/hashset",
 }
 
 // Values
@@ -18,7 +19,19 @@ pub(all) struct PushEffectData {
   mut level : Int
   mut dirty : Bool
 }
+pub fn PushEffectData::cell_id(Self) -> @types.CellId
+pub fn PushEffectData::changed_at(Self) -> @types.Revision
 pub fn PushEffectData::clear_slot(Self) -> Unit
+pub fn PushEffectData::dep_changed_since(Self, @types.Revision) -> Bool?
+pub fn PushEffectData::durability(Self) -> @types.Durability
+pub fn PushEffectData::gc_dependencies(Self) -> Array[@types.CellId]
+pub fn PushEffectData::gc_role(Self) -> @types.GcRole
+pub fn PushEffectData::label(Self) -> String?
+pub fn PushEffectData::level(Self) -> Int
+pub fn PushEffectData::meta(Self) -> @shared.CellMeta
+pub fn PushEffectData::push_reachable_count(Self) -> Int
+pub fn PushEffectData::set_changed_at(Self, @types.Revision) -> Unit
+pub fn PushEffectData::subscribers(Self) -> @hashset.HashSet[@types.CellId]
 pub impl @shared.CellOps for PushEffectData
 pub impl @shared.HasCellMeta for PushEffectData
 
@@ -29,11 +42,22 @@ pub(all) struct PushReactiveData {
   mut level : Int
   mut dirty : Bool
 }
+pub fn PushReactiveData::cell_id(Self) -> @types.CellId
+pub fn PushReactiveData::changed_at(Self) -> @types.Revision
 pub fn PushReactiveData::clear_slot(Self) -> Unit
+pub fn PushReactiveData::dep_changed_since(Self, @types.Revision) -> Bool?
+pub fn PushReactiveData::durability(Self) -> @types.Durability
+pub fn PushReactiveData::gc_dependencies(Self) -> Array[@types.CellId]
+pub fn PushReactiveData::gc_role(Self) -> @types.GcRole
+pub fn PushReactiveData::label(Self) -> String?
+pub fn PushReactiveData::level(Self) -> Int
+pub fn PushReactiveData::meta(Self) -> @shared.CellMeta
+pub fn PushReactiveData::push_reachable_count(Self) -> Int
+pub fn PushReactiveData::set_changed_at(Self, @types.Revision) -> Unit
+pub fn PushReactiveData::subscribers(Self) -> @hashset.HashSet[@types.CellId]
 pub impl @shared.CellOps for PushReactiveData
 pub impl @shared.HasCellMeta for PushReactiveData
 
 // Type aliases
 
 // Traits
-

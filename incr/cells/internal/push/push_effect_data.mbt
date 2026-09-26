@@ -19,6 +19,11 @@ pub(all) struct PushEffectData {
 pub impl HasCellMeta for PushEffectData with fn meta(self) {
   self.meta
 }
+pub extend PushEffectData with HasCellMeta::{meta}
+pub extend PushEffectData with CellOps::{
+  cell_id, changed_at, set_changed_at, subscribers, label, durability, level,
+  dep_changed_since, push_reachable_count, gc_role, gc_dependencies,
+}
 
 ///|
 /// CellOps dispatch for push-effect cells — defaults via HasCellMeta,

@@ -6,6 +6,11 @@
 pub struct InternId {
   index : Int
 } derive(Eq, Debug, Compare)
+pub extend InternId with Eq::{not_equal, equal}
+pub extend InternId with Debug::{to_repr}
+pub extend InternId with Show::{output, to_string}
+pub extend InternId with Hash::{hash, hash_combine}
+pub extend InternId with Compare::{compare, op_lt, op_le, op_ge, op_gt}
 
 ///|
 pub impl Show for InternId with fn output(self, logger) {

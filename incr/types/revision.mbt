@@ -12,6 +12,10 @@
 pub struct Revision {
   value : Int
 } derive(Default, Debug, Eq, Compare)
+pub extend Revision with Default::{default}
+pub extend Revision with Eq::{not_equal, equal}
+pub extend Revision with Debug::{to_repr}
+pub extend Revision with Compare::{compare, op_lt, op_le, op_ge, op_gt}
 
 ///|
 /// Returns the initial revision (revision 0).
@@ -57,8 +61,10 @@ pub(all) enum Durability {
   Medium
   High
 } derive(Debug, Eq, Compare)
-
-///|
+pub extend Durability with Eq::{not_equal, equal}
+pub extend Durability with Debug::{to_repr}
+pub extend Durability with Compare::{compare, op_lt, op_le, op_ge, op_gt}
+pub extend Durability with Show::{output, to_string}
 pub impl Show for Durability with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
@@ -136,7 +142,9 @@ pub(all) enum GcRole {
   Interior
   Root
 } derive(Debug, Eq)
-
+pub extend GcRole with Eq::{not_equal, equal}
+pub extend GcRole with Debug::{to_repr}
+pub extend GcRole with Show::{output, to_string}
 ///|
 pub impl Show for GcRole with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))

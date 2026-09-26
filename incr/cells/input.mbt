@@ -21,6 +21,7 @@ pub(all) struct Input[T] {
   priv mut pending_value : T?
   priv durability : Durability
 } derive(Debug(ignore=[Runtime, CellId]))
+pub extend Input with Debug::{to_repr}
 
 ///|
 /// Creates a new input with the given initial value. Enables `Input(rt, value)`

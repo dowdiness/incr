@@ -6,6 +6,9 @@
 pub struct SheetId {
   value : Int
 } derive(Eq, Debug)
+pub extend SheetId with Eq::{not_equal, equal}
+pub extend SheetId with Debug::{to_repr}
+pub extend SheetId with Hash::{hash, hash_combine}
 
 ///|
 /// Creates a `SheetId`.
@@ -22,7 +25,7 @@ pub impl Hash for SheetId with fn hash(self) {
 ///|
 /// Hash combine for `SheetId`.
 pub impl Hash for SheetId with fn hash_combine(self, hasher) {
-  self.value.hash_combine(hasher)
+  Hash::hash_combine(self.value, hasher)
 }
 
 ///|
@@ -34,6 +37,9 @@ pub struct CellId {
   sheet_id : SheetId
   address : String
 } derive(Eq, Debug)
+pub extend CellId with Eq::{not_equal, equal}
+pub extend CellId with Debug::{to_repr}
+pub extend CellId with Hash::{hash, hash_combine}
 
 ///|
 /// Creates a `CellId`.
@@ -56,5 +62,5 @@ pub impl Hash for CellId with fn hash(self) {
 ///|
 /// Hash combine for `CellId`.
 pub impl Hash for CellId with fn hash_combine(self, hasher) {
-  self.hash().hash_combine(hasher)
+  Hash::hash_combine(Hash::hash(self), hasher)
 }

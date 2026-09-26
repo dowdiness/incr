@@ -14,6 +14,7 @@ enum Msg {
   SetDuration(String)
   SetRunning(Bool)
 } derive(Eq)
+pub extend Msg with Eq::{not_equal, equal}
 
 ///|
 priv struct App {

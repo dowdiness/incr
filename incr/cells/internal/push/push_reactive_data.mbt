@@ -19,6 +19,11 @@ pub(all) struct PushReactiveData {
 pub impl HasCellMeta for PushReactiveData with fn meta(self) {
   self.meta
 }
+pub extend PushReactiveData with HasCellMeta::{meta}
+pub extend PushReactiveData with CellOps::{
+  cell_id, changed_at, set_changed_at, subscribers, label, durability, level,
+  dep_changed_since, push_reachable_count, gc_role, gc_dependencies,
+}
 
 ///|
 /// CellOps dispatch for push-reactive cells — defaults via HasCellMeta,

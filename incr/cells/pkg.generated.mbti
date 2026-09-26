@@ -17,6 +17,10 @@ pub(all) enum AcceptStatus {
   AcceptedUnchanged
   RetainedDueToError
 } derive(Eq)
+pub fn AcceptStatus::equal(Self, Self) -> Bool
+pub fn AcceptStatus::not_equal(Self, Self) -> Bool
+pub fn AcceptStatus::output(Self, &Logger) -> Unit
+pub fn AcceptStatus::to_string(Self) -> String
 pub impl Show for AcceptStatus
 
 pub struct AcceptedDerived[V, E] {
@@ -43,6 +47,8 @@ pub struct AcceptedSnapshot[V, E] {
   accepted : V?
   status : AcceptStatus
 } derive(Eq)
+pub fn[V : Eq, E : Eq] AcceptedSnapshot::equal(Self[V, E], Self[V, E]) -> Bool
+pub fn[V : Eq, E : Eq] AcceptedSnapshot::not_equal(Self[V, E], Self[V, E]) -> Bool
 
 pub struct Accumulator[T] {
   // private fields
@@ -73,6 +79,7 @@ pub fn[T, A] Derived::accumulated(Self[T], Accumulator[A]) -> Result[Array[A], @
 pub fn[T, A] Derived::accumulated_or_abort(Self[T], Accumulator[A]) -> Array[A] raise Failure
 pub fn[T, A] Derived::accumulated_peek(Self[T], Accumulator[A]) -> Array[A]
 pub fn[T, A] Derived::accumulated_result(Self[T], Accumulator[A]) -> Result[Array[A], @types.ReadError] raise Failure
+pub fn[T] Derived::cell_ids(Self[T]) -> Array[@types.CellId]
 pub fn[T] Derived::changed_at(Self[T]) -> @types.Revision
 pub fn[T] Derived::clear_on_change(Self[T]) -> Unit
 pub fn[T] Derived::dependencies(Self[T]) -> Array[@types.CellId]
@@ -95,6 +102,7 @@ pub fn[T, U] Derived::map_no_backdate(Self[T], (T) -> U, label? : String) -> Sel
 pub fn[T] Derived::on_change(Self[T], (T) -> Unit) -> Unit
 pub fn[T] Derived::read(Self[T]) -> Result[T, @types.ReadError]
 pub fn[T] Derived::read_or_abort(Self[T]) -> T
+pub fn[T : @debug.Debug] Derived::to_repr(Self[T]) -> @debug.Repr
 pub fn[T] Derived::verified_at(Self[T]) -> @types.Revision
 pub fn[T] Derived::watch(Self[T]) -> Watch[T]
 pub fn[T : @types.BackdateEq] Derived::with_backdate(Runtime, () -> T raise Failure, label? : String) -> Self[T]
@@ -148,6 +156,7 @@ pub(all) struct EagerDerived[T] {
   // private fields
 }
 pub fn[T : Eq] EagerDerived::EagerDerived(Runtime, () -> T) -> Self[T]
+pub fn[T] EagerDerived::cell_ids(Self[T]) -> Array[@types.CellId]
 pub fn[T] EagerDerived::dispose(Self[T]) -> Unit
 #alias(e)
 pub fn[T] EagerDerived::expr(Self[T]) -> Expr[T]
@@ -162,6 +171,7 @@ pub struct Effect {
   // private fields
 }
 pub fn Effect::Effect(Runtime, () -> Unit) -> Self
+pub fn Effect::cell_ids(Self) -> Array[@types.CellId]
 pub fn Effect::dispose(Self) -> Unit
 pub fn Effect::id(Self) -> @types.CellId
 pub fn Effect::is_disposed(Self) -> Bool
@@ -172,10 +182,16 @@ pub impl InputFieldOwner for Effect
 pub(all) struct Expr[T] {
   // private fields
 }
+pub fn[T : Add] Expr::add(Self[T], Self[T]) -> Self[T]
 pub fn[T] Expr::constant(Runtime, T, label? : String) -> Self[T]
 pub fn[T : Eq] Expr::derived(Self[T], label? : String) -> Derived[T]
+pub fn[T : Div] Expr::div(Self[T], Self[T]) -> Self[T]
 pub fn[A, B] Expr::map(Self[A], (A) -> B raise Failure) -> Self[B]
 pub fn[A, B, C] Expr::map2(Self[A], Self[B], (A, B) -> C raise Failure) -> Self[C]
+pub fn[T : Mod] Expr::mod(Self[T], Self[T]) -> Self[T]
+pub fn[T : Mul] Expr::mul(Self[T], Self[T]) -> Self[T]
+pub fn[T : Neg] Expr::neg(Self[T]) -> Self[T]
+pub fn[T : Sub] Expr::sub(Self[T], Self[T]) -> Self[T]
 pub impl[T : Add] Add for Expr[T]
 pub impl[T : Div] Div for Expr[T]
 pub impl[T : Mod] Mod for Expr[T]
@@ -189,6 +205,7 @@ pub(all) struct Input[T] {
 pub fn[T] Input::Input(Runtime, T, durability? : @types.Durability, label? : String) -> Self[T]
 #alias("_[_:_]")
 pub fn[T] Input::as_view(Self[T], start? : Unit, end? : Unit) -> InputView[T]
+pub fn[T] Input::cell_ids(Self[T]) -> Array[@types.CellId]
 pub fn[T] Input::clear_on_change(Self[T]) -> Unit
 pub fn[T, U : Eq] Input::derived(Self[T], (T) -> U, label? : String) -> Derived[U]
 pub fn[T, U, V : Eq] Input::derived2(Self[T], Self[U], (T, U) -> V, label? : String) -> Derived[V]
@@ -212,6 +229,7 @@ pub fn[T] Input::new(Runtime, T, durability? : @types.Durability, label? : Strin
 pub fn[T] Input::on_change(Self[T], (T) -> Unit) -> Unit
 pub fn[T] Input::peek(Self[T]) -> T
 pub fn[T : Eq] Input::set(Self[T], T) -> Unit
+pub fn[T : @debug.Debug] Input::to_repr(Self[T]) -> @debug.Repr
 pub impl[T] InputFieldOwner for Input[T]
 
 pub(all) struct InputField[T] {
@@ -220,6 +238,7 @@ pub(all) struct InputField[T] {
 pub fn[T] InputField::InputField(Runtime, T, durability? : @types.Durability, label? : String) -> Self[T]
 #alias("_[_:_]")
 pub fn[T] InputField::as_view(Self[T], start? : Unit, end? : Unit) -> InputView[T]
+pub fn[T] InputField::cell_ids(Self[T]) -> Array[@types.CellId]
 pub fn[T] InputField::clear_on_change(Self[T]) -> Unit
 pub fn[T] InputField::dispose(Self[T]) -> Unit
 pub fn[T] InputField::durability(Self[T]) -> @types.Durability
@@ -234,6 +253,7 @@ pub fn[T] InputField::is_fresh(Self[T]) -> Bool
 pub fn[T] InputField::on_change(Self[T], (T) -> Unit) -> Unit
 pub fn[T] InputField::peek(Self[T]) -> T
 pub fn[T : Eq] InputField::set(Self[T], T) -> Unit
+pub fn[T : @debug.Debug] InputField::to_repr(Self[T]) -> @debug.Repr
 pub impl[T] InputFieldOwner for InputField[T]
 
 pub(all) struct InputView[T] {
@@ -258,6 +278,7 @@ pub(all) struct ReachableDerived[T] {
   // private fields
 } derive(@debug.Debug)
 pub fn[T : Eq] ReachableDerived::ReachableDerived(Runtime, () -> T raise Failure, label? : String) -> Self[T]
+pub fn[T] ReachableDerived::cell_ids(Self[T]) -> Array[@types.CellId]
 pub fn[T] ReachableDerived::dispose(Self[T]) -> Unit
 #alias(e)
 pub fn[T : Eq] ReachableDerived::expr(Self[T]) -> Expr[T]
@@ -268,6 +289,7 @@ pub fn[T] ReachableDerived::is_disposed(Self[T]) -> Bool
 pub fn[T] ReachableDerived::is_fresh(Self[T]) -> Bool
 pub fn[T : Eq] ReachableDerived::read(Self[T]) -> Result[T, @types.ReadError]
 pub fn[T : Eq] ReachableDerived::read_or_abort(Self[T]) -> T
+pub fn[T : @debug.Debug] ReachableDerived::to_repr(Self[T]) -> @debug.Repr
 pub fn[T : Eq] ReachableDerived::watch(Self[T]) -> Watch[T]
 pub impl[T] InputFieldOwner for ReachableDerived[T]
 
@@ -337,6 +359,7 @@ pub fn Scope::is_disposed(Self) -> Bool
 pub fn Scope::new(Runtime) -> Self
 pub fn Scope::on_dispose(Self, () -> Unit) -> Unit
 pub fn[T : Eq] Scope::reachable_derived(Self, () -> T raise Failure, label? : String) -> ReachableDerived[T]
+pub fn Scope::to_repr(Self) -> @debug.Repr
 pub fn[T] Scope::watch(Self, Derived[T]) -> Watch[T]
 pub fn[T : Eq] Scope::watch_reachable(Self, ReachableDerived[T]) -> Watch[T]
 pub impl @debug.Debug for Scope
@@ -348,6 +371,7 @@ pub fn[T] Watch::dispose(Self[T]) -> Unit
 pub fn[T] Watch::is_disposed(Self[T]) -> Bool
 pub fn[T] Watch::read(Self[T]) -> Result[T, @types.ReadError]
 pub fn[T] Watch::read_or_abort(Self[T]) -> T
+pub fn[T : @debug.Debug] Watch::to_repr(Self[T]) -> @debug.Repr
 
 // Type aliases
 pub using @types {type CellId}
@@ -368,4 +392,3 @@ pub using @types {trait BackdateEq}
 pub(open) trait InputFieldOwner {
   fn cell_ids(Self) -> Array[@types.CellId]
 }
-

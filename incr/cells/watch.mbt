@@ -29,6 +29,7 @@ pub struct Watch[T] {
   priv getter : () -> Result[T, ReadError]
   priv mut disposed : Bool
 } derive(Debug(ignore=[Runtime, Fn, CellId]))
+pub extend Watch with Debug::{to_repr}
 
 ///|
 /// Returns the current value or a mechanism error (cycle / disposed) from the

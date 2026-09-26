@@ -6,6 +6,8 @@ enum SubTestMsg {
   SetSlow
   TouchUnrelated
 } derive(Eq, Debug)
+pub extend SubTestMsg with Eq::{not_equal, equal}
+pub extend SubTestMsg with Debug::{to_repr}
 
 ///|
 fn subscription_program(runtime : @incr.Runtime) -> Program[SubTestMsg, Int] {
@@ -233,6 +235,8 @@ enum KeydownTestMsg {
   KeepKeyA
   TouchUnrelatedKd
 } derive(Eq, Debug)
+pub extend KeydownTestMsg with Eq::{not_equal, equal}
+pub extend KeydownTestMsg with Debug::{to_repr}
 
 ///|
 fn keydown_subscription_program(
@@ -407,6 +411,8 @@ enum TransitionTestMsg {
   SwitchToKeydown
   SwitchToTimer
 } derive(Eq, Debug)
+pub extend TransitionTestMsg with Eq::{not_equal, equal}
+pub extend TransitionTestMsg with Debug::{to_repr}
 
 ///|
 fn transition_program(
@@ -546,6 +552,8 @@ enum RafTestMsg {
   SwitchMsg
   TouchUnrelatedRaf
 } derive(Eq, Debug)
+pub extend RafTestMsg with Eq::{not_equal, equal}
+pub extend RafTestMsg with Debug::{to_repr}
 
 ///|
 fn raf_subscription_program(

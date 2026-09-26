@@ -25,10 +25,16 @@ pub(all) enum CommandApplicability {
   StaleGeneration
   LocalPreconditionFailed
 } derive(Eq, @debug.Debug)
+pub fn CommandApplicability::equal(Self, Self) -> Bool
+pub fn CommandApplicability::not_equal(Self, Self) -> Bool
+pub fn CommandApplicability::to_repr(Self) -> @debug.Repr
 
 pub struct DocumentGeneration(Int) derive(Eq, @debug.Debug)
+pub fn DocumentGeneration::equal(Self, Self) -> Bool
 pub fn DocumentGeneration::initial() -> Self
 pub fn DocumentGeneration::next(Self) -> Self
+pub fn DocumentGeneration::not_equal(Self, Self) -> Bool
+pub fn DocumentGeneration::to_repr(Self) -> @debug.Repr
 
 pub(all) enum SheetCommand {
   ApplyFromSelection(@typed_spreadsheet.CellId, String, DocumentGeneration)
@@ -36,6 +42,9 @@ pub(all) enum SheetCommand {
   DeleteFromSelection(@typed_spreadsheet.CellId, DocumentGeneration)
   ResetDocument(DocumentGeneration)
 } derive(Eq, @debug.Debug)
+pub fn SheetCommand::equal(Self, Self) -> Bool
+pub fn SheetCommand::not_equal(Self, Self) -> Bool
+pub fn SheetCommand::to_repr(Self) -> @debug.Repr
 
 pub struct SheetExecutionContext {
   selected_cell : @typed_spreadsheet.CellId
@@ -43,8 +52,10 @@ pub struct SheetExecutionContext {
   generation : DocumentGeneration
 } derive(Eq, @debug.Debug)
 pub fn SheetExecutionContext::SheetExecutionContext(@typed_spreadsheet.CellId, @typed_spreadsheet.CellId?, DocumentGeneration) -> Self
+pub fn SheetExecutionContext::equal(Self, Self) -> Bool
+pub fn SheetExecutionContext::not_equal(Self, Self) -> Bool
+pub fn SheetExecutionContext::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 
 // Traits
-

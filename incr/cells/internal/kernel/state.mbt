@@ -73,6 +73,9 @@ pub(all) enum PropagationPhase {
   InFixpoint
   GarbageCollecting
 } derive(Eq, Debug)
+pub extend PropagationPhase with Eq::{not_equal, equal}
+pub extend PropagationPhase with Debug::{to_repr}
+pub extend PropagationPhase with Show::{output, to_string}
 
 ///|
 pub impl Show for PropagationPhase with fn output(self, logger) {

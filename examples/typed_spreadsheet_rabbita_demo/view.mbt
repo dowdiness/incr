@@ -561,7 +561,7 @@ fn view_explanation_inputs(
         class="explanation-input-list",
         inputs
         .map(input => view_explanation_input(emit, input))
-        .view()
+        .exact_view()
         .to_owned(),
       ),
     ])
@@ -611,7 +611,7 @@ fn view_inactive_explanation_inputs(
           input.id,
         )
       })
-      .view()
+      .exact_view()
       .to_owned(),
     ),
   ])
@@ -648,17 +648,17 @@ fn view_explanation_history(
         view_explanation_trace_row(
           emit,
           "Recomputed",
-          trace.recomputed.view().to_owned(),
+          trace.recomputed.exact_view().to_owned(),
         ),
         view_explanation_trace_row(
           emit,
           "Changed",
-          trace.changed.view().to_owned(),
+          trace.changed.exact_view().to_owned(),
         ),
         view_explanation_trace_row(
           emit,
           "Same result",
-          trace.unchanged.view().to_owned(),
+          trace.unchanged.exact_view().to_owned(),
         ),
       ]),
       @html.div(class="explanation-before-after", [

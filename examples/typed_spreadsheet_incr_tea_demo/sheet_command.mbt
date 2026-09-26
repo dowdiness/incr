@@ -48,7 +48,7 @@ fn plan_sheet_command(context : SheetPlanningContext, msg : Msg) -> SheetPlan {
           ApplyFromSelection(
             target,
             draft_text_from(
-              context.drafts.view(),
+              context.drafts.exact_view(),
               @demo.cell_id_to_string(target),
             ),
             context.generation,
@@ -63,7 +63,7 @@ fn plan_sheet_command(context : SheetPlanningContext, msg : Msg) -> SheetPlan {
         command: Some(
           ApplyFromEditor(
             target,
-            draft_text_from(context.drafts.view(), address),
+            draft_text_from(context.drafts.exact_view(), address),
             context.generation,
           ),
         ),

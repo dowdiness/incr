@@ -39,6 +39,7 @@ enum GraphOp {
   BatchSetBothFail(Int, Int)
   BatchResultFail(Int)
 } derive(Debug)
+pub extend GraphOp with @moonbitlang/core/debug.Debug::{to_repr}
 
 ///|
 struct GraphFixture {

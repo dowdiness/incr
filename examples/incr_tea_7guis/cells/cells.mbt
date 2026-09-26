@@ -13,6 +13,7 @@ priv struct Model {
 enum Msg {
   SetCell(String, String)
 } derive(Eq)
+pub extend Msg with Eq::{not_equal, equal}
 
 ///|
 priv struct App {

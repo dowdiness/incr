@@ -364,7 +364,7 @@ fn ModelContextFixture::dispose(self : ModelContextFixture) -> Unit {
 ///|
 test "incr_tea AI context stays schema-versioned and bounded" {
   let fixture = new_model_context_fixture()
-  let context = fixture.snapshot(region?=Some(["A1", "B1", "C1"]), max_cells=2)
+  let context = fixture.snapshot(region=["A1", "B1", "C1"], max_cells=2)
   inspect(context.schema_version, content="3")
   inspect(context.selected_cell, content="B1")
   inspect(context.max_cells, content="2")

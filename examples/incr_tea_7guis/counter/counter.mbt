@@ -8,6 +8,7 @@ enum Msg {
   Increment
   Reset
 } derive(Eq)
+pub extend Msg with Eq::{not_equal, equal}
 
 ///|
 fn update_model(msg : Msg, model : Model) -> Model {

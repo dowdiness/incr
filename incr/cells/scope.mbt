@@ -29,6 +29,7 @@ pub struct Scope {
   priv maintenance_hooks : Array[() -> Unit]
   priv mut disposed : Bool
 }
+pub extend Scope with Debug::{to_repr}
 
 ///|
 fn scope_dispose_request(disposed : Bool) -> (Bool, Bool) {

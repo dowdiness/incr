@@ -4,6 +4,8 @@ struct BindingCell {
   text : String?
   diagnostic : @core.ProjectionDiagnostic?
 } derive(Eq, Debug)
+pub extend BindingCell with Eq::{not_equal, equal}
+pub extend BindingCell with Debug::{to_repr}
 
 ///|
 struct BindingFixture {
@@ -320,9 +322,7 @@ test "host export JSON roundtrip attaches the supplied node" {
     AdapterStartResult::Failed(_) => fail("host attach failed")
   }
   let wire = host.export_all().to_json_string()
-  let message = @container.SyncMessage::from_json_string(wire) catch {
-    error => raise error
-  }
+  let message = @container.SyncMessage::from_json_string(wire)
   let joiner_document = @container.Document::new("preflight-joiner")
   ignore(joiner_document.sync().apply(message))
   assert_true(joiner_document.is_alive(host_node))

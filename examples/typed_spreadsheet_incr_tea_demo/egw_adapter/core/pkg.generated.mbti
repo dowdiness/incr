@@ -25,13 +25,19 @@ pub struct CellProjectionState {
 } derive(Eq, @debug.Debug)
 pub fn CellProjectionState::address(Self) -> String
 pub fn CellProjectionState::diagnostic(Self) -> ProjectionDiagnostic?
+pub fn CellProjectionState::equal(Self, Self) -> Bool
 pub fn CellProjectionState::last_good_source(Self) -> String?
 pub fn CellProjectionState::last_seen_register(Self) -> RegisterObservation
+pub fn CellProjectionState::not_equal(Self, Self) -> Bool
+pub fn CellProjectionState::to_repr(Self) -> @debug.Repr
 
 pub(all) enum CellRegister {
   Source(String)
   Deleted
 } derive(Eq, @debug.Debug)
+pub fn CellRegister::equal(Self, Self) -> Bool
+pub fn CellRegister::not_equal(Self, Self) -> Bool
+pub fn CellRegister::to_repr(Self) -> @debug.Repr
 
 pub struct CollaborativeSheetId {
   value : String
@@ -65,6 +71,9 @@ pub(all) enum ProjectionDiagnostic {
   ExtraFields(String, ReadOnlyArray[String])
   InvalidSource(String, String, @typed_spreadsheet_demo.FormulaTextParseError)
 } derive(Eq, @debug.Debug)
+pub fn ProjectionDiagnostic::equal(Self, Self) -> Bool
+pub fn ProjectionDiagnostic::not_equal(Self, Self) -> Bool
+pub fn ProjectionDiagnostic::to_repr(Self) -> @debug.Repr
 
 pub struct ProjectionState {
   cells : ReadOnlyArray[CellProjectionState]
@@ -72,6 +81,9 @@ pub struct ProjectionState {
 pub fn ProjectionState::cell(Self, String) -> CellProjectionState?
 pub fn ProjectionState::cells(Self) -> ReadOnlyArray[CellProjectionState]
 pub fn ProjectionState::empty(Array[String]) -> Self
+pub fn ProjectionState::equal(Self, Self) -> Bool
+pub fn ProjectionState::not_equal(Self, Self) -> Bool
+pub fn ProjectionState::to_repr(Self) -> @debug.Repr
 
 pub struct ProjectionTransition {
   candidate_state : ProjectionState
@@ -103,8 +115,10 @@ pub(all) enum RegisterObservation {
   Decoded(CellRegister)
   Invalid(ProjectionDiagnostic)
 } derive(Eq, @debug.Debug)
+pub fn RegisterObservation::equal(Self, Self) -> Bool
+pub fn RegisterObservation::not_equal(Self, Self) -> Bool
+pub fn RegisterObservation::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 
 // Traits
-

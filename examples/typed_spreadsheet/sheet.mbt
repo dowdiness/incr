@@ -103,6 +103,8 @@ pub enum FormulaAstQueryError {
   NotFormula(CellId)
   OpaqueFormula(CellId)
 } derive(Eq, Debug)
+pub extend FormulaAstQueryError with Eq::{not_equal, equal}
+pub extend FormulaAstQueryError with Debug::{to_repr}
 
 ///|
 /// Creates a worksheet bound to a runtime.

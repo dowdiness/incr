@@ -10,4 +10,5 @@ import {
 // 5 (unused_type_variable) — phantom [T] on InputId, MemoId, ReactiveId, RelationId is intentional
 // 9 (struct_never_constructed) — ID types are constructed by cells/ package via pub(all)
 
-warnings = "-5-9"
+warnings = "-5-9-test_unqualified_package"
+// Same-package type tests intentionally use direct constructors and helpers.

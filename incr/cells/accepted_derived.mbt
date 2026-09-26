@@ -48,6 +48,8 @@ pub(all) enum AcceptStatus {
   /// Candidate `Err` while a prior accepted value exists — value retained.
   RetainedDueToError
 } derive(Eq)
+pub extend AcceptStatus with Eq::{not_equal, equal}
+pub extend AcceptStatus with Show::{output, to_string}
 
 ///|
 pub impl Show for AcceptStatus with fn output(self, logger) {
@@ -71,6 +73,7 @@ pub struct AcceptedSnapshot[V, E] {
   accepted : V?
   status : AcceptStatus
 } derive(Eq)
+pub extend AcceptedSnapshot with Eq::{not_equal, equal}
 
 ///|
 /// A success-gated derived value. Construct with `AcceptedDerived::AcceptedDerived`

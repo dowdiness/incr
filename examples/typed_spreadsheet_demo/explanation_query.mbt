@@ -3,6 +3,9 @@
 pub(all) enum ExplanationQueryError {
   CellOutsideObservedRegion(String)
 } derive(ToJson, Debug, Eq)
+pub extend ExplanationQueryError with ToJson::{to_json}
+pub extend ExplanationQueryError with Debug::{to_repr}
+pub extend ExplanationQueryError with Eq::{not_equal, equal}
 
 ///|
 /// Stable spreadsheet kinds exposed by explanation answers.
@@ -12,6 +15,9 @@ pub(all) enum ExplanationCellKind {
   ExplanationMissingCell
   ExplanationUnknownCell(String)
 } derive(ToJson, Debug, Eq)
+pub extend ExplanationCellKind with ToJson::{to_json}
+pub extend ExplanationCellKind with Debug::{to_repr}
+pub extend ExplanationCellKind with Eq::{not_equal, equal}
 
 ///|
 /// Stable error categories exposed by explanation results.
@@ -21,6 +27,9 @@ pub(all) enum ExplanationErrorKind {
   ReferenceFailure
   CycleFailure
 } derive(ToJson, Debug, Eq)
+pub extend ExplanationErrorKind with ToJson::{to_json}
+pub extend ExplanationErrorKind with Debug::{to_repr}
+pub extend ExplanationErrorKind with Eq::{not_equal, equal}
 
 ///|
 /// A typed current or historical cell result.
@@ -30,6 +39,9 @@ pub(all) enum ExplanationResult {
   Error(ExplanationErrorKind, String)
   UnknownResult(String, String)
 } derive(ToJson, Debug, Eq)
+pub extend ExplanationResult with ToJson::{to_json}
+pub extend ExplanationResult with Debug::{to_repr}
+pub extend ExplanationResult with Eq::{not_equal, equal}
 
 ///|
 /// Whether one formula input was resolved in the bounded context.
@@ -37,6 +49,9 @@ pub(all) enum ExplanationInputState {
   Observed(ExplanationResult)
   OutsideObservedRegion
 } derive(ToJson, Debug, Eq)
+pub extend ExplanationInputState with ToJson::{to_json}
+pub extend ExplanationInputState with Debug::{to_repr}
+pub extend ExplanationInputState with Eq::{not_equal, equal}
 
 ///|
 /// Stable latest-edit classifications exposed by explanation evidence.
@@ -47,6 +62,9 @@ pub(all) enum ExplanationChange {
   Unobserved
   UnknownChange(String)
 } derive(ToJson, Debug, Eq)
+pub extend ExplanationChange with ToJson::{to_json}
+pub extend ExplanationChange with Debug::{to_repr}
+pub extend ExplanationChange with Eq::{not_equal, equal}
 
 ///|
 /// The bounded region in which an explanation answer is complete.
@@ -55,6 +73,8 @@ pub struct ExplanationScope {
   truncated : Bool
   region : ReadOnlyArray[String]
 } derive(ToJson, Debug)
+pub extend ExplanationScope with ToJson::{to_json}
+pub extend ExplanationScope with Debug::{to_repr}
 
 ///|
 /// One formula input resolved within or outside the observed region.
@@ -62,6 +82,9 @@ pub struct ExplanationInput {
   id : String
   state : ExplanationInputState
 } derive(ToJson, Debug, Eq)
+pub extend ExplanationInput with ToJson::{to_json}
+pub extend ExplanationInput with Debug::{to_repr}
+pub extend ExplanationInput with Eq::{not_equal, equal}
 
 ///|
 /// One structured cell error found within the bounded observed region.
@@ -70,6 +93,9 @@ pub struct ExplanationObservedError {
   kind : ExplanationErrorKind
   message : String
 } derive(ToJson, Debug, Eq)
+pub extend ExplanationObservedError with ToJson::{to_json}
+pub extend ExplanationObservedError with Debug::{to_repr}
+pub extend ExplanationObservedError with Eq::{not_equal, equal}
 
 ///|
 /// How one observed cell depends on the queried subject.
@@ -78,6 +104,9 @@ pub struct ExplanationDependent {
   static_reference : Bool
   active_dependency : Bool
 } derive(ToJson, Debug, Eq)
+pub extend ExplanationDependent with ToJson::{to_json}
+pub extend ExplanationDependent with Debug::{to_repr}
+pub extend ExplanationDependent with Eq::{not_equal, equal}
 
 ///|
 /// Bounded engine activity retained as secondary diagnostic evidence.
@@ -86,6 +115,8 @@ pub struct ExplanationTrace {
   changed : ReadOnlyArray[String]
   unchanged : ReadOnlyArray[String]
 } derive(ToJson, Debug)
+pub extend ExplanationTrace with ToJson::{to_json}
+pub extend ExplanationTrace with Debug::{to_repr}
 
 ///|
 /// Selected-cell evidence normalized for human and tool consumers.
@@ -94,6 +125,9 @@ pub struct ExplanationEvidence {
   before_result : ExplanationResult
   after_result : ExplanationResult
 } derive(ToJson, Debug, Eq)
+pub extend ExplanationEvidence with ToJson::{to_json}
+pub extend ExplanationEvidence with Debug::{to_repr}
+pub extend ExplanationEvidence with Eq::{not_equal, equal}
 
 ///|
 /// Deterministic before/after facts for the latest bounded edit.
@@ -106,6 +140,8 @@ pub struct LastChangeAnswer {
   evidence : ExplanationEvidence?
   trace : ExplanationTrace
 } derive(ToJson, Debug)
+pub extend LastChangeAnswer with ToJson::{to_json}
+pub extend LastChangeAnswer with Debug::{to_repr}
 
 ///|
 /// Structured errors from one bounded observed region.
@@ -114,6 +150,8 @@ pub struct ObservedErrorsAnswer {
   scope : ExplanationScope
   errors : ReadOnlyArray[ExplanationObservedError]
 } derive(ToJson, Debug)
+pub extend ObservedErrorsAnswer with ToJson::{to_json}
+pub extend ObservedErrorsAnswer with Debug::{to_repr}
 
 ///|
 /// Observed-region cells that depend on one subject.
@@ -123,6 +161,8 @@ pub struct ObservedDependentsAnswer {
   scope : ExplanationScope
   dependents : ReadOnlyArray[ExplanationDependent]
 } derive(ToJson, Debug)
+pub extend ObservedDependentsAnswer with ToJson::{to_json}
+pub extend ObservedDependentsAnswer with Debug::{to_repr}
 
 ///|
 /// Deterministic semantic facts explaining one observed spreadsheet cell.
@@ -137,6 +177,8 @@ pub struct ExplainCellAnswer {
   active_inputs : ReadOnlyArray[ExplanationInput]
   inactive_inputs : ReadOnlyArray[ExplanationInput]
 } derive(ToJson, Debug)
+pub extend ExplainCellAnswer with ToJson::{to_json}
+pub extend ExplainCellAnswer with Debug::{to_repr}
 
 ///|
 /// Explains one cell using only deterministic facts from a bounded snapshot.

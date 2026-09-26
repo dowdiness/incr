@@ -17,7 +17,12 @@ pub struct CellId {
   address : String
 } derive(Eq, @debug.Debug)
 pub fn CellId::CellId(SheetId, String) -> Self
+pub fn CellId::equal(Self, Self) -> Bool
+pub fn CellId::hash(Self) -> Int
+pub fn CellId::hash_combine(Self, Hasher) -> Unit
+pub fn CellId::not_equal(Self, Self) -> Bool
 pub fn CellId::of(SheetId, String) -> Self
+pub fn CellId::to_repr(Self) -> @debug.Repr
 pub impl Hash for CellId
 
 pub enum CellKind {
@@ -33,10 +38,13 @@ pub enum CellResult {
   CycleError(String)
 } derive(Eq, @debug.Debug)
 pub fn CellResult::cycle_error(String) -> Self
+pub fn CellResult::equal(Self, Self) -> Bool
 pub fn CellResult::is_ok(Self) -> Bool
+pub fn CellResult::not_equal(Self, Self) -> Bool
 pub fn CellResult::ok(CellValue) -> Self
 pub fn CellResult::parse_error(String) -> Self
 pub fn CellResult::ref_error(String) -> Self
+pub fn CellResult::to_repr(Self) -> @debug.Repr
 pub fn CellResult::type_error(String) -> Self
 
 type CellSlot
@@ -60,11 +68,14 @@ pub enum CellType {
   TAny
 } derive(Eq, @debug.Debug)
 pub fn CellType::accepts(Self, CellValue) -> Bool
+pub fn CellType::equal(Self, Self) -> Bool
+pub fn CellType::not_equal(Self, Self) -> Bool
 pub fn CellType::t_any() -> Self
 pub fn CellType::t_blank() -> Self
 pub fn CellType::t_bool() -> Self
 pub fn CellType::t_int() -> Self
 pub fn CellType::t_string() -> Self
+pub fn CellType::to_repr(Self) -> @debug.Repr
 pub fn CellType::to_string(Self) -> String
 
 pub enum CellValue {
@@ -75,9 +86,12 @@ pub enum CellValue {
 } derive(Eq, @debug.Debug)
 pub fn CellValue::blank() -> Self
 pub fn CellValue::cell_type(Self) -> CellType
+pub fn CellValue::equal(Self, Self) -> Bool
 pub fn CellValue::from_bool(Bool) -> Self
 pub fn CellValue::from_int(Int) -> Self
 pub fn CellValue::from_text(String) -> Self
+pub fn CellValue::not_equal(Self, Self) -> Bool
+pub fn CellValue::to_repr(Self) -> @debug.Repr
 
 pub enum Formula {
   Literal(CellValue)
@@ -92,10 +106,12 @@ pub fn Formula::add(Self, Self) -> Self
 pub fn Formula::cell_ref(CellId) -> Self
 pub fn Formula::dependency_shape(Self) -> FormulaDependencyShape
 pub fn Formula::eq(Self, Self) -> Self
+pub fn Formula::equal(Self, Self) -> Bool
 pub fn Formula::gt(Self, Self) -> Self
 pub fn Formula::if_(Self, Self, Self) -> Self
 pub fn Formula::literal(CellValue) -> Self
 pub fn Formula::mul(Self, Self) -> Self
+pub fn Formula::not_equal(Self, Self) -> Bool
 pub fn Formula::refs(Self) -> Array[CellId]
 
 pub enum FormulaAstQueryError {
@@ -105,17 +121,28 @@ pub enum FormulaAstQueryError {
   NotFormula(CellId)
   OpaqueFormula(CellId)
 } derive(Eq, @debug.Debug)
+pub fn FormulaAstQueryError::equal(Self, Self) -> Bool
+pub fn FormulaAstQueryError::not_equal(Self, Self) -> Bool
+pub fn FormulaAstQueryError::to_repr(Self) -> @debug.Repr
 
 pub(all) enum FormulaDependencyShape {
   Applicative
   Selective
   Dynamic
 } derive(Eq, @debug.Debug)
+pub fn FormulaDependencyShape::equal(Self, Self) -> Bool
+pub fn FormulaDependencyShape::not_equal(Self, Self) -> Bool
+pub fn FormulaDependencyShape::to_repr(Self) -> @debug.Repr
 
 pub struct SheetId {
   value : Int
 } derive(Eq, @debug.Debug)
 pub fn SheetId::SheetId(Int) -> Self
+pub fn SheetId::equal(Self, Self) -> Bool
+pub fn SheetId::hash(Self) -> Int
+pub fn SheetId::hash_combine(Self, Hasher) -> Unit
+pub fn SheetId::not_equal(Self, Self) -> Bool
+pub fn SheetId::to_repr(Self) -> @debug.Repr
 pub impl Hash for SheetId
 
 pub struct Worksheet {
@@ -145,7 +172,10 @@ pub fn[T] Worksheet::trace_observed_formulas(Self, Array[CellId], () -> T) -> (T
 pub enum WorksheetError {
   RefError(String)
 } derive(Eq, @debug.Debug)
+pub fn WorksheetError::equal(Self, Self) -> Bool
+pub fn WorksheetError::not_equal(Self, Self) -> Bool
 pub fn WorksheetError::ref_error(String) -> Self
+pub fn WorksheetError::to_repr(Self) -> @debug.Repr
 
 pub struct WorksheetTrace {
   recomputed : Array[CellId]
