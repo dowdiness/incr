@@ -29,7 +29,7 @@ test "typed spreadsheet demo op: SetFormulaAst exposes static refs and trace" {
   let a1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
   let b1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
   inspect(
-    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(5)).is_ok(),
+    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(5)) is Ok(_),
     content="true",
   )
 
@@ -109,7 +109,7 @@ test "typed spreadsheet demo op: bounded trace skips unobserved formulas" {
   let mut hidden_compute_count = 0
 
   inspect(
-    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(1)).is_ok(),
+    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(1)) is Ok(_),
     content="true",
   )
   inspect(
@@ -351,9 +351,8 @@ fn install_add_one(
   target : @typed_spreadsheet.CellId,
   value : Int,
 ) -> Unit {
-  if !sheet
-    .set_input(source, @typed_spreadsheet.CellValue::from_int(value))
-    .is_ok() {
+  if !(sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(value))
+    is Ok(_)) {
     abort("expected input install to succeed")
   }
   match

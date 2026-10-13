@@ -100,11 +100,11 @@ test "typed spreadsheet: formula AST add over refs" {
   let b1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
 
   inspect(
-    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(10)).is_ok(),
+    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(10)) is Ok(_),
     content="true",
   )
   inspect(
-    sheet.set_input(a2, @typed_spreadsheet.CellValue::from_int(20)).is_ok(),
+    sheet.set_input(a2, @typed_spreadsheet.CellValue::from_int(20)) is Ok(_),
     content="true",
   )
 
@@ -125,7 +125,7 @@ test "typed spreadsheet: formula AST add over refs" {
   }
 
   inspect(
-    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(15)).is_ok(),
+    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(15)) is Ok(_),
     content="true",
   )
   match sheet.read(b1) {
@@ -171,7 +171,7 @@ test "typed spreadsheet: formula_ast reports cell state errors" {
   )
 
   inspect(
-    sheet.set_input(input, @typed_spreadsheet.CellValue::from_int(1)).is_ok(),
+    sheet.set_input(input, @typed_spreadsheet.CellValue::from_int(1)) is Ok(_),
     content="true",
   )
   inspect(formula_ast_error_is(sheet, input, ExpectNotFormula), content="true")
@@ -185,10 +185,10 @@ test "typed spreadsheet: formula_ast reports cell state errors" {
   )
 
   inspect(
-    sheet.set_input(deleted, @typed_spreadsheet.CellValue::from_int(2)).is_ok(),
+    sheet.set_input(deleted, @typed_spreadsheet.CellValue::from_int(2)) is Ok(_),
     content="true",
   )
-  inspect(sheet.delete(deleted).is_ok(), content="true")
+  inspect(sheet.delete(deleted) is Ok(_), content="true")
   inspect(
     formula_ast_error_is(sheet, deleted, ExpectDeletedCell),
     content="true",
@@ -290,7 +290,7 @@ test "typed spreadsheet: formula AST follows input overwrite" {
   let target = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
 
   inspect(
-    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(1)).is_ok(),
+    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(1)) is Ok(_),
     content="true",
   )
 
@@ -313,7 +313,7 @@ test "typed spreadsheet: formula AST follows input overwrite" {
   }
 
   inspect(
-    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(10)).is_ok(),
+    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(10)) is Ok(_),
     content="true",
   )
 
@@ -332,7 +332,7 @@ test "typed spreadsheet: formula AST slot survives Runtime::gc with input depend
   let b1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
 
   inspect(
-    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(1)).is_ok(),
+    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(1)) is Ok(_),
     content="true",
   )
 
@@ -357,7 +357,7 @@ test "typed spreadsheet: formula AST slot survives Runtime::gc with input depend
   }
 
   inspect(
-    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(2)).is_ok(),
+    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(2)) is Ok(_),
     content="true",
   )
   match sheet.read(b1) {
@@ -376,11 +376,11 @@ test "typed spreadsheet: formula AST type error is propagated" {
   let b1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
 
   inspect(
-    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_text("x")).is_ok(),
+    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_text("x")) is Ok(_),
     content="true",
   )
   inspect(
-    sheet.set_input(a2, @typed_spreadsheet.CellValue::from_int(20)).is_ok(),
+    sheet.set_input(a2, @typed_spreadsheet.CellValue::from_int(20)) is Ok(_),
     content="true",
   )
 
@@ -450,7 +450,7 @@ test "typed spreadsheet: AST overwrite keeps downstream dependencies fresh" {
   let dependent = @typed_spreadsheet.CellId(sheet.sheet_id(), "C1")
 
   inspect(
-    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(1)).is_ok(),
+    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(1)) is Ok(_),
     content="true",
   )
 
@@ -509,7 +509,7 @@ test "typed spreadsheet: AST overwrite keeps downstream dependencies fresh" {
   }
 
   inspect(
-    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(2)).is_ok(),
+    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(2)) is Ok(_),
     content="true",
   )
 
@@ -529,7 +529,7 @@ test "typed spreadsheet: same AST reinstall is worksheet no-op" {
   let dependent = @typed_spreadsheet.CellId(sheet.sheet_id(), "C1")
 
   inspect(
-    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(1)).is_ok(),
+    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(1)) is Ok(_),
     content="true",
   )
 
@@ -608,7 +608,7 @@ test "typed spreadsheet: direct formula reference preserves Blank" {
     _ => abort("expected direct missing reference to preserve Blank")
   }
   inspect(
-    sheet.set_input(missing, @typed_spreadsheet.CellValue::from_int(7)).is_ok(),
+    sheet.set_input(missing, @typed_spreadsheet.CellValue::from_int(7)) is Ok(_),
     content="true",
   )
   match sheet.read(target) {
@@ -616,7 +616,7 @@ test "typed spreadsheet: direct formula reference preserves Blank" {
       inspect(value, content="7")
     _ => abort("expected direct reference to follow created value")
   }
-  inspect(sheet.delete(missing).is_ok(), content="true")
+  inspect(sheet.delete(missing) is Ok(_), content="true")
   match sheet.read(target) {
     @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Blank) => ()
     _ => abort("expected direct deleted reference to preserve Blank")
@@ -627,7 +627,7 @@ test "typed spreadsheet: direct formula reference preserves Blank" {
     _ => abort("expected compacted direct reference to preserve Blank")
   }
   inspect(
-    sheet.set_input(missing, @typed_spreadsheet.CellValue::from_int(8)).is_ok(),
+    sheet.set_input(missing, @typed_spreadsheet.CellValue::from_int(8)) is Ok(_),
     content="true",
   )
   match sheet.read(target) {
@@ -645,7 +645,7 @@ test "typed spreadsheet: formula AST scalar operation rejects missing Blank" {
   let b1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
 
   inspect(
-    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(20)).is_ok(),
+    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(20)) is Ok(_),
     content="true",
   )
 
@@ -751,11 +751,11 @@ test "typed spreadsheet: formula AST mul computes products" {
   let b1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
 
   inspect(
-    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(3)).is_ok(),
+    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(3)) is Ok(_),
     content="true",
   )
   inspect(
-    sheet.set_input(a2, @typed_spreadsheet.CellValue::from_int(4)).is_ok(),
+    sheet.set_input(a2, @typed_spreadsheet.CellValue::from_int(4)) is Ok(_),
     content="true",
   )
 
@@ -785,11 +785,11 @@ test "typed spreadsheet: formula AST eq computes booleans" {
   let b1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
 
   inspect(
-    sheet.set_input(left, @typed_spreadsheet.CellValue::from_int(7)).is_ok(),
+    sheet.set_input(left, @typed_spreadsheet.CellValue::from_int(7)) is Ok(_),
     content="true",
   )
   inspect(
-    sheet.set_input(right, @typed_spreadsheet.CellValue::from_int(7)).is_ok(),
+    sheet.set_input(right, @typed_spreadsheet.CellValue::from_int(7)) is Ok(_),
     content="true",
   )
 
@@ -810,7 +810,7 @@ test "typed spreadsheet: formula AST eq computes booleans" {
   }
 
   inspect(
-    sheet.set_input(right, @typed_spreadsheet.CellValue::from_int(9)).is_ok(),
+    sheet.set_input(right, @typed_spreadsheet.CellValue::from_int(9)) is Ok(_),
     content="true",
   )
 
@@ -830,11 +830,11 @@ test "typed spreadsheet: formula AST gt computes booleans" {
   let b1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
 
   inspect(
-    sheet.set_input(left, @typed_spreadsheet.CellValue::from_int(10)).is_ok(),
+    sheet.set_input(left, @typed_spreadsheet.CellValue::from_int(10)) is Ok(_),
     content="true",
   )
   inspect(
-    sheet.set_input(right, @typed_spreadsheet.CellValue::from_int(4)).is_ok(),
+    sheet.set_input(right, @typed_spreadsheet.CellValue::from_int(4)) is Ok(_),
     content="true",
   )
 
@@ -855,7 +855,7 @@ test "typed spreadsheet: formula AST gt computes booleans" {
   }
 
   inspect(
-    sheet.set_input(left, @typed_spreadsheet.CellValue::from_int(1)).is_ok(),
+    sheet.set_input(left, @typed_spreadsheet.CellValue::from_int(1)) is Ok(_),
     content="true",
   )
 
@@ -876,19 +876,17 @@ test "typed spreadsheet: formula AST if branches by bool condition" {
   let b1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
 
   inspect(
-    sheet.set_input(left, @typed_spreadsheet.CellValue::from_int(1)).is_ok(),
+    sheet.set_input(left, @typed_spreadsheet.CellValue::from_int(1)) is Ok(_),
     content="true",
   )
   inspect(
-    sheet
-    .set_input(true_value, @typed_spreadsheet.CellValue::from_int(1))
-    .is_ok(),
+    sheet.set_input(true_value, @typed_spreadsheet.CellValue::from_int(1))
+    is Ok(_),
     content="true",
   )
   inspect(
-    sheet
-    .set_input(false_value, @typed_spreadsheet.CellValue::from_int(2))
-    .is_ok(),
+    sheet.set_input(false_value, @typed_spreadsheet.CellValue::from_int(2))
+    is Ok(_),
     content="true",
   )
 
@@ -915,7 +913,7 @@ test "typed spreadsheet: formula AST if branches by bool condition" {
   }
 
   inspect(
-    sheet.set_input(left, @typed_spreadsheet.CellValue::from_int(0)).is_ok(),
+    sheet.set_input(left, @typed_spreadsheet.CellValue::from_int(0)) is Ok(_),
     content="true",
   )
 
@@ -935,11 +933,11 @@ test "typed spreadsheet: formula AST mul rejects non-int terms" {
   let b1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
 
   inspect(
-    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(3)).is_ok(),
+    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(3)) is Ok(_),
     content="true",
   )
   inspect(
-    sheet.set_input(a2, @typed_spreadsheet.CellValue::from_text("x")).is_ok(),
+    sheet.set_input(a2, @typed_spreadsheet.CellValue::from_text("x")) is Ok(_),
     content="true",
   )
 
@@ -974,11 +972,11 @@ test "typed spreadsheet: formula AST gt rejects non-int terms" {
   let b1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
 
   inspect(
-    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_bool(true)).is_ok(),
+    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_bool(true)) is Ok(_),
     content="true",
   )
   inspect(
-    sheet.set_input(a2, @typed_spreadsheet.CellValue::from_int(1)).is_ok(),
+    sheet.set_input(a2, @typed_spreadsheet.CellValue::from_int(1)) is Ok(_),
     content="true",
   )
 
@@ -1012,9 +1010,8 @@ test "typed spreadsheet: formula AST if rejects non-bool condition" {
   let b1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
 
   inspect(
-    sheet
-    .set_input(condition, @typed_spreadsheet.CellValue::from_int(1))
-    .is_ok(),
+    sheet.set_input(condition, @typed_spreadsheet.CellValue::from_int(1))
+    is Ok(_),
     content="true",
   )
 
@@ -1055,21 +1052,18 @@ test "typed spreadsheet: formula AST if short-circuits unevaluated branch" {
   let b1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
 
   inspect(
-    sheet
-    .set_input(condition, @typed_spreadsheet.CellValue::from_bool(true))
-    .is_ok(),
+    sheet.set_input(condition, @typed_spreadsheet.CellValue::from_bool(true))
+    is Ok(_),
     content="true",
   )
   inspect(
-    sheet
-    .set_input(true_value, @typed_spreadsheet.CellValue::from_int(10))
-    .is_ok(),
+    sheet.set_input(true_value, @typed_spreadsheet.CellValue::from_int(10))
+    is Ok(_),
     content="true",
   )
   inspect(
-    sheet
-    .set_input(error_left, @typed_spreadsheet.CellValue::from_text("bad"))
-    .is_ok(),
+    sheet.set_input(error_left, @typed_spreadsheet.CellValue::from_text("bad"))
+    is Ok(_),
     content="true",
   )
 
@@ -1096,16 +1090,14 @@ test "typed spreadsheet: formula AST if short-circuits unevaluated branch" {
   }
 
   inspect(
-    sheet
-    .set_input(condition, @typed_spreadsheet.CellValue::from_bool(false))
-    .is_ok(),
+    sheet.set_input(condition, @typed_spreadsheet.CellValue::from_bool(false))
+    is Ok(_),
     content="true",
   )
 
   inspect(
-    sheet
-    .set_input(error_left, @typed_spreadsheet.CellValue::from_int(2))
-    .is_ok(),
+    sheet.set_input(error_left, @typed_spreadsheet.CellValue::from_int(2))
+    is Ok(_),
     content="true",
   )
 
@@ -1204,7 +1196,8 @@ test "typed spreadsheet: formula AST resolves after missing dependency is create
   )
 
   inspect(
-    sheet.set_input(missing, @typed_spreadsheet.CellValue::from_int(30)).is_ok(),
+    sheet.set_input(missing, @typed_spreadsheet.CellValue::from_int(30))
+    is Ok(_),
     content="true",
   )
 
