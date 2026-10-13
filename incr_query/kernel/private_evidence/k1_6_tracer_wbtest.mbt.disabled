@@ -480,7 +480,8 @@ fn proof_phase_rank(phase : ProofShrinkPhase) -> Int {
 
 ///|
 test "K1.6a generated private proof-loss tracer" {
-  let draws : Array[Int] = @qcgen.Gen::spawn().samples(
+  let draws : Array[Int] = @qcgen.spawn().samples(
+    count=K1_6_CASES,
     size=K1_6_CASES,
     seed=K1_6_SEED,
   )

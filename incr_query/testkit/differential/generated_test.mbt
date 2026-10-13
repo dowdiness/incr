@@ -379,7 +379,8 @@ fn first_differing_operation(script : @model.Script) -> Int raise {
 
 ///|
 fn generated_recipes() -> Array[Recipe] {
-  let draws : Array[Int] = @qcgen.Gen::spawn().samples(
+  let draws : Array[Int] = @qcgen.spawn().samples(
+    count=CASE_COUNT,
     size=CASE_COUNT,
     seed=SUITE_SEED,
   )

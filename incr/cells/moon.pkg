@@ -18,7 +18,7 @@ import {
   "moonbitlang/core/debug",
   "moonbitlang/core/bench",
   "moonbitlang/quickcheck" @qc,
-  "moonbitlang/quickcheck/gen",
+  "moonbitlang/core/quickcheck" @gen,
 } for "wbtest"
 // Suppressed warnings:
 // 1 (unused_value) — internal helpers used by wbtests: get_changed_at, get_subscribers,

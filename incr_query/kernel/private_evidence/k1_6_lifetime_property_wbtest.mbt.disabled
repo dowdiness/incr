@@ -417,7 +417,8 @@ fn minimize_recovery_failure(
 
 ///|
 test "K1.6a generated atomicity and Region lifetime match the pure oracle" {
-  let draws : Array[Int] = @qcgen.Gen::spawn().samples(
+  let draws : Array[Int] = @qcgen.spawn().samples(
+    count=48,
     size=48,
     seed=K1_6_LIFETIME_SEED,
   )
@@ -441,7 +442,8 @@ test "K1.6a generated atomicity and Region lifetime match the pure oracle" {
 
 ///|
 test "K1.6a generated structural failures recover without stale fallback" {
-  let draws : Array[Int] = @qcgen.Gen::spawn().samples(
+  let draws : Array[Int] = @qcgen.spawn().samples(
+    count=32,
     size=32,
     seed=K1_6_LIFETIME_SEED + 1,
   )
