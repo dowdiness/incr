@@ -30,29 +30,16 @@ env:
 
 jobs:
   library:
-    name: Library / MoonBit ${{ matrix.toolchain }}
+    name: Check + Test library
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        toolchain: [standard, '0.10.8']
     steps:
       - name: Checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
       # The repository-local action installs exact, checksum-verified MoonBit
       # artifacts with retries (issues #227 and #229).
-      - name: Install standard MoonBit
-        if: matrix.toolchain == 'standard'
+      - name: Install MoonBit
         uses: ./.github/actions/install-moonbit
-
-      - name: Install MoonBit 0.10.8 compatibility toolchain
-        if: matrix.toolchain == '0.10.8'
-        uses: ./.github/actions/install-moonbit
-        with:
-          version: 0.10.8+8606a5800
-          binary-sha256: ac66bf5c04c00bb8e1512d2bfc2cc9801d24a60429302bab48320a5d68ca20a2
-          core-sha256: 858a4d2d505bfd2db43176a76f3f02457d5cf080e35231bfb9c78e33e9c6719d
 
       - name: Verify MoonBit
         run: moon version --all
@@ -70,18 +57,6 @@ jobs:
           moon test -p dowdiness/incr/cells --deny-warn
           moon test -p dowdiness/incr/tests --deny-warn
           moon test -p dowdiness/incr/types --deny-warn
-
-  # Preserve the existing required-check name while gating both toolchains.
-  library-required:
-    name: Check + Test library
-    if: ${{ always() }}
-    needs: [library]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Require core library toolchain matrix
-        env:
-          LIBRARY_RESULT: ${{ needs.library.result }}
-        run: test "$LIBRARY_RESULT" = success
 
   docs:
     name: Check + Test docs examples
@@ -246,37 +221,15 @@ jobs:
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
           persist-credentials: false
-      - name: Install candidate packager MoonBit
+      - name: Install MoonBit
         uses: ./.github/actions/install-moonbit
-      - name: Preserve candidate packager MoonBit
-        run: cp -a "$HOME/.moon" /tmp/moonbit-k2-3-packager
-      - name: Install MoonBit 0.10.8 compatibility consumer
-        uses: ./.github/actions/install-moonbit
-        env:
-          MOON_HOME: /tmp/moonbit-k2-3-compat
-        with:
-          version: 0.10.8+8606a5800
-          binary-sha256: ac66bf5c04c00bb8e1512d2bfc2cc9801d24a60429302bab48320a5d68ca20a2
-          core-sha256: 858a4d2d505bfd2db43176a76f3f02457d5cf080e35231bfb9c78e33e9c6719d
-      - name: Verify K2.3 toolchains
-        run: |
-          /tmp/moonbit-k2-3-packager/bin/moon version --all
-          moon version --all
+      - name: Verify MoonBit
+        run: moon version --all
       - name: Check current-toolchain candidate consumer
         env:
-          MOON_BIN: /tmp/moonbit-k2-3-packager/bin/moon
           INCR_QUERY_K23_OUTPUT_DIR: /tmp/incr-query-k2-3-current
         run: ./incr_query/tools/check-incr-query-k2-3-distribution.sh
-      - name: Check 0.10.8 compatibility consumer and package policy
-        env:
-          MOON_BIN: /tmp/moonbit-k2-3-packager/bin/moon
-          INCR_QUERY_K23_CONSUMER_MOON_BIN: /tmp/moonbit-k2-3-compat/bin/moon
-          INCR_QUERY_K23_POLICY_PROBE_MOON_BIN: /tmp/moonbit-k2-3-compat/bin/moon
-          INCR_QUERY_K23_OUTPUT_DIR: /tmp/incr-query-k2-3-pinned
-        run: ./incr_query/tools/check-incr-query-k2-3-distribution.sh
       - name: Check distribution boundary negative controls
-        env:
-          MOON_BIN: /tmp/moonbit-k2-3-packager/bin/moon
         run: ./incr_query/tools/check-incr-query-k2-3-distribution-selftest.sh
 
   incr-query-rc:

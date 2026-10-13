@@ -356,17 +356,17 @@ fn all_graph_invariants_hold(rt : Runtime) -> Bool {
 }
 
 ///|
-fn graph_op_gen() -> @gen.Gen[GraphOp] {
-  let int50 = @gen.int_bound(50)
-  let pair = @gen.tuple(int50, int50)
+fn graph_op_gen() -> @gen.Generator[GraphOp] {
+  let int50 = @gen.int_range(0, 50)
+  let pair = int50.zip(int50)
   @gen.one_of([
-    int50.fmap(v => GraphOp::SetA(v)),
-    int50.fmap(v => GraphOp::SetB(v)),
-    pair.fmap(v => GraphOp::BatchSetA(v.0, v.1)),
-    pair.fmap(v => GraphOp::BatchSetBoth(v.0, v.1)),
-    pair.fmap(v => GraphOp::BatchSetAFail(v.0, v.1)),
-    pair.fmap(v => GraphOp::BatchSetBothFail(v.0, v.1)),
-    int50.fmap(v => GraphOp::BatchResultFail(v)),
+    int50.map(v => GraphOp::SetA(v)),
+    int50.map(v => GraphOp::SetB(v)),
+    pair.map(v => GraphOp::BatchSetA(v.0, v.1)),
+    pair.map(v => GraphOp::BatchSetBoth(v.0, v.1)),
+    pair.map(v => GraphOp::BatchSetAFail(v.0, v.1)),
+    pair.map(v => GraphOp::BatchSetBothFail(v.0, v.1)),
+    int50.map(v => GraphOp::BatchResultFail(v)),
     @gen.pure(GraphOp::ReadSum),
     @gen.pure(GraphOp::ReadDoubled),
     @gen.pure(GraphOp::ToggleFlag),
@@ -380,7 +380,7 @@ fn graph_op_gen() -> @gen.Gen[GraphOp] {
 }
 
 ///|
-fn graph_ops_gen() -> @gen.Gen[Array[GraphOp]] {
+fn graph_ops_gen() -> @gen.Generator[Array[GraphOp]] {
   @gen.sized(size => {
     let count = size % 10 + 1
     graph_op_gen().array_with_size(count)

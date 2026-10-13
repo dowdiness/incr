@@ -4,25 +4,25 @@
 const SUITE_SEED : UInt64 = 0x6A_1601
 
 ///|
-const SCENARIO_COUNT : Int = 21
+const SCENARIO_COUNT : Int32 = 21
 
 ///|
-const CASE_COUNT : Int = 84
+const CASE_COUNT : Int32 = 84
 
 ///|
 priv struct Recipe {
-  family : Int
-  operation_limit : Int
-  unrelated_retention : Int
-  write_retention : Int
+  family : Int32
+  operation_limit : Int32
+  unrelated_retention : Int32
+  write_retention : Int32
   graph_simplified : Bool
-  key : Int
-  value_salt : Int
-  cycle_depth : Int
+  key : Int32
+  value_salt : Int32
+  cycle_depth : Int32
 } derive(Debug)
 
 ///|
-fn value(salt : Int, offset : Int) -> Int {
+fn value(salt : Int32, offset : Int32) -> Int32 {
   let x = (salt + offset) % 19
   if x < 0 {
     x + 19
@@ -211,7 +211,7 @@ fn keep_operation(
   operation : @model.Operation,
   scenario : @model.Scenario,
   recipe : Recipe,
-  writes : Ref[Int],
+  writes : Ref[Int32],
 ) -> Bool {
   match operation {
     @model.Operation::Set(id, _) if scenario ==
@@ -316,7 +316,7 @@ fn normalized(xs : Array[@model.Observation]) -> Array[@model.Observation] {
 fn first_difference(
   left : Array[@model.Observation],
   right : Array[@model.Observation],
-) -> Int {
+) -> Int32 {
   let limit = if left.length() < right.length() {
     left.length()
   } else {
@@ -336,9 +336,9 @@ fn first_difference(
 
 ///|
 fn first_failing_operation_index(
-  operation_count : Int,
-  prefix_fails : (Int) -> Bool raise,
-) -> Int raise {
+  operation_count : Int32,
+  prefix_fails : (Int32) -> Bool raise,
+) -> Int32 raise {
   if prefix_fails(0) {
     return -1
   }
@@ -360,7 +360,7 @@ fn semantic_mismatch(script : @model.Script) -> Bool raise {
 fn first_differing_operation_by(
   script : @model.Script,
   prefix_fails : (@model.Script) -> Bool raise,
-) -> Int raise {
+) -> Int32 raise {
   let operations = script.operations()
   first_failing_operation_index(operations.length(), prefix_length => {
     let prefix = @model.Script::scenario(
@@ -373,13 +373,14 @@ fn first_differing_operation_by(
 }
 
 ///|
-fn first_differing_operation(script : @model.Script) -> Int raise {
+fn first_differing_operation(script : @model.Script) -> Int32 raise {
   first_differing_operation_by(script, prefix => semantic_mismatch(prefix))
 }
 
 ///|
 fn generated_recipes() -> Array[Recipe] {
-  let draws : Array[Int] = @qcgen.Gen::spawn().samples(
+  let draws : Array[Int32] = @qcgen.spawn().samples(
+    count=CASE_COUNT,
     size=CASE_COUNT,
     seed=SUITE_SEED,
   )
@@ -439,7 +440,7 @@ fn add_candidate(
 }
 
 ///|
-fn change_suffix(r : Recipe, operation_count : Int) -> Recipe {
+fn change_suffix(r : Recipe, operation_count : Int32) -> Recipe {
   Recipe::{ ..r, operation_limit: operation_count - 1, }
 }
 
@@ -449,7 +450,7 @@ fn change_unrelated(r : Recipe) -> Recipe {
 }
 
 ///|
-fn change_writes(r : Recipe, retained_writes : Int) -> Recipe {
+fn change_writes(r : Recipe, retained_writes : Int32) -> Recipe {
   Recipe::{ ..r, write_retention: retained_writes - 1, }
 }
 
@@ -474,7 +475,7 @@ fn change_cycle(r : Recipe) -> Recipe {
 }
 
 ///|
-fn phase_rank(phase : ShrinkPhase) -> Int {
+fn phase_rank(phase : ShrinkPhase) -> Int32 {
   match phase {
     ShrinkPhase::Suffix => 0
     ShrinkPhase::UnrelatedOperations => 1
@@ -558,7 +559,7 @@ fn minimize_failure(
 ///|
 priv struct GeneratedCutoff {
   kind : @model.CutoffKind
-  steps : Array[Int]
+  steps : Array[Int32]
 }
 
 ///|
@@ -633,7 +634,7 @@ fn cutoff_mismatch(generated : GeneratedCutoff) -> Bool raise {
 }
 
 ///|
-fn first_differing_cutoff_step(generated : GeneratedCutoff) -> Int raise {
+fn first_differing_cutoff_step(generated : GeneratedCutoff) -> Int32 raise {
   first_failing_operation_index(generated.steps.length(), prefix_length => {
     cutoff_mismatch(GeneratedCutoff::{
       kind: generated.kind,
@@ -643,7 +644,7 @@ fn first_differing_cutoff_step(generated : GeneratedCutoff) -> Int raise {
 }
 
 ///|
-fn cutoff_phase_rank(phase : CutoffShrinkPhase) -> Int {
+fn cutoff_phase_rank(phase : CutoffShrinkPhase) -> Int32 {
   match phase {
     CutoffShrinkPhase::Suffix => 0
     CutoffShrinkPhase::Values => 1

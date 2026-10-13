@@ -1,10 +1,10 @@
 ///|
 /// Logical source identifier shared by Fresh and incremental adapters.
-pub type SourceId = Int
+pub type SourceId = Int32
 
 ///|
 /// Logical Query identifier shared by Fresh and incremental adapters.
-pub type QueryId = Int
+pub type QueryId = Int32
 
 ///|
 /// Fixed cutoff choices used by the independent K1.4 workloads.
@@ -20,13 +20,13 @@ pub(all) enum CutoffKind {
 /// the evaluator reads the fixed Query key.
 pub struct CutoffScript {
   priv kind : CutoffKind
-  priv steps : Array[Int]
+  priv steps : Array[Int32]
 } derive(Debug)
 
 ///|
 pub fn CutoffScript::CutoffScript(
   kind : CutoffKind,
-  steps : Array[Int],
+  steps : Array[Int32],
 ) -> CutoffScript {
   { kind, steps: steps.copy(), }
 }
@@ -37,7 +37,7 @@ pub fn CutoffScript::kind(self : CutoffScript) -> CutoffKind {
 }
 
 ///|
-pub fn CutoffScript::steps(self : CutoffScript) -> Array[Int] {
+pub fn CutoffScript::steps(self : CutoffScript) -> Array[Int32] {
   self.steps.copy()
 }
 
@@ -70,19 +70,19 @@ pub(all) enum Scenario {
 /// A logical source and its value at graph construction time.
 pub(all) struct SourceInit {
   id : SourceId
-  value : Int
+  value : Int32
 } derive(Eq, Debug)
 
 ///|
 /// A runtime operation over a graph whose Source membership is already fixed.
 /// IDs are explicit so scenarios do not rely on evaluator-local allocation.
 pub(all) enum Operation {
-  Set(SourceId, Int)
+  Set(SourceId, Int32)
   Read(SourceId)
-  ReadKey(SourceId, Int)
-  ReadQuery(QueryId, Int)
-  DomainFailure(Int)
-  StructuralFailure(Int)
+  ReadKey(SourceId, Int32)
+  ReadQuery(QueryId, Int32)
+  DomainFailure(Int32)
+  StructuralFailure(Int32)
 } derive(Eq, Debug)
 
 ///|
@@ -288,17 +288,17 @@ pub fn Script::operations(self : Script) -> Array[Operation] {
 ///|
 /// A normalized observation used by differential tests.
 pub(all) enum Observation {
-  Value(Int)
-  Marker(Int)
+  Value(Int32)
+  Marker(Int32)
   Missing(SourceId)
   Error(ScenarioError)
-  Counter(Int)
+  Counter(Int32)
 } derive(Eq, Debug)
 
 ///|
 /// Domain and structural failures are normalized separately from values.
 pub(all) enum ScenarioError {
-  DomainFailure(Int)
-  StructuralFailure(Int)
+  DomainFailure(Int32)
+  StructuralFailure(Int32)
   Cycle
 } derive(Eq, Debug)

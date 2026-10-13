@@ -26,11 +26,20 @@ cat > "$tmp/incr_query/kernel/moon.pkg" <<'EOF'
 import {
   "dowdiness/incr_query_testkit/model" @model,
   "dowdiness/incr_query_testkit/fresh" @fresh,
-  "moonbitlang/quickcheck/gen" @gen,
+  "moonbitlang/quickcheck" @qc,
 } for "wbtest"
 EOF
 if INCR_QUERY_BOUNDARY_ROOT="$tmp" bash "$checker" >/dev/null 2>&1; then
   echo "FAIL: permanent kernel wbtest evidence import was not rejected" >&2
+  exit 1
+fi
+cat > "$tmp/incr_query/kernel/moon.pkg" <<'EOF'
+import {
+  "moonbitlang/core/quickcheck" @gen,
+} for "wbtest"
+EOF
+if INCR_QUERY_BOUNDARY_ROOT="$tmp" bash "$checker" >/dev/null 2>&1; then
+  echo "FAIL: permanent kernel core quickcheck import was not rejected" >&2
   exit 1
 fi
 : > "$tmp/incr_query/kernel/moon.pkg"

@@ -10,8 +10,9 @@ examples, while keeping caller-contract violations in a separate package.
 
 **Disposition:** Retained at K2 closure as executable product documentation.
 
-**Status:** K2 is complete and the exact MoonBit 0.10.14 packager prerequisite is
-satisfied. Incr Query remains unpublished until a separate commission explicitly
+**Status:** K2 is complete and the K2 packager prerequisite is satisfied by
+exact MoonBit 0.10.15+943464bfa. MoonBit 0.10.15 is the currently supported
+minimum. Incr Query remains unpublished until a separate commission explicitly
 authorizes publication. This guide uses the post-K2 typed-raise interface.
 
 Every `mbt check` block is compiled and tested on default, native, JavaScript,
@@ -64,7 +65,9 @@ test "Incr Query docs: quickstart" {
   assert_eq(store.get(doubled), 10)
 
   region.close()
-  let after_close : Result[Int, @incr_query.ReadError] = Ok(store.get(doubled)) catch {
+  let after_close : Result[Int32, @incr_query.ReadError] = Ok(
+    store.get(doubled),
+  ) catch {
     error => Err(error)
   }
   assert_true(after_close is Err(@incr_query.ReadError::ClosedRegion(_)))
@@ -87,7 +90,7 @@ test "Incr Query docs: Store active Query limit" {
   let inner = region.derived(ctx => ctx.get(source.view()) + 1)
   let outer = region.derived(ctx => ctx.get(inner) + 1)
 
-  let limited : Result[Int, @incr_query.ReadError] = Ok(store.get(outer)) catch {
+  let limited : Result[Int32, @incr_query.ReadError] = Ok(store.get(outer)) catch {
     error => Err(error)
   }
   assert_true(limited is Err(@incr_query.ReadError::EvaluationLimitExceeded(_)))
@@ -194,7 +197,7 @@ test "Incr Query docs: QueryContext expires after its callback" {
   })
 
   assert_eq(store.get(value), 7)
-  let expired : Result[Int, @incr_query.ReadError] = Ok(
+  let expired : Result[Int32, @incr_query.ReadError] = Ok(
     captured.val.unwrap().get(source.view()),
   ) catch {
     error => Err(error)
@@ -216,14 +219,14 @@ test "Incr Query docs: structural failure and Domain Outcome stay separate" {
   let store = @incr_query.Store::Store()
   let region = store.region()
   let domain_value = region.derived(_ctx => {
-    let value : Result[Int, String] = Err("missing invoice")
+    let value : Result[Int32, String] = Err("missing invoice")
     value
   })
   assert_eq(store.get(domain_value), Err("missing invoice"))
 
   let foreign = @incr_query.Store::Store().region().source(9)
   let invalid = region.derived(ctx => ctx.get(foreign.view()))
-  let failure : Result[Int, @incr_query.ReadError] = Ok(store.get(invalid)) catch {
+  let failure : Result[Int32, @incr_query.ReadError] = Ok(store.get(invalid)) catch {
     error => Err(error)
   }
   assert_true(failure is Err(@incr_query.ReadError::CrossStore(_)))
@@ -246,7 +249,9 @@ test "Incr Query docs: caught structural failure still fails closed" {
       _error => 77
     }
   })
-  let failure : Result[Int, @incr_query.ReadError] = Ok(store.get(cannot_hide)) catch {
+  let failure : Result[Int32, @incr_query.ReadError] = Ok(
+    store.get(cannot_hide),
+  ) catch {
     error => Err(error)
   }
   assert_true(failure is Err(@incr_query.ReadError::CrossStore(_)))
@@ -264,7 +269,7 @@ test "Incr Query docs: diagnostics are actionable" {
   let region = store.region()
   let foreign = @incr_query.Store::Store().region().source(1)
   let invalid = region.derived(ctx => ctx.get(foreign.view()))
-  let failure : Result[Int, @incr_query.ReadError] = Ok(store.get(invalid)) catch {
+  let failure : Result[Int32, @incr_query.ReadError] = Ok(store.get(invalid)) catch {
     error => Err(error)
   }
   match failure {

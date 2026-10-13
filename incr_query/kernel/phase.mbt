@@ -10,7 +10,7 @@ priv enum ExecutionPhase {
 let execution_phase : Ref[ExecutionPhase] = Ref(Idle)
 
 ///|
-let next_store_id : Ref[Int] = Ref(1)
+let next_store_id : Ref[Int32] = Ref(1)
 
 ///|
 fn fresh_store_id() -> StoreId {

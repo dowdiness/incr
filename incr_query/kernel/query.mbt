@@ -1,11 +1,11 @@
 ///|
 /// The epoch at which a Store mutation or Region close occurred.
-type ChangeEpoch = Int
+type ChangeEpoch = Int32
 
 ///|
 /// Identity is local to one QueryCore; it is never shared through a registry.
 priv struct MemoId {
-  value : Int
+  value : Int32
 } derive(Eq, Debug)
 
 ///|
@@ -59,17 +59,17 @@ priv struct QueryCore[K, V] {
   epoch : RegionEpoch
   compute : Ref[((QueryContext, K) -> Result[V, ReadError])?]
   cutoff : Ref[Cutoff[V]]
-  active : Map[K, Int]
+  active : Map[K, Int32]
   memo : Map[K, MemoEntry[V]]
-  next_memo_id : Ref[Int]
-  compute_count : Ref[Int]
-  cache_hit_count : Ref[Int]
-  verification_count : Ref[Int]
-  green_count : Ref[Int]
-  red_count : Ref[Int]
-  cutoff_count : Ref[Int]
-  dependency_check_count : Ref[Int]
-  unavailable_count : Ref[Int]
+  next_memo_id : Ref[Int32]
+  compute_count : Ref[Int32]
+  cache_hit_count : Ref[Int32]
+  verification_count : Ref[Int32]
+  green_count : Ref[Int32]
+  red_count : Ref[Int32]
+  cutoff_count : Ref[Int32]
+  dependency_check_count : Ref[Int32]
+  unavailable_count : Ref[Int32]
 }
 
 ///|
@@ -206,7 +206,7 @@ fn[K : Hash + Eq, V] QueryContext::eval_query_slow(
 ///|
 fn cycle_definition_path(
   stack : Array[ActiveQuery],
-  start : Int,
+  start : Int32,
   current_site : String,
 ) -> String {
   let sites = stack[start:].map(active => active.definition_site)
@@ -314,7 +314,7 @@ fn[K : Hash + Eq, V] Region::query_with_cutoff(
 pub fn[V] Region::derived(
   self : Region,
   compute : (QueryContext) -> V raise ReadError,
-  cutoff? : Cutoff[V] = Cutoff::always_changed(),
+  cutoff~ : Cutoff[V] = Cutoff::always_changed(),
   loc~ : SourceLoc,
 ) -> View[V] raise RegionError {
   let query = self
@@ -337,7 +337,7 @@ pub fn[V] Region::derived(
 pub fn[K : Hash + Eq, V] Region::query(
   self : Region,
   compute : (QueryContext, K) -> V raise ReadError,
-  cutoff? : Cutoff[V] = Cutoff::always_changed(),
+  cutoff~ : Cutoff[V] = Cutoff::always_changed(),
   loc~ : SourceLoc,
 ) -> Query[K, V] raise RegionError {
   self

@@ -31,10 +31,10 @@ interfaces had zero delta in K1.6.
 - Recommend a separate alpha publication commission after the candidate
   packager is standardized on MoonBit 0.10.9 or newer. Automation must use an
   exact verified toolchain pin rather than a floating version range.
-- Retain the historical MoonBit 0.10.4 compatibility evidence; active CI uses
-  the available MoonBit 0.10.8 compatibility consumer while that support
-  remains useful. Do not use it as the candidate packager for the selected
-  17-file policy.
+- Retain the historical MoonBit 0.10.4 compatibility evidence. As of
+  2026-10-13, MoonBit 0.10.15 is the currently supported minimum; active CI
+  uses that toolchain for both packaging and consumption, without a separate
+  older-compiler compatibility job.
 - Do not authorize publication, registry mutation, version release, or Canopy
   production integration in this decision. Each remains separately gated.
 - Do not include Mount, Program/Port/Formula, public debug/explain, public or
@@ -62,9 +62,9 @@ coherent. K2 then supplied the missing product evidence:
   source fallback or registry mutation.
 
 K2 found no public-interface or semantic defect requiring evidence reacquisition.
-It did expose one distribution constraint: MoonBit 0.10.4 remains a passing
-consumer but cannot enforce the selected `.moonignore` package policy. MoonBit
-0.10.9 packages the accepted candidate correctly.
+It did expose one distribution constraint: MoonBit 0.10.4 was a passing
+consumer in K2 but could not enforce the selected `.moonignore` package policy.
+MoonBit 0.10.9 packaged the accepted candidate correctly.
 
 ## Consequences
 
@@ -79,20 +79,21 @@ consumer but cannot enforce the selected `.moonignore` package policy. MoonBit
   Time-bound raw K2.3 command output is removed after the accepted hashes are
   preserved in the [K2.3 validation record](../../incr_query/kernel/evidence/k2-3-validation.md)
   and the toolchain constraint is preserved here and in the package policy.
-- Active repository automation uses exact MoonBit 0.10.14+7d59c7ec9 through
+- Active repository automation uses exact MoonBit 0.10.15+943464bfa through
   the checksum-verified repository-local installer, satisfying the K2 packager
   prerequisite. Historical K1/K2 evidence pins remain unchanged; K2.3 retains
   its original MoonBit 0.10.4 compatibility result as historical evidence,
-  while active CI uses the available 0.10.8 consumer.
+  without an ongoing support commitment for that compiler.
 - Alpha publication requires a new explicit commission. Publication, registry
   mutation, version release, and Canopy production integration remain
   unauthorized and require a separate explicit commission.
 - Mount, Program/Port/Formula, public debug/explain, public or automatic
   eviction/LRU, and parallel evaluation remain separately gated.
 
-## Maintenance update
+## Maintenance update — 2026-10-13
 
-The MoonBit 0.10.4 binary and core archives used by the original K2
-compatibility job now return HTTP 403 from the official artifact host. The
-historical result remains valid evidence; active CI uses the available,
-checksum-verified 0.10.8 toolchain instead.
+MoonBit 0.10.15 is the currently supported minimum. This supersedes the interim
+0.10.8 compatibility job introduced after the original K2 MoonBit 0.10.4
+archives returned HTTP 403. CI uses one exact, checksum-verified
+0.10.15+943464bfa toolchain; historical compatibility results remain evidence,
+not a commitment to support older compilers.

@@ -70,7 +70,7 @@ while IFS= read -r pkg; do
     "$root/incr_query/kernel/"*)
       while IFS=$'\t' read -r scope import; do
         case "$import" in
-          dowdiness/incr_query_testkit/*|moonbitlang/quickcheck*)
+          dowdiness/incr_query_testkit/*|moonbitlang/quickcheck*|moonbitlang/core/quickcheck*)
             echo "FAIL: production kernel imports test evidence: $pkg [$scope] -> $import" >&2
             fail=1
             ;;

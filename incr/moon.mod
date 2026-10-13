@@ -21,5 +21,5 @@ keywords = [
 description = "Salsa-inspired incremental recomputation library with automatic dependency tracking, backdating, and durability-based verification skipping"
 
 import {
-  "moonbitlang/quickcheck@0.14.0",
+  "moonbitlang/quickcheck@0.15.0",
 }
