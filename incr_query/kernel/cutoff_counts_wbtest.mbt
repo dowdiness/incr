@@ -32,7 +32,7 @@ test "first hit and green verification never call cutoff" {
 test "an initial current Cycle has no target memo or cutoff" {
   let store = Store::Store()
   let region = store.region()
-  let view_ref : Ref[View[Int]?] = Ref(None)
+  let view_ref : Ref[View[Int32]?] = Ref(None)
   let query = region.query(
     (ctx, _unit : Unit) => ctx.get(view_ref.val.unwrap()),
     cutoff=Cutoff::equal(),

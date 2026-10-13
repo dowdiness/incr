@@ -1,7 +1,7 @@
 ///|
 fn evaluation_limit_fixture(
   store : Store,
-) -> (Source[Int], Query[Unit, Int], Query[Unit, Int], Query[Unit, Int]) raise {
+) -> (Source[Int32], Query[Unit, Int32], Query[Unit, Int32], Query[Unit, Int32]) raise {
   let region = store.region()
   let source = region.source(1)
   let first = region.query((ctx, _unit : Unit) => ctx.get(source.view()) + 1)
@@ -53,7 +53,7 @@ test "zero active Queries still permits Source roots" {
 test "Cycle detection takes precedence over the evaluation limit" {
   let store = Store::Store(max_active_queries=1U)
   let region = store.region()
-  let recursive : Ref[View[Int]?] = Ref(None)
+  let recursive : Ref[View[Int32]?] = Ref(None)
   let query = region.query((ctx, _unit : Unit) => {
     ctx.get(recursive.val.unwrap())
   })

@@ -2,16 +2,16 @@
 /// Fresh's typed identity keeps Query equality and key equality together.
 priv struct FreshInvocation {
   query_id : @model.QueryId
-  key : Int
+  key : Int32
 } derive(Eq, Hash)
 
 ///|
 /// State owned entirely by the Fresh evaluator for one script replay.
 priv struct FreshQueryState {
-  values : Map[@model.SourceId, Int]
-  active : Map[FreshInvocation, Int]
+  values : Map[@model.SourceId, Int32]
+  active : Map[FreshInvocation, Int32]
   stack : Array[@model.QueryId]
-  computes : Ref[Int]
+  computes : Ref[Int32]
 }
 
 ///|
@@ -20,8 +20,8 @@ fn fresh_query(
   state : FreshQueryState,
   scenario : @model.Scenario,
   query_id : @model.QueryId,
-  key : Int,
-) -> Result[Int, @model.ScenarioError] {
+  key : Int32,
+) -> Result[Int32, @model.ScenarioError] {
   let invocation = FreshInvocation::{ query_id, key, }
   match state.active.get(invocation) {
     Some(_start) => Err(@model.ScenarioError::Cycle)
@@ -29,7 +29,7 @@ fn fresh_query(
       state.active.set(invocation, state.stack.length())
       state.stack.push(query_id)
       state.computes.val = state.computes.val + 1
-      let result : Result[Int, @model.ScenarioError] = match scenario {
+      let result : Result[Int32, @model.ScenarioError] = match scenario {
         @model.Scenario::DirectCycle =>
           fresh_query(state, scenario, query_id, key)
         @model.Scenario::MutualCycle =>

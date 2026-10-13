@@ -7,6 +7,7 @@ preferred_target = "js"
 supported_targets = "js"
 
 import {
+  "dowdiness/btree@0.2.0",
   "dowdiness/incr@0.15.1",
   "dowdiness/incr_tea@0.1.0",
   "examples/typed_spreadsheet@0.1.0",

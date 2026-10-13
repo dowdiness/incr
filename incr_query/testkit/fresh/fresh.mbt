@@ -1,10 +1,10 @@
 ///|
 fn scenario_value(
-  values : Map[Int, Int],
+  values : Map[Int32, Int32],
   scenario : @model.Scenario,
-  source_id : Int,
-  key : Int,
-) -> Int? {
+  source_id : Int32,
+  key : Int32,
+) -> Int32? {
   let base = match values.get(source_id) {
     Some(value) => value
     None => return None
@@ -33,10 +33,10 @@ fn scenario_value(
 
 ///|
 fn read_observation(
-  values : Map[Int, Int],
+  values : Map[Int32, Int32],
   scenario : @model.Scenario,
-  source_id : Int,
-  key : Int,
+  source_id : Int32,
+  key : Int32,
 ) -> @model.Observation {
   match values.get(source_id) {
     None => @model.Observation::Missing(source_id)
@@ -51,7 +51,7 @@ fn read_observation(
 }
 
 ///|
-fn from_scratch_read_work(scenario : @model.Scenario) -> Int {
+fn from_scratch_read_work(scenario : @model.Scenario) -> Int32 {
   match scenario {
     @model.Scenario::Source => 0
     @model.Scenario::Chain => 2
@@ -68,7 +68,7 @@ fn from_scratch_read_work(scenario : @model.Scenario) -> Int {
 /// Every read evaluates its graph anew; the final Counter is evidence of that
 /// baseline, not part of the semantic oracle.
 fn evaluate_acyclic(script : @model.Script) -> Array[@model.Observation] {
-  let values : Map[Int, Int] = Map(
+  let values : Map[Int32, Int32] = Map(
     script.initial_sources().map(init => (init.id, init.value)),
   )
   let observations : Array[@model.Observation] = []

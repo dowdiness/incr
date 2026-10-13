@@ -93,7 +93,7 @@ fn read_cycle(definition_path : String) -> ReadError {
 }
 
 ///|
-fn read_evaluation_limit_exceeded(limit : UInt) -> ReadError {
+fn read_evaluation_limit_exceeded(limit : UInt32) -> ReadError {
   EvaluationLimitExceeded(
     diagnostic(
       "Evaluation reached this Store's active Query limit of \{limit}.",

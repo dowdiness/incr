@@ -9,16 +9,19 @@ All notable changes to `dowdiness/incr` are documented in this file.
 - Keep the core library warning-clean on MoonBit 0.10.12 by scoping test-only
   imports, qualifying trait calls, and using scoped cleanup for callback and
   batch failures. Recompute failure hooks retain their ordering and error value.
-- Pin repository CI to MoonBit 0.10.14+7d59c7ec9 so the Luna/async 0.21.3
-  dependency graph and current collection APIs are checked with a compatible
-  compiler.
-- Replace the unavailable MoonBit 0.10.4 CI artifact with the available,
-  checksum-verified 0.10.8 compatibility consumer. The original 0.10.4
-  result remains preserved as historical K2 evidence.
-- Check and test the core library on both the standard CI compiler and MoonBit
-  0.10.8, preserving the existing required-check name as a matrix gate.
+- Pin repository CI to MoonBit 0.10.15+943464bfa for the current dependency
+  graph and collection APIs.
 - Restore the full `ReadError` API documentation by keeping its explicit `Show`
   method promotion separate from the enum's doc comment.
+
+### Changed
+
+- Raise the currently supported minimum compiler to MoonBit 0.10.15 and remove
+  older-compiler compatibility jobs. Historical K1/K2 evidence pins remain
+  unchanged.
+- Upgrade `moonbitlang/quickcheck` to 0.15.0 in `incr`, `dataflow`, and the Incr Query testkit.
+- Select modern-manifest releases of transitive regexp, prettyprinter, and
+  btree dependencies for MoonBit 0.10.15 workspace resolution.
 
 ## [v0.15.1] - 2026-08-27
 

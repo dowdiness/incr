@@ -2,22 +2,22 @@
 priv type RcToken
 
 ///|
-extern "C" fn rc_token_new(kind : Int) -> RcToken = "incr_query_rc_token_new"
+extern "C" fn rc_token_new(kind : Int32) -> RcToken = "incr_query_rc_token_new"
 
 ///|
-extern "C" fn rc_live(kind : Int) -> Int = "incr_query_rc_live"
+extern "C" fn rc_live(kind : Int32) -> Int32 = "incr_query_rc_live"
 
 ///|
-extern "C" fn rc_finalized(kind : Int) -> Int = "incr_query_rc_finalized"
+extern "C" fn rc_finalized(kind : Int32) -> Int32 = "incr_query_rc_finalized"
 
 ///|
 struct RcKey {
   token : RcToken
-  value : Int
+  value : Int32
 }
 
 ///|
-fn RcKey::RcKey(kind : Int, value : Int) -> RcKey {
+fn RcKey::RcKey(kind : Int32, value : Int32) -> RcKey {
   { token: rc_token_new(kind), value, }
 }
 
@@ -39,7 +39,7 @@ impl Hash for RcKey with fn hash_combine(self, hasher) {
 ///|
 struct RcValue {
   token : RcToken
-  value : Int
+  value : Int32
 }
 
 ///|

@@ -4,8 +4,8 @@
 
 ///|
 priv struct MutableSemanticKey {
-  id : Int
-  semantic : Ref[Int]
+  id : Int32
+  semantic : Ref[Int32]
 }
 
 ///|

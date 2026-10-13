@@ -3,16 +3,16 @@ const K1_6_LIFETIME_SEED : UInt64 = 0x6A1602
 
 ///|
 priv struct LifetimeRecipe {
-  left : Int
-  right : Int
-  next_left : Int
-  next_right : Int
-  recovery : Int
+  left : Int32
+  right : Int32
+  next_left : Int32
+  next_right : Int32
+  recovery : Int32
 } derive(Eq, Debug)
 
 ///|
 priv enum LifetimeObservation {
-  Value(Int)
+  Value(Int32)
   CrossStore
   ClosedRegion
 } derive(Eq, Debug)
@@ -45,7 +45,7 @@ priv struct RecoveryCase {
 } derive(Debug)
 
 ///|
-fn lifetime_recipe(draw : Int) -> LifetimeRecipe {
+fn lifetime_recipe(draw : Int32) -> LifetimeRecipe {
   LifetimeRecipe::{
     left: bounded_value(draw, 0),
     right: bounded_value(draw, 1),
@@ -239,7 +239,7 @@ fn structural_recovery(case : RecoveryCase) -> Array[LifetimeObservation] raise 
 fn first_lifetime_difference(
   left : Array[LifetimeObservation],
   right : Array[LifetimeObservation],
-) -> Int {
+) -> Int32 {
   let limit = left.length().min(right.length())
   for index in 0..<limit {
     if left[index] != right[index] {
@@ -267,7 +267,7 @@ fn recovery_mismatch(case : RecoveryCase) -> Bool raise {
 fn first_lifetime_operation_by(
   case : LifetimeCase,
   prefix_fails : (LifetimeCase) -> Bool raise,
-) -> Int raise {
+) -> Int32 raise {
   first_failing_private_operation_index(case.operations.length(), fn(
     prefix_length,
   ) raise {
@@ -279,7 +279,7 @@ fn first_lifetime_operation_by(
 }
 
 ///|
-fn first_lifetime_operation(case : LifetimeCase) -> Int raise {
+fn first_lifetime_operation(case : LifetimeCase) -> Int32 raise {
   first_lifetime_operation_by(case, fn(prefix) raise {
     lifetime_mismatch(prefix)
   })
@@ -289,7 +289,7 @@ fn first_lifetime_operation(case : LifetimeCase) -> Int raise {
 fn first_recovery_operation_by(
   case : RecoveryCase,
   prefix_fails : (RecoveryCase) -> Bool raise,
-) -> Int raise {
+) -> Int32 raise {
   first_failing_private_operation_index(case.operations.length(), fn(
     prefix_length,
   ) raise {
@@ -301,7 +301,7 @@ fn first_recovery_operation_by(
 }
 
 ///|
-fn first_recovery_operation(case : RecoveryCase) -> Int raise {
+fn first_recovery_operation(case : RecoveryCase) -> Int32 raise {
   first_recovery_operation_by(case, fn(prefix) raise {
     recovery_mismatch(prefix)
   })
@@ -417,7 +417,7 @@ fn minimize_recovery_failure(
 
 ///|
 test "K1.6a generated atomicity and Region lifetime match the pure oracle" {
-  let draws : Array[Int] = @qcgen.spawn().samples(
+  let draws : Array[Int32] = @qcgen.spawn().samples(
     count=48,
     size=48,
     seed=K1_6_LIFETIME_SEED,
@@ -442,7 +442,7 @@ test "K1.6a generated atomicity and Region lifetime match the pure oracle" {
 
 ///|
 test "K1.6a generated structural failures recover without stale fallback" {
-  let draws : Array[Int] = @qcgen.spawn().samples(
+  let draws : Array[Int32] = @qcgen.spawn().samples(
     count=32,
     size=32,
     seed=K1_6_LIFETIME_SEED + 1,

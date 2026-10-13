@@ -1,5 +1,5 @@
 ///|
-fn cycle_diagnostic(error : Result[Int, ReadError]) -> Diagnostic {
+fn cycle_diagnostic(error : Result[Int32, ReadError]) -> Diagnostic {
   match error {
     Err(ReadError::Cycle(diagnostic)) => diagnostic
     _ => abort("expected Cycle")
@@ -10,7 +10,7 @@ fn cycle_diagnostic(error : Result[Int, ReadError]) -> Diagnostic {
 test "direct self-cycle returns an actionable diagnostic" {
   let store = Store::Store()
   let region = store.region()
-  let query_ref : Ref[Query[Unit, Int]?] = Ref(None)
+  let query_ref : Ref[Query[Unit, Int32]?] = Ref(None)
   let query = region.query((ctx, _unit : Unit) => {
     ctx.get(query_ref.val.unwrap().view(()))
   })
@@ -29,8 +29,8 @@ test "direct self-cycle returns an actionable diagnostic" {
 test "mutual cycle returns the invocation path" {
   let store = Store::Store()
   let region = store.region()
-  let a_ref : Ref[Query[Unit, Int]?] = Ref(None)
-  let b_ref : Ref[Query[Unit, Int]?] = Ref(None)
+  let a_ref : Ref[Query[Unit, Int32]?] = Ref(None)
+  let b_ref : Ref[Query[Unit, Int32]?] = Ref(None)
   let a = region.query((ctx, _unit : Unit) => {
     ctx.get(b_ref.val.unwrap().view(()))
   })
@@ -53,8 +53,8 @@ test "mutual cycle returns the invocation path" {
 test "same Query key cycle uses Query equality" {
   let store = Store::Store()
   let region = store.region()
-  let query_ref : Ref[Query[Int, Int]?] = Ref(None)
-  let query = region.query((ctx, key : Int) => {
+  let query_ref : Ref[Query[Int32, Int32]?] = Ref(None)
+  let query = region.query((ctx, key : Int32) => {
     let next = if key == 0 { 1 } else { 0 }
     ctx.get(query_ref.val.unwrap().view(next))
   })
@@ -72,8 +72,8 @@ test "same Query key cycle uses Query equality" {
 test "finite keyed recursion succeeds" {
   let store = Store::Store()
   let region = store.region()
-  let query_ref : Ref[Query[Int, Int]?] = Ref(None)
-  let query = region.query((ctx, key : Int) => {
+  let query_ref : Ref[Query[Int32, Int32]?] = Ref(None)
+  let query = region.query((ctx, key : Int32) => {
     if key == 0 {
       0
     } else {
@@ -89,9 +89,9 @@ test "finite keyed recursion succeeds" {
 test "unequal-key cross Query recursion succeeds" {
   let store = Store::Store()
   let region = store.region()
-  let a_ref : Ref[Query[Int, Int]?] = Ref(None)
-  let b_ref : Ref[Query[Int, Int]?] = Ref(None)
-  let a = region.query((ctx, key : Int) => {
+  let a_ref : Ref[Query[Int32, Int32]?] = Ref(None)
+  let b_ref : Ref[Query[Int32, Int32]?] = Ref(None)
+  let a = region.query((ctx, key : Int32) => {
     if key == 0 {
       ctx.get(b_ref.val.unwrap().view(0))
     } else {
@@ -99,7 +99,7 @@ test "unequal-key cross Query recursion succeeds" {
     }
   })
 
-  let b = region.query((ctx, key : Int) => {
+  let b = region.query((ctx, key : Int32) => {
     if key == 0 {
       ctx.get(a_ref.val.unwrap().view(1))
     } else {
@@ -117,7 +117,7 @@ test "dead cycle branch succeeds without entering the cycle" {
   let store = Store::Store()
   let region = store.region()
   let source = region.source(0)
-  let query_ref : Ref[Query[Unit, Int]?] = Ref(None)
+  let query_ref : Ref[Query[Unit, Int32]?] = Ref(None)
   let query = region.query((ctx, _unit : Unit) => {
     let value = ctx.get(source.view())
     if value == 0 {

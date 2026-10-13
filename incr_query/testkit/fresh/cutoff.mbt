@@ -1,5 +1,5 @@
 ///|
-fn cutoff_value(kind : @model.CutoffKind, step : Int) -> Int {
+fn cutoff_value(kind : @model.CutoffKind, step : Int32) -> Int32 {
   match kind {
     @model.CutoffKind::EqChanged => step
     _ => 0

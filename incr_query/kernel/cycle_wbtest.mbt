@@ -3,7 +3,7 @@ test "initial Cycle installs no memo and cleans active state" {
   let store = Store::Store()
   let region = store.region()
   let captured = Ref(None)
-  let query_ref : Ref[Query[Unit, Int]?] = Ref(None)
+  let query_ref : Ref[Query[Unit, Int32]?] = Ref(None)
   let query = region.query((ctx, _unit : Unit) => {
     captured.val = Some(ctx)
     ctx.get(query_ref.val.unwrap().view(()))
@@ -24,12 +24,12 @@ test "initial Cycle installs no memo and cleans active state" {
 test "active check precedes a same-epoch memo hit" {
   let store = Store::Store()
   let region = store.region()
-  let target = region.query((_ctx, key : Int) => key)
+  let target = region.query((_ctx, key : Int32) => key)
   assert_eq(store.get(target.view(7)), 7)
   let before = target.core.memo.get(7).unwrap()
   let before_cache_hits = target.core.cache_hit_count.val
   let captured = Ref(None)
-  let driver : Query[Unit, Int] = region.query((ctx, _unit : Unit) => {
+  let driver : Query[Unit, Int32] = region.query((ctx, _unit : Unit) => {
     captured.val = Some(ctx)
     let start = ctx.session.active_stack.length()
     target.core.active.set(7, start)
@@ -37,7 +37,7 @@ test "active check precedes a same-epoch memo hit" {
       id: target.core.id,
       definition_site: target.core.definition_site,
     })
-    let result : Result[Int, ReadError] = Ok(ctx.get(target.view(7))) catch {
+    let result : Result[Int32, ReadError] = Ok(ctx.get(target.view(7))) catch {
       error => Err(error)
     }
     ignore(ctx.session.active_stack.pop())
@@ -66,7 +66,7 @@ test "a Cycle preserves successful memo authority and recovers without caching" 
   let store = Store::Store()
   let region = store.region()
   let source = region.source(0)
-  let query_ref : Ref[Query[Unit, Int]?] = Ref(None)
+  let query_ref : Ref[Query[Unit, Int32]?] = Ref(None)
   let captured = Ref(None)
   let query = region.query((ctx, _unit : Unit) => {
     captured.val = Some(ctx)
@@ -145,8 +145,8 @@ test "a Cycle during old-trace verification requests recomputation" {
   let store = Store::Store()
   let region = store.region()
   let source = region.source(0)
-  let a_ref : Ref[Query[Unit, Int]?] = Ref(None)
-  let b_ref : Ref[Query[Unit, Int]?] = Ref(None)
+  let a_ref : Ref[Query[Unit, Int32]?] = Ref(None)
+  let b_ref : Ref[Query[Unit, Int32]?] = Ref(None)
   let a = region.query((ctx, _unit : Unit) => {
     if ctx.get(source.view()) == 0 {
       0
@@ -186,7 +186,7 @@ test "current-recompute Cycle alone reaches the root" {
   let store = Store::Store()
   let region = store.region()
   let captured = Ref(None)
-  let query_ref : Ref[Query[Unit, Int]?] = Ref(None)
+  let query_ref : Ref[Query[Unit, Int32]?] = Ref(None)
   let query = region.query((ctx, _unit : Unit) => {
     captured.val = Some(ctx)
     ctx.get(query_ref.val.unwrap().view(()))
@@ -211,7 +211,7 @@ test "Cycle and structural failure leave no active or temporary state" {
   let foreign_region = foreign_store.region()
   let foreign = foreign_region.source(9)
   let cycle_captured = Ref(None)
-  let cycle_ref : Ref[Query[Unit, Int]?] = Ref(None)
+  let cycle_ref : Ref[Query[Unit, Int32]?] = Ref(None)
   let cycle_query = region.query((ctx, _unit : Unit) => {
     cycle_captured.val = Some(ctx)
     ctx.get(cycle_ref.val.unwrap().view(()))
@@ -248,8 +248,8 @@ test "active entries and the root stack are empty after finite success" {
   let store = Store::Store()
   let region = store.region()
   let captured = Ref(None)
-  let query_ref : Ref[Query[Int, Int]?] = Ref(None)
-  let query = region.query((ctx, key : Int) => {
+  let query_ref : Ref[Query[Int32, Int32]?] = Ref(None)
+  let query = region.query((ctx, key : Int32) => {
     captured.val = Some(ctx)
     if key == 0 {
       0
@@ -268,7 +268,7 @@ test "active entries and the root stack are empty after finite success" {
 test "Region close clears active invocation state" {
   let store = Store::Store()
   let region = store.region()
-  let query = region.query((_ctx, key : Int) => key)
+  let query = region.query((_ctx, key : Int32) => key)
   query.core.active.set(7, 0)
   region.close()
   assert_true(query.core.active.is_empty())
@@ -278,9 +278,9 @@ test "Region close clears active invocation state" {
 
 ///|
 priv struct ProbeKey {
-  value : Int
-  hashes : Ref[Int]
-  equals : Ref[Int]
+  value : Int32
+  hashes : Ref[Int32]
+  equals : Ref[Int32]
 }
 
 ///|

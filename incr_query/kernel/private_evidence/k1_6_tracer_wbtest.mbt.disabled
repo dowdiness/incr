@@ -2,28 +2,28 @@
 const K1_6_SEED : UInt64 = 0x6A1601
 
 ///|
-const K1_6_CASES : Int = 64
+const K1_6_CASES : Int32 = 64
 
 ///|
 priv struct ProofRecipe {
-  base : Int
-  selector : Int
-  unrelated : Int
-  replacement_base : Int
-  replacement_selector : Int
-  replacement_unrelated : Int
+  base : Int32
+  selector : Int32
+  unrelated : Int32
+  replacement_base : Int32
+  replacement_selector : Int32
+  replacement_unrelated : Int32
   has_unrelated : Bool
   keep_suffix : Bool
-  atomic_writes : Int
+  atomic_writes : Int32
   graph_simplified : Bool
 } derive(Debug)
 
 ///|
 priv enum ProofOperation {
-  SetBase(Int)
-  SetSelector(Int)
-  SetBoth(Int, Int)
-  SetUnrelated(Int)
+  SetBase(Int32)
+  SetSelector(Int32)
+  SetBoth(Int32, Int32)
+  SetUnrelated(Int32)
   Read
   DropProof
 } derive(Eq, Debug)
@@ -36,7 +36,7 @@ priv struct GraphRecipe {
 } derive(Debug)
 
 ///|
-fn bounded_value(draw : Int, offset : Int) -> Int {
+fn bounded_value(draw : Int32, offset : Int32) -> Int32 {
   let value = (draw + offset * 17) % 23
   if value < 0 {
     value + 23
@@ -46,7 +46,7 @@ fn bounded_value(draw : Int, offset : Int) -> Int {
 }
 
 ///|
-fn recipe_from_draw(draw : Int) -> ProofRecipe {
+fn recipe_from_draw(draw : Int32) -> ProofRecipe {
   ProofRecipe::{
     base: bounded_value(draw, 0),
     selector: if bounded_value(draw, 1) % 3 == 0 {
@@ -157,7 +157,7 @@ fn project_script(graph : GraphRecipe) -> @model.Script {
 }
 
 ///|
-fn fresh_values(script : @model.Script) -> Array[Int] {
+fn fresh_values(script : @model.Script) -> Array[Int32] {
   @fresh.evaluate(script).filter_map(observation => {
     match observation {
       @model.Observation::Value(value) => Some(value)
@@ -168,7 +168,7 @@ fn fresh_values(script : @model.Script) -> Array[Int] {
 }
 
 ///|
-fn publish_one(store : Store, source : Source[Int], value : Int) -> Unit {
+fn publish_one(store : Store, source : Source[Int32], value : Int32) -> Unit {
   let result : Result[Result[Unit, Unit], TransactionError] = Ok(
     store.transaction(tx => {
       tx.set(source, value)
@@ -186,10 +186,10 @@ fn publish_one(store : Store, source : Source[Int], value : Int) -> Unit {
 ///|
 fn publish_both(
   store : Store,
-  base : Source[Int],
-  selector : Source[Int],
-  base_value : Int,
-  selector_value : Int,
+  base : Source[Int32],
+  selector : Source[Int32],
+  base_value : Int32,
+  selector_value : Int32,
 ) -> Unit {
   let result : Result[Result[Unit, Unit], TransactionError] = Ok(
     store.transaction(tx => {
@@ -207,7 +207,7 @@ fn publish_both(
 }
 
 ///|
-fn kernel_values(graph : GraphRecipe) -> Array[Int] raise {
+fn kernel_values(graph : GraphRecipe) -> Array[Int32] raise {
   let store = Store::Store()
   let region = store.region()
   let base = region.source(graph.initial[0].value)
@@ -303,7 +303,7 @@ fn kernel_values(graph : GraphRecipe) -> Array[Int] raise {
 }
 
 ///|
-fn first_value_difference(left : Array[Int], right : Array[Int]) -> Int {
+fn first_value_difference(left : Array[Int32], right : Array[Int32]) -> Int32 {
   let limit = left.length().min(right.length())
   for index in 0..<limit {
     if left[index] != right[index] {
@@ -319,9 +319,9 @@ fn first_value_difference(left : Array[Int], right : Array[Int]) -> Int {
 
 ///|
 fn first_failing_private_operation_index(
-  operation_count : Int,
-  prefix_fails : (Int) -> Bool raise,
-) -> Int raise {
+  operation_count : Int32,
+  prefix_fails : (Int32) -> Bool raise,
+) -> Int32 raise {
   if prefix_fails(0) {
     return -1
   }
@@ -337,7 +337,7 @@ fn first_failing_private_operation_index(
 fn first_proof_operation_by(
   graph : GraphRecipe,
   prefix_fails : (GraphRecipe) -> Bool raise,
-) -> Int raise {
+) -> Int32 raise {
   first_failing_private_operation_index(graph.operations.length(), fn(
     prefix_length,
   ) raise {
@@ -350,7 +350,7 @@ fn first_proof_operation_by(
 }
 
 ///|
-fn first_proof_operation(graph : GraphRecipe) -> Int raise {
+fn first_proof_operation(graph : GraphRecipe) -> Int32 raise {
   first_proof_operation_by(graph, fn(prefix) raise {
     fresh_values(project_script(prefix)) != kernel_values(prefix)
   })
@@ -468,7 +468,7 @@ fn minimize_proof_failure(
 }
 
 ///|
-fn proof_phase_rank(phase : ProofShrinkPhase) -> Int {
+fn proof_phase_rank(phase : ProofShrinkPhase) -> Int32 {
   match phase {
     ProofShrinkPhase::Suffix => 0
     ProofShrinkPhase::UnrelatedOperations => 1
@@ -480,7 +480,7 @@ fn proof_phase_rank(phase : ProofShrinkPhase) -> Int {
 
 ///|
 test "K1.6a generated private proof-loss tracer" {
-  let draws : Array[Int] = @qcgen.spawn().samples(
+  let draws : Array[Int32] = @qcgen.spawn().samples(
     count=K1_6_CASES,
     size=K1_6_CASES,
     seed=K1_6_SEED,

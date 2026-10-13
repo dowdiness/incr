@@ -1,7 +1,7 @@
 ///|
 priv struct GenerationValue {
-  semantic : Int
-  generation : Int
+  semantic : Int32
+  generation : Int32
 }
 
 ///|

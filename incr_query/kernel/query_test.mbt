@@ -1,10 +1,10 @@
 ///|
 struct EqKey {
-  value : Int
+  value : Int32
 } derive(Eq, Hash)
 
 ///|
-fn EqKey::EqKey(value : Int) -> EqKey {
+fn EqKey::EqKey(value : Int32) -> EqKey {
   { value, }
 }
 
@@ -15,7 +15,7 @@ test "Store get returns a value and raises structural failure" {
   assert_eq(store.get(source.view()), 2)
 
   let other = Store::Store()
-  let cross_store : Result[Int, ReadError] = Ok(other.get(source.view())) catch {
+  let cross_store : Result[Int32, ReadError] = Ok(other.get(source.view())) catch {
     error => Err(error)
   }
   assert_true(cross_store is Err(ReadError::CrossStore(_)))
@@ -130,7 +130,7 @@ test "query context expires after root callback" {
   })
 
   assert_eq(store.get(query.view(())), 1)
-  let expired : Result[Int, ReadError] = Ok(
+  let expired : Result[Int32, ReadError] = Ok(
     captured.val.unwrap().get(query.view(())),
   ) catch {
     error => Err(error)
@@ -150,7 +150,7 @@ test "nested Query gets an invocation lease without expiring its outer callback"
 
   let outer = region.query((ctx, _unit : Unit) => {
     let inner_value = ctx.get(inner.view(()))
-    let expired : Result[Int, ReadError] = Ok(
+    let expired : Result[Int32, ReadError] = Ok(
       inner_context.val.unwrap().get(inner.view(())),
     ) catch {
       error => Err(error)
@@ -170,7 +170,7 @@ test "domain failure is a Query value, not a structural read error" {
   let store = Store::Store()
   let region = store.region()
   let query = region.query((_ctx, _unit : Unit) => {
-    let value : Result[Int, String] = Err("domain")
+    let value : Result[Int32, String] = Err("domain")
     value
   })
 
@@ -197,7 +197,7 @@ test "same ChangeEpoch reuses a Query memo" {
   let store = Store::Store()
   let region = store.region()
   let computes = Ref(0)
-  let query = region.query((_ctx, key : Int) => {
+  let query = region.query((_ctx, key : Int32) => {
     computes.val = computes.val + 1
     key + 10
   })
@@ -228,12 +228,12 @@ test "different QueryCores isolate equal keys" {
   let region = store.region()
   let left_computes = Ref(0)
   let right_computes = Ref(0)
-  let left = region.query((_ctx, key : Int) => {
+  let left = region.query((_ctx, key : Int32) => {
     left_computes.val = left_computes.val + 1
     key + 1
   })
 
-  let right = region.query((_ctx, key : Int) => {
+  let right = region.query((_ctx, key : Int32) => {
     right_computes.val = right_computes.val + 1
     key + 2
   })

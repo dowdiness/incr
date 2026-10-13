@@ -3,7 +3,9 @@ test "a shared diamond has one inner kernel computation" {
   let store = Store::Store()
   let region = store.region()
   let source = region.source(0)
-  let shared = region.query((ctx, _key : (Int, Int)) => ctx.get(source.view()))
+  let shared = region.query((ctx, _key : (Int32, Int32)) => {
+    ctx.get(source.view())
+  })
 
   let left = region.query((ctx, _unit : Unit) => {
     ctx.get(shared.view((0, 0))) + 1
@@ -44,7 +46,7 @@ test "memo hits, identity, and epoch stamps are white-box observable" {
   let store = Store::Store()
   let region = store.region()
   let source = region.source(2)
-  let query = region.query((ctx, _key : Int) => ctx.get(source.view()))
+  let query = region.query((ctx, _key : Int32) => ctx.get(source.view()))
 
   assert_eq(store.get(query.view(7)), 2)
   assert_eq(query.core.memo.length(), 1)
@@ -111,7 +113,7 @@ test "initial failure releases its temporary trace" {
   let source = region.source(1)
   let foreign = Store::Store().region().source(9)
   let captured = Ref(None)
-  let query : Query[Unit, Int] = region.query((ctx, _unit : Unit) => {
+  let query : Query[Unit, Int32] = region.query((ctx, _unit : Unit) => {
     captured.val = Some(ctx)
     ignore(ctx.get(source.view()))
     ctx.get(foreign.view())
@@ -130,7 +132,7 @@ test "caught structural failure cannot install a fallback memo" {
   let store = Store::Store()
   let region = store.region()
   let cycle_enabled = region.source(false)
-  let recursive : Ref[View[Int]?] = Ref(None)
+  let recursive : Ref[View[Int32]?] = Ref(None)
   let unstable = region.derived(ctx => {
     if ctx.get(cycle_enabled.view()) {
       ctx.get(recursive.val.unwrap())
@@ -157,7 +159,7 @@ test "caught structural failure cannot install a fallback memo" {
         Ok(())
       }) : Result[Unit, Unit]),
   )
-  let failed : Result[Int, ReadError] = Ok(store.get(outer_view)) catch {
+  let failed : Result[Int32, ReadError] = Ok(store.get(outer_view)) catch {
     error => Err(error)
   }
   assert_true(failed is Err(ReadError::Cycle(_)))
@@ -592,7 +594,7 @@ test "Region close clears Query memo state" {
   let store = Store::Store()
   let region = store.region()
   let source = region.source(4)
-  let query = region.query((ctx, _key : Int) => ctx.get(source.view()))
+  let query = region.query((ctx, _key : Int32) => ctx.get(source.view()))
 
   assert_eq(store.get(query.view(4)), 4)
   assert_eq(query.core.memo.length(), 1)
