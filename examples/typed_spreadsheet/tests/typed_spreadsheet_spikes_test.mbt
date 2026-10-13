@@ -12,7 +12,7 @@ test "typed spreadsheet spike: batch rollback removes newly created cells" {
   let formula_ast = @typed_spreadsheet.CellId(sheet.sheet_id(), "C1")
 
   inspect(
-    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(1)).is_ok(),
+    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(1)) is Ok(_),
     content="true",
   )
 
@@ -77,7 +77,7 @@ test "typed spreadsheet spike: batch rollback restores deleted cells" {
   let source = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
 
   inspect(
-    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(7)).is_ok(),
+    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(7)) is Ok(_),
     content="true",
   )
 
@@ -101,15 +101,14 @@ test "typed spreadsheet spike: batch rollback restores deleted then recreated ce
   let source = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
 
   inspect(
-    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(7)).is_ok(),
+    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(7)) is Ok(_),
     content="true",
   )
 
   let result = rt.batch_result(() => {
     let _ = sheet.delete(source)
-    let _ = sheet
-      .set_input(source, @typed_spreadsheet.CellValue::from_int(99))
-      .is_ok()
+    let _ = sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(99))
+      is Ok(_)
     raise SpreadsheetBatchError::Abort
   })
 
@@ -129,15 +128,14 @@ test "typed spreadsheet spike: compaction after rollback keeps restored cells" {
   let source = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
 
   inspect(
-    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(7)).is_ok(),
+    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(7)) is Ok(_),
     content="true",
   )
 
   let result = rt.batch_result(() => {
     let _ = sheet.delete(source)
-    let _ = sheet
-      .set_input(source, @typed_spreadsheet.CellValue::from_int(99))
-      .is_ok()
+    let _ = sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(99))
+      is Ok(_)
     raise SpreadsheetBatchError::Abort
   })
 
@@ -159,7 +157,7 @@ test "typed spreadsheet spike: batch rollback preserves deleted formula dependen
   let dependent = @typed_spreadsheet.CellId(sheet.sheet_id(), "C1")
 
   inspect(
-    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(10)).is_ok(),
+    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(10)) is Ok(_),
     content="true",
   )
 
@@ -200,9 +198,8 @@ test "typed spreadsheet spike: batch rollback preserves deleted formula dependen
 
   let result = rt.batch_result(() => {
     let _ = sheet.delete(formula)
-    let _ = sheet
-      .set_input(formula, @typed_spreadsheet.CellValue::from_int(99))
-      .is_ok()
+    let _ = sheet.set_input(formula, @typed_spreadsheet.CellValue::from_int(99))
+      is Ok(_)
     raise SpreadsheetBatchError::Abort
   })
 
@@ -221,7 +218,7 @@ test "typed spreadsheet spike: batch rollback preserves deleted formula dependen
   }
 
   inspect(
-    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(20)).is_ok(),
+    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(20)) is Ok(_),
     content="true",
   )
 
@@ -240,7 +237,7 @@ test "typed spreadsheet spike: batch rollback restores deleted formula cell" {
   let formula = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
 
   inspect(
-    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(3)).is_ok(),
+    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(3)) is Ok(_),
     content="true",
   )
   let _ = sheet.set_formula(
@@ -310,7 +307,7 @@ test "typed spreadsheet spike: batch rollback delete remains silent" {
   let source = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
 
   inspect(
-    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(10)).is_ok(),
+    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(10)) is Ok(_),
     content="true",
   )
 

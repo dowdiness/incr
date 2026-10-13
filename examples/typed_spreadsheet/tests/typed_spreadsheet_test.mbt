@@ -10,11 +10,11 @@ test "typed spreadsheet: input and formula basics" {
   let sum = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
 
   inspect(
-    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(10)).is_ok(),
+    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(10)) is Ok(_),
     content="true",
   )
   inspect(
-    sheet.set_input(a2, @typed_spreadsheet.CellValue::from_int(20)).is_ok(),
+    sheet.set_input(a2, @typed_spreadsheet.CellValue::from_int(20)) is Ok(_),
     content="true",
   )
   let _ = sheet.set_formula(
@@ -49,7 +49,7 @@ test "typed spreadsheet: input and formula basics" {
   }
 
   inspect(
-    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(11)).is_ok(),
+    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(11)) is Ok(_),
     content="true",
   )
   match sheet.read(sum) {
@@ -66,7 +66,7 @@ test "typed spreadsheet: input slot survives Runtime::gc" {
   let a1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
 
   inspect(
-    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(1)).is_ok(),
+    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(1)) is Ok(_),
     content="true",
   )
   rt.gc()
@@ -120,7 +120,7 @@ test "typed spreadsheet: inspect input snapshot" {
   let cell = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
 
   inspect(
-    sheet.set_input(cell, @typed_spreadsheet.CellValue::from_int(10)).is_ok(),
+    sheet.set_input(cell, @typed_spreadsheet.CellValue::from_int(10)) is Ok(_),
     content="true",
   )
 
@@ -155,11 +155,11 @@ test "typed spreadsheet: inspect formula snapshot" {
   let target = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
 
   inspect(
-    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(10)).is_ok(),
+    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(10)) is Ok(_),
     content="true",
   )
   inspect(
-    sheet.set_input(a2, @typed_spreadsheet.CellValue::from_int(20)).is_ok(),
+    sheet.set_input(a2, @typed_spreadsheet.CellValue::from_int(20)) is Ok(_),
     content="true",
   )
   let _ = sheet.set_formula(
@@ -224,11 +224,11 @@ test "typed spreadsheet: trace captures recompute and change" {
   let target = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
 
   inspect(
-    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(10)).is_ok(),
+    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(10)) is Ok(_),
     content="true",
   )
   inspect(
-    sheet.set_input(a2, @typed_spreadsheet.CellValue::from_int(20)).is_ok(),
+    sheet.set_input(a2, @typed_spreadsheet.CellValue::from_int(20)) is Ok(_),
     content="true",
   )
   let _ = sheet.set_formula(
@@ -284,7 +284,7 @@ test "typed spreadsheet: observed trace leaves unobserved formulas lazy" {
   let mut hidden_compute_count = 0
 
   inspect(
-    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(1)).is_ok(),
+    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(1)) is Ok(_),
     content="true",
   )
   let _ = sheet.set_formula(
@@ -358,7 +358,7 @@ test "typed spreadsheet: force input traces unchanged recompute" {
   let target = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
 
   inspect(
-    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(7)).is_ok(),
+    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(7)) is Ok(_),
     content="true",
   )
   let _ = sheet.set_formula(
@@ -403,7 +403,7 @@ test "typed spreadsheet: same-value input set is worksheet no-op" {
   let mut compute_count = 0
 
   inspect(
-    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(7)).is_ok(),
+    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(7)) is Ok(_),
     content="true",
   )
   let _ = sheet.set_formula(
@@ -536,7 +536,7 @@ test "typed spreadsheet: trace ignores pre-existing pending work" {
   let formula = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
 
   inspect(
-    sheet.set_input(input, @typed_spreadsheet.CellValue::from_int(10)).is_ok(),
+    sheet.set_input(input, @typed_spreadsheet.CellValue::from_int(10)) is Ok(_),
     content="true",
   )
   let _ = sheet.set_formula(
@@ -559,7 +559,7 @@ test "typed spreadsheet: trace ignores pre-existing pending work" {
 
   // Update input but do not read the formula, leaving it stale.
   inspect(
-    sheet.set_input(input, @typed_spreadsheet.CellValue::from_int(11)).is_ok(),
+    sheet.set_input(input, @typed_spreadsheet.CellValue::from_int(11)) is Ok(_),
     content="true",
   )
 
@@ -578,7 +578,7 @@ test "typed spreadsheet: trace includes newly created formulas" {
   let formula = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
 
   inspect(
-    sheet.set_input(input, @typed_spreadsheet.CellValue::from_int(3)).is_ok(),
+    sheet.set_input(input, @typed_spreadsheet.CellValue::from_int(3)) is Ok(_),
     content="true",
   )
 
@@ -637,14 +637,14 @@ test "typed spreadsheet: same-sheet deleted cell reads as Blank" {
   let cell = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
 
   inspect(
-    sheet.set_input(cell, @typed_spreadsheet.CellValue::from_int(1)).is_ok(),
+    sheet.set_input(cell, @typed_spreadsheet.CellValue::from_int(1)) is Ok(_),
     content="true",
   )
 
   let before = sheet.inspect_cell(cell)
   inspect(before.present, content="true")
 
-  inspect(sheet.delete(cell).is_ok(), content="true")
+  inspect(sheet.delete(cell) is Ok(_), content="true")
 
   let after = sheet.inspect_cell(cell)
   inspect(after.present, content="false")
@@ -667,11 +667,11 @@ test "typed spreadsheet: inspect formula AST snapshot refs" {
   let target = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
 
   inspect(
-    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(2)).is_ok(),
+    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(2)) is Ok(_),
     content="true",
   )
   inspect(
-    sheet.set_input(a2, @typed_spreadsheet.CellValue::from_int(3)).is_ok(),
+    sheet.set_input(a2, @typed_spreadsheet.CellValue::from_int(3)) is Ok(_),
     content="true",
   )
 
@@ -721,9 +721,8 @@ test "typed spreadsheet: inspect AST snapshot keeps static refs for inactive bra
   let target = @typed_spreadsheet.CellId(sheet.sheet_id(), "C1")
 
   inspect(
-    sheet
-    .set_input(condition, @typed_spreadsheet.CellValue::from_bool(true))
-    .is_ok(),
+    sheet.set_input(condition, @typed_spreadsheet.CellValue::from_bool(true))
+    is Ok(_),
     content="true",
   )
 
@@ -786,21 +785,18 @@ test "typed spreadsheet: inspect AST dynamic deps follow active if branch" {
   let target = @typed_spreadsheet.CellId(sheet.sheet_id(), "D1")
 
   inspect(
-    sheet
-    .set_input(condition, @typed_spreadsheet.CellValue::from_bool(true))
-    .is_ok(),
+    sheet.set_input(condition, @typed_spreadsheet.CellValue::from_bool(true))
+    is Ok(_),
     content="true",
   )
   inspect(
-    sheet
-    .set_input(true_value, @typed_spreadsheet.CellValue::from_int(10))
-    .is_ok(),
+    sheet.set_input(true_value, @typed_spreadsheet.CellValue::from_int(10))
+    is Ok(_),
     content="true",
   )
   inspect(
-    sheet
-    .set_input(false_value, @typed_spreadsheet.CellValue::from_int(20))
-    .is_ok(),
+    sheet.set_input(false_value, @typed_spreadsheet.CellValue::from_int(20))
+    is Ok(_),
     content="true",
   )
 
@@ -836,9 +832,8 @@ test "typed spreadsheet: inspect AST dynamic deps follow active if branch" {
   )
 
   inspect(
-    sheet
-    .set_input(condition, @typed_spreadsheet.CellValue::from_bool(false))
-    .is_ok(),
+    sheet.set_input(condition, @typed_spreadsheet.CellValue::from_bool(false))
+    is Ok(_),
     content="true",
   )
 
@@ -890,7 +885,8 @@ test "typed spreadsheet: inspect AST dynamic deps include missing reference" {
   )
 
   inspect(
-    sheet.set_input(missing, @typed_spreadsheet.CellValue::from_int(30)).is_ok(),
+    sheet.set_input(missing, @typed_spreadsheet.CellValue::from_int(30))
+    is Ok(_),
     content="true",
   )
 
@@ -934,11 +930,11 @@ test "typed spreadsheet: set_formula type error is propagated" {
   let b1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
 
   inspect(
-    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_text("x")).is_ok(),
+    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_text("x")) is Ok(_),
     content="true",
   )
   inspect(
-    sheet.set_input(a2, @typed_spreadsheet.CellValue::from_int(20)).is_ok(),
+    sheet.set_input(a2, @typed_spreadsheet.CellValue::from_int(20)) is Ok(_),
     content="true",
   )
   let _ = sheet.set_formula(
@@ -1020,7 +1016,7 @@ test "typed spreadsheet: set_formula receives Blank for undefined reference" {
   let b1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
 
   inspect(
-    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(20)).is_ok(),
+    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(20)) is Ok(_),
     content="true",
   )
 
@@ -1052,7 +1048,8 @@ test "typed spreadsheet: set_formula receives Blank for undefined reference" {
   )
 
   inspect(
-    sheet.set_input(missing, @typed_spreadsheet.CellValue::from_int(10)).is_ok(),
+    sheet.set_input(missing, @typed_spreadsheet.CellValue::from_int(10))
+    is Ok(_),
     content="true",
   )
 
@@ -1107,7 +1104,7 @@ test "typed spreadsheet: set_formula copies dependency array for safety" {
   let b1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
 
   inspect(
-    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(5)).is_ok(),
+    sheet.set_input(a1, @typed_spreadsheet.CellValue::from_int(5)) is Ok(_),
     content="true",
   )
 
@@ -1147,7 +1144,7 @@ test "typed spreadsheet: overwrite input invalidates dependent formula" {
   let a1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
 
   inspect(
-    sheet.set_input(b1, @typed_spreadsheet.CellValue::from_int(1)).is_ok(),
+    sheet.set_input(b1, @typed_spreadsheet.CellValue::from_int(1)) is Ok(_),
     content="true",
   )
   let _ = sheet.set_formula(a1, @typed_spreadsheet.CellType::t_int(), [b1], fn(
@@ -1169,7 +1166,7 @@ test "typed spreadsheet: overwrite input invalidates dependent formula" {
   }
 
   inspect(
-    sheet.set_input(b1, @typed_spreadsheet.CellValue::from_int(10)).is_ok(),
+    sheet.set_input(b1, @typed_spreadsheet.CellValue::from_int(10)) is Ok(_),
     content="true",
   )
 
@@ -1188,7 +1185,7 @@ test "typed spreadsheet: overwrite formula invalidates dependent formula" {
   let a1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
 
   inspect(
-    sheet.set_input(b1, @typed_spreadsheet.CellValue::from_int(1)).is_ok(),
+    sheet.set_input(b1, @typed_spreadsheet.CellValue::from_int(1)) is Ok(_),
     content="true",
   )
   let _ = sheet.set_formula(a1, @typed_spreadsheet.CellType::t_int(), [b1], fn(
@@ -1259,7 +1256,7 @@ test "typed spreadsheet: dependent formula follows formula replacement" {
   })
 
   inspect(
-    sheet.set_input(b1, @typed_spreadsheet.CellValue::from_int(10)).is_ok(),
+    sheet.set_input(b1, @typed_spreadsheet.CellValue::from_int(10)) is Ok(_),
     content="true",
   )
 
@@ -1278,7 +1275,7 @@ test "typed spreadsheet: dependency error on overwrite/delete propagates downstr
   let a1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
 
   inspect(
-    sheet.set_input(b1, @typed_spreadsheet.CellValue::from_int(1)).is_ok(),
+    sheet.set_input(b1, @typed_spreadsheet.CellValue::from_int(1)) is Ok(_),
     content="true",
   )
   let _ = sheet.set_formula(a1, @typed_spreadsheet.CellType::t_int(), [b1], fn(
@@ -1315,7 +1312,7 @@ test "typed spreadsheet: delete invalidates cached dependent formula" {
   let a1 = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
 
   inspect(
-    sheet.set_input(b1, @typed_spreadsheet.CellValue::from_int(10)).is_ok(),
+    sheet.set_input(b1, @typed_spreadsheet.CellValue::from_int(10)) is Ok(_),
     content="true",
   )
   let _ = sheet.set_formula(a1, @typed_spreadsheet.CellType::t_int(), [b1], fn(
@@ -1355,7 +1352,7 @@ test "typed spreadsheet: compacted deleted dependency resolves when recreated" {
   let formula = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
 
   inspect(
-    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(10)).is_ok(),
+    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(10)) is Ok(_),
     content="true",
   )
   let _ = sheet.set_formula(
@@ -1393,7 +1390,7 @@ test "typed spreadsheet: compacted deleted dependency resolves when recreated" {
   )
 
   inspect(
-    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(20)).is_ok(),
+    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(20)) is Ok(_),
     content="true",
   )
   match sheet.read(formula) {
@@ -1410,13 +1407,12 @@ test "typed spreadsheet: declared type mismatch is rejected" {
   let cell = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
 
   inspect(
-    sheet
-    .set_input(
+    sheet.set_input(
       cell,
       @typed_spreadsheet.CellValue::from_text("bad"),
       declared=@typed_spreadsheet.CellType::t_int(),
     )
-    .is_ok(),
+    is Ok(_),
     content="false",
   )
 }
@@ -1428,10 +1424,10 @@ test "typed spreadsheet: delete makes the wrapped cell Blank" {
   let cell = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
 
   inspect(
-    sheet.set_input(cell, @typed_spreadsheet.CellValue::from_int(1)).is_ok(),
+    sheet.set_input(cell, @typed_spreadsheet.CellValue::from_int(1)) is Ok(_),
     content="true",
   )
-  inspect(sheet.delete(cell).is_ok(), content="true")
+  inspect(sheet.delete(cell) is Ok(_), content="true")
   match sheet.read(cell) {
     @typed_spreadsheet.CellResult::Ok(@typed_spreadsheet.CellValue::Blank) => ()
     _ => abort("expected deleted cell to read as Blank")
@@ -1445,20 +1441,19 @@ test "typed spreadsheet: rejected overwrite keeps deleted cell absent" {
   let cell = @typed_spreadsheet.CellId(sheet.sheet_id(), "A1")
 
   inspect(
-    sheet.set_input(cell, @typed_spreadsheet.CellValue::from_int(42)).is_ok(),
+    sheet.set_input(cell, @typed_spreadsheet.CellValue::from_int(42)) is Ok(_),
     content="true",
   )
 
-  inspect(sheet.delete(cell).is_ok(), content="true")
+  inspect(sheet.delete(cell) is Ok(_), content="true")
 
   inspect(
-    sheet
-    .set_input(
+    sheet.set_input(
       cell,
       @typed_spreadsheet.CellValue::from_text("bad"),
       declared=@typed_spreadsheet.CellType::t_int(),
     )
-    .is_ok(),
+    is Ok(_),
     content="false",
   )
 
@@ -1472,7 +1467,7 @@ test "typed spreadsheet: rejected overwrite keeps deleted cell absent" {
   )
 
   inspect(
-    sheet.set_input(cell, @typed_spreadsheet.CellValue::from_int(43)).is_ok(),
+    sheet.set_input(cell, @typed_spreadsheet.CellValue::from_int(43)) is Ok(_),
     content="true",
   )
 
@@ -1491,7 +1486,7 @@ test "typed spreadsheet: overwrite formula with input replaces formula cell" {
   let target = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
 
   inspect(
-    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(1)).is_ok(),
+    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(1)) is Ok(_),
     content="true",
   )
 
@@ -1520,11 +1515,12 @@ test "typed spreadsheet: overwrite formula with input replaces formula cell" {
   }
 
   inspect(
-    sheet.set_input(target, @typed_spreadsheet.CellValue::from_int(100)).is_ok(),
+    sheet.set_input(target, @typed_spreadsheet.CellValue::from_int(100))
+    is Ok(_),
     content="true",
   )
   inspect(
-    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(2)).is_ok(),
+    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(2)) is Ok(_),
     content="true",
   )
 
@@ -1543,11 +1539,11 @@ test "typed spreadsheet: overwrite input with formula updates dependency reads" 
   let target = @typed_spreadsheet.CellId(sheet.sheet_id(), "B1")
 
   inspect(
-    sheet.set_input(target, @typed_spreadsheet.CellValue::from_int(10)).is_ok(),
+    sheet.set_input(target, @typed_spreadsheet.CellValue::from_int(10)) is Ok(_),
     content="true",
   )
   inspect(
-    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(1)).is_ok(),
+    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(1)) is Ok(_),
     content="true",
   )
 
@@ -1570,7 +1566,7 @@ test "typed spreadsheet: overwrite input with formula updates dependency reads" 
   )
 
   inspect(
-    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(2)).is_ok(),
+    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(2)) is Ok(_),
     content="true",
   )
   match sheet.read(target) {
@@ -1589,7 +1585,7 @@ test "typed spreadsheet: overwrite formula keeps downstream dependencies fresh" 
   let dependent = @typed_spreadsheet.CellId(sheet.sheet_id(), "C1")
 
   inspect(
-    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(1)).is_ok(),
+    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(1)) is Ok(_),
     content="true",
   )
   let _ = sheet.set_formula(
@@ -1658,7 +1654,7 @@ test "typed spreadsheet: overwrite formula keeps downstream dependencies fresh" 
   }
 
   inspect(
-    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(2)).is_ok(),
+    sheet.set_input(source, @typed_spreadsheet.CellValue::from_int(2)) is Ok(_),
     content="true",
   )
 
@@ -1675,7 +1671,7 @@ test "typed spreadsheet: deleting missing cell returns RefError" {
   let sheet = @typed_spreadsheet.Worksheet(rt, @typed_spreadsheet.SheetId(6))
   let missing = @typed_spreadsheet.CellId(sheet.sheet_id(), "Z99")
 
-  inspect(sheet.delete(missing).is_ok(), content="false")
+  inspect(sheet.delete(missing) is Ok(_), content="false")
 }
 
 ///|
@@ -1717,9 +1713,8 @@ test "typed spreadsheet: cross-sheet operations return RefError" {
   )
 
   inspect(
-    sheet
-    .set_input(same_sheet, @typed_spreadsheet.CellValue::from_int(2))
-    .is_ok(),
+    sheet.set_input(same_sheet, @typed_spreadsheet.CellValue::from_int(2))
+    is Ok(_),
     content="true",
   )
   inspect(
